@@ -35,6 +35,21 @@ cd bsp/pc
 - Use `full` to see raw compiler output, and use `clean` only when you explicitly need a clean rebuild
 - Summary/full logs are written to `bsp/pc/build/logs/`
 
+### gmssl 构建（本地源码，不使用 xmake 包）
+
+PC 模拟器直接编译 `components/gmssl`（与 ARM 固件同源的 LuatOS 分支），不再依赖 xmake 的 `gmssl` 包。该目录是**裁剪过的** GmSSL：只保留 SM2/SM3/SM4 及其直接依赖，没有 `x509` / `pem` / `pkcs8` / `ec` / `digest` / `base64` / `aes` 等实现。保留的源码里仍有一些**未被调用**的辅助函数（`*_print`、PEM/X509 导入导出）引用这些上游符号：
+
+- ARM 固件构建用 `-ffunction-sections` + `--gc-sections` 把未引用函数整段丢弃，所以那些符号不进链接；
+- **MSVC 没有等价能力**——`/Gy` + `/OPT:REF`（甚至 `/LTCG`）只做减体积，未引用函数里的未定义符号照样报 `LNK2019`。已实测确认，不要指望在 Windows 上靠 GC 通过。
+
+因此 `bsp/pc/xmake.lua` 里维护一份**显式源码清单**（`gmssl_sources`，只含 Lua 绑定真正用到的 TU），其余缺符号由 `bsp/pc/port/gmssl/luat_gmssl_pc_stubs.c` 兜底：打印/校验类给出真实或最小实现，`aes_*` / `ec_*` / `pem_*` / `pkcs8_*` / `x509_*` / `DIGEST_sm3` / `pbkdf2_genkey` 等按“PC 未编译该功能”处理（告警 + 返回失败，均不在 Lua 绑定调用链上）。
+
+新增 Lua 侧 gmssl 接口时，若用到清单外的 TU（例如 `sm2_key_share.c`、`sm4_rng.c`），把它加进 `gmssl_sources` 并按链接报错补 stub。
+
+另外：`gmssl/mem.h` 在 `__LUATOS__` 下把 `malloc/free` 宏替换成 `luat_heap_*`，所以 gmssl 的 TU 必须**先包含 `stdlib.h`**（`xmake.lua` 用 `/FIstdlib.h` / `-include stdlib.h` 实现），否则 MSVC 会在 `corecrt_malloc.h` 报 C2375。
+
+**不要**为了让链接通过而往 `components/gmssl/` 里加文件或改其源码——固件构建会 glob 编译该目录下所有 `.c`（`luatos-soc-2022`、`luatos-sdk-rda8910`、`luatos-sdk-ccm42xx-gcc` 都是全量）。PC 侧需要补齐的符号一律放 `bsp/pc/port/gmssl/`。
+
 ### Windows
 
 | Script | Description |

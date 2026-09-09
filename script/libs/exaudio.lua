@@ -1,10 +1,13 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.4
-@date    2026.9.4
+@version 3.5
+@date    2026.9.9
 @author  拓毅恒
 @updates
+    v3.5 2026.9.9
+        1. 新增 DAC模式麦克风增益设置：model="dac" 时 exaudio.mic_vol(vol[, ana_vol])数字/模拟增益均由客户按 0-100 传入。
+           并在 REQUEST_DRIVER_START 与 pm(RESUME) 时自动重新应用，修复 Air8101 等纯DAC模组无法调节麦克风音量的问题。
     v3.4 2026.9.4
         1. 修复 vb7014f 使用新框架进行VOLTE通话时无声问题。
     v3.3 2026.9.1
@@ -92,6 +95,10 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202609091419
+-- 1、更新时间：2026-09-09 14:19
+--    新增 DAC模式麦克风增益设置：model="dac" 时 exaudio.mic_vol(vol[, ana_vol])数字/模拟增益均由客户按 0-100 传入。
+--    并在 REQUEST_DRIVER_START 与 pm(RESUME) 时自动重新应用，修复 Air8101 等纯DAC模组无法调节麦克风音量的问题。
 -- 版本号：202609041030
 -- 1、更新时间：2026-09-04 10:30
 --    修复 vb7014f 使用新框架进行VOLTE通话时无声问题。
@@ -307,6 +314,8 @@ local pcm_buff0 = nil
 local pcm_buff1 = nil
 local voice_vol = 70
 local mic_vol = 80
+local dac_mic_dig_gain = 60   -- DAC(内置ADC)麦克风数字增益默认值(0~100)，仅model="dac"生效
+local dac_mic_ana_gain = 50   -- DAC(内置ADC)麦克风模拟增益默认值(0~100)，仅model="dac"生效
 
 -- 定义全局队列表
 local audio_play_queue = {
@@ -441,6 +450,9 @@ local function audio_v2_callback(request_index, event, param)
                 gpio.setup(audio_setup_param.pa_ctrl, audio_setup_param.pa_on_level)
             end
             log.info("exaudio", "audio_v2 driver start: ES8311 DAC/PA resumed")
+        elseif audio_setup_param.model == "dac" then
+            -- DAC(内置ADC)模式：每次启动请求时重新应用麦克风增益
+            apply_dac_mic_gain()
         end
     elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
         -- 流式播放需要更多数据
@@ -2243,8 +2255,31 @@ function exaudio.vol(play_volume, driver_probe_id)
     return false
 end
 
+-- 应用DAC(内置ADC)麦克风增益
+-- 两个参数均由客户按 0-100 传入，由本函数线性映射到硬件范围：
+--   数字增益 dac_mic_dig_gain(0-100) -> 0-0x3f，默认 60
+--   模拟增益 dac_mic_ana_gain(0-100) -> 0-0x0f，默认 50
+-- 仅 model=="dac" 生效，固件未提供该接口(CFG_PARAM_ADC_DIG_GAIN为nil)时自动跳过
+local function apply_dac_mic_gain()
+    if audio_setup_param.model ~= "dac" or not audio_v2 then return end
+    if not audio_v2.CFG_PARAM_ADC_DIG_GAIN then return end
+    local dig = math.floor((dac_mic_dig_gain or 0) * 0x3f / 100)
+    if dig > 0x3f then dig = 0x3f elseif dig < 0 then dig = 0 end
+    local ok, err = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_DIG_GAIN, dig)
+    if not ok then log.warn("exaudio", "设置DAC数字增益失败:", err) end
+    if dac_mic_ana_gain and dac_mic_ana_gain > 0 then
+        local ana = math.floor(dac_mic_ana_gain * 0x0f / 100)
+        if ana > 0x0f then ana = 0x0f elseif ana < 0 then ana = 0 end
+        ok = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_ANA_GAIN, ana)
+        if not ok then log.warn("exaudio", "设置DAC模拟增益失败") end
+    end
+end
+
 -- 设置麦克风音量
-function exaudio.mic_vol(record_volume)
+-- @param record_volume 麦克风音量值(0-100)，DAC模式下作为数字增益映射为 0-0x3f（默认 60）
+-- @param dac_ana_gain 可选，DAC模式专用模拟增益(0-100)，线性映射为 0-0x0f，不传则为默认 50
+-- @return 是否成功
+function exaudio.mic_vol(record_volume, dac_ana_gain)
     if audio_setup_param.model == "vb7014f" then
         log.info("exaudio", "vb7014f不支持调节麦克风音量")
         return false
@@ -2260,9 +2295,21 @@ function exaudio.mic_vol(record_volume)
             mic_vol = record_volume
             return true
         end
-        -- DAC/TM8211模式：无硬件MIC增益寄存器，仅记录数值
-        mic_vol = record_volume
-        return true
+        if audio_setup_param.model == "dac" then
+            -- DAC模式：无ES8311芯片，通过驱动配置设置麦克风数字/模拟增益
+            if not check_param(record_volume, "number", "麦克风音量值") then
+                return false
+            end
+            dac_mic_dig_gain = record_volume
+            if dac_ana_gain ~= nil then
+                dac_mic_ana_gain = dac_ana_gain
+            end
+            apply_dac_mic_gain()
+            return true
+        end
+        -- TM8211模式：板载无MIC硬件，不支持调节麦克风音量
+        log.info("exaudio", "tm8211不支持调节麦克风音量")
+        return false
     end
     
     if check_param(record_volume, "number", "麦克风音量值") then
@@ -2366,6 +2413,9 @@ function exaudio.pm(pm_mode)
                 es8311_drv.set_mute(audio_setup_param.i2c_id or 0, false)
                 es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, voice_vol)
                 es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, mic_vol)
+            elseif audio_setup_param.model == "dac" then
+                -- DAC(内置ADC)模式：唤醒后重新应用麦克风增益
+                apply_dac_mic_gain()
             end
             -- 恢复外部 PA。
             if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
@@ -2574,7 +2624,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202609041030"
+    return "202609091419"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

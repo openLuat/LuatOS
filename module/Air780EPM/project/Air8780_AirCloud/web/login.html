@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#f0f5f9"><title>设备监控 · 登录</title>
+<style>
+:root{--primary:#1a73e8;--primary-dark:#1557b0;--bg:#f0f5f9;--card:#fff;--text:#1e293b;--muted:#64748b;--border:#e2e8f0;--radius:16px;--shadow:0 4px 24px rgba(0,0,0,0.06);font-family:'Segoe UI',system-ui,sans-serif}*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}.login-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:40px 32px;width:100%;max-width:400px}.login-card .brand{text-align:center;margin-bottom:28px}.login-card .brand h1{font-size:24px;font-weight:700;color:var(--text)}.login-card .brand p{color:var(--muted);font-size:14px;margin-top:4px}.login-btn{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:.2s}.login-btn:hover{background:var(--primary-dark)}.login-btn:disabled{opacity:.6;cursor:wait}.login-btn .spinner{display:none;width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}.login-btn.loading .spinner{display:inline-block}.login-btn.loading .btn-text{display:none}.error-msg{margin-top:16px;padding:12px;background:#fee2e2;color:#b91c1c;border-radius:10px;font-size:14px;display:none;text-align:center}.error-msg.show{display:block}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:480px){.login-card{padding:28px 20px}}
+</style>
+</head><body>
+<div class="login-card">
+  <div class="brand"><h1>📡 设备监控</h1><p>登录以管理您的设备</p></div>
+  <button class="login-btn" id="loginBtn"><span class="spinner"></span><span class="btn-text">使用合宙账号登录</span></button>
+  <div class="error-msg" id="errorMsg"></div>
+</div>
+<script>
+/* ============================================================
+   核心 SDK + 认证模块（与 index.html 完全一致）
+   ============================================================ */
+(() => {
+ 'use strict';
+ const API_HOST = 'https://api-iot.luatos.com';
+ const BASE_HOST = 'https://iot.luatos.com';
+ const APP_ID_FALLBACK = '';
+ const appId = location.pathname.match(/\/ai_app\/luatos\/([^/]+)/)?.[1] || APP_ID_FALLBACK;
+ const local = location.protocol === 'file:' || ['localhost','127.0.0.1'].includes(location.hostname);
+ const pagePath = name => appId ? '/ai_app/luatos/' + encodeURIComponent(appId) + '/' + name : location.pathname.replace(/[^/]*$/, name);
+ function getOAuthCallback(){
+  if(!appId||!/^[A-Za-z0-9_-]+$/.test(appId))throw Object.assign(new Error('请从已部署的应用网址打开登录页，本地预览不能发起授权登录。'),{type:'deployment'});
+  return BASE_HOST+pagePath('login.html');
+ }
+ const url = new URL(location.href), hash = new URLSearchParams(url.hash.slice(1));
+ const initial = new Map([...hash, ...url.searchParams]);
+ const sensitive = k => /^(m_|token$|salt$|sid$|error$|error_description$|access_token$)/i.test(k);
+ const cleanAuthHash=[...hash.keys()].some(sensitive);
+ for (const k of [...url.searchParams.keys()]) if (sensitive(k)) url.searchParams.delete(k);
+ for (const k of [...hash.keys()]) if (sensitive(k)) hash.delete(k);
+ if(cleanAuthHash)url.hash = hash.toString();
+ let initError = '';
+ try { history.replaceState(null, '', url.href); } catch { initError = '浏览器无法清理登录信息，请关闭此页后重新进入。'; }
+ const error = (message,type='business') => Object.assign(new Error(message),{type});
+ const LuatSDK = {
+  config:{
+   API_HOST,
+   BASE_HOST,
+   API_BASE: API_HOST + '/iot/open_api',  // ✅ 正确：包含 /open_api
+   OAUTH_URL: API_HOST + '/iam/luat_oauth/authorize',
+   timeout: 18000
+  },
+  storage:{
+   get(k){try{const v=localStorage.getItem(k);return v ? JSON.parse(v) : null;}catch{return null;}},
+   set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{throw error('浏览器无法保存数据，请允许本网站使用本地存储后重试。','storage');}},
+   remove(k){try{localStorage.removeItem(k);}catch{throw error('无法清理登录信息，请检查浏览器存储设置。','storage');}},
+   clear(prefix){try{Object.keys(localStorage).filter(k=>k.startsWith(prefix)).forEach(k=>localStorage.removeItem(k));}catch{throw error('无法清理本地数据。','storage');}}
+  },
+  http:{
+   async request(path,{method='POST',body,headers={}}={}){
+    const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),LuatSDK.config.timeout);
+    try{
+     // 如果路径以 /iam/ 开头，直接使用 API_HOST，否则拼接 API_BASE
+     const target=path.startsWith('/iam/') ? API_HOST+path : LuatSDK.config.API_BASE+path;
+     const response=await fetch(target,{method,headers:{'Content-Type':'application/json',...headers},body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal,credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer'});
+     if(!response.ok) throw error(response.status===401||response.status===403?'登录验证未通过，请重新进入应用。':'服务暂时不可用，请稍后重试。',response.status===401?'unauthorized':'http');
+     try{return await response.json();}catch{throw error('服务返回的数据无法读取，请重试。','parse');}
+    }catch(e){if(e.type)throw e;throw error(e.name==='AbortError'?'请求超时，请重试。':'网络连接失败，请检查网络后重试。',e.name==='AbortError'?'timeout':'network');}
+    finally{clearTimeout(timer);}
+   },
+   get(path,headers){return this.request(path,{method:'GET',headers});},
+   post(path,body,headers){return this.request(path,{body,headers});}
+  }
+ };
+ const storage=LuatSDK.storage, valid=v=>typeof v==='string'&&v.trim().length>0;
+ const complete=c=>!!c&&valid(c.auth?.token)&&valid(c.auth?.salt)&&valid(c.service?.sid);
+ function session(k,v){try{if(v!==undefined)sessionStorage.setItem(k,v);return sessionStorage.getItem(k);}catch{throw error('浏览器无法保存登录会话，请允许本网站存储后重试。','storage');}}
+ function hostSession(){return session('m_host_session')==='1';}
+ function saveAtomic(prefix,values){
+  const keys=['auth','service','profile','tenant','sets'].map(k=>prefix+k), old=keys.map(k=>storage.get(k));
+  try{keys.forEach(k=>{const v=values[k.slice(prefix.length)];v==null?storage.remove(k):storage.set(k,v);});}
+  catch(e){keys.forEach((k,i)=>{try{old[i]==null?storage.remove(k):storage.set(k,old[i]);}catch{}});throw e;}
+ }
+ function initAuth(){
+  if(initError)throw error(initError,'storage');
+  storage.set('bag_storage_probe',1);storage.remove('bag_storage_probe');
+  const m={auth:{token:initial.get('m_token'),salt:initial.get('m_salt')},service:{sid:initial.get('m_sid')}};
+  if(complete(m)){
+   m.profile={name:initial.get('m_name')||'',mobile:initial.get('m_phone')||''};
+   const sets={};['algorithm','encryptOutput','padding','publicKey','publicKeyEncoding'].forEach(k=>{if(valid(initial.get('m_'+k)))sets[k]=initial.get('m_'+k);});
+   if(Object.keys(sets).length)m.sets=sets;
+   session('m_host_session','1');saveAtomic('m_',m);
+  }
+  for(const k of [...initial.keys()])if(k.startsWith('m_'))initial.delete(k);
+  return getAuthContext();
+ }
+ let expired=false;
+ function getAuthContext(){
+  if(expired)return null;
+  for(const prefix of hostSession()?['m_']:['my_','m_']){
+   const c={prefix,auth:storage.get(prefix+'auth'),service:storage.get(prefix+'service'),profile:storage.get(prefix+'profile')||{},sets:storage.get(prefix+'sets')||{}};
+   if(complete(c))return c;
+  }return null;
+ }
+ const isAuthenticated=()=>!!getAuthContext();
+ function getAuthHeaders(){const c=getAuthContext();if(!c)throw error('登录已失效，请重新进入应用。','auth');return {authorization:c.auth.token,salt:c.auth.salt,sid:c.service.sid};}
+ function clearLoginStorage(){const prefixes=hostSession()?['m_']:['my_','m_'];for(const p of prefixes)for(const k of ['auth','service','profile','tenant','sets','user'])storage.remove(p+k);}
+ function safeReturn(value){try{if(!valid(value)||/[\\\r\n]/.test(value))return null;const u=new URL(value,BASE_HOST);if(u.origin!==BASE_HOST||u.pathname!==pagePath('index.html'))return null;for(const [k]of u.searchParams)if(sensitive(k))return null;if(u.hash)return null;return u.pathname+u.search;}catch{return null;}}
+ function go(name,path){const p=safeReturn(path)||pagePath(name);location.replace(local&&!appId?name:BASE_HOST+p);}
+ function redirectToLogin(){const p=pagePath('login.html');location.replace(local&&!appId?'login.html':BASE_HOST+p+'?returnTo='+encodeURIComponent(pagePath('index.html')));}
+ function redirectToApp(){if(isAuthenticated())go('index.html',initial.get('returnTo'));}
+ function requireAuth(){if(isAuthenticated())return true;redirectToLogin();return false;}
+ function handleLoginExpired(){if(expired)return;expired=true;window.dispatchEvent(new Event('bag-auth-expired'));clearLoginStorage();redirectToLogin();}
+ function friendly(value){let s=typeof value==='string'?value:'';const c=getAuthContext();if(c)[c.auth.token,c.auth.salt,c.service.sid].forEach(v=>{s=s.split(v).join('');});return s&&s.length<200&&!/(token|salt|sid|my_|m_|https?:|Exception|stack|SQL)/i.test(s)?s:'操作未完成，请稍后重试。';}
+ async function request(path,body={},signed=false){
+  const headers=getAuthHeaders();
+  if(signed){
+   const sets=getAuthContext().sets;
+   if(!appId)throw error('当前部署地址尚不支持资料保存，请联系管理员。');
+   if(!sets.publicKey||typeof JSEncrypt==='undefined')throw error('当前登录暂不支持云端资料，请重新登录后重试。');
+   const rsa=new JSEncrypt();rsa.setPublicKey(sets.publicKey.includes('BEGIN')?sets.publicKey:'-----BEGIN PUBLIC KEY-----\n'+sets.publicKey+'\n-----END PUBLIC KEY-----');
+   const key=rsa.encrypt(Date.now()+','+appId);if(!key)throw error('云端资料验证失败，请重新登录后重试。');headers['X-Key-Open-Api']=key;
+  }
+  let response;try{response=await LuatSDK.http.post(path,body,headers);}catch(e){if(e.type==='unauthorized')handleLoginExpired();throw e;}
+  if(!response||typeof response.code!=='number')throw error('服务返回的数据不完整，请重试。');
+  if([102,103,105].includes(response.code)){handleLoginExpired();throw error('登录已失效，请重新进入应用。','auth');}
+  if(response.code!==0)throw error(friendly(response.value));
+  return response;
+ }
+ const maskPhone=p=>String(p||'').replace(/^(\d{3})\d+(\d{4})$/,'$1****$2');
+ window.BagCore={LuatSDK,storage,appId,initial,initAuth,getAuthContext,getAuthHeaders,isAuthenticated,requireAuth,clearLoginStorage,redirectToLogin,redirectToApp,handleLoginExpired,hostSession,saveAtomic,complete,request,maskPhone,pagePath,getOAuthCallback,BASE_HOST,API_HOST,friendly};
+})();
+
+/* ============================================================
+   登录页业务逻辑
+   ============================================================ */
+(() => {
+ const C = BagCore;
+ const $ = id => document.getElementById(id);
+ const button = $('loginBtn');
+ const errorMsg = $('errorMsg');
+ let logging = false, routeReady = false;
+ const showError = msg => { errorMsg.textContent = msg; errorMsg.classList.add('show'); };
+ const hideError = () => errorMsg.classList.remove('show');
+ const setLoading = (loading) => { if(loading){ button.classList.add('loading'); button.disabled=true; } else { button.classList.remove('loading'); button.disabled=false; } };
+
+ async function init() {
+  let token = C.initial.get('token');
+  const oauthError = C.initial.has('error') || C.initial.has('error_description');
+  C.initial.delete('token'); C.initial.delete('error'); C.initial.delete('error_description');
+  try {
+   C.initAuth();
+   // 检测是否有效登录态
+   if (C.hostSession()) { token = null; if(C.isAuthenticated()) C.redirectToApp(); return; }
+   if (oauthError) { showError('本次授权未完成，请重新登录。'); return; }
+   if (token) {
+    setLoading(true); hideError();
+    const response = await C.LuatSDK.http.post('/iam/luat_oauth/v2/login?token='+encodeURIComponent(token));
+    token = null;
+    if (!response || response.code!==0 || !C.complete(response.value)) throw new Error('登录未完成，请重新授权后重试。');
+    const v = response.value;
+    C.saveAtomic('my_', { auth: v.auth, service: v.service, profile: v.user||{}, tenant: v.tenant, sets: v.sets });
+    C.redirectToApp();
+   } else if (C.isAuthenticated()) {
+    C.redirectToApp();
+   }
+   routeReady = true;
+  } catch(e) { showError(e.message || '登录暂时无法完成，请检查浏览器设置后重试。'); }
+  finally { setLoading(false); }
+ }
+ button.addEventListener('click', () => {
+  if (logging || !routeReady) return;
+  if (C.hostSession()) return;
+  logging = true; setLoading(true); hideError();
+  try {
+   const callback = C.getOAuthCallback();
+   const target = new URL(C.LuatSDK.config.OAUTH_URL);
+   target.searchParams.set('return_to', callback);
+   location.assign(target.href);
+   setTimeout(() => { logging=false; setLoading(false); showError('尚未进入授权页面，请重试。'); }, 18000);
+  } catch(e) { logging=false; setLoading(false); showError('无法打开登录页面，请重试。'); }
+ });
+ window.addEventListener('pageshow', e => { if(e.persisted) { logging=false; setLoading(false); } });
+ init();
+})();
+</script>
+</body></html>

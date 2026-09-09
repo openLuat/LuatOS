@@ -33,6 +33,17 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)
 end
 
+-- 新板子适配：USB HOST UVC摄像头供电使能
+-- 原理图：UVC_EN = GPIO29，控制电源芯片U1的EN脚（R47 10k默认下拉，供电默认关闭）
+-- 必须拉高GPIO29，摄像头才能得到+5V供电，否则USB枚举不到设备
+gpio.setup(29, 1)
+log.info("main", "UVC摄像头供电已使能 GPIO29=1")
+-- 启动任务等待电源稳定，让USB Host完成设备枚举
+sys.taskInit(function()
+    sys.wait(500)
+    log.info("main", "UVC供电稳定，USB设备枚举中...")
+end)
+
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题

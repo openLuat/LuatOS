@@ -20,9 +20,9 @@ local excloud = require("excloud")
 -- 2、保存到内存文件系统中，路径名需指向/ram/文件夹
 -- 3、保存到内置FLASH文件系统中
 -- 选择其中一个即可，注释另两个路径变量
--- local save_method = "ZBUFF"
+local save_method = "ZBUFF"
 -- local save_method = "/ram/test.jpg"
-local save_method = "/sd/test.jpg"
+-- local save_method = "/sd/test.jpg"
 
 -- USB摄像头支持多摄像头轮切拍摄
 -- 该变量表示有多少路摄像头，如果有多路摄像头则会逐个轮切拍摄，顺序以HUB的USB端口号顺序
@@ -90,8 +90,19 @@ local function capture_func()
             -- 拍照执行完成则上传，否则关闭摄像头
             if result then
                 log.info("这是第"..usb_port.."个摄像头拍的")
-                log.info("照片存储路径", save_method)
-                
+                if save_method == "ZBUFF" then
+                    -- ZBUFF模式：data是ZBUFF对象，大小用:used()获取
+                    log.info("照片存储路径", "ZBUFF, 大小:", data and data:used() or "nil")
+                else
+                    log.info("照片存储路径", save_method)
+                    -- 检查文件是否存在
+                    if io.exists(save_method) then
+                        log.info("文件存在，大小:", io.fileSize(save_method))
+                    else
+                        log.warn("文件不存在，拍照后立即检查")
+                    end
+                end
+
                 -- 通过网卡状态判断WIFI是否连接成功，WIFI连接成功后再运行照片上传任务。
                 while not socket.adapter(socket.dft()) do
                     -- 在此处阻塞等待WIFI连接成功的消息"IP_READY"，避免联网过快，丢失了"IP_READY"信息而导致一直被卡住。
@@ -99,21 +110,17 @@ local function capture_func()
                     log.warn("tcp_client_main_task_func", "wait IP_READY")
                     sys.waitUntil("IP_READY", 30000)
                 end
-                -- ZBUFF模式下先把数据写到内存文件，再传文件路径给上传任务
-                local photo_path
-                if type(data) == "userdata" then
-                    photo_path = "/ram/photo.jpg"
-                    local raw = data:query()
-                    io.writeFile(photo_path, raw)
-                else
-                    photo_path = data
-                end
-                -- 拍照完成后触发上传事件，传递文件路径
-                sys.publish("PHOTO_READY", photo_path)
+                -- 拍照完成后触发上传事件，ZBUFF传对象，文件模式传路径
+                sys.publish("PHOTO_READY", save_method, data)
             end
         end
         -- 关闭摄像头，释放资源
-        excamera.close()
+        -- ZBUFF模式：上传完成前不能释放ZBUFF，传true保留，等上传完手动释放
+        if save_method == "ZBUFF" then
+            excamera.close(true)
+        else
+            excamera.close()
+        end
     end
 end
 
@@ -152,26 +159,44 @@ function excloud_task_func()
     
     -- 循环监听拍照完成事件并上传
     while true do
-        local result, photo_path = sys.waitUntil("PHOTO_READY")
+        local result, photo_path, photo_data = sys.waitUntil("PHOTO_READY")
         if result then
             -- 上传图片
             log.info("开始上传图片", photo_path)
             if not excloud.status().is_connected then
                 log.info("设备未连接，跳过图片上传")
-                os.remove(photo_path)
+                -- ZBUFF模式上传失败也要手动释放内存
+                if photo_path == "ZBUFF" and photo_data then
+                    photo_data:free()
+                end
                 return
             end
-            if io.exists(photo_path) then
-                log.info("文件存在，大小:", io.fileSize(photo_path))
-                local ok, err = excloud.upload_image(photo_path, "test.jpg")
+            if photo_path == "ZBUFF" then
+                -- ZBUFF模式：直接把ZBUFF对象传给upload_image，excloud库原生支持
+                local ok, err = excloud.upload_image(photo_data, "test.jpg")
                 if ok then
                     log.info("图片上传成功")
                 else
                     log.error("图片上传失败:", err)
                 end
-                os.remove(photo_path)
+                -- 上传完成后手动释放ZBUFF
+                photo_data:free()
+                photo_data = nil
+                log.info("sys ram", rtos.meminfo("sys"))
             else
-                log.warn("图片文件不存在:", photo_path)
+                -- 文件模式：传文件路径
+                if io.exists(photo_path) then
+                    log.info("文件存在，大小:", io.fileSize(photo_path))
+                    local ok, err = excloud.upload_image(photo_path, "test.jpg")
+                    if ok then
+                        log.info("图片上传成功")
+                    else
+                        log.error("图片上传失败:", err)
+                    end
+                    os.remove(photo_path)
+                else
+                    log.warn("图片文件不存在:", photo_path)
+                end
             end
         end
     end

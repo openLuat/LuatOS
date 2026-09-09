@@ -13,6 +13,7 @@ static struct luat_display_panel *panels[] = {
     &rgb_panel_nv3052c,
     &dsi_panel_st7701s,
     &spi_panel_st7789,
+    &spi_panel_st7796,
     &spi_panel_ili9341,
 };
 

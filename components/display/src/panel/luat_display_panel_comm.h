@@ -21,6 +21,7 @@ extern struct luat_display_panel lvds_panel_custom;
 
 /*SPI面板列表*/
 extern struct luat_display_panel spi_panel_st7789;
+extern struct luat_display_panel spi_panel_st7796;
 extern struct luat_display_panel spi_panel_ili9341;
 
 

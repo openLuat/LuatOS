@@ -123,7 +123,7 @@ int luat_display_init_pin(struct panel_pin_device *pin)
 {
     /*配置用的SPI引脚*/
     if (pin->cs != LUAT_GPIO_NONE) {
-        luat_gpio_mode(pin->cs, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
+        luat_gpio_mode(pin->cs, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);   // CS引脚默认高电平
     }
     if (pin->sdi != LUAT_GPIO_NONE) {
         luat_gpio_mode(pin->sdi, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);

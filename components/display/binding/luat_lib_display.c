@@ -212,6 +212,7 @@ static const display_panel_reg_t panel_regs[] =
     {"custom", "dsi",  &dsi_panel_custom},
 
     {"st7789",  "spi",  &spi_panel_st7789},
+    {"st7796",  "spi",  &spi_panel_st7796},
     {"ili9341", "spi", &spi_panel_ili9341},
     {"st7701s", "rgb", &rgb_panel_st7701s},
     {"st7701s", "dsi", &dsi_panel_st7701s},
@@ -253,6 +254,23 @@ static struct luat_display* l_get_display_opt(lua_State *L, int index)
 /*设置显示窗口*/
 static void panel_crop_win_setup(struct luat_display_panel *panel,lua_State *L)
 {
+    /* SPI/DBI 等接口没有 timing，用 screen_win 兜底 */
+    uint32_t default_w = panel->timing ? panel->timing->hactive : panel->screen_win->w;
+    uint32_t default_h = panel->timing ? panel->timing->vactive : panel->screen_win->h;
+
+    /* config.w/h 作为全局分辨率覆盖（对无 timing 的 SPI/DBI 面板生效） */
+    lua_getfield(L, 2, "w");
+    if (lua_isinteger(L, -1)) {
+        default_w = (uint32_t)luaL_optinteger(L, -1, (lua_Integer)default_w);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "h");
+    if (lua_isinteger(L, -1)) {
+        default_h = (uint32_t)luaL_optinteger(L, -1, (lua_Integer)default_h);
+    }
+    lua_pop(L, 1);
+
     /*设置当前屏幕是否需要裁剪*/
     lua_getfield(L, 2, "crop_x");
     if (lua_isnil(L, -1)) {
@@ -261,7 +279,7 @@ static void panel_crop_win_setup(struct luat_display_panel *panel,lua_State *L)
         panel->screen_win->x = luaL_optinteger(L, -1, 0);
     }
     lua_pop(L, 1);
-    
+
     lua_getfield(L, 2, "crop_y");
     if (lua_isnil(L, -1)) {
         panel->screen_win->y = 0;
@@ -269,20 +287,20 @@ static void panel_crop_win_setup(struct luat_display_panel *panel,lua_State *L)
         panel->screen_win->y = luaL_optinteger(L, -1, 0);
     }
     lua_pop(L, 1);
-    
+
     lua_getfield(L, 2, "crop_w");
     if (lua_isnil(L, -1)) {
-        panel->screen_win->w = panel->timing->hactive;
+        panel->screen_win->w = default_w;
     } else if (lua_isinteger(L, -1)) {
-        panel->screen_win->w = luaL_optinteger(L, -1, panel->timing->hactive);
+        panel->screen_win->w = luaL_optinteger(L, -1, default_w);
     }
     lua_pop(L, 1);
-    
+
     lua_getfield(L, 2, "crop_h");
     if (lua_isnil(L, -1)) {
-        panel->screen_win->h = panel->timing->vactive;
+        panel->screen_win->h = default_h;
     } else if (lua_isinteger(L, -1)) {
-        panel->screen_win->h = luaL_optinteger(L, -1, panel->timing->vactive);
+        panel->screen_win->h = luaL_optinteger(L, -1, default_h);
     }
     lua_pop(L, 1);
 }
@@ -309,8 +327,9 @@ static int panel_timing_setup(struct luat_display_panel *panel, lua_State *L, in
     struct luat_display_timing *tg = panel->timing;
     long v;
 
+    /* SPI/DBI 面板没有 RGB timing，直接跳过 */
     if (tg == NULL) {
-        return -1;
+        return 0;
     }
 
     /*常规整型时序字段：custom 固定默认，内置以当前值为默认（未传保持不变）*/
@@ -485,9 +504,9 @@ static int l_display_init(lua_State *L)
             return 2;
         }
         screen_win_allocated = 1;
-        /*设置裁剪窗口,默认全屏*/
-        panel_crop_win_setup(L_disp->panel, L);
     }
+    /*设置裁剪窗口：内置面板也允许 Lua config.w/h/crop_* 覆盖硬编码 screen_win*/
+    panel_crop_win_setup(L_disp->panel, L);
 
     /*覆盖面板时序参数（custom 与内置面板通用）：
         - custom 面板：按 config.w/h/… 重建 timing（未传用固定默认）

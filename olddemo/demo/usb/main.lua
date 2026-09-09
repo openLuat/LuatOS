@@ -1,5 +1,5 @@
 PROJECT = "usb_demo"
-VERSION = "1.0.3"
+VERSION = "1.3.3"
 
 sys = require("sys")
 
@@ -37,6 +37,10 @@ end
 
 usb.on(0, usb_cb)
 sys.taskInit(function()
+    require("lcd_drv")
+    require("hid_lvgl")
+    require("input_demo")
+    require("tp_drv")
     pm.power(pm.USB, false)
     sys.wait(100) -- USB电源操作由C任务异步执行，等待关闭后再切换模式
     air1601_evb_init()
@@ -139,7 +143,7 @@ local function u_disk_test_task()
         end
     end
 end
--- HID调试期间只观察C层日志；需要U盘读写测试时再启用此任务。
+-- HID/LVGL验证期间不启用U盘读写任务。
 -- sys.taskInit(u_disk_test_task)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

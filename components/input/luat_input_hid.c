@@ -45,15 +45,43 @@ struct luat_input_hid {
     uint8_t report_count, has_ids, axis_count;
 };
 
-/* USB keyboard usages -> Linux key codes, not ASCII. Numeric mappings only. */
+/* USB keyboard usages -> shared input key codes, not ASCII. */
 static const uint16_t keyboard[0x74] = {
-    [4]=30,48,46,32,18,33,34,35,23,36,37,38,50,49,24,25,16,19,31,20,22,47,17,45,21,44,
-    [30]=2,3,4,5,6,7,8,9,10,11,28,1,14,15,57,12,13,26,27,43,43,39,40,41,51,52,53,58,
-    [58]=59,60,61,62,63,64,65,66,67,68,87,88,99,70,119,110,102,104,111,107,109,106,105,108,103,
-    [83]=69,98,55,74,78,96,79,80,81,75,76,77,71,72,73,82,83,86,127,116,117,
-    [104]=183,184,185,186,187,188,189,190,191,192,193,194
+    [4]=LUAT_INPUT_KEY_A, LUAT_INPUT_KEY_B, LUAT_INPUT_KEY_C, LUAT_INPUT_KEY_D,
+    LUAT_INPUT_KEY_E, LUAT_INPUT_KEY_F, LUAT_INPUT_KEY_G, LUAT_INPUT_KEY_H,
+    LUAT_INPUT_KEY_I, LUAT_INPUT_KEY_J, LUAT_INPUT_KEY_K, LUAT_INPUT_KEY_L,
+    LUAT_INPUT_KEY_M, LUAT_INPUT_KEY_N, LUAT_INPUT_KEY_O, LUAT_INPUT_KEY_P,
+    LUAT_INPUT_KEY_Q, LUAT_INPUT_KEY_R, LUAT_INPUT_KEY_S, LUAT_INPUT_KEY_T,
+    LUAT_INPUT_KEY_U, LUAT_INPUT_KEY_V, LUAT_INPUT_KEY_W, LUAT_INPUT_KEY_X,
+    LUAT_INPUT_KEY_Y, LUAT_INPUT_KEY_Z,
+    [30]=LUAT_INPUT_KEY_1, LUAT_INPUT_KEY_2, LUAT_INPUT_KEY_3, LUAT_INPUT_KEY_4,
+    LUAT_INPUT_KEY_5, LUAT_INPUT_KEY_6, LUAT_INPUT_KEY_7, LUAT_INPUT_KEY_8,
+    LUAT_INPUT_KEY_9, LUAT_INPUT_KEY_0, LUAT_INPUT_KEY_ENTER, LUAT_INPUT_KEY_ESC,
+    LUAT_INPUT_KEY_BACKSPACE, LUAT_INPUT_KEY_TAB, LUAT_INPUT_KEY_SPACE, LUAT_INPUT_KEY_MINUS,
+    LUAT_INPUT_KEY_EQUAL, LUAT_INPUT_KEY_LEFTBRACE, LUAT_INPUT_KEY_RIGHTBRACE, LUAT_INPUT_KEY_BACKSLASH,
+    LUAT_INPUT_KEY_BACKSLASH, LUAT_INPUT_KEY_SEMICOLON, LUAT_INPUT_KEY_APOSTROPHE, LUAT_INPUT_KEY_GRAVE,
+    LUAT_INPUT_KEY_COMMA, LUAT_INPUT_KEY_DOT, LUAT_INPUT_KEY_SLASH, LUAT_INPUT_KEY_CAPSLOCK,
+    [58]=LUAT_INPUT_KEY_F1, LUAT_INPUT_KEY_F2, LUAT_INPUT_KEY_F3, LUAT_INPUT_KEY_F4,
+    LUAT_INPUT_KEY_F5, LUAT_INPUT_KEY_F6, LUAT_INPUT_KEY_F7, LUAT_INPUT_KEY_F8,
+    LUAT_INPUT_KEY_F9, LUAT_INPUT_KEY_F10, LUAT_INPUT_KEY_F11, LUAT_INPUT_KEY_F12,
+    LUAT_INPUT_KEY_SYSRQ, LUAT_INPUT_KEY_SCROLLLOCK, LUAT_INPUT_KEY_PAUSE, LUAT_INPUT_KEY_INSERT,
+    LUAT_INPUT_KEY_HOME, LUAT_INPUT_KEY_PAGEUP, LUAT_INPUT_KEY_DELETE, LUAT_INPUT_KEY_END,
+    LUAT_INPUT_KEY_PAGEDOWN, LUAT_INPUT_KEY_RIGHT, LUAT_INPUT_KEY_LEFT, LUAT_INPUT_KEY_DOWN,
+    LUAT_INPUT_KEY_UP,
+    [83]=LUAT_INPUT_KEY_NUMLOCK, LUAT_INPUT_KEY_KPSLASH, LUAT_INPUT_KEY_KPASTERISK, LUAT_INPUT_KEY_KPMINUS,
+    LUAT_INPUT_KEY_KPPLUS, LUAT_INPUT_KEY_KPENTER, LUAT_INPUT_KEY_KP1, LUAT_INPUT_KEY_KP2,
+    LUAT_INPUT_KEY_KP3, LUAT_INPUT_KEY_KP4, LUAT_INPUT_KEY_KP5, LUAT_INPUT_KEY_KP6,
+    LUAT_INPUT_KEY_KP7, LUAT_INPUT_KEY_KP8, LUAT_INPUT_KEY_KP9, LUAT_INPUT_KEY_KP0,
+    LUAT_INPUT_KEY_KPDOT, LUAT_INPUT_KEY_102ND, LUAT_INPUT_KEY_COMPOSE, LUAT_INPUT_KEY_POWER,
+    LUAT_INPUT_KEY_KPEQUAL,
+    [104]=LUAT_INPUT_KEY_F13, LUAT_INPUT_KEY_F14, LUAT_INPUT_KEY_F15, LUAT_INPUT_KEY_F16,
+    LUAT_INPUT_KEY_F17, LUAT_INPUT_KEY_F18, LUAT_INPUT_KEY_F19, LUAT_INPUT_KEY_F20,
+    LUAT_INPUT_KEY_F21, LUAT_INPUT_KEY_F22, LUAT_INPUT_KEY_F23, LUAT_INPUT_KEY_F24
 };
-static const uint16_t modifiers[8] = {29,42,56,125,97,54,100,126};
+static const uint16_t modifiers[8] = {
+    LUAT_INPUT_KEY_LEFTCTRL, LUAT_INPUT_KEY_LEFTSHIFT, LUAT_INPUT_KEY_LEFTALT, LUAT_INPUT_KEY_LEFTMETA,
+    LUAT_INPUT_KEY_RIGHTCTRL, LUAT_INPUT_KEY_RIGHTSHIFT, LUAT_INPUT_KEY_RIGHTALT, LUAT_INPUT_KEY_RIGHTMETA
+};
 
 static int supported_app(uint32_t app)
 {
@@ -67,40 +95,40 @@ static uint16_t key_code(uint32_t usage)
     uint16_t page = (uint16_t)(usage >> 16), u = (uint16_t)usage;
     if (page == 7) {
         if (u >= 0xe0 && u <= 0xe7) return modifiers[u - 0xe0];
-        return u < sizeof(keyboard)/sizeof(keyboard[0]) ? keyboard[u] : 0;
+        return u < sizeof(keyboard)/sizeof(keyboard[0]) ? keyboard[u] : LUAT_INPUT_KEY_RESERVED;
     }
-    if (page == 9 && u >= 1 && u <= 16) return (uint16_t)(0x110 + u - 1);
+    if (page == 9 && u >= 1 && u <= 16) return (uint16_t)(LUAT_INPUT_BTN_LEFT + u - 1);
     if (page == 1) {
-        if (u == 0x81) return 116;
-        if (u == 0x82) return 142;
-        if (u == 0x83) return 143;
+        if (u == 0x81) return LUAT_INPUT_KEY_POWER;
+        if (u == 0x82) return LUAT_INPUT_KEY_SLEEP;
+        if (u == 0x83) return LUAT_INPUT_KEY_WAKEUP;
     }
     if (page == 0xd && u == 0x42) return LUAT_INPUT_BTN_TOUCH;
     if (page == 0xc) {
         switch (u) {
-        case 0x30: return 116;
-        case 0xb0: return 207;
-        case 0xb1: return 119;
-        case 0xb5: return 163;
-        case 0xb6: return 165;
-        case 0xb7: return 166;
-        case 0xcd: return 164;
-        case 0xe2: return 113;
-        case 0xe9: return 115;
-        case 0xea: return 114;
-        case 0x183: return 226;
-        case 0x18a: return 155;
-        case 0x192: return 140;
-        case 0x221: return 217;
-        case 0x223: return 172;
-        case 0x224: return 158;
-        case 0x225: return 159;
-        case 0x226: return 128;
-        case 0x227: return 173;
+        case 0x30: return LUAT_INPUT_KEY_POWER;
+        case 0xb0: return LUAT_INPUT_KEY_PLAY;
+        case 0xb1: return LUAT_INPUT_KEY_PAUSE;
+        case 0xb5: return LUAT_INPUT_KEY_NEXTSONG;
+        case 0xb6: return LUAT_INPUT_KEY_PREVIOUSSONG;
+        case 0xb7: return LUAT_INPUT_KEY_STOPCD;
+        case 0xcd: return LUAT_INPUT_KEY_PLAYPAUSE;
+        case 0xe2: return LUAT_INPUT_KEY_MUTE;
+        case 0xe9: return LUAT_INPUT_KEY_VOLUMEUP;
+        case 0xea: return LUAT_INPUT_KEY_VOLUMEDOWN;
+        case 0x183: return LUAT_INPUT_KEY_MEDIA;
+        case 0x18a: return LUAT_INPUT_KEY_MAIL;
+        case 0x192: return LUAT_INPUT_KEY_CALC;
+        case 0x221: return LUAT_INPUT_KEY_SEARCH;
+        case 0x223: return LUAT_INPUT_KEY_HOMEPAGE;
+        case 0x224: return LUAT_INPUT_KEY_BACK;
+        case 0x225: return LUAT_INPUT_KEY_FORWARD;
+        case 0x226: return LUAT_INPUT_KEY_STOP;
+        case 0x227: return LUAT_INPUT_KEY_REFRESH;
         default: break;
         }
     }
-    return 0;
+    return LUAT_INPUT_KEY_RESERVED;
 }
 
 static uint32_t usage_at(const luat_input_hid_t *h, const hid_field_t *f, uint32_t i)
@@ -117,7 +145,9 @@ static int mapping(const hid_field_t *f, uint32_t usage, uint16_t *type, uint16_
     if (!(f->flags & 2)) return 0; /* Relative/absolute axes must be Variable. */
     if (usage == 0x10030 || usage == 0x10031) {
         *type = f->flags & 4 ? LUAT_INPUT_EV_REL : LUAT_INPUT_EV_ABS;
-        *code = (uint16_t)(usage - 0x10030);
+        *code = f->flags & 4 ?
+            (usage == 0x10030 ? LUAT_INPUT_REL_X : LUAT_INPUT_REL_Y) :
+            (usage == 0x10030 ? LUAT_INPUT_ABS_X : LUAT_INPUT_ABS_Y);
         return 1;
     }
     if (usage == 0x10038 || usage == 0xc0238) {
@@ -373,7 +403,7 @@ int luat_input_hid_feed(luat_input_hid_t *h, const uint8_t *report, size_t lengt
         uint32_t changed = merged ^ h->state[w];
         while (changed) {
             unsigned bit = 0; while (!(changed & (UINT32_C(1) << bit))) bit++;
-            if (event_add(h, &count, LUAT_INPUT_EV_KEY, (uint16_t)(w*32U+bit), !!(merged & (UINT32_C(1)<<bit)))) return LUAT_INPUT_ENOSPC;
+            if (event_add(h, &count, LUAT_INPUT_EV_KEY, (uint16_t)(w*32U+bit), (merged & (UINT32_C(1)<<bit)) ? LUAT_INPUT_PRESS : LUAT_INPUT_RELEASE)) return LUAT_INPUT_ENOSPC;
             changed &= changed - 1U;
         }
     }

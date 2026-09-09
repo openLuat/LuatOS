@@ -50,6 +50,10 @@ typedef struct luat_tp_config{
     int (*callback)(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data);
     luat_tp_data_t tp_data[LUAT_TP_TOUCH_MAX];
     luat_rtos_task_handle task_handle;
+#ifdef LUAT_USE_INPUT_TOUCH
+    void *input_context; /* Private TP adapter, protected by the TP task mutex. */
+    uint32_t input_id;   /* Published atomically; zero while stopped. */
+#endif
 } luat_tp_config_t;
 
 typedef struct luat_tp_opts {
@@ -87,6 +91,12 @@ int luat_tp_irq_enable(luat_tp_config_t* luat_tp_config, uint8_t enabled);
 int luat_tp_sleep(luat_tp_config_t* luat_tp_config);
 
 int luat_tp_wakeup(luat_tp_config_t* luat_tp_config);
+
+/** Stop a TP device. Config storage must outlive already queued IRQ messages. */
+int luat_tp_deinit(luat_tp_config_t *config);
+/** Transform a raw point to panel coordinates. Returns -1 outside raw bounds. */
+int luat_tp_transform(const luat_tp_config_t *config, int32_t *x, int32_t *y);
+void luat_tp_dimensions(const luat_tp_config_t *config, int32_t *width, int32_t *height);
 
 
 #endif

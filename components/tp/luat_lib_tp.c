@@ -99,6 +99,7 @@ static int l_tp_handler(lua_State* L, void* ptr) {
 }
 
 int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data){
+    if (!luat_tp_config->luat_cb) return 0;
 	uint8_t i = 0;
     for(i = 0; i < LUAT_TP_TOUCH_MAX; i++) {
 		if (luat_tp_data[i].event != TP_EVENT_TYPE_NONE) {
@@ -106,7 +107,7 @@ int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data
             if (copy == NULL) return -1;
             memcpy(copy, luat_tp_data, sizeof(luat_tp_data_t) * LUAT_TP_TOUCH_MAX);
             rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=(int)copy};
-            luat_msgbus_put(&msg, 1);
+            if (luat_msgbus_put(&msg, 1)) { luat_heap_free(copy); return -1; }
             return 0;
         }
     }

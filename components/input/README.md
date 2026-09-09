@@ -1,6 +1,6 @@
 # luat_input：小型 C 输入核心
 
-第一版实现统一事件、设备状态、直接订阅和可选整帧队列。适用于键盘、鼠标、单点/多点触摸；已提供独立 HID 报告解析器并接入国芯 USB Host；TP 接入、GUI、键盘布局/输入法属于后续适配工作。
+实现统一事件、设备状态、直接订阅和可选整帧队列。适用于键盘、鼠标、单点/多点触摸；已提供 HID/触摸适配器，国芯 USB Host 已接入 HID 与 AirUI。Lua 接口与设备目录见 [README.lua.md](README.lua.md)。实体 TP 接入见 [README.tp.md](README.tp.md)，键盘布局/输入法按需扩展。
 
 设计依据：[Linux input event codes](https://docs.kernel.org/input/event-codes.html)、[Linux input driver model](https://docs.kernel.org/input/input-programming.html)、[Linux multi-touch protocol](https://docs.kernel.org/input/multi-touch-protocol.html)。沿用 type/code/value 和状态/增量的语义，采用适合 MCU 的帧头与传递接口，并非 Linux evdev 二进制 ABI。
 
@@ -143,12 +143,12 @@ luat_input_submit(handle, monotonic_ms, frame, 3);
 
 ```text
 USB IRQ → 每接口原始报告环 → 已有 USB app 任务
-       → hid_feed → input_submit → C 日志消费者
+       → hid_feed → input_submit → C 日志 / AirUI 缓存 / Lua 订阅队列
 ```
 
-IRQ 仅复制本次完整包、记录时间和通知，不解析描述符、不打印。每接口 32 个槽，最多待处理 31 份报告，槽大小按端点最大包长分配；没有再启用 input 的可选消费者队列。接入阶段一次分配会话、解析器与环形缓冲区，运行时不申请内存。当前底层每回调只有一个 Interrupt 包，所以声明报告大于端点最大包长时拒绝 input 适配；USB HID 接口保持激活，但该接口不产生 input 帧。
+IRQ 仅复制本次完整包、记录时间和通知，不解析描述符、不打印。每接口 32 个槽，最多待处理 31 份报告，槽大小按端点最大包长分配；该原始报告环与 Lua 订阅使用的 input 整帧队列独立。接入阶段一次分配会话、解析器与环形缓冲区，运行时不申请内存。当前底层每回调只有一个 Interrupt 包，所以声明报告大于端点最大包长时拒绝 input 适配；USB HID 接口保持激活，但该接口不产生 input 帧。
 
-2026-09-04 已回退电源控制改动：Host 电源恢复由 USB app 任务处理，枚举/物理断开仍由 control 任务处理。枚举期间主动断电的并发问题待处理，现有 host_app_lock 不覆盖完整枚举过程。input 注册、提交和注销共用现有 `host_app_lock`；IRQ 的环形缓冲区访问用短临界区协调，断开前停止接收、清除会话指针，再注销释放。任务事件携带实例 tag，拒绝拔插前遗留的通知。事件队列通知失败时由 app 任务重试，最长每 10 ms 检查一次，避免最后一次释放无人处理。
+2026-09-04 已回退电源控制改动：Host 电源恢复由 USB app 任务处理，枚举/物理断开仍由 control 任务处理。枚举期间主动断电的并发问题待处理，现有 host_app_lock 不覆盖完整枚举过程。input 注册、提交和注销按 `host_app_lock` → input service lock 的顺序加锁，后者也串行化 TP 和 Lua 的核心访问；IRQ 的环形缓冲区访问用短临界区协调，断开前停止接收、清除会话指针，再注销释放。任务事件携带实例 tag，拒绝拔插前遗留的通知。事件队列通知失败时由 app 任务重试，最长每 10 ms 检查一次，避免最后一次释放无人处理。
 
 报告环溢出或传输错误时清除队列并发送 RESET，取消所有按键/接触；之后从新报告恢复，已丢失的运动不会补发。畸形报告也复位并限频记录错误。`luat_input_log.c` 提供可选 `luat_input_log_receive` 同步消费者，使用 LuatOS DEBUG 日志（tag 为 `input`），低于当前日志等级时直接返回。SDK 绑定该消费者，逐帧打印 `INPUT dev=... seq=... flags=... count=... events=type:code=value`，此日志适用于验证，性能测量时应关闭逐帧打印。国芯 ARM32 的 HID 上下文为 4712 B；8 B 端点另占 512 B 报告环与 32 B 会话信息，合计一次申请 5256 B（不含原始描述符及分配器开销）。ATTACH/REMOVE/RESET 使用帧标志，不伪造普通按键。
 
@@ -158,7 +158,7 @@ IRQ 仅复制本次完整包、记录时间和通知，不解析描述符、不�
 
 `luat_input_touch.c` 提供与触摸芯片无关的 C 适配器，使用 `LUAT_USE_INPUT_TOUCH` 单独裁剪。调用方按 `luat_input_touch_size(slots)` 提供存储，初始化时配置坐标、压力、触点宽度范围及最多槽位；运行时将一批 DOWN/MOVE/UP 槽位更新一次提交为完整 input 帧。适配器同时维护 Linux Type-B MT 的 slot/tracking ID/坐标状态和单指兼容的 BTN_TOUCH、ABS_X/Y；主触点抬起后自动切到仍按下的最低槽位。
 
-适配器不依赖 `luat_tp`、USB、LVGL、RTOS 或堆，可由电容触摸驱动和后续 HID 多点触摸共同使用。触摸芯片层继续负责坐标方向、稳定 track ID 和硬件读取；同一批中重复槽位、越界值或非法事件会整帧拒绝。现有 `luat_tp` 回调尚未切换到该适配器，下一步在公共 TP 任务增加并行通知入口，保留现有 Lua/AirUI 行为。
+适配器不依赖 `luat_tp`、USB、LVGL、RTOS 或堆，可由电容触摸驱动和后续 HID 多点触摸共同使用。TP 公共适配层负责坐标方向和 tracking ID，芯片驱动负责硬件读取；同一批中重复槽位、越界值或非法事件会整帧拒绝。公共 TP 任务已通过 `luat_tp_input.c` 接入此适配器，旧 Lua 回调仍可选；AirUI 启用 input touch 后直接消费 input，详见 [README.tp.md](README.tp.md)。
 
 ## 验证与开销（2026-09-03）
 
@@ -200,6 +200,6 @@ ARM GCC 14.3，Cortex-M4 Thumb，`-Os`，链接裁剪前的目标文件测量：
 ## 后续扩展边界
 
 - HID 解析器负责把 USB Usage 映射成输入键码、把报告转换成事件帧；原始 HID Usage 不能直接当 Linux keycode 使用。
-- TP 适配在原始读取完成后提交，保留原有 API；屏幕方向变换统一放到显示适配层。
+- TP 适配在原始读取完成后提交，保留原有 API；TP 方向与镜像由公共适配层转换，LVGL 显示旋转由显示层处理。
 - 配置继承、输出 LED、按键布局、自动重复、事件合并均可作为独立能力增加。扩展时优先在接入/配置阶段预计算，保持 submit 路径短小。
-- 国芯固件已接入 C HID 适配；不增加 Lua 接口，不更改 AirUI/LVGL，也不创建新的输入任务。
+- 国芯固件已接入 HID、AirUI 与可选 Lua 订阅。Lua 订阅使用独立队列，不增加输入任务；细节见 [README.lua.md](README.lua.md)。

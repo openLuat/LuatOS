@@ -57,11 +57,19 @@ int luat_input_queue_init(luat_input_queue_t *q, void *buffer, size_t bytes,
     return LUAT_INPUT_OK;
 }
 
-int luat_input_queue_push(luat_input_queue_t *q,
-    const luat_input_frame_t *frame, const luat_input_event_t *events)
+int luat_input_queue_push_types(luat_input_queue_t *q,
+    const luat_input_frame_t *frame, const luat_input_event_t *events, uint32_t types)
 {
     if (!q || !q->buffer || !frame || (frame->count && !events)) return LUAT_INPUT_EINVAL;
-    size_t bytes = sizeof(*frame) + (size_t)frame->count * sizeof(*events);
+    luat_input_frame_t selected = *frame;
+    int filter = !frame->flags && types != UINT32_MAX;
+    if (filter) {
+        selected.count = 0;
+        for (unsigned i = 0; i < frame->count; i++)
+            if (events[i].type < 32 && (types & (UINT32_C(1) << events[i].type))) selected.count++;
+        if (!selected.count) return LUAT_INPUT_OK;
+    }
+    size_t bytes = sizeof(selected) + (size_t)selected.count * sizeof(*events);
     uintptr_t token = enter(q);
     int ret = LUAT_INPUT_OK;
     int notify = 0;
@@ -78,12 +86,33 @@ int luat_input_queue_push(luat_input_queue_t *q,
         notify = 1;
     } else {
         notify = available == q->capacity;
-        q->tail = copy_in(q, q->tail, frame, sizeof(*frame));
-        q->tail = copy_in(q, q->tail, events, bytes - sizeof(*frame));
+        q->tail = copy_in(q, q->tail, &selected, sizeof(selected));
+        if (filter) {
+            for (unsigned i = 0; i < frame->count; i++)
+                if (events[i].type < 32 && (types & (UINT32_C(1) << events[i].type)))
+                    q->tail = copy_in(q, q->tail, &events[i], sizeof(*events));
+        } else q->tail = copy_in(q, q->tail, events, bytes - sizeof(*frame));
         q->full = q->tail == q->head;
     }
     leave(q, token);
     if (notify && q->ops.notify) q->ops.notify(q->ops.userdata);
+    return ret;
+}
+
+int luat_input_queue_push(luat_input_queue_t *q,
+    const luat_input_frame_t *frame, const luat_input_event_t *events)
+{
+    return luat_input_queue_push_types(q, frame, events, UINT32_MAX);
+}
+
+int luat_input_queue_peek(luat_input_queue_t *q, luat_input_frame_t *frame)
+{
+    if (!q || !q->buffer || !frame) return LUAT_INPUT_EINVAL;
+    uintptr_t token = enter(q);
+    int ret = q->lost ? LUAT_INPUT_ELOST :
+        (!q->full && q->head == q->tail ? LUAT_INPUT_EEMPTY : LUAT_INPUT_OK);
+    if (!ret) copy_out(q, q->head, frame, sizeof(*frame));
+    leave(q, token);
     return ret;
 }
 

@@ -8,8 +8,8 @@
 精简自 turnkey_devboard sensor_app，去除 ui_sensor_data 事件发布。
 核心业务逻辑：
 1、加载温湿度传感器驱动（AirSHT30_1000）和VOC传感器驱动（AirVOC_1000）；
-2、启动传感器读取任务，默认每10秒读取一次数据（可通过云端远程修改）；
-3、两个传感器均成功时发布"read_sht30_voc_rsp"供云端上报。
+2、启动传感器读取任务，默认每15秒读取一次数据（可通过云端远程修改）；
+3、5秒采集窗口内尽可能读取传感器，有多少数据上报多少。
 4、上报频率保存到 fskv，断电不丢失。
 ]]
 
@@ -23,8 +23,9 @@ if rtos.bsp() ~= "Air8101" then
 end
 
 -- ---- 上报频率配置 ----
+fskv.init()  -- 初始化 fskv，必须在任何 fskv.get/set 之前调用
 local REPORT_CYCLE_KEY = "report_cycle"  -- fskv 存储 key
-local DEFAULT_CYCLE = 10                 -- 默认上报频率（秒）
+local DEFAULT_CYCLE = 15                 -- 默认上报频率（秒）
 local MIN_CYCLE = 5                      -- 最小上报频率（秒）
 
 -- 从 fskv 读取上报频率，不存在则用默认值
@@ -50,6 +51,9 @@ end
 local report_cycle = get_report_cycle()
 log.info("sensor", "启动上报频率: " .. report_cycle .. "秒")
 
+-- ---- 采集窗口配置 ----
+local COLLECT_TIMEOUT = 5000  -- 最大采集窗口5秒（毫秒）
+
 --[[
 传感器读取任务（主循环）
 
@@ -57,55 +61,61 @@ log.info("sensor", "启动上报频率: " .. report_cycle .. "秒")
 @function sensor_task
 @return nil
 @usage
--- 作为系统任务启动，循环等待"read_sensors_req"事件，每收到一次执行一次读取
--- 读取温湿度、VOC，两个传感器均成功时发布云端数据
+-- 作为系统任务启动，循环等待"read_sensors_req"事件
+-- 5秒采集窗口内依次读取 SHT30、VOC，有多少数据上报多少
 ]]
 local function sensor_task()
     while true do
         -- 等待定时器发布的读取请求
         sys.waitUntil("read_sensors_req")
 
-        local sht30_ok = false -- 温湿度本次读取成功标志
-        local voc_ok = false   -- VOC本次读取成功标志
+        local t0 = mcu.ticks()
         local current_temp, current_hum, current_voc
 
-        -- 1. 读取温湿度
-        if air_sht30.open(1) then
-            local t, h = air_sht30.read()
-            if t then
-                current_temp, current_hum = t, h
-                sht30_ok = true
-                log.info("sht30", string.format("温度:%.2f℃ 湿度:%.2f%%", t, h))
+        -- 1. 读取温湿度（检查时间余量）
+        local remain_ms = COLLECT_TIMEOUT - (mcu.ticks() - t0)
+        if remain_ms > 0 then
+            if air_sht30.open(1) then
+                local t, h = air_sht30.read()
+                if t then
+                    current_temp, current_hum = t, h
+                    log.info("sht30", string.format("温度:%.2f℃ 湿度:%.2f%%", t, h))
+                else
+                    log.error("sht30", "read error")
+                end
+                air_sht30.close()
             else
-                log.error("sht30", "read error")
+                log.error("sht30", "open failed")
             end
-            air_sht30.close()
         else
-            log.error("sht30", "open failed")
+            log.warn("sensor", "采集窗口剩余不足，跳过SHT30")
         end
 
-        -- 2. 读取 VOC
-        if air_voc.open(1) then
-            local v = air_voc.get_ppb()
-            if v then
-                current_voc = v
-                voc_ok = true
-                log.info("voc", string.format("TVOC:%d ppb", v))
+        -- 2. 读取 VOC（检查时间余量）
+        remain_ms = COLLECT_TIMEOUT - (mcu.ticks() - t0)
+        if remain_ms > 0 then
+            if air_voc.open(1) then
+                local v = air_voc.get_ppb()
+                if v then
+                    current_voc = v
+                    log.info("voc", string.format("TVOC:%d ppb", v))
+                else
+                    log.error("voc", "read error")
+                end
+                air_voc.close()
             else
-                log.error("voc", "read error")
+                log.error("voc", "open failed")
             end
-            air_voc.close()
         else
-            log.error("voc", "open failed")
+            log.warn("sensor", "采集窗口剩余不足，跳过VOC")
         end
 
-        -- 只有当两个传感器本次均成功读取时，才发布云端数据
-        if sht30_ok and voc_ok then
-            sys.publish("read_sht30_voc_rsp", current_temp, current_hum, current_voc)
-            log.info("sensor", "两个传感器均成功，向云端发布更新数据请求")
-        else
-            log.info("sensor", "传感器读取不完整，跳过上报")
-        end
+        -- 3. 无论成功与否，都发布上报事件
+        -- aircloud端已用 if xxx ~= nil 判断，nil字段不上报
+        sys.publish("read_sht30_voc_rsp", current_temp, current_hum, current_voc)
+        log.info("sensor", "采集完成，temp=" .. tostring(current_temp)
+                 .. " hum=" .. tostring(current_hum)
+                 .. " voc=" .. tostring(current_voc))
     end
 end
 

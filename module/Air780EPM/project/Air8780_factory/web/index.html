@@ -1018,25 +1018,6 @@
             .header h1 {
                 font-size: 16px;
             }
-            /* 标签栏移到底部：单手可达，并适配全面屏底部安全区 */
-            .tab-bar {
-                order: 2;
-                border-bottom: none;
-                border-top: 1px solid var(--border);
-                padding-bottom: var(--safe-b);
-                box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.06);
-            }
-            .tab-content {
-                order: 1;
-                padding: 10px 10px 14px;
-            }
-            .tab-btn {
-                padding: 8px 2px 6px;
-                font-size: 11px;
-                gap: 3px;
-                min-height: 52px;
-                overflow: visible;
-            }
             .tab-page .card {
                 padding: 12px;
                 margin-bottom: 10px;
@@ -1245,6 +1226,264 @@
                 height: 340px;
             }
         }
+
+        /* ==========================================================================
+           双端 UI 优化层（纯样式，不触碰任何 DOM 结构与业务逻辑）
+           断点：<768 手机 · 768~1023 平板/小桌面 · ≥1024 桌面 · ≥1440 宽屏
+           规则放在最后，同权重下天然覆盖前面的同名声明
+           ========================================================================== */
+
+        /* ---------- 通用：跨端一致性 ---------- */
+        html {
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* 关键修复：给 .app 一个"确定高度"而不是只有 min-height。
+           否则内容超过一屏时 .app 会被撑高，底部标签栏被顶出视口，
+           而 .tab-content 因高度同步变大也不会产生内部滚动，页面卡死。
+           改成确定高度后：.layout / .tab-content 有界 → 内容区自己滚，导航常驻。 */
+        .app {
+            height: 100vh;
+            height: 100dvh;
+        }
+        /* 不支持 dvh 的旧内核：退回 body 的 100%（= 真实可视高度），
+           比 100vh 更准，避免微信/ Safari 里底部导航被工具栏遮住 */
+        @supports not (height: 100dvh) {
+            .app {
+                height: 100%;
+                min-height: 0;
+            }
+        }
+        ::selection {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        /* 内部滚动条：始终占位，切页时内容不左右跳动 */
+        .tab-content {
+            scrollbar-gutter: stable;
+        }
+        .tab-content::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .tab-content::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, .28);
+            border-radius: 8px;
+        }
+        .tab-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* 触摸设备：去掉"粘滞 hover"，改为按下反馈 */
+        @media (hover: none) {
+            .btn:hover { opacity: 1; }
+            .btn-outline:hover { background: transparent; }
+            .btn-danger:hover { background: #ef4444; }
+            .btn-refresh:hover { background: transparent; border-color: var(--border); color: var(--muted); }
+            .device-item:hover { background: transparent; }
+            .time-range .quick-btn:hover { border-color: var(--border); color: var(--text); }
+            .tab-btn:hover { color: var(--muted); background: transparent; }
+            .tab-btn.active:hover { color: var(--primary); background: transparent; }
+        }
+        .btn { transition: background .18s, opacity .18s, transform .12s; }
+        .btn:active { transform: translateY(1px); }
+        .tab-btn:active,
+        .quick-btn:active,
+        .btn-refresh:active { opacity: .6; }
+
+        /* ---------- 手机 < 768px：底部导航 + 单列卡片流 ---------- */
+        @media (max-width: 767px) {
+            .header {
+                padding: calc(10px + var(--safe-t)) 14px 10px;
+                gap: 8px;
+                box-shadow: 0 1px 0 var(--border), 0 2px 10px rgba(15, 23, 42, .05);
+            }
+            .header h1 { font-size: 17px; }
+            .header .brand-icon { width: 22px; height: 22px; }
+            .header .user-info { gap: 8px; }
+
+            .tab-content {
+                order: 1;
+                padding: 12px 12px calc(14px + var(--safe-b));
+            }
+            .tab-bar {
+                order: 2;
+                position: sticky;
+                bottom: 0;
+                border-top: 1px solid var(--border);
+                border-bottom: none;
+                padding-bottom: var(--safe-b);
+                box-shadow: 0 -1px 0 var(--border), 0 -6px 18px rgba(15, 23, 42, .07);
+            }
+            .tab-btn {
+                min-height: 54px;
+                padding: 7px 2px 6px;
+                font-size: 11px;
+                gap: 4px;
+            }
+            .tab-btn svg { width: 21px; height: 21px; }
+            .tab-btn span {
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .tab-page .card {
+                padding: 14px;
+                margin-bottom: 12px;
+                border-radius: 14px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 4px 14px rgba(15, 23, 42, .05);
+            }
+            .card-title { font-size: 14px; margin-bottom: 10px; }
+
+            /* 传感器：3 列 + 末位占 2 列，5 个指标不留空位 */
+            .sensor-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 8px;
+            }
+            .sensor-item {
+                padding: 10px 4px;
+                border-radius: 10px;
+                min-width: 0;
+                overflow: hidden;
+            }
+            .sensor-item:last-child { grid-column: span 2; }
+            .sensor-item .label {
+                font-size: 11px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .sensor-item .value { font-size: 17px; }
+
+            .chart-box { height: 236px; border-radius: 10px; }
+            .map-wrap { height: min(50vh, 380px); min-height: 240px; border-radius: 14px; }
+            .table-wrap { max-height: 54vh; border-radius: 10px; }
+
+            /* 表单：16px 防 iOS 聚焦缩放，触摸目标 ≥44px */
+            .tab-page input,
+            .tab-page select {
+                font-size: 16px;
+                min-height: 44px;
+            }
+            .btn { min-height: 44px; padding: 9px 16px; font-size: 14px; }
+            .btn-sm { min-height: 40px; padding: 8px 14px; font-size: 13px; }
+            .query-row { gap: 8px; }
+            .query-row input { padding: 10px 12px; }
+            .project-select { min-height: 44px; font-size: 16px; padding: 8px 10px; }
+            .control-group { gap: 10px; margin-bottom: 14px; }
+            .control-group label { min-width: 66px; font-size: 13px; }
+            .control-group .btn { min-height: 44px; }
+            .time-range .quick-btn { min-height: 38px; }
+            .btn-refresh { width: 34px; height: 34px; }
+        }
+
+        /* 横屏手机：压缩纵向占用 */
+        @media (max-width: 900px) and (max-height: 480px) {
+            .chart-box { height: 210px; }
+            .map-wrap { height: 240px; min-height: 180px; }
+            .tab-content { padding-top: 10px; }
+        }
+
+        /* ---------- 平板 / 小桌面 768~1023px：图标侧栏 ---------- */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .tab-bar { width: 88px; min-width: 88px; gap: 2px; }
+            /* 取消 flex:1 的等高拉伸，改为自然高度 */
+            .tab-btn { flex: 0 0 auto; padding: 10px 4px; gap: 4px; }
+            .tab-content { padding: 20px 24px; max-width: 1000px; }
+            .chart-box { height: 300px; }
+            .map-wrap { height: min(520px, 58vh); }
+        }
+
+        /* ---------- 桌面 ≥ 1024px：展开侧栏 + 双栏内容 ---------- */
+        @media (min-width: 1024px) {
+            .header {
+                padding: 12px 24px;
+                box-shadow: 0 1px 0 var(--border), 0 2px 8px rgba(15, 23, 42, .04);
+            }
+            .header h1 { font-size: 19px; letter-spacing: .2px; }
+            .header .brand-icon { width: 24px; height: 24px; }
+
+            .tab-bar {
+                width: 208px;
+                min-width: 208px;
+                padding: 14px 12px;
+                gap: 4px;
+                border-right: 1px solid var(--border);
+            }
+            /* 取消 flex:1 的等高拉伸，改为自然高度 */
+            .tab-btn {
+                flex: 0 0 auto;
+                padding: 9px 14px;
+                font-size: 13px;
+                line-height: 20px;
+                border-radius: 8px;
+            }
+            .tab-btn svg { width: 18px; height: 18px; }
+            .tab-btn.active { background: var(--primary-light); }
+
+            /* 概览：左侧设备操作栏 + 右侧实时数据大卡 */
+            #tabOverview.active {
+                grid-template-columns: 340px minmax(0, 1fr);
+                grid-template-areas:
+                    "info  sensor"
+                    "query sensor"
+                    "list  list";
+                gap: 14px;
+            }
+            #deviceInfoCard { grid-area: info; }
+            #queryCard { grid-area: query; }
+            #sensorCard { grid-area: sensor; align-self: stretch; }
+            #deviceListCard { grid-area: list; }
+            #deviceListCard .project-select { max-width: 460px; }
+
+            #sensorCard { display: flex; flex-direction: column; }
+            #sensorGrid {
+                flex: 1;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 12px;
+                align-content: center;
+            }
+            .sensor-item {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 4px;
+                padding: 14px 8px;
+                min-height: 104px;
+                border-radius: 10px;
+            }
+            .sensor-item .value { font-size: 22px; }
+
+            /* 趋势：查询条通栏 + 双图并排，减少纵向滚动 */
+            #tabCharts.active { grid-template-columns: 1fr 1fr; }
+            #tabCharts > .card:first-child { grid-column: 1 / -1; }
+            .chart-box { height: 320px; }
+
+            /* 轨迹 */
+            .map-wrap { height: min(620px, 62vh); border-radius: 14px; }
+
+            /* 控制：避免窄内容被拉伸到 1000px+ */
+            #controlCard { max-width: 760px; }
+            .control-group label { min-width: 76px; }
+
+            /* 历史表格 */
+            table { min-width: 720px; }
+            .table-wrap { max-height: min(62vh, 620px); }
+        }
+
+        /* ---------- 宽屏 ≥ 1440px ---------- */
+        @media (min-width: 1440px) {
+            .tab-content { max-width: 1360px; }
+            #tabOverview.active { grid-template-columns: 380px minmax(0, 1fr); }
+            .chart-box { height: 360px; }
+            .sensor-item .value { font-size: 24px; }
+        }
     </style>
 </head>
 <body data-page-node-id="eg4wKNseleYGl9gNq8AnNu">
@@ -1297,7 +1536,10 @@
                     <div class="card" id="deviceInfoCard" data-page-node-id="13VhGRQKX87C7UHehJ5OEB">
                         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;" data-page-node-id="S7MaXbfuwdPHtyP8ryBNWl">
                             <div style="min-width:0;" data-page-node-id="6mz0uJO4cZgTyR3GQJRbeI"><strong id="devName" style="font-size:15px;" data-page-node-id="c5GrtlWABeZwF1QDyLlCMk">--</strong><br data-page-node-id="FWl2PwmkwrSTjwHCPEsT7A"><span class="muted" id="devId" style="font-size:12px;" data-page-node-id="zlp5CYDitGbVNEC59jQoAW">IMEI: --</span></div>
-                            <span id="signalLed" class="status-led offline" style="flex-shrink:0;" data-page-node-id="I3oINkjCYJKXgbiXNm3Tek">未选择设备</span>
+                            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" data-page-node-id="Xx1">
+                                <button class="btn btn-sm" id="refreshBtn" disabled style="font-size:12px;padding:2px 8px;" data-page-node-id="Xx2">刷新</button>
+                                <span id="signalLed" class="status-led offline" data-page-node-id="I3oINkjCYJKXgbiXNm3Tek">未选择设备</span>
+                            </div>
                         </div>
                         <div style="font-size:12px;color:var(--muted);margin-top:6px;" data-page-node-id="DEEgT6UJrvbOjrHA3T7iyW">最后更新: <span id="devLastTime" data-page-node-id="Ak8S3ZzsmvqTqqJfsr4Yu8">--</span></div>
                     </div>
@@ -1385,7 +1627,7 @@
                         <div class="card-title" data-page-node-id="RGBfG4lUE9d51l9F3u5vTG">设备控制 <span id="controlStatusLabel" class="status-led offline" style="font-size:11px;" data-page-node-id="SaSqnXDGmepkJrtdwuKnS0">未选中</span></div>
                         <div class="control-group" data-page-node-id="XyduKw6rq1Kt5ujE4ydQHt">
                             <label data-page-node-id="2yi3cHD9PLNT3iB2jkZLTt">上报频率</label>
-                            <input type="number" id="reportCycle" value="60" min="10" step="5" disabled data-page-node-id="ou5xn1jkbRiAOIsPiTXDrA" />
+                            <input type="number" id="reportCycle" value="15" min="5" step="5" disabled data-page-node-id="ou5xn1jkbRiAOIsPiTXDrA" />
                             <span style="font-size:12px;color:var(--muted);" data-page-node-id="iZjUrckItc8iVrFqLiHjLa">秒</span>
                             <button class="btn btn-sm" id="setCycleBtn" disabled data-page-node-id="DwwQ2Ab4HwzvGu5bVBuvx0">设置</button>
                         </div>
@@ -1645,7 +1887,8 @@
             const devName = $('devName'),
                 devId = $('devId'),
                 devLastTime = $('devLastTime'),
-                signalLed = $('signalLed');
+                signalLed = $('signalLed'),
+                refreshBtn = $('refreshBtn');
             const sTemp = $('sTemp'),
                 sHumi = $('sHumi'),
                 sCpu = $('sCpu'),
@@ -1711,8 +1954,10 @@
             function toast(msg, type = 'info') { showNotice(queryStatus, msg, type); setTimeout(() => hideNotice(
                     queryStatus), 5000); }
 
-            const MIN_REQ_INTERVAL = 1200;
-            const CROSS_DEVICE_DELAY = 2000;
+            // ---- 查询并发控制 ----
+            // 服务端限制：查询频率应近似等于设备上报频率，避免请求排队
+            const MIN_REQ_INTERVAL = 3000;   // 同设备查询间隔3秒
+            const CROSS_DEVICE_DELAY = 3000; // 跨设备查询间隔3秒
             let _lastDevice = '';
 
             function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1750,6 +1995,7 @@
                     sendTtsBtn.disabled = true;
                     reportCycle.disabled = true;
                     ttsText.disabled = true;
+                    refreshBtn.disabled = true;
                     controlStatusLabel.className = 'status-led offline';
                     controlStatusLabel.textContent = '未登录';
                     clearDeviceData();
@@ -1805,6 +2051,7 @@
                     sendTtsBtn.disabled = true;
                     reportCycle.disabled = true;
                     ttsText.disabled = true;
+                    refreshBtn.disabled = true;
                     controlStatusLabel.className = 'status-led offline';
                     controlStatusLabel.textContent = '未选中设备';
                 } catch (e) {
@@ -1887,6 +2134,7 @@
                 sendTtsBtn.disabled = false;
                 reportCycle.disabled = false;
                 ttsText.disabled = false;
+                refreshBtn.disabled = false;
                 try {
                     // 1. 先获取最新数据（保证传感器数据先显示）
                     let loc = null;
@@ -1926,6 +2174,7 @@
                         sendTtsBtn.disabled = true;
                         reportCycle.disabled = true;
                         ttsText.disabled = true;
+                        refreshBtn.disabled = true;
                     } else { toast('查询失败：' + e.message, 'error'); }
                 }
             }
@@ -2071,6 +2320,14 @@
                         if (btn7) btn7.classList.add('active');
                         return await loadHistory(imei, 1, size);
                     }
+                    // 无数据时清空图表和轨迹
+                    if (S.history.length === 0) {
+                        if (S.chartTempHumi) { S.chartTempHumi.dispose(); S.chartTempHumi = null; }
+                        if (S.chartCpuVoc) { S.chartCpuVoc.dispose(); S.chartCpuVoc = null; }
+                        if (S.histPathLayer) { S.histPathLayer.setMap(null); S.histPathLayer = null; }
+                        if (S.histMarkerLayer) { S.histMarkerLayer.setMap(null); S.histMarkerLayer = null; }
+                        if (S.histHoverMarkers) { S.histHoverMarkers.setMap(null); S.histHoverMarkers = null; }
+                    }
                     renderHistory();
                     renderHistoryCharts();
                     renderHistoryPath();
@@ -2199,11 +2456,11 @@
                 });
                 if (!points.length) return;
 
-                // 折线
+                // 折线（使用 Polyline 绘制单条轨迹线）
                 S.histPathLayer = new TMap.MultiPolyline({
                     map: S.map,
-                    styles: { histPath: new TMap.PolylineStyle({ color: '#22d3ee', width: 3, borderWidth: 1,
-                            borderColor: 'rgba(0,0,0,0.3)', lineCap: 'round' }) },
+                    styles: { histPath: new TMap.PolylineStyle({ color: '#22d3ee', width: 4, borderWidth: 1,
+                            borderColor: 'rgba(0,0,0,0.3)', lineCap: 'round', lineJoin: 'round' }) },
                     geometries: [{ id: 'histPath', paths: [points.map(p => p.pos)], styleId: 'histPath' }]
                 });
 
@@ -2296,17 +2553,10 @@
                         hoverInfoWin = null; }
                 });
 
-                // 适配视野（需要至少2个不同点）
-                if (points.length >= 2) {
-                    try {
-                        const b = new TMap.LatLngBounds();
-                        points.forEach(p => b.extend(p.pos));
-                        S.map.fitBounds(b, { padding: 60 });
-                    } catch (e) { console.warn('[map] fitBounds:', e.message); }
-                } else if (points.length === 1) {
-                    S.map.setCenter(points[0].pos);
-                    S.map.setZoom(15);
-                }
+                // 默认以最新位置为中心
+                const lastPt = points[points.length - 1];
+                S.map.setCenter(lastPt.pos);
+                S.map.setZoom(14);
             }
 
             // ---- 地图（动态加载SDK） ----
@@ -2545,10 +2795,11 @@
                 });
                 setCycleBtn.addEventListener('click', () => {
                     const sec = parseInt(reportCycle.value);
-                    if (isNaN(sec) || sec < 10) { toast('请输入有效秒数（≥10）', 'error'); return; }
+                    if (isNaN(sec) || sec < 5) { toast('请输入有效秒数（≥5）', 'error'); return; }
                     setReportCycle(S.currentDeviceId, sec);
                 });
                 sendTtsBtn.addEventListener('click', () => { sendTts(S.currentDeviceId, ttsText.value); });
+                refreshBtn.addEventListener('click', () => { if (S.currentDeviceId) refreshDevice(S.currentDeviceId, refreshBtn); });
                 loadMoreBtn.addEventListener('click', () => {
                     if (S.currentDeviceId) loadHistory(S.currentDeviceId, S.historyPage + 1);
                 });

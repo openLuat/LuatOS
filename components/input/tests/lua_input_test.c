@@ -14,6 +14,8 @@ static void (*timer_cb)(void *);
 static void *timer_data;
 static unsigned callback_errors;
 static int fail_allocation = -1;
+static unsigned mutex_creates;
+static int fail_mutex, check_init_reentry;
 int luaopen_input(lua_State *);
 void luat_newlib2(lua_State *L,const rotable_Reg_t *reg) {rotable2_newlib(L,reg);}
 void *luat_heap_malloc(size_t n) { void *p=malloc(n); if(p) heap_blocks++; return p; }
@@ -26,7 +28,17 @@ void luat_heap_free(void *p) {if(p) {heap_blocks--;free(p);}}
 void luat_meminfo_luavm(size_t *a,size_t *b,size_t *c) {*a=*b=*c=0;}
 void luat_nprint(char *s,size_t n) {fwrite(s,1,n,stdout);}
 void input_test_log(const char *format, ...) {(void)format; callback_errors++;}
-int luat_rtos_mutex_create(luat_rtos_mutex_t *m) {*m=(void*)1; return 0;}
+int luat_rtos_mutex_create(luat_rtos_mutex_t *m)
+{
+    mutex_creates++;
+    *m=(void*)1; /* Even an early output write must not publish service readiness. */
+    if (check_init_reentry) {
+        CHECK(!luat_input_service_is_ready());
+        CHECK(luat_input_service_init()==LUAT_INPUT_EBUSY);
+        CHECK(!luat_input_service_is_ready());
+    }
+    return fail_mutex ? -1 : 0;
+}
 int luat_rtos_mutex_lock(luat_rtos_mutex_t m,uint32_t timeout) {(void)m;(void)timeout;CHECK(!locked);locked=1;return 0;}
 int luat_rtos_mutex_unlock(luat_rtos_mutex_t m) {(void)m;CHECK(locked);locked=0;return 0;}
 int luat_rtos_timer_create(luat_rtos_timer_t *t) {*t=(void*)2;return 0;}
@@ -50,6 +62,8 @@ static int add(lua_State *L)
     luat_input_service_lock();
     CHECK(!luat_input_register(luat_input_service_core(),&fixture[slot].dev,&desc,fixture[slot].state,16,&fixture[slot].handle));
     CHECK(!luat_input_service_attach(fixture[slot].handle));
+    CHECK(!luat_input_service_init() && mutex_creates==2);
+    CHECK(fixture[slot].dev.core==luat_input_service_core()); /* No reset on repeated init. */
     uint32_t id=fixture[slot].handle.id;
     luat_input_service_unlock();lua_pushinteger(L,id);return 1;
 }
@@ -85,8 +99,20 @@ static int reject(lua_State *L) {(void)L;fail_message=1;return 0;}
 static int fail_alloc(lua_State *L) {fail_allocation=(int)luaL_checkinteger(L,1);return 0;}
 int main(int argc,char **argv)
 {
-    CHECK(argc==2);CHECK(!luat_input_service_init());
+    CHECK(argc==2);
     lua_State *L=lua_newstate(allocator,NULL);CHECK(L);
+    CHECK(!luat_input_service_is_ready());
+    lua_pushcfunction(L,luaopen_input);
+    CHECK(lua_pcall(L,0,0,0)!=LUA_OK);
+    CHECK(strstr(lua_tostring(L,-1),"not initialized"));lua_pop(L,1);
+    CHECK(!mutex_creates && !luat_input_service_is_ready());
+    fail_mutex=check_init_reentry=1;
+    CHECK(luat_input_service_init()==LUAT_INPUT_SERVICE_ENOMEM);
+    CHECK(!luat_input_service_is_ready() && mutex_creates==1);
+    fail_mutex=0;
+    CHECK(!luat_input_service_init() && luat_input_service_is_ready());
+    CHECK(!luat_input_service_init() && mutex_creates==2);
+    puts("input startup PASS: not-ready rejection, reentrant init, failed-create retry, publish-on-success and idempotence");
     luaL_requiref(L,"_G",luaopen_base,1);lua_pop(L,1);
     luaL_requiref(L,"table",luaopen_table,1);lua_pop(L,1);
     luaL_requiref(L,"input",luaopen_input,1);lua_pop(L,1);

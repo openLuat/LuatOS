@@ -9,6 +9,7 @@
 
 typedef struct luat_tp_config luat_tp_config_t;
 typedef struct luat_tp_opts luat_tp_opts_t;
+typedef struct luat_tp_sink_ops luat_tp_sink_ops_t;
 
 enum{
     LUAT_TP_ROTATE_0 = 0,
@@ -50,11 +51,27 @@ typedef struct luat_tp_config{
     int (*callback)(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data);
     luat_tp_data_t tp_data[LUAT_TP_TOUCH_MAX];
     luat_rtos_task_handle task_handle;
-#ifdef LUAT_USE_INPUT_TOUCH
-    void *input_context; /* Private TP adapter, protected by the TP task mutex. */
-    uint32_t input_id;   /* Published atomically; zero while stopped. */
-#endif
+    /* Optional application adapter; TP never interprets its state or id. */
+    const luat_tp_sink_ops_t *sink_ops;
+    void *sink_context;
+    uint32_t sink_id; /* Adapter-published identity, zero while detached. */
+    uint8_t initialized, running;
+
 } luat_tp_config_t;
+
+/** Optional task-context sink. Set before init, keep unchanged until deinit.
+ * Hooks run under TP serialization and must not call TP lifecycle APIs.
+ * process reads cfg->tp_data, writes normalized output, returns count or error.
+ * All hook pointers are optional; context belongs entirely to the adapter.
+ * A failed open must clean up its own partial allocations before returning.
+ */
+struct luat_tp_sink_ops {
+    int (*open)(luat_tp_config_t *cfg);
+    void (*close)(luat_tp_config_t *cfg);
+    int (*process)(luat_tp_config_t *cfg, luat_tp_data_t *normalized);
+    void (*reset)(luat_tp_config_t *cfg);
+    void (*suspend)(luat_tp_config_t *cfg, int suspended);
+};
 
 typedef struct luat_tp_opts {
     const char* name;
@@ -85,6 +102,7 @@ extern luat_tp_opts_t tp_config_cst92xx;
 extern luat_tp_opts_t tp_config_pc;
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config);
+int luat_tp_process(luat_tp_config_t *config);
 
 int luat_tp_irq_enable(luat_tp_config_t* luat_tp_config, uint8_t enabled);
 

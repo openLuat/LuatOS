@@ -457,7 +457,7 @@ static const rotable_Reg_t reg_input[] = {
 
 LUAMOD_API int luaopen_input(lua_State *L)
 {
-    if (luat_input_service_init()) return luaL_error(L, "input service init failed");
+    if (!luat_input_service_is_ready()) return luaL_error(L, "input service not initialized by application startup");
     luaL_newmetatable(L, OWN_MT);
     lua_pushcfunction(L, owned_gc); lua_setfield(L, -2, "__gc"); lua_pop(L, 1);
     luaL_newmetatable(L, FRAME_MT);

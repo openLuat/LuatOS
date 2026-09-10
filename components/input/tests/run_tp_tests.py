@@ -53,3 +53,9 @@ int luat_rtos_message_recv(luat_rtos_task_handle,uint32_t*,void*,uint32_t);
     exe=out/'tp_test.exe'
     subprocess.run([cc,'@'+str(response),'-lm','-o',str(exe)],check=True)
     subprocess.run([str(exe)],check=True,timeout=30)
+    standalone=out/'tp_standalone.exe'
+    subprocess.run([cc,'-std=c11','-Wall','-Wextra','-Werror',
+                   '-I'+str(out),'-I'+str(root/'luat/include'),'-I'+str(root/'components/tp'),
+                   str(root/'components/tp/luat_tp.c'),str(root/'components/input/tests/tp_standalone_test.c'),
+                   '-o',str(standalone)],check=True)
+    subprocess.run([str(standalone)],check=True,timeout=10)

@@ -54,8 +54,9 @@ int main(void)
 {
     CHECK(!luat_input_service_init());
     config=(luat_tp_config_t){.opts=&opts,.w=800,.h=480,.tp_num=5,.callback=legacy_callback};
-    init_result=-1;CHECK(luat_tp_init(&config)<0);CHECK(!config.input_id&&!config.input_context&&!heap_blocks);
-    init_result=0;CHECK(!luat_tp_init(&config));uint32_t first=config.input_id;CHECK(first&&heap_blocks==1);
+    CHECK(!luat_tp_input_setup(&config));
+    init_result=-1;CHECK(luat_tp_init(&config)<0);CHECK(!config.sink_id&&!config.sink_context&&!heap_blocks);
+    init_result=0;CHECK(!luat_tp_init(&config));uint32_t first=config.sink_id;CHECK(first&&heap_blocks==1);
     lv_init();ui.display=lv_display_create(800,480);ui.native_width=800;ui.native_height=480;ui.indev_ptr_count=2;ui.touch_callback_ref=1;
     lv_timer_pause(lv_display_get_refr_timer(ui.display));
     for(unsigned i=0;i<2;i++) {
@@ -86,7 +87,7 @@ int main(void)
     report[1]=(luat_tp_data_t){.track_id=9,.event=TP_EVENT_TYPE_DOWN,.x_coordinate=20,.y_coordinate=20,.timestamp=++ticks};
     CHECK(luat_tp_process(&config)<0);poll();CHECK(clicks==before&&value(0,LUAT_INPUT_ABS_MT_TRACKING_ID)==-1);
     read_result=-1;CHECK(luat_tp_process(&config)<0);read_result=0;poll();
-    CHECK(!luat_tp_deinit(&config));poll();CHECK(!heap_blocks&&!config.input_id);CHECK(luat_tp_process(&config)==0);
+    CHECK(!luat_tp_deinit(&config));poll();CHECK(!heap_blocks&&!config.sink_id);CHECK(luat_tp_process(&config)==0);
     luat_input_service_lock();luat_input_handle_t stale;CHECK(luat_input_lookup(luat_input_service_core(),first,&stale)==LUAT_INPUT_ESTALE);luat_input_service_unlock();
     /* Every direction/mirror combination, including the second touch point. */
     for(unsigned direction=0;direction<4;direction++)for(unsigned mirror=0;mirror<4;mirror++) {

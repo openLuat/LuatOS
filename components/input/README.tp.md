@@ -1,6 +1,6 @@
 # TP 接入 input
 
-现有 `tp.init()` 配置硬件，TP 任务直接把触点批次交给 input。
+现有 `tp.init()` 配置硬件，并在启用 `LUAT_USE_INPUT_TOUCH` 时安装 TP→input 适配器。TP 公共驱动通过可选 sink 处理触点批次，不依赖 input 或 AirUI。
 Lua 继续使用现有 `input.subscribe()`；`airui.device_bind_touch(tp_device)`
 继续选择用于显示交互的 TP。无需 Lua 转发触摸数据，也没有新增采样任务。
 
@@ -21,6 +21,22 @@ TP IRQ → 原有 TP 任务 → 芯片 read → luat_tp_input_feed → input_tou
 每次读取只提交一个完整 input 帧。普通帧不申请 C 堆；TP 适配存储在初始化时
 分配并在 C deinit 时释放。没有旧 TP Lua 回调时，跳过旧通道的复制和 msgbus
 投递；注册了旧回调时仍提供转换后的触点数据，并处理投递失败的资源释放。
+
+## C 应用装配
+
+独立 C 应用先在公共启动阶段调用 `luat_input_service_init()` 并检查返回值，
+再启动 TP；适配器不再隐式初始化 service。配置对象首次使用前清零。
+需要 input 的 C 应用在 `luat_tp_init(cfg)` 前调用
+`luat_tp_input_setup(cfg)` 并检查返回值；Lua `tp.init()` 已自动完成这一步。
+不安装 sink 时，TP 保留原有坐标转换和 callback 路径，可独立编译、链接和运行。
+
+也可设置自有 `luat_tp_sink_ops_t`，处理 open/process/reset/suspend/close。
+sink 在 TP 互斥锁内执行，不得重入 TP 生命周期接口；process 输出完整的归一化
+触点数组，正值表示交给旧 callback，零表示无变化，负值触发 reset。
+open 失败时由 sink 清理自身的部分资源。context/id 由适配器持有，TP 不解释。
+配置和 sink 对象须保持到停用及在途通知处理结束。
+
+AirUI 的 `device_bind_touch`、原有触摸读取路径和 Lua API 均未调整。
 
 ## 坐标、触点与生命周期
 
@@ -69,6 +85,7 @@ INPUT_LUA_STABLE 同时报告队列长度和溢出数。
   多点适配器、真实 LVGL 9，关闭 input Lua 模块；RTOS/I²C 使用宿主适配。
   覆盖初始化失败/停用、旧 ID、批次原子性、触点复用、16 种方向镜像、
   旧回调坐标、双指针、快速点按、休眠取消、读数错误和队列溢出。
+  另有完全不链接 input/AirUI 的 TP 独立模式及自定义 sink 回归。
   新增生产代码按 `-Wall -Wextra -Werror` 编译。
 - 2026-09-09 提交前重跑 input 核心/队列、HID/touch、Lua 接口、TP 和真实
   LVGL HID 回归，全部通过；包括 20000 帧并发和 10000 次 HID 报告变异。

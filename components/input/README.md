@@ -23,7 +23,28 @@
 
 提交直接使用实例句柄，热路径不遍历全设备表、不执行订阅条件匹配、不遍历配置树。每个设备只访问已绑定的直接链表，复杂度随该设备消费者数增长。多个配置规则最终指向同一回调/userdata 时只允许一个绑定，避免重复输入。
 
-已有 USB/TP 任务可以直接提交；需要把原始 IRQ 数据转到任务解析时，优先复用驱动已有任务。HID 描述符解析、设备识别在接入阶段完成，不能在每次提交中重新执行。
+已有 USB/TP 任务可以直接提交；通用 USB HID 应用适配器用自己的工作任务将原始 IRQ 数据转到任务解析，不要求 BSP 提供 input 专用调度。HID 描述符解析、设备识别在接入阶段完成，不能在每次提交中重新执行。
+
+## 模块边界
+
+- USB BSP 只上报原始 HID；通用 HID 适配器负责解码并提交 input，不包含 AirUI 头文件，也不初始化 GUI。
+- input 核心和 service 不依赖 HID、TP 或 AirUI。service 提供设备接入/移除观察接口，消费者自行建立、释放直接绑定；观察者不会参与每帧分发。
+- AirUI 的可选 service 接入模块在 AirUI 初始化时绑定已有键鼠设备，并跟随后续热插拔。原有 TP 绑定、触摸读取路径和 Lua API 保持不变。
+- TP 公共驱动只负责硬件和生命周期，通过可选 sink 接口交出数据；`luat_tp_input.c` 是独立的 TP→input 适配边界。Lua `tp.init()` 按编译配置装配它，独立 C 应用可不接 input 或使用自己的 sink。
+
+## 服务初始化
+
+service 初始化由各 BSP 按需负责，LuatOS 公共启动入口不调用。国芯 BSP 的
+`luat_main_ccm42xx.c` 在 `LUAT_USE_INPUT_SERVICE` 开启时，于 `luat_init()`
+开头、创建 Lua 任务之前初始化服务。服务使用 RTOS 系统堆，不依赖 Lua VM 堆。其他 BSP、独立 C 应用或 `sysp` 宿主若启用该
+服务，应在自己的启动入口完成初始化并检查结果。HID、TP、AirUI、Lua input 仅检查
+`luat_input_service_is_ready()`；未就绪时返回失败，不创建自己的 service。
+独立 C 应用在 RTOS 可用、启动生产者/消费者之前调用一次 init 并检查结果。
+
+init 成功后重复调用不会重置核心或已有设备。首次初始化使用原子状态保护：
+正在初始化时其他调用返回 `LUAT_INPUT_EBUSY`，不忙等；创建互斥锁失败可重试。
+只有核心和互斥锁都完成初始化后才发布 READY。此检查只发生在启动/接入阶段，
+不进入每帧处理路径，不增加任务或定时器。
 
 ## 数据与状态
 
@@ -139,20 +160,30 @@ luat_input_submit(handle, monotonic_ms, frame, 3);
 
 资源上限：描述符 1024 B、报告 512 B、8 个 Report ID、32 个 Input 字段组、128 个显式 Usage、8 个 ABS 轴、256 个事件/帧。未知应用集合不会产生事件，但其字段仍计入报告位偏移。标准布局外的键码映射可在 `key_code()` 扩展。
 
-国芯当前数据路径：
+通用 USB Host HID 数据路径（2026-09-10 起）：
 
 ```text
-USB IRQ → 每接口原始报告环 → 已有 USB app 任务
+USB IRQ → BSP 原始 HID 回调 → 主库每接口报告环 → 主库 HID 工作任务
        → hid_feed → input_submit → C 日志 / AirUI 缓存 / Lua 订阅队列
 ```
 
-IRQ 仅复制本次完整包、记录时间和通知，不解析描述符、不打印。每接口 32 个槽，最多待处理 31 份报告，槽大小按端点最大包长分配；该原始报告环与 Lua 订阅使用的 input 整帧队列独立。接入阶段一次分配会话、解析器与环形缓冲区，运行时不申请内存。当前底层每回调只有一个 Interrupt 包，所以声明报告大于端点最大包长时拒绝 input 适配；USB HID 接口保持激活，但该接口不产生 input 帧。
+`luat/include/luat_usb_hid.h` 定义与 input 无关的设备信息和 OPEN/CLOSE/REPORT/RX_ERROR 回调。BSP 负责 HID 枚举、报告描述符读取、传输和回调，不解析报告、不分配 input 会话、不绑定日志/AirUI，也不根据 `LUAT_USE_INPUT_HID` 决定是否转发报告。CCM 的 OPEN/CLOSE 使用通用 CLASS_OPEN/CLOSE 底层事件。
 
-2026-09-04 已回退电源控制改动：Host 电源恢复由 USB app 任务处理，枚举/物理断开仍由 control 任务处理。枚举期间主动断电的并发问题待处理，现有 host_app_lock 不覆盖完整枚举过程。input 注册、提交和注销按 `host_app_lock` → input service lock 的顺序加锁，后者也串行化 TP 和 Lua 的核心访问；IRQ 的环形缓冲区访问用短临界区协调，断开前停止接收、清除会话指针，再注销释放。任务事件携带实例 tag，拒绝拔插前遗留的通知。事件队列通知失败时由 app 任务重试，最长每 10 ms 检查一次，避免最后一次释放无人处理。
+`luat/weak/luat_usb_hid.c` 默认将回调交给 `components/input/luat_input_usb_hid.c`。启用 `LUAT_USE_INPUT_HID` 时，通用适配器负责缓存、调度、解析器生命周期和 service 设备注册；未启用时默认回调为空，应用仍可接收原始 HID。编译时需加入这两个源文件以及解析器、核心、日志组件；service/queue/AirUI 按原有宏可选。
 
-报告环溢出或传输错误时清除队列并发送 RESET，取消所有按键/接触；之后从新报告恢复，已丢失的运动不会补发。畸形报告也复位并限频记录错误。`luat_input_log.c` 提供可选 `luat_input_log_receive` 同步消费者，使用 LuatOS DEBUG 日志（tag 为 `input`），低于当前日志等级时直接返回。SDK 绑定该消费者，逐帧打印 `INPUT dev=... seq=... flags=... count=... events=type:code=value`，此日志适用于验证，性能测量时应关闭逐帧打印。国芯 ARM32 的 HID 上下文为 4712 B；8 B 端点另占 512 B 报告环与 32 B 会话信息，合计一次申请 5256 B（不含原始描述符及分配器开销）。ATTACH/REMOVE/RESET 使用帧标志，不伪造普通按键。
+应用在启用 USB Host 前调用 `luat_usb_hid_set_callback(callback)` 即可接管数据处理；传 NULL 恢复默认处理。必须在所有设备关闭且回调停止后才能更换处理函数，避免一个处理者释放另一个处理者的 userdata。支持按 VID/PID 选择性调用 `luat_input_usb_hid_callback`，被委托的设备必须转交完整的 OPEN、REPORT/RX_ERROR、CLOSE 生命周期。示例与上下文约束见 [README.usb-hid.md](README.usb-hid.md)。
 
-2026-09-04 移除 HID 专用日志消息、`SOC_USB_HOST_EVENT_HID_RX`、64 B 原始报告快照及其采样字段；输入日志统一由上述组件输出。USB 中断只投递 input 报告，不再额外投递日志消息。枚举、激活和错误诊断仍留在 USB 层。日志组件只需加入编译并绑定消费者，核心和解析器本身仍不依赖日志后端。
+IRQ 仅复制本次完整包、记录时间和通知，不解析、不打印。每接口默认 32 个槽（`LUAT_INPUT_USB_HID_DEPTH`），最多待处理 31 份报告，槽大小按端点最大包长分配；该环与 Lua 订阅的 input 整帧队列独立。接入阶段一次申请会话、解析器和环形缓冲区，报告路径不申请内存。底层每回调只有一个 Interrupt 包，声明报告超过端点最大包长时拒绝 input 适配，但 USB HID 保持激活。
+
+首次 OPEN 才创建一个共享的 4096 B 栈 HID 工作任务；所有接口共用它，无设备时无限等待，有设备时最长每 10 ms 检查一次，处理通知失败后的最后一次释放和单次预算耗尽后的剩余报告。通知只表达“有工作”，不携带会话地址或 SDK 实例 tag；断开后的旧通知不会解引用已释放会话。
+
+注册、提交、注销按通用适配器会话锁 → input service lock 的顺序串行化；没有 service 时会话锁保护私有 core。IRQ 与任务对报告环/会话指针的访问使用 LuatOS 短临界区。BSP 在 OPEN 返回后启动接收，在停止接收并结束在途回调后调用 CLOSE；主库在 CLOSE 中清除 userdata、移出任务处理链表，再注销释放。
+
+2026-09-04 已回退的 Host 电源控制修改保持原状：枚举期间主动断电的底层并发问题仍待处理，本次应用层迁移不修复该问题。
+
+报告环溢出或传输错误时清除队列并发送 RESET，取消所有按键/接触；之后从新报告恢复，已丢失的运动不会补发。畸形报告也复位并限频记录错误。`luat_input_log.c` 提供可选 `luat_input_log_receive` 同步消费者，使用 LuatOS DEBUG 日志（tag 为 `input`），低于当前日志等级时直接返回。通用 USB HID 应用适配器绑定该消费者，逐帧打印 `INPUT dev=... seq=... flags=... count=... events=type:code=value`，此日志适用于验证，性能测量时应关闭逐帧打印。每接口内存为对齐后的会话结构 + HID 解析器上下文 + `DEPTH × align4(8 + packet_size)`，另有共享工作任务和 RTOS 对象。ATTACH/REMOVE/RESET 使用帧标志，不伪造普通按键。
+
+2026-09-04 移除 HID 专用日志消息、`SOC_USB_HOST_EVENT_HID_RX`、64 B 原始报告快照及其采样字段；输入日志统一由上述组件输出。USB 中断只回调原始 HID 报告，不再额外投递日志消息。枚举、激活和错误诊断仍留在 USB 层。日志组件只需加入编译并绑定消费者，核心和解析器本身仍不依赖日志后端。
 
 ## 触摸适配
 
@@ -166,6 +197,7 @@ IRQ 仅复制本次完整包、记录时间和通知，不解析描述符、不�
 
 ```powershell
 python components/input/tests/run_tests.py
+python components/input/tests/run_usb_hid_tests.py
 python components/input/tests/run_tests.py --arm-cc 'E:\tools\arm-gnu-toolchain-14.3.rel1-mingw-w64-x86_64-arm-none-eabi\bin\arm-none-eabi-gcc.exe'
 ```
 
@@ -203,3 +235,26 @@ ARM GCC 14.3，Cortex-M4 Thumb，`-Os`，链接裁剪前的目标文件测量：
 - TP 适配在原始读取完成后提交，保留原有 API；TP 方向与镜像由公共适配层转换，LVGL 显示旋转由显示层处理。
 - 配置继承、输出 LED、按键布局、自动重复、事件合并均可作为独立能力增加。扩展时优先在接入/配置阶段预计算，保持 submit 路径短小。
 - 国芯固件已接入 HID、AirUI 与可选 Lua 订阅。Lua 订阅使用独立队列，不增加输入任务；细节见 [README.lua.md](README.lua.md)。
+
+## 2026-09-10 解耦验证
+
+HID 生产者不再绑定 AirUI；TP 公共层使用可选 sink；service 的设备观察接口
+只参与接入/移除，数据仍通过直接绑定传递。AirUI 原有 TP 绑定、读取和 Lua
+接口保持不变。服务初始化由各 BSP 按需负责，国芯在 `luat_init()` 创建 Lua
+任务之前调用，受 `LUAT_USE_INPUT_SERVICE` 控制。
+
+USB 原始回调/通用适配器、service 观察者生命周期、Lua input、TP 独立模式、
+TP→input→真实 LVGL 回归通过。启动回归覆盖未就绪拒绝、创建锁期间再次
+初始化、失败重试、完整发布及幂等调用。PC GUI 构建已执行，仍因已有 GmSSL
+的 29 个未解析符号而链接失败。
+
+实机完成鼠标→键盘→鼠标的无重启切换、触摸点击/拖动和滚轮验证；文本依次为
+abc→abcA→abc，Tab/Enter 触发按钮。采集结束累计 902 帧、2031 个事件，队列
+溢出为 0，未记录 state lost、malformed、Lua traceback 或 HardFault。
+日志位于 SDK `csdk/project/luatos/build/input-decouple-live.log`。
+这是一轮功能回归，不代表长期压力测试。
+
+最终 BSP 初始化位置调整后，目标固件编译、COM89 / 6000000 下载启动检查 PASS，
+AirUI、GT911、鼠标和 Lua input 均就绪。日志为 SDK 的
+`csdk/project/luatos/build/input-bsp-init-build.log` 和 `input-bsp-init-flash.log`。
+本地固件验证使用完整工作区，包含未纳入本次提交的 `usb_host_core.c` 手动修改。

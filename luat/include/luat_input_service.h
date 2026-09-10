@@ -1,7 +1,7 @@
 /** Platform-wide input directory. Task context only; never calls Lua.
  * Drivers hold service_lock around core register/feed/reset/unregister and
  * attach/detach. Lock order: transport lock -> service lock. Consumers never
- * acquire transport locks. All functions except init/lock/unlock require the
+ * acquire transport locks. All functions except init/is_ready/lock/unlock require the
  * service lock. No Lua allocation/callback is permitted while it is held.
  */
 #ifndef LUAT_INPUT_SERVICE_H
@@ -20,6 +20,7 @@
 #define LUAT_INPUT_SERVICE_SUBSCRIPTIONS 4U
 #endif
 #define LUAT_INPUT_SERVICE_ENOMEM (-8)
+#define LUAT_INPUT_SERVICE_ENOTREADY (-9)
 
 /* Owned flat snapshot, pointer-free and padded to an event-size boundary.
  * Data: capability key words, ABS axes, MT axes, then state words.
@@ -54,7 +55,33 @@ struct luat_input_subscription {
     void *userdata;
 };
 
+/** Application startup, after RTOS setup and before producers/consumers start.
+ * Each BSP opts in and calls before luat_main; standalone C apps do likewise.
+ * The common LuatOS startup does not initialize this service.
+ * Already ready: OK without reset. Concurrent init: EBUSY without waiting.
+ * Allocation failure leaves the service stopped and permits a later retry.
+ */
 int luat_input_service_init(void);
+/** Safe without service lock; readiness is permanent once init succeeds.
+ * All other service operations require successful initialization first.
+ */
+int luat_input_service_is_ready(void);
+/** Optional configuration-time observer. All callbacks run under service lock.
+ * Use attach/detach to bind/unbind direct input links owned by the consumer.
+ * No observer traversal occurs on the per-frame path. Storage must outlive the
+ * registration; zero-initialize before first use. Callbacks must not reenter
+ * observer or device lifecycle APIs.
+ */
+typedef struct luat_input_service_observer {
+    void (*attach)(void *userdata, luat_input_handle_t handle);
+    void (*detach)(void *userdata, luat_input_handle_t handle);
+    void *userdata;
+    struct luat_input_service_observer *next;
+    uint8_t active;
+} luat_input_service_observer_t;
+/** Service lock required. Adding visits existing devices; removing detaches all. */
+int luat_input_service_observe(luat_input_service_observer_t *observer);
+void luat_input_service_unobserve(luat_input_service_observer_t *observer);
 void luat_input_service_lock(void);
 void luat_input_service_unlock(void);
 luat_input_core_t *luat_input_service_core(void);

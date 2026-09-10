@@ -7,18 +7,58 @@
 
 static luat_input_core_t core;
 static luat_rtos_mutex_t mutex;
+enum { SERVICE_STOPPED, SERVICE_STARTING, SERVICE_READY };
+static unsigned init_state;
 static luat_input_handle_t devices[LUAT_INPUT_SERVICE_DEVICES];
 static luat_input_subscription_t *subscriptions[LUAT_INPUT_SERVICE_SUBSCRIPTIONS];
+static luat_input_service_observer_t *observers;
+
+int luat_input_service_observe(luat_input_service_observer_t *o)
+{
+    if (!o || !o->attach || !o->detach) return LUAT_INPUT_EINVAL;
+    if (o->active) return LUAT_INPUT_EBUSY;
+    o->next = observers;
+    observers = o;
+    o->active = 1;
+    for (unsigned i = 0; i < LUAT_INPUT_SERVICE_DEVICES; i++)
+        if (devices[i].id) o->attach(o->userdata, devices[i]);
+    return 0;
+}
+
+void luat_input_service_unobserve(luat_input_service_observer_t *o)
+{
+    if (!o || !o->active) return;
+    luat_input_service_observer_t **p = &observers;
+    while (*p && *p != o) p = &(*p)->next;
+    if (!*p) return;
+    *p = o->next;
+    for (unsigned i = 0; i < LUAT_INPUT_SERVICE_DEVICES; i++)
+        if (devices[i].id) o->detach(o->userdata, devices[i]);
+    o->active = 0;
+    o->next = NULL;
+}
 
 int luat_input_service_init(void)
 {
-    /* Startup only: BSP initializes this before input producers/Lua start. */
-    if (mutex)
-        return LUAT_INPUT_OK;
-    if (luat_rtos_mutex_create(&mutex))
+    /* The application startup owns init; never wait for a preempted initializer. */
+    unsigned expected = SERVICE_STOPPED;
+    if (!__atomic_compare_exchange_n(&init_state, &expected, SERVICE_STARTING, 0,
+                                     __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))
+        return expected == SERVICE_READY ? LUAT_INPUT_OK : LUAT_INPUT_EBUSY;
+    luat_rtos_mutex_t created = NULL;
+    if (luat_rtos_mutex_create(&created)) {
+        __atomic_store_n(&init_state, SERVICE_STOPPED, __ATOMIC_RELEASE);
         return LUAT_INPUT_SERVICE_ENOMEM;
+    }
     luat_input_init(&core);
+    mutex = created;
+    /* Publish only after both the core and mutex are usable. */
+    __atomic_store_n(&init_state, SERVICE_READY, __ATOMIC_RELEASE);
     return LUAT_INPUT_OK;
+}
+int luat_input_service_is_ready(void)
+{
+    return __atomic_load_n(&init_state, __ATOMIC_ACQUIRE) == SERVICE_READY;
 }
 void luat_input_service_lock(void) { luat_rtos_mutex_lock(mutex, UINT32_MAX); }
 void luat_input_service_unlock(void) { luat_rtos_mutex_unlock(mutex); }
@@ -176,6 +216,8 @@ int luat_input_service_attach(luat_input_handle_t h)
     if (slot == LUAT_INPUT_SERVICE_DEVICES)
         return LUAT_INPUT_ENOSPC;
     devices[slot] = h;
+    for (luat_input_service_observer_t *o = observers; o; o = o->next)
+        o->attach(o->userdata, h);
     for (unsigned i = 0; i < LUAT_INPUT_SERVICE_SUBSCRIPTIONS; i++)
     {
         luat_input_subscription_t *s = subscriptions[i];
@@ -195,6 +237,8 @@ void luat_input_service_detach(luat_input_handle_t h)
     {
         if (devices[i].id != h.id)
             continue;
+        for (luat_input_service_observer_t *o = observers; o; o = o->next)
+            o->detach(o->userdata, h);
         for (unsigned j = 0; j < LUAT_INPUT_SERVICE_SUBSCRIPTIONS; j++)
         {
             luat_input_subscription_t *s = subscriptions[j];

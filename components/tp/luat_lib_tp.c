@@ -10,6 +10,9 @@
 
 #include "luat_base.h"
 #include "luat_tp.h"
+#ifdef LUAT_USE_INPUT_TOUCH
+#include "luat_tp_input.h"
+#endif
 #include "luat_msgbus.h"
 #include "luat_mem.h"
 #include "luat_gpio.h"
@@ -249,6 +252,9 @@ static int l_tp_init(lua_State* L){
     }
     lua_pop(L, 1);
 
+#ifdef LUAT_USE_INPUT_TOUCH
+    if (luat_tp_input_setup(luat_tp_config)) return 0;
+#endif
     ret = luat_tp_init(luat_tp_config);
     if (ret){
         // luat_tp_deinit(luat_tp_config);

@@ -11,17 +11,21 @@ typedef struct {
     luat_input_touch_point_t active[LUAT_TP_TOUCH_MAX];
     uint32_t next_tracking;
     uint16_t slots;
-    uint8_t suspended, previous_valid;
+    uint8_t previous_valid;
 } tp_input_t;
+
+static const luat_tp_sink_ops_t input_sink;
 
 uint32_t luat_tp_input_id(const luat_tp_config_t *cfg)
 {
-    return cfg ? __atomic_load_n(&cfg->input_id, __ATOMIC_ACQUIRE) : 0;
+    return cfg && cfg->sink_ops == &input_sink ?
+        __atomic_load_n(&cfg->sink_id, __ATOMIC_ACQUIRE) : 0;
 }
 
 int luat_tp_input_init(luat_tp_config_t *cfg)
 {
-    if (cfg->input_context) return LUAT_INPUT_EBUSY;
+    if (cfg->sink_context) return LUAT_INPUT_EBUSY;
+    if (!luat_input_service_is_ready()) return LUAT_INPUT_SERVICE_ENOTREADY;
     unsigned slots = cfg->tp_num ? cfg->tp_num : LUAT_TP_TOUCH_MAX;
     if (slots > LUAT_TP_TOUCH_MAX || cfg->w <= 0 || cfg->h <= 0) return LUAT_INPUT_EINVAL;
     size_t bytes = luat_input_touch_size(slots);
@@ -42,8 +46,8 @@ int luat_tp_input_init(luat_tp_config_t *cfg)
         ret = luat_input_service_attach(handle);
         if (ret) luat_input_touch_deinit(ctx->touch, luat_mcu_ticks());
         else {
-            cfg->input_context = ctx;
-            __atomic_store_n(&cfg->input_id, handle.id, __ATOMIC_RELEASE);
+            cfg->sink_context = ctx;
+            __atomic_store_n(&cfg->sink_id, handle.id, __ATOMIC_RELEASE);
         }
     }
     luat_input_service_unlock();
@@ -53,7 +57,7 @@ int luat_tp_input_init(luat_tp_config_t *cfg)
 
 void luat_tp_input_reset(luat_tp_config_t *cfg)
 {
-    tp_input_t *ctx = cfg->input_context;
+    tp_input_t *ctx = cfg->sink_context;
     if (!ctx) return;
     luat_input_service_lock();
     luat_input_touch_reset(ctx->touch, luat_mcu_ticks());
@@ -67,35 +71,29 @@ void luat_tp_input_reset(luat_tp_config_t *cfg)
 
 void luat_tp_input_deinit(luat_tp_config_t *cfg)
 {
-    tp_input_t *ctx = cfg->input_context;
+    tp_input_t *ctx = cfg->sink_context;
     if (!ctx) return;
     luat_input_service_lock();
-    __atomic_store_n(&cfg->input_id, 0, __ATOMIC_RELEASE);
+    __atomic_store_n(&cfg->sink_id, 0, __ATOMIC_RELEASE);
     luat_input_service_detach(luat_input_touch_handle(ctx->touch));
     luat_input_touch_deinit(ctx->touch, luat_mcu_ticks());
     luat_input_service_unlock();
-    cfg->input_context = NULL;
+    cfg->sink_context = NULL;
     luat_heap_free(ctx);
-}
-
-int luat_tp_input_running(luat_tp_config_t *cfg)
-{
-    tp_input_t *ctx = cfg->input_context;
-    return ctx && !ctx->suspended;
 }
 
 void luat_tp_input_suspend(luat_tp_config_t *cfg, int suspended)
 {
-    tp_input_t *ctx = cfg->input_context;
+    tp_input_t *ctx = cfg->sink_context;
     if (!ctx) return;
     luat_tp_input_reset(cfg);
-    ctx->suspended = !!suspended;
+    (void)suspended; /* The TP driver owns running/suspended state. */
 }
 
 int luat_tp_input_feed(luat_tp_config_t *cfg, luat_tp_data_t *normalized)
 {
-    tp_input_t *ctx = cfg->input_context;
-    if (!ctx || ctx->suspended) return LUAT_INPUT_ESTALE;
+    tp_input_t *ctx = cfg->sink_context;
+    if (!ctx) return LUAT_INPUT_ESTALE;
     if (ctx->previous_valid && !memcmp(ctx->previous, cfg->tp_data, sizeof(ctx->previous))) return 0;
     luat_input_touch_point_t updates[LUAT_TP_TOUCH_MAX];
     luat_input_touch_point_t next[LUAT_TP_TOUCH_MAX];
@@ -143,5 +141,17 @@ int luat_tp_input_feed(luat_tp_config_t *cfg, luat_tp_data_t *normalized)
     ctx->previous_valid = 1;
     ctx->next_tracking = tracking;
     return count;
+}
+
+static const luat_tp_sink_ops_t input_sink = {
+    .open = luat_tp_input_init, .close = luat_tp_input_deinit,
+    .process = luat_tp_input_feed, .reset = luat_tp_input_reset,
+    .suspend = luat_tp_input_suspend
+};
+int luat_tp_input_setup(luat_tp_config_t *cfg)
+{
+    if (!cfg || cfg->initialized || cfg->sink_context) return LUAT_INPUT_EBUSY;
+    cfg->sink_ops = &input_sink;
+    return 0;
 }
 #endif

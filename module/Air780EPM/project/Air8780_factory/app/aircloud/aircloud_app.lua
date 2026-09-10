@@ -1,20 +1,39 @@
 --[[
 @module  aircloud_app
-@summary AirCloud 云平台应用模块（精简版，无UI）
-@version 1.0
-@date    2026.09.09
+@summary AirCloud 云平台应用模块
+@version 1.1.0
+@date    2026.09.10
 @author  江访
 @usage
-精简自 turnkey_devboard aircloud_app，修改点：
-1. SIM_ICCID 字段改用 hmeta.devid() 返回值替代 IMEI/MAC
-2. 新增 CPU 温度字段上报
-3. 新增 LBS 经纬度字段上报
+AirCloud excloud 协议通信模块，负责设备与云端的数据交互。
 
-本文件为核心业务逻辑模块，主要功能：
-- 初始化excloud配置并开启服务
-- 注册回调函数处理云平台事件
-- 主任务循环等待网络就绪，定期上报传感器数据 + CPU温度 + LBS经纬度
+核心功能：
+- 初始化excloud配置并开启TCP连接
+- 注册回调函数处理云平台事件（连接、认证、消息、断开）
+- 主任务循环等待网络就绪，定期上报传感器数据
 - 处理服务器下发的控制命令并回复
+
+上报数据字段：
+- SIGNAL_STRENGTH_4G: 4G信号强度（CSQ）
+- SIM_ICCID: 设备ID（hmeta.devid()）
+- TIMESTAMP: 时间戳（os.time()）
+- TEMPERATURE: 温度（SHT30传感器）
+- HUMIDITY: 湿度（SHT30传感器）
+- PARTICULATE: VOC空气质量（AGS02MA传感器）
+- ENV_TEMPERATURE: CPU温度（ADC读取）
+- GNSS_LATITUDE: 纬度（LBS基站定位）
+- GNSS_LONGITUDE: 经度（LBS基站定位）
+
+下行命令（tag 1281）：
+- "cycle:秒数" → 设置上报频率（最小5秒）
+- "led:blink" → LED闪烁5秒
+- "led:on" → LED常亮
+- "led:off" → LED熄灭
+
+数据流向：
+- sensor_app → sys.publish("read_sht30_voc_rsp") → 本模块上报云端
+- 云端 → 本模块 → sys.publish("set_report_cycle") → sensor_app
+- 云端 → 本模块 → sys.publish("led_blink_request") → led_app
 ]]
 -- 导入excloud库
 local excloud = require "excloud"
@@ -63,7 +82,7 @@ function on_excloud_event(event, data)
                     log.info("发送控制响应失败: " .. err_msg)
                 end
             elseif tlv.field == 1281 then
-                -- 自定义下行命令（tag 1281），格式: "cycle:秒数"
+                -- 自定义下行命令（tag 1281），格式: "cycle:秒数" 或 "led:blink/on/off"
                 local cmd = tostring(tlv.value or "")
                 local cycle_val = cmd:match("^cycle:(%d+)$")
                 if cycle_val then
@@ -75,7 +94,24 @@ function on_excloud_event(event, data)
                         log.warn("aircloud", "无效的上报频率值: " .. cycle_val)
                     end
                 else
-                    log.info("aircloud", "收到自定义下行: " .. cmd)
+                    -- LED控制命令
+                    local led_cmd = cmd:match("^led:(%w+)$")
+                    if led_cmd then
+                        if led_cmd == "blink" then
+                            sys.publish("led_blink_request")
+                            log.info("aircloud", "下发LED闪烁命令")
+                        elseif led_cmd == "on" then
+                            sys.publish("led_set_request", 1)
+                            log.info("aircloud", "下发LED常亮命令")
+                        elseif led_cmd == "off" then
+                            sys.publish("led_set_request", 0)
+                            log.info("aircloud", "下发LED熄灭命令")
+                        else
+                            log.warn("aircloud", "未知的LED命令: " .. led_cmd)
+                        end
+                    else
+                        log.info("aircloud", "收到自定义下行: " .. cmd)
+                    end
                 end
             end
         end

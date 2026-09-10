@@ -1,16 +1,30 @@
 --[[
 @module  sensor_app
-@summary 传感器应用主模块（精简版，无UI）
-@version 1.1
-@date    2026.09.09
+@summary 传感器应用主模块
+@version 1.2.0
+@date    2026.09.10
 @author  江访
 @usage
-精简自 turnkey_devboard sensor_app，去除 ui_sensor_data 事件发布。
+传感器数据采集模块，负责定时读取SHT30和VOC传感器数据。
+
 核心业务逻辑：
 1、加载温湿度传感器驱动（AirSHT30_1000）和VOC传感器驱动（AirVOC_1000）；
-2、启动传感器读取任务，默认每15秒读取一次数据（可通过云端远程修改）；
+2、启动传感器读取任务，默认每180秒读取一次数据（可通过云端远程修改）；
 3、5秒采集窗口内尽可能读取传感器，有多少数据上报多少。
 4、上报频率保存到 fskv，断电不丢失。
+
+硬件接口：
+- SHT30: I2C总线，地址0x44，提供温度和湿度数据
+- VOC(AGS02MA): I2C总线，地址0x1A，提供TVOC空气质量数据
+
+数据流向：
+- 定时器 → sys.publish("read_sensors_req") → sensor_task读取传感器
+- sensor_task → sys.publish("read_sht30_voc_rsp", temp, hum, voc) → aircloud_app上报
+
+配置参数：
+- DEFAULT_CYCLE: 默认上报频率（180秒）
+- MIN_CYCLE: 最小上报频率（5秒）
+- COLLECT_TIMEOUT: 采集窗口超时（5000毫秒）
 ]]
 
 -- 加载传感器驱动
@@ -25,7 +39,7 @@ end
 -- ---- 上报频率配置 ----
 fskv.init()  -- 初始化 fskv，必须在任何 fskv.get/set 之前调用
 local REPORT_CYCLE_KEY = "report_cycle"  -- fskv 存储 key
-local DEFAULT_CYCLE = 15                 -- 默认上报频率（秒）
+local DEFAULT_CYCLE = 180                -- 默认上报频率（秒）
 local MIN_CYCLE = 5                      -- 最小上报频率（秒）
 
 -- 从 fskv 读取上报频率，不存在则用默认值

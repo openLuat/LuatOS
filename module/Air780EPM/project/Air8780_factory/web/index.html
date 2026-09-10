@@ -1627,7 +1627,7 @@
                         <div class="card-title" data-page-node-id="RGBfG4lUE9d51l9F3u5vTG">设备控制 <span id="controlStatusLabel" class="status-led offline" style="font-size:11px;" data-page-node-id="SaSqnXDGmepkJrtdwuKnS0">未选中</span></div>
                         <div class="control-group" data-page-node-id="XyduKw6rq1Kt5ujE4ydQHt">
                             <label data-page-node-id="2yi3cHD9PLNT3iB2jkZLTt">上报频率</label>
-                            <input type="number" id="reportCycle" value="15" min="5" step="5" disabled data-page-node-id="ou5xn1jkbRiAOIsPiTXDrA" />
+                            <input type="number" id="reportCycle" value="180" min="5" step="5" disabled data-page-node-id="ou5xn1jkbRiAOIsPiTXDrA" />
                             <span style="font-size:12px;color:var(--muted);" data-page-node-id="iZjUrckItc8iVrFqLiHjLa">秒</span>
                             <button class="btn btn-sm" id="setCycleBtn" disabled data-page-node-id="DwwQ2Ab4HwzvGu5bVBuvx0">设置</button>
                         </div>
@@ -1635,6 +1635,12 @@
                             <label data-page-node-id="DC85oNedVShHBqRYFyefav">TTS</label>
                             <input type="text" id="ttsText" placeholder="播报文字" disabled data-page-node-id="GhFRqvfFOXZq2VB1XnE6DM" />
                             <button class="btn btn-sm" id="sendTtsBtn" disabled data-page-node-id="iCnBdBO0brAhl7gShcqqNe">发送</button>
+                        </div>
+                        <div class="control-group" data-page-node-id="LedCtrlGroup">
+                            <label data-page-node-id="LedLabel">LED控制</label>
+                            <button class="btn btn-sm" id="ledBlinkBtn" disabled data-page-node-id="LedBlinkBtn">闪烁5秒</button>
+                            <button class="btn btn-sm" id="ledOnBtn" disabled data-page-node-id="LedOnBtn">常亮</button>
+                            <button class="btn btn-sm" id="ledOffBtn" disabled data-page-node-id="LedOffBtn">熄灭</button>
                         </div>
                         <div id="controlStatus" class="notice hidden" data-page-node-id="BASHyYt3H2vvCXJGR8Z8Kd"></div>
                     </div>
@@ -1884,6 +1890,9 @@
                 sendTtsBtn = $('sendTtsBtn'),
                 controlStatus = $('controlStatus'),
                 controlStatusLabel = $('controlStatusLabel');
+            const ledBlinkBtn = $('ledBlinkBtn'),
+                ledOnBtn = $('ledOnBtn'),
+                ledOffBtn = $('ledOffBtn');
             const devName = $('devName'),
                 devId = $('devId'),
                 devLastTime = $('devLastTime'),
@@ -1995,6 +2004,9 @@
                     sendTtsBtn.disabled = true;
                     reportCycle.disabled = true;
                     ttsText.disabled = true;
+                    ledBlinkBtn.disabled = true;
+                    ledOnBtn.disabled = true;
+                    ledOffBtn.disabled = true;
                     refreshBtn.disabled = true;
                     controlStatusLabel.className = 'status-led offline';
                     controlStatusLabel.textContent = '未登录';
@@ -2051,6 +2063,9 @@
                     sendTtsBtn.disabled = true;
                     reportCycle.disabled = true;
                     ttsText.disabled = true;
+                    ledBlinkBtn.disabled = true;
+                    ledOnBtn.disabled = true;
+                    ledOffBtn.disabled = true;
                     refreshBtn.disabled = true;
                     controlStatusLabel.className = 'status-led offline';
                     controlStatusLabel.textContent = '未选中设备';
@@ -2134,6 +2149,9 @@
                 sendTtsBtn.disabled = false;
                 reportCycle.disabled = false;
                 ttsText.disabled = false;
+                ledBlinkBtn.disabled = false;
+                ledOnBtn.disabled = false;
+                ledOffBtn.disabled = false;
                 refreshBtn.disabled = false;
                 try {
                     // 1. 先获取最新数据（保证传感器数据先显示）
@@ -2174,6 +2192,9 @@
                         sendTtsBtn.disabled = true;
                         reportCycle.disabled = true;
                         ttsText.disabled = true;
+                        ledBlinkBtn.disabled = true;
+                        ledOnBtn.disabled = true;
+                        ledOffBtn.disabled = true;
                         refreshBtn.disabled = true;
                     } else { toast('查询失败：' + e.message, 'error'); }
                 }
@@ -2799,6 +2820,27 @@
                     setReportCycle(S.currentDeviceId, sec);
                 });
                 sendTtsBtn.addEventListener('click', () => { sendTts(S.currentDeviceId, ttsText.value); });
+
+                // ---- LED控制 ----
+                async function controlLed(imei, command) {
+                    if (!imei) { toast('请先选择设备', 'error'); return; }
+                    if (!S.loggedIn) { toast('请先登录', 'error'); return; }
+                    showNotice(controlStatus, '正在发送LED指令...', 'info');
+                    try {
+                        await api('/aircloud/send_cmd', {
+                            client_id: imei,
+                            tag: 1281,
+                            value: 'led:' + command,
+                            protocol: 0
+                        });
+                        showNotice(controlStatus, 'LED指令已发送: ' + command, 'success');
+                        setTimeout(() => hideNotice(controlStatus), 3000);
+                    } catch (e) { showNotice(controlStatus, '发送失败：' + e.message, 'error'); }
+                }
+
+                ledBlinkBtn.addEventListener('click', () => controlLed(S.currentDeviceId, 'blink'));
+                ledOnBtn.addEventListener('click', () => controlLed(S.currentDeviceId, 'on'));
+                ledOffBtn.addEventListener('click', () => controlLed(S.currentDeviceId, 'off'));
                 refreshBtn.addEventListener('click', () => { if (S.currentDeviceId) refreshDevice(S.currentDeviceId, refreshBtn); });
                 loadMoreBtn.addEventListener('click', () => {
                     if (S.currentDeviceId) loadHistory(S.currentDeviceId, S.historyPage + 1);

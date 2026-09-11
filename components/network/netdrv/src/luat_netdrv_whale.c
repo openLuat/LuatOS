@@ -110,6 +110,10 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
     netif_set_up(netdrv->netif);
     net_lwip2_set_netif(netdrv->id, netdrv->netif);
     net_lwip2_register_adapter(netdrv->id);
+    // IPv6: 依据 luat_netif_init 里设置好的 hwaddr 生成链路本地地址(EUI-64).
+    // 必须在地址注册之后调用, 否则 ND6/RS 无链路本地地址可用, SLAAC 无法启动.
+    // 该函数幂等, 重复 boot 也安全.
+    net_lwip2_ipv6_create_linklocal(netdrv->id);
     // LLOGD("luat_netdrv_whale_boot 执行完成");
     drv->boot = NULL; // 不允许二次boot
 }
@@ -135,6 +139,9 @@ static err_t luat_netif_init(struct netif *netif) {
     if (netif->flags & NETIF_FLAG_ETHARP) {
         netif->hwaddr_len = 6;
         memcpy(netif->hwaddr, cfg->mac, 6);
+        if (memcmp(cfg->mac, "\x00\x00\x00\x00\x00\x00", 6) == 0) {
+            LLOGW("whale网卡 %d 未配置MAC, IPv6链路本地地址不可用(netdrv.setup 可用 mac 参数指定)", drv->id);
+        }
     }
 
     netif->linkoutput = netif_output;
@@ -184,8 +191,14 @@ luat_netdrv_t*  luat_netdrv_whale_setup(luat_netdrv_conf_t* conf) {
     cfg.id = conf->id;
     cfg.flags = conf->flags;
     cfg.mtu = conf->mtu;
+    // MAC 用于以太网头部与 IPv6 链路本地地址(EUI-64), 由 netdrv.setup 的 mac 参数传入
+    memcpy(cfg.mac, conf->mac, 6);
+    // 是否显式请求以太网模式: 传了 flags 或传了(非全0的) mac 都算.
+    // 未显式请求时保持历史行为(裸 IP 帧), 避免影响既有 airlink 部署.
+    int explicit_eth = (conf->flags != 0) || (memcmp(conf->mac, "\x00\x00\x00\x00\x00\x00", 6) != 0);
     if (cfg.flags == 0) {
         if (cfg.id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || cfg.id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
+            // WIFI_STA/AP 一直是按以太网设备处理的(airlink WiFi 依赖这个), 保持不变
             cfg.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP;
             #if LWIP_IGMP
             cfg.flags |= NETIF_FLAG_IGMP;
@@ -196,6 +209,24 @@ luat_netdrv_t*  luat_netdrv_whale_setup(luat_netdrv_conf_t* conf) {
             if (cfg.mtu == 0) {
                 cfg.mtu = 1460;
             }
+        }
+        else if (explicit_eth) {
+            // 显式指定 mac(或 flags)的虚拟网卡: 按以太网设备配置.
+            //   - NETIF_FLAG_ETHARP: 决定走 ethernet_input, 以及 airlink 的 IPv4/IPv6 放行判断
+            //   - NETIF_FLAG_MLD6:   IPv6 组播(ND/MLD)必需, 否则链路本地地址无法完成 DAD
+            cfg.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP;
+            #if LWIP_IPV6
+            cfg.flags |= NETIF_FLAG_MLD6;
+            #endif
+            if (cfg.mtu == 0) {
+                cfg.mtu = 1460;
+            }
+        }
+    }
+    else {
+        // 用户显式给了 flags: 原样使用(需要以太网/IPv6 时请自行带上 ETHARP/MLD6)
+        if (cfg.mtu == 0) {
+            cfg.mtu = 1460;
         }
     }
 

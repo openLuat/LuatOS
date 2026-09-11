@@ -199,6 +199,15 @@ static int32_t signed_bits(uint32_t value, unsigned bits)
     return result;
 }
 
+/* Keep a lone range compact; expand only mixed local declarations, in order. */
+static int append_usage_range(uint32_t *local, unsigned *count, uint32_t minimum, uint32_t maximum)
+{
+    uint32_t length = maximum - minimum + 1U;
+    if (length > HID_LOCAL_USAGES - *count) return LUAT_INPUT_ENOSPC;
+    for (uint32_t i = 0; i < length; i++) local[(*count)++] = minimum + i;
+    return 0;
+}
+
 static int parse(luat_input_hid_t *h, const uint8_t *data, size_t length)
 {
     hid_global_t g = {0}, stack[HID_DEPTH];
@@ -231,18 +240,31 @@ static int parse(luat_input_hid_t *h, const uint8_t *data, size_t length)
             }
         } else if (type == 2) {
             uint32_t usage = n == 4 ? value : (g.page << 16) | value;
-            if (tag == 0) {
-                if (!n || locals == HID_LOCAL_USAGES || have_min) return LUAT_INPUT_ENOTSUP;
-                local[locals++] = usage;
-            } else if (tag == 1) {
-                if (!n || locals || have_min) return LUAT_INPUT_ENOTSUP;
-                usage_min = usage; have_min = 1;
+            if (tag == 0 || tag == 1) {
+                if (!n || (have_min && !have_max)) return LUAT_INPUT_EINVAL;
+                if (have_max) {
+                    int ret = append_usage_range(local, &locals, usage_min, usage_max);
+                    if (ret) return ret;
+                    have_min = have_max = 0;
+                }
+                if (tag == 0) {
+                    if (locals == HID_LOCAL_USAGES) return LUAT_INPUT_ENOSPC;
+                    local[locals++] = usage;
+                } else {
+                    usage_min = usage; have_min = 1;
+                }
             } else if (tag == 2) {
                 if (!n || !have_min || have_max || usage < usage_min ||
                     (usage >> 16) != (usage_min >> 16)) return LUAT_INPUT_EINVAL;
                 usage_max = usage; have_max = 1;
+                if (locals) {
+                    int ret = append_usage_range(local, &locals, usage_min, usage_max);
+                    if (ret) return ret;
+                    have_min = have_max = 0;
+                }
             } else if (tag == 10) return LUAT_INPUT_ENOTSUP; /* Delimiter sets. */
         } else if (type == 0) {
+            if (have_min != have_max) return LUAT_INPUT_EINVAL;
             if (tag == 10) {
                 if (!n || depth == HID_DEPTH) return LUAT_INPUT_ENOSPC;
                 apps[depth++] = app;

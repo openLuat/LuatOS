@@ -158,6 +158,8 @@ luat_input_submit(handle, monotonic_ms, frame, 3);
 
 多接触 HID（Contact ID / Contact Count）当前明确拒绝，不能把多个触点误报成一个；input 核心本身已有 MT 能力，后续可增加专用 HID MT 适配。特殊编码、超出资源上限的描述符也返回错误，不猜测布局。键盘 LED/Feature/Output 传输尚未接入。
 
+Usage 列表支持单个 Usage 与 Usage Minimum/Maximum 混用，按声明顺序映射；混合列表最多展开为 32 项。纯连续范围仍采用紧凑表示，不增加每个设备的上下文或报告处理开销。`tests/hid_test.c` 包含键鼠接收器 `24ae:2015` 鼠标接口的实际 186 B 描述符，以及顺序、末项复用和非法范围的回归用例。
+
 资源上限：描述符 1024 B、报告 512 B、8 个 Report ID、32 个 Input 字段组、128 个显式 Usage、8 个 ABS 轴、256 个事件/帧。未知应用集合不会产生事件，但其字段仍计入报告位偏移。标准布局外的键码映射可在 `key_code()` 扩展。
 
 通用 USB Host HID 数据路径（2026-09-10 起）：
@@ -258,3 +260,21 @@ abc→abcA→abc，Tab/Enter 触发按钮。采集结束累计 902 帧、2031 �
 AirUI、GT911、鼠标和 Lua input 均就绪。日志为 SDK 的
 `csdk/project/luatos/build/input-bsp-init-build.log` 和 `input-bsp-init-flash.log`。
 本地固件验证使用完整工作区，包含未纳入本次提交的 `usb_host_core.c` 手动修改。
+
+## 2026-09-10 复合键鼠接收器兼容
+
+`24ae:2015` 的接口 0 为键盘，接口 1 同时包含鼠标、Consumer Control、
+System Control 和厂商报告。旧解析器在 System Control 的单个 Usage 与
+Usage 范围混用处返回 ENOTSUP，导致整个鼠标接口无法注册 input。
+现在按顺序合并局部 Usage 声明，保留纯范围的紧凑存储及固定容量检查。
+数据回调、BSP 和 AirUI 无需针对该型号添加分支。
+
+实际描述符及混合声明顺序/容量/非法范围回归通过；核心、HID、触摸、
+功能关闭构建与 10000 次描述符变异测试通过。国芯固件编译及 COM89
+下载启动检查 PASS；已同时注册两个 HID 接口并收到键盘和鼠标移动事件。
+启动日志为 SDK `csdk/project/luatos/build/hid-combo-fix-flash.log`，
+实机已确认键鼠共用接收器时移动、点击、滚轮与键盘 abc 输入正常，
+拔插后两个接口均重新接入并恢复操作，滚轮没有增加按钮点击次数。
+累计 2469 帧、4183 个事件，Lua 队列溢出为 0；未记录解析失败、state lost
+或 Lua traceback。日志为 SDK `csdk/project/luatos/build/hid-combo-fix-live.log`。
+临时描述符打印已移除。这是一轮功能回归，不代表长期压力测试。

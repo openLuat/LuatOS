@@ -7,6 +7,28 @@
 #include "lwip/tcpip.h"
 #include "luat_netdrv_drv.h"
 #include "luat_netdrv_dhcp_client.h"
+/*
+ * IPv6 相关能力由 lwip2 适配层实现(components/network/adapter_lwip2/net_lwip2.c),
+ * 但部分固件/模拟器构建里并没有链接该适配层(例如 SDK 自带 lwip 的机型走
+ * lwip_with_sdk/net_lwip.c), 为避免出现未解析符号, 这里对这两个入口做弱符号兜底:
+ *   - 链接到适配层时使用真实实现
+ *   - 否则退化为"无 IPv6"(is_ready 恒 0, create_linklocal 恒失败)
+ */
+#if defined(_MSC_VER)
+#pragma comment(linker, "/alternatename:net_lwip2_ipv6_is_ready=luat_netdrv_ipv6_is_ready_stub")
+#pragma comment(linker, "/alternatename:net_lwip2_ipv6_create_linklocal=luat_netdrv_ipv6_create_linklocal_stub")
+#else
+__attribute__((weak)) int net_lwip2_ipv6_is_ready(uint8_t adapter_index);
+__attribute__((weak)) int net_lwip2_ipv6_create_linklocal(uint8_t adapter_index);
+#endif
+
+static int luat_netdrv_ipv6_is_ready_stub(uint8_t adapter_index) {
+    return 0;
+}
+
+static int luat_netdrv_ipv6_create_linklocal_stub(uint8_t adapter_index) {
+    return -1;
+}
 
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
@@ -383,7 +405,11 @@ int luat_netdrv_is_ready(int id) {
 
     ret = netif_is_link_up(netdrv->netif);
     ret &= netif_is_up(netdrv->netif);
-    ret &= !ip_addr_isany(&netdrv->netif->ip_addr);
+    // IPv4 非 0, 或者存在有效的 IPv6 地址, 都算就绪
+    if (ip_addr_isany(&netdrv->netif->ip_addr)
+        && !net_lwip2_ipv6_is_ready(id)) {
+        ret = 0;
+    }
     // 对于移动网络，还要检查注册状态
     #ifdef LUAT_USE_MOBILE
     if (NW_ADAPTER_INDEX_LWIP_GPRS == id && !luat_mobile_is_ip_ready()) {

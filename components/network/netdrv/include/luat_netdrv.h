@@ -118,7 +118,8 @@ typedef struct luat_netdrv_conf
     uint8_t irqpin;
     uint16_t mtu;
     uint8_t flags;
-    
+    uint8_t mac[6];         // 虚拟网卡的初始MAC, 由 netdrv.setup(id, tp, {mac=...}) 传入; 全0表示不指定
+
     luat_netdrv_ip_conf_t *ip_conf;
     luat_netdrv_wg_conf_t *wg_conf;
     luat_netdrv_openvpn_conf_t *ovpn_conf;
@@ -154,6 +155,7 @@ typedef struct luat_netdrv {
     luat_netdrv_ctrl_cb ctrl;
     uint8_t gw_mac[6];
     luat_netdrv_debug_cb debug;
+    char ipv6_gw[46];               // 用户设置的IPv6网关, 仅用于回显(最长45字符+结束符)
 }luat_netdrv_t;
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf);

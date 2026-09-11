@@ -71,7 +71,7 @@ reset/remove 取消 LVGL 当前交互并清理缓存。启用 input touch 后该
 
 ## 板端示例
 
-`olddemo/demo/usb/tp_drv.lua` 使用 AirCAMERA_1032 参考接线：GT911、I²C1、
+`olddemo/demo/usb_hid/tp_drv.lua` 使用 AirCAMERA_1032 参考接线：GT911、I²C1、
 INT51、RST2、1024×600、5 点。GPIO2 同时被当前 LCD 示例作为背光控制，
 TP 初始化后恢复高电平。脚本不注册旧 TP 回调。
 

@@ -136,7 +136,7 @@ IRQ 仍先通过驱动已有机制转任务，不在 IRQ 调用 service。普通
   回调查询/关闭、GC、回调错误隔离、消息投递失败重试、批量处理与积压继续唤醒。
   Lua 分配器额外断言服务锁未被持有，退出时检查 C 堆资源全部释放。
 - 国芯 `xmake build luatos` 已通过，新增文件通过宿主 `-Wall -Wextra -Werror`。
-- 板端脚本为 `olddemo/demo/usb/input_demo.lua`，由 main.lua 加载，与实体屏幕
+- 板端脚本为 `olddemo/demo/usb_hid/input_demo.lua`，由 main.lua 加载，与实体屏幕
   AirUI 示例同时运行。预期看到 INPUT_LUA_API_READY、ATTACH、EVENT、
   KEY_FILTER_AND_STATE_OK 和 INPUT_LUA_STABLE；拔出时出现 REMOVE/STALE_ID_OK。
 

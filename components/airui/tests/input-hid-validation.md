@@ -2,7 +2,7 @@
 
 This records the earlier headless validation. The temporary C board test and
 its startup/build hook have since been removed in favor of the Lua screen demo
-in `olddemo/demo/usb/`; see `README.input-hid.md` for the current workflow.
+in `olddemo/demo/usb_hid/`; see `README.input-hid.md` for the current workflow.
 
 ## Scope
 

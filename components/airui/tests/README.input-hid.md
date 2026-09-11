@@ -28,7 +28,7 @@ of the PC simulator and validates actual button clicks, textarea edits, focus,
 held states, overlapping keys, unplug and overflow. It does not mock LVGL.
 
 Board validation now uses the normal firmware and Lua UI in
-`olddemo/demo/usb/`. The temporary C headless test, build flag and startup hook
+`olddemo/demo/usb_hid/`. The temporary C headless test, build flag and startup hook
 have been removed. Host-side automated regression remains independent.
 
 - `lcd_drv.lua`: copied from the AirCAMERA_1032 example, RGB 1024x600,

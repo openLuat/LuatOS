@@ -30,6 +30,8 @@ static int panel_init(struct luat_display_panel *panel)
     panel_spi_send_seq(panel, 0x36, 0x48);
     panel_spi_send_seq(panel, 0x3A, 0x05);
 
+    panel_spi_send_seq(panel, 0xB1, 0x00, 0x10);  //FRMCTR1
+
     panel_spi_send_seq(panel, 0xE8, 0x40, 0x82, 0x07, 0x18, 0x27, 0x0A, 0xB6, 0x33);
     panel_spi_send_seq(panel, 0xC5, 0x27);
     panel_spi_send_seq(panel, 0xC2, 0xA7);
@@ -39,6 +41,9 @@ static int panel_init(struct luat_display_panel *panel)
 
     panel_spi_send_seq(panel, 0xF0, 0x3C);
     panel_spi_send_seq(panel, 0xF0, 0x69);
+
+
+    panel_spi_send_seq(panel, 0x35, 0x00);  //TE ON
 
     panel_spi_send_seq(panel, 0x29);
     luat_rtos_task_sleep(20);

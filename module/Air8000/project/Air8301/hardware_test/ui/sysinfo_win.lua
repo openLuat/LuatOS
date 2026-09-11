@@ -1,8 +1,8 @@
 --[[
 @module  sysinfo_win
 @summary 系统信息页面，显示固件版本、运行时间、RAM、文件系统信息
-@version 1.3.0
-@date    2026.08.04
+@version 2.0.0
+@date    2026.08.14
 @author  合宙 Air8301
 @usage
 本页面只读展示系统信息：
@@ -19,16 +19,6 @@ Flash 芯片容量已移至独立页面 flash_win。
 local win_id = nil
 local main_container, content
 local uptime_label, ram_label, flash_label
-
--- 颜色常量
-local COLOR_PRIMARY = 0x1A5276
-local COLOR_BG = 0xD0D0D0
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_SECONDARY = 0x000000
-local COLOR_WHITE = 0xFFFFFF
-local COLOR_RED = 0xF44336
-local COLOR_GREEN = 0x4CAF50
 
 -- 自动刷新定时器
 local refresh_timer = nil
@@ -173,11 +163,11 @@ local function on_flash_mount_status(mounted, total_kb, used_kb)
             local total_mb = total_kb / 1024
             local used_mb = used_kb / 1024
             local free_mb = total_mb - used_mb
-            flash_label:set_text(string.format("文件系统: 总 %.1f MB 可用 %.1f MB", total_mb, free_mb))
-            flash_label:set_color(COLOR_GREEN)
+            flash_label:set_text(string.format("总容量: %.1f MB\n可用容量: %.1f MB", total_mb, free_mb))
+            flash_label:set_color(T.COLOR_GREEN)
         else
             flash_label:set_text("未挂载")
-            flash_label:set_color(COLOR_RED)
+            flash_label:set_color(T.COLOR_DANGER)
         end
     end
 end
@@ -189,165 +179,64 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = 480, h = 272, color = COLOR_BG, parent = airui.screen })
+    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
 
-    -- 顶部导航栏
-    local header = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 44, color = COLOR_PRIMARY })
-
-    -- 返回按钮
-    local back_btn = airui.container({
-        parent = header,
-        x = 0,
-        y = 0,
-        w = 60,
-        h = 44,
-        on_click = on_back_click
-    })
-    airui.label({
-        parent = back_btn,
-        x = 5,
-        y = 10,
-        w = 50,
-        h = 24,
-        text = "< 返回",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-
-    -- 标题
-    airui.label({
-        parent = header,
-        x = 60,
-        y = 8,
-        w = 360,
-        h = 28,
-        text = "系统信息",
-        font_size = 20,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    -- 顶部标题栏
+    T.titlebar(main_container, "系统信息", on_back_click)
 
     -- 内容区域
     content = airui.container({
         parent = main_container,
         x = 0,
-        y = 44,
-        w = 480,
-        h = 228,
-        color = COLOR_BG
+        y = T.CONTENT_Y,
+        w = T.SCREEN_W,
+        h = T.CONTENT_H,
+        color = T.COLOR_BG
     })
 
     -- 固件版本+运行时间卡片
-    local info_card1 = airui.container({
-        parent = content,
-        x = 10,
-        y = 8,
-        w = 460,
-        h = 52,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    uptime_label = airui.label({
-        parent = info_card1,
-        x = 10,
-        y = 4,
-        w = 440,
-        h = 44,
-        text = "加载中...",
-        font_size = 14,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, _, uptime_content = T.info_card(content, 6, 48, "固件 / 运行时间", "加载中...")
+    uptime_label = uptime_content
 
     -- RAM状态卡片（系统内存 + Lua内存 两行）
-    local info_card2 = airui.container({
+    local ram_card = airui.container({
         parent = content,
-        x = 10,
-        y = 68,
-        w = 460,
+        x = T.MARGIN,
+        y = 62,
+        w = T.CARD_W,
         h = 56,
-        color = COLOR_CARD,
-        radius = 6
+        color = T.COLOR_CARD,
+        radius = T.CARD_RADIUS
     })
     airui.label({
-        parent = info_card2,
+        parent = ram_card,
         x = 10,
         y = 4,
-        w = 100,
-        h = 18,
+        w = T.CARD_W - 20,
+        h = 20,
         text = "内存信息",
-        font_size = 12,
-        color = COLOR_SECONDARY,
+        font_size = T.FONT_CARD_TITLE,
+        color = T.COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
     ram_label = airui.label({
-        parent = info_card2,
+        parent = ram_card,
         x = 10,
         y = 22,
-        w = 440,
+        w = T.CARD_W - 20,
         h = 32,
         text = "加载中...",
-        font_size = 13,
-        color = COLOR_TEXT,
+        font_size = T.FONT_SMALL,
+        color = T.COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
 
-    -- 文件系统卡片（外部Flash文件系统使用情况）
-    local info_card3 = airui.container({
-        parent = content,
-        x = 10,
-        y = 132,
-        w = 460,
-        h = 42,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    airui.label({
-        parent = info_card3,
-        x = 10,
-        y = 11,
-        w = 100,
-        h = 18,
-        text = "文件系统",
-        font_size = 12,
-        color = COLOR_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    flash_label = airui.label({
-        parent = info_card3,
-        x = 110,
-        y = 11,
-        w = 340,
-        h = 18,
-        text = "加载中...",
-        font_size = 14,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    -- 文件系统卡片
+    local _, _, flash_content = T.info_card(content, 122, 50, "文件系统", "加载中...")
+    flash_label = flash_content
 
-    -- 底部红色恢复出厂设置按钮
-    local factory_reset_btn = airui.container({
-        parent = content,
-        x = 60,
-        y = 190,
-        w = 360,
-        h = 32,
-        color = COLOR_RED,
-        radius = 6,
-        on_click = on_factory_reset_click
-    })
-    airui.label({
-        parent = factory_reset_btn,
-        x = 0,
-        y = 4,
-        w = 360,
-        h = 24,
-        text = "恢复出厂设置",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    -- 底部恢复出厂设置按钮
+    T.btn_danger(content, 60, 178, 360, 30, "恢复出厂设置", on_factory_reset_click)
 
     -- 刷新信息
     refresh_sysinfo()

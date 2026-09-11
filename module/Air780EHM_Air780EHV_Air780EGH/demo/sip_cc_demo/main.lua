@@ -42,11 +42,8 @@ end
 
 local function main_task()
     -- 等待网络就绪
-    while not socket or not socket.dft or not socket.adapter(socket.dft()) do
-        log.warn("main", "等待 IP_READY ...")
-        sys.waitUntil("IP_READY", 1000)
-    end
-    log.info("main", "网络已就绪", "adapter=" .. socket.dft())
+    sys.waitUntil("IP_READY", 10000)
+    log.info("main", "网络等待结束", "adapter=" .. tostring(socket.dft()))
 
     log.info(PROJECT, string.rep("=", 50))
     log.info(PROJECT, "Air780EHV SIP-CC 桥接 Demo 启动中...")

@@ -183,6 +183,7 @@ rfa.stop()
 | `AT+ECVERSION?` | 多行 `+CP VER` / `+RfTable VER` / `+Customer Moduler` ... | 调用 `mobile.rfTestVersion()` |
 | `AT+ECBAND=?` | `\r\n+ECBAND: (<bands>)\r\n\r\nOK\r\n` | 优先 `mobile.rfTestBandList()` |
 | `AT+ECBAND?` | `\r\n+ECBAND: <bands>\r\n\r\nOK\r\n` | 优先 `mobile.rfTestBandList()` |
+| `AT+CESQ` | `\r\n+CESQ: 99,99,255,255,<rsrq>,<rsrp>\r\n\r\nOK\r\n` | 读取最近一次 LTE 信号质量原始编码值；尚无有效上报时返回 `255,255` |
 | `AT+ECGMDATA?` | `\r\n+ECGMDATA: "<data>"\r\n\r\nOK\r\n` | 调用 `mobile.rfTestGmData()` |
 | `AT+ECGMDATA=<data>` | `\r\nOK\r\n` | 调用 `mobile.rfTestGmDataSet()` |
 

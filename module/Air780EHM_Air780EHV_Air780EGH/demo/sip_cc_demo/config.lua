@@ -10,20 +10,21 @@
 
 local config = {
     -- SIP 服务器
+
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
     sip_domain = "180.152.6.34",
     sip_transport = "udp",
 
     -- 4G 模组 SIP 账号
-    sip_username = "11234561",
-    sip_password = "Air.123456",
+    sip_username = "12345670",
+    sip_password = "Air.234567",
 
     -- 远程 SIP 客户端（控制端 / 被叫端）
-    remote_sip_uri = "sip:11234560@180.152.6.34",
+    remote_sip_uri = "sip:12345671@180.152.6.34",
 
     -- 默认桥接目标手机号（呼出场景）
-    target_phone_number = "19228137508",
+    target_phone_number = "1xxxxxxxxxx",
 
     -- 音频参数
     rtp_port = 40000,
@@ -35,8 +36,11 @@ local config = {
     adapter = socket.LWIP_GP,
 
     -- 自动行为
-    auto_answer_sip = true,            -- SIP 来电时自动接听
-    auto_handle_mobile_incoming = true,  -- 手机来电时自动拨打 SIP
+    auto_answer_sip = true,               -- SIP 来电时自动接听
+    auto_handle_mobile_incoming = true,   -- 手机来电时自动拨打 SIP
+    auto_answer_mobile_incoming = true,   -- 手机来电且不转 SIP 时自动接听 CC
+    outgoing_early_timeout = 90,          -- SIP->CC 呼出早期媒体阶段最大等待秒数
+    outgoing_failure_prompt_grace = 6,    -- SIP->CC 未接通失败时保留运营商失败播报秒数
 
     -- 默认本地音频开关：false 表示仅桥接，true 表示本地也能听到/说话
     local_audio_default = false,

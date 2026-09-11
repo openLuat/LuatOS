@@ -153,9 +153,8 @@ local function build_aircloud_tlv(d)
     table.insert(data, { field_meaning = 1290, data_type = DT.INTEGER, value = d.work_mode or 0 })               -- 工作模式
     table.insert(data, { field_meaning = FM.VOLTAGE, data_type = DT.INTEGER, value = d.vbat or 0 })              -- 电池电压(mV)
     table.insert(data, { field_meaning = 1291, data_type = DT.INTEGER, value = d.bat_change or 0 })              -- 充电状态
-    -- 信号强度：excloud INTEGER 为无符号，负数会编码失败，信号弱时钳位为 0
-    local signal = d.signal or 0
-    table.insert(data, { field_meaning = FM.SIGNAL_STRENGTH_4G, data_type = DT.INTEGER, value = (signal > 0 and signal) or 0 })
+    -- 信号强度（CSQ，0-31 正整数，直接上报）
+    table.insert(data, { field_meaning = FM.SIGNAL_STRENGTH_4G, data_type = DT.INTEGER, value = d.signal or 0 })
     -- 位置：解析 "lat,lng" 为经度/纬度分开上报（512=经度 513=纬度，ASCII）
     if d.gps and d.gps ~= "" then
         local gps_str = d.gps
@@ -327,8 +326,8 @@ local function collect_data_and_report()
     end
     local loc_data = location.get_location(work_mode, is_low_power, is_moving)
 
-    -- 信号强度
-    local signal = mobile.rsrp() or 0
+    -- 信号强度（CSQ，范围 0-31，值越大信号越好；99=无信号）
+    local signal = mobile.csq() or 0
 
     -- 额外上报字段
     local gsv = get_gsv_report()

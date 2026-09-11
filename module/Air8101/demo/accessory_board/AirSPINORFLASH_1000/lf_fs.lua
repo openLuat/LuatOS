@@ -30,7 +30,7 @@ SPI0_MISO/p55/GPIO17    MISO
 -- SPI配置参数
 local SPI_ID = 0                 -- SPI总线ID，根据实际情况修改
 local CS_PIN = 15                -- CS引脚，根据实际情况修改
-local CPHA = 1                   -- 时钟相位
+ local CPHA = 0             -- 时钟相位
 local CPOL = 0                   -- 时钟极性
 local data_Width = 8             -- 数据宽度(位)
 local bandrate = 4 * 1000 * 1000 -- 波特率(Hz)，初始化为4MHz,8101最低支持4M

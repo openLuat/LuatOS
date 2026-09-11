@@ -16,6 +16,7 @@ hzfont.init("/sd/font.ttf")
 #include "luat_hzfont.h"
 #include "ttf_parser.h"
 #include "luat_lcd.h"
+#include "luat_zbuff.h"
 
 #define LUAT_LOG_TAG "hzfont"
 #include "luat_log.h"
@@ -77,9 +78,104 @@ static int l_hzfont_debug(lua_State* L) {
     return 1;
 }
 
+/**
+获取字符灰度位图
+@api hzfont.getBitmap(char[, font_size])
+@string char 单个 UTF-8 字符（中文/英文均可）
+@int font_size 字号（像素高度），默认 12
+@return zbuff 灰度位图对象，width/height/bit 已设置，每像素 1 字节（0-255）
+@usage
+local buff = hzfont.getBitmap("中", 16)
+-- buff.width/buff.height 为位图宽高
+-- buff:len() == buff.width * buff.height
+-- 每字节一个像素，0=透明 255=不透明
+*/
+static int l_hzfont_getBitmap(lua_State* L) {
+    size_t len = 0;
+    const char* utf8 = luaL_checklstring(L, 1, &len);
+    if (utf8 == NULL || len == 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, "invalid char");
+        return 2;
+    }
+
+    int font_size = 12;
+    if (!lua_isnoneornil(L, 2)) {
+        font_size = (int)luaL_checkinteger(L, 2);
+    }
+
+    // UTF-8 解码，获取 Unicode 码点
+    uint32_t codepoint = 0;
+    unsigned char c = (unsigned char)utf8[0];
+    if (c < 0x80) {
+        codepoint = c;
+    } else if ((c & 0xE0) == 0xC0) {
+        codepoint = (c & 0x1F) << 6;
+        if (len > 1) codepoint |= ((unsigned char)utf8[1] & 0x3F);
+    } else if ((c & 0xF0) == 0xE0) {
+        codepoint = (c & 0x0F) << 12;
+        if (len > 1) codepoint |= ((unsigned char)utf8[1] & 0x3F) << 6;
+        if (len > 2) codepoint |= ((unsigned char)utf8[2] & 0x3F);
+    } else if ((c & 0xF8) == 0xF0) {
+        codepoint = (c & 0x07) << 18;
+        if (len > 1) codepoint |= ((unsigned char)utf8[1] & 0x3F) << 12;
+        if (len > 2) codepoint |= ((unsigned char)utf8[2] & 0x3F) << 6;
+        if (len > 3) codepoint |= ((unsigned char)utf8[3] & 0x3F);
+    }
+
+    // 查找 glyph 索引
+    uint16_t glyph_index = 0;
+    int ret = luat_hzfont_lookup_glyph_index(codepoint, &glyph_index);
+    if (ret != 0 || glyph_index == 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, "glyph not found");
+        return 2;
+    }
+
+    // 获取灰度位图
+    const TtfBitmap* bitmap = luat_hzfont_get_bitmap(glyph_index, font_size, 0);
+    if (bitmap == NULL || bitmap->width == 0 || bitmap->height == 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, "bitmap render failed");
+        return 2;
+    }
+
+    uint32_t w = bitmap->width;
+    uint32_t h = bitmap->height;
+    size_t pixels_len = (size_t)w * h;
+
+    // 创建 zbuff 对象
+    luat_zbuff_t *buff = (luat_zbuff_t *)lua_newuserdata(L, sizeof(luat_zbuff_t));
+    if (buff == NULL) {
+        lua_pushnil(L);
+        lua_pushstring(L, "memory not enough");
+        return 2;
+    }
+    memset(buff, 0, sizeof(luat_zbuff_t));
+
+    buff->type = LUAT_HEAP_AUTO;
+    buff->addr = (uint8_t *)luat_heap_opt_malloc(buff->type, pixels_len);
+    if (buff->addr == NULL) {
+        lua_pushnil(L);
+        lua_pushstring(L, "memory not enough");
+        return 2;
+    }
+    memcpy(buff->addr, bitmap->pixels, pixels_len);
+
+    buff->len = pixels_len;
+    buff->cursor = 0;
+    buff->width = w;
+    buff->height = h;
+    buff->bit = 8;
+
+    luaL_setmetatable(L, LUAT_ZBUFF_TYPE);
+    return 1;
+}
+
 static const rotable_Reg_t reg_hzfont[] = {
     { "init",        ROREG_FUNC(l_hzfont_init)},
     { "debug",       ROREG_FUNC(l_hzfont_debug)},
+    { "getBitmap",   ROREG_FUNC(l_hzfont_getBitmap)},
     { "HZFONT_CACHE_128", ROREG_INT(128)},
     { "HZFONT_CACHE_256", ROREG_INT(256)},
     { "HZFONT_CACHE_512", ROREG_INT(512)},

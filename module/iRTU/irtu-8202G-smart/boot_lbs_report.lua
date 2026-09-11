@@ -47,8 +47,8 @@ local function build_aircloud_tlv(d)
     table.insert(data, { field_meaning = 1290, data_type = DT.INTEGER, value = d.work_mode or 0 })          -- 工作模式
     table.insert(data, { field_meaning = FM.VOLTAGE, data_type = DT.INTEGER, value = d.vbat or 0 })         -- 电池电压(mV)
     table.insert(data, { field_meaning = 1291, data_type = DT.INTEGER, value = d.bat_change or 0 })         -- 充电状态
-    local signal = d.signal or 0
-    table.insert(data, { field_meaning = FM.SIGNAL_STRENGTH_4G, data_type = DT.INTEGER, value = (signal > 0 and signal) or 0 })
+    -- 信号强度（CSQ，0-31 正整数，直接上报）
+    table.insert(data, { field_meaning = FM.SIGNAL_STRENGTH_4G, data_type = DT.INTEGER, value = d.signal or 0 })
 
     -- 位置：解析 "lat,lng" 为经度/纬度分开上报（512=经度 513=纬度，ASCII）
     if d.gps and d.gps ~= "" then
@@ -113,7 +113,7 @@ local function do_lbs_report()
         work_mode = work_mode,
         vbat = (battery_data and battery_data.voltage) or 0,
         bat_change = (battery_data and battery_data.charging and 1) or 0,
-        signal = mobile.rsrp() or 0,
+        signal = mobile.csq() or 0,
         gps = gps_str,
         gps_status = gps_status,
         iccid = mobile.iccid(),

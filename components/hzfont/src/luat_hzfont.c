@@ -1,4 +1,4 @@
-// 负责：TTF 字体加载、缓存与渲染（HzFont）
+#include "luat_base.h"
 #include "luat_hzfont.h"
 
 #include "ttf_parser.h"
@@ -1369,7 +1369,6 @@ glyph_timing_update:
     return result;
 }
 
-#if defined(LUAT_USE_AIRUI) || defined(LUAT_USE_EINK) || defined(LUAT_USE_U8G2)
 // 获取底层 TTF 对象供 airui 或其他模块使用
 TtfFont * luat_hzfont_get_ttf(void) {
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
@@ -1484,4 +1483,3 @@ profile_done:
 const TtfBitmap * luat_hzfont_get_bitmap(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
     return luat_hzfont_get_bitmap_profiled(glyph_index, font_size, supersample, NULL);
 }
-#endif

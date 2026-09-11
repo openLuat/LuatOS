@@ -29,6 +29,35 @@ static luat_rtos_timer_t s_drain_timer;     /* 原 _l_cc.bridge_drain_timer */
 static luat_rtos_timer_t s_uplink_source_timer;
 static luat_audio_extern_source_t *s_uplink_source;
 static uint16_t s_uplink_source_cc_sr;
+/* Timer stop only queues a command on EC7xx. These locks also join any
+ * in-flight PCM access before CC cancels/frees the borrowed resources.
+ * Keep source and drain locks separate: source start waits for audio task,
+ * which may itself call drain_downlink. Timer callbacks never wait on them. */
+static luat_rtos_mutex_t s_uplink_lock;
+static luat_rtos_mutex_t s_drain_lock;
+static uint8_t s_uplink_allowed;
+static uint8_t s_drain_allowed;
+/* The shared RTOS timer task has a small stack (2 KB on EC718HM).
+ * Keep the resampling workspace off that stack: PCM out can also call the
+ * VoIP recording tap. All accesses are serialized by s_uplink_lock. */
+static int16_t s_uplink_voip_pcm[320];
+static int16_t s_uplink_cc_pcm[320];
+
+int luat_cc_bridge_session_start(void)
+{
+    /* Called by the serialized CC media-start path, before audio callbacks. */
+    if ((!s_uplink_lock && luat_rtos_mutex_create(&s_uplink_lock)) ||
+        (!s_drain_lock && luat_rtos_mutex_create(&s_drain_lock))) {
+        return -LUAT_ERROR_OPERATION_FAILED;
+    }
+    luat_rtos_mutex_lock(s_uplink_lock, LUAT_WAIT_FOREVER);
+    s_uplink_allowed = 1;
+    luat_rtos_mutex_unlock(s_uplink_lock);
+    luat_rtos_mutex_lock(s_drain_lock, LUAT_WAIT_FOREVER);
+    s_drain_allowed = 1;
+    luat_rtos_mutex_unlock(s_drain_lock);
+    return LUAT_ERROR_NONE;
+}
 static uint8_t  s_tone_on;                  /* 原 _l_cc.bridge_tone_on */
 static uint32_t s_tone_pos;                 /* 原 _l_cc.bridge_tone_pos */
 
@@ -212,7 +241,7 @@ void luat_cc_bridge_flush_sip_uplink(void)
     LLOGI("CC bridge SIP uplink buffer flushed");
 }
 
-void luat_cc_bridge_drain_downlink(void)
+static void _bridge_drain_downlink_locked(void)
 {
     voip_ctx_t *voip_ctx = voip_get_ctx();
     luat_fifo_t *play_fifo = luat_cc_get_play_fifo();
@@ -266,6 +295,13 @@ void luat_cc_bridge_drain_downlink(void)
     }
 }
 
+void luat_cc_bridge_drain_downlink(void)
+{
+    if (!s_drain_lock || luat_rtos_mutex_lock(s_drain_lock, 0)) return;
+    if (s_drain_allowed) _bridge_drain_downlink_locked();
+    luat_rtos_mutex_unlock(s_drain_lock);
+}
+
 static void _bridge_drain_timer_cb(LUAT_RT_CB_PARAM)
 {
     (void)param;
@@ -275,14 +311,14 @@ static void _bridge_drain_timer_cb(LUAT_RT_CB_PARAM)
 void luat_cc_bridge_drain_start(void)
 {
     voip_ctx_t *voip_ctx = voip_get_ctx();
-    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE) {
+    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !s_drain_lock) {
         return;
     }
-    if (!s_drain_timer) {
-        if (luat_rtos_timer_create(&s_drain_timer) != 0) {
-            LLOGE("create CC bridge downlink drain timer failed");
-            return;
-        }
+    luat_rtos_mutex_lock(s_drain_lock, LUAT_WAIT_FOREVER);
+    if (!s_drain_allowed) goto done;
+    if (!s_drain_timer && luat_rtos_timer_create(&s_drain_timer) != 0) {
+        LLOGE("create CC bridge downlink drain timer failed");
+        goto done;
     }
     luat_rtos_timer_stop(s_drain_timer);
     if (luat_rtos_timer_start(s_drain_timer, 20, 1, _bridge_drain_timer_cb, NULL) == 0) {
@@ -290,27 +326,30 @@ void luat_cc_bridge_drain_start(void)
     } else {
         LLOGE("start CC bridge downlink drain timer failed");
     }
+done:
+    luat_rtos_mutex_unlock(s_drain_lock);
 }
 
 void luat_cc_bridge_drain_stop(void)
 {
-    if (s_drain_timer) {
-        luat_rtos_timer_stop(s_drain_timer);
-    }
+    if (!s_drain_lock) return;
+    luat_rtos_mutex_lock(s_drain_lock, LUAT_WAIT_FOREVER);
+    s_drain_allowed = 0;
+    if (s_drain_timer) luat_rtos_timer_stop(s_drain_timer);
+    luat_rtos_mutex_unlock(s_drain_lock);
 }
 
 /* -------------------- 上行(SIP -> CC extern source) -------------------- */
 
-static void _bridge_uplink_source_timer_cb(LUAT_RT_CB_PARAM)
+static void _bridge_uplink_source_feed_locked(void)
 {
     voip_ctx_t *voip_ctx = voip_get_ctx();
-    int16_t voip_pcm[320];
-    int16_t cc_pcm[320];
+    int16_t *voip_pcm = s_uplink_voip_pcm;
+    int16_t *cc_pcm = s_uplink_cc_pcm;
     uint16_t voip_sr;
     uint16_t cc_samples;
     int got;
 
-    (void)param;
     if (!s_uplink_source || !voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE ||
         voip_ctx->state != VOIP_STATE_RUNNING) {
         return;
@@ -342,38 +381,59 @@ static void _bridge_uplink_source_timer_cb(LUAT_RT_CB_PARAM)
     luat_audio_extern_source_feed(s_uplink_source, (const uint8_t *)cc_pcm, cc_samples * sizeof(int16_t));
 }
 
-int luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const luat_audio_common_param_t *cc_param)
+static void _bridge_uplink_source_timer_cb(LUAT_RT_CB_PARAM)
 {
-    int ret;
+    (void)param;
+    if (!s_uplink_lock || luat_rtos_mutex_lock(s_uplink_lock, 0)) return;
+    if (s_uplink_allowed) _bridge_uplink_source_feed_locked();
+    luat_rtos_mutex_unlock(s_uplink_lock);
+}
 
-    if (!source || !source->request || !cc_param || !luat_cc_bridge_mode_on()) {
+int luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const luat_audio_common_param_t *cc_param, uint32_t request_id)
+{
+    int ret = -LUAT_ERROR_OPERATION_FAILED;
+
+    if (!source || !cc_param || !luat_cc_bridge_mode_on() || !s_uplink_lock) {
         return -LUAT_ERROR_PARAM_INVALID;
     }
+    luat_rtos_mutex_lock(s_uplink_lock, LUAT_WAIT_FOREVER);
+    if (!s_uplink_allowed || !source->request || source->request->request_id != request_id) goto done;
+    if (s_uplink_source == source) {
+        ret = LUAT_ERROR_NONE;
+        goto done;
+    }
+    /* Create the timer before registering the source to keep failure cleanup
+     * with the owning CC request. */
+    if (!s_uplink_source_timer && luat_rtos_timer_create(&s_uplink_source_timer) != 0) goto done;
     ret = luat_audio_request_add_source_stream(source, &s_bridge_pcm_codec, cc_param, 1, source);
     if (ret) {
         LLOGE("CC bridge extern-record source start failed %d", ret);
-        return ret;
+        goto done;
     }
 
     s_uplink_source = source;
     s_uplink_source_cc_sr = cc_param->sample_rate == 16000 ? 16000 : 8000;
-    if (!s_uplink_source_timer && luat_rtos_timer_create(&s_uplink_source_timer) != 0) {
-        s_uplink_source = NULL;
-        return -LUAT_ERROR_OPERATION_FAILED;
-    }
     if (luat_rtos_timer_start(s_uplink_source_timer, 20, 1, _bridge_uplink_source_timer_cb, NULL) != 0) {
         s_uplink_source = NULL;
-        return -LUAT_ERROR_OPERATION_FAILED;
+        luat_audio_request_delete_source(source);
+        ret = -LUAT_ERROR_OPERATION_FAILED;
+        goto done;
     }
     LLOGI("CC bridge extern-record source started sr=%u", (unsigned)s_uplink_source_cc_sr);
-    return LUAT_ERROR_NONE;
+done:
+    luat_rtos_mutex_unlock(s_uplink_lock);
+    return ret;
 }
 
 void luat_cc_bridge_uplink_source_stop(void)
 {
+    if (!s_uplink_lock) return;
+    luat_rtos_mutex_lock(s_uplink_lock, LUAT_WAIT_FOREVER);
+    s_uplink_allowed = 0;
     if (s_uplink_source_timer) luat_rtos_timer_stop(s_uplink_source_timer);
     s_uplink_source = NULL;
     s_uplink_source_cc_sr = 0;
+    luat_rtos_mutex_unlock(s_uplink_lock);
 }
 
 #endif /* LUAT_USE_AUDIO_V2 && LUAT_USE_CC_VOIP_BRIDGE */

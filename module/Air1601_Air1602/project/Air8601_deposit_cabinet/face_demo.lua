@@ -24,7 +24,7 @@ local exfacecam = require "exfacecam"
 log.info(TAG, "人脸识别demo启动")
 
 -- 12号GPIO配置（AirCAMERA_1032摄像头供电控制引脚），需要拉高使能
-gpio.setup(12, 1, gpio.PULLUP)
+gpio.setup(73, 1, gpio.PULLUP)
 
 -- ======== 配置参数 ========
 local CAM_W = 1280

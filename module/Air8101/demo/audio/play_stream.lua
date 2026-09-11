@@ -56,6 +56,11 @@ local function audio_get_data()
     log.info("开始流式获取音频数据")
     local file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
 
+    if not file then
+        log.error("play_stream", "test.pcm 不存在: 请烧录 test.pcm 音频文件, 否则无法流式播放")
+        return
+    end
+    
     -- 获取推荐的缓冲区大小
     local buffer_size = exaudio.get_stream_buffer_size() or 4096
     log.info("流式播放缓冲区大小", buffer_size)

@@ -1,0 +1,2979 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light" data-page-node-id="NwbuTYTpwSaT3t6Cco0wqt">
+<head data-page-node-id="5IitXYwMPb89WOuOlQM0Av">
+    <meta charset="UTF-8" data-page-node-id="Ze0qRi8rrjQwkwJ2WELxxZ">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" data-page-node-id="CubhcrkwNcjQl0LAT86um1">
+    <meta name="referrer" content="no-referrer" data-page-node-id="JHAaRctaySd3pzOatAcJK5">
+    <title>设备监控</title>
+    <script src="https://map.qq.com/api/gljs?v=1.exp&key=EZNBZ-VA6KW-ASMRR-3UE4S-M3QCO-EYBC6">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/jsencrypt@3.3.2/bin/jsencrypt.min.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js">
+    </script>
+    <style id="theme-vars">
+        :root {
+            --brand-primary: #1a73e8;
+            --brand-primary-foreground: #ffffff;
+            --brand-primary-light: #e8f0fe;
+            --brand-background: #f0f5f9;
+            --brand-foreground: #1e293b;
+            --brand-card: #ffffff;
+            --brand-card-foreground: #1e293b;
+            --brand-surface: #f8fafc;
+            --brand-surface-2: #f1f5f9;
+            --brand-muted: #f1f5f9;
+            --brand-muted-foreground: #64748b;
+            --brand-border: #e2e8f0;
+            --brand-input: #e2e8f0;
+            --brand-ring: #1a73e8;
+            --brand-state-success: #22c55e;
+            --brand-state-success-bg: #dcfce7;
+            --brand-state-success-text: #166534;
+            --brand-state-error: #ef4444;
+            --brand-state-error-bg: #fee2e2;
+            --brand-state-error-text: #b91c1c;
+            --brand-state-warning: #f59e0b;
+            --brand-state-info: #3b82f6;
+            --brand-state-info-bg: #dbeafe;
+            --brand-state-info-text: #1e40af;
+            --brand-radius-sm: 4px;
+            --brand-radius-md: 8px;
+            --brand-radius-lg: 12px;
+            --brand-radius-xl: 16px;
+            --brand-shadow-1: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+            --brand-shadow-2: 0 4px 12px rgba(15, 23, 42, 0.08);
+            --brand-shadow-3: 0 12px 32px rgba(15, 23, 42, 0.12);
+            --brand-font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+            --brand-font-mono: 'SF Mono', 'Menlo', 'Consolas', monospace;
+            --primary: var(--brand-primary);
+            --primary-light: var(--brand-primary-light);
+            --bg: var(--brand-background);
+            --card: var(--brand-card);
+            --text: var(--brand-foreground);
+            --muted: var(--brand-muted-foreground);
+            --border: var(--brand-border);
+            --radius: var(--brand-radius-lg);
+            --shadow: var(--brand-shadow-2);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js">
+    </script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js">
+    </script>
+    <style type="text/tailwindcss">
+        @theme inline {
+            --color-background: var(--brand-background);
+            --color-foreground: var(--brand-foreground);
+            --color-card: var(--brand-card);
+            --color-card-foreground: var(--brand-card-foreground);
+            --color-primary: var(--brand-primary);
+            --color-primary-foreground: var(--brand-primary-foreground);
+            --color-muted: var(--brand-muted);
+            --color-muted-foreground: var(--brand-muted-foreground);
+            --color-border: var(--brand-border);
+            --color-input: var(--brand-input);
+            --color-ring: var(--brand-ring);
+            --radius-sm: var(--brand-radius-sm);
+            --radius-md: var(--brand-radius-md);
+            --radius-lg: var(--brand-radius-lg);
+            --radius-xl: var(--brand-radius-xl);
+        }
+        @layer base {
+            body {
+                background: var(--brand-background);
+                color: var(--brand-foreground);
+            }
+            td,
+            th {
+                @apply break-words;
+                word-break: break-all;
+                word-break: auto-phrase;
+            }
+            th {
+                @apply whitespace-nowrap;
+            }
+        }
+    </style>
+    <style id="semantic-token-fallback">
+        .bg-background {
+            background-color: var(--brand-background);
+        }
+        .text-background {
+            color: var(--brand-background);
+        }
+        .border-background {
+            border-color: var(--brand-background);
+        }
+        .ring-background {
+            --tw-ring-color: var(--brand-background);
+        }
+        .bg-foreground {
+            background-color: var(--brand-foreground);
+        }
+        .text-foreground {
+            color: var(--brand-foreground);
+        }
+        .border-foreground {
+            border-color: var(--brand-foreground);
+        }
+        .ring-foreground {
+            --tw-ring-color: var(--brand-foreground);
+        }
+        .bg-card {
+            background-color: var(--brand-card);
+        }
+        .text-card {
+            color: var(--brand-card);
+        }
+        .border-card {
+            border-color: var(--brand-card);
+        }
+        .ring-card {
+            --tw-ring-color: var(--brand-card);
+        }
+        .bg-card-foreground {
+            background-color: var(--brand-card-foreground);
+        }
+        .text-card-foreground {
+            color: var(--brand-card-foreground);
+        }
+        .border-card-foreground {
+            border-color: var(--brand-card-foreground);
+        }
+        .ring-card-foreground {
+            --tw-ring-color: var(--brand-card-foreground);
+        }
+        .bg-primary {
+            background-color: var(--brand-primary);
+        }
+        .text-primary {
+            color: var(--brand-primary);
+        }
+        .border-primary {
+            border-color: var(--brand-primary);
+        }
+        .ring-primary {
+            --tw-ring-color: var(--brand-primary);
+        }
+        .bg-primary-foreground {
+            background-color: var(--brand-primary-foreground);
+        }
+        .text-primary-foreground {
+            color: var(--brand-primary-foreground);
+        }
+        .border-primary-foreground {
+            border-color: var(--brand-primary-foreground);
+        }
+        .ring-primary-foreground {
+            --tw-ring-color: var(--brand-primary-foreground);
+        }
+        .bg-muted {
+            background-color: var(--brand-muted);
+        }
+        .text-muted {
+            color: var(--brand-muted);
+        }
+        .border-muted {
+            border-color: var(--brand-muted);
+        }
+        .ring-muted {
+            --tw-ring-color: var(--brand-muted);
+        }
+        .bg-muted-foreground {
+            background-color: var(--brand-muted-foreground);
+        }
+        .text-muted-foreground {
+            color: var(--brand-muted-foreground);
+        }
+        .border-muted-foreground {
+            border-color: var(--brand-muted-foreground);
+        }
+        .ring-muted-foreground {
+            --tw-ring-color: var(--brand-muted-foreground);
+        }
+        .bg-border {
+            background-color: var(--brand-border);
+        }
+        .text-border {
+            color: var(--brand-border);
+        }
+        .border-border {
+            border-color: var(--brand-border);
+        }
+        .ring-border {
+            --tw-ring-color: var(--brand-border);
+        }
+        .bg-input {
+            background-color: var(--brand-input);
+        }
+        .text-input {
+            color: var(--brand-input);
+        }
+        .border-input {
+            border-color: var(--brand-input);
+        }
+        .ring-input {
+            --tw-ring-color: var(--brand-input);
+        }
+        .bg-ring {
+            background-color: var(--brand-ring);
+        }
+        .text-ring {
+            color: var(--brand-ring);
+        }
+        .border-ring {
+            border-color: var(--brand-ring);
+        }
+        .ring-ring {
+            --tw-ring-color: var(--brand-ring);
+        }
+    </style>
+    <style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        [data-icon] {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-mask-size: contain;
+            mask-size: contain;
+            -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            mask-position: center;
+            background-color: currentColor;
+        }
+    </style>
+    <style id="critical-layout">
+        :root {
+            font-family: var(--brand-font-sans);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html,
+        body {
+            height: 100%;
+            overflow-x: hidden;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            flex-shrink: 0;
+            gap: 12px;
+        }
+        .header .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header .brand-icon {
+            color: var(--primary);
+            flex-shrink: 0;
+        }
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .header .name {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        /* ---------- 标签页布局 ---------- */
+        .layout {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            position: relative;
+        }
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            overflow-x: auto;
+            flex-shrink: 0;
+            -webkit-overflow-scrolling: touch;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+        .tab-bar::-webkit-scrollbar { display: none; }
+        .tab-btn {
+            flex: 1;
+            min-width: 0;
+            padding: 8px 4px 6px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            transition: .2s;
+            border-top: 2px solid transparent;
+            white-space: nowrap;
+        }
+        .tab-btn:hover { color: var(--primary); background: var(--primary-light); }
+        .tab-btn.active { color: var(--primary); border-top-color: var(--primary); font-weight: 600; }
+        .tab-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 12px;
+            padding-bottom: 60px;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
+        }
+        .tab-page { display: none; }
+        .tab-page.active { display: block; }
+        /* 桌面端：侧边栏 */
+        @media(min-width:768px) {
+            .layout { flex-direction: row; }
+            .tab-bar {
+                flex-direction: column;
+                width: 80px;
+                min-width: 80px;
+                border-top: none;
+                border-right: 1px solid var(--border);
+                border-bottom: none;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding-top: 8px;
+                position: static;
+            }
+            .tab-btn {
+                padding: 14px 6px;
+                border-top: none;
+                border-right: 2px solid transparent;
+                border-bottom: none;
+                font-size: 11px;
+                gap: 5px;
+            }
+            .tab-btn.active { border-right-color: var(--primary); border-top: none; }
+            .tab-content { padding: 20px 24px; padding-bottom: 20px; max-width: 960px; }
+            .chart-box { height: 300px; }
+            .map-wrap { height: 450px; }
+        }
+        /* 标签页内卡片 */
+        .tab-page .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .tab-page .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        /* ---------- 旧布局兼容（sidebar/main-content 重命名） ---------- */
+        .sidebar { display: none; }
+        .main-content { display: none; }
+
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+        }
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .card-title svg {
+            flex-shrink: 0;
+            color: var(--muted);
+        }
+
+        /* ---------- 顶部行：状态 + 控制 并排 ---------- */
+        .top-row {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 16px;
+        }
+
+        .status-bar {
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 80px;
+        }
+        .status-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .status-title {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+        .status-title strong {
+            font-size: 15px;
+        }
+        .status-title .muted,
+        .status-meta {
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .status-meta {
+            margin-top: 4px;
+        }
+
+        /* 控制面板紧凑 */
+        .control-panel {
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 80px;
+        }
+        .control-panel .card-title {
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        .control-panel .control-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 10px;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .control-panel .control-group label {
+            font-weight: 500;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .control-panel .control-group input[type="number"] {
+            width: 70px;
+            padding: 4px 6px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .control-panel .control-group input[type="text"] {
+            flex: 1;
+            min-width: 80px;
+            padding: 4px 6px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .control-panel .control-group .unit {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: .2s;
+            background: var(--primary);
+            color: #fff;
+            font-size: 13px;
+        }
+        .btn:hover {
+            opacity: .85;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .btn-outline:hover {
+            background: var(--bg);
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        .hidden {
+            display: none !important;
+        }
+
+        .query-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .query-row input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            background: #fff;
+        }
+        .query-row input:focus {
+            border-color: var(--primary);
+        }
+        .project-select {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            background: #fff;
+            margin-bottom: 8px;
+            outline: none;
+        }
+
+        .device-list {
+            max-height: 420px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .device-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: default;
+            border: 1px solid transparent;
+            transition: .2s;
+            gap: 6px;
+        }
+        .device-item:hover {
+            background: var(--primary-light);
+        }
+        .device-item.active {
+            background: var(--primary-light);
+            border-color: var(--primary);
+        }
+        .device-item .dev-info {
+            flex: 1;
+            min-width: 0;
+            cursor: pointer;
+        }
+        .device-item .dev-info .name {
+            font-weight: 500;
+            font-size: 13px;
+        }
+        .device-item .dev-info .id {
+            font-size: 11px;
+            color: var(--muted);
+        }
+        .btn-refresh {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--muted);
+            transition: .2s;
+            flex-shrink: 0;
+        }
+        .btn-refresh:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .btn-refresh.loading {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status-led {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        .status-led.online {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .status-led.online::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+        .status-led.offline {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .status-led.offline::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .4;
+            }
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+        .sensor-item {
+            background: var(--bg);
+            padding: 12px 8px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .sensor-item .label {
+            font-size: 11px;
+            color: var(--muted);
+        }
+        .sensor-item .value {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        /* ---------- 查询区域 ---------- */
+        .query-area .time-range {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 10px;
+            align-items: center;
+        }
+        .time-range .quick-btn {
+            padding: 4px 12px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            transition: .2s;
+        }
+        .time-range .quick-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .time-range .quick-btn.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+        .time-range input[type="date"] {
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-size: 12px;
+            outline: none;
+        }
+        .time-range input[type="date"]:focus {
+            border-color: var(--primary);
+        }
+
+        /* ---------- 图表 ---------- */
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .chart-box {
+            height: 280px;
+            border-radius: 8px;
+            background: var(--bg);
+            overflow: hidden;
+            position: relative;
+        }
+        .chart-empty {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 13px;
+            pointer-events: none;
+        }
+
+        /* ---------- 地图 ---------- */
+        .map-panel {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .map-wrap {
+            position: relative;
+            height: 400px;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: #eef2f6;
+            flex: 1;
+        }
+        #map-container {
+            width: 100%;
+            height: 100%;
+        }
+        .map-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            flex-direction: column;
+            gap: 6px;
+            text-align: center;
+            font-size: 13px;
+            pointer-events: none;
+            background: rgba(238, 242, 246, 0.7);
+        }
+
+        /* ---------- 历史表格 ---------- */
+        .table-wrap {
+            overflow-x: auto;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th,
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            white-space: nowrap;
+        }
+        th {
+            background: var(--bg);
+            position: sticky;
+            top: 0;
+            font-size: 11px;
+        }
+
+        .notice {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin: 6px 0;
+            font-size: 12px;
+        }
+        .notice.info {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .notice.error {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .notice.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        /* ---------- 响应式 ---------- */
+        @media (max-width: 600px) {
+            .sensor-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .chart-box {
+                height: 200px;
+            }
+            .map-wrap {
+                height: 280px;
+            }
+            .header {
+                padding: 10px 12px;
+            }
+            .header h1 {
+                font-size: 16px;
+            }
+            .tab-content {
+                padding: 10px;
+            }
+            .tab-page .card {
+                padding: 12px;
+            }
+            .user-info .name {
+                display: none;
+            }
+        }
+
+        /* ==========================================================================
+           响应式增强（手机 / 平板 / 桌面）—— 纯样式层，不改动任何业务逻辑
+           断点：<768 手机 · 768~899 平板 · ≥900 双栏 · ≥1024 展开侧栏 · ≥1440 宽屏
+           ========================================================================== */
+        :root {
+            --safe-t: env(safe-area-inset-top, 0px);
+            --safe-b: env(safe-area-inset-bottom, 0px);
+        }
+
+        /* ---------- 通用细节 ---------- */
+        button,
+        input,
+        select {
+            font-family: inherit;
+            touch-action: manipulation;
+        }
+        button {
+            -webkit-tap-highlight-color: transparent;
+        }
+        :focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+        .tab-content {
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+        .tab-page .card {
+            min-width: 0;
+        }
+        .card-title {
+            flex-wrap: wrap;
+        }
+
+        /* ---------- 控制页控件组（补齐通用样式） ---------- */
+        .control-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 10px;
+            margin-bottom: 12px;
+        }
+        .control-group label {
+            font-weight: 500;
+            font-size: 13px;
+            white-space: nowrap;
+            min-width: 60px;
+        }
+        .control-group input[type="number"] {
+            width: 88px;
+            padding: 7px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            background: #fff;
+        }
+        .control-group input[type="text"] {
+            flex: 1 1 180px;
+            min-width: 0;
+            padding: 7px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            background: #fff;
+        }
+        .control-group input:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+        .control-group .btn {
+            flex-shrink: 0;
+        }
+
+        /* ---------- 传感器 / 图表 / 地图 / 表格：默认（手机优先） ---------- */
+        .sensor-grid {
+            grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+        }
+        .sensor-item .value {
+            font-size: 17px;
+        }
+        .chart-box {
+            height: 260px;
+        }
+        .map-wrap {
+            height: min(46vh, 380px);
+            min-height: 240px;
+        }
+        .table-wrap {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain;
+        }
+        table {
+            min-width: 620px;
+        }
+
+        /* ==========================================================================
+           手机 / 小屏 < 768px：底部标签导航 + 单列流式
+           ========================================================================== */
+        @media (max-width: 767px) {
+            .layout {
+                flex-direction: column;
+            }
+            /* 标签栏移到底部：单手可达，并适配全面屏底部安全区 */
+            .tab-bar {
+                order: 2;
+                border-bottom: none;
+                border-top: 1px solid var(--border);
+                padding-bottom: var(--safe-b);
+                box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.06);
+                position: sticky;
+                bottom: 0;
+            }
+            .tab-content {
+                order: 1;
+                padding: 10px 10px 60px;
+            }
+            .tab-btn {
+                padding: 8px 2px 6px;
+                font-size: 11px;
+                gap: 3px;
+                min-height: 52px;
+                overflow: visible;
+            }
+            .tab-btn svg { width: 20px; height: 20px; }
+            .header {
+                padding: calc(10px + var(--safe-t)) 12px 10px;
+                gap: 8px;
+            }
+            .header h1 {
+                font-size: 16px;
+            }
+            .tab-page .card {
+                padding: 12px;
+                margin-bottom: 10px;
+            }
+            /* 输入框 16px：避免 iOS Safari 聚焦时自动放大页面
+               （带属性选择器，覆盖 .time-range / .control-group 里的小字号） */
+            .tab-page input,
+            .tab-page input[type="date"],
+            .tab-page input[type="text"],
+            .tab-page input[type="number"],
+            .tab-page select {
+                font-size: 16px;
+            }
+            /* 触摸目标 ≥ 40px */
+            .btn {
+                min-height: 40px;
+                padding: 8px 14px;
+            }
+            .btn-sm {
+                min-height: 36px;
+            }
+            .control-group .btn {
+                min-height: 42px;
+            }
+            .control-group input[type="number"] {
+                flex: 1 1 96px;
+                max-width: 140px;
+            }
+            .query-row input {
+                padding: 10px;
+            }
+            .device-item {
+                min-height: 46px;
+                padding: 8px;
+            }
+            .btn-refresh {
+                width: 32px;
+                height: 32px;
+            }
+            .device-list {
+                max-height: 46vh;
+            }
+            .sensor-grid {
+                grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+                gap: 8px;
+            }
+            .sensor-item {
+                padding: 10px 6px;
+            }
+            .chart-box {
+                height: 220px;
+            }
+            .map-wrap {
+                height: min(52vh, 380px);
+                min-height: 260px;
+            }
+            .table-wrap {
+                max-height: 52vh;
+            }
+            /* 首列（时间）横向滚动时吸附，数据对照不丢参考 */
+            th:first-child,
+            td:first-child {
+                position: sticky;
+                left: 0;
+            }
+            th:first-child {
+                background: var(--bg);
+                z-index: 3;
+            }
+            td:first-child {
+                background: var(--card);
+                z-index: 1;
+                box-shadow: 1px 0 0 var(--border);
+            }
+            /* 时间范围：3 快捷按钮 / 2 日期 / 1 查询，整齐换行 */
+            .time-range {
+                display: grid;
+                grid-template-columns: repeat(6, minmax(0, 1fr));
+                gap: 8px;
+            }
+            .time-range .quick-btn {
+                grid-column: span 2;
+                padding: 8px 0;
+                text-align: center;
+            }
+            .time-range input[type="date"] {
+                grid-column: span 3;
+                min-width: 0;
+                padding: 8px;
+            }
+            .time-range .btn {
+                grid-column: 1 / -1;
+            }
+            .control-group .btn {
+                flex: 1 1 100%;
+            }
+        }
+
+        /* ==========================================================================
+           平板 ≥ 768px：更宽松的留白与字号
+           ========================================================================== */
+        @media (min-width: 768px) {
+            .tab-content {
+                padding: 20px 24px;
+                width: 100%;
+                max-width: 1000px;
+                margin: 0 auto;
+            }
+            .tab-page .card {
+                padding: 18px;
+                margin-bottom: 16px;
+            }
+            .sensor-grid {
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 12px;
+            }
+            .sensor-item .value {
+                font-size: 18px;
+            }
+            .chart-box {
+                height: 300px;
+            }
+            .map-wrap {
+                height: min(520px, 58vh);
+            }
+            .device-list {
+                max-height: 380px;
+            }
+            .table-wrap {
+                max-height: min(60vh, 560px);
+            }
+            table {
+                min-width: 680px;
+            }
+            th,
+            td {
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+            th {
+                font-size: 12px;
+            }
+            .btn {
+                min-height: 36px;
+            }
+            .btn-sm {
+                min-height: 32px;
+            }
+        }
+
+        /* ==========================================================================
+           大屏 ≥ 900px：总览双栏、趋势双图并排，减少滚动
+           注意：用 .active 限定，避免覆盖 .tab-page{display:none}
+           ========================================================================== */
+        @media (min-width: 900px) {
+            #tabOverview.active {
+                display: grid;
+                gap: 14px;
+                align-items: start;
+                grid-template-columns: 340px 1fr;
+            }
+            #tabCharts.active {
+                display: grid;
+                gap: 14px;
+                align-items: start;
+                grid-template-columns: 1fr;
+            }
+            #tabOverview > .card,
+            #tabCharts > .card {
+                margin-bottom: 0;
+            }
+            .chart-box {
+                height: 300px;
+            }
+        }
+
+        /* ==========================================================================
+           桌面 ≥ 1024px：侧栏展开为「图标 + 文字」导航
+           ========================================================================== */
+        @media (min-width: 1024px) {
+            .tab-bar {
+                width: 208px;
+                min-width: 208px;
+                padding: 12px 10px;
+                gap: 4px;
+            }
+            .tab-btn {
+                flex-direction: row;
+                justify-content: flex-start;
+                gap: 10px;
+                padding: 10px 12px;
+                font-size: 13px;
+                border-radius: 8px;
+            }
+            .tab-content {
+                padding: 24px 28px;
+                max-width: 1180px;
+            }
+        }
+        @media (min-width: 1440px) {
+            .tab-content {
+                padding: 28px 32px;
+                max-width: 1320px;
+            }
+            .chart-box {
+                height: 340px;
+            }
+        }
+
+        /* ==========================================================================
+           双端 UI 优化层（纯样式，不触碰任何 DOM 结构与业务逻辑）
+           断点：<768 手机 · 768~1023 平板/小桌面 · ≥1024 桌面 · ≥1440 宽屏
+           规则放在最后，同权重下天然覆盖前面的同名声明
+           ========================================================================== */
+
+        /* ---------- 通用：跨端一致性 ---------- */
+        html {
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* 关键修复：给 .app 一个"确定高度"而不是只有 min-height。
+           否则内容超过一屏时 .app 会被撑高，底部标签栏被顶出视口，
+           而 .tab-content 因高度同步变大也不会产生内部滚动，页面卡死。
+           改成确定高度后：.layout / .tab-content 有界 → 内容区自己滚，导航常驻。 */
+        .app {
+            height: 100vh;
+            height: 100dvh;
+        }
+        /* 不支持 dvh 的旧内核：退回 body 的 100%（= 真实可视高度），
+           比 100vh 更准，避免微信/ Safari 里底部导航被工具栏遮住 */
+        @supports not (height: 100dvh) {
+            .app {
+                height: 100%;
+                min-height: 0;
+            }
+        }
+        ::selection {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        /* 内部滚动条：始终占位，切页时内容不左右跳动 */
+        .tab-content {
+            scrollbar-gutter: stable;
+        }
+        .tab-content::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .tab-content::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, .28);
+            border-radius: 8px;
+        }
+        .tab-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* 触摸设备：去掉"粘滞 hover"，改为按下反馈 */
+        @media (hover: none) {
+            .btn:hover { opacity: 1; }
+            .btn-outline:hover { background: transparent; }
+            .btn-danger:hover { background: #ef4444; }
+            .btn-refresh:hover { background: transparent; border-color: var(--border); color: var(--muted); }
+            .device-item:hover { background: transparent; }
+            .time-range .quick-btn:hover { border-color: var(--border); color: var(--text); }
+            .tab-btn:hover { color: var(--muted); background: transparent; }
+            .tab-btn.active:hover { color: var(--primary); background: transparent; }
+        }
+        .btn { transition: background .18s, opacity .18s, transform .12s; }
+        .btn:active { transform: translateY(1px); }
+        .tab-btn:active,
+        .quick-btn:active,
+        .btn-refresh:active { opacity: .6; }
+
+        /* ---------- 手机 < 768px：底部导航 + 单列卡片流 ---------- */
+        @media (max-width: 767px) {
+            .header {
+                padding: calc(10px + var(--safe-t)) 14px 10px;
+                gap: 8px;
+                box-shadow: 0 1px 0 var(--border), 0 2px 10px rgba(15, 23, 42, .05);
+            }
+            .header h1 { font-size: 17px; }
+            .header .brand-icon { width: 22px; height: 22px; }
+            .header .user-info { gap: 8px; }
+
+            .tab-content {
+                order: 1;
+                padding: 12px 12px calc(14px + var(--safe-b));
+            }
+            .tab-bar {
+                order: 2;
+                position: sticky;
+                bottom: 0;
+                border-top: 1px solid var(--border);
+                border-bottom: none;
+                padding-bottom: var(--safe-b);
+                box-shadow: 0 -1px 0 var(--border), 0 -6px 18px rgba(15, 23, 42, .07);
+            }
+            .tab-btn {
+                min-height: 54px;
+                padding: 7px 2px 6px;
+                font-size: 11px;
+                gap: 4px;
+            }
+            .tab-btn svg { width: 21px; height: 21px; }
+            .tab-btn span {
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .tab-page .card {
+                padding: 14px;
+                margin-bottom: 12px;
+                border-radius: 14px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 4px 14px rgba(15, 23, 42, .05);
+            }
+            .card-title { font-size: 14px; margin-bottom: 10px; }
+
+            /* 传感器：3 列 + 末位占 2 列，5 个指标不留空位 */
+            .sensor-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 8px;
+            }
+            .sensor-item {
+                padding: 10px 4px;
+                border-radius: 10px;
+                min-width: 0;
+                overflow: hidden;
+            }
+            .sensor-item:last-child { grid-column: span 2; }
+            .sensor-item .label {
+                font-size: 11px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .sensor-item .value { font-size: 17px; }
+
+            .chart-box { height: 236px; border-radius: 10px; }
+            .map-wrap { height: min(50vh, 380px); min-height: 240px; border-radius: 14px; }
+            .table-wrap { max-height: 54vh; border-radius: 10px; }
+
+            /* 表单：16px 防 iOS 聚焦缩放，触摸目标 ≥44px */
+            .tab-page input,
+            .tab-page select {
+                font-size: 16px;
+                min-height: 44px;
+            }
+            .btn { min-height: 44px; padding: 9px 16px; font-size: 14px; }
+            .btn-sm { min-height: 40px; padding: 8px 14px; font-size: 13px; }
+            .query-row { gap: 8px; }
+            .query-row input { padding: 10px 12px; }
+            .project-select { min-height: 44px; font-size: 16px; padding: 8px 10px; }
+            .control-group { gap: 10px; margin-bottom: 14px; }
+            .control-group label { min-width: 66px; font-size: 13px; }
+            .control-group .btn { min-height: 44px; }
+            .time-range .quick-btn { min-height: 38px; }
+            .btn-refresh { width: 34px; height: 34px; }
+        }
+
+        /* 横屏手机：压缩纵向占用 */
+        @media (max-width: 900px) and (max-height: 480px) {
+            .chart-box { height: 210px; }
+            .map-wrap { height: 240px; min-height: 180px; }
+            .tab-content { padding-top: 10px; }
+        }
+
+        /* ---------- 平板 / 小桌面 768~1023px：图标侧栏 ---------- */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .tab-bar { width: 88px; min-width: 88px; gap: 2px; }
+            /* 取消 flex:1 的等高拉伸，改为自然高度 */
+            .tab-btn { flex: 0 0 auto; padding: 10px 4px; gap: 4px; }
+            .tab-content { padding: 20px 24px; max-width: 1000px; }
+            .chart-box { height: 300px; }
+            .map-wrap { height: min(520px, 58vh); }
+        }
+
+        /* ---------- 桌面 ≥ 1024px：展开侧栏 + 双栏内容 ---------- */
+        @media (min-width: 1024px) {
+            .header {
+                padding: 12px 24px;
+                box-shadow: 0 1px 0 var(--border), 0 2px 8px rgba(15, 23, 42, .04);
+            }
+            .header h1 { font-size: 19px; letter-spacing: .2px; }
+            .header .brand-icon { width: 24px; height: 24px; }
+
+            .tab-bar {
+                width: 208px;
+                min-width: 208px;
+                padding: 14px 12px;
+                gap: 4px;
+                border-right: 1px solid var(--border);
+            }
+            /* 取消 flex:1 的等高拉伸，改为自然高度 */
+            .tab-btn {
+                flex: 0 0 auto;
+                padding: 9px 14px;
+                font-size: 13px;
+                line-height: 20px;
+                border-radius: 8px;
+            }
+            .tab-btn svg { width: 18px; height: 18px; }
+            .tab-btn.active { background: var(--primary-light); }
+
+            /* 概览：左侧设备操作栏 + 右侧实时数据大卡 */
+            #tabOverview.active {
+                grid-template-columns: 340px minmax(0, 1fr);
+                grid-template-areas:
+                    "info  sensor"
+                    "query sensor"
+                    "list  list";
+                gap: 14px;
+            }
+            #deviceInfoCard { grid-area: info; }
+            #queryCard { grid-area: query; }
+            #sensorCard { grid-area: sensor; align-self: stretch; }
+            #deviceListCard { grid-area: list; }
+            #deviceListCard .project-select { max-width: 460px; }
+
+            #sensorCard { display: flex; flex-direction: column; }
+            #sensorGrid {
+                flex: 1;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 12px;
+                align-content: center;
+            }
+            .sensor-item {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 4px;
+                padding: 14px 8px;
+                min-height: 104px;
+                border-radius: 10px;
+            }
+            .sensor-item .value { font-size: 22px; }
+
+            /* 趋势：查询条通栏 + 双图并排，减少纵向滚动 */
+            #tabCharts.active { grid-template-columns: 1fr 1fr; }
+            #tabCharts > .card:first-child { grid-column: 1 / -1; }
+            .chart-box { height: 320px; }
+
+            /* 轨迹 */
+            .map-wrap { height: min(620px, 62vh); border-radius: 14px; }
+
+            /* 控制：避免窄内容被拉伸到 1000px+ */
+            #controlCard { max-width: 760px; }
+            .control-group label { min-width: 76px; }
+
+            /* 历史表格 */
+            table { min-width: 720px; }
+            .table-wrap { max-height: min(62vh, 620px); }
+        }
+
+        /* ---------- 宽屏 ≥ 1440px ---------- */
+        @media (min-width: 1440px) {
+            .tab-content { max-width: 1360px; }
+            #tabOverview.active { grid-template-columns: 380px minmax(0, 1fr); }
+            .chart-box { height: 360px; }
+            .sensor-item .value { font-size: 24px; }
+        }
+    </style>
+</head>
+<body data-page-node-id="eg4wKNseleYGl9gNq8AnNu">
+    <div id="app" class="app" data-viewport-mode="app-shell" data-page-node-id="xHenvGgt2WOAWqqiGoDhAy">
+        <!-- ===== HEADER ===== -->
+        <header class="header" data-page-node-id="HwDSpDwgdvZtp8ArPhQtpZ">
+            <div class="brand" data-page-node-id="6iKC91l9XjHzia17L4kbeo">
+                <svg class="brand-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ElDrZSUspNzJlOFFNOjYF1"><circle cx="12" cy="12" r="3" data-page-node-id="ifDYLK6MWJcv3PKMUD3sF1"/><path d="M12 2v4" data-page-node-id="83U7g6pPa7mVHbOjzcidRr"/><path d="M12 18v4" data-page-node-id="TmGfkZHZgNj9QMOUcTZ3bu"/><path d="M4.93 4.93l2.83 2.83" data-page-node-id="ur1PRhQXSkDd3iFYlQ2iyD"/><path d="M16.24 16.24l2.83 2.83" data-page-node-id="QVpC9pFoFRdR4eJ5LjWjqp"/><path d="M2 12h4" data-page-node-id="nRo1jozaGpTcbmTriPYbHu"/><path d="M18 12h4" data-page-node-id="diDTlFF4xXOp5nIMVqzMeE"/><path d="M4.93 19.07l2.83-2.83" data-page-node-id="pDLwYsV45yV5tEGa6nxpaC"/><path d="M16.24 7.76l2.83-2.83" data-page-node-id="anRxc1bv3cXabfut9QF9Qj"/></svg>
+                <h1 data-page-node-id="vzChcSoBON0WVYq4HGVmII">设备监控</h1>
+            </div>
+            <div class="user-info" data-page-node-id="1oGXj7vFBvnLWATcu1WCER">
+                <span class="name" id="userName" data-page-node-id="hfCV3JM5f95o0Igdpm1E0E">未登录</span>
+                <button class="btn btn-sm" id="loginBtn" data-page-node-id="gT6Tr3en5dYwFnNcc7DsZs">登录</button>
+                <button class="btn btn-sm btn-danger hidden" id="logoutBtn" data-page-node-id="gpAYSQpTTTQyJS5MfwJxMQ">退出</button>
+            </div>
+        </header>
+
+        <!-- ===== LAYOUT ===== -->
+        <div class="layout" data-page-node-id="m3wfo0CifkzsYtfsqC8L0g">
+            <!-- TAB BAR -->
+            <nav class="tab-bar" id="tabBar" data-page-node-id="BlZPAFsZ66QZLpcSHTXHr2">
+                <button class="tab-btn active" data-tab="tabOverview" type="button" data-page-node-id="upZDHYWvGCfR3MNzwvHVUY">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="Jg173K2Tn2MK2kL25FgYwH"><path d="M12 20v-6M6 20V10M18 20V4" data-page-node-id="6HCDvshUWlvoxW9Bmb3vvR"/></svg>
+                    <span data-page-node-id="zQxDeBephdsdQNUk8Tn3MC">设备选择</span>
+                </button>
+                <button class="tab-btn" data-tab="tabCharts" type="button" data-page-node-id="5DgFIOPdxdFHy8qQeUFfyX">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="VLAZ9UoGa0GSPcpv5ZVunc"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" data-page-node-id="3syQAnsXuq7gpEGNNFF4Kv"/></svg>
+                    <span data-page-node-id="EaRbnLKOo2j2aNW90j4Htp">传感器数据</span>
+                </button>
+                <button class="tab-btn" data-tab="tabMap" type="button" data-page-node-id="ucqGqHJ1rCoEfMapqlguiw">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="OpZhC2ufvQ71ngfmyXpxKE"><polygon points="3 11 22 2 13 21 11 13 3 11" data-page-node-id="fueRAO1EjEePQcAXQoss6i"/></svg>
+                    <span data-page-node-id="QjXESmsswRy8UsE8nSpjnF">轨迹</span>
+                </button>
+                <button class="tab-btn" data-tab="tabHistory" type="button" data-page-node-id="TgjDJ09dQm1zqDy50pAVWC">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="RSPVwdAzSN4fMBJ7HoYi8O"><circle cx="12" cy="12" r="10" data-page-node-id="jgvA4CdoqePO5xtxFkGjTb"/><polyline points="12 6 12 12 16 14" data-page-node-id="KIMXtRL4DlgDeh2VDVpoKt"/></svg>
+                    <span data-page-node-id="BABvDJjoQWTRi8tNPBu3u8">历史数据</span>
+                </button>
+                <button class="tab-btn" data-tab="tabControl" type="button" data-page-node-id="k6mDlj9ny7DcR6JnwFilSG">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="KqJqbZlor3iBrjEVWkW6xq"><circle cx="12" cy="12" r="3" data-page-node-id="IgPjrbfUKPctGvyR9hfP3O"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" data-page-node-id="x1i6gEbBWbei2fhvW4YpYx"/></svg>
+                    <span data-page-node-id="U30iESATfDXe23iqnAVLff">控制</span>
+                </button>
+            </nav>
+
+            <!-- TAB CONTENT -->
+            <div class="tab-content" id="tabContent" data-page-node-id="atUAIaMupl5mfkg0QcADKk">
+
+                <!-- ===== 设备选择 ===== -->
+                <div class="tab-page active" id="tabOverview" data-page-node-id="vb7gKm8YboCeRMILyVPUQK">
+                    <!-- 设备状态 -->
+                    <div class="card" id="deviceInfoCard" data-page-node-id="13VhGRQKX87C7UHehJ5OEB">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;" data-page-node-id="S7MaXbfuwdPHtyP8ryBNWl">
+                            <div style="min-width:0;" data-page-node-id="6mz0uJO4cZgTyR3GQJRbeI"><strong id="devName" style="font-size:15px;" data-page-node-id="c5GrtlWABeZwF1QDyLlCMk">--</strong><br data-page-node-id="FWl2PwmkwrSTjwHCPEsT7A"><span class="muted" id="devId" style="font-size:12px;" data-page-node-id="zlp5CYDitGbVNEC59jQoAW">IMEI: --</span></div>
+                            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" data-page-node-id="Xx1">
+                                <button class="btn btn-sm" id="refreshBtn" disabled style="font-size:12px;padding:2px 8px;" data-page-node-id="Xx2">刷新</button>
+                                <span id="signalLed" class="status-led offline" data-page-node-id="I3oINkjCYJKXgbiXNm3Tek">未选择设备</span>
+                            </div>
+                        </div>
+                        <div style="font-size:12px;color:var(--muted);margin-top:6px;" data-page-node-id="DEEgT6UJrvbOjrHA3T7iyW">最后更新: <span id="devLastTime" data-page-node-id="Ak8S3ZzsmvqTqqJfsr4Yu8">--</span></div>
+                    </div>
+                    <!-- 查询设备 -->
+                    <div class="card" id="queryCard" data-page-node-id="s5aeRXGdFNKKXSjhZDXz3D">
+                        <div class="card-title" data-page-node-id="x7moGlhWcxFYiApkjdwWVe">查询设备</div>
+                        <div class="query-row" data-page-node-id="66foRJhKKTQHKYCYX3Ff9e">
+                            <input type="text" id="imeiInput" placeholder="输入 IMEI" data-page-node-id="4PxBKkQzdWqrHqlDfqMQXs" />
+                            <button class="btn" id="queryBtn" data-page-node-id="7a9HrHgqQ4baW8NDOWPHuc">查询</button>
+                        </div>
+                        <button class="btn btn-outline btn-sm" id="scanBtn" style="width:100%;margin-bottom:6px;" data-page-node-id="xuCV7HDuxfSCdZltV7jU5O">扫码</button>
+                        <div id="queryStatus" class="notice hidden" data-page-node-id="1SEz07GFdpZzXz8G7Qofe1"></div>
+                    </div>
+                    <!-- 我的设备 -->
+                    <div class="card" id="deviceListCard" data-page-node-id="eSczltknKaXcWJFImmxXf3">
+                        <div class="card-title" data-page-node-id="HFiGyPCwGfDBdWHumSx4fO">我的设备</div>
+                        <select class="project-select" id="projectSelect" data-page-node-id="uqCb4QIxH8z43rqPdsVBZs"><option value="" data-page-node-id="2XsR3K4szKRcLXwTfNO6iz">加载项目中...</option></select>
+                        <div id="projectName" style="font-size:11px;color:var(--muted);margin-bottom:6px;" data-page-node-id="kApmrBzbEV5BHBBWXETrkj"></div>
+                        <select class="project-select" id="deviceSelect" style="margin-bottom:0;"><option value="">选择设备...</option></select>
+                    </div>
+                    <!-- 当前数据 -->
+                    <div class="card" id="sensorCard" data-page-node-id="EcI4mRyNu9TWrhNtbDrEkJ">
+                        <div class="card-title" data-page-node-id="9cyigQbIlFO7kTEJAFd5J4">当前数据</div>
+                        <div class="sensor-grid" id="sensorGrid" data-page-node-id="YuiNYQRSPslLuV4AIei6kH">
+                            <div class="sensor-item" data-page-node-id="y5nRTerRQH1IlGa2g17DqV"><div class="label" data-page-node-id="qDxbuvkJwnMpuMME23IQwA">温度</div><div class="value" id="sTemp" data-page-node-id="kdoyW83qaO2VxbcQOYYMbw">--<span style="font-size:12px;font-weight:400;" data-page-node-id="6hJXOAAzfxn40cXmY8OGlK">°C</span></div></div>
+                            <div class="sensor-item" data-page-node-id="NSAc52yeJ7aSFZuIJ4WqAK"><div class="label" data-page-node-id="K8Q3WH7YNdrRvRUFqVIra7">湿度</div><div class="value" id="sHumi" data-page-node-id="mBwXD6A0hnOthWgMNz3fnw">--<span style="font-size:12px;font-weight:400;" data-page-node-id="xZ770mUoj7WmYSwyJJnxoK">%</span></div></div>
+                            <div class="sensor-item" data-page-node-id="3JRf07ON3Un3r94j4msZUA"><div class="label" data-page-node-id="yJI5KBG63mV3GIa224r0aU">CPU温度</div><div class="value" id="sCpu" data-page-node-id="SFGVPtO1ObKFJuhKfUNkc2">--<span style="font-size:12px;font-weight:400;" data-page-node-id="5CM3c3aH3eXhfgTXPI0qMO">°C</span></div></div>
+                            <div class="sensor-item" data-page-node-id="DFED0qkDvgWzDnhjKN2XeW"><div class="label" data-page-node-id="l63PnB3XpOXuMOcewLvX46">信号</div><div class="value" id="sSignal" data-page-node-id="toc7t6oaovXcWqxpxSrUCy">--</div></div>
+                            <div class="sensor-item" data-page-node-id="NF1xumheEFISIOmLKgaGkR"><div class="label" data-page-node-id="RMUAZq4OsKC36BB65leJx4">VOC</div><div class="value" id="sVoc" data-page-node-id="wLNTvurLrSxZs1CBXJXmbx">--<span style="font-size:12px;font-weight:400;" data-page-node-id="2DJb8qjD71gYrcgzsItQiJ">ppb</span></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== 传感器数据 ===== -->
+                <div class="tab-page" id="tabCharts" data-page-node-id="EjNkqV8EI6BEiy2sEwLajU">
+                    <div class="card" data-page-node-id="kB4Wh4KkTeavjtwyUKa7ZH">
+                        <div class="card-title" data-page-node-id="vUA21dxfr0JxkLz2SW56lS">数据查询</div>
+                        <div class="time-range" id="timeRange" data-page-node-id="9NHd8NCN8o3cEnlFtZZlDS">
+                            <button class="quick-btn active" data-days="1" type="button" data-page-node-id="b1t37Riu0i4CrewAP6gPhx">今天</button>
+                            <button class="quick-btn" data-days="7" type="button" data-page-node-id="rliUG0cJcdfvsuMBT7qkQX">7天</button>
+                            <button class="quick-btn" data-days="30" type="button" data-page-node-id="66CLcv4wpumIUu0dRsfka9">30天</button>
+                            <input type="date" id="startDate" data-page-node-id="AibR9b5ieBbbWgskWv9sSw">
+                            <input type="date" id="endDate" data-page-node-id="ijaGUTncPuOFPCuaZM9EGY">
+                            <button class="btn btn-sm" id="btnTimeQuery" type="button" data-page-node-id="1sHrcjHCOUviyf5zQOfFfN">查询</button>
+                        </div>
+                    </div>
+                    <div class="card" data-page-node-id="xdt0kfiWo76nASL6HGzkrY">
+                        <div class="card-title" data-page-node-id="AyoVMgmyZ4XDQRJwimBQW8">温湿度趋势</div>
+                        <div class="chart-box" id="chartTempHumi" data-page-node-id="BIsBn62tQuCbATvVFshXnw"><div class="chart-empty" data-page-node-id="OAjD0ifCL9VW1Hhu1F463V">选择设备后显示温湿度趋势</div></div>
+                    </div>
+                    <div class="card" data-page-node-id="t6kDy6Xng7MQ8FEfizyefW">
+                        <div class="card-title" data-page-node-id="9O2E609eTTA2Eb7mmL6O3R">CPU温度 / VOC趋势</div>
+                        <div class="chart-box" id="chartCpuVoc" data-page-node-id="UOWYEWJpmvtfKafPmv2Vl6"><div class="chart-empty" data-page-node-id="6etW5jpbWKLqW2BZLzxaG6">选择设备后显示CPU温度/VOC趋势</div></div>
+                    </div>
+                </div>
+
+                <!-- ===== 轨迹 ===== -->
+                <div class="tab-page" id="tabMap" data-page-node-id="Uy5JJaNGIP7z1cgpMspgKi">
+                    <div class="card" id="mapCard" data-page-node-id="vxGqZCOrTuQukYuMz5I1en">
+                        <div class="card-title" data-page-node-id="lsdN7m00oxNry4JmmGKdtm">位置轨迹</div>
+                        <div class="map-wrap" data-page-node-id="A7J6zRs3tlUbzZisEb7P4E">
+                            <div id="map-container" data-page-node-id="6RkBBeNTQ6oAQ0pDdIL9RN"></div>
+                            <div class="map-placeholder" id="mapPlaceholder" data-page-node-id="rmBt4jkRFl4BRB3nxYdFeM">选择设备后显示位置</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== 历史数据 ===== -->
+                <div class="tab-page" id="tabHistory" data-page-node-id="q7e1KGz1Ql5OCigwCVUkpd">
+                    <div class="card" id="historyCard" data-page-node-id="n8VxAVRD3FuPczfAzyaY9X">
+                        <div class="card-title" data-page-node-id="KIT9gkJ4Jiz8GVuKmoTzWu">历史数据 <span class="muted" style="font-weight:400;font-size:11px;" id="historySummary" data-page-node-id="J80muHKDFObaiiVi2Bq0No"></span></div>
+                        <div class="table-wrap" data-page-node-id="EjuG9fdO9XhzDh1ZzEHeUI">
+                            <table data-page-node-id="Ba5TLg8F1aUsQdbmUcns5v">
+                                <thead data-page-node-id="5GOaFm4HmIYYrGlmIFJSuM"><tr data-page-node-id="C7CIAq0xGIe3aFzvIOIZEh"><th data-page-node-id="1YvY0Nx1Vh9ZCF9ylNWe1T">时间</th><th data-page-node-id="TsuzKgu0Z2DEuDuNdmpXcB">°C</th><th data-page-node-id="qtfF0q8KhX1qYjSrqA4dHf">%</th><th data-page-node-id="8o1X9G7ZRLNvAIwvLkfGmD">CPU</th><th data-page-node-id="qFSLHLBeHxdGRgaAENV3Dj">VOC</th><th data-page-node-id="F3iWeNtS7FTkD8DmBFVdC3">信号</th><th data-page-node-id="urPuiLnVztVoIyA9G3x1Vq">经度</th><th data-page-node-id="GbF5vZyt8ODrbuUndyKo1s">纬度</th></tr></thead>
+                                <tbody id="historyBody" data-page-node-id="H8Xr5LxAGVdQVFPs2VKRQA"><tr data-page-node-id="RlzB3jNXCoIowdKmq39cQA"><td colspan="8" style="text-align:center;color:var(--muted);" data-page-node-id="8qrgJwQKmmt5fCqQlTMo3K">选择设备后查询</td></tr></tbody>
+                            </table>
+                        </div>
+                        <button class="btn btn-sm btn-outline hidden" id="loadMoreBtn" style="margin-top:8px;width:100%;" data-page-node-id="lde7cw2JgVSXDVbr3snb2l">加载更多</button>
+                    </div>
+                </div>
+
+                <!-- ===== 控制 ===== -->
+                <div class="tab-page" id="tabControl" data-page-node-id="sLDS8F8GUEGddfbDXnXwqX">
+                    <div class="card" id="controlCard" data-page-node-id="KbdzBEvwQD9OV4dOzM70dW">
+                        <div class="card-title" data-page-node-id="RGBfG4lUE9d51l9F3u5vTG">设备控制 <span id="controlStatusLabel" class="status-led offline" style="font-size:11px;" data-page-node-id="SaSqnXDGmepkJrtdwuKnS0">未选中</span></div>
+                        <div class="control-group" data-page-node-id="XyduKw6rq1Kt5ujE4ydQHt">
+                            <label data-page-node-id="2yi3cHD9PLNT3iB2jkZLTt">上报频率</label>
+                            <input type="number" id="reportCycle" value="180" min="5" step="5" disabled data-page-node-id="ou5xn1jkbRiAOIsPiTXDrA" />
+                            <span style="font-size:12px;color:var(--muted);" data-page-node-id="iZjUrckItc8iVrFqLiHjLa">秒</span>
+                            <button class="btn btn-sm" id="setCycleBtn" disabled data-page-node-id="DwwQ2Ab4HwzvGu5bVBuvx0">设置</button>
+                        </div>
+                        <div class="control-group" data-page-node-id="q01aaWpeyQHnAAvZt01M9K">
+                            <label data-page-node-id="DC85oNedVShHBqRYFyefav">TTS</label>
+                            <input type="text" id="ttsText" placeholder="播报文字" disabled data-page-node-id="GhFRqvfFOXZq2VB1XnE6DM" />
+                            <button class="btn btn-sm" id="sendTtsBtn" disabled data-page-node-id="iCnBdBO0brAhl7gShcqqNe">发送</button>
+                        </div>
+                        <div class="control-group" data-page-node-id="LedCtrlGroup">
+                            <label data-page-node-id="LedLabel">LED控制</label>
+                            <button class="btn btn-sm" id="ledBlinkBtn" disabled data-page-node-id="LedBlinkBtn">闪烁5秒</button>
+                            <button class="btn btn-sm" id="ledOnBtn" disabled data-page-node-id="LedOnBtn">常亮</button>
+                            <button class="btn btn-sm" id="ledOffBtn" disabled data-page-node-id="LedOffBtn">熄灭</button>
+                        </div>
+                        <div id="controlStatus" class="notice hidden" data-page-node-id="BASHyYt3H2vvCXJGR8Z8Kd"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ============================================================
+           核心 SDK + 认证模块（与 login.html 一致，此处完整包含）
+           ============================================================ */
+        (() => {
+            'use strict';
+            const API_HOST = 'https://api-iot.luatos.com';
+            const BASE_HOST = 'https://iot.luatos.com';
+            const APP_ID_FALLBACK = '';
+            const appId = location.pathname.match(/\/ai_app\/luatos\/([^/]+)/)?.[1] || APP_ID_FALLBACK;
+            const local = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+            const pagePath = name => appId ? '/ai_app/luatos/' + encodeURIComponent(appId) + '/' + name : location.pathname
+                .replace(/[^/]*$/, name);
+
+            function getOAuthCallback() {
+                if (!appId || !/^[A-Za-z0-9_-]+$/.test(appId)) throw Object.assign(new Error(
+                    '请从已部署的应用网址打开登录页，本地预览不能发起授权登录。'), { type: 'deployment' });
+                return BASE_HOST + pagePath('login.html');
+            }
+            const url = new URL(location.href),
+                hash = new URLSearchParams(url.hash.slice(1));
+            const initial = new Map([...hash, ...url.searchParams]);
+            const sensitive = k => /^(m_|token$|salt$|sid$|error$|error_description$|access_token$)/i.test(k);
+            const cleanAuthHash = [...hash.keys()].some(sensitive);
+            for (const k of [...url.searchParams.keys()])
+                if (sensitive(k)) url.searchParams.delete(k);
+            for (const k of [...hash.keys()])
+                if (sensitive(k)) hash.delete(k);
+            if (cleanAuthHash) url.hash = hash.toString();
+            let initError = '';
+            try { history.replaceState(null, '', url.href); } catch { initError = '浏览器无法清理登录信息，请关闭此页后重新进入。'; }
+            const error = (message, type = 'business') => Object.assign(new Error(message), { type });
+            const LuatSDK = {
+                config: {
+                    API_HOST,
+                    BASE_HOST,
+                    API_BASE: API_HOST + '/iot/open_api',
+                    OAUTH_URL: API_HOST + '/iam/luat_oauth/authorize',
+                    timeout: 18000
+                },
+                storage: {
+                    get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
+                    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { throw error(
+                                '浏览器无法保存数据，请允许本网站使用本地存储后重试。', 'storage'); } },
+                    remove(k) { try { localStorage.removeItem(k); } catch { throw error(
+                                '无法清理登录信息，请检查浏览器存储设置。', 'storage'); } },
+                    clear(prefix) { try { Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k =>
+                            localStorage.removeItem(k)); } catch { throw error('无法清理本地数据。', 'storage'); } }
+                },
+                http: {
+                    async request(path, { method = 'POST', body, headers = {} } = {}) {
+                        const controller = new AbortController(),
+                            timer = setTimeout(() => controller.abort(), LuatSDK.config.timeout);
+                        try {
+                            const target = path.startsWith('/iam/') ? API_HOST + path : LuatSDK.config.API_BASE +
+                            path;
+                            const response = await fetch(target, { method, headers: { 'Content-Type': 'application/json',
+                                    ...headers }, body: body === undefined ? undefined : JSON.stringify(body),
+                                signal: controller.signal, credentials: 'omit', cache: 'no-store',
+                                referrerPolicy: 'no-referrer' });
+                            if (!response.ok) throw error(response.status === 401 || response.status === 403 ?
+                                '登录验证未通过，请重新进入应用。' : '服务暂时不可用，请稍后重试。', response.status === 401 ?
+                                'unauthorized' : 'http');
+                            try { return await response.json(); } catch { throw error(
+                                    '服务返回的数据无法读取，请重试。', 'parse'); }
+                        } catch (e) { if (e.type) throw e; throw error(e.name === 'AbortError' ?
+                                '请求超时，请重试。' : '网络连接失败，请检查网络后重试。', e.name === 'AbortError' ?
+                                'timeout' : 'network'); } finally { clearTimeout(timer); }
+                    },
+                    get(path, headers) { return this.request(path, { method: 'GET', headers }); },
+                    post(path, body, headers) { return this.request(path, { body, headers }); }
+                }
+            };
+            const storage = LuatSDK.storage,
+                valid = v => typeof v === 'string' && v.trim().length > 0;
+            const complete = c => !!c && valid(c.auth?.token) && valid(c.auth?.salt) && valid(c.service?.sid);
+
+            function session(k, v) { try { if (v !== undefined) sessionStorage.setItem(k, v); return sessionStorage.getItem(
+                        k); } catch { throw error('浏览器无法保存登录会话，请允许本网站存储后重试。', 'storage'); } }
+
+            function hostSession() { return session('m_host_session') === '1'; }
+
+            function saveAtomic(prefix, values) {
+                const keys = ['auth', 'service', 'profile', 'tenant', 'sets'].map(k => prefix + k),
+                    old = keys.map(k => storage.get(k));
+                try { keys.forEach((k, i) => { const v = values[k.slice(prefix.length)]; v == null ? storage.remove(
+                            k) : storage.set(k, v); }); } catch (e) { keys.forEach((k, i) => { try { old[i] ==
+                            null ? storage.remove(k) : storage.set(k, old[i]); } catch {} }); throw e; }
+            }
+
+            function initAuth() {
+                if (initError) throw error(initError, 'storage');
+                storage.set('bag_storage_probe', 1);
+                storage.remove('bag_storage_probe');
+                const m = { auth: { token: initial.get('m_token'), salt: initial.get('m_salt') }, service: { sid: initial
+                            .get('m_sid') } };
+                if (complete(m)) {
+                    m.profile = { name: initial.get('m_name') || '', mobile: initial.get('m_phone') || '' };
+                    const sets = {};
+                    ['algorithm', 'encryptOutput', 'padding', 'publicKey', 'publicKeyEncoding'].forEach(k => { if (
+                            valid(initial.get('m_' + k))) sets[k] = initial.get('m_' + k); });
+                    if (Object.keys(sets).length) m.sets = sets;
+                    session('m_host_session', '1');
+                    saveAtomic('m_', m);
+                }
+                for (const k of [...initial.keys()])
+                    if (k.startsWith('m_')) initial.delete(k);
+                return getAuthContext();
+            }
+            let expired = false;
+
+            function getAuthContext() {
+                if (expired) return null;
+                for (const prefix of hostSession() ? ['m_'] : ['my_', 'm_']) {
+                    const c = { prefix, auth: storage.get(prefix + 'auth'), service: storage.get(prefix + 'service'),
+                        profile: storage.get(prefix + 'profile') || {}, sets: storage.get(prefix + 'sets') || {} };
+                    if (complete(c)) return c;
+                }
+                return null;
+            }
+            const isAuthenticated = () => !!getAuthContext();
+
+            function getAuthHeaders() { const c = getAuthContext(); if (!c) throw error('登录已失效，请重新进入应用。',
+                'auth'); return { authorization: c.auth.token, salt: c.auth.salt, sid: c.service.sid }; }
+
+            function clearLoginStorage() { const prefixes = hostSession() ? ['m_'] : ['my_', 'm_']; for (const p of
+                    prefixes)
+                    for (const k of ['auth', 'service', 'profile', 'tenant', 'sets', 'user']) storage.remove(p + k); }
+
+            function safeReturn(value) { try { if (!valid(value) || /[\\\r\n]/.test(value)) return null; const u = new URL(
+                        value, BASE_HOST); if (u.origin !== BASE_HOST || u.pathname !== pagePath('index.html')) return null;
+                    for (const [k] of u.searchParams)
+                        if (sensitive(k)) return null; if (u.hash) return null; return u.pathname + u.search; } catch { return null; } }
+
+            function go(name, path) { const p = safeReturn(path) || pagePath(name); location.replace(local && !appId ?
+                    name : BASE_HOST + p); }
+
+            function redirectToLogin() { const p = pagePath('login.html'); location.replace(local && !appId ?
+                    'login.html' : BASE_HOST + p + '?returnTo=' + encodeURIComponent(pagePath('index.html'))); }
+
+            function redirectToApp() { if (isAuthenticated()) go('index.html', initial.get('returnTo')); }
+
+            function requireAuth() { if (isAuthenticated()) return true; redirectToLogin(); return false; }
+
+            function handleLoginExpired() { if (expired) return; expired = true; window.dispatchEvent(new Event(
+                    'bag-auth-expired')); clearLoginStorage(); redirectToLogin(); }
+
+            function friendly(value) { let s = typeof value === 'string' ? value : ''; const c = getAuthContext(); if (c) [c
+                    .auth.token, c.auth.salt, c.service.sid
+                ].forEach(v => { s = s.split(v).join(''); }); return s && s.length < 200 && !/(token|salt|sid|my_|m_|https?:|Exception|stack|SQL)/i
+                    .test(s) ? s : '操作未完成，请稍后重试。'; }
+
+            async function request(path, body = {}, signed = false) {
+                const headers = getAuthHeaders();
+                if (signed) {
+                    const sets = getAuthContext().sets;
+                    if (!appId) throw error('当前部署地址尚不支持资料保存，请联系管理员。');
+                    if (!sets.publicKey || typeof JSEncrypt === 'undefined') throw error(
+                        '当前登录暂不支持云端资料，请重新登录后重试。');
+                    const rsa = new JSEncrypt();
+                    rsa.setPublicKey(sets.publicKey.includes('BEGIN') ? sets.publicKey :
+                        '-----BEGIN PUBLIC KEY-----\n' + sets.publicKey + '\n-----END PUBLIC KEY-----');
+                    const key = rsa.encrypt(Date.now() + ',' + appId);
+                    if (!key) throw error('云端资料验证失败，请重新登录后重试。');
+                    headers['X-Key-Open-Api'] = key;
+                }
+                let response;
+                try { response = await LuatSDK.http.post(path, body, headers); } catch (e) { if (e.type ===
+                        'unauthorized') handleLoginExpired(); throw e; }
+                if (!response || typeof response.code !== 'number') throw error('服务返回的数据不完整，请重试。');
+                if ([102, 103, 105].includes(response.code)) { handleLoginExpired(); throw error(
+                        '登录已失效，请重新进入应用。', 'auth'); }
+                if (response.code !== 0) throw error(friendly(response.value));
+                return response;
+            }
+            const maskPhone = p => String(p || '').replace(/^(\d{3})\d+(\d{4})$/, '$1****$2');
+            window.BagCore = { LuatSDK, storage, appId, initial, initAuth, getAuthContext, getAuthHeaders,
+                isAuthenticated, requireAuth, clearLoginStorage, redirectToLogin, redirectToApp,
+                handleLoginExpired, hostSession, saveAtomic, complete, request, maskPhone, pagePath,
+                getOAuthCallback, BASE_HOST, API_HOST, friendly };
+        })();
+
+        /* ============================================================
+           业务逻辑（支持项目切换 + 设备刷新按钮 + 布局适配）
+           ============================================================ */
+        (() => {
+            const C = BagCore;
+            const $ = id => document.getElementById(id);
+            const text = (id, v) => { const el = $(id); if (el) el.textContent = v ?? '—'; };
+            const showNotice = (el, msg, type = 'info') => { el.textContent = msg;
+                el.className = 'notice ' + type;
+                el.classList.remove('hidden'); };
+            const hideNotice = el => el.classList.add('hidden');
+
+            let S = {
+                loggedIn: false,
+                projects: [],
+                devices: [],
+                currentProjectKey: null,
+                currentProjectName: '',
+                currentDeviceId: null,
+                currentPos: null,
+                latest: null,
+                tags: {},
+                tagTime: '',
+                history: [],
+                historyPage: 1,
+                historyTotal: 0,
+                historyDays: 1,
+                chartTempHumi: null,
+                chartCpuVoc: null,
+                chartDataReady: false,
+                histPathLayer: null,
+                histMarkerLayer: null,
+                histHoverMarkers: null, // 用于悬停预览的标记
+                map: null,
+                marker: null,
+                infoWin: null,
+                mapReady: false,
+                refreshing: false,
+                _lastReqTime: 0,
+            };
+
+            const userName = $('userName'),
+                loginBtn = $('loginBtn'),
+                logoutBtn = $('logoutBtn');
+            const imeiInput = $('imeiInput'),
+                queryBtn = $('queryBtn'),
+                scanBtn = $('scanBtn'),
+                queryStatus = $('queryStatus');
+            const deviceSelect = $('deviceSelect'),
+                projectName = $('projectName'),
+                projectSelect = $('projectSelect');
+            const controlCard = $('controlCard'),
+                reportCycle = $('reportCycle'),
+                setCycleBtn = $('setCycleBtn');
+            const ttsText = $('ttsText'),
+                sendTtsBtn = $('sendTtsBtn'),
+                controlStatus = $('controlStatus'),
+                controlStatusLabel = $('controlStatusLabel');
+            const ledBlinkBtn = $('ledBlinkBtn'),
+                ledOnBtn = $('ledOnBtn'),
+                ledOffBtn = $('ledOffBtn');
+            const devName = $('devName'),
+                devId = $('devId'),
+                devLastTime = $('devLastTime'),
+                signalLed = $('signalLed'),
+                refreshBtn = $('refreshBtn');
+            const sTemp = $('sTemp'),
+                sHumi = $('sHumi'),
+                sCpu = $('sCpu'),
+                sSignal = $('sSignal'),
+                sVoc = $('sVoc');
+            const historyBody = $('historyBody'),
+                historySummary = $('historySummary'),
+                loadMoreBtn = $('loadMoreBtn');
+            const mapContainer = $('map-container'),
+                mapPlaceholder = $('mapPlaceholder');
+
+            function num(v) { return v === null || v === undefined || v === '' ? null : Number.isFinite(Number(v)) ? Number(
+                    v) : null; }
+
+            function timeMs(t) { if (typeof t !== 'string' || !/^\d{4}-\d\d-\d\d[ T]\d\d:\d\d:\d\d$/.test(t)) return NaN;
+                return Date.parse(t.replace(' ', 'T') + '+08:00'); }
+
+            function coordinate(p) { const lat = num(p?.lat),
+                    lng = num(p?.lng); return lat !== null && lng !== null && Math.abs(lat) <= 90 && Math.abs(lng) <=
+                    180 && !(lat === 0 && lng === 0) ? { lat, lng } : null; }
+
+            // WGS84 → GCJ02
+            (function() {
+                const PI = Math.PI,
+                    A = 6378245.0,
+                    EE = 0.00669342162296594323;
+
+                function outOfChina(lat, lng) { return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271; }
+
+                function transformLat(x, y) {
+                    let ret = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+                    ret += (20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2 / 3;
+                    ret += (20 * Math.sin(y * PI) + 40 * Math.sin(y / 3 * PI)) * 2 / 3;
+                    ret += (160 * Math.sin(y / 12 * PI) + 320 * Math.sin(y * PI / 30)) * 2 / 3;
+                    return ret;
+                }
+
+                function transformLng(x, y) {
+                    let ret = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+                    ret += (20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2 / 3;
+                    ret += (20 * Math.sin(x * PI) + 40 * Math.sin(x / 3 * PI)) * 2 / 3;
+                    ret += (150 * Math.sin(x / 12 * PI) + 300 * Math.sin(x / 30 * PI)) * 2 / 3;
+                    return ret;
+                }
+                window.wgs84ToGcj02 = function(lat, lng) {
+                    if (outOfChina(lat, lng)) return { lat, lng };
+                    let dLat = transformLat(lng - 105, lat - 35),
+                        dLng = transformLng(lng - 105, lat - 35);
+                    const radLat = lat / 180 * PI;
+                    let magic = Math.sin(radLat);
+                    magic = 1 - EE * magic * magic;
+                    const sqrtMagic = Math.sqrt(magic);
+                    dLat = (dLat * 180) / ((A * (1 - EE)) / (magic * sqrtMagic) * PI);
+                    dLng = (dLng * 180) / (A / sqrtMagic * Math.cos(radLat) * PI);
+                    return { lat: lat + dLat, lng: lng + dLng };
+                };
+            })();
+
+            function records(v) { if (v == null || typeof v === 'object' && Object.keys(v).length === 0) return []; if (!
+                    Array.isArray(v.records)) throw new Error('列表数据不完整'); return v.records; }
+            const api = async (path, body, signed = false) => (await C.request(path, body, signed)).value;
+
+            function toast(msg, type = 'info') { showNotice(queryStatus, msg, type); setTimeout(() => hideNotice(
+                    queryStatus), 5000); }
+
+            // ---- 查询并发控制 ----
+            // 服务端限制：查询频率应近似等于设备上报频率，避免请求排队
+            const MIN_REQ_INTERVAL = 3000;   // 同设备查询间隔3秒
+            const CROSS_DEVICE_DELAY = 3000; // 跨设备查询间隔3秒
+            let _lastDevice = '';
+
+            function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+            async function throttledApi(path, body, signed) {
+                const now = Date.now();
+                const elapsed = now - S._lastReqTime;
+                const isSameDevice = body?.client_id === _lastDevice;
+                const minGap = isSameDevice ? MIN_REQ_INTERVAL : CROSS_DEVICE_DELAY;
+                if (elapsed < minGap) await delay(minGap - elapsed);
+                S._lastReqTime = Date.now();
+                _lastDevice = body?.client_id || '';
+                return api(path, body, signed);
+            }
+
+            // ---- 更新登录UI ----
+            function updateUserUI() {
+                const logged = C.isAuthenticated();
+                S.loggedIn = logged;
+                if (logged) {
+                    const prof = C.getAuthContext()?.profile || {};
+                    userName.textContent = prof.name || prof.mobile || '用户';
+                    loginBtn.classList.add('hidden');
+                    logoutBtn.classList.remove('hidden');
+                    loadProjects();
+                } else {
+                    userName.textContent = '未登录';
+                    loginBtn.classList.remove('hidden');
+                    logoutBtn.classList.add('hidden');
+                    deviceSelect.innerHTML = '<option value="">登录后显示您的设备</option>';
+                    projectName.textContent = '';
+                    projectSelect.innerHTML = '<option value="">请先登录</option>';
+                    projectSelect.disabled = true;
+                    setCycleBtn.disabled = true;
+                    sendTtsBtn.disabled = true;
+                    reportCycle.disabled = true;
+                    ttsText.disabled = true;
+                    ledBlinkBtn.disabled = true;
+                    ledOnBtn.disabled = true;
+                    ledOffBtn.disabled = true;
+                    refreshBtn.disabled = true;
+                    controlStatusLabel.className = 'status-led offline';
+                    controlStatusLabel.textContent = '未登录';
+                    clearDeviceData();
+                }
+            }
+
+            // ---- 加载项目 ----
+            async function loadProjects() {
+                if (!S.loggedIn) return;
+                try {
+                    const data = await api('/list_my_projects', {});
+                    if (!Array.isArray(data) || data.length === 0) {
+                        projectSelect.innerHTML = '<option value="">暂无项目</option>';
+                        deviceSelect.innerHTML = '<option value="">暂无项目</option>';
+                        return;
+                    }
+                    S.projects = data;
+                    projectSelect.innerHTML = '';
+                    S.projects.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.project_key;
+                        opt.textContent = p.name || p.project_key || '未命名项目';
+                        projectSelect.appendChild(opt);
+                    });
+                    projectSelect.disabled = false;
+                    S.currentProjectKey = S.projects[0].project_key;
+                    S.currentProjectName = S.projects[0].name || S.projects[0].project_key || '未命名项目';
+                    projectSelect.value = S.currentProjectKey;
+                    projectName.textContent = '（项目：' + S.currentProjectName + '）';
+                    await loadDevices(S.currentProjectKey);
+                } catch (e) {
+                    projectSelect.innerHTML = '<option value="">加载失败</option>';
+                    deviceSelect.innerHTML = '<option value="">加载失败</option>';
+                }
+            }
+
+            // ---- 加载设备 ----
+            async function loadDevices(projectKey) {
+                if (!projectKey) return;
+                try {
+                    const devData = await api('/list_my_devices', { project: projectKey, page: 1, size: 100 });
+                    const devs = records(devData).filter(d => typeof d.deviceid === 'string');
+                    S.devices = devs;
+                    renderDeviceList();
+                    S.currentDeviceId = null;
+                    clearDeviceData();
+                    if (S.marker) { S.marker.setMap(null);
+                        S.marker = null; }
+                    if (S.infoWin) { S.infoWin.close();
+                        S.infoWin = null; }
+                    mapPlaceholder.textContent = '🗺️ 选择设备后显示位置';
+                    setCycleBtn.disabled = true;
+                    sendTtsBtn.disabled = true;
+                    reportCycle.disabled = true;
+                    ttsText.disabled = true;
+                    ledBlinkBtn.disabled = true;
+                    ledOnBtn.disabled = true;
+                    ledOffBtn.disabled = true;
+                    refreshBtn.disabled = true;
+                    controlStatusLabel.className = 'status-led offline';
+                    controlStatusLabel.textContent = '未选中设备';
+                } catch (e) {
+                    deviceSelect.innerHTML = '<option value="">加载失败</option>';
+                }
+            }
+
+            // ---- 渲染设备列表（下拉选择） ----
+            function renderDeviceList() {
+                deviceSelect.innerHTML = '';
+                if (!S.devices.length) {
+                    deviceSelect.innerHTML = '<option value="">暂无设备</option>';
+                    return;
+                }
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = '选择设备...';
+                deviceSelect.appendChild(placeholder);
+                S.devices.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceid;
+                    opt.textContent = d.name || d.deviceid;
+                    if (d.deviceid === S.currentDeviceId) opt.selected = true;
+                    deviceSelect.appendChild(opt);
+                });
+            }
+
+            // ---- 刷新设备 ----
+            async function refreshDevice(imei, btnElement) {
+                if (!imei || S.refreshing) return;
+                if (btnElement) {
+                    btnElement.disabled = true;
+                    btnElement.classList.add('loading');
+                }
+                S.refreshing = true;
+                try {
+                    let loc = null;
+                    try { loc = await throttledApi('/aircloud/latest_location', { client_id: imei }); } catch (e) { if (e
+                            .type === 'auth' || e.type === 'unauthorized') throw e; }
+                    S.latest = loc || null;
+                    const tags = [256, 257, 263, 782, 258, 512, 513];
+                    let tagData = null;
+                    try { tagData = await throttledApi('/aircloud/list_by_tags', { client_id: imei, tags, page: 1,
+                            size: 1 }); } catch (e) { if (e.type === 'auth' || e.type === 'unauthorized') throw e; }
+                    if (tagData) {
+                        const rows = records(tagData);
+                        if (rows.length) {
+                            const row = rows[0];
+                            S.tagTime = row.ct || '';
+                            S.tags = {};
+                            tags.forEach(t => { const val = row['val_' + t]; if (val !== undefined && val !== null) S
+                                    .tags[t] = { value: val, time: row.ct }; });
+                        } else { S.tags = {};
+                            S.tagTime = ''; }
+                    } else { S.tags = {};
+                        S.tagTime = ''; }
+                    if (S.currentDeviceId === imei) { displayDevice(imei, loc); }
+                    toast('设备 ' + imei + ' 数据已刷新', 'success');
+                } catch (e) {
+                    if (e.type === 'auth' || e.type === 'unauthorized') { toast('刷新失败：请登录后查看该设备',
+                        'error'); } else { toast('刷新失败：' + e.message, 'error'); }
+                } finally {
+                    S.refreshing = false;
+                    if (btnElement) {
+                        btnElement.disabled = false;
+                        btnElement.classList.remove('loading');
+                    }
+                }
+            }
+
+            // ---- 查询设备 ----
+            async function queryDevice(imei) {
+                if (!imei || imei.trim() === '') { toast('请输入 IMEI', 'error'); return; }
+                imei = imei.trim();
+                S.currentDeviceId = imei;
+                // 同步更新下拉选择
+                if (deviceSelect) deviceSelect.value = imei;
+                showNotice(queryStatus, '正在加载设备数据...', 'info');
+                setCycleBtn.disabled = false;
+                sendTtsBtn.disabled = false;
+                reportCycle.disabled = false;
+                ttsText.disabled = false;
+                ledBlinkBtn.disabled = false;
+                ledOnBtn.disabled = false;
+                ledOffBtn.disabled = false;
+                refreshBtn.disabled = false;
+                try {
+                    // 1. 先获取最新数据（保证传感器数据先显示）
+                    let loc = null;
+                    try { loc = await throttledApi('/aircloud/latest_location', { client_id: imei }); } catch (e) { if (e
+                            .type === 'auth' || e.type === 'unauthorized') throw e; }
+                    S.latest = loc || null;
+                    const tags = [256, 257, 263, 782, 258, 512, 513];
+                    let tagData = null;
+                    try { tagData = await throttledApi('/aircloud/list_by_tags', { client_id: imei, tags, page: 1,
+                            size: 1 }); } catch (e) { if (e.type === 'auth' || e.type === 'unauthorized') throw e; }
+                    if (tagData) {
+                        const rows = records(tagData);
+                        if (rows.length) {
+                            const row = rows[0];
+                            S.tagTime = row.ct || '';
+                            S.tags = {};
+                            tags.forEach(t => { const val = row['val_' + t]; if (val !== undefined && val !== null) S
+                                    .tags[t] = { value: val, time: row.ct }; });
+                        } else { S.tags = {};
+                            S.tagTime = ''; }
+                    } else { S.tags = {};
+                        S.tagTime = ''; }
+
+                    // 立即显示传感器数据
+                    displayDevice(imei, loc);
+
+                    // 2. 再加载历史数据（图表/轨迹/表格），不阻塞UI
+                    loadHistory(imei).catch(e => console.warn('[loadHistory]', e));
+
+                    hideNotice(queryStatus);
+                    toast('设备数据加载完成', 'success');
+                    renderDeviceList();
+                } catch (e) {
+                    if (e.type === 'auth' || e.type === 'unauthorized') {
+                        toast('该设备需要登录查看，请先登录', 'error');
+                        setCycleBtn.disabled = true;
+                        sendTtsBtn.disabled = true;
+                        reportCycle.disabled = true;
+                        ttsText.disabled = true;
+                        ledBlinkBtn.disabled = true;
+                        ledOnBtn.disabled = true;
+                        ledOffBtn.disabled = true;
+                        refreshBtn.disabled = true;
+                    } else { toast('查询失败：' + e.message, 'error'); }
+                }
+            }
+
+            // ---- 显示设备数据 ----
+            function displayDevice(imei, loc) {
+                devName.textContent = loc?.deviceid || imei;
+                devId.textContent = 'IMEI: ' + imei;
+                devLastTime.textContent = loc?.time || '--';
+                const isFresh = loc?.time ? (Date.now() - timeMs(loc.time) < 600000) : false;
+                signalLed.className = 'status-led ' + (isFresh ? 'online' : 'offline');
+                signalLed.textContent = isFresh ? '在线' : '离线';
+                controlStatusLabel.className = 'status-led ' + (isFresh ? 'online' : 'offline');
+                controlStatusLabel.textContent = isFresh ? '设备在线' : '设备离线';
+
+                const t = S.tags;
+                if (Object.keys(t).length === 0) {
+                    document.querySelector('#sensorGrid').innerHTML =
+                        '<div class="notice info" style="grid-column:1/-1;">暂无传感器数据</div>';
+                } else {
+                    sTemp.innerHTML = (t[256]?.value ?? '--') +
+                        '<span style="font-size:14px;font-weight:400;">°C</span>';
+                    sHumi.innerHTML = (t[257]?.value ?? '--') +
+                        '<span style="font-size:14px;font-weight:400;">%</span>';
+                    sCpu.innerHTML = (t[263]?.value ?? '--') +
+                        '<span style="font-size:14px;font-weight:400;">°C</span>';
+                    sSignal.textContent = t[782]?.value ?? '--';
+                    sVoc.innerHTML = (t[258]?.value ?? '--') +
+                        '<span style="font-size:14px;font-weight:400;">ppb</span>';
+                }
+
+                const pos = coordinate(loc);
+                if (pos) {
+                    // 保存位置数据，等地图标签打开时渲染
+                    S.currentPos = { lng: pos.lng, lat: pos.lat, title: imei, address: loc?.address || '' };
+                } else {
+                    const tagLat = S.tags[513]?.value;
+                    const tagLng = S.tags[512]?.value;
+                    const rawPos = coordinate({ lat: tagLat, lng: tagLng });
+                    if (rawPos) {
+                        const gcj = wgs84ToGcj02(rawPos.lat, rawPos.lng);
+                        S.currentPos = { lng: gcj.lng, lat: gcj.lat, title: imei, address: 'LBS 定位' };
+                    } else {
+                        S.currentPos = null;
+                    }
+                }
+            }
+
+            // ---- 清空 ----
+            function clearDeviceData() {
+                devName.textContent = '--';
+                devId.textContent = 'IMEI: --';
+                devLastTime.textContent = '--';
+                signalLed.className = 'status-led offline';
+                signalLed.textContent = '未选择设备';
+                sTemp.innerHTML = '--<span style="font-size:14px;font-weight:400;">°C</span>';
+                sHumi.innerHTML = '--<span style="font-size:14px;font-weight:400;">%</span>';
+                sCpu.innerHTML = '--<span style="font-size:14px;font-weight:400;">°C</span>';
+                sSignal.textContent = '--';
+                sVoc.innerHTML = '--<span style="font-size:14px;font-weight:400;">ppb</span>';
+                historyBody.innerHTML =
+                    '<tr><td colspan="8" style="text-align:center;color:var(--muted);">选择时间段后查询历史数据</td></tr>';
+                historySummary.textContent = '';
+                loadMoreBtn.classList.add('hidden');
+                S.history = [];
+                S.historyTotal = 0;
+                if (S.chartTempHumi) { S.chartTempHumi.dispose();
+                    S.chartTempHumi = null; }
+                if (S.chartCpuVoc) { S.chartCpuVoc.dispose();
+                    S.chartCpuVoc = null; }
+                if (S.histPathLayer) { S.histPathLayer.setMap(null);
+                    S.histPathLayer = null; }
+                if (S.histMarkerLayer) { S.histMarkerLayer.setMap(null);
+                    S.histMarkerLayer = null; }
+                if (S.histHoverMarkers) { S.histHoverMarkers.setMap(null);
+                    S.histHoverMarkers = null; }
+                S.tags = {};
+                S.latest = null;
+            }
+
+            // ---- 时间工具 ----
+            function fmtDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(
+                    d.getDate()).padStart(2, '0'); }
+
+            function getTimeRange() {
+                // 有活动的快捷按钮时，用 S.historyDays 计算
+                const activeBtn = document.querySelector('#timeRange .quick-btn.active');
+                if (activeBtn) {
+                    const end = new Date();
+                    const start = new Date(end.getTime() - (S.historyDays || 1) * 86400000);
+                    return { start: fmtDate(start), end: fmtDate(end) };
+                }
+                // 否则用自定义日期输入
+                const sd = $('startDate').value, ed = $('endDate').value;
+                if (sd && ed) return { start: sd, end: ed };
+                // 兜底：今天
+                const end2 = new Date();
+                return { start: fmtDate(end2), end: fmtDate(end2) };
+            }
+
+            function setTimeRangeUI() {
+                const end = new Date();
+                const start = new Date(end.getTime() - (S.historyDays || 1) * 86400000);
+                $('startDate').value = fmtDate(start);
+                $('endDate').value = fmtDate(end);
+            }
+
+            // ---- 历史 ----
+            const HISTORY_TAGS = [256, 257, 263, 258, 782, 512, 513];
+
+            async function loadHistory(imei, page = 1, size = 50) {
+                const tr = getTimeRange();
+                const filter = { start: tr.start + ' 00:00:00', end: tr.end + ' 23:59:59' };
+                try {
+                    console.log('[loadHistory] query:', imei, filter, 'historyDays:', S.historyDays);
+                    const res = await throttledApi('/aircloud/list_by_tags', { client_id: imei, tags: HISTORY_TAGS,
+                        page, size, filter });
+                    console.log('[loadHistory] res:', JSON.stringify(res).slice(0, 500));
+                    const rows = records(res);
+                    console.log('[loadHistory] rows:', rows.length, 'total:', res.total);
+                    S.historyTotal = Number(res.total) || 0;
+                    S.historyPage = page;
+                    const merged = {};
+                    const order = [];
+                    rows.forEach(r => {
+                        const key = r.ct || '';
+                        if (!merged[key]) { merged[key] = { ct: key };
+                            order.push(key); }
+                        HISTORY_TAGS.forEach(t => {
+                            const v = r['val_' + t];
+                            if (v !== undefined && v !== null) merged[key]['t' + t] = v;
+                        });
+                    });
+                    S.history = order.map(k => merged[k]);
+                    console.log('[loadHistory] merged:', S.history.length, 'entries');
+                    // 如果今日无数据且是今日模式，自动扩大到7天
+                    if (S.history.length === 0 && S.historyDays <= 1) {
+                        console.log('[loadHistory] 今日无数据，尝试近7天');
+                        S.historyDays = 7;
+                        setTimeRangeUI();
+                        document.querySelectorAll('#timeRange .quick-btn').forEach(b => b.classList.remove('active'));
+                        const btn7 = document.querySelector('#timeRange .quick-btn[data-days="7"]');
+                        if (btn7) btn7.classList.add('active');
+                        return await loadHistory(imei, 1, size);
+                    }
+                    // 无数据时清空图表和轨迹
+                    if (S.history.length === 0) {
+                        if (S.chartTempHumi) { S.chartTempHumi.dispose(); S.chartTempHumi = null; }
+                        if (S.chartCpuVoc) { S.chartCpuVoc.dispose(); S.chartCpuVoc = null; }
+                        if (S.histPathLayer) { S.histPathLayer.setMap(null); S.histPathLayer = null; }
+                        if (S.histMarkerLayer) { S.histMarkerLayer.setMap(null); S.histMarkerLayer = null; }
+                        if (S.histHoverMarkers) { S.histHoverMarkers.setMap(null); S.histHoverMarkers = null; }
+                    }
+                    renderHistory();
+                    renderHistoryCharts();
+                    renderHistoryPath();
+                    loadMoreBtn.classList.toggle('hidden', page >= Math.ceil(S.historyTotal / size));
+                } catch (e) { console.error('[loadHistory] error:', e); toast('历史数据加载失败：' + e.message, 'error'); }
+            }
+
+            function renderHistory() {
+                if (!S.history.length) { historyBody.innerHTML =
+                        '<tr><td colspan="8" style="text-align:center;color:var(--muted);">该时间段暂无数据</td></tr>';
+                    historySummary.textContent = ''; return; }
+                let html = '';
+                S.history.forEach(r => {
+                    let lng = '--',
+                        lat = '--';
+                    const rawPos = coordinate({ lat: r.t513, lng: r.t512 });
+                    if (rawPos) { const gcj = wgs84ToGcj02(rawPos.lat, rawPos.lng);
+                        lng = gcj.lng.toFixed(6);
+                        lat = gcj.lat.toFixed(6); }
+                    html +=
+                        `<tr><td>${r.ct || '--'}</td><td>${r.t256 ?? '--'}</td><td>${r.t257 ?? '--'}</td><td>${r.t263 ?? '--'}</td><td>${r.t258 ?? '--'}</td><td>${r.t782 ?? '--'}</td><td>${lng}</td><td>${lat}</td></tr>`;
+                });
+                historyBody.innerHTML = html;
+                historySummary.textContent = '共 ' + S.historyTotal + ' 条 · ' + S.history.length + ' 行';
+            }
+
+            // ---- 图表 ----
+            function renderHistoryCharts() {
+                if (!S.history.length || typeof echarts === 'undefined') return;
+                const times = S.history.map(r => r.ct ? r.ct.slice(5, 16) : '');
+                const temp = S.history.map(r => r.t256 !== undefined ? Number(r.t256) : null);
+                const humi = S.history.map(r => r.t257 !== undefined ? Number(r.t257) : null);
+                const cpu = S.history.map(r => r.t263 !== undefined ? Number(r.t263) : null);
+                const voc = S.history.map(r => r.t258 !== undefined ? Number(r.t258) : null);
+
+                // 根据时间范围决定 x 轴刻度格式
+                const isToday = S.historyDays <= 1;
+                const dataLen = times.length;
+                // 窄屏（手机）自适应：减少刻度数量、给旋转标签留出画布空间（仅影响绘制，不影响业务）
+                const narrow = window.innerWidth < 640;
+                const rotateLabel = !isToday && dataLen > 15;
+                let interval = isToday ? 'auto' : (dataLen > 60 ? Math.floor(dataLen / 30) : 'auto');
+                if (interval === 'auto') interval = Math.max(1, Math.floor(dataLen / (isToday ? (narrow ? 6 : 12) : (
+                    narrow ? 8 : 15))));
+
+                const baseOpt = {
+                    tooltip: { trigger: 'axis', backgroundColor: '#fff', borderColor: '#e2e8f0',
+                        textStyle: { color: '#1e293b', fontSize: 12 } },
+                    legend: { top: 4, textStyle: { fontSize: 11 } },
+                    grid: { left: narrow ? 46 : 40, right: narrow ? 16 : 12, top: 36,
+                        bottom: (rotateLabel && narrow) ? 58 : 24, containLabel: false },
+                    xAxis: {
+                        type: 'category',
+                        data: times,
+                        boundaryGap: false,
+                        axisLabel: {
+                            fontSize: 10,
+                            rotate: rotateLabel ? 45 : 0,
+                            interval: interval,
+                            formatter: function(v) {
+                                const parts = v.split(' ');
+                                if (parts.length !== 2) return v;
+                                if (isToday) {
+                                    // 今日：只显示小时 "14:00"
+                                    return parts[1];
+                                } else {
+                                    // 7天/30天：显示日期 "09-09"
+                                    return parts[0];
+                                }
+                            }
+                        },
+                        splitLine: { show: true, lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+                    },
+                    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f1f5f9' } }, axisLabel: { fontSize: 10 } }
+                };
+
+                const el1 = $('chartTempHumi');
+                if (el1) {
+                    const emp1 = el1.querySelector('.chart-empty');
+                    if (emp1) emp1.style.display = 'none';
+                    if (!S.chartTempHumi) S.chartTempHumi = echarts.init(el1);
+                    S.chartTempHumi.setOption(Object.assign({}, baseOpt, {
+                        series: [
+                            { name: '温度°C', type: 'line', smooth: true, showSymbol: false, data: temp,
+                                connectNulls: true, itemStyle: { color: '#22d3ee' } },
+                            { name: '湿度%', type: 'line', smooth: true, showSymbol: false, data: humi,
+                                connectNulls: true, itemStyle: { color: '#34d399' } }
+                        ]
+                    }));
+                    S.chartTempHumi.resize();
+                }
+                const el2 = $('chartCpuVoc');
+                if (el2) {
+                    const emp2 = el2.querySelector('.chart-empty');
+                    if (emp2) emp2.style.display = 'none';
+                    if (!S.chartCpuVoc) S.chartCpuVoc = echarts.init(el2);
+                    S.chartCpuVoc.setOption(Object.assign({}, baseOpt, {
+                        series: [
+                            { name: 'CPU°C', type: 'line', smooth: true, showSymbol: false, data: cpu,
+                                connectNulls: true, itemStyle: { color: '#fbbf24' } },
+                            { name: 'VOC ppb', type: 'line', smooth: true, showSymbol: false, data: voc,
+                                connectNulls: true, itemStyle: { color: '#f87171' } }
+                        ]
+                    }));
+                    S.chartCpuVoc.resize();
+                }
+                S.chartDataReady = true;
+            }
+
+            // ---- 历史轨迹 + 悬停标记 ----
+            function renderHistoryPath() {
+                if (!S.mapReady || !S.map) return;
+                if (S.histPathLayer) { S.histPathLayer.setMap(null);
+                    S.histPathLayer = null; }
+                if (S.histMarkerLayer) { S.histMarkerLayer.setMap(null);
+                    S.histMarkerLayer = null; }
+                if (S.histHoverMarkers) { S.histHoverMarkers.setMap(null);
+                    S.histHoverMarkers = null; }
+
+                const points = [];
+                S.history.forEach(r => {
+                    const rawPos = coordinate({ lat: r.t513, lng: r.t512 });
+                    if (rawPos) { const gcj = wgs84ToGcj02(rawPos.lat, rawPos.lng);
+                        points.push({ pos: new TMap.LatLng(gcj.lat, gcj.lng), time: r.ct, temp: r.t256, humi: r
+                                .t257, cpu: r.t263, voc: r.t258, signal: r.t782 }); }
+                });
+                if (!points.length) return;
+
+                // 折线（使用 Polyline 绘制单条轨迹线）
+                S.histPathLayer = new TMap.MultiPolyline({
+                    map: S.map,
+                    styles: { histPath: new TMap.PolylineStyle({ color: '#22d3ee', width: 4, borderWidth: 1,
+                            borderColor: 'rgba(0,0,0,0.3)', lineCap: 'round', lineJoin: 'round' }) },
+                    geometries: [{ id: 'histPath', paths: [points.map(p => p.pos)], styleId: 'histPath' }]
+                });
+
+                // 起终点标记
+                const mkSvg = (c) => encodeURIComponent(
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="' +
+                    c + '" stroke="#fff" stroke-width="2"/></svg>');
+                S.histMarkerLayer = new TMap.MultiMarker({
+                    map: S.map,
+                    styles: {
+                        start: new TMap.MarkerStyle({ width: 20, height: 20, anchor: { x: 10, y: 10 },
+                            src: 'data:image/svg+xml;charset=utf-8,' + mkSvg('#34d399') }),
+                        end: new TMap.MarkerStyle({ width: 20, height: 20, anchor: { x: 10, y: 10 },
+                            src: 'data:image/svg+xml;charset=utf-8,' + mkSvg('#f87171') })
+                    },
+                    geometries: [
+                        { id: 'start', styleId: 'start', position: points[0].pos, properties: { label: '起点',
+                                time: points[0].time } },
+                        { id: 'end', styleId: 'end', position: points[points.length - 1].pos,
+                        properties: { label: '终点', time: points[points.length - 1].time } }
+                    ]
+                });
+
+                // ---- 悬停预览标记（采样点，带mouseover） ----
+                const sampleStep = Math.max(1, Math.floor(points.length / 30));
+                const sampled = [];
+                for (let i = 0; i < points.length; i += sampleStep) {
+                    sampled.push({ idx: i, ...points[i] });
+                }
+                // 确保包含最后一个点
+                if (sampled.length && sampled[sampled.length - 1].idx !== points.length - 1) {
+                    sampled.push({ idx: points.length - 1, ...points[points.length - 1] });
+                }
+
+                const hoverStyles = {
+                    dot: new TMap.MarkerStyle({
+                        width: 8,
+                        height: 8,
+                        anchor: { x: 4, y: 4 },
+                        src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+                            '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><circle cx="4" cy="4" r="3" fill="#3b82f6" stroke="#fff" stroke-width="1"/></svg>'
+                            )
+                    })
+                };
+                const hoverGeoms = sampled.map((p, idx) => ({
+                    id: 'hover_' + idx,
+                    styleId: 'dot',
+                    position: p.pos,
+                    properties: {
+                        time: p.time || '--',
+                        temp: p.temp !== undefined ? p.temp : '--',
+                        humi: p.humi !== undefined ? p.humi : '--',
+                        cpu: p.cpu !== undefined ? p.cpu : '--',
+                        voc: p.voc !== undefined ? p.voc : '--',
+                        signal: p.signal !== undefined ? p.signal : '--',
+                        idx: p.idx
+                    }
+                }));
+
+                S.histHoverMarkers = new TMap.MultiMarker({
+                    map: S.map,
+                    styles: hoverStyles,
+                    geometries: hoverGeoms
+                });
+
+                // 悬停事件：显示信息窗口
+                let hoverInfoWin = null;
+                S.histHoverMarkers.on('mouseover', function(evt) {
+                    const props = evt.geometry?.properties;
+                    if (!props) return;
+                    const content =
+                        `<div style="padding:6px 10px;font-size:12px;max-width:200px;">
+                              <div><strong>${props.time || '--'}</strong></div>
+                              <div>温度: ${props.temp}°C &nbsp; 湿度: ${props.humi}%</div>
+                              <div>CPU: ${props.cpu}°C &nbsp; VOC: ${props.voc}ppb</div>
+                              <div>信号: ${props.signal}</div>
+                            </div>`;
+                    if (hoverInfoWin) { hoverInfoWin.close();
+                        hoverInfoWin = null; }
+                    hoverInfoWin = new TMap.InfoWindow({
+                        map: S.map,
+                        position: evt.geometry.position,
+                        content: content,
+                        offset: { x: 0, y: -16 }
+                    });
+                    hoverInfoWin.open();
+                });
+                S.histHoverMarkers.on('mouseout', function() {
+                    if (hoverInfoWin) { hoverInfoWin.close();
+                        hoverInfoWin = null; }
+                });
+
+                // 默认以最新位置为中心
+                const lastPt = points[points.length - 1];
+                S.map.setCenter(lastPt.pos);
+                S.map.setZoom(14);
+            }
+
+            // ---- 地图（动态加载SDK） ----
+            let mapRetries = 0;
+            let mapSdkLoading = false;
+            let mapSdkLoaded = false;
+
+            function loadMapSdk() {
+                if (mapSdkLoaded || mapSdkLoading) return Promise.resolve();
+                mapSdkLoading = true;
+                return new Promise((resolve) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://map.qq.com/api/gljs?v=1.exp&key=EZNBZ-VA6KW-ASMRR-3UE4S-M3QCO-EYBC6';
+                    script.onload = () => { mapSdkLoaded = true; mapSdkLoading = false; resolve(); };
+                    script.onerror = () => { mapSdkLoading = false; resolve(); };
+                    document.head.appendChild(script);
+                    // 超时兜底
+                    setTimeout(() => { mapSdkLoading = false; resolve(); }, 8000);
+                });
+            }
+
+            async function initMap(center, zoom) {
+                if (typeof TMap === 'undefined') {
+                    // 静态 script 可能还在加载，等待
+                    if (mapRetries < 30) {
+                        mapRetries++;
+                        if (mapRetries <= 3) {
+                            mapPlaceholder.innerHTML = '⏳ 正在加载地图...';
+                        } else if (mapRetries <= 10) {
+                            mapPlaceholder.innerHTML = '⏳ 地图加载中...(' + mapRetries + ')';
+                        } else {
+                            mapPlaceholder.innerHTML = '⚠️ 地图加载超时<br><button onclick="mapRetries=0;initMap()" style="margin-top:8px;padding:6px 16px;border:1px solid var(--primary);border-radius:6px;background:#fff;color:var(--primary);cursor:pointer;font-size:13px;">点击重试</button>';
+                            return;
+                        }
+                        await new Promise(r => setTimeout(r, mapRetries <= 5 ? 300 : 500));
+                        return initMap(center, zoom);
+                    }
+                    mapPlaceholder.innerHTML = '⚠️ 地图加载失败<br><button onclick="mapRetries=0;initMap()" style="margin-top:8px;padding:6px 16px;border:1px solid var(--primary);border-radius:6px;background:#fff;color:var(--primary);cursor:pointer;font-size:13px;">重试</button>';
+                    return;
+                }
+                if (S.map) return;
+                try {
+                    const mapCenter = center || new TMap.LatLng(31.23, 121.47);
+                    const mapZoom = zoom || 4;
+                    S.map = new TMap.Map(mapContainer, { center: mapCenter, zoom: mapZoom });
+                    S.mapReady = true;
+                    mapRetries = 0;
+                    mapPlaceholder.style.display = 'none';
+                } catch (e) {
+                    console.error('[map] init error:', e);
+                    mapPlaceholder.innerHTML = '⚠️ 地图初始化失败: ' + e.message;
+                }
+            }
+
+            function updateMap(lng, lat, title, address) {
+                if (!S.mapReady || !S.map) {
+                    initMap(new TMap.LatLng(lat, lng), 14).then(() => {
+                        if (S.mapReady) updateMap(lng, lat, title, address);
+                    });
+                    return;
+                }
+                if (S.marker) { S.marker.setMap(null);
+                    S.marker = null; }
+                if (S.infoWin) { S.infoWin.close();
+                    S.infoWin = null; }
+                const pos = new TMap.LatLng(lat, lng);
+                S.map.setCenter(pos);
+                S.map.setZoom(15);
+                S.marker = new TMap.MultiMarker({
+                    map: S.map,
+                    styles: { default: new TMap.MarkerStyle({ width: 30, height: 30, anchor: { x: 15, y: 30 },
+                            src: 'https://mapapi.qq.com/web/lbs/javascriptGL/demo/img/markerDefault.png' }) },
+                    geometries: [{ id: 'device', styleId: 'default', position: pos, properties: { title: title ||
+                                '设备', address: address || '' } }]
+                });
+                S.infoWin = new TMap.InfoWindow({
+                    map: S.map,
+                    position: pos,
+                    content: `<div style="padding:8px 12px;"><strong>${title||'设备'}</strong><br><span style="font-size:12px;color:#666;">${address||''}</span></div>`
+                });
+                S.infoWin.open();
+                mapPlaceholder.style.display = 'none';
+            }
+
+            function showMapPlaceholder(msg) {
+                mapPlaceholder.style.display = '';
+                mapPlaceholder.textContent = '🗺️ ' + (msg || '无位置数据');
+                if (S.marker) { S.marker.setMap(null);
+                    S.marker = null; }
+                if (S.infoWin) { S.infoWin.close();
+                    S.infoWin = null; }
+            }
+
+            // ---- 控制 ----
+            async function setReportCycle(imei, seconds) {
+                if (!imei) { toast('请先选择设备', 'error'); return; }
+                if (!S.loggedIn) { toast('请先登录', 'error'); return; }
+                showNotice(controlStatus, '正在设置...', 'info');
+                try {
+                    await api('/aircloud/send_cmd', { client_id: imei, tag: 1281, value: 'cycle:' + seconds, protocol: 0 });
+                    showNotice(controlStatus, '上报频率已设为 ' + seconds + ' 秒（等待设备响应）', 'success');
+                    setTimeout(() => hideNotice(controlStatus), 5000);
+                } catch (e) { showNotice(controlStatus, '设置失败：' + e.message, 'error'); }
+            }
+
+            async function sendTts(imei, text) {
+                if (!imei) { toast('请先选择设备', 'error'); return; }
+                if (!S.loggedIn) { toast('请先登录', 'error'); return; }
+                if (!text || text.trim() === '') { toast('请输入播报内容', 'error'); return; }
+                showNotice(controlStatus, '正在发送...', 'info');
+                try {
+                    await api('/aircloud/send_cmd', { client_id: imei, tag: 1281, value: text.trim(),
+                    protocol: 1 });
+                    showNotice(controlStatus, 'TTS 发送成功', 'success');
+                    setTimeout(() => hideNotice(controlStatus), 3000);
+                } catch (e) { showNotice(controlStatus, '发送失败：' + e.message, 'error'); }
+            }
+
+            // ---- 事件绑定 ----
+            function bindEvents() {
+                loginBtn.addEventListener('click', () => C.requireAuth());
+                logoutBtn.addEventListener('click', () => { C.clearLoginStorage();
+                    location.reload(); });
+                queryBtn.addEventListener('click', () => queryDevice(imeiInput.value));
+                imeiInput.addEventListener('keydown', e => { if (e.key === 'Enter') queryDevice(imeiInput.value); });
+                scanBtn.addEventListener('click', () => {
+                    // 1. 宿主环境 ScanClient（iframe 内有效）
+                    if (typeof ScanClient !== 'undefined') {
+                        let scanned = false;
+                        ScanClient.send('open');
+                        ScanClient.onResult((type, payload) => {
+                            if (type === 'result' && payload.resultText && !scanned) {
+                                scanned = true;
+                                imeiInput.value = payload.resultText;
+                                queryDevice(payload.resultText);
+                            } else if (type === 'error') {
+                                toast(payload.message || '扫码失败', 'error');
+                            }
+                        });
+                        return;
+                    }
+                    // 2. 浏览器环境：优先 BarcodeDetector，否则拍照识别
+                    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                        // 尝试 BarcodeDetector 实时扫码
+                        if (typeof BarcodeDetector !== 'undefined') {
+                            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } }).then(stream => {
+                                const video = document.createElement('video');
+                                video.srcObject = stream;
+                                video.setAttribute('playsinline', 'true');
+                                video.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:9999;background:#000;';
+                                document.body.appendChild(video);
+                                video.play();
+                                // 添加关闭按钮
+                                const closeBtn = document.createElement('button');
+                                closeBtn.textContent = '✕ 取消';
+                                closeBtn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:10000;padding:8px 16px;border:none;border-radius:8px;background:rgba(0,0,0,0.6);color:#fff;font-size:14px;cursor:pointer;';
+                                document.body.appendChild(closeBtn);
+                                const stop = () => { stream.getTracks().forEach(t => t.stop()); video.remove(); closeBtn.remove(); };
+                                closeBtn.onclick = stop;
+                                const detector = new BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13', 'code_39'] });
+                                let found = false;
+                                const scanLoop = setInterval(() => {
+                                    if (found) return;
+                                    detector.detect(video).then(barcodes => {
+                                        if (barcodes.length > 0 && !found) {
+                                            found = true;
+                                            clearInterval(scanLoop);
+                                            stop();
+                                            const text = barcodes[0].rawValue;
+                                            imeiInput.value = text;
+                                            queryDevice(text);
+                                        }
+                                    }).catch(() => {});
+                                }, 300);
+                                setTimeout(() => { if (!found) { clearInterval(scanLoop); stop(); toast('扫码超时', 'error'); } }, 15000);
+                            }).catch(() => { this._fallbackPhotoScan(); });
+                            return;
+                        }
+                        // 降级：拍照识别
+                        this._fallbackPhotoScan();
+                    } else {
+                        toast('当前浏览器不支持扫码，请手动输入 IMEI', 'error');
+                    }
+                });
+                // 拍照扫码降级方案
+                function _fallbackPhotoScan() {
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = 'image/*';
+                    fileInput.capture = 'environment';
+                    fileInput.onchange = function() {
+                        const file = this.files[0];
+                        if (!file) return;
+                        const img = new Image();
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                canvas.getContext('2d').drawImage(img, 0, 0);
+                                const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+                                if (typeof jsQR !== 'undefined') {
+                                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                                    if (code) {
+                                        imeiInput.value = code.data;
+                                        queryDevice(code.data);
+                                        toast('扫码成功', 'success');
+                                    } else {
+                                        toast('未识别到二维码，请对准后重试', 'error');
+                                    }
+                                } else {
+                                    toast('扫码库未加载', 'error');
+                                }
+                            };
+                            img.src = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    };
+                    fileInput.click();
+                }
+                projectSelect.addEventListener('change', async function() {
+                    const key = this.value;
+                    if (!key) return;
+                    S.currentProjectKey = key;
+                    const proj = S.projects.find(p => p.project_key === key);
+                    S.currentProjectName = proj ? (proj.name || proj.project_key || '未命名项目') :
+                        '未命名项目';
+                    projectName.textContent = '（项目：' + S.currentProjectName + '）';
+                    await loadDevices(key);
+                    toast('已切换到项目：' + S.currentProjectName, 'info');
+                });
+                deviceSelect.addEventListener('change', function() {
+                    const id = this.value;
+                    if (id) queryDevice(id);
+                });
+                setCycleBtn.addEventListener('click', () => {
+                    const sec = parseInt(reportCycle.value);
+                    if (isNaN(sec) || sec < 5) { toast('请输入有效秒数（≥5）', 'error'); return; }
+                    setReportCycle(S.currentDeviceId, sec);
+                });
+                sendTtsBtn.addEventListener('click', () => { sendTts(S.currentDeviceId, ttsText.value); });
+
+                // ---- LED控制 ----
+                async function controlLed(imei, command) {
+                    if (!imei) { toast('请先选择设备', 'error'); return; }
+                    if (!S.loggedIn) { toast('请先登录', 'error'); return; }
+                    showNotice(controlStatus, '正在发送LED指令...', 'info');
+                    try {
+                        await api('/aircloud/send_cmd', {
+                            client_id: imei,
+                            tag: 1281,
+                            value: 'led:' + command,
+                            protocol: 0
+                        });
+                        showNotice(controlStatus, 'LED指令已发送: ' + command, 'success');
+                        setTimeout(() => hideNotice(controlStatus), 3000);
+                    } catch (e) { showNotice(controlStatus, '发送失败：' + e.message, 'error'); }
+                }
+
+                ledBlinkBtn.addEventListener('click', () => controlLed(S.currentDeviceId, 'blink'));
+                ledOnBtn.addEventListener('click', () => controlLed(S.currentDeviceId, 'on'));
+                ledOffBtn.addEventListener('click', () => controlLed(S.currentDeviceId, 'off'));
+                refreshBtn.addEventListener('click', () => { if (S.currentDeviceId) refreshDevice(S.currentDeviceId, refreshBtn); });
+                loadMoreBtn.addEventListener('click', () => {
+                    if (S.currentDeviceId) loadHistory(S.currentDeviceId, S.historyPage + 1);
+                });
+                document.querySelectorAll('#timeRange .quick-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        document.querySelectorAll('#timeRange .quick-btn').forEach(b => b.classList
+                            .remove('active'));
+                        this.classList.add('active');
+                        S.historyDays = Number(this.dataset.days || 1);
+                        setTimeRangeUI();
+                        if (S.currentDeviceId) loadHistory(S.currentDeviceId, 1);
+                    });
+                });
+                $('btnTimeQuery').addEventListener('click', () => {
+                    document.querySelectorAll('#timeRange .quick-btn').forEach(b => b.classList.remove(
+                        'active'));
+                    S.historyDays = 0;
+                    if (S.currentDeviceId) loadHistory(S.currentDeviceId, 1);
+                });
+                $('startDate').addEventListener('change', () => document.querySelectorAll(
+                    '#timeRange .quick-btn').forEach(b => b.classList.remove('active')));
+                $('endDate').addEventListener('change', () => document.querySelectorAll(
+                    '#timeRange .quick-btn').forEach(b => b.classList.remove('active')));
+                window.addEventListener('resize', () => {
+                    if (S.map) S.map.resize();
+                    if (S.chartTempHumi) S.chartTempHumi.resize();
+                    if (S.chartCpuVoc) S.chartCpuVoc.resize();
+                });
+            }
+
+            // ---- 初始化 ----
+            async function init() {
+                C.initAuth();
+                updateUserUI();
+                bindEvents();
+                setTimeRangeUI();
+                initTabs();
+                // 地图延迟到打开轨迹标签时再加载
+            }
+
+            // ---- 标签页切换 ----
+            function initTabs() {
+                const tabs = document.querySelectorAll('#tabBar .tab-btn');
+                const pages = document.querySelectorAll('.tab-page');
+                tabs.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const target = this.dataset.tab;
+                        tabs.forEach(b => b.classList.remove('active'));
+                        pages.forEach(p => p.classList.remove('active'));
+                        this.classList.add('active');
+                        const page = document.getElementById(target);
+                        if (page) page.classList.add('active');
+                        // 切到趋势时：容器刚可见，需要重新初始化/渲染图表
+                        if (target === 'tabCharts') {
+                            setTimeout(() => {
+                                if (S.history && S.history.length) {
+                                    // 销毁旧实例重新创建（隐藏时 ECharts 无法正确计算尺寸）
+                                    if (S.chartTempHumi) { S.chartTempHumi.dispose(); S.chartTempHumi = null; }
+                                    if (S.chartCpuVoc) { S.chartCpuVoc.dispose(); S.chartCpuVoc = null; }
+                                    renderHistoryCharts();
+                                } else if (S.currentDeviceId) {
+                                    // 没有缓存数据，重新加载
+                                    loadHistory(S.currentDeviceId).catch(()=>{});
+                                }
+                            }, 150);
+                        }
+                        // 切到轨迹时加载地图并渲染轨迹
+                        if (target === 'tabMap') {
+                            setTimeout(async () => {
+                                console.log('[map-tab] start:', S.currentPos, S.currentDeviceId, S.history?.length);
+                                if (!S.currentPos && S.currentDeviceId) {
+                                    // 尝试从 list_by_tags 获取最新经纬度（最可靠）
+                                    try {
+                                        const tagData = await throttledApi('/aircloud/list_by_tags', {
+                                            client_id: S.currentDeviceId, tags: [512, 513], page: 1, size: 1
+                                        });
+                                        const rows = records(tagData);
+                                        if (rows.length) {
+                                            const r = rows[0];
+                                            const lat = Number(r.val_513), lng = Number(r.val_512);
+                                            if (lat && lng && lat !== 0 && lng !== 0) {
+                                                const gcj = wgs84ToGcj02(lat, lng);
+                                                S.currentPos = { lng: gcj.lng, lat: gcj.lat, title: S.currentDeviceId, address: 'LBS' };
+                                            }
+                                        }
+                                    } catch(e) { console.warn('[map] tag fetch:', e); }
+                                }
+                                if (!S.currentPos && S.currentDeviceId) {
+                                    try {
+                                        const loc = await throttledApi('/aircloud/latest_location', { client_id: S.currentDeviceId });
+                                        if (loc) {
+                                            const p = coordinate(loc);
+                                            if (p) S.currentPos = { lng: p.lng, lat: p.lat, title: S.currentDeviceId, address: loc.address || '' };
+                                        }
+                                    } catch(e) {}
+                                }
+                                if (!S.currentPos && S.history && S.history.length) {
+                                    for (const r of S.history) {
+                                        const raw = coordinate({ lat: r.t513, lng: r.t512 });
+                                        if (raw) {
+                                            const gcj = wgs84ToGcj02(raw.lat, raw.lng);
+                                            S.currentPos = { lng: gcj.lng, lat: gcj.lat, title: S.currentDeviceId, address: '历史位置' };
+                                            break;
+                                        }
+                                    }
+                                }
+                                // 初始化地图
+                                const center = S.currentPos
+                                    ? new TMap.LatLng(S.currentPos.lat, S.currentPos.lng)
+                                    : new TMap.LatLng(31.23, 121.47);
+                                const zoom = S.currentPos ? 14 : 4;
+                                if (!S.map) await initMap(center, zoom);
+                                console.log('[map-tab] map ready:', !!S.map, 'pos:', S.currentPos);
+                                if (S.map) {
+                                    S.map.resize();
+                                    if (S.currentPos) {
+                                        updateMap(S.currentPos.lng, S.currentPos.lat, S.currentPos.title, S.currentPos.address);
+                                    } else {
+                                        showMapPlaceholder('暂无位置数据');
+                                    }
+                                    if (S.history && S.history.length) {
+                                        renderHistoryPath();
+                                        console.log('[map-tab] rendered path, points:', S.history.length);
+                                    }
+                                }
+                            }, 200);
+                        }
+                    });
+                });
+            }
+            init();
+        })();
+    </script>
+</body>
+</html>

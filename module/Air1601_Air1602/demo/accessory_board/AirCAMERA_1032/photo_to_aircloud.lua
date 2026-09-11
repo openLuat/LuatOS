@@ -26,14 +26,19 @@ local excloud = require("excloud")
 local LCD_W = 1024
 local LCD_H = 600
 
+-- AirCAMERA_1032摄像头供电控制引脚，高电平有效（客户按实际开发板切换）
+-- Air1601_V1.1开发板：GPIO12 = USB主机模式/摄像头总供电
+-- gpio.setup(12, 1, gpio.PULLUP)
+-- Air160X_V1.2开发板：GPIO58 = USB主机模式/摄像头总供电
+gpio.setup(58, 1, gpio.PULLUP)
+-- Air160X_V1.2开发板：拉高 GPIO56（SD_EN）；Air1601_V1.1开发板无 SD_EN 引脚
+gpio.setup(56, 1)
+
 -- 合宙云平台项目key（请替换为自己项目的key）
 local project_auth_key = "hegiSG73FHMzvFToaugk4CZXIla92Dnj"
 
 -- 拍照间隔（毫秒），每隔多久触发一次拍照
 local capture_interval_ms = 10000
-
--- 12号GPIO配置（AirCAMERA_1032摄像头供电控制引脚），需要拉高使能
-gpio.setup(12, 1, gpio.PULLUP)
 
 -- 全局变量
 local usb_app_id = nil                       -- USB摄像头应用ID

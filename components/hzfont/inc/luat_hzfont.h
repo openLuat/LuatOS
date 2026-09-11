@@ -5,12 +5,6 @@
 #include <stdint.h>
 #include "ttf_parser.h"
 
-#include "luat_conf_bsp.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // 字体状态枚举
 typedef enum {
     LUAT_HZFONT_STATE_UNINIT = 0,
@@ -28,7 +22,6 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size);
 // 在屏幕上绘制 UTF-8 文本（带缓存和抗锯齿控制）
 int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias);
 
-#if defined(LUAT_USE_AIRUI) || defined(LUAT_USE_EINK) || defined(LUAT_USE_U8G2)
 //  hzfont绘制耗时统计
 typedef struct {
     uint8_t cache_hit;
@@ -49,10 +42,5 @@ const TtfBitmap * luat_hzfont_get_bitmap_profiled(uint16_t glyph_index, uint8_t 
                                                   uint8_t supersample, luat_hzfont_bitmap_profile_t *prof_out);
 // 访问指定 glyph 的缓存位图（不存在时会触发实时渲染）
 const TtfBitmap * luat_hzfont_get_bitmap(uint16_t glyph_index, uint8_t font_size, uint8_t supersample);
-#endif
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* _LUAT_HZFONT_H_ */

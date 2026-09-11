@@ -1,10 +1,24 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.1
-@date    2026.8.25
+@version 3.5
+@date    2026.9.9
 @author  拓毅恒
 @updates
+    v3.5 2026.9.9
+        1. 新增 DAC模式麦克风增益设置：model="dac" 时 exaudio.mic_vol(vol[, ana_vol])数字/模拟增益均由客户按 0-100 传入。
+           并在 REQUEST_DRIVER_START 与 pm(RESUME) 时自动重新应用，修复 Air8101 等纯DAC模组无法调节麦克风音量的问题。
+    v3.4 2026.9.4
+        1. 修复 vb7014f 使用新框架进行VOLTE通话时无声问题。
+    v3.3 2026.9.1
+        1. 修复Air1602开发板调用exaudio.play_stop()后exaudio.pm(exaudio.SHUTDOWN)会关闭I2C1、导致LCD触摸失效的问题。
+        2. 新增 vb7014f 支持：audio_setup_param 设置 model="vb7014f" 后，通过 UART1(可选) 驱动 VB7014F 播放与录音。
+           播放：exaudio.play_start({type=2, ...}) 启动后，用 exaudio.play_stream_write() 流式喂入 16kHz/16bit/单声道 PCM；
+           录音：exaudio.record_start() 接收 VB7014F MIC 上行(16kHz/16bit/单声道, 512B/帧)，通过 path 回调逐段落盘。
+    v3.2 2026.8.27
+        1. 音频框架选择同时依据模组默认偏好和固件实际提供的audio/audio_v2库，
+           修复未启用LUAT_USE_AUDIO_V2时仍误选新音频框架的问题。
+        2. 显式audio_mode选择增加库能力校验，并保持Air8101、Air160X等模组优先使用Audio V2的原有约束。
     v3.1 2026.8.25
         1. 修复旧音频框架多音频连续播放报错的问题，同步更新 exaudio.play 两处调用，旧框架多音频播放恢复正常。
         2. 修复部分固件跑sip功能时，会出现死机或通话无声的问题。
@@ -81,6 +95,25 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202609091419
+-- 1、更新时间：2026-09-09 14:19
+--    新增 DAC模式麦克风增益设置：model="dac" 时 exaudio.mic_vol(vol[, ana_vol])数字/模拟增益均由客户按 0-100 传入。
+--    并在 REQUEST_DRIVER_START 与 pm(RESUME) 时自动重新应用，修复 Air8101 等纯DAC模组无法调节麦克风音量的问题。
+-- 版本号：202609041030
+-- 1、更新时间：2026-09-04 10:30
+--    修复 vb7014f 使用新框架进行VOLTE通话时无声问题。
+-- 版本号：202609011550
+-- 1、更新时间：2026-09-01 15:50
+--    修复Air1602开发板exaudio.pm(exaudio.SHUTDOWN)会关闭I2C1导致LCD触摸失效的问题。
+-- 2、修复 vb7014f 模式(exaudio.setup({model="vb7014f"}))：原 vb7014f 分支在初始化 VB7014F 芯片后
+--    直接 return true，导致跳过 audio_v2_setup()，audio_v2.config(I2S参数) 从未执行，cc 通话下行
+--    record 数据源节奏异常→下行数据断流、喇叭仅静音帧杂音。现已补上 audio_v2_setup 的 vb7014f 分支
+--    (配置I2S 16k/16bit/LSB/RIGHT 并跳过 audio_v2.shutdown 低功耗休眠)，与 vb7014f 模式行为一致；
+--    exaudio.pm 对 vb7014f/vb7014f 直接跳过电源控制。
+-- 版本号：202608272002
+-- 1、更新时间：2026-08-27 20:02
+--    音频框架选择同时依据模组默认偏好和固件实际提供的audio/audio_v2库，修复未启用LUAT_USE_AUDIO_V2时仍误选新音频框架的问题。
+--    显式audio_mode选择增加库能力校验，并保持Air8101、Air160X等模组优先使用Audio V2的原有约束。
 -- 版本号：202608251813
 -- 1、更新时间：2026-08-25 18:13
 --    修复旧音频框架多音频连续播放报错的问题，同步更新 exaudio.play 两处调用，旧框架多音频播放恢复正常。
@@ -164,9 +197,13 @@ end
 -- 当前模组型号
 local MODULE_TYPE = get_module_type()
 
--- 判断使用audio_v2还是audio
--- 780EXX系列、8000系列、Air700系列、Air1780系列默认用audio，其余（8101、160X等）默认用audio_v2
-local USE_AUDIO_V2 = (MODULE_TYPE ~= "air780e" and MODULE_TYPE ~= "air8000" and MODULE_TYPE ~= "air700" and MODULE_TYPE ~= "air1780")
+-- 判断使用audio_v2还是audio。模组型号只决定默认偏好，实际选择必须受固件
+-- 已编译的Lua库约束，避免无LUAT_USE_AUDIO_V2的固件误报为新音频框架。
+local AUDIO_V2_AVAILABLE = audio_v2 ~= nil
+local AUDIO_LEGACY_AVAILABLE = audio ~= nil
+local PREFER_AUDIO_V2 = (MODULE_TYPE ~= "air780e" and MODULE_TYPE ~= "air8000" and
+    MODULE_TYPE ~= "air700" and MODULE_TYPE ~= "air1780")
+local USE_AUDIO_V2 = AUDIO_V2_AVAILABLE and (PREFER_AUDIO_V2 or not AUDIO_LEGACY_AVAILABLE)
 
 -- ==================== 常量定义 ====================
 local I2S_ID = 0
@@ -277,6 +314,8 @@ local pcm_buff0 = nil
 local pcm_buff1 = nil
 local voice_vol = 70
 local mic_vol = 80
+local dac_mic_dig_gain = 60   -- DAC(内置ADC)麦克风数字增益默认值(0~100)，仅model="dac"生效
+local dac_mic_ana_gain = 50   -- DAC(内置ADC)麦克风模拟增益默认值(0~100)，仅model="dac"生效
 
 -- 定义全局队列表
 local audio_play_queue = {
@@ -411,6 +450,9 @@ local function audio_v2_callback(request_index, event, param)
                 gpio.setup(audio_setup_param.pa_ctrl, audio_setup_param.pa_on_level)
             end
             log.info("exaudio", "audio_v2 driver start: ES8311 DAC/PA resumed")
+        elseif audio_setup_param.model == "dac" then
+            -- DAC(内置ADC)模式：每次启动请求时重新应用麦克风增益
+            apply_dac_mic_gain()
         end
     elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
         -- 流式播放需要更多数据
@@ -825,6 +867,10 @@ local function audio_v2_setup()
             sys.wait(100)
             log.info("exaudio.setup", "ES8311已重启", "dac_ctrl:", audio_setup_param.dac_ctrl)
         end
+    elseif audio_setup_param.model == "vb7014f" then
+        -- VB7014F外置语音芯片模式(780EHM等无本地音频硬件): 只初始化新音频框架,
+        -- 不做I2C/PA/CODEC任何硬件操作, 后续在I2S参数段统一配置audio_v2并跳过低功耗休眠
+        log.info("exaudio.setup", "audio_v2 VB7014F模式初始化")
     else
         log.error("audio_v2不支持的model:", audio_setup_param.model)
         return false
@@ -834,7 +880,7 @@ local function audio_v2_setup()
     audio_v2.on(audio_v2_callback)
     
     -- 配置PA电源控制
-    if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
+    if audio_setup_param.model ~= "vb7014f" and audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
         audio_v2.config_pa_power_ctrl(
             true,  -- 使能PA电源控制
             audio_setup_param.pa_ctrl,  -- PA控制引脚
@@ -897,6 +943,11 @@ local function audio_v2_setup()
 
         -- ES8311模式下初始化完成后进入低功耗休眠（只关PA，不关Codec电源，防止配置丢失）
         audio_v2.shutdown(false, false, true)
+    elseif audio_setup_param.model == "vb7014f" then
+        audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
+        audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16, 16)
+        audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
+        log.info("exaudio.setup", "audio_v2 VB7014F模式初始化")
     else
         -- DAC等其他模式下初始化完成后进入低功耗休眠
         audio_v2.shutdown(false, true, true)
@@ -915,6 +966,12 @@ end
 
 -- audio模式初始化
 local function audio_setup()
+    -- VB7014F走UART串口, 旧音频框架无需硬件初始化。
+    if audio_setup_param.model == "vb7014f" then
+        log.info("exaudio.setup", "audio旧框架 VB7014F模式: 无需本地音频硬件初始化")
+        return true
+    end
+
     -- 根据model选择初始化方式
     if audio_setup_param.model == "dac" then
         -- DAC模式初始化
@@ -1055,6 +1112,9 @@ end
 -- ==================== 模块接口 ====================
 -- 获取推荐的流式缓冲区大小
 function exaudio.get_stream_buffer_size()
+    if audio_setup_param.model == "vb7014f" then
+        return 3200
+    end
     if USE_AUDIO_V2 then
         -- audio_v2模式下返回推荐值
         local default_channels = audio_setup_param.channels or 1 
@@ -1074,6 +1134,161 @@ function exaudio.get_stream_buffer_size()
     return calculate_buffer_size(default_rate, default_depth, default_channels)
 end
 
+-- ==================== vb7014f (VB7014F 语音芯片) 支持 ====================
+-- 通过 UART 驱动 VB7014F 播放 PCM 流式音频。
+local vb7014f             = nil     -- require 得到的 vb7014f 模块引用，setup 时赋值
+local vb7014f_playing     = false   -- vb7014f 是否正在播放
+local vb7014f_vol         = 31      -- vb7014f 当前音量(0~31)
+local vb7014f_end_marked  = false   -- 已收到"结束"标记(数据喂完)，等待缓冲排空
+local vb7014f_drain_timer = nil     -- 缓冲排空轮询定时器
+local vb7014f_recording    = false -- vb7014f 是否正在录音(MIC上行)
+local vb7014f_record_param = nil   -- vb7014f 录音配置(含 path/cbfnc/time)
+local vb7014f_record_timer = nil   -- vb7014f 录音自动停止定时器
+local vb7014f_record_queue = {}    -- vb7014f 录音帧队列(512B string), UART回调入队/写任务出队
+local vb7014f_record_wtask = nil   -- vb7014f 录音写文件任务
+local vb7014f_record_out   = nil   -- vb7014f 录音攒批输出 zbuff
+local vb7014f_mic_vol      = 31    -- vb7014f 麦克风音量(协议暂不支持调节, 仅记录)
+
+-- vb7014f 播放结束统一处理：停流 + 置状态 + 触发播放完成回调
+local function vb7014f_audio_done()
+    if not vb7014f then return end
+    vb7014f_end_marked = false
+    if vb7014f_drain_timer then
+        sys.timerStop(vb7014f_drain_timer)
+        vb7014f_drain_timer = nil
+    end
+    vb7014f.play_stream_stop()
+    vb7014f_playing = false
+    if audio_play_param and audio_play_param.cbfnc then
+        audio_play_param.cbfnc(exaudio.PLAY_DONE)
+    end
+    sys.publish(EX_MSG_PLAY_DONE)
+end
+
+-- 缓冲排空轮询：收到结束标记后，待全部 PCM 发到 VB7014F 再真正停止，避免尾音被清空截断
+local function vb7014f_check_drain()
+    if not vb7014f_end_marked then
+        if vb7014f_drain_timer then
+            sys.timerStop(vb7014f_drain_timer)
+            vb7014f_drain_timer = nil
+        end
+        return
+    end
+    if not vb7014f or not vb7014f.is_running() or vb7014f.get_pending() <= 0 then
+        vb7014f_audio_done()
+    end
+end
+
+-- 标记结束并启动排空：若已无待发数据则立即结束，否则轮询至缓冲排空后再停止
+local function vb7014f_mark_end()
+    if not vb7014f or not vb7014f_playing then return end
+    vb7014f_end_marked = true
+    if not vb7014f.is_running() or vb7014f.get_pending() <= 0 then
+        vb7014f_audio_done()
+    elseif not vb7014f_drain_timer then
+        vb7014f_drain_timer = sys.timerLoopStart(vb7014f_check_drain, 10)
+    end
+end
+
+-- vb7014f 上行 MIC 为 16kHz/16bit/单声道(512B/帧, 32KB/s, 见芯片资料 XLS),
+-- 原样写入文件即可, 不需要任何降采样/下混处理。
+-- vb7014f 上行 MIC 数据回调：仅把每帧 512B PCM 入队
+-- 队列上限: 防止写任务跟不上时无限积压(内存与停止后排空时间都不可控)
+local VB7014F_RECORD_QUEUE_MAX = 512   -- 帧数上限
+local function vb7014f_audio_data_cb(data)
+    if not vb7014f_recording or not vb7014f_record_param then return end
+    if not data or #data == 0 then return end
+    if #vb7014f_record_queue >= VB7014F_RECORD_QUEUE_MAX then
+        table.remove(vb7014f_record_queue, 1)  -- 丢最旧帧, 保持队列有界
+    end
+    vb7014f_record_queue[#vb7014f_record_queue + 1] = data
+end
+
+-- vb7014f 录音写文件任务：从队列取帧攒批(4KB)后投递给上层 path
+local function vb7014f_record_writer()
+    local drain_budget = nil  -- 停止录音后的剩余排空批次数
+    while true do
+        if #vb7014f_record_queue == 0 then
+            if not vb7014f_recording then
+                -- 触发完成回调
+                if vb7014f_record_param and type(vb7014f_record_param.cbfnc) == "function" then
+                    vb7014f_record_param.cbfnc(exaudio.RECORD_DONE)
+                end
+                log.info("exaudio", "vb7014f录音已停止")
+                break
+            end
+            sys.wait(5)
+        else
+            local path = vb7014f_record_param and vb7014f_record_param.path
+            if type(path) == "function" then
+                if not vb7014f_record_out then
+                    vb7014f_record_out = zbuff.create(8192)
+                end
+                vb7014f_record_out:clear(0)
+                -- 关键: zbuff clear() 只 memset 不重置 used(), 必须手动 used(0);
+                -- 否则 used 从上一批累积, 批次越攒越大, 之后 used>=4096 不再消费新帧, 反复写同一段数据
+                vb7014f_record_out:used(0)
+                while #vb7014f_record_queue > 0 and vb7014f_record_out:used() < 4096 do
+                    local frame = table.remove(vb7014f_record_queue, 1)
+                    if frame and #frame > 0 then
+                        vb7014f_record_out:copy(nil, frame)  -- 16kHz/16bit/单声道, 原样写入
+                    end
+                end
+                if vb7014f_record_out:used() > 0 then
+                    path(vb7014f_record_out, vb7014f_record_out:used())
+                end
+            elseif type(path) == "string" then
+                local f = io.open(path, "ab")
+                if f then
+                    while #vb7014f_record_queue > 0 do
+                        local frame = table.remove(vb7014f_record_queue, 1)
+                        if frame and #frame > 0 then f:write(frame) end
+                    end
+                    f:close()
+                else
+                    vb7014f_record_queue = {}
+                end
+            else
+                vb7014f_record_queue = {}
+            end
+            -- 停止录音后限批排空: 最多再落盘 N 批, 之后丢弃剩余队列, 保证必触发 RECORD_DONE
+            if not vb7014f_recording then
+                if not drain_budget then
+                    drain_budget = 40  -- 最多再落盘 40 批(≈160KB), 避免停止后还倒很久
+                elseif drain_budget <= 0 then
+                    log.warn("exaudio", "vb7014f录音停止后排空超时, 丢弃剩余队列")
+                    vb7014f_record_queue = {}
+                else
+                    drain_budget = drain_budget - 1
+                end
+            end
+            sys.wait(2)
+        end
+    end
+    vb7014f_record_wtask = nil
+end
+
+-- vb7014f 停止录音：停 MIC 上行
+local function vb7014f_record_stop()
+    if not vb7014f or not vb7014f_recording then return false end
+    vb7014f_recording = false
+    if vb7014f_record_timer then
+        sys.timerStop(vb7014f_record_timer)
+        vb7014f_record_timer = nil
+    end
+    vb7014f.stop_audio()          -- 02 01 停止上行 MIC 音频
+    vb7014f.set_rx_enable(false)  -- 从源头丢弃 VB7014F 上行数据, 彻底切断 cb 入队
+    -- RECORD_DONE 由 vb7014f_record_writer 在队列后触发;
+    -- 若写任务未运行(异常), 此处兜底触发, 避免回调丢失
+    if not vb7014f_record_wtask then
+        if vb7014f_record_param and type(vb7014f_record_param.cbfnc) == "function" then
+            vb7014f_record_param.cbfnc(exaudio.RECORD_DONE)
+        end
+        log.info("exaudio", "vb7014f录音已停止")
+    end
+    return true
+end
+
 -- 初始化
 function exaudio.setup(audioConfigs)
     if not audioConfigs or type(audioConfigs) ~= "table" then
@@ -1081,36 +1296,50 @@ function exaudio.setup(audioConfigs)
         return false
     end
 
-    -- audio_mode参数处理
-    -- 780EXX系列、8000系列可通过audio_mode="new"切换到新音频框架
-    -- 8101、160X系列只能用新框架，audio_mode参数无效
-    if audioConfigs.audio_mode == "new" and not USE_AUDIO_V2 then
+    -- audio_mode参数处理。显式选择必须以对应Lua库实际存在为前提；
+    -- auto/nil沿用基于模组偏好和固件能力计算出的默认值。
+    if audioConfigs.audio_mode == "new" then
+        if not AUDIO_V2_AVAILABLE then
+            log.error("audio_mode=new，但固件未启用audio_v2库")
+            return false
+        end
         USE_AUDIO_V2 = true
         log.info("exaudio.setup", "audio_mode=new，切换到新音频框架")
-    end
-    if audioConfigs.audio_mode == "old" and USE_AUDIO_V2 then
-        log.warn("exaudio.setup", "当前模组仅支持新音频框架， audio_mode = old 不生效")
+    elseif audioConfigs.audio_mode == "old" then
+        if not AUDIO_LEGACY_AVAILABLE then
+            log.error("audio_mode=old，但固件未启用audio库")
+            return false
+        end
+        if PREFER_AUDIO_V2 and AUDIO_V2_AVAILABLE then
+            -- 保持8101、160X等原有约束：新框架可用时不允许强制切到旧框架。
+            log.warn("exaudio.setup", "当前模组仅支持新音频框架，audio_mode=old不生效")
+        else
+            USE_AUDIO_V2 = false
+            log.info("exaudio.setup", "audio_mode=old，切换到旧音频框架")
+        end
     end
 
     log.info("exaudio.setup", "当前使用" .. (USE_AUDIO_V2 and "新" or "旧") .. "音频框架")
 
-    -- 检查必要参数
-    if USE_AUDIO_V2 then
-        if not audio_v2 then
-            log.error("不支持audio_v2 库,请选择支持audio_v2 的core")
-            return false
-        end
-    else
-        if not audio then
-            log.error("不支持audio 库,请选择支持audio 的core")
-            return false
+    -- 检查必要参数（vb7014f 走 UART，跳过此检查）
+    if audioConfigs.model ~= "vb7014f" then
+        if USE_AUDIO_V2 then
+            if not audio_v2 then
+                log.error("不支持audio_v2 库,请选择支持audio_v2 的core")
+                return false
+            end
+        else
+            if not audio then
+                log.error("不支持audio 库,请选择支持audio 的core")
+                return false
+            end
         end
     end
 
     -- 检查编解码器型号
     if audioConfigs.model then
-        if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" and audioConfigs.model ~= "tm8211" then
-            log.error("请指定正确的model: es8311、tm8211 或 dac")
+        if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" and audioConfigs.model ~= "tm8211" and audioConfigs.model ~= "vb7014f" then
+            log.error("请指定正确的model: es8311、tm8211、dac 或 vb7014f")
             return false
         end
         audio_setup_param.model = audioConfigs.model
@@ -1141,6 +1370,11 @@ function exaudio.setup(audioConfigs)
             log.warn("dac_ctrl(音频编解码控制管脚)是控制pop 音的重要管脚,建议硬件设计加上")
         end
         audio_setup_param.dac_ctrl = audioConfigs.dac_ctrl
+    elseif audio_setup_param.model == "vb7014f" then
+        audio_setup_param.uart_id = audioConfigs.uart_id or 1
+        vb7014f = require "vb7014f"
+        vb7014f.init(audio_setup_param.uart_id, 2000000)
+        log.info("exaudio.setup", "VB7014F 芯片初始化完成")
     else
         -- ES8311 I2S模式
         if not audio_setup_param.model or (audio_setup_param.model ~= "es8311") then
@@ -1241,6 +1475,31 @@ end
 
 -- 开始播放
 function exaudio.play_start(playConfigs)
+    -- VB7014F 模式: 仅支持 PCM 流式播放(type=2)
+    if audio_setup_param.model == "vb7014f" then
+        if not vb7014f then
+            log.error("vb7014f未初始化，请先调用exaudio.setup")
+            return false
+        end
+        if not playConfigs or type(playConfigs) ~= "table" then
+            log.error("播放配置必须为table类型")
+            return false
+        end
+        if not check_param(playConfigs.type, "number", "type") then
+            log.error("type必须为数值(0:文件,1:TTS,2:流式)")
+            return false
+        end
+        if playConfigs.type ~= 2 then
+            log.error("vb7014f仅支持播放pcm流式音频，请更换播放的音频文件")
+            return false
+        end
+        audio_play_param = playConfigs
+        vb7014f.play_stream_start(vb7014f_vol)
+        vb7014f_playing = true
+        vb7014f_end_marked = false
+        log.info("exaudio", "vb7014f流式播放已启动，等待play_stream_write喂数据")
+        return true
+    end
     if USE_AUDIO_V2 then
         -- audio_v2模式播放
         if not playConfigs or type(playConfigs) ~= "table" then
@@ -1571,6 +1830,15 @@ end
 -- @return written 实际写入的字节数(audio_v2)
 -- @return free_len FIFO剩余空间(audio_v2)
 function exaudio.play_stream_write(data, is_end)
+    if audio_setup_param.model == "vb7014f" then
+        if not vb7014f then return false end
+        if not data or #data == 0 then return false end
+        vb7014f.play_stream_write(data)
+        if is_end then
+            vb7014f_mark_end()
+        end
+        return true
+    end
     if USE_AUDIO_V2 then
         -- audio_v2模式：入队列，由NEED_NEW_DATA回调批量写入FIFO
         if not audio_v2_request_index then
@@ -1602,6 +1870,13 @@ end
 
 -- 停止播放
 function exaudio.play_stop(stopConfigs)
+    if audio_setup_param.model == "vb7014f" then
+        if not vb7014f then return false end
+        if vb7014f_playing then
+            vb7014f_audio_done()
+        end
+        return true
+    end
     if USE_AUDIO_V2 then
         -- audio_v2停止播放
         if audio_v2_request_index then
@@ -1669,6 +1944,9 @@ end
 
 -- 检查播放是否结束
 function exaudio.is_end()
+    if audio_setup_param.model == "vb7014f" then
+        return not vb7014f_playing
+    end
     if USE_AUDIO_V2 then
         -- audio_v2使用is_all_done判断是否所有请求结束
         return audio_v2.is_all_done()
@@ -1744,6 +2022,40 @@ function exaudio.record_start(recodConfigs)
         audio_record_param.cbfnc = recodConfigs.cbfnc
     else
         audio_record_param.cbfnc = nil
+    end
+
+    -- vb7014f: 通过 UART MIC 上行录音(16kHz/16bit/单声道, 512B/帧)
+    if audio_setup_param.model == "vb7014f" then
+        if not vb7014f then
+            log.error("vb7014f未初始化，请先调用exaudio.setup")
+            return false
+        end
+        if audio_record_param.format ~= exaudio.PCM_16000 then
+            log.warn("vb7014f仅支持16kHz/16bit/单声道PCM录音，已按16k处理")
+        end
+        if type(audio_record_param.path) ~= "function" and type(audio_record_param.path) ~= "string" then
+            log.error("vb7014f录音必须指定流式回调或文件路径")
+            return false
+        end
+        vb7014f_record_param = audio_record_param
+        vb7014f_recording = true
+        vb7014f_record_queue = {}
+        vb7014f.set_rx_enable(true)  -- 恢复解析 VB7014F 上行数据(上一次停止时已关闭)
+        vb7014f.on_audio_data(vb7014f_audio_data_cb)
+        if not vb7014f_record_wtask then
+            vb7014f_record_wtask = sys.taskInit(vb7014f_record_writer)
+        end
+        if vb7014f_record_timer then sys.timerStop(vb7014f_record_timer); vb7014f_record_timer = nil end
+        if audio_record_param.time and audio_record_param.time > 0 then
+            vb7014f_record_timer = sys.timerStart(function()
+                vb7014f_record_timer = nil
+                vb7014f_record_stop()
+            end, audio_record_param.time * 1000)
+        end
+        -- 复位 VB7014F 以(重新)启动 MIC 上行(复位后自动恢复上行音频)
+        vb7014f.reset()
+        log.info("exaudio", "vb7014f录音已开始(MIC上行)")
+        return true
     end
 
     if USE_AUDIO_V2 then
@@ -1849,6 +2161,9 @@ end
 
 -- 停止录音
 function exaudio.record_stop()
+    if audio_setup_param.model == "vb7014f" then
+        return vb7014f_record_stop()
+    end
     if USE_AUDIO_V2 then
         if audio_v2_record_request_index then
             -- 停止录音前，如果有回调模式，处理zbuff中剩余数据
@@ -1898,6 +2213,17 @@ end
 -- @param driver_probe_id 驱动ID(可选,audio_v2模式支持)
 -- @return 是否成功
 function exaudio.vol(play_volume, driver_probe_id)
+    if audio_setup_param.model == "vb7014f" then
+        if not vb7014f then return false end
+        if check_param(play_volume, "number", "音量值") then
+            local v = math.floor(play_volume * 31 / 100)
+            if v > 31 then v = 31 elseif v < 0 then v = 0 end
+            vb7014f.set_volume(v)
+            vb7014f_vol = v
+            return true
+        end
+        return false
+    end
     if USE_AUDIO_V2 then
         -- 仅ES8311模式下才加载es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
         if not audio_v2_es8311_drv and audio_setup_param.model == "es8311" then
@@ -1929,8 +2255,35 @@ function exaudio.vol(play_volume, driver_probe_id)
     return false
 end
 
+-- 应用DAC(内置ADC)麦克风增益
+-- 两个参数均由客户按 0-100 传入，由本函数线性映射到硬件范围：
+--   数字增益 dac_mic_dig_gain(0-100) -> 0-0x3f，默认 60
+--   模拟增益 dac_mic_ana_gain(0-100) -> 0-0x0f，默认 50
+-- 仅 model=="dac" 生效，固件未提供该接口(CFG_PARAM_ADC_DIG_GAIN为nil)时自动跳过
+local function apply_dac_mic_gain()
+    if audio_setup_param.model ~= "dac" or not audio_v2 then return end
+    if not audio_v2.CFG_PARAM_ADC_DIG_GAIN then return end
+    local dig = math.floor((dac_mic_dig_gain or 0) * 0x3f / 100)
+    if dig > 0x3f then dig = 0x3f elseif dig < 0 then dig = 0 end
+    local ok, err = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_DIG_GAIN, dig)
+    if not ok then log.warn("exaudio", "设置DAC数字增益失败:", err) end
+    if dac_mic_ana_gain and dac_mic_ana_gain > 0 then
+        local ana = math.floor(dac_mic_ana_gain * 0x0f / 100)
+        if ana > 0x0f then ana = 0x0f elseif ana < 0 then ana = 0 end
+        ok = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_ANA_GAIN, ana)
+        if not ok then log.warn("exaudio", "设置DAC模拟增益失败") end
+    end
+end
+
 -- 设置麦克风音量
-function exaudio.mic_vol(record_volume)
+-- @param record_volume 麦克风音量值(0-100)，DAC模式下作为数字增益映射为 0-0x3f（默认 60）
+-- @param dac_ana_gain 可选，DAC模式专用模拟增益(0-100)，线性映射为 0-0x0f，不传则为默认 50
+-- @return 是否成功
+function exaudio.mic_vol(record_volume, dac_ana_gain)
+    if audio_setup_param.model == "vb7014f" then
+        log.info("exaudio", "vb7014f不支持调节麦克风音量")
+        return false
+    end
     if USE_AUDIO_V2 then
         -- 仅ES8311模式下才加载es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
         if not audio_v2_es8311_drv and audio_setup_param.model == "es8311" then
@@ -1942,9 +2295,21 @@ function exaudio.mic_vol(record_volume)
             mic_vol = record_volume
             return true
         end
-        -- DAC/TM8211模式：无硬件MIC增益寄存器，仅记录数值
-        mic_vol = record_volume
-        return true
+        if audio_setup_param.model == "dac" then
+            -- DAC模式：无ES8311芯片，通过驱动配置设置麦克风数字/模拟增益
+            if not check_param(record_volume, "number", "麦克风音量值") then
+                return false
+            end
+            dac_mic_dig_gain = record_volume
+            if dac_ana_gain ~= nil then
+                dac_mic_ana_gain = dac_ana_gain
+            end
+            apply_dac_mic_gain()
+            return true
+        end
+        -- TM8211模式：板载无MIC硬件，不支持调节麦克风音量
+        log.info("exaudio", "tm8211不支持调节麦克风音量")
+        return false
     end
     
     if check_param(record_volume, "number", "麦克风音量值") then
@@ -1963,6 +2328,16 @@ end
 -- @param data 最后一帧数据(可选,audio_v2流式播放)
 -- @return 是否成功
 function exaudio.finish(data)
+    if audio_setup_param.model == "vb7014f" then
+        if not vb7014f then return false end
+        if data then
+            vb7014f.play_stream_write(data)
+        end
+        if vb7014f_playing then
+            vb7014f_mark_end()
+        end
+        return true
+    end
     if USE_AUDIO_V2 then
         -- audio_v2流式播放结束
         if audio_v2_request_index then
@@ -1995,6 +2370,11 @@ end
 -- exaudio.pm(exaudio.SHUTDOWN)
 -- exaudio.pm(exaudio.RESUME)
 function exaudio.pm(pm_mode)
+    -- vb7014f无需通过音频休眠控制
+    if audio_setup_param.model == "vb7014f" then
+        return true
+    end
+
     if USE_AUDIO_V2 then
         -- 新框架：使用audio_v2.shutdown + es8311操作进入休眠
         if not audio_v2 then
@@ -2007,11 +2387,21 @@ function exaudio.pm(pm_mode)
             es8311_ok, es8311_drv = pcall(require, "es8311")
         end
         if pm_mode == exaudio.SHUTDOWN then
-            -- SHUTDOWN：下电ES8311，关闭PA，保持驱动和CODEC以备快速恢复
-            if es8311_ok and es8311_drv then
-                es8311_drv.power_down(audio_setup_param.i2c_id or 0)
+            -- 1602开发板I2C1同时被audio(ES8311)与LCD触摸共用：
+            -- audio_v2.shutdown(driver_power_off, codec_power_off, pa_power_off) 的
+            -- driver_power_off=true 会停驱动并 deactivate，副作用是关闭其管理的 I2C1，导致 LCD 触摸失效。
+            -- 故 1602 下电时保留 audio 驱动(driver_power_off=false)，I2C 保持打开供触摸使用；
+            -- 非 1602 保持原逻辑彻底下电(driver_power_off=true)。
+            if get_module_type() == "air1602" then
+                audio_v2.shutdown(false, false, true)
+            else
+                -- SHUTDOWN：下电ES8311，关闭PA，保持驱动和CODEC以备快速恢复
+                if es8311_ok and es8311_drv then
+                    es8311_drv.power_down(audio_setup_param.i2c_id or 0)
+                end
+
+                audio_v2.shutdown(true, false, true)
             end
-            audio_v2.shutdown(true, false, true)
             return true
         elseif pm_mode == exaudio.RESUME then
             -- RESUME：恢复ES8311，确保所有模块处于工作状态
@@ -2023,6 +2413,9 @@ function exaudio.pm(pm_mode)
                 es8311_drv.set_mute(audio_setup_param.i2c_id or 0, false)
                 es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, voice_vol)
                 es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, mic_vol)
+            elseif audio_setup_param.model == "dac" then
+                -- DAC(内置ADC)模式：唤醒后重新应用麦克风增益
+                apply_dac_mic_gain()
             end
             -- 恢复外部 PA。
             if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
@@ -2231,7 +2624,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608251813"
+    return "202609091419"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

@@ -32,9 +32,6 @@ local luatos_ext_root = find_ext_root()
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x，4表示mbedtls 4.x
 local mbedtls_version = 3
 
-add_requires("gmssl")
-add_packages("gmssl")
-
 local function env_enabled(name)
     return os.getenv(name) == "y"
 end
@@ -61,6 +58,28 @@ local function add_thirdparty_files(...)
         add_files(pattern, options)
     end
 end
+
+-- gmssl 是裁剪过的 GmSSL 分支(缺 oid/x509/sha/base64/aes 等实现), ARM 固件靠
+-- -ffunction-sections + --gc-sections 丢弃未引用代码; MSVC 没有等价能力(未引用函数里的
+-- 未定义符号依然会 LNK2019), 所以这里只编译 Lua 绑定真正用到的 TU, 其余未引用函数引用的
+-- 上游符号由 bsp/pc/port/gmssl/luat_gmssl_pc_stubs.c 兜底(PC 专用, 不影响固件)。
+-- 强制先包含 stdlib.h: gmssl/mem.h 在 __LUATOS__ 下把 malloc/free 宏替换成 luat_heap_*,
+-- 若 stdlib.h 在那之后才被包含, MSVC 会报 corecrt_malloc.h 里的 C2375 重定义错误。
+local function gmssl_file_options()
+    if is_host("windows") then
+        return {cflags = {"/W0", "/FIstdlib.h"}, cxflags = {"/W0", "/FIstdlib.h"}}
+    end
+    return {cflags = {"-w", "-include", "stdlib.h"}, cxflags = {"-w", "-include", "stdlib.h"}}
+end
+
+-- Lua 绑定(gmssl.sm2*/sm3*/sm4*)用到的 gmssl 源码 + 它们的本地依赖
+local gmssl_sources = {
+    "sm2_alg.c", "sm2_key.c", "sm2_lib.c",                       -- SM2
+    "sm3.c", "sm3_hmac.c",                                       -- SM3
+    "sm4_common.c", "sm4_enc.c", "sm4_modes.c", "sm4_setkey.c",  -- SM4
+    "gcm.c", "gf128.c", "block_cipher.c",                        -- sm4_modes 的 GCM 依赖
+    "asn1.c", "hex.c", "rand.c",                                 -- 依赖
+}
 
 local function add_define_from_env(name)
     local value = os.getenv(name)
@@ -259,12 +278,13 @@ target("luatos-lua")
     -- rsa
     add_files(luatos.."components/rsa/**.c")
 
-    -- gmssl: use local include (new uint32_t ciphertext_size) + local sm2_lib.c (new 16KB limit).
-    -- The package lib provides all other gmssl symbols (aes, sha, x509, format_*, etc.).
-    -- MSVC linker prefers .obj files over .lib for duplicate symbols, so our local sm2_lib.c wins.
+    -- gmssl: 直接编译 LuatOS 自带的 components/gmssl(与固件同源), 不再使用 xmake 的 gmssl 包。
+    -- 详见文件顶部 gmssl_file_options() 的说明。
     add_includedirs(luatos.."components/gmssl/include")
-    add_files(luatos.."components/gmssl/src/sm2_lib.c")
-    add_files(luatos.."components/gmssl/bind/*.c")
+    for _, f in ipairs(gmssl_sources) do
+        add_files(luatos.."components/gmssl/src/"..f, gmssl_file_options())
+    end
+    add_files(luatos.."components/gmssl/bind/*.c", gmssl_file_options())
 
     -- iconv
     add_includedirs(luatos.."components/iconv")
@@ -298,6 +318,8 @@ target("luatos-lua")
         if os.isdir(luatos.."components/utest/include") then
             add_includedirs(luatos.."components/utest/include", {public = true})
         end
+        -- crypto/p256 utest 需要 luat_p256.h
+        add_includedirs(luatos.."components/crypto/p256", {public = true})
         add_files(luatos.."components/utest/**.c")
         add_files("stubs/uart_dll_utest/luat_uart_dll_utest.c")
     end

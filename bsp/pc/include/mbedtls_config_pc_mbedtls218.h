@@ -565,17 +565,20 @@
  *
  * Comment macros to disable the curve and functions for it
  */
-#define MBEDTLS_ECP_DP_SECP192R1_ENABLED
-#define MBEDTLS_ECP_DP_SECP224R1_ENABLED
+/* 与 ec7xx 设备端配置(2024库 mbedtls_ec7xx_config.h)对齐:
+ * 只保留 P-256 + P-384 + x25519. P-384 保留证书链验签能力;
+ * 关闭的曲线连验签能力一并移除(对端 P-521/K1/BP/448 证书链会失败) */
+//#define MBEDTLS_ECP_DP_SECP192R1_ENABLED
+//#define MBEDTLS_ECP_DP_SECP224R1_ENABLED
 #define MBEDTLS_ECP_DP_SECP256R1_ENABLED
 #define MBEDTLS_ECP_DP_SECP384R1_ENABLED
-#define MBEDTLS_ECP_DP_SECP521R1_ENABLED
-#define MBEDTLS_ECP_DP_SECP192K1_ENABLED
-#define MBEDTLS_ECP_DP_SECP224K1_ENABLED
-#define MBEDTLS_ECP_DP_SECP256K1_ENABLED
-#define MBEDTLS_ECP_DP_BP256R1_ENABLED
-#define MBEDTLS_ECP_DP_BP384R1_ENABLED
-#define MBEDTLS_ECP_DP_BP512R1_ENABLED
+//#define MBEDTLS_ECP_DP_SECP521R1_ENABLED
+//#define MBEDTLS_ECP_DP_SECP192K1_ENABLED
+//#define MBEDTLS_ECP_DP_SECP224K1_ENABLED
+//#define MBEDTLS_ECP_DP_SECP256K1_ENABLED
+//#define MBEDTLS_ECP_DP_BP256R1_ENABLED
+//#define MBEDTLS_ECP_DP_BP384R1_ENABLED
+//#define MBEDTLS_ECP_DP_BP512R1_ENABLED
 #define MBEDTLS_ECP_DP_CURVE25519_ENABLED
 
 /**
@@ -915,6 +918,10 @@
  * Requires: MBEDTLS_BIGNUM_C
  */
 //#define MBEDTLS_GENPRIME
+/* LuatOS: pc v2 需要 PK 密钥生成(与 MBEDTLS_PK_WRITE_C 一起解锁
+ * crypto.pk_generate, 供 ECC/ECP 缓存模拟验证; EC 不需要素数生成,
+ * 但 luat_crypto_pk_generate 的门控同时要求本宏) */
+#define MBEDTLS_GENPRIME
 
 /**
  * \def MBEDTLS_FS_IO
@@ -2243,6 +2250,8 @@
  * This modules adds support for encoding / writing PEM files.
  */
 //#define MBEDTLS_PEM_WRITE_C
+/* LuatOS: pc v2 开启 PEM 写出(pk_generate/pk_write_*_pem 需要) */
+#define MBEDTLS_PEM_WRITE_C
 
 /**
  * \def MBEDTLS_PK_C
@@ -2287,7 +2296,10 @@
  *
  * Uncomment to enable generic public key write functions.
  */
-//#define MBEDTLS_PK_WRITE_C
+// #define MBEDTLS_PK_WRITE_C
+/* LuatOS: pc v2 开启 PK 密钥生成/写出(crypto.pk_generate 门控之一,
+ * 供 ECC 与 ECP G/Q 缓存模拟验证) */
+#define MBEDTLS_PK_WRITE_C
 
 /**
  * \def MBEDTLS_PKCS5_C
@@ -2827,6 +2839,12 @@
 #endif
 
 #define MBEDTLS_SHA384_C
+
+/* LuatOS: 启用进程级 ECP G/Q comb 表缓存(实现见 components/crypto/luat_mbedtls_ecp_cache.c).
+ * 设备端同款开关定义在 ec7xx 的 mbedtls 配置头(与 MBEDTLS_PLATFORM_CALLOC_MACRO 同处).
+ * 前提: mbedtls 2.x + MBEDTLS_ECP_FIXED_POINT_OPTIM==1 + 未开 MBEDTLS_ECP_RESTARTABLE.
+ * 未定义时 ecp.c 零改动成本, 本缓存完全不参与编译. */
+#define LUAT_CONF_MBEDTLS_ECP_CACHE
 
 #include "mbedtls/check_config.h"
 

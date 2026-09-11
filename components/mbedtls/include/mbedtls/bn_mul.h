@@ -748,6 +748,95 @@
          : "r0", "r1", "memory"                 \
          );
 
+#elif defined(__ARM_ARCH_7M__)
+
+/*
+ * Cortex-M3 (ARMv7-M, Thumb-2, no DSP extension, no umaal).
+ * Compared with the generic ARM path below:
+ *  - operands use register constraints, so MULADDC_INIT/STOP no longer
+ *    spill s/d/c/b to the stack on every 8/16-limb chunk;
+ *  - MULADDC_HUIT batches loads/stores with ldmia/stmia (on Cortex-M3
+ *    a 4-word ldmia costs 5 cycles vs 8 for four separate ldr).
+ * r7 is deliberately left untouched (frame pointer under -mapcs-frame).
+ * Operand mapping: %0 = s, %1 = d, %2 = c (carry), %3 = b.
+ * The "d <= s" overlap rule of mpi_mul_hlp is preserved: every ldmia
+ * batch is fully consumed before the matching stmia store takes place.
+ */
+
+#define MULADDC_INIT                            \
+    asm(
+
+#define MULADDC_CORE                            \
+        "ldr    r4, [%0], #4        \n\t"       \
+        "mov    r5, #0              \n\t"       \
+        "ldr    r6, [%1]            \n\t"       \
+        "umlal  %2, r5, %3, r4      \n\t"       \
+        "adds   r6, r6, %2          \n\t"       \
+        "adc    %2, r5, #0          \n\t"       \
+        "str    r6, [%1], #4        \n\t"
+
+/* 8 limbs per HUIT, processed as two 4-limb batches */
+#define MULADDC_HUIT                            \
+        "ldmia  %0!, {r4,r5,r6,r8}  \n\t"       \
+        "umull  r9, r4, %3, r4      \n\t"       \
+        "adds   r9, r9, %2          \n\t"       \
+        "adc    r4, r4, #0          \n\t"       \
+        "ldr    r10, [%1]           \n\t"       \
+        "adds   r9, r9, r10         \n\t"       \
+        "adc    %2, r4, #0          \n\t"       \
+        "umull  r10, r5, %3, r5     \n\t"       \
+        "adds   r10, r10, %2        \n\t"       \
+        "adc    r5, r5, #0          \n\t"       \
+        "ldr    r4, [%1, #4]        \n\t"       \
+        "adds   r10, r10, r4        \n\t"       \
+        "adc    %2, r5, #0          \n\t"       \
+        "umull  r11, r6, %3, r6     \n\t"       \
+        "adds   r11, r11, %2        \n\t"       \
+        "adc    r6, r6, #0          \n\t"       \
+        "ldr    r4, [%1, #8]        \n\t"       \
+        "adds   r11, r11, r4        \n\t"       \
+        "adc    %2, r6, #0          \n\t"       \
+        "umull  r12, r8, %3, r8     \n\t"       \
+        "adds   r12, r12, %2        \n\t"       \
+        "adc    r8, r8, #0          \n\t"       \
+        "ldr    r4, [%1, #12]       \n\t"       \
+        "adds   r12, r12, r4        \n\t"       \
+        "adc    %2, r8, #0          \n\t"       \
+        "stmia  %1!, {r9,r10,r11,r12} \n\t"     \
+        "ldmia  %0!, {r4,r5,r6,r8}  \n\t"       \
+        "umull  r9, r4, %3, r4      \n\t"       \
+        "adds   r9, r9, %2          \n\t"       \
+        "adc    r4, r4, #0          \n\t"       \
+        "ldr    r10, [%1]           \n\t"       \
+        "adds   r9, r9, r10         \n\t"       \
+        "adc    %2, r4, #0          \n\t"       \
+        "umull  r10, r5, %3, r5     \n\t"       \
+        "adds   r10, r10, %2        \n\t"       \
+        "adc    r5, r5, #0          \n\t"       \
+        "ldr    r4, [%1, #4]        \n\t"       \
+        "adds   r10, r10, r4        \n\t"       \
+        "adc    %2, r5, #0          \n\t"       \
+        "umull  r11, r6, %3, r6     \n\t"       \
+        "adds   r11, r11, %2        \n\t"       \
+        "adc    r6, r6, #0          \n\t"       \
+        "ldr    r4, [%1, #8]        \n\t"       \
+        "adds   r11, r11, r4        \n\t"       \
+        "adc    %2, r6, #0          \n\t"       \
+        "umull  r12, r8, %3, r8     \n\t"       \
+        "adds   r12, r12, %2        \n\t"       \
+        "adc    r8, r8, #0          \n\t"       \
+        "ldr    r4, [%1, #12]       \n\t"       \
+        "adds   r12, r12, r4        \n\t"       \
+        "adc    %2, r8, #0          \n\t"       \
+        "stmia  %1!, {r9,r10,r11,r12} \n\t"
+
+#define MULADDC_STOP                            \
+         : "=r" (s),  "=r" (d), "=r" (c)        \
+         : "r" (b), "0" (s), "1" (d), "2" (c)   \
+         : "r4", "r5", "r6", "r8", "r9", "r10", \
+           "r11", "r12", "cc", "memory"         \
+         );
+
 #else
 
 #define MULADDC_INIT                                    \

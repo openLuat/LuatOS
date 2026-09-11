@@ -1,8 +1,8 @@
 --[[
 @module  reload_win
 @summary RELOAD按键状态页面，显示按键按下/抬起状态和按住时间
-@version 1.0.0
-@date    2026.07.30
+@version 2.0.0
+@date    2026.08.14
 @author  合宙 Air8301
 @usage
 本页面显示RELOAD（WAKEUP2）按键状态：
@@ -16,17 +16,6 @@
 local win_id = nil
 local main_container, content
 local status_label, held_time_label, progress_bar
-
--- 颜色常量
-local COLOR_PRIMARY = 0x1A5276
-local COLOR_BG = 0xD0D0D0
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_SECONDARY = 0x000000
-local COLOR_WHITE = 0xFFFFFF
-local COLOR_GREEN = 0x4CAF50
-local COLOR_RED = 0xF44336
-local COLOR_ORANGE = 0xFF9800
 
 --[[
 导航栏返回按钮点击
@@ -51,7 +40,7 @@ local function on_key_event(event)
     if event == "reload_down" then
         if status_label then
             status_label:set_text("已按下")
-            status_label:set_color(COLOR_GREEN)
+            status_label:set_color(T.COLOR_GREEN)
         end
         if progress_bar then
             progress_bar:set_value(0)
@@ -59,7 +48,7 @@ local function on_key_event(event)
     elseif event == "reload_up" then
         if status_label then
             status_label:set_text("已抬起")
-            status_label:set_color(COLOR_RED)
+            status_label:set_color(T.COLOR_DANGER)
         end
         if progress_bar then
             progress_bar:set_value(0)
@@ -74,152 +63,60 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = 480, h = 272, color = COLOR_BG, parent = airui.screen })
+    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
 
-    -- 顶部导航栏
-    local header = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 44, color = COLOR_PRIMARY })
-
-    -- 返回按钮
-    local back_btn = airui.container({
-        parent = header,
-        x = 0,
-        y = 0,
-        w = 60,
-        h = 44,
-        on_click = on_back_click
-    })
-    airui.label({
-        parent = back_btn,
-        x = 5,
-        y = 10,
-        w = 50,
-        h = 24,
-        text = "< 返回",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-
-    -- 标题
-    airui.label({
-        parent = header,
-        x = 60,
-        y = 8,
-        w = 360,
-        h = 28,
-        text = "RELOAD按键",
-        font_size = 20,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    -- 顶部标题栏
+    T.titlebar(main_container, "RELOAD按键", on_back_click)
 
     -- 内容区域
     content = airui.container({
         parent = main_container,
         x = 0,
-        y = 44,
-        w = 480,
-        h = 228,
-        color = COLOR_BG
+        y = T.CONTENT_Y,
+        w = T.SCREEN_W,
+        h = T.CONTENT_H,
+        color = T.COLOR_BG
     })
 
     -- 状态卡片
-    local status_card = airui.container({
-        parent = content,
-        x = 10,
-        y = 10,
-        w = 460,
-        h = 60,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    airui.label({
-        parent = status_card,
-        x = 10,
-        y = 4,
-        w = 80,
-        h = 20,
-        text = "按键状态",
-        font_size = 14,
-        color = COLOR_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    status_label = airui.label({
-        parent = status_card,
-        x = 10,
-        y = 28,
-        w = 200,
-        h = 24,
-        text = "等待中...",
-        font_size = 18,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, _, status_content = T.info_card(content, 10, 60, "按键状态", "等待中...")
+    status_label = status_content
 
     -- 按住时间卡片
-    local time_card = airui.container({
-        parent = content,
-        x = 10,
-        y = 80,
-        w = 460,
-        h = 60,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    airui.label({
-        parent = time_card,
-        x = 10,
-        y = 4,
-        w = 100,
-        h = 20,
-        text = "按住时间",
-        font_size = 14,
-        color = COLOR_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    held_time_label = airui.label({
-        parent = time_card,
-        x = 10,
-        y = 28,
-        w = 200,
-        h = 24,
-        text = "0 ms",
-        font_size = 18,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, _, time_content = T.info_card(content, 80, 60, "按住时间", "0 ms")
+    held_time_label = time_content
 
     -- 进度条卡片
     local progress_card = airui.container({
         parent = content,
-        x = 10,
+        x = T.MARGIN,
         y = 150,
-        w = 460,
+        w = T.CARD_W,
         h = 60,
-        color = COLOR_CARD,
-        radius = 6
+        color = T.COLOR_CARD,
+        radius = T.CARD_RADIUS
     })
     airui.label({
         parent = progress_card,
         x = 10,
         y = 4,
-        w = 200,
+        w = T.CARD_W - 20,
         h = 20,
         text = "恢复出厂进度（按住5秒）",
-        font_size = 14,
-        color = COLOR_SECONDARY,
+        font_size = T.FONT_CARD_TITLE,
+        color = T.COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
     progress_bar = airui.bar({
         parent = progress_card,
         x = 10,
         y = 28,
-        w = 440,
+        w = T.CARD_W - 20,
         h = 20,
         min = 0,
         max = 100,
         value = 0,
-        indicator_color = COLOR_ORANGE,
+        indicator_color = T.COLOR_ORANGE,
     })
 end
 

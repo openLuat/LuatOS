@@ -802,7 +802,7 @@ static void net_lwip2_task(void *param)
 		}
 		if (prvlwip.socket[socket_id].is_tcp)
 		{
-			error = tcp_bind(prvlwip.socket[socket_id].pcb.tcp, local_ip, 0);
+			error = tcp_bind(prvlwip.socket[socket_id].pcb.tcp, local_ip, prvlwip.socket[socket_id].local_port);
 			if (error) {
 				NET_DBG("adapter %d socket %d tcp bind error %d", adapter_index, socket_id, error);
 				net_lwip2_tcp_error(adapter_index, socket_id);

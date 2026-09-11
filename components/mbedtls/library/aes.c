@@ -1021,7 +1021,6 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
                     const unsigned char *input,
                     unsigned char *output )
 {
-    int i;
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     unsigned char temp[16];
 
@@ -1056,8 +1055,7 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
             if( ret != 0 )
                 goto exit;
 
-            for( i = 0; i < 16; i++ )
-                output[i] = (unsigned char)( output[i] ^ iv[i] );
+            mbedtls_xor( output, output, iv, 16 );
 
             memcpy( iv, temp, 16 );
 
@@ -1070,8 +1068,7 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
     {
         while( length > 0 )
         {
-            for( i = 0; i < 16; i++ )
-                output[i] = (unsigned char)( input[i] ^ iv[i] );
+            mbedtls_xor( output, input, iv, 16 );
 
             ret = mbedtls_aes_crypt_ecb( ctx, mode, output, output );
             if( ret != 0 )
@@ -1415,6 +1412,36 @@ int mbedtls_aes_crypt_ctr( mbedtls_aes_context *ctx,
     if ( n > 0x0F )
         return( MBEDTLS_ERR_AES_BAD_INPUT_DATA );
 
+    /* Consume any partial stream block byte-by-byte until the next block
+     * boundary, so the main loop can process whole 16-byte blocks. */
+    while( n != 0 && length > 0 )
+    {
+        c = *input++;
+        *output++ = (unsigned char)( c ^ stream_block[n] );
+
+        n = ( n + 1 ) & 0x0F;
+        length--;
+    }
+
+    /* Process whole blocks with a single XOR per block. */
+    while( length >= 16 )
+    {
+        ret = mbedtls_aes_crypt_ecb( ctx, MBEDTLS_AES_ENCRYPT, nonce_counter, stream_block );
+        if( ret != 0 )
+            goto exit;
+
+        for( i = 16; i > 0; i-- )
+            if( ++nonce_counter[i - 1] != 0 )
+                break;
+
+        mbedtls_xor( output, input, stream_block, 16 );
+
+        output += 16;
+        input += 16;
+        length -= 16;
+    }
+
+    /* Remaining bytes (tail) byte-by-byte. */
     while( length-- )
     {
         if( n == 0 ) {

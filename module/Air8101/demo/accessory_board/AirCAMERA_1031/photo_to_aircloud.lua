@@ -60,15 +60,19 @@ local function capture_func()
             -- 拍照执行完成则上传，否则关闭摄像头
             if result then
                 log.info("这是第"..usb_port.."个摄像头拍的")
-                log.info("照片存储路径", save_method)
-                
-                -- 检查文件是否存在
-                if io.exists(save_method) then
-                    log.info("文件存在，大小:", io.fileSize(save_method))
+                if save_method == "ZBUFF" then
+                    -- ZBUFF模式：data是ZBUFF对象，大小用:used()获取
+                    log.info("照片存储路径", "ZBUFF, 大小:", data and data:used() or "nil")
                 else
-                    log.warn("文件不存在，拍照后立即检查")
+                    log.info("照片存储路径", save_method)
+                    -- 检查文件是否存在
+                    if io.exists(save_method) then
+                        log.info("文件存在，大小:", io.fileSize(save_method))
+                    else
+                        log.warn("文件不存在，拍照后立即检查")
+                    end
                 end
-                
+
                 -- 通过网卡状态判断WIFI是否连接成功，WIFI连接成功后再运行照片上传任务。
                 while not socket.adapter(socket.dft()) do
                     -- 在此处阻塞等待WIFI连接成功的消息"IP_READY"，避免联网过快，丢失了"IP_READY"信息而导致一直被卡住。
@@ -76,17 +80,17 @@ local function capture_func()
                     log.warn("tcp_client_main_task_func", "wait IP_READY")
                     sys.waitUntil("IP_READY", 30000)
                 end
-                if type(data) == "userdata" then
-                    data = data:query()
-                else
-                    data = io.readFile(data)
-                end
-                -- 拍照完成后触发上传事件
-                sys.publish("PHOTO_READY", save_method)
+                -- 拍照完成后触发上传事件，ZBUFF传对象，文件模式传路径
+                sys.publish("PHOTO_READY", save_method, data)
             end
         end
         -- 关闭摄像头，释放资源
-        excamera.close()
+        -- ZBUFF模式：上传完成前不能释放ZBUFF，传true保留，等上传完手动释放
+        if save_method == "ZBUFF" then
+            excamera.close(true)
+        else
+            excamera.close()
+        end
     end
 end
 
@@ -127,31 +131,44 @@ function excloud_task_func()
     
     -- 循环监听拍照完成事件并上传
     while true do
-        local result, photo_path = sys.waitUntil("PHOTO_READY")
+        local result, photo_path, photo_data = sys.waitUntil("PHOTO_READY")
         if result then
             -- 上传图片
             log.info("开始上传图片")
             if not excloud.status().is_connected then
                 log.info("设备未连接，跳过图片上传")
-                -- 删除文件
-                if save_method ~= "ZBUFF" then
-                    os.remove(save_method)
+                -- ZBUFF模式上传失败也要手动释放内存
+                if photo_path == "ZBUFF" and photo_data then
+                    photo_data:free()
                 end
                 return
             end
-            if io.exists(save_method) then
-                local ok, err = excloud.upload_image(save_method, "test.jpg")
+            if photo_path == "ZBUFF" then
+                -- ZBUFF模式：直接把ZBUFF对象传给upload_image，excloud库原生支持
+                local ok, err = excloud.upload_image(photo_data, "test.jpg")
                 if ok then
                     log.info("图片上传成功")
                 else
                     log.error("图片上传失败:", err)
                 end
-                -- 上传完成后删除文件
-                if save_method ~= "ZBUFF" then
-                    os.remove(save_method)
-                end
+                -- 上传完成后手动释放ZBUFF
+                photo_data:free()
+                photo_data = nil
+                log.info("sys ram", rtos.meminfo("sys"))
             else
-                log.warn("测试图片文件不存在")
+                -- 文件模式：传文件路径
+                if io.exists(photo_path) then
+                    local ok, err = excloud.upload_image(photo_path, "test.jpg")
+                    if ok then
+                        log.info("图片上传成功")
+                    else
+                        log.error("图片上传失败:", err)
+                    end
+                    -- 上传完成后删除文件
+                    os.remove(photo_path)
+                else
+                    log.warn("测试图片文件不存在")
+                end
             end
         end
     end

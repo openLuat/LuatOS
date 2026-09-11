@@ -32,6 +32,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "alignment.h"
+
 /* Define `inline` on some non-C99-compliant compilers. */
 #if ( defined(__ARMCC_VERSION) || defined(_MSC_VER) ) && \
     !defined(inline) && !defined(__cplusplus)
@@ -95,6 +97,84 @@ static inline const unsigned char *mbedtls_buffer_offset_const(
     const unsigned char *p, size_t n )
 {
     return( p == NULL ? NULL : p + n );
+}
+
+/* Always inline mbedtls_xor() - we see significant perf regressions when it does not get
+ * inlined (e.g., observed about 3x perf difference in gcm_mult_largetable with gcc 7 - 12).
+ * Backported from Mbed TLS 3.x. */
+#if defined(__IAR_SYSTEMS_ICC__)
+#pragma inline = forced
+#elif defined(__GNUC__)
+__attribute__((always_inline))
+#endif
+/**
+ * Perform a fast block XOR operation, such that
+ * r[i] = a[i] ^ b[i] where 0 <= i < n
+ *
+ * \param   r Pointer to result (buffer of at least \p n bytes). \p r
+ *            may be equal to either \p a or \p b, but behaviour when
+ *            it overlaps in other ways is undefined.
+ * \param   a Pointer to input (buffer of at least \p n bytes)
+ * \param   b Pointer to input (buffer of at least \p n bytes)
+ * \param   n Number of bytes to process.
+ */
+static inline void mbedtls_xor( unsigned char *r,
+                                const unsigned char *a,
+                                const unsigned char *b,
+                                size_t n )
+{
+    size_t i = 0;
+#if defined(MBEDTLS_EFFICIENT_UNALIGNED_ACCESS)
+#if defined(__x86_64__) || defined(__aarch64__) || \
+    defined(_M_X64) || defined(_M_ARM64)
+    /* This codepath probably only makes sense on architectures with 64-bit registers */
+    for( ; ( i + 8 ) <= n; i += 8 )
+    {
+        uint64_t x = mbedtls_get_unaligned_uint64( a + i ) ^
+                     mbedtls_get_unaligned_uint64( b + i );
+        mbedtls_put_unaligned_uint64( r + i, x );
+    }
+#if defined(__IAR_SYSTEMS_ICC__)
+    /* This if statement helps some compilers (e.g., IAR) optimise out the byte-by-byte tail case
+     * where n is a constant multiple of 8. */
+    if( n % 8 == 0 )
+    {
+        return;
+    }
+#endif
+#if defined(__GNUC__)
+    if( __builtin_constant_p( n ) && n % 8 == 0 )
+    {
+        return;
+    }
+#endif
+#else
+    for( ; ( i + 4 ) <= n; i += 4 )
+    {
+        uint32_t x = mbedtls_get_unaligned_uint32( a + i ) ^
+                     mbedtls_get_unaligned_uint32( b + i );
+        mbedtls_put_unaligned_uint32( r + i, x );
+    }
+#if defined(__IAR_SYSTEMS_ICC__)
+    /* This if statement helps some compilers (e.g., IAR) optimise out the byte-by-byte tail case
+     * where n is a constant multiple of 4. */
+    if( n % 4 == 0 )
+    {
+        return;
+    }
+#endif
+#if defined(__GNUC__)
+    if( __builtin_constant_p( n ) && n % 4 == 0 )
+    {
+        return;
+    }
+#endif
+#endif
+#endif /* MBEDTLS_EFFICIENT_UNALIGNED_ACCESS */
+    for( ; i < n; i++ )
+    {
+        r[i] = a[i] ^ b[i];
+    }
 }
 
 /** Byte Reading Macros

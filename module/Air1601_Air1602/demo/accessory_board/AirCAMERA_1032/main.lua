@@ -49,15 +49,21 @@ require "tp_drv"
 -- require "preview"
 
 -- 2、加载拍照+LCD显示+UART上传应用模块
- require "photo_uart_post"
+-- require "photo_uart_post"
 
 -- 3、加载拍照+LCD显示+云平台上传应用模块
 --    使用该模块时需要同时打开上方的 netdrv_device 加载语句
---  require "photo_to_aircloud"
+-- require "photo_to_aircloud"
 
 -- 4、加载H.264功耗分阶段测试应用模块（支持仅编码、编码+本地保存、编码+串口上传、编码+AirCloud上传四种模式）
 --    使用该模块时需要根据TEST_MODE配置，模式4需要网络连接
 --  require "h264_power_test"
+
+-- 5、加载USB摄像头 视频(H.264裸流)录制 + HTTP上传 功能模块
+-- require "video_http_post"
+
+-- 6、RTMP 推流功能模块
+ require "rtmp_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

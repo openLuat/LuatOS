@@ -53,8 +53,13 @@ local FIT_BTN_GAP = 8
 local FIT_MODES = { "center", "contain", "cover", "stretch" }
 local current_fit = "cover"   -- 默认fit模式
 
--- 12号GPIO拉高（AirCAMERA_1032摄像头供电控制引脚）
-gpio.setup(12, 1, gpio.PULLUP)
+-- AirCAMERA_1032摄像头供电控制引脚，高电平有效（客户按实际开发板切换）
+-- Air1601_V1.1开发板：GPIO12 = USB主机模式/摄像头总供电
+-- gpio.setup(12, 1, gpio.PULLUP)
+-- Air160X_V1.2开发板：GPIO58 = USB主机模式/摄像头总供电
+gpio.setup(58, 1, gpio.PULLUP)
+-- Air160X_V1.2开发板：拉高 GPIO56（SD_EN）；Air1601_V1.1开发板无 SD_EN 引脚（本模块未用SD卡，如需使用请取消注释）
+-- gpio.setup(56, 1)
 -- 关闭hardfault自动复位，方便调试摄像头异常
 mcu.hardfault(0)
 

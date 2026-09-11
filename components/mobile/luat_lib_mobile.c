@@ -1437,6 +1437,34 @@ static int l_mobile_set_band(lua_State* L) {
 	return 1;
 }
 
+#ifdef LUAT_USE_MOBILE_ECNPICFG
+/**
+获取射频校准流程是否通过
+@api mobile.ecnpicfg()
+@return boolean true表示rfCaliDone和rfNSTDone均为1，否则返回false
+@return table 三个校准标志位，包含rfCaliDone、rfNSTDone和rfCTDone
+@usage
+local passed, status = mobile.ecnpicfg()
+-- true: rfCaliDone == 1 且 rfNSTDone == 1
+-- status: {rfCaliDone=1, rfNSTDone=1, rfCTDone=0}
+ */
+static int l_mobile_ecnpicfg(lua_State* L) {
+    uint8_t rf_cali_done = 0;
+    uint8_t rf_nst_done = 0;
+    uint8_t rf_ct_done = 0;
+    int result = luat_mobile_get_ecnpicfg_status(&rf_cali_done, &rf_nst_done, &rf_ct_done);
+    lua_pushboolean(L, result == 0 && rf_cali_done && rf_nst_done);
+    lua_newtable(L);
+    lua_pushinteger(L, rf_cali_done);
+    lua_setfield(L, -2, "rfCaliDone");
+    lua_pushinteger(L, rf_nst_done);
+    lua_setfield(L, -2, "rfNSTDone");
+    lua_pushinteger(L, rf_ct_done);
+    lua_setfield(L, -2, "rfCTDone");
+    return 2;
+}
+#endif
+
 /**
 初始化内置默认虚拟卡功能(不可用)
 @api mobile.vsimInit()
@@ -1558,6 +1586,9 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"config",          ROREG_FUNC(l_mobile_config)},
 	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
+#ifdef LUAT_USE_MOBILE_ECNPICFG
+	{"ecnpicfg",         ROREG_FUNC(l_mobile_ecnpicfg)},
+#endif
 #ifdef LUAT_USE_VSIM
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},
 	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},

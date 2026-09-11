@@ -24,21 +24,56 @@
 1. excloud.setup(params) - 设置配置参数
 2. excloud.on(cbfunc) - 注册回调函数
 3. excloud.open() - 开启excloud服务
-4. excloud.send(data, need_reply, is_auth_msg) - 发送数据
-5. excloud.close() - 关闭excloud服务
+4. excloud.close() - 关闭excloud服务
+5. excloud.send(data, need_reply, is_auth_msg) - 发送数据
 6. excloud.status() - 获取当前状态
-7. excloud.start_heartbeat(interval, custom_data) - 启动自动心跳机制
-8. excloud.stop_heartbeat() - 停止自动心跳机制
-9. excloud.upload_image(file_path, file_name) - 上传图片文件（支持ZBUFF）
-10. excloud.upload_audio(file_path, file_name) - 上传音频文件（支持ZBUFF）
-11. excloud.get_server_info() - 获取getip获取的服务器信息
-12. excloud.mtn_log(tag, ...) - 记录运维日志
-13. excloud.upload_mtnlog(file_path, file_name) - 上传运维日志文件
+7. excloud.heartbeat(custom_data, need_reply) - 发送心跳数据
+8. excloud.start_heartbeat(interval, custom_data) - 启动自动心跳机制
+9. excloud.stop_heartbeat() - 停止自动心跳机制
+10. excloud.upload_image(file_data, file_name) - 上传图片文件（支持ZBUFF）
+11. excloud.upload_audio(file_data, file_name) - 上传音频文件（支持ZBUFF）
+12. excloud.upload_mtnlog(file_data, file_name) - 上传运维日志文件
+13. excloud.upload_mtnlogs() - 批量上传运维日志文件
 14. excloud.set_upload_callback(cb) - 设置文件上传回调函数
-15. excloud.get_qrinfo() - 获取二维码信息
-16. excloud.get_mtn_log_status() - 获取运维日志状态
+15. excloud.get_server_info() - 获取服务器信息
+16. excloud.mtn_log(tag, ...) - 记录运维日志
+17. excloud.build_tlv(field_meaning, data_type, value) - 构建TLV数据
+18. excloud.parse_tlv(data, startPos) - 解析TLV数据
+19. excloud.get_qrinfo() - 获取二维码信息
+20. excloud.get_mtn_log_status() - 获取运维日志状态
+21. excloud.version() - 获取库版本号
 
 -- 版本更新说明
+-
+-- 版本号：202609011645
+-- 1、更新时间：2026-09-01 16:45
+-- 2、更新内容
+--    getip请求key构造不再覆盖用户配置的auth_key
+--    socket.config参数简化，直接从config读取证书和keepalive参数
+-
+-- 版本号：202609010914
+-- 1、更新时间：2026-09-01 09:14
+-- 2、更新内容
+--    ssl默认值改为false，不再默认开启加密
+--    收发HEX日志增加config.debug限制，默认不打印
+-
+-- 版本号：202608311500
+-- 1、更新时间：2026-08-31 15:00
+-- 2、更新内容
+--    auth_key改为支持用户配置，不再被setup()拦截
+-
+-- 版本号：202608281700
+-- 1、更新时间：2026-08-28 17:00
+-- 2、更新内容
+--    setup()精简特殊参数处理，删除use_getip/imginfo/audinfo/mtninfo的特殊分支
+--    文件上传支持指定使用合宙平台参数，新增imginfo_from_luat/audinfo_from_luat/mtninfo_from_luat配置
+-
+-- 版本号：202608271800
+-- 1、更新时间：2026-08-27 18:00
+-- 2、更新内容
+--    getip和getip_with_retry改为内部函数，不再对外暴露
+--    protocol_version不允许用户配置，setup()中拦截并忽略
+--    完善对外接口列表
 -
 -- 版本号：202608262000
 -- 1、更新时间：2026-08-26 20:00
@@ -94,7 +129,7 @@ local config = {
     qos = 0,                 -- MQTT QoS等级
     retain = 0,              -- MQTT retain标志
     clean_session = true,    -- MQTT clean session
-    ssl = true,              -- SSL/TLS配置
+    ssl = false,             -- SSL/TLS配置，同时控制TCP和MQTT通道
     client_id = nil,         -- MQTT客户端标识（可选，不填则自动获取）
     username = nil,          -- MQTT用户名（可选，不填则自动获取）
     password = nil,          -- MQTT密码（可选，不填则自动获取）
@@ -122,6 +157,9 @@ local config = {
     current_audinfo = nil,                -- 当前音频上传配置
     current_mtninfo = nil,                -- 当前运维日志上传配置
     current_qrinfo = nil,                 -- 当前二维码信息
+    imginfo_from_luat = false,            -- 图片上传使用合宙平台参数
+    audinfo_from_luat = false,            -- 音频上传使用合宙平台参数
+    mtninfo_from_luat = false,            -- 运维日志上传使用合宙平台参数
     getip_retry_count = 0,                -- getip当前重试次数
     max_getip_retry = 3,                  -- getip最大重试次数
     -- 虚拟设备
@@ -930,7 +968,7 @@ local function _apply_info_field(response, field, label)
 end
 
 -- 合并版本的getip函数（HH的key验证 + QD的内存释放）
-function excloud.getip(getip_type)
+local function getip(getip_type)
     getip_type = getip_type or 3
 
     -- 添加参数验证
@@ -940,8 +978,7 @@ function excloud.getip(getip_type)
 
     -- 构建key（HH版本的key验证逻辑）
     -- 最新版本，key已经没用，在getip的应答报文中，会返回真正的key，但是getip请求时必须存在key这个字段，所以随便填写一个，后台不会去判断这个key
-    config.auth_key = "unusedkey"
-    local key = config.auth_key and (config.auth_key .. "-" .. config.device_id) or config.device_id
+    local key = "unusedkey" .. "-" .. config.device_id
     if config.device_type == 1 then
         key = key .. "-" .. mobile.muid()
     end
@@ -1104,13 +1141,13 @@ function excloud.getip(getip_type)
 end
 
 -- 带重试的getip请求
-function excloud.getip_with_retry(getip_type)
+local function getip_with_retry(getip_type)
     local retry_count = 0
     local max_retry = config.max_getip_retry or 3
     local success, result
 
     while retry_count < max_retry do
-        success, result = excloud.getip(getip_type)
+        success, result = getip(getip_type)
         if success then
             log.info("[excloud]getip", "成功:", success)
             config.getip_retry_count = 0
@@ -1127,6 +1164,63 @@ function excloud.getip_with_retry(getip_type)
     end
 
     return false, "getip请求失败，已达最大重试次数"
+end
+
+-- 请求合宙平台获取文件上传参数（不修改config的host/port/auth_key等字段）
+local function get_luat_upload_info(getip_type)
+    if not config.device_id then
+        return nil, "缺少device_id"
+    end
+
+    -- 构建key（HH版本的key验证逻辑）
+    -- 最新版本，key已经没用，在getip的应答报文中，会返回真正的key，但是getip请求时必须存在key这个字段，所以随便填写一个，后台不会去判断这个key
+    local key = "unusedkey" .. "-" .. config.device_id
+    if config.device_type == 1 then
+        key = key .. "-" .. mobile.muid()
+    end
+    log.info("[excloud]getip", "类型:", getip_type, "key:", key)
+
+    local code, response = httpplus.request({
+        method = "POST",
+        url = "https://api.luatos.com/iot/getip",
+        forms = {
+            key = key,
+            type = getip_type
+        }
+    })
+
+    if not response or not response.body then
+        return nil, "HTTP响应为空"
+    end
+
+    local response_body = response.body:toStr()
+    response = nil
+
+    if not response_body or response_body == "" then
+        return nil, "响应体为空"
+    end
+
+    if code ~= 200 then
+        response_body = nil
+        return nil, "HTTP请求失败: " .. tostring(code)
+    end
+
+    local response_json = json.decode(response_body)
+    response_body = nil
+
+    if not response_json then
+        return nil, "JSON解析失败"
+    end
+
+    if response_json.msg ~= "ok" then
+        return nil, "服务器返回错误: " .. tostring(response_json.msg)
+    end
+
+    return {
+        current_imginfo = response_json.imginfo,
+        current_audinfo = response_json.audinfo,
+        current_mtninfo = response_json.mtninfo,
+    }
 end
 
 -- 文件上传通知(start/finish统一)
@@ -1403,15 +1497,25 @@ function excloud.set_upload_callback(cb)
 end
 
 -- 通用上传函数（合并upload_mtnlog/upload_image/upload_audio）
-local function _upload_with_config(file_type, file_data, file_name, label, config_field, default_ext)
+local function _upload_with_config(file_type, file_data, file_name, label, config_field, default_ext, from_luat)
     local ok, err = prepare_upload(file_data, file_name, label)
     if not ok then
         return false, err
     end
     file_name = file_name or label:gsub("^upload_", "") .. "_" .. os.time() .. default_ext
-    if not config[config_field] then
+    if from_luat then
+        -- 使用合宙平台上传参数
+        local getip_type = transport_to_getip_type()
+        local luat_info, luat_err = get_luat_upload_info(getip_type)
+        if luat_info and luat_info[config_field] then
+            config[config_field] = luat_info[config_field]
+        else
+            log.error("[excloud]" .. label, "从合宙平台获取上传参数失败", luat_err)
+            return false, "从合宙平台获取上传参数失败"
+        end
+    elseif not config[config_field] then
         log.info("[excloud]" .. label, "获取上传配置...")
-        local get_ok, get_err = excloud.getip_with_retry(transport_to_getip_type())
+        local get_ok, get_err = getip_with_retry(transport_to_getip_type())
         if not get_ok then
             log.error("[excloud]" .. label, "获取上传配置失败", get_err)
             return false, "获取上传配置失败: " .. get_err
@@ -1422,17 +1526,17 @@ end
 
 -- 上传运维日志文件
 function excloud.upload_mtnlog(file_data, file_name)
-    return _upload_with_config(3, file_data, file_name, "upload_mtnlog", "current_mtninfo", ".trc")
+    return _upload_with_config(3, file_data, file_name, "upload_mtnlog", "current_mtninfo", ".trc", config.mtninfo_from_luat)
 end
 
 -- 图片上传接口
 function excloud.upload_image(file_data, file_name)
-    return _upload_with_config(1, file_data, file_name, "upload_image", "current_imginfo", ".jpg")
+    return _upload_with_config(1, file_data, file_name, "upload_image", "current_imginfo", ".jpg", config.imginfo_from_luat)
 end
 
 -- 音频上传接口
 function excloud.upload_audio(file_data, file_name)
-    return _upload_with_config(2, file_data, file_name, "upload_audio", "current_audinfo", ".mp3")
+    return _upload_with_config(2, file_data, file_name, "upload_audio", "current_audinfo", ".mp3", config.audinfo_from_luat)
 end
 
 -- 记录运维日志
@@ -1499,7 +1603,7 @@ schedule_reconnect = function()
             if config.use_getip then
                 log.info("[excloud]连接多次失败，重新获取服务器信息...")
                 config.current_conninfo = nil
-                local ok, result = excloud.getip_with_retry(transport_to_getip_type())
+                local ok, result = getip_with_retry(transport_to_getip_type())
                 if ok then
                     log.info("[excloud]重连获取服务器成功，对于用户已手动配置的字段，不会被getip覆盖")
 
@@ -1635,7 +1739,9 @@ local function _socket_callback(label, netc, event, param)
         else
             if rxbuff:used() > 0 then
                 local data = rxbuff:query()
-                log.info("[excloud]" .. label .. " socket", "收到数据", #data, "字节", data:toHex())
+                if config.debug then
+                    log.info("[excloud]" .. label .. " socket", "收到数据", #data, "字节", data:toHex())
+                end
                 parse_data(data)
             end
             rxbuff:del()
@@ -1780,16 +1886,8 @@ function excloud.setup(params)
     end
 
     for k, v in pairs(params) do
-        if k == "auth_key" then
-            log.warn("excloud.setup", "不再需要主动配置auth_key")
-        elseif k == "use_getip" then
-            config.use_getip = v
-        elseif k == "imginfo" then
-            config.current_imginfo = v
-        elseif k == "audinfo" then
-            config.current_audinfo = v
-        elseif k == "mtninfo" then
-            config.current_mtninfo = v
+        if k == "protocol_version" then
+            log.warn("excloud.setup", "不再需要主动配置protocol_version")
         elseif k == "device_type" then
             log.warn("excloud.setup", "不再需要主动配置device_type")
         else
@@ -1837,11 +1935,7 @@ local function _connect_socket(is_udp, label, ssl_config, callback)
         return false, "Failed to create socket"
     end
     local config_ok = socket.config(connection, config.local_port, is_udp, ssl_config and true or false,
-        ssl_config and ssl_config.keep_idle or config.keep_idle,
-        ssl_config and ssl_config.keep_interval or config.keep_interval,
-        ssl_config and ssl_config.keep_cnt or config.keep_cnt, ssl_config and ssl_config.server_cert or nil,
-        ssl_config and ssl_config.client_cert or nil, ssl_config and ssl_config.client_key or nil,
-        ssl_config and ssl_config.client_password or nil)
+        config.keep_idle, config.keep_interval, config.keep_cnt, config.server_cert, config.client_cert, config.client_key, config.client_password)
     if not config_ok then
         socket.release(connection);
         connection = nil;
@@ -1903,7 +1997,7 @@ function excloud.open()
         if not config.current_conninfo or (config.transport ~= "mqtt" and not config.current_conninfo.ipv4) or
             (config.transport == "mqtt" and not config.current_conninfo.ssl) then
             log.info("[excloud]首次连接，获取服务器信息...")
-            local ok, result = excloud.getip_with_retry(getip_type)
+            local ok, result = getip_with_retry(getip_type)
             if not ok then
                 return false, "获取服务器信息失败: " .. result
             end
@@ -2126,7 +2220,9 @@ function excloud.send(data, need_reply, is_auth_msg)
             else
                 topic = config.mqtt_pub_data_topic or ("/AirCloud/up/" .. device_id_hex .. "/all")
             end
-            log.info("[excloud]发布主题", topic, #full_message, full_message:toHex())
+            if config.debug then
+                log.info("[excloud]发布主题", topic, #full_message, full_message:toHex())
+            end
             local message_id = connection:publish(topic, full_message, config.qos, config.retain)
             if message_id then
                 success = true
@@ -2276,13 +2372,13 @@ excloud.MTN_LOG_CACHE_WRITE = exmtn.CACHE_WRITE
 excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 
 --[[
-获取库版本信息
+获取库版本信息900943
 @return string 年月日时分，例如： "202607021900"
 @usage
 excloud.version()
 ]]
 function excloud.version()
-    return "202608262000"
+    return "202609011645"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

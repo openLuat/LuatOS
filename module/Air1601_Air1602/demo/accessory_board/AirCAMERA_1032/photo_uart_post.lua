@@ -19,8 +19,13 @@
 本文件没有对外接口，直接在main.lua中require "photo_uart_post"就可以加载运行。
 ]]
 
--- 12号GPIO配置（AirCAMERA_1032摄像头供电控制引脚），需要拉高使能
-gpio.setup(12, 1, gpio.PULLUP)
+-- AirCAMERA_1032摄像头供电控制引脚，高电平有效（客户按实际开发板切换）
+-- Air1601_V1.1开发板：GPIO12 = USB主机模式/摄像头总供电
+-- gpio.setup(12, 1, gpio.PULLUP)
+-- Air160X_V1.2开发板：GPIO58 = USB主机模式/摄像头总供电
+gpio.setup(58, 1, gpio.PULLUP)
+-- Air160X_V1.2开发板：拉高 GPIO56（SD_EN）；Air1601_V1.1开发板无 SD_EN 引脚（本模块未用SD卡，如需使用请取消注释）
+-- gpio.setup(56, 1)
 
 -- 屏幕尺寸（用于 airui.image 适配）
 local LCD_W = 1024

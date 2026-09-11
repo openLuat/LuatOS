@@ -168,6 +168,13 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
             }
         }
         if (ctx.eth->type != PP_HTONS(ETHTYPE_IP)) {
+            // NAPT 仅支持 IPv4 转发(表项/改写器全部是 ip4_addr_t), IPv6 一律不进入改写流程.
+            // 明确打点, 避免 IPv6 流量被静默丢弃时难以定位.
+            #if LWIP_IPV6
+            if (ctx.eth->type == PP_HTONS(ETHTYPE_IPV6)) {
+                LLOGD("NAPT暂不支持IPv6转发, 丢弃一帧");
+            }
+            #endif
             // LLOGD("不是IP包, 不需要执行napt");
             return 0;
         }

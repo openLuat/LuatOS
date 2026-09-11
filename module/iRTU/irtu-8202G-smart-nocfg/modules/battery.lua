@@ -1,13 +1,16 @@
 --[[
 @module  battery
 @summary 电池管理模块
-@version 4.0
-@date    2026.09.01
+@version 4.1
+@date    2026.09.08
 @usage
 本模块的核心功能为：
 1. 通过 YHM2712A 充电管理IC（exs_yhm2712a.status()）获取电池电压与充电状态
 2. 同时提供充电阶段/电池在位/充电器在位/IC过热等完整状态
 3. 后台任务周期轮询刷新缓存，对外接口全部非阻塞（读缓存）
+4. V004.000.040 起：充电中电压可信门控——VBAT 系统轨在充电器在位时会被充电IC抬升，
+   除以折算系数后仍可能产生 4.12V 假值；本模块以"最近可信基准"限制充电中单步变化，
+   拒绝轨道电压污染缓存，杜绝假值被反复上报（预充/涓流阶段保留脏值问题一并根治）
 
 硬件说明（依据 exs_yhm2712a v1.3 / 202608251200）：
 - 本硬件无 VBUS 检测脚，充电器在位由充电IC的 FSM_MODE 判定，不能 GPIO 直读
@@ -37,6 +40,10 @@ local battery_state = {
     charger_present = false,   -- 充电器在位（FSM_MODE判定）
     ic_overheat = false,       -- 充电IC过热（>120℃）
 }
+
+-- 最近一次"可信"电池电压（mV），nil=尚无可信基准（V004.000.040）
+-- 未充电时的实测、充电中连续缓升的实测都会刷新它；充电中跳变(疑似系统轨污染)只拒绝不刷新
+local ref_voltage = nil
 
 -- 充电阶段名称（日志用）
 local STAGE_NAME = {
@@ -80,12 +87,46 @@ local function refresh_from_charger_ic()
     battery_state.ic_overheat = status.ic_overheat and true or false
     battery_state.charge_stage = status.charge_stage or 8
 
-    -- 电池电压：仅接受 2200~4800mV 的实测值；
-    -- -1(预充/涓流阶段不测) / -2(测量失败) / -3(仅充电器无电池) 时保留上次值
+    -- 电池电压：充电中"系统轨污染"可信门控（V004.000.040）
+    -- 背景：VBAT 轨在充电器在位时会被充电IC抬升（~4.1V 级，驱动注释 Vsys=1.03×Vreg≈4.12V），
+    --       除以折算系数后仍可能产生 4.12V 假值；且预充/涓流阶段驱动返回 -1 会把脏旧值保留反复上报。
+    -- 规则：
+    --   * 未充电：轨=电芯，2200~4800mV 直接可信 → 接受并刷新可信基准
+    --   * 充电中预充/涓流(1/2)或不可测(-1/-2/-3)：不更新（保留可信基准值，防脏值续传）
+    --   * 充电中可测(0/3/5/7)：与可信基准差 ≤ CHARGING_MAX_STEP_MV 视为缓充合理 → 接受；
+    --     单步跳变超阈值 → 判系统轨污染，拒绝更新并告警（避免一次污染持续保留）
+    --   * 无基准时的充电首采：仅接受恒流/恒压(3/5)读数（该分支驱动开 SYS_TRACK 电压跟随测量）
     local v = status.vbat_voltage
+    local charging_now = battery_state.charging
+    local filter = config.BATTERY_RELIABILITY or {}
+    local accept = false
     if type(v) == "number" and v >= 2200 and v <= 4800 then
-        battery_state.voltage = v
-        battery_state.level = calculate_level(v)
+        if not charging_now then
+            accept = true                          -- 未充电：读到的就是电芯电压
+        elseif filter.ENABLE == false then
+            accept = true                          -- 防护关闭：保持原行为
+        elseif battery_state.charge_stage == 1 or battery_state.charge_stage == 2 then
+            accept = false                         -- 预充/涓流：保留基准（驱动正常时此阶段返回 -1）
+        elseif ref_voltage then
+            -- 有可信基准：限制单步变化幅度，遏制轨电压瞬间污染
+            accept = math.abs(v - ref_voltage) <= (filter.CHARGING_MAX_STEP_MV or 400)
+        else
+            -- 无基准的充电首采：仅接受恒流/恒压阶段（SYS_TRACK 跟随语义）且落在电芯合理窗口内
+            -- （≤3900mV：真实电芯充电初值不会凭空跳到 4V 级；≥2200 由外层过滤保证）
+            accept = (battery_state.charge_stage == 3 or battery_state.charge_stage == 5)
+                and v <= (filter.CHARGING_FIRST_READ_MAX_MV or 3900)
+        end
+        if accept then
+            battery_state.voltage = v
+            battery_state.level = calculate_level(v)
+            ref_voltage = v
+        elseif charging_now and ref_voltage and v > ref_voltage
+            and not (battery_state.charge_stage == 1 or battery_state.charge_stage == 2) then
+            -- 有基准但跳变超限且为"上升"（3.2V→4.12V 典型轨污染形态），拒绝并告警便于现场对日志
+            log.warn("battery", "充电中电压读数异常(疑似系统轨污染):", v,
+                "mV, 可信基准:", ref_voltage, "mV, 拒绝更新, 阶段:", battery_state.charge_stage,
+                ", 充电:", tostring(charging_now))
+        end
     end
     battery_state.last_check_time = os.time()
 

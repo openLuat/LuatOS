@@ -490,7 +490,13 @@ local function collect_data_and_report()
     log.info("active_mode", "数据上报完成")
 end
 
--- 低电量监测任务（每分钟检测一次，低于阈值发布 BATTERY_LOW）
+-- 低电量监测任务（每分钟检测一次）
+-- 1) 低电量 <BATTERY_LOW(20%) → 发布 BATTERY_LOW（lowpower_app 降功耗档）
+-- 2) 低压截止保护（V004.000.039）：未充电且电压 ≤ CUTOFF_VOLTAGE_MV 连续 CONFIRM_TIMES 次
+--    → 发布 BATTERY_EMPTY（lowpower_app 执行 YHM2712A 船运模式关机，USB 插入后自动开机）
+-- 防误判：插充电器(充电中)、电压尚未采到(0)、电压高于截止线 均复位计数与触发标志
+local empty_confirm = 0
+local empty_triggered = false
 local function battery_monitor_task()
     while true do
         sys.wait(60000)
@@ -500,6 +506,30 @@ local function battery_monitor_task()
                 log.info("active_mode", "低电量:", battery_data.level, "%, 发布BATTERY_LOW")
                 kvstore.set_low_power_mode(true)
                 sys.publish("BATTERY_LOW", battery_data.level)
+            end
+
+            -- 低压截止判定（保护动作由 lowpower_app.on_battery_empty 执行）
+            local prot = config.BATTERY_EMPTY_PROTECT or {}
+            local cutoff = prot.CUTOFF_VOLTAGE_MV or 3200
+            local need_confirm = prot.CONFIRM_TIMES or 2
+            local voltage = battery_data.voltage or 0
+            local low_and_idle = (prot.ENABLE ~= false)
+                and not battery_data.charging and voltage > 0 and voltage <= cutoff
+            if low_and_idle then
+                if not empty_triggered then
+                    empty_confirm = empty_confirm + 1
+                    log.info("active_mode", "低压截止确认:", empty_confirm, "/", need_confirm,
+                        ", 电压:", voltage, "mV")
+                    if empty_confirm >= need_confirm then
+                        empty_triggered = true
+                        log.warn("active_mode", "判定电池没电（≤", cutoff, "mV 且未充电），发布 BATTERY_EMPTY:",
+                            voltage, "mV")
+                        sys.publish("BATTERY_EMPTY", voltage)
+                    end
+                end
+            else
+                empty_confirm = 0
+                empty_triggered = false
             end
         end
     end

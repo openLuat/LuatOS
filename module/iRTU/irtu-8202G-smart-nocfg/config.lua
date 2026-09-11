@@ -58,8 +58,29 @@ config.AIRLBS_CONFIG = {
 -- 电压/电量数据源：YHM2712A 充电IC（exs_yhm2712a.status()），由 battery 模块后台轮询
 config.BATTERY_CONFIG = {
     FULL_VOLTAGE = 4200,           -- 满电电压(mV)，电量线性折算上限
-    LOW_VOLTAGE = 3300,            -- 低电电压(mV)，电量线性折算下限
+    LOW_VOLTAGE = 3200,            -- 低电电压(mV)，电量线性折算下限（=0% 判定线，与低压截止保护一致）
     STATUS_POLL_MS = 30000,        -- 充电IC状态轮询间隔(ms)，充电器插拔检测延迟上限
+}
+
+-- 电池低压截止保护（V004.000.039 新增）
+-- 语义：未充电 且 电池电压 ≤ CUTOFF_VOLTAGE_MV，连续 CONFIRM_TIMES 次确认（每次 60s 监测）后判定"没电"，
+--       由 lowpower_app 执行 YHM2712A 船运模式：电池 FET 断开（~150nA）→ SYS 掉电主控关机，
+--       USB 插入充电后芯片自动退出船运恢复供电开机。
+-- 背景：历史版本无低压保护，电压被深放至 2.4V 仍持续运行上报，存在电池过放损坏风险。
+config.BATTERY_EMPTY_PROTECT = {
+    ENABLE = true,               -- 是否启用低压截止保护
+    CUTOFF_VOLTAGE_MV = 3200,    -- 没电判定电压(mV)，即电池最低工作电压限制 3.2V
+    CONFIRM_TIMES = 2,           -- 连续确认次数（battery_monitor_task 每 60s 检测一次）
+}
+
+-- 电池电压可信门控（V004.000.040 新增）
+-- 背景：VBAT 系统轨在充电器在位时会被 YHM2712A 抬升（驱动注释 Vsys≈1.03×Vreg≈4.12V），
+--       除以折算系数后仍可能产生 4.12V 假值污染上报；预充/涓流阶段不测压又会把脏值保留续传。
+-- 机制：battery 模块以"最近可信基准"限制充电中电压单步跳变，拒绝系统轨污染，仅接受缓升真值。
+config.BATTERY_RELIABILITY = {
+    ENABLE = true,                -- 是否启用充电中电压可信门控
+    CHARGING_MAX_STEP_MV = 400,   -- 充电中相对可信基准允许的最大单步变化(mV)（缓充每30s增量远小于此）
+    CHARGING_FIRST_READ_MAX_MV = 3900, -- 无可信基准时充电首采的合理电压上限（>此值判系统轨污染）
 }
 
 -- 充电管理配置（YHM2712A）

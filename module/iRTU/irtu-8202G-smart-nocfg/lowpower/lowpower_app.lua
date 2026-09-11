@@ -25,7 +25,43 @@ local power_state = {
 function lowpower.init()
     log.info("lowpower", "低功耗管理模块初始化")
     sys.subscribe("BATTERY_LOW", lowpower.handle_low_battery)
+    sys.subscribe("BATTERY_EMPTY", lowpower.on_battery_empty)
     log.info("lowpower", "低功耗管理模块初始化完成")
+end
+
+-- 电池低压截止（没电保护，V004.000.039）
+-- 判定来源：active_mode.battery_monitor_task（未充电且电压≤3200mV 连续2次确认后发布 BATTERY_EMPTY）
+-- 动作链路：尽力补发低压状态帧 → YHM2712A 船运模式（电池 FET 断开 ~150nA，SYS 掉电主控关机）
+--           → USB 插入充电后芯片自动退出船运恢复供电，重新开机充电。
+function lowpower.on_battery_empty(voltage_mv)
+    log.warn("lowpower", "电池没电保护触发，电压:", voltage_mv, "mV，进入船运模式关机（USB插入后自动开机）")
+    sys.taskInit(function()
+        -- 1) 尽力补发一帧低压状态给云平台（仅 publish 异步，由云通道任务尝试发送，不阻塞本流程）
+        local okc, create = pcall(require, "create")
+        if okc and create and create.send_aircloud then
+            pcall(create.send_aircloud, {
+                { field_meaning = 799, data_type = 0, value = voltage_mv or 0 }, -- 电池电压(mV)
+                { field_meaning = 1291, data_type = 0, value = 0 },              -- 充电状态 0
+            })
+        end
+        sys.wait(1200)
+
+        -- 2) YHM2712A 船运模式：断开电池 FET，SYS 失去供电 → 主控关机（仅剩 ~150nA 自耗）
+        local oki, ic = pcall(require, "exs_yhm2712a")
+        local shipped = false
+        if oki and ic and ic.ship_mode then
+            shipped = ic.ship_mode()
+        end
+        if not shipped then
+            log.error("lowpower", "船运模式执行失败（充电IC通信异常？），回退软件关机")
+        end
+
+        -- 3) 双保险：若船运后系统仍短暂供电，主动关机兜底
+        sys.wait(500)
+        if pm and pm.shutdown then
+            pm.shutdown()
+        end
+    end)
 end
 
 -- 低电量处理

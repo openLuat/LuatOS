@@ -509,7 +509,7 @@ static int l_netdrv_ipv4(lua_State *L) {
 @string ipv6地址, 如果是读取就不需要传. 设置时必须是合法的IPv6字面量, 不支持域名. 读取时传 "linklocal" 可单独读取链路本地地址
 @int 前缀长度, 1~128, 可选, 默认64. 仅设置时有效
 @string ipv6网关, 可选. 当前仅用于回显, 不写入路由表
-@return table 读取时返回 {addr=地址, prefix=前缀长度, gw=网关, source=来源, state=状态}; 网卡不存在或没有有效IPv6时返回空table
+@return table 读取时返回 {addr=地址, prefix=前缀长度, gw=网关, source=来源, state=状态}; 网卡不存在/未就绪或没有有效IPv6时返回空table
 @return boolean 设置时返回成功与否
 @usage
 -- 注意: 并非所有netdrv都支持IPv6, 也不代表平台后端(LWIP实现)支持设置
@@ -537,10 +537,12 @@ static int l_netdrv_ipv6(lua_State *L) {
         const char* arg2 = lua_tostring(L, 2);
         read_linklocal = (arg2 != NULL && strcmp(arg2, "linklocal") == 0);
     }
+    // 设置模式 = 第2参数是字符串且不是 "linklocal" 关键字; 读取模式失败返回空table, 设置模式失败返回 false
+    int is_set = lua_isstring(L, 2) && !read_linklocal;
     // 非法id: 读取返回空table(与"网卡不存在/无地址"一致), 设置返回 false
     if (id < 0 || id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
         LLOGW("非法的netdrv id %d", id);
-        if (lua_isstring(L, 2) && !read_linklocal) {
+        if (is_set) {
             lua_pushboolean(L, 0);
         }
         else {
@@ -551,11 +553,23 @@ static int l_netdrv_ipv6(lua_State *L) {
     luat_netdrv_t* netdrv = luat_netdrv_get(id);
     if (netdrv == NULL || netdrv->netif == NULL) {
         LLOGW("对应的netdrv不存在或未就绪 %d", id);
-        return 0;
+        if (is_set) {
+            lua_pushboolean(L, 0);
+        }
+        else {
+            lua_newtable(L);
+        }
+        return 1;
     }
     if (!net_lwip2_ipv6_supported()) {
         LLOGW("当前构建的lwip不支持IPv6");
-        return 0;
+        if (is_set) {
+            lua_pushboolean(L, 0);
+        }
+        else {
+            lua_newtable(L);
+        }
+        return 1;
     }
 
     // ==== 设置模式 ====

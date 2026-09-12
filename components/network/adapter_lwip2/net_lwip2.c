@@ -972,8 +972,7 @@ static void net_lwip2_task(void *param)
 			luat_heap_free(ips);
 			net_lwip2_check_network_ready(adapter_index);
 			#else
-			LLOGE("netdrv IPv6 未启用(LWIP_IPV6=%d), 不支持设置ipv6地址",
-				(uint32_t)LWIP_IPV6);
+			LLOGE("本固件不支持设置ipv6地址");
 			luat_heap_free(ips);
 			#endif
 			break;

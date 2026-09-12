@@ -278,3 +278,107 @@ Air8101(内置以太网 + WHALE)、以及 airlink 双芯片组合。
 6. 关闭 `LUAT_USE_NETDRV_IPV6` 时 `netdrv.ipv6` 与 `IPV6_PREFIX_*` 不存在,
    `netdrv.ready()`/`socket.localIP()` 退回纯 IPv4 语义(IPv6 地址仍由 lwip 自身
    维护, 只是 netdrv 不再参与设置与上报)。
+
+---
+
+## 9. 经验总结
+
+1. **能力宏用「存在语义」, 不要用「值语义」。** 本仓库所有 `LUAT_USE_*` 能力宏
+   (`LUAT_USE_NETDRV_LWIP_ARP`、`LUAT_USE_NETDRV_NAPT` 等) 一律用
+   `#ifdef` / `defined(...)` 判断。写成 `#if MACRO` 会引入两个坑:
+   - 宏未定义时在 `#if` 里求值为 0, 还叠加 `-Wundef` 风险;
+   - 「定义成 0」与「不定义」都能关, 关闭手段变成两种, 极易误配。
+
+   因此本宏的约定是: **注释掉即关闭; 不要用 `#define ... 0` 去关**(`0` 也算已定义 = 启用)。
+
+2. **`LWIP_IPV6` 不能当作"netdrv 是否提供 IPv6 能力"的判据。** 各 BSP 的
+   `lwipopts.h` 都把 `LWIP_IPV6` 打开, 拿它当判据等于永远开启。历史上那版
+   "未定义时跟随 `LWIP_IPV6`" 的兜底, 直接导致「注释掉宏关不掉功能」——这是一个
+   实测才发现的静默失效, 静态读代码很难看出来。
+
+3. **`luat_netdrv_t` 是跨编译单元的 ABI 结构体, 字段只能追加在末尾。**
+   `drv->debug` 被 openvpn/l2tp/ipsec 等不同 `.c` 直接写, `drv->statics` 由
+   netdrv 内部用; 结构体由驱动与预编译库共同分配。所以:
+   - 新字段一律追加到末尾, 不要插在中间(会顶掉既有字段偏移);
+   - 新字段**不要**包在功能宏里, 否则 `sizeof`/偏移随编译开关变化,
+     只要有一处 TU 与该宏取值不一致(典型是预编译库与工程配置不同步),
+     就会出现布局错位 -> 静默内存错乱, 且没有任何编译期报错。
+
+   功能开关应该只控制"用不用这个字段", 而不是"有没有这个字段"。
+
+4. **头文件注释里有两个会打断编译的写法**(MSVC 实测, 报错位置会指向注释本身):
+   - 反引号紧跟 `#`(如 `` `#define ``): 反引号会被当作**字符常量起始**, 吞掉后面整个
+     头文件内容;
+   - 注释里出现 `*/`(如写路径 `xxx/*/include/`): 会**提前闭合块注释**。
+
+5. **SOC 构建不读 `bsp/pc/include`。** `luatos-soc-2024` 的构建经
+   `components/common/c_common.h` 引入的是它自己那份
+   `project/luatos/inc/luat_conf_bsp.h`, `bsp/pc/include` 不在其 include 路径上。
+   所以宏的提供方是**各 BSP 自己的 `luat_conf_bsp.h`**, 改 `bsp/pc` 不会影响 SOC。
+
+6. **换源树后必须清构建缓存。** 同一 `build/.objs` 下曾同时残留 `LuatOS` 与
+   `LuatOS-ipv6` 两棵源树的对象, 会污染对比结论; 切换 `luatos_root` 前先
+   `xmake clean -a`。
+
+---
+
+## 10. 问答
+
+### Q1. 某一款固件要怎么打开 netdrv IPv6?
+在该 BSP 的 `luat_conf_bsp.h` 里显式写一行:
+
+```c
+#define LUAT_USE_NETDRV_IPV6 1
+```
+
+PC 模拟器已写在 `bsp/pc/include/luat_conf_bsp.h`。`luatos-soc-2024` 的 SOC 构建需写在
+它自己的 `project/luatos/inc/luat_conf_bsp.h`, 默认没有这一行(即默认关闭)。
+
+### Q2. 怎么关掉?
+把那一行**注释掉或删掉**即可, 不需要写别的。
+
+### Q3. 我写 `#define LUAT_USE_NETDRV_IPV6 0` 想关掉, 为什么不生效?
+因为判据是"有没有定义", 不是取值。`0` 同样是"已定义", 所以**反而会开启**。
+这是刻意与 `LUAT_USE_NETDRV_LWIP_ARP` 等宏保持一致的语义。要关就注释掉。
+
+### Q4. 不写这个宏会怎样? 会报错吗?
+不会报错, 也**不会**自动跟随 `LWIP_IPV6`。结果是静默关闭: `netdrv.ipv6 == nil`、
+`netdrv.IPV6_PREFIX_*` 不存在、不生成链路本地地址、`netdrv.ready()` 与
+`socket.localIP()` 退回纯 IPv4; 对应的 `netdrv_ipv6_basic` 套件会自动跳过。
+好处是省 flash(SOC 实测 `.text` 由 4429604 降到 4426148, 约省 3.4KB)。
+
+**代价是"忘了定义"没有任何编译期提示**, 只会安静地少功能。核查办法: 编译后看
+`net_lwip2_ipv6_supported()` 的返回值(开启 1 / 关闭 0), 或确认 `netdrv.ipv6` 是否存在。
+
+### Q5. 关掉 IPv6 会连带关掉 `netdrv.arp` 吗?
+不会。`netdrv.arp` 是 IPv4 能力, 由 `LUAT_USE_NETDRV_LWIP_ARP` 控制, 与
+`LUAT_USE_NETDRV_IPV6` 无关, 两者在 `reg_netdrv[]` 里各自独立注册。
+
+### Q6. 给 `luat_netdrv_t` 加字段该怎么加?
+追加到结构体**末尾**, 且**不要**用 `#ifdef` 包起来。理由见 §9 第 3 条:
+该结构体跨编译单元与预编译库共用, 布局必须固定。
+功能开关只控制读写该字段的代码, 不控制字段本身是否存在。
+
+### Q7. 为什么 `ipv6_gw` 只回显、不真的写 IPv6 默认路由?
+写默认路由需要 ND6 router 状态参与, 当前未实现(见 §8 第 2 条)。
+该字段只用于让 `netdrv.ipv6(...)` 读回用户设置过的网关。
+
+### Q8. 怎么在 PC 上验证这个开关的两态?
+先改 `bsp/pc/include/luat_conf_bsp.h` 那一行, 然后:
+
+```powershell
+cd bsp\pc
+xmake                     # 关闭态建议先 xmake clean -a 做干净全量, 便于核对 warning
+cd build\out
+.\luatos-lua.exe ..\..\..\..\testcase\common\scripts\ ..\..\..\..\testcase\unit\net\netdrv_ipv6_basic\scripts\
+```
+
+开启态期望 `Total: 9 passed, 0 failed`; 关闭态期望套件自跳过而非报错。
+两态都应做到零 error、零新增 warning。
+
+### Q9. `net_lwip2_*` 的 IPv6 接口在关闭态还会存在吗?
+会, 但都是退化实现。`net_lwip2.c` 在 `!(LWIP_IPV6 && defined(LUAT_USE_NETDRV_IPV6))`
+时提供 `supported()->0`、`is_ready()->0`、`create_linklocal()->-1` 等 stub;
+`luat_netdrv.c` 另外提供 GCC weak 定义, 供未链接 lwip2 适配层的构建兜底,
+避免未解析符号。
+

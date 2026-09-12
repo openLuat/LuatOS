@@ -13,7 +13,7 @@
  * lwip_with_sdk/net_lwip.c), 为避免出现未解析符号, 这里对这两个入口做弱符号兜底:
  *   - 链接到适配层时使用真实实现(强符号覆盖弱定义)
  *   - 否则退化为"无 IPv6"(is_ready 恒 0, create_linklocal 恒失败)
- * 是否启用由 LUAT_USE_NETDRV_IPV6 控制(默认跟随 LWIP_IPV6, 见 luat_netdrv.h).
+ * 是否启用由 LUAT_USE_NETDRV_IPV6 控制(未定义即关闭, 见 luat_netdrv.h).
  *
  * 两条编译路径都必须给出"定义"而不只是声明:
  *   - MSVC: /alternatename 把未定义符号别名到 stub, stub 必须非 static,
@@ -21,7 +21,7 @@
  *   - GCC/ELF: 必须带函数体的 weak 定义——weak 声明产生的弱未定义引用在没有
  *     强定义时会解析为地址 0, 调用即跳 0 崩溃, 并不能起到兜底作用.
  */
-#if LUAT_USE_NETDRV_IPV6
+#ifdef LUAT_USE_NETDRV_IPV6
 #if defined(_MSC_VER)
 #pragma comment(linker, "/alternatename:net_lwip2_ipv6_is_ready=luat_netdrv_ipv6_is_ready_stub")
 #pragma comment(linker, "/alternatename:net_lwip2_ipv6_create_linklocal=luat_netdrv_ipv6_create_linklocal_stub")
@@ -418,7 +418,7 @@ int luat_netdrv_is_ready(int id) {
 
     ret = netif_is_link_up(netdrv->netif);
     ret &= netif_is_up(netdrv->netif);
-    #if LUAT_USE_NETDRV_IPV6
+    #ifdef LUAT_USE_NETDRV_IPV6
     // IPv4 非 0, 或者存在有效的全局 IPv6 地址, 才算就绪(仅有链路本地不算)
     if (ip_addr_isany(&netdrv->netif->ip_addr)
         && !net_lwip2_ipv6_is_ready(id)) {

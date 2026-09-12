@@ -528,7 +528,7 @@ netdrv.ipv6(socket.LWIP_ETH, "fe80::1", 64)
 -- 该函数于 2026.01 新增
 -- 该接口受 LUAT_USE_NETDRV_IPV6 宏控制, 关闭时整段不参与编译
 */
-#if LUAT_USE_NETDRV_IPV6
+#ifdef LUAT_USE_NETDRV_IPV6
 static int l_netdrv_ipv6(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     // "linklocal" 是读取模式的关键字, 不是要写入的地址
@@ -1117,11 +1117,11 @@ static const rotable_Reg_t reg_netdrv[] =
     { "dhcp",           ROREG_FUNC(l_netdrv_dhcp)},
     { "mac",            ROREG_FUNC(l_netdrv_mac)},
     { "ipv4",           ROREG_FUNC(l_netdrv_ipv4)},
-#if LUAT_USE_NETDRV_IPV6
+#ifdef LUAT_USE_NETDRV_IPV6
     { "ipv6",           ROREG_FUNC(l_netdrv_ipv6)},
-#endif
 #ifdef LUAT_NETDRV_HAVE_ARP
     { "arp",            ROREG_FUNC(l_netdrv_arp)},
+#endif
 #endif
     { "napt",           ROREG_FUNC(l_netdrv_napt)},
     { "link",           ROREG_FUNC(l_netdrv_link)},
@@ -1181,7 +1181,7 @@ static const rotable_Reg_t reg_netdrv[] =
     //@const EVT_PKG number 事件类型-数据包事件
     { "EVT_PKG",        ROREG_INT(LUAT_NETDRV_EVT_PKG)},
 
-#if LUAT_USE_NETDRV_IPV6
+#ifdef LUAT_USE_NETDRV_IPV6
     //@const IPV6_PREFIX_DEFAULT number IPv6默认前缀长度, 即64
     { "IPV6_PREFIX_DEFAULT", ROREG_INT(64)},
     //@const IPV6_PREFIX_MAX number IPv6最大前缀长度, 即128

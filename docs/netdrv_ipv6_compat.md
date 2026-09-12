@@ -22,23 +22,28 @@ CH390H 的链路只差一次链路本地地址生成; airlink 侧有一个 IPv6 
 ### 1.1 功能开关 `LUAT_USE_NETDRV_IPV6`
 
 `LWIP_IPV6` 在各 BSP 上默认都是打开的, 因此**不能**拿它当"netdrv 是否提供 IPv6 能力"
-的判据。本次新增独立的编译宏 `LUAT_USE_NETDRV_IPV6`:
+的判据。本次新增独立的编译宏 `LUAT_USE_NETDRV_IPV6`, 语义与本仓库其它 `LUAT_USE_*`
+能力宏(`LUAT_USE_NETDRV_LWIP_ARP` 等)完全一致——**只看"有没有定义", 不看取值**:
 
-| 取值 | 行为 |
+| 状态 | 行为 |
 |------|------|
-| 未定义 | **默认跟随 `LWIP_IPV6`**(各 BSP 开箱可用, 无需改动配置) |
-| `1` | 显式启用 |
-| `0` | 显式关闭: `netdrv.ipv6` 与 `IPV6_PREFIX_*` 常量整体不注册, 不生成链路本地地址, 就绪判定退回纯 IPv4 |
+| 未定义 | **关闭(默认)** |
+| 已定义 | **启用**(惯例写 `1`, 但判据只看是否定义, 写 `0` 同样是启用) |
 
-默认值在 `components/network/netdrv/include/luat_netdrv.h` 与
-`components/network/adapter_lwip2/net_lwip2.h` 中各有一份**带守卫的**兜底定义, 因此:
+因此:
 
-- 新 BSP 什么都不用改即可获得 IPv6 能力;
-- 需要裁剪的 BSP 只需在 `luat_conf_bsp.h` 里 `#define LUAT_USE_NETDRV_IPV6 0`。
+- 开启 = 在自己 BSP 的 `luat_conf_bsp.h` 里显式写出 `#define LUAT_USE_NETDRV_IPV6 1`;
+- 关闭 = 注释掉/删掉那一行。**不要**用 `#define LUAT_USE_NETDRV_IPV6 0` 来关闭,
+  在该约定下 `0` 也算"已定义", 等同于开启。
 
-`bsp/pc/include/luat_conf_bsp.h` 已显式写出 `#define LUAT_USE_NETDRV_IPV6 1` 作为样板。
-两种取值均已实测: PC 增量编译都是 `Build completed successfully`; 关闭时
-`netdrv.ipv6` 确实不存在(新增的 `netdrv_ipv6_basic` 套件会自动跳过而非报错),
+`bsp/pc/include/luat_conf_bsp.h` 已显式写出该行, 是 PC 模拟器的开启点。
+`luatos-soc-2024` 的 SOC 构建读的是它自己那份
+`project/luatos/inc/luat_conf_bsp.h`(`bsp/pc/include` 不在其 include 路径上),
+那里默认没有这一行, 所以 SOC 构建默认**不含** netdrv IPv6 能力; 需要时在该文件里补上同一行即可。
+
+两种状态均已实测: PC 增量编译都是 `Build completed successfully`; 关闭时
+`netdrv.ipv6` 与 `IPV6_PREFIX_*` 整体不存在(新增的 `netdrv_ipv6_basic` 套件会自动跳过而非报错),
+不生成链路本地地址, 就绪判定退回纯 IPv4,
 且 `netdrv.arp` 仍然可用(它是 IPv4 能力, 不随本宏关闭)。
 
 ---

@@ -311,7 +311,7 @@ static int ch390_status_on_0(ch390h_t* ch) {
     // IPv6: MAC 就绪后才能生成合法的链路本地地址(EUI-64).
     // ch390_netif_init 里无法生成, 因为那时 hwaddr 还是全 0.
     // 未链接 lwip2 适配层的构建里, 该符号由 luat_netdrv.c 的弱符号兜底, 返回失败即可.
-    #if LUAT_USE_NETDRV_IPV6
+    #ifdef LUAT_USE_NETDRV_IPV6
     {
         extern int net_lwip2_ipv6_create_linklocal(uint8_t adapter_index);
         if (net_lwip2_ipv6_create_linklocal(ch->adapter_id) != 0) {

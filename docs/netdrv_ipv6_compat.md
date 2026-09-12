@@ -67,11 +67,15 @@ CH390H 的链路只差一次链路本地地址生成; airlink 侧有一个 IPv6 
 - 链路本地地址生成后立即置 `IP6_ADDR_PREFERRED`(跳过 DAD): 地址由 MAC 的 EUI-64 推导,
   唯一性由 MAC 保证; 若保持 TENTATIVE, 出向 ICMPv6/ND 会因"无有效源地址"直接发不出去。
 - 前缀长度: `ip6_addr_t` 不保存前缀, 由适配层 `net_lwip2_ctrl_struct.ip6_prefix[]` 记录
-  (未设置时回落 64); 与 `socket.localIP()` 的第 4 个返回值共用同一份地址选择逻辑。
+  (未设置时回落 64); 设置时前缀打包进 `EV_LWIP_NETIF_SET_IP` 事件的 Param2 高 24 位,
+  由 tcpip 线程在 `net_lwip2_ipv6_apply_set` 内与地址一起写入, 不走跨线程预写;
+  与 `socket.localIP()` 的第 4 个返回值共用同一份地址选择逻辑。
 - 地址选择顺序: **PREFERRED 全局 → VALID 全局 → PREFERRED 任意 → VALID 任意**,
   这样 `netdrv.ipv6()`/`socket.localIP()` 优先给出用户配置或 RA 下发的全局地址,
   只有完全没有全局地址时才回落到 `fe80::`。
-- 就绪判定放宽为"IPv4 非 0 **或** 存在 VALID IPv6 地址", 纯 IPv4 场景行为不变。
+- 就绪判定放宽为"IPv4 非 0 **或** 存在 VALID 的**全局** IPv6 地址", 纯 IPv4 场景行为不变。
+  仅有链路本地(fe80::/10)不算就绪——否则链路本地自动生成后, DHCPv4 还没完成
+  socket 层就会被误判为网络就绪(见 `net_lwip2_ipv6_is_ready`)。
 
 ### 2.3 未覆盖 / 限制
 
@@ -100,7 +104,9 @@ CH390H 的链路只差一次链路本地地址生成; airlink 侧有一个 IPv6 
 - `ch390_netif_init()` 里**不**生成链路本地地址(那时 `hwaddr` 还是全 0)。
 - 在 `luat_netdrv_ch390h_task.c` 写完 `netif->hwaddr` 之后再调用
   `net_lwip2_ipv6_create_linklocal()`; 该函数幂等, 且会拒绝全 0 的 MAC。
-- 未链接 lwip2 适配层的构建里, 该符号由 `luat_netdrv.c` 的弱符号兜底, 不会出现未解析符号。
+- 未链接 lwip2 适配层的构建里, 该符号由 `luat_netdrv.c` 的弱定义兜底, 不会出现未解析符号:
+  MSVC 走 `/alternatename` 别名到 stub, GCC/ELF 直接给带函数体的 `__attribute__((weak))` 定义
+  (注意: 仅有 weak 声明而没有定义时, 未定义引用会解析为地址 0, 调用即跳 0 崩溃, 起不到兜底作用)。
 
 ### 3.3 真机验证建议
 
@@ -150,6 +156,9 @@ WHALE 网卡的以太网模式是**显式开启**的, 判据是 `netdrv.setup` �
 | `netdrv.setup(id, netdrv.WHALE, {flags = ...})` | 按用户给定 flags; 需要以太网/IPv6 时请自行带上 `ETHARP`/`MLD6` |
 | `netdrv.setup(id, netdrv.WHALE, {mac = <6字节>})` | **以太网模式**: 自动补 `BROADCAST\|ETHARP\|MLD6`, 并生成 IPv6 链路本地地址 |
 | `socket.LWIP_STA` / `socket.LWIP_AP` 且不传 flags | 仍按历史默认走以太网模式(airlink WiFi 依赖它) |
+
+**另一处行为变化**: 显式传 `flags` 且未传 `mtu` 时, mtu 缺省由 0(历史值, 会导致 TCP MSS
+计算异常) 修正为 1460; 显式传 `mtu` 仍按传入值。
 
 之所以做成 opt-in: airlink 虚拟链路真实收发的是带以太网头的帧, 但既有部署
 (如 `script/libs/exnetif.lua` / `exremotefile.lua` 里的 `netdrv.setup(adapter, netdrv.WHALE)`)
@@ -205,7 +214,8 @@ netdrv.ipv6(socket.LWIP_ETH, "2409:8a00:1234:5678::10", 64)
 > 该 API 受 `LUAT_USE_NETDRV_IPV6` 控制, 关闭时不存在(`netdrv.ipv6 == nil`)。
 
 失败语义: 地址非法 / 前缀越界 / 传入 IPv4 字面量 / netdrv 不存在 → 返回 `false`;
-读取时网卡不存在 / 无有效 IPv6 → 返回空 `table`。
+读取时网卡不存在 / 无有效 IPv6 → 返回空 `table`。netdrv 未创建或 netif 未就绪
+(例如 `netdrv.setup` 后 netif 尚未注册的窗口) 同样按此约定: 读取空 `table`, 设置 `false`。
 
 辅助 API(本次一并新增):
 
@@ -232,7 +242,7 @@ cd build\out
 
 | 套件 | 结果 |
 |------|------|
-| `unit/net/netdrv_ipv6_basic`(新增, 7 用例) | **7 passed, 0 failed** |
+| `unit/net/netdrv_ipv6_basic`(新增, 9 用例) | **9 passed, 0 failed** |
 | `unit/net/netdrv_lwip_intercept_basic`(兼容以太网帧) | **3 passed, 0 failed** |
 | `unit/net/netdrv_evt_pkg` | **19 passed, 0 failed** |
 | `unit/net/netdrv_ipsec_basic` | 3 passed, 0 failed |

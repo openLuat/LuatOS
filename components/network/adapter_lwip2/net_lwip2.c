@@ -961,11 +961,14 @@ static void net_lwip2_task(void *param)
 		break;
 	case EV_LWIP_NETIF_SET_IP:
 		ips = (ip_addr_t*)event.Param1;
-		is_ipv6 = (uint32_t)event.Param2;
+		// Param2 低 8 位是 is_ipv6 标志, 高 24 位是 IPv6 前缀长度:
+		// 旧路径(net_lwip2_set_static_ip)只传 0/1, 前缀解出为 0 时消费端回落 64
+		is_ipv6 = ((uint32_t)event.Param2 & 0xFF) != 0;
 		if (is_ipv6) {
 			#if LWIP_IPV6 && LUAT_USE_NETDRV_IPV6
 			// net_lwip2_set_static_ip() 只用 p_ip[3] 装 IPv6 地址
-			net_lwip2_ipv6_apply_set(adapter_index, &ips[3], 64);
+			uint8_t prefix_len = (uint8_t)(((uint32_t)event.Param2 >> 8) & 0xFF);
+			net_lwip2_ipv6_apply_set(adapter_index, &ips[3], prefix_len);
 			luat_heap_free(ips);
 			net_lwip2_check_network_ready(adapter_index);
 			#else
@@ -1041,7 +1044,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	if (prvlwip.lwip_netif[adapter_index] == NULL) {
 		return;
 	}
-	// IPv4 非0 或 存在有效(VALID及以上)的 IPv6 地址, 都算网络就绪.
+	// IPv4 非0 或 存在有效(VALID及以上)的全局 IPv6 地址, 才算网络就绪. 仅有链路本地(fe80::/10)不算就绪(见 net_lwip2_ipv6_is_ready).
 	// 历史行为: 只看 IPv4; 这里放宽是为了让 IPv6-only 场景也能触发 IP_READY,
 	// 纯 IPv4 网卡的行为完全不变.
 	uint8_t active_flag = netif_is_link_up(prvlwip.lwip_netif[adapter_index])
@@ -1961,8 +1964,18 @@ int net_lwip2_ipv6_addr_info(uint8_t adapter_index, luat_ip_addr_t *addr, uint8_
 int net_lwip2_ipv6_is_ready(uint8_t adapter_index)
 {
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
-	if (prvlwip.lwip_netif[adapter_index] == NULL) return 0;
-	return net_lwip2_get_ip6_slot(adapter_index, NULL) ? 1 : 0;
+	struct netif *netif = prvlwip.lwip_netif[adapter_index];
+	if (netif == NULL) return 0;
+	// 就绪要求"可路由"的全局地址: 仅有链路本地(fe80::/10)不算就绪,
+	// 否则链路本地自动生成后, DHCPv4 未完成时 socket 层就会被误判为网络就绪
+	int i;
+	for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
+		if ((netif->ip6_addr_state[i] & IP6_ADDR_VALID)
+			&& net_lwip2_ip6_addr_is_global(netif_ip6_addr(netif, i))) {
+			return 1;
+		}
+	}
+	return 0;
 }
 
 int net_lwip2_ipv6_create_linklocal(uint8_t adapter_index)
@@ -2011,17 +2024,27 @@ static void net_lwip2_ipv6_apply_set(uint8_t adapter_index, luat_ip_addr_t *ipv6
 		prefix_len = 64;
 	}
 	ip6_addr_t *ip6 = ip_2_ip6(ipv6);
-	// 全局地址优先放在第一个空闲的非 0 槽位; 槽 0 永远留给链路本地地址
+	// 全局地址: 已存在则原位更新, 否则放第一个空闲的非 0 槽位(槽 0 永远留给链路本地)
 	uint8_t slot = 0xFF;
 	uint8_t i;
 	if (ip6_addr_islinklocal(ip6)) {
 		slot = 0;
 	}
 	else {
+		// 先查重: 同一地址重复设置时复用原槽位, 避免占满本就不多的全局槽
 		for (i = 1; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
-			if (netif_ip6_addr_state(netif, i) == IP6_ADDR_INVALID) {
+			if (ip6_addr_cmp(netif_ip6_addr(netif, i), ip6)) {
 				slot = i;
 				break;
+			}
+		}
+		// 没有相同地址, 再取第一个空闲的非 0 槽位; 槽 0 永远留给链路本地地址
+		if (slot == 0xFF) {
+			for (i = 1; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
+				if (netif_ip6_addr_state(netif, i) == IP6_ADDR_INVALID) {
+					slot = i;
+					break;
+				}
 			}
 		}
 		if (slot == 0xFF) {
@@ -2032,8 +2055,8 @@ static void net_lwip2_ipv6_apply_set(uint8_t adapter_index, luat_ip_addr_t *ipv6
 	}
 	netif_ip6_addr_set(netif, slot, ip6);
 	prvlwip.ip6_prefix[adapter_index] = prefix_len;
-	// 不跑 DAD: 静态配置由用户保证唯一性, 并立即置为 PREFERRED 可用.
-	// 置 VALID 时 lwip 会经 netif_issue_reports() 触发 MLD6 加组与 ND6 上报.
+	// 不跑 DAD: 静态配置由用户保证唯一性, 直接置为 PREFERRED 立即可用;
+	// 状态迁移会经 netif_issue_reports() 触发 MLD6 加组与 ND6 上报.
 	netif_ip6_addr_set_state(netif, slot, IP6_ADDR_PREFERRED);
 	prvlwip.netif_network_ready[adapter_index] = 0; // 强制重算就绪状态
 	char buff[64] = {0};
@@ -2064,8 +2087,9 @@ int net_lwip2_set_static_ip6_info(uint8_t adapter_index, luat_ip_addr_t *ipv6, u
 		return -1;
 	}
 	memcpy(&p_ip[3], ipv6, sizeof(luat_ip_addr_t));
-	prvlwip.ip6_prefix[adapter_index] = prefix_len;
-	platform_send_event(prvlwip.task_handle, EV_LWIP_NETIF_SET_IP, p_ip, 1, adapter_index);
+	// 前缀打包进 Param2 高 24 位, 由 tcpip 线程在 apply_set 内统一写 ip6_prefix, 此处不预写
+	platform_send_event(prvlwip.task_handle, EV_LWIP_NETIF_SET_IP, p_ip,
+		1 | ((uint32_t)prefix_len << 8), adapter_index);
 	return 0;
 }
 

@@ -9,6 +9,9 @@ netdrv.ipv6 基础功能测试
   4. IPv4/IPv6 互不干扰
   5. 参数校验 (非法地址/前缀/id)
   6. 出向数据面: IPv6 以太网帧能经 netdrv 的 CH_HW 出口路径入队并投递
+  7. 以太网模式 opt-in (不传 mac/flags 保持裸 IP 模式)
+  8. 非 64 前缀传递 + 网关回显
+  9. 未配置网卡的返回语义 (空 table / false)
 ]]
 
 local tests = {}
@@ -204,6 +207,40 @@ function tests.test_07_ethernet_mode_is_opt_in()
     assert(type(info) == "table" and info.addr == nil,
         "未以太网化的网卡不应生成链路本地地址, 实际 " .. tostring(info and info.addr))
     log.info(TAG, "未显式传 mac/flags 时保持裸IP模式(无MAC/无链路本地地址)")
+end
+
+-- T8: 非 64 前缀传递 + 网关回显
+--   前缀经 EV_LWIP_NETIF_SET_IP 事件打包到 tcpip 线程写入, 96/128 必须能原样回读;
+--   gw 参数仅作回显, 设置后读取应一致
+function tests.test_08_prefix_and_gw()
+    local GW_V6 = "2001:db8:1234:5678::1"
+
+    assert(netdrv.ipv6(ADAPTER_ID, STATIC_V6, 96, GW_V6) == true, "设置 prefix=96 失败")
+    local info = wait_ipv6_addr(STATIC_V6, 2000)
+    assert(norm_addr(info.addr) == norm_addr(STATIC_V6), "地址回读失败")
+    assert(info.prefix == 96, "prefix=96 未生效, 实际 " .. tostring(info.prefix))
+    assert(info.gw == GW_V6, "gw 回显不一致, 实际 " .. tostring(info.gw))
+
+    assert(netdrv.ipv6(ADAPTER_ID, STATIC_V6, 128) == true, "设置 prefix=128 失败")
+    info = wait_ipv6_addr(STATIC_V6, 2000)
+    assert(info.prefix == 128, "prefix=128 未生效, 实际 " .. tostring(info.prefix))
+
+    -- 还原 64, 避免影响其他用例(用例执行顺序不保证)
+    assert(netdrv.ipv6(ADAPTER_ID, STATIC_V6, 64) == true, "还原 prefix=64 失败")
+    info = wait_ipv6_addr(STATIC_V6, 2000)
+    assert(info.prefix == 64, "还原 prefix=64 失败, 实际 " .. tostring(info.prefix))
+    log.info(TAG, "非64前缀传递与gw回显正常")
+end
+
+-- T9: 范围内但未配置的网卡, 返回语义与"网卡不存在"一致
+--   读取返回空 table, 设置返回 false, 而不是 nil(锁定 @api 文档约定)
+function tests.test_09_unconfigured_adapter_semantics()
+    local OTHER = socket.LWIP_USER2   -- 本套件未使用, 且未 setup
+    local t = netdrv.ipv6(OTHER)
+    assert(type(t) == "table" and t.addr == nil,
+        "未配置网卡读取应返回空 table, 实际 " .. tostring(t))
+    assert(netdrv.ipv6(OTHER, STATIC_V6, 64) == false, "未配置网卡设置应返回 false")
+    log.info(TAG, "未配置网卡返回语义符合约定")
 end
 
 return tests

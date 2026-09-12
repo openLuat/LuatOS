@@ -8,6 +8,22 @@
 
 struct netif;
 
+/*
+ * netdrv IPv6 功能开关(与 luat_netdrv.h 保持同一份默认语义):
+ *   - 未定义   : 跟随 LWIP_IPV6
+ *   - 1 / 0    : 显式启用 / 关闭
+ * 本文件可能不经由 luat_netdrv.h 被包含, 因此这里自带一份带守卫的默认定义.
+ */
+#ifdef LUAT_USE_NETDRV_IPV6
+/* BSP 显式指定了取值, 原样保留 */
+#else
+#if defined(LWIP_IPV6) && LWIP_IPV6
+#define LUAT_USE_NETDRV_IPV6 1
+#else
+#define LUAT_USE_NETDRV_IPV6 0
+#endif
+#endif
+
 #ifdef LWIP_NUM_SOCKETS
 #if LWIP_NUM_SOCKETS > 16
 #define MAX_SOCK_NUM 16

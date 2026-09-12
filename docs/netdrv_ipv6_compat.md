@@ -19,6 +19,28 @@
 一句话: **net_lwip2 是 IPv6 能力的唯一后端**, 此前只有"读"没有"写";
 CH390H 的链路只差一次链路本地地址生成; airlink 侧有一个 IPv6 放行白名单必须打开。
 
+### 1.1 功能开关 `LUAT_USE_NETDRV_IPV6`
+
+`LWIP_IPV6` 在各 BSP 上默认都是打开的, 因此**不能**拿它当"netdrv 是否提供 IPv6 能力"
+的判据。本次新增独立的编译宏 `LUAT_USE_NETDRV_IPV6`:
+
+| 取值 | 行为 |
+|------|------|
+| 未定义 | **默认跟随 `LWIP_IPV6`**(各 BSP 开箱可用, 无需改动配置) |
+| `1` | 显式启用 |
+| `0` | 显式关闭: `netdrv.ipv6` 与 `IPV6_PREFIX_*` 常量整体不注册, 不生成链路本地地址, 就绪判定退回纯 IPv4 |
+
+默认值在 `components/network/netdrv/include/luat_netdrv.h` 与
+`components/network/adapter_lwip2/net_lwip2.h` 中各有一份**带守卫的**兜底定义, 因此:
+
+- 新 BSP 什么都不用改即可获得 IPv6 能力;
+- 需要裁剪的 BSP 只需在 `luat_conf_bsp.h` 里 `#define LUAT_USE_NETDRV_IPV6 0`。
+
+`bsp/pc/include/luat_conf_bsp.h` 已显式写出 `#define LUAT_USE_NETDRV_IPV6 1` 作为样板。
+两种取值均已实测: PC 增量编译都是 `Build completed successfully`; 关闭时
+`netdrv.ipv6` 确实不存在(新增的 `netdrv_ipv6_basic` 套件会自动跳过而非报错),
+且 `netdrv.arp` 仍然可用(它是 IPv4 能力, 不随本宏关闭)。
+
 ---
 
 ## 2. net_lwip2 适配层(`components/network/adapter_lwip2/net_lwip2.c`)
@@ -180,6 +202,8 @@ local ll = netdrv.ipv6(socket.LWIP_ETH, "linklocal")
 netdrv.ipv6(socket.LWIP_ETH, "2409:8a00:1234:5678::10", 64)
 ```
 
+> 该 API 受 `LUAT_USE_NETDRV_IPV6` 控制, 关闭时不存在(`netdrv.ipv6 == nil`)。
+
 失败语义: 地址非法 / 前缀越界 / 传入 IPv4 字面量 / netdrv 不存在 → 返回 `false`;
 读取时网卡不存在 / 无有效 IPv6 → 返回空 `table`。
 
@@ -236,3 +260,6 @@ Air8101(内置以太网 + WHALE)、以及 airlink 双芯片组合。
 4. `netdrv.ping` 的 IPv6 源地址选择在存在多个地址时由 `netdrv.ping` 内部策略决定(优先全局地址)。
 5. `netdrv.arp` 只支持 IPv4; IPv6 邻居表(ND6)暂无手工写入接口
    (lwip 的 `neighbor_cache` 为 `nd6.c` 内部私有状态)。
+6. 关闭 `LUAT_USE_NETDRV_IPV6` 时 `netdrv.ipv6` 与 `IPV6_PREFIX_*` 不存在,
+   `netdrv.ready()`/`socket.localIP()` 退回纯 IPv4 语义(IPv6 地址仍由 lwip 自身
+   维护, 只是 netdrv 不再参与设置与上报)。

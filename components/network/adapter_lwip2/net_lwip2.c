@@ -65,7 +65,7 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 static ip_addr_t *net_lwip2_get_ip6(uint8_t adapter_index);
 static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 static int net_lwip2_check_ack(uint8_t adapter_index, int socket_id);
-#if LWIP_IPV6
+#if LWIP_IPV6 && LUAT_USE_NETDRV_IPV6
 static void net_lwip2_ipv6_apply_set(uint8_t adapter_index, luat_ip_addr_t *ipv6, uint8_t prefix_len);
 static uint8_t net_lwip2_ipv6_prefix_get(uint8_t adapter_index);
 #endif
@@ -963,13 +963,14 @@ static void net_lwip2_task(void *param)
 		ips = (ip_addr_t*)event.Param1;
 		is_ipv6 = (uint32_t)event.Param2;
 		if (is_ipv6) {
-			#if LWIP_IPV6
+			#if LWIP_IPV6 && LUAT_USE_NETDRV_IPV6
 			// net_lwip2_set_static_ip() 只用 p_ip[3] 装 IPv6 地址
 			net_lwip2_ipv6_apply_set(adapter_index, &ips[3], 64);
 			luat_heap_free(ips);
 			net_lwip2_check_network_ready(adapter_index);
 			#else
-			LLOGE("当前构建未开启LWIP_IPV6, 不支持设置ipv6地址");
+			LLOGE("netdrv IPv6 未启用(LWIP_IPV6=%d, LUAT_USE_NETDRV_IPV6=%d), 不支持设置ipv6地址",
+				(uint32_t)LWIP_IPV6, (uint32_t)LUAT_USE_NETDRV_IPV6);
 			luat_heap_free(ips);
 			#endif
 			break;
@@ -1848,7 +1849,7 @@ struct netif * net_lwip2_get_netif(uint8_t adapter_index)
 	return prvlwip.lwip_netif[adapter_index];
 }
 
-#if LWIP_IPV6
+#if LWIP_IPV6 && LUAT_USE_NETDRV_IPV6
 /* 判断是否是全局(可路由)地址: 排除链路本地/环回/组播/未指定/IPv4映射 */
 static int net_lwip2_ip6_addr_is_global(const ip6_addr_t *ip6)
 {
@@ -2068,7 +2069,7 @@ int net_lwip2_set_static_ip6_info(uint8_t adapter_index, luat_ip_addr_t *ipv6, u
 	return 0;
 }
 
-#else /* LWIP_IPV6 */
+#else /* !(LWIP_IPV6 && LUAT_USE_NETDRV_IPV6) */
 
 uint8_t net_lwip2_ipv6_supported(void) { return 0; }
 int net_lwip2_ipv6_addr_info(uint8_t adapter_index, luat_ip_addr_t *addr, uint8_t *prefix) { return -1; }
@@ -2077,11 +2078,11 @@ int net_lwip2_ipv6_create_linklocal(uint8_t adapter_index) { return -1; }
 int net_lwip2_set_static_ip6_info(uint8_t adapter_index, luat_ip_addr_t *ipv6, uint8_t prefix_len) { return -1; }
 int net_lwip2_ipv6_is_ready(uint8_t adapter_index) { return 0; }
 
-#endif /* LWIP_IPV6 */
+#endif /* LWIP_IPV6 && LUAT_USE_NETDRV_IPV6 */
 
 static ip_addr_t *net_lwip2_get_ip6(uint8_t adapter_index)
 {
-	#if LWIP_IPV6
+	#if LWIP_IPV6 && LUAT_USE_NETDRV_IPV6
 	return (ip_addr_t*)net_lwip2_get_ip6_slot(adapter_index, NULL);
 	#else
 	return NULL;

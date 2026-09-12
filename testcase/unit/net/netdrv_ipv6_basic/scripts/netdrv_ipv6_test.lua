@@ -69,7 +69,13 @@ end
 -- T1: API 与常量存在性 + mac 参数解析
 function tests.test_01_api_and_mac()
     assert(type(netdrv) == "userdata", "netdrv 模块不存在")
-    assert(type(netdrv.ipv6) == "function", "netdrv.ipv6 不存在")
+    if netdrv.ipv6 == nil then
+        -- LUAT_USE_NETDRV_IPV6 关闭的构建里该 API 整体不存在, 本套件不适用
+        -- (bsp/pc 默认开启; 见 components/network/netdrv/include/luat_netdrv.h)
+        log.warn(TAG, "LUAT_USE_NETDRV_IPV6 未启用, netdrv.ipv6 不存在, 跳过本套件")
+        os.exit(0)
+    end
+    assert(type(netdrv.ipv6) == "function", "netdrv.ipv6 不是函数")
     assert(netdrv.IPV6_PREFIX_DEFAULT == 64, "IPV6_PREFIX_DEFAULT 应为 64")
     assert(netdrv.IPV6_PREFIX_MAX == 128, "IPV6_PREFIX_MAX 应为 128")
 

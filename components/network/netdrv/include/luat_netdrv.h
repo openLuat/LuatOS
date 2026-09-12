@@ -171,9 +171,10 @@ typedef struct luat_netdrv {
     luat_netdrv_ctrl_cb ctrl;
     uint8_t gw_mac[6];
     luat_netdrv_debug_cb debug;
-#ifdef LUAT_USE_NETDRV_IPV6
+    // 新增字段一律追加在结构体末尾, 且不随功能宏增删:
+    // 本结构体由各 netdrv 驱动与预编译库跨编译单元共同分配/访问(如 drv->debug、
+    // drv->statics), 布局一旦随宏变化就会出现 ABI 不一致 -> 静默内存错乱.
     char ipv6_gw[46];               // 用户设置的IPv6网关, 仅用于回显(最长45字符+结束符)
-#endif
 }luat_netdrv_t;
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf);

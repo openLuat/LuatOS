@@ -645,7 +645,8 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_IPPKG, &item);
 #endif
     if (ret != 0) {
-        luat_heap_free(item.cmd);
+        // item.cmd 由 luat_heap_opt_zalloc(AIRLINK_MEM_TYPE) 分配, 必须按同类型释放
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, item.cmd);
         LLOGD("发送消息失败 长度 %d ret %d", len, ret);
         g_airlink_statistic.tx_ip.drop ++;
         g_airlink_statistic.tx_bytes.drop += len;

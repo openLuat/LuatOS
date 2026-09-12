@@ -735,6 +735,26 @@ static int l_display_get_size(lua_State *L)
         return 2;
     }
 
+    lua_pushinteger(L, disp->fb_info->draw_buf.width);
+    lua_pushinteger(L, disp->fb_info->draw_buf.height);
+
+    return 2;
+}
+/**
+ * @api display.getPhySize([id])
+ * @int [id] 显示组件 ID，省略则操作默认 display
+ * @return int width 物理帧缓冲宽度
+ * @return int height 物理帧缓冲高度
+ */
+static int l_display_get_phy_size(lua_State *L) 
+{
+    struct luat_display *disp = l_get_display_opt(L, 1);
+    if (disp == NULL) {
+        lua_pushinteger(L, 0);
+        lua_pushinteger(L, 0);
+        return 2;
+    }
+
     lua_pushinteger(L, disp->fb_info->width);
     lua_pushinteger(L, disp->fb_info->height);
 
@@ -810,6 +830,40 @@ static int l_display_fill(lua_State *L) {
 }
 
 /**
+ * @api display.fillCircle([id], cx, cy, r, color)
+ * @int [id] 显示组件 ID，省略则操作默认 display
+ * @int cx 圆心 x
+ * @int cy 圆心 y
+ * @int r  半径（>=0）
+ * @int color 颜色值（与当前 format 对齐，RGB565 时 0xF800 为红色）
+ * @return bool 成功返回 true
+ */
+static int l_display_fill_circle(lua_State *L) {
+    int id_index = 0;
+    int cx_index, cy_index, r_index, color_index;
+    int argc = lua_gettop(L);
+
+    if (argc == 5) {
+        id_index = 1;
+        cx_index = 2; cy_index = 3; r_index = 4; color_index = 5;
+    } else if (argc == 4) {
+        cx_index = 1; cy_index = 2; r_index = 3; color_index = 4;
+    } else {
+        return luaL_error(L, "display.fillCircle expects ([id], cx, cy, r, color)");
+    }
+
+    struct luat_display *disp = (id_index > 0) ? l_get_display_opt(L, id_index) : luat_display_get_default();
+    int cx = luaL_checkinteger(L, cx_index);
+    int cy = luaL_checkinteger(L, cy_index);
+    int r  = luaL_checkinteger(L, r_index);
+    uint32_t color = (uint32_t)luaL_checkinteger(L, color_index);
+
+    int ret = luat_display_fill_circle(disp, cx, cy, r, color);
+    lua_pushboolean(L, ret);
+    return 1;
+}
+
+/**
  * @api display.sendSeq([id], cmd_table)
  * @int [id] 显示组件 ID，省略则操作默认 display
  * @table cmd_table 命令序列表，首元素为命令，其余为数据，如 {0x36, 0x08}
@@ -878,9 +932,11 @@ static const rotable_Reg_t reg_display[] = {
     {"wakeup",      ROREG_FUNC(l_display_wakeup)},
     {"flush",       ROREG_FUNC(l_display_flush)},
     {"fill",        ROREG_FUNC(l_display_fill)},
+    {"fillCircle",  ROREG_FUNC(l_display_fill_circle)},
     {"sendSeq",     ROREG_FUNC(l_display_send_seq)},
     {"setRotation", ROREG_FUNC(l_display_set_rotation)},
     {"getSize",     ROREG_FUNC(l_display_get_size)},
+    {"getPhySize",  ROREG_FUNC(l_display_get_phy_size)},
     {"getFbInfo",   ROREG_FUNC(l_display_get_fb)},
     {"ROTATE_0",    ROREG_INT(LUAT_DISPLAY_ROTATE_0)},
     {"ROTATE_90",   ROREG_INT(LUAT_DISPLAY_ROTATE_90)},

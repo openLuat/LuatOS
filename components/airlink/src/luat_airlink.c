@@ -574,11 +574,17 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     }
     struct eth_hdr* eth = (struct eth_hdr*)data;
     if (netdrv->netif->flags & NETIF_FLAG_ETHARP) {
-        if (eth->type == PP_HTONS(ETHTYPE_IP) || eth->type == PP_HTONS(ETHTYPE_ARP)) {
-            // LLOGD("是ARP/IP包,继续转发");
+        // IPv4 / ARP / IPv6(含ICMPv6 ND/MLD) 都是合法的以太网净荷, 其余丢弃.
+        // IPV6 于 2026.01 放行, 否则 whale 虚拟网卡上的 IPv6 报文本步就被吞掉.
+        if (eth->type == PP_HTONS(ETHTYPE_IP) || eth->type == PP_HTONS(ETHTYPE_ARP)
+            #if LWIP_IPV6
+            || eth->type == PP_HTONS(ETHTYPE_IPV6)
+            #endif
+        ) {
+            // LLOGD("是IP/ARP/IPV6包,继续转发");
         }
         else {
-            // LLOGD("不是ARP/IP包,丢弃掉");
+            // LLOGD("不是IP/ARP/IPV6包,丢弃掉");
             g_airlink_statistic.tx_ip.drop ++;
             g_airlink_statistic.tx_bytes.drop += len;
             return -3;
@@ -639,7 +645,8 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_IPPKG, &item);
 #endif
     if (ret != 0) {
-        luat_heap_free(item.cmd);
+        // item.cmd 由 luat_heap_opt_zalloc(AIRLINK_MEM_TYPE) 分配, 必须按同类型释放
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, item.cmd);
         LLOGD("发送消息失败 长度 %d ret %d", len, ret);
         g_airlink_statistic.tx_ip.drop ++;
         g_airlink_statistic.tx_bytes.drop += len;

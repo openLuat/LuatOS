@@ -26,9 +26,17 @@
 #endif
 #include "net_lwip2.h"
 
+#ifdef LUAT_USE_NETDRV_LWIP_ARP
+#include "luat_netdrv_lwip_etharp.h"
+#endif
+
 #include "lwip/ip.h"
 #include "lwip/ip4.h"
 #include "lwip/tcpip.h"
+
+#if defined(LUAT_USE_NETDRV_LWIP_ARP) && LWIP_IPV4 && LWIP_ARP
+#define LUAT_NETDRV_HAVE_ARP 1
+#endif
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
@@ -106,6 +114,20 @@ static int l_netdrv_setup(lua_State *L) {
 
         if (lua_getfield(L, 3, "flags") == LUA_TNUMBER) {
             conf.flags = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+
+        // 虚拟/外挂网卡的初始MAC, 6字节字符串; 不传则保持全0(由驱动自己决定).
+        // 该参数同时决定IPv6链路本地地址(EUI-64), 因此对IPv6场景是必需的.
+        if (lua_getfield(L, 3, "mac") == LUA_TSTRING) {
+            size_t mac_len = 0;
+            const char* mac = luaL_checklstring(L, -1, &mac_len);
+            if (mac_len == 6) {
+                memcpy(conf.mac, mac, 6);
+            }
+            else if (mac_len != 0) {
+                LLOGW("netdrv %d 的 mac 参数必须是6字节, 实际 %d 字节, 已忽略", conf.id, (int)mac_len);
+            }
         };
         lua_pop(L, 1);
 
@@ -459,6 +481,7 @@ static int l_netdrv_ipv4(lua_State *L) {
             LLOGW("非法GW[%d] %s %d", id, tmp, ret);
             return 0;
         }
+        // 最后一个参数固定传 NULL: IPv4 只更新 IPv4 地址, 不会清空已配置的 IPv6 槽位
         ret = network_set_static_ip_info(id, &ip, &netmask, &gw, NULL);
         LLOGI("设置IP[%d] %s %s %s ret %d", id,
             luaL_checkstring(L, 2),
@@ -478,6 +501,257 @@ static int l_netdrv_ipv4(lua_State *L) {
     lua_pushstring(L, buff3);
     return 3;
 }
+
+/*
+设置或读取ipv6地址
+@api netdrv.ipv6(id, addr, prefix, gw)
+@int 网络适配器编号, 例如 socket.LWIP_ETH
+@string ipv6地址, 如果是读取就不需要传. 设置时必须是合法的IPv6字面量, 不支持域名. 读取时传 "linklocal" 可单独读取链路本地地址
+@int 前缀长度, 1~128, 可选, 默认64. 仅设置时有效
+@string ipv6网关, 可选. 当前仅用于回显, 不写入路由表
+@return table 读取时返回 {addr=地址, prefix=前缀长度, gw=网关, source=来源, state=状态}; 网卡不存在/未就绪或没有有效IPv6时返回空table
+@return boolean 设置时返回成功与否
+@usage
+-- 注意: 并非所有netdrv都支持IPv6, 也不代表平台后端(LWIP实现)支持设置
+-- 读取当前生效的IPv6信息(全局地址优先)
+local info = netdrv.ipv6(socket.LWIP_ETH)
+log.info("netdrv", "ipv6", info.addr, info.prefix, info.source)
+
+-- 单独读取链路本地地址(fe80::/10), 一般是根据MAC自动生成的
+local ll = netdrv.ipv6(socket.LWIP_ETH, "linklocal")
+log.info("netdrv", "linklocal", ll.addr)
+
+-- 设置静态IPv6地址, 需要先调用 netdrv.setup 初始化网卡
+netdrv.ipv6(socket.LWIP_ETH, "2409:8a00:1234:5678::10", 64)
+-- 设置链路本地地址(不常用, 一般由系统根据MAC自动生成)
+netdrv.ipv6(socket.LWIP_ETH, "fe80::1", 64)
+-- 该函数于 2026.01 新增
+-- 该接口受 LUAT_USE_NETDRV_IPV6 宏控制, 关闭时整段不参与编译
+*/
+#ifdef LUAT_USE_NETDRV_IPV6
+static int l_netdrv_ipv6(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    // "linklocal" 是读取模式的关键字, 不是要写入的地址
+    int read_linklocal = 0;
+    if (lua_isstring(L, 2)) {
+        const char* arg2 = lua_tostring(L, 2);
+        read_linklocal = (arg2 != NULL && strcmp(arg2, "linklocal") == 0);
+    }
+    // 设置模式 = 第2参数是字符串且不是 "linklocal" 关键字; 读取模式失败返回空table, 设置模式失败返回 false
+    int is_set = lua_isstring(L, 2) && !read_linklocal;
+    // 非法id: 读取返回空table(与"网卡不存在/无地址"一致), 设置返回 false
+    if (id < 0 || id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
+        LLOGW("非法的netdrv id %d", id);
+        if (is_set) {
+            lua_pushboolean(L, 0);
+        }
+        else {
+            lua_newtable(L);
+        }
+        return 1;
+    }
+    luat_netdrv_t* netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        LLOGW("对应的netdrv不存在或未就绪 %d", id);
+        if (is_set) {
+            lua_pushboolean(L, 0);
+        }
+        else {
+            lua_newtable(L);
+        }
+        return 1;
+    }
+    if (!net_lwip2_ipv6_supported()) {
+        LLOGW("当前构建的lwip不支持IPv6");
+        if (is_set) {
+            lua_pushboolean(L, 0);
+        }
+        else {
+            lua_newtable(L);
+        }
+        return 1;
+    }
+
+    // ==== 设置模式 ====
+    if (lua_isstring(L, 2) && !read_linklocal) {
+        size_t len = 0;
+        const char* tmp = luaL_checklstring(L, 2, &len);
+        char ipstr[64] = {0};
+        if (len == 0 || len >= sizeof(ipstr)) {
+            LLOGW("ipv6地址长度非法 %d", (int)len);
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        // 去掉两端的方括号写法 "[fe80::1]"
+        if (tmp[0] == '[' && tmp[len - 1] == ']') {
+            len -= 2;
+            memcpy(ipstr, tmp + 1, len);
+        }
+        else {
+            memcpy(ipstr, tmp, len);
+        }
+        luat_ip_addr_t ipv6;
+        memset(&ipv6, 0, sizeof(ipv6));
+        if (0 == ipaddr_aton(ipstr, &ipv6)) {
+            LLOGW("非法的IPv6地址 %s", ipstr);
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        if (IP_IS_V4(&ipv6)) {
+            // 双栈模式下 ipaddr_aton 会把 IPv4 字面量解析成 type=V4, 这里必须挡住
+            LLOGW("netdrv.ipv6 不接受IPv4地址 %s", ipstr);
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        if (ipv6.type != IPADDR_TYPE_V6) {
+            LLOGW("非法的IPv6地址 %s", ipstr);
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        int prefix = luaL_optinteger(L, 3, 64);
+        if (prefix < 1 || prefix > 128) {
+            LLOGW("非法的IPv6前缀长度 %d", prefix);
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        // 网关仅作回显: 当前不写入IPv6路由表(IPv6缺省路由需要ND6 router状态)
+        netdrv->ipv6_gw[0] = 0;
+        if (lua_isstring(L, 4)) {
+            size_t gw_len = 0;
+            const char* gw = luaL_checklstring(L, 4, &gw_len);
+            if (gw_len > 0 && gw_len < sizeof(netdrv->ipv6_gw)) {
+                memcpy(netdrv->ipv6_gw, gw, gw_len);
+                netdrv->ipv6_gw[gw_len] = 0;
+            }
+        }
+        int ret = net_lwip2_set_static_ip6_info((uint8_t)id, &ipv6, (uint8_t)prefix);
+        if (ret) {
+            LLOGW("设置IPv6地址失败 id=%d ret=%d", id, ret);
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        // 写入是投递到 tcpip 线程执行的, 这里短暂等待以便调用方紧接着读取时能看到新地址
+        luat_ip_addr_t check_addr;
+        uint8_t check_prefix = 0;
+        for (int i = 0; i < 20; i++) {
+            luat_rtos_task_sleep(10);
+            memset(&check_addr, 0, sizeof(check_addr));
+            if (0 == net_lwip2_ipv6_addr_info((uint8_t)id, &check_addr, &check_prefix)
+                && 0 == memcmp(&check_addr.u_addr.ip6, &ipv6.u_addr.ip6, sizeof(ip6_addr_t))) {
+                break;
+            }
+        }
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+
+    // ==== 读取模式 ====
+    luat_ip_addr_t ipv6;
+    uint8_t prefix = 64;
+    memset(&ipv6, 0, sizeof(ipv6));
+    // 第2参数传字符串 "linklocal" 时, 只读链路本地地址(槽0);
+    // 否则返回"最可用"的地址(全局优先, 全网只有链路本地时才回落到 fe80::)
+    int read_ret = read_linklocal
+        ? net_lwip2_ipv6_linklocal_addr_info((uint8_t)id, &ipv6, &prefix)
+        : net_lwip2_ipv6_addr_info((uint8_t)id, &ipv6, &prefix);
+    if (0 != read_ret) {
+        lua_newtable(L);
+        return 1;
+    }
+    char buff[64] = {0};
+    ip6addr_ntoa_r(&ipv6.u_addr.ip6, buff, sizeof(buff));
+    lua_newtable(L);
+
+    lua_pushstring(L, buff);
+    lua_setfield(L, -2, "addr");
+
+    lua_pushinteger(L, prefix);
+    lua_setfield(L, -2, "prefix");
+
+    // 网关: 记录用户设置的值; 当前不写入IPv6路由表, 仅作回显
+    lua_pushstring(L, netdrv->ipv6_gw);
+    lua_setfield(L, -2, "gw");
+
+    lua_pushstring(L, ip6_addr_islinklocal(&ipv6.u_addr.ip6) ? "linklocal" : "static");
+    lua_setfield(L, -2, "source");
+
+    // state: lwip 用 "有效位" 描述地址状态, 这里只区分 preferred 与 deprecated
+    struct netif* netif = net_lwip2_get_netif((uint8_t)id);
+    const char* state = "preferred";
+    if (netif) {
+        for (int i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
+            if (0 == memcmp(&netif->ip6_addr[i], &ipv6.u_addr.ip6, sizeof(ip6_addr_t))) {
+                state = (IP6_ADDR_PREFERRED == (netif->ip6_addr_state[i] & IP6_ADDR_PREFERRED)) ? "preferred" : "valid";
+                break;
+            }
+        }
+    }
+    lua_pushstring(L, state);
+    lua_setfield(L, -2, "state");
+    return 1;
+}
+
+#endif /* LUAT_USE_NETDRV_IPV6 */
+
+/*
+设置ARP表静态表项
+@api netdrv.arp(id, ip, mac)
+@int 网络适配器编号, 例如 socket.LWIP_ETH
+@string ipv4地址, 例如 "192.168.1.1"
+@string MAC地址, 6字节原始数据; 传nil或空串表示删除该表项
+@return boolean 成功与否
+@usage
+-- 仅以太网类型的netdrv(CH390H / WHALE虚拟网卡)支持
+-- 部分场景(如airlink对端不回ARP、点对点以太网专线)需要手工写入ARP表,
+-- 否则LWIP会因解析不到对端MAC而把报文排队直到超时
+netdrv.arp(socket.LWIP_ETH, "192.168.1.1", string.char(0x02,0,0,0,0,1))
+-- 删除表项
+netdrv.arp(socket.LWIP_ETH, "192.168.1.1", nil)
+-- 该函数于 2026.01 新增
+*/
+#ifdef LUAT_NETDRV_HAVE_ARP
+static int l_netdrv_arp(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    if (id < 0 || id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    luat_netdrv_t* netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        LLOGW("对应的netdrv不存在或未就绪 %d", id);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    const char* ipstr = luaL_checkstring(L, 2);
+    ip4_addr_t ip4;
+    if (0 == ip4addr_aton(ipstr, &ip4)) {
+        LLOGW("非法的IPv4地址 %s", ipstr);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    size_t mac_len = 0;
+    const char* mac = lua_isstring(L, 3) ? luaL_checklstring(L, 3, &mac_len) : NULL;
+    if (mac == NULL || mac_len == 0) {
+        // 删除静态表项
+        int ret = luat_netdrv_etharp_remove_static_entry_on_netif(netdrv->netif, &ip4);
+        lua_pushboolean(L, ret == 0);
+        return 1;
+    }
+    if (mac_len != 6) {
+        LLOGW("MAC必须是6字节, 实际 %d", (int)mac_len);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    struct eth_addr eth;
+    memcpy(eth.addr, mac, 6);
+    int ret = luat_netdrv_etharp_add_static_entry_on_netif(netdrv->netif, &ip4, &eth);
+    if (ret) {
+        LLOGW("写入ARP表失败 id=%d %s ret=%d", id, ipstr, ret);
+    }
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+#endif /* LUAT_NETDRV_HAVE_ARP */
 
 /*
 开启或关闭NAPT。关闭时会清除所有映射表。开启NAPT前请确保网关适配器已就绪。
@@ -843,6 +1117,12 @@ static const rotable_Reg_t reg_netdrv[] =
     { "dhcp",           ROREG_FUNC(l_netdrv_dhcp)},
     { "mac",            ROREG_FUNC(l_netdrv_mac)},
     { "ipv4",           ROREG_FUNC(l_netdrv_ipv4)},
+#ifdef LUAT_USE_NETDRV_IPV6
+    { "ipv6",           ROREG_FUNC(l_netdrv_ipv6)},
+#ifdef LUAT_NETDRV_HAVE_ARP
+    { "arp",            ROREG_FUNC(l_netdrv_arp)},
+#endif
+#endif
     { "napt",           ROREG_FUNC(l_netdrv_napt)},
     { "link",           ROREG_FUNC(l_netdrv_link)},
     { "ready",          ROREG_FUNC(l_netdrv_ready)},
@@ -900,6 +1180,13 @@ static const rotable_Reg_t reg_netdrv[] =
     { "CH_NAPT",        ROREG_INT(LUAT_NETDRV_CH_NAPT)},
     //@const EVT_PKG number 事件类型-数据包事件
     { "EVT_PKG",        ROREG_INT(LUAT_NETDRV_EVT_PKG)},
+
+#ifdef LUAT_USE_NETDRV_IPV6
+    //@const IPV6_PREFIX_DEFAULT number IPv6默认前缀长度, 即64
+    { "IPV6_PREFIX_DEFAULT", ROREG_INT(64)},
+    //@const IPV6_PREFIX_MAX number IPv6最大前缀长度, 即128
+    { "IPV6_PREFIX_MAX", ROREG_INT(128)},
+#endif
 
 	{ NULL,             ROREG_INT(0) }
 };

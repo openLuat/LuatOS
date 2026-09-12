@@ -544,8 +544,31 @@ luat_netdrv_etharp_add_static_entry_on_netif(struct netif *netif, const ip4_addr
   if (netif == NULL) {
     return ERR_RTE;
   }
-  LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_add_static_entry_on_netif: %p\n", netif));
+  LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_add_static_entry_on_netif: %p\n", (void*)netif));
   return etharp_update_arp_entry(netif, ipaddr, ethaddr, ETHARP_FLAG_TRY_HARD);
+}
+
+// 删除由 luat_netdrv_etharp_add_static_entry_on_netif() 写入的表项
+// (netdrv.arp(id, ip, nil) 使用; 仅删除已处于可删除状态的表项, 排队项会被释放)
+err_t
+luat_netdrv_etharp_remove_static_entry_on_netif(struct netif *netif, const ip4_addr_t *ipaddr)
+{
+  s16_t i;
+  if (netif == NULL) {
+    return ERR_RTE;
+  }
+  i = etharp_find_entry(ipaddr, ETHARP_FLAG_FIND_ONLY, netif);
+  if (i < 0) {
+    return (err_t)i;
+  }
+  if (arp_table[i].state != ETHARP_STATE_STABLE &&
+      arp_table[i].state != ETHARP_STATE_STABLE_REREQUESTING_1 &&
+      arp_table[i].state != ETHARP_STATE_STABLE_REREQUESTING_2) {
+    /* 未处于稳定状态(例如仍 PENDING), 不删除 */
+    return ERR_ARG;
+  }
+  etharp_free_entry(i);
+  return ERR_OK;
 }
 
 /**

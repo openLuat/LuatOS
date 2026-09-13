@@ -45,13 +45,14 @@ int dac_sound_set_format(unsigned int samplerate, unsigned int channel, unsigned
     return 0;
 }
 
-int dac_sound_set_callback(void (*callback)(int, void *src))
+int dac_sound_set_callback(void (*callback)(emSOUND_EVENT event, void *data, void *user_data), void *user_data)
 {
     (void)callback;
+    (void)user_data;
     return 0;
 }
 
-int dac_sound_fill_txfifo(unsigned char per, unsigned char *data, unsigned int size)
+int dac_sound_fill_txfifo(int per, void *data, unsigned int size)
 {
     (void)per;
     (void)data;
@@ -59,7 +60,7 @@ int dac_sound_fill_txfifo(unsigned char per, unsigned char *data, unsigned int s
     return 0;
 }
 
-int dac_sound_set_volume(unsigned char volume)
+int dac_sound_set_volume(int volume)
 {
     (void)volume;
     return 0;

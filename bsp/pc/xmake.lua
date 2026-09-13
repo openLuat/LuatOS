@@ -138,6 +138,17 @@ elseif is_host("linux") then
     add_defines("LUAT_CONF_USE_LIBSYS_SOURCE")
     add_cflags("-ffunction-sections -fdata-sections")
     add_cflags("-Wno-unused-parameter -Wno-unused-function -Wno-unused-variable")
+    -- GCC 14+ 与 Clang 16+ 把下列诊断从警告提升为错误, 导致本仓库中大量既有代码
+    -- 在较新的 Linux 工具链上无法编译(该组合不在上游 CI 覆盖范围内 —— CI 走 Windows/MSVC)。
+    -- 这里降级回警告, 以恢复 Linux 下的可构建性。
+    --
+    -- 注意: 这是兜底而非修复。这些警告中确实夹杂真实缺陷, 例如
+    --   components/multimedia/luat_lib_multimedia_audio.c 曾把函数指针的地址
+    --   当作函数指针存储; components/camera 存在未声明函数调用。
+    -- 建议后续逐项清理后再移除本兜底。
+    add_cflags("-Wno-error=incompatible-pointer-types")
+    add_cflags("-Wno-error=int-conversion")
+    add_cflags("-Wno-error=implicit-function-declaration")
     add_ldflags("-Wl,--gc-sections")
 elseif is_host("macos") then
     add_defines("LUA_USE_MACOSX")
@@ -1177,8 +1188,9 @@ target("luatos-lua")
         add_includedirs(mp4player_src .. "/video_decode/avcodec/h264")
 
         -- ---- 音频公共模块 ----
+        -- 注：原 audio_decode/sound.c 已从 mp4player 组件移除，
+        -- 音频设备抽象改由 audio_decode/platform/* 与 port/ 提供，此处不再引用。
         add_files(mp4player_src .. "/audio_decode/audio_rb.c")
-        add_files(mp4player_src .. "/audio_decode/sound.c")
 
         -- ---- AAC 解码（libfaad，第三方代码，关闭所有警告）----
         add_thirdparty_files(mp4player_src .. "/audio_decode/aac/libfaad/*.c")

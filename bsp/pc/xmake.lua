@@ -1145,6 +1145,30 @@ target("luatos-lua")
     end
 
     -- =========================================================
+    -- gb28181（GB/T 28181-2016 设备侧协议组件）
+    -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/gb28181
+    -- src/ 为纯 C 协议层，port/ 为 SDK 适配层，tests/ 不参与编译。
+    -- 环境变量 LUAT_USE_GB28181=y 显式启用，=n 显式禁用；
+    -- 未设置时按目录存在性自动检测。
+    -- =========================================================
+    local use_gb28181 = false
+    local gb28181_src = luatos_ext_root .. "/gb28181"
+    if os.isdir(gb28181_src) then
+        if os.getenv("LUAT_USE_GB28181") ~= "n" then
+            use_gb28181 = true
+        end
+    elseif os.getenv("LUAT_USE_GB28181") == "y" then
+        print("Warning: LUAT_USE_GB28181=y but gb28181 not found at: " .. gb28181_src)
+    end
+
+    if use_gb28181 then
+        add_defines("LUAT_USE_GB28181=1")
+        add_includedirs(gb28181_src .. "/include", {public = true})
+        add_files(gb28181_src .. "/src/*.c")
+        add_files(gb28181_src .. "/binding/luat_lib_gb28181.c")
+    end
+
+    -- =========================================================
     -- mp4player（MP4/H.264/AAC 解码器）
     -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/mp4player
     -- 示例（PowerShell）：

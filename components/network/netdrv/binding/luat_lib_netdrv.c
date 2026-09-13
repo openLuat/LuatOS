@@ -335,18 +335,26 @@ static int l_netdrv_setup(lua_State *L) {
     }
     luat_netdrv_t* ret = luat_netdrv_setup(&conf);
     lua_pushboolean(L, ret != NULL);
+    #ifdef LUAT_USE_NETDRV_WG
     if (conf.wg_conf) {
         luat_heap_free(conf.wg_conf);
     }
+    #endif
+    #ifdef LUAT_USE_NETDRV_OPENVPN
     if (conf.ovpn_conf) {
         luat_heap_free(conf.ovpn_conf);
     }
+    #endif
+    #ifdef LUAT_USE_NETDRV_L2TP
     if (conf.l2tp_conf) {
         luat_heap_free(conf.l2tp_conf);
     }
+    #endif
+    #ifdef LUAT_USE_NETDRV_IPSEC
     if (conf.ipsec_conf) {
         luat_heap_free(conf.ipsec_conf);
     }
+    #endif
     return 1;
 }
 
@@ -1117,12 +1125,6 @@ static const rotable_Reg_t reg_netdrv[] =
     { "dhcp",           ROREG_FUNC(l_netdrv_dhcp)},
     { "mac",            ROREG_FUNC(l_netdrv_mac)},
     { "ipv4",           ROREG_FUNC(l_netdrv_ipv4)},
-#ifdef LUAT_USE_NETDRV_IPV6
-    { "ipv6",           ROREG_FUNC(l_netdrv_ipv6)},
-#ifdef LUAT_NETDRV_HAVE_ARP
-    { "arp",            ROREG_FUNC(l_netdrv_arp)},
-#endif
-#endif
     { "napt",           ROREG_FUNC(l_netdrv_napt)},
     { "link",           ROREG_FUNC(l_netdrv_link)},
     { "ready",          ROREG_FUNC(l_netdrv_ready)},
@@ -1140,6 +1142,12 @@ static const rotable_Reg_t reg_netdrv[] =
 #endif
 #ifdef LUAT_USE_ICMP
     { "ping",           ROREG_FUNC(l_icmp_ping)},
+#endif
+#ifdef LUAT_USE_NETDRV_IPV6
+    { "ipv6",           ROREG_FUNC(l_netdrv_ipv6)},
+#ifdef LUAT_NETDRV_HAVE_ARP
+    { "arp",            ROREG_FUNC(l_netdrv_arp)},
+#endif
 #endif
 
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信

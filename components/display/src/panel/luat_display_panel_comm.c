@@ -133,12 +133,33 @@ int luat_display_panel_send_custom_cmds(struct luat_display_panel *panel)
 }
 
 /*各面板 panel_ctrl 的通用实现：
-  - LUAT_DISPLAY_SEND_SEQ：下发一条命令序列（arg 指向 struct luat_display_init_cmd）*/
+  - LUAT_DISPLAY_SEND_SEQ：下发一条命令序列（arg 指向 struct luat_display_init_cmd）
+  - LUAT_DISPLAY_POWER_SLEEP：下发 SLPIN(0x10) 让屏控制器进入低功耗
+  - LUAT_DISPLAY_POWER_ON：下发 SLPOUT(0x11) 唤醒屏控制器*/
 int luat_display_panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg)
 {
+    if (panel == NULL) {
+        return -1;
+    }
+
     if (cmd == LUAT_DISPLAY_SEND_SEQ && arg != NULL) {
         struct luat_display_seq_cmd *c = (struct luat_display_seq_cmd *)arg;
         return luat_display_send_sequence(panel, c->data, c->len);
+        
+    } else if (cmd == LUAT_DISPLAY_POWER_SLEEP || cmd == LUAT_DISPLAY_POWER_ON) {
+        /*仅对具备命令通道的控制器下发 SLPIN/SLPOUT；
+          RGB/LVDS 这一类走背光/电源控制，不在这里发命令*/
+        if (panel->connector_type == LUAT_DISPLAY_CONNECTOR_DBI ||
+            panel->connector_type == LUAT_DISPLAY_CONNECTOR_MIPI ||
+            panel->connector_type == LUAT_DISPLAY_CONNECTOR_RGB) {
+            static const unsigned char slpin[]  = {0x10};  /* Sleep In  */
+            static const unsigned char slpout[] = {0x11};  /* Sleep Out */
+            const unsigned char *c = (cmd == LUAT_DISPLAY_POWER_ON) ? slpout : slpin;
+
+            luat_display_send_sequence(panel, c, 1);
+            /*SLPOUT 需要一段时间才能恢复显示，SLPIN 后亦需保持*/
+            luat_rtos_task_sleep(cmd == LUAT_DISPLAY_POWER_ON ? 120 : 5);
+        }
     }
     return 0;
 }

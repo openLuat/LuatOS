@@ -111,7 +111,7 @@ static struct luat_display_timing st7701s_timing = {
     .vbp = 16,
     .vspw = 2,
 
-    .flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW,
+    .flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW | DISPLAY_FLAGS_PCLK_HIGH,
 };
 
 /*RGB接口参数*/

@@ -152,6 +152,9 @@
         #define LV_FONT_DEFAULT &lv_font_misans_16
     #endif
 
+    /** LVGL 简单层缓冲区大小 */
+    #define LV_DRAW_LAYER_SIMPLE_BUF_SIZE (512 * 1024)
+
     // 图片缓存配置 
     #ifdef LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
         // 使用自定义img缓存大小

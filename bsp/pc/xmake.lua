@@ -1164,6 +1164,9 @@ target("luatos-lua")
     if use_gb28181 then
         add_defines("LUAT_USE_GB28181=1")
         add_includedirs(gb28181_src .. "/include", {public = true})
+        -- 注：本组件不设 port/ —— 发送所需的 socket 句柄无法从 Lua 交给 C
+        -- (luat_socket_ctrl_t 未公开)，故由 Lua 层泵字节，C 层只负责
+        -- 队列、背压与丢帧策略(src/luat_gb28181_media.c)
         add_files(gb28181_src .. "/src/*.c")
         add_files(gb28181_src .. "/binding/luat_lib_gb28181.c")
     end

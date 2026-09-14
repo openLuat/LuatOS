@@ -197,6 +197,42 @@ function t.test_sip_build_rejects_incomplete_config()
     assert(out == nil, "请求缺 branch 应失败")
 end
 
+--[[
+响应走 from_raw 回抄时没有 from_uri。
+此时若还要 Contact，绑定必须显式拿到 contact_user 或**干净地失败** ——
+曾经这里直接 strlen(NULL)，点播 INVITE 的 200 OK 应答当场段错误。
+]]
+function t.test_sip_build_response_contact_without_from_uri()
+    local base = {
+        code = 200, reason = "OK",
+        via_list = { "SIP/2.0/UDP 127.0.0.1:8199;rport;branch=z9hG4bKabc" },
+        from_raw = "<sip:35020000002000000001@3502000000>;tag=xyz",
+        to_raw   = "<sip:35020000001320000001@3502000000>",
+        call_id  = "abc@test", cseq = 1, cseq_method = "INVITE",
+        host = "192.168.0.4", port = 5160,
+    }
+
+    -- 有 contact_user：应正常构造出 Contact
+    local cfg = {}
+    for k, v in pairs(base) do cfg[k] = v end
+    cfg.contact = true
+    cfg.contact_user = "35020000001320000001"
+    local built, err = gb.sip_build(cfg)
+    assert(built ~= nil, "给了 contact_user 就应构造成功: " .. tostring(err))
+
+    local status, msg = gb.sip_pop(built, 8192)
+    assert(status == "ok")
+    assert(msg.headers["contact"] ==
+           "<sip:35020000001320000001@192.168.0.4:5160>",
+           "Contact 应为显式给出的设备编码, 实际 " .. tostring(msg.headers["contact"]))
+
+    -- 没 contact_user：应返回 nil + 原因，绝不能崩
+    cfg.contact_user = nil
+    local out, reason = gb.sip_build(cfg)
+    assert(out == nil, "缺 contact_user 且无 from_uri 应失败")
+    assert(type(reason) == "string", "应给出失败原因")
+end
+
 --[[ 摘要必须与真实平台接受的值一致——这是绑定是否正确用 C 层的关键证据 ]]
 function t.test_sip_digest_matches_real_platform()
     local resp = gb.sip_digest(REAL_DIGEST_CFG)
@@ -373,6 +409,374 @@ function t.test_xml_build_catalog_escapes_name()
     assert(type(body) == "string")
     assert(string.find(body, "<Name>A&amp;B&lt;C&gt;</Name>", 1, true) ~= nil,
            "特殊字符应被转义")
+end
+
+--[[ SSRC：按附录 C 生成并格式化为 10 位十进制 ]]
+function t.test_ssrc_make_and_format()
+    local ssrc = gb.ssrc_make(false, "3402000000", 1)
+    assert(type(ssrc) == "number", "应返回数字")
+    assert(gb.ssrc_format(ssrc) == "0000000001", "实时点播首位为 0")
+
+    ssrc = gb.ssrc_make(true, "3402000000", 1)
+    assert(gb.ssrc_format(ssrc) == "1000000001", "历史回放首位为 1")
+
+    -- 非法入参
+    assert(gb.ssrc_make(false, "1234", 1) == nil, "域不足 5 位应失败")
+    assert(gb.ssrc_make(false, "3402000000", 10000) == nil, "序号越界应失败")
+end
+
+--[[ SDP：构造后能被本模块解析回 ]]
+function t.test_sdp_build_and_parse_roundtrip()
+    local sdp = gb.sdp_build({
+        owner_id = "35020000001320000001",
+        ip = "192.168.1.100",
+        session_name = "Play",
+        media = "video",
+        port = 30000,
+        payload_type = 96,
+        rtpmap = "PS/90000",
+        ssrc = 1000000001,
+        has_ssrc = 1,
+        direction = "recvonly",
+    })
+    assert(type(sdp) == "string", "SDP 应构造成功")
+    assert(string.find(sdp, "m=video 30000 RTP/AVP 96", 1, true) ~= nil)
+    assert(string.find(sdp, "a=rtpmap:96 PS/90000", 1, true) ~= nil)
+    assert(string.find(sdp, "y=1000000001", 1, true) ~= nil, "必须有 y= 行")
+
+    local s = gb.sdp_parse(sdp)
+    assert(s ~= nil, "应能解析回")
+    assert(s.media == "video")
+    assert(s.port == 30000)
+    assert(s.payload_type == 96)
+    assert(s.rtpmap == "PS/90000")
+    assert(s.ssrc == 1000000001)
+    assert(s.session_name == "Play")
+end
+
+--[[ SDP：解析平台下发的多条 rtpmap，取与 m= 载荷类型匹配的那条 ]]
+function t.test_sdp_parse_picks_matching_rtpmap()
+    local sdp = "v=0\r\n" ..
+                "o=35020000002000000001 0 0 IN IP4 192.168.1.200\r\n" ..
+                "s=Playback\r\n" ..
+                "c=IN IP4 192.168.1.200\r\n" ..
+                "m=video 30200 RTP/AVP 96 98\r\n" ..
+                "a=recvonly\r\n" ..
+                "a=rtpmap:96 PS/90000\r\n" ..
+                "a=rtpmap:98 H264/90000\r\n" ..
+                "y=1000000123\r\n"
+    local s = gb.sdp_parse(sdp)
+    assert(s ~= nil)
+    assert(s.payload_type == 96)
+    assert(s.rtpmap == "PS/90000", "应取与 m= 匹配的那条, 实际 " .. tostring(s.rtpmap))
+    assert(s.ssrc == 1000000123)
+    assert(s.session_name == "Playback")
+end
+
+--[[ SDP：TCP 承载的 proto / setup / connection 往返 ]]
+function t.test_sdp_tcp_carrier_roundtrip()
+    local sdp = gb.sdp_build({
+        owner_id = "35020000001320000001", ip = "192.168.0.4",
+        session_name = "Play", media = "video", port = 31000,
+        payload_type = 96, rtpmap = "PS/90000",
+        ssrc = 1000000001, has_ssrc = 1, direction = "sendonly",
+        proto = gb.PROTO_TCP,
+        setup = gb.TCP_SETUP_PASSIVE,
+        connection = gb.TCP_CONN_NEW,
+    })
+    assert(type(sdp) == "string", "TCP 承载的 SDP 应构造成功")
+    assert(string.find(sdp, "m=video 31000 TCP/RTP/AVP 96", 1, true) ~= nil,
+           "m= 应声明 TCP 承载")
+    assert(string.find(sdp, "a=setup:passive", 1, true) ~= nil)
+    assert(string.find(sdp, "a=connection:new", 1, true) ~= nil)
+
+    local s = gb.sdp_parse(sdp)
+    assert(s ~= nil)
+    assert(s.proto == "TCP/RTP/AVP", "应解析回协议, 实际 " .. tostring(s.proto))
+    assert(s.tcp == true, "tcp 应为 true")
+    assert(s.setup == "passive")
+    assert(s.connection == "new")
+end
+
+--[[ SDP：UDP 承载不应出现 setup/connection 行(平台会困惑) ]]
+function t.test_sdp_udp_carrier_omits_tcp_attrs()
+    local sdp = gb.sdp_build({
+        owner_id = "35020000001320000001", ip = "192.168.0.4",
+        session_name = "Play", media = "video", port = 31000,
+        payload_type = 96, rtpmap = "PS/90000",
+        proto = gb.PROTO_UDP,
+        -- 即使误传了 setup/connection，也不该出现在 UDP 的 SDP 里
+        setup = gb.TCP_SETUP_PASSIVE,
+        connection = gb.TCP_CONN_NEW,
+    })
+    assert(type(sdp) == "string")
+    assert(string.find(sdp, "m=video 31000 RTP/AVP 96", 1, true) ~= nil)
+    assert(string.find(sdp, "a=setup", 1, true) == nil, "UDP 不该有 a=setup")
+    assert(string.find(sdp, "a=connection", 1, true) == nil, "UDP 不该有 a=connection")
+
+    local s = gb.sdp_parse(sdp)
+    assert(s.tcp == false, "tcp 应为 false")
+    assert(s.setup == nil, "未给 setup 时应为 nil")
+end
+
+--[[ sdp_is_tcp：大小写与短串 ]]
+function t.test_sdp_is_tcp_tolerates_case_and_short()
+    assert(gb.sdp_is_tcp("TCP/RTP/AVP") == true)
+    assert(gb.sdp_is_tcp("tcp/rtp/avp") == true, "大小写应不敏感")
+    assert(gb.sdp_is_tcp("RTP/AVP") == false)
+    assert(gb.sdp_is_tcp("") == false)
+
+    -- 解析平台下发的 TCP SDP：proto 原文保留，tcp 是判定结果
+    local s = gb.sdp_parse(
+        "v=0\r\n" ..
+        "o=35020000002000000001 0 0 IN IP4 192.168.1.200\r\n" ..
+        "s=Play\r\n" ..
+        "c=IN IP4 192.168.1.200\r\n" ..
+        "m=video 30200 tcp/RTP/AVP 96\r\n" ..
+        "a=rtpmap:96 PS/90000\r\n" ..
+        "a=setup:actpass\r\n" ..
+        "y=1000000123\r\n")
+    assert(s ~= nil)
+    assert(s.proto == "tcp/RTP/AVP", "原文应保留, 实际 " .. tostring(s.proto))
+    assert(s.tcp == true)
+    assert(s.setup == "actpass")
+    assert(s.connection == nil, "平台没给该行应为 nil")
+end
+
+--[[ 媒体队列：peek 不消费，commit 才消费；advance 支持断点续发 ]]
+function t.test_media_peek_commit_and_advance()
+    local ssrc = gb.ssrc_make(false, "3502000000", 1)
+    local h = gb.media_new(ssrc, 100, 4096)
+    local ps = string.rep("\x5A", 250)          -- MTU 100 -> 3 包
+    assert(gb.media_push(h, ps, 0) == 3)
+
+    -- peek 反复取都是同一个包(不消费)
+    local p1 = gb.media_peek(h)
+    local p2 = gb.media_peek(h)
+    assert(p1 ~= nil and p1 == p2, "peek 不应消费队首包")
+
+    local st = gb.media_stats(h)
+    assert(st.queued_bytes == 250 + 3 * (2 + 12), "peek 不该改变积压字节数")
+
+    -- 只发出去一部分：记下断点，再 peek 应拿到**剩余部分**
+    local partial = 7
+    gb.media_advance(h, partial)
+    local rest = gb.media_peek(h)
+    assert(rest ~= nil)
+    assert(#rest == #p1 - partial,
+           "续发应拿到剩余 " .. (#p1 - partial) .. " 字节, 实际 " .. #rest)
+    assert(p1:sub(1, partial) .. rest == p1, "断点拼接应还原出原包")
+
+    -- 发完剩余部分后 commit，队首前移
+    gb.media_advance(h, #rest)
+    local nxt = gb.media_peek(h)
+    assert(nxt ~= nil and nxt ~= p1, "整包发完后队首应前移")
+
+    -- commit 直接消费
+    local before = gb.media_stats(h).popped_packets
+    gb.media_commit(h)
+    assert(gb.media_stats(h).popped_packets == before + 1, "commit 应记一次出队")
+end
+
+-- ==================================================================
+-- 访问单元规范化(里程碑 4.2)：参数集缓存与按需补插
+-- ==================================================================
+
+-- 拼一个 NAL：起始码 + 头字节 + 填充
+local function nal(nal_type, payload, four_byte_sc)
+    local sc = four_byte_sc and "\0\0\0\1" or "\0\0\1"
+    return sc .. string.char(0x60 | nal_type) .. string.rep("x", payload)
+end
+
+--[[
+起播必须等到 IDR：在那之前的帧接收端一律解不出，发出去只是浪费带宽。
+但**参数集要留下** —— 它可能就藏在被丢弃的那个访问单元里。
+]]
+function t.test_nal_waits_for_idr_but_keeps_params()
+    local h = gb.nal_new(false, true)
+    assert(h ~= nil, "应能创建句柄")
+
+    -- 参数集 + 一个 P 帧：这一帧要丢，但参数集要入缓存
+    local au = nal(7, 5, true) .. nal(8, 3, true) .. nal(1, 8, true)
+    assert(gb.nal_process(h, au) == nil, "没有 IDR 时应丢弃")
+    local st = gb.nal_stats(h)
+    assert(st.dropped_frames == 1, "应记一次丢弃")
+    assert(st.has_params == true, "参数集必须留下 —— 否则后面的 IDR 补不出东西")
+
+    -- 只带 IDR 的一帧：应当补上刚才学到的 SPS/PPS 再发
+    local idr = nal(5, 20, true)
+    local out = gb.nal_process(h, idr)
+    assert(type(out) == "string", "IDR 应被发出")
+    assert(#out > #idr, "应补上参数集(比原帧长)")
+
+    --[[
+    字节核算：补出来的应当**恰好**是"缓存的 SPS + 缓存的 PPS + 原帧"，
+    不多不少。只断言"变长了"是不够的 —— 多补一份或少一段都不会被发现，
+    而多补会让平台按参数集重新起流、少补直接解不出。
+    ]]
+    local sps_len = 4 + 1 + 5      -- 起始码 + 头字节 + 测试里的 SPS 载荷
+    local pps_len = 4 + 1 + 3
+    assert(#out == sps_len + pps_len + #idr,
+           string.format("补出的总长应为 %d, 实际 %d",
+                         sps_len + pps_len + #idr, #out))
+    assert(string.sub(out, 1, 4) == "\0\0\0\1", "补出的参数集应带 4 字节起始码")
+    assert(string.byte(out, 5) % 32 == 7, "补出的第一个应是 SPS")
+    assert(string.byte(out, sps_len + 5) % 32 == 8, "补出的第二个应是 PPS")
+    assert(string.sub(out, sps_len + pps_len + 1) == idr,
+           "原帧应原样跟在参数集之后")
+
+    st = gb.nal_stats(h)
+    assert(st.injected == 1, "应记一次补插")
+    assert(st.idr_frames == 1)
+    assert(st.out_frames == 1)
+end
+
+--[[ 带了参数集的 IDR 不该重复补（省带宽，也避免与编码器发的版本不一致） ]]
+function t.test_nal_does_not_inject_when_au_carries_params()
+    local h = gb.nal_new(false, true)
+    local au = nal(7, 5, true) .. nal(8, 3, true) .. nal(5, 16, true)
+
+    local out = gb.nal_process(h, au)
+    assert(out == au, "自带参数集时应原样透传")
+    assert(gb.nal_stats(h).injected == 0, "不该补")
+end
+
+--[[ 3 字节起始码同样要认对 —— 4 字节起始码时按"起点+3"取头字节会读错 ]]
+function t.test_nal_accepts_three_byte_start_code()
+    local h = gb.nal_new(false, true)
+    local au = nal(7, 4, false) .. nal(8, 3, false) .. nal(5, 12, false)
+    local out = gb.nal_process(h, au)
+    assert(out == au, "3 字节起始码的流也该原样透传")
+    assert(gb.nal_stats(h).idr_frames == 1, "应认出 IDR")
+end
+
+--[[ H.265：类型在高 6 位，且 VPS/SPS/PPS 三者齐了才算有参数集 ]]
+function t.test_nal_hevc_types()
+    local h = gb.nal_new(true, true)
+
+    -- 先只给 SPS+PPS(缺 VPS)，再加上 VPS 才算齐
+    local sps = "\0\0\0\1" .. string.char(33 << 1) .. string.rep("s", 6)
+    local pps = "\0\0\0\1" .. string.char(34 << 1) .. string.rep("p", 4)
+    local vps = "\0\0\0\1" .. string.char(32 << 1) .. string.rep("v", 5)
+    local idr = "\0\0\0\1" .. string.char(19 << 1) .. string.rep("i", 10)
+
+    gb.nal_process(h, sps .. pps)
+    assert(gb.nal_stats(h).has_params == false, "H.265 缺 VPS 不算参数集齐")
+
+    gb.nal_process(h, vps)
+    assert(gb.nal_stats(h).has_params == true, "VPS 到手后应算齐")
+
+    local out = gb.nal_process(h, idr)
+    assert(type(out) == "string", "IDR 应被发出")
+    assert(#out > #idr, "应补上 VPS/SPS/PPS")
+    assert(gb.nal_stats(h).injected == 1)
+end
+
+--[[ 无参数集可补时：原样发出并计数，不丢帧 ]]
+function t.test_nal_without_params_still_sends()
+    local h = gb.nal_new(false, false)      -- 不等 IDR
+    local idr = nal(5, 10, true)
+    local out = gb.nal_process(h, idr)
+    assert(out == idr, "补不出参数集也应原样发，而不是丢掉")
+    local st = gb.nal_stats(h)
+    assert(st.injected == 0)
+    assert(st.no_params == 1, "应记一笔，便于现场判断是不是编码器不发参数集")
+end
+
+--[[ 接口契约：非法入参、reset ]]
+function t.test_nal_api_contract()
+    local h = gb.nal_new(false, true)
+    assert(gb.nal_process(h, "") == nil, "空帧应返回 nil")
+    assert(gb.nal_process(h, string.rep("\1", 16)) == nil,
+           "不含起始码的帧应返回 nil，且不崩")
+
+    gb.nal_process(h, nal(7, 4, true) .. nal(8, 3, true) .. nal(5, 8, true))
+    assert(gb.nal_stats(h).in_frames > 0)
+    gb.nal_reset(h)
+    local st = gb.nal_stats(h)
+    assert(st.in_frames == 0, "reset 应清统计")
+    assert(st.has_params == false, "reset 应清缓存")
+end
+
+--[[ PS 封装：流头与视频帧 ]]
+function t.test_ps_build_video_frame()
+    local head = gb.ps_stream_head({}, 0)
+    assert(type(head) == "string", "流头应构造成功")
+    -- 起始码 00 00 01 BA(BB 是系统头、BC 是 PSM)
+    assert(string.byte(head, 1) == 0 and string.byte(head, 4) == 0xBA,
+           "流头应以 Pack Header 起始码开头")
+
+    local frame = string.rep("\0\0\0\1\x65", 1) .. string.rep("\xAA", 100)
+    local ps = gb.ps_video({}, frame, 9000)
+    assert(type(ps) == "string", "帧应封装成功")
+    assert(#ps > #frame, "PS 应比原帧大(有封装开销)")
+    assert(string.byte(ps, 4) == 0xBA, "每帧都应带 Pack Header")
+    -- 载荷原样保留
+    assert(string.sub(ps, #ps - 99) == string.rep("\xAA", 100), "载荷应原样透传")
+end
+
+--[[ 媒体会话：入队后按包取出，重组后等于原 PS ]]
+function t.test_media_session_push_pop()
+    local ssrc = gb.ssrc_make(false, "3502000000", 1)
+    local h = gb.media_new(ssrc, 100, 4096)     -- MTU 100 便于分片
+    assert(h ~= nil, "媒体会话应创建成功")
+
+    local ps = string.rep("\x5A", 250)          -- 250 字节 -> 3 包
+    local n = gb.media_push(h, ps, 9000)
+    assert(n == 3, "应入队 3 个包, 实际 " .. tostring(n))
+
+    local st = gb.media_stats(h)
+    assert(st.pushed_frames == 1, "统计应记 1 帧")
+    assert(st.queued_bytes == 250 + 3 * (2 + 12), "积压字节数应含长度前缀与 RTP 头")
+
+    -- 取出所有包，剥掉 2 字节前缀与 12 字节 RTP 头，拼回载荷
+    local out = {}
+    while true do
+        local pkt = gb.media_pop(h)
+        if not pkt then break end
+        local plen = (string.byte(pkt, 1) << 8) | string.byte(pkt, 2)
+        assert(plen + 2 == #pkt, "长度前缀应与实际长度一致")
+        out[#out + 1] = string.sub(pkt, 3 + 12)
+    end
+    assert(table.concat(out) == ps, "重组后应等于原 PS")
+    assert(gb.media_pop(h) == nil, "取完后应为 nil")
+
+    st = gb.media_stats(h)
+    assert(st.queued_bytes == 0)
+end
+
+--[[ 媒体会话：队列满时整帧丢弃并计数 ]]
+function t.test_media_session_drops_whole_frame_when_full()
+    local ssrc = gb.ssrc_make(false, "3502000000", 1)
+    local h = gb.media_new(ssrc, 100, 512)      -- 队列只有 512 字节
+    local ps = string.rep("\x5A", 250)          -- 每帧 250 + 3*14 = 292
+
+    local first = gb.media_push(h, ps, 0)
+    assert(first == 3, "第一帧应入队")
+
+    local second = gb.media_push(h, ps, 1)
+    assert(second == 0, "第二帧放不下应整帧丢弃")
+
+    local st = gb.media_stats(h)
+    assert(st.dropped_frames == 1, "应记一次丢帧")
+    assert(st.pushed_frames == 1)
+    assert(st.queued_bytes == 292, "队列里只应有第一帧的完整内容")
+end
+
+--[[ 媒体会话：丢弃半帧 ]]
+function t.test_media_session_drop_partial_frame()
+    local ssrc = gb.ssrc_make(false, "3502000000", 1)
+    local h = gb.media_new(ssrc, 100, 4096)
+    local ps = string.rep("\x5A", 250)          -- 3 包
+    gb.media_push(h, ps, 0)
+    gb.media_push(h, ps, 1)
+
+    local dropped = gb.media_drop_partial(h)
+    assert(dropped == 3, "应丢掉首帧的 3 个包, 实际 " .. tostring(dropped))
+
+    local st = gb.media_stats(h)
+    assert(st.partial_drops == 1)
+    assert(st.queued_bytes == 292, "剩下的应是完整的一帧")
 end
 
 --[[ info() 应给出配置建议值 ]]

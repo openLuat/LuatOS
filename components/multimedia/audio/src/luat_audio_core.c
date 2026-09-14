@@ -1029,8 +1029,9 @@ static void luat_audio_common_task(void *param)
 					_audio_request_finish();
 				}
 			} else {
+				luat_audio_request_cb_t cb = request_block->cb;
 				luat_audio_request_deinit(request_block);
-				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_END, NULL, 0, request_block);
+				cb(LUAT_AUDIO_REQUEST_EVENT_END, NULL, 0, request_block);
 				luat_rtos_semaphore_release(request_block->cancel_sem);
 			}
 			break;

@@ -154,9 +154,11 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
             }           
             break;
         case LUAT_AUDIO_REQUEST_EVENT_END:
-            l_req->is_busy = 0;
-            luat_llist_del(&l_req->node);
-            luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
+            if (l_req->is_busy) {
+                l_req->is_busy = 0;
+                luat_llist_del(&l_req->node);
+                luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
+            }
             LLOGC(luat_audio_debug_flag,"lua request %d end", u_data.u8[0]);
             break;
         case LUAT_AUDIO_REQUEST_EVENT_DRIVER_START:
@@ -180,9 +182,11 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
             }
             break;
         case LUAT_AUDIO_REQUEST_EVENT_EXTERNAL_SOURCE_DECODE_DONE:
-            _l_audio.extern_source_table[u_data.u8[2]].is_busy = 0;
-            luat_llist_del(&_l_audio.extern_source_table[u_data.u8[2]].node);
-            luat_llist_add_tail(&_l_audio.extern_source_table[u_data.u8[2]].node, &_l_audio.extern_source_free_list);
+            if (_l_audio.extern_source_table[u_data.u8[2]].is_busy) {
+                _l_audio.extern_source_table[u_data.u8[2]].is_busy = 0;
+                luat_llist_del(&_l_audio.extern_source_table[u_data.u8[2]].node);
+                luat_llist_add_tail(&_l_audio.extern_source_table[u_data.u8[2]].node, &_l_audio.extern_source_free_list);
+            }
             LLOGC(luat_audio_debug_flag,"lua extern source %d end", u_data.u8[2]);
             break;
         }

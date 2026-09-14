@@ -32,15 +32,16 @@ end
 
 --[[
 WAKEUP2 按键中断回调（BOTH 边沿触发）：
-- 按下(val=1)：发布 KEY_EVENT("reload_down")，启动5秒长按计时器
-- 抬起(val=0)：发布 KEY_EVENT("reload_up")，取消长按计时器
+注意：PULLUP 模式下，按下=低电平(val=0)，抬起=高电平(val=1)
+- 按下(val=0)：发布 KEY_EVENT("reload_down")，启动5秒长按计时器
+- 抬起(val=1)：发布 KEY_EVENT("reload_up")，取消长按计时器
 
 @local
 @function handle_reload_key
-@param val number 1=按下, 0=释放
+@param val number 0=按下(低电平), 1=释放(高电平)
 ]]
 local function handle_reload_key(val)
-    if val == 1 then
+    if val == 0 then
         log.info("reload_app", "RELOAD按键按下")
         sys.publish("KEY_EVENT", "reload_down")
         -- 启动5秒计时器：按住不松手则触发恢复出厂

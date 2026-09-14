@@ -19,6 +19,9 @@
 #include "luat_rtos.h"
 #include "luat_voip_jitterbuf.h"
 #include "luat_audio_data_codec.h"
+#ifdef LUAT_USE_VOIP_RECORD
+#include "luat_voip_record.h"
+#endif
 /* ======================== 配置 ======================== */
 
 #define VOIP_MAX_IP_LEN         48
@@ -28,6 +31,7 @@
 #define VOIP_STATS_INTERVAL_DEFAULT 5000    /* ms */
 #define VOIP_DUPLEX_SLOT_COUNT  4
 #define VOIP_MIC_SLOT_COUNT     4
+#define VOIP_AEC_REF_HISTORY_FRAMES 8
 #define VOIP_RTP_HEADER_LEN     12
 #define VOIP_RTP_PT_PCMU        0
 #define VOIP_RTP_PT_PCMA        8
@@ -37,6 +41,11 @@ typedef enum {
     VOIP_CODEC_PCMU = 0,
     VOIP_CODEC_PCMA = 1,
 } voip_codec_type_t;
+
+typedef enum {
+    VOIP_AEC_MODE_SPEEX = 0,
+    VOIP_AEC_MODE_BK = 1,
+} voip_aec_mode_t;
 
 /* 用户传入的配置 */
 typedef struct {
@@ -52,7 +61,10 @@ typedef struct {
     uint8_t  multimedia_id;     /* audio device id */
     uint8_t  aec_enable;
     uint8_t  aec_denoise;
+    uint8_t  aec_mode;
+    uint8_t  aec_agc;
     uint16_t aec_tail_ms;
+    uint16_t aec_delay_samples;
 } voip_config_t;
 
 /* ======================== 状态 ======================== */
@@ -77,6 +89,14 @@ typedef struct {
     uint32_t rx_out_of_order;
     uint32_t jb_played;
     uint32_t jb_silence;
+    uint32_t aec_ref_underflow;
+    uint32_t aec_ref_overflow;
+    uint32_t aec_sync_resets;
+    uint32_t aec_mic_clipped;
+    uint32_t aec_out_clipped;
+    uint32_t aec_max_process_us;
+    int32_t  aec_seq_skew;
+    uint8_t  aec_mode;
     uint16_t last_rx_seq;
     uint8_t  last_rx_seq_valid;
 } voip_stats_t;
@@ -145,6 +165,9 @@ enum {
     VOIP_CB_STATE = 0,      /* 状态变化 */
     VOIP_CB_STATS = 1,      /* 统计数据 */
     VOIP_CB_ERROR = 2,      /* 错误 */
+#ifdef LUAT_USE_VOIP_RECORD
+    VOIP_CB_RECORD = 3,     /* 本地通话录音 */
+#endif
 };
 
 typedef struct {
@@ -217,18 +240,41 @@ typedef struct {
 #endif
 
     uint32_t mic_generation[VOIP_MIC_SLOT_COUNT];
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+    uint32_t mic_capture_seq[VOIP_MIC_SLOT_COUNT];
+    uint32_t mic_render_seq[VOIP_MIC_SLOT_COUNT];
+    uint64_t mic_capture_tick_ms[VOIP_MIC_SLOT_COUNT];
+#endif
     uint32_t dropped_mic_events;
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+    volatile uint32_t render_done_seq;
+    uint32_t render_refill_seq;
+    uint32_t capture_seq;
+#endif
 
     /* AEC */
-    void *aec_echo;
+    const void *aec_ops;
+    void *aec_state;
     void *aec_preprocess;
     int16_t *aec_out_buf;
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+    int16_t *aec_ref_buf;
+    int16_t *aec_ref_history;
+    volatile uint32_t aec_ref_seq[VOIP_AEC_REF_HISTORY_FRAMES];
+    uint64_t aec_ref_tick_ms[VOIP_AEC_REF_HISTORY_FRAMES];
+    uint32_t aec_last_capture_seq;
+    uint32_t aec_last_render_seq;
+    volatile uint32_t aec_sync_fault;
+#endif
     uint8_t aec_ready;
 
     /* Lua 回调引用 */
     int cb_state_ref;   /* LUA_REGISTRYINDEX ref for state callback */
     int cb_stats_ref;   /* LUA_REGISTRYINDEX ref for stats callback */
     int cb_error_ref;   /* LUA_REGISTRYINDEX ref for error callback */
+#ifdef LUAT_USE_VOIP_RECORD
+    int cb_record_ref;  /* LUA_REGISTRYINDEX ref for record callback */
+#endif
 } voip_ctx_t;
 
 /* ======================== API ======================== */
@@ -264,6 +310,15 @@ voip_state_t voip_get_state(void);
  */
 void voip_get_stats(voip_stats_t *out);
 
+/* Internal AEC/audio-backend interface. */
+int voip_aec_init(voip_ctx_t *ctx);
+void voip_aec_cleanup(voip_ctx_t *ctx);
+void voip_aec_render_push(voip_ctx_t *ctx, const int16_t *render_pcm,
+        uint32_t render_seq, uint64_t tick_ms);
+const int16_t *voip_aec_process_frame(voip_ctx_t *ctx, const int16_t *mic_pcm,
+        uint32_t render_seq, uint32_t capture_seq, uint64_t capture_tick_ms);
+const char *voip_aec_mode_name(const voip_ctx_t *ctx);
+
 /**
  * 是否正在运行
  */
@@ -271,6 +326,17 @@ void voip_get_stats(voip_stats_t *out);
  * 是否正在运行
  */
 int voip_is_running(void);
+
+#ifdef LUAT_USE_VOIP_RECORD
+/** Start/arm a local stereo WAV recording. */
+int voip_record_start(const char *path, uint32_t max_seconds);
+
+/** Asynchronously drain and close the current recording. */
+int voip_record_stop(void);
+
+/** Get a point-in-time recording status snapshot. */
+void voip_record_get_status(voip_record_status_t *status);
+#endif
 
 /* ======================== 桥接模式 API ======================== */
 

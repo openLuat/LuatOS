@@ -192,6 +192,8 @@
     --     nes = true,          -- 启用NES游戏实体按键，必须同时配置 nes_keys
     --     battery = true,      -- 启用电池管理(ADC检测+充电检测)，必须同时配置 hw.battery，
     --                          -- 通常同时设 ui.show_battery_icon = true
+    --     app_factory = true,  -- 启用应用工厂（录音生成APP），通常同时设 ui.show_app_factory = true
+    --     ai_chat = true,      -- 启用AI聊天助手（SSE流式对话+TTS），通常同时设 ui.show_ai_chat = true
     -- },
 
     -- ============================================================
@@ -284,6 +286,8 @@
     --     show_camera_preview = true,      -- 设置页摄像头预览入口        ← 通常配 usb_camera/spi_camera 时打开
     --     show_sensor_panel = true,        -- 设置页传感器数据面板        ← 通常配 i2c_sensor 时打开
     --     show_battery_icon = true,        -- 桌面顶栏电池图标           ← 通常配 battery 时打开
+    --     show_app_factory = true,         -- 桌面"应用工厂"入口         ← 通常配 app_factory 时打开
+    --     show_ai_chat = true,             -- 桌面"AI助手"入口           ← 通常配 ai_chat 时打开
     -- },
 
     -- ============================================================

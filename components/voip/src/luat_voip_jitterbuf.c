@@ -24,11 +24,25 @@ voip_jb_t *voip_jb_create(uint16_t depth, uint16_t max_pending, uint16_t frame_s
         return NULL;
     }
 
-    /* 为每个 slot 预分配 PCM buffer */
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+    jb->pcm_pool = (int16_t *)luat_heap_calloc(
+            (size_t)max_pending * frame_samples, sizeof(int16_t));
+    if (!jb->pcm_pool) {
+        luat_heap_free(jb->slots);
+        luat_heap_free(jb);
+        return NULL;
+    }
+
+    /* 每个 slot 指向连续 PCM 池中的固定窗口。 */
+    for (uint16_t i = 0; i < max_pending; i++) {
+        jb->slots[i].pcm = jb->pcm_pool + (size_t)i * frame_samples;
+        jb->slots[i].valid = 0;
+    }
+#else
+    /* Preserve the existing per-slot allocation behavior on other BSPs. */
     for (uint16_t i = 0; i < max_pending; i++) {
         jb->slots[i].pcm = (int16_t *)luat_heap_malloc(frame_samples * sizeof(int16_t));
         if (!jb->slots[i].pcm) {
-            /* 回滚释放 */
             for (uint16_t j = 0; j < i; j++) {
                 luat_heap_free(jb->slots[j].pcm);
             }
@@ -38,6 +52,7 @@ voip_jb_t *voip_jb_create(uint16_t depth, uint16_t max_pending, uint16_t frame_s
         }
         jb->slots[i].valid = 0;
     }
+#endif
 
     jb->max_pending = max_pending;
     jb->depth = depth;
@@ -54,6 +69,10 @@ voip_jb_t *voip_jb_create(uint16_t depth, uint16_t max_pending, uint16_t frame_s
 void voip_jb_destroy(voip_jb_t *jb)
 {
     if (!jb) return;
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+    if (jb->pcm_pool) luat_heap_free(jb->pcm_pool);
+    if (jb->slots) luat_heap_free(jb->slots);
+#else
     if (jb->slots) {
         for (uint16_t i = 0; i < jb->max_pending; i++) {
             if (jb->slots[i].pcm) {
@@ -62,6 +81,7 @@ void voip_jb_destroy(voip_jb_t *jb)
         }
         luat_heap_free(jb->slots);
     }
+#endif
     luat_heap_free(jb);
 }
 

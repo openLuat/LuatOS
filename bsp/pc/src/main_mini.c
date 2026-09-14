@@ -9,6 +9,8 @@
 
 #include "luat_pcconf.h"
 #include "luat_web_runtime.h"
+#include "luat_pcsim_host.h"
+#include "luat_pc_log.h"
 
 #include "bget.h"
 
@@ -62,8 +64,6 @@ extern void luat_mcu_startup_init(void);
 
 int lua_main (int argc, char** argv);
 
-void luat_log_init_win32(void);
-void luat_log_deinit_win32(void);
 void luat_uart_initial_win32(void);
 void luat_network_init(void);
 
@@ -119,6 +119,9 @@ int main(int argc, char** argv) {
     luat_mcu_startup_init();
     luat_timer_engine_init();
 
+    if (luat_log_parse_cli(cmdline_argc, cmdline_argv)) {
+        return -1;
+    }
     luat_pcconf_init();
 
     luat_log_init_win32();
@@ -152,7 +155,11 @@ int main(int argc, char** argv) {
             return ret;
         }
     }
+    if (luat_agent_ctl_start()) {
+        return -1;
+    }
     if (luat_webc_startup()) {
+        luat_agent_ctl_stop();
         return -1;
     }
 
@@ -169,6 +176,7 @@ int main(int argc, char** argv) {
 
     uv_luat_main(NULL);
 
+    luat_agent_ctl_stop();
     luat_log_deinit_win32();
     luat_webc_shutdown();
     return 0;

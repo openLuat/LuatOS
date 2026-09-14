@@ -19,7 +19,8 @@
 #include <string.h>
 
 /* DEBUG_BUF_SIZE must be at least 2 */
-#define DEBUG_BUF_SIZE      512
+/* 小RAM平台省栈: 由上游默认512降至256 (LuatOS定制) */
+#define DEBUG_BUF_SIZE      256
 
 int mbedtls_debug_snprintf(char *dest, size_t maxlen,
                            const char *format, ...)
@@ -65,7 +66,7 @@ void mbedtls_debug_print_msg(const mbedtls_ssl_context *ssl, int level,
                              const char *format, ...)
 {
     va_list argp;
-    char str[DEBUG_BUF_SIZE];
+    char *str;
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
 
     MBEDTLS_STATIC_ASSERT(DEBUG_BUF_SIZE >= 2, "DEBUG_BUF_SIZE too small");
@@ -74,6 +75,12 @@ void mbedtls_debug_print_msg(const mbedtls_ssl_context *ssl, int level,
         NULL == ssl->conf        ||
         NULL == ssl->conf->f_dbg ||
         level > debug_threshold) {
+        return;
+    }
+
+    /* 堆分配, 避免小RAM平台深栈 (LuatOS定制) */
+    str = mbedtls_calloc(1, DEBUG_BUF_SIZE);
+    if (str == NULL) {
         return;
     }
 
@@ -92,13 +99,14 @@ void mbedtls_debug_print_msg(const mbedtls_ssl_context *ssl, int level,
     str[ret + 1] = '\0';
 
     debug_send_line(ssl, level, file, line, str);
+    mbedtls_free(str);
 }
 
 void mbedtls_debug_print_ret(const mbedtls_ssl_context *ssl, int level,
                              const char *file, int line,
                              const char *text, int ret)
 {
-    char str[DEBUG_BUF_SIZE];
+    char *str;
 
     if (NULL == ssl              ||
         NULL == ssl->conf        ||
@@ -116,17 +124,24 @@ void mbedtls_debug_print_ret(const mbedtls_ssl_context *ssl, int level,
         return;
     }
 
-    mbedtls_snprintf(str, sizeof(str), "%s() returned %d (-0x%04x)\n",
+    /* 堆分配, 避免小RAM平台深栈 (LuatOS定制) */
+    str = mbedtls_calloc(1, DEBUG_BUF_SIZE);
+    if (str == NULL) {
+        return;
+    }
+
+    mbedtls_snprintf(str, DEBUG_BUF_SIZE, "%s() returned %d (-0x%04x)\n",
                      text, ret, (unsigned int) -ret);
 
     debug_send_line(ssl, level, file, line, str);
+    mbedtls_free(str);
 }
 
 void mbedtls_debug_print_buf(const mbedtls_ssl_context *ssl, int level,
                              const char *file, int line, const char *text,
                              const unsigned char *buf, size_t len)
 {
-    char str[DEBUG_BUF_SIZE];
+    char *str;
     char txt[17];
     size_t i, idx = 0;
 
@@ -137,7 +152,13 @@ void mbedtls_debug_print_buf(const mbedtls_ssl_context *ssl, int level,
         return;
     }
 
-    mbedtls_snprintf(str + idx, sizeof(str) - idx, "dumping '%s' (%u bytes)\n",
+    /* 堆分配, 避免小RAM平台深栈 (LuatOS定制) */
+    str = mbedtls_calloc(1, DEBUG_BUF_SIZE);
+    if (str == NULL) {
+        return;
+    }
+
+    mbedtls_snprintf(str + idx, DEBUG_BUF_SIZE - idx, "dumping '%s' (%u bytes)\n",
                      text, (unsigned int) len);
 
     debug_send_line(ssl, level, file, line, str);
@@ -150,31 +171,32 @@ void mbedtls_debug_print_buf(const mbedtls_ssl_context *ssl, int level,
 
         if (i % 16 == 0) {
             if (i > 0) {
-                mbedtls_snprintf(str + idx, sizeof(str) - idx, "  %s\n", txt);
+                mbedtls_snprintf(str + idx, DEBUG_BUF_SIZE - idx, "  %s\n", txt);
                 debug_send_line(ssl, level, file, line, str);
 
                 idx = 0;
                 memset(txt, 0, sizeof(txt));
             }
 
-            idx += mbedtls_snprintf(str + idx, sizeof(str) - idx, "%04x: ",
+            idx += mbedtls_snprintf(str + idx, DEBUG_BUF_SIZE - idx, "%04x: ",
                                     (unsigned int) i);
 
         }
 
-        idx += mbedtls_snprintf(str + idx, sizeof(str) - idx, " %02x",
+        idx += mbedtls_snprintf(str + idx, DEBUG_BUF_SIZE - idx, " %02x",
                                 (unsigned int) buf[i]);
         txt[i % 16] = (buf[i] > 31 && buf[i] < 127) ? buf[i] : '.';
     }
 
     if (len > 0) {
         for (/* i = i */; i % 16 != 0; i++) {
-            idx += mbedtls_snprintf(str + idx, sizeof(str) - idx, "   ");
+            idx += mbedtls_snprintf(str + idx, DEBUG_BUF_SIZE - idx, "   ");
         }
 
-        mbedtls_snprintf(str + idx, sizeof(str) - idx, "  %s\n", txt);
+        mbedtls_snprintf(str + idx, DEBUG_BUF_SIZE - idx, "  %s\n", txt);
         debug_send_line(ssl, level, file, line, str);
     }
+    mbedtls_free(str);
 }
 
 #if defined(MBEDTLS_ECP_LIGHT)

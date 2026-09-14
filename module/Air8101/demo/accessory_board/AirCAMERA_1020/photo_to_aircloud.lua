@@ -199,7 +199,7 @@ local function capture_func()
             end
             -- 判断是否ZBUFF存储方式，如果是文件系统保存则删除本地文件
             if save_method ~= "ZBUFF" then
-                os.remove(spi_camera_param.save_path)
+                os.remove(dvp_camera_param.save_path)
             end
         end
         -- 关闭摄像头，释放资源

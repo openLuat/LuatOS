@@ -16,6 +16,10 @@
 #include "luat_gpio.h"
 #include "luat_log.h"
 #include "luat_airui_platform_luatos.h"
+#include "luat_airui_input_hid_luatos.h"
+#ifdef LUAT_USE_INPUT_TOUCH
+#include "luat_airui_input_touch_luatos.h"
+#endif
 
 #include <string.h>
 
@@ -28,6 +32,7 @@ extern luat_tp_config_t *airui_platform_luatos_get_tp_bind(void);
 /** 按键队列大小 */
 #define AIRUI_KEYPAD_QUEUE_SIZE 16
 
+#ifndef LUAT_USE_INPUT_TOUCH
 /** 触摸事件缓存 */
 static luat_tp_data_t g_touch_notify_last[LUAT_TP_TOUCH_MAX];
 /** 触摸事件缓存是否有效 */
@@ -37,6 +42,7 @@ static const airui_ctx_t *g_touch_notify_last_ctx = NULL;
 /** 触摸事件缓存引用计数 */
 static int g_touch_notify_last_ref = 0;
 
+#endif
 /** 按键事件结构体 */
 typedef struct {
     uint32_t key; // 按键值
@@ -49,7 +55,9 @@ static uint8_t g_keypad_tail = 0; // 按键队列尾
 static uint8_t g_keypad_state_mask = 0; // 按键状态掩码
 static uint8_t g_keypad_has_state = 0; // 按键状态是否有效
 static uint8_t g_keypad_gpio_inited = 0; // 按键GPIO是否初始化
+#ifndef LUAT_USE_INPUT_TOUCH
 static uint8_t g_tp_dir_warned = 0; // TP 原始方向配置告警是否已打印
+#endif
 
 
 // 按键队列推入
@@ -190,6 +198,7 @@ static void airui_luatos_keypad_collect_events(const airui_luatos_keypad_cfg_t *
     g_keypad_state_mask = curr_mask;
 }
 
+#ifndef LUAT_USE_INPUT_TOUCH
 // 对齐 tp 库：按 tp.direction + swap_xy 处理触摸坐标
 static void airui_luatos_apply_tp_transform(int32_t *x, int32_t *y, int32_t w, int32_t h, uint8_t tp_dir, uint8_t swap_xy)
 {
@@ -279,9 +288,11 @@ static bool airui_luatos_touch_snapshot_changed(airui_ctx_t *ctx, const luat_tp_
     return true;
 }
 
+#endif
+
 static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev_data_t *data)
 {
-    if (data == NULL) {
+    if (ctx == NULL || data == NULL) {
         return false;
     }
 
@@ -294,11 +305,21 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_in
         }
     }
 
+#if defined(LUAT_USE_INPUT)
+    if (slot == AIRUI_HID_POINTER_SLOT) {
+        airui_input_hid_pointer_read(indev, ctx->native_width, ctx->native_height, data);
+        return data->state == LV_INDEV_STATE_PRESSED;
+    }
+#endif
+
     luatos_platform_data_t *platform = airui_luatos_get_data(ctx);
     luat_tp_config_t *tp_cfg = platform ? platform->tp_config : NULL;
     if (tp_cfg == NULL) {
         tp_cfg = airui_platform_luatos_get_tp_bind();
     }
+#ifdef LUAT_USE_INPUT_TOUCH
+    return airui_input_touch_read(ctx, indev, data, tp_cfg, slot);
+#else
     if (tp_cfg == NULL) {
         return false;
     }
@@ -385,6 +406,7 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_in
     }
 
     return pressed;
+#endif
 }
 
 /**
@@ -395,6 +417,12 @@ static bool luatos_input_read_keypad(airui_ctx_t *ctx, lv_indev_data_t *data)
     if (ctx == NULL || data == NULL) {
         return false;
     }
+
+#if defined(LUAT_USE_INPUT)
+    if (airui_input_hid_keypad_read(ctx->indev_keypad, data)) {
+        return true;
+    }
+#endif
 
     // 获取平台数据
     luatos_platform_data_t *platform = airui_luatos_get_data(ctx);
@@ -453,7 +481,9 @@ static int luatos_input_suspend(airui_ctx_t *ctx, airui_sleep_mode_t mode)
         return AIRUI_ERR_PLATFORM_ERROR;
     }
 
+#ifndef LUAT_USE_INPUT_TOUCH
     memset(tp_cfg->tp_data, 0, sizeof(tp_cfg->tp_data));
+#endif
     if (platform != NULL) {
         platform->tp_suspended = 1;
         platform->tp_resume_needs_init = 0;
@@ -496,7 +526,9 @@ static int luatos_input_resume(airui_ctx_t *ctx, airui_sleep_mode_t mode)
         }
     }
 
+#ifndef LUAT_USE_INPUT_TOUCH
     memset(tp_cfg->tp_data, 0, sizeof(tp_cfg->tp_data));
+#endif
     if (platform != NULL) {
         platform->tp_suspended = 0;
         platform->tp_resume_needs_init = 0;
@@ -517,6 +549,10 @@ static const airui_input_ops_t luatos_input_ops = {
 /** 获取 LuatOS 输入驱动操作接口 */
 const airui_input_ops_t *airui_platform_luatos_get_input_ops(void)
 {
+#if defined(LUAT_USE_INPUT_SERVICE) || defined(LUAT_USE_INPUT_TOUCH) || defined(LUAT_USE_INPUT_LUA)
+    extern int airui_input_service_start(void);
+    if (airui_input_service_start()) LLOGE("input service consumer init failed");
+#endif
     return &luatos_input_ops;
 }
 

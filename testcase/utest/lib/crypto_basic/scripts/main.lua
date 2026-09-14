@@ -10,7 +10,8 @@ sys.taskInit(function()
     testrunner.runBatch("crypto_basic", {
         { testTable = crypto_test.cjson_suite, testcase = "C层utest-cjson(简单)" },
         { testTable = crypto_test.rsa_suite, testcase = "C层utest-rsa(中等)" },
-        { testTable = crypto_test.gmssl_suite, testcase = "C层utest-gmssl(复杂)" }
+        { testTable = crypto_test.gmssl_suite, testcase = "C层utest-gmssl(复杂)" },
+        { testTable = crypto_test.p256_suite, testcase = "C层utest-p256快速路径" }
     })
 end)
 

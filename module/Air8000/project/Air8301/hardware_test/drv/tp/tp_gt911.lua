@@ -1,59 +1,60 @@
 --[[
 @module  gt911
 @summary GT911 触摸控制器驱动（Air8301 硬件测试）
-@version 2.0
+@version 3.0
 @date    2026.08.04
 @author  江访
 @usage
-require "tp_gt911" 即完成触摸初始化（等待 DISPLAY_READY 后执行，绑定到 AirUI）。
+本模块是纯驱动模块，不自动初始化，不等待消息。
+由 ui_main.lua 的 init_ui_task 协程在 lcd_init 之后调用 M.init()。
+
+对齐工厂引擎 app_engine 的 tp_gt911.lua 模式：
+通过 params 传入端口/引脚/方向等参数，返回 tp_device。
 ]]
+local M = {}
 
 --[[
-触摸初始化协程（require 后自动启动，含 sys.wait 延时）：
-1. 等待 DISPLAY_READY 消息（需 LCD/AirUI 先就绪）
-2. 初始化 I2C0 并复位 GT911（pin_rst=GPIO26, pin_int=WAKEUP0）
-3. tp.init 初始化触摸芯片
-4. 绑定触摸设备到 AirUI（兼容 device_bind_touch / indev_bind_touch，失败不崩溃）
+触摸芯片初始化（不含 AirUI 绑定，绑定由调用方负责）
 
-@local
-@function tp_init_task
+@param table params  { port, pin_rst, pin_int, w, h, direction, int_type }
+@return userdata|nil  tp_device 成功 / nil 失败
 ]]
-local function tp_init_task()
-    -- 等待 LCD/AirUI 初始化完成
-    sys.waitUntil("DISPLAY_READY", 5000)
+function M.init(params)
+    params = params or {}
 
-    -- I2C 上电稳定
-    i2c.setup(0, i2c.SLOW)
-    sys.wait(100)
+    -- I2C 初始化
+    local port = params.port or 0
+    local i2c_speed = params.i2c_speed or i2c.SLOW
+    i2c.setup(port, i2c_speed)
 
-    -- direction=2(180°)：Air8301 TP 原点在右下角，LCD 原点在左上角，需翻转 X/Y
-    -- C 层变换：x_new = w - x_raw, y_new = h - y_raw
+    -- direction=0（正常方向）：面板已物理旋转180°安装，LCD和TP均用原始坐标
     local tp_device = tp.init("gt911", {
-        port = 0,
-        pin_rst = 26,
-        pin_int = gpio.WAKEUP0,
-        w = 480,
-        h = 272,
-        direction = 2,
-        int_type = 1,
+        port     = port,
+        pin_rst  = params.pin_rst or 26,
+        pin_int  = params.pin_int or gpio.WAKEUP0,
+        w        = params.w or 480,
+        h        = params.h or 272,
+        direction = params.direction or 0,
+        int_type = params.int_type or 1,
     })
     if not tp_device then
         log.warn("gt911", "tp.init 失败（PC模拟器可忽略）")
-        return
+        return nil
     end
 
     -- 绑定到 AirUI（兼容新/旧固件 API，失败不崩溃）
     local bind_fn = airui.device_bind_touch or airui.indev_bind_touch
     if not bind_fn then
         log.warn("gt911", "airui 无触摸绑定API(device_bind_touch/indev_bind_touch), 建议升级固件")
-        return
+        return tp_device
     end
     local ok, err = pcall(bind_fn, tp_device)
     if not ok then
         log.warn("gt911", "touch bind failed:", err)
-        return
     end
+
     log.info("gt911", "触摸初始化完成")
+    return tp_device
 end
 
-sys.taskInit(tp_init_task)
+return M

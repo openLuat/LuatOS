@@ -94,6 +94,21 @@
 
 #include "mbedtls/ecp_internal.h"
 
+#if defined(LUAT_CONF_MBEDTLS_ECP_CACHE)
+/* 进程级 G/Q comb 表缓存 hook: 声明见 luat/include/luat_mbedtls.h,
+ * 实现见 components/crypto/luat_mbedtls_ecp_cache.c.
+ * 开关 LUAT_CONF_MBEDTLS_ECP_CACHE 在目标 mbedtls 配置头中定义;
+ * 前提: mbedtls 2.x + MBEDTLS_ECP_FIXED_POINT_OPTIM==1 + 未开 RESTARTABLE. */
+#include "luat_mbedtls.h"
+#endif /* LUAT_CONF_MBEDTLS_ECP_CACHE */
+
+#if defined(LUAT_CONF_MBEDTLS_ECP_P256_FAST) && !defined(LUAT_CONF_MBEDTLS_ECP_CACHE)
+/* P-256 常数时间快速路径 hook: 声明见 luat/include/luat_mbedtls.h,
+ * 实现见 components/crypto/p256/(算法结构参考 BearSSL ec_p256_m31.c, MIT).
+ * 开关 LUAT_CONF_MBEDTLS_ECP_P256_FAST 在目标 mbedtls 配置头中定义. */
+#include "luat_mbedtls.h"
+#endif /* LUAT_CONF_MBEDTLS_ECP_P256_FAST */
+
 #if !defined(MBEDTLS_ECP_NO_INTERNAL_RNG)
 #if defined(MBEDTLS_HMAC_DRBG_C)
 #include "mbedtls/hmac_drbg.h"
@@ -735,6 +750,14 @@ void mbedtls_ecp_group_free( mbedtls_ecp_group *grp )
         mbedtls_mpi_free( &grp->N );
     }
 
+#if defined(LUAT_CONF_MBEDTLS_ECP_CACHE)
+    if( grp->T != NULL && luat_ecp_cache_owns( grp->T ) )
+    {
+        /* 进程级静态缓存的 G 表(P-256/P-384), 不随 group 释放 */
+        grp->T = NULL;
+        grp->T_size = 0;
+    }
+#endif
     if( grp->T != NULL )
     {
         for( i = 0; i < grp->T_size; i++ )
@@ -2263,6 +2286,10 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
     size_t d;
     unsigned char T_size = 0, T_ok = 0;
     mbedtls_ecp_point *T = NULL;
+#if defined(LUAT_CONF_MBEDTLS_ECP_CACHE)
+    int t_is_static = 0;
+    mbedtls_ecp_point *t_cache_hit = NULL;
+#endif
 #if !defined(MBEDTLS_ECP_NO_INTERNAL_RNG)
     ecp_drbg_context drbg_ctx;
 
@@ -2319,6 +2346,25 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
         T = grp->T;
         T_ok = 1;
     }
+#if defined(LUAT_CONF_MBEDTLS_ECP_CACHE)
+    else if( p_eq_g &&
+             ( t_cache_hit = luat_ecp_g_cache_lookup( grp->id, T_size ) ) != NULL )
+    {
+        /* 命中进程级 G 缓存, 本次免建表; 表不归本次调用所有 */
+        T = t_cache_hit;
+        T_ok = 1;
+        t_is_static = 1;
+    }
+    else if( !p_eq_g &&
+             ( t_cache_hit = luat_ecp_q_cache_lookup( grp->id, T_size, P,
+                                                      (unsigned) grp->nbits ) ) != NULL )
+    {
+        /* 命中 Q 缓存(验签公钥表), 免建表; 表同样不归本次调用所有 */
+        T = t_cache_hit;
+        T_ok = 1;
+        t_is_static = 1;
+    }
+#endif
     else
 #if defined(MBEDTLS_ECP_RESTARTABLE)
     /* Pre-computed table: do we have one in progress? complete? */
@@ -2370,6 +2416,22 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
 
 cleanup:
 
+#if defined(LUAT_CONF_MBEDTLS_ECP_CACHE)
+    /* 本次新构建了基点 G 的表: 先到先得提升为进程级静态缓存(仍归 grp,
+     * group_free 时经 luat_ecp_cache_owns 豁免释放) */
+    if( ret == 0 && p_eq_g && !t_is_static && T != NULL && T == grp->T )
+        luat_ecp_g_cache_publish( grp->id, T_size, T );
+
+    /* 本次新构建了非 G 点的表: 尝试发布进 Q 缓存(验签公钥跨握手复用);
+     * 发布成功(返回 1)则表归缓存所有, t_is_static 让下方跳过释放 */
+    if( ret == 0 && !p_eq_g && !t_is_static && T != NULL )
+    {
+        if( luat_ecp_q_cache_publish( grp->id, T_size, P,
+                                      (unsigned) grp->nbits, T ) )
+            t_is_static = 1;
+    }
+#endif
+
 #if !defined(MBEDTLS_ECP_NO_INTERNAL_RNG)
     ecp_drbg_free( &drbg_ctx );
 #endif
@@ -2377,6 +2439,11 @@ cleanup:
     /* does T belong to the group? */
     if( T == grp->T )
         T = NULL;
+#if defined(LUAT_CONF_MBEDTLS_ECP_CACHE)
+    /* 命中静态缓存的表不归本次调用所有, 跳过释放 */
+    if( t_is_static )
+        T = NULL;
+#endif
 
     /* does T belong to the restart context? */
 #if defined(MBEDTLS_ECP_RESTARTABLE)
@@ -2704,7 +2771,18 @@ int mbedtls_ecp_mul_restartable( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
 #endif
 #if defined(MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED)
     if( mbedtls_ecp_get_type( grp ) == MBEDTLS_ECP_TYPE_SHORT_WEIERSTRASS )
+    {
+#if defined(LUAT_CONF_MBEDTLS_ECP_P256_FAST)
+        if( grp->id == MBEDTLS_ECP_DP_SECP256R1 && rs_ctx == NULL &&
+            ( ret = luat_mbedtls_p256_mul( grp, R, m, P ) ) != 1 )
+        {
+            /* 快速路径已处理(成功或真实错误); 返回 1 表示不适用, 落回 comb */
+            MBEDTLS_MPI_CHK( ret );
+        }
+        else
+#endif
         MBEDTLS_MPI_CHK( ecp_mul_comb( grp, R, m, P, f_rng, p_rng, rs_ctx ) );
+    }
 #endif
 
 cleanup:

@@ -1,0 +1,9 @@
+{
+    "timeout": 60,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "netdrv.ipv6 静态地址/链路本地/参数校验/出向数据面 (whale 网卡, PC 模拟器)"
+}

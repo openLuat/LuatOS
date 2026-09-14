@@ -63,6 +63,20 @@ sys.subscribe("WLAN_STA_INC", wifi_sta_func)
 
 -- 初始化WiFi网卡任务
 local function netdrv_wifi_task_func()
+    -- WiFi模组(6205)上电复位 (AirLink UART3, EN=GPIO12, 高电平有效)
+    -- 如需使用SPI方式备用（低电平有效），请注释掉下面4行，改用SPI方式的代码
+    -- sys.wait(100)
+    -- gpio.setup(12, 0)   -- 拉低 50ms 复位
+    -- sys.wait(50)
+    -- gpio.setup(12, 1)   -- 拉高 120ms 使能
+    -- sys.wait(120)
+    -- WiFi SPI方式备用（SPI2, EN=GPIO12, 低电平有效）
+    gpio.setup(12, 1)   -- 拉高 50ms
+    sys.wait(50)
+    gpio.setup(12, 0)   -- 拉低 120ms 使能
+    sys.wait(120)
+    log.info("netdrv_wifi", "WiFi模组上电复位完成")
+
     -- 配置airlink WiFi单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_STA
     -- ssid为要连接的WiFi路由器名称；
     -- password为要连接的WiFi路由器密码；

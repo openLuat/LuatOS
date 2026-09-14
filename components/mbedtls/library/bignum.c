@@ -1447,6 +1447,115 @@ void mpi_mul_hlp( size_t i,
     }
 }
 
+#if defined(MBEDTLS_HAVE_INT32)
+
+/*
+ * Fully-unrolled-size 256x256-bit (8-limb x 8-limb) Comba multiplication
+ * and squaring, primarily for NIST P-256 field arithmetic on 32-bit cores
+ * without a wide multiply-accumulate (e.g. Cortex-M3).
+ *
+ * Compared with the generic row-by-row loop (mpi_mul_hlp per row):
+ *  - single pass, product-scanning: no per-row call/entry overhead and no
+ *    separate carry ripple per row, the 96-bit accumulator (c2,c1,c0)
+ *    stays in registers across a whole column;
+ *  - squaring exploits symmetry (cross terms doubled), saving ~half of
+ *    the 64 products.
+ * Results are bit-exact identical to the generic path.
+ */
+
+/* Add the 64-bit product p into the 96-bit accumulator (c2,c1,c0) */
+#define MPI_COMBA_ACC( p )                              \
+    do {                                                \
+        uint32_t lo_ = (uint32_t)( p );                 \
+        uint32_t hi_ = (uint32_t)( (uint64_t)( p ) >> 32 ); \
+        c0 += lo_;                                      \
+        uint32_t t_ = hi_ + ( c0 < lo_ );               \
+        c1 += t_;                                       \
+        c2 += ( c1 < t_ );                              \
+    } while( 0 )
+
+/* r[0..15] = a[0..7] * b[0..7], product-scanning, fully unrolled
+ * (rolled column loops cost a taken branch per product on Cortex-M3,
+ * so all 64 products are written out explicitly) */
+#define MPI_COMBA_PP( i, j ) MPI_COMBA_ACC( (uint64_t) a[i] * b[j] )
+#define MPI_COMBA_EMIT( k )  r[k] = c0; c0 = c1; c1 = c2; c2 = 0
+
+static void mpi_mul_comba8( const mbedtls_mpi_uint *a,
+                            const mbedtls_mpi_uint *b,
+                            mbedtls_mpi_uint *r )
+{
+    uint32_t c0 = 0, c1 = 0, c2 = 0;
+
+    MPI_COMBA_PP( 0, 0 );                                           MPI_COMBA_EMIT( 0 );
+    MPI_COMBA_PP( 0, 1 ); MPI_COMBA_PP( 1, 0 );                     MPI_COMBA_EMIT( 1 );
+    MPI_COMBA_PP( 0, 2 ); MPI_COMBA_PP( 1, 1 ); MPI_COMBA_PP( 2, 0 ); MPI_COMBA_EMIT( 2 );
+    MPI_COMBA_PP( 0, 3 ); MPI_COMBA_PP( 1, 2 ); MPI_COMBA_PP( 2, 1 ); MPI_COMBA_PP( 3, 0 );
+    MPI_COMBA_EMIT( 3 );
+    MPI_COMBA_PP( 0, 4 ); MPI_COMBA_PP( 1, 3 ); MPI_COMBA_PP( 2, 2 ); MPI_COMBA_PP( 3, 1 );
+    MPI_COMBA_PP( 4, 0 );                                           MPI_COMBA_EMIT( 4 );
+    MPI_COMBA_PP( 0, 5 ); MPI_COMBA_PP( 1, 4 ); MPI_COMBA_PP( 2, 3 ); MPI_COMBA_PP( 3, 2 );
+    MPI_COMBA_PP( 4, 1 ); MPI_COMBA_PP( 5, 0 );                     MPI_COMBA_EMIT( 5 );
+    MPI_COMBA_PP( 0, 6 ); MPI_COMBA_PP( 1, 5 ); MPI_COMBA_PP( 2, 4 ); MPI_COMBA_PP( 3, 3 );
+    MPI_COMBA_PP( 4, 2 ); MPI_COMBA_PP( 5, 1 ); MPI_COMBA_PP( 6, 0 ); MPI_COMBA_EMIT( 6 );
+    MPI_COMBA_PP( 0, 7 ); MPI_COMBA_PP( 1, 6 ); MPI_COMBA_PP( 2, 5 ); MPI_COMBA_PP( 3, 4 );
+    MPI_COMBA_PP( 4, 3 ); MPI_COMBA_PP( 5, 2 ); MPI_COMBA_PP( 6, 1 ); MPI_COMBA_PP( 7, 0 );
+    MPI_COMBA_EMIT( 7 );
+    MPI_COMBA_PP( 1, 7 ); MPI_COMBA_PP( 2, 6 ); MPI_COMBA_PP( 3, 5 ); MPI_COMBA_PP( 4, 4 );
+    MPI_COMBA_PP( 5, 3 ); MPI_COMBA_PP( 6, 2 ); MPI_COMBA_PP( 7, 1 ); MPI_COMBA_EMIT( 8 );
+    MPI_COMBA_PP( 2, 7 ); MPI_COMBA_PP( 3, 6 ); MPI_COMBA_PP( 4, 5 ); MPI_COMBA_PP( 5, 4 );
+    MPI_COMBA_PP( 6, 3 ); MPI_COMBA_PP( 7, 2 );                     MPI_COMBA_EMIT( 9 );
+    MPI_COMBA_PP( 3, 7 ); MPI_COMBA_PP( 4, 6 ); MPI_COMBA_PP( 5, 5 ); MPI_COMBA_PP( 6, 4 );
+    MPI_COMBA_PP( 7, 3 );                                           MPI_COMBA_EMIT( 10 );
+    MPI_COMBA_PP( 4, 7 ); MPI_COMBA_PP( 5, 6 ); MPI_COMBA_PP( 6, 5 ); MPI_COMBA_PP( 7, 4 );
+    MPI_COMBA_EMIT( 11 );
+    MPI_COMBA_PP( 5, 7 ); MPI_COMBA_PP( 6, 6 ); MPI_COMBA_PP( 7, 5 ); MPI_COMBA_EMIT( 12 );
+    MPI_COMBA_PP( 6, 7 ); MPI_COMBA_PP( 7, 6 );                     MPI_COMBA_EMIT( 13 );
+    MPI_COMBA_PP( 7, 7 );                                           MPI_COMBA_EMIT( 14 );
+    r[15] = c0;
+}
+
+/* r[0..15] = a[0..7] ^ 2, cross terms computed once and added twice */
+#define MPI_COMBA_PP2( i, j )                       \
+    do {                                            \
+        uint64_t p_ = (uint64_t) a[i] * a[j];       \
+        MPI_COMBA_ACC( p_ );                        \
+        MPI_COMBA_ACC( p_ );                        \
+    } while( 0 )
+#define MPI_COMBA_DD( i )  MPI_COMBA_ACC( (uint64_t) a[i] * a[i] )
+
+static void mpi_sqr_comba8( const mbedtls_mpi_uint *a,
+                            mbedtls_mpi_uint *r )
+{
+    uint32_t c0 = 0, c1 = 0, c2 = 0;
+
+    MPI_COMBA_DD( 0 );                                                          MPI_COMBA_EMIT( 0 );
+    MPI_COMBA_PP2( 0, 1 );                                                      MPI_COMBA_EMIT( 1 );
+    MPI_COMBA_PP2( 0, 2 ); MPI_COMBA_DD( 1 );                                   MPI_COMBA_EMIT( 2 );
+    MPI_COMBA_PP2( 0, 3 ); MPI_COMBA_PP2( 1, 2 );                               MPI_COMBA_EMIT( 3 );
+    MPI_COMBA_PP2( 0, 4 ); MPI_COMBA_PP2( 1, 3 ); MPI_COMBA_DD( 2 );            MPI_COMBA_EMIT( 4 );
+    MPI_COMBA_PP2( 0, 5 ); MPI_COMBA_PP2( 1, 4 ); MPI_COMBA_PP2( 2, 3 );        MPI_COMBA_EMIT( 5 );
+    MPI_COMBA_PP2( 0, 6 ); MPI_COMBA_PP2( 1, 5 ); MPI_COMBA_PP2( 2, 4 );
+    MPI_COMBA_DD( 3 );                                                          MPI_COMBA_EMIT( 6 );
+    MPI_COMBA_PP2( 0, 7 ); MPI_COMBA_PP2( 1, 6 ); MPI_COMBA_PP2( 2, 5 );
+    MPI_COMBA_PP2( 3, 4 );                                                      MPI_COMBA_EMIT( 7 );
+    MPI_COMBA_PP2( 1, 7 ); MPI_COMBA_PP2( 2, 6 ); MPI_COMBA_PP2( 3, 5 );
+    MPI_COMBA_DD( 4 );                                                          MPI_COMBA_EMIT( 8 );
+    MPI_COMBA_PP2( 2, 7 ); MPI_COMBA_PP2( 3, 6 ); MPI_COMBA_PP2( 4, 5 );        MPI_COMBA_EMIT( 9 );
+    MPI_COMBA_PP2( 3, 7 ); MPI_COMBA_PP2( 4, 6 ); MPI_COMBA_DD( 5 );            MPI_COMBA_EMIT( 10 );
+    MPI_COMBA_PP2( 4, 7 ); MPI_COMBA_PP2( 5, 6 );                               MPI_COMBA_EMIT( 11 );
+    MPI_COMBA_PP2( 5, 7 ); MPI_COMBA_DD( 6 );                                   MPI_COMBA_EMIT( 12 );
+    MPI_COMBA_PP2( 6, 7 );                                                      MPI_COMBA_EMIT( 13 );
+    MPI_COMBA_DD( 7 );                                                          MPI_COMBA_EMIT( 14 );
+    r[15] = c0;
+}
+
+#undef MPI_COMBA_PP
+#undef MPI_COMBA_EMIT
+#undef MPI_COMBA_PP2
+#undef MPI_COMBA_DD
+
+#endif /* MBEDTLS_HAVE_INT32 */
+
 /*
  * Baseline multiplication: X = A * B  (HAC 14.12)
  */
@@ -1480,6 +1589,18 @@ int mbedtls_mpi_mul_mpi( mbedtls_mpi *X, const mbedtls_mpi *A, const mbedtls_mpi
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow( X, i + j ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_lset( X, 0 ) );
 
+#if defined(MBEDTLS_HAVE_INT32)
+    if( i == 8 && j == 8 )
+    {
+        /* 256-bit operands (NIST P-256 hot path): single-pass Comba,
+         * squaring short-cut when A == B */
+        if( A == B )
+            mpi_sqr_comba8( A->p, X->p );
+        else
+            mpi_mul_comba8( A->p, B->p, X->p );
+    }
+    else
+#endif
     for( ; j > 0; j-- )
         mpi_mul_hlp( i, A->p, X->p + j - 1, B->p[j - 1] );
 

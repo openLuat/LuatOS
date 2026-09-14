@@ -7,6 +7,41 @@
 #include "lwip/tcpip.h"
 #include "luat_netdrv_drv.h"
 #include "luat_netdrv_dhcp_client.h"
+/*
+ * IPv6 相关能力由 lwip2 适配层实现(components/network/adapter_lwip2/net_lwip2.c),
+ * 但部分固件/模拟器构建里并没有链接该适配层(例如 SDK 自带 lwip 的机型走
+ * lwip_with_sdk/net_lwip.c), 为避免出现未解析符号, 这里对这两个入口做弱符号兜底:
+ *   - 链接到适配层时使用真实实现(强符号覆盖弱定义)
+ *   - 否则退化为"无 IPv6"(is_ready 恒 0, create_linklocal 恒失败)
+ * 是否启用由 LUAT_USE_NETDRV_IPV6 控制(未定义即关闭, 见 luat_netdrv.h).
+ *
+ * 两条编译路径都必须给出"定义"而不只是声明:
+ *   - MSVC: /alternatename 把未定义符号别名到 stub, stub 必须非 static,
+ *     否则 LTCG/函数级链接可能丢弃内部符号导致别名落空;
+ *   - GCC/ELF: 必须带函数体的 weak 定义——weak 声明产生的弱未定义引用在没有
+ *     强定义时会解析为地址 0, 调用即跳 0 崩溃, 并不能起到兜底作用.
+ */
+#ifdef LUAT_USE_NETDRV_IPV6
+#if defined(_MSC_VER)
+#pragma comment(linker, "/alternatename:net_lwip2_ipv6_is_ready=luat_netdrv_ipv6_is_ready_stub")
+#pragma comment(linker, "/alternatename:net_lwip2_ipv6_create_linklocal=luat_netdrv_ipv6_create_linklocal_stub")
+int luat_netdrv_ipv6_is_ready_stub(uint8_t adapter_index) {
+    return 0;
+}
+
+int luat_netdrv_ipv6_create_linklocal_stub(uint8_t adapter_index) {
+    return -1;
+}
+#else
+__attribute__((weak)) int net_lwip2_ipv6_is_ready(uint8_t adapter_index) {
+    return 0;
+}
+
+__attribute__((weak)) int net_lwip2_ipv6_create_linklocal(uint8_t adapter_index) {
+    return -1;
+}
+#endif
+#endif /* LUAT_USE_NETDRV_IPV6 */
 
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
@@ -383,7 +418,15 @@ int luat_netdrv_is_ready(int id) {
 
     ret = netif_is_link_up(netdrv->netif);
     ret &= netif_is_up(netdrv->netif);
+    #ifdef LUAT_USE_NETDRV_IPV6
+    // IPv4 非 0, 或者存在有效的全局 IPv6 地址, 才算就绪(仅有链路本地不算)
+    if (ip_addr_isany(&netdrv->netif->ip_addr)
+        && !net_lwip2_ipv6_is_ready(id)) {
+        ret = 0;
+    }
+    #else
     ret &= !ip_addr_isany(&netdrv->netif->ip_addr);
+    #endif
     // 对于移动网络，还要检查注册状态
     #ifdef LUAT_USE_MOBILE
     if (NW_ADAPTER_INDEX_LWIP_GPRS == id && !luat_mobile_is_ip_ready()) {

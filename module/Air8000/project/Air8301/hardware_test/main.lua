@@ -16,10 +16,13 @@
 
 main.lua 只负责加载程序，不执行业务初始化：
 
-  阶段1: require 驱动模块（lcd_st6201_43in / tp_gt911 自初始化）
-  阶段2: require "app_main" → 业务模块加载（各 app 自初始化）
-  阶段3: require "ui_main"  → 窗口模块加载（各 win 注册窗口）
-  阶段4: sys.run() → 事件循环
+  阶段1: require "app_main" → 板级初始化（GPIO 上电时序、外设供电）
+  阶段2: require "ui_main"  → LCD/TP 驱动加载 + 窗口模块加载 + 硬件初始化协程
+  阶段3: sys.run() → 事件循环
+
+硬件初始化时序（在 ui_main.lua 的 init_ui_task 协程中执行）：
+  LCD 硬件初始化 → AirUI 引擎 + 字体 → TP 触摸初始化 → 打开首页 → 背光开启
+  对齐工厂引擎 app_engine 的 Engine_Air8301_4inch_480x272_000_V000 初始化时序
 ]]
 
 --[[
@@ -66,14 +69,10 @@ log.info("main", PROJECT, VERSION)
 -- 窗口管理器（供各窗口模块使用，需在业务模块之前全局可见）
 exwin = require "exwin"
 
--- 驱动模块加载（require 即自初始化：LCD/AirUI → 背光注册 → TP）
-require "lcd_st6201_43in"
-require "tp_gt911"
-
--- 业务模块加载
+-- 业务模块加载（板级初始化：GPIO 上电时序、外设供电）
 require "app_main"
 
--- UI 页面模块加载
+-- UI 页面模块加载（含 LCD/TP 驱动加载 + 硬件初始化协程）
 require "ui_main"
 
 -- 事件循环

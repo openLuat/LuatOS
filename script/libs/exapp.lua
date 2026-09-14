@@ -3097,12 +3097,14 @@ function exapp.iot_login(account, password)
             fskv.set("iot_account",  account)
             fskv.set("iot_password", password)
             fskv.set("iot_nickname", value.nickname or GUEST_NICKNAME)
+            if value.uid then fskv.set("iot_uid", value.uid) end
             iot_save_login_time()
             log.info("exapp_iot", "login success", mask_account(account))
             sys.publish("IOT_LOGIN_RESULT", {
                 success  = true,
                 account  = account,
                 nickname = value.nickname,
+                uid      = value.uid or "",
             })
         else
             log.info("exapp_iot", "login failed", mask_account(account))

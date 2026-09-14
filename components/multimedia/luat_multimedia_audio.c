@@ -275,6 +275,14 @@ static int luat_audio_do_play_file(uint8_t multimedia_id, const char *path) {
 
     coder.type = luat_audio_detect_codec_type(path);
     coder.is_decoder = 1;
+#ifdef LUAT_USE_TTS_ONLY
+    /* TTS-only 构建不注册 codec 库(见 luat_base_ec618.c 的 luaopen_multimedia_codec),
+     * 此处若引用 luat_codec_get_ops/luat_codec_get_audio_info, 会让 codec_opts_table
+     * (mp3/wav/g711/...) 无法被 --gc-sections 回收, 进而把 libmad 等解码器
+     * 一起链进固件, 额外占用约 60k flash, 因此直接返回不支持. */
+    LLOGE("audio codec disabled in TTS-only build, type %d", coder.type);
+    goto EXIT_TASK;
+#else
     coder.ops = luat_codec_get_ops(coder.type);
     if (!coder.ops || !coder.ops->create || !coder.ops->decode_file_data) {
         LLOGE("audio codec unsupported %d", coder.type);
@@ -291,6 +299,7 @@ static int luat_audio_do_play_file(uint8_t multimedia_id, const char *path) {
         LLOGE("audio parse failed %s", path);
         goto EXIT_TASK;
     }
+#endif
     
     if (luat_audio_start_raw(multimedia_id,
                              coder.audio_format ? coder.audio_format : LUAT_MULTIMEDIA_DATA_TYPE_PCM,

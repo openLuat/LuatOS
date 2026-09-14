@@ -21,6 +21,32 @@ local result = uart.setup(
 local function atc_out(id, event, param)
     uart.tx(uart_id, out_buff)
 end
+
+--在回调函数里加入实际操作ES8311的动作，并设置结果，当然也可以在其他地方操作和设置结果
+local function es8311_cmd_callback(type, ...)
+    local cnt = select("#",...)
+    log.info("type", type, "param nums", cnt)
+    for i = 1, cnt do
+        local v = select(i, ...)
+        log.info("param", i, v)
+    end
+    if type == atc.TYPE_READ then
+        atc.response(0, "+ES8311: READ OK")
+        atc.response(0, atc.RES_OK)
+    end
+    if type == atc.TYPE_WRITE then
+        atc.response(0, "+ES8311: WRITE OK")
+        atc.response(0, atc.RES_OK)
+    end
+    if type == atc.TYPE_EXEC then
+        atc.response(0, "+ES8311: EXEC OK")
+        atc.response(0, atc.RES_ERROR)
+    end
+    if type == atc.TYPE_TEST then
+        atc.response(0, "+ES8311: TEST OK")
+        atc.response(0, atc.RES_ERROR)
+    end
+end
 -- 收取数据会触发回调, 这里的"receive" 是固定值
 uart.on(uart_id, "receive", function(id, len)
     uart.rx(id, in_buff)
@@ -33,10 +59,10 @@ uart.on(uart_id, "sent", function(id)
     log.info("uart", "sent", id)
 end)
 
-atc.debug(true)
+atc.create(1)
+atc.bind("+ES8311", es8311_cmd_callback)
+-- atc.debug(true)
 atc.on(atc_id, atc_out, out_buff)
-
-
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -156,9 +156,9 @@ extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define G_LOCK		platform_lock_mutex(prv_network.network_mutex)
 #define G_UNLOCK	platform_unlock_mutex(prv_network.network_mutex)
-static int tls_random( void *p_rng,
-        unsigned char *output, size_t output_len );
-
+/* TLS 随机源已组件化到 components/crypto/luat_mbedtls_random.c:
+ * 每 socket 独立 CTR_DRBG(种子只从 TRNG 取一次) + 裸 TRNG 回落,
+ * 仅 mbedtls<4 且带 CTR_DRBG 的配置启用, 其余保持原裸 TRNG 行为 */
 #define __NW_DEBUG_ENABLE__
 #ifdef __NW_DEBUG_ENABLE__
 #ifdef LUAT_LOG_NO_NEWLINE
@@ -1943,7 +1943,7 @@ int network_set_client_cert(network_ctrl_t *ctrl,
 	#if MBEDTLS_VERSION_NUMBER >= 0x04000000
 	ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen );
 	#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
-	ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen , tls_random, NULL);
+	ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen , luat_mbedtls_rng_random, NULL);
 	#else
     ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen );
 	#endif
@@ -1990,13 +1990,6 @@ int network_cert_verify_result(network_ctrl_t *ctrl)
 #endif
 }
 
-static int tls_random( void *p_rng,
-        unsigned char *output, size_t output_len )
-{
-	platform_random((char*)output, output_len);
-	return 0;
-}
-
 int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 {
 	if (!ctrl) return -1;
@@ -2030,10 +2023,32 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		#if defined(MBEDTLS_SSL_PROTO_DTLS)
 		mbedtls_ssl_conf_handshake_timeout(ctrl->config, 2000, MBEDTLS_SSL_DTLS_TIMEOUT_DFL_MAX);
 		#endif
-		// ctrl->config->f_rng = tls_random;
+		// ctrl->config->f_rng = luat_mbedtls_rng_random;
 		// ctrl->config->p_rng = NULL;
 		#if MBEDTLS_VERSION_NUMBER < 0x04000000
-		mbedtls_ssl_conf_rng(ctrl->config, tls_random, NULL);
+		/* 每 socket 独立 RNG 一次种子(实现见 components/crypto/luat_mbedtls_random.c);
+		 * 分配/种子失败时 new() 返回 NULL, conf_rng 自动回落裸 TRNG.
+		 * mbedtls4 保持原行为: 不设置 f_rng */
+		ctrl->tls_rng = luat_mbedtls_rng_new();
+		mbedtls_ssl_conf_rng(ctrl->config, luat_mbedtls_rng_random, ctrl->tls_rng);
+		#endif
+		#if MBEDTLS_VERSION_NUMBER < 0x03000000 && (defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED) || defined(MBEDTLS_ECP_DP_CURVE25519_ENABLED))
+		/* 只 offer P-256/x25519: 不少服务器按自身偏好选 secp521r1, 其点乘开销
+		 * 在 Cortex-M3 上约为 P-256 的 9 倍(实测握手多花 ~600ms).
+		 * 注意: RFC 4492 要求证书曲线也在 offer 列表内, 若对端只有 P-384/P-521
+		 * 的 ECDSA 证书会握手失败, 需要全曲线时请在应用层自行 conf_curves */
+		{
+			static const mbedtls_ecp_group_id tls_curves[] = {
+#if defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED)
+				MBEDTLS_ECP_DP_SECP256R1,
+#endif
+#if defined(MBEDTLS_ECP_DP_CURVE25519_ENABLED)
+				MBEDTLS_ECP_DP_CURVE25519,
+#endif
+				MBEDTLS_ECP_DP_NONE
+			};
+			mbedtls_ssl_conf_curves(ctrl->config, tls_curves);
+		}
 		#endif
 		// ctrl->config->f_dbg = tls_dbg;
 		// ctrl->config->p_dbg = NULL;
@@ -2110,6 +2125,12 @@ void network_deinit_tls(network_ctrl_t *ctrl)
 		mbedtls_x509_crt_free(ctrl->ca_cert);
 		luat_heap_free(ctrl->ca_cert);
 		ctrl->ca_cert = NULL;
+	}
+
+	if (ctrl->tls_rng)
+	{
+		luat_mbedtls_rng_free(ctrl->tls_rng);
+		ctrl->tls_rng = NULL;
 	}
 
 	ctrl->tls_mode = 0;

@@ -1671,6 +1671,19 @@ static int luat_zbuff_meta_index(lua_State *L) {
             }
             i++;
         }
+        luat_zbuff_t *buff = tozbuff(L);
+        if (!strcmp(keyname, "width")) {
+            lua_pushinteger(L, buff->width);
+            return 1;
+        }
+        if (!strcmp(keyname, "height")) {
+            lua_pushinteger(L, buff->height);
+            return 1;
+        }
+        if (!strcmp(keyname, "bit")) {
+            lua_pushinteger(L, buff->bit);
+            return 1;
+        }
     }
     return 0;
 }

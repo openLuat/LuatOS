@@ -246,7 +246,6 @@ int mbedtls_gcm_starts( mbedtls_gcm_context *ctx,
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     unsigned char work_buf[16];
-    size_t i;
     const unsigned char *p;
     size_t use_len, olen = 0;
     uint64_t iv_bits;
@@ -287,8 +286,7 @@ int mbedtls_gcm_starts( mbedtls_gcm_context *ctx,
         {
             use_len = ( iv_len < 16 ) ? iv_len : 16;
 
-            for( i = 0; i < use_len; i++ )
-                ctx->y[i] ^= p[i];
+            mbedtls_xor( ctx->y, ctx->y, p, use_len );
 
             gcm_mult( ctx, ctx->y, ctx->y );
 
@@ -296,8 +294,7 @@ int mbedtls_gcm_starts( mbedtls_gcm_context *ctx,
             p += use_len;
         }
 
-        for( i = 0; i < 16; i++ )
-            ctx->y[i] ^= work_buf[i];
+        mbedtls_xor( ctx->y, ctx->y, work_buf, 16 );
 
         gcm_mult( ctx, ctx->y, ctx->y );
     }
@@ -314,8 +311,7 @@ int mbedtls_gcm_starts( mbedtls_gcm_context *ctx,
     {
         use_len = ( add_len < 16 ) ? add_len : 16;
 
-        for( i = 0; i < use_len; i++ )
-            ctx->buf[i] ^= p[i];
+        mbedtls_xor( ctx->buf, ctx->buf, p, use_len );
 
         gcm_mult( ctx, ctx->buf, ctx->buf );
 
@@ -370,14 +366,11 @@ int mbedtls_gcm_update( mbedtls_gcm_context *ctx,
             return( ret );
         }
 
-        for( i = 0; i < use_len; i++ )
-        {
-            if( ctx->mode == MBEDTLS_GCM_DECRYPT )
-                ctx->buf[i] ^= p[i];
-            out_p[i] = ectr[i] ^ p[i];
-            if( ctx->mode == MBEDTLS_GCM_ENCRYPT )
-                ctx->buf[i] ^= out_p[i];
-        }
+        if( ctx->mode == MBEDTLS_GCM_DECRYPT )
+            mbedtls_xor( ctx->buf, ctx->buf, p, use_len );
+        mbedtls_xor( out_p, ectr, p, use_len );
+        if( ctx->mode == MBEDTLS_GCM_ENCRYPT )
+            mbedtls_xor( ctx->buf, ctx->buf, out_p, use_len );
 
         gcm_mult( ctx, ctx->buf, ctx->buf );
 
@@ -394,7 +387,6 @@ int mbedtls_gcm_finish( mbedtls_gcm_context *ctx,
                 size_t tag_len )
 {
     unsigned char work_buf[16];
-    size_t i;
     uint64_t orig_len;
     uint64_t orig_add_len;
 
@@ -418,13 +410,11 @@ int mbedtls_gcm_finish( mbedtls_gcm_context *ctx,
         MBEDTLS_PUT_UINT32_BE( ( orig_len     >> 32 ), work_buf, 8  );
         MBEDTLS_PUT_UINT32_BE( ( orig_len           ), work_buf, 12 );
 
-        for( i = 0; i < 16; i++ )
-            ctx->buf[i] ^= work_buf[i];
+        mbedtls_xor( ctx->buf, ctx->buf, work_buf, 16 );
 
         gcm_mult( ctx, ctx->buf, ctx->buf );
 
-        for( i = 0; i < tag_len; i++ )
-            tag[i] ^= ctx->buf[i];
+        mbedtls_xor( tag, tag, ctx->buf, tag_len );
     }
 
     return( 0 );

@@ -7,7 +7,7 @@ Air8301 硬件测试固件基于 **Air8000W** 主控（4G + WiFi + BLE + SPI 屏
 1. **网络测试**：以太网1 > 以太网2 > WiFi > 4G 状态查看与信号测试（exnetif 统一管理，双 CH390H 网卡）
 2. **RS485 / RS232 测试**：双 RS485 / 双 RS232 串口收发测试，支持 8N1 115200（RS485 使用 uart 内置 RE/DE 方向控制）
 3. **DI/DO 测试**：2 路数字输入监测（GPIO16/17 中断）、2 路继电器输出控制（GPIO24/25）
-4. **系统外设测试**：蜂鸣器、状态灯（4G/WiFi）、外部看门狗（Air153C，240s 超时）、SPI NAND Flash 读写、RELOAD 按键（长按 5 秒恢复出厂）
+4. **系统外设测试**：蜂鸣器、状态灯（4G/WiFi）、外部看门狗（Air153D，240s 超时）、SPI NAND Flash 读写、RELOAD 按键（长按 5 秒恢复出厂）
 5. **触摸屏 UI**：12 个功能页面，基于 exwin 窗口管理 + AirUI 渲染引擎
 
 ---
@@ -39,7 +39,7 @@ Air8301 硬件测试固件基于 **Air8000W** 主控（4G + WiFi + BLE + SPI 屏
 | DI1/DI2 | GPIO16/GPIO17 | 输入中断，需上拉 |
 | DO1/DO2 | GPIO24/GPIO25 | 继电器，高电平导通 |
 | 蜂鸣器 | PWM2 (PIN98) | |
-| 看门狗 | GPIO27 | air153C_wtd 扩展库，240s 超时/180s 喂狗 |
+| 看门狗 | GPIO27 | exair153x_wdt 扩展库，240s 超时/180s 自动喂狗 |
 | Flash | SPI1/CS2=GPIO4, 供电=GPIO140 | W25N01KVZEIR，挂载 /flash |
 | 状态灯 | 4G=GPIO21, WiFi=GPIO141 | 高电平亮 |
 | 复位 | WAKEUP2 | 长按 5 秒恢复出厂 |
@@ -169,7 +169,7 @@ Air8301_HardwareTest/
 
 1. **RS485 半双工**：RE/DE 方向由 uart.setup 内置 RS485 模式自动控制，Lua 层勿手动操作 GPIO2/GPIO153
 2. **SPI1 总线共享**：Flash 与双 CH390 共用 SPI1，Flash 挂载必须等待 `NETWORK_INIT_DONE` 消息（flash_app 已处理）；Flash 速率对齐 25.6MHz，CS 脚空闲拉高
-3. **看门狗禁用**：Air153C 无"关闭"寄存器，禁用通过 700ms 关闭脉冲实现；喂狗间隔务必 >1s（测试模式下 1s 内连续 2 个喂狗脉冲会立即复位）
+3. **看门狗**：Air153D 超时档位由硬件 STRAP 引脚配置，exair153x_wdt 内部自动喂狗（180s 周期）；手动喂狗有 1s 防误触发冷却期，避免 1s 内连续脉冲误触发强制复位
 4. **恢复出厂**：系统信息页按钮或 RELOAD 长按 5 秒，会清空 fskv 配置并重启
 5. **以太网映射**：网口1 用 ETHERNET→LWIP_ETH，网口2 用 ETHUSER1→LWIP_USER1，两者不能都用 ETHUSER1
 6. **GPIO146/GPIO31 上拉**：开启后会上拉 RELOAD 与 DI1/DI2，注意上电时序

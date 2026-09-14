@@ -56,6 +56,13 @@ log.info("main", PROJECT, VERSION)
 --     log.info("mem.sys", rtos.meminfo("sys"))
 --  end, 3000)
 
+--[[
+硬件版本选择：修改下方 _G.HARDWARE_ENV 的值即可切换
+    "G" = Air8201G (需GPIO28/26开I2C1上拉/外围供电, DA267中断GPIO20)
+    "H" = Air8201H (DA267中断GPIO39, 无需额外I2C上拉)
+]]
+_G.HARDWARE_ENV = "H"
+
 -- 加载da267应用模块
 require "da267_app"
 

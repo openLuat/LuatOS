@@ -24,21 +24,65 @@
 1. excloud.setup(params) - 设置配置参数
 2. excloud.on(cbfunc) - 注册回调函数
 3. excloud.open() - 开启excloud服务
-4. excloud.send(data, need_reply, is_auth_msg) - 发送数据
-5. excloud.close() - 关闭excloud服务
+4. excloud.close() - 关闭excloud服务
+5. excloud.send(data, need_reply, is_auth_msg) - 发送数据
 6. excloud.status() - 获取当前状态
-7. excloud.start_heartbeat(interval, custom_data) - 启动自动心跳机制
-8. excloud.stop_heartbeat() - 停止自动心跳机制
-9. excloud.upload_image(file_path, file_name) - 上传图片文件（支持ZBUFF）
-10. excloud.upload_audio(file_path, file_name) - 上传音频文件（支持ZBUFF）
-11. excloud.get_server_info() - 获取getip获取的服务器信息
-12. excloud.mtn_log(tag, ...) - 记录运维日志
-13. excloud.upload_mtnlog(file_path, file_name) - 上传运维日志文件
+7. excloud.heartbeat(custom_data, need_reply) - 发送心跳数据
+8. excloud.start_heartbeat(interval, custom_data) - 启动自动心跳机制
+9. excloud.stop_heartbeat() - 停止自动心跳机制
+10. excloud.upload_image(file_data, file_name) - 上传图片文件（支持ZBUFF）
+11. excloud.upload_audio(file_data, file_name) - 上传音频文件（支持ZBUFF）
+12. excloud.upload_mtnlog(file_data, file_name) - 上传运维日志文件
+13. excloud.upload_mtnlogs() - 批量上传运维日志文件
 14. excloud.set_upload_callback(cb) - 设置文件上传回调函数
-15. excloud.get_qrinfo() - 获取二维码信息
-16. excloud.get_mtn_log_status() - 获取运维日志状态
+15. excloud.get_server_info() - 获取服务器信息
+16. excloud.mtn_log(tag, ...) - 记录运维日志
+17. excloud.build_tlv(field_meaning, data_type, value) - 构建TLV数据
+18. excloud.parse_tlv(data, startPos) - 解析TLV数据
+19. excloud.get_qrinfo() - 获取二维码信息
+20. excloud.get_mtn_log_status() - 获取运维日志状态
+21. excloud.version() - 获取库版本号
 
 -- 版本更新说明
+-
+-- 版本号：202609011645
+-- 1、更新时间：2026-09-01 16:45
+-- 2、更新内容
+--    getip请求key构造不再覆盖用户配置的auth_key
+--    socket.config参数简化，直接从config读取证书和keepalive参数
+-
+-- 版本号：202609010914
+-- 1、更新时间：2026-09-01 09:14
+-- 2、更新内容
+--    ssl默认值改为false，不再默认开启加密
+--    收发HEX日志增加config.debug限制，默认不打印
+-
+-- 版本号：202608311500
+-- 1、更新时间：2026-08-31 15:00
+-- 2、更新内容
+--    auth_key改为支持用户配置，不再被setup()拦截
+-
+-- 版本号：202608281700
+-- 1、更新时间：2026-08-28 17:00
+-- 2、更新内容
+--    setup()精简特殊参数处理，删除use_getip/imginfo/audinfo/mtninfo的特殊分支
+--    文件上传支持指定使用合宙平台参数，新增imginfo_from_luat/audinfo_from_luat/mtninfo_from_luat配置
+-
+-- 版本号：202608271800
+-- 1、更新时间：2026-08-27 18:00
+-- 2、更新内容
+--    getip和getip_with_retry改为内部函数，不再对外暴露
+--    protocol_version不允许用户配置，setup()中拦截并忽略
+--    完善对外接口列表
+-
+-- 版本号：202608262000
+-- 1、更新时间：2026-08-26 20:00
+-- 2、更新内容
+--    调整默认配置项，新增MQTT客户端标识、自定义主题等参数
+--    更新getip服务地址，优化配置覆盖逻辑，手动配置优先于getip
+--    扩充协议字段定义，新增短信相关、内存统计等多类消息类型
+--    重构MQTT连接与设备认证逻辑，适配多类型设备
+--    移除手动IP禁止上传文件的限制，优化日志与错误提示
 -
 -- 版本号：202608071400
 -- 1、更新时间：2026-08-07 14:00
@@ -72,7 +116,7 @@ local config = {
     device_id = "",          -- 设备ID（自动获取）
     protocol_version = 2,    -- 协议版本号
     transport = "",          -- 传输协议: "tcp" / "udp" / "mqtt"
-    host = "",               -- 服务器地址
+    host = nil,              -- 服务器地址
     port = nil,              -- 服务器端口
     auth_key = nil,          -- 用户项目密钥
     keepalive = 300,         -- MQTT心跳间隔（秒）
@@ -85,10 +129,16 @@ local config = {
     qos = 0,                 -- MQTT QoS等级
     retain = 0,              -- MQTT retain标志
     clean_session = true,    -- MQTT clean session
-    ssl = false,             -- SSL/TLS配置
-    username = nil,          -- MQTT用户名
-    password = nil,          -- MQTT密码
+    ssl = false,             -- SSL/TLS配置，同时控制TCP和MQTT通道
+    client_id = nil,         -- MQTT客户端标识（可选，不填则自动获取）
+    username = nil,          -- MQTT用户名（可选，不填则自动获取）
+    password = nil,          -- MQTT密码（可选，不填则自动获取）
     udp_auth_key = nil,      -- UDP鉴权密钥
+    -- MQTT主题（可选，不填则使用默认值）
+    mqtt_pub_auth_topic = nil,            -- 鉴权发布主题，默认/AirCloud/up/{设备标识}/auth
+    mqtt_pub_data_topic = nil,            -- 数据发布主题，默认/AirCloud/up/{设备标识}/all
+    mqtt_sub_auth_topic = nil,            -- 鉴权订阅主题，默认/AirCloud/down/{设备标识}/auth
+    mqtt_sub_data_topic = nil,            -- 数据订阅主题，默认/AirCloud/down/{设备标识}/all
     -- Socket底层参数
     local_port = nil,        -- 本地端口（nil=自动分配）
     keep_idle = nil,         -- TCP keepalive idle时间
@@ -98,15 +148,18 @@ local config = {
     client_cert = nil,       -- 客户端证书
     client_key = nil,        -- 客户端私钥
     client_password = nil,   -- 客户端私钥口令
-    use_getip = true,        -- 是否使用getip服务发现(必须强制实现，因为目前通过getip服务请求设备所属的项目key)
+    use_getip = true,        -- 是否使用getip服务发现（默认开启；关闭后需手动配置host/port/auth_key）
     ipv6 = false,            -- 是否优先IPv6
     -- getip配置
-    getip_url = "https://gps.openluat.com/iam/iot/getip",
+    getip_url = "https://api.luatos.com/iot/getip",
     current_conninfo = {},                -- 当前getip返回的连接信息
     current_imginfo = nil,                -- 当前图片上传配置
     current_audinfo = nil,                -- 当前音频上传配置
     current_mtninfo = nil,                -- 当前运维日志上传配置
     current_qrinfo = nil,                 -- 当前二维码信息
+    imginfo_from_luat = false,            -- 图片上传使用合宙平台参数
+    audinfo_from_luat = false,            -- 音频上传使用合宙平台参数
+    mtninfo_from_luat = false,            -- 运维日志上传使用合宙平台参数
     getip_retry_count = 0,                -- getip当前重试次数
     max_getip_retry = 3,                  -- getip最大重试次数
     -- 虚拟设备
@@ -205,9 +258,12 @@ local MTN_LOG_STATUS = {
     SUCCESS = 1, -- 上传成功
     FAILED = 2   -- 上传失败
 }
--- 字段含义定义（值与注释来源：合宙IOT通用报文协议AirCloud 1.0）
+-- 字段含义定义（值与注释来源：合宙 IOT 通用报文协议 - AirCloud（链接：https://docs.openluat.com/protocols/aircloud/））
+-- 要求规范说明：
+-- 1. 每一个类别均与文档中的保持一致，字段请按照正序排列；
+-- 2. 合宙内部同事在新增字段时，请同步更新文档，并在AirCloud平台上也进行新增。
 local FIELD_MEANINGS = {
-    -- 控制信令 (16-27)
+    -- 控制信令 (16-255)
     AUTH_REQUEST = 16,                 -- 鉴权请求（上行）
     AUTH_RESPONSE = 17,                -- 鉴权回复（下行）
     REPORT_RESPONSE = 18,              -- 上报回应（下行）
@@ -220,7 +276,11 @@ local FIELD_MEANINGS = {
     MTN_LOG_UPLOAD_REQ_SIGNAL = 25,    -- 运维日志上传请求（下行）
     MTN_LOG_UPLOAD_RESP_SIGNAL = 26,   -- 运维日志上传响应（上行）
     MTN_LOG_UPLOAD_STATUS_SIGNAL = 27, -- 运维日志上传状态（上行）
-    -- 传感类 (256-264)
+    SMS_SEND = 28,                     -- 短信发送请求（上行）
+    SMS_SEND_RSP = 29,                 -- 短信发送请求回复（下行）
+    SMS_REPORT = 30,                   -- 短信投递状态上报（上行）
+    SMS_REPORT_RSP = 31,               -- 短信投递状态上报回复（下行）
+    -- 传感采集类 (256-511)
     TEMPERATURE = 256,                 -- 温度
     HUMIDITY = 257,                    -- 湿度
     PARTICULATE = 258,                 -- 颗粒数
@@ -230,7 +290,8 @@ local FIELD_MEANINGS = {
     WATER_LEVEL = 262,                 -- 水位
     ENV_TEMPERATURE = 263,             -- CPU温度/环境温度
     POWER_METERING = 264,              -- 电量计量
-    -- 资产管理 (512-521)
+    WORK_STATUS = 265,                 -- 工作状态
+    -- GNSS 资产管理类 (512-767)
     GNSS_LONGITUDE = 512,              -- GNSS经度
     GNSS_LATITUDE = 513,               -- GNSS纬度
     SPEED = 514,                       -- 行驶速度
@@ -241,7 +302,7 @@ local FIELD_MEANINGS = {
     LOCATION_METHOD = 519,             -- 基站定位/GNSS定位标识
     GNSS_INFO = 520,                   -- GNSS芯片型号和固件版本
     DIRECTION = 521,                   -- 方向
-    -- 设备参数 (768-799)
+    -- 设备参数类 (768-1023)
     HEIGHT = 768,                      -- 高度
     WIDTH = 769,                       -- 宽度
     ROTATION_SPEED = 770,              -- 转速
@@ -258,49 +319,55 @@ local FIELD_MEANINGS = {
     NETWORK_TYPE = 781,                -- 当前联网方式
     SIGNAL_STRENGTH_4G = 782,          -- 4G信号强度
     SIM_ICCID = 783,                   -- SIM卡ICCID
-    DEVICE_ID = 798,                   -- 设备号（IMEI）
-    VOLTAGE = 799,                     -- 电压
-    -- 文件上传 (784-787)
     FILE_UPLOAD_TYPE = 784,            -- 文件上传类型（1:图片, 2:音频）
     FILE_NAME = 785,                   -- 文件名称
     FILE_SIZE = 786,                   -- 文件大小
     UPLOAD_RESULT_STATUS = 787,        -- 上传结果状态
-    -- 运维日志 (788-792)
     MTN_LOG_FILE_INDEX = 788,          -- 运维日志文件序号
     MTN_LOG_FILE_TOTAL = 789,          -- 运维日志文件总数
     MTN_LOG_FILE_SIZE = 790,           -- 运维日志文件大小
     MTN_LOG_UPLOAD_STATUS_FIELD = 791, -- 运维日志上传状态
     MTN_LOG_FILE_NAME = 792,           -- 运维日志文件名称
-    -- 工牌 (793-797)
     BADGE_TOTAL_DISK = 793,            -- 工牌总磁盘空间
     BADGE_AVAILABLE_DISK = 794,        -- 工牌剩余磁盘空间
     BADGE_TOTAL_MEM = 795,             -- 工牌总内存
     BADGE_AVAILABLE_MEM = 796,         -- 工牌剩余内存
     BADGE_RECORD_COUNT = 797,          -- 工牌录音数量
-    -- 软件数据 (1024-1029)
+    DEVICE_ID = 798,                   -- 设备号（IMEI）
+    VOLTAGE = 799,                     -- 实际电压
+    SET_VOLTAGE = 800,                 -- 设置电压
+    -- 软件 & 短信日志类 (1024-1279)
     LUA_CORE_ERROR = 1024,             -- Lua核心库错误上报
     LUA_EXT_ERROR = 1025,              -- Lua扩展卡错误上报
     LUA_APP_ERROR = 1026,              -- Lua业务错误上报
     FIRMWARE_VERSION = 1027,           -- 固件版本号
     SMS_FORWARD = 1028,                -- SMS转发
     CALL_FORWARD = 1029,               -- 来电转发
-    -- SMS (28-31, 1039-1046)
-    SMS_SEND = 28,                     -- 短信发送请求（上行）
-    SMS_SEND_RSP = 29,                 -- 短信发送请求回复（下行）
-    SMS_REPORT = 30,                   -- 短信投递状态上报（上行）
-    SMS_REPORT_RSP = 31,               -- 短信投递状态上报回复（下行）
-    SMS_SEQ = 1039,                    -- 短信序号
-    SMS_CALLEE = 1040,                 -- 短信接收方号码
-    SMS_CONTENT = 1041,                -- 短信内容
-    SMS_STATUS = 1042,                 -- 短信状态
-    SMS_CALLER = 1043,                 -- 短信发送方号码
-    SMS_LONG_FLAG = 1044,              -- 长短信标志
-    SMS_LONG_TOTAL = 1045,             -- 长短信分片总数
-    SMS_LONG_INDEX = 1046,             -- 长短信当前分片序号
-    SMS_MSG_REF = 1047,                -- 短信消息引用号
-    -- 设备无关数据 (1280-1281)
+    SYSTEM_MEM_TOTAL = 1030,           -- 系统总内存大小
+    SYSTEM_MEM_CURRENT_USED = 1031,    -- 系统当前已使用内存大小
+    SYSTEM_MEM_MAX_USED = 1032,        -- 系统历史最高已使用内存大小
+    LUA_MEM_TOTAL = 1033,              -- Lua 虚拟机总内存大小
+    LUA_MEM_CURRENT_USED = 1034,       -- Lua 虚拟机当前已使用内存大小
+    LUA_MEM_MAX_USED = 1035,           -- Lua 虚拟机历史最高已使用内存大小
+    PSRANM_MEM_TOTAL = 1036,           -- PSRANM 总内存大小
+    PSRANM_MEM_CURRENT_USED = 1037,    -- PSRANM 当前已使用内存大小
+    PSRANM_MEM_MAX_USED = 1038,        -- PSRANM 历史最高已使用内存大小
+    SMS_SEQ = 1039,                    -- SMS 流水号
+    SMS_CALLEE = 1040,                 -- SMS 短信接收方号码
+    SMS_CONTENT = 1041,                -- SMS 短信内容
+    SMS_STATUS = 1042,                 -- SMS 短信状态码
+    SMS_CALLER = 1043,                 -- SMS 短信发送方号码
+    SMS_LONG_FLAG = 1044,              -- SMS 长短信标志
+    SMS_LONG_TOTAL = 1045,             -- SMS 长短信分片总数
+    SMS_LONG_INDEX = 1046,             -- SMS 长短信当前分片序号
+    SMS_MSG_REF = 1047,                -- 运营商消息参考号
+    SMS_STATUS_RAW = 1048,             -- SMS 状态码原始值
+    -- 通用测试数据类 (1280-1535)
     TIMESTAMP = 1280,                  -- 时间戳
-    RANDOM_DATA = 1281                 -- 无意义数据
+    RANDOM_DATA = 1281,                -- 无意义数据
+    BUSINESS_SN = 1282,                -- 业务SN
+    HEARTBEAT_COUNT = 1283,            -- 心跳次数
+    ONLINE_DURATION = 1284,            -- 在线时长
 }
 
 -- 大端编码
@@ -901,7 +968,7 @@ local function _apply_info_field(response, field, label)
 end
 
 -- 合并版本的getip函数（HH的key验证 + QD的内存释放）
-function excloud.getip(getip_type)
+local function getip(getip_type)
     getip_type = getip_type or 3
 
     -- 添加参数验证
@@ -911,8 +978,7 @@ function excloud.getip(getip_type)
 
     -- 构建key（HH版本的key验证逻辑）
     -- 最新版本，key已经没用，在getip的应答报文中，会返回真正的key，但是getip请求时必须存在key这个字段，所以随便填写一个，后台不会去判断这个key
-    config.auth_key = "unusedkey"
-    local key = config.auth_key and (config.auth_key .. "-" .. config.device_id) or config.device_id
+    local key = "unusedkey" .. "-" .. config.device_id
     if config.device_type == 1 then
         key = key .. "-" .. mobile.muid()
     end
@@ -1010,56 +1076,59 @@ function excloud.getip(getip_type)
         _apply_info_field(response_json, "qrinfo", "二维码")
     end
 
-    -- 如果获取到连接信息，自动更新配置
+    -- 如果获取到连接信息，自动更新配置（用户手动设置的值优先，不被getip覆盖）
     if config.current_conninfo then
         if getip_type == 5 then
-            if config.current_conninfo.ssl then
+            if not config.host and config.current_conninfo.ssl then
                 config.host = config.current_conninfo.ssl
-            else
+                log.info("[excloud]通过getip获取到SSL域名，更新host:", config.host)
+            elseif not config.host then
                 log.warn("[excloud]MQTT连接信息中缺少SSL域名")
             end
         else
-            if config.current_conninfo.ipv4 then
+            if not config.host and config.current_conninfo.ipv4 then
                 config.host = config.current_conninfo.ipv4
-            else
+                log.info("[excloud]通过getip获取到IP地址，更新host:", config.host)
+            elseif not config.host then
                 log.warn("[excloud]TCP/UDP连接信息中缺少IP地址")
             end
         end
 
-        if config.current_conninfo.port then
+        if not config.port and config.current_conninfo.port then
             config.port = config.current_conninfo.port
-        else
+            log.info("[excloud]通过getip获取到端口号，更新port:", config.port)
+        elseif not config.port then
             log.warn("[excloud]连接信息中缺少端口号")
         end
 
-        -- 更新MQTT认证信息
+        -- 更新MQTT认证信息（占位符{imei}/{muid}视为使用设备默认值）
         if getip_type == 5 then
-            if config.current_conninfo.username then
+            if not config.username and config.current_conninfo.username and config.current_conninfo.username ~= "{imei}" then
                 config.username = config.current_conninfo.username
+                log.info("[excloud]通过getip获取到MQTT用户名，更新username:", config.username)
             end
-            if config.current_conninfo.password then
+            if not config.password and config.current_conninfo.password and config.current_conninfo.password ~= "{muid}" then
                 config.password = config.current_conninfo.password
+                log.info("[excloud]通过getip获取到MQTT密码，更新password（不打印）")
             end
             -- 如果服务器返回了auth_key，则保存使用
-            if config.current_conninfo.auth_key then
+            if not config.auth_key and config.current_conninfo.auth_key then
                 config.auth_key = config.current_conninfo.auth_key
-                log.info("[excloud]自动获取到auth_key")
+                log.info("[excloud]通过getip获取到auth_key，更新auth_key:", config.auth_key)
             end
         else
             -- 更新UDP认证密钥
-            if config.current_conninfo.key then
+            if not config.udp_auth_key and config.current_conninfo.key then
                 config.udp_auth_key = config.current_conninfo.key
-                log.info("[excloud]更新UDP认证密钥")
+                log.info("[excloud]通过getip获取到UDP认证密钥，更新UDP认证密钥（不打印）")
             end
 
             -- 如果服务器返回了auth_key，则保存使用
-            if config.current_conninfo.auth_key then
+            if not config.auth_key and config.current_conninfo.auth_key then
                 config.auth_key = config.current_conninfo.auth_key
-                log.info("[excloud]自动获取到auth_key")
+                log.info("[excloud]通过getip获取到auth_key，更新auth_key:", config.auth_key)
             end
         end
-
-        log.info("[excloud]getip", "更新配置:", config.host, config.port)
     else
         log.warn("[excloud]未获取到有效的连接信息，将使用原有配置")
     end
@@ -1072,13 +1141,13 @@ function excloud.getip(getip_type)
 end
 
 -- 带重试的getip请求
-function excloud.getip_with_retry(getip_type)
+local function getip_with_retry(getip_type)
     local retry_count = 0
     local max_retry = config.max_getip_retry or 3
     local success, result
 
     while retry_count < max_retry do
-        success, result = excloud.getip(getip_type)
+        success, result = getip(getip_type)
         if success then
             log.info("[excloud]getip", "成功:", success)
             config.getip_retry_count = 0
@@ -1095,6 +1164,63 @@ function excloud.getip_with_retry(getip_type)
     end
 
     return false, "getip请求失败，已达最大重试次数"
+end
+
+-- 请求合宙平台获取文件上传参数（不修改config的host/port/auth_key等字段）
+local function get_luat_upload_info(getip_type)
+    if not config.device_id then
+        return nil, "缺少device_id"
+    end
+
+    -- 构建key（HH版本的key验证逻辑）
+    -- 最新版本，key已经没用，在getip的应答报文中，会返回真正的key，但是getip请求时必须存在key这个字段，所以随便填写一个，后台不会去判断这个key
+    local key = "unusedkey" .. "-" .. config.device_id
+    if config.device_type == 1 then
+        key = key .. "-" .. mobile.muid()
+    end
+    log.info("[excloud]getip", "类型:", getip_type, "key:", key)
+
+    local code, response = httpplus.request({
+        method = "POST",
+        url = "https://api.luatos.com/iot/getip",
+        forms = {
+            key = key,
+            type = getip_type
+        }
+    })
+
+    if not response or not response.body then
+        return nil, "HTTP响应为空"
+    end
+
+    local response_body = response.body:toStr()
+    response = nil
+
+    if not response_body or response_body == "" then
+        return nil, "响应体为空"
+    end
+
+    if code ~= 200 then
+        response_body = nil
+        return nil, "HTTP请求失败: " .. tostring(code)
+    end
+
+    local response_json = json.decode(response_body)
+    response_body = nil
+
+    if not response_json then
+        return nil, "JSON解析失败"
+    end
+
+    if response_json.msg ~= "ok" then
+        return nil, "服务器返回错误: " .. tostring(response_json.msg)
+    end
+
+    return {
+        current_imginfo = response_json.imginfo,
+        current_audinfo = response_json.audinfo,
+        current_mtninfo = response_json.mtninfo,
+    }
 end
 
 -- 文件上传通知(start/finish统一)
@@ -1310,7 +1436,7 @@ local function upload_file(file_type, file_path, file_name, is_async)
     end
 
     if not upload_info then
-        return false, "未获取到上传配置信息，请先执行getip"
+        return false, "未获取到上传配置信息，请先执行getip或手动配置"
     end
 
     if not upload_info.url then
@@ -1339,11 +1465,6 @@ local function prepare_upload(file_data, file_name, upload_type)
     if not file_data then
         log.error("[excloud]" .. upload_type, upload_type .. "数据为空")
         return false, upload_type .. "数据为空"
-    end
-
-    if not config.use_getip then
-        log.warn("[excloud]" .. upload_type, "手动填写IP时不允许上传文件")
-        return false, "手动填写IP时不允许上传文件"
     end
 
     local is_zbuff_data = type(file_data) == "userdata" and file_data.used and true or false
@@ -1376,15 +1497,25 @@ function excloud.set_upload_callback(cb)
 end
 
 -- 通用上传函数（合并upload_mtnlog/upload_image/upload_audio）
-local function _upload_with_config(file_type, file_data, file_name, label, config_field, default_ext)
+local function _upload_with_config(file_type, file_data, file_name, label, config_field, default_ext, from_luat)
     local ok, err = prepare_upload(file_data, file_name, label)
     if not ok then
         return false, err
     end
     file_name = file_name or label:gsub("^upload_", "") .. "_" .. os.time() .. default_ext
-    if not config[config_field] then
+    if from_luat then
+        -- 使用合宙平台上传参数
+        local getip_type = transport_to_getip_type()
+        local luat_info, luat_err = get_luat_upload_info(getip_type)
+        if luat_info and luat_info[config_field] then
+            config[config_field] = luat_info[config_field]
+        else
+            log.error("[excloud]" .. label, "从合宙平台获取上传参数失败", luat_err)
+            return false, "从合宙平台获取上传参数失败"
+        end
+    elseif not config[config_field] then
         log.info("[excloud]" .. label, "获取上传配置...")
-        local get_ok, get_err = excloud.getip_with_retry(transport_to_getip_type())
+        local get_ok, get_err = getip_with_retry(transport_to_getip_type())
         if not get_ok then
             log.error("[excloud]" .. label, "获取上传配置失败", get_err)
             return false, "获取上传配置失败: " .. get_err
@@ -1395,17 +1526,17 @@ end
 
 -- 上传运维日志文件
 function excloud.upload_mtnlog(file_data, file_name)
-    return _upload_with_config(3, file_data, file_name, "upload_mtnlog", "current_mtninfo", ".trc")
+    return _upload_with_config(3, file_data, file_name, "upload_mtnlog", "current_mtninfo", ".trc", config.mtninfo_from_luat)
 end
 
 -- 图片上传接口
 function excloud.upload_image(file_data, file_name)
-    return _upload_with_config(1, file_data, file_name, "upload_image", "current_imginfo", ".jpg")
+    return _upload_with_config(1, file_data, file_name, "upload_image", "current_imginfo", ".jpg", config.imginfo_from_luat)
 end
 
 -- 音频上传接口
 function excloud.upload_audio(file_data, file_name)
-    return _upload_with_config(2, file_data, file_name, "upload_audio", "current_audinfo", ".mp3")
+    return _upload_with_config(2, file_data, file_name, "upload_audio", "current_audinfo", ".mp3", config.audinfo_from_luat)
 end
 
 -- 记录运维日志
@@ -1472,10 +1603,9 @@ schedule_reconnect = function()
             if config.use_getip then
                 log.info("[excloud]连接多次失败，重新获取服务器信息...")
                 config.current_conninfo = nil
-                local ok, result = excloud.getip_with_retry(transport_to_getip_type())
+                local ok, result = getip_with_retry(transport_to_getip_type())
                 if ok then
-                    log.info("[excloud]重连获取服务器成功", "host:", config.host, "port:", config.port,
-                        "transport:", config.transport)
+                    log.info("[excloud]重连获取服务器成功，对于用户已手动配置的字段，不会被getip覆盖")
 
                     reconnect_count = 0
 
@@ -1609,7 +1739,9 @@ local function _socket_callback(label, netc, event, param)
         else
             if rxbuff:used() > 0 then
                 local data = rxbuff:query()
-                log.info("[excloud]" .. label .. " socket", "收到数据", #data, "字节", data:toHex())
+                if config.debug then
+                    log.info("[excloud]" .. label .. " socket", "收到数据", #data, "字节", data:toHex())
+                end
                 parse_data(data)
             end
             rxbuff:del()
@@ -1651,8 +1783,8 @@ local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
         log.info("[excloud]MQTT connected")
         reconnect_count = 0
         local device_id_hex = string.toHex(device_id_binary)
-        local auth_topic = "/AirCloud/down/" .. device_id_hex .. "/auth"
-        local all_topic = "/AirCloud/down/" .. device_id_hex .. "/all"
+        local auth_topic = config.mqtt_sub_auth_topic or ("/AirCloud/down/" .. device_id_hex .. "/auth")
+        local all_topic = config.mqtt_sub_data_topic or ("/AirCloud/down/" .. device_id_hex .. "/all")
         log.info("[excloud]mqtt_client_event_cbfunc", "订阅主题", auth_topic, all_topic)
         connection:subscribe(auth_topic, 0)
         connection:subscribe(all_topic, 0)
@@ -1754,10 +1886,8 @@ function excloud.setup(params)
     end
 
     for k, v in pairs(params) do
-        if k == "auth_key" then
-            log.warn("excloud.setup", "不再需要主动配置auth_key")
-        elseif k == "use_getip" then
-            log.warn("excloud.setup", "不再需要主动配置use_getip")
+        if k == "protocol_version" then
+            log.warn("excloud.setup", "不再需要主动配置protocol_version")
         elseif k == "device_type" then
             log.warn("excloud.setup", "不再需要主动配置device_type")
         else
@@ -1805,11 +1935,7 @@ local function _connect_socket(is_udp, label, ssl_config, callback)
         return false, "Failed to create socket"
     end
     local config_ok = socket.config(connection, config.local_port, is_udp, ssl_config and true or false,
-        ssl_config and ssl_config.keep_idle or config.keep_idle,
-        ssl_config and ssl_config.keep_interval or config.keep_interval,
-        ssl_config and ssl_config.keep_cnt or config.keep_cnt, ssl_config and ssl_config.server_cert or nil,
-        ssl_config and ssl_config.client_cert or nil, ssl_config and ssl_config.client_key or nil,
-        ssl_config and ssl_config.client_password or nil)
+        config.keep_idle, config.keep_interval, config.keep_cnt, config.server_cert, config.client_cert, config.client_key, config.client_password)
     if not config_ok then
         socket.release(connection);
         connection = nil;
@@ -1871,7 +1997,7 @@ function excloud.open()
         if not config.current_conninfo or (config.transport ~= "mqtt" and not config.current_conninfo.ipv4) or
             (config.transport == "mqtt" and not config.current_conninfo.ssl) then
             log.info("[excloud]首次连接，获取服务器信息...")
-            local ok, result = excloud.getip_with_retry(getip_type)
+            local ok, result = getip_with_retry(getip_type)
             if not ok then
                 return false, "获取服务器信息失败: " .. result
             end
@@ -1886,8 +2012,7 @@ function excloud.open()
                 return false, "未能获取到auth_key"
             end
 
-            log.info("[excloud]服务器信息获取成功", "host:", config.host, "port:", config.port, "transport:",
-                config.transport)
+            log.info("[excloud]通过getip获取到服务器信息成功，对于用户已手动配置的字段，不会被getip覆盖")
 
             for _, f in ipairs({ "imginfo", "audinfo", "mtninfo", "qrinfo" }) do
                 if result[f] then
@@ -1910,19 +2035,13 @@ function excloud.open()
             return false, err
         end
     elseif config.transport == "mqtt" then
-        local ssl_config = true
-
-        if config.ssl and type(config.ssl) == "table" then
-            ssl_config = config.ssl
-        end
-
         local mqtt_opts = {
             rxSize = config.mqtt_rx_size or 32 * 1024,
             conn_timeout = config.mqtt_conn_timeout or 30,
             ipv6 = config.ipv6 or false
         }
 
-        connection = mqtt.create(socket.dft(), config.host, config.port, ssl_config, mqtt_opts)
+        connection = mqtt.create(socket.dft(), config.host, config.port, config.ssl, mqtt_opts)
         if not connection then
             return false, "Failed to create MQTT client"
         end
@@ -1933,10 +2052,28 @@ function excloud.open()
 
         local client_id, username, password
 
+        -- 获取设备认证信息，优先级如下：
+        --   client_id: config.client_id → hmeta.devid() → 设备硬件接口(imei/mac/unique_id)
+        --   username:  config.username → hmeta.devid() → 设备硬件接口(同client_id)
+        --   password:  config.password → hmeta.muid() → 设备硬件接口(muid/"")
+        -- 注：当use_getip=true且用户未手动设置时，getip返回的username/password会填充config（{imei}/{muid}占位符除外）
+        local ok, devid = pcall(hmeta.devid)
+        local ok2, muid_val = pcall(hmeta.muid)
         if config.device_type == 1 then
-            client_id = mobile.imei()
-            username = mobile.imei()
-            password = mobile.muid()
+            -- 4G设备
+            client_id = config.client_id or (ok and devid) or mobile.imei()
+            username = config.username or client_id
+            password = config.password or (ok2 and muid_val) or mobile.muid()
+        elseif config.device_type == 2 then
+            -- WiFi设备
+            client_id = config.client_id or (ok and devid) or wlan.getMac()
+            username = config.username or client_id
+            password = config.password or (ok2 and muid_val) or ""
+        elseif config.device_type == 3 then
+            -- MCU设备
+            client_id = config.client_id or (ok and devid) or mcu.unique_id()
+            username = config.username or client_id
+            password = config.password or (ok2 and muid_val) or ""
         else
             return false, "MQTT connect failed, device_type not supported"
         end
@@ -2079,11 +2216,13 @@ function excloud.send(data, need_reply, is_auth_msg)
             local topic
             local device_id_hex = string.toHex(device_id_binary)
             if is_auth_msg then
-                topic = "/AirCloud/up/" .. device_id_hex .. "/auth"
+                topic = config.mqtt_pub_auth_topic or ("/AirCloud/up/" .. device_id_hex .. "/auth")
             else
-                topic = "/AirCloud/up/" .. device_id_hex .. "/all"
+                topic = config.mqtt_pub_data_topic or ("/AirCloud/up/" .. device_id_hex .. "/all")
             end
-            log.info("[excloud]发布主题", topic, #full_message, full_message:toHex())
+            if config.debug then
+                log.info("[excloud]发布主题", topic, #full_message, full_message:toHex())
+            end
             local message_id = connection:publish(topic, full_message, config.qos, config.retain)
             if message_id then
                 success = true
@@ -2233,13 +2372,13 @@ excloud.MTN_LOG_CACHE_WRITE = exmtn.CACHE_WRITE
 excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 
 --[[
-获取库版本信息
+获取库版本信息900943
 @return string 年月日时分，例如： "202607021900"
 @usage
 excloud.version()
 ]]
 function excloud.version()
-    return "202608071400"
+    return "202609011645"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

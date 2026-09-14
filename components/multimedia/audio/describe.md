@@ -25,6 +25,7 @@ audio/
 │   ├── luat_audio_data_codec.c  # 编解码器注册/绑定/查找/编解码循环（软件+硬件双数组管理）
 │   ├── luat_audio_driver.c      # 驱动通用逻辑（PA/CODEC 电源管理时序/启动/停止/反激活/填充静音）
 │   ├── luat_audio_channel.c     # 通道数据写入（位宽转换/声道数转换/音量控制/符号转换）
+│   ├── luat_audio_dsp.c         # DSP 处理层实现（AEC 回声消除等算法的注册与分发）
 │   └── luat_audio_misc.c       # 杂项工具（extern_source 参数校验、文件播放信息自动搜索）
 ├── codec_adapter/               # 编解码器适配层（每个文件对应一种编解码器）
 │   ├── luat_audio_codec_port_raw.c   # RAW 编解码器（PCM 直通，使用 WAV 编解码器的 decode/encode）
@@ -34,7 +35,10 @@ audio/
 │   ├── luat_audio_codec_port_amr_wb.c  # AMR-WB 编解码器（16kHz，独立实现）
 │   ├── luat_audio_codec_port_opus.c  # OPUS 编解码器（基于 libopus，旧版注释代码 `#if 0`）
 │   ├── luat_audio_codec_port_g711.c  # G711 A-Law/μ-Law 编解码器（已激活，固定 8kHz/1ch/16bit）
+│   ├── luat_audio_codec_port_speex.c # Speex 编解码器（NB/WB/UWB 三档，受 `LUAT_SUPPORT_SPEEX` 保护）
 │   └── luat_audio_codec_port_no_op.c # NO_OP 编解码器（占位，无实际操作）
+├── binding/                     # Lua 绑定层
+│   └── luat_lib_audio.c         # `audio_v2` 模块 Lua API 绑定（见第十三章）
 └── describe.md                 # 本文件
 ```
 
@@ -80,7 +84,7 @@ typedef struct {
     luat_rtos_task_handle common_task_handle;  // 通用任务句柄（优先级100, 栈13KB, 事件队列64）
     luat_rtos_task_handle tts_task_handle;    // TTS 独立任务句柄（优先级20, 栈13KB）
     void *request_lock;                       // 请求链表操作互斥锁
-    void *tts_wait_sem;                       // TTS 等待信号量（初始锁定）
+    void *tts_or_extern_source_wait_sem;      // TTS / 外部源等待信号量（创建后即 take，初始为「已取走」状态）
     uint32_t next_request_id;                 // 自增请求 ID
     uint8_t default_driver_index;             // 默认驱动索引
     uint8_t decode_is_running:1;              // 解码标志位
@@ -117,11 +121,16 @@ typedef struct {
 | `play_buff / record_buff` | `union {uint32_t*, uint8_t*}` | 播放/录音 DMA 缓冲 |
 | `static_play_buff` | `union {uint32_t*, uint8_t*}` | 静态播放缓冲区（仅用于通话模式）|
 | `current_play_cnt` | `volatile uint32_t` | 当前播放计数 |
+| `static_play_buffer_cnt` | `volatile uint32_t` | 静态播放缓冲区 block 数量（仅通话带缓冲模式）|
+| `next_play_buff` | `uint8_t*` | 下一个待播放 block 的 DMA 缓冲地址，由 `_audio_play_next_block()` 在推进 `current_play_cnt` 后**立即计算并缓存**（见 6.2）|
 | `one_play_block_len / one_record_block_len` | `uint32_t` | 单 block 大小 |
 | `tx_param` | `luat_audio_common_param_t` | 发送方向（播放）公共参数 |
 | `rx_param` | `luat_audio_common_param_t` | 接收方向（录音）公共参数 |
 | `driver_work_mode` | `uint8_t` | 驱动当前工作模式（PLAY/RECORD/SPEECH/SPEECH_WITH_BUFFER）|
 | `request_work_mode` | `uint8_t` | 请求期望的工作模式（与 `driver_work_mode` 分离，支持模式切换）|
+| `cache_sync_enable` | `uint8_t :1` | 是否使能缓存同步（开启 DCACHE 且使用 DMA 时必须置位）|
+| `is_call_mode` | `uint8_t :1` | 是否为通话模式。由请求层在 `speech` 时按播放或录音编解码器类型设置，展锐 audio 驱动据此做特殊控制（见 5.6）|
+| `call_extern_source_notify` | `uint8_t :1` | 通话模式下是否向对方播放额外数据（外部源）。**当前框架内仅定义未使用**，由 BSP 驱动自行解释 |
 | `pa_power_* / codec_power_*` | 多位域 | 电源管理状态 |
 | `state` | `volatile uint8_t` | 驱动状态机 |
 
@@ -288,8 +297,13 @@ luat_audio_driver_start(ctrl, tx_param, rx_param, ...) 调用时：
   ③ 根据 request_work_mode 启动对应循环:
      PLAY              → support_full_loop ? start_full_loop : start_tx_loop
      RECORD            → support_full_loop ? start_full_loop : start_rx_loop
-     SPEECH              → start_full_loop (必须支持全双工)
-     SPEECH_WITH_BUFFER  → start_full_loop_with_play_buff
+     SPEECH              → 优先 start_full_loop；
+                           不支持全双工但 support_tx_loop && support_rx_loop
+                           → start_tx_loop + start_rx_loop 组合；
+                           两者都不满足 → -LUAT_ERROR_PERMISSION_DENIED
+     SPEECH_WITH_BUFFER  → 【新增校验】先判断 start_full_loop_with_play_buff 非空，再调用；
+                           支持全双工但回调为空 → -LUAT_ERROR_PERMISSION_DENIED（不回退）
+                           不支持全双工 → start_tx_loop + start_rx_loop 组合
 
   ④ driver_work_mode = request_work_mode
      state = RUNNING
@@ -497,6 +511,28 @@ WAV 解码是**直通模式**（PCM 不压缩，输入直接复制到输出）�
 当前已**激活**，基于 `g711_codec/g711_codec.h`。固定 8kHz 采样率，单声道，16bit 深度。
 支持自动检测和编解码。
 
+##### Speex 编解码器（`luat_audio_codec_port_speex.c`）
+
+| 属性 | NB | WB | UWB |
+|------|-----|-----|------|
+| type | `TYPE_SPEEX_NB` | `TYPE_SPEEX_WB` | `TYPE_SPEEX_UWB` |
+| 采样率 | 8 kHz | 16 kHz | 32 kHz |
+| 帧长（样本）| 160 | 320 | 640 |
+| PCM 帧长（字节）| 320 | 640 | 1280 |
+| 编码输出上限（字节）| 202 | 402 | 802 |
+| 可重入 | 是 | 是 | 是 |
+| 硬件加速 | 否 | 否 | 否 |
+| 支持自动检测 | 否 | 否 | 否 |
+| `encode_raw_mode` | 0 | 0 | 0 |
+
+同一文件内提供三组独立的 opts：`luat_audio_data_codec_speex_nb_opts` / `_wb_opts` / `_uwb_opts`，各自维护独立的编解码上下文，无共享状态。
+
+要点：
+- **条件编译**：整文件受 `#ifdef LUAT_SUPPORT_SPEEX` 保护，未定义该宏时文件为空编译单元，三个 opts 符号均不存在。集成时需确认 BSP 已开启该宏并链接 libspeex。
+- **不支持自动识别**：`support_detect = 0`，不会被文件播放的编解码器自动探测流程选中，必须由上层显式指定 `codec_id`。
+- **帧格式**：编码输出为「2 字节长度头 + Speex 数据」，长度头已计入上表的编码输出上限。解码侧按长度头切帧，因此 `decode_min_input_len = 0`（变长输入）。
+- **注册时机**：三组 opts 需由 BSP 显式调用 `luat_audio_data_codec_register()` 注册，`luat_audio_base_init()` 中**不会**自动注册（框架仅自动注册 `no_op`）。集成到新 BSP 时需自行补上这三行注册代码。
+
 ##### NO_OP 编解码器（`luat_audio_codec_port_no_op.c`）
 
 | 属性 | 值 |
@@ -576,7 +612,7 @@ NO_OP 编解码器为**占位模式**。init 时设置 `tx_no_callback=1`（发�
 
 当前 DSP 层已定义接口，`luat_audio_dsp_get_opts()` 根据 `type` 返回对应的 DSP 实现。
 
-**变更说明**：原先 `luat_audio_dsp.c` 中 DSP 实现表 `_table[]` 受 `#ifdef LUAT_USE_AUDIO_DSP` 宏保护，未定义该宏时整张表为 `NULL`，导致 `luat_audio_dsp_get_opts()` 始终返回 `NULL`（speexdsp 无法启用）。现已移除该条件编译保护，`_table[]` 始终包含 `luat_audio_dsp_speexdsp_opts`，**speexdsp 默认即被注册、可用**，不再依赖 `LUAT_USE_AUDIO_DSP` 开关。上层 `audio_v2.speech` 通过 `dsp_type` 参数选择 DSP 类型（见 `DSP_TYPE_*` 常量），留空则由 BSP 决定。
+**变更说明**：原先 `luat_audio_dsp.c` 中 DSP 实现表 `_table[]` 受 `#ifdef LUAT_USE_AUDIO_DSP` 宏保护，未定义该宏时整张表为 `NULL`，导致 `luat_audio_dsp_get_opts()` 始终返回 `NULL`（AEC 等算法无法启用）。现已移除该条件编译保护，`_table[]` 始终包含默认的 DSP 实现，**AEC 等算法默认即被注册、可用**，不再依赖 `LUAT_USE_AUDIO_DSP` 开关。上层 `audio_v2.speech` 通过 `dsp_type` 参数选择 DSP 类型（见 `DSP_TYPE_*` 常量），留空则由 BSP 决定。
 
 ---
 
@@ -637,6 +673,20 @@ typedef struct {
 
 `_audio_data_seek()` 同样支持文件和内存两种模式的 `SEEK_SET` / `SEEK_CUR` / `SEEK_END`。
 
+#### 通话模式标记（`is_call_mode`）
+
+`luat_audio_driver_ctrl_t` 的 `is_call_mode` 位由请求层负责维护，供 BSP 驱动区分「真正的通话」与「普通全双工对讲」：
+
+| 时机 | 赋值 | 说明 |
+|------|------|------|
+| `luat_audio_request_prepare()` 末尾 | `is_call_mode = 0` | 默认清零，避免上一次通话状态残留 |
+| `luat_audio_request_speech()` 中 | 播放或录音编解码器类型为 `LUAT_AUDIO_DATA_CODEC_TYPE_CC` → `1`，否则 → `0` | 播放或录音任一为 CC 类编解码器即认定为通话模式 |
+
+
+#### 请求取消的防御性修复
+
+`luat_audio_request_cancel()` 开头对未初始化的请求块（`cb == NULL` 或 `request_id == 0`）打印错误日志后，**新增 `return` 提前返回**。此前会继续执行后续逻辑，用无效的请求对象去创建信号量、发送事件，存在崩溃风险。
+
 ---
 
 ## 六、核心流程
@@ -649,8 +699,11 @@ BSP 启动时（luavm 初始化前）:
     ├─ 创建 common_task（优先级 100，栈 13KB，事件队列 64）
     ├─ 创建 tts_task（优先级 20，栈 13KB）
     ├─ 创建 request_lock 互斥锁
-    ├─ 创建 tts_wait_sem 并立即加锁
-    └─ 初始化请求链表
+    ├─ 创建 tts_or_extern_source_wait_sem 并置为「已取走」状态
+    │     （创建互斥锁后立即 take，模拟一个初值为 0 的信号量）
+    ├─ 初始化请求链表
+    ├─ [#ifdef __LUATOS__] l_audio_init()   // 注册 audio_v2 Lua 模块
+    └─ luat_audio_data_codec_register(&luat_audio_data_codec_no_op_opts)
 
   luat_audio_data_codec_register(&wav_opts)      // 注册 WAV 编解码器
   luat_audio_data_codec_register(&mp3_opts)      // 注册 MP3 编解码器
@@ -710,10 +763,19 @@ common_task 收到 EV_REQUEST:
 播放中（中断上下文）:
   DMA TX 完成 → LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE
     └─ _audio_play_next_block()
-        ├─ 从 play_fifo 读数据到 DMA 缓冲
-        ├─ 不足则 fill 空白音
-        └─ 若 FIFO 空闲 ≥ 低水位
-            → 发送 EV_TX_NEED_DATA → common_task 解码更多
+        ├─ ① 推进 current_play_cnt 到下一个 block
+        ├─ ② 立即计算并缓存 next_play_buff
+        │     next_play_cnt = (current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1)
+        │     ctrl->next_play_buff = play_buff_byte + one_play_block_len * next_play_cnt
+        ├─ ③ 从 play_fifo 读 1 个 block 到 next_play_buff
+        │     ├─ FIFO 数据不足 且 非「等待播放结束」→ 整块 fill 空白音
+        │     └─ FIFO 数据不足 且 「等待播放结束」  → 先读剩余数据，尾部 fill 空白音
+        ├─ ④ cache_sync_enable 时，对 next_play_buff 做 cache_sync
+        ├─ ⑤ 若 FIFO 空闲 ≥ 低水位
+        │     → 发送 EV_TX_NEED_DATA → common_task 解码更多
+        └─ ⑥ 停止分支（CHECK_FILL_BLANK）：整块播放缓冲区 fill 空白音
+              → 【新增】同样执行 cache_sync（覆盖全部 LUAT_AUDIO_DATA_BUFFER_CNT 个 block）
+              → 此前该分支漏了 cache_sync，开启 DCACHE + DMA 时会播出残留脏数据
 
 请求完成:
   common_task 检测 is_file_end && FIFO 空
@@ -736,8 +798,17 @@ luat_audio_driver_start(ctrl, tx_param, rx_param, play_buff, one_block_len, bloc
   ├─ 根据 request_work_mode 选择启动函数:
   │   ├─ PLAY       → support_full_loop ? start_full_loop : start_tx_loop
   │   ├─ RECORD     → support_full_loop ? start_full_loop : start_rx_loop
-  │   ├─ SPEECH     → start_full_loop
-  │   └─ SPEECH_WITH_BUFFER → start_full_loop_with_play_buff
+  │   ├─ SPEECH     → support_full_loop ? start_full_loop
+  │   │              : (support_tx_loop && support_rx_loop)
+  │   │                → start_tx_loop(tx) + start_rx_loop(rx) 组合
+  │   │              : -LUAT_ERROR_PERMISSION_DENIED
+  │   └─ SPEECH_WITH_BUFFER → support_full_loop
+  │                            ├─ [start_full_loop_with_play_buff != NULL]
+  │                            │    → start_full_loop_with_play_buff(...)
+  │                            └─ [start_full_loop_with_play_buff == NULL]
+  │                                 → -LUAT_ERROR_PERMISSION_DENIED（**不回退**）
+  │                          : (support_tx_loop && support_rx_loop)
+  │                            → start_tx_loop + start_rx_loop 组合
   ├─ driver_work_mode = request_work_mode
   ├─ state = RUNNING
   ├─ CODEC 上电 → codec_ready_after_wakeup_timer → codec_ready_state=1
@@ -750,6 +821,7 @@ luat_audio_driver_start(ctrl, tx_param, rx_param, play_buff, one_block_len, bloc
 - 参数由单个 `common_param` 拆分为 `tx_param` + `rx_param`，支持发送/接收参数独立配置
 - 模式切换判断从 `common_param->driver_work_mode` 改为 `request_work_mode` vs `driver_work_mode`
 - `modify_audio_common_param` 新增 `is_rx_dir` 参数，`0`=发送方向，`1`=接收方向
+- **新增防御**：`SPEECH_WITH_BUFFER` 在全双工分支中先校验 `opts->start_full_loop_with_play_buff` 是否为 `NULL`，为空则直接返回 `-LUAT_ERROR_PERMISSION_DENIED`。此前驱动声明了 `support_full_loop=1` 但未实现该回调时，会直接调用空指针导致死机；现在不再尝试回退到 tx/rx loop 组合，因为通话带缓冲模式必须依赖该回调语义
 
 ### 6.4 TTS 独立任务流程
 
@@ -762,16 +834,17 @@ common_task 收到 EV_REQUEST:
   └─ is_tts → 发送 EV_TTS_RUN → tts_task 处理
 
 tts_task:
-  └─ opts->tts_decode() 循环
+  └─ luat_rtos_event_recv(...)   // 阻塞等待事件
+      └─ opts->tts_decode() 循环
       └─ 回调 _audio_tts_output_callback(data, len):
           ├─ [data==NULL] → 首次回调，启动驱动
           └─ [data!=NULL] → luat_audio_channel_write_data()
                             → 写入 play_fifo
-                            → FIFO 满则等待 tts_wait_sem
+                            → FIFO 满则等待 tts_or_extern_source_wait_sem
                            ← 等待 common_task 消费后释放信号量
 
 common_task 收到 EV_TX_NEED_DATA:
-  └─ is_tts → luat_mutex_unlock(tts_wait_sem)  // 唤醒 TTS 任务
+  └─ is_tts → luat_rtos_semaphore_release(tts_or_extern_source_wait_sem)  // 唤醒 TTS 任务
 ```
 
 ### 6.5 流模式请求流程
@@ -951,6 +1024,10 @@ org_input_data_fifo
 | **FIFO 水位控制** | 低水位触发数据请求、高水位停止解码，兼顾实时性和 DMA 缓冲深度 |
 | **驱动状态机** | IDLE → INITED → ACTIVE → RUNNING 四级状态，确保各阶段资源正确管理 |
 | **播放结束检测** | 文件尾+FIFO 空后连续 3 次请求空白数据才判定结束（防止缓冲数据未播完）|
+| **缓存同步** | `cache_sync_enable` 位控制，在播放数据写入 DMA 缓冲后与整块静音填充后各执行一次，适配 DCACHE + DMA 场景 |
+| **下块地址预取** | `next_play_buff` 在推进播放计数后立即计算并缓存到控制器，中断路径不再重复做偏移运算 |
+| **通话模式标记** | `is_call_mode` 由请求层按播放或录音编解码器类型维护，`prepare` 清零、`speech` 置位，供展锐等平台驱动做通话特殊控制 |
+| **驱动能力校验** | `SPEECH_WITH_BUFFER` 启动前校验 `start_full_loop_with_play_buff` 非空，避免未实现回调的驱动被空指针调用而死锁 |
 
 ---
 
@@ -1003,20 +1080,32 @@ org_input_data_fifo
 
 ## 十一、编解码器适配层参数一览
 
-| 编解码器 | 类型 | 输入最小长度 | 输出最大长度 | 自动检测 | 编码 |
-|---------|------|------------|------------|---------|------|
-| RAW | 0 | 8000 | 8000 | ❌ | ✅ |
-| WAV | 1 | 4096 | 4096 | ✅ | ✅ |
-| AMR-NB | 2 | 0（变长）| 320 | ✅ | ✅ |
-| AMR-WB | 3 | 0（变长）| 640 | ✅ | ✅ |
-| TTS | 4 | - | - | - | - |
-| MP3 | 5 | 1792 | 4608 | ✅ | ❌ |
-| OPUS | 6 | - | - | - | - |
-| G711 μ-Law | 7 | 固定 8kHz/1ch/16bit | - | - | - |
-| G711 A-Law | 8 | 固定 8kHz/1ch/16bit | - | - | - |
-| NO_OP | 9 | 8000 | 8000 | ❌ | ✅ |
+| 编解码器 | 类型值 / 枚举 | 采样率 | 输入最小长度 | 输出最大长度 | 自动检测 | 编码 |
+|---------|------|------|------------|------------|---------|------|
+| RAW | 0 `TYPE_RAW` | 由数据决定 | 8000 | 8000 | ❌ | ✅ |
+| WAV | 1 `TYPE_WAV` | 由文件头决定 | 4096 | 4096 | ✅ | ✅ |
+| AMR-NB | 2 `TYPE_AMR_NB` | 8 kHz | 0（变长）| 320 | ✅ | ✅ |
+| AMR-WB | 3 `TYPE_AMR_WB` | 16 kHz | 0（变长）| 640 | ✅ | ✅ |
+| TTS | 4 `TYPE_TTS` | 由 BSP 决定 | - | - | - | - |
+| MP3 | 5 `TYPE_MP3` | 由文件决定 | 1792 | 4608 | ✅ | ❌ |
+| OPUS | 6 `TYPE_OPUS` | - | - | - | - | - |
+| G711 μ-Law | 7 `TYPE_G711_ULAW` | 固定 8 kHz / 1ch / 16bit | - | - | - | - |
+| G711 A-Law | 8 `TYPE_G711_ALAW` | 固定 8 kHz / 1ch / 16bit | - | - | - | - |
+| NO_OP | 9 `TYPE_NO_OP` | 由上层指定 | 8000 | 8000 | ❌ | ✅ |
+| CC | 10 `TYPE_CC` | 由 BSP 决定 | - | - | ❌ | - |
+| Speex-NB | 11 `TYPE_SPEEX_NB` | 8 kHz | 0（解码）/ 320（编码）| 320（解码）/ 202（编码）| ❌ | ✅ |
+| Speex-WB | 12 `TYPE_SPEEX_WB` | 16 kHz | 0（解码）/ 640（编码）| 640（解码）/ 402（编码）| ❌ | ✅ |
+| Speex-UWB | 13 `TYPE_SPEEX_UWB` | 32 kHz | 0（解码）/ 1280（编码）| 1280（解码）/ 802（编码）| ❌ | ✅ |
+| CC-Bridge-PCM | 14 `TYPE_CC_BRIDGE_PCM` | 由 BSP 决定 | - | - | ❌ | - |
+| VOIP-PCM | 15 `TYPE_VOIP_PCM` | 由 BSP 决定 | - | - | ❌ | - |
 
-注：OPUS 适配代码当前被 `#if 0` 注释，未处于激活状态。RAW 和 NO_OP 编解码器使用 `encode_raw_mode=1`（直接拷贝原始数据，不进行编解码处理）。G711 已激活，固定 8kHz 采样率、单声道、16bit 深度。
+注：
+- OPUS 适配代码当前被 `#if 0` 注释，未处于激活状态。RAW 和 NO_OP 编解码器使用 `encode_raw_mode=1`（直接拷贝原始数据，不进行编解码处理）。G711 已激活，固定 8kHz 采样率、单声道、16bit 深度。
+- **Speex（NB/WB/UWB）** 位于 `codec_adapter/luat_audio_codec_port_speex.c`，整文件受 `LUAT_SUPPORT_SPEEX` 宏保护，未定义该宏时该文件为空编译单元。三档分别对应 8k/16k/32k 采样率，帧长 160/320/640 样本；`support_detect = 0`，不参与自动识别，须由上层显式指定 `codec_id`。编码输出带 2 字节长度头（已计入上表 `MAX_ENCODED`）。
+- **CC / CC_BRIDGE_PCM / VOIP_PCM** 为通话与 VOIP 场景专用类型，不作为 Lua 公共 codec 暴露。其中 `luat_audio_request_speech()` 在播放或录音编解码器为 `CC` 时触发 `is_call_mode = 1`（见 5.6）。
+  - `CC_BRIDGE_PCM` 有参考实现：`components/cc/luat_cc_bridge.c` 中的 `s_bridge_pcm_codec`（PCM 直通，`encode_raw_mode=1` / `decode_raw_mode=1`），用于 SIP-VoLTE 桥接。
+  - `CC` 与 `VOIP_PCM` 在本开源仓库中**只有枚举定义、没有实现**，需由厂商 BSP 提供并通过 `luat_audio_data_codec_register()` 注册。使用侧通过 `luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_CC)` 查找（见 `components/cc/luat_lib_cc_v2.c`），查找失败时 CC 通话会直接报错返回。
+- 硬件编解码器类型以 `LUAT_AUDIO_DATA_CODEC_TYPE_HW (0x80)` 起始，通过 `is_hardware` 字段区分。
 
 ---
 
@@ -1035,6 +1124,25 @@ org_input_data_fifo
   | `luat_mp3` | MP3 编解码器 |
   | `luat_amr` | AMR 编解码器 |
   | `codec_opus` | OPUS 编解码器 |
+  | `audio_dsp` | DSP 处理层（`luat_audio_dsp.c`）|
+  | `luat_speex` | Speex 编解码器 |
+  | `audio_v2` | Lua 绑定层（`luat_lib_audio.c`）|
+
+- **驱动注册日志**：`luat_audio_driver_register()` 成功时改为 `LLOGI` 无条件输出（原为 `LLOGC(luat_audio_debug_flag, ...)`，需开调试才可见），
+  打印 `probe_id` 与驱动索引。排查「驱动没注册上 / 注册到错误的 index」时无需再打开调试开关。
+  ```
+  probe_id: 0x00000000 driver register success index: 0
+  ```
+
+### 常见故障定位
+
+| 现象 | 优先排查 |
+|------|---------|
+| 通话带缓冲模式下死机 | 驱动 `support_full_loop=1` 但未实现 `start_full_loop_with_play_buff`；现应返回 `-LUAT_ERROR_PERMISSION_DENIED` 而非崩溃 |
+| 开启 DCACHE 后播杂音/残留音 | 确认 `cache_sync_enable` 已置位；检查驱动 `cache_sync` 实现。注意整块静音填充分支也已加入同步 |
+| 播放结尾有爆音 | 检查 PA/CODEC 下电时序（先关 PA 再关 CODEC）与 `is_wait_play_end` 逻辑 |
+| 无声但无报错 | 用 `audio_v2.get_driver_info()` 确认驱动已注册；确认 `codec_ready_state` / `pa_power_state` / `audio_output_enable` 三个条件均已满足 |
+| 通话回声未消除 | 确认 DSP 实现已注册（不再依赖 `LUAT_USE_AUDIO_DSP` 宏）；检查 `audio_v2.speech` 的 `dsp_type` 是否正确，以及 `process` 的 ref_input 参考信号是否接入 |
 
 ---
 

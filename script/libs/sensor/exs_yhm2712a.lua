@@ -1,25 +1,32 @@
 --[[
 @module exs_yhm2712a
 @summary exs_yhm2712a扩展库
-@version 1.2
-@date    2026.08.21
+@version 1.3
+@date    2026.08.25
 @author  王世豪
 @usage
 -- 应用场景
 本扩展库适用于集成了YHM2712A充电IC的设备，使用前需要手动配置YHM2712A的CMD引脚。
 
 -- 用法实例
-本扩展库对外提供了以下7个接口：
+本扩展库对外提供了以下8个接口：
 1）初始化YHM2712A通信引脚并设置参数 exs_yhm2712a.setup(init_cfg)
 2）开启充电 exs_yhm2712a.start()
 3）关闭充电 exs_yhm2712a.stop()
 4）获取充电系统状态信息 exs_yhm2712a.status()
 5）注册事件回调函数 exs_yhm2712a.on(func)
 6）进入船运模式 exs_yhm2712a.ship_mode()
-7）退出船运模式 exs_yhm2712a.exit_ship_mode()
+7）获取当前FSM状态 exs_yhm2712a.get_fsm_mode()
 8）获取库版本信息 exs_yhm2712a.version()
 
 -- 版本更新说明
+-- ============================================================
+-- 版本号:202608251200
+-- 更新时间:2026-08-25 12:00
+-- 更新内容：
+--   1. 移除 exs_yhm2712a.exit_ship_mode() 接口及其对应事件
+--   2. 新增 exs_yhm2712a.get_fsm_mode() 接口：读取芯片当前FSM_MODE(状态机模式)
+--      用于调试/确认芯片当前所处状态(船运/充电/放电/故障等)
 -- ============================================================
 -- 版本号:202608211200
 -- 更新时间:2026-08-21 12:00
@@ -128,14 +135,28 @@ exs_yhm2712a.on(exs_yhm2712a_callback)
 @usage
 exs_yhm2712a.ship_mode() -- 进入船运模式
 
-7、退出船运模式
-必须在task中运行，最大阻塞时间大概为500ms, 阻塞主要由sys.waitUntil("YHM27XX_REG", 500)产生。
-依据手册：Write MODE[3:0]=1010 即可退出Shipping Mode，恢复START正常供电。
-注意：仅在充电器(VIN)在位、芯片仍可通信时有效；若设备已彻底进入150nA且无VIN，软件命令无效，只能插充电器唤醒。
-@api exs_yhm2712a.exit_ship_mode()
-@return boolean: true=成功, false=失败
+7、获取当前FSM状态
+必须在task中运行，内部有sys.waitUntil("YHM27XX_REG", 500)阻塞(约500ms)。
+用于读取芯片当前FSM_MODE(状态机模式)，确认芯片所处状态(如睡眠/充电/放电/故障等)。
+@api exs_yhm2712a.get_fsm_mode()
+@return number FSM_MODE值(0~15)；读取失败(无响应)返回-1
+FSM_MODE编码(4bit)说明：
+    0=RESET, 复位/上电初始化
+    1=SHIPPING, 船运模式(出厂低功耗，禁用充放电)
+    2=SLEEP, 休眠/待机低功耗
+    3=ITEST, 内部测试模式(芯片自检)
+    4~7=RESERVED, 保留
+    8=DISCHARGE, 放电中(带载输出)
+    9=FAULT, 故障(如过压/过流/过温等)
+    10=START, 启动中(充电流程初始化)
+    11=SYS_PRE, 系统预充阶段
+    12=CHARGE, 充电中
+    13=CHARGE_DONE, 充电完成(充满)
+    14=RESERVED, 保留
+    15=STOP_CHARGE 停止充电(如充满断开或异常停止)
 @usage
-exs_yhm2712a.exit_ship_mode() -- 退出船运模式，恢复正常供电
+local fsm = exs_yhm2712a.get_fsm_mode()
+log.info("exs_yhm2712a", "FSM_MODE=", fsm)
 
 8、获取库版本信息
 获取exs_yhm2712a扩展库的版本号，用于版本管理和兼容性检查。
@@ -192,6 +213,8 @@ local status2_register = 0x06   -- read only
 local id_register = 0x08        -- read only
 
 --充电电压参数,默认门限电压为4.35V
+-- Q1_ILIM_DIS(bit0)=1：解除Q1输入电流限制(默认800mA)
+-- 对应 4.2V=0x05, 4.35V=0x65, 4V=0xE5
 local set_4V2   = 0x04       --4.2V
 local set_4V35  = 0x64       --4.35V
 local set_4V    = 0xE4       --4V
@@ -576,58 +599,42 @@ function exs_yhm2712a.ship_mode()
     end
 end
 
-
 --[[
-退出船运模式，恢复为正常供电(必须在task中运行)
-@api exs_yhm2712a.exit_ship_mode()
-@return boolean: true=成功, false=失败
+读取出芯片当前FSM_MODE(状态机模式)，必须在task中运行，内部有sys.waitUntil阻塞(约500ms)。
+用于调试/确认芯片工作模式。FSM_MODE编码(4bit, 0~15)：
+    0=RESET, 复位/上电初始化
+    1=SHIPPING, 船运模式
+    2=SLEEP, 休眠/待机低功耗
+    3=ITEST, 内部测试模式(芯片自检)
+    4~7=RESERVED, 保留
+    8=DISCHARGE, 放电中(带载输出)
+    9=FAULT, 故障(如过压/过流/过温等)
+    10=START, 启动中(充电流程初始化)
+    11=SYS_PRE, 系统预充阶段
+    12=CHARGE, 充电中
+    13=CHARGE_DONE, 充电完成(充满)
+    14=RESERVED, 保留
+    15=STOP_CHARGE 停止充电(如充满断开或异常停止)
+@api exs_yhm2712a.get_fsm_mode()
+@return number FSM_MODE值；读取失败返回-1
 @usage
-exs_yhm2712a.exit_ship_mode() -- 退出船运模式，恢复正常供电
-@reason
-依据YHM2712A手册 MODEREGISTER(0x02)页脚注释：Write MODE[3:0]=1010 即可退出Shipping Mode。
-同时手册4.9节提到：若设备已彻底进入150nA(无VIN、仅电池)，软件命令无效，
-唯一唤醒方式是 Plug VIN(插入充电器)。本接口仅在芯片仍被供电、CMD通信可用时有效。
-]]
-function exs_yhm2712a.exit_ship_mode()
+local fsm = exs_yhm2712a.get_fsm_mode()
+log.info("充电管理", "FSM_MODE=", fsm, fsm==1 and "(船运模式)" or "(非船运)")
+]]--
+function exs_yhm2712a.get_fsm_mode()
     if not gpio_pin then
-        log.error("exs_yhm2712a.exit_ship_mode", "YHM2712A未初始化，请先调用exs_yhm2712a.setup(init_cfg)")
-        return false
+        log.error("exs_yhm2712a.get_fsm_mode", "YHM2712A未初始化，请先调用exs_yhm2712a.setup(init_cfg)")
+        return -1
     end
-    -- 读取芯片ID，验证通信是否正常
-    local result, data = chgcmd(gpio_pin, sensor_addr, id_register)
-    if not result then
-        log.error("exs_yhm2712a", "无法读取芯片ID, 通信失败")
-        return false
-    end
-
-    -- 发送退出船运模式命令：MODE[3:0]=1010(START正常) + M_SET=1，值为0xA8
-    result = chgcmd(gpio_pin, sensor_addr, mode_register, 0xA8)
-    if not result then
-        log.error("exs_yhm2712a.exit_ship_mode", "发送退出船运模式命令失败")
-        return false
-    end
-
-    -- 等待命令生效（根据数据手册状态机切换时序）
+    -- 读取STATUS2(0x06)并提取FSM_MODE[7:4]
     chginfo(gpio_pin, sensor_addr)
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
-
     if reg_result and reg_data then
-        -- 检查0x06寄存器（STATUS2）的FSM_MODE[7:4]
-        -- FSM_MODE编码(手册第15页)：0000=RESET 0001=SHIPPING 0010=SLEEP 1010=START 1100=CHARGE ...
-        -- 退出成功判据：FSM已离开 RESET(0)/SHIPPING(1)，进入正常模式即可
         local status2 = reg_data:byte(7)
-        local fsm_mode = (status2 & 0xF0) >> 4
-        if fsm_mode ~= 0 and fsm_mode ~= 1 then
-            log.info("exs_yhm2712a.exit_ship_mode 生效, 当前FSM模式: " .. fsm_mode)
-            notify_event(exs_yhm2712a.EXIT_SHIPPING_MODE)
-            return true
-        else
-            log.warn("exs_yhm2712a.exit_ship_mode 未生效(仍处于RESET/SHIPPING), 当前FSM模式: " .. fsm_mode)
-            return false
-        end
+        return (status2 & 0xF0) >> 4
     else
-        log.warn("exs_yhm2712a.exit_ship_mode 未生效, 请检查是否支持yhm27xx")
-        return false
+        log.warn("exs_yhm2712a.get_fsm_mode", "读取寄存器失败")
+        return -1
     end
 end
 
@@ -1057,10 +1064,19 @@ function exs_yhm2712a.status()
         status.charge_stage = 8
         status.charge_complete = false
         status.battery_present = false
+    else
+        -- 电池不在位 且 充电器不在位：芯片FSM读到的CHG_STATUS(05h[7:5])对空载无意义
+        -- 依据YHM2712A手册：Charge Done(111)仅由"充电电流<C/20终止"触发，BAT开路时
+        -- 电流天然为0，芯片会一直报"充电完成"，但这不代表有电池且充满，必须在此兜底。
+        status.vbat_voltage = 0
+        status.charge_stage = 0        -- 放电模式（无充电器无电池）
+        status.charge_complete = false
     end
-    
+
     -- 5. 判断充电是否完成
-    status.charge_complete = (status.charge_stage == 7)
+    -- 关键：CHG_STATUS==7(Charge Done)仅在"电池在位"时才算真正的充满；
+    -- 电池不在位时（BAT开路），芯片因终止电流判据也会报7，必须强制不判定为充满。
+    status.charge_complete = status.battery_present and (status.charge_stage == 7)
     
     return status
 end
@@ -1073,7 +1089,7 @@ end
 log.info("exs_yhm2712a", "version:", exs_yhm2712a.version())
 ]]
 function exs_yhm2712a.version()
-    return "202608211200"
+    return "202608251200"
 end
 
 -- sys.taskInit(function()

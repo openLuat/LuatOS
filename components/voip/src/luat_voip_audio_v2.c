@@ -1,7 +1,7 @@
 /* audio_v2 adapter for VoIP's private PCM transport codec. */
 #include "luat_voip_core.h"
 
-#ifdef LUAT_USE_VOIP_AUDIO_V2
+#ifdef LUAT_USE_AUDIO_V2
 #include "luat_audio_core.h"
 #include <string.h>
 
@@ -55,7 +55,7 @@ static const luat_audio_data_codec_opts_t s_voip_pcm_codec_opts = {
 
 void luat_voip_audio_codec_register(void)
 {
-#ifdef LUAT_USE_VOIP_AUDIO_V2
+#ifdef LUAT_USE_AUDIO_V2
     static uint8_t registered;
     if (!registered && luat_audio_data_codec_register(&s_voip_pcm_codec_opts) == LUAT_ERROR_NONE) {
         registered = 1;

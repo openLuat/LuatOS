@@ -5,7 +5,13 @@
 #include "luat_log.h"
 #include <stdlib.h>
 #include <time.h>
+#if defined(_WIN32)
 #include <windows.h>
+#define luat_pc_getpid() ((unsigned int)GetCurrentProcessId())
+#else
+#include <unistd.h>
+#define luat_pc_getpid() ((unsigned int)getpid())
+#endif
 
 int luat_crypto_trng(char* buff, size_t len) {
     static uint32_t counter = 0;
@@ -13,7 +19,7 @@ int luat_crypto_trng(char* buff, size_t len) {
      * 防止其他模块调用 srand() 后 rand() 序列退化为固定值
      * (IKE 的 SPIi/Ni/KE 必须每次不同, 否则网关可能命中残留的半开 SA) */
     srand((unsigned int)time(NULL) ^
-          (unsigned int)GetCurrentProcessId() ^
+          luat_pc_getpid() ^
           (counter++ * 2654435761u));
     for (size_t i = 0; i < len; i++)
     {

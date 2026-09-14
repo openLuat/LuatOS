@@ -238,14 +238,15 @@ function t.test_stop_is_idempotent_when_not_started()
 end
 
 --[[
-start() 之前未 init 时应失败并给出原因(而非崩溃)。
+未启动时 is_registered() 必须为 false。
+
+注意 exgb28181 是模块级单例，无法真正清空已保存的配置，因此这里不测
+"未 init 就 start" 那条路径（它需要未初始化的干净状态）；该路径的用例
+放在 gb28181_client_test.lua 里，针对可自由构造的 client 测。
 ]]
-function t.test_start_requires_init()
-    -- 注意: exgb28181 是模块级单例, 无法真正清空已保存的配置,
-    -- 因此这里只断言 start() 在 M0 阶段明确报告"尚未实现"。
-    local ok, err = exgb28181.start()
-    assert(ok == false, "M0 阶段 start() 应返回 false")
-    assert(type(err) == "string" and #err > 0, "应给出失败原因")
+function t.test_is_registered_false_when_not_started()
+    assert(exgb28181.is_registered() == false,
+           "未启动时 is_registered() 应为 false")
 end
 
 return t

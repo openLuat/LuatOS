@@ -55,6 +55,10 @@ local g_config = nil
 local g_started = false
 local g_callback = nil
 
+-- 信令客户端的句柄与"是否已尝试加载"标志(见 load_client)
+local g_client = nil
+local g_client_loaded = false
+
 local default_config = {
     sip_server_port = 5060,
     sip_domain      = nil,
@@ -267,9 +271,29 @@ function exgb28181.init(config)
 end
 
 --[[
-启动 GB28181 服务。
+加载信令客户端。延迟加载是为了让本门面在 PC 模拟器上也能单独加载
+(与 C 层同样的理由)。返回 nil 而非抛错。
+@return table|nil
+]]
+local function load_client()
+    if g_client_loaded then
+        return g_client
+    end
+    g_client_loaded = true
+    local ok, mod = pcall(require, "exgb28181client")
+    if not ok or type(mod) ~= "table" then
+        log_error("无法加载 exgb28181client:", mod)
+        g_client = nil
+    else
+        g_client = mod
+    end
+    return g_client
+end
+
+--[[
+启动 GB28181 服务：注册、心跳、查询响应。
 @api exgb28181.start()
-@return boolean 成功返回 true，失败返回 false
+@return boolean 成功返回 true
 @return string|nil 失败原因
 ]]
 function exgb28181.start()
@@ -280,8 +304,41 @@ function exgb28181.start()
         return false, "请先调用 init() 完成配置"
     end
 
-    -- 里程碑 M2 实现：SIP 注册、心跳保活、查询响应
-    return false, "尚未实现(里程碑 M2)"
+    local client = load_client()
+    if client == nil then
+        return false, "无法加载 exgb28181client"
+    end
+
+    -- 门面字段名 → 客户端字段名
+    local ok, err = client.start({
+        server_addr = g_config.sip_server_addr,
+        server_port = g_config.sip_server_port,
+        domain      = g_config.sip_domain,
+        device_id   = g_config.device_id,
+        password    = g_config.sip_password,
+        transport   = g_config.transport,
+        local_port  = g_config.local_port,
+        keepalive   = g_config.keepalive,
+        expires     = g_config.register_expires,
+        adapter     = g_config.adapter,
+        device = {
+            name         = g_config.device_name,
+            manufacturer = g_config.manufacturer,
+            model        = g_config.model,
+            firmware     = g_config.firmware,
+            channel      = g_config.channels and #g_config.channels or 1,
+        },
+        event_callback = emit,
+    })
+    if not ok then
+        log_error("启动失败:", err)
+        return false, err
+    end
+
+    g_started = true
+    log_info("服务已启动")
+    emit("lifecycle", "start")
+    return true
 end
 
 --[[
@@ -294,9 +351,22 @@ function exgb28181.stop()
         return true
     end
     g_started = false
+    if g_client then
+        g_client.stop()
+    end
     log_info("服务已停止")
     emit("lifecycle", "stop")
     return true
+end
+
+--[[
+查询是否已成功注册到平台。
+@api exgb28181.is_registered()
+@return boolean
+]]
+function exgb28181.is_registered()
+    if not g_client then return false end
+    return g_client.is_registered()
 end
 
 --[[

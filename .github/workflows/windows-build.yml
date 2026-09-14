@@ -149,6 +149,10 @@ jobs:
             path: "utest/fs/pgfs_basic"
           - name: "rtos_basic"
             path: "unit/system/rtos_basic"
+          - name: "netdrv_ipv6_basic"
+            path: "unit/net/netdrv_ipv6_basic"
+          - name: "netdrv_lwip_intercept_basic"
+            path: "unit/net/netdrv_lwip_intercept_basic"
 
     steps:
       - uses: actions/checkout@v4

@@ -45,6 +45,9 @@
 #define LUAT_USE_NETDRV_L2TP 1
 #define LUAT_USE_NETDRV_IPSEC 1
 #define LUAT_USE_NETDRV_LWIP_ARP 1
+// netdrv IPv6 能力(netdrv.ipv6 / 链路本地地址自动生成 / IPv6 就绪判定)
+// 按 LuatOS 惯例: 定义即启用, 注释掉即关闭
+#define LUAT_USE_NETDRV_IPV6 1
 
 // ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试)
 #define LUAT_USE_ICMP 1

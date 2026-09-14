@@ -77,6 +77,12 @@ void luat_netdrv_etharp_input(struct pbuf *p, struct netif *netif);
  * @see LWIP_HOOK_UNKNOWN_ETH_PROTOCOL
  * @see ETHARP_SUPPORT_VLAN
  * @see LWIP_HOOK_VLAN_CHECK
+ *
+ * 注意: 本函数拷贝自上游 lwip 的 ethernet_input(), 但**有意省略**了上游的
+ * 目的 MAC 单播过滤(eth_addr_cmp(dest, netif->hwaddr), 不匹配则 "packet not
+ * for us" 丢弃)。netdrv 的虚拟网卡(whale/airlink)与 netdrv_lwip_intercept 测试
+ * 会注入"未回换目的 MAC"的帧(如拦截出向请求后直接改 IP 注回), 依赖此处的放行。
+ * 若按上游补回该过滤, 上述路径会静默收不到包。
  */
 err_t
 luat_netdrv_ethernet_input(struct pbuf *p, struct netif *netif)

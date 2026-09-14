@@ -2,6 +2,7 @@
 #include "luat_sdl2.h"
 
 #include "SDL2/SDL.h"
+#include "luat_pcsim_host.h"
 #if defined(_WIN32)
 #include <windows.h>
 #include <SDL_syswm.h>
@@ -291,6 +292,11 @@ static void luat_sdl2_update_aspect_window_size(int request_w, int request_h) {
 }
 
 static void luat_sdl2_get_target_window_size(size_t preview_width, size_t preview_height, int *target_w, int *target_h) {
+    if (luat_pcsim_host_force_native_size()) {
+        *target_w = (int)preview_width;
+        *target_h = (int)preview_height;
+        return;
+    }
     SDL_Rect usable_bounds;
     luat_sdl2_get_display_usable_bounds(window, &usable_bounds);
     luat_sdl2_calc_fitted_size(usable_bounds.w, usable_bounds.h,
@@ -364,16 +370,19 @@ static void luat_sdl2_apply_preview_window_size(void) {
 }
 
 // 定时调用此函数以保持 SDL2 事件泵活跃，避免窗口无响应
+// 只抽 QUIT / 窗口事件，保持消息泵；鼠标键盘留给 AirUI indev。
+// flush 里若 PollEvent 抽空队列，注入的 UP 会在 indev 读到之前被丢掉，按钮会卡住。
 void luat_sdl2_pump_events(void) {
     SDL_Event e;
-    // 循环处理所有等待的事件
-    while (SDL_PollEvent(&e)) {
-        if (e.type == SDL_QUIT) {
-            // 设置标志位, 让 main 循环自行退出, 避免 exit(0) 绕过 SDL2 清理
-            sdl2_exit_requested = 1;
-        }
+    luat_pcsim_host_poll();
+    SDL_PumpEvents();
+    while (SDL_PeepEvents(&e, 1, SDL_GETEVENT, SDL_QUIT, SDL_QUIT) > 0) {
+        sdl2_exit_requested = 1;
+    }
 #if !defined(_WIN32)
-        else if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED && window != NULL && e.window.windowID == SDL_GetWindowID(window)) {
+    while (SDL_PeepEvents(&e, 1, SDL_GETEVENT, SDL_WINDOWEVENT, SDL_WINDOWEVENT) > 0) {
+        if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED && window != NULL &&
+            e.window.windowID == SDL_GetWindowID(window)) {
             if (aspect_adjusting_window) {
                 aspect_adjusting_window = 0;
                 aspect_last_window_w = e.window.data1;
@@ -381,14 +390,12 @@ void luat_sdl2_pump_events(void) {
             } else {
                 luat_sdl2_update_aspect_window_size(e.window.data1, e.window.data2);
             }
-        }
-        else if (e.type == SDL_WINDOWEVENT && (e.window.event == SDL_WINDOWEVENT_EXPOSED || e.window.event == SDL_WINDOWEVENT_RESIZED) &&
-                 window != NULL && e.window.windowID == SDL_GetWindowID(window)) {
+        } else if ((e.window.event == SDL_WINDOWEVENT_EXPOSED || e.window.event == SDL_WINDOWEVENT_RESIZED) &&
+                   window != NULL && e.window.windowID == SDL_GetWindowID(window)) {
             luat_sdl2_present_current_frame();
         }
-#endif
-        // 其他事件不做处理，关键作用是让事件泵持续运行，防止界面假死
     }
+#endif
 }
 
 static void luat_sdl2_present_current_frame(void) {
@@ -434,6 +441,7 @@ static void luat_sdl2_present_current_frame(void) {
 // atexit handler: 确保 exit() 时 SDL2 资源被释放 (GPU 资源不泄漏, 避免批量测试时驱动耗尽)
 void luat_sdl2_cleanup_atexit(void) {
     if (!framebuffer && !renderer && !window) return;
+    luat_pcsim_host_unbind();
     luat_sdl2_uninstall_native_resize_hook();
     if (framebuffer) { SDL_DestroyTexture(framebuffer); framebuffer = NULL; }
     if (renderer)   { SDL_DestroyRenderer(renderer); renderer = NULL; }
@@ -466,10 +474,13 @@ int luat_sdl2_init(luat_sdl2_conf_t *conf) {
 
     window = SDL_CreateWindow(conf->title == NULL ? "LuatOS" : conf->title,
                               SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                              window_w, window_h, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    luat_sdl2_center_window();
-    luat_sdl2_install_native_resize_hook();
-    luat_sdl2_set_native_aspect(conf->width, conf->height);
+                              window_w, window_h,
+                              luat_pcsim_host_window_flags(SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI));
+    if (!luat_pcsim_host_force_native_size()) {
+        luat_sdl2_center_window();
+        luat_sdl2_install_native_resize_hook();
+        luat_sdl2_set_native_aspect(conf->width, conf->height);
+    }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     framebuffer = SDL_CreateTexture(renderer,
@@ -477,6 +488,10 @@ int luat_sdl2_init(luat_sdl2_conf_t *conf) {
                                     SDL_TEXTUREACCESS_STREAMING,
                                     conf->width,
                                     conf->height);
+    if (luat_pcsim_host_bind(window, renderer, framebuffer, (int)conf->width, (int)conf->height) != 0) {
+        luat_sdl2_deinit(conf);
+        return -1;
+    }
     luat_sdl2_pump_events();
 
     // 注册 atexit 处理器, 确保 exit() 时 SDL2 资源被释放
@@ -489,6 +504,7 @@ int luat_sdl2_init(luat_sdl2_conf_t *conf) {
 }
 
 int luat_sdl2_deinit(luat_sdl2_conf_t *conf) {
+    luat_pcsim_host_unbind();
     luat_sdl2_uninstall_native_resize_hook();
     SDL_DestroyTexture(framebuffer);
     SDL_DestroyRenderer(renderer);

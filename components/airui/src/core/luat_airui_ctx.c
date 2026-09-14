@@ -12,6 +12,9 @@
 #include <assert.h>
 #include "luat_conf_bsp.h"
 #include "luat_airui_conf.h"
+#if defined(LUAT_USE_INPUT) && defined(LUAT_USE_AIRUI_LUATOS)
+#include "platform/luatos/luat_airui_input_hid_luatos.h"
+#endif
 
 #include "luat_msgbus.h"
 #include "luat_rtos.h"
@@ -514,6 +517,9 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     ctx->indev_ptr_count = 1;
 #else
     ctx->indev_ptr_count = 2;
+#if defined(LUAT_USE_INPUT) && defined(LUAT_USE_AIRUI_LUATOS)
+    ctx->indev_ptr_count = AIRUI_HID_POINTER_SLOT + 1U;
+#endif
 #endif
     if (ctx->indev_ptr_count > AIRUI_POINTER_INDEV_MAX) {
         ctx->indev_ptr_count = AIRUI_POINTER_INDEV_MAX;
@@ -530,6 +536,26 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
         ctx->indev_udata[i].slot = i;
         lv_indev_set_user_data(ctx->indev_ptrs[i], &ctx->indev_udata[i]);
         lv_indev_set_read_cb(ctx->indev_ptrs[i], input_read_cb);
+#if defined(LUAT_USE_INPUT) && defined(LUAT_USE_AIRUI_LUATOS)
+        if (i == AIRUI_HID_POINTER_SLOT) {
+            /* Display-owned cursor; no framebuffer/image asset is needed. */
+            lv_obj_t *cursor = lv_obj_create(lv_display_get_layer_sys(ctx->display));
+            if (cursor == NULL) {
+                airui_deinit(ctx);
+                return AIRUI_ERR_INIT_FAILED;
+            }
+            lv_obj_remove_style_all(cursor);
+            lv_obj_set_size(cursor, 12, 12);
+            lv_obj_set_style_radius(cursor, LV_RADIUS_CIRCLE, 0);
+            lv_obj_set_style_bg_color(cursor, lv_color_black(), 0);
+            lv_obj_set_style_bg_opa(cursor, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(cursor, lv_color_white(), 0);
+            lv_obj_set_style_border_width(cursor, 2, 0);
+            lv_obj_remove_flag(cursor, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_add_flag(cursor, LV_OBJ_FLAG_HIDDEN);
+            lv_indev_set_cursor(ctx->indev_ptrs[i], cursor);
+        }
+#endif
 #ifdef LUAT_USE_AIRUI_SDL2
         // 在pc模拟器时，将触摸事件的周期调整为10ms，以提高触摸事件的响应速度
         lv_timer_set_period(lv_indev_get_read_timer(ctx->indev_ptrs[i]), 10);

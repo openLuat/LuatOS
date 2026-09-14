@@ -17,6 +17,7 @@ local TAG = "netdrv_lwip"
 local ADAPTER_ID = socket.LWIP_USER0  -- 选用 USER0, 与其他测试隔离
 local LOCAL_IP   = "192.168.99.1"
 local REMOTE_IP  = "192.168.99.2"     -- 假装这是远程服务器 IP
+local GW_MAC     = string.char(0x02, 0x00, 0x00, 0x99, 0x99, 0xFE)  -- 网关(虚拟对端)MAC
 
 -- 一个用于计算 IP/ICMP 头 checksum 的工具 (RFC 1071)
 -- 16-bit 累加 (大端), 含回卷
@@ -41,41 +42,53 @@ end
 
 local function u16be(msb, lsb) return string.char(msb, lsb) end
 
--- 构造 ICMP echo reply 包 (输入是请求的 IP 包字符串, 输出是新 zbuff)
+-- 判定捕获包是否带以太网头(14字节), 返回 IP 头起始位置(1-based)
+-- 判据: 首字节高4位是 IPv4 版本号, 则视为裸 IP 包; 否则按以太网帧处理
+local function ip_hdr_offset(s)
+    local b1 = string.byte(s, 1) or 0
+    if math.floor(b1 / 16) == 4 then
+        return 1
+    end
+    return 15
+end
+
+-- 构造 ICMP echo reply 包 (输入是请求的完整报文, 输出是新 zbuff)
+-- 自动保持与请求相同的封装(裸IP / 以太网帧)
 local function build_icmp_reply(req_s)
-    -- IPv4 header (20 bytes) + ICMP echo reply (8 bytes) + 同样的 payload
-    -- req_s 已是完整 IP 包
     local IP_HDR = 20
     local total = #req_s
+    local ip_off = ip_hdr_offset(req_s)
+    local ip0 = ip_off - 1   -- IP 头起始的 0-based 偏移
 
     -- 构造新字符串, 先复制请求
     local reply_bytes = {req_s:byte(1, total)}
-    -- 交换 src/dst IP (Lua 1-based: src=byte 13-16, dst=byte 17-20)
+    -- 交换 src/dst IP (IP头内偏移: src=+12..+15, dst=+16..+19)
     for i = 1, 4 do
-        reply_bytes[12 + i] = req_s:byte(16 + i)  -- copy req dst -> reply src
-        reply_bytes[16 + i] = req_s:byte(12 + i)  -- copy req src -> reply dst
+        reply_bytes[ip0 + 12 + i] = req_s:byte(ip0 + 16 + i)  -- copy req dst -> reply src
+        reply_bytes[ip0 + 16 + i] = req_s:byte(ip0 + 12 + i)  -- copy req src -> reply dst
     end
-    -- TTL 设成 64 (byte 9)
-    reply_bytes[9] = 64
-    -- IP 头 checksum 清 0 (bytes 11-12), 稍后重算
-    reply_bytes[11] = 0
-    reply_bytes[12] = 0
-    -- 拼成 string 算 IP 头 checksum
-    local ip_part = string.char(unpack(reply_bytes, 1, IP_HDR))
+    -- TTL 设成 64 (IP头内偏移 +8)
+    reply_bytes[ip0 + 9] = 64
+    -- IP 头 checksum 清 0 (IP头内偏移 +10..+11), 稍后重算
+    reply_bytes[ip0 + 11] = 0
+    reply_bytes[ip0 + 12] = 0
+    -- 拼出 IP 头算 checksum
+    local ip_part = string.char(unpack(reply_bytes, ip_off, ip_off + IP_HDR - 1))
     local ip_csum = checksum16(ip_part)
-    reply_bytes[11] = (ip_csum >> 8) & 0xFF
-    reply_bytes[12] = ip_csum & 0xFF
+    reply_bytes[ip0 + 11] = (ip_csum >> 8) & 0xFF
+    reply_bytes[ip0 + 12] = ip_csum & 0xFF
 
-    -- ICMP type: 8 -> 0 (echo reply) - ICMP 头从 byte 21 开始
-    reply_bytes[IP_HDR + 1] = 0
-    -- ICMP checksum 清 0 (bytes 23-24)
-    reply_bytes[IP_HDR + 3] = 0
-    reply_bytes[IP_HDR + 4] = 0
+    -- ICMP type: 8 -> 0 (echo reply), ICMP 头紧接 IP 头
+    local icmp_off = ip_off + IP_HDR
+    reply_bytes[icmp_off] = 0
+    -- ICMP checksum 清 0 (ICMP头内偏移 +2..+3)
+    reply_bytes[icmp_off + 2] = 0
+    reply_bytes[icmp_off + 3] = 0
     local reply_s = string.char(unpack(reply_bytes, 1, total))
-    -- ICMP checksum: 从 ICMP 头开始算 (off=IP_HDR+1=21, len=40)
-    local icmp_csum = checksum16(reply_s, IP_HDR + 1, total - IP_HDR)
-    reply_bytes[IP_HDR + 3] = (icmp_csum >> 8) & 0xFF
-    reply_bytes[IP_HDR + 4] = icmp_csum & 0xFF
+    -- ICMP checksum: 从 ICMP 头开始算
+    local icmp_csum = checksum16(reply_s, icmp_off, total - icmp_off + 1)
+    reply_bytes[icmp_off + 2] = (icmp_csum >> 8) & 0xFF
+    reply_bytes[icmp_off + 3] = icmp_csum & 0xFF
     reply_s = string.char(unpack(reply_bytes, 1, total))
 
     -- 装入 zbuff (send_raw 会按 used 长度发送, 不要 seek 回 0)
@@ -93,24 +106,52 @@ function tests.setUp()
     -- 1. 关闭任何已注册的拦截 (幂等)
     netdrv.on(ADAPTER_ID, netdrv.EVT_PKG, nil)
 
-    -- 2. 创建 whale 设备
+    -- 2. 创建 whale 设备(传 mac 即显式开启以太网模式)
     local ok = netdrv.setup(ADAPTER_ID, netdrv.WHALE, {
         mtu = 1500,
-        flags = 0,
         mac = string.char(0x02, 0x00, 0x00, 0x99, 0x99, 0x01),
     })
     assert(ok, "whale 设备创建失败: " .. tostring(ok))
 
     -- 3. 静态 IP
     netdrv.ipv4(ADAPTER_ID, LOCAL_IP, "255.255.255.0", "192.168.99.254")
+    -- 3.1 手工写入 ARP 表项: whale 网卡是虚拟以太网口, 对端不会回 ARP,
+    --     不写表项的话 LWIP 会把 ICMP 请求排队等 ARP 直到超时.
+    --     目标与本机同网段, 走 on-link 查找(不依赖网关), 让 LWIP 直接命中表项.
+    assert(netdrv.arp(ADAPTER_ID, "192.168.99.254", GW_MAC), "写入网关ARP表项失败")
+    assert(netdrv.arp(ADAPTER_ID, REMOTE_IP, GW_MAC), "写入对端ARP表项失败")
     sys.wait(200)
 
     -- 4. 注册 LWIP 拦截 (注册即拦截)
     intercepted = nil
     netdrv.on(ADAPTER_ID, netdrv.EVT_PKG, function(id, layer, zb)
-        if layer == netdrv.CH_LWIP then
-            intercepted = { id = id, layer = layer, zb = zb, time = os.time() }
+        if layer ~= netdrv.CH_LWIP then
+            return
         end
+        local s = zb:toStr()
+        if #s < 20 then
+            return
+        end
+        -- 只关心 IPv4 的 ICMP 报文:
+        --   whale 网卡上除了 ICMP 请求, 还会有 ARP / IPv6(链路本地地址生成时触发的 RS) 等帧
+        local b1 = string.byte(s, 1) or 0
+        local b13 = string.byte(s, 13) or 0
+        local b14 = string.byte(s, 14) or 0
+        local ip_off
+        if b13 == 0x08 and b14 == 0x00 then
+            ip_off = 15          -- 以太网帧且 ethertype = IPv4
+        elseif math.floor(b1 / 16) == 4 then
+            ip_off = 1           -- 裸 IP 包
+        else
+            return
+        end
+        if (string.byte(s, ip_off) or 0) ~= 0x45 then
+            return
+        end
+        if (string.byte(s, ip_off + 9) or 0) ~= 1 then
+            return
+        end
+        intercepted = { id = id, layer = layer, zb = zb, time = os.time() }
     end, { layer = "lwip" })
 
     _adapter_ready = true
@@ -170,12 +211,13 @@ function tests.test_03_ping_roundtrip_via_intercept()
     assert(intercepted.layer == netdrv.CH_LWIP, "layer 应为 CH_LWIP")
     assert(intercepted.zb:used() >= 28, "包太小, 不是有效的 IP+ICMP 包, size=" .. tostring(intercepted.zb:used()))
 
-    -- 校验包内容是 ICMP echo request
+    -- 校验包内容是 ICMP echo request (兼容裸IP与以太网封装两种格式)
     local req_s = intercepted.zb:toStr()
-    assert(req_s:byte(10) == 1, "应为 ICMP 协议 (1)")
-    assert(req_s:byte(21) == 8, "应为 ICMP echo request (type=8)")
+    local ip_off = ip_hdr_offset(req_s)
+    assert(req_s:byte(ip_off + 9) == 1, "应为 ICMP 协议 (1), ip_off=" .. tostring(ip_off))
+    assert(req_s:byte(ip_off + 20) == 8, "应为 ICMP echo request (type=8), ip_off=" .. tostring(ip_off))
 
-    log.info(TAG, string.format("拦截到 ICMP echo request, size=%d", intercepted.zb:used()))
+    log.info(TAG, string.format("拦截到 ICMP echo request, size=%d ip_off=%d", intercepted.zb:used(), ip_off))
 
     -- 构造 reply 并通过 send_raw(CH_LWIP) 注回
     local reply = build_icmp_reply(req_s)

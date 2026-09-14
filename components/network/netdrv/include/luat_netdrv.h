@@ -10,6 +10,22 @@
 
 struct luat_netdrv;
 
+/*
+ * ==== netdrv IPv6 功能开关 ====
+ *
+ * LWIP_IPV6 在各 BSP 上默认都是打开的, 不能直接拿它当"netdrv 是否提供 IPv6 能力"
+ * 的判据; 因此用 LUAT_USE_NETDRV_IPV6 单独控制 netdrv 这一层的 IPv6 能力
+ * (netdrv.ipv6 / 链路本地地址自动生成 / IPv6 就绪判定).
+ * 注意 netdrv.arp 属 IPv4 能力, 由 LUAT_USE_NETDRV_LWIP_ARP 控制, 不随本宏开关.
+ *
+ * 开关约定(与本仓库其它 LUAT_USE_* 能力宏一致, 只看"有没有定义", 不看取值):
+ *   - 未定义 : 关闭, 相关代码整体不参与编译
+ *   - 已定义 : 启用(惯例写 1, 但判据只看是否定义, 写 0 同样是启用)
+ *
+ * 本文件不再提供任何默认值兜底: 需要 IPv6 的 BSP 必须在自己的 luat_conf_bsp.h
+ * 里显式写出 #define LUAT_USE_NETDRV_IPV6 1; 注释掉该行即关闭.
+ */
+
 typedef void (*luat_netdrv_dataout_cb)(struct luat_netdrv* drv, void* userdata, uint8_t* buff, uint16_t len);
 typedef int (*luat_netdrv_bootup_cb)(struct luat_netdrv* drv, void* userdata);
 typedef int (*luat_netdrv_ready_cb)(struct luat_netdrv* drv, void* userdata);
@@ -118,7 +134,8 @@ typedef struct luat_netdrv_conf
     uint8_t irqpin;
     uint16_t mtu;
     uint8_t flags;
-    
+    uint8_t mac[6];         // 虚拟网卡的初始MAC, 由 netdrv.setup(id, tp, {mac=...}) 传入; 全0表示不指定
+
     luat_netdrv_ip_conf_t *ip_conf;
     luat_netdrv_wg_conf_t *wg_conf;
     luat_netdrv_openvpn_conf_t *ovpn_conf;
@@ -154,6 +171,10 @@ typedef struct luat_netdrv {
     luat_netdrv_ctrl_cb ctrl;
     uint8_t gw_mac[6];
     luat_netdrv_debug_cb debug;
+    // 新增字段一律追加在结构体末尾, 且不随功能宏增删:
+    // 本结构体由各 netdrv 驱动与预编译库跨编译单元共同分配/访问(如 drv->debug、
+    // drv->statics), 布局一旦随宏变化就会出现 ABI 不一致 -> 静默内存错乱.
+    char ipv6_gw[46];               // 用户设置的IPv6网关, 仅用于回显(最长45字符+结束符)
 }luat_netdrv_t;
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf);

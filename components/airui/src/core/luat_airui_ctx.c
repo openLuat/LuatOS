@@ -12,6 +12,7 @@
 #include <assert.h>
 #include "luat_conf_bsp.h"
 #include "luat_airui_conf.h"
+#include "luat_mem.h"
 #if defined(LUAT_USE_INPUT) && defined(LUAT_USE_AIRUI_LUATOS)
 #include "platform/luatos/luat_airui_input_hid_luatos.h"
 #endif

@@ -15,7 +15,7 @@ AirCloud excloud 协议通信模块，负责设备与云端的数据交互。
 
 上报数据字段：
 - SIGNAL_STRENGTH_4G: 4G信号强度（CSQ）
-- SIM_ICCID: 设备ID（hmeta.devid()）
+- CUSTOM_DEVICE_ID(1293): 设备唯一标识（hmeta.devid()）
 - TIMESTAMP: 时间戳（os.time()）
 - TEMPERATURE: 温度（SHT30传感器）
 - HUMIDITY: 湿度（SHT30传感器）
@@ -291,8 +291,8 @@ function excloud_task_func()
             local tlv_list = {
                 -- 信号强度
                 { field_meaning = excloud.FIELD_MEANINGS.SIGNAL_STRENGTH_4G, data_type = excloud.DATA_TYPES.INTEGER, value = mobile.csq() },
-                -- 设备ID（hmeta.devid() 替代 IMEI/MAC）
-                { field_meaning = excloud.FIELD_MEANINGS.SIM_ICCID,         data_type = excloud.DATA_TYPES.ASCII,   value = device_id },
+                -- 设备ID（hmeta.devid()，自定义字段1293，避免与SIM_ICCID(783)语义冲突）
+                { field_meaning = 1293,                        data_type = excloud.DATA_TYPES.ASCII,   value = device_id },
                 -- 时间戳
                 { field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,         data_type = excloud.DATA_TYPES.INTEGER, value = os.time() }
             }

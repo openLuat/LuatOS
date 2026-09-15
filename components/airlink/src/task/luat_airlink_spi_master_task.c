@@ -289,6 +289,7 @@ __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rx
             luat_airlink_current_mode_set(LUAT_AIRLINK_MODE_SPI_MASTER);
         }
         luat_airlink_on_data_recv(link->data, link->len);
+        g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
     }
     else
     {

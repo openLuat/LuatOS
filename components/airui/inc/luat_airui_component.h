@@ -99,6 +99,14 @@ typedef enum {
     AIRUI_VIDEO_DECODE_HW = 1,
 } airui_video_decode_mode_t;
 
+/** Video 实际呈现统计 */
+typedef struct {
+    uint64_t total_frames;
+    float fps;
+    airui_video_decode_mode_t decode_mode;
+    bool playing;
+} airui_video_stats_t;
+
 /** TabView 对齐常量 */
 typedef enum {
     AIRUI_TABVIEW_PAD_ALL = 0,
@@ -678,6 +686,7 @@ int airui_video_play(lv_obj_t *video);
 int airui_video_pause(lv_obj_t *video);
 int airui_video_stop(lv_obj_t *video);
 int airui_video_destroy(lv_obj_t *video);
+int airui_video_get_stats(lv_obj_t *video, airui_video_stats_t *stats);
 
 /**
  * Chart组件

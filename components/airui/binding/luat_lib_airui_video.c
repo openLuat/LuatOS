@@ -94,6 +94,32 @@ static int l_video_stop(lua_State *L)
 }
 
 /**
+ * Video:get_stats()
+ * @api video:get_stats()
+ * @return table 实际呈现统计：fps、total_frames、decode_mode、playing
+ */
+static int l_video_get_stats(lua_State *L)
+{
+    airui_video_stats_t stats;
+
+    if (airui_video_get_stats(video_check(L), &stats) != AIRUI_OK) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_createtable(L, 0, 4);
+    lua_pushnumber(L, (lua_Number)stats.fps);
+    lua_setfield(L, -2, "fps");
+    lua_pushinteger(L, (lua_Integer)stats.total_frames);
+    lua_setfield(L, -2, "total_frames");
+    lua_pushstring(L, stats.decode_mode == AIRUI_VIDEO_DECODE_HW ? "hw" : "sw");
+    lua_setfield(L, -2, "decode_mode");
+    lua_pushboolean(L, stats.playing);
+    lua_setfield(L, -2, "playing");
+    return 1;
+}
+
+/**
  * Video:destroy（手动销毁）
  * @api video:destroy()
  * @return nil
@@ -118,6 +144,7 @@ void airui_register_video_meta(lua_State *L)
         {"play", l_video_play},
         {"pause", l_video_pause},
         {"stop", l_video_stop},
+        {"get_stats", l_video_get_stats},
         {"destroy", l_video_destroy},
         {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}

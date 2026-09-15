@@ -4,6 +4,7 @@
 #include "lauxlib.h"
 #include "lvgl9/src/core/lv_obj.h"
 #include "lvgl9/src/misc/lv_timer.h"
+#include "lvgl9/src/tick/lv_tick.h"
 #include "lvgl9/src/widgets/image/lv_image.h"
 #include <stdint.h>
 #include <string.h>
@@ -66,6 +67,11 @@ typedef struct {
     bool playing;
     bool eof;
     bool size_checked;
+    bool stats_started;
+    uint64_t total_frames;
+    uint32_t fps_window_start_ms;
+    uint32_t fps_window_frames;
+    uint32_t fps_x100;
 } airui_video_data_t;
 
 #if defined(LUAT_USE_VIDEOPLAYER)
@@ -99,6 +105,8 @@ static uint8_t *airui_video_get_next_framebuffer(airui_video_data_t *data);
 static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, const airui_video_frame_t *frame);
 static int airui_video_read_and_present(lv_obj_t *video, airui_video_data_t *data, bool allow_loop);
 static int airui_video_restart_and_prime(lv_obj_t *video, airui_video_data_t *data);
+static void airui_video_stats_reset_window(airui_video_data_t *data);
+static void airui_video_stats_record_frame(airui_video_data_t *data);
 static void airui_video_timer_cb(lv_timer_t *timer);
 
 #if defined(LUAT_USE_VIDEOPLAYER)
@@ -368,6 +376,38 @@ static uint8_t *airui_video_get_next_framebuffer(airui_video_data_t *data)
     return data->framebuffers[(data->framebuffer_index + 1u) & 0x1u];
 }
 
+static void airui_video_stats_reset_window(airui_video_data_t *data)
+{
+    if (data == NULL) {
+        return;
+    }
+    data->fps_window_start_ms = lv_tick_get();
+    data->fps_window_frames = 0;
+    data->fps_x100 = 0;
+    data->stats_started = true;
+}
+
+static void airui_video_stats_record_frame(airui_video_data_t *data)
+{
+    uint32_t elapsed_ms;
+
+    if (data == NULL || !data->playing) {
+        return;
+    }
+    if (!data->stats_started) {
+        airui_video_stats_reset_window(data);
+    }
+
+    data->total_frames++;
+    data->fps_window_frames++;
+    elapsed_ms = lv_tick_elaps(data->fps_window_start_ms);
+    if (elapsed_ms >= 1000u) {
+        data->fps_x100 = (uint32_t)(((uint64_t)data->fps_window_frames * 100000u + elapsed_ms / 2u) / elapsed_ms);
+        data->fps_window_start_ms = lv_tick_get();
+        data->fps_window_frames = 0;
+    }
+}
+
 static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *data, uint16_t width, uint16_t height)
 {
     size_t framebuffer_size;
@@ -468,6 +508,7 @@ static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, 
     data->img_dsc.data = data->framebuffers[data->framebuffer_index];
     lv_image_set_src(video, &data->img_dsc);
     lv_obj_invalidate(video);
+    airui_video_stats_record_frame(data);
     return AIRUI_OK;
 }
 
@@ -648,6 +689,7 @@ static int airui_video_vp_read_frame(void *backend_ctx, airui_video_frame_t *fra
 {
     airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
     airui_video_vp_frame_wrap_t *wrap;
+    uint8_t *provided_data;
     int ret;
 
     if (ctx == NULL || ctx->player == NULL || frame == NULL) {
@@ -660,22 +702,32 @@ static int airui_video_vp_read_frame(void *backend_ctx, airui_video_frame_t *fra
         return AIRUI_ERR_NO_MEM;
     }
     memset(wrap, 0, sizeof(airui_video_vp_frame_wrap_t));
+    provided_data = frame->data;
 
-    if (frame->data != NULL && frame->data_size > 0) {
-        ret = luat_videoplayer_read_frame_to(ctx->player, &wrap->frame, frame->data, frame->data_size);
-        wrap->owned = 0;
+    if (provided_data != NULL && frame->data_size > 0) {
+        ret = luat_videoplayer_read_frame_to(ctx->player, &wrap->frame, provided_data, frame->data_size);
     } else {
         ret = luat_videoplayer_read_frame(ctx->player, &wrap->frame);
-        wrap->owned = 1;
     }
     if (ret == LUAT_VP_ERR_EOF) {
         luat_heap_free(wrap);
         return AIRUI_VIDEO_STATUS_EOF;
     }
     if (ret != LUAT_VP_OK) {
+        if (wrap->frame.data != NULL && wrap->frame.data != provided_data) {
+            luat_videoplayer_frame_free(&wrap->frame);
+        }
         luat_heap_free(wrap);
         return AIRUI_ERR_INIT_FAILED;
     }
+
+    /*
+     * read_frame_to() currently writes directly into the supplied buffer only
+     * for backends that implement that fast path. MJPG falls back to
+     * read_frame() and returns a newly allocated frame, so ownership must be
+     * derived from the returned pointer instead of from the API used.
+     */
+    wrap->owned = (wrap->frame.data != provided_data);
 
     frame->data = wrap->frame.data;
     frame->data_size = (size_t)wrap->frame.width * (size_t)wrap->frame.height * 2u;
@@ -867,6 +919,7 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
 
     if (airui_marshal_bool(L, idx, "auto_play", true)) {
         data->playing = true;
+        airui_video_stats_reset_window(data);
         lv_timer_resume(data->timer);
     }
 
@@ -895,6 +948,9 @@ int airui_video_play(lv_obj_t *video)
         }
     }
 
+    if (!data->playing) {
+        airui_video_stats_reset_window(data);
+    }
     data->playing = true;
     lv_timer_resume(data->timer);
     return AIRUI_OK;
@@ -914,7 +970,29 @@ int airui_video_pause(lv_obj_t *video)
     }
 
     data->playing = false;
+    data->fps_x100 = 0;
+    data->fps_window_frames = 0;
     lv_timer_pause(data->timer);
+    return AIRUI_OK;
+}
+
+int airui_video_get_stats(lv_obj_t *video, airui_video_stats_t *stats)
+{
+    airui_video_data_t *data;
+
+    if (video == NULL || stats == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    data = airui_video_get_data(video);
+    if (data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    memset(stats, 0, sizeof(airui_video_stats_t));
+    stats->total_frames = data->total_frames;
+    stats->fps = data->playing ? (float)data->fps_x100 / 100.0f : 0.0f;
+    stats->decode_mode = data->decode_mode;
+    stats->playing = data->playing;
     return AIRUI_OK;
 }
 
@@ -933,6 +1011,8 @@ int airui_video_stop(lv_obj_t *video)
     }
 
     data->playing = false;
+    data->fps_x100 = 0;
+    data->fps_window_frames = 0;
     lv_timer_pause(data->timer);
     /* stop 的语义是停止并回到首帧，而不是仅仅暂停当前帧。 */
     ret = airui_video_restart_and_prime(video, data);

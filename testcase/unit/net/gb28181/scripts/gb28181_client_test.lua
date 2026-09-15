@@ -204,6 +204,33 @@ function t.test_tcp_setup_choice_when_offer_leaves_it_open()
 end
 
 --[[
+音频会话（平台发起的 TCP 腿）同样要被失活判定覆盖。
+
+实测见过"0 个包"挂几分钟的僵尸音频会话：平台发了音频 INVITE、本端也受理并
+回了 200 OK，但 TCP 连不上（平台的发流端口没发布），于是它既收不到数据、
+也不会自己消失 —— 判据与点播共用同一套。
+]]
+function t.test_audio_session_is_reclaimed_when_link_never_comes_up()
+    -- 平台发起、TCP 承载、从未连上的音频会话
+    local sess = {
+        media_tcp = true, link_up = false,
+        started = true, started_ms = 1000,
+        state = "established", incoming = true,
+    }
+    assert(client.session_death_reason(sess, 5000) == nil, "建链等待期内不该回收")
+    assert(type(client.session_death_reason(sess, 20000)) == "string",
+           "TCP 音频会话始终连不上时应判定失活(否则会一直挂在 talks() 里)")
+
+    -- UDP 承载的音频会话（设备发起那条腿）：没有可信判据，不猜
+    local udp = {
+        media_tcp = false, link_up = false,
+        started = true, started_ms = 1000, state = "established",
+    }
+    assert(client.session_death_reason(udp, 99999999) == nil,
+           "UDP 音频会话不该被超时误杀")
+end
+
+--[[
 会话接口在"没有会话"时的契约。真实的 INVITE/ACK/BYE 生命周期依赖 socket，
 属联调，由 tests/tools/e2e_device + gb_platform_invite.py 覆盖。
 ]]

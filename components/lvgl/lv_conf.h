@@ -59,7 +59,6 @@
 #define LV_DISP_DEF_REFR_PERIOD      30      /*[ms]*/
 #endif
 
-extern unsigned int g_lvgl_flash_time;
 
 /* Dot Per Inch: used to initialize default sizes.
  * E.g. a button with width = LV_DPI / 2 -> half inch wide

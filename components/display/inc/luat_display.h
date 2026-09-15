@@ -371,6 +371,7 @@ int luat_display_panel_reset(struct luat_display_panel *panel);
 /* 显示图形绘制接口 */
 int luat_display_fill(struct luat_display *disp, struct luat_display_area area, uint32_t color);
 int luat_display_draw_line(struct luat_display *disp, struct luat_display_area area, uint32_t color);
+int luat_display_fill_circle(struct luat_display *disp, int cx, int cy, int r, uint32_t color);
 
 #endif
 

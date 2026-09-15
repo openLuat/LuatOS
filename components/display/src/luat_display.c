@@ -326,39 +326,54 @@ int luat_display_set_rotation(struct luat_display *disp, enum disp_rotate rotati
 /*关闭显示*/
 int luat_display_close(struct luat_display_panel *panel) 
 {
-    // struct panel_pin_device *pin = panel->pin;
-    
-    // if (pin->pwr != LUAT_GPIO_NONE) {
-    //     luat_gpio_set(pin->pwr, Luat_GPIO_LOW);
-    // }
-    // if (pin->bl != LUAT_GPIO_NONE) {
-    //     luat_gpio_set(pin->bl, Luat_GPIO_LOW);
-    // }
-    // // if (disp->if_ops && disp->if_ops->deinit) {
-    // //     disp->if_ops->deinit(disp);
-    // // }
-    // // disp->power_state = LUAT_DISPLAY_POWER_OFF;
+
     return 0;
 }
 
 
 
+/*显示休眠：
+ * 1) 关闭背光，避免睡眠瞬间亮屏残留
+ * 2) 下发 SLPIN(0x10) 让屏控制器进入低功耗
+ * 注意：只关背光/下命令，不断开电源(那属于 power_off)*/
 int luat_display_sleep(struct luat_display *disp) 
 {
-    // if (disp->pin_bl != LUAT_GPIO_NONE) {
-    //     luat_gpio_set(disp->pin_bl, Luat_GPIO_LOW);
-    // }
-    // luat_rtos_task_sleep(5);
-    // uint8_t sleep_cmd = disp->panel_ops->sleep_cmd ? disp->panel_ops->sleep_cmd : LUAT_DISPLAY_DEFAULT_SLEEP;
-    // luat_display_write_cmd_data(disp, sleep_cmd, NULL, 0);
-    // disp->power_state = LUAT_DISPLAY_POWER_SLEEP;
+    if (disp == NULL || disp->panel == NULL || disp->panel->pin == NULL) {
+        return -1;
+    }
+    struct panel_pin_device *pin = disp->panel->pin;
+
+    if (pin->bl != LUAT_GPIO_NONE) {
+        luat_gpio_set(pin->bl, Luat_GPIO_LOW);
+    }
+
+    if (disp->panel->panel_funcs != NULL &&
+        disp->panel->panel_funcs->panel_ctrl != NULL) {
+        disp->panel->panel_funcs->panel_ctrl(disp->panel, LUAT_DISPLAY_POWER_SLEEP, NULL);
+    }
+
     return 0;
 }
 
+/*显示唤醒：
+ * 1) 下发 SLPOUT(0x11) 唤醒屏控制器
+ * 2) 恢复背光*/
 int luat_display_wakeup(struct luat_display *disp) 
 {
-    // uint8_t wakeup_cmd = disp->panel_ops->wakeup_cmd ? disp->panel_ops->wakeup_cmd : LUAT_DISPLAY_DEFAULT_WAKEUP;
-    // luat_display_write_cmd_data(disp, wakeup_cmd, NULL, 0);
+    if (disp == NULL || disp->panel == NULL || disp->panel->pin == NULL) {
+        return -1;
+    }
+    struct panel_pin_device *pin = disp->panel->pin;
+
+    if (disp->panel->panel_funcs != NULL &&
+        disp->panel->panel_funcs->panel_ctrl != NULL) {
+        disp->panel->panel_funcs->panel_ctrl(disp->panel, LUAT_DISPLAY_POWER_ON, NULL);
+    }
+
+    if (pin->bl != LUAT_GPIO_NONE) {
+        luat_gpio_set(pin->bl, Luat_GPIO_HIGH);
+    }
+
     return 0;
 }
 

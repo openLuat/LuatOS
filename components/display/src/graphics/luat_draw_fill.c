@@ -1,6 +1,9 @@
 #include "luat_display.h"
 
 
+#include "luat_log.h"
+#define LUAT_LOG_TAG "draw_fill"
+
 /*纯色填充*/
 int luat_display_fill(struct luat_display *disp, struct luat_display_area area, uint32_t color)
 {
@@ -74,12 +77,6 @@ int luat_display_fill(struct luat_display *disp, struct luat_display_area area, 
     default:
         return 0;
     }
-    /*
-    LLOGI("fill done fmt=%d bpp=%u buf=%p first=0x%04x",
-          info->format, info->bits_per_pixel, buf,
-          (info->bits_per_pixel == 16) ? ((uint16_t *)buf)[0] : (uint16_t)(((uint32_t *)buf)[0] & 0xFFFF));
-    */
-
     return 1;
 }
 

@@ -580,7 +580,34 @@ int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, u
     }
 #endif
 
-    return luat_videoplayer_read_frame(ctx, frame);
+    /* MJPG: read_frame 内部会为解码结果新分配一段 buffer，并不能直接写入 out_buf。
+       这里先解到临时帧，再拷贝进调用方的 out_buf 并释放临时帧，
+       让本函数兑现“写入 out_buf”的契约，同时避免 AirUI 等调用方误判归属导致每帧泄漏。*/
+    {
+        luat_vp_frame_t tmp;
+        int ret;
+        size_t size;
+
+        memset(&tmp, 0, sizeof(tmp));
+        ret = luat_videoplayer_read_frame(ctx, &tmp);
+        if (ret != LUAT_VP_OK) {
+            return ret;
+        }
+
+        size = (size_t)tmp.width * (size_t)tmp.height * 2u;
+        if (size > out_buf_size) {
+            luat_videoplayer_frame_free(&tmp);
+            return LUAT_VP_ERR_NOMEM;
+        }
+        if (size > 0 && tmp.data != NULL) {
+            memcpy(out_buf, tmp.data, size);
+        }
+        frame->width = tmp.width;
+        frame->height = tmp.height;
+        frame->data = out_buf;
+        luat_videoplayer_frame_free(&tmp);
+        return LUAT_VP_OK;
+    }
 }
 
 void luat_videoplayer_frame_free(luat_vp_frame_t *frame) {

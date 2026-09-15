@@ -140,9 +140,17 @@ static int mjpg_sw_decode(void *ctx, const uint8_t *data, size_t size,
     if (buf_size / 2 != pixel_count) {
         return LUAT_VP_ERR_NOMEM;  /* overflow */
     }
-    uint16_t *pixels = (uint16_t *)VP_SW_MALLOC(buf_size);
-    if (!pixels) {
-        return LUAT_VP_ERR_NOMEM;
+    uint16_t *pixels;
+    int owns = 0;
+    if (frame->data != NULL) {
+        /* 调用方借出缓冲：tjpgd 输出回调直写该缓冲(零拷贝)，解码器不分配、不释放 */
+        pixels = (uint16_t *)frame->data;
+    } else {
+        pixels = (uint16_t *)VP_SW_MALLOC(buf_size);
+        if (!pixels) {
+            return LUAT_VP_ERR_NOMEM;
+        }
+        owns = 1;
     }
     memset(pixels, 0, buf_size);
 
@@ -154,7 +162,9 @@ static int mjpg_sw_decode(void *ctx, const uint8_t *data, size_t size,
     /* Decompress - input callback continues reading via dev.in_* fields */
     res = luat_jd_decomp(&jdec, mjpg_sw_output_func, 0);
     if (res != JDR_OK) {
-        VP_SW_FREE(pixels);
+        if (owns) {
+            VP_SW_FREE(pixels);
+        }
         return LUAT_VP_ERR_DECODE;
     }
 

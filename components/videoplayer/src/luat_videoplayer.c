@@ -545,6 +545,7 @@ int luat_videoplayer_read_frame_ref(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, 
 
 int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, uint8_t *out_buf, size_t out_buf_size) {
     if (!ctx || !frame || !out_buf) return LUAT_VP_ERR_PARAM;
+    (void)out_buf_size;   /* MJPG 借出路径由调用方保证缓冲足够，MP4 路径才用到该参数 */
 
     memset(frame, 0, sizeof(luat_vp_frame_t));
 
@@ -580,7 +581,38 @@ int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, u
     }
 #endif
 
-    return luat_videoplayer_read_frame(ctx, frame);
+    /* MJPG 零拷贝路径：直接把调用方 out_buf 借给解码器当输出缓冲。
+       SW/HW 解码器在 frame->data 非空时直写该缓冲(不走 malloc + memcpy)，
+       结果即已就位在 out_buf，调用方按 owned=0 处理、present 时也无需再拷贝。 */
+    {
+        uint8_t *jpeg_data = NULL;
+        size_t  jpeg_size = 0;
+        int ret;
+
+        ret = read_next_mjpg_frame(ctx, &jpeg_data, &jpeg_size);
+        if (ret != LUAT_VP_OK) {
+            return ret;
+        }
+        if (!ctx->decoder_ops || !ctx->decoder_ops->decode) {
+            return LUAT_VP_ERR_NOIMPL;
+        }
+
+        frame->data = out_buf;   /* 借出写入目标(调用方保证不小于一帧) */
+        ret = ctx->decoder_ops->decode(ctx->decoder_ctx, jpeg_data, jpeg_size, frame);
+        if (ret != LUAT_VP_OK) {
+            frame->data = NULL;
+            return ret;
+        }
+
+        if (ctx->width == 0 && frame->width > 0) {
+            ctx->width = frame->width;
+            ctx->height = frame->height;
+            VP_LOGD("video size: %dx%d", ctx->width, ctx->height);
+        }
+
+        luat_videoplayer_prof_mark_frame();
+        return LUAT_VP_OK;
+    }
 }
 
 void luat_videoplayer_frame_free(luat_vp_frame_t *frame) {

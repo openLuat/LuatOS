@@ -423,13 +423,15 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    /* 帧尺寸变化时重建持久 framebuffer，LVGL 始终持有这一份稳定内存。 */
+    /* 帧尺寸变化时重建持久 framebuffer，LVGL 始终持有这一份稳定内存。
+       用 8 字节对齐分配：硬解 imagedecoder 的 out_addr0 要求 8 字节对齐，
+       这样能直接 DMA 写进这块缓冲实现零拷贝（platform decoder borrow 直写）。 */
     if (data->framebuffers[0] == NULL || data->framebuffers[1] == NULL || data->framebuffer_size != framebuffer_size) {
-        new_buf0 = (uint8_t *)luat_heap_malloc(framebuffer_size);
+        new_buf0 = (uint8_t *)luat_heap_memalign(8, framebuffer_size);
         if (new_buf0 == NULL) {
             return AIRUI_ERR_NO_MEM;
         }
-        new_buf1 = (uint8_t *)luat_heap_malloc(framebuffer_size);
+        new_buf1 = (uint8_t *)luat_heap_memalign(8, framebuffer_size);
         if (new_buf1 == NULL) {
             luat_heap_free(new_buf0);
             return AIRUI_ERR_NO_MEM;

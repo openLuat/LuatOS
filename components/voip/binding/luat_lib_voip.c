@@ -264,19 +264,7 @@ log.info("voip", "tx_packets:", s.tx_packets)
 */
 static int l_voip_stats(lua_State *L)
 {
-    voip_stats_t stats;
-    voip_get_stats(&stats);
-
-    lua_newtable(L);
-    lua_pushinteger(L, stats.tx_packets);      lua_setfield(L, -2, "tx_packets");
-    lua_pushinteger(L, stats.tx_bytes);        lua_setfield(L, -2, "tx_bytes");
-    lua_pushinteger(L, stats.rx_packets);      lua_setfield(L, -2, "rx_packets");
-    lua_pushinteger(L, stats.rx_bytes);        lua_setfield(L, -2, "rx_bytes");
-    lua_pushinteger(L, stats.rx_lost);         lua_setfield(L, -2, "rx_lost");
-    lua_pushinteger(L, stats.rx_out_of_order); lua_setfield(L, -2, "rx_out_of_order");
-    lua_pushinteger(L, stats.jb_played);       lua_setfield(L, -2, "jb_played");
-    lua_pushinteger(L, stats.jb_silence);      lua_setfield(L, -2, "jb_silence");
-
+    voip_push_stats(L);
     return 1;
 }
 

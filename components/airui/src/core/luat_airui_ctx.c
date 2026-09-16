@@ -525,8 +525,11 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
         return AIRUI_ERR_INIT_FAILED;
     }
     
-    // 设置缓冲（单/双缓冲由 buf2 是否有效决定）
-    lv_display_set_buffers(ctx->display, buf1, buf2, buf_size, LV_DISPLAY_RENDER_MODE_FULL);
+    // 完整帧缓冲使用 FULL；按 divisor 缩小的缓冲必须使用 PARTIAL。
+    uint32_t full_frame_size = width * height * lv_color_format_get_size(color_format);
+    lv_display_render_mode_t render_mode =
+        (buf_size >= full_frame_size) ? LV_DISPLAY_RENDER_MODE_FULL : LV_DISPLAY_RENDER_MODE_PARTIAL;
+    lv_display_set_buffers(ctx->display, buf1, buf2, buf_size, render_mode);
     
     // 平台提供三缓冲时，把第三块挂到 LVGL（借用平台缓冲，数据不释放）
     if (buf_count >= 3) {

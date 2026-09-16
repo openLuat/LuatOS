@@ -80,6 +80,105 @@ local function emit_register(action, payload)
     emit_domain_event(SIP_EVENT.REGISTER, action, payload)
 end
 
+-- 将SIP服务器返回的REGISTER失败状态码转换为稳定的应用层原因枚举。
+-- response_reason仍保留服务器原始原因短语，应用层无需依赖短语文本做逻辑判断。
+local REGISTER_FAILURE_REASON = {
+    [300] = "multiple_choices",              -- 多重选择，服务器返回多个注册地址
+    [301] = "moved_permanently",              -- 永久移动，服务器返回新的注册地址
+    [302] = "moved_temporarily",              -- 临时移动，服务器返回新的注册地址
+    [305] = "use_proxy",                      -- 使用代理，服务器要求使用代理服务器
+    [380] = "alternative_service",           -- 服务器建议使用备用服务
+    [400] = "bad_request",                 -- 请求格式错误，服务器无法理解该REGISTER请求
+    [401] = "authentication_failed",       -- 用户认证失败；首次401通常只是正常的鉴权挑战
+    [403] = "forbidden",                   -- 服务器拒绝注册，常见原因是账号、密码或注册权限错误
+    [404] = "not_found",                   -- 未找到注册账号、域或对应的服务器资源
+    [405] = "method_not_allowed",          -- 服务器不允许使用REGISTER方法
+    [406] = "not_acceptable",              -- 请求内容不满足服务器可接受的条件
+    [407] = "proxy_authentication_failed", -- 代理服务器认证失败；首次407通常只是代理鉴权挑战
+    [408] = "server_request_timeout",       -- 服务器等待请求完成超时
+    [410] = "gone",                        -- 注册目标曾经存在，但现在已永久不可用
+    [413] = "request_too_large",           -- REGISTER请求体过大
+    [414] = "request_uri_too_long",        -- Request-URI长度超过服务器限制
+    [415] = "unsupported_media_type",      -- 服务器不支持请求中的媒体类型
+    [416] = "unsupported_uri_scheme",      -- 服务器不支持请求URI使用的协议类型
+    [420] = "bad_extension",               -- 请求包含服务器不支持的SIP扩展
+    [421] = "extension_required",          -- 服务器要求使用指定的SIP扩展
+    [423] = "interval_too_brief",          -- 注册有效期过短，应根据Min-Expires增大Expires
+    [480] = "temporarily_unavailable",     -- 注册目标当前暂时不可用
+    [481] = "transaction_not_found",       -- 服务器找不到对应的事务或对话
+    [482] = "request_merged",              -- 检测到合并或重复请求，可能与CSeq、Call-ID重复有关
+    [483] = "too_many_hops",               -- 请求经过的代理跳数过多，Max-Forwards已耗尽
+    [484] = "address_incomplete",          -- SIP地址不完整
+    [485] = "ambiguous",                   -- SIP地址存在歧义，服务器匹配到多个目标
+    [486] = "busy_here",                   -- 当前注册目标忙
+    [487] = "request_terminated",          -- 请求在完成前被终止
+    [488] = "not_acceptable_here",         -- 当前服务器无法接受该请求的部分参数
+    [489] = "bad_event",                   -- 服务器不支持请求指定的事件类型
+    [491] = "request_pending",             -- 同一事务或对话中已有待处理请求
+    [493] = "undecipherable",              -- 服务器无法解密或解析请求中的加密内容
+    [500] = "server_internal_error",       -- SIP服务器内部错误
+    [501] = "not_implemented",             -- 服务器未实现处理该请求所需的功能
+    [502] = "bad_gateway",                 -- 网关或上游SIP服务器返回异常
+    [503] = "service_unavailable",         -- SIP服务暂时不可用，可关注Retry-After响应头
+    [504] = "server_timeout",              -- 服务器等待上游服务器响应超时
+    [505] = "version_not_supported",       -- 服务器不支持请求使用的SIP版本
+    [513] = "message_too_large",           -- SIP消息整体长度超过服务器限制
+    [600] = "busy_everywhere",             -- 注册目标在所有可达位置均忙
+    [603] = "decline",                     -- 注册请求被明确拒绝
+    [604] = "does_not_exist_anywhere",     -- 注册目标在服务器管理范围内不存在
+    [606] = "not_acceptable_global"        -- 所有可达位置均无法接受该请求
+}
+
+local function register_failure_reason(code)
+    return REGISTER_FAILURE_REASON[tonumber(code)] or "server_rejected"
+end
+
+-- 判断服务器地址是 IPv4、IPv6 还是域名，并拦截明显的格式错误。
+-- 这里只做配置格式校验；格式正确的地址是否真实存在，仍需由 DNS/网络连接结果判断。
+local function classify_server_address(address)
+    if type(address) ~= "string" then
+        return nil
+    end
+
+    local addr = address:match("^%s*(.-)%s*$")
+    if not addr or addr == "" or #addr > 253 then
+        return nil
+    end
+
+    local octets = {}
+    for part in addr:gmatch("[^.]+") do
+        octets[#octets + 1] = part
+    end
+    if #octets == 4 and addr:match("^%d+%.%d+%.%d+%.%d+$") then
+        for _, part in ipairs(octets) do
+            local value = tonumber(part)
+            if not value or value < 0 or value > 255 then
+                return nil
+            end
+        end
+        return "ipv4"
+    end
+
+    -- 包含冒号的地址交给底层 IPv6 解析器处理，避免在 Lua 层重复实现完整 IPv6 语法。
+    if addr:find(":", 1, true) then
+        return addr:match("^[%x:%.]+$") and "ipv6" or nil
+    end
+
+    -- 纯数字和点组成但又不是合法 IPv4，属于明显的 IP 地址格式错误。
+    if addr:match("^[%d%.]+$") then
+        return nil
+    end
+    if addr:sub(1, 1) == "." or addr:sub(-1) == "." or addr:find("..", 1, true) then
+        return nil
+    end
+    for label in addr:gmatch("[^.]+") do
+        if #label > 63 or not label:match("^[%w%-]+$") or label:sub(1, 1) == "-" or label:sub(-1) == "-" then
+            return nil
+        end
+    end
+    return "hostname"
+end
+
 local function emit_call(action, payload)
     emit_domain_event(SIP_EVENT.CALL, action, payload)
 end
@@ -572,6 +671,16 @@ local function sip_task(opts)
         -- 注册与连接期状态。
         auth_tried = 0,
         reg_timer = nil,
+        register_response_timer = nil,
+        register_attempts = 0,
+        register_response_timeout = math.max(1000, tonumber(opts.register_response_timeout) or 10000),
+        register_max_attempts = math.max(1, tonumber(opts.register_max_attempts) or 3),
+        last_register_response_code = nil,
+        last_register_response_reason = nil,
+        last_register_response_headers = nil,
+        connect_fail_count = 0,
+        connect_max_attempts = math.max(1, tonumber(opts.connect_max_attempts) or 3),
+        server_address_type = classify_server_address(opts.sip_server_addr),
         netc = nil,
 
         online = false,
@@ -599,7 +708,8 @@ local function sip_task(opts)
         options_timer = nil,
         options_pending = false,
         options_fail_count = 0,
-        options_interval = tonumber(opts.options_interval) or 25000,
+        -- options_interval = tonumber(opts.options_interval) or 25000,
+        options_interval = tonumber(opts.options_interval) or 60000,
         options_max_fail = tonumber(opts.options_max_fail) or 3,
         call_timeout = tonumber(opts.call_timeout) or CALL_TIMEOUT,
         debug_sip_response = opts.debug_sip_response == true,
@@ -615,7 +725,8 @@ local function sip_task(opts)
             ptime = tonumber(opts.ptime) or 20,
             active = false,
             session = nil
-        }
+        },
+        options_triggered_register = false, -- 是否因 OPTIONS Ping 触发过 REGISTER
     }
     log.info("sip", "SIP task uses locked adapter:", state.locked_adapter, "transport:", state.sip_transport)
     if not state.locked_adapter then
@@ -864,18 +975,85 @@ local function sip_task(opts)
         })
     end
 
+    -- 停止等待 REGISTER 响应的定时器。
+    local function stop_register_response_timer()
+        if state.register_response_timer then
+            sys.timerStop(state.register_response_timer)
+            state.register_response_timer = nil
+        end
+    end
+
+    -- REGISTER 发出后等待服务器响应。UDP 端口错误通常不会产生 socket 错误，
+    -- 因此只能通过“连续多次发送 REGISTER 仍无任何 SIP 响应”识别为注册超时。
+    local function start_register_response_timer()
+        stop_register_response_timer()
+        state.register_response_timer = sys.timerStart(function()
+            state.register_response_timer = nil
+            if state.online or not state.netc then
+                return
+            end
+
+            if state.register_attempts < state.register_max_attempts then
+                state.register_attempts = state.register_attempts + 1
+                state.branch = gen_token("br")
+                state.cseq = state.cseq + 1
+                state.auth_tried = 0
+                state.last_www = nil
+                log.warn("sip", "REGISTER response timeout, retry",
+                    state.register_attempts, "/", state.register_max_attempts,
+                    state.sip_server_addr, state.sip_server_port)
+                net_send(build_register(state, nil))
+                start_register_response_timer()
+                return
+            end
+
+            local has_sip_response = state.last_register_response_code ~= nil
+            local failure_reason = has_sip_response and
+                                       register_failure_reason(state.last_register_response_code) or
+                                       "register_timeout"
+            local failure_source = has_sip_response and "sip_response_timeout" or "timeout"
+            local failure_hint = has_sip_response and
+                                     "已收到SIP响应，但后续注册流程超时，请根据sip_code和response_reason排查" or
+                                     "SIP服务器无响应，请检查服务器IP或域名、端口、传输协议、防火墙和SIP服务状态"
+            log.error("sip", "REGISTER failed",
+                "reason", failure_reason,
+                "sip_code", state.last_register_response_code,
+                "response_reason", state.last_register_response_reason,
+                "attempts", state.register_attempts)
+            emit_register("failed", {
+                reason = failure_reason,
+                source = failure_source,
+                sip_code = state.last_register_response_code,
+                response_reason = state.last_register_response_reason,
+                headers = state.last_register_response_headers,
+                attempts = state.register_attempts,
+                server = state.sip_server_addr,
+                port = state.sip_server_port,
+                transport = state.sip_transport,
+                retrying = true,
+                hint = failure_hint
+            })
+            sys.publish(TOPIC_DISCONNECT)
+        end, state.register_response_timeout)
+    end
+
     -- 停止注册续租定时器，同时停止 UDP OPTIONS 保活定时器。
     local function stop_reg_timer()
         if state.reg_timer then
             sys.timerStop(state.reg_timer)
             state.reg_timer = nil
         end
+        stop_register_response_timer()
+        state.register_attempts = 0
         if state.options_timer then
             sys.timerStop(state.options_timer)
             state.options_timer = nil
         end
         state.options_pending = false
         state.options_fail_count = 0
+        -- 清除“OPTIONS 404 已触发 REGISTER”的状态，
+        -- 使下次重新连接后可以再次执行恢复注册。
+        state.options_triggered_register = false
     end
 
     -- 按过期时间安排下一次 REGISTER 续租。
@@ -954,6 +1132,7 @@ local function sip_task(opts)
         local req = build_register(state, digest)
         log.info("sip", "send REGISTER (auth)", "cseq", state.cseq)
         net_send(req)
+        start_register_response_timer()
     end
 
     -- 发起外呼。
@@ -1289,9 +1468,36 @@ local function sip_task(opts)
             log.warn("sip", "net error", event, param)
             stop_reg_timer()
             stop_all_call_timers()
+                        state.connect_fail_count = state.connect_fail_count + 1
+            if not state.online and state.connect_fail_count >= state.connect_max_attempts then
+                local reason = state.server_address_type == "hostname" and "dns_or_connect_failed" or
+                                   "server_unreachable"
+                local hint = state.server_address_type == "hostname" and
+                                 "服务器域名解析或连接失败，请检查域名、DNS、端口、网络和SIP服务状态" or
+                                 "服务器IP或端口不可达，请检查IP、端口、路由、防火墙和SIP服务状态"
+                log.error("sip", "server connection failed",
+                    state.sip_server_addr, state.sip_server_port,
+                    "attempts", state.connect_fail_count)
+                emit_register("failed", {
+                    reason = reason,
+                    source = "network",
+                    attempts = state.connect_fail_count,
+                    server = state.sip_server_addr,
+                    port = state.sip_server_port,
+                    transport = state.sip_transport,
+                    net_event = event,
+                    net_error = param,
+                    retrying = true,
+                    hint = hint
+                })
+                state.connect_fail_count = 0
+            end
             emit_event(SIP_EVENT.ERROR, "net", {
                 event = event,
-                param = param
+                param = param,
+                server = state.sip_server_addr,
+                port = state.sip_server_port,
+                transport = state.sip_transport
             })
             sys.publish(TOPIC_DISCONNECT)
             return
@@ -1304,6 +1510,7 @@ local function sip_task(opts)
 
         if event == socket.ON_LINE then
             -- ON_LINE: TCP/UDP connect 完成（或 DNS 完成），可以发 REGISTER
+            state.connect_fail_count = 0
             -- 尝试获取本地IP填Contact
             local ip = socket.localIP(state.current_adapter)
             if type(ip) == "string" and #ip > 0 then
@@ -1317,10 +1524,15 @@ local function sip_task(opts)
             state.cseq = state.cseq + 1
             state.auth_tried = 0
             state.last_www = nil
+            state.last_register_response_code = nil
+            state.last_register_response_reason = nil
+            state.last_register_response_headers = nil
 
             local req = build_register(state, nil)
             log.info("sip", "send REGISTER", state.sip_server_addr, state.sip_server_port)
             net_send_on(netc, req)
+            state.register_attempts = 1
+            start_register_response_timer()
             state.online = false
             emit_lifecycle("online", {
                 server = state.sip_server_addr,
@@ -1559,7 +1771,12 @@ local function sip_task(opts)
                 end
             end
 
-            local function handle_register_response(code, headers)
+            local function handle_register_response(code, response_reason, headers)
+                -- 收到任何 REGISTER 响应都说明服务器已响应，先结束本次等待计时。
+                stop_register_response_timer()
+                state.last_register_response_code = code
+                state.last_register_response_reason = response_reason
+                state.last_register_response_headers = copy_headers(headers)
                 if code == 200 then
                     local exp = headers["expires"]
                     if not exp then
@@ -1569,6 +1786,8 @@ local function sip_task(opts)
                         end
                     end
                     state.online = true
+                    state.options_triggered_register = false
+
                     schedule_reregister(tonumber(exp) or state.expires)
                     if state.sip_transport == "udp" then
                         start_options_keepalive()
@@ -1583,12 +1802,28 @@ local function sip_task(opts)
                 if code == 401 or code == 407 then
                     if state.auth_tried >= 1 then
                         log.error("sip", "reg auth failed")
+                        emit_register("failed", {
+                            reason = register_failure_reason(code),
+                            source = "sip_response",
+                            sip_code = code,
+                            response_reason = response_reason,
+                            headers = headers,
+                            retrying = true
+                        })
                         sys.publish(TOPIC_DISCONNECT)
                         return
                     end
                     local www_params = extract_auth_challenge(headers)
                     if not www_params then
                         log.error("sip", "reg no digest challenge")
+                        emit_register("failed", {
+                            reason = "missing_auth_challenge",
+                            source = "sip_response",
+                            sip_code = code,
+                            response_reason = response_reason,
+                            headers = headers,
+                            retrying = true
+                        })
                         sys.publish(TOPIC_DISCONNECT)
                         return
                     end
@@ -1603,7 +1838,45 @@ local function sip_task(opts)
 
                 if code == 482 then
                     log.warn("sip", "reg 482 Request Merged, disconnect and retry")
+                    emit_register("failed", {
+                        reason = register_failure_reason(code),
+                        source = "sip_response",
+                        sip_code = code,
+                        response_reason = response_reason,
+                        headers = headers,
+                        retrying = true
+                    })
                     sys.publish(TOPIC_DISCONNECT)
+                    return
+                end
+                if code == 404 then
+                    log.warn("sip", "register returned 404, disconnect and retry")
+
+                    emit_register("failed", {
+                        reason = register_failure_reason(code),
+                        source = "sip_response",
+                        sip_code = code,
+                        response_reason = response_reason,
+                        headers = headers,
+                        retrying = true
+                    })
+
+                    sys.publish(TOPIC_DISCONNECT)
+                    return
+                end
+                if code and code >= 300 then
+                    log.warn("sip", "register rejected", code, response_reason)
+                    -- 清除“OPTIONS 404 已触发 REGISTER”的状态，
+                    -- 使下次重新连接后可以再次执行恢复注册。
+                    state.options_triggered_register = false
+                    emit_register("failed", {
+                        reason = register_failure_reason(code),
+                        source = "sip_response",
+                        sip_code = code,
+                        response_reason = response_reason,
+                        headers = headers,
+                        retrying = false
+                    })
                     return
                 end
             end
@@ -1854,9 +2127,42 @@ local function sip_task(opts)
                     -- OPTIONS 响应：任意响应均视为保活成功，重置失败计数。
                     state.options_pending = false
                     state.options_fail_count = 0
-                    return
+                    if code == 404 and not state.options_triggered_register then
+                        log.warn("sip", "OPTIONS returned 404, trigger REGISTER refresh")
+                        -- 服务器可能因重启丢失注册信息，立即标记为未注册。
+                        -- 这一行也很重要：REGISTER 响应超时定时器要求 online=false。
+                        state.online = false
+                        state.options_triggered_register = true
+                        -- 通知上层注册已经失效。
+                        -- sip_main 收到 failed 后会把 g_registered 设置为 false。
+                        emit_register("failed", {
+                            reason = "options_not_found",
+                            source = "options_response",
+                            sip_code = code,
+                            response_reason = reason,
+                            headers = headers,
+                            retrying = true,
+                            hint = "OPTIONS 返回404，服务器可能已丢失注册绑定，正在重新注册"
+                        })
+
+                        state.branch = gen_token("br")
+                        state.cseq = state.cseq + 1
+                        state.auth_tried = 0
+                        state.last_www = nil
+                        state.register_attempts = 1
+
+                        state.last_register_response_code = nil
+                        state.last_register_response_reason = nil
+                        state.last_register_response_headers = nil
+                        state.register_attempts = 1
+                        
+                        net_send(build_register(state, nil))
+                        start_register_response_timer()
+                    end
+                return
+
                 elseif call_id and call_id:find(state.call_id, 1, true) then
-                    handle_register_response(code, headers)
+                    handle_register_response(code, reason, headers)
                 elseif state.dialog and state.dialog.direction == "out" and call_id == state.dialog.call_id and cseq_m == "INVITE" then
                     handle_invite_response(code, reason, headers, body, rip)
                 elseif state.dialog and call_id == state.dialog.call_id and (cseq_m == "BYE" or cseq_m == "CANCEL") then
@@ -2037,6 +2343,20 @@ local function sip_task(opts)
             local succ = socket.connect(netc, state.sip_server_addr, state.sip_server_port)
             if not succ then
                 log.warn("sip", "connect start failed, retry")
+                state.connect_fail_count = state.connect_fail_count + 1
+                if state.connect_fail_count >= state.connect_max_attempts then
+                    emit_register("failed", {
+                        reason = "connect_start_failed",
+                        source = "network",
+                        attempts = state.connect_fail_count,
+                        server = state.sip_server_addr,
+                        port = state.sip_server_port,
+                        transport = state.sip_transport,
+                        retrying = true,
+                        hint = "无法启动SIP服务器连接，请检查服务器地址、端口、网络和可用网卡"
+                    })
+                    state.connect_fail_count = 0
+                end
                 socket.close(netc)
                 socket.release(netc)
                 sys.wait(3000)
@@ -2106,20 +2426,62 @@ function M.start(opts)
     if not opts or type(opts) ~= "table" then
         return false
     end
+if type(opts.event_callback) == "function" then
+        g_callback = opts.event_callback
+    end
 
     if (not opts.sip_server_addr) or (not opts.sip_server_port) or (not opts.sip_domain) or (not opts.sip_username) then
+        log.error("sip", "invalid SIP config: required parameter missing")
+        emit_register("failed", {
+            reason = "invalid_config",
+            source = "config",
+            retrying = false,
+            hint = "缺少SIP服务器地址、端口、域或用户名"
+        })
+        return false
+    end
+
+    local address_type = classify_server_address(opts.sip_server_addr)
+    if not address_type then
+        log.error("sip", "invalid SIP server address", opts.sip_server_addr)
+        emit_register("failed", {
+            reason = "invalid_server_address",
+            source = "config",
+            server = opts.sip_server_addr,
+            port = opts.sip_server_port,
+            retrying = false,
+            hint = "SIP服务器地址格式错误，请填写合法的IPv4、IPv6地址或域名"
+        })
+        return false
+    end
+
+    local server_port = tonumber(opts.sip_server_port)
+    if not server_port or server_port < 1 or server_port > 65535 or server_port % 1 ~= 0 then
+        log.error("sip", "invalid SIP server port", opts.sip_server_port)
+        emit_register("failed", {
+            reason = "invalid_server_port",
+            source = "config",
+            server = opts.sip_server_addr,
+            port = opts.sip_server_port,
+            retrying = false,
+            hint = "SIP服务器端口必须是1到65535之间的整数"
+        })
+        return false
+    end
+    opts.sip_server_port = server_port
+
+    if not opts.sip_transport  or (opts.sip_transport ~= "udp" and opts.sip_transport ~= "tcp" and opts.sip_transport ~= "tls") then
+        log.error("sip", "invalid SIP transport", opts.sip_transport)
+        emit_register("failed", {
+            reason = "invalid_transport",
+            source = "config",
+            transport = opts.sip_transport,
+            retrying = false,
+            hint = "SIP传输层必须是udp、tcp或tls"
+        })
         return false
     end
     
-
-    if not opts.sip_transport  or (opts.sip_transport ~= "udp" and opts.sip_transport ~= "tcp" and opts.sip_transport ~= "tls") then
-        return false
-    end
-
-
-    if type(opts.event_callback) == "function" then
-        g_callback = opts.event_callback
-    end
 
     g_stop = false
     g_started = true

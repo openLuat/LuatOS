@@ -5,6 +5,13 @@
 #include "luat_display.h"
 
 
+
+typedef unsigned int SURF_COLOR;
+
+#define MAKE_COLORREF(r,g,b)        (0xff << 24 | (SURF_COLOR)((((r << 8) | g) << 8) | b))//ARGB
+#define MAKE_RGB888(r,g,b)          ((SURF_COLOR)((((r << 8) | g) << 8) | b))//RGB
+#define MAKE_RGB565(r,g,b)          ((uint16_t)((((uint16_t)r&0xf8)<<8)|(((uint16_t)g&0xfc)<<3)|(((uint16_t)b&0xf8)>>3)))  ///< make RGB565 from r,g,b
+
 /*平面的属性*/
 typedef struct {
     int	w;          // surface width
@@ -33,6 +40,20 @@ typedef struct {
 *备    注：
 ************************************************/
 int blit_copy(void* dest,void* src,uint32_t destpitch,uint32_t srcpitch,uint32_t bytewidth,uint32_t h);
+/***********************************************
+*函数名称：blit32to16
+*功    能：32位颜色转换为16位颜色并绘制
+*入口参数：dest：目标内存指针
+*          dsrf：目标平面指针
+*          src：源内存指针
+*          ssrf：源平面指针
+*          w：宽度
+*          h：高度
+*返 回 值：0：成功
+*         -1：失败
+*备    注：
+************************************************/
+int blit32to16( uint8_t* dest, SURFACE* dsrf, uint8_t* src, SURFACE* ssrf, int w, int h );
 /***********************************************
 *函数名称：luat_draw_set_display_target
 *功    能：设置绘制目标平面为指定显示设备的绘制缓冲区，用于绘制到显示设备

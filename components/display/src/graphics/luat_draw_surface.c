@@ -1,6 +1,9 @@
 #include "luat_display.h"
 #include "luat_display_surface.h"
 
+#define LUAT_LOG_TAG "disp_draw"
+#include "luat_log.h"
+
 /* 当前绘制目标平面，由调用方选择，luat_draw_surface_rect 绘制到其上 */
 static SURFACE g_targetsurface = {0};
 
@@ -97,6 +100,112 @@ int blit_copy(void* dest,void* src,uint32_t destpitch,uint32_t srcpitch,uint32_t
     
     return 0;
 }
+/***********************************************
+*函数名称：blit32to16
+*功    能：32位颜色转换为16位颜色并绘制
+*入口参数：dest：目标内存指针
+*          dsrf：目标平面指针
+*          src：源内存指针
+*          ssrf：源平面指针
+*          w：宽度
+*          h：高度
+*返 回 值：0：成功
+*         -1：失败
+*备    注：
+************************************************/
+int blit32to16( uint8_t* dest, SURFACE* dsrf, uint8_t* src, SURFACE* ssrf, int w, int h )
+{
+    int x, y;
+    uint8_t r, g, b, a;
+    uint32_t bg_r, bg_g, bg_b;
+    int spitch, dpitch;
+    int rshiftbit, gshiftbit, bshiftbit;
+    uint32_t* argbbuf;
+    uint16_t* bg16buf;
+
+    if((dest == NULL) || (dsrf == NULL) || (src == NULL) || (ssrf == NULL) ||
+       (w <= 0) || (h <= 0))
+    {
+        return -1;
+    }
+    /*仅支持 32bpp 源 -> 16bpp 目标*/
+    if((ssrf->bpp != 32) || (dsrf->bpp != 16))
+    {
+        LLOGI("Not Supported format (Source %dbpp, Destination %d)\n", ssrf->bpp, dsrf->bpp);
+        return -1;
+    }
+
+    spitch = ssrf->pitch;
+    dpitch = dsrf->pitch;
+
+    /*ARGB8888 = 0xAARRGGBB, ABGR8888 = 0xAABBGGRR：半透明像素与目标背景做 alpha 混合*/
+    if(ssrf->fmt == LUAT_DISPLAY_FORMAT_ARGB8888 ||
+       ssrf->fmt == LUAT_DISPLAY_FORMAT_ABGR8888)
+    {
+        rshiftbit = 16;
+        gshiftbit = 8;
+        bshiftbit = 0;
+        if(ssrf->fmt == LUAT_DISPLAY_FORMAT_ABGR8888)
+        {
+            rshiftbit = 0;
+            bshiftbit = 16;
+        }
+
+        for( y = 0; y < h; y++ )
+        {
+            argbbuf = ( uint32_t* )( ( uint32_t )src + ( spitch * y ) );
+            bg16buf = ( uint16_t* )( ( uint32_t )dest + ( dpitch * y ) );
+            for( x = 0; x < w; x++ )
+            {
+                a = (uint8_t)( argbbuf[x] >> 24 );
+                if( a )
+                {
+                    r = (uint8_t)( argbbuf[x] >> rshiftbit );
+                    g = (uint8_t)( argbbuf[x] >> gshiftbit );
+                    b = (uint8_t)( argbbuf[x] >> bshiftbit );
+
+                    if( a != 255 )
+                    {
+                        uint16_t bg_rgb = bg16buf[x];
+                        bg_r = ( bg_rgb & 0xf100 ) >> 8;
+                        bg_g = ( bg_rgb & 0x07e0 ) >> 3;
+                        bg_b = ( bg_rgb & 0x001f ) << 3;
+                        a = 255 - a;
+                        r += (uint8_t)( ( ( bg_r - ( int )r ) * a ) >> 8 );
+                        g += (uint8_t)( ( ( bg_g - ( int )g ) * a ) >> 8 );
+                        b += (uint8_t)( ( ( bg_b - ( int )b ) * a ) >> 8 );
+                    }
+                    bg16buf[x] = MAKE_RGB565( r, g, b );
+                }
+            }
+        }
+
+        return 0;
+    }
+    /*RGB888 = 0x00RRGGBB：无 alpha，直接转换*/
+    else if( ssrf->fmt == LUAT_DISPLAY_FORMAT_RGB888 )
+    {
+        for( y = 0; y < h; y++ )
+        {
+            argbbuf = ( uint32_t* )( ( uint32_t )src + ( spitch * y ) );
+            bg16buf = ( uint16_t* )( ( uint32_t )dest + ( dpitch * y ) );
+            for( x = 0; x < w; x++ )
+            {
+                r = (uint8_t)( argbbuf[x] >> 16 );
+                g = (uint8_t)( argbbuf[x] >> 8 );
+                b = (uint8_t)( argbbuf[x] );
+                bg16buf[x] = MAKE_RGB565( r, g, b );
+            }
+        }
+
+        return 0;
+    }
+    else
+    {
+        LLOGI( "Not Supported format (fmt=%d)\n", ssrf->fmt );
+        return -1;
+    }
+}
 
 #endif
 
@@ -185,7 +294,7 @@ int luat_draw_surface_rect( SURFACE* ssrf, int dx, int dy, int sx, int sy, int w
         {
             if( ssrf->bpp == 32 )
             {
-                return 0;//blit32to16( dest, dsrf, src, ssrf, w, h ); //待实现
+                return blit32to16( dest, dsrf, src, ssrf, w, h );
             }//ssrf->bpp==32
             else if( ssrf->bpp == 8 )
             {

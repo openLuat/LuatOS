@@ -33,6 +33,8 @@ typedef struct {
 /** LuatOS 平台数据结构体 */
 typedef struct {
     struct luat_display *display_conf;       /**< 显示信息指针 */
+    struct luat_display_layer_data direct_layer; /**< AirUI 直推图层运行态 */
+    const void *direct_layer_owner;          /**< 当前占用直推图层的组件 */
     luat_tp_config_t *tp_config;     /**< 触摸配置指针（可选） */
     airui_luatos_keypad_cfg_t keypad_cfg; /**< GPIO 按键配置（可选） */
     uint8_t tp_suspended;            /**< 触摸是否已被 AirUI 挂起 */

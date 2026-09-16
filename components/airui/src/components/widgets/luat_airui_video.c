@@ -47,6 +47,7 @@ typedef struct airui_video_backend_ops {
 } airui_video_backend_ops_t;
 
 typedef struct {
+    airui_ctx_t *ctx;
     const airui_video_backend_ops_t *ops;
     void *backend_ctx;
     lv_timer_t *timer;
@@ -64,6 +65,8 @@ typedef struct {
     airui_video_backend_t backend;
     airui_video_decode_mode_t decode_mode;
     bool loop;
+    bool direct_render;
+    bool direct_visible;
     bool playing;
     bool eof;
     bool size_checked;
@@ -161,6 +164,13 @@ static void airui_video_release_data(void *user_data)
     if (data->timer != NULL) {
         lv_timer_delete(data->timer);
         data->timer = NULL;
+    }
+
+    if (data->direct_render && data->direct_visible && data->ctx != NULL &&
+        data->ctx->ops != NULL && data->ctx->ops->display_ops != NULL &&
+        data->ctx->ops->display_ops->direct_hide != NULL) {
+        data->ctx->ops->display_ops->direct_hide(data->ctx, data);
+        data->direct_visible = false;
     }
 
     airui_video_close_backend(data);
@@ -411,6 +421,7 @@ static void airui_video_stats_record_frame(airui_video_data_t *data)
 static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *data, uint16_t width, uint16_t height)
 {
     size_t framebuffer_size;
+    size_t allocation_size;
     uint8_t *new_buf0;
     uint8_t *new_buf1;
 
@@ -422,16 +433,20 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
     if ((framebuffer_size / 2u) != ((size_t)width * (size_t)height)) {
         return AIRUI_ERR_INVALID_PARAM;
     }
+    allocation_size = (framebuffer_size + 31u) & ~(size_t)31u;
+    if (allocation_size < framebuffer_size) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
 
     /* 帧尺寸变化时重建持久 framebuffer，LVGL 始终持有这一份稳定内存。
-       用 8 字节对齐分配：硬解 imagedecoder 的 out_addr0 要求 8 字节对齐，
-       这样能直接 DMA 写进这块缓冲实现零拷贝（platform decoder borrow 直写）。 */
+       用 32 字节 Cache line 对齐并补齐分配尺寸：既满足硬解 imagedecoder 的
+       8 字节要求，也避免 DMA/LCDC 共享缓冲与相邻堆对象共用 Cache line。 */
     if (data->framebuffers[0] == NULL || data->framebuffers[1] == NULL || data->framebuffer_size != framebuffer_size) {
-        new_buf0 = (uint8_t *)luat_heap_memalign(8, framebuffer_size);
+        new_buf0 = (uint8_t *)luat_heap_memalign(32, allocation_size);
         if (new_buf0 == NULL) {
             return AIRUI_ERR_NO_MEM;
         }
-        new_buf1 = (uint8_t *)luat_heap_memalign(8, framebuffer_size);
+        new_buf1 = (uint8_t *)luat_heap_memalign(32, allocation_size);
         if (new_buf1 == NULL) {
             luat_heap_free(new_buf0);
             return AIRUI_ERR_NO_MEM;
@@ -450,18 +465,20 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
 
     data->frame_width = width;
     data->frame_height = height;
-    data->img_dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
-    data->img_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
-    data->img_dsc.header.w = width;
-    data->img_dsc.header.h = height;
-    data->img_dsc.header.stride = (uint32_t)width * 2u;
-    data->img_dsc.header.flags = 0;
-    data->img_dsc.data_size = framebuffer_size;
-    data->img_dsc.data = data->framebuffers[data->framebuffer_index];
-    data->img_dsc.reserved = NULL;
-    data->img_dsc.reserved_2 = NULL;
+    if (!data->direct_render) {
+        data->img_dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
+        data->img_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
+        data->img_dsc.header.w = width;
+        data->img_dsc.header.h = height;
+        data->img_dsc.header.stride = (uint32_t)width * 2u;
+        data->img_dsc.header.flags = 0;
+        data->img_dsc.data_size = framebuffer_size;
+        data->img_dsc.data = data->framebuffers[data->framebuffer_index];
+        data->img_dsc.reserved = NULL;
+        data->img_dsc.reserved_2 = NULL;
 
-    lv_image_set_src(video, &data->img_dsc);
+        lv_image_set_src(video, &data->img_dsc);
+    }
     return AIRUI_OK;
 }
 
@@ -507,9 +524,25 @@ static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, 
     }
 
     data->framebuffer_index = (uint8_t)((data->framebuffer_index + 1u) & 0x1u);
-    data->img_dsc.data = data->framebuffers[data->framebuffer_index];
-    lv_image_set_src(video, &data->img_dsc);
-    lv_obj_invalidate(video);
+    if (data->direct_render) {
+        lv_area_t area;
+        const airui_display_ops_t *display_ops = data->ctx->ops->display_ops;
+
+        /* 创建阶段首帧会早于下一轮 LVGL layout，先更新布局再读取绝对坐标。 */
+        lv_obj_update_layout(video);
+        lv_obj_get_coords(video, &area);
+        ret = display_ops->direct_present(data->ctx, data, &area,
+                                          data->framebuffers[data->framebuffer_index],
+                                          LV_COLOR_FORMAT_RGB565);
+        if (ret != AIRUI_OK) {
+            return ret;
+        }
+        data->direct_visible = true;
+    } else {
+        data->img_dsc.data = data->framebuffers[data->framebuffer_index];
+        lv_image_set_src(video, &data->img_dsc);
+        lv_obj_invalidate(video);
+    }
     airui_video_stats_record_frame(data);
     return AIRUI_OK;
 }
@@ -858,6 +891,7 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
     }
     memset(data, 0, sizeof(airui_video_data_t));
 
+    data->ctx = ctx;
     data->requested_width = requested_width;
     data->requested_height = requested_height;
 
@@ -874,6 +908,7 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
         data->interval = 33;
     }
     data->loop = airui_marshal_bool(L, idx, "loop", false);
+    data->direct_render = airui_marshal_bool(L, idx, "direct_render", false);
     data->playing = false;
     data->eof = false;
     data->format = airui_video_parse_format(L_state, idx, AIRUI_VIDEO_FORMAT_AUTO);
@@ -888,6 +923,27 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
         airui_component_meta_free(meta);
         lv_obj_delete(video);
         return NULL;
+    }
+
+    if (data->direct_render) {
+        if (data->format != AIRUI_VIDEO_FORMAT_MJPG) {
+            LLOGE("video: direct_render currently only supports MJPG");
+            luat_heap_free(data->src);
+            luat_heap_free(data);
+            airui_component_meta_free(meta);
+            lv_obj_delete(video);
+            return NULL;
+        }
+        if (ctx->ops == NULL || ctx->ops->display_ops == NULL ||
+            ctx->ops->display_ops->direct_present == NULL ||
+            ctx->ops->display_ops->direct_hide == NULL) {
+            LLOGE("video: direct_render is not supported by this display platform");
+            luat_heap_free(data->src);
+            luat_heap_free(data);
+            airui_component_meta_free(meta);
+            lv_obj_delete(video);
+            return NULL;
+        }
     }
 
     airui_component_meta_set_user_data(meta, data, airui_video_release_data);

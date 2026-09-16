@@ -146,6 +146,12 @@ typedef struct {
          buf1 = fb_addr, buf2 = fb_addr + buf_size, buf3 = fb_addr + 2*buf_size */
     int (*get_buffers)(airui_ctx_t *ctx, void **fb_addr, uint32_t *buf_size, uint32_t *count);
     void (*flush)(airui_ctx_t *ctx, const lv_area_t *area, const uint8_t *px_map);
+    /**< 将一块持久像素缓冲直接提交到独立硬件图层（可选）。
+         owner 用于独占图层，area 使用 LVGL 的闭区间坐标。 */
+    int (*direct_present)(airui_ctx_t *ctx, const void *owner, const lv_area_t *area,
+                          const void *buffer, lv_color_format_t fmt);
+    /**< 关闭 owner 占用的直推图层（可选）。 */
+    void (*direct_hide)(airui_ctx_t *ctx, const void *owner);
     void (*wait_vsync)(airui_ctx_t *ctx);
     int (*suspend)(airui_ctx_t *ctx);
     int (*resume)(airui_ctx_t *ctx);

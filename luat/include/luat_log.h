@@ -52,4 +52,9 @@ void luat_log_dump(const char* tag, void* ptr, size_t len);
 
 #define LLOGC(cond, format, ...) if(cond) do { luat_log_log(LUAT_LOG_DEBUG, LUAT_LOG_TAG, format, ##__VA_ARGS__); } while(0)
 
+#ifdef LUAT_USE_LOG_USER_CMD
+// BSP 日志口收到用户自定义指令时调用(由 log 库实现);data 生命周期仅本次调用
+void luat_log_user_cmd_push(int cmd, const uint8_t *data, size_t len);
+#endif
+
 #endif

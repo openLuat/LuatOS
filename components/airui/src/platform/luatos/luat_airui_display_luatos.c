@@ -151,6 +151,92 @@ static void luatos_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const 
 }
 
 /**
+ * 将持久 RGB565 缓冲直接提交到硬件 Layer 1。
+ * Layer 0 由 AirUI/LVGL 使用；Layer 1 同一时间只允许一个组件占用。
+ */
+static int luatos_display_direct_present(airui_ctx_t *ctx, const void *owner,
+                                         const lv_area_t *area, const void *buffer,
+                                         lv_color_format_t fmt)
+{
+    luatos_platform_data_t *data = airui_luatos_get_data(ctx);
+    struct luat_display *disp;
+    int32_t screen_w;
+    int32_t screen_h;
+    int ret;
+
+    if (data == NULL || owner == NULL || area == NULL || buffer == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    disp = data->display_conf;
+    if (disp == NULL || disp->display_funcs == NULL || disp->display_funcs->set_layer == NULL ||
+        disp->panel == NULL || disp->panel->screen_win == NULL) {
+        return AIRUI_ERR_NOT_SUPPORTED;
+    }
+    if (fmt != LV_COLOR_FORMAT_RGB565 || disp->rotation != LUAT_DISPLAY_ROTATE_0) {
+        return AIRUI_ERR_NOT_SUPPORTED;
+    }
+    if (data->direct_layer_owner != NULL && data->direct_layer_owner != owner) {
+        LLOGE("direct layer is already occupied");
+        return AIRUI_ERR_PLATFORM_ERROR;
+    }
+
+    screen_w = disp->panel->screen_win->w;
+    screen_h = disp->panel->screen_win->h;
+    if (area->x1 < 0 || area->y1 < 0 || area->x2 < area->x1 || area->y2 < area->y1 ||
+        area->x2 >= screen_w || area->y2 >= screen_h) {
+        LLOGE("direct layer area out of screen: (%d,%d)-(%d,%d), screen=%dx%d",
+              (int)area->x1, (int)area->y1, (int)area->x2, (int)area->y2,
+              (int)screen_w, (int)screen_h);
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    data->direct_layer.enable = 1;
+    data->direct_layer.layer_id = 1;
+    data->direct_layer.area_id = 0;
+    data->direct_layer.alpha = 255;
+    data->direct_layer.area.x1 = area->x1;
+    data->direct_layer.area.y1 = area->y1;
+    /* display layer 使用右/下开区间，LVGL area 使用闭区间。 */
+    data->direct_layer.area.x2 = area->x2 + 1;
+    data->direct_layer.area.y2 = area->y2 + 1;
+    data->direct_layer.buffer = (void *)buffer;
+    data->direct_layer.format = LUAT_DISPLAY_FORMAT_RGB565;
+
+    ret = disp->display_funcs->set_layer(&data->direct_layer);
+    if (ret != 0) {
+        LLOGE("direct layer present failed: %d", ret);
+        return AIRUI_ERR_PLATFORM_ERROR;
+    }
+
+    data->direct_layer_owner = owner;
+    return AIRUI_OK;
+}
+
+/** 仅允许图层 owner 关闭 Layer 1，避免一个 Video 误关另一个 Video。 */
+static void luatos_display_direct_hide(airui_ctx_t *ctx, const void *owner)
+{
+    luatos_platform_data_t *data = airui_luatos_get_data(ctx);
+    struct luat_display *disp;
+
+    if (data == NULL || owner == NULL || data->direct_layer_owner != owner) {
+        return;
+    }
+
+    disp = data->display_conf;
+    if (disp != NULL && disp->display_funcs != NULL && disp->display_funcs->set_layer != NULL &&
+        data->direct_layer.buffer != NULL) {
+        data->direct_layer.enable = 0;
+        if (disp->display_funcs->set_layer(&data->direct_layer) != 0) {
+            LLOGE("direct layer hide failed");
+        }
+    }
+
+    data->direct_layer_owner = NULL;
+    memset(&data->direct_layer, 0, sizeof(data->direct_layer));
+}
+
+/**
  * LuatOS 等待 vsync（占位）
  */
 static void luatos_display_wait_vsync(airui_ctx_t *ctx)
@@ -197,6 +283,10 @@ static void luatos_display_deinit(airui_ctx_t *ctx)
         return;
     }
 
+    if (data->direct_layer_owner != NULL) {
+        luatos_display_direct_hide(ctx, data->direct_layer_owner);
+    }
+
     luat_heap_free(data);
     ctx->platform_data = NULL;
 }
@@ -206,6 +296,8 @@ static const airui_display_ops_t luatos_display_ops = {
     .init = luatos_display_init,
     .get_buffers = luatos_display_get_buffers,
     .flush = luatos_display_flush,
+    .direct_present = luatos_display_direct_present,
+    .direct_hide = luatos_display_direct_hide,
     .wait_vsync = luatos_display_wait_vsync,
     .suspend = luatos_display_suspend,
     .resume = luatos_display_resume,

@@ -233,6 +233,28 @@ These differences mean any code with raw pointer arithmetic must be verified on 
 
 ---
 
+## Flash 体积裁剪：`LUAT_PROTOBUF_FULL_OPTIONS`
+
+LuatOS 只导出 `protobuf.clear/load/encode/decode`（见文件末尾 `reg_protobuf`），上游的
+`luaopen_pb` / `option` / hooks / Buffer / Slice / conv 都在 `luat_lib_protobuf.c` 的 `#if 0` 里。
+因此 `lpb_State` 里的运行时开关（`int64_mode` / `enum_as_value` / `encode_mode` /
+`decode_default_*` / `use_enc_hooks` / `use_dec_hooks` / `encode_default_values`）没有任何
+API 能写，恒为 0，但编译器无法证明，相关分支和 hooks 辅助函数会被整块编进固件。
+
+- `LUAT_PROTOBUF_FULL_OPTIONS=0`（默认）：把这些读取点（`lpbS_*` 宏）固化成常量，
+  编译器据此裁掉不可达分支。ARM `-Os` + `--gc-sections` 实测 14209B → 13133B（-1076B），
+  四个导出 API 的可达行为不变。
+- `LUAT_PROTOBUF_FULL_OPTIONS=1`：保留原运行时开关。
+- **若将来重新启用 `luaopen_pb` / `protobuf.option`，必须同时置 1**，否则那些选项会失效。
+
+度量脚本（直接交叉编译该 TU，统计 gc-sections 后可达的 `.text+.rodata`）：
+
+```powershell
+pwsh bsp/pc/measure_protobuf_size.ps1
+```
+
+---
+
 ## Testing
 
 ```powershell

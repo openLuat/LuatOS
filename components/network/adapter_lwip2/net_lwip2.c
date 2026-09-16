@@ -978,7 +978,7 @@ static void net_lwip2_task(void *param)
 			break;
 		}
 		// IPv4 分支: 只更新 IPv4 地址, 绝不触碰 ip6_addr[] 槽位
-		if (ips[0].type == IPADDR_TYPE_V4) {
+		if (IP_IS_V4(&ips[0])) {
 			ip4_addr_t ip4 = {.addr=ip_addr_get_ip4_u32(&ips[0])};
 			ip4_addr_t netmask4 = {.addr=ip_addr_get_ip4_u32(&ips[1])};
 			ip4_addr_t gw4 = {.addr=ip_addr_get_ip4_u32(&ips[2])};
@@ -992,7 +992,7 @@ static void net_lwip2_task(void *param)
 			net_lwip2_check_network_ready(adapter_index);
 		}
 		else {
-			LLOGW("adapter %d 收到非法的IPv4设置请求, type=%d", adapter_index, ips[0].type);
+			LLOGW("adapter %d 收到非法的IPv4设置请求, type=%d", adapter_index, IP_GET_TYPE(&ips[0]));
 		}
 		luat_heap_free(ips);
 		break;

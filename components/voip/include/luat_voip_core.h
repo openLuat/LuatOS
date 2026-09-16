@@ -95,6 +95,14 @@ typedef struct {
     uint32_t aec_mic_clipped;
     uint32_t aec_out_clipped;
     uint32_t aec_max_process_us;
+#ifdef LUAT_USE_VOIP_AUDIO_PORT
+    uint32_t audio_tx_commit_fail;
+    uint32_t audio_tx_underrun;
+    uint32_t audio_rx_dropped;
+    uint32_t audio_rx_samples; /* Native per-channel sample frames, including queue drops. */
+    uint32_t audio_normalized_samples;
+    uint32_t audio_render_samples;
+#endif
     int32_t  aec_seq_skew;
     uint8_t  aec_mode;
     uint16_t last_rx_seq;
@@ -110,6 +118,9 @@ enum {
     VOIP_EVENT_MIC_DATA,    /* I2S 采集到数据 */
     VOIP_EVENT_SPK_DONE,    /* DAC 播放完成一帧 */
     VOIP_EVENT_STATS_TICK,  /* 统计输出定时器 */
+#ifdef LUAT_USE_VOIP_AUDIO_PORT
+    VOIP_EVENT_RAW_MIC_DATA, /* Optional Audio V2 raw PCM queue */
+#endif
 #ifdef LUAT_USE_VOIP_BRIDGE
     VOIP_EVENT_BRIDGE_TX,   /* 桥接模式：外部PCM数据需要编码发送 */
     VOIP_EVENT_BRIDGE_TONE, /* 桥接模式：内部早期媒体提示音 */
@@ -176,6 +187,8 @@ typedef struct {
 
     /* 状态 */
     volatile voip_state_t state;
+    volatile uint32_t stop_requested;
+    uint32_t audio_session;
     voip_stats_t stats;
 
     /* RTOS */
@@ -218,6 +231,9 @@ typedef struct {
     uint8_t audio_started;
 #ifdef LUAT_USE_AUDIO_V2
     void *audio_v2_ctrl;        /* audio_v2 driver control, audio_v2 builds only */
+#ifdef LUAT_USE_VOIP_AUDIO_PORT
+    void *audio_port_state;     /* Optional raw PCM/explicit commit port */
+#endif
 #endif
     uint8_t trace_on;
     voip_audio_backend_t audio_backend;
@@ -309,8 +325,19 @@ voip_state_t voip_get_state(void);
  * 获取统计信息快照
  */
 void voip_get_stats(voip_stats_t *out);
+/* Push the same statistics table for stats() and the periodic Lua callback. */
+void voip_push_stats(lua_State *L);
 
 /* Internal AEC/audio-backend interface. */
+#ifdef LUAT_USE_VOIP_AUDIO_PORT
+int voip_audio_port_prepare(voip_ctx_t *ctx);
+void voip_audio_port_cleanup(voip_ctx_t *ctx);
+int voip_audio_port_process_raw(voip_ctx_t *ctx, uint32_t index,
+        uint32_t sequence, uint32_t session);
+int voip_audio_port_commit(voip_ctx_t *ctx, uint8_t slot);
+void voip_audio_process_pcm(voip_ctx_t *ctx, const int16_t *pcm,
+        uint32_t render_seq, uint32_t capture_seq, uint64_t end_tick_ms);
+#endif
 int voip_aec_init(voip_ctx_t *ctx);
 void voip_aec_cleanup(voip_ctx_t *ctx);
 void voip_aec_render_push(voip_ctx_t *ctx, const int16_t *render_pcm,

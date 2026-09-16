@@ -253,7 +253,7 @@ static int airui_start_runtime_timers(airui_ctx_t *ctx)
         }
     }
 
-    ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+    ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_HANDLER_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
     if (ret != 0) {
         LLOGE("airui_init failed: start lv refresh timer failed, ret=%d", ret);
         luat_rtos_timer_delete((luat_rtos_timer_t)ctx->refresh_rtos_timer);
@@ -702,7 +702,7 @@ int airui_sleep_ex(airui_ctx_t *ctx, airui_sleep_mode_t mode)
                 luat_rtos_timer_start((luat_rtos_timer_t)ctx->tick_rtos_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
             }
             if (ctx->refresh_rtos_timer != NULL) {
-                luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+                luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_HANDLER_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
             }
             return ret;
         }
@@ -725,7 +725,7 @@ int airui_sleep_ex(airui_ctx_t *ctx, airui_sleep_mode_t mode)
                     luat_rtos_timer_start((luat_rtos_timer_t)ctx->tick_rtos_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
                 }
                 if (ctx->refresh_rtos_timer != NULL) {
-                    luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+                    luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_HANDLER_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
                 }
             }
             return ret;
@@ -780,7 +780,7 @@ int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh)
             ctx->refresh_posted_seq = 0;
             ctx->refresh_handled_seq = 0;
             ctx->refresh_last_post_tick = 0;
-            ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+            ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_HANDLER_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
             if (ret != 0) {
                 LLOGE("airui_wakeup start refresh_rtos_timer failed ret=%d ctx=%p", ret, ctx);
                 return AIRUI_ERR_PLATFORM_ERROR;

@@ -129,6 +129,12 @@ int luat_videoplayer_read_frame_ref(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, 
 int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, uint8_t *out_buf, size_t out_buf_size);
 
 /**
+ * Skip one compressed MJPG frame without decoding it.
+ * @return LUAT_VP_OK on success, LUAT_VP_ERR_EOF at end, negative on error.
+ */
+int luat_videoplayer_skip_frame(luat_vp_ctx_t *ctx);
+
+/**
  * Free frame data allocated by luat_videoplayer_read_frame().
  * @param frame  Frame to free. frame->data is set to NULL after freeing.
  */

@@ -94,6 +94,47 @@ static int l_video_stop(lua_State *L)
     return 0;
 }
 
+static int video_push_manual_result(lua_State *L, int ret)
+{
+    lua_pushboolean(L, ret == AIRUI_OK);
+    if (ret == AIRUI_OK) {
+        return 1;
+    }
+    if (ret == AIRUI_VIDEO_STATUS_EOF) {
+        lua_pushstring(L, "eof");
+    } else {
+        lua_pushinteger(L, ret);
+    }
+    return 2;
+}
+
+/**
+ * Video:step()
+ * @api video:step()
+ * @return boolean 成功呈现下一帧返回 true
+ * @return string|int 失败原因，文件结束时为 "eof"
+ */
+static int l_video_step(lua_State *L)
+{
+    return video_push_manual_result(L, airui_video_step(video_check(L)));
+}
+
+/**
+ * Video:skip(count)
+ * @api video:skip(count)
+ * @int count 仅扫描并跳过的压缩帧数量，不执行解码
+ * @return boolean 成功返回 true
+ * @return string|int 失败原因，文件结束时为 "eof"
+ */
+static int l_video_skip(lua_State *L)
+{
+    lua_Integer count = luaL_checkinteger(L, 2);
+    if (count < 0) {
+        return luaL_argerror(L, 2, "count must be >= 0");
+    }
+    return video_push_manual_result(L, airui_video_skip(video_check(L), (uint32_t)count));
+}
+
 /**
  * Video:get_stats()
  * @api video:get_stats()
@@ -145,6 +186,8 @@ void airui_register_video_meta(lua_State *L)
         {"play", l_video_play},
         {"pause", l_video_pause},
         {"stop", l_video_stop},
+        {"step", l_video_step},
+        {"skip", l_video_skip},
         {"get_stats", l_video_get_stats},
         {"destroy", l_video_destroy},
         {"is_destroyed", airui_component_is_destroyed},

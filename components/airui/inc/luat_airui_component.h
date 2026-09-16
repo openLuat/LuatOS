@@ -78,6 +78,8 @@ typedef enum {
 } airui_component_type_t;
 
 /** Video 格式 */
+#define AIRUI_VIDEO_STATUS_EOF 1
+
 typedef enum {
     AIRUI_VIDEO_FORMAT_AUTO = 0,
     AIRUI_VIDEO_FORMAT_MJPG,
@@ -685,6 +687,8 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx);
 int airui_video_play(lv_obj_t *video);
 int airui_video_pause(lv_obj_t *video);
 int airui_video_stop(lv_obj_t *video);
+int airui_video_step(lv_obj_t *video);
+int airui_video_skip(lv_obj_t *video, uint32_t count);
 int airui_video_destroy(lv_obj_t *video);
 int airui_video_get_stats(lv_obj_t *video, airui_video_stats_t *stats);
 

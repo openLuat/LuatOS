@@ -43,6 +43,9 @@
 /* Maximum single JPEG frame size (2 MB) */
 #define VP_MAX_FRAME_SIZE (2 * 1024 * 1024)
 
+/* Buffered byte reader used by the MJPG marker scanner. */
+#define VP_SCAN_BUF_SIZE  512
+
 /* JPEG markers */
 #define JPEG_SOI_0  0xFF
 #define JPEG_SOI_1  0xD8
@@ -152,6 +155,9 @@ struct luat_vp_ctx {
     uint16_t height;
     uint8_t *read_buf;                  /* Buffer for reading JPEG frames */
     size_t read_buf_cap;                /* Capacity of read_buf */
+    uint8_t scan_buf[VP_SCAN_BUF_SIZE]; /* Buffered MJPG input, preserved across frames */
+    size_t scan_buf_len;
+    size_t scan_buf_pos;
     int eof;
 #ifdef LUAT_USE_MP4PLAYER
     void *mp4_vctx;                     /* luat_mp4_vctx_t* for MP4 playback */
@@ -221,9 +227,6 @@ static int init_decoder(luat_vp_ctx_t *ctx) {
     return LUAT_VP_OK;
 }
 
-/* Scan buffer size for buffered marker search */
-#define VP_SCAN_BUF_SIZE  512
-
 /* Helper: ensure frame buffer has room for at least one more byte */
 static int ensure_frame_buf(luat_vp_ctx_t *ctx, size_t frame_size) {
     if (frame_size < ctx->read_buf_cap) return LUAT_VP_OK;
@@ -242,29 +245,36 @@ static int ensure_frame_buf(luat_vp_ctx_t *ctx, size_t frame_size) {
     return LUAT_VP_OK;
 }
 
+static int read_mjpg_byte(luat_vp_ctx_t *ctx, int *out)
+{
+    if (ctx == NULL || out == NULL) {
+        return LUAT_VP_ERR_PARAM;
+    }
+    if (ctx->scan_buf_pos >= ctx->scan_buf_len) {
+        ctx->scan_buf_len = VP_FREAD(ctx->scan_buf, 1, sizeof(ctx->scan_buf), ctx->fp);
+        ctx->scan_buf_pos = 0;
+        if (ctx->scan_buf_len == 0) {
+            ctx->eof = 1;
+            return LUAT_VP_ERR_EOF;
+        }
+    }
+    *out = ctx->scan_buf[ctx->scan_buf_pos++];
+    return LUAT_VP_OK;
+}
+
 /* ---- Internal: read next JPEG frame from MJPG stream ---- */
 static int read_next_mjpg_frame(luat_vp_ctx_t *ctx,
                                  uint8_t **out_data, size_t *out_size) {
     if (ctx->eof) return LUAT_VP_ERR_EOF;
 
-    /* Scan for SOI marker (0xFF 0xD8) using buffered reads */
     int found_soi = 0;
     int prev_byte = -1;
     int c, ret;
-    uint8_t scan_buf[VP_SCAN_BUF_SIZE];
-    size_t bytes_in_buf = 0;
-    size_t scan_pos = 0;
 
+    /* Scan for SOI without discarding bytes already read past a frame boundary. */
     while (!found_soi) {
-        if (scan_pos >= bytes_in_buf) {
-            bytes_in_buf = VP_FREAD(scan_buf, 1, sizeof(scan_buf), ctx->fp);
-            if (bytes_in_buf == 0) {
-                ctx->eof = 1;
-                return LUAT_VP_ERR_EOF;
-            }
-            scan_pos = 0;
-        }
-        c = scan_buf[scan_pos++];
+        ret = read_mjpg_byte(ctx, &c);
+        if (ret != LUAT_VP_OK) return ret;
         if (prev_byte == JPEG_SOI_0 && c == JPEG_SOI_1) {
             found_soi = 1;
         }
@@ -279,10 +289,19 @@ static int read_next_mjpg_frame(luat_vp_ctx_t *ctx,
     ctx->read_buf[0] = JPEG_SOI_0;
     ctx->read_buf[1] = JPEG_SOI_1;
 
-    /* Copy any remaining bytes from the SOI scan buffer into the frame */
     int found_eoi = 0;
-    while (scan_pos < bytes_in_buf && !found_eoi) {
-        c = scan_buf[scan_pos++];
+    /* Read through EOI; unread buffered bytes remain for the next call. */
+    while (!found_eoi) {
+        ret = read_mjpg_byte(ctx, &c);
+        if (ret == LUAT_VP_ERR_EOF) {
+            /* Unexpected EOF inside a frame */
+            if (frame_size > 2) {
+                /* Return partial frame - decoder will handle error */
+                break;
+            }
+            return LUAT_VP_ERR_EOF;
+        }
+        if (ret != LUAT_VP_OK) return ret;
         ret = ensure_frame_buf(ctx, frame_size);
         if (ret != LUAT_VP_OK) return ret;
         ctx->read_buf[frame_size++] = (uint8_t)c;
@@ -290,31 +309,6 @@ static int read_next_mjpg_frame(luat_vp_ctx_t *ctx,
             found_eoi = 1;
         }
         prev_byte = c;
-    }
-
-    /* Read until EOI marker (0xFF 0xD9) using buffered reads */
-    while (!found_eoi) {
-        bytes_in_buf = VP_FREAD(scan_buf, 1, sizeof(scan_buf), ctx->fp);
-        if (bytes_in_buf == 0) {
-            /* Unexpected EOF inside a frame */
-            ctx->eof = 1;
-            if (frame_size > 2) {
-                /* Return partial frame - decoder will handle error */
-                break;
-            }
-            return LUAT_VP_ERR_EOF;
-        }
-
-        for (scan_pos = 0; scan_pos < bytes_in_buf && !found_eoi; scan_pos++) {
-            c = scan_buf[scan_pos];
-            ret = ensure_frame_buf(ctx, frame_size);
-            if (ret != LUAT_VP_OK) return ret;
-            ctx->read_buf[frame_size++] = (uint8_t)c;
-            if (prev_byte == JPEG_SOI_0 && c == JPEG_EOI_1) {
-                found_eoi = 1;
-            }
-            prev_byte = c;
-        }
     }
 
     VP_LOGD("MJPG frame: %d bytes", (int)frame_size);
@@ -615,6 +609,36 @@ int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, u
     }
 }
 
+int luat_videoplayer_skip_frame(luat_vp_ctx_t *ctx)
+{
+    int found_soi = 0;
+    int prev_byte = -1;
+    int value;
+    int ret;
+
+    if (ctx == NULL) return LUAT_VP_ERR_PARAM;
+    if (ctx->format != LUAT_VP_FMT_MJPG) return LUAT_VP_ERR_NOIMPL;
+    if (ctx->eof) return LUAT_VP_ERR_EOF;
+
+    while (!found_soi) {
+        ret = read_mjpg_byte(ctx, &value);
+        if (ret != LUAT_VP_OK) return ret;
+        if (prev_byte == JPEG_SOI_0 && value == JPEG_SOI_1) {
+            found_soi = 1;
+        }
+        prev_byte = value;
+    }
+
+    while (1) {
+        ret = read_mjpg_byte(ctx, &value);
+        if (ret != LUAT_VP_OK) return ret;
+        if (prev_byte == JPEG_SOI_0 && value == JPEG_EOI_1) {
+            return LUAT_VP_OK;
+        }
+        prev_byte = value;
+    }
+}
+
 void luat_videoplayer_frame_free(luat_vp_frame_t *frame) {
     if (frame && frame->data) {
         VP_FREE(frame->data);
@@ -641,6 +665,8 @@ int luat_videoplayer_get_info(luat_vp_ctx_t *ctx, luat_vp_info_t *info) {
             
             /* Reset file position to original */
             VP_FSEEK(ctx->fp, file_pos, SEEK_SET);
+            ctx->scan_buf_len = 0;
+            ctx->scan_buf_pos = 0;
             ctx->eof = 0;  /* Reset EOF flag */
         }
     }

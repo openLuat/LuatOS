@@ -15,8 +15,6 @@
 #include "luat_log.h"
 
 #define AIRUI_VIDEO_STATUS_OK 0
-#define AIRUI_VIDEO_STATUS_EOF 1
-
 /* 通用帧描述：组件层只关心一帧 RGB565 数据，不关心底层解码实现。 */
 typedef struct {
     uint8_t *data;
@@ -43,6 +41,7 @@ typedef struct airui_video_backend_ops {
     void (*close)(void *backend_ctx);
     int (*read_frame)(void *backend_ctx, airui_video_frame_t *frame);
     void (*release_frame)(void *backend_ctx, airui_video_frame_t *frame);
+    int (*skip_frames)(void *backend_ctx, uint32_t count);
     int (*restart)(void *backend_ctx);
 } airui_video_backend_ops_t;
 
@@ -117,6 +116,7 @@ static int airui_video_vp_open(void **backend_ctx, const airui_video_open_opts_t
 static void airui_video_vp_close(void *backend_ctx);
 static int airui_video_vp_read_frame(void *backend_ctx, airui_video_frame_t *frame);
 static void airui_video_vp_release_frame(void *backend_ctx, airui_video_frame_t *frame);
+static int airui_video_vp_skip_frames(void *backend_ctx, uint32_t count);
 static int airui_video_vp_restart(void *backend_ctx);
 
 static const airui_video_backend_ops_t g_airui_video_videoplayer_ops = {
@@ -124,6 +124,7 @@ static const airui_video_backend_ops_t g_airui_video_videoplayer_ops = {
     .close = airui_video_vp_close,
     .read_frame = airui_video_vp_read_frame,
     .release_frame = airui_video_vp_release_frame,
+    .skip_frames = airui_video_vp_skip_frames,
     .restart = airui_video_vp_restart,
 };
 #endif
@@ -791,6 +792,25 @@ static void airui_video_vp_release_frame(void *backend_ctx, airui_video_frame_t 
     memset(frame, 0, sizeof(airui_video_frame_t));
 }
 
+static int airui_video_vp_skip_frames(void *backend_ctx, uint32_t count)
+{
+    airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
+
+    if (ctx == NULL || ctx->player == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        int ret = luat_videoplayer_skip_frame(ctx->player);
+        if (ret == LUAT_VP_ERR_EOF) {
+            return AIRUI_VIDEO_STATUS_EOF;
+        }
+        if (ret != LUAT_VP_OK) {
+            return AIRUI_ERR_INIT_FAILED;
+        }
+    }
+    return AIRUI_OK;
+}
+
 static int airui_video_vp_restart(void *backend_ctx)
 {
     airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
@@ -1032,6 +1052,39 @@ int airui_video_pause(lv_obj_t *video)
     data->fps_window_frames = 0;
     lv_timer_pause(data->timer);
     return AIRUI_OK;
+}
+
+int airui_video_step(lv_obj_t *video)
+{
+    airui_video_data_t *data;
+
+    if (video == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    data = airui_video_get_data(video);
+    if (data == NULL || data->timer == NULL || data->playing) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    return airui_video_read_and_present(video, data, false);
+}
+
+int airui_video_skip(lv_obj_t *video, uint32_t count)
+{
+    airui_video_data_t *data;
+    int ret;
+
+    if (video == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    data = airui_video_get_data(video);
+    if (data == NULL || data->playing || data->ops == NULL || data->ops->skip_frames == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    ret = data->ops->skip_frames(data->backend_ctx, count);
+    if (ret == AIRUI_VIDEO_STATUS_EOF) {
+        data->eof = true;
+    }
+    return ret;
 }
 
 int airui_video_get_stats(lv_obj_t *video, airui_video_stats_t *stats)

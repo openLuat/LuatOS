@@ -24,6 +24,7 @@
 extern const int16_t ringback_8k_data[8000];
 
 /* -------------------- 模块私有状态(原 _l_cc 内的桥接字段) -------------------- */
+static volatile uint8_t s_bridge_enabled;  /* Explicit CC selection, off at boot. */
 static luat_rtos_timer_t s_tone_timer;      /* 原 _l_cc.bridge_tone_timer */
 static luat_rtos_timer_t s_drain_timer;     /* 原 _l_cc.bridge_drain_timer */
 static luat_rtos_timer_t s_uplink_source_timer;
@@ -45,6 +46,7 @@ static int16_t s_uplink_cc_pcm[320];
 
 int luat_cc_bridge_session_start(void)
 {
+    if (!luat_cc_bridge_mode_on()) return -LUAT_ERROR_OPERATION_FAILED;
     /* Called by the serialized CC media-start path, before audio callbacks. */
     if ((!s_uplink_lock && luat_rtos_mutex_create(&s_uplink_lock)) ||
         (!s_drain_lock && luat_rtos_mutex_create(&s_drain_lock))) {
@@ -102,7 +104,7 @@ static void _bridge_tone_pcm_in(const int16_t *pcm, uint32_t samples)
     if (!pcm || !samples || !voip_ctx) {
         return;
     }
-    if (voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || voip_ctx->state != VOIP_STATE_RUNNING) {
+    if (!luat_cc_bridge_mode_on() || voip_ctx->state != VOIP_STATE_RUNNING) {
         return;
     }
     while (samples > 0) {
@@ -143,7 +145,7 @@ static void _bridge_tone_timer_cb(LUAT_RT_CB_PARAM)
     if (!s_tone_on) {
         return;
     }
-    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || voip_ctx->state != VOIP_STATE_RUNNING) {
+    if (!voip_ctx || !luat_cc_bridge_mode_on() || voip_ctx->state != VOIP_STATE_RUNNING) {
         return;
     }
     if (luat_cc_call_running()) {
@@ -174,7 +176,7 @@ static void _bridge_tone_timer_cb(LUAT_RT_CB_PARAM)
 void luat_cc_bridge_tone_start(void)
 {
     voip_ctx_t *voip_ctx = voip_get_ctx();
-    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || voip_ctx->state != VOIP_STATE_RUNNING) {
+    if (!voip_ctx || !luat_cc_bridge_mode_on() || voip_ctx->state != VOIP_STATE_RUNNING) {
         return;
     }
     if (luat_cc_call_running()) {
@@ -216,13 +218,33 @@ static void _downsample_16k_to_8k(int16_t *inout, uint32_t in_samples, uint32_t 
 
 void luat_cc_bridge_real_downlink_seen(uint32_t bytes)
 {
-    if (bytes) voip_bridge_tone(0);
+    if (bytes && luat_cc_bridge_mode_on()) voip_bridge_tone(0);
+}
+
+int luat_cc_bridge_set_enabled(uint8_t enabled)
+{
+    voip_ctx_t *voip_ctx = voip_get_ctx();
+    int ret = -LUAT_ERROR_OPERATION_FAILED;
+    enabled = enabled ? 1 : 0;
+
+    /* EC7xx CC media transitions run in tasks. Keep the idle check and selection
+     * together; this short scheduler section performs no waits or allocation. */
+    luat_rtos_task_suspend_all();
+    if (enabled == s_bridge_enabled) {
+        ret = LUAT_ERROR_NONE;
+    } else if (voip_ctx && voip_ctx->state == VOIP_STATE_IDLE &&
+               !luat_cc_bridge_is_busy() && !s_tone_on && !s_uplink_source) {
+        ret = enabled ? voip_set_audio_mode(VOIP_AUDIO_MODE_BRIDGE) : LUAT_ERROR_NONE;
+        if (!ret) s_bridge_enabled = enabled;
+    }
+    luat_rtos_task_resume_all();
+    return ret;
 }
 
 uint8_t luat_cc_bridge_mode_on(void)
 {
     voip_ctx_t *voip_ctx = voip_get_ctx();
-    return (voip_ctx && voip_ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE) ? 1 : 0;
+    return (s_bridge_enabled && voip_ctx && voip_ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE) ? 1 : 0;
 }
 
 /* -------------------- 上行(VoIP -> CC)缓冲管理 -------------------- */
@@ -230,7 +252,7 @@ uint8_t luat_cc_bridge_mode_on(void)
 void luat_cc_bridge_flush_sip_uplink(void)
 {
     voip_ctx_t *voip_ctx = voip_get_ctx();
-    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !voip_ctx->bridge_rx_buf) {
+    if (!voip_ctx || !luat_cc_bridge_mode_on() || !voip_ctx->bridge_rx_buf) {
         return;
     }
     if (voip_ctx->bridge_mutex) luat_rtos_mutex_lock(voip_ctx->bridge_mutex, LUAT_WAIT_FOREVER);
@@ -252,7 +274,7 @@ static void _bridge_drain_downlink_locked(void)
     uint8_t drained_frames = 0;
 
     if (!play_fifo || !voip_ctx ||
-        voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE ||
+        !luat_cc_bridge_mode_on() ||
         voip_ctx->state != VOIP_STATE_RUNNING) {
         return;
     }
@@ -311,7 +333,7 @@ static void _bridge_drain_timer_cb(LUAT_RT_CB_PARAM)
 void luat_cc_bridge_drain_start(void)
 {
     voip_ctx_t *voip_ctx = voip_get_ctx();
-    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !s_drain_lock) {
+    if (!voip_ctx || !luat_cc_bridge_mode_on() || !s_drain_lock) {
         return;
     }
     luat_rtos_mutex_lock(s_drain_lock, LUAT_WAIT_FOREVER);
@@ -350,7 +372,7 @@ static void _bridge_uplink_source_feed_locked(void)
     uint16_t cc_samples;
     int got;
 
-    if (!s_uplink_source || !voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE ||
+    if (!s_uplink_source || !voip_ctx || !luat_cc_bridge_mode_on() ||
         voip_ctx->state != VOIP_STATE_RUNNING) {
         return;
     }

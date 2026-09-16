@@ -85,6 +85,7 @@ typedef struct {
     uint32_t rx_bytes;
     uint32_t rx_parse_fail;
     uint32_t rx_bad_payload;
+    uint32_t event_send_failures; /* Cumulative notification failures across sessions. */
     uint32_t rx_lost;
     uint32_t rx_out_of_order;
     uint32_t jb_played;
@@ -189,6 +190,8 @@ typedef struct {
     volatile voip_state_t state;
     volatile uint32_t stop_requested;
     uint32_t audio_session;
+    volatile uint32_t rx_event_state;
+    volatile uint32_t event_send_failures;
     voip_stats_t stats;
 
     /* RTOS */
@@ -240,6 +243,7 @@ typedef struct {
     voip_audio_mode_t audio_mode;
 
 #ifdef LUAT_USE_VOIP_BRIDGE
+    volatile uint32_t tx_event_state;
     /* 桥接模式缓冲区（仅当 audio_mode == VOIP_AUDIO_MODE_BRIDGE 时有效） */
     int16_t *bridge_tx_buf;             /* 上行：外部PCM -> voip编码 -> RTP */
     int16_t *bridge_rx_buf;             /* 下行：RTP -> voip解码 -> 外部PCM */

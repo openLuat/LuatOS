@@ -19,6 +19,9 @@
 #include "luat_audio_request.h"
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
 #include "luat_cc_bridge.h"
+#ifdef _MSC_VER
+#include <windows.h>
+#endif
 #endif
 
 
@@ -85,6 +88,34 @@ static luat_cc_ctrl_t _l_cc;
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
 static luat_rtos_mutex_t s_cc_driver_lock;
 static volatile uint8_t s_cc_audio_stopping;
+static volatile uint32_t s_cc_audio_updating;  /* Includes overlapping setup/cancel waits. */
+
+static void cc_audio_update_begin(void)
+{
+#ifdef _MSC_VER
+    InterlockedIncrement((volatile LONG *)&s_cc_audio_updating);
+#else
+    __sync_add_and_fetch(&s_cc_audio_updating, 1);
+#endif
+}
+
+static void cc_audio_update_end(void)
+{
+#ifdef _MSC_VER
+    InterlockedDecrement((volatile LONG *)&s_cc_audio_updating);
+#else
+    __sync_sub_and_fetch(&s_cc_audio_updating, 1);
+#endif
+}
+
+static uint32_t cc_audio_update_pending(void)
+{
+#ifdef _MSC_VER
+    return (uint32_t)InterlockedCompareExchange((volatile LONG *)&s_cc_audio_updating, 0, 0);
+#else
+    return __sync_add_and_fetch(&s_cc_audio_updating, 0);
+#endif
+}
 
 /* The modem owns static_play_buff. Stop DMA before audio_v2 detaches the
  * request, otherwise its idle callback may fill four blocks of a three-block
@@ -389,6 +420,23 @@ static int l_cc_speech_init(lua_State* L) {
     lua_pushboolean(L, 1);
     return 1;
 }
+
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+/**
+显式选择 CC 与 SIP 桥接。默认关闭；必须在 CC/SIP 音频启动前设置。
+启用时同时选择 VoIP PCM bridge 模式；关闭时保留通用音频模式。
+通话、振铃或音频清理期间改变选择会失败；重复设置相同值成功。
+挂断及 exsip.stop 不清除选择，重新配置时显式设置 false。
+@api cc.setBridge(enabled)
+@boolean enabled true启用CC/SIP桥接，false关闭
+@return boolean 成功与否
+ */
+static int l_cc_set_bridge(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    lua_pushboolean(L, luat_cc_bridge_set_enabled(lua_toboolean(L, 1)) == 0);
+    return 1;
+}
+#endif
 
 /**
 控制桥接模式早期彩铃，只向VoIP RTP侧送音，不占用本地音频播放请求。
@@ -703,6 +751,7 @@ static const rotable_Reg_t reg_cc[] =
     { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
 	{ "quality" ,   ROREG_FUNC(l_cc_get_quality)},
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
+    { "setBridge", ROREG_FUNC(l_cc_set_bridge)},
     { "bridgeTone", ROREG_FUNC(l_cc_bridge_tone)},
 #endif
     { "on" ,        ROREG_FUNC(l_cc_on)},
@@ -718,6 +767,14 @@ LUAMOD_API int luaopen_cc( lua_State *L ) {
 }
 
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
+uint8_t luat_cc_bridge_is_busy(void)
+{
+    return (cc_audio_update_pending() || _l_cc.is_audio_start || _l_cc.is_play_ring ||
+            _l_cc.is_true_start || _l_cc.is_bridge_source_active ||
+            _l_cc.cc_request.request_id || _l_cc.ring_request.request_id ||
+            _l_cc.cc_request.extern_play_source || _l_cc.cc_request.extern_record_source) ? 1 : 0;
+}
+
 uint8_t luat_cc_call_running(void)
 {
     return (_l_cc.upload_enable && _l_cc.is_true_start) ? 1 : 0;
@@ -748,6 +805,9 @@ void luat_cc_start_upload(void)
 
 void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, uint32_t play_block_cnt, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t record_callback_cnt_level, uint8_t need_upload, uint8_t true_start)
 {
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+    cc_audio_update_begin();
+#endif
     if (_l_cc.is_audio_start) {
         uint8_t was_upload = _l_cc.upload_enable;
         _l_cc.is_true_start = true_start;
@@ -775,16 +835,21 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
             luat_audio_request_record_pause(&_l_cc.cc_request, 1);
         }
         LLOGD("CC audio already started, update upload_enable=%d true_start=%d", need_upload, true_start);
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+        cc_audio_update_end();
+#endif
         return;
     }
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
     if (luat_cc_bridge_mode_on()) {
         if (!s_cc_driver_lock && luat_rtos_mutex_create(&s_cc_driver_lock) != 0) {
             LLOGE("create CC driver lock failed");
+            cc_audio_update_end();
             return;
         }
         if (luat_cc_bridge_session_start() != 0) {
             LLOGE("CC bridge session start failed");
+            cc_audio_update_end();
             return;
         }
         s_cc_audio_stopping = 0;
@@ -816,6 +881,9 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
     codec_opts = luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_CC);
     if (!codec_opts) {
         LLOGE("CC_EVENT_VOICE_START codec_opts is NULL");
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+        cc_audio_update_end();
+#endif
         return;
     }
     ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)play_buff_byte, one_play_block_len, play_block_cnt, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, luat_audio_dsp_get_opts(LUAT_AUDIO_DSP_DEFAULT_TYPE));
@@ -835,12 +903,16 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
     } else {
         LLOGE("CC_EVENT_VOICE_START request speech failed, ret %d", ret);
     }
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+    cc_audio_update_end();
+#endif
 }
 
 void luat_cc_play_tone(uint32_t param)
 {   
     int ret = LUAT_ERROR_NONE;
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
+    cc_audio_update_begin();
     uint8_t bridge_mode = luat_cc_bridge_mode_on();
 #endif
     switch (param)
@@ -913,5 +985,8 @@ void luat_cc_play_tone(uint32_t param)
         _l_cc.is_play_ring = 0;
     } else {
     }
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+    cc_audio_update_end();
+#endif
 }
 #endif

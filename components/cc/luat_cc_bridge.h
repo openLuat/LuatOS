@@ -20,6 +20,10 @@
 #include "luat_common_api.h"
 #include "luat_audio_request.h"
 
+#if defined(LUAT_USE_CC_VOIP_BRIDGE) && !defined(LUAT_USE_VOIP_BRIDGE)
+#error "LUAT_USE_CC_VOIP_BRIDGE requires LUAT_USE_VOIP_BRIDGE"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -36,7 +40,15 @@ extern "C" {
  * the gates; never call them while holding the VoIP bridge or CC driver lock. */
 int luat_cc_bridge_session_start(void);
 
-/** voip 是否处于桥接模式(只判断 audio_mode, 不要求 RUNNING 状态) */
+/** Select CC/SIP routing before either media path starts. Same-value calls are
+ * idempotent. Enabling also selects generic PCM bridge mode; disabling leaves
+ * that audio mode unchanged. Returns 0 on success and <0 while media is busy. */
+int luat_cc_bridge_set_enabled(uint8_t enabled);
+
+/** CC audio/ring/source setup, activity or teardown is still in progress. */
+uint8_t luat_cc_bridge_is_busy(void);
+
+/** Explicit CC selection and generic PCM bridge mode; RTP need not be running. */
 uint8_t luat_cc_bridge_mode_on(void);
 
 /** 早期彩铃：开始/停止/查询，仅向 VoIP RTP 侧送音 */
@@ -62,6 +74,8 @@ void    luat_cc_bridge_uplink_source_stop(void);
 #else
 
 static inline int luat_cc_bridge_session_start(void) { return 0; }
+static inline int luat_cc_bridge_set_enabled(uint8_t enabled) { return enabled ? -1 : 0; }
+static inline uint8_t luat_cc_bridge_is_busy(void) { return 0; }
 static inline uint8_t luat_cc_bridge_mode_on(void) { return 0; }
 static inline void luat_cc_bridge_tone_start(void) {}
 static inline void luat_cc_bridge_tone_stop(void) {}

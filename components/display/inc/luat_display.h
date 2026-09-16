@@ -204,6 +204,7 @@ struct luat_display_layer_data {
     uint32_t enable;    // 是否启用该层
     uint32_t layer_id;  // 层_id
     uint32_t area_id;   // 区域_id
+    uint32_t alpha;     // 透明度
 
     /*位置和尺寸*/
     struct luat_display_area area;

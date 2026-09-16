@@ -102,16 +102,15 @@ int blit_copy(void* dest,void* src,uint32_t destpitch,uint32_t srcpitch,uint32_t
 
 
 /***********************************************
-*函数名称：luat_draw_set_target
-*功    能：设置绘制目标平面为指定显示设备的绘制缓冲区
+*函数名称：luat_draw_set_display_target
+*功    能：设置绘制目标平面为指定显示设备的绘制缓冲区，用于绘制到显示设备
 *入口参数：display_id：显示设备ID
 *返 回 值：0：成功
 *         -1：失败
 *备    注：
 ************************************************/
-int luat_draw_set_target( int display_id )
+int luat_draw_set_display_target( struct luat_display* disp )
 {
-    struct luat_display* disp = luat_display_get_by_id(display_id);
     SURFACE* dsrf = &g_targetsurface;
 
     if(disp == NULL){

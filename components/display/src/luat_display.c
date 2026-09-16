@@ -158,6 +158,7 @@ int luat_display_layer_setup(struct luat_display *disp)
     ui_layer.enable = 1;
     ui_layer.layer_id = 0;  //UI层ID
     ui_layer.area_id = 0;
+    ui_layer.alpha = 0xFF;
 
     /*设置默认层的区域*/
     ui_layer.area.x1 = panel->screen_win->x;
@@ -168,6 +169,7 @@ int luat_display_layer_setup(struct luat_display *disp)
     /*默认显示层应指向 LCDC 显存（fb_start）；SDL/软件渲染无 fb_start 时才回退到 draw_buf*/
     ui_layer.buffer = fb_info->fb_start ? fb_info->fb_start : fb_info->draw_buf.buffer;
     ui_layer.format = fb_info->format;
+
 
     ret = disp->display_funcs->set_layer(&ui_layer);
     if (ret != 0) {

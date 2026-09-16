@@ -34,6 +34,15 @@ typedef struct {
 ************************************************/
 int blit_copy(void* dest,void* src,uint32_t destpitch,uint32_t srcpitch,uint32_t bytewidth,uint32_t h);
 /***********************************************
+*函数名称：luat_draw_set_display_target
+*功    能：设置绘制目标平面为指定显示设备的绘制缓冲区，用于绘制到显示设备
+*入口参数：display_id：显示设备ID
+*返 回 值：0：成功
+*         -1：失败
+*备    注：
+************************************************/
+int luat_draw_set_display_target( struct luat_display* disp );
+/***********************************************
 *函数名称：draw_surface_rect
 *功    能：绘制平面矩形区域
 *入口参数：ssrf：源平面指针

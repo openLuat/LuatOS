@@ -2,7 +2,7 @@
 日志口用户指令协议 v2 设备端协议栈
 配合 PROTOCOL.md 与 host/luat_usercmd.py 使用
 
-职责: 帧解析(magic/version/seq)、控制类去重回应、分发到脚本注册的处理函数。
+职责: 帧解析(magic/version/seq)、控制类去重回应、AUTH 挑战应答鉴权、分发到脚本注册的处理函数。
 协议栈本身不实现任何业务逻辑, 业务(如文件操作)由 reg_op / fs() 注册, 权限完全由脚本控制。
 
 处理函数约定: fn(body) -> errno, resp_body, resp_flags(可选)
@@ -20,7 +20,7 @@ local VERSION = 0x01
 -- rx_cache1[512] -> payload<=486,  应用头12B(7固定+fd1+offset4) -> 数据区474
 local MAX_CHUNK = 474
 
--- 子指令号 -> 处理函数名
+-- 子指令号 -> 处理函数名 (0=HELLO 与 11=AUTH 为协议栈内建, 不在此表)
 local SUB_NAMES = {
     [1] = "open",
     [2] = "close",
@@ -32,6 +32,8 @@ local SUB_NAMES = {
     [8] = "remove",
     [9] = "stat",
     [10] = "exists",
+    [12] = "lsmount",
+    [13] = "fsstat",
 }
 
 -- 错误码, 与 PROTOCOL.md §2 一致
@@ -43,11 +45,35 @@ uc.E_BADREQ  = 4
 uc.E_BADFD   = 5
 uc.E_TOOLONG = 6
 uc.E_BUSY    = 7
+uc.E_NOSYS   = 8
 
 uc.VERSION = VERSION
 uc.MAX_CHUNK = MAX_CHUNK
 
 local ops = {}
+
+-- 鉴权状态(HMAC 挑战应答, 见 PROTOCOL.md §5.5): nil=未配置(不启用)
+local auth_token = nil
+local authed = false
+local last_nonce = nil
+
+--- 配置鉴权 token(可选), 开启后未鉴权连接仅允许 HELLO/AUTH
+-- 须在 uc.start() 之前调用; token 8..64 字节, 生产建议 >=16 字节随机串
+-- @string|nil token 传 nil/false 关闭鉴权
+function uc.set_auth(token)
+    if token == nil or token == false then
+        auth_token = nil
+        return uc
+    end
+    if type(token) ~= "string" or #token < 8 or #token > 64 then
+        error("uc.set_auth: token must be a string of 8..64 bytes")
+    end
+    if crypto == nil or crypto.hmac_sha256 == nil then
+        error("uc.set_auth: crypto.hmac_sha256 unavailable on this firmware")
+    end
+    auth_token = token
+    return uc
+end
 
 -- 控制类去重缓存: (seq, 完整回应帧), 解决"执行成功但回应丢失, host 重发"导致的重复执行
 local last_ctrl_seq = nil
@@ -58,7 +84,7 @@ local function pack_hdr(subcmd, flags, seq)
 end
 
 --- 注册业务处理函数
--- @string name 操作名: open/close/write/read/lsdir/mkdir/rmdir/remove/stat/exists
+-- @string name 操作名: open/close/write/read/lsdir/mkdir/rmdir/remove/stat/exists/lsmount/fsstat
 -- @function fn 处理函数, 签名 fn(body) -> errno, resp_body, resp_flags(可选)
 function uc.reg_op(name, fn)
     ops[name] = fn
@@ -66,14 +92,18 @@ end
 
 local function dispatch(seq, subcmd, flags, body)
     if subcmd == 0 then
-        -- HELLO: 清去重缓存 + 分片大小协商
+        -- HELLO: 清去重缓存 + 分片大小协商 + 记录鉴权挑战(nonce)
         if #body < 6 then return end
         local nonce, propose = string.unpack("<I4I2", body)
         last_ctrl_seq = nil
         last_ctrl_resp = nil
+        last_nonce = nonce
+        authed = false
         local chunk = propose
         if chunk > MAX_CHUNK then chunk = MAX_CHUNK end
-        log.usercmd_write(pack_hdr(0, 0, seq) .. string.pack("<I4I2", nonce, chunk) .. string.char(VERSION))
+        local caps = 0
+        if auth_token then caps = 1 end
+        log.usercmd_write(pack_hdr(0, 0, seq) .. string.pack("<I4I2", nonce, chunk) .. string.char(VERSION) .. string.pack("<I2", caps))
         return
     end
     local is_data = (subcmd == 3) or (subcmd == 4)
@@ -81,18 +111,43 @@ local function dispatch(seq, subcmd, flags, body)
         log.usercmd_write(last_ctrl_resp)
         return
     end
-    local name = SUB_NAMES[subcmd]
-    local fn = name and ops[name]
-    local errno, resp_body, resp_flags = uc.E_DENIED, "", 0
-    if fn then
-        local ok, e, b, fl = pcall(fn, body)
-        if ok then
-            errno = e or uc.E_IO
-            resp_body = b or ""
-            resp_flags = fl or 0
+    local errno, resp_body, resp_flags
+    if auth_token and not authed and subcmd ~= 11 then
+        -- 鉴权门控: 未鉴权仅允许 HELLO/AUTH(含数据类), 不执行业务
+        errno, resp_body, resp_flags = uc.E_DENIED, "", 0
+    elseif subcmd == 11 then
+        -- AUTH: HMAC 挑战应答, 协议栈内建(不经 reg_op), 见 PROTOCOL.md §5.5
+        resp_flags = 0
+        if not auth_token then
+            errno, resp_body = uc.E_OK, string.char(0) -- 未配置 token, 无需鉴权
+        elseif not last_nonce then
+            errno, resp_body = uc.E_BADREQ, ""         -- 未先 HELLO, 无可用挑战
         else
-            errno = uc.E_IO
-            resp_body = ""
+            local maclen = string.byte(body, 1) or 0
+            local mac = body:sub(2, 1 + maclen)
+            local expect = crypto.hmac_sha256(string.pack("<I4", last_nonce), auth_token)
+            -- 大小写不敏感: 不同移植的 hex 大小写不一(host 用 python 小写 hexdigest)
+            if maclen == 64 and mac:lower() == expect:lower() then
+                authed = true
+                errno, resp_body = uc.E_OK, string.char(1)
+            else
+                errno, resp_body = uc.E_DENIED, ""
+            end
+        end
+    else
+        local name = SUB_NAMES[subcmd]
+        local fn = name and ops[name]
+        errno, resp_body, resp_flags = uc.E_NOSYS, "", 0
+        if fn then
+            local ok, e, b, fl = pcall(fn, body)
+            if ok then
+                errno = e or uc.E_IO
+                resp_body = b or ""
+                resp_flags = fl or 0
+            else
+                errno = uc.E_IO
+                resp_body = ""
+            end
         end
     end
     if errno ~= 0 then
@@ -292,6 +347,42 @@ function uc.fs()
         end
         local ex = io.exists(body) or io.dexist(body)
         return uc.E_OK, string.char(ex and 1 or 0)
+    end)
+
+    uc.reg_op("lsmount", function(_body)
+        if io.lsmount == nil then
+            return uc.E_NOSYS, ""
+        end
+        local list = io.lsmount()
+        if type(list) ~= "table" then
+            return uc.E_IO, ""
+        end
+        local parts, total = {}, 0
+        for _, e in ipairs(list) do
+            local path = e.path or ""
+            local fst = e.fs or ""
+            local eb = string.char(#path) .. path .. string.char(#fst) .. fst
+            if total + #eb > 470 then break end -- 上行单帧预算, 与 LSDIR 一致
+            parts[#parts + 1] = eb
+            total = total + #eb
+        end
+        return uc.E_OK, string.pack("<I2", total) .. table.concat(parts)
+    end)
+
+    uc.reg_op("fsstat", function(body)
+        if not check_path(body) then
+            return uc.E_TOOLONG, ""
+        end
+        if io.fsstat == nil then
+            return uc.E_NOSYS, ""
+        end
+        local ok, tb, ub, bs, fst = io.fsstat(body)
+        if not ok then
+            return uc.E_NOENT, ""
+        end
+        tb, ub, bs, fst = tb or 0, ub or 0, bs or 0, fst or ""
+        -- total/used 折算为字节, 便于 host 直接使用
+        return uc.E_OK, string.pack("<III", tb * bs, ub * bs, bs) .. string.char(#fst) .. fst
     end)
 end
 

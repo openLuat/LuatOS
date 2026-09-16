@@ -8,12 +8,18 @@
 示例:
     from luat_usercmd import UserCmd
     dev = UserCmd("COM6")
-    dev.hello()
+    dev.wait_ready()                  # 等启动 + 握手 + 分片协商
+    if not dev.auth("your-token"):    # 可选: 设备配置 token 时才需要
+        print("device does not require auth")
     dev.write_file("/abc.txt", data)
     data = dev.read_file("/abc.txt")
     for e in dev.lsdir("/"):
         print(e["name"], e["type"], e["size"])
+    print(dev.lsmount())              # [{'path': '/', 'fs': 'soc'}, ...]
+    print(dev.fsstat("/"))            # {'total':.., 'used':.., 'block_size':.., 'fs':..}
 """
+import hashlib
+import hmac
 import random
 import struct
 import threading
@@ -39,12 +45,18 @@ SUB_RMDIR = 7
 SUB_REMOVE = 8
 SUB_STAT = 9
 SUB_EXISTS = 10
+SUB_AUTH = 11
+SUB_LSMOUNT = 12
+SUB_FSSTAT = 13
 
 FLAG_ERR = 0x01
 FLAG_MORE = 0x02
 
+# HELLO 回应 caps 位
+CAP_AUTH_REQUIRED = 0x0001
+
 # 错误码, 与 PROTOCOL.md §2 一致
-E_OK, E_NOENT, E_DENIED, E_IO, E_BADREQ, E_BADFD, E_TOOLONG, E_BUSY = range(8)
+E_OK, E_NOENT, E_DENIED, E_IO, E_BADREQ, E_BADFD, E_TOOLONG, E_BUSY, E_NOSYS = range(9)
 
 _MODE = {"r": 0, "w": 1, "a": 2, "r+": 3}
 
@@ -176,6 +188,8 @@ class UserCmd:
         self.data_retries = data_retries
         self.log_handler = log_handler      # 可选: fn(bytes) 处理普通日志帧
         self.chunk = 90                     # hello 协商后更新
+        self.caps = 0                       # hello 协商后更新 (bit0=需要鉴权)
+        self._nonce = None                  # 最近一次 hello 的挑战 nonce
         self._seq = random.randrange(0, 0x10000)
         self._seq_lock = threading.Lock()
         self._waiters = {}                  # seq -> [Event, (errno, flags, body) | None]
@@ -262,15 +276,32 @@ class UserCmd:
 
     # ---------- 会话 ----------
     def hello(self):
-        """握手 + 分片协商, 返回协商后的写片长"""
+        """握手 + 分片协商, 返回协商后的写片长; 同时更新 self.caps 与 self._nonce"""
         nonce = random.randrange(0, 0x100000000)
         errno, _flags, body = self._control(SUB_HELLO, struct.pack("<IH", nonce, self.propose_chunk))
         self._check(errno, _flags, body, "hello")
         rnonce, chunk, ver = struct.unpack("<IHB", body[:7])
         if rnonce != nonce:
             raise UserCmdError(-1, "hello nonce mismatch")
+        self._nonce = rnonce
+        # caps 为 v2 扩展字段, 旧固件回应仅 7 字节, 视 caps=0
+        self.caps = struct.unpack("<H", body[7:9])[0] if len(body) >= 9 else 0
         self.chunk = min(self.propose_chunk, chunk)
         return self.chunk
+
+    def auth(self, token: str) -> bool:
+        """HMAC 挑战应答鉴权(须先 hello)。
+        设备未配置 token(caps bit0=0)返回 False; 鉴权成功返回 True;
+        mac 不匹配抛 UserCmdError(E_DENIED)"""
+        if not (self.caps & CAP_AUTH_REQUIRED):
+            return False
+        if self._nonce is None:
+            raise UserCmdError(-1, "auth: hello first")
+        mac = hmac.new(token.encode(), struct.pack("<I", self._nonce),
+                       hashlib.sha256).hexdigest().encode()
+        errno, _f, body = self._control(SUB_AUTH, bytes([len(mac)]) + mac)
+        self._check(errno, _f, body, "auth")
+        return body[0] == 1
 
     def wait_ready(self, timeout: float = 20.0, quiet: float = 0.8, silent_fallback: float = 6.0):
         """等设备启动完成并完成握手。
@@ -374,6 +405,39 @@ class UserCmd:
                 raise UserCmdError(-1, "lsdir paginate stuck")
             offset += n
         return entries
+
+    def lsmount(self):
+        """枚举挂载点, 返回 [{'path': '/', 'fs': 'soc'}, ...](根挂载归一化为 '/'）"""
+        errno, _f, resp = self._control(SUB_LSMOUNT, b"")
+        self._check(errno, _f, resp, "lsmount")
+        elen = struct.unpack("<H", resp[:2])[0]
+        data = resp[2:2 + elen]     # 尾部可能随带4对齐填充, 必须按 elen 截取
+        mounts = []
+        i = 0
+        while i + 2 <= len(data):
+            pl = data[i]
+            path = data[i + 1:i + 1 + pl]
+            i += 1 + pl
+            if i + 1 > len(data):
+                break
+            fl = data[i]
+            fst = data[i + 1:i + 1 + fl]
+            i += 1 + fl
+            if len(path) < pl or len(fst) < fl:
+                break
+            path = path.decode("utf-8", "ignore")
+            mounts.append({"path": path if path else "/", "fs": fst.decode("utf-8", "ignore")})
+        return mounts
+
+    def fsstat(self, path: str):
+        """查询文件系统空间, 返回 {'total': bytes, 'used': bytes, 'block_size': bytes, 'fs': str}
+        path 指向未挂载路径抛 UserCmdError(E_NOENT)"""
+        errno, _f, body = self._control(SUB_FSSTAT, path.encode())
+        self._check(errno, _f, body, f"fsstat {path}")
+        total, used, bs = struct.unpack("<III", body[:12])
+        tl = body[12]
+        fst = body[13:13 + tl].decode("utf-8", "ignore")
+        return {"total": total, "used": used, "block_size": bs, "fs": fst}
 
     # ---------- 数据类(滑动窗口) ----------
     def _write_window(self, fd: int, data: bytes, base: int = 0):

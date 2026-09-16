@@ -1,7 +1,8 @@
 # 日志口用户指令协议 v2（usercmd v2）
 
 通过日志口扩展用户指令，由设备端 Lua 脚本实现具体功能（如文件系统操作），无需额外 UART。
-协议具备：**版本号、命令序号、滑动窗口 + 逐片确认 + 自动重传、分片大小协商、open/read/write/close 文件模型**。
+协议具备：**版本号、命令序号、滑动窗口 + 逐片确认 + 自动重传、分片大小协商、open/read/write/close 文件模型、
+可选 HMAC 挑战应答鉴权、挂载点枚举（LSMOUNT）、文件系统空间查询（FSSTAT）**。
 
 - 下行（PC→设备）：0xA5 帧，`cmd = SOC_CMD_USER_CMD(19)`，`address` 置 0，payload 为本协议帧
 - 上行（设备→PC）：本协议帧经 `log.usercmd_write` 以日志帧发出（payload 二进制安全），以 2 字节 magic 与普通日志区分
@@ -24,6 +25,8 @@
 - magic / version 不符：设备**静默丢弃**（不回应），host 侧靠超时重传兜底
 - path 上限 127 字节，超长回应 errno=6
 - 错误回应：flags 置 ERR，body 首字节为 errno
+- 版本号保持 `0x01`：AUTH/LSMOUNT/FSSTAT 与 caps 均为向后兼容扩展
+  （回应加长字段由 host 按长度判断，旧设备回旧格式，互不干扰）
 
 ## 2. 错误码（errno）
 
@@ -37,12 +40,13 @@
 | 5 | bad fd |
 | 6 | path too long |
 | 7 | busy |
+| 8 | nosys（子指令不存在：旧固件或未注册；与"denied"区分） |
 
 ## 3. 子指令
 
 | subcmd | 名称 | 类别 | 请求 body | 回应 body |
 |---|---|---|---|---|
-| 0 | HELLO | 控制 | u32 nonce + u16 propose_chunk | u32 nonce + u16 chunk + u8 version |
+| 0 | HELLO | 控制 | u32 nonce + u16 propose_chunk | u32 nonce + u16 chunk + u8 version + u16 caps |
 | 1 | OPEN | 控制 | u8 mode + path（余下全部字节） | u8 errno + u8 fd |
 | 2 | CLOSE | 控制 | u8 fd | u8 errno + u32 size（写/追加模式为最终文件大小） |
 | 3 | WRITE_DATA | 数据 | u8 fd + u32 offset + data | u8 errno + u8 fd + u32 offset |
@@ -53,9 +57,25 @@
 | 8 | REMOVE | 控制 | path | u8 errno |
 | 9 | STAT | 控制 | path | u8 errno + u8 type + u32 size |
 | 10 | EXISTS | 控制 | path | u8 errno + u8 exists |
+| 11 | AUTH | 控制 | u8 maclen + mac（64B ASCII hex） | u8 errno + u8 status |
+| 12 | LSMOUNT | 控制 | （空） | u16 entries_len + entries |
+| 13 | FSSTAT | 控制 | path | u8 errno + u32 total + u32 used + u32 block_size + u8 fstype_len + fstype |
 
 - mode：0=读，1=写（覆盖），2=追加，3=读写不截断（随机写场景，追加写建议用 3 并按 stat 的 size 定位偏移）
 - fd：设备分配的小整数句柄（1..4），OPEN 失败 fd 置 0
+- HELLO 回应 `caps`（u16, LE）：bit0=设备已配置鉴权 token（AUTH 必选），bit1..15 保留置 0。
+  设备回应不足 9 字节（旧固件）时 host 视 caps=0，即设备不支持 AUTH。
+  HELLO 同时重置设备的鉴权状态（authed=false）并记录 nonce 作为 AUTH 挑战
+- AUTH（HMAC 挑战应答，详见 §5.5）：
+  - `mac = HMAC-SHA256(key=token, msg=nonce 的 4 字节 LE 原串)` 的 64 字节 ASCII hex，
+    **大小写不敏感**（各移植 hex 大小写不一，host 用 python `hexdigest()` 小写）
+  - errno=0 + status：0=设备未配置 token（无需鉴权），1=鉴权成功
+  - errno=2：mac 不匹配；errno=4：未先 HELLO（设备无可用挑战）
+  - 仅设备配置了 token 时强制鉴权；未配置时 caps=0、AUTH 恒回 status=0、门控不生效
+- LSMOUNT 条目序列化（连续排列，总长 entries_len 字节）：
+  `u8 pathlen + path + u8 fstype_len + fstype`，path 为挂载点路径（根挂载为 ""，host 归一化为 "/"）
+- FSSTAT：total/used 为字节数（设备端 block 数 × block_size 折算）；path 按 VFS 前缀匹配挂载点，
+  配置了根挂载（如 ccm42xx 的 `""`）后所有路径都会落到根分区、恒返回成功；无 `io.fsstat`（非 VFS 移植）时 errno=8
 - LSDIR 条目序列化（连续排列，总长 entries_len 字节）：
   `u8 type(0=file,1=dir) + u32 size + u8 namelen + name`
   设备按可用空间尽量填充；塞不下时置 flags.MORE，host 以 offset（条目索引）+count 翻页。
@@ -101,7 +121,7 @@ host 开串口后首先发送 HELLO(nonce, propose_chunk)：
 - host 校验 nonce 回显正确，否则重发（超时 1000ms，最多 5 次）
 - host 可用 HELLO 探测设备重启（nonce 不匹配 / 无响应）
 
-### 5.2 控制类（OPEN / CLOSE / LSDIR / MKDIR / RMDIR / REMOVE / STAT / EXISTS）
+### 5.2 控制类（OPEN / CLOSE / LSDIR / MKDIR / RMDIR / REMOVE / STAT / EXISTS / AUTH / LSMOUNT / FSSTAT）
 
 stop-and-wait，单请求在途：
 - 超时 1000ms 重传，共 5 次，仍失败则向上层报错
@@ -140,6 +160,28 @@ CLOSE(fd)
 - 上行丢帧（回应未达 host）：同上下行，host 重发请求 → 设备重执行（幂等）→ 重回应
 - 唯一的非幂等点是控制类"执行后回应丢失"，由设备端 `(seq,resp)` 缓存解决
 
+### 5.5 鉴权流程（可选，HMAC 挑战应答）
+
+设备端脚本调用 `uc.set_auth(token)` 配置 token（8..64 字节，生产建议 ≥16 字节随机串）后启用：
+
+```
+host                                   设备
+ |-- HELLO(nonce, chunk) ------------->| 记录挑战 nonce, authed=false
+ |<-- nonce + chunk + version + caps --| caps.bit0 = 1
+ |-- AUTH(maclen, mac) --------------->| mac == HMAC-SHA256(token, nonce)?
+ |<-- errno + status ------------------|  匹配: authed=true, status=1
+ |-- OPEN/LSDIR/... (任意业务指令) ---->| authed=true, 正常执行
+```
+
+- mac 校验失败 errno=2；设备无挑战（未先 HELLO）errno=4
+- 未鉴权状态下，除 HELLO/AUTH 外**所有**子指令（含数据类 WRITE_DATA/READ_DATA）
+  一律回应 errno=2，不执行业务，回应仍走控制类去重缓存
+- 重放防护：nonce 每次 HELLO 随机，MAC 绑定本次握手；HELLO 重置 authed，重握后必须重新鉴权
+- 未配置 token 的设备 caps=0，host `auth()` 直接跳过（返回"无需鉴权"）
+- 已知限制：MAC 以 ASCII hex 字符串比对，非恒定时间实现；token 存储于设备脚本内。
+  适用场景为日志口物理访问已受控、需要防误连/防误操作/防明文窃听的场合；
+  更高要求应使用带外安全通道或禁用本功能
+
 ## 6. 时序参考值（ccm42xx @ 6M 波特）
 
 | 参数 | 默认值 |
@@ -154,6 +196,14 @@ CLOSE(fd)
 
 ## 7. 权限模型
 
-设备端不内置任何文件操作逻辑：`log_usercmd.lua` 仅实现协议栈（解析/序号/回应/分片），
+设备端不内置任何文件操作逻辑：`log_usercmd.lua` 仅实现协议栈（解析/序号/回应/分片/鉴权门控），
 具体 open/read/write/close/lsdir 等处理函数由脚本通过 `reg_op(name, fn)` 注册。
 脚本可以选择只暴露部分操作，或加入路径白名单，从设备侧控制权限。
+
+两层权限控制：
+
+1. **连接级（AUTH）**：`uc.set_auth(token)` 开启后，未鉴权连接只能执行 HELLO/AUTH，
+   其余指令一律 errno=2。见 §5.5。
+2. **操作级（reg_op）**：协议栈不强制注册任何操作；`uc.fs()` 安装的标准文件系统操作集
+   可由脚本裁剪（如只读挂载点开放 lsdir/stat，敏感路径在 handler 内拒绝并返回 errno=2），
+   权限逻辑完全由 Lua 脚本掌控，与 C 固件无关。

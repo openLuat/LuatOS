@@ -21,7 +21,7 @@
 
 7、http_stream_play: HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
 
-8、record_pcm_to_7014: 录音到文件（PCM格式，通过VB7014F语音芯片录音与播放）
+8、record_pcm_to_air1103: 录音到文件（PCM格式，通过Air1103语音芯片录音与播放）
 
 9、sample-6s.mp3、10.amr: 用于测试本地文件播放
 
@@ -78,7 +78,7 @@ require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音
 -- require "record_pcm_file"        -- 录音到文件（PCM格式）
 -- require "http_download_play"     -- HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别，支持SD卡存储
 -- require "http_stream_play"        -- HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
--- require "record_pcm_to_7014"        -- 录音到文件（PCM格式，通过VB7014F语音芯片录音及播放）
+-- require "record_pcm_to_air1103"        -- 录音到文件（PCM格式，通过Air1103语音芯片录音及播放）
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

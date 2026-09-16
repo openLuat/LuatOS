@@ -1,23 +1,33 @@
 --[[
-@module  st7701s_5in
-@summary ST7701S RGB 5寸 480×854 屏幕驱动（含 IC 初始化命令）
-@version 1.0
-@date    2026.05.22
+@module  lcd_st7701s_5in
+@summary ST7701S RGB 5寸 480×854 IC 初始化命令序列
+@version 2.0
+@date    2026.09.16
 @author  江访
 @usage
-params: { port, pin_clk, pin_sda, pin_cs, pin_rst, direction, w, h, xoffset, yoffset,
-          hbp, hspw, hfp, vbp, vspw, vfp, bus_speed, pclk }
+方式一（推荐）: 作为 lcd_display_rgb 的 ic_init 回调
+  lcd = {
+      model = "lcd_display_rgb",
+      params = {
+          ic_init = require("lcd_st7701s_5in").ic_init,
+          ... 其他 RGB 参数 ...
+      },
+  }
+
+方式二: 独立使用（内部自动建立 SPI 通道）
+  local drv = require("lcd_st7701s_5in")
+  drv.init({ pin_clk = 23, pin_sda = 2, pin_cs = 22, pin_rst = 15,
+             w = 480, h = 854, hbp = 40, hspw = 10, hfp = 40,
+             vbp = 10, vspw = 8, vfp = 20 })
 ]]
 local M = {}
 
-function M.init(params)
-    gpio.setup(params.pin_cs or 3, 0)
-
-    local r = lcd.init("custom", params)
-    if not r then return r end
-
+--- ST7701S IC 寄存器初始化命令（SPI 3-wire 9bit）
+-- 由 lcd_display_rgb 的 spi_ic_init 建立 SPI 通道后调用
+-- @param table params  含 pin_cs, pin_rst 等引脚参数
+local function st7701s_ic_init(params)
     -- 复位序列
-    local rp = gpio.setup(params.pin_rst or 9, 1)
+    local rp = gpio.setup(params.pin_rst or 15, 1)
     rp(1); sys.wait(20); rp(0); sys.wait(20); rp(1); sys.wait(120)
 
     -- ST7701S 初始化命令
@@ -90,8 +100,31 @@ function M.init(params)
     lcd.cmd(0x3a); lcd.data(0x77)
     lcd.cmd(0x36); lcd.data(0x08)
     sys.wait(20)
+end
 
-    log.info("st7701s", "初始化命令完成")
+-- 暴露 ic_init 供 lcd_display_rgb 调用（方式一）
+M.ic_init = st7701s_ic_init
+
+--[[
+独立初始化（方式二）：建立 SPI 通道 + 发送 IC 命令
+用于不经过 lcd_display_rgb 的场景
+]]
+function M.init(params)
+    gpio.setup(params.pin_cs or 22, 0)
+
+    local r = lcd.init("custom", {
+        port      = lcd.HWID_0,
+        pin_clk   = params.pin_clk,
+        pin_sda   = params.pin_sda,
+        pin_cs    = params.pin_cs,
+        direction = 0,
+        w         = params.w,
+        h         = params.h,
+    })
+    if not r then return r end
+
+    st7701s_ic_init(params)
+    log.info("st7701s", "独立初始化完成")
     return true
 end
 

@@ -84,6 +84,11 @@ if _G.project_config and _G.project_config.features and _G.project_config.featur
     require "factory_app"
 end
 
+-- USB HID 键盘鼠标管理（按 features.usb_hid 配置开关）
+if _G.project_config and _G.project_config.features and _G.project_config.features.usb_hid then
+    require "usb_hid_app"
+end
+
 -- AI 助手业务层（WebSocket 会话 + STT/TTS，订阅 AI_CHAT_*）
 if _G.project_config and _G.project_config.features and _G.project_config.features.ai_chat then
     require "llm_chat"

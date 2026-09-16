@@ -102,6 +102,7 @@ return {
         sd_card = true,                  -- 启用 SD 卡（SPI1，CS=GPIO8）
         usb_camera = true,               -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
         rs485 = true,                    -- RS485 接口 —— 见文件头第 10 条：暂无消费方
+        usb_hid = true,                  -- USB 键盘鼠标（Air8601 有 USB Host 接口）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====

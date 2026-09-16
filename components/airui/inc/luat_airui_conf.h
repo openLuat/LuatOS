@@ -19,7 +19,10 @@
 /** AIRUI 库版本号 */
 #define AIRUI_VERSION "1.2.6"
 
-/** AIRUI 自动刷新周期，单位：毫秒 */
+/** AIRUI 调用 LVGL timer handler 的周期，单位：毫秒 */
+#define AIRUI_HANDLER_PERIOD_MS 5
+
+/** AIRUI 显示刷新周期，单位：毫秒（约 30 FPS） */
 #define AIRUI_REFRESH_PERIOD_MS 33
 
 /** 刷新消息重试超时时间, 当前设计下刷新消息有时会发生丢失，需要支持画面刷新重试 */

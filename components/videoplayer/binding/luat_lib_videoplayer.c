@@ -201,7 +201,15 @@ static int l_videoplayer_read_frame(lua_State *L) {
 
 /* ---- LCD frame output (only when LCD support is compiled in) ---- */
 #ifdef LUAT_USE_LCD
-#include "luat_lcd.h"
+//#include "luat_lcd.h"
+#include "luat_display.h"
+#include "luat_display_surface.h"
+
+#define DEFAULT_DISPLAY_LAYER 1     //0=draw_surface+flush(display库路径, 兼容MJPG逐帧新buffer); 1=硬件layer(仅适合borrowed常驻buffer)
+
+#if DEFAULT_DISPLAY_LAYER
+static struct luat_display_layer_data g_layer_data;
+#endif
 
 /*
 读取下一帧并绘制到默认LCD屏幕, 需开启LUAT_USE_LCD
@@ -229,10 +237,10 @@ static int l_videoplayer_draw_frame(lua_State *L) {
     int16_t x = (int16_t)luaL_checkinteger(L, 2);
     int16_t y = (int16_t)luaL_checkinteger(L, 3);
 
-    luat_lcd_conf_t *lcd = luat_lcd_get_default();
-    if (!lcd) {
+    struct luat_display *disp = luat_display_get_default();
+    if (!disp) {
         lua_pushnil(L);
-        lua_pushstring(L, "no lcd");
+        lua_pushstring(L, "no display");
         return 2;
     }
 
@@ -251,12 +259,41 @@ static int l_videoplayer_draw_frame(lua_State *L) {
         lua_pushstring(L, vp_err_str(ret));
         return 2;
     }
+#if DEFAULT_DISPLAY_LAYER == 0
+    /*设置目标显示器*/
+    luat_draw_set_display_target(disp);
 
-    luat_lcd_draw(lcd, x, y,
-                  (int16_t)(x + frame.width - 1),
-                  (int16_t)(y + frame.height - 1),
-                  (luat_color_t *)frame.data);
-    lcd_auto_flush(lcd);
+    SURFACE video_suf = {
+        .w = frame.width,
+        .h = frame.height,
+        .bpp = 16,
+        .pixels = frame.data,
+        .pitch = frame.width * 2,
+        .fmt = LUAT_DISPLAY_FORMAT_RGB565,
+    };
+
+    /*绘制视频帧*/
+    luat_draw_surface(&video_suf, x, y);
+
+    /*刷新显示*/
+    luat_display_flush(disp);
+#else
+
+    if(g_layer_data.enable == 0){
+        g_layer_data.enable = 1;    //使能图层
+        g_layer_data.layer_id = 1;  //图层0默认是UI，视频类使用图层1
+        g_layer_data.area.x1 = x;
+        g_layer_data.area.y1 = y;
+        g_layer_data.area.x2 = x + frame.width;
+        g_layer_data.area.y2 = y + frame.height;
+        g_layer_data.buffer = frame.data;
+        g_layer_data.alpha = 255;
+        g_layer_data.format = LUAT_DISPLAY_FORMAT_RGB565;
+        disp->display_funcs->set_layer(&g_layer_data);
+    }
+
+
+#endif
 
     if (!borrowed) {
         luat_videoplayer_frame_free(&frame);

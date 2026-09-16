@@ -130,16 +130,20 @@ static int l_mcu_reg32(lua_State* L) {
 
 /*
 转换10进制数为16进制字符串输出
-@api mcu.x32(value)
+@api mcu.x32(value, len)
 @int 需要转换的值
+@int 可选, 输出的16进制位数(不含"0x"前缀), 不足时高位补0, 默认0表示不补0
 @return string 16进制字符串
 @usage
 local value = mcu.x32(0x2009FFFC) --输出"0x2009fffc"
+local value = mcu.x32(0, 2) --输出"0x00"
+local value = mcu.x32(0x5A, 4) --输出"0x005a"
 */
 static int l_mcu_x32(lua_State* L) {
     uint32_t value = luaL_checkinteger(L, 1);
+    int len = luaL_optinteger(L, 2, 0);
     char c[16];
-    sprintf_(c, "0x%lx", value);
+    sprintf_(c, "0x%0*lx", len, value);
     lua_pushstring(L, c);
     return 1;
 }

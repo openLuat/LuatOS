@@ -725,7 +725,7 @@ view.show_input_dialog = function(title, callback)
     local dialog_y = math.floor(screen_h * 0.2)
 
     -- 先创建键盘实例
-    input_keyboard = airui.keyboard({
+    input_keyboard = theme.keyboard({
         parent = main_container,
         x = 0, y = 0,
         w = screen_w, h = math.floor(screen_h * 0.35),

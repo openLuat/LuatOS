@@ -357,7 +357,7 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
     local input_area = airui.container({ parent = main_container, x = 0, y = input_y, w = screen_w, h = input_area_h, color = CLR.surface, color_opacity = theme.OPA.glass, border_color = CLR.stroke, border_width = 1 })
 
     pcall(function()
-        keyboard = airui.keyboard({ x = 0, y = -math.floor(20 * d), w = screen_w, h = math.floor(180 * d),
+        keyboard = theme.keyboard({ x = 0, y = -math.floor(20 * d), w = screen_w, h = math.floor(180 * d),
             mode = "text", auto_hide = true, preview = true, on_commit = function(self) self:hide() end })
     end)
 

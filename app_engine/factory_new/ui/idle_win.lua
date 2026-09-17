@@ -48,7 +48,7 @@ local video_ctrl_timer = nil    -- 控制栏自动隐藏定时器（已停用，
 local video_play_label = nil    -- 播放/暂停按钮文字
 local video_loop_label = nil    -- 循环按钮文字
 local video_file_label = nil    -- 当前文件名标签
-local video_current_file = "/luatos_boot.mjpg"  -- 当前播放文件（res/luatos_boot.mjpg 打包后在 /luadb/ 下）
+local video_current_file = "/luatos_boot.hzv"  -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
 local _video_card_ref = nil   -- 视频卡片容器引用（供切换文件时使用）
 local video_loop_timer = nil  -- MJPG 循环定时器（已停用：循环改由组件 loop 参数负责）
 -- 配套音频播放（同名 MP3）
@@ -94,7 +94,7 @@ local apps_page_index = 1
 -- 方案A：左侧视频 + 右侧信息列
 local col_gap = 10             -- 左右栏 / 右列卡片间距（设计稿 10）
 local video_w = 480            -- 视频区域宽度
-local video_h = 270            -- 视频区域高度（luatos_boot.mjpg 实际帧高）
+local video_h = 270            -- 视频区域高度（按 luatos_boot 素材帧高留的布局基准）
 local video_x = 0              -- 视频左上角 X（相对 content_x）
 local video_y = 0              -- 视频左上角 Y（相对内容区顶部）
 local video_frame_h = 0        -- 视频画面高度（卡片高 - 控制栏高）
@@ -581,7 +581,7 @@ end
 -- ==================== 密码验证 / 设置弹窗 ====================
 
 local function make_dark_keyboard()
-    return airui.keyboard({
+    return theme.keyboard({
         x = 0, y = -math.floor(20 * density_scale_val),
         w = screen_w, h = math.floor(220 * density_scale_val),
         mode = "text", auto_hide = true, preview = true,
@@ -1617,14 +1617,71 @@ local function video_stop()
     end
 end
 
---- 从 MJPG/JPEG 文件头读取第一帧的宽高（解析 SOF0 标记）
---- @return width, height 或 nil
-local function mjpg_read_dimensions(path)
+--- 判断素材用哪种容器解析：优先看魔数，其次看扩展名
+--- @return "hzv" | "mjpg" | "mp4"
+local function media_guess_format(path)
+    local f = io.open(path, "rb")
+    if f then
+        local magic = f:read(4)
+        f:close()
+        if magic == "HZV1" then return "hzv" end
+    end
+    local ext = path:match("%.([^%.]+)$")
+    if ext then
+        ext = ext:lower()
+        if ext == "hzv" then return "hzv" end
+        if ext == "mp4" then return "mp4" end
+    end
+    return "mjpg"
+end
+
+--- HZV 的音轨由 Audio V2 播放，视频时钟跟随 DAC DMA sample counter：
+--- 音频框架没起来时既不响、也不会走帧，所以这里做一次幂等初始化。
+--- 首次真 setup，之后只 RESUME；失败不阻断画面创建。
+local function hzv_audio_ensure()
+    if not exaudio then return false end
+    if not (_G.project_config and _G.project_config.hw and _G.project_config.hw.audio) then
+        return false
+    end
+    if _G.__hzv_audio_ready then
+        pcall(exaudio.pm, exaudio.RESUME)
+        return true
+    end
+    local ac = _G.project_config.hw.audio
+    local ok = pcall(exaudio.setup, {
+        model       = ac.model or "dac",
+        pa_ctrl     = ac.pa_ctrl,
+        pa_on_level = ac.pa_on_level or 0,
+        dac_delay   = ac.dac_delay,
+    })
+    if ok then
+        pcall(exaudio.vol, ac.play_vol or 70)
+        _G.__hzv_audio_ready = true
+        return true
+    end
+    log.warn("idle_win", "hzv: exaudio.setup 失败，音轨与播放时钟可能不可用")
+    return false
+end
+
+--- 读媒体容器头拿回 (width, height)
+--- HZV v1: 前 4 字节为 "HZV1"，0x44 / 0x46 处各一个 uint16 宽、高
+--- 其它  : 按 MJPG/JPEG 扫 SOF0/SOF2 标记
+--- @return width, height 或 nil（调用方回退默认值）
+local function media_read_dimensions(path)
     local f = io.open(path, "rb")
     if not f then return nil end
-    local data = f:read(512)  -- SOF 标记一般在文件头 512 字节内
+    local data = f:read(512)  -- HZV 头部 0x48 以内 / JPEG 的 SOF 标记一般在 512 字节内
     f:close()
-    if not data or #data < 4 then return nil end
+    if not data or #data < 8 then return nil end
+
+    -- HZV 容器：帧尺寸直接写在头里（Lua 下标从 1 起，0x44 → 69）
+    if data:sub(1, 4) == "HZV1" then
+        local hw = data:byte(69) + data:byte(70) * 256
+        local hh = data:byte(71) + data:byte(72) * 256
+        if hw > 0 and hh > 0 then return hw, hh end
+        return nil
+    end
+
     -- 扫描 SOI (FF D8) 之后的标记，找 SOF0 (FF C0)
     local i = 1
     while i <= #data - 1 do
@@ -1730,27 +1787,36 @@ local function video_start_play(file_path)
         return
     end
 
-    -- 从 MJPG 文件头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
-    local vw, vh = mjpg_read_dimensions(file_path)
+    -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
+    local vw, vh = media_read_dimensions(file_path)
     if not vw or not vh then vw, vh = 480, 270 end  -- 兜底默认值
     if vh > video_frame_h then vh = video_frame_h end
     local vx_off = math.floor((video_w - vw) / 2)
     local vy_off = math.floor((video_frame_h - vh) / 2)
 
     -- 循环交回组件（loop 参数）。旧版是「每 3 秒 stop+play」手动重播，
-    -- 会把正在解码的 MJPG 硬重启，画面就停在半路 —— 用户报的「播放卡住」。
-    video_obj = airui.video({
+    -- 会把正在解码的视频硬重启，画面就停在半路 —— 用户报的「播放卡住」。
+    hzv_audio_ensure()
+
+    local fmt = media_guess_format(file_path)
+    local vcfg = {
         parent = video_card,
         x = vx_off, y = vy_off, w = vw, h = vh,
         src = file_path,
-        format = "mjpg",
+        format = fmt,
         decode_mode = "hw",
-        -- 30fps，与能正常播的 welcome_win 开机动画保持一致；
-        -- 调大等于慢放（每帧间隔变大），看着就像卡住
-        interval = 33,
         loop = video_is_loop,
         auto_play = true,
-    })
+    }
+    if fmt == "hzv" then
+        -- HZV 自带逐帧时长与 MP3 音轨，Lua 不填 interval
+        vcfg.backend = "videoplayer"
+    else
+        -- 30fps，与能正常播的 welcome_win 开机动画保持一致；
+        -- 调大等于慢放（每帧间隔变大），看着就像卡住
+        vcfg.interval = 33
+    end
+    video_obj = airui.video(vcfg)
 
     video_is_playing = (video_obj ~= nil)
     if video_play_label then
@@ -1762,7 +1828,8 @@ local function video_start_play(file_path)
     end
     video_show_ctrl()
 
-    -- 同名 MP3 配套播放
+    -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、由 videoplayer
+    -- 统一驱动，而 find_audio_for_video 只认 .mjpg 后缀，对 .hzv 天然返回 nil。
     local mp3 = find_audio_for_video(file_path)
     if mp3 then audio_start(mp3) end
 
@@ -1805,7 +1872,7 @@ local function video_toggle_loop()
     end
 end
 
--- 视频控制：简单文件选择（列出内置/SD/Flash 根目录的 .mjpg/.mp4 文件）
+-- 视频控制：简单文件选择（列出内置/SD/Flash 根目录的 .hzv/.mjpg/.mp4 文件）
 local video_picker_overlay = nil
 local video_picker_scroll = nil
 
@@ -1828,7 +1895,7 @@ local function video_render_picker(dir_path, scroll_container)
             elseif f.type == 0 then
                 local ext = f.name:match("%.([^%.]+)$")
                 if ext then ext = ext:lower() end
-                if ext == "mjpg" or ext == "mp4" then
+                if ext == "hzv" or ext == "mjpg" or ext == "mp4" then
                     items[#items + 1] = { name = f.name, is_dir = false, path = dir_path .. f.name }
                 end
             end
@@ -1939,7 +2006,11 @@ local function build_video_area(parent)
 
     -- 资源落点随烧录方式而变（/luadb/ 或根目录），先挑实际存在的那个
     if not io.exists(video_current_file) then
-        for _, p in ipairs({ "/luadb/luatos_boot.mjpg", "/luatos_boot.mjpg" }) do
+        -- .hzv 优先（真机硬解）；素材还没换成 hzv 时回落同名 .mjpg，避免视频卡片空掉
+        for _, p in ipairs({
+            "/luadb/luatos_boot.hzv", "/luatos_boot.hzv",
+            "/luadb/luatos_boot.mjpg", "/luatos_boot.mjpg",
+        }) do
             if io.exists(p) then
                 video_current_file = p
                 break
@@ -1970,25 +2041,34 @@ local function build_video_area(parent)
     video_frame_h = video_h - ctrl_h
     if video_frame_h < 60 then video_frame_h = 60 end
 
-    -- 从 MJPG 文件头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
-    local vw, vh = mjpg_read_dimensions(video_current_file)
+    -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
+    local vw, vh = media_read_dimensions(video_current_file)
     if not vw or not vh then vw, vh = 480, 270 end  -- 兜底默认值
     if vh > video_frame_h then vh = video_frame_h end
     local vx_off = math.floor((video_w - vw) / 2)
     local vy_off = math.floor((video_frame_h - vh) / 2)
 
     -- 循环交给组件的 loop 参数。旧版是「每 3 秒 stop+play」手动重播，
-    -- 会把正在解码的 MJPG 硬重启，画面停在半路（用户报的「播放卡住」）。
-    video_obj = airui.video({
+    -- 会把正在解码的视频硬重启，画面停在半路（用户报的「播放卡住」）。
+    hzv_audio_ensure()
+
+    local fmt = media_guess_format(video_current_file)
+    local vcfg = {
         parent = video_card,
         x = vx_off, y = vy_off, w = vw, h = vh,
         src = video_current_file,
-        format = "mjpg",
+        format = fmt,
         decode_mode = "hw",
-        interval = 33,   -- 30fps（调大即慢放，看着像卡住）
         loop = video_is_loop,
         auto_play = true,
-    })
+    }
+    if fmt == "hzv" then
+        -- HZV 容器自带逐帧时长与 MP3 音轨
+        vcfg.backend = "videoplayer"
+    else
+        vcfg.interval = 33   -- 30fps（调大即慢放，看着像卡住）
+    end
+    video_obj = airui.video(vcfg)
     video_is_playing = (video_obj ~= nil)
 
     -- 无视频：按设计稿显示空态（三角 + 文案，居中）

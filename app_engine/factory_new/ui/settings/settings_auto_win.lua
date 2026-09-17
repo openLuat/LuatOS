@@ -104,7 +104,7 @@ local function show_password_input(title, on_confirm, on_cancel)
     local content_h = item_margin + label_h + gap + input_h + gap + btn_h + item_margin
     local win_h = header_h + content_h
 
-    soft_keyboard = airui.keyboard({
+    soft_keyboard = theme.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
         w = screen_w, h = math.floor(240 * _G.density_scale),
         mode = "text", auto_hide = true, preview = true,
@@ -187,7 +187,7 @@ local function show_password_edit()
     content_h = content_h + label_h + gap + input_h + gap + btn_h + item_margin
     local win_h = header_h + content_h
 
-    soft_keyboard = airui.keyboard({
+    soft_keyboard = theme.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
         w = screen_w, h = math.floor(240 * _G.density_scale),
         mode = "text", auto_hide = true, preview = true,
@@ -329,7 +329,7 @@ local function show_exit_password_dialog()
     local content_h = item_margin + label_h + gap + input_h + gap + btn_h + item_margin
     local win_h = header_h + content_h
 
-    soft_keyboard = airui.keyboard({
+    soft_keyboard = theme.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
         w = screen_w, h = math.floor(240 * _G.density_scale),
         mode = "text", auto_hide = true, preview = true,

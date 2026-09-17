@@ -147,7 +147,7 @@ local function create_edit_win(device_name)
     local win_h = math.min(theme.dp(224), sh - theme.dp(40))
     if win_w < theme.dp(220) then win_w = sw - theme.dp(20) end
 
-    soft_keyboard = airui.keyboard({
+    soft_keyboard = theme.keyboard({
         parent = main_container,
         x = 0, y = -theme.dp(20),
         w = sw, h = theme.dp(260),

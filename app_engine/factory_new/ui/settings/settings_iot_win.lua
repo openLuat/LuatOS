@@ -152,7 +152,7 @@ local function rebuild_content(info)
             end
         })
     else
-        soft_keyboard = airui.keyboard({
+        soft_keyboard = theme.keyboard({
             x = 0, y = -math.floor(screen_h * 0.03),
             w = screen_w, h = math.floor(screen_h * 0.32),
             mode = "text",

@@ -1,43 +1,34 @@
 --[[
-@module  record_pcm_file
-@summary 流式录音到文件功能（PCM格式）
+@module  record_pcm_to_1103
+@summary Air8101 通过 UART2 连接 Air1103 语音芯片的录音与播放演示（PCM 流式）
 @version 1.0
-@date    2026.07.06
+@date    2026.09.14
 @author  拓毅恒
 @usage
 
-注意：
-1. Air8101使用内置DAC输出音频，无需外部音频编解码芯片
-2. 需要固件版本>=V2018才可播放音频
-3. 此功能Air8101和Air8101B均支持
+录音：
+  - Air1103 MIC 上行，固定 16kHz / 16bit / 单声道、512B/帧
+  - 通过 exaudio.record_start 接收上行 PCM 流式数据，录音文件路径可保存到：
+      · TF 卡：/sd/record.pcm（挂载 TF 卡成功时）
+      · 内部存储：/record.pcm（TF 卡挂载失败自动回退）
+  - 默认录音 5 秒，达到时长自动停止
 
-录音到文件演示程序（开机自动运行，无需按键）：
-1. 自动挂载TF卡，挂载失败自动回退内部存储
-2. 自动开始5秒录音（PCM格式）
-3. 录音完成后自动播放录音文件
+播放：
+  - 使用流式播放方式播放 PCM 录音文件（16kHz / 16bit / 有符号）
+  - 下行按 320B/10ms=32KB/s 节奏喂数据，防止 Air1103 下行缓冲溢出丢帧
 
-音量设置：
-  播放音量：70
-  录音麦克风音量：70
-
-录音逻辑：
-  录音时长为5秒，并计时
-  录音时长到自动停止
-  录音完成后录音文件保存在TF卡或内部存储中
-
-播放逻辑：
-  使用流式播放方式播放PCM格式录音文件
-  演示使用16kHz采样率、16位采样深度、有符号、单声道PCM数据
-  注意：播放采样位深仅支持到24位，如果录制32位录音则无法播放，需要用电脑进行播放！！！
+硬件连接：
+  - Air8101 的 UART2 对接 Air1103 串口，波特率 2M
+  - 使用 TF 卡需按实际硬件配置 sd_power_pin 并打开供电脚
 
 工作流程：
-1. 初始化：挂载TF卡，设置音频硬件参数
-2. 录音：流式录音，实时写入TF卡，显示写入速度统计
-3. 播放：录音完成后自动流式播放录音文件
-4. 状态管理：互斥控制录音/播放状态
+  1. 初始化：挂载 TF 卡（失败则回退内部存储），exaudio.setup({model="air1103", uart_id=2}) 初始化 Air1103
+  2. 录音：流式录音，实时写入 TF 卡或内部存储，显示写入速度统计
+  3. 播放：流式播放，读取录音文件并持续喂入 PCM 数据
+  4. 状态管理：互斥控制录音/播放状态
 ]]
 
-local exaudio = require("exaudio")
+local exaudio = require "exaudio"
 
 -- TF卡配置参数（Air8101_v3.0 开发板）
 local sd_power_pin = 50        -- TF卡电源/LDO控制引脚
@@ -46,20 +37,12 @@ local sd_mount_path = "/sd"    -- TF卡挂载路径
 -- 录音文件路径（保存到TF卡）
 local recordPath = sd_mount_path .. "/record.pcm"
 
--- 硬件配置参数 (DAC模式)
-local audio_setup_param = {
-    model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
-
-    pa_ctrl = 27,             -- 音频放大器电源控制管脚
-    pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
-    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
-}
-
 -- 全局状态
 local is_recording = false     -- 是否正在录音
 local is_playing = false       -- 是否正在播放
 local record_timer = nil       -- 录音计时器
 local record_seconds = 0       -- 录音计时秒数
+local recordFile = nil         -- 录音文件句柄(录音期间保持打开, 停止时关闭)
 
 -- 音量设置
 local PLAY_VOLUME = 70         -- 播放音量
@@ -67,6 +50,12 @@ local RECORD_VOLUME = 70       -- 录音麦克风音量
 
 -- 录音时长设置（秒）
 local RECORD_DURATION = 5      -- 录音时长
+
+-- 硬件配置参数 (Air1103 语音芯片, 通过 UART 串口驱动)
+local audio_setup_param = {
+    model = "air1103",            -- Air1103 语音芯片: 通过 UART 串口驱动, 无需 I2C/PA/CODEC 硬件初始化
+    uart_id = 2,                 -- 连接 Air1103 的 UART 端口(固定 2M 波特率), 默认 UART2
+}
 
 -- ========== 播放相关函数 ==========
 
@@ -112,7 +101,13 @@ local function stream_audio_data()
         end
 
         exaudio.play_stream_write(read_data)  -- 流式写入音频数据
-        sys.wait(20)                            -- 写数据需要留出时间给其他task运行代码
+        if audio_setup_param.model == "air1103" then
+            -- air1103 下行按 320B/10ms=32KB/s 消费; 3200B 缓冲正好 100ms,
+            -- 按此节奏喂数据, 防止下行流式缓冲(约2s)溢出丢帧导致只播到录音尾部
+            sys.wait(math.max(20, math.floor(buffer_size / 32)))
+        else
+            sys.wait(20)                   -- 写数据需要留出时间给其他task运行代码
+        end
     end
 
     -- 如果播放被提前停止，确保文件被关闭
@@ -128,6 +123,7 @@ local function start_playback()
 
     -- 如果录音文件存在，播放录音
     if io.exists(recordPath) then
+
         -- 播放设置
         -- 需要注意：播放采样位深仅支持到24位，如果录制32位录音则无法播放，需要用电脑进行播放！！！
         local audio_play_param = {
@@ -178,6 +174,9 @@ local function stop_recording()
     if is_recording then
         log.info("停止录音", "已录制:", record_seconds, "秒")
         exaudio.record_stop()
+        -- 注意: 此处不要关闭 recordFile! exaudio 的写任务(coroutine)仍在异步把队列落盘,
+        -- 提前关闭会导致写任务写已关闭文件而报错死亡, 从而永不触发 RECORD_DONE。
+        -- 文件由 record_end_callback(写任务落盘完成后回调)负责关闭。
         is_recording = false
         stop_record_timer()
     end
@@ -187,13 +186,14 @@ end
 local function record_end_callback(event)
     if event == exaudio.RECORD_DONE then
         is_recording = false
+        if recordFile then recordFile:close(); recordFile = nil end
 
         local file_size = io.fileSize(recordPath)
         log.info("录音完成", "大小:", file_size, "字节")
         stop_record_timer()
 
         log.info("录音完成后，启动播放任务")
-        sys.timerStart(start_playback, 500)
+        sys.timerStart(start_playback, 3000)
     end
 end
 
@@ -217,34 +217,22 @@ end
 -- 录音设置
 local audio_record_param = {
     format = exaudio.PCM_16000,  -- 使用16kHz PCM格式
-    time = RECORD_DURATION,        -- 录制时长
+    time = RECORD_DURATION,      -- 录制时长
     path = function(buff, size)
-        -- 流式回调方式将录音数据写入文件
-        if buff and size > 0 then
-            -- 获取当前时间
+        -- 录音期间 recordFile 已打开, 此处仅做 file:write(几毫秒);
+        -- 避免每帧 open/write/close 拖慢导致 exaudio 写任务追不上上行速率、停止后还倒很久
+        if buff and size > 0 and recordFile then
             local start_time = mcu.ticks()  -- 记录开始时间
-            local file = io.open(recordPath, "ab")  -- 追加模式打开文件
-            if file then
-                file:write(buff:query()) -- 将缓冲区数据写入文件
-                file:close()             -- 写入完成后关闭文件
+            recordFile:write(buff:query()) -- 将缓冲区数据写入文件
 
-                -- 计算写入速度
-                local end_time = mcu.ticks()  -- 记录结束时间
-                local write_time_ms = calc_time_diff_ms(start_time, end_time)
-
-                if write_time_ms and write_time_ms > 0 then
-                    local write_speed = size / (write_time_ms / 1000)  -- 字节/秒
-                    log.info("TF卡写入统计",
-                        "数据大小:", size, "字节,",
-                        "写入耗时:", string.format("%.2f", write_time_ms), "ms,",
-                        "写入速度:", string.format("%.2f", write_speed / 1024), "KB/s")
-                else
-                    log.info("TF卡写入统计",
-                        "数据大小:", size, "字节,",
-                        "写入耗时: 溢出无法计算")
-                end
-            else
-                log.error("无法打开录音文件")
+            local end_time = mcu.ticks()    -- 记录结束时间
+            local write_time_ms = calc_time_diff_ms(start_time, end_time)
+            if write_time_ms and write_time_ms > 0 then
+                local write_speed = size / (write_time_ms / 1000)  -- 字节/秒
+                log.info("TF卡写入统计",
+                    "数据大小:", size, "字节,",
+                    "写入耗时:", string.format("%.2f", write_time_ms), "ms,",
+                    "写入速度:", string.format("%.2f", write_speed / 1024), "KB/s")
             end
         end
     end,
@@ -285,6 +273,15 @@ local function start_recording()
     -- 设置录音麦克风音量
     exaudio.mic_vol(RECORD_VOLUME)
 
+    -- 先打开录音文件(录音期间保持打开): 必须放在 exaudio.record_start 之前,
+    -- 否则上行数据会在 record_start 内部同步回调写盘, 此时文件尚未打开会丢帧;
+    -- 缺失本段会导致 path 回调里 recordFile 恒为 nil, 录音数据全部丢弃→录音文件0字节/不存在
+    if recordFile then recordFile:close() end
+    recordFile = io.open(recordPath, "wb")
+    if not recordFile then
+        log.error("无法打开录音文件:", recordPath)
+    end
+
     local record_result = exaudio.record_start(audio_record_param)
     if record_result then
         is_recording = true
@@ -302,11 +299,10 @@ end
 -- 挂载TF卡
 local function mount_tf_card()
     log.info("开始挂载TF卡")
-
-    -- 打开TF卡电源
+    -- Air8101 开发板: 打开 TF 卡电源/LDO
     gpio.setup(sd_power_pin, 1, gpio.PULLUP)
 
-    -- 挂载TF卡，挂载失败时不自动格式化
+    -- 挂载TF卡
     local mount_ok, mount_err = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
 
     if mount_ok then
@@ -334,7 +330,7 @@ local function main_audio_task()
 
     -- 先挂载TF卡
     if not mount_tf_card() then
-        log.error("TF卡挂载失败，录音文件将无法保存到TF卡")
+        log.error("TF卡挂载失败，录音文件将保存到内部存储")
         -- 如果TF卡挂载失败，使用内部存储路径
         recordPath = "/record.pcm"
     else
@@ -367,4 +363,5 @@ local function main_audio_task()
     end
 end
 
+-- 启动音频主任务
 sys.taskInit(main_audio_task)

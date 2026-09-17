@@ -1,43 +1,33 @@
 --[[
-@module  record_pcm_to_air1103
-@summary Air780EHM/Air780EGH 通过 UART1 连接 Air1103 语音芯片的录音与播放演示（PCM 流式）
+@module  record_pcm_to_1103
+@summary Air1601/Air1602 通过 UART1 连接 Air1103 语音芯片的录音与播放演示（PCM 流式）
 @version 1.0
 @date    2026.09.02
 @author  拓毅恒
 @usage
 
 功能说明：
-  本 demo 演示 Air780EHM / Air780EGH 通过 UART1（波特率固定 2M）连接合宙 Air1103 语音芯片，
+  本 demo 演示 Air1601 / Air1602 通过 UART1（波特率固定 2M）连接合宙 Air1103 语音芯片，
   完成 PCM 流式音频录音和播放。Air1103 为串口语音芯片，无需 I2C / PA / CODEC 硬件初始化。
 
 录音：
   - Air1103 MIC 上行，固定 16kHz / 16bit / 单声道、512B/帧
   - 通过 exaudio.record_start 接收上行 PCM 流式数据，录音文件路径可保存到：
-      · SD 卡：/sd/record.pcm（挂载 SD 卡成功时）
-      · EHM/EGH 内存：/record.pcm（SD 卡挂载失败自动回退）
-  - 默认录音 5 秒，按任意键可提前结束
+      · TF 卡：/sd/record.pcm（挂载 TF 卡成功时）
+      · 内部存储：/record.pcm（TF 卡挂载失败自动回退）
+  - 默认录音 5 秒，达到时长自动停止
 
 播放：
   - 使用流式播放方式播放 PCM 录音文件（16kHz / 16bit / 有符号）
   - 下行按 320B/10ms=32KB/s 节奏喂数据，防止 Air1103 下行缓冲溢出丢帧
 
-按键功能（Power 键 / Boot 键）：
-  1. Power 键：开始/停止录音，停止播放
-     - 空闲时按 Power 键开始 5 秒录音
-     - 录音中按 Power 键提前结束录音
-     - 播放中按 Power 键停止播放
-  2. Boot 键：开始/停止播放，停止录音
-     - 空闲时按 Boot 键播放录音文件
-     - 播放中按 Boot 键停止播放
-     - 录音中按 Boot 键提前结束录音
-
 硬件连接：
-  - Air780EHM/Air780EGH 的 UART1 对接 Air1103 串口，波特率 2M
-  - 使用 SD 卡需按实际硬件配置 sd_spi_id / sd_cs_pin 并打开供电脚
+  - Air1601 的 UART1 对接 Air1103 串口，波特率 2M
+  - 使用 TF 卡需按实际硬件配置 sd_spi_id / sd_cs_pin / sd_power_pin 并打开供电脚
 
 工作流程：
-  1. 初始化：挂载 SD 卡（失败则回退内存路径），exaudio.setup({model="air1103", uart_id=1}) 初始化 Air1103
-  2. 录音：流式录音，实时写入 SD 卡或内存，显示写入速度统计
+  1. 初始化：挂载 TF 卡（失败则回退内部存储），exaudio.setup({model="air1103", uart_id=1}) 初始化 Air1103
+  2. 录音：流式录音，实时写入 TF 卡或内部存储，显示写入速度统计
   3. 播放：流式播放，读取录音文件并持续喂入 PCM 数据
   4. 状态管理：互斥控制录音/播放状态
 ]]
@@ -173,15 +163,6 @@ local function start_playback()
     end
 end
 
--- 停止播放
-local function stop_playback()
-    if is_playing then
-        log.info("停止流式播放")
-        exaudio.play_stop({type = 2})  -- 停止流式播放
-        is_playing = false
-    end
-end
-
 -- ========== 录音相关函数 ==========
 
 -- 停止录音计时
@@ -214,8 +195,10 @@ local function record_end_callback(event)
 
         local file_size = io.fileSize(recordPath)
         log.info("录音完成", "大小:", file_size, "字节")
-        log.info("按下BOOT键开始播放录音文件")
         stop_record_timer()
+
+        log.info("录音完成后，启动播放任务")
+        sys.timerStart(start_playback, 3000)
     end
 end
 
@@ -283,29 +266,21 @@ end
 
 -- 开始录音
 local function start_recording()
-    if is_recording then
-        log.info("已经在录音中")
-        return false
-    end
-    
-    if is_playing then
-        log.info("正在播放中，停止播放")
-        stop_playback()
-    end
-    
+
     log.info("开始录音", "时长:", RECORD_DURATION, "秒")
-    
+
     -- 清空旧录音文件（流式模式需要手动管理文件）
     if io.exists(recordPath) then
         os.remove(recordPath)
         log.info("删除旧录音文件")
     end
-    
+
     -- 设置录音麦克风音量
     exaudio.mic_vol(RECORD_VOLUME)
-    
+
     -- 先打开录音文件(录音期间保持打开): 必须放在 exaudio.record_start 之前,
-    -- 否则 es8311 等会在 record_start 内部同步回调写盘, 此时文件尚未打开会丢帧
+    -- 否则 air1103 上行数据会在 record_start 内部同步回调写盘, 此时文件尚未打开会丢帧;
+    -- 缺失本段会导致 path 回调里 recordFile 恒为 nil, 录音数据全部丢弃→录音文件0字节/不存在
     if recordFile then recordFile:close() end
     recordFile = io.open(recordPath, "wb")
     if not recordFile then
@@ -316,52 +291,11 @@ local function start_recording()
     if record_result then
         is_recording = true
         start_record_timer()
-        log.info("录音已开始，按任意键可提前结束")
+        log.info("录音已开始")
         return true
     else
         log.error("录音启动失败")
-        if recordFile then recordFile:close(); recordFile = nil end
         return false
-    end
-end
-
--- ========== 按键处理函数 ==========
-
--- POWERKEY键：开始/停止录音，停止播放
-local function powerkey_handler()
-    log.info("按下POWERKEY键")
-    
-    if is_recording then
-        -- 录音中：停止录音
-        log.info("正在录音中，停止录音")
-        stop_recording()
-    elseif is_playing then
-        -- 播放中：停止播放
-        log.info("正在播放中，停止播放")
-        stop_playback()
-    else
-        -- 空闲状态：开始录音
-        log.info("空闲状态，开始录音")
-        start_recording()
-    end
-end
-
--- BOOT键：开始/停止播放，停止录音
-local function boot_key_handler()
-    log.info("按下BOOT键")
-    
-    if is_recording then
-        -- 录音中：停止录音
-        log.info("正在录音中，停止录音")
-        stop_recording()
-    elseif is_playing then
-        -- 播放中：停止播放
-        log.info("正在播放中，停止播放")
-        stop_playback()
-    else
-        -- 空闲状态：播放录音
-        log.info("空闲状态，播放录音")
-        start_playback()
     end
 end
 
@@ -404,25 +338,29 @@ end
 -- ========== 音频主任务 ==========
 
 local function main_audio_task()
-
-    log.info("音频系统初始化")
+    -- LCD_EN 高电平有效，不同板子选用对应引脚，多余配置注释屏蔽
+    -- Air1601_V1.1开发板/Air8601/Air8602：注释下方这一行
+    -- Air160X_V1.2开发板：LCD_EN = GPIO57
+    gpio.setup(57, 1, gpio.PULLUP)
     
-    -- 先挂载SD卡
+    log.info("音频系统初始化")
+
+    -- 先挂载TF卡
     if not mount_sd_card() then
-        log.error("SD卡挂载失败，录音文件将无法保存到SD卡")
-        -- 如果SD卡挂载失败，使用默认路径
+        log.error("TF卡挂载失败，录音文件将无法保存到TF卡")
+        -- 如果TF卡挂载失败，使用内部存储路径
         recordPath = "/record.pcm"
     else
-        log.error("SD卡挂载成功！！！")
+        log.info("TF卡挂载成功！！！")
     end
     
     if exaudio.setup(audio_setup_param) then
         -- 设置音量
-        exaudio.vol(PLAY_VOLUME)              -- 播放音量
-        exaudio.mic_vol(RECORD_VOLUME)        -- 录音麦克风音量
-        
+        exaudio.vol(PLAY_VOLUME)
+        exaudio.mic_vol(RECORD_VOLUME)
+
         log.info("音量设置", "播放:", PLAY_VOLUME, "录音:", RECORD_VOLUME)
-        
+
         -- 检查是否有录音文件
         if io.exists(recordPath) then
             local file_size = io.fileSize(recordPath)
@@ -430,27 +368,17 @@ local function main_audio_task()
         else
             log.info("无录音文件", "路径:", recordPath)
         end
-        
-        log.info("按键功能说明：")
-        log.info("1. Power键: 开始/停止录音，停止播放")
-        log.info("2. Boot键: 开始/停止播放，停止录音")  
-        log.info("3. 录音时长: ", RECORD_DURATION, "秒，可提前结束")
-        log.info("4. 录音完成后自动播放")
-        log.info("5. 录音文件保存到:", recordPath)
+
+        log.info("音频系统初始化完成，准备开始录音")
+        log.info("录音时长: ", RECORD_DURATION, "秒")
+        log.info("录音完成后自动播放")
+        log.info("录音文件保存到:", recordPath)
+        sys.wait(1000)
+        start_recording()
     else
         log.error("音频硬件初始化失败")
     end
 end
-
--- ========== 初始化设置 ==========
-
--- 设置POWERKEY键（开始/停止录音）
-gpio.setup(gpio.PWR_KEY, powerkey_handler, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(gpio.PWR_KEY, 200, 1)
-
--- 设置BOOT键（开始/停止播放，停止录音）
-gpio.setup(0, boot_key_handler, gpio.PULLDOWN, gpio.RISING)
-gpio.debounce(0, 200, 1)
 
 -- 启动音频主任务
 sys.taskInit(main_audio_task)

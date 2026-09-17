@@ -12,7 +12,7 @@
 
 6、record_pcm_file.lua：流式录音到文件功能模块，演示PCM格式音频录制；
 
-7、record_pcm_to_air1103.lua：通过Air1103语音芯片录音与播放功能模块，演示PCM格式音频的流式录音与播放；
+7、record_pcm_to_1103.lua：通过Air1103语音芯片录音与播放功能模块，演示PCM格式音频的流式录音与播放；
 
 8、http_download_play.lua：HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡；
 
@@ -92,7 +92,7 @@
 - AMR/MP3/WAV格式会自动解析文件头获取真实采样率
 - 使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
 
-### 8、录音到文件功能 - 通过Air1103录音与播放（record_pcm_to_air1103.lua）
+### 8、录音到文件功能 - 通过Air1103录音与播放（record_pcm_to_1103.lua）
 
 - 通过UART1（波特率固定2M）连接合宙Air1103串口语音芯片，完成PCM流式录音与播放，Air1103无需I2C/PA/CODEC硬件初始化
 - 录音默认保存到/sd/record.pcm（SD卡挂载成功时），SD卡挂载失败自动回退到内存/record.pcm
@@ -233,7 +233,7 @@ require "play_file"
 ├── play_stream.lua        # 流式音频播放功能模块，支持PCM格式流式播放
 ├── record_amr_file.lua    # 录音到文件功能模块，支持AMR格式录音
 ├── record_pcm_file.lua    # 流式录音到文件功能模块，支持PCM格式录音
-├── record_pcm_to_air1103.lua # 通过Air1103语音芯片的PCM流式录音与播放功能模块
+├── record_pcm_to_1103.lua # 通过Air1103语音芯片的PCM流式录音与播放功能模块
 ├── http_download_play.lua # HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡
 ├── http_stream_play.lua   # HTTP流式边下边播功能模块，支持PCM/AMR/MP3/WAV格式，自动识别格式，使用新音频框架
 ├── sample-6s.mp3          # 示例音频文件，用于播放测试
@@ -515,10 +515,10 @@ I/user.stat_summary ========== 播放完全结束 ==========
 - 下载速度通常远超播放速度，可实现流畅边下边播
 - 本功能依赖新音频框架，需使用V2046及以上的13/113号固件
 
-### 8、录音到文件功能 - 通过Air1103录音与播放（record_pcm_to_air1103.lua）
+### 8、录音到文件功能 - 通过Air1103录音与播放（record_pcm_to_1103.lua）
 
 1. 搭建好硬件环境（Air780EHM/Air780EGH核心板 + Air1103语音芯片，UART1对接）
-2. 打开main.lua，确保保留`require "record_pcm_to_air1103"`这一行
+2. 打开main.lua，确保保留`require "record_pcm_to_1103"`这一行
 3. 将代码下载到开发板并运行
 4. **演示效果**：通过Air1103进行PCM流式录音与播放，按Power键录音、按Boot键播放
 

@@ -492,6 +492,7 @@ int airui_dropdown_set_options(lv_obj_t *dropdown, void *L, int idx);
 int airui_dropdown_set_selected(lv_obj_t *dropdown, int index); //设置下拉框选中项
 int airui_dropdown_get_selected(lv_obj_t *dropdown); //获取下拉框选中项
 int airui_dropdown_set_on_change(lv_obj_t *dropdown, int callback_ref); //设置改变回调
+int airui_dropdown_set_style(lv_obj_t *dropdown, void *L, int idx); //按样式表设置下拉框样式
 
 /**
  * Switch 组件创建

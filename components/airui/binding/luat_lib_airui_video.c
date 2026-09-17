@@ -33,6 +33,7 @@
  * @int config.interval 播放间隔，单位毫秒，默认 33；HZV 会优先使用容器帧时长
  * @boolean config.loop 是否循环播放，默认 false
  * @boolean config.auto_play 是否创建后自动播放，默认 true
+ * @function config.on_complete 播放结束回调，仅 loop=false 且读到 EOF 时触发，参数为 (self)
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Video 对象
  */

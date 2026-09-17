@@ -722,6 +722,11 @@ static void airui_video_timer_cb(lv_timer_t *timer)
         lv_timer_pause(timer);
         if (ret != AIRUI_VIDEO_STATUS_EOF) {
             LLOGE("video: frame decode failed: %d", ret);
+        } else {
+            airui_component_meta_t *complete_meta = airui_component_meta_get(video);
+            if (complete_meta != NULL && complete_meta->ctx != NULL) {
+                airui_component_call_callback(complete_meta, AIRUI_EVENT_COMPLETE, complete_meta->ctx->L);
+            }
         }
     }
 }
@@ -1142,6 +1147,13 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
     }
 
     airui_component_meta_set_user_data(meta, data, airui_video_release_data);
+
+    {
+        int complete_ref = airui_component_capture_callback(L, idx, "on_complete");
+        if (complete_ref != LUA_NOREF) {
+            airui_component_bind_event(meta, AIRUI_EVENT_COMPLETE, complete_ref);
+        }
+    }
 
     ret = airui_video_open_backend(data);
     if (ret != AIRUI_OK) {

@@ -694,8 +694,6 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx);
 int airui_video_play(lv_obj_t *video);
 int airui_video_pause(lv_obj_t *video);
 int airui_video_stop(lv_obj_t *video);
-int airui_video_step(lv_obj_t *video);
-int airui_video_skip(lv_obj_t *video, uint32_t count);
 int airui_video_destroy(lv_obj_t *video);
 int airui_video_get_stats(lv_obj_t *video, airui_video_stats_t *stats);
 

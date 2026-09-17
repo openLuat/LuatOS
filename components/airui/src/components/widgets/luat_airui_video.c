@@ -1240,39 +1240,6 @@ int airui_video_pause(lv_obj_t *video)
     return AIRUI_OK;
 }
 
-int airui_video_step(lv_obj_t *video)
-{
-    airui_video_data_t *data;
-
-    if (video == NULL) {
-        return AIRUI_ERR_INVALID_PARAM;
-    }
-    data = airui_video_get_data(video);
-    if (data == NULL || data->timer == NULL || data->playing) {
-        return AIRUI_ERR_INVALID_PARAM;
-    }
-    return airui_video_read_and_present(video, data, false);
-}
-
-int airui_video_skip(lv_obj_t *video, uint32_t count)
-{
-    airui_video_data_t *data;
-    int ret;
-
-    if (video == NULL) {
-        return AIRUI_ERR_INVALID_PARAM;
-    }
-    data = airui_video_get_data(video);
-    if (data == NULL || data->playing || data->ops == NULL || data->ops->skip_frames == NULL) {
-        return AIRUI_ERR_INVALID_PARAM;
-    }
-    ret = data->ops->skip_frames(data->backend_ctx, count);
-    if (ret == AIRUI_VIDEO_STATUS_EOF) {
-        data->eof = true;
-    }
-    return ret;
-}
-
 int airui_video_get_stats(lv_obj_t *video, airui_video_stats_t *stats)
 {
     airui_video_data_t *data;

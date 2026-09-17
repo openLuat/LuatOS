@@ -76,6 +76,7 @@ local g_audio_cb = nil    -- 下行音频回调。与 g_cb 一样放模块局部
                           -- 挂在 g_opts 上会在那时炸 "attempt to index a nil value"
 local g_playback_cb = nil -- 回放源钩子(见 on_playback)。同样放模块局部：
                           -- exgb28181playback 通常在 client.start() 之前就 setup()
+local g_ptz_cb = nil      -- 云台指令处理者(见 on_ptz)。同上，应用会在 start() 前注册
 local g_started = false
 local st        = {}
 
@@ -625,6 +626,85 @@ end
 From/To；MESSAGE 里才是 MANSCDP 的业务应答。少任何一个，WVP 这类
 平台都可能判定设备异常。
 ]]
+--[[
+处理平台的云台控制(DeviceControl)。
+
+平台的"按一下方向键"就是这个：8 字节位域指令装在 `<PTZCmd>` 里（布局见 C 层
+luat_gb28181_ptz.h 的说明，取自真实平台 WVP-Pro 的构造代码）。
+
+**组件不碰硬件**：解析出来交给应用（用 `client.on_ptz` 注册的处理者），由它按
+自己接的云台决定怎么做 —— 有的只有左右、有的没变焦，组件替它做主只会做错。
+
+两个刻意的取舍：
+
+  · **没有注册处理者时回 `Result=ERROR`**。设备确实没有可执行的云台，报"成功"
+    是谎报 —— 平台上会显示操作成功而实际什么都没发生，那种"看着正常"的假象
+    比明确失败难查得多。
+  · 处理者抛异常也回 ERROR：异常既不能打断收包循环，也不能谎报成功。
+
+另外：**校验字节对不上不拒收**，只记一行日志。平台自己拼的包就有已知偏差
+（变倍速度取 16 时 byte6 与其校验和差 0x10），设备因校验拒收会把"平台能用"
+变成"设备不认"。
+]]
+local function handle_device_control(msg, sn)
+    local o = g_opts
+
+    local function answer(result)
+        local text = gb.xml_build_response("DeviceControl", sn, o.device_id, result)
+        if not text then
+            log_error("云台应答构造失败")
+            return
+        end
+        send_request("MESSAGE", {
+            to_uri       = uri_of(msg.headers["from"])
+                           or string.format("sip:%s@%s", o.server_id, o.domain),
+            content_type = "Application/MANSCDP+xml",
+            body         = text,
+        })
+    end
+
+    if type(gb.ptz_parse) ~= "function" or type(gb.xml_get) ~= "function" then
+        log_warn("C 层没有云台绑定(固件版本太旧?)，回 ERROR")
+        answer("ERROR")
+        return
+    end
+
+    -- DeviceControl 还有别的子类型(看守位、拉框缩放…)，那些没有 PTZCmd
+    local hex = gb.xml_get(msg.body or "", "PTZCmd")
+    if not hex then
+        log_warn("DeviceControl 里没有 PTZCmd，本端不支持该控制类型")
+        answer("ERROR")
+        return
+    end
+
+    local cmd = gb.ptz_parse(hex)
+    if not cmd then
+        log_warn("PTZCmd 无法解析", tostring(hex))
+        answer("ERROR")
+        return
+    end
+    if not cmd.ok then
+        log_warn("PTZCmd 校验字节对不上，仍按解析结果处理", hex)
+    end
+
+    if type(g_ptz_cb) ~= "function" then
+        log_warn("收到云台指令但没有注册处理者(见 client.on_ptz)，回 ERROR", hex)
+        emit("ptz", "unsupported", {
+            hex = hex, code = cmd.code, kind = cmd.kind,
+        })
+        answer("ERROR")
+        return
+    end
+
+    local ok, err = pcall(g_ptz_cb, cmd, hex)
+    if not ok then
+        log_error("云台处理异常", err)
+        answer("ERROR")
+        return
+    end
+    answer("OK")
+end
+
 local function handle_query(msg)
     --[[
     **Notify 与 Query 的处理方式完全不同，必须先分流**：
@@ -721,6 +801,12 @@ local function handle_query(msg)
     if cmd == "RecordInfo" then
         emit("query", cmd, { sn = sn, supported = true })
         send_record_info(msg, sn)
+        return
+    end
+
+    -- 云台控制：与上面几个查询不同，它是**要设备做动作**的（见该函数的说明）
+    if cmd == "DeviceControl" then
+        handle_device_control(msg, sn)
         return
     end
 
@@ -2838,6 +2924,39 @@ function M.on_playback(handler)
         return false
     end
     g_playback_cb = handler
+    return true
+end
+
+--[[
+注册云台(PTZ)指令的处理者。
+
+**不注册也能跑**：平台发来的云台指令会被回 `Result=ERROR`（设备确实没有
+可执行的云台 —— 报"成功"是谎报，见 handle_device_control 的说明）。
+
+处理者拿到的是**解码后的指令**（C 层 ptz_parse 的结果，位域含义见
+luat_gb28181_ptz.h），应用按自己接的云台决定怎么做：
+
+    client.on_ptz(function(cmd, hex)
+        if cmd.kind == gb.PTZ_MOVE then
+            if cmd.up then 云台.上(cmd.tilt_speed) end
+            ...
+        elseif cmd.kind == gb.PTZ_PRESET and cmd.code == 0x82 then
+            云台.调用预置位(cmd.param2)
+        end
+    end)
+
+传 nil 可取消注册。**处理者返回什么不影响应答** —— 只要不抛异常就回 OK：
+把"执行失败"的表达留给应用自己决定(它可以选择抛错，那就回 ERROR)。
+
+@api exgb28181client.on_ptz(handler)
+@function handler 原型 handler(cmd, hex)
+@return boolean
+]]
+function M.on_ptz(handler)
+    if handler ~= nil and type(handler) ~= "function" then
+        return false
+    end
+    g_ptz_cb = handler
     return true
 end
 

@@ -789,4 +789,85 @@ function t.test_info_fields()
     assert(type(info.rtp_port_base) == "number")
 end
 
+--[[ 云台(PTZ)指令解码的绑定：素材与 C 层 tests/test_ptz.c 同源（按真实平台
+     的构造算法算出），这里验"绑定没把 C 层用错" ]]
+function t.test_ptz_parse_binding()
+    assert(type(gb.ptz_parse) == "function", "固件太旧，没有 ptz_parse")
+
+    -- 上：A5 0F 01 08 00 00 00 BD
+    local p = gb.ptz_parse("A50F0108000000BD")
+    assert(p ~= nil, "应能解析")
+    assert(p.ok == true, "校验应通过")
+    assert(p.kind == gb.PTZ_MOVE, "应归为方向/变倍类")
+    assert(p.up == true and p.down == false and p.left == false and p.right == false)
+    assert(p.pan_speed == 0 and p.tilt_speed == 0)
+
+    -- 上左：组合值 0x0A，两个方向都要置位
+    p = gb.ptz_parse("A50F010A5050005F")
+    assert(p.up == true and p.left == true, "对角应是两位同时置位")
+
+    -- 放大：速度在字节 6 的高 4 位
+    p = gb.ptz_parse("A50F011000008045")
+    assert(p.zoom_in == true and p.zoom_out == false)
+    assert(p.zoom_speed == 8, "变倍速度应为 8，实际 " .. tostring(p.zoom_speed))
+
+    -- 停止
+    p = gb.ptz_parse("A50F0100000000B5")
+    assert(p.kind == gb.PTZ_STOP, "应归为停止类")
+
+    -- 调用预置位：号在 param2
+    p = gb.ptz_parse("A50F01820005003C")
+    assert(p.kind == gb.PTZ_PRESET)
+    assert(p.param2 == 5, "预置位号应为 5，实际 " .. tostring(p.param2))
+
+    -- 辅助开关
+    p = gb.ptz_parse("A50F018C01000042")
+    assert(p.kind == gb.PTZ_AUX and p.param1 == 1)
+
+    -- FI 组
+    p = gb.ptz_parse("A50F014132000028")
+    assert(p.kind == gb.PTZ_FI and p.param1 == 50)
+
+    -- 校验不过仍然解出结构（平台自己拼的包有已知偏差）
+    p = gb.ptz_parse("A50F010800000000")
+    assert(p ~= nil and p.ok == false, "校验应报 false")
+    assert(p.up == true, "但动作仍应解出")
+
+    -- 拒绝
+    assert(gb.ptz_parse("B50F0108000000BD") == nil, "起始码不对应拒绝")
+    assert(gb.ptz_parse("A50F0108000000B") == nil, "长度不足应拒绝")
+    assert(gb.ptz_parse("hello") == nil, "非十六进制应拒绝")
+
+    -- 常量都在
+    for _, k in ipairs({ "PTZ_MOVE", "PTZ_STOP", "PTZ_FI", "PTZ_PRESET",
+                         "PTZ_TOUR", "PTZ_SCAN", "PTZ_AUX",
+                         "PTZ_B_UP", "PTZ_B_LEFT", "PTZ_B_ZOOM_IN" }) do
+        assert(type(gb[k]) == "number", "缺常量 " .. k)
+    end
+end
+
+--[[ 取任意元素：Control 类报文的字段随子类型变，故留了通用取值器 ]]
+function t.test_xml_get_binding()
+    assert(type(gb.xml_get) == "function", "固件太旧，没有 xml_get")
+    local body = "<?xml version=\"1.0\"?>\r\n<Control>\r\n" ..
+                 "<CmdType>DeviceControl</CmdType>\r\n<SN>1</SN>\r\n" ..
+                 "<PTZCmd>A50F0108000000BD</PTZCmd>\r\n</Control>\r\n"
+    assert(gb.xml_get(body, "PTZCmd") == "A50F0108000000BD", "应取出 PTZCmd")
+    assert(gb.xml_get(body, "CmdType") == "DeviceControl")
+    assert(gb.xml_get(body, "Nonexistent") == nil, "不存在的元素应返回 nil")
+end
+
+--[[ 通用 Result 应答：DeviceControl 要回 <Result>OK</Result> ]]
+function t.test_xml_build_response_binding()
+    assert(type(gb.xml_build_response) == "function")
+    local ok = gb.xml_build_response("DeviceControl", 42, "35020000001320000001", "OK")
+    assert(type(ok) == "string", "应构造出报文")
+    assert(ok:find("<CmdType>DeviceControl</CmdType>", 1, true) ~= nil)
+    assert(ok:find("<SN>42</SN>", 1, true) ~= nil, "SN 应原样回填")
+    assert(ok:find("<Result>OK</Result>", 1, true) ~= nil)
+    -- 缺省 result 就是 OK
+    local d = gb.xml_build_response("DeviceControl", 1, "35020000001320000001")
+    assert(d:find("<Result>OK</Result>", 1, true) ~= nil)
+end
+
 return t

@@ -282,16 +282,21 @@ function uc.fs()
             return uc.E_NOENT, string.pack("<I4I2", 0, 0)
         end
         local parts, total, n = {}, 0, 0
+        local cut = false
         for _, e in ipairs(list) do
             local name = e.name or ""
             local eb = string.char(e.type or 0) .. string.pack("<I4", e.size or 0) .. string.char(#name) .. name
-            if total + #eb > 470 then break end -- 上行单帧预算, 与 host 侧 read_chunk 无关
+            if total + #eb > 470 then
+                cut = true -- 预算截断: 本条及之后必须靠 host 翻页取回(否则静默丢条目)
+                break
+            end
             parts[#parts + 1] = eb
             total = total + #eb
             n = n + 1
         end
+        -- flags.MORE: 预算截断或满页都说明可能还有, host 以 offset+n 继续翻页
         local more = 0
-        if n == count and n > 0 then more = 0x02 end -- flags.MORE: 满页说明可能还有, host 继续翻
+        if n > 0 and (cut or n == count) then more = 0x02 end
         local remaining = more == 0x02 and count or 0
         return uc.E_OK, string.pack("<I4I2", remaining, total) .. table.concat(parts), more
     end)

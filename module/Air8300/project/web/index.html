@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Air8300 边缘智能网关 · 控制台</title>
+<style>
+:root{
+  /* 主色：靛蓝紫 */
+  --brand:#6366f1; --brand-2:#8b5cf6; --brand-deep:#4f46e5;
+  --ink:#1e293b; --ink-2:#475569; --mut:#64748b;
+  --line:#eceef4; --line-2:#dfe3eb; --bg:#f6f7fb; --card:#ffffff;
+  --line-soft:#f1f3f9;
+  /* 5 色状态徽章 */
+  --running:#10b981;     /* 运行 */
+  --stopped:#64748b;     /* 停止 */
+  --fault:#ef4444;       /* 故障 */
+  --protection:#f59e0b;  /* 保护 */
+  --offline:#94a3b8;     /* 离线 */
+  --ok:var(--running); --err:var(--fault); --warn:var(--protection); --cyan:var(--brand-2);
+  --radius:16px;
+  --shadow-1:0 1px 2px rgba(15,23,42,.04),0 2px 12px rgba(15,23,42,.05);
+  --shadow-2:0 4px 12px rgba(15,23,42,.06),0 18px 40px rgba(15,23,42,.08);
+  --shadow:0 8px 24px rgba(15,23,42,.08);
+  --mono:ui-monospace,"SF Mono",Consolas,"Roboto Mono",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--ink);background-color:var(--bg);
+  background-image:linear-gradient(rgba(99,102,241,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,.035) 1px,transparent 1px);
+  background-size:28px 28px;background-attachment:fixed}
+.num,.stat .vl,table td,table th{font-variant-numeric:tabular-nums}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:14px}
+.hide{display:none!important}
+/* 统一 SVG 图标（currentColor 着色） */
+.ic{width:18px;height:18px;display:inline-block;background:currentColor;-webkit-mask-position:center;mask-position:center;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain;vertical-align:-3px}
+.ic-sm{width:14px;height:14px;vertical-align:-2px}
+.ic-lg{width:22px;height:22px;vertical-align:-4px}
+.ic-overview{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'><circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='3' fill='black'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'><circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='3' fill='black'/></svg>")}
+.ic-data{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><path d='M4 6h16M4 12h16M4 18h10'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><path d='M4 6h16M4 12h16M4 18h10'/></svg>")}
+.ic-control{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'><path d='M13 2L4 14h7l-1 8 9-12h-7l1-8z'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'><path d='M13 2L4 14h7l-1 8 9-12h-7l1-8z'/></svg>")}
+.ic-track{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='6' cy='6' r='2'/><circle cx='18' cy='18' r='2'/><path d='M8 6h6a3 3 0 0 1 3 3v6'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='6' cy='6' r='2'/><circle cx='18' cy='18' r='2'/><path d='M8 6h6a3 3 0 0 1 3 3v6'/></svg>")}
+.ic-refresh{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 12a9 9 0 0 1 15.5-6.3L21 8'/><path d='M21 3v5h-5'/><path d='M21 12a9 9 0 0 1-15.5 6.3L3 16'/><path d='M3 21v-5h5'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 12a9 9 0 0 1 15.5-6.3L21 8'/><path d='M21 3v5h-5'/><path d='M21 12a9 9 0 0 1-15.5 6.3L3 16'/><path d='M3 21v-5h5'/></svg>")}
+.ic-power{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2v10'/><path d='M5.5 6.5a8 8 0 1 0 7 0'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2v10'/><path d='M5.5 6.5a8 8 0 1 0 7 0'/></svg>")}
+
+/* 顶栏 */
+.topbar{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);color:var(--ink);
+  border-bottom:1px solid var(--line);
+  padding:0 18px;height:58px;display:flex;align-items:center;gap:14px}
+.topbar .logo{display:flex;align-items:center;gap:10px;min-width:0}
+.topbar .logo .mark{width:38px;height:38px;flex:none;border-radius:11px;background:linear-gradient(135deg,var(--brand),var(--brand-2));
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;
+  box-shadow:0 4px 12px rgba(99,102,241,.30);color:#fff}
+.topbar .logo .t1{font-weight:700;font-size:15px;white-space:nowrap;color:var(--ink)}
+.topbar .logo .t2{font-size:11px;opacity:.8;white-space:nowrap;color:var(--mut)}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.topbar-select{height:36px;padding:0 28px 0 12px;border:1px solid var(--line);border-radius:10px;background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 10px center / 12px;color:var(--ink);font-size:13px;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;font-family:inherit}
+.topbar-select.sm{max-width:160px}
+.topbar-select.lg{max-width:200px}
+.topbar-select:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.topbar .refresh{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;color:var(--mut);transition:.15s;cursor:pointer}
+.topbar .refresh:hover{background:#f8fafc;border-color:var(--brand);color:var(--brand)}
+.topbar .refresh .ic{width:17px;height:17px;transition:transform .6s}
+.topbar .refresh.spin .ic{transform:rotate(360deg)}
+.topbar .upd{font-size:12px;color:var(--mut);white-space:nowrap}
+.chip-user{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid var(--line);padding:4px 12px 4px 5px;border-radius:999px;font-size:13px;color:var(--ink)}
+.chip-user .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.chip-user .nm{font-weight:600;color:var(--ink)}
+.chip-user .rl{font-size:11px;color:var(--mut);font-weight:400;margin-top:1px}
+.btn-ghost-w{background:transparent;border:1px solid var(--line-2);color:var(--ink-2);padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;transition:.15s}
+.btn-ghost-w:hover{background:#f8fafc;color:var(--ink);border-color:var(--brand)}
+/* 单列布局（移除侧栏后） */
+.wrap{max-width:1180px;margin:16px auto;padding:0 16px;display:flex;flex-direction:column;gap:16px;align-items:stretch}
+.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.tabbar{background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-1);padding:6px;display:flex;gap:2px;overflow-x:auto;position:sticky;top:72px;z-index:40}
+@media(max-width:900px){.tabbar{top:58px}}
+.tabbar button{flex:none;border:none;background:transparent;color:var(--ink-2);font-size:14px;padding:9px 16px;border-radius:9px;font-weight:600;transition:.15s;display:flex;align-items:center;gap:7px}
+.tabbar button i{width:16px;height:16px;vertical-align:-3px;opacity:.85;flex:none}
+.tabbar button.on i{opacity:1}
+.tabbar button:hover{background:#f1f3f9;color:var(--ink)}
+.tabbar button.on{background:linear-gradient(90deg,var(--brand),var(--brand-2));color:#fff;box-shadow:0 4px 12px rgba(99,102,241,.28)}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-1);border:1px solid var(--line);padding:18px;min-width:0}
+.card.lead{box-shadow:var(--shadow-2);position:relative}
+.card.lead::before{content:"";position:absolute;top:0;left:20px;right:20px;height:3px;border-radius:0 0 3px 3px;background:linear-gradient(90deg,var(--brand),var(--cyan));opacity:.85}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.card-head h2{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-head h2 i{width:6px;height:18px;border-radius:3px;background:linear-gradient(180deg,var(--brand),var(--brand-2));display:inline-block}
+.card-head .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 14px;border-radius:9px;border:none;font-size:13px;font-weight:600;transition:.15s}
+.btn-pri{background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.22)}
+.btn-pri:hover{filter:brightness(1.06);box-shadow:0 4px 14px rgba(99,102,241,.34)}
+.btn-soft{background:#eef2ff;color:var(--brand-deep)}
+.btn-soft:hover{background:#e0e7ff}
+.btn-line{background:#fff;border:1px solid var(--line);color:var(--ink-2)}
+.btn-line:hover{border-color:#c7d2fe;color:var(--ink)}
+.btn-warn{background:#fff4e5;color:#b26a00}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+/* 设备上下文条（精简版：去掉"刷新/下发控制/复制 IMEI"按钮，整合到顶栏按钮） */
+.ctxbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:12px;box-shadow:var(--shadow-1);padding:10px 14px;min-width:0}
+.ctxbar .ctx-main{display:flex;align-items:center;gap:10px;min-width:0}
+.ctxbar .ctx-imei{font-weight:700;font-size:14px;font-family:var(--mono);letter-spacing:.2px}
+.ctxbar .ctx-sub{font-size:12px;color:var(--mut);margin-top:1px;display:flex;gap:8px;flex-wrap:wrap}
+.ctxbar .ctx-addr{margin-left:auto;font-size:12.5px;color:var(--ink-2);display:flex;align-items:center;gap:6px;min-width:0;flex:1 1 220px;justify-content:flex-end}
+.ctxbar .ctx-addr .ic{color:var(--brand);flex:none;width:14px;height:14px}
+.ctxbar .ctx-addr span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctxbar .prj-tag{font-size:11px;color:var(--brand-deep);background:#eef2ff;border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;white-space:nowrap}
+/* 状态点 */
+.st-dot{width:9px;height:9px;border-radius:50%;flex:none;background:#cbd5e1;position:relative}
+.st-dot::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid transparent;transition:.2s}
+.st-dot.on,.st-dot.running{background:var(--running);box-shadow:0 0 0 3px rgba(16,185,129,.18)}
+.st-dot.off,.st-dot.fault{background:var(--fault);box-shadow:0 0 0 3px rgba(239,68,68,.18)}
+.st-dot.protection{background:var(--protection);box-shadow:0 0 0 3px rgba(245,158,11,.18)}
+.st-dot.stopped{background:var(--stopped);box-shadow:0 0 0 3px rgba(100,116,139,.14)}
+.st-dot.offline{background:var(--offline);box-shadow:0 0 0 3px rgba(148,163,184,.16)}
+.st-dot.wait{background:var(--brand);animation:pulse 1.2s ease-in-out infinite}
+.st-dot.none{background:#cbd5e1}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 2px rgba(99,102,241,.12)}50%{box-shadow:0 0 0 6px rgba(99,102,241,.20)}}
+/* 状态卡 */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px 12px;position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--st-color,var(--brand))}
+.stat.brand::before{background:var(--brand)}
+.stat.running::before{background:var(--running)}
+.stat.stopped::before{background:var(--stopped)}
+.stat.fault::before{background:var(--fault)}
+.stat.protection::before{background:var(--protection)}
+.stat.offline::before{background:var(--offline)}
+.stat .lb{font-size:12.5px;color:var(--mut);display:flex;align-items:center;gap:6px;font-weight:600}
+.stat .lb i{width:8px;height:8px;border-radius:50%;background:var(--st-color,var(--brand))}
+.stat.brand .lb i{background:var(--brand)}
+.stat.running .lb i{background:var(--running)}
+.stat.stopped .lb i{background:var(--stopped)}
+.stat.fault .lb i{background:var(--fault)}
+.stat.protection .lb i{background:var(--protection)}
+.stat.offline .lb i{background:var(--offline)}
+.stat .vl{font-size:26px;font-weight:700;margin-top:8px;letter-spacing:-.5px;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .vl small{font-size:12px;color:var(--mut);font-weight:500;margin-left:4px}
+.stat .ft{font-size:11.5px;color:var(--mut);margin-top:6px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.85}
+.badge.running{background:#e7f8f1;color:#0d8e57}
+.badge.stopped{background:#f1f3f9;color:#475569}
+.badge.fault{background:#fde9e7;color:#b42318}
+.badge.protection{background:#fff3e0;color:#b26a00}
+.badge.offline{background:#f1f3f9;color:#94a3b8}
+.badge.ok{background:#e7f8f1;color:#0d8e57}
+.badge.warn{background:#fff3e0;color:#b26a00}
+.badge.off{background:#fde9e7;color:#b42318}
+/* 表格 */
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:420px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+thead th{position:sticky;top:0;background:#f8fafc;color:var(--ink-2);font-weight:600;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:2}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top;word-break:break-all}
+tbody tr:hover td{background:#fafbff}
+tbody tr:last-child td{border-bottom:none}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.num{font-variant-numeric:tabular-nums}
+.pager{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13px;color:var(--mut);flex-wrap:wrap}
+.pager .sp{margin-left:auto;display:flex;gap:8px}
+/* 控制台 */
+.console-tool{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;background:#eef3f9;border-radius:10px;padding:3px;gap:2px}
+.seg button{border:none;background:transparent;padding:7px 14px;border-radius:8px;font-size:13px;color:var(--ink-2);font-weight:600}
+.seg button.on{background:#fff;color:var(--brand);box-shadow:0 2px 6px rgba(22,41,61,.1)}
+textarea.payload{width:100%;min-height:120px;border:1px solid var(--line);border-radius:12px;padding:12px;font-family:ui-monospace,Consolas,monospace;font-size:13px;resize:vertical;background:#fcfdff;line-height:1.6}
+.qk-row{display:flex;gap:8px;flex-wrap:wrap}
+.qk-row .qk{font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid #c7d2fe;background:#eef2ff;color:var(--brand-deep);font-weight:600}
+.qk-row .qk.on{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 2px 6px rgba(99,102,241,.22)}
+.qk-row .qk:hover{background:#e2efff}
+.sendlog{font-size:12.5px;display:flex;flex-direction:column;gap:8px}
+.sendlog .li{background:#f7fafd;border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;gap:8px;align-items:flex-start}
+.sendlog .li .st{font-size:11px;padding:2px 8px;border-radius:999px;flex:none;margin-top:1px}
+.sendlog .li.ok .st{background:#e6f7ec;color:#0e8a45}
+.sendlog .li.err .st{background:#fdeceb;color:#c6382b}
+.sendlog .li .txt{word-break:break-all;line-height:1.55;color:var(--ink-2)}
+/* 历史图表 */
+.chart-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.chart-head .lbl{font-size:12.5px;color:var(--mut);font-weight:600;margin-right:2px}
+.chart-leg{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chart-leg button{border:1px solid var(--line);background:#fff;color:var(--ink-2);font-size:12px;padding:4px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:.15s;font-weight:600}
+.chart-leg button:hover{border-color:#b9cfeb}
+.chart-leg button.off{opacity:.45;text-decoration:line-through}
+.chart-leg button i{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.chart-card{position:relative;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.chart-card canvas{display:block;width:100%;height:100%}
+.chart-tip{position:absolute;pointer-events:none;background:rgba(24,34,48,.92);color:#fff;font-size:12px;line-height:1.6;border-radius:8px;padding:8px 10px;display:none;z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.2);max-width:260px;white-space:nowrap}
+.chart-tip b{color:#a5b4fc;font-weight:600}
+.chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:13px}
+.seg-range{display:inline-flex;background:#f1f3f9;border-radius:9px;padding:3px;gap:2px}
+.seg-range button{border:none;background:transparent;padding:6px 12px;border-radius:7px;font-size:12.5px;color:var(--ink-2);font-weight:600;cursor:pointer}
+.seg-range button.on{background:#fff;color:var(--brand);box-shadow:0 2px 6px rgba(15,23,42,.08)}
+/* 位置轨迹：SVG 示意图 + 坐标地址列表 */
+.track-svg-card{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;position:relative}
+.track-svg-card svg{display:block;width:100%;height:380px;background:
+  linear-gradient(rgba(99,102,241,.045) 1px,transparent 1px) 0 0/24px 24px,
+  linear-gradient(90deg,rgba(99,102,241,.045) 1px,transparent 1px) 0 0/24px 24px,
+  #fbfcff}
+.track-svg-card .legend{position:absolute;left:14px;top:12px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:flex;gap:10px;font-size:11.5px;color:var(--mut);box-shadow:var(--shadow-1)}
+.track-svg-card .legend span{display:inline-flex;align-items:center;gap:5px}
+.track-svg-card .bounds{position:absolute;right:14px;top:12px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:11.5px;color:var(--ink-2);font-family:var(--mono);box-shadow:var(--shadow-1)}
+.track-svg-card .empty-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--mut);font-size:13px}
+.track-svg-card .empty-state .ic{width:48px;height:48px;opacity:.5}
+.empty-box{text-align:center;color:var(--mut);padding:30px 10px;font-size:13px;line-height:2}
+.empty-ill{width:64px;height:64px;border-radius:50%;background:#f1f3f9;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;color:#9aa9bf}
+input[type=datetime-local]{height:34px;border:1px solid var(--line);border-radius:9px;padding:0 8px;font-size:13px;background:#fff;color:var(--ink)}
+.hint-note{font-size:12px;color:var(--mut);line-height:1.8;background:#f6f9fd;border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
+.addr-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.addr-row .ic{color:var(--brand);flex:none}
+.addr-row.meta{color:var(--mut);font-size:12px}
+.field label{display:block;font-size:12px;color:var(--mut);margin-bottom:5px}
+.field select,.field input[type=text]{width:100%;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 10px;color:var(--ink);background:#fcfdff}
+/* mask / toast */
+.state-box{display:none;align-items:center;justify-content:center;gap:12px;min-height:160px;color:var(--ink-2);font-size:14px;flex-direction:column}
+.state-box.show{display:flex}
+.spinner{width:26px;height:26px;border:3px solid #d8e6f5;border-top-color:var(--brand);border-radius:50%;animation:rot .8s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.mask{position:fixed;inset:0;background:rgba(255,255,255,.72);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:99}
+.mask.show{display:flex}
+.mask .box{display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:16px 22px;box-shadow:var(--shadow);font-size:14.5px}
+.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(40px);background:#fff;box-shadow:var(--shadow);border-radius:12px;padding:12px 20px;font-size:14px;z-index:200;transition:.3s;max-width:90vw;display:flex;gap:10px;align-items:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast i{width:8px;height:8px;border-radius:50%;flex:none}
+.toast.ok i{background:var(--ok)}.toast.err i{background:var(--err)}.toast.warn i{background:var(--warn)}
+.foot{text-align:center;font-size:12px;color:#a5b3c4;padding:10px 0 22px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="11" rx="2"/><path d="M7 10h2M11 10h2M15 10h2M7 14h2M11 14h2M15 14h2"/><path d="M2 12h1.2M20.8 12H22"/></svg></div>
+    <div>
+      <div class="t1">Air8300 边缘智能网关</div>
+      <div class="t2">合宙 IoT 云控制台</div>
+    </div>
+  </div>
+  <div class="right">
+    <select id="topbar-project" class="topbar-select sm" title="切换项目" aria-label="切换项目"></select>
+    <select id="topbar-device" class="topbar-select lg" title="切换设备" aria-label="切换设备"><option value="">加载设备中…</option></select>
+    <button class="refresh" id="btn-refresh" title="刷新最新数据"><i class="ic ic-refresh"></i></button>
+    <span class="upd" id="upd-time">更新于 --</span>
+    <div class="chip-user" id="user-chip"><div class="av" id="user-av">U</div><div><div class="nm" id="user-name">演示用户</div><div class="rl" id="user-role">演示账号</div></div></div>
+    <button class="btn-ghost-w" id="btn-logout">退出登录</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="main">
+
+    <!-- 设备上下文条 -->
+    <div class="ctxbar" id="ctx-bar" style="display:none">
+      <div class="ctx-main">
+        <span class="st-dot none" id="ctx-dot"></span>
+        <div>
+          <div class="ctx-imei" id="ctx-imei">未选择设备</div>
+          <div class="ctx-sub">
+            <span class="prj-tag" id="ctx-project" style="display:none"></span>
+            <span id="ctx-age">—</span>
+            <span id="ctx-pos">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="ctx-addr" id="ctx-addr" style="display:none"><i class="ic ic-track"></i><span></span></div>
+    </div>
+
+    <nav class="tabbar" id="tabbar">
+      <button data-tab="overview" class="on"><i class="ic ic-overview"></i>总览</button>
+      <button data-tab="data"><i class="ic ic-data"></i>历史数据</button>
+      <button data-tab="control"><i class="ic ic-control"></i>设备控制</button>
+      <button data-tab="track"><i class="ic ic-track"></i>位置轨迹</button>
+    </nav>
+
+    <!-- ============ 总览 ============ -->
+    <section class="card lead" id="tab-overview">
+      <div class="card-head"><h2><i></i>当前设备状态</h2>
+        <div class="sp">
+          <button class="btn btn-line" id="btn-poll"><span>自动刷新：开</span></button>
+          <button class="btn btn-pri" id="btn-reload-ov">刷新数据</button>
+        </div>
+      </div>
+      <div id="ov-device-holder">
+        <div class="stat-grid" id="ov-cards"></div>
+        <div style="margin-top:14px">
+          <div class="card-head" style="margin-bottom:8px"><h2 style="font-size:14px"><i></i>最新位置</h2></div>
+          <div id="ov-addr" style="font-size:13.5px;color:var(--ink-2);line-height:1.9;background:#f7fafd;border:1px solid var(--line);border-radius:10px;padding:12px"></div>
+          <div class="legend" style="margin-top:10px">
+            <span><i class="dot" style="background:var(--brand)"></i>国测局02坐标(高德适用)</span>
+            <span><i class="dot" style="background:#9aa7b8"></i>WGS84 坐标</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 历史数据 ============ -->
+    <section class="card lead hide" id="tab-data">
+      <div class="card-head"><h2><i></i>历史数据（Tag 趋势）</h2>
+        <div class="sp">
+          <div class="seg-range" id="seg-tag-range">
+            <button data-trange="1h">近1小时</button>
+            <button data-trange="6h">近6小时</button>
+            <button data-trange="24h" class="on">近24小时</button>
+          </div>
+        </div>
+      </div>
+      <div class="console-tool" style="margin-bottom:10px">
+        <div class="field" style="flex:1;min-width:200px"><label>Tag 列表（逗号分隔，来自 AirCloud 协议；示例 512=经度 513=纬度）</label>
+          <input type="text" id="ipt-tags" value="512,513" style="width:100%"></div>
+        <div class="field"><label>起始时间</label><input type="datetime-local" id="ipt-d-start"></div>
+        <div class="field"><label>结束时间</label><input type="datetime-local" id="ipt-d-end"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-pri" id="btn-query-tags">查询</button></div>
+      </div>
+      <div class="qk-row" style="margin-bottom:12px">
+        <span style="font-size:12px;color:var(--mut);line-height:26px">常用 Tag：</span>
+        <button class="qk" data-tag="512,513">512,513 经纬度</button>
+        <button class="qk" data-tag="512">512 经度</button>
+        <button class="qk" data-tag="513">513 纬度</button>
+      </div>
+      <div class="chart-head">
+        <span class="lbl">数值趋势：</span>
+        <div class="chart-leg" id="tag-chart-leg"></div>
+        <span style="margin-left:auto;font-size:11.5px;color:var(--mut);display:inline-flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>每条序列独立缩放，鼠标悬停查看真实数值</span>
+      </div>
+      <div class="chart-card" id="tag-chart-wrap" style="height:220px;margin-bottom:14px">
+        <canvas id="tag-chart"></canvas>
+        <div class="chart-tip" id="tag-chart-tip"></div>
+      </div>
+      <div class="tbl-wrap"><table id="tag-table"></table></div>
+      <div class="pager"><span id="tag-pageinfo"></span>
+        <div class="sp"><button class="btn btn-line sm" id="btn-tag-prev">上一页</button>
+        <button class="btn btn-line sm" id="btn-tag-next">下一页</button>
+        <button class="btn btn-line sm" id="btn-tag-latest">查最新</button></div>
+      </div>
+    </section>
+
+    <!-- ============ 设备控制 ============ -->
+    <section class="card hide" id="tab-control">
+      <div class="card-head"><h2><i></i>命令下发控制（继电器 / 自定义）</h2></div>
+      <div class="console-tool" style="margin-bottom:12px;flex-wrap:wrap">
+        <div class="field"><label>目标 Tag</label>
+          <select id="sel-sendtag" style="min-width:120px">
+            <option value="1281">1281 自定义下行消息</option>
+            <option value="21">21 iRTU 下行指令</option>
+            <option value="22">22 通知上传日志</option>
+          </select></div>
+        <div class="field"><label>协议</label>
+          <select id="sel-protocol" style="min-width:110px">
+            <option value="2">2 MQTT（推荐）</option>
+            <option value="0">0 TCP</option>
+            <option value="1">1 UDP</option>
+          </select></div>
+        <div class="field" style="flex:1;min-width:220px"><label>设备 IMEI</label><input id="ipt-send-imei" readonly style="width:100%;background:#f2f6fb"></div>
+      </div>
+      <div style="margin-bottom:10px;font-size:12px;color:var(--mut)">快捷模板（值域为自定义 JSON，发送前请与设备端解析逻辑核对）</div>
+      <div class="qk-row" style="margin-bottom:12px">
+        <button class="qk" data-payload='{"cmd":"relay","relay":[1,0,0,0]}'>全部开启模板</button>
+        <button class="qk" data-payload='{"cmd":"relay","relay":[0,0,0,0]}'>全部关闭模板</button>
+        <button class="qk" data-payload='{"cmd":"relay","relay":[1,0,0,0],"note":"风扇开灯关示例"}'>示例：风扇开/灯关</button>
+        <button class="qk" data-payload='{"cmd":"scan_env"}'>采集一次</button>
+      </div>
+      <textarea class="payload" id="txt-payload" spellcheck="false">{"cmd":"relay","relay":[0,0,0,0]}</textarea>
+      <div class="console-tool" style="margin:12px 0">
+        <button class="btn btn-pri" id="btn-send">下发命令</button>
+        <span class="badge warn" id="send-result" style="display:none"></span>
+      </div>
+      <div class="card-head" style="margin-bottom:8px"><h2 style="font-size:14px"><i></i>下发记录</h2></div>
+      <div class="sendlog" id="send-log"><div class="empty-box">暂无下发记录</div></div>
+      <div class="hint-note">说明：该页面调用 AirCloud 开放接口 <span class="mono">aircloud/send_cmd</span> 向设备下发 TLV 消息。继电器动作由 Air8300 固件解析自定义 JSON 后经 485 总线控制继电器模块完成。</div>
+    </section>
+
+    <!-- ============ 位置轨迹（SVG 示意图 + 坐标地址列表） ============ -->
+    <section class="card hide" id="tab-track">
+      <div class="card-head"><h2><i></i>位置轨迹（SVG 示意图 + 坐标地址）</h2>
+        <div class="sp">
+          <button class="btn btn-line sm" data-range="1h">近1小时</button>
+          <button class="btn btn-line sm" data-range="6h">近6小时</button>
+          <button class="btn btn-line sm" data-range="24h" id="qk24">近24小时</button>
+        </div>
+      </div>
+      <div class="console-tool" style="margin-bottom:12px">
+        <div class="field"><label>开始时间</label><input type="datetime-local" id="ipt-h-start"></div>
+        <div class="field"><label>结束时间</label><input type="datetime-local" id="ipt-h-end"></div>
+        <button class="btn btn-pri" id="btn-load-track">加载轨迹</button>
+      </div>
+      <div class="track-svg-card" id="track-svg-card" style="margin-bottom:14px">
+        <div class="legend">
+          <span><i class="dot" style="background:var(--ok)"></i>起点</span>
+          <span><i class="dot" style="background:var(--err)"></i>终点</span>
+          <span><i class="dot" style="background:var(--brand)"></i>轨迹点</span>
+        </div>
+        <div class="bounds" id="track-bounds">—</div>
+        <svg id="track-svg" viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet" aria-label="轨迹示意图"></svg>
+        <div class="empty-state" id="track-empty">
+          <i class="ic ic-track" style="color:var(--brand)"></i>
+          <div>请选择时间范围后点击"加载轨迹"</div>
+        </div>
+      </div>
+      <div class="card-head" style="margin-bottom:8px"><h2 style="font-size:14px"><i></i>轨迹点列表</h2>
+        <span style="margin-left:auto;font-size:12px;color:var(--mut)" id="track-list-info">共 0 个点</span>
+      </div>
+      <div class="tbl-wrap"><table id="track-table"></table></div>
+      <div class="hint-note">说明：示意图按经纬度归一化渲染，无第三方地图依赖；列表展示真实国测局02坐标及设备上报地址。</div>
+    </section>
+
+  </div>
+</div>
+
+<div class="mask" id="full-mask"><div class="box"><div class="spinner"></div><span id="full-msg">处理中…</span></div></div>
+<div class="toast" id="toast"></div>
+<div class="foot">合宙 LuatOS · Air8300 Web 客户端 · 数据来自 AirCloud 开放接口</div>
+
+<script>
+/* =========================================================================
+ * LuatSDK —— 基础 SDK（login.html 与 index.html 内置完全同一份，勿改差异）
+ * 仅负责基础请求与本地存储；业务状态码由上层 request() 处理。
+ * ========================================================================= */
+var LuatSDK = (function () {
+  var CONFIG = {
+    API_HOST: 'https://api-iot.luatos.com',     // 所有 API 后端接口请求域名前缀
+    BASE_HOST: 'https://iot.luatos.com',        // 所有网页之间跳转域名前缀
+    OAUTH_AUTHORIZE: '/iam/luat_oauth/authorize',
+    OAUTH_V2_LOGIN: '/iam/luat_oauth/v2/login',
+    API_BASE: '/open_api',                       // AirCloud 开放接口业务路径前缀（接口文档 /open_api/...）
+    DEFAULT_TIMEOUT: 15000
+  };
+  function baseUrl(path) {
+    if (/^https?:\/\//i.test(path)) { return path; }
+    return CONFIG.API_HOST + path;
+  }
+  function timeoutSignal(ms) {
+    var ctrl = ('AbortController' in window) ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, ms || CONFIG.DEFAULT_TIMEOUT) : null;
+    return { ctrl: ctrl, timer: timer };
+  }
+  function clearTimer(t) { if (t && t.timer) { clearTimeout(t.timer); } }
+  function httpRequest(opts) {
+    opts = opts || {};
+    var url = baseUrl(opts.url);
+    var method = (opts.method || 'GET').toUpperCase();
+    var headers = opts.headers || {};
+    var body = opts.body;
+    var sig = timeoutSignal(opts.timeout || CONFIG.DEFAULT_TIMEOUT);
+    var fetchOpts = { method: method, headers: headers, signal: sig.ctrl ? sig.ctrl.signal : undefined, cache: 'no-store' };
+    if (body !== undefined && body !== null) { fetchOpts.body = body; }
+    return fetch(url, fetchOpts).then(function (res) {
+      return res.text().then(function (txt) {
+        var data = null;
+        if (txt) { try { data = JSON.parse(txt); } catch (e) { data = null; } }
+        var err = null;
+        if (!res.ok) {
+          err = { type: 'http', status: res.status, message: '请求失败（HTTP ' + res.status + '）' };
+        } else if (data === null && txt) {
+          err = { type: 'parse', message: '响应解析失败' };
+        }
+        clearTimer(sig);
+        return { ok: res.ok, status: res.status, data: data, err: err };
+      });
+    }).catch(function (e) {
+      clearTimer(sig);
+      var aborted = !!(e && (e.name === 'AbortError'));
+      return { ok: false, status: 0, data: null, err: { type: aborted ? 'timeout' : 'network', message: aborted ? '请求超时，请检查网络后重试' : '网络异常，请检查网络连接' } };
+    });
+  }
+  function serialize(obj) {
+    var out = [];
+    Object.keys(obj || {}).forEach(function (k) { out.push(encodeURIComponent(k) + '=' + encodeURIComponent(obj[k])); });
+    return out.join('&');
+  }
+  function qs(url, params) { var s = serialize(params); return s ? url + (url.indexOf('?') >= 0 ? '&' : '?') + s : url; }
+  function request(opts) {
+    var payload = { url: opts.url, method: opts.method || 'POST', headers: opts.headers || {}, timeout: opts.timeout };
+    var isJsonBody = opts.json !== false;
+    if (opts.params) { payload.url = qs(payload.url, opts.params); }
+    if (opts.body !== undefined && opts.body !== null) {
+      if (isJsonBody) { payload.headers['Content-Type'] = 'application/json'; payload.body = JSON.stringify(opts.body); }
+      else { payload.body = opts.body; }
+    }
+    return httpRequest(payload);
+  }
+  function get(url, params, headers) { return request({ url: url, method: 'GET', params: params, headers: headers, json: false }); }
+  function post(url, body, headers, params) { return request({ url: url, method: 'POST', body: body, headers: headers, params: params }); }
+  /* storage —— 所有 localStorage 读写带保护 */
+  function sget(key) { try { var raw = localStorage.getItem(key); if (!raw) { return null; } return JSON.parse(raw); } catch (e) { return null; } }
+  function sset(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch (e) { return false; } }
+  function sdel(key) { try { localStorage.removeItem(key); } catch (e) {} }
+  function sclear(prefix) {
+    try {
+      var dels = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && (!prefix || k.indexOf(prefix) === 0)) { dels.push(k); }
+      }
+      dels.forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) {}
+  }
+  function sessionGet(key){ try { return sessionStorage.getItem(key); } catch(e){ return null; } }
+  function sessionSet(key, val){ try { sessionStorage.setItem(key, val); } catch(e){} }
+  function sessionDel(key){ try { sessionStorage.removeItem(key); } catch(e){} }
+  return {
+    CONFIG: CONFIG, request: request, get: get, post: post,
+    storage: { get: sget, set: sset, remove: sdel, clearPrefix: sclear },
+    session: { get: sessionGet, set: sessionSet, remove: sessionDel }
+  };
+})();
+
+/* =========================================================================
+ * Auth 公共层 —— login.html / index.html 保持一致的认证逻辑
+ * ========================================================================= */
+var Auth = (function () {
+  var CONFIG = LuatSDK.CONFIG;
+  var MY_AUTH = 'my_auth', MY_SERVICE = 'my_service', MY_PROFILE = 'my_profile', MY_TENANT = 'my_tenant', MY_SETS = 'my_sets';
+  var M_AUTH = 'm_auth', M_SERVICE = 'm_service', M_PROFILE = 'm_profile', M_SETS = 'm_sets';
+  var HOST_SESSION = 'm_host_session';
+  function getAppId() {
+    var m = location.pathname.match(/\/ai_app\/luatos\/([^/]+)\//);
+    if (m && m[1]) { return m[1]; }
+    return 'air8300';
+  }
+  function appUrl(page) {
+    return CONFIG.BASE_HOST + '/ai_app/luatos/' + getAppId() + '/' + page;
+  }
+  function loginExpiredCodes() { return [102, 103, 105]; }
+  function readJSON(k) { return LuatSDK.storage.get(k); }
+  function writeJSON(k, v) { return LuatSDK.storage.set(k, v); }
+  function isHostSession() { return LuatSDK.session.get(HOST_SESSION) === '1'; }
+  function setHostSession() { LuatSDK.session.set(HOST_SESSION, '1'); }
+  function contextOf(prefix) {
+    var p = prefix === 'm' ? { auth: M_AUTH, service: M_SERVICE, profile: M_PROFILE, sets: M_SETS } :
+      { auth: MY_AUTH, service: MY_SERVICE, profile: MY_PROFILE, sets: MY_SETS, tenant: MY_TENANT };
+    var auth = readJSON(p.auth), service = readJSON(p.service);
+    var ctx = { prefix: prefix, auth: auth, service: service, profile: readJSON(p.profile) || {}, tenant: p.tenant ? readJSON(p.tenant) : null, sets: readJSON(p.sets) || null };
+    return ctx;
+  }
+  function validContext(ctx) {
+    return !!(ctx && ctx.auth && ctx.service && typeof ctx.auth.token === 'string' && ctx.auth.token.length > 0 &&
+      typeof ctx.auth.salt === 'string' && ctx.auth.salt.length > 0 &&
+      typeof ctx.service.sid === 'string' && ctx.service.sid.length > 0);
+  }
+  /* 宿主会话标记存在 → m_* 唯一权威；否则 my_* 优先，其次 m_* */
+  function getAuthContext() {
+    if (isHostSession()) { var cm = contextOf('m'); return validContext(cm) ? cm : null; }
+    var c1 = contextOf('my');
+    if (validContext(c1)) { return c1; }
+    var c2 = contextOf('m');
+    return validContext(c2) ? c2 : null;
+  }
+  function isAuthenticated() { return !!getAuthContext(); }
+  function getAuthHeaders() {
+    var c = getAuthContext();
+    if (!c) { return null; }
+    return { authorization: c.auth.token, salt: c.auth.salt, sid: c.service.sid };
+  }
+  /* 按会话标记只清理 m_*；独立会话清理 my_* 与 m_* */
+  function clearLoginStorage() {
+    if (isHostSession()) {
+      LuatSDK.storage.remove(M_AUTH); LuatSDK.storage.remove(M_SERVICE); LuatSDK.storage.remove(M_PROFILE); LuatSDK.storage.remove(M_SETS);
+      return;
+    }
+    [MY_AUTH, MY_SERVICE, MY_PROFILE, MY_TENANT, MY_SETS, M_AUTH, M_SERVICE, M_PROFILE, M_SETS, 'my_user'].forEach(function (k) { LuatSDK.storage.remove(k); });
+  }
+  function maskPhone(p) {
+    if (!p) { return ''; }
+    var s = String(p);
+    if (s.length < 7) { return s; }
+    return s.slice(0, 3) + '****' + s.slice(-4);
+  }
+  function getProfile() {
+    var c = getAuthContext();
+    if (!c) { return { name: '', mobile: '' }; }
+    var p = c.profile || {};
+    var name = p.name || p.user_name || '';
+    var mobile = p.mobile || p.user_phone || '';
+    return { name: name, mobile: mobile };
+  }
+  function saveMyLogin(val) {
+    if (!val) { return false; }
+    if (!val.auth || !val.service || !val.auth.token || !val.auth.salt || !val.service.sid) { return false; }
+    var ok = true;
+    ok = writeJSON(MY_AUTH, val.auth) && ok;
+    ok = writeJSON(MY_SERVICE, val.service) && ok;
+    ok = writeJSON(MY_PROFILE, val.user ? { name: val.user.name || '', mobile: val.user.mobile || '' } : {}) && ok;
+    if (val.tenant) { ok = writeJSON(MY_TENANT, val.tenant) && ok; } else { LuatSDK.storage.remove(MY_TENANT); }
+    if (val.sets) { ok = writeJSON(MY_SETS, val.sets) && ok; } else { LuatSDK.storage.remove(MY_SETS); }
+    return ok;
+  }
+  /* URL m_* 外部注入：完整 m_token/m_salt/m_sid 才建立 */
+  function applyMExternal(params) {
+    var has = function (k) { return typeof params[k] === 'string' && params[k].length > 0; };
+    if (!has('m_token') || !has('m_salt') || !has('m_sid')) { return false; }
+    var ok = writeJSON(M_AUTH, { token: params.m_token, salt: params.m_salt });
+    ok = writeJSON(M_SERVICE, { sid: params.m_sid }) && ok;
+    var profile = {};
+    if (has('m_name')) { profile.name = params.m_name; }
+    if (has('m_phone')) { profile.mobile = params.m_phone; }
+    ok = writeJSON(M_PROFILE, profile) && ok;
+    var sets = {};
+    var sKeys = ['m_algorithm', 'm_encryptOutput', 'm_padding', 'm_publicKey', 'm_publicKeyEncoding'];
+    var setsFields = ['algorithm', 'encryptOutput', 'padding', 'publicKey', 'publicKeyEncoding'];
+    var any = false;
+    sKeys.forEach(function (k, i) { if (has(k)) { sets[setsFields[i]] = params[k]; any = true; } });
+    if (any) { ok = writeJSON(M_SETS, sets) && ok; } else { LuatSDK.storage.remove(M_SETS); }
+    setHostSession();
+    return ok;
+  }
+  function cleanMFromUrl() {
+    var mKeys = ['m_token', 'm_salt', 'm_sid', 'm_name', 'm_phone', 'm_algorithm', 'm_encryptOutput', 'm_padding', 'm_publicKey', 'm_publicKeyEncoding'];
+    var u = new URL(location.href);
+    mKeys.forEach(function (k) { u.searchParams.delete(k); u.hash = ''; });
+    history.replaceState(null, '', u.pathname + u.search);
+  }
+  function parseUrlParams() {
+    var params = {};
+    var search = location.search.replace(/^\?/, '');
+    if (search) {
+      search.split('&').forEach(function (kv) { if (!kv) { return; } var idx = kv.indexOf('='); if (idx < 0) { params[decodeURIComponent(kv)] = ''; } else { params[decodeURIComponent(kv.slice(0, idx))] = decodeURIComponent(kv.slice(idx + 1)); } });
+    }
+    var hash = location.hash.replace(/^#/, '');
+    if (hash && hash.indexOf('=') > -1) {
+      hash.split('&').forEach(function (kv) { if (!kv) { return; } var idx = kv.indexOf('='); if (idx < 0) { params[decodeURIComponent(kv)] = ''; } else { params[decodeURIComponent(kv.slice(0, idx))] = decodeURIComponent(kv.slice(idx + 1)); } });
+    }
+    return params;
+  }
+  function safeReturnTo(rt) {
+    if (typeof rt !== 'string' || !rt) { return ''; }
+    if (/^(https?:|javascript:|\/\/)/i.test(rt)) { return ''; }
+    if (rt.charAt(0) !== '/') { return ''; }
+    if (/[\?\&](token|salt|sid|m_token|m_salt|m_sid)=/i.test(rt)) { return ''; }
+    return rt;
+  }
+  return {
+    CONFIG: CONFIG, getAppId: getAppId, appUrl: appUrl, loginExpiredCodes: loginExpiredCodes,
+    contextOf: contextOf, validContext: validContext, getAuthContext: getAuthContext,
+    isAuthenticated: isAuthenticated, getAuthHeaders: getAuthHeaders, clearLoginStorage: clearLoginStorage,
+    maskPhone: maskPhone, getProfile: getProfile, saveMyLogin: saveMyLogin,
+    applyMExternal: applyMExternal, cleanMFromUrl: cleanMFromUrl, parseUrlParams: parseUrlParams,
+    safeReturnTo: safeReturnTo, isHostSession: isHostSession, setHostSession: setHostSession
+  };
+})();
+
+/* =========================================================================
+ * 业务层 request() —— 认证头注入 + 业务状态码 + 登录失效
+ * ========================================================================= */
+function request(path, body) {
+  var headers = Auth.getAuthHeaders();
+  if (!headers) {
+    var e0 = new Error('登录已失效');
+    e0.auth = true;
+    return Promise.reject(e0);
+  }
+  var url = LuatSDK.CONFIG.API_HOST + LuatSDK.CONFIG.API_BASE + path;
+  return LuatSDK.post(url, body || {}, headers).then(function (res) {
+    if (res.err) {
+      var e1 = new Error(res.err.message);
+      e1.type = res.err.type;
+      throw e1;
+    }
+    var d = res.data || {};
+    if (d.code === 0) { return d.value; }
+    if (Auth.loginExpiredCodes().indexOf(d.code) >= 0) {
+      var e2 = new Error('登录已失效，请重新登录');
+      e2.auth = true;
+      throw e2;
+    }
+    var msg = (typeof d.value === 'string' && d.value) ? d.value : ('业务错误(' + d.code + ')');
+    var e3 = new Error(msg);
+    e3.code = d.code;
+    throw e3;
+  });
+}
+
+/* =========================================================================
+ * UI 工具
+ * ========================================================================= */
+function $(id) { return document.getElementById(id); }
+function esc(s) { if (s === undefined || s === null) { return ''; } return String(s); }
+function toast(msg, type) {
+  var t = $('toast'); if (!t) { return; }
+  t.className = 'toast show ' + (type || 'ok');
+  t.innerHTML = '<i></i><span></span>';
+  t.querySelector('span').textContent = msg;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function () { t.classList.remove('show'); }, 3200);
+}
+function showFullMask(msg) { var m = $('full-mask'); if (m) { $('full-msg').textContent = msg || '处理中…'; m.classList.add('show'); } }
+function hideFullMask() { var m = $('full-mask'); if (m) { m.classList.remove('show'); } }
+function toDT(d) {
+  function p(n) { return (n < 10 ? '0' : '') + n; }
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function fmtTime(s) { return s ? String(s).replace('T', ' ').slice(0, 19) : '--'; }
+function handleAuthError(err) {
+  if (err && err.auth) {
+    Auth.clearLoginStorage();
+    if (Auth.isHostSession()) {
+      toast('登录状态已失效，请重新进入应用', 'err');
+    } else {
+      location.href = Auth.appUrl('login.html') + '?returnTo=' + encodeURIComponent('/ai_app/luatos/' + Auth.getAppId() + '/index.html');
+    }
+    return true;
+  }
+  return false;
+}
+
+/* =========================================================================
+ * 业务模块状态
+ * ========================================================================= */
+var App = {
+  projects: [], devices: [], curProject: '', curDevice: '',
+  devPage: 1, devSize: 100, devTotal: 0,
+  tagsPage: 1, tagsSize: 20, tagsTotal: 0,
+  pollTimer: null, pollOn: true,
+  latest: null, activeTab: 'overview'
+};
+
+/* ---------- 初始化与认证 ---------- */
+function renderUser() {
+  var p = Auth.getProfile();
+  $('user-name').textContent = p.name || '演示用户';
+  $('user-av').textContent = (p.name || 'U').slice(0, 1).toUpperCase();
+  var roleEl = $('user-role');
+  if (roleEl) { roleEl.textContent = Auth.isHostSession() ? '主机会话' : '演示账号'; }
+  if (Auth.isHostSession()) { $('btn-logout').style.display = 'none'; }
+}
+function init() {
+  var params = Auth.parseUrlParams();
+  var appliedM = Auth.applyMExternal(params);
+  if (appliedM) { Auth.cleanMFromUrl(); }
+  if (!Auth.isAuthenticated()) {
+    Auth.clearLoginStorage();
+    if (Auth.isHostSession()) {
+      document.body.innerHTML = '<div style="display:flex;min-height:100vh;align-items:center;justify-content:center;background:var(--bg)"><div style="text-align:center;line-height:2;color:#46586e"><div style="font-size:40px">⌛</div>登录状态已失效，请重新进入应用</div></div>';
+      return;
+    }
+    location.href = Auth.appUrl('login.html') + '?returnTo=' + encodeURIComponent('/ai_app/luatos/' + Auth.getAppId() + '/index.html');
+    return;
+  }
+  renderUser();
+  bindEvents();
+  initDefaults();
+  loadProjects();
+  startPolling();
+  setInterval(function () { if (App.curDevice) { ctxTick(); } }, 20000);
+}
+function initDefaults() {
+  var now = new Date();
+  var d1 = new Date(now.getTime() - 24 * 3600 * 1000);
+  $('ipt-d-end').value = toDT(now);
+  $('ipt-d-start').value = toDT(d1);
+  $('ipt-h-end').value = toDT(now);
+  $('ipt-h-start').value = toDT(d1);
+}
+function bindEvents() {
+  $('btn-logout').addEventListener('click', doLogout);
+  /* 顶栏：项目切换 / 设备切换 / 刷新 */
+  var topProj = $('topbar-project');
+  if (topProj) { topProj.addEventListener('change', onProjectChange); }
+  var topDev = $('topbar-device');
+  if (topDev) { topDev.addEventListener('change', onDeviceChange); }
+  var btnRefresh = $('btn-refresh');
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', function () {
+      btnRefresh.classList.add('spin');
+      reloadOverview();
+      setTimeout(function () { btnRefresh.classList.remove('spin'); }, 800);
+    });
+  }
+  $('btn-reload-ov').addEventListener('click', reloadOverview);
+  $('btn-poll').addEventListener('click', togglePoll);
+  $('btn-query-tags').addEventListener('click', function () { App.tagsPage = 1; queryTags(); });
+  $('btn-tag-latest').addEventListener('click', function () { App.tagsPage = 1; queryTags(true); });
+  $('btn-tag-prev').addEventListener('click', function () { if (App.tagsPage > 1) { App.tagsPage--; queryTags(); } });
+  $('btn-tag-next').addEventListener('click', function () { App.tagsPage++; queryTags(); });
+  /* 历史页时间快捷 */
+  document.querySelectorAll('[data-trange]').forEach(function (b) {
+    b.addEventListener('click', function () { setTagRange(b.getAttribute('data-trange')); });
+  });
+  $('btn-send').addEventListener('click', sendCmd);
+  /* 模板快捷按钮 */
+  document.querySelectorAll('.qk[data-payload]').forEach(function (b) {
+    b.addEventListener('click', function () { $('txt-payload').value = b.getAttribute('data-payload'); });
+  });
+  document.querySelectorAll('.qk[data-tag]').forEach(function (b) {
+    b.addEventListener('click', function () { $('ipt-tags').value = b.getAttribute('data-tag'); App.tagsPage = 1; queryTags(); });
+  });
+  document.querySelectorAll('[data-range]').forEach(function (b) {
+    b.addEventListener('click', function () { setHistoryRange(b.getAttribute('data-range')); });
+  });
+  $('btn-load-track').addEventListener('click', loadTrack);
+  /* tab 切换 */
+  $('tabbar').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-tab]');
+    if (!b) { return; }
+    switchTab(b.getAttribute('data-tab'));
+  });
+}
+function doLogout() {
+  Auth.clearLoginStorage();
+  toast('已退出登录');
+  setTimeout(function () {
+    if (Auth.isHostSession()) { location.reload(); return; }
+    location.href = Auth.appUrl('login.html');
+  }, 400);
+}
+function switchTab(tab) {
+  App.activeTab = tab;
+  document.querySelectorAll('#tabbar button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === tab); });
+  ['overview', 'data', 'control', 'track'].forEach(function (t) {
+    $('tab-' + t).classList.toggle('hide', t !== tab);
+  });
+  if (tab === 'data') { $('btn-tag-latest') && $('btn-tag-latest').click(); }
+  if (tab === 'data' && TAG_CHART) { requestAnimationFrame(function () { TAG_CHART.render(); }); }
+  if (tab === 'track') { requestAnimationFrame(function () { renderTrackSvg(); }); }
+}
+function togglePoll() {
+  App.pollOn = !App.pollOn;
+  $('btn-poll').querySelector('span').textContent = '自动刷新：' + (App.pollOn ? '开' : '关');
+  if (App.pollOn) { reloadOverview(); }
+}
+function startPolling() {
+  clearInterval(App.pollTimer);
+  App.pollTimer = setInterval(function () {
+    if (App.pollOn && App.curDevice && App.activeTab === 'overview' && !document.hidden) {
+      reloadOverview(true);
+    }
+  }, 15000);
+}
+
+/* ---------- 项目 & 设备 ---------- */
+function loadProjects() {
+  showFullMask('加载项目…');
+  request('/list_my_projects', {}).then(function (value) {
+    hideFullMask();
+    App.projects = Array.isArray(value) ? value : [];
+    var sel = $('topbar-project');
+    sel.innerHTML = '';
+    if (!App.projects.length) {
+      var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '暂无项目'; sel.appendChild(o0);
+      fillDeviceSelect([], '当前账号下没有项目');
+      return Promise.resolve('');
+    }
+    App.projects.forEach(function (p, i) {
+      var op = document.createElement('option');
+      op.value = p.project_key;
+      op.textContent = (p.name || ('项目' + i)) + '（' + p.project_key + '）';
+      sel.appendChild(op);
+    });
+    return request('/get_my_default_project_key', {}).catch(function () { return ''; });
+  }).then(function (dk) {
+    var sel = $('topbar-project');
+    if (dk && App.projects.some(function (p) { return p.project_key === dk; })) {
+      sel.value = dk;
+    }
+    onProjectChange();
+  }).catch(function (err) {
+    hideFullMask();
+    if (handleAuthError(err)) { return; }
+    toast(err.message || '加载项目失败', 'err');
+    var sel = $('topbar-project');
+    sel.innerHTML = '<option value="">项目加载失败</option>';
+    fillDeviceSelect([], '项目加载失败：' + esc(err.message));
+  });
+}
+function onProjectChange() {
+  App.curProject = $('topbar-project').value || '';
+  App.curDevice = '';
+  App.latest = null;
+  App.devPage = 1;
+  fillCtxBar();
+  /* 拉设备列表填充设备选择器 */
+  loadDevicesForSelect();
+}
+function onDeviceChange() {
+  var sel = $('topbar-device');
+  var imei = sel.value || '';
+  App.curDevice = imei;
+  App.latest = null;
+  var sendIpt = $('ipt-send-imei'); if (sendIpt) { sendIpt.value = imei; }
+  fillCtxBar();
+  if (imei) {
+    toast('已选择设备 ' + imei, 'ok');
+    reloadOverview();
+  }
+}
+function loadDevicesForSelect() {
+  var sel = $('topbar-device');
+  if (!sel) { return Promise.resolve(); }
+  if (!App.curProject) { fillDeviceSelect([], '请先选择项目'); return Promise.resolve(); }
+  sel.innerHTML = '<option value="">加载设备中…</option>';
+  return request('/list_my_devices', { project: App.curProject, page: 1, size: 200 }).then(function (value) {
+    var records = (value && value.records) || [];
+    App.devices = records;
+    App.devTotal = value ? Number(value.total || records.length) : records.length;
+    if (!records.length) { fillDeviceSelect([], '当前项目下暂无设备'); return; }
+    fillDeviceSelect(records, '');
+  }).catch(function (err) {
+    if (handleAuthError(err)) { return; }
+    fillDeviceSelect([], '设备加载失败：' + esc(err.message || '未知错误'));
+  });
+}
+function fillDeviceSelect(records, msg) {
+  var sel = $('topbar-device');
+  if (!sel) { return; }
+  sel.innerHTML = '';
+  if (!records.length) {
+    var o = document.createElement('option'); o.value = ''; o.textContent = msg || '暂无设备'; sel.appendChild(o);
+    return;
+  }
+  var head = document.createElement('option'); head.value = ''; head.textContent = '请选择设备…'; sel.appendChild(head);
+  records.forEach(function (d, i) {
+    var op = document.createElement('option');
+    op.value = d.deviceid || d.imei || '';
+    var label = d.name || ('设备' + (i + 1));
+    op.textContent = label + '（' + (d.deviceid || d.imei || '-') + '）';
+    sel.appendChild(op);
+  });
+}
+
+/* ---------- 总览：latest_location ---------- */
+function reloadOverview(silent) {
+  if (!App.curDevice) {
+    if (!silent) {
+      $('ov-cards').innerHTML = '<div style="grid-column:1/-1" class="empty-box">请先在顶栏选择设备（IMEI）</div>';
+      $('ov-addr').textContent = '';
+    }
+    return;
+  }
+  if (!silent) {
+    $('ov-cards').innerHTML = '<div style="grid-column:1/-1;display:flex;justify-content:center;padding:24px"><div class="spinner"></div></div>';
+    setCtxDot('wait');
+  }
+  request('/aircloud/latest_location', { client_id: App.curDevice }).then(function (loc) {
+    App.latest = loc || null;
+    ctxTick();
+    renderOverview(loc);
+    markUpdTime();
+  }).catch(function (err) {
+    if (handleAuthError(err)) { return; }
+    if (!silent) {
+      $('ov-cards').innerHTML = '<div style="grid-column:1/-1;color:var(--err);font-size:13px;text-align:center;padding:20px">' + esc(err.message || '获取失败') + '</div>';
+    }
+  });
+}
+function markUpdTime() {
+  var el = $('upd-time'); if (!el) { return; }
+  var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+  el.textContent = '更新于 ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+function renderOverview(loc) {
+  var cards = $('ov-cards');
+  cards.innerHTML = '';
+  if (!loc) {
+    cards.innerHTML = '<div style="grid-column:1/-1" class="empty-box">暂无数据（设备可能尚未上报位置）</div>';
+    $('ov-addr').textContent = '';
+    return;
+  }
+  var online = true;
+  var live = 0;
+  var now = new Date();
+  var t = new Date(String(loc.time).replace(' ', 'T'));
+  if (!isNaN(t.getTime())) { live = Math.floor((now.getTime() - t.getTime()) / 60000); }
+  online = !isNaN(t.getTime()) && live <= 30;
+  var items = [
+    { cls: 'running',   lb: '电量',     v: loc.percent != null ? loc.percent : '--', s: '%',  f: '设备上报电量' },
+    { cls: 'brand',     lb: '信号',     v: loc.signal != null ? loc.signal : '--',   s: '',   f: '设备信号强度' },
+    { cls: 'protection',lb: '上报时间', v: fmtTime(loc.time),                        s: '',   f: live >= 0 && !isNaN(t.getTime()) ? (live < 1 ? '刚刚' : live + ' 分钟前') : '' },
+    { cls: online ? 'running' : 'fault', lb: '在线判定', v: online ? '在线' : '离线/延迟', s: '', f: '按最近上报时间判断' }
+  ];
+  items.forEach(function (it) {
+    var card = document.createElement('div'); card.className = 'stat ' + (it.cls || 'brand');
+    card.innerHTML = '<div class="lb"><i></i>' + esc(it.lb) + '</div><div class="vl"></div><div class="ft"></div>';
+    card.querySelector('.vl').textContent = it.v;
+    if (it.s) { var sm = document.createElement('small'); sm.textContent = it.s; card.querySelector('.vl').appendChild(sm); }
+    card.querySelector('.ft').textContent = it.f;
+    cards.appendChild(card);
+  });
+  var addr = $('ov-addr');
+  var lngLat = '';
+  if (loc.lng !== undefined && loc.lat !== undefined) {
+    lngLat = '国测局02：' + Number(loc.lng).toFixed(6) + ' , ' + Number(loc.lat).toFixed(6) +
+      '　|　WGS84：' + (loc.wlng !== undefined ? Number(loc.wlng).toFixed(6) : '--') +
+      ' , ' + (loc.wlat !== undefined ? Number(loc.wlat).toFixed(6) : '--');
+  }
+  addr.innerHTML =
+    '<div class="addr-row"><i class="ic ic-track"></i><span>地址：' + esc(loc.address || '暂无位置描述') + '</span></div>' +
+    (lngLat ? '<div class="addr-row mono" style="padding-left:2px">' + lngLat + '</div>' : '') +
+    '<div class="addr-row meta">设备：' + esc(loc.deviceid || App.curDevice) + '　·　数据 id：' + esc(loc.id || '--') + '</div>';
+  addr.style.whiteSpace = 'normal';
+}
+
+/* ---------- 历史数据 list_by_tags ---------- */
+function setTagRange(range) {
+  var now = new Date();
+  var start = new Date(now);
+  if (range === '1h') { start.setHours(now.getHours() - 1); }
+  else if (range === '6h') { start.setHours(now.getHours() - 6); }
+  else { start.setDate(now.getDate() - 1); }
+  $('ipt-d-start').value = toDT(start);
+  $('ipt-d-end').value = toDT(now);
+  document.querySelectorAll('#seg-tag-range button').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-trange') === range);
+  });
+}
+function queryTags(isLatest) {
+  var tagsRaw = $('ipt-tags').value.trim();
+  var tags = tagsRaw ? tagsRaw.split(/[,，\s]+/).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return !isNaN(x) && x > 0; }) : [];
+  if (!tags.length) { toast('请填写有效 Tag', 'warn'); return; }
+  if (!App.curDevice) { toast('请先选择设备', 'warn'); return; }
+  var body = { client_id: App.curDevice, tags: tags, page: App.tagsPage, size: App.tagsSize };
+  if (!isLatest) {
+    var s = $('ipt-d-start').value, e = $('ipt-d-end').value;
+    if (s && e) {
+      body.filter = { aks: ['ct', 'ct'], acs: ['ge', 'le'], avs: [s.replace('T', ' ') + ':00', e.replace('T', ' ') + ':59'] };
+    }
+  }
+  $('tag-table').innerHTML = '<tr><td style="padding:24px;text-align:center;color:#7d8ea3">查询中…</td></tr>';
+  request('/aircloud/list_by_tags', body).then(function (value) {
+    var records = (value && value.records) || [];
+    App.tagsTotal = value ? Number(value.total || 0) : 0;
+    renderTagTable(records, tags);
+    renderTagChart(records, tags);
+    $('tag-pageinfo').textContent = '共 ' + App.tagsTotal + ' 条 · 第 ' + App.tagsPage + ' 页';
+  }).catch(function (err) {
+    if (handleAuthError(err)) { return; }
+    $('tag-table').innerHTML = '<tr><td style="padding:24px;text-align:center;color:#e5493b">' + esc(err.message || '查询失败') + '</td></tr>';
+  });
+}
+function renderTagTable(records, tags) {
+  var tbl = $('tag-table');
+  tbl.innerHTML = '';
+  if (!records.length) {
+    tbl.innerHTML = '<tr><td style="padding:24px;text-align:center;color:#7d8ea3">该时间段暂无记录</td></tr>';
+    return;
+  }
+  var head = '<tr><th>时间 ct</th><th>设备</th><th>协议</th><th>sn</th>';
+  tags.forEach(function (t) { head += '<th>val_' + t + '</th>'; });
+  head += '<th>原始报文</th></tr>';
+  var bodyHtml = '';
+  records.forEach(function (r) {
+    bodyHtml += '<tr><td class="num">' + fmtTime(r.ct) + '</td><td class="mono">' + esc(r.client) + '</td><td>' + esc(r.protocol) + '</td><td>' + esc(r.sn) + '</td>';
+    tags.forEach(function (t) {
+      var v = r['val_' + t];
+      bodyHtml += '<td class="num">' + (v === undefined || v === null ? '--' : esc(typeof v === 'object' ? JSON.stringify(v) : v)) + '</td>';
+    });
+    bodyHtml += '<td class="mono" style="color:#46586e">' + esc(r.val_hex || '') + '</td></tr>';
+  });
+  tbl.innerHTML = '<thead>' + head + '</thead><tbody>' + bodyHtml + '</tbody>';
+}
+
+/* ---------- 设备上下文条 ---------- */
+function ageText(tsMs) {
+  if (!tsMs) { return ''; }
+  var diff = Date.now() - tsMs;
+  if (diff < 60000) { return '刚刚上报'; }
+  var m = Math.floor(diff / 60000);
+  if (m < 60) { return m + ' 分钟前上报'; }
+  var h = Math.floor(m / 60);
+  if (h < 24) { return h + ' 小时前上报'; }
+  return Math.floor(h / 24) + ' 天前上报';
+}
+function setCtxDot(mode) {
+  var d = $('ctx-dot'); if (!d) { return; }
+  d.className = 'st-dot ' + (mode || 'none');
+}
+function fillCtxBar() {
+  var bar = $('ctx-bar'); if (!bar) { return; }
+  if (!App.curDevice) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  $('ctx-imei').textContent = App.curDevice;
+  var pj = null;
+  (App.projects || []).forEach(function (p) { if (p.project_key === App.curProject) { pj = p; } });
+  var pt = $('ctx-project');
+  if (pj && (pj.name || pj.project_key)) {
+    pt.style.display = '';
+    pt.textContent = pj.name || pj.project_key;
+  } else { pt.style.display = 'none'; }
+  ctxTick(true);
+}
+function ctxTick() {
+  if (!App.curDevice) { return; }
+  var ageEl = $('ctx-age'), posEl = $('ctx-pos'), addrEl = $('ctx-addr');
+  if (!ageEl) { return; }
+  var loc = App.latest;
+  if (!loc) {
+    setCtxDot('none');
+    ageEl.textContent = '暂无上报数据';
+    posEl.textContent = '';
+    if (addrEl) { addrEl.style.display = 'none'; }
+    return;
+  }
+  var t = new Date(String(loc.time || '').replace(' ', 'T'));
+  var ts = isNaN(t.getTime()) ? 0 : t.getTime();
+  var live = ts ? Math.floor((Date.now() - ts) / 60000) : Infinity;
+  var online = !!(ts && live <= 30);
+  setCtxDot(online ? 'on' : 'off');
+  ageEl.textContent = ts ? ageText(ts) : '时间未知';
+  var geo = '';
+  if (loc.lng !== undefined && loc.lat !== undefined) {
+    geo = Number(loc.lng).toFixed(5) + ', ' + Number(loc.lat).toFixed(5);
+  }
+  posEl.textContent = geo;
+  if (addrEl) {
+    var txt = loc.address || '';
+    if (txt) { addrEl.style.display = 'flex'; addrEl.querySelector('span').textContent = txt; }
+    else { addrEl.style.display = 'none'; }
+  }
+}
+
+/* ---------- LightChart：零依赖 canvas 折线图 ---------- */
+var TAG_PALETTE = ['#6366f1', '#8b5cf6', '#f5a623', '#10b981', '#ef4444', '#ec4899', '#64748b', '#0ea5e9'];
+var TAG_NAMES = { 512: '经度', 513: '纬度' };
+function tagLabel(t) { return (TAG_NAMES[t] !== undefined) ? ('Tag ' + t + ' ' + TAG_NAMES[t]) : ('Tag ' + t); }
+
+function LightChart(canvas, wrap, tip) {
+  this.canvas = canvas; this.wrap = wrap; this.tip = tip;
+  this.ctx = canvas.getContext('2d');
+  this.series = [];
+  this.vis = {};
+  this.hoverIdx = -1;
+  var self = this;
+  wrap.addEventListener('mousemove', function (e) { self._onMove(e); });
+  wrap.addEventListener('mouseleave', function () { self.hoverIdx = -1; self._hideTip(); self.render(); });
+  wrap.addEventListener('touchstart', function (e) { self._onMove(e.changedTouches[0]); }, { passive: true });
+  wrap.addEventListener('touchmove', function (e) { self._onMove(e.changedTouches[0]); }, { passive: true });
+}
+LightChart.prototype.setSeries = function (series) { this.series = series; this.vis = {}; series.forEach(function (s) { this.vis[s.name] = true; }, this); };
+LightChart.prototype.toggle = function (name) { if (this.vis[name] === undefined) { return; } this.vis[name] = !this.vis[name]; this.render(); };
+LightChart.prototype._showEmpty = function (msg) {
+  var wrap = this.wrap;
+  wrap.querySelectorAll('.chart-empty').forEach(function (el) { el.remove(); });
+  var d = document.createElement('div'); d.className = 'chart-empty';
+  d.innerHTML = '<div style="text-align:center"><div class="empty-ill"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 19V9M9.5 19V5M15 19v-8M20.5 19V3"/></svg></div>' + msg + '</div>';
+  wrap.appendChild(d); this._hideTip();
+};
+LightChart.prototype._clearEmpty = function () { this.wrap.querySelectorAll('.chart-empty').forEach(function (el) { el.remove(); }); };
+LightChart.prototype.render = function () {
+  var self = this, w = this.wrap.clientWidth, h = this.wrap.clientHeight;
+  if (!w || !h) { return; }
+  this._clearEmpty();
+  var dpr = window.devicePixelRatio || 1;
+  this.canvas.width = Math.round(w * dpr); this.canvas.height = Math.round(h * dpr);
+  this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
+  var g = this.ctx; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  var vis = this.series.filter(function (s) { return self.vis[s.name]; });
+  if (!this.series.length) { return; }
+  if (!vis.length) { g.fillStyle = '#7d8ea3'; g.font = '13px sans-serif'; g.textAlign = 'center'; g.fillText('所有序列均已隐藏，点击图例恢复', w / 2, h / 2); return; }
+  var minX = Infinity, maxX = -Infinity;
+  vis.forEach(function (s) { s.pts.forEach(function (p) { if (p.x < minX) { minX = p.x; } if (p.x > maxX) { maxX = p.x; } }); });
+  if (!isFinite(minX) || minX === maxX) { maxX = minX + 1; }
+  var drawn = [];
+  vis.forEach(function (s) {
+    var lo = Infinity, hi = -Infinity;
+    s.pts.forEach(function (p) { if (p.y < lo) { lo = p.y; } if (p.y > hi) { hi = p.y; } });
+    if (!isFinite(lo) || lo === hi) { var p2 = Math.abs(lo) * .05 || 1; lo -= p2; hi += p2; }
+    else { var pad = (hi - lo) * .08 || (Math.abs(hi) * .02) || 1; lo -= pad; hi += pad; }
+    drawn.push({ series: s, lo: lo, hi: hi });
+  });
+  var padL = 56, padR = 14, padT = 12, padB = 24;
+  var pw = w - padL - padR, ph = h - padT - padB;
+  var X = function (x) { return padL + (x - minX) / (maxX - minX) * pw; };
+  var Ynorm = function (y, lo, hi) { return padT + ph - (y - lo) / (hi - lo) * ph; };
+  var primary = drawn[0]; var pLo = primary.lo, pHi = primary.hi;
+  var span = maxX - minX;
+  var nY = Math.max(2, Math.floor(ph / 46));
+  var yStep = this._niceStep((pHi - pLo) / nY);
+  var y0 = Math.ceil(pLo / yStep) * yStep;
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  for (var yv = y0; yv <= pHi + yStep * .01; yv += yStep) {
+    var yy = Ynorm(yv, pLo, pHi);
+    if (yy < padT - 1 || yy > padT + ph + 1) { continue; }
+    g.strokeStyle = '#eef2f7'; g.lineWidth = 1; g.beginPath(); g.moveTo(padL, yy); g.lineTo(padL + pw, yy); g.stroke();
+    g.fillStyle = '#7d8ea3'; g.font = '11px sans-serif'; g.fillText(this._fmtNum(yv), padL - 8, yy);
+  }
+  var nX = Math.max(2, Math.floor(pw / 90));
+  var xStep = this._niceTime(span / nX);
+  var x0 = Math.ceil(minX / xStep) * xStep;
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  var sameDay = new Date(minX).toDateString() === new Date(maxX).toDateString();
+  for (var xv = x0; xv <= maxX; xv += xStep) {
+    var xx = X(xv);
+    g.fillStyle = '#7d8ea3'; g.font = '11px sans-serif'; g.fillText(this._fmtTime(xv, span, sameDay), xx, padT + ph + 7);
+  }
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  drawn.forEach(function (d) {
+    var s = d.series; var lo = d.lo, hi = d.hi;
+    if (s.pts.length < 2) { return; }
+    g.strokeStyle = s.color; g.lineWidth = 2; g.beginPath();
+    s.pts.forEach(function (p, i) { var px = X(p.x), py = Ynorm(p.y, lo, hi); if (i === 0) { g.moveTo(px, py); } else { g.lineTo(px, py); } });
+    g.stroke();
+    if (s.pts.length <= 40) {
+      s.pts.forEach(function (p) { g.fillStyle = s.color; g.beginPath(); g.arc(X(p.x), Ynorm(p.y, lo, hi), 2.4, 0, Math.PI * 2); g.fill(); });
+    }
+  });
+  var hov = this.hoverIdx;
+  if (hov >= 0 && hov < vis.length) {
+    var ref = vis[hov]; var near = this._nearestPt(ref.pts, this._mouseX);
+    if (near) {
+      g.strokeStyle = '#b9c9dd'; g.setLineDash([4, 4]); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(X(near.p.x), padT); g.lineTo(X(near.p.x), padT + ph); g.stroke(); g.setLineDash([]);
+      vis.forEach(function (s) {
+        var d2 = drawn.find(function (x) { return x.series === s; }); if (!d2) { return; }
+        var np = self._nearestPt(s.pts, near.p.x); if (!np) { return; }
+        g.fillStyle = s.color; g.beginPath(); g.arc(X(np.p.x), Ynorm(np.p.y, d2.lo, d2.hi), 3.6, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#fff'; g.lineWidth = 1.4; g.stroke();
+      });
+    }
+  }
+};
+LightChart.prototype._niceStep = function (raw) { var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)); var n = raw / mag; var f = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10; return f * mag; };
+LightChart.prototype._niceTime = function (raw) {
+  var steps = [1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000, 900000, 1800000, 3600000, 7200000, 10800000, 21600000, 43200000, 86400000, 172800000, 604800000];
+  for (var i = 0; i < steps.length; i++) { if (steps[i] >= raw) { return steps[i]; } }
+  return Math.ceil(raw / 604800000) * 604800000;
+};
+LightChart.prototype._nearestPt = function (pts, x) { if (!pts || !pts.length) { return null; } var best = null, bd = Infinity; pts.forEach(function (p) { var d = Math.abs(p.x - x); if (d < bd) { bd = d; best = { p: p, d: d }; } }); return best; };
+LightChart.prototype._fmtNum = function (v) {
+  var a = Math.abs(v);
+  if (a >= 1e8) { return (v / 1e6).toFixed(0) + 'M'; }
+  if (a >= 1e5) { return (v / 1e3).toFixed(0) + 'k'; }
+  if (a >= 1e4) { return (v / 1e3).toFixed(1) + 'k'; }
+  if (v === Math.floor(v)) { return String(v); }
+  return String(Math.round(v * 1000) / 1000);
+};
+LightChart.prototype._fmtTime = function (t, span, sameDay) {
+  var d = new Date(t), p = function (n) { return (n < 10 ? '0' : '') + n; };
+  var hm = p(d.getHours()) + ':' + p(d.getMinutes());
+  if (!sameDay || span >= 86400000) { return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + hm; }
+  return hm;
+};
+LightChart.prototype._onMove = function (e) {
+  var r = this.wrap.getBoundingClientRect();
+  var x = e.clientX - r.left, y = e.clientY - r.top; this._mouseX = x;
+  var w = this.wrap.clientWidth, h = this.wrap.clientHeight;
+  if (x < 0 || y < 0 || x > w || y > h) { this.hoverIdx = -1; this._hideTip(); this.render(); return; }
+  var padL = 54, padR = 14, padT = 12, padB = 24;
+  var pw = w - padL - padR, ph = h - padT - padB;
+  if (x < padL || x > w - padR || y < padT || y > padT + ph) { this.hoverIdx = -1; this._hideTip(); this.render(); return; }
+  var self = this, vis = this.series.filter(function (s) { return self.vis[s.name]; });
+  var minX = Infinity, maxX = -Infinity;
+  vis.forEach(function (s) { s.pts.forEach(function (p) { if (p.x < minX) { minX = p.x; } if (p.x > maxX) { maxX = p.x; } }); });
+  var t = minX + (x - padL) / (pw || 1) * (maxX - minX);
+  var bestSeq = 0, bd = Infinity;
+  vis.forEach(function (s, i) { var np = self._nearestPt(s.pts, t); if (np && np.d < bd) { bd = np.d; bestSeq = i; } });
+  this.hoverIdx = bestSeq; this._showTip(vis[bestSeq], t, x, y); this.render();
+};
+LightChart.prototype._showTip = function (seq, t, mx, my) {
+  var self = this, tip = this.tip; if (!tip) { return; }
+  var rows = [];
+  var vis = this.series.filter(function (s) { return self.vis[s.name]; });
+  var span = (function () { var a = Infinity, b = -Infinity; vis.forEach(function (s) { s.pts.forEach(function (p) { if (p.x < a) { a = p.x; } if (p.x > b) { b = p.x; } }); }); return b - a; })();
+  vis.forEach(function (s) {
+    var np = self._nearestPt(s.pts, t); if (!np) { return; }
+    var d = new Date(np.p.x), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    var hm = p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    rows.push('<div><i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + s.color + ';margin-right:6px"></i><b>' + s.name + '</b>　' + np.p.y + ' <span style="opacity:.65">@ ' + hm + '</span></div>');
+  });
+  if (!rows.length) { return; }
+  tip.innerHTML = rows.join(''); tip.style.display = 'block';
+  var tw = tip.offsetWidth, th = tip.offsetHeight;
+  var w = this.wrap.clientWidth;
+  var lx = mx + 14, ly = my - th - 10;
+  if (lx + tw > w - 6) { lx = mx - tw - 14; }
+  if (ly < 6) { ly = my + 16; }
+  tip.style.left = lx + 'px'; tip.style.top = ly + 'px';
+};
+LightChart.prototype._hideTip = function () { if (this.tip) { this.tip.style.display = 'none'; } };
+
+/* ---------- 历史图表渲染 ---------- */
+var TAG_CHART = null;
+function ensureChart() {
+  if (TAG_CHART) { return TAG_CHART; }
+  var c = $('tag-chart'), w = $('tag-chart-wrap');
+  if (!c || !w) { return null; }
+  TAG_CHART = new LightChart(c, w, $('tag-chart-tip'));
+  return TAG_CHART;
+}
+function renderTagChart(records, tags) {
+  var chart = ensureChart(); if (!chart) { return; }
+  var leg = $('tag-chart-leg'); if (leg) { leg.innerHTML = ''; }
+  chart.setSeries([]); chart.render();
+  if (!records || !records.length) { chart._showEmpty('该时间段暂无记录'); return; }
+  var series = [];
+  tags.forEach(function (t) {
+    var pts = [];
+    records.forEach(function (r) {
+      var v = r['val_' + t]; if (v === undefined || v === null) { return; }
+      var n = Number(v); if (isNaN(n)) { return; }
+      var ts = Date.parse(String(r.ct || '').replace(' ', 'T'));
+      if (!isNaN(ts)) { pts.push({ x: ts, y: n }); }
+    });
+    if (pts.length) { series.push({ name: tagLabel(t), tag: t, pts: pts, color: TAG_PALETTE[series.length % TAG_PALETTE.length] }); }
+  });
+  if (!series.length) { chart._showEmpty('当前数据中没有可绘制的数值列（请选择数值型 Tag）'); return; }
+  chart.setSeries(series);
+  if (leg) {
+    series.forEach(function (s) {
+      var b = document.createElement('button');
+      b.innerHTML = '<i style="background:' + s.color + '"></i>' + s.name;
+      b.addEventListener('click', function () {
+        var off = chart.vis[s.name] === false;
+        chart.toggle(s.name); b.classList.toggle('off', !off);
+      });
+      leg.appendChild(b);
+    });
+  }
+  chart.render();
+  if (App.activeTab === 'data') { requestAnimationFrame(function () { chart.render(); }); }
+}
+
+/* ---------- 设备控制 send_cmd ---------- */
+function sendCmd() {
+  if (!App.curDevice) { toast('请先选择设备', 'warn'); return; }
+  var tag = parseInt($('sel-sendtag').value, 10);
+  var protocol = parseInt($('sel-protocol').value, 10);
+  var valueRaw = $('txt-payload').value.trim();
+  if (!valueRaw) { toast('请输入下发内容', 'warn'); return; }
+  var payload = valueRaw;
+  try { payload = JSON.parse(valueRaw); } catch (e) { /* 非 JSON 时按原文下发 */ }
+  var body = { client_id: App.curDevice, tag: tag, protocol: protocol, value: payload };
+  var btn = $('btn-send');
+  btn.disabled = true;
+  showFullMask('命令下发中…');
+  request('/aircloud/send_cmd', body).then(function (value) {
+    hideFullMask(); btn.disabled = false;
+    var msg = (typeof value === 'string' && value) ? value : '操作成功';
+    var badge = $('send-result');
+    badge.textContent = msg; badge.style.display = 'inline-flex';
+    setTimeout(function () { badge.style.display = 'none'; }, 3000);
+    addSendLog(tag, protocol, valueRaw, true, msg);
+    toast('下发成功', 'ok');
+  }).catch(function (err) {
+    hideFullMask(); btn.disabled = false;
+    if (handleAuthError(err)) { return; }
+    var badge = $('send-result');
+    badge.textContent = err.message || '下发失败'; badge.style.display = 'inline-flex';
+    setTimeout(function () { badge.style.display = 'none'; }, 4000);
+    addSendLog(tag, protocol, valueRaw, false, err.message);
+    toast('下发失败', 'err');
+  });
+}
+function addSendLog(tag, protocol, payload, ok, msg) {
+  var box = $('send-log');
+  if (box.querySelector('.empty-box')) { box.innerHTML = ''; }
+  var li = document.createElement('div');
+  li.className = 'li ' + (ok ? 'ok' : 'err');
+  var now = new Date();
+  li.innerHTML = '<span class="st">' + (ok ? '成功' : '失败') + '</span><div><div class="txt"></div></div>';
+  li.querySelector('.txt').textContent = '[' + fmtTime(toDT(now).replace('T', ' ') + ':00') + '] tag=' + tag + ' protocol=' + protocol + ' → ' + payload + (msg && !ok ? '（' + msg + '）' : '');
+  box.insertBefore(li, box.firstChild);
+  while (box.children.length > 10) { box.removeChild(box.lastChild); }
+}
+
+/* ---------- 位置轨迹：SVG 示意图 + 坐标地址列表（无第三方地图依赖） ---------- */
+var TRACK = { pts: [], last: null, addresses: [] };
+function setHistoryRange(range) {
+  var now = new Date();
+  var start = new Date(now);
+  if (range === '1h') { start.setHours(now.getHours() - 1); }
+  else if (range === '6h') { start.setHours(now.getHours() - 6); }
+  else { start.setDate(now.getDate() - 1); }
+  $('ipt-h-start').value = toDT(start);
+  $('ipt-h-end').value = toDT(now);
+}
+function loadTrack() {
+  if (!App.curDevice) { toast('请先选择设备', 'warn'); return; }
+  var s = $('ipt-h-start').value, e = $('ipt-h-end').value;
+  if (!s || !e) { toast('请选择时间范围', 'warn'); return; }
+  var btn = $('btn-load-track'); btn.disabled = true; btn.textContent = '加载中…';
+  var all = [];
+  var page = 1, size = 100;
+  var startTxt = s.replace('T', ' ') + ':00', endTxt = e.replace('T', ' ') + ':59';
+  function fetchPage() {
+    return request('/aircloud/location_history', { client_id: App.curDevice, start: startTxt, end: endTxt, page: page, size: size }).then(function (value) {
+      var recs = (value && value.records) || [];
+      all = all.concat(recs);
+      var pages = value ? Number(value.pages || 1) : 1;
+      page++;
+      if (page <= pages && all.length < 1200) { return fetchPage(); }
+      return all;
+    });
+  }
+  fetchPage().then(function (all) {
+    btn.disabled = false; btn.textContent = '加载轨迹';
+    TRACK.pts = all.map(function (r) {
+      var lng = r.lng, lat = r.lat;
+      return { lng: lng, lat: lat, time: r.time || r.ct || '', address: r.address || '', id: r.id || '' };
+    }).filter(function (p) { return typeof p.lng === 'number' && typeof p.lat === 'number'; });
+    TRACK.last = TRACK.pts.length ? TRACK.pts[TRACK.pts.length - 1] : null;
+    if (!TRACK.pts.length) { toast('该时间段暂无轨迹点', 'warn'); }
+    else { toast('已加载 ' + TRACK.pts.length + ' 个轨迹点', 'ok'); }
+    renderTrackSvg();
+    renderTrackTable();
+  }).catch(function (err) {
+    btn.disabled = false; btn.textContent = '加载轨迹';
+    if (handleAuthError(err)) { return; }
+    toast('轨迹加载失败：' + (err.message || '未知错误'), 'err');
+  });
+}
+function renderTrackSvg() {
+  var svg = $('track-svg'), empty = $('track-empty'), bounds = $('track-bounds');
+  if (!svg) { return; }
+  while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+  var pts = TRACK.pts || [];
+  if (!pts.length) {
+    if (empty) { empty.style.display = 'flex'; }
+    if (bounds) { bounds.textContent = '—'; }
+    return;
+  }
+  if (empty) { empty.style.display = 'none'; }
+  /* 计算经纬度范围 */
+  var minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  pts.forEach(function (p) {
+    if (p.lng < minLng) { minLng = p.lng; } if (p.lng > maxLng) { maxLng = p.lng; }
+    if (p.lat < minLat) { minLat = p.lat; } if (p.lat > maxLat) { maxLat = p.lat; }
+  });
+  /* 边界 padding */
+  var padLng = (maxLng - minLng) * 0.1 || 0.01;
+  var padLat = (maxLat - minLat) * 0.1 || 0.01;
+  if (maxLng - minLng < 1e-6) { minLng -= 0.005; maxLng += 0.005; padLng = 0.01; }
+  if (maxLat - minLat < 1e-6) { minLat -= 0.005; maxLat += 0.005; padLat = 0.01; }
+  minLng -= padLng; maxLng += padLng;
+  minLat -= padLat; maxLat += padLat;
+  if (bounds) {
+    bounds.innerHTML =
+      '经度 ' + pts[0].lng.toFixed(5) + ' ~ ' + pts[pts.length - 1].lng.toFixed(5) +
+      '<br>纬度 ' + pts[0].lat.toFixed(5) + ' ~ ' + pts[pts.length - 1].lat.toFixed(5) +
+      '<br>跨度 lng ' + (maxLng - minLng - 2 * padLng).toFixed(5) + ' / lat ' + (maxLat - minLat - 2 * padLat).toFixed(5);
+  }
+  var W = 800, H = 380, padL = 30, padR = 30, padT = 20, padB = 30;
+  var pw = W - padL - padR, ph = H - padT - padB;
+  function X(lng) { return padL + (lng - minLng) / (maxLng - minLng) * pw; }
+  /* 注意：纬度越北越大，但 SVG y 越下越大，所以翻转 */
+  function Y(lat) { return padT + (maxLat - lat) / (maxLat - minLat) * ph; }
+  var NS = 'http://www.w3.org/2000/svg';
+  /* 网格线 */
+  for (var i = 0; i <= 5; i++) {
+    var yy = padT + (i / 5) * ph;
+    var line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', padL); line.setAttribute('x2', padL + pw);
+    line.setAttribute('y1', yy); line.setAttribute('y2', yy);
+    line.setAttribute('stroke', '#e5e7eb'); line.setAttribute('stroke-width', '1');
+    line.setAttribute('stroke-dasharray', '2,3'); svg.appendChild(line);
+  }
+  for (var j = 0; j <= 6; j++) {
+    var xx = padL + (j / 6) * pw;
+    var line2 = document.createElementNS(NS, 'line');
+    line2.setAttribute('x1', xx); line2.setAttribute('x2', xx);
+    line2.setAttribute('y1', padT); line2.setAttribute('y2', padT + ph);
+    line2.setAttribute('stroke', '#e5e7eb'); line2.setAttribute('stroke-width', '1');
+    line2.setAttribute('stroke-dasharray', '2,3'); svg.appendChild(line2);
+  }
+  /* 轨迹连线 */
+  if (pts.length >= 2) {
+    var poly = document.createElementNS(NS, 'polyline');
+    var pointsStr = pts.map(function (p) { return X(p.lng) + ',' + Y(p.lat); }).join(' ');
+    poly.setAttribute('points', pointsStr);
+    poly.setAttribute('fill', 'none');
+    poly.setAttribute('stroke', '#6366f1'); poly.setAttribute('stroke-width', '2.2');
+    poly.setAttribute('stroke-linejoin', 'round'); poly.setAttribute('stroke-linecap', 'round');
+    poly.setAttribute('opacity', '0.9');
+    svg.appendChild(poly);
+  }
+  /* 轨迹点（限制渲染数量避免卡顿） */
+  var maxRender = Math.min(pts.length, 200);
+  var step = pts.length > maxRender ? Math.ceil(pts.length / maxRender) : 1;
+  for (var k = 0; k < pts.length; k += step) {
+    var p = pts[k];
+    var c = document.createElementNS(NS, 'circle');
+    c.setAttribute('cx', X(p.lng)); c.setAttribute('cy', Y(p.lat));
+    c.setAttribute('r', '2.6'); c.setAttribute('fill', '#6366f1'); c.setAttribute('opacity', '0.7');
+    svg.appendChild(c);
+  }
+  /* 起点 */
+  var start = pts[0];
+  var startG = document.createElementNS(NS, 'g');
+  var startC = document.createElementNS(NS, 'circle');
+  startC.setAttribute('cx', X(start.lng)); startC.setAttribute('cy', Y(start.lat));
+  startC.setAttribute('r', '8'); startC.setAttribute('fill', '#10b981');
+  startC.setAttribute('stroke', '#fff'); startC.setAttribute('stroke-width', '2');
+  startG.appendChild(startC);
+  var startT = document.createElementNS(NS, 'text');
+  startT.setAttribute('x', X(start.lng)); startT.setAttribute('y', Y(start.lat) - 12);
+  startT.setAttribute('text-anchor', 'middle'); startT.setAttribute('font-size', '11');
+  startT.setAttribute('fill', '#0d8e57'); startT.setAttribute('font-weight', '600');
+  startT.textContent = '起点 ' + fmtTime(start.time).slice(11, 16);
+  startG.appendChild(startT);
+  svg.appendChild(startG);
+  /* 终点 */
+  var end = pts[pts.length - 1];
+  if (end !== start) {
+    var endG = document.createElementNS(NS, 'g');
+    var endC = document.createElementNS(NS, 'circle');
+    endC.setAttribute('cx', X(end.lng)); endC.setAttribute('cy', Y(end.lat));
+    endC.setAttribute('r', '8'); endC.setAttribute('fill', '#ef4444');
+    endC.setAttribute('stroke', '#fff'); endC.setAttribute('stroke-width', '2');
+    endG.appendChild(endC);
+    var endT = document.createElementNS(NS, 'text');
+    endT.setAttribute('x', X(end.lng)); endT.setAttribute('y', Y(end.lat) - 12);
+    endT.setAttribute('text-anchor', 'middle'); endT.setAttribute('font-size', '11');
+    endT.setAttribute('fill', '#b42318'); endT.setAttribute('font-weight', '600');
+    endT.textContent = '终点 ' + fmtTime(end.time).slice(11, 16);
+    endG.appendChild(endT);
+    svg.appendChild(endG);
+  }
+  /* 边框 */
+  var rect = document.createElementNS(NS, 'rect');
+  rect.setAttribute('x', padL); rect.setAttribute('y', padT);
+  rect.setAttribute('width', pw); rect.setAttribute('height', ph);
+  rect.setAttribute('fill', 'none'); rect.setAttribute('stroke', '#dfe3eb'); rect.setAttribute('stroke-width', '1');
+  svg.appendChild(rect);
+}
+function renderTrackTable() {
+  var tbl = $('track-table'), info = $('track-list-info');
+  if (!tbl) { return; }
+  var pts = TRACK.pts || [];
+  if (info) { info.textContent = '共 ' + pts.length + ' 个点'; }
+  if (!pts.length) {
+    tbl.innerHTML = '<tr><td style="padding:24px;text-align:center;color:#7d8ea3">该时间段暂无轨迹点</td></tr>';
+    return;
+  }
+  /* 倒序：终点在前 */
+  var sorted = pts.slice().reverse();
+  var head = '<tr><th>序号</th><th>时间</th><th>经度 lng</th><th>纬度 lat</th><th>地址</th></tr>';
+  var body = '';
+  sorted.forEach(function (p, i) {
+    body += '<tr><td class="num">' + (pts.length - i) + '</td>' +
+      '<td class="num">' + esc(fmtTime(p.time)) + '</td>' +
+      '<td class="num mono">' + p.lng.toFixed(6) + '</td>' +
+      '<td class="num mono">' + p.lat.toFixed(6) + '</td>' +
+      '<td>' + esc(p.address || '—') + '</td></tr>';
+  });
+  tbl.innerHTML = '<thead>' + head + '</thead><tbody>' + body + '</tbody>';
+}
+
+/* ===== 启动 ===== */
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

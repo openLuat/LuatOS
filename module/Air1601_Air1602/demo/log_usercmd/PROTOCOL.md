@@ -4,8 +4,8 @@
 协议具备：**版本号、命令序号、滑动窗口 + 逐片确认 + 自动重传、分片大小协商、open/read/write/close 文件模型、
 可选 HMAC 挑战应答鉴权、挂载点枚举（LSMOUNT）、文件系统空间查询（FSSTAT）**。
 
-- 下行（PC→设备）：0xA5 帧，`cmd = SOC_CMD_USER_CMD(19)`，`address` 置 0，payload 为本协议帧
-- 上行（设备→PC）：同样以 0xA5 帧发出，`cmd = SOC_CMD_USER_CMD(19)`，`address` 置 0，payload 为本协议帧。
+- 下行（PC→设备）：0xA5 帧，`cmd = SOC_CMD_USER_CMD(20)`，`address` 置 0，payload 为本协议帧
+- 上行（设备→PC）：同样以 0xA5 帧发出，`cmd = SOC_CMD_USER_CMD(20)`，`address` 置 0，payload 为本协议帧。
   设备端经 `log.usercmd_write` 发送，走**独占命令帧**通道（`cmd != 0`），不占用日志显示/打印窗
 - 多字节一律小端（LE）
 
@@ -23,7 +23,9 @@
 
 A5 传输层：`0xA5` + 转义后的（24 字节 SOC 帧头 + payload + 2 字节 CRC16-LE）+ `0xA5`。
 SOC 帧头为设备端 `soc_cmd_head_t`（`ms:u64 + address:u32 + len:u32 + cmd:u32 + sn:u16 + type:u8 + cpu:u8`），
-日志口以 `cmd != 0` 判定命令帧（不打印），`cmd == 0` 为普通日志帧。本协议上下行 `cmd` 均为 19。
+日志口以 `cmd != 0` 判定命令帧（不打印），`cmd == 0` 为普通日志帧。本协议上下行 `cmd` 均为 20。
+（历史：2026-09-17 同步主干时，`SOC_CMD_USER_CMD` 与主干新增的 `SOC_CMD_LOG_RELOAD` 撞值 19，
+按"主干优先"把本协议后移为 20；主机库与固件必须成对升级。）
 
 回应帧回显请求的 seq。除 HELLO 外的请求 seq 由 host 单调分配；设备不主动发帧。
 

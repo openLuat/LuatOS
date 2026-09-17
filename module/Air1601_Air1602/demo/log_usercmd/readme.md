@@ -5,7 +5,7 @@
 open/read/write/close 文件模型、lsdir 路径+数量+偏移翻页、**可选 HMAC 挑战应答鉴权（AUTH）**、
 **挂载点枚举（LSMOUNT）**、**文件系统空间查询（FSSTAT）**。
 
-V2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(19)`）承载，上行帧不再混入日志流。
+V2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(20)`）承载，上行帧不再混入日志流。
 
 ## 上位机默认参数（都是实测调出来的，改动前请先看 PROTOCOL.md §5.3/§6）
 
@@ -42,7 +42,7 @@ V2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(19
 
 ## 固件要求
 
-上下行均为 A5 命令帧（`cmd = SOC_CMD_USER_CMD(19)`），上行不占用日志流；设备端由固件 C 的
+上下行均为 A5 命令帧（`cmd = SOC_CMD_USER_CMD(20)`），上行不占用日志流；设备端由固件 C 的
 `luat_log_user_cmd_write()` 发送（ccm42xx 端口映射到 `soc_cmd_response`）。
 
 下行单帧大小受固件 `am_log.c` 的 `rx_cache1/rx_cache2` 限制，经 HELLO 协商分片大小：

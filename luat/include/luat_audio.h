@@ -151,7 +151,7 @@ luat_record_ctrl_t *luat_audio_get_record_config(uint8_t multimedia_id);
 
 int luat_audio_record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param);
 int luat_audio_record_cb_default(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param);
-void luat_audio_record_set_callback(luat_audio_record_cb_t* cb);
+void luat_audio_record_set_callback(luat_audio_record_cb_t cb);
 
 #endif
 

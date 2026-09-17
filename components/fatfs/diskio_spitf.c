@@ -20,7 +20,7 @@
 #ifdef __LUATOS__
 #include "c_common.h"
 #else
-#if defined(LUAT_EC7XX_CSDK) || defined(CHIP_EC618)
+#if defined(LUAT_EC7XX_CSDK) || defined(CHIP_EC618) || defined (__SOC_BSP__)
 #include "bsp_common.h"
 #endif
 #endif

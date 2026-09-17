@@ -17,6 +17,9 @@
 #include "luat_mem.h"
 #include "luat_conf_bsp.h"
 #include "luat_voip_core.h"
+#ifdef LUAT_USE_VOIP_BRIDGE
+#include "luat_voip_pcm_resampler.h"
+#endif
 #include "rotable2.h"
 #include "luat_network_adapter.h"
 #define LUAT_LOG_TAG "voip"
@@ -264,19 +267,7 @@ log.info("voip", "tx_packets:", s.tx_packets)
 */
 static int l_voip_stats(lua_State *L)
 {
-    voip_stats_t stats;
-    voip_get_stats(&stats);
-
-    lua_newtable(L);
-    lua_pushinteger(L, stats.tx_packets);      lua_setfield(L, -2, "tx_packets");
-    lua_pushinteger(L, stats.tx_bytes);        lua_setfield(L, -2, "tx_bytes");
-    lua_pushinteger(L, stats.rx_packets);      lua_setfield(L, -2, "rx_packets");
-    lua_pushinteger(L, stats.rx_bytes);        lua_setfield(L, -2, "rx_bytes");
-    lua_pushinteger(L, stats.rx_lost);         lua_setfield(L, -2, "rx_lost");
-    lua_pushinteger(L, stats.rx_out_of_order); lua_setfield(L, -2, "rx_out_of_order");
-    lua_pushinteger(L, stats.jb_played);       lua_setfield(L, -2, "jb_played");
-    lua_pushinteger(L, stats.jb_silence);      lua_setfield(L, -2, "jb_silence");
-
+    voip_push_stats(L);
     return 1;
 }
 
@@ -462,6 +453,84 @@ static int l_voip_pcm_out(lua_State *L)
     return 1;
 }
 
+/* The converter belongs to its Lua caller, independently of the VoIP session
+ * and CC route. It has no external resources and needs no __gc callback. */
+#define VOIP_PCM_RESAMPLER_META "voip.pcmResampler"
+
+static int l_voip_pcm_resampler_process(lua_State *L)
+{
+    voip_pcm_resampler_t *state = (voip_pcm_resampler_t *)luaL_checkudata(L, 1, VOIP_PCM_RESAMPLER_META);
+    size_t bytes = 0;
+    const uint8_t *input = (const uint8_t *)luaL_checklstring(L, 2, &bytes);
+    uint8_t output[VOIP_PCM_RESAMPLER_MAX_OUTPUT_BYTES];
+    uint32_t clipped = 0;
+    int produced = voip_pcm_resampler_process(state, input, bytes, output, sizeof(output), &clipped);
+    if (produced < 0) {
+        return luaL_argerror(L, 2, "invalid PCM block size for this converter");
+    }
+    lua_pushlstring(L, (const char *)output, (size_t)produced);
+    lua_pushinteger(L, clipped);
+    return 2;
+}
+
+static int l_voip_pcm_resampler_reset(lua_State *L)
+{
+    voip_pcm_resampler_t *state = (voip_pcm_resampler_t *)luaL_checkudata(L, 1, VOIP_PCM_RESAMPLER_META);
+    voip_pcm_resampler_reset(state);
+    return 0;
+}
+
+/*
+创建外部PCM通道的有状态采样率转换器，仅通用PCM桥接固件提供。
+16k→8k沿用7抽头二项式低通抽取，8k→16k使用相邻样本线性插值。
+输入输出均为PCM16小端单声道；滤波历史跨process调用保留，reset清零历史。
+每次16k输入最多512字节且长度为4的倍数，8k输入最多320字节且长度为2的倍数。
+process返回转换后的PCM字符串和本次增益限幅的样本数；空输入返回空字符串和0。
+非法参数抛出Lua错误，不改变转换器状态。每路音频应使用独立实例，通话开始/结束时reset。
+@api voip.pcmResampler(input_rate, output_rate, gain)
+@int input_rate 输入采样率，仅支持16000→8000或8000→16000
+@int output_rate 输出采样率
+@int gain 可选，16k→8k的整数增益1..8，默认1；8k→16k只支持1
+@return userdata PCM转换器，提供process(data)和reset()方法
+@usage
+local mic = voip.pcmResampler(16000, 8000, 1)
+local speaker = voip.pcmResampler(8000, 16000)
+local pcm8k, clipped = mic:process(pcm16k) -- pcm16k是一帧512字节
+local consumed = voip.pcmIn(pcm8k)        -- 仍返回8kHz采样数，保留未消费尾部再送入
+local downlink = voip.pcmOut(160)
+if downlink then
+    local pcm16k_play = speaker:process(downlink)
+end
+mic:reset()
+speaker:reset()
+*/
+static int l_voip_pcm_resampler(lua_State *L)
+{
+    lua_Integer input_rate = luaL_checkinteger(L, 1);
+    lua_Integer output_rate = luaL_checkinteger(L, 2);
+    lua_Integer gain = luaL_optinteger(L, 3, 1);
+    if (!((input_rate == 16000 && output_rate == 8000) ||
+            (input_rate == 8000 && output_rate == 16000))) {
+        return luaL_error(L, "PCM converter supports only 16000/8000 or 8000/16000");
+    }
+    if (gain < 1 || gain > 8 || (input_rate == 8000 && gain != 1)) {
+        return luaL_argerror(L, 3, "gain must be 1..8 for 16k input, or 1 for 8k input");
+    }
+    voip_pcm_resampler_t *state = (voip_pcm_resampler_t *)lua_newuserdata(L, sizeof(*state));
+    memset(state, 0, sizeof(*state));
+    voip_pcm_resampler_init(state, (uint32_t)input_rate, (uint32_t)output_rate, (unsigned)gain);
+    if (luaL_newmetatable(L, VOIP_PCM_RESAMPLER_META)) {
+        lua_pushcfunction(L, l_voip_pcm_resampler_process);
+        lua_setfield(L, -2, "process");
+        lua_pushcfunction(L, l_voip_pcm_resampler_reset);
+        lua_setfield(L, -2, "reset");
+        lua_pushvalue(L, -1);
+        lua_setfield(L, -2, "__index");
+    }
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
 /*
 控制桥接模式内部早期提示音。
 @api voip.bridgeTone(on)
@@ -498,6 +567,7 @@ static const rotable_Reg_t reg_voip[] =
     { "setAudioMode", ROREG_FUNC(l_voip_set_audio_mode)},
     { "pcmIn",      ROREG_FUNC(l_voip_pcm_in)},
     { "pcmOut",     ROREG_FUNC(l_voip_pcm_out)},
+    { "pcmResampler", ROREG_FUNC(l_voip_pcm_resampler)},
     { "bridgeTone", ROREG_FUNC(l_voip_bridge_tone)},
 #endif
 

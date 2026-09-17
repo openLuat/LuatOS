@@ -1,8 +1,8 @@
 --[[
 @module exs_yhm2712a
 @summary exs_yhm2712a扩展库
-@version 1.3
-@date    2026.08.25
+@version 1.4
+@date    2026.09.09
 @author  王世豪
 @usage
 -- 应用场景
@@ -20,6 +20,14 @@
 8）获取库版本信息 exs_yhm2712a.version()
 
 -- 版本更新说明
+-- ============================================================
+-- 版本号:202609091200
+-- 更新时间:2026-09-09 12:00
+-- 更新内容：
+--   1. 充电电流默认档由CCDEFAULT(中等电流)改为CCMIN(最小电流):
+--      setup() 未指定i_charge 时使用 exs_yhm2712a.CCMIN, 不再用 CCDEFAULT 兜底
+--   2. 原 CCDEFAULT 常量更名为 CCMID(中等电流, 值由"DEFAULT"改为"MID"), 并保留
+--      exs_yhm2712a.CCDEFAULT = CCMID 兼容别名, 旧代码引用不受影响
 -- ============================================================
 -- 版本号:202608251200
 -- 更新时间:2026-08-25 12:00
@@ -68,7 +76,7 @@
     pin:number, YHM2712A CMD引脚，必选
     v_battery:number, 电池充电截止电压, 取值范围：4200或4350可选, 单位(mV), 必须传入
     cap_battery:number, 电池容量, 取值范围：>= 100, 单位(mAh)，必须传入。
-    i_charge:string, 充电电流, 取值范围：exs_yhm2712a.CCMIN(最小电流) 或 exs_yhm2712a.CCDEFAULT(默认电流) 或 exs_yhm2712a.CCMAX(最大电流)，三个可选参数，不传入时默认值为exs_yhm2712a.CCDEFAULT。
+    i_charge:string, 充电电流, 取值范围：exs_yhm2712a.CCMIN(最小电流) 或 exs_yhm2712a.CCMID(中等电流) 或 exs_yhm2712a.CCMAX(最大电流)，三个可选参数，不传入时默认值为exs_yhm2712a.CCMIN。
 @return boolean 成功返回true，失败返回false
 @usage
 local setup_ok = exs_yhm2712a.setup({
@@ -256,9 +264,10 @@ local callback = nil
 local voltage_setting = set_4V35
 
 -- 充电电流常量
-exs_yhm2712a.CCMIN = "MIN"     -- 恒流充电MIN电流模式
-exs_yhm2712a.CCMAX = "MAX"    -- 恒流充电MAX电流模式
-exs_yhm2712a.CCDEFAULT = "DEFAULT" -- 恒流充电默认电流模式，电流大小处于Min和Max之间
+exs_yhm2712a.CCMIN = "MIN"     -- 恒流充电MIN电流模式(最小电流)
+exs_yhm2712a.CCMID = "MID"     -- 恒流充电MID电流模式(中等电流)
+exs_yhm2712a.CCMAX = "MAX"     -- 恒流充电MAX电流模式
+exs_yhm2712a.CCDEFAULT = exs_yhm2712a.CCMID -- 兼容别名：原CCDEFAULT常量更名为CCMID，值由"DEFAULT"改为"MID"，旧代码引用不受影响
 -- 定义事件常量
 exs_yhm2712a.OVERHEAT = 1      -- 温度过热事件
 exs_yhm2712a.CHARGER_IN = 2    -- 充电器插入事件
@@ -268,16 +277,16 @@ exs_yhm2712a.EXIT_SHIPPING_MODE = 5 -- 退出船运模式事件
 
 -- 使用表格存储不同容量和模式下的电流值
 local current_table = {
-    [100] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 50, [exs_yhm2712a.CCMAX] = 50},
-    [200] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 125, [exs_yhm2712a.CCMAX] = 125},
-    [300] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 175, [exs_yhm2712a.CCMAX] = 175},
-    [400] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 225, [exs_yhm2712a.CCMAX] = 225},
-    [500] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 250, [exs_yhm2712a.CCMAX] = 250},
-    [600] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 250, [exs_yhm2712a.CCMAX] = 375},
-    [700] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 375, [exs_yhm2712a.CCMAX] = 500},
-    [800] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 375, [exs_yhm2712a.CCMAX] = 500},
-    [900] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 375, [exs_yhm2712a.CCMAX] = 500},
-    [1000] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 500, [exs_yhm2712a.CCMAX] = 750}
+    [100] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 50, [exs_yhm2712a.CCMAX] = 50},
+    [200] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 125, [exs_yhm2712a.CCMAX] = 125},
+    [300] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 175, [exs_yhm2712a.CCMAX] = 175},
+    [400] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 225, [exs_yhm2712a.CCMAX] = 225},
+    [500] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 250, [exs_yhm2712a.CCMAX] = 250},
+    [600] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 250, [exs_yhm2712a.CCMAX] = 375},
+    [700] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 375, [exs_yhm2712a.CCMAX] = 500},
+    [800] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 375, [exs_yhm2712a.CCMAX] = 500},
+    [900] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 375, [exs_yhm2712a.CCMAX] = 500},
+    [1000] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 500, [exs_yhm2712a.CCMAX] = 750}
 }
 
 --[[
@@ -325,7 +334,7 @@ end
     pin:number, YHM2712A CMD引脚，必选
     v_battery:number, 电池充电截止电压, 取值范围：4200或4350可选, 单位(mV), 必须传入
     cap_battery:number, 电池容量, 取值范围：>= 100, 单位(mAh)，必须传入。
-    i_charge:string, 充电电流, 取值范围：exs_yhm2712a.CCMIN(最小电流) 或 exs_yhm2712a.CCDEFAULT(默认电流) 或 exs_yhm2712a.CCMAX(最大电流)，三个可选参数，不传入时默认值为exs_yhm2712a.CCDEFAULT。
+    i_charge:string, 充电电流, 取值范围：exs_yhm2712a.CCMIN(最小电流) 或 exs_yhm2712a.CCMID(中等电流) 或 exs_yhm2712a.CCMAX(最大电流)，三个可选参数，不传入时默认值为exs_yhm2712a.CCMIN。
 @return boolean 成功返回true，失败返回false
 @usage
 local setup_ok = exs_yhm2712a.setup({
@@ -370,7 +379,7 @@ function exs_yhm2712a.setup(init_cfg)
     -- 设置充电参数
     local v_battery = init_cfg.v_battery
     local cap_battery = init_cfg.cap_battery
-    local i_charge = init_cfg.i_charge or exs_yhm2712a.CCDEFAULT
+    local i_charge = init_cfg.i_charge or exs_yhm2712a.CCMIN
 
     -- 验证电池电压
     if v_battery ~= 4200 and v_battery ~= 4350 then
@@ -384,9 +393,9 @@ function exs_yhm2712a.setup(init_cfg)
         return false
     end
 
-    -- 验证充电电流参数
-    if i_charge ~= exs_yhm2712a.CCMIN and i_charge ~= exs_yhm2712a.CCDEFAULT and i_charge ~= exs_yhm2712a.CCMAX then
-        log.error("exs_yhm2712a", "无效的充电电流参数，必须是 exs_yhm2712a.CCMIN、exs_yhm2712a.CCDEFAULT 或 exs_yhm2712a.CCMAX")
+    -- 验证充电电流参数 (CCDEFAULT兼容别名值等于CCMID, 老引用仍可通过校验)
+    if i_charge ~= exs_yhm2712a.CCMIN and i_charge ~= exs_yhm2712a.CCMID and i_charge ~= exs_yhm2712a.CCMAX then
+        log.error("exs_yhm2712a", "无效的充电电流参数，必须是 exs_yhm2712a.CCMIN、exs_yhm2712a.CCMID 或 exs_yhm2712a.CCMAX")
         return false
     end
 
@@ -1089,7 +1098,7 @@ end
 log.info("exs_yhm2712a", "version:", exs_yhm2712a.version())
 ]]
 function exs_yhm2712a.version()
-    return "202608251200"
+    return "202609091200"
 end
 
 -- sys.taskInit(function()

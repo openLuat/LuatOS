@@ -14,9 +14,11 @@
 
 7、http_stream_play: HTTP音频流式播放（边下边播），支持PCM/AMR/MP3/WAV格式，自动连接WiFi
 
-8、sample-6s.mp3、10.amr: 用于测试本地音频文件播放
+8、record_pcm_to_1103: 通过Air1103语音芯片录音与播放功能模块，演示PCM格式音频的流式录音与播放；
 
-9、test.pcm: 用于测试PCM流式播放
+9、sample-6s.mp3、10.amr: 用于测试本地音频文件播放
+
+10、test.pcm: 用于测试PCM流式播放
 
 注意：Air8101仅支持play_stream和http_stream_play播放，其他功能需要用Air8101B来测试
 
@@ -80,6 +82,15 @@
 - PCM格式默认16kHz、16位、有符号、单声道；AMR/MP3/WAV格式自动解析文件头获取真实采样率
 - 使用内置DAC输出音频
 
+### 8、录音到文件功能（record_pcm_to_1103.lua）
+
+- 通过UART1（波特率固定2M）连接合宙Air1103串口语音芯片，完成PCM流式录音与播放，Air1103无需I2C/PA/CODEC硬件初始化
+- 开机自动运行：自动挂载TF卡（失败回退内部存储）→ 自动录音（默认5秒）→ 录音完成后自动流式播放
+- PCM格式，16kHz采样率、16位采样深度、有符号、单声道
+- 录音文件保存到TF卡（/sd/record.pcm），TF卡挂载失败时保存到内部存储（/record.pcm）
+- 通过Air1103语音芯片输出音频（UART串口驱动，无需内置DAC）
+- 注意：此功能Air8101和Air8101B均支持
+
 ## 演示硬件环境
 
 1、Air8101_v2.0开发板+喇叭
@@ -122,6 +133,7 @@
 ├── record_pcm_file.lua   # 录音到文件功能模块（PCM格式，流式录音/流式播放）
 ├── http_download_play.lua # HTTP下载音频文件播放功能模块
 ├── http_stream_play.lua  # HTTP音频流式播放功能模块（边下边播）
+├── record_pcm_to_1103.lua # 录音到文件功能模块（PCM格式，通过Air1103语音芯片录音与播放）
 ├── sample-6s.mp3         # 示例MP3音频文件
 ├── 10.amr                # 示例AMR音频文件
 ├── test.pcm              # 示例PCM音频文件，用于流式播放测试
@@ -383,3 +395,69 @@ I/user.stat_summary ========== 播放完全结束 ==========
 ```
 
 **注意：此功能需要用Air8101B来测试，Air8101不支持**
+
+### 8、录音到文件功能（record_pcm_to_1103.lua）
+
+1. 搭建好硬件环境
+2. 打开main.lua，取消注释`require "record_pcm_to_1103"`，注释掉其他require
+3. 确保已插入TF卡（录音文件默认保存到`/sd/record.pcm`）
+4. 将代码下载到开发板并运行
+5. **演示效果**：开机自动挂载TF卡（失败回退内部存储）→ 自动录音（默认5秒，实时写入并打印写入速度）→ 录音完成后自动流式播放录音文件
+
+**运行结果示例：**
+
+```lua
+I/user.main audio 001.999.000
+D/user.exaudio version -> 202609161747
+I/user.音频系统初始化
+I/user.开始挂载TF卡
+init FatFS at sdio
+sdio gpio init : clk 2 cmd 3 data0 4
+mount success at fat32
+I/user.TF卡挂载成功 挂载路径: /sd
+I/user.TF卡空间信息 {"free_sectors":31111360,"total_kb":15556160,"free_kb":15555680,"total_sectors":31112320}
+I/user.TF卡挂载成功！！！
+I/user.exaudio.setup 当前使用新音频框架
+uart(2) tx pin: 31, rx pin: 30
+I/user.air1103 初始化完成 2 2000000
+I/user.exaudio.setup Air1103 芯片初始化完成
+W/user.pa_ctrl(功率放大器控制管脚)是控制pop 音的重要管脚,建议硬件设计加上
+I/user.exaudio.setup audio_v2 Air1103模式初始化
+I/user.exaudio.setup audio_v2 Air1103模式初始化
+I/user.exaudio.setup audio_v2初始化完成
+I/user.exaudio air1103不支持调节麦克风音量
+I/user.音量设置 播放: 70 录音: 70
+I/user.找到录音文件 大小: 0 字节 路径: /sd/record.pcm
+I/user.音频系统初始化完成，准备开始录音
+I/user.录音时长:  5 秒
+I/user.录音完成后自动播放
+I/user.录音文件保存到: /sd/record.pcm
+I/user.开始录音 时长: 5 秒
+I/user.删除旧录音文件
+I/user.exaudio air1103不支持调节麦克风音量
+I/user.exaudio.record_start 将录音5秒
+I/user.air1103 发送程序复位 02 05 00, 等待重新初始化后自动恢复上行
+I/user.exaudio air1103录音已开始(MIC上行)
+I/user.录音已开始
+I/user.TF卡写入统计 数据大小: 512 字节, 写入耗时: 7.00 ms, 写入速度: 71.43 KB/s
+...（录音中，按16ms/512B节奏持续写入，并打印TF卡写入速度，多数 500.00 KB/s）
+I/user.录音中... 1 秒
+...
+I/user.录音中... 5 秒
+I/user.停止录音 已录制: 5 秒
+I/user.录音时长已达 5 秒，自动停止录音
+I/user.录音完成 大小: 115200 字节
+I/user.录音完成后，启动播放任务
+I/user.exaudio air1103录音已停止
+I/user.录音文件路径 /sd/record.pcm
+I/user.流式播放录音文件 大小: 115200 字节
+create large size: 93 kbyte, trigger force GC
+I/user.exaudio air1103流式播放已启动，等待play_stream_write喂数据
+I/user.流式播放已开始
+I/user.开始流式读取录音数据
+I/user.流式播放缓冲区大小 3200
+I/user.播放完成
+I/user.流式数据读取完成
+```
+
+**注意：此功能Air8101和Air8101B均支持**

@@ -66,8 +66,12 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
         luat_airlink_hexdump("上行给硬件", buff, p->tot_len);
     }
     // TODO 这里应该根据userdata, 也就是whale上下文, 转发可配置的出口
-    luat_airlink_queue_send_ippkg(netdrv->id, buff, p->tot_len);
+    int ret = luat_airlink_queue_send_ippkg(netdrv->id, buff, p->tot_len);
     luat_heap_opt_free(LUAT_HEAP_PSRAM, buff);
+    if (ret != 0) {
+        // 队列满/内存不足: 返回 ERR_MEM 让 lwIP 感知背压, TCP 降速重试, 避免挤爆 SRAM.
+        return ERR_MEM;
+    }
     return 0;
 }
 

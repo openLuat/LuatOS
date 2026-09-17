@@ -463,8 +463,8 @@ local function on_cc_incoming(number)
             sys.publish("CC_ACCEPT_REQ")
             on_both_connected()
         elseif g_sip_state == STATE_SIP_IDLE or g_sip_state == STATE_SIP_DISCONNECTING then
-            logi("呼入场景：拨打 SIP", config.remote_sip_uri)
-            sys.publish("SIP_DIAL_REQ", config.remote_sip_uri)
+            logi("呼入场景：拨打 SIP", config.remote_sip_uri, number)
+            sys.publish("SIP_DIAL_REQ", config.remote_sip_uri, number)
         else
             logw("SIP 状态不空闲，拒绝手机来电", g_sip_state)
             g_cc_state = STATE_CC_IDLE

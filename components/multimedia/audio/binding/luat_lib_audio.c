@@ -154,9 +154,11 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
             }           
             break;
         case LUAT_AUDIO_REQUEST_EVENT_END:
-            l_req->is_busy = 0;
-            luat_llist_del(&l_req->node);
-            luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
+            if (l_req->is_busy) {
+                l_req->is_busy = 0;
+                luat_llist_del(&l_req->node);
+                luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
+            }
             LLOGC(luat_audio_debug_flag,"lua request %d end", u_data.u8[0]);
             break;
         case LUAT_AUDIO_REQUEST_EVENT_DRIVER_START:
@@ -180,9 +182,11 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
             }
             break;
         case LUAT_AUDIO_REQUEST_EVENT_EXTERNAL_SOURCE_DECODE_DONE:
-            _l_audio.extern_source_table[u_data.u8[2]].is_busy = 0;
-            luat_llist_del(&_l_audio.extern_source_table[u_data.u8[2]].node);
-            luat_llist_add_tail(&_l_audio.extern_source_table[u_data.u8[2]].node, &_l_audio.extern_source_free_list);
+            if (_l_audio.extern_source_table[u_data.u8[2]].is_busy) {
+                _l_audio.extern_source_table[u_data.u8[2]].is_busy = 0;
+                luat_llist_del(&_l_audio.extern_source_table[u_data.u8[2]].node);
+                luat_llist_add_tail(&_l_audio.extern_source_table[u_data.u8[2]].node, &_l_audio.extern_source_free_list);
+            }
             LLOGC(luat_audio_debug_flag,"lua extern source %d end", u_data.u8[2]);
             break;
         }
@@ -1129,6 +1133,32 @@ static int l_audio_get_play_clock(lua_State *L) {
 @usage
 is_all_done = audio_v2.is_all_done()
 */
+#ifdef LUAT_USE_VOIP_AUDIO_PORT
+/*
+同步停止空闲音频驱动的数据传输，保留驱动供电及I2C配置。
+@api audio_v2.stop_driver(driver_probe_id)
+@int driver_probe_id 可选驱动ID，默认使用当前驱动
+@return boolean 无活动请求且驱动已停止返回true
+*/
+static int l_audio_stop_driver(lua_State *L) {
+    luat_audio_driver_probe_t probe = {0};
+    luat_audio_driver_ctrl_t *ctrl;
+    if (!luat_llist_empty(&_l_audio.request_busy_list) ||
+            !luat_llist_empty(&_l_audio.extern_source_busy_list)) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    probe.probe_id = (uint32_t)luaL_optinteger(L, 1, 0);
+    ctrl = luat_audio_driver_probe(probe.probe_id ? &probe : NULL);
+    if (!ctrl || ctrl->state == LUAT_AUDIO_DRIVER_STATE_IDLE) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    lua_pushboolean(L, luat_audio_driver_stop_if_idle(ctrl) == LUAT_ERROR_NONE);
+    return 1;
+}
+#endif
+
 static int l_audio_is_request_all_done(lua_State *L) {
     lua_pushboolean(L, luat_llist_empty(&_l_audio.request_busy_list));
     return 1;
@@ -1516,6 +1546,9 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "config",			ROREG_FUNC(l_audio_config)},
     { "get_play_info",		ROREG_FUNC(l_audio_get_play_info)},
     { "is_all_done",			ROREG_FUNC(l_audio_is_request_all_done)},
+#ifdef LUAT_USE_VOIP_AUDIO_PORT
+    { "stop_driver",          ROREG_FUNC(l_audio_stop_driver)},
+#endif
     { "is_busy",			ROREG_FUNC(l_audio_is_request_busy)},
     { "soft_volume",			ROREG_FUNC(l_audio_soft_volume)},
     { "make_probe_id",			ROREG_FUNC(l_audio_make_probe_id)},

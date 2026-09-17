@@ -51,6 +51,17 @@ exsip.start()
 -- exsip.hangUp()
 
 -- 版本更新说明
+-- 版本号：202609171331
+-- 1、更新时间：2026-09-17 13:31
+-- 2、更新内容
+--    自动接听定时器绑定来电 Call-ID，忽略旧通话遗留的定时回调。
+--    接听命令携带当前 Call-ID，避免排队中的旧命令误接新通话。
+-- 版本号：202609161450
+-- 1、更新时间：2026-09-16 14:50
+-- 2、更新内容
+--    初始化阶段校验并选择 CC-SIP 桥接路由，失败时保留原配置。
+--    SIP 服务运行或媒体尚未释放时禁止更改路由，停止 SIP 后保留桥接选择。
+--    兼容缺少 cc.setBridge 的旧版桥接固件，保留桥接配置并打印警告继续初始化。
 -- 版本号：202608311130
 -- 1、更新时间：2026-08-31 11:30
 -- 2、更新内容
@@ -105,6 +116,12 @@ local g_callbacks = {}
 local g_current_call = nil
 -- 本次 VoIP 是否由 exaudio 建立本地 audio_v2 收发链路。
 local g_voip_uses_exaudio = false
+-- 媒体准备任务可被 CANCEL / 挂断 / 断网取消；C start 已受理也属于占用。
+local g_media_generation = 0
+local g_media_pending = false
+local g_media_requested = false
+local g_media_stopping = false
+local MEDIA_PREPARE_TIMEOUT_MS = 2000
 local g_netdrv_subscribed = false
 -- 自动录音只在 call connected 后尝试一次；媒体晚于通话建立时允许延后重试。
 local g_call_connected = false
@@ -341,16 +358,11 @@ local function stop_exaudio_voip_bridge()
     end
 end
 
-local function start_voip_engine(session)
+local function start_voip_engine_now(session)
     if not voip then
         log_error("voip core not support")
         return
     end
-    --关闭其他播报，避免和 VoIP 音频冲突
-    pcall(exaudio.play_stop, {type = 0}) 
-    pcall(exaudio.play_stop, {type = 1}) 
-    pcall(exaudio.play_stop, {type = 2}) 
-
     -- 唤醒音频硬件（audio_v2 框架下 ES8311 可能处于 shutdown，需先恢复）
     if exaudio.pm then
         pcall(exaudio.pm, exaudio.RESUME)
@@ -433,6 +445,7 @@ local function start_voip_engine(session)
     })
 
     if ok then
+        g_media_requested = true
         local adapter_ok, bridge_ok = true, true
         if use_sip_audio_v2 then
             adapter_ok, bridge_ok = pcall(exaudio.sip_voip_start)
@@ -448,9 +461,75 @@ local function start_voip_engine(session)
         if g_auto_record_pending or g_call_connected then
             start_auto_record()
         end
+        return true
     else
         log_error("voip engine start failed")
     end
+    return false
+end
+
+local function start_voip_engine(session)
+    if not voip then
+        log_error("voip core not support")
+        return
+    end
+    -- 同一会话的 183 / 200 媒体通知不能重复申请硬件。
+    if g_media_pending or (g_media_requested and not g_media_stopping) then return end
+    g_media_generation = g_media_generation + 1
+    local generation = g_media_generation
+    g_media_pending = true
+    emit_callback("voip", "state", "starting")
+    sys.taskInit(function()
+        local remaining = MEDIA_PREPARE_TIMEOUT_MS
+        local function current()
+            return generation == g_media_generation and g_started
+        end
+        local function fail(reason)
+            if not current() then return end
+            g_media_pending = false
+            emit_callback("voip", "error", reason)
+            if not g_media_requested then emit_callback("voip", "state", "stopped") end
+        end
+        -- 上一个通话仍在释放 DMA 时，新的媒体请求等待 stopped。
+        while current() and g_media_requested and remaining > 0 do
+            sys.wait(20)
+            remaining = remaining - 20
+        end
+        if not current() then return end
+        if g_media_requested then fail("audio_stop_timeout") return end
+        if not (g_config and g_config.cc_sip_bridge) then
+            local stop_driver = audio_v2 and type(audio_v2.stop_driver) == "function" and
+                type(exaudio.is_audio_v2) == "function" and exaudio.is_audio_v2()
+            for play_type = 0, 2 do
+                local ok, err = pcall(exaudio.play_stop, {type = play_type})
+                if stop_driver and not ok then fail("audio_stop_failed: " .. tostring(err)) return end
+            end
+            -- 仅提供同步停驱动接口的 audio_v2 平台等待请求释放。
+            -- 其他平台保留原有的三次 play_stop pcall 后直接启动行为。
+            if stop_driver then
+                if type(exaudio.is_end) == "function" then
+                    while current() and remaining > 0 do
+                        local ok, done = pcall(exaudio.is_end)
+                        if not ok then fail("audio_state_failed") return end
+                        if done then break end
+                        sys.wait(20)
+                        remaining = remaining - 20
+                    end
+                    if not current() then return end
+                    if remaining <= 0 then fail("audio_stop_timeout") return end
+                end
+                -- request cancel 完成后停止空转的驱动，保留共享 I2C。
+                local ok, stopped = pcall(audio_v2.stop_driver)
+                if not ok or not stopped then fail("audio_driver_stop_failed") return end
+            end
+        end
+        if not current() then return end
+        g_media_pending = false
+        local ok, started = pcall(start_voip_engine_now, session)
+        if not ok or not started then
+            fail(ok and "audio_start_failed" or tostring(started))
+        end
+    end)
 end
 
 local function stop_voip_engine()
@@ -458,10 +537,19 @@ local function stop_voip_engine()
         return
     end
     stop_call_record()
+    local was_pending = g_media_pending
+    g_media_generation = g_media_generation + 1
+    g_media_pending = false
     stop_exaudio_voip_bridge()
-    if voip.isRunning() then
-        voip.stop()
-        log_info("voip engine stopping")
+    if g_media_requested or voip.isRunning() then
+        if not g_media_stopping then
+            g_media_stopping = true
+            emit_callback("voip", "state", "stopping")
+            voip.stop() -- 包括 start 已入队、尚未 reported started 的情况。
+            log_info("voip engine stopping")
+        end
+    elseif was_pending then
+        emit_callback("voip", "state", "stopped")
     end
 end
 
@@ -520,8 +608,11 @@ local function sip_event_handler(event, action, payload)
             emit_callback("call", "incoming", g_current_call)
             if g_config and g_config.auto_answer then
                 if g_config.delay_auto_answer > 0 then
+                    local call_id = payload.call_id
                     sys.timerStart(function()
-                        exsip.accept()
+                        if g_started and g_current_call and g_current_call.call_id == call_id then
+                            exsip.accept()
+                        end
                     end, g_config.delay_auto_answer * 1000)
                 else
                     exsip.accept()
@@ -534,6 +625,7 @@ local function sip_event_handler(event, action, payload)
             start_auto_record()
             emit_callback("call", "connected", payload)
         elseif action == "ended" or action == "failed" then
+            stop_voip_engine()
             stop_call_record()
             reset_call_record_state()
             emit_callback("call", "ended", payload)
@@ -588,6 +680,10 @@ local function setup_voip_callbacks()
     if voip then
         voip.on("state", function(state)
             log_info("voip state:", state)
+            if state == "stopped" or state == "idle" then
+                g_media_requested = false
+                g_media_stopping = false
+            end
             if state == "stopped" or state == "error" or state == "idle" then
                 stop_exaudio_voip_bridge()
                 stop_call_record()
@@ -693,21 +789,57 @@ function exsip.init(config)
         return false
     end
 
-    g_config = {}
+    local next_config = {}
     for k, v in pairs(default_config) do
-        g_config[k] = v
+        next_config[k] = v
     end
     for k, v in pairs(config) do
-        g_config[k] = v
+        next_config[k] = v
     end
-    g_config.record = record_config
+    next_config.record = record_config
+    if next_config.audio_mode ~= nil and (not voip or
+        (next_config.audio_mode ~= voip.AUDIO_MODE_I2S and
+         next_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE)) then
+        log_error("unsupported audio_mode")
+        return false
+    end
+    if next_config.cc_sip_bridge then
+        if not has_voip_pcm_bridge() then
+            log_error("CC-SIP bridge requires PCM bridge APIs")
+            return false
+        end
+        if next_config.audio_mode ~= nil and next_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE then
+            log_error("cc_sip_bridge conflicts with configured audio_mode")
+            return false
+        end
+        next_config.audio_mode = voip.AUDIO_MODE_BRIDGE
+    end
+    if g_config and (g_started or g_media_pending or g_media_requested) and
+        (next_config.cc_sip_bridge ~= g_config.cc_sip_bridge or
+         next_config.audio_mode ~= g_config.audio_mode) then
+        log_error("stop SIP and CC media before changing the audio route")
+        return false
+    end
+    if not next_config.sip_domain then
+        next_config.sip_domain = next_config.sip_server_addr
+    end
 
+    -- When available, select the CC route before CC early media.
+    -- The native setter checks both media paths and changes no state on failure.
+    -- Enabling also selects generic PCM mode as one native transaction.
+    if cc and type(cc.setBridge) == "function" then
+        local call_ok, selected = pcall(cc.setBridge, next_config.cc_sip_bridge)
+        if not call_ok or not selected then
+            log_error("CC-SIP route is busy or unavailable", selected)
+            return false
+        end
+    elseif next_config.cc_sip_bridge then
+        -- Legacy bridge firmware selects CC routing through audio_mode.
+        log_warn("cc.setBridge unavailable; keeping legacy CC-SIP bridge mode")
+    end
+    g_config = next_config
     if g_config.cc_sip_bridge and g_config.record.auto then
         log_warn("automatic recording is disabled for CC-SIP bridge mode")
-    end
-
-    if not g_config.sip_domain then
-        g_config.sip_domain = g_config.sip_server_addr
     end
 
     log_info("init completed:", g_config.sip_username .. "@" .. g_config.sip_domain)
@@ -741,18 +873,7 @@ function exsip.start()
         return false
     end
 
-    -- CC桥接配置是一个完整契约：强制VoIP进入bridge模式，并禁止本地SIP speech。
-    if g_config.cc_sip_bridge then
-        if not has_voip_pcm_bridge() then
-            log_error("CC-SIP bridge is not supported in this firmware")
-            return false
-        end
-        if g_config.audio_mode ~= nil and g_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE then
-            log_error("cc_sip_bridge conflicts with configured audio_mode")
-            return false
-        end
-        g_config.audio_mode = voip.AUDIO_MODE_BRIDGE
-    end
+    -- init validated the route; legacy CC bridge firmware selects it via PCM mode here.
     if not set_voip_audio_mode(g_config.audio_mode) then
         return false
     end
@@ -821,6 +942,8 @@ function exsip.stop()
         return
     end
 
+    -- Keep the explicit CC selection until a later successful init changes it.
+    -- CC may still be completing PLAY_STOP after the SIP side has stopped.
     stop_voip_engine()
 
     if sipclient and sipclient.stop then
@@ -835,10 +958,11 @@ function exsip.stop()
         log_info("unsubscribed from IP_READY and IP_LOSE")
     end
 
-    local timeout = 1000
-    while g_started and timeout > 0 do
+    -- 保留原有 SIP 异步收尾的 1 秒窗口；仅未释放的媒体需要继续等待。
+    local elapsed = 0
+    while elapsed < 1000 or (g_media_requested and elapsed < MEDIA_PREPARE_TIMEOUT_MS) do
         sys.wait(10)
-        timeout = timeout - 10
+        elapsed = elapsed + 10
     end
     g_started = false
     g_registered = false
@@ -895,7 +1019,7 @@ function exsip.accept()
         return false
     end
 
-    sipclient.answer()
+    sipclient.answer(g_current_call and g_current_call.call_id)
     log_info("answering call")
     return true
 end
@@ -941,6 +1065,7 @@ function exsip.hangUp()
         return false
     end
 
+    stop_voip_engine()
     sipclient.hangup()
     log_info("hanging up")
     return true
@@ -1116,6 +1241,17 @@ function exsip.isRegistered()
 end
 
 --[[
+查询媒体是否占用音频，包含启动准备、C start 已受理以及等待 stopped。
+TTS / 本地播放应使用此接口，is_voip_running 仍保持原有通话运行语义。
+@api exsip.is_voip_busy()
+@return boolean 是否仍占用音频
+]]
+function exsip.is_voip_busy()
+    return g_media_pending or g_media_requested or g_media_stopping or
+        (voip and type(voip.isRunning) == "function" and voip.isRunning()) or false
+end
+
+--[[
 检查 VoIP 引擎是否正在运行。
 @api exsip.is_voip_running()
 @return boolean 正在运行返回 true，否则返回 false
@@ -1177,7 +1313,7 @@ end
 exsip.version()
 ]]
 function exsip.version()
-    return "202608311130"
+    return "202609171331"
 end
 
 log.debug("exsip", "version -> " .. exsip.version())

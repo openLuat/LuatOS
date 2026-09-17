@@ -1,6 +1,6 @@
-#include "luat_input.h"
-
+#include "luat_base.h"
 #ifdef LUAT_USE_INPUT
+#include "luat_input.h"
 #include <stdio.h>
 #define LUAT_LOG_TAG "input"
 #include "luat_log.h"

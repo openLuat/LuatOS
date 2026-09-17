@@ -52,7 +52,10 @@ int luat_audio_mp3_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
             jump <<= 7;
             jump |= input_buffer->data[6 + i] & 0x7f;
         }
-        *jump_offset_bytes = jump + 12;
+        *jump_offset_bytes = jump + 10; // ID3v2 header is 10 bytes, tag size excludes it
+        if (input_buffer->data[5] & 0x10) { // footer present (ID3v2.4)
+            *jump_offset_bytes += 10;
+        }
         *need_bytes = MP3_FRAME_AFTER_ENCODE_SIZE;
         info->sample_rate = 0;
         return LUAT_ERROR_NONE;

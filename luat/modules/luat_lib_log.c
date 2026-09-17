@@ -271,6 +271,11 @@ void luat_log_user_cmd_push(int cmd, const uint8_t *data, size_t len) {
     }
 }
 
+// 平台可用强符号覆盖此实现走独占命令帧; 默认退化为文本日志路径(仍发出, 但占用日志流)
+LUAT_WEAK void luat_log_user_cmd_write(const uint8_t *data, size_t len) {
+    luat_log_write((char *)data, len);
+}
+
 /*
 注册日志口用户自定义指令回调
 @api log.set_usercmd_cb(cb)
@@ -301,7 +306,7 @@ static int l_log_set_usercmd_cb(lua_State *L) {
 }
 
 /*
-往日志口写原始数据
+往日志口发 usercmd 协议帧(独占命令帧通道, 不占用日志显示; 未实现的平台退化为文本日志)
 @api log.usercmd_write(data, len, offset)
 @string data 待写入的数据, 字符串或zbuff
 @int len 可选, 写入长度, 默认 buff:used 或字符串全长
@@ -324,12 +329,12 @@ static int l_log_usercmd_write(lua_State *L) {
         if (len > buff->used - offset) {
             len = buff->used - offset;
         }
-        luat_log_write((char *)(buff->addr + offset), len);
+        luat_log_user_cmd_write((const uint8_t *)(buff->addr + offset), len);
         return 0;
     }
     size_t len = 0;
     const char *data = luaL_checklstring(L, 1, &len);
-    luat_log_write((char *)data, len);
+    luat_log_user_cmd_write((const uint8_t *)data, len);
     return 0;
 }
 #endif

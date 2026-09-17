@@ -180,6 +180,7 @@ static void _audio_find_next_request_block(void)
 		return;
 	}
 	_luat_audio.current_request_block = (luat_audio_request_block_t *)_luat_audio.request_block_list.next;
+	LLOGC(luat_audio_debug_flag, "find next request block request id, %d", _luat_audio.current_request_block->request_id);
 	luat_llist_del(&_luat_audio.current_request_block->node);
 }
 
@@ -861,6 +862,10 @@ static void luat_audio_common_task(void *param)
 					LLOGC(luat_audio_debug_flag, "play request end, fifo empty, stop decode");
 					request_block->is_wait_play_end = 1;
 					request_block->play_blank_data_cnt = 0;
+					if (request_block->is_tts && request_block->is_input_end && request_block->is_user_stop) {
+						LLOGC(luat_audio_debug_flag, "tts request user end, all done");
+						_luat_audio.current_request_block->is_stream_end = 1;
+					}
 				} else {
 					if (request_block->is_stream) {	//流媒体模式
 						_audio_decode_stream_to_fifo(request_block);
@@ -990,7 +995,8 @@ static void luat_audio_common_task(void *param)
 					LLOGC(luat_audio_debug_flag, "next request_id: %d priority: %d, now request_id: %d priority: %d", request_block->request_id, request_block->priority, _luat_audio.current_request_block->request_id, _luat_audio.current_request_block->priority);
 					if (request_block->priority > _luat_audio.current_request_block->priority) {
 						if (_luat_audio.current_request_block->is_tts) {
-							LLOGC(luat_audio_debug_flag, "request_id: %d is tts, wait stop", request_block->request_id);
+							LLOGC(luat_audio_debug_flag, "request_id: %d is tts, wait stop", _luat_audio.current_request_block->request_id);
+							_luat_audio.current_request_block->is_user_stop = 1;
 							luat_rtos_semaphore_release(_luat_audio.tts_or_extern_source_wait_sem);
 						} else {
 							LLOGC(luat_audio_debug_flag, "request_id: %d is not tts, stop now", request_block->request_id);
@@ -1001,6 +1007,7 @@ static void luat_audio_common_task(void *param)
 			}
 			luat_rtos_semaphore_release(_luat_audio.request_lock);
 			if (request_change) {
+				LLOGC(luat_audio_debug_flag, "request change, new request id %d", _luat_audio.current_request_block->request_id);
 				// 请求块有变化，需要重新播放
 				if (_luat_audio.current_request_block->priority != 255) {
 					luat_rtos_task_sleep(1);	// 不是speech的情况下，让低优先级的task能返回结果
@@ -1746,6 +1753,7 @@ void luat_audio_base_init(void)
 void luat_audio_debug_switch(uint8_t on_off)
 {
 	luat_audio_debug_flag = on_off;
+	// luat_audio_debug_flag = 1;
 }
 
 

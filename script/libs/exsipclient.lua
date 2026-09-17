@@ -80,6 +80,105 @@ local function emit_register(action, payload)
     emit_domain_event(SIP_EVENT.REGISTER, action, payload)
 end
 
+-- 将SIP服务器返回的REGISTER失败状态码转换为稳定的应用层原因枚举。
+-- response_reason仍保留服务器原始原因短语，应用层无需依赖短语文本做逻辑判断。
+local REGISTER_FAILURE_REASON = {
+    [300] = "multiple_choices",              -- 多重选择，服务器返回多个注册地址
+    [301] = "moved_permanently",              -- 永久移动，服务器返回新的注册地址
+    [302] = "moved_temporarily",              -- 临时移动，服务器返回新的注册地址
+    [305] = "use_proxy",                      -- 使用代理，服务器要求使用代理服务器
+    [380] = "alternative_service",           -- 服务器建议使用备用服务
+    [400] = "bad_request",                 -- 请求格式错误，服务器无法理解该REGISTER请求
+    [401] = "authentication_failed",       -- 用户认证失败；首次401通常只是正常的鉴权挑战
+    [403] = "forbidden",                   -- 服务器拒绝注册，常见原因是账号、密码或注册权限错误
+    [404] = "not_found",                   -- 未找到注册账号、域或对应的服务器资源
+    [405] = "method_not_allowed",          -- 服务器不允许使用REGISTER方法
+    [406] = "not_acceptable",              -- 请求内容不满足服务器可接受的条件
+    [407] = "proxy_authentication_failed", -- 代理服务器认证失败；首次407通常只是代理鉴权挑战
+    [408] = "server_request_timeout",       -- 服务器等待请求完成超时
+    [410] = "gone",                        -- 注册目标曾经存在，但现在已永久不可用
+    [413] = "request_too_large",           -- REGISTER请求体过大
+    [414] = "request_uri_too_long",        -- Request-URI长度超过服务器限制
+    [415] = "unsupported_media_type",      -- 服务器不支持请求中的媒体类型
+    [416] = "unsupported_uri_scheme",      -- 服务器不支持请求URI使用的协议类型
+    [420] = "bad_extension",               -- 请求包含服务器不支持的SIP扩展
+    [421] = "extension_required",          -- 服务器要求使用指定的SIP扩展
+    [423] = "interval_too_brief",          -- 注册有效期过短，应根据Min-Expires增大Expires
+    [480] = "temporarily_unavailable",     -- 注册目标当前暂时不可用
+    [481] = "transaction_not_found",       -- 服务器找不到对应的事务或对话
+    [482] = "request_merged",              -- 检测到合并或重复请求，可能与CSeq、Call-ID重复有关
+    [483] = "too_many_hops",               -- 请求经过的代理跳数过多，Max-Forwards已耗尽
+    [484] = "address_incomplete",          -- SIP地址不完整
+    [485] = "ambiguous",                   -- SIP地址存在歧义，服务器匹配到多个目标
+    [486] = "busy_here",                   -- 当前注册目标忙
+    [487] = "request_terminated",          -- 请求在完成前被终止
+    [488] = "not_acceptable_here",         -- 当前服务器无法接受该请求的部分参数
+    [489] = "bad_event",                   -- 服务器不支持请求指定的事件类型
+    [491] = "request_pending",             -- 同一事务或对话中已有待处理请求
+    [493] = "undecipherable",              -- 服务器无法解密或解析请求中的加密内容
+    [500] = "server_internal_error",       -- SIP服务器内部错误
+    [501] = "not_implemented",             -- 服务器未实现处理该请求所需的功能
+    [502] = "bad_gateway",                 -- 网关或上游SIP服务器返回异常
+    [503] = "service_unavailable",         -- SIP服务暂时不可用，可关注Retry-After响应头
+    [504] = "server_timeout",              -- 服务器等待上游服务器响应超时
+    [505] = "version_not_supported",       -- 服务器不支持请求使用的SIP版本
+    [513] = "message_too_large",           -- SIP消息整体长度超过服务器限制
+    [600] = "busy_everywhere",             -- 注册目标在所有可达位置均忙
+    [603] = "decline",                     -- 注册请求被明确拒绝
+    [604] = "does_not_exist_anywhere",     -- 注册目标在服务器管理范围内不存在
+    [606] = "not_acceptable_global"        -- 所有可达位置均无法接受该请求
+}
+
+local function register_failure_reason(code)
+    return REGISTER_FAILURE_REASON[tonumber(code)] or "server_rejected"
+end
+
+-- 判断服务器地址是 IPv4、IPv6 还是域名，并拦截明显的格式错误。
+-- 这里只做配置格式校验；格式正确的地址是否真实存在，仍需由 DNS/网络连接结果判断。
+local function classify_server_address(address)
+    if type(address) ~= "string" then
+        return nil
+    end
+
+    local addr = address:match("^%s*(.-)%s*$")
+    if not addr or addr == "" or #addr > 253 then
+        return nil
+    end
+
+    local octets = {}
+    for part in addr:gmatch("[^.]+") do
+        octets[#octets + 1] = part
+    end
+    if #octets == 4 and addr:match("^%d+%.%d+%.%d+%.%d+$") then
+        for _, part in ipairs(octets) do
+            local value = tonumber(part)
+            if not value or value < 0 or value > 255 then
+                return nil
+            end
+        end
+        return "ipv4"
+    end
+
+    -- 包含冒号的地址交给底层 IPv6 解析器处理，避免在 Lua 层重复实现完整 IPv6 语法。
+    if addr:find(":", 1, true) then
+        return addr:match("^[%x:%.]+$") and "ipv6" or nil
+    end
+
+    -- 纯数字和点组成但又不是合法 IPv4，属于明显的 IP 地址格式错误。
+    if addr:match("^[%d%.]+$") then
+        return nil
+    end
+    if addr:sub(1, 1) == "." or addr:sub(-1) == "." or addr:find("..", 1, true) then
+        return nil
+    end
+    for label in addr:gmatch("[^.]+") do
+        if #label > 63 or not label:match("^[%w%-]+$") or label:sub(1, 1) == "-" or label:sub(-1) == "-" then
+            return nil
+        end
+    end
+    return "hostname"
+end
+
 local function emit_call(action, payload)
     emit_domain_event(SIP_EVENT.CALL, action, payload)
 end
@@ -103,6 +202,11 @@ local LOCAL_PORT = 5062
 local REGISTER_EXPIRES = 600
 -- 默认外呼超时时间（秒），超过该时间未接通则自动取消
 local CALL_TIMEOUT = 30
+-- RFC 3261 13.3.1.4：INVITE 2xx 按 T1/T2 重传，64*T1 内等待 ACK（毫秒）。
+local SIP_T1 = 500
+local SIP_T2 = 4000
+-- 最多 8 通后台信令收尾，另留一个 RTP 端口给前台业务。
+local MAX_CLOSING_DIALOGS = 8
 
 -- ==================== 实现区 ====================
 
@@ -275,6 +379,18 @@ local normalize_codec_list = proto.normalize_codec_list
 local build_sdp = proto.build_sdp
 local parse_sdp = proto.parse_sdp
 
+-- SDP 与媒体 session 使用同一通话固定的端口，不改写配置中的首选端口。
+local function build_dialog_sdp(state, dialog)
+    return build_sdp({
+        local_ip = state.local_ip,
+        media = {
+            local_rtp_port = dialog.local_rtp_port,
+            codecs = state.media.codecs,
+            ptime = state.media.ptime
+        }
+    }, "sendrecv")
+end
+
 -- 构造通用 SIP 响应，用于 100/180/200/4xx/5xx 等请求应答场景。
 local function build_response(state, req_headers, code, reason, extra_headers, body)
     return build_proto_response({
@@ -399,7 +515,7 @@ end
 -- 媒体真正启动要等对端 200 OK 携带 SDP answer 后再进行。
 local function build_invite(state, dialog, auth)
     local uri = dialog.remote_uri
-    local sdp = dialog.local_sdp or build_sdp(state, "sendrecv")
+    local sdp = dialog.local_sdp or build_dialog_sdp(state, dialog)
     dialog.local_sdp = sdp
 
     dialog.invite_branch = dialog.invite_branch or gen_token("br")
@@ -572,6 +688,16 @@ local function sip_task(opts)
         -- 注册与连接期状态。
         auth_tried = 0,
         reg_timer = nil,
+        register_response_timer = nil,
+        register_attempts = 0,
+        register_response_timeout = math.max(1000, tonumber(opts.register_response_timeout) or 10000),
+        register_max_attempts = math.max(1, tonumber(opts.register_max_attempts) or 3),
+        last_register_response_code = nil,
+        last_register_response_reason = nil,
+        last_register_response_headers = nil,
+        connect_fail_count = 0,
+        connect_max_attempts = math.max(1, tonumber(opts.connect_max_attempts) or 3),
+        server_address_type = classify_server_address(opts.sip_server_addr),
         netc = nil,
 
         online = false,
@@ -582,6 +708,8 @@ local function sip_task(opts)
         -- - `incoming_invite`: 尚未接听的来电缓存
         dialog = nil, -- 当前通话（入/出）
         incoming_invite = nil,
+        -- 已结束本地业务、仍等待 ACK/BYE 的来电；不再发布业务或媒体事件。
+        closing_dialogs = {},
 
         -- 当前正在进行的 MESSAGE 事务。
         msg_tx = nil, -- 正在发送的 MESSAGE
@@ -599,7 +727,8 @@ local function sip_task(opts)
         options_timer = nil,
         options_pending = false,
         options_fail_count = 0,
-        options_interval = tonumber(opts.options_interval) or 25000,
+        -- options_interval = tonumber(opts.options_interval) or 25000,
+        options_interval = tonumber(opts.options_interval) or 60000,
         options_max_fail = tonumber(opts.options_max_fail) or 3,
         call_timeout = tonumber(opts.call_timeout) or CALL_TIMEOUT,
         debug_sip_response = opts.debug_sip_response == true,
@@ -615,7 +744,8 @@ local function sip_task(opts)
             ptime = tonumber(opts.ptime) or 20,
             active = false,
             session = nil
-        }
+        },
+        options_triggered_register = false, -- 是否因 OPTIONS Ping 触发过 REGISTER
     }
     log.info("sip", "SIP task uses locked adapter:", state.locked_adapter, "transport:", state.sip_transport)
     if not state.locked_adapter then
@@ -648,7 +778,7 @@ local function sip_task(opts)
     -- 当本地 SDP 和远端 SDP 都齐备后，整理出媒体会话描述并通知上层。
     -- SIP 层只负责“协商结果”，不直接创建 RTP socket 或音频线程。
     local function maybe_start_media(dialog, source)
-        if not dialog then
+        if not dialog or dialog.terminating then
             return
         end
         if not dialog.local_sdp or not dialog.remote_sdp then
@@ -663,7 +793,7 @@ local function sip_task(opts)
             remote_ip = dialog.remote_sdp.conn_ip or dialog.remote_ip or state.sip_server_addr,
             remote_sdp = dialog.remote_sdp,
             remote_sdp_raw = dialog.remote_sdp_raw,
-            local_rtp_port = state.media.local_rtp_port,
+            local_rtp_port = dialog.local_rtp_port,
             local_codecs = state.media.codecs,
             local_sdp = dialog.local_sdp,
             ptime = state.media.ptime,
@@ -690,14 +820,12 @@ local function sip_task(opts)
 
     -- 通知外部媒体层停止当前会话。
     local function stop_media(reason)
-        if state.media.active then
-            emit_media("stop", {
-                reason = reason,
-                session = state.media.session
-            })
-        end
+        local active, session = state.media.active, state.media.session
         state.media.active = false
         state.media.session = nil
+        if active then
+            emit_media("stop", { reason = reason, session = session })
+        end
     end
 
     local net_send_on
@@ -718,6 +846,32 @@ local function sip_task(opts)
         return uas_route_set
     end
 
+    local function closing_dialog_count()
+        local count = 0
+        for _ in pairs(state.closing_dialogs) do count = count + 1 end
+        return count
+    end
+
+    local function allocate_rtp_port()
+        local base = state.media.local_rtp_port
+        local step = base + MAX_CLOSING_DIALOGS * 2 <= 65535 and 2 or -2
+        for i = 0, MAX_CLOSING_DIALOGS do
+            local port, used = base + i * step, false
+            for _, dialog in pairs(state.closing_dialogs) do
+                if dialog.local_rtp_port == port then used = true; break end
+            end
+            if not used then return port end
+        end
+    end
+
+    local function is_closing_dialog(dialog)
+        return dialog and state.closing_dialogs[dialog.call_id] == dialog
+    end
+
+    local function owns_dialog(dialog)
+        return dialog and (state.dialog == dialog or is_closing_dialog(dialog))
+    end
+
     local function ensure_incoming_dialog(inv)
         if not inv then
             return nil
@@ -735,6 +889,7 @@ local function sip_task(opts)
             bye_to = inv.headers["from"],
             remote_uri = contact_uri(inv.headers["contact"]) or inv.uri,
             remote_ip = inv.remote_ip,
+            local_rtp_port = allocate_rtp_port(),
             invite_cseq = cseq_number(inv.headers["cseq"]) or 1,
             established = false,
             final_response_sent = false,
@@ -772,7 +927,7 @@ local function sip_task(opts)
             return
         end
 
-        local body = dialog.local_sdp or build_sdp(state, "sendrecv")
+        local body = dialog.local_sdp or build_dialog_sdp(state, dialog)
         dialog.local_sdp = body
         local code = state.early_media_response == 180 and 180 or 183
         local reason = (code == 180) and "Ringing" or "Session Progress"
@@ -822,18 +977,85 @@ local function sip_task(opts)
         net_send_on(state.netc, data)
     end
 
-    -- 强制停止所有与通话相关的定时器，包括超时定时器
-    -- 在SIP连接断开、网络切换、stop()等场景下调用，防止定时器泄漏
-    local function stop_all_call_timers()
-        if state.dialog and state.dialog.timeout_timer then
-            log.info("sip", "stopping all call timers, clearing timeout_timer")
-            sys.timerStop(state.dialog.timeout_timer)
-            state.dialog.timeout_timer = nil
+    local function stop_invite_response(dialog)
+        local response = dialog and dialog.invite_response
+        if not response then return end
+        if response.retry_timer then sys.timerStop(response.retry_timer) end
+        if response.timeout_timer then sys.timerStop(response.timeout_timer) end
+        response.retry_timer = nil
+        response.timeout_timer = nil
+        response.waiting_ack = false
+        -- 保留最后一份应答，重复 INVITE 只重发它，不再次启动媒体或延长等待。
+    end
+
+    local function schedule_invite_retry(response)
+        response.retry_timer = sys.timerStart(function()
+            sys.publish(TOPIC_CMD, "invite_2xx_retry", response)
+        end, response.interval)
+    end
+
+    local function send_invite_ok(dialog, headers, body, request_to)
+        local cseq = cseq_number(headers["cseq"])
+        local response = dialog.invite_response
+        if response and response.cseq == cseq then
+            net_send(response.data)
+            return
+        end
+        stop_invite_response(dialog)
+        response = {
+            dialog = dialog,
+            cseq = cseq,
+            request_to_tag = header_tag_value(request_to),
+            data = build_response(state, headers, 200, "OK", nil, body),
+            interval = SIP_T1,
+            waiting_ack = true
+        }
+        dialog.invite_response = response
+        schedule_invite_retry(response)
+        response.timeout_timer = sys.timerStart(function()
+            sys.publish(TOPIC_CMD, "invite_ack_timeout", response)
+        end, 64 * SIP_T1)
+        log.info("sip", "answer 200 OK, wait ACK", dialog.call_id, cseq)
+        net_send(response.data)
+    end
+
+    local function is_pending_invite_response(response)
+        return response and owns_dialog(response.dialog) and
+            response.dialog.invite_response == response and response.waiting_ack and not g_stop
+    end
+
+    local function stop_call_timeout(dialog)
+        dialog = dialog or state.dialog
+        if dialog and dialog.timeout_timer then
+            sys.timerStop(dialog.timeout_timer)
+            dialog.timeout_timer = nil
         end
     end
 
-    local function stop_call_timeout()
-        stop_all_call_timers()
+    -- 结束一通前台业务时，只停止该对象的定时器。
+    local function stop_dialog_timers(dialog)
+        if not dialog then return end
+        stop_call_timeout(dialog)
+        stop_invite_response(dialog)
+        if dialog.hangup_timer then
+            sys.timerStop(dialog.hangup_timer)
+            dialog.hangup_timer = nil
+        end
+    end
+
+    local function release_closing_dialog(dialog, reason)
+        if not is_closing_dialog(dialog) then return end
+        stop_dialog_timers(dialog)
+        state.closing_dialogs[dialog.call_id] = nil
+        log.info("sip", "closing released", dialog.call_id, reason)
+    end
+
+    -- 连接生命周期结束时才统一清理全部对话，后台释放不触发业务回调。
+    local function stop_all_call_timers()
+        stop_dialog_timers(state.dialog)
+        for _, dialog in pairs(state.closing_dialogs) do
+            release_closing_dialog(dialog, "transport_closed")
+        end
     end
 
     local function on_call_timeout()
@@ -864,18 +1086,85 @@ local function sip_task(opts)
         })
     end
 
+    -- 停止等待 REGISTER 响应的定时器。
+    local function stop_register_response_timer()
+        if state.register_response_timer then
+            sys.timerStop(state.register_response_timer)
+            state.register_response_timer = nil
+        end
+    end
+
+    -- REGISTER 发出后等待服务器响应。UDP 端口错误通常不会产生 socket 错误，
+    -- 因此只能通过“连续多次发送 REGISTER 仍无任何 SIP 响应”识别为注册超时。
+    local function start_register_response_timer()
+        stop_register_response_timer()
+        state.register_response_timer = sys.timerStart(function()
+            state.register_response_timer = nil
+            if state.online or not state.netc then
+                return
+            end
+
+            if state.register_attempts < state.register_max_attempts then
+                state.register_attempts = state.register_attempts + 1
+                state.branch = gen_token("br")
+                state.cseq = state.cseq + 1
+                state.auth_tried = 0
+                state.last_www = nil
+                log.warn("sip", "REGISTER response timeout, retry",
+                    state.register_attempts, "/", state.register_max_attempts,
+                    state.sip_server_addr, state.sip_server_port)
+                net_send(build_register(state, nil))
+                start_register_response_timer()
+                return
+            end
+
+            local has_sip_response = state.last_register_response_code ~= nil
+            local failure_reason = has_sip_response and
+                                       register_failure_reason(state.last_register_response_code) or
+                                       "register_timeout"
+            local failure_source = has_sip_response and "sip_response_timeout" or "timeout"
+            local failure_hint = has_sip_response and
+                                     "已收到SIP响应，但后续注册流程超时，请根据sip_code和response_reason排查" or
+                                     "SIP服务器无响应，请检查服务器IP或域名、端口、传输协议、防火墙和SIP服务状态"
+            log.error("sip", "REGISTER failed",
+                "reason", failure_reason,
+                "sip_code", state.last_register_response_code,
+                "response_reason", state.last_register_response_reason,
+                "attempts", state.register_attempts)
+            emit_register("failed", {
+                reason = failure_reason,
+                source = failure_source,
+                sip_code = state.last_register_response_code,
+                response_reason = state.last_register_response_reason,
+                headers = state.last_register_response_headers,
+                attempts = state.register_attempts,
+                server = state.sip_server_addr,
+                port = state.sip_server_port,
+                transport = state.sip_transport,
+                retrying = true,
+                hint = failure_hint
+            })
+            sys.publish(TOPIC_DISCONNECT)
+        end, state.register_response_timeout)
+    end
+
     -- 停止注册续租定时器，同时停止 UDP OPTIONS 保活定时器。
     local function stop_reg_timer()
         if state.reg_timer then
             sys.timerStop(state.reg_timer)
             state.reg_timer = nil
         end
+        stop_register_response_timer()
+        state.register_attempts = 0
         if state.options_timer then
             sys.timerStop(state.options_timer)
             state.options_timer = nil
         end
         state.options_pending = false
         state.options_fail_count = 0
+        -- 清除“OPTIONS 404 已触发 REGISTER”的状态，
+        -- 使下次重新连接后可以再次执行恢复注册。
+        state.options_triggered_register = false
     end
 
     -- 按过期时间安排下一次 REGISTER 续租。
@@ -954,6 +1243,7 @@ local function sip_task(opts)
         local req = build_register(state, digest)
         log.info("sip", "send REGISTER (auth)", "cseq", state.cseq)
         net_send(req)
+        start_register_response_timer()
     end
 
     -- 发起外呼。
@@ -961,10 +1251,12 @@ local function sip_task(opts)
     local function start_outgoing_call(target, from_number)
         if not state.online or not state.netc then
             log.warn("sip", "not online")
+            emit_call("dial_rejected", { reason = "offline", target = target })
             return
         end
-        if state.dialog then
+        if state.dialog or state.incoming_invite or closing_dialog_count() >= MAX_CLOSING_DIALOGS then
             log.warn("sip", "busy")
+            emit_call("dial_rejected", { reason = "busy", target = target, dialog = state.dialog })
             return
         end
 
@@ -1000,7 +1292,7 @@ local function sip_task(opts)
             auth_tried = 0,
             established = false,
             cseq = 1,
-            local_sdp = build_sdp(state, "sendrecv")
+            local_rtp_port = allocate_rtp_port()
         }
         state.dialog = dialog
         log.info("sip", "setting call timeout", state.call_timeout, "seconds")
@@ -1024,67 +1316,93 @@ local function sip_task(opts)
         end
 
         local dialog = ensure_incoming_dialog(inv)
-        if not dialog then
+        if not dialog or dialog.terminating then
             return
         end
 
         -- 来电接听时，本端在 200 OK 中带回自己的 SDP answer。
-        local body = dialog.local_sdp or build_sdp(state, "sendrecv")
+        local body = dialog.local_sdp or build_dialog_sdp(state, dialog)
         dialog.local_sdp = body
         dialog.final_response_sent = true
-        local resp = build_response(state, copy_incoming_headers(inv, dialog), 200, "OK", nil, body)
-        log.info("sip", "answer 200 OK")
-        net_send(resp)
+        send_invite_ok(dialog, copy_incoming_headers(inv, dialog), body, inv.request_to)
     end
 
     -- INFO 队列清理函数在后面定义；提前声明，使挂断路径绑定到同一局部函数。
     local fail_dtmf
 
-    -- 挂断统一入口：
-    -- - 来电未接：486 Busy Here
-    -- - 外呼未接通：CANCEL
-    -- - 已接通：BYE
-    local function hangup_call()
-        if not state.netc then
+    -- ended 表示本地业务结束；后台信令只能释放自己的资源，不能再调用此入口。
+    local function end_call_business(dialog, reason, code, action)
+        if not dialog or state.dialog ~= dialog then return end
+        dialog.terminating = true
+        state.dialog = nil
+        state.incoming_invite = nil
+        stop_media(reason)
+        fail_dtmf(reason, code)
+        log.info("sip", "call cleared", dialog.call_id, reason, code or "")
+        emit_call(action or "ended", { reason = reason, code = code, dialog = dialog })
+    end
+
+    local function finish_call(dialog, reason, code, action)
+        if not dialog or state.dialog ~= dialog then return end
+        stop_dialog_timers(dialog)
+        end_call_business(dialog, reason, code, action)
+    end
+
+    local function send_dialog_bye(dialog)
+        if dialog.bye_cseq then return end
+        local bye = build_bye(state, dialog)
+        dialog.bye_cseq = dialog.cseq
+        log.info("sip", "send BYE", dialog.call_id, dialog.bye_cseq)
+        net_send(bye)
+    end
+
+    local function start_hangup_timer(dialog)
+        if dialog.hangup_timer then return end
+        dialog.hangup_timer = sys.timerStart(function()
+            sys.publish(TOPIC_CMD, "hangup_timeout", dialog)
+        end, 5000)
+    end
+
+    -- 本地挂断先停媒体，再等待 SIP 最终响应；对端无响应时也有确定的清理出口。
+    local function hangup_call(force)
+        local dialog = state.dialog
+        if force then
+            finish_call(dialog, "hangup_timeout", 408)
             return
         end
-        if state.dtmf_tx or state.dtmf_sequence then
-            fail_dtmf("local_hangup")
+        if not dialog then
+            if state.incoming_invite then fail_incoming(486, "Busy Here") end
+            return
         end
-        if state.incoming_invite and (not state.dialog or
-            (state.dialog.direction == "in" and not state.dialog.established and not state.dialog.final_response_sent)) then
-            -- 来电未接，直接拒绝
+        if dialog.terminating then return end
+        if state.incoming_invite and dialog.direction == "in" and
+            not dialog.established and not dialog.final_response_sent then
             fail_incoming(486, "Busy Here")
             return
         end
 
-        local dialog = state.dialog
-        if dialog and dialog.direction == "out" and not dialog.established then
-            stop_call_timeout()
-        end
-        if not dialog then
-            log.warn("sip", "no dialog")
+        dialog.terminating = true
+        stop_call_timeout(dialog)
+        if not state.netc then
+            finish_call(dialog, "local_hangup")
             return
         end
-
+        if dialog.direction == "in" and dialog.invite_response and dialog.invite_response.waiting_ack then
+            -- 不重建应答或定时器：仍以首次 200 的 64*T1 为截止时间。
+            state.closing_dialogs[dialog.call_id] = dialog
+            log.info("sip", "closing created, wait ACK", dialog.call_id, "rtp", dialog.local_rtp_port)
+            end_call_business(dialog, "local_hangup")
+            return
+        end
+        stop_media("local_hangup")
+        fail_dtmf("local_hangup")
+        start_hangup_timer(dialog)
         if dialog.direction == "out" and not dialog.established then
-            -- 外呼未接通：CANCEL
-            local cancel = build_cancel(state, dialog)
             log.info("sip", "send CANCEL")
-            net_send(cancel)
-            return
+            net_send(build_cancel(state, dialog))
+        else
+            send_dialog_bye(dialog)
         end
-
-        if dialog.direction == "in" and not dialog.established and dialog.final_response_sent then
-            dialog.pending_bye_after_ack = true
-            log.info("sip", "incoming final response sent, delay BYE until ACK")
-            return
-        end
-
-        -- 已建立：BYE
-        local bye = build_bye(state, dialog)
-        log.info("sip", "send BYE")
-        net_send(bye)
     end
 
     -- 发起一次 MESSAGE 事务。
@@ -1196,7 +1514,7 @@ local function sip_task(opts)
         if not sequence then
             return
         end
-        if not state.online or not state.netc or not dialog or not dialog.established then
+        if not state.online or not state.netc or not dialog or not dialog.established or dialog.terminating then
             fail_dtmf("dialog_not_established")
             return
         end
@@ -1256,42 +1574,125 @@ local function sip_task(opts)
         send_next_dtmf()
     end
 
+    -- 在旧 socket 释放前完成一次离线清理；迟到 CLOSED 不能清理重连后的通话。
+    local function clear_connection(netc)
+        if state.netc ~= netc then return end
+        state.netc = nil
+        state.online = false
+        stop_reg_timer()
+        stop_all_call_timers()
+        stop_media("socket_closed")
+        state.dialog = nil
+        state.incoming_invite = nil
+        state.msg_tx = nil
+        state.tcp_stream = ""
+        fail_dtmf("socket_closed")
+        emit_lifecycle("offline", { reason = "socket_closed" })
+    end
+
     -- 订阅外部命令（call/progress/answer/fail/hangup/message/dtmf）。
     -- 外部 API 只负责 `sys.publish()`，真正执行统一留在 SIP task 内。
-    sys.subscribe(TOPIC_CMD, function(action, arg)
+    local function command_handler(action, arg)
+        if g_stop then return end
         log.info("sip", "cmd", action, arg or "")
-        if action == "call" then
-            if type(arg) == "table" then
-                start_outgoing_call(arg.target, arg.from_number)
-            else
-                -- 兼容旧的内部命令格式。
-                start_outgoing_call(arg)
+        if action == "invite_2xx_retry" then
+            if is_pending_invite_response(arg) then
+                log.info("sip", "retry INVITE 200", arg.dialog.call_id, arg.cseq)
+                net_send(arg.data)
+                arg.interval = math.min(arg.interval * 2, SIP_T2)
+                schedule_invite_retry(arg)
             end
-        elseif action == "progress" then
-            progress_incoming()
-        elseif action == "answer" then
-            answer_incoming()
-        elseif action == "fail" then
-            arg = type(arg) == "table" and arg or {}
-            fail_incoming(arg.code, arg.reason)
-        elseif action == "hangup" then
-            hangup_call()
-        elseif action == "message" and type(arg) == "table" then
-            start_send_message(arg.target, arg.text)
-        elseif action == "dtmf" and type(arg) == "table" then
-            start_dtmf(arg.digits, arg.duration, arg.interval)
+        elseif action == "invite_ack_timeout" then
+            if is_pending_invite_response(arg) then
+                local dialog = arg.dialog
+                log.warn("sip", "ACK timeout", dialog.call_id, arg.cseq)
+                dialog.terminating = true
+                stop_invite_response(dialog)
+                if is_closing_dialog(dialog) then
+                    start_hangup_timer(dialog)
+                    send_dialog_bye(dialog)
+                else
+                    send_dialog_bye(dialog)
+                    finish_call(dialog, "ack_timeout", 408)
+                end
+            end
+        elseif action == "hangup_timeout" then
+            if is_closing_dialog(arg) then
+                release_closing_dialog(arg, "bye_timeout")
+            else
+                finish_call(arg, "hangup_timeout", 408)
+            end
+        else
+            if type(arg) == "table" and arg.call_id then
+                local inv = state.incoming_invite
+                local active_id = state.dialog and state.dialog.call_id or (inv and inv.headers["call-id"])
+                if active_id ~= arg.call_id then
+                    log.info("sip", "ignore stale call command", action, arg.call_id)
+                    return
+                end
+            end
+            if action == "call" then
+                if type(arg) == "table" then
+                    start_outgoing_call(arg.target, arg.from_number)
+                else
+                    -- 兼容旧的内部命令格式。
+                    start_outgoing_call(arg)
+                end
+            elseif action == "progress" then
+                progress_incoming()
+            elseif action == "answer" then
+                answer_incoming()
+            elseif action == "fail" then
+                arg = type(arg) == "table" and arg or {}
+                fail_incoming(arg.code, arg.reason)
+            elseif action == "hangup" then
+                hangup_call(arg == true or (type(arg) == "table" and arg.force == true))
+            elseif action == "message" and type(arg) == "table" then
+                start_send_message(arg.target, arg.text)
+            elseif action == "dtmf" and type(arg) == "table" then
+                start_dtmf(arg.digits, arg.duration, arg.interval)
+            end
         end
-    end)
+    end
+    sys.subscribe(TOPIC_CMD, command_handler)
 
     -- socket 回调：整个 SIP 信令收发与状态推进的入口。
     local function netCB(netc, event, param)
+        if netc ~= state.netc then return end
         if param ~= 0 then
             log.warn("sip", "net error", event, param)
             stop_reg_timer()
             stop_all_call_timers()
+                        state.connect_fail_count = state.connect_fail_count + 1
+            if not state.online and state.connect_fail_count >= state.connect_max_attempts then
+                local reason = state.server_address_type == "hostname" and "dns_or_connect_failed" or
+                                   "server_unreachable"
+                local hint = state.server_address_type == "hostname" and
+                                 "服务器域名解析或连接失败，请检查域名、DNS、端口、网络和SIP服务状态" or
+                                 "服务器IP或端口不可达，请检查IP、端口、路由、防火墙和SIP服务状态"
+                log.error("sip", "server connection failed",
+                    state.sip_server_addr, state.sip_server_port,
+                    "attempts", state.connect_fail_count)
+                emit_register("failed", {
+                    reason = reason,
+                    source = "network",
+                    attempts = state.connect_fail_count,
+                    server = state.sip_server_addr,
+                    port = state.sip_server_port,
+                    transport = state.sip_transport,
+                    net_event = event,
+                    net_error = param,
+                    retrying = true,
+                    hint = hint
+                })
+                state.connect_fail_count = 0
+            end
             emit_event(SIP_EVENT.ERROR, "net", {
                 event = event,
-                param = param
+                param = param,
+                server = state.sip_server_addr,
+                port = state.sip_server_port,
+                transport = state.sip_transport
             })
             sys.publish(TOPIC_DISCONNECT)
             return
@@ -1304,6 +1705,7 @@ local function sip_task(opts)
 
         if event == socket.ON_LINE then
             -- ON_LINE: TCP/UDP connect 完成（或 DNS 完成），可以发 REGISTER
+            state.connect_fail_count = 0
             -- 尝试获取本地IP填Contact
             local ip = socket.localIP(state.current_adapter)
             if type(ip) == "string" and #ip > 0 then
@@ -1317,10 +1719,15 @@ local function sip_task(opts)
             state.cseq = state.cseq + 1
             state.auth_tried = 0
             state.last_www = nil
+            state.last_register_response_code = nil
+            state.last_register_response_reason = nil
+            state.last_register_response_headers = nil
 
             local req = build_register(state, nil)
             log.info("sip", "send REGISTER", state.sip_server_addr, state.sip_server_port)
             net_send_on(netc, req)
+            state.register_attempts = 1
+            start_register_response_timer()
             state.online = false
             emit_lifecycle("online", {
                 server = state.sip_server_addr,
@@ -1376,19 +1783,36 @@ local function sip_task(opts)
             local function handle_invite_request(req_headers, req_uri, body, rip, remote_port)
                 local invite_cseq = cseq_number(req_headers["cseq"]) or 1
                 local dialog = state.dialog
+                local inv = state.incoming_invite
+                local active_id = dialog and dialog.call_id or (inv and inv.headers["call-id"])
+                if active_id and active_id ~= req_headers["call-id"] then
+                    local busy_headers = copy_headers(req_headers)
+                    busy_headers["to"] = ensure_to_has_tag(busy_headers["to"], gen_token("tag"))
+                    net_send_on(netc, build_response(state, busy_headers, 486, "Busy Here", nil, ""))
+                    return
+                end
+                if inv and not dialog then
+                    -- 等待上一通清理或呼叫间隔时尚无 dialog，重传只重发临时应答。
+                    local code = state.early_media and 100 or 180
+                    net_send_on(netc, build_response(state, copy_headers(inv.headers), code,
+                        code == 100 and "Trying" or "Ringing", nil, ""))
+                    return
+                end
 
                 if dialog and dialog.direction == "in" and dialog.call_id == req_headers["call-id"] then
                     local resp_headers = copy_headers(req_headers)
                     resp_headers["to"] = dialog.to
 
-                    -- 同 CSeq 的 INVITE 视为 UDP 重传：已最终应答则重发 200，
+                    local response = dialog.invite_response
+                    if response and response.cseq == invite_cseq then
+                        net_send_on(netc, response.data)
+                        return
+                    end
                     -- 仅发过早期媒体时重发 183，不能把 early media 误推进为接听。
                     if not dialog.established and invite_cseq == dialog.invite_cseq then
-                        local resp_body = dialog.local_sdp or build_sdp(state, "sendrecv")
+                        local resp_body = dialog.local_sdp or build_dialog_sdp(state, dialog)
                         dialog.local_sdp = resp_body
-                        if dialog.final_response_sent then
-                            net_send_on(netc, build_response(state, resp_headers, 200, "OK", nil, resp_body))
-                        elseif dialog.early_media_sent then
+                        if dialog.early_media_sent then
                             net_send_on(netc, build_response(state, resp_headers, 183, "Session Progress", {{"P-Early-Media", "sendrecv"}}, resp_body))
                         else
                             net_send_on(netc, build_response(state, resp_headers, 100, "Trying", nil, ""))
@@ -1399,24 +1823,39 @@ local function sip_task(opts)
                     local dialog_to_tag = header_tag_value(dialog.to)
                     local req_to_tag = header_tag_value(req_headers["to"])
                     -- 已建立来电对话内的 INVITE 按 re-INVITE 处理，不再抛成新的 incoming。
-                    if dialog.established and dialog_to_tag and req_to_tag == dialog_to_tag then
-                        local resp_body = build_sdp(state, "sendrecv")
+                    if dialog.established and not dialog.terminating and dialog_to_tag and req_to_tag == dialog_to_tag then
+                        if response and response.waiting_ack then
+                            net_send_on(netc, build_response(state, resp_headers, 491, "Request Pending", nil, ""))
+                            return
+                        end
+                        local resp_body = build_dialog_sdp(state, dialog)
                         dialog.local_sdp = resp_body
                         dialog.remote_uri = req_uri or dialog.remote_uri
                         dialog.remote_ip = rip or dialog.remote_ip
                         dialog.remote_sdp_raw = body
                         dialog.remote_sdp = parse_sdp(body)
-                        dialog.pending_reinvite_cseq = invite_cseq
-                        net_send_on(netc, build_response(state, resp_headers, 200, "OK", nil, resp_body))
+                        send_invite_ok(dialog, resp_headers, resp_body, req_headers["to"])
                         return
                     end
                 end
+                if dialog then
+                    net_send_on(netc, build_response(state, req_headers, 481, "Call/Transaction Does Not Exist", nil, ""))
+                    return
+                end
 
+                if closing_dialog_count() >= MAX_CLOSING_DIALOGS then
+                    local unavailable = copy_headers(req_headers)
+                    unavailable["to"] = ensure_to_has_tag(unavailable["to"], gen_token("tag"))
+                    net_send_on(netc, build_response(state, unavailable, 480, "Temporarily Unavailable", nil, ""))
+                    return
+                end
+                local request_to = req_headers["to"]
                 local local_tag = gen_token("tag")
                 local to_hdr = ensure_to_has_tag(req_headers["to"], local_tag)
                 req_headers["to"] = to_hdr
                 state.incoming_invite = {
                     headers = req_headers,
+                    request_to = request_to,
                     uri = req_uri,
                     body = body,
                     remote_sdp = parse_sdp(body),
@@ -1452,75 +1891,65 @@ local function sip_task(opts)
             end
 
             local function handle_ack_request(req_headers)
-                local ack_cseq = cseq_number(req_headers["cseq"]) or 0
-                if state.dialog and state.dialog.direction == "in" and state.dialog.call_id == req_headers["call-id"] then
-                    -- re-INVITE 的 ACK 只用于完成媒体更新，不应再次触发 established。
-                    if state.dialog.pending_reinvite_cseq and ack_cseq == state.dialog.pending_reinvite_cseq then
-                        state.dialog.pending_reinvite_cseq = nil
-                        maybe_start_media(state.dialog, "incoming_reinvite_ack")
-                        return
-                    end
-                    if state.dialog.established then
-                        return
-                    end
-                    if ack_cseq ~= (state.dialog.invite_cseq or 0) then
-                        return
-                    end
-                    state.dialog.established = true
-                    state.incoming_invite = nil
-                    maybe_start_media(state.dialog, "incoming_ack")
-                    log.info("sip", "call established (incoming)")
-                    emit_call("established", {
-                        dialog = state.dialog
-                    })
-                    if state.dialog.pending_bye_after_ack then
-                        state.dialog.pending_bye_after_ack = nil
-                        net_send_on(netc, build_bye(state, state.dialog))
-                    end
+                local dialog = state.dialog
+                local response = dialog and dialog.invite_response
+                if not dialog or dialog.direction ~= "in" or dialog.call_id ~= req_headers["call-id"] or
+                    not response or not response.waiting_ack or response.cseq ~= cseq_number(req_headers["cseq"]) or
+                    header_tag_value(req_headers["to"]) ~= header_tag_value(dialog.to) or
+                    header_tag_value(req_headers["from"]) ~= header_tag_value(dialog.from) then
+                    return
                 end
+                stop_invite_response(dialog)
+                if dialog.terminating then
+                    dialog.established = true
+                    state.incoming_invite = nil
+                    start_hangup_timer(dialog)
+                    send_dialog_bye(dialog)
+                    return
+                end
+                -- re-INVITE 的 ACK 只完成媒体更新，不再触发 established。
+                if dialog.established then
+                    maybe_start_media(dialog, "incoming_reinvite_ack")
+                    return
+                end
+                dialog.established = true
+                state.incoming_invite = nil
+                maybe_start_media(dialog, "incoming_ack")
+                log.info("sip", "call established (incoming)")
+                emit_call("established", { dialog = dialog })
             end
 
             local function handle_bye_request(req_headers)
-                local to_hdr = req_headers["to"]
-                if state.dialog and state.dialog.call_id == req_headers["call-id"] then
-                    to_hdr = state.dialog.to
+                local dialog = state.dialog
+                if not dialog or dialog.call_id ~= req_headers["call-id"] then
+                    net_send_on(netc, build_response(state, req_headers, 481, "Call/Transaction Does Not Exist", nil, ""))
+                    return
                 end
-                req_headers["to"] = to_hdr
+                req_headers["to"] = dialog.to
                 net_send_on(netc, build_response(state, req_headers, 200, "OK", nil, ""))
-                local ended_dialog = state.dialog
-                stop_media("peer_hangup")
-                fail_dtmf("peer_hangup")
-                state.dialog = nil
-                state.incoming_invite = nil
-                log.info("sip", "peer hung up")
-                emit_call("ended", {
-                    reason = "peer_hangup",
-                    dialog = ended_dialog
-                })
+                finish_call(dialog, "peer_hangup")
             end
 
             local function handle_cancel_request(req_headers)
-                net_send_on(netc, build_response(state, req_headers, 200, "OK", nil, ""))
-                if state.incoming_invite and state.incoming_invite.headers and state.incoming_invite.headers["call-id"] ==
-                    req_headers["call-id"] then
-                    local inv_headers = {}
-                    for k, v in pairs(state.incoming_invite.headers) do
-                        inv_headers[k] = v
-                    end
-                    inv_headers["to"] = ensure_to_has_tag(inv_headers["to"], state.incoming_invite.local_tag)
-                    net_send_on(netc, build_response(state, inv_headers, 487, "Request Terminated", nil, ""))
-                else
-                    net_send_on(netc,
-                        build_response(state, req_headers, 481, "Call/Transaction Does Not Exist", nil, ""))
+                local inv = state.incoming_invite
+                if not inv or not inv.headers or inv.headers["call-id"] ~= req_headers["call-id"] or
+                    cseq_number(req_headers["cseq"]) ~= cseq_number(inv.headers["cseq"]) then
+                    net_send_on(netc, build_response(state, req_headers, 481, "Call/Transaction Does Not Exist", nil, ""))
+                    return
                 end
-                state.incoming_invite = nil
-                stop_media("peer_cancel")
-                fail_dtmf("peer_cancel")
-                state.dialog = nil
-                log.info("sip", "incoming canceled")
-                emit_call("ended", {
-                    reason = "peer_cancel"
-                })
+                net_send_on(netc, build_response(state, req_headers, 200, "OK", nil, ""))
+                -- 已发 200 的 INVITE 不能再被 CANCEL 取消，等待 ACK/BYE。
+                if state.dialog and state.dialog.final_response_sent then return end
+                local inv_headers = {}
+                for k, v in pairs(inv.headers) do inv_headers[k] = v end
+                inv_headers["to"] = ensure_to_has_tag(inv_headers["to"], inv.local_tag)
+                net_send_on(netc, build_response(state, inv_headers, 487, "Request Terminated", nil, ""))
+                if state.dialog then
+                    finish_call(state.dialog, "peer_cancel")
+                else
+                    state.incoming_invite = nil
+                    emit_call("ended", { reason = "peer_cancel", call_id = inv.headers["call-id"] })
+                end
             end
 
             local function handle_message_request(req_headers, body)
@@ -1537,7 +1966,53 @@ local function sip_task(opts)
                 log.info("sip", "message rx", #(body or ""))
             end
 
+            local function handle_closing_request(dialog, method, headers)
+                local response = dialog.invite_response
+                local seq = cseq_number(headers["cseq"])
+                local from_ok = header_tag_value(headers["from"]) == header_tag_value(dialog.from)
+                local to_tag = header_tag_value(headers["to"])
+                local dialog_tags = from_ok and to_tag == header_tag_value(dialog.to)
+                local transaction_tags = from_ok and to_tag == response.request_to_tag
+                local method_ok = cseq_method(headers["cseq"]) == method
+                if method == "ACK" then
+                    if method_ok and dialog_tags and seq == response.cseq and response.waiting_ack then
+                        log.info("sip", "closing ACK", dialog.call_id, seq)
+                        stop_invite_response(dialog)
+                        start_hangup_timer(dialog)
+                        send_dialog_bye(dialog)
+                    end
+                    return -- 无法匹配的 ACK 不应产生 SIP 响应。
+                end
+                if method_ok and transaction_tags and seq == response.cseq then
+                    if method == "INVITE" then
+                        net_send_on(netc, response.data)
+                        return
+                    elseif method == "CANCEL" then
+                        local reply = copy_headers(headers)
+                        reply["to"] = dialog.to
+                        net_send_on(netc, build_response(state, reply, 200, "OK", nil, ""))
+                        return
+                    end
+                end
+                if method == "BYE" and method_ok and dialog_tags and seq then
+                    if seq <= response.cseq then
+                        net_send_on(netc, build_response(state, headers, 500, "Server Internal Error", nil, ""))
+                    else
+                        log.info("sip", "closing peer BYE", dialog.call_id, seq)
+                        net_send_on(netc, build_response(state, headers, 200, "OK", nil, ""))
+                        release_closing_dialog(dialog, "peer_bye")
+                    end
+                    return
+                end
+                net_send_on(netc, build_response(state, headers, 481, "Call/Transaction Does Not Exist", nil, ""))
+            end
+
             local function handle_request_packet(method, req_uri, req_headers, body, rip, remote_port)
+                local closing = state.closing_dialogs[req_headers["call-id"]]
+                if closing then
+                    handle_closing_request(closing, method, req_headers)
+                    return
+                end
                 if method == "INVITE" then
                     handle_invite_request(req_headers, req_uri, body, rip, remote_port)
                 elseif method == "ACK" then
@@ -1559,7 +2034,12 @@ local function sip_task(opts)
                 end
             end
 
-            local function handle_register_response(code, headers)
+            local function handle_register_response(code, response_reason, headers)
+                -- 收到任何 REGISTER 响应都说明服务器已响应，先结束本次等待计时。
+                stop_register_response_timer()
+                state.last_register_response_code = code
+                state.last_register_response_reason = response_reason
+                state.last_register_response_headers = copy_headers(headers)
                 if code == 200 then
                     local exp = headers["expires"]
                     if not exp then
@@ -1569,6 +2049,8 @@ local function sip_task(opts)
                         end
                     end
                     state.online = true
+                    state.options_triggered_register = false
+
                     schedule_reregister(tonumber(exp) or state.expires)
                     if state.sip_transport == "udp" then
                         start_options_keepalive()
@@ -1583,12 +2065,28 @@ local function sip_task(opts)
                 if code == 401 or code == 407 then
                     if state.auth_tried >= 1 then
                         log.error("sip", "reg auth failed")
+                        emit_register("failed", {
+                            reason = register_failure_reason(code),
+                            source = "sip_response",
+                            sip_code = code,
+                            response_reason = response_reason,
+                            headers = headers,
+                            retrying = true
+                        })
                         sys.publish(TOPIC_DISCONNECT)
                         return
                     end
                     local www_params = extract_auth_challenge(headers)
                     if not www_params then
                         log.error("sip", "reg no digest challenge")
+                        emit_register("failed", {
+                            reason = "missing_auth_challenge",
+                            source = "sip_response",
+                            sip_code = code,
+                            response_reason = response_reason,
+                            headers = headers,
+                            retrying = true
+                        })
                         sys.publish(TOPIC_DISCONNECT)
                         return
                     end
@@ -1603,12 +2101,51 @@ local function sip_task(opts)
 
                 if code == 482 then
                     log.warn("sip", "reg 482 Request Merged, disconnect and retry")
+                    emit_register("failed", {
+                        reason = register_failure_reason(code),
+                        source = "sip_response",
+                        sip_code = code,
+                        response_reason = response_reason,
+                        headers = headers,
+                        retrying = true
+                    })
                     sys.publish(TOPIC_DISCONNECT)
+                    return
+                end
+                if code == 404 then
+                    log.warn("sip", "register returned 404, disconnect and retry")
+
+                    emit_register("failed", {
+                        reason = register_failure_reason(code),
+                        source = "sip_response",
+                        sip_code = code,
+                        response_reason = response_reason,
+                        headers = headers,
+                        retrying = true
+                    })
+
+                    sys.publish(TOPIC_DISCONNECT)
+                    return
+                end
+                if code and code >= 300 then
+                    log.warn("sip", "register rejected", code, response_reason)
+                    -- 清除“OPTIONS 404 已触发 REGISTER”的状态，
+                    -- 使下次重新连接后可以再次执行恢复注册。
+                    state.options_triggered_register = false
+                    emit_register("failed", {
+                        reason = register_failure_reason(code),
+                        source = "sip_response",
+                        sip_code = code,
+                        response_reason = response_reason,
+                        headers = headers,
+                        retrying = false
+                    })
                     return
                 end
             end
 
             local function handle_invite_response(code, reason, headers, body, rip)
+                if cseq_number(headers["cseq"]) ~= state.dialog.invite_cseq then return end
                 local function handle_invite_auth_challenge()
                     if not state.dialog then
                         return
@@ -1633,13 +2170,14 @@ local function sip_task(opts)
                         digest_failed_log = "invite digest failed",
                         before_digest = function(dialog)
                             dialog.invite_cseq = (dialog.invite_cseq or 1) + 1
+                            dialog.cseq = dialog.invite_cseq
                             dialog.invite_branch = gen_token("br")
                         end,
                         send = function(digest)
                             net_send_on(netc, build_invite(state, state.dialog, digest))
                         end,
                         on_failed = function()
-                            state.dialog = nil
+                            finish_call(state.dialog, "auth_failed", code, "failed")
                         end,
                         emit = function(retry_code)
                             emit_call("auth_retry", {
@@ -1668,6 +2206,11 @@ local function sip_task(opts)
                     state.dialog.established = true
                     stop_call_timeout()
                     net_send_on(netc, build_ack(state, state.dialog))
+                    if state.dialog.terminating then
+                        -- CANCEL 与 200 交错：必须 ACK 后 BYE，不能重新启动媒体。
+                        send_dialog_bye(state.dialog)
+                        return
+                    end
                     maybe_start_media(state.dialog, "outgoing_200")
                     log.info("sip", "call established (outgoing)")
                     emit_call("established", {
@@ -1683,16 +2226,17 @@ local function sip_task(opts)
                     stop_call_timeout()
                     net_send_on(netc, build_ack_non2xx(state, state.dialog))
                     log.warn("sip", "call failed", code)
-                    stop_media("call_failed")
-                    local failed_dialog = state.dialog
-                    state.dialog = nil
-                    emit_call("failed", {
-                        code = code,
-                        reason = reason,
-                        dialog = failed_dialog
-                    })
+                    if state.dialog.terminating then
+                        finish_call(state.dialog, "local_hangup", code)
+                    else
+                        finish_call(state.dialog, reason, code, "failed")
+                    end
                 end
 
+                if state.dialog.terminating and code and code >= 300 then
+                    handle_invite_failure()
+                    return
+                end
                 if code == 401 or code == 407 then
                     handle_invite_auth_challenge()
                     return
@@ -1704,6 +2248,7 @@ local function sip_task(opts)
                 end
 
                 if code == 180 or code == 181 or code == 182 or code == 183 then
+                    if state.dialog.terminating then return end
                     -- 处理 180 Ringing、181 Call Is Being Forwarded、182 Queued、183 Session Progress
                     log.info("sip", "invite provisional response", code, reason)
                     emit_call("ringing", {
@@ -1720,18 +2265,14 @@ local function sip_task(opts)
                 end
             end
 
-            local function handle_dialog_teardown_response(code)
-                if code == 200 then
-                    stop_media("local_hangup")
-                    local ended_dialog = state.dialog
-                    fail_dtmf("local_hangup")
-                    state.dialog = nil
-                    state.incoming_invite = nil
-                    log.info("sip", "call cleared")
-                    emit_call("ended", {
-                        reason = "local_hangup",
-                        dialog = ended_dialog
-                    })
+            local function handle_dialog_teardown_response(code, method, headers)
+                local dialog = state.dialog
+                -- CANCEL 200 只确认 CANCEL 事务，INVITE 仍可能迟到 200/487。
+                if method ~= "BYE" or not dialog.terminating or
+                    cseq_number(headers["cseq"]) ~= dialog.bye_cseq then return end
+                if code and code >= 200 then
+                    -- 即使对端拒绝 BYE（如 500），本地也必须释放媒体和 dialog。
+                    finish_call(dialog, "local_hangup", code)
                 end
             end
 
@@ -1850,17 +2391,60 @@ local function sip_task(opts)
                 local call_id = headers["call-id"]
                 local cseq = headers["cseq"]
                 local cseq_m = cseq_method(cseq)
+                local closing = state.closing_dialogs[call_id]
+                if closing then
+                    if cseq_m == "BYE" and closing.bye_cseq and cseq_number(cseq) == closing.bye_cseq and
+                        header_tag_value(headers["from"]) == header_tag_value(closing.bye_from) and
+                        header_tag_value(headers["to"]) == header_tag_value(closing.bye_to) and code and code >= 200 then
+                        log.info("sip", "closing BYE response", call_id, code)
+                        release_closing_dialog(closing, "bye_response")
+                    end
+                    return
+                end
                 if cseq_m == "OPTIONS" then
                     -- OPTIONS 响应：任意响应均视为保活成功，重置失败计数。
                     state.options_pending = false
                     state.options_fail_count = 0
-                    return
+                    if code == 404 and not state.options_triggered_register then
+                        log.warn("sip", "OPTIONS returned 404, trigger REGISTER refresh")
+                        -- 服务器可能因重启丢失注册信息，立即标记为未注册。
+                        -- 这一行也很重要：REGISTER 响应超时定时器要求 online=false。
+                        state.online = false
+                        state.options_triggered_register = true
+                        -- 通知上层注册已经失效。
+                        -- sip_main 收到 failed 后会把 g_registered 设置为 false。
+                        emit_register("failed", {
+                            reason = "options_not_found",
+                            source = "options_response",
+                            sip_code = code,
+                            response_reason = reason,
+                            headers = headers,
+                            retrying = true,
+                            hint = "OPTIONS 返回404，服务器可能已丢失注册绑定，正在重新注册"
+                        })
+
+                        state.branch = gen_token("br")
+                        state.cseq = state.cseq + 1
+                        state.auth_tried = 0
+                        state.last_www = nil
+                        state.register_attempts = 1
+
+                        state.last_register_response_code = nil
+                        state.last_register_response_reason = nil
+                        state.last_register_response_headers = nil
+                        state.register_attempts = 1
+                        
+                        net_send(build_register(state, nil))
+                        start_register_response_timer()
+                    end
+                return
+
                 elseif call_id and call_id:find(state.call_id, 1, true) then
-                    handle_register_response(code, headers)
+                    handle_register_response(code, reason, headers)
                 elseif state.dialog and state.dialog.direction == "out" and call_id == state.dialog.call_id and cseq_m == "INVITE" then
                     handle_invite_response(code, reason, headers, body, rip)
                 elseif state.dialog and call_id == state.dialog.call_id and (cseq_m == "BYE" or cseq_m == "CANCEL") then
-                    handle_dialog_teardown_response(code)
+                    handle_dialog_teardown_response(code, cseq_m, headers)
                 elseif state.msg_tx and call_id == state.msg_tx.call_id and cseq_m == "MESSAGE" then
                     handle_message_response(code, reason, headers)
                 elseif state.dtmf_tx and call_id == state.dtmf_tx.call_id and cseq_m == "INFO" and
@@ -1874,7 +2458,8 @@ local function sip_task(opts)
                 local method, req_uri = parse_request_line(head)
                 if method then
                     local req_headers = parse_headers(head)
-                    log.info("sip", "req", method, "from", rip, remote_port or 0)
+                    log.info("sip", "req", method, "from", rip, remote_port or 0,
+                        "call-id", req_headers["call-id"] or "", "cseq", req_headers["cseq"] or "")
                     handle_request_packet(method, req_uri, req_headers, body, rip, remote_port)
                     return
                 end
@@ -1932,29 +2517,8 @@ local function sip_task(opts)
         end
 
         if event == socket.CLOSED then
-            -- CLOSED 表示当前连接生命周期结束：
-            -- - 停止续租
-            -- - 标记离线
-            -- - 停止媒体
-            -- - 清理通话与消息事务状态
-            stop_reg_timer()
-            stop_call_timeout()
-            state.online = false
-            stop_media("socket_closed")
-            -- 清理dialog前先停止超时定时器，防止定时器在dialog清空后仍触发
-            if state.dialog and state.dialog.timeout_timer then
-                log.info("sip", "socket closed, clearing call timeout timer")
-                sys.timerStop(state.dialog.timeout_timer)
-                state.dialog.timeout_timer = nil
-            end
-            state.dialog = nil
-            state.incoming_invite = nil
-            state.msg_tx = nil
-            fail_dtmf("socket_closed")
+            clear_connection(netc)
             sys.publish(TOPIC_DISCONNECT)
-            emit_lifecycle("offline", {
-                reason = "socket_closed"
-            })
             return
         end
     end
@@ -1970,7 +2534,7 @@ local function sip_task(opts)
     local function ip_lose_handler(adapter)
         log.info("sip", "IP_LOSE", adapter)
         ready_adapters[adapter] = nil
-        local current_adapter = (state.dialog or state.incoming_invite) and state.locked_adapter or socket.dft()
+        local current_adapter = (state.dialog or state.incoming_invite or next(state.closing_dialogs)) and state.locked_adapter or socket.dft()
         if adapter == current_adapter then
             emit_event(SIP_EVENT.ERROR, "network_changed", {
                 reason = "current_adapter_lost",
@@ -1994,7 +2558,7 @@ local function sip_task(opts)
 
     -- 订阅网络状态变化，非通话时若默认网卡变化则主动触发重连
     local function network_status_handler(net_type, adapter)
-        if state.dialog or state.incoming_invite then
+        if state.dialog or state.incoming_invite or next(state.closing_dialogs) then
             return
         end
         if adapter ~= state.current_adapter and state.netc then
@@ -2007,7 +2571,7 @@ local function sip_task(opts)
     -- 外层重连循环：只要未显式 stop，断线后就会等待 3 秒重连。
     while true do
         local adapter_to_use
-        if state.dialog or state.incoming_invite then
+        if state.dialog or state.incoming_invite or next(state.closing_dialogs) then
             -- 来电/拨号/通话中：锁定为建立 SIP 时的网卡
             adapter_to_use = state.locked_adapter
         else
@@ -2026,28 +2590,44 @@ local function sip_task(opts)
         else
             -- 非通话状态下重新注册时，让后续RTP媒体与新的SIP信令网卡保持一致。
             -- 通话中仍保持原来的locked_adapter，避免切换承载中的媒体网卡。
-            if not state.dialog and not state.incoming_invite then
+            if not state.dialog and not state.incoming_invite and not next(state.closing_dialogs) then
                 state.locked_adapter = adapter_to_use
             end
             log.info("sip", "creating socket with adapter:", adapter_to_use, "locked_adapter:", state.locked_adapter)
-            local netc = socket.create(adapter_to_use, netCB)
+            -- The C callback receives lightuserdata; compare the captured full handle.
+            local netc
+            netc = socket.create(adapter_to_use, function(_, event, param)
+                netCB(netc, event, param)
+            end)
             state.netc = netc
             socket.config(netc, state.local_port, (state.sip_transport == "udp"))
 
             local succ = socket.connect(netc, state.sip_server_addr, state.sip_server_port)
             if not succ then
                 log.warn("sip", "connect start failed, retry")
+                state.connect_fail_count = state.connect_fail_count + 1
+                if state.connect_fail_count >= state.connect_max_attempts then
+                    emit_register("failed", {
+                        reason = "connect_start_failed",
+                        source = "network",
+                        attempts = state.connect_fail_count,
+                        server = state.sip_server_addr,
+                        port = state.sip_server_port,
+                        transport = state.sip_transport,
+                        retrying = true,
+                        hint = "无法启动SIP服务器连接，请检查服务器地址、端口、网络和可用网卡"
+                    })
+                    state.connect_fail_count = 0
+                end
+                clear_connection(netc)
                 socket.close(netc)
                 socket.release(netc)
                 sys.wait(3000)
             else
                 sys.waitUntil(TOPIC_DISCONNECT)
-                stop_reg_timer()
-                -- 断开连接时强制停止所有通话定时器，防止旧task的定时器泄漏到新实例
-                stop_all_call_timers()
+                clear_connection(netc)
                 socket.close(netc)
                 socket.release(netc)
-                state.netc = nil
                 if g_stop then
                     break
                 end
@@ -2056,6 +2636,7 @@ local function sip_task(opts)
         end
     end
 
+    sys.unsubscribe(TOPIC_CMD, command_handler)
     sys.unsubscribe("IP_READY", ip_ready_handler)
     sys.unsubscribe("IP_LOSE", ip_lose_handler)
     sys.unsubscribe("EXLIB_NETDRV_NETWORK_STATUS", network_status_handler)
@@ -2089,7 +2670,7 @@ exsipclient.start({
         -- event 可取 lifecycle、register、call、media、message、error
         -- lifecycle: online、offline、stopped
         -- register: ok、challenge
-        -- call: incoming、established、ended、failed、auth_retry
+        -- call: incoming、established、ended、failed、dial_rejected、auth_retry
         -- media: offer、ready、stop
         -- message: rx、sent、auth_retry、failed
         -- error: net、rx_failed
@@ -2106,20 +2687,62 @@ function M.start(opts)
     if not opts or type(opts) ~= "table" then
         return false
     end
+if type(opts.event_callback) == "function" then
+        g_callback = opts.event_callback
+    end
 
     if (not opts.sip_server_addr) or (not opts.sip_server_port) or (not opts.sip_domain) or (not opts.sip_username) then
+        log.error("sip", "invalid SIP config: required parameter missing")
+        emit_register("failed", {
+            reason = "invalid_config",
+            source = "config",
+            retrying = false,
+            hint = "缺少SIP服务器地址、端口、域或用户名"
+        })
+        return false
+    end
+
+    local address_type = classify_server_address(opts.sip_server_addr)
+    if not address_type then
+        log.error("sip", "invalid SIP server address", opts.sip_server_addr)
+        emit_register("failed", {
+            reason = "invalid_server_address",
+            source = "config",
+            server = opts.sip_server_addr,
+            port = opts.sip_server_port,
+            retrying = false,
+            hint = "SIP服务器地址格式错误，请填写合法的IPv4、IPv6地址或域名"
+        })
+        return false
+    end
+
+    local server_port = tonumber(opts.sip_server_port)
+    if not server_port or server_port < 1 or server_port > 65535 or server_port % 1 ~= 0 then
+        log.error("sip", "invalid SIP server port", opts.sip_server_port)
+        emit_register("failed", {
+            reason = "invalid_server_port",
+            source = "config",
+            server = opts.sip_server_addr,
+            port = opts.sip_server_port,
+            retrying = false,
+            hint = "SIP服务器端口必须是1到65535之间的整数"
+        })
+        return false
+    end
+    opts.sip_server_port = server_port
+
+    if not opts.sip_transport  or (opts.sip_transport ~= "udp" and opts.sip_transport ~= "tcp" and opts.sip_transport ~= "tls") then
+        log.error("sip", "invalid SIP transport", opts.sip_transport)
+        emit_register("failed", {
+            reason = "invalid_transport",
+            source = "config",
+            transport = opts.sip_transport,
+            retrying = false,
+            hint = "SIP传输层必须是udp、tcp或tls"
+        })
         return false
     end
     
-
-    if not opts.sip_transport  or (opts.sip_transport ~= "udp" and opts.sip_transport ~= "tcp" and opts.sip_transport ~= "tls") then
-        return false
-    end
-
-
-    if type(opts.event_callback) == "function" then
-        g_callback = opts.event_callback
-    end
 
     g_stop = false
     g_started = true
@@ -2183,52 +2806,60 @@ end
 
 --[[
 接听当前缓存的来电。
-@api exsipclient.answer()
+@api exsipclient.answer(call_id)
+@string call_id 可选，仅应答指定通话，忽略旧通话的迟到命令
 @return nil 无返回值
 @usage
 exsipclient.answer()
 ]]
-function M.answer()
-    -- 接听最近一次缓存的来电 INVITE。
-    sys.publish(TOPIC_CMD, "answer")
+function M.answer(call_id)
+    sys.publish(TOPIC_CMD, "answer", { call_id = call_id })
 end
 
 --[[
 发送 183 Session Progress + SDP，启动来电早期媒体。
-@api exsipclient.progress()
+@api exsipclient.progress(call_id)
+@string call_id 可选，仅处理指定通话
 @return nil 无返回值
 @usage
 exsipclient.progress()
 ]]
-function M.progress()
-    sys.publish(TOPIC_CMD, "progress")
+function M.progress(call_id)
+    sys.publish(TOPIC_CMD, "progress", { call_id = call_id })
 end
 
 --[[
 挂断当前通话，或拒绝当前未接来电。
-@api exsipclient.hangup()
+@api exsipclient.hangup(force, call_id)
+@boolean force 可选，true 强制清理本地会话；首参为字符串时按 call_id 处理
+@string call_id 可选，仅挂断指定通话，兼容 hangup(call_id)
 @return nil 无返回值
 @usage
+-- 等待来电 ACK 时挂断会立即上报 ended；旧信令在后台等待 ACK/BYE，不再触发业务事件。
 exsipclient.hangup()
 ]]
-function M.hangup()
-    -- 挂断当前通话，或拒绝当前未接来电。
-    sys.publish(TOPIC_CMD, "hangup")
+function M.hangup(force, call_id)
+    if type(force) == "string" then
+        call_id, force = force, false
+    end
+    sys.publish(TOPIC_CMD, "hangup", { force = force == true, call_id = call_id })
 end
 
 --[[
 使用指定 SIP 失败码结束尚未最终接听的来电。
-@api exsipclient.fail(code, reason)
+@api exsipclient.fail(code, reason, call_id)
 @number code SIP 状态码，默认 486
 @string reason 原因短语
+@string call_id 可选，仅拒绝指定通话
 @return nil 无返回值
 @usage
 exsipclient.fail(480, "Temporarily Unavailable")
 ]]
-function M.fail(code, reason)
+function M.fail(code, reason, call_id)
     sys.publish(TOPIC_CMD, "fail", {
         code = code,
-        reason = reason
+        reason = reason,
+        call_id = call_id
     })
 end
 

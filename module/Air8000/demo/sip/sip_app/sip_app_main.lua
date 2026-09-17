@@ -29,8 +29,8 @@ local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
     sip_domain = "180.152.6.34",
-    sip_username = "12345670",
-    sip_password = "Air.234567",
+    sip_username = hmeta.devid().."0",
+    sip_password = "123456",
     sip_transport = exsip.TRANSPORT_UDP,
     auto_answer = false,
 }
@@ -125,8 +125,12 @@ local function sip_callback(event, arg1, arg2, arg3)
         elseif action == "challenge" then
             log.info("sip_callback", "收到认证挑战，继续注册流程")
         else
-            log.error("sip_callback", "注册失败，action:", action)
-            sys.sendMsg(TASK_NAME, tag, "MSG_ERROR")
+            data = type(data) == "table" and data or {}
+            log.error("sip_callback", "注册失败",
+                "reason:", data.reason,
+                "sip_code:", data.sip_code,
+                "response_reason:", data.response_reason)
+            sys.sendMsg(TASK_NAME, tag, "SIP_REGISTER_FAILED", data.reason or "unknown")
         end
     elseif event == "ready" then
         sys.sendMsg(TASK_NAME, tag, "MSG_READY")

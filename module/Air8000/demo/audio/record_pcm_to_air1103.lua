@@ -1,25 +1,25 @@
 --[[
-@module  record_pcm_to_7014
-@summary Air780EHV 通过 UART1 连接 VB7014F 语音芯片的录音与播放演示（PCM 流式）
+@module  record_pcm_to_air1103
+@summary Air8000 通过 UART1 连接 Air1103 语音芯片的录音与播放演示（PCM 流式）
 @version 1.0
 @date    2026.09.02
 @author  拓毅恒
 @usage
 
 功能说明：
-  本 demo 演示 Air780EHV 通过 UART1（波特率固定 2M）连接合宙 VB7014F 语音芯片，
-  完成 PCM 流式音频录音和播放。VB7014F 为串口语音芯片，无需 I2C / PA / CODEC 硬件初始化。
+  本 demo 演示 Air8000 通过 UART1（波特率固定 2M）连接合宙 Air1103 语音芯片，
+  完成 PCM 流式音频录音和播放。Air1103 为串口语音芯片，无需 I2C / PA / CODEC 硬件初始化。
 
 录音：
-  - VB7014F MIC 上行，固定 16kHz / 16bit / 单声道、512B/帧
+  - Air1103 MIC 上行，固定 16kHz / 16bit / 单声道、512B/帧
   - 通过 exaudio.record_start 接收上行 PCM 流式数据，录音文件路径可保存到：
       · SD 卡：/sd/record.pcm（挂载 SD 卡成功时）
-      · Air780EHV 内存：/record.pcm（SD 卡挂载失败自动回退）
+      · Air8000 内存：/record.pcm（SD 卡挂载失败自动回退）
   - 默认录音 5 秒，按任意键可提前结束
 
 播放：
   - 使用流式播放方式播放 PCM 录音文件（16kHz / 16bit / 有符号）
-  - 下行按 320B/10ms=32KB/s 节奏喂数据，防止 VB7014F 下行缓冲溢出丢帧
+  - 下行按 320B/10ms=32KB/s 节奏喂数据，防止 Air1103 下行缓冲溢出丢帧
 
 按键功能（Power 键 / Boot 键）：
   1. Power 键：开始/停止录音，停止播放
@@ -32,11 +32,11 @@
      - 录音中按 Boot 键提前结束录音
 
 硬件连接：
-  - Air780EHV 的 UART1 对接 VB7014F 串口，波特率 2M
+  - Air8000 的 UART1 对接 Air1103 串口，波特率 2M
   - 使用 SD 卡需按实际硬件配置 sd_spi_id / sd_cs_pin 并打开供电脚
 
 工作流程：
-  1. 初始化：挂载 SD 卡（失败则回退内存路径），exaudio.setup({model="vb7014f", uart_id=1}) 初始化 VB7014F
+  1. 初始化：挂载 SD 卡（失败则回退内存路径），exaudio.setup({model="air1103", uart_id=1}) 初始化 Air1103
   2. 录音：流式录音，实时写入 SD 卡或内存，显示写入速度统计
   3. 播放：流式播放，读取录音文件并持续喂入 PCM 数据
   4. 状态管理：互斥控制录音/播放状态
@@ -45,8 +45,8 @@
 local exaudio = require "exaudio"
 
 -- SD卡配置参数
-local sd_spi_id = 0            -- SPI接口编号
-local sd_cs_pin = 16           -- 片选引脚 核心板cs为8 开发板cs为16 按照自己的硬件选择
+local sd_spi_id = 1            -- SPI接口编号
+local sd_cs_pin = 20           -- 片选引脚
 local sd_mount_path = "/sd"    -- SD卡挂载路径
 
 -- 录音文件路径（保存到SD卡）
@@ -68,8 +68,8 @@ local RECORD_DURATION = 5      -- 录音时长
 
 -- 硬件配置参数
 local audio_setup_param = {
-    model = "vb7014f",            -- VB7014F 语音芯片: 通过 UART 串口驱动, 无需 I2C/PA/CODEC 硬件初始化
-    uart_id = 1,                 -- 连接 VB7014F 的 UART 端口(固定 2M 波特率), 默认 UART1
+    model = "air1103",            -- Air1103 语音芯片: 通过 UART 串口驱动, 无需 I2C/PA/CODEC 硬件初始化
+    uart_id = 1,                 -- 连接 Air1103 的 UART 端口(固定 2M 波特率), 默认 UART1
 }
 
 -- ========== 播放相关函数 ==========
@@ -116,8 +116,8 @@ local function stream_audio_data()
         end
         
         exaudio.play_stream_write(read_data)  -- 流式写入音频数据
-        if audio_setup_param.model == "vb7014f" then
-            -- vb7014f 下行按 320B/10ms=32KB/s 消费; 3200B 缓冲正好 100ms,
+        if audio_setup_param.model == "air1103" then
+            -- air1103 下行按 320B/10ms=32KB/s 消费; 3200B 缓冲正好 100ms,
             -- 按此节奏喂数据, 防止下行流式缓冲(约2s)溢出丢帧导致只播到录音尾部
             sys.wait(math.max(20, math.floor(buffer_size / 32)))
         else
@@ -242,7 +242,7 @@ local audio_record_param = {
     time = RECORD_DURATION,      -- 录制时长
     path = function(buff, size)
         -- 录音期间 recordFile 已打开, 此处仅做 file:write(几毫秒);
-        -- 避免每帧 open/write/close 拖慢导致 exaudio 写任务追不上 VB7014F 上行速率、停止后还倒很久
+        -- 避免每帧 open/write/close 拖慢导致 exaudio 写任务追不上 Air1103 上行速率、停止后还倒很久
         if buff and size > 0 and recordFile then
             local start_time = mcu.ticks()  -- 记录开始时间
             recordFile:write(buff:query()) -- 将缓冲区数据写入文件
@@ -370,11 +370,11 @@ end
 -- 挂载SD卡
 local function mount_sd_card()
     log.info("开始挂载SD卡")
-    -- 打开ch390供电脚（使用开发板需要打开此注释）
-    gpio.setup(20, 1, gpio.PULLUP) 
-    --上拉ch390使用spi的cs引脚避免干扰（使用开发板需要打开此注释）
-    gpio.setup(8,1)
-    
+    -- 打开ch390供电脚（使用8000开发板需要打开此注释）
+    gpio.setup(140, 1, gpio.PULLUP) 
+    --上拉ch390使用spi的cs引脚避免干扰（使用8000开发板需要打开此注释）
+    gpio.setup(12,1)
+
     -- 初始化SPI接口
     spi.setup(sd_spi_id, nil, 0, 0, 8, 2000000)
     -- 设置片选引脚为高电平

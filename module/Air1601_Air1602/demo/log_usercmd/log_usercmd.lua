@@ -163,7 +163,12 @@ local function dispatch(seq, subcmd, flags, body)
 end
 
 --- 启动协议栈(注册 log.set_usercmd_cb)
+-- @return true=已接管; false=固件没开 LUAT_USE_LOG_USER_CMD, 功能不可用(脚本可继续跑, 只是收不到指令)
 function uc.start()
+    if type(log.set_usercmd_cb) ~= "function" then
+        log.warn("usercmd", "固件未开启 LUAT_USE_LOG_USER_CMD, 日志口用户指令不可用")
+        return false
+    end
     log.set_usercmd_cb(function(cmd, data)
         -- cmd 为 A5 帧 address 字段(恒为0, 不使用); data 为 payload(无 MAGIC)
         if #data < 5 then return end
@@ -173,6 +178,7 @@ function uc.start()
         local seq = string.unpack("<I2", data, 4)
         dispatch(seq, subcmd, flags, data:sub(6))
     end)
+    return true
 end
 
 local function check_path(path)

@@ -67,9 +67,15 @@ void    luat_cc_bridge_flush_sip_uplink(void);
 /** 录音回调中拿到真实下行数据时调用(停止早期彩铃并记日志) */
 void    luat_cc_bridge_real_downlink_seen(uint32_t bytes);
 
-/** Route SIP RTP PCM into CC through the audio extern-record source. */
-int     luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const luat_audio_common_param_t *cc_param, uint32_t request_id);
-void    luat_cc_bridge_uplink_source_stop(void);
+/** Start the bridge-owned SIP uplink source for this CC request. */
+int luat_cc_bridge_source_start(luat_audio_request_block_t *request,
+    const luat_audio_common_param_t *cc_param, uint32_t request_id);
+/** Detach and wait for destruction before reusing the source or CC request. */
+int luat_cc_bridge_source_stop(void);
+/** Handle bridge source completion; return 1 when the event belongs to it. */
+uint8_t luat_cc_bridge_source_decode_done(const uint8_t *data, uint32_t param);
+uint8_t luat_cc_bridge_source_is_idle(void);
+uint8_t luat_cc_bridge_source_is_stopping(void);
 
 #else
 
@@ -85,10 +91,16 @@ static inline void luat_cc_bridge_drain_stop(void) {}
 static inline void luat_cc_bridge_drain_downlink(void) {}
 static inline void luat_cc_bridge_flush_sip_uplink(void) {}
 static inline void luat_cc_bridge_real_downlink_seen(uint32_t bytes) { (void)bytes; }
-static inline int luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const luat_audio_common_param_t *param, uint32_t request_id) {
-    (void)source; (void)param; (void)request_id; return -1;
+static inline int luat_cc_bridge_source_start(luat_audio_request_block_t *request,
+    const luat_audio_common_param_t *param, uint32_t request_id) {
+    (void)request; (void)param; (void)request_id; return -1;
 }
-static inline void luat_cc_bridge_uplink_source_stop(void) {}
+static inline int luat_cc_bridge_source_stop(void) { return 0; }
+static inline uint8_t luat_cc_bridge_source_decode_done(const uint8_t *data, uint32_t param) {
+    (void)data; (void)param; return 0;
+}
+static inline uint8_t luat_cc_bridge_source_is_idle(void) { return 1; }
+static inline uint8_t luat_cc_bridge_source_is_stopping(void) { return 0; }
 
 #endif /* LUAT_USE_CC_VOIP_BRIDGE */
 

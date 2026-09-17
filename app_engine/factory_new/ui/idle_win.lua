@@ -164,7 +164,6 @@ local builtin_apps = {
     { name = "设置",     win = "SETTINGS",     icon = "settings",  dock = true },
     { name = "应用市场", win = "APP_STORE",    icon = "app_store", dock = true },
     { name = "文件管理", win = "FILE_MANAGER", icon = "file",      dock = true },
-    { name = "网络测速", win = "SPEEDTEST",    icon = "speedtest", dock = true },
 }
 if has_app_factory then
     table.insert(builtin_apps, { name = "应用工厂", win = "APP_FACTORY", icon = "app_factory", dock = true })
@@ -582,8 +581,14 @@ end
 
 local function make_dark_keyboard()
     return theme.keyboard({
-        x = 0, y = -math.floor(20 * density_scale_val),
-        w = screen_w, h = math.floor(220 * density_scale_val),
+        --[[键盘统一规范（与 wifi 密码键盘一致）：
+            parent 必须是「宽 = 内容区宽」的本页根容器 —— 拼音候选栏与输入预览框
+            都由 C 侧建在键盘的父对象上、宽度取父宽的 100%（整屏宽就会左右超出键盘）；
+            挂在屏幕根上还会变成「整屏底部居中」，与内容区错开且不随页面销毁。
+            y 固定 0（相对父容器底部居中），高度统一 dp(200)，全部带 preview 输入预览条。]]
+        parent = main_container,
+        x = 0, y = 0,
+        w = screen_w, h = math.floor(200 * density_scale_val),
         mode = "text", auto_hide = true, preview = true,
         on_commit = function(self) self:hide() end,
     })

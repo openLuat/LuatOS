@@ -278,8 +278,20 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
     local input_area = airui.container({ parent = main_container, x = 0, y = input_y, w = screen_w, h = input_area_h, color = CLR.surface, color_opacity = theme.OPA.glass, border_color = CLR.stroke, border_width = 1 })
 
     pcall(function()
-        keyboard = airui.keyboard({ x = 0, y = -math.floor(20 * d), w = screen_w, h = math.floor(180 * d),
-            mode = "text", auto_hide = true, preview = true, on_commit = function(self) self:hide() end })
+        --[[键盘统一规范（与 wifi 密码键盘一致）：
+            parent 必须是「宽 = 内容区宽」的本页根容器 —— 拼音候选栏与输入预览框
+            都由 C 侧建在键盘的父对象上、宽度取父宽的 100%（整屏宽就会左右超出键盘）；
+            挂在屏幕根上还会变成「整屏底部居中」，与内容区错开且不随页面销毁。
+            y 固定 0（相对父容器底部居中），高度统一 dp(200)，全部带 preview 输入预览条。]]
+        keyboard = theme.keyboard({
+            parent = main_container,
+            x = 0, y = 0,
+            w = screen_w, h = math.floor(200 * _G.density_scale),
+            mode = "text",
+            auto_hide = true,
+            preview = true,
+            on_commit = function(self) self:hide() end,
+        })
     end)
 
     local rec_w = math.floor(48 * d)

@@ -472,14 +472,22 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
         sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
     end
 
-    search_keyboard = airui.keyboard({
+    --[[键盘要显式挂到本页主容器上（默认会挂到屏幕根对象）。
+    本页的 screen_w 已被 content_fit 收窄成内容区宽，挂在屏幕根上会变成
+    「整屏底部居中」，与页面内容区错开一截；更麻烦的是它不随页面容器一起
+    销毁，页面切走后键盘会留在屏幕上。配色走 theme.keyboard，跟随主题。]]
+    --[[键盘统一规范（与 wifi 密码键盘一致）：
+        parent 必须是「宽 = 内容区宽」的本页根容器 —— 拼音候选栏与输入预览框
+        都由 C 侧建在键盘的父对象上、宽度取父宽的 100%（整屏宽就会左右超出键盘）；
+        挂在屏幕根上还会变成「整屏底部居中」，与内容区错开且不随页面销毁。
+        y 固定 0（相对父容器底部居中），高度统一 dp(200)，全部带 preview 输入预览条。]]
+    search_keyboard = theme.keyboard({
+        parent = main_container,
+        x = 0, y = 0,
+        w = screen_w, h = math.floor(200 * _G.density_scale),
         mode = "text",
         auto_hide = true,
         preview = true,
-        preview_height = 40,
-        w = screen_w,
-        h = 200,
-        bg_color = CLR.panel,
         on_commit = function(self)
             sync_search_text()
             self:hide()

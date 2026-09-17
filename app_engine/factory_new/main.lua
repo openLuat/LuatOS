@@ -116,7 +116,7 @@ exapp = require "exapp"
 require "lcd_common"
 
 -- ==================== 阶段4: 业务模块加载 ====================
--- 按顺序 require 各业务模块：net_init → wifi_app → status_provider → ntp → speedtest → iot → settings → fota
+-- 按顺序 require 各业务模块：net_init → wifi_app → status_provider → ntp → iot → settings → fota
 -- 每个模块 require 时自动订阅事件、启动定时器，互不阻塞
 require "app_main"
 

@@ -194,7 +194,6 @@ M.ICON_FALLBACK = {
     settings   = "/luadb/settings.png",
     app_store  = "/luadb/app_store_icon.png",
     file       = "/luadb/file_manager.png",
-    speedtest  = "/luadb/internet_speed.png",
     app_factory = "/luadb/app_factory.png",
     ai_chat    = "/luadb/ai_chat.png",
     search     = "/luadb/search.png",

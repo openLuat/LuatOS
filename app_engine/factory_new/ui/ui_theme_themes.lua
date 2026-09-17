@@ -25,43 +25,40 @@ ui_theme 提供令牌（theme.C / theme.SEM / theme.OPA / theme.R / theme.fs）�
   style   { wallpaper = bool, dark = bool }
   swatch  { bg, card, accent, text } —— 设置页色卡预览用
 
-=== v3 设计原则：按「明度档 × 色相」两维铺开 ===
-v1 的 9 套主题病根是「底的明度过于集中」——浅色 3 套底色全落在 0xE9~0xF5，
-深色 6 套全落在 0x00~0x15，中间明度整档空白。于是用户在设置页看到的是
-「同一块黑板换了个强调色」，实测最接近的一对（森林 ↔ 曜石）均 ΔE 仅 8.7。
-
-v2 收敛为 8 套、按三段明度铺开；v3 再补「科技蓝 / 活力橙」两套高饱和中间调，
-同时淘汰辨识度最弱的「暮色蓝灰」（去饱和的灰蓝，与新科技蓝同族同档），总数回到 9 套：
+=== v4 主题集：5 套（2026-09-17 按用户要求收敛）===
+用户从 9 套里选定保留 5 套，其余 4 套（vivid 活力橙 / clay 陶土暖棕 /
+amber 琥珀夜空 / forest 青竹幽谷）已整体删除：
 
   浅色档（bg 0xE4~0xF8，深色文字，实底不透明卡）
-    1 dawn     晨曦浅色   冷·蓝白   琥珀强调（默认，底色偏冷拉开与 linen 的距离）
+    1 dawn     晨曦浅色   冷·蓝白   琥珀强调（默认）
     2 linen    暖阳米色   暖·米黄   赭橙强调
     3 jade     青瓷清露   自然·青绿 松绿强调
-  中间档（bg 0x1E~0x8A，浅色文字，实底不透明卡）——v1 完全没有这一档
+  中间档（bg 0x1E~0x8A，浅色文字，实底不透明卡）
     4 techblue 科技蓝     冷·宝蓝   电光蓝强调
-    5 vivid    活力橙     暖·橙     活力橙强调
-    6 clay     陶土暖棕   暖·陶棕   陶橙强调
   深色档（bg 0x00~0x0E，浅色文字）
-    7 amber    琥珀夜空   深色玻璃  琥珀强调
-    8 forest   青竹幽谷   深色玻璃  竹青强调
-    9 obsidian 曜石纯黑   深色实底  薄荷强调
+    5 obsidian 曜石纯黑   深色实底  薄荷强调
+
+⚠ 被删掉的 id 若已持久化在设备 fskv 里，开机会回落 M.DEFAULT_THEME（dawn），
+  不需要任何迁移代码；设置页的行数由 theme.theme_list() 动态生成，
+  工程里不存在主题 id 的硬编码清单，所以增删主题只需改本文件。
 
 新增主题时请守住两条硬约束，否则会退化成「雷同」：
   · 与同档位其他主题的底色应有可辨差异（各档位内底色 ΔE ≥ 8）
   · 正文色对底色对比度 ≥ 4.5、强调色与弱文字 ≥ 3.0（浅色档尤其容易踩线）
 
 === 三类外观（style 决定）===
-  wallpaper = true   深色玻璃：底色 + 顶部渐隐，卡片半透明白（opa≈26）
+  wallpaper = true   玻璃：底色 + 顶部渐隐，卡片半透明白（opa≈26）
   wallpaper = false  平铺实底：整屏单色，卡片不透明（opa=255）
 
-v3 起壁纸不再画「四角光斑」（原先 M.wallpaper 里那四个大圆球）——
+v3 起壁纸不再画「四角光斑」——
 AirUI 没有径向渐变能力，光斑只是「超大圆角方块」的近似，实机上更像四块贴上去的色斑。
-现在深色玻璃只剩「底色 + 顶部渐隐」这条真渐变。
+现在只剩「底色 + 顶部渐隐」这条真渐变。
 
 浅色主题与「实底」主题都必须 wallpaper = false：AirUI 的描边不支持透明度，
-浅底上 26 透明度的白卡和 8% 白描边都不可见，玻璃语言在这些配色里会整体消失。
-这也是为什么浅色 / 实底主题要把 opa 整体提到 200+，并靠实色描边补回层次。
-中间档（techblue / vivid / clay）同样走实底 —— 玻璃的半透明白在中明度底上只会糊成一片灰。
+浅底上 26 透明度的白卡与 8% 白描边都不可见，玻璃语言在浅色下会整体消失。
+所以浅色 / 实底主题要把 opa 整体提到 200+，并靠实色描边补回层次。
+中间档（techblue）同样走实底 —— 玻璃的半透明白在中明度底上只会糊成一片灰。
+（本次收敛后 5 套里已没有 wallpaper = true 的主题，此段留作后续新增主题的约束。）
 
 === 关于左栏（rail）底色：rail_bg ===
 idle_win 的左栏底色不再借用 theme.C.white，而是读 theme.C.rail_bg。
@@ -105,13 +102,6 @@ local OPA_SOLID_DARK = {
     fill = 255, fill_hi = 255,
     scrim = 170, off = 255, divider = 255,
 }
-
---[[深色玻璃共用：只覆写 rail 与 divider
-rail 从基线的 14 提到 40（约 16%）—— 14 / 26 对底色的贡献都太小，
-换上任何主题左栏看着都一样（用户报「琥珀夜空和青竹幽谷左栏没改变」）。
-40 仍然透明到能让底色透上来，但左栏已经是一块可辨认的导航面板；
-「是哪一套主题」则由各主题自己的 rail_bg 色相承担（见下面两套玻璃主题）。]]
-local OPA_GLASS = { divider = 16, rail = 40 }
 
 -- ==================== 1. 晨曦浅色（默认主题） ====================
 --[[浅色主题走「不透明卡 + 实描边」而不是玻璃：AirUI 的描边不支持透明度，
@@ -275,163 +265,7 @@ theme.register({
     swatch = { bg = 0x1E3E74, card = 0x2B4E86, accent = 0x4FA3FF, text = 0xEAF1FB },
 })
 
--- ==================== 5. 活力橙（中间明度 · 暖 · 高饱和） ====================
---[[v3 新增。与「陶土暖棕」同档同色温，但饱和度是两个量级 ——
-陶土暖棕是一块灰扑扑的陶土，本套是一块实打实的橙：
-底色 0x8A4A18 明确偏亮一档，配上亮橙强调，看着就有「电量满格」的意思。
-
-暖色 + 中明度最容易糊，所以卡片 / 输入框 / 轨道都往深橙里走（0x5E2F0C），
-靠「亮底 + 深控件」拉开层次，而不是靠白色半透明层。]]
-theme.register({
-    id = "vivid",
-    name = "活力橙",
-    desc = "饱和橙调 | 活力橙强调",
-    order = 5,
-    style = { wallpaper = false, dark = true },
-    colors = {
-        bg = 0x8A4A18, bg_top = 0x9A5622,
-        panel = 0x9A5722, panel_hi = 0xAB6529, line_soft = 0xBC7534,
-        surface = 0x9A5722, line = 0xFFFFFF,
-        t1 = 0xFFF3E6, t2 = 0xF0CDA8, t3 = 0xDCAE82,
-        amber = 0xFFB454, amber_light = 0xFFD08F, amber_deep = 0xE08A2C,
-        cyan = 0x6BD8E0, cyan_light = 0xAFEFF2,
-        green = 0x7FD88C, green_light = 0xBEEBBE,
-        violet = 0xCBA0F5, violet_light = 0xEAD8FF,
-        rose = 0xFF9AA0, rose_light = 0xFFC6C6,
-        stroke = 0xBC7534, stroke_soft = 0xAB6529, stroke_hi = 0xCC8C4A,
-        selected = 0xAB6529, pressed = 0xA25C25,
-        rose_deep = 0xE0707A, green_deep = 0x5FB46C,
-        dialog = 0x7A3F14, on_amber = 0x2E1404,
-        bubble_user = 0xA85E22, avatar_text = 0xF7E3CC,
-        dev1 = 0xAB6529, dev2 = 0x5E2F0C,
-        scrim = 0x2E1404,
-        divider = 0xFFFFFF,
-        track = 0x5E2F0C, track_hi = 0x77400F, input_bg = 0x5E2F0C,
-        knob = 0xFFF4E8, knob_off = 0xC09A78,
-        qr_dark = 0x2E1404, qr_light = 0xFFFFFF,
-        rail_bg = 0x5E2F0C,
-    },
-    opa = OPA_SOLID_DARK,
-    swatch = { bg = 0x8A4A18, card = 0x9A5722, accent = 0xFFB454, text = 0xFFF3E6 },
-})
-
--- ==================== 6. 陶土暖棕（中间明度 · 暖） ====================
---[[v2 新增。与 techblue / vivid 同一个明度档，但色温相反 —— 棕灰底 + 陶橙强调。
--- 中明度 + 暖色这个组合在 UI 里少见，是这套主题最容易被记住的地方。]]
-theme.register({
-    id = "clay",
-    name = "陶土暖棕",
-    desc = "陶土暖棕 | 陶橙强调",
-    order = 6,
-    style = { wallpaper = false, dark = true },
-    colors = {
-        bg = 0x4A3E36, bg_top = 0x53463D,
-        panel = 0x574A40, panel_hi = 0x615348, line_soft = 0x6E5F53,
-        surface = 0x574A40, line = 0xFFFFFF,
-        t1 = 0xFAF4EE, t2 = 0xD6C7B9, t3 = 0xB5A396,
-        amber = 0xF0A46A, amber_light = 0xFFC79A, amber_deep = 0xC87E44,
-        cyan = 0x7ED0D8, cyan_light = 0xB3E6EA,
-        green = 0x9AD68C, green_light = 0xC6E9BC,
-        violet = 0xC4A0F0, violet_light = 0xE6D6FA,
-        rose = 0xFF9AA0, rose_light = 0xFFC0C4,
-        stroke = 0x6E5F53, stroke_soft = 0x615348, stroke_hi = 0x877668,
-        selected = 0x5E4E42, pressed = 0x615348,
-        rose_deep = 0xE0767C, green_deep = 0x78B46C,
-        dialog = 0x4F4238, on_amber = 0x2E1706,
-        bubble_user = 0x8A6448, avatar_text = 0xE6D8CA,
-        dev1 = 0x5E5046, dev2 = 0x3E342D,
-        scrim = 0x241D18,
-        divider = 0xFFFFFF,
-        track = 0x3E342D, track_hi = 0x4E4238, input_bg = 0x3E342D,
-        knob = 0xFBF6F0, knob_off = 0xA7998C,
-        qr_dark = 0x241D18, qr_light = 0xFFFFFF,
-        rail_bg = 0x3E342D,
-    },
-    opa = OPA_SOLID_DARK,
-    swatch = { bg = 0x4A3E36, card = 0x574A40, accent = 0xF0A46A, text = 0xFAF4EE },
-})
-
--- ==================== 7. 琥珀夜空（深色玻璃 · 暖） ====================
--- 深色玻璃 + 琥珀强调，与 1024×600 设计稿一致。不覆写任何键即基线本身，
--- 但仍显式列出关键色，便于作为新增主题的抄写模板。
-theme.register({
-    id = "amber",
-    name = "琥珀夜空",
-    desc = "深色玻璃 | 琥珀强调",
-    order = 7,
-    style = { wallpaper = true, dark = true },
-    colors = {
-        bg = 0x0D131C, bg_top = 0x121A26,
-        panel = 0x18202C, panel_hi = 0x202A38, line_soft = 0x39434F,
-        surface = 0xFFFFFF, line = 0xFFFFFF,
-        t1 = 0xEDF1F7, t2 = 0x95A0AE, t3 = 0x5E6978,
-        amber = 0xFFB454, amber_light = 0xFFCB7E, amber_deep = 0xF08838,
-        cyan = 0x5CC9E8, cyan_light = 0x9BE4F7,
-        green = 0x4FD69C, green_light = 0xA8E8CB,
-        violet = 0xA78BFA, violet_light = 0xE9E3FF,
-        rose = 0xFF7B8B, rose_light = 0xFFA4B0,
-        stroke = 0x333C4A, stroke_soft = 0x2A3240, stroke_hi = 0x4A5666,
-        selected = 0x25344A, pressed = 0x2A3240,
-        rose_deep = 0xE05A6B, green_deep = 0x35B080,
-        dialog = 0x121821, on_amber = 0x1A1206,
-        bubble_user = 0x3D4E9E, avatar_text = 0xC3D6E8,
-        dev1 = 0x2B3A4E, dev2 = 0x16202C,
-        scrim = 0x0E141C,
-        divider = 0xFFFFFF,
-        -- 轨道 / 输入框 / 滑块（见 ui_theme 的 M.bar / M.input / M.slider / M.toggle）
-        track = 0x2C3542, track_hi = 0x3A4655, input_bg = 0x1B2431,
-        knob = 0xF2F6FA, knob_off = 0xB9C4D0,
-        --[[玻璃档左栏 = 半透明色 + OPA.rail（40），底下的桌面光斑要透上来。
-
-        这里不能用纯白：琥珀夜空与青竹幽谷（另一套玻璃）都会渲染成一模一样的左栏，
-        用户在主题页来回切这两套时看到的就是「左栏没变化」。
-        给每套玻璃一个带本主题色相的半透明白：本套是暖琥珀色。]]
-        rail_bg = 0xFFD9A0,
-    },
-    opa = OPA_GLASS,
-    swatch = { bg = 0x0D131C, card = 0x18202C, accent = 0xFFB454, text = 0xEDF1F7 },
-})
-
--- ==================== 8. 青竹幽谷（深色玻璃 · 自然） ====================
---[[v1 的底色是 0x0A1512 —— 太暗，暗到和「曜石纯黑」几乎分不出来
---（实测两者的底色 ΔE 只有 7.4，是全部 36 对里最接近的一对）。
--- v2 把绿调提上来：bg 0x0E2619，左栏 / 面板 / 描边同步跟着绿走，
--- 现在它是一眼能认出的「墨绿」，而不是「另一种黑」。]]
-theme.register({
-    id = "forest",
-    name = "青竹幽谷",
-    desc = "墨绿暗调 | 竹青强调",
-    order = 8,
-    style = { wallpaper = true, dark = true },
-    colors = {
-        bg = 0x0E2619, bg_top = 0x13301F,
-        panel = 0x173A26, panel_hi = 0x1E4832, line_soft = 0x2E5540,
-        surface = 0xFFFFFF, line = 0xFFFFFF,
-        t1 = 0xE9F5F0, t2 = 0x94B3A4, t3 = 0x6B8F7C,
-        amber = 0x4FD69C, amber_light = 0xA8E8CB, amber_deep = 0x33A874,
-        cyan = 0x5CD6D6, cyan_light = 0x9EEAEA,
-        green = 0x4FD69C, green_light = 0xA8E8CB,
-        violet = 0x9BB8FA, violet_light = 0xE0E8FF,
-        rose = 0xFF8A8A, rose_light = 0xFFB4B4,
-        stroke = 0x2A4A38, stroke_soft = 0x1E3A2B, stroke_hi = 0x3E6A52,
-        selected = 0x1F4432, pressed = 0x1E3A2B,
-        rose_deep = 0xE06A6A, green_deep = 0x33A874,
-        dialog = 0x0F2A1C, on_amber = 0x06231A,
-        bubble_user = 0x2E6B55, avatar_text = 0xBCE4D4,
-        dev1 = 0x28463A, dev2 = 0x0E2619,
-        scrim = 0x081710,
-        divider = 0xFFFFFF,
-        track = 0x20402F, track_hi = 0x2E5540, input_bg = 0x16321F,
-        knob = 0xEEF7F2, knob_off = 0xAEC7BB,
-        qr_dark = 0x081710, qr_light = 0xFFFFFF,
-        -- 同琥珀夜空：换成带竹青绿相的半透明白，否则两套玻璃主题的左栏长得一样
-        rail_bg = 0xBFF2DA,
-    },
-    opa = OPA_GLASS,
-    swatch = { bg = 0x0E2619, card = 0x173A26, accent = 0x4FD69C, text = 0xE9F5F0 },
-})
-
--- ==================== 9. 曜石纯黑（深色实底 · 冷） ====================
+-- ==================== 5. 曜石纯黑（深色实底 · 冷） ====================
 --[[OLED 友好：底色纯黑、卡片实心深灰，没有任何光斑与半透明层。
 -- 和玻璃主题的区别一眼可见 —— 屏幕不再是「有层次的暗」，而是「一块块实板」。
 
@@ -442,7 +276,7 @@ theme.register({
     id = "obsidian",
     name = "曜石纯黑",
     desc = "纯黑实底 | 薄荷强调",
-    order = 9,
+    order = 5,
     style = { wallpaper = false, dark = true },
     colors = {
         bg = 0x000000, bg_top = 0x07090C,

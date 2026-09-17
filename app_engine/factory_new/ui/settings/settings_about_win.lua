@@ -147,12 +147,18 @@ local function create_edit_win(device_name)
     local win_h = math.min(theme.dp(224), sh - theme.dp(40))
     if win_w < theme.dp(220) then win_w = sw - theme.dp(20) end
 
+    --[[键盘统一规范（与 wifi 密码键盘一致）：
+        parent 必须是「宽 = 内容区宽」的本页根容器 —— 拼音候选栏与输入预览框
+        都由 C 侧建在键盘的父对象上、宽度取父宽的 100%（整屏宽就会左右超出键盘）；
+        挂在屏幕根上还会变成「整屏底部居中」，与内容区错开且不随页面销毁。
+        y 固定 0（相对父容器底部居中），高度统一 dp(200)，全部带 preview 输入预览条。]]
     soft_keyboard = theme.keyboard({
         parent = main_container,
-        x = 0, y = -theme.dp(20),
-        w = sw, h = theme.dp(260),
+        x = 0, y = 0,
+        w = sw, h = math.floor(200 * _G.density_scale),
         mode = "text",
         auto_hide = true,
+        preview = true,
         on_commit = function(self) self:hide() end,
     })
 

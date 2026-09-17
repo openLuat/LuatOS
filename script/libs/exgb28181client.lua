@@ -1,15 +1,21 @@
 --[[
 @module exgb28181client
-@summary GB28181 设备侧信令客户端，负责注册、心跳与查询响应
+@summary GB28181 设备侧信令客户端：注册、心跳、查询应答、点播会话与媒体收发
 @version 0.1.0
 @date    2026.09.14
 @usage
-本库是 GB28181 的"信令侧"实现，处理：
-  REGISTER(含 401/407 摘要重试)、心跳 Keepalive、以及平台的查询应答
-  (DeviceInfo / DeviceStatus / ConfigDownload / Catalog 目录分页)。
-不含点播与媒体收发，那些是后续里程碑。
+本库是 GB28181 设备侧的信令与媒体实现，处理：
+  REGISTER(含 401/407 摘要重试)、心跳 Keepalive、平台的查询应答
+  (DeviceInfo / DeviceStatus / ConfigDownload / Catalog 目录分页 /
+   RecordInfo 录像列表)、
+  实时点播(INVITE/SDP 协商/ACK/BYE，UDP 与 TCP 两种承载)、
+  会话失活回收、以及语音对讲/广播的两条腿。
 
 协议编解码全部由 C 模块 gb28181 承担，本库只做状态机与 socket 收发。
+
+**媒体是指"字节"不是"声音"**：本库收已编码的载荷(视频是 annex-b 访问单元、
+音频是 G.711A)，PCM↔G.711A 与麦克风/喇叭都不在这里 —— 那些由
+`exgb28181audio.lua` 接 LuatOS 的 audio_v2 完成(见该文件头)。
 
 基本用法：
 local client = require "exgb28181client"
@@ -65,6 +71,11 @@ local MAX_AUTH_RETRY = 2
 
 local g_opts    = nil
 local g_cb      = nil
+local g_audio_cb = nil    -- 下行音频回调。与 g_cb 一样放模块局部而不是 g_opts：
+                          -- on_audio() 可能在 start() 之前被调用(音频桥先于信令起来)，
+                          -- 挂在 g_opts 上会在那时炸 "attempt to index a nil value"
+local g_playback_cb = nil -- 回放源钩子(见 on_playback)。同样放模块局部：
+                          -- exgb28181playback 通常在 client.start() 之前就 setup()
 local g_started = false
 local st        = {}
 
@@ -84,6 +95,12 @@ local function reset_state()
         next_ka    = 0,
         sessions   = {},   -- 点播会话，按 Call-ID 索引(支持多路并发)
         talks      = {},   -- 设备主动发起的音频会话(Broadcast/Talk)，按 Call-ID 索引
+
+        -- 信令链路的重建状态，见 _signal_dead / _reconnect_signaling
+        dead           = false,  -- 链路已失活，等 sip_task 重建
+        reconnect_at   = 0,      -- 下次可尝试重建的时刻(现在是 0 = 立刻可试)
+        reconnect_delay = nil,   -- 退避间隔；注册成功后清零
+        await_since    = nil,    -- 发出 REGISTER/心跳的时刻，等应答；见 tick 里的活口判据
     }
 end
 
@@ -121,13 +138,106 @@ local function gen_token(prefix)
         return crypto.md5(seed):lower():sub(1, 16)
     end
     log_warn("缺少 crypto，token 随机性不足")
-    return string.format("%08x%08x", os.time() % 0xFFFFFFFF, ticks % 0xFFFFFFFF)
+    -- 同样不要 `% 0xFFFFFFFF`（32 位整数下是 -1 → 结果恒为 0，
+    -- 退化成固定字符串 "0000000000000000"，等于所有 branch/tag 都一样）。
+    -- os.time() 到 2106 年前都在 32 位内；ticks 是 32 位毫秒计数，自己会回绕。
+    return string.format("%08x%08x", os.time(), ticks)
 end
 
 local function emit(event, action, payload)
     if type(g_cb) ~= "function" then return end
     local ok, err = pcall(g_cb, event, action, payload or {})
     if not ok then log_error("事件回调异常", event, action, err) end
+end
+
+-- ------------------------------------------------------------------
+-- 录像列表：归一化（时间字符串 ↔ Unix 秒）
+-- ------------------------------------------------------------------
+
+--[[
+把 "YYYY-MM-DDThh:mm:ss" 解析成 Unix 秒。**字母 T 分隔**，不是空格。
+（也接受空格：有些设备的配置是手写的，把这两种都认下来只多一行，
+而认不出来会让**整条回放链路**静默失效——不值得为格式洁癖付这个代价。）
+
+按 os.time() 即**设备本地时区**解释，与 C 层 record_format_time 用的
+localtime_r 同一口径。两边必须一致：平台拿设备报的字符串换算回放 SDP 的
+t= 行(实测 WVP 如此)，设备拿同一个 Unix 秒去 seek 录像文件；一边本地、
+一边 UTC 的话，平台上看到的回放起点会整体差一个时区。
+
+@return int|nil Unix 秒；格式不符返回 nil
+]]
+local function parse_time(s)
+    if type(s) ~= "string" then return nil end
+    local y, mo, d, h, mi, se =
+        s:match("^(%d%d%d%d)-(%d%d)-(%d%d)[T ](%d%d):(%d%d):(%d%d)$")
+    if not y then return nil end
+    return os.time({
+        year = tonumber(y), month = tonumber(mo), day = tonumber(d),
+        hour = tonumber(h), min = tonumber(mi), sec = tonumber(se),
+    })
+end
+
+--[[
+把配置里的录像列表归一化成"能同时喂两条链路"的形态：
+
+    RecordInfo 应答  ← start_time / end_time（回给平台的字符串）
+    回放会话         ← start_unix / end_unix / epoch（定位文件、判断播完）
+
+**两者必须同源**：平台按它看到的 StartTime 换算出 t=，设备要拿同一个时刻
+去录像文件里 seek。归一化只做一次，之后两条链路都读这一份 —— 各算各的迟
+早会漂（record 层头文件把这条写成契约：epoch 必须与报给平台的 StartTime 同源）。
+
+时间字符串解析不出来时**保留原字符串原样上报**，只标 playable=false：
+设备确实有这段录像、只是自己认不出它的时刻，这时编一个时刻告诉平台，
+比"这段回放不了"更糟。回放层会跳过不可播的段并说明原因。
+]]
+local function normalize_records(list)
+    local out = {}
+
+    if type(list) ~= "table" then
+        return out
+    end
+
+    for i = 1, #list do
+        local src = list[i]
+        if type(src) == "table" then
+            local e = {}
+            for k, v in pairs(src) do e[k] = v end
+
+            local s_unix = parse_time(e.start_time)
+            local e_unix = parse_time(e.end_time)
+            if s_unix and e_unix and e_unix > s_unix then
+                e.start_unix = s_unix
+                e.end_unix   = e_unix
+                e.epoch      = s_unix       -- 文件首帧时刻，record_open 要它
+                e.path       = e.file_path  -- 本机路径即报给平台的 FilePath
+                e.playable   = true
+
+                -- 回给平台的字符串按**设备本地时间**重排，保证与 epoch 同源。
+                -- 配置若写的是 UTC 时刻，这一步会把它改掉 —— 那说明配置本身
+                -- 与平台口径不一致，故把差异打出来，而不是静默改掉
+                if gb and type(gb.record_format_time) == "function" then
+                    local ss = gb.record_format_time(s_unix)
+                    local es = gb.record_format_time(e_unix)
+                    if ss and es then
+                        if ss ~= e.start_time or es ~= e.end_time then
+                            log_warn("录像时间按本地时区归一化", tostring(e.name or i),
+                                     tostring(e.start_time) .. "→" .. ss,
+                                     tostring(e.end_time) .. "→" .. es)
+                        end
+                        e.start_time, e.end_time = ss, es
+                    end
+                end
+            else
+                e.playable = false
+                log_warn("录像时间无法解析，本段不可回放",
+                         tostring(e.name or i), tostring(e.start_time),
+                         tostring(e.end_time))
+            end
+            out[#out + 1] = e
+        end
+    end
+    return out
 end
 
 local function next_sn()
@@ -234,11 +344,21 @@ end
 -- 注册
 -- ------------------------------------------------------------------
 
+--[[
+发一次 REGISTER，并登记"在等应答"。
+
+`st.await_since` 是**信令链路的唯一活口判据**，见 tick 里那段说明 ——
+UDP 上对端消亡既不给 CLOSED 也不给错误，只能靠"请求发出去没人答"来发现。
+]]
 local function send_register(auth)
-    return send_request("REGISTER", {
+    local text = send_request("REGISTER", {
         expires = g_opts.expires or 3600,
         auth    = auth,
     })
+    if text then
+        st.await_since = now_ms()
+    end
+    return text
 end
 
 local function schedule_reregister()
@@ -263,6 +383,8 @@ local function handle_register_response(msg)
     if msg.code == 200 then
         st.registered = true
         st.auth_tried = 0
+        -- 注册成功 = 链路确实可用，退避清零（下次再断从 1s 起重来）
+        st.reconnect_delay = nil
         local expires = tonumber(msg.headers["expires"]) or (g_opts.expires or 3600)
         log_info("REGISTER 成功, 有效期", expires)
         schedule_reregister()
@@ -344,11 +466,14 @@ send_keepalive = function()
         return
     end
     schedule_keepalive()
-    send_request("MESSAGE", {
+    local text = send_request("MESSAGE", {
         to_uri       = string.format("sip:%s@%s", g_opts.server_id, g_opts.domain),
         content_type = "Application/MANSCDP+xml",
         body         = body,
     })
+    if text then
+        st.await_since = now_ms()     -- 心跳是信令链路的探针，见 tick 里那段说明
+    end
 end
 
 -- ------------------------------------------------------------------
@@ -417,6 +542,80 @@ local function send_catalog(msg, sn)
     end
 
     log_info("目录应答已发", sent, "/", sum, "条")
+end
+
+--[[
+录像查询(RecordInfo)应答 —— **回放链路的第一环**。
+
+平台的回放界面要先拿到设备的录像列表，用户才能选时间段，最后平台才发
+回放的 INVITE(带 t= 起止时间)。所以不答这个查询，平台侧根本点不出回放。
+
+录像列表由 g_opts.records 提供，与 channels 同样由调用方配置：
+    records = {{
+        device_id = "<通道编码>", name = "rec1", file_path = "1",
+        address = "<地址>", start_time = "2026-09-17T00:00:00",
+        end_time = "2026-09-17T01:00:00",
+    }}
+
+**没配就诚实地回 ERROR**：设备上确实没有可回放的录像，回一个空列表或
+编造的条目会让平台侧显示不存在的录像 —— 那比"回放不了"更糟。
+(想在联调时造一条来触发平台回放，那是**调用方/测试脚本**的事，
+让它显式配置 records 即可，本模块不替它说谎。)
+
+@param msg 平台的查询报文(取其 From 作为应答目的地)
+@param sn  查询里的 SN，原样回填
+]]
+local function send_record_info(msg, sn)
+    local o = g_opts
+    -- 用归一化后的那份（不是 g_opts.records）：时间字符串与回放 seek 用的
+    -- epoch 必须同源，见 normalize_records
+    local recs = st.records or {}
+    local to_uri = uri_of(msg.headers["from"])
+                   or string.format("sip:%s@%s", o.server_id, o.domain)
+
+    if #recs == 0 then
+        log_warn("未配置录像，回 ERROR")
+        local fail = gb.xml_build_response_fail("RecordInfo", sn,
+                                                o.device_id, "ERROR")
+        if fail then
+            send_request("MESSAGE", {
+                to_uri       = to_uri,
+                content_type = "Application/MANSCDP+xml",
+                body         = fail,
+            })
+        end
+        return
+    end
+
+    -- 录像条数远小于通道数，且每条都带一段文字时间，故先不分页；
+    -- 真到了几十条再按 catalog 那样分页(C 层单页上限 32 条)
+    local body = gb.xml_build_record_info({
+        device_id = o.device_id,
+        name      = (o.device and o.device.name) or "Record",
+        sum_num   = #recs,
+        items     = recs,
+    }, sn)
+
+    if body == nil then
+        log_warn("录像应答构造失败(必选字段缺失?)，回 ERROR")
+        local fail = gb.xml_build_response_fail("RecordInfo", sn,
+                                                o.device_id, "ERROR")
+        if fail then
+            send_request("MESSAGE", {
+                to_uri       = to_uri,
+                content_type = "Application/MANSCDP+xml",
+                body         = fail,
+            })
+        end
+        return
+    end
+
+    send_request("MESSAGE", {
+        to_uri       = to_uri,
+        content_type = "Application/MANSCDP+xml",
+        body         = body,
+    })
+    log_info("录像应答已发", #recs, "条")
 end
 
 --[[
@@ -515,6 +714,13 @@ local function handle_query(msg)
     if cmd == "Catalog" then
         emit("query", cmd, { sn = sn, supported = true })
         send_catalog(msg, sn)
+        return
+    end
+
+    -- 录像查询走与 Catalog 同样的"独立发送"路径(应答体是列表，不是单条)
+    if cmd == "RecordInfo" then
+        emit("query", cmd, { sn = sn, supported = true })
+        send_record_info(msg, sn)
         return
     end
 
@@ -706,7 +912,19 @@ local function media_open(sess)
     return true
 end
 
+--[[
+关闭会话的媒体通道。
+
+**这是会话销毁的唯一出口**（BYE、失活回收、以及 INVITE 受理失败的各条分支
+都走它），所以回放源也在这里被告知停止 —— 漏了这一步的表现是：会话没了而
+回放泵还在读文件、往一个已关闭的 socket 推帧。
+]]
 local function media_close(sess)
+    -- 先停回放再关 socket：回放泵可能正卡在 push_frame 里
+    if sess.is_playback and g_playback_cb then
+        local ok, err = pcall(g_playback_cb, sess, "stop")
+        if not ok then log_error("停止回放异常", err) end
+    end
     if sess.netc then
         socket.close(sess.netc)
         sess.netc = nil
@@ -765,21 +983,79 @@ end
 让平台明确知道设备在但会话建立不了，好过静默丢弃让平台一直等超时。
 ]]
 --[[
-记录收到的音频包。前几个包打十六进制：PS 流以 00 00 01 BA 开头，
-裸 RTP/PCMA 则是 12 字节 RTP 头之后直接是音频载荷，一眼可分。
+剥离 RTP 头，返回音频载荷与"是否 PS 封装"。
+
+头部长度**不是恒定的 12 字节**：CSRC 计数在字节 1 的低 4 位，扩展位(X)置位时
+还要再跳过 4 字节扩展头 + 扩展内容，填充位(P)置位时末尾要按最后一个字节的值截断。
+少算任何一项都不会报错，只会**静默地多切或少切几个字节** —— 听感上是持续的
+背景噪声或周期性咔哒声，极难倒查到 RTP 头解析上。
+
+@param pkt 完整 RTP 包
+@return string|nil 载荷（**未做 PS 解封装**，由上层决定怎么处理）
+@return boolean 载荷是否以 PS 起始码 00 00 01 BA 开头
+]]
+local function audio_payload(pkt)
+    local n = #pkt
+    if n < 12 then return nil end
+
+    local b1 = string.byte(pkt, 1)
+    local hdr = 12 + (b1 % 16) * 4          -- 固定头 + CSRC
+    if (b1 % 32) >= 16 then                 -- X 位(bit4)：扩展头
+        if n < hdr + 4 then return nil end
+        local ext_words = (string.byte(pkt, hdr + 3) << 8) | string.byte(pkt, hdr + 4)
+        hdr = hdr + 4 + ext_words * 4
+    end
+    if n <= hdr then return nil end
+
+    local body = string.sub(pkt, hdr + 1)
+    if (b1 % 64) >= 32 then                 -- P 位(bit5)：末尾填充
+        local pad = body:byte(-1)
+        if pad and pad > 0 and pad < #body then
+            body = body:sub(1, #body - pad)
+        end
+    end
+    if #body < 4 then return nil end
+
+    local is_ps = (body:byte(1) == 0x00 and body:byte(2) == 0x00 and
+                   body:byte(3) == 0x01 and body:byte(4) == 0xBA)
+    return body, is_ps
+end
+
+--[[
+投递一个收到的音频包：剥头 → 统计 → 交给上层回调。
+
+前 5 个包打十六进制是**判定平台用哪种封装的直接证据**（PS 流以 00 00 01 BA 开头，
+裸 PCMA 则直接是音频载荷），配合 rx_ps / rx_raw 两个累计计数，
+一次对讲就能确定，不必再猜。
 
 放在这里（而不是音频会话那段）是因为**发起方与受理方两处都要用** ——
 Lua 的局部变量只能向后可见，定义在使用点之后会静默解析成全局 nil。
 ]]
-local function audio_rx_log(sess, d)
+local function audio_deliver(sess, pkt)
     sess.rx_pkts = (sess.rx_pkts or 0) + 1
-    sess.rx_bytes = (sess.rx_bytes or 0) + #d
+    sess.rx_bytes = (sess.rx_bytes or 0) + #pkt
     if sess.rx_pkts <= 5 then
         local hex = {}
-        for i = 1, math.min(16, #d) do
-            hex[#hex + 1] = string.format("%02X", string.byte(d, i))
+        for i = 1, math.min(16, #pkt) do
+            hex[#hex + 1] = string.format("%02X", string.byte(pkt, i))
         end
-        log_info("音频包", #d, "字节:", table.concat(hex, " "))
+        log_info("音频包", #pkt, "字节:", table.concat(hex, " "))
+    end
+
+    local body, is_ps = audio_payload(pkt)
+    if not body then return end
+
+    -- 两种封装的累计比例：跑一次对讲就能看出平台到底用哪种
+    if is_ps then
+        sess.rx_ps = (sess.rx_ps or 0) + 1
+    else
+        sess.rx_raw = (sess.rx_raw or 0) + 1
+    end
+
+    -- 回调里跑的是用户的播放逻辑，异常不能打断收包循环
+    if type(g_audio_cb) == "function" then
+        local ok, err = pcall(g_audio_cb, sess, body, is_ps)
+        if not ok then log_error("音频回调异常", err) end
     end
 end
 
@@ -876,10 +1152,10 @@ local function handle_audio_invite(msg, s)
                     if #sess.rxbuf < 2 + plen then break end
                     local pkt = string.sub(sess.rxbuf, 3, 2 + plen)
                     sess.rxbuf = string.sub(sess.rxbuf, 3 + plen)
-                    audio_rx_log(sess, pkt)
+                    audio_deliver(sess, pkt)
                 end
             else
-                audio_rx_log(sess, d)
+                audio_deliver(sess, d)
             end
         end
     end)
@@ -964,6 +1240,21 @@ end
 local function handle_invite(msg)
     local o = g_opts
 
+    --[[
+    把收到的 SDP 原样打出来。**这是排查点播类问题的第一手证据**：
+      s= 行区分实时(Play/Playback/Download)——同一个 INVITE 处理函数
+         要服务三类语义完全不同的请求
+      t= 行是回放的**起止时间**(两个 Unix 秒)，只在回放时给出
+      u= 行是 `<设备编码>:<录像ID>`，**不是时间段** —— 实测(WVP-Pro
+         2026-09-17)填的是 `:0`，曾经误以为它是起止时间
+      m=/a=rtpmap 决定承载与封装：回放 offer 常见一次给多个载荷类型
+         (如 `96 97 98 99` = PS/MPEG4/H264/H265)，要靠 m= 声明的那个去挑
+    与对讲路径(handle_talk_response)保持同一做法，避免"音频有日志、视频没有"。
+    ]]
+    for line in tostring(msg.body or ""):gmatch("[^\r\n]+") do
+        log_info("  平台 INVITE SDP:", line)
+    end
+
     if session_count() >= (o.max_sessions or 4) then
         log_warn("并发会话已达上限, 拒绝")
         reply(msg, 486, "Busy Here")
@@ -1039,7 +1330,18 @@ local function handle_invite(msg)
     end
 
     -- 会话名决定业务语义，也决定 SSRC 的首位
-    local is_playback = (s.session_name == "Playback" or s.session_name == "Download")
+    --[[
+    判回放：**优先看 t= 行**(has_time)，那是 SDP 自己规定的语义 ——
+    t=0 0 是实时，给了具体时间段才是回放。
+
+    s= 行的字符串只作兜底：平台对它的写法不统一(Play/Playback/Download…)，
+    拿它当主判据会在换平台时失效。两者取或，任一成立即认为回放。
+
+    (别去解析 u= 行 —— 实测它是 `<设备编码>:<录像ID>`，不是时间段)
+    ]]
+    local is_playback = (s.has_time == true) or
+                        (s.session_name == "Playback" or
+                         s.session_name == "Download")
     local local_port = alloc_rtp_port()
     if not local_port then
         log_warn("无可用 RTP 端口")
@@ -1072,6 +1374,10 @@ local function handle_invite(msg)
         call_id      = msg.headers["call-id"],
         session_name = s.session_name or "Play",
         is_playback  = is_playback,
+        -- 回放的时间段(Unix 秒)，仅 is_playback 时有意义 ——
+        -- 回放会话要据此在录像里定位起点(start)，end 用于判断是否播完
+        t_start      = s.t_start,
+        t_end        = s.t_end,
         remote_ip    = s.conn_ip,
         remote_port  = s.port,
         local_port   = local_port,
@@ -1154,6 +1460,10 @@ local function handle_invite(msg)
         ssrc = ssrc, local_port = local_port,
         transport = media_tcp and "TCP" or "UDP",
         setup = tcp_setup,
+        -- 回放时给出时间段(Unix 秒)，实时点播为 nil —— 见 is_playback 的说明
+        is_playback = is_playback,
+        t_start = s.t_start,
+        t_end   = s.t_end,
     })
 end
 
@@ -1167,6 +1477,32 @@ local function handle_ack(msg)
         sess.started = true
         sess.started_ms = now_ms()
         log_info("会话已建立, 开始推流", sess.call_id)
+
+        --[[
+        回放会话的媒体**不由应用推** —— 源是设备本地的录像文件，所以这里要
+        直接交给回放源。实时点播照旧只发事件，等应用推帧。
+
+        没注册回放源时不能静默：现象会是"平台建了会话却一个字节都收不到"，
+        与"录像文件坏了"在日志里长得一样
+        ]]
+        if sess.is_playback then
+            if type(g_playback_cb) == "function" then
+                local ok, err = pcall(g_playback_cb, sess, "start")
+                if not ok then
+                    log_error("启动回放异常", err)
+                    emit("playback", "error", { call_id = sess.call_id,
+                                                reason = tostring(err) })
+                end
+            else
+                log_warn("回放会话已建立，但没有注册回放源",
+                         "请 require exgb28181playback 并 setup()")
+                emit("playback", "unavailable", {
+                    call_id = sess.call_id,
+                    reason  = "未注册回放源(exgb28181playback)",
+                })
+            end
+        end
+
         emit("media", "ready", { call_id = sess.call_id, ssrc = sess.ssrc })
     end
     -- ACK 是请求，仍需回 200(部分平台要求)
@@ -1390,10 +1726,22 @@ function M.push_frame(sess, frame)
         return false, "link_down"
     end
 
-    -- 时间戳按真实经过的毫秒数推进，避免与平台侧的时钟漂移
+    --[[
+    时间戳按真实经过的毫秒数推进，避免与平台侧的时钟漂移。
+
+    **这里原先写的是 `% 0xFFFFFFFF`，在 32 位整数下是错的**：`0xFFFFFFFF`
+    会溢出成 -1，而 `x % -1` 恒等于 0 —— 于是**每一帧的 RTP 时间戳都是 0**。
+    这是个"本地怎么测都看不出来"的故障：载荷是对的、包序是对的、ffmpeg 也能解，
+    只有真正按时间戳组帧的接收端(ZLM)会拒收，表现为"平台收到了流但一直不出图"。
+    实测就是这样：ZLM 打了"允许RTP推流"后再无下文，而把同一份字节流用递进的
+    时间戳喂进去就正常注册。
+
+    取模本来是想做 32 位回绕，但**不需要**：RTP 时间戳字段本就 32 位，C 层收的是
+    uint32_t，超出部分在转换时自然回绕；32 位整数的 Lua 里加法自己也回绕。
+    ]]
     local now = now_ms()
     if sess.last_ms then
-        sess.frame_ts = (sess.frame_ts + (now - sess.last_ms) * 90) % 0xFFFFFFFF
+        sess.frame_ts = sess.frame_ts + (now - sess.last_ms) * 90
     end
     sess.last_ms = now
 
@@ -1523,7 +1871,7 @@ local function audio_open(sess)
             if not ok or not n or n <= 0 then break end
             local d = rxbuf:toStr(0, rxbuf:used())
             rxbuf:del()
-            audio_rx_log(sess, d)
+            audio_deliver(sess, d)
         end
     end)
     if not netc then return false, "创建音频 socket 失败" end
@@ -1791,11 +2139,50 @@ function M.talk_push(sess, pcma)
         return false          -- TCP 还没连上，发出去也会被丢
     end
 
-    sess.frame_ts = ((sess.frame_ts or 0) + #pcma) % 0xFFFFFFFF
+    -- 音频的时钟就是采样率本身：每包按载荷字节数推进(PCMA 一字节一个采样)。
+    -- **不要写 `% 0xFFFFFFFF`** —— 32 位整数下它是 -1，`x % -1` 恒为 0，
+    -- 会让每包时间戳都变成 0（同样的坑在 push_frame 里踩过，见那里的说明）。
+    -- 回绕由 32 位整数自身与 C 层的 uint32_t 转换完成。
+    sess.frame_ts = (sess.frame_ts or 0) + #pcma
     if gb.media_push(sess.media, pcma, sess.frame_ts) == 0 then
         return false          -- 整包被丢弃(队列满)，统计里能查到
     end
     M.flush_session(sess)
+    return true
+end
+
+--[[
+注册**下行音频**回调：平台发来的音频包剥掉 RTP 头后交给它。
+
+与 talk_push 恰好是一对 —— 一个负责上行(本端采集 → 平台)，一个负责下行
+(平台 → 本端播放)。两者都只搬**已编码的 G.711A 字节**，PCM↔G.711A 的转换
+与麦克风/喇叭都归平台的音频框架(LuatOS 的 audio_v2 自带
+DATA_CODEC_TYPE_G711_ALAW，两端都用它即可，本组件不碰 codec)。
+
+回调签名 f(sess, body, is_ps)：
+  sess  音频会话表
+  body  剥掉 RTP 头之后的载荷。is_ps 为 false 时**直接就是 G.711A**，
+        可以原样喂给 audio_v2.input()
+  is_ps 载荷是否以 PS 起始码 00 00 01 BA 开头。**平台两种封装都可能**，
+        为 true 时需要先做 PS 解封装取出 PES(0xC0) 的载荷
+返回值忽略。回调里抛异常不会打断收包循环（内部 pcall）。
+会话上的 rx_ps / rx_raw 是两种封装的累计计数，跑一次对讲即可判定平台用哪种。
+
+@api exgb28181client.on_audio(callback)
+@function callback 回调函数，传 nil 取消注册
+@return boolean
+@usage
+local client = require "exgb28181client"
+client.on_audio(function(sess, body, is_ps)
+    if is_ps then return end            -- PS 封装需先解封装，这里只处理裸 PCMA
+    audio_v2.input(src_index, body, false)
+end)
+]]
+function M.on_audio(callback)
+    if callback ~= nil and type(callback) ~= "function" then
+        return false
+    end
+    g_audio_cb = callback
     return true
 end
 
@@ -1842,8 +2229,123 @@ end
 响应先看是不是某个会话的探针应答 —— 探针只关心"回没回"，任何状态码都算活着
 （481 说明平台人还在，只是不认这个对话；要区分的是"回都不回"）。
 ]]
+-- ------------------------------------------------------------------
+-- 回放控制：SIP INFO 承载的 MANSRTSP
+-- ------------------------------------------------------------------
+
+--[[
+把控制命令转给回放源。没有注册回放源时说明原因而不是静默 ——
+现象是"拖进度条没反应"，与"平台没发命令"在日志里长得一样。
+]]
+local function playback_control(sess, action, arg)
+    if type(g_playback_cb) ~= "function" then
+        log_warn("收到回放控制但没有注册回放源", action)
+        return false
+    end
+    local ok, err = pcall(g_playback_cb, sess, action, arg)
+    if not ok then
+        log_error("回放控制异常", action, err)
+        return false
+    end
+    return true
+end
+
+--[[
+处理 SIP INFO —— 回放的暂停/继续/拖动就从这里进来。
+
+**平台界面上点暂停/拖进度条，发的就是这条 INFO**，真正的指令在消息体里
+（`Content-Type: Application/MANSRTSP`），SIP 层看不出任何区别。报文形态与
+"body 里的 CSeq 与 SIP 头的 CSeq 是两个值"等细节见 C 层
+luat_gb28181_mansrtsp.h 的说明（取自真实平台源码，不是照标准推的）。
+
+两个刻意的处理：
+
+1. **SIP 层一律回 200**，业务上的"不支持"写在 MANSRTSP 的应答体里。
+   标准要求"不支持的控制命令返回明确错误而不中断会话"—— 用 SIP 4xx 表达
+   错误有被平台当成会话异常的风险，写进 body 则两边都满足。
+   （实测 WVP 收到应答后并不解析 body，回什么它都行；换一家会解析的平台时
+     这个体就是有效的。）
+
+2. **实时点播会话收到 MANSRTSP 一律忽略**：没有时间轴可控制，拖它没有意义。
+]]
+local function handle_info(msg)
+    local sess = st.sessions[msg.headers["call-id"]]
+
+    if not sess or not sess.is_playback then
+        log_info("INFO 非回放会话，仅回应答", tostring(msg.headers["call-id"]))
+        reply_ok(msg)
+        return
+    end
+
+    local ctype = (msg.headers["content-type"] or ""):lower()
+    if not ctype:find("mansrtsp", 1, true) then
+        log_info("INFO 不是 MANSRTSP，仅回应答", ctype)
+        reply_ok(msg)
+        return
+    end
+
+    if type(gb.mansrtsp_parse) ~= "function" then
+        -- 固件里的 C 层太旧（没有 mansrtsp 绑定）：只回应答，别去调 nil
+        log_warn("C 层没有 mansrtsp_parse，回放控制不可用（固件版本太旧?）")
+        reply_ok(msg)
+        return
+    end
+
+    local cmd, err = gb.mansrtsp_parse(msg.body or "")
+    if not cmd then
+        -- 读不懂就只回应答：连 CSeq 都拿不到，没法在 body 里指回它
+        log_warn("MANSRTSP 解析失败", tostring(err))
+        reply_ok(msg)
+        return
+    end
+
+    local code, reason = 200, "OK"
+
+    if cmd.method == gb.MANSRTSP_PAUSE then
+        playback_control(sess, "pause")
+
+    elseif cmd.method == gb.MANSRTSP_TEARDOWN then
+        -- 平台的"停止回放"：停推流即可，会话终结由它随后发的 BYE 决定
+        playback_control(sess, "stop")
+
+    elseif cmd.method == gb.MANSRTSP_PLAY then
+        if cmd.has_scale then
+            -- 变速播放要改时间轴节奏，本端没做。**明确回不支持**：
+            -- 静默忽略的话，用户看到的是"点了倍速没反应"，与"平台没发"无从区分
+            code, reason = 501, "Not Implemented"
+            log_warn("平台要求变速播放，本端不支持", tostring(cmd.scale))
+        elseif cmd.npt_kind == gb.NPT_NOW then
+            -- npt=now- 是"从当前位置继续"，**不能当成 0 秒去定位**
+            playback_control(sess, "resume")
+        elseif cmd.npt_kind == gb.NPT_POS then
+            playback_control(sess, "seek", cmd.npt_sec)
+        elseif cmd.has_range then
+            code, reason = 501, "Not Implemented"   -- clock= 之类
+            log_warn("平台给了本端不支持的 Range")
+        else
+            -- PLAY 不带 Range：RTSP 语义就是继续播
+            playback_control(sess, "resume")
+        end
+
+    else
+        code, reason = 501, "Not Implemented"
+        log_warn("不支持的回放控制命令", tostring(cmd.method))
+    end
+
+    local body = gb.mansrtsp_response(code, reason, cmd.cseq)
+    reply(msg, 200, "OK", body, body and "Application/MANSRTSP" or nil)
+    log_info("回放控制", tostring(cmd.method), code, tostring(cmd.cseq))
+end
+
 local function process_packet(msg)
     if msg.code then
+        --[[
+        收到任何应答都说明链路还活着 —— 这是 UDP 上唯一可信的活口信号。
+        清掉等待标记，tick 里的超时判据就不会误判（见那里的说明）。
+        放在最前面：不管这条应答最终由谁处理，它已经证明了链路可用。
+        ]]
+        st.await_since = nil
+
         -- 先看是不是本端发起的音频会话的应答(按 Call-ID 匹配)
         if handle_talk_response(msg) then return end
 
@@ -1887,6 +2389,12 @@ local function process_packet(msg)
         return
     end
 
+    -- 回放的暂停/继续/拖动走 INFO(承载 MANSRTSP)，见 handle_info
+    if msg.method == "INFO" then
+        handle_info(msg)
+        return
+    end
+
     log_info("暂不处理的请求", msg.method)
     reply_ok(msg)
 end
@@ -1922,11 +2430,46 @@ local function feed(data)
 end
 
 -- ------------------------------------------------------------------
+-- 信令链路失活与重连
+-- ------------------------------------------------------------------
+
+--[[
+把"信令链路已经死了"这件事记下来，交给 sip_task 去重建。
+
+**为什么需要它**：平台重启、网络抖动、对端端口关闭，都会让这条 connected
+UDP socket 失效。实测（2026-09-18，Air8101 真机）平台重启后的表现是
+**设备 ping 得通、日志照刷、平台侧什么都收不到** —— 因为原来的代码只是把
+`registered` 置了 false 就再也没做别的事：任务继续转，但永远不会再注册。
+
+触发这个函数的**主要是"请求超时无应答"**（见 SIGNALING_REPLY_TIMEOUT_MS），
+TCP 流错位与 CLOSED 事件也走这里 —— 后两者在 UDP 上实测**不会发生**。
+
+（原代码在这里 `sys.publish(TOPIC_STOP)`，而 sip_task 等的是 TOPIC_CMD ——
+那个 publish 没有任何人接收，是一条误导性的死代码。现在改成显式置标记，
+由 sip_task 的 tick 统一处理重建。）
+
+**不在回调里直接重建**：net_cb 跑在 socket 的事件上下文里，在里面重建 socket
+等于在回调里销毁回调所属的对象，容易踩到栈上状态。置标记 + 让任务去处理，
+时序最清楚。
+]]
+local function _signal_dead(reason)
+    if st.dead then
+        return              -- 已经在重建流程里，别重复触发
+    end
+    st.online     = false
+    st.registered = false
+    st.dead       = true
+    log_warn("信令链路失活:", reason, "将在退避后重建")
+    emit("net", "closed", { reason = reason })
+end
+
+-- ------------------------------------------------------------------
 -- 主任务
 -- ------------------------------------------------------------------
 
 local function net_cb(netc, event, param)
-    log_info("DBG event =", event)
+    -- 降为 debug：这是每包都打的调试信息，留在 INFO 级会在真机上持续刷屏
+    log.debug("net_cb event =", event)
     if event == socket.ON_LINE then
         st.online = true
 
@@ -1951,54 +2494,167 @@ local function net_cb(netc, event, param)
             if not succ then break end
             if not data_len or data_len <= 0 then break end
             local data = rxbuf:toStr(0, rxbuf:used())
-            log_info("DBG 收到", #data, "字节")
+            log.debug("收到", #data, "字节")   -- 同上，逐包调试信息
             rxbuf:del()
             if not feed(data) and string.upper(g_opts.transport) == "TCP" then
                 log_warn("TCP 流错位, 断连重注册")
-                sys.publish(TOPIC_STOP)
+                _signal_dead("TCP 流错位")
                 return
             end
         end
 
     elseif event == socket.CLOSED then
-        st.online = false
-        st.registered = false
-        sys.publish(TOPIC_STOP)
+        _signal_dead("socket 已关闭")
     end
+end
+
+--[[
+拆掉信令 socket 与它名下的一切，准备重建。
+
+**已建立的点播/音频会话在这里一并清掉**（有意选定）：平台重启后那些会话在
+它那边已经不存在了，留着只会占着媒体端口 —— `max_sessions` 默认 4，攒够
+四个僵尸会话，之后平台怎么点都点不动，而日志上看不出任何异常。
+
+代价是：万一只是信令抖动、媒体链路其实还活着，这一清会打断正在推的流。
+权衡下来"确定性"更重要 —— 僵尸会话会把设备变成永久点不动，而重连后平台
+重新点一次就能恢复。
+]]
+local function _teardown_for_reconnect()
+    for call_id, sess in pairs(st.sessions) do
+        media_close(sess)
+        st.sessions[call_id] = nil
+        emit("call", "ended", { call_id = call_id, reason = "signaling_lost" })
+    end
+    for call_id, sess in pairs(st.talks) do
+        if sess.netc then socket.close(sess.netc) end
+        st.talks[call_id] = nil
+        emit("call", "ended", { call_id = call_id, reason = "signaling_lost" })
+    end
+
+    if st.netc then
+        socket.close(st.netc)
+        st.netc = nil
+    end
+    st.online     = false
+    st.registered = false
+    st.auth_tried = 0
+    st.next_reg   = 0
+    st.next_ka    = 0
+    st.rx         = ""
+    st.await_since = nil
+end
+
+-- 退避：1s → 2s → 4s → … 上限 30s。**不阻塞 tick 循环**，
+-- 只算一个"下次可重连的时刻"，让每秒的 tick 去看 —— 否则平台长时间
+-- 不可用时会把这个循环连同会话回收一起卡住。
+local RECONNECT_MIN_MS = 1000
+local RECONNECT_MAX_MS = 30000
+
+--[[
+信令请求多久没等到应答就认为链路已死（毫秒）。
+
+**为什么不能靠 socket 的 CLOSED 事件**（实测，2026-09-18，Air8101 真机）：
+平台重启后端口关闭，设备的 connected UDP socket **既不给 CLOSED 也不给错误
+事件**，反而一直在报 `TX_OK`（socket.TX_OK = 0x2000012）—— 它以为发成功了。
+日志里从头到尾没有出现过 `socket.CLOSED`（0x2000013）。
+这是 §5.2 那条"UDP 上对端消亡不可观测"在信令 socket 上的同一回事。
+
+好在信令是**有应答的协议**：REGISTER 与心跳都必然被平台回复。
+"发了要应答的请求、超时没等到"就是 UDP 下唯一可信的活口判据。
+平台正常时是毫秒级应答，15s 足够宽松；真的不回，多半就是它已经不在了。
+]]
+local SIGNALING_REPLY_TIMEOUT_MS = 15000
+
+local function _schedule_reconnect()
+    local d = st.reconnect_delay or RECONNECT_MIN_MS
+    st.reconnect_at    = now_ms() + d
+    st.reconnect_delay = math.min(d * 2, RECONNECT_MAX_MS)
+end
+
+--[[
+重建信令 socket 并重新注册。由 sip_task 的 tick 调用。
+@return boolean, string|nil
+]]
+local function _reconnect_signaling()
+    local o = g_opts
+
+    _teardown_for_reconnect()
+
+    local netc = socket.create(o.adapter, net_cb)
+    if not netc then
+        return false, "socket.create 失败"
+    end
+    st.netc = netc
+
+    if not socket.config(netc, o.local_port, string.upper(o.transport) ~= "TCP") then
+        socket.close(netc)
+        st.netc = nil
+        return false, "socket.config 失败"
+    end
+
+    if not socket.connect(netc, o.server_addr, o.server_port) then
+        socket.close(netc)
+        st.netc = nil
+        return false, "socket.connect 失败"
+    end
+
+    st.dead = false
+    -- 措辞保持中性：首次建链与重建走的是同一个函数，说"已重建"会让第一次看日志的人以为出了故障
+    log_info("信令链路就绪, 等待 ON_LINE 后注册")
+    -- 注：不在这里 send_register —— socket 还没 ON_LINE，本地 IP 也还没拿到。
+    -- net_cb 的 ON_LINE 分支会取 IP 并发出 REGISTER。
+    return true
 end
 
 local function sip_task()
     local o = g_opts
 
-    local netc = socket.create(o.adapter, net_cb)
-    if not netc then
-        log_error("创建 socket 失败")
-        emit("error", "net", { reason = "socket.create 失败" })
-        g_started = false
-        return
-    end
-    st.netc = netc
+    --[[
+    首次建链走与重连**同一套代码**。
 
-    if not socket.config(netc, o.local_port, string.upper(o.transport) ~= "TCP") then
-        log_error("socket 配置失败")
-        emit("error", "net", { reason = "socket.config 失败" })
-        g_started = false
-        return
-    end
-
-    if not socket.connect(netc, o.server_addr, o.server_port) then
-        log_error("连接失败", o.server_addr, o.server_port)
-        emit("error", "net", { reason = "socket.connect 失败" })
-        g_started = false
-        return
+    原来这里是三步各写一遍、任一步失败就 `g_started = false` 直接放弃 ——
+    那意味着"开机那一刻平台正好不在"会让设备永久失联，而现场看到的只是
+    "设备不注册"。现在失败只记一笔、交给退避重连，设备自己会回来。
+    ]]
+    local ok0, err0 = _reconnect_signaling()
+    if not ok0 then
+        log_error("信令链路建立失败:", err0)
+        emit("error", "net", { reason = err0 })
+        _schedule_reconnect()
     end
 
     log_info("信令任务启动", o.server_addr, o.server_port)
 
     -- 单 tick 循环：既响应命令，也检查重注册/心跳是否到期
     while g_started do
-        sys.waitUntil(TOPIC_CMD, 1000)
+        -- **同时等两个主题**：TOPIC_STOP 是"信令链路死了"（由 net_cb 发），
+        -- 不等它就只能在 1 秒的 tick 里被动发现，重连慢一拍。
+        -- （原代码只等 TOPIC_CMD，而 net_cb 发的正是 TOPIC_STOP —— 没人接收。）
+        sys.waitUntil({TOPIC_CMD, TOPIC_STOP}, 1000)
         local now = now_ms()
+
+        --[[
+        活口判据：发出的 REGISTER/心跳迟迟没有应答 → 链路已死。
+
+        见 SIGNALING_REPLY_TIMEOUT_MS 的说明：UDP 上这是唯一可信的信号。
+        必须在重建判断**之前**做 —— 否则先重建、后判死，会把刚建好的链路又拆掉。
+        ]]
+        if not st.dead and st.await_since and
+           (now - st.await_since) >= SIGNALING_REPLY_TIMEOUT_MS then
+            _signal_dead("信令请求超时无应答")
+        end
+
+        -- 链路死了就退避重建。**放在 tick 里而不是 socket 回调里**：
+        -- 回调里重建等于在回调中销毁回调所属的对象，时序容易出问题。
+        if st.dead and now >= (st.reconnect_at or 0) then
+            local ok, err = _reconnect_signaling()
+            if ok then
+                st.reconnect_delay = nil      -- 成功则退避清零
+            else
+                log_warn("重建信令链路失败:", err)
+                _schedule_reconnect()
+            end
+        end
 
         if st.registered and st.next_reg > 0 and now >= st.next_reg then
             st.next_reg = 0
@@ -2088,7 +2744,16 @@ function M.start(opts)
     -- 会话探针等应答的时长(见 probe_session)
     g_opts.probe_timeout_ms = g_opts.probe_timeout_ms or DEFAULT_PROBE_TIMEOUT_MS
 
+    -- 录像列表归一化一次，RecordInfo 应答与回放定位共用这一份(见 normalize_records)
+    st.records = normalize_records(g_opts.records)
+
     g_cb = opts.event_callback
+
+    -- 音频回调也可经 opts 传入（与 on_audio() 等价）。只在本轮显式给了才覆盖，
+    -- 否则保留之前 on_audio() 注册的那个 —— 音频桥可能先于 start() 起来
+    if opts.audio_callback ~= nil then
+        g_audio_cb = opts.audio_callback
+    end
 
     -- 一次 start 内保持稳定的 Call-ID 与 From tag：
     -- 重注册若换了它们，服务端可能判为新事务甚至返回 482
@@ -2142,6 +2807,55 @@ function M.sessions()
     local out = {}
     for k, v in pairs(st.sessions) do out[k] = v end
     return out
+end
+
+--[[
+取归一化后的录像列表（回放源用）。
+
+返回的是**内部那份**而不是副本：回放会话每开一段录像都要读它，而录像列表
+在一次运行内不变。**调用方不要改它**。
+
+@api exgb28181client.records()
+@return table 录像列表（可能为空表）
+]]
+function M.records()
+    return st.records or {}
+end
+
+--[[
+注册回放源。**由 exgb28181playback 调，应用不需要直接用它。**
+
+回放与实时点播的入口不同：实时点播的帧由应用推（数据源是摄像头），
+回放的帧来自设备本地录像，应用手里没有这份数据，所以由回放模块在
+会话建立/销毁/收到控制命令时接管(见 exgb28181playback.on_session)。
+
+@api exgb28181client.on_playback(handler)
+@function handler 原型 handler(sess, action, arg)，action 见 playback 模块
+@return boolean
+]]
+function M.on_playback(handler)
+    if handler ~= nil and type(handler) ~= "function" then
+        return false
+    end
+    g_playback_cb = handler
+    return true
+end
+
+--[[
+向上层派一个事件。
+
+**给伴生模块用的**（目前是 exgb28181playback）：它们与 client 共用同一个
+事件出口，应用只需注册一处 event_callback，不必再给每个模块各注册一个。
+
+@api exgb28181client.emit_event(event, action, payload)
+@return boolean 有回调且未抛异常时返回 true
+]]
+function M.emit_event(event, action, payload)
+    if type(g_cb) ~= "function" then
+        return false
+    end
+    emit(event, action, payload or {})
+    return true
 end
 
 --[[

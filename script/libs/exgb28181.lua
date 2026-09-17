@@ -9,8 +9,14 @@
 分层约定：
   C 层  gb28181        —— luatos-ext-components/gb28181，负责协议编解码
                           (PS 封装 / RTP 打包 / SIP 报文解析构造 / MANSCDP XML)
-  Lua 层 exgb28181.lua —— 本文件，负责业务状态机与用户 API
-                          (注册、心跳、查询响应、点播会话管理)
+  Lua 层 exgb28181.lua —— 本文件，**只做配置校验、字段改名与事件转发**
+  信令实现             —— exgb28181client.lua(注册/心跳/查询/点播会话/媒体收发)
+  音频桥               —— exgb28181audio.lua(麦克风/喇叭 ↔ 会话)
+
+**本门面目前不提供点播与对讲的 API**：点播会话、媒体推流、语音对讲都在
+exgb28181client.lua 里(push_frame / sessions / start_talk / talk_push …)，
+需要这些能力时直接 require 那个模块。本文件的价值在于把"设备注册到平台"
+这件事收敛成 init/start 两步，并统一事件回调。
 
 基本用法：
 local exgb28181 = require "exgb28181"
@@ -19,8 +25,12 @@ local exgb28181 = require "exgb28181"
 exgb28181.on(function(event, action, data)
     if event == "register" then
         log.info("gb28181", "注册状态", action)
-    elseif event == "invite" and action == "incoming" then
-        log.info("gb28181", "平台请求点播", data.channel_id)
+    elseif event == "invite" and action == "accepted" then
+        -- 平台点播已建立(收到 ACK)。注意事件名是 accepted，不是 incoming
+        log.info("gb28181", "平台请求点播", data.call_id)
+    elseif event == "media" and action == "ready" then
+        -- 此时才能开始推帧
+        log.info("gb28181", "可推流", data.call_id, data.ssrc)
     end
 end)
 

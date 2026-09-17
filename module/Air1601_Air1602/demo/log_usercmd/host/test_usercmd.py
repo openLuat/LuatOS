@@ -51,13 +51,13 @@ def main():
     dev = UserCmd(args.port, args.baud)
     print(f"open {args.port} @ {args.baud}")
     try:
-        # 1. 等设备启动完成 + 握手 + 分片协商 (新固件 rx 512/1056 -> 474)
+        # 1. 等设备启动完成 + 握手 + 分片协商 (新固件 rx 512/1056 -> 476)
         t0 = time.time()
         chunk = dev.wait_ready()
         dt = time.time() - t0
-        fw_ok = chunk == 474
+        fw_ok = chunk == 476
         check("hello.chunk", fw_ok,
-              f"chunk={chunk} (期望474, 若=90说明固件未更新)" if not fw_ok else f"chunk={chunk}, ready {dt:.1f}s")
+              f"chunk={chunk} (期望476, 若=90说明固件未更新)" if not fw_ok else f"chunk={chunk}, ready {dt:.1f}s")
 
         # 2. 鉴权: caps 协商 + 门控 + HMAC 应答 (可选)
         if args.auth_token:

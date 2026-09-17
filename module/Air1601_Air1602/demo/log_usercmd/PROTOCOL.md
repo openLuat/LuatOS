@@ -5,28 +5,37 @@
 可选 HMAC 挑战应答鉴权、挂载点枚举（LSMOUNT）、文件系统空间查询（FSSTAT）**。
 
 - 下行（PC→设备）：0xA5 帧，`cmd = SOC_CMD_USER_CMD(19)`，`address` 置 0，payload 为本协议帧
-- 上行（设备→PC）：本协议帧经 `log.usercmd_write` 以日志帧发出（payload 二进制安全），以 2 字节 magic 与普通日志区分
+- 上行（设备→PC）：同样以 0xA5 帧发出，`cmd = SOC_CMD_USER_CMD(19)`，`address` 置 0，payload 为本协议帧。
+  设备端经 `log.usercmd_write` 发送，走**独占命令帧**通道（`cmd != 0`），不占用日志显示/打印窗
 - 多字节一律小端（LE）
 
 ## 1. 帧格式
 
-固定头 7 字节，后跟子指令特定字段。
+固定头 5 字节，后跟子指令特定字段。上下行帧结构完全一致。
 
 | 偏移 | 字段 | 类型 | 说明 |
 |---|---|---|---|
-| 0..1 | magic | u8[2] | 固定 `0xC5 0x5C`，标识 usercmd 协议帧 |
-| 2 | version | u8 | 协议版本，当前 `0x01` |
-| 3 | subcmd | u8 | 子指令号，见 §3 |
-| 4 | flags | u8 | bit0=ERR（回应为错误），bit1=MORE（LSDIR 还有后续页），bit2..7 保留，置 0 |
-| 5..6 | seq | u16 | 命令序号，host 每请求递增（允许回绕） |
+| 0 | version | u8 | 协议版本，当前 `0x01` |
+| 1 | subcmd | u8 | 子指令号，见 §3 |
+| 2 | flags | u8 | bit0=ERR（回应为错误），bit1=MORE（LSDIR 还有后续页），bit2..7 保留，置 0 |
+| 3..4 | seq | u16 | 命令序号，host 每请求递增（允许回绕） |
+| 5.. | body | u8[n] | 子指令特定字段 |
+
+A5 传输层：`0xA5` + 转义后的（24 字节 SOC 帧头 + payload + 2 字节 CRC16-LE）+ `0xA5`。
+SOC 帧头为设备端 `soc_cmd_head_t`（`ms:u64 + address:u32 + len:u32 + cmd:u32 + sn:u16 + type:u8 + cpu:u8`），
+日志口以 `cmd != 0` 判定命令帧（不打印），`cmd == 0` 为普通日志帧。本协议上下行 `cmd` 均为 19。
 
 回应帧回显请求的 seq。除 HELLO 外的请求 seq 由 host 单调分配；设备不主动发帧。
 
-- magic / version 不符：设备**静默丢弃**（不回应），host 侧靠超时重传兜底
+- version 不符：设备**静默丢弃**（不回应），host 侧靠超时重传兜底
 - path 上限 127 字节，超长回应 errno=6
 - 错误回应：flags 置 ERR，body 首字节为 errno
 - 版本号保持 `0x01`：AUTH/LSMOUNT/FSSTAT 与 caps 均为向后兼容扩展
   （回应加长字段由 host 按长度判断，旧设备回旧格式，互不干扰）
+- **v2.2 传输层变更**：上行帧由"嵌入日志帧 + 2 字节 magic 区分"改为**独占命令帧**，
+  payload 取消 magic、固定头 `7B → 5B`。子指令语义与 v2.1 完全一致。
+  该变更不向下兼容（v2.1 host 认不出 v2.2 上行帧），固件与 host 库须成对升级。
+  设备端 C 实现为 `luat_log_user_cmd_write()`，ccm42xx 端口映射到 `soc_cmd_response(SOC_CMD_USER_CMD, 0, len, data)`
 
 ## 2. 错误码（errno）
 
@@ -81,7 +90,8 @@
   设备按可用空间尽量填充；塞不下时置 flags.MORE，host 以 offset（条目索引）+count 翻页。
   `remaining` = 本页之后还剩多少条目。
 - STAT：errno=0 时 type/size 有效；文件不存在 errno=1。EXISTS 用 errno=0 + exists 标志区分"不存在"与"出错"。
-- READ_DATA 回应 len ≤ 请求 len；读至 EOF 时 len 小于请求值。data 之后可能随带日志帧 4 对齐填充，host 必须按 len 截取，不得按帧长。
+- READ_DATA 回应 len ≤ 请求 len；读至 EOF 时 len 小于请求值。命令帧 payload 长度精确（无对齐填充），
+  host 仍应按 len 截取 data，不得按 payload 总长推断
 
 ## 4. 传输层约束（与固件相关）
 
@@ -93,11 +103,11 @@
 ```
 
 当前固件 `rx_cache1[512]` / `rx_cache2[1056]`，故：
-- 解包后 ≤ 512 → 下行 payload ≤ **486B** → WRITE_DATA 数据区 chunk = 486 - 12(应用头) = **474B**
-- 转义最坏 1→2 字节：线上 ≤ 2×(38+474)+1 = 1025 ≤ 1056 ✓（任意内容安全）
+- 解包后 ≤ 512 → 下行 payload ≤ **486B** → WRITE_DATA 数据区 chunk = 486 - 10(应用头: 5固定+fd1+offset4) = **476B**
+- 转义最坏 1→2 字节：线上 ≤ 2×(36+476)+1 = 1025 ≤ 1056 ✓（任意内容安全）
 
 历史固件的帧长预检把"转义后帧长"错比到解包缓冲（128B），导致含 0xA5/0xA6 字节的帧被静默丢弃；
-v2 固件已修正为线上比线上缓冲 + 有界反转义，chunk=474 对任意数据内容成立。
+v2 固件已修正为线上比线上缓冲 + 有界反转义，chunk=476 对任意数据内容成立。
 
 除解包缓冲外，下行链路还有两道固件约束（v2 固件均已配套修改）：
 
@@ -105,7 +115,7 @@ v2 固件已修正为线上比线上缓冲 + 有界反转义，chunk=474 对任�
    `Uart_NoBlockRxPart/RxAll` 单次最多抽 32B，大于 ~130B 的突发帧被截断丢弃（v1 的"偶发丢帧"主因）。
    v2 固件：回调改静态 512B 缓冲 + 驱动 Len 参数从 uint8_t 加宽为 uint32_t。
 2. **UART 硬件 FIFO**：接收触发阈值内必须及时抽走，host 侧持续灌入时靠 RFTS 中断重复触发；
-   实测 6M 波特、512B 静态抽吸缓冲下 474B 帧连续发送无丢字节。
+   实测 6M 波特、512B 静态抽吸缓冲下 476B 帧连续发送无丢字节。
 
 **chunk 通过 HELLO 协商**：host 发送期望片长 propose_chunk，设备回应实际可用值
 `chunk = min(设备能力, propose_chunk)`。设备能力 = min(固件 UART RX 缓冲, am_log 解包链路上限)
@@ -190,7 +200,7 @@ host                                   设备
 | 数据片超时 | 500ms × 10 次 |
 | 窗口 W | 8 |
 | 读片长 | 512B（host 侧参数，上行无此限制） |
-| 协商写片长 chunk | 474B（当前固件） |
+| 协商写片长 chunk | 476B（当前固件） |
 
 吞吐估算：`chunk × W / RTT`，RTT≈10ms 时约 370KB/s。
 

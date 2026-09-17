@@ -5,6 +5,8 @@
 open/read/write/close 文件模型、lsdir 路径+数量+偏移翻页、**可选 HMAC 挑战应答鉴权（AUTH）**、
 **挂载点枚举（LSMOUNT）**、**文件系统空间查询（FSSTAT）**。
 
+v2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(19)`）承载，上行帧不再混入日志流。
+
 - 协议文档：[PROTOCOL.md](PROTOCOL.md)
 - 设备端协议栈：`log_usercmd.lua`（`uc.fs()` 一键安装标准文件系统操作集，`uc.set_auth()` 开启鉴权，权限由脚本控制）
 - 上位机库：`host/luat_usercmd.py`（`UserCmd` 类）
@@ -22,8 +24,11 @@ open/read/write/close 文件模型、lsdir 路径+数量+偏移翻页、**可选
 
 ## 固件要求
 
+上下行均为 A5 命令帧（`cmd = SOC_CMD_USER_CMD(19)`），上行不占用日志流；设备端由固件 C 的
+`luat_log_user_cmd_write()` 发送（ccm42xx 端口映射到 `soc_cmd_response`）。
+
 下行单帧大小受固件 `am_log.c` 的 `rx_cache1/rx_cache2` 限制，经 HELLO 协商分片大小：
-当前固件 `rx_cache1[512]` / `rx_cache2[1056]` → 写片长 **474B**；
+当前固件 `rx_cache1[512]` / `rx_cache2[1056]` → 写片长 **476B**；
 旧固件（128/256）→ 写片长 90B。协议栈自动适配，加大固件缓冲即可提升吞吐。
 
 设备端 `io.lsmount()` / `io.fsstat()` / `crypto.hmac_sha256` 均为 LuatOS 标准库，

@@ -257,6 +257,7 @@ typedef struct {
     luat_rtos_timer_t bridge_tone_timer; /* 桥接模式早期提示音定时器 */
     uint32_t bridge_tone_pos;
     uint8_t bridge_tone_on;
+    uint32_t bridge_generation; /* Changes on each media engine start. */
 #endif
 
     uint32_t mic_generation[VOIP_MIC_SLOT_COUNT];
@@ -390,6 +391,17 @@ int voip_set_audio_mode(voip_audio_mode_t mode);
  * @return 实际消耗的样本数（可能小于请求数，如果缓冲区满）
  */
 int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples);
+/* Task-only frame exchange for the CC PCM backend. No audio device access.
+ * state: 1 = running at G.711/8 kHz/20 ms, 0 = stopped, -1 = unsupported.
+ * Each exchange checks expected_generation under the same lock as the copy.
+ * clear direction masks: 1 = TX (CC->SIP), 2 = RX (SIP->CC).
+ * Exchange returns -1 for stopped/stale/unsupported media, otherwise samples;
+ * clear returns 0 for success or -1 without touching a different generation. */
+int voip_bridge_pcm_state(uint32_t *generation);
+int voip_bridge_pcm_clear(uint32_t expected_generation, unsigned directions);
+int voip_bridge_pcm_in_frame(uint32_t expected_generation, const int16_t pcm[160], uint32_t *dropped_frames);
+int voip_bridge_pcm_out_frame(uint32_t expected_generation, int16_t pcm[160]);
+
 
 /**
  * 从 voip 取出下行 PCM 数据（桥接模式）

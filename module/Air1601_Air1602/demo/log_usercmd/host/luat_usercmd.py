@@ -237,9 +237,7 @@ class UserCmd:
                 self._last_frame_at = time.monotonic()
                 if cmd == SOC_CMD_USER_CMD and len(payload) >= 5 \
                         and payload[0] == UC_VERSION:
-                    flags = payload[2]
-                    seq = struct.unpack("<H", payload[3:5])[0]
-                    body = payload[5:]
+                    ver, _sub, flags, seq, body = parse_payload(payload)
                     errno = body[0] if (flags & FLAG_ERR and len(body) > 0) else 0
                     item = (errno, flags, body)
                     with self._cond:

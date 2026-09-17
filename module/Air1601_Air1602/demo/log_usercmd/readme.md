@@ -57,6 +57,12 @@ V2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(20
 设备端 `io.lsmount()` / `io.fsstat()` / `crypto.hmac_sha256` 均为 LuatOS 标准库，
 当前固件已内置；AUTH 需固件带 crypto（`LUAT_USE_CRYPTO`）。
 
+**2026-09-17 起固件侧暂时关闭**：无自旋的日志口 RX 抽帧实测让 518B 的帧约 50% 端点收不全、
+靠协议重传兜住（吞吐 196KB/s → 3KB/s），故 core 的 `am_uart.c/am_log.c/am_service.c` 已整体回滚到
+原厂版本，`csdk/project/luatos/include/luat_conf_bsp.h` 里的 `LUAT_USE_LOG_USER_CMD` 已注释掉，
+等原厂完成日志口 RX 适配后再打开。脚本侧已做判空：固件没开这个宏时 `uc.start()` 返回 `false`、
+打一条 warn，心跳与挂载点打印照跑、不报错。上面参数表与实测数字均针对"宏打开"时的固件。
+
 实测设备端下行 RX 只吞得下约 **4 个连发帧**（每帧线上 ~518B），而 W=1 在读写两个方向都最快
 （读 235KB/s vs W=8 的 110KB/s），所以上位机**读写窗口都默认 1**，不要把写窗口调大。
 2026-09-17 修掉了 `soc_rx` 的抽帧不完整（`chunk=476` 的单帧线上 518B 超过 512B 抽帧缓冲，

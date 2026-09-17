@@ -5,7 +5,9 @@
 主指标是"WRITE_DATA 重传帧数" —— 每丢一帧要等一个 data_timeout, 重传次数直接反映链路是否完整。
 
   A  ISR 抽帧不完整: chunk=476 -> 线上帧 ~518B > 512B 抽帧缓冲, 尾字节留在 16B 硬件 FIFO
-  B  dev_rx_buffer 的 ISR/任务竞态: 多轮小文件写, 累计重传(偶发, 所以只作参考)
+  B  dev_rx_buffer 的 ISR/任务竞态(历史描述): 该竞态已被证实在 write_window=1 下不可达并归档。
+     用例保留为"累计重传"的常规健康指标(多轮小文件写, 偶发丢帧会体现为重传), 
+     但**不要用 --expect before 断言它复现**, 也不要为此去改它。
   C  soc_cmd_response 余量不足静默丢弃: read_chunk=32768 -> 响应 32780B
 
 --expect before : 断言"缺陷存在"(用于确认用例真能复现)

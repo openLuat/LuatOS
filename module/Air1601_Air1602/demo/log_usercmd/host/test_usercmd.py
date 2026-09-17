@@ -7,7 +7,8 @@
   hello分片协商 / 4K写读校验 / 64K大文件(窗口+重传) / lsdir翻页 /
   mkdir/rmdir / remove / stat / exists / 错误路径 / 追加写 /
   lsmount / fsstat / auth(可选, --auth-token 模式) / nosys /
-  /ram/ 文件系统读写(顺序写 FS) / 跳跃写回归(空洞补零, /ram/ 与 / 各一遍)
+  /ram/ 文件系统读写(顺序写 FS) / 跳跃写回归(空洞补零, /ram/ 与 / 各一遍) /
+  转义最坏内容回归(全 0xA5 / 交替 A5A6, 验证自适应片长不超设备 ISR 抽帧缓冲)
 
 依赖: pyserial   (pip install pyserial)
 
@@ -201,6 +202,22 @@ def main():
                   and data[1024:] == b"B" * 16)
             check("sparse" + mp.replace("/", "_"), ok,
                   f"size={size} len={len(data)} head={data[:16]!r} tail={data[1024:1040]!r}")
+            dev.remove(path)
+
+        # 16. 转义最坏内容回归: 0xA5/0xA6 膨胀成 2 字节, 固定 476 片长时线上帧 518B,
+        #     超过设备 ISR 的 512B 抽帧缓冲 -> 丢帧重传甚至超时失败(实测过两次 FAIL)
+        for name, payload in (("a5", b"\xA5" * 4096), ("a5a6", b"\xA5\xA6" * 2048)):
+            path = f"/ram/esc_{name}.bin"
+            t0 = time.time()
+            try:
+                size = dev.write_file(path, payload)
+                err = ""
+            except UserCmdError as e:
+                size, err = None, f" {e}"
+            dt = time.time() - t0
+            data = dev.read_file(path) if size is not None else b""
+            check(f"escape.{name}", size == len(payload) and data == payload,
+                  f"{size}B {dt:.2f}s {len(payload)/dt/1024:.0f}KB/s{err}")
             dev.remove(path)
 
         # 清理

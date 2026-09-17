@@ -252,14 +252,14 @@ def test_write_window_retransmits_on_mismatched_ack(monkeypatch):
         dev.chunk = 476          # 未经 HELLO 协商, 手工设为真实片长
         seen = {}
         stub = _attach_scripted_device(dev, _open_close_responder(0, 0, seen))
-        # 首次回应 offset=476 时故意回错偏移, 之后回正确值
+        # 首个非 0 偏移的片故意回错偏移, 之后回正确值(片长由内容自适应决定, 不写死偏移)
         real_responder = stub.responder
         state = {"bogus": True}
 
         def responder(sub, seq, body):
             if sub == SUB_WRITE:
                 off = struct.unpack("<I", body[1:5])[0]
-                if off == 476 and state["bogus"]:
+                if off != 0 and state["bogus"]:
                     state["bogus"] = False
                     seen[off] = seen.get(off, 0) + 1
                     return 0, bytes([1]) + struct.pack("<I", 0)
@@ -267,7 +267,89 @@ def test_write_window_retransmits_on_mismatched_ack(monkeypatch):
 
         stub.responder = responder
         dev._write_window(1, b"x" * (476 * 2), 0)
-        assert seen.get(476, 0) >= 2, f"回显偏移不符时未重传: {seen}"
+        assert max(seen.values()) >= 2, f"回显偏移不符时未重传: {seen}"
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+def _split_frags(dev, data, fd=1):
+    """按 host 的自适应分片逻辑切分, 返回 [(offset, frag), ...]"""
+    frags = []
+    off = 0
+    while off < len(data):
+        n = dev._frag_len(fd, off, data[off:], min(dev.chunk, len(data) - off))
+        frags.append((off, data[off:off + n]))
+        off += n
+    return frags
+
+
+@pytest.mark.parametrize("fill", [0x00, 0x5A, 0x7F, 0xA5, 0xA6, 0xFF])
+def test_write_fragments_fit_wire_budget(monkeypatch, fill):
+    """内容自适应分片: 任意内容下每片生成的 A5 帧线上长都不超过 wire_budget
+
+    这是设备端 ISR 512B 抽帧缓冲的硬约束 —— 超一字节就会被拆到两次中断里, 连发时丢帧
+    (实测 chunk=476 线上 518B 时 64K 写要重传 8 次、吞吐掉 15 倍)。
+    """
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE")
+    try:
+        dev.chunk = 476
+        data = bytes([fill]) * 4096
+        frags = _split_frags(dev, data)
+        assert sum(len(f) for _, f in frags) == len(data), "分片未覆盖全部数据"
+        assert [o for o, _ in frags] == sorted(o for o, _ in frags), "分片偏移非递增"
+        for off, frag in frags:
+            wire = len(dev._build_write_frame(1, off, frag))
+            assert wire <= dev.wire_budget, f"fill={fill:#x} off={off} wire={wire}"
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+@pytest.mark.parametrize("fill,lo,hi", [(0x5A, 470, 476), (0xA5, 200, 250), (0xA6, 200, 250)])
+def test_write_frag_len_adapts_to_escaping(monkeypatch, fill, lo, hi):
+    """无转义内容取满片长, 全 0xA5/0xA6(最坏 1->2 膨胀)自动收窄到理论极限附近
+
+    全转义时: 线上长 = 2 + 26 + 2n + 少量表头转义 <= wire_budget, 故 n 约 240
+    (固定 chunk 若按"整帧最坏 2 倍"保守估算只能取 219, 自适应按真实字节算得更准)
+    """
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE")
+    try:
+        dev.chunk = 476
+        frags = _split_frags(dev, bytes([fill]) * 1024)
+        longest = max(len(f) for _, f in frags)
+        assert lo <= longest <= hi, f"fill={fill:#x} 最长片={longest}"
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+def test_read_window_default_is_one(monkeypatch):
+    """实测 W=1 最快(读 235KB/s vs W=8 110KB/s), 默认值不能被改回大窗口"""
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE")
+    try:
+        assert dev.window == 1 and dev.write_window == 1
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+def test_read_chunk_default_within_device_limit(monkeypatch):
+    """read_chunk 必须在设备端"静默丢弃"阈值内
+
+    soc_cmd_response 在 cache 模式下以 2*len 估算 64KB log fifo 余量, 且没有 else 分支:
+    余量不足时该响应被静默丢弃(既不发也不报错), host 只会看到 read timeout。
+    实测 read_chunk=32768 稳定超时、16384 正常; 推导上限 = 64K/2 - tx_head(24) - 12 = 32732。
+    """
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE")
+    try:
+        limit = (1 << 16) // 2 - 24 - 12
+        assert dev.read_chunk == 4096, "read_chunk 默认值被改动, 请重新实测后再定"
+        assert dev.read_chunk <= limit, f"read_chunk={dev.read_chunk} 超过设备上限 {limit}"
     finally:
         dev._alive = False
         dev._t.join(timeout=2.0)

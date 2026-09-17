@@ -188,19 +188,28 @@ class FrameParser:
 # ---------------- usercmd v2 协议层 ----------------
 class UserCmd:
     def __init__(self, port: str, baud: int = 6000000,
-                 window: int = 8, write_window: int = 1,
-                 propose_chunk: int = 512, read_chunk: int = 512,
+                 window: int = 1, write_window: int = 1,
+                 propose_chunk: int = 512, read_chunk: int = 4096,
+                 wire_budget: int = 508,
                  control_timeout: float = 1.0, control_retries: int = 5,
-                 data_timeout: float = 0.5, data_retries: int = 10,
+                 data_timeout: float = 0.2, data_retries: int = 10,
                  log_handler=None):
         self.ser = serial.Serial(port, baud, timeout=0.05)
         # 运行模式要求 DTR/RTS 均为低, 否则打开端口会复位设备
         self.ser.dtr = False
         self.ser.rts = False
         self.ser.reset_input_buffer()
-        self.window = window                # 读窗口(下行只有十几字节的请求, 大窗口安全)
-        self.write_window = write_window    # 写窗口(下行是 ~490B 数据帧, 设备 RX 只吞得下 ~4 个连发帧)
+        self.window = window                # 读窗口(实测 W=1 最快: 235KB/s vs W=8 的 110KB/s)
+        self.write_window = write_window    # 写窗口(同上下行, 大窗口只会更快丢帧)
+        # 单帧线上(转义后)字节上限: 设备端 ISR 用固定 512B 缓冲抽帧(Uart_NoBlockRxFrame),
+        # 超了就会被拆到两次中断里、连发时丢帧(实测 chunk=476 线上 518B -> 64K 写重传 8 次)。
+        # 取 508 留 4B 余量(实测正好 512 仍不稳); 见 _frag_len 的内容自适应切分
+        self.wire_budget = wire_budget
+        self._frag_hint = 0                # 上一片成功长度, 作为下一片试算起点(转义密度局部接近)
         self.propose_chunk = propose_chunk
+        # 单次读片长: 实测 512->240KB/s, 4096->389KB/s, 16384->432KB/s(收益递减)。
+        # 设备端 soc_cmd_response 在 cache 模式下按 2*len 估算余量且**无 else 分支**,
+        # 超过 64KB log fifo 的响应会被静默丢弃 -> 响应 len 上限 32744, 即 read_chunk<=32732
         self.read_chunk = read_chunk
         self.control_timeout = control_timeout
         self.control_retries = control_retries
@@ -462,11 +471,50 @@ class UserCmd:
         return {"total": total, "used": used, "block_size": bs, "fs": fst}
 
     # ---------- 数据类(滑动窗口) ----------
+    def _build_write_frame(self, fd: int, offset: int, frag: bytes, seq: int = 0) -> bytes:
+        body = bytes([fd]) + struct.pack("<I", offset) + frag
+        return build_frame(SOC_CMD_USER_CMD, 0, pack_payload(SUB_WRITE, 0, seq, body))
+
+    def _frag_len(self, fd: int, offset: int, data: bytes, maxlen: int) -> int:
+        """返回最大的片长, 使该片生成的 A5 帧线上长(转义后)不超过 wire_budget
+
+        转义会把 0xA5/0xA6 各膨胀成 2 字节, 故片长必须按实际内容定:
+        随机内容取满 ~470B, 内容全是 0xA5 时自动收到 ~240B, 都不会撑破设备 ISR 缓冲。
+        """
+        def fits(n):
+            return len(self._build_write_frame(fd, offset, data[:n])) <= self.wire_budget
+
+        if fits(maxlen):
+            self._frag_hint = maxlen
+            return maxlen
+        # 从上一片的成功长度起步: 转义密度在文件内通常接近, 稳定后每片只要几次试算
+        lo, hi, best = 1, maxlen - 1, 0
+        if self._frag_hint:
+            h = min(self._frag_hint, hi)
+            if fits(h):
+                best, lo = h, h + 1
+            else:
+                hi = h - 1
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            if fits(mid):
+                best, lo = mid, mid + 1
+            else:
+                hi = mid - 1
+        if best == 0:
+            raise UserCmdError(-1, f"wire_budget={self.wire_budget} 放不下一个字节的写片")
+        self._frag_hint = best
+        return best
+
     def _write_window(self, fd: int, data: bytes, base: int = 0):
         """滑动窗口发送, 每片独立超时重传(同seq, 设备幂等), 设备回应按seq匹配
         base 为起始偏移(追加写用)"""
-        chunk = self.chunk
-        frags = [(base + off, data[off:off + chunk]) for off in range(0, len(data), chunk)]
+        frags = []
+        off = 0
+        while off < len(data):
+            n = self._frag_len(fd, base + off, data[off:], min(self.chunk, len(data) - off))
+            frags.append((base + off, data[off:off + n]))
+            off += n
         pending = {}   # seq -> [offset, frag, attempts, deadline]
         next_i = 0
         acked = 0

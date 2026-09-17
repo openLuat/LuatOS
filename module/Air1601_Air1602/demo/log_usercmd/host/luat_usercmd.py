@@ -114,6 +114,13 @@ def parse_payload(payload: bytes):
     return payload[0], payload[1], payload[2], struct.unpack("<H", payload[3:5])[0], payload[5:]
 
 
+def write_ack_offset(body: bytes):
+    """WRITE_DATA 成功回应 body = u8 fd + u32 offset, 返回设备确认的偏移; 长度不足返回 None"""
+    if len(body) < 5:
+        return None
+    return struct.unpack("<I", body[1:5])[0]
+
+
 class FrameParser:
     """流式解包: 按A5帧界重组 -> 解转义 -> CRC -> (cmd, address, payload)"""
 
@@ -181,7 +188,8 @@ class FrameParser:
 # ---------------- usercmd v2 协议层 ----------------
 class UserCmd:
     def __init__(self, port: str, baud: int = 6000000,
-                 window: int = 8, propose_chunk: int = 512, read_chunk: int = 512,
+                 window: int = 8, write_window: int = 1,
+                 propose_chunk: int = 512, read_chunk: int = 512,
                  control_timeout: float = 1.0, control_retries: int = 5,
                  data_timeout: float = 0.5, data_retries: int = 10,
                  log_handler=None):
@@ -190,7 +198,8 @@ class UserCmd:
         self.ser.dtr = False
         self.ser.rts = False
         self.ser.reset_input_buffer()
-        self.window = window
+        self.window = window                # 读窗口(下行只有十几字节的请求, 大窗口安全)
+        self.write_window = write_window    # 写窗口(下行是 ~490B 数据帧, 设备 RX 只吞得下 ~4 个连发帧)
         self.propose_chunk = propose_chunk
         self.read_chunk = read_chunk
         self.control_timeout = control_timeout
@@ -227,7 +236,10 @@ class UserCmd:
         parser = FrameParser()
         while self._alive:
             try:
-                data = self.ser.read(4096)
+                # pyserial 的 read(n) 会一直等到收满 n 字节或超时, 固定 read(4096)
+                # 会让每个几十字节的回应都拖到 timeout(50ms) 才交付, RTT 从 ~1.5ms 涨到 ~62ms
+                n = getattr(self.ser, "in_waiting", 0)
+                data = self.ser.read(n if n else 1)
             except (serial.SerialException, TypeError, ValueError, OSError):
                 break
             if not data:
@@ -461,7 +473,7 @@ class UserCmd:
         try:
             while acked < len(frags):
                 with self._cond:
-                    while next_i < len(frags) and len(pending) < self.window:
+                    while next_i < len(frags) and len(pending) < self.write_window:
                         off, frag = frags[next_i]
                         seq = self._next_seq()
                         self._waiters[seq] = [threading.Event(), None]
@@ -477,6 +489,16 @@ class UserCmd:
                     w = self._waiters.get(seq)
                     if w is not None and w[0].is_set():
                         errno = w[1][0]
+                        if errno == E_OK and write_ack_offset(w[1][2]) != off:
+                            # 回显偏移与请求不符: 拒绝该确认, 立即重传同 seq(幂等)
+                            if attempts >= self.data_retries:
+                                raise UserCmdError(-1, f"write offset={off} ack mismatch x{attempts}")
+                            w[0].clear()
+                            w[1] = None
+                            self._send(SUB_WRITE, bytes([fd]) + struct.pack("<I", off) + frag, seq)
+                            pending[seq][2] = attempts + 1
+                            pending[seq][3] = time.monotonic() + self.data_timeout
+                            continue
                         self._unregister(seq)
                         del pending[seq]
                         acked += 1
@@ -565,13 +587,17 @@ class UserCmd:
         try:
             if data:
                 self._write_window(fd, data, base)
-            return self.close(fd)
+            size = self.close(fd)
         except Exception:
             try:
                 self.close(fd)
             except Exception:
                 pass
             raise
+        # 设备端 FS 可能静默丢弃写(如顺序写 FS 遇到未分配区域): 用 close 返回的最终大小兜底
+        if size != base + len(data):
+            raise UserCmdError(E_IO, f"write_file {path}: size {size} != expected {base + len(data)}")
+        return size
 
     def read_file(self, path: str) -> bytes:
         fd = self.open(path, "r")

@@ -6,7 +6,8 @@
 测试项:
   hello分片协商 / 4K写读校验 / 64K大文件(窗口+重传) / lsdir翻页 /
   mkdir/rmdir / remove / stat / exists / 错误路径 / 追加写 /
-  lsmount / fsstat / auth(可选, --auth-token 模式) / nosys
+  lsmount / fsstat / auth(可选, --auth-token 模式) / nosys /
+  /ram/ 文件系统读写(顺序写 FS) / 跳跃写回归(空洞补零, /ram/ 与 / 各一遍)
 
 依赖: pyserial   (pip install pyserial)
 
@@ -166,11 +167,49 @@ def main():
             expect_errno("auth.reset_by_hello", lambda: dev.exists("/abc.txt"), E_DENIED)
             check("auth.reauth", dev.auth(args.auth_token))
 
+        # 14. /ram/ 文件系统(ramfs, 会话式顺序写: 不支持跳跃写未分配区域)
+        #     此前只测根分区(/ = littlefs, 原生支持 offset 写), ramfs 的静默截断从未被覆盖
+        t0 = time.time()
+        size = dev.write_file("/ram/abc.txt", DATA4K)
+        dt = time.time() - t0
+        check("ram.write.4k", size == len(DATA4K), f"{size}B {dt:.2f}s {len(DATA4K)/dt/1024:.0f}KB/s")
+        t0 = time.time()
+        data = dev.read_file("/ram/abc.txt")
+        dt = time.time() - t0
+        check("ram.read.4k", data == DATA4K, f"{len(data)}B {dt:.2f}s {len(data)/dt/1024:.0f}KB/s")
+        t0 = time.time()
+        size = dev.write_file("/ram/big.bin", DATA64K)
+        dt = time.time() - t0
+        check("ram.write.64k", size == len(DATA64K), f"{size}B {dt:.2f}s {len(DATA64K)/dt/1024:.0f}KB/s")
+        t0 = time.time()
+        data = dev.read_file("/ram/big.bin")
+        dt = time.time() - t0
+        check("ram.read.64k", data == DATA64K, f"{len(data)}B {dt:.2f}s {len(data)/dt/1024:.0f}KB/s")
+
+        # 15. 跳跃写回归: 空洞必须补零, 且不得覆盖/追加错位
+        #     (/ram/ 曾把 offset>size 的写静默追加到 EOF, 使窗口写的乱序重传损坏文件)
+        for mp in ("/ram/", "/"):
+            path = mp + "sparse.bin"
+            fd = dev.open(path, "w")
+            dev._write_window(fd, b"A" * 16, 0)
+            dev._write_window(fd, b"B" * 16, 1024)
+            size = dev.close(fd)
+            data = dev.read_file(path)
+            ok = (size == 1040 and len(data) == 1040
+                  and data[:16] == b"A" * 16
+                  and data[16:1024] == b"\0" * 1008
+                  and data[1024:] == b"B" * 16)
+            check("sparse" + mp.replace("/", "_"), ok,
+                  f"size={size} len={len(data)} head={data[:16]!r} tail={data[1024:1040]!r}")
+            dev.remove(path)
+
         # 清理
         for i in range(1, 25):
             dev.remove(f"/ucpage/f{i:02d}.txt")
         dev.rmdir("/ucpage")
         dev.remove("/big.bin")
+        dev.remove("/ram/abc.txt")
+        dev.remove("/ram/big.bin")
     finally:
         dev.close_port()
     print("=" * 40)

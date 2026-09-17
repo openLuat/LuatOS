@@ -238,20 +238,50 @@ function uc.fs()
         return uc.E_OK, string.pack("<I4", size)
     end)
 
+    -- 顺序写 FS(ramfs) 不支持写入未分配区域: offset>size 时 seek 被忽略、数据落到 EOF.
+    -- 这里先补零补到 offset 再写, 使重传/乱序到达的写保持幂等; PAD_LIMIT 防止异常空洞耗尽内存
+    local PAD_LIMIT = 64 * 1024
+    local ZEROS = string.rep("\0", 256)
+
     uc.reg_op("write", function(body)
+        if #body < 5 then
+            return uc.E_BADREQ, ""
+        end
         local fd = string.byte(body, 1)
         local offset = string.unpack("<I4", body, 2)
+        local ack = string.char(fd) .. string.pack("<I4", offset)
         local f = fds[fd]
         if not f then
-            return uc.E_BADFD, string.char(fd) .. string.pack("<I4", offset)
+            return uc.E_BADFD, ack
         end
         local data = body:sub(6) -- fd(1)+offset(4) 之后, 数据从第6字节开始
-        f:seek("set", offset)
-        local w = f:write(data)
-        if not w then
-            return uc.E_IO, string.char(fd) .. string.pack("<I4", offset)
+        local size = f:seek("end")
+        if not size then
+            return uc.E_IO, ack
         end
-        return uc.E_OK, string.char(fd) .. string.pack("<I4", offset)
+        if offset > size then
+            if offset - size > PAD_LIMIT then
+                return uc.E_BADREQ, ack
+            end
+            f:seek("set", size)
+            local pad = offset - size
+            while pad > 0 do
+                local n = pad < 256 and pad or 256
+                if not f:write(ZEROS:sub(1, n)) then
+                    return uc.E_IO, ack
+                end
+                pad = pad - n
+            end
+        end
+        if not f:seek("set", offset) or not f:write(data) then
+            return uc.E_IO, ack
+        end
+        -- 落盘校验: 部分 FS 对越界写会静默丢弃(seek 不生效), 必须回读大小确认
+        local after = f:seek("end")
+        if not after or after < offset + #data then
+            return uc.E_IO, ack
+        end
+        return uc.E_OK, ack
     end)
 
     uc.reg_op("read", function(body)

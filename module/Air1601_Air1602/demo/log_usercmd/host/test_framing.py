@@ -13,14 +13,20 @@ import pytest
 import luat_usercmd
 from luat_usercmd import (
     E_DENIED,
+    E_IO,
     FLAG_ERR,
     SOC_CMD_USER_CMD,
+    SUB_CLOSE,
+    SUB_OPEN,
+    SUB_WRITE,
     UC_VERSION,
     FrameParser,
     UserCmd,
+    UserCmdError,
     build_frame,
     pack_payload,
     parse_payload,
+    write_ack_offset,
 )
 
 
@@ -101,6 +107,11 @@ class _FakeSerial:
         time.sleep(0.05)
         return b""
 
+    @property
+    def in_waiting(self):
+        with self._lock:
+            return len(self._rx)
+
     def write(self, data):
         return len(data)
 
@@ -169,3 +180,122 @@ def test_reader_frame_classification(monkeypatch):
     finally:
         dev._alive = False
         dev._t.join(timeout=2.0)
+
+
+def test_write_ack_offset_parse():
+    """WRITE_DATA 成功回应 body = u8 fd + u32 offset; 截断的 body 返回 None"""
+    assert write_ack_offset(bytes([1]) + struct.pack("<I", 476)) == 476
+    assert write_ack_offset(bytes([1]) + struct.pack("<I", 0)) == 0
+    assert write_ack_offset(b"\x01\x02") is None
+    assert write_ack_offset(b"") is None
+
+
+class _ScriptedDevice:
+    """最小设备桩: 解析下行 usercmd 请求, 按 responder 回包(纯软件, 无需真机)
+
+    responder(subcmd, seq, body) -> (flags, resp_body)
+    """
+
+    def __init__(self, ser, responder):
+        self.ser = ser
+        self.responder = responder
+        self.parser = FrameParser()
+        self.calls = []
+
+    def on_downlink(self, data):
+        self.parser.feed(data)
+        for cmd, _addr, payload in self.parser.poll():
+            if cmd != SOC_CMD_USER_CMD or len(payload) < 5:
+                continue
+            _v, sub, _fl, seq, body = parse_payload(payload)
+            self.calls.append((sub, seq, body))
+            flags, rbody = self.responder(sub, seq, body)
+            self.ser.feed(build_frame(SOC_CMD_USER_CMD, 0, pack_payload(sub, flags, seq, rbody)))
+
+
+def _attach_scripted_device(dev, responder):
+    """把设备桩挂到假串口的 write 上: _send 写入的帧被解析并就地产生回应"""
+    dev_stub = _ScriptedDevice(dev.ser, responder)
+    real_write = dev.ser.write
+
+    def hooked_write(data, _real=real_write, _stub=dev_stub):
+        _stub.on_downlink(data)
+        return _real(data)
+
+    dev.ser.write = hooked_write
+    return dev_stub
+
+
+def _open_close_responder(close_size, write_off_shift=0, seen_writes=None):
+    """open 恒成功(fd=1); close 回固定 size; write 回显 offset(+可注入偏移)"""
+
+    def responder(sub, seq, body):
+        if sub == SUB_OPEN:
+            return 0, bytes([1])
+        if sub == SUB_CLOSE:
+            return 0, struct.pack("<I", close_size)
+        if sub == SUB_WRITE:
+            off = struct.unpack("<I", body[1:5])[0]
+            if seen_writes is not None:
+                seen_writes[off] = seen_writes.get(off, 0) + 1
+            return 0, bytes([1]) + struct.pack("<I", off + write_off_shift)
+        return 0, b""
+
+    return responder
+
+
+def test_write_window_retransmits_on_mismatched_ack(monkeypatch):
+    """设备回显偏移与请求不符时, host 拒绝该确认并重传同 seq, 而不是当作成功"""
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE", window=2, data_timeout=0.3, data_retries=8)
+    try:
+        dev.chunk = 476          # 未经 HELLO 协商, 手工设为真实片长
+        seen = {}
+        stub = _attach_scripted_device(dev, _open_close_responder(0, 0, seen))
+        # 首次回应 offset=476 时故意回错偏移, 之后回正确值
+        real_responder = stub.responder
+        state = {"bogus": True}
+
+        def responder(sub, seq, body):
+            if sub == SUB_WRITE:
+                off = struct.unpack("<I", body[1:5])[0]
+                if off == 476 and state["bogus"]:
+                    state["bogus"] = False
+                    seen[off] = seen.get(off, 0) + 1
+                    return 0, bytes([1]) + struct.pack("<I", 0)
+            return real_responder(sub, seq, body)
+
+        stub.responder = responder
+        dev._write_window(1, b"x" * (476 * 2), 0)
+        assert seen.get(476, 0) >= 2, f"回显偏移不符时未重传: {seen}"
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+def test_write_file_rejects_short_final_size(monkeypatch):
+    """close 返回的最终大小与预期不符(设备静默丢弃写)时必须报错, 不能静默成功"""
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE", window=2, data_timeout=0.3, data_retries=8)
+    try:
+        _attach_scripted_device(dev, _open_close_responder(close_size=476 - 1))
+        with pytest.raises(UserCmdError) as ei:
+            dev.write_file("/ram/f.bin", b"x" * 476)
+        assert ei.value.errno == E_IO
+        assert "size" in str(ei.value)
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+def test_write_file_accepts_exact_final_size(monkeypatch):
+    """尺寸一致时正常返回(对照组)"""
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE", window=2, data_timeout=0.3, data_retries=8)
+    try:
+        _attach_scripted_device(dev, _open_close_responder(close_size=476 * 2))
+        assert dev.write_file("/ram/f.bin", b"x" * (476 * 2)) == 476 * 2
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+

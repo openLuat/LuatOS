@@ -26,11 +26,11 @@
  * @int config.w 宽度，默认 160
  * @int config.h 高度，默认 120
  * @string config.src 视频路径，必填
- * @string|int config.format 视频格式，可选，支持 "auto"、"mjpg"、"avi_mjpg"、"mp4"、"hzmp4"
+ * @string|int config.format 视频格式，可选，支持 "auto"、"mjpg"、"avi_mjpg"、"mp4"、"hzv"；"hzv" 为兼容别名
  * @string|int config.backend 后端类型，可选，支持 "auto"、"videoplayer"、"ffmpeg"、"platform"
  * @string|int config.decode_mode 解码模式，可选，支持 "sw"、"hw"
  * @boolean config.direct_render 是否使用独立硬件图层开窗直推，当前仅支持 MJPG，默认 false
- * @int config.interval 播放间隔，单位毫秒，默认 33；HZMP4 会优先使用容器帧时长
+ * @int config.interval 播放间隔，单位毫秒，默认 33；HZV 会优先使用容器帧时长
  * @boolean config.loop 是否循环播放，默认 false
  * @boolean config.auto_play 是否创建后自动播放，默认 true
  * @userdata config.parent 父对象，可选，默认当前屏幕
@@ -138,7 +138,7 @@ static int l_video_skip(lua_State *L)
 /**
  * Video:get_stats()
  * @api video:get_stats()
- * @return table 实际呈现统计：fps、total_frames、decode_mode、playing
+ * @return table 实际呈现统计：fps、total_frames、audio_pts_ms、video_pts_ms、av_delta_ms、dropped_frames、audio_underruns、clock_mode、decode_mode、playing
  */
 static int l_video_get_stats(lua_State *L)
 {
@@ -149,11 +149,23 @@ static int l_video_get_stats(lua_State *L)
         return 1;
     }
 
-    lua_createtable(L, 0, 4);
+    lua_createtable(L, 0, 10);
     lua_pushnumber(L, (lua_Number)stats.fps);
     lua_setfield(L, -2, "fps");
     lua_pushinteger(L, (lua_Integer)stats.total_frames);
     lua_setfield(L, -2, "total_frames");
+    lua_pushinteger(L, (lua_Integer)stats.audio_pts_ms);
+    lua_setfield(L, -2, "audio_pts_ms");
+    lua_pushinteger(L, (lua_Integer)stats.video_pts_ms);
+    lua_setfield(L, -2, "video_pts_ms");
+    lua_pushinteger(L, stats.av_delta_ms);
+    lua_setfield(L, -2, "av_delta_ms");
+    lua_pushinteger(L, stats.dropped_frames);
+    lua_setfield(L, -2, "dropped_frames");
+    lua_pushinteger(L, stats.audio_underruns);
+    lua_setfield(L, -2, "audio_underruns");
+    lua_pushstring(L, stats.clock_mode == 1 ? "sample-counter" : "none");
+    lua_setfield(L, -2, "clock_mode");
     lua_pushstring(L, stats.decode_mode == AIRUI_VIDEO_DECODE_HW ? "hw" : "sw");
     lua_setfield(L, -2, "decode_mode");
     lua_pushboolean(L, stats.playing);

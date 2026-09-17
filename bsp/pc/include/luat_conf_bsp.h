@@ -197,7 +197,7 @@
 
 // 视频播放器(默认mjpeg播放)
 #define LUAT_USE_VIDEOPLAYER 1
-#define LUAT_USE_HZMP4 1
+#define LUAT_USE_HZV 1
 // 视频播放器支持mp4播放
 // 注意: LUAT_USE_MP4PLAYER 由 xmake 动态控制（基于 luatos-ext-components/vedio_player 的存在性）
 // 请勿在此处硬编码，否则会导致编译配置与实际编译状态不一致

@@ -75,7 +75,7 @@ typedef struct {
 /*
 打开视频文件, 返回播放器对象
 @api videoplayer.open(path)
-@string path 视频文件路径, 支持MJPG和HZMP4格式, 例如 "/sdcard/video.hzmp4"
+@string path 视频文件路径, 支持MJPG和HZV格式, 例如 "/sdcard/video.hzv"
 @return userdata 播放器对象, 失败时返回nil和错误信息
 @usage
 -- 打开MJPG格式视频文件
@@ -425,8 +425,8 @@ static const rotable_Reg_t reg_videoplayer[] = {
     { "FMT_AVI_MJPG",     ROREG_INT(LUAT_VP_FMT_AVI_MJPG)},
     //@const FMT_MP4_H264 number MP4+H264视频格式(预留)
     { "FMT_MP4_H264",     ROREG_INT(LUAT_VP_FMT_MP4_H264)},
-    //@const FMT_HZMP4 number HZMP4(MJPEG+音频)容器格式
-    { "FMT_HZMP4",        ROREG_INT(LUAT_VP_FMT_HZMP4)},
+    //@const FMT_HZV number HZV(MJPEG+音频)容器格式
+    { "FMT_HZV",          ROREG_INT(LUAT_VP_FMT_HZV)},
 
     { NULL,               ROREG_INT(0)}
 };

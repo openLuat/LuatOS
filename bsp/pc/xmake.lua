@@ -764,8 +764,8 @@ target("luatos-lua")
     add_files(luatos.."components/mreport/src/*.c")
 
     -- 添加videoplayer
-    add_includedirs(luatos.."components/hzmp4/include")
-    add_files(luatos.."components/hzmp4/src/*.c")
+    add_includedirs(luatos.."components/hzv/include")
+    add_files(luatos.."components/hzv/src/*.c")
     add_includedirs(luatos.."components/videoplayer/include")
     add_includedirs(luatos.."components/tjpgd")
     add_includedirs(luatos.."components/lcd")

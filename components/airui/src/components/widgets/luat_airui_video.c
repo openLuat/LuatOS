@@ -15,6 +15,7 @@
 #include "luat_log.h"
 
 #define AIRUI_VIDEO_STATUS_OK 0
+#define AIRUI_VIDEO_STATUS_WAIT 2
 /* 通用帧描述：组件层只关心一帧 RGB565 数据，不关心底层解码实现。 */
 typedef struct {
     uint8_t *data;
@@ -34,6 +35,14 @@ typedef struct {
     airui_video_decode_mode_t decode_mode;
 } airui_video_open_opts_t;
 
+typedef struct {
+    uint64_t audio_pts_ms;
+    uint32_t buffered_samples;
+    uint32_t underruns;
+    uint8_t running;
+    uint8_t clock_mode;
+} airui_video_clock_t;
+
 /*
  * backend 抽象层：
  * AirUI 组件统一走 open/read_frame/restart/close，
@@ -46,6 +55,11 @@ typedef struct airui_video_backend_ops {
     void (*release_frame)(void *backend_ctx, airui_video_frame_t *frame);
     int (*skip_frames)(void *backend_ctx, uint32_t count);
     int (*restart)(void *backend_ctx);
+    int (*play)(void *backend_ctx);
+    int (*pause)(void *backend_ctx, bool pause);
+    int (*stop)(void *backend_ctx);
+    int (*get_clock)(void *backend_ctx, airui_video_clock_t *clock);
+    int (*get_next_frame_time)(void *backend_ctx, uint64_t *pts_ms, uint32_t *duration_ms);
 } airui_video_backend_ops_t;
 
 typedef struct {
@@ -77,6 +91,12 @@ typedef struct {
     uint32_t fps_window_start_ms;
     uint32_t fps_window_frames;
     uint32_t fps_x100;
+    uint32_t dropped_frames;
+    uint64_t video_pts_ms;
+    uint64_t audio_pts_ms;
+    uint32_t audio_underruns;
+    int32_t av_delta_ms;
+    uint8_t clock_mode;
 } airui_video_data_t;
 
 #if defined(LUAT_USE_VIDEOPLAYER)
@@ -113,6 +133,7 @@ static int airui_video_restart_and_prime(lv_obj_t *video, airui_video_data_t *da
 static void airui_video_stats_reset_window(airui_video_data_t *data);
 static void airui_video_stats_record_frame(airui_video_data_t *data);
 static void airui_video_timer_cb(lv_timer_t *timer);
+static int airui_video_sync_to_audio(airui_video_data_t *data);
 
 #if defined(LUAT_USE_VIDEOPLAYER)
 static int airui_video_vp_open(void **backend_ctx, const airui_video_open_opts_t *opts);
@@ -121,6 +142,11 @@ static int airui_video_vp_read_frame(void *backend_ctx, airui_video_frame_t *fra
 static void airui_video_vp_release_frame(void *backend_ctx, airui_video_frame_t *frame);
 static int airui_video_vp_skip_frames(void *backend_ctx, uint32_t count);
 static int airui_video_vp_restart(void *backend_ctx);
+static int airui_video_vp_play(void *backend_ctx);
+static int airui_video_vp_pause(void *backend_ctx, bool pause);
+static int airui_video_vp_stop(void *backend_ctx);
+static int airui_video_vp_get_clock(void *backend_ctx, airui_video_clock_t *clock);
+static int airui_video_vp_get_next_frame_time(void *backend_ctx, uint64_t *pts_ms, uint32_t *duration_ms);
 
 static const airui_video_backend_ops_t g_airui_video_videoplayer_ops = {
     .open = airui_video_vp_open,
@@ -129,6 +155,11 @@ static const airui_video_backend_ops_t g_airui_video_videoplayer_ops = {
     .release_frame = airui_video_vp_release_frame,
     .skip_frames = airui_video_vp_skip_frames,
     .restart = airui_video_vp_restart,
+    .play = airui_video_vp_play,
+    .pause = airui_video_vp_pause,
+    .stop = airui_video_vp_stop,
+    .get_clock = airui_video_vp_get_clock,
+    .get_next_frame_time = airui_video_vp_get_next_frame_time,
 };
 #endif
 
@@ -220,7 +251,7 @@ static airui_video_format_t airui_video_parse_format(lua_State *L, int idx, airu
     if (lua_type(L, -1) == LUA_TNUMBER) {
         int format = (int)lua_tointeger(L, -1);
         lua_pop(L, 1);
-        if (format >= AIRUI_VIDEO_FORMAT_AUTO && format <= AIRUI_VIDEO_FORMAT_HZMP4) {
+        if (format >= AIRUI_VIDEO_FORMAT_AUTO && format <= AIRUI_VIDEO_FORMAT_HZV) {
             return (airui_video_format_t)format;
         }
         return def;
@@ -238,8 +269,8 @@ static airui_video_format_t airui_video_parse_format(lua_State *L, int idx, airu
         if (strcmp(format, "mp4") == 0 || strcmp(format, "mp4_h264") == 0 || strcmp(format, "h264") == 0) {
             return AIRUI_VIDEO_FORMAT_MP4_H264;
         }
-        if (strcmp(format, "hzmp4") == 0) {
-            return AIRUI_VIDEO_FORMAT_HZMP4;
+        if (strcmp(format, "hzv") == 0) {
+            return AIRUI_VIDEO_FORMAT_HZV;
         }
         return AIRUI_VIDEO_FORMAT_AUTO;
     }
@@ -326,8 +357,8 @@ static airui_video_format_t airui_video_guess_format(const char *src)
     if (strcmp(dot, ".mp4") == 0) {
         return AIRUI_VIDEO_FORMAT_MP4_H264;
     }
-    if (strcmp(dot, ".hzmp4") == 0 || strcmp(dot, ".HZMP4") == 0) {
-        return AIRUI_VIDEO_FORMAT_HZMP4;
+    if (strcmp(dot, ".hzv") == 0 || strcmp(dot, ".HZV") == 0) {
+        return AIRUI_VIDEO_FORMAT_HZV;
     }
     return AIRUI_VIDEO_FORMAT_AUTO;
 }
@@ -348,7 +379,7 @@ static int airui_video_select_backend(airui_video_data_t *data)
         if (data->format == AIRUI_VIDEO_FORMAT_AUTO ||
             data->format == AIRUI_VIDEO_FORMAT_MJPG ||
             data->format == AIRUI_VIDEO_FORMAT_MP4_H264 ||
-            data->format == AIRUI_VIDEO_FORMAT_HZMP4) {
+            data->format == AIRUI_VIDEO_FORMAT_HZV) {
             data->backend = AIRUI_VIDEO_BACKEND_VIDEOPLAYER;
         }
     }
@@ -505,6 +536,7 @@ static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, 
 
     /* 容器帧带时间信息时由容器决定播放节拍，Lua 无需重复填写 interval。 */
     if (frame->duration > 0u && frame->timescale > 0u) {
+        data->video_pts_ms = frame->pts * 1000ULL / frame->timescale;
         uint64_t period_ms = ((uint64_t)frame->duration * 1000u + frame->timescale / 2u) /
                              frame->timescale;
         if (period_ms == 0u) {
@@ -592,6 +624,11 @@ static int airui_video_read_and_present(lv_obj_t *video, airui_video_data_t *dat
     if (ret == AIRUI_VIDEO_STATUS_EOF && allow_loop && data->loop && data->ops->restart != NULL) {
         ret = data->ops->restart(data->backend_ctx);
         if (ret == AIRUI_OK) {
+            if (data->playing && data->ops->play != NULL) {
+                ret = data->ops->play(data->backend_ctx);
+            }
+        }
+        if (ret == AIRUI_OK) {
             memset(&frame, 0, sizeof(frame));
             if (data->framebuffer_size > 0) {
                 frame.data = airui_video_get_next_framebuffer(data);
@@ -667,7 +704,18 @@ static void airui_video_timer_cb(lv_timer_t *timer)
         return;
     }
 
-    /* timer 只负责推进播放，暂停/停止语义由 playing 标志控制。 */
+    ret = airui_video_sync_to_audio(data);
+    if (ret == AIRUI_VIDEO_STATUS_WAIT) {
+        return;
+    }
+    if (ret != AIRUI_OK) {
+        data->playing = false;
+        lv_timer_pause(timer);
+        LLOGE("video: audio sync failed: %d", ret);
+        return;
+    }
+
+    /* timer 只负责唤醒调度，HZV 的实际呈现时刻由音频主时钟决定。 */
     ret = airui_video_read_and_present(video, data, true);
     if (ret != AIRUI_OK) {
         data->playing = false;
@@ -688,11 +736,11 @@ static int airui_video_vp_open(void **backend_ctx, const airui_video_open_opts_t
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    /* videoplayer backend 当前接 MJPG、HZMP4 与可选的 MP4/H264。 */
+    /* videoplayer backend 当前接 MJPG、HZV 与可选的 MP4/H264。 */
     if (!(opts->format == AIRUI_VIDEO_FORMAT_AUTO ||
           opts->format == AIRUI_VIDEO_FORMAT_MJPG ||
           opts->format == AIRUI_VIDEO_FORMAT_MP4_H264 ||
-          opts->format == AIRUI_VIDEO_FORMAT_HZMP4)) {
+          opts->format == AIRUI_VIDEO_FORMAT_HZV)) {
         return AIRUI_ERR_NOT_SUPPORTED;
     }
 
@@ -881,6 +929,104 @@ static int airui_video_vp_restart(void *backend_ctx)
     ctx->player = player;
     return AIRUI_OK;
 }
+
+static int airui_video_sync_to_audio(airui_video_data_t *data)
+{
+    airui_video_clock_t clock;
+    uint64_t next_pts_ms;
+    uint32_t duration_ms;
+    uint32_t late_ms;
+    int ret;
+
+    if (data == NULL || data->ops == NULL || data->ops->get_clock == NULL ||
+        data->ops->get_next_frame_time == NULL) {
+        return AIRUI_OK;
+    }
+    memset(&clock, 0, sizeof(clock));
+    ret = data->ops->get_clock(data->backend_ctx, &clock);
+    if (ret != AIRUI_OK || clock.clock_mode == 0) return AIRUI_OK;
+    data->audio_pts_ms = clock.audio_pts_ms;
+    data->audio_underruns = clock.underruns;
+    data->clock_mode = clock.clock_mode;
+
+    ret = data->ops->get_next_frame_time(data->backend_ctx, &next_pts_ms, &duration_ms);
+    if (ret == AIRUI_VIDEO_STATUS_EOF) return AIRUI_OK;
+    if (ret != AIRUI_OK) return ret;
+    if (!clock.running && clock.audio_pts_ms == 0) {
+        lv_timer_set_period(data->timer, 5);
+        return AIRUI_VIDEO_STATUS_WAIT;
+    }
+    if (next_pts_ms > clock.audio_pts_ms + 10u) {
+        uint64_t wait_ms = next_pts_ms - clock.audio_pts_ms - 10u;
+        lv_timer_set_period(data->timer, wait_ms > 20u ? 20u : (uint32_t)wait_ms);
+        return AIRUI_VIDEO_STATUS_WAIT;
+    }
+
+    late_ms = duration_ms * 3u / 4u;
+    if (late_ms < 50u) late_ms = 50u;
+    while (next_pts_ms + late_ms < clock.audio_pts_ms) {
+        if (data->ops->skip_frames == NULL) break;
+        ret = data->ops->skip_frames(data->backend_ctx, 1);
+        if (ret != AIRUI_OK) return ret;
+        data->dropped_frames++;
+        ret = data->ops->get_next_frame_time(data->backend_ctx, &next_pts_ms, &duration_ms);
+        if (ret == AIRUI_VIDEO_STATUS_EOF) return AIRUI_OK;
+        if (ret != AIRUI_OK) return ret;
+    }
+    data->av_delta_ms = (int32_t)((int64_t)data->video_pts_ms - (int64_t)clock.audio_pts_ms);
+    lv_timer_set_period(data->timer, 1);
+    return AIRUI_OK;
+}
+
+static int airui_video_vp_play(void *backend_ctx)
+{
+    airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
+    if (ctx == NULL || ctx->player == NULL) return AIRUI_ERR_INVALID_PARAM;
+    return luat_videoplayer_play(ctx->player) == LUAT_VP_OK ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
+}
+
+static int airui_video_vp_pause(void *backend_ctx, bool pause)
+{
+    airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
+    if (ctx == NULL || ctx->player == NULL) return AIRUI_ERR_INVALID_PARAM;
+    return luat_videoplayer_pause(ctx->player, pause ? 1 : 0) == LUAT_VP_OK ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
+}
+
+static int airui_video_vp_stop(void *backend_ctx)
+{
+    airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
+    if (ctx == NULL || ctx->player == NULL) return AIRUI_ERR_INVALID_PARAM;
+    return luat_videoplayer_stop(ctx->player) == LUAT_VP_OK ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
+}
+
+static int airui_video_vp_get_clock(void *backend_ctx, airui_video_clock_t *clock)
+{
+    airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
+    luat_vp_av_clock_t vp_clock;
+    int ret;
+    if (ctx == NULL || ctx->player == NULL || clock == NULL) return AIRUI_ERR_INVALID_PARAM;
+    memset(&vp_clock, 0, sizeof(vp_clock));
+    ret = luat_videoplayer_get_av_clock(ctx->player, &vp_clock);
+    if (ret == LUAT_VP_ERR_NOIMPL) return AIRUI_ERR_NOT_SUPPORTED;
+    if (ret != LUAT_VP_OK) return AIRUI_ERR_INIT_FAILED;
+    clock->audio_pts_ms = vp_clock.audio_pts_ms;
+    clock->buffered_samples = vp_clock.buffered_samples;
+    clock->underruns = vp_clock.underruns;
+    clock->running = vp_clock.running;
+    clock->clock_mode = vp_clock.clock_mode;
+    return AIRUI_OK;
+}
+
+static int airui_video_vp_get_next_frame_time(void *backend_ctx, uint64_t *pts_ms, uint32_t *duration_ms)
+{
+    airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
+    int ret;
+    if (ctx == NULL || ctx->player == NULL) return AIRUI_ERR_INVALID_PARAM;
+    ret = luat_videoplayer_get_next_frame_time(ctx->player, pts_ms, duration_ms);
+    if (ret == LUAT_VP_ERR_EOF) return AIRUI_VIDEO_STATUS_EOF;
+    if (ret == LUAT_VP_ERR_NOIMPL) return AIRUI_ERR_NOT_SUPPORTED;
+    return ret == LUAT_VP_OK ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
+}
 #endif
 
 lv_obj_t *airui_video_create_from_config(void *L, int idx)
@@ -1025,6 +1171,11 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
     }
 
     if (airui_marshal_bool(L, idx, "auto_play", true)) {
+        if (data->ops->play != NULL && data->ops->play(data->backend_ctx) != AIRUI_OK) {
+            airui_component_meta_free(meta);
+            lv_obj_delete(video);
+            return NULL;
+        }
         data->playing = true;
         airui_video_stats_reset_window(data);
         lv_timer_resume(data->timer);
@@ -1058,6 +1209,9 @@ int airui_video_play(lv_obj_t *video)
     if (!data->playing) {
         airui_video_stats_reset_window(data);
     }
+    if (data->ops->play != NULL && data->ops->play(data->backend_ctx) != AIRUI_OK) {
+        return AIRUI_ERR_INIT_FAILED;
+    }
     data->playing = true;
     lv_timer_resume(data->timer);
     return AIRUI_OK;
@@ -1076,6 +1230,9 @@ int airui_video_pause(lv_obj_t *video)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
+    if (data->ops->pause != NULL && data->ops->pause(data->backend_ctx, true) != AIRUI_OK) {
+        return AIRUI_ERR_INIT_FAILED;
+    }
     data->playing = false;
     data->fps_x100 = 0;
     data->fps_window_frames = 0;
@@ -1131,6 +1288,12 @@ int airui_video_get_stats(lv_obj_t *video, airui_video_stats_t *stats)
     memset(stats, 0, sizeof(airui_video_stats_t));
     stats->total_frames = data->total_frames;
     stats->fps = data->playing ? (float)data->fps_x100 / 100.0f : 0.0f;
+    stats->audio_pts_ms = data->audio_pts_ms;
+    stats->video_pts_ms = data->video_pts_ms;
+    stats->av_delta_ms = (int32_t)((int64_t)data->video_pts_ms - (int64_t)data->audio_pts_ms);
+    stats->dropped_frames = data->dropped_frames;
+    stats->audio_underruns = data->audio_underruns;
+    stats->clock_mode = data->clock_mode;
     stats->decode_mode = data->decode_mode;
     stats->playing = data->playing;
     return AIRUI_OK;
@@ -1154,6 +1317,9 @@ int airui_video_stop(lv_obj_t *video)
     data->fps_x100 = 0;
     data->fps_window_frames = 0;
     lv_timer_pause(data->timer);
+    if (data->ops->stop != NULL && data->ops->stop(data->backend_ctx) != AIRUI_OK) {
+        return AIRUI_ERR_INIT_FAILED;
+    }
     /* stop 的语义是停止并回到首帧，而不是仅仅暂停当前帧。 */
     ret = airui_video_restart_and_prime(video, data);
     if (ret != AIRUI_OK) {

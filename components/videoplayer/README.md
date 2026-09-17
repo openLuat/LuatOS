@@ -2,12 +2,12 @@
 
 ## 概述
 
-`videoplayer` 是 LuatOS 的视频播放组件，支持 MJPG、HZMP4 和 MP4+H264 格式的视频解码与播放。
+`videoplayer` 是 LuatOS 的视频播放组件，支持 MJPG、HZV 和 MP4+H264 格式的视频解码与播放。
 
 ### 特性
 
 - **MJPG 解码播放**: 支持 raw MJPG 视频流的逐帧解码与显示
-- **HZMP4 播放**: 原生解析 HZMP4 容器中的 MJPEG 包、时间戳和帧时长，音频主时钟同步将在后续阶段接入
+- **HZV 播放**: 原生解析 HZV 容器中的 MJPEG 包、时间戳和帧时长，音频主时钟同步将在后续阶段接入
 - **MP4+H264 解码播放**: 支持 MP4 容器中的 H264 视频逐帧解码与显示（依赖 `LUAT_USE_H264`）
 - **软解/硬解切换**: MJPG 解码支持软件解码（基于 tjpgd）和硬件解码两种方案，可在运行时切换
 - **LCD 渲染**: 解码后的帧可直接绘制到 LCD 屏幕
@@ -20,7 +20,7 @@
 
 ```c
 #define LUAT_USE_VIDEOPLAYER 1
-#define LUAT_USE_HZMP4 1
+#define LUAT_USE_HZV 1
 ```
 
 MP4+H264 播放还需要：

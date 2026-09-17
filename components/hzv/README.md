@@ -1,6 +1,6 @@
-# HZMP4 container reader
+# HZV container reader
 
-This component implements the embedded-side HZMP4 v1 demuxer. It intentionally
+This component implements the embedded-side HZV v1 demuxer. It intentionally
 does not own video or audio decoders.
 
 The first integration stage supports:
@@ -11,7 +11,7 @@ The first integration stage supports:
 - MJPEG video packet read/skip and rewind;
 - metadata needed by `videoplayer` and the future audio-master scheduler.
 
-`videoplayer` consumes video packets directly when a `.hzmp4` path is opened.
+`videoplayer` consumes video packets directly when a `.hzv` path is opened.
 Interleaved audio packets are recognized and skipped in the PC video-only
 validation path. Audio decode and audio-master A/V synchronization are the next
 hardware integration stage.

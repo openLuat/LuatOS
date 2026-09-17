@@ -85,7 +85,7 @@ typedef enum {
     AIRUI_VIDEO_FORMAT_MJPG,
     AIRUI_VIDEO_FORMAT_AVI_MJPG,
     AIRUI_VIDEO_FORMAT_MP4_H264,
-    AIRUI_VIDEO_FORMAT_HZMP4,
+    AIRUI_VIDEO_FORMAT_HZV,
 } airui_video_format_t;
 
 /** Video 后端 */
@@ -106,6 +106,12 @@ typedef enum {
 typedef struct {
     uint64_t total_frames;
     float fps;
+    uint64_t audio_pts_ms;
+    uint64_t video_pts_ms;
+    int32_t av_delta_ms;
+    uint32_t dropped_frames;
+    uint32_t audio_underruns;
+    uint8_t clock_mode;
     airui_video_decode_mode_t decode_mode;
     bool playing;
 } airui_video_stats_t;

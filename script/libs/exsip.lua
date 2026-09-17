@@ -51,6 +51,11 @@ exsip.start()
 -- exsip.hangUp()
 
 -- 版本更新说明
+-- 版本号：202609171331
+-- 1、更新时间：2026-09-17 13:31
+-- 2、更新内容
+--    自动接听定时器绑定来电 Call-ID，忽略旧通话遗留的定时回调。
+--    接听命令携带当前 Call-ID，避免排队中的旧命令误接新通话。
 -- 版本号：202609161450
 -- 1、更新时间：2026-09-16 14:50
 -- 2、更新内容
@@ -603,8 +608,11 @@ local function sip_event_handler(event, action, payload)
             emit_callback("call", "incoming", g_current_call)
             if g_config and g_config.auto_answer then
                 if g_config.delay_auto_answer > 0 then
+                    local call_id = payload.call_id
                     sys.timerStart(function()
-                        exsip.accept()
+                        if g_started and g_current_call and g_current_call.call_id == call_id then
+                            exsip.accept()
+                        end
                     end, g_config.delay_auto_answer * 1000)
                 else
                     exsip.accept()
@@ -1011,7 +1019,7 @@ function exsip.accept()
         return false
     end
 
-    sipclient.answer()
+    sipclient.answer(g_current_call and g_current_call.call_id)
     log_info("answering call")
     return true
 end
@@ -1305,7 +1313,7 @@ end
 exsip.version()
 ]]
 function exsip.version()
-    return "202609161450"
+    return "202609171331"
 end
 
 log.debug("exsip", "version -> " .. exsip.version())

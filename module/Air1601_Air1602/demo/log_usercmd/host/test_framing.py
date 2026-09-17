@@ -18,6 +18,8 @@ from luat_usercmd import (
     SOC_CMD_USER_CMD,
     SUB_CLOSE,
     SUB_OPEN,
+    SUB_READ,
+    SUB_STAT,
     SUB_WRITE,
     UC_VERSION,
     FrameParser,
@@ -337,19 +339,75 @@ def test_read_window_default_is_one(monkeypatch):
         dev._t.join(timeout=2.0)
 
 
-def test_read_chunk_default_within_device_limit(monkeypatch):
-    """read_chunk 必须在设备端"静默丢弃"阈值内
+def test_read_chunk_default_within_record_limit(monkeypatch):
+    """read_chunk 必须在设备端单条 log record 的上限内
 
-    soc_cmd_response 在 cache 模式下以 2*len 估算 64KB log fifo 余量, 且没有 else 分支:
-    余量不足时该响应被静默丢弃(既不发也不报错), host 只会看到 read timeout。
-    实测 read_chunk=32768 稳定超时、16384 正常; 推导上限 = 64K/2 - tx_head(24) - 12 = 32732。
+    2026-09-17 同步主干后, app 构建的上行走 __LOG_PORT_UNDEPENDABLE__ 的 log record 通道,
+    单条 __LOG_ONE_RECORD_MAX_LEN__ = 1600 字节; 超长响应会被设备端**截断且没有任何信号**。
+    最坏(每字节都转义)线上长 = 1 + 2*(24帧头 + 7应用头 + n) + 4(CRC) + 1(A5) <= 1600 -> n <= 766。
+    实测: read_chunk=1500 正常, >=1600 只回 ~1545 字节。
     """
     monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
     dev = UserCmd("COM_FAKE")
     try:
-        limit = (1 << 16) // 2 - 24 - 12
-        assert dev.read_chunk == 4096, "read_chunk 默认值被改动, 请重新实测后再定"
-        assert dev.read_chunk <= limit, f"read_chunk={dev.read_chunk} 超过设备上限 {limit}"
+        record_max = 1600
+        worst_safe = (record_max - 1 - 4 - 1) // 2 - 24 - 7   # = 766
+        assert dev.read_chunk == 760, "read_chunk 默认值被改动, 请重新实测后再定"
+        assert dev.read_chunk <= worst_safe, \
+            f"read_chunk={dev.read_chunk} 超过任意内容安全上限 {worst_safe}"
+        assert 1 + 2 * (24 + 7 + dev.read_chunk) + 4 + 1 <= record_max, \
+            "默认档的最坏线上长必须放得下一条 record"
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+def test_read_window_rejects_truncated_response(monkeypatch):
+    """设备端响应被截断(声明的 len 大于实到数据)必须显式报错
+
+    放过它就是最坏的一种错: read_file 会把截断当成正常短读/EOF, 静默返回残缺内容。
+    """
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE", data_timeout=0.3, data_retries=5)
+    try:
+        def responder(sub, seq, body):
+            if sub == SUB_OPEN:
+                return 0, bytes([1])
+            if sub == SUB_CLOSE:
+                return 0, struct.pack("<I", 0)
+            if sub == SUB_READ:
+                return 0, bytes([1]) + struct.pack("<IH", 0, 512) + b"x" * 100
+            return 0, b""
+
+        _attach_scripted_device(dev, responder)
+        with pytest.raises(UserCmdError) as ei:
+            dev.read_file("/f.bin")
+        assert "截断" in str(ei.value), str(ei.value)
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+def test_read_file_rejects_size_mismatch(monkeypatch):
+    """读到多少字节与 stat 报的大小不符时必须报错(兜底, 防任何未察觉的截断)"""
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE", data_timeout=0.3, data_retries=5)
+    try:
+        def responder(sub, seq, body):
+            if sub == SUB_OPEN:
+                return 0, bytes([1])
+            if sub == SUB_CLOSE:
+                return 0, struct.pack("<I", 0)
+            if sub == SUB_READ:
+                return 0, bytes([1]) + struct.pack("<IH", 0, 10) + b"x" * 10
+            if sub == SUB_STAT:
+                return 0, bytes([0]) + struct.pack("<I", 99)   # 文件其实有 99 字节
+            return 0, b""
+
+        _attach_scripted_device(dev, responder)
+        with pytest.raises(UserCmdError) as ei:
+            dev.read_file("/f.bin")
+        assert "stat 为" in str(ei.value), str(ei.value)
     finally:
         dev._alive = False
         dev._t.join(timeout=2.0)

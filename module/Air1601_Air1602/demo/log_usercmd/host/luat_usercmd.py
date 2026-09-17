@@ -189,7 +189,7 @@ class FrameParser:
 class UserCmd:
     def __init__(self, port: str, baud: int = 6000000,
                  window: int = 1, write_window: int = 1,
-                 propose_chunk: int = 512, read_chunk: int = 4096,
+                 propose_chunk: int = 512, read_chunk: int = 760,
                  wire_budget: int = 508,
                  control_timeout: float = 1.0, control_retries: int = 5,
                  data_timeout: float = 0.2, data_retries: int = 10,
@@ -207,9 +207,11 @@ class UserCmd:
         self.wire_budget = wire_budget
         self._frag_hint = 0                # 上一片成功长度, 作为下一片试算起点(转义密度局部接近)
         self.propose_chunk = propose_chunk
-        # 单次读片长: 实测 512->240KB/s, 4096->389KB/s, 16384->432KB/s(收益递减)。
-        # 设备端 soc_cmd_response 在 cache 模式下按 2*len 估算余量且**无 else 分支**,
-        # 超过 64KB log fifo 的响应会被静默丢弃 -> 响应 len 上限 32744, 即 read_chunk<=32732
+        # 单次读片长。2026-09-17 同步主干后, app 构建的上行改走 __LOG_PORT_UNDEPENDABLE__
+        # 的 log record 通道, 单条记录 __LOG_ONE_RECORD_MAX_LEN__ = 1600 字节:
+        # 响应帧超过它会被**截断且没有任何信号**(实测 read_chunk=1500 正常, >=1600 只回 ~1545 字节,
+        # 上位机会把截断当成正常短读/EOF)。最坏(每字节都转义)线上长 = 1 + 2*(24+7+n) + 4 + 1,
+        # 取 ≤1600 得 n ≤766; 默认 760。内容确定是低转义率(≤~11%)时可上调到 ~1500。
         self.read_chunk = read_chunk
         self.control_timeout = control_timeout
         self.control_retries = control_retries
@@ -596,6 +598,14 @@ class UserCmd:
                         if errno != E_OK:
                             raise UserCmdError(errno, f"read offset={off}")
                         roff, rlen = struct.unpack("<IH", body[1:7])
+                        if len(body) - 7 < rlen:
+                            # 设备端单帧响应有长度上限(主干 app 构建走 log record, 单条 1600 字节,
+                            # 超长帧被截断且无任何信号)。这里显式报错: 若放过, 截断会被当成正常
+                            # 短读/EOF, read_file 会静默返回残缺内容(实测 4K 文件只回 1546 字节)。
+                            raise UserCmdError(E_IO, (
+                                f"read offset={roff} 响应被截断: 声明 {rlen} 字节, 实到 "
+                                f"{len(body) - 7} 字节(设备端单帧上限 1600B log record); "
+                                f"请降低 read_chunk(当前 {chunk})"))
                         pieces[roff] = body[7:7 + rlen]
                         if rlen < chunk and (eof_off is None or roff + rlen < eof_off):
                             eof_off = roff + rlen
@@ -648,14 +658,20 @@ class UserCmd:
         return size
 
     def read_file(self, path: str) -> bytes:
+        """读整个文件。读完后与 stat 的文件大小交叉校验:
+        设备端单帧响应有长度上限, 任何未察觉的截断都会让这里读到残缺内容, 必须显式报错"""
         fd = self.open(path, "r")
         try:
-            return self._read_window(fd)
+            data = self._read_window(fd)
         finally:
             try:
                 self.close(fd)
             except Exception:
                 pass
+        _type, size = self.stat(path)
+        if len(data) != size:
+            raise UserCmdError(E_IO, f"read_file {path}: 读到 {len(data)} 字节, stat 为 {size} 字节")
+        return data
 
     def request(self, subcmd: int, body: bytes):
         """原始控制类请求, 返回 (errno, flags, body)"""

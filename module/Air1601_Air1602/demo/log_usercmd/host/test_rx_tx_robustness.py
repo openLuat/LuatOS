@@ -96,29 +96,36 @@ def case_b(dev, rounds=10, size=16384):
         _drop(dev, path)
 
 
-def case_c(dev, size=131072):
-    """read_chunk=32768: 响应 32780B, 命中 soc_cmd_response 的"余量不足静默丢弃"分支
+def case_c(dev, size=131072, big_chunk=32768):
+    """超大响应必须"要么读全、要么显式报错", 绝不能静默返回残缺内容
 
-    返回 (错误文本, 耗时, 内容是否一致, 是否读超时)。只有**读超时**才算复现该缺陷;
-    其它 errno(如越界写、环境问题)在两种模式下都要报失败, 不能算作复现。
+    2026-09-17 同步主干后语义变了: app 构建的上行改走 log record, 单条上限
+    __LOG_ONE_RECORD_MAX_LEN__=1600 字节, 超长响应被**设备端截断且无信号**;
+    主机侧现在靠 _read_window 的 rlen 校验 + read_file 的 stat 校验把它变成显式错误。
+    返回 (kind, 错误文本, 耗时, 内容是否一致), kind ∈ {"ok","truncated","timeout","other"}。
     """
     path = "/ram/ab_c.bin"
-    err, got, is_timeout = None, None, False
+    kind, err, got = "ok", None, None
     try:
-        dev.read_chunk = 4096
+        dev.read_chunk = 760
         data = bytes(random.randrange(256) for _ in range(size))
         dev.write_file(path, data)
-        dev.read_chunk = 32768
+        dev.read_chunk = big_chunk
         t0 = time.perf_counter()
         try:
             got = dev.read_file(path)
         except UserCmdError as e:
             err = str(e)
-            is_timeout = (e.errno == -1) or ("timeout" in str(e))
+            if "timeout" in err:
+                kind = "timeout"
+            elif "截断" in err or "stat 为" in err:
+                kind = "truncated"
+            else:
+                kind = "other"
         dt = time.perf_counter() - t0
-        return err, dt, (got == data), is_timeout
+        return kind, err, dt, (got == data)
     finally:
-        dev.read_chunk = 4096
+        dev.read_chunk = 760
         _drop(dev, path)
 
 
@@ -153,15 +160,15 @@ def main():
         if args.expect == "after" and rb != 0:
             fails.append(f"B 修复后重传应为 0, 实际 {rb}")
 
-        ec, tc, oc, is_to = case_c(dev)
-        print(f"C read_chunk=32768 读 128K: {ec or 'OK'}, {tc * 1000:.0f}ms, 内容一致={oc}")
-        if args.expect == "before":
-            if not is_to:
-                fails.append(f"C 应能复现静默丢弃(读超时), 实际 {ec or '成功'}")
-        elif ec is not None:
-            fails.append(f"C 修复后应正常返回, 实际 {ec}")
-        elif not oc:
-            fails.append("C 内容不一致")
+        kc, ec, tc, oc = case_c(dev)
+        print(f"C 超大响应(read_chunk=32768) 读 128K: {kc}"
+              + (f" ({ec})" if ec else "") + f", {tc * 1000:.0f}ms, 内容一致={oc}")
+        # 允许: ok(读全) / truncated(显式报错) / timeout(老固件行为)。
+        # 绝不允许的是"看起来读全了但内容不对" —— 那就是静默数据损坏。
+        if kc == "ok" and not oc:
+            fails.append("C 回归成了静默损坏: 返回成功但内容不一致")
+        elif kc == "other":
+            fails.append(f"C 报了预期之外的错误: {ec}")
     finally:
         dev.close_port()
 

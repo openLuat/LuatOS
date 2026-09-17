@@ -27,6 +27,8 @@ local is_compact = false
 
 local function update_screen_size()
     sw, sh = screen_w or 480, screen_h or 800
+    -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回）
+    sw, sh = theme.content_fit(sw, sh)
     is_compact = (sh > 0 and sh < 340) and (sw > sh)
     pad = is_compact and 6 or theme.page_margin()
     top_h = theme.dp(56)
@@ -85,7 +87,7 @@ end
 
 local function build_ui()
     update_screen_size()
-    main_container = theme.page_bg(airui.screen, screen_w, screen_h)
+    main_container = theme.page_bg(airui.screen, sw, sh)
 
     -- 标题栏 + 下方指标卡直接挂在背景容器上（各卡高度按屏高算，不依赖滚动）
     titlebar.create(main_container, "网络测速", sw, function()

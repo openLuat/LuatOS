@@ -55,6 +55,8 @@ local function update_screen_size()
     local pw, ph = lcd.getSize()
     if r == 0 or r == 180 then screen_w, screen_h = pw, ph
     else screen_w, screen_h = ph, pw end
+    -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回）
+    screen_w, screen_h = theme.content_fit(screen_w, screen_h)
     margin = theme.page_margin()
 end
 

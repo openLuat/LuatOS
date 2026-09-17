@@ -19,7 +19,8 @@ theme.label(base, { x = 8, y = 8, w = 100, h = 20, text = "标题", size = 16, c
 1. 尺寸契约：几何量（x/y/w/h）一律传「像素值」，由调用方按 screen_w/screen_h 计算；
    「字号 size」与「圆角 radius」传「逻辑值」，由 theme 内部按 _G.density_scale 换算。
    需要直接指定像素字号时用 px_size（如大号时钟）。
-2. 无模糊/渐变/阴影能力（AirUI 基于 LVGL 基础样式），玻璃感用「低透明度白底 + 细描边 + 背景光斑」近似
+2. 无模糊/阴影能力（AirUI 基于 LVGL 基础样式），玻璃感用「低透明度白底 + 细描边」近似；
+   背景只有「底色 + 顶部渐隐」，v3 起已去掉原先近似径向渐变的那四个光斑球
 3. 每个构造函数都返回创建的 airui 对象，便于调用方继续 set_text / set_src
 4. 图标按语义名查找 /luadb/ui/<name>.png，缺失时自动回退旧资源或跳过绘制
 ]]
@@ -82,7 +83,6 @@ M.C = {
     on_amber    = 0x1A1206,  -- 琥珀主色按钮上的文字/图标色（深棕，保证对比度）
     bubble_user = 0x3D4E9E,  -- 用户侧气泡底（LLM 对话）
     avatar_text = 0xC3D6E8,  -- 头像首字母文字色
-    blob_pink   = 0xFF76A8,  -- 壁纸光斑：粉（见 M.wallpaper）
     divider     = 0xFFFFFF,  -- 分隔线（深色主题靠 OPA.divider 压淡；浅色主题换成实色）
 
     -- ===== 进度/开关/输入框专用 =====
@@ -99,6 +99,13 @@ M.C = {
     -- 浅色主题下 t1 是深色正文色，拿它当 light_color 会让整张码糊成一个色块。
     qr_dark     = 0x0E141C,  -- 深色模块
     qr_light    = 0xEDF1F7,  -- 浅色底（静区）
+
+    -- ===== 左栏（rail）=====
+    -- 左栏底色**不能借用 white**：全工程 8 套主题里没有一套覆写 white，而 OPA.rail
+    -- 只有 14 / 220 / 255 三档，于是左栏只剩三种外观 —— 同一档内的主题左栏完全相同。
+    -- 更糟的是深色实底主题把 rail 提到 255 后，左栏被画成一条纯白（在纯黑桌面上极刺眼）。
+    -- 现在由每套主题各自给出 rail_bg，左栏才真正跟着主题走。
+    rail_bg     = 0xFFFFFF,
 }
 
 --[[语义色别名
@@ -128,6 +135,9 @@ M.OPA = {
     scrim       = 140,  -- 遮罩
     off         = 26,   -- 关闭态元素
     divider     = 16,   -- 分隔线（深色主题：白线 16 透明度）
+    -- 左栏选中态底块。浅色主题的左栏是白底，琥珀块要更实一档才压得住
+    -- （见 ui_theme_themes.lua 的 OPA_SOLID_LIGHT.rail_active = 96）。
+    rail_active = 48,
 }
 
 -- 圆角（逻辑值，经 dp 缩放）
@@ -269,7 +279,47 @@ end
 
 -- ==================== 二、基础绘制 ====================
 
---[[矩形色块（也是最常用的布局容器）]]
+-- ==================== 壳层（Shell）内容区 ====================
+--[[宽屏设备上 idle_win 会常驻左侧 rail（内置应用栏），其余页面只应占据右侧内容区。
+壳层状态由 idle_win 在布局计算完成后写入；窄屏（无 rail）或 idle_win 尚未创建时保持
+enabled = false，此时所有页面回到「整屏铺满」的既有行为 —— 窄屏表现与改造前完全一致。
+
+注意：不要把 rail 宽度之类的布局细节塞进 exwin。exwin 是纯窗口栈库，
+UI 几何只属于 ui_theme 的职责范围。]]
+M.shell = { enabled = false, rail_w = 0, host_id = nil }
+
+--[[返回内容区几何 { x, y, w, h }；无左栏时返回 nil
+
+返回 nil 即「保持整屏行为」，调用方无需写分支判断。]]
+function M.content_area()
+    if not M.shell.enabled then return nil end
+    local rw = M.shell.rail_w or 0
+    local W = screen_w or 480
+    local H = screen_h or 800
+    if rw <= 0 or (W - rw) < 1 then return nil end
+    return { x = rw, y = 0, w = W - rw, h = H }
+end
+
+--[[页面尺寸修正：把页面里局部的 screen_w/screen_h 收窄到内容区
+
+用法：在页面 update_screen_size() 末尾追加一行
+    screen_w, screen_h = theme.content_fit(screen_w, screen_h)
+
+无壳层时原样返回，页面行为与改造前完全一致。
+收窄后，页面内所有基于 screen_w 的比例式几何会自动重新自适应 ——
+因为 LVGL 子控件坐标是相对父容器的，而父容器宽度已同步收窄。
+注意：调用方必须把这个返回值写回自己的 screen_w（通常是在 update_screen_size 末尾），
+theme.page_bg 依赖「页面宽度已等于内容区宽度」这个信号来决定是否做偏移。]]
+function M.content_fit(w, h)
+    local area = M.content_area()
+    if not area then return w, h end
+    return area.w, h
+end
+
+--[[矩形色块（也是最常用的布局容器）
+  clip_corner = true 时，子组件按本容器的圆角裁剪（等价 CSS overflow:hidden）。
+  贴边的方形子组件（如视频卡片底部的控制栏）会盖住父容器的圆角，
+  在圆角卡片边缘冒出两个方角 —— 这类场景要打开 clip_corner。]]
 function M.box(parent, o)
     return airui.container({
         parent     = o.parent or parent,
@@ -282,31 +332,21 @@ function M.box(parent, o)
         border_color = o.border,
         border_width = o.border and (o.border_w or 1) or 0,
         scrollable = (o.scrollable == true),
+        clip_corner = (o.clip_corner == true),
         on_click = o.on_click,
         on_long_press = o.on_long_press,
     })
 end
 
---[[圆形光斑：用超大圆角的方块近似径向渐变光晕（几何量均为像素）]]
-function M.blob(parent, x, y, size, color, opa)
-    local s = size
-    return airui.container({
-        parent = parent,
-        x = x, y = y, w = s, h = s,
-        radius = math.floor(s / 2),
-        color = color, color_opacity = opa,
-    })
-end
-
---[[全屏背景：底色 + 顶部提亮渐变 + 四处光斑（近似设计稿的壁纸）
+--[[全屏背景：底色 + 顶部提亮渐变（近似设计稿的壁纸）
 
 以前顶部提亮是一个 h * 0.62 的「实色容器」，于是在屏幕 62% 高度处横着留下
 一条贯穿全屏的硬边 —— 深色主题下 bg_top 与 bg 差着几个色阶，边缘一眼可见。
 AirUI 没有渐变能力，这里改用 STEPS 条透明度线性递减的窄条去逼近同一条渐变：
 相邻两条的不透明度差约 255/9 = 28 级，折算成实际色差不到 1 个 RGB 单位，
 看不出台阶，但硬边被彻底抹掉了。]]
-function M.wallpaper(parent, w, h)
-    local base = M.box(parent, { x = 0, y = 0, w = w, h = h, color = M.C.bg })
+function M.wallpaper(parent, w, h, x, y)
+    local base = M.box(parent, { x = x or 0, y = y or 0, w = w, h = h, color = M.C.bg })
 
     local STEPS = 10
     local zone = math.floor(h * 0.62)
@@ -319,10 +359,6 @@ function M.wallpaper(parent, w, h)
         end
     end
 
-    M.blob(base, -math.floor(w * 0.18), -math.floor(h * 0.34), math.floor(w * 0.56), M.C.violet, 52)
-    M.blob(base, w - math.floor(w * 0.34), -math.floor(h * 0.38), math.floor(w * 0.60), M.C.cyan, 44)
-    M.blob(base, math.floor(w * 0.52), h - math.floor(h * 0.52), math.floor(w * 0.72), M.C.blob_pink, 28)
-    M.blob(base, -math.floor(w * 0.06), h - math.floor(h * 0.44), math.floor(w * 0.52), M.C.cyan, 24)
     return base
 end
 
@@ -354,6 +390,11 @@ function M.card(parent, o)
         border_color = o.border or M.C.stroke,
         border_width = bw,
         scrollable = (o.scrollable == true),
+        --[[子组件按圆角裁剪（等价 CSS overflow:hidden）
+
+        圆角卡片里贴边的方形子组件会用直角盖住卡片圆角，看上去就是
+        「卡片边缘冒出两个方角」。传 clip_corner = true 即可让子组件被卡片圆角裁掉。]]
+        clip_corner = (o.clip_corner == true),
         on_click = o.on_click,
         on_long_press = o.on_long_press,
     })
@@ -739,7 +780,7 @@ function M.tile(parent, o)
     end
     M.label(tile, {
         x = dp(2), y = dp(6) + icon_size + dp(4), w = w - dp(4), h = dp(18),
-        text = o.text or "", size = o.size or M.F.small, color = o.text_color or M.C.t1,
+        text = o.text or "", size = o.size or M.F.small, px_size = o.px_size, color = o.text_color or M.C.t1,
         align = airui.TEXT_ALIGN_CENTER,
     })
     if o.badge then
@@ -1316,39 +1357,70 @@ function M.header(parent, o)
 end
 
 --[[页面背景：尊重主题样式开关
-深色玻璃主题 → 底色 + 顶部微亮层 + 光斑；浅色主题 → 一层实底（叠光斑会把浅底糊掉）。
+深色玻璃主题 → 底色 + 顶部微亮层；浅色主题 → 一层实底。
 所有页面请统一走这个入口，不要直接调 M.wallpaper。]]
-function M.page_bg(parent, w, h)
-    if M.STYLE.wallpaper then
-        return M.wallpaper(parent, w, h)
+function M.page_bg(parent, w, h, x, y)
+    --[[壳层（宽屏左栏）存在时，顶层页面自动右移到内容区，左栏因此保持可见。
+
+    触发条件刻意写成「页面宽度 == 内容区宽度」，而不是维护一份全局的偏移状态：
+    页面在 update_screen_size() 里调用 theme.content_fit() 收窄 screen_w 后，
+    此处传进来的 w 恰好等于内容区宽度，即「该页面已经准备好落在内容区」。
+    反之 idle_win 自己传的是整屏宽度，不等于内容区宽度，因此不会被偏移，
+    仍然整屏铺满（左栏本来就是它的一部分）。
+    显式传入 x/y 时以调用方为准。]]
+    if x == nil then
+        x, y = 0, 0
+        if parent == airui.screen then
+            local area = M.content_area()
+            if area and w == area.w then
+                x, y = area.x, area.y
+            end
+        end
     end
-    return M.box(parent, { x = 0, y = 0, w = w, h = h, color = M.C.bg })
+    if M.STYLE.wallpaper then
+        return M.wallpaper(parent, w, h, x, y)
+    end
+    return M.box(parent, { x = x, y = y, w = w, h = h, color = M.C.bg })
 end
 
 --[[统一页面骨架：背景（壁纸/纯色）+ 页边距 + 可选标题栏，一次算清内容区
 @table o
   parent     父容器（默认 airui.screen）
+  area       渲染区域 { x, y, w, h }；不传时自动取壳层内容区（宽屏左栏右侧），
+             窄屏自动回退整屏。需要强制整屏请显式传 area = false
   title      给了就画标题栏；不给则只出背景与内容区
   sub/on_back/icon/right  透传给 M.header
   header_pad 标题栏与内容区之间的间距（默认 = 页边距）
 @return ctx  { base, bar, pad, sw, sh, x, y, w, h }
-              x/y/w/h 即内容区（标题栏之下、页边距之内）的像素几何
+              x/y/w/h 即内容区（标题栏之下、页边距之内）的像素几何，均相对 ctx.base
 @usage
 local ctx = theme.page({ title = "文件管理", sub = "...", on_back = fn })
 -- ctx.base 父容器，ctx.x/y/w/h 内容区
 ]]
 function M.page(o)
     o = o or {}
-    local sw = screen_w or 480
-    local sh = screen_h or 800
+    --[[区域：显式指定优先；未指定且页面挂在屏幕上时，自动取壳层内容区。
+    无左栏（窄屏 / idle_win 未创建）时 content_area() 返回 nil → 整屏铺满，行为与改造前一致。
+    需要强制整屏时显式传 area = false。]]
+    local area = o.area
+    if area == nil and (o.parent == nil or o.parent == airui.screen) then
+        area = M.content_area()
+    end
+    local sw = (area and area.w) or screen_w or 480
+    local sh = (area and area.h) or screen_h or 800
+    local bx = (area and area.x) or 0
+    local by = (area and area.y) or 0
     local pad = o.pad or M.page_margin()
     local p = o.parent or airui.screen
 
+    --[[这里直接调 wallpaper / box 而不复用 page_bg：
+    page_bg 在「父为屏幕且宽度等于内容区宽度」时会自动做一次偏移，
+    若此处再交给它、同时又自行传 bx/by，就会变成双重偏移。]]
     local base
-    if o.flat then
-        base = M.box(p, { x = 0, y = 0, w = sw, h = sh, color = M.C.bg })
+    if o.flat or not M.STYLE.wallpaper then
+        base = M.box(p, { x = bx, y = by, w = sw, h = sh, color = M.C.bg })
     else
-        base = M.page_bg(p, sw, sh)
+        base = M.wallpaper(p, sw, sh, bx, by)
     end
 
     local ctx = {

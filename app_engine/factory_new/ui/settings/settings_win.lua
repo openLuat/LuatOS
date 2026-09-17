@@ -29,6 +29,9 @@ local window_id = nil
 local main_container = nil
 
 local sw, sh = 480, 800
+-- scr_w/scr_h 是「整屏」尺寸，sw/sh 会被 content_fit 收窄成内容区宽度（全屏 − 左栏），
+-- 展示「屏幕分辨率」必须用前者，否则宽屏下会少写一条左栏宽度。
+local scr_w, scr_h = 480, 800
 local pad = 12
 local bar_h = 56
 
@@ -47,7 +50,10 @@ local ENTRY_ICONS = {
 }
 
 local function update_screen_size()
-    sw, sh = screen_w or 480, screen_h or 800
+    scr_w, scr_h = screen_w or 480, screen_h or 800
+    sw, sh = scr_w, scr_h
+    -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回）；收窄后 wide 判定与内部几何自动自适应
+    sw, sh = theme.content_fit(sw, sh)
     pad = theme.page_margin()
     bar_h = theme.dp(56)
 end
@@ -89,7 +95,7 @@ local function build_info_card(parent, x, y, w, h)
         { "主控芯片", cfg.chip or "--" },
         { "固件版本", VERSION or "--" },
         { "底板型号", cfg.baseboard or "--" },
-        { "屏幕分辨率", string.format("%d × %d", sw, sh) },
+        { "屏幕分辨率", string.format("%d × %d", scr_w, scr_h) },
     }
 
     local row_h = math.max(theme.dp(30), math.floor((h - pad * 2 - theme.dp(24)) / math.max(1, #rows)))

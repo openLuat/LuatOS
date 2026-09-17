@@ -32,6 +32,8 @@ local function update_screen_size()
     else
         screen_w, screen_h = ph, pw
     end
+    -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回），下方全部比例式几何随之自适应
+    screen_w, screen_h = theme.content_fit(screen_w, screen_h)
     local d = math.min(screen_w, screen_h)
     margin = theme.page_margin()
     card_w   = screen_w - 2 * margin

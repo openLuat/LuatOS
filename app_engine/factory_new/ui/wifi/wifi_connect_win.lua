@@ -37,6 +37,8 @@ local function update_screen_size()
     else
         SCREEN_W, SCREEN_H = phys_h, phys_w
     end
+    -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回）
+    SCREEN_W, SCREEN_H = theme.content_fit(SCREEN_W, SCREEN_H)
     MARGIN = math.floor(SCREEN_W * 0.03)
     TITLE_H = math.floor(60 * _G.density_scale)   -- 60/800
     BUTTON_H = math.max(36, math.floor(SCREEN_H * 0.0625))

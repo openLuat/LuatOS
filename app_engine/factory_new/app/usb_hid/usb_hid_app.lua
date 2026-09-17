@@ -247,6 +247,11 @@ end)
 -- ==================== 启动时自动启用 USB HID ====================
 sys.taskInit(function()
     sys.wait(2000)  -- 等待系统初始化完成（USB 任务创建）
+    -- PC 模拟器没有 usb 库：跳过初始化，否则会在 usb_host_init 里以 nil 索引崩溃（Lua VM exit）
+    if not usb then
+        log.warn("usb_hid", "PC 模拟器无 usb 库，跳过 USB HID 初始化")
+        return
+    end
     M.enable()
 end)
 

@@ -52,6 +52,8 @@ local ITEMS = {
 
 local function update_screen_size()
     sw, sh = screen_w or 480, screen_h or 800
+    -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回）
+    sw, sh = theme.content_fit(sw, sh)
 end
 
 --[[按「可用宽度 x 行数」截断文本，超长补 ASCII 的 "..."。

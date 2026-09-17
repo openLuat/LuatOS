@@ -54,6 +54,13 @@
 -- Containers: main_container, app_content_area, app_grid
 -- State: current_category, current_sort, current_page, total_pages, has_more, current_query
 
+--[[屏幕 / 内容区尺寸
+
+宽屏有左栏时，screen_w 会被收窄成右侧内容区宽度（见 calc_layout），本文件所有几何都基于它。
+写成**文件级 local** 而不是每次直接读全局，是为了让 calc_layout、create_ui 与各弹窗
+共用同一个值（改动前它们都是各自直读全局 screen_w）。]]
+local screen_w, screen_h = 480, 800
+
 local window_id = nil
 local main_container = nil
 local search_input = nil
@@ -123,6 +130,12 @@ local progress_label = nil
 -- 布局计算
 ------------------------------------------------------------------------------
 local function calc_layout()
+    --[[先同步物理尺寸（含旋转），再收窄到内容区：
+    宽屏有左栏时本页只占右侧，窄屏 content_fit 原样返回。
+    收窄后，下方所有基于 screen_w 的比例式几何自动重新自适应。]]
+    screen_w, screen_h = _G.screen_w or screen_w, _G.screen_h or screen_h
+    screen_w, screen_h = theme.content_fit(screen_w, screen_h)
+
     -- 框架布局：从模板线性缩放
     -- 竖屏模板 480x854: top=68, sort=51, side=96, pagination_bar_height=55
     -- 横屏模板 854x480: top=38, sort=28, side=136, pagination_bar_height=40
@@ -275,19 +288,27 @@ end
 
 local function show_progress_dialog(app_name)
     close_progress_dialog()
+    --[[遮罩必须盖满整屏。
+
+    本页的 screen_w/screen_h 已被 content_fit 收窄为「内容区」尺寸（宽屏下比整屏少一条左栏），
+    而遮罩是挂在 airui.screen 上、坐标从 (0,0) 开始的 —— 用收窄后的宽度当遮罩尺寸，
+    右侧就会漏出一条左栏宽度的区域没被遮住（用户报「下载应用的遮罩不是全屏」）。
+    这里取全局的全屏尺寸，弹窗也随整屏居中。]]
+    local full_w = _G.screen_w or screen_w
+    local full_h = _G.screen_h or screen_h
     local msk = airui.container({
         parent = airui.screen,
         x = 0,
         y = 0,
-        w = screen_w,
-        h = screen_h,
+        w = full_w,
+        h = full_h,
         color = theme.C.black,
         color_opacity = 180,
     })
-    local dlw = math.min(400, screen_w - 80)
+    local dlw = math.min(400, full_w - 80)
     local dlh = 160
-    local dlx = (screen_w - dlw) / 2
-    local dly = (screen_h - dlh) / 2
+    local dlx = (full_w - dlw) / 2
+    local dly = (full_h - dlh) / 2
     local dlg = airui.container({
         parent = msk,
         x = dlx,

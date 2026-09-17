@@ -593,6 +593,20 @@ local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sand
         end
     end
 
+    --[[PC模拟器：恢复 LVGL timer。
+
+    上面的 stop 是为了让控件销毁期间不触发 C 层回调（避免 C0000005），
+    但它一旦停下就**不会再自己恢复** —— 结果是关闭任意已安装应用后整个界面
+    不再刷新、点击毫无响应（用户报「打开安装的应用并关闭，哪里也点击不了」）。
+    沙箱容器是唯一需要保护的销毁动作，销毁完就立刻恢复心跳；
+    后面只剩退订 / 清模块 / GC，都不碰 LVGL 控件。]]
+    if lvgltimer and lvgltimer.start then
+        local ok, err = pcall(lvgltimer.start)
+        if not ok then
+            log.warn("sandbox_cleanup", "lvgltimer.start failed:", err)
+        end
+    end
+
     unsubscribe_all()
 
     if my_env and my_env.package and my_env.package.loaded then

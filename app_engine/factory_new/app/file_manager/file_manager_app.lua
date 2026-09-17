@@ -17,33 +17,21 @@ local MOUNT_LABELS = {
 local MOUNT_POINTS = { "/", "/sd/", "/little_flash/" }
 
 --[[
-获取所有存在 /app_store 目录的挂载设备列表
-如果挂载点存在但 /app_store 不存在则不显示
+获取所有可用的挂载设备列表
 @return table 设备列表 { {mount_point, label}, ... }
 ]]
 local function get_mount_points()
     local result = {}
     for _, mp in ipairs(MOUNT_POINTS) do
-        -- 先检查挂载点是否存在
         if not io.dexist(mp) then
             log.info("file_manager", "mount point not found", mp)
             goto continue
         end
-        -- 检查 /app_store 目录，不存在则创建
-        local app_store_path = mp .. "app_store"
-        if not io.dexist(app_store_path) then
-            log.info("file_manager", "creating app_store", app_store_path)
-            io.mkdir(app_store_path)
-        end
-        if io.dexist(app_store_path) then
-            table.insert(result, {
-                mount_point = mp,
-                label = MOUNT_LABELS[mp] or mp,
-            })
-            log.info("file_manager", "found device", mp, MOUNT_LABELS[mp] or mp)
-        else
-            log.info("file_manager", "app_store create failed on", mp)
-        end
+        table.insert(result, {
+            mount_point = mp,
+            label = MOUNT_LABELS[mp] or mp,
+        })
+        log.info("file_manager", "found device", mp, MOUNT_LABELS[mp] or mp)
         ::continue::
     end
     return result

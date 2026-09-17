@@ -91,6 +91,8 @@ local function update_screen_size()
     else
         screen_w, screen_h = phys_h, phys_w
     end
+    -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回）；下方比例式几何随之自适应
+    screen_w, screen_h = theme.content_fit(screen_w, screen_h)
     margin = theme.page_margin()
     card_w = screen_w - 2 * margin
     card_h = math.max(48, math.floor(screen_h * 0.09))
@@ -106,7 +108,11 @@ local function update_screen_size()
 end
 
 local function get_full_path(sub_path)
-    local base = current_mount_point .. "app_store"
+    local base = current_mount_point
+    -- 去掉挂载点尾部的 "/"，保证后续拼接不会出现双斜杠
+    if base ~= "/" then
+        base = base:match("^(.+)/$") or base
+    end
     if sub_path == "" then return base end
     return base .. "/" .. sub_path
 end
@@ -166,9 +172,9 @@ end
 
 local function update_titlebar_path()
     if not dir_titlebar_label then return end
-    local display_path = current_mount_point .. "app_store"
+    local display_path = current_mount_point
     if current_sub_path ~= "" then
-        display_path = display_path .. "/" .. current_sub_path
+        display_path = display_path .. current_sub_path
     end
     if multi_select_mode and selected_count > 0 then
         display_path = display_path .. "  [已选:" .. selected_count .. "]"
@@ -409,7 +415,7 @@ view.build_directory_view = function()
     theme.header 的返回键由 theme.iconbtn 负责，字号按短边 52% 算并把盒高夹到行高。]]
     local dir_bar, dir_th, dir_title = theme.header(directory_container, {
         x = margin, y = margin, w = card_w,
-        title = current_mount_point .. "app_store",
+        title = current_mount_point,
         on_back = function() navigate_to_parent() end,
     })
     dir_titlebar_bg = dir_bar

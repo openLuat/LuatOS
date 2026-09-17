@@ -37,6 +37,10 @@
 #include "luat_mp4_videoplayer.h"
 #endif
 
+#ifdef LUAT_USE_HZMP4
+#include "luat_hzmp4.h"
+#endif
+
 /* Read buffer size for scanning MJPG stream */
 #define VP_READ_BUF_SIZE  (32 * 1024)
 
@@ -162,12 +166,21 @@ struct luat_vp_ctx {
 #ifdef LUAT_USE_MP4PLAYER
     void *mp4_vctx;                     /* luat_mp4_vctx_t* for MP4 playback */
 #endif
+#ifdef LUAT_USE_HZMP4
+    luat_hzmp4_reader_t *hzmp4;         /* HZMP4 demuxer */
+    uint32_t hzmp4_timescale;
+#endif
 };
 
 /* ---- Internal: detect format from file extension ---- */
 static luat_vp_format_t detect_format(const char *path) {
     if (!path) return LUAT_VP_FMT_MJPG;
     size_t len = strlen(path);
+    if (len >= 6) {
+        const char *ext = path + len - 6;
+        if (strcmp(ext, ".hzmp4") == 0 || strcmp(ext, ".HZMP4") == 0)
+            return LUAT_VP_FMT_HZMP4;
+    }
     if (len >= 5) {
         const char *ext = path + len - 5;
         if (strcmp(ext, ".mjpg") == 0 || strcmp(ext, ".MJPG") == 0)
@@ -345,6 +358,43 @@ luat_vp_ctx_t* luat_videoplayer_open(const char *path) {
     }
 #endif
 
+#ifdef LUAT_USE_HZMP4
+    if (fmt == LUAT_VP_FMT_HZMP4) {
+        luat_hzmp4_reader_t *reader = luat_hzmp4_open(path);
+        const luat_hzmp4_info_t *info;
+        luat_vp_ctx_t *ctx;
+
+        if (reader == NULL) {
+            VP_LOGW("failed to open HZMP4: %s", path);
+            return NULL;
+        }
+        info = luat_hzmp4_get_info(reader);
+        if (info == NULL || info->video_codec != LUAT_HZMP4_VIDEO_MJPEG) {
+            luat_hzmp4_close(reader);
+            return NULL;
+        }
+        ctx = (luat_vp_ctx_t *)VP_MALLOC(sizeof(luat_vp_ctx_t));
+        if (ctx == NULL) {
+            luat_hzmp4_close(reader);
+            return NULL;
+        }
+        memset(ctx, 0, sizeof(*ctx));
+        ctx->format = LUAT_VP_FMT_HZMP4;
+        ctx->decode_mode = LUAT_VP_DECODE_SW;
+        ctx->width = info->video_width;
+        ctx->height = info->video_height;
+        ctx->hzmp4_timescale = info->timescale;
+        ctx->hzmp4 = reader;
+        if (init_decoder(ctx) != LUAT_VP_OK) {
+            luat_hzmp4_close(reader);
+            VP_FREE(ctx);
+            return NULL;
+        }
+        VP_LOGD("opened %s as HZMP4 MJPEG %dx%d", path, ctx->width, ctx->height);
+        return ctx;
+    }
+#endif
+
     /* Currently only MJPG is supported for non-MP4 formats */
     if (fmt != LUAT_VP_FMT_MJPG) {
         VP_LOGW("unsupported format for: %s", path);
@@ -397,6 +447,13 @@ void luat_videoplayer_close(luat_vp_ctx_t *ctx) {
     if (ctx->mp4_vctx) {
         luat_mp4_vctx_close((luat_mp4_vctx_t *)ctx->mp4_vctx);
         ctx->mp4_vctx = NULL;
+    }
+#endif
+
+#ifdef LUAT_USE_HZMP4
+    if (ctx->hzmp4) {
+        luat_hzmp4_close(ctx->hzmp4);
+        ctx->hzmp4 = NULL;
     }
 #endif
 
@@ -456,6 +513,34 @@ int luat_videoplayer_read_frame(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame) {
             VP_LOGD("mp4 video size: %dx%d", fw, fh);
         }
 
+        luat_videoplayer_prof_mark_frame();
+        return LUAT_VP_OK;
+    }
+#endif
+
+#ifdef LUAT_USE_HZMP4
+    if (ctx->format == LUAT_VP_FMT_HZMP4) {
+        luat_hzmp4_packet_t packet;
+        int ret;
+
+        if (ctx->eof) return LUAT_VP_ERR_EOF;
+        ret = luat_hzmp4_read_video(ctx->hzmp4, &packet);
+        if (ret == LUAT_HZMP4_EOF) {
+            ctx->eof = 1;
+            return LUAT_VP_ERR_EOF;
+        }
+        if (ret != LUAT_HZMP4_OK) {
+            VP_LOGW("HZMP4 packet read failed: %d", ret);
+            return LUAT_VP_ERR_IO;
+        }
+        ret = ctx->decoder_ops->decode(ctx->decoder_ctx, packet.data, packet.size, frame);
+        if (ret != LUAT_VP_OK) {
+            VP_LOGW("HZMP4 JPEG decode failed: %d", ret);
+            return ret;
+        }
+        frame->pts = packet.pts;
+        frame->duration = packet.duration;
+        frame->timescale = ctx->hzmp4_timescale;
         luat_videoplayer_prof_mark_frame();
         return LUAT_VP_OK;
     }
@@ -575,6 +660,35 @@ int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, u
     }
 #endif
 
+#ifdef LUAT_USE_HZMP4
+    if (ctx->format == LUAT_VP_FMT_HZMP4) {
+        luat_hzmp4_packet_t packet;
+        size_t required = (size_t)ctx->width * (size_t)ctx->height * 2u;
+        int ret;
+
+        if (ctx->eof) return LUAT_VP_ERR_EOF;
+        if (out_buf_size < required) return LUAT_VP_ERR_PARAM;
+        ret = luat_hzmp4_read_video(ctx->hzmp4, &packet);
+        if (ret == LUAT_HZMP4_EOF) {
+            ctx->eof = 1;
+            return LUAT_VP_ERR_EOF;
+        }
+        if (ret != LUAT_HZMP4_OK) return LUAT_VP_ERR_IO;
+
+        frame->data = out_buf;
+        ret = ctx->decoder_ops->decode(ctx->decoder_ctx, packet.data, packet.size, frame);
+        if (ret != LUAT_VP_OK) {
+            frame->data = NULL;
+            return ret;
+        }
+        frame->pts = packet.pts;
+        frame->duration = packet.duration;
+        frame->timescale = ctx->hzmp4_timescale;
+        luat_videoplayer_prof_mark_frame();
+        return LUAT_VP_OK;
+    }
+#endif
+
     /* MJPG 零拷贝路径：直接把调用方 out_buf 借给解码器当输出缓冲。
        SW/HW 解码器在 frame->data 非空时直写该缓冲(不走 malloc + memcpy)，
        结果即已就位在 out_buf，调用方按 owned=0 处理、present 时也无需再拷贝。 */
@@ -617,6 +731,18 @@ int luat_videoplayer_skip_frame(luat_vp_ctx_t *ctx)
     int ret;
 
     if (ctx == NULL) return LUAT_VP_ERR_PARAM;
+#ifdef LUAT_USE_HZMP4
+    if (ctx->format == LUAT_VP_FMT_HZMP4) {
+        int hzret;
+        if (ctx->eof) return LUAT_VP_ERR_EOF;
+        hzret = luat_hzmp4_skip_video(ctx->hzmp4);
+        if (hzret == LUAT_HZMP4_EOF) {
+            ctx->eof = 1;
+            return LUAT_VP_ERR_EOF;
+        }
+        return hzret == LUAT_HZMP4_OK ? LUAT_VP_OK : LUAT_VP_ERR_IO;
+    }
+#endif
     if (ctx->format != LUAT_VP_FMT_MJPG) return LUAT_VP_ERR_NOIMPL;
     if (ctx->eof) return LUAT_VP_ERR_EOF;
 

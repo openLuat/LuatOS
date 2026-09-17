@@ -21,6 +21,9 @@ typedef struct {
     size_t data_size;
     uint16_t width;
     uint16_t height;
+    uint64_t pts;
+    uint32_t duration;
+    uint32_t timescale;
     void *priv;
 } airui_video_frame_t;
 
@@ -217,7 +220,7 @@ static airui_video_format_t airui_video_parse_format(lua_State *L, int idx, airu
     if (lua_type(L, -1) == LUA_TNUMBER) {
         int format = (int)lua_tointeger(L, -1);
         lua_pop(L, 1);
-        if (format >= AIRUI_VIDEO_FORMAT_AUTO && format <= AIRUI_VIDEO_FORMAT_MP4_H264) {
+        if (format >= AIRUI_VIDEO_FORMAT_AUTO && format <= AIRUI_VIDEO_FORMAT_HZMP4) {
             return (airui_video_format_t)format;
         }
         return def;
@@ -234,6 +237,9 @@ static airui_video_format_t airui_video_parse_format(lua_State *L, int idx, airu
         }
         if (strcmp(format, "mp4") == 0 || strcmp(format, "mp4_h264") == 0 || strcmp(format, "h264") == 0) {
             return AIRUI_VIDEO_FORMAT_MP4_H264;
+        }
+        if (strcmp(format, "hzmp4") == 0) {
+            return AIRUI_VIDEO_FORMAT_HZMP4;
         }
         return AIRUI_VIDEO_FORMAT_AUTO;
     }
@@ -320,6 +326,9 @@ static airui_video_format_t airui_video_guess_format(const char *src)
     if (strcmp(dot, ".mp4") == 0) {
         return AIRUI_VIDEO_FORMAT_MP4_H264;
     }
+    if (strcmp(dot, ".hzmp4") == 0 || strcmp(dot, ".HZMP4") == 0) {
+        return AIRUI_VIDEO_FORMAT_HZMP4;
+    }
     return AIRUI_VIDEO_FORMAT_AUTO;
 }
 
@@ -338,7 +347,8 @@ static int airui_video_select_backend(airui_video_data_t *data)
     if (data->backend == AIRUI_VIDEO_BACKEND_AUTO) {
         if (data->format == AIRUI_VIDEO_FORMAT_AUTO ||
             data->format == AIRUI_VIDEO_FORMAT_MJPG ||
-            data->format == AIRUI_VIDEO_FORMAT_MP4_H264) {
+            data->format == AIRUI_VIDEO_FORMAT_MP4_H264 ||
+            data->format == AIRUI_VIDEO_FORMAT_HZMP4) {
             data->backend = AIRUI_VIDEO_BACKEND_VIDEOPLAYER;
         }
     }
@@ -491,6 +501,21 @@ static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, 
 
     if (video == NULL || data == NULL || frame == NULL || frame->data == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    /* 容器帧带时间信息时由容器决定播放节拍，Lua 无需重复填写 interval。 */
+    if (frame->duration > 0u && frame->timescale > 0u) {
+        uint64_t period_ms = ((uint64_t)frame->duration * 1000u + frame->timescale / 2u) /
+                             frame->timescale;
+        if (period_ms == 0u) {
+            period_ms = 1u;
+        }
+        if (period_ms <= UINT32_MAX) {
+            data->interval = (uint32_t)period_ms;
+            if (data->timer != NULL) {
+                lv_timer_set_period(data->timer, data->interval);
+            }
+        }
     }
 
     if (!data->size_checked) {
@@ -663,10 +688,11 @@ static int airui_video_vp_open(void **backend_ctx, const airui_video_open_opts_t
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    /* 当前 videoplayer backend 仅接 MJPG，其他格式先明确返回不支持。 */
+    /* videoplayer backend 当前接 MJPG、HZMP4 与可选的 MP4/H264。 */
     if (!(opts->format == AIRUI_VIDEO_FORMAT_AUTO ||
           opts->format == AIRUI_VIDEO_FORMAT_MJPG ||
-          opts->format == AIRUI_VIDEO_FORMAT_MP4_H264)) {
+          opts->format == AIRUI_VIDEO_FORMAT_MP4_H264 ||
+          opts->format == AIRUI_VIDEO_FORMAT_HZMP4)) {
         return AIRUI_ERR_NOT_SUPPORTED;
     }
 
@@ -769,6 +795,9 @@ static int airui_video_vp_read_frame(void *backend_ctx, airui_video_frame_t *fra
     frame->data_size = (size_t)wrap->frame.width * (size_t)wrap->frame.height * 2u;
     frame->width = wrap->frame.width;
     frame->height = wrap->frame.height;
+    frame->pts = wrap->frame.pts;
+    frame->duration = wrap->frame.duration;
+    frame->timescale = wrap->frame.timescale;
     frame->priv = wrap;
     return AIRUI_VIDEO_STATUS_OK;
 }

@@ -85,6 +85,7 @@ typedef enum {
     AIRUI_VIDEO_FORMAT_MJPG,
     AIRUI_VIDEO_FORMAT_AVI_MJPG,
     AIRUI_VIDEO_FORMAT_MP4_H264,
+    AIRUI_VIDEO_FORMAT_HZMP4,
 } airui_video_format_t;
 
 /** Video 后端 */

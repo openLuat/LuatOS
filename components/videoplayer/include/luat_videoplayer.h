@@ -29,6 +29,7 @@ typedef enum {
     LUAT_VP_FMT_MJPG      = 0,  /* Raw MJPG stream */
     LUAT_VP_FMT_AVI_MJPG  = 1,  /* AVI container with MJPG (reserved) */
     LUAT_VP_FMT_MP4_H264  = 2,  /* MP4 container with H264 (reserved) */
+    LUAT_VP_FMT_HZMP4     = 3,  /* HZMP4 container with MJPEG video */
 } luat_vp_format_t;
 
 /* ---- Decoded frame ---- */
@@ -36,6 +37,9 @@ typedef struct {
     uint8_t  *data;     /* RGB565 pixel data, row-major, 2 bytes per pixel */
     uint16_t  width;    /* Frame width in pixels */
     uint16_t  height;   /* Frame height in pixels */
+    uint64_t  pts;      /* Presentation timestamp in timescale ticks */
+    uint32_t  duration; /* Frame duration in timescale ticks */
+    uint32_t  timescale;/* Timestamp ticks per second, 0 for raw MJPG */
 } luat_vp_frame_t;
 
 /* ---- Video information ---- */
@@ -92,7 +96,7 @@ typedef struct luat_vp_ctx luat_vp_ctx_t;
 
 /**
  * Open a video file for playback.
- * Currently supports raw MJPG streams (.mjpg).
+ * Supports raw MJPG streams (.mjpg) and HZMP4 containers (.hzmp4).
  * @param path  File path (e.g. "/sdcard/video.mjpg").
  * @return Player context, or NULL on failure.
  */

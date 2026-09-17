@@ -2,11 +2,11 @@
 日志口用户指令协议 v2 设备端协议栈
 配合 PROTOCOL.md 与 host/luat_usercmd.py 使用
 
-职责: 帧解析(magic/version/seq)、控制类去重回应、AUTH 挑战应答鉴权、分发到脚本注册的处理函数。
+职责: 帧解析(version/seq)、控制类去重回应、AUTH 挑战应答鉴权、分发到脚本注册的处理函数。
 协议栈本身不实现任何业务逻辑, 业务(如文件操作)由 reg_op / fs() 注册, 权限完全由脚本控制。
 
 处理函数约定: fn(body) -> errno, resp_body, resp_flags(可选)
-  body       请求体(不含7字节固定头)
+  body       请求体(不含5字节固定头)
   errno      0=成功, 非0=错误(库自动置 flags.ERR)
   resp_body  回应体
   resp_flags 可选, 附加 flags(如 LSDIR 翻页的 MORE 位)
@@ -14,11 +14,10 @@
 
 local uc = {}
 
-local MAGIC = "\xC5\x5C"
 local VERSION = 0x01
 -- 单帧数据区上限, 必须与固件 am_log.c 的 rx 缓冲配套:
--- rx_cache1[512] -> payload<=486,  应用头12B(7固定+fd1+offset4) -> 数据区474
-local MAX_CHUNK = 474
+-- rx_cache1[512] -> payload<=486,  应用头10B(5固定+fd1+offset4) -> 数据区476
+local MAX_CHUNK = 476
 
 -- 子指令号 -> 处理函数名 (0=HELLO 与 11=AUTH 为协议栈内建, 不在此表)
 local SUB_NAMES = {
@@ -80,7 +79,7 @@ local last_ctrl_seq = nil
 local last_ctrl_resp = nil
 
 local function pack_hdr(subcmd, flags, seq)
-    return MAGIC .. string.char(VERSION, subcmd, flags) .. string.pack("<I2", seq)
+    return string.char(VERSION, subcmd, flags) .. string.pack("<I2", seq)
 end
 
 --- 注册业务处理函数
@@ -166,14 +165,13 @@ end
 --- 启动协议栈(注册 log.set_usercmd_cb)
 function uc.start()
     log.set_usercmd_cb(function(cmd, data)
-        -- cmd 为 A5 帧 address 字段(v2 恒为0, 不使用); data 为 payload
-        if #data < 7 then return end
-        if data:sub(1, 2) ~= MAGIC then return end
-        if data:byte(3) ~= VERSION then return end
-        local subcmd = data:byte(4)
-        local flags = data:byte(5)
-        local seq = string.unpack("<I2", data, 6)
-        dispatch(seq, subcmd, flags, data:sub(8))
+        -- cmd 为 A5 帧 address 字段(恒为0, 不使用); data 为 payload(无 MAGIC)
+        if #data < 5 then return end
+        if data:byte(1) ~= VERSION then return end
+        local subcmd = data:byte(2)
+        local flags = data:byte(3)
+        local seq = string.unpack("<I2", data, 4)
+        dispatch(seq, subcmd, flags, data:sub(6))
     end)
 end
 

@@ -31,7 +31,6 @@ SOC_PACK_FLAG = 0xA5
 SOC_PACK_CODE = 0xA6
 SOC_CMD_USER_CMD = 19
 
-UC_MAGIC = b"\xC5\x5C"
 UC_VERSION = 0x01
 
 SUB_HELLO = 0
@@ -101,6 +100,18 @@ def build_frame(cmd: int, address: int, payload: bytes, sn: int = 0) -> bytes:
     body = head + payload
     body += struct.pack("<H", crc16(body))
     return bytes([SOC_PACK_FLAG]) + escape(body) + bytes([SOC_PACK_FLAG])
+
+
+def pack_payload(subcmd: int, flags: int, seq: int, body: bytes) -> bytes:
+    """usercmd v2.2 payload 组包: version+subcmd+flags+seq(LE)+body (无 MAGIC)"""
+    return bytes([UC_VERSION, subcmd, flags]) + struct.pack("<H", seq) + body
+
+
+def parse_payload(payload: bytes):
+    """解析 payload 固定头, 返回 (version, subcmd, flags, seq, body); 不足 5 字节抛 ValueError"""
+    if len(payload) < 5:
+        raise ValueError("usercmd payload too short")
+    return payload[0], payload[1], payload[2], struct.unpack("<H", payload[3:5])[0], payload[5:]
 
 
 class FrameParser:
@@ -207,7 +218,7 @@ class UserCmd:
             return self._seq
 
     def _send(self, subcmd, body, seq):
-        payload = UC_MAGIC + bytes([UC_VERSION, subcmd, 0]) + struct.pack("<H", seq) + body
+        payload = pack_payload(subcmd, 0, seq, body)
         with self._tx_lock:
             self.ser.write(build_frame(SOC_CMD_USER_CMD, 0, payload))
             self.ser.flush()
@@ -224,12 +235,13 @@ class UserCmd:
             parser.feed(data)
             for cmd, _addr, payload in parser.poll():
                 self._last_frame_at = time.monotonic()
-                if (cmd == 0 and len(payload) >= 7
-                        and payload[:2] == UC_MAGIC and payload[2] == UC_VERSION):
-                    seq = struct.unpack("<H", payload[5:7])[0]
-                    flags = payload[4]
-                    errno = payload[7] if (flags & FLAG_ERR and len(payload) > 7) else 0
-                    item = (errno, flags, payload[7:])
+                if cmd == SOC_CMD_USER_CMD and len(payload) >= 5 \
+                        and payload[0] == UC_VERSION:
+                    flags = payload[2]
+                    seq = struct.unpack("<H", payload[3:5])[0]
+                    body = payload[5:]
+                    errno = body[0] if (flags & FLAG_ERR and len(body) > 0) else 0
+                    item = (errno, flags, body)
                     with self._cond:
                         w = self._waiters.get(seq)
                         if w is not None and w[1] is None:

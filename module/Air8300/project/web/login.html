@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Air8300 边缘智能网关 - 登录</title>
+<style>
+:root{
+  --brand:#6366f1; --brand-2:#8b5cf6; --brand-deep:#4f46e5; --cyan:#17b7c4;
+  --ink:#1e293b; --ink-2:#475569; --mut:#64748b;
+  --line:#eceef4; --bg:#f6f7fb; --card:#ffffff;
+  --ok:#10b981; --err:#ef4444; --warn:#f59e0b;
+  --radius:14px; --shadow:0 10px 30px rgba(15,23,42,.10);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  color:var(--ink); background:
+    radial-gradient(1000px 500px at 85% -10%,rgba(139,92,246,.14),transparent 60%),
+    radial-gradient(800px 420px at -10% 110%,rgba(99,102,241,.14),transparent 60%),
+    var(--bg);
+  display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;
+}
+.page{width:100%;max-width:1040px;display:grid;grid-template-columns:1.05fr .95fr;min-height:520px;
+  background:var(--card);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.hero{background:linear-gradient(160deg,#4338ca 0%,#6366f1 52%,#8b5cf6 120%);color:#fff;padding:48px 42px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.hero::after{content:"";position:absolute;inset:0;background:radial-gradient(420px 240px at 90% 0%,rgba(255,255,255,.18),transparent 60%)}
+.hero .logo{display:flex;align-items:center;gap:12px;position:relative;z-index:1}
+.hero .logo .mark{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;letter-spacing:-1px;backdrop-filter:blur(4px)}
+.hero h1{font-size:22px;font-weight:700;line-height:1.35;position:relative;z-index:1}
+.hero .tags{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
+.hero .tags span{font-size:12px;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28)}
+.hero .feats{margin-top:30px;display:grid;gap:14px;position:relative;z-index:1}
+.hero .feats div{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.6;color:#eaf3ff}
+.hero .feats i{flex:none;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.18);font-style:normal;font-size:12px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.panel{padding:44px 40px;display:flex;flex-direction:column;justify-content:center}
+.panel .title{font-size:24px;font-weight:700;color:var(--ink)}
+.panel .sub{font-size:13.5px;color:var(--mut);margin-top:8px;line-height:1.7}
+.login-box{margin-top:30px;display:flex;flex-direction:column;gap:14px}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;height:50px;border-radius:12px;border:none;cursor:pointer;
+  font-size:15.5px;font-weight:600;transition:.18s;font-family:inherit}
+.btn-pri{background:linear-gradient(90deg,var(--brand),var(--brand-2));color:#fff;box-shadow:0 8px 22px rgba(99,102,241,.34)}
+.btn-pri:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-pri:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.btn-ghost{background:#f0f5fb;color:var(--ink-2);border:1px solid var(--line)}
+.btn-ghost:hover{background:#e5edf7}
+.hint{font-size:12.5px;color:var(--mut);line-height:1.8;background:#f6f9fd;border:1px dashed var(--line);border-radius:10px;padding:12px 14px}
+.step{display:flex;gap:10px;margin-top:4px}
+.step b{flex:none;width:18px;height:18px;border-radius:50%;background:var(--brand);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center}
+.err{display:none;font-size:13px;color:var(--err);background:#fdf0ef;border:1px solid #f6cdc9;padding:11px 14px;border-radius:10px;margin-top:6px}
+.err.show{display:block}
+.note-min{font-size:12px;color:var(--mut);text-align:center;margin-top:16px}
+/* loading */
+#login-loading{display:none;align-items:center;justify-content:center;gap:12px;min-height:120px;color:var(--ink-2);font-size:14px}
+#login-loading.show{display:flex}
+.spinner{width:26px;height:26px;border:3px solid #d8e6f5;border-top-color:var(--brand);border-radius:50%;animation:rot .8s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.mask{position:fixed;inset:0;background:rgba(255,255,255,.72);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:99}
+.mask.show{display:flex}
+.mask .box{display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:16px 22px;box-shadow:var(--shadow);font-size:14.5px;color:var(--ink)}
+.toast{position:fixed;left:50%;top:26px;transform:translateX(-50%) translateY(-120%);background:#fff;box-shadow:var(--shadow);border-radius:12px;padding:12px 20px;font-size:14px;z-index:120;transition:.3s;max-width:86vw;display:flex;gap:10px;align-items:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast i{width:8px;height:8px;border-radius:50%;flex:none}
+.toast.ok i{background:var(--ok)}.toast.err i{background:var(--err)}.toast.warn i{background:var(--warn)}
+.foot{position:fixed;bottom:14px;left:0;right:0;text-align:center;font-size:12px;color:#a5b3c4}
+@media(max-width:820px){
+  .page{grid-template-columns:1fr;max-width:440px;min-height:0}
+  .hero{padding:30px 26px;min-height:0}
+  .hero .feats{display:none}
+  .panel{padding:30px 24px}
+  body{padding:14px;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="hero">
+    <div>
+      <div class="logo"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="11" rx="2"/><path d="M7 10h2M11 10h2M15 10h2M7 14h2M11 14h2M15 14h2"/><path d="M2 12h1.2M20.8 12H22"/></svg></div><div>
+        <div style="font-weight:700;font-size:15px">Air8300 边缘智能网关</div>
+        <div style="font-size:12px;opacity:.82">工业数据采集 · 远程控制 · 多网融合</div>
+      </div></div>
+      <h1 style="margin-top:26px">合宙 IoT 云端控制台</h1>
+      <div class="tags"><span>Modbus 485 采集</span><span>继电器控制</span><span>温湿度监测</span><span>历史轨迹</span></div>
+    </div>
+    <div class="feats">
+      <div><i>✓</i>双 485 工业总线 · 以太网 / WiFi / 4G 多网自动切换</div>
+      <div><i>✓</i>AirCloud 数据上报 · 命令下发 · 远程运维 · FOTA 升级</div>
+      <div><i>✓</i>极简 Web 展示层：实时数据 + 设备控制 + 轨迹回放</div>
+    </div>
+  </div>
+  <div class="panel">
+    <div id="login-loading"><div class="spinner"></div><span>正在检测登录状态…</span></div>
+    <div id="login-container">
+      <div class="title">欢迎回来</div>
+      <div class="sub">使用合宙账号登录后，即可查看与操作你的 Air8300 边缘智能网关设备。</div>
+      <div class="err" id="login-error"></div>
+      <div class="login-box">
+        <button class="btn btn-pri" id="btn-login">使用合宙账号登录</button>
+        <button class="btn btn-ghost" id="btn-guest" style="display:none">进入演示模式（免登录）</button>
+        <div class="step"><b>1</b><div style="font-size:13px;color:var(--ink-2);line-height:1.7">点击上方按钮，跳转合宙统一账号授权（OAuth）。</div></div>
+        <div class="step"><b>2</b><div style="font-size:13px;color:var(--ink-2);line-height:1.7">授权完成后自动登录，进入 Air8300 网关控制台。</div></div>
+        <div class="hint">登录信息仅保存在本浏览器，用于请求设备数据。设备与命令均为真实接口，请勿在演示中误操作继电器。</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="mask" id="full-mask"><div class="box"><div class="spinner"></div><span id="full-msg">处理中…</span></div></div>
+<div class="toast" id="toast"></div>
+<div class="foot">合宙 LuatOS · Air8300 Web 客户端</div>
+
+<script>
+/* =========================================================================
+ * LuatSDK —— 基础 SDK（login.html 与 index.html 内置完全同一份，勿改差异）
+ * 仅负责基础请求与本地存储；业务状态码由上层 request() 处理。
+ * ========================================================================= */
+var LuatSDK = (function () {
+  var CONFIG = {
+    API_HOST: 'https://api-iot.luatos.com',     // 所有 API 后端接口请求域名前缀
+    BASE_HOST: 'https://iot.luatos.com',        // 所有网页之间跳转域名前缀
+    OAUTH_AUTHORIZE: '/iam/luat_oauth/authorize',
+    OAUTH_V2_LOGIN: '/iam/luat_oauth/v2/login',
+    API_BASE: '/open_api',                       // AirCloud 开放接口业务路径前缀（接口文档 /open_api/...）
+    DEFAULT_TIMEOUT: 15000
+  };
+  function baseUrl(path) {
+    if (/^https?:\/\//i.test(path)) { return path; }
+    return CONFIG.API_HOST + path;
+  }
+  function timeoutSignal(ms) {
+    var ctrl = ('AbortController' in window) ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, ms || CONFIG.DEFAULT_TIMEOUT) : null;
+    return { ctrl: ctrl, timer: timer };
+  }
+  function clearTimer(t) { if (t && t.timer) { clearTimeout(t.timer); } }
+  function httpRequest(opts) {
+    opts = opts || {};
+    var url = baseUrl(opts.url);
+    var method = (opts.method || 'GET').toUpperCase();
+    var headers = opts.headers || {};
+    var body = opts.body;
+    var sig = timeoutSignal(opts.timeout || CONFIG.DEFAULT_TIMEOUT);
+    var fetchOpts = { method: method, headers: headers, signal: sig.ctrl ? sig.ctrl.signal : undefined, cache: 'no-store' };
+    if (body !== undefined && body !== null) { fetchOpts.body = body; }
+    return fetch(url, fetchOpts).then(function (res) {
+      return res.text().then(function (txt) {
+        var data = null;
+        if (txt) { try { data = JSON.parse(txt); } catch (e) { data = null; } }
+        var err = null;
+        if (!res.ok) {
+          err = { type: 'http', status: res.status, message: '请求失败（HTTP ' + res.status + '）' };
+        } else if (data === null && txt) {
+          err = { type: 'parse', message: '响应解析失败' };
+        }
+        clearTimer(sig);
+        return { ok: res.ok, status: res.status, data: data, err: err };
+      });
+    }).catch(function (e) {
+      clearTimer(sig);
+      var aborted = !!(e && (e.name === 'AbortError'));
+      return { ok: false, status: 0, data: null, err: { type: aborted ? 'timeout' : 'network', message: aborted ? '请求超时，请检查网络后重试' : '网络异常，请检查网络连接' } };
+    });
+  }
+  function serialize(obj) {
+    var out = [];
+    Object.keys(obj || {}).forEach(function (k) { out.push(encodeURIComponent(k) + '=' + encodeURIComponent(obj[k])); });
+    return out.join('&');
+  }
+  function qs(url, params) { var s = serialize(params); return s ? url + (url.indexOf('?') >= 0 ? '&' : '?') + s : url; }
+  function request(opts) {
+    var payload = { url: opts.url, method: opts.method || 'POST', headers: opts.headers || {}, timeout: opts.timeout };
+    var isJsonBody = opts.json !== false;
+    if (opts.params) { payload.url = qs(payload.url, opts.params); }
+    if (opts.body !== undefined && opts.body !== null) {
+      if (isJsonBody) { payload.headers['Content-Type'] = 'application/json'; payload.body = JSON.stringify(opts.body); }
+      else { payload.body = opts.body; }
+    }
+    return httpRequest(payload);
+  }
+  function get(url, params, headers) { return request({ url: url, method: 'GET', params: params, headers: headers, json: false }); }
+  function post(url, body, headers, params) { return request({ url: url, method: 'POST', body: body, headers: headers, params: params }); }
+  /* storage —— 所有 localStorage 读写带保护 */
+  function sget(key) { try { var raw = localStorage.getItem(key); if (!raw) { return null; } return JSON.parse(raw); } catch (e) { return null; } }
+  function sset(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch (e) { return false; } }
+  function sdel(key) { try { localStorage.removeItem(key); } catch (e) {} }
+  function sclear(prefix) {
+    try {
+      var dels = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && (!prefix || k.indexOf(prefix) === 0)) { dels.push(k); }
+      }
+      dels.forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) {}
+  }
+  function sessionGet(key){ try { return sessionStorage.getItem(key); } catch(e){ return null; } }
+  function sessionSet(key, val){ try { sessionStorage.setItem(key, val); } catch(e){} }
+  function sessionDel(key){ try { sessionStorage.removeItem(key); } catch(e){} }
+  return {
+    CONFIG: CONFIG, request: request, get: get, post: post,
+    storage: { get: sget, set: sset, remove: sdel, clearPrefix: sclear },
+    session: { get: sessionGet, set: sessionSet, remove: sessionDel }
+  };
+})();
+
+/* =========================================================================
+ * Auth 公共层 —— login.html / index.html 保持一致的认证逻辑
+ * ========================================================================= */
+var Auth = (function () {
+  var CONFIG = LuatSDK.CONFIG;
+  var MY_AUTH = 'my_auth', MY_SERVICE = 'my_service', MY_PROFILE = 'my_profile', MY_TENANT = 'my_tenant', MY_SETS = 'my_sets';
+  var M_AUTH = 'm_auth', M_SERVICE = 'm_service', M_PROFILE = 'm_profile', M_SETS = 'm_sets';
+  var HOST_SESSION = 'm_host_session';
+  function getAppId() {
+    var m = location.pathname.match(/\/ai_app\/luatos\/([^/]+)\//);
+    if (m && m[1]) { return m[1]; }
+    return 'air8300';
+  }
+  function appUrl(page) {
+    return CONFIG.BASE_HOST + '/ai_app/luatos/' + getAppId() + '/' + page;
+  }
+  function loginExpiredCodes() { return [102, 103, 105]; }
+  function readJSON(k) { return LuatSDK.storage.get(k); }
+  function writeJSON(k, v) { return LuatSDK.storage.set(k, v); }
+  function isHostSession() { return LuatSDK.session.get(HOST_SESSION) === '1'; }
+  function setHostSession() { LuatSDK.session.set(HOST_SESSION, '1'); }
+  function contextOf(prefix) {
+    var p = prefix === 'm' ? { auth: M_AUTH, service: M_SERVICE, profile: M_PROFILE, sets: M_SETS } :
+      { auth: MY_AUTH, service: MY_SERVICE, profile: MY_PROFILE, sets: MY_SETS, tenant: MY_TENANT };
+    var auth = readJSON(p.auth), service = readJSON(p.service);
+    var ctx = { prefix: prefix, auth: auth, service: service, profile: readJSON(p.profile) || {}, tenant: p.tenant ? readJSON(p.tenant) : null, sets: readJSON(p.sets) || null };
+    return ctx;
+  }
+  function validContext(ctx) {
+    return !!(ctx && ctx.auth && ctx.service && typeof ctx.auth.token === 'string' && ctx.auth.token.length > 0 &&
+      typeof ctx.auth.salt === 'string' && ctx.auth.salt.length > 0 &&
+      typeof ctx.service.sid === 'string' && ctx.service.sid.length > 0);
+  }
+  /* 宿主会话标记存在 → m_* 唯一权威；否则 my_* 优先，其次 m_* */
+  function getAuthContext() {
+    if (isHostSession()) { var cm = contextOf('m'); return validContext(cm) ? cm : null; }
+    var c1 = contextOf('my');
+    if (validContext(c1)) { return c1; }
+    var c2 = contextOf('m');
+    return validContext(c2) ? c2 : null;
+  }
+  function isAuthenticated() { return !!getAuthContext(); }
+  function getAuthHeaders() {
+    var c = getAuthContext();
+    if (!c) { return null; }
+    return { authorization: c.auth.token, salt: c.auth.salt, sid: c.service.sid };
+  }
+  /* 按会话标记只清理 m_*；独立会话清理 my_* 与 m_* */
+  function clearLoginStorage() {
+    if (isHostSession()) {
+      LuatSDK.storage.remove(M_AUTH); LuatSDK.storage.remove(M_SERVICE); LuatSDK.storage.remove(M_PROFILE); LuatSDK.storage.remove(M_SETS);
+      return;
+    }
+    [MY_AUTH, MY_SERVICE, MY_PROFILE, MY_TENANT, MY_SETS, M_AUTH, M_SERVICE, M_PROFILE, M_SETS, 'my_user'].forEach(function (k) { LuatSDK.storage.remove(k); });
+  }
+  function maskPhone(p) {
+    if (!p) { return ''; }
+    var s = String(p);
+    if (s.length < 7) { return s; }
+    return s.slice(0, 3) + '****' + s.slice(-4);
+  }
+  function getProfile() {
+    var c = getAuthContext();
+    if (!c) { return { name: '', mobile: '' }; }
+    var p = c.profile || {};
+    var name = p.name || p.user_name || '';
+    var mobile = p.mobile || p.user_phone || '';
+    return { name: name, mobile: mobile };
+  }
+  function saveMyLogin(val) {
+    if (!val) { return false; }
+    if (!val.auth || !val.service || !val.auth.token || !val.auth.salt || !val.service.sid) { return false; }
+    var ok = true;
+    ok = writeJSON(MY_AUTH, val.auth) && ok;
+    ok = writeJSON(MY_SERVICE, val.service) && ok;
+    ok = writeJSON(MY_PROFILE, val.user ? { name: val.user.name || '', mobile: val.user.mobile || '' } : {}) && ok;
+    if (val.tenant) { ok = writeJSON(MY_TENANT, val.tenant) && ok; } else { LuatSDK.storage.remove(MY_TENANT); }
+    if (val.sets) { ok = writeJSON(MY_SETS, val.sets) && ok; } else { LuatSDK.storage.remove(MY_SETS); }
+    return ok;
+  }
+  /* URL m_* 外部注入：完整 m_token/m_salt/m_sid 才建立 */
+  function applyMExternal(params) {
+    var has = function (k) { return typeof params[k] === 'string' && params[k].length > 0; };
+    if (!has('m_token') || !has('m_salt') || !has('m_sid')) { return false; }
+    var ok = writeJSON(M_AUTH, { token: params.m_token, salt: params.m_salt });
+    ok = writeJSON(M_SERVICE, { sid: params.m_sid }) && ok;
+    var profile = {};
+    if (has('m_name')) { profile.name = params.m_name; }
+    if (has('m_phone')) { profile.mobile = params.m_phone; }
+    ok = writeJSON(M_PROFILE, profile) && ok;
+    var sets = {};
+    var sKeys = ['m_algorithm', 'm_encryptOutput', 'm_padding', 'm_publicKey', 'm_publicKeyEncoding'];
+    var setsFields = ['algorithm', 'encryptOutput', 'padding', 'publicKey', 'publicKeyEncoding'];
+    var any = false;
+    sKeys.forEach(function (k, i) { if (has(k)) { sets[setsFields[i]] = params[k]; any = true; } });
+    if (any) { ok = writeJSON(M_SETS, sets) && ok; } else { LuatSDK.storage.remove(M_SETS); }
+    setHostSession();
+    return ok;
+  }
+  function cleanMFromUrl() {
+    var mKeys = ['m_token', 'm_salt', 'm_sid', 'm_name', 'm_phone', 'm_algorithm', 'm_encryptOutput', 'm_padding', 'm_publicKey', 'm_publicKeyEncoding'];
+    var u = new URL(location.href);
+    mKeys.forEach(function (k) { u.searchParams.delete(k); u.hash = ''; });
+    history.replaceState(null, '', u.pathname + u.search);
+  }
+  function parseUrlParams() {
+    var params = {};
+    var search = location.search.replace(/^\?/, '');
+    if (search) {
+      search.split('&').forEach(function (kv) { if (!kv) { return; } var idx = kv.indexOf('='); if (idx < 0) { params[decodeURIComponent(kv)] = ''; } else { params[decodeURIComponent(kv.slice(0, idx))] = decodeURIComponent(kv.slice(idx + 1)); } });
+    }
+    var hash = location.hash.replace(/^#/, '');
+    if (hash && hash.indexOf('=') > -1) {
+      hash.split('&').forEach(function (kv) { if (!kv) { return; } var idx = kv.indexOf('='); if (idx < 0) { params[decodeURIComponent(kv)] = ''; } else { params[decodeURIComponent(kv.slice(0, idx))] = decodeURIComponent(kv.slice(idx + 1)); } });
+    }
+    return params;
+  }
+  function safeReturnTo(rt) {
+    if (typeof rt !== 'string' || !rt) { return ''; }
+    if (/^(https?:|javascript:|\/\/)/i.test(rt)) { return ''; }
+    if (rt.charAt(0) !== '/') { return ''; }
+    if (/[\?\&](token|salt|sid|m_token|m_salt|m_sid)=/i.test(rt)) { return ''; }
+    return rt;
+  }
+  return {
+    CONFIG: CONFIG, getAppId: getAppId, appUrl: appUrl, loginExpiredCodes: loginExpiredCodes,
+    contextOf: contextOf, validContext: validContext, getAuthContext: getAuthContext,
+    isAuthenticated: isAuthenticated, getAuthHeaders: getAuthHeaders, clearLoginStorage: clearLoginStorage,
+    maskPhone: maskPhone, getProfile: getProfile, saveMyLogin: saveMyLogin,
+    applyMExternal: applyMExternal, cleanMFromUrl: cleanMFromUrl, parseUrlParams: parseUrlParams,
+    safeReturnTo: safeReturnTo, isHostSession: isHostSession, setHostSession: setHostSession
+  };
+})();
+
+/* =========================================================================
+ * UI 工具
+ * ========================================================================= */
+function $(id) { return document.getElementById(id); }
+function toast(msg, type) {
+  var t = $('toast'); if (!t) { return; }
+  t.className = 'toast show ' + (type || 'ok');
+  t.innerHTML = '<i></i><span></span>';
+  t.querySelector('span').textContent = msg;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function () { t.classList.remove('show'); }, 3200);
+}
+function showFullMask(msg) { var m = $('full-mask'); if (m) { $('full-msg').textContent = msg || '处理中…'; m.classList.add('show'); } }
+function hideFullMask() { var m = $('full-mask'); if (m) { m.classList.remove('show'); } }
+
+/* =========================================================================
+ * login.html 页面逻辑
+ * ========================================================================= */
+(function () {
+  var state = { handling: false };
+  function showLoginUI() {
+    $('login-loading').classList.remove('show');
+    $('login-container').style.display = 'block';
+  }
+  function showLoginLoading() {
+    $('login-container').style.display = 'none';
+    $('login-loading').classList.add('show');
+  }
+  function showError(msg) {
+    var el = $('login-error');
+    el.textContent = msg || '';
+    el.classList.toggle('show', !!msg);
+  }
+  function redirectToApp() {
+    var rt = Auth.safeReturnTo(new URLSearchParams(location.search).get('returnTo'));
+    if (rt) { location.href = rt; return; }
+    location.href = Auth.appUrl('index.html');
+  }
+  /* 1. OAuth 授权跳转 */
+  function goOAuth() {
+    var btn = $('btn-login');
+    btn.disabled = true;
+    showError('');
+    var cb = Auth.appUrl('login.html'); // 回调地址 = 当前 login.html 绝对地址（BASE_HOST 前缀）
+    var url = Auth.CONFIG.API_HOST + Auth.CONFIG.OAUTH_AUTHORIZE + '?return_to=' + encodeURIComponent(cb);
+    location.href = url;
+  }
+  /* 2. OAuth token → v2/login 换取业务登录态 */
+  function doOAuthLogin(token) {
+    showFullMask('正在登录…');
+    LuatSDK.post(Auth.CONFIG.API_HOST + Auth.CONFIG.OAUTH_V2_LOGIN, {}, {}, { token: token })
+      .then(function (res) {
+        hideFullMask();
+        if (res.err) { throw res.err; }
+        var body = res.data || {};
+        if (body.code !== 0) {
+          var msg = (body.value && typeof body.value === 'string') ? body.value : '登录失败，请重试';
+          throw { type: 'biz', message: msg };
+        }
+        var ok = Auth.saveMyLogin(body.value);
+        if (!ok) {
+          Auth.clearLoginStorage();
+          throw { type: 'biz', message: '登录状态保存失败，请允许本页使用本地存储后重试' };
+        }
+        toast('登录成功，正在进入…', 'ok');
+        setTimeout(redirectToApp, 350);
+      })
+      .catch(function (e) {
+        hideFullMask();
+        showLoginUI();
+        showError((e && e.message) || '登录失败，请重试');
+        var btn = $('btn-login'); if (btn) { btn.disabled = false; }
+      });
+  }
+  /* 初始化：处理回调 → m_* 注入 → 已有认证 → 显示登录 */
+  function init() {
+    showLoginLoading();
+    var params = Auth.parseUrlParams();
+    /* OAuth 错误回调 */
+    if (params.error) {
+      var ed = params.error_description || '授权未完成，请重试';
+      showLoginUI();
+      showError(ed);
+      history.replaceState(null, '', location.pathname);
+      return;
+    }
+    /* OAuth token 回调（query / hash） */
+    var token = params.token;
+    var qClean = new URLSearchParams(location.search); qClean.delete('token'); qClean.delete('error'); qClean.delete('error_description'); qClean.delete('returnTo');
+    if (token) {
+      history.replaceState(null, '', location.pathname + (qClean.toString() ? '?' + qClean.toString() : ''));
+      doOAuthLogin(token);
+      return;
+    }
+    /* m_* 外部注入 → 立即清理 URL 并进入 */
+    var appliedM = Auth.applyMExternal(params);
+    if (appliedM) { Auth.cleanMFromUrl(); }
+    /* 已有完整有效认证 → 直接进入 */
+    if (Auth.isAuthenticated()) {
+      redirectToApp();
+      return;
+    }
+    /* 宿主会话：等待宿主重新注入，不显示内部登录入口 */
+    if (Auth.isHostSession()) {
+      showLoginUI();
+      $('btn-login').style.display = 'none';
+      showError('登录状态已失效，请重新进入应用');
+      return;
+    }
+    showLoginUI();
+  }
+  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', function () {
+    $('btn-login').addEventListener('click', goOAuth);
+  });
+})();
+</script>
+</body>
+</html>

@@ -339,24 +339,23 @@ def test_read_window_default_is_one(monkeypatch):
         dev._t.join(timeout=2.0)
 
 
-def test_read_chunk_default_within_record_limit(monkeypatch):
-    """read_chunk 必须在设备端单条 log record 的上限内
+def test_read_chunk_default_within_response_fifo(monkeypatch):
+    """read_chunk 必须在设备端 response_fifo 容量内
 
-    2026-09-17 同步主干后, app 构建的上行走 __LOG_PORT_UNDEPENDABLE__ 的 log record 通道,
-    单条 __LOG_ONE_RECORD_MAX_LEN__ = 1600 字节; 超长响应会被设备端**截断且没有任何信号**。
-    最坏(每字节都转义)线上长 = 1 + 2*(24帧头 + 7应用头 + n) + 4(CRC) + 1(A5) <= 1600 -> n <= 766。
-    实测: read_chunk=1500 正常, >=1600 只回 ~1545 字节。
+    厂商新固件(2026-09-18 起)命令响应走 TX 侧 16KB 专用 response_fifo, 不再受
+    1600B log record 截断(旧固件 read_chunk=760 的约束已消除)。
+    最坏(每字节都转义)线上长 = 1 + 2*(24帧头 + 7应用头 + n) + 4(CRC) + 1(A5) <= 16384 -> n <= 8159。
     """
     monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
     dev = UserCmd("COM_FAKE")
     try:
-        record_max = 1600
-        worst_safe = (record_max - 1 - 4 - 1) // 2 - 24 - 7   # = 766
-        assert dev.read_chunk == 760, "read_chunk 默认值被改动, 请重新实测后再定"
+        fifo_max = 16 * 1024
+        worst_safe = (fifo_max - 1 - 4 - 1) // 2 - 24 - 7   # = 8159
+        assert dev.read_chunk == 4096, "read_chunk 默认值被改动, 请重新实测后再定"
         assert dev.read_chunk <= worst_safe, \
             f"read_chunk={dev.read_chunk} 超过任意内容安全上限 {worst_safe}"
-        assert 1 + 2 * (24 + 7 + dev.read_chunk) + 4 + 1 <= record_max, \
-            "默认档的最坏线上长必须放得下一条 record"
+        assert 1 + 2 * (24 + 7 + dev.read_chunk) + 4 + 1 <= fifo_max, \
+            "默认档的最坏线上长必须放得下 response_fifo"
     finally:
         dev._alive = False
         dev._t.join(timeout=2.0)

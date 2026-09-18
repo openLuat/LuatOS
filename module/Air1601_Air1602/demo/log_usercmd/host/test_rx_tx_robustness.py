@@ -4,7 +4,9 @@
 配套设计文档 2026-09-17-soc-log-rx-tx-fix-design.md(SDK 仓库)。三个缺陷各一条用例,
 主指标是"WRITE_DATA 重传帧数" —— 每丢一帧要等一个 data_timeout, 重传次数直接反映链路是否完整。
 
-  A  ISR 抽帧不完整: chunk=476 -> 线上帧 ~518B > 512B 抽帧缓冲, 尾字节留在 16B 硬件 FIFO
+  A  ISR 抽帧/解包缓冲边界: 满档 chunk=1024 -> 线上帧最坏 ~2112B(随机内容 ~1070B),
+     厂商新固件 rx_cache1[1064] + 一次中断内循环抽干, 应零重传
+     (旧固件对应缺陷: chunk=476 -> 线上帧 ~518B > 512B 抽帧缓冲, 尾字节留在 16B 硬件 FIFO)
   B  dev_rx_buffer 的 ISR/任务竞态(历史描述): 该竞态已被证实在 write_window=1 下不可达并归档。
      用例保留为"累计重传"的常规健康指标(多轮小文件写, 偶发丢帧会体现为重传), 
      但**不要用 --expect before 断言它复现**, 也不要为此去改它。
@@ -61,10 +63,10 @@ def _drop(dev, path):
 
 
 def case_a(dev, size=65536):
-    """chunk=476(线上 ~518B) 写 64K: 把 wire_budget 抬高以关掉上位机的内容自适应收缩"""
+    """满档 chunk=1024(线上最坏 ~2112B) 写 64K: 把 wire_budget 抬高以关掉上位机的内容自适应收缩"""
     path = "/ram/ab_a.bin"
     try:
-        dev.propose_chunk = 512
+        dev.propose_chunk = 2048   # 让设备报出真实上界(新固件 1024)
         dev.hello()
         dev.wire_budget = 4096
         data = bytes(random.randrange(256) for _ in range(size))
@@ -82,7 +84,7 @@ def case_b(dev, rounds=10, size=16384):
     path = "/ram/ab_b.bin"
     try:
         dev.wire_budget = 508
-        dev.propose_chunk = 512
+        dev.propose_chunk = 2048   # 让设备报出真实上界(新固件 1024)
         dev.hello()
         total, dt, ok = 0, 0.0, True
         for _ in range(rounds):
@@ -99,15 +101,15 @@ def case_b(dev, rounds=10, size=16384):
 def case_c(dev, size=131072, big_chunk=32768):
     """超大响应必须"要么读全、要么显式报错", 绝不能静默返回残缺内容
 
-    2026-09-17 同步主干后语义变了: app 构建的上行改走 log record, 单条上限
-    __LOG_ONE_RECORD_MAX_LEN__=1600 字节, 超长响应被**设备端截断且无信号**;
-    主机侧现在靠 _read_window 的 rlen 校验 + read_file 的 stat 校验把它变成显式错误。
+    厂商新固件(2026-09-18 起)命令响应走 16KB 专用 response_fifo, 不再受 1600B log record
+    截断; 但 32768B 的响应仍远超 fifo, 主机侧靠 _read_window 的 rlen 校验 + read_file 的
+    stat 校验把任何截断变成显式错误。
     返回 (kind, 错误文本, 耗时, 内容是否一致), kind ∈ {"ok","truncated","timeout","other"}。
     """
     path = "/ram/ab_c.bin"
     kind, err, got = "ok", None, None
     try:
-        dev.read_chunk = 760
+        dev.read_chunk = 4096
         data = bytes(random.randrange(256) for _ in range(size))
         dev.write_file(path, data)
         dev.read_chunk = big_chunk
@@ -125,7 +127,7 @@ def case_c(dev, size=131072, big_chunk=32768):
         dt = time.perf_counter() - t0
         return kind, err, dt, (got == data)
     finally:
-        dev.read_chunk = 760
+        dev.read_chunk = 4096
         _drop(dev, path)
 
 
@@ -142,7 +144,7 @@ def main():
         print("hello ->", dev.wait_ready())
 
         ra, ta, oa = case_a(dev)
-        print(f"A chunk=476(线上~518B) 64K 写: 重传 {ra} 次, {ta * 1000:.0f}ms, 内容一致={oa}")
+        print(f"A chunk=1024(线上最坏~2112B) 64K 写: 重传 {ra} 次, {ta * 1000:.0f}ms, 内容一致={oa}")
         if args.expect == "before":
             if ra < 3:
                 fails.append(f"A 应能复现丢帧(重传>=3), 实际 {ra}")

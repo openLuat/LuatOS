@@ -808,7 +808,11 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
             // 加载内置 TTF 到 psram
             hzfont_psram_chain_clear(&g_psram_chain);
             hzfont_psram_chain_init(&g_psram_chain);
+#if (defined LUAT_CONF_USE_HZFONT_IN_ROM) && (defined LUAT_FONT_ADDRESS)
+            if (!hzfont_psram_chain_append_data(&g_psram_chain, (const char *)LUAT_FONT_ADDRESS, (size_t)LUAT_FONT_DATA_LEN)) {
+#else
             if (!hzfont_psram_chain_append_data(&g_psram_chain, hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len)) {
+#endif
                 LLOGE("load builtin ttf to psram failed");
                 rc = TTF_ERR_OOM;
             } else {
@@ -824,7 +828,11 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
             }
         } else {
             // 从内存直接加载内置 TTF
+#if (defined LUAT_CONF_USE_HZFONT_IN_ROM) && (defined LUAT_FONT_ADDRESS)
+            rc = ttf_load_from_memory((const char *)LUAT_FONT_ADDRESS, (size_t)LUAT_FONT_DATA_LEN, &g_ft_ctx.font);
+#else
             rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
+#endif
             if (rc == TTF_OK) {
                 g_ft_ctx.font_path[0] = '\0';
             }

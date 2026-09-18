@@ -43,6 +43,7 @@ videoplayer.close(player)
 #endif
 
 #include "luat_videoplayer.h"
+#include "luat_videoplayer_sink.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "videoplayer"
@@ -208,27 +209,15 @@ static int l_videoplayer_read_frame(lua_State *L) {
     return 1;
 }
 
-/* ---- LCD frame output (only when LCD support is compiled in) ---- */
-#ifdef LUAT_USE_LCD
-//#include "luat_lcd.h"
-#include "luat_display.h"
-#include "luat_display_surface.h"
-
-#define DEFAULT_DISPLAY_LAYER 1     //0=draw_surface+flush(display库路径, 兼容MJPG逐帧新buffer); 1=硬件layer(LTDC直读, 每帧set_layer刷新buffer并释放上一帧)
-
-#if DEFAULT_DISPLAY_LAYER
-static struct luat_display_layer_data g_layer_data;
-#endif
-
 /*
-读取下一帧并绘制到默认LCD屏幕, 需开启LUAT_USE_LCD
+读取下一帧并绘制到默认屏幕。优先 display 库，未启用时回退 lcd。
 @api videoplayer.draw_frame(player, x, y)
 @userdata player videoplayer.open()返回的播放器对象
 @int x 显示起始X坐标
 @int y 显示起始Y坐标
 @return boolean 成功返回true, 到达文件末尾返回nil和"eof", 失败返回nil和错误信息
 @usage
--- 逐帧解码并显示到LCD左上角
+-- 逐帧解码并显示到屏幕左上角
 while true do
     local ok, err = videoplayer.draw_frame(player, 0, 0)
     if err == "eof" then break end
@@ -237,27 +226,24 @@ end
 */
 static int l_videoplayer_draw_frame(lua_State *L) {
     LuaVideoPlayer *ud = (LuaVideoPlayer *)luaL_checkudata(L, 1, VP_META);
+    luat_vp_frame_t frame;
+    uint8_t borrowed = 0;
+    uint8_t consumed = 0;
+    int16_t x;
+    int16_t y;
+    int ret;
+
     if (!ud->ctx) {
         lua_pushnil(L);
         lua_pushstring(L, "player closed");
         return 2;
     }
 
-    int16_t x = (int16_t)luaL_checkinteger(L, 2);
-    int16_t y = (int16_t)luaL_checkinteger(L, 3);
+    x = (int16_t)luaL_checkinteger(L, 2);
+    y = (int16_t)luaL_checkinteger(L, 3);
 
-    struct luat_display *disp = luat_display_get_default();
-    if (!disp) {
-        lua_pushnil(L);
-        lua_pushstring(L, "no display");
-        return 2;
-    }
-
-    luat_vp_frame_t frame;
-    uint8_t borrowed = 0;
     memset(&frame, 0, sizeof(frame));
-
-    int ret = luat_videoplayer_read_frame_ref(ud->ctx, &frame, &borrowed);
+    ret = luat_videoplayer_read_frame_ref(ud->ctx, &frame, &borrowed);
     if (ret == LUAT_VP_ERR_EOF) {
         lua_pushnil(L);
         lua_pushstring(L, "eof");
@@ -268,57 +254,23 @@ static int l_videoplayer_draw_frame(lua_State *L) {
         lua_pushstring(L, vp_err_str(ret));
         return 2;
     }
-#if DEFAULT_DISPLAY_LAYER == 0
-    /*设置目标显示器*/
-    luat_draw_set_display_target(disp);
 
-    SURFACE video_suf = {
-        .w = frame.width,
-        .h = frame.height,
-        .bpp = 16,
-        .pixels = frame.data,
-        .pitch = frame.width * 2,
-        .fmt = LUAT_DISPLAY_FORMAT_RGB565,
-    };
-
-    /*绘制视频帧*/
-    luat_draw_surface(&video_suf, x, y);
-
-    /*刷新显示*/
-    luat_display_flush(disp);
-#else
-
-    static uint8_t *s_vp_layer_prev = NULL; //上一帧已交给LTDC的buffer, 当前帧替换后可释放
-
-    if (g_layer_data.enable == 0) {
-        g_layer_data.enable = 1;    //使能图层
-        g_layer_data.layer_id = 1;  //图层0默认是UI，视频类使用图层1
-        g_layer_data.area.x1 = x;
-        g_layer_data.area.y1 = y;
-        g_layer_data.area.x2 = x + frame.width;
-        g_layer_data.area.y2 = y + frame.height;
-        g_layer_data.alpha = 255;
-        g_layer_data.format = LUAT_DISPLAY_FORMAT_RGB565;
+    ret = luat_videoplayer_sink_draw(&frame, x, y, &consumed);
+    if (ret != LUAT_VP_OK) {
+        if (!borrowed && !consumed) {
+            luat_videoplayer_frame_free(&frame);
+        }
+        lua_pushnil(L);
+        lua_pushstring(L, ret == LUAT_VP_ERR_NOIMPL ? "no display" : vp_err_str(ret));
+        return 2;
     }
-    g_layer_data.buffer = frame.data;
-    disp->display_funcs->set_layer(&g_layer_data);
-    /* 当前帧buffer由LTDC持续读取, 不能free; 释放上一帧已被set_layer替换的buffer */
-    if (s_vp_layer_prev && s_vp_layer_prev != frame.data) {
-        luat_heap_free(s_vp_layer_prev);
-    }
-    s_vp_layer_prev = frame.data;
-    lua_pushboolean(L, 1);
-    return 1;
 
-#endif
-
-    if (!borrowed) {
+    if (!borrowed && !consumed) {
         luat_videoplayer_frame_free(&frame);
     }
     lua_pushboolean(L, 1);
     return 1;
 }
-#endif /* LUAT_USE_LCD */
 
 /*
 获取视频信息
@@ -415,9 +367,6 @@ static const rotable_Reg_t reg_videoplayer[] = {
     { "open",             ROREG_FUNC(l_videoplayer_open)},
     { "close",            ROREG_FUNC(l_videoplayer_close)},
     { "read_frame",       ROREG_FUNC(l_videoplayer_read_frame)},
-#ifdef LUAT_USE_LCD
-    { "draw_frame",       ROREG_FUNC(l_videoplayer_draw_frame)},
-#endif
     { "info",             ROREG_FUNC(l_videoplayer_info)},
     { "set_decode_mode",  ROREG_FUNC(l_videoplayer_set_decode_mode)},
     { "debug",            ROREG_FUNC(l_videoplayer_debug)},
@@ -449,5 +398,9 @@ LUAMOD_API int luaopen_videoplayer(lua_State *L) {
     lua_pop(L, 1);
 
     luat_newlib2(L, reg_videoplayer);
+    if (luat_videoplayer_sink_available()) {
+        lua_pushcfunction(L, l_videoplayer_draw_frame);
+        lua_setfield(L, -2, "draw_frame");
+    }
     return 1;
 }

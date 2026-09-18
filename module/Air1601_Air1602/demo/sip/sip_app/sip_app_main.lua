@@ -29,11 +29,10 @@ local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
     sip_domain = "180.152.6.34",
-    sip_username = "xxxxxxxx",
-    sip_password = "xxxxx",
+    sip_username = hmeta.devid().."0",
+    sip_password = "123456",
     sip_transport = exsip.TRANSPORT_UDP,
-    
-    remote_sip_uri = "sip:xxxxx@180.152.6.34",
+
     auto_answer = true,
     codecs = {exsip.CODEC_PCMU, exsip.CODEC_PCMA},
     ptime = 20,

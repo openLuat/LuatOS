@@ -65,7 +65,7 @@ local function hzv_audio_ensure()
         dac_delay   = ac.dac_delay,
     })
     if ok then
-        pcall(exaudio.vol, ac.play_vol or 70)
+        pcall(exaudio.vol, ac.play_vol or 100)
         _G.__hzv_audio_ready = true
         return true
     end

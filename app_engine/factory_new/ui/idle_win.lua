@@ -1,8 +1,8 @@
 --[[
 @module  idle_win
 @summary 桌面首页（TabOS 深色玻璃态）——状态栏 + 时钟卡 + 应用网格 + 底部 Dock
-@version 2.2
-@date    2026.09.16
+@version 2.3
+@date    2026.09.18
 @author  江访
 
 消息协议（订阅/发布）:
@@ -15,7 +15,9 @@
 订阅: AUTOSTART_SETTINGS_VALUE / AUTOSTART_CONFIG_CHANGED / AUTOSTART_PASSWORD_RESULT
 订阅: FOTA_PROMPT_REBOOT / FOTA_PROMPT_DOWNLOAD
 订阅: WEATHER_UPDATED({city,condition,temp,daily}) → 刷新天气卡（未接 API 前用占位数据）
-发布: REQUEST_STATUS_REFRESH / OPEN_xxx_WIN / APP_STORE_UNINSTALL / AUTOSTART_* / FOTA_*
+订阅: VIDEO_FILE_CHANGED(path)                 → 全屏播放页里换了文件，同步「当前文件」
+发布: REQUEST_STATUS_REFRESH / OPEN_xxx_WIN / OPEN_VIDEO_WIN / APP_STORE_UNINSTALL
+      AUTOSTART_* / FOTA_*
 
 === 视觉说明 ===
 采用 tablet-smart-home 设计语言：
@@ -23,6 +25,7 @@
   顶部状态栏 + 问候行 + 大时钟玻璃卡（右侧资料中心二维码）
   天气玻璃卡：左侧「天气图标 + 温度 + （地点|状况）单串」，右侧 3 天预报等宽三列
   中部应用网格玻璃卡（含分页器）+ 底部玻璃 Dock
+  竖屏播放器布局（配置项 ui.show_video_area）：状态栏 → 时钟 → 播放器（画面 + 独立控制栏）→ 已安装应用 → Dock
 
 === 排版注意（改天气卡前必读）===
 theme.label 内部有一行 `if fs < 16 then fs = 16 end`，而 density_scale 在
@@ -33,28 +36,38 @@ theme.label 内部有一行 `if fs < 16 then fs = 16 end`，而 density_scale �
 
 local exnetif = require "exnetif"
 local theme = require "ui_theme"
-local ok_exaudio, exaudio = pcall(require, "exaudio")
-if not ok_exaudio then exaudio = nil end
+-- 播放器两块共用的底层：素材工具（帧尺寸口径 / 音轨初始化）与文件选择弹窗。
+-- 全屏播放页（ui/video_win.lua）用的是同一套，改口径只改模块。
+local video_picker = require "video_picker"
+local video_util = require "video_util"
 
 local window_id = nil
 local main_container = nil
 local apps_card = nil
-local video_obj = nil           -- 视频播放组件（开机动画循环播放）
-local video_is_playing = true   -- 播放状态
-local video_is_loop = true      -- 循环状态
-local video_ctrl_bar = nil      -- 控制栏容器
-local video_ctrl_visible = true -- 控制栏可见性
-local video_ctrl_timer = nil    -- 控制栏自动隐藏定时器（已停用，仅保留清理，防旧定时器残留）
-local video_play_label = nil    -- 播放/暂停按钮文字
-local video_loop_label = nil    -- 循环按钮文字
-local video_file_label = nil    -- 当前文件名标签
-local video_current_file = "/luatos_boot.hzv"  -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
-local _video_card_ref = nil   -- 视频卡片容器引用（供切换文件时使用）
-local video_loop_timer = nil  -- MJPG 循环定时器（已停用：循环改由组件 loop 参数负责）
--- 配套音频播放（同名 MP3）
-local audio_obj = nil         -- 当前音频文件路径（非 nil 表示有配套音频）
-local audio_playing = false   -- 音频播放状态
-local exaudio_inited = false  -- exaudio.pm RESUME 已调用
+--[[播放器区域（画面 + 控制栏 + 文件选择器）的全部状态与函数
+
+为什么挂到一张表上：Lua 每个函数内「同时活跃」的局部变量上限是 200 个
+（LUAI_MAXVARS），而主块本身就是一个函数 —— 顶层每多一个 local 就永久占一个名额，
+本文件已经顶到 201 个、直接编译不过。播放器这一组是完整的功能子系统，收进一张
+局部表只占 1 个名额，也让「哪些东西属于播放器」一眼可见。
+字段沿用原先的后缀命名（去掉前面的前缀），例如：
+  VP.ctrl_h / VP.frame_h / VP.current_file / VP.start_play / VP.open_picker
+跨窗口调用请走本文件已有的导出接口，别在别的窗口里直接碰这张表。]]
+local VP = {}
+VP.obj = nil                    -- 视频播放组件（开机动画循环播放）
+VP.is_playing = true            -- 播放状态
+VP.is_loop = true               -- 循环状态
+VP.ctrl_bar = nil               -- 控制栏容器
+VP.ctrl_visible = true          -- 控制栏可见性
+VP.ctrl_timer = nil             -- 控制栏自动隐藏定时器（已停用，仅保留清理，防旧定时器残留）
+VP.play_label = nil             -- 播放/暂停按钮文字
+VP.loop_label = nil             -- 循环按钮文字
+VP.file_label = nil             -- 当前文件名标签
+VP.current_file = "/luatos_boot.hzv"           -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
+VP.card_ref = nil             -- 视频卡片容器引用（供切换文件时使用）
+VP.loop_timer = nil           -- MJPG 循环定时器（已停用：循环改由组件 loop 参数负责）
+-- 配套音频（同名 MP3）的播放状态已收进 video_util：桌面播放器与全屏播放页
+-- 共用一份，避免「两边同时出声」，也避免各自记一份状态后互相打架。
 -- 应用卡片表头计数标签（"已安装应用 | N"）。
 -- 原来只在 build_apps_card 里把它造出来就丢掉了返回值，谁也拿不到，
 -- 于是安装/卸载后这个数字永远停在开机那一刻 —— 必须持有引用才能刷新。
@@ -91,24 +104,55 @@ local grid_rows = 2
 local apps_page_count = 1
 local apps_page_index = 1
 
--- 方案A：左侧视频 + 右侧信息列
+-- 方案A：左侧视频 + 右侧信息列（横屏）
 local col_gap = 10             -- 左右栏 / 右列卡片间距（设计稿 10）
-local video_w = 480            -- 视频区域宽度
-local video_h = 270            -- 视频区域高度（按 luatos_boot 素材帧高留的布局基准）
-local video_x = 0              -- 视频左上角 X（相对 content_x）
-local video_y = 0              -- 视频左上角 Y（相对内容区顶部）
-local video_frame_h = 0        -- 视频画面高度（卡片高 - 控制栏高）
+VP.w = 480                     -- 视频区域宽度
+VP.h = 270                     -- 视频区域高度（按 luatos_boot 素材帧高留的布局基准）
+VP.x = 0                       -- 视频卡左上角 X（绝对坐标，从内容区左缘算起）
+VP.y = 0                       -- 视频卡左上角 Y（绝对坐标，从屏幕顶缘算起）
+VP.frame_h = 0                 -- 视频画面高度（卡片高 - 控制栏高）
+VP.ctrl_h = 36                 -- 视频控制栏高度（画面下方独立一行，不叠画面；calc_layout 按密度重算）
 local right_x = 0              -- 右侧信息列起始 X
 local right_w = 0              -- 右侧信息列宽度
-local video_enabled = false    -- 是否启用视频布局（仅宽屏启用）
+VP.enabled = false             -- 是否启用横屏双列布局（左视频 + 右信息列）
 
-local clock_y = 0              -- 时钟卡 Y 坐标（video_enabled 时与 video_y 对齐）
+--[[方案B：竖屏播放器布局
+
+纵向堆叠：状态栏 → 时钟 → 播放器（画面 + 独立控制栏）→ 已安装应用 → 底部 Dock。
+**该布局不带天气卡**：天气卡那点高度让给了播放器的控制栏。
+控制栏必须独占一行、不能压在画面上 —— 硬解视频是独立图层，压在它底下的控件在真机上
+会被画面盖住（用户报的「视频播放缺少控制按钮」）。
+与方案A互斥，由配置项 ui.show_video_area 显式打开（原因见下方开关注释）。]]
+VP.portrait = false
+
+--[[播放器卡基准高度 = luatos_boot.hzv 的原生帧高（480×320）
+
+airui 播放器控件**不支持缩放**：请求尺寸与素材帧尺寸不一致时，控件会被强制改回素材尺寸
+（components/airui/src/components/widgets/luat_airui_video.c:
+ "scaling is not supported yet ... force reset widget size"）。
+所以布局基准必须按素材原生高度留；卡片比素材矮不会「缩小画面」，只会把画面上下缘裁掉。]]
+VP.BASE_H = 320
+
+--[[竖屏播放器布局开关（配置项 ui.show_video_area）
+
+横屏双列布局按屏幕尺寸自动启用；竖屏上下堆叠会显著压缩已安装应用区域，
+属于机型级取舍，必须由配置显式打开 —— 不能让所有竖屏机型默认继承。]]
+local cfg_show_video_area = _G.project_config and _G.project_config.ui
+    and _G.project_config.ui.show_video_area
+
+local clock_y = 0              -- 时钟卡 Y 坐标（VP.enabled 时与 VP.y 对齐）
 
 local density_scale_val = _G.density_scale or 1.0
 
 local status_cache = { time = "08:00", date = "1970-01-01", weekday = "星期四", mobile_level = -1, wifi_level = 0 }
 
--- 天气缓存（占位数据，接入天气 API 后发 WEATHER_UPDATED 消息即可整卡刷新）
+-- 天气缓存：下面这组是**兜底初值**（联网拿到真数据前先显示，避免空格）。
+-- 真实数据由 app/common/weather_app.lua 联网获取：
+--   按出口 IP 自动定位城市 -> open-meteo 查天气 -> sys.publish("WEATHER_UPDATED", {...})
+-- 本窗口创建时还会 sys.publish("WEATHER_REQUEST") 主动要一次，
+--   因为天气数据可能先于窗口到达（订阅晚于发布就会丢首帧）
+--
+-- 缓存结构：
 --   city/condition/temp        → 当前天气
 --   daily[1..3]                → 未来三天预报，{ day = 标题, high = 最高温, low = 最低温 }
 -- 天气图标放在 res/ 下（打包进 /luadb/），文件名见 WEATHER_STYLES 的 icon 字段：
@@ -154,6 +198,9 @@ local has_app_factory = _G.project_config and _G.project_config.features and _G.
     and _G.project_config.ui and _G.project_config.ui.show_app_factory
 local has_ai_chat = _G.project_config and _G.project_config.features and _G.project_config.features.ai_chat
     and _G.project_config.ui and _G.project_config.ui.show_ai_chat
+-- 网盘与「应用工厂 / AI 助手」同属可裁剪的大型内置应用：只渲染入口，窗口由 ui_main 按同一开关加载
+local has_cloud_disk = _G.project_config and _G.project_config.features and _G.project_config.features.cloud_disk
+    and _G.project_config.ui and _G.project_config.ui.show_cloud_disk
 
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
@@ -170,6 +217,9 @@ if has_app_factory then
 end
 if has_ai_chat then
     table.insert(builtin_apps, { name = "AI助手", win = "AI_CHAT", icon = "ai_chat", dock = true })
+end
+if has_cloud_disk then
+    table.insert(builtin_apps, { name = "合宙网盘", win = "CLOUD_DISK", icon = "cloud_disk", dock = true })
 end
 
 -- 前向声明（网格点击依赖上下文菜单，后者定义在后面）
@@ -205,7 +255,7 @@ local rail_rebuild_timer = nil
 
 --[[失焦前正在播放的视频文件路径
 桌面失焦时会销毁视频组件以释放硬解资源，回到桌面按此路径恢复播放。]]
-local video_resume_file = nil
+VP.resume_file = nil
 
 -- ==================== 布局计算 ====================
 
@@ -213,6 +263,26 @@ local function clamp(v, lo, hi)
     if v < lo then return lo end
     if v > hi then return hi end
     return v
+end
+
+--[[网格几何（由可用宽度驱动）
+
+竖屏播放器布局要在纵向分支里先算出「已安装应用卡至少要多高」，才能把上面剩下的
+空间全部让给播放器，所以这段必须能提前独立调用，不能只写在 calc_layout 末尾。]]
+local function calc_grid_metrics(gw)
+    local inner_w = gw - 2 * apps_pad_y
+    tile_icon = clamp(math.floor(screen_h * 0.060 * density_scale_val), 26, 48)   -- 设计稿 36
+    --[[瓦片内容高度：图标 y=dp(6) + 图标 + 文字 y 偏移 dp(4) + 文字高 dp(18) = dp(28) + 图标，
+    而容器还要减掉上下各 1px 描边 —— 原来的 dp(30) 让内容**正好顶到容器边缘**（余量 0），
+    真机上再有一两个像素的取整/行高差，LVGL 就会给瓦片画出滚动条
+    （用户报的「已安装应用里挤出滑块」）。这里把余量提到 dp(34)，文字下方固定留 4px。]]
+    tile_h = tile_icon + math.floor(34 * density_scale_val)
+    apps_head_h = clamp(math.floor(screen_h * 0.045), 24, 30)
+    grid_gap = clamp(math.floor(screen_w * 0.010), 6, 12)
+
+    local min_tile_w = math.floor(math.max(72, tile_icon * 2.1))
+    grid_cols = clamp(math.floor((inner_w + grid_gap) / (min_tile_w + grid_gap)), 2, 6)
+    tile_w = math.floor((inner_w - (grid_cols - 1) * grid_gap) / grid_cols)
 end
 
 local function calc_layout()
@@ -230,10 +300,15 @@ local function calc_layout()
     content_x = rail_w
     content_w = sw - rail_w
 
-    -- 方案A：宽屏（≥900dp）启用左侧视频 + 右侧信息列布局
-    video_enabled = (sw >= 900) and (sh >= 400)
+    -- 播放器控制栏高度（两种布局共用；竖屏时它独占画面下方的一行，不压画面）
+    VP.ctrl_h = clamp(math.floor(sh * 0.060), 32, 44)
 
-    if video_enabled then
+    -- 方案A：宽屏（≥900dp）启用左侧视频 + 右侧信息列布局
+    VP.enabled = (sw >= 900) and (sh >= 400)
+    -- 方案B：竖屏播放器布局（与 A 互斥，由配置 ui.show_video_area 打开）
+    VP.portrait = (not VP.enabled) and cfg_show_video_area and (sh > sw) and (sh >= 700)
+
+    if VP.enabled then
         --[[ 方案A（设计稿 1024x600）：
              左列 = 视频 480 x 全高（576）；右列 406，从上到下：
              状态栏 36 -> 时钟 110 -> 天气 68 -> 应用网格（剩余高度）。
@@ -241,14 +316,15 @@ local function calc_layout()
         local inner_w = content_w - 2 * pad
 
         -- 左列：视频铺满内容区高度，顶部与右列状态栏齐平
-        video_x = 0
-        video_y = 0
-        video_w = clamp(math.floor(inner_w * 0.535), 320, math.floor(inner_w * 0.60))
-        video_h = sh - 2 * pad
+        -- 坐标改存绝对值（此前是「相对 pad 的偏移」，由 build_video_area 再加 pad）
+        VP.x = pad
+        VP.y = pad
+        VP.w = clamp(math.floor(inner_w * 0.535), 320, math.floor(inner_w * 0.60))
+        VP.h = sh - 2 * pad
 
         -- 右列
-        right_x = video_w + col_gap
-        right_w = inner_w - video_w - col_gap
+        right_x = VP.w + col_gap
+        right_w = inner_w - VP.w - col_gap
         if right_w < 200 then right_w = 200 end
 
         -- 右列纵向：状态栏只在信息列内（不再横跨整屏）
@@ -261,15 +337,22 @@ local function calc_layout()
         weather_y = ry
         ry = ry + weather_h + col_gap
         apps_y = ry
-        apps_h = sh - ry - pad        if apps_h < 84 then apps_h = 84 end    else        -- 原始布局（窄屏 / 竖屏）
+        apps_h = sh - ry - pad
+        if apps_h < 84 then apps_h = 84 end
+    else
+        -- 原始布局（窄屏 / 竖屏）
         clock_h = compact and clamp(math.floor(sh * 0.22), 50, 66)
             or clamp(math.floor(sh * 0.26), 110, 150)
         weather_h = compact and 0 or clamp(math.floor(sh * 0.125), 58, 78)
+        -- 竖屏播放器布局不带天气卡：这块高度让给播放器的独立控制栏（见下方方案B）
+        if VP.portrait then weather_h = 0 end
 
         local y = pad + status_h + pad
         y = y + clock_h + pad
         weather_y = y
-        y = y + weather_h + pad
+        -- weather_h = 0（紧凑屏或竖屏播放器布局）时不要再占一格「卡片 + 间距」，
+        -- 否则时钟与下面那张卡之间会平白多出 pad —— 竖屏播放器布局那 10px 要留给应用卡。
+        if weather_h > 0 then y = y + weather_h + pad end
         apps_y = y
         if use_rail then
             apps_h = sh - y - pad
@@ -277,19 +360,78 @@ local function calc_layout()
             apps_h = sh - y - dock_h - pad
         end
         if apps_h < 84 then apps_h = 84 end
+
+        --[[方案B（竖屏）：时钟下方插入通栏播放器（画面 + 独立控制栏）
+
+        纵向预算（480×854 实测，density 1.05）：
+        状态栏 36 + 时钟 150 + 播放器 364（画面 320 + 控制栏 44）+ 应用卡 158 + Dock 96。
+        播放器与应用卡各拿刚需（应用卡刚需 = 表头 30 + 内边距 24 + 1 行 89 + 分页器余量 4 = 147），
+        **剩下的纵向空间全部给 Dock（内置应用栏）** —— 以前反过来：应用卡当「剩余空间池」，
+        Dock 被通用公式的 clamp 卡死在 72，于是应用卡白留 40+ px、Dock 又偏矮。
+        行数由 apps_h 反推，屏幕更高会自动多一行（2 行 ≈ 240 高）。]]
+        if VP.portrait then
+            calc_grid_metrics(content_w - 2 * pad)
+
+            --[[高度预算
+
+            player_h     = 画面原生高 + 控制栏高：播放器卡的理想高度（再多也不能超，否则
+                           画面与控制栏之间会露出黑边）
+            apps_need_h  = 表头 + 上下内边距 + 分页器余量 + 1 行（含行间距）：应用卡舒适高度
+            apps_floor_h = 去掉行间距那 6px 的下限：实际渲染 1 行只要这么多，
+                           播放器不够高时可以借到这里]]
+            local player_h = VP.BASE_H + VP.ctrl_h
+            local apps_need_h  = apps_head_h + apps_pad_y * 2 + 4 + (tile_h + grid_gap)
+            local apps_floor_h = apps_need_h - grid_gap
+
+            local video_top = apps_y            -- 时钟卡下方（该布局没有天气卡）
+
+            --[[Dock（内置应用栏）反向驱动
+
+            刚需先摆好：播放器拿 player_h、应用卡拿 apps_need_h，中间各留一个 pad。
+            由此推出来的「Dock 上沿」以上的部分就是 Dock 能用的全部高度，再夹进
+            [dock_base, dock_max]：
+              · 下限 = 通用公式算出的值 —— 别的竖屏机型只会更松，不会因这次改动变挤
+              · 上限 = 96 —— 再高就只是个空横条（icon_size 到 42 已封顶，不会再变大）]]
+            local dock_base = dock_h
+            local dock_top = video_top + player_h + pad + apps_need_h + pad
+            dock_h = (sh - pad) - dock_top
+            local dock_max = clamp(math.floor(sh * 0.115), 64, 96)
+            if dock_max < dock_base then dock_max = dock_base end
+            if dock_h > dock_max then dock_h = dock_max end
+            if dock_h < dock_base then dock_h = dock_base end
+
+            local bottom = sh - dock_h - pad    -- 应用卡下沿 = Dock 上沿
+            local room = bottom - video_top - pad   -- 播放器 + 应用卡 能用的总高（已扣中间间距）
+
+            -- 应用卡先拿舒适高度，剩下的给播放器（播放器吃完 player_h 就不再要）
+            VP.h = room - apps_need_h
+            if VP.h > player_h then VP.h = player_h end
+
+            -- 播放器不够理想高度时，从应用卡的舒适余量里借，最多借到 1 行下限
+            if VP.h < player_h then
+                local spare = room - apps_floor_h
+                if spare > VP.h then
+                    VP.h = player_h < spare and player_h or spare
+                end
+            end
+            -- 极端小屏兜底：宁可裁掉一些画面，也别让按钮消失
+            if VP.h < VP.ctrl_h + 96 then VP.h = VP.ctrl_h + 96 end
+
+            VP.w = content_w                 -- 通栏：素材原生宽 480，两边留 pad 会各裁掉 10px
+            VP.x = 0
+            VP.y = video_top
+
+            apps_y = video_top + VP.h + pad
+            apps_h = bottom - apps_y
+            if apps_h < apps_floor_h then apps_h = apps_floor_h end
+        end
     end
 
-    -- 网格参数
-    local grid_w = video_enabled and right_w or (content_w - 2 * pad - 2 * apps_pad_y)
-    local inner_w = grid_w - 2 * apps_pad_y
-    tile_icon = clamp(math.floor(sh * 0.060 * density_scale_val), 26, 48)   -- 设计稿 36
-    tile_h = tile_icon + math.floor(30 * density_scale_val)
-    apps_head_h = clamp(math.floor(sh * 0.045), 24, 30)
-    grid_gap = clamp(math.floor(sw * 0.010), 6, 12)
-
-    local min_tile_w = math.floor(math.max(72, tile_icon * 2.1))
-    grid_cols = clamp(math.floor((inner_w + grid_gap) / (min_tile_w + grid_gap)), 2, 6)
-    tile_w = math.floor((inner_w - (grid_cols - 1) * grid_gap) / grid_cols)
+    -- 网格参数（宽度驱动的部分统一走 calc_grid_metrics，竖屏分支里已提前算过一次）
+    -- 注意：calc_grid_metrics 内部会再减掉左右内边距，这里要传「卡片宽度」。
+    -- 以前多减了一次 2*apps_pad_y，瓦片行比卡片窄 24px、右侧白留一条（老 bug）。
+    local grid_w = VP.enabled and right_w or (content_w - 2 * pad)
+    calc_grid_metrics(grid_w)
 
     local grid_avail = apps_h - apps_head_h - apps_pad_y * 2 - 4
     grid_rows = math.floor((grid_avail + grid_gap) / (tile_h + grid_gap))
@@ -408,7 +550,7 @@ local function render_grid_page()
     if grid_container then grid_container:destroy(); grid_container = nil end
     app_cards = {}
 
-    local gw = video_enabled and right_w or (content_w - 2 * pad)
+    local gw = VP.enabled and right_w or (content_w - 2 * pad)
     local inner_w = gw - 2 * apps_pad_y
     grid_container = theme.box(apps_card, {
         x = apps_pad_y, y = apps_head_h + apps_pad_y,
@@ -1130,8 +1272,8 @@ end
 
 local function build_status_bar(parent)
     -- 方案A：宽屏时状态栏只落在右侧信息列内（与左侧视频同高起点），不再横跨整屏
-    local bar_x = video_enabled and (content_x + pad + right_x) or (content_x + pad)
-    local bar_w = video_enabled and right_w or (content_w - 2 * pad)
+    local bar_x = VP.enabled and (content_x + pad + right_x) or (content_x + pad)
+    local bar_w = VP.enabled and right_w or (content_w - 2 * pad)
     local isz = math.floor(status_h * 0.62)
     local icon_y = math.floor((status_h - isz) / 2)
     local gap = clamp(math.floor(8 * density_scale_val), 6, 12)
@@ -1202,9 +1344,9 @@ end
 
 local function build_clock_card(parent)
     -- 方案A：时钟卡是右列第 2 块（状态栏下方），不再与视频同高起点
-    local cx = video_enabled and (content_x + pad + right_x) or (content_x + pad)
-    local cw = video_enabled and right_w or (content_w - 2 * pad)
-    local y = video_enabled and (pad + status_h + col_gap) or (pad + status_h + pad)
+    local cx = VP.enabled and (content_x + pad + right_x) or (content_x + pad)
+    local cw = VP.enabled and right_w or (content_w - 2 * pad)
+    local y = VP.enabled and (pad + status_h + col_gap) or (pad + status_h + pad)
     local card = theme.card(parent, {
         x = cx, y = y, w = cw, h = clock_h,
     })
@@ -1251,11 +1393,12 @@ local function build_clock_card(parent)
 end
 
 local function build_apps_card(parent)
-    local ax = video_enabled and (content_x + pad + right_x) or (content_x + pad)
-    local aw = video_enabled and right_w or (content_w - 2 * pad)
+    local ax = VP.enabled and (content_x + pad + right_x) or (content_x + pad)
+    local aw = VP.enabled and right_w or (content_w - 2 * pad)
     apps_card = theme.card(parent, {
         x = ax, y = apps_y, w = aw, h = apps_h,
-        clip = true,
+        -- 子元素按卡片圆角裁剪（airui.container 没有 clip 参数，以前写 clip=true 是无效的）
+        clip_corner = true,
     })
 
     -- 接住返回值：安装/卸载后靠它刷新计数（见 update_pager）
@@ -1327,11 +1470,28 @@ local function build_dock(parent)
     local sx = math.floor((inner_w - total) / 2)
     local icon_size = clamp(math.floor(dock_h * 0.52), 28, 42)
 
+    --[[Dock 瓦片几何
+
+    theme.tile 的内容高 = 图标 y 偏移 dp(6) + 图标 + 文字 y 偏移 dp(4) + 文字高 dp(18)
+    = 图标 + dp(28)，容器还要再减掉上下各 1px 描边。原来写死 icon_size + 26 —— 连 dp(28)
+    都不到，内容比容器高 3px，而 LVGL 容器默认 scrollbar_mode = AUTO，于是 Dock 里每个
+    图标下面都挂一条滑块（用户报的「内置应用挤出了滑块」）。这里按网格瓦片同样的口径留 dp(34)；
+    Dock 不够高时先缩图标（下限 28），保证「内容 + 描边」放得下、瓦片绝不超出卡片。
+    （Dock 自身矮于 60 的 tiny 屏 —— 320×480 / 480×272 / 800×480 这一档 —— 图标已到下限，
+    文字区仍会顶满瓦片；那是 Dock 高度公式本身偏矮，不属于本次改动范围。）]]
+    local label_reserve = math.floor(6 * density_scale_val + 0.5) + math.floor(4 * density_scale_val + 0.5) + math.floor(18 * density_scale_val + 0.5)
+    local icon_fit = dock_h - 2 - label_reserve - 2      -- 上下各 1px 描边 + 2px 余量
+    if icon_size > icon_fit and icon_fit >= 28 then icon_size = icon_fit end
+
+    local dock_tile_h = icon_size + math.floor(34 * density_scale_val)
+    local dock_inner_h = math.max(dock_h - 2, icon_size)
+    if dock_tile_h > dock_inner_h then dock_tile_h = dock_inner_h end
+
     for i, it in ipairs(items) do
         local win = it.win
         theme.tile(dock, {
-            x = sx + (i - 1) * iw, y = math.floor((dock_h - (icon_size + 26)) / 2),
-            w = iw, h = icon_size + 26,
+            x = sx + (i - 1) * iw, y = math.floor((dock_h - dock_tile_h) / 2),
+            w = iw, h = dock_tile_h,
             icon = it.icon, icon_size = icon_size, text = it.name,
             size = theme.F.tiny, text_color = theme.C.t2,
             on_click = function() open_builtin(win) end,
@@ -1449,8 +1609,8 @@ end
 
 local function build_weather_card(parent)
     if weather_h <= 0 then return end
-    local wx = video_enabled and (content_x + pad + right_x) or (content_x + pad)
-    local card_w = video_enabled and right_w or (content_w - 2 * pad)
+    local wx = VP.enabled and (content_x + pad + right_x) or (content_x + pad)
+    local card_w = VP.enabled and right_w or (content_w - 2 * pad)
     local card = theme.card(parent, {
         x = wx, y = weather_y, w = card_w, h = weather_h,
     })
@@ -1599,218 +1759,80 @@ end
 -- 视频控制：显示/隐藏控制栏
 -- 旧版在播放时起 3 秒定时器把控制栏藏起来，用户看到的是「播放一会儿按钮就没了」；
 -- 设计稿 .ctrl-bar 是常驻的，所以这里只做显隐，不再自动隐藏。
-local function video_show_ctrl()
-    if not video_ctrl_bar then return end
-    video_ctrl_bar:set_hidden(false)
-    video_ctrl_visible = true
+function VP.show_ctrl()
+    if not VP.ctrl_bar then return end
+    VP.ctrl_bar:set_hidden(false)
+    VP.ctrl_visible = true
 end
 
-local function video_hide_ctrl()
-    if not video_ctrl_bar then return end
-    video_ctrl_bar:set_hidden(true)
-    video_ctrl_visible = false
+--[[隐藏控制栏
+
+原本挂在控制栏最右侧的 X 按钮上。那个按钮已改成「进入全屏播放」（见 build_video_area），
+所以现在没有入口会调到这里 —— 保留函数是为了让「点画面唤出控制栏」那条路径仍有
+配对的显隐状态（show_ctrl / hide_ctrl 是同一套状态的两个方向），
+删掉反而容易让后来者以为控制栏本来就不可隐藏。]]
+function VP.hide_ctrl()
+    if not VP.ctrl_bar then return end
+    VP.ctrl_bar:set_hidden(true)
+    VP.ctrl_visible = false
 end
 
 -- 视频控制：停止并重建视频组件（切换文件或循环模式时用）
-local function video_stop()
-    if video_loop_timer then sys.timerStop(video_loop_timer); video_loop_timer = nil end
-    audio_stop()
-    if video_obj then
-        pcall(function() video_obj:stop() end)
-        pcall(function() video_obj:destroy() end)
-        video_obj = nil
+function VP.stop()
+    if VP.loop_timer then sys.timerStop(VP.loop_timer); VP.loop_timer = nil end
+    video_util.audio_stop()
+    if VP.obj then
+        pcall(function() VP.obj:stop() end)
+        pcall(function() VP.obj:destroy() end)
+        VP.obj = nil
     end
 end
 
---- 判断素材用哪种容器解析：优先看魔数，其次看扩展名
---- @return "hzv" | "mjpg" | "mp4"
-local function media_guess_format(path)
-    local f = io.open(path, "rb")
-    if f then
-        local magic = f:read(4)
-        f:close()
-        if magic == "HZV1" then return "hzv" end
-    end
-    local ext = path:match("%.([^%.]+)$")
-    if ext then
-        ext = ext:lower()
-        if ext == "hzv" then return "hzv" end
-        if ext == "mp4" then return "mp4" end
-    end
-    return "mjpg"
+--[[媒体素材工具已下沉到 ui/video_util.lua
+
+这份口径（容器魔数嗅探 / 帧尺寸读取 / HZV 音轨初始化）桌面播放器与全屏播放页都要用，
+而 airui 播放器**不支持缩放** —— 帧尺寸读错不会「拉伸画面」，只会让控件溢出容器、
+把画面裁掉一块。同一份口径只能有一处实现，否则两个页面的裁切行为会不一致。
+
+配套音频（同名 MP3）也跟着下沉了：播放状态跨页面共用一份，避免两边同时出声。]]
+
+--- 读素材帧尺寸；读不到时按布局形态回退
+--- 竖屏播放器布局用 luatos_boot.hzv 的原生尺寸（480×320），横屏沿用旧默认（480×270）。
+--- 回退值必须与布局基准一致：给错不会「拉伸画面」，只会让控件溢出卡片、把画面切掉一块。
+local function media_frame_size(path)
+    return video_util.frame_size(path, 480, VP.portrait and VP.BASE_H or 270)
 end
 
---- HZV 的音轨由 Audio V2 播放，视频时钟跟随 DAC DMA sample counter：
---- 音频框架没起来时既不响、也不会走帧，所以这里做一次幂等初始化。
---- 首次真 setup，之后只 RESUME；失败不阻断画面创建。
-local function hzv_audio_ensure()
-    if not exaudio then return false end
-    if not (_G.project_config and _G.project_config.hw and _G.project_config.hw.audio) then
-        return false
-    end
-    if _G.__hzv_audio_ready then
-        pcall(exaudio.pm, exaudio.RESUME)
-        return true
-    end
-    local ac = _G.project_config.hw.audio
-    local ok = pcall(exaudio.setup, {
-        model       = ac.model or "dac",
-        pa_ctrl     = ac.pa_ctrl,
-        pa_on_level = ac.pa_on_level or 0,
-        dac_delay   = ac.dac_delay,
-    })
-    if ok then
-        pcall(exaudio.vol, ac.play_vol or 70)
-        _G.__hzv_audio_ready = true
-        return true
-    end
-    log.warn("idle_win", "hzv: exaudio.setup 失败，音轨与播放时钟可能不可用")
-    return false
-end
-
---- 读媒体容器头拿回 (width, height)
---- HZV v1: 前 4 字节为 "HZV1"，0x44 / 0x46 处各一个 uint16 宽、高
---- 其它  : 按 MJPG/JPEG 扫 SOF0/SOF2 标记
---- @return width, height 或 nil（调用方回退默认值）
-local function media_read_dimensions(path)
-    local f = io.open(path, "rb")
-    if not f then return nil end
-    local data = f:read(512)  -- HZV 头部 0x48 以内 / JPEG 的 SOF 标记一般在 512 字节内
-    f:close()
-    if not data or #data < 8 then return nil end
-
-    -- HZV 容器：帧尺寸直接写在头里（Lua 下标从 1 起，0x44 → 69）
-    if data:sub(1, 4) == "HZV1" then
-        local hw = data:byte(69) + data:byte(70) * 256
-        local hh = data:byte(71) + data:byte(72) * 256
-        if hw > 0 and hh > 0 then return hw, hh end
-        return nil
-    end
-
-    -- 扫描 SOI (FF D8) 之后的标记，找 SOF0 (FF C0)
-    local i = 1
-    while i <= #data - 1 do
-        if data:byte(i) == 0xFF then
-            local marker = data:byte(i + 1)
-            if marker == 0xC0 or marker == 0xC2 then  -- SOF0 / SOF2
-                if i + 9 <= #data then
-                    local h = data:byte(i + 5) * 256 + data:byte(i + 6)
-                    local w = data:byte(i + 7) * 256 + data:byte(i + 8)
-                    return w, h
-                end
-                return nil
-            end
-            -- 跳过非 SOF 标记（读取段长度并跳过）
-            if marker ~= 0xD8 and marker ~= 0xD9 and (marker < 0xD0 or marker > 0xD7) then
-                if i + 3 <= #data then
-                    local seg_len = data:byte(i + 2) * 256 + data:byte(i + 3)
-                    i = i + 2 + seg_len
-                else
-                    break
-                end
-            else
-                i = i + 2
-            end
-        else
-            i = i + 1
-        end
-    end
-    return nil
-end
-
--- ==================== 配套音频（同名 MP3） ====================
-local has_audio = exaudio and project_config and project_config.hw and project_config.hw.audio
-
---- 在同目录下搜索与 mjpg 同名的 .mp3 文件
-local function find_audio_for_video(mjpg_path)
-    if not has_audio then return nil end
-    local dir = mjpg_path:match("^(.+/)") or "/"
-    local base = mjpg_path:match("([^/]+)%.mjpg$") or mjpg_path:match("([^/]+)%.MJPG$")
-    if not base then return nil end
-    local mp3_path = dir .. base .. ".mp3"
-    if io.exists(mp3_path) then return mp3_path end
-    mp3_path = dir .. base .. ".MP3"
-    if io.exists(mp3_path) then return mp3_path end
-    return nil
-end
-
-local function audio_start(mp3_path)
-    if not has_audio or not mp3_path then return end
-    if not exaudio_inited then
-        pcall(exaudio.pm, exaudio.RESUME)
-        exaudio_inited = true
-    end
-    audio_stop()
-    audio_obj = mp3_path
-    local function play_audio_loop(path)
-        local r = pcall(exaudio.play_start, {
-            type = 0, content = path,
-            cbfnc = function(event)
-                if event == exaudio.PLAY_DONE then
-                    if video_is_loop and video_is_playing and audio_obj then
-                        play_audio_loop(path)
-                    else
-                        audio_playing = false
-                    end
-                end
-            end
-        })
-        return r
-    end
-    audio_playing = play_audio_loop(mp3_path)
-    log.info("idle_win", "audio start", mp3_path, "ok=", audio_playing)
-end
-
-function audio_stop()
-    if not has_audio then return end
-    if audio_obj then
-        pcall(exaudio.play_stop, { type = 0 })
-        audio_obj = nil
-        audio_playing = false
-    end
-end
-
-local function audio_toggle()
-    if not has_audio or not audio_obj then return end
-    if audio_playing then
-        pcall(exaudio.play_stop, { type = 0 })
-        audio_playing = false
-    else
-        audio_start(audio_obj)
-    end
-end
-
-local function video_start_play(file_path)
+function VP.start_play(file_path)
     log.info("idle_win", "video_start_play", file_path)
-    video_stop()
+    VP.stop()
 
-    video_current_file = file_path
+    VP.current_file = file_path
 
-    local video_card = _video_card_ref
+    local video_card = VP.card_ref
     if not video_card then
         log.warn("idle_win", "video_start_play: no video card ref")
         return
     end
 
     -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
-    local vw, vh = media_read_dimensions(file_path)
-    if not vw or not vh then vw, vh = 480, 270 end  -- 兜底默认值
-    if vh > video_frame_h then vh = video_frame_h end
-    local vx_off = math.floor((video_w - vw) / 2)
-    local vy_off = math.floor((video_frame_h - vh) / 2)
+    local vw, vh = media_frame_size(file_path)
+    if vh > VP.frame_h then vh = VP.frame_h end
+    local vx_off = math.floor((VP.w - vw) / 2)
+    local vy_off = math.floor((VP.frame_h - vh) / 2)
 
     -- 循环交回组件（loop 参数）。旧版是「每 3 秒 stop+play」手动重播，
     -- 会把正在解码的视频硬重启，画面就停在半路 —— 用户报的「播放卡住」。
-    hzv_audio_ensure()
+    video_util.audio_ensure()
 
-    local fmt = media_guess_format(file_path)
+    local fmt = video_util.guess_format(file_path)
     local vcfg = {
         parent = video_card,
         x = vx_off, y = vy_off, w = vw, h = vh,
         src = file_path,
         format = fmt,
         decode_mode = "hw",
-        loop = video_is_loop,
+        loop = VP.is_loop,
         auto_play = true,
     }
     if fmt == "hzv" then
@@ -1821,216 +1843,143 @@ local function video_start_play(file_path)
         -- 调大等于慢放（每帧间隔变大），看着就像卡住
         vcfg.interval = 33
     end
-    video_obj = airui.video(vcfg)
+    VP.obj = airui.video(vcfg)
 
-    video_is_playing = (video_obj ~= nil)
-    if video_play_label then
-        video_play_label:set_text(video_is_playing and "||" or ">")
+    VP.is_playing = (VP.obj ~= nil)
+    if VP.play_label then
+        VP.play_label:set_text(VP.is_playing and "||" or ">")
     end
-    if video_file_label then
+    if VP.file_label then
         local name = file_path:match("([^/]+)$") or file_path
-        video_file_label:set_text(name)
+        VP.file_label:set_text(name)
     end
-    video_show_ctrl()
+    VP.show_ctrl()
 
     -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、由 videoplayer
-    -- 统一驱动，而 find_audio_for_video 只认 .mjpg 后缀，对 .hzv 天然返回 nil。
-    local mp3 = find_audio_for_video(file_path)
-    if mp3 then audio_start(mp3) end
+    -- 统一驱动，而 find_companion_mp3 只认 .mjpg 后缀，对 .hzv 天然返回 nil。
+    local mp3 = video_util.find_companion_mp3(file_path)
+    if mp3 then
+        video_util.audio_play(mp3, function() return VP.is_loop and VP.is_playing end)
+    end
 
-    log.info("idle_win", "video play", file_path, "ok=", video_obj ~= nil, "loop=", video_is_loop)
+    log.info("idle_win", "video play", file_path, "ok=", VP.obj ~= nil, "loop=", VP.is_loop)
 end
 
 -- 视频控制：播放/暂停切换
-local function video_toggle_play()
-    if not video_obj then return end
-    if video_is_playing then
-        pcall(function() video_obj:pause() end)
-        video_is_playing = false
-        if video_play_label then video_play_label:set_text(">") end
-        audio_toggle()
+function VP.toggle_play()
+    if not VP.obj then return end
+    if VP.is_playing then
+        pcall(function() VP.obj:pause() end)
+        VP.is_playing = false
+        if VP.play_label then VP.play_label:set_text(">") end
+        video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
     else
-        pcall(function() video_obj:play() end)
-        video_is_playing = true
-        if video_play_label then video_play_label:set_text("||") end
-        audio_toggle()
-        video_show_ctrl()
+        pcall(function() VP.obj:play() end)
+        VP.is_playing = true
+        if VP.play_label then VP.play_label:set_text("||") end
+        video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
+        VP.show_ctrl()
     end
 end
 
 -- 视频控制：重播
-local function video_restart()
-    if video_current_file then
-        video_start_play(video_current_file)
+function VP.restart()
+    if VP.current_file then
+        VP.start_play(VP.current_file)
     end
 end
 
 -- 视频控制：切换循环
 -- loop 只在创建组件时生效，所以切完标志位重建一次组件
-local function video_toggle_loop()
-    video_is_loop = not video_is_loop
-    if video_loop_label then
-        video_loop_label:set_text(video_is_loop and "R" or "1")
+function VP.toggle_loop()
+    VP.is_loop = not VP.is_loop
+    if VP.loop_label then
+        VP.loop_label:set_text(VP.is_loop and "R" or "1")
     end
-    if video_current_file and video_obj then
-        video_start_play(video_current_file)
-    end
-end
-
--- 视频控制：简单文件选择（列出内置/SD/Flash 根目录的 .hzv/.mjpg/.mp4 文件）
-local video_picker_overlay = nil
-local video_picker_scroll = nil
-
-local function video_close_picker()
-    if video_picker_overlay then
-        pcall(function() video_picker_overlay:destroy() end)
-        video_picker_overlay = nil
-    end
-    video_picker_scroll = nil
-end
-
-local function video_render_picker(dir_path, scroll_container)
-    if not scroll_container then return end
-    local items = {}
-    local ret, files = io.lsdir(dir_path, 200, 0)
-    if ret and files then
-        for _, f in ipairs(files) do
-            if f.type == 1 then
-                items[#items + 1] = { name = f.name, is_dir = true, path = dir_path .. f.name .. "/" }
-            elseif f.type == 0 then
-                local ext = f.name:match("%.([^%.]+)$")
-                if ext then ext = ext:lower() end
-                if ext == "hzv" or ext == "mjpg" or ext == "mp4" then
-                    items[#items + 1] = { name = f.name, is_dir = false, path = dir_path .. f.name }
-                end
-            end
-        end
-    end
-    table.sort(items, function(a, b)
-        if a.is_dir ~= b.is_dir then return a.is_dir end
-        return a.name < b.name
-    end)
-
-    local row_h = math.floor(32 * density_scale_val)
-    local px = math.floor(8 * density_scale_val)
-    local y = 0
-    for _, item in ipairs(items) do
-        local row = theme.card(scroll_container, {
-            x = px, y = y, w = right_w - 2 * px, h = row_h,
-            radius = theme.R.sm, opa = 0,
-            on_click = function()
-                if item.is_dir then
-                    video_close_picker()
-                    -- 进入子目录：重建选择器
-                    video_open_file_picker(item.path)
-                else
-                    video_close_picker()
-                    video_start_play(item.path)
-                end
-            end,
-        })
-        local icon_c = item.is_dir and theme.C.amber or theme.C.cyan
-        theme.label(row, {
-            x = px, y = 0, w = math.floor(18 * density_scale_val), h = row_h,
-            text = item.is_dir and ">" or ">", px_size = math.floor(13 * density_scale_val),
-            color = icon_c, align = airui.TEXT_ALIGN_CENTER,
-        })
-        theme.label(row, {
-            x = px + math.floor(20 * density_scale_val), y = 0,
-            w = right_w - 2 * px - math.floor(24 * density_scale_val), h = row_h,
-            text = item.name, px_size = math.floor(12 * density_scale_val),
-            color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
-        })
-        y = y + row_h + math.floor(2 * density_scale_val)
-    end
-    if #items == 0 then
-        theme.label(scroll_container, {
-            x = 0, y = math.floor(20 * density_scale_val), w = right_w, h = row_h,
-            text = "无视频文件", px_size = math.floor(12 * density_scale_val),
-            color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-        })
+    if VP.current_file and VP.obj then
+        VP.start_play(VP.current_file)
     end
 end
 
-function video_open_file_picker(start_path)
-    video_close_picker()
-    start_path = start_path or "/"
+-- ==================== 文件选择器 / 全屏入口 ====================
 
-    local picker_w = math.min(math.floor(screen_w * 0.50), 460)
-    local picker_h = math.floor(screen_h * 0.70)
-    local pad_in = math.floor(12 * density_scale_val)
+--[[弹窗本体已下沉到 ui/video_picker.lua
 
-    -- 使用 airui.win 创建独立弹窗，不影响底层布局
-    video_picker_overlay = airui.win({
-        parent = airui.screen, title = "选择视频文件",
-        w = picker_w, h = picker_h, close_btn = true, auto_center = true,
-        style = {
-            bg_color = theme.C.dialog, header_bg_color = theme.C.dialog,
-            content_bg_color = theme.C.dialog,
-            title_text_color = theme.C.t1, radius = theme.R.lg,
-            title_align = airui.TEXT_ALIGN_CENTER,
-            header_height = math.floor(40 * density_scale_val), content_pad = 0,
-        },
-        on_close = function() video_picker_overlay = nil end,
+桌面播放器与全屏播放页（ui/video_win.lua）共用同一套弹窗：存储设备快捷行（当前设备
+点亮）、返回上一级、文件列表。复制两份意味着修一个 bug 要改两遍。
+这里只保留「选中之后怎么办」以及桌面特有的两个动作：换文件、进全屏。]]
+
+--- 打开文件选择器（默认从当前文件所在目录开始，省得每次从根目录点进去）
+--- @param string|nil start_path 指定起始目录；不传则取当前文件所在目录
+function VP.open_picker(start_path)
+    local start = start_path
+    if not start then
+        start = (VP.current_file and VP.current_file:match("^(.+/)")) or "/"
+    end
+    video_picker.open({
+        start_path = start,
+        sw = screen_w, sh = screen_h,
+        on_pick = function(path) VP.start_play(path) end,
     })
+end
 
-    -- 快捷跳转行
-    local quick_h = math.floor(28 * density_scale_val)
-    local quick_w = math.floor((picker_w - pad_in * 2 - math.floor(8 * density_scale_val)) / 3)
-    local quick_gap = math.floor(4 * density_scale_val)
-    local quick_items = {
-        { text = "内置存储", path = "/" },
-        { text = "SD卡", path = "/sd/" },
-        { text = "Flash", path = "/little_flash/" },
-    }
-    for qi, q in ipairs(quick_items) do
-        theme.ghost_button(video_picker_overlay, {
-            x = pad_in + (qi - 1) * (quick_w + quick_gap), y = pad_in,
-            w = quick_w, h = quick_h,
-            text = q.text, size = theme.F.tiny, fg = theme.C.cyan,
-            on_click = function()
-                video_close_picker()
-                video_open_file_picker(q.path)
-            end,
-        })
-    end
+--- 关闭文件选择器（窗口销毁时兜底：弹窗可能还开着）
+function VP.close_picker()
+    video_picker.close()
+end
 
-    -- 文件列表滚动区域
-    local list_y = pad_in + quick_h + pad_in
-    video_picker_scroll = airui.container({
-        parent = video_picker_overlay,
-        x = 0, y = list_y, w = picker_w, h = picker_h - list_y - pad_in,
-        color = theme.C.bg, color_opacity = 0, scrollable = true,
-    })
-    video_render_picker(start_path, video_picker_scroll)
+--- 进入全屏播放页
+--- 把当前文件带过去，全屏页从同一个素材接着播；退出后桌面按 VIDEO_FILE_CHANGED 同步
+function VP.open_fullscreen()
+    log.info("idle_win", "video btn: fullscreen", VP.current_file)
+    sys.publish("OPEN_VIDEO_WIN", VP.current_file)
+end
+
+--[[全屏播放页里换了文件 → 同步「当前文件」
+
+桌面此刻已失焦（on_lose_focus 已经把自己的播放器停掉并销毁了），所以这里只更新记录、
+不起播；等退出全屏、桌面重新拿到焦点时，由 on_get_focus 按 resume_file 起播。
+
+把选择结果提前记下来（而不是等退出时再补一次），是为了避免「先按旧文件起了播、
+再销毁重建一次」的二次解码 —— BK72xx 的硬解链路是单实例资源，白重启一次代价不小。]]
+local function on_video_file_changed(path)
+    if type(path) ~= "string" or path == "" then return end
+    if VP.current_file == path then return end
+    VP.current_file = path
+    VP.resume_file = path
+    -- 桌面在前台时（理论上不会走到这里，因为只有全屏页会发这条消息）立即切过去
+    if VP.obj then VP.start_play(path) end
 end
 
 -- 方案A：左列视频卡片（铺满内容区高度）+ 卡片底部常驻控制栏
 local function build_video_area(parent)
-    if not video_enabled then return end
+    if not VP.enabled and not VP.portrait then return end
 
     -- 资源落点随烧录方式而变（/luadb/ 或根目录），先挑实际存在的那个
-    if not io.exists(video_current_file) then
+    if not io.exists(VP.current_file) then
         -- .hzv 优先（真机硬解）；素材还没换成 hzv 时回落同名 .mjpg，避免视频卡片空掉
         for _, p in ipairs({
             "/luadb/luatos_boot.hzv", "/luatos_boot.hzv",
             "/luadb/luatos_boot.mjpg", "/luatos_boot.mjpg",
         }) do
             if io.exists(p) then
-                video_current_file = p
+                VP.current_file = p
                 break
             end
         end
     end
 
-    -- 方案A：左列 = 视频卡片铺满内容区高度，控制栏叠在卡片底部（设计稿 .ctrl-bar）
-    local vx = content_x + pad + video_x
-    local vy = pad + video_y
-    local ctrl_h = clamp(math.floor(screen_h * 0.060), 32, 44)   -- 设计稿 36
+    -- 方案A（横屏）：左列 = 视频卡片铺满内容区高度，控制栏占卡片底部一行（设计稿 .ctrl-bar）
+    -- 方案B（竖屏）：时钟下方的通栏播放器，控制栏同样独占底部一行，不压画面
+    -- VP.x / VP.y 是绝对坐标，不要再叠 pad（横屏分支已把 pad 算进 VP.x/VP.y）
+    local vx = content_x + VP.x
+    local vy = VP.y
+    local ctrl_h = VP.ctrl_h      -- calc_layout 按屏幕高算好：1024x600 横屏 36，480x854 竖屏 44
+    if ctrl_h < 28 then ctrl_h = 28 end
 
     -- 视频卡片（直接放 parent，不套 wrapper，避免 LVGL 渲染异常）
     local video_card = theme.card(parent, {
-        x = vx, y = vy, w = video_w, h = video_h,
+        x = vx, y = vy, w = VP.w, h = VP.h,
         color = theme.C.black, opa = 255, radius = theme.R.md, border_w = 0,
         --[[子组件按卡片圆角裁剪
 
@@ -2038,33 +1987,34 @@ local function build_video_area(parent)
         卡片下方就冒出两个方角（用户报「播放器下面的按钮容器外部有两个白色的方角」）。
         打开 clip_corner 让控制栏被卡片圆角裁掉，等价于设计稿里父容器的 overflow:hidden。]]
         clip_corner = true,
-        on_click = function() video_show_ctrl() end,   -- 控制栏被 X 收起后，点画面可再唤出
+        on_click = function() VP.show_ctrl() end,   -- 控制栏被 X 收起后，点画面可再唤出
     })
-    _video_card_ref = video_card
+    VP.card_ref = video_card
 
-    -- 画面高度 = 卡片高度 - 控制栏高度（控制栏浮在卡片底部）
-    video_frame_h = video_h - ctrl_h
-    if video_frame_h < 60 then video_frame_h = 60 end
+    --[[画面高度：两种布局都是「卡片高 - 控制栏高」，控制栏独占卡片底部一行、不压画面。
+    竖屏下卡片 = 画面原生 320 + 控制栏，画面正好占满上半部分、控制栏紧贴其下。
+    控制栏绝不能叠在画面上：硬解视频是独立图层，压在画面上的控件真机上看不见。]]
+    VP.frame_h = VP.h - ctrl_h
+    if VP.frame_h < 60 then VP.frame_h = 60 end
 
     -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
-    local vw, vh = media_read_dimensions(video_current_file)
-    if not vw or not vh then vw, vh = 480, 270 end  -- 兜底默认值
-    if vh > video_frame_h then vh = video_frame_h end
-    local vx_off = math.floor((video_w - vw) / 2)
-    local vy_off = math.floor((video_frame_h - vh) / 2)
+    local vw, vh = media_frame_size(VP.current_file)
+    if vh > VP.frame_h then vh = VP.frame_h end
+    local vx_off = math.floor((VP.w - vw) / 2)
+    local vy_off = math.floor((VP.frame_h - vh) / 2)
 
     -- 循环交给组件的 loop 参数。旧版是「每 3 秒 stop+play」手动重播，
     -- 会把正在解码的视频硬重启，画面停在半路（用户报的「播放卡住」）。
-    hzv_audio_ensure()
+    video_util.audio_ensure()
 
-    local fmt = media_guess_format(video_current_file)
+    local fmt = video_util.guess_format(VP.current_file)
     local vcfg = {
         parent = video_card,
         x = vx_off, y = vy_off, w = vw, h = vh,
-        src = video_current_file,
+        src = VP.current_file,
         format = fmt,
         decode_mode = "hw",
-        loop = video_is_loop,
+        loop = VP.is_loop,
         auto_play = true,
     }
     if fmt == "hzv" then
@@ -2073,28 +2023,29 @@ local function build_video_area(parent)
     else
         vcfg.interval = 33   -- 30fps（调大即慢放，看着像卡住）
     end
-    video_obj = airui.video(vcfg)
-    video_is_playing = (video_obj ~= nil)
+    VP.obj = airui.video(vcfg)
+    VP.is_playing = (VP.obj ~= nil)
 
     -- 无视频：按设计稿显示空态（三角 + 文案，居中）
-    if not video_is_playing then
+    if not VP.is_playing then
         theme.label(video_card, {
-            x = 0, y = math.floor(video_frame_h / 2) - math.floor(26 * density_scale_val),
-            w = video_w, h = math.floor(34 * density_scale_val),
+            x = 0, y = math.floor(VP.frame_h / 2) - math.floor(26 * density_scale_val),
+            w = VP.w, h = math.floor(34 * density_scale_val),
             text = ">", px_size = math.floor(32 * density_scale_val),
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
         theme.label(video_card, {
-            x = 0, y = math.floor(video_frame_h / 2) + math.floor(10 * density_scale_val),
-            w = video_w, h = math.floor(22 * density_scale_val),
+            x = 0, y = math.floor(VP.frame_h / 2) + math.floor(10 * density_scale_val),
+            w = VP.w, h = math.floor(22 * density_scale_val),
             text = "点击选择视频文件", px_size = math.floor(13 * density_scale_val),
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
     end
 
     -- 控制栏（视频卡片底部，半透明深底）
-    video_ctrl_bar = theme.card(video_card, {
-        x = 0, y = video_h - ctrl_h, w = video_w, h = ctrl_h,
+    VP.ctrl_bar = theme.card(video_card, {
+        x = 0, y = VP.frame_h, w = VP.w, h = ctrl_h,
+        -- 控制栏与画面不重叠，用接近实色的面板底，按钮看得清（横竖屏同款）
         color = theme.C.panel, opa = 235, radius = 0,
         border_w = 0,
     })
@@ -2106,13 +2057,13 @@ local function build_video_area(parent)
 
     -- 按钮工厂：用 airui.button 替代 theme.card，获得真实按压反馈
     -- 从右往左摆位
-    local rx = video_w - pad_in
+    local rx = VP.w - pad_in
     local function place_btn(text, tint, on_click)
         rx = rx - btn_size
         -- 颜色策略：主按钮（play）用实色突出，其余用 bg_opa 20% 半透明保持玻璃感
-        local is_primary = (on_click == video_toggle_play)
+        local is_primary = (on_click == VP.toggle_play)
         local btn = airui.button({
-            parent = video_ctrl_bar, x = rx, y = btn_y, w = btn_size, h = btn_size,
+            parent = VP.ctrl_bar, x = rx, y = btn_y, w = btn_size, h = btn_size,
             text = text, font_size = math.floor(btn_size * 0.5),
             style = { bg_color = tint, text_color = theme.C.t1, border_width = 0,
                       radius = theme.R.xs, bg_opa = is_primary and 255 or 51 },
@@ -2121,39 +2072,41 @@ local function build_video_area(parent)
         return btn, btn
     end
 
-    -- 文件名标签（左侧，宽度让开右侧 5 个按钮）
-    local fname = video_current_file:match("([^/]+)$") or ""
-    local btns_w = (btn_size + btn_gap) * 5 - btn_gap
-    video_file_label = theme.label(video_ctrl_bar, {
-        x = pad_in, y = btn_y, w = math.max(40, video_w - pad_in * 2 - btns_w - btn_gap),
+    -- 文件名标签（左侧，宽度让开右侧 4 个按钮）
+    local fname = VP.current_file:match("([^/]+)$") or ""
+    local btns_w = (btn_size + btn_gap) * 4 - btn_gap
+    VP.file_label = theme.label(VP.ctrl_bar, {
+        x = pad_in, y = btn_y, w = math.max(40, VP.w - pad_in * 2 - btns_w - btn_gap),
         h = btn_size, text = fname, px_size = math.floor(11 * density_scale_val),
         color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
     })
 
-    -- 从右往左：关闭 / 选择文件 / 循环 / 重播 / 播放
-    place_btn("X", theme.C.rose, function()
-        log.info("idle_win", "video btn: hide ctrl")
-        video_hide_ctrl()
-    end)
+    --[[从右往左：全屏 / 选择文件 / 循环 / 重播 / 播放
+
+    最右那个按钮原来是把控制栏收起来的 X。现在改成「进入全屏播放」：
+    收控制栏这个动作本身就是个死胡同（收掉之后唯一的入口是再点一下画面，
+    而画面没有提示），换成全屏的收益明显更大。按钮文字用 ASCII 的 "[]"
+    —— 工程里所有按钮都只用 ASCII（<  >  ||  R  1  ...），字形资源缺失时才不会空白。]]
+    place_btn("[]", theme.C.violet, VP.open_fullscreen)
     rx = rx - btn_gap
     place_btn("...", theme.C.cyan, function()
         log.info("idle_win", "video btn: open file picker")
-        video_open_file_picker()
+        VP.open_picker()
     end)
     rx = rx - btn_gap
-    local _, loop_lbl = place_btn(video_is_loop and "R" or "1", theme.C.amber, video_toggle_loop)
-    video_loop_label = loop_lbl
+    local _, loop_lbl = place_btn(VP.is_loop and "R" or "1", theme.C.amber, VP.toggle_loop)
+    VP.loop_label = loop_lbl
     rx = rx - btn_gap
     place_btn("|<", theme.C.cyan_light, function()
-        log.info("idle_win", "video btn: restart", video_current_file, "obj=", video_obj ~= nil)
-        video_restart()
+        log.info("idle_win", "video btn: restart", VP.current_file, "obj=", VP.obj ~= nil)
+        VP.restart()
     end)
     rx = rx - btn_gap - 5  -- 播放按钮向左移动 5 像素
-    local _, play_lbl = place_btn(video_is_playing and "||" or ">", theme.C.green, video_toggle_play)
-    video_play_label = play_lbl
+    local _, play_lbl = place_btn(VP.is_playing and "||" or ">", theme.C.green, VP.toggle_play)
+    VP.play_label = play_lbl
 
-    video_show_ctrl()
-    log.info("idle_win", "video area built", video_w, "x", video_h, "frame", video_frame_h)
+    VP.show_ctrl()
+    log.info("idle_win", "video area built", VP.w, "x", VP.h, "frame", VP.frame_h)
 end
 
 -- ==================== 窗口生命周期 ====================
@@ -2164,7 +2117,7 @@ local function on_create()
     log.info("idle_win", "on_create begin")
     calc_layout()
     -- 重建时 build_video_area 会自行起播，不需要 on_get_focus 再恢复一次
-    video_resume_file = nil
+    VP.resume_file = nil
 
     main_container = theme.page_bg(airui.screen, screen_w, screen_h)
 
@@ -2199,6 +2152,7 @@ local function on_create()
     sys.subscribe("AUTOSTART_SETTINGS_VALUE", on_auto_start_settings)
     sys.subscribe("AUTOSTART_CONFIG_CHANGED", request_auto_start_state)
     sys.subscribe("AUTOSTART_PASSWORD_RESULT", on_auto_start_password_result)
+    sys.subscribe("VIDEO_FILE_CHANGED", on_video_file_changed)
     sys.subscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
     sys.subscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
 
@@ -2210,10 +2164,14 @@ local function on_create()
 
     request_auto_start_state()
     sys.publish("REQUEST_STATUS_REFRESH")
+    -- 请求天气：天气数据可能先于本窗口到达（订阅晚于发布就会丢首帧），
+    -- 用请求-应答让天气服务把当前数据立即回发一次
+    sys.publish("WEATHER_REQUEST")
     sys.timerStart(check_duplicates, 1200)
 
-    log.info("idle_win", string.format("桌面构建完成 %dx%d rail=%d cols=%d rows=%d apps=%d",
-        screen_w, screen_h, rail_w, grid_cols, grid_rows, #all_apps))
+    log.info("idle_win", string.format("桌面构建完成 %dx%d rail=%d cols=%d rows=%d apps=%d video=%s",
+        screen_w, screen_h, rail_w, grid_cols, grid_rows, #all_apps,
+        VP.enabled and "two-col" or (VP.portrait and "portrait" or "off")))
 end
 
 local function on_destroy()
@@ -2221,15 +2179,15 @@ local function on_destroy()
     if timer_handler then sys.timerStop(timer_handler); timer_handler = nil end
     stop_charge_anim()
     -- 停止视频控制栏定时器
-    if video_ctrl_timer then sys.timerStop(video_ctrl_timer); video_ctrl_timer = nil end
-    if video_loop_timer then sys.timerStop(video_loop_timer); video_loop_timer = nil end
+    if VP.ctrl_timer then sys.timerStop(VP.ctrl_timer); VP.ctrl_timer = nil end
+    if VP.loop_timer then sys.timerStop(VP.loop_timer); VP.loop_timer = nil end
     -- 停止并释放视频播放组件
-    if video_obj then
-        pcall(function() video_obj:stop() end)
-        pcall(function() video_obj:destroy() end)
-        video_obj = nil
+    if VP.obj then
+        pcall(function() VP.obj:stop() end)
+        pcall(function() VP.obj:destroy() end)
+        VP.obj = nil
     end
-    audio_stop()
+    video_util.audio_stop()
     sys.unsubscribe("STATUS_TIME_UPDATED", update_time_date)
     if has_4g then sys.unsubscribe("STATUS_SIGNAL_UPDATED", update_mobile_icon) end
     if has_wifi then sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", update_wifi_icon) end
@@ -2239,6 +2197,7 @@ local function on_destroy()
     sys.unsubscribe("AUTOSTART_SETTINGS_VALUE", on_auto_start_settings)
     sys.unsubscribe("AUTOSTART_CONFIG_CHANGED", request_auto_start_state)
     sys.unsubscribe("AUTOSTART_PASSWORD_RESULT", on_auto_start_password_result)
+    sys.unsubscribe("VIDEO_FILE_CHANGED", on_video_file_changed)
     sys.unsubscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
     sys.unsubscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
     if has_eth then
@@ -2260,13 +2219,13 @@ local function on_destroy()
     pager_prev_btn = nil; pager_next_btn = nil
     weather_card = nil
     weather_ui = { days = {}, temps = {} }
-    video_obj = nil
-    _video_card_ref = nil
-    video_ctrl_bar = nil
-    video_play_label = nil
-    video_loop_label = nil
-    video_file_label = nil
-    video_close_picker()
+    VP.obj = nil
+    VP.card_ref = nil
+    VP.ctrl_bar = nil
+    VP.play_label = nil
+    VP.loop_label = nil
+    VP.file_label = nil
+    VP.close_picker()
     app_cards = {}
     all_apps = {}
     -- 左栏随 main_container 一起被销毁，引用必须跟着清掉：
@@ -2327,10 +2286,10 @@ local function on_get_focus()
     -- 桌面重新获得焦点 = 压在它上面的窗口都已被关闭 → 清除左栏一级菜单高亮
     set_rail_active(nil)
     -- 失焦时释放掉的视频在这里恢复（音视频一起从头播，避免音画错位）
-    if video_resume_file and not video_obj and video_is_playing then
-        local f = video_resume_file
-        video_resume_file = nil
-        pcall(video_start_play, f)
+    if VP.resume_file and not VP.obj and VP.is_playing then
+        local f = VP.resume_file
+        VP.resume_file = nil
+        pcall(VP.start_play, f)
     end
     update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     load_external_apps()
@@ -2354,15 +2313,15 @@ local function on_lose_focus()
     这里选择销毁而不是 pause()：exaudio 没有可靠的续播接口，只暂停画面而音乐继续会音画错位；
     整组销毁、回到桌面时按记录的文件重新起播（见 on_get_focus），音视频一起从头开始、观感一致。
     代价是回到桌面要重新解码起播，换来的是失焦期间不占解码资源。]]
-    if video_obj then
-        if video_current_file and video_is_playing then
-            video_resume_file = video_current_file
+    if VP.obj then
+        if VP.current_file and VP.is_playing then
+            VP.resume_file = VP.current_file
         end
-        pcall(function() video_obj:stop() end)
-        pcall(function() video_obj:destroy() end)
-        video_obj = nil
+        pcall(function() VP.obj:stop() end)
+        pcall(function() VP.obj:destroy() end)
+        VP.obj = nil
     end
-    audio_stop()
+    video_util.audio_stop()
 end
 
 local function open_handler()

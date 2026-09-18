@@ -114,6 +114,8 @@ return {
                 pin_rst = 3,             -- 复位引脚
                 pin_int = 51,            -- 中断引脚
                 int_type = tp.FALLING,   -- 下降沿触发
+                w = 720,                 -- 触摸面板宽度（与 LCD 一致）
+                h = 1280,                -- 触摸面板高度
                 gpio_reset = 3,          -- 额外复位 GPIO（Air1602 常用）
             },
         },

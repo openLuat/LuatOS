@@ -11,23 +11,10 @@ params: { port, pin_rst, pin_int, int_type, i2c_speed, w, h, gpio_reset }
 local M = {}
 
 function M.init(params)
-    -- 底板 I2C 供电 GPIO 上拉（部分平台需要在 I2C 初始化前配置）
-    if params.pwr_pins then
-        for _, p in ipairs(params.pwr_pins) do
-            gpio.setup(p.pin, 1, gpio.PULLUP)
-        end
-    end
-    -- I2C 上电稳定等待（默认 0，有 pwr_pins 或显式设 pwr_delay 时才等）
-    local delay = params.pwr_pins and (params.pwr_delay or 100) or params.pwr_delay
-    if delay and delay > 0 then
-        sys.wait(delay)
-    end
-
-    -- GPIO 复位序列：Air1601 EVB 必须先把 RST 拉低再释放，否则 GT911 能读到 ID 但中断不报点
-    local rst = params.gpio_reset or params.pin_rst
-    if rst then
-        gpio.setup(rst, 0)
-        gpio.close(rst)
+    -- GPIO 复位序列（部分底板需要）
+    if params.gpio_reset then
+        gpio.setup(params.gpio_reset, 0)
+        gpio.close(params.gpio_reset)
     end
 
     -- I2C 初始化
@@ -46,17 +33,33 @@ function M.init(params)
     if params.int_type then tp_params.int_type = params.int_type end
     if params.w then tp_params.w = params.w end
     if params.h then tp_params.h = params.h end
-    if params.swap_xy then tp_params.swap_xy = params.swap_xy end
-    if params.direction then tp_params.direction = params.direction end
 
-    local function tp_cb(_, data)
-        local p = data and data[1]
-        if p then
-            log.info("gt911", "event", p.event, "x", p.x, "y", p.y)
+    -- 兜底：tp 未显式给 w/h 时，从 LCD 配置继承尺寸。
+    -- LCD 驱动改用 display 库后不再调用 lcd.init("custom", ...) 注册内核默认 LCD 配置，
+    -- 内核 luat_lcd_get_default() 取不到 w/h → tp 尺寸为 0 → input 适配器以 EINVAL 静默拒绝，
+    -- 现象是“能读到 product id 但初始化失败”。
+    if not (tp_params.w and tp_params.h) then
+        local lcd_cfg = _G.project_config and _G.project_config.hw
+                        and _G.project_config.hw.lcd
+        local lp = lcd_cfg and lcd_cfg.params
+        -- 仅补偿走 display 库的 LCD：lcd_display_rgb 内部改用 display.init、
+        -- 不再调用 lcd.init("custom", ...)，内核 lcd_conf 里没有尺寸可继承，
+        -- 缺 w/h 会让 input 适配器以 EINVAL 静默拒绝（能读到 product id 但初始化失败）。
+        -- 走旧 lcd 库(st7796/st6201…)的板内核仍有默认 lcd 配置，保持原行为不动。
+        if lcd_cfg and lcd_cfg.model == "lcd_display_rgb" then
+            if type(lp) == "table" then
+                tp_params.w = tp_params.w or lp.w
+                tp_params.h = tp_params.h or lp.h
+            end
+            if tp_params.w and tp_params.h then
+                log.info("gt911", "tp 尺寸未配置，继承 LCD:", tp_params.w, tp_params.h)
+            else
+                log.warn("gt911", "tp 尺寸缺失(w/h 为空)，触摸初始化必然失败，请检查 lcd/tp 配置")
+            end
         end
     end
 
-    local r = tp.init("gt911", tp_params, tp_cb)
+    local r = tp.init("gt911", tp_params)
     log.info("gt911", r and "初始化成功" or "初始化失败，PC模拟器可以忽略")
 
     -- PC 模拟跳过绑定（用鼠标替代）

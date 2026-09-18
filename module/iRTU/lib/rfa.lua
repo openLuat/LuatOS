@@ -260,12 +260,25 @@ local function gsensorexec_command(ctx, kind)
     if not i2c or not i2c.setup or not i2c.transfer or i2c.SLOW == nil then
         return command_finish(ctx, atc.RES_ERROR)
     end
+    local model = hmeta and hmeta.model and hmeta.model()
+    local bus, power_pin = 0, nil
+    -- 与 exvib 的内置 DA221 接线一致，LuatOS 两类平台的 I2C 编号不同。
+    if model == "Air780EGP" or model == "Air780EGG" then
+        bus, power_pin = 1, 23
+    elseif model == "Air8000" then
+        power_pin = 24
+    end
+    if power_pin and (not gpio or not gpio.setup) then
+        return command_finish(ctx, atc.RES_ERROR)
+    end
     command_async(ctx, function()
-        i2c.setup(0, i2c.SLOW)
+        -- 此电源同时用于 GNSS 备电，检测完成或取消后均保持开启。
+        if power_pin then gpio.setup(power_pin, 1, gpio.PULLUP) end
+        i2c.setup(bus, i2c.SLOW)
         sys.wait(50)
         if active_cmd ~= ctx then return end
         -- 使用组合读，对应参考固件 iot_i2c_read 内的 I2C_BlockRead。
-        local ok, data = i2c.transfer(0, 0x27, 0x01, nil, 1)
+        local ok, data = i2c.transfer(bus, 0x27, 0x01, nil, 1)
         sys.wait(20)
         if active_cmd ~= ctx then return end
         if ok and type(data) == "string" and data:byte(1) == 0x13 then

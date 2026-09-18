@@ -141,6 +141,7 @@ return {
         ai_chat = true,                  -- 启用"AI聊天助手"内置应用
         speaker = true,     -- 启用喇叭（DAC0 播放）
         mic = true,         -- 启用麦克风（I2S2 + ES8311 录音）
+        cloud_disk = true,               -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -186,6 +187,7 @@ return {
         show_app_factory = true,         -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
         show_ai_chat = true,             -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
         ai_chat = true,                  -- 启用"AI聊天助手"内置应用
+        show_cloud_disk = true,          -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
     },
 
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====

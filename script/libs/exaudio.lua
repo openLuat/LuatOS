@@ -4,6 +4,14 @@
 @version 3.7
 @date    2026.9.18
 @author  拓毅恒
+@description
+本库负责音频硬件初始化、播放、录音和电源控制，可配合 exsip 使用普通 SIP 通话或 CC<->SIP 语音流桥接。
+启用 exsip.init({cc_sip_bridge=true, ...}) 后，CC 下行语音经固件桥接送往 SIP 对端，
+SIP 对端语音经固件桥接送入 CC 上行；需要固件同时具备 CC、VoIP PCM 桥接和对应音频后端支持。
+该模式的通话音频由 CC 底层管理，exsip 不调用本库的 sip_voip_start()，也不在启动 SIP 媒体前停止本地音频驱动。
+本库的 sip_voip_start()/sip_voip_stop() 用于普通 SIP 的本地 MIC/扬声器与 VoIP PCM 适配，
+并非 CC<->SIP 桥接开关；不要在 CC<->SIP 桥接通话中额外启动该本地 speech 请求。
+CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬件参数仍按实际板型调用 setup() 配置。
 @updates
     v3.7 2026.9.18
         1. 修复 DAC 模式下设置MIC音量导致 Air1601 死机问题。
@@ -357,6 +365,7 @@ local audio_v2_stream_file_fp = nil  -- 流式播放文件句柄(audio_v2模式)
 local audio_v2_stream_codec_id = nil  -- 流式播放codec_id(audio_v2模式)
 local audio_v2_stream_data_start = nil  -- 流式播放数据起始位置(audio_v2模式)
 local audio_v2_record_zbuff = nil  -- 录音zbuff（audio_v2回调模式）
+-- 普通 SIP 本地音频适配资源；CC<->SIP 桥接使用 CC 底层资源，不使用本组请求和定时器。
 local sip_v2_request_index, sip_v2_source_index, sip_v2_record_zbuff, sip_v2_timer
 local audio_v2_stream_end_marked = false  -- 标记流式结束（队列模式）
 local audio_v2_es8311_drv = nil  -- ES8311驱动引用（audio_v2模式）
@@ -533,6 +542,8 @@ local function audio_v2_callback(request_index, event, param)
             end
         end
     elseif event == audio_v2.REQUEST_GET_NEW_DATA then
+        -- 普通 SIP 上行：本地 MIC 的 8 kHz/16 bit/单声道 PCM -> VoIP 编码并发送 RTP。
+        -- CC<->SIP 模式的上行来源是 CC 对端语音，由固件直接转送，不经过此录音回调。
         if request_index == sip_v2_request_index and sip_v2_record_zbuff and voip then
             local used = sip_v2_record_zbuff:used()
             if used > 0 and type(voip.pcmIn) == "function" then
@@ -1315,6 +1326,10 @@ local function air1103_record_stop()
 end
 
 -- 初始化
+-- audioConfigs.audio_mode="new"/"old" 选择本地音频框架，与 exsip.init 的 audio_mode（VoIP 路由）不同。
+-- CC<->SIP 桥接由 exsip.init({cc_sip_bridge=true, ...}) 选择；本接口仍按板型配置音频硬件，
+-- 不负责开启桥接或建立 CC/SIP 呼叫。i2s_sample、bits_per_sample、channels 是硬件配置，
+-- 不改变 SIP 的 SDP 编解码协商，也不改变 sip_voip_start() 使用的 8 kHz/16 bit/单声道 PCM 格式。
 function exaudio.setup(audioConfigs)
     if not audioConfigs or type(audioConfigs) ~= "table" then
         log.error("配置参数必须为table类型")
@@ -1479,6 +1494,7 @@ function exaudio.setup(audioConfigs)
     -- 通话自动唤醒
     -- 自动订阅CC_IND事件，每次通话PLAY（开始有音频输出）时自动exaudio.pm(exaudio.RESUME)唤醒ES8311，
     -- 通话结束后的休眠由业务脚本控制（demo内exaudio.pm(exaudio.SHUTDOWN)）
+    -- 此订阅仅管理本地硬件唤醒，不建立 CC<->SIP 语音路由，也不联动两侧呼叫状态。
     if type(cc) == "userdata" and not cc_auto_pm_enabled then
         cc_auto_pm_enabled = true
         sys.subscribe("CC_IND", function(status)
@@ -1817,6 +1833,19 @@ function exaudio.is_audio_v2()
     return USE_AUDIO_V2
 end
 
+--[[
+启动普通 SIP 通话的本地 Audio V2 PCM 适配，由 exsip 在选用该路由且 voip.start() 成功后调用。
+@api exaudio.sip_voip_start()
+@return boolean 成功返回 true，当前音频框架不支持或请求创建失败返回 false；Air1103 模式直接返回 true
+@usage
+-- 通常由 exsip 管理，无需业务层手动调用：
+-- 本地 MIC -> Audio V2 speech -> voip.pcmIn() -> SIP RTP 上行；
+-- SIP RTP 下行 -> voip.pcmOut() -> Audio V2 extern_source -> 本地扬声器。
+-- PCM 固定为 8 kHz、16 bit、单声道；下行每 20 ms 取 160 个采样点（320 字节）。
+-- CC<->SIP 桥接由固件转送 CC 下行和 SIP 下行，exsip 在 cc_sip_bridge=true 时跳过本接口。
+-- Air1103 模式不创建 Audio V2 请求；返回 true 仅表示跳过，UART 与 VoIP 的 PCM 搬运由业务层完成。
+-- 成功创建的本地适配需与 sip_voip_stop() 配对释放；本接口不调用 voip.start() 或管理 CC 呼叫。
+]]
 function exaudio.sip_voip_start()
     -- Air1103(UART外置语音芯片)不需要audio_v2桥接: SIP通话音频由业务层通过 voip.pcmIn/pcmOut 与 UART 自行桥接。
     -- 这里必须返回 true, 否则 exsip 会认为桥接失败并执行 voip.stop(), 导致通话没有音频。
@@ -1841,6 +1870,7 @@ function exaudio.sip_voip_start()
     sip_v2_timer = sys.timerLoopStart(function()
         if not sip_v2_source_index or not voip.isRunning() then return end
         if type(voip.pcmOut) ~= "function" then return end
+        -- 普通 SIP 下行送到本地扬声器；暂时无 PCM 时补一帧静音，保持 20 ms 播放节奏。
         local pcm = voip.pcmOut(160) or string.rep("\0", 320)
         audio_v2.input(sip_v2_source_index, pcm, false)
     end, 20)
@@ -1848,6 +1878,15 @@ function exaudio.sip_voip_start()
     return true
 end
 
+--[[
+释放普通 SIP 本地音频适配的定时器、Audio V2 请求和录音缓冲，由 exsip 在停止媒体时调用。
+@api exaudio.sip_voip_stop()
+@return nil 无返回值
+@usage
+-- 仅清理 sip_voip_start() 创建的资源；VoIP 引擎停止由 exsip/voip.stop() 负责。
+-- CC<->SIP 固件桥接资源随 CC 媒体生命周期管理；此接口不挂断 CC，也不关闭 CC 桥接配置。
+-- Air1103 模式直接返回，业务层自行停止 UART PCM 搬运。
+]]
 function exaudio.sip_voip_stop()
     -- air1103模式没有建立audio_v2桥接(见sip_voip_start), 无需停止
     if audio_setup_param.model == "air1103" then return end

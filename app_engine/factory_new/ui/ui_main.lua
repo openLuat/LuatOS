@@ -28,6 +28,13 @@
 require "ui_theme_themes"   -- 主题预设注册（必须在所有页面之前：决定启动配色）
 require "welcome_win"       -- 开机欢迎页（播放 MJPG 动画）
 require "idle_win"          -- 桌面/待机页
+--[[全屏播放页（桌面播放器控制栏最右的「[]」按钮 → OPEN_VIDEO_WIN）
+
+不做门控，无条件加载：入口是**布局驱动**的 —— 只要该机型有播放器区域
+（配置 ui.show_video_area 的竖屏，或 ≥900dp 的横屏双列），控制栏上就有那个按钮。
+一旦按钮在、窗口没加载，点击就只是 publish 到一个没有订阅者的事件，
+表现正是「按钮能按、点进去没反应」（与 features.app_factory 那对注释同一个坑）。]]
+require "video_win"         -- 全屏播放页
 require "wifi_list_win"     -- WiFi 列表页
 require "settings_win"      -- 设置主页
 require "settings_auto_win" -- 后装APP自启动设置页
@@ -56,6 +63,10 @@ end
 
 if _feat.ai_chat then
     require "llm_chat_win"      -- AI 助手聊天窗口（订阅 OPEN_AI_CHAT_WIN）
+end
+
+if _feat.cloud_disk then
+    require "cloud_disk_win"    -- 合宙网盘窗口（订阅 OPEN_CLOUD_DISK_WIN）
 end
 
 -- ==================== 硬件初始化协程 ====================

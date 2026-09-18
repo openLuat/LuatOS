@@ -50,7 +50,8 @@ def main():
                     help="设备端 main.lua 配置的鉴权 token; 设置后先跑门控/失败/成功鉴权用例")
     args = ap.parse_args()
 
-    dev = UserCmd(args.port, args.baud)
+    # propose 必须大于设备上界才能协商出真实 chunk: 厂商新固件上界 1024, 旧固件 476
+    dev = UserCmd(args.port, args.baud, propose_chunk=2048)
     print(f"open {args.port} @ {args.baud}")
     try:
         # 1. 等设备启动完成 + 握手 + 分片协商 (厂商新固件 rx_cache1[1064] -> 1024)

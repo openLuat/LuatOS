@@ -9,7 +9,7 @@ require "lcd_hx8282_10in" 后调用 lcd_hx8282_10in.init(params) 初始化屏幕
 ]]
 
 local M = {}
-
+pins.setup(43, "GPIO13") 
 function M.init(params)
     if params.pin_pwr then
         gpio.setup(params.pin_pwr, 0)

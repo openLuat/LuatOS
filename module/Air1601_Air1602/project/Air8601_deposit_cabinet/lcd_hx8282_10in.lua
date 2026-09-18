@@ -7,6 +7,11 @@
 ]]
 local M = {}
 
+-- ★ 必须保留：把 PIN43 复用成 GPIO13
+-- Air8601 的背光驱动脚就是 PIN43（默认不是 GPIO 功能），hardware.lua 的 power_on 里
+-- { pin = 43, level = 1 } 依赖这行复用才会真正作用到引脚上，否则 gpio.set(43,1) 无效 -> 白屏。
+pins.setup(43, "GPIO13")
+
 function M.init(params)
     if params.pin_pwr then
         gpio.setup(params.pin_pwr, 0)

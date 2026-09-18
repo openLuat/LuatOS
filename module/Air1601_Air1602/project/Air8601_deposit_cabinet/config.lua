@@ -130,7 +130,22 @@ config.face = {
         fps = 10,
         fit = "cover",       -- 画面适配：center/contain/cover/stretch
         rotation = 90,       -- 摄像头画面旋转（若固件支持）
+    },
+    -- 刷脸拍照留底（存件/取件发起识别前，抓取一帧预览画面保存到SD卡）
+    photo = {
+        enabled = true,          -- 是否开启拍照留底
+        sd_path = "/sd/photo",   -- 照片保存目录（SD卡；未挂载时自动回退 /ram/photo）
+        timeout = 2000,          -- 等待摄像头画面超时(ms)
     }
+}
+
+-- 主配置（main.lua 行为开关）
+config.main = {
+    -- 开机预下载小程序码：默认关闭！
+    -- QR 图片为 HTTPS 大帧连续下载，会打爆 UART3(airlink→6205) RX FIFO（uart3 err 连发、帧错位），
+    -- 导致 airlink 链路损坏、DNS/HTTP 全部失败，只能重启恢复（固件层溢出，脚本无法根治）。
+    -- 副本一直没出问题正是因为它开机不下载 QR。QR 已在 flash 时可安全开启（会直接跳过）。
+    qr_predownload = false,
 }
 
 -- 函数：获取配置值

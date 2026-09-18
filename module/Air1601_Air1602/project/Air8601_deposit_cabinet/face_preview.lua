@@ -1,13 +1,14 @@
 --[[
 @module  face_preview
 @summary 刷脸界面摄像头预览模块（AirCAMERA_1034 UVC → airui.camera 组件）
-@version 3.1
-@date    2026.08.21
+@version 3.2
+@date    2026.09.18
 @author  王城钧
 @usage
 摄像头数据流随刷脸窗口开关：
 - 进刷脸窗口：start() 启动预览（excamera.open+preview，内部 usb.mode 重新枚举）
 - 关窗：stop() 停止预览（仅 excamera.close()，不断电 USB，保证 UART2 人脸识别正常）
+- 拍照留底：capture() 在预览推流中抓取下一帧 JPEG（须在 stop() 之前调用，任务内使用）
 
 注意：
 1. 数据流不能常驻：常驻会让 luat_camera 任务事件队列爆满，CPU 被占满导致红外人脸识别处理不过来。
@@ -24,6 +25,7 @@ local widget = nil          -- airui.camera 显示组件
 local active = false        -- 预览是否激活
 local gen = 0               -- 代数，防旧回调误用
 local closing = false       -- 关闭进行中标记
+local capture_pending = false -- 拍照请求标记（下一帧到达时抓取）
 
 -- 启动预览（进刷脸窗口时调用）
 -- @param mode 窗口模式："deposit"/"receive"，取件时强制重启模组触发 USB 重枚举
@@ -106,6 +108,18 @@ function M.start(parent, x, y, w, h, mode)
                     widget:register()
                     widget:start()
                 end
+            elseif event == "frame" then
+                -- 拍照留底：按需抓取当前帧（UVC 推流为 MJPEG，单帧即完整 JPEG，可直接存文件）
+                --   仅在 capture_pending 置位时才做 toStr 拷贝，平时零开销，
+                --   不增加 luat_camera 任务负载，不影响 UART2 人脸识别。
+                local buff, len = ...
+                if capture_pending and buff and len and len > 0 then
+                    capture_pending = false
+                    local ok, data = pcall(buff.toStr, buff, 0, len)
+                    if ok and data and #data > 0 then
+                        sys.publish("FACE_PREVIEW_FRAME", data)
+                    end
+                end
             elseif event == "disconnected" then
                 log.warn("face_preview", "摄像头已断开")
                 if widget and not widget:is_destroyed() then
@@ -138,6 +152,39 @@ function M.start(parent, x, y, w, h, mode)
         end)
     end)
     return true
+end
+
+-- 拍照：抓取下一帧 JPEG 画面（预览推流中调用，stop() 之前有效；必须在任务/协程内使用）
+--   内部含 sys.waitUntil，不能在定时器回调等非协程上下文调用。
+-- @param timeout 等待画面超时(ms)，默认2000
+-- @return ok, data  成功返回 true 和 JPEG 字符串；失败返回 false 和原因
+function M.capture(timeout)
+    if not active then
+        return false, "预览未启动"
+    end
+    if capture_pending then
+        return false, "上次拍照尚未完成"
+    end
+    -- 防御：timeout 必须是正数，否则 sys.waitUntil 内 timer_start 会抛错，
+    -- 并把 FACE_PREVIEW_FRAME 订阅泄漏到本协程（协程结束后 publish 会崩溃）
+    if type(timeout) ~= "number" or timeout <= 0 then timeout = 2000 end
+    capture_pending = true
+    local ok, data
+    local pok, perr = pcall(function()
+        ok, data = sys.waitUntil("FACE_PREVIEW_FRAME", timeout)
+    end)
+    if not pok then
+        capture_pending = false  -- 关键：异常时必须复位，否则下次帧到达会误 publish 到死协程
+        return false, tostring(perr)
+    end
+    if not ok then
+        capture_pending = false
+        return false, "等待摄像头画面超时"
+    end
+    if type(data) ~= "string" or #data == 0 then
+        return false, "画面数据为空"
+    end
+    return true, data
 end
 
 -- 停止预览（关窗时调用；只停流，不断电USB —— 模组是USB供电，断电会杀掉UART2人脸识别）

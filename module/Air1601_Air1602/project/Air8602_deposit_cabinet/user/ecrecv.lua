@@ -313,12 +313,12 @@ local function create_ui()
     update_screen_size()
     local density = _G.density_scale or 1
 
-    -- 主容器
+    -- 主容器 - 深蓝背景（与首页 ecabinet 一致）
     main_container = airui.container({
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF8F9FA
+        color = 0x08193A
     })
 
     -- 键盘
@@ -380,7 +380,7 @@ local function create_ui()
         y = header_h + math.floor(20 * density),
         w = screen_w - math.floor(40 * density),
         h = screen_h - header_h - math.floor(100 * density),
-        color = 0xFFFFFF,
+        color = 0x0E3B5C,
         radius = math.floor(12 * density),
     })
 
@@ -393,7 +393,7 @@ local function create_ui()
         w = screen_w - math.floor(80 * density),
         h = math.floor(25 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -426,7 +426,7 @@ local function create_ui()
         w = screen_w - math.floor(80 * density),
         h = math.floor(25 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         align = airui.TEXT_ALIGN_CENTER,
         font_weight = 600,
     })
@@ -452,7 +452,7 @@ local function create_ui()
         w = screen_w,
         h = math.floor(20 * density),
         font_size = math.floor(13 * density),
-        color = 0x999999,
+        color = 0x9EB3CC,
         align = airui.TEXT_ALIGN_CENTER,
         font_weight = 400,
     })

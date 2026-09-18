@@ -1,14 +1,21 @@
 --[[
 @module  ecface
 @summary 刷脸存件/取件界面模块
-@version 1.0
-@date    2026.08.14
+@version 1.1 (同步参考版深蓝风格 UI，逻辑不变)
+@date    2026.09.18
 @author  王城钧
 @usage
 刷脸存件（人脸注册）：订阅 OPEN_FACE_DEPOSIT_WIN
 刷脸取件（人脸验证）：订阅 OPEN_FACE_RECEIVE_WIN
 人脸状态提示：订阅 FACE_STATE_UPDATE
 ]]
+
+local config = require "config"
+
+-- 预览时长（ms）：显示摄像头画面多久后自动停止预览并发起人脸注册/验证
+-- 可在 config.face.preview.capture_delay 调整（默认 3000，与原固定 3 秒一致）
+local preview_delay = config.get("face.preview.capture_delay", 3000)
+local preview_sec = math.floor(preview_delay / 1000)
 
 local win_id = nil
 local main_container = nil
@@ -71,7 +78,7 @@ local function show_result_dialog(success, title_text, content_text)
         y = math.floor((screen_h - math.floor(240 * density)) / 2),
         w = math.floor(340 * density),
         h = math.floor(240 * density),
-        color = 0xFFFFFF,
+        color = 0x0F2547,
         radius = math.floor(10 * density)
     })
 
@@ -95,7 +102,7 @@ local function show_result_dialog(success, title_text, content_text)
         h = math.floor(100 * density),
         text = content_text or "",
         font_size = math.floor(14 * density),
-        color = 0x666666,
+        color = 0xB8C6D9,
         align = airui.TEXT_ALIGN_CENTER,
     })
 
@@ -133,7 +140,7 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF8F9FA
+        color = 0x0A1E3A
     })
 
     -- 顶部导航栏
@@ -183,15 +190,15 @@ local function create_ui()
         w = screen_w,
         h = math.floor(32 * density),
         font_size = math.floor(20 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_CENTER,
         font_weight = 600,
     })
 
     -- 操作提示
-    local tip_text = "请正对摄像头，3秒后自动开始人脸录入\n录入成功后自动分配柜子"
+    local tip_text = "请正对摄像头，" .. preview_sec .. "秒后自动开始人脸录入\n录入成功后自动分配柜子"
     if current_mode ~= "deposit" then
-        tip_text = "请正对摄像头，3秒后自动开始人脸验证\n验证成功后自动开柜"
+        tip_text = "请正对摄像头，" .. preview_sec .. "秒后自动开始人脸验证\n验证成功后自动开柜"
     end
     tip_label = airui.label({
         parent = main_container,
@@ -214,9 +221,9 @@ local function create_ui()
         h = math.floor(50 * density),
         text = "取消",
         style = {
-            bg_color = 0xF0F0F0,
-            pressed_bg_color = 0xE0E0E0,
-            text_color = 0x666666,
+            bg_color = 0x0F2547,
+            pressed_bg_color = 0x1F3A60,
+            text_color = 0xFFFFFF,
             radius = math.floor(7 * density),
             font_size = math.floor(15 * density),
             font_weight = 600,
@@ -321,19 +328,53 @@ end
 --   UVC 摄像头流会占满 luat_camera 任务 CPU（"preview wait too much / no free event"），
 --   导致红外 UART2 处理不过来 → 注册/验证超时失败。必须先停摄像头释放CPU再发起识别。
 start_face_operation = function()
-    pcall(function()
-        local face_preview = require "face_preview"
-        face_preview.stop()
-    end)
     --    exfacecam.reset() 内部含 sys.waitUntil，在定时器回调(非协程)里调用会报
     --    "attempt to yield from outside a coroutine"。
+    --    拍照留底的 face_preview.capture() 同样是阻塞等待，必须在任务里调用；
+    --    因此停预览也从定时器回调移入任务：先抓帧（预览仍在推流），再停流释放CPU。
     sys.taskInit(function()
+        local face_preview = require "face_preview"
+        -- 【拍照留底】预览仍在推流时抓取一帧 JPEG（下一帧到达即返回，一般≤200ms；
+        --   停止预览后帧事件即消失，所以必须放在 stop() 之前）
+        local photo_data = nil
+        local cfg_ok, photo_cfg = pcall(function()
+            local config = require "config"
+            return config.get("face.photo", {})
+        end)
+        if cfg_ok and type(photo_cfg) == "table" and photo_cfg.enabled ~= false then
+            -- 注意：face_preview.capture 是普通函数(非方法)，不能用 pcall(fn, self, ...) 形式
+            -- 传 self 会让 timeout 收到 table → sys.waitUntil 内 timer_start 抛错 →
+            -- FACE_PREVIEW_FRAME 订阅泄漏到已死亡协程 → 下次 publish 时 "cannot resume dead coroutine" 崩溃
+            local cap_ok, cap_ret, cap_data = pcall(function()
+                return face_preview.capture(photo_cfg.timeout or 2000)
+            end)
+            if cap_ok and cap_ret then
+                photo_data = cap_data
+            else
+                log.warn("ecface", "拍照留底抓帧失败:", tostring(cap_ok and cap_data or cap_ret))
+            end
+        end
+        -- 停止摄像头预览（原逻辑：UVC 流占满 luat_camera 任务 CPU，必须先停流释放CPU）
+        pcall(function()
+            face_preview.stop()
+        end)
         -- stop() 释放数据流是异步的，若立即 MID_RESET → AirCAMERA 重启 → USB 重枚举，
         -- 残留回调/未释放 zbuff 会与之竞争 → use-after-free → 非对齐访问崩溃（死机）。
         pcall(function()
-            local face_preview = require "face_preview"
             face_preview.wait_closed()
         end)
+        -- 【拍照留底】预览已停止、CPU 已释放，此时把照片写入SD卡，不与识别抢CPU
+        if photo_data then
+            pcall(function()
+                local face_photo = require "face_photo"
+                local ok, path_or_err = face_photo.save(photo_data, current_mode)
+                if ok then
+                    log.info("ecface", "拍照留底完成", path_or_err)
+                else
+                    log.warn("ecface", "拍照留底保存失败:", tostring(path_or_err))
+                end
+            end)
+        end
         -- 复位人脸模组：预览(UVC)会把模组传感器留在UVC模式，register(录入新脸)会因
         -- 传感器切不回人脸采集模式而超时（verify不受影响）。复位后传感器回到人脸模式。
         pcall(function()
@@ -368,9 +409,10 @@ local function on_create()
             log.warn("ecface", "启动摄像头预览异常:", err_preview)
         end
     end
-    -- GPIO38 同时是 I2C1 的 SDA（触摸屏 GT911 所在总线），重新 gpio.setup(38) 会
-    -- 把 SDA 从 I2C 复用功能切回普通 GPIO 输出，导致触摸屏 i2c_failed 无应答/传输超时、无法触摸。
-    -- 背光已在 hardware.init_screen 中上电时设置，之后由 I2C 上拉维持，无需重复设置。
+    -- GPIO38 同时是 I2C1 的 SDA（触摸屏 GT911 所在总线），重新 gpio.setup(38) 会把
+    -- SDA 从 I2C 复用功能切回普通 GPIO 输出，导致触摸屏 i2c_failed 无应答/传输超时、无法触摸。
+    -- 背光真身是 PIN43/GPIO13，由 lcd_hx8282_10in.lua 的 pins.setup(43,"GPIO13") +
+    -- hardware.power_on 的 { pin = 43, level = 1 } 负责，无需在这里重复设置。
     -- 打开窗口后发布人脸请求（先检查初始化状态，避免时序竞态：初始化未完成时点击会报"未初始化"）
     local face_manager = require "face_manager"
     -- 防御性保护：get_status 异常时不至于让窗口创建回调崩溃导致黑屏退回主界面
@@ -383,7 +425,7 @@ local function on_create()
             status_label:set_text("正在初始化人脸模块...")
         end
         if tip_label then
-            tip_label:set_text("人脸识别摄像头初始化中，请稍候（约3秒）")
+            tip_label:set_text("人脸识别摄像头初始化中，请稍候（约" .. preview_sec .. "秒）")
         end
         pending_mode = current_mode
         -- 超时保护：10 秒内未收到初始化结果则提示失败，避免窗口卡死
@@ -401,9 +443,9 @@ local function on_create()
         end, 10000)
         return
     end
-    -- 先显示预览约3秒（用户看到自己、对准摄像头），再停止摄像头释放CPU，然后发起人脸注册/验证
-    --    故预览3秒后自动触发
-    sys.timerStart(start_face_operation, 3000)
+    -- 先显示预览 preview_sec 秒（用户看到自己、对准摄像头，期间自动抓拍留底），
+    --    再停止摄像头释放CPU，然后发起人脸注册/验证；故预览 preview_delay 后自动触发
+    sys.timerStart(start_face_operation, preview_delay)
 end
 
 -- 窗口销毁回调
@@ -531,11 +573,11 @@ sys.subscribe("FACE_INIT_RESULT", function(data)
     if pending_mode then
         local mode = pending_mode
         pending_mode = nil
-        -- 初始化完成：预览已常驻，3 秒后自动停止预览并发起人脸注册/验证
+        -- 初始化完成：预览已常驻，preview_sec 秒后自动停止预览并发起人脸注册/验证
         update_ui("请正对摄像头", (mode == "deposit")
-            and "请正对摄像头，3秒后自动开始人脸录入\n录入成功后自动分配柜子"
-            or "请正对摄像头，3秒后自动开始人脸验证\n验证成功后自动开柜")
-        sys.timerStart(start_face_operation, 3000)
+            and ("请正对摄像头，" .. preview_sec .. "秒后自动开始人脸录入\n录入成功后自动分配柜子")
+            or ("请正对摄像头，" .. preview_sec .. "秒后自动开始人脸验证\n验证成功后自动开柜"))
+        sys.timerStart(start_face_operation, preview_delay)
     end
 end)
 

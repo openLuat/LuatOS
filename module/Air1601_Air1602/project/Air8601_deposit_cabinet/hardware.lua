@@ -33,7 +33,7 @@ local function power_on()
         { pin = 42, level = 1, delay = 50 },
         { pin = 65, level = 0, delay = 100 },
         { pin = 65, level = 1, delay = 1000 },
-        { pin = 43, level = 1 },
+        { pin = 43, level = 1 }, -- ★ 背光驱动脚（PIN43，需先在 lcd_hx8282_10in 里 pins.setup(43,"GPIO13") 复用才会生效）
         { pin = 52, level = 1 },
         { pin = 56, level = 1 },
         -- { pin = 57, level = 1 },
@@ -85,7 +85,9 @@ local function init_screen()
     airui.font_load({ type = "hzfont", size = 20, cache_size = 1024, antialias = 1 })
     airui.set_rotation(0)
 
-    -- 背光 GPIO38 拉高（Air8601 硬件背光引脚为 GPIO38，勿用 GPIO13）
+    -- 这里的 GPIO38 不是背光！Air8601 的真实背光脚是 PIN43/GPIO13（见 lcd_hx8282_10in.lua 的
+    -- pins.setup(43,"GPIO13") + power_on 里的 { pin = 43, level = 1 }）。
+    -- GPIO38 是 I2C1 的 SDA，本句在 i2c.setup 之前执行所以暂时无害，但已无实际作用。
     gpio.setup(38, 0)
     gpio.set(38, 1)
     log.info("hardware", "背光已开启")

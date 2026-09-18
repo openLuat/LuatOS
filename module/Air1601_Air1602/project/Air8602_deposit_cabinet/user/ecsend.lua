@@ -160,11 +160,11 @@ end
 local function create_ui()
     update_screen_size()
 
-    -- 主容器 - 蓝白风格背景
+    -- 主容器 - 深蓝风格背景（与首页 ecabinet 一致）
     main_container = airui.container({
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF8F9FA,
+        color = 0x08193A,
         parent = airui.screen
     })
 
@@ -228,7 +228,7 @@ local function create_ui()
         y = qr_y,
         w = qr_w,
         h = qr_h,
-        color = 0xFFFFFF,
+        color = 0x0E3B5C,
         radius = math.floor(12 * density),
         shadow = {
             offset_x = math.floor(2 * density),
@@ -259,7 +259,7 @@ local function create_ui()
         w = qr_w,
         h = math.floor(25 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         align = airui.TEXT_ALIGN_CENTER,
         font_weight = 700,
     })
@@ -294,7 +294,7 @@ local function create_ui()
         w = qr_w,
         h = math.floor(20 * density),
         font_size = math.floor(15 * density),
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         align = airui.TEXT_ALIGN_CENTER,
         font_weight = 600,
     })
@@ -307,7 +307,7 @@ local function create_ui()
         w = qr_w,
         h = math.floor(18 * density),
         font_size = math.floor(12 * density),
-        color = 0x999999,
+        color = 0x9EB3CC,
         align = airui.TEXT_ALIGN_CENTER,
         font_weight = 400,
     })
@@ -319,7 +319,7 @@ local function create_ui()
         y = qr_y,
         w = math.floor(screen_w * 0.47),
         h = qr_h,
-        color = 0xFFFFFF,
+        color = 0x0E3B5C,
         radius = math.floor(12 * density),
         shadow = {
             offset_x = math.floor(2 * density),
@@ -350,7 +350,7 @@ local function create_ui()
         w = math.floor(screen_w * 0.43),
         h = math.floor(25 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 700,
     })
@@ -403,7 +403,7 @@ local function create_ui()
             w = math.floor(screen_w * 0.4),
             h = math.floor(20 * density),
             font_size = math.floor(13 * density),
-            color = 0x333333,
+            color = 0xFFFFFF,
             align = airui.TEXT_ALIGN_LEFT,
             font_weight = 500,
         })
@@ -418,7 +418,7 @@ local function create_ui()
         w = screen_w,
         h = math.floor(25 * density),
         font_size = math.floor(12 * density),
-        color = 0x999999,
+        color = 0x9EB3CC,
         align = airui.TEXT_ALIGN_CENTER,
         font_weight = 400,
     })

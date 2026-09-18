@@ -3,7 +3,6 @@
 @summary 管理员人脸管理界面
 @version 1.0
 @date    2026.08.14
-@author  王城钧
 @usage
 管理员通过"管理中心 → 人脸管理"进入本页面，支持：
 - 录入人脸（输入用户名称后刷脸注册）
@@ -53,7 +52,7 @@ local function show_result_dialog(success, title_text, content_text)
         y = math.floor((screen_h - math.floor(220 * density)) / 2),
         w = math.floor(340 * density),
         h = math.floor(220 * density),
-        color = 0xFFFFFF,
+        color = 0x0F2547,
         radius = math.floor(10 * density)
     })
 
@@ -77,7 +76,7 @@ local function show_result_dialog(success, title_text, content_text)
         h = math.floor(80 * density),
         text = content_text or "",
         font_size = math.floor(14 * density),
-        color = 0x666666,
+        color = 0xB8C6D9,
         align = airui.TEXT_ALIGN_CENTER,
     })
 
@@ -127,7 +126,7 @@ local function rebuild_list(users)
         y = list_y,
         w = screen_w - math.floor(30 * density),
         h = list_h,
-        color = 0xFFFFFF,
+        color = 0x0F2547,
         radius = math.floor(8 * density),
         scroll = true,
     })
@@ -153,7 +152,7 @@ local function rebuild_list(users)
         x = math.floor(10 * density), y = math.floor(10 * density),
         w = math.floor(100 * density), h = math.floor(25 * density),
         font_size = math.floor(13 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -163,7 +162,7 @@ local function rebuild_list(users)
         x = math.floor(120 * density), y = math.floor(10 * density),
         w = math.floor(160 * density), h = math.floor(25 * density),
         font_size = math.floor(13 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -173,7 +172,7 @@ local function rebuild_list(users)
         x = math.floor(290 * density), y = math.floor(10 * density),
         w = math.floor(100 * density), h = math.floor(25 * density),
         font_size = math.floor(13 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -190,7 +189,7 @@ local function rebuild_list(users)
             y = row_y,
             w = screen_w - math.floor(40 * density),
             h = row_h - math.floor(4 * density),
-            color = (i % 2 == 0) and 0xF8F9FA or 0xFFFFFF,
+            color = (i % 2 == 0) and 0x0A2240 or 0x0F2547,
             radius = math.floor(4 * density),
         })
 
@@ -200,7 +199,7 @@ local function rebuild_list(users)
             x = math.floor(10 * density), y = row_y + math.floor(5 * density),
             w = math.floor(100 * density), h = math.floor(25 * density),
             font_size = math.floor(13 * density),
-            color = 0x333333,
+            color = 0xEAF2FF,
             align = airui.TEXT_ALIGN_LEFT,
         })
         airui.label({
@@ -209,7 +208,7 @@ local function rebuild_list(users)
             x = math.floor(120 * density), y = row_y + math.floor(5 * density),
             w = math.floor(160 * density), h = math.floor(25 * density),
             font_size = math.floor(13 * density),
-            color = 0x333333,
+            color = 0xEAF2FF,
             align = airui.TEXT_ALIGN_LEFT,
         })
         airui.label({
@@ -257,7 +256,7 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF8F9FA
+        color = 0x0A1E3A
     })
 
     -- 键盘
@@ -289,9 +288,9 @@ local function create_ui()
         h = math.floor(35 * density),
         text = "返回",
         style = {
-            bg_color = 0xFFFFFF,
-            pressed_bg_color = 0xEFEFEF,
-            text_color = 0x4A90E2,
+            bg_color = 0x0F2547,
+            pressed_bg_color = 0x1F3A60,
+            text_color = 0xFFFFFF,
             radius = math.floor(7 * density),
             font_size = math.floor(15 * density),
             font_weight = 500,
@@ -323,7 +322,7 @@ local function create_ui()
         w = math.floor(100 * density),
         h = math.floor(25 * density),
         font_size = math.floor(14 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -336,12 +335,12 @@ local function create_ui()
         h = math.floor(40 * density),
         placeholder = "请输入用户名称（如：张三）",
         style = {
-            bg_color = 0xFFFFFF,
-            border_color = 0xDDDDDD,
+            bg_color = 0x0A2240,
+            border_color = 0x1F3A60,
             border_width = 1,
             radius = math.floor(5 * density),
             font_size = math.floor(15 * density),
-            text_color = 0x000000,
+            text_color = 0xFFFFFF,
         },
         keyboard = keyboard,
     })
@@ -405,7 +404,7 @@ local function create_ui()
         w = math.floor(200 * density),
         h = math.floor(25 * density),
         font_size = math.floor(14 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -413,6 +412,7 @@ end
 
 -- 处理注册结果
 local function on_register_result(data)
+    -- ⚠️ 仅当人脸管理窗口为活动窗口时才处理！
     -- 否则刷脸存件/取件等场景触发人脸注册时，本模块会误弹窗/误刷新列表，干扰其他界面。
     if not exwin.is_active(win_id) then return end
     if data.success then
@@ -455,6 +455,7 @@ local function on_create()
         log.error("ecface_manage", "创建界面失败:", err)
         return
     end
+    -- ⚠️ 禁止在此重新操作 GPIO38（背光）！
     -- GPIO38 同时是 I2C1 的 SDA（触摸屏 GT911 所在总线），重新 gpio.setup(38) 会把
     -- SDA 从 I2C 复用功能切回普通 GPIO 输出，导致触摸屏 i2c_failed 无应答/传输超时、无法触摸。
     -- 背光已在 hardware.init_screen 中上电时设置，之后由 I2C 上拉维持，无需重复设置。

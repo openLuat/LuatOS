@@ -34,7 +34,7 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF8F9FA,
+        color = 0x08193A,
     })
 
     -- 顶部导航栏
@@ -43,7 +43,7 @@ local function create_ui()
         parent = main_container,
         x = 0, y = 0,
         w = screen_w, h = header_h,
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         radius = 0,
     })
 
@@ -90,7 +90,7 @@ local function create_ui()
         y = header_h + content_margin,
         w = column_w,
         h = column_h,
-        color = 0xFFFFFF,
+        color = 0x0E3B5C,
         radius = math.floor(8 * density),
         shadow = {
             offset_x = math.floor(2 * density),
@@ -108,7 +108,7 @@ local function create_ui()
         y = header_h + content_margin,
         w = column_w,
         h = column_h,
-        color = 0xFFFFFF,
+        color = 0x0E3B5C,
         radius = math.floor(8 * density),
         shadow = {
             offset_x = math.floor(2 * density),
@@ -127,7 +127,7 @@ local function create_ui()
         y = header_h + content_margin + column_h + content_margin,
         w = screen_w - math.floor(30 * density),
         h = bottom_h,
-        color = 0xFFFFFF,
+        color = 0x0E3B5C,
         radius = math.floor(8 * density),
         shadow = {
             offset_x = math.floor(2 * density),
@@ -147,7 +147,7 @@ local function create_ui()
         w = column_w - math.floor(30 * density),
         h = math.floor(24 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -172,7 +172,7 @@ local function create_ui()
             w = column_w - math.floor(30 * density),
             h = math.floor(16 * density),
             font_size = math.floor(12 * density),
-            color = 0x4A90E2,
+            color = 0x6FB5F5,
             align = airui.TEXT_ALIGN_LEFT,
             font_weight = 600,
         })
@@ -185,7 +185,7 @@ local function create_ui()
             w = column_w - math.floor(30 * density),
             h = math.floor(18 * density),
             font_size = math.floor(10 * density),
-            color = 0x999999,
+            color = 0x9EB3CC,
             align = airui.TEXT_ALIGN_LEFT,
         })
     end
@@ -199,7 +199,7 @@ local function create_ui()
         w = column_w - math.floor(30 * density),
         h = math.floor(24 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -222,7 +222,7 @@ local function create_ui()
             w = column_w - math.floor(30 * density),
             h = math.floor(16 * density),
             font_size = math.floor(12 * density),
-            color = 0x4A90E2,
+            color = 0x6FB5F5,
             align = airui.TEXT_ALIGN_LEFT,
             font_weight = 600,
         })
@@ -235,7 +235,7 @@ local function create_ui()
             w = column_w - math.floor(30 * density),
             h = math.floor(18 * density),
             font_size = math.floor(10 * density),
-            color = 0x999999,
+            color = 0x9EB3CC,
             align = airui.TEXT_ALIGN_LEFT,
         })
     end
@@ -250,7 +250,7 @@ local function create_ui()
         w = math.floor(100 * density),
         h = math.floor(22 * density),
         font_size = math.floor(14 * density),
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -274,7 +274,7 @@ local function create_ui()
             w = math.floor((screen_w - math.floor(30 * density)) / 2) - math.floor(100 * density),
             h = math.floor(16 * density),
             font_size = math.floor(10 * density),
-            color = 0x999999,
+            color = 0x9EB3CC,
             align = airui.TEXT_ALIGN_LEFT,
         })
     end
@@ -289,7 +289,7 @@ local function create_ui()
         w = math.floor(100 * density),
         h = math.floor(24 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -302,7 +302,7 @@ local function create_ui()
         w = math.floor(160 * density),
         h = math.floor(22 * density),
         font_size = math.floor(12 * density),
-        color = 0x999999,
+        color = 0x9EB3CC,
         align = airui.TEXT_ALIGN_LEFT,
     })
 
@@ -314,7 +314,7 @@ local function create_ui()
         w = math.floor(160 * density),
         h = math.floor(22 * density),
         font_size = math.floor(12 * density),
-        color = 0x999999,
+        color = 0x9EB3CC,
         align = airui.TEXT_ALIGN_LEFT,
     })
 
@@ -326,7 +326,7 @@ local function create_ui()
         w = math.floor(160 * density),
         h = math.floor(22 * density),
         font_size = math.floor(12 * density),
-        color = 0x999999,
+        color = 0x9EB3CC,
         align = airui.TEXT_ALIGN_LEFT,
     })
 

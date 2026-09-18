@@ -3,9 +3,6 @@
 @summary 寄存柜帮助窗口模块
 @version 1.1 (蓝白风格)
 @date    2026.05.11
-@author  王城钧
-@usage
-寄存柜帮助窗口：使用说明与帮助信息。订阅 OPEN_EXPRESS_HELP_WIN 打开
 ]]
 
 local win_id = nil
@@ -29,7 +26,7 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF8F9FA,
+        color = 0x0A1E3A,
     })
 
     -- 顶部导航栏
@@ -51,8 +48,8 @@ local function create_ui()
         h = math.floor(35 * density),
         text = "返回",
         style = {
-            bg_color = 0xFFFFFF, pressed_bg_color = 0xEFEFEF,
-            text_color = 0x4A90E2, radius = math.floor(7 * density),
+            bg_color = 0x0F2547, pressed_bg_color = 0x1F3A60,
+            text_color = 0xFFFFFF, radius = math.floor(7 * density),
             font_size = math.floor(15 * density), font_weight = 500,
             border_width = 0,
         },
@@ -87,7 +84,7 @@ local function create_ui()
         y = header_h + content_margin,
         w = column_w,
         h = column_h,
-        color = 0xFFFFFF,
+        color = 0x0F2547,
         radius = math.floor(8 * density),
         shadow = {
             offset_x = math.floor(2 * density),
@@ -105,7 +102,7 @@ local function create_ui()
         y = header_h + content_margin,
         w = column_w,
         h = column_h,
-        color = 0xFFFFFF,
+        color = 0x0F2547,
         radius = math.floor(8 * density),
         shadow = {
             offset_x = math.floor(2 * density),
@@ -124,7 +121,7 @@ local function create_ui()
         y = header_h + content_margin + column_h + content_margin,
         w = screen_w - math.floor(30 * density),
         h = bottom_h,
-        color = 0xFFFFFF,
+        color = 0x0F2547,
         radius = math.floor(8 * density),
         shadow = {
             offset_x = math.floor(2 * density),
@@ -144,7 +141,7 @@ local function create_ui()
         w = column_w - math.floor(30 * density),
         h = math.floor(24 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -182,9 +179,9 @@ local function create_ui()
             w = column_w - math.floor(30 * density),
             h = math.floor(18 * density),
             font_size = math.floor(10 * density),
-            color = 0x999999,
-            align = airui.TEXT_ALIGN_LEFT,
-        })
+            color = 0xB8C6D9,
+                    align = airui.TEXT_ALIGN_LEFT,
+                    })
     end
 
     -- 右侧：取件流程
@@ -196,7 +193,7 @@ local function create_ui()
         w = column_w - math.floor(30 * density),
         h = math.floor(24 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -232,9 +229,9 @@ local function create_ui()
             w = column_w - math.floor(30 * density),
             h = math.floor(18 * density),
             font_size = math.floor(10 * density),
-            color = 0x999999,
-            align = airui.TEXT_ALIGN_LEFT,
-        })
+            color = 0xB8C6D9,
+                    align = airui.TEXT_ALIGN_LEFT,
+                    })
     end
 
     -- 下方：注意事项（左侧）
@@ -247,7 +244,7 @@ local function create_ui()
         w = math.floor(100 * density),
         h = math.floor(22 * density),
         font_size = math.floor(14 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -271,9 +268,9 @@ local function create_ui()
             w = math.floor((screen_w - math.floor(30 * density)) / 2) - math.floor(100 * density),
             h = math.floor(16 * density),
             font_size = math.floor(10 * density),
-            color = 0x999999,
-            align = airui.TEXT_ALIGN_LEFT,
-        })
+            color = 0xB8C6D9,
+                    align = airui.TEXT_ALIGN_LEFT,
+                    })
     end
 
     -- 下方：客服信息（右侧，与取件流程对齐）
@@ -286,7 +283,7 @@ local function create_ui()
         w = math.floor(100 * density),
         h = math.floor(24 * density),
         font_size = math.floor(16 * density),
-        color = 0x4A90E2,
+        color = 0x3FA9F5,
         align = airui.TEXT_ALIGN_LEFT,
         font_weight = 600,
     })
@@ -335,8 +332,8 @@ local function create_ui()
         y = bottom_h - qr_size - math.floor(15 * density),
         size = qr_size,
         data = "https://docs.openluat.com/",
-        dark_color = 0x000000,
-        light_color = 0xFFFFFF,
+        dark_color = 0xFFFFFF,
+        light_color = 0x0F2547,
         quiet_zone = true,
     })
 end

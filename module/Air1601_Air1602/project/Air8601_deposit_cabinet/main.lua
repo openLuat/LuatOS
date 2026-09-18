@@ -48,7 +48,9 @@ require "ecbusiness"
 -- AirCloud 模块
 require "aircloud"
 
--- 网络模块（WiFi）
+-- 加载网络模块（require 即自动初始化，无需手动 init）
+-- 用 4G：require "network_4g"
+-- 用 WiFi：require "netdrv_wifi.lua"
 require "netdrv_wifi"
 
 -- 485 锁控模块
@@ -112,28 +114,50 @@ local function system_init()
     sys.publish("OPEN_EXPRESS_CABINET_WIN")
     sys.publish("READ_BOX_STATUS")
 
-    -- 预下载小程序码：网络就绪后后台下载一次，存件窗口打开时直接显示真实码（避免每次现下等待）
+    -- 挂载 TF/SD 卡（SD_EN=GPIO65，SD 卡走 SPI1/CS=GPIO8；失败自动回退 /ram）
+    -- 刷脸预览期间要抓拍存卡，这里开机就挂好，避免进刷脸窗口时才挂载拖慢预览
     sys.taskInit(function()
-        -- 等待网络就绪（最多等待 30 秒）
-        for i = 1, 30 do
-            if socket.adapter(socket.dft()) then break end
-            sys.wait(1000)
-        end
-        if not socket.adapter(socket.dft()) then
-            log.warn("main", "网络未就绪，跳过小程序码预下载")
-            return
-        end
-        pcall(function()
-            local server_api = require "server_api"
-            local qr_path = "/qr_code_v288.jpeg"
-            if io.exists(qr_path) then
-                log.info("main", "小程序码文件已存在，跳过预下载")
+        local sd_card = require "sd_card"
+        sd_card.init()
+    end)
+
+    -- 预下载小程序码（默认关闭，与副本行为一致）
+    -- 【重要】实测（trace_2026-09-18_211735）：QR 图片为 HTTPS 大帧连续下载，即使错峰 15 秒
+    --   避开所有开机联网任务后执行，仍会打爆 UART3(airlink→6205) RX FIFO：
+    --   uart3 err 连发 + "airlink 数据长度错误/fail=70" 帧错位 → airlink 链路损坏，
+    --   DNS 全部无应答、HTTP 报 -8/-4，只能重启恢复。这是固件层 UART3 溢出问题，脚本无法根治。
+    --   QR 文件已存在或已在 flash 时可安全开启（直接跳过下载）；开启方式见 config.lua main.qr_predownload。
+    --   存件窗口打开时 ecsend 还有按需下载兜底逻辑（副本同款）。
+    if config.get("main.qr_predownload", false) then
+        sys.taskInit(function()
+            -- 等待网络就绪（最多等待 30 秒）
+            for i = 1, 30 do
+                if socket.adapter(socket.dft()) then break end
+                sys.wait(1000)
+            end
+            if not socket.adapter(socket.dft()) then
+                log.warn("main", "网络未就绪，跳过小程序码预下载")
                 return
             end
-            log.info("main", "开始预下载小程序码")
-            server_api.generate_wechat_qr_code()
+            -- 错峰等待：让开机联网任务（excloud getip / fota / sntp）先完成
+            sys.wait(15000)
+            -- 若期间网络又断了，则放弃本轮（存件窗口打开时还有兜底下载逻辑）
+            if not socket.adapter(socket.dft()) then
+                log.warn("main", "网络已断开，跳过小程序码预下载")
+                return
+            end
+            pcall(function()
+                local server_api = require "server_api"
+                local qr_path = "/qr_code_v288.jpeg"
+                if io.exists(qr_path) then
+                    log.info("main", "小程序码文件已存在，跳过预下载")
+                    return
+                end
+                log.info("main", "开始预下载小程序码")
+                server_api.generate_wechat_qr_code()
+            end)
         end)
-    end)
+    end
 
     log.info("main", "系统初始化完成")
 end

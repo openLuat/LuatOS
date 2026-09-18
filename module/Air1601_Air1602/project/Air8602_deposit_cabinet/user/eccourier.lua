@@ -96,7 +96,7 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF8F9FA
+        color = 0x08193A
     })
 
     -- 键盘
@@ -161,7 +161,7 @@ local function create_ui()
         parent = main_container,
         x = 0, y = header_h,
         w = screen_w, h = screen_h - header_h - math.floor(80 * density),
-        color = 0xF8F9FA,
+        color = 0x08193A,
         scroll = false
     })
 
@@ -170,7 +170,7 @@ local function create_ui()
         parent = content,
         x = margin, y = math.floor(20 * density),
         w = screen_w - 2 * margin, h = math.floor(200 * density),
-        color = 0xFFFFFF,
+        color = 0x0E3B5C,
         radius = math.floor(10 * density),
     })
 
@@ -180,7 +180,7 @@ local function create_ui()
         x = math.floor(15 * density), y = math.floor(20 * density),
         w = screen_w - 2 * margin - math.floor(30 * density), h = math.floor(30 * density),
         text = "管理员密码",
-        color = 0x4A90E2,
+        color = 0x6FB5F5,
         font_size = math.floor(14 * density),
         font_weight = 600,
         align = airui.TEXT_ALIGN_LEFT

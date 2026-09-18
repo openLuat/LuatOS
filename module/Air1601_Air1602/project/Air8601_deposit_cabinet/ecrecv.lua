@@ -3,9 +3,6 @@
 @summary 寄存柜取件窗口模块
 @version 8.7 (添加串口开柜功能)
 @date    2026.10.16
-@author  王城钧
-@usage
-寄存柜取件窗口：输入取件码取件，支持串口开柜。订阅 OPEN_EXPRESS_RECEIVE_WIN 打开
 ]]
 
 local win_id = nil
@@ -31,7 +28,7 @@ local function create_door_open_dialog()
         y = math.floor((screen_h - 200) / 2),
         w = 300,
         h = 200,
-        color = 0xFFFFFF,
+        color = 0x0F2547,
         radius = 10,
     })
 
@@ -55,7 +52,7 @@ local function create_door_open_dialog()
         h = 40,
         text = "请及时取走您的物品",
         font_size = 14,
-        color = 0x666666,
+        color = 0xB8C6D9,
         align = airui.TEXT_ALIGN_CENTER
     })
 
@@ -144,7 +141,7 @@ local function show_result_dialog(box_number, success, error_msg)
         y = math.floor((screen_h - math.floor(200 * density)) / 2),
         w = math.floor(300 * density),
         h = math.floor(200 * density),
-        color = 0xFFFFFF,
+        color = 0x0F2547,
         radius = math.floor(10 * density)
     })
     
@@ -168,7 +165,7 @@ local function show_result_dialog(box_number, success, error_msg)
             h = math.floor(40 * density),
             text = "第" .. box_number .. "号箱门已打开",
             font_size = math.floor(14 * density),
-            color = 0x666666,
+            color = 0xB8C6D9,
             align = airui.TEXT_ALIGN_CENTER
         })
     else
@@ -191,8 +188,8 @@ local function show_result_dialog(box_number, success, error_msg)
             w = math.floor(300 * density),
             h = math.floor(40 * density),
             text = error_text,
-            font_size = math.floor(14 * density),
-            color = 0x666666,
+                    font_size = math.floor(14 * density),
+                    color = 0xB8C6D9,
             align = airui.TEXT_ALIGN_CENTER
         })
     end
@@ -266,7 +263,7 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF8F9FA
+        color = 0x0A1E3A
     })
 
     -- 键盘
@@ -289,7 +286,7 @@ local function create_ui()
         color = 0x4A90E2,
     })
     
-    -- 返回按钮
+    -- 返回按钮（深色背景下反色）
     airui.button({
         parent = header,
         x = math.floor(15 * density),
@@ -298,16 +295,16 @@ local function create_ui()
         h = math.floor(35 * density),
         text = "返回",
         style = {
-            bg_color = 0xFFFFFF, 
-            pressed_bg_color = 0xEFEFEF,
-            text_color = 0x4A90E2, 
+            bg_color = 0x0F2547,
+            pressed_bg_color = 0x1F3A60,
+            text_color = 0xFFFFFF,
             radius = math.floor(7 * density),
-            font_size = math.floor(15 * density), 
+            font_size = math.floor(15 * density),
             font_weight = 500,
             border_width = 0,
         },
-        on_click = function() 
-            exwin.close(win_id) 
+        on_click = function()
+            exwin.close(win_id)
         end
     })
 
@@ -326,11 +323,11 @@ local function create_ui()
     -- 内容区域背景
     local content_bg = airui.container({
         parent = main_container,
-        x = math.floor(20 * density), 
+        x = math.floor(20 * density),
         y = header_h + math.floor(20 * density),
-        w = screen_w - math.floor(40 * density), 
+        w = screen_w - math.floor(40 * density),
         h = screen_h - header_h - math.floor(100 * density),
-        color = 0xFFFFFF,
+        color = 0x0F2547,
         radius = math.floor(12 * density),
     })
 
@@ -357,12 +354,12 @@ local function create_ui()
         h = math.floor(50 * density),
         placeholder = "请输入6位取件码",
         style = {
-            bg_color = 0xF5F7FA,
-            border_color = 0xE0E0E0,
+            bg_color = 0x0A2240,
+            border_color = 0x1F3A60,
             border_width = 1,
             radius = math.floor(8 * density),
             font_size = math.floor(16 * density),
-            text_color = 0x333333,
+            text_color = 0xFFFFFF,
         },
         keyboard = keyboard,
     })
@@ -388,8 +385,8 @@ local function create_ui()
         y = header_h + math.floor(170 * density),
         size = math.floor(150 * density),
         data = "https://docs.openluat.com/",
-        dark_color = 0x000000,
-        light_color = 0xFFFFFF,
+        dark_color = 0xFFFFFF,
+        light_color = 0x0A1E3A,
         quiet_zone = true,
     })
 
@@ -402,7 +399,7 @@ local function create_ui()
         w = screen_w,
         h = math.floor(20 * density),
         font_size = math.floor(13 * density),
-        color = 0x999999,
+        color = 0xB8C6D9,
         align = airui.TEXT_ALIGN_CENTER,
         font_weight = 400,
     })
@@ -458,7 +455,7 @@ local function create_ui()
         end
     })
 
-    -- 返回按钮
+    -- 返回按钮（深色背景下反色）
     airui.button({
         parent = main_container,
         x = math.floor((screen_w - math.floor(60 * density)) / 2) + math.floor(40 * density),
@@ -467,9 +464,9 @@ local function create_ui()
         h = math.floor(50 * density),
         text = "返回",
         style = {
-            bg_color = 0xF0F0F0,
-            pressed_bg_color = 0xE0E0E0,
-            text_color = 0x666666,
+            bg_color = 0x0F2547,
+            pressed_bg_color = 0x1F3A60,
+            text_color = 0xFFFFFF,
             radius = math.floor(7 * density),
             font_size = math.floor(15 * density),
             font_weight = 600,

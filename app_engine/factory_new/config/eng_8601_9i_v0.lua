@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8601_9i_v0
 @summary Air8601 引擎主机 9寸1024x600 RGB屏(HX8282) + Airlink UART WiFi(6205)/4G(780ER2)二选一 + USB摄像头 + 双RS485 + SD卡 + 喇叭 配置文件
-@version 1.0
-@date    2026.09.16
+@version 1.1
+@date    2026.09.18
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -31,6 +31,8 @@
     RS485_1 无法收发或 SD 卡无法识别，请核实原理图中 485_EN1 的实际 GPIO 编号。
 11. features.usb_camera / rs485 与 ui.show_camera_preview 目前在 app/ 与 ui/ 里查不到消费方
     （与7寸配置一致），写了不报错也不生效，此处保留仅作能力声明。
+12. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO73（AUDIOPA_EN = PIN55），
+    低电平有效。录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
 12. 本配置由7寸版本（config/eng_8601_7i_v0.lua）移植，差异：屏幕尺寸 7→9 寸、
     LCD_DE 新增 GPIO25（驱动暂不透传）、TP_RESET 改为 GPIO72、TP_INT 改为 GPIO51、
     SD_CS 改为 PIN38、新增双 RS485（UART1+UART2）。
@@ -96,6 +98,14 @@ return {
                 h = 600,                -- 触摸面板高度
             },
         },
+        -- 音频: 内置 DAC 播放 + 线路输入录音（非 ES8311 外挂芯片）
+        -- PA(功放) 使能 = GPIO73（AUDIOPA_EN = PIN55），低电平有效；DAC 延时 6ms
+        audio = {
+            model = "dac",          -- 内置 DAC 模式（Air1601 芯片自带 DAC）
+            pa_ctrl = 73,           -- PA(功放)使能引脚 = GPIO73（AUDIOPA_EN = PIN55）
+            pa_on_level = 0,        -- 低电平使能功放
+            dac_delay = 6,          -- DAC 初始化延时 6ms
+        },
     },
 
     -- ===== 功能开关（只写 = true 的项）=====
@@ -104,10 +114,10 @@ return {
         -- net_4g = true,                -- × 4G 未启用（与 WiFi 共享 UART3，默认走 WiFi）
         speaker = true,                  -- 启用喇叭（DAC PIN18 接 LM4871 功放）
         sd_card = true,                  -- 启用 SD 卡（SPI1，CS=PIN38）
-        usb_camera = true,               -- USB 摄像头（UVC）—— 见文件头第 11 条：暂无消费方
         rs485 = true,                    -- RS485 接口 —— 见文件头第 11 条：暂无消费方（UART1+UART2 双路）
-        usb_hid = true,                  -- USB 键盘鼠标（Air8601 有 USB Host 接口）
-        cloud_disk = true,               -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        app_factory = true, -- 启用"应用工厂"内置应用
+        ai_chat = true,     -- 启用"AI聊天助手"内置应用
+        cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====

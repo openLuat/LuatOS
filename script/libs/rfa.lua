@@ -2,6 +2,7 @@
 rfa: Radio Factory Agent (RF 校准 Lua 端主控)
 ================================================
 扩展 STEST/SWIFIMAC/SWIFISCAN/SWIFIVER/YHM27XX/GSENSOREXEC，命令解析及响应使用 atc。
+CGNSPWR/CGNSTST/CGNSCMD 支持 Air8000、Air780EGH/EGP/EGG 的内置 GNSS 产测。
 产线按单端口顺序收发；AirLink 查询使用现有就绪状态/缓存，扫描最多 32 条。
 参考 ec7xx-at 的 atec_am_airlink.c、atec_am_dev.c、atec_am_airlink_cnf_ind.c 和 am_gps_hdlr.c。
 ]]
@@ -23,6 +24,10 @@ local hardware_requests = {} -- 超时/关闭后仍保留，直到消费旧硬�
 local COMMAND_TIMEOUT = 5000
 -- luat_atc_define.h: AT_RESULT_NULL。结束自定义指令但不追加结果码。
 local AT_RESULT_NONE = 0xFFFF
+local GNSS_UART = 2
+local gnss_models = {Air8000 = true, Air780EGH = true, Air780EGP = true, Air780EGG = true}
+local gnss_session, gnss_owner
+local gnss_tst = 0
 M.rfCaliDone, M.rfNSTDone = 0, 0
 
 -- RFA 共用 AT 通道 0；两个串口须顺序使用，收到最终响应后再发下一条。
@@ -33,6 +38,11 @@ local function command_finish(ctx, result, text)
     -- 带参数唤醒 wait/waitUntil，清理协程自己的定时器和事件订阅。
     if ctx.task and coroutine.status(ctx.task) == "suspended" then
         sys.coresume(ctx.task, "RFA_ATC_CANCEL")
+    end
+    if ctx.cleanup then
+        local cleanup = ctx.cleanup
+        ctx.cleanup = nil
+        cleanup()
     end
     response_owner = ctx
     if not ctx.port or in_buffs[ctx.src] ~= ctx.port then
@@ -265,6 +275,139 @@ local function gsensorexec_command(ctx, kind)
     end)
 end
 
+-- pm.GPS 按型号控制主电源；Air780EGH/EGP/EGG 开启时也会拉高 GPIO23。
+-- 关闭只关主电源，保留 GNSS 备电，不影响热启动或 Air8000 的 GSensor 电源。
+local function gnss_shutdown()
+    local session = gnss_session
+    gnss_session = nil -- 先使旧接收回调失效，再释放 UART 和电源。
+    if not session then return true end
+    local success = true
+    local ok, result = pcall(uart.on, GNSS_UART, "receive", nil)
+    if not ok then
+        log.error("rfa", "GNSS receive close failed", result)
+        success = false
+    end
+    ok, result = pcall(uart.close, GNSS_UART)
+    if not ok then
+        log.error("rfa", "GNSS UART close failed", result)
+        success = false
+    end
+    if session.power_on then
+        ok, result = pcall(pm.power, pm.GPS, false)
+        if not ok or not result then
+            log.error("rfa", "GNSS power off failed", result)
+            success = false
+        end
+    end
+    return success
+end
+
+local function gnss_receive(session, forward)
+    while gnss_session == session do
+        local data = uart.read(GNSS_UART, 1024)
+        if not data or #data == 0 then return end
+        if forward and gnss_tst == 1 and gnss_owner
+            and in_buffs[gnss_owner.src] == gnss_owner.port then
+            -- 原始产测数据不经过 atc.urc，避免额外添加 CRLF。
+            uart.write(gnss_owner.src, data)
+        end
+    end
+end
+
+-- ATS 的无符号十进制参数最多十位；允许前导零，空值及符号不合法。
+local function gnss_uint(value, maximum)
+    if #value == 0 or #value > 10 or not value:match("^%d+$") then return nil end
+    local number = tonumber(value)
+    if number <= maximum then return number end
+end
+
+local function gnss_supported()
+    return hmeta and hmeta.model and gnss_models[hmeta.model()]
+end
+
+local function cgnspwr_command(ctx, kind, ...)
+    ctx.cme_suffix = "\r\n"
+    local count = select("#", ...)
+    if kind == atc.TYPE_READ and count == 0 then
+        return command_finish(ctx, atc.RES_OK, "+CGNSPWR: " .. (gnss_session and 1 or 0))
+    elseif kind == atc.TYPE_TEST and count == 0 then
+        return command_finish(ctx, atc.RES_OK, "+CGNSPWR: (0-1)")
+    elseif kind ~= atc.TYPE_WRITE or count ~= 1 then
+        return command_cme(ctx, 3)
+    end
+    local power = gnss_uint(..., 1)
+    if power == nil then return command_cme(ctx, 3) end
+    if not gnss_supported() or not pm or pm.GPS == nil or not pm.power
+        or not uart.setup or not uart.read or not uart.write or not uart.on or not uart.close then
+        return command_finish(ctx, atc.RES_ERROR)
+    end
+    -- 与参考固件一致，每次有效设置（含重复设置）更新数据输出端口。
+    gnss_owner = {src = ctx.src, port = ctx.port}
+    if power == 0 then
+        return command_finish(ctx, gnss_shutdown() and atc.RES_OK or atc.RES_ERROR)
+    elseif gnss_session then
+        return command_finish(ctx, atc.RES_OK)
+    end
+    command_async(ctx, function()
+        local session = {}
+        gnss_session = session
+        ctx.cleanup = function()
+            if gnss_session == session then gnss_shutdown() end
+        end
+        if uart.setup(GNSS_UART, 115200, 8, 1, uart.NONE) ~= 0 then
+            return command_finish(ctx, atc.RES_ERROR)
+        end
+        uart.on(GNSS_UART, "receive", function()
+            gnss_receive(session, true)
+        end)
+        session.power_on = true
+        if not pm.power(pm.GPS, true) then
+            return command_finish(ctx, atc.RES_ERROR)
+        end
+        sys.wait(200)
+        if active_cmd ~= ctx then return end
+        ctx.cleanup = nil -- 启动完成，资源由 CGNSPWR=0 或 RFA close 释放。
+        command_finish(ctx, atc.RES_OK)
+    end)
+end
+
+local function cgnstst_command(ctx, kind, ...)
+    ctx.cme_suffix = "\r\n"
+    local count = select("#", ...)
+    if kind == atc.TYPE_READ and count == 0 then
+        return command_finish(ctx, atc.RES_OK, "+CGNSTST: " .. gnss_tst)
+    elseif kind == atc.TYPE_TEST and count == 0 then
+        return command_finish(ctx, atc.RES_OK, "+CGNSTST: (0-1)")
+    elseif kind ~= atc.TYPE_WRITE or count ~= 1 then
+        return command_cme(ctx, 3)
+    end
+    local mode = gnss_uint(..., 1)
+    if mode == nil then return command_cme(ctx, 3) end
+    if mode ~= gnss_tst and gnss_session then
+        -- 清掉尚未触发回调的旧数据，重开转发时不能补发关闭期间的缓存。
+        gnss_receive(gnss_session, false)
+    end
+    gnss_tst = mode
+    command_finish(ctx, atc.RES_OK)
+end
+
+local function cgnscmd_command(ctx, kind, ...)
+    ctx.cme_suffix = "\r\n"
+    if kind ~= atc.TYPE_WRITE or select("#", ...) ~= 2 then
+        return command_cme(ctx, 3)
+    end
+    local mode, cmd = ...
+    if gnss_uint(mode, 0) ~= 0 or #cmd < 3 or #cmd > 64 then
+        return command_cme(ctx, 3)
+    end
+    if not gnss_supported() or not uart.write then return command_finish(ctx, atc.RES_ERROR) end
+    if cmd:sub(1, 1) ~= "$" then cmd = "$" .. cmd end
+    -- 固定内置 GNSS 文本协议：补 CRLF，不加校验和，不等待 ACK。
+    -- 与参考无 ACK 分支一致，OK 表示已提交发送，不代表芯片执行成功。
+    uart.write(GNSS_UART, cmd .. "\r\n")
+    command_finish(ctx, atc.RES_OK)
+end
+
 local commands = {
     {"+STEST", stest_command},
     {"+SWIFIMAC", swifimac_command},
@@ -272,6 +415,9 @@ local commands = {
     {"+SWIFIVER", swifiver_command},
     {"+YHM27XX", yhm27xx_command},
     {"+GSENSOREXEC", gsensorexec_command},
+    {"+CGNSPWR", cgnspwr_command},
+    {"+CGNSTST", cgnstst_command},
+    {"+CGNSCMD", cgnscmd_command},
 }
 
 local function register_commands()
@@ -374,8 +520,10 @@ local function builtin_dispatch(line, id)
     response_owner = nil
     local echo = line:match("^([^\r\n]+)[\r\n]+$")
     local name = echo and echo:match("^[Aa][Tt](%+[%w]+)")
+    name = name and name:upper()
     command_echo = echo and (echo:sub(1, 12):upper() == "AT+SWIFIMAC="
-        or (name and name:upper() == "+GSENSOREXEC")) and echo or nil
+        or name == "+GSENSOREXEC" or name == "+CGNSPWR"
+        or name == "+CGNSTST" or name == "+CGNSCMD") and echo or nil
     atc.input(0, in_buff)
     in_buff:del()
 end
@@ -438,6 +586,11 @@ function M.close(id)
     if not id or atc_src_id == id then command_echo = nil end
     if active_cmd and (not id or active_cmd.src == id) then
         command_finish(active_cmd, AT_RESULT_NONE)
+    end
+    if not id or (gnss_owner and gnss_owner.src == id)
+        or (#uart_ids == 1 and uart_ids[1] == id) then
+        gnss_shutdown()
+        gnss_owner, gnss_tst = nil, 0
     end
     if id then
         if not in_buffs[id] then return end

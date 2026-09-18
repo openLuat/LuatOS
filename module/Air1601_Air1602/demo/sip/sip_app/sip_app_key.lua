@@ -20,7 +20,7 @@ local g_tag = "sip_app_key"
 local g_sip_app_ready = false
 local g_sip_incoming = false
 
-
+local remote_sip_number = hmeta.devid().."1"
 
 local function ready_ind()
     log.info(g_tag, "SIP应用已初始化")
@@ -56,7 +56,7 @@ local function boot_key_handler()
         g_sip_incoming = false
         return
     end
-    sys.publish("SIP_APP_MAIN_DIAL_REQ", g_tag, "100001")
+    sys.publish("SIP_APP_MAIN_DIAL_REQ", g_tag, remote_sip_number)
 end
 
 local function dial_rsp(tag, success, reason)

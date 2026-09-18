@@ -2,7 +2,8 @@
 @module  audio_drv
 @summary 音频驱动模块
 @version 1.0
-@date    2026.04.15
+@date    2026.09.16
+@author  白士雨
 @usage
 本模块负责音频设备的初始化和配置
 ]]
@@ -11,27 +12,7 @@ local exaudio = require "exaudio"
 
 local audio_drv = {}
 
--- Air1602 V1.2：ES8311 / I2S2 麦克风 + 内置 DAC。
-local AUDIO_PROFILE = "air1602_v12"
-
--- local audio_configs ={
---     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
-    
---     pa_ctrl = 27,             -- 音频放大器电源控制管脚
---     pa_on_level = 1,          -- PA打开电平
---     pa_delay = 10,            -- PA延时
---     audio_mode = "new"      -- 音频模式: "new" 表示使用新的audio_v2音频模式
--- }
-
--- local audio_configs ={
---     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
-    
---     pa_ctrl = 45,             -- 音频放大器电源控制管脚
---     pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
---     dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
---     audio_mode = "new"      -- 音频模式: "new" 表示使用新的audio_v2音频模式
--- }
-
+-- 使用Air1602 V1.2开发板测试：ES8311 / I2S2 麦克风 + 内置 DAC。
 local audio_configs = {
     audio_mode = "new",
     model = "es8311",         -- 音频编解码类型: "es8311" 使用ES8311编解码芯片
@@ -67,13 +48,8 @@ function audio_drv.init()
         return true
     end
 
-    if AUDIO_PROFILE ~= "air1602_v12" then
-        log.error("audio_drv", "不支持的音频配置", AUDIO_PROFILE)
-        return false
-    end
     -- LCD 触摸芯片与 ES8311 共用 I2C1；先使能 LCD，避免未上电器件干扰总线。
     gpio.setup(57, 1, gpio.PULLUP)
-    log.info("audio_drv", "音频配置", AUDIO_PROFILE)
 
     -- gpio.setup(147, 1)     -- 8000开发板，打开I2C总线，扫描音频芯片
     
@@ -81,13 +57,13 @@ function audio_drv.init()
     if exaudio.setup(audio_configs) then
         log.info("audio_drv", "exaudio.setup初始化成功")
         if exaudio.vol then
-            exaudio.vol(20)
-            log.info("audio_drv", "已设置通话音量为: 20")
+            exaudio.vol(70)
+            log.info("audio_drv", "已设置通话音量为: 80")
         end
         -- 设置麦克风音量
         if exaudio.mic_vol then
-            exaudio.mic_vol(100)
-            log.info("audio_drv", "已设置麦克风音量为: 100")
+            exaudio.mic_vol(80)
+            log.info("audio_drv", "已设置麦克风音量为: 80")
         end
         return true
     else

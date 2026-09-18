@@ -16,8 +16,9 @@ local uc = {}
 
 local VERSION = 0x01
 -- 单帧数据区上限, 必须与固件 am_log.c 的 rx 缓冲配套:
--- rx_cache1[512] -> payload<=486,  应用头10B(5固定+fd1+offset4) -> 数据区476
-local MAX_CHUNK = 476
+-- 厂商新固件 rx_cache1[1064] -> 反转义后 24B帧头+payload, 应用头10B(5固定+fd1+offset4),
+-- 数据区 chunk=1024 时 24+10+1024=1058<=1064 (转义流缓冲 2128B 装得下最坏 2122B)
+local MAX_CHUNK = 1024
 
 -- 子指令号 -> 处理函数名 (0=HELLO 与 11=AUTH 为协议栈内建, 不在此表)
 local SUB_NAMES = {

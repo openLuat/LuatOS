@@ -50,16 +50,17 @@ def main():
                     help="设备端 main.lua 配置的鉴权 token; 设置后先跑门控/失败/成功鉴权用例")
     args = ap.parse_args()
 
-    dev = UserCmd(args.port, args.baud)
+    # propose 必须大于设备上界才能协商出真实 chunk: 厂商新固件上界 1024, 旧固件 476
+    dev = UserCmd(args.port, args.baud, propose_chunk=2048)
     print(f"open {args.port} @ {args.baud}")
     try:
-        # 1. 等设备启动完成 + 握手 + 分片协商 (新固件 rx 512/1056 -> 476)
+        # 1. 等设备启动完成 + 握手 + 分片协商 (厂商新固件 rx_cache1[1064] -> 1024)
         t0 = time.time()
         chunk = dev.wait_ready()
         dt = time.time() - t0
-        fw_ok = chunk == 476
+        fw_ok = chunk == 1024
         check("hello.chunk", fw_ok,
-              f"chunk={chunk} (期望476, 若=90说明固件未更新)" if not fw_ok else f"chunk={chunk}, ready {dt:.1f}s")
+              f"chunk={chunk} (期望1024, 若=90说明固件未更新)" if not fw_ok else f"chunk={chunk}, ready {dt:.1f}s")
 
         # 2. 鉴权: caps 协商 + 门控 + HMAC 应答 (可选)
         if args.auth_token:
@@ -204,8 +205,9 @@ def main():
                   f"size={size} len={len(data)} head={data[:16]!r} tail={data[1024:1040]!r}")
             dev.remove(path)
 
-        # 16. 转义最坏内容回归: 0xA5/0xA6 膨胀成 2 字节, 固定 476 片长时线上帧 518B,
-        #     超过设备 ISR 的 512B 抽帧缓冲 -> 丢帧重传甚至超时失败(实测过两次 FAIL)
+        # 16. 转义最坏内容回归: 0xA5/0xA6 膨胀成 2 字节, 1024 档固定片长时线上帧最坏约 2112B,
+        #     host 按实际内容的转义长度自适应收缩片长, 任意内容都不撑破设备 RX 缓冲
+        #     (历史上 476 档线上 518B 超 512B 抽帧缓冲曾丢帧, 实测过两次 FAIL)
         for name, payload in (("a5", b"\xA5" * 4096), ("a5a6", b"\xA5\xA6" * 2048)):
             path = f"/ram/esc_{name}.bin"
             t0 = time.time()

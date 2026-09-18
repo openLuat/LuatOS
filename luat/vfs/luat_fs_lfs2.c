@@ -272,13 +272,20 @@ int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* 
         }
 
         // TODO 使用seek/tell组合更快更省
-        for (size_t i = 0; i < offset; i++)
+        // offset跳过必须与下方填充循环应用同样的.和..过滤, 否则offset语义不一致导致翻页重复/遗漏
         {
-            ret = lfs_dir_read(fs, dir, &info);
-            if (ret <= 0) {
-                lfs_dir_close(fs, dir);
-                luat_heap_free(dir);
-                return 0;
+            size_t skipped = 0;
+            while (skipped < offset)
+            {
+                ret = lfs_dir_read(fs, dir, &info);
+                if (ret <= 0) {
+                    lfs_dir_close(fs, dir);
+                    luat_heap_free(dir);
+                    return 0;
+                }
+                if (info.type == 2 && (memcmp(info.name, ".", 2) ==0 ||memcmp(info.name, "..", 3)==0))
+                    continue;
+                skipped++;
             }
         }
 

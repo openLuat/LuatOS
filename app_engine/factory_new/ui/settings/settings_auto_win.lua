@@ -66,6 +66,8 @@ local function update_screen_size()
     else
         screen_w, screen_h = phys_h, phys_w
     end
+    -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回）
+    screen_w, screen_h = theme.content_fit(screen_w, screen_h)
     margin = theme.page_margin()
     card_w = screen_w - 2 * margin
     card_h = math.max(42, math.floor(screen_h * 0.09))
@@ -102,7 +104,7 @@ local function show_password_input(title, on_confirm, on_cancel)
     local content_h = item_margin + label_h + gap + input_h + gap + btn_h + item_margin
     local win_h = header_h + content_h
 
-    soft_keyboard = airui.keyboard({
+    soft_keyboard = theme.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
         w = screen_w, h = math.floor(240 * _G.density_scale),
         mode = "text", auto_hide = true, preview = true,
@@ -185,7 +187,7 @@ local function show_password_edit()
     content_h = content_h + label_h + gap + input_h + gap + btn_h + item_margin
     local win_h = header_h + content_h
 
-    soft_keyboard = airui.keyboard({
+    soft_keyboard = theme.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
         w = screen_w, h = math.floor(240 * _G.density_scale),
         mode = "text", auto_hide = true, preview = true,
@@ -327,7 +329,7 @@ local function show_exit_password_dialog()
     local content_h = item_margin + label_h + gap + input_h + gap + btn_h + item_margin
     local win_h = header_h + content_h
 
-    soft_keyboard = airui.keyboard({
+    soft_keyboard = theme.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
         w = screen_w, h = math.floor(240 * _G.density_scale),
         mode = "text", auto_hide = true, preview = true,

@@ -20,6 +20,7 @@ sysplus = require "sysplus"
 -- ==================== 启动信息与固件检查 ====================
 
 log.info("main", PROJECT, VERSION, rtos.version())
+assert(crypto and type(crypto.checksum) == "function", "Native crypto.checksum is required for 1103 SIP")
 
 
 -- ==================== 网络驱动 ====================

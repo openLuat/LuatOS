@@ -529,6 +529,9 @@ local function iot_clear_state()
     fskv.del("iot_password")
     fskv.del("iot_nickname")
     fskv.del("iot_login_time")
+    -- 网盘空间 key 与登录态同生命期：登出必须一起清，否则下次登录别的账号
+    -- 会拿着上一个账号的 space_key 去查文件列表（cloud_disk_app 读这个键）
+    fskv.del("iot_space_key")
     iot_info.account  = GUEST_ACCOUNT
     iot_info.nickname = GUEST_NICKNAME
     iot_info.is_guest = true
@@ -590,6 +593,20 @@ local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sand
         local ok, err = pcall(sandbox_container.destroy, sandbox_container)
         if not ok then
             log.warn("sandbox_cleanup", "container destroy failed:", err)
+        end
+    end
+
+    --[[PC模拟器：恢复 LVGL timer。
+
+    上面的 stop 是为了让控件销毁期间不触发 C 层回调（避免 C0000005），
+    但它一旦停下就**不会再自己恢复** —— 结果是关闭任意已安装应用后整个界面
+    不再刷新、点击毫无响应（用户报「打开安装的应用并关闭，哪里也点击不了」）。
+    沙箱容器是唯一需要保护的销毁动作，销毁完就立刻恢复心跳；
+    后面只剩退订 / 清模块 / GC，都不碰 LVGL 控件。]]
+    if lvgltimer and lvgltimer.start then
+        local ok, err = pcall(lvgltimer.start)
+        if not ok then
+            log.warn("sandbox_cleanup", "lvgltimer.start failed:", err)
         end
     end
 
@@ -3098,6 +3115,9 @@ function exapp.iot_login(account, password)
             fskv.set("iot_password", password)
             fskv.set("iot_nickname", value.nickname or GUEST_NICKNAME)
             if value.uid then fskv.set("iot_uid", value.uid) end
+            -- 网盘空间 key：登录响应里就有，顺手落盘，这样「合宙网盘」应用打开时
+            -- 无需再拿账号密码请求一次 /appstore/login 去换 space_key
+            if value.space_key then fskv.set("iot_space_key", value.space_key) end
             iot_save_login_time()
             log.info("exapp_iot", "login success", mask_account(account))
             sys.publish("IOT_LOGIN_RESULT", {

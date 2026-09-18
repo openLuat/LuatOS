@@ -598,8 +598,18 @@ function M.button(parent, o)
     })
 end
 
---[[幽灵按钮（描边透明底）]]
+--[[幽灵按钮（描边透明底）
+
+可选的样式覆盖（不传 = 与原来完全一致，老调用点不受影响）：
+  bg / bg_opa            底色与不透明度 —— 「一组选项里点亮当前项」用强调色 + 更高不透明度
+  border / border_w      描边色与宽度
+  pressed_bg / pressed_bg_opa  按压态底色与不透明度（pressed_bg 默认跟随 bg）
+
+为什么点亮选中项走 button 而不是 theme.pills / card：AirUI 的 label 只有水平对齐
+（C 端 airui_label_set_text_align），没有垂直居中，盒高大于行高时文字贴在盒顶；
+button 的文字是控件自绘、垂直居中，矮按钮里更稳。]]
 function M.ghost_button(parent, o)
+    local bg = o.bg or M.C.surface
     return airui.button({
         parent = o.parent or parent,
         x = o.x or 0, y = o.y or 0,
@@ -607,11 +617,12 @@ function M.ghost_button(parent, o)
         text = o.text or "",
         font_size = math.max(16, dp(o.size or 13)),
         style = {
-            bg_color = M.C.surface, bg_opa = M.OPA.fill,
+            bg_color = bg, bg_opa = o.bg_opa or M.OPA.fill,
             text_color = o.fg or M.C.t1,
             radius = dp(o.radius or M.R.md),
-            border_width = 1, border_color = M.C.stroke,
-            pressed_bg_color = M.C.surface, pressed_bg_opa = M.OPA.fill_hi,
+            border_width = o.border_w or 1, border_color = o.border or M.C.stroke,
+            pressed_bg_color = o.pressed_bg or bg,
+            pressed_bg_opa = o.pressed_bg_opa or M.OPA.fill_hi,
             pressed_text_color = o.fg or M.C.t1,
         },
         on_click = o.on_click,
@@ -953,9 +964,16 @@ function M.pills(parent, o)
             border = on and (it.color or M.C.amber) or nil, border_w = on and 1 or 0,
             on_click = it.on_click,
         })
+        --[[文字盒高取「字号 + 3」并垂直居中
+
+        AirUI 的 label 只支持水平对齐（C 端只设 text_align），没有垂直居中：
+        盒高大于行高时文字会贴在盒顶。原来这里直接把 h 传成胶囊高度，文字整体偏上
+        （越高越明显）。按 M.row 的口径收成「字号 + 3」+ 居中偏移。]]
+        local fs = math.max(M.FONT_MIN, dp(o.size or M.F.body))
         M.label(p, {
-            x = 0, y = 0, w = pw, h = h, text = it.text or "",
-            size = o.size or M.F.body,
+            x = 0, y = math.floor((h - (fs + 3)) / 2), w = pw, h = fs + 3,
+            text = it.text or "",
+            px_size = fs,
             color = on and (it.text_color or M.C.amber_light) or M.C.t2,
             align = airui.TEXT_ALIGN_CENTER,
         })

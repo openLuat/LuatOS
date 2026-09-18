@@ -1,7 +1,7 @@
 --[[
 @module  cloud_disk_app
 @summary 合宙网盘业务层（IoT 账号登录 → space_key → 空间文件列表 → 下载到最高优先级存储）
-@version 1.2
+@version 1.7
 @date    2026.09.18
 @author  江访
 
@@ -11,13 +11,64 @@
      （RSA 公钥加密账号/密码，与 exapp.iot_login 同一套）
      成功返回的 value 中携带：
         value.nickname   string  用户昵称
-        value.space_key  string  用户空间 key（下称 A）—— 用于生成访问该用户网盘的 appid
+        value.space_key  string  网盘空间 key（下称 A）—— 作为 app-key 明文里的**第二段**
      账号/密码/昵称由 exapp 的登录流程写入 iot_account / iot_password / iot_nickname；
      A 由 exapp.iot_login 与本模块共同落到 fskv("iot_space_key")，两者共用同一份登录态。
 
   2. 拉取网盘文件列表：POST https://api.luatos.com/iot/device_space/list_files
-     Header  : app-key = Base64(RSA("时间戳,appid,设备ID"))，其中 appid 位填 A
-               （app-key 规范见平台文档第十章；与 exapp.iot_get_auth_headers(appid) 同构）
+     Header  : app-key = Base64(RSA("<时间戳>,<第二段>,<设备ID>"))
+               —— 与「应用市场 9.1.3 鉴权 Headers 规范」同构（factory_rec.make_auth_headers
+                  与 exapp.iot_get_auth_headers(appid) 就是这套）。
+
+     §服务端校验链（2026-09-18 用本工程 public.pem 直接探测服务端得到，非推测）
+
+     明文必须是**恰好三段**（逗号分隔）。各校验点与返回：
+
+       行58  访问拒绝（没有携带app-key）   ← 缺 app-key
+       行61  app-key格式有误               ← 不是 base64 / 不是 RSA 密文
+       行63  app-key格式有误               ← 能解密，但明文不是三段
+       行71  时间戳不能为空                 ← 第一段空
+       行73  参数错误（key）                ← **第二段非空白，但服务端库里查不到**
+       行75  deviceId不能为空              ← 第三段空
+       成功   第二段为**空白**时通过，但**必然返回空列表** —— 详见下方 §留空不可用
+
+     §⚠️「第二段留空」**不是**可用路径（v1.7 更正 v1.6 的结论）
+
+     v1.6 曾把「留空能返回 code=0」当成「服务端按 deviceId 定位到了空间」，据此做了静默降级。
+     2026-09-18 用本工程 public.pem 再探一轮后推翻（--matrix 复现，见本模块 §九 说明）：
+
+         第二段留空 + devid="860000000000000"（伪造 15 位） → code=0 + {'total':'0','records':[]}
+         第二段留空 + devid="abc123"（伪造）               → code=0 + 同样空列表
+         第二段留空 + devid="AA:BB:CC:DD:EE:FF"           → code=0 + 同样空列表
+         第二段留空 + devid=""（空）                       → 行75 deviceId不能为空
+
+     即：**留空时服务端不做任何空间定位**，对任意 devid 都回「空列表」这种"成功"。
+     它只证明「格式链没问题、问题只在第二段的值」，**拿不到真数据**。
+     → 所以留空回查自 v1.7 起**不再作为业务路径**：结果不发布给 UI，只写诊断日志。
+     否则会把「凭证无效」伪装成「网盘是空的」，用户看到空列表还以为账号里没有文件。
+
+     §同族旁证：/iot/device_space/list 是个"哑接口"（实测）
+
+     它**完全不校验 app-key**（不带也返回 code=0），body 里的 space_key / deviceId /
+     path / filter 等一律被忽略，永远返回空列表；唯一有反应的是分页字段：
+
+         body {"size":1,"page":10} → 响应 current=10, size=1
+
+     又一次印证「size=第几页、page=每页条数」的交叉命名。**取列表只能用 list_files。**
+
+     由此得到几条反直觉的实测结论：
+       · **ts 没有时间窗校验**：1 天前、2000 年、甚至 "0" 都能通过，只要非空。
+         所以「设备未校时」不是本接口的失败原因（早期版本为此加的 NTP 等待已移除）。
+       · **devid 只要求非空**：任意非空字符串都通过。
+       · 额外 header（appid / space-key / spaceKey）**不能替代第二段去传 A**；
+         第二段留空时加不加它们看不出差别，因为留空本来就返回空列表。
+
+     所以线上若看到行73，含义非常明确：**A 的值服务端不认识**（段数、ts、devid 全都没问题）。
+     后续只剩两条路：
+       ① 核对 A 与登录响应里的 space_key 是否**逐字**一致 —— 本模块会把 A 的完整取值
+          与服务端 trace 的行号一并打进日志（trace_line）；
+       ② 确认该账号在平台上**是否真的已有网盘空间**：若空间记录是「首次上传/开通」时才建的，
+          新账号第一次查询报行73 反而属于预期，去网页端网盘页上传一个文件即可。
      Body    : 不携带任何参数 → 查询该账号下全部文件
                {"filter":"茶性"}                    → 按文件名过滤
                {"filter":"茶性","size":1,"page":10} → 追加分页（见下方「分页参数」
@@ -134,6 +185,7 @@ local LIST_FILES_URL   = "https://api.luatos.com/iot/device_space/list_files"
 local LIST_TIMEOUT     = 20000
 local LOGIN_TIMEOUT    = 15000
 local NET_WAIT_MS      = 15000
+local NTP_WAIT_MS      = 3000      -- os.time() 无效时等 NTP 的上限（实测 ts 无时间窗，只需非空）
 
 local MIN_FREE_SPACE_KB = 100     -- 下载后至少保留的空闲空间
 local DOWNLOAD_DIR     = "cloud"  -- <挂载点>cloud/，不存在则创建
@@ -219,10 +271,9 @@ local function to_num(v)
     return tonumber(tostring(v))
 end
 
---[[设备唯一标识：与 exapp.iot_gen_device_uid 同规则
+--[[设备唯一标识：与 exapp.iot_gen_device_uid / factory_rec.make_device_id 同规则
 
-exapp 里该函数是 local 的，这里复刻一份，保证 app-key 里的设备 ID 与其它接口一致。
-各取一个字段即可，任一不可用时回退，绝不向上抛错。]]
+app-key 明文的第三段（设备ID）。各取一个字段即可，任一不可用时回退，绝不向上抛错。]]
 local device_uid_cache = nil
 local function device_uid()
     if device_uid_cache then return device_uid_cache end
@@ -247,12 +298,24 @@ local function device_uid()
     return device_uid_cache
 end
 
+--[[RSA + Base64：登录（加密账号/密码）与网盘鉴权（app-key 明文）都用这一套。
+
+⚠️ 本工程 /luadb/public.pem 是 **1024 位**密钥（PEM 首段 "MIGf" 对应 128 字节模数），
+PKCS#1 v1.5 填充下**明文上限 117 字节**（128 - 11）。超长时 rsa.encrypt 返回 nil，
+若不在调用前自查，只会含糊成「RSA 加密失败」，看不出是长度问题。]]
+local RSA_PLAIN_MAX = 117
+
 local function rsa_encrypt_b64(plain)
     if not rsa_ok then return nil, "固件缺少 rsa 核心库" end
     local pub = io.readFile("/luadb/public.pem")
     if not pub then return nil, "缺少公钥 /luadb/public.pem" end
+    if #plain > RSA_PLAIN_MAX then
+        return nil, "RSA 明文超长(" .. #plain .. ">" .. RSA_PLAIN_MAX .. ")"
+    end
     local ok, cipher = pcall(rsa.encrypt, pub, plain)
-    if not ok or not cipher or cipher == "" then return nil, "RSA 加密失败" end
+    if not ok or not cipher or cipher == "" then
+        return nil, "RSA 加密失败(明文 " .. #plain .. " 字节)"
+    end
     local b64 = string.toBase64(cipher)
     if not b64 or b64 == "" then return nil, "Base64 编码失败" end
     return b64
@@ -422,21 +485,68 @@ end
 
 -- ==================== app-key ====================
 
+--[[时间戳：app-key 明文的第一段
+
+⚠️ 2026-09-18 服务端实测：**ts 没有时间窗校验** —— 1 天前、2000 年、甚至 "0"
+   统统能通过，唯一要求是「不能为空」（空 → 行71「时间戳不能为空」）。
+   所以这里**不等 NTP**（早先按「未校时会失败」的猜测加了 8 秒等待，实测后移除）。
+
+只在 os.time() 明显无效（nil / ≤0）时才短暂等一次校时，服务端要的只是「非空」。]]
+local function ensure_time_synced()
+    local t = tonumber(os.time())
+    if t and t > 0 then return tostring(t) end
+    log.warn("cloud_disk", "os.time() 无效(" .. tostring(os.time()) .. ")，短暂等待校时...")
+    sys.waitUntil("NTP_UPDATE", NTP_WAIT_MS)
+    t = tonumber(os.time())
+    if not t or t <= 0 then t = 1 end     -- 服务端只要求非空，兜一个值保证能发出去
+    log.warn("cloud_disk", "使用时间戳:", tostring(t))
+    return tostring(t)
+end
+
 --[[生成网盘接口的 app-key 请求头
 
-服务端规则（平台文档第十章，与 exapp.iot_get_auth_headers 同构）：
-    app-key = Base64(RSA("时间戳,appid,设备ID"))
-device_space 系列接口的 appid 位填的是**用户空间的 space_key**（登录返回的 value.space_key）
-—— 即「该值用于生成访问用户空间的 key」。
+    app-key = Base64(RSA("<时间戳>,<第二段>,<设备ID>"))
 
-密钥位保留一行明文日志，服务端若换了槽位可直接对照调整。]]
-local function build_appkey_headers()
+第二段传 nil → 填 A（space_key）；传 "" → 留空（此时服务端按 deviceId 定位空间）。
+
+规则与 factory_rec.make_auth_headers / exapp.iot_get_auth_headers(appid) 同构。
+⚠️ 早期版本曾照 exapp 那样额外带一个 appid header —— 实测服务端**完全不读**它，已去掉。
+
+诊断三件套（定位线上 54 用）：
+  · 三段原文 + 明文总长 / 上限（1024 位公钥 → 117 字节，A 过长会直接超限）
+  · A 的**完整取值**（当前阶段必须能看到，方便与登录响应逐字比对）
+  · 与 exapp.iot_get_auth_headers(第二段) 的结果对照：一致即证明本模块复刻无误]]
+local function build_appkey_headers(second)
     local sk = get_space_key()
     if not sk then return nil, "尚未获取网盘空间，请先登录 IoT 账号" end
-    local plain = tostring(os.time()) .. "," .. sk .. "," .. device_uid()
-    log.info("cloud_disk", "app-key 明文(ts,appid,devid): ts," .. mask(sk) .. "," .. device_uid())
+
+    local ts = ensure_time_synced()
+    local devid = tostring(device_uid())
+    local seg2 = second
+    if seg2 == nil then seg2 = sk end
+    local plain = ts .. "," .. seg2 .. "," .. devid
+
+    log.info("cloud_disk", "app-key 三段: ts=[" .. ts .. "] 第二段=[" .. seg2 ..
+        "] devid=[" .. devid .. "] 明文长度=" .. #plain .. "/" .. RSA_PLAIN_MAX)
+    log.info("cloud_disk", "A(space_key) 实际取值=[" .. sk .. "] 长度=" .. #sk)
+
+    if #plain > RSA_PLAIN_MAX then
+        return nil, "app-key 明文超长(" .. #plain .. ">" .. RSA_PLAIN_MAX ..
+            ")，A 长 " .. #sk .. " 字节，请确认 space_key 形态"
+    end
+
     local b64, err = rsa_encrypt_b64(plain)
     if not b64 then return nil, err end
+    log.info("cloud_disk", "app-key base64 长度:", tostring(#b64))
+
+    local g = rawget(_G, "exapp")
+    if g and type(g.iot_get_auth_headers) == "function" then
+        local okx, hdr = pcall(g.iot_get_auth_headers, seg2)
+        local ref = (okx and type(hdr) == "table") and hdr["app-key"] or nil
+        log.info("cloud_disk", "app-key 对照 exapp: 一致=" .. tostring(ref == b64) ..
+            (ref and (" 本模块=" .. #b64 .. " exapp=" .. #ref) or " (exapp 无值)"))
+    end
+
     return { ["app-key"] = b64 }
 end
 
@@ -593,6 +703,17 @@ local function sort_by_time_desc(list)
     end)
 end
 
+--[[从服务端 trace 里抽出失败点：DeviceSpaceController.java/deviceListFiles(73) → "deviceListFiles(73)"
+
+行号是排障时最有价值的信息：本轮「参数错误（key）」正是靠它（73 > 61）才区分开
+「格式不对」与「格式对但 key 不认识」。单独打一行，免得淹没在一整段堆栈里。]]
+local function trace_line(trc)
+    if type(trc) ~= "string" then return "?" end
+    local _, method, lineno = trc:match("([%w_]+)%.java/(%a+)%((%d+)%)")
+    if not lineno then return "-" end
+    return method .. "(" .. lineno .. ")"
+end
+
 -- ==================== 拉取文件列表 ====================
 
 --[[拉取网盘文件列表并发布 CLOUD_DISK_FILES
@@ -625,14 +746,6 @@ local function fetch_list(opts)
         return
     end
 
-    local headers, herr = build_appkey_headers()
-    if not headers then
-        sys.publish("CLOUD_DISK_STATUS", "")
-        sys.publish("CLOUD_DISK_ERROR", herr or "鉴权失败")
-        return
-    end
-    headers["Content-Type"] = "application/json"
-
     -- 不携带任何参数 = 查询该账号下全部文件
     local payload = {}
     if filter then payload.filter = filter end
@@ -642,33 +755,78 @@ local function fetch_list(opts)
     end
     local body = json.encode(payload)
 
+    --[[发一次请求并解码
+
+    @param second nil = 第二段填 A；"" = 第二段留空
+    @return http_code|nil, resp_table|nil, raw_body|nil, err]] 
+    local function post_once(second)
+        local headers, herr = build_appkey_headers(second)
+        if not headers then return nil, nil, nil, herr end
+        headers["Content-Type"] = "application/json"
+        local c, _, r = http.request("POST", LIST_FILES_URL, headers, body,
+            { timeout = LIST_TIMEOUT }).wait()
+        log.info("cloud_disk", "list_files HTTP:", tostring(c))
+        if c ~= 200 then return c, nil, r end
+        -- ⚠️ 原始响应整体按块打印，便于确认服务端真实结构与错误阶段
+        log_chunks("list_files RAW", r)
+        local okd, resp = pcall(json.decode, r)
+        if not okd or type(resp) ~= "table" then return c, nil, r end
+        return c, resp, r
+    end
+
     sys.publish("CLOUD_DISK_STATUS", "正在获取文件列表...")
     log.info("cloud_disk", "list_files REQ", LIST_FILES_URL, "body:", body)
-    local code, _, rb = http.request("POST", LIST_FILES_URL, headers, body,
-        { timeout = LIST_TIMEOUT }).wait()
-    log.info("cloud_disk", "list_files HTTP:", tostring(code))
 
+    local code, resp, rb, herr = post_once(nil)
+    if not code then
+        sys.publish("CLOUD_DISK_STATUS", "")
+        sys.publish("CLOUD_DISK_ERROR", herr or "鉴权失败")
+        return
+    end
     if code ~= 200 then
         sys.publish("CLOUD_DISK_STATUS", "")
         sys.publish("CLOUD_DISK_ERROR", "服务器连接失败(" .. tostring(code) .. ")")
         return
     end
-
-    -- ⚠️ 先把原始响应整体打印出来，便于确认服务端真实结构
-    log_chunks("list_files RAW", rb)
-
-    local okd, resp = pcall(json.decode, rb)
-    if not okd or type(resp) ~= "table" then
+    if not resp then
         sys.publish("CLOUD_DISK_STATUS", "")
         sys.publish("CLOUD_DISK_ERROR", "响应解析失败")
         return
     end
+
+    --[[A 被服务端拒绝时（行73「参数错误（key）」）做一次**诊断性**回查
+
+    ⚠️ v1.7 更正：留空**不是**可用路径 —— 实测对任意（含伪造）devid 都返回
+    code=0 + 空列表，说明留空时服务端根本没做空间定位。
+    所以这里的结果**只进日志、绝不发布给 UI**：否则会把「凭证无效」伪装成
+    「网盘是空的」，用户看到空列表还以为账号里没文件。]]
+    if to_num(resp.code) ~= 0 and tostring(resp.value or ""):find("参数错误", 1, true) then
+        log.warn("cloud_disk", "A 被服务端拒绝(" .. tostring(resp.value) ..
+            ") 服务端行号=" .. trace_line(resp.trace) .. "，执行诊断性留空回查")
+        local c2, resp2 = post_once("")
+        if c2 == 200 and resp2 and to_num(resp2.code) == 0 then
+            local v2 = type(resp2.value) == "table" and resp2.value or {}
+            log.warn("cloud_disk", "留空回查 code=0 但 total=" .. tostring(v2.total or 0) ..
+                " → 留空只能证明「格式链正常」，**不代表定位到了空间**，A 仍未被接受")
+        else
+            log.warn("cloud_disk", "留空回查仍未通过 http=" .. tostring(c2) ..
+                " value=" .. (resp2 and tostring(resp2.value) or "(无响应)"))
+        end
+    end
+
     if to_num(resp.code) ~= 0 then
-        log.warn("cloud_disk", "list_files code=", tostring(resp.code),
-            "value=", tostring(resp.value))
+        local v = tostring(resp.value or ("错误码 " .. tostring(resp.code)))
+        log.warn("cloud_disk", "list_files code=", tostring(resp.code), "value=", v,
+            "服务端行号=", trace_line(resp.trace))
+        -- 服务端原文案对用户没有可操作性，这里翻成人话（原文已在上一行入日志）
+        if v:find("参数错误", 1, true) then
+            v = "网盘空间凭证未被识别：请确认该账号已在平台开通网盘空间，" ..
+                "并在设置中退出后重新登录 IoT 账号"
+        elseif v:find("格式有误", 1, true) or v:find("没有携带", 1, true) then
+            v = "鉴权失败：请确认固件已包含 /luadb/public.pem"
+        end
         sys.publish("CLOUD_DISK_STATUS", "")
-        sys.publish("CLOUD_DISK_ERROR",
-            tostring(resp.value or ("错误码 " .. tostring(resp.code))))
+        sys.publish("CLOUD_DISK_ERROR", v)
         return
     end
 
@@ -1216,7 +1374,7 @@ do
     local ok = pcall(function() return rsa.encrypt ~= nil end)
     rsa_ok = ok and (rsa ~= nil) and (rsa.encrypt ~= nil)
     if not rsa_ok then
-        log.warn("cloud_disk", "固件缺少 rsa 核心库，网盘鉴权不可用")
+        log.warn("cloud_disk", "固件缺少 rsa 核心库，IoT 登录与网盘鉴权均不可用")
     end
 end
 

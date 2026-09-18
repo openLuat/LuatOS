@@ -45,7 +45,7 @@ return {
         { pin = 43, dir = 0, level = 1 },
 
         -- WiFi 模组(6205) 上电 (AirLink SPI2, EN=GPIO12, 低电平有效)
-        { pin = 12, dir = 0, level = 1, delay = 50 },  -- 拉高 50ms
+        { pin = 12, dir = 0, level = 1, delay = 50 }, -- 拉高 50ms
 
         -- 4G 模组(Air780ER) 上电复位 (UART2, EN=GPIO42, RST=GPIO65)
         { pin = 42, dir = 0, level = 0, delay = 50 },   -- 拉高 EN 使能
@@ -68,18 +68,18 @@ return {
         lcd = {
             model = "lcd_display_rgb",
             params = {
-                interface = "rgb",             -- RGB 接口
-                pin_rst = 15,                  -- 复位引脚
-                pin_pwr = 57,                  -- LCD 供电使能 GPIO57 (LCD_EN)
-                w = 1024,                      -- 水平分辨率
-                h = 600,                       -- 竖直分辨率
-                hbp = 140,                     -- 水平后沿
-                hspw = 20,                     -- 水平同步脉宽
-                hfp = 160,                     -- 水平前沿
-                vbp = 20,                      -- 垂直后沿
-                vspw = 3,                      -- 垂直同步脉宽
-                vfp = 12,                      -- 垂直前沿
-                bus_speed = 50 * 1000 * 1000,  -- RGB 总线时钟 50MHz
+                interface = "rgb",            -- RGB 接口
+                pin_rst = 15,                 -- 复位引脚
+                pin_pwr = 57,                 -- LCD 供电使能 GPIO57 (LCD_EN)
+                w = 1024,                     -- 水平分辨率
+                h = 600,                      -- 竖直分辨率
+                hbp = 140,                    -- 水平后沿
+                hspw = 20,                    -- 水平同步脉宽
+                hfp = 160,                    -- 水平前沿
+                vbp = 20,                     -- 垂直后沿
+                vspw = 3,                     -- 垂直同步脉宽
+                vfp = 12,                     -- 垂直前沿
+                bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
             need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 7.0,                -- 7寸屏
@@ -137,11 +137,12 @@ return {
         net_4g = true,      -- 启用 4G（AirLink UART2，Air780ER 模组）
         ethernet = true,    -- 启用 SPI 以太网（CH390，SPI1）
         sd_card = true,     -- 启用 SD/TF 卡（SPI1，CS=GPIO8）
-        app_factory = true,              -- 启用"应用工厂"内置应用
-        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
+        app_factory = true, -- 启用"应用工厂"内置应用
+        ai_chat = true,     -- 启用"AI聊天助手"内置应用
         speaker = true,     -- 启用喇叭（DAC0 播放）
         mic = true,         -- 启用麦克风（I2S2 + ES8311 录音）
-        cloud_disk = true,               -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）
+        cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -155,24 +156,24 @@ return {
             chip = "CH390",
             spi_id = 1,
             cs_pin = 14,
-            irq_pin = 1,  -- LAN_INT = GPIO1
+            irq_pin = 1, -- LAN_INT = GPIO1
             pwr_pin = 52
-        },                -- LAN_EN = GPIO52（已在 power_on 处理，此处冗余以防遗漏）
+        },               -- LAN_EN = GPIO52（已在 power_on 处理，此处冗余以防遗漏）
 
         -- ===== 第二优先级：WiFi（AirLink SPI2） =====
         {
             type = "wifi_airlink_spi",
-            spi_id = 2,         -- SPI2
-            cs_pin = 4,         -- CS = GPIO4
-            rdy_pin = 13,       -- AirLink_RDY = GPIO13
+            spi_id = 2,          -- SPI2
+            cs_pin = 4,          -- CS = GPIO4
+            rdy_pin = 13,        -- AirLink_RDY = GPIO13
             speed = 8 * 1000000, -- 8MHz
         },
 
         -- ===== 第三优先级：4G（AirLink UART3） =====
         {
             type = "4g_airlink_uart",
-            uart_id = 3,  -- UART3
-            baud = 2*1000*1000, -- 2Mbps
+            uart_id = 3,        -- UART3
+            baud = 2 * 1000 * 1000, -- 2Mbps
             adapter = socket.LWIP_GP_GW,
         },
 
@@ -184,18 +185,18 @@ return {
         show_4g_icon = true,           -- 桌面顶栏 4G 信号图标
         show_ethernet_settings = true, -- 设置页以太网设置入口
         show_storage_settings = true,  -- 设置页存储空间入口
-        show_app_factory = true,         -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
-        show_ai_chat = true,             -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
-        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
-        show_cloud_disk = true,          -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        ai_chat = true,                -- 启用"AI聊天助手"内置应用
+        show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
     },
 
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====
     storage = {
         sd_card = {
-            spi_id = 1,       -- SPI 接口 ID（与以太网共用 SPI1，CS 不同）
-            pin_cs = 8,       -- 片选 CS 引脚 GPIO8
-            speed = 8*1000*1000, -- SPI 时钟频率 Hz（高速卡推荐 8MHz+）
+            spi_id = 1,          -- SPI 接口 ID（与以太网共用 SPI1，CS 不同）
+            pin_cs = 8,          -- 片选 CS 引脚 GPIO8
+            speed = 8 * 1000 * 1000, -- SPI 时钟频率 Hz（高速卡推荐 8MHz+）
         },
     },
 

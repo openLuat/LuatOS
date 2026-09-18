@@ -104,10 +104,10 @@ return {
         -- net_4g = true,                -- × 4G 未启用（与 WiFi 共享 UART3，默认走 WiFi）
         speaker = true,                  -- 启用喇叭（DAC PIN18 接 LM4871 功放）
         sd_card = true,                  -- 启用 SD 卡（SPI1，CS=PIN38）
-        usb_camera = true,               -- USB 摄像头（UVC）—— 见文件头第 11 条：暂无消费方
         rs485 = true,                    -- RS485 接口 —— 见文件头第 11 条：暂无消费方（UART1+UART2 双路）
-        usb_hid = true,                  -- USB 键盘鼠标（Air8601 有 USB Host 接口）
-        cloud_disk = true,               -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        app_factory = true, -- 启用"应用工厂"内置应用
+        ai_chat = true,     -- 启用"AI聊天助手"内置应用
+        cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====

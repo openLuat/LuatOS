@@ -367,6 +367,7 @@ static const rotable_Reg_t reg_videoplayer[] = {
     { "open",             ROREG_FUNC(l_videoplayer_open)},
     { "close",            ROREG_FUNC(l_videoplayer_close)},
     { "read_frame",       ROREG_FUNC(l_videoplayer_read_frame)},
+    { "draw_frame",       ROREG_FUNC(l_videoplayer_draw_frame)},
     { "info",             ROREG_FUNC(l_videoplayer_info)},
     { "set_decode_mode",  ROREG_FUNC(l_videoplayer_set_decode_mode)},
     { "debug",            ROREG_FUNC(l_videoplayer_debug)},
@@ -398,9 +399,5 @@ LUAMOD_API int luaopen_videoplayer(lua_State *L) {
     lua_pop(L, 1);
 
     luat_newlib2(L, reg_videoplayer);
-    if (luat_videoplayer_sink_available()) {
-        lua_pushcfunction(L, l_videoplayer_draw_frame);
-        lua_setfield(L, -2, "draw_frame");
-    }
     return 1;
 }

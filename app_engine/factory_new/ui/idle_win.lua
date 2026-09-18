@@ -65,6 +65,7 @@ VP.loop_label = nil             -- 循环按钮文字
 VP.file_label = nil             -- 当前文件名标签
 VP.current_file = "/luatos_boot.hzv"           -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
 VP.card_ref = nil             -- 视频卡片容器引用（供切换文件时使用）
+VP.stage = nil                -- 画面舞台层：视频的父对象，先于控制栏创建（见 build_video_area）
 VP.loop_timer = nil           -- MJPG 循环定时器（已停用：循环改由组件 loop 参数负责）
 -- 配套音频（同名 MP3）的播放状态已收进 video_util：桌面播放器与全屏播放页
 -- 共用一份，避免「两边同时出声」，也避免各自记一份状态后互相打架。
@@ -120,8 +121,12 @@ VP.enabled = false             -- 是否启用横屏双列布局（左视频 + �
 
 纵向堆叠：状态栏 → 时钟 → 播放器（画面 + 独立控制栏）→ 已安装应用 → 底部 Dock。
 **该布局不带天气卡**：天气卡那点高度让给了播放器的控制栏。
-控制栏必须独占一行、不能压在画面上 —— 硬解视频是独立图层，压在它底下的控件在真机上
-会被画面盖住（用户报的「视频播放缺少控制按钮」）。
+控制栏必须独占一行、不能压在画面上。原因（2026-09-18 按源码订正）：airui 视频其实是
+lv_image（luat_airui_video.c 里 lv_image_set_src），走正常 LVGL 渲染，所以「压在画面上的
+控件看不见」不是因为视频是独立图层，而是两条层叠规则叠加 ——
+① 同一父对象内后创建的子对象画在上面；② 视频不支持缩放，大素材被强行撑回原生尺寸、
+越出画面区。只要画面与控制栏有重叠，谁后创建谁在上面，按钮就可能被盖掉。
+（旧注释写的「硬解视频是独立图层」与源码不符，按这个口径看会误判问题范围。）
 与方案A互斥，由配置项 ui.show_video_area 显式打开（原因见下方开关注释）。]]
 VP.portrait = false
 
@@ -1827,7 +1832,9 @@ function VP.start_play(file_path)
 
     local fmt = video_util.guess_format(file_path)
     local vcfg = {
-        parent = video_card,
+        -- 挂 stage 而不是 video_card：本函数是「重建视频」的唯一入口，
+        -- 若直接挂 video_card，重建出来的视频会排到控制栏之后把它盖住。
+        parent = VP.stage or video_card,
         x = vx_off, y = vy_off, w = vw, h = vh,
         src = file_path,
         format = fmt,
@@ -1993,9 +2000,40 @@ local function build_video_area(parent)
 
     --[[画面高度：两种布局都是「卡片高 - 控制栏高」，控制栏独占卡片底部一行、不压画面。
     竖屏下卡片 = 画面原生 320 + 控制栏，画面正好占满上半部分、控制栏紧贴其下。
-    控制栏绝不能叠在画面上：硬解视频是独立图层，压在画面上的控件真机上看不见。]]
+
+    控制栏绝不能叠在画面上 —— 但原因不是「视频是独立图层」：airui 视频其实是
+    lv_image（luat_airui_video.c 里 lv_image_set_src），走正常 LVGL 渲染，
+    层级与父层裁剪都生效。真正常在的两条层叠规则是：
+      · LVGL 同一父对象内**后创建的子对象画在上面**；
+      · 视频不支持缩放，大素材会被强行撑回原生尺寸、越出画面区。
+    两条一叠加，只要「重建视频」发生在控制栏之后，控制栏就会被盖住 ——
+    这正是用户报的「全屏播放大尺寸 hzv、返回桌面后播放按钮被盖住」。
+    结构性防止见下面 stage 的注释。]]
     VP.frame_h = VP.h - ctrl_h
     if VP.frame_h < 60 then VP.frame_h = 60 end
+
+    --[[舞台层：画面（视频）的父对象，必须建在控制栏之前
+
+    为什么视频不能直接挂在 video_card 下：本文件里「重建视频」的路径不止一条
+    （换文件 / R 切循环 / |< 重播 / 全屏返回后的 on_get_focus），它们只重建 VP.obj、
+    不重建控制栏。而 LVGL 同一父对象内后创建的子对象画在上面，重建出来的视频
+    就会排到控制栏之后、把它盖住 —— 而且只有**素材大到越过控制栏**时才看得见
+    （小素材不越界，看着一切正常），所以这个 bug 藏得很深。
+
+    两层保护，任一层单独都够：
+      1) 视频挂 stage 下 -> 重建只动 stage 内部，永远排在控制栏之前；
+      2) stage 恰好是画面区（VP.w × VP.frame_h），LVGL 在没开 OVERFLOW_VISIBLE 时
+         一律把子对象裁到父对象边界 -> 素材再大也越不出画面区、碰不到控制栏。
+         这一点很关键：airui 视频不支持缩放，首帧会把控件尺寸强行改回素材原生尺寸
+         （luat_airui_video.c），大素材必然越界。
+
+    stage 用 airui.shape：C 端去掉了 CLICKABLE / SCROLLABLE，透明无边框 pad=0，
+    是纯裁剪容器（airui.container 永远可滚动，控件一越界就画滚动条）。
+    卡片的圆角仍会生效：clip_corner 走 lv_refr 的子树渲染路径（lv_obj_refr 逐子递归），
+    孙对象（视频）一样被裁到卡片圆角，不会在卡片四角冒出方角。]]
+    VP.stage = airui.shape({
+        parent = video_card, x = 0, y = 0, w = VP.w, h = VP.frame_h,
+    })
 
     -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
     local vw, vh = media_frame_size(VP.current_file)
@@ -2009,7 +2047,7 @@ local function build_video_area(parent)
 
     local fmt = video_util.guess_format(VP.current_file)
     local vcfg = {
-        parent = video_card,
+        parent = VP.stage,       -- 见上面 stage 的注释（层级 + 裁剪）
         x = vx_off, y = vy_off, w = vw, h = vh,
         src = VP.current_file,
         format = fmt,
@@ -2028,13 +2066,13 @@ local function build_video_area(parent)
 
     -- 无视频：按设计稿显示空态（三角 + 文案，居中）
     if not VP.is_playing then
-        theme.label(video_card, {
+        theme.label(VP.stage, {
             x = 0, y = math.floor(VP.frame_h / 2) - math.floor(26 * density_scale_val),
             w = VP.w, h = math.floor(34 * density_scale_val),
             text = ">", px_size = math.floor(32 * density_scale_val),
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
-        theme.label(video_card, {
+        theme.label(VP.stage, {
             x = 0, y = math.floor(VP.frame_h / 2) + math.floor(10 * density_scale_val),
             w = VP.w, h = math.floor(22 * density_scale_val),
             text = "点击选择视频文件", px_size = math.floor(13 * density_scale_val),
@@ -2221,6 +2259,7 @@ local function on_destroy()
     weather_ui = { days = {}, temps = {} }
     VP.obj = nil
     VP.card_ref = nil
+    VP.stage = nil
     VP.ctrl_bar = nil
     VP.play_label = nil
     VP.loop_label = nil

@@ -20,12 +20,13 @@ local atc_src_id = nil  -- 最近一次向 atc 投喂数据的端口, atc 应答
 local commands_created, commands_bound = false, 0
 local active_cmd, response_owner
 local command_echo -- 需补齐行尾的原始命令回显，不含行尾
+local power_echo -- CGNSPWR 设置命令的回显随最终结果一次写出
 local hardware_requests = {} -- 超时/关闭后仍保留，直到消费旧硬件完成事件
 local COMMAND_TIMEOUT = 5000
 -- luat_atc_define.h: AT_RESULT_NULL。结束自定义指令但不追加结果码。
 local AT_RESULT_NONE = 0xFFFF
 local GNSS_UART = 2
-local gnss_models = {Air8000 = true, Air780EGH = true, Air780EGP = true, Air780EGG = true}
+local gnss_models = {Air8000 = true, Air8000A = true, Air8000G = true, Air8000D = true, Air8000U = true, Air8000N = true, Air780EGH = true, Air780EGP = true, Air780EGG = true}
 local gnss_session, gnss_owner
 local gnss_tst = 0
 M.rfCaliDone, M.rfNSTDone = 0, 0
@@ -524,6 +525,10 @@ local function builtin_dispatch(line, id)
     command_echo = echo and (echo:sub(1, 12):upper() == "AT+SWIFIMAC="
         or name == "+GSENSOREXEC" or name == "+CGNSPWR"
         or name == "+CGNSTST" or name == "+CGNSCMD") and echo or nil
+    -- 设置形式会等待 GNSS 启动；先暂存回显，避免与 200ms 后的 OK 分开发送。
+    -- 查询/测试形式沿用原有输出时机，不自行解析设置参数。
+    power_echo = name == "+CGNSPWR" and echo:match("=%s*[^%s?]")
+        and {src = id, port = in_buff, text = ""} or nil
     atc.input(0, in_buff)
     in_buff:del()
 end
@@ -536,13 +541,34 @@ local function atc_out(id, event, param)
     end
     local out_resp = out_buff:toStr(0, out_buff:used())
     if tx_id then
+        local changed = false
         if command_echo and out_resp:sub(1, #command_echo) == command_echo then
             -- atc 去掉了命令回显的行尾；补回显 CRLF，结果仍由 atc.response 输出。
             -- 兼容回显和结果合并输出；ATE0 时没有匹配的回显，不追加换行。
-            uart.write(tx_id, command_echo .. "\r\n" .. out_resp:sub(#command_echo + 1))
+            local echo = command_echo .. "\r\n"
+            out_resp = out_resp:sub(#command_echo + 1)
             command_echo = nil
-        else
-            uart.tx(tx_id, out_buff)
+            if power_echo and power_echo.src == tx_id and power_echo.port == in_buffs[tx_id] then
+                power_echo.text = echo
+            else
+                out_resp = echo .. out_resp
+            end
+            changed = true
+        end
+        if power_echo and not active_cmd
+            and power_echo.src == tx_id and power_echo.port == in_buffs[tx_id] then
+            -- 回显通知可能先于 Lua 命令回调，须看到最终结果才能释放回显。
+            -- 等待期间的 URC 照常输出，兼容数字结果及 native/ATS 两种 CME 格式。
+            local result = out_resp:match("\r\n([^\r\n]+)\r\n[\r\n]*$")
+            if result and (result == "OK" or result == "ERROR" or result == "0" or result == "4"
+                or result:match("^%+?CME ERROR:%s*%d+$")) then
+                out_resp = power_echo.text .. out_resp
+                power_echo = nil
+                changed = true
+            end
+        end
+        if #out_resp > 0 then
+            if changed then uart.write(tx_id, out_resp) else uart.tx(tx_id, out_buff) end
         end
     end
     if out_resp and out_resp:match("%+ECNPICFG:") then
@@ -584,6 +610,7 @@ end
 --关闭 RFA AT 服务; 传 id 只关闭指定端口, 不传则关闭全部端口
 function M.close(id)
     if not id or atc_src_id == id then command_echo = nil end
+    if power_echo and (not id or power_echo.src == id) then power_echo = nil end
     if active_cmd and (not id or active_cmd.src == id) then
         command_finish(active_cmd, AT_RESULT_NONE)
     end

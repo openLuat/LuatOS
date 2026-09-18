@@ -57,7 +57,8 @@ if rfa and atc then
                 _G.IRTU_DISABLE_UART1 = true
                 -- 内置 GNSS 的型号在 RFA 模式下由 GPS 测试指令独占 UART2。
                 local model = hmeta.model()
-                if model == "Air8000" or model == "Air780EGH" or model == "Air780EGP" or model == "Air780EGG" then
+                if model == "Air8000" or model == "Air8000A" or model == "Air8000G" or model == "Air8000D" or model == "Air8000U" or model == "Air8000N"
+                    or model == "Air780EGH" or model == "Air780EGP" or model == "Air780EGG" then
                     _G.IRTU_DISABLE_UART2 = true
                 end
             else

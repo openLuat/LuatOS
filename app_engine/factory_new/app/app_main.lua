@@ -15,13 +15,12 @@ require 即执行，main.lua 调用 require "app_main" 时以下模块按顺序�
   3. wifi_app_real  → WiFi 业务层（自动连接、扫描、UI交互），不再做4G/以太网初始化
   4. status_provider_app → 状态栏数据源（时间/信号/电量定时更新，发布 STATUS_UPDATE）
   5. ntp_app        → NTP 时间同步（订阅 IP_READY，联网后自动校时）
-  6. speedtest_app  → Cloudflare 测速（订阅 SPEEDTEST_START）
-  7. settings_iot_app → IOT 平台账号登录/登出
-  8. settings_app   → 设置主框架（fskv 持久化配置）
-  9. fota_app       → 固件 OTA 升级
- 10. file_manager_app → 文件管理业务层
- 11. factory_app   → 应用工厂业务层（仅 features.app_factory 时加载，级联 factory_rec）
- 12. llm_chat      → AI 助手业务层（仅 features.ai_chat 时加载）
+  6. settings_iot_app → IOT 平台账号登录/登出
+  7. settings_app   → 设置主框架（fskv 持久化配置）
+  8. fota_app       → 固件 OTA 升级
+  9. file_manager_app → 文件管理业务层
+ 10. factory_app   → 应用工厂业务层（仅 features.app_factory 时加载，级联 factory_rec）
+ 11. llm_chat      → AI 助手业务层（仅 features.ai_chat 时加载）
 
 === 网络架构变化 ===
 
@@ -61,9 +60,6 @@ end
 
 -- 加载 NTP 时间同步应用模块（订阅 IP_READY，首次联网自动向 ntp.aliyun.com 校时）
 require "ntp_app"
-
--- 加载网络测速应用模块（订阅 SPEEDTEST_START，执行 Cloudflare 延迟/下载/上传测速）
-require "speedtest_app"
 
 -- 加载 IOT 账号模块（合宙 IoT 平台登录/登出，需联网，订阅 LOGIN_REQUEST/LOGOUT_REQUEST）
 require "settings_iot_app"

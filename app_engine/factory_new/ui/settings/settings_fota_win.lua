@@ -39,6 +39,8 @@ local function update_screen_size()
     else
         screen_w, screen_h = ph, pw
     end
+    -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回）
+    screen_w, screen_h = theme.content_fit(screen_w, screen_h)
     local d    = math.min(screen_w, screen_h)
     margin = theme.page_margin()
     card_w     = screen_w - 2 * margin
@@ -223,13 +225,20 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
         h = input_h,
         text = "24",
         font_size = font_size2,
-        keyboard = airui.keyboard({
+        --[[键盘统一规范（与 wifi 密码键盘一致）：
+            parent 必须是「宽 = 内容区宽」的本页根容器 —— 拼音候选栏与输入预览框
+            都由 C 侧建在键盘的父对象上、宽度取父宽的 100%（整屏宽就会左右超出键盘）；
+            挂在屏幕根上还会变成「整屏底部居中」，与内容区错开且不随页面销毁。
+            y 固定 0（相对父容器底部居中），高度统一 dp(200)，全部带 preview 输入预览条。]]
+        keyboard = theme.keyboard({
+            parent = main_container,
             x = 0,
             y = 0,
             w = screen_w,
-            h = math.floor(screen_h * 0.32),
+            h = math.floor(200 * _G.density_scale),
             mode = "numeric",
             auto_hide = true,
+            preview = true,
             on_commit = function(self)
                 self:hide()
             end

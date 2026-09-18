@@ -20,7 +20,7 @@ sys.timerLoopStart(function()
 end, 5000)
 
 uc.fs()
-uc.start()
+local uc_ok = uc.start()
 
 -- 启动信息: 挂载点与根分区空间(也便于人工确认 io.lsmount/io.fsstat 可用)
 if io.lsmount then
@@ -36,6 +36,11 @@ if io.fsstat then
         log.info("usercmd", "fsstat /", fst, string.format("%d/%d bytes, block %d", ub * bs, tb * bs, bs))
     end
 end
-log.info("usercmd", "demo v2 ready")
+-- 固件没开 LUAT_USE_LOG_USER_CMD 时不报错、只提示; 心跳继续打, 便于确认日志口本身正常
+if uc_ok then
+    log.info("usercmd", "demo v2 ready")
+else
+    log.info("usercmd", "demo: 日志口用户指令未启用(固件需打开 LUAT_USE_LOG_USER_CMD), 仅保留心跳")
+end
 
 sys.run()

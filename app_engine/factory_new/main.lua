@@ -45,6 +45,7 @@ PROJECT：项目名，ascii string类型
   "Engine_Air1602_AirLCD_1100_10421_V000"   → config/eng_1602_10i_v10421.lua  10寸RGB HX8282  +WiFi+NAND+NES+电池
   "Engine_Air1602_5inch_480x854_005_V000"       → config/eng_1602_5i_v5.lua     5寸RGB  ST7701S +WiFi+NAND
   "Engine_Air8601_7inch_1024x600_010_V000"      → config/eng_8601_7i_v0.lua     7寸RGB HX8282  +WiFi(airlink/6205)+4G(airlink/780ER2)二选一+UVC+RS485+SD+喇叭
+  "Engine_Air8601_9inch_1024x600_010_V000"      → config/eng_8601_9i_v0.lua     9寸RGB HX8282  +WiFi(airlink/6205)+4G(airlink/780ER2)二选一+UVC+双RS485+SD+喇叭
 
 
   EVB turnkey 开发板系列（≥800×480）:
@@ -58,7 +59,6 @@ PROJECT：项目名，ascii string类型
   "EVB_Air1601_7inch_1024x600_000_V011"        → config/evb_1601_7i_v11.lua     7寸RGB HX8282  +WiFi(airlink)+SD
   "EVB_Air1601_7inch_1024x600_000_V012"        → config/evb_1601_7i_v12.lua     7寸RGB HX8282  +WiFi(airlink spi2)+4G+以太网+SD+应用工厂(ES8311录音播放)
 
-
 VERSION：项目版本号，ascii string类型
         如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
@@ -66,7 +66,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air8601_7inch_1024x600_010_V000" 
+PROJECT = "EVB_Air1601_7inch_1024x600_000_V012"
 VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
 PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
 
@@ -116,7 +116,7 @@ exapp = require "exapp"
 require "lcd_common"
 
 -- ==================== 阶段4: 业务模块加载 ====================
--- 按顺序 require 各业务模块：net_init → wifi_app → status_provider → ntp → speedtest → iot → settings → fota
+-- 按顺序 require 各业务模块：net_init → wifi_app → status_provider → ntp → iot → settings → fota
 -- 每个模块 require 时自动订阅事件、启动定时器，互不阻塞
 require "app_main"
 

@@ -87,6 +87,7 @@ local function reset_state()
         online     = false,
         registered = false,
         local_ip   = nil,
+        sip_port   = nil,    -- 信令 socket 实际用的端口（由 local_port 或系统分配，见 _reconnect_signaling）
         sn         = 0,
         call_id    = nil,
         from_tag   = nil,
@@ -280,7 +281,7 @@ local function send_request(method, extra)
         uri         = string.format("sip:%s@%s", o.server_id, o.domain),
         transport   = string.upper(o.transport),
         host        = st.local_ip,
-        port        = o.local_port,
+        port        = st.sip_port,
         branch      = gen_token("z9hG4bK"),
         from_uri    = string.format("sip:%s@%s", o.device_id, o.domain),
         from_tag    = st.from_tag,
@@ -332,7 +333,7 @@ local function reply_ok(msg)
         cseq_method = cseq_method,
         contact     = false,
         host        = st.local_ip,
-        port        = g_opts.local_port,
+        port        = st.sip_port,
     })
     if text then
         net_send(text)
@@ -1055,7 +1056,7 @@ local function reply(msg, code, reason, body, content_type, to_tag)
         -- 可供推导，故显式给出设备编码(GB28181 里 Contact 的 user 即设备编码)
         contact_user = g_opts.device_id,
         host        = st.local_ip,
-        port        = g_opts.local_port,
+        port        = st.sip_port,
         content_type = content_type,
         body        = body,
     })
@@ -1695,7 +1696,7 @@ function M.probe_session(sess, method)
         -- in-dialog 请求的 Request-URI 是对端的 Contact，不是 To
         uri          = sess.remote_target or sess.remote_uri,
         host         = st.local_ip,
-        port         = g_opts.local_port,
+        port         = st.sip_port,
         branch       = "z9hG4bK" .. gen_token("probe"),
         from_uri     = sess.local_uri,     -- 本端(来自对方 INVITE 的 To)
         from_tag     = sess.local_tag,     -- 本端 tag
@@ -2082,7 +2083,7 @@ local function send_ack(msg)
         uri         = string.format("sip:%s@%s", g_opts.server_id, g_opts.domain),
         transport   = string.upper(g_opts.transport),
         host        = st.local_ip,
-        port        = g_opts.local_port,
+        port        = st.sip_port,
         branch      = gen_token("z9hG4bK"),
         via_list    = vias,
         from_raw    = msg.headers["from"],
@@ -2672,16 +2673,26 @@ local function _reconnect_signaling()
     end
     st.netc = netc
 
-    if not socket.config(netc, o.local_port, string.upper(o.transport) ~= "TCP") then
+    -- local_port 给 0 表示"由系统挑一个"（见下面读回的那段）
+    if not socket.config(netc, o.local_port or 0,
+                         string.upper(o.transport) ~= "TCP") then
         socket.close(netc)
         st.netc = nil
-        return false, "socket.config 失败"
+        return false, "socket.config 失败(端口可能被占用；可设 local_port = 0 让系统挑)"
     end
 
     if not socket.connect(netc, o.server_addr, o.server_port) then
         socket.close(netc)
         st.netc = nil
         return false, "socket.connect 失败"
+    end
+
+    -- 读回实际端口：local_port 给 0 时端口是底层挑的，而 Contact 必须写真实值
+    -- （平台据此回 BYE/INFO）。旧固件没有 socket.localPort，退回配置值。
+    if type(socket.localPort) == "function" then
+        st.sip_port = socket.localPort(netc) or o.local_port or 5060
+    else
+        st.sip_port = o.local_port or 5060
     end
 
     st.dead = false
@@ -2804,7 +2815,12 @@ function M.start(opts)
     -- 平台编号：未显式给出时按国标惯例用 域 + 20
     g_opts.server_id   = g_opts.server_id or (g_opts.domain .. "20")
     g_opts.transport   = g_opts.transport or "udp"
-    g_opts.local_port  = g_opts.local_port or 5060
+    -- 0 表示"由系统挑端口"（见 _reconnect_signaling 里读回实际端口那段）
+    if g_opts.local_port == nil then
+        g_opts.local_port = 5060
+    end
+    -- 建链前的初值：建链成功后会换成**实际用的**那个端口（可能是系统挑的）
+    st.sip_port = g_opts.local_port ~= 0 and g_opts.local_port or 5060
     g_opts.max_msg     = g_opts.max_msg or 8192
 
     -- 点播相关默认值

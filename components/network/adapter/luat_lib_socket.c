@@ -173,6 +173,31 @@ static luat_socket_ctrl_t * l_get_ctrl(lua_State *L, int index)
 	}
 }
 
+/*
+读取 socket 实际使用的本地端口。
+
+与 socket.config 传进去的值不一定相同：传 0 时由底层挑（connect 时从高位段选）。
+未绑定时返回 nil —— 不返回 0，0 会被调用方当成端口号。
+
+@api socket.localPort(netc)
+@userdata socket 句柄
+@return int|nil 端口号；尚未绑定/连接时为 nil
+*/
+static int l_socket_local_port(lua_State *L)
+{
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	if (!l_ctrl || !l_ctrl->netc) {
+		lua_pushnil(L);
+		return 1;
+	}
+	if (!l_ctrl->netc->local_port) {
+		lua_pushnil(L);     /* 没绑上就返回 nil，不是 0 */
+		return 1;
+	}
+	lua_pushinteger(L, l_ctrl->netc->local_port);
+	return 1;
+}
+
 // __gc
 static int l_socket_gc(lua_State *L)
 {
@@ -1485,6 +1510,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{ "sslLog",				ROREG_FUNC(l_socket_set_ssl_log)},
 	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
 	{"remoteIP",         	ROREG_FUNC(l_socket_remote_ip)},
+	{"localPort",        	ROREG_FUNC(l_socket_local_port)},
 	{"adapter",				ROREG_FUNC(l_socket_adapter)},
 	{"dft",                 ROREG_FUNC(l_socket_default)},
 	{"close_all",           ROREG_FUNC(l_socket_close_all)},

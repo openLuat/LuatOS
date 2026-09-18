@@ -1609,6 +1609,8 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 			local_port_seed %= 15536U;
 		}
 		local_port = (uint16_t)(50000U + local_port_seed);
+		/* 回写：端口在这里挑的，不落到 ctrl 上，外部就只能读到 0 */
+		ctrl->local_port = local_port;
 		G_UNLOCK;
 //		local_port += 50000 + adapter->port + offset * 10;
 //		DBG("network %d local port auto select %u",offset, local_port);

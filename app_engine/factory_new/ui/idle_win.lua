@@ -15,7 +15,9 @@
 订阅: AUTOSTART_SETTINGS_VALUE / AUTOSTART_CONFIG_CHANGED / AUTOSTART_PASSWORD_RESULT
 订阅: FOTA_PROMPT_REBOOT / FOTA_PROMPT_DOWNLOAD
 订阅: WEATHER_UPDATED({city,condition,temp,daily}) → 刷新天气卡（未接 API 前用占位数据）
-发布: REQUEST_STATUS_REFRESH / OPEN_xxx_WIN / APP_STORE_UNINSTALL / AUTOSTART_* / FOTA_*
+订阅: VIDEO_FILE_CHANGED(path)                 → 全屏播放页里换了文件，同步「当前文件」
+发布: REQUEST_STATUS_REFRESH / OPEN_xxx_WIN / OPEN_VIDEO_WIN / APP_STORE_UNINSTALL
+      AUTOSTART_* / FOTA_*
 
 === 视觉说明 ===
 采用 tablet-smart-home 设计语言：
@@ -34,8 +36,10 @@ theme.label 内部有一行 `if fs < 16 then fs = 16 end`，而 density_scale �
 
 local exnetif = require "exnetif"
 local theme = require "ui_theme"
-local ok_exaudio, exaudio = pcall(require, "exaudio")
-if not ok_exaudio then exaudio = nil end
+-- 播放器两块共用的底层：素材工具（帧尺寸口径 / 音轨初始化）与文件选择弹窗。
+-- 全屏播放页（ui/video_win.lua）用的是同一套，改口径只改模块。
+local video_picker = require "video_picker"
+local video_util = require "video_util"
 
 local window_id = nil
 local main_container = nil
@@ -47,7 +51,7 @@ local apps_card = nil
 本文件已经顶到 201 个、直接编译不过。播放器这一组是完整的功能子系统，收进一张
 局部表只占 1 个名额，也让「哪些东西属于播放器」一眼可见。
 字段沿用原先的后缀命名（去掉前面的前缀），例如：
-  VP.ctrl_h / VP.frame_h / VP.current_file / VP.start_play / VP.render_picker
+  VP.ctrl_h / VP.frame_h / VP.current_file / VP.start_play / VP.open_picker
 跨窗口调用请走本文件已有的导出接口，别在别的窗口里直接碰这张表。]]
 local VP = {}
 VP.obj = nil                    -- 视频播放组件（开机动画循环播放）
@@ -62,10 +66,8 @@ VP.file_label = nil             -- 当前文件名标签
 VP.current_file = "/luatos_boot.hzv"           -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
 VP.card_ref = nil             -- 视频卡片容器引用（供切换文件时使用）
 VP.loop_timer = nil           -- MJPG 循环定时器（已停用：循环改由组件 loop 参数负责）
--- 配套音频播放（同名 MP3）
-local audio_obj = nil         -- 当前音频文件路径（非 nil 表示有配套音频）
-local audio_playing = false   -- 音频播放状态
-local exaudio_inited = false  -- exaudio.pm RESUME 已调用
+-- 配套音频（同名 MP3）的播放状态已收进 video_util：桌面播放器与全屏播放页
+-- 共用一份，避免「两边同时出声」，也避免各自记一份状态后互相打架。
 -- 应用卡片表头计数标签（"已安装应用 | N"）。
 -- 原来只在 build_apps_card 里把它造出来就丢掉了返回值，谁也拿不到，
 -- 于是安装/卸载后这个数字永远停在开机那一刻 —— 必须持有引用才能刷新。
@@ -1763,6 +1765,12 @@ function VP.show_ctrl()
     VP.ctrl_visible = true
 end
 
+--[[隐藏控制栏
+
+原本挂在控制栏最右侧的 X 按钮上。那个按钮已改成「进入全屏播放」（见 build_video_area），
+所以现在没有入口会调到这里 —— 保留函数是为了让「点画面唤出控制栏」那条路径仍有
+配对的显隐状态（show_ctrl / hide_ctrl 是同一套状态的两个方向），
+删掉反而容易让后来者以为控制栏本来就不可隐藏。]]
 function VP.hide_ctrl()
     if not VP.ctrl_bar then return end
     VP.ctrl_bar:set_hidden(true)
@@ -1772,7 +1780,7 @@ end
 -- 视频控制：停止并重建视频组件（切换文件或循环模式时用）
 function VP.stop()
     if VP.loop_timer then sys.timerStop(VP.loop_timer); VP.loop_timer = nil end
-    audio_stop()
+    video_util.audio_stop()
     if VP.obj then
         pcall(function() VP.obj:stop() end)
         pcall(function() VP.obj:destroy() end)
@@ -1780,175 +1788,19 @@ function VP.stop()
     end
 end
 
---- 判断素材用哪种容器解析：优先看魔数，其次看扩展名
---- @return "hzv" | "mjpg" | "mp4"
-local function media_guess_format(path)
-    local f = io.open(path, "rb")
-    if f then
-        local magic = f:read(4)
-        f:close()
-        if magic == "HZV1" then return "hzv" end
-    end
-    local ext = path:match("%.([^%.]+)$")
-    if ext then
-        ext = ext:lower()
-        if ext == "hzv" then return "hzv" end
-        if ext == "mp4" then return "mp4" end
-    end
-    return "mjpg"
-end
+--[[媒体素材工具已下沉到 ui/video_util.lua
 
---- HZV 的音轨由 Audio V2 播放，视频时钟跟随 DAC DMA sample counter：
---- 音频框架没起来时既不响、也不会走帧，所以这里做一次幂等初始化。
---- 首次真 setup，之后只 RESUME；失败不阻断画面创建。
-local function hzv_audio_ensure()
-    if not exaudio then return false end
-    if not (_G.project_config and _G.project_config.hw and _G.project_config.hw.audio) then
-        return false
-    end
-    if _G.__hzv_audio_ready then
-        pcall(exaudio.pm, exaudio.RESUME)
-        return true
-    end
-    local ac = _G.project_config.hw.audio
-    local ok = pcall(exaudio.setup, {
-        model       = ac.model or "dac",
-        pa_ctrl     = ac.pa_ctrl,
-        pa_on_level = ac.pa_on_level or 0,
-        dac_delay   = ac.dac_delay,
-    })
-    if ok then
-        pcall(exaudio.vol, ac.play_vol or 100)
-        _G.__hzv_audio_ready = true
-        return true
-    end
-    log.warn("idle_win", "hzv: exaudio.setup 失败，音轨与播放时钟可能不可用")
-    return false
-end
+这份口径（容器魔数嗅探 / 帧尺寸读取 / HZV 音轨初始化）桌面播放器与全屏播放页都要用，
+而 airui 播放器**不支持缩放** —— 帧尺寸读错不会「拉伸画面」，只会让控件溢出容器、
+把画面裁掉一块。同一份口径只能有一处实现，否则两个页面的裁切行为会不一致。
 
---- 读媒体容器头拿回 (width, height)
---- HZV v1: 前 4 字节为 "HZV1"，0x44 / 0x46 处各一个 uint16 宽、高
---- 其它  : 按 MJPG/JPEG 扫 SOF0/SOF2 标记
---- @return width, height 或 nil（调用方回退默认值）
-local function media_read_dimensions(path)
-    local f = io.open(path, "rb")
-    if not f then return nil end
-    local data = f:read(512)  -- HZV 头部 0x48 以内 / JPEG 的 SOF 标记一般在 512 字节内
-    f:close()
-    if not data or #data < 8 then return nil end
+配套音频（同名 MP3）也跟着下沉了：播放状态跨页面共用一份，避免两边同时出声。]]
 
-    -- HZV 容器：帧尺寸直接写在头里（Lua 下标从 1 起，0x44 → 69）
-    if data:sub(1, 4) == "HZV1" then
-        local hw = data:byte(69) + data:byte(70) * 256
-        local hh = data:byte(71) + data:byte(72) * 256
-        if hw > 0 and hh > 0 then return hw, hh end
-        return nil
-    end
-
-    -- 扫描 SOI (FF D8) 之后的标记，找 SOF0 (FF C0)
-    local i = 1
-    while i <= #data - 1 do
-        if data:byte(i) == 0xFF then
-            local marker = data:byte(i + 1)
-            if marker == 0xC0 or marker == 0xC2 then  -- SOF0 / SOF2
-                if i + 9 <= #data then
-                    local h = data:byte(i + 5) * 256 + data:byte(i + 6)
-                    local w = data:byte(i + 7) * 256 + data:byte(i + 8)
-                    return w, h
-                end
-                return nil
-            end
-            -- 跳过非 SOF 标记（读取段长度并跳过）
-            if marker ~= 0xD8 and marker ~= 0xD9 and (marker < 0xD0 or marker > 0xD7) then
-                if i + 3 <= #data then
-                    local seg_len = data:byte(i + 2) * 256 + data:byte(i + 3)
-                    i = i + 2 + seg_len
-                else
-                    break
-                end
-            else
-                i = i + 2
-            end
-        else
-            i = i + 1
-        end
-    end
-    return nil
-end
-
---[[读素材帧尺寸，读不到时按布局形态回退
-
-竖屏播放器布局用 luatos_boot.hzv 的原生尺寸（480×320），横屏沿用旧默认（480×270）。
-
-airui 播放器不支持缩放：控件尺寸会被强制改回素材尺寸，所以兜底值给错并不会「拉伸画面」，
-只会让控件溢出卡片、把画面切掉一块 —— 回退值必须和布局基准一致。]]
+--- 读素材帧尺寸；读不到时按布局形态回退
+--- 竖屏播放器布局用 luatos_boot.hzv 的原生尺寸（480×320），横屏沿用旧默认（480×270）。
+--- 回退值必须与布局基准一致：给错不会「拉伸画面」，只会让控件溢出卡片、把画面切掉一块。
 local function media_frame_size(path)
-    local vw, vh = media_read_dimensions(path)
-    if vw and vh then return vw, vh end
-    if VP.portrait then return 480, VP.BASE_H end
-    return 480, 270
-end
-
--- ==================== 配套音频（同名 MP3） ====================
-local has_audio = exaudio and project_config and project_config.hw and project_config.hw.audio
-
---- 在同目录下搜索与 mjpg 同名的 .mp3 文件
-local function find_audio_for_video(mjpg_path)
-    if not has_audio then return nil end
-    local dir = mjpg_path:match("^(.+/)") or "/"
-    local base = mjpg_path:match("([^/]+)%.mjpg$") or mjpg_path:match("([^/]+)%.MJPG$")
-    if not base then return nil end
-    local mp3_path = dir .. base .. ".mp3"
-    if io.exists(mp3_path) then return mp3_path end
-    mp3_path = dir .. base .. ".MP3"
-    if io.exists(mp3_path) then return mp3_path end
-    return nil
-end
-
-local function audio_start(mp3_path)
-    if not has_audio or not mp3_path then return end
-    if not exaudio_inited then
-        pcall(exaudio.pm, exaudio.RESUME)
-        exaudio_inited = true
-    end
-    audio_stop()
-    audio_obj = mp3_path
-    local function play_audio_loop(path)
-        local r = pcall(exaudio.play_start, {
-            type = 0, content = path,
-            cbfnc = function(event)
-                if event == exaudio.PLAY_DONE then
-                    if VP.is_loop and VP.is_playing and audio_obj then
-                        play_audio_loop(path)
-                    else
-                        audio_playing = false
-                    end
-                end
-            end
-        })
-        return r
-    end
-    audio_playing = play_audio_loop(mp3_path)
-    log.info("idle_win", "audio start", mp3_path, "ok=", audio_playing)
-end
-
-function audio_stop()
-    if not has_audio then return end
-    if audio_obj then
-        pcall(exaudio.play_stop, { type = 0 })
-        audio_obj = nil
-        audio_playing = false
-    end
-end
-
-local function audio_toggle()
-    if not has_audio or not audio_obj then return end
-    if audio_playing then
-        pcall(exaudio.play_stop, { type = 0 })
-        audio_playing = false
-    else
-        audio_start(audio_obj)
-    end
+    return video_util.frame_size(path, 480, VP.portrait and VP.BASE_H or 270)
 end
 
 function VP.start_play(file_path)
@@ -1971,9 +1823,9 @@ function VP.start_play(file_path)
 
     -- 循环交回组件（loop 参数）。旧版是「每 3 秒 stop+play」手动重播，
     -- 会把正在解码的视频硬重启，画面就停在半路 —— 用户报的「播放卡住」。
-    hzv_audio_ensure()
+    video_util.audio_ensure()
 
-    local fmt = media_guess_format(file_path)
+    local fmt = video_util.guess_format(file_path)
     local vcfg = {
         parent = video_card,
         x = vx_off, y = vy_off, w = vw, h = vh,
@@ -2004,9 +1856,11 @@ function VP.start_play(file_path)
     VP.show_ctrl()
 
     -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、由 videoplayer
-    -- 统一驱动，而 find_audio_for_video 只认 .mjpg 后缀，对 .hzv 天然返回 nil。
-    local mp3 = find_audio_for_video(file_path)
-    if mp3 then audio_start(mp3) end
+    -- 统一驱动，而 find_companion_mp3 只认 .mjpg 后缀，对 .hzv 天然返回 nil。
+    local mp3 = video_util.find_companion_mp3(file_path)
+    if mp3 then
+        video_util.audio_play(mp3, function() return VP.is_loop and VP.is_playing end)
+    end
 
     log.info("idle_win", "video play", file_path, "ok=", VP.obj ~= nil, "loop=", VP.is_loop)
 end
@@ -2018,12 +1872,12 @@ function VP.toggle_play()
         pcall(function() VP.obj:pause() end)
         VP.is_playing = false
         if VP.play_label then VP.play_label:set_text(">") end
-        audio_toggle()
+        video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
     else
         pcall(function() VP.obj:play() end)
         VP.is_playing = true
         if VP.play_label then VP.play_label:set_text("||") end
-        audio_toggle()
+        video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
         VP.show_ctrl()
     end
 end
@@ -2047,225 +1901,54 @@ function VP.toggle_loop()
     end
 end
 
--- 视频控制：简单文件选择（列出内置/SD/Flash 根目录的 .hzv/.mjpg/.mp4 文件）
-VP.picker_overlay = nil
-VP.picker_scroll = nil
+-- ==================== 文件选择器 / 全屏入口 ====================
 
---[[弹窗内容宽度
+--[[弹窗本体已下沉到 ui/video_picker.lua
 
-列表行宽以前直接读 right_w —— 那是方案A「右侧信息列」的宽度，竖屏布局下它是 0，
-行宽会算成负数、整列内容直接消失。这里改记弹窗自身宽度，横竖屏都能用。]]
-VP.picker_w = 0
+桌面播放器与全屏播放页（ui/video_win.lua）共用同一套弹窗：存储设备快捷行（当前设备
+点亮）、返回上一级、文件列表。复制两份意味着修一个 bug 要改两遍。
+这里只保留「选中之后怎么办」以及桌面特有的两个动作：换文件、进全屏。]]
 
---[[弹窗里的存储设备分段选择
-
-三个快捷入口共用这一份清单：渲染时用它建按钮，重开弹窗时用 VP.storage_index()
-反查当前落在哪个设备上，好把那一项点亮。没有这个回显，点完「SD卡」之后三个按钮
-长得一模一样，看不出此刻到底停在哪个设备里。
-]]
-VP.STORAGE_ITEMS = {
-    { text = "内置存储", path = "/" },
-    { text = "SD卡",     path = "/sd/" },
-    { text = "Flash",    path = "/little_flash/" },
-}
-
---[[由当前路径反查存储设备序号（1 内置 / 2 SD卡 / 3 Flash）
-从 2 开始比前缀：内置存储的 "/" 是所有路径的前缀，先比它会把一切都判成内置。
-子目录（/sd/xxx/）仍归属同一个设备，所以用前缀匹配而不是全等。]]
-function VP.storage_index(path)
-    if type(path) ~= "string" then return 1 end
-    for i = 2, #VP.STORAGE_ITEMS do
-        local prefix = VP.STORAGE_ITEMS[i].path
-        if path:sub(1, #prefix) == prefix then return i end
+--- 打开文件选择器（默认从当前文件所在目录开始，省得每次从根目录点进去）
+--- @param string|nil start_path 指定起始目录；不传则取当前文件所在目录
+function VP.open_picker(start_path)
+    local start = start_path
+    if not start then
+        start = (VP.current_file and VP.current_file:match("^(.+/)")) or "/"
     end
-    return 1    -- 根目录 / luadb 等内置路径
+    video_picker.open({
+        start_path = start,
+        sw = screen_w, sh = screen_h,
+        on_pick = function(path) VP.start_play(path) end,
+    })
 end
 
---[[由当前目录推出上一级目录
-
-根目录（"/"）没有上一级，返回 nil —— 调用方据此隐藏「返回上一级」按钮，
-而不是给一个点了没反应的死按钮。
-文件路径也兼容（先补上结尾的 "/" 再取父目录），免得从文件列表里误用时算出怪结果。
-
-  /sd/          -> /
-  /sd/video/    -> /sd/
-  /luadb/       -> /
-  /             -> nil
-]]
-function VP.parent_path(path)
-    if type(path) ~= "string" or path == "" then return nil end
-    if path == "/" then return nil end
-    local p = path
-    if p:sub(-1) ~= "/" then p = p .. "/" end
-    p = p:gsub("/+$", "/")                      -- 收掉结尾重复斜杠
-    local parent = p:match("^(.*/)[^/]+/$")     -- 贪婪匹配：吃掉最后一段目录名
-    if not parent or parent == "" then return nil end
-    return parent
-end
-
+--- 关闭文件选择器（窗口销毁时兜底：弹窗可能还开着）
 function VP.close_picker()
-    if VP.picker_overlay then
-        pcall(function() VP.picker_overlay:destroy() end)
-        VP.picker_overlay = nil
-    end
-    VP.picker_scroll = nil
+    video_picker.close()
 end
 
-function VP.render_picker(dir_path, scroll_container)
-    if not scroll_container then return end
-    local items = {}
-    local ret, files = io.lsdir(dir_path, 200, 0)
-    if ret and files then
-        for _, f in ipairs(files) do
-            if f.type == 1 then
-                items[#items + 1] = { name = f.name, is_dir = true, path = dir_path .. f.name .. "/" }
-            elseif f.type == 0 then
-                local ext = f.name:match("%.([^%.]+)$")
-                if ext then ext = ext:lower() end
-                if ext == "hzv" or ext == "mjpg" or ext == "mp4" then
-                    items[#items + 1] = { name = f.name, is_dir = false, path = dir_path .. f.name }
-                end
-            end
-        end
-    end
-    table.sort(items, function(a, b)
-        if a.is_dir ~= b.is_dir then return a.is_dir end
-        return a.name < b.name
-    end)
-
-    local row_h = math.floor(32 * density_scale_val)
-    local px = math.floor(8 * density_scale_val)
-    local list_w = (VP.picker_w > 0) and VP.picker_w or right_w
-    local y = 0
-    for _, item in ipairs(items) do
-        local row = theme.card(scroll_container, {
-            x = px, y = y, w = list_w - 2 * px, h = row_h,
-            radius = theme.R.sm, opa = 0,
-            on_click = function()
-                if item.is_dir then
-                    VP.close_picker()
-                    -- 进入子目录：重建选择器
-                    video_open_file_picker(item.path)
-                else
-                    VP.close_picker()
-                    VP.start_play(item.path)
-                end
-            end,
-        })
-        local icon_c = item.is_dir and theme.C.amber or theme.C.cyan
-        theme.label(row, {
-            x = px, y = 0, w = math.floor(18 * density_scale_val), h = row_h,
-            text = item.is_dir and ">" or ">", px_size = math.floor(13 * density_scale_val),
-            color = icon_c, align = airui.TEXT_ALIGN_CENTER,
-        })
-        theme.label(row, {
-            x = px + math.floor(20 * density_scale_val), y = 0,
-            w = list_w - 2 * px - math.floor(24 * density_scale_val), h = row_h,
-            text = item.name, px_size = math.floor(12 * density_scale_val),
-            color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
-        })
-        y = y + row_h + math.floor(2 * density_scale_val)
-    end
-    if #items == 0 then
-        theme.label(scroll_container, {
-            x = 0, y = math.floor(20 * density_scale_val), w = list_w, h = row_h,
-            text = "无视频文件", px_size = math.floor(12 * density_scale_val),
-            color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-        })
-    end
+--- 进入全屏播放页
+--- 把当前文件带过去，全屏页从同一个素材接着播；退出后桌面按 VIDEO_FILE_CHANGED 同步
+function VP.open_fullscreen()
+    log.info("idle_win", "video btn: fullscreen", VP.current_file)
+    sys.publish("OPEN_VIDEO_WIN", VP.current_file)
 end
 
-function video_open_file_picker(start_path)
-    VP.close_picker()
-    start_path = start_path or "/"
+--[[全屏播放页里换了文件 → 同步「当前文件」
 
-    -- 弹窗宽度：宽屏仍是半屏（≤460，保持原观感）；窄屏放宽到 0.72 屏宽，
-    -- 否则 480 宽的面板上弹窗只有 240，文件名几乎看不见
-    local picker_w = (screen_w <= 560) and math.min(math.floor(screen_w * 0.72), 460)
-        or math.min(math.floor(screen_w * 0.50), 460)
-    local picker_h = math.floor(screen_h * 0.70)
-    VP.picker_w = picker_w
-    local pad_in = math.floor(12 * density_scale_val)
+桌面此刻已失焦（on_lose_focus 已经把自己的播放器停掉并销毁了），所以这里只更新记录、
+不起播；等退出全屏、桌面重新拿到焦点时，由 on_get_focus 按 resume_file 起播。
 
-    -- 使用 airui.win 创建独立弹窗，不影响底层布局
-    VP.picker_overlay = airui.win({
-        parent = airui.screen, title = "选择视频文件",
-        w = picker_w, h = picker_h, close_btn = true, auto_center = true,
-        style = {
-            bg_color = theme.C.dialog, header_bg_color = theme.C.dialog,
-            content_bg_color = theme.C.dialog,
-            title_text_color = theme.C.t1, radius = theme.R.lg,
-            title_align = airui.TEXT_ALIGN_CENTER,
-            header_height = math.floor(40 * density_scale_val), content_pad = 0,
-        },
-        on_close = function() VP.picker_overlay = nil end,
-    })
-
-    --[[快捷跳转行：当前所在设备用强调色点亮
-
-    原来三个按钮统一 fg = cyan，点进「SD卡」之后三者长得一模一样，看不出此刻停在
-    哪个设备里。现在只把当前项换成「琥珀底块 + 琥珀描边 + 亮琥珀文字」，其余保持
-    原来的描边透明底 + 青色文字 —— 差异只出现在选中项上，不会让整行变花。
-    选中态走 button（文字垂直居中），不用 theme.pills：pills 里的 label 铺满胶囊高，
-    而 AirUI 的 label 没有垂直居中，文字会贴盒顶。]]
-    local quick_h = math.floor(28 * density_scale_val)
-    local quick_w = math.floor((picker_w - pad_in * 2 - math.floor(8 * density_scale_val)) / 3)
-    local quick_gap = math.floor(4 * density_scale_val)
-    local active_storage = VP.storage_index(start_path)
-    for qi, q in ipairs(VP.STORAGE_ITEMS) do
-        local on = (qi == active_storage)
-        theme.ghost_button(VP.picker_overlay, {
-            x = pad_in + (qi - 1) * (quick_w + quick_gap), y = pad_in,
-            w = quick_w, h = quick_h,
-            text = q.text, size = theme.F.tiny,
-            fg = on and theme.C.amber_light or theme.C.cyan,
-            bg = on and theme.C.amber or nil,
-            bg_opa = on and theme.OPA.rail_active or nil,
-            border = on and theme.C.amber or nil,
-            -- 按压态：只把色调压深一档，不透明度不变（默认 fill_hi=30 会比常态 48 更淡）
-            pressed_bg = on and theme.C.amber_deep or nil,
-            pressed_bg_opa = on and theme.OPA.rail_active or nil,
-            on_click = function()
-                VP.close_picker()
-                video_open_file_picker(q.path)
-            end,
-        })
-    end
-
-    --[[「返回上一级」按钮
-
-    摆在快捷设备行的下面、文件列表的上面，独占一行而不是挤进设备行
-    （设备行三格已经各占 1/3，再塞一个会把「内置存储」这四字挤到换行）。
-    特意不把按钮浮在列表上方：列表滚动时它跟着一起滚走就点不到了。
-
-    根目录没有上一级，此时不建按钮、列表也不留空档 —— 位置与改动前完全一致。]]
-    local back_gap = math.floor(6 * density_scale_val)
-    local back_h = quick_h
-    local parent_path = VP.parent_path(start_path)
-    if parent_path then
-        local back_w = clamp(math.floor(120 * density_scale_val), 100, picker_w - pad_in * 2)
-        theme.ghost_button(VP.picker_overlay, {
-            x = pad_in, y = pad_in + quick_h + back_gap,
-            w = back_w, h = back_h,
-            text = "< 返回上一级", size = theme.F.tiny,
-            fg = theme.C.cyan,
-            on_click = function()
-                VP.close_picker()
-                -- 与进入子目录同款：重建选择器，顺带刷新设备高亮
-                video_open_file_picker(parent_path)
-            end,
-        })
-    end
-
-    -- 文件列表滚动区域（有返回按钮时整体下移一行）
-    local back_row_h = parent_path and (back_gap + back_h) or 0
-    local list_y = pad_in + quick_h + back_row_h + pad_in
-    VP.picker_scroll = airui.container({
-        parent = VP.picker_overlay,
-        x = 0, y = list_y, w = picker_w, h = picker_h - list_y - pad_in,
-        color = theme.C.bg, color_opacity = 0, scrollable = true,
-    })
-    VP.render_picker(start_path, VP.picker_scroll)
+把选择结果提前记下来（而不是等退出时再补一次），是为了避免「先按旧文件起了播、
+再销毁重建一次」的二次解码 —— BK72xx 的硬解链路是单实例资源，白重启一次代价不小。]]
+local function on_video_file_changed(path)
+    if type(path) ~= "string" or path == "" then return end
+    if VP.current_file == path then return end
+    VP.current_file = path
+    VP.resume_file = path
+    -- 桌面在前台时（理论上不会走到这里，因为只有全屏页会发这条消息）立即切过去
+    if VP.obj then VP.start_play(path) end
 end
 
 -- 方案A：左列视频卡片（铺满内容区高度）+ 卡片底部常驻控制栏
@@ -2322,9 +2005,9 @@ local function build_video_area(parent)
 
     -- 循环交给组件的 loop 参数。旧版是「每 3 秒 stop+play」手动重播，
     -- 会把正在解码的视频硬重启，画面停在半路（用户报的「播放卡住」）。
-    hzv_audio_ensure()
+    video_util.audio_ensure()
 
-    local fmt = media_guess_format(VP.current_file)
+    local fmt = video_util.guess_format(VP.current_file)
     local vcfg = {
         parent = video_card,
         x = vx_off, y = vy_off, w = vw, h = vh,
@@ -2389,24 +2072,26 @@ local function build_video_area(parent)
         return btn, btn
     end
 
-    -- 文件名标签（左侧，宽度让开右侧 5 个按钮）
+    -- 文件名标签（左侧，宽度让开右侧 4 个按钮）
     local fname = VP.current_file:match("([^/]+)$") or ""
-    local btns_w = (btn_size + btn_gap) * 5 - btn_gap
+    local btns_w = (btn_size + btn_gap) * 4 - btn_gap
     VP.file_label = theme.label(VP.ctrl_bar, {
         x = pad_in, y = btn_y, w = math.max(40, VP.w - pad_in * 2 - btns_w - btn_gap),
         h = btn_size, text = fname, px_size = math.floor(11 * density_scale_val),
         color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
     })
 
-    -- 从右往左：关闭 / 选择文件 / 循环 / 重播 / 播放
-    place_btn("X", theme.C.rose, function()
-        log.info("idle_win", "video btn: hide ctrl")
-        VP.hide_ctrl()
-    end)
+    --[[从右往左：全屏 / 选择文件 / 循环 / 重播 / 播放
+
+    最右那个按钮原来是把控制栏收起来的 X。现在改成「进入全屏播放」：
+    收控制栏这个动作本身就是个死胡同（收掉之后唯一的入口是再点一下画面，
+    而画面没有提示），换成全屏的收益明显更大。按钮文字用 ASCII 的 "[]"
+    —— 工程里所有按钮都只用 ASCII（<  >  ||  R  1  ...），字形资源缺失时才不会空白。]]
+    place_btn("[]", theme.C.violet, VP.open_fullscreen)
     rx = rx - btn_gap
     place_btn("...", theme.C.cyan, function()
         log.info("idle_win", "video btn: open file picker")
-        video_open_file_picker()
+        VP.open_picker()
     end)
     rx = rx - btn_gap
     local _, loop_lbl = place_btn(VP.is_loop and "R" or "1", theme.C.amber, VP.toggle_loop)
@@ -2467,6 +2152,7 @@ local function on_create()
     sys.subscribe("AUTOSTART_SETTINGS_VALUE", on_auto_start_settings)
     sys.subscribe("AUTOSTART_CONFIG_CHANGED", request_auto_start_state)
     sys.subscribe("AUTOSTART_PASSWORD_RESULT", on_auto_start_password_result)
+    sys.subscribe("VIDEO_FILE_CHANGED", on_video_file_changed)
     sys.subscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
     sys.subscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
 
@@ -2501,7 +2187,7 @@ local function on_destroy()
         pcall(function() VP.obj:destroy() end)
         VP.obj = nil
     end
-    audio_stop()
+    video_util.audio_stop()
     sys.unsubscribe("STATUS_TIME_UPDATED", update_time_date)
     if has_4g then sys.unsubscribe("STATUS_SIGNAL_UPDATED", update_mobile_icon) end
     if has_wifi then sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", update_wifi_icon) end
@@ -2511,6 +2197,7 @@ local function on_destroy()
     sys.unsubscribe("AUTOSTART_SETTINGS_VALUE", on_auto_start_settings)
     sys.unsubscribe("AUTOSTART_CONFIG_CHANGED", request_auto_start_state)
     sys.unsubscribe("AUTOSTART_PASSWORD_RESULT", on_auto_start_password_result)
+    sys.unsubscribe("VIDEO_FILE_CHANGED", on_video_file_changed)
     sys.unsubscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
     sys.unsubscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
     if has_eth then
@@ -2634,7 +2321,7 @@ local function on_lose_focus()
         pcall(function() VP.obj:destroy() end)
         VP.obj = nil
     end
-    audio_stop()
+    video_util.audio_stop()
 end
 
 local function open_handler()

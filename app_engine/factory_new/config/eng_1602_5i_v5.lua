@@ -111,6 +111,7 @@ return {
         nand_flash = true,               -- 启用 NAND Flash 存储
         nes = true,                      -- 启用 NES 游戏按键（需配 nes_keys）
         battery = true,                  -- 启用电池管理（需配 hw.battery + ui.show_battery_icon）
+        cloud_disk = true,               -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -137,6 +138,7 @@ return {
         show_brightness_slider = true,   -- 设置页亮度滑块
         show_storage_settings = true,    -- 设置页存储空间入口
         show_battery_icon = true,        -- 桌面顶栏电池图标 ← 配 battery 时打开
+        show_cloud_disk = true,          -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
     },
 
     -- ===== 存储设备: NAND Flash =====

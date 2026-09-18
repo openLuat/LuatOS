@@ -160,6 +160,9 @@ local has_app_factory = _G.project_config and _G.project_config.features and _G.
     and _G.project_config.ui and _G.project_config.ui.show_app_factory
 local has_ai_chat = _G.project_config and _G.project_config.features and _G.project_config.features.ai_chat
     and _G.project_config.ui and _G.project_config.ui.show_ai_chat
+-- 网盘与「应用工厂 / AI 助手」同属可裁剪的大型内置应用：只渲染入口，窗口由 ui_main 按同一开关加载
+local has_cloud_disk = _G.project_config and _G.project_config.features and _G.project_config.features.cloud_disk
+    and _G.project_config.ui and _G.project_config.ui.show_cloud_disk
 
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
@@ -176,6 +179,9 @@ if has_app_factory then
 end
 if has_ai_chat then
     table.insert(builtin_apps, { name = "AI助手", win = "AI_CHAT", icon = "ai_chat", dock = true })
+end
+if has_cloud_disk then
+    table.insert(builtin_apps, { name = "合宙网盘", win = "CLOUD_DISK", icon = "cloud_disk", dock = true })
 end
 
 -- 前向声明（网格点击依赖上下文菜单，后者定义在后面）

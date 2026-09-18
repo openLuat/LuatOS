@@ -194,6 +194,7 @@
     --                          -- 通常同时设 ui.show_battery_icon = true
     --     app_factory = true,  -- 启用应用工厂（录音生成APP），通常同时设 ui.show_app_factory = true
     --     ai_chat = true,      -- 启用AI聊天助手（SSE流式对话+TTS），通常同时设 ui.show_ai_chat = true
+    --     cloud_disk = true,   -- 启用合宙网盘（登录IoT账号后浏览空间文件并下载），通常同时设 ui.show_cloud_disk = true
     -- },
 
     -- ============================================================
@@ -288,6 +289,7 @@
     --     show_battery_icon = true,        -- 桌面顶栏电池图标           ← 通常配 battery 时打开
     --     show_app_factory = true,         -- 桌面"应用工厂"入口         ← 通常配 app_factory 时打开
     --     show_ai_chat = true,             -- 桌面"AI助手"入口           ← 通常配 ai_chat 时打开
+    --     show_cloud_disk = true,          -- 桌面"合宙网盘"入口         ← 通常配 cloud_disk 时打开
     -- },
 
     -- ============================================================

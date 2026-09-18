@@ -94,3 +94,10 @@ end
 if _G.project_config and _G.project_config.features and _G.project_config.features.ai_chat then
     require "llm_chat"
 end
+
+-- 合宙网盘业务层（IoT 登录取 space_key → device_space/list_files → 下载到最高优先级存储）
+-- 门控条件必须与 ui_main 里 cloud_disk_win 的一致，否则会出现
+-- 「桌面图标能显示、点进去没反应」或「窗口在但业务层没加载」两种半残状态
+if _G.project_config and _G.project_config.features and _G.project_config.features.cloud_disk then
+    require "cloud_disk_app"
+end

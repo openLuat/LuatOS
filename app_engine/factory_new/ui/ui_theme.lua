@@ -196,6 +196,7 @@ M.ICON_FALLBACK = {
     file       = "/luadb/file_manager.png",
     app_factory = "/luadb/app_factory.png",
     ai_chat    = "/luadb/ai_chat.png",
+    cloud_disk = "/luadb/cloud.png",     -- 网盘复用已有的 cloud.png，避免新增二进制资源
     search     = "/luadb/search.png",
 }
 

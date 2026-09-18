@@ -1,6 +1,6 @@
 --[[
 @module exsipclient
-@summary SIP 信令客户端，支持 REGISTER、呼叫信令、MESSAGE、UDP/TCP 以及 401/407 Digest 认证。
+@summary SIP 信令客户端，为普通 SIP 通话和 CC<->SIP 语音流桥接提供信令与媒体协商。
 @usage
 本库实现的是“信令侧”的最小 SIP UA，只处理 REGISTER、INVITE、ACK、CANCEL、BYE、MESSAGE，
 不包含 RTP 或音频媒体收发。媒体协商完成后会通过 event_callback 抛出结果，供外部媒体模块继续处理。
@@ -10,17 +10,26 @@
 2、支持 401/407 Digest 鉴权，适用于常见 qop=auth 场景
 3、基于 socket 异步回调和 sys.task 后台循环，适合常驻运行
 4、通过统一事件回调向外抛出注册、通话、媒体、消息、错误等状态
+5、支持 CC<->SIP 桥接所需的来电早期媒体、接听、外呼和结束通知，复用 PCMU/PCMA 媒体协商
+
+CC<->SIP 桥接分工：
+通过 exsip.init() 配置 cc_sip_bridge = true 启用桥接，exsip 接收本库的 media/ready、media/stop
+事件后启动或停止 VoIP，底层 CC/VoIP 桥接负责蜂窝语音 PCM 与 SIP RTP 之间的双向传输。
+本库不读取 cc_sip_bridge 或 audio_mode，也不调用 cc 拨号、接听、挂断；两侧通话联动由应用控制。
+SIP 来电转蜂窝外呼时，应用可先调用 progress() 发送 183 + SDP 建立早期媒体，待 CC 接通再 answer()；
+蜂窝来电转 SIP 外呼时，可用 call(target, from_number) 将蜂窝主叫号码写入 SIP From 显示名。
+media/ready 表示协商参数可用，不代表 CC 已接通或底层音频已启动。
 
 基本用法：
 local sip = require "exsipclient"
 
 sip.start({
-    server = "192.168.1.10",
-    port = 5060,
-    domain = "example.com",
-    user = "1001",
-    password = "123456",
-    transport = "tcp",
+    sip_server_addr = "192.168.1.10",
+    sip_server_port = 5060,
+    sip_domain = "example.com",
+    sip_username = "1001",
+    sip_password = "123456",
+    sip_transport = "tcp",
     event_callback = function(event, action, payload)
         if event == "register" and action == "ok" then
             log.info("sip", "register ok", payload.expires)
@@ -777,6 +786,7 @@ local function sip_task(opts)
 
     -- 当本地 SDP 和远端 SDP 都齐备后，整理出媒体会话描述并通知上层。
     -- SIP 层只负责“协商结果”，不直接创建 RTP socket 或音频线程。
+    -- 普通 SIP 与 CC<->SIP 桥接共用此通知；CC 路由及实际媒体启停由 exsip/底层处理。
     local function maybe_start_media(dialog, source)
         if not dialog or dialog.terminating then
             return
@@ -819,6 +829,7 @@ local function sip_task(opts)
     end
 
     -- 通知外部媒体层停止当前会话。
+    -- 桥接时该事件供 exsip 停止 VoIP，CC 侧挂断仍由应用按通话事件联动处理。
     local function stop_media(reason)
         local active, session = state.media.active, state.media.session
         state.media.active = false
@@ -2648,17 +2659,21 @@ end
 
 --[[
 启动 SIP 客户端。
+普通 SIP 与 CC<->SIP 桥接共用本接口；桥接路由参数应交给 exsip.init()，不由本接口处理。
 @api exsipclient.start(opts)
-@table opts SIP 启动参数表，至少需要 server、port、domain、user、transport
+@table opts SIP 启动参数表，至少需要 sip_server_addr、sip_server_port、sip_domain、sip_username、sip_transport
+@boolean opts.early_media 是否允许 progress() 发送来电早期媒体响应，默认 true
+@number opts.early_media_response 默认 183（带 SDP 并通知启动媒体）；180 仅发送振铃响应
+@function opts.event_callback 事件回调 (event, action, payload)；media/ready 携带协商 session，media/stop 携带 reason 和 session
 @return boolean 参数合法并成功启动后台任务返回 true，否则返回 false
 @usage
 exsipclient.start({
-    server = "192.168.1.10",
-    port = 5060,
-    domain = "example.com",
-    user = "1001",
-    password = "123456",
-    transport = "tcp",
+    sip_server_addr = "192.168.1.10",
+    sip_server_port = 5060,
+    sip_domain = "example.com",
+    sip_username = "1001",
+    sip_password = "123456",
+    sip_transport = "tcp",
     local_port = 5062,
     expires = 600,
     rtp_port = 40000,
@@ -2817,7 +2832,9 @@ function M.answer(call_id)
 end
 
 --[[
-发送 183 Session Progress + SDP，启动来电早期媒体。
+发送来电早期响应；默认 183 Session Progress + SDP，媒体参数齐备后上报 media/ready。
+桥接应用可据此先建立 SIP 媒体，再等待 CC 侧接通后调用 answer()，本接口不会最终接听来电。
+early_media=false 时不发送响应；early_media_response=180 时只发送无 SDP 的振铃响应。
 @api exsipclient.progress(call_id)
 @string call_id 可选，仅处理指定通话
 @return nil 无返回值

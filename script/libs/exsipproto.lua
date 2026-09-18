@@ -1,8 +1,10 @@
 --[[
 @module exsipproto
-@summary SIP 协议辅助库，提供报文解析、Digest 鉴权、SIP 请求/响应构造、SDP 与媒体协商工具。
+@summary SIP 协议辅助库，为普通 SIP 通话和 CC<->SIP 语音流桥接提供报文解析、Digest 鉴权、SIP 请求/响应构造、SDP 与媒体协商工具。
 @usage
 本库主要给 exsipclient 等 SIP 信令模块复用，负责处理协议层字符串拼装与解析。
+当前已支持的 CC<->SIP 双向语音流桥接复用普通 SIP 通话的信令和 SDP 协商；
+桥接路由和 VoIP 媒体启停由 exsip 管理，底层 cc、voip 交换音频，exaudio 配置音频硬件；本库不转发音频，也不控制 CC 通话。
 使用前需要确保固件启用了 crypto 库中的 MD5 能力。
 
 基本用法：
@@ -518,7 +520,9 @@ function M.codec_payload_type(codec)
 end
 
 --[[
-根据本地和远端 SDP 信息整理媒体会话参数。
+根据本地和远端 SDP 信息整理媒体会话参数，普通 SIP 通话和 CC<->SIP 桥接共用。
+当前 SIP 侧使用 G.711 PCMU/PCMA；sample_rate=8000、channels=1、bits=16 描述媒体引擎编解码前后的 PCM 格式，
+RTP 负载仍为 G.711 编码数据。CC 侧的 8kHz/16kHz 采样率适配由底层桥接处理，不改变这里的 SIP 媒体参数。
 @api exsipproto.build_media_session(params)
 @table params 媒体参数表，常见字段包括 call_id、remote_ip、remote_sdp、local_rtp_port、local_codecs、ptime、source
 @return table 媒体会话参数表
@@ -558,6 +562,7 @@ end
 
 --[[
 构造本地 SDP 描述。
+CC<->SIP 桥接沿用普通通话的 G.711 PCMU/PCMA 8kHz 协商格式，无需增加桥接专用 SDP 属性。
 @api exsipproto.build_sdp(state, direction)
 @table state SIP 状态表，需要包含 local_ip 以及 media 相关配置
 @string direction 媒体方向，例如 sendrecv、sendonly、recvonly

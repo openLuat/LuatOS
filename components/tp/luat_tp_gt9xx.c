@@ -501,6 +501,17 @@ void gt9xx_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
 static int tp_gt9xx_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
     uint8_t touch_num=0, point_status=0;
 
+    /*
+     * Poll mode only (the board has no INT line): a read must publish the
+     * current contact state, otherwise a finished contact (UP) is handed to
+     * the application again on every poll.  Interrupt driven boards keep the
+     * original behaviour untouched - consumers such as the input adapter
+     * compare this array between reads and rely on the driver not clearing it.
+     */
+    if (luat_tp_config->pin_int == LUAT_GPIO_NONE) {
+        memset(luat_tp_data, 0x00, sizeof(luat_tp_data_t) * LUAT_TP_TOUCH_MAX);
+    }
+
     // luat_tp_info_t luat_touch_info = {0};
     // tp_gt9xx_get_info(luat_tp_config, &luat_touch_info);
     // uint8_t read_num = luat_touch_info.touch_num;

@@ -102,6 +102,23 @@ typedef struct luat_touch_info{
 
 static uint8_t gt9xx_init_state = 0;
 
+/*
+ * Some boards do not route the controller INT line (e.g. the ESP32-P4
+ * JC1060 keeps TOUCH_IN/TOUCH_R off the host).  Without an edge there is
+ * nothing to trigger a read, so fall back to polling the status register.
+ */
+#define GT9XX_POLL_INTERVAL_MS      (20)
+static luat_rtos_timer_t gt9xx_poll_timer = NULL;
+
+static void gt9xx_poll_timer_cb(void *param)
+{
+    luat_tp_config_t *luat_tp_config = (luat_tp_config_t *)param;
+    if (gt9xx_init_state == 0) {
+        return;
+    }
+    luat_rtos_message_send(luat_tp_config->task_handle, 1, luat_tp_config);
+}
+
 // static uint8_t gt9xx_cfg_table[GT9XX_CONFIG_SIZE] ={
 // // #if 1
 // // 	0x41,0x20,0x03,0xe0,0x01,0x05,0x3d,0x00,0x01,0x08,0x28,0x05,0x50,0x32,0x03,0x05,
@@ -336,6 +353,14 @@ static int tp_gt9xx_init(luat_tp_config_t* luat_tp_config){
         gpio.irq_cb = luat_tp_irq_cb;
         gpio.irq_args = luat_tp_config;
         luat_gpio_setup(&gpio);
+    } else if (gt9xx_poll_timer == NULL && luat_rtos_timer_create(&gt9xx_poll_timer) == 0) {
+        if (luat_rtos_timer_start(gt9xx_poll_timer, GT9XX_POLL_INTERVAL_MS, 1, gt9xx_poll_timer_cb, luat_tp_config)) {
+            luat_rtos_timer_delete(gt9xx_poll_timer);
+            gt9xx_poll_timer = NULL;
+            LLOGE("start poll timer fail!");
+        } else {
+            LLOGI("no INT pin, poll touch every %dms", GT9XX_POLL_INTERVAL_MS);
+        }
     }
 
     gt9xx_init_state = 1;
@@ -344,6 +369,11 @@ static int tp_gt9xx_init(luat_tp_config_t* luat_tp_config){
 
 static int tp_gt9xx_deinit(luat_tp_config_t* luat_tp_config){
     gt9xx_init_state = 0;
+    if (gt9xx_poll_timer != NULL){
+        luat_rtos_timer_stop(gt9xx_poll_timer);
+        luat_rtos_timer_delete(gt9xx_poll_timer);
+        gt9xx_poll_timer = NULL;
+    }
     if (luat_tp_config->pin_int != LUAT_GPIO_NONE){
         luat_gpio_close(luat_tp_config->pin_int);
     }
@@ -358,7 +388,11 @@ static int tp_gt9xx_get_info(luat_tp_config_t* luat_tp_config, luat_tp_info_t *l
 }
 static void tp_gt9xx_read_done(luat_tp_config_t * luat_tp_config)
 {
-	luat_tp_irq_enable(luat_tp_config, 1);
+	/* Without an INT pin the poll timer keeps feeding reads, so leave IRQ off. */
+	if (luat_tp_config->pin_int != LUAT_GPIO_NONE)
+	{
+		luat_tp_irq_enable(luat_tp_config, 1);
+	}
 }
 
 // gt9xx get tp info.

@@ -5,9 +5,10 @@ local g_config
 local g_started = false
 local g_registered = false
 local g_callbacks = {}
-local g_cc_media_pending
-local g_cc_media_starting = false
-local g_cc_media_restarting = false
+local g_call
+local g_call_generation = 0
+local g_media
+local g_media_pending
 local g_current_adapter
 local g_ready_adapters = {}
 local g_ip_event_subscribed = false
@@ -28,6 +29,56 @@ local function emit_callback(event, ...)
             log_error("callback error:", event, err)
         end
     end
+end
+
+-- 前台业务结束后，仍保留正在停止原生媒体的通话记录。
+local function new_call(call_id, direction, owner_token, target)
+    g_call_generation = g_call_generation + 1
+    return {call_id = call_id, sip_generation = g_call_generation,
+        owner_token = owner_token, direction = direction, target = target}
+end
+
+local function matches(call, call_id, generation, owner_token)
+    return call and (call_id == nil or call_id == call.call_id) and
+        (generation == nil or generation == call.sip_generation) and
+        (owner_token == nil or owner_token == call.owner_token)
+end
+
+local function with_identity(payload, call)
+    local out = {}
+    for key, value in pairs(payload or {}) do out[key] = value end
+    if call then
+        out.call_id = call.call_id
+        out.sip_generation = call.sip_generation
+        out.owner_token = call.owner_token
+    end
+    return out
+end
+
+local function payload_call_id(payload)
+    return payload and (payload.call_id or (payload.dialog and payload.dialog.call_id) or
+        (payload.session and payload.session.call_id))
+end
+
+local function event_call(payload)
+    local call = g_call
+    if not call or not matches(call, nil, payload.sip_generation, payload.owner_token) then return end
+    local call_id = payload_call_id(payload)
+    if call_id and call.call_id and call_id ~= call.call_id then return end
+    if call_id and not call.call_id then
+        if call.direction ~= "out" then return end
+        call.call_id = call_id
+        emit_callback("call", "bound", with_identity({}, call))
+    end
+    return call
+end
+
+local function native_state()
+    return voip and voip.getState and voip.getState() or "idle"
+end
+
+local function media_state(state, call)
+    emit_callback("media", "state", with_identity({state = state}, call))
 end
 
 local function has_voip_pcm_bridge()
@@ -71,40 +122,66 @@ local function start_voip_engine(session)
     return false
 end
 
-local function start_pending_cc_media()
-    local session = g_cc_media_pending
-    if not session then return end
-    g_cc_media_starting = true
-    if not start_voip_engine(session) then
-        g_cc_media_pending = nil
-        g_cc_media_starting = false
-        emit_callback("media", "error", {reason = "voip_start_failed"})
-    end
+local start_pending_media
+
+local function request_media_stop()
+    if g_media and g_media.state == "stopping" then return end
+    if not g_media and native_state() == "idle" then return end
+    g_media = g_media or {call = g_call}
+    g_media.state = "stopping"
+    media_state("stopping", g_media.call)
+    -- 原生层已受理启动请求时，即使尚未进入运行状态，也必须请求停止。
+    voip.stop()
 end
 
-local function request_cc_media(session)
-    g_cc_media_pending = session
-    local state = voip and voip.getState and voip.getState() or "idle"
-    if state ~= "idle" then
-        g_cc_media_restarting = true
-        g_cc_media_starting = false
-        if voip and voip.stop then voip.stop() end
-    else
-        g_cc_media_restarting = false
-        start_pending_cc_media()
+local function stop_voip_engine(call)
+    if g_media_pending and (not call or g_media_pending.call == call) then
+        local pending_call = g_media_pending.call
+        g_media_pending = nil
+        media_state("cancelled", pending_call)
     end
+    if not call or (g_media and g_media.call == call) then request_media_stop() end
 end
 
-local function stop_voip_engine()
-    g_cc_media_pending = nil
-    g_cc_media_starting = false
-    g_cc_media_restarting = false
-    if not voip then
+local function same_session(a, b)
+    return a and b and a.call_id == b.call_id and a.remote_ip == b.remote_ip and
+        a.remote_port == b.remote_port and a.local_rtp_port == b.local_rtp_port and
+        a.codec == b.codec and a.ptime == b.ptime and a.remote_direction == b.remote_direction
+end
+
+start_pending_media = function()
+    local pending = g_media_pending
+    if not pending or g_media or native_state() ~= "idle" then return end
+    g_media_pending = nil
+    if pending.call ~= g_call or pending.call.terminating then
+        media_state("cancelled", pending.call)
         return
     end
-    if voip.stop then
-        voip.stop()
-        log_info("voip engine stopping")
+    pending.state = "starting"
+    g_media = pending
+    media_state("starting", pending.call)
+    if not start_voip_engine(pending.session) then
+        if g_media == pending then
+            if native_state() == "idle" then g_media = nil
+            else request_media_stop() end
+        end
+        media_state("error", pending.call)
+        emit_callback("media", "error", with_identity({reason = "voip_start_failed"}, pending.call))
+    end
+end
+
+local function request_cc_media(session, call)
+    if call.terminating then return end
+    if g_media_pending and g_media_pending.call == call and same_session(g_media_pending.session, session) then return end
+    if g_media and g_media.call == call and g_media.state ~= "stopping" and
+        same_session(g_media.session, session) then return end
+    g_media_pending = {call = call, session = with_identity(session, call)}
+    media_state("pending", call)
+    if g_media or native_state() ~= "idle" then
+        -- re-INVITE 更换媒体时，先等待旧原生媒体停止确认。
+        request_media_stop()
+    else
+        start_pending_media()
     end
 end
 
@@ -135,15 +212,14 @@ local function ip_lose_handler(adapter)
 end
 
 local function sip_event_handler(event, action, payload)
+    payload = payload or {}
     log_info("event:", event, "action:", action)
-
     if event == "register" then
         if action == "ok" then
             g_registered = true
             emit_callback("register", "ok", payload)
             emit_callback("ready")
         elseif action == "challenge" then
-            -- challenge 是正常的认证流程，不标记为未注册
             emit_callback("register", "challenge", payload)
         else
             g_registered = false
@@ -151,88 +227,97 @@ local function sip_event_handler(event, action, payload)
         end
     elseif event == "call" then
         if action == "incoming" then
-            local incoming_call = {
-                from = payload.from,
-                call_id = payload.call_id,
-                headers = payload.headers,
-                remote_sdp = payload.remote_sdp,
-                body = payload.body,
-                uri = payload.uri
-            }
-            emit_callback("call", "incoming", incoming_call)
-        elseif action == "ringing" or action == "progress" then
-            emit_callback("call", action, payload)
-        elseif action == "connected" or action == "established" then
-            emit_callback("call", "connected", payload)
-        elseif action == "dial_rejected" then
-            -- 本次拨号未受理；busy 时不能重置已经存在的通话。
-            emit_callback("call", "dial_rejected", payload)
-        elseif action == "ended" or action == "failed" then
-            stop_voip_engine()
-
-            emit_callback("call", "ended", payload)
-
+            if g_call then return end
+            g_call = new_call(payload.call_id, "in")
+            emit_callback("call", "incoming", with_identity(payload, g_call))
+            return
+        end
+        if action == "dial_rejected" then
+            -- payload.dialog 可能指向另一通已建立的通话，不能据此认定本次外呼归属。
+            local call = g_call
+            if not call or call.direction ~= "out" or call.call_id or
+                payload.target ~= call.target or not matches(call, nil, payload.sip_generation, payload.owner_token) then return end
+            g_call = nil
+            emit_callback("call", "dial_rejected", with_identity(payload, call))
+            return
+        end
+        local call = event_call(payload)
+        if not call then return end
+        if action == "ended" or action == "failed" then
+            call.terminating = true
+            g_call = nil
+            stop_voip_engine(call)
+            emit_callback("call", action, with_identity(payload, call))
+        elseif not call.terminating then
+            if action == "established" then action = "connected" end
+            emit_callback("call", action, with_identity(payload, call))
         end
     elseif event == "media" then
+        local call = event_call(payload)
+        if not call then return end
         if action == "ready" then
             local session = payload.session or payload
-            log_info("media ready", session.remote_ip, session.remote_port, session.codec)
-            request_cc_media(session)
+            request_cc_media(session, call)
         elseif action == "stop" then
-            stop_voip_engine()
-            emit_callback("media", "stop", payload)
+            stop_voip_engine(call)
+            emit_callback("media", "stop", with_identity(payload, call))
         end
-    elseif event == "message" then
-        if action == "rx" then
-            emit_callback("message", "rx", {
-                from = payload.from,
-                body = payload.body
-            })
-        elseif action == "sent" then
-            emit_callback("message", "sent", {
-                to = payload.to
-            })
-        end
-    elseif event == "dtmf" then
-        emit_callback("dtmf", action, payload)
     elseif event == "lifecycle" then
-        log_info("lifecycle:", action)
-        if action == "offline" then
-            -- SIP 离线时，停止 voip 引擎，让下次重连时使用新网卡
-            stop_voip_engine()
-
+        local call = g_call
+        if action == "offline" or action == "stopped" then
             g_registered = false
-        elseif action == "stopped" then
+            if call then call.terminating = true end
+            g_call = nil
             stop_voip_engine()
-
-            g_registered = false
         end
-        emit_callback("lifecycle", action, payload)
-    elseif event == "error" then
-        log_error("error:", action, payload.event, payload.param)
-        emit_callback("error", action, payload)
+        emit_callback("lifecycle", action, with_identity(payload, call))
+    else
+        emit_callback(event, action, payload)
+    end
+end
+
+local function native_media_error(reason, detail)
+    local media = g_media
+    local actual = native_state()
+    if not media or media.state == "stopping" or actual == "running" or actual == "starting" then return end
+    -- C 层先投递错误事件，再清理资源并投递停止事件；getState 此时可能已返回空闲。
+    -- 收到停止回调前，继续保留该媒体的通话归属。
+    media.state = "stopping"
+    media_state("error", media.call)
+    media_state("stopping", media.call)
+    if media.call == g_call and not media.call.terminating then
+        emit_callback("media", "error", with_identity({reason = reason, detail = detail}, media.call))
     end
 end
 
 local function setup_voip_callbacks()
     voip.on("state", function(state)
-        log_info("voip state", state)
-        if state == "started" and g_cc_media_starting and not g_cc_media_restarting then
-            local session = g_cc_media_pending
-            g_cc_media_pending = nil
-            g_cc_media_starting = false
-            if session then emit_callback("media", "ready", session) end
+        local media = g_media
+        local actual = native_state()
+        log_info("voip state", state, actual)
+        if state == "started" then
+            if media and media.state == "starting" and media.call == g_call and
+                not media.call.terminating and actual == "running" then
+                media.state = "running"
+                media_state("started", media.call)
+                emit_callback("media", "ready", with_identity(media.session, media.call))
+            end
+        elseif state == "stopped" or state == "idle" then
+            if actual == "idle" and media and media.state == "stopping" then
+                g_media = nil
+                media_state("stopped", media.call)
+                start_pending_media()
+            end
         elseif state == "error" then
-            g_cc_media_pending = nil
-            g_cc_media_starting = false
-            g_cc_media_restarting = false
-        elseif state == "stopped" and g_cc_media_restarting then
-            g_cc_media_restarting = false
-            start_pending_cc_media()
+            native_media_error("voip_start_error")
         end
+        -- 保留原生状态通知接口；业务层使用带通话身份的媒体事件。
         emit_callback("voip", "state", state)
     end)
-    voip.on("error", function(err) emit_callback("voip", "error", err) end)
+    voip.on("error", function(err)
+        native_media_error("voip_error", err)
+        emit_callback("voip", "error", err)
+    end)
 end
 
 function pcm_sip.init(config)
@@ -324,73 +409,66 @@ function pcm_sip.start()
     return true
 end
 
-function pcm_sip.dial(target,from_number)
-    if not g_started then
-        log_error("not started, call pcm_sip.start() first")
-        return false
-    end
+function pcm_sip.dial(target, from_number, owner_token)
+    if not g_started or not sipclient or not sipclient.call or type(target) ~= "string" or g_call then return false end
+    local call = new_call(nil, "out", owner_token, target)
+    if call.owner_token == nil then call.owner_token = "sip:" .. call.sip_generation end
+    g_call = call
+    -- 投递到异步协议任务前，先绑定本地外呼身份，以便识别拨号拒绝事件。
+    emit_callback("call", "dialing", with_identity({}, call))
+    sipclient.call(target, from_number)
+    return true, with_identity({}, call)
+end
 
-    if not sipclient or not sipclient.call then
-        log_error("sipclient.call not available")
-        return false
-    end
-
-    if type(target) ~= "string" then
-        log_error("target must be a string")
-        return false
-    end
-    sipclient.call(target,from_number)
-    log_info("calling:", target,from_number)
+function pcm_sip.accept(call_id, generation, owner_token)
+    if not g_started or not sipclient or not sipclient.answer or
+        not matches(g_call, call_id, generation, owner_token) or g_call.terminating or g_call.direction ~= "in" then return false end
+    if g_call.answer_requested then return true end
+    g_call.answer_requested = true
+    sipclient.answer(g_call.call_id)
     return true
 end
 
-function pcm_sip.accept()
-    if not g_started then
-        log_error("not started")
-        return false
-    end
-
-    if not sipclient or not sipclient.answer then
-        log_error("sipclient.answer not available")
-        return false
-    end
-
-    sipclient.answer()
-    log_info("answering call")
+function pcm_sip.progress(call_id, generation, owner_token)
+    if not g_started or not sipclient or not sipclient.progress or
+        not matches(g_call, call_id, generation, owner_token) or g_call.terminating or g_call.direction ~= "in" then return false end
+    if g_call.progress_requested then return true end
+    g_call.progress_requested = true
+    sipclient.progress(g_call.call_id)
     return true
 end
 
-function pcm_sip.progress()
-    if not g_started then
-        log_error("not started")
-        return false
+function pcm_sip.hangUp(force, call_id, generation, owner_token)
+    if type(force) == "string" then
+        owner_token, generation, call_id, force = generation, call_id, force, false
     end
-
-    if not sipclient or not sipclient.progress then
-        log_error("sipclient.progress not available")
-        return false
+    if not g_started or not sipclient or not sipclient.hangup or
+        not matches(g_call, call_id, generation, owner_token) then return false end
+    if g_call.terminating and force ~= true then return true end
+    if force == true then
+        if g_call.force_requested then return true end
+        g_call.force_requested = true
     end
-
-    sipclient.progress()
-    log_info("progressing incoming call")
+    g_call.terminating = true
+    stop_voip_engine(g_call)
+    -- 外呼只有收到首个对话事件后，才能获得协议层的 Call-ID。
+    -- 收到匹配的协议终结事件前，保留前台通话及其挂断中状态。
+    sipclient.hangup(force == true, g_call.call_id)
     return true
 end
 
-function pcm_sip.hangUp(force)
-    if not g_started then
-        log_error("not started")
-        return false
-    end
-
-    if not sipclient or not sipclient.hangup then
-        log_error("sipclient.hangup not available")
-        return false
-    end
-
-    if force then stop_voip_engine() end
-    sipclient.hangup(force == true)
-    log_info("hanging up")
+function pcm_sip.fail(code, reason, call_id, generation, owner_token)
+    if not g_started or not sipclient or not sipclient.fail or
+        not matches(g_call, call_id, generation, owner_token) or g_call.terminating or
+        g_call.direction ~= "in" or g_call.answer_requested then return false end
+    g_call.terminating = true
+    stop_voip_engine(g_call)
+    sipclient.fail(code, reason, g_call.call_id)
     return true
+end
+
+function pcm_sip.is_media_idle()
+    return g_media == nil and g_media_pending == nil and native_state() == "idle"
 end
 
 function pcm_sip.on(callback)

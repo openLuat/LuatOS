@@ -103,6 +103,7 @@ return {
         usb_camera = true,               -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
         rs485 = true,                    -- RS485 接口 —— 见文件头第 10 条：暂无消费方
         usb_hid = true,                  -- USB 键盘鼠标（Air8601 有 USB Host 接口）
+        cloud_disk = true,               -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -135,5 +136,6 @@ return {
         show_brightness_slider = true,   -- 设置页亮度滑块
         show_storage_settings = true,    -- 设置页存储空间入口 ← 配 sd_card 时打开
         show_camera_preview = true,      -- 设置页摄像头预览入口 ← 见文件头第 10 条
+        show_cloud_disk = true,          -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
     },
 }

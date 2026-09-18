@@ -29,7 +29,7 @@
  * @string|int config.format 视频格式，可选，支持 "auto"、"mjpg"、"avi_mjpg"、"mp4"、"hzv"；"hzv" 为兼容别名
  * @string|int config.backend 后端类型，可选，支持 "auto"、"videoplayer"、"ffmpeg"、"platform"
  * @string|int config.decode_mode 解码模式，可选，支持 "sw"、"hw"
- * @boolean config.direct_render 是否使用独立硬件图层开窗直推，当前仅支持 MJPG，默认 false
+ * @boolean config.direct_render 是否使用独立硬件图层开窗直推，支持 MJPG / AVI-MJPG / HZV，默认 false
  * @int config.interval 播放间隔，单位毫秒，默认 33；HZV 会优先使用容器帧时长
  * @boolean config.loop 是否循环播放，默认 false
  * @boolean config.auto_play 是否创建后自动播放，默认 true

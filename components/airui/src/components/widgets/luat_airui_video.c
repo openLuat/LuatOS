@@ -957,11 +957,14 @@ static int airui_video_sync_to_audio(airui_video_data_t *data)
     ret = data->ops->get_next_frame_time(data->backend_ctx, &next_pts_ms, &duration_ms);
     if (ret == AIRUI_VIDEO_STATUS_EOF) return AIRUI_OK;
     if (ret != AIRUI_OK) return ret;
-    if (!clock.running && clock.audio_pts_ms == 0) {
-        lv_timer_set_period(data->timer, 5);
-        return AIRUI_VIDEO_STATUS_WAIT;
-    }
     if (next_pts_ms > clock.audio_pts_ms + 10u) {
+        /* HZV 音视频同容器：WAIT 而不 read_frame 会停掉解复用，音频 DMA 播完缓冲后时钟冻住，
+           画面也就停在首帧。第二图层直推很快，更容易提前进入 WAIT，因此 DAC 未起、
+           时钟未跑或缓冲空时必须继续读帧给音频补数。 */
+        if (!clock.running || clock.audio_pts_ms == 0u || clock.buffered_samples == 0u) {
+            lv_timer_set_period(data->timer, 5);
+            return AIRUI_OK;
+        }
         uint64_t wait_ms = next_pts_ms - clock.audio_pts_ms - 10u;
         lv_timer_set_period(data->timer, wait_ms > 20u ? 20u : (uint32_t)wait_ms);
         return AIRUI_VIDEO_STATUS_WAIT;
@@ -1126,8 +1129,12 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
     }
 
     if (data->direct_render) {
-        if (data->format != AIRUI_VIDEO_FORMAT_MJPG) {
-            LLOGE("video: direct_render currently only supports MJPG");
+        /* 第二图层直推吃的是 RGB565 解码帧，MJPG / AVI-MJPG / HZV 都走同一条 present 路径。 */
+        if (data->format != AIRUI_VIDEO_FORMAT_MJPG &&
+            data->format != AIRUI_VIDEO_FORMAT_AVI_MJPG &&
+            data->format != AIRUI_VIDEO_FORMAT_HZV) {
+            LLOGE("video: direct_render currently only supports MJPG/AVI-MJPG/HZV, format=%d",
+                  (int)data->format);
             luat_heap_free(data->src);
             luat_heap_free(data);
             airui_component_meta_free(meta);

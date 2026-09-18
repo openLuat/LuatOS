@@ -205,7 +205,7 @@ static int l_videoplayer_read_frame(lua_State *L) {
 #include "luat_display.h"
 #include "luat_display_surface.h"
 
-#define DEFAULT_DISPLAY_LAYER 1     //0=draw_surface+flush(display库路径, 兼容MJPG逐帧新buffer); 1=硬件layer(仅适合borrowed常驻buffer)
+#define DEFAULT_DISPLAY_LAYER 1     //0=draw_surface+flush(display库路径, 兼容MJPG逐帧新buffer); 1=硬件layer(LTDC直读, 每帧set_layer刷新buffer并释放上一帧)
 
 #if DEFAULT_DISPLAY_LAYER
 static struct luat_display_layer_data g_layer_data;
@@ -279,19 +279,27 @@ static int l_videoplayer_draw_frame(lua_State *L) {
     luat_display_flush(disp);
 #else
 
-    if(g_layer_data.enable == 0){
+    static uint8_t *s_vp_layer_prev = NULL; //上一帧已交给LTDC的buffer, 当前帧替换后可释放
+
+    if (g_layer_data.enable == 0) {
         g_layer_data.enable = 1;    //使能图层
         g_layer_data.layer_id = 1;  //图层0默认是UI，视频类使用图层1
         g_layer_data.area.x1 = x;
         g_layer_data.area.y1 = y;
         g_layer_data.area.x2 = x + frame.width;
         g_layer_data.area.y2 = y + frame.height;
-        g_layer_data.buffer = frame.data;
         g_layer_data.alpha = 255;
         g_layer_data.format = LUAT_DISPLAY_FORMAT_RGB565;
-        disp->display_funcs->set_layer(&g_layer_data);
     }
-
+    g_layer_data.buffer = frame.data;
+    disp->display_funcs->set_layer(&g_layer_data);
+    /* 当前帧buffer由LTDC持续读取, 不能free; 释放上一帧已被set_layer替换的buffer */
+    if (s_vp_layer_prev && s_vp_layer_prev != frame.data) {
+        luat_heap_free(s_vp_layer_prev);
+    }
+    s_vp_layer_prev = frame.data;
+    lua_pushboolean(L, 1);
+    return 1;
 
 #endif
 

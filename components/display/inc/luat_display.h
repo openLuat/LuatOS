@@ -202,7 +202,7 @@ struct luat_display_fb_info {
 struct luat_display_layer_data {
 
     uint32_t enable;    // 是否启用该层
-    uint32_t layer_id;  // 层_id
+    uint32_t layer_id;  // 层_id 0:UI层 1:视频层
     uint32_t area_id;   // 区域_id
     uint32_t alpha;     // 透明度
 

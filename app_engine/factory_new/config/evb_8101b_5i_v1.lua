@@ -136,6 +136,8 @@ return {
                 pin_rst = 28,            -- 复位引脚
                 pin_int = 7,             -- 中断引脚
                 int_type = tp.FALLING,   -- 下降沿触发
+                w = 480,                 -- 触摸面板宽度（与 LCD 一致）
+                h = 854,                 -- 触摸面板高度
                 i2c_speed = i2c.SLOW,    -- 低速 I2C（推荐）
             },
         },

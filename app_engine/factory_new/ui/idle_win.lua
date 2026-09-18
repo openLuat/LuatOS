@@ -108,7 +108,13 @@ local density_scale_val = _G.density_scale or 1.0
 
 local status_cache = { time = "08:00", date = "1970-01-01", weekday = "星期四", mobile_level = -1, wifi_level = 0 }
 
--- 天气缓存（占位数据，接入天气 API 后发 WEATHER_UPDATED 消息即可整卡刷新）
+-- 天气缓存：下面这组是**兜底初值**（联网拿到真数据前先显示，避免空格）。
+-- 真实数据由 app/common/weather_app.lua 联网获取：
+--   按出口 IP 自动定位城市 -> open-meteo 查天气 -> sys.publish("WEATHER_UPDATED", {...})
+-- 本窗口创建时还会 sys.publish("WEATHER_REQUEST") 主动要一次，
+--   因为天气数据可能先于窗口到达（订阅晚于发布就会丢首帧）
+--
+-- 缓存结构：
 --   city/condition/temp        → 当前天气
 --   daily[1..3]                → 未来三天预报，{ day = 标题, high = 最高温, low = 最低温 }
 -- 天气图标放在 res/ 下（打包进 /luadb/），文件名见 WEATHER_STYLES 的 icon 字段：
@@ -1660,7 +1666,7 @@ local function hzv_audio_ensure()
         dac_delay   = ac.dac_delay,
     })
     if ok then
-        pcall(exaudio.vol, ac.play_vol or 70)
+        pcall(exaudio.vol, ac.play_vol or 100)
         _G.__hzv_audio_ready = true
         return true
     end
@@ -2210,6 +2216,9 @@ local function on_create()
 
     request_auto_start_state()
     sys.publish("REQUEST_STATUS_REFRESH")
+    -- 请求天气：天气数据可能先于本窗口到达（订阅晚于发布就会丢首帧），
+    -- 用请求-应答让天气服务把当前数据立即回发一次
+    sys.publish("WEATHER_REQUEST")
     sys.timerStart(check_duplicates, 1200)
 
     log.info("idle_win", string.format("桌面构建完成 %dx%d rail=%d cols=%d rows=%d apps=%d",

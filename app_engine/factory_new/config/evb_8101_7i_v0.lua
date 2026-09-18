@@ -80,6 +80,8 @@ return {
                 pin_rst = 28,            -- 复位引脚 GPIO28
                 pin_int = 7,             -- 中断引脚 GPIO7
                 int_type = tp.FALLING,   -- 下降沿触发（大屏推荐）
+                w = 1024,                -- 触摸面板宽度（与 LCD 一致）
+                h = 600,                 -- 触摸面板高度
                 i2c_speed = i2c.SLOW,    -- 低速 I2C（推荐）
             },
         },

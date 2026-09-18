@@ -21,6 +21,7 @@ return {
     -- Air1602 V005 airlink WiFi 模组: GPIO55 保持低电平（低电平有效）
     power_on = {
         { pin = 55, dir = 0, level = 0, delay = 50 },  -- 保持低电平 50ms
+        { pin = 49, dir = 1, level = 1, delay = 50 },  -- 拉高释放 50ms
     },
 
     -- ===== 硬件配置 =====
@@ -30,10 +31,10 @@ return {
             model = "lcd_display_rgb",
             params = {
                 interface = "rgb",             -- RGB 接口
-                pin_rst = 15,                  -- 复位引脚
-                pin_clk = 23,                  -- SPI 时钟引脚（IC 初始化通信）
-                pin_sda = 2,                   -- SPI 数据引脚
-                pin_cs = 22,                   -- SPI 片选引脚
+                pin_clk = 23,                 -- SPI 时钟引脚（初始化通信）
+                pin_sda = 2,                  -- SPI 数据引脚
+                pin_cs = 22,                  -- SPI 片选引脚
+                pin_rst = 15,                 -- 复位引脚
                 w = 480,                       -- 水平分辨率
                 h = 854,                       -- 竖直分辨率
                 hbp = 40,                      -- 水平后沿
@@ -62,6 +63,8 @@ return {
                 pin_rst = 3,             -- 复位引脚
                 pin_int = 51,            -- 中断引脚
                 int_type = tp.FALLING,   -- 下降沿触发
+                w = 480,                 -- 触摸面板宽度（与 LCD 一致）
+                h = 854,                 -- 触摸面板高度
                 gpio_reset = 3,          -- 额外复位 GPIO（Air1602 常用）
             },
         },
@@ -71,6 +74,34 @@ return {
             usb_detect_gpio = 52,        -- USB 插入检测 GPIO
             voltage_divider = 2,         -- 分压比 2:1
             full_voltage = 4150,         -- 充满电压 4.15V
+        },
+        -- 音频硬件: ES8311 + I2S2（应用工厂-录音播放）
+        -- 参考 Air1602 录音 demo（record_amr_file.lua，Air1602_V1.2 开发板）：
+        --   ES8311 与触摸共用 I2C1；8311_EN=GPIO43 保持常供电，防止钳位 I2C1 触摸总线
+        --   播放走内置 DAC0，录音走 I2S2 接 ES8311（exaudio v2.8 tx/rx_bus_type 默认驱动切换）
+        --   PA_EN=GPIO73 低电平使能（pa_on_level=0），由 exaudio.setup 内部控制防 pop 音
+        audio = {
+            model = "es8311", -- 音频编解码: ES8311（录音经 I2S2）
+            i2c_id = 1,       -- I2C1 控制总线（与触摸共用）
+            -- 默认驱动切换：播放用内置 DAC0，录音用 I2S2（Air1601/1602 引擎板）
+            -- 数值对应 audio_v2.DRIVER_TYPE_*（NONE=0/I2S=1/DAC=2/ADC=3），
+            -- 用字面量避免依赖 audio_v2 全局表（8000 等旧框架固件可能无此表）
+            tx_bus_type = 2,          -- audio_v2.DRIVER_TYPE_DAC：发送(播放)总线=内置DAC
+            tx_bus_id = 0,            -- DAC0
+            rx_bus_type = 1,          -- audio_v2.DRIVER_TYPE_I2S：接收(录音)总线=I2S
+            rx_bus_id = 2,            -- I2S2
+            dac_ctrl = 49,            -- 8311_EN 编解码使能 GPIO（已在 power_on 拉高）
+            pa_ctrl = 45,             -- PA_EN 功放使能 GPIO
+            pa_on_level = 1,          -- PA 低电平使能（Air1602_V1.2 开发板特性）
+            pa_delay = 100,           -- PA 打开延迟(ms)
+            i2s_sample = 8000,        -- I2S 采样率（AMR_NB=8k）
+            bits_per_sample = 16,     -- 采样位深
+            i2s_framebit = 16,        -- I2S 通道位宽
+            channels = 1,             -- 声道数: 单声道
+            play_vol = 70,            -- 默认播放音量(0~100)
+            mic_vol = 70,             -- 默认录音音量(0~100)
+            record_format = "AMR_NB", -- 录音格式（与 Air1601/1602 一致，体积小，ASR 上传省内存）
+            max_record_time = 30,     -- 最大录音时长(秒)，到时自动停止
         },
     },
 

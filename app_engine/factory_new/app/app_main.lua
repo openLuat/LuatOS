@@ -14,13 +14,14 @@ require 即执行，main.lua 调用 require "app_main" 时以下模块按顺序�
   2. net_init       → 统一网络事件订阅（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志）
   3. wifi_app_real  → WiFi 业务层（自动连接、扫描、UI交互），不再做4G/以太网初始化
   4. status_provider_app → 状态栏数据源（时间/信号/电量定时更新，发布 STATUS_UPDATE）
-  5. ntp_app        → NTP 时间同步（订阅 IP_READY，联网后自动校时）
-  6. settings_iot_app → IOT 平台账号登录/登出
-  7. settings_app   → 设置主框架（fskv 持久化配置）
-  8. fota_app       → 固件 OTA 升级
-  9. file_manager_app → 文件管理业务层
- 10. factory_app   → 应用工厂业务层（仅 features.app_factory 时加载，级联 factory_rec）
- 11. llm_chat      → AI 助手业务层（仅 features.ai_chat 时加载）
+  5. weather_app    → 天气服务（按出口 IP 自动定位城市，查询天气并发布 WEATHER_UPDATED）
+  6. ntp_app        → NTP 时间同步（订阅 IP_READY，联网后自动校时）
+  7. settings_iot_app → IOT 平台账号登录/登出
+  8. settings_app   → 设置主框架（fskv 持久化配置）
+  9. fota_app       → 固件 OTA 升级
+ 10. file_manager_app → 文件管理业务层
+ 11. factory_app   → 应用工厂业务层（仅 features.app_factory 时加载，级联 factory_rec）
+ 12. llm_chat      → AI 助手业务层（仅 features.ai_chat 时加载）
 
 === 网络架构变化 ===
 
@@ -52,6 +53,10 @@ require "wifi_app_real"
 
 -- 加载状态提供 app 模块（系统时间/4G信号/WiFi信号 定时更新，发布 STATUS_UPDATE 给状态栏）
 require "status_provider_app"
+
+-- 加载天气服务模块（订阅 IP_READY，联网后按出口 IP 自动定位城市并查询天气，
+-- 发布 WEATHER_UPDATED 给桌面天气卡；数据源全部免 key，见模块头部说明）
+require "weather_app"
 
 -- 加载电池管理模块（按 features.battery 配置开关，ADC 电压检测 + USB 充电检测）
 if _G.project_config and _G.project_config.features and _G.project_config.features.battery then

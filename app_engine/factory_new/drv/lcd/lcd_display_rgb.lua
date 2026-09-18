@@ -1,52 +1,26 @@
 --[[
 @module  lcd_display_rgb
 @summary RGB 屏统一通过 display 库初始化（替代 lcd.init）
-@version 2.0
-@date    2026.09.15
+@version 3.0
+@date    2026.09.18
 @usage
 params 透传给 display.init("custom", ...)：
   w, h, hbp, hspw, hfp, vbp, vspw, vfp, pclk_hz / bus_speed,
   pin_rst, pin_bl, pin_pwr, interface
 
 可选 SPI IC 初始化（NV3052C/ST7701S/GC9503 等需要 SPI 寄存器配置的 RGB IC）：
-  pin_clk, pin_sda, pin_cs  → SPI 总线引脚
-  ic_init                    → function(params) IC 寄存器写入回调
+  pin_clk, pin_sda, pin_cs  → SPI 总线引脚（对应 display.init 的 pin_scl/pin_sdi/pin_cs）
+  ic_init                    → function(params) 返回 custom_cmds 表
+
+display.init 内部自动完成:
+  1. 通过 pin_cs/pin_scl/pin_sdi 建立 SPI 通道
+  2. 发送 custom_cmds 中的 IC 寄存器序列
+  3. 初始化 RGB 接口（时序参数）
+  4. 分配 FrameBuffer
 
 PC 模拟器 AirUI 走 SDL2，跳过 display.init 避免双窗口。
 ]]
 local M = {}
-
--- SPI IC 初始化：通过 lcd.init 建立 SPI 通道，发送 IC 寄存器序列
-local function spi_ic_init(params)
-    if not params.pin_clk or not params.pin_sda or not params.pin_cs then
-        return
-    end
-    if not lcd or not lcd.init then
-        log.error("lcd_display_rgb", "lcd 模块不存在，无法进行 SPI IC 初始化")
-        return
-    end
-    -- lcd.init("custom", ...) 仅建立 SPI 通道，port 不走 RGB
-    local spi_params = {
-        port      = lcd.HWID_0,
-        pin_clk   = params.pin_clk,
-        pin_sda   = params.pin_sda,
-        pin_cs    = params.pin_cs,
-        pin_rst   = params.pin_rst,
-        direction = 0,
-        w         = params.w,
-        h         = params.h,
-    }
-    local r = lcd.init("custom", spi_params)
-    if not r then
-        log.error("lcd_display_rgb", "lcd.init SPI 通道失败")
-        return
-    end
-    -- 发送 IC 寄存器序列
-    if type(params.ic_init) == "function" then
-        params.ic_init(params)
-        log.info("lcd_display_rgb", "SPI IC 初始化完成")
-    end
-end
 
 function M.init(params)
     if params.pin_pwr then
@@ -68,25 +42,45 @@ function M.init(params)
         return false
     end
 
-    -- 可选：SPI IC 初始化（在 display.init 之前完成 IC 寄存器配置）
-    spi_ic_init(params)
-
+    -- 构建 display.init 配置
     local cfg = {
-        id = 0,
+        id        = 0,
         interface = params.interface or "rgb",
-        w = params.w,
-        h = params.h,
-        hbp = params.hbp,
-        hspw = params.hspw,
-        hfp = params.hfp,
-        vbp = params.vbp,
-        vspw = params.vspw,
-        vfp = params.vfp,
-        pclk_hz = params.pclk_hz or params.bus_speed,
-        pin_rst = params.pin_rst,
-        pin_bl = params.pin_bl or params.pin_pwr,
-        pin_pwr = params.pin_pwr,
+        w         = params.w,
+        h         = params.h,
+        -- RGB 时序
+        hbp       = params.hbp,
+        hspw      = params.hspw,
+        hfp       = params.hfp,
+        vbp       = params.vbp,
+        vspw      = params.vspw,
+        vfp       = params.vfp,
+        pclk_hz   = params.pclk_hz or params.bus_speed,
+        -- 引脚
+        pin_rst   = params.pin_rst,
+        pin_bl    = params.pin_bl or params.pin_pwr,
+        pin_pwr   = params.pin_pwr,
     }
+
+    -- 可选: SPI IC 初始化（返回 custom_cmds 表，由 display.init 内部发送）
+    if type(params.ic_init) == "function" then
+        local cmds = params.ic_init(params)
+        if cmds then
+            cfg.custom_cmds = cmds
+            -- SPI 引脚（display.init 内部用于发送 custom_cmds）
+            if params.pin_cs then
+                cfg.pin_cs  = params.pin_cs
+            end
+            if params.pin_clk then
+                cfg.pin_scl = params.pin_clk
+            end
+            if params.pin_sda then
+                cfg.pin_sdi = params.pin_sda
+            end
+            log.info("lcd_display_rgb", "IC custom_cmds 已加载, SPI pins: cs=" .. (params.pin_cs or "nil") ..
+                     " scl=" .. (params.pin_clk or "nil") .. " sdi=" .. (params.pin_sda or "nil"))
+        end
+    end
 
     local r, err = display.init("custom", cfg)
     log.info("lcd_display_rgb", "display.init", r, err)

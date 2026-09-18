@@ -194,7 +194,6 @@ M.ICON_FALLBACK = {
     settings   = "/luadb/settings.png",
     app_store  = "/luadb/app_store_icon.png",
     file       = "/luadb/file_manager.png",
-    speedtest  = "/luadb/internet_speed.png",
     app_factory = "/luadb/app_factory.png",
     ai_chat    = "/luadb/ai_chat.png",
     search     = "/luadb/search.png",
@@ -1171,6 +1170,38 @@ end
 其余字段（x/y/w/h/text/placeholder/max_len/mode/align/keyboard/disabled/
 on_text_change/parent）原样透传给 airui.textarea。
 注意：airui.textarea 的 bg_color 会强制 LV_OPA_COVER，输入框一定是实底 —— 不能用玻璃。]]
+--[[虚拟键盘 = LVGL lv_keyboard + 主题配色
+
+为什么需要这层包装：lv_keyboard 的键位是自绘的 LV_PART_ITEMS，颜色 100% 来自
+LVGL 默认主题，键盘除了底色之外没有任何可配项 —— 不包装的话，不管应用切到
+哪套主题，键盘永远是「白键 + 灰字」，放到深色主题里就是一块突兀的白板。
+
+配色分工：
+  键盘底      panel                       键位底   panel_hi（比底色高一档，键位才有分界）
+  键位文字    t1                          键位按下 primary / on_primary
+  候选栏文字  t1                          描边     stroke / stroke_soft
+
+@table o 与 airui.keyboard 完全一致；下面这些颜色字段一般不必传，传了则覆盖
+         主题默认值：bg_color / key_bg_color / key_text_color /
+         key_pressed_bg_color / key_pressed_text_color / key_border_color /
+         border_color / text_color / cand_text_color
+@return keyboard 对象]]
+function M.keyboard(o)
+    o = o or {}
+    local kw = {}
+    for k, v in pairs(o) do kw[k] = v end
+    kw.bg_color = kw.bg_color or M.C.panel
+    kw.key_bg_color = kw.key_bg_color or M.C.panel_hi
+    kw.key_text_color = kw.key_text_color or M.C.t1
+    kw.key_pressed_bg_color = kw.key_pressed_bg_color or M.C.primary
+    kw.key_pressed_text_color = kw.key_pressed_text_color or M.C.on_primary
+    kw.key_border_color = kw.key_border_color or M.C.stroke_soft
+    kw.text_color = kw.text_color or M.C.t1
+    kw.border_color = kw.border_color or M.C.stroke
+    kw.cand_text_color = kw.cand_text_color or M.C.t1
+    return airui.keyboard(kw)
+end
+
 function M.input(parent, o)
     parent, o = norm(parent, o)
     local st = {

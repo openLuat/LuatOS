@@ -97,11 +97,14 @@ void* luat_heap_zalloc(size_t _size) {
 }
 
 void* luat_heap_memalign(size_t alignment, size_t size) {
-    if (alignment <= SizeQuant) {
-        return luat_heap_malloc(size);
-    }
-    LLOGW("luat_heap_memalign: unsupported alignment=%zu size=%zu", alignment, size);
-    return NULL;
+    /*
+     * bget does not expose an aligned-allocation API. The PC simulator has no
+     * DMA/cache-line requirement, so keep allocation/free ownership inside the
+     * simulated heap and provide its native alignment. Target BSPs still supply
+     * their real luat_heap_memalign implementation.
+     */
+    (void)alignment;
+    return luat_heap_malloc(size);
 }
 //------------------------------------------------
 

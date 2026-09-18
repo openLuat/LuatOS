@@ -1,0 +1,308 @@
+--[[
+@module  cc_main
+@summary VoLTE 通话模块
+@version 1.0
+@date    2026.07.17
+@author  蒋骞
+@usage
+封装 cc 库的初始化、事件处理、拨号/接听/挂断。
+通过发布/订阅消息与 bridge.lua 和 sip_main.lua 交互。
+]]
+
+local cc_main = {}
+local config = require "config"
+
+local STATE_IDLE = "cc_idle"
+local STATE_DIALING = "cc_dialing"
+local STATE_RINGING = "cc_ringing"
+local STATE_CONNECTED = "cc_connected"
+local STATE_DISCONNECTING = "cc_disconnecting"
+
+local g_state = STATE_IDLE
+local g_ready = false
+local g_initialized = false
+local g_call_connected = false
+local g_media_ready = false
+local g_audio_start_timer = nil
+local g_call_generation = 0
+
+local function logi(...)
+    log.info("cc_main", ...)
+end
+
+local function set_state(new_state)
+    if g_state ~= new_state then
+        local old_state = g_state
+        logi("状态切换", g_state, "->", new_state)
+        g_state = new_state
+        sys.publish("CC_STATE_CHANGED", new_state, old_state)
+    end
+end
+
+local function stop_audio_start_timeout()
+    if g_audio_start_timer then
+        sys.timerStop(g_audio_start_timer)
+        g_audio_start_timer = nil
+    end
+end
+
+local function stop_bridge_audio()
+    if cc and cc.bridgeAudioStop then
+        cc.bridgeAudioStop()
+    end
+end
+
+local function start_audio_start_timeout()
+    if g_audio_start_timer then return end
+    local timeout = tonumber(config.cc_audio_start_timeout_ms) or 0
+    if timeout <= 0 then return end
+
+    local generation = g_call_generation
+    g_audio_start_timer = sys.timerStart(function()
+        if generation ~= g_call_generation then return end
+        g_audio_start_timer = nil
+        if g_state ~= STATE_DIALING and g_state ~= STATE_RINGING and
+            g_state ~= STATE_CONNECTED then return end
+        if not g_call_connected or g_media_ready then return end
+
+        log.error("cc_main", "CC 音频通道启动超时", timeout)
+        stop_bridge_audio()
+        set_state(STATE_DISCONNECTING)
+        if cc and cc.hangUp then
+            cc.hangUp(0)
+        end
+        sys.publish("CC_FAILED", "audio_start_timeout")
+    end, timeout)
+end
+
+local function reset_media_state()
+    stop_audio_start_timeout()
+
+    g_call_generation = g_call_generation + 1
+    g_call_connected = false
+    g_media_ready = false
+end
+
+local function finish_media_start()
+    if not g_call_connected or not g_media_ready or
+        (g_state ~= STATE_DIALING and g_state ~= STATE_RINGING) then return end
+    stop_audio_start_timeout()
+
+    set_state(STATE_CONNECTED)
+    logi("CC 已接通且 PCM 通道就绪")
+    sys.publish("CC_CONNECTED")
+end
+
+local function on_media_error(reason, session)
+    if g_state == STATE_IDLE or g_state == STATE_DISCONNECTING then return end
+    log.error("cc_main", "PCM 媒体故障", reason, "session", session)
+    reset_media_state()
+    stop_bridge_audio()
+    set_state(STATE_DISCONNECTING)
+    if cc and cc.hangUp then cc.hangUp(0) end
+    sys.publish("CC_FAILED", reason or "pcm_media_error")
+end
+
+-- ==================== 请求处理 ====================
+
+local function on_cc_dial_req(number)
+    if g_state ~= STATE_IDLE then
+        log.warn("cc_main", "CC 忙，无法拨号", g_state)
+        sys.publish("CC_DIAL_REJECTED", "busy")
+        return
+    end
+    if not g_initialized then
+        sys.publish("CC_DIAL_REJECTED", "cc_not_ready")
+        return
+    end
+    reset_media_state()
+    set_state(STATE_DIALING)
+    logi("执行拨号", number)
+    if not cc or not cc.dial then
+        log.error("cc_main", "cc.dial 不可用")
+        set_state(STATE_IDLE)
+        sys.publish("CC_FAILED", "cc_not_ready")
+        return
+    end
+    local ok = cc.dial(0, number)
+    if not ok then
+        log.error("cc_main", "cc.dial 失败")
+        set_state(STATE_IDLE)
+        stop_bridge_audio()
+        sys.publish("CC_FAILED", "dial_failed")
+    elseif cc.bridgeTone then
+        -- 仅请求网络侧彩铃；真实蜂窝下行和接通由 C 后端仲裁。
+        cc.bridgeTone(true)
+    end
+end
+
+local function on_cc_accept_req()
+    if g_state ~= STATE_RINGING then
+        log.warn("cc_main", "当前没有来电", g_state)
+        return
+    end
+    logi("执行接听")
+    if not cc or not cc.accept then
+        log.error("cc_main", "cc.accept 不可用")
+        on_media_error("accept_unavailable")
+        return
+    end
+    local ok = cc.accept(0)
+    if not ok then
+        log.error("cc_main", "cc.accept 失败")
+        on_media_error("accept_failed")
+    end
+end
+
+local function on_cc_hangup_req()
+    if g_state == STATE_IDLE then
+        log.warn("cc_main", "CC 已空闲")
+        return
+    end
+    if g_state == STATE_DISCONNECTING then
+        logi("CC 正在挂断")
+        return
+    end
+    reset_media_state()
+    stop_bridge_audio()
+    set_state(STATE_DISCONNECTING)
+    logi("执行挂断")
+    if cc and cc.hangUp then
+        cc.hangUp(0)
+    end
+end
+
+sys.subscribe("CC_DIAL_REQ", on_cc_dial_req)
+sys.subscribe("CC_ACCEPT_REQ", on_cc_accept_req)
+sys.subscribe("CC_HANGUP_REQ", on_cc_hangup_req)
+
+-- ==================== CC 事件处理 ====================
+
+local function on_cc_event(status, value, extra)
+    logi("事件", status, value, extra)
+
+    if status == "READY" then
+        g_ready = true
+        logi("CC 系统已就绪")
+
+    elseif status == "INCOMINGCALL" then
+        local number = cc and cc.lastNum and cc.lastNum() or ""
+        if g_state == STATE_RINGING then
+            logi("重复来电，忽略", number)
+            return
+        end
+        if g_state ~= STATE_IDLE then
+            log.warn("cc_main", "CC 忙，拒绝来电", g_state)
+            if cc and cc.hangUp then cc.hangUp(0) end
+            return
+        end
+        if not g_initialized then
+            if cc and cc.hangUp then cc.hangUp(0) end
+            return
+        end
+        reset_media_state()
+        set_state(STATE_RINGING)
+        logi("手机来电", number)
+        sys.publish("CC_INCOMING", number)
+
+    elseif status == "CONNECTED" or status == "CONNECTED_NUMBER" or status == "ANSWER_CALL_DONE" then
+        if g_state ~= STATE_DIALING and g_state ~= STATE_RINGING then return end
+        if not g_call_connected then
+            g_call_connected = true
+
+            if cc.bridgeTone then cc.bridgeTone(false) end
+            if not g_media_ready then start_audio_start_timeout() end
+        end
+        finish_media_start()
+
+    elseif status == "AUDIO_START" then
+        if g_state == STATE_IDLE or g_state == STATE_DISCONNECTING then return end
+        g_media_ready = true
+        stop_audio_start_timeout()
+        logi("PCM 通道就绪", "connected", g_call_connected)
+        finish_media_start()
+
+    elseif ((status == "PLAY" and value == 0) or status == "PLAY_STOP") then
+        if g_state == STATE_IDLE or g_state == STATE_DISCONNECTING then return end
+        -- 早期媒体缓冲已撤销，保留呼叫，等待新阶段的 AUDIO_START。
+        g_media_ready = false
+        if g_call_connected then start_audio_start_timeout() end
+
+    elseif status == "DISCONNECTED" then
+        local was_active = g_state ~= STATE_IDLE
+        reset_media_state()
+        stop_bridge_audio()
+        set_state(STATE_IDLE)
+        logi("CC 通话已断开")
+        if was_active then
+            sys.publish("CC_DISCONNECTED")
+        end
+
+    elseif status == "SPEECH_START" then
+        -- 媒体阶段通知不代表对端接听；由 C 后端管理 PCM 通道。
+
+    elseif status == "MAKE_CALL_OK" then
+        logi("CC 拨号请求已发送")
+
+    elseif status == "MAKE_CALL_FAILED" then
+        log.error("cc_main", "CC 拨号失败")
+        reset_media_state()
+        stop_bridge_audio()
+        set_state(STATE_IDLE)
+        sys.publish("CC_FAILED", "make_call_failed")
+
+    elseif status == "HANGUP_CALL_DONE" then
+        local was_active = g_state ~= STATE_IDLE
+        logi("CC 挂断完成")
+        reset_media_state()
+        stop_bridge_audio()
+        set_state(STATE_IDLE)
+        if was_active then
+            sys.publish("CC_DISCONNECTED", "local_hangup")
+        end
+    end
+end
+
+-- ==================== 公共 API ====================
+
+-- 在任何 cc.init 调用之前订阅，避免丢失同步发布的 READY/错误。
+sys.subscribe("CC_IND", on_cc_event)
+sys.subscribe("CC_BRIDGE_MEDIA_ERROR", on_media_error)
+
+function cc_main.init()
+    if g_initialized then return true end
+    if not cc or not cc.init then return false, "cc_unavailable" end
+    if cc.AUDIO_MODE_BRIDGE_PCM == nil then return false, "firmware_missing_bridge_pcm" end
+    local ok, reason = cc.init(0, cc.AUDIO_MODE_BRIDGE_PCM)
+    if not ok then
+        g_ready = false
+        log.error("cc_main", "CC 初始化失败", reason)
+        return false, reason or "cc_init_failed"
+    end
+    g_initialized = true
+    g_ready = true
+    logi("CC 初始化完成 bridge_pcm")
+    return true
+end
+
+function cc_main.dial(number)
+    sys.publish("CC_DIAL_REQ", number)
+end
+
+function cc_main.accept()
+    sys.publish("CC_ACCEPT_REQ")
+end
+
+function cc_main.hangup()
+    sys.publish("CC_HANGUP_REQ")
+end
+
+function cc_main.get_state()
+    return g_state
+end
+
+function cc_main.is_ready()
+    return g_ready
+end
+
+return cc_main

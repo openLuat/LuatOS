@@ -29,6 +29,7 @@ typedef enum {
     LUAT_VP_FMT_MJPG      = 0,  /* Raw MJPG stream */
     LUAT_VP_FMT_AVI_MJPG  = 1,  /* AVI container with MJPG (reserved) */
     LUAT_VP_FMT_MP4_H264  = 2,  /* MP4 container with H264 (reserved) */
+    LUAT_VP_FMT_HZV       = 3,  /* HZV container with MJPEG + audio */
 } luat_vp_format_t;
 
 /* ---- Decoded frame ---- */
@@ -36,6 +37,9 @@ typedef struct {
     uint8_t  *data;     /* RGB565 pixel data, row-major, 2 bytes per pixel */
     uint16_t  width;    /* Frame width in pixels */
     uint16_t  height;   /* Frame height in pixels */
+    uint64_t  pts;      /* Presentation timestamp in timescale ticks */
+    uint32_t  duration; /* Frame duration in timescale ticks */
+    uint32_t  timescale;/* Timestamp ticks per second, 0 for raw MJPG */
 } luat_vp_frame_t;
 
 /* ---- Video information ---- */
@@ -45,6 +49,14 @@ typedef struct {
     luat_vp_format_t format;
     luat_vp_decode_mode_t decode_mode;
 } luat_vp_info_t;
+
+typedef struct {
+    uint64_t audio_pts_ms;
+    uint32_t buffered_samples;
+    uint32_t underruns;
+    uint8_t running;
+    uint8_t clock_mode; /* 0=none, 1=DMA sample counter */
+} luat_vp_av_clock_t;
 
 /* ---- Decoder operations interface ---- */
 typedef struct luat_vp_decoder_ops {
@@ -92,7 +104,7 @@ typedef struct luat_vp_ctx luat_vp_ctx_t;
 
 /**
  * Open a video file for playback.
- * Currently supports raw MJPG streams (.mjpg).
+ * Supports raw MJPG streams (.mjpg) and HZV containers (.hzv).
  * @param path  File path (e.g. "/sdcard/video.mjpg").
  * @return Player context, or NULL on failure.
  */
@@ -129,6 +141,12 @@ int luat_videoplayer_read_frame_ref(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, 
 int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, uint8_t *out_buf, size_t out_buf_size);
 
 /**
+ * Skip one compressed MJPG frame without decoding it.
+ * @return LUAT_VP_OK on success, LUAT_VP_ERR_EOF at end, negative on error.
+ */
+int luat_videoplayer_skip_frame(luat_vp_ctx_t *ctx);
+
+/**
  * Free frame data allocated by luat_videoplayer_read_frame().
  * @param frame  Frame to free. frame->data is set to NULL after freeing.
  */
@@ -151,6 +169,22 @@ int luat_videoplayer_get_info(luat_vp_ctx_t *ctx, luat_vp_info_t *info);
  */
 int luat_videoplayer_set_decode_mode(luat_vp_ctx_t *ctx,
                                      luat_vp_decode_mode_t mode);
+
+/** Start or resume container-owned audio playback. */
+int luat_videoplayer_play(luat_vp_ctx_t *ctx);
+
+/** Pause or resume container-owned audio playback. */
+int luat_videoplayer_pause(luat_vp_ctx_t *ctx, uint8_t pause);
+
+/** Stop container-owned audio playback. */
+int luat_videoplayer_stop(luat_vp_ctx_t *ctx);
+
+/** Query the audio-master clock for HZV playback. */
+int luat_videoplayer_get_av_clock(luat_vp_ctx_t *ctx, luat_vp_av_clock_t *clock);
+
+/** Peek timing of the next compressed video frame without consuming it. */
+int luat_videoplayer_get_next_frame_time(luat_vp_ctx_t *ctx, uint64_t *pts_ms,
+                                         uint32_t *duration_ms);
 
 /* ---- Debug ---- */
 

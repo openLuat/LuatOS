@@ -764,6 +764,8 @@ target("luatos-lua")
     add_files(luatos.."components/mreport/src/*.c")
 
     -- 添加videoplayer
+    add_includedirs(luatos.."components/hzv/include")
+    add_files(luatos.."components/hzv/src/*.c")
     add_includedirs(luatos.."components/videoplayer/include")
     add_includedirs(luatos.."components/tjpgd")
     add_includedirs(luatos.."components/lcd")
@@ -1184,8 +1186,9 @@ target("luatos-lua")
         add_includedirs(mp4player_src .. "/video_decode/avcodec/h264")
 
         -- ---- 音频公共模块 ----
+        -- sound.c 已在 luatos-ext-components e011cd8c 拆到 platform/sound_dev_port.c
         add_files(mp4player_src .. "/audio_decode/audio_rb.c")
-        add_files(mp4player_src .. "/audio_decode/sound.c")
+        add_files(mp4player_src .. "/audio_decode/platform/sound_dev_port.c")
 
         -- ---- AAC 解码（libfaad，第三方代码，关闭所有警告）----
         add_thirdparty_files(mp4player_src .. "/audio_decode/aac/libfaad/*.c")
@@ -1216,14 +1219,17 @@ target("luatos-lua")
         -- ---- platform port（已适配 LuatOS VFS，仅含 luat_mp4player_port.c）----
         add_files(mp4player_src .. "/port/luat_mp4player_port.c")
 
-        -- ---- PC audio stubs（替代 CCM42xx DAC/DMA 硬件驱动）----
-        -- platform/ 中的 dac_sound.c / sys_dac.c 依赖 CCM42xx 外设寄存器，不编译；
-        -- 改用 port/mp4player/ 中的 no-op stub。
+        -- ---- PC audio stubs（替代 CCM42xx DAC/DMA/I2S 硬件驱动）----
+        -- platform/ 中的 dac_sound.c / i2s_sound.c / sys_dac.c 依赖 CCM42xx 外设，不编译；
+        -- sound_dev_port.c 同时引用 DAC 与 I2S，PC 侧各用一份 no-op stub。
         add_files("stubs/mp4player/dac_sound_pc.c")
+        add_files("stubs/mp4player/i2s_sound_pc.c")
         add_files("stubs/mp4player/sys_dac_pc.c")
 
-        -- mp3
+        -- mp3player.c 自带 MINIMP3_IMPLEMENTATION（与真机同一份）。
+        -- PC 默认也会编 LuatOS components/multimedia/minimp3.c，必须先排除，否则 LNK2005。
+        remove_files(luatos .. "/components/multimedia/minimp3.c")
         add_includedirs(mp4player_src .. "/audio_decode/mp3")
-        add_files(mp4player_src .. "/audio_decode/mp3/*.c")
+        add_files(mp4player_src .. "/audio_decode/mp3/mp3player.c")
     end
 target_end()

@@ -75,7 +75,7 @@ typedef struct {
 /*
 打开视频文件, 返回播放器对象
 @api videoplayer.open(path)
-@string path 视频文件路径, 当前支持MJPG格式, 例如 "/sdcard/video.mjpg"
+@string path 视频文件路径, 支持MJPG和HZV格式, 例如 "/sdcard/video.hzv"
 @return userdata 播放器对象, 失败时返回nil和错误信息
 @usage
 -- 打开MJPG格式视频文件
@@ -129,7 +129,7 @@ static int l_videoplayer_gc(lua_State *L) {
 读取并解码下一帧视频, 返回帧数据表
 @api videoplayer.read_frame(player)
 @userdata player videoplayer.open()返回的播放器对象
-@return table 成功返回帧数据表(含width/height/data字段), 到达文件末尾时返回nil和"eof", 出错返回nil和错误信息
+@return table 成功返回帧数据表(含width/height/data/pts/duration/timescale字段), 到达文件末尾时返回nil和"eof", 出错返回nil和错误信息
 @usage
 -- 逐帧读取视频
 while true do
@@ -176,6 +176,15 @@ static int l_videoplayer_read_frame(lua_State *L) {
 
     lua_pushinteger(L, frame.height);
     lua_setfield(L, -2, "height");
+
+    lua_pushinteger(L, (lua_Integer)frame.pts);
+    lua_setfield(L, -2, "pts");
+
+    lua_pushinteger(L, frame.duration);
+    lua_setfield(L, -2, "duration");
+
+    lua_pushinteger(L, frame.timescale);
+    lua_setfield(L, -2, "timescale");
 
     /* Push RGB565 data as Lua string (2 bytes per pixel) with safe overflow check */
     if (frame.data && frame.width > 0 && frame.height > 0) {
@@ -424,6 +433,8 @@ static const rotable_Reg_t reg_videoplayer[] = {
     { "FMT_AVI_MJPG",     ROREG_INT(LUAT_VP_FMT_AVI_MJPG)},
     //@const FMT_MP4_H264 number MP4+H264视频格式(预留)
     { "FMT_MP4_H264",     ROREG_INT(LUAT_VP_FMT_MP4_H264)},
+    //@const FMT_HZV number HZV(MJPEG+音频)容器格式
+    { "FMT_HZV",          ROREG_INT(LUAT_VP_FMT_HZV)},
 
     { NULL,               ROREG_INT(0)}
 };

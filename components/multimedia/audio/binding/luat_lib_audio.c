@@ -1095,6 +1095,38 @@ static int l_audio_pause(lua_State *L) {
 }
 
 /*
+查询基于音频 DMA 实际消费量的播放时钟
+@api audio_v2.get_play_clock(request_index)
+@int request_index audio_v2.play/stream 返回的请求索引
+@return table 播放时钟：played_samples、sample_rate、buffered_samples、underruns、running、pts_ms
+*/
+static int l_audio_get_play_clock(lua_State *L) {
+    uint8_t request_index = luaL_checkinteger(L, 1);
+    luat_audio_play_clock_t clock;
+    if (request_index >= LUAT_AUDIO_REQUEST_MAX ||
+        !_l_audio.request_table[request_index].is_busy ||
+        luat_audio_request_get_play_clock(&_l_audio.request_table[request_index].request, &clock)) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_createtable(L, 0, 6);
+    lua_pushinteger(L, (lua_Integer)clock.played_samples);
+    lua_setfield(L, -2, "played_samples");
+    lua_pushinteger(L, clock.sample_rate);
+    lua_setfield(L, -2, "sample_rate");
+    lua_pushinteger(L, clock.buffered_samples);
+    lua_setfield(L, -2, "buffered_samples");
+    lua_pushinteger(L, clock.underruns);
+    lua_setfield(L, -2, "underruns");
+    lua_pushboolean(L, clock.running);
+    lua_setfield(L, -2, "running");
+    lua_pushinteger(L, clock.sample_rate ?
+        (lua_Integer)(clock.played_samples * 1000ULL / clock.sample_rate) : 0);
+    lua_setfield(L, -2, "pts_ms");
+    return 1;
+}
+
+/*
 判断所有请求是否完成
 @api audio_v2.is_all_done()
 @return boolean 所有请求是否完成
@@ -1504,6 +1536,7 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "tts",			ROREG_FUNC(l_audio_tts)},
     { "stop",			ROREG_FUNC(l_audio_stop)},
     { "pause",			ROREG_FUNC(l_audio_pause)},
+    { "get_play_clock",	ROREG_FUNC(l_audio_get_play_clock)},
     { "stream",			ROREG_FUNC(l_audio_stream)},
     { "record",			ROREG_FUNC(l_audio_record)},
     {"make_head",			ROREG_FUNC(l_audio_make_head)},

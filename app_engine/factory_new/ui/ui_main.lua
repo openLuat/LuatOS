@@ -33,7 +33,6 @@ require "settings_win"      -- 设置主页
 require "settings_auto_win" -- 后装APP自启动设置页
 require "settings_theme_win"-- 主题风格选择页
 require "app_store_win"     -- 应用商店
-require "speedtest_win"     -- 网络测速
 require "file_manager_win"  -- 文件管理
 
 -- ==================== 按功能开关加载可选窗口 ====================

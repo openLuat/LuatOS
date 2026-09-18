@@ -6,7 +6,7 @@
 > - 设计令牌与组件工厂：`ui/ui_theme.lua`
 > - 图标资源清单（尺寸/命名）：`docs/ui_icons.md`
 > - 视觉基调：底色 `#080B10` + 半透明白玻璃卡片 + 琥珀 `#FFB454` 强调色 + 大圆角
-> - 已重做页面：欢迎页、桌面首页、设置主页、显示亮度、触摸音效、网络测速、标题栏组件
+> - 已重做页面：欢迎页、桌面首页、设置主页、显示亮度、触摸音效、标题栏组件
 > - 其余页面（WiFi / 应用市场 / 文件管理 / 应用工厂 / AI 助手）已切换深色调色板与玻璃标题栏
 
 ## 初始化方式（参考桌面版 factory）
@@ -51,11 +51,11 @@
 
 ## 二、演示效果
 
-本工程为完整的引擎主机出厂固件，包含开机动画、桌面启动器、系统设置、WiFi 管理、应用市场、网络测速等完整功能。
+本工程为完整的引擎主机出厂固件，包含开机动画、桌面启动器、系统设置、WiFi 管理、应用市场等完整功能。
 
-| 首页| 系统设置 | 应用市场 | 网速测速 | 应用列表 | 应用界面 |
-|---------|--------|---------|---------|---------|---------|
-| <img src="https://docs.openLuat.com/cdn/image/idle_win.png"> | <img src="https://docs.openLuat.com/cdn/image/settings_win.png">| <img src="https://docs.openLuat.com/cdn/image/app_store_win.png">| <img src="https://docs.openLuat.com/cdn/image/speedtest_win.png"> |<img src="https://docs.openLuat.com/cdn/image/app_2.png"> | <img src="https://docs.openLuat.com/cdn/image/app_1.png"> |
+| 首页| 系统设置 | 应用市场 | 应用列表 | 应用界面 |
+|---------|--------|---------|---------|---------|
+| <img src="https://docs.openLuat.com/cdn/image/idle_win.png"> | <img src="https://docs.openLuat.com/cdn/image/settings_win.png">| <img src="https://docs.openLuat.com/cdn/image/app_store_win.png">|<img src="https://docs.openLuat.com/cdn/image/app_2.png"> | <img src="https://docs.openLuat.com/cdn/image/app_1.png"> |
 
 ---
 
@@ -72,7 +72,7 @@ main.lua（设 PROJECT）
 platform_loader（平台检测 → PROJECT 映射 → 加载配置 → _G.project_config）
     │
     ├── lcd_common（动态 require LCD/TP 驱动 → 构建 _G.lcd_drv / _G.tp_drv）
-    ├── app_main（加载业务模块：net_init → wifi_app → ntp → speedtest → settings → fota）
+    ├── app_main（加载业务模块：net_init → wifi_app → ntp → settings → fota）
     └── ui_main（LCD 初始化 → TP 初始化 → 欢迎页 → 背光 → sys.run() 事件循环）
 ```
 
@@ -107,7 +107,6 @@ factory/
 │   ├── wifi/                  # WiFi 管理
 │   ├── settings/              # 设置子模块（显示/声音/存储/内存/关于/IOT）
 │   ├── ntp/ntp_app.lua        # NTP 校时
-│   ├── speedtest/             # 网络测速
 │   └── fota_app.lua           # OTA 固件升级
 ├── ui/                        # UI 层（纯事件驱动）
 │   ├── ui_main.lua            # UI 入口 + 硬件初始化序列
@@ -116,7 +115,6 @@ factory/
 │   ├── settings/              # 设置页面（9 个子页面）
 │   ├── wifi/                  # WiFi 页面
 │   ├── app_store_win.lua      # 应用市场
-│   └── speedtest_win.lua      # 测速页面
 └── res/                       # 图片资源 + RSA 公钥
 ```
 
@@ -220,7 +218,6 @@ return {
 |------|------|------|
 | 状态提供器 | `app/common/status_provider_app.lua` | 时间/信号/电量定时更新 |
 | NTP 校时 | `app/ntp/ntp_app.lua` | 联网后自动向 ntp.aliyun.com 校时 |
-| 测速 | `app/speedtest/speedtest_app.lua` | Cloudflare 延迟/抖动/下载/上传 |
 | FOTA 升级 | `app/fota_app.lua` | 定时检查云端固件更新 |
 | IOT 账号 | `app/settings/settings_iot_app.lua` | 合宙 IoT 平台登录/登出 |
 
@@ -254,7 +251,6 @@ return {
 | WiFi 详情 | `ui/wifi/wifi_detail_win.lua` | SSID/IP/MAC/信号/断开 |
 | WiFi 连接 | `ui/wifi/wifi_connect_win.lua` | 密码输入/高级配置 |
 | 应用市场 | `ui/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
-| 测速 | `ui/speedtest_win.lua` | 延迟/抖动/下载/上传结果 |
 
 ---
 
@@ -303,15 +299,13 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
 
 **开机流程**：上电 → 固件启动 → 平台检测 → 配置加载 → GPIO 上电 → 驱动初始化 → 业务模块加载 → 欢迎页 → 桌面
 
-**桌面操作**：时间/日期/信号显示、设置/应用市场/测速入口、外部应用网格
+**桌面操作**：时间/日期/信号显示、设置/应用市场入口、外部应用网格
 
 **设置操作**：显示亮度调节、WiFi 管理、存储空间查看、触摸音效设置、设备信息查看、IOT 账号管理、系统更新
 
 **WiFi 操作**：开关/扫描/连接/断开、已保存网络管理、密码显隐切换
 
 **应用市场**：搜索/分类/安装/卸载/更新/分页浏览
-
-**网络测速**：延迟/抖动/下载速度/上传速度
 
 ---
 

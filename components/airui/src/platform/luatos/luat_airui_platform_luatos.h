@@ -15,6 +15,7 @@
 
 #include "luat_airui.h"
 #include "luat_display.h"
+#include "luat_lcd.h"
 #include "luat_tp.h"
 
 /** GPIO 按键配置结构体 */
@@ -33,10 +34,14 @@ typedef struct {
 /** LuatOS 平台数据结构体 */
 typedef struct {
     struct luat_display *display_conf;       /**< 显示信息指针 */
+    luat_lcd_conf_t *lcd_conf;               /**< 旧 LCD 后端配置（兼容存量项目） */
     struct luat_display_layer_data direct_layer; /**< AirUI 直推图层运行态 */
     const void *direct_layer_owner;          /**< 当前占用直推图层的组件 */
     luat_tp_config_t *tp_config;     /**< 触摸配置指针（可选） */
     airui_luatos_keypad_cfg_t keypad_cfg; /**< GPIO 按键配置（可选） */
+    uint8_t *rotation_buf;           /**< 旧 LCD 后端的软件旋转临时缓冲 */
+    uint32_t rotation_buf_size;      /**< 软件旋转临时缓冲大小 */
+    uint8_t rotation_buf_in_psram;   /**< 是否分配在 PSRAM */
     uint8_t tp_suspended;            /**< 触摸是否已被 AirUI 挂起 */
     uint8_t tp_resume_needs_init;    /**< 唤醒时是否需要重新初始化触摸 */
     uint8_t tp_resume_use_wakeup;    /**< 唤醒时是否通过 tp.wakeup 恢复 */

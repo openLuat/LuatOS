@@ -128,7 +128,7 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
     TITLE_H = th
 
     -- 键盘
-    connect_wifi_keyboard = airui.keyboard({
+    connect_wifi_keyboard = theme.keyboard({
         parent = connect_main_container,
         x = 0, y = 0,
         w = SCREEN_W, h = math.floor(200 * _G.density_scale),

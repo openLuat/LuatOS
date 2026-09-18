@@ -78,11 +78,14 @@ typedef enum {
 } airui_component_type_t;
 
 /** Video 格式 */
+#define AIRUI_VIDEO_STATUS_EOF 1
+
 typedef enum {
     AIRUI_VIDEO_FORMAT_AUTO = 0,
     AIRUI_VIDEO_FORMAT_MJPG,
     AIRUI_VIDEO_FORMAT_AVI_MJPG,
     AIRUI_VIDEO_FORMAT_MP4_H264,
+    AIRUI_VIDEO_FORMAT_HZV,
 } airui_video_format_t;
 
 /** Video 后端 */
@@ -103,6 +106,12 @@ typedef enum {
 typedef struct {
     uint64_t total_frames;
     float fps;
+    uint64_t audio_pts_ms;
+    uint64_t video_pts_ms;
+    int32_t av_delta_ms;
+    uint32_t dropped_frames;
+    uint32_t audio_underruns;
+    uint8_t clock_mode;
     airui_video_decode_mode_t decode_mode;
     bool playing;
 } airui_video_stats_t;
@@ -483,6 +492,7 @@ int airui_dropdown_set_options(lv_obj_t *dropdown, void *L, int idx);
 int airui_dropdown_set_selected(lv_obj_t *dropdown, int index); //设置下拉框选中项
 int airui_dropdown_get_selected(lv_obj_t *dropdown); //获取下拉框选中项
 int airui_dropdown_set_on_change(lv_obj_t *dropdown, int callback_ref); //设置改变回调
+int airui_dropdown_set_style(lv_obj_t *dropdown, void *L, int idx); //按样式表设置下拉框样式
 
 /**
  * Switch 组件创建

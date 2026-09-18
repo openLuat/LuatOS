@@ -94,8 +94,8 @@ int blit_copy(void* dest,void* src,uint32_t destpitch,uint32_t srcpitch,uint32_t
   
     while(h--){
         memcpy( dest, src, bytewidth);
-        dest += destoffset;
-        src  += srcoffset;
+        dest = (uint8_t *)dest + destoffset;
+        src  = (uint8_t *)src + srcoffset;
     }
     
     return 0;

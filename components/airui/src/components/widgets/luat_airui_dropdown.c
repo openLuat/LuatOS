@@ -143,6 +143,59 @@ int airui_dropdown_set_options(lv_obj_t *dropdown, void *L, int idx) {
     return AIRUI_ERR_INVALID_PARAM;
 }
 
+int airui_dropdown_set_style(lv_obj_t *dropdown, void *L, int idx)
+{
+    lua_State *L_state = (lua_State *)L;
+    lv_obj_t *list;
+    int value = 0;
+    lv_style_selector_t main_sel = (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT;
+    lv_style_selector_t selected_sel = (lv_style_selector_t)LV_PART_SELECTED | LV_STATE_DEFAULT;
+
+    if (dropdown == NULL || L_state == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    idx = lua_absindex(L_state, idx);
+    if (!lua_istable(L_state, idx)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    list = lv_dropdown_get_list(dropdown);
+
+    if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
+        lv_obj_set_style_bg_color(dropdown, lv_color_hex((uint32_t)value), main_sel);
+        lv_obj_set_style_bg_opa(dropdown, LV_OPA_COVER, main_sel);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "text_color", &value)) {
+        lv_obj_set_style_text_color(dropdown, lv_color_hex((uint32_t)value), main_sel);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
+        lv_obj_set_style_border_color(dropdown, lv_color_hex((uint32_t)value), main_sel);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "border_width", &value)) {
+        lv_obj_set_style_border_width(dropdown, value < 0 ? 0 : value, main_sel);
+    }
+
+    if (list != NULL) {
+        if (airui_marshal_integer_opt(L_state, idx, "list_bg_color", &value)) {
+            lv_obj_set_style_bg_color(list, lv_color_hex((uint32_t)value), main_sel);
+            lv_obj_set_style_bg_opa(list, LV_OPA_COVER, main_sel);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "list_text_color", &value)) {
+            lv_obj_set_style_text_color(list, lv_color_hex((uint32_t)value), main_sel);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "list_selected_bg_color", &value)) {
+            lv_obj_set_style_bg_color(list, lv_color_hex((uint32_t)value), selected_sel);
+            lv_obj_set_style_bg_opa(list, LV_OPA_COVER, selected_sel);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "list_selected_text_color", &value)) {
+            lv_obj_set_style_text_color(list, lv_color_hex((uint32_t)value), selected_sel);
+        }
+    }
+
+    return AIRUI_OK;
+}
+
 lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
     if (L == NULL) {
         return NULL;
@@ -181,6 +234,12 @@ lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
                 ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
         }
     }
+
+    lua_getfield(L_state, idx, "style");
+    if (lua_type(L_state, -1) == LUA_TTABLE) {
+        airui_dropdown_set_style(dropdown, L_state, lua_gettop(L_state));
+    }
+    lua_pop(L_state, 1);
 
     // 构建 options 字符串并同步到 LVGL 下拉框
     char *options = airui_dropdown_build_options(L_state, idx);

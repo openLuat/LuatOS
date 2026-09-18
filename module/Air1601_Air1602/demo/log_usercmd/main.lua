@@ -4,6 +4,8 @@
 
 设备端仅注册标准文件系统操作集, 具体权限由本脚本控制(可裁剪 reg_op 或加路径白名单)
 ]]
+PROJECT = "log_usercmd"
+VERSION = "001.999.000"
 local sys = require "sys"
 local uc = require "log_usercmd"
 

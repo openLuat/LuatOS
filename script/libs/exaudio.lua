@@ -1,10 +1,12 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.6
-@date    2026.9.16
+@version 3.7
+@date    2026.9.18
 @author  拓毅恒
 @updates
+    v3.7 2026.9.18
+        1. 修复 DAC 模式下设置MIC音量导致 Air1601 死机问题。
     v3.6 2026.9.16
         1. 修复 air1103 模式在 Air1601 上 exaudio.setup 死机：
            Air1601 跳过该 I2S 配置——其 Air1103 走 UART 录音/播放不需要 I2S 参数,
@@ -102,6 +104,9 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202609181400
+-- 1、更新时间：2026-09-18 14:00
+--    修复 DAC 模式下设置MIC音量导致 Air1601 死机问题。
 -- 版本号：202609161747
 -- 1、更新时间：2026-09-16 17:47
 --    修复 air1103 模式在 Air1601 上 exaudio.setup 死机：
@@ -465,8 +470,8 @@ local function audio_v2_callback(request_index, event, param)
                 gpio.setup(audio_setup_param.pa_ctrl, audio_setup_param.pa_on_level)
             end
             log.info("exaudio", "audio_v2 driver start: ES8311 DAC/PA resumed")
-        elseif audio_setup_param.model == "dac" then
-            -- DAC(内置ADC)模式：每次启动请求时重新应用麦克风增益
+        elseif audio_setup_param.model == "dac" and MODULE_TYPE == "air8101" then
+            -- Air8101每次启动请求时重新应用麦克风增益
             apply_dac_mic_gain()
         end
     elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
@@ -960,9 +965,9 @@ local function audio_v2_setup()
         audio_v2.shutdown(false, false, true)
     elseif audio_setup_param.model == "air1103" then
         -- I2S参数配置: 供cc通话下行record数据源使用(780EHM等)。
-        -- 注意: 实测 Air1601 调用 audio_v2.config 会触发底层 UsageFault(pc=0)死机,
-        --       且其 Air1103 UART 录音/播放场景不需要 I2S 参数, 故 Air1601 跳过配置。
-        if MODULE_TYPE ~= "air1601" then
+        -- 注意: 实测 Air1601/Air1602 调用 audio_v2.config 会触发底层 UsageFault(pc=0)死机,
+        --       且其 Air1103 UART 录音/播放场景不需要 I2S 参数, 故 Air1601/Air1602 跳过配置。
+        if MODULE_TYPE ~= "air1601" and MODULE_TYPE ~= "air1602" then
             audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
             audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16, 16)
             audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
@@ -2323,8 +2328,8 @@ function exaudio.mic_vol(record_volume, dac_ana_gain)
             mic_vol = record_volume
             return true
         end
-        if audio_setup_param.model == "dac" then
-            -- DAC模式：无ES8311芯片，通过驱动配置设置麦克风数字/模拟增益
+        if audio_setup_param.model == "dac" and MODULE_TYPE == "air8101" then
+            -- DAC模式：通过驱动配置设置麦克风数字/模拟增益
             if not check_param(record_volume, "number", "麦克风音量值") then
                 return false
             end
@@ -2441,8 +2446,8 @@ function exaudio.pm(pm_mode)
                 es8311_drv.set_mute(audio_setup_param.i2c_id or 0, false)
                 es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, voice_vol)
                 es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, mic_vol)
-            elseif audio_setup_param.model == "dac" then
-                -- DAC(内置ADC)模式：唤醒后重新应用麦克风增益
+            elseif audio_setup_param.model == "dac" and MODULE_TYPE == "air8101" then
+                -- Air8101唤醒后重新应用麦克风增益
                 apply_dac_mic_gain()
             end
             -- 恢复外部 PA。
@@ -2652,7 +2657,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202609161747"
+    return "202609181400"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

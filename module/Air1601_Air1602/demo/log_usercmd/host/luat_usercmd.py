@@ -189,11 +189,11 @@ class FrameParser:
 class UserCmd:
     def __init__(self, port: str, baud: int = 6000000,
                  window: int = 1, write_window: int = 1,
-                 propose_chunk: int = 512, read_chunk: int = 760,
+                 propose_chunk: int = 512, read_chunk: int = 4096,
                  wire_budget: int = 508,
                  control_timeout: float = 1.0, control_retries: int = 5,
                  data_timeout: float = 0.2, data_retries: int = 10,
-                 log_handler=None):
+                 tx_pace: tuple = (32, 0.0002), log_handler=None):
         self.ser = serial.Serial(port, baud, timeout=0.05)
         # 运行模式要求 DTR/RTS 均为低, 否则打开端口会复位设备
         self.ser.dtr = False
@@ -206,12 +206,17 @@ class UserCmd:
         # 取 508 留 4B 余量(实测正好 512 仍不稳); 见 _frag_len 的内容自适应切分
         self.wire_budget = wire_budget
         self._frag_hint = 0                # 上一片成功长度, 作为下一片试算起点(转义密度局部接近)
+        # 发送节流: (每块字节, 块间隔秒)。设备侧日志口 ISR 用字节轮询读 RX FIFO, 持续 6M 整突发
+        # 超过其抽帧速率会丢字节(实测整突发 300B+ 帧成功率仅 20-70%, 设备报 crc16 failed);
+        # ≤32B/块 + 间隔实测 100% 送达。间隔用 perf_counter 自旋实现(Windows sleep 粒度 ~15ms 会限速 8 倍)。
+        # 置 None 关闭(如鲁棒性探针要测原始整突发链路)。
+        self.tx_pace = tx_pace
         self.propose_chunk = propose_chunk
-        # 单次读片长。2026-09-17 同步主干后, app 构建的上行改走 __LOG_PORT_UNDEPENDABLE__
-        # 的 log record 通道, 单条记录 __LOG_ONE_RECORD_MAX_LEN__ = 1600 字节:
-        # 响应帧超过它会被**截断且没有任何信号**(实测 read_chunk=1500 正常, >=1600 只回 ~1545 字节,
-        # 上位机会把截断当成正常短读/EOF)。最坏(每字节都转义)线上长 = 1 + 2*(24+7+n) + 4 + 1,
-        # 取 ≤1600 得 n ≤766; 默认 760。内容确定是低转义率(≤~11%)时可上调到 ~1500。
+        # 单次读片长。厂商新固件(2026-09-18 起)命令响应走 TX 侧 16KB 专用 response_fifo,
+        # 不再受 1600B log record 截断(旧固件 read_chunk=760 是防截断的保守值, 已过时)。
+        # 最坏(每字节都转义)线上长 = 1 + 2*(24帧头 + 7应用头 + n) + 4(CRC) + 1,
+        # n=4096 时约 8266B, 16KB fifo 余量充足; 默认 4096 为保守安全值(理论单响应上限约 8100B)。
+        # _read_window 的"回应 len 与实到数据交叉校验"保留为防御机制, 不随固件放宽而移除。
         self.read_chunk = read_chunk
         self.control_timeout = control_timeout
         self.control_retries = control_retries
@@ -239,9 +244,24 @@ class UserCmd:
 
     def _send(self, subcmd, body, seq):
         payload = pack_payload(subcmd, 0, seq, body)
+        pkt = build_frame(SOC_CMD_USER_CMD, 0, payload)
         with self._tx_lock:
-            self.ser.write(build_frame(SOC_CMD_USER_CMD, 0, payload))
-            self.ser.flush()
+            if self.tx_pace and len(pkt) > self.tx_pace[0]:
+                step, gap = self.tx_pace
+                n = len(pkt)
+                i = 0
+                while i < n:
+                    end = min(i + step, n)
+                    self.ser.write(pkt[i:end])
+                    self.ser.flush()
+                    i = end
+                    if i < n and gap > 0:
+                        t0 = time.perf_counter()
+                        while time.perf_counter() - t0 < gap:
+                            pass
+            else:
+                self.ser.write(pkt)
+                self.ser.flush()
 
     def _reader(self):
         parser = FrameParser()
@@ -599,12 +619,12 @@ class UserCmd:
                             raise UserCmdError(errno, f"read offset={off}")
                         roff, rlen = struct.unpack("<IH", body[1:7])
                         if len(body) - 7 < rlen:
-                            # 设备端单帧响应有长度上限(主干 app 构建走 log record, 单条 1600 字节,
-                            # 超长帧被截断且无任何信号)。这里显式报错: 若放过, 截断会被当成正常
-                            # 短读/EOF, read_file 会静默返回残缺内容(实测 4K 文件只回 1546 字节)。
+                            # 回应声明的 len 大于实到数据: 说明响应在设备端被截断(新固件走 16KB
+                            # response_fifo 本不应发生, 此校验保留为防御)。必须显式报错: 若放过,
+                            # 截断会被当成正常短读/EOF, read_file 会静默返回残缺内容。
                             raise UserCmdError(E_IO, (
                                 f"read offset={roff} 响应被截断: 声明 {rlen} 字节, 实到 "
-                                f"{len(body) - 7} 字节(设备端单帧上限 1600B log record); "
+                                f"{len(body) - 7} 字节; "
                                 f"请降低 read_chunk(当前 {chunk})"))
                         pieces[roff] = body[7:7 + rlen]
                         if rlen < chunk and (eof_off is None or roff + rlen < eof_off):

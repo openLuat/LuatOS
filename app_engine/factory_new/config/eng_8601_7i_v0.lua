@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8601_7i_v0
 @summary Air8601 引擎主机 7寸1024x600 RGB屏(HX8282) + Airlink UART WiFi(6205)/4G(780ER2)二选一 + USB摄像头 + RS485 + SD卡 + 喇叭 配置文件
-@version 1.0
-@date    2026.09.16
+@version 1.1
+@date    2026.09.18
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -31,6 +31,8 @@
    差异只在驱动模型（本工程走 lcd_display_rgb）与 UI 段（桌面入口开关）。
 10. features.usb_camera / rs485 与 ui.show_camera_preview 目前在 app/ 与 ui/ 里查不到消费方
     （与 factory 工程一致），写了不报错也不生效，此处保留仅作能力声明。
+11. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO74（AUDIOPA_EN），
+    低电平有效。录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
 ]]
 return {
     -- ===== 顶层信息 =====
@@ -96,6 +98,14 @@ return {
                 w = 1024,              -- 触摸面板宽度
                 h = 600,               -- 触摸面板高度
             },
+        },
+        -- 音频: 内置 DAC 播放 + 线路输入录音（非 ES8311 外挂芯片）
+        -- PA(功放) 使能 = GPIO74（AUDIOPA_EN），低电平有效；DAC 延时 6ms
+        audio = {
+            model = "dac",          -- 内置 DAC 模式（Air1601 芯片自带 DAC）
+            pa_ctrl = 74,           -- PA(功放)使能引脚 = GPIO74（AUDIOPA_EN）
+            pa_on_level = 0,        -- 低电平使能功放
+            dac_delay = 6,          -- DAC 初始化延时 6ms
         },
     },
 

@@ -193,7 +193,7 @@ class UserCmd:
                  wire_budget: int = 508,
                  control_timeout: float = 1.0, control_retries: int = 5,
                  data_timeout: float = 0.2, data_retries: int = 10,
-                 log_handler=None):
+                 tx_pace: tuple = (32, 0.0002), log_handler=None):
         self.ser = serial.Serial(port, baud, timeout=0.05)
         # 运行模式要求 DTR/RTS 均为低, 否则打开端口会复位设备
         self.ser.dtr = False
@@ -206,6 +206,11 @@ class UserCmd:
         # 取 508 留 4B 余量(实测正好 512 仍不稳); 见 _frag_len 的内容自适应切分
         self.wire_budget = wire_budget
         self._frag_hint = 0                # 上一片成功长度, 作为下一片试算起点(转义密度局部接近)
+        # 发送节流: (每块字节, 块间隔秒)。设备侧日志口 ISR 用字节轮询读 RX FIFO, 持续 6M 整突发
+        # 超过其抽帧速率会丢字节(实测整突发 300B+ 帧成功率仅 20-70%, 设备报 crc16 failed);
+        # ≤32B/块 + 间隔实测 100% 送达。间隔用 perf_counter 自旋实现(Windows sleep 粒度 ~15ms 会限速 8 倍)。
+        # 置 None 关闭(如鲁棒性探针要测原始整突发链路)。
+        self.tx_pace = tx_pace
         self.propose_chunk = propose_chunk
         # 单次读片长。厂商新固件(2026-09-18 起)命令响应走 TX 侧 16KB 专用 response_fifo,
         # 不再受 1600B log record 截断(旧固件 read_chunk=760 是防截断的保守值, 已过时)。
@@ -239,9 +244,24 @@ class UserCmd:
 
     def _send(self, subcmd, body, seq):
         payload = pack_payload(subcmd, 0, seq, body)
+        pkt = build_frame(SOC_CMD_USER_CMD, 0, payload)
         with self._tx_lock:
-            self.ser.write(build_frame(SOC_CMD_USER_CMD, 0, payload))
-            self.ser.flush()
+            if self.tx_pace and len(pkt) > self.tx_pace[0]:
+                step, gap = self.tx_pace
+                n = len(pkt)
+                i = 0
+                while i < n:
+                    end = min(i + step, n)
+                    self.ser.write(pkt[i:end])
+                    self.ser.flush()
+                    i = end
+                    if i < n and gap > 0:
+                        t0 = time.perf_counter()
+                        while time.perf_counter() - t0 < gap:
+                            pass
+            else:
+                self.ser.write(pkt)
+                self.ser.flush()
 
     def _reader(self):
         parser = FrameParser()

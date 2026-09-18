@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Air8700H WiFi配置</title>
+    <style>
+        body{font-family:sans-serif;max-width:420px;margin:40px auto;padding:0 16px;background:#f5f5f5}
+        .card{background:#fff;border-radius:8px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+        h2{text-align:center;color:#333;margin-top:0}
+        label{display:block;margin-top:14px;font-weight:bold;color:#555;font-size:14px}
+        input[type=text],input[type=password],select{
+            width:100%;padding:10px;margin-top:6px;box-sizing:border-box;
+            border:1px solid #ddd;border-radius:4px;font-size:15px;
+        }
+        input:focus,select:focus{border-color:#1a73e8;outline:none}
+        button{
+            width:100%;margin-top:20px;padding:12px;font-size:16px;font-weight:bold;
+            background:#1a73e8;color:#fff;border:none;border-radius:4px;cursor:pointer;
+        }
+        button:hover{background:#1558b0}
+        .ok{color:#0a7; text-align:center;margin-bottom:12px;font-weight:bold}
+        .err{color:#c33;text-align:center;margin-bottom:12px;font-weight:bold}
+        .hint{color:#999;font-size:12px;margin-top:4px}
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>WiFi热点配置</h2>
+    {{MSG}}
+    <form method="POST" action="/config">
+        <label>WiFi名称 (SSID)</label>
+        <input type="text" name="ssid" value="{{SSID}}" maxlength="32" placeholder="请输入WiFi名称">
+        <div class="hint">留空则使用默认名称 luatos_ + IMEI后4位</div>
+
+        <label>WiFi密码</label>
+        <input type="password" name="password" value="{{PASSWORD}}" placeholder="留空=无密码">
+
+        <label>串口波特率</label>
+        <select name="baudrate">
+            <option value="9600">9600</option>
+            <option value="19200">19200</option>
+            <option value="38400">38400</option>
+            <option value="57600">57600</option>
+            <option value="115200">115200</option>
+            <option value="230400">230400</option>
+            <option value="460800">460800</option>
+            <option value="921600">921600</option>
+        </select>
+
+        <button type="submit">保存并应用</button>
+    </form>
+</div>
+</body>
+</html>

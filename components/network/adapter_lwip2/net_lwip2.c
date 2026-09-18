@@ -110,7 +110,8 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		dns_init_client(prvlwip.dns_client[adapter_index]);
 	}
 	if (NULL == prvlwip.dns_udp[adapter_index]) {
-		prvlwip.dns_udp[adapter_index] = udp_new();
+		// prvlwip.dns_udp[adapter_index] = udp_new();
+		prvlwip.dns_udp[adapter_index] = udp_new_ip_type(IPADDR_TYPE_ANY);
 		prvlwip.dns_udp[adapter_index]->recv = net_lwip2_dns_recv_cb;
 		prvlwip.dns_udp[adapter_index]->recv_arg = adapter_index;
 		// #if LWIP_VERSION_MAJOR == 2 && LWIP_VERSION_MINOR >= 1
@@ -545,7 +546,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 				if (out_p && NULL != tx_msg_buf.Data)
 				{
 					pbuf_take(out_p, tx_msg_buf.Data, tx_msg_buf.Pos);
-					memcpy(&prvlwip.dns_udp[adapter_index]->local_ip, &prvlwip.lwip_netif[adapter_index]->ip_addr, sizeof(ip_addr_t));
+					// memcpy(&prvlwip.dns_udp[adapter_index]->local_ip, &prvlwip.lwip_netif[adapter_index]->ip_addr, sizeof(ip_addr_t));
 					ipaddr_ntoa_r(&prvlwip.dns_client[adapter_index]->dns_server[i], ip_string, sizeof(ip_string));
 					ipaddr_ntoa_r(&prvlwip.dns_udp[adapter_index]->local_ip, ipstr2, sizeof(ipstr2));
 					LLOGD("dns udp sendto %s:%d from %s", ip_string, DNS_SERVER_PORT, ipstr2);
@@ -588,7 +589,7 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 		}
 		else {
 			pbuf_take(p, tx_msg_buf->Data, tx_msg_buf->Pos);
-			memcpy(&prvlwip.dns_udp[adapter_index]->local_ip, &prvlwip.lwip_netif[adapter_index]->ip_addr, sizeof(ip_addr_t));
+			// memcpy(&prvlwip.dns_udp[adapter_index]->local_ip, &prvlwip.lwip_netif[adapter_index]->ip_addr, sizeof(ip_addr_t));
 			ipaddr_ntoa_r(&prvlwip.dns_udp[adapter_index]->local_ip, ipstr2, sizeof(ipstr2));
 			ipaddr_ntoa_r(&prvlwip.dns_client[adapter_index]->dns_server[i], ipstr, sizeof(ipstr));
 			LLOGD("dns udp sendto %s:%d from %s", ipstr, DNS_SERVER_PORT, ipstr2);
@@ -978,7 +979,7 @@ static void net_lwip2_task(void *param)
 			break;
 		}
 		// IPv4 分支: 只更新 IPv4 地址, 绝不触碰 ip6_addr[] 槽位
-		if (ips[0].type == IPADDR_TYPE_V4) {
+		if (IP_IS_V4(&ips[0])) {
 			ip4_addr_t ip4 = {.addr=ip_addr_get_ip4_u32(&ips[0])};
 			ip4_addr_t netmask4 = {.addr=ip_addr_get_ip4_u32(&ips[1])};
 			ip4_addr_t gw4 = {.addr=ip_addr_get_ip4_u32(&ips[2])};
@@ -992,7 +993,7 @@ static void net_lwip2_task(void *param)
 			net_lwip2_check_network_ready(adapter_index);
 		}
 		else {
-			LLOGW("adapter %d 收到非法的IPv4设置请求, type=%d", adapter_index, ips[0].type);
+			LLOGW("adapter %d 收到非法的IPv4设置请求, type=%d", adapter_index, IP_GET_TYPE(&ips[0]));
 		}
 		luat_heap_free(ips);
 		break;

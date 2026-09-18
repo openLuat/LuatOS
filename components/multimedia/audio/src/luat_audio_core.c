@@ -180,6 +180,7 @@ static void _audio_find_next_request_block(void)
 		return;
 	}
 	_luat_audio.current_request_block = (luat_audio_request_block_t *)_luat_audio.request_block_list.next;
+	LLOGC(luat_audio_debug_flag, "find next request block request id, %d", _luat_audio.current_request_block->request_id);
 	luat_llist_del(&_luat_audio.current_request_block->node);
 }
 
@@ -861,6 +862,10 @@ static void luat_audio_common_task(void *param)
 					LLOGC(luat_audio_debug_flag, "play request end, fifo empty, stop decode");
 					request_block->is_wait_play_end = 1;
 					request_block->play_blank_data_cnt = 0;
+					if (request_block->is_tts && request_block->is_input_end && request_block->is_user_stop) {
+						LLOGC(luat_audio_debug_flag, "tts request user end, all done");
+						_luat_audio.current_request_block->is_stream_end = 1;
+					}
 				} else {
 					if (request_block->is_stream) {	//流媒体模式
 						_audio_decode_stream_to_fifo(request_block);
@@ -990,7 +995,8 @@ static void luat_audio_common_task(void *param)
 					LLOGC(luat_audio_debug_flag, "next request_id: %d priority: %d, now request_id: %d priority: %d", request_block->request_id, request_block->priority, _luat_audio.current_request_block->request_id, _luat_audio.current_request_block->priority);
 					if (request_block->priority > _luat_audio.current_request_block->priority) {
 						if (_luat_audio.current_request_block->is_tts) {
-							LLOGC(luat_audio_debug_flag, "request_id: %d is tts, wait stop", request_block->request_id);
+							LLOGC(luat_audio_debug_flag, "request_id: %d is tts, wait stop", _luat_audio.current_request_block->request_id);
+							_luat_audio.current_request_block->is_user_stop = 1;
 							luat_rtos_semaphore_release(_luat_audio.tts_or_extern_source_wait_sem);
 						} else {
 							LLOGC(luat_audio_debug_flag, "request_id: %d is not tts, stop now", request_block->request_id);
@@ -1001,6 +1007,7 @@ static void luat_audio_common_task(void *param)
 			}
 			luat_rtos_semaphore_release(_luat_audio.request_lock);
 			if (request_change) {
+				LLOGC(luat_audio_debug_flag, "request change, new request id %d", _luat_audio.current_request_block->request_id);
 				// 请求块有变化，需要重新播放
 				if (_luat_audio.current_request_block->priority != 255) {
 					luat_rtos_task_sleep(1);	// 不是speech的情况下，让低优先级的task能返回结果
@@ -1029,9 +1036,23 @@ static void luat_audio_common_task(void *param)
 					_audio_request_finish();
 				}
 			} else {
+				/*
+				 * 取消排队请求时（如 SIP 通话前停止 TTS），deinit 会清空 cb。
+				 * 必须先保存回调，避免清理后调用空函数指针导致崩溃。
+				 * END 回调可能让请求对象被重新使用，因此也要提前保存信号量，
+				 * 保证原请求的同步等待者和取消请求的等待者都能收到完成通知。
+				 */
+				luat_audio_request_cb_t cb = request_block->cb;
+				void *request_done_sem = request_block->done_sem;
+				void *cancel_sem = request_block->cancel_sem;
 				luat_audio_request_deinit(request_block);
-				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_END, NULL, 0, request_block);
-				luat_rtos_semaphore_release(request_block->cancel_sem);
+				cb(LUAT_AUDIO_REQUEST_EVENT_END, NULL, 0, request_block);
+				if (request_done_sem) {
+					luat_rtos_semaphore_release(request_done_sem);
+				}
+				if (cancel_sem) {
+					luat_rtos_semaphore_release(cancel_sem);
+				}
 			}
 			break;
 		case LUAT_AUDIO_EV_PRINT:
@@ -1192,6 +1213,28 @@ luat_audio_driver_ctrl_t *luat_audio_driver_get_ctrl_info(uint8_t *all_nums, uin
 	*default_index = _luat_audio.default_driver_index;
 	return _luat_audio.driver_ctrl;
 }
+
+#ifdef LUAT_USE_VOIP_AUDIO_PORT
+int luat_audio_driver_stop_if_idle(luat_audio_driver_ctrl_t *ctrl)
+{
+    int ret = LUAT_ERROR_NONE;
+    if (!ctrl || !_luat_audio.request_lock || ctrl->state == LUAT_AUDIO_DRIVER_STATE_IDLE) {
+        return -LUAT_ERROR_PARAM_INVALID;
+    }
+    /* Serialize against C callers adding requests, not just the Lua busy list. */
+    luat_mutex_lock(_luat_audio.request_lock);
+    if (_luat_audio.current_request_block || !luat_llist_empty(&_luat_audio.request_block_list) ||
+            (ctrl->state == LUAT_AUDIO_DRIVER_STATE_RUNNING &&
+             (ctrl->driver_work_mode >= LUAT_AUDIO_DRIVER_MODE_SPEECH ||
+              ctrl->request_work_mode >= LUAT_AUDIO_DRIVER_MODE_SPEECH))) {
+        ret = -LUAT_ERROR_DEVICE_BUSY;
+    } else {
+        luat_audio_driver_stop(ctrl);
+    }
+    luat_rtos_semaphore_release(_luat_audio.request_lock);
+    return ret;
+}
+#endif
 
 int luat_audio_request_init(luat_audio_request_block_t *request_block)
 {
@@ -1710,6 +1753,7 @@ void luat_audio_base_init(void)
 void luat_audio_debug_switch(uint8_t on_off)
 {
 	luat_audio_debug_flag = on_off;
+	// luat_audio_debug_flag = 1;
 }
 
 

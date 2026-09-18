@@ -141,6 +141,7 @@ typedef struct luat_audio_dsp_opts {
 typedef struct luat_audio_dsp {
     const luat_audio_dsp_opts_t *opts;  /**< DSP操作函数表指针 */
     void *dsp_ctx;                       /**< DSP算法私有上下文 */
+    void *echo_ctx;
     void *user_data;                     /**< 用户自定义数据 */
 } luat_audio_dsp_t;
 

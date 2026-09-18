@@ -30,6 +30,9 @@ log.info("simid", mobile.simid())
 #include "luat_msgbus.h"
 
 #include "luat_mobile.h"
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+#include "luat_cc_pcm_bridge.h"
+#endif
 #include "luat_network_adapter.h"
 #include <string.h>
 
@@ -1674,6 +1677,10 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
     event = msg->arg1;
     index = msg->arg2 >> 8;
     status = msg->arg2 & 0xFF;
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+    if (event == LUAT_MOBILE_EVENT_CC && msg->ptr &&
+        (!luat_cc_pcm_selected() || (uint32_t)(uintptr_t)msg->ptr != luat_cc_pcm_session())) return 0;
+#endif
 
 	// luat_mobile_cell_info_t cell_info;
 	// luat_mobile_signal_strength_info_t signal_info;
@@ -1935,9 +1942,15 @@ end)
             // lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_CONNECTED_NUMBER:
-            // lua_pushstring(L, "CC_IND");
-            // lua_pushstring(L, "CONNECTED_NUMBER");
-            // lua_call(L, 2, 0);
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+            if (!luat_cc_pcm_selected()) break;
+            /* The verified IMS outgoing Talking path emits COLP without a
+             * separate CONNECTED event. Forward only the connection status,
+             * not the connected number or its type. */
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "CONNECTED_NUMBER");
+            lua_call(L, 2, 0);
+#endif
             break;
         case LUAT_MOBILE_CC_CONNECTED:
             lua_pushstring(L, "CC_IND");
@@ -2053,6 +2066,10 @@ void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t stat
 #endif
 #if defined LUAT_USE_AIRLINK_EXEC_MOBILE
     luat_airlink_mobile_event_callback(event, index, status, ptr);
+#endif
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+    if (event == LUAT_MOBILE_EVENT_CC && luat_cc_pcm_selected())
+        ptr = (void *)(uintptr_t)luat_cc_pcm_session();
 #endif
     rtos_msg_t msg = {
         .handler = l_mobile_event_handle,

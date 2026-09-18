@@ -12,6 +12,7 @@
 #include "luat_zbuff.h"
 #include "ldebug.h"
 #include "luat_rtos.h"
+#include "luat_mem.h"
 #define LUAT_LOG_TAG "log"
 #include "luat_log.h"
 typedef struct luat_log_conf
@@ -27,6 +28,16 @@ typedef struct luat_log_conf
 static luat_log_conf_t lconf = {
     .style=0
 };
+
+#ifdef LUAT_USE_LOG_USER_CMD
+static int l_user_cmd_ref = LUA_NOREF;
+
+typedef struct luat_log_user_cmd_msg {
+    int cmd;
+    uint32_t len;
+    uint8_t data[];
+} luat_log_user_cmd_msg_t;
+#endif
 
 static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
     lua_Debug ar;
@@ -223,6 +234,111 @@ static int l_log_error(lua_State *L) {
     return l_log_2_log(L, "E");
 }
 
+#ifdef LUAT_USE_LOG_USER_CMD
+static int l_log_user_cmd_handler(lua_State *L, void* ptr) {
+    luat_log_user_cmd_msg_t *umsg = (luat_log_user_cmd_msg_t *)ptr;
+    if (l_user_cmd_ref != LUA_NOREF && l_user_cmd_ref != LUA_REFNIL) {
+        lua_geti(L, LUA_REGISTRYINDEX, l_user_cmd_ref);
+        lua_pushinteger(L, umsg->cmd);
+        lua_pushlstring(L, (const char *)umsg->data, umsg->len);
+        lua_call(L, 2, 0);
+    }
+    luat_heap_free(ptr);
+    return 0;
+}
+
+void luat_log_user_cmd_push(int cmd, const uint8_t *data, size_t len) {
+    if (l_user_cmd_ref == LUA_NOREF || l_user_cmd_ref == LUA_REFNIL) {
+        return;
+    }
+    luat_log_user_cmd_msg_t *umsg = (luat_log_user_cmd_msg_t *)luat_heap_malloc(sizeof(luat_log_user_cmd_msg_t) + len);
+    if (umsg == NULL) {
+        return;
+    }
+    umsg->cmd = cmd;
+    umsg->len = len;
+    if (len && data) {
+        memcpy(umsg->data, data, len);
+    }
+    rtos_msg_t msg = {
+        .handler = l_log_user_cmd_handler,
+        .ptr = umsg,
+        .arg1 = cmd,
+        .arg2 = 0
+    };
+    if (luat_msgbus_put(&msg, 0)) {
+        luat_heap_free(umsg);
+    }
+}
+
+// 平台可用强符号覆盖此实现走独占命令帧; 默认退化为文本日志路径(仍发出, 但占用日志流)
+LUAT_WEAK void luat_log_user_cmd_write(const uint8_t *data, size_t len) {
+    luat_log_write((char *)data, len);
+}
+
+/*
+注册日志口用户自定义指令回调
+@api log.set_usercmd_cb(cb)
+@function cb 回调函数,传nil注销, 回调签名 function(cmd, data)
+@int cmd 用户指令号,来自指令帧
+@string data 指令携带的数据
+@return nil 无返回值
+@usage
+log.set_usercmd_cb(function(cmd, data)
+    log.info("usercmd", cmd, data)
+end)
+*/
+static int l_log_set_usercmd_cb(lua_State *L) {
+    if (lua_isnil(L, 1)) {
+        if (l_user_cmd_ref != LUA_NOREF) {
+            luaL_unref(L, LUA_REGISTRYINDEX, l_user_cmd_ref);
+            l_user_cmd_ref = LUA_NOREF;
+        }
+        return 0;
+    }
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    if (l_user_cmd_ref != LUA_NOREF) {
+        luaL_unref(L, LUA_REGISTRYINDEX, l_user_cmd_ref);
+    }
+    lua_pushvalue(L, 1);
+    l_user_cmd_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    return 0;
+}
+
+/*
+往日志口发 usercmd 协议帧(独占命令帧通道, 不占用日志显示; 未实现的平台退化为文本日志)
+@api log.usercmd_write(data, len, offset)
+@string data 待写入的数据, 字符串或zbuff
+@int len 可选, 写入长度, 默认 buff:used 或字符串全长
+@int offset 可选, 起始偏移, 默认 0
+@return nil 无返回值
+@usage
+log.usercmd_write("hello")
+log.usercmd_write(buff)              -- 写整个zbuff
+log.usercmd_write(buff, 10)          -- 写zbuff前10字节
+log.usercmd_write(buff, 10, 5)       -- 写zbuff第5字节起的10字节
+*/
+static int l_log_usercmd_write(lua_State *L) {
+    luat_zbuff_t *buff = (luat_zbuff_t *)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
+    if (buff != NULL) {
+        size_t offset = luaL_optinteger(L, 3, 0);
+        size_t len = luaL_optinteger(L, 2, buff->used);
+        if (offset >= buff->used) {
+            return 0;
+        }
+        if (len > buff->used - offset) {
+            len = buff->used - offset;
+        }
+        luat_log_user_cmd_write((const uint8_t *)(buff->addr + offset), len);
+        return 0;
+    }
+    size_t len = 0;
+    const char *data = luaL_checklstring(L, 1, &len);
+    luat_log_user_cmd_write((const uint8_t *)data, len);
+    return 0;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_log[] =
 {
@@ -247,6 +363,10 @@ static const rotable_Reg_t reg_log[] =
     { "LOG_WARN",   ROREG_INT(LUAT_LOG_WARN)},
     //@const LOG_ERROR number error日志模式
     { "LOG_ERROR",  ROREG_INT(LUAT_LOG_ERROR)},
+#ifdef LUAT_USE_LOG_USER_CMD
+    { "set_usercmd_cb" , ROREG_FUNC(l_log_set_usercmd_cb)},
+    { "usercmd_write" ,  ROREG_FUNC(l_log_usercmd_write)},
+#endif
 	{ NULL,         ROREG_INT(0) }
 };
 

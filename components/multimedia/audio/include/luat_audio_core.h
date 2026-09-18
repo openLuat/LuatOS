@@ -67,6 +67,12 @@ luat_audio_driver_ctrl_t *luat_audio_driver_probe(luat_audio_driver_probe_t *pro
  */
 int luat_audio_driver_set_default(luat_audio_driver_probe_t *probe);
 
+#ifdef LUAT_USE_VOIP_AUDIO_PORT
+/** Stop DMA synchronously only when the core has no active or queued request.
+ * Keeps the driver active and preserves codec/I2C configuration. */
+int luat_audio_driver_stop_if_idle(luat_audio_driver_ctrl_t *ctrl);
+#endif
+
 /**
  * @brief 获取所有已注册的音频驱动控制器
  * 

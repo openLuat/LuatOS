@@ -1,6 +1,7 @@
 /* USB HID application policy. The BSP only supplies raw lifecycle/data callbacks. */
-#include "luat_input_usb_hid.h"
+#include "luat_base.h"
 #ifdef LUAT_USE_INPUT_HID
+#include "luat_input_usb_hid.h"
 #include "luat_input_hid.h"
 #include "luat_input_service.h"
 #include "luat_rtos.h"

@@ -10,20 +10,19 @@
 
 local config = {
     -- SIP 服务器
-
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
     sip_domain = "180.152.6.34",
     sip_transport = "udp",
-
+    
     -- 4G 模组 SIP 账号
-    sip_username = "12345670",
-    sip_password = "Air.234567",
+    sip_username = hmeta.devid().."0",
+    sip_password = "123456",
 
     -- 远程 SIP 客户端（控制端 / 被叫端）
-    remote_sip_uri = "sip:12345671@180.152.6.34",
-
-    -- 默认桥接目标手机号（呼出场景）
+    remote_sip_uri = "sip:"..hmeta.devid().."1@180.152.6.34",
+    
+    -- -- 默认桥接目标手机号（呼出场景）
     target_phone_number = "1xxxxxxxxxx",
 
     -- 音频参数

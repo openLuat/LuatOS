@@ -55,6 +55,11 @@ if rfa and atc then
                 -- 置位全局标志, 通知irtu的driver不要注册VUART_0和UART1的数据回调
                 _G.IRTU_DISABLE_VUART = true
                 _G.IRTU_DISABLE_UART1 = true
+                -- 内置 GNSS 的型号在 RFA 模式下由 GPS 测试指令独占 UART2。
+                local model = hmeta.model()
+                if model == "Air8000" or model == "Air780EGH" or model == "Air780EGP" or model == "Air780EGG" then
+                    _G.IRTU_DISABLE_UART2 = true
+                end
             else
                 log.info("main", "已退出rfa模式, 进入iRTU模式")
                 rfa.close()

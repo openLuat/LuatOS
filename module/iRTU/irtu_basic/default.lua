@@ -92,7 +92,8 @@ local function get_gpio_config()
     local config = nil
     if model == "Air8000T" then
         config = model_gpio_configs["Air780EPM_Air780EHM"]
-    elseif model == "Air8000A" then
+    elseif model == "Air8000" or model == "Air8000A" then
+        -- Air8000 同样通过 SPI0 连接 WiFi，不能将 GPIO8~11 初始化为普通输入。
         config = model_gpio_configs["Air8000A"]
     elseif model == "Air8000W" then
         config = model_gpio_configs["Air8000W"]

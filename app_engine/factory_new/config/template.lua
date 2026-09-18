@@ -1,0 +1,368 @@
+--[[
+@module  config.template
+@summary 项目配置文件参数手册（可复制后修改为实际配置）
+@version 1.2
+@date    2026.06.01
+@author  江访
+@usage
+所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
+]]
+
+-- return {
+    -- ============================================================
+    -- 一、顶层信息（必填）
+    -- ============================================================
+    -- name = "Engine_Air1602_7inch_1024x600_004_V000",  -- 项目命名，格式 "{类型}_{芯片}_{尺寸}_{版本}"
+                                                       -- 类型: Engine=引擎主机, EVB=开发板
+                                                       -- 例: "Engine_Air1602_7inch_1024x600_004_V000"
+                                                       --      "EVB_Air8000A_3inch5_480x320_000_V020"
+    -- chip = "Air1602",                                  -- 主控芯片型号，必须从以下列表中选择:
+                                                       --   Air1601    RGB屏 + WiFi(airlink)       无4G（6205模组 AIRLINK_UART3）
+                                                       --   Air1602    同 Air1601
+                                                       --   Air8000W   4G + WiFi(exnetif) + SPI屏  无蓝牙/以太网/CAN
+                                                       --   Air8000A   4G + WiFi + GPS + SPI屏
+                                                       --   Air8000D   4G + WiFi + GPS + SPI屏
+                                                       --   Air8000    兼容 Air8000A/Air8000D
+                                                       --   Air8101    WiFi(exnetif) + RGB屏       无4G
+                                                       --   Air8101B   同 Air8101 (更小封装)
+                                                       --   Air780EGG  4G + GPS + 以太网 + CAN     无WiFi
+                                                       --   Air780EHV  4G + 以太网 + CAN           无WiFi/GPS
+                                                       --   Air780EHU  同 Air780EHV
+                                                       --   Air780EHM  同 Air780EHV
+                                                       --   Air780EHN  同 Air780EHV
+                                                       --   PC         PC 模拟器
+    -- baseboard = "合宙引擎AIR1602 V004",                -- 底板型号描述，自由文本，与硬件设计文档一致
+
+    -- ============================================================
+    -- 二、===== 引脚功能复用（填引脚号，不填 GPIO 号）（可选，不设则留空 {}）
+    -- ============================================================
+    -- 用于告诉芯片哪些引脚工作在特定功能模式(PWM/I2C/SPI 等)
+    -- 每个元素: { pin = 引脚号, func = 功能字符串 }
+    -- 常用 func: "PWM0"~"PWM4" / "I2C1_SDA" / "I2C1_SCL" / "SPI0_CLK" / "SPI0_MOSI" / "SPI0_MISO"
+    -- pins = {
+        -- { pin = 31, func = "PWM0" },
+        -- { pin = 11, func = "I2C1_SDA" },
+    -- },
+
+    -- ============================================================
+    -- 三、GPIO 上电时序（可选，没用到则删掉整个 power_on）
+    -- ============================================================
+    -- 上电时按数组顺序依次执行，每个步骤: { pin = GPIO, dir = 方向, level = 电平, delay = 延时ms }
+    --   dir:   0=输出模式, 1=输入模式
+    --   level: 输出时 0=低电平/1=高电平, 输入时 0=下拉/1=上拉
+    --   delay: 本步完成后等待的毫秒数(ms)，不填则不等待
+    -- 适用场景: LCD供电使能、TP触摸I2C上拉、WiFi/4G模组复位
+    -- 注意: 由 platform_loader 在协程中异步执行，不阻塞主线程
+
+    -- 例1: Air1602 WiFi 模组上电（高电平有效）
+    -- power_on = {
+    --     { pin = 55, dir = 0, level = 0, delay = 50  },  -- 拉低 50ms 复位
+    --     { pin = 55, dir = 0, level = 1, delay = 120 },  -- 拉高 120ms 使能
+    -- },
+
+    -- 例2: Air8000A LCD供电 + TP I2C上拉 + 100ms等待
+    -- power_on = {
+    --     { pin = 141, dir = 0, level = 1             },  -- LCD 供电开
+    --     { pin = 147, dir = 1, level = 1             },  -- TP I2C SDA 上拉
+    --     { pin = 164, dir = 1, level = 1             },  -- TP I2C SCL 上拉
+    --     { pin = 17,  dir = 1, level = 1             },
+    --     { pin = 16,  dir = 1, level = 1, delay = 100 }, -- 最后一步等 100ms
+    -- },
+
+    -- ============================================================
+    -- 四、硬件配置（必填）
+    -- ============================================================
+    -- hw = {
+        --------------------------------------------------------
+        -- 4.1 屏幕驱动 lcd（必填）
+        -- --------------------------------------------------------
+        -- lcd = {
+            -- 驱动模块名，从以下列表选择:
+            --   "lcd_st7796"       SPI 屏 ST7796,  3.5/4寸,   320×480 或 480×320
+            --   "lcd_nv3052c_5in"  RGB 屏 NV3052C, 5寸,       720×1280
+            --   "lcd_st7701s_5in"  RGB 屏 ST7701S, 5寸,       480×854
+            --   "lcd_hx8282_10in"  RGB 屏 HX8282,  7/10.1寸,  1024×600 (四合一)
+            -- model = "lcd_hx8282_10in",
+
+            -- 驱动参数，传给 model 对应驱动的 init() 函数
+            -- params = {
+            --     port = lcd.RGB,      -- 接口类型: SPI屏用 lcd.HWID_0, RGB屏用 lcd.RGB
+            --     pin_rst = 15,        -- 复位引脚 GPIO 编号 (0~255)
+            --     direction = 0,       -- 显示方向: 0=0° 1=90° 2=180° 3=270°
+            --                          -- 注意: w/h 填的是物理分辨率，方向由芯片内部旋转
+            --     w = 1024,            -- 水平分辨率（像素），如 320/480/720/1024
+            --     h = 600,             -- 竖直分辨率（像素），如 320/480/854/600
+                -- xoffset = 0,      -- [可选,默认0] X 方向像素偏移
+                -- yoffset = 0,      -- [可选,默认0] Y 方向像素偏移
+
+                -- === SPI 屏 st7796 专属参数 ===
+                -- pin_pwr = 28,     -- [可选] 背光供电 GPIO，如已在 power_on 处理则省略
+                -- bus_speed = 80000000, -- [可选] SPI 时钟频率 Hz，推荐 80000000
+
+                -- === RGB 屏 nv3052c / st7701s 专属参数 ===
+                -- 注意: hx8282 屏的初始化由内部芯片完成，不需要以下引脚
+                -- pin_clk = 23,     -- [条件] SPI 时钟引脚
+                -- pin_sda = 22,     -- [条件] SPI 数据引脚
+                -- pin_cs = 2,       -- [条件] SPI 片选引脚
+
+                -- === RGB 屏时序参数（有默认值，通常不填）===
+                -- hx8282 默认:  hbp=120 hspw=40 hfp=150 vbp=23 vspw=10 vfp=12
+                -- nv3052c 默认: hbp=46  hspw=2  hfp=48  vbp=24 vspw=2  vfp=24
+                -- hbp = 120, hspw = 40, hfp = 150,
+                -- vbp = 23,  vspw = 10, vfp = 12,
+                -- bus_speed = 51000000,  -- [可选] RGB 总线时钟 Hz，默认 51000000
+                -- pclk = lcd.PCLK_RISING, -- [可选] 像素时钟边沿: lcd.PCLK_RISING / lcd.PCLK_FALLING
+            -- },
+
+            -- need_buffer = true,      -- 是否启用帧缓冲: RGB屏必须为 true(防撕裂), SPI屏必须为 false(直刷更快)
+            -- screen_size = 7.0,       -- 屏幕物理尺寸(英寸): 3.5 / 4.0 / 5.0 / 7.0 / 10.0，用于计算 UI 缩放
+            -- font = {
+            --     size = 20,           -- 默认字号: 低分屏(≤480px)用 14，高分屏(≥720px)用 20
+                -- path = "/MiSans_gb2312.ttf", -- [可选] 外部 ttf 字体路径，填了从文件系统加载，不填用固件内置字库
+                -- type = "hzfont",   -- [可选,默认"hzfont"] 字体类型
+                -- cache_size = 1024, -- [可选,默认1024] 字形缓存数量
+                -- antialias = 1,     -- [可选,默认1] 抗锯齿等级 1~4
+                -- global = true,     -- [可选] 是否注册为全局字体
+            -- },
+            -- backlight = {
+            --     -- 方式一: PWM 调光（支持亮度调节）
+            --     pwm_ch = 3,          -- PWM 通道号
+            --     pwm_freq = 1000,     -- PWM 频率 Hz，常用 1000（SPI屏）或 10000（RGB屏）
+            --     -- 方式二: GPIO 控制亮灭（不支持调光，背光电源直连 GPIO）
+            --     gpio_bl = 2,         -- 背光控制 GPIO（与 pwm 二选一，设了 gpio_bl 则忽略 pwm）
+            -- },
+            -- rotation = 180,       -- [可选,默认0] 额外旋转角度，仅 Air8101 5寸 st7701s 屏需设 180
+        -- },
+
+        -- --------------------------------------------------------
+        -- 4.2 触摸驱动 tp（可选，无触摸屏则删掉整个 tp）
+        -- --------------------------------------------------------
+        -- tp = {
+        --     model = "tp_gt911",      -- 触摸驱动模块，目前唯一值
+
+        --     params = {
+        --         port = 1,            -- I2C 端口号: 0 / 1 / 2
+        --         pin_rst = 3,         -- GT911 复位引脚 GPIO，填 0xff 表示不复位
+        --         pin_int = 51,        -- 中断引脚: 普通 GPIO 填编号(如 51)，唤醒引脚填 gpio.WAKEUP0
+                -- int_type = tp.FALLING, -- [可选] 中断触发类型: tp.FALLING(下降沿,大屏推荐) / tp.RISING(上升沿)
+                -- i2c_speed = i2c.SLOW,  -- [可选] I2C 速率: i2c.SLOW(推荐) / i2c.FAST / i2c.HIGH
+                -- w = 1024,            -- [可选] 触摸面板物理宽度，大屏(≥7寸)建议填
+                -- h = 600,             -- [可选] 触摸面板物理高度
+                -- gpio_reset = 3,      -- [可选] 额外复位 GPIO，初始化时先拉低再拉高(Air1602 常用)
+                -- pwr_pins = {       -- [可选] I2C 上拉引脚列表，如已由 power_on 处理则省略
+                --     { pin = 17 },  -- 每项执行 gpio.setup(pin, 1, gpio.PULLUP)
+                --     { pin = 16 },
+                -- },
+                -- pwr_delay = 100,  -- [可选] I2C 上电后等待 ms，有 pwr_pins 时默认 100ms
+        --     },
+        -- },
+
+        -- --------------------------------------------------------
+        -- 4.3 电池管理 battery（条件: 仅 features 中 battery = true 时需要）
+        -- --------------------------------------------------------
+        -- battery = {
+        --     adc_channel = 7,            -- [必填] ADC 通道号，用于读取电池电压
+        --     usb_detect_gpio = 52,       -- [必填] USB 插入检测 GPIO
+        --     voltage_divider = 2,        -- [可选,默认2] 电池电压分压比
+        --     full_voltage = 4150,        -- [可选,默认4150] 充满判定电压 mV
+        --     no_battery_threshold = 1500,-- [可选,默认1500] 无电池判定电压阈值 mV
+        -- },
+    -- },
+
+    -- ============================================================
+    -- 五、功能开关 features（必填）
+    -- ============================================================
+    -- 规则: 只写 = true 表示开启，不写即视为关闭（无需显式写 = false）
+    -- features = {
+    --     wifi = true,         -- 启用WiFi，通常同时设 ui.show_wifi_icon = true
+    --     nand_flash = true,   -- 启用NAND Flash，必须同时配置 storage.nand_flash
+    --     net_4g = true,       -- 启用4G蜂窝网络，可选配 net_4g_config
+    --     ethernet = true,     -- 启用以太网，通常同时设 ui.show_ethernet_settings = true
+    --     buzzer = true,       -- 启用蜂鸣器(触摸反馈音)，通常同时设 ui.show_buzzer_settings = true
+    --     speaker = true,      -- 启用喇叭
+    --     mic = true,          -- 启用麦克风
+    --     sd_card = true,      -- 启用SD/TF卡，必须同时配置 storage.sd_card
+    --     gnss = true,         -- 启用GPS/北斗定位
+    --     bluetooth = true,    -- 启用蓝牙
+    --     can = true,          -- 启用CAN总线
+    --     rs485 = true,        -- 启用RS485接口
+    --     usb_camera = true,   -- 启用USB摄像头，通常同时设 ui.show_camera_preview = true
+    --     spi_camera = true,   -- 启用SPI摄像头，通常同时设 ui.show_camera_preview = true
+    --     i2c_sensor = true,   -- 启用I2C传感器(SHT30温湿度/VOC等)，通常同时设 ui.show_sensor_panel = true
+    --     nes = true,          -- 启用NES游戏实体按键，必须同时配置 nes_keys
+    --     battery = true,      -- 启用电池管理(ADC检测+充电检测)，必须同时配置 hw.battery，
+    --                          -- 通常同时设 ui.show_battery_icon = true
+    --     app_factory = true,  -- 启用应用工厂（录音生成APP），通常同时设 ui.show_app_factory = true
+    --     ai_chat = true,      -- 启用AI聊天助手（SSE流式对话+TTS），通常同时设 ui.show_ai_chat = true
+    -- },
+
+    -- ============================================================
+    -- 六、统一网络配置 network（推荐，从 1.0 起替代零散的 net_4g/ethernet/wifi 字段）
+    -- ============================================================
+    -- 规则: 按优先级从高到低排列的数组，每条是一个网络接口
+    -- type 取值:
+    --   wifi_native         → 芯片自带 WiFi（Air8101/Air8000 等），无额外参数
+    --   wifi_airlink_spi    → Airlink SPI WiFi 外挂模组
+    --       spi_id = 1, cs_pin = 8, rdy_pin = 14, [speed = 20000000]
+    --   wifi_airlink_uart   → Airlink UART WiFi 外挂模组（6205）
+    --       uart_id = 3, baud = 2000000
+    --   4g_native           → 芯片自带 4G（Air8000/Air780E 等），注意：net_4g 需在 features 中开启
+    --   4g_airlink_spi      → Airlink SPI 4G 外挂模组（Air780EPM）
+    --       spi_id = 0, cs_pin = 15, rdy_pin = 48
+    --   4g_airlink_uart     → Airlink UART 4G 外挂模组
+    --       uart_id = 1, baud = 2000000, [adapter = socket.LWIP_GP_GW]
+    --   eth_spi             → SPI 以太网（非 Air8101 用 ETHERNET，Air8101 用 ETHUSER1）
+    --       chip = "CH390", spi_id = 0, cs_pin = 34, [irq_pin, pwr_pin]
+    --       chip 支持: CH390 / W5500 / ENC28J60（需底层支持）
+    --
+    -- 实际产品示例:
+
+    -- 例1: Air8101 EVB（自带 WiFi + SPI 以太网 CH390H 兜底）
+    -- network = {
+    --     { type = "wifi_native" },
+    --     { type = "eth_spi", chip = "CH390", spi_id = 0, cs_pin = 34, irq_pin = 9 },
+    -- },
+
+    -- 例2: Air8000W 引擎主机（自带 WiFi + 自带 4G 双网）
+    -- network = {
+    --     { type = "wifi_native" },
+    --     { type = "4g_native" },
+    -- },
+
+    -- 例3: Air1602 引擎主机（Airlink SPI WiFi 单网）
+    -- network = {
+    --     { type = "wifi_airlink_spi", spi_id = 1, cs_pin = 8, rdy_pin = 14 },
+    -- },
+
+    -- 例4: Air1601 EVB（Airlink UART WiFi + SPI 以太网兜底）
+    -- 注意：airlink_wifi 和 airlink_4G 都使用 UART3，二者只能开启一个
+    -- network = {
+    --     { type = "wifi_airlink_uart", uart_id = 3, baud = 2000000 },
+    --     -- { type = "4g_airlink_uart", uart_id = 3, baud = 2000000, adapter = socket.LWIP_GP_GW },
+    --     { type = "eth_spi", chip = "CH390", spi_id = 1, cs_pin = 14 },
+    -- },
+
+    -- 注意: network 配置 network 后，旧格式 features.net_4g/ethernet/wifi 仍保留供 UI 判断。
+    -- features 与 network 的对应关系:
+    --   features.wifi = true      ↔  network 中包含 wifi_native / wifi_airlink_*
+    --   features.ethernet = true  ↔  network 中包含 eth_spi
+    --   features.net_4g = true    ↔  network 中包含 4g_native / 4g_airlink_*
+    --   features.sd_card / nand_flash / battery 等不受 network 影响
+
+    -- ============================================================
+    -- （旧格式保留：以下字段用于向后兼容，新建配置请优先使用 network）
+    -- 六(旧)、4G 连接方式 net_4g_config（条件: 仅 features 中 net_4g = true 时需要）
+    -- ============================================================
+    -- 不配此字段或 type 不是 "airlink" → 使用芯片内置 4G
+    -- type = "airlink" → 外挂 airlink 4G 模组（如 Air8101 外挂 Air780EPM）
+    --
+    -- airlink 参数（仅 type = "airlink" 时需要）:
+    -- net_4g_config = {
+    --     type = "airlink",                         -- 固定值
+    --     airlink_type = airlink.MODE_SPI_MASTER,   -- 通信模式: MODE_SPI_MASTER(常用) / MODE_SPI_SLAVE / MODE_UART
+    --     -- SPI 模式:
+    --     airlink_spi_id = 0,                       -- SPI 接口 ID
+    --     airlink_cs_pin = 15,                      -- 片选 GPIO
+    --     airlink_rdy_pin = 48,                     -- 就绪 GPIO
+    --     -- UART 模式:
+    --     -- airlink_uart_id = 1,                   -- UART 接口 ID
+    --     -- airlink_uart_baud = 2000000,           -- [可选,默认2000000] 波特率
+    --     -- airlink_adapter = socket.LWIP_USER0,   -- [可选] 网卡标识
+    --     -- 通用:
+    --     -- auto_socket_switch = true,             -- [可选,默认true]
+    -- },
+
+    -- ============================================================
+    -- 七、UI 显示控制 ui（必填）
+    -- ============================================================
+    -- 规则: 只写 = true 表示显示，不写即视为隐藏（无需显式写 = false）
+    -- ui = {
+    --     show_wifi_icon = true,           -- 桌面顶栏 WiFi 信号图标      ← 通常配 wifi 时打开
+    --     show_brightness_slider = true,   -- 设置页显示亮度调节滑块
+    --     show_storage_settings = true,    -- 设置页显示存储空间查看入口
+    --     show_4g_icon = true,             -- 桌面顶栏 4G 信号图标        ← 通常配 net_4g 时打开
+    --     show_buzzer_settings = true,     -- 设置页蜂鸣器(触摸声音)开关  ← 通常配 buzzer 时打开
+    --     show_ethernet_settings = true,   -- 设置页以太网设置入口        ← 通常配 ethernet 时打开
+    --     show_camera_preview = true,      -- 设置页摄像头预览入口        ← 通常配 usb_camera/spi_camera 时打开
+    --     show_sensor_panel = true,        -- 设置页传感器数据面板        ← 通常配 i2c_sensor 时打开
+    --     show_battery_icon = true,        -- 桌面顶栏电池图标           ← 通常配 battery 时打开
+    --     show_app_factory = true,         -- 桌面"应用工厂"入口         ← 通常配 app_factory 时打开
+    --     show_ai_chat = true,             -- 桌面"AI助手"入口           ← 通常配 ai_chat 时打开
+    -- },
+
+    -- ============================================================
+    -- 八、存储设备配置 storage（条件: 仅 features 中 sd_card / nand_flash = true 时需要）
+    -- ============================================================
+    -- 根据实际使用的存储类型填写对应子表，未使用的可以省略
+    --
+    -- storage = {
+    --     -- SD/TF 卡（仅 features.sd_card = true 时需要）
+    --     sd_card = {
+    --         spi_id = 0,          -- SPI 接口 ID
+    --         pin_cs = 32,         -- 片选 CS 引脚 GPIO
+    --         speed = 20000000,    -- SPI 时钟频率 Hz，高速卡推荐 20000000(20MHz)，兼容模式 2000000(2MHz)
+    --     },
+    --
+    --     -- NAND Flash（仅 features.nand_flash = true 时需要）
+    --     nand_flash = {
+    --         spi_id = 2,          -- SPI 接口 ID，通常 spi2 用于外置存储
+    --         pin_cs = 4,          -- 片选 CS 引脚 GPIO
+    --         speed = 40000000,    -- SPI 时钟频率 Hz，推荐 20000000 以上
+    --         pin_pwr = 50,        -- [可选] 额外供电使能 GPIO，如已在 power_on 中处理则省略
+    --     },
+    -- },
+    -- storage = {
+    --     nand_flash = {
+    --         spi_id = 2,            -- SPI 接口 ID，通常 spi2 用于外置存储
+    --         pin_cs = 4,            -- 片选 CS 引脚 GPIO
+    --         speed = 40000000,      -- SPI 时钟频率 Hz，推荐 20000000 以上
+    --         pin_pwr = 50,          -- [可选] 额外供电使能 GPIO，如已在 power_on 中处理则省略
+    --     },
+    -- },
+
+    -- ============================================================
+    -- 九、以太网配置 ethernet（条件: 仅 features 中 ethernet = true 时需要）
+    -- ============================================================
+    -- SPI 外挂 CH390H 以太网芯片。
+    -- 如果供电已由 power_on 处理，pin_pwr 可以省略；否则填供电 GPIO。
+    -- pin_irq 为 CH390H 中断引脚，传了启用中断模式（推荐），不传则轮询模式。
+    -- 注意：与 SD/NAND 共用 SPI 总线时，CS 引脚需在 power_on 中初始化为高电平。
+    --
+    -- ethernet = {
+    --     spi_id = 0,          -- SPI 接口 ID
+    --     pin_cs  = 34,        -- 片选 CS 引脚 GPIO
+    --     pin_irq = 9,         -- [可选] 中断引脚 GPIO（CH390H INT#）
+    --     pin_pwr = 53,        -- [可选] 供电使能 GPIO，如已在 power_on 处理则省略
+    -- },
+
+    -- ============================================================
+    -- 九、NES 游戏按键绑定 nes_keys（条件: 仅 features 中 nes = true 时需要）
+    -- ============================================================
+    -- 每个元素: { pin = GPIO编号, key = "按键名" }
+    --
+    -- 按键分类:
+    --   方向键(支持8方向组合+持续按住):
+    --     NES_KEY_UP / NES_KEY_DOWN / NES_KEY_LEFT / NES_KEY_RIGHT
+    --   动作键(200ms窗口内先后按下触发 NES_COMBO("AB") 组合事件):
+    --     NES_KEY_A / NES_KEY_B
+    --   控制键(按下沿触发+200ms防抖, 发布 NES_CTRL 事件):
+    --     NES_KEY_RETURN / NES_KEY_START / NES_KEY_SELECT
+    --
+    -- 发布事件（供后装APP订阅）:
+    --   NES_KEY(key, pressed)  — key="UP"/"DOWN"/..., pressed=1按下/0释放
+    --   NES_DIR(direction)     — 0=NONE, 1=UP, 2=UP_RIGHT, ..., 8=UP_LEFT
+    --   NES_CTRL(key)          — key="RETURN"/"START"/"SELECT"
+    --   NES_COMBO(combo)       — combo="AB"
+    --
+    -- nes_keys = {
+    --     { pin = 44, key = "NES_KEY_UP"    },  -- 上
+    --     { pin = 48, key = "NES_KEY_DOWN"  },  -- 下
+    --     { pin = 41, key = "NES_KEY_LEFT"  },  -- 左
+    --     { pin = 40, key = "NES_KEY_RIGHT" },  -- 右
+    --     { pin =  1, key = "NES_KEY_RETURN" }, -- 返回（退出APP）
+    --     { pin =  0, key = "NES_KEY_START" },  -- 开始
+    --     { pin = 22, key = "NES_KEY_SELECT"},  -- 选择
+    --     { pin = 23, key = "NES_KEY_A"     },  -- A
+    --     { pin = 13, key = "NES_KEY_B"     },  -- B
+    -- },
+-- }

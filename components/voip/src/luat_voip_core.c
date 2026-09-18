@@ -1,3 +1,6 @@
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 /*
  * luat_voip_core.c - VoIP 核心引擎实现
  *
@@ -11,6 +14,10 @@
  */
 
 #include "luat_voip_core.h"
+#include "luat_voip_event.h"
+#if defined(LUAT_USE_CC_VOIP_BRIDGE) && defined(LUAT_USE_AUDIO_V2)
+#include "../../cc/luat_cc_bridge.h"
+#endif
 #ifdef LUAT_USE_VOIP_AUDIO_PORT
 #include "luat_voip_audio_port.h"
 #endif
@@ -19,6 +26,9 @@
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+#include "luat_cc_pcm_bridge.h"
+#endif
 #include "luat_network_adapter.h"
 #include "luat_audio.h"
 
@@ -59,7 +69,7 @@ voip_ctx_t *voip_get_ctx(void)
 
 static void voip_task_entry(void *param);
 static int  voip_lua_cb_handler(lua_State *L, void *ptr);
-static void voip_do_rx(voip_ctx_t *ctx);
+static int voip_do_rx(voip_ctx_t *ctx);
 static void voip_fill_play_slot(voip_ctx_t *ctx, uint8_t slot_idx);
 int voip_audio_backend_start(voip_ctx_t *ctx, uint32_t sample_rate);
 void voip_audio_backend_stop(voip_ctx_t *ctx);
@@ -87,6 +97,9 @@ static void voip_notify_lua(int cb_type, int arg2)
     msg.handler = voip_lua_cb_handler;
     msg.arg1 = cb_type;
     msg.arg2 = arg2;
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+    msg.ptr = (void *)(uintptr_t)g_voip_ctx.bridge_generation;
+#endif
     luat_msgbus_put(&msg, 0);
 }
 
@@ -119,6 +132,28 @@ static LUAT_RT_RET_TYPE voip_bridge_tone_timer_cb(LUAT_RT_CB_PARAM)
 }
 #endif
 
+/* An owned notification stays pending until its bounded batch is drained.
+ * Enqueue failure releases only this session's ownership; the next producer
+ * retries, including a PCM producer finding an already full TX ring. */
+static void voip_send_data_event(voip_ctx_t *ctx, volatile uint32_t *word,
+        uint32_t id, uint32_t session)
+{
+    if (luat_rtos_event_send(ctx->task_handle, id, 0, 0, session, 0) != 0) {
+        voip_event_send_failed(word, session);
+        voip_event_count_failure(&ctx->event_send_failures);
+    }
+}
+
+static void voip_notify_data(voip_ctx_t *ctx, volatile uint32_t *word,
+        uint32_t id, uint32_t session)
+{
+    if (session != ctx->audio_session || ctx->state != VOIP_STATE_RUNNING ||
+            ctx->stop_requested || !ctx->task_handle) return;
+    if (voip_event_claim(word, session)) {
+        voip_send_data_event(ctx, word, id, session);
+    }
+}
+
 /* ======================== 网络回调 ======================== */
 
 /*
@@ -135,7 +170,7 @@ static int32_t voip_net_cb(void *pdata, void *pparam)
 
     if (ev_id == EV_NW_RESULT_EVENT) {
         if (ctx->state == VOIP_STATE_RUNNING && ctx->task_handle) {
-            luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_RX_DATA, 0, 0, session, 0);
+            voip_notify_data(ctx, &ctx->rx_event_state, VOIP_EVENT_RX_DATA, session);
         }
     } else if (ev_id == EV_NW_RESULT_CLOSE || ev_id == EV_NW_SOCKET_ERROR) {
         LLOGW("voip net event 0x%x", (unsigned)ev_id);
@@ -440,22 +475,24 @@ static void voip_do_bridge_tone(voip_ctx_t *ctx)
 #endif
 /* callbacks moved to luat_voip_audio_backend.c */
 
-/* RX: 从 UDP socket 读取所有待处理数据 → RTP 解析 → 解码 → JB push */
-static void voip_do_rx(voip_ctx_t *ctx)
+/* RX: one bounded batch, including malformed datagrams in the budget. */
+static int voip_do_rx(voip_ctx_t *ctx)
 {
-    if (!ctx->netc) return;
+    if (!ctx->netc) return 0;
 
     network_ctrl_t *netc = (network_ctrl_t *)ctx->netc;
     luat_ip_addr_t remote_ip = {0};
     uint16_t remote_port = 0;
 
-    while (1) {
+    unsigned processed = 0;
+    while (processed < VOIP_EVENT_BATCH_MAX && !ctx->stop_requested) {
 
         int rd = network_socket_receive(netc, ctx->udp_rx_buf, ctx->udp_rx_buf_size, 0, &remote_ip, &remote_port);
         if (rd <= 0) 
         {
             break;
         }
+        processed++;
         ctx->stats.rx_packets++;
         ctx->stats.rx_bytes += rd;
 
@@ -474,9 +511,10 @@ static void voip_do_rx(voip_ctx_t *ctx)
             continue;
         }
 
-#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
-        /* Air8101's fixed 20 ms G.711 frame buffer accepts one frame per RTP packet. */
-        if (parsed.payload_len != ctx->frame_samples) {
+        /* G.711 emits two PCM bytes per payload byte. Every BSP allocates
+         * one PCM frame and the jitter buffer consumes exactly one frame. */
+        if (parsed.payload_len != ctx->frame_samples ||
+                parsed.payload_len > ctx->frame_bytes / sizeof(int16_t)) {
             ctx->stats.rx_bad_payload++;
             if ((ctx->stats.rx_bad_payload & 0x3FU) == 1U) {
                 LLOGW("drop RTP payload len=%u expected=%u seq=%u",
@@ -484,7 +522,6 @@ static void voip_do_rx(voip_ctx_t *ctx)
             }
             continue;
         }
-#endif
 
         /* 丢包/乱序估算 */
         if (ctx->stats.last_rx_seq_valid) {
@@ -506,11 +543,7 @@ static void voip_do_rx(voip_ctx_t *ctx)
         ret = ctx->codec_decoder.opts->decode(&ctx->codec_decoder, NULL, parsed.payload, parsed.payload_len, (uint8_t *)ctx->rx_pcm_buf, &pcm_len, &used);
 
         if (ret == LUAT_ERROR_NONE &&
-#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
             pcm_len == ctx->frame_bytes && used == parsed.payload_len
-#else
-            pcm_len > 0
-#endif
             ) {
 #ifdef LUAT_USE_VOIP_BRIDGE
             if (ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE) {
@@ -533,18 +566,15 @@ static void voip_do_rx(voip_ctx_t *ctx)
             voip_jb_push(ctx->jb, parsed.sequence, ctx->rx_pcm_buf);
 #endif
         } else {
-#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
             ctx->stats.rx_bad_payload++;
             if ((ctx->stats.rx_bad_payload & 0x3FU) == 1U) {
                 LLOGW("drop decoded RTP ret=%d pcm=%u/%u used=%u/%u seq=%u",
                       ret, pcm_len, ctx->frame_bytes, used,
                       parsed.payload_len, parsed.sequence);
             }
-#else
-            LLOGE("decode failed, ret=%d pcm_len=%u used=%u", ret, pcm_len, used);
-#endif
         }
     }
+    return processed == VOIP_EVENT_BATCH_MAX && !ctx->stop_requested;
 }
 
 /* ======================== 资源分配/释放 ======================== */
@@ -836,6 +866,13 @@ static void voip_cleanup(voip_ctx_t *ctx)
 
 static void voip_reset_session_state(voip_ctx_t *ctx)
 {
+#ifdef LUAT_USE_VOIP_BRIDGE
+#ifdef _MSC_VER
+    _InterlockedIncrement((volatile long *)&ctx->bridge_generation);
+#else
+    __sync_add_and_fetch(&ctx->bridge_generation, 1);
+#endif
+#endif
     ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
     ctx->audio_started = 0;
     ctx->i2s_config_saved = 0;
@@ -1194,8 +1231,13 @@ static void voip_task_entry(void *param)
             break;
 
         case VOIP_EVENT_RX_DATA:
-            if (ctx->state == VOIP_STATE_RUNNING) {
-                voip_do_rx(ctx);
+            if (ctx->state == VOIP_STATE_RUNNING &&
+                    voip_event_begin(&ctx->rx_event_state, event.param3)) {
+                int more = voip_do_rx(ctx);
+                if (!ctx->stop_requested &&
+                        voip_event_finish(&ctx->rx_event_state, event.param3, more)) {
+                    voip_send_data_event(ctx, &ctx->rx_event_state, VOIP_EVENT_RX_DATA, event.param3);
+                }
             }
             break;
 
@@ -1207,23 +1249,32 @@ static void voip_task_entry(void *param)
 
 #ifdef LUAT_USE_VOIP_BRIDGE
         case VOIP_EVENT_BRIDGE_TX:
-            if (ctx->state != VOIP_STATE_RUNNING) {
+            if (ctx->state != VOIP_STATE_RUNNING ||
+                    !voip_event_begin(&ctx->tx_event_state, event.param3)) {
                 break;
             }
-            if (ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE && ctx->bridge_tx_buf) {
-                while (1) {
-                    if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
-                    if (ctx->bridge_tx_count < ctx->frame_samples) {
+            {
+                unsigned processed = 0;
+                if (ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE && ctx->bridge_tx_buf) {
+                    while (processed < VOIP_EVENT_BATCH_MAX && !ctx->stop_requested) {
+                        if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+                        if (ctx->bridge_tx_count < ctx->frame_samples || ctx->stop_requested) {
+                            if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+                            break;
+                        }
+                        for (uint16_t i = 0; i < ctx->frame_samples; i++) {
+                            ctx->rx_pcm_buf[i] = ctx->bridge_tx_buf[ctx->bridge_tx_read_idx];
+                            ctx->bridge_tx_read_idx = (ctx->bridge_tx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+                        }
+                        ctx->bridge_tx_count -= ctx->frame_samples;
                         if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
-                        break;
+                        voip_do_tx(ctx, ctx->rx_pcm_buf, 0, 0, 0);
+                        processed++;
                     }
-                    for (uint16_t i = 0; i < ctx->frame_samples; i++) {
-                        ctx->rx_pcm_buf[i] = ctx->bridge_tx_buf[ctx->bridge_tx_read_idx];
-                        ctx->bridge_tx_read_idx = (ctx->bridge_tx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
-                    }
-                    ctx->bridge_tx_count -= ctx->frame_samples;
-                    if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
-                    voip_do_tx(ctx, ctx->rx_pcm_buf, 0, 0, 0);
+                }
+                if (!ctx->stop_requested && voip_event_finish(&ctx->tx_event_state,
+                        event.param3, processed == VOIP_EVENT_BATCH_MAX)) {
+                    voip_send_data_event(ctx, &ctx->tx_event_state, VOIP_EVENT_BRIDGE_TX, event.param3);
                 }
             }
             break;
@@ -1236,6 +1287,11 @@ static void voip_task_entry(void *param)
         default:
             break;
         }
+        /* A stop observed inside a batch must finish cleanup before waiting
+         * again, even if the separate STOP enqueue failed. */
+        if (ctx->stop_requested && ctx->state != VOIP_STATE_IDLE) {
+            voip_session_stop(ctx, 1);
+        }
     }
 }
 
@@ -1245,6 +1301,15 @@ static void voip_task_entry(void *param)
  * 在 Lua 主线程中执行，由 msgbus 分发。
  * 根据 msg->arg1 (cb_type) 调用对应的 Lua 回调。
  */
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+static int voip_bridge_message_current(const voip_ctx_t *ctx, uint32_t generation)
+{
+    /* STARTING begins synchronously in voip_start, before its task increments
+     * generation. No Lua notification belongs to that pending start yet. */
+    return generation == ctx->bridge_generation && ctx->state != VOIP_STATE_STARTING;
+}
+#endif
+
 static int voip_lua_cb_handler(lua_State *L, void *ptr)
 {
     (void)ptr;
@@ -1253,6 +1318,10 @@ static int voip_lua_cb_handler(lua_State *L, void *ptr)
 
     voip_ctx_t *ctx = &g_voip_ctx;
     int cb_type = msg->arg1;
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+    if (luat_cc_pcm_selected() &&
+        !voip_bridge_message_current(ctx, (uint32_t)(uintptr_t)msg->ptr)) goto done;
+#endif
 
     if (cb_type == VOIP_CB_STATE) {
         if (ctx->cb_state_ref == 0) goto done;
@@ -1347,7 +1416,12 @@ int voip_start(const voip_config_t *config)
     /* 拷贝配置 */
     memcpy(&ctx->config, config, sizeof(voip_config_t));
     ctx->stop_requested = 0;
-    ctx->audio_session++;
+    /* Reserve two low wake-word bits for pending/dirty; zero is not a session. */
+    ctx->audio_session = (ctx->audio_session % VOIP_EVENT_SESSION_MAX) + 1U;
+    voip_event_reset(&ctx->rx_event_state, ctx->audio_session);
+#ifdef LUAT_USE_VOIP_BRIDGE
+    voip_event_reset(&ctx->tx_event_state, ctx->audio_session);
+#endif
     ctx->state = VOIP_STATE_STARTING;
     if (luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_START, 0, 0, ctx->audio_session, 0) != 0) {
         ctx->state = VOIP_STATE_IDLE;
@@ -1387,6 +1461,7 @@ void voip_get_stats(voip_stats_t *out)
 {
     if (out) {
         memcpy(out, &g_voip_ctx.stats, sizeof(voip_stats_t));
+        out->event_send_failures = voip_event_load(&g_voip_ctx.event_send_failures);
 #ifdef LUAT_USE_VOIP_AUDIO_PORT
         out->audio_rx_dropped = g_voip_ctx.dropped_mic_events;
 #endif
@@ -1404,6 +1479,7 @@ void voip_push_stats(lua_State *L)
     lua_pushinteger(L, stats.rx_bytes); lua_setfield(L, -2, "rx_bytes");
     lua_pushinteger(L, stats.rx_parse_fail); lua_setfield(L, -2, "rx_parse_fail");
     lua_pushinteger(L, stats.rx_bad_payload); lua_setfield(L, -2, "rx_bad_payload");
+    lua_pushinteger(L, stats.event_send_failures); lua_setfield(L, -2, "event_send_failures");
     lua_pushinteger(L, stats.rx_lost); lua_setfield(L, -2, "rx_lost");
     lua_pushinteger(L, stats.rx_out_of_order); lua_setfield(L, -2, "rx_out_of_order");
     lua_pushinteger(L, stats.jb_played); lua_setfield(L, -2, "jb_played");
@@ -1477,15 +1553,28 @@ void voip_record_get_status(voip_record_status_t *status)
 int voip_set_audio_mode(voip_audio_mode_t mode)
 {
     voip_ctx_t *ctx = &g_voip_ctx;
+    int ret = 0;
+#if defined(LUAT_USE_CC_VOIP_BRIDGE) && defined(LUAT_USE_AUDIO_V2)
+    /* CC media setup is serialized on EC7xx tasks. Keep its busy check and
+     * this route change together, including direct Lua setAudioMode calls. */
+    luat_rtos_task_suspend_all();
+#endif
     if (ctx->state != VOIP_STATE_IDLE) {
-        LLOGW("voip_set_audio_mode: must be called in IDLE state");
-        return -1;
+        ret = -1;
+    } else if (mode != VOIP_AUDIO_MODE_I2S && mode != VOIP_AUDIO_MODE_BRIDGE) {
+        ret = -2;
+#if defined(LUAT_USE_CC_VOIP_BRIDGE) && defined(LUAT_USE_AUDIO_V2)
+    } else if (mode != ctx->audio_mode && luat_cc_bridge_is_busy()) {
+        ret = -1;
+#endif
+    } else {
+        ctx->audio_mode = mode;
     }
-    if (mode != VOIP_AUDIO_MODE_I2S && mode != VOIP_AUDIO_MODE_BRIDGE) {
-        return -2;
-    }
-    ctx->audio_mode = mode;
-    return 0;
+#if defined(LUAT_USE_CC_VOIP_BRIDGE) && defined(LUAT_USE_AUDIO_V2)
+    luat_rtos_task_resume_all();
+#endif
+    if (ret == -1) LLOGW("voip_set_audio_mode: audio route is busy");
+    return ret;
 }
 
 int voip_bridge_tone(int on)
@@ -1525,10 +1614,105 @@ int voip_bridge_tone(int on)
     return 0;
 }
 
+int voip_bridge_pcm_state(uint32_t *generation)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    int result = 0;
+    if (!ctx->bridge_mutex) return 0;
+    luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    if (!ctx->stop_requested && ctx->state == VOIP_STATE_RUNNING &&
+        ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE && ctx->bridge_tx_buf && ctx->bridge_rx_buf) {
+        result = ctx->config.sample_rate == 8000 && ctx->config.ptime == 20 &&
+            (ctx->config.codec == VOIP_CODEC_PCMA || ctx->config.codec == VOIP_CODEC_PCMU) ? 1 : -1;
+        if (generation) *generation = ctx->bridge_generation;
+    }
+    luat_rtos_mutex_unlock(ctx->bridge_mutex);
+    return result;
+}
+
+static int voip_bridge_pcm_frame_ready(const voip_ctx_t *ctx, uint32_t generation)
+{
+    return generation && ctx->bridge_generation == generation && !ctx->stop_requested &&
+        ctx->state == VOIP_STATE_RUNNING && ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE &&
+        ctx->bridge_tx_buf && ctx->bridge_rx_buf && ctx->frame_samples == 160 &&
+        ctx->config.sample_rate == 8000 && ctx->config.ptime == 20 &&
+        (ctx->config.codec == VOIP_CODEC_PCMA || ctx->config.codec == VOIP_CODEC_PCMU);
+}
+
+int voip_bridge_pcm_clear(uint32_t expected_generation, unsigned directions)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    if (!ctx->bridge_mutex) return -1;
+    luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    if (!voip_bridge_pcm_frame_ready(ctx, expected_generation)) {
+        luat_rtos_mutex_unlock(ctx->bridge_mutex);
+        return -1;
+    }
+    if (directions & 1) {
+        ctx->bridge_tx_write_idx = ctx->bridge_tx_read_idx = ctx->bridge_tx_count = 0;
+    }
+    if (directions & 2) {
+        ctx->bridge_rx_write_idx = ctx->bridge_rx_read_idx = ctx->bridge_rx_count = 0;
+    }
+    luat_rtos_mutex_unlock(ctx->bridge_mutex);
+    return 0;
+}
+
+int voip_bridge_pcm_in_frame(uint32_t expected_generation, const int16_t pcm[160], uint32_t *dropped_frames)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    uint32_t session;
+    if (dropped_frames) *dropped_frames = 0;
+    if (!pcm || !ctx->bridge_mutex) return -1;
+    luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    if (!voip_bridge_pcm_frame_ready(ctx, expected_generation)) {
+        luat_rtos_mutex_unlock(ctx->bridge_mutex);
+        return -1;
+    }
+    session = ctx->audio_session;
+    /* Copy a whole frame or nothing. A stalled network task retains at most
+     * six frames; the oldest complete frame is discarded and counted. */
+    while (ctx->bridge_tx_count > 5 * 160) {
+        ctx->bridge_tx_read_idx = (ctx->bridge_tx_read_idx + 160) % VOIP_BRIDGE_BUF_SAMPLES;
+        ctx->bridge_tx_count -= 160;
+        if (dropped_frames) ++*dropped_frames;
+    }
+    for (unsigned i = 0; i < 160; ++i) {
+        ctx->bridge_tx_buf[ctx->bridge_tx_write_idx] = pcm[i];
+        ctx->bridge_tx_write_idx = (ctx->bridge_tx_write_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+    }
+    ctx->bridge_tx_count += 160;
+    luat_rtos_mutex_unlock(ctx->bridge_mutex);
+    voip_notify_data(ctx, &ctx->tx_event_state, VOIP_EVENT_BRIDGE_TX, session);
+    return 160;
+}
+
+int voip_bridge_pcm_out_frame(uint32_t expected_generation, int16_t pcm[160])
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    uint16_t count;
+    if (!pcm || !ctx->bridge_mutex) return -1;
+    luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    if (!voip_bridge_pcm_frame_ready(ctx, expected_generation)) {
+        luat_rtos_mutex_unlock(ctx->bridge_mutex);
+        return -1;
+    }
+    count = ctx->bridge_rx_count < 160 ? ctx->bridge_rx_count : 160;
+    for (unsigned i = 0; i < count; ++i) {
+        pcm[i] = ctx->bridge_rx_buf[ctx->bridge_rx_read_idx];
+        ctx->bridge_rx_read_idx = (ctx->bridge_rx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+    }
+    ctx->bridge_rx_count -= count;
+    luat_rtos_mutex_unlock(ctx->bridge_mutex);
+    return count;
+}
+
 int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples)
 {
     voip_ctx_t *ctx = &g_voip_ctx;
     uint16_t consumed = 0;
+    uint32_t session;
+    int ready;
 
     if (!pcm || samples == 0) {
         return 0;
@@ -1537,10 +1721,11 @@ int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples)
         return -1;
     }
     luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
-    if (ctx->state != VOIP_STATE_RUNNING || ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !ctx->bridge_tx_buf) {
+    if (ctx->stop_requested || ctx->state != VOIP_STATE_RUNNING || ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !ctx->bridge_tx_buf) {
         luat_rtos_mutex_unlock(ctx->bridge_mutex);
         return -1;
     }
+    session = ctx->audio_session;
     for (uint16_t i = 0; i < samples; i++) {
         if (ctx->bridge_tx_count >= VOIP_BRIDGE_BUF_SAMPLES) {
             break;
@@ -1550,9 +1735,10 @@ int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples)
         ctx->bridge_tx_count++;
         consumed++;
     }
+    ready = ctx->bridge_tx_count >= ctx->frame_samples;
     if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
-    if (consumed > 0 && ctx->task_handle) {
-        luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_BRIDGE_TX, 0, 0, ctx->audio_session, 0);
+    if (ready) {
+        voip_notify_data(ctx, &ctx->tx_event_state, VOIP_EVENT_BRIDGE_TX, session);
     }
     return (int)consumed;
 }

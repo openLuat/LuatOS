@@ -1,30 +1,57 @@
 --[[
 @module exs_yhm2712a
 @summary exs_yhm2712a扩展库
-@version 1.1
-@date    2026.07.20
+@version 1.4
+@date    2026.09.09
 @author  王世豪
 @usage
 -- 应用场景
 本扩展库适用于集成了YHM2712A充电IC的设备，使用前需要手动配置YHM2712A的CMD引脚。
 
 -- 用法实例
-本扩展库对外提供了以下7个接口：
+本扩展库对外提供了以下8个接口：
 1）初始化YHM2712A通信引脚并设置参数 exs_yhm2712a.setup(init_cfg)
 2）开启充电 exs_yhm2712a.start()
 3）关闭充电 exs_yhm2712a.stop()
 4）获取充电系统状态信息 exs_yhm2712a.status()
 5）注册事件回调函数 exs_yhm2712a.on(func)
 6）进入船运模式 exs_yhm2712a.ship_mode()
-7）获取库版本信息 exs_yhm2712a.version()
+7）获取当前FSM状态 exs_yhm2712a.get_fsm_mode()
+8）获取库版本信息 exs_yhm2712a.version()
 
 -- 版本更新说明
--- 版本号：202607201900
--- 1、更新时间：2026-07-20 19:00
--- 2、更新内容
---    实现 YHM2712A 充电管理芯片的完整驱动功能
---    提供充电状态查询、事件回调、船运模式等功能
---    新增 exs_yhm2712a.version() 接口，提供库版本查询功能
+-- ============================================================
+-- 版本号:202609091200
+-- 更新时间:2026-09-09 12:00
+-- 更新内容：
+--   1. 充电电流默认档由CCDEFAULT(中等电流)改为CCMIN(最小电流):
+--      setup() 未指定i_charge 时使用 exs_yhm2712a.CCMIN, 不再用 CCDEFAULT 兜底
+--   2. 原 CCDEFAULT 常量更名为 CCMID(中等电流, 值由"DEFAULT"改为"MID"), 并保留
+--      exs_yhm2712a.CCDEFAULT = CCMID 兼容别名, 旧代码引用不受影响
+-- ============================================================
+-- 版本号:202608251200
+-- 更新时间:2026-08-25 12:00
+-- 更新内容：
+--   1. 移除 exs_yhm2712a.exit_ship_mode() 接口及其对应事件
+--   2. 新增 exs_yhm2712a.get_fsm_mode() 接口：读取芯片当前FSM_MODE(状态机模式)
+--      用于调试/确认芯片当前所处状态(船运/充电/放电/故障等)
+-- ============================================================
+-- 版本号:202608211200
+-- 更新时间:2026-08-21 12:00
+-- 更新内容：
+--   1. 新增 exs_yhm2712a.exit_ship_mode() 接口：退出船运模式，恢复START正常供电
+--      (写 MODE[3:0]=1010 + M_SET=1 = 0xA8，依据手册 MODEREGISTER 02h 页脚注释)
+--      并新增退出船运模式事件 EXIT_SHIPPING_MODE
+--   2. 修复 CMD 引脚空闲电平：单总线 CMD 空闲时保持高电平(带内部上拉)，
+--      避免 CMD 被长时间拉低触发 YHM2712A 芯片看门狗复位导致通信失败(读ID返回0xFF)
+-- ============================================================
+-- 版本号:202607201900
+-- 更新时间:2026-07-20 19:00
+-- 更新内容：
+--   1. 实现 YHM2712A 充电管理芯片的完整驱动功能
+--   2. 提供充电状态查询、事件回调、船运模式等功能
+--   3. 新增 exs_yhm2712a.version() 接口，提供库版本查询功能
+-- ============================================================
 
 
 其中，开启充电 exs_yhm2712a.start() 和 关闭充电 exs_yhm2712a.stop() 默认自动执行，用户可以不用操作；
@@ -116,7 +143,30 @@ exs_yhm2712a.on(exs_yhm2712a_callback)
 @usage
 exs_yhm2712a.ship_mode() -- 进入船运模式
 
-7、获取库版本信息
+7、获取当前FSM状态
+必须在task中运行，内部有sys.waitUntil("YHM27XX_REG", 500)阻塞(约500ms)。
+用于读取芯片当前FSM_MODE(状态机模式)，确认芯片所处状态(如睡眠/充电/放电/故障等)。
+@api exs_yhm2712a.get_fsm_mode()
+@return number FSM_MODE值(0~15)；读取失败(无响应)返回-1
+FSM_MODE编码(4bit)说明：
+    0=RESET, 复位/上电初始化
+    1=SHIPPING, 船运模式(出厂低功耗，禁用充放电)
+    2=SLEEP, 休眠/待机低功耗
+    3=ITEST, 内部测试模式(芯片自检)
+    4~7=RESERVED, 保留
+    8=DISCHARGE, 放电中(带载输出)
+    9=FAULT, 故障(如过压/过流/过温等)
+    10=START, 启动中(充电流程初始化)
+    11=SYS_PRE, 系统预充阶段
+    12=CHARGE, 充电中
+    13=CHARGE_DONE, 充电完成(充满)
+    14=RESERVED, 保留
+    15=STOP_CHARGE 停止充电(如充满断开或异常停止)
+@usage
+local fsm = exs_yhm2712a.get_fsm_mode()
+log.info("exs_yhm2712a", "FSM_MODE=", fsm)
+
+8、获取库版本信息
 获取exs_yhm2712a扩展库的版本号，用于版本管理和兼容性检查。
 @api exs_yhm2712a.version()
 @return string: 库版本号，格式为"年月日"
@@ -171,6 +221,8 @@ local status2_register = 0x06   -- read only
 local id_register = 0x08        -- read only
 
 --充电电压参数,默认门限电压为4.35V
+-- Q1_ILIM_DIS(bit0)=1：解除Q1输入电流限制(默认800mA)
+-- 对应 4.2V=0x05, 4.35V=0x65, 4V=0xE5
 local set_4V2   = 0x04       --4.2V
 local set_4V35  = 0x64       --4.35V
 local set_4V    = 0xE4       --4V
@@ -212,27 +264,29 @@ local callback = nil
 local voltage_setting = set_4V35
 
 -- 充电电流常量
-exs_yhm2712a.CCMIN = "MIN"     -- 恒流充电MIN电流模式
-exs_yhm2712a.CCMAX = "MAX"    -- 恒流充电MAX电流模式
-exs_yhm2712a.CCDEFAULT = "DEFAULT" -- 恒流充电默认电流模式，电流大小处于Min和Max之间
+exs_yhm2712a.CCMIN = "MIN"     -- 恒流充电MIN电流模式(最小电流)
+exs_yhm2712a.CCMID = "MID"     -- 恒流充电MID电流模式(中等电流)
+exs_yhm2712a.CCMAX = "MAX"     -- 恒流充电MAX电流模式
+exs_yhm2712a.CCDEFAULT = exs_yhm2712a.CCMID -- 兼容别名：原CCDEFAULT常量更名为CCMID，值由"DEFAULT"改为"MID"，旧代码引用不受影响
 -- 定义事件常量
 exs_yhm2712a.OVERHEAT = 1      -- 温度过热事件
 exs_yhm2712a.CHARGER_IN = 2    -- 充电器插入事件
 exs_yhm2712a.CHARGER_OUT = 3   -- 充电器拔出事件
 exs_yhm2712a.SHIPPING_MODE = 4 -- 进入船运模式事件
+exs_yhm2712a.EXIT_SHIPPING_MODE = 5 -- 退出船运模式事件
 
 -- 使用表格存储不同容量和模式下的电流值
 local current_table = {
-    [100] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 50, [exs_yhm2712a.CCMAX] = 50},
-    [200] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 125, [exs_yhm2712a.CCMAX] = 125},
-    [300] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 175, [exs_yhm2712a.CCMAX] = 175},
-    [400] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 225, [exs_yhm2712a.CCMAX] = 225},
-    [500] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 250, [exs_yhm2712a.CCMAX] = 250},
-    [600] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 250, [exs_yhm2712a.CCMAX] = 375},
-    [700] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 375, [exs_yhm2712a.CCMAX] = 500},
-    [800] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 375, [exs_yhm2712a.CCMAX] = 500},
-    [900] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 375, [exs_yhm2712a.CCMAX] = 500},
-    [1000] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCDEFAULT] = 500, [exs_yhm2712a.CCMAX] = 750}
+    [100] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 50, [exs_yhm2712a.CCMAX] = 50},
+    [200] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 125, [exs_yhm2712a.CCMAX] = 125},
+    [300] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 175, [exs_yhm2712a.CCMAX] = 175},
+    [400] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 225, [exs_yhm2712a.CCMAX] = 225},
+    [500] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 250, [exs_yhm2712a.CCMAX] = 250},
+    [600] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 250, [exs_yhm2712a.CCMAX] = 375},
+    [700] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 375, [exs_yhm2712a.CCMAX] = 500},
+    [800] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 375, [exs_yhm2712a.CCMAX] = 500},
+    [900] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 375, [exs_yhm2712a.CCMAX] = 500},
+    [1000] = {[exs_yhm2712a.CCMIN] = 50, [exs_yhm2712a.CCMID] = 500, [exs_yhm2712a.CCMAX] = 750}
 }
 
 --[[
@@ -280,7 +334,7 @@ end
     pin:number, YHM2712A CMD引脚，必选
     v_battery:number, 电池充电截止电压, 取值范围：4200或4350可选, 单位(mV), 必须传入
     cap_battery:number, 电池容量, 取值范围：>= 100, 单位(mAh)，必须传入。
-    i_charge:string, 充电电流, 取值范围：exs_yhm2712a.CCMIN(最小电流) 或 exs_yhm2712a.CCDEFAULT(默认电流) 或 exs_yhm2712a.CCMAX(最大电流)，三个可选参数，不传入时默认值为exs_yhm2712a.CCDEFAULT。
+    i_charge:string, 充电电流, 取值范围：exs_yhm2712a.CCMIN(最小电流) 或 exs_yhm2712a.CCMID(中等电流) 或 exs_yhm2712a.CCMAX(最大电流)，三个可选参数，不传入时默认值为exs_yhm2712a.CCMIN。
 @return boolean 成功返回true，失败返回false
 @usage
 local setup_ok = exs_yhm2712a.setup({
@@ -325,7 +379,7 @@ function exs_yhm2712a.setup(init_cfg)
     -- 设置充电参数
     local v_battery = init_cfg.v_battery
     local cap_battery = init_cfg.cap_battery
-    local i_charge = init_cfg.i_charge or exs_yhm2712a.CCDEFAULT
+    local i_charge = init_cfg.i_charge or exs_yhm2712a.CCMIN
 
     -- 验证电池电压
     if v_battery ~= 4200 and v_battery ~= 4350 then
@@ -339,9 +393,9 @@ function exs_yhm2712a.setup(init_cfg)
         return false
     end
 
-    -- 验证充电电流参数
-    if i_charge ~= exs_yhm2712a.CCMIN and i_charge ~= exs_yhm2712a.CCDEFAULT and i_charge ~= exs_yhm2712a.CCMAX then
-        log.error("exs_yhm2712a", "无效的充电电流参数，必须是 exs_yhm2712a.CCMIN、exs_yhm2712a.CCDEFAULT 或 exs_yhm2712a.CCMAX")
+    -- 验证充电电流参数 (CCDEFAULT兼容别名值等于CCMID, 老引用仍可通过校验)
+    if i_charge ~= exs_yhm2712a.CCMIN and i_charge ~= exs_yhm2712a.CCMID and i_charge ~= exs_yhm2712a.CCMAX then
+        log.error("exs_yhm2712a", "无效的充电电流参数，必须是 exs_yhm2712a.CCMIN、exs_yhm2712a.CCMID 或 exs_yhm2712a.CCMAX")
         return false
     end
 
@@ -551,6 +605,45 @@ function exs_yhm2712a.ship_mode()
     else
         log.warn("exs_yhm2712a.shipMode 未生效, 请检查是否支持yhm27xx")
         return false
+    end
+end
+
+--[[
+读取出芯片当前FSM_MODE(状态机模式)，必须在task中运行，内部有sys.waitUntil阻塞(约500ms)。
+用于调试/确认芯片工作模式。FSM_MODE编码(4bit, 0~15)：
+    0=RESET, 复位/上电初始化
+    1=SHIPPING, 船运模式
+    2=SLEEP, 休眠/待机低功耗
+    3=ITEST, 内部测试模式(芯片自检)
+    4~7=RESERVED, 保留
+    8=DISCHARGE, 放电中(带载输出)
+    9=FAULT, 故障(如过压/过流/过温等)
+    10=START, 启动中(充电流程初始化)
+    11=SYS_PRE, 系统预充阶段
+    12=CHARGE, 充电中
+    13=CHARGE_DONE, 充电完成(充满)
+    14=RESERVED, 保留
+    15=STOP_CHARGE 停止充电(如充满断开或异常停止)
+@api exs_yhm2712a.get_fsm_mode()
+@return number FSM_MODE值；读取失败返回-1
+@usage
+local fsm = exs_yhm2712a.get_fsm_mode()
+log.info("充电管理", "FSM_MODE=", fsm, fsm==1 and "(船运模式)" or "(非船运)")
+]]--
+function exs_yhm2712a.get_fsm_mode()
+    if not gpio_pin then
+        log.error("exs_yhm2712a.get_fsm_mode", "YHM2712A未初始化，请先调用exs_yhm2712a.setup(init_cfg)")
+        return -1
+    end
+    -- 读取STATUS2(0x06)并提取FSM_MODE[7:4]
+    chginfo(gpio_pin, sensor_addr)
+    local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
+    if reg_result and reg_data then
+        local status2 = reg_data:byte(7)
+        return (status2 & 0xF0) >> 4
+    else
+        log.warn("exs_yhm2712a.get_fsm_mode", "读取寄存器失败")
+        return -1
     end
 end
 
@@ -926,6 +1019,18 @@ function exs_yhm2712a.status()
         log.warn("充电阶段检测失败")
         status.result = false
     end
+
+    -- 3.1 充电器在位判定：硬件无VBUS检测脚(GPIO判据已失效)，改用FSM_MODE判断。
+    -- FSM：10=START 11=SYS_PRE 12=CHARGE 13=CHARGE_DONE 仅在充电器(VIN)在位时进入；
+    --     8=DISCHARGE/2=SLEEP/1=SHIPPING 等无充电器。
+    local fsm_mode = exs_yhm2712a.get_fsm_mode()
+    if fsm_mode ~= -1 then
+        status.charger_present =
+            (fsm_mode == 10 or fsm_mode == 11 or fsm_mode == 12 or fsm_mode == 13)
+    else
+        -- FSM读取失败时，退化为按充电阶段判断（阶段1预充/2涓流/3恒流/5恒压/7完成均代表有充电动作，即充电器在位）
+        status.charger_present = (status.charge_stage >= 1 and status.charge_stage <= 7)
+    end
     
     -- 4. 在特定阶段测量电池电压
     if status.battery_present then
@@ -980,10 +1085,19 @@ function exs_yhm2712a.status()
         status.charge_stage = 8
         status.charge_complete = false
         status.battery_present = false
+    else
+        -- 电池不在位 且 充电器不在位：芯片FSM读到的CHG_STATUS(05h[7:5])对空载无意义
+        -- 依据YHM2712A手册：Charge Done(111)仅由"充电电流<C/20终止"触发，BAT开路时
+        -- 电流天然为0，芯片会一直报"充电完成"，但这不代表有电池且充满，必须在此兜底。
+        status.vbat_voltage = 0
+        status.charge_stage = 0        -- 放电模式（无充电器无电池）
+        status.charge_complete = false
     end
-    
+
     -- 5. 判断充电是否完成
-    status.charge_complete = (status.charge_stage == 7)
+    -- 关键：CHG_STATUS==7(Charge Done)仅在"电池在位"时才算真正的充满；
+    -- 电池不在位时（BAT开路），芯片因终止电流判据也会报7，必须强制不判定为充满。
+    status.charge_complete = status.battery_present and (status.charge_stage == 7)
     
     return status
 end
@@ -996,7 +1110,7 @@ end
 log.info("exs_yhm2712a", "version:", exs_yhm2712a.version())
 ]]
 function exs_yhm2712a.version()
-    return "202607201900"
+    return "202609091200"
 end
 
 -- sys.taskInit(function()

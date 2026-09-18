@@ -12,7 +12,7 @@
 
 6、record_pcm_file.lua：流式录音到文件功能模块，演示PCM格式音频录制；
 
-7、record_pcm_to_7014.lua：通过VB7014F语音芯片录音与播放功能模块，演示PCM格式音频的流式录音与播放；
+7、record_pcm_to_air1103.lua：通过Air1103语音芯片录音与播放功能模块，演示PCM格式音频的流式录音与播放；
 
 8、http_download_play.lua：HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡；
 
@@ -92,9 +92,9 @@
 - AMR/MP3/WAV格式会自动解析文件头获取真实采样率
 - 使用新音频框架，固件需要V2048及以上的13/113号固件才能播放
 
-### 8、录音到文件功能 - 通过VB7014F录音与播放（record_pcm_to_7014.lua）
+### 8、录音到文件功能 - 通过Air1103录音与播放（record_pcm_to_air1103.lua）
 
-- 通过UART1（波特率固定2M）连接合宙VB7014F串口语音芯片，完成PCM流式录音与播放，VB7014F无需I2C/PA/CODEC硬件初始化
+- 通过UART1（波特率固定2M）连接合宙Air1103串口语音芯片，完成PCM流式录音与播放，Air1103无需I2C/PA/CODEC硬件初始化
 - 录音默认保存到/sd/record.pcm（SD卡挂载成功时），SD卡挂载失败自动回退到内存/record.pcm
 - 通过powerkey/boot按键开始或停止录音/播放
 - 支持5秒录音时长，可提前结束，录音完成后自动播放
@@ -240,7 +240,7 @@ require "play_file"
 ├── play_stream.lua         # 流式音频播放功能模块，支持PCM格式流式播放
 ├── record_amr_file.lua     # 录音到文件功能模块，支持AMR格式录音
 ├── record_pcm_file.lua     # 流式录音到文件功能模块，支持PCM格式录音
-├── record_pcm_to_7014.lua # 通过VB7014F语音芯片的PCM流式录音与播放功能模块
+├── record_pcm_to_air1103.lua # 通过Air1103语音芯片的PCM流式录音与播放功能模块
 ├── http_download_play.lua # HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡
 ├── http_stream_play.lua   # HTTP流式边下边播功能模块，支持PCM/AMR/MP3/WAV格式，自动识别格式，使用新音频框架
 ├── sample-6s.mp3         # 示例音频文件，用于播放测试
@@ -550,12 +550,12 @@ I/user.http_pcm_stream_play 临时文件已删除
 [2026-07-03 15:06:44.575][000000013.245] W/audio_core print from irq 2 0 0
 ```
 
-### 8、录音到文件功能 - 通过VB7014F录音与播放（record_pcm_to_7014.lua）
+### 8、录音到文件功能 - 通过Air1103录音与播放（record_pcm_to_air1103.lua）
 
-1. 搭建好硬件环境（Air780EHM/Air780EGH核心板 + VB7014F语音芯片，UART1对接）
-2. 打开main.lua，确保保留`require "record_pcm_to_7014"`这一行
+1. 搭建好硬件环境（Air780EHM/Air780EGH核心板 + Air1103语音芯片，UART1对接）
+2. 打开main.lua，确保保留`require "record_pcm_to_air1103"`这一行
 3. 将代码下载到开发板并运行
-4. **演示效果**：通过VB7014F进行PCM流式录音与播放，按Power键录音、按Boot键播放
+4. **演示效果**：通过Air1103进行PCM流式录音与播放，按Power键录音、按Boot键播放
 
 **运行结果示例：**
 
@@ -566,8 +566,8 @@ I/user.SD卡挂载成功 挂载路径: /sd
 I/user.SD卡空间信息 {"free_sectors":31107584,"total_kb":15556160,"free_kb":15553792,"total_sectors":31112320}
 I/user.SD卡挂载成功！！！
 I/user.exaudio.setup 当前使用旧音频框架
-I/user.vb7014f 初始化完成 1 2000000
-I/user.exaudio vb7014f不支持调节麦克风音量
+I/user.air1103 初始化完成 1 2000000
+I/user.exaudio air1103不支持调节麦克风音量
 I/user.音量设置 播放: 70 录音: 70
 I/user.找到录音文件 大小: 1920000 字节 路径: /sd/record.pcm
 I/user.按键功能说明：
@@ -583,8 +583,8 @@ I/user.空闲状态，开始录音
 I/user.开始录音 时长: 5 秒
 I/user.删除旧录音文件
 I/user.exaudio.record_start 将录音5秒
-I/user.vb7014f 发送程序复位 02 05 00, 等待重新初始化后自动恢复上行
-I/user.exaudio vb7014f录音已开始(MIC上行)
+I/user.air1103 发送程序复位 02 05 00, 等待重新初始化后自动恢复上行
+I/user.exaudio air1103录音已开始(MIC上行)
 I/user.录音已开始，按任意键可提前结束
 I/user.SD卡写入统计 数据大小: 1024 字节, 写入耗时: 7.00 ms, 写入速度: 142.86 KB/s
 I/user.SD卡写入统计 数据大小: 512 字节, 写入耗时: 4.00 ms, 写入速度: 125.00 KB/s
@@ -593,14 +593,14 @@ I/user.录音中... 1 秒
 I/user.录音中... 4 秒
 I/user.录音完成 大小: 115200 字节
 I/user.按下BOOT键开始播放录音文件
-I/user.exaudio vb7014f录音已停止
+I/user.exaudio air1103录音已停止
 
 # 空闲时按Boot键播放录音
 I/user.按下BOOT键
 I/user.空闲状态，播放录音
 I/user.录音文件路径 /sd/record.pcm
 I/user.流式播放录音文件 大小: 115200 字节
-I/user.exaudio vb7014f流式播放已启动，等待play_stream_write喂数据
+I/user.exaudio air1103流式播放已启动，等待play_stream_write喂数据
 I/user.流式播放已开始
 I/user.开始流式读取录音数据
 I/user.流式播放缓冲区大小 3200
@@ -609,8 +609,8 @@ I/user.流式数据读取完成
 ```
 
 **注意事项：**
-- VB7014F为串口语音芯片，仅需在`audio_setup_param`中配置`model="vb7014f"`和`uart_id`（默认UART1，波特率2M固定），无需I2C/PA/CODEC相关参数
-- 录音MIC上行固定16kHz/16bit/单声道、512字节/帧；下行播放按320字节/10ms=32KB/s节奏喂数据，避免VB7014F下行缓冲溢出丢帧
+- Air1103为串口语音芯片，仅需在`audio_setup_param`中配置`model="air1103"`和`uart_id`（默认UART1，波特率2M固定），无需I2C/PA/CODEC相关参数
+- 录音MIC上行固定16kHz/16bit/单声道、512字节/帧；下行播放按320字节/10ms=32KB/s节奏喂数据，避免Air1103下行缓冲溢出丢帧
 - 使用SD卡需按实际硬件配置`sd_spi_id`/`sd_cs_pin`并打开供电脚
 
 ## **异常处理**

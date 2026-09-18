@@ -66,6 +66,27 @@ function mcu_tests.test_mcu_X32Decimal()
         string.format("mcu.X32(Decimal)值异常: 预期为%s, 实际为 %s", expected_value, value))
 end
 
+function mcu_tests.test_mcu_X32_len()
+    log.info("===== 测试 mcu.x32(value, len) 指定长度补零 =====")
+    -- 不传len, 保持原行为
+    local value = mcu.x32(0x2009FFFC)
+    assert(value == "0x2009fffc", string.format("mcu.x32(0x2009FFFC) 预期 0x2009fffc, 实际 %s", value))
+    -- 传len, 高位补0
+    value = mcu.x32(0, 2)
+    assert(value == "0x00", string.format("mcu.x32(0, 2) 预期 0x00, 实际 %s", value))
+    value = mcu.x32(0, 8)
+    assert(value == "0x00000000", string.format("mcu.x32(0, 8) 预期 0x00000000, 实际 %s", value))
+    value = mcu.x32(0x5A, 4)
+    assert(value == "0x005a", string.format("mcu.x32(0x5A, 4) 预期 0x005a, 实际 %s", value))
+    -- len小于实际位数时, 按实际位数输出, 不做截断
+    value = mcu.x32(0x1234, 2)
+    assert(value == "0x1234", string.format("mcu.x32(0x1234, 2) 预期 0x1234, 实际 %s", value))
+    -- len为0/负数时等同于不补零
+    value = mcu.x32(0x5A, 0)
+    assert(value == "0x5a", string.format("mcu.x32(0x5A, 0) 预期 0x5a, 实际 %s", value))
+    log.info("mcu_X32", "指定长度补零测试通过")
+end
+
 function mcu_tests.test_mcu_X32_error_type()
     log.info("===== 测试 mcu.X32()错误类型测试 =====")
     local success, err = pcall(function()

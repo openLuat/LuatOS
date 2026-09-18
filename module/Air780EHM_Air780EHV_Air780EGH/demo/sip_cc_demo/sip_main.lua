@@ -45,14 +45,14 @@ end
 
 -- ==================== 请求处理 ====================
 
-local function on_sip_dial_req(uri)
+local function on_sip_dial_req(uri,from_number)
     if g_state ~= STATE_IDLE then
         log.warn("sip_main", "SIP 忙，无法拨号", g_state)
         return
     end
     set_state(STATE_DIALING)
     logi("执行拨号", uri)
-    local ok = exsip.dial(uri)
+    local ok = exsip.dial(uri,from_number)
     if not ok then
         log.error("sip_main", "exsip.dial 失败")
         set_state(STATE_IDLE)

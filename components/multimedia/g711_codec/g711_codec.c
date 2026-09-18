@@ -293,7 +293,7 @@ static inline int16_t g711_alaw_decode_optimized(g711_codec_t* codec, uint8_t al
 static void g711_ulaw_encode_batch(g711_codec_t* codec, const int16_t* pcm, uint8_t* output, uint32_t len) {
     uint32_t i;
     // 循环展开优化，每次处理4个样本
-    for (i = 0; i < len - 3; i += 4) {
+    for (i = 0; i < (len & ~3U); i += 4) {
         output[i] = g711_ulaw_encode_optimized(codec, pcm[i]);
         output[i+1] = g711_ulaw_encode_optimized(codec, pcm[i+1]);
         output[i+2] = g711_ulaw_encode_optimized(codec, pcm[i+2]);
@@ -309,7 +309,7 @@ static void g711_ulaw_encode_batch(g711_codec_t* codec, const int16_t* pcm, uint
 static void g711_alaw_encode_batch(g711_codec_t* codec, const int16_t* pcm, uint8_t* output, uint32_t len) {
     uint32_t i;
     // 循环展开优化，每次处理4个样本
-    for (i = 0; i < len - 3; i += 4) {
+    for (i = 0; i < (len & ~3U); i += 4) {
         output[i] = g711_alaw_encode_optimized(codec, pcm[i]);
         output[i+1] = g711_alaw_encode_optimized(codec, pcm[i+1]);
         output[i+2] = g711_alaw_encode_optimized(codec, pcm[i+2]);
@@ -325,7 +325,7 @@ static void g711_alaw_encode_batch(g711_codec_t* codec, const int16_t* pcm, uint
 static void g711_ulaw_decode_batch(g711_codec_t* codec, const uint8_t* input, int16_t* pcm, uint32_t len) {
     uint32_t i;
     // 循环展开优化，每次处理4个样本
-    for (i = 0; i < len - 3; i += 4) {
+    for (i = 0; i < (len & ~3U); i += 4) {
         pcm[i] = g711_ulaw_decode_optimized(codec, input[i]);
         pcm[i+1] = g711_ulaw_decode_optimized(codec, input[i+1]);
         pcm[i+2] = g711_ulaw_decode_optimized(codec, input[i+2]);
@@ -341,7 +341,7 @@ static void g711_ulaw_decode_batch(g711_codec_t* codec, const uint8_t* input, in
 static void g711_alaw_decode_batch(g711_codec_t* codec, const uint8_t* input, int16_t* pcm, uint32_t len) {
     uint32_t i;
     // 循环展开优化，每次处理4个样本
-    for (i = 0; i < len - 3; i += 4) {
+    for (i = 0; i < (len & ~3U); i += 4) {
         pcm[i] = g711_alaw_decode_optimized(codec, input[i]);
         pcm[i+1] = g711_alaw_decode_optimized(codec, input[i+1]);
         pcm[i+2] = g711_alaw_decode_optimized(codec, input[i+2]);

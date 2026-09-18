@@ -16,9 +16,11 @@
 
 5、http_stream_play: HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
 
-6、sample-6s.mp3、10.amr: 用于测试本地音频文件播放
+6、record_pcm_to_1103: 录音到文件（PCM格式，通过Air1103语音芯片录音与播放）
 
-7、test.pcm: 用于测试pcm流式播放
+7、sample-6s.mp3、10.amr: 用于测试本地音频文件播放
+
+8、test.pcm: 用于测试pcm流式播放
 
 注意：
     1. 1601只有DAC，没有I2S，所以无法录音
@@ -77,6 +79,7 @@ require "play_file"          -- 文件播放音频，支持mp3,amr,wav格式
 -- require "play_stream"       -- 流式播放音频，支持PCM/MP3/AMR/WAV格式
 -- require "http_download_play" -- HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别，支持SD卡存储
 -- require "http_stream_play"  -- HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
+-- require "record_pcm_to_1103"        -- 录音到文件（PCM格式，通过Air1103语音芯片录音及播放）
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

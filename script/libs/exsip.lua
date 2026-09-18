@@ -51,6 +51,17 @@ exsip.start()
 -- exsip.hangUp()
 
 -- 版本更新说明
+-- 版本号：202609171331
+-- 1、更新时间：2026-09-17 13:31
+-- 2、更新内容
+--    自动接听定时器绑定来电 Call-ID，忽略旧通话遗留的定时回调。
+--    接听命令携带当前 Call-ID，避免排队中的旧命令误接新通话。
+-- 版本号：202609161450
+-- 1、更新时间：2026-09-16 14:50
+-- 2、更新内容
+--    初始化阶段校验并选择 CC-SIP 桥接路由，失败时保留原配置。
+--    SIP 服务运行或媒体尚未释放时禁止更改路由，停止 SIP 后保留桥接选择。
+--    兼容缺少 cc.setBridge 的旧版桥接固件，保留桥接配置并打印警告继续初始化。
 -- 版本号：202608311130
 -- 1、更新时间：2026-08-31 11:30
 -- 2、更新内容
@@ -597,8 +608,11 @@ local function sip_event_handler(event, action, payload)
             emit_callback("call", "incoming", g_current_call)
             if g_config and g_config.auto_answer then
                 if g_config.delay_auto_answer > 0 then
+                    local call_id = payload.call_id
                     sys.timerStart(function()
-                        exsip.accept()
+                        if g_started and g_current_call and g_current_call.call_id == call_id then
+                            exsip.accept()
+                        end
                     end, g_config.delay_auto_answer * 1000)
                 else
                     exsip.accept()
@@ -775,21 +789,57 @@ function exsip.init(config)
         return false
     end
 
-    g_config = {}
+    local next_config = {}
     for k, v in pairs(default_config) do
-        g_config[k] = v
+        next_config[k] = v
     end
     for k, v in pairs(config) do
-        g_config[k] = v
+        next_config[k] = v
     end
-    g_config.record = record_config
+    next_config.record = record_config
+    if next_config.audio_mode ~= nil and (not voip or
+        (next_config.audio_mode ~= voip.AUDIO_MODE_I2S and
+         next_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE)) then
+        log_error("unsupported audio_mode")
+        return false
+    end
+    if next_config.cc_sip_bridge then
+        if not has_voip_pcm_bridge() then
+            log_error("CC-SIP bridge requires PCM bridge APIs")
+            return false
+        end
+        if next_config.audio_mode ~= nil and next_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE then
+            log_error("cc_sip_bridge conflicts with configured audio_mode")
+            return false
+        end
+        next_config.audio_mode = voip.AUDIO_MODE_BRIDGE
+    end
+    if g_config and (g_started or g_media_pending or g_media_requested) and
+        (next_config.cc_sip_bridge ~= g_config.cc_sip_bridge or
+         next_config.audio_mode ~= g_config.audio_mode) then
+        log_error("stop SIP and CC media before changing the audio route")
+        return false
+    end
+    if not next_config.sip_domain then
+        next_config.sip_domain = next_config.sip_server_addr
+    end
 
+    -- When available, select the CC route before CC early media.
+    -- The native setter checks both media paths and changes no state on failure.
+    -- Enabling also selects generic PCM mode as one native transaction.
+    if cc and type(cc.setBridge) == "function" then
+        local call_ok, selected = pcall(cc.setBridge, next_config.cc_sip_bridge)
+        if not call_ok or not selected then
+            log_error("CC-SIP route is busy or unavailable", selected)
+            return false
+        end
+    elseif next_config.cc_sip_bridge then
+        -- Legacy bridge firmware selects CC routing through audio_mode.
+        log_warn("cc.setBridge unavailable; keeping legacy CC-SIP bridge mode")
+    end
+    g_config = next_config
     if g_config.cc_sip_bridge and g_config.record.auto then
         log_warn("automatic recording is disabled for CC-SIP bridge mode")
-    end
-
-    if not g_config.sip_domain then
-        g_config.sip_domain = g_config.sip_server_addr
     end
 
     log_info("init completed:", g_config.sip_username .. "@" .. g_config.sip_domain)
@@ -823,18 +873,7 @@ function exsip.start()
         return false
     end
 
-    -- CC桥接配置是一个完整契约：强制VoIP进入bridge模式，并禁止本地SIP speech。
-    if g_config.cc_sip_bridge then
-        if not has_voip_pcm_bridge() then
-            log_error("CC-SIP bridge is not supported in this firmware")
-            return false
-        end
-        if g_config.audio_mode ~= nil and g_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE then
-            log_error("cc_sip_bridge conflicts with configured audio_mode")
-            return false
-        end
-        g_config.audio_mode = voip.AUDIO_MODE_BRIDGE
-    end
+    -- init validated the route; legacy CC bridge firmware selects it via PCM mode here.
     if not set_voip_audio_mode(g_config.audio_mode) then
         return false
     end
@@ -903,6 +942,8 @@ function exsip.stop()
         return
     end
 
+    -- Keep the explicit CC selection until a later successful init changes it.
+    -- CC may still be completing PLAY_STOP after the SIP side has stopped.
     stop_voip_engine()
 
     if sipclient and sipclient.stop then
@@ -978,7 +1019,7 @@ function exsip.accept()
         return false
     end
 
-    sipclient.answer()
+    sipclient.answer(g_current_call and g_current_call.call_id)
     log_info("answering call")
     return true
 end
@@ -1272,7 +1313,7 @@ end
 exsip.version()
 ]]
 function exsip.version()
-    return "202609140001"
+    return "202609171331"
 end
 
 log.debug("exsip", "version -> " .. exsip.version())

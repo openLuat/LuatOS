@@ -50,14 +50,15 @@ log.info("main", PROJECT, VERSION)
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
--- gpio.setup(13, 1, gpio.PULLUP)
 
 -- 加载网络驱动设备功能模块
 require "netdrv_device"
 
 -- 加载SIP电话应用模块
 require "sip_app_key"
+-- 加载SIP应用主逻辑模块
 require "sip_app_main"
+-- 加载TTS播报模块
 require "tts_speaker"
 
 

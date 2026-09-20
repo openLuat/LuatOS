@@ -4,7 +4,7 @@
 #include "luat_base.h"
 #include "luat_gpio.h"
 
-#ifdef LUAT_USE_DISPLAY
+
 
 #define LUAT_DISPLAY_COMPONENT_COUNT (5)    //最大支持5个显示组件
 
@@ -374,6 +374,6 @@ int luat_display_fill(struct luat_display *disp, struct luat_display_area area, 
 int luat_display_draw_line(struct luat_display *disp, struct luat_display_area area, uint32_t color);
 int luat_display_fill_circle(struct luat_display *disp, int cx, int cy, int r, uint32_t color);
 
-#endif
+
 
 #endif  /* __LUAT_DISPLAY_H__ */

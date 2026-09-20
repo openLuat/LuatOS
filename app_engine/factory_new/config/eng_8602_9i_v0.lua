@@ -1,5 +1,5 @@
 --[[
-@module  config.eng_8601_9i_v0
+@module  config.eng_8602_9i_v0
 @summary Air8601 引擎主机 9寸1024x600 RGB屏(HX8282) + Airlink UART WiFi(6205)/4G(780ER2)二选一 + USB摄像头 + 双RS485 + SD卡 + 喇叭 配置文件
 @version 1.1
 @date    2026.09.18
@@ -39,7 +39,7 @@
 ]]
 return {
     -- ===== 顶层信息 =====
-    name = "Engine_Air8601_9inch_1024x600_010_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}
+    name = "Engine_Air8602_9inch_1024x600_010_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}
     chip = "Air1601", -- 主控芯片（RGB 屏 + Airlink UART 外挂 WiFi/4G）
     baseboard = "合宙引擎 AIR8601 V010 9寸", -- 底板型号
 
@@ -159,5 +159,7 @@ return {
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
         show_camera_preview = true,    -- 设置页摄像头预览入口 ← 见文件头第 11 条
         show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
     },
 }

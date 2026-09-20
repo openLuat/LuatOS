@@ -2677,7 +2677,7 @@
                 if (!S.loggedIn) { toast('请先登录', 'error'); return; }
                 showNotice(controlStatus, '正在设置...', 'info');
                 try {
-                    await api('/aircloud/send_cmd', { client_id: imei, tag: 1281, value: 'cycle:' + seconds, protocol: 0 });
+                    await api('/aircloud/send_cmd', { client_id: imei, tag: 19, value: 'cycle:' + seconds, protocol: 0 });
                     showNotice(controlStatus, '上报频率已设为 ' + seconds + ' 秒（等待设备响应）', 'success');
                     setTimeout(() => hideNotice(controlStatus), 5000);
                 } catch (e) { showNotice(controlStatus, '设置失败：' + e.message, 'error'); }
@@ -2689,7 +2689,7 @@
                 if (!text || text.trim() === '') { toast('请输入播报内容', 'error'); return; }
                 showNotice(controlStatus, '正在发送...', 'info');
                 try {
-                    await api('/aircloud/send_cmd', { client_id: imei, tag: 1281, value: text.trim(),
+                    await api('/aircloud/send_cmd', { client_id: imei, tag: 19, value: text.trim(),
                     protocol: 1 });
                     showNotice(controlStatus, 'TTS 发送成功', 'success');
                     setTimeout(() => hideNotice(controlStatus), 3000);
@@ -2829,7 +2829,7 @@
                     try {
                         await api('/aircloud/send_cmd', {
                             client_id: imei,
-                            tag: 1281,
+                            tag: 19,
                             value: 'led:' + command,
                             protocol: 0
                         });

@@ -31,6 +31,25 @@
 local air_sht30 = require "AirSHT30_1000"
 local air_voc = require "AirVOC_1000"
 
+-- ==================== 软件I2C示例（默认注释，按需启用） ====================
+-- 硬件I2C仅支持 id 0/1，若引脚被占用或需要灵活映射，可用软件I2C
+-- 软件I2C id 可用 >= 2 的任意数字，SCL/SDA 任意GPIO
+-- local i2c_id_sw = 2                   -- 软件I2C id（>=2）
+-- local PIN_SCL = 18                    -- SCL -> GPIO18
+-- local PIN_SDA = 19                    -- SDA -> GPIO19
+--
+-- -- 软件I2C初始化（替代 i2c.setup(id, i2c.FAST)）
+-- if i2c.setup(i2c_id_sw, PIN_SCL, PIN_SDA, i2c.FAST) ~= 1 then
+--     log.error("sensor", "软件I2C初始化失败 SCL=" .. PIN_SCL .. " SDA=" .. PIN_SDA)
+-- else
+--     log.info("sensor", "软件I2C初始化成功 id=" .. i2c_id_sw .. " SCL=" .. PIN_SCL .. " SDA=" .. PIN_SDA)
+-- end
+--
+-- -- 将传感器驱动的 i2c_id 改为软件I2C id
+-- -- air_sht30.open(i2c_id_sw)   -- 用软件I2C读SHT30
+-- -- air_voc.open(i2c_id_sw)     -- 用软件I2C读VOC
+-- ========================================================================
+
 if rtos.bsp() ~= "Air8101" then
     -- 开启SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息，会增加功耗
     mobile.setAuto(10000, 30000, 5)

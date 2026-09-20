@@ -75,6 +75,13 @@ SOC 帧头为设备端 `soc_cmd_head_t`（`ms:u64 + address:u32 + len:u32 + cmd:
 | 11 | AUTH | 控制 | u8 maclen + mac（64B ASCII hex） | u8 errno + u8 status |
 | 12 | LSMOUNT | 控制 | （空） | u16 entries_len + entries |
 | 13 | FSSTAT | 控制 | path | u8 errno + u32 total + u32 used + u32 block_size + u8 fstype_len + fstype |
+| 14 | FILE_SHA1 | 控制 | path | u8 errno + 40B ASCII hex（sha1，固件 crypto.md_file 计算） |
+| 15 | MEMINFO | 控制 | （空） | u8 errno + 9×u32 LE：sys total/used/max、lua total/used/max、psram total/used/max（不可用填 0） |
+| 16 | NETSTAT | 控制 | （空） | u8 errno + u8 count，每适配器：u8 id + u8 flags(bit0=link, bit1=ready, bit2=napt) + u32 ipv4 LE |
+
+> 通用库版本：14/15/16 由 `script/libs/hzadb.lua` 提供 —— `hzadb.fs()` 安装 FILE_SHA1、
+> `hzadb.mem()` 安装 MEMINFO、`hzadb.netdrv()` 安装 NETSTAT；demo 位于 olddemo/demo/hzadb，
+> main.lua 直接引用 script/libs/hzadb.lua，三个新指令可用。
 
 - mode：0=读，1=写（覆盖），2=追加，3=读写不截断（随机写场景，追加写建议用 3 并按 stat 的 size 定位偏移）
 - fd：设备分配的小整数句柄（1..4），OPEN 失败 fd 置 0
@@ -89,6 +96,11 @@ SOC 帧头为设备端 `soc_cmd_head_t`（`ms:u64 + address:u32 + len:u32 + cmd:
   - 仅设备配置了 token 时强制鉴权；未配置时 caps=0、AUTH 恒回 status=0、门控不生效
 - LSMOUNT 条目序列化（连续排列，总长 entries_len 字节）：
   `u8 pathlen + path + u8 fstype_len + fstype`，path 为挂载点路径（根挂载为 ""，host 归一化为 "/"）
+- FILE_SHA1：固件 `crypto.md_file("SHA1", path)` 流式计算，不占 Lua 内存；sha1 为 40 字节 ASCII hex（小写）。
+  通用库 hzadb 的 fs() 默认对读拦截前缀（/luadb）下的路径回应 errno=2
+- MEMINFO：rtos.meminfo("sys"/"lua"/"psram") 各取 total/used/max；老固件某类内存不存在时对应三字段填 0
+- NETSTAT：设备端遍历 socket.LWIP_STA/LWIP_AP/LWIP_ETH/LWIP_GP 中存在的常量逐一查询；
+  平台没有 netdrv 库时 errno=8；ipv4 未配置时为 0；同 id 去重
 - FSSTAT：total/used 为字节数（设备端 block 数 × block_size 折算）；path 按 VFS 前缀匹配挂载点，
   配置了根挂载（如 ccm42xx 的 `""`）后所有路径都会落到根分区、恒返回成功；无 `io.fsstat`（非 VFS 移植）时 errno=8
 - LSDIR 条目序列化（连续排列，总长 entries_len 字节）：
@@ -257,7 +269,7 @@ CLOSE(fd)
 
 ### 5.5 鉴权流程（可选，HMAC 挑战应答）
 
-设备端脚本调用 `uc.set_auth(token)` 配置 token（8..64 字节，生产建议 ≥16 字节随机串）后启用：
+设备端脚本调用 `hzadb.set_auth(token)` 配置 token（8..64 字节，生产建议 ≥16 字节随机串）后启用：
 
 ```
 host                                   设备
@@ -350,14 +362,14 @@ read_chunk = 4096 时最坏线上长 8266B, 16KB fifo 余量充足
 
 ## 7. 权限模型
 
-设备端不内置任何文件操作逻辑：`log_usercmd.lua` 仅实现协议栈（解析/序号/回应/分片/鉴权门控），
+设备端不内置任何文件操作逻辑：`script/libs/hzadb.lua` 仅实现协议栈（解析/序号/回应/分片/鉴权门控），
 具体 open/read/write/close/lsdir 等处理函数由脚本通过 `reg_op(name, fn)` 注册。
 脚本可以选择只暴露部分操作，或加入路径白名单，从设备侧控制权限。
 
 两层权限控制：
 
-1. **连接级（AUTH）**：`uc.set_auth(token)` 开启后，未鉴权连接只能执行 HELLO/AUTH，
+1. **连接级（AUTH）**：`hzadb.set_auth(token)` 开启后，未鉴权连接只能执行 HELLO/AUTH，
    其余指令一律 errno=2。见 §5.5。
-2. **操作级（reg_op）**：协议栈不强制注册任何操作；`uc.fs()` 安装的标准文件系统操作集
+2. **操作级（reg_op）**：协议栈不强制注册任何操作；`hzadb.fs()` 安装的标准文件系统操作集
    可由脚本裁剪（如只读挂载点开放 lsdir/stat，敏感路径在 handler 内拒绝并返回 errno=2），
    权限逻辑完全由 Lua 脚本掌控，与 C 固件无关。

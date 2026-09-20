@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 日志口用户指令协议 v2 上位机库
-配合 demo/log_usercmd/log_usercmd.lua 使用, 协议见 PROTOCOL.md
+配合 script/libs/hzadb.lua 使用, 协议见 PROTOCOL.md
 
 依赖: pyserial   (pip install pyserial)
 

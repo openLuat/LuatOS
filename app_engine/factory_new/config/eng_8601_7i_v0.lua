@@ -117,7 +117,7 @@ return {
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
         usb_camera = true,  -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
         rs485 = true,       -- RS485 接口 —— 见文件头第 10 条：暂无消费方
-        usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）
+        usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）`
         app_factory = true, -- 启用"应用工厂"内置应用
         ai_chat = true,     -- 启用"AI聊天助手"内置应用
         cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）

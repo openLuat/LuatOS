@@ -1,15 +1,25 @@
 --[[
 @module  welcome_win
 @summary 开机欢迎页 —— 黑色背景播放 HZV 开机动画
-@version 3.0
-@date    2026.09.15
+@version 3.1
+@date    2026.09.20
 @author  江访
 @usage
 订阅: OPEN_WELCOME_WIN  → 创建欢迎页，播放 /luatos_boot.hzv
-发布: OPEN_IDLE_WIN     → 动画结束后发布，触发桌面窗口
+发布: OPEN_IDLE_WIN     → 动画播完或超时后发布，触发桌面窗口
 
 === 视觉说明 ===
-黑色全屏背景 + 居中播放 HZV 开机动画（从容器头读取实际帧尺寸），循环播放固定时长后切桌面。
+黑色全屏背景 + 居中播放 HZV 开机动画（从容器头读取实际帧尺寸）。
+
+=== 播放策略：单次播放，谁先完成谁先入场 ===
+loop = false，两条收尾路径共用同一个 finish()，先到者生效、后到者被 finished 标志挡住：
+
+  1. on_complete —— videoplayer 解码到 EOF 时触发（素材播完）；
+  2. BOOT_MAX_WAIT_MS —— 兜底上限（素材比这更长，或 on_complete 没来）。
+
+之所以必须留超时这条路：早期 MJPG 素材走的是软件解码路径，
+on_complete 未必会触发；且素材损坏、解码器起不来时，没有超时就会永久停在黑屏。
+
 HZV 容器自带 MP3 音轨与逐帧时长，由 videoplayer 后端统一驱动，
 Lua 侧不再手填 interval，也不再单独起一路「同名 MP3」。
 ]]
@@ -21,11 +31,21 @@ if not ok_exaudio then exaudio = nil end
 local BOOT_VIDEO   = "/luatos_boot.hzv"
 local BOOT_VW      = 480
 local BOOT_VH      = 270
-local BOOT_WAIT_MS = 5400
+-- 兜底上限：素材比这长就按此时间入场；素材更短则由 on_complete 提前入场
+local BOOT_MAX_WAIT_MS = 5400
 
 local window_id = nil
 local bg_shape
 local video_obj
+
+--[[收尾标记与定时器句柄
+
+finished 是「只走一次」的闸门：on_complete 与超时是两条独立路径，
+必须保证无论哪条先到，进入桌面这件事都只发生一次 —— 重复 publish
+OPEN_IDLE_WIN 会让 exwin 重复创建桌面。
+]]
+local finished = false
+local wait_timer = nil
 
 --- 判断素材用哪种容器解析：优先看魔数，其次看扩展名
 --- @return "hzv" | "mjpg" | "mp4"
@@ -121,21 +141,50 @@ local function media_read_dimensions(path)
     return nil
 end
 
-local function on_timeout()
-    if window_id then
-        log.info("welcome_win", "开机动画结束，进入桌面")
-        -- 先停掉开机视频释放文件句柄和解码器资源，再通知桌面创建
-        if video_obj then
-            pcall(video_obj.stop, video_obj)
-            pcall(video_obj.destroy, video_obj)
-            video_obj = nil
-        end
-        sys.publish("OPEN_IDLE_WIN")
-        exwin.close(window_id)
+--[[收尾：进入桌面（播完 / 超时共用，只生效一次）
+
+@param reason string 仅用于日志，标明是哪条路径先到
+
+顺序上必须先停掉开机视频（释放文件句柄与解码器），再 publish OPEN_IDLE_WIN ——
+桌面播放器要打开同一个 /luatos_boot.hzv，句柄没释放会打不开。
+]]
+local function finish(reason)
+    if finished or not window_id then return end
+    finished = true
+
+    if wait_timer then
+        sys.timerStop(wait_timer)
+        wait_timer = nil
     end
+
+    log.info("welcome_win", "开机动画结束(", reason, ")，进入桌面")
+    if video_obj then
+        pcall(video_obj.stop, video_obj)
+        pcall(video_obj.destroy, video_obj)
+        video_obj = nil
+    end
+    sys.publish("OPEN_IDLE_WIN")
+    exwin.close(window_id)
+end
+
+local function on_timeout()
+    finish("超时")
+end
+
+--[[素材播完（videoplayer 解码到 EOF，仅 loop = false 时触发）
+
+这个回调是在 LVGL 的播放定时器里同步调进来的：此刻销毁视频控件，会把
+「正在执行的那个定时器」一起删掉。所以推后一个 tick 再收尾，
+让销毁发生在定时器回调之外。
+]]
+local function on_video_done()
+    sys.timerStart(function() finish("播放完毕") end, 1)
 end
 
 local function on_create()
+    finished = false
+    wait_timer = nil
+
     -- 黑色全屏背景
     bg_shape = airui.shape({
         x = 0, y = 0, w = screen_w, h = screen_h,
@@ -176,8 +225,9 @@ local function on_create()
         src = video_path,
         format = fmt,
         decode_mode = "hw",
-        loop = true,
+        loop = false,              -- 单次播放：播完由 on_complete 收尾
         auto_play = true,
+        on_complete = on_video_done,
     }
     if fmt == "hzv" then
         -- HZV 容器自带 MP3 音轨与逐帧时长，Lua 不填 interval，交给 videoplayer 后端统一驱动
@@ -191,17 +241,29 @@ local function on_create()
 
     if ok and v then
         video_obj = v
-        log.info("welcome_win", "开机动画循环播放", video_path, fmt)
+        log.info("welcome_win", "开机动画单次播放", video_path, fmt)
     else
         log.warn("welcome_win", "开机动画不可用", video_path)
     end
 
-    -- 固定时长后切桌面
-    sys.timerStart(on_timeout, BOOT_WAIT_MS)
+    -- 兜底上限：素材更长 / on_complete 没来 / 素材不可用时，都由它收尾
+    wait_timer = sys.timerStart(on_timeout, BOOT_MAX_WAIT_MS)
 end
 
 local function on_destroy()
-    pcall(exaudio.play_stop, { type = 0 })   -- 兜底：停掉可能还在跑的容器音轨
+    -- 先落闸，避免 close 之后残留的 on_complete 再触发一次收尾
+    finished = true
+    if wait_timer then
+        sys.timerStop(wait_timer)
+        wait_timer = nil
+    end
+
+    -- 兜底：停掉可能还在跑的容器音轨
+    -- 注意 exaudio 是容错加载的（可能为 nil），取字段必须在 pcall 之外先判空，
+    -- 否则 exaudio.play_stop 本身就会抛 "attempt to index a nil value"
+    if exaudio then
+        pcall(exaudio.play_stop, { type = 0 })
+    end
     if video_obj then
         pcall(video_obj.stop, video_obj)
         pcall(video_obj.destroy, video_obj)

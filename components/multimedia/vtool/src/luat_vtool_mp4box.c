@@ -627,6 +627,8 @@ static int mp4box_close_impl(mp4_ctx_t* ctx);
 
 static void mp4box_write_task(void* param) {
     mp4_ctx_t* ctx = (mp4_ctx_t*)param;
+    // 自删句柄快照, 必须在release信号量之前获取; release之后close调用方会free(ctx), 不得再访问ctx
+    luat_rtos_task_handle self = ctx->task;
     mp4box_msg_t* msg = NULL;
     while (1) {
         if (luat_rtos_queue_recv(ctx->queue, &msg, sizeof(msg), LUAT_WAIT_FOREVER) != 0) {
@@ -646,9 +648,8 @@ static void mp4box_write_task(void* param) {
             }
             ctx->close_ret = mp4box_close_impl(ctx);
             luat_rtos_semaphore_release(ctx->exit_sem);
-            // 自删, 此后不得再访问ctx
-            luat_rtos_task_delete(luat_rtos_get_current_handle());
-            return;
+            // 用创建时保存的包装句柄自删, 不能传luat_rtos_get_current_handle()的裸句柄(类型不符会写坏TCB)
+            luat_rtos_task_delete(self);
         }
         mp4box_write_frame_impl(ctx, msg->data, msg->len);
         luat_heap_free(msg);
@@ -664,7 +665,7 @@ mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t
         return NULL;
     }
     FILE* fd = luat_fs_fopen(path, "w+");
-    if (fd < 0) {
+    if (fd == NULL) {
         LLOGE("open %s failed", path);
         return NULL;
     }
@@ -954,7 +955,11 @@ static int mp4box_close_impl(mp4_ctx_t* ctx) {
     int ret = 0;
     // LLOGI("开始关闭mp4文件 %s", ctx->path);
     // 刷新缓冲，确保文件大小正确
-    buffered_flush(ctx);
+    if (buffered_flush(ctx) != 0) {
+        LLOGE("mp4box flush failed, abort close");
+        ret = -1;
+        goto clean;
+    }
     // 然后, 把文件关掉, 重新打开
     // luat_fs_fclose(ctx->fd);
     // LLOGI("重新打开文件 %s 原本的fd %d", ctx->path, ctx->fd);
@@ -1146,10 +1151,16 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
         ctx->exit_sem = NULL;
         ctx->task = NULL;
         ret = ctx->close_ret;
+        if (g_mp4_ctx == ctx) {
+            g_mp4_ctx = NULL;
+        }
         luat_heap_free(ctx);
         return ret;
     }
     int ret = mp4box_close_impl(ctx);
+    if (g_mp4_ctx == ctx) {
+        g_mp4_ctx = NULL;
+    }
     luat_heap_free(ctx);
     return ret;
 }
@@ -1317,6 +1328,9 @@ clean:
         ctx->box_buff_offset = 0;
     }
     clean_box(&ctx->box_moov);
+    if (g_mp4_ctx == ctx) {
+        g_mp4_ctx = NULL;
+    }
     luat_heap_free(ctx);
     LLOGI("mp4 file closed, box write finished, file closed");
     return ret;

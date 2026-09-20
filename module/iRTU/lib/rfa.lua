@@ -537,7 +537,8 @@ local function builtin_dispatch(line, id)
     name = name and name:upper()
     command_echo = echo and (echo:sub(1, 12):upper() == "AT+SWIFIMAC="
         or name == "+GSENSOREXEC" or name == "+CGNSPWR"
-        or name == "+CGNSTST" or name == "+CGNSCMD") and echo or nil
+        or name == "+CGNSTST" or name == "+CGNSCMD"
+        or (name == "+ECBAND" and echo:match("=%s*[^%s?]"))) and echo or nil
     -- 设置形式会等待 GNSS 启动；先暂存回显，避免与 200ms 后的 OK 分开发送。
     -- 查询/测试形式沿用原有输出时机，不自行解析设置参数。
     power_echo = name == "+CGNSPWR" and echo:match("=%s*[^%s?]")
@@ -556,7 +557,7 @@ local function atc_out(id, event, param)
     if tx_id then
         local changed = false
         if command_echo and out_resp:sub(1, #command_echo) == command_echo then
-            -- atc 去掉了命令回显的行尾；补回显 CRLF，结果仍由 atc.response 输出。
+            -- atc 去掉了命令回显的行尾；补回显 CRLF，结果仍由 atc 输出。
             -- 兼容回显和结果合并输出；ATE0 时没有匹配的回显，不追加换行。
             local echo = command_echo .. "\r\n"
             out_resp = out_resp:sub(#command_echo + 1)

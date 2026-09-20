@@ -33,7 +33,7 @@ V2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(20
 `cmd` 码也随主干的枚举值调整由 19 改为 **20**（主干新增的 `SOC_CMD_LOG_RELOAD` 占了 19）。
 
 - 协议文档：[PROTOCOL.md](PROTOCOL.md)
-- 设备端协议栈：`log_usercmd.lua`（`uc.fs()` 一键安装标准文件系统操作集，`uc.set_auth()` 开启鉴权，权限由脚本控制）
+- 设备端协议栈：[script/libs/hzadb.lua](../../script/libs/hzadb.lua)（`hzadb.fs()` 一键安装标准文件系统操作集，`hzadb.mem()`/`hzadb.netdrv()` 安装状态指令，`hzadb.set_auth()` 开启鉴权，权限由脚本控制）
 - 上位机库：`host/luat_usercmd.py`（`UserCmd` 类）
 - 测试脚本：`host/test_usercmd.py`
 
@@ -41,11 +41,12 @@ V2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(20
 
 | 文件 | 说明 |
 |---|---|
-| `main.lua` | 设备端 demo：加载协议栈 + 注册 fs 操作集 + 心跳日志 + 启动打印挂载点/空间 |
-| `log_usercmd.lua` | 设备端协议栈库（帧解析/序号/去重/鉴权门控/分发），与固件能力无关 |
+| `main.lua` | 设备端 demo：引用 hzadb 库 + 安装 fs/mem/netdrv 操作集 + 心跳日志 + 启动打印挂载点/空间 |
 | `PROTOCOL.md` | 协议文档 |
 | `host/luat_usercmd.py` | 上位机 API 库（pyserial） |
 | `host/test_usercmd.py` | 真机测试脚本 |
+
+> 设备端协议栈已迁移为通用库 `script/libs/hzadb.lua`，本目录不再自带。
 
 ## 固件要求
 
@@ -62,7 +63,7 @@ V2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(20
 **2026-09-17 起固件侧暂时关闭**：无自旋的日志口 RX 抽帧实测让 518B 的帧约 50% 端点收不全、
 靠协议重传兜住（吞吐 196KB/s → 3KB/s），故 core 的 `am_uart.c/am_log.c/am_service.c` 已整体回滚到
 原厂版本，`csdk/project/luatos/include/luat_conf_bsp.h` 里的 `LUAT_USE_LOG_USER_CMD` 已注释掉，
-等原厂完成日志口 RX 适配后再打开。脚本侧已做判空：固件没开这个宏时 `uc.start()` 返回 `false`、
+等原厂完成日志口 RX 适配后再打开。脚本侧已做判空：固件没开这个宏时 `hzadb.start()` 返回 `false`、
 打一条 warn，心跳与挂载点打印照跑、不报错。上面参数表与实测数字均针对"宏打开"时的固件。
 
 实测设备端下行 RX 只吞得下约 **4 个连发帧**（每帧线上 ~518B），而 W=1 在读写两个方向都最快
@@ -72,14 +73,14 @@ V2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(20
 
 ## 文件系统兼容性
 
-`uc.fs()` 安装的操作集不假设文件系统支持随机写，具体差异：
+`hzadb.fs()` 安装的操作集不假设文件系统支持随机写，具体差异：
 
 | 挂载点 | fs | 写语义 |
 |---|---|---|
 | `/` | soc (littlefs) | 支持带 offset 的随机写，空洞自动补零；单次 ≥256B 的写有 ~50ms page program 停顿 |
 | `/ram/` | ram | **顺序写**，不支持写未分配区域（`f:seek("set", offset)` 越界被忽略、数据落到 EOF） |
 
-对顺序写文件系统，`log_usercmd.lua` 的 write 处理函数在 `offset > 当前文件大小` 时**先补零到 offset 再写**，
+对顺序写文件系统，`hzadb.lua` 的 write 处理函数在 `offset > 当前文件大小` 时**先补零到 offset 再写**，
 使窗口写的重传/乱序到达保持幂等（补零上限 64KiB，超出回应 errno=4），并在写后回读大小确认落盘。
 此前"直接 seek + 写"在 `/ram/` 上会静默把数据追加到 EOF，使 W≥2 的大文件写入错位、尾部丢失，且协议层无感知。
 上位机侧对应加了两道校验：WRITE_DATA 回显 offset 必须与请求一致，CLOSE 返回的最终大小必须等于预期长度。
@@ -88,14 +89,14 @@ V2.2 起上下行均以日志口**独占命令帧**（`cmd = SOC_CMD_USER_CMD(20
 ## 使用
 
 ```bash
-# 刷机(固件 + 本 demo 脚本, 注意脚本目录不要有 __pycache__)
-luatos-cli flash run --soc <LuatOS-SoC_*.soc> --port COM6 --script . --tail-log-secs 8
-# 看到 "demo v2 ready" 即成功
+# 刷机(固件 + 本 demo 脚本 + hzadb 库, 注意脚本目录不要有 __pycache__)
+luatos-cli flash run --soc <LuatOS-SoC_*.soc> --port COM6 --script . --script ../../script/libs --tail-log-secs 8
+# 看到 "demo ready" 即成功
 
 # 跑测试(设备未配置 token)
 python host/test_usercmd.py --port COM6
 
-# 设备端开启鉴权后(main.lua 取消 uc.set_auth 注释): 跑鉴权用例
+# 设备端开启鉴权后(main.lua 取消 hzadb.set_auth 注释): 跑鉴权用例
 python host/test_usercmd.py --port COM6 --auth-token 0123456789abcdef
 ```
 
@@ -122,7 +123,7 @@ print(dev.fsstat("/"))                   # {'total': 196608, 'used': 20480, 'blo
 ## 设备端鉴权配置
 
 ```lua
-uc.set_auth("0123456789abcdef")  -- 8..64 字节, 生产建议 >=16 字节随机串, 须在 uc.start() 前调用
+hzadb.set_auth("0123456789abcdef")  -- 8..64 字节, 生产建议 >=16 字节随机串, 须在 hzadb.start() 前调用
 ```
 
 - HELLO 握手时设备通过 `caps` 位告知是否需要鉴权；未配置 token 的设备行为与之前完全一致

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 日志口用户指令协议 v2 上位机测试脚本
-配合 demo/log_usercmd/main.lua 使用, 协议见 PROTOCOL.md
+配合 olddemo/demo/hzadb/main.lua 使用, 协议见 PROTOCOL.md
 
 测试项:
   hello分片协商 / 4K写读校验 / 64K大文件(窗口+重传) / lsdir翻页 /

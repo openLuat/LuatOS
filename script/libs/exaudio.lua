@@ -1,8 +1,8 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.7
-@date    2026.9.18
+@version 3.8
+@date    2026.9.20
 @author  拓毅恒
 @description
 本库负责音频硬件初始化、播放、录音和电源控制，可配合 exsip 使用普通 SIP 通话或 CC<->SIP 语音流桥接。
@@ -13,6 +13,8 @@ SIP 对端语音经固件桥接送入 CC 上行；需要固件同时具备 CC、
 并非 CC<->SIP 桥接开关；不要在 CC<->SIP 桥接通话中额外启动该本地 speech 请求。
 CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬件参数仍按实际板型调用 setup() 配置。
 @updates
+    v3.8 2026.9.20
+        1. 新增Air1103提示音播放接口 exaudio.play_ringback()/exaudio.play_hangup()，可用于SIP通话前后状态反馈。
     v3.7 2026.9.18
         1. 修复 DAC 模式下设置MIC音量导致 Air1601 死机问题。
     v3.6 2026.9.16
@@ -112,6 +114,10 @@ CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬
 @usage
 
 -- 版本更新说明
+-- 版本号：202609201726
+-- 1、更新时间：2026-09-20 17:26
+--    新增Air1103提示音播放接口 exaudio.play_ringback()/exaudio.play_hangup()，
+--    可用于SIP通话前后状态反馈。
 -- 版本号：202609181400
 -- 1、更新时间：2026-09-18 14:00
 --    修复 DAC 模式下设置MIC音量导致 Air1601 死机问题。
@@ -1895,6 +1901,66 @@ function exaudio.sip_voip_stop()
     sip_v2_request_index, sip_v2_source_index, sip_v2_record_zbuff = nil, nil, nil
 end
 
+--[[
+Air1103 播放来电振铃提示音，可在sip来电接通前调用。
+@api exaudio.play_ringback([callback])
+@function callback 可选，播放完成回调；Air1103 模式下整段提示音播完时触发
+@return boolean 成功返回 true，模型未内置提示音或 Air1103 未初始化返回 false
+@usage
+-- 来电接通前先响铃，播放完成后接听：
+local function on_ringback_done()
+    log.info("sip", "振铃结束，开始接听")
+    -- 接听当前等待中的来电
+    exsip.accept()
+end
+
+exaudio.play_ringback(on_ringback_done)
+
+-- 调用后 Air1103 播放来电提示音（两段嘟嘟声）；
+-- 播完由 Air1103 自行复位并恢复上行；
+-- 注意：提示音占用 Air1103 下行，通话桥接期间不要调用。
+]]
+function exaudio.play_ringback(callback)
+    if audio_setup_param.model == "air1103" then
+        if not air1103 or type(air1103.play_busy) ~= "function" then
+            log.warn("exaudio", "play_ringback: air1103 未初始化")
+            return false
+        end
+        return air1103.play_busy(callback)
+    end
+    log.warn("exaudio", "play_ringback: 当前模型未内置提示音", audio_setup_param.model)
+    return false
+end
+
+--[[
+Air1103 播放挂断提示音，需在对端sip通话挂断后调用。
+@api exaudio.play_hangup([callback])
+@function callback 可选，播放完成回调；整段提示音播完时触发
+@return boolean 成功返回 true，模型未内置提示音或 Air1103 未初始化返回 false
+@usage
+-- 对端挂断后播提示音
+local function on_hangup_done()
+    log.info("sip", "提示音播放结束")
+end
+
+exaudio.play_hangup(on_hangup_done)
+
+-- 调用后 Air1103 播放挂断提示音（三段短嘟声）；
+-- 注意：需在对端sip通话挂断后调用；
+-- 播完由 Air1103 自行复位并恢复上行；提示音占用 Air1103 下行，通话桥接期间不要调用。
+]]
+function exaudio.play_hangup(callback)
+    if audio_setup_param.model == "air1103" then
+        if not air1103 or type(air1103.play_hangup) ~= "function" then
+            log.warn("exaudio", "play_hangup: air1103 未初始化")
+            return false
+        end
+        return air1103.play_hangup(callback)
+    end
+    log.warn("exaudio", "play_hangup: 当前模型未内置提示音", audio_setup_param.model)
+    return false
+end
+
 -- 流式播放数据写入
 -- @param data 音频数据(string/zbuff)
 -- @param is_end 是否为最后一帧数据，true表示播放结束(仅audio_v2模式支持)
@@ -2696,7 +2762,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202609181400"
+    return "202609201726"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

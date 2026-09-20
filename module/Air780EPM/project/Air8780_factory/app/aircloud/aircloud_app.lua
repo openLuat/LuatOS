@@ -1,8 +1,8 @@
 --[[
 @module  aircloud_app
 @summary AirCloud 云平台应用模块
-@version 1.1.0
-@date    2026.09.10
+@version 1.2.0
+@date    2026.09.20
 @author  江访
 @usage
 AirCloud excloud 协议通信模块，负责设备与云端的数据交互。
@@ -25,11 +25,13 @@ AirCloud excloud 协议通信模块，负责设备与云端的数据交互。
 - GNSS_LATITUDE: 纬度（LBS基站定位）
 - GNSS_LONGITUDE: 经度（LBS基站定位）
 
-下行命令（tag 1281）：
+下行命令（CONTROL_COMMAND tag 19，ASCII类型）：
 - "cycle:秒数" → 设置上报频率（最小5秒）
 - "led:blink" → LED闪烁5秒
 - "led:on" → LED常亮
 - "led:off" → LED熄灭
+
+设备收到命令后，通过 CONTROL_RESPONSE（tag 20，ASCII类型）回复执行结果。
 
 数据流向：
 - sensor_app → sys.publish("read_sht30_voc_rsp") → 本模块上报云端
@@ -72,19 +74,9 @@ function on_excloud_event(event, data)
             log.info("TLV字段", "含义:", tlv.field, "类型:", tlv.type, "值:", tlv.value)
             if tlv.field == excloud.FIELD_MEANINGS.CONTROL_COMMAND then
                 log.info("收到控制命令: " .. tostring(tlv.value))
-                local ok, err_msg = excloud.send({
-                    {
-                        field_meaning = excloud.FIELD_MEANINGS.CONTROL_RESPONSE,
-                        data_type = excloud.DATA_TYPES.UNICODE,
-                        value = "命令执行成功"
-                    }
-                }, false)
-                if not ok then
-                    log.info("发送控制响应失败: " .. err_msg)
-                end
-            elseif tlv.field == 1281 then
-                -- 自定义下行命令（tag 1281），格式: "cycle:秒数" 或 "led:blink/on/off"
+                -- 解析命令，格式: "cycle:秒数" 或 "led:blink/on/off"
                 local cmd = tostring(tlv.value or "")
+                local resp_msg = "命令执行成功"
                 local cycle_val = cmd:match("^cycle:(%d+)$")
                 if cycle_val then
                     local seconds = tonumber(cycle_val)
@@ -92,7 +84,8 @@ function on_excloud_event(event, data)
                         sys.publish("set_report_cycle", seconds)
                         log.info("aircloud", "下发设置上报频率: " .. seconds .. "秒")
                     else
-                        log.warn("aircloud", "无效的上报频率值: " .. cycle_val)
+                        resp_msg = "无效的上报频率值: " .. cycle_val
+                        log.warn("aircloud", resp_msg)
                     end
                 else
                     -- LED控制命令
@@ -108,11 +101,24 @@ function on_excloud_event(event, data)
                             sys.publish("led_set_request", 0)
                             log.info("aircloud", "下发LED熄灭命令")
                         else
-                            log.warn("aircloud", "未知的LED命令: " .. led_cmd)
+                            resp_msg = "未知的LED命令: " .. led_cmd
+                            log.warn("aircloud", resp_msg)
                         end
                     else
-                        log.info("aircloud", "收到自定义下行: " .. cmd)
+                        resp_msg = "未知命令格式: " .. cmd
+                        log.info("aircloud", resp_msg)
                     end
+                end
+                -- 通过 CONTROL_RESPONSE（tag 20）回复执行结果
+                local ok, err_msg = excloud.send({
+                    {
+                        field_meaning = excloud.FIELD_MEANINGS.CONTROL_RESPONSE,
+                        data_type = excloud.DATA_TYPES.ASCII,
+                        value = resp_msg
+                    }
+                }, false)
+                if not ok then
+                    log.info("发送控制响应失败: " .. err_msg)
                 end
             end
         end

@@ -1,6 +1,6 @@
 /* USB HID application policy. The BSP only supplies raw lifecycle/data callbacks. */
 #include "luat_base.h"
-#ifdef LUAT_USE_INPUT_HID
+#if defined(LUAT_USE_INPUT) && defined(LUAT_USE_INPUT_HID)
 #include "luat_input_usb_hid.h"
 #include "luat_input_hid.h"
 #include "luat_input_service.h"
@@ -35,16 +35,9 @@ static usb_hid_input_t *sessions;
 static luat_rtos_mutex_t session_lock;
 static luat_rtos_task_handle worker;
 
-#ifdef LUAT_USE_INPUT_SERVICE
 #define USB_INPUT_CORE luat_input_service_core()
 #define USB_INPUT_LOCK() luat_input_service_lock()
 #define USB_INPUT_UNLOCK() luat_input_service_unlock()
-#else
-static luat_input_core_t input_core;
-#define USB_INPUT_CORE (&input_core)
-#define USB_INPUT_LOCK() ((void)0)
-#define USB_INPUT_UNLOCK() ((void)0)
-#endif
 
 
 /* Called with session_lock and core serialization held; IRQ never takes them. */
@@ -120,16 +113,11 @@ static void task(void *userdata)
 static int init(void)
 {
     if (worker) return 0;
-#ifdef LUAT_USE_INPUT_SERVICE
     if (!luat_input_service_is_ready()) {
         LLOGW("input service not initialized by application startup");
         return LUAT_INPUT_SERVICE_ENOTREADY;
     }
-#endif
     if (!session_lock && luat_rtos_mutex_create(&session_lock)) return -1;
-#ifndef LUAT_USE_INPUT_SERVICE
-    luat_input_init(&input_core);
-#endif
     return luat_rtos_task_create(&worker, 4096, 90, "input_hid", task, NULL, 32);
 }
 
@@ -162,10 +150,8 @@ static void open_device(luat_usb_hid_host_t *device)
         ret = LUAT_INPUT_ENOTSUP;
         goto DEINIT;
     }
-#ifdef LUAT_USE_INPUT_SERVICE
     ret = luat_input_service_attach(luat_input_hid_handle(input->parser));
     if (ret) goto DEINIT;
-#endif
     input->next = sessions;
     sessions = input;
     uint32_t critical = luat_rtos_entry_critical();
@@ -205,9 +191,7 @@ static void close_device(luat_usb_hid_host_t *device)
         if (*link) *link = input->next;
         LLOGI("HID close intf=%u dropped=%lu invalid=%lu", input->interface_number,
               (unsigned long)input->dropped, (unsigned long)input->invalid);
-#ifdef LUAT_USE_INPUT_SERVICE
         luat_input_service_detach(luat_input_hid_handle(input->parser));
-#endif
         luat_input_hid_deinit(input->parser, (uint32_t)luat_mcu_tick64_ms());
         luat_heap_free(input);
     }

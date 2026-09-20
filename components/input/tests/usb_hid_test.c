@@ -124,7 +124,6 @@ static int key_state(luat_usb_hid_host_t *dev)
 }
 static void send_bits(uint8_t bits) { luat_usb_hid_host_callback(&device, LUAT_USB_HID_REPORT, &bits, 1); }
 
-#ifdef LUAT_USE_INPUT_SERVICE
 static unsigned observed_attach, observed_detach;
 static void observe_attach(void *userdata, luat_input_handle_t h)
 {
@@ -136,11 +135,9 @@ static void observe_detach(void *userdata, luat_input_handle_t h)
     assert(userdata == &observed_attach && h.id);
     observed_detach++;
 }
-#endif
 
 int main(void)
 {
-#ifdef LUAT_USE_INPUT_SERVICE
     assert(!luat_input_service_is_ready());
     luat_usb_hid_host_callback(&device, LUAT_USB_HID_OPEN, NULL, 0);
     assert(!device.userdata && !worker && !session_lock && !allocations && !mutexes);
@@ -148,7 +145,6 @@ int main(void)
     assert(airui_input_service_start() == LUAT_INPUT_SERVICE_ENOTREADY);
 #endif
     assert(!luat_input_service_init() && luat_input_service_is_ready());
-#endif
     luat_usb_hid_host_callback(&device, LUAT_USB_HID_CLOSE, NULL, 0);
     fail_mutex = 1; luat_usb_hid_host_callback(&device, LUAT_USB_HID_OPEN, NULL, 0);
     assert(!device.userdata && !worker && !allocations);
@@ -168,7 +164,6 @@ int main(void)
     assert(!airui_input_service_start());
     assert(!airui_input_service_start());
 #endif
-#ifdef LUAT_USE_INPUT_SERVICE
     luat_input_service_observer_t watch = {
         .attach = observe_attach, .detach = observe_detach, .userdata = &observed_attach
     };
@@ -180,7 +175,6 @@ int main(void)
     assert(observed_detach == 1 && !watch.active && !watch.next);
     assert(!luat_input_service_observe(&watch) && observed_attach == 2);
     luat_input_service_unlock();
-#endif
     unsigned creates = task_creates;
     luat_usb_hid_host_callback(&device, LUAT_USB_HID_OPEN, NULL, 0);
     assert(allocations == 1 && task_creates == creates);
@@ -188,9 +182,7 @@ int main(void)
     uint8_t bits = 1;
     luat_usb_hid_host_callback(&device, LUAT_USB_HID_REPORT, &bits, 1); bits = 0;
     pump(); assert(key_state(&device) == 1 && !input->pending && last_wait == 10);
-#ifdef LUAT_USE_INPUT_SERVICE
     assert(observed_attach == 2 && observed_detach == 1); /* No lifecycle dispatch per frame. */
-#endif
     fail_wake = 1; send_bits(0); fail_wake = 0;
     pump(); assert(!key_state(&device)); /* Last release survives failed wake. */
     send_bits(1); pump();
@@ -227,13 +219,11 @@ int main(void)
 #ifdef LUAT_USE_AIRUI_LUATOS
     assert(airui_frames);
 #endif
-#ifdef LUAT_USE_INPUT_SERVICE
     assert(observed_attach == 4 && observed_detach == 4);
     luat_input_service_lock();
     luat_input_service_unobserve(&watch);
     assert(!watch.active && !watch.next && observed_detach == 4);
     luat_input_service_unlock();
-#endif
     puts("USB HID common adapter PASS: init failures, raw copy, retry, overflow/reset, exact budget, composite, detach and stale wake");
     return 0;
 }

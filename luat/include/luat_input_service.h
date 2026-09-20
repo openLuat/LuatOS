@@ -8,10 +8,7 @@
 #define LUAT_INPUT_SERVICE_H
 #include "luat_input.h"
 
-/* C producers/consumers can use the directory without enabling the Lua API. */
-#if (defined(LUAT_USE_INPUT_LUA) || defined(LUAT_USE_INPUT_TOUCH)) && !defined(LUAT_USE_INPUT_SERVICE)
-#define LUAT_USE_INPUT_SERVICE
-#endif
+/* Included with LUAT_USE_INPUT; C consumers do not require the Lua API. */
 
 #ifndef LUAT_INPUT_SERVICE_DEVICES
 #define LUAT_INPUT_SERVICE_DEVICES 16U

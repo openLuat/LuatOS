@@ -1,5 +1,5 @@
 #include "luat_base.h"
-#if defined(LUAT_USE_INPUT) && defined(LUAT_USE_INPUT_QUEUE)
+#ifdef LUAT_USE_INPUT
 #include "luat_input.h"
 #include <string.h>
 

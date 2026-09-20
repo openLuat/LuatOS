@@ -1,6 +1,6 @@
 # luat_input：小型 C 输入核心
 
-实现统一事件、设备状态、直接订阅和可选整帧队列。适用于键盘、鼠标、单点/多点触摸；已提供 HID/触摸适配器，国芯 USB Host 已接入 HID 与 AirUI。Lua 接口与设备目录见 [README.lua.md](README.lua.md)。实体 TP 接入见 [README.tp.md](README.tp.md)，键盘布局/输入法按需扩展。
+实现统一事件、设备状态、直接订阅、整帧队列和公共设备服务。适用于键盘、鼠标、单点/多点触摸；已提供 HID/触摸适配器，国芯 USB Host 已接入 HID 与 AirUI。Lua 接口与设备目录见 [README.lua.md](README.lua.md)。实体 TP 接入见 [README.tp.md](README.tp.md)，键盘布局/输入法按需扩展。
 
 设计依据：[Linux input event codes](https://docs.kernel.org/input/event-codes.html)、[Linux input driver model](https://docs.kernel.org/input/input-programming.html)、[Linux multi-touch protocol](https://docs.kernel.org/input/multi-touch-protocol.html)。沿用 type/code/value 和状态/增量的语义，采用适合 MCU 的帧头与传递接口，并非 Linux evdev 二进制 ABI。
 
@@ -35,7 +35,7 @@
 ## 服务初始化
 
 service 初始化由各 BSP 按需负责，LuatOS 公共启动入口不调用。国芯 BSP 的
-`luat_main_ccm42xx.c` 在 `LUAT_USE_INPUT_SERVICE` 开启时，于 `luat_init()`
+`luat_main_ccm42xx.c` 在 `LUAT_USE_INPUT` 开启时，于 `luat_init()`
 开头、创建 Lua 任务之前初始化服务。服务使用 RTOS 系统堆，不依赖 Lua VM 堆。其他 BSP、独立 C 应用或 `sysp` 宿主若启用该
 服务，应在自己的启动入口完成初始化并检查结果。HID、TP、AirUI、Lua input 仅检查
 `luat_input_service_is_ready()`；未就绪时返回失败，不创建自己的 service。
@@ -92,7 +92,7 @@ key_words 个位图字
 
 不同物理设备的状态独立。多个键盘映射为一个逻辑键盘时，由消费者按 device_id 合并按键引用；鼠标加速度、光标边界、屏幕旋转、焦点、手势、键盘布局在适配/应用层处理。
 
-## 可选队列及溢出恢复
+## 整帧队列及溢出恢复
 
 `luat_input_queue.c` 用调用方提供的字节环形缓冲区存完整帧，不为每帧预留固定最大事件数组。入队复制一次，出队复制到消费者缓冲区；同步订阅不经过此模块。队列可被同一 core 的多个设备共享。
 
@@ -115,7 +115,27 @@ snapshot 能恢复当前 KEY/ABS/MT 状态，不能还原已经丢失的短按�
 
 ## 最小接入方式
 
-使用 C11 编译。只使用同步核心时，将 `luat_input.c` 加入编译并定义 `LUAT_USE_INPUT`；需要队列时再加入 `luat_input_queue.c`、定义 `LUAT_USE_INPUT_QUEUE`。这些是编译器定义；本组件不隐式包含板级配置头。
+使用 C11 编译。功能开关共 4 个，子功能需同时启用总开关：
+
+| 宏 | 控制内容 |
+|---|---|
+| `LUAT_USE_INPUT` | 核心、整帧队列和公共设备服务 |
+| `LUAT_USE_INPUT_HID` | HID 解析器和 USB HID 适配器 |
+| `LUAT_USE_INPUT_TOUCH` | 触摸输入适配器 |
+| `LUAT_USE_INPUT_LUA` | Lua `input` 接口 |
+
+启用总开关时，将 `luat_input.c`、`luat_input_queue.c`、`luat_input_service.c` 加入编译，并提供 service 所需的 RTOS/堆接口。队列和服务不再单独配置；旧工程删除两个独立开关，并将 BSP 服务初始化处的条件编译改为 `LUAT_USE_INPUT`。原先未使用服务的 USB HID 工程还需补齐上述源文件和服务初始化。各宏须由编译参数或平台公共配置传入每个源文件；本组件不隐式包含板级配置头。
+
+完整配置：
+
+```c
+#define LUAT_USE_INPUT 1
+#define LUAT_USE_INPUT_HID 1
+#define LUAT_USE_INPUT_TOUCH 1
+#define LUAT_USE_INPUT_LUA 1
+```
+
+下面演示直接使用同步核心 API；公共服务的启动要求见“服务初始化”。独立算法测试可以显式只编译核心源文件，这不再作为固件功能宏裁剪选项。
 
 ```c
 #include "luat_input.h"
@@ -171,7 +191,7 @@ USB IRQ → BSP 原始 HID 回调 → 主库每接口报告环 → 主库 HID �
 
 `luat/include/luat_usb_hid.h` 定义与 input 无关的设备信息和 OPEN/CLOSE/REPORT/RX_ERROR 回调。BSP 负责 HID 枚举、报告描述符读取、传输和回调，不解析报告、不分配 input 会话、不绑定日志/AirUI，也不根据 `LUAT_USE_INPUT_HID` 决定是否转发报告。CCM 的 OPEN/CLOSE 使用通用 CLASS_OPEN/CLOSE 底层事件。
 
-`luat/weak/luat_usb_hid.c` 默认将回调交给 `components/input/luat_input_usb_hid.c`。启用 `LUAT_USE_INPUT_HID` 时，通用适配器负责缓存、调度、解析器生命周期和 service 设备注册；未启用时默认回调为空，应用仍可接收原始 HID。编译时需加入这两个源文件以及解析器、核心、日志组件；service/queue/AirUI 按原有宏可选。
+`luat/weak/luat_usb_hid.c` 默认将回调交给 `components/input/luat_input_usb_hid.c`。同时启用 `LUAT_USE_INPUT` 和 `LUAT_USE_INPUT_HID` 时，通用适配器负责缓存、调度、解析器生命周期和 service 设备注册；未启用时默认回调为空，应用仍可接收原始 HID。编译时需加入这两个源文件以及解析器、核心、队列、服务和日志组件；Lua/AirUI 按需启用。
 
 应用在启用 USB Host 前调用 `luat_usb_hid_set_callback(callback)` 即可接管数据处理；传 NULL 恢复默认处理。必须在所有设备关闭且回调停止后才能更换处理函数，避免一个处理者释放另一个处理者的 userdata。支持按 VID/PID 选择性调用 `luat_input_usb_hid_callback`，被委托的设备必须转交完整的 OPEN、REPORT/RX_ERROR、CLOSE 生命周期。示例与上下文约束见 [README.usb-hid.md](README.usb-hid.md)。
 
@@ -179,7 +199,7 @@ IRQ 仅复制本次完整包、记录时间和通知，不解析、不打印。�
 
 首次 OPEN 才创建一个共享的 4096 B 栈 HID 工作任务；所有接口共用它，无设备时无限等待，有设备时最长每 10 ms 检查一次，处理通知失败后的最后一次释放和单次预算耗尽后的剩余报告。通知只表达“有工作”，不携带会话地址或 SDK 实例 tag；断开后的旧通知不会解引用已释放会话。
 
-注册、提交、注销按通用适配器会话锁 → input service lock 的顺序串行化；没有 service 时会话锁保护私有 core。IRQ 与任务对报告环/会话指针的访问使用 LuatOS 短临界区。BSP 在 OPEN 返回后启动接收，在停止接收并结束在途回调后调用 CLOSE；主库在 CLOSE 中清除 userdata、移出任务处理链表，再注销释放。
+注册、提交、注销按通用适配器会话锁 → input service lock 的顺序串行化，统一使用公共 service core。IRQ 与任务对报告环/会话指针的访问使用 LuatOS 短临界区。BSP 在 OPEN 返回后启动接收，在停止接收并结束在途回调后调用 CLOSE；主库在 CLOSE 中清除 userdata、移出任务处理链表，再注销释放。
 
 2026-09-04 已回退的 Host 电源控制修改保持原状：枚举期间主动断电的底层并发问题仍待处理，本次应用层迁移不修复该问题。
 
@@ -243,7 +263,7 @@ ARM GCC 14.3，Cortex-M4 Thumb，`-Os`，链接裁剪前的目标文件测量：
 HID 生产者不再绑定 AirUI；TP 公共层使用可选 sink；service 的设备观察接口
 只参与接入/移除，数据仍通过直接绑定传递。AirUI 原有 TP 绑定、读取和 Lua
 接口保持不变。服务初始化由各 BSP 按需负责，国芯在 `luat_init()` 创建 Lua
-任务之前调用，受 `LUAT_USE_INPUT_SERVICE` 控制。
+任务之前调用，现统一受 `LUAT_USE_INPUT` 控制。
 
 USB 原始回调/通用适配器、service 观察者生命周期、Lua input、TP 独立模式、
 TP→input→真实 LVGL 回归通过。启动回归覆盖未就绪拒绝、创建锁期间再次

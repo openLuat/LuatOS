@@ -1,7 +1,7 @@
 /* AirUI owns consumer policy; producers never include or initialize AirUI. */
 #include "luat_conf_bsp.h"
 #include "luat_input_service.h"
-#if defined(LUAT_USE_AIRUI_LUATOS) && defined(LUAT_USE_INPUT_SERVICE)
+#if defined(LUAT_USE_AIRUI_LUATOS) && defined(LUAT_USE_INPUT)
 #include "luat_input_airui.h"
 #include "luat_rtos.h"
 

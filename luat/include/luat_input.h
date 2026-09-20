@@ -387,7 +387,7 @@ static inline int luat_input_sequence_after(uint32_t a, uint32_t b)
 void luat_input_log_receive(void *userdata, const luat_input_frame_t *frame,
     const luat_input_event_t *events);
 
-/* Optional queue module (LUAT_USE_INPUT_QUEUE). Lock hooks must be supplied as a
+/* Queue module (included with LUAT_USE_INPUT). Lock hooks must be supplied as a
  * pair for cross-context access. Null hooks explicitly mean externally serialized.
  * ISR producers require ISR-safe hooks/notify; no implicit ISR safety is promised.
  */

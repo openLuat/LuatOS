@@ -549,7 +549,7 @@ static const airui_input_ops_t luatos_input_ops = {
 /** 获取 LuatOS 输入驱动操作接口 */
 const airui_input_ops_t *airui_platform_luatos_get_input_ops(void)
 {
-#if defined(LUAT_USE_INPUT_SERVICE) || defined(LUAT_USE_INPUT_TOUCH) || defined(LUAT_USE_INPUT_LUA)
+#ifdef LUAT_USE_INPUT
     extern int airui_input_service_start(void);
     if (airui_input_service_start()) LLOGE("input service consumer init failed");
 #endif

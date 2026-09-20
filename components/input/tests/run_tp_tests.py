@@ -38,7 +38,7 @@ int luat_rtos_message_recv(luat_rtos_task_handle,uint32_t*,void*,uint32_t);
     production += [root/'components/tp'/name for name in ['luat_tp.c','luat_tp_input.c']]
     production += [airui/'src/platform/luatos/luat_airui_input_touch_luatos.c',root/'components/input/tests/tp_test.c']
     sources += production
-    flags = ['-std=c11','-O1','-DLUAT_USE_INPUT','-DLUAT_USE_INPUT_TOUCH','-DLUAT_USE_INPUT_QUEUE',
+    flags = ['-std=c11','-O1','-DLUAT_USE_INPUT','-DLUAT_USE_INPUT_TOUCH',
              '-DLUAT_USE_AIRUI_LUATOS','-DLV_CONF_SKIP','-DLV_MEM_SIZE=2097152']
     flags += ['-I'+str(p) for p in [out,root/'luat/include',root/'components/tp',airui,airui/'inc',airui/'lvgl9',airui/'src/platform/luatos']]
     def compile_one(item):

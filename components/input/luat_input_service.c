@@ -1,5 +1,5 @@
 #include "luat_base.h"
-#ifdef LUAT_USE_INPUT_SERVICE
+#ifdef LUAT_USE_INPUT
 #include "luat_input_service.h"
 #include "luat_rtos.h"
 #include "luat_malloc.h"

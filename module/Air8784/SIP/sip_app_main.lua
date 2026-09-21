@@ -1,5 +1,5 @@
 --[[ @module sip_app_main
-@summary SIP注册/呼出/接听/挂断，媒体由独立audio_1103模块提供
+@summary SIP注册/呼出/接听/挂断，媒体由audio_drv 的 exaudio 适配层提供
 ]]
 local cfg = require "config"
 local audio_drv = require "audio_drv"
@@ -76,7 +76,7 @@ local function on_audio_error(reason)
     log.error("sip_app", reason)
     post("RESTART")
 end
-sys.subscribe("AUDIO_1103_ERROR", on_audio_error)
+sys.subscribe("AUDIO_DRV_ERROR", on_audio_error)
 
 -- 只在业务任务中恢复，避免在SIP/串口回调里阻塞等待；保留正在到来的来电状态。
 local function recover_audio()
@@ -152,7 +152,7 @@ local function sip_main_task()
                         local elapsed = 0
                         while state == "INCOMING" and not audio_drv.is_ready()
                             and elapsed < cfg.audio.ready_timeout_ms do
-                            sys.waitUntil("AUDIO_1103_READY", 100)
+                            sys.waitUntil("AUDIO_DRV_READY", 100)
                             elapsed = elapsed + 100
                         end
                         if state == "INCOMING" and audio_drv.is_ready() then

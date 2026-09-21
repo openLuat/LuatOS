@@ -1543,6 +1543,8 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{ "LWIP_GP_GW",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GP_GW)},
 	//@const LWIP_USB number LWIP-side USB netif (RNDIS/CDC-ECM)
 	{ "LWIP_USB",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USB)},
+	//@const LWIP_ANY number 绑定全部LWIP协议栈网卡(0.0.0.0)，值为127，目前仅httpsrv使用
+	{ "LWIP_ANY",     		ROREG_INT(NW_ADAPTER_INDEX_LWIP_ANY)},
 
 	{ NULL,            		ROREG_INT(0)}
 };

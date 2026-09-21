@@ -57,12 +57,16 @@ local VP = {}
 VP.obj = nil                    -- 视频播放组件（开机动画循环播放）
 VP.is_playing = true            -- 播放状态
 VP.is_loop = true               -- 循环状态
-VP.ctrl_bar = nil               -- 控制栏容器
+VP.ctrl_bar = nil               -- 控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
 VP.ctrl_visible = true          -- 控制栏可见性
 VP.ctrl_timer = nil             -- 控制栏自动隐藏定时器（已停用，仅保留清理，防旧定时器残留）
-VP.play_label = nil             -- 播放/暂停按钮文字
-VP.loop_label = nil             -- 循环按钮文字
-VP.file_label = nil             -- 当前文件名标签
+--[[播放/循环按钮与文件名标签不再各留一个引用，统一收进 VP.ctrl_bar
+
+这三个引用原先各存一份，于是「状态变了要记得刷哪个控件」全靠人工对齐 ——
+漏掉颜色是最常见的（此前只刷文字不刷底色，用户看到的就是「按钮颜色不随状态变化」）。
+现在控制栏由 theme.video_bar 统一构建并自带 sync/set_file，
+调用方只需要把状态喂进去（见 VP.start_play / VP.toggle_play / VP.toggle_loop），
+底色、文字色、文案三者在同一处一起刷新。]]
 VP.current_file = "/luatos_boot.hzv"           -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
 VP.card_ref = nil             -- 视频卡片容器引用（供切换文件时使用）
 VP.stage = nil                -- 画面舞台层：视频的父对象，先于控制栏创建（见 build_video_area）
@@ -112,7 +116,7 @@ VP.h = 270                     -- 视频区域高度（按 luatos_boot 素材帧
 VP.x = 0                       -- 视频卡左上角 X（绝对坐标，从内容区左缘算起）
 VP.y = 0                       -- 视频卡左上角 Y（绝对坐标，从屏幕顶缘算起）
 VP.frame_h = 0                 -- 视频画面高度（卡片高 - 控制栏高）
-VP.ctrl_h = 36                 -- 视频控制栏高度（画面下方独立一行，不叠画面；calc_layout 按密度重算）
+VP.ctrl_h = 48                 -- 视频控制栏高度（画面下方独立一行，不叠画面；calc_layout 按密度重算）
 local right_x = 0              -- 右侧信息列起始 X
 local right_w = 0              -- 右侧信息列宽度
 VP.enabled = false             -- 是否启用横屏双列布局（左视频 + 右信息列）
@@ -306,7 +310,7 @@ local function calc_layout()
     content_w = sw - rail_w
 
     -- 播放器控制栏高度（两种布局共用；竖屏时它独占画面下方的一行，不压画面）
-    VP.ctrl_h = clamp(math.floor(sh * 0.060), 32, 44)
+    VP.ctrl_h = clamp(math.floor(sh * 0.060), 48, 56)
 
     -- 方案A：宽屏（≥900dp）启用左侧视频 + 右侧信息列布局
     VP.enabled = (sw >= 900) and (sh >= 400)
@@ -1764,22 +1768,37 @@ end
 -- 视频控制：显示/隐藏控制栏
 -- 旧版在播放时起 3 秒定时器把控制栏藏起来，用户看到的是「播放一会儿按钮就没了」；
 -- 设计稿 .ctrl-bar 是常驻的，所以这里只做显隐，不再自动隐藏。
+-- 注意 VP.ctrl_bar 是 theme.video_bar 返回的**句柄**，真正的容器在句柄的 .ctrl 上。
 function VP.show_ctrl()
     if not VP.ctrl_bar then return end
-    VP.ctrl_bar:set_hidden(false)
+    VP.ctrl_bar.ctrl:set_hidden(false)
     VP.ctrl_visible = true
 end
 
 --[[隐藏控制栏
 
-原本挂在控制栏最右侧的 X 按钮上。那个按钮已改成「进入全屏播放」（见 build_video_area），
-所以现在没有入口会调到这里 —— 保留函数是为了让「点画面唤出控制栏」那条路径仍有
-配对的显隐状态（show_ctrl / hide_ctrl 是同一套状态的两个方向），
-删掉反而容易让后来者以为控制栏本来就不可隐藏。]]
+原本挂在控制栏最右侧的 X 按钮上。那个按钮已改成「全屏 / 窗口」的形态切换键
+（见 build_video_area），所以现在没有入口会调到这里 —— 保留函数是为了让
+「点画面唤出控制栏」那条路径仍有配对的显隐状态（show_ctrl / hide_ctrl 是同一套状态的
+两个方向），删掉反而容易让后来者以为控制栏本来就不可隐藏。]]
 function VP.hide_ctrl()
     if not VP.ctrl_bar then return end
-    VP.ctrl_bar:set_hidden(true)
+    VP.ctrl_bar.ctrl:set_hidden(true)
     VP.ctrl_visible = false
+end
+
+--[[把「播放 / 循环」两个状态同步到控制栏
+
+为什么不各自 set_text：按钮的**底色也要跟着状态变** —— 播放中 = 绿、暂停 = 中性，
+循环 = 琥珀、单次 = 中性。只改文案不改底色，用户看到的就是「按钮颜色不随状态变化」。
+theme.video_bar 把文案、底色、文字色收在一次 sync 里，这里只负责喂状态与文件名
+（底色取的是主题令牌，所以换肤后调这里同样能拿到新皮肤的颜色）。]]
+local function sync_ctrl()
+    if not VP.ctrl_bar then return end
+    if VP.current_file then
+        VP.ctrl_bar:set_file(VP.current_file:match("([^/]+)$") or VP.current_file)
+    end
+    VP.ctrl_bar:sync(VP.is_playing, VP.is_loop)
 end
 
 -- 视频控制：停止并重建视频组件（切换文件或循环模式时用）
@@ -1853,13 +1872,8 @@ function VP.start_play(file_path)
     VP.obj = airui.video(vcfg)
 
     VP.is_playing = (VP.obj ~= nil)
-    if VP.play_label then
-        VP.play_label:set_text(VP.is_playing and "||" or ">")
-    end
-    if VP.file_label then
-        local name = file_path:match("([^/]+)$") or file_path
-        VP.file_label:set_text(name)
-    end
+    -- 控制栏只喂状态：文案（暂停/播放）与底色（绿/中性）由 video_bar 一起刷
+    sync_ctrl()
     VP.show_ctrl()
 
     -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、由 videoplayer
@@ -1878,12 +1892,12 @@ function VP.toggle_play()
     if VP.is_playing then
         pcall(function() VP.obj:pause() end)
         VP.is_playing = false
-        if VP.play_label then VP.play_label:set_text(">") end
+        sync_ctrl()
         video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
     else
         pcall(function() VP.obj:play() end)
         VP.is_playing = true
-        if VP.play_label then VP.play_label:set_text("||") end
+        sync_ctrl()
         video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
         VP.show_ctrl()
     end
@@ -1900,9 +1914,8 @@ end
 -- loop 只在创建组件时生效，所以切完标志位重建一次组件
 function VP.toggle_loop()
     VP.is_loop = not VP.is_loop
-    if VP.loop_label then
-        VP.loop_label:set_text(VP.is_loop and "R" or "1")
-    end
+    -- 文案（循环/单次）与底色（琥珀/中性）一起刷
+    sync_ctrl()
     if VP.current_file and VP.obj then
         VP.start_play(VP.current_file)
     end
@@ -1981,8 +1994,8 @@ local function build_video_area(parent)
     -- VP.x / VP.y 是绝对坐标，不要再叠 pad（横屏分支已把 pad 算进 VP.x/VP.y）
     local vx = content_x + VP.x
     local vy = VP.y
-    local ctrl_h = VP.ctrl_h      -- calc_layout 按屏幕高算好：1024x600 横屏 36，480x854 竖屏 44
-    if ctrl_h < 28 then ctrl_h = 28 end
+    local ctrl_h = VP.ctrl_h      -- calc_layout 按屏幕高算好：1024x600 横屏 48，480x854 竖屏 56
+    if ctrl_h < 48 then ctrl_h = 48 end
 
     -- 视频卡片（直接放 parent，不套 wrapper，避免 LVGL 渲染异常）
     local video_card = theme.card(parent, {
@@ -2080,68 +2093,32 @@ local function build_video_area(parent)
         })
     end
 
-    -- 控制栏（视频卡片底部，半透明深底）
-    VP.ctrl_bar = theme.card(video_card, {
+    --[[控制栏（视频卡片底部，半透明深底）
+
+    整条控制栏交给 theme.video_bar —— 与全屏播放页（video_win）共用同一段代码，
+    所以「播放 | 循环 | 选择 | 全屏」的排列、按钮尺寸、间距、配色策略两处完全一致，
+    不会再各自漂移（此前全屏页把返回键摆在最左、这里把全屏键摆在最右，方向感相反）。
+
+    按钮的底色与文字色由 video_bar 按「主题令牌 + 播放/循环状态」算：
+    播放中 = 绿、暂停 = 中性、循环 = 琥珀、单次 = 中性；文字色按底色亮度自动取深/浅，
+    所以浅色档（晨曦浅色）与深色档（科技蓝）都不会出现读不出的字。
+
+    控制栏贴着视频卡片底部，圆角交给卡片自己，这里传 0。]]
+    VP.ctrl_bar = theme.video_bar(video_card, {
         x = 0, y = VP.frame_h, w = VP.w, h = ctrl_h,
-        -- 控制栏与画面不重叠，用接近实色的面板底，按钮看得清（横竖屏同款）
-        color = theme.C.panel, opa = 235, radius = 0,
-        border_w = 0,
+        radius = 0,
+        playing = VP.is_playing,
+        loop = VP.is_loop,
+        file_text = VP.current_file:match("([^/]+)$") or "",
+        mode_text = "全屏",
+        on_play = VP.toggle_play,
+        on_loop = VP.toggle_loop,
+        on_pick = function()
+            log.info("idle_win", "video btn: open file picker")
+            VP.open_picker()
+        end,
+        on_mode = VP.open_fullscreen,
     })
-
-    local btn_size = clamp(math.floor(ctrl_h * 0.78), 24, 32)    -- 设计稿 28
-    local btn_gap = clamp(math.floor(6 * density_scale_val), 4, 8)
-    local btn_y = math.floor((ctrl_h - btn_size) / 2)
-    local pad_in = math.floor(10 * density_scale_val)
-
-    -- 按钮工厂：用 airui.button 替代 theme.card，获得真实按压反馈
-    -- 从右往左摆位
-    local rx = VP.w - pad_in
-    local function place_btn(text, tint, on_click)
-        rx = rx - btn_size
-        -- 颜色策略：主按钮（play）用实色突出，其余用 bg_opa 20% 半透明保持玻璃感
-        local is_primary = (on_click == VP.toggle_play)
-        local btn = airui.button({
-            parent = VP.ctrl_bar, x = rx, y = btn_y, w = btn_size, h = btn_size,
-            text = text, font_size = math.floor(btn_size * 0.5),
-            style = { bg_color = tint, text_color = theme.C.t1, border_width = 0,
-                      radius = theme.R.xs, bg_opa = is_primary and 255 or 51 },
-            on_click = on_click,
-        })
-        return btn, btn
-    end
-
-    -- 文件名标签（左侧，宽度让开右侧 4 个按钮）
-    local fname = VP.current_file:match("([^/]+)$") or ""
-    local btns_w = (btn_size + btn_gap) * 4 - btn_gap
-    VP.file_label = theme.label(VP.ctrl_bar, {
-        x = pad_in, y = btn_y, w = math.max(40, VP.w - pad_in * 2 - btns_w - btn_gap),
-        h = btn_size, text = fname, px_size = math.floor(11 * density_scale_val),
-        color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
-    })
-
-    --[[从右往左：全屏 / 选择文件 / 循环 / 重播 / 播放
-
-    最右那个按钮原来是把控制栏收起来的 X。现在改成「进入全屏播放」：
-    收控制栏这个动作本身就是个死胡同（收掉之后唯一的入口是再点一下画面，
-    而画面没有提示），换成全屏的收益明显更大。按钮文字用 ASCII 的 "[]"
-    —— 工程里所有按钮都只用 ASCII（<  >  ||  R  1  ...），字形资源缺失时才不会空白。]]
-    place_btn("[]", theme.C.violet, VP.open_fullscreen)
-    rx = rx - btn_gap
-    place_btn("...", theme.C.cyan, function()
-        log.info("idle_win", "video btn: open file picker")
-        VP.open_picker()
-    end)
-    rx = rx - btn_gap
-    local _, loop_lbl = place_btn(VP.is_loop and "R" or "1", theme.C.amber, VP.toggle_loop)
-    VP.loop_label = loop_lbl
-    rx = rx - btn_gap
-    place_btn("|<", theme.C.cyan_light, function()
-        log.info("idle_win", "video btn: restart", VP.current_file, "obj=", VP.obj ~= nil)
-        VP.restart()
-    end)
-    rx = rx - btn_gap - 5  -- 播放按钮向左移动 5 像素
-    local _, play_lbl = place_btn(VP.is_playing and "||" or ">", theme.C.green, VP.toggle_play)
-    VP.play_label = play_lbl
 
     VP.show_ctrl()
     log.info("idle_win", "video area built", VP.w, "x", VP.h, "frame", VP.frame_h)
@@ -2261,9 +2238,6 @@ local function on_destroy()
     VP.card_ref = nil
     VP.stage = nil
     VP.ctrl_bar = nil
-    VP.play_label = nil
-    VP.loop_label = nil
-    VP.file_label = nil
     VP.close_picker()
     app_cards = {}
     all_apps = {}

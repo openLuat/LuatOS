@@ -2,8 +2,8 @@
     @module  air1103
     @summary 合宙 Air1103 语音芯片 PCM+PCM 串口协议驱动（exaudio 内部驱动）
     @remark 内部模块：仅供 exaudio 扩展库调用，业务代码请勿直接 require；使用 Air1103 请走 exaudio.setup({model="air1103"})。
-    @version 1.2
-    @date    2026.09.16
+    @version 1.3
+    @date    2026.09.20
     @author  拓毅恒
     @usage
         local air1103 = require "air1103"
@@ -92,6 +92,7 @@ local stream_buff   = nil      -- 防止大缓冲拷贝
 local stream_wr     = 0        -- 已写入字节
 local stream_rd     = 0        -- 已读取字节
 local silent_frame  = nil      -- 预打包静音保活帧(320B 全0 + 20 81 + 校验)
+local notify_token  = 0        -- 提示音播放归属令牌, 防止旧监视定时器误触发
 
 -- ==================== 工具函数 ====================
 -- 微秒级时间戳(mcu.ticks2, 64bit 计数不溢出), 用于下行 10ms 节拍基准
@@ -372,6 +373,7 @@ end
 -- 结束流式播放(播完队列剩余后停止)
 function air1103.play_stream_stop()
     stream_running = false
+    notify_token = notify_token + 1   -- 作废任何进行中的提示音监视定时器
     if stream_timer then sys.timerStop(stream_timer); stream_timer = nil end  -- 停循环定时器, 防空转
     air1103.stop_audio()   -- 停止下行(同时发 02 01 停上行惯例, 由调用方按需恢复)
     -- 清空残留原始缓冲+游标, 防内存残留到下一次通话
@@ -410,6 +412,137 @@ function air1103.play_direct(data)
     end
     uart.write(UART_ID, pack(CMD_DOWN_AUDIO, payload))
     return true
+end
+
+-- ==================== 本地提示音播放 ====================
+
+-- 提示音播放完成事件, 通过 sys.publish 发出, 业务层可订阅
+local NOTIFY_EVENTS = { busy = "AIR1103_BUSY_DONE", hangup = "AIR1103_HANGUP_DONE" }
+
+-- 生成单频正弦 PCM (16k/16bit/LE), 两端 30ms 淡入淡出(起落平滑, 无爆音)
+-- @param freq 频率 (Hz)
+-- @param ms   时长 (毫秒)
+-- @param vol  幅度 (0~1)
+-- @return PCM 二进制字符串
+local function gen_sine(freq, ms, vol)
+    local n = math.floor(16000 * ms / 1000)
+    local amp = math.floor((vol or 0.6) * 32767)
+    local fade = math.floor(16000 * 0.03)
+    local out = {}
+    for i = 0, n - 1 do
+        local s = math.sin(2 * math.pi * freq * i / 16000)
+        local env = 1
+        if i < fade then env = i / fade
+        elseif i > n - fade then env = (n - i) / fade end
+        out[#out + 1] = string.pack("<h", math.floor(s * amp * env))
+    end
+    return table.concat(out)
+end
+
+-- 生成静音 PCM
+-- @param ms 时长 (毫秒)
+-- @return PCM 二进制字符串
+local function gen_silence(ms)
+    return string.rep("\0", math.floor(16000 * 2 * ms / 1000))
+end
+
+-- 本地提示音音频库
+-- 格式统一为 16k/16bit/LE PCM; 业务层通过 play_tone/play_busy/play_hangup 调用。
+local tones = {
+    -- 振铃提示音
+    busy = gen_sine(400, 1500, 0.5) .. gen_silence(100),
+    -- 挂断提示音
+    hangup = gen_sine(300, 300, 0.3) .. gen_silence(120) .. gen_sine(300, 300, 0.3) .. gen_silence(120) .. gen_sine(300, 300, 0.3),
+    -- 组间静音 1 秒: 用于振铃间停顿
+    gap = gen_silence(1000),
+}
+
+-- 播放队列(FIFO): 元素为 {name=提示音名, data=PCM 数据}
+local play_queue = {}
+local queue_running = false
+local queue_token  = 0
+local queue_on_done = nil
+
+-- 播放提示音, 结束后复位 1103 并恢复上行, 通过 sys.publish 发出完成事件
+
+-- 从队列取一段写入流; 队列空则播放完毕收尾
+local function queue_pump()
+    if #play_queue == 0 then
+        queue_running = false
+        air1103.play_stream_stop()   -- 停下行(同时停上行), 需复位恢复 MIC
+        air1103.reset()
+        air1103.set_rx_enable(true)
+        queue_token = queue_token + 1
+        if type(queue_on_done) == "function" then
+            local cb = queue_on_done
+            queue_on_done = nil
+            cb()
+        end
+        return
+    end
+    local item = table.remove(play_queue, 1)
+    air1103._last_tone = item.name
+    air1103.play_stream_write(item.data)
+end
+
+-- 监视播放排空; 排空后发布完成事件, 再接续下一段或收尾
+local function queue_watch(my_token)
+    if my_token ~= queue_token then return end
+    if not queue_running then return end
+    if air1103.get_pending() > 0 then
+        sys.timerStart(queue_watch, 20, my_token)
+    else
+        local ev = NOTIFY_EVENTS[air1103._last_tone]
+        if ev then sys.publish(ev) end
+        queue_pump()
+        if queue_running then
+            sys.timerStart(queue_watch, 20, my_token)
+        end
+    end
+end
+
+-- 入队并播放指定提示音
+-- @param name     tones 中的键名(busy/hangup)
+-- @param on_done  可选, 整队播放完成时回调
+-- @return boolean
+function air1103.play_tone(name, on_done)
+    local data = tones[name]
+    if not data or #data == 0 or not is_inited then return false end
+    -- 避免只入队不播放
+    if queue_running and not stream_running then
+        queue_running = false
+        play_queue = {}
+        queue_on_done = nil
+    end
+    table.insert(play_queue, { name = name, data = data })
+    if not queue_running then
+        queue_running = true
+        queue_token = queue_token + 1
+        air1103.play_stream_start(nil)
+        queue_pump()
+        sys.timerStart(queue_watch, 50, queue_token)
+    end
+    if type(on_done) == "function" then queue_on_done = on_done end
+    return true
+end
+
+-- 接听前播放嘟嘟声
+-- @param on_done 可选, 整队播放完成时回调
+-- @return boolean
+function air1103.play_busy(on_done)
+    if not is_inited then return false end
+    -- -- 第 1 遍
+    air1103.play_tone("busy", nil)
+    air1103.play_tone("gap", nil)              -- 停一秒
+    -- 第 2 遍
+    return air1103.play_tone("busy", on_done)  -- 末段, 整队完成回调
+end
+
+-- 对方挂断后播放提示音
+-- @param on_done 可选, 整队播放完成时回调
+-- @return boolean
+function air1103.play_hangup(on_done)
+    return air1103.play_tone("hangup", on_done)
 end
 
 return air1103

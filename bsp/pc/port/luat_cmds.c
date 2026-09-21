@@ -16,6 +16,9 @@
 
 #include "dirent.h"
 
+// 脚本目录递归上限(含根目录, 从 depth=1 起算). depth>=N 时不再进入子目录.
+#define LUAT_CMD_MAX_DIR_DEPTH 6
+
 extern int cmdline_argc;
 extern char **cmdline_argv;
 
@@ -423,7 +426,7 @@ static int luat_cmd_collect_path(luat_dep_ctx_t *ctx, const char *path, int dept
 			if (ep->d_type == DT_DIR)
 			{
 				char child_path[512] = {0};
-				if (depth >= 4)
+				if (depth >= LUAT_CMD_MAX_DIR_DEPTH)
 				{
 					continue;
 				}
@@ -1756,7 +1759,7 @@ static void *check_file_path_depth(const char *path, int depth)
 
 				if (ep->d_type == DT_DIR)
 				{
-					if (depth >= 4) // 限制目录深度为三层
+					if (depth >= LUAT_CMD_MAX_DIR_DEPTH) // 限制目录深度为六层(含根目录)
 					{
 						continue;
 					}

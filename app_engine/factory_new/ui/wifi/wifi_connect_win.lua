@@ -127,22 +127,16 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         function() exwin.close(connect_win_id) end, "输入密码与高级连接参数")
     TITLE_H = th
 
-    -- 键盘
-    connect_wifi_keyboard = theme.keyboard({
-        parent = connect_main_container,
-        x = 0, y = 0,
-        w = SCREEN_W, h = math.floor(200 * _G.density_scale),
-        mode = "text",
-        auto_hide = true,
-        preview = true,
-        on_commit = function(self) self:hide() end,
-    })
+    -- 底部按钮条高度：内容区高度、按钮条位置、键盘让位量三处共用同一个值
+    local bottom_bar_h = math.floor(80 * _G.density_scale)
+
+    -- 键盘在本函数最后创建，创建顺序的原因写在文件末尾键盘那一段
 
     -- 可滚动内容容器
     local content_container = airui.container({
         parent = connect_main_container,
         x = 0, y = TITLE_H,
-        w = SCREEN_W, h = SCREEN_H - TITLE_H - math.floor(80 * _G.density_scale),
+        w = SCREEN_W, h = SCREEN_H - TITLE_H - bottom_bar_h,
         color = CLR.surface, color_opacity = 0,
         scroll = true
     })
@@ -173,7 +167,6 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         max_len = 64,
         font_size = theme.fs("h2"),
         color = CLR.t1,
-        keyboard = connect_wifi_keyboard,
     })
 
     -- 连接状态提示（连接中/成功/失败）
@@ -293,7 +286,6 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         max_len = 10,
         font_size = theme.fs("body"),
         color = CLR.t1,
-        keyboard = connect_wifi_keyboard,
     })
     y_offset = y_offset + math.floor(55 * _G.density_scale)
 
@@ -323,7 +315,6 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         max_len = 32,
         font_size = theme.fs("body"),
         color = CLR.t1,
-        keyboard = connect_wifi_keyboard,
     })
     y_offset = y_offset + math.floor(55 * _G.density_scale)
 
@@ -357,8 +348,8 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
     -- 底部按钮
     local bottom_container = airui.container({
         parent = connect_main_container,
-        x = 0, y = SCREEN_H - math.floor(80 * _G.density_scale),
-        w = SCREEN_W, h = math.floor(80 * _G.density_scale),
+        x = 0, y = SCREEN_H - bottom_bar_h,
+        w = SCREEN_W, h = bottom_bar_h,
         color = CLR.surface, color_opacity = 0,
     })
     local btn_w = math.floor((SCREEN_W - 2 * MARGIN - SPACING) / 2)
@@ -367,6 +358,7 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         x = MARGIN, y = math.floor(15 * _G.density_scale),
         w = btn_w, h = BUTTON_H,
         text = "取消",
+        style = { border_width = 0 },
         on_click = function()
             if connect_close_timer then
                 sys.timerStop(connect_close_timer)
@@ -383,6 +375,7 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         style = {
             bg_color = CLR.primary, bg_opa = 255,
             text_color = CLR.white,
+            border_width = 0,
             pressed_bg_color = CLR.primary_deep,
             pressed_text_color = CLR.white,
         },
@@ -443,6 +436,41 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
             })
         end
     })
+
+    --[[虚拟键盘 —— 必须整段放在本函数最后创建，不能提前
+
+    1) 创建顺序就是 z-order。本页有两块铺满页面的容器：可滚动的
+       content_container 与底部按钮条 bottom_container，两者都是可点击、
+       可滚动的普通容器，会吞掉落在自身范围内的触摸。键盘若在它们之前建，
+       就排在下层 —— 键盘看得见、按不动。
+    2) 键盘整体上抬 bottom_bar_h，让「取消 / 连接」按钮始终露在键盘之外。
+       被键盘盖住时用户只剩「键盘回车」一条退路，整页看上去就是卡死的。
+    3) parent 固定为本页根容器（宽 = 内容区宽）：拼音候选栏与输入预览框都由
+       C 侧建在键盘的父对象上、宽度取父宽的 100%，挂到屏幕根上会与内容区错开，
+       而且不随页面销毁。]]
+    connect_wifi_keyboard = theme.keyboard({
+        parent = connect_main_container,
+        x = 0, y = -bottom_bar_h,
+        w = SCREEN_W, h = math.floor(200 * _G.density_scale),
+        mode = "text",
+        auto_hide = true,
+        preview = true,
+        on_commit = function(self) self:hide() end,
+    })
+
+    --[[键盘建在最后（创建顺序 = z-order），而三个输入框更早创建 ——
+    创建期传的 keyboard= 那一刻键盘还不存在，必然是 nil，
+    C 侧只在 textarea 创建那一刻读该字段（luat_airui_textarea.c 的
+    「不存在keyboard绑定组件对象」分支），于是输入框根本没绑定键盘：
+    点进去能聚焦，但键盘永远不弹。
+    共享键盘的正确姿势是「先建键盘，再逐个 attach_keyboard」——
+    attach 内部做的正是创建期那条路径（set_target + 存 data->keyboard），
+    之后输入框聚焦 / 失焦事件会自动让键盘切到当前焦点控件。]]
+    for _, ta in ipairs({
+        connect_password_textarea, connect_ping_time_input, connect_ping_ip_input,
+    }) do
+        if ta then ta:attach_keyboard(connect_wifi_keyboard) end
+    end
 end
 
 local function connect_on_connected(ssid)

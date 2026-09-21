@@ -596,6 +596,68 @@ static int serialize_box_to_mem(mp4box_t* box, uint8_t* out, size_t cap, size_t*
     return 0;
 }
 
+#ifdef LUAT_USE_VTOOL_MP4BOX_THREAD
+// 写线程消息类型
+#define MP4BOX_MSG_WRITE_FRAME 0
+#define MP4BOX_MSG_CLOSE       1
+
+// 变长消息, 头和帧数据一次malloc, 队列里传递的是指针
+typedef struct {
+    uint32_t type;
+    uint32_t len;
+    uint8_t data[];
+} mp4box_msg_t;
+
+// 允许bsp覆盖的默认值
+#ifndef LUAT_VTOOL_MP4BOX_THREAD_QUEUE_DEPTH
+#define LUAT_VTOOL_MP4BOX_THREAD_QUEUE_DEPTH 8
+#endif
+
+#ifndef LUAT_VTOOL_MP4BOX_THREAD_SEND_TIMEOUT
+#define LUAT_VTOOL_MP4BOX_THREAD_SEND_TIMEOUT 1000
+#endif
+
+// 线程栈与优先级, 优先级参照camera_task(beken原始优先级7, configMAX_PRIORITIES=10, 换算为70)
+#define LUAT_VTOOL_MP4BOX_THREAD_STACK 4096
+#define LUAT_VTOOL_MP4BOX_THREAD_PRIO  70
+#define LUAT_VTOOL_MP4BOX_THREAD_NAME  "mp4box_w"
+
+static int mp4box_write_frame_impl(mp4_ctx_t* ctx, uint8_t* data, size_t len);
+static int mp4box_close_impl(mp4_ctx_t* ctx);
+
+static void mp4box_write_task(void* param) {
+    mp4_ctx_t* ctx = (mp4_ctx_t*)param;
+    // 自删句柄快照, 必须在release信号量之前获取; release之后close调用方会free(ctx), 不得再访问ctx
+    luat_rtos_task_handle self = ctx->task;
+    mp4box_msg_t* msg = NULL;
+    while (1) {
+        if (luat_rtos_queue_recv(ctx->queue, &msg, sizeof(msg), LUAT_WAIT_FOREVER) != 0) {
+            msg = NULL;
+            continue;
+        }
+        if (msg->type == MP4BOX_MSG_CLOSE) {
+            luat_heap_free(msg);
+            msg = NULL;
+            // 先把队列里残留的帧全部写完
+            while (luat_rtos_queue_recv(ctx->queue, &msg, sizeof(msg), LUAT_NO_WAIT) == 0 && msg != NULL) {
+                if (msg->type == MP4BOX_MSG_WRITE_FRAME) {
+                    mp4box_write_frame_impl(ctx, msg->data, msg->len);
+                }
+                luat_heap_free(msg);
+                msg = NULL;
+            }
+            ctx->close_ret = mp4box_close_impl(ctx);
+            luat_rtos_semaphore_release(ctx->exit_sem);
+            // 用创建时保存的包装句柄自删, 不能传luat_rtos_get_current_handle()的裸句柄(类型不符会写坏TCB)
+            luat_rtos_task_delete(self);
+        }
+        mp4box_write_frame_impl(ctx, msg->data, msg->len);
+        luat_heap_free(msg);
+        msg = NULL;
+    }
+}
+#endif
+
 mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t frame_h, uint32_t frame_fps) {
     // 防御path太长
     if (strlen(path) >= LUAT_VTOOL_MP4BOX_PATH_MAX) {
@@ -603,7 +665,7 @@ mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t
         return NULL;
     }
     FILE* fd = luat_fs_fopen(path, "w+");
-    if (fd < 0) {
+    if (fd == NULL) {
         LLOGE("open %s failed", path);
         return NULL;
     }
@@ -651,6 +713,29 @@ mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t
     mp4box_t mdat = {.tp = "mdat", .len = 8, .data = NULL, .self_data_len = 0};
     write_box(ctx, &mdat);
     g_mp4_ctx = ctx;
+#ifdef LUAT_USE_VTOOL_MP4BOX_THREAD
+    // 启动写线程, 任一步失败则LLOGE并回退同步模式, create仍然返回成功
+    if (luat_rtos_queue_create(&ctx->queue, LUAT_VTOOL_MP4BOX_THREAD_QUEUE_DEPTH, sizeof(mp4box_msg_t*))) {
+        LLOGE("create mp4box queue failed, fallback to sync mode");
+        ctx->queue = NULL;
+    }
+    else if (luat_rtos_semaphore_create(&ctx->exit_sem, 0)) {
+        LLOGE("create mp4box exit sem failed, fallback to sync mode");
+        luat_rtos_queue_delete(ctx->queue);
+        ctx->queue = NULL;
+    }
+    else if (luat_rtos_task_create(&ctx->task, LUAT_VTOOL_MP4BOX_THREAD_STACK, LUAT_VTOOL_MP4BOX_THREAD_PRIO, LUAT_VTOOL_MP4BOX_THREAD_NAME, mp4box_write_task, ctx, 0)) {
+        LLOGE("create mp4box write task failed, fallback to sync mode");
+        luat_rtos_semaphore_delete(ctx->exit_sem);
+        ctx->exit_sem = NULL;
+        luat_rtos_queue_delete(ctx->queue);
+        ctx->queue = NULL;
+    }
+    else {
+        ctx->thread_mode = 1;
+        LLOGI("mp4box thread mode enabled, queue depth %d", LUAT_VTOOL_MP4BOX_THREAD_QUEUE_DEPTH);
+    }
+#endif
     return ctx;
 }
 
@@ -783,7 +868,7 @@ static int append_frame(mp4_ctx_t* ctx, uint8_t* nalu, size_t len) {
     return 0;
 }
 
-int luat_vtool_mp4box_write_frame(mp4_ctx_t* ctx, uint8_t* data, size_t len) {
+static int mp4box_write_frame_impl(mp4_ctx_t* ctx, uint8_t* data, size_t len) {
     // 首先, 分析NALU
     // LLOGD("开始分析NALU %p %d %02X%02X%02X%02X", data, len, data[0], data[1], data[2], data[3]);
     size_t nalu_len = 0;
@@ -832,6 +917,254 @@ int luat_vtool_mp4box_write_frame(mp4_ctx_t* ctx, uint8_t* data, size_t len) {
     return ret;
 }
 
+int luat_vtool_mp4box_write_frame(mp4_ctx_t* ctx, uint8_t* data, size_t len) {
+#ifdef LUAT_USE_VTOOL_MP4BOX_THREAD
+    // 线程模式: 深拷贝帧数据推入队列后立即返回, 实际写文件由写线程完成
+    if (ctx->thread_mode) {
+        if (ctx->closing) {
+            LLOGW("mp4box is closing, drop frame");
+            return -1;
+        }
+        if (data == NULL || len == 0) {
+            return 0;
+        }
+        mp4box_msg_t* msg = luat_heap_malloc(sizeof(mp4box_msg_t) + len);
+        if (msg == NULL) {
+            ctx->drop_cnt++;
+            LLOGW("mp4box alloc frame msg failed, drop_cnt=%u", (unsigned)ctx->drop_cnt);
+            return 0;
+        }
+        msg->type = MP4BOX_MSG_WRITE_FRAME;
+        msg->len = (uint32_t)len;
+        memcpy(msg->data, data, len);
+        int ret = luat_rtos_queue_send(ctx->queue, &msg, sizeof(msg), LUAT_VTOOL_MP4BOX_THREAD_SEND_TIMEOUT);
+        if (ret != 0) {
+            luat_heap_free(msg);
+            ctx->drop_cnt++;
+            LLOGW("mp4box send frame failed %d, drop_cnt=%u", ret, (unsigned)ctx->drop_cnt);
+            return 0;
+        }
+        return 0;
+    }
+#endif
+    return mp4box_write_frame_impl(ctx, data, len);
+}
+
+#ifdef LUAT_USE_VTOOL_MP4BOX_THREAD
+static int mp4box_close_impl(mp4_ctx_t* ctx) {
+    int ret = 0;
+    // LLOGI("开始关闭mp4文件 %s", ctx->path);
+    // 刷新缓冲，确保文件大小正确
+    if (buffered_flush(ctx) != 0) {
+        LLOGE("mp4box flush failed, abort close");
+        ret = -1;
+        goto clean;
+    }
+    // 然后, 把文件关掉, 重新打开
+    // luat_fs_fclose(ctx->fd);
+    // LLOGI("重新打开文件 %s 原本的fd %d", ctx->path, ctx->fd);
+    // ctx->fd = luat_fs_fopen(ctx->path, "r+b");
+    // LLOGI("重新打开文件 %s 重新打开的fd %d", ctx->path, ctx->fd);
+    luat_fs_fseek(ctx->fd, 0, SEEK_END);
+    // 把mdat的box大小更新一下
+    ret = luat_fs_ftell(ctx->fd);
+    LLOGI("mp4 file size before mdat %d", ret);
+    long int pos = ctx->mdat_offset;
+    size_t mdat_len = ret - ctx->mdat_offset;
+    // LLOGI("mdat 长度更新为 %d 目标偏移量 %d sizeof(int) %d sizeof(long int) %d", mdat_len, ctx->mdat_offset, sizeof(int), sizeof(long int));
+    ret = luat_fs_fseek(ctx->fd, pos, SEEK_SET); // fypt头部的数据长度是固定的
+    if (ret != 0) {
+        LLOGE("seek mdat offset failed %d", ret);
+    }
+    ret = luat_fs_ftell(ctx->fd);
+    // LLOGD("当前fd偏移量位置 %d 期望 %d", ret, ctx->mdat_offset);
+    if (ret != (int)ctx->mdat_offset) {
+        LLOGE("seek mdat offset failed %d", ret);
+        ret = -1;
+        goto clean;
+    }
+    uint8_t tmp[4] = {0};
+    uint8_t tmp2[4] = {0};
+    tmp[0] = (mdat_len >> 24) & 0xff;
+    tmp[1] = (mdat_len >> 16) & 0xff;
+    tmp[2] = (mdat_len >> 8) & 0xff;
+    tmp[3] = (mdat_len >> 0) & 0xff;
+    ret = luat_fs_fwrite(tmp, 1, 4, ctx->fd);
+    // LLOGI("写入mdat长度结果 %d", ret);
+    if (ret != 4) {
+        LLOGE("更新mdat长度失败 %d", ret);
+        ret = -1;
+        goto clean;
+    }
+    ret = luat_fs_ftell(ctx->fd);
+    // LLOGD("当前fd偏移量位置 %d", ret);
+    // 回归到原本的位置, 读出来进行判断
+    luat_fs_fseek(ctx->fd, ctx->mdat_offset, SEEK_SET);
+    ret = luat_fs_fread(tmp2, 1, 4, ctx->fd);
+    // LLOGI("读回mdat长度结果 %d", ret);
+    // 数据对比判断
+    if (tmp2[0] != tmp[0] || tmp2[1] != tmp[1] || tmp2[2] != tmp[2] || tmp2[3] != tmp[3]) {
+        LLOGE("mdat长度写入后读回数据不对!!!");
+        ret = -1;
+        goto clean;
+    }
+    else {
+        // LLOGI("mdat长度写入后读回数据正确");
+        luat_fs_fflush(ctx->fd);
+    }
+    // 切换到文件末尾, 准备写入moov box
+    luat_fs_fseek(ctx->fd, 0, SEEK_END);
+
+    ret = prepare_box(ctx);
+    if (ret) {
+        LLOGE("box数据不对呀 %d", ret);
+        goto clean;
+    }
+    else {
+        cal_box(&ctx->box_moov);
+        size_t moov_len = ctx->box_moov.len;
+        uint8_t* moov_buf = (uint8_t*)luat_heap_malloc(moov_len);
+        if (!moov_buf) {
+            LLOGE("alloc moov buffer failed size=%d", (int)moov_len);
+            ret = -1;
+            goto clean;
+        }
+        size_t moov_off = 0;
+        ret = serialize_box_to_mem(&ctx->box_moov, moov_buf, moov_len, &moov_off);
+        if (ret || moov_off != moov_len) {
+            LLOGE("serialize moov failed ret=%d off=%d len=%d", ret, (int)moov_off, (int)moov_len);
+            luat_heap_free(moov_buf);
+            ret = -1;
+            goto clean;
+        }
+        // 一次性写入moov,保证文件指针在末尾且缓冲为空
+        buffered_flush(ctx);
+        luat_fs_fseek(ctx->fd, 0, SEEK_END);
+        int w = luat_fs_fwrite(moov_buf, 1, moov_len, ctx->fd);
+        luat_heap_free(moov_buf);
+        if (w != (int)moov_len) {
+            LLOGE("write moov failed %d/%d", w, (int)moov_len);
+            ret = -1;
+            goto clean;
+        }
+        luat_fs_fflush(ctx->fd);
+        LLOGI("总帧数 %d, 关键帧数 %d 总耗时 %dms 平均帧率 %d fps", ctx->frame_id, ctx->iframe_id_index, 
+            (uint32_t)(ctx->last_frame_tms - ctx->first_frame_tms), (uint32_t)(ctx->frame_id * 1000 / (ctx->last_frame_tms - ctx->first_frame_tms)));
+    }
+
+clean:
+    if (ctx->fd) {
+        if (ret  == 0) {
+            // 最终确保缓冲写入
+            buffered_flush(ctx);
+            luat_fs_fseek(ctx->fd, 0, SEEK_END);
+            luat_fs_fflush(ctx->fd);
+            ret = luat_fs_ftell(ctx->fd);
+            LLOGI("mp4 file final size %d", ret);
+            ret = 0;
+            luat_fs_fclose(ctx->fd);
+        }
+        else {
+            luat_fs_fclose(ctx->fd);
+        }
+        ctx->fd = 0;
+    }
+    else {
+        LLOGE("文件句柄为空!!!");
+        ret = -10;
+    }
+    // LLOGD("释放mp4资源, 释放内存");
+    // 释放全部资源
+    if (ctx->sps) {
+        luat_heap_free(ctx->sps);
+        ctx->sps = NULL;
+    }
+    if (ctx->pps) {
+        luat_heap_free(ctx->pps);
+        ctx->pps = NULL;
+    }
+    if (ctx->frame_offsets) {
+        luat_heap_free(ctx->frame_offsets);
+        ctx->frame_offsets = NULL;
+        ctx->frame_offset_index = 0;
+        ctx->frame_offset_len = 0;
+    }
+    if (ctx->frame_sizes) {
+        luat_heap_free(ctx->frame_sizes);
+        ctx->frame_sizes = NULL;
+        ctx->frame_size_index = 0;
+        ctx->frame_size_len = 0;
+    }
+    if (ctx->iframe_ids) {
+        luat_heap_free(ctx->iframe_ids);
+        ctx->iframe_ids = NULL;
+        ctx->iframe_id_index = 0;
+        ctx->iframe_id_len = 0;
+    }
+    if (ctx->frame_durs) {
+        luat_heap_free(ctx->frame_durs);
+        ctx->frame_durs = NULL;
+        ctx->frame_dur_index = 0;
+        ctx->frame_dur_len = 0;
+    }
+    if (ctx->box_buff) {
+        luat_heap_free(ctx->box_buff);
+        ctx->box_buff = NULL;
+        ctx->box_buff_size = 0;
+        ctx->box_buff_offset = 0;
+    }
+    clean_box(&ctx->box_moov);
+    LLOGI("mp4 file closed, box write finished, file closed");
+    return ret;
+}
+
+int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
+    if (ctx == NULL) {
+        LLOGE("ctx is NULL");
+        return -1;
+    }
+    if (ctx->thread_mode) {
+        if (ctx->closing) {
+            LLOGE("mp4box is already closing");
+            return -1;
+        }
+        ctx->closing = 1;
+        // 发送CLOSE消息, 唤醒写线程收尾
+        mp4box_msg_t* msg = luat_heap_malloc(sizeof(mp4box_msg_t));
+        if (msg == NULL) {
+            LLOGE("mp4box alloc close msg failed");
+            return -1;
+        }
+        msg->type = MP4BOX_MSG_CLOSE;
+        msg->len = 0;
+        int ret = luat_rtos_queue_send(ctx->queue, &msg, sizeof(msg), LUAT_WAIT_FOREVER);
+        if (ret != 0) {
+            luat_heap_free(msg);
+            LLOGE("mp4box send close msg failed %d", ret);
+            return -1;
+        }
+        // 阻塞等待写线程把残留帧和moov全部写完
+        luat_rtos_semaphore_take(ctx->exit_sem, LUAT_WAIT_FOREVER);
+        luat_rtos_queue_delete(ctx->queue);
+        ctx->queue = NULL;
+        luat_rtos_semaphore_delete(ctx->exit_sem);
+        ctx->exit_sem = NULL;
+        ctx->task = NULL;
+        ret = ctx->close_ret;
+        if (g_mp4_ctx == ctx) {
+            g_mp4_ctx = NULL;
+        }
+        luat_heap_free(ctx);
+        return ret;
+    }
+    int ret = mp4box_close_impl(ctx);
+    if (g_mp4_ctx == ctx) {
+        g_mp4_ctx = NULL;
+    }
+    luat_heap_free(ctx);
+    return ret;
+}
+#else
 int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
     int ret = 0;
     if (ctx == NULL) {
@@ -995,7 +1328,11 @@ clean:
         ctx->box_buff_offset = 0;
     }
     clean_box(&ctx->box_moov);
+    if (g_mp4_ctx == ctx) {
+        g_mp4_ctx = NULL;
+    }
     luat_heap_free(ctx);
     LLOGI("mp4 file closed, box write finished, file closed");
     return ret;
 }
+#endif

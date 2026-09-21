@@ -687,7 +687,7 @@ static void airui_video_timer_cb(lv_timer_t *timer)
 {
     lv_obj_t *video;
     airui_video_data_t *data;
-    int ret;
+    int ret = AIRUI_OK;
 
     if (timer == NULL) {
         return;
@@ -703,11 +703,12 @@ static void airui_video_timer_cb(lv_timer_t *timer)
     if (data == NULL || data->timer != timer || !data->playing) {
         return;
     }
-
+    #if defined(LUAT_USE_VIDEOPLAYER)
     ret = airui_video_sync_to_audio(data);
     if (ret == AIRUI_VIDEO_STATUS_WAIT) {
         return;
     }
+    #endif
     if (ret != AIRUI_OK) {
         data->playing = false;
         lv_timer_pause(timer);

@@ -102,7 +102,7 @@ return {
         -- 音频: 内置 DAC 播放 + 线路输入录音（非 ES8311 外挂芯片）
         -- PA(功放) 使能 = GPIO74（AUDIOPA_EN），低电平有效；DAC 延时 6ms
         audio = {
-            model = "dac",          -- 内置 DAC 模式（Air1601 芯片自带 DAC）
+            model = "dac",          -- 内置 DAC 模式
             pa_ctrl = 74,           -- PA(功放)使能引脚 = GPIO74（AUDIOPA_EN）
             pa_on_level = 0,        -- 低电平使能功放
             dac_delay = 6,          -- DAC 初始化延时 6ms
@@ -117,7 +117,7 @@ return {
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
         usb_camera = true,  -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
         rs485 = true,       -- RS485 接口 —— 见文件头第 10 条：暂无消费方
-        usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）
+        usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）`
         app_factory = true, -- 启用"应用工厂"内置应用
         ai_chat = true,     -- 启用"AI聊天助手"内置应用
         cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
@@ -157,5 +157,7 @@ return {
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
         show_camera_preview = true,    -- 设置页摄像头预览入口 ← 见文件头第 10 条
         show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
     },
 }

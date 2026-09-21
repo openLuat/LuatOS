@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>上位机 · 高压控制板模拟器（Air8301 电场发生器）</title>
+<style>
+  :root {
+    --bg: #0f1620;
+    --panel: #172230;
+    --panel-2: #1d2b3c;
+    --line: #2b3d52;
+    --text: #dbe6f2;
+    --text-dim: #8ba0b8;
+    --accent: #2f8bff;
+    --accent-2: #26c6a6;
+    --warn: #ffb02e;
+    --err: #ff5f5f;
+    --ok: #34d17a;
+    --mono: "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 20% -10%, #1a2a3d 0%, var(--bg) 55%) fixed;
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(15,22,32,.85);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: .3px; }
+  header .sub { color: var(--text-dim); font-size: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #586579; display: inline-block; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  .spacer { flex: 1; }
+
+  .wrap { padding: 14px 18px 28px; display: grid; gap: 14px; grid-template-columns: 340px minmax(0,1fr); align-items: start; }
+  @media (max-width: 980px) { .wrap { grid-template-columns: 1fr; } }
+  .col { display: grid; gap: 14px; }
+
+  .card { background: linear-gradient(180deg, var(--panel) 0%, #141e2b 100%); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .card > h2 { margin: 0; padding: 10px 14px; font-size: 12.5px; font-weight: 650; letter-spacing: .5px; color: var(--text-dim); text-transform: uppercase; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.02); display: flex; align-items: center; gap: 8px; }
+  .card > .body { padding: 14px; }
+
+  button {
+    font: inherit; color: var(--text); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: linear-gradient(180deg,#3d97ff,#1f74df); border-color: #3d97ff; color: #fff; font-weight: 600; }
+  button.danger { border-color: #7a3b3b; color: #ffb3b3; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.sm { padding: 5px 9px; font-size: 12px; }
+
+  input[type="number"], input[type="text"], select {
+    font: inherit; color: var(--text); background: #0e1722; border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 9px; width: 100%;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  label.f { display: block; margin-bottom: 10px; }
+  label.f > span { display: block; color: var(--text-dim); font-size: 11.5px; margin-bottom: 4px; letter-spacing: .3px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { min-width: 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .chk { display: flex; align-items: center; gap: 7px; color: var(--text-dim); margin-bottom: 8px; cursor: pointer; user-select: none; }
+  .chk input { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  .stat { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat .item { background: #0e1722; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .stat .item .k { color: var(--text-dim); font-size: 11.5px; }
+  .stat .item .v { font-family: var(--mono); font-size: 20px; font-weight: 600; margin-top: 2px; }
+  .stat .item .v small { font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 3px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--line); }
+  .pill.on { color: #b8ffd9; border-color: #2f7d55; background: #163a2a; }
+  .pill.off { color: #ffd0d0; border-color: #7a3b3b; background: #33191b; }
+  .pill.unknown { color: var(--text-dim); }
+
+  .hint { color: var(--text-dim); font-size: 11.5px; line-height: 1.6; }
+  .kbd { font-family: var(--mono); background: #0e1722; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+
+  .diag { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12px; }
+  .diag .k { color: var(--text-dim); }
+  .diag .v { font-family: var(--mono); text-align: right; }
+  .diag .v.ok { color: var(--ok); }
+  .diag .v.warn { color: var(--warn); }
+  .diag .v.err { color: var(--err); }
+
+  .log { height: 320px; overflow: auto; font-family: var(--mono); font-size: 12px; background: #0b131c; }
+  .log .l { padding: 3px 12px; border-bottom: 1px solid rgba(43,61,82,.4); white-space: pre-wrap; word-break: break-all; display: flex; gap: 10px; }
+  .log .l .t { color: #56718c; flex: 0 0 78px; }
+  .log .l .tag { flex: 0 0 46px; font-weight: 700; }
+  .log .l.rx .tag { color: var(--accent); }
+  .log .l.tx .tag { color: var(--accent-2); }
+  .log .l.err .tag { color: var(--err); }
+  .log .l.warn .tag { color: var(--warn); }
+  .log .l.sys .tag { color: #8a7fff; }
+  .log .l.err { background: rgba(255,95,95,.06); }
+  .log .l .m { color: var(--text); }
+  .log .l .m .hx { color: #ffd479; }
+  .toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .toolbar .spacer { flex: 1; }
+  .legend { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); }
+  .legend b { color: var(--text); font-weight: 600; }
+  .badge { font-size: 11px; color: var(--text-dim); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="connDot"></span>
+  <div>
+    <h1>上位机 · 高压控制板模拟器</h1>
+    <div class="sub">Air8301 智控电场发生器通讯控制板 &nbsp;·&nbsp; UART1 / RS485 &nbsp;·&nbsp; 9600 8N1</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="badge" id="portLabel">未连接</span>
+  <span class="badge" id="webSerialWarn" style="display:none;color:#ffb02e;border-color:#7a5b2b">当前浏览器未开放 Web Serial，请改用 Chrome / Edge 桌面版</span>
+</header>
+
+<div class="wrap">
+  <!-- ==================== 左列 ==================== -->
+  <div class="col">
+    <!-- 连接 -->
+    <div class="card">
+      <h2>串口连接</h2>
+      <div class="body">
+        <div class="grid2">
+          <label class="f"><span>波特率</span>
+            <select id="baud">
+              <option value="9600" selected>9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="115200">115200</option>
+            </select>
+          </label>
+          <label class="f"><span>数据位/停止位/校验</span>
+            <input type="text" value="8 / 1 / NONE" disabled />
+          </label>
+        </div>
+        <div class="row">
+          <button class="primary" id="btnConnect" style="flex:1">选择端口并连接</button>
+          <button class="danger" id="btnDisconnect" disabled>断开</button>
+        </div>
+        <p class="hint" style="margin:10px 0 0">
+          单文件、零依赖，直接双击用 <b>Chrome / Edge</b> 打开即可（<span class="kbd">file://</span> 即安全上下文）。
+        </p>
+      </div>
+    </div>
+
+    <!-- 实时状态 -->
+    <div class="card">
+      <h2>实时状态</h2>
+      <div class="body">
+        <div class="stat">
+          <div class="item" id="itPower">
+            <div class="k">设备指令 · 开关机</div>
+            <div class="v" id="vPower">—</div>
+          </div>
+          <div class="item" id="itSet">
+            <div class="k">设备指令 · 设定电压</div>
+            <div class="v" id="vSet">— <small>V</small></div>
+          </div>
+          <div class="item">
+            <div class="k">上报 · 实际电压</div>
+            <div class="v" id="vOut">0 <small>V</small></div>
+          </div>
+          <div class="item">
+            <div class="k">上报 · 工作状态</div>
+            <div class="v" id="vWork">—</div>
+          </div>
+        </div>
+        <p class="hint" style="margin:10px 0 0" id="fluctHint">关机中，实际电压为 0V</p>
+      </div>
+    </div>
+
+    <!-- 仿真参数 -->
+    <div class="card">
+      <h2>仿真参数</h2>
+      <div class="body">
+        <label class="f"><span>状态上报周期：<b id="lblInterval">1000</b> ms</span>
+          <input type="range" id="statusInterval" min="200" max="3000" step="100" value="1000" />
+        </label>
+        <label class="f"><span>实际电压波动幅度：±<b id="lblFluct">1.0</b> %（最小 ±5V）</span>
+          <input type="range" id="fluctPercent" min="0" max="5" step="0.1" value="1" />
+        </label>
+        <label class="f"><span>升/降压速率：<b id="lblRamp">2000</b> V/s</span>
+          <input type="range" id="rampRate" min="200" max="8000" step="100" value="2000" />
+        </label>
+        <label class="f"><span>指令应答延时：<b id="lblRespDelay">30</b> ms</span>
+          <input type="range" id="respDelay" min="0" max="500" step="10" value="30" />
+        </label>
+        <label class="chk"><input type="checkbox" id="autoResp" checked /> 收到控制帧后自动应答状态帧</label>
+        <label class="chk"><input type="checkbox" id="respOnChange" /> 仅在指令发生变化时才应答</label>
+        <label class="chk"><input type="checkbox" id="rampEnable" checked /> 输出电压斜坡爬升/下降</label>
+        <label class="chk"><input type="checkbox" id="fluctEnable" checked /> 实际电压在设定值附近波动</label>
+      </div>
+    </div>
+
+    <!-- 性能诊断 -->
+    <div class="card">
+      <h2>性能诊断 <span class="badge" id="diagBadge">正常</span></h2>
+      <div class="body">
+        <div class="diag">
+          <span class="k">串口读取</span><span class="v" id="dRead">0 次/秒</span>
+          <span class="k">接收流量</span><span class="v" id="dByte">0 B/s</span>
+          <span class="k">界面渲染</span><span class="v" id="dRender">0 次/秒</span>
+          <span class="k">日志渲染</span><span class="v" id="dLog">0 行/秒</span>
+          <span class="k">日志抑制（累计）</span><span class="v" id="dSupp">0</span>
+          <span class="k">主线程长任务（累计）</span><span class="v" id="dLong">0</span>
+          <span class="k">JS 堆占用</span><span class="v" id="dHeap">—</span>
+        </div>
+        <p class="hint" style="margin:10px 0 0">
+          空闲时读取应为 <b>0 次/秒</b>、渲染 ≤ 5 次/秒。若"串口读取"长期为数百上千次/秒，说明读流异常，工具会自动限速。
+        </p>
+      </div>
+    </div>
+
+    <!-- 离线自测 -->
+    <div class="card">
+      <h2>离线自测（无硬件）</h2>
+      <div class="body">
+        <label class="chk"><input type="checkbox" id="offlineDev" /> 内置设备模拟器（每秒下发一帧）</label>
+        <label class="f"><span>模拟设定电压：<b id="lblOffV">3500</b> V</span>
+          <input type="range" id="offV" min="0" max="6000" step="50" value="3500" />
+        </label>
+        <div class="row">
+          <button class="sm" id="offOn" style="flex:1">模拟开机</button>
+          <button class="sm" id="offOff" style="flex:1">模拟关机</button>
+          <button class="sm" id="offOnce">单发一帧</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 右列 ==================== -->
+  <div class="col">
+    <!-- 协议速查 -->
+    <div class="card">
+      <h2>协议速查</h2>
+      <div class="body">
+        <div class="grid2" style="gap:22px">
+          <div>
+            <div style="color:var(--text-dim);font-size:11.5px;margin-bottom:6px">下行控制帧（设备 → 上位机，6B，1000ms）</div>
+            <div class="legend">
+              <b>0</b><span>起始码 0xFE</span>
+              <b>1</b><span>工作状态（Bit1: 1=开机 0=关机）</span>
+              <b>2-3</b><span>设定电压（大端 0~6000）</span>
+              <b>4</b><span>预留 0x00</span>
+              <b>5</b><span>校验码</span>
+            </div>
+          </div>
+          <div>
+            <div style="color:var(--text-dim);font-size:11.5px;margin-bottom:6px">上行状态帧（上位机 → 设备，7B）</div>
+            <div class="legend">
+              <b>0</b><span>起始码 0xFE</span>
+              <b>1-2</b><span>实际电压（大端 0~6000）</span>
+              <b>3</b><span>工作状态（Bit0: 1=开机中 0=关机中）</span>
+              <b>4-5</b><span>预留 0x00</span>
+              <b>6</b><span>校验码</span>
+            </div>
+          </div>
+        </div>
+        <p class="hint" style="margin:12px 0 0">
+          校验码 = <span class="kbd">(0xFE + 数据区各字节) &amp; 0xFF</span>，若结果等于 <span class="kbd">0xFE</span> 则取 <span class="kbd">0xFF</span>。
+        </p>
+      </div>
+    </div>
+
+    <!-- 收发日志 -->
+    <div class="card">
+      <h2>收发日志</h2>
+      <div class="toolbar">
+        <button class="sm" id="btnPause">暂停</button>
+        <button class="sm" id="btnClear">清空</button>
+        <button class="sm" id="btnExport">导出 txt</button>
+        <label class="chk" style="margin:0"><input type="checkbox" id="autoScroll" checked /> 自动滚动</label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="hexOnly" /> 只看错误</label>
+        <div class="spacer"></div>
+        <span class="badge">RX <b id="cRx">0</b></span>
+        <span class="badge">TX <b id="cTx">0</b></span>
+        <span class="badge" style="color:#ffb3b3;border-color:#7a3b3b">错帧 <b id="cErr">0</b></span>
+      </div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =================================================================
+ * 设计要点（性能）
+ * 1) 无轮询：不跑 100ms 仿真定时器；仿真值按需计算（发送时 / 渲染时）
+ * 2) 读循环防空转：空块、无进展、读频率异常都会强制让出宏任务
+ * 3) 渲染节流：≤5 次/秒，且只在数值真正变化时才写 DOM
+ * 4) 日志：整块节流重建（≤5 次/秒）+ 每秒条数预算，不逐条建节点
+ * ================================================================= */
+
+/* ---------------- 协议常量与纯函数 ---------------- */
+const START = 0xFE;
+const CTRL_FRAME_LEN = 6;
+const STATUS_FRAME_LEN = 7;
+const V_MIN = 0, V_MAX = 6000;
+
+const hex2 = (b) => b.toString(16).toUpperCase().padStart(2, "0");
+const toHex = (u8) => Array.from(u8).map(hex2).join(" ");
+const clampV = (v) => Math.max(V_MIN, Math.min(V_MAX, Math.round(v)));
+
+/** 校验码：0xFE + 数据区累加和（&0xFF）；若等于 0xFE 则取 0xFF */
+function calcCheck(dataBytes) {
+  let sum = START;
+  for (const b of dataBytes) sum = (sum + b) & 0xFF;
+  if (sum === START) sum = 0xFF;
+  return sum;
+}
+
+/** 上行状态帧（7B）：FE + 实际电压(2B) + 工作状态(1B) + 预留(2B) + 校验 */
+function buildStatusFrame(voltage, workStatus) {
+  const v = clampV(voltage);
+  const data = [(v >> 8) & 0xFF, v & 0xFF, workStatus & 0x01, 0x00, 0x00];
+  return Uint8Array.from([START, ...data, calcCheck(data)]);
+}
+
+/** 解析下行控制帧（6B），失败返回 null */
+function parseCtrlFrame(bytes) {
+  if (bytes.length !== CTRL_FRAME_LEN || bytes[0] !== START) return null;
+  const data = bytes.slice(1, 5);
+  if (calcCheck(data) !== bytes[5]) return null;
+  return {
+    power: (bytes[1] & 0x02) ? 1 : 0,
+    setVoltage: clampV((bytes[2] << 8) | bytes[3]),
+    workByte: bytes[1],
+  };
+}
+
+/** 组装下行控制帧（仅离线自测/回环测试使用） */
+function buildCtrlFrame(power, setVoltage) {
+  const v = clampV(setVoltage);
+  const data = [power ? 0x02 : 0x00, (v >> 8) & 0xFF, v & 0xFF, 0x00];
+  return Uint8Array.from([START, ...data, calcCheck(data)]);
+}
+
+/* ---------------- 配置与状态 ---------------- */
+const cfg = {
+  statusIntervalMs: 1000,
+  respDelayMs: 30,
+  fluctPercent: 1.0,
+  rampRate: 2000,
+  autoResp: true,
+  respOnChange: false,
+  rampEnable: true,
+  fluctEnable: true,
+  autoScroll: true,
+  baudRate: 9600,
+};
+
+const state = {
+  connected: false,
+  power: 0,
+  setVoltage: 3500,
+  base: 0,
+  offset: 0,
+  outVoltage: 0,
+  workStatus: 0,
+  hasCmd: false,
+  lastPower: null,
+  lastSetVoltage: null,
+  rx: 0, tx: 0, err: 0,
+};
+
+/* ---------------- DOM ---------------- */
+const $ = (id) => document.getElementById(id);
+const D = {
+  connDot: $("connDot"), portLabel: $("portLabel"), webSerialWarn: $("webSerialWarn"),
+  baud: $("baud"), btnConnect: $("btnConnect"), btnDisconnect: $("btnDisconnect"),
+  vPower: $("vPower"), vSet: $("vSet"), vOut: $("vOut"), vWork: $("vWork"),
+  itPower: $("itPower"), itSet: $("itSet"), fluctHint: $("fluctHint"),
+  statusInterval: $("statusInterval"), lblInterval: $("lblInterval"),
+  fluctPercent: $("fluctPercent"), lblFluct: $("lblFluct"),
+  rampRate: $("rampRate"), lblRamp: $("lblRamp"),
+  respDelay: $("respDelay"), lblRespDelay: $("lblRespDelay"),
+  autoResp: $("autoResp"), respOnChange: $("respOnChange"),
+  rampEnable: $("rampEnable"), fluctEnable: $("fluctEnable"),
+  diagBadge: $("diagBadge"), dRead: $("dRead"), dByte: $("dByte"), dRender: $("dRender"),
+  dLog: $("dLog"), dSupp: $("dSupp"), dLong: $("dLong"), dHeap: $("dHeap"),
+  offlineDev: $("offlineDev"), offV: $("offV"), lblOffV: $("lblOffV"),
+  offOn: $("offOn"), offOff: $("offOff"), offOnce: $("offOnce"),
+  log: $("log"), btnPause: $("btnPause"), btnClear: $("btnClear"), btnExport: $("btnExport"),
+  autoScroll: $("autoScroll"), hexOnly: $("hexOnly"), cRx: $("cRx"), cTx: $("cTx"), cErr: $("cErr"),
+};
+
+/* =================================================================
+ * 日志：数组存储 + 定时整块重建（不逐条建节点）
+ * ================================================================= */
+const LOG_MAX = 300;             // 内存与界面中保留的最大行数
+const LOG_BUDGET_PER_SEC = 30;   // 每秒最多记录的日志条数（超出直接丢弃，只计数）
+const logLines = [];
+let logDirty = false, logSuppressed = 0, logSecond = 0, logCountSec = 0;
+let paused = false;
+
+function ts() {
+  const d = new Date();
+  const p = (n, w = 2) => String(n).padStart(w, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
+}
+
+function log(tag, msg, cls) {
+  // 预算检查放在最前，超出预算连字符串都不建
+  const s = Math.floor(Date.now() / 1000);
+  if (s !== logSecond) { logSecond = s; logCountSec = 0; }
+  logCountSec++;
+  if (logCountSec > LOG_BUDGET_PER_SEC) { logSuppressed++; return; }
+
+  const clsMap = { RX: "rx", TX: "tx", ERR: "err", WARN: "warn", SYS: "sys" };
+  if (logLines.length >= LOG_MAX) logLines.shift();
+  logLines.push({ t: ts(), tag, msg, cls: cls || clsMap[tag] || "sys" });
+  logDirty = true;
+}
+
+/* =================================================================
+ * 渲染：节流 ≤5 次/秒，且只在数值变化时写 DOM
+ * ================================================================= */
+const RENDER_THROTTLE_MS = 200;
+let renderScheduled = false;
+let lastLogRender = 0;
+const diag = { reads: 0, bytes: 0, renders: 0, logs: 0, longtasks: 0 };
+
+function scheduleRender() {
+  if (renderScheduled) return;
+  renderScheduled = true;
+  setTimeout(() => { renderScheduled = false; renderAll(); }, RENDER_THROTTLE_MS);
+}
+
+function renderAll() {
+  diag.renders++;
+  advanceSim();     // 先推进仿真，保证显示与发送值一致
+  renderStatus();
+  renderLog();
+}
+
+/** 只在内容变化时写 DOM（用 _h 缓存上次写入的内容） */
+function setHtml(el, html) {
+  if (el._h === html) return;
+  el._h = html;
+  el.innerHTML = html;
+}
+function setText(el, text) {
+  if (el._t === text) return;
+  el._t = text;
+  el.textContent = text;
+}
+
+function renderStatus() {
+  setHtml(D.vPower, state.hasCmd
+    ? (state.power ? '<span class="pill on">开机</span>' : '<span class="pill off">关机</span>')
+    : '<span class="pill unknown">未收到</span>');
+  setHtml(D.vSet, (state.hasCmd ? state.setVoltage : "—") + ' <small>V</small>');
+  setHtml(D.vOut, state.outVoltage + ' <small>V</small>');
+  setHtml(D.vWork, state.workStatus
+    ? '<span class="pill on">开机中</span>'
+    : '<span class="pill off">关机中</span>');
+
+  const target = state.power ? state.setVoltage : 0;
+  const amp = Math.max(5, target * cfg.fluctPercent / 100);
+  let hint;
+  if (state.power && cfg.fluctEnable) {
+    hint = `实际电压在 ${clampV(target - amp)} ~ ${clampV(target + amp)} V 之间波动（设定 ${target}V，±${Math.round(amp)}V）`;
+  } else if (state.power) {
+    hint = `实际电压稳定跟踪设定值 ${target}V（波动已关闭）`;
+  } else {
+    hint = "关机中，实际电压为 0V";
+  }
+  setText(D.fluctHint, hint);
+}
+
+function renderLog() {
+  if (!logDirty || paused) return;
+  logDirty = false;
+  const rows = D.hexOnly.checked ? logLines.filter((l) => l.cls === "err") : logLines;
+  let html = "";
+  for (const l of rows) {
+    html += `<div class="l ${l.cls}"><span class="t">${l.t}</span><span class="tag">${l.tag}</span><span class="m">${l.msg}</span></div>`;
+  }
+  D.log.innerHTML = html;
+  if (cfg.autoScroll) D.log.scrollTop = D.log.scrollHeight;
+  diag.logs += rows.length;
+}
+
+/* =================================================================
+ * 仿真：斜坡 + 波动（按需推进，不跑定时器）
+ * ================================================================= */
+let simLast = 0;
+
+function advanceSim() {
+  const now = performance.now();
+  if (!simLast) { simLast = now; return; }
+  let dt = (now - simLast) / 1000;
+  simLast = now;
+  if (dt <= 0) return;
+  if (dt > 1) dt = 1;   // 页面切后台返回时不跳变
+
+  const target = state.power ? state.setVoltage : 0;
+
+  if (cfg.rampEnable) {
+    const step = cfg.rampRate * dt;
+    if (state.base < target) state.base = Math.min(target, state.base + step);
+    else if (state.base > target) state.base = Math.max(target, state.base - step);
+  } else {
+    state.base = target;
+  }
+
+  const settled = Math.abs(state.base - target) < 1.5;
+  const amp = Math.max(5, target * cfg.fluctPercent / 100);
+  if (settled && state.power && cfg.fluctEnable && amp > 0) {
+    const stepMax = Math.max(1, amp * 0.35 * Math.min(1, dt * 3));
+    state.offset += (Math.random() * 2 - 1) * stepMax;
+    state.offset = Math.max(-amp, Math.min(amp, state.offset));
+  } else {
+    state.offset *= 0.5;
+    if (Math.abs(state.offset) < 0.5) state.offset = 0;
+  }
+
+  state.workStatus = state.power ? 1 : 0;
+  state.outVoltage = clampV(state.base + state.offset);
+}
+
+/* =================================================================
+ * 串口（Web Serial）
+ * ================================================================= */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const errMsg = (e) => (e && e.message ? e.message : String(e));
+
+const RX_BUF_MAX = 4096;          // 接收缓冲上限
+const RX_STEPS_PER_CALL = 256;    // 单次解析步数上限
+const READ_YIELD_MS = 5;          // 空块/无进展时的强制让出时间
+const READ_MAX_PER_SEC = 500;     // 读取次数/秒上限，超过即强制限速
+
+let port = null, reader = null, writer = null;
+let readLoopRunning = false, writeBusy = false;
+let rxBuf = [];
+
+async function connect() {
+  if (!("serial" in navigator)) {
+    log("ERR", "当前浏览器不支持 Web Serial API（请使用 Chrome / Edge 桌面版）");
+    scheduleRender();
+    return;
+  }
+  if (state.connected) return;
+  try {
+    cfg.baudRate = Number(D.baud.value);
+    port = await navigator.serial.requestPort();
+    await port.open({
+      baudRate: cfg.baudRate, dataBits: 8, stopBits: 1, parity: "none",
+      flowControl: "none", bufferSize: 4096,
+    });
+    writer = port.writable.getWriter();
+    state.connected = true;
+    updateConnUI();
+    log("SYS", `串口已打开：${cfg.baudRate} 8N1`);
+    scheduleRender();
+    setTimeout(sendStatus, 100);
+    readLoop();
+  } catch (e) {
+    log("ERR", "打开串口失败：" + errMsg(e));
+    port = null;
+    scheduleRender();
+  }
+}
+
+async function disconnect() {
+  readLoopRunning = false;
+  const oldReader = reader; reader = null;
+  const oldWriter = writer; writer = null;
+  try { if (oldReader) await oldReader.cancel(); } catch (_) {}
+  try { if (oldWriter) oldWriter.releaseLock(); } catch (_) {}
+  try { if (port) await port.close(); } catch (_) {}
+  port = null;
+  writeBusy = false;
+  state.connected = false;
+  updateConnUI();
+  log("SYS", "串口已断开");
+  scheduleRender();
+}
+
+/**
+ * 读循环（关键：任何情况下都不会空转）
+ * - 读到 done：直接退出并清理
+ * - 连续异常：最多记录 3 次、5 次后停止接收
+ * - 空块 / 读取频率过高：强制 await sleep 让出宏任务
+ */
+async function readLoop() {
+  readLoopRunning = true;
+  let errStreak = 0, emptyStreak = 0, exitReason = "";
+  let readCount = 0, windowStart = Date.now();
+
+  while (readLoopRunning && state.connected && port && port.readable) {
+    let r = null, streamEnded = false;
+    try {
+      r = port.readable.getReader();
+      reader = r;
+      while (readLoopRunning) {
+        const { value, done } = await r.read();
+        if (done) { streamEnded = true; break; }
+        errStreak = 0;
+
+        // —— 硬限速：无论 read() 因何立即返回，都不可能把 CPU 打满 ——
+        if (++readCount > READ_MAX_PER_SEC) {
+          const nowMs = Date.now();
+          if (nowMs - windowStart < 1000) {
+            await sleep(50);              // 强制让出到宏任务
+            readCount = 0; windowStart = Date.now();
+            continue;
+          }
+          readCount = 0; windowStart = nowMs;
+        }
+
+        diag.reads++;
+        const n = value ? value.length : 0;
+        if (n === 0) {
+          // 空块属异常情况：立即让出，杜绝微任务级空转
+          emptyStreak++;
+          await sleep(emptyStreak < 5 ? READ_YIELD_MS : 20);
+          continue;
+        }
+        emptyStreak = 0;
+        diag.bytes += n;
+        onBytes(value);
+      }
+    } catch (e) {
+      if (!readLoopRunning) break;
+      errStreak++;
+      if (errStreak <= 3) log("WARN", `读取异常(${errStreak})：` + errMsg(e));
+      if (errStreak >= 5) { exitReason = "串口读取连续失败"; break; }
+    } finally {
+      try { if (r) r.releaseLock(); } catch (_) {}
+      if (reader === r) reader = null;
+    }
+    if (streamEnded) { exitReason = "串口读流已结束（设备可能已掉线）"; break; }
+    if (errStreak >= 5) break;
+    await sleep(50);
+  }
+
+  if (readLoopRunning) {
+    if (exitReason) { log("WARN", exitReason + "，已停止接收"); scheduleRender(); }
+    await disconnect();
+  }
+}
+
+/** 接收回调：入缓冲并解析（带容量上限） */
+function onBytes(u8) {
+  if (u8.length >= RX_BUF_MAX) {
+    rxBuf = Array.from(u8.slice(u8.length - RX_BUF_MAX));
+  } else {
+    for (let i = 0; i < u8.length; i++) rxBuf.push(u8[i]);
+    if (rxBuf.length > RX_BUF_MAX) rxBuf.splice(0, rxBuf.length - RX_BUF_MAX);
+  }
+  processRx();
+}
+
+/** 从缓冲切出完整控制帧（粘包/半包/起始码重同步） */
+function processRx() {
+  let steps = 0;
+  while (rxBuf.length >= CTRL_FRAME_LEN) {
+    if (++steps > RX_STEPS_PER_CALL) {
+      rxBuf.splice(0, rxBuf.length - (CTRL_FRAME_LEN - 1));
+      break;
+    }
+    const idx = rxBuf.indexOf(START);
+    if (idx < 0) { rxBuf.length = 0; return; }
+    if (idx > 0) rxBuf.splice(0, idx);
+    if (rxBuf.length < CTRL_FRAME_LEN) return;
+
+    const frame = rxBuf.slice(0, CTRL_FRAME_LEN);
+    const parsed = parseCtrlFrame(frame);
+    if (parsed) {
+      rxBuf.splice(0, CTRL_FRAME_LEN);
+      state.rx++;
+      D.cRx.textContent = state.rx;
+      log("RX", `<span class="hx">${toHex(frame)}</span>　→ 开关机=${parsed.power}，设定电压=${parsed.setVoltage}V`);
+      applyControl(parsed, true);
+    } else {
+      state.err++;
+      D.cErr.textContent = state.err;
+      if (state.err <= 20 || state.err % 200 === 0) {
+        log("ERR", `<span class="hx">${toHex(frame)}</span> 校验失败，丢弃并重同步（累计 ${state.err} 次）`);
+      }
+      rxBuf.splice(0, 1);
+    }
+  }
+}
+
+/** 写入状态帧；上一帧未写完则丢弃本帧，且 1 秒后强制解锁，避免卡死 */
+function writeRaw(u8) {
+  if (writeBusy) return;
+  writeBusy = true;
+  const guard = setTimeout(() => { writeBusy = false; }, 1000);
+  (async () => {
+    try {
+      if (!writer) throw new Error("串口未连接");
+      await writer.write(u8);
+    } catch (e) {
+      log("WARN", "发送失败：" + errMsg(e));
+    } finally {
+      clearTimeout(guard);
+      writeBusy = false;
+    }
+  })();
+}
+
+/* =================================================================
+ * 业务
+ * ================================================================= */
+function applyControl(parsed, fromSerial) {
+  const changed =
+    state.lastPower !== parsed.power || state.lastSetVoltage !== parsed.setVoltage;
+
+  state.power = parsed.power;
+  state.setVoltage = parsed.setVoltage;
+  state.workStatus = parsed.power ? 1 : 0;
+  state.hasCmd = true;
+  state.lastPower = parsed.power;
+  state.lastSetVoltage = parsed.setVoltage;
+
+  if (fromSerial) log("SYS", `应用设备指令：${parsed.power ? "开机" : "关机"} / ${parsed.setVoltage}V${changed ? "（变化）" : ""}`);
+  scheduleRender();
+
+  if (!cfg.autoResp) return;
+  if (cfg.respOnChange && !changed) return;
+  setTimeout(sendStatus, cfg.respDelayMs);
+}
+
+function sendStatus() {
+  advanceSim();
+  const frame = buildStatusFrame(state.outVoltage, state.workStatus);
+  if (state.connected) {
+    writeRaw(frame);
+    state.tx++;
+    D.cTx.textContent = state.tx;
+    log("TX", `<span class="hx">${toHex(frame)}</span>　→ 实际电压=${state.outVoltage}V，工作状态=${state.workStatus}`);
+  } else {
+    log("TX", `<span class="hx">${toHex(frame)}</span>　（未连接，仅预览）`);
+  }
+  scheduleRender();
+  return frame;
+}
+
+function updateConnUI() {
+  D.connDot.classList.toggle("on", state.connected);
+  D.portLabel.textContent = state.connected ? `已连接 · ${cfg.baudRate} 8N1` : "未连接";
+  D.btnConnect.disabled = state.connected;
+  D.btnDisconnect.disabled = !state.connected;
+  D.baud.disabled = state.connected;
+}
+
+/* =================================================================
+ * 离线自测
+ * ================================================================= */
+let offlineTimer = null, offlinePower = 0;
+
+function offlineSendOnce() {
+  const frame = buildCtrlFrame(offlinePower, Number(D.offV.value));
+  state.rx++;
+  D.cRx.textContent = state.rx;
+  log("RX", `<span class="hx">${toHex(frame)}</span>　（离线模拟设备下发）`);
+  applyControl(parseCtrlFrame(Array.from(frame)), false);
+  scheduleRender();
+}
+
+function setOfflineRunning(run) {
+  if (offlineTimer) { clearInterval(offlineTimer); offlineTimer = null; }
+  if (run) {
+    log("SYS", "离线自测已开启（每秒模拟设备下发一帧）");
+    offlineSendOnce();
+    offlineTimer = setInterval(offlineSendOnce, 1000);
+  } else {
+    log("SYS", "离线自测已关闭");
+  }
+  scheduleRender();
+}
+
+/* =================================================================
+ * 性能诊断（每秒刷新一次）
+ * ================================================================= */
+let lastDiag = { reads: 0, bytes: 0, renders: 0, logs: 0 };
+
+function updateDiag() {
+  const reads = diag.reads - lastDiag.reads;
+  const bytes = diag.bytes - lastDiag.bytes;
+  const renders = diag.renders - lastDiag.renders;
+  const logs = diag.logs - lastDiag.logs;
+  lastDiag = { reads: diag.reads, bytes: diag.bytes, renders: diag.renders, logs: diag.logs };
+
+  D.dRead.textContent = reads + " 次/秒";
+  D.dByte.textContent = bytes < 1024 ? bytes + " B/s" : (bytes / 1024).toFixed(1) + " KB/s";
+  D.dRender.textContent = renders + " 次/秒";
+  D.dLog.textContent = logs + " 行/秒";
+  D.dSupp.textContent = String(logSuppressed);
+  D.dLong.textContent = String(diag.longtasks);
+
+  if (performance.memory) {
+    D.dHeap.textContent = (performance.memory.usedJSHeapSize / 1048576).toFixed(1) + " MB";
+  }
+
+  // 健康度判定
+  let level = "ok", text = "正常";
+  if (state.connected && reads > 200) { level = "warn"; text = "读取偏多"; }
+  if (reads > READ_MAX_PER_SEC) { level = "err"; text = "读取异常"; }
+  if (renders > 12) { level = "warn"; text = "渲染偏多"; }
+  const cls = level === "ok" ? "ok" : level === "warn" ? "warn" : "err";
+  D.dRead.className = "v " + (reads > 200 ? cls : "ok");
+  D.dRender.className = "v " + (renders > 12 ? cls : "ok");
+  D.dLog.className = "v " + (logs > 60 ? cls : "ok");
+  D.diagBadge.textContent = text;
+  D.diagBadge.style.color = level === "ok" ? "var(--ok)" : level === "warn" ? "var(--warn)" : "var(--err)";
+}
+
+if (typeof PerformanceObserver === "function") {
+  try {
+    new PerformanceObserver((list) => { diag.longtasks += list.getEntries().length; })
+      .observe({ entryTypes: ["longtask"] });
+  } catch (_) {}
+}
+
+/* =================================================================
+ * 事件绑定
+ * ================================================================= */
+D.btnConnect.addEventListener("click", connect);
+D.btnDisconnect.addEventListener("click", disconnect);
+
+D.statusInterval.addEventListener("input", (e) => {
+  cfg.statusIntervalMs = Number(e.target.value);
+  D.lblInterval.textContent = cfg.statusIntervalMs;
+  restartStatusTimer();
+});
+D.fluctPercent.addEventListener("input", (e) => {
+  cfg.fluctPercent = Number(e.target.value);
+  D.lblFluct.textContent = cfg.fluctPercent.toFixed(1);
+  scheduleRender();
+});
+D.rampRate.addEventListener("input", (e) => {
+  cfg.rampRate = Number(e.target.value);
+  D.lblRamp.textContent = cfg.rampRate;
+});
+D.respDelay.addEventListener("input", (e) => {
+  cfg.respDelayMs = Number(e.target.value);
+  D.lblRespDelay.textContent = cfg.respDelayMs;
+});
+D.autoResp.addEventListener("change", (e) => { cfg.autoResp = e.target.checked; });
+D.respOnChange.addEventListener("change", (e) => { cfg.respOnChange = e.target.checked; });
+D.rampEnable.addEventListener("change", (e) => {
+  cfg.rampEnable = e.target.checked;
+  if (!cfg.rampEnable) state.base = state.power ? state.setVoltage : 0;
+});
+D.fluctEnable.addEventListener("change", (e) => { cfg.fluctEnable = e.target.checked; scheduleRender(); });
+
+D.offlineDev.addEventListener("change", (e) => setOfflineRunning(e.target.checked));
+D.offV.addEventListener("input", (e) => {
+  D.lblOffV.textContent = e.target.value;
+  if (offlineTimer) offlineSendOnce();
+});
+D.offOn.addEventListener("click", () => { offlinePower = 1; D.offlineDev.checked = true; setOfflineRunning(true); });
+D.offOff.addEventListener("click", () => { offlinePower = 0; D.offlineDev.checked = true; setOfflineRunning(true); });
+D.offOnce.addEventListener("click", offlineSendOnce);
+
+D.btnPause.addEventListener("click", () => {
+  paused = !paused;
+  D.btnPause.textContent = paused ? "继续" : "暂停";
+  if (!paused) { logDirty = true; scheduleRender(); }
+});
+D.btnClear.addEventListener("click", () => {
+  logLines.length = 0; logDirty = false; D.log.innerHTML = "";
+});
+D.btnExport.addEventListener("click", () => {
+  const text = logLines.map((l) => `${l.t} ${l.tag} ${l.msg.replace(/<[^>]+>/g, "")}`).join("\r\n");
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `hv_sim_log_${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+D.autoScroll.addEventListener("change", (e) => { cfg.autoScroll = e.target.checked; });
+D.hexOnly.addEventListener("change", () => { logDirty = true; scheduleRender(); });
+
+if ("serial" in navigator) {
+  navigator.serial.addEventListener("disconnect", () => {
+    log("WARN", "串口设备已拔出");
+    disconnect();
+  });
+} else {
+  D.webSerialWarn.style.display = "";
+}
+
+/* =================================================================
+ * 定时器：只有 3 个，且都是低频（1 秒级）；无任何高频轮询
+ * ================================================================= */
+let statusTimer = null;
+function restartStatusTimer() {
+  if (statusTimer) clearInterval(statusTimer);
+  statusTimer = setInterval(sendStatus, cfg.statusIntervalMs);
+}
+
+restartStatusTimer();
+setInterval(updateDiag, 1000);
+
+renderAll();
+updateConnUI();
+log("SYS", "上位机已就绪。点击「选择端口并连接」打开 485 转 USB 串口。");
+log("SYS", "协议：控制帧 6B（FE…），状态帧 7B（FE…），9600 8N1。");
+scheduleRender();
+</script>
+</body>
+</html>

@@ -209,6 +209,14 @@ local function dp(v)
 end
 M.dp = dp
 
+--[[整数夹取（局部工具）：组件里到处是「不小于 A、不大于 B」的尺寸推导，
+散着写 if 语句容易漏掉一边，统一走这里。]]
+local function clamp_i(v, lo, hi)
+    if v < lo then return lo end
+    if v > hi then return hi end
+    return v
+end
+
 --[[参数归一化：支持两种调用写法
     M.xxx(parent, { ... })   和   M.xxx({ ... })      -- 后者 parent 落在表里
 做成双写是因为 airui.textarea / airui.switch 这些原生组件就是单表写法，
@@ -627,6 +635,292 @@ function M.ghost_button(parent, o)
         },
         on_click = o.on_click,
     })
+end
+
+-- ==================== 二.5、视频控制栏（桌面播放器 / 全屏播放页共用） ====================
+
+--[[两色按不透明度混合（复刻 LVGL 的 alpha blend：dst' = src*opa + dst*(1-opa)）
+
+按钮带 bg_opa 时，屏幕上看到的其实是「底色叠在控制栏底上」的结果。
+只按纯底色挑文字色，会在半透明按钮上判错方向。]]
+local function alpha_blend(src, dst, opa)
+    local a = (opa or 255) / 255
+    local function ch(s, d) return math.floor(s * a + d * (1 - a) + 0.5) end
+    return ch(math.floor(src / 65536) % 256, math.floor(dst / 65536) % 256) * 65536
+         + ch(math.floor(src / 256) % 256,  math.floor(dst / 256) % 256) * 256
+         + ch(src % 256,                    dst % 256)
+end
+
+local INK_ON_LIGHT = 0x0B0F14   -- 亮底上的文字：近黑（纯黑压在彩色底上会发脏）
+local INK_ON_DARK  = 0xF4F7FA   -- 暗底上的文字：近白
+local INK_PIVOT    = 0.179      -- 配黑字 / 配白字「等对比度」的相对亮度分界
+local INK_MIN      = 4.5        -- 目标对比度（WCAG AA 正文档；按钮标签 18~24px，按正文要求）
+local INK_STEP     = 0.86       -- 自纠正每步的通道缩放（14%）
+local INK_MAX_STEP = 8
+
+--- sRGB 通道线性化（WCAG 定义）
+local function srgb_lin(v)
+    v = v / 255
+    if v <= 0.03928 then return v / 12.92 end
+    return ((v + 0.055) / 1.055) ^ 2.4
+end
+
+--[[WCAG 相对亮度（0~1）]]
+local function rel_lum(c)
+    return 0.2126 * srgb_lin(math.floor(c / 65536) % 256)
+         + 0.7152 * srgb_lin(math.floor(c / 256) % 256)
+         + 0.0722 * srgb_lin(c % 256)
+end
+
+--[[WCAG 对比度（1~21）
+
+为什么不按「亮度阈值」判亮暗：那种阈值是按感知亮度拍的，在中间调上会选错方向。
+实测晨曦浅色的青底 0x6099B5 被阈值判成「暗底配白字」，对比度只有 2.9；
+按对比度取反方向（配黑字）是 6.7。这里直接算比值，不做阈值猜。]]
+local function contrast_ratio(a, b)
+    local la, lb = rel_lum(a), rel_lum(b)
+    if la < lb then la, lb = lb, la end
+    return (la + 0.05) / (lb + 0.05)
+end
+
+--- 取对比度更高的那一侧墨色（分界点就是两侧等对比度之处）
+local function pick_ink(bg)
+    if rel_lum(bg) > INK_PIVOT then return INK_ON_LIGHT end
+    return INK_ON_DARK
+end
+
+--[[把底色推到「文字一定读得清」的明暗档
+
+为什么需要这一步：主题的语义色是按「在背景上够显眼」选的，直接拿来当按钮实底时，
+明度可能正好落在中间带（相对亮度 0.17~0.20）—— 这个带里配黑字 4.4:1、配白字 4.4:1，
+**没有任何一种文字色能达标**。这不是取色规则的问题，换规则也救不回来。
+所以把底色朝墨色的反方向逐级推（暗底再压暗配白字，亮底再提亮配黑字）：
+每级只动 14% 的通道比例，色相与观感基本不变（实测 6 套主题 x 6 个按钮态共 36 组，
+只有 2 组各推了一步）。副作用是新增主题时不必再手工验算按钮对比度。
+
+@return fill, ink, steps（steps = 0 表示底色原样可用）]]
+local function readable_fill(fill)
+    local ink = pick_ink(fill)
+    if contrast_ratio(ink, fill) >= INK_MIN then return fill, ink, 0 end
+
+    local darken = (rel_lum(fill) <= INK_PIVOT)   -- 暗底配白字 -> 继续压暗
+    local steps = 0
+    for i = 1, INK_MAX_STEP do
+        local r = math.floor(fill / 65536) % 256
+        local g = math.floor(fill / 256) % 256
+        local b = fill % 256
+        if darken then
+            r, g, b = r * INK_STEP, g * INK_STEP, b * INK_STEP
+        else
+            r, g, b = 255 - (255 - r) * INK_STEP,
+                      255 - (255 - g) * INK_STEP,
+                      255 - (255 - b) * INK_STEP
+        end
+        fill = math.floor(r) * 65536 + math.floor(g) * 256 + math.floor(b)
+        steps = i
+        ink = pick_ink(fill)
+        if contrast_ratio(ink, fill) >= INK_MIN then break end
+    end
+    return fill, ink, steps
+end
+
+--[[按「想要的底色」算出「实际可用的底色 + 配套文字色」
+
+@param fill  想用的底色（主题令牌，如 M.C.green）
+@param under 底色之下的实际衬底（按钮带透明度时用，如控制栏底 M.C.panel）
+@param opa   底色不透明度（0-255）；给了 under 且 opa < 255 时会折算成等价实色
+@return fill, ink, steps  前两个都是 0xRRGGBB，且 fill 一律是**实色**（调用方按
+        bg_opa = 255 用）；steps 是自纠正用掉的级数，0 表示底色原样可用（调试用）
+@note 想把 fill 原样传给控件就别用本函数 —— 拿到的 fill 可能已经推过一档。
+
+为什么把半透明折算成实色而不是原样透传：文字色的对比度必须按「屏幕上真实的底色」算，
+折算之后给控件的是实色，对比度就不会再随下层内容漂移。]]
+function M.button_colors(fill, under, opa)
+    if type(fill) ~= "number" then fill = M.C.track end
+    if type(under) == "number" and opa and opa < 255 and opa >= 0 then
+        fill = alpha_blend(fill, under, opa)
+    end
+    return readable_fill(fill)
+end
+
+--[[只要文字色：按底色的实际对比度取黑/白墨色（不做自纠正）
+
+注意与 M.button_colors 的分工：这里不返回调整后的底色，所以底色落在「中间带」时
+拿到的文字色本身仍可能差一点 —— 需要「保证读得清」的场景一律用 M.button_colors，
+它会连底色一起调整。本函数留给「底色由别处定死、只想要个配套文字色」的场合。]]
+function M.ink(bg)
+    if type(bg) ~= "number" then return M.C.t1 end
+    return pick_ink(bg)
+end
+
+--[[视频控制栏 —— 桌面播放器（idle_win）与全屏播放页（video_win）共用的**唯一**实现
+
+== 为什么要收口 ==
+这两个页面原先各写一份控制栏，于是「按钮顺序 / 尺寸上限 / 配色策略」三处细节天然漂移：
+全屏页把「返回」摆在最左、桌面页把「全屏」摆在最右 —— 同一个控制栏，方向感相反；
+按钮间距一个是 clamp(6d, 4, 10)、一个是 clamp(6d, 4, 8)；文件名让位宽度一个减一个 gap、
+一个减两个。两边都改调本函数之后，「排列与样式一致」是结构性成立的，不再靠人工核对。
+
+== 排列（自左向右，与设计稿一致）==
+    播放 | 循环 | 选择 | 全屏/窗口
+最右一格固定是「形态切换」：桌面上是「全屏」，全屏页里是「窗口」（点它退回窗口态）。
+
+== 颜色走两个轴 ==
+  · 随主题：底色一律取主题令牌（green / amber / cyan / violet / track）—— 换肤即换色
+  · 随状态：播放键 —— 播放中 = 绿，暂停 = 中性轨道色（一眼看出有没有在放）
+            循环键 —— 循环中 = 琥珀，单次 = 中性轨道色
+    状态一变就同时刷新底色与文字色（bar:sync），而不是只换文案。
+    这正是「视频控制按钮的颜色要随状态变化」的落点。
+  文字色既不写死、也不取 t1：由 M.button_colors 按「底色折算成实色后的真实对比度」配，
+  底色落在「配黑字配白字都不够读」的中间带时还会自动推一档 ——
+  所以科技蓝（亮绿配黑字）与晨曦浅色（深绿配白字）这两类方向相反的主题都读得出字。
+
+== 透明度策略（沿用原桌面播放器的口径）==
+主按钮（播放）实底 255；在用的状态键 180；不在用的状态键 118（压到中性、退到背景里）。
+
+@table o
+  parent        控制栏容器
+  x, y, w, h    控制栏几何
+  radius        控制栏圆角（逻辑值；桌面播放器贴着视频卡片底部，传 0）
+  playing       初始播放状态
+  loop          初始循环状态
+  file_text     左侧文件名
+  mode_text     最右按钮文案（"全屏" / "窗口"）
+  on_play / on_loop / on_pick / on_mode   四个按钮的点击回调
+@return bar
+  bar.ctrl / bar.file_label / bar.play / bar.loop / bar.pick / bar.mode
+  bar:sync(playing, loop)   按状态刷新「播放」「循环」两个按钮（文案 + 颜色），
+                            参数传 nil 表示该状态不变
+  bar:set_file(text)        刷新左侧文件名
+  bar:state()               取回当前 (playing, loop)
+]]
+function M.video_bar(parent, o)
+    o = o or {}
+    local d = _G.density_scale or 1.0
+    local W = o.w or 400
+    local ctrl_h = o.h or 48
+
+    local bar = M.card(parent, {
+        x = o.x or 0, y = o.y or 0, w = W, h = ctrl_h,
+        -- 控制栏与画面不重叠，用接近实色的面板底，按钮才看得清（横竖屏同款）
+        color = M.C.panel, opa = 235,
+        radius = (o.radius ~= nil) and o.radius or M.R.md, border_w = 0,
+    })
+
+    local btn_size = clamp_i(math.floor(ctrl_h * 1.0), 36, 48)   -- 按钮加宽以容纳中文标签
+    local btn_gap  = clamp_i(math.floor(6 * d), 4, 8)
+    local btn_y    = math.floor((ctrl_h - btn_size) / 2)
+    local pad_in   = math.floor(10 * d)
+
+    --[[配色三级：主按钮（播放）最实，在用的状态键次之，不在用的状态键最淡。
+    这三个不透明度只表达「强调程度」，会被 M.button_colors 折算成等价实色 + 配套文字色。]]
+    local UNDER = M.C.panel            -- 按钮底色的实际衬底（控制栏 opa 235，近似实底）
+    local OPA_PRIMARY, OPA_ON, OPA_OFF = 255, 180, 118
+
+    --[[按钮文字比「按钮尺寸的一半」再收一号（24 -> 22，正好落在 M.FS 的 h2 档）
+
+    起因：btn_size 被夹在 48，两个汉字在 24px 下正好排满 48px，左右顶到按钮边、
+    没有呼吸感。收 2px 后每侧留出余量，四个按钮（暂停/播放、循环、选择、全屏/窗口）
+    一起变，不至于只有一个按钮字小。]]
+    local btn_font = math.floor(btn_size * 0.5) - 2
+
+    --[[按钮工厂：airui.button 而不是 theme.card —— 需要真实按压反馈。
+
+    底色交给 M.button_colors 处理，拿回来的一定是「实色 + 读得清的文字色」：
+    文字色按底色的实际对比度取 —— 浅色档的绿是深绿配白字、深色档的绿是亮绿配黑字，
+    方向相反但都读得出；底色若正好落在「配黑字配白字都不够」的中间带会被推一档。
+
+    这里不再写 text_color = theme.C.t1：那句话在一半主题下是读不出字的
+    —— 实测科技蓝下只有 1.45:1、晨曦浅色下 2.96:1（t1 的明暗方向刚好和语义色相反）。]]
+    local function make_btn(text, fill, opa, x, on_click)
+        local bg, ink = M.button_colors(fill, UNDER, opa)
+        return airui.button({
+            parent = bar, x = x, y = btn_y, w = btn_size, h = btn_size,
+            text = text, font_size = btn_font,
+            style = {
+                bg_color = bg, bg_opa = 255, text_color = ink,
+                border_width = 0, radius = dp(M.R.xs),
+                pressed_bg_color = bg, pressed_bg_opa = 255, pressed_text_color = ink,
+            },
+            on_click = on_click,
+        })
+    end
+
+    --[[就地改一个按钮的底色 + 文字色
+
+    状态切换只改文案不改色，就等于「按钮颜色不随状态变化」——
+    所以 set_text 与 set_style 必须成对出现，收进这一个函数里防漏。]]
+    local function repaint(btn, fill, opa)
+        local bg, ink = M.button_colors(fill, UNDER, opa)
+        btn:set_style({
+            bg_color = bg, bg_opa = 255, text_color = ink,
+            pressed_bg_color = bg, pressed_bg_opa = 255, pressed_text_color = ink,
+        })
+    end
+
+    -- 自右向左摆位：最右一格固定是「形态切换」，与设计稿的排布一致
+    local step = btn_size + btn_gap
+    local x_mode = W - pad_in - btn_size
+    local x_pick = x_mode - step
+    local x_loop = x_pick - step
+    local x_play = x_loop - step
+
+    local mode_btn = make_btn(o.mode_text or "全屏", M.C.violet, OPA_ON, x_mode, o.on_mode)
+    local pick_btn = make_btn("选择",             M.C.cyan,   OPA_ON, x_pick, o.on_pick)
+    local loop_btn = make_btn("循环",             M.C.amber,  OPA_ON, x_loop, o.on_loop)
+    local play_btn = make_btn("暂停",             M.C.green, OPA_PRIMARY, x_play, o.on_play)
+
+    -- 文件名标签（左侧，宽度让开右侧 4 个按钮；至少留 1 个按钮间距，别顶到按钮上）
+    local btns_w = btn_size * 4 + btn_gap * 3
+    local file_w = W - pad_in * 2 - btns_w - btn_gap
+    if file_w < 24 then file_w = 24 end
+    local file_label = M.label(bar, {
+        x = pad_in, y = btn_y, w = file_w, h = btn_size,
+        text = o.file_text or "", px_size = math.floor(11 * d),
+        color = M.C.t3, align = airui.TEXT_ALIGN_LEFT,
+    })
+
+    local play_state = o.playing and true or false
+    local loop_state = o.loop and true or false
+
+    local function apply_play()
+        play_btn:set_text(play_state and "暂停" or "播放")
+        if play_state then
+            repaint(play_btn, M.C.green, OPA_PRIMARY)
+        else
+            repaint(play_btn, M.C.track, OPA_OFF)
+        end
+    end
+
+    local function apply_loop()
+        loop_btn:set_text(loop_state and "循环" or "单次")
+        if loop_state then
+            repaint(loop_btn, M.C.amber, OPA_ON)
+        else
+            repaint(loop_btn, M.C.track, OPA_OFF)
+        end
+    end
+
+    apply_play()
+    apply_loop()
+
+    local handle = {
+        ctrl = bar, file_label = file_label,
+        play = play_btn, loop = loop_btn, pick = pick_btn, mode = mode_btn,
+    }
+    function handle:sync(playing, loop)
+        if playing ~= nil then play_state = playing and true or false end
+        if loop ~= nil then loop_state = loop and true or false end
+        apply_play()
+        apply_loop()
+    end
+    function handle:set_file(text)
+        file_label:set_text(text or "")
+    end
+    function handle:state()
+        return play_state, loop_state
+    end
+    return handle
 end
 
 -- ==================== 三、业务组件 ====================

@@ -1,5 +1,5 @@
 --[[
-@module  config.eng_8601_9i_v0
+@module  config.eng_8602_9i_v0
 @summary Air8601 引擎主机 9寸1024x600 RGB屏(HX8282) + Airlink UART WiFi(6205)/4G(780ER2)二选一 + USB摄像头 + 双RS485 + SD卡 + 喇叭 配置文件
 @version 1.1
 @date    2026.09.18
@@ -39,15 +39,15 @@
 ]]
 return {
     -- ===== 顶层信息 =====
-    name = "Engine_Air8601_9inch_1024x600_010_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}
-    chip = "Air1601",                                -- 主控芯片（RGB 屏 + Airlink UART 外挂 WiFi/4G）
-    baseboard = "合宙引擎 AIR8601 V010 9寸",          -- 底板型号
+    name = "Engine_Air8602_9inch_1024x600_010_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}
+    chip = "Air1601", -- 主控芯片（RGB 屏 + Airlink UART 外挂 WiFi/4G）
+    baseboard = "合宙引擎 AIR8601 V010 9寸", -- 底板型号
 
     -- ===== 引脚功能复用 =====
     -- Air8601 触摸走 I2C1，需把 PIN33/PIN32 复用成 I2C1（Air1601 复用表写作 CLK/SDA）
     pins = {
-        { pin = 33, func = "I2C1_CLK" },  -- I2C1 时钟线（GT911 SCL）
-        { pin = 32, func = "I2C1_SDA" },  -- I2C1 数据线（GT911 SDA）
+        { pin = 33, func = "I2C1_CLK" }, -- I2C1 时钟线（GT911 SCL）
+        { pin = 32, func = "I2C1_SDA" }, -- I2C1 数据线（GT911 SDA）
     },
 
     -- ===== GPIO 上电时序 =====
@@ -55,66 +55,71 @@ return {
     -- 【PIN55 冲突】见文件头第 9 条：AUDIOPA_EN 与 UVC_EN 共用 PIN55，此处暂按 GPIO73（UVC_EN）初始化
     -- 【PIN51 冲突】见文件头第 10 条：485_EN1 与 SD_EN 共用 PIN51，此处暂按 GPIO65（SD_EN）初始化
     power_on = {
+        { pin = 74, dir = 0, level = 1 },              -- SD_EN 拉高
+        { pin = 15, dir = 1, level = 0, delay = 100 }, -- WIFI_RST 高电平拉地
         { pin = 55, dir = 0, level = 1 },              -- AUDIOPA_EN 拉高使能喇叭功放（具体 GPIO 待确认，见第 9 条）
         { pin = 15, dir = 0, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
-        { pin = 57, dir = 0, level = 1, delay = 100 }, -- WIFI_EN 拉高使能 WiFi 模组供电，等 100ms 就绪
         { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
-        { pin = 58, dir = 0, level = 1, delay = 50  }, -- RESET_4G 拉高释放 4G 复位，等 50ms
+        { pin = 58, dir = 0, level = 1, delay = 50 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
     },
 
     -- ===== 硬件配置 =====
     hw = {
         -- 屏幕: HX8282 RGB 9寸 1024×600（四合一芯片，无需 SPI 初始化引脚）；背光 PWM3 调光
         lcd = {
-            model = "lcd_display_rgb",     -- 本工程统一 RGB 驱动（内部走 display.init）
+            model = "lcd_display_rgb", -- 本工程统一 RGB 驱动（内部走 display.init）
             params = {
-                interface = "rgb",             -- RGB 接口
-                pin_rst = 15,                  -- LCD_DISP = GPIO15（复位/显示使能）
+                interface = "rgb",     -- RGB 接口
+                pin_rst = 15,          -- LCD_DISP = GPIO15（复位/显示使能）
                 -- pin_de = 25,                -- LCD_DE = GPIO25 数据使能 —— 见文件头第 8 条，驱动不透传
-                w = 1024,                      -- 水平分辨率
-                h = 600,                       -- 竖直分辨率
+                w = 1024,              -- 水平分辨率
+                h = 600,               -- 竖直分辨率
                 -- RGB 时序参数（与7寸 HX8282 一致，同款四合一芯片）
-                hbp = 140, hspw = 20, hfp = 160,
-                vbp = 20,  vspw = 3,  vfp = 12,
-                bus_speed = 50 * 1000 * 1000,  -- RGB 总线时钟 50MHz
+                hbp = 140,
+                hspw = 20,
+                hfp = 160,
+                vbp = 20,
+                vspw = 3,
+                vfp = 12,
+                bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,                -- RGB 屏必须启用帧缓冲防撕裂
-            screen_size = 9.0,                 -- 9寸屏
-            font = { size = 20 },              -- 高分屏用 20 号字
+            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
+            screen_size = 9.0,                -- 9寸屏
+            font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
-                pwm_ch = 3,                    -- PWM3 背光调光
-                pwm_freq = 1000,               -- 1kHz
+                pwm_ch = 3,                   -- PWM3 背光调光
+                pwm_freq = 1000,              -- 1kHz
             },
         },
         -- 触摸: GT911 I2C 端口1
         tp = {
             model = "tp_gt911",
             params = {
-                port = 1,               -- I2C 端口 1
-                pin_rst = 72,           -- TP_RESET = PIN8 = GPIO72
-                pin_int = 51,           -- TP_INT = WAKEUP = GPIO51
-                int_type = tp.FALLING,  -- 下降沿触发
-                w = 1024,               -- 触摸面板宽度
-                h = 600,                -- 触摸面板高度
+                port = 1,              -- I2C 端口 1
+                pin_rst = 72,          -- TP_RESET = PIN8 = GPIO72
+                pin_int = 51,          -- TP_INT = WAKEUP = GPIO51
+                int_type = tp.FALLING, -- 下降沿触发
+                w = 1024,              -- 触摸面板宽度
+                h = 600,               -- 触摸面板高度
             },
         },
         -- 音频: 内置 DAC 播放 + 线路输入录音（非 ES8311 外挂芯片）
         -- PA(功放) 使能 = GPIO73（AUDIOPA_EN = PIN55），低电平有效；DAC 延时 6ms
         audio = {
-            model = "dac",          -- 内置 DAC 模式（Air1601 芯片自带 DAC）
-            pa_ctrl = 73,           -- PA(功放)使能引脚 = GPIO73（AUDIOPA_EN = PIN55）
-            pa_on_level = 0,        -- 低电平使能功放
-            dac_delay = 6,          -- DAC 初始化延时 6ms
+            model = "dac",   -- 内置 DAC 模式（Air1601 芯片自带 DAC）
+            pa_ctrl = 73,    -- PA(功放)使能引脚 = GPIO73（AUDIOPA_EN = PIN55）
+            pa_on_level = 0, -- 低电平使能功放
+            dac_delay = 6,   -- DAC 初始化延时 6ms
         },
     },
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,                     -- 启用 WiFi（Air6205，与 4G 二选一）
+        wifi = true,        -- 启用 WiFi（Air6205，与 4G 二选一）
         -- net_4g = true,                -- × 4G 未启用（与 WiFi 共享 UART3，默认走 WiFi）
-        speaker = true,                  -- 启用喇叭（DAC PIN18 接 LM4871 功放）
-        sd_card = true,                  -- 启用 SD 卡（SPI1，CS=PIN38）
-        rs485 = true,                    -- RS485 接口 —— 见文件头第 11 条：暂无消费方（UART1+UART2 双路）
+        speaker = true,     -- 启用喇叭（DAC PIN18 接 LM4871 功放）
+        sd_card = true,     -- 启用 SD 卡（SPI1，CS=PIN38）
+        rs485 = true,       -- RS485 接口 —— 见文件头第 11 条：暂无消费方（UART1+UART2 双路）
         app_factory = true, -- 启用"应用工厂"内置应用
         ai_chat = true,     -- 启用"AI聊天助手"内置应用
         cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
@@ -125,8 +130,11 @@ return {
     -- ⇒ 默认启用 WiFi；切 4G 时把下面两条的注释互换，切勿同时放开
     network = {
         -- Airlink UART WiFi（6205 模组，占用 UART3）—— 默认启用
-        { type = "wifi_airlink_uart",
-          uart_id = 3, baud = 2000000 },
+        {
+            type = "wifi_airlink_uart",
+            uart_id = 3,
+            baud = 2000000
+        },
 
         -- Airlink UART 4G（Air780ER2，同样占用 UART3，与 WiFi 互斥）
         -- { type = "4g_airlink_uart",
@@ -137,19 +145,21 @@ return {
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=PIN38）=====
     storage = {
         sd_card = {
-            spi_id = 1,                  -- SPI1 总线
-            pin_cs = 38,                 -- SPI1_CS0 = PIN38（GPIO 待确认，见文件头第 5 条）
-            speed = 20 * 1000 * 1000,    -- SD 卡 SPI 时钟 20MHz
+            spi_id = 1,               -- SPI1 总线
+            pin_cs = 38,              -- SPI1_CS0 = PIN38（GPIO 待确认，见文件头第 5 条）
+            speed = 20 * 1000 * 1000, -- SD 卡 SPI 时钟 20MHz
         },
     },
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,           -- 桌面顶栏 WiFi 图标 ← 配 wifi 时打开
+        show_wifi_icon = true,         -- 桌面顶栏 WiFi 图标 ← 配 wifi 时打开
         -- show_4g_icon = true,           -- × 桌面顶栏 4G 图标（net_4g 关闭时不要开，会显示假图标）
-        show_brightness_slider = true,   -- 设置页亮度滑块
-        show_storage_settings = true,    -- 设置页存储空间入口 ← 配 sd_card 时打开
-        show_camera_preview = true,      -- 设置页摄像头预览入口 ← 见文件头第 11 条
-        show_cloud_disk = true,          -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_brightness_slider = true, -- 设置页亮度滑块
+        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_camera_preview = true,    -- 设置页摄像头预览入口 ← 见文件头第 11 条
+        show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
     },
 }

@@ -32,6 +32,7 @@ local face_task_timer = nil   -- 业务任务超时兜底定时器
 local task_seq = 0            -- 业务任务序号（防旧任务结果误用）
 local preview_x, preview_y = 0, 0   -- 摄像头预览区域位置
 local preview_w, preview_h = 0, 0   -- 摄像头预览区域尺寸
+local preview_started = false       -- 本次窗口是否已启动过摄像头预览（人脸就绪才启动，未就绪时等初始化结果再补启动）
 local start_face_operation    -- 前向声明：on_create 的定时器回调先于函数体声明，需先声明避免解析成全局 nil
 
 local function update_screen_size()
@@ -399,14 +400,26 @@ local function on_create()
         show_result_dialog(false, "界面初始化失败", tostring(err))
         return
     end
+    -- 【死机修复】人脸模组未就绪时不要启动 UVC 预览：
+    --   预览启动后再关闭会走 excamera.close() 的残留回调竞争 → use-after-free →
+    --   非对齐访问崩溃（日志：紧跟"预览已停止，数据流已释放"之后出现 pc 20006572）。
+    --   这里只做"人脸没就绪时不创建 UVC 数据流"，人脸失败提示/重试/超时逻辑一律不变。
+    local face_mgr_check = require "face_manager"
+    local ready_ok, ready_status = pcall(function()
+        return face_mgr_check.get_status()
+    end)
+    local face_ready_now = (ready_ok and ready_status and ready_status.ready) and true or false
+
     -- 启动摄像头预览（独立协程初始化，失败不影响人脸识别）
-    if preview_w > 0 and preview_h > 0 then
+    if face_ready_now and preview_w > 0 and preview_h > 0 then
         local ok_preview, err_preview = pcall(function()
             local face_preview = require "face_preview"
             return face_preview.start(main_container, preview_x, preview_y, preview_w, preview_h, current_mode)
         end)
         if not ok_preview then
             log.warn("ecface", "启动摄像头预览异常:", err_preview)
+        else
+            preview_started = true
         end
     end
     -- GPIO38 同时是 I2C1 的 SDA（触摸屏 GT911 所在总线），重新 gpio.setup(38) 会把
@@ -455,6 +468,7 @@ local function on_destroy()
         local face_preview = require "face_preview"
         face_preview.stop()
     end)
+    preview_started = false
     if main_container then
         main_container:destroy()
         main_container = nil
@@ -573,6 +587,14 @@ sys.subscribe("FACE_INIT_RESULT", function(data)
     if pending_mode then
         local mode = pending_mode
         pending_mode = nil
+        -- 【死机修复·配套】进窗口时人脸还没就绪 → 当时没启动预览，这里补启动，
+        --   保证人脸正常时后续流程（preview_delay 后识别）与原来完全一致。
+        if not preview_started and main_container and preview_w > 0 and preview_h > 0 then
+            pcall(function()
+                local face_preview = require "face_preview"
+                preview_started = face_preview.start(main_container, preview_x, preview_y, preview_w, preview_h, mode) and true or false
+            end)
+        end
         -- 初始化完成：预览已常驻，preview_sec 秒后自动停止预览并发起人脸注册/验证
         update_ui("请正对摄像头", (mode == "deposit")
             and ("请正对摄像头，" .. preview_sec .. "秒后自动开始人脸录入\n录入成功后自动分配柜子")

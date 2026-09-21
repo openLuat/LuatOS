@@ -51,7 +51,7 @@ require "aircloud"
 -- 加载网络模块（require 即自动初始化，无需手动 init）
 -- 用 4G：require "network_4g"
 -- 用 WiFi：require "netdrv_wifi.lua"
-require "netdrv_wifi"
+require "network_4g"
 
 -- 485 锁控模块
 require "uart_controller"

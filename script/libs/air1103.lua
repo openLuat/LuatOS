@@ -462,11 +462,20 @@ local play_queue = {}
 local queue_running = false
 local queue_token  = 0
 local queue_on_done = nil
+local tone_loop = nil   -- 循环提示音序列(名称表); 非空时播完自动重播, 直到 stop_tones()
 
 -- 播放提示音, 结束后复位 1103 并恢复上行, 通过 sys.publish 发出完成事件
 
 -- 从队列取一段写入流; 队列空则播放完毕收尾
 local function queue_pump()
+    -- 循环模式: 队列播空则重新入队整个序列继续播放(中途不复位芯片)
+    if #play_queue == 0 and tone_loop then
+        for i = 1, #tone_loop do
+            local nm = tone_loop[i]
+            local data = tones[nm]
+            if data then play_queue[#play_queue + 1] = { name = nm, data = data } end
+        end
+    end
     if #play_queue == 0 then
         queue_running = false
         air1103.play_stream_stop()   -- 停下行(同时停上行), 需复位恢复 MIC
@@ -526,22 +535,55 @@ function air1103.play_tone(name, on_done)
     return true
 end
 
--- 接听前播放嘟嘟声
+-- 接听前播放嘟嘟声(单次)
 -- @param on_done 可选, 整队播放完成时回调
 -- @return boolean
 function air1103.play_busy(on_done)
     if not is_inited then return false end
-    -- -- 第 1 遍
+    tone_loop = nil
     air1103.play_tone("busy", nil)
     air1103.play_tone("gap", nil)              -- 停一秒
-    -- 第 2 遍
     return air1103.play_tone("busy", on_done)  -- 末段, 整队完成回调
+end
+
+-- 循环播放来电振铃(重复"嘟嘟声→停1秒→嘟嘟声"), 直到 stop_tones()
+-- 用于按键接通的场景: 未接通前一直响
+-- @return boolean
+function air1103.play_busy_loop()
+    if not is_inited then return false end
+    tone_loop = { "busy", "gap", "busy", "gap" }
+    if queue_running then return true end   -- 已在循环中
+    for i = 1, #tone_loop do
+        if not air1103.play_tone(tone_loop[i], nil) then
+            tone_loop = nil
+            return false
+        end
+    end
+    return true
+end
+
+-- 停止循环提示音并结束当前播放
+-- @param skip_reset 可选, true 时不复位芯片(复位延后到紧随的提示音收尾), 供挂断提示音衔接
+-- @return boolean
+function air1103.stop_tones(skip_reset)
+    tone_loop = nil
+    if not queue_running then return true end
+    queue_running = false
+    play_queue = {}
+    queue_token = queue_token + 1
+    air1103.play_stream_stop()
+    if not skip_reset then
+        air1103.reset()
+        air1103.set_rx_enable(true)
+    end
+    return true
 end
 
 -- 对方挂断后播放提示音
 -- @param on_done 可选, 整队播放完成时回调
 -- @return boolean
 function air1103.play_hangup(on_done)
+    tone_loop = nil
     return air1103.play_tone("hangup", on_done)
 end
 

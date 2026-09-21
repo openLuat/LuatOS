@@ -219,6 +219,8 @@ LUAMOD_API int luaopen_rtsp(lua_State *L);
 LUAMOD_API int luaopen_ndk(lua_State *L);
 /** 视频播放库 */
 LUAMOD_API int luaopen_videoplayer(lua_State *L);
+/** 媒体播放库(mp4/mp3) */
+LUAMOD_API int luaopen_mplayer(lua_State *L);
 /** GBA模拟器 */
 LUAMOD_API int luaopen_gba(lua_State *L);
 /** VoIP库 */

@@ -29,12 +29,17 @@ local function callback(event, action, payload)
         log.info("sip_app", "CALL", action)
         if action == "incoming" then
             set_state("INCOMING")
-            if cfg.sip.auto_answer then post("ACCEPT") end
+            log.info("sip_app", "接通电话")
+            post("RING")   -- 来电后持续振铃, 由按键/接听请求触发 ACCEPT
         elseif action == "connected" then
             set_state("CONNECTED")
         elseif action == "ended" then
-            audio_drv.stop()
+            audio_drv.stop_ringback(true)   -- 先停循环振铃(不复位, 避免复位吞掉挂断提示音)
+            -- skip_recover=true: 停桥接但先不恢复MIC(避免复位吞掉挂断提示音), 播完由提示音队列复位恢复
+            audio_drv.stop(true)
             set_state(registered and (audio_drv.is_ready() and "READY" or "AUDIO_RECOVERING") or "OFFLINE")
+            log.info("sip_app", "对方已挂断", "播放挂断提示音")
+            audio_drv.play_hangup()
         end
     elseif event == "media" then
         log.info("sip_app", "MEDIA", action, payload.codec, payload.sample_rate)
@@ -133,6 +138,10 @@ local function sip_main_task()
                 if type(msg) == "table" then
                     local command, value = msg[1], msg[2]
                     if command == "RESTART" then break end
+                    if command == "RING" then
+                        log.info("sip_app", "呼入振铃", "未接通前持续振铃")
+                        audio_drv.play_ringback_loop()
+                    end
                     if command == "PRIMARY" then
                         command = state == "INCOMING" and "ACCEPT" or "DIAL"
                         value = cfg.dial_number
@@ -148,6 +157,7 @@ local function sip_main_task()
                             else log.warn("sip_app", "请填写config.dial_number") end
                         else log.warn("sip_app", "暂不能呼出", state, "audio_ready", audio_drv.is_ready()) end
                     elseif command == "ACCEPT" then
+                        if state == "INCOMING" then audio_drv.stop_ringback() end   -- 先停振铃再接听
                         if state == "INCOMING" and not audio_drv.is_ready() then recover_audio() end
                         local elapsed = 0
                         while state == "INCOMING" and not audio_drv.is_ready()

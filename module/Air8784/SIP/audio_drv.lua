@@ -108,7 +108,7 @@ function M.init()
         log.error("audio_drv", "exaudio.setup失败", result)
         return false
     end
-    exaudio.sip_voip_start, exaudio.sip_voip_stop = M.start, M.stop
+    exaudio.sip_voip_start, exaudio.sip_voip_stop = M.start, M.stop_bridge
     if not set_volume() or not start_record() then return false end
     local waited = 0
     while not ready and waited < cfg.ready_timeout_ms do
@@ -184,7 +184,7 @@ function M.start(session)
     return true
 end
 
-function M.stop()
+function M.stop(skip_recover)
     if not running then return end
     running = false
     sys.timerStop(capture_timer)
@@ -193,9 +193,25 @@ function M.stop()
     capture_timer, play_timer, health_timer = nil, nil, nil
     clear_pcm()
     exaudio.play_stop({type=2})
-    -- 停止播放也会停止芯片MIC，使用公开录音接口恢复；保持GPIO供电。
-    if not start_record() then log.error("audio_drv", "MIC恢复失败") end
+    -- 停止播放同时会停止芯片MIC；MIC恢复依赖 exaudio.record_start 内部的 Air1103 复位(重启约1.4s)。
+    -- skip_recover=true: 挂断提示音需趁芯片就绪时播放，复位重启会吞掉紧跟的提示音，
+    --                    故把MIC恢复延后到提示音队列收尾自行复位；保持GPIO供电。
+    if not skip_recover then
+        if not start_record() then log.error("audio_drv", "MIC恢复失败") end
+    end
 end
+
+-- 供 exsip 在停止媒体时调用：只停桥接，不复位芯片(复位延后到挂断提示音队列收尾)。
+function M.stop_bridge()
+    return M.stop(true)
+end
+
+-- 本机提示音(按模型分发，透传 exaudio；air1103 模式复用芯片内嵌提示音与播放队列)
+function M.play_ringback(callback) return exaudio.play_ringback(callback) end
+function M.play_hangup(callback) return exaudio.play_hangup(callback) end
+-- 循环振铃(未接通前一直响)与停止
+function M.play_ringback_loop() return exaudio.play_ringback_loop() end
+function M.stop_ringback(skip_reset) return exaudio.stop_ringback(skip_reset) end
 
 function M.is_ready()
     if ready and elapsed_ms(mic_s, mic_us) >= cfg.mic_timeout_ms then ready = false end

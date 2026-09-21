@@ -8,6 +8,14 @@
 刷脸存件（人脸注册）：订阅 OPEN_FACE_DEPOSIT_WIN
 刷脸取件（人脸验证）：订阅 OPEN_FACE_RECEIVE_WIN
 人脸状态提示：订阅 FACE_STATE_UPDATE
+预览就绪事件：订阅 FACE_PREVIEW_READY（face_preview 在画面真正就绪后发布）
+
+人脸识别与预览并行（config.face.preview.mode）：
+- serial      ：停流 → 复位模组 → 识别（原逻辑，可回退）
+- auto        ：预览不停流直接识别；失败自动降级为 serial 重试一次（推荐）
+- concurrent  ：一律并行，失败不降级
+说明：本文件的界面风格、拍照留底（face_photo）、业务逻辑与原来完全一致，
+     只把"固定等 3 秒后停流再识别"改为"等画面就绪事件 → 预览不停流直接识别"。
 ]]
 
 local config = require "config"
@@ -32,8 +40,18 @@ local face_task_timer = nil   -- 业务任务超时兜底定时器
 local task_seq = 0            -- 业务任务序号（防旧任务结果误用）
 local preview_x, preview_y = 0, 0   -- 摄像头预览区域位置
 local preview_w, preview_h = 0, 0   -- 摄像头预览区域尺寸
-local preview_started = false       -- 本次窗口是否已启动过摄像头预览（人脸就绪才启动，未就绪时等初始化结果再补启动）
+local preview_started_flag = false  -- 本次窗口预览是否成功启动（供初始化完成后判断走并行还是串行）
+-- 人脸识别与预览并行相关状态
+local preview_token = 0        -- 本次预览的就绪令牌（校验 FACE_PREVIEW_READY 是否属于本次预览）
+local preview_ready_flag = false -- 本次预览是否已收到就绪事件（可能早于人脸模块初始化完成）
+local preview_ready_ok = true  -- 就绪事件结果：true=画面可用 / false=预览不可用需降级
+local preview_ready_timer = nil -- 等待预览就绪 / 延迟发起识别的定时器
+local face_started = false     -- 本次窗口是否已发起识别（防重复发起）
+local parallel_inflight = false -- 当前识别是否运行在并行模式（预览未停流）
+local serial_retry_used = false -- 是否已降级重试过（降级只做一次）
 local start_face_operation    -- 前向声明：on_create 的定时器回调先于函数体声明，需先声明避免解析成全局 nil
+local try_serial_retry        -- 前向声明：并行识别失败后的降级重试（函数体定义在文件后部，供结果回调调用）
+local stop_preview_after_face -- 前向声明：识别出结果后立即停流（函数体定义在文件后部，供结果回调调用）
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
@@ -196,10 +214,10 @@ local function create_ui()
         font_weight = 600,
     })
 
-    -- 操作提示
-    local tip_text = "请正对摄像头，" .. preview_sec .. "秒后自动开始人脸录入\n录入成功后自动分配柜子"
+    -- 操作提示（并行模式下不再"等固定秒数"，画面就绪后自动发起识别，故提示不说秒数）
+    local tip_text = "请正对摄像头，保持不动\n即将自动开始人脸录入"
     if current_mode ~= "deposit" then
-        tip_text = "请正对摄像头，" .. preview_sec .. "秒后自动开始人脸验证\n验证成功后自动开柜"
+        tip_text = "请正对摄像头，保持不动\n即将自动开始人脸验证"
     end
     tip_label = airui.label({
         parent = main_container,
@@ -239,6 +257,7 @@ end
 local function on_register_result(data)
     if current_mode ~= "deposit" then return end
     if busy then return end
+    stop_preview_after_face()  -- 识别已有结果，立刻停流（降低关窗时释放 UVC 的崩溃概率）
 
     if data.success then
         busy = true
@@ -270,6 +289,10 @@ local function on_register_result(data)
             end
         end)
     else
+        -- 并行模式识别失败：自动降级为串行（停流+复位）重试一次，保证功能不失效
+        if try_serial_retry() then
+            return
+        end
         show_result_dialog(false, "录入失败", data.error or "请重试")
     end
 end
@@ -278,6 +301,7 @@ end
 local function on_verify_result(data)
     if current_mode ~= "receive" then return end
     if busy then return end
+    stop_preview_after_face()  -- 识别已有结果，立刻停流（降低关窗时释放 UVC 的崩溃概率）
 
     if data.success then
         if data.box_num then
@@ -313,6 +337,10 @@ local function on_verify_result(data)
             show_result_dialog(false, "取件失败", "该用户未绑定柜子")
         end
     else
+        -- 并行模式验证失败：同样自动降级为串行重试一次（避免并行负载导致取件主路径不可用）
+        if try_serial_retry() then
+            return
+        end
         show_result_dialog(false, "验证失败", data.error or "请重试")
     end
 end
@@ -324,72 +352,293 @@ local function on_face_state(data)
     status_label:set_text(data.message or "请正对摄像头")
 end
 
--- 窗口创建回调
--- 停止摄像头预览并发起人脸操作
---   UVC 摄像头流会占满 luat_camera 任务 CPU（"preview wait too much / no free event"），
---   导致红外 UART2 处理不过来 → 注册/验证超时失败。必须先停摄像头释放CPU再发起识别。
-start_face_operation = function()
-    --    exfacecam.reset() 内部含 sys.waitUntil，在定时器回调(非协程)里调用会报
-    --    "attempt to yield from outside a coroutine"。
-    --    拍照留底的 face_preview.capture() 同样是阻塞等待，必须在任务里调用；
-    --    因此停预览也从定时器回调移入任务：先抓帧（预览仍在推流），再停流释放CPU。
-    sys.taskInit(function()
+-- 【拍照留底】预览推流中抓取一帧 JPEG（任务/协程内调用；stop() 之后帧事件即消失）
+-- @return string|nil JPEG 数据
+local function capture_photo()
+    -- 注意：face_preview.capture 是普通函数(非方法)，不能用 pcall(fn, self, ...) 形式
+    -- 传 self 会让 timeout 收到 table → sys.waitUntil 内 timer_start 抛错 →
+    -- FACE_PREVIEW_FRAME 订阅泄漏到已死亡协程 → 下次 publish 时 "cannot resume dead coroutine" 崩溃
+    local cfg_ok, photo_cfg = pcall(function()
+        return config.get("face.photo", {})
+    end)
+    if not cfg_ok or type(photo_cfg) ~= "table" or photo_cfg.enabled == false then
+        return nil
+    end
+    local cap_ok, cap_ret, cap_data = pcall(function()
         local face_preview = require "face_preview"
-        -- 【拍照留底】预览仍在推流时抓取一帧 JPEG（下一帧到达即返回，一般≤200ms；
-        --   停止预览后帧事件即消失，所以必须放在 stop() 之前）
-        local photo_data = nil
-        local cfg_ok, photo_cfg = pcall(function()
-            local config = require "config"
-            return config.get("face.photo", {})
-        end)
-        if cfg_ok and type(photo_cfg) == "table" and photo_cfg.enabled ~= false then
-            -- 注意：face_preview.capture 是普通函数(非方法)，不能用 pcall(fn, self, ...) 形式
-            -- 传 self 会让 timeout 收到 table → sys.waitUntil 内 timer_start 抛错 →
-            -- FACE_PREVIEW_FRAME 订阅泄漏到已死亡协程 → 下次 publish 时 "cannot resume dead coroutine" 崩溃
-            local cap_ok, cap_ret, cap_data = pcall(function()
-                return face_preview.capture(photo_cfg.timeout or 2000)
-            end)
-            if cap_ok and cap_ret then
-                photo_data = cap_data
-            else
-                log.warn("ecface", "拍照留底抓帧失败:", tostring(cap_ok and cap_data or cap_ret))
-            end
-        end
-        -- 停止摄像头预览（原逻辑：UVC 流占满 luat_camera 任务 CPU，必须先停流释放CPU）
-        pcall(function()
-            face_preview.stop()
-        end)
-        -- stop() 释放数据流是异步的，若立即 MID_RESET → AirCAMERA 重启 → USB 重枚举，
-        -- 残留回调/未释放 zbuff 会与之竞争 → use-after-free → 非对齐访问崩溃（死机）。
-        pcall(function()
-            face_preview.wait_closed()
-        end)
-        -- 【拍照留底】预览已停止、CPU 已释放，此时把照片写入SD卡，不与识别抢CPU
-        if photo_data then
-            pcall(function()
-                local face_photo = require "face_photo"
-                local ok, path_or_err = face_photo.save(photo_data, current_mode)
-                if ok then
-                    log.info("ecface", "拍照留底完成", path_or_err)
-                else
-                    log.warn("ecface", "拍照留底保存失败:", tostring(path_or_err))
-                end
-            end)
-        end
-        -- 复位人脸模组：预览(UVC)会把模组传感器留在UVC模式，register(录入新脸)会因
-        -- 传感器切不回人脸采集模式而超时（verify不受影响）。复位后传感器回到人脸模式。
-        pcall(function()
-            local face_manager = require "face_manager"
-            face_manager.reset_module()
-        end)
-        log.info("ecface", "摄像头已停止，发起人脸", current_mode)
-        if current_mode == "deposit" then
-            local name = "user_" .. tostring(os.time())
-            sys.publish("FACE_REGISTER_REQ", {name = name, admin = false})
-        elseif current_mode == "receive" then
-            sys.publish("FACE_VERIFY_REQ", {})
+        return face_preview.capture(photo_cfg.timeout or 2000)
+    end)
+    if cap_ok and cap_ret then
+        return cap_data
+    end
+    log.warn("ecface", "拍照留底抓帧失败:", tostring(cap_ok and cap_data or cap_ret))
+    return nil
+end
+
+-- 【拍照留底】把抓到的 JPEG 写入存储卡（pcall 保护，失败不影响识别主流程）
+local function save_photo(photo_data)
+    if not photo_data then return end
+    pcall(function()
+        local face_photo = require "face_photo"
+        local ok, path_or_err = face_photo.save(photo_data, current_mode)
+        if ok then
+            log.info("ecface", "拍照留底完成", path_or_err)
+        else
+            log.warn("ecface", "拍照留底保存失败:", tostring(path_or_err))
         end
     end)
+end
+
+-- 停止摄像头预览（pcall 保护）
+local function stop_preview_safe()
+    pcall(function()
+        local face_preview = require "face_preview"
+        face_preview.stop()
+    end)
+end
+
+-- 等待预览数据流完全关闭（pcall 保护）：
+--   stop() 释放数据流是异步的，若立即 MID_RESET → AirCAMERA 重启 → USB 重枚举，
+--   残留回调/未释放 zbuff 会与之竞争 → use-after-free → 非对齐访问崩溃（死机）。
+local function wait_preview_closed()
+    pcall(function()
+        local face_preview = require "face_preview"
+        face_preview.wait_closed()
+    end)
+end
+
+-- 复位人脸模组（pcall 保护）：
+--   预览(UVC)会把模组传感器留在 UVC 模式，register(录入新脸)会因传感器切不回人脸模式而超时
+--   （verify 不受影响）。复位后传感器回到人脸模式。
+local function reset_face_module()
+    pcall(function()
+        local face_manager = require "face_manager"
+        face_manager.reset_module()
+    end)
+end
+
+-- 发起人脸注册/验证请求（并行模式下预览不停流；串行/降级路径下预览已停止）
+local function publish_face_request()
+    log.info("ecface", "发起人脸", current_mode)
+    if current_mode == "deposit" then
+        local name = "user_" .. tostring(os.time())
+        sys.publish("FACE_REGISTER_REQ", {name = name, admin = false})
+    elseif current_mode == "receive" then
+        sys.publish("FACE_VERIFY_REQ", {})
+    end
+end
+
+-- 识别已有结果（成功/失败）后立刻停流
+--   为什么不等关窗再停：实测 3 次“企图执行非对齐访问 pc 20006572”都发生在
+--   “识别成功 → 结果弹窗 → 点确定关窗 → on_destroy 里 face_preview.stop()”那一刻，
+--   此时 UI 销毁 + LVGL 重绘 + exwin 窗口切换同时进行，容易撞上 excamera 释放数据流的残留回调。
+--   把停流提前到“识别出结果”这个 CPU 空闲、界面稳定的时刻，关窗时 stop() 自然变成 no-op。
+stop_preview_after_face = function()
+    if not preview_started_flag then return end
+    preview_started_flag = false
+    sys.taskInit(function()
+        stop_preview_safe()
+        wait_preview_closed()
+        log.info("ecface", "识别结束，预览已停止（释放CPU、避开关窗时释放UVC）")
+    end)
+end
+
+-- 窗口创建回调
+-- 串行路径：停止摄像头预览 → 复位模组 → 发起人脸操作
+--   UVC 摄像头流会占满 luat_camera 任务 CPU（"preview wait too much / no free event"），
+--   导致红外 UART2 处理不过来 → 注册/验证超时失败，故必须先停摄像头释放CPU再发起识别。
+--   并行模式（config.face.preview.mode ~= "serial"）下本函数只用于"预览不可用 / 并行识别失败"的降级。
+--   注意：capture() 与 reset() 内含 sys.waitUntil，必须在任务里调用，
+--         故停预览与复位也从定时器回调移入任务：先抓帧（预览仍在推流），再停流释放CPU。
+start_face_operation = function()
+    face_started = true       -- 标记已发起识别，防止就绪事件重复触发
+    parallel_inflight = false -- 本路径为串行模式（识别期间预览已停流）
+    sys.taskInit(function()
+        -- 【拍照留底】预览仍在推流时抓取一帧 JPEG（下一帧到达即返回，一般≤200ms；
+        --   停止预览后帧事件即消失，所以必须放在 stop() 之前）
+        local photo_data = capture_photo()
+        -- 停止摄像头预览（原逻辑：UVC 流占满 luat_camera 任务 CPU，必须先停流释放CPU）
+        stop_preview_safe()
+        wait_preview_closed()
+        -- 【拍照留底】预览已停止、CPU 已释放，此时把照片写入SD卡，不与识别抢CPU
+        save_photo(photo_data)
+        reset_face_module()
+        log.info("ecface", "摄像头已停止，发起人脸", current_mode)
+        publish_face_request()
+    end)
+end
+
+-- ==================== 人脸识别与预览并行支持 ====================
+-- 说明：并行模式下预览不停流、不复位人脸模组，直接发起 register/verify；
+--       发起前必须先等到 FACE_PREVIEW_READY（画面真正刷新的信号），避免预览未连上就抢跑；
+--       识别失败时自动降级为"停流 → 复位模组 → 重发"的串行路径重试一次，保证功能不失效。
+
+-- 读取并行识别模式配置（serial/auto/concurrent）
+local function get_preview_mode()
+    return config.get("face.preview.mode", "auto") or "auto"
+end
+
+-- 并行发起识别协程：抓帧留底 → 不停流不复位模组，直接发起识别（画面持续刷新）
+local function parallel_face_task()
+    if current_mode == nil then return end  -- 窗口已关闭
+    -- 【拍照留底】预览仍在推流时抓一帧；并行模式下预览不停流，所以立刻写卡（不再等停流）
+    save_photo(capture_photo())
+    if current_mode == nil then return end
+    publish_face_request()
+end
+
+-- 并行模式发起识别：不停流、不复位模组
+local function start_face_operation_parallel()
+    if face_started then return end
+    if get_preview_mode() == "serial" then
+        -- 串行模式：完全走原逻辑（停流 → 复位 → 识别）
+        log.info("ecface", "识别模式=serial，停流后发起识别")
+        start_face_operation()
+        return
+    end
+    face_started = true
+    parallel_inflight = true
+    serial_retry_used = false
+    update_ui("正在识别", "请正对摄像头，保持不动")
+    log.info("ecface", "并行模式发起人脸识别，mode=" .. tostring(get_preview_mode()) .. "，预览不停流")
+    sys.taskInit(parallel_face_task)
+end
+
+-- 就绪延迟到点：发起识别（定时器回调，禁止 yield）
+local function preview_ready_start_cb()
+    preview_ready_timer = nil
+    if current_mode == nil then return end
+    if face_started then return end
+    start_face_operation_parallel()
+end
+
+-- 按预览就绪结果安排发起识别（ok=false 表示预览不可用，直接降级串行）
+local function schedule_face_start(ok)
+    if current_mode == nil then return end
+    if face_started then return end
+    if preview_ready_timer then
+        sys.timerStop(preview_ready_timer)
+        preview_ready_timer = nil
+    end
+    if ok == false then
+        log.warn("ecface", "预览不可用，降级为串行识别")
+        start_face_operation()
+        return
+    end
+    -- 画面已就绪：再留一点时间让用户对准摄像头，随后自动发起识别
+    preview_ready_timer = sys.timerStart(preview_ready_start_cb, config.get("face.preview.start_delay", 1500))
+end
+
+-- 等待预览就绪超时兜底：超时按串行识别处理，避免界面卡死
+local function preview_ready_timeout_cb()
+    preview_ready_timer = nil
+    if current_mode == nil then return end
+    if face_started then return end
+    log.warn("ecface", "等待预览就绪超时，降级为串行识别")
+    start_face_operation()
+end
+
+-- 串行降级重试任务：停流 → 等关闭 → 复位模组 → 重新发起识别
+local function serial_retry_task()
+    if current_mode == nil then return end  -- 窗口已关闭，无需重试
+    stop_preview_safe()
+    wait_preview_closed()
+    reset_face_module()
+    if current_mode == nil then return end
+    log.info("ecface", "串行降级重试，重新发起人脸", current_mode)
+    publish_face_request()
+end
+
+-- 并行识别失败后的降级重试（只重试一次，避免死循环）
+-- @return boolean true=已触发降级重试（本次结果由重试流程接管，调用方不再弹窗）
+function try_serial_retry()
+    if not parallel_inflight then return false end          -- 串行结果不做降级
+    if serial_retry_used then return false end              -- 已重试过
+    if not config.get("face.preview.retry_serial", true) then return false end
+    serial_retry_used = true
+    parallel_inflight = false
+    log.warn("ecface", "并行识别失败，降级为串行识别并重试一次")
+    update_ui("正在重新识别", "请保持正对摄像头，请稍候...")
+    sys.taskInit(serial_retry_task)
+    return true
+end
+
+-- 启动预览并记录本次就绪令牌（pcall 保护）
+-- @return boolean 预览是否成功启动
+local function start_preview_only()
+    preview_ready_flag = false  -- 新一轮预览，重置就绪标记
+    preview_ready_ok = true
+    local started = false
+    if main_container and preview_w > 0 and preview_h > 0 then
+        local ok_preview, res = pcall(function()
+            local face_preview = require "face_preview"
+            return face_preview.start(main_container, preview_x, preview_y, preview_w, preview_h, current_mode)
+        end)
+        if not ok_preview then
+            log.warn("ecface", "启动摄像头预览异常:", res)
+        else
+            started = res and true or false
+        end
+    end
+    if started then
+        local ok_token, token = pcall(function()
+            local face_preview = require "face_preview"
+            return face_preview.get_ready_token()
+        end)
+        if ok_token and token then
+            preview_token = token
+        end
+        log.info("ecface", "预览已启动，token=" .. tostring(preview_token) .. "，等待就绪事件")
+    end
+    preview_started_flag = started
+    return started
+end
+
+-- 开始等待预览就绪（人脸模块就绪后调用；就绪事件可能已提前到达）
+local function wait_preview_ready()
+    if current_mode == nil then return end
+    if face_started then return end
+    if not preview_started_flag then
+        -- 预览未成功启动（未开启/组件创建失败）：直接走串行识别
+        log.info("ecface", "预览未启动，直接走串行识别")
+        start_face_operation()
+        return
+    end
+    if preview_ready_flag then
+        -- 就绪事件早于"人脸模块就绪/窗口创建完成"到达，直接安排发起识别
+        schedule_face_start(preview_ready_ok)
+        return
+    end
+    if preview_ready_timer then
+        sys.timerStop(preview_ready_timer)
+        preview_ready_timer = nil
+    end
+    preview_ready_timer = sys.timerStart(preview_ready_timeout_cb, config.get("face.preview.ready_timeout", 6000))
+end
+
+-- 预览就绪事件回调（face_preview 在画面真正刷新后发布）
+local function on_preview_ready(data)
+    if current_mode == nil then return end   -- 窗口已关闭
+    if face_started then return end          -- 已发起过识别
+    -- 令牌校验：只接受本次预览发布的就绪事件，防旧预览误触发新窗口识别
+    if data and data.token and data.token ~= preview_token then
+        log.warn("ecface", "忽略过期预览就绪事件 token=" .. tostring(data.token)
+            .. "，当前 token=" .. tostring(preview_token))
+        return
+    end
+    preview_ready_flag = true
+    preview_ready_ok = (data == nil) or (data.ok ~= false)
+    log.info("ecface", "收到预览就绪事件，ok=" .. tostring(preview_ready_ok))
+    -- 人脸模块未就绪时先记录就绪状态，等 FACE_INIT_RESULT 后再安排识别
+    local face_manager = require "face_manager"
+    local status_ok, status = pcall(function()
+        return face_manager.get_status()
+    end)
+    if not status_ok or not status or not status.ready then
+        log.info("ecface", "人脸模块尚未就绪，暂不发起识别（已记录预览就绪）")
+        return
+    end
+    schedule_face_start(preview_ready_ok)
 end
 
 local function on_create()
@@ -411,16 +660,9 @@ local function on_create()
     local face_ready_now = (ready_ok and ready_status and ready_status.ready) and true or false
 
     -- 启动摄像头预览（独立协程初始化，失败不影响人脸识别）
-    if face_ready_now and preview_w > 0 and preview_h > 0 then
-        local ok_preview, err_preview = pcall(function()
-            local face_preview = require "face_preview"
-            return face_preview.start(main_container, preview_x, preview_y, preview_w, preview_h, current_mode)
-        end)
-        if not ok_preview then
-            log.warn("ecface", "启动摄像头预览异常:", err_preview)
-        else
-            preview_started = true
-        end
+    -- 并行模式下预览在识别期间持续刷新，故启动后不再定时停流（改为等 FACE_PREVIEW_READY）
+    if face_ready_now then
+        start_preview_only()
     end
     -- GPIO38 同时是 I2C1 的 SDA（触摸屏 GT911 所在总线），重新 gpio.setup(38) 会把
     -- SDA 从 I2C 复用功能切回普通 GPIO 输出，导致触摸屏 i2c_failed 无应答/传输超时、无法触摸。
@@ -456,9 +698,14 @@ local function on_create()
         end, 10000)
         return
     end
-    -- 先显示预览 preview_sec 秒（用户看到自己、对准摄像头，期间自动抓拍留底），
-    --    再停止摄像头释放CPU，然后发起人脸注册/验证；故预览 preview_delay 后自动触发
-    sys.timerStart(start_face_operation, preview_delay)
+    -- 人脸已就绪：预览已启动 → 等画面就绪（FACE_PREVIEW_READY）后自动发起识别（预览不停流）；
+    --   预览未启动（未开启/组件创建失败）→ 直接走串行识别，保证功能不失效
+    if not preview_started_flag then
+        log.info("ecface", "预览未启动，直接走串行识别")
+        start_face_operation()
+        return
+    end
+    wait_preview_ready()
 end
 
 -- 窗口销毁回调
@@ -468,7 +715,7 @@ local function on_destroy()
         local face_preview = require "face_preview"
         face_preview.stop()
     end)
-    preview_started = false
+    preview_started_flag = false
     if main_container then
         main_container:destroy()
         main_container = nil
@@ -489,6 +736,17 @@ local function on_destroy()
         sys.timerStop(face_task_timer)
         face_task_timer = nil
     end
+    -- 清理并行识别相关状态与定时器，避免影响下次开窗
+    if preview_ready_timer then
+        sys.timerStop(preview_ready_timer)
+        preview_ready_timer = nil
+    end
+    preview_ready_flag = false
+    preview_ready_ok = true
+    preview_started_flag = false
+    face_started = false
+    parallel_inflight = false
+    serial_retry_used = false
     busy = false
     done_flag = false
     win_id = nil
@@ -523,6 +781,7 @@ sys.subscribe("OPEN_FACE_RECEIVE_WIN", function() open("receive") end)
 sys.subscribe("FACE_REGISTER_RESULT", on_register_result)
 sys.subscribe("FACE_VERIFY_RESULT", on_verify_result)
 sys.subscribe("FACE_STATE_UPDATE", on_face_state)
+sys.subscribe("FACE_PREVIEW_READY", on_preview_ready)
 
 -- 存件业务完成（业务任务回传结果，在主上下文弹窗，避免任务里操作 UI 卡死）
 sys.subscribe("FACE_DEPOSIT_DONE", function(data)
@@ -585,21 +844,22 @@ sys.subscribe("FACE_INIT_RESULT", function(data)
         return
     end
     if pending_mode then
-        local mode = pending_mode
         pending_mode = nil
-        -- 【死机修复·配套】进窗口时人脸还没就绪 → 当时没启动预览，这里补启动，
-        --   保证人脸正常时后续流程（preview_delay 后识别）与原来完全一致。
-        if not preview_started and main_container and preview_w > 0 and preview_h > 0 then
-            pcall(function()
-                local face_preview = require "face_preview"
-                preview_started = face_preview.start(main_container, preview_x, preview_y, preview_w, preview_h, mode) and true or false
-            end)
+        if current_mode == nil then return end  -- 窗口已关闭
+        -- 【死机修复·配套】进窗口时人脸还没就绪 → 当时没启动预览，这里补启动
+        if not preview_started_flag then
+            start_preview_only()
         end
-        -- 初始化完成：预览已常驻，preview_sec 秒后自动停止预览并发起人脸注册/验证
-        update_ui("请正对摄像头", (mode == "deposit")
-            and ("请正对摄像头，" .. preview_sec .. "秒后自动开始人脸录入\n录入成功后自动分配柜子")
-            or ("请正对摄像头，" .. preview_sec .. "秒后自动开始人脸验证\n验证成功后自动开柜"))
-        sys.timerStart(start_face_operation, preview_delay)
+        -- 初始化完成：预览已启动，等画面就绪（FACE_PREVIEW_READY）后自动发起人脸注册/验证
+        update_ui("请正对摄像头", (current_mode == "deposit")
+            and "请正对摄像头，保持不动\n即将自动开始人脸录入"
+            or "请正对摄像头，保持不动\n即将自动开始人脸验证")
+        if not preview_started_flag then
+            log.info("ecface", "预览未启动，直接走串行识别")
+            start_face_operation()
+            return
+        end
+        wait_preview_ready()
     end
 end)
 

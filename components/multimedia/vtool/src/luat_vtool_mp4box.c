@@ -33,7 +33,7 @@ static int buffered_flush(mp4_ctx_t* ctx) {
     if (size == 0) {
         return 0;
     }
-    LLOGI("start flush buffer %d bytes %p", size, ctx->box_buff);
+    LLOGD("start flush buffer %d bytes %p", size, ctx->box_buff);
     if (ctx->box_buff && ctx->box_buff_offset > 0) {
         // 每次最多写入64KB
         #define FLUSH_CHUNK_SIZE (64 * 1024)
@@ -618,7 +618,8 @@ typedef struct {
 #endif
 
 // 线程栈与优先级, 优先级参照camera_task(beken原始优先级7, configMAX_PRIORITIES=10, 换算为70)
-#define LUAT_VTOOL_MP4BOX_THREAD_STACK 4096
+// 写线程内会执行 mp4box_close_impl(), 走 FATFS 写 moov, 栈不能太小
+#define LUAT_VTOOL_MP4BOX_THREAD_STACK 8192
 #define LUAT_VTOOL_MP4BOX_THREAD_PRIO  70
 #define LUAT_VTOOL_MP4BOX_THREAD_NAME  "mp4box_w"
 
@@ -650,6 +651,8 @@ static void mp4box_write_task(void* param) {
             luat_rtos_semaphore_release(ctx->exit_sem);
             // 用创建时保存的包装句柄自删, 不能传luat_rtos_get_current_handle()的裸句柄(类型不符会写坏TCB)
             luat_rtos_task_delete(self);
+            // 部分移植的task_delete会返回, 此处必须直接退出, 不得再访问已释放的ctx
+            return;
         }
         mp4box_write_frame_impl(ctx, msg->data, msg->len);
         luat_heap_free(msg);
@@ -719,12 +722,15 @@ mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t
         LLOGE("create mp4box queue failed, fallback to sync mode");
         ctx->queue = NULL;
     }
-    else if (luat_rtos_semaphore_create(&ctx->exit_sem, 0)) {
+    else if (luat_rtos_semaphore_create(&ctx->exit_sem, 1)) {
+        // init_count=1 => 初始为空, close() 里 take 才会真正等待写线程收尾
+        // (注意 luat_rtos 的语义: init_count=0 时会预置一次 give, 初始就是有信号的)
         LLOGE("create mp4box exit sem failed, fallback to sync mode");
         luat_rtos_queue_delete(ctx->queue);
         ctx->queue = NULL;
     }
-    else if (luat_rtos_task_create(&ctx->task, LUAT_VTOOL_MP4BOX_THREAD_STACK, LUAT_VTOOL_MP4BOX_THREAD_PRIO, LUAT_VTOOL_MP4BOX_THREAD_NAME, mp4box_write_task, ctx, 0)) {
+    else if (luat_rtos_task_create(&ctx->task, LUAT_VTOOL_MP4BOX_THREAD_STACK, LUAT_VTOOL_MP4BOX_THREAD_PRIO, LUAT_VTOOL_MP4BOX_THREAD_NAME, mp4box_write_task, ctx, 1)) {
+        // 本任务不接收 event, event_cout 传 1 而非默认 64, 减小句柄队列占用
         LLOGE("create mp4box write task failed, fallback to sync mode");
         luat_rtos_semaphore_delete(ctx->exit_sem);
         ctx->exit_sem = NULL;
@@ -1145,6 +1151,10 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
         }
         // 阻塞等待写线程把残留帧和moov全部写完
         luat_rtos_semaphore_take(ctx->exit_sem, LUAT_WAIT_FOREVER);
+        if (ctx->drop_cnt) {
+            // 丢帧统计, 录制性能排查用
+            LLOGW("mp4box dropped %u frames", (unsigned)ctx->drop_cnt);
+        }
         luat_rtos_queue_delete(ctx->queue);
         ctx->queue = NULL;
         luat_rtos_semaphore_delete(ctx->exit_sem);

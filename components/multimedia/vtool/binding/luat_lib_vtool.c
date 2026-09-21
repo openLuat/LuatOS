@@ -72,6 +72,22 @@ static int l_vtool_h264_encoder_deinit(lua_State *L) {
     return 1;
 }
 
+#ifdef __BK72XX__
+// 调试用: dump PSRAM slab(ENCODE/DISPLAY/USER/AUDIO)占用, 便于录制/编解码性能排查
+// 声明为 weak, 未提供该接口的 bsp 上不会链接失败
+__attribute__((weak)) void luat_vtool_psram_slab_dump(void);
+
+static int l_vtool_psram_slab_dump(lua_State *L) {
+    if (luat_vtool_psram_slab_dump) {
+        luat_vtool_psram_slab_dump();
+        lua_pushboolean(L, 1);
+    } else {
+        lua_pushboolean(L, 0);
+    }
+    return 1;
+}
+#endif
+
 static const rotable_Reg_t reg_vtool[] =
 {
     { "mp4create" ,         ROREG_FUNC(l_vtool_mp4create)},
@@ -82,6 +98,7 @@ static const rotable_Reg_t reg_vtool[] =
     { "h264_encoder_init",  ROREG_FUNC(l_vtool_h264_encoder_init)},
     { "h264_encoder_start", ROREG_FUNC(l_vtool_h264_encoder_start)},
     { "h264_encoder_deinit",ROREG_FUNC(l_vtool_h264_encoder_deinit)},
+    { "psram_slab_dump",    ROREG_FUNC(l_vtool_psram_slab_dump)},
     #endif
 	{ NULL,                 ROREG_INT(0) }
 };

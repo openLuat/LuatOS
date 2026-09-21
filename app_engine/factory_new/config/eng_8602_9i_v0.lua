@@ -33,10 +33,45 @@
     （与7寸配置一致），写了不报错也不生效，此处保留仅作能力声明。
 12. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO73（AUDIOPA_EN = PIN55），
     低电平有效。录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
-12. 本配置由7寸版本（config/eng_8601_7i_v0.lua）移植，差异：屏幕尺寸 7→9 寸、
+13. 本配置由7寸版本（config/eng_8601_7i_v0.lua）移植，差异：屏幕尺寸 7→9 寸、
     LCD_DE 新增 GPIO25（驱动暂不透传）、TP_RESET 改为 GPIO72、TP_INT 改为 GPIO51、
     SD_CS 改为 PIN38、新增双 RS485（UART1+UART2）。
 ]]
+
+-- ============================================================================
+-- 【临时诊断】模组型号探针（开机 3 秒后打一行，确认完请整段删除）
+--   目的：搞清固件上报的到底是「芯片名」还是「整机名」——
+--     hmeta.chip()   → 原始芯片型号（如 Air1601），底层正确实现时总有值
+--     hmeta.model()  → 模组类型（可能带封装/变体后缀，如 Air1601_xxx）
+--     hmeta.hwver()  → 硬件版本号
+--     hmeta.devid()  → 模组识别 id（WiFi 模组=MAC，4G 模组=IMEI）
+--     rtos.bsp()     → BSP 名（纯芯片系列；服务端/上报只认这个）
+--     _G.model_str   → platform_loader 里 hmeta.model() 的落库值
+--     _G.is_pc       → 是否被误判成 PC 模拟器（hmeta 缺失时会误判！）
+--   日志关键字: modelprobe
+-- ============================================================================
+if not _G.__eng_modelprobe then _G.__eng_modelprobe = true  -- 重入保护（config 可能被加载两次）
+    local function probe(name, fn)
+        if type(fn) ~= "function" then return name .. "=n/a" end
+        local ok, v = pcall(fn)
+        if not ok then return name .. "=<err>" end
+        return name .. "=" .. tostring(v)
+    end
+    sys.taskInit(function()
+        sys.wait(3000)
+        log.info("modelprobe", table.concat({
+            probe("chip",  hmeta and hmeta.chip),
+            probe("model", hmeta and hmeta.model),
+            probe("hwver", hmeta and hmeta.hwver),
+            probe("devid", hmeta and hmeta.devid),
+            "bsp=" .. tostring(rtos.bsp()),
+            "model_str=" .. tostring(_G.model_str),
+            "is_pc=" .. tostring(_G.is_pc),
+            "project=" .. tostring(PROJECT),
+        }, " "))
+    end)
+end
+
 return {
     -- ===== 顶层信息 =====
     name = "Engine_Air8602_9inch_1024x600_010_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}
@@ -57,7 +92,6 @@ return {
     power_on = {
         { pin = 74, dir = 0, level = 1 },              -- SD_EN 拉高
         { pin = 15, dir = 1, level = 0, delay = 100 }, -- WIFI_RST 高电平拉地
-        { pin = 55, dir = 0, level = 1 },              -- AUDIOPA_EN 拉高使能喇叭功放（具体 GPIO 待确认，见第 9 条）
         { pin = 15, dir = 0, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
         { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
         { pin = 58, dir = 0, level = 1, delay = 50 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
@@ -104,12 +138,19 @@ return {
             },
         },
         -- 音频: 内置 DAC 播放 + 线路输入录音（非 ES8311 外挂芯片）
-        -- PA(功放) 使能 = GPIO73（AUDIOPA_EN = PIN55），低电平有效；DAC 延时 6ms
+        -- PA(功放) 使能 = GPIO73（AUDIOPA_EN = PIN55），低电平有效（供电由 power_on 拉高维持）
         audio = {
-            model = "dac",   -- 内置 DAC 模式（Air1601 芯片自带 DAC）
-            pa_ctrl = 73,    -- PA(功放)使能引脚 = GPIO73（AUDIOPA_EN = PIN55）
-            pa_on_level = 0, -- 低电平使能功放
-            dac_delay = 6,   -- DAC 初始化延时 6ms
+            model = "dac",          -- 内置 DAC 模式（Air1601 芯片自带 DAC）
+            pa_ctrl = 73,           -- PA(功放)使能引脚 = GPIO73（AUDIOPA_EN = PIN55，见文件头第 9 条）
+            pa_on_level = 0,        -- 低电平使能功放
+            dac_delay = 6,          -- DAC 启动前冗余时间（旧框架用；新框架 audio_v2 不消费，见 7 寸配置说明）
+            pa_delay = 10,          -- PA 在播放开始后延迟打开的时间(ms)，透传 config_pa_power_ctrl()
+                                    --   不填时 exaudio 内部按 200ms 兜底；对齐同板可用的
+                                    --   Air8601_deposit_cabinet 工程（user/audio_tts.lua）取 10
+            play_vol = 70,          -- 默认播放音量(0~100)，llm_chat / video_util / factory_rec 统一读
+            mic_vol = 70,           -- 默认录音音量(0~100)（AI 助手语音输入 / 应用工厂录音共用）
+            record_format = "AMR_NB", -- 录音格式（AMR 体积小，上传 ASR 省内存）
+            max_record_time = 30,   -- 最长录音时长(秒)，到时自动停止
         },
     },
 
@@ -118,6 +159,11 @@ return {
         wifi = true,        -- 启用 WiFi（Air6205，与 4G 二选一）
         -- net_4g = true,                -- × 4G 未启用（与 WiFi 共享 UART3，默认走 WiFi）
         speaker = true,     -- 启用喇叭（DAC PIN18 接 LM4871 功放）
+        mic = true,         -- 启用麦克风（板载 LINE_IN → 内置 ADC 录音）
+                            --   与 speaker 成对声明：同族已启 AI 助手/应用工厂的板型
+                            --   （evb_1601_7i_v12 / evb_8101_10i_v0 / eng_1602_5i_v5 …
+                            --   以及 7 寸 eng_8601_7i_v0）都写了这一项，本板原缺失。当前
+                            --   app/ 与 ui/ 里查不到消费方，属"能力声明"性质。
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=PIN38）
         rs485 = true,       -- RS485 接口 —— 见文件头第 11 条：暂无消费方（UART1+UART2 双路）
         app_factory = true, -- 启用"应用工厂"内置应用

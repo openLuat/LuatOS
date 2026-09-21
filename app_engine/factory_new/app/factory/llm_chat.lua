@@ -49,6 +49,7 @@ local tts_audio_setup_done = false  -- 是否已执行过 exaudio.setup（仅首
 local tts_is_v2 = false
 local tts_has_play_start = false
 local tts_playing = false
+local page_active = true          -- AI 助手页面是否在前台（不在前台就不起播、立刻停播）
 local tts_queue = {}
 local tts_voice = ""
 local tts_fallback_timer = nil  -- done 帧丢失兜底定时器
@@ -92,38 +93,53 @@ end
 
 -- ==================== TTS ====================
 
--- 直接调用 audio.tts() 阻塞播放全部文本（绕过 exaudio.play_start 回调注册时序问题）
+-- 通过 exaudio.play_start 播放 TTS（统一走 exaudio 路径，兼容 DAC / ES8311 / TM8211 等所有 model）
+-- 不再走旧框架 audio.tts()：旧框架在 DAC 模式下不出声（PA/DAC 通路未正确配置）
 tts_play_text = function(text)
     log.info("llm_chat", "tts_play_text 调用, enabled=", tts_enabled, "len=", text and #text or 0)
     if not tts_enabled or not text or text == "" then return end
+    -- 页面已不在前台（退回桌面 / 切到别的页面）：不起播，否则声音会跑到别的页面上。
+    if not page_active then
+        log.info("llm_chat", "AI 助手不在前台，跳过 TTS 播报")
+        return
+    end
     tts_stop(); if not tts_init() then log.warn("llm_chat", "TTS init 失败，放弃播放"); return end
+    sys.wait(100)  -- 等 DAC/PA 硬件稳定（SHUTDOWN→setup 后上电需要时间）
+    -- 这 100ms 里用户可能已经退出了 AI 助手：再查一次，别把声音播到别的页面上。
+    if not page_active then
+        log.info("llm_chat", "AI 助手已离开前台，取消本次 TTS 播报")
+        return
+    end
     tts_playing = true
     sys.publish("AI_CHAT_STATUS", "TTS 播放中")
-    if audio and audio.tts then
-        -- 旧框架：直接调 audio.tts() 阻塞播放
-        local ok = pcall(audio.tts, 0, tts_voice .. text)
-        if not ok then log.warn("llm_chat", "audio.tts 调用失败") end
-        sys.wait(200)
-    else
-        -- 新框架：走 exaudio.play_start + 回调
-        local done = false
-        local ok = exaudio.play_start({
-            type = 1, content = tts_voice .. text,
-            cbfnc = function(event)
-                if event == exaudio.PLAY_DONE then done = true end
-            end
-        })
-        if ok then
-            local t = 0
-            while not done and tts_playing and t < 30000 do
-                sys.wait(100); t = t + 100
-            end
-            -- 被用户中断：静音让播放自然结束，避免 I2C 死锁
-            if not done and not tts_playing then
-                log.info("llm_chat", "TTS 被用户中断，静音等待播放结束")
-                pcall(exaudio.vol, 0)  -- 静音（不走 I2C，立即生效）
-            end
+    local done = false
+    local ok = exaudio.play_start({
+        type = 1, content = tts_voice .. text,
+        cbfnc = function(event)
+            if event == exaudio.PLAY_DONE then done = true end
         end
+    })
+    if ok then
+        -- 起播这一瞬若已离开前台，立刻真停一次：此刻请求已登记，play_stop 能落到
+        -- 驱动上；否则只能靠下面的静音分支挡，而它最多等 3s，长文本会漏声到别的页面。
+        if not page_active then tts_stop() end
+        local t = 0
+        while not done and tts_playing and t < 30000 do
+            sys.wait(100); t = t + 100
+        end
+        -- 被中断（关语音 / 离开 AI 助手页面）：先静音让播放自然结束，避免 I2C 死锁；
+        -- 但 soft_volume 是驱动级全局增益，留在 0 会把 HZV 音轨等其它播放方一起弄哑，
+        -- 所以等这一次请求真正收尾（或最多 3s）后，必须把音量还回去。
+        if not done and not tts_playing then
+            log.info("llm_chat", "TTS 被中断，静音等待播放结束")
+            pcall(exaudio.vol, 0)  -- 静音（不走 I2C，立即生效）
+            local tw = 0
+            while not done and tw < 3000 do sys.wait(100); tw = tw + 100 end
+            local ac2 = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
+            pcall(exaudio.vol, (ac2 and ac2.play_vol) or 70)
+        end
+    else
+        log.warn("llm_chat", "exaudio.play_start TTS 失败")
     end
     tts_playing = false
     sys.publish("AI_CHAT_STATUS", "")
@@ -133,12 +149,8 @@ tts_stop = function()
     log.info("llm_chat", "tts_stop 调用, playing=", tts_playing)
     local r1 = pcall(exaudio.play_stop, { type = 1 })
     log.info("llm_chat", "play_stop 结果:", r1)
-    if audio and audio.tts then
-        local r2 = pcall(audio.tts, 0)
-        log.info("llm_chat", "audio.tts(0) 结果:", r2)
-    end
-    local r3 = pcall(exaudio.pm, exaudio.SHUTDOWN)
-    log.info("llm_chat", "pm SHUTDOWN 结果:", r3)
+    -- 不调 pm(SHUTDOWN)：参考 demo audio_tts.lua，TTS 只需 play_stop 即可，
+    -- SHUTDOWN 会导致 DAC 下电，再 setup+play_start 会失败（Air8601 DAC 模式已验证）
     tts_playing = false
     tts_queue = {}
 end
@@ -148,32 +160,27 @@ tts_deinit = function() if tts_inited then tts_stop(); tts_inited = false end en
 tts_init = function()
     local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
     if not ac then log.warn("llm_chat", "TTS: project_config.hw.audio 不存在"); return false end
-    -- 仅首次完整 setup；后续只 pm(RESUME) 恢复（与 factory_rec 的 inited 模式一致）。
-    -- 注意：旧框架(audio)的 exaudio.setup 非幂等，会重复 i2s.setup/audio.setBus/audio.on 等；
-    -- 进入聊天窗口时 factory_rec 已 setup 过音频（含录音用 I2S），此处重复 setup 极易失败 → 无声。
-    if not tts_audio_setup_done then
-        local sp = { model = ac.model or "es8311", pa_ctrl = ac.pa_ctrl, pa_on_level = ac.pa_on_level or 1, dac_delay = ac.dac_delay }
-        if ac.dac_ctrl then sp.dac_ctrl = ac.dac_ctrl end
-        if ac.i2c_id then sp.i2c_id = ac.i2c_id end
-        if ac.i2s_sample then sp.i2s_sample = ac.i2s_sample end
-        if ac.bits_per_sample then sp.bits_per_sample = ac.bits_per_sample end
-        if ac.i2s_framebit then sp.i2s_framebit = ac.i2s_framebit end
-        if ac.channels then sp.channels = ac.channels end
-        if ac.pa_delay then sp.pa_delay = ac.pa_delay end
-        if ac.tx_bus_type and ac.rx_bus_type then
-            sp.tx_bus_type = ac.tx_bus_type; sp.tx_bus_id = ac.tx_bus_id or 0
-            sp.rx_bus_type = ac.rx_bus_type; sp.rx_bus_id = ac.rx_bus_id or 0
-        end
-        if ac.audio_mode then sp.audio_mode = ac.audio_mode end
-        local ok, result = pcall(exaudio.setup, sp)
-        if not ok or not result then
-            -- setup 失败不阻断：factory_rec 已配置好音频硬件，直接 RESUME 尝试播放
-            log.warn("llm_chat", "TTS: exaudio.setup 异常/失败，改为直接恢复播放", ok, result)
-        end
-        tts_audio_setup_done = true
-    else
-        exaudio.pm(exaudio.RESUME)
+    -- 每次都做完整 setup：tts_stop 会调 pm(SHUTDOWN) 将 DAC 下电，
+    -- 仅 pm(RESUME) 无法完整恢复 DAC 播放通路，导致 play_start 返回 false。
+    -- exaudio.setup 在 audio_v2 下是幂等的，重复调用不会出错。
+    local sp = { model = ac.model or "es8311", pa_ctrl = ac.pa_ctrl, pa_on_level = ac.pa_on_level or 1, dac_delay = ac.dac_delay }
+    if ac.dac_ctrl then sp.dac_ctrl = ac.dac_ctrl end
+    if ac.i2c_id then sp.i2c_id = ac.i2c_id end
+    if ac.i2s_sample then sp.i2s_sample = ac.i2s_sample end
+    if ac.bits_per_sample then sp.bits_per_sample = ac.bits_per_sample end
+    if ac.i2s_framebit then sp.i2s_framebit = ac.i2s_framebit end
+    if ac.channels then sp.channels = ac.channels end
+    if ac.pa_delay then sp.pa_delay = ac.pa_delay end
+    if ac.tx_bus_type and ac.rx_bus_type then
+        sp.tx_bus_type = ac.tx_bus_type; sp.tx_bus_id = ac.tx_bus_id or 0
+        sp.rx_bus_type = ac.rx_bus_type; sp.rx_bus_id = ac.rx_bus_id or 0
     end
+    if ac.audio_mode then sp.audio_mode = ac.audio_mode end
+    local ok, result = pcall(exaudio.setup, sp)
+    if not ok or not result then
+        log.warn("llm_chat", "TTS: exaudio.setup 异常/失败", ok, result)
+    end
+    tts_audio_setup_done = true
     exaudio.vol(ac.play_vol or 70)
     tts_is_v2 = (exaudio.get_audio_mode and exaudio.get_audio_mode() == "audio_v2")
     if tts_is_v2 and audio_v2 and audio_v2.config_codec_power_ctrl then pcall(audio_v2.config_codec_power_ctrl, false, 0, 0, 0, 0) end
@@ -439,6 +446,24 @@ sys.subscribe("AI_CHAT_TTS_TOGGLE", function()
 end)
 sys.subscribe("AI_CHAT_TTS_PLAY", function(text) sys.taskInit(function() tts_play_text(text) end) end)
 sys.subscribe("AI_CHAT_DEINIT", function() sys.taskInit(function() tts_deinit() end) end)
+--[[AI 助手页面离开前台 → 立即停掉正在播的 TTS。
+
+页面被销毁那条路由 AI_CHAT_CLOSE 覆盖；这里补的是「只失焦、不销毁」的路径
+（别的窗口盖在本页之上、切一级菜单的过渡窗口等）。两条路合起来，
+保证「退出 AI 助手去别的页面」时不会还有声音在念。]]
+sys.subscribe("AI_CHAT_PAGE_ACTIVE", function(active)
+    page_active = active and true or false
+    -- 只在"确实有一次播报在进行"时才真停：tts_stop() 会走到 exaudio.play_stop，
+    -- 而 play_stop 在 audio_v2_request_index 非 nil 时会顺带 pm(SHUTDOWN) 停驱动。
+    -- on_destroy 那条路上 AI_CHAT_CLOSE 已经停过，空转一次纯属多余，
+    -- 还会平白多停一次驱动（首页 HZV 音轨也是同一套驱动）。
+    if not page_active and tts_playing then
+        log.info("llm_chat", "AI 助手离开前台，停止 TTS 播报")
+        -- 挪进独立任务：subscribe 回调跑在 sys 主事件循环里（sys.lua dispatch()），
+        -- play_stop 要碰音频驱动，不能让主循环等它。
+        sys.taskInit(function() tts_stop() end)
+    end
+end)
 sys.subscribe("FACTORY_REC_READY", function(ok, msg)
     if ok then
         tts_audio_setup_done = true

@@ -1,0 +1,146 @@
+--[[
+@module  lcd_st6201
+@summary ST6201 SPI 屏幕驱动（4.3寸 480×272）
+@version 1.0
+@date    2026.08.14
+@author  江访
+@usage
+传入底板接线参数，执行 lcd.init("custom", ...) + 厂商初始化寄存器序列
+params: { port, pin_rst, direction, w, h, bus_speed, rb_swap, interface_mode }
+  port        LCD 接口（默认 lcd.HWID_0 专用 SPI LCD 接口，Air1780H 支持）
+  pin_rst     复位引脚 GPIO（默认 36）
+  direction   显示方向 0~3（默认 0，配合 MADCTL 控制旋转/镜像）
+  w / h       物理分辨率（4.3寸 480×272）
+  bus_speed   SPI 时钟频率 Hz（默认 80MHz）
+
+来源：参考工程 C:\luatools_v1\userprojs\中景_ST6201\user\st6201.lua
+（ZJY4309N-D 厂商 bsp_spi.c/lcd_init.c，已验证显示正常，Air8301 硬件测试板沿用同一套参数）
+]]
+local M = {}
+
+local defaults = {
+    port = lcd.HWID_0,
+    pin_rst = 36,
+    direction = 0,
+    w = 480,
+    h = 272,
+    bus_speed = 80 * 1000 * 1000,
+    rb_swap = true,
+    interface_mode = lcd.WIRE_4_BIT_8_INTERFACE_I,
+}
+
+-- 厂商初始化寄存器表：{命令, 数据字节}
+-- 以 0xFF=0xA5 开头的扩展命令区，结束后需以 0xFF=0x00 退出扩展命令模式
+local init_regs = {
+    {0xFF,0xA5},{0xE7,0x10},{0x35,0x00},{0x3A,0x01},
+    {0x40,0x01},{0x41,0x01},{0x55,0x01},{0x44,0x15},
+    {0x45,0x15},{0x7D,0x03},{0xC1,0xBB},{0xC2,0x13},
+    {0xC3,0x10},{0xC6,0x3E},{0xC7,0x25},{0xC8,0x11},
+    {0x7A,0x66},{0x6F,0x49},{0x78,0x57},{0x73,0x08},
+    {0x74,0x13},{0xC9,0x00},{0x67,0x33},{0x51,0x4B},
+    {0x52,0x7C},{0x53,0x45},{0x54,0x77},{0x46,0x0A},
+    {0x47,0x2A},{0x48,0x0A},{0x49,0x1A},{0x56,0x43},
+    {0x57,0x42},{0x58,0x3C},{0x59,0x64},{0x5A,0x41},
+    {0x5B,0x3C},{0x5C,0x02},{0x5D,0x3C},{0x5E,0x1F},
+    {0x60,0x80},{0x61,0x3F},{0x62,0x21},{0x63,0x07},
+    {0x64,0xE0},{0x65,0x01},{0x6E,0x14},{0xCA,0x20},
+    {0xCB,0x52},{0xCC,0x10},{0xCD,0x42},{0xD0,0x20},
+    {0xD1,0x52},{0xD2,0x10},{0xD3,0x42},{0xD4,0x0A},
+    {0xD5,0x32},{0xE5,0x06},{0xE6,0x00},{0xF8,0x06},
+    {0xF9,0x00},
+
+    {0x80,0x00},{0xA0,0x00},{0x81,0x05},{0xA1,0x03},
+    {0x82,0x02},{0xA2,0x02},{0x86,0x2D},{0xA6,0x1A},
+    {0x87,0x40},{0xA7,0x3F},{0x83,0x38},{0xA3,0x37},
+    {0x84,0x37},{0xA4,0x36},{0x85,0x28},{0xA5,0x28},
+    {0x88,0x09},{0xA8,0x05},{0x89,0x0F},{0xA9,0x0C},
+    {0x8A,0x18},{0xAA,0x14},{0x8B,0x12},{0xAB,0x0E},
+    {0x8C,0x15},{0xAC,0x15},{0x8D,0x11},{0xAD,0x15},
+    {0x8E,0x12},{0xAE,0x11},{0x8F,0x19},{0xAF,0x0F},
+    {0x90,0x0A},{0xB0,0x01},{0x91,0x11},{0xB1,0x0D},
+    {0x92,0x19},{0xB2,0x12},
+}
+
+-- MADCTL(0x36) 值：方向 0/1/2/3 对应 0x00/0xA0/0xC0/0x60
+local madctl = {0x00, 0xA0, 0xC0, 0x60}
+
+-- 写命令（带单字节参数）: data 为 nil 时只发命令
+local function command(cmd, data)
+    if data == nil then
+        lcd.cmd(cmd)
+    else
+        lcd.cmd(cmd, string.char(data))
+    end
+end
+
+function M.init(config)
+    config = config or {}
+    local direction = tonumber(config.direction) or defaults.direction
+    if direction < 0 or direction > 3 then
+        log.error("st6201", "direction must be 0..3")
+        return false
+    end
+
+    -- 方向 0/2 为横屏（480 宽），方向 1/3 为竖屏（272 宽）
+    local width = direction % 2 == 0 and (config.w or defaults.w) or (config.h or defaults.h)
+    local height = direction % 2 == 0 and (config.h or defaults.h) or (config.w or defaults.w)
+
+    local lcd_config = {
+        port = config.port or defaults.port,
+        pin_rst = config.pin_rst == nil and defaults.pin_rst or config.pin_rst,
+        direction = direction,
+        w = width,
+        h = height,
+        xoffset = 0,
+        yoffset = 0,
+        bus_speed = config.bus_speed or defaults.bus_speed,
+        sleepcmd = 0x10,
+        wakecmd = 0x11,
+        interface_mode = defaults.interface_mode,
+        rb_swap = config.rb_swap ~= false,
+    }
+
+    local ok = lcd.init("custom", lcd_config)
+    if not ok then
+        log.error("st6201", "lcd.init 失败")
+        return false
+    end
+
+    -- 厂商初始化寄存器序列（0xFF=0xA5 解锁扩展命令 + GIP 时序 + 正负 Gamma）
+    for _, item in ipairs(init_regs) do
+        command(item[1], item[2])
+    end
+
+    -- MADCTL 旋转/镜像（与参考工程方向 0 一致 → 0x00）
+    command(0x36, madctl[direction + 1])
+
+    -- 设置显示窗口（CASET/RASET），按实际分辨率计算（避免硬编码 480x272）
+    -- CASET: 列 0~(width-1)，RASET: 行 0~(height-1)
+    local x_max = width - 1
+    local y_max = height - 1
+    lcd.cmd(0x2A, string.char(0x00, 0x00, math.floor(x_max / 256), x_max % 256))
+    lcd.cmd(0x2B, string.char(0x00, 0x00, math.floor(y_max / 256), y_max % 256))
+
+    -- 退出扩展命令模式
+    command(0xFF, 0x00)
+
+    -- Sleep Out 退出休眠
+    command(0x11)
+    sys.wait(120)
+
+    -- 开启显示
+    command(0x29)
+    sys.wait(20)
+
+    -- 结束自定义初始化
+    lcd.user_done()
+
+    -- 清屏
+    lcd.clear(0xFFFF)
+
+    log.info("st6201", "initialized", width, height,
+        "bus_speed", lcd_config.bus_speed, "direction", direction)
+    return true
+end
+
+return M

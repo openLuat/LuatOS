@@ -1,0 +1,23 @@
+/* assets/css/pages/overview.css —— 由 index.html 内联样式拆出（原行区间 657-678），内容未改动 */
+/* ============ 运营总览：左列上下两张饼图，右列整高位置地图 ============ */
+.ov-pie-a{grid-column:1 / span 4;grid-row:1}
+.ov-pie-b{grid-column:1 / span 4;grid-row:2}
+.ov-map{grid-column:5 / span 8;grid-row:1 / span 2}
+
+/* ============ 运营总览：概览饼图 ============ */
+/* 标题与图例同一行，腾出的高度全部留给饼图本身 */
+.pie-head{align-items:center;gap:14px;margin-bottom:8px}
+.pie-head h3{flex-shrink:0}
+.pie-body{overflow:hidden;min-height:132px}
+.pie-svg{width:100%;height:100%;display:block}
+/* 饼面：外发光 + 悬浮提亮 + 扇区之间留一道底色缝隙 */
+.pie-svg .pie-wrap{filter:drop-shadow(0 10px 22px var(--shadow-b))}
+.pie-svg .pie-slice{transition:opacity .25s}
+.pie-svg .pie-slice:hover{opacity:.86}
+.pie-svg .pie-lead{fill:none;stroke-width:1.1;stroke-opacity:.8;stroke-linecap:round;stroke-linejoin:round}
+.pie-svg .pie-lead-dot{stroke:none}
+.pie-svg text{font-family:inherit;font-size:1em;letter-spacing:.2px;dominant-baseline:middle}
+.pie-lb-name{fill:var(--dim)}
+.pie-lb-val{fill:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
+.pie-lb-pct{fill:var(--muted);font-variant-numeric:tabular-nums}
+

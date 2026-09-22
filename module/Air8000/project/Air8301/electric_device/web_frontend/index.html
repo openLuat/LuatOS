@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="nebula">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>上海合宙 · 电力控制平台</title>
+<!-- 腾讯位置服务 JavaScript API GL：按 AirCloud 资源包《腾讯地图.md》要求，
+     Key 为项目内置常量，只出现在本加载地址中，不做输入项、不向用户索要 -->
+<!-- defer：不阻塞解析与首屏渲染；preconnect/dns-prefetch：提前与地图域名建连 -->
+<link rel="preconnect" href="https://map.qq.com">
+<link rel="dns-prefetch" href="https://map.qq.com">
+<link rel="dns-prefetch" href="https://vectorsdk.map.qq.com">
+<link rel="dns-prefetch" href="https://pr.map.qq.com">
+<script defer src="https://map.qq.com/api/gljs?v=1.exp&key=EZNBZ-VA6KW-ASMRR-3UE4S-M3QCO-EYBC6"></script>
+<link rel="stylesheet" href="assets/bundle/index.css?v=9473b5a2">
+<link rel="icon" type="image/png" href="logo.png">
+</head>
+<body data-page="overview" data-page-name="运营总览" data-lazy-bundle="assets/bundle/index-lazy.js?v=9473b5a2"><script>window.__build="build 09-22 11:46";window.__buildTime="2026年09月22日 11:46:23";(function(){try{var t=localStorage.getItem("nexus-theme");if(t==="aurora"||t==="dawn"||t==="mist")document.documentElement.setAttribute("data-theme",t);window.__themeEarlyAt=document.readyState;}catch(e){}})();console.log("[build] " + window.__build + " / " + window.__buildTime);</script>
+<canvas id="bg"></canvas>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">
+        <img src="logo.png" alt="LuatOS">
+      </div>
+      <div class="brand-text">
+        <b>上海合宙</b>
+        <span>电力控制平台</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <!-- 业务功能 -->
+      <div class="nav-group">
+        <a class="nav-item active" href="index.html" data-tip="运营总览">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+          <span class="nav-text">运营总览</span>
+        </a>
+        <a class="nav-item" href="pages/devices.html" data-tip="设备管理">
+          <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+          <span class="nav-text">设备管理</span>
+        </a>
+        <a class="nav-item" href="pages/alerts.html" data-tip="告警中心">
+          <svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v5M12 17.6v.2"/></svg>
+          <span class="nav-text">告警中心</span>
+        </a>
+        <a class="nav-item" href="pages/map.html" data-tip="位置地图">
+          <svg viewBox="0 0 24 24"><path d="M12 21.5s7-6.5 7-11.4A7 7 0 1 0 5 10.1c0 4.9 7 11.4 7 11.4z"/><circle cx="12" cy="10" r="2.6"/></svg>
+          <span class="nav-text">位置地图</span>
+        </a>
+        <a class="nav-item" href="pages/topo.html" data-tip="网络拓扑">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M10.2 13.4 6.6 16.8M13.8 13.4l3.6 3.4"/><circle cx="12" cy="12" r="2"/></svg>
+          <span class="nav-text">网络拓扑</span>
+        </a>
+      </div>
+
+      <!-- 第三部分：系统 -->
+      <div class="nav-group">
+        <a class="nav-item" href="pages/settings.html" data-tip="系统设置">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          <span class="nav-text">系统设置</span>
+        </a>
+      </div>
+    </nav>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="proj-switch">
+          <button class="proj-btn" id="projBtn">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12.5 12 17l9-4.5"/><path d="M3 17 12 21.5 21 17"/></svg>
+            <span class="proj-cur">
+              <b id="projCurName">--</b>
+            </span>
+            <svg class="caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="proj-pop" id="projPop">
+            <div class="proj-pop-title">切换项目</div>
+            <div class="proj-list" id="projList"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="top-right">
+        <div class="user-switch">
+          <div class="avatar" id="avatarBtn" title="账号">运</div>
+          <div class="user-pop" id="userPop">
+            <div class="user-card">
+              <div class="ua">运</div>
+              <div>
+                <b id="userName">合宙用户</b>
+                <span id="userMobile">AirCloud 授权账号</span>
+              </div>
+            </div>
+            <div class="user-menu">
+              <div class="user-item danger" id="logoutBtn">
+                <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h10"/></svg>
+                <span>退出登录</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <!-- 栅格：本页只放自己用到的面板（行高与原视图定义一致） -->
+    <div class="grid" id="grid" style="grid-template-rows:minmax(0,1fr) minmax(0,1fr)">
+      <div class="panel ov-pie-a" id="panel-online-pie">
+        <div class="panel-head pie-head">
+          <h3>设备在线分布</h3>
+        </div>
+        <div class="panel-body pie-body" id="pieOnline"></div>
+      </div>
+
+      <!-- 概览饼图：告警口径（有告警 / 无告警） -->
+      <div class="panel ov-pie-b" id="panel-alarm-pie">
+        <div class="panel-head pie-head">
+          <h3>设备告警分布</h3>
+        </div>
+        <div class="panel-body pie-body" id="pieAlarm"></div>
+      </div>
+
+      <!-- 设备列表 -->
+      <div class="panel lm2-mini ov-map" id="panel-location">
+        <div class="panel-head">
+          <div>
+            <h3 id="locTitle">位置地图</h3>
+          </div>
+          <!-- 图例按两条轴合成三种组合：连接（在线/离线）× 告警（无/有） -->
+          <div class="loc-legend">
+            <span><i class="loc-dot ok"></i>在线 · 无告警</span>
+            <span><i class="loc-dot alarm"></i>在线 · 告警</span>
+            <span><i class="loc-dot off"></i>离线 · 失联</span>
+            <div class="lm2-base" id="lm2Base">
+              <button type="button" data-base="road" class="active">路网</button>
+              <button type="button" data-base="sat">卫星</button>
+            </div>
+            <button type="button" class="lm2-tg" id="lm2Heat"><i></i>热力</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="lm2" id="lm2">
+
+            <!-- 地图：瓦片底图 + 聚合标记 -->
+            <div class="lm2-map" id="lm2Map">
+              <div class="lm2-ghost" id="lm2Ghost"></div>
+              <div class="lm2-world" id="lm2World"></div>
+              <div class="lm2-marks" id="lm2Marks"></div>
+            </div>
+
+            <!-- 左侧悬浮面板：搜索 + 状态筛选 + 区域导航 -->
+            <aside class="lm2-rail">
+              <div class="lm2-search" id="lm2SearchBox">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+                <input type="text" id="lm2Search" placeholder="输入设备 ID 检索" autocomplete="off">
+                <button type="button" id="lm2Clear" title="清空">×</button>
+              </div>
+              <!-- 两条筛选轴：左三枚是「连接」，分隔线右侧是「告警」 -->
+              <div class="lm2-chips" id="lm2Chips">
+                <button type="button" data-dim="conn" data-val="all" class="active">全部</button>
+                <button type="button" data-dim="conn" data-val="online">在线</button>
+                <button type="button" data-dim="conn" data-val="offline">离线</button>
+                <i class="lm2-chips-div"></i>
+                <button type="button" data-dim="alarm" data-val="alarm">有告警</button>
+              </div>
+              <!-- 区域导航已移除：这里改为动态展示检索 / 筛选命中的设备 -->
+              <div class="loc-list" id="lm2List"></div>
+            </aside>
+
+            <div class="lm2-vp" id="lm2Vp">--</div>
+            <div class="lm2-pop" id="lm2Pop"></div>
+            <div class="lm2-ctrl">
+              <button type="button" data-zoom="in" title="放大">+</button>
+              <button type="button" data-zoom="out" title="缩小">−</button>
+              <button type="button" data-zoom="reset" title="回到园区">⟲</button>
+            </div>
+            <div class="lm2-scale" id="lm2Scale"></div>
+            <div class="loc-tip" id="locTip"></div>
+            <div class="lm2-card" id="lm2Card"></div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- 系统设置 -->
+    </div>
+  </div>
+</div>
+<div class="toast-wrap" id="toastWrap"></div>
+<!-- 退出登录确认 -->
+<div class="modal-mask" id="logoutMask">
+  <div class="confirm-box">
+    <h4>退出登录</h4>
+    <p>退出后需要重新登录才能继续访问控制台，确认退出当前账号吗？</p>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="logoutCancel">取消</button>
+      <button class="btn-danger" id="logoutConfirm">确认退出</button>
+    </div>
+  </div>
+</div>
+<!-- 公共能力 → 本页逻辑 → 页面启动（顺序不可调整） -->
+<script defer src="assets/bundle/index.js?v=9473b5a2"></script>
+</body>
+</html>

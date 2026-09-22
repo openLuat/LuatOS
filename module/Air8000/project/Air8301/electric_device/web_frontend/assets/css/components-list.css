@@ -1,0 +1,47 @@
+/* assets/css/components-list.css —— 设备列表与告警中心共用的列表搜索 / 分页样式（由 pages/devices.css 切出，顺序不变） */
+/* ============ 列表搜索 / 分页（设备列表与告警中心共用） ============ */
+.list-toolbar{flex-shrink:0;margin-bottom:10px;position:relative;z-index:1}
+.list-search{
+  display:flex;align-items:center;gap:8px;
+  height:34px;padding:0 10px;border-radius:11px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+  transition:border-color .22s,background .22s,box-shadow .22s;
+}
+.list-search:focus-within{
+  border-color:var(--hover-line);background:var(--soft-bg);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--cyan) 12%,transparent);
+}
+.list-search svg{
+  width:14px;height:14px;flex-shrink:0;
+  stroke:var(--dim);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
+}
+.list-search input{
+  flex:1;min-width:0;height:100%;border:none;background:transparent;outline:none;
+  font-family:inherit;font-size:13px;color:var(--text);letter-spacing:.3px;
+}
+.list-search input::placeholder{color:var(--muted);font-size:13px}
+.list-clear{
+  width:18px;height:18px;flex-shrink:0;border-radius:6px;cursor:pointer;
+  display:grid;place-items:center;border:none;
+  background:var(--track-bg);color:var(--dim);
+  font-size:14px;line-height:1;font-family:inherit;
+  opacity:0;pointer-events:none;transition:opacity .2s,color .2s;
+}
+.list-search.has-text .list-clear{opacity:1;pointer-events:auto}
+.list-clear:hover{color:var(--red)}
+.pager{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding-top:10px;margin-top:6px;border-top:1px solid var(--line);
+  flex-shrink:0;position:relative;z-index:1;
+}
+.pg-info{font-size:12px;color:var(--dim);letter-spacing:.4px;font-variant-numeric:tabular-nums}
+.pg-btn{
+  width:30px;height:28px;border-radius:9px;cursor:pointer;
+  display:grid;place-items:center;
+  background:var(--soft-bg);border:1px solid var(--line);
+  color:var(--dim);font-family:inherit;font-size:17px;line-height:1;
+  transition:all .22s;
+}
+.pg-btn:hover:not(:disabled){color:var(--cyan);border-color:var(--hover-line);background:var(--hover-soft)}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed}
+

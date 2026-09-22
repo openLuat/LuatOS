@@ -1,0 +1,38 @@
+/* assets/css/reset.css —— 由 index.html 内联样式拆出（原行区间 11-12 / 151-185），内容未改动 */
+*{margin:0;padding:0;box-sizing:border-box}
+
+/* ============ 基础 ============ */
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+  transition:background .55s ease,color .55s ease;
+}
+#bg{position:fixed;inset:0;z-index:0;display:block}
+body::before{
+  content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(900px 620px at 10% -12%,var(--glow-1),transparent 62%),
+    radial-gradient(820px 560px at 92% 112%,var(--glow-2),transparent 62%),
+    radial-gradient(700px 500px at 50% 55%,var(--glow-3),transparent 72%);
+  transition:background .55s ease;
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background-image:
+    linear-gradient(var(--grid-line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
+  background-size:48px 48px;
+  -webkit-mask-image:radial-gradient(circle at 50% 42%,#000 5%,transparent 82%);
+  mask-image:radial-gradient(circle at 50% 42%,#000 5%,transparent 82%);
+  transition:background-image .55s ease;
+}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--scroll-hover)}
+::-webkit-scrollbar-track{background:transparent}
+

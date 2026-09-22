@@ -1,0 +1,91 @@
+/* assets/css/components-shell.css —— 由 index.html 内联样式拆出（原行区间 1991-2069），内容未改动 */
+/* ============ Toast ============ */
+.toast-wrap{
+  position:fixed;top:22px;left:50%;transform:translateX(-50%);z-index:120;
+  display:flex;flex-direction:column;gap:9px;align-items:center;pointer-events:none;
+}
+.toast{
+  padding:11px 20px;border-radius:12px;font-size:14px;color:var(--text);
+  background:var(--toast-bg);
+  border:1px solid var(--line-strong);
+  box-shadow:0 14px 40px -12px var(--shadow-a);
+  backdrop-filter:blur(16px);
+  animation:toastIn .45s cubic-bezier(.2,.8,.3,1);
+  white-space:nowrap;
+}
+/* 仅用于失败提示 */
+.toast.err{
+  color:var(--red);
+  border-color:color-mix(in srgb,var(--red) 55%,transparent);
+  box-shadow:0 14px 40px -12px var(--shadow-a),
+             0 0 0 1px color-mix(in srgb,var(--red) 22%,transparent);
+}
+.toast.err::before{
+  content:'';display:inline-block;vertical-align:middle;
+  width:6px;height:6px;margin-right:9px;border-radius:50%;
+  background:var(--red);box-shadow:0 0 10px var(--red);
+}
+@keyframes toastIn{from{opacity:0;transform:translateY(-16px) scale(.94)}to{opacity:1;transform:none}}
+.toast.out{animation:toastOut .4s forwards}
+@keyframes toastOut{to{opacity:0;transform:translateY(-14px) scale(.94)}}
+
+/* ============ 项目切换器 ============ */
+.proj-switch{position:relative;flex-shrink:0}
+.proj-btn{
+  display:flex;align-items:center;gap:10px;
+  height:44px;padding:0 11px;border-radius:13px;cursor:pointer;
+  background:var(--chip-bg);border:1px solid var(--line);
+  color:var(--text);font-family:inherit;text-align:left;
+  transition:all .25s;
+}
+.proj-btn:hover{border-color:var(--hover-line);background:var(--hover-soft)}
+.proj-btn > svg.ic{
+  width:16px;height:16px;flex-shrink:0;stroke:var(--cyan);
+  fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+}
+.proj-cur{display:flex;flex-direction:column;gap:2px;min-width:0}
+.proj-cur b{font-size:14px;font-weight:600;letter-spacing:.4px;white-space:nowrap;color:var(--text)}
+.proj-btn .caret{width:12px;height:12px;stroke:var(--dim);fill:none;stroke-width:2;transition:transform .25s}
+.proj-btn.open .caret{transform:rotate(180deg)}
+.proj-pop{
+  /* 切换器在顶栏左侧，弹层向左对齐并向右展开，避免溢出窗口左缘 */
+  position:absolute;top:54px;left:0;z-index:70;
+  width:322px;padding:14px;border-radius:16px;
+  background:var(--panel-solid);border:1px solid var(--line-strong);
+  backdrop-filter:blur(28px);
+  box-shadow:0 24px 60px -18px var(--shadow-a),0 0 0 1px var(--soft-bg);
+  opacity:0;transform:translateY(-8px) scale(.96);pointer-events:none;
+  transition:opacity .28s cubic-bezier(.2,.8,.3,1),transform .28s cubic-bezier(.2,.8,.3,1);
+}
+.proj-pop.show{opacity:1;transform:none;pointer-events:auto}
+.proj-pop-title{
+  font-size:12px;color:var(--dim);letter-spacing:1.5px;
+  text-transform:uppercase;margin-bottom:10px;
+}
+.proj-list{
+  display:flex;flex-direction:column;gap:6px;max-height:342px;
+  /* 只允许纵向滚动：overflow-y 一旦是 auto，按 CSS 规则「另一轴的 visible 会被当成 auto」，
+     于是这个列表实际上是可以横向滚动的 —— 任何 1px 横向溢出都会冒出一条横向滚动条。
+     这里显式关掉横向滚动，项目列表只做纵向滚动。 */
+  overflow-y:auto;overflow-x:hidden;
+}
+.proj-item{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:10px;border-radius:11px;cursor:pointer;text-align:left;
+  background:var(--soft-bg2);border:1px solid transparent;
+  color:var(--text);transition:all .22s;
+}
+/* 悬停反馈只用底色 + 描边：原来还带 transform:translateX(2px)，而项目项宽度刚好等于
+   列表内容宽度（292px = 292px），那 2px 位移正是把列表挤出横向滚动条的直接来源 */
+.proj-item:hover{background:var(--soft-bg);border-color:var(--hover-line)}
+.proj-item.active{
+  border-color:var(--cyan);background:var(--hover-soft);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--cyan) 35%,transparent);
+}
+.pi-name{flex:1;min-width:0;display:block;font-size:14px;font-weight:560;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pi-check{font-size:13px;color:var(--cyan);font-weight:700;opacity:0;flex-shrink:0}
+.proj-item.active .pi-check{opacity:1}
+
+/* 顶栏「数据更新于 / 设备列表已更新」提示（.sync-hint）已按需求整体删除，
+   对应元素与样式一并移除，避免留下无用规则 */
+

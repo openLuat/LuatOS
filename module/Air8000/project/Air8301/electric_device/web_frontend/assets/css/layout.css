@@ -1,0 +1,155 @@
+/* assets/css/layout.css —— 由 index.html 内联样式拆出（原行区间 186-314），内容未改动 */
+/* ============ 布局 ============ */
+.app{
+  position:relative;z-index:2;
+  display:flex;gap:14px;height:100vh;padding:16px;
+}
+.main{flex:1;display:flex;flex-direction:column;gap:14px;min-width:0}
+
+/* ============ 侧边栏 ============ */
+.sidebar{
+  width:218px;flex-shrink:0;
+  display:flex;flex-direction:column;gap:12px;
+  padding:18px 14px;
+  background:linear-gradient(180deg,var(--sidebar-from),var(--sidebar-to));
+  border:1px solid var(--line);
+  border-radius:22px;
+  backdrop-filter:blur(24px);
+  box-shadow:0 20px 50px -20px var(--shadow-a),inset 0 1px 0 var(--soft-bg);
+  transition:background .55s ease,border-color .55s ease;
+}
+.brand{
+  display:flex;align-items:center;gap:11px;
+  padding:2px 4px 16px;
+  border-bottom:1px solid var(--line);
+}
+.brand-text{display:flex;flex-direction:column;gap:3px;min-width:0}
+.brand-text b{
+  font-size:15px;font-weight:650;letter-spacing:.7px;color:var(--text);
+  white-space:nowrap;
+}
+.brand-text span{
+  font-size:10px;letter-spacing:1.4px;color:var(--dim);
+  white-space:nowrap;
+}
+.logo{
+  width:42px;height:42px;border-radius:13px;flex-shrink:0;
+  display:grid;place-items:center;padding:5px;
+  /* LuatOS 标志是深色图形 + 透明底，需要浅色底衬才看得清 */
+  background:#fff;
+  border:1px solid color-mix(in srgb,var(--cyan) 35%,transparent);
+  animation:logoPulse 3.5s ease-in-out infinite;
+}
+@keyframes logoPulse{
+  0%,100%{box-shadow:0 0 22px color-mix(in srgb,var(--cyan) 25%,transparent),
+                  inset 0 0 16px color-mix(in srgb,var(--cyan) 10%,transparent)}
+  50%{box-shadow:0 0 40px color-mix(in srgb,var(--cyan) 50%,transparent),
+              inset 0 0 24px color-mix(in srgb,var(--cyan) 22%,transparent)}
+}
+.logo img{width:100%;height:100%;display:block;object-fit:contain}
+.nav{display:flex;flex-direction:column;gap:10px;flex:1;padding-top:2px}
+/* 导航按功能分三组：项目 / 业务功能 / 系统，组间以分隔线断开 */
+.nav-group{display:flex;flex-direction:column;gap:6px}
+/* 分隔线用主题强调色（比 line / line-strong 更醒目），两端渐隐避免生硬截断 */
+.nav-group + .nav-group{position:relative;padding-top:12px}
+.nav-group + .nav-group::before{
+  content:'';position:absolute;left:0;right:0;top:0;height:1px;
+  background:linear-gradient(90deg,
+    transparent,
+    color-mix(in srgb,var(--cyan) 42%,transparent) 16%,
+    color-mix(in srgb,var(--cyan) 42%,transparent) 84%,
+    transparent);
+}
+.nav-item{
+  position:relative;
+  width:100%;height:44px;border-radius:13px;
+  display:flex;align-items:center;gap:12px;
+  padding:0 13px;
+  background:transparent;border:1px solid transparent;
+  color:var(--dim);cursor:pointer;text-decoration:none;
+  font-family:inherit;font-size:15px;font-weight:500;letter-spacing:.4px;
+  text-align:left;white-space:nowrap;
+  transition:all .28s cubic-bezier(.4,0,.2,1);
+}
+.nav-item svg{
+  width:19px;height:19px;flex-shrink:0;
+  stroke:currentColor;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+}
+.nav-text{overflow:hidden;text-overflow:ellipsis}
+.nav-item:hover{
+  color:var(--cyan);
+  background:var(--hover-soft);
+  border-color:var(--hover-line);
+  transform:translateX(3px);
+}
+.nav-item:hover svg{transform:scale(1.08)}
+.nav-item.active{
+  color:var(--active-text);
+  background:linear-gradient(145deg,var(--active-from),var(--active-to));
+  box-shadow:0 6px 22px -4px color-mix(in srgb,var(--cyan) 60%,transparent),
+            inset 0 1px 0 rgba(255,255,255,.5);
+}
+.nav-item.active svg{stroke-width:1.9}
+.nav-item.active::before{
+  content:'';position:absolute;left:-13px;top:50%;transform:translateY(-50%);
+  width:3px;height:22px;border-radius:2px;background:var(--cyan);
+  box-shadow:0 0 12px var(--cyan);
+}
+
+/* ============ 顶栏 ============ */
+/* 左侧项目切换器 + 运行状态 · 右侧账号 */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  padding:0 4px;height:52px;flex-shrink:0;
+}
+.topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
+.top-right{display:flex;align-items:center;gap:12px;position:relative}
+.chip{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 14px;border-radius:11px;
+  background:var(--chip-bg);border:1px solid var(--line);
+  font-size:14px;color:var(--dim);
+  backdrop-filter:blur(16px);
+  transition:background .5s ease,border-color .5s ease,color .5s ease;
+}
+.chip .live{
+  width:7px;height:7px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 10px var(--green);animation:blink 1.6s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.avatar{
+  width:36px;height:36px;border-radius:12px;
+  background:linear-gradient(145deg,var(--cyan),var(--violet));
+  display:grid;place-items:center;font-size:14px;font-weight:700;color:var(--active-text);
+  box-shadow:0 6px 20px -6px color-mix(in srgb,var(--violet) 80%,transparent);
+  cursor:pointer;transition:transform .25s;
+}
+.avatar:hover{transform:scale(1.08) rotate(-4deg)}
+/* 顶栏账号要显示完整账户名（原来只放首字，如「朱」，看不出是哪位的账号）：
+   圆形 → 自适应胶囊；display 改 block + line-height 竖直居中，超长名自动省略号。
+   注意：hover 不再旋转/放大（胶囊旋转会显得歪），改为轻微提亮。 */
+.avatar.has-name{
+  width:auto;min-width:36px;max-width:200px;padding:0 12px;
+  display:block;line-height:36px;text-align:center;
+  font-size:13px;font-weight:600;letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.avatar.has-name:hover{transform:none;filter:brightness(1.08)}
+
+
+/* 侧栏底部：发布时间（由 shell.js 注入，全站统一）
+   —— 字号固定 12px，与系统设置页那处发布时间一致，也是「发布于：2026年09月21日 20:44:52」
+      在侧栏内容宽（218 - 28 = 190px）里能**一行放下**的最大整数号：
+      实测 13px 自然宽 198px（超 10px，会折成两行），12px 为 183px（余 5px）。
+   —— 用正文正文字体而非等宽字体（等宽下中文与数字更宽，同样会超宽）。
+   —— white-space:nowrap：确保永不折行；宽度已按上面实测留了余量。 */
+.side-publish{
+  margin-top:auto;padding-top:8px;text-align:center;
+  font-size:12px;letter-spacing:0;color:var(--dim);line-height:1.5;
+  font-family:inherit;white-space:nowrap;
+  user-select:text;
+}
+/* 窄屏下侧栏变成横向：隐藏这行，避免挤坏布局 */
+@media(max-width:900px){ .side-publish{display:none} }

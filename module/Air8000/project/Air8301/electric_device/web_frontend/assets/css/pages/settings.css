@@ -1,0 +1,245 @@
+/* assets/css/pages/settings.css —— 由 index.html 内联样式拆出（原行区间 315-569），内容未改动 */
+/* ============ 系统设置 · 主题风格 ============ */
+.settings-block{
+  padding:16px;border-radius:14px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+}
+.settings-label{
+  font-size:14px;font-weight:600;color:var(--text);letter-spacing:.6px;
+}
+.settings-hint{font-size:12px;color:var(--dim);margin-top:5px;letter-spacing:.3px}
+.theme-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:10px;margin-top:14px;
+}
+/* 每张卡靠 data-theme 局部重定义主题变量，所以卡内文字 / 边框用的是「该卡所属主题」的颜色。
+   因此卡片底色必须同时用该主题的「面板实色」垫底：若只铺一层半透明淡色，
+   浅色主题的卡落在深色面板上、或深色主题的卡落在浅色面板上，卡内文字与边框就会糊在背景里。
+   淡色感改用叠加在实色之上的渐变保留（hover / active 只加深这一层） */
+.theme-opt{
+  display:flex;flex-direction:column;gap:9px;
+  padding:11px;border-radius:12px;cursor:pointer;
+  background-color:var(--panel-solid);
+  background-image:linear-gradient(var(--soft-bg2),var(--soft-bg2));
+  border:1px solid var(--line);
+  transition:all .25s;text-align:left;
+  font-family:inherit;
+}
+.theme-opt:hover{
+  border-color:var(--line-strong);
+  background-image:linear-gradient(var(--soft-bg),var(--soft-bg));
+  transform:translateY(-2px);
+}
+.theme-opt.active{
+  border-color:var(--cyan);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--cyan) 40%,transparent),
+             0 6px 20px -8px color-mix(in srgb,var(--cyan) 50%,transparent);
+  background-image:linear-gradient(var(--hover-soft),var(--hover-soft));
+}
+.theme-swatch{
+  display:flex;height:26px;border-radius:7px;overflow:hidden;
+  border:1px solid var(--line);
+}
+.theme-swatch i{flex:1;display:block}
+.theme-name{
+  font-size:13px;color:var(--text);letter-spacing:.4px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.theme-opt.active .theme-name::after{
+  content:'✓';color:var(--cyan);font-weight:700;font-size:13px;
+}
+
+/* ---- 面板头右侧按钮 ---- */
+.set-actions{display:flex;gap:8px;flex-shrink:0}
+/* .set-btn 已移入 components.css：位置地图页的降级提示（「重新加载地图」按钮）
+   也用它，原先放在本文件里，地图页加载不到这份样式 */
+
+/* ---- 标签页 ---- */
+.set-tabs{
+  display:flex;gap:4px;flex-shrink:0;margin-bottom:14px;
+  padding:4px;border-radius:13px;width:max-content;
+  background:var(--soft-bg2);border:1px solid var(--line);
+}
+.set-tab{
+  padding:7px 22px;border-radius:10px;cursor:pointer;border:0;background:none;
+  font-family:inherit;font-size:13px;letter-spacing:.4px;color:var(--dim);
+  transition:all .25s;
+}
+.set-tab:hover{color:var(--text)}
+.set-tab.active{
+  color:var(--active-text);
+  background:linear-gradient(145deg,var(--active-from),var(--active-to));
+  box-shadow:0 6px 18px -8px color-mix(in srgb,var(--cyan) 80%,transparent);
+}
+.set-page{display:flex;flex-direction:column;gap:14px;animation:setIn .32s cubic-bezier(.2,.8,.3,1)}
+.set-page.hide{display:none}
+/* 主题风格页：配色方案 与 界面动效 左右平分，等高对齐 */
+#setPageTheme{flex-direction:row;align-items:stretch}
+#setPageTheme > .settings-block{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
+/* 窗口偏窄时回到上下堆叠，避免两栏都被压扁 */
+@media(max-width:1024px){
+  #setPageTheme{flex-direction:column}
+  #setPageTheme > .settings-block{flex:none}
+}
+@keyframes setIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---- 开关行列表 ---- */
+.nt-list{display:flex;flex-direction:column;gap:9px;margin-top:13px}
+.ui-row,.nt-row{
+  display:flex;align-items:center;gap:11px;
+  padding:10px 12px;border-radius:11px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+}
+.ui-ic{
+  width:30px;height:30px;flex-shrink:0;border-radius:9px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--cyan) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--cyan) 24%,transparent);
+}
+.ui-ic svg{width:15px;height:15px;stroke:var(--cyan);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ui-txt{flex:1;min-width:0}
+.ui-txt b{display:block;font-size:13px;font-weight:600;color:var(--text);letter-spacing:.3px}
+.ui-txt span{display:block;font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:.3px}
+/* ---- 开关按钮：轨道 + 滑块 ----
+   设置页用 aria-pressed 记状态，通知页用 .on 类，两者都要覆盖 */
+.dv-switch{
+  position:relative;flex-shrink:0;
+  width:40px;height:22px;padding:0;border-radius:20px;cursor:pointer;
+  background:var(--track-bg);border:1px solid var(--line);
+  transition:background .25s,border-color .25s;
+}
+.dv-switch i{
+  position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;
+  background:var(--muted);
+  transition:transform .25s cubic-bezier(.2,.8,.3,1),background .25s,box-shadow .25s;
+}
+.dv-switch:hover{border-color:var(--line-strong)}
+.dv-switch.on,.dv-switch[aria-pressed="true"]{
+  background:color-mix(in srgb,var(--cyan) 24%,transparent);
+  border-color:color-mix(in srgb,var(--cyan) 58%,transparent);
+}
+.dv-switch.on i,.dv-switch[aria-pressed="true"] i{
+  transform:translateX(18px);
+  background:var(--cyan);
+  box-shadow:0 0 9px color-mix(in srgb,var(--cyan) 70%,transparent);
+}
+.nt-row > span{font-size:13px;color:var(--dim);letter-spacing:.3px;flex-shrink:0;width:66px}
+.nt-inline{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.nt-inline em{font-style:normal;font-size:12px;color:var(--muted);letter-spacing:.3px}
+.nt-num{
+  width:76px;padding:6px 9px;border-radius:9px;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--text);
+  font-family:inherit;font-size:13px;outline:none;
+}
+.nt-num:focus{border-color:var(--line-strong)}
+/* 触发等级等小胶囊 */
+.nt-chips{display:flex;gap:5px;flex-wrap:wrap}
+.nt-chips button{
+  padding:5px 12px;border-radius:8px;cursor:pointer;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--dim);
+  font-family:inherit;font-size:12px;letter-spacing:.3px;transition:all .2s;
+}
+.nt-chips button:hover{color:var(--text);border-color:var(--hover-line)}
+.nt-chips button.active{
+  color:var(--cyan);border-color:color-mix(in srgb,var(--cyan) 40%,transparent);
+  background:color-mix(in srgb,var(--cyan) 13%,transparent);
+}
+
+/* 通知设置页：推送策略 与 推送记录 左右平分，等高对齐 */
+.nt-cols{display:flex;align-items:stretch;gap:14px}
+.nt-cols > .settings-block{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
+/* 记录列表吃掉右栏剩余高度，两栏底部自然对齐 */
+.nt-cols .nt-log{flex:1 1 auto;min-height:96px;max-height:240px}
+.nt-cols .nt-empty{flex:1 1 auto;display:flex;align-items:center}
+/* 窄窗口回到上下堆叠，避免两栏都被压扁 */
+@media(max-width:1024px){
+  .nt-cols{flex-direction:column}
+  .nt-cols > .settings-block{flex:none}
+}
+
+/* ---- 渠道卡片 ---- */
+.nt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(236px,1fr));gap:11px;margin-top:13px}
+.nt-card{
+  display:flex;flex-direction:column;min-width:0;
+  padding:13px;border-radius:14px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+  transition:border-color .28s,background .28s;
+}
+.nt-card:hover{border-color:var(--line-strong)}
+.nt-card.open{
+  border-color:color-mix(in srgb,var(--cyan) 34%,transparent);
+  background:var(--hover-soft);
+}
+.nt-head{display:flex;align-items:flex-start;gap:11px;cursor:pointer}
+.nt-ic{
+  width:38px;height:38px;flex-shrink:0;border-radius:11px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--brand,var(--cyan)) 15%,transparent);
+  border:1px solid color-mix(in srgb,var(--brand,var(--cyan)) 34%,transparent);
+}
+.nt-ic svg{width:20px;height:20px;fill:var(--brand,var(--cyan))}
+.nt-title{flex:1;min-width:0}
+.nt-title b{display:block;font-size:14px;font-weight:600;color:var(--text);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nt-title span{display:block;font-size:12px;color:var(--muted);margin-top:5px;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nt-foot{
+  display:flex;align-items:center;gap:10px;
+  margin-top:12px;padding-top:11px;border-top:1px solid var(--line);
+}
+.nt-state{font-size:11px;padding:2px 9px;border-radius:20px;letter-spacing:.4px;
+  color:var(--muted);background:var(--track-bg)}
+.nt-state.on{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
+.nt-sent{margin-left:auto;font-size:12px;color:var(--muted);letter-spacing:.3px}
+.nt-sent b{color:var(--text);font-weight:650;font-family:ui-monospace,Consolas,monospace}
+/* 展开的配置区 */
+.nt-config{display:none;flex-direction:column;gap:9px;margin-top:12px;cursor:default}
+.nt-card.open .nt-config{display:flex}
+.nt-field{display:flex;flex-direction:column;gap:6px}
+.nt-field > span{font-size:12px;color:var(--muted);letter-spacing:.4px}
+.nt-field input{
+  width:100%;padding:7px 10px;border-radius:9px;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--text);
+  font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.2px;
+  outline:none;transition:border-color .2s;
+}
+.nt-field input:focus{border-color:var(--line-strong)}
+.nt-field input::placeholder{color:var(--muted);font-family:inherit}
+.nt-config .nt-row{padding:8px 10px}
+.nt-config .nt-row > span{width:auto}
+.nt-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nt-test{
+  padding:7px 14px;border-radius:9px;cursor:pointer;border:0;
+  font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.4px;
+  color:var(--active-text);
+  background:linear-gradient(145deg,var(--active-from),var(--active-to));
+  transition:all .22s;
+}
+.nt-test:hover{transform:translateY(-1px)}
+.nt-last{font-size:11px;color:var(--muted);letter-spacing:.3px}
+.nt-clear{
+  padding:5px 12px;border-radius:8px;cursor:pointer;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--dim);
+  font-family:inherit;font-size:12px;letter-spacing:.3px;transition:all .2s;
+}
+.nt-clear:hover{color:var(--red);border-color:color-mix(in srgb,var(--red) 36%,transparent)}
+/* 推送记录 */
+.nt-log{display:flex;flex-direction:column;gap:6px;margin-top:12px;max-height:210px;overflow-y:auto}
+.nt-log-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 11px;border-radius:10px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+}
+.nt-log-ch{
+  flex-shrink:0;font-size:11px;padding:2px 8px;border-radius:6px;letter-spacing:.3px;
+  color:var(--brand,var(--cyan));
+  background:color-mix(in srgb,var(--brand,var(--cyan)) 14%,transparent);
+}
+.nt-log-row b{flex:1;min-width:0;font-size:13px;font-weight:500;color:var(--dim);letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nt-log-row em{flex-shrink:0;font-style:normal;font-size:11px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+.nt-empty{font-size:12px;color:var(--muted);letter-spacing:.3px;padding:12px 2px}
+
+/* ---- 关闭界面动效：全局停用过渡与动画 ---- */
+html.no-motion *,html.no-motion *::before,html.no-motion *::after{
+  animation-duration:.001ms !important;
+  animation-iteration-count:1 !important;
+  transition-duration:.001ms !important;
+}
+

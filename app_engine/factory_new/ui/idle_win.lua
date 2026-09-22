@@ -67,7 +67,7 @@ VP.ctrl_timer = nil             -- 控制栏自动隐藏定时器（已停用，
 现在控制栏由 theme.video_bar 统一构建并自带 sync/set_file，
 调用方只需要把状态喂进去（见 VP.start_play / VP.toggle_play / VP.toggle_loop），
 底色、文字色、文案三者在同一处一起刷新。]]
-VP.current_file = "/luatos_boot.hzv"           -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
+VP.current_file = "/luadb/luatos_boot.hzv"           -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
 VP.card_ref = nil             -- 视频卡片容器引用（供切换文件时使用）
 VP.stage = nil                -- 画面舞台层：视频的父对象，先于控制栏创建（见 build_video_area）
 VP.loop_timer = nil           -- MJPG 循环定时器（已停用：循环改由组件 loop 参数负责）
@@ -1980,7 +1980,6 @@ local function build_video_area(parent)
         -- .hzv 优先（真机硬解）；素材还没换成 hzv 时回落同名 .mjpg，避免视频卡片空掉
         for _, p in ipairs({
             "/luadb/luatos_boot.hzv", "/luatos_boot.hzv",
-            "/luadb/luatos_boot.mjpg", "/luatos_boot.mjpg",
         }) do
             if io.exists(p) then
                 VP.current_file = p

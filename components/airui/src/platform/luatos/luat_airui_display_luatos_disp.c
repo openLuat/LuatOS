@@ -88,6 +88,7 @@ static void luatos_fb_display_flush(airui_ctx_t *ctx, void *backend_ctx,
     luatos_fb_display_ctx_t *fb_ctx = (luatos_fb_display_ctx_t *)backend_ctx;
     struct luat_display_rect rect;
     lv_display_rotation_t rotation;
+    struct luat_display_fb_info *info = fb_ctx->display_conf->fb_info;
 
     if (fb_ctx == NULL || fb_ctx->display_conf == NULL || fb_ctx->display_conf->display_funcs == NULL ||
         fb_ctx->display_conf->display_funcs->fb_flush == NULL || area == NULL || px_map == NULL) {
@@ -100,6 +101,8 @@ static void luatos_fb_display_flush(airui_ctx_t *ctx, void *backend_ctx,
     rect.y = area->y1;
     rect.w = area->x2 - area->x1 + 1;
     rect.h = area->y2 - area->y1 + 1;
+    info->fb_index = (info->fb_index + 1) % info->fb_count;
+    
     fb_ctx->display_conf->display_funcs->fb_flush(fb_ctx->display_conf, &rect, px_map,
                                                   (enum disp_rotate)rotation);
 }

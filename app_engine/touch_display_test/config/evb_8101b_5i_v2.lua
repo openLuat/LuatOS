@@ -28,14 +28,13 @@ return {
     hw = {
         -- 屏幕: GC9503 RGB 5寸 480×854
         lcd = {
-            model = "lcd_gc9503_5in",
+            model = "lcd_display_rgb",
             params = {
-                port = lcd.RGB,          -- RGB 接口
-                pin_clk = 2,             -- SPI 时钟引脚（初始化通信）
+                interface = "rgb",        -- RGB 接口
+                pin_rst = 9,             -- 复位引脚
+                pin_clk = 2,             -- SPI 时钟引脚（IC 初始化通信）
                 pin_sda = 4,             -- SPI 数据引脚
                 pin_cs = 3,              -- SPI 片选引脚
-                pin_rst = 9,             -- 复位引脚
-                direction = 0,           -- 0° 方向
                 w = 480,                 -- 水平分辨率
                 h = 854,                 -- 竖直分辨率
                 hbp = 40,                -- 水平后廊
@@ -45,6 +44,50 @@ return {
                 vspw = 8,                -- 垂直同步脉宽
                 vfp = 20,                -- 垂直前廊
                 bus_speed = 30 * 1000 * 1000, -- RGB 总线时钟 30MHz
+                -- GC9503 IC 寄存器初始化序列
+                ic_init = function(params)
+                    gpio.setup(params.pin_cs or 3, 0)
+                    local rp = gpio.setup(params.pin_rst or 9, 1)
+                    rp(1); sys.wait(20); rp(0); sys.wait(20); rp(1); sys.wait(120)
+                    lcd.cmd(0xFE); lcd.cmd(0xEF)
+                    lcd.cmd(0x36); lcd.data(0x48)
+                    lcd.cmd(0x3A); lcd.data(0x10)
+                    lcd.cmd(0xB0); lcd.data(0x01)
+                    lcd.cmd(0xB1); lcd.data(0x26); lcd.data(0x23); lcd.data(0x22); lcd.data(0x21); lcd.data(0x20); lcd.data(0x1F); lcd.data(0x1E); lcd.data(0x1D); lcd.data(0x1C); lcd.data(0x18); lcd.data(0x02)
+                    lcd.cmd(0xB2); lcd.data(0x01)
+                    lcd.cmd(0xB3); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x22); lcd.data(0x21); lcd.data(0x20); lcd.data(0x1F); lcd.data(0x1E); lcd.data(0x1D); lcd.data(0x1C); lcd.data(0x18)
+                    lcd.cmd(0xB4); lcd.data(0x41)
+                    lcd.cmd(0xB5); lcd.data(0x02); lcd.data(0x08)
+                    lcd.cmd(0xB6); lcd.data(0x80)
+                    lcd.cmd(0xB8); lcd.data(0x45); lcd.data(0x09)
+                    lcd.cmd(0xB9); lcd.data(0x41); lcd.data(0x08)
+                    lcd.cmd(0xBA); lcd.data(0x00)
+                    lcd.cmd(0xBC); lcd.data(0x43); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x0F); lcd.data(0x39); lcd.data(0x00)
+                    lcd.cmd(0xBD); lcd.data(0x30); lcd.data(0x08); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00)
+                    lcd.cmd(0xBE); lcd.data(0x23); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00)
+                    lcd.cmd(0xBF); lcd.data(0x27); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00)
+                    lcd.cmd(0xC0); lcd.data(0x12); lcd.data(0x12)
+                    lcd.cmd(0xC1); lcd.data(0x24); lcd.data(0x02)
+                    lcd.cmd(0xC2); lcd.data(0x01); lcd.data(0x08)
+                    lcd.cmd(0xCC); lcd.data(0x18)
+                    lcd.cmd(0xCD); lcd.data(0x00)
+                    lcd.cmd(0xD0); lcd.data(0x22); lcd.data(0x0A); lcd.data(0x0A); lcd.data(0xE0)
+                    lcd.cmd(0xD1); lcd.data(0xC0); lcd.data(0x44); lcd.data(0x26); lcd.data(0x06)
+                    lcd.cmd(0xD2); lcd.data(0x08); lcd.data(0x40); lcd.data(0x24); lcd.data(0x08)
+                    lcd.cmd(0xD5); lcd.data(0x20); lcd.data(0x00); lcd.data(0x04); lcd.data(0x80)
+                    lcd.cmd(0xE6); lcd.data(0x00); lcd.data(0x00); lcd.data(0x10); lcd.data(0x00)
+                    lcd.cmd(0xD6); lcd.data(0xC0); lcd.data(0x44); lcd.data(0x26); lcd.data(0x06)
+                    lcd.cmd(0xD7); lcd.data(0x22); lcd.data(0x0A); lcd.data(0x0A); lcd.data(0xE0)
+                    lcd.cmd(0xD8); lcd.data(0x20); lcd.data(0x00); lcd.data(0x04); lcd.data(0x80)
+                    lcd.cmd(0xE7); lcd.data(0x00); lcd.data(0x00); lcd.data(0x10); lcd.data(0x00)
+                    lcd.cmd(0xE8); lcd.data(0x01); lcd.data(0x0A)
+                    lcd.cmd(0xEC); lcd.data(0x3C); lcd.data(0x00)
+                    lcd.cmd(0xED); lcd.data(0x00); lcd.data(0x00); lcd.data(0x20); lcd.data(0x5F)
+                    lcd.cmd(0xEF); lcd.data(0x10); lcd.data(0x0D); lcd.data(0x04); lcd.data(0x08); lcd.data(0x3F); lcd.data(0x1F)
+                    lcd.cmd(0x36); lcd.data(0x00)
+                    lcd.cmd(0x11); sys.wait(120)
+                    lcd.cmd(0x29); sys.wait(20)
+                end,
             },
             need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 5.0,           -- 5寸屏
@@ -66,6 +109,8 @@ return {
                 pin_rst = 28,            -- 复位引脚
                 pin_int = 7,             -- 中断引脚
                 int_type = tp.FALLING,   -- 下降沿触发
+                w = 480,                 -- 触摸面板宽度（与 LCD 一致）
+                h = 854,                 -- 触摸面板高度
                 i2c_speed = i2c.SLOW,    -- 低速 I2C（推荐）
             },
         },

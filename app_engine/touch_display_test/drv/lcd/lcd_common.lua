@@ -39,19 +39,36 @@ local M = {}
 @param table cfg  config.hw.lcd 配置（含 need_buffer, font, rotation, screen_size, backlight）
 @return boolean  true=成功, false(或nil)=airui.init 失败
 ]]
+local function screen_get_size(cfg)
+    if display and display.getSize then
+        local dw, dh = display.getSize()
+        if dw and dw > 0 then
+            return dw, dh
+        end
+    end
+    if lcd and lcd.getSize then
+        local lw, lh = lcd.getSize()
+        if lw and lw > 0 then
+            return lw, lh
+        end
+    end
+    local p = cfg and cfg.params
+    return (p and p.w) or 800, (p and p.h) or 480
+end
+
 function M.airui_init(cfg)
-    -- 获取 LCD 物理分辨率并初始化 AirUI 渲染引擎
-    local w, h = lcd.getSize()
+    -- 获取物理分辨率并初始化 AirUI。真机 AirUI(LUATOS) 依赖 display.init 已注册的 FB。
+    local w, h = screen_get_size(cfg)
     local r = airui.init(w, h)
     if not r then
         log.error("lcd_common", "airui.init 失败")
         return r
     end
 
-    -- RGB 屏幕需要设置帧缓冲区（双缓冲避免撕裂），SPI 屏跳过
-    if cfg.need_buffer then
-        lcd.setupBuff(nil, true)      -- 启用LVGL帧缓冲
-        lcd.autoFlush(false)           -- 关闭自动刷新，由 AirUI 手动控制 flush 时机
+    -- lcd 路径才需要 setupBuff；display.init 已分配 FrameBuffer
+    if cfg.need_buffer and (not display or not display.getFbInfo) and lcd and lcd.setupBuff then
+        lcd.setupBuff(nil, true)
+        lcd.autoFlush(false)
     end
 
     -- 字体加载：文件系统 .ttf（Air8101）vs 固件内置字库（其余平台）
@@ -83,7 +100,7 @@ function M.airui_init(cfg)
 
     -- 计算逻辑分辨率（考虑旋转后的宽高交换）
     local rot = airui.get_rotation()
-    local pw, ph = lcd.getSize()
+    local pw, ph = screen_get_size(cfg)
     if rot == 0 or rot == 180 then
         _G.screen_w, _G.screen_h = pw, ph       -- 正常方向
     else
@@ -116,7 +133,7 @@ function M.backlight_on(cfg)
     local bl = cfg.backlight or {}
     if bl.gpio_bl then
         -- GPIO 背光模式: 设置 GPIO 为输出高电平，不支持亮度调节
-        gpio.setup(bl.gpio_bl, 0)
+        gpio.setup(bl.gpio_bl, 1)
         gpio.set(bl.gpio_bl, 1)
         log.info("lcd_common", "背光已开启 gpio=" .. bl.gpio_bl)
     else
@@ -129,6 +146,42 @@ function M.backlight_on(cfg)
     end
 end
 
+-- C 的 lcd 是只读 rotable，不能写 lcd.getSize。用 Lua 代理覆盖全局 lcd：
+-- 页面仍调 lcd.getSize()，优先 display.getSize()；其它字段转给原 lcd（有的话）。
+do
+    local orig_lcd = lcd
+    local orig_getSize
+    if orig_lcd then
+        local ok, fn = pcall(function()
+            return orig_lcd.getSize
+        end)
+        if ok and type(fn) == "function" then
+            orig_getSize = fn
+        end
+    end
+    local proxy = {
+        getSize = function()
+            if display and display.getSize then
+                local w, h = display.getSize()
+                if w and w > 0 then
+                    return w, h
+                end
+            end
+            if _G.screen_w and _G.screen_w > 0 then
+                return _G.screen_w, _G.screen_h
+            end
+            if orig_getSize then
+                return orig_getSize()
+            end
+            return 800, 480
+        end,
+    }
+    if orig_lcd then
+        setmetatable(proxy, { __index = orig_lcd })
+    end
+    rawset(_G, "lcd", proxy)
+end
+
 -- ==================== 构建全局驱动接口（require 时自动执行） ====================
 -- 读取 project_config，动态 require LCD/TP 驱动模块，构建 _G.lcd_drv / _G.tp_drv
 -- 后续 ui_main.lua 通过这两个全局对象调用 init() / backlight_on()，不感知底层型号差异
@@ -136,7 +189,7 @@ do
     local cfg = _G.project_config
 
     -- 动态加载驱动模块：根据配置中的 model 字段 require 对应 .lua 文件
-    -- 例：cfg.hw.lcd.model = "lcd_nv3052c_5in" → require "lcd_nv3052c_5in"
+    -- 例：cfg.hw.lcd.model = "lcd_display_rgb" → require "lcd_display_rgb"
     local lcd_model = require(cfg.hw.lcd.model)
     local tp_model  = require(cfg.hw.tp.model)
 

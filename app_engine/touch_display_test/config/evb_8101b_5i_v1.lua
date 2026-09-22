@@ -28,16 +28,92 @@ return {
     hw = {
         -- 屏幕: ST7701S RGB 5寸 480×854
         lcd = {
-            model = "lcd_st7701s_5in",
+            model = "lcd_display_rgb",
             params = {
-                port = lcd.RGB,          -- RGB 接口
-                pin_clk = 2,             -- SPI 时钟引脚（初始化通信）
+                interface = "rgb",        -- RGB 接口
+                pin_rst = 9,             -- 复位引脚
+                pin_clk = 2,             -- SPI 时钟引脚（IC 初始化通信）
                 pin_sda = 4,             -- SPI 数据引脚
                 pin_cs = 3,              -- SPI 片选引脚
-                pin_rst = 9,             -- 复位引脚
-                direction = 0,           -- 0° 方向
                 w = 480,                 -- 水平分辨率
                 h = 854,                 -- 竖直分辨率
+                hbp = 40,                -- 水平后沿
+                hspw = 10,               -- 水平同步脉宽
+                hfp = 40,                -- 水平前沿
+                vbp = 10,                -- 垂直后沿
+                vspw = 8,                -- 垂直同步脉宽
+                vfp = 20,                -- 垂直前沿
+                bus_speed = 30 * 1000 * 1000,  -- RGB 总线时钟 30MHz
+                -- ST7701S IC 寄存器初始化序列（SPI 3-wire 9bit）
+                ic_init = function(params)
+                    gpio.setup(params.pin_cs or 3, 0)
+                    local rp = gpio.setup(params.pin_rst or 9, 1)
+                    rp(1); sys.wait(20); rp(0); sys.wait(20); rp(1); sys.wait(120)
+                    lcd.cmd(0xFF); lcd.data(0x77); lcd.data(0x01); lcd.data(0x00); lcd.data(0x00); lcd.data(0x13)
+                    lcd.cmd(0xEF); lcd.data(0x08)
+                    lcd.cmd(0xFF); lcd.data(0x77); lcd.data(0x01); lcd.data(0x00); lcd.data(0x00); lcd.data(0x10)
+                    lcd.cmd(0xC0); lcd.data(0xE9); lcd.data(0x03)
+                    lcd.cmd(0xC1); lcd.data(0x11); lcd.data(0x02)
+                    lcd.cmd(0xC2); lcd.data(0x01); lcd.data(0x08)
+                    lcd.cmd(0xCC); lcd.data(0x18)
+                    lcd.cmd(0xB0); lcd.data(0x00); lcd.data(0x0D); lcd.data(0x14); lcd.data(0x0D)
+                    lcd.data(0x10); lcd.data(0x05); lcd.data(0x02); lcd.data(0x08); lcd.data(0x08)
+                    lcd.data(0x1E); lcd.data(0x05); lcd.data(0x13); lcd.data(0x11); lcd.data(0xA3)
+                    lcd.data(0x29); lcd.data(0x18)
+                    lcd.cmd(0xB1); lcd.data(0x00); lcd.data(0x0C); lcd.data(0x14); lcd.data(0x0C)
+                    lcd.data(0x10); lcd.data(0x05); lcd.data(0x03); lcd.data(0x08); lcd.data(0x07)
+                    lcd.data(0x20); lcd.data(0x05); lcd.data(0x13); lcd.data(0x11); lcd.data(0xA4)
+                    lcd.data(0x29); lcd.data(0x18)
+                    lcd.cmd(0xFF); lcd.data(0x77); lcd.data(0x01); lcd.data(0x00); lcd.data(0x00); lcd.data(0x11)
+                    lcd.cmd(0xB0); lcd.data(0x6C)
+                    lcd.cmd(0xB1); lcd.data(0x43)
+                    lcd.cmd(0xB2); lcd.data(0x87)
+                    lcd.cmd(0xB3); lcd.data(0x80)
+                    lcd.cmd(0xB5); lcd.data(0x47)
+                    lcd.cmd(0xB7); lcd.data(0x85)
+                    lcd.cmd(0xB8); lcd.data(0x20)
+                    lcd.cmd(0xB9); lcd.data(0x10)
+                    lcd.cmd(0xC1); lcd.data(0x78)
+                    lcd.cmd(0xC2); lcd.data(0x78)
+                    lcd.cmd(0xD0); lcd.data(0x88)
+                    sys.wait(100)
+                    lcd.cmd(0xE0); lcd.data(0x00); lcd.data(0x00); lcd.data(0x02)
+                    lcd.cmd(0xE1); lcd.data(0x08); lcd.data(0x00); lcd.data(0x0A); lcd.data(0x00); lcd.data(0x07)
+                    lcd.data(0x00); lcd.data(0x09); lcd.data(0x00); lcd.data(0x00); lcd.data(0x33); lcd.data(0x33)
+                    lcd.cmd(0xE2); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00)
+                    lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00)
+                    lcd.data(0x00); lcd.data(0x00)
+                    lcd.cmd(0xE3); lcd.data(0x00); lcd.data(0x00); lcd.data(0x33); lcd.data(0x33)
+                    lcd.cmd(0xE4); lcd.data(0x44); lcd.data(0x44)
+                    lcd.cmd(0xE5); lcd.data(0x0E); lcd.data(0x60); lcd.data(0xA0); lcd.data(0xA0); lcd.data(0x10)
+                    lcd.data(0x60); lcd.data(0xA0); lcd.data(0xA0); lcd.data(0x0A); lcd.data(0x60); lcd.data(0xA0)
+                    lcd.data(0xA0); lcd.data(0x0C); lcd.data(0x60); lcd.data(0xA0); lcd.data(0xA0)
+                    lcd.cmd(0xE6); lcd.data(0x00); lcd.data(0x00); lcd.data(0x33); lcd.data(0x33)
+                    lcd.cmd(0xE7); lcd.data(0x44); lcd.data(0x44)
+                    lcd.cmd(0xE8); lcd.data(0x0D); lcd.data(0x60); lcd.data(0xA0); lcd.data(0xA0); lcd.data(0x0F)
+                    lcd.data(0x60); lcd.data(0xA0); lcd.data(0xA0); lcd.data(0x09); lcd.data(0x60); lcd.data(0xA0)
+                    lcd.data(0xA0); lcd.data(0x0B); lcd.data(0x60); lcd.data(0xA0); lcd.data(0xA0)
+                    lcd.cmd(0xEB); lcd.data(0x02); lcd.data(0x01); lcd.data(0xE4); lcd.data(0xE4); lcd.data(0x44)
+                    lcd.data(0x00); lcd.data(0x40)
+                    lcd.cmd(0xEC); lcd.data(0x02); lcd.data(0x01)
+                    lcd.cmd(0xED); lcd.data(0xAB); lcd.data(0x89); lcd.data(0x76); lcd.data(0x54); lcd.data(0x01)
+                    lcd.data(0xFF); lcd.data(0xFF); lcd.data(0xFF); lcd.data(0xFF); lcd.data(0xFF); lcd.data(0xFF)
+                    lcd.data(0x10); lcd.data(0x45); lcd.data(0x67); lcd.data(0x98); lcd.data(0xBA)
+                    lcd.cmd(0xEF); lcd.data(0x08); lcd.data(0x08); lcd.data(0x08); lcd.data(0x45)
+                    lcd.data(0x3F); lcd.data(0x54)
+                    lcd.cmd(0xFF); lcd.data(0x77); lcd.data(0x01); lcd.data(0x00); lcd.data(0x00); lcd.data(0x13)
+                    lcd.cmd(0xE8); lcd.data(0x00); lcd.data(0x0E)
+                    lcd.cmd(0xFF); lcd.data(0x77); lcd.data(0x01); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00)
+                    lcd.cmd(0x11); sys.wait(120)
+                    lcd.cmd(0xFF); lcd.data(0x77); lcd.data(0x01); lcd.data(0x00); lcd.data(0x00); lcd.data(0x13)
+                    lcd.cmd(0xE8); lcd.data(0x00); lcd.data(0x0C); sys.wait(10)
+                    lcd.cmd(0xE8); lcd.data(0x00); lcd.data(0x00)
+                    lcd.cmd(0xFF); lcd.data(0x77); lcd.data(0x01); lcd.data(0x00); lcd.data(0x00); lcd.data(0x00)
+                    lcd.cmd(0x29)
+                    lcd.cmd(0x3a); lcd.data(0x77)
+                    lcd.cmd(0x36); lcd.data(0x08)
+                    sys.wait(20)
+                end,
             },
             need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
             rotation = 180,              -- Air8101 st7701s 屏需额外旋转 180°
@@ -60,6 +136,8 @@ return {
                 pin_rst = 28,            -- 复位引脚
                 pin_int = 7,             -- 中断引脚
                 int_type = tp.FALLING,   -- 下降沿触发
+                w = 480,                 -- 触摸面板宽度（与 LCD 一致）
+                h = 854,                 -- 触摸面板高度
                 i2c_speed = i2c.SLOW,    -- 低速 I2C（推荐）
             },
         },

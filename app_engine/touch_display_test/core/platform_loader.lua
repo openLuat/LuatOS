@@ -1,7 +1,7 @@
 --[[
 @module  platform_loader
-@summary 平台检测与项目配置加载器（触摸显示偏移测试精简版）
-@version 1.0
+@summary 平台检测与项目配置加载器（触摸显示偏移测试精简版 · factory_new 初始化方式）
+@version 2.0
 @date    2026.09.22
 @author  江访
 
@@ -10,19 +10,24 @@
 require 即执行，按以下顺序：
   1. 编译清单：require (...) 声明所有需要打包进固件的配置文件和驱动（编译系统静态分析用）
   2. 平台检测：hmeta.model() → 识别芯片型号 → 设 _G.model_str / _G.is_pc
-  3. PROJECT 映射：长命名 "Engine_Air1602_5inch_480x854_005_V000" → 短文件名 "eng_1602_5i_v5"
+  3. PROJECT 映射：长命名 "Engine_Air1602_5inch_720x1280_002_V000" → 短文件名 "eng_1602_5i_v2"
   4. 配置加载：require(cfg_name) → 返回配置 table → 存入 _G.project_config
   5. PC 适配：模拟器环境补充 mobile.* 桩函数
   6. 引脚初始化：遍历 config.pins，逐条调用 pins.setup(pin, func)
-  7. 供电上电：按 config.power_on 时序设置 GPIO 电平（与 factory 工厂工程一致）
+  7. 供电上电：按 config.power_on 时序设置 GPIO 电平（与 factory_new 工厂工程一致）
 
-=== 与 factory 工厂工程 platform_loader 的差异 ===
+=== 与 factory_new 工厂工程 platform_loader 的差异 ===
 
-本工程只做显示/触摸偏移测试，编译清单和业务加载中去掉了网络、应用工厂、
-AI聊天等业务模块，只保留：配置文件 + LCD驱动 + TP驱动 + 供电/引脚初始化。
-PROJECT 映射表与 factory 完全一致，支持所有已实现型号。
+本工程只做显示/触摸偏移测试，编译清单和业务加载中去掉了网络、AirCloud、
+设置上报等业务模块，只保留：配置文件 + LCD/TP 驱动 + 供电/引脚初始化。
+PROJECT 映射表与 factory_new 一致，并补挂了 factory_new 遗漏的
+EVB_Air8101B_5inch_480x854_000_V010 → evb_8101b_5i_v1（配置文件存在但未映射）。
 
-=== 关键设计 ===
+=== 关键设计（factory_new · display 底层初始化） ===
+
+- RGB 屏统一走 lcd_display_rgb 驱动：内部 display.init("custom", ...) 一次完成
+  SPI IC 寄存器序列（custom_cmds）+ RGB 接口时序 + FrameBuffer 分配；
+  需要 SPI 初始化的面板 IC（如 ST7701S）由配置文件通过 ic_init 回调提供寄存器序列
 
 - 短文件名映射（PROJECT_MAP）：LuatOS 文件系统限制文件名 ≤24 字节，长 PROJECT 名
   必须映射到短名。命名格式: {eng|evb|cor}_{芯片简写}_{尺寸简写}_{版本简写}
@@ -39,44 +44,33 @@ PROJECT 映射表与 factory 完全一致，支持所有已实现型号。
 -- ==================== 编译清单（编译系统静态分析，运行时无害） ====================
 -- 新增驱动或配置文件时在此加一行，编译系统会自动打包对应 .lua 文件
 
--- 所有配置文件（与 factory 工厂工程一致，支持全部型号）
-require ("eng_8000w_4i_v0")   -- Air8000W 4寸
-require ("eng_1602_5i_v2")    -- Air1602 5寸 V002
-require ("eng_1602_5i_v3")    -- Air1602 5寸 V003 (NAND)
-require ("eng_1602_5i_v5")    -- Air1602 5寸 V005 (ST7701S+NAND)
-require ("eng_1602_7i_v0")    -- Air1602 7寸
-require ("eng_1602_7i_v4")    -- Air1602 7寸 V004 (NAND)
-require ("eng_1602_10i_v0")   -- Air1602 10.1寸
-require ("eng_1602_9i_v09421")     -- Air1602 9寸 AirLCD_1090
-require ("eng_1602_10i_v10421")    -- Air1602 10寸 AirLCD_1100
-require ("eng_1780h_4i_v0")  -- Air1780H 引擎主机 4.3寸 (ST6201)
-require ("eng_1780h_4i_v1")  -- Air1780H 引擎主机 4寸 (ST7796)
-require ("eng_8301_4i_v0")   -- Air8301 引擎主机 4.3寸 (ST6201)
-require ("eng_8601_7i_v0")   -- Air8601 引擎主机 7寸 (HX8282)
-require ("evb_8101b_5i_v1")    -- Air8101 EVB 5寸 (ST7701S 480x854, V010)
-require ("evb_8101_5i_v0")     -- Air8101 EVB 5寸 (AirLCD_1020, H050IWV 800x480)
-require ("evb_8101b_5i_v2")    -- Air8101B EVB 5寸 (GC9503 480x854, V020)
-require ("evb_8101_9i_v0")     -- Air8101 EVB 9寸 (AirLCD_1090)
-require ("evb_8101_10i_v0")    -- Air8101 EVB 10.1寸 (AirLCD_1100)
-require ("evb_8101_7i_v0")     -- Air8101 EVB 7寸 (AirLCD_1070)
-require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
-require ("evb_1601_10i_v11")  -- Air1601 EVB 10.1寸
-require ("evb_1601_7i_v11")   -- Air1601 EVB 7寸
-require ("evb_1601_7i_v12")   -- Air1601 EVB 7寸 V012
+-- 所有配置文件（与 factory_new 工厂工程一致：≥800×480 / 480×854 型号）
 require ("pc_default")        -- PC 模拟器回退
+require ("eng_1602_5i_v2")    -- Air1602 5寸 720×1280 NV3052C
+require ("eng_1602_5i_v3")    -- Air1602 5寸 720×1280 NV3052C + NAND
+require ("eng_1602_5i_v5")    -- Air1602 5寸 480×854 ST7701S + NAND
+require ("eng_1602_7i_v0")    -- Air1602 7寸 1024×600
+require ("eng_1602_7i_v4")    -- Air1602 7寸 1024×600 + NAND
+require ("eng_1602_9i_v09421")    -- Air1602 9寸 1024×600
+require ("eng_1602_10i_v0")       -- Air1602 10寸 1024×600
+require ("eng_1602_10i_v10421")   -- Air1602 10寸 1024×600
+require ("eng_8601_7i_v0")       -- Air8601 7寸 1024×600
+require ("eng_8602_9i_v0")       -- Air8602 9寸 1024×600
+require ("evb_8101_5i_v0")       -- Air8101 5寸 800×480 H050IWV
+require ("evb_8101_7i_v0")       -- Air8101 7寸 1024×600
+require ("evb_8101_9i_v0")       -- Air8101 9寸 1024×600
+require ("evb_8101_10i_v0")      -- Air8101 10寸 1024×600
+require ("evb_8101b_5i_v1")      -- Air8101B 5寸 480×854 ST7701S
+require ("evb_8101b_5i_v2")      -- Air8101B 5寸 480×854 GC9503
+require ("evb_1601_5i_v11")      -- Air1601 5寸 800×480
+require ("evb_1601_7i_v11")      -- Air1601 7寸 1024×600
+require ("evb_1601_7i_v12")      -- Air1601 7寸 1024×600
+require ("evb_1601_10i_v11")     -- Air1601 10寸 1024×600
 
--- 所有 LCD 驱动（按屏幕 IC 型号分类）
-require ("lcd_st7796")        -- SPI ST7796 (3.5/4寸 320×480)
-require ("lcd_st6201")       -- SPI ST6201 (4.3寸 480×272)
-require ("lcd_nv3052c_5in")   -- RGB NV3052C (5寸 720×1280)
-require ("lcd_st7701s_5in")   -- RGB ST7701S (5寸 480×854)
-require ("lcd_h050iwv_5in")   -- RGB H050IWV (5寸 800×480)
-require ("lcd_hx8282_10in")   -- RGB HX8282 (5/7/9/10.1寸 1024×600 通用)
-require ("lcd_hx8282_cust")   -- RGB HX8282 (custom 方式，四合一屏模组)
-require ("lcd_gc9503_5in")    -- RGB GC9503   (5寸 480×854)
-
--- TP 驱动（统一用 GT911，仅引脚参数不同）
-require ("tp_gt911")
+-- LCD/TP 驱动（factory_new · display 底层初始化）
+require ("lcd_display_rgb")   -- RGB 屏统一驱动（内部走 display.init）
+require ("lcd_st7701s_5in")   -- ST7701S IC 初始化序列（作为 ic_init 回调被配置文件引用）
+require ("tp_gt911")          -- GT911 触摸（统一）
 
 -- ==================== 1. 平台检测 ====================
 -- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()
@@ -90,10 +84,9 @@ _G.is_pc = (not ok) or (_G.model_str == "PC") or (_G.model_str == "")
 -- ==================== 2. PROJECT 长名 → 短文件名映射 ====================
 -- 短名格式: {eng|evb|cor}_{芯片简写}_{尺寸简写}_{版本简写}，目标 ≤24 字节
 -- eng = Engine 引擎主机, evb = EVB turnkey 开发板, cor = Core 核心板
--- 与 factory 工厂工程完全一致
+-- 与 factory_new 工厂工程一致（≥800×480 / 480×854）
 local PROJECT_MAP = {
     -- Engine 引擎主机系列（已实现）
-    ["Engine_Air8000W_4inch_320x480_000_V000"]     = "eng_8000w_4i_v0",
     ["Engine_Air1602_5inch_720x1280_002_V000"]     = "eng_1602_5i_v2",
     ["Engine_Air1602_7inch_1024x600_000_V000"]     = "eng_1602_7i_v0",
     ["Engine_Air1602_10inch1_1024x600_001_V000"]   = "eng_1602_10i_v0",
@@ -102,45 +95,37 @@ local PROJECT_MAP = {
     ["Engine_Air1602_7inch_1024x600_004_V000"]     = "eng_1602_7i_v4",
     ["Engine_Air1602_AirLCD_1090_09421_V000"]     = "eng_1602_9i_v09421",
     ["Engine_Air1602_AirLCD_1100_10421_V000"]     = "eng_1602_10i_v10421",
-    ["Engine_Air1780H_4inch_480x272_000_V000"]    = "eng_1780h_4i_v0",
-    ["Engine_Air1780H_4inch_320x480_000_V001"]    = "eng_1780h_4i_v1",
-    ["Engine_Air8301_4inch_480x272_000_V000"]     = "eng_8301_4i_v0",
     ["Engine_Air8601_7inch_1024x600_010_V000"]    = "eng_8601_7i_v0",
+    ["Engine_Air8602_9inch_1024x600_010_V000"]    = "eng_8602_9i_v0",
     -- EVB turnkey 开发板系列（已实现）
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
     ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",
     ["EVB_Air8101_AirLCD_1100_000_V020"]            = "evb_8101_10i_v0",
     ["EVB_Air8101_AirLCD_1070_000_V020"]            = "evb_8101_7i_v0",
-    ["EVB_Air8000A_3inch5_480x320_000_V020"]       = "evb_8000a_3i5_v0",
-    ["EVB_Air1601_10inch1_1024x600_000_V011"]   = "evb_1601_10i_v11",
+    ["EVB_Air8101B_5inch_480x854_000_V010"]        = "evb_8101b_5i_v1",   -- factory_new 的 PROJECT_MAP 漏挂了此型号，本工程补上
+    ["EVB_Air8101B_5inch_480x854_000_V020"]        = "evb_8101b_5i_v2",
+    ["EVB_Air1601_5inch_800x480_000_V011"]      = "evb_1601_5i_v11",
     ["EVB_Air1601_7inch_1024x600_000_V011"]     = "evb_1601_7i_v11",
     ["EVB_Air1601_7inch_1024x600_000_V012"]     = "evb_1601_7i_v12",
-    ["EVB_Air8101B_5inch_480x854_000_V010"]        = "evb_8101b_5i_v1",   -- factory 的 PROJECT_MAP 漏挂了此型号，本工程补上
-    ["EVB_Air8101B_5inch_480x854_000_V020"]        = "evb_8101b_5i_v2",
-    -- 以下映射已预留，配置文件待实现（与 factory 一致）
-    -- ["EVB_Air1601_5inch_800x480_000_V011"]      = "evb_1601_5i_v11",
-    -- ["EVB_Air780EGG_3inch5_480x320_000_V014"]   = "evb_780eg_35i_v14",
-    -- ["EVB_Air780EHV_3inch5_480x320_000_V014"]   = "evb_780ehv_35i_v14",
-    -- ["EVB_Air780EHU_3inch5_480x320_000_V014"]   = "evb_780ehu_35i_v14",
-    -- ["EVB_Air780EHM_3inch5_480x320_000_V014"]   = "evb_780ehm_35i_v14",
+    ["EVB_Air1601_10inch1_1024x600_000_V011"]   = "evb_1601_10i_v11",
 }
 
 -- ==================== 3. 加载项目配置 ====================
 
 --[[
-生成 PC 模拟器使用的内联配置（模拟 320x480 SPI 屏 + GT911 触摸）
+生成 PC 模拟器/未命中映射时使用的回退配置（lcd_display_rgb + GT911）
 @param number w  模拟屏幕宽度
 @param number h  模拟屏幕高度
 @param number sz 模拟屏幕尺寸（英寸），仅用于密度计算
-@param boolean need_buf  是否需要帧缓冲（高分辨率模拟用）
+@param boolean need_buf  是否需要帧缓冲
 @param number fs  字体大小
-@return table  配置表 { name, chip, pins, power_on, hw={lcd,tp} }
+@return table  配置表 { name, chip, pins, hw={lcd,tp} }
 ]]
 local function make_pc_config(w, h, sz, need_buf, fs)
     return {
         name = "PC", chip = "PC", baseboard = "PC", pins = {},
         hw = {
-            lcd = { model = "lcd_st7796", params = { port = lcd.HWID_0, pin_rst = 36, direction = 0, w = w, h = h }, need_buffer = need_buf, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+            lcd = { model = "lcd_display_rgb", params = { port = lcd.HWID_0, pin_rst = 36, direction = 0, w = w, h = h }, need_buffer = need_buf, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
             tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
         },
     }
@@ -162,7 +147,7 @@ local function load_project_config(project)
         socket.dft(socket.ETH0)                        -- PC 模拟器用 ETH0 网卡
         _G.mobile = {}                                  -- 补充 mobile 模块桩
         function mobile.imei() return "pc_simulator" end
-        return make_pc_config(320, 480, 4.0, false, 14)
+        return make_pc_config(800, 480, 5.0, true, 20)
     end
 
     -- 正常路径：PROJECT_MAP 查找 → require 配置文件
@@ -186,11 +171,10 @@ local function load_project_config(project)
     _G.mobile = {}
     function mobile.imei() return "pc_simulator" end    -- 触摸测试不需要 IMEI，保留桩避免缺模块
 
-    local w, h, sz, need_buf, fs = 320, 480, 4.0, false, 14
+    local w, h, sz, need_buf, fs = 800, 480, 5.0, true, 20
     local _, _, rw, rh = project:find("(%d+)x(%d+)")   -- 正则提取 "720x1280"
     if rw and rh then w, h = tonumber(rw), tonumber(rh) end
     if project:find("7inch") then sz = 7.0 elseif project:find("10inch") then sz = 10.0 end
-    if w > 480 then need_buf, fs = true, 20 end         -- 高分辨率屏需要帧缓冲 + 大字体
 
     return make_pc_config(w, h, sz, need_buf, fs)
 end
@@ -210,7 +194,7 @@ end
 
 -- ==================== 5. 配置引脚（底板决定接线） ====================
 -- 引脚配置由底板决定，不在驱动中硬编码。逐条调用 pins.setup 设置引脚功能
--- 与 factory 工厂工程完全一致，保证供电和接线行为不变
+-- 与 factory_new 工厂工程完全一致，保证供电和接线行为不变
 local config = _G.project_config
 if config.pins and pins then
     for _, p in ipairs(config.pins) do

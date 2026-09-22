@@ -30,12 +30,11 @@ return {
         -- 屏幕: HX8282 RGB 10.1寸 1024×600（四合一芯片，无需 SPI 初始化引脚）
         -- 背光: 不支持 PWM 调光，GPIO2 直接控制亮灭
         lcd = {
-            model = "lcd_hx8282_10in",
+            model = "lcd_display_rgb",
             params = {
-                port = lcd.RGB,          -- RGB 接口
+                interface = "rgb",        -- RGB 接口
                 pin_rst = 15,            -- 复位引脚
-                pin_pwr = 2,             -- LCD 供电使能 GPIO2（同时控制背光）
-                direction = 0,           -- 0° 方向
+                pin_bl = 2,              -- 背光/供电 GPIO2（同时控制背光）
                 w = 1024,                -- 水平分辨率
                 h = 600,                 -- 竖直分辨率
                 hbp = 140,               -- 水平后沿

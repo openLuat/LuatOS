@@ -44,11 +44,11 @@ return {
     hw = {
         -- 屏幕: HX8282 RGB 7寸 1024×600（AirLCD_1070 模组，四合一芯片无需 SPI 初始化引脚）
         lcd = {
-            model = "lcd_hx8282_cust",
+            model = "lcd_display_rgb",
             params = {
-                port = lcd.RGB,          -- RGB 接口
+                interface = "rgb",        -- RGB 接口
                 pin_rst = 38,            -- 复位引脚 GPIO38
-                direction = 0,           -- 0° 方向
+                pin_bl = 55,             -- 背光/供电 GPIO55（与 LCD_EN 共用）
                 w = 1024,                -- 水平分辨率
                 h = 600,                 -- 竖直分辨率
                 -- AirLCD_1070 屏专属 RGB 时序参数
@@ -59,8 +59,6 @@ return {
                 vspw      = 2,
                 vfp       = 12,
                 bus_speed = 52000000,
-                pclk      = lcd.PCLK_FALLING,
-                rb_swap   = true,
             },
             need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 7.0,           -- 7寸屏
@@ -82,6 +80,8 @@ return {
                 pin_rst = 28,            -- 复位引脚 GPIO28
                 pin_int = 7,             -- 中断引脚 GPIO7
                 int_type = tp.FALLING,   -- 下降沿触发（大屏推荐）
+                w = 1024,                -- 触摸面板宽度（与 LCD 一致）
+                h = 600,                 -- 触摸面板高度
                 i2c_speed = i2c.SLOW,    -- 低速 I2C（推荐）
             },
         },

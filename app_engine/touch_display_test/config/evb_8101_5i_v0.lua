@@ -44,13 +44,19 @@ return {
     hw = {
         -- 屏幕: H050IWV RGB 5寸 800×480（AirLCD_1020 模组）
         lcd = {
-            model = "lcd_h050iwv_5in",
+            model = "lcd_display_rgb",
             params = {
-                port = lcd.RGB,          -- RGB 接口
+                interface = "rgb",        -- RGB 接口
                 pin_rst = 38,            -- 复位引脚 GPIO38
-                direction = 0,           -- 0° 方向
                 w = 800,                 -- 水平分辨率
                 h = 480,                 -- 竖直分辨率
+                hbp = 140,               -- 水平后沿
+                hspw = 20,               -- 水平同步脉宽
+                hfp = 160,               -- 水平前沿
+                vbp = 20,                -- 垂直后沿
+                vspw = 3,                -- 垂直同步脉宽
+                vfp = 12,                -- 垂直前沿
+                bus_speed = 50 * 1000 * 1000,  -- RGB 总线时钟 50MHz
             },
             need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 5.0,           -- 5寸屏
@@ -72,6 +78,8 @@ return {
                 pin_rst = 28,            -- 复位引脚 GPIO28
                 pin_int = 7,             -- 中断引脚 GPIO7
                 int_type = tp.FALLING,   -- 下降沿触发
+                w = 800,                 -- 触摸面板宽度（与 LCD 一致）
+                h = 480,                 -- 触摸面板高度
                 i2c_speed = i2c.SLOW,    -- 低速 I2C（推荐）
             },
         },

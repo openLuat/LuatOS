@@ -23,6 +23,7 @@ open/read/write/close 文件模型、可选 HMAC 挑战应答鉴权、挂载点�
     hzadb.netdrv()      -- 网络状态指令(netdrv 适配器状态)
     hzadb.set_auth("0123456789abcdef") -- 可选: 开启 HMAC 挑战应答鉴权
     hzadb.start()       -- 接管日志口, 返回 false 表示固件未开启 LUAT_USE_LOG_USER_CMD
+    hzadb.version()     -- 库版本号, 年月日时分, 例如 "202609221555"
 
 处理函数约定: fn(body) -> errno, resp_body, resp_flags(可选)
   body       请求体(不含5字节固定头)
@@ -33,8 +34,8 @@ open/read/write/close 文件模型、可选 HMAC 挑战应答鉴权、挂载点�
 
 local hzadb = {}
 
---- 库版本号, 三段式, 与协议版本(PROTO_VERSION)无关
-hzadb.VERSION = "001.000.000"
+--- 库版本号, 年月日时分, 与协议版本(PROTO_VERSION)无关
+hzadb.VERSION = "202609221555"
 
 local PROTO_VERSION = 0x01
 -- 单帧数据区上限, 必须与固件 am_log.c 的 rx 缓冲配套:
@@ -590,6 +591,16 @@ function hzadb.netdrv()
         return hzadb.E_OK, table.concat(parts)
     end)
     return hzadb
+end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+hzadb.version()
+]]
+function hzadb.version()
+    return hzadb.VERSION
 end
 
 return hzadb

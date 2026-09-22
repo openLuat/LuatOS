@@ -846,6 +846,26 @@ function t.test_ptz_parse_binding()
     end
 end
 
+--[[ 控制项常量都在；UNKNOWN 的值是 0，别被当成"没注册" ]]
+function t.test_devctl_constants()
+    for _, k in ipairs({ "DEVCTL_UNKNOWN", "DEVCTL_PTZ", "DEVCTL_DRAG_ZOOM_IN",
+                         "DEVCTL_DRAG_ZOOM_OUT", "DEVCTL_HOME_POSITION",
+                         "DEVCTL_TELE_BOOT", "DEVCTL_RECORD", "DEVCTL_GUARD",
+                         "DEVCTL_ALARM", "DEVCTL_IFRAME" }) do
+        assert(type(gb[k]) == "number", "缺常量 " .. k)
+    end
+    assert(gb.DEVCTL_UNKNOWN == 0, "UNKNOWN 约定为 0")
+    -- 各分类不能撞值，否则分派会走错分支
+    local seen = {}
+    for _, k in ipairs({ "DEVCTL_UNKNOWN", "DEVCTL_PTZ", "DEVCTL_DRAG_ZOOM_IN",
+                         "DEVCTL_DRAG_ZOOM_OUT", "DEVCTL_HOME_POSITION",
+                         "DEVCTL_TELE_BOOT", "DEVCTL_RECORD", "DEVCTL_GUARD",
+                         "DEVCTL_ALARM", "DEVCTL_IFRAME" }) do
+        assert(seen[gb[k]] == nil, "常量撞值: " .. k)
+        seen[gb[k]] = true
+    end
+end
+
 --[[ 取任意元素：Control 类报文的字段随子类型变，故留了通用取值器 ]]
 function t.test_xml_get_binding()
     assert(type(gb.xml_get) == "function", "固件太旧，没有 xml_get")
@@ -868,6 +888,173 @@ function t.test_xml_build_response_binding()
     -- 缺省 result 就是 OK
     local d = gb.xml_build_response("DeviceControl", 1, "35020000001320000001")
     assert(d:find("<Result>OK</Result>", 1, true) ~= nil)
+end
+
+--[[ 扩展信息：DeviceInfo 的 <Info> 可出现多次(3.3 补全的完整字段) ]]
+function t.test_xml_build_device_info_with_infos()
+    local body = gb.xml_build_device_info({
+        device_id = "35020000001320000001",
+        name      = "IPC",
+        channel   = 1,
+        infos     = { "RegionCode", "Owner" },
+    }, 9)
+
+    assert(type(body) == "string", "应构造成功")
+    assert(body:find("<Info>RegionCode</Info>", 1, true) ~= nil)
+    assert(body:find("<Info>Owner</Info>", 1, true) ~= nil)
+    -- 顺序应与传入一致
+    assert(body:find("<Info>RegionCode</Info>", 1, true) <
+           body:find("<Info>Owner</Info>", 1, true), "Info 顺序应与传入一致")
+end
+
+--[[ 不给 infos 时不应出现 <Info> 元素 ]]
+function t.test_xml_build_device_info_without_infos()
+    local body = gb.xml_build_device_info({
+        device_id = "35020000001320000001",
+        channel   = 1,
+    }, 9)
+    assert(type(body) == "string")
+    assert(body:find("<Info>", 1, true) == nil, "没给 infos 就不该写 <Info>")
+end
+
+--[[ 告警设备列表：duty_status 逐条写出，没有时自闭合 ]]
+function t.test_xml_build_device_status_alarmstatus()
+    local body = gb.xml_build_device_status({
+        device_id = "35020000001320000001",
+        alarms    = {
+            { device_id = "35020000001320000001", duty_status = "ONDUTY" },
+            { device_id = "35020000001320000002", duty_status = "ALARM" },
+        },
+    }, 11)
+
+    assert(type(body) == "string", "应构造成功")
+    assert(body:find('<Alarmstatus Num="2">', 1, true) ~= nil, "Num 应是告警条数")
+    assert(body:find("<DutyStatus>ONDUTY</DutyStatus>", 1, true) ~= nil)
+    assert(body:find("<DutyStatus>ALARM</DutyStatus>", 1, true) ~= nil)
+
+    local empty = gb.xml_build_device_status({ device_id = "d1" }, 11)
+    assert(empty:find('<Alarmstatus Num="0"/>', 1, true) ~= nil)
+end
+
+--[[ 报警主动上报：报文形状与平台侧解析的字段一致(Notify/Alarm) ]]
+function t.test_xml_build_alarm_binding()
+    assert(type(gb.xml_build_alarm) == "function", "固件太旧，没有 xml_build_alarm")
+
+    local body = gb.xml_build_alarm({
+        device_id   = "35020000001320000001",
+        priority    = 1,
+        method      = 5,                      -- 视频报警
+        time        = "2026-09-18T15:30:00",
+        description = "MotionDetected",
+        alarm_type  = "2",                    -- method=5 时是"移动侦测"
+    }, 1001)
+
+    assert(type(body) == "string", "应构造成功")
+    assert(body:find("<Notify>", 1, true) ~= nil, "根元素必须是 Notify(主动上报)")
+    assert(body:find("<CmdType>Alarm</CmdType>", 1, true) ~= nil)
+    assert(body:find("<SN>1001</SN>", 1, true) ~= nil)
+    assert(body:find("<AlarmPriority>1</AlarmPriority>", 1, true) ~= nil)
+    assert(body:find("<AlarmMethod>5</AlarmMethod>", 1, true) ~= nil)
+    assert(body:find("<AlarmTime>2026-09-18T15:30:00</AlarmTime>", 1, true) ~= nil)
+    assert(body:find("<AlarmType>2</AlarmType>", 1, true) ~= nil)
+end
+
+--[[
+报警时间格式错必须被拒：平台的解析链最后一环没有兜底，格式不对会让
+**对端**抛异常，本端只表现为"报警没进去"。
+]]
+function t.test_xml_build_alarm_rejects_bad_time()
+    local base = { device_id = "d1", priority = 1, method = 2 }
+
+    for _, bad in ipairs({
+        "2026-09-18 15:30:00",       -- 中间是空格不是 T
+        "2026-09-18T15:30",          -- 缺秒
+        "2026-09-18T15:30:00+08:00", -- 带时区
+        "2026-13-01T00:00:00",       -- 月份越界
+        "", nil,
+    }) do
+        local cfg = { device_id = base.device_id, priority = base.priority,
+                      method = base.method, time = bad }
+        local body, err = gb.xml_build_alarm(cfg, 1)
+        assert(body == nil, "非法时间应被拒: " .. tostring(bad))
+        assert(type(err) == "string", "应给出失败原因")
+    end
+
+    -- 缺 device_id 同样拒绝
+    local body = gb.xml_build_alarm({
+        priority = 1, method = 2, time = "2026-09-18T15:30:00",
+    }, 1)
+    assert(body == nil, "缺 device_id 应被拒")
+end
+
+--[[ 控制项识别：拉框缩放(2022) 与云台要走不同的分支 ]]
+function t.test_devctl_parse_binding()
+    assert(type(gb.devctl_parse) == "function", "固件太旧，没有 devctl_parse")
+
+    local drag = gb.devctl_parse(
+        "<Control><CmdType>DeviceControl</CmdType>" ..
+        "<DragZoomIn><Length>100</Length><Width>200</Width>" ..
+        "<MidPointX>300</MidPointX><MidPointY>400</MidPointY>" ..
+        "<LengthX>500</LengthX><LengthY>600</LengthY></DragZoomIn></Control>")
+    assert(drag ~= nil, "应识别成功")
+    assert(drag.kind == gb.DEVCTL_DRAG_ZOOM_IN, "应识别为拉框放大")
+    assert(drag.length == 100 and drag.width == 200, "参数应逐个取到")
+    assert(drag.mid_point_x == 300 and drag.mid_point_y == 400)
+    assert(drag.length_x == 500 and drag.length_y == 600)
+    assert(drag.needs_response == false, "拉框缩放平台不等应答")
+
+    local ptz = gb.devctl_parse(
+        "<Control><PTZCmd>A50F0108000000BD</PTZCmd></Control>")
+    assert(ptz.kind == gb.DEVCTL_PTZ, "应识别为云台")
+    assert(ptz.ptz_hex == "A50F0108000000BD", "应带出十六进制串")
+
+    -- 不认识的控制项归 UNKNOWN，而不是报错
+    local unknown = gb.devctl_parse("<Control><SomeFutureCmd>1</SomeFutureCmd></Control>")
+    assert(unknown ~= nil and unknown.kind == gb.DEVCTL_UNKNOWN)
+end
+
+--[[ 看守位(2022)：平台会等应答，且 0 是合法取值 ]]
+function t.test_devctl_home_position_binding()
+    local d = gb.devctl_parse(
+        "<Control><HomePosition><Enabled>1</Enabled>" ..
+        "<ResetTime>30</ResetTime><PresetIndex>5</PresetIndex></HomePosition></Control>")
+
+    assert(d.kind == gb.DEVCTL_HOME_POSITION)
+    assert(d.enabled == 1 and d.reset_time == 30 and d.preset_index == 5)
+    assert(d.needs_response == true, "看守位平台会等 <Result>")
+
+    -- 平台没给的可选字段是 -1，不能与合法的 0 混为一谈
+    local zero = gb.devctl_parse("<Control><HomePosition><Enabled>0</Enabled>" ..
+                                 "<ResetTime>0</ResetTime></HomePosition></Control>")
+    assert(zero.reset_time == 0, "0 是合法取值")
+    assert(zero.preset_index == -1, "没给的才是 -1")
+end
+
+--[[
+xml_has 挡掉的是 xml_get 的两种"看走眼"：内容超容量、以及自闭合元素。
+（注意 xml_get **不是**取不到容器内容 —— 容器内容没超容量时它会原样返回
+里面那段 XML。这点曾经解释错过一次。）
+]]
+function t.test_xml_has_binding()
+    assert(type(gb.xml_has) == "function", "固件太旧，没有 xml_has")
+
+    local body = "<Control><DragZoomIn><Length>1</Length></DragZoomIn></Control>"
+    assert(gb.xml_has(body, "DragZoomIn") == true)
+    assert(gb.xml_has(body, "DragZoomOut") == false)
+
+    -- 自闭合元素：xml_get 取不到文本，xml_has 认得出
+    local selfclose = "<Control><SnapShot/></Control>"
+    assert(gb.xml_has(selfclose, "SnapShot") == true, "自闭合也算在")
+    assert(gb.xml_get(selfclose, "SnapShot") == nil, "自闭合没有文本可取")
+
+    -- 内容超过取值缓冲(256 字节)：xml_get 返回 nil，看着像"不存在"
+    local big = "<Control><HomePosition><Pad>" ..
+                string.rep("x", 400) ..
+                "</Pad><Enabled>1</Enabled></HomePosition></Control>"
+    assert(gb.xml_get(big, "HomePosition") == nil, "内容超缓冲时 xml_get 取不到")
+    assert(gb.xml_has(big, "HomePosition") == true, "但元素确实在")
+
+    assert(gb.xml_has("<C><SNMP>1</SNMP></C>", "SN") == false, "不能被前缀命中")
 end
 
 return t

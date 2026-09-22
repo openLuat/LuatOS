@@ -81,6 +81,9 @@ local default_config = {
     keepalive       = 60,
     register_expires = 3600,
     channels        = nil,
+    -- DeviceInfo 应答里可重复的 <Info> 扩展信息，字符串数组；nil 表示不写该元素。
+    -- 内容须是 ASCII(报文声明 GB2312 而本组件不做编码转换，中文会乱码)
+    device_infos    = nil,
 }
 
 local function log_info(...)
@@ -337,6 +340,7 @@ function exgb28181.start()
             model        = g_config.model,
             firmware     = g_config.firmware,
             channel      = g_config.channels and #g_config.channels or 1,
+            infos        = g_config.device_infos,
         },
         event_callback = emit,
     })

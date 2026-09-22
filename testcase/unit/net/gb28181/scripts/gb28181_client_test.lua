@@ -152,6 +152,133 @@ function t.test_keepalive_requires_registered()
     reset()
 end
 
+-- ==================================================================
+-- 报警主动上报(Notify/Alarm)
+-- ==================================================================
+
+--[[ 未启动时调用应 emit 失败事件并返回 false，而不是抛异常 ]]
+function t.test_report_alarm_before_start_does_not_throw()
+    reset()
+    local seen
+    client.on(function(event, action, data)
+        if event == "alarm" then seen = action end
+    end)
+
+    local ok, err = client.report_alarm({ priority = 1, method = 2 })
+    assert(ok == false, "未启动时应返回 false")
+    assert(type(err) == "string", "应给出失败原因")
+    assert(seen == "failed", "应 emit alarm/failed 事件")
+
+    client.on(nil)
+end
+
+--[[
+设备未注册(或链路不通)时**不重试、不缓存**，直接丢弃并 emit 失败事件。
+
+这是刻意的策略：报警是应用触发的一次性事件，重试与否、重试几次都是业务判断，
+组件替它决定只会做错(见 exgb28181client.report_alarm 的说明)。
+故这里断言"没有留下任何待发状态"——再调一次仍是立刻返回 false。
+]]
+function t.test_report_alarm_drops_when_link_is_down()
+    reset()
+    assert(client.start(base_opts()) == true, "应能启动(有 socket 但不会注册成功)")
+
+    local failures = 0
+    client.on(function(event, action)
+        if event == "alarm" and action == "failed" then failures = failures + 1 end
+    end)
+
+    local ok = client.report_alarm({
+        device_id = "35020000001320000001",
+        priority  = 1,
+        method    = 5,
+        time      = "2026-09-18T15:30:00",
+    })
+    assert(ok == false, "链路不通时应返回 false")
+    assert(failures == 1, "应 emit 一次 alarm/failed")
+
+    -- 再发一次：仍然是立刻失败，说明没有在组件里排队
+    assert(client.report_alarm({ priority = 1, method = 5, time = "2026-09-18T15:30:01" }) == false)
+    assert(failures == 2, "第二次同样立即失败")
+
+    client.on(nil)
+    reset()
+end
+
+--[[ 参数校验：opts 不是 table 时应被挡下而不是崩 ]]
+function t.test_report_alarm_rejects_non_table()
+    reset()
+    assert(client.report_alarm(nil) == false)
+    assert(client.report_alarm("not a table") == false)
+    assert(client.report_alarm(42) == false)
+end
+
+-- ==================================================================
+-- 平台订阅(SUBSCRIBE/NOTIFY)
+-- ==================================================================
+
+--[[ 订阅到期的判据：到点即失效，且缺到期时间时不主动清 ]]
+function t.test_sub_expired()
+    assert(client.sub_expired({ expire_at = 1000 }, 999) == false)
+    -- **边界是 >=**：正好到点就算过期，推迟一个 tick 没有意义
+    assert(client.sub_expired({ expire_at = 1000 }, 1000) == true)
+    assert(client.sub_expired({ expire_at = 1000 }, 1001) == true)
+
+    -- 没记到期时间(比如手工塞进来的、或字段丢了)：不主动清，宁可留着
+    assert(client.sub_expired({}, 99999999) == false)
+    assert(client.sub_expired({ expire_at = "1000" }, 99999999) == false)
+
+    -- 非法入参不崩
+    assert(client.sub_expired(nil, 1) == false)
+    assert(client.sub_expired({ expire_at = 1 }, nil) == false)
+end
+
+--[[
+报警走哪条传输，只看订阅表：有活跃的 Alarm 订阅走 NOTIFY，否则回落 MESSAGE。
+
+**不能两条都发** —— 平台对同一条报警在两条路上的落地结果并不一样，
+都发会让一次警情在平台上出现两条记录。
+]]
+function t.test_alarm_transport_picks_notify_only_for_alarm()
+    local now = 10000
+
+    -- 没有任何订阅 -> MESSAGE
+    local via, sub = client.alarm_transport({}, now)
+    assert(via == "MESSAGE" and sub == nil, "无订阅应回落到 MESSAGE")
+
+    -- 有的只是目录/移动位置订阅 -> 仍走 MESSAGE。
+    -- 报警体配上报目录的订阅，平台会按 CmdType 分发到"其它"分支丢掉
+    via, sub = client.alarm_transport({
+        [1] = { cmd = "Catalog",        expire_at = now + 1000 },
+        [2] = { cmd = "MobilePosition", expire_at = now + 1000 },
+    }, now)
+    assert(via == "MESSAGE" and sub == nil, "非 Alarm 订阅不该被用来发报警")
+
+    -- 有活跃的 Alarm 订阅 -> NOTIFY，并返回那一条订阅
+    local a = { cmd = "Alarm", expire_at = now + 1000, call_id = "c1" }
+    via, sub = client.alarm_transport({ [1] = a }, now)
+    assert(via == "NOTIFY", "有 Alarm 订阅应走 NOTIFY")
+    assert(sub == a, "应返回选中的那条订阅(发 NOTIFY 要用它的对话信息)")
+
+    -- 已过期的 Alarm 订阅 -> 回落 MESSAGE
+    via, sub = client.alarm_transport({
+        [1] = { cmd = "Alarm", expire_at = now - 1 },
+    }, now)
+    assert(via == "MESSAGE" and sub == nil, "过期订阅不该再被使用")
+
+    -- 非法入参不崩
+    assert(client.alarm_transport(nil, now) == "MESSAGE")
+    assert(client.alarm_transport({ [1] = "not a table" }, now) == "MESSAGE")
+end
+
+--[[ 订阅列表接口的契约：没有订阅时是空表，不是 nil ]]
+function t.test_subscriptions_empty_by_default()
+    reset()
+    local subs = client.subscriptions()
+    assert(type(subs) == "table", "应返回表而不是 nil")
+    assert(next(subs) == nil, "未收到订阅时应为空表")
+end
+
 --[[ 回调异常不应影响状态机(注册的回调里抛错也不能让 client 崩掉) ]]
 function t.test_callback_error_is_contained()
     reset()

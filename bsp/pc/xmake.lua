@@ -1145,11 +1145,8 @@ target("luatos-lua")
     end
 
     -- =========================================================
-    -- gb28181（GB/T 28181-2016 设备侧协议组件）
-    -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/gb28181
-    -- src/ 为纯 C 协议层，port/ 为 SDK 适配层，tests/ 不参与编译。
-    -- 环境变量 LUAT_USE_GB28181=y 显式启用，=n 显式禁用；
-    -- 未设置时按目录存在性自动检测。
+    -- gb28181（GB/T 28181-2016 设备侧协议组件，外部仓 luatos-ext-components）
+    -- LUAT_USE_GB28181=y 启用 / =n 禁用；未设置时按目录存在性自动检测
     -- =========================================================
     local use_gb28181 = false
     local gb28181_src = luatos_ext_root .. "/gb28181"
@@ -1164,11 +1161,14 @@ target("luatos-lua")
     if use_gb28181 then
         add_defines("LUAT_USE_GB28181=1")
         add_includedirs(gb28181_src .. "/include", {public = true})
-        -- 注：本组件不设 port/ —— 发送所需的 socket 句柄无法从 Lua 交给 C
-        -- (luat_socket_ctrl_t 未公开)，故由 Lua 层泵字节，C 层只负责
-        -- 队列、背压与丢帧策略(src/luat_gb28181_media.c)
+        -- 本组件不设 port/：socket 句柄交不到 C，发送由 Lua 层泵字节
         add_files(gb28181_src .. "/src/*.c")
         add_files(gb28181_src .. "/binding/luat_lib_gb28181.c")
+
+        -- 历史回放(record/)：用 mp4player 的 minimp4；未接入时组件自带实现
+        add_includedirs(gb28181_src .. "/record")
+        add_includedirs(luatos_ext_root .. "/mp4player/video_decode")
+        add_files(gb28181_src .. "/record/*.c")
     end
 
     -- =========================================================

@@ -1,0 +1,9 @@
+{
+    "timeout": 60,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "socket.localPort 能读回实际用的端口（含传 0 由系统挑的情况）"
+}

@@ -77,6 +77,8 @@ local g_audio_cb = nil    -- 下行音频回调。与 g_cb 一样放模块局部
 local g_playback_cb = nil -- 回放源钩子(见 on_playback)。同样放模块局部：
                           -- exgb28181playback 通常在 client.start() 之前就 setup()
 local g_ptz_cb = nil      -- 云台指令处理者(见 on_ptz)。同上，应用会在 start() 前注册
+local g_drag_zoom_cb = nil     -- 拉框缩放处理者(见 on_drag_zoom)，2022 新增
+local g_home_position_cb = nil -- 看守位处理者(见 on_home_position)，2022 新增
 local g_started = false
 local st        = {}
 
@@ -97,6 +99,7 @@ local function reset_state()
         next_ka    = 0,
         sessions   = {},   -- 点播会话，按 Call-ID 索引(支持多路并发)
         talks      = {},   -- 设备主动发起的音频会话(Broadcast/Talk)，按 Call-ID 索引
+        subs       = {},   -- 平台订阅(SUBSCRIBE)，按 Call-ID 索引；见 handle_subscribe
 
         -- 信令链路的重建状态，见 _signal_dead / _reconnect_signaling
         dead           = false,  -- 链路已失活，等 sip_task 重建
@@ -262,6 +265,20 @@ local function uri_of(header_value)
     return nil
 end
 
+--[[
+从 From/To/Contact 头里取出 `;tag=xxx` 的值。
+
+对话内收发请求要靠这个 tag 配对：平台订阅我们之后，我们发的 NOTIFY 必须
+把平台的 tag 放进 **To**、把我们自己给的 tag 放进 **From**，两端才能认出
+这是同一个对话。取不到就返回 nil（那说明这一端还没给 tag）。
+]]
+local function tag_of(header_value)
+    if type(header_value) == "string" then
+        return header_value:match(";%s*[Tt][Aa][Gg]%s*=%s*([^;%s>]+)")
+    end
+    return nil
+end
+
 -- ------------------------------------------------------------------
 -- 发送
 -- ------------------------------------------------------------------
@@ -315,8 +332,15 @@ end
 对收到的请求回 200 OK。
 SIP 要求响应必须回抄请求的 Via(可能多条)、From、To(含 tag)、Call-ID 与 CSeq，
 少一样都可能被对端丢弃或无法匹配事务，故一律原样回抄而非重新格式化。
+
+@param opts 可选，两处例外（只有建立对话的请求才需要）：
+    opts.to_tag  给回抄的 To 补一个 tag。**SUBSCRIBE 必须补**：
+                 平台靠应答里的 To-tag 记住对话，之后发来的 NOTIFY 才对得上，
+                 少了它这一端就只是"收到了个 200"，对话没建起来。
+    opts.headers 追加的头，数组 {name=,value=}，如订阅应答要带的
+                 Expires / Contact / Event
 ]]
-local function reply_ok(msg)
+local function reply_ok(msg, opts)
     local vias = {}
     for _, h in ipairs(msg.header_list or {}) do
         if h.name:lower() == "via" then
@@ -328,24 +352,33 @@ local function reply_ok(msg)
     local cseq_num = tonumber(cseq_hdr:match("^(%d+)")) or 1
     local cseq_method = cseq_hdr:match("%s+(%a+)$") or "MESSAGE"
 
+    local to_raw = msg.headers["to"]
+    if opts and opts.to_tag and type(to_raw) == "string" and
+       not tag_of(to_raw) then
+        -- 平台没给 tag 才补；已经带了就原样回抄（重新格式化会丢东西）
+        to_raw = to_raw .. ";tag=" .. opts.to_tag
+    end
+
     local text = gb.sip_build({
         code        = 200,
         reason      = "OK",
         via_list    = vias,
         from_raw    = msg.headers["from"],
-        to_raw      = msg.headers["to"],
+        to_raw      = to_raw,
         call_id     = msg.headers["call-id"],
         cseq        = cseq_num,
         cseq_method = cseq_method,
         contact     = false,
         host        = st.local_ip,
         port        = st.sip_port,
+        extra_headers = opts and opts.headers or nil,
     })
     if text then
         net_send(text)
     else
         log_warn("构造 200 OK 失败")
     end
+    return text
 end
 
 -- ------------------------------------------------------------------
@@ -393,6 +426,17 @@ end
 
 -- 前向声明：sip_task 的 tick 里要用
 local send_keepalive
+
+--[[
+前向声明：`report_alarm` 要用。
+
+订阅那一节排在 `report_alarm` **后面**（它挨着 process_packet，与其它请求
+处理在一起），不在这里先声明的话，`report_alarm` 里的这个名字会解析成
+**全局名**，运行时是 nil —— 报错是 `attempt to call a nil value`，而那要等
+真的有人报警时才炸。定义处也不能再写 `local function`，那会造出一个新局部，
+和这里声明的不是同一个。
+]]
+local send_notify
 
 local function handle_register_response(msg)
     if msg.code == 200 then
@@ -503,28 +547,37 @@ SumNum 都是**通道总数**，平台据此累加并判断是否收全。
 本函数每页独立构造，任何一页构造失败都只记日志并跳过该页，
 不会发出残缺的页(那会让平台的目录出现空洞)。
 ]]
-local function send_catalog(msg, sn)
+local function send_catalog(msg, sn, sink)
     local o = g_opts
     local chans = o.channels or {}
     local sum = #chans
+
+    --[[
+    目录体的**投递方式**由调用方定(D. 见 handle_subscribe 的一次性拉取)：
+      · 不给 sink      → 用 MESSAGE，这是"平台查询、设备应答"那条路
+      · 给了一个函数   → 交给它送同一份体，订阅那条路要用 NOTIFY 送
+    只把"投递"抽出来，"分页造体"仍留在这里 —— 两条路的目录内容必须一模一样，
+    分成两份实现迟早会漂。
+    ]]
+    local deliver = sink or function(body)
+        send_request("MESSAGE", {
+            to_uri       = uri_of(msg.headers["from"])
+                           or string.format("sip:%s@%s", o.server_id, o.domain),
+            content_type = "Application/MANSCDP+xml",
+            body         = body,
+        })
+    end
 
     if sum == 0 then
         log_warn("未配置通道，回 ERROR")
         local fail = gb.xml_build_response_fail("Catalog", sn, o.device_id, "ERROR")
         if fail then
-            send_request("MESSAGE", {
-                to_uri       = uri_of(msg.headers["from"])
-                               or string.format("sip:%s@%s", o.server_id, o.domain),
-                content_type = "Application/MANSCDP+xml",
-                body         = fail,
-            })
+            deliver(fail)
         end
         return
     end
 
     local page = o.catalog_page_size or 10
-    local to_uri = uri_of(msg.headers["from"])
-                   or string.format("sip:%s@%s", o.server_id, o.domain)
     local sent = 0
     local i = 1
 
@@ -542,11 +595,7 @@ local function send_catalog(msg, sn)
         }, sn)
 
         if body then
-            send_request("MESSAGE", {
-                to_uri       = to_uri,
-                content_type = "Application/MANSCDP+xml",
-                body         = body,
-            })
+            deliver(body)
             sent = sent + #items
         else
             -- 构造失败多半是单页太大，记日志让人去调小 catalog_page_size
@@ -644,6 +693,30 @@ local function send_record_info(msg, sn, target_id)
 end
 
 --[[
+设备状态应答里的 **Alarmstatus**(告警设备列表)。
+
+由通道配置派生：通道项带 `duty_status` 的才算"告警设备"，值取标准里的
+ONDUTY / OFFDUTY / ALARM。不带这个字段的通道不写进去 —— 列表的长度是
+**告警设备数**，把普通通道凑数填进去会让平台上的告警列表凭空多出几条，
+而平台拿它做值守统计，多算比少算更难发现。
+
+一个都不带时返回空表，C 层据此写自闭合的 `<Alarmstatus Num="0"/>`。
+@return table 形如 { {device_id=..., duty_status=...}, ... }
+]]
+local function alarm_items()
+    local out = {}
+    for _, ch in ipairs(g_opts.channels or {}) do
+        if ch.duty_status then
+            out[#out + 1] = {
+                device_id   = ch.device_id,
+                duty_status = ch.duty_status,
+            }
+        end
+    end
+    return out
+end
+
+--[[
 应答平台的查询：先回 200 OK，再回带应答体的 MESSAGE。
 
 先回 200 OK 是 SIP 的要求(任何请求都要有响应)，且必须回抄请求的 Via/
@@ -651,22 +724,26 @@ From/To；MESSAGE 里才是 MANSCDP 的业务应答。少任何一个，WVP 这�
 平台都可能判定设备异常。
 ]]
 --[[
-处理平台的云台控制(DeviceControl)。
+处理平台下发的设备控制(DeviceControl)。
 
-平台的"按一下方向键"就是这个：8 字节位域指令装在 `<PTZCmd>` 里（布局见 C 层
-luat_gb28181_ptz.h 的说明，取自真实平台 WVP-Pro 的构造代码）。
+`DeviceControl` 只是一个**信封**，里面装的是哪一种控制由子元素决定，平台不会
+额外告诉你。所以第一步永远是"识别控制项"（交给 C 层的 `devctl_parse`），
+再按识别结果分派 —— 以前是直接 `xml_get(body, "PTZCmd")` 碰运气，取不到就
+一律当"不支持"，分不清"平台发的是拉框缩放"和"报文坏了"。
 
-**组件不碰硬件**：解析出来交给应用（用 `client.on_ptz` 注册的处理者），由它按
-自己接的云台决定怎么做 —— 有的只有左右、有的没变焦，组件替它做主只会做错。
+**组件不碰硬件**：每一种控制都只解析出参数，交给应用注册的处理者去执行
+（`on_ptz` / `on_drag_zoom` / `on_home_position`）。设备接的云台、ISP、
+镜头千差万别，组件替它做主只会做错。
 
-两个刻意的取舍：
+几个刻意的取舍：
 
-  · **没有注册处理者时回 `Result=ERROR`**。设备确实没有可执行的云台，报"成功"
+  · **没有注册处理者时回 `Result=ERROR`**。设备确实没有对应能力，报"成功"
     是谎报 —— 平台上会显示操作成功而实际什么都没发生，那种"看着正常"的假象
     比明确失败难查得多。
   · 处理者抛异常也回 ERROR：异常既不能打断收包循环，也不能谎报成功。
+  · 不认识的子类型也回 ERROR，并把 kind 打进日志 —— 至少能看出平台发了什么。
 
-另外：**校验字节对不上不拒收**，只记一行日志。平台自己拼的包就有已知偏差
+另外：**云台校验字节对不上不拒收**，只记一行日志。平台自己拼的包就有已知偏差
 （变倍速度取 16 时 byte6 与其校验和差 0x10），设备因校验拒收会把"平台能用"
 变成"设备不认"。
 ]]
@@ -676,7 +753,7 @@ local function handle_device_control(msg, sn)
     local function answer(result)
         local text = gb.xml_build_response("DeviceControl", sn, o.device_id, result)
         if not text then
-            log_error("云台应答构造失败")
+            log_error("设备控制应答构造失败")
             return
         end
         send_request("MESSAGE", {
@@ -687,46 +764,78 @@ local function handle_device_control(msg, sn)
         })
     end
 
-    if type(gb.ptz_parse) ~= "function" or type(gb.xml_get) ~= "function" then
-        log_warn("C 层没有云台绑定(固件版本太旧?)，回 ERROR")
+    --[[
+    交给应用执行一个控制项。
+
+    统一在这里收口，是为了让"没注册处理者""处理者抛异常"这两种情况在所有
+    控制项上行为一致 —— 逐个子类型各写一遍迟早会漏掉一种，而漏掉的表现是
+    平台侧一直等到超时。
+    ]]
+    local function dispatch(handler, ev_name, arg, desc)
+        if type(handler) ~= "function" then
+            log_warn("收到" .. desc .. "但没有注册处理者，回 ERROR", desc)
+            emit(ev_name, "unsupported", { arg = arg })
+            answer("ERROR")
+            return
+        end
+        local ok, err = pcall(handler, arg)
+        if not ok then
+            log_error(desc .. "处理异常", err)
+            answer("ERROR")
+            return
+        end
+        answer("OK")
+    end
+
+    if type(gb.devctl_parse) ~= "function" then
+        log_warn("C 层没有设备控制绑定(固件版本太旧?)，回 ERROR")
         answer("ERROR")
         return
     end
 
-    -- DeviceControl 还有别的子类型(看守位、拉框缩放…)，那些没有 PTZCmd
-    local hex = gb.xml_get(msg.body or "", "PTZCmd")
-    if not hex then
-        log_warn("DeviceControl 里没有 PTZCmd，本端不支持该控制类型")
+    local d = gb.devctl_parse(msg.body or "")
+    if not d then
+        log_warn("DeviceControl 无法识别，回 ERROR")
         answer("ERROR")
         return
     end
 
-    local cmd = gb.ptz_parse(hex)
-    if not cmd then
-        log_warn("PTZCmd 无法解析", tostring(hex))
-        answer("ERROR")
-        return
-    end
-    if not cmd.ok then
-        log_warn("PTZCmd 校验字节对不上，仍按解析结果处理", hex)
-    end
-
-    if type(g_ptz_cb) ~= "function" then
-        log_warn("收到云台指令但没有注册处理者(见 client.on_ptz)，回 ERROR", hex)
-        emit("ptz", "unsupported", {
-            hex = hex, code = cmd.code, kind = cmd.kind,
-        })
-        answer("ERROR")
+    -- 云台：8 字节位域指令，布局见 C 层 luat_gb28181_ptz.h
+    if d.kind == gb.DEVCTL_PTZ then
+        local cmd = gb.ptz_parse(d.ptz_hex)
+        if not cmd then
+            log_warn("PTZCmd 无法解析", tostring(d.ptz_hex))
+            answer("ERROR")
+            return
+        end
+        if not cmd.ok then
+            log_warn("PTZCmd 校验字节对不上，仍按解析结果处理", d.ptz_hex)
+        end
+        dispatch(g_ptz_cb, "ptz", cmd, "云台指令")
         return
     end
 
-    local ok, err = pcall(g_ptz_cb, cmd, hex)
-    if not ok then
-        log_error("云台处理异常", err)
-        answer("ERROR")
+    -- 2022 新增：拉框放大 / 缩小。六个参数的单位由平台前端决定，本层不换算
+    if d.kind == gb.DEVCTL_DRAG_ZOOM_IN or d.kind == gb.DEVCTL_DRAG_ZOOM_OUT then
+        dispatch(g_drag_zoom_cb, "drag_zoom", d, "拉框缩放指令")
         return
     end
-    answer("OK")
+
+    -- 2022 新增：看守位。**平台会等这条应答的 Result**（见 devctl.h 的表）
+    if d.kind == gb.DEVCTL_HOME_POSITION then
+        dispatch(g_home_position_cb, "home_position", d, "看守位指令")
+        return
+    end
+
+    --[[
+    其余已识别但本端不实现的控制项（远程启动、录像控制、布防撤防、告警复位、
+    强制关键帧）。**它们里的好几项平台会等应答**，所以必须回 ERROR 而不是
+    沉默 —— 沉默会让平台侧一直等到超时。
+    ]]
+    log_warn("本端未实现的 DeviceControl 子类型", tostring(d.kind),
+             "value=" .. tostring(d.value))
+    emit("device_control", "unsupported", { kind = d.kind, value = d.value })
+    answer("ERROR")
 end
 
 local function handle_query(msg)
@@ -786,6 +895,8 @@ local function handle_query(msg)
             model        = d.model,
             firmware     = d.firmware,
             channel      = d.channel or #(o.channels or {}) or 1,
+            -- 扩展信息：配置里给了才写，没给就不出现 <Info>
+            infos        = d.infos,
         }, sn)
 
     elseif cmd == "DeviceStatus" then
@@ -796,7 +907,10 @@ local function handle_query(msg)
             encode      = "ON",
             record      = "OFF",
             device_time = os.date("%Y-%m-%dT%H:%M:%S"),
-            alarm_count = 0,
+            -- 告警设备列表：由通道配置派生(通道项带 duty_status 才算告警设备)，
+            -- 没有则 C 层写自闭合的 <Alarmstatus Num="0"/>
+            alarms      = alarm_items(),
+            infos       = (o.device or {}).infos,
         }, sn)
 
     elseif cmd == "ConfigDownload" then
@@ -2190,6 +2304,108 @@ local function handle_talk_response(msg)
 end
 
 --[[
+主动上报一条报警（Notify/Alarm，GB/T 28181 §9.11）。
+
+**方向是设备 → 平台**：平台没问，设备自己发。门铃按下、移动侦测、防拆
+这类事件都在这里出去。平台只回 SIP 层的 200 OK，不会回 MANSCDP 应答，
+所以拿到 `true` 只代表"报文已经交给 socket"，不代表平台已经收下。
+
+@api exgb28181client.report_alarm(opts)
+@table opts 字段与 gb28181.xml_build_alarm 的 cfg 一致：
+    device_id   必填，**平台的告警列表挂的是它**，通常是通道编码而不是设备编码
+    priority    必填，1~4，1 最高
+    method      必填，1 电话 / 2 设备 / 3 短信 / 4 GPS / 5 视频 / 6 设备故障 / 7 其他
+    time        可选，"YYYY-MM-DDThh:mm:ss"；**缺省取本机当前时间**
+    description / alarm_type / longitude / latitude 可选
+    alarm_type  的含义随 method 变（同是 2，method=2 是"设备防拆"、
+                method=5 是"移动侦测"），本层只透传不解释
+@return boolean 是否已发出
+@return string|nil 失败原因
+
+失败**不重试、不缓存**，而是丢弃并 emit 一条 `alarm/failed` 事件：
+
+  · 报警是应用触发的一次性事件，应用最清楚它有多要紧 —— 门铃按下的那一次
+    与"温度超阈值"里的某一次，重试策略天差地别，组件替它决定只会做错；
+  · 组件里排队还要定队列长度、超时、去重（同一事件重复触发时算一条还是两条），
+    每一条都是业务判断，放在这里就是猜。
+
+事件回调用 exgb28181client.on() 注册，可拿到 reason 与原始 opts：
+
+    if event == "alarm" and action == "failed" then
+        log.warn("gb28181", "报警没能上报", data.reason)
+    end
+]]
+function M.report_alarm(opts)
+    if type(opts) ~= "table" then
+        emit("alarm", "failed", { reason = "opts 必须是 table" })
+        return false, "opts 必须是 table"
+    end
+    if type(gb.xml_build_alarm) ~= "function" then
+        emit("alarm", "failed", { reason = "C 层没有报警绑定(固件版本太旧?)", opts = opts })
+        return false, "C 层没有报警绑定"
+    end
+    if g_opts == nil then
+        -- start() 之前调用。emit 而不是直接抛：报警多发生在应用刚起来、
+        -- 还没接到平台的时候，这里抛异常会把它变成一次崩溃
+        emit("alarm", "failed", { reason = "服务未启动", opts = opts })
+        return false, "服务未启动"
+    end
+
+    local o = g_opts
+    local cfg = {}
+    for k, v in pairs(opts) do cfg[k] = v end
+    cfg.device_id = cfg.device_id or o.device_id
+    -- 时间缺省取本机当前时间：ISO8601 且**不带时区**（平台那条解析链
+    -- 最后一环没有兜底，格式不对会让对端抛异常）
+    cfg.time = cfg.time or os.date("%Y-%m-%dT%H:%M:%S")
+
+    st.sn = (st.sn or 0) + 1
+    local body = gb.xml_build_alarm(cfg, st.sn)
+    if not body then
+        local reason = "报警报文构造失败(字段缺失或 time 格式不对)"
+        log_error(reason, cfg.priority, cfg.method, tostring(cfg.time))
+        emit("alarm", "failed", { reason = reason, opts = cfg })
+        return false, reason
+    end
+
+    --[[
+    有活跃的报警订阅就走 NOTIFY，否则走 MESSAGE。
+
+    **这条选择规则只有一条**：平台订阅了，说明它明确要求用 NOTIFY 送警情；
+    没订阅就走 MESSAGE（M6.5 已实测可用）。两条路的差别不止是信封 ——
+    平台对同一条报警的落地结果并不相同（见文件里"平台订阅"那一段的说明），
+    所以**不能两条都发**：那会让同一次警情在平台上出现两条记录。
+
+    不看 is_registered()：未注册时 send_request/send_notify 本来就会失败并
+    走下面的失败路径，多判一次只会多一处可能与实际状态不同步的判断。
+    ]]
+    local via, sub = M.alarm_transport(st.subs, now_ms())
+    local text
+    if sub ~= nil then
+        text = send_notify(sub, body)
+        via  = "NOTIFY(订阅)"
+    else
+        text = send_request("MESSAGE", {
+            to_uri       = string.format("sip:%s@%s", o.server_id, o.domain),
+            content_type = "Application/MANSCDP+xml",
+            body         = body,
+        })
+    end
+    if not text then
+        -- 未注册/未连上时发送会失败。这里刻意不排队重发，理由见上面的说明
+        local reason = "报警发送失败(未注册或链路不通)"
+        log_warn(reason, "SN=" .. tostring(st.sn), via)
+        emit("alarm", "failed", { reason = reason, opts = cfg, via = via })
+        return false, reason
+    end
+
+    log_info("已上报报警", "method=" .. tostring(cfg.method),
+             "SN=" .. st.sn, via)
+    emit("alarm", "sent", { sn = st.sn, opts = cfg, via = via })
+    return true
+end
+
+--[[
 向平台发一条 MANSCDP 的 Broadcast 通知(Notify)。
 
 GB28181-2016 §9.12 的方向是"平台通知设备"，但实测 WVP-Pro 这个分支里
@@ -2448,14 +2664,298 @@ local function handle_info(msg)
     log_info("回放控制", tostring(cmd.method), code, tostring(cmd.cseq))
 end
 
+-- ------------------------------------------------------------------
+-- 平台订阅(SUBSCRIBE / NOTIFY)
+-- ------------------------------------------------------------------
+--[[
+这条链路的方向与常见的"平台问、设备答"相反：
+
+    SUBSCRIBE(平台 → 设备)  →  200 OK(设备 → 平台)  →  NOTIFY(设备 → 平台)
+
+**设备是被订阅方(notifier)、平台才是订阅方**。平台发来 SUBSCRIBE 说"有警情
+告诉我"，设备之后用 NOTIFY 把警情推回去 —— 注意这个 NOTIFY 是 **SIP 方法**，
+与报警体里那个 MANSCDP 的 `<Notify>` 根元素**同名但不是一回事**，报文里
+两层都会出现（外层 SIP NOTIFY，内层 `<Notify><CmdType>Alarm</CmdType>`）。
+
+## 与 MESSAGE 那条路的取舍
+
+报警既能用 MESSAGE 直接发（M6.5 已实现并实测过），也能走这条订阅链路。
+**两者在平台侧落地的结果并不一样**（实测读 WVP 源码）：
+
+  · MESSAGE 路径对 `AlarmMethod=7`（其他）有旁路：只发 Redis，**不入告警列表**；
+    订阅链路那条路**没有**这个旁路，同样一条报警会照常入库。
+  · GPS 报警(method=4)在两条路上的落点也不同：MESSAGE 走事件管线，
+    订阅链路直接写通道经纬度。
+
+所以"用哪条路"是有观测差异的，不是纯风格问题。
+
+## 与标准的偏离（有意为之）
+
+RFC 3265 要求收到 SUBSCRIBE 后**立即回一条 NOTIFY**（哪怕没有内容）。
+**本组件不发那条空的**：GB28181 的报警订阅语义是"有警情才发"，而平台侧
+对空 body 的 NOTIFY 只会记一行 `未获取到消息体` 的错误日志（实测 WVP 的
+`NotifyRequestProcessor`），除了满足仪式感没有收益。真遇到要求它的平台，
+在 `handle_subscribe` 末尾补一条 `send_notify(sub, nil)` 即可。
+]]
+
+--[[
+订阅是否已到期。纯函数，便于单测（与 session_death_reason 同一做法）。
+
+`expires` 是平台给的秒数，`expire_at` 是收到它的时刻 + expires。
+用 `>=` 而不是 `>`：expires=0 的订阅不该存在（那是取消订阅，在
+handle_subscribe 里就删掉了），真出现了也应当立刻清掉。
+]]
+function M.sub_expired(sub, now)
+    if type(sub) ~= "table" or type(now) ~= "number" then
+        return false
+    end
+    if type(sub.expire_at) ~= "number" then
+        return false          -- 没记到期时间就不主动清，宁可留着
+    end
+    return now >= sub.expire_at
+end
+
+--[[
+在一条订阅对话里发一条 NOTIFY。
+
+**对话内的请求，三样东西必须与订阅对上**，否则平台认不出这是哪个订阅：
+
+    Call-ID            原样用 SUBSCRIBE 的
+    From 的 tag        用**我们**在 200 OK 里给的那个（平台记下了它）
+    To   的 tag        用**平台**在 SUBSCRIBE 里给的那个
+
+From 的 user 部分必须是设备编码 —— 实测平台是从 From 头取设备编码去查设备的
+（`SipUtils.getUserIdFromFromHeader`），这里写错会让平台"找不到设备"。
+
+@param sub  订阅记录
+@param body 报警体(可空)
+@return string|nil 报文
+]]
+function send_notify(sub, body)
+    local o = g_opts
+
+    sub.cseq = (sub.cseq or 0) + 1
+
+    local text = gb.sip_build({
+        method      = "NOTIFY",
+        -- 对话内请求的请求行应指向订阅方的 Contact；平台没给就回落到服务端地址
+        uri         = sub.contact or string.format("sip:%s@%s", o.server_id, o.domain),
+        transport   = string.upper(o.transport),
+        host        = st.local_ip,
+        port        = st.sip_port,
+        branch      = gen_token("z9hG4bK"),
+        from_uri    = string.format("sip:%s@%s", o.device_id, o.domain),
+        from_tag    = sub.to_tag,
+        to_uri      = string.format("sip:%s@%s", o.server_id, o.domain),
+        to_tag      = sub.from_tag,
+        call_id     = sub.call_id,
+        cseq        = sub.cseq,
+        cseq_method = "NOTIFY",
+        user_agent  = o.user_agent or "LuatOS-GB28181",
+        contact     = false,
+        content_type = body and "Application/MANSCDP+xml" or nil,
+        body        = body,
+        extra_headers = {
+            -- 原样回抄订阅时的 Event(含 eventId)：平台刷新订阅时会带上它
+            { name = "Event",              value = sub.event },
+            -- 一次性拉取(Expires:0)那条路要写 terminated，见 handle_subscribe；
+            -- 其余都是长订阅，active
+            { name = "Subscription-State", value = sub.subscription_state or "active" },
+        },
+    })
+    if not text then
+        log_error("构造 NOTIFY 失败", sub.call_id)
+        return nil
+    end
+    if not net_send(text) then
+        log_warn("发送 NOTIFY 失败", sub.call_id)
+        return nil
+    end
+    return text
+end
+
+--[[
+在给定的一组订阅里挑一条能用来上报报警的，并回答**该用哪种传输**。
+
+**纯函数**：只看传进来的表、不碰模块状态，便于单测（与 session_death_reason
+同一做法）。`report_alarm` 是它唯一的调用方。
+
+只挑 `CmdType=Alarm` 的：平台可能同时订阅了目录与移动位置(Catalog/MobilePosition)，
+那些订阅不该拿来发报警 —— 平台的 `NotifyRequestProcessor` 按 CmdType 分发，
+报警体配上报目录的订阅会被丢进"其它"分支，连日志都不显眼。
+
+@param subs 订阅表(Call-ID -> 订阅记录)
+@param now  当前毫秒时刻
+@return string "NOTIFY" 或 "MESSAGE"
+@return table|nil 选中的订阅(走 MESSAGE 时为 nil)
+]]
+function M.alarm_transport(subs, now)
+    for _, sub in pairs(subs or {}) do
+        if type(sub) == "table" and sub.cmd == "Alarm" and
+           not M.sub_expired(sub, now) then
+            return "NOTIFY", sub
+        end
+    end
+    return "MESSAGE", nil
+end
+
+--[[
+处理平台的订阅请求(SUBSCRIBE)。
+
+平台的 SUBSCRIBE 里带一个 MANSCDP 的 `<Query><CmdType>…</CmdType></Query>`
+说明订阅什么，`Expires` 头说明订多久。
+
+  · `Event` 头的取值**不是** `alarm`：实测 WVP 订阅报警发的是 `presence`
+    （目录订阅才是 `Catalog`），带一个 eventId。本层原样回抄，不解释。
+  · 应答里必须补 To-tag（见 reply_ok 的说明），否则对话没建起来。
+  · `Expires: 0` **不是"订 0 秒"，而且有两种含义**（RFC 3265 §3.1.1）：
+      取消订阅          —— 删掉记录并回 `Expires: 0`，不再发 NOTIFY
+      一次性拉取当前状态 —— 同样删记录回 `Expires: 0`，但**还要发一条**
+                           带当前状态的 NOTIFY。平台靠 Catalog 这一条拿通道，
+                           漏发不会报错，只会"设备永远不在线"。
+    两种由 CmdType 区分，只给 Catalog 补 NOTIFY，详见下面那个分支的注释。
+]]
+local function handle_subscribe(msg)
+    local o = g_opts
+    local call_id = msg.headers["call-id"] or ""
+    local event   = msg.headers["event"] or ""
+    local expires = tonumber((msg.headers["expires"] or ""):match("^%s*(%d+)")) or 0
+
+    local q = (msg.body ~= nil) and gb.xml_parse_query(msg.body) or nil
+    local cmd = (q and q.cmd_type) or ""
+
+    local contact_uri = uri_of(msg.headers["contact"])
+    local platform_tag = tag_of(msg.headers["from"])
+
+    if expires == 0 then
+        -- 先把 tag 取出来再删记录 —— 反过来的话取到的永远是 nil，
+        -- 应答里补不出 To-tag，平台侧那次取消就配不上对话
+        local known = st.subs[call_id]
+        local to_tag = (known and known.to_tag) or gen_token("")
+        st.subs[call_id] = nil
+
+        reply_ok(msg, {
+            to_tag  = to_tag,
+            headers = {
+                { name = "Expires", value = "0" },
+                { name = "Event",   value = event },
+            },
+        })
+
+        --[[
+        `Expires: 0` 还有**第二种用法**：一次性拉取当前状态。
+        RFC 3265 §3.1.1 对它有两句话 —— "订阅终止"**和**"通知者必须发一条
+        带当前状态的 NOTIFY"。这里原先只做了前一句，于是：
+
+            平台 SUBSCRIBE(Event: Catalog;id=N, Expires: 0)
+            设备 200 OK + Expires: 0        ← 平台要的目录一个字没给
+            平台 29 秒后同 Call-ID、CSeq+1 再来一次 …… 无限循环
+            现象：REGISTER 明明 200 OK，平台界面上设备始终"不在线"
+                  （平台手里没有通道，就没有可播的通道）
+
+        实测(2026-09-22，合宙 video.luatos.com / LiveMedia 平台)：CSeq 从 18
+        一路涨上去、Call-ID 不变，是平台**等不到东西**在轮询，不是重传。
+
+        只有 Catalog 补这条：报警订阅的"当前状态"没有对应语义(没有警情就是没有)，
+        为它发一条空 NOTIFY 只会在平台侧留一行"未获取到消息体"的错误日志。
+        ]]
+        if cmd == "Catalog" then
+            local sub = {
+                call_id = call_id,
+                -- NOTIFY 的 From tag 必须与刚发出去的 200 OK 里那颗一致，
+                -- 否则平台侧配不上对话，收到也当野包丢掉
+                to_tag   = to_tag,
+                from_tag = platform_tag,
+                contact  = contact_uri,
+                cseq     = 0,
+                event    = event,
+                cmd      = cmd,
+                -- 订阅确实终止了，按 RFC 的字面写 terminated
+                subscription_state = "terminated",
+            }
+            -- 目录体与 MESSAGE 那条路共用 send_catalog，只换投递方式
+            send_catalog(msg, (q and q.sn) or 0, function(body)
+                send_notify(sub, body)
+            end)
+        end
+
+        log_info("平台取消订阅", cmd, call_id)
+        emit("subscribe", "removed", { call_id = call_id, cmd = cmd })
+        return
+    end
+
+    -- 同一个 Call-ID 可能是刷新（平台到期前会带同样的对话信息重发）
+    local sub = st.subs[call_id]
+    if sub == nil then
+        sub = {
+            call_id  = call_id,
+            -- 我们自己给这个对话的 tag：NOTIFY 的 From 用它
+            to_tag   = gen_token(""),
+            -- 平台的 tag：NOTIFY 的 To 用它
+            from_tag = platform_tag,
+            contact  = contact_uri,
+            cseq     = 0,
+        }
+        st.subs[call_id] = sub
+    end
+    sub.cmd       = cmd
+    sub.event     = event
+    sub.expires   = expires
+    sub.expire_at = now_ms() + expires * 1000
+    -- 刷新时平台的 tag 不该变；变了说明平台换了个对话，跟着更新
+    if platform_tag ~= nil then
+        sub.from_tag = platform_tag
+    end
+    if contact_uri ~= nil then
+        sub.contact = contact_uri
+    end
+
+    reply_ok(msg, {
+        to_tag  = sub.to_tag,
+        headers = {
+            { name = "Expires", value = tostring(expires) },
+            { name = "Event",   value = event },
+            {
+                name  = "Contact",
+                value = string.format("<sip:%s@%s:%d>", o.device_id,
+                                      st.local_ip or "0.0.0.0", st.sip_port or 0),
+            },
+        },
+    })
+
+    log_info("平台订阅", cmd, "expires=" .. tostring(expires), "Event=" .. event)
+    emit("subscribe", "added", {
+        call_id = call_id, cmd = cmd, expires = expires, event = event,
+    })
+end
+
+--[[
+回收已到期的订阅。平台到期前会主动刷新，没刷新就是它不打算继续订了。
+
+**不向平台发 Expires:0 去"确认"**：订阅到期是订阅方的事，设备主动发取消
+报文反而可能在平台侧把刚刷新好的订阅拆掉（两个报文交叉）。静默清掉即可 ——
+平台下次要用会重新 SUBSCRIBE。
+]]
+local function reap_expired_subs(now)
+    for call_id, sub in pairs(st.subs) do
+        if M.sub_expired(sub, now) then
+            st.subs[call_id] = nil
+            log_info("订阅到期，已回收", sub.cmd, call_id)
+            emit("subscribe", "expired", { call_id = call_id, cmd = sub.cmd })
+        end
+    end
+end
+
 local function process_packet(msg)
     if msg.code then
         --[[
-        收到任何应答都说明链路还活着 —— 这是 UDP 上唯一可信的活口信号。
-        清掉等待标记，tick 里的超时判据就不会误判（见那里的说明）。
-        放在最前面：不管这条应答最终由谁处理，它已经证明了链路可用。
+        收到任何报文都说明链路还活着 —— 这是 UDP 上唯一可信的活口信号。
+        清掉等待标记，并**盖章"刚刚听到对面了"** —— tick 里的超时判据算的是
+        `now - last_rx_at`，所以这一行才是真正让它不误判的那一行。
+        放在最前面：不管这条报文最终由谁处理，它已经证明了链路可用。
         ]]
         st.await_since = nil
+        st.last_rx_at  = now_ms()
 
         -- 先看是不是本端发起的音频会话的应答(按 Call-ID 匹配)
         if handle_talk_response(msg) then return end
@@ -2503,6 +3003,12 @@ local function process_packet(msg)
     -- 回放的暂停/继续/拖动走 INFO(承载 MANSRTSP)，见 handle_info
     if msg.method == "INFO" then
         handle_info(msg)
+        return
+    end
+
+    -- 平台订阅：设备是被订阅方，之后用 NOTIFY 把警情推回去(见 handle_subscribe)
+    if msg.method == "SUBSCRIBE" then
+        handle_subscribe(msg)
         return
     end
 
@@ -2818,6 +3324,10 @@ local function sip_task()
             send_keepalive()
         end
 
+        -- 回收到期的订阅。放在 tick 里而不是靠定时器：订阅可能同时有好几条
+        -- (报警/目录/移动位置各一条)，逐个起定时器要管的东西比收益多
+        reap_expired_subs(now)
+
         -- 回收已死的点播会话。不做这一步的话，平台侧异常退出留下的会话
         -- 会一直占着媒体端口与队列，max_sessions 打满后设备永久拒绝新点播
         reap_dead_sessions()
@@ -2967,6 +3477,22 @@ function M.sessions()
 end
 
 --[[
+列出当前有效的平台订阅，以 Call-ID 为键。
+
+用来回答"平台到底订没订我、订的是什么、还有多久到期" —— 报警走 NOTIFY
+还是 MESSAGE 完全取决于这里有没有一条 `cmd == "Alarm"` 的订阅，
+排查时先看它比看报文快。
+
+@api exgb28181client.subscriptions()
+@return table Call-ID -> {cmd=,event=,expires=,expire_at=,...}
+]]
+function M.subscriptions()
+    local out = {}
+    for k, v in pairs(st.subs) do out[k] = v end
+    return out
+end
+
+--[[
 取归一化后的录像列表（回放源用）。
 
 返回的是**内部那份**而不是副本：回放会话每开一段录像都要读它，而录像列表
@@ -3028,6 +3554,68 @@ function M.on_ptz(handler)
         return false
     end
     g_ptz_cb = handler
+    return true
+end
+
+--[[
+注册拉框放大/缩小(2022 新增)指令的处理者。
+
+平台在界面上框选一块区域让设备放大，就是这个。处理者拿到的是
+`gb28181.devctl_parse` 的结果：
+
+    client.on_drag_zoom(function(d)
+        if d.kind == gb.DEVCTL_DRAG_ZOOM_IN then
+            -- 矩形中心 (d.mid_point_x, d.mid_point_y)，长宽 (d.length, d.width)
+            图像.设置放大窗口(d.mid_point_x, d.mid_point_y, d.length, d.width)
+        end
+    end)
+
+**六个参数的单位与取值范围由平台前端决定，本层只搬运不换算** ——
+是"0-255 的像素"还是"万分比"，只有具体设备（ISP/镜头）知道，替调用方
+挑一种解释，挑错了比不解释更难查。
+
+**平台不等这条指令的应答**（实测 WVP 的 `dragZoomCmd` 不注册 Result 订阅），
+但本层仍会回一条 —— 多回一条无害，而漏回会让"某天换了个平台"时出问题。
+
+@api exgb28181client.on_drag_zoom(handler)
+@function handler 原型 handler(d)，d 见 gb28181.devctl_parse 的返回
+@return boolean
+]]
+function M.on_drag_zoom(handler)
+    if handler ~= nil and type(handler) ~= "function" then
+        return false
+    end
+    g_drag_zoom_cb = handler
+    return true
+end
+
+--[[
+注册看守位(2022 新增)指令的处理者。
+
+    client.on_home_position(function(d)
+        if d.enabled == 1 then
+            云台.启用看守位(d.preset_index, d.reset_time)
+        else
+            云台.停用看守位()
+        end
+    end)
+
+字段取值：`enabled` 为 0/1；`reset_time`(等待秒数)与 `preset_index`(预置位号)
+**为 -1 表示平台没给** —— 0 是合法取值，不能用 0 兼作"没给"。
+
+**这一项平台会等应答里的 `Result`**（实测 WVP 的 `homePositionCmd` 注册了
+MessageEvent 订阅），所以千万别在这里默默失败：处理者抛异常时本层会回
+ERROR，那就是正确的表达。
+
+@api exgb28181client.on_home_position(handler)
+@function handler 原型 handler(d)，d 见 gb28181.devctl_parse 的返回
+@return boolean
+]]
+function M.on_home_position(handler)
+    if handler ~= nil and type(handler) ~= "function" then
+        return false
+    end
+    g_home_position_cb = handler
     return true
 end
 

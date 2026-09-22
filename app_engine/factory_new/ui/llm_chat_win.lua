@@ -25,6 +25,7 @@
 发布: FACTORY_REC_START      → 开始录音
 发布: FACTORY_REC_STOP       → 停止录音
 发布: FACTORY_REC_RESET      → 清理音频
+发布: AI_CHAT_PAGE_ACTIVE(b) → 本页是否在前台（离开前台时业务层停掉正在播的 TTS）
 ]]
 
 local window_id = nil
@@ -61,6 +62,18 @@ local theme = require "ui_theme"
 -- 主题令牌动态代理：换主题后自动取到新色值
 -- （写成 local X = theme.C.y 会在 require 时固化，换肤不生效）
 local CLR = theme.live()
+
+-- ==================== 前台状态广播 ====================
+--[[业务层（llm_chat）据此决定「能不能播 / 要不要停」：
+- 本页不在前台（点返回、切一级菜单、回桌面、被新窗口盖住）→ 立刻停掉正在播的 TTS，
+  并拦住已在途的回复，避免声音跑到别的页面上；
+- 重新回到前台 → 恢复正常播报。
+
+exwin 的两条路都覆盖：切菜单 / 点返回 / 回桌面会销毁本窗（on_destroy），
+另有窗口盖在本页之上时只失焦不销毁（on_lose_focus）。]]
+local function set_page_active(active)
+    sys.publish("AI_CHAT_PAGE_ACTIVE", active and true or false)
+end
 
 local function update_screen_size()
     local r = airui.get_rotation()
@@ -437,9 +450,11 @@ local function on_create()
     sys.subscribe("FACTORY_REC_DONE", on_rec_done)
     sys.subscribe("AI_CHAT_STT_RESULT", on_stt_result)
     sys.publish("FACTORY_REC_SETUP")
+    set_page_active(true)
 end
 
 local function on_destroy()
+    set_page_active(false)   -- 先广播离开前台：业务层据此停掉正在播的 TTS
     sys.publish("AI_CHAT_CLOSE")
     sys.unsubscribe("AI_CHAT_TOKEN", on_token)
     sys.unsubscribe("AI_CHAT_REPLY_DONE", on_reply_done)
@@ -474,8 +489,14 @@ local function ongf()
         on_create()
         window_id = keep_id
     end
+    set_page_active(true)
 end
-local function onlf() end
+
+--[[失去焦点 = 本页已不是屏幕上最上层的那一页（被新窗口盖住、或切走）。
+此刻 AI 助手已经不在用户眼前，正在播的 TTS 必须停掉。]]
+local function onlf()
+    set_page_active(false)
+end
 
 local function open_handler()
     window_id = exwin.open({ on_create = on_create, on_destroy = on_destroy, on_get_focus = ongf, on_lose_focus = onlf })

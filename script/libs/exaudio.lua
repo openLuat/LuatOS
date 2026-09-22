@@ -1,8 +1,8 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.8
-@date    2026.9.20
+@version 3.9
+@date    2026.9.21
 @author  拓毅恒
 @description
 本库负责音频硬件初始化、播放、录音和电源控制，可配合 exsip 使用普通 SIP 通话或 CC<->SIP 语音流桥接。
@@ -13,6 +13,9 @@ SIP 对端语音经固件桥接送入 CC 上行；需要固件同时具备 CC、
 并非 CC<->SIP 桥接开关；不要在 CC<->SIP 桥接通话中额外启动该本地 speech 请求。
 CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬件参数仍按实际板型调用 setup() 配置。
 @updates
+    v3.9 2026.9.21
+        1. 新增Air1103循环振铃接口 exaudio.play_ringback_loop()
+        2. 新增Air1103停止循环振铃接口 exaudio.stop_ringback([skip_reset])
     v3.8 2026.9.20
         1. 新增Air1103提示音播放接口 exaudio.play_ringback()/exaudio.play_hangup()，可用于SIP通话前后状态反馈。
     v3.7 2026.9.18
@@ -114,6 +117,14 @@ CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬
 @usage
 
 -- 版本更新说明
+-- 版本号：202609211833
+-- 1、更新时间：2026-09-21 18:33
+--    新增Air1103循环振铃接口 exaudio.play_ringback_loop() 与停止接口 exaudio.stop_ringback([skip_reset])。
+--    exaudio.stop_ringback()：手动接听前调用，立即复位Air1103并恢复上行供通话使用；
+--    exaudio.stop_ringback(true)：对端挂断时调用，不复位Air1103，需紧接着调用 exaudio.play_hangup()，
+--    由挂断提示音播完后统一复位，避免复位重启(约1.4s)期间播放挂断提示音导致其无声。
+--    注意：传true只是把复位"延后"并非取消，若不调用 exaudio.play_hangup()，
+--    芯片不会复位、上行(MIC)无法恢复，挂断后主动呼出场景会没有声音。
 -- 版本号：202609201726
 -- 1、更新时间：2026-09-20 17:26
 --    新增Air1103提示音播放接口 exaudio.play_ringback()/exaudio.play_hangup()，
@@ -1902,7 +1913,7 @@ function exaudio.sip_voip_stop()
 end
 
 --[[
-Air1103 播放来电振铃提示音，可在sip来电接通前调用。
+Air1103 播放来电振铃提示音，可在sip来电接通前调用（适用于自动接听场景）。
 @api exaudio.play_ringback([callback])
 @function callback 可选，播放完成回调；Air1103 模式下整段提示音播完时触发
 @return boolean 成功返回 true，模型未内置提示音或 Air1103 未初始化返回 false
@@ -1917,7 +1928,7 @@ end
 exaudio.play_ringback(on_ringback_done)
 
 -- 调用后 Air1103 播放来电提示音（两段嘟嘟声）；
--- 播完由 Air1103 自行复位并恢复上行；
+-- 播完自动复位 Air1103 并恢复上行，用于后续SIP通话；
 -- 注意：提示音占用 Air1103 下行，通话桥接期间不要调用。
 ]]
 function exaudio.play_ringback(callback)
@@ -1929,6 +1940,58 @@ function exaudio.play_ringback(callback)
         return air1103.play_busy(callback)
     end
     log.warn("exaudio", "play_ringback: 当前模型未内置提示音", audio_setup_param.model)
+    return false
+end
+
+--[[
+Air1103 循环播放来电振铃提示音，未接通前一直响铃（适用于手动按键接通的场景）。
+@api exaudio.play_ringback_loop()
+@return boolean 成功返回 true，模型未内置提示音或 Air1103 未初始化返回 false
+@usage
+-- 来电后一直响铃，直到按键接听或对端挂断：
+exaudio.play_ringback_loop()
+-- 提示音占用 Air1103 下行；接听或挂断时需调用 exaudio.stop_ringback() 停止；
+-- 循环播放期间不复位芯片，结束后自动重播。
+]]
+function exaudio.play_ringback_loop()
+    if audio_setup_param.model == "air1103" then
+        if not air1103 or type(air1103.play_busy_loop) ~= "function" then
+            log.warn("exaudio", "play_ringback_loop: air1103 未初始化")
+            return false
+        end
+        return air1103.play_busy_loop()
+    end
+    log.warn("exaudio", "play_ringback_loop: 当前模型未内置提示音", audio_setup_param.model)
+    return false
+end
+
+--[[
+停止 Air1103 循环振铃提示音。
+@api exaudio.stop_ringback([skip_reset])
+@function skip_reset 可选，true 时不复位芯片(复位延后到紧随的提示音收尾)，必须紧接着调用 play_hangup() 等会收尾复位的提示音
+@return boolean 成功返回 true
+@usage
+-- 适用场景1：循环播放来电提示音时，手动接听前调用
+-- 按键接听前先停止振铃，再进行接听(此处立即复位芯片, 恢复上行供通话使用)：
+exaudio.stop_ringback()
+
+-- 适用场景2：循环播放来电提示音时，未手动接听，对端挂断时调用
+-- 先停振铃(传 true 不复位Air1103)、紧接着播挂断提示音；
+-- 用于避免复位时(约1.4s)调用挂断提示音，导致挂断提示音无声：
+exaudio.stop_ringback(true) -- 停止播放来电提示音（不复位Air1103）
+exaudio.play_hangup() -- 播放挂断提示音（播完后自动复位Air1103）
+
+-- 注意：skip_reset=true 只是把复位"延后"，并非取消复位。
+--       必须调用 play_hangup() 播放挂断提示音后，复位Air1103；
+--       注意：若传入true，不调用play_hangup() 芯片不会复位、上行(MIC)无法恢复，挂断后主动呼出场景会没有声音!!!
+]]
+function exaudio.stop_ringback(skip_reset)
+    if audio_setup_param.model == "air1103" then
+        if not air1103 or type(air1103.stop_tones) ~= "function" then
+            return false
+        end
+        return air1103.stop_tones(skip_reset)
+    end
     return false
 end
 
@@ -1947,7 +2010,7 @@ exaudio.play_hangup(on_hangup_done)
 
 -- 调用后 Air1103 播放挂断提示音（三段短嘟声）；
 -- 注意：需在对端sip通话挂断后调用；
--- 播完由 Air1103 自行复位并恢复上行；提示音占用 Air1103 下行，通话桥接期间不要调用。
+-- 播完自动复位 Air1103 并恢复上行；提示音占用 Air1103 下行，通话桥接期间不要调用。
 ]]
 function exaudio.play_hangup(callback)
     if audio_setup_param.model == "air1103" then

@@ -77,44 +77,42 @@
         -- 4.1 屏幕驱动 lcd（必填）
         -- --------------------------------------------------------
         -- lcd = {
-            -- 驱动模块名，从以下列表选择:
-            --   "lcd_st7796"       SPI 屏 ST7796,  3.5/4寸,   320×480 或 480×320
-            --   "lcd_nv3052c_5in"  RGB 屏 NV3052C, 5寸,       720×1280
-            --   "lcd_st7701s_5in"  RGB 屏 ST7701S, 5寸,       480×854
-            --   "lcd_hx8282_10in"  RGB 屏 HX8282,  7/10.1寸,  1024×600 (四合一)
-            -- model = "lcd_hx8282_10in",
+            -- 驱动模块名，从以下列表选择（本工程统一走 display 库，已移除 SPI lcd 库驱动）:
+            --   "lcd_display_rgb"  RGB 屏统一驱动（内部走 display.init），本工程所有板型都用它
+            --   "lcd_st7701s_5in"  仅作为 ic_init 回调使用，提供 ST7701S 的 custom_cmds 序列：
+            --                      lcd = { model = "lcd_display_rgb",
+            --                              params = { ic_init = require("lcd_st7701s_5in").ic_init, ... } }
+            -- model = "lcd_display_rgb",
 
             -- 驱动参数，传给 model 对应驱动的 init() 函数
             -- params = {
-            --     port = lcd.RGB,      -- 接口类型: SPI屏用 lcd.HWID_0, RGB屏用 lcd.RGB
+            --     interface = "rgb",   -- 接口类型（display 路径固定 rgb）
             --     pin_rst = 15,        -- 复位引脚 GPIO 编号 (0~255)
-            --     direction = 0,       -- 显示方向: 0=0° 1=90° 2=180° 3=270°
-            --                          -- 注意: w/h 填的是物理分辨率，方向由芯片内部旋转
             --     w = 1024,            -- 水平分辨率（像素），如 320/480/720/1024
             --     h = 600,             -- 竖直分辨率（像素），如 320/480/854/600
                 -- xoffset = 0,      -- [可选,默认0] X 方向像素偏移
                 -- yoffset = 0,      -- [可选,默认0] Y 方向像素偏移
+                -- pin_bl = 2,       -- [可选] 背光/供电使能 GPIO
+                -- pin_pwr = 57,     -- [可选] 屏供电使能 GPIO（LCD_EN）
 
-                -- === SPI 屏 st7796 专属参数 ===
-                -- pin_pwr = 28,     -- [可选] 背光供电 GPIO，如已在 power_on 处理则省略
-                -- bus_speed = 80000000, -- [可选] SPI 时钟频率 Hz，推荐 80000000
-
-                -- === RGB 屏 nv3052c / st7701s 专属参数 ===
-                -- 注意: hx8282 屏的初始化由内部芯片完成，不需要以下引脚
-                -- pin_clk = 23,     -- [条件] SPI 时钟引脚
-                -- pin_sda = 22,     -- [条件] SPI 数据引脚
+                -- === 需要 SPI 寄存器初始化的 RGB IC（NV3052C / ST7701S / GC9503 等）===
+                -- 两条路径二选一：
+                --   ① 内联函数：ic_init = function(params) return {{0xFF,0x77,...}, ...} end
+                --   ② 引用驱动：ic_init = require("lcd_st7701s_5in").ic_init
+                -- 配套 SPI 引脚（display.init 内部用于发送 custom_cmds）：
+                -- pin_clk = 23,     -- [条件] SPI 时钟引脚（display 的 pin_scl）
+                -- pin_sda = 22,     -- [条件] SPI 数据引脚（display 的 pin_sdi）
                 -- pin_cs = 2,       -- [条件] SPI 片选引脚
 
-                -- === RGB 屏时序参数（有默认值，通常不填）===
-                -- hx8282 默认:  hbp=120 hspw=40 hfp=150 vbp=23 vspw=10 vfp=12
-                -- nv3052c 默认: hbp=46  hspw=2  hfp=48  vbp=24 vspw=2  vfp=24
-                -- hbp = 120, hspw = 40, hfp = 150,
-                -- vbp = 23,  vspw = 10, vfp = 12,
-                -- bus_speed = 51000000,  -- [可选] RGB 总线时钟 Hz，默认 51000000
-                -- pclk = lcd.PCLK_RISING, -- [可选] 像素时钟边沿: lcd.PCLK_RISING / lcd.PCLK_FALLING
+                -- === RGB 屏时序参数（必填，随屏不同）===
+                -- HX8282 1024×600  参考: hbp=140 hspw=20 hfp=160 vbp=20 vspw=3 vfp=12
+                -- NV3052C 720×1280 参考: hbp=30  hspw=10 hfp=30  vbp=12 vspw=4 vfp=20
+                -- hbp = 140, hspw = 20, hfp = 160,
+                -- vbp = 20,  vspw = 3,  vfp = 12,
+                -- bus_speed = 50 * 1000 * 1000,  -- [可选] RGB 总线时钟 Hz（display 取作 pclk_hz）
             -- },
 
-            -- need_buffer = true,      -- 是否启用帧缓冲: RGB屏必须为 true(防撕裂), SPI屏必须为 false(直刷更快)
+            -- need_buffer = true,      -- 是否启用帧缓冲: display(RGB) 路径建议 true（防撕裂）
             -- screen_size = 7.0,       -- 屏幕物理尺寸(英寸): 3.5 / 4.0 / 5.0 / 7.0 / 10.0，用于计算 UI 缩放
             -- font = {
             --     size = 20,           -- 默认字号: 低分屏(≤480px)用 14，高分屏(≥720px)用 20
@@ -127,7 +125,7 @@
             -- backlight = {
             --     -- 方式一: PWM 调光（支持亮度调节）
             --     pwm_ch = 3,          -- PWM 通道号
-            --     pwm_freq = 1000,     -- PWM 频率 Hz，常用 1000（SPI屏）或 10000（RGB屏）
+            --     pwm_freq = 10000,    -- PWM 频率 Hz，RGB 屏常用 10000
             --     -- 方式二: GPIO 控制亮灭（不支持调光，背光电源直连 GPIO）
             --     gpio_bl = 2,         -- 背光控制 GPIO（与 pwm 二选一，设了 gpio_bl 则忽略 pwm）
             -- },

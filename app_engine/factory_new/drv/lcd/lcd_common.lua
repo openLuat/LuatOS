@@ -189,7 +189,7 @@ do
     local cfg = _G.project_config
 
     -- 动态加载驱动模块：根据配置中的 model 字段 require 对应 .lua 文件
-    -- 例：cfg.hw.lcd.model = "lcd_nv3052c_5in" → require "lcd_nv3052c_5in"
+    -- 例：cfg.hw.lcd.model = "lcd_display_rgb" → require "lcd_display_rgb"
     local lcd_model = require(cfg.hw.lcd.model)
     local tp_model  = require(cfg.hw.tp.model)
 

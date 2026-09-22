@@ -1,14 +1,19 @@
 --[[
 @module audio_drv
-@summary Air1103 音频初始化及 SIP PCM 适配，仅通过 exaudio 操作设备
+@summary Air1103 音频初始化及 SIP PCM 适配，exaudio 播放、air1103 直接采集 MIC
 参考 SIP demo 的 exaudio 初始化方式。当前扩展库的 UART 模式尚未实现
 SIP PCM 桥接，因此保留 16kHz MIC/扬声器与 8kHz VoIP 的转换。
 ]]
 local exaudio = require "exaudio"
+local air1103 = require "air1103"
 local cfg = require("config").audio
+-- 16kHz/16bit/单声道：每10ms为320字节，与正常参考工程保持一致。
+local play_target = math.max(40, math.min(120, tonumber(cfg.play_buffer_ms) or 60)) // 10 * 320
 local M = {}
 local initialized, ready, running = false, false, false
 local recording, generation = false, 0
+local mic_recovering, mic_recovery_attempted = false, false
+local recover_s, recover_us = 0, 0
 local down, up
 local queue, uplink = {}, ""
 local capture_timer, play_timer, health_timer
@@ -33,39 +38,42 @@ end
 local function stop_record()
     recording, ready = false, false
     generation = generation + 1
-    exaudio.record_stop()
+    air1103.set_rx_enable(false)
+    air1103.on_audio_data(nil)
 end
 
 local function start_record()
     generation = generation + 1
-    local current, tail = generation, ""
+    local current = generation
     ready, recording = false, true
-    local ok = exaudio.record_start({format=exaudio.PCM_16000, time=0,
-        path=function(buff, len)
-            if not recording or current ~= generation then return end
-            -- exaudio 的临时 zbuff 可包含多帧；立即复制并按512字节拆帧。
-            local data = tail .. buff:query(0, len)
-            local complete = #data // 512 * 512
-            if complete > 0 then
-                mic_s, mic_us = mcu.ticks2(0)
-                if not ready then
-                    ready = true
-                    sys.publish("AUDIO_DRV_READY")
-                end
-            end
-            if running then
-                for offset = 1, complete, 512 do
-                    if #queue == 8 then table.remove(queue, 1) end
-                    queue[#queue + 1] = data:sub(offset, offset + 511)
-                end
-            end
-            tail = data:sub(complete + 1)
-        end})
+    -- 与正常参考工程一致：串口回调只入队，重采样仍在独立定时器执行。
+    -- 不启动 exaudio.record_start，避免录音任务搬运、缓冲清零及回调覆盖。
+    air1103.set_rx_enable(false)
+    air1103.on_audio_data(function(data)
+        if not recording or current ~= generation then return end
+        if type(data) ~= "string" or #data ~= 512 then return end
+        mic_s, mic_us = mcu.ticks2(0)
+        if not ready then
+            ready = true
+            sys.publish("AUDIO_DRV_READY")
+        end
+        if running and not mic_recovering then
+            if #queue == 8 then table.remove(queue, 1) end
+            queue[#queue + 1] = data
+        end
+    end)
+    local ok = air1103.reset()
+    air1103.set_rx_enable(true)
     if not ok then stop_record() end
     return ok
 end
 
 function M.check_firmware()
+    for _, name in ipairs({"get_pending", "on_audio_data", "set_rx_enable", "reset"}) do
+        if type(air1103[name]) ~= "function" then
+            return false, "air1103扩展库缺少" .. name .. "，请更新扩展库"
+        end
+    end
     for _, name in ipairs({"setAudioMode", "pcmIn", "pcmOut", "pcmResampler", "start", "stop", "isRunning", "on"}) do
         if not voip or type(voip[name]) ~= "function" then
             return false, "固件缺少 voip." .. name
@@ -126,7 +134,7 @@ end
 
 local function capture_tick()
     if not running then return end
-    if voip.isRunning() then
+    if not mic_recovering and voip.isRunning() then
         if #uplink == 0 and #queue > 0 then
             uplink = down:process(table.remove(queue, 1))
         end
@@ -148,14 +156,14 @@ function M.start(session)
     clear_pcm()
     if not set_volume() or not exaudio.play_start({type=2}) then return false end
     running = true
+    mic_recovering, mic_recovery_attempted = false, false
     accept_s, accept_us = mcu.ticks2(0)
     capture_timer = sys.timerStart(capture_tick, 10)
-    local play_s, play_us = mcu.ticks2(0)
     local function playback_tick()
         if not running then return end
-        -- 库未公开播放队列长度；每20ms最多发送一帧，延迟后不突发补帧。
-        if voip.isRunning() and elapsed_ms(play_s, play_us) >= 20 then
-            play_s, play_us = mcu.ticks2(0)
+        -- UART驱动负责10ms播放节拍；本层按水位补充，避免回调迟到造成持续欠载。
+        -- 每次最多取20ms，水位达到目标+20ms时暂停取数，防止积压增加通话延迟。
+        if not mic_recovering and voip.isRunning() and air1103.get_pending() < play_target + 640 then
             local pcm = voip.pcmOut(160)
             if pcm and #pcm > 0 and #pcm <= 320 and #pcm % 2 == 0 then
                 local output = up:process(pcm)
@@ -168,17 +176,41 @@ function M.start(session)
     local function health_tick()
         if not running then return end
         local reason
-        if elapsed_ms(mic_s, mic_us) >= cfg.mic_timeout_ms then
-            reason = "通话中MIC数据中断"
+        if mic_recovering then
+            if ready then
+                if set_volume() and exaudio.play_start({type=2}) then
+                    mic_recovering = false
+                    accept_s, accept_us = mcu.ticks2(0)
+                    log.info("audio_drv", "MIC_RECOVER_OK", "SIP会话保持")
+                else
+                    reason = "MIC恢复后播放启动失败"
+                end
+            elseif elapsed_ms(recover_s, recover_us) >= cfg.ready_timeout_ms then
+                reason = "通话中MIC恢复超时"
+            end
+        elseif elapsed_ms(mic_s, mic_us) >= cfg.mic_timeout_ms then
+            if mic_recovery_attempted then
+                reason = "通话中MIC再次中断"
+            else
+                -- 每次通话仅尝试一次；先停播放再复位，避免复位期间继续向芯片灌PCM。
+                -- 不停止voip/SIP，等待真实MIC帧后恢复播放；超时仍上报业务层。
+                mic_recovering, mic_recovery_attempted = true, true
+                recover_s, recover_us = mcu.ticks2(0)
+                log.warn("audio_drv", "MIC_RECOVER_BEGIN", "age_ms", math.floor(elapsed_ms(mic_s, mic_us)))
+                exaudio.play_stop({type=2})
+                clear_pcm()
+                if not start_record() then reason = "通话中MIC复位失败" end
+            end
         elseif #uplink > 0 and elapsed_ms(accept_s, accept_us) >= 2000 then
             reason = "PCM发送持续阻塞"
         end
         if reason then
-            M.stop()
+            -- 已决定退出，不在这里再复位；后续由业务任务重新初始化。
+            M.stop(true)
             sys.publish("AUDIO_DRV_ERROR", reason)
             return
         end
-        health_timer = sys.timerStart(health_tick, 1000)
+        health_timer = sys.timerStart(health_tick, mic_recovering and 100 or 1000)
     end
     health_timer = sys.timerStart(health_tick, 1000)
     return true
@@ -187,13 +219,15 @@ end
 function M.stop(skip_recover)
     if not running then return end
     running = false
+    mic_recovering = false
     sys.timerStop(capture_timer)
     sys.timerStop(play_timer)
     sys.timerStop(health_timer)
     capture_timer, play_timer, health_timer = nil, nil, nil
     clear_pcm()
     exaudio.play_stop({type=2})
-    -- 停止播放同时会停止芯片MIC；MIC恢复依赖 exaudio.record_start 内部的 Air1103 复位(重启约1.4s)。
+    ready = false
+    -- 停止播放同时会停止芯片MIC；通过 Air1103 复位恢复(重启约1.4s)。
     -- skip_recover=true: 挂断提示音需趁芯片就绪时播放，复位重启会吞掉紧跟的提示音，
     --                    故把MIC恢复延后到提示音队列收尾自行复位；保持GPIO供电。
     if not skip_recover then

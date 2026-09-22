@@ -102,10 +102,13 @@ PAGES.forEach(p => {
      applyTheme() 应用的，那段代码在**延迟加载的 bundle** 里，要等首屏画完才执行，
      于是切换菜单（整页加载）时会先闪一下星云蓝再变成所选主题（用户实测反馈）。
      这段内联脚本紧跟 <body> 之后同步执行，早于 bundle、也早于首屏渲染，所以不会闪。
-     存储键与取值必须与 shell.js 的 applyTheme() 保持一致（'nexus-theme'，三个主题名）。 */
+     存储键与取值必须与 shell.js 的 applyTheme() 保持一致：
+    键名 = '<appId>-theme'（带应用名前缀，见 config.js 的 KEY_PREFIX；同域名多应用并存时不串），
+    取值 = 三个主题名（aurora / dawn / mist）。前缀在这里必须同样从 URL 现算，不能写死。 */
   html = html.replace(/<body ([^>]*)>/,
     '<body $1><script>window.__build="' + BUILD_ID + '";window.__buildTime="' + BUILD_TIME + '";' +
-    '(function(){try{var t=localStorage.getItem("nexus-theme");' +
+    '(function(){try{var m=location.pathname.match(/\\/ai_app\\/luatos\\/([^\\/?#]+)/i);' +
+    'var t=localStorage.getItem(((m&&m[1])?m[1]:"app")+"-theme");' +
     'if(t==="aurora"||t==="dawn"||t==="mist")document.documentElement.setAttribute("data-theme",t);' +
     'window.__themeEarlyAt=document.readyState;}catch(e){}})();' +
     'console.log("[build] " + window.__build + " / " + window.__buildTime);</script>');

@@ -107,8 +107,36 @@ App.config = (function(){
   var m = path.match(/\/ai_app\/luatos\/([^\/?#]+)/i);
   var APP_ID_FALLBACK = '';
   var appId = (m && m[1]) ? m[1] : APP_ID_FALLBACK;
+
+  /* ---------- 存储键命名空间（重要，勿改成写死的键名）----------
+     同一域名（iot.luatos.com）下会并存多个应用（/ai_app/luatos/<appId>/…），
+     而 localStorage 是「按域名共享、不按路径隔离」的：键名一旦写死，两个应用就会
+     互相覆盖（实测隐患：在 A 应用选项目/换主题/填告警 Webhook，B 应用也跟着变，
+     最危险的是告警可能被推到错误的群）。
+     所以所有 localStorage 键一律带应用名前缀，前缀从 URL 自动取，无需人工配置。 */
+  var KEY_PREFIX = (appId || 'app') + '-';
+  function keyOf(name){ return KEY_PREFIX + name; }
+
+  /* 一次性搬家：早期版本用的是写死的 'nexus-*' 键，这里把旧数据搬到新键。
+     只在「新键为空」时搬（绝不覆盖新数据），搬完删旧键；重复执行安全（幂等）。 */
+  (function migrateLegacyKeys(){
+    try {
+      var legacy = { 'nexus-project':'project', 'nexus-ui':'ui', 'nexus-theme':'theme',
+                     'nexus-notify':'notify', 'nexus-notify-log':'notify-log' };
+      Object.keys(legacy).forEach(function(old){
+        var v = localStorage.getItem(old);
+        if (v === null) return;
+        var nk = keyOf(legacy[old]);
+        if (localStorage.getItem(nk) === null) localStorage.setItem(nk, v);
+        localStorage.removeItem(old);
+      });
+    } catch(e){}
+  })();
+
   return {
     APP_ID: appId,
+    KEY: keyOf,                /* 用法：App.config.KEY('theme') → '<appId>-theme' */
+    KEY_PREFIX: KEY_PREFIX,
     BASE_PATH: basePath,
     API_HOST: SDK.config.API_HOST,
     BASE_HOST: SDK.config.BASE_HOST,
@@ -543,7 +571,8 @@ function rollNumber(el, to){
   const cvs = document.getElementById('bg');
   if (!cvs) return;
   const ctx = cvs.getContext('2d');
-  const UI_KEY = 'nexus-ui';
+  /* 带应用名前缀：同域名多应用并存时不会互相覆盖（见 config.js 的 KEY_PREFIX 说明） */
+  const UI_KEY = App.config.KEY('ui');
   const FPS = 30;
   let W, H, dpr, parts = [], rafId = 0, lastT = 0, running = false;
   let palette = ['#22e1ff','#8b5cf6','#2bffb0','#4f8cff'];
@@ -1087,7 +1116,8 @@ function buildAlertsFromDevices(devices){
 }
 
 /* ---------- 全局状态 ---------- */
-const STORE_KEY = 'nexus-project';
+// 带应用名前缀：同域名多应用并存时不串数据（见 config.js 的 KEY_PREFIX 说明）
+const STORE_KEY = App.config.KEY('project');
 const state = {
   projectId: null,
   projectName: '',
@@ -1466,7 +1496,7 @@ function hbTimeText(d){
 
 /* ==== 跨页共用（由 _deploy/fix-shared.js 移入）==== */
 
-const NOTIFY_KEY = 'nexus-notify';
+const NOTIFY_KEY = App.config.KEY('notify');
 
 const NOTIFY_META = [
   { id:'dingtalk', name:'钉钉机器人', short:'钉钉', brand:'#3296fa',
@@ -1508,7 +1538,7 @@ let notifyCfg = JSON.parse(JSON.stringify(NOTIFY_DEF));
      要做到页面关着也能推、并能拿到渠道真实回执，需在 config.js 配 API.NOTIFY_RELAY 走服务端转发。
    · 发送是真的网络请求；结果如实区分 已送达 / 已提交但读不到回执 / 失败。
    ========================================================= */
-const NOTIFY_LOG_KEY = 'nexus-notify-log';
+const NOTIFY_LOG_KEY = App.config.KEY('notify-log');
 const NOTIFY_LOG_MAX = 60;
 
 /* ---------- 配置：读取（必须在公共层做，否则只有系统设置页显示真实配置） ---------- */
@@ -1883,7 +1913,7 @@ App.notify = {
     }
     root.dataset.theme = name;
     try {
-      localStorage.setItem('nexus-theme', name);
+      localStorage.setItem(App.config.KEY('theme'), name);
     } catch(e){
       toastErr('主题偏好保存失败，本次切换仅在当前会话生效');
     }
@@ -1899,7 +1929,7 @@ App.notify = {
 
   // 初始化（历史残留的无效主题静默回退，不打扰用户）
   let saved = 'nebula';
-  try { saved = localStorage.getItem('nexus-theme') || 'nebula'; } catch(e){}
+  try { saved = localStorage.getItem(App.config.KEY('theme')) || 'nebula'; } catch(e){}
   if (!THEMES.includes(saved)) saved = 'nebula';
   applyTheme(saved);
 

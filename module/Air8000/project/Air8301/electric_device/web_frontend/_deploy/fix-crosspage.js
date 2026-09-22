@@ -4,8 +4,9 @@
    幂等：带标记则跳过。用法：node _deploy/fix-crosspage.js
 */
 const fs = require('fs');
-const API = require('path').join(__dirname, '..', 'assets', 'js', 'api.js');
-const DEV = require('path').join(__dirname, '..', 'assets', 'js', 'pages', 'devices.js');
+const path = require('path');
+const API = path.resolve(__dirname, '..', 'assets/js/api.js');
+const DEV = path.resolve(__dirname, '..', 'assets/js/pages/devices.js');
 const MARK = '/* ==== 跨页共用：由 _deploy/fix-crosspage.js 从 pages/devices.js 移入 ==== */';
 
 const QUALITY = `/* 通信质量：按 4G 信号强度分级（离线无读数，直接判失联） */

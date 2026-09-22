@@ -53,8 +53,8 @@ const p404 = `<!DOCTYPE html>
       <div class="panel span12" style="max-width:520px;text-align:center">
         <div class="panel-body" style="padding:34px 22px">
           <img src="logo.png" alt="LuatOS" width="64" height="64" style="border-radius:16px">
-          <h3 style="margin:16px 0 6px;font-size:19px">404 · 页面不存在</h3>
-          <p style="color:var(--dim);font-size:12.5px;line-height:1.9;margin:0 0 20px">
+          <h3 style="margin:16px 0 6px;font-size:21px">404 · 页面不存在</h3>
+          <p style="color:var(--dim);font-size:14px;line-height:1.9;margin:0 0 20px">
             你访问的地址没有对应页面，可能是链接过期或文件名拼写有误。<br>
             可以从下面两个入口继续。
           </p>

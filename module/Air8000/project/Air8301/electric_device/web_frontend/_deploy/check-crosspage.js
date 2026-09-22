@@ -4,7 +4,7 @@
 */
 const fs = require('fs');
 const path = require('path');
-const ROOT = path.join(__dirname, '..', 'assets', 'js');
+const ROOT = path.resolve(__dirname, '..', 'assets/js');
 
 const SHARED = ['luat-sdk', 'config', 'storage', 'utils', 'http', 'auth', 'guards', 'components', 'api', 'shell', 'boot'];
 const PAGE_FILES = ['pages/overview', 'pages/devices', 'pages/alerts', 'pages/topo', 'pages/map', 'pages/settings'];

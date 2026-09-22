@@ -3,7 +3,8 @@
    14.1 系统设置（主题风格 / 通知设置）
    ========================================================= */
 /* ---------- 界面偏好：三项动效开关 ---------- */
-const UI_KEY = 'nexus-ui';
+/* 带应用名前缀（与 components.js 必须同一个键）：同域名多应用并存时不会互相覆盖 */
+const UI_KEY = App.config.KEY('ui');
 /* 出厂默认：过渡动效开，背景星链与数字滚动关（低配设备 / 远程桌面更跟手） */
 const UI_DEF = { motion:true, bg:false, roll:false };
 const uiPrefs = Object.assign({}, UI_DEF);

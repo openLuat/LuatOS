@@ -1,6 +1,6 @@
 param(
   [string]$App = 'luatos_electric_control',
-  [string]$BaseDir = (Split-Path -Parent $PSScriptRoot),
+  [string]$BaseDir = (Split-Path $PSScriptRoot -Parent),
   [string]$Root = '',            # 待上传目录（相对 BaseDir 或绝对路径），默认 BaseDir
   [string[]]$Only = @(),         # 只上传这些相对路径（相对 Root），默认全部
   [string]$McpUrl = 'https://api-iot.luatos.com/iot/mcp',

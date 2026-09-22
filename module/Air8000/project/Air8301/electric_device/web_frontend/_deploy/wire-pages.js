@@ -4,7 +4,7 @@
 */
 const fs = require('fs');
 const path = require('path');
-const JS = path.join(__dirname, '..', 'assets', 'js', 'pages');
+const JS = path.join(path.resolve(__dirname, '..'), 'assets/js/pages');
 const MARK = '/* ==== 多页面接线（由 _deploy/wire-pages.js 追加）==== */';
 
 const BLOCKS = {

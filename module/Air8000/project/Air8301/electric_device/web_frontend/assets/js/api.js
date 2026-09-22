@@ -346,7 +346,8 @@ function buildAlertsFromDevices(devices){
 }
 
 /* ---------- 全局状态 ---------- */
-const STORE_KEY = 'nexus-project';
+// 带应用名前缀：同域名多应用并存时不串数据（见 config.js 的 KEY_PREFIX 说明）
+const STORE_KEY = App.config.KEY('project');
 const state = {
   projectId: null,
   projectName: '',
@@ -725,7 +726,7 @@ function hbTimeText(d){
 
 /* ==== 跨页共用（由 _deploy/fix-shared.js 移入）==== */
 
-const NOTIFY_KEY = 'nexus-notify';
+const NOTIFY_KEY = App.config.KEY('notify');
 
 const NOTIFY_META = [
   { id:'dingtalk', name:'钉钉机器人', short:'钉钉', brand:'#3296fa',
@@ -767,7 +768,7 @@ let notifyCfg = JSON.parse(JSON.stringify(NOTIFY_DEF));
      要做到页面关着也能推、并能拿到渠道真实回执，需在 config.js 配 API.NOTIFY_RELAY 走服务端转发。
    · 发送是真的网络请求；结果如实区分 已送达 / 已提交但读不到回执 / 失败。
    ========================================================= */
-const NOTIFY_LOG_KEY = 'nexus-notify-log';
+const NOTIFY_LOG_KEY = App.config.KEY('notify-log');
 const NOTIFY_LOG_MAX = 60;
 
 /* ---------- 配置：读取（必须在公共层做，否则只有系统设置页显示真实配置） ---------- */

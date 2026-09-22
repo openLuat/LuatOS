@@ -101,8 +101,14 @@ local function reset_state()
         -- 信令链路的重建状态，见 _signal_dead / _reconnect_signaling
         dead           = false,  -- 链路已失活，等 sip_task 重建
         reconnect_at   = 0,      -- 下次可尝试重建的时刻(现在是 0 = 立刻可试)
-        reconnect_delay = nil,   -- 退避间隔；注册成功后清零
-        await_since    = nil,    -- 发出 REGISTER/心跳的时刻，等应答；见 tick 里的活口判据
+        reconnect_delay = nil,   -- 退避间隔；**只有注册成功才清零**(见 handle_register_response)
+        -- 下面两个一起构成活口判据，**别只看 await_since**：
+        --   await_since  非 nil = "有必须被应答的请求在外面等"（仅作开关）
+        --   last_rx_at   = 上次**收到**任何报文的时刻（真正拿来算时长的）
+        -- 分开的理由：发出请求会刷新 await_since，若拿它算时长，**keepalive 比
+        -- 超时还短时看门狗会被自家探测包一直喂饱，链路死了永远判不出来**（见 tick）。
+        await_since    = nil,
+        last_rx_at     = nil,
     }
 end
 
@@ -351,15 +357,22 @@ end
 
 `st.await_since` 是**信令链路的唯一活口判据**，见 tick 里那段说明 ——
 UDP 上对端消亡既不给 CLOSED 也不给错误，只能靠"请求发出去没人答"来发现。
+
+**起表要无条件，不能等发送成功**（2026-09-22 修）：原先写成 `if text then`，
+于是"压根没发出去"这一类比"发出去了没人答"更糟的情况**反而没有任何机制在看它** ——
+实测表现是 socket 报到 ON_LINE、本地 IP 也拿得到，但 DNS 那次没解析出来、
+`net_send` 直接失败，然后设备**停在"已建链路但从未注册"的状态直到重启**。
+
+不另立"发送失败即判死"的分支，是为了避免误伤：TCP 发送缓冲瞬时打满这类
+无害抖动也会让 net_send 失败，而重建链路会**清掉名下所有点播/音频会话**
+（见 `_teardown_signaling`），代价不小。借用已有的 15 秒判据，语义一致、风险最小。
 ]]
 local function send_register(auth)
     local text = send_request("REGISTER", {
         expires = g_opts.expires or 3600,
         auth    = auth,
     })
-    if text then
-        st.await_since = now_ms()
-    end
+    st.await_since = now_ms()
     return text
 end
 
@@ -473,9 +486,9 @@ send_keepalive = function()
         content_type = "Application/MANSCDP+xml",
         body         = body,
     })
-    if text then
-        st.await_since = now_ms()     -- 心跳是信令链路的探针，见 tick 里那段说明
-    end
+    -- 同样无条件起表（为什么不能等 `if text` 见 send_register 的说明）：
+    -- 心跳是信令链路的探针，发不出去跟没人答一样要能被发现
+    st.await_since = now_ms()
 end
 
 -- ------------------------------------------------------------------
@@ -564,21 +577,31 @@ end
 (想在联调时造一条来触发平台回放，那是**调用方/测试脚本**的事，
 让它显式配置 records 即可，本模块不替它说谎。)
 
-@param msg 平台的查询报文(取其 From 作为应答目的地)
-@param sn  查询里的 SN，原样回填
+**应答里的 `DeviceID` 必须回抄查询里的那个**（2026-09-22 在真实平台上撞出来的）：
+录像机(类型 132)的录像查询，平台是按**通道编码**问的
+（`<DeviceID>…131…</DeviceID>`），而本端设备编码是 `…132…`。
+原先一律填本端设备编码，平台便把这个应答配不回那次请求 —— 表现是
+**"录像查询界面一直转圈"**，而设备侧只看得见 `录像应答已发 1 条`，
+从日志上完全看不出是哪个字段的问题。
+
+@param msg       平台的查询报文(取其 From 作为应答目的地)
+@param sn        查询里的 SN，原样回填
+@param target_id 响应体里的 DeviceID：**查询问的是谁就填谁**(通道或设备)；
+                 查询里没有该项时回落到本端设备编码
 ]]
-local function send_record_info(msg, sn)
+local function send_record_info(msg, sn, target_id)
     local o = g_opts
     -- 用归一化后的那份（不是 g_opts.records）：时间字符串与回放 seek 用的
     -- epoch 必须同源，见 normalize_records
     local recs = st.records or {}
+    local dst_id = target_id or o.device_id
     local to_uri = uri_of(msg.headers["from"])
                    or string.format("sip:%s@%s", o.server_id, o.domain)
 
     if #recs == 0 then
         log_warn("未配置录像，回 ERROR")
         local fail = gb.xml_build_response_fail("RecordInfo", sn,
-                                                o.device_id, "ERROR")
+                                                dst_id, "ERROR")
         if fail then
             send_request("MESSAGE", {
                 to_uri       = to_uri,
@@ -592,7 +615,7 @@ local function send_record_info(msg, sn)
     -- 录像条数远小于通道数，且每条都带一段文字时间，故先不分页；
     -- 真到了几十条再按 catalog 那样分页(C 层单页上限 32 条)
     local body = gb.xml_build_record_info({
-        device_id = o.device_id,
+        device_id = dst_id,
         name      = (o.device and o.device.name) or "Record",
         sum_num   = #recs,
         items     = recs,
@@ -601,7 +624,7 @@ local function send_record_info(msg, sn)
     if body == nil then
         log_warn("录像应答构造失败(必选字段缺失?)，回 ERROR")
         local fail = gb.xml_build_response_fail("RecordInfo", sn,
-                                                o.device_id, "ERROR")
+                                                dst_id, "ERROR")
         if fail then
             send_request("MESSAGE", {
                 to_uri       = to_uri,
@@ -801,7 +824,8 @@ local function handle_query(msg)
     -- 录像查询走与 Catalog 同样的"独立发送"路径(应答体是列表，不是单条)
     if cmd == "RecordInfo" then
         emit("query", cmd, { sn = sn, supported = true })
-        send_record_info(msg, sn)
+        -- 把查询里的 DeviceID 带下去：录像机是按通道问的，见该函数说明
+        send_record_info(msg, sn, q and q.device_id)
         return
     end
 
@@ -2538,7 +2562,14 @@ TCP 流错位与 CLOSED 事件也走这里 —— 后两者在 UDP 上实测**�
 **不在回调里直接重建**：net_cb 跑在 socket 的事件上下文里，在里面重建 socket
 等于在回调里销毁回调所属的对象，容易踩到栈上状态。置标记 + 让任务去处理，
 时序最清楚。
+
+**退避在这里就排下一次**（2026-09-22 改）：原先只在"重建失败"时退避，
+而重建通常"成功"（socket 建出来了，毛病要等发报文才知道），于是退避从未累积，
+实际节奏被那 15 秒超时钉死成恒定的 ~16s/轮。现在每判死一次就翻一倍，
+真正可用与否以**注册成功**为准（那里才清零）。
 ]]
+local _schedule_reconnect     -- 前向声明：定义在下面"socket 重建"那一节
+
 local function _signal_dead(reason)
     if st.dead then
         return              -- 已经在重建流程里，别重复触发
@@ -2546,6 +2577,7 @@ local function _signal_dead(reason)
     st.online     = false
     st.registered = false
     st.dead       = true
+    _schedule_reconnect()
     log_warn("信令链路失活:", reason, "将在退避后重建")
     emit("net", "closed", { reason = reason })
 end
@@ -2571,6 +2603,9 @@ local function net_cb(netc, event, param)
             return
         end
         log_info("网络就绪, 本地", st.local_ip, "开始注册")
+        -- 新链路从这一刻起算"多久没听到对面"：不重置的话，重建后
+        -- last_rx_at 还停在上一轮的旧时刻，会立刻被误判成失活
+        st.last_rx_at = now_ms()
         send_register(nil)
 
     elseif event == socket.EVENT then
@@ -2629,11 +2664,17 @@ local function _teardown_for_reconnect()
     st.next_ka    = 0
     st.rx         = ""
     st.await_since = nil
+    -- 与 await_since 成对：新链路的"上次听到"由 net_cb 的 ON_LINE 盖章，
+    -- 在那之前不该拿上一轮的旧时刻去判活
+    st.last_rx_at  = nil
 end
 
 -- 退避：1s → 2s → 4s → … 上限 30s。**不阻塞 tick 循环**，
 -- 只算一个"下次可重连的时刻"，让每秒的 tick 去看 —— 否则平台长时间
 -- 不可用时会把这个循环连同会话回收一起卡住。
+--
+-- **由 _signal_dead 调用（每次判死翻一倍）**，注册成功才清零；
+-- 重建"成功"（socket 建出来）**不**清零 —— 那时链路还完全没被验证过。
 local RECONNECT_MIN_MS = 1000
 local RECONNECT_MAX_MS = 30000
 
@@ -2649,10 +2690,18 @@ local RECONNECT_MAX_MS = 30000
 好在信令是**有应答的协议**：REGISTER 与心跳都必然被平台回复。
 "发了要应答的请求、超时没等到"就是 UDP 下唯一可信的活口判据。
 平台正常时是毫秒级应答，15s 足够宽松；真的不回，多半就是它已经不在了。
+
+**这个 15 秒量的是"距上次收到报文"，不是"距上次发出请求"**（2026-09-22 改）：
+后者会被自家探测包刷新 —— keepalive 比它短时（比如 10s），就有探测包一直在
+喂看门狗，链路死了也判不出来，而 `keepalive = 10` 是个看着完全合理的取值。
+判据见 tick 里的 `last_rx_at`。
 ]]
 local SIGNALING_REPLY_TIMEOUT_MS = 15000
 
-local function _schedule_reconnect()
+-- 注意：**不能写 `local function`** —— 上面已用 `local _schedule_reconnect`
+-- 前向声明（_signal_dead 要用它），这里再写 local 会造出另一个局部变量，
+-- 前向声明那个永远是 nil，调用时炸 "attempt to call a nil value"。
+_schedule_reconnect = function()
     local d = st.reconnect_delay or RECONNECT_MIN_MS
     st.reconnect_at    = now_ms() + d
     st.reconnect_delay = math.min(d * 2, RECONNECT_MAX_MS)
@@ -2731,23 +2780,29 @@ local function sip_task()
         local now = now_ms()
 
         --[[
-        活口判据：发出的 REGISTER/心跳迟迟没有应答 → 链路已死。
+        活口判据：**距上次收到报文**超过 15 秒，且手上有请求在外面等 → 链路已死。
+
+        `await_since` 只当开关用（"有必须被应答的请求在外"），**不能拿它算时长**：
+        它每次发心跳/REGISTER 都会被刷新，keepalive 短于 15s 时看门狗被自家
+        探测包一直喂着，链路死了也判不出来。算时长的是 `last_rx_at`。
 
         见 SIGNALING_REPLY_TIMEOUT_MS 的说明：UDP 上这是唯一可信的信号。
         必须在重建判断**之前**做 —— 否则先重建、后判死，会把刚建好的链路又拆掉。
         ]]
-        if not st.dead and st.await_since and
-           (now - st.await_since) >= SIGNALING_REPLY_TIMEOUT_MS then
+        if not st.dead and st.await_since and st.last_rx_at and
+           (now - st.last_rx_at) >= SIGNALING_REPLY_TIMEOUT_MS then
             _signal_dead("信令请求超时无应答")
         end
 
         -- 链路死了就退避重建。**放在 tick 里而不是 socket 回调里**：
         -- 回调里重建等于在回调中销毁回调所属的对象，时序容易出问题。
+        --
+        -- 重建成功**不清退避**：socket 建出来只说明"能创建"，链路可用与否
+        -- 要等注册回来才算数（清零在 handle_register_response）。在这里清的话，
+        -- 一个建得起来但永远不通的链路每轮都会从 1s 重来，退避等于没有。
         if st.dead and now >= (st.reconnect_at or 0) then
             local ok, err = _reconnect_signaling()
-            if ok then
-                st.reconnect_delay = nil      -- 成功则退避清零
-            else
+            if not ok then
                 log_warn("重建信令链路失败:", err)
                 _schedule_reconnect()
             end

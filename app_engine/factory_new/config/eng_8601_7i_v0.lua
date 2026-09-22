@@ -47,40 +47,6 @@
     实际只把 pa_delay 透传给 audio_v2.config_pa_power_ctrl()，dac_delay 不起作用（保留仅为兼容）。
 ]]
 
--- ============================================================================
--- 【临时诊断】模组型号探针（开机 3 秒后打一行，确认完请整段删除）
---   目的：搞清固件上报的到底是「芯片名」还是「整机名」——
---     hmeta.chip()   → 原始芯片型号（如 Air1601），底层正确实现时总有值
---     hmeta.model()  → 模组类型（可能带封装/变体后缀，如 Air1601_xxx）
---     hmeta.hwver()  → 硬件版本号
---     hmeta.devid()  → 模组识别 id（WiFi 模组=MAC，4G 模组=IMEI）
---     rtos.bsp()     → BSP 名（纯芯片系列；服务端/上报只认这个）
---     _G.model_str   → platform_loader 里 hmeta.model() 的落库值
---     _G.is_pc       → 是否被误判成 PC 模拟器（hmeta 缺失时会误判！）
---   日志关键字: modelprobe
--- ============================================================================
-if not _G.__eng_modelprobe then _G.__eng_modelprobe = true  -- 重入保护（config 可能被加载两次）
-    local function probe(name, fn)
-        if type(fn) ~= "function" then return name .. "=n/a" end
-        local ok, v = pcall(fn)
-        if not ok then return name .. "=<err>" end
-        return name .. "=" .. tostring(v)
-    end
-    sys.taskInit(function()
-        sys.wait(3000)
-        log.info("modelprobe", table.concat({
-            probe("chip",  hmeta and hmeta.chip),
-            probe("model", hmeta and hmeta.model),
-            probe("hwver", hmeta and hmeta.hwver),
-            probe("devid", hmeta and hmeta.devid),
-            "bsp=" .. tostring(rtos.bsp()),
-            "model_str=" .. tostring(_G.model_str),
-            "is_pc=" .. tostring(_G.is_pc),
-            "project=" .. tostring(PROJECT),
-        }, " "))
-    end)
-end
-
 return {
     -- ===== 顶层信息 =====
     name = "Engine_Air8601_7inch_1024x600_010_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}
@@ -180,6 +146,17 @@ return {
         app_factory = true, -- 启用"应用工厂"内置应用
         ai_chat = true,     -- 启用"AI聊天助手"内置应用
         cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true, -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        aircloud = true,    -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
+    },
+
+    -- ===== AirCloud 数据上报参数 =====
+    -- 仅在 features.aircloud = true 时生效
+    -- 上报字段由运行时能力探测决定（mobile.csq / adc.CH_CPU / LBS 定位 / 电池 …）
+    -- 采不到的一律跳过，不影响其他字段
+    aircloud = {
+        report_cycle = 180,  -- 默认上报周期（秒），云端可下发 "cycle:秒数" 改写并存 fskv
+        min_cycle    = 5,    -- 允许的最小周期（秒），防止云端下发过密把流量打爆
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -218,5 +195,7 @@ return {
         show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
         show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
         show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_file_transfer = true,     -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
+        show_aircloud = true,          -- 设置页显示"数据上报"入口 ← 配 aircloud 时打开
     },
 }

@@ -69,6 +69,10 @@ if _feat.cloud_disk then
     require "cloud_disk_win"    -- 合宙网盘窗口（订阅 OPEN_CLOUD_DISK_WIN）
 end
 
+if _feat.file_transfer then
+    require "file_transfer_win" -- 文件传输窗口（订阅 OPEN_FILE_TRANSFER_WIN）
+end
+
 -- ==================== 硬件初始化协程 ====================
 local function init_ui_task()
     -- 主题恢复重试：ui_theme_themes 被 require 时 fskv 很可能还没挂载完，

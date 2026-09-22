@@ -169,6 +169,7 @@ return {
         app_factory = true, -- 启用"应用工厂"内置应用
         ai_chat = true,     -- 启用"AI聊天助手"内置应用
         cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true, -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -207,5 +208,6 @@ return {
         show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
         show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
         show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_file_transfer = true,     -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
     },
 }

@@ -1,8 +1,8 @@
 --[[
 @module  settings_about_win
 @summary 关于设备子页面（TabOS 主题化）
-@version 3.0
-@date    2026.09.16
+@version 3.1
+@date    2026.09.22
 @author  江访
 
 === 消息协议 ===
@@ -76,15 +76,23 @@ local function fit_value(text, w, px, lines)
     return string.sub(text, 1, cut) .. "..."
 end
 
---[[信息行卡片：单个卡片 + 行间分隔线，没有嵌套边框]]
+--[[信息行卡片：单个卡片 + 行间分隔线，没有嵌套边框
+
+尺寸契约（LVGL 内容区 = 外框 - 2x描边，pad=0）：theme.card 自带 1px 描边，
+子组件坐标原点已经内移到描边内侧，行宽必须用 (w - 2)，行堆叠总高也要比卡片
+外高少 2。以前直接按外框 w x total_h 铺满，右/下各撑出 2px —— 容器天生带
+LV_OBJ_FLAG_SCROLLABLE，超出就画滚动条，这张圆角卡片上便多出一对「滑块」
+（用户报的「没考虑容器倒角 -> 出现滑块」就是它）。]]
 local function build_info_list(parent, x, y, w)
+    local bw       = 1                     -- theme.card 默认描边宽度
+    local inner_w  = w - 2 * bw            -- 卡片内容区宽
     local pad      = theme.dp(14)
     local fs_key   = theme.fs("micro")     -- 12
     local fs_val   = theme.fs("label")     -- 16
     local key_lh   = fs_key + 3            -- hzfont 行高 = 字号 + 3
     local val_lh   = fs_val + 3
     local gap      = theme.dp(4)
-    local value_w  = w - pad * 2
+    local value_w  = inner_w - pad * 2
 
     -- 先算总高：每行 = 上下内边距 + 键行 + 间隙 + 值行*行数
     local total_h = 0
@@ -93,12 +101,12 @@ local function build_info_list(parent, x, y, w)
         total_h = total_h + it.row_h + (i < #ITEMS and 1 or 0)
     end
 
-    local card = theme.card(parent, { x = x, y = y, w = w, h = total_h })
+    local card = theme.card(parent, { x = x, y = y, w = w, h = total_h + 2 * bw, border_w = bw })
 
     local cy = 0
     for i, it in ipairs(ITEMS) do
         local row = theme.box(card, {
-            x = 0, y = cy, w = w, h = it.row_h,
+            x = 0, y = cy, w = inner_w, h = it.row_h,
             color = theme.C.black, opa = 0,
             on_click = it.on_click,
         })
@@ -136,16 +144,37 @@ local function build_info_list(parent, x, y, w)
         cy = cy + it.row_h + 1
     end
 
-    return card, total_h
+    return card, total_h + 2 * bw
 end
 
 --[[更改设备名称弹窗：配色全部走令牌（原先把标题色写死成纯白，
-浅色主题下白字压白底直接看不见）]]
+浅色主题下白字压白底直接看不见）
+
+v3.1 尺寸重排（与 settings_auto_win 的弹窗口径一致）：
+1) 标题栏要占掉弹窗高度：airui.win 的内容区 = win_h - header_height，win_h 是
+   「标题栏 + 内容」的总高。以前拿 win_h(224) 当内容高来排输入框/按钮，按钮
+   (y + 44) 正好探出内容区 48px（ = 标题栏高），看上去就是「没考虑标题栏、
+   按钮飞出弹窗」。现在 win_h = header_h + content_h，按钮按真实内容高贴底排。
+2) style 加 content_pad = 0：子元素相对内容区 (0,0) 摆放（不传时有默认内边距，
+   实际可用区还要再缩一圈），边距全部自己掌控。
+3) 倒角安全边距：内容边距不小于弹窗圆角 radius，按钮/输入框的方角就不会被
+   弹窗圆角切进内容里，圆角边缘不再难看。]]
 local function create_edit_win(device_name)
-    local pad = theme.dp(18)
+    local header_h = theme.dp(48)
+    local radius   = theme.r("md")
+    local pad      = math.max(theme.dp(18), radius)   -- 倒角安全边距
     local win_w = math.min(math.floor(sw * 0.84), theme.dp(560))
-    local win_h = math.min(theme.dp(224), sh - theme.dp(40))
     if win_w < theme.dp(220) then win_w = sw - theme.dp(20) end
+
+    local input_h = theme.dp(56)
+    local btn_h   = theme.dp(44)
+
+    --[[内容区高度 = 上边距 + 输入框 + 间距 + 按钮 + 下边距；弹窗总高再加上标题栏。
+    最低支持 480×800 / 800×480，该尺寸恒放得下 —— 针对小屏机型的压缩兜底已随
+    小屏支持一并移除。按钮贴内容区底边（下边距 = pad，倒角安全），输入框顶对齐。]]
+    local content_h = pad + input_h + theme.dp(20) + btn_h + pad
+    local win_h = header_h + content_h
+    local btn_y = content_h - pad - btn_h
 
     --[[键盘统一规范（与 wifi 密码键盘一致）：
         parent 必须是「宽 = 内容区宽」的本页根容器 —— 拼音候选栏与输入预览框
@@ -173,9 +202,10 @@ local function create_edit_win(device_name)
             header_bg_color = theme.C.panel_hi,
             content_bg_color = theme.C.dialog,
             title_text_color = theme.C.t1,
-            radius = theme.r("md"),
+            radius = radius,
             title_align = airui.TEXT_ALIGN_CENTER,
-            header_height = theme.dp(48),
+            header_height = header_h,
+            content_pad = 0,
         },
         on_close = function(self)
             log.info("settings_about", "编辑窗口已关闭")
@@ -196,10 +226,11 @@ local function create_edit_win(device_name)
         if edit_win then edit_win:close() end
     end
 
+    -- 以下子元素均相对内容区 (0,0) 布局（content_pad = 0）
     name_input = theme.input({
         parent = edit_win,
-        x = pad, y = theme.dp(64),
-        w = win_w - 2 * pad, h = theme.dp(56),
+        x = pad, y = pad,
+        w = win_w - 2 * pad, h = input_h,
         text = device_name or "",
         placeholder = "请输入设备名称",
         max_len = 32,
@@ -208,8 +239,6 @@ local function create_edit_win(device_name)
         keyboard = soft_keyboard,
     })
 
-    local btn_h = theme.dp(44)
-    local btn_y = win_h - pad - btn_h
     local btn_w = math.floor((win_w - 3 * pad) / 2)
     if btn_w < theme.dp(60) then btn_w = theme.dp(60) end
 
@@ -256,7 +285,7 @@ local function build_ui()
     })
     main_container = ctx.base
 
-    -- 内容区可滚动：小屏上（600 高）信息行较多时不会被裁掉
+    -- 内容区可滚动：矮横屏（800×480）高密度时信息行可能超出，滚动兜底
     local body = theme.box(ctx.base, {
         x = ctx.x, y = ctx.y, w = ctx.w, h = ctx.h,
         color = theme.C.black, opa = 0, scrollable = true,
@@ -268,7 +297,7 @@ local function build_ui()
 
     local _, card_h = build_info_list(body, 0, 0, ctx.w)
 
-    -- 底部说明：剩余空间不够就不画，避免在小屏上被裁成半行
+    -- 底部说明：剩余空间不够就不画，避免被裁成半行
     local fs_note = theme.fs("micro")
     local note_y = card_h + theme.dp(10)
     if note_y + (fs_note + 3) <= ctx.h then

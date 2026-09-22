@@ -193,6 +193,9 @@
     --     app_factory = true,  -- 启用应用工厂（录音生成APP），通常同时设 ui.show_app_factory = true
     --     ai_chat = true,      -- 启用AI聊天助手（SSE流式对话+TTS），通常同时设 ui.show_ai_chat = true
     --     cloud_disk = true,   -- 启用合宙网盘（登录IoT账号后浏览空间文件并下载），通常同时设 ui.show_cloud_disk = true
+    --     file_transfer = true, -- 启用文件传输（hzadb日志口：PC↔设备互传文件/共享清单），通常同时设 ui.show_file_transfer = true
+    --     aircloud = true,     -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定芯片型号），
+    --                          -- 通常同时设 ui.show_aircloud = true，并配 aircloud 参数表
     -- },
 
     -- ============================================================
@@ -288,6 +291,8 @@
     --     show_app_factory = true,         -- 桌面"应用工厂"入口         ← 通常配 app_factory 时打开
     --     show_ai_chat = true,             -- 桌面"AI助手"入口           ← 通常配 ai_chat 时打开
     --     show_cloud_disk = true,          -- 桌面"合宙网盘"入口         ← 通常配 cloud_disk 时打开
+    --     show_file_transfer = true,       -- 文件管理内"与PC互传"入口   ← 通常配 file_transfer 时打开
+    --     show_aircloud = true,            -- 设置页"数据上报"入口        ← 通常配 aircloud 时打开
     --     show_video_area = true,          -- 桌面内置播放器区域（竖屏：状态栏→时钟→播放器(画面+独立
     --                                      --   控制栏)→已安装应用→Dock，不带天气卡；横屏自动带播放器，无需此项）
     -- },
@@ -366,5 +371,41 @@
     --     { pin = 22, key = "NES_KEY_SELECT"},  -- 选择
     --     { pin = 23, key = "NES_KEY_A"     },  -- A
     --     { pin = 13, key = "NES_KEY_B"     },  -- B
+    -- },
+
+    -- ============================================================
+    -- 十二、AirCloud 数据上报 aircloud（条件: features.aircloud = true 时需要）
+    -- ============================================================
+    -- 上报字段不是配置出来的，而是运行时「能力探测」出来的：
+    -- 模块启动后用 type(fn) == "function" + pcall 逐项探测 Lua API 是否存在，
+    -- 存在就采、不存在就跳过该字段。因此同一份代码可直接跑在
+    -- Air1601 / Air1602 / Air1780 / Air8101 / Air780E / PC 模拟器上，无需按型号改配置。
+    --
+    -- 探测到的字段（采到才发）:
+    --   设备ID(DEVICE_ID 798)          hmeta.devid → mcu.unique_id → mobile.imei → wlan.getMac
+    --   固件版本(FIRMWARE_VERSION 1027) main.lua 的 VERSION
+    --   信号强度(SIGNAL_STRENGTH_4G 782) mobile.csq()
+    --   网络类型(NETWORK_TYPE 781)      1=WiFi 2=4G 3=以太网
+    --   SIM卡(SIM_ICCID 783)           mobile.iccid()
+    --   CPU温度(ENV_TEMPERATURE 263)    adc.CH_CPU
+    --   经纬度(GNSS_LATITUDE/LONGITUDE 513/512) LBS 基站定位（独立超时，最慢 8 秒）
+    --   电池电量/电压(BATTERY_LEVEL 771 / VOLTAGE 799) 复用 battery_app 的 BATTERY_STATUS
+    --   时间戳(TIMESTAMP 1280)          os.time()
+    --   开机原因/次数(BOOT_REASON 776 / BOOT_COUNT 777)
+    --   内存占用(LUA_MEM_CURRENT_USED 1034) rtos.meminfo("lua")
+    --   WiFi信号(自定义字段 1295)       wlan.getInfo().rssi
+    --
+    -- 下行命令（云端 → 设备，走 CONTROL_COMMAND tag 19，ASCII 文本）:
+    --   cycle:180        改写上报周期（秒），夹到 min_cycle 以上，写入 fskv 掉电保持
+    --   backlight:60     调屏幕背光（10~100），转 DISPLAY_BRIGHTNESS_SET 事件
+    --   report:once      立即触发一轮上报
+    --   report:on/off    开关上报
+    --   status           回读当前状态（走 CONTROL_RESPONSE tag 20 回复）
+    --
+    -- 上报结果通过 AIRCLOUD_REPORT_RESULT 事件发布，设置页据此显示"最近一次上报结果"。
+    --
+    -- aircloud = {
+    --     report_cycle = 180,  -- 默认上报周期(秒)；云端下发 cycle:N 会改写并存 fskv
+    --     min_cycle    = 5,    -- 允许的最小周期(秒)，防止云端下发过密把流量打爆
     -- },
 -- }

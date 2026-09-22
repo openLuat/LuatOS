@@ -296,15 +296,15 @@ end
 
 local function calc_layout()
     local sw, sh = screen_w, screen_h
-    local compact = (sh < 340 and sw > sh)
+    -- 最低支持 480×800 / 800×480：小屏机型（480×272 / 320×480 等）的紧凑布局已移除
 
-    use_rail = (sw >= 560) and not compact
+    use_rail = (sw >= 560)
     rail_w = use_rail and clamp(math.floor(104 * density_scale_val), 60, math.floor(sw * 0.18)) or 0
 
     pad = clamp(math.floor(math.min(sw, sh) * 0.021), 6, 18)
-    status_h = compact and 22 or clamp(math.floor(sh * 0.05), 28, 36)
+    status_h = clamp(math.floor(sh * 0.05), 28, 36)
     header_h = 0
-    dock_h = compact and 46 or clamp(math.floor(sh * 0.105), 48, 72)
+    dock_h = clamp(math.floor(sh * 0.105), 48, 72)
 
     content_x = rail_w
     content_w = sw - rail_w
@@ -350,16 +350,15 @@ local function calc_layout()
         if apps_h < 84 then apps_h = 84 end
     else
         -- 原始布局（窄屏 / 竖屏）
-        clock_h = compact and clamp(math.floor(sh * 0.22), 50, 66)
-            or clamp(math.floor(sh * 0.26), 110, 150)
-        weather_h = compact and 0 or clamp(math.floor(sh * 0.125), 58, 78)
+        clock_h = clamp(math.floor(sh * 0.26), 110, 150)
+        weather_h = clamp(math.floor(sh * 0.125), 58, 78)
         -- 竖屏播放器布局不带天气卡：这块高度让给播放器的独立控制栏（见下方方案B）
         if VP.portrait then weather_h = 0 end
 
         local y = pad + status_h + pad
         y = y + clock_h + pad
         weather_y = y
-        -- weather_h = 0（紧凑屏或竖屏播放器布局）时不要再占一格「卡片 + 间距」，
+        -- weather_h = 0（竖屏播放器布局）时不要再占一格「卡片 + 间距」，
         -- 否则时钟与下面那张卡之间会平白多出 pad —— 竖屏播放器布局那 10px 要留给应用卡。
         if weather_h > 0 then y = y + weather_h + pad end
         apps_y = y
@@ -423,7 +422,7 @@ local function calc_layout()
                     VP.h = player_h < spare and player_h or spare
                 end
             end
-            -- 极端小屏兜底：宁可裁掉一些画面，也别让按钮消失
+            -- 极端压缩兜底：宁可裁掉一些画面，也别让按钮消失
             if VP.h < VP.ctrl_h + 96 then VP.h = VP.ctrl_h + 96 end
 
             VP.w = content_w                 -- 通栏：素材原生宽 480，两边留 pad 会各裁掉 10px
@@ -1486,7 +1485,7 @@ local function build_dock(parent)
     都不到，内容比容器高 3px，而 LVGL 容器默认 scrollbar_mode = AUTO，于是 Dock 里每个
     图标下面都挂一条滑块（用户报的「内置应用挤出了滑块」）。这里按网格瓦片同样的口径留 dp(34)；
     Dock 不够高时先缩图标（下限 28），保证「内容 + 描边」放得下、瓦片绝不超出卡片。
-    （Dock 自身矮于 60 的 tiny 屏 —— 320×480 / 480×272 / 800×480 这一档 —— 图标已到下限，
+    （Dock 自身矮于 60 的矮横屏 —— 800×480 这一档 —— 图标已到下限，
     文字区仍会顶满瓦片；那是 Dock 高度公式本身偏矮，不属于本次改动范围。）]]
     local label_reserve = math.floor(6 * density_scale_val + 0.5) + math.floor(4 * density_scale_val + 0.5) + math.floor(18 * density_scale_val + 0.5)
     local icon_fit = dock_h - 2 - label_reserve - 2      -- 上下各 1px 描边 + 2px 余量

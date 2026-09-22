@@ -66,6 +66,8 @@ require ("tp_gt911")              -- GT911 触摸（统一）
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器
 require ("net_init")
+require ("aircloud_app")          -- AirCloud 通用数据上报（能力探测型，有接口就采）
+require ("settings_report_win")   -- AirCloud 上报设置页（配 features.aircloud 使用）
 -- 应用工厂 / AI 聊天体积大，800×480 脚本区 1024KB 先不打包
 
 -- ==================== 1. 平台检测 ====================

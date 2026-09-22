@@ -198,6 +198,7 @@ M.ICON_FALLBACK = {
     ai_chat    = "/luadb/ai_chat.png",
     cloud_disk = "/luadb/cloud.png",     -- 网盘复用已有的 cloud.png，避免新增二进制资源
     search     = "/luadb/search.png",
+    file_transfer = "/luadb/file_manager.png", -- 兜底复用文件管理图标；res/ui/file_transfer.png 落位后自动优先
 }
 
 local density = _G.density_scale or 1.0

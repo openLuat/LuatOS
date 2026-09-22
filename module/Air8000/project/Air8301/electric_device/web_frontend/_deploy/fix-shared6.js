@@ -3,7 +3,8 @@
    把 NOTIFY_DEF 整块挪到 notifyCfg 之前。用法：node _deploy/fix-shared6.js
 */
 const fs = require('fs');
-const API = require('path').join(__dirname, '..', 'assets', 'js', 'api.js');
+const path = require('path');
+const API = path.resolve(__dirname, '..', 'assets/js/api.js');
 let t = fs.readFileSync(API, 'utf8');
 if (t.indexOf('NOTIFY_DEF') === -1) { console.log('api.js 里没有 NOTIFY_DEF，跳过'); process.exit(0); }
 

@@ -5,7 +5,7 @@
 */
 const fs = require('fs');
 const path = require('path');
-const JS = path.join(__dirname, '..', 'assets', 'js');
+const JS = path.resolve(__dirname, '..', 'assets/js');
 const p = f => path.join(JS, f);
 const read = f => fs.readFileSync(p(f), 'utf8');
 const write = (f, t) => fs.writeFileSync(p(f), t, 'utf8');

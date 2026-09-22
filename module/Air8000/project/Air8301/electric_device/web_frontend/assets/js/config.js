@@ -11,8 +11,36 @@ App.config = (function(){
   var m = path.match(/\/ai_app\/luatos\/([^\/?#]+)/i);
   var APP_ID_FALLBACK = '';
   var appId = (m && m[1]) ? m[1] : APP_ID_FALLBACK;
+
+  /* ---------- 存储键命名空间（重要，勿改成写死的键名）----------
+     同一域名（iot.luatos.com）下会并存多个应用（/ai_app/luatos/<appId>/…），
+     而 localStorage 是「按域名共享、不按路径隔离」的：键名一旦写死，两个应用就会
+     互相覆盖（实测隐患：在 A 应用选项目/换主题/填告警 Webhook，B 应用也跟着变，
+     最危险的是告警可能被推到错误的群）。
+     所以所有 localStorage 键一律带应用名前缀，前缀从 URL 自动取，无需人工配置。 */
+  var KEY_PREFIX = (appId || 'app') + '-';
+  function keyOf(name){ return KEY_PREFIX + name; }
+
+  /* 一次性搬家：早期版本用的是写死的 'nexus-*' 键，这里把旧数据搬到新键。
+     只在「新键为空」时搬（绝不覆盖新数据），搬完删旧键；重复执行安全（幂等）。 */
+  (function migrateLegacyKeys(){
+    try {
+      var legacy = { 'nexus-project':'project', 'nexus-ui':'ui', 'nexus-theme':'theme',
+                     'nexus-notify':'notify', 'nexus-notify-log':'notify-log' };
+      Object.keys(legacy).forEach(function(old){
+        var v = localStorage.getItem(old);
+        if (v === null) return;
+        var nk = keyOf(legacy[old]);
+        if (localStorage.getItem(nk) === null) localStorage.setItem(nk, v);
+        localStorage.removeItem(old);
+      });
+    } catch(e){}
+  })();
+
   return {
     APP_ID: appId,
+    KEY: keyOf,                /* 用法：App.config.KEY('theme') → '<appId>-theme' */
+    KEY_PREFIX: KEY_PREFIX,
     BASE_PATH: basePath,
     API_HOST: SDK.config.API_HOST,
     BASE_HOST: SDK.config.BASE_HOST,

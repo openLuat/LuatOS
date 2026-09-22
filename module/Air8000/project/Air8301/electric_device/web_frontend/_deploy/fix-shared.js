@@ -5,7 +5,7 @@
 */
 const fs = require('fs');
 const path = require('path');
-const JS = path.join(__dirname, '..', 'assets', 'js');
+const JS = path.resolve(__dirname, '..', 'assets/js');
 const p = f => path.join(JS, f);
 
 /* 抽取一个顶层 function 的完整原文（含其上方紧邻的注释行） */

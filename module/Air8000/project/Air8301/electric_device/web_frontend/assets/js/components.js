@@ -36,7 +36,8 @@ function rollNumber(el, to){
   const cvs = document.getElementById('bg');
   if (!cvs) return;
   const ctx = cvs.getContext('2d');
-  const UI_KEY = 'nexus-ui';
+  /* 带应用名前缀：同域名多应用并存时不会互相覆盖（见 config.js 的 KEY_PREFIX 说明） */
+  const UI_KEY = App.config.KEY('ui');
   const FPS = 30;
   let W, H, dpr, parts = [], rafId = 0, lastT = 0, running = false;
   let palette = ['#22e1ff','#8b5cf6','#2bffb0','#4f8cff'];

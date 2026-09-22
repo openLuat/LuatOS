@@ -88,7 +88,7 @@
     }
     root.dataset.theme = name;
     try {
-      localStorage.setItem('nexus-theme', name);
+      localStorage.setItem(App.config.KEY('theme'), name);
     } catch(e){
       toastErr('主题偏好保存失败，本次切换仅在当前会话生效');
     }
@@ -104,7 +104,7 @@
 
   // 初始化（历史残留的无效主题静默回退，不打扰用户）
   let saved = 'nebula';
-  try { saved = localStorage.getItem('nexus-theme') || 'nebula'; } catch(e){}
+  try { saved = localStorage.getItem(App.config.KEY('theme')) || 'nebula'; } catch(e){}
   if (!THEMES.includes(saved)) saved = 'nebula';
   applyTheme(saved);
 

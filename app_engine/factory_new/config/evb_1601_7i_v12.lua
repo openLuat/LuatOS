@@ -39,6 +39,8 @@ return {
     power_on = {
         -- 总供电 (高电平有效)
         { pin = 58, dir = 0, level = 1 },
+        -- SD 卡使能 (SD_EN=GPIO56)
+        { pin = 56, dir = 0, level = 1 },
         -- LCD 使能 (LCD_EN=GPIO57)
         { pin = 57, dir = 0, level = 1 },
         -- 8311 使能 与触摸共用I2C1(8311_EN=GPIO43)
@@ -54,10 +56,6 @@ return {
 
         -- 以太网 CH390 使能 (LAN_EN=GPIO52)
         { pin = 52, dir = 0, level = 1 },
-
-        -- SD 卡使能 (SD_EN=GPIO56)
-        { pin = 56, dir = 0, level = 1 },
-
     },
 
     -- ===== 硬件配置 =====
@@ -172,7 +170,7 @@ return {
         -- ===== 第三优先级：4G（AirLink UART3） =====
         {
             type = "4g_airlink_uart",
-            uart_id = 3,        -- UART3
+            uart_id = 3,            -- UART3
             baud = 2 * 1000 * 1000, -- 2Mbps
             adapter = socket.LWIP_GP_GW,
         },
@@ -194,8 +192,8 @@ return {
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====
     storage = {
         sd_card = {
-            spi_id = 1,          -- SPI 接口 ID（与以太网共用 SPI1，CS 不同）
-            pin_cs = 8,          -- 片选 CS 引脚 GPIO8
+            spi_id = 1,              -- SPI 接口 ID（与以太网共用 SPI1，CS 不同）
+            pin_cs = 8,              -- 片选 CS 引脚 GPIO8
             speed = 8 * 1000 * 1000, -- SPI 时钟频率 Hz（高速卡推荐 8MHz+）
         },
     },

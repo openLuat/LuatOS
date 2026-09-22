@@ -1,5 +1,5 @@
 --[[ @module sip_app_main
-@summary SIP注册/呼出/接听/挂断，媒体由独立audio_1103模块提供
+@summary SIP注册/呼出/接听/挂断，媒体由audio_drv 的 exaudio 适配层提供
 ]]
 local cfg = require "config"
 local audio_drv = require "audio_drv"
@@ -29,12 +29,17 @@ local function callback(event, action, payload)
         log.info("sip_app", "CALL", action)
         if action == "incoming" then
             set_state("INCOMING")
-            if cfg.sip.auto_answer then post("ACCEPT") end
+            log.info("sip_app", "接通电话")
+            post("RING")   -- 来电后持续振铃, 由按键/接听请求触发 ACCEPT
         elseif action == "connected" then
             set_state("CONNECTED")
         elseif action == "ended" then
-            audio_drv.stop()
+            audio_drv.stop_ringback(true)   -- 先停循环振铃(不复位, 避免复位吞掉挂断提示音)
+            -- skip_recover=true: 停桥接但先不恢复MIC(避免复位吞掉挂断提示音), 播完由提示音队列复位恢复
+            audio_drv.stop(true)
             set_state(registered and (audio_drv.is_ready() and "READY" or "AUDIO_RECOVERING") or "OFFLINE")
+            log.info("sip_app", "对方已挂断", "播放挂断提示音")
+            audio_drv.play_hangup()
         end
     elseif event == "media" then
         log.info("sip_app", "MEDIA", action, payload.codec, payload.sample_rate)
@@ -76,7 +81,7 @@ local function on_audio_error(reason)
     log.error("sip_app", reason)
     post("RESTART")
 end
-sys.subscribe("AUDIO_1103_ERROR", on_audio_error)
+sys.subscribe("AUDIO_DRV_ERROR", on_audio_error)
 
 -- 只在业务任务中恢复，避免在SIP/串口回调里阻塞等待；保留正在到来的来电状态。
 local function recover_audio()
@@ -133,6 +138,10 @@ local function sip_main_task()
                 if type(msg) == "table" then
                     local command, value = msg[1], msg[2]
                     if command == "RESTART" then break end
+                    if command == "RING" then
+                        log.info("sip_app", "呼入振铃", "未接通前持续振铃")
+                        audio_drv.play_ringback_loop()
+                    end
                     if command == "PRIMARY" then
                         command = state == "INCOMING" and "ACCEPT" or "DIAL"
                         value = cfg.dial_number
@@ -148,11 +157,12 @@ local function sip_main_task()
                             else log.warn("sip_app", "请填写config.dial_number") end
                         else log.warn("sip_app", "暂不能呼出", state, "audio_ready", audio_drv.is_ready()) end
                     elseif command == "ACCEPT" then
+                        if state == "INCOMING" then audio_drv.stop_ringback() end   -- 先停振铃再接听
                         if state == "INCOMING" and not audio_drv.is_ready() then recover_audio() end
                         local elapsed = 0
                         while state == "INCOMING" and not audio_drv.is_ready()
                             and elapsed < cfg.audio.ready_timeout_ms do
-                            sys.waitUntil("AUDIO_1103_READY", 100)
+                            sys.waitUntil("AUDIO_DRV_READY", 100)
                             elapsed = elapsed + 100
                         end
                         if state == "INCOMING" and audio_drv.is_ready() then

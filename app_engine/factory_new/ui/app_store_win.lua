@@ -174,10 +174,6 @@ local function calc_layout()
         icon_size = math.max(math.floor(40 * _G.density_scale),
             math.min(math.floor(70 * _G.density_scale), math.floor(screen_h / 14 * _G.density_scale)))
     end
-    if screen_h < 360 then
-        icon_size = math.max(math.floor(32 * _G.density_scale),
-            math.min(math.floor(50 * _G.density_scale), math.floor(screen_h / 12 * _G.density_scale)))
-    end
 
     -- 区域尺寸
     available_area_height = screen_h - top_height - sort_height
@@ -203,9 +199,8 @@ local function calc_layout()
 
     grid_columns = math.max(1, math.floor(app_grid_width / mcw))
 
-    if screen_w < 480 then
-        grid_columns = math.min(2, grid_columns)
-    elseif screen_w < 720 then
+    -- 网格列数上限（原 screen_w < 480 的 2 列档随小屏支持一并移除，最低支持 480 宽）
+    if screen_w < 720 then
         grid_columns = math.min(3, grid_columns)
     elseif screen_w < 1800 then
         grid_columns = math.min(4, grid_columns)
@@ -220,13 +215,8 @@ local function calc_layout()
     card_width = math.floor((app_grid_width - (grid_columns + 1) * grid_margin) / grid_columns)
 
     -- 卡片按钮高度
-    if screen_h < 360 then
-        card_button_height = math.max(math.floor(28 * _G.density_scale),
-            math.min(math.floor(40 * _G.density_scale), math.floor(screen_h / 14 * _G.density_scale)))
-    else
-        card_button_height = math.max(math.floor(36 * _G.density_scale),
-            math.min(math.floor(50 * _G.density_scale), math.floor(screen_h / 18 * _G.density_scale)))
-    end
+    card_button_height = math.max(math.floor(36 * _G.density_scale),
+        math.min(math.floor(50 * _G.density_scale), math.floor(screen_h / 18 * _G.density_scale)))
 
     -- 卡片高度与描述行数
     local tlh = title_font_size + 4
@@ -234,7 +224,7 @@ local function calc_layout()
     local dlh = description_font_size + 4
     local desc_lines = 2
 
-    local vpe = (screen_h < 400) and 8 or 12
+    local vpe = 12
     local bch = math.max(icon_size, tlh + ilh) + card_button_height + card_button_bottom_margin +
         vpe
     local ahd = grid_area_height - bch - grid_margin * 2
@@ -412,7 +402,7 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1
     })
-    -- 按钮高度：横屏用宽度比例，竖屏小屏上限38、大屏宽度比例放大
+    -- 按钮高度：横屏用宽度比例；竖屏 480 宽及以下上限 38、更宽按比例放大
     local tih
     if is_landscape then
         tih = math.floor(screen_w * 0.08)

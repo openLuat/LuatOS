@@ -1,8 +1,8 @@
 --[[
 @module  llm_chat_win
 @summary AI 聊天助手窗口（UI层 - WebSocket 模式）
-@version 3.0
-@date    2026.08.26
+@version 3.1
+@date    2026.09.22
 @author  江访
 
 消息协议:
@@ -25,6 +25,7 @@
 发布: FACTORY_REC_START      → 开始录音
 发布: FACTORY_REC_STOP       → 停止录音
 发布: FACTORY_REC_RESET      → 清理音频
+发布: AI_CHAT_PAGE_ACTIVE(b) → 本页是否在前台（离开前台时业务层停掉正在播的 TTS）
 ]]
 
 local window_id = nil
@@ -62,6 +63,18 @@ local theme = require "ui_theme"
 -- （写成 local X = theme.C.y 会在 require 时固化，换肤不生效）
 local CLR = theme.live()
 
+-- ==================== 前台状态广播 ====================
+--[[业务层（llm_chat）据此决定「能不能播 / 要不要停」：
+- 本页不在前台（点返回、切一级菜单、回桌面、被新窗口盖住）→ 立刻停掉正在播的 TTS，
+  并拦住已在途的回复，避免声音跑到别的页面上；
+- 重新回到前台 → 恢复正常播报。
+
+exwin 的两条路都覆盖：切菜单 / 点返回 / 回桌面会销毁本窗（on_destroy），
+另有窗口盖在本页之上时只失焦不销毁（on_lose_focus）。]]
+local function set_page_active(active)
+    sys.publish("AI_CHAT_PAGE_ACTIVE", active and true or false)
+end
+
 local function update_screen_size()
     local r = airui.get_rotation()
     local pw, ph = lcd.getSize()
@@ -74,17 +87,91 @@ end
 
 -- ==================== 消息区（滚动容器 + 按行 label） ====================
 
-local LINE_H = 0  -- 在 build_ui 中初始化
+local LINE_H = 0   -- 在 build_ui 中初始化
+local LINE_PX = 0  -- 折行估算用的像素字号（与消息 label 的 font_size 一致）
 
-local function split_lines(text)
-    local lines = {}
-    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
-        if line ~= "" then  -- 跳过空行
-            lines[#lines + 1] = line
+--[[把一行超宽文本折成若干视觉行。
+折行宽度用 theme.text_width 估算：CJK 全宽、ASCII 约 0.55 宽 —— AI 回复以中文
+为主，换行点与实际渲染一致。ASCII 词优先在空格处断开，实在放不下才硬切。
+必须自己折行的原因：label 默认 LV_LABEL_LONG_WRAP，盒高只有 1 行时 LVGL 照样
+换行并把多出来的行画到盒外（压到下一条消息上）—— 这就是「AI 回复换行不准确」。]]
+local function wrap_line(line, budget)
+    if line == "" then return { "" } end
+    if theme.text_width(line, LINE_PX) <= budget then return { line } end
+    local out, cur, word = {}, "", ""
+    -- 超长 ASCII 词：从词中间硬切到放得下为止
+    local function hard_break(w)
+        while w ~= "" and theme.text_width(w, LINE_PX) > budget do
+            local cut = #w
+            while cut > 1 and theme.text_width(string.sub(w, 1, cut), LINE_PX) > budget do
+                cut = cut - 1
+            end
+            out[#out + 1] = string.sub(w, 1, cut)
+            w = string.sub(w, cut + 1)
+        end
+        return w
+    end
+    -- 攒着的 ASCII 词吐出来：能接在当前行就接，接不下就在词边界换行
+    local function flush_word()
+        if word == "" then return end
+        if theme.text_width(cur .. word, LINE_PX) <= budget then
+            cur = cur .. word
+        else
+            if cur ~= "" then
+                out[#out + 1] = cur
+                cur = ""
+            end
+            cur = hard_break(word)
+        end
+        word = ""
+    end
+    local i, n = 1, #line
+    while i <= n do
+        local b = string.byte(line, i)
+        local len = 1
+        if b >= 0xF0 then len = 4
+        elseif b >= 0xE0 then len = 3
+        elseif b >= 0xC0 then len = 2 end
+        local ch = string.sub(line, i, i + len - 1)
+        i = i + len
+        if b < 0x80 and b ~= 0x20 then
+            word = word .. ch          -- ASCII 非空格先攒词
+        else
+            flush_word()               -- 空格 / CJK：词边界
+            if cur ~= "" and theme.text_width(cur .. ch, LINE_PX) <= budget then
+                cur = cur .. ch
+            elseif cur == "" then
+                cur = ch
+            else
+                out[#out + 1] = cur
+                cur = ch
+            end
         end
     end
-    if #lines == 0 then lines[1] = "" end
-    return lines
+    flush_word()
+    out[#out + 1] = cur
+    return out
+end
+
+--[[消息文本 -> 视觉行数组：先按 \n 拆逻辑行（段中空行保留成空行，AI 回复的
+分段靠它 —— 原来把空行整段丢弃，分段全糊在一起），超宽逻辑行再折行。
+行尾空行是流式追加的瞬态（\n 刚到、下一段还没来），丢掉避免闪烁。]]
+local function wrap_msg_lines(text, budget)
+    local logical = {}
+    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+        logical[#logical + 1] = line
+    end
+    while #logical > 1 and logical[#logical] == "" do
+        logical[#logical] = nil
+    end
+    local out = {}
+    for _, line in ipairs(logical) do
+        local vis = wrap_line(line, budget)
+        for j = 1, #vis do
+            out[#out + 1] = vis[j]
+        end
+    end
+    return out
 end
 
 local function scroll_to_bottom()
@@ -96,19 +183,20 @@ local function append_msg(text, msg_type)
     if not msg_scroll then return nil end
     local d = _G.density_scale or 1.0
     local pad = math.floor(6 * d)
+    --[[卡片坐标与宽度都相对 msg_scroll 的内容区（它自己已在页面内缩了 margin）：
+    以前卡片 x=margin、宽 = screen_w-2*margin，横向撑出 margin px，消息区就多出
+    一条左右滚动条（用户报的「内容显示区左右出现了滑块」）。]]
     local card_w = screen_w - 2 * margin
     local label_w = card_w - 2 * pad
     local bg = msg_type == "user" and CLR.bubble_user or msg_type == "ai" and CLR.panel_hi or CLR.bg
     local fg = msg_type == "user" and CLR.white or msg_type == "ai" and CLR.t1 or CLR.t2
     local prefix = msg_type == "user" and "【我】" or msg_type == "ai" and "【AI】" or ""
-    local lines = split_lines(prefix .. text)
+    local lines = wrap_msg_lines(prefix .. text, label_w)
     local cards = {}
     for i, line in ipairs(lines) do
         local h = LINE_H + math.floor(6 * d)
-        -- 用户消息右对齐，其余左对齐
-        local cx = msg_type == "user" and (screen_w - margin - card_w) or margin
         local card = airui.container({
-            parent = msg_scroll, x = cx, y = msg_y_offset, w = card_w, h = h,
+            parent = msg_scroll, x = 0, y = msg_y_offset, w = card_w, h = h,
             color = bg, radius = theme.r("xs"),
         })
         local label = airui.label({
@@ -138,8 +226,7 @@ local function update_last_msg(text)
     local fg = entry.type == "user" and CLR.white or entry.type == "ai" and CLR.t1 or CLR.t2
     local bg = entry.type == "user" and CLR.bubble_user or entry.type == "ai" and CLR.panel_hi or CLR.bg
     local prefix = entry.type == "user" and "【我】" or entry.type == "ai" and "【AI】" or ""
-    local cx = entry.type == "user" and (screen_w - margin - card_w) or margin
-    local lines = split_lines(prefix .. text)
+    local lines = wrap_msg_lines(prefix .. text, label_w)
     local h = LINE_H + math.floor(6 * d)
     -- 复用已有的卡片，多余则销毁，不足则补
     local old = entry.cards
@@ -148,7 +235,7 @@ local function update_last_msg(text)
             pcall(old[i].label.set_text, old[i].label, lines[i])
         elseif i <= #lines then
             local card = airui.container({
-                parent = msg_scroll, x = cx, y = 0, w = card_w, h = h,
+                parent = msg_scroll, x = 0, y = 0, w = card_w, h = h,
                 color = bg, radius = theme.r("xs"),
             })
             local label = airui.label({
@@ -162,13 +249,15 @@ local function update_last_msg(text)
             old[i] = nil
         end
     end
-    -- 重算所有消息的 Y 偏移
-    msg_y_offset = 0
+    --[[重算所有消息的 Y 偏移：4d 间距按「条」加、不按行（原来每行都加，
+    流式刷新时一条长回复越滚，消息间距越开）；起点与 append_msg 的 4d 顶距一致。]]
+    msg_y_offset = math.floor(4 * d)
     for _, e in ipairs(msg_labels) do
         for _, c in ipairs(e.cards) do
-            pcall(c.card.set_pos, c.card, e.type == "user" and (screen_w - margin - card_w) or margin, msg_y_offset)
-            msg_y_offset = msg_y_offset + h + math.floor(4 * d)
+            pcall(c.card.set_pos, c.card, 0, msg_y_offset)
+            msg_y_offset = msg_y_offset + h
         end
+        msg_y_offset = msg_y_offset + math.floor(4 * d)
     end
     scroll_to_bottom()
 end
@@ -318,6 +407,7 @@ local function build_ui()
     原来 LINE_H = 14 配 theme.fs("caption")=14 的字号，文字比盒子高 3px，
     每行都会画到盒外（压到下一条消息上）。]]
     LINE_H = theme.fs("caption") + 3  -- 每行 label 高度
+    LINE_PX = theme.fs("caption")     -- 与消息 label 的 font_size 一致，折行估算用
     local tb_h = math.floor(48 * d)
     local tb_y = math.floor(4 * d)
     local input_area_h = math.floor(90 * d)
@@ -409,8 +499,9 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
         on_click = function()
             sys.publish("AI_CHAT_CLEAR")
             if msg_scroll then msg_scroll:destroy() end
+            -- 与 build_ui 的初始创建保持同一几何（原来 x=0/w=screen_w，清空后消息区宽度都变了）
             msg_scroll = airui.container({
-                parent = main_container, x = 0, y = tb_h, w = screen_w, h = msg_area_h,
+                parent = main_container, x = margin, y = tb_h, w = screen_w - 2 * margin, h = msg_area_h,
                 color = CLR.surface, color_opacity = 0, scrollable = true,
             })
             msg_labels = {}; msg_y_offset = math.floor(4 * d)
@@ -437,9 +528,11 @@ local function on_create()
     sys.subscribe("FACTORY_REC_DONE", on_rec_done)
     sys.subscribe("AI_CHAT_STT_RESULT", on_stt_result)
     sys.publish("FACTORY_REC_SETUP")
+    set_page_active(true)
 end
 
 local function on_destroy()
+    set_page_active(false)   -- 先广播离开前台：业务层据此停掉正在播的 TTS
     sys.publish("AI_CHAT_CLOSE")
     sys.unsubscribe("AI_CHAT_TOKEN", on_token)
     sys.unsubscribe("AI_CHAT_REPLY_DONE", on_reply_done)
@@ -474,8 +567,14 @@ local function ongf()
         on_create()
         window_id = keep_id
     end
+    set_page_active(true)
 end
-local function onlf() end
+
+--[[失去焦点 = 本页已不是屏幕上最上层的那一页（被新窗口盖住、或切走）。
+此刻 AI 助手已经不在用户眼前，正在播的 TTS 必须停掉。]]
+local function onlf()
+    set_page_active(false)
+end
 
 local function open_handler()
     window_id = exwin.open({ on_create = on_create, on_destroy = on_destroy, on_get_focus = ongf, on_lose_focus = onlf })

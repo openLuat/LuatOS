@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="nebula">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>页面不存在 · 上海合宙</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="stylesheet" href="assets/css/variables.css">
+<link rel="stylesheet" href="assets/css/reset.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/components-dialog.css">
+<link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body data-page="404">
+<canvas id="bg"></canvas>
+<div class="app" style="display:block">
+  <div class="main" style="height:100vh">
+    <div class="grid" id="grid" style="grid-template-rows:minmax(0,1fr);place-items:center">
+      <div class="panel span12" style="max-width:520px;text-align:center">
+        <div class="panel-body" style="padding:34px 22px">
+          <img src="logo.png" alt="LuatOS" width="64" height="64" style="border-radius:16px">
+          <h3 style="margin:16px 0 6px;font-size:21px">404 · 页面不存在</h3>
+          <p style="color:var(--dim);font-size:14px;line-height:1.9;margin:0 0 20px">
+            你访问的地址没有对应页面，可能是链接过期或文件名拼写有误。<br>
+            可以从下面两个入口继续。
+          </p>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+            <a class="set-btn primary" href="index.html" style="text-decoration:none">回到控制台</a>
+            <a class="set-btn" href="login.html" style="text-decoration:none">重新登录</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

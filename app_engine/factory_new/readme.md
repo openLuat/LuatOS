@@ -89,17 +89,14 @@ factory/
 │   ├── eng_1602_7i_v0.lua     # Air1602 7寸
 │   ├── eng_1602_7i_v4.lua     # Air1602 7寸 V004（NAND Flash）
 │   ├── eng_1602_10i_v0.lua    # Air1602 10.1寸
-│   ├── eng_1780h_4i_v0.lua    # Air1780H 引擎主机 4.3寸 (ST6201 + airlink WiFi + ES8311 + SD + NAND)
-│   ├── eng_8000w_4i_v0.lua    # Air8000W 4寸
 │   ├── evb_8101b_5i_v1.lua    # Air8101B 5寸
 │   ├── evb_8101_9i_v0.lua     # Air8101 9寸 (AirLCD_1090)
 │   ├── evb_8101_10i_v0.lua    # Air8101 10寸 (AirLCD_1100)
 │   ├── evb_8101_7i_v0.lua     # Air8101 7寸 (AirLCD_1070)
-│   ├── evb_8000a_3i5_v0.lua   # Air8000A trunkey 3.5寸
 │   ├── pc_default.lua         # PC 模拟器回退
 │   └── template.lua           # 配置参数完整说明
 ├── drv/                       # 配件驱动（参数驱动，不硬编码平台）
-│   ├── lcd/                   # 6 款 LCD 驱动（HX8282 已四合一）
+│   ├── lcd/                   # 3 个文件：lcd_display_rgb(统一驱动) / lcd_st7701s_5in(IC 序列) / lcd_common
 │   └── tp/                    # GT911 触摸驱动
 ├── app/                       # 业务逻辑（事件驱动，模块解耦）
 │   ├── app_main.lua           # 业务模块加载器
@@ -141,7 +138,7 @@ return {
 
     -- 硬件参数（LCD/TP 型号、引脚、分辨率、字体、背光）
     hw = {
-        lcd = { model = "lcd_nv3052c_5in", params = {...}, ... },
+        lcd = { model = "lcd_display_rgb", params = {...}, ... },
         tp  = { model = "tp_gt911",        params = {...} },
     },
 

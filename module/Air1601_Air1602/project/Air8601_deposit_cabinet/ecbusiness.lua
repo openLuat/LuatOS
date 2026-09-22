@@ -125,20 +125,36 @@ local function get_available_boxes()
         return nil, biz_code
     end
 
-    -- 排除本地已占用柜子（刷脸存件未上报服务器的占用）
+    -- 本地已占用柜子（仅作服务器信息缺失时的兜底，不再直接挡住服务器返回的空闲柜）
     local local_occupied = get_local_occupied_boxes()
     if next(local_occupied) then
         log.info("ecbusiness", "本地已占用柜子: " .. json.encode(local_occupied))
     end
 
     -- 统一转换为 {box_num, type, available} 数组
+    -- 对账原则：服务器 status 是唯一事实源 —— 服务器明确返回 status=0(空闲) 的柜子即可用，
+    --   不再被本地占用记录挡住。否则服务器侧已释放/已取走（status 回到 0）的柜子，
+    --   会被本地残留记录永久占用，表现为"明明有空柜却提示无可用箱子"。
+    local server_reported = {}   -- 服务器本次返回过的柜号
     local boxes = {}
     if result and result.boxes then
         for _, b in ipairs(result.boxes) do
+            server_reported[b.box] = true
             table.insert(boxes, {
                 box_num = b.box,
                 type = b.type or 0,
-                available = (b.status == 0) and not local_occupied[b.box]
+                available = (b.status == 0)
+            })
+        end
+    end
+
+    -- 兜底：服务器未返回的柜号，按本地占用判断（不在本地占用集合内视为可用）
+    for i = 1, (config.locker.total_boxes or 0) do
+        if not server_reported[i] then
+            table.insert(boxes, {
+                box_num = i,
+                type = 0,
+                available = not local_occupied[i]
             })
         end
     end

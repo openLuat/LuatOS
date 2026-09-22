@@ -1,7 +1,9 @@
 #include <windows.h>
 #include <dbghelp.h>
 #include <stdio.h>
-#include <tchar.h>
+#include <string.h>
+
+#include "luat_pc_log.h"
 
 /* Lua public API — needed for PrintLuaStack (lua_getstack / lua_getinfo) */
 #include "lua.h"
@@ -285,19 +287,34 @@ static void DumpAllTasks(CONTEXT* currentCtx, DWORD currentTid, lua_State* L) {
    Generate minidump file (for offline analysis with WinDbg)
    ================================================================ */
 static BOOL GenerateMiniDump(void* pExceptionPointers) {
-    TCHAR dumpFileName[MAX_PATH];
+    char dumpFileName[MAX_PATH];
+    char dumpName[64];
+    const char* logDir;
+    size_t dirLen;
     SYSTEMTIME stLocalTime;
 
     GetLocalTime(&stLocalTime);
-    _stprintf_s(dumpFileName, MAX_PATH,
-        _T("CrashDump_%04d%02d%02d_%02d%02d%02d.dmp"),
+    _snprintf_s(dumpName, sizeof(dumpName), _TRUNCATE,
+        "CrashDump_%04d%02d%02d_%02d%02d%02d.dmp",
         stLocalTime.wYear, stLocalTime.wMonth, stLocalTime.wDay,
         stLocalTime.wHour, stLocalTime.wMinute, stLocalTime.wSecond);
 
-    HANDLE hDumpFile = CreateFile(dumpFileName, GENERIC_WRITE, 0, NULL,
+    logDir = luat_log_get_dir();
+    if (logDir == NULL || logDir[0] == 0) {
+        logDir = "pclogs";
+    }
+    (void)luat_log_ensure_dir();
+    dirLen = strlen(logDir);
+    if (dirLen > 0 && (logDir[dirLen - 1] == '/' || logDir[dirLen - 1] == '\\')) {
+        _snprintf_s(dumpFileName, sizeof(dumpFileName), _TRUNCATE, "%s%s", logDir, dumpName);
+    } else {
+        _snprintf_s(dumpFileName, sizeof(dumpFileName), _TRUNCATE, "%s\\%s", logDir, dumpName);
+    }
+
+    HANDLE hDumpFile = CreateFileA(dumpFileName, GENERIC_WRITE, 0, NULL,
                                   CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hDumpFile == INVALID_HANDLE_VALUE) {
-        _tprintf(_T("[CreateFile failed for dump. Error: %lu]\n"), GetLastError());
+        printf("[CreateFile failed for dump. Error: %lu]\n", GetLastError());
         return FALSE;
     }
 
@@ -313,10 +330,10 @@ static BOOL GenerateMiniDump(void* pExceptionPointers) {
     CloseHandle(hDumpFile);
 
     if (success) {
-        _tprintf(_T("Minidump : %s\n"), dumpFileName);
+        printf("Minidump : %s\n", dumpFileName);
     } else {
-        _tprintf(_T("[MiniDumpWriteDump failed. Error: %lu]\n"), GetLastError());
-        DeleteFile(dumpFileName);
+        printf("[MiniDumpWriteDump failed. Error: %lu]\n", GetLastError());
+        DeleteFileA(dumpFileName);
     }
     return success;
 }

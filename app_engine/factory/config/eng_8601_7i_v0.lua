@@ -73,12 +73,12 @@ return {
         tp = {
             model = "tp_gt911",
             params = {
-                port = 1,               -- I2C 端口 1
-                pin_rst = 56,           -- TP_RESET = PIN46 = GPIO56
-                pin_int = gpio.WAKEUP0, -- TP_INT = WAKEUP0
-                int_type = tp.FALLING,  -- 下降沿触发
-                w = 1024,               -- 触摸面板宽度
-                h = 600,                -- 触摸面板高度
+                port = 1,              -- I2C 端口 1
+                pin_rst = 56,          -- TP_RESET = GPIO56
+                pin_int = 51,          -- TP_INT = WAKEUP0
+                int_type = tp.FALLING, -- 下降沿触发
+                w = 1024,              -- 触摸面板宽度
+                h = 600,               -- 触摸面板高度
             },
         },
     },

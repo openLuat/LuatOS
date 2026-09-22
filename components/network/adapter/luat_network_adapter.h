@@ -113,6 +113,8 @@ enum
 	NW_ADAPTER_INDEX_CUSTOM,        // 对接到自定义适配器
 	NW_ADAPTER_QTY,
 
+	NW_ADAPTER_INDEX_LWIP_ANY = 127,	// 绑定全部LWIP协议栈网卡(0.0.0.0), 目前仅httpsrv使用
+
 	NW_CMD_AUTO_HEART_TIME = 0,
 
 

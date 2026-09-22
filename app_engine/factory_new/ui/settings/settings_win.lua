@@ -21,6 +21,7 @@ require "settings_iot_win"
 require "settings_fota_win"
 require "settings_auto_win"
 require "settings_theme_win"
+require "settings_report_win"
 
 local theme = require "ui_theme"
 local titlebar = require "settings_titlebar"
@@ -47,6 +48,7 @@ local ENTRY_ICONS = {
     ["OPEN_SOUND_WIN"]       = "sound",
     ["OPEN_AUTOSTART_WIN"]   = "autostart",
     ["OPEN_ABOUT_WIN"]       = "about",
+    ["OPEN_AIRCLOUD_WIN"]    = "cloud",
 }
 
 local function update_screen_size()
@@ -77,6 +79,7 @@ local function collect_entries()
     if fe.sd_card or fe.nand_flash then add("存储顺序", "OPEN_STORAGE_PRI_WIN", "外部应用安装位置优先级") end
     add("系统更新", "OPEN_FOTA_WIN", "检查并下载最新固件")
     if fe.buzzer and ui.show_buzzer_settings then add("触摸音效", "OPEN_SOUND_WIN", "触摸反馈音开关与音量") end
+    if fe.aircloud then add("数据上报", "OPEN_AIRCLOUD_WIN", "AirCloud 云端上报开关与周期") end
     add("后装APP自启", "OPEN_AUTOSTART_WIN", "开机自动启动指定应用")
     add("关于设置", "OPEN_ABOUT_WIN", "设备型号、唯一ID与版本信息")
     return entries

@@ -41,7 +41,7 @@ if io.fsstat then
 end
 -- 固件没开 LUAT_USE_LOG_USER_CMD 时不报错、只提示; 心跳继续打, 便于确认日志口本身正常
 if hzadb_ok then
-    log.info("hzadb", "demo ready, lib", hzadb.VERSION)
+    log.info("hzadb", "demo ready, lib", hzadb.version())
 else
     log.info("hzadb", "demo: 日志口用户指令未启用(固件需打开 LUAT_USE_LOG_USER_CMD), 仅保留心跳")
 end

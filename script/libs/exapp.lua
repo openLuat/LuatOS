@@ -3,8 +3,8 @@
     @module exapp
     @summary 提供沙箱环境运行应用的能力，支持本地应用管理和云端应用市场
     @author 朱天华, 江访
-    @version 1.0.2
-    @date 2026.04.14
+    @version 1.0.3
+    @date 2026.09.23
     @usage
     本文件为扩展应用管理库，提供完整的应用沙箱环境和云端应用市场功能，核心业务逻辑为：
     1. 沙箱环境隔离
@@ -1802,10 +1802,20 @@ local function app_task(app_path)
 
     -- lcd 库
     -- 禁止应用重新初始化 LCD，其他 lcd 接口正常透传
-    local lcd_lib = safe_global("lcd")
+    -- 新固件已完成 lcd→display 迁移（_G.lcd 不存在），此时回退透传 display 库，兼容旧应用
+    local lcd_lib = _G.lcd or safe_global("display")
     my_env.lcd = setmetatable({}, { __index = lcd_lib })
     my_env.lcd.init = function(...)
         my_env.log.error("lcd", "沙箱环境不允许重新初始化LCD")
+        return -1
+    end
+
+    -- display 库（新固件显示库，与旧 lcd 库二选一存在）
+    -- 禁止应用重新初始化显示/分配 FrameBuffer，其他 display 接口正常透传
+    local display_lib = safe_global("display")
+    my_env.display = setmetatable({}, { __index = display_lib })
+    my_env.display.init = function(...)
+        my_env.log.error("display", "沙箱环境不允许重新初始化显示")
         return -1
     end
 
@@ -1865,10 +1875,15 @@ local function app_task(app_path)
             local h = tonumber(size.h) or 800
             return rotation, w, h
         end
-        -- 回退方案：使用 lcd.getSize() 和 airui.get_rotation()
-        local lcd = _G.lcd
-        if lcd and lcd.getSize then
-            local phys_w, phys_h = lcd.getSize()
+        -- 回退方案：display.getSize()（新库）优先，lcd.getSize()（旧库）兼容，配合 airui.get_rotation()
+        local phys_w, phys_h
+        if display and display.getSize then
+            phys_w, phys_h = display.getSize()
+        end
+        if (not phys_w or phys_w == 0) and _G.lcd and _G.lcd.getSize then
+            phys_w, phys_h = _G.lcd.getSize()
+        end
+        if phys_w and phys_w > 0 then
             local rotation = ui.get_rotation and ui.get_rotation() or 0
             -- 根据旋转计算实际显示宽高
             local screen_w, screen_h
@@ -3734,8 +3749,19 @@ local function get_device_info()
     local min_firmware_version = tonumber(version_str:match("%d+")) or 2010
     if min_firmware_version == 0 then min_firmware_version = 2010 end
 
-    -- 获取物理屏幕宽高
-    local phys_w, phys_h = lcd.getSize()
+    -- 获取物理屏幕宽高（新固件 display 库优先，lcd 旧库兼容，均缺失时按设计分辨率兜底）
+    -- 注意：不可裸用 lcd.getSize()——lcd→display 迁移后 _G.lcd 为 nil，会抛
+    -- "attempt to index a nil value (field 'lcd')" 导致协程挂掉后 500ms assert 拉爆整个 VM
+    local phys_w, phys_h
+    if display and display.getSize then
+        phys_w, phys_h = display.getSize()
+    end
+    if (not phys_w or phys_w == 0) and _G.lcd and _G.lcd.getSize then
+        phys_w, phys_h = _G.lcd.getSize()
+    end
+    if not phys_w or phys_w == 0 then
+        phys_w, phys_h = 480, 800
+    end
     local rotation = airui.get_rotation()
 
     -- 根据旋转计算实际显示宽高（参考calc_layout）
@@ -5381,7 +5407,7 @@ log.info("exapp", "loaded")
 exapp.version()
 ]]
 function exapp.version()
-    return "202607021200"
+    return "202609231600"
 end
 
 log.debug("exapp", "version -> " .. exapp.version())

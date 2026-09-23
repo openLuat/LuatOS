@@ -94,7 +94,7 @@ static int l_cc_pcm_unsupported(lua_State *L) {
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
 static luat_rtos_mutex_t s_cc_driver_lock;
 static volatile uint8_t s_cc_audio_stopping;
-static volatile uint32_t s_cc_audio_updating;  /* Includes overlapping setup/cancel waits. */
+static volatile uint32_t s_cc_audio_updating;  /* 包括相互重叠的初始化和取消等待。 */
 
 static void cc_audio_update_begin(void)
 {
@@ -123,9 +123,9 @@ static uint32_t cc_audio_update_pending(void)
 #endif
 }
 
-/* The modem owns static_play_buff. Stop DMA before audio_v2 detaches the
- * request, otherwise its idle callback may fill four blocks of a three-block
- * modem buffer. Also used by DRIVER_START when stop overtakes queued start. */
+/* static_play_buff 归 modem 所有。在 audio_v2 分离请求之前先停止 DMA，
+ * 否则空闲回调可能向仅有三个数据块的 modem 缓冲区填入四个数据块。
+ * 当停止操作先于已入队的启动操作执行时，DRIVER_START 也使用此处理。 */
 static void _l_cc_stop_voice_driver(luat_audio_request_block_t *request)
 {
     if (request->data_channel && request->static_play_buff) {
@@ -137,9 +137,9 @@ static void _l_cc_stop_voice_driver(luat_audio_request_block_t *request)
     }
 }
 
-/* Call only after the bridge source has finished asynchronous destruction.
- * A PLAY_STOP timeout retains this request, so a later start must cancel it
- * before accepting a new modem PCM buffer. */
+/* 仅在桥接源完成异步销毁后调用。
+ * PLAY_STOP 超时会保留该请求，因此后续启动必须先取消它，
+ * 才能接收新的 modem PCM 缓冲区。 */
 static void _l_cc_bridge_cancel_voice_request(void)
 {
     if (_l_cc.cc_request.org_input_data_fifo) {
@@ -252,8 +252,8 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
         break;
 #endif
     case LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA: {
-        /* Bridge uplink is fed by luat_cc_bridge.c through the external
-         * record source. CP DSP downlink still uses play_buff_byte. */
+        /* 桥接上行由 luat_cc_bridge.c 通过外部录音源提供。
+         * CP DSP 下行仍使用 play_buff_byte。 */
         break;
     }
     case LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA:
@@ -274,8 +274,8 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
                     _l_cc.record_up_zbuff_point = !_l_cc.record_up_zbuff_point;
                     _l_cc.up_buff[_l_cc.record_up_zbuff_point]->used = 0;
                 }
-                /* In bridge mode play_save_fifo has one consumer: the RTP
-                 * drain timer.  A recording callback must not steal blocks. */
+                /* 桥接模式下，play_save_fifo 仅由 RTP 排空定时器消费。
+                 * 录音回调不得取走其中的数据块。 */
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
                 if (!luat_cc_bridge_mode_on()) {
 #else
@@ -284,8 +284,8 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
                     buff = _l_cc.down_buff[_l_cc.record_down_zbuff_point];
                     zbuff_rest_data_len = buff->len - buff->used;
                     fifo_read_len = luat_fifo_read(_l_cc.play_save_fifo, buff->addr + buff->used, zbuff_rest_data_len);
-                    /* These are bridge diagnostics; keep standard CC entirely
-                     * on its own record/play path. */
+                    /* 这些统计仅用于桥接诊断；普通 CC 始终使用
+                     * 自身的录音和播放通路。 */
                     buff->used += fifo_read_len;
                     if (buff->used >= buff->len) {  //zbuff满了，需要上传了
                         msg.handler = _l_cc_handler;
@@ -404,7 +404,7 @@ static int l_cc_make_call(lua_State* L) {
         int ret = luat_cc_pcm_dial_begin();
         if (!ret) {
             ret = luat_mobile_make_call(sim_id, (char *)number, len);
-            if (ret) luat_cc_pcm_stop(); /* Only the newly owned request. */
+            if (ret) luat_cc_pcm_stop(); /* 仅停止本次新取得所有权的请求。 */
         }
         lua_pushboolean(L, !ret);
         if (ret) { lua_pushinteger(L, ret); return 2; }
@@ -443,7 +443,7 @@ static int l_cc_answer_call(lua_State* L) {
     uint8_t sim_id = luaL_optinteger(L, 1, 0);
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) {
-        /* EC7xx IMI call states: ACTIVE=0, INCOMING=4, WAITING=5. */
+        /* EC7xx IMI 通话状态：ACTIVE=0，INCOMING=4，WAITING=5。 */
         int state = luat_mobile_get_call_state(sim_id);
         if (state == 0) { lua_pushboolean(L, 1); return 1; }
         if (state != 4 && state != 5) { lua_pushboolean(L, 0); return 1; }
@@ -466,7 +466,7 @@ static int l_cc_answer_call(lua_State* L) {
 @api cc.init(multimedia_id, audio_mode)
 @number multimedia_id 多媒体id
 @number audio_mode 默认0使用原音频后端；cc.AUDIO_MODE_BRIDGE_PCM使用纯PCM桥接
-@return bool 成功与否；同模式重复初始化幂等，通话期间不能切换后端
+@return bool 成功与否；首次成功初始化后后端固定至重启，同模式重复初始化幂等
 @return string 失败原因（仅失败时返回）
  */
 static int l_cc_speech_init(lua_State* L) {
@@ -477,12 +477,15 @@ static int l_cc_speech_init(lua_State* L) {
     if (mode != 0 && mode != LUAT_CC_AUDIO_MODE_BRIDGE_PCM) {
         reason = "unknown CC audio mode"; goto failed;
     }
-    if (s_cc_initialized && mode == (luat_cc_pcm_selected() ? LUAT_CC_AUDIO_MODE_BRIDGE_PCM : 0)) {
+    if (s_cc_initialized) {
+        if (mode != (luat_cc_pcm_selected() ? LUAT_CC_AUDIO_MODE_BRIDGE_PCM : 0)) {
+            reason = "CC backend is fixed after initialization; reboot to change it"; goto failed;
+        }
         lua_pushboolean(L, 1); return 1;
     }
-    if (mode == LUAT_CC_AUDIO_MODE_BRIDGE_PCM || luat_cc_pcm_selected()) {
+    if (mode == LUAT_CC_AUDIO_MODE_BRIDGE_PCM) {
         int call_state = luat_mobile_get_call_state(0);
-        if (call_state >= 0 || (s_cc_initialized && call_state != -1)) {
+        if (call_state >= 0) {
             reason = "CC backend can only be selected while idle"; goto failed;
         }
     }
@@ -497,16 +500,10 @@ static int l_cc_speech_init(lua_State* L) {
         if (!_l_cc.task_handle && luat_rtos_task_create(&_l_cc.task_handle, 4*1024,
                 100, "volte", _l_cc_volte_task, NULL, 0)) goto failed;
         int result = luat_cc_pcm_init();
-        if (result) { reason = "PCM backend hook or SDK unavailable"; goto failed; }
+        if (result) { reason = "PCM backend hook or upload adapter unavailable"; goto failed; }
         _l_cc.multimedia_id = multimedia_id;
         s_cc_initialized = 1;
         lua_pushboolean(L, 1); return 1;
-    }
-    if (luat_cc_pcm_selected()) {
-        if (luat_cc_pcm_deinit()) {
-            reason = "PCM backend still has an active call or pending buffers"; goto failed;
-        }
-        s_cc_initialized = 0; /* Legacy initialization below may still fail. */
     }
 #else
     if (mode != 0) { reason = "firmware has no CC PCM backend"; goto failed; }
@@ -967,7 +964,7 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
             cc_audio_update_end();
             return;
         }
-        /* Do not promote the previous call after a timed-out PLAY_STOP. */
+        /* PLAY_STOP 超时后，不得继续沿用上一通电话的音频请求。 */
         s_cc_audio_stopping = 1;
         luat_cc_bridge_drain_stop();
         _l_cc_bridge_cancel_voice_request();
@@ -987,11 +984,11 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
                 luat_cc_bridge_flush_sip_uplink();
             }
             luat_audio_request_record_pause(&_l_cc.cc_request, 0);
-            /* The CC request can have started earlier for ring/early media,
-             * when is_true_start was still false.  Its original bridge-source
-             * start event is then deliberately ignored by the CC task.  Start
-             * the extern-record source again now, otherwise CP keeps encoding
-             * the physical I2S MIC instead of SIP RTP PCM. */
+            /* CC 请求可能已因振铃或早期媒体提前启动，
+             * 当时 is_true_start 仍为 false，因此 CC 任务会有意忽略
+             * 最初的桥接源启动事件。现在需再次启动
+             * 外部录音源，否则 CP 仍会对物理 I2S MIC 编码，
+             * 无法改用 SIP RTP PCM。 */
             if (luat_cc_bridge_mode_on() && luat_cc_bridge_source_is_idle()) {
                 luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_BRIDGE_SOURCE_START, _l_cc.cc_request.request_id, 0, 0, 0);
             }
@@ -1043,7 +1040,7 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
         LLOGI("CC audio in bridge mode, using CC codec for SIP-VoLTE bridge");
     }
 #endif
-    // CC codec is the standard mobile-speech codec for every audio_v2 CC call.
+    // 所有 audio_v2 CC 通话的 CC 编解码器都采用标准移动语音编解码器。
     codec_opts = luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_CC);
     if (!codec_opts) {
         LLOGE("CC_EVENT_VOICE_START codec_opts is NULL");

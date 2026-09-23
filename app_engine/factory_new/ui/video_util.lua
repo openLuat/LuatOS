@@ -1,7 +1,7 @@
 --[[
 @module  video_util
 @summary 媒体素材工具（容器格式嗅探 / 帧尺寸读取 / HZV 音轨初始化 / 播放器创建）—— 播放类页面共用
-@version 1.1
+@version 1.2
 @date    2026.09.23
 @author  江访
 
@@ -18,7 +18,8 @@ idle_win（桌面播放器）与 video_win（全屏播放页）都要读素材�
 @api video_util.guess_format(path)              容器格式："hzv" | "mjpg" | "mp4"
 @api video_util.read_dimensions(path)           w, h；读不到返回 nil
 @api video_util.frame_size(path, def_w, def_h)  w, h；读不到时用调用方给的兜底值
-@api video_util.audio_ensure()                  幂等初始化 HZV 音轨（Audio V2），返回是否可用
+@api video_util.audio_ensure()                  幂等初始化 HZV 音轨（Audio V2），返回是否可用；
+                                                已就绪时 RESUME 并重新对齐 ac.play_vol 音量
 @api video_util.mp4_available()                 固件是否带 mplayer（MP4 硬解）
 @api video_util.fit_rect(x, y, aw, ah, w, h)    等比缩放并居中摆放的画面矩形 x, y, w, h
 @api video_util.create_player(path, o)          按格式创建播放器：
@@ -155,11 +156,15 @@ function M.audio_ensure()
     if not exaudio then return false end
     local pc = _G.project_config
     if not (pc and pc.hw and pc.hw.audio) then return false end
+    local ac = pc.hw.audio
     if _G.__hzv_audio_ready then
         pcall(exaudio.pm, exaudio.RESUME)
+        --[[RESUME 后重新对齐一次当前音量：设置页「亮度和声音」会改 ac.play_vol，
+        回到播放路径时对齐一次，保证桌面 HZV 音轨跟着用户音量走；
+        也兜住增益状态在休眠中丢失的个别平台。]]
+        pcall(exaudio.vol, ac.play_vol or 100)
         return true
     end
-    local ac = pc.hw.audio
     local ok = pcall(exaudio.setup, {
         model       = ac.model or "dac",
         pa_ctrl     = ac.pa_ctrl,

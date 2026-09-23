@@ -446,6 +446,9 @@ sys.subscribe("AI_CHAT_TTS_TOGGLE", function()
 end)
 sys.subscribe("AI_CHAT_TTS_PLAY", function(text) sys.taskInit(function() tts_play_text(text) end) end)
 sys.subscribe("AI_CHAT_DEINIT", function() sys.taskInit(function() tts_deinit() end) end)
+-- 外部 TTS 打断（云端 tts: 命令经 tts_app 播报）→ 清理本地播放状态，
+-- 让 tts_play_text 的等待循环立刻退出，避免空等 30 秒超时
+sys.subscribe("TTS_INTERRUPTED", function() tts_playing = false end)
 --[[AI 助手页面离开前台 → 立即停掉正在播的 TTS。
 
 页面被销毁那条路由 AI_CHAT_CLOSE 覆盖；这里补的是「只失焦、不销毁」的路径

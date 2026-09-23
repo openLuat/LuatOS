@@ -1,30 +1,33 @@
 --[[
 @module  fota_app
-@summary FOTA 固件升级管理模块（两步协议：检查→下载→开机上报）
-@version 4.0
-@date    2026.06.08
+@summary FOTA 固件升级管理模块（适配共享库 script/libs/libfota3）
+@version 5.0
+@date    2026.09.23
 @author  江访
 @usage
-升级流程：
-1. 手动/定时检测 → 有新版本 → 生成状态文件(/fota_state.json)
-2. 下载完成 → 更新状态文件（下载完成）
-3. 重启设备
-4. 开机后读取状态文件 → 根据版本比对判断升级结果 → 上报服务器 → 删除状态文件
-5. 上报完成后（无论成功失败），进行下次升级检查
+本模块是 UI 消息协议 与 共享库 libfota3（request/check_update/config）之间的适配层。
+升级全流程由 libfota3 内部完成（检测→下载→刷写→确认重启→重启，开机版本比对上报、
+自动检测定时器、时间同步等待均由库管理），本模块职责：
+1. 开机读取 fskv 设置 → libfota3.request() 启动自动检测
+2. 把 libfota3 的 on_status 回调翻译成 FOTA_STATUS 消息（UI 状态栏）
+3. 把 libfota3 的 on_confirm 回调做成全局确认弹窗（不依赖设置页在场）
+4. 设置页的设置保存/读取（fskv 持久化 + libfota3.config() 同步定时器）
 
 消息协议（订阅/发布）:
-订阅: FOTA_CHECK_NOW              → 手动检测升级
-订阅: FOTA_CHECK_AUTO             → 定时自动检测升级
-订阅: FOTA_DOWNLOAD_START         → 开始下载升级包（用户确认后有新版本时）
-订阅: FOTA_CONFIRM_REBOOT         → 用户确认重启设备
-订阅: FOTA_GET_SETTINGS           → 获取升级设置（自动检测开关+间隔）
-订阅: FOTA_SAVE_SETTINGS(auto,interval) → 保存升级设置
+订阅: FOTA_CHECK_NOW                      → 手动检测升级（libfota3.check_update）
+订阅: FOTA_CHECK_AUTO                     → 兼容保留，等同手动检测
+订阅: FOTA_DOWNLOAD_START                 → 确认下载（回答下载确认弹窗）
+订阅: FOTA_CONFIRM_REBOOT                 → 确认重启（回答重启确认弹窗；无待确认时直接重启）
+订阅: FOTA_GET_SETTINGS                   → 获取升级设置（自动检测开关+间隔）
+订阅: FOTA_SAVE_SETTINGS(auto,interval)   → 保存升级设置
 
-发布: FOTA_STATUS(status, msg, percent) → 升级状态（CHECKING/NEW_VERSION/CHECK_FAIL/...）
-发布: FOTA_PROMPT_DOWNLOAD(msg)        → 手动检测到新版本，弹窗询问是否下载
-发布: FOTA_AUTO_PROMPT_UPGRADE(msg)     → 自动检测到新版本，弹窗询问是否下载
-发布: FOTA_PROMPT_REBOOT(msg)          → 下载完成，弹窗询问是否重启
-发布: FOTA_SETTINGS(auto, interval)    → 返回升级设置
+发布: FOTA_STATUS(status, msg, percent)   → 升级状态（CHECKING/NEW_VERSION/CHECK_FAIL/...）
+发布: FOTA_SETTINGS(auto, interval)       → 返回升级设置
+
+确认弹窗由本模块直接创建在屏幕根上（任意界面在场都可操作，随 libfota3 的
+on_confirm 自动出现）：下载确认「稍后/立即升级」、重启确认「稍后重启/立即重启」。
+FOTA_PROMPT_DOWNLOAD / FOTA_PROMPT_REBOOT / FOTA_AUTO_PROMPT_UPGRADE 不再发布
+（设置页保留其订阅代码作兼容，不会触发）。
 ]]
 
 -- ==================== 防御性加载 ====================
@@ -37,49 +40,14 @@ end
 
 -- ==================== 局部变量 ====================
 
-local network_ready = false
-local auto_timer_id = nil
-local fota_running = false
-local last_check_result = nil     -- 最近一次check结果（供下载使用）
-local last_percent = -1            -- 下载进度
+-- 当前待回答的确认项：libfota3.on_confirm 的 callback + 动作类型
+-- 同一时刻最多一个（libfota3 内部 running 标志串行化整个流程）
+local pending_answer = nil
+local pending_kind   = nil   -- "download" | "reboot"
 
 -- fskv 键名（仅用于设置存储）
 local KV_AUTO_CHECK  = "fota_auto_check"
 local KV_INTERVAL    = "fota_interval"
-
--- 状态文件路径
-local FOTA_STATE_FILE = "/fota_state.json"
-
--- ==================== 状态文件操作 ====================
-
--- 状态文件结构: { fota_sn, status: "has_update"|"download_done", old_version, new_version }
-local function fota_state_save(state)
-    local ok, err = pcall(function()
-        io.writeFile(FOTA_STATE_FILE, json.encode(state))
-    end)
-    if ok then
-        log.info("fota_app", "state file saved", state.status)
-    else
-        log.error("fota_app", "save state file failed", err)
-    end
-end
-
-local function fota_state_load()
-    if not io.exists(FOTA_STATE_FILE) then return nil end
-    local ok, data = pcall(function()
-        return json.decode(io.readFile(FOTA_STATE_FILE))
-    end)
-    if ok and type(data) == "table" then return data end
-    return nil
-end
-
-local function fota_state_clear()
-    if io.exists(FOTA_STATE_FILE) then
-        os.remove(FOTA_STATE_FILE)
-        log.info("fota_app", "state file removed")
-    end
-end
-
 
 -- ==================== fskv 操作（设置） ====================
 
@@ -106,242 +74,132 @@ local function save_settings(auto, interval)
     fskv_set_safe(KV_INTERVAL, interval)
 end
 
--- ==================== FOTA 核心流程 ====================
+-- ==================== 确认弹窗（on_confirm 适配） ====================
 
--- 开机检测：根据状态文件判断上次升级结果并上报
-local function report_last_upgrade()
-    local state = fota_state_load()
-    if not state then
-        log.info("fota_app", "no state file, skip report")
-        return
-    end
-
-    -- 当前设备信息
-    local cur_version = rtos.version()
-    local cur_core_version = cur_version and cur_version:gsub("^V", "") or "0"
-    local cur_core_id = select(2, rtos.version(true)) or "0"
-    local cur_script_version = _G.VERSION or "0.0.0"
-
-    -- 旧信息（升级前）
-    local old_core_id = state.old_core_id or "?"
-    local old_core_version = state.old_core_version or "?"
-    local old_script_version = state.old_script_version or "?"
-
-    -- 目标信息（升级后期望达到的版本）
-    local new_core_id = state.new_core_id or "?"
-    local new_core_version = state.new_core_version or "?"
-    local new_script_version = state.new_script_version or "?"
-
-    log.info("fota_app", "=== 升级版本比对 ===")
-    log.info("fota_app", string.format("core_id:     old=%s  new=%s  cur=%s", old_core_id, new_core_id, cur_core_id))
-    log.info("fota_app", string.format("core_version:old=%s  new=%s  cur=%s", old_core_version, new_core_version, cur_core_version))
-    log.info("fota_app", string.format("script_ver:  old=%s  new=%s  cur=%s", old_script_version, new_script_version, cur_script_version))
-
-    -- 判断升级结果：当前版本是否达到服务器期望的目标版本
-    local core_match = (cur_core_version == new_core_version) and (cur_core_id == new_core_id)
-    local script_match = (cur_script_version == new_script_version)
-    local result_code = 3  -- 默认：其他错误
-
-    if core_match and script_match then
-        result_code = 1  -- 升级成功
-        log.info("fota_app", "upgrade success",
-            "target_core", new_core_id, new_core_version,
-            "target_script", new_script_version)
-    else
-        result_code = 2  -- 未达到期望版本，升级失败
-        log.info("fota_app", "upgrade failed, version mismatch",
-            "expected", new_core_id, new_core_version, new_script_version,
-            "actual", cur_core_id, cur_core_version, cur_script_version)
-    end
-
-    if libfota3 and state.fota_sn and state.fota_sn ~= "" then
-        log.info("fota_app", "上报上次升级结果", "fota_sn", state.fota_sn, "code", result_code)
-        libfota3.report_result(state.fota_sn, result_code)
-    end
-
-    -- 上报完成，删除状态文件
-    fota_state_clear()
+-- 回答当前待确认项
+local function answer_pending(ok)
+    local cb = pending_answer
+    pending_answer = nil
+    pending_kind = nil
+    if cb then cb(ok) end
 end
 
--- 第一步：检查更新
-local function do_check(is_manual)
-    if not libfota3 then
-        sys.publish("FOTA_STATUS", "CHECK_FAIL", "FOTA模块未加载", -1)
-        fota_running = false
-        return
-    end
-    sys.publish("FOTA_STATUS", "CHECKING", "正在检测更新...")
-
-    local result, err = libfota3.check()
-    if not result then
-        sys.publish("FOTA_STATUS", "CHECK_FAIL", err or "检测失败", -1)
-        fota_running = false
-        return
-    end
-
-    if result.code and result.code ~= 0 then
-        sys.publish("FOTA_STATUS", "NO_NEW_VERSION", result.msg or "当前已是最新版本")
-        fota_running = false
-        return
-    end
-
-    -- 有新版本 → 生成状态文件（has_update），记录升级前的完整版本信息
-    last_check_result = result
-    local cur_ver = rtos.version()
-    local state = {
-        fota_sn = result.fota_sn or "",
-        status = "has_update",
-        old_core_id = select(2, rtos.version(true)) or "0",
-        old_core_version = cur_ver and cur_ver:gsub("^V", "") or "0",
-        old_script_version = _G.VERSION or "0.0.0",
-        new_core_id = result.core_id or "?",
-        new_core_version = result.core_version or "?",
-        new_script_version = result.script_version or "0.0.0"
-    }
-    fota_state_save(state)
-
-    local msg = string.format("新版本 %s (%s)",
-        result.script_version or "?",
-        result.size and (math.floor(result.size / 1024) .. "KB") or "未知大小")
-    sys.publish("FOTA_STATUS", "NEW_VERSION", msg)
-
-    if is_manual then
-        sys.publish("FOTA_PROMPT_DOWNLOAD", "检测到新版本 " .. (result.script_version or "") .. "，是否下载升级？")
-    else
-        sys.publish("FOTA_AUTO_PROMPT_UPGRADE", "检测到新版本 " .. (result.script_version or "") .. "，是否下载升级？")
-    end
-    fota_running = false
-end
-
--- 第二步：下载并安装
-local function do_download()
-    if not last_check_result then
-        sys.publish("FOTA_STATUS", "CHECK_FAIL", "请先检测更新", -1)
-        return
-    end
-    if not libfota3 then
-        sys.publish("FOTA_STATUS", "CHECK_FAIL", "FOTA模块未加载", -1)
-        return
-    end
-
-    fota_running = true
-    last_percent = -1
-    local result = last_check_result
-
-    sys.publish("FOTA_STATUS", "DOWNLOAD_START", "开始下载升级包...")
-
-    local ok, err = libfota3.download(result.url, result.sha256, function(received, total)
-        if total and total > 0 then
-            local percent = math.floor(received * 100 / total)
-            if percent ~= last_percent then
-                last_percent = percent
-                local msg = string.format("正在下载: %d%% (%d/%d KB)", percent, received // 1024, total // 1024)
-                sys.publish("FOTA_STATUS", "DOWNLOAD_PROGRESS", msg, percent)
-            end
-        end
-    end)
-    if not ok then
-        -- 下载失败 → 更新状态文件，标记下载失败以便上报
-        local state = fota_state_load()
-        if state then
-            state.status = "download_fail"
-            fota_state_save(state)
-        end
-        log.error("fota_app", "下载失败:", err)
-        sys.publish("FOTA_STATUS", "DOWNLOAD_FAIL", err or "下载失败")
-        fota_running = false
-        return
-    end
-
-    -- 下载成功 → 更新状态文件（download_done）
-    local state = fota_state_load()
-    if state then
-        state.status = "download_done"
-        fota_state_save(state)
-    end
-
-    sys.publish("FOTA_STATUS", "DOWNLOAD_SUCCESS", "升级包已就绪，重启即可升级")
-    sys.publish("FOTA_PROMPT_REBOOT", "升级包下载完成，是否重启设备进行升级？")
-    fota_running = false
-end
-
--- ==================== 流程入口 ====================
-
-local function check_manual_task()
-    if fota_running then return end
-    fota_running = true
-    do_check(true)
-end
-
-local function check_auto_task()
-    if fota_running then return end
-    fota_running = true
-    do_check(false)
-end
-
--- ==================== 定时器 ====================
-
-local function auto_check_func()
-    sys.publish("FOTA_CHECK_AUTO")
-end
-
-local function on_settings_changed(auto, interval)
-    if auto_timer_id then
-        sys.timerStop(auto_timer_id)
-        auto_timer_id = nil
-    end
-    if auto and interval and interval > 0 then
-        auto_timer_id = sys.timerLoopStart(auto_check_func, interval * 1000)
+-- 只回答指定类型的待确认项（防止 FOTA_DOWNLOAD_START 误确认重启类弹窗）
+local function answer_pending_if(kind, ok)
+    if pending_kind == kind then
+        answer_pending(ok)
     end
 end
 
--- ==================== 事件订阅 ====================
-
-sys.subscribe("FOTA_CHECK_NOW", function()
-    sys.taskInit(check_manual_task)
-end)
-
-sys.subscribe("FOTA_CHECK_AUTO", function()
-    sys.taskInit(check_auto_task)
-end)
-
--- 下载（用户确认有新版本后触发）
-sys.subscribe("FOTA_DOWNLOAD_START", function()
-    sys.taskInit(do_download)
-end)
-
--- 用户确认重启（重启前不上报，等开机后再判断结果）
-sys.subscribe("FOTA_CONFIRM_REBOOT", function()
-    sys.publish("FOTA_STATUS", "REBOOTING", "正在重启...")
-    sys.timerStart(rtos.reboot, 500)
-end)
-
--- 自动升级弹窗的"立即升级"按钮（兼容旧事件名）
-sys.subscribe("FOTA_AUTO_PROMPT_UPGRADE", function(message)
-    sys.taskInit(function()
-        local mw, mh = 300, 180
-        local msg_font = 14
+--[[
+全局确认弹窗（屏幕根，切页不销毁；按钮必答，避免 libfota3 等待确认卡死）
+@param string title    弹窗标题
+@param string text     弹窗正文
+@param string btn_no   取消按钮文案
+@param string btn_yes  确认按钮文案
+@param function on_decide function(ok) 按钮回调，ok=true 表示点确认
+]]
+local function show_confirm_dialog(title, text, btn_no, btn_yes, on_decide)
+    local mw, mh = 300, 180
+    local msg_font = 14
+    if display and display.getSize then
         local lcd_w, lcd_h = display.getSize()
-        if lcd_w and lcd_h then
+        if lcd_w and lcd_h and lcd_w > 0 then
             local d = math.min(lcd_w, lcd_h)
             mw = math.floor(d * 0.85)
             mh = math.floor(d * 0.35)
             msg_font = math.max(math.floor(d * 0.036), 14)
         end
-        airui.msgbox({
-            w = mw, h = mh,
-            style = { text_font_size = msg_font },
-            title = "固件更新",
-            text = message or "检测到新版本，是否下载升级？",
-            buttons = { "稍后", "立即升级" },
-            on_action = function(self, btn_label)
-                self:destroy()
-                if btn_label == "立即升级" then
-                    sys.publish("FOTA_DOWNLOAD_START")
-                end
-            end
-        })
-    end)
+    end
+    airui.msgbox({
+        w = mw, h = mh,
+        style = { text_font_size = msg_font },
+        title = title,
+        text = text,
+        buttons = { btn_no, btn_yes },
+        on_action = function(self, btn_label)
+            self:destroy()
+            on_decide(btn_label == btn_yes)
+        end
+    })
+end
+
+-- ==================== libfota3 回调适配 ====================
+
+-- libfota3 状态码 → FOTA_STATUS 状态码（boot_report 仅日志不打扰用户）
+local STATUS_MAP = {
+    checking        = "CHECKING",
+    check_fail      = "CHECK_FAIL",
+    no_new_version  = "NO_NEW_VERSION",
+    new_version     = "NEW_VERSION",
+    download_start  = "DOWNLOAD_START",
+    downloading     = "DOWNLOAD_PROGRESS",
+    download_fail   = "DOWNLOAD_FAIL",
+    download_done   = "DOWNLOAD_SUCCESS",
+    rebooting       = "REBOOTING",
+    upgrade_success = "UPGRADE_SUCCESS",
+    upgrade_fail    = "UPGRADE_FAIL",
+    network_fail    = "CHECK_FAIL",
+    boot_report     = false,
+}
+
+local function on_status(status, msg, percent)
+    local mapped = STATUS_MAP[status]
+    if mapped == false then
+        log.info("fota_app", status, msg)
+        return
+    end
+    sys.publish("FOTA_STATUS", mapped or status, msg, percent)
+end
+
+-- libfota3 确认请求（"download" 下载确认 / "reboot" 重启确认）
+-- 弹窗挂起 callback，由按钮事件异步回答（true=确认 false=取消）
+local function on_confirm(action, info, callback)
+    -- 理论上同一时刻只有一个待确认项；若有残留（弹窗被异常销毁等），按取消兜底
+    if pending_answer then
+        answer_pending(false)
+    end
+    pending_answer = callback
+    pending_kind = action
+
+    if action == "download" then
+        local text = string.format("检测到新版本 %s，是否下载升级？",
+            (type(info) == "table" and info.version) or "")
+        show_confirm_dialog("固件更新", text, "稍后", "立即升级",
+            function(ok) answer_pending_if("download", ok) end)
+    elseif action == "reboot" then
+        show_confirm_dialog("固件更新", "升级包下载完成，是否重启设备进行升级？",
+            "稍后重启", "立即重启",
+            function(ok) answer_pending_if("reboot", ok) end)
+    else
+        -- 未知动作默认放行
+        answer_pending(true)
+    end
+end
+
+-- ==================== 消息订阅 ====================
+
+sys.subscribe("FOTA_CHECK_NOW", function()
+    if libfota3 then libfota3.check_update() end
+end)
+
+-- 兼容保留：旧版定时器事件，现自动定时检测由 libfota3 内部管理
+sys.subscribe("FOTA_CHECK_AUTO", function()
+    if libfota3 then libfota3.check_update() end
+end)
+
+sys.subscribe("FOTA_DOWNLOAD_START", function()
+    answer_pending_if("download", true)
+end)
+
+sys.subscribe("FOTA_CONFIRM_REBOOT", function()
+    if pending_kind == "reboot" then
+        answer_pending(true)
+    else
+        -- 兼容旧语义：无待确认弹窗时直接重启
+        sys.publish("FOTA_STATUS", "REBOOTING", "正在重启...")
+        sys.timerStart(rtos.reboot, 500)
+    end
 end)
 
 -- 获取/保存设置
@@ -352,33 +210,31 @@ end)
 
 sys.subscribe("FOTA_SAVE_SETTINGS", function(auto, interval)
     save_settings(auto, interval)
-    on_settings_changed(auto, interval)
+    -- 同步到 libfota3：库内部自动刷新定时器（auto/interval 变化才重启计时）
+    if libfota3 then
+        libfota3.config({ auto = auto, interval = interval })
+    end
 end)
 
 -- ==================== 开机流程 ====================
 
-sys.taskInit(function()
-    log.info("fota_app", "FOTA模块启动")
-
-    -- 1. 检测上次升级状态文件，若存在则上报
-    report_last_upgrade()
-
-    -- 2. 等待网络就绪
-    local ip_ready = sys.waitUntil("IP_READY", 60000)
-    if not ip_ready then
-        log.warn("fota_app", "IP_READY超时")
-    end
-    network_ready = true
-
-    -- 3. 启动定时器
+-- 开机版本比对上报由 libfota3 加载时自动完成（handle_boot），此处不再重复。
+-- request() 内部：等待时间同步 → 按 fskv 设置启动/关闭自动检测定时器。
+if libfota3 then
     local auto, interval = get_settings()
-    if auto and interval > 0 then
-        on_settings_changed(auto, interval)
-    end
+    libfota3.request({
+        project_key    = _G.PROJECT_KEY or _G.PRODUCT_KEY,
+        script_name    = _G.PROJECT,
+        script_version = _G.VERSION,
+        auto           = auto,
+        interval       = interval,
+        on_status      = on_status,
+        on_confirm     = on_confirm,
+    })
+    log.info("fota_app", "FOTA模块启动", "libfota3", libfota3.version(),
+        "auto", auto, "interval", interval)
+else
+    log.warn("fota_app", "libfota3 不可用，FOTA 功能停用")
+end
 
-    -- 4. 无论上次是否成功，都进行升级检查
-    if auto then
-        sys.wait(5000)
-        sys.publish("FOTA_CHECK_AUTO")
-    end
-end)
+return true

@@ -1,8 +1,8 @@
 --[[
 @module  aircloud_app
 @summary AirCloud 通用数据上报模块（能力探测型 · 不绑定具体型号）
-@version 1.1.0
-@date    2026.09.21
+@version 1.2.0
+@date    2026.09.23
 @author  江访
 
 === 设计要点 ===
@@ -85,6 +85,10 @@
   report:once      立即触发一轮上报
   report:on/off    开关上报
   status           读取当前上报状态（走 CONTROL_RESPONSE 回复）
+  tts:<文本>       TTS 语音播报（ASCII 文本直发；含中文会被云端消毒成 '?'，走 ttshex:）
+  ttshex:<hex>     TTS 语音播报（UTF-8 文本的十六进制编码，web 端走这条，中文无损）
+                   两者均 ≤300 字节文本；无音频能力 hw.audio 的板子回 ERR no audio
+  ttsstop          停止当前 TTS 播报
 
 === 对外事件 ===
 
@@ -107,7 +111,7 @@ local excloud = require "excloud"
 
 -- ==================== 常量 ====================
 
-local APP_VERSION      = "1.1.0"
+local APP_VERSION      = "1.2.0"
 local FSKV_CYCLE_KEY   = "aircloud_report_cycle"   -- 上报周期（秒）
 local FSKV_ENABLE_KEY  = "aircloud_report_enable"  -- 上报总开关
 local FSKV_BOOTCNT_KEY = "aircloud_boot_count"     -- 开机次数累计
@@ -671,6 +675,19 @@ local function send_control_response(msg)
     }, false)
 end
 
+--- TTS 播报派发：长度/能力检查 + 转发 tts_app + 回执
+local function dispatch_tts(tts_text)
+    local tts_app = require "tts_app"
+    if #tts_text > 300 then
+        send_control_response("ERR tts too long, max 300 bytes")
+    elseif not tts_app.available() then
+        send_control_response("ERR no audio")
+    else
+        tts_app.say(tts_text)
+        send_control_response("OK tts len=" .. #tts_text)
+    end
+end
+
 local function handle_control_command(cmd)
     if not valid_str(cmd) then return end
     log.info("aircloud", "收到下行命令:", cmd)
@@ -714,6 +731,40 @@ local function handle_control_command(cmd)
         else
             send_control_response("ERR led mode invalid, use on/off/blink")
         end
+        return
+    end
+
+    -- ttshex:<hex> —— TTS 文本的十六进制编码（UTF-8 字节逐两位 hex）
+    -- 【坑·真机踩过 2026-09-23】纯中文走 tts: 直发会被云端 ASCII 通道消毒成 '?'：
+    --   web 发 "tts:你好"(UTF-8 共 10 字节) 实际到达只剩 "tts:??"(6 字节)，
+    --   消息长度 10 = TLV 头 4 + 值 6 可验证。纯十六进制是可打印 ASCII，
+    --   100% 无损透传，设备端解码回 UTF-8 文本再播。web 端 TTS 走这条。
+    local tts_hex = cmd:match("^ttshex[:=]([0-9a-fA-F]+)$")
+    if tts_hex then
+        local ok_dec, tts_text = pcall(string.gsub, tts_hex, "%x%x",
+            function(h) return string.char(tonumber(h, 16)) end)
+        if ok_dec and type(tts_text) == "string" and #tts_text > 0 then
+            log.info("aircloud", "TTS(hex) 解码:", tts_text)
+            dispatch_tts(tts_text)
+        else
+            send_control_response("ERR tts hex decode failed")
+        end
+        return
+    end
+
+    -- tts:<文本> —— 云端下发 TTS 语音播报（ASCII 文本直发；含中文请走 ttshex:）
+    -- 无音频能力（hw.audio 未配置）明确回 ERR no audio，让 web 能区分「没播」的原因
+    local tts_text = cmd:match("^tts[:=](.+)$")
+    if tts_text then
+        dispatch_tts(tts_text)
+        return
+    end
+
+    -- ttsstop —— 停止当前 TTS 播报（独立命令，不用 tts:stop 避免与播报文本歧义）
+    if cmd == "ttsstop" then
+        local tts_app = require "tts_app"
+        tts_app.stop()
+        send_control_response("OK tts stopped")
         return
     end
 

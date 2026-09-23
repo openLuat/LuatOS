@@ -91,10 +91,10 @@ return {
     -- 【PIN51 冲突】见文件头第 10 条：485_EN1 与 SD_EN 共用 PIN51，此处暂按 GPIO65（SD_EN）初始化
     power_on = {
         { pin = 74, dir = 0, level = 1 },              -- SD_EN 拉高
-        { pin = 15, dir = 1, level = 0, delay = 100 }, -- WIFI_RST 高电平拉地
+        { pin = 15, dir = 1, level = 0 }, -- WIFI_RST 高电平拉地
         { pin = 15, dir = 0, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
-        { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
-        { pin = 58, dir = 0, level = 1, delay = 50 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
+        { pin = 73, dir = 0, level = 1 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
+        { pin = 58, dir = 0, level = 1 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
     },
 
     -- ===== 硬件配置 =====

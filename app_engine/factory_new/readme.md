@@ -6,7 +6,7 @@
 > - 设计令牌与组件工厂：`ui/ui_theme.lua`
 > - 图标资源清单（尺寸/命名）：`docs/ui_icons.md`
 > - 视觉基调：底色 `#080B10` + 半透明白玻璃卡片 + 琥珀 `#FFB454` 强调色 + 大圆角
-> - 已重做页面：欢迎页、桌面首页、设置主页、显示亮度、触摸音效、标题栏组件
+> - 已重做页面：欢迎页、桌面首页、设置主页、亮度和声音、触摸音效、标题栏组件
 > - 其余页面（WiFi / 应用市场 / 文件管理 / 应用工厂 / AI 助手）已切换深色调色板与玻璃标题栏
 
 ## 初始化方式（参考桌面版 factory）
@@ -223,7 +223,7 @@ return {
 | 模块 | 文件 | 职责 |
 |------|------|------|
 | 设置框架 | `app/settings/settings_app.lua` | 设置主框架，级联加载子模块 |
-| 显示亮度 | `app/settings/settings_display_app.lua` | PWM 背光管理 |
+| 亮度和声音 | `app/settings/settings_display_app.lua` | PWM 背光 + 媒体音量管理 |
 | 触摸音效 | `app/settings/settings_buzz_app.lua` | 触摸反馈音管理 |
 | 存储信息 | `app/settings/settings_storage_app.lua` | 多挂载点容量采集 + 快速/全量双通道 |
 | 内存信息 | `app/settings/settings_memory_app.lua` | 系统/LuaVM/PSRAM 内存采集 |
@@ -236,8 +236,8 @@ return {
 |------|------|------|
 | 欢迎页 | `ui/welcome_win.lua` | 开机引导动画 |
 | 桌面 | `ui/idle_win.lua` | 时间/日期/信号/快捷入口/外部应用网格 |
-| 设置主页 | `ui/settings/settings_win.lua` | 功能入口列表（WiFi/显示/存储/声音/关于/更新） |
-| 显示设置 | `ui/settings/settings_display_win.lua` | 亮度滑动条 + 加减按钮 |
+| 设置主页 | `ui/settings/settings_win.lua` | 功能入口列表（WiFi/亮度和声音/存储/声音/关于/更新） |
+| 亮度和声音 | `ui/settings/settings_display_win.lua` | 亮度滑块 + 媒体音量滑块（有音频硬件时默认启用） |
 | 存储页 | `ui/settings/settings_storage_win.lua` | 文件系统容量 + 内存占用（6 卡片，两阶段加载） |
 | 存储优先级 | `ui/settings/storage_pri_win.lua` | 拖拽排序应用安装位置 |
 | 声音设置 | `ui/settings/settings_sound_win.lua` | 蜂鸣器开关/音量/时长 |
@@ -298,7 +298,7 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
 
 **桌面操作**：时间/日期/信号显示、设置/应用市场入口、外部应用网格
 
-**设置操作**：显示亮度调节、WiFi 管理、存储空间查看、触摸音效设置、设备信息查看、IOT 账号管理、系统更新
+**设置操作**：亮度和声音调节、WiFi 管理、存储空间查看、触摸音效设置、设备信息查看、IOT 账号管理、系统更新
 
 **WiFi 操作**：开关/扫描/连接/断开、已保存网络管理、密码显隐切换
 

@@ -1693,22 +1693,20 @@ local function app_task(app_path)
         return -1
     end
 
-    -- libfota3 库（两步协议FOTA）
-    -- 禁止应用使用固件升级功能，阻断check/download/report_result
+    -- libfota3 库（共享库FOTA：request/check_update/config 新API，兼容旧两步协议API）
+    -- 禁止应用使用固件升级功能，阻断全部触发入口
     local libfota3_lib = safe_global("libfota3")
     my_env.libfota3 = setmetatable({}, { __index = libfota3_lib })
-    my_env.libfota3.check = function(...)
+    local function libfota3_deny(...)
         my_env.log.error("libfota3", "沙箱环境不允许FOTA升级操作")
         return nil, "禁止操作"
     end
-    my_env.libfota3.download = function(...)
-        my_env.log.error("libfota3", "沙箱环境不允许FOTA升级操作")
-        return false, "禁止操作"
-    end
-    my_env.libfota3.report_result = function(...)
-        my_env.log.error("libfota3", "沙箱环境不允许FOTA升级操作")
-        return false, "禁止操作"
-    end
+    my_env.libfota3.request = libfota3_deny
+    my_env.libfota3.check_update = libfota3_deny
+    my_env.libfota3.config = libfota3_deny
+    my_env.libfota3.check = libfota3_deny
+    my_env.libfota3.download = libfota3_deny
+    my_env.libfota3.report_result = libfota3_deny
 
     -- pm 库
     -- 禁止应用控制系统电源管理，替换为错误提示
@@ -5407,7 +5405,7 @@ log.info("exapp", "loaded")
 exapp.version()
 ]]
 function exapp.version()
-    return "202609231600"
+    return "202609231730"
 end
 
 log.debug("exapp", "version -> " .. exapp.version())

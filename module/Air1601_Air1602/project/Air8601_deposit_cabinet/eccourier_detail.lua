@@ -19,7 +19,7 @@ local current_result_modal = nil
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
-    local phys_w, phys_h = lcd.getSize()
+    local phys_w, phys_h = display.getSize()
     if rotation == 0 or rotation == 180 then
         screen_w, phys_h = phys_w, phys_h
         screen_w, screen_h = phys_w, phys_h

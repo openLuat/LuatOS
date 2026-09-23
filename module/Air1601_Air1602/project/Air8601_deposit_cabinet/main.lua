@@ -93,7 +93,7 @@ local function system_init()
     sys.wait(100)
 
     -- 延迟 300ms 初始化人脸模块：等 LCD/触摸完全就绪后再启动，
-    -- 避免 camera.init 与 lcd.init 竞争资源导致屏幕异常
+    -- 避免 camera.init 与 display.init 竞争资源导致屏幕异常
     sys.timerStart(function()
         local face_manager = require "face_manager"
         face_manager.init()

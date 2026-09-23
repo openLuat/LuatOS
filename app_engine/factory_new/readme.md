@@ -14,7 +14,7 @@
 | 环节 | 实现 | 文件 |
 |------|------|------|
 | 编译清单 | 只打包当前机型配置 + 用到的驱动，缩小 LuaDB（800×480 脚本区仅 1024KB） | `core/platform_loader.lua` |
-| 分辨率获取 | `screen_get_size()` 优先 `display.getSize()` → `lcd.getSize()` → params 兜底 | `drv/lcd/lcd_common.lua` |
+| 分辨率获取 | `screen_get_size()` 优先 `display.getSize()` → params 兜底 | `drv/lcd/lcd_common.lua` |
 | 全局 `lcd` 代理 | 覆盖为 Lua 代理表，`getSize()` 优先返回 display 尺寸/`_G.screen_w`，其余字段透传原 lcd | `drv/lcd/lcd_common.lua` |
 | RGB 屏驱动 | `lcd_display_rgb` 走 `display.init("custom", cfg)`，PC 模拟器跳过；`display` 路径不再额外 `setupBuff` | `drv/lcd/lcd_display_rgb.lua` |
 | 背光 GPIO | `gpio.setup(pin, 1)` 输入上拉（与 PWM 模式二选一） | `drv/lcd/lcd_common.lua` |

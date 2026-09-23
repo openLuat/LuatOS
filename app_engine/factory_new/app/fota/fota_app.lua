@@ -321,7 +321,7 @@ sys.subscribe("FOTA_AUTO_PROMPT_UPGRADE", function(message)
     sys.taskInit(function()
         local mw, mh = 300, 180
         local msg_font = 14
-        local lcd_w, lcd_h = lcd.getSize()
+        local lcd_w, lcd_h = display.getSize()
         if lcd_w and lcd_h then
             local d = math.min(lcd_w, lcd_h)
             mw = math.floor(d * 0.85)

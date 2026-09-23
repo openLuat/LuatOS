@@ -1,8 +1,8 @@
 --[[
 @module  idle_win
 @summary 桌面首页（TabOS 深色玻璃态）——状态栏 + 时钟卡 + 应用网格 + 底部 Dock
-@version 2.3
-@date    2026.09.18
+@version 2.4
+@date    2026.09.23
 @author  江访
 
 消息协议（订阅/发布）:
@@ -54,7 +54,7 @@ local apps_card = nil
   VP.ctrl_h / VP.frame_h / VP.current_file / VP.start_play / VP.open_picker
 跨窗口调用请走本文件已有的导出接口，别在别的窗口里直接碰这张表。]]
 local VP = {}
-VP.obj = nil                    -- 视频播放组件（开机动画循环播放）
+VP.obj = nil                    -- 播放器对象（airui.video 实例或 mplayer 适配器，接口同用法）
 VP.is_playing = true            -- 播放状态
 VP.is_loop = true               -- 循环状态
 VP.ctrl_bar = nil               -- 控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
@@ -1826,6 +1826,46 @@ local function media_frame_size(path)
     return video_util.frame_size(path, 480, VP.portrait and VP.BASE_H or 270)
 end
 
+--[[在舞台层里创建视频对象（HZV/MJPG → airui.video，MP4 → mplayer 硬解）
+
+两个创建点（VP.start_play / build_video_area）共用一份几何与格式分派：
+格式差异统一走 video_util.create_player，本函数只负责把素材帧尺寸折算成
+画面矩形。挂 VP 表而不是文件级 local：本文件顶层局部变量名额已顶到上限
+（见 VP 定义处注释）。
+
+@param file_path string 素材路径
+@param parent    舞台层（缺省 VP.stage）
+@return 播放器对象或 nil（空态 UI 由调用方处理）]]
+function VP.create_video(file_path, parent)
+    local fmt = video_util.guess_format(file_path)
+
+    -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
+    local vw, vh = media_frame_size(file_path)
+    local vx_off, vy_off, ow, oh
+    if fmt == "mp4" then
+        --[[MP4 走面板视频层（叠在 UI 之上）：大素材等比收进画面区，
+        不能像 airui 路径那样「原尺寸裁切」—— 越界会盖住控制栏。]]
+        vx_off, vy_off, ow, oh = video_util.fit_rect(0, 0, VP.w, VP.frame_h, vw, vh)
+    else
+        if vh > VP.frame_h then vh = VP.frame_h end
+        vx_off = math.floor((VP.w - vw) / 2)
+        vy_off = math.floor((VP.frame_h - vh) / 2)
+        ow, oh = vw, vh
+    end
+
+    return video_util.create_player(file_path, {
+        --[[挂 stage 而不是 video_card：本文件里「重建视频」的路径不止一条
+        （换文件 / 切循环 / 重播 / 全屏返回），它们只重建 VP.obj、不重建控制栏。
+        直接挂 video_card 的话，重建出来的视频会排到控制栏之后把它盖住。]]
+        parent = parent or VP.stage,
+        x = vx_off, y = vy_off, w = ow, h = oh,
+        -- 视频层（MP4）收逻辑屏绝对坐标：舞台（卡片内 0,0）在屏幕上的原点
+        sx = content_x + VP.x + vx_off,
+        sy = VP.y + vy_off,
+        loop = VP.is_loop,
+    })
+end
+
 function VP.start_play(file_path)
     log.info("idle_win", "video_start_play", file_path)
     VP.stop()
@@ -1838,37 +1878,10 @@ function VP.start_play(file_path)
         return
     end
 
-    -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
-    local vw, vh = media_frame_size(file_path)
-    if vh > VP.frame_h then vh = VP.frame_h end
-    local vx_off = math.floor((VP.w - vw) / 2)
-    local vy_off = math.floor((VP.frame_h - vh) / 2)
-
     -- 循环交回组件（loop 参数）。旧版是「每 3 秒 stop+play」手动重播，
     -- 会把正在解码的视频硬重启，画面就停在半路 —— 用户报的「播放卡住」。
-    video_util.audio_ensure()
-
-    local fmt = video_util.guess_format(file_path)
-    local vcfg = {
-        -- 挂 stage 而不是 video_card：本函数是「重建视频」的唯一入口，
-        -- 若直接挂 video_card，重建出来的视频会排到控制栏之后把它盖住。
-        parent = VP.stage or video_card,
-        x = vx_off, y = vy_off, w = vw, h = vh,
-        src = file_path,
-        format = fmt,
-        decode_mode = "hw",
-        loop = VP.is_loop,
-        auto_play = true,
-    }
-    if fmt == "hzv" then
-        -- HZV 自带逐帧时长与 MP3 音轨，Lua 不填 interval
-        vcfg.backend = "videoplayer"
-    else
-        -- 30fps，与能正常播的 welcome_win 开机动画保持一致；
-        -- 调大等于慢放（每帧间隔变大），看着就像卡住
-        vcfg.interval = 33
-    end
-    VP.obj = airui.video(vcfg)
+    -- 几何折算与格式分派（HZV/MJPG → airui.video，MP4 → mplayer 硬解）见 VP.create_video
+    VP.obj = VP.create_video(file_path, VP.stage or video_card)
 
     VP.is_playing = (VP.obj ~= nil)
     -- 控制栏只喂状态：文案（暂停/播放）与底色（绿/中性）由 video_bar 一起刷
@@ -1876,7 +1889,8 @@ function VP.start_play(file_path)
     VP.show_ctrl()
 
     -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、由 videoplayer
-    -- 统一驱动，而 find_companion_mp3 只认 .mjpg 后缀，对 .hzv 天然返回 nil。
+    -- 统一驱动，MP4 的音轨由 mplayer 自管；find_companion_mp3 只认 .mjpg 后缀，
+    -- 对 .hzv / .mp4 天然返回 nil。
     local mp3 = video_util.find_companion_mp3(file_path)
     if mp3 then
         video_util.audio_play(mp3, function() return VP.is_loop and VP.is_playing end)
@@ -2046,33 +2060,9 @@ local function build_video_area(parent)
         parent = video_card, x = 0, y = 0, w = VP.w, h = VP.frame_h,
     })
 
-    -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
-    local vw, vh = media_frame_size(VP.current_file)
-    if vh > VP.frame_h then vh = VP.frame_h end
-    local vx_off = math.floor((VP.w - vw) / 2)
-    local vy_off = math.floor((VP.frame_h - vh) / 2)
-
-    -- 循环交给组件的 loop 参数。旧版是「每 3 秒 stop+play」手动重播，
-    -- 会把正在解码的视频硬重启，画面停在半路（用户报的「播放卡住」）。
-    video_util.audio_ensure()
-
-    local fmt = video_util.guess_format(VP.current_file)
-    local vcfg = {
-        parent = VP.stage,       -- 见上面 stage 的注释（层级 + 裁剪）
-        x = vx_off, y = vy_off, w = vw, h = vh,
-        src = VP.current_file,
-        format = fmt,
-        decode_mode = "hw",
-        loop = VP.is_loop,
-        auto_play = true,
-    }
-    if fmt == "hzv" then
-        -- HZV 容器自带逐帧时长与 MP3 音轨
-        vcfg.backend = "videoplayer"
-    else
-        vcfg.interval = 33   -- 30fps（调大即慢放，看着像卡住）
-    end
-    VP.obj = airui.video(vcfg)
+    -- 几何折算与格式分派（HZV/MJPG → airui.video，MP4 → mplayer 硬解）见 VP.create_video；
+    -- 循环交给组件（MP4 由适配器轮询 EOS 重开），空态 UI 在下面按结果补
+    VP.obj = VP.create_video(VP.current_file, VP.stage)
     VP.is_playing = (VP.obj ~= nil)
 
     -- 无视频：按设计稿显示空态（三角 + 文案，居中）

@@ -68,6 +68,7 @@ return {
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
         wifi = true,                     -- 启用 WiFi
+        file_transfer = true,            -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====

@@ -43,20 +43,18 @@ local FSKV_KEY = "file_transfer_cfg"
 -- 传输记录环形缓冲上限
 local RECORD_MAX = 50
 
--- 默认配置：共享清单为空（安全默认：先授权后可读）；接收目录按三类存储展开
-local DEFAULT_CFG = {
-    shared_items = {},
-    receive_dirs = { "/download", "/sd/download", "/little_flash/download" },
-    auth_enabled = false,
-    auth_token = "",
-}
+-- 默认接收目录 = 各存储根（2026-09-23 起"默认全放通"：开箱传哪都行，选择器可收窄白名单）
+local DEFAULT_RECEIVE_DIRS = { "/", "/sd", "/little_flash", "/ram" }
+-- 旧版默认接收目录（load_cfg 迁移用：命中旧默认则换新默认，用户自定义的保留）
+local OLD_DEFAULT_RECEIVE_DIRS = { "/download", "/sd/download", "/little_flash/download" }
 
 -- ==================== 运行状态 ====================
 
 -- 配置表（策略源，file_transfer_ops 持 live 引用）
+-- 共享清单为空（安全默认：先授权后可读）；接收目录默认各存储根
 local cfg = {
     shared_items = {},
-    receive_dirs = { "/download", "/sd/download", "/little_flash/download" },
+    receive_dirs = { "/", "/sd", "/little_flash", "/ram" },
     auth_enabled = false,
     auth_token = "",
 }
@@ -75,12 +73,26 @@ local records = {}
 
 -- ==================== 私有函数 ====================
 
+-- 禁传目录判定（/luadb 固件脚本/资源区，不可下载也不可上传，与 ops 的 DENY_PREFIXES 一致）
+local function is_deny_path(path)
+    return path == "/luadb" or path:sub(1, 8) == "/luadb/"
+end
+
 -- 发布服务状态（窗口状态卡刷新）
 local function publish_status()
     status.auth_enabled = cfg.auth_enabled
     status.shared_count = #(cfg.shared_items or {})
     status.receive_dirs = cfg.receive_dirs
     sys.publish("FILE_TRANSFER_STATUS", status)
+end
+
+-- 两目录列表是否逐项相同（顺序敏感，均为固定顺序的短列表）
+local function same_dirs(a, b)
+    if type(a) ~= "table" or #a ~= #b then return false end
+    for i, p in ipairs(b) do
+        if a[i] ~= p then return false end
+    end
+    return true
 end
 
 -- fskv 加载配置（fskv 挂载晚于 require，统一在启动任务里调用）
@@ -98,7 +110,13 @@ local function load_cfg()
         cfg.shared_items = saved.shared_items
     end
     if type(saved.receive_dirs) == "table" and #saved.receive_dirs > 0 then
-        cfg.receive_dirs = saved.receive_dirs
+        -- v2 迁移：命中旧默认三处 download 目录则换新默认（各存储根，全放通）；用户自定义列表原样保留
+        if same_dirs(saved.receive_dirs, OLD_DEFAULT_RECEIVE_DIRS) then
+            log.info("file_transfer", "接收目录迁移: 旧默认 -> 各存储根(全放通)")
+            cfg.receive_dirs = DEFAULT_RECEIVE_DIRS
+        else
+            cfg.receive_dirs = saved.receive_dirs
+        end
     end
     if type(saved.auth_enabled) == "boolean" then
         cfg.auth_enabled = saved.auth_enabled
@@ -144,13 +162,20 @@ local function file_transfer_task_func()
     -- 鉴权（可选）：配置开启且 token 合法时生效；无效 token 回退关闭
     if cfg.auth_enabled and type(cfg.auth_token) == "string"
         and #cfg.auth_token >= 8 and #cfg.auth_token <= 64 then
-        local ok = pcall(hzadb.set_auth, cfg.auth_token)
+        local ok, err = pcall(hzadb.set_auth, cfg.auth_token)
         status.auth_on = ok and true or false
-        if not ok then
-            log.warn("file_transfer", "set_auth 失败, 鉴权未生效")
+        if ok then
+            log.info("file_transfer", "鉴权已启用, token长度", #cfg.auth_token, ", 上位机须输入同款token")
+        else
+            log.warn("file_transfer", "set_auth失败, 鉴权未生效(固件缺crypto.hmac_sha256?)", err)
         end
     else
         status.auth_on = false
+        if cfg.auth_enabled then
+            log.warn("file_transfer", "token非法(需8..64字节), 鉴权未生效")
+        else
+            log.info("file_transfer", "鉴权未启用; 上位机若强制鉴权, 请在设备端配置同款token")
+        end
     end
 
     -- mem/netdrv 状态指令（不含文件内容，无权限风险）
@@ -210,6 +235,11 @@ file_transfer_app.add_shared("/sd/photos", true)
 ]]
 function file_transfer_app.add_shared(path, is_dir)
     if type(path) ~= "string" or #path == 0 or #path > 127 then
+        return false
+    end
+    -- /luadb 禁传目录不进共享清单（ops 层也会拦，这里提前拒绝避免无效配置）
+    if is_deny_path(path) then
+        log.warn("file_transfer", "固件资源目录禁止共享", path)
         return false
     end
     for _, it in ipairs(cfg.shared_items) do
@@ -295,6 +325,11 @@ file_transfer_app.add_receive_dir("/sd/upload")
 ]]
 function file_transfer_app.add_receive_dir(path)
     if type(path) ~= "string" or #path == 0 or #path > 127 then
+        return false
+    end
+    -- /luadb 禁传目录不进接收目录（ops 层也会拦，这里提前拒绝避免无效配置）
+    if is_deny_path(path) then
+        log.warn("file_transfer", "固件资源目录禁止作接收目录", path)
         return false
     end
     for _, p in ipairs(cfg.receive_dirs) do

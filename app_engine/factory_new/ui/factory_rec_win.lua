@@ -52,7 +52,7 @@ local CLR = theme.live()
 
 local function update_screen_size()
     local r = airui.get_rotation()
-    local pw, ph = lcd.getSize()
+    local pw, ph = display.getSize()
     if r == 0 or r == 180 then screen_w, screen_h = pw, ph
     else screen_w, screen_h = ph, pw end
     -- 宽屏有左栏时收窄到右侧内容区（窄屏原样返回）

@@ -141,6 +141,7 @@ return {
         mic = true,         -- 启用麦克风（I2S2 + ES8311 录音）
         usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）
         cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true,            -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====

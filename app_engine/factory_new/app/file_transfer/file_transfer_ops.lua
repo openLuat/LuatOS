@@ -10,14 +10,16 @@
 
 1. 共享清单内可读（设备→PC，由 PC 经 Luatools 拉取）：
    目录条目 = 前缀共享（子路径可读），文件条目 = 精确共享
-   例外：READ_DENY_PREFIXES（/luadb 等固件资源目录）读拦截优先于共享白名单，
-   即使把 / 或 /luadb 加进共享清单也读不走（open读模式/read/file_sha1 一律 E_DENIED）
+   例外：DENY_PREFIXES（/luadb 等固件资源目录）传输拦截优先于一切授权，
+   不可下载(读)也不可上传(写)：open/read/write/file_sha1/mkdir/rmdir/remove 一律 E_DENIED
 2. 接收目录内可写（PC→设备）：仅 receive_dirs 前缀内允许写/建/删
-   共享清单内一律只读（写/删/建目录都拒绝）
+   默认接收目录 = 各存储根（/、/sd、/little_flash、/ram），即开箱全放通，选择器可收窄；
+   共享内容"只读"仅在接收范围之外成立——接收目录覆盖共享区时共享内容同样可写（2026-09-23 语义）
 3. 其余路径统一回应 E_DENIED；lsdir/stat/exists 同样拒绝（防文件名探测）
    唯一例外：共享/接收条目的**祖先目录**允许 lsdir/stat，且列表过滤为仅可见条目
    （否则 Luatools 端无法逐级导航到 /sd/photos 这样的深层共享目录）
-   可见 = 共享清单内 or 接收目录内 or 二者的严格祖先
+   可见 = 共享清单内 or 接收目录内 or 二者的严格祖先 or 挂载点根（LSMOUNT 已公开）
+   路径匹配前先做尾斜杠归一化（Luatools 对挂载点常发 "/ram/" 形式）
 
 写语义与 hzadb.fs() 逐行对齐（offset 权威 + 补零 + 写后回读校验），
 保证 Luatools 重传/乱序到达的写在顺序写 FS 上仍幂等（见《hzadb逻辑说明.md》§5.3）。
@@ -53,8 +55,20 @@ local LSDIR_COUNT_MAX = 100
 
 -- ==================== 策略判定 ====================
 
+-- 路径归一化：去掉尾部斜杠（Luatools 对挂载点常发 "/ram/" 这类带尾斜杠的路径，
+-- 不归一化会让前缀匹配拼出 "/ram//" 永远失败）；根 "/" 保持不变
+local function normalize(path)
+    if type(path) ~= "string" then return "" end
+    while #path > 1 and path:sub(-1) == "/" do
+        path = path:sub(1, -2)
+    end
+    return path
+end
+
 -- path 是否落在 root 目录之内（root 为 "/" 时匹配一切绝对路径）
 local function path_under(path, root)
+    path = normalize(path)
+    root = normalize(root)
     if root == "/" or root == "" then
         return path:sub(1, 1) == "/"
     end
@@ -63,21 +77,41 @@ end
 
 -- path 是否是 entry 的严格祖先（entry 在 path 之下且不等于 path）
 local function is_strict_ancestor(path, entry)
+    path = normalize(path)
+    entry = normalize(entry)
     if path == "/" then
         return entry:sub(1, 1) == "/" and #entry > 1
     end
     return #entry > #path and entry:sub(1, #path + 1) == path .. "/"
 end
 
--- 读拦截前缀：命中的一律禁止读（open读模式/read/file_sha1），
--- **优先级高于共享白名单**——即使把 / 或 /luadb 加入共享清单也读不走。
--- /luadb 是固件脚本/资源目录，与 hzadb.fs() 的 READ_DENY_PREFIXES 同款保护；
--- lsdir/stat/exists 不拦截（只暴露名字/大小，不泄露内容），写模式不受限（升级资源场景）
-local READ_DENY_PREFIXES = { "/luadb" }
+-- 传输拦截前缀：命中的一律禁止读和写（open/read/write/file_sha1/mkdir/rmdir/remove），
+-- **优先级高于共享白名单与接收目录**——即使把 / 或 /luadb 加进共享清单/接收目录也传不了。
+-- /luadb 是固件脚本/资源目录：不可下载(防泄漏)也不可上传(防篡改)；
+-- lsdir/stat/exists 不拦截（只暴露名字/大小，不泄露内容）
+local DENY_PREFIXES = { "/luadb" }
 
-local function is_read_denied(path)
-    for _, prefix in ipairs(READ_DENY_PREFIXES) do
+local function is_access_denied(path)
+    path = normalize(path)
+    for _, prefix in ipairs(DENY_PREFIXES) do
         if path == prefix or path:sub(1, #prefix + 1) == prefix .. "/" then
+            return true
+        end
+    end
+    return false
+end
+
+-- 挂载点根目录（"/"、"/ram"等）：LSMOUNT 已公开其存在，
+-- 允许 lsdir/stat/exists 进入浏览（条目仍按可见性过滤，没共享/接收子树就返回空列表）
+local function is_mount_root(path)
+    path = normalize(path)
+    if io.lsmount == nil then return false end
+    local ok, list = pcall(io.lsmount)
+    if not ok or type(list) ~= "table" then return false end
+    for _, m in ipairs(list) do
+        local p = m.path or ""
+        if p == "" then p = "/" end
+        if normalize(p) == path then
             return true
         end
     end
@@ -86,6 +120,7 @@ end
 
 -- 读授权：共享清单内（目录前缀/文件精确）或接收目录内（下载后可读回校验）
 local function is_readable(path)
+    path = normalize(path)
     for _, it in ipairs((cfg_ref and cfg_ref.shared_items) or {}) do
         local p = it.path
         if p and #p > 0 then
@@ -101,6 +136,7 @@ end
 
 -- 写授权：仅接收目录内（共享清单只读）
 local function is_writable(path)
+    path = normalize(path)
     for _, root in ipairs((cfg_ref and cfg_ref.receive_dirs) or {}) do
         if path_under(path, root) then return true end
     end
@@ -109,6 +145,7 @@ end
 
 -- path 是否是共享/接收条目的严格祖先（仅供 lsdir/stat 导航）
 local function leads_to_visible(path)
+    path = normalize(path)
     for _, it in ipairs((cfg_ref and cfg_ref.shared_items) or {}) do
         local p = it.path
         if p and is_strict_ancestor(path, p) then return true end
@@ -119,9 +156,9 @@ local function leads_to_visible(path)
     return false
 end
 
--- 浏览可见性：可读 or 可写 or 是二者的严格祖先
+-- 浏览可见性：可读 or 可写 or 是二者的严格祖先 or 是挂载点根
 local function is_visible(path)
-    return is_readable(path) or is_writable(path) or leads_to_visible(path)
+    return is_readable(path) or is_writable(path) or leads_to_visible(path) or is_mount_root(path)
 end
 
 -- ==================== 工具函数 ====================
@@ -169,9 +206,9 @@ local function op_open(body)
         return hzadb.E_BADREQ, ""
     end
     if mode == 0 then
-        -- 读拦截优先：/luadb 等固件资源目录禁止下载，即使在共享清单内
-        if is_read_denied(path) then
-            publish_log("D2P", path, 0, "denied", "open", "固件资源目录禁止读取")
+        -- 传输拦截优先：/luadb 等固件资源目录禁止下载，即使在共享清单内
+        if is_access_denied(path) then
+            publish_log("D2P", path, 0, "denied", "open", "固件资源目录禁止下载")
             return hzadb.E_DENIED, ""
         end
         if not is_readable(path) then
@@ -180,6 +217,11 @@ local function op_open(body)
         end
     else
         -- mode 1/2/3 带写能力，一律按写授权（共享只读）
+        -- 传输拦截优先：/luadb 等固件资源目录禁止上传（防篡改，升级口子也关闭）
+        if is_access_denied(path) then
+            publish_log("P2D", path, 0, "denied", "open", "固件资源目录禁止上传")
+            return hzadb.E_DENIED, ""
+        end
         if not is_writable(path) then
             publish_log("P2D", path, 0, "denied", "open", "仅接收目录可写")
             return hzadb.E_DENIED, ""
@@ -233,7 +275,11 @@ local function op_write(body)
     if not slot then
         return hzadb.E_BADFD, ack
     end
-    -- fd 复核：打开后策略变化也要拦（共享只读、接收目录外不写）
+    -- fd 复核：打开后策略变化也要拦（共享只读、接收目录外不写、/luadb 等禁传目录不写）
+    if is_access_denied(slot.path) then
+        publish_log("P2D", slot.path, offset, "denied", "write", "固件资源目录禁止上传")
+        return hzadb.E_DENIED, ack
+    end
     if not is_writable(slot.path) then
         publish_log("P2D", slot.path, offset, "denied", "write", "仅接收目录可写")
         return hzadb.E_DENIED, ack
@@ -280,8 +326,8 @@ local function op_read(body)
     if not slot then
         return hzadb.E_BADFD, ""
     end
-    if is_read_denied(slot.path) then
-        publish_log("D2P", slot.path, offset, "denied", "read", "固件资源目录禁止读取")
+    if is_access_denied(slot.path) then
+        publish_log("D2P", slot.path, offset, "denied", "read", "固件资源目录禁止下载")
         return hzadb.E_DENIED, ""
     end
     if not is_readable(slot.path) then
@@ -346,10 +392,14 @@ local function op_lsdir(body)
     return hzadb.E_OK, string.pack("<I4I2", remaining, total) .. table.concat(parts), more
 end
 
--- MKDIR：仅接收目录内
+-- MKDIR：仅接收目录内（/luadb 等禁传目录除外）
 local function op_mkdir(body)
     if not check_path(body) then
         return hzadb.E_TOOLONG, ""
+    end
+    if is_access_denied(body) then
+        publish_log("P2D", body, 0, "denied", "mkdir", "固件资源目录禁止上传")
+        return hzadb.E_DENIED, ""
     end
     if not is_writable(body) then
         publish_log("P2D", body, 0, "denied", "mkdir", "仅接收目录可写")
@@ -361,10 +411,14 @@ local function op_mkdir(body)
     return hzadb.E_IO, ""
 end
 
--- RMDIR：仅接收目录内
+-- RMDIR：仅接收目录内（/luadb 等禁传目录除外）
 local function op_rmdir(body)
     if not check_path(body) then
         return hzadb.E_TOOLONG, ""
+    end
+    if is_access_denied(body) then
+        publish_log("P2D", body, 0, "denied", "rmdir", "固件资源目录禁止上传")
+        return hzadb.E_DENIED, ""
     end
     if not is_writable(body) then
         publish_log("P2D", body, 0, "denied", "rmdir", "仅接收目录可写")
@@ -376,10 +430,14 @@ local function op_rmdir(body)
     return hzadb.E_IO, ""
 end
 
--- REMOVE：仅接收目录内（共享只读，不可删）
+-- REMOVE：仅接收目录内（共享只读，不可删；/luadb 等禁传目录不可删）
 local function op_remove(body)
     if not check_path(body) then
         return hzadb.E_TOOLONG, ""
+    end
+    if is_access_denied(body) then
+        publish_log("P2D", body, 0, "denied", "remove", "固件资源目录禁止上传")
+        return hzadb.E_DENIED, ""
     end
     if not is_writable(body) then
         publish_log("P2D", body, 0, "denied", "remove", "仅接收目录可写")
@@ -463,8 +521,8 @@ local function op_file_sha1(body)
     if not check_path(path) then
         return hzadb.E_TOOLONG, ""
     end
-    if is_read_denied(path) then
-        publish_log("D2P", path, 0, "denied", "file_sha1", "固件资源目录禁止读取")
+    if is_access_denied(path) then
+        publish_log("D2P", path, 0, "denied", "file_sha1", "固件资源目录禁止下载")
         return hzadb.E_DENIED, ""
     end
     if not is_readable(path) then

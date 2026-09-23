@@ -1634,8 +1634,9 @@
                         </div>
                         <div class="control-group" data-page-node-id="q01aaWpeyQHnAAvZt01M9K">
                             <label data-page-node-id="DC85oNedVShHBqRYFyefav">TTS</label>
-                            <input type="text" id="ttsText" placeholder="播报文字" disabled data-page-node-id="GhFRqvfFOXZq2VB1XnE6DM" />
+                            <textarea id="ttsText" rows="2" maxlength="100" placeholder="播报文字（最多100字）" disabled data-page-node-id="GhFRqvfFOXZq2VB1XnE6DM" style="flex:1 1 180px;min-width:0;padding:7px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;resize:vertical;"></textarea>
                             <button class="btn btn-sm" id="sendTtsBtn" disabled data-page-node-id="iCnBdBO0brAhl7gShcqqNe">发送</button>
+                            <button class="btn btn-sm btn-outline" id="ttsStopBtn" disabled data-page-node-id="TtsStopBtn">停止</button>
                         </div>
                         <div class="control-group" data-page-node-id="LedCtrlGroup">
                             <label data-page-node-id="LedLabel">LED控制</label>
@@ -1889,6 +1890,7 @@
                 setCycleBtn = $('setCycleBtn');
             const ttsText = $('ttsText'),
                 sendTtsBtn = $('sendTtsBtn'),
+                ttsStopBtn = $('ttsStopBtn'),
                 controlStatus = $('controlStatus'),
                 controlStatusLabel = $('controlStatusLabel');
             const ledBlinkBtn = $('ledBlinkBtn'),
@@ -2002,7 +2004,7 @@
                     projectSelect.innerHTML = '<option value="">请先登录</option>';
                     projectSelect.disabled = true;
                     setCycleBtn.disabled = true;
-                    sendTtsBtn.disabled = true;
+                    sendTtsBtn.disabled = true; ttsStopBtn.disabled = true;
                     reportCycle.disabled = true;
                     ttsText.disabled = true;
                     ledBlinkBtn.disabled = true;
@@ -2061,7 +2063,7 @@
                         S.infoWin = null; }
                     mapPlaceholder.textContent = '🗺️ 选择设备后显示位置';
                     setCycleBtn.disabled = true;
-                    sendTtsBtn.disabled = true;
+                    sendTtsBtn.disabled = true; ttsStopBtn.disabled = true;
                     reportCycle.disabled = true;
                     ttsText.disabled = true;
                     ledBlinkBtn.disabled = true;
@@ -2147,7 +2149,7 @@
                 if (deviceSelect) deviceSelect.value = imei;
                 showNotice(queryStatus, '正在加载设备数据...', 'info');
                 setCycleBtn.disabled = false;
-                sendTtsBtn.disabled = false;
+                sendTtsBtn.disabled = false; ttsStopBtn.disabled = false;
                 reportCycle.disabled = false;
                 ttsText.disabled = false;
                 ledBlinkBtn.disabled = false;
@@ -2194,7 +2196,7 @@
                     if (e.type === 'auth' || e.type === 'unauthorized') {
                         toast('该设备需要登录查看，请先登录', 'error');
                         setCycleBtn.disabled = true;
-                        sendTtsBtn.disabled = true;
+                        sendTtsBtn.disabled = true; ttsStopBtn.disabled = true;
                         reportCycle.disabled = true;
                         ttsText.disabled = true;
                         ledBlinkBtn.disabled = true;
@@ -2710,11 +2712,29 @@
                 if (!text || text.trim() === '') { toast('请输入播报内容', 'error'); return; }
                 showNotice(controlStatus, '正在发送...', 'info');
                 try {
-                    await api('/aircloud/send_cmd', { client_id: imei, tag: 19, value: text.trim(),
-                    protocol: 1 });
-                    showNotice(controlStatus, 'TTS 发送成功', 'success');
+                    // ttshex: 文本转 UTF-8 十六进制下发（设备端解码播报）。
+                    // 实测（2026-09-23）纯文本走 tts: + ASCII 通道会被云端消毒成 '?'：
+                    // "tts:你好"(UTF-8 10字节) 到达设备只剩 "tts:??"(6字节)。
+                    // 纯十六进制是可打印 ASCII，任何 protocol/类型下都无损。
+                    const hex = Array.from(new TextEncoder().encode(text.trim()))
+                        .map(b => b.toString(16).padStart(2, '0')).join('');
+                    await api('/aircloud/send_cmd', { client_id: imei, tag: 19, value: 'ttshex:' + hex,
+                    protocol: 0 });
+                    showNotice(controlStatus, '已提交，等待设备播报', 'success');
                     setTimeout(() => hideNotice(controlStatus), 3000);
                 } catch (e) { showNotice(controlStatus, '发送失败：' + e.message, 'error'); }
+            }
+
+            async function stopTts(imei) {
+                if (!imei) { toast('请先选择设备', 'error'); return; }
+                if (!S.loggedIn) { toast('请先登录', 'error'); return; }
+                showNotice(controlStatus, '正在停止...', 'info');
+                try {
+                    await api('/aircloud/send_cmd', { client_id: imei, tag: 19, value: 'ttsstop',
+                    protocol: 0 });
+                    showNotice(controlStatus, '已发送停止指令', 'success');
+                    setTimeout(() => hideNotice(controlStatus), 3000);
+                } catch (e) { showNotice(controlStatus, '停止失败：' + e.message, 'error'); }
             }
 
             // ---- 事件绑定 ----
@@ -2841,6 +2861,7 @@
                     setReportCycle(S.currentDeviceId, sec);
                 });
                 sendTtsBtn.addEventListener('click', () => { sendTts(S.currentDeviceId, ttsText.value); });
+                ttsStopBtn.addEventListener('click', () => { stopTts(S.currentDeviceId); });
 
                 // ---- LED控制 ----
                 async function controlLed(imei, command) {

@@ -18,7 +18,7 @@ local tp_gt911 = require "tp_gt911"
 -- 初始化屏幕密度缩放系数（以 1024x600 为设计基准）
 function M.init_density_scale()
     _G.density_scale = 1
-    local ok, w, h = pcall(lcd.getSize)
+    local ok, w, h = pcall(function() return display.getSize() end)
     if ok and type(w) == "number" and w > 0 and type(h) == "number" and h > 0 then
         local scale_w = w / 1024
         local scale_h = h / 600
@@ -52,9 +52,9 @@ end
 -- 屏幕初始化（LCD → AirUI → 背光）
 local function init_screen()
     local lcd_ok = lcd_hx8282.init({
-        port = lcd.RGB,
+        interface = "rgb",
         pin_rst = 15,
-        pin_de = 25,
+        -- pin_de = 25,   -- display 库不接收 pin_de（HX8282 四合一无需 DE 配置），写了也是空操作
         -- pin_pwr = 57,
         direction = 0,
         w = 1024,
@@ -67,15 +67,15 @@ local function init_screen()
         vfp = 12,
         bus_speed = 50 * 1000 * 1000,
     })
-    log.info("hardware", "lcd.init", lcd_ok)
+    log.info("hardware", "display.init", lcd_ok)
     if not lcd_ok then
         return false
     end
 
-    lcd.setupBuff(nil, true)
-    lcd.autoFlush(false)
+    -- display 库在 display.init 内部完成 FrameBuffer 分配，
+    -- 不再需要 lcd.setupBuff / lcd.autoFlush 手动管理
 
-    local w, h = lcd.getSize()
+    local w, h = display.getSize()
     local airui_ok = airui.init(w, h)
     log.info("hardware", "airui.init", airui_ok, w, h)
     if not airui_ok then

@@ -1,16 +1,15 @@
 --[[
 @module  net_watchdog
 @summary 网络环境检测看门狗功能模块
-@version 1.0
-@date    2026.09.24
+@version 1.1
+@date    2026.09.10
 @usage
 本文件为网络环境检测看门狗功能模块，监控网络环境是否工作正常（设备和服务器双向通信正常，或者至少单向通信正常），核心业务逻辑为：
 1、启动一个网络环境检测看门狗task，等待各网络业务功能模块来喂狗；喂狗超时后再兜底判定一次网络环境，
    如果默认网卡仍然持有IP，说明网络环境正常，则继续运行不重启；只有"网络环境异常且长时间无人喂狗"才控制软件重启；
 2、喂狗超时时间取 10 分钟（给云端连接重试留足时间，避免"云暂时连不上->重启->更连不上"的雪崩循环）；
 3、采用多源喂狗，以下任一情况都会重新计时（避免只看云端一个口子）：
-   - AirCloud 网络业务成功发送/收到数据时 sys.publish("FEED_NETWORK_WATCHDOG")；
-   - 以太网温湿度采集成功时（tcp_modbus_master）sys.publish("FEED_NETWORK_WATCHDOG")；
+   - AirCloud 等网络业务成功发送/收到数据时 sys.publish("FEED_NETWORK_WATCHDOG")；
    - 任一网卡（以太网/WiFi/4G）链路就绪或恢复时系统发布的 IP_READY。
 4、喂狗超时且默认网卡无IP（socket.adapter(socket.dft()) 为 nil）时，等待3秒后软件重启。
 
@@ -61,17 +60,12 @@ local function network_watchdog_task_func()
     end
 end
 
--- 附加喂狗事件转发函数（统一转发为 FEED_NETWORK_WATCHDOG）
-local function forward_feed_event()
-    sys.publish("FEED_NETWORK_WATCHDOG")
-end
-
 -- 订阅附加喂狗事件，统一转发为 FEED_NETWORK_WATCHDOG
 for _, evt in ipairs(FORWARD_FEED_EVENTS) do
-    sys.subscribe(evt, forward_feed_event)
+    sys.subscribe(evt, function()
+        sys.publish("FEED_NETWORK_WATCHDOG")
+    end)
 end
 
 -- 创建并启动一个task
 sys.taskInit(network_watchdog_task_func)
-
-log.info("net_watchdog", "网络看门狗模块加载完成")

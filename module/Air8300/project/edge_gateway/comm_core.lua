@@ -1,8 +1,8 @@
 --[[
 @module  comm_core
 @summary Modbus RTU 主站公共封装层
-@version 1.3
-@date    2026.09.24
+@version 1.2
+@date    2026.09.18
 @usage
 本文件为 Modbus RTU 主站公共封装层，统一封装 exmodbus 主站实例的创建、读操作、写操作，
 供 temp_sensor（温湿度采集）与 relay_ctrl（继电器控制）两个模块复用，避免重复代码。
@@ -51,13 +51,6 @@ local RETRY_WAIT = 100
 -- 总线静默期（毫秒）：事务结束/重试前先等总线安静，避免超时事务的迟到应答污染下一笔事务
 local BUS_SILENCE_MS = 50
 
--- 失败日志降噪阈值：连续失败次数每达到该值才输出一条 warn。
--- 背景：继电器状态周期回读为 2 秒一次，若从站持续无响应，逐条打印会把日志刷屏，
---       掩盖真正有用的信息。改为按"连续失败次数"定量输出，既能持续反映故障，又不刷屏。
-local LOG_FAIL_THRESHOLD = 3
--- 各操作的连续失败计数（key 为操作标识，成功时归零）
-local fail_streak = {}
-
 -- 字节串转 HEX 字符串（调试打印用）
 function M.hex(s)
     if not s then return "nil" end
@@ -92,107 +85,6 @@ local function verify_crc(resp)
     local calc = crypto.crc16_modbus(resp:sub(1, -3))
     local recv = string.byte(resp, -2) + string.byte(resp, -1) * 256
     return calc == recv
-end
-
--- 尝试恢复"仅丢失最后 1 个字节"的应答帧
--- 原理：Modbus RTU 帧末 2 字节为 CRC16-Modbus（低字节在前）。若帧只缺少最后 1 个字节，
---       可枚举该字节的 256 种取值，使整帧 CRC 校验成立的取值在数学上是唯一的。
---       命中即说明帧体数据完整（CRC 是唯一约束），可安全使用；未命中则不做任何修改。
--- 说明：现场实测出现过"响应末字节（恰好为 0x00 的 CRC 高字节）未进入接收缓冲"的现象，
---       表现为库报"数据长度不匹配，期望: 1 实际: 0"，本函数用于自愈该情况。
--- @param resp string 收到的（可能缺少末字节的）应答帧
--- @return string|nil 补全后的完整帧；nil 表示无法恢复
-local function try_recover_tail(resp)
-    if type(resp) ~= "string" or #resp < 4 then return nil end
-    for b = 0, 255 do
-        local cand = resp .. string.char(b)
-        if verify_crc(cand) then
-            return cand
-        end
-    end
-    return nil
-end
-
--- 应答帧校验（长度 + 从站地址 + 功能码 + CRC），并支持"末字节丢失"的自愈恢复
--- @param resp string 原始应答帧
--- @param slave_id number 期望的从站地址
--- @param func_code number 期望的功能码（注意：读线圈是 exmodbus.READ_COILS(0x01)，
---                  不是寄存器类型常量 exmodbus.COIL_STATUS(0)）
--- @param expect_len number|nil 期望的完整帧字节数（含 2 字节 CRC）；传 nil 时退化为"CRC 优先"的兼容逻辑
--- @return boolean ok, string frame（ok=true 时 frame 为通过校验的完整帧）
-local function check_and_fix(resp, slave_id, func_code, expect_len)
-    if type(resp) ~= "string" or #resp < 4 then
-        return false, resp
-    end
-    if string.byte(resp, 1) ~= slave_id or string.byte(resp, 2) ~= func_code then
-        log.warn("comm_core", "应答帧从站/功能码不符, 实际:",
-            string.format("%02X %02X", string.byte(resp, 1), string.byte(resp, 2)),
-            "期望:", string.format("%02X %02X", slave_id, func_code))
-        return false, resp
-    end
-
-    if expect_len then
-        if #resp == expect_len - 1 then
-            -- 仅缺少最后 1 个字节 → 尝试 CRC 反推补全（让自愈逻辑真正生效）
-            local fixed = try_recover_tail(resp)
-            if fixed then
-                log.warn("comm_core", "应答末字节丢失, 已通过 CRC 反推补全, 原长度:", #resp,
-                    "补全后长度:", #fixed)
-                return true, fixed
-            end
-            log.warn("comm_core", "应答帧少 1 字节且 CRC 反推补全失败, 实际长度:", #resp,
-                "期望长度:", expect_len, "原帧:", M.hex(resp))
-            return false, resp
-        end
-        if #resp ~= expect_len then
-            log.warn("comm_core", "应答帧长度不符, 实际长度:", #resp, "期望长度:", expect_len,
-                "原帧:", M.hex(resp))
-            return false, resp
-        end
-        -- 长度正确 → 再校验 CRC
-        if verify_crc(resp) then
-            return true, resp
-        end
-        log.warn("comm_core", "应答帧 CRC 校验失败, 原帧:", M.hex(resp))
-        return false, resp
-    end
-
-    -- 未传期望长度：保持兼容逻辑（CRC 优先，失败再尝试末字节补全）
-    if verify_crc(resp) then
-        return true, resp
-    end
-    local fixed = try_recover_tail(resp)
-    if fixed then
-        log.warn("comm_core", "应答末字节丢失, 已通过 CRC 反推补全, 原长度:", #resp)
-        return true, fixed
-    end
-    return false, resp
-end
-
--- 自行解析功能码 0x01（读线圈）应答帧，取出各线圈状态位
--- 帧结构：从站地址(1) + 功能码(1) + 字节数(1) + 数据(n) + CRC(2)
--- 不依赖库的解析结果，因此可兼容"末字节被 CRC 反推补全"的应答帧。
--- @param frame string 已通过校验的完整应答帧（含 CRC）
--- @param start_addr number 起始线圈地址
--- @param count number 线圈数量
--- @return table|nil 线圈状态数组（索引为绝对地址，值 0/1）；帧结构不符返回 nil
-local function parse_coil_bits(frame, start_addr, count)
-    local expect_bytes = math.ceil(count / 8)
-    local expect_len = 3 + expect_bytes + 2
-    if #frame ~= expect_len then
-        log.warn("comm_core", "读线圈应答帧长度不符, 实际:", #frame, "期望:", expect_len)
-        return nil
-    end
-    if string.byte(frame, 3) ~= expect_bytes then
-        log.warn("comm_core", "读线圈应答字节数不符, 实际:", string.byte(frame, 3), "期望:", expect_bytes)
-        return nil
-    end
-    local data = {}
-    for i = 0, count - 1 do
-        local b = string.byte(frame, 4 + math.floor(i / 8))
-        data[start_addr + i] = (b >> (i % 8)) & 1
-    end
-    return data
 end
 
 -- 创建 RTU 主站实例
@@ -284,34 +176,28 @@ function M.read_coils(master, cfg)
         return nil
     end
 
-    local count = cfg.count or 1
-    -- 期望应答帧长度：从站地址(1) + 功能码(1) + 字节数(1) + 数据(n) + CRC(2)
-    -- 4 路线圈 → 6 字节；8 路线圈 → 6 字节（数据字段均为 1 字节）
-    local expect_len = 3 + math.ceil(count / 8) + 2
-
     local rcfg = {
         slave_id = cfg.slave_id,
         reg_type = exmodbus.COIL_STATUS,
         start_addr = cfg.start_addr,
-        reg_count = count,
+        reg_count = cfg.count,
         timeout = cfg.timeout or 1000,
     }
 
     bus_acquire()
     local result
-    local frame_ok, frame = false, nil
+    local crc_ok = false
     for i = 0, RETRY_TIMES do
         result = master:read(rcfg)
-        if result then
-            -- 帧级校验：长度 + 从站地址 + 功能码 + CRC，并支持"仅丢失末字节"的 CRC 反推补全
-            frame_ok, frame = check_and_fix(result.raw_response, cfg.slave_id,
-                exmodbus.READ_COILS, expect_len)
-            if frame_ok then
+        if result and result.status == exmodbus.STATUS_SUCCESS then
+            crc_ok = verify_crc(result.raw_response)
+            if crc_ok then
                 break
             end
+            log.warn("comm_core", "读线圈应答 CRC 校验失败, 丢弃本次数据")
         end
         if i < RETRY_TIMES then
-            -- 重试前先让总线静默，避免迟到应答污染下一笔事务（失败细节已由 check_and_fix 打印，此处不重复刷屏）
+            log.warn("comm_core", "读线圈失败, 状态=", result and result.status, "准备重试")
             safe_wait(BUS_SILENCE_MS)
             safe_wait(RETRY_WAIT)
         end
@@ -319,23 +205,19 @@ function M.read_coils(master, cfg)
     safe_wait(BUS_SILENCE_MS)
     bus_release()
 
-    if frame_ok and frame then
-        -- 成功：清零连续失败计数
-        fail_streak.read_coils = 0
-        -- 自行解析线圈位，不依赖库的解析结果，兼容"末字节被补全"的应答帧
-        return parse_coil_bits(frame, cfg.start_addr, count)
+    if result and result.status == exmodbus.STATUS_SUCCESS and crc_ok then
+        return result.data
+    end
+    if result and result.status == exmodbus.STATUS_SUCCESS then
+        log.warn("comm_core", "读线圈应答 CRC 校验失败, 数据不可信已丢弃")
+        return nil
     end
 
-    -- 失败：连续失败计数 + 降噪打印（每 LOG_FAIL_THRESHOLD 次输出一条，避免 2 秒周期回读刷屏）
-    local n = (fail_streak.read_coils or 0) + 1
-    fail_streak.read_coils = n
-    if n % LOG_FAIL_THRESHOLD == 0 then
-        if result and result.status == exmodbus.STATUS_EXCEPTION then
-            log.warn("comm_core", "读线圈异常, 异常码=", result.execption_code, ", 连续失败", n, "次")
-        else
-            log.warn("comm_core", "读线圈失败, 库状态=", result and result.status, ", 连续失败", n, "次")
-            log_raw("读线圈", result)
-        end
+    if result and result.status == exmodbus.STATUS_EXCEPTION then
+        log.warn("comm_core", "读线圈异常, 异常码=", result.execption_code)
+    else
+        log.warn("comm_core", "读线圈失败, 状态=", result and result.status)
+        log_raw("读线圈", result)
     end
     return nil
 end
@@ -367,14 +249,12 @@ function M.write_coil(master, cfg)
     local crc_ok = false
     for i = 0, RETRY_TIMES do
         result = master:write(wcfg)
-        if result then
-            -- 帧级校验（含末字节丢失的自愈恢复），不再依赖库返回的 status
-            -- 写单线圈正常应答为 8 字节：从站(1)+功能码(1)+地址(2)+数据(2)+CRC(2)
-            crc_ok = check_and_fix(result.raw_response, cfg.slave_id, exmodbus.WRITE_SINGLE_COIL, 8)
+        if result and result.status == exmodbus.STATUS_SUCCESS then
+            crc_ok = verify_crc(result.raw_response)
             if crc_ok then
                 break
             end
-            log.warn("comm_core", "写线圈应答帧校验未通过, 库状态=", result.status, "丢弃本次结果")
+            log.warn("comm_core", "写线圈应答 CRC 校验失败, 丢弃本次结果")
         end
         if i < RETRY_TIMES then
             log.warn("comm_core", "写线圈失败, 状态=", result and result.status, "准备重试")
@@ -385,8 +265,12 @@ function M.write_coil(master, cfg)
     safe_wait(BUS_SILENCE_MS)
     bus_release()
 
-    if crc_ok then
+    if result and result.status == exmodbus.STATUS_SUCCESS and crc_ok then
         return exmodbus.STATUS_SUCCESS, result
+    end
+    if result and result.status == exmodbus.STATUS_SUCCESS then
+        log.warn("comm_core", "写线圈应答 CRC 校验失败, 未确认写入成功")
+        return exmodbus.STATUS_DATA_INVALID, result
     end
 
     if result and result.status == exmodbus.STATUS_EXCEPTION then
@@ -423,14 +307,12 @@ function M.write_coils(master, cfg)
     local crc_ok = false
     for i = 0, RETRY_TIMES do
         result = master:write(wcfg)
-        if result then
-            -- 帧级校验（含末字节丢失的自愈恢复），不再依赖库返回的 status
-            -- 写多线圈正常应答为 8 字节：从站(1)+功能码(1)+地址(2)+数量(2)+CRC(2)
-            crc_ok = check_and_fix(result.raw_response, cfg.slave_id, exmodbus.WRITE_MULTIPLE_COILS, 8)
+        if result and result.status == exmodbus.STATUS_SUCCESS then
+            crc_ok = verify_crc(result.raw_response)
             if crc_ok then
                 break
             end
-            log.warn("comm_core", "写多线圈应答帧校验未通过, 库状态=", result.status, "丢弃本次结果")
+            log.warn("comm_core", "写多线圈应答 CRC 校验失败, 丢弃本次结果")
         end
         if i < RETRY_TIMES then
             log.warn("comm_core", "写多线圈失败, 状态=", result and result.status, "准备重试")
@@ -441,8 +323,12 @@ function M.write_coils(master, cfg)
     safe_wait(BUS_SILENCE_MS)
     bus_release()
 
-    if crc_ok then
+    if result and result.status == exmodbus.STATUS_SUCCESS and crc_ok then
         return exmodbus.STATUS_SUCCESS, result
+    end
+    if result and result.status == exmodbus.STATUS_SUCCESS then
+        log.warn("comm_core", "写多线圈应答 CRC 校验失败, 未确认写入成功")
+        return exmodbus.STATUS_DATA_INVALID, result
     end
 
     if result and result.status == exmodbus.STATUS_EXCEPTION then

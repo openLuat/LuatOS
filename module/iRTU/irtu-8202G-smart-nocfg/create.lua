@@ -281,6 +281,15 @@ local function aircloud_status_frame()
     return {
         { field_meaning = FM.VOLTAGE,           data_type = DT.INTEGER, value = vbat or 0 },
         { field_meaning = FM.SIGNAL_STRENGTH_4G, data_type = DT.INTEGER, value = mobile.csq() or 0 },
+        -- TIMESTAMP(1280) / CUSTOM_DEVICE_ID(1293) / CUSTOM_PROJECT_NAME(1294)：
+        -- 工业模组出厂固件规划：官方**必填**字段，每次上报都要有
+        { field_meaning = FM.TIMESTAMP,         data_type = DT.INTEGER, value = os.time() },
+        { field_meaning = FM.CUSTOM_DEVICE_ID,  data_type = DT.ASCII,
+          value = (function()
+              local ok, am = pcall(require, "active_mode")
+              return (ok and am and am.get_device_uid) and am.get_device_uid() or "unknown"
+          end)() },
+        { field_meaning = FM.CUSTOM_PROJECT_NAME, data_type = DT.ASCII, value = _G.PROJECT or "unknown" },
         { field_meaning = 1290,                 data_type = DT.INTEGER, value = report_mode },
         { field_meaning = FM.FIRMWARE_VERSION,  data_type = DT.ASCII,   value = _G.VERSION or "unknown" },
     }
@@ -311,6 +320,54 @@ local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
         sys.waitUntil("IP_READY", 1000)
     end
 
+    --[[
+    处理官方 CONTROL_COMMAND（tag 19，ASCII）：`cycle:秒数` / `led:blink|on|off`
+    依据：官方参考工程 Air8780_factory/app/aircloud/aircloud_app.lua（v1.2.0）
+          + 《工业模组出厂固件规划》§3.2「下行指令」
+    并存说明（用户 2026-09-23 指示）：本处理**不替换**既有 REMOTE_COMMAND 机制，
+       tag 19 的消息在处理后**仍会照常发布 REMOTE_COMMAND**，两套协议互不影响。
+    执行结果通过 CONTROL_RESPONSE（tag 20，ASCII）回复给服务器。
+    ]]
+    local function handle_control_command(value)
+        local cmd = tostring(value or "")
+        local resp = "命令执行成功"
+
+        local cycle_val = cmd:match("^cycle:(%d+)$")
+        if cycle_val then
+            -- 设置工厂上报任务的上报周期（≥5 秒，写入 fskv 断电不丢）
+            local factory_report = require("factory_report")
+            local ok, err = factory_report.set_cycle(tonumber(cycle_val))
+            if not ok then resp = err or "设置上报频率失败" end
+        else
+            local led_cmd = cmd:match("^led:(%w+)$")
+            if led_cmd then
+                local tools = require("tools")
+                if led_cmd == "blink" then
+                    -- 文档：闪烁5秒（亮1秒灭1秒）
+                    tools.led_force("blink", 5)
+                elseif led_cmd == "on" then
+                    tools.led_force("on")
+                elseif led_cmd == "off" then
+                    tools.led_force("off")
+                else
+                    resp = "未知的LED命令: " .. led_cmd
+                end
+            else
+                resp = "未知命令格式: " .. cmd
+            end
+        end
+
+        log.info("create", "CONTROL_COMMAND:", cmd, "→", resp)
+        -- 通过 CONTROL_RESPONSE（tag 20）回复执行结果
+        local ok_send, err_send = excloud.send({
+            { field_meaning = excloud.FIELD_MEANINGS.CONTROL_RESPONSE,
+              data_type = excloud.DATA_TYPES.ASCII, value = resp }
+        }, false)
+        if not ok_send then
+            log.warn("create", "发送 CONTROL_RESPONSE 失败:", tostring(err_send))
+        end
+    end
+
     excloud.on(function(event, data)
         log.info("create", "excloud事件", event)
         if event == "connect_result" then
@@ -325,7 +382,11 @@ local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
             log.info("create", "认证结果", data.success and "成功" or ("失败: " .. tostring(data.message)))
         elseif event == "message" then
             for _, tlv in ipairs(data.tlvs) do
-                -- 所有数据统一以 JSON 格式通过 REMOTE_COMMAND 分发
+                -- 官方《工业模组出厂固件规划》§3.2：CONTROL_COMMAND(tag 19) 独立处理
+                if tlv.field == excloud.FIELD_MEANINGS.CONTROL_COMMAND then
+                    handle_control_command(tlv.value)
+                end
+                -- 所有数据统一以 JSON 格式通过 REMOTE_COMMAND 分发（既有行为保持不变，两套协议并存）
                 sys.publish("REMOTE_COMMAND", {command = tlv.value, raw = tlv})
             end
         elseif event == "disconnect" then

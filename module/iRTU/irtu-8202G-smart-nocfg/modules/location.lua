@@ -27,10 +27,19 @@ local location_state = {
 function location.init()
     log.info("location", "初始化定位模块")
 
+    -- 板级 GNSS 参数（board.profile）：
+    --   Air8202  volgpio=nil → exgnss 走 pm.power(pm.GPS) 供电【现状不变】
+    --   Air8201G volgpio=21  → 内置 GNSS，GPIO 使能
+    --   Air8201H volgpio=25  → 外置 GNSS 芯片，GPIO 使能
+    -- 三型号串口均为 UART2 @115200（与 exgnss 默认一致，显式传入以便对齐）
+    local gnss_cfg = (config.BOARD and config.BOARD.gnss) or {}
     local gnssotps = {
         gnssmode = 1,
         agps_enable = true,
         debug = true,
+        gnss_volgpio = gnss_cfg.volgpio,
+        uart = gnss_cfg.uart,
+        uartbaud = gnss_cfg.baud,
     }
     exgnss.setup(gnssotps)
     sys.subscribe("GNSS_STATE", location.gnss_state_callback)
@@ -182,9 +191,9 @@ function location.stop_find_gps()
     end
 end
 
--- ====== NMEA 1Hz 流式采样（TLV 1294 数据源，004.000.019 新增） ======
+-- ====== NMEA 1Hz 流式采样（TLV 1302 数据源，004.000.019 新增） ======
 -- GNSS 开启期间每秒采样一次定位五元组（经度/纬度/速度/航向/海拔），
--- 滚动保留最近 10 个有效样本（对应 10 秒），供 active_mode 组装 TLV 1294 二进制字段上报。
+-- 滚动保留最近 10 个有效样本（对应 10 秒），供 active_mode 组装 TLV 1302 二进制字段上报。
 local NMEA_STREAM_KEEP = 10   -- 滚动缓冲容量（样本数）
 
 local nmea_stream = {
@@ -247,7 +256,7 @@ function location.nmea_stream_stop()
     end
 end
 
--- 取最近 10 个有效样本，编码为 TLV 1294 二进制载荷
+-- 取最近 10 个有效样本，编码为 TLV 1302 二进制载荷
 -- 每样本 10 字节 = 经度差/纬度差/速度/航向/海拔 各 2 字节有符号 int16 大端，时间正序（最早在前）：
 --   经度差 = (样本经度 - ref_lng) × 100000，1LSB ≈ 1.1m，范围 ±0.33°
 --   纬度差 = (样本纬度 - ref_lat) × 100000，同上

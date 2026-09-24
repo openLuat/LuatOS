@@ -8,13 +8,22 @@
 1. 定义设备工作模式 / 功耗模式 / 报警阈值配置
 2. 定义定位（GPS/LBS/AirLBS）与超时配置
 3. 定义充电管理（YHM2712A）/ 看门狗（Air153C）配置
-4. 定义硬件引脚（仅保留 LED：GPIO26 绿 / GPIO27 黄）
+4. 定义硬件引脚（板级派生：由 board.profile 提供，单固件自适应三型号）
 5. load_from_server() 处理服务端下发配置（已停用功能字段直接忽略）
 004.000.030 清理：删除上报间隔表（GNSS 三态固定节奏替代）、定位优先级（旧按模式
 定位链遗留）、FIND_MODE/SIP/传感器/DEVICE_RESTART 等无读取方配置。
 ]]
 
 local config = {}
+
+-- ==================== 板级配置（唯一真相源） ====================
+-- 目标：单份固件自适应 Air8202 / Air8201G / Air8201H。
+-- 规则：所有"板相关"的引脚与器件能力一律取自 board.profile，本文件不再出现板级字面量。
+-- 依赖方向单向：config → board（board 不得 require config）。
+-- board.init() 为幂等同步调用（无 I/O），在 T0 窗口完成型号判定。
+local board = require("board")
+board.init()
+local BP = board.profile
 
 -- 设备模式
 config.DEVICE_MODE = {
@@ -87,29 +96,50 @@ config.BATTERY_RELIABILITY = {
 -- 注意：CMD(STACMD)引脚不能持续拉低超过14.4s，否则芯片触发硬件复位（关闭SYS电源200ms导致主控重启）。
 --       扩展库已内置 CMD 空闲保持高电平处理（cmd_idle），每次通信后自动恢复，正常使用无风险。
 -- 默认配置参考官方示例（osapi/ext/charger/exs_yhm2712a/ 2.1 + 同事示例 yhm2712a_app）：CMD=GPIO25，电池4.2V
--- 容量2000mAh：芯片库电流表最高只到1000mAh档（math.min 钳制），取 MIN 档=50mA（最小电流，保守稳妥）
+-- 容量2000mAh：芯片库电流表最高只到1000mAh档（math.min 钳制），取 DEFAULT 档=500mA（0.25C，约5h充满，保守稳妥）
+-- 板级部分（ENABLE/CMD_PIN/浮充电压/容量）来自 board.profile：
+--   Air8202 = YHM2712A(cmd=25) / Air8201G = 无 CMD 不可软件配置(ENABLE=false) / Air8201H = YHM2712A(cmd=27)
 config.CHARGE_CONFIG = {
-    ENABLE = true,                 -- 是否启用充电管理（默认开启）
-    CMD_PIN = 25,                  -- YHM2712A CMD 引脚（STACMD 单线通信）
-    FLOAT_VOLTAGE_MV = 4200,       -- 浮充电压(mV)：4200=4.2V / 4350=4.35V
-    CAP_BATTERY_MAH = 2000,        -- 电池容量(mAh)：2000（实际装机容量）
-    I_CHARGE = "MIN",              -- 充电电流档位默认值：MIN / MID / MAX（可被服务端 charge.i_charge 覆盖；2000mAh 取 1000 档，MIN=50mA）
+    ENABLE = BP.charger.enable == true,      -- 是否启用充电管理（由板级能力决定）
+    CMD_PIN = BP.charger.cmd_pin,            -- YHM2712A CMD 引脚（STACMD 单线通信）；无此能力为 nil
+    FLOAT_VOLTAGE_MV = BP.charger.float_mv or 4200, -- 浮充电压(mV)：4200=4.2V / 4350=4.35V
+    CAP_BATTERY_MAH = BP.charger.cap_mah or 2000,   -- 电池容量(mAh)
+    I_CHARGE = "DEFAULT",          -- 充电电流档位：MIN / DEFAULT / MAX（2000mAh 实际取 1000 档 DEFAULT=500mA）
 }
+
+-- USB 电源跟随充电状态
+-- 需求：充电时打开 USB、不充电时关闭（省电）。
+-- 官方接口：pm.power(pm.USB, onoff) —— USB 电源开关。
+--   官网 @api pm.power 原文：「电源控制id, 包括开关型 pm.USB（USB电源） pm.GPS（GPS电源）...」
+--   ⚠️ usb.* 库（tx / rx / mode / add_class）是 USB 协议栈，不是电源控制，勿混用。
+-- ⚠️ 本功能依赖"充电状态"判断正确：若某板型 VBUS 极性标定反了，会出现
+--    「插上 USB 反而关掉 USB」→ 调试口不可用。此时把本项置 false 即可关闭本功能。
+config.USB_POWER_FOLLOW_CHARGE = true
 
 -- 看门狗配置（Air153C 硬件看门狗）
 -- 硬件接线：AGPIO24 → NPN → WTDOG（见 exair153x_wdt 库注释）
 -- 默认开启：喂狗 GPIO24，周期 180 秒（Air153C 超时固定 240s，喂狗周期需 >150s）
 config.WDT_CONFIG = {
-    ENABLE = true,                 -- 是否启用看门狗（默认开启）
-    FEED_PIN = 24,                 -- 喂狗引脚（AGPIO24 → NPN → WTDOG）
-    FEED_INTERVAL = 180,           -- 喂狗间隔(秒)，需大于150
+    ENABLE = BP.wdt.enable == true,          -- 是否启用看门狗（由板级能力决定）
+    -- ⚠️ 上面那句「AGPIO24 → NPN → WTDOG」描述的是 **8202 的接线**，**不可外推到 8201G**：
+    --    2026-09-18 用户确认 —— **8201G 无外接看门狗（无 Air153C），
+    --    GPIO24 是 G-Sensor 供电，接 V_BCKP**（`gsensor.power_pin = 24` 正确）。
+    --    曾据本行注释误判 8201G 的 24 脚角色（看门狗喂狗脚），故在此显式标注以免再犯。
+    FEED_PIN = BP.wdt.feed_pin,              -- 喂狗引脚（AGPIO24 → NPN → WTDOG）
+    FEED_INTERVAL = BP.wdt.interval or 180,  -- 喂狗间隔(秒)，需大于150
 }
 
--- 硬件引脚定义（仅保留存活项：LED；其余引脚配置由各驱动/库内部自行管理）
+-- 硬件引脚定义（板级派生；其余引脚配置由 profile/各驱动内部管理）
+-- 字段名沿用历史，语义为：GREEN_LED=网络/状态指示灯，YELLOW_LED=充电指示灯
+-- （Air8201G/H 上两路为红灯 GPIO12 / 蓝灯 GPIO1，颜色不同但状态机逻辑一致）
 config.HARDWARE_PINS = {
-    GREEN_LED = 26,      -- 绿灯 GPIO26（不充电亮灯场景）
-    YELLOW_LED = 27,     -- 黄灯 GPIO27（充电中亮灯场景）
+    GREEN_LED  = BP.led.net_pin,   -- 网络/状态指示灯（8202=26 / 8201G,H=12）
+    YELLOW_LED = BP.led.chg_pin,   -- 充电指示灯（8202=27 / 8201G,H=1）
 }
+
+-- 板级配置与板型标识（供日志/排障/后续模块读取，禁止在业务层散落板型字面量）
+config.BOARD = BP
+config.BOARD_ID = board.id
 
 -- 默认网络通道配置（无服务端持久化配置时使用，见 main.lua）
 -- 通道1 = AirCloud：TLV 直发合宙云平台，conf_on[1]=1 表示启用
@@ -166,13 +196,18 @@ function config.load_from_server(gnss_cfg, project_key)
     if gnss_cfg.charge then
         local ch = gnss_cfg.charge
         config.CHARGE_CONFIG = config.CHARGE_CONFIG or {}
-        if ch.enable ~= nil then config.CHARGE_CONFIG.ENABLE = ch.enable == 1 end
+        -- ===== 板级能力/引脚红线（单固件多型号必需）=====
+        -- 1) 能力不可下发：无充电IC通讯能力的板型（如 8201G，U16 无 CMD）不得被服务端"启用"
+        -- 2) 引脚不可下发：CMD_PIN 一律取自 board.profile
+        --    否则同一份固件在 8201G/8201H 上会被旧持久化配置拉回 8202 的引脚值，单固件方案失效
+        if ch.enable ~= nil and BP.charger.cmd_pin then
+            config.CHARGE_CONFIG.ENABLE = ch.enable == 1
+        elseif ch.enable ~= nil then
+            log.warn("config", "本板无充电IC通讯能力，忽略服务端 charge.enable=", ch.enable)
+        end
         if ch.cmd_pin then
-            local pin = ch.cmd_pin
-            if type(pin) == "string" then
-                pin = tonumber(pin:match("gpio(%d+)") or pin:match("(%d+)"))
-            end
-            config.CHARGE_CONFIG.CMD_PIN = tonumber(pin)
+            log.warn("config", "忽略服务端下发的 charge.cmd_pin（板级引脚由 board.profile 固定为",
+                tostring(BP.charger.cmd_pin), "）")
         end
         if ch.v_battery and ch.v_battery > 0 then config.CHARGE_CONFIG.FLOAT_VOLTAGE_MV = ch.v_battery end
         if ch.cap_battery and ch.cap_battery > 0 then
@@ -195,13 +230,15 @@ function config.load_from_server(gnss_cfg, project_key)
     if gnss_cfg.wdt then
         local wdt = gnss_cfg.wdt
         config.WDT_CONFIG = config.WDT_CONFIG or {}
-        if wdt.on ~= nil then config.WDT_CONFIG.ENABLE = wdt.on == 1 end
+        -- 板级能力/引脚红线：无硬件看门狗的板型（8201G/H）不得被服务端"开启"；喂狗引脚一律取自 profile
+        if wdt.on ~= nil and BP.wdt.feed_pin then
+            config.WDT_CONFIG.ENABLE = wdt.on == 1
+        elseif wdt.on ~= nil then
+            log.warn("config", "本板无硬件看门狗，忽略服务端 wdt.on=", wdt.on)
+        end
         if wdt.feed_pin then
-            local pin = wdt.feed_pin
-            if type(pin) == "string" then
-                pin = tonumber(pin:match("gpio(%d+)") or pin:match("(%d+)"))
-            end
-            config.WDT_CONFIG.FEED_PIN = tonumber(pin)
+            log.warn("config", "忽略服务端下发的 wdt.feed_pin（板级引脚由 board.profile 固定为",
+                tostring(BP.wdt.feed_pin), "）")
         end
         if wdt.feed_interval and tonumber(wdt.feed_interval) then
             config.WDT_CONFIG.FEED_INTERVAL = tonumber(wdt.feed_interval)

@@ -50,6 +50,11 @@ local function init_all_modules()
     remote.init()
     lowpower_app.init()
 
+    -- 工业模组出厂固件规划：独立的 180s 周期上报任务
+    -- （与现有业务互不干扰，只走 AirCloud TLV 通道；周期可由下行 cycle:N 修改）
+    local factory_report = require("factory_report")
+    factory_report.start()
+
     log.info("app", "所有功能模块初始化完成")
 end
 

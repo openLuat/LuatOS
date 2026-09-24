@@ -92,7 +92,8 @@ function command_handlers.play_sound(msg, cmd_msg)
     send_reply(cmd_msg.msg_id, "play_sound", 4, "音频不支持（无音频硬件）")
 end
 
--- 5. open_light - 控制灯光（手动覆盖：1=强制亮（黄色，不充电时绿色），0=恢复自动状态机）
+-- 5. open_light - 控制灯光（手动覆盖：1=网络/状态灯强制常亮，0=交还自动状态机）
+-- 注：充电灯不受本命令影响，始终按充电状态自动显示。
 function command_handlers.open_light(msg, cmd_msg)
     local params = cmd_msg.data and cmd_msg.data.params or {}
     local status = tonumber(params.status)
@@ -101,9 +102,9 @@ function command_handlers.open_light(msg, cmd_msg)
 
     local tools = require("tools")
     if status == 1 then
-        if tools.led_set_manual then tools.led_set_manual(true) end
+        tools.led_set_manual(true)
     elseif status == 0 then
-        if tools.led_set_manual then tools.led_set_manual(false) end
+        tools.led_set_manual(false)
     else
         send_reply(cmd_msg.msg_id, "open_light", 2, "参数错误: status=" .. tostring(status))
         return
@@ -183,7 +184,7 @@ end
 -- 扁平：{"cmd":"fast_report"}
 -- 行为（由 active_mode 状态机执行）：
 --   无论当前 GNSS 开启/关闭，立即进入实时上报模式：每秒上报一次报文，
---   除 1293/1294 外其余 TLV 都上报，持续 1 分钟；
+--   除 1301/1302 外其余 TLV 都上报，持续 1 分钟；
 --   进行中重复收到本命令则重置 1 分钟倒计时（续期）；
 --   结束时强制先进入 GNSS 开启模式，再按 gsensor 条件正常评估。
 function command_handlers.fast_report(msg, cmd_msg)

@@ -11,6 +11,7 @@
 3、基于 socket 异步回调和 sys.task 后台循环，适合常驻运行
 4、通过统一事件回调向外抛出注册、通话、媒体、消息、错误等状态
 5、支持 CC<->SIP 桥接所需的来电早期媒体、接听、外呼和结束通知，复用 PCMU/PCMA 媒体协商
+6、首次注册与续期统一校验 REGISTER 事务并重试；通话中注册超时保留连接及媒体，延后继续尝试
 
 CC<->SIP 桥接分工：
 通过 exsip.init() 配置 cc_sip_bridge = true 启用桥接，exsip 接收本库的 media/ready、media/stop
@@ -48,6 +49,19 @@ sip.start({
 2、如果服务器要求 TCP 或 TLS，请同步匹配 transport 和底层 socket 配置
 3、Contact 使用本地 IP 和端口，若设备位于 NAT 后，需要服务端支持 rport 或 received 等机制
 ]]
+
+-- 更新说明：2026-09-24
+-- 版本号：202609241427
+-- 1、首次注册、定时续期、鉴权及 OPTIONS 404 恢复注册统一维护 REGISTER 事务，
+--    响应等待与 online 状态独立，修复在线续期丢包后不再重试的问题。
+-- 2、默认每次等待 10 秒、每个事务最多发送 3 次；超时重发原报文，保留鉴权信息、
+--    Call-ID、CSeq 和 branch，避免丢包重试重新开始鉴权。
+-- 3、响应必须匹配当前事务的 Call-ID、CSeq 和 REGISTER 方法；忽略迟到、重复响应，
+--    100 等临时响应不取消最终响应等待，也不延长重试期限。
+-- 4、重试耗尽时，若仍有通话、待接来电或后台收尾对话，保留原连接、媒体及 DTMF，
+--    上报注册失败并默认等待 10 秒后开始新一轮；无通话时沿用原有断线重连流程。
+-- 5、注册响应等待与续期定时器校验所属连接及当前实例，停止或重连后的旧回调不再生效。
+
 local proto = require "exsipproto"
 
 local M = {}
@@ -698,7 +712,7 @@ local function sip_task(opts)
         auth_tried = 0,
         reg_timer = nil,
         register_response_timer = nil,
-        register_attempts = 0,
+        register_tx = nil, -- 当前等待响应的 REGISTER 事务，与 online 独立。
         register_response_timeout = math.max(1000, tonumber(opts.register_response_timeout) or 10000),
         register_max_attempts = math.max(1, tonumber(opts.register_max_attempts) or 3),
         last_register_response_code = nil,
@@ -1105,58 +1119,106 @@ local function sip_task(opts)
         end
     end
 
-    -- REGISTER 发出后等待服务器响应。UDP 端口错误通常不会产生 socket 错误，
-    -- 因此只能通过“连续多次发送 REGISTER 仍无任何 SIP 响应”识别为注册超时。
-    local function start_register_response_timer()
+    local begin_register
+
+    -- 续期与通话中的延后重试共用此入口，旧连接或已取消的定时器不能再发包。
+    local function schedule_register_request(delay_ms)
+        if state.reg_timer then sys.timerStop(state.reg_timer) end
+        local netc = state.netc
+        local timer
+        timer = sys.timerStart(function()
+            if g_stop or state.netc ~= netc or state.reg_timer ~= timer then return end
+            state.reg_timer = nil
+            begin_register()
+        end, delay_ms)
+        state.reg_timer = timer
+    end
+
+    -- 首次注册、续期及鉴权请求都按当前事务等待响应，已注册不代表本次续期已成功。
+    local function start_register_response_timer(tx)
         stop_register_response_timer()
-        state.register_response_timer = sys.timerStart(function()
+        local timer
+        timer = sys.timerStart(function()
+            if g_stop or state.netc ~= tx.netc or state.register_tx ~= tx or
+                state.register_response_timer ~= timer then return end
             state.register_response_timer = nil
-            if state.online or not state.netc then
-                return
-            end
 
-            if state.register_attempts < state.register_max_attempts then
-                state.register_attempts = state.register_attempts + 1
-                state.branch = gen_token("br")
-                state.cseq = state.cseq + 1
-                state.auth_tried = 0
-                state.last_www = nil
+            if tx.attempts < state.register_max_attempts then
+                tx.attempts = tx.attempts + 1
                 log.warn("sip", "REGISTER response timeout, retry",
-                    state.register_attempts, "/", state.register_max_attempts,
-                    state.sip_server_addr, state.sip_server_port)
-                net_send(build_register(state, nil))
-                start_register_response_timer()
+                    tx.attempts, "/", state.register_max_attempts,
+                    "call-id", tx.call_id, "cseq", tx.cseq)
+                -- 重发完整报文，保留事务标识及鉴权，允许服务器重发缓存的最终响应。
+                start_register_response_timer(tx)
+                net_send_on(tx.netc, tx.request)
                 return
             end
 
+            state.register_tx = nil
             local has_sip_response = state.last_register_response_code ~= nil
-            local failure_reason = has_sip_response and
-                                       register_failure_reason(state.last_register_response_code) or
-                                       "register_timeout"
             local failure_source = has_sip_response and "sip_response_timeout" or "timeout"
             local failure_hint = has_sip_response and
                                      "已收到SIP响应，但后续注册流程超时，请根据sip_code和response_reason排查" or
                                      "SIP服务器无响应，请检查服务器IP或域名、端口、传输协议、防火墙和SIP服务状态"
-            log.error("sip", "REGISTER failed",
-                "reason", failure_reason,
+            log.error("sip", "REGISTER failed", "reason", "register_timeout",
                 "sip_code", state.last_register_response_code,
                 "response_reason", state.last_register_response_reason,
-                "attempts", state.register_attempts)
+                "attempts", tx.attempts, "call-id", tx.call_id, "cseq", tx.cseq)
             emit_register("failed", {
-                reason = failure_reason,
+                reason = "register_timeout",
                 source = failure_source,
                 sip_code = state.last_register_response_code,
                 response_reason = state.last_register_response_reason,
                 headers = state.last_register_response_headers,
-                attempts = state.register_attempts,
+                attempts = tx.attempts,
                 server = state.sip_server_addr,
                 port = state.sip_server_port,
                 transport = state.sip_transport,
                 retrying = true,
                 hint = failure_hint
             })
-            sys.publish(TOPIC_DISCONNECT)
+            if state.dialog or state.incoming_invite or next(state.closing_dialogs) then
+                -- 注册超时不等于通话断网：保留原 socket、对话和媒体，稍后开始下一轮。
+                log.warn("sip", "REGISTER retry deferred, keep call", state.register_response_timeout, "ms")
+                schedule_register_request(state.register_response_timeout)
+            else
+                sys.publish(TOPIC_DISCONNECT)
+            end
         end, state.register_response_timeout)
+        state.register_response_timer = timer
+    end
+
+    local function send_register_transaction(auth)
+        local tx = {
+            netc = state.netc,
+            call_id = state.call_id .. "@luatos",
+            cseq = state.cseq,
+            request = build_register(state, auth),
+            attempts = 1
+        }
+        state.register_tx = tx
+        start_register_response_timer(tx)
+        net_send_on(tx.netc, tx.request)
+    end
+
+    -- 所有非鉴权 REGISTER 入口统一创建事务，不覆盖正在等待响应的注册。
+    begin_register = function()
+        if g_stop or not state.netc or state.register_tx then return end
+        if state.reg_timer then
+            sys.timerStop(state.reg_timer)
+            state.reg_timer = nil
+        end
+        state.branch = gen_token("br")
+        -- 同一个注册实例在续期及重连后仍保持 CSeq 单调递增。
+        state.cseq = state.cseq + 1
+        state.auth_tried = 0
+        state.last_www = nil
+        state.last_register_response_code = nil
+        state.last_register_response_reason = nil
+        state.last_register_response_headers = nil
+        log.info("sip", state.online and "re-register" or "send REGISTER",
+            state.sip_server_addr, state.sip_server_port, "cseq", state.cseq)
+        send_register_transaction(nil)
     end
 
     -- 停止注册续租定时器，同时停止 UDP OPTIONS 保活定时器。
@@ -1166,7 +1228,7 @@ local function sip_task(opts)
             state.reg_timer = nil
         end
         stop_register_response_timer()
-        state.register_attempts = 0
+        state.register_tx = nil
         if state.options_timer then
             sys.timerStop(state.options_timer)
             state.options_timer = nil
@@ -1190,16 +1252,7 @@ local function sip_task(opts)
         if delay_s < 30 then
             delay_s = 30
         end
-        state.reg_timer = sys.timerStart(function()
-            if state.netc then
-                state.branch = gen_token("br")
-                state.cseq = state.cseq + 1
-                state.auth_tried = 0
-                local req = build_register(state, nil)
-                log.info("sip", "re-register", "cseq", state.cseq)
-                net_send(req)
-            end
-        end, delay_s * 1000)
+        schedule_register_request(delay_s * 1000)
         log.info("sip", "next register in", delay_s, "sec")
     end
 
@@ -1251,10 +1304,8 @@ local function sip_task(opts)
             return
         end
 
-        local req = build_register(state, digest)
         log.info("sip", "send REGISTER (auth)", "cseq", state.cseq)
-        net_send(req)
-        start_register_response_timer()
+        send_register_transaction(digest)
     end
 
     -- 发起外呼。
@@ -1723,23 +1774,8 @@ local function sip_task(opts)
                 state.local_ip = ip
             end
 
-            -- 每次重新连上SIP服务器，创建新的REGISTER事务并清理认证状态。
-            state.branch = gen_token("br")
-            -- 同一个注册实例必须保持CSeq单调递增；如果保留Call-ID和From tag却把
-            -- CSeq重置为1，网络切换后服务器可能将新REGISTER判为合并请求并返回482。
-            state.cseq = state.cseq + 1
-            state.auth_tried = 0
-            state.last_www = nil
-            state.last_register_response_code = nil
-            state.last_register_response_reason = nil
-            state.last_register_response_headers = nil
-
-            local req = build_register(state, nil)
-            log.info("sip", "send REGISTER", state.sip_server_addr, state.sip_server_port)
-            net_send_on(netc, req)
-            state.register_attempts = 1
-            start_register_response_timer()
             state.online = false
+            begin_register()
             emit_lifecycle("online", {
                 server = state.sip_server_addr,
                 port = state.sip_server_port,
@@ -2063,8 +2099,17 @@ local function sip_task(opts)
             end
 
             local function handle_register_response(code, response_reason, headers)
-                -- 收到任何 REGISTER 响应都说明服务器已响应，先结束本次等待计时。
+                local tx = state.register_tx
+                if not tx or tx.netc ~= netc or headers["call-id"] ~= tx.call_id or
+                    cseq_method(headers["cseq"]) ~= "REGISTER" or cseq_number(headers["cseq"]) ~= tx.cseq then
+                    log.debug("sip", "ignore stale REGISTER response", code,
+                        headers["call-id"], headers["cseq"])
+                    return
+                end
+                -- 100 等临时响应不能结束最终响应等待，也不能延长重试期限。
+                if not code or code < 200 then return end
                 stop_register_response_timer()
+                state.register_tx = nil
                 state.last_register_response_code = code
                 state.last_register_response_reason = response_reason
                 state.last_register_response_headers = copy_headers(headers)
@@ -2436,7 +2481,6 @@ local function sip_task(opts)
                     if code == 404 and not state.options_triggered_register then
                         log.warn("sip", "OPTIONS returned 404, trigger REGISTER refresh")
                         -- 服务器可能因重启丢失注册信息，立即标记为未注册。
-                        -- 这一行也很重要：REGISTER 响应超时定时器要求 online=false。
                         state.online = false
                         state.options_triggered_register = true
                         -- 通知上层注册已经失效。
@@ -2451,23 +2495,11 @@ local function sip_task(opts)
                             hint = "OPTIONS 返回404，服务器可能已丢失注册绑定，正在重新注册"
                         })
 
-                        state.branch = gen_token("br")
-                        state.cseq = state.cseq + 1
-                        state.auth_tried = 0
-                        state.last_www = nil
-                        state.register_attempts = 1
-
-                        state.last_register_response_code = nil
-                        state.last_register_response_reason = nil
-                        state.last_register_response_headers = nil
-                        state.register_attempts = 1
-                        
-                        net_send(build_register(state, nil))
-                        start_register_response_timer()
+                        begin_register()
                     end
                 return
 
-                elseif call_id and call_id:find(state.call_id, 1, true) then
+                elseif cseq_m == "REGISTER" then
                     handle_register_response(code, reason, headers)
                 elseif state.dialog and state.dialog.direction == "out" and call_id == state.dialog.call_id and cseq_m == "INVITE" then
                     handle_invite_response(code, reason, headers, body, rip)
@@ -2681,6 +2713,10 @@ end
 @table opts SIP 启动参数表，至少需要 sip_server_addr、sip_server_port、sip_domain、sip_username、sip_transport
 @boolean opts.early_media 是否允许 progress() 发送来电早期媒体响应，默认 true
 @number opts.early_media_response 默认 183（带 SDP 并通知启动媒体）；180 仅发送振铃响应
+@number opts.register_response_timeout REGISTER 每次发送后等待最终响应的时间，默认 10000 ms，最小 1000 ms
+@number opts.register_max_attempts 每个 REGISTER 事务最多发送次数（含首次），默认 3，最小 1
+通话中注册超时达到次数上限时，上报 register/failed，保留连接和媒体，等待 register_response_timeout 后开始新一轮。
+收到匹配的 200 后恢复 register/ok 并安排下一次续期；无通话时超时达到上限沿用断线重连。
 @function opts.event_callback 事件回调 (event, action, payload)；media/ready 携带协商 session，media/stop 携带 reason 和 session
 @return boolean 参数合法并成功启动后台任务返回 true，否则返回 false
 @usage
@@ -2701,7 +2737,7 @@ exsipclient.start({
     event_callback = function(event, action, payload)
         -- event 可取 lifecycle、register、call、media、message、error
         -- lifecycle: online、offline、stopped
-        -- register: ok、challenge
+        -- register: ok、challenge、failed
         -- call: incoming、established、ended、failed、dial_rejected、auth_retry
         -- media: offer、ready、stop
         -- message: rx、sent、auth_retry、failed

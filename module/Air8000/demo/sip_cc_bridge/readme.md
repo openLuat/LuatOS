@@ -60,14 +60,14 @@ LuatOS 烧录时需要保持上述目录结构，确保 `require "config"`、`re
 
 | 参数 | 当前值 | 说明 |
 | --- | --- | --- |
-| `sip_server_addr` | `180.152.6.34` | SIP 服务器地址 |
+| `sip_server_addr` | `cc.luatos.com` | SIP 服务器地址 |
 | `sip_server_port` | `8910` | SIP 服务器端口 |
-| `sip_domain` | `180.152.6.34` | SIP 域 |
+| `sip_domain` | `cc.luatos.com` | SIP 域 |
 | `sip_transport` | `udp` | SIP 传输方式 |
 | `sip_username` | `12345670` | 模组 SIP 用户名 |
 | `sip_password` | `Air.234567` | 模组 SIP 密码 |
-| `remote_sip_uri` | `sip:12345671@180.152.6.34` | 手机来电时呼叫的 SIP URI |
-| `target_phone_number` | `15057721363` | SIP 来电后拨打的手机号码 |
+| `remote_sip_uri` | `sip:12345671@cc.luatos.com` | 手机来电时呼叫的 SIP URI |
+| `target_phone_number` | `1xxxxxxxxxx` | SIP 来电后拨打的手机号码 |
 | `rtp_port` | `40000` | 本地 RTP 端口 |
 | `codec` | `PCMU` | RTP 编解码格式 |
 | `ptime` | `20` | RTP 打包时长，单位 ms |

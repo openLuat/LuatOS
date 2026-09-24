@@ -361,27 +361,27 @@ local SIP_CONFIG = {
 [2026-07-28 13:50:59.198][CPU1][LTOS/N][000000002.893]:I/user.audio_drv 已设置普通播放(TTS)软件音量为: 20</span><br />
 [2026-07-28 13:50:59.205][CPU1][LTOS/N][000000002.894]:I/user.audio_drv 设置mic增益, 数字增益: 0x3f true 模拟增益: 0x03 true</span><br />
 [2026-07-28 13:50:59.214][CPU1][LTOS/N][000000002.894]:I/user.exsip exsip.init called, config type: table config: table: 6098E6C8</span><br />
-[2026-07-28 13:50:59.222][CPU1][LTOS/N][000000002.895]:I/user.exsip init completed: 1903CFC0@180.152.6.34</span><br />
+[2026-07-28 13:50:59.222][CPU1][LTOS/N][000000002.895]:I/user.exsip init completed: 1903CFC0@cc.luatos.com</span><br />
 [2026-07-28 13:50:59.231][CPU1][LTOS/N][000000002.945]:I/user.exsip subscribed to IP_READY and IP_LOSE</span><br />
 [2026-07-28 13:50:59.239][CPU1][LTOS/N][000000002.946]:I/user.exsip current adapter set: 2</span><br />
 [2026-07-28 13:50:59.248][CPU1][LTOS/N][000000002.949]:I/user.sip SIP task uses locked adapter: nil transport: udp</span><br />
 [2026-07-28 13:50:59.257][CPU1][LTOS/N][000000002.949]:I/user.sip locked_adapter initialized to default: 2</span><br />
 [2026-07-28 13:50:59.265][CPU1][LTOS/N][000000002.950]:I/user.sip creating socket with adapter: 2 locked_adapter: 2</span><br />
-[2026-07-28 13:50:59.275][CPU1][LTOS/N][000000002.951]:connect to 180.152.6.34,8910</span><br />
-[2026-07-28 13:50:59.284][CPU2][LTOS/N][000000002.952]:adapter 2 connect 180.152.6.34:8910 UDP</span><br />
+[2026-07-28 13:50:59.275][CPU1][LTOS/N][000000002.951]:connect to cc.luatos.com,8910</span><br />
+[2026-07-28 13:50:59.284][CPU2][LTOS/N][000000002.952]:adapter 2 connect cc.luatos.com:8910 UDP</span><br />
 [2026-07-28 13:50:59.299][CPU1][LTOS/N][000000002.953]:I/user.exsip started adapter nil</span><br />
-[2026-07-28 13:50:59.301][CPU1][LTOS/N][000000002.957]:I/user.sip send REGISTER 180.152.6.34 8910</span><br />
+[2026-07-28 13:50:59.301][CPU1][LTOS/N][000000002.957]:I/user.sip send REGISTER cc.luatos.com 8910</span><br />
 [2026-07-28 13:50:59.309][CPU1][LTOS/N][000000002.958]:I/user.exsip event: lifecycle action: online</span><br />
 [2026-07-28 13:50:59.318][CPU1][LTOS/N][000000002.959]:I/user.exsip lifecycle: online</span><br />
 [2026-07-28 13:50:59.326][CPU1][LTOS/N][000000002.959]:I/user.sip_callback STATE_INITING lifecycle online table: 60970048 nil</span><br />
 [2026-07-28 13:50:59.338][CPU1][LTOS/N][000000002.960]:I/user.sip_callback lifecycle event: online</span><br />
 [2026-07-28 13:50:59.347][CPU1][LTOS/N][000000002.960]:I/user.sip_callback SIP 服务已在线，本地IP地址为： 192.168.1.167</span><br />
-[2026-07-28 13:51:00.753][CPU1][LTOS/N][000000004.709]:I/user.sip resp 401 Unauthorized from 180.152.6.34 8910</span><br />
+[2026-07-28 13:51:00.753][CPU1][LTOS/N][000000004.709]:I/user.sip resp 401 Unauthorized from cc.luatos.com 8910</span><br />
 [2026-07-28 13:51:00.756][CPU1][LTOS/N][000000004.715]:I/user.sip send REGISTER (auth) cseq 2</span><br />
 [2026-07-28 13:51:00.764][CPU1][LTOS/N][000000004.717]:I/user.exsip event: register action: challenge</span><br />
 [2026-07-28 13:51:00.784][CPU1][LTOS/N][000000004.718]:I/user.sip_callback STATE_INITING register challenge table: 6096C9C8 nil</span><br />
 [2026-07-28 13:51:00.787][CPU1][LTOS/N][000000004.718]:I/user.sip_callback 收到认证挑战，继续注册流程</span><br />
-[2026-07-28 13:51:02.614][CPU1][LTOS/N][000000006.549]:I/user.sip resp 200 OK from 180.152.6.34 8910</span><br />
+[2026-07-28 13:51:02.614][CPU1][LTOS/N][000000006.549]:I/user.sip resp 200 OK from cc.luatos.com 8910</span><br />
 [2026-07-28 13:51:02.618][CPU1][LTOS/N][000000006.552]:I/user.sip next register in 570 sec</span><br />
 [2026-07-28 13:51:02.625][CPU1][LTOS/N][000000006.553]:I/user.sip UDP OPTIONS keepalive started, interval 25000 ms</span><br />
 [2026-07-28 13:51:02.634][CPU1][LTOS/N][000000006.553]:I/user.exsip event: register action: ok</span><br />
@@ -405,11 +405,11 @@ local SIP_CONFIG = {
 
 应看到 `incoming`、`ringing`，约 5 秒后出现媒体通道就绪、通话建立和 VoIP 启动信息。
 
-[2026-07-28 14:16:46.912][CPU1][LTOS/N][000001550.848]:I/user.sip req INVITE from 180.152.6.34 8910</span><br />
+[2026-07-28 14:16:46.912][CPU1][LTOS/N][000001550.848]:I/user.sip req INVITE from cc.luatos.com 8910</span><br />
 [2026-07-28 14:16:46.915][CPU1][LTOS/N][000001550.850]:I/user.sip parsing remote SDP v=0</span><br />
-o=FreeSWITCH 1785204156 1785204157 IN IP4 180.152.6.34</span><br />
+o=FreeSWITCH 1785204156 1785204157 IN IP4 cc.luatos.com</span><br />
 s=FreeSWITCH</span><br />
-c=IN IP4 180.152.6.34</span><br />
+c=IN IP4 cc.luatos.com</span><br />
 t=0 0</span><br />
 m=audio 15252 RTP/AVP 8 0 101</span><br />
 a=rtpmap:8 PCMA/8000</span><br />
@@ -421,13 +421,13 @@ a=ptime:20</span><br />
 <mark>[2026-07-28 14:16:46.924][CPU1][LTOS/N][000001550.855]:I/user.exsip event: call action: incoming</span><br />
 [2026-07-28 14:16:46.930][CPU1][LTOS/N][000001550.856]:I/user.sip_callback STATE_READY call incoming table: 6092FED0 nil</span><br />
 [2026-07-28 14:16:46.940][CPU1][LTOS/N][000001550.856]:I/user.sip_callback call event sub_event= incoming</span><br />
-[2026-07-28 14:16:46.948][CPU1][LTOS/N][000001550.856]:I/user.sip_callback 来电: "Extension 11234560" <sip:11234560@180.152.6.34>;tag=QvQ4KjZ6rF2jr sip:1903CFC0@192.168.1.167:5062;received=180.165.40.195:1030 <sip:1903CFC0@192.168.1.167:5062;received=180.165.40.195:1030>;tag=2a6b9933ced5b148</span><br />
+[2026-07-28 14:16:46.948][CPU1][LTOS/N][000001550.856]:I/user.sip_callback 来电: "Extension 11234560" <sip:11234560@cc.luatos.com>;tag=QvQ4KjZ6rF2jr sip:1903CFC0@192.168.1.167:5062;received=180.165.40.195:1030 <sip:1903CFC0@192.168.1.167:5062;received=180.165.40.195:1030>;tag=2a6b9933ced5b148</span><br />
 [2026-07-28 14:16:46.958][CPU1][LTOS/N][000001550.858]:I/user.exsip event: call action: ringing</span><br />
 [2026-07-28 14:16:46.965][CPU1][LTOS/N][000001550.858]:I/user.sip_callback STATE_READY call ringing table: 6092A670 nil</span><br />
 [2026-07-28 14:16:46.975][CPU1][LTOS/N][000001550.859]:I/user.sip_callback call event sub_event= ringing</span><br />
 [2026-07-28 14:16:46.984][CPU1][LTOS/N][000001550.859]:I/user.sip_callback 对方响铃中</span><br />
 [2026-07-28 14:16:46.993][CPU1][LTOS/N][000001550.859]:I/user.exsip event: media action: offer</mark></span><br />
-[2026-07-28 14:16:47.008][CPU1][LTOS/N][000001550.860]:I/user.sip_app_main_task_func waitMsg STATE_READY sip_callback MSG_INCOMING "Extension 11234560" <sip:11234560@180.152.6.34>;tag=QvQ4KjZ6rF2jr</span><br />
+[2026-07-28 14:16:47.008][CPU1][LTOS/N][000001550.860]:I/user.sip_app_main_task_func waitMsg STATE_READY sip_callback MSG_INCOMING "Extension 11234560" <sip:11234560@cc.luatos.com>;tag=QvQ4KjZ6rF2jr</span><br />
 [2026-07-28 14:16:47.010][CPU1][LTOS/N][000001550.861]:I/user.sip_app_main_task_func after process STATE_INCOMING</span><br />
 [2026-07-28 14:16:47.018][CPU1][LTOS/N][000001550.861]:I/user.sip_app_key 呼入中，来电号码： 11234560</span><br />
 [2026-07-28 14:16:47.028][CPU1][LTOS/N][000001550.862]:I/user.sip_app_tts_speaker 呼入中，来电号码： 11234560</span><br />
@@ -435,7 +435,7 @@ a=ptime:20</span><br />
 [2026-07-28 14:16:47.046][CPU1][LTOS/N][000001550.863]:I/user.tts_speaker 开始播报: 收到1 1 2 3 4 5 6 0来电</span><br />
 [2026-07-28 14:16:47.056][CPU1][LTOS/N][000001550.870]:I/user.exaudio 播放开始 3</span><br />
 [2026-07-28 14:16:48.075][CPU2][LTOS/N][000001552.007]:I/user.sip send OPTIONS ping</span><br />
-[2026-07-28 14:16:48.758][CPU1][LTOS/N][000001552.689]:I/user.sip resp 200 OK from 180.152.6.34 8910</span><br />
+[2026-07-28 14:16:48.758][CPU1][LTOS/N][000001552.689]:I/user.sip resp 200 OK from cc.luatos.com 8910</span><br />
 [2026-07-28 14:16:50.468][CPU2][LTOS/N][000001554.397]:I/user.exaudio 播放完毕 3</span><br />
 [2026-07-28 14:16:50.472][CPU2][LTOS/N][000001554.398]:I/user.tts_speaker 播报事件回调，事件类型: 1</span><br />
 [2026-07-28 14:16:50.480][CPU2][LTOS/N][000001554.398]:I/user.tts_speaker 播放完成</span><br />
@@ -444,18 +444,18 @@ a=ptime:20</span><br />
 [2026-07-28 14:16:51.923][CPU1][LTOS/N][000001555.858]:I/user.sip cmd answer </span><br />
 [2026-07-28 14:16:51.931][CPU1][LTOS/N][000001555.859]:I/user.test ip 192.168.1.167</span><br />
 [2026-07-28 14:16:51.946][CPU1][LTOS/N][000001555.863]:I/user.sip answer 200 OK</mark></span><br />
-[2026-07-28 14:16:52.339][CPU1][LTOS/N][000001556.274]:I/user.sip req ACK from 180.152.6.34 8910</span><br />
+[2026-07-28 14:16:52.339][CPU1][LTOS/N][000001556.274]:I/user.sip req ACK from cc.luatos.com 8910</span><br />
 [2026-07-28 14:16:52.343][CPU1][LTOS/N][000001556.275]:I/user.exsip event: media action: ready</span><br />
-[2026-07-28 14:16:52.351][CPU1][LTOS/N][000001556.275]:I/user.exsip media ready 180.152.6.34 15252 PCMU</span><br />
-[2026-07-28 14:16:52.361][CPU1][LTOS/N][000001556.276]:I/user.exsip start voip engine with adapter: 2 remote: 180.152.6.34:15252</span><br />
+[2026-07-28 14:16:52.351][CPU1][LTOS/N][000001556.275]:I/user.exsip media ready cc.luatos.com 15252 PCMU</span><br />
+[2026-07-28 14:16:52.361][CPU1][LTOS/N][000001556.276]:I/user.exsip start voip engine with adapter: 2 remote: cc.luatos.com:15252</span><br />
 [2026-07-28 14:16:52.368][CPU1][LTOS/N][000001556.276]:voip start event</span><br />
-[2026-07-28 14:16:52.378][CPU1][LTOS/N][000001556.276]:voip config: remote=180.152.6.34:15252 codec=0 ptime=20</span><br />
+[2026-07-28 14:16:52.378][CPU1][LTOS/N][000001556.276]:voip config: remote=cc.luatos.com:15252 codec=0 ptime=20</span><br />
 [2026-07-28 14:16:52.385][CPU1][LTOS/N][000001556.276]:voio origin: samples=8000</span><br />
 [2026-07-28 14:16:52.394][CPU1][LTOS/N][000001556.276]:voio frame: samples=160 bytes=320</span><br />
 [2026-07-28 14:16:52.404][CPU1][LTOS/N][000001556.277]:codec encoder bind success type=7</span><br />
-[2026-07-28 14:16:52.411][CPU2][LTOS/N][000001556.277]:I/user.exsip voip engine started 180.152.6.34:15252 codec=PCMU adapter nil</span><br />
+[2026-07-28 14:16:52.411][CPU2][LTOS/N][000001556.277]:I/user.exsip voip engine started cc.luatos.com:15252 codec=PCMU adapter nil</span><br />
 <mark>[2026-07-28 14:16:52.421][CPU2][LTOS/N][000001556.278]:I/user.sip_callback STATE_INCOMING media ready table: 60948F90 nil</span><br />
-[2026-07-28 14:16:52.430][CPU2][LTOS/N][000001556.278]:I/user.sip_callback 媒体通道就绪 180.152.6.34:15252</span><br />
+[2026-07-28 14:16:52.430][CPU2][LTOS/N][000001556.278]:I/user.sip_callback 媒体通道就绪 cc.luatos.com:15252</span><br />
 [2026-07-28 14:16:52.438][CPU2][LTOS/N][000001556.279]:I/user.sip call established (incoming)</span><br />
 [2026-07-28 14:16:52.447][CPU2][LTOS/N][000001556.279]:I/user.exsip event: call action: established</span><br />
 [2026-07-28 14:16:52.455][CPU2][LTOS/N][000001556.280]:I/user.sip_callback STATE_INCOMING call connected table: 60956F80 nil</span><br />
@@ -471,7 +471,7 @@ a=ptime:20</span><br />
 
 [2026-07-28 14:16:52.498][CPU2][LTOS/N][000001556.283]:I/user.sip_app_key 通话建立成功</span><br />
 [2026-07-28 14:16:52.505][CPU1][LTOS/N][000001556.284]:aec ready frame=160 tail_ms=200 denoise=1</span><br />
-[2026-07-28 14:16:52.517][CPU2][LTOS/N][000001556.285]:adapter 2 connect 180.152.6.34:15252 UDP</span><br />
+[2026-07-28 14:16:52.517][CPU2][LTOS/N][000001556.285]:adapter 2 connect cc.luatos.com:15252 UDP</span><br />
 [2026-07-28 14:16:52.525][CPU2][LTOS/N][000001556.287]:I/user.exsip voip state: started</span><br />
 <mark>[2026-07-28 14:16:52.532][CPU2][LTOS/N][000001556.288]:I/user.sip_callback STATE_CONNECTED voip state started nil</span><br />
 [2026-07-28 14:16:52.540][CPU2][LTOS/N][000001556.288]:I/user.sip_callback VoIP状态: started</span><br />
@@ -485,7 +485,7 @@ a=ptime:20</span><br />
 [2026-07-28 14:17:05.118][CPU1][LTOS/N][000001569.045]:jb resync: expected_seq 37960 -> 37971 (pending 3)</span><br />
 [2026-07-28 14:17:05.164][CPU1][LTOS/N][000001569.105]:jb resync: expected_seq 37974 -> 37976 (pending 2)</span><br />
 [2026-07-28 14:17:05.227][CPU1][LTOS/N][000001569.165]:jb resync: expected_seq 37979 -> 38010 (pending 1)</span><br />
-<mark>[2026-07-28 14:17:06.759][CPU1][LTOS/N][000001570.707]:I/user.sip req BYE from 180.152.6.34 8910</span><br />
+<mark>[2026-07-28 14:17:06.759][CPU1][LTOS/N][000001570.707]:I/user.sip req BYE from cc.luatos.com 8910</span><br />
 [2026-07-28 14:17:06.762][CPU2][LTOS/N][000001570.714]:I/user.exsip event: media action: stop</span><br />
 [2026-07-28 14:17:06.770][CPU2][LTOS/N][000001570.714]:I/user.exsip voip engine stopping</span><br />
 [2026-07-28 14:17:06.779][CPU2][LTOS/N][000001570.717]:I/user.sip_callback STATE_CONNECTED media stop table: 60922450 nil</span><br />
@@ -515,7 +515,7 @@ a=ptime:20</span><br />
 ### 6.5 主动呼出
 
 [2026-07-28 14:11:47.980][CPU2][LTOS/N][000001251.917]:I/user.sip send OPTIONS ping</span><br />
-[2026-07-28 14:11:48.421][CPU1][LTOS/N][000001252.353]:I/user.sip resp 200 OK from 180.152.6.34 8910</span><br />
+[2026-07-28 14:11:48.421][CPU1][LTOS/N][000001252.353]:I/user.sip resp 200 OK from cc.luatos.com 8910</span><br />
 [2026-07-28 14:11:52.449][CPU2][LTOS/N][000001256.386]:I/user.sip_app_key 按下BOOT键</span><br />
 [2026-07-28 14:11:52.451][CPU2][LTOS/N][000001256.388]:I/user.sip_app_tts_speaker 收到拨号请求，准备播报拨号信息</span><br />
 [2026-07-28 14:11:52.452][CPU2][LTOS/N][000001256.390]:I/user.sip_app_main_task_func waitMsg STATE_READY sip_app_key MSG_DIAL 11234560</span><br />
@@ -526,15 +526,15 @@ a=ptime:20</span><br />
 [2026-07-28 14:11:52.457][CPU2][LTOS/N][000001256.404]:I/user.sip cmd call table: 609676A0</span><br />
 [2026-07-28 14:11:52.480][CPU2][LTOS/N][000001256.412]:I/user.test ip 192.168.1.167</span><br />
 [2026-07-28 14:11:52.483][CPU2][LTOS/N][000001256.418]:I/user.sip setting call timeout 30 seconds</span><br />
-[2026-07-28 14:11:52.484][CPU2][LTOS/N][000001256.432]:I/user.sip send INVITE sip:11234560@180.152.6.34</span><br />
+[2026-07-28 14:11:52.484][CPU2][LTOS/N][000001256.432]:I/user.sip send INVITE sip:11234560@cc.luatos.com</span><br />
 [2026-07-28 14:11:52.485][CPU2][LTOS/N][000001256.436]:I/user.exaudio 播放开始 1</span><br />
-[2026-07-28 14:11:53.738][CPU1][LTOS/N][000001257.677]:I/user.sip resp 407 Proxy Authentication Required from 180.152.6.34 8910</span><br />
+[2026-07-28 14:11:53.738][CPU1][LTOS/N][000001257.677]:I/user.sip resp 407 Proxy Authentication Required from cc.luatos.com 8910</span><br />
 [2026-07-28 14:11:53.769][CPU1][LTOS/N][000001257.709]:I/user.exsip event: call action: auth_retry</span><br />
-[2026-07-28 14:11:55.577][CPU1][LTOS/N][000001259.519]:I/user.sip resp 100 Trying from 180.152.6.34 8910</span><br />
+[2026-07-28 14:11:55.577][CPU1][LTOS/N][000001259.519]:I/user.sip resp 100 Trying from cc.luatos.com 8910</span><br />
 [2026-07-28 14:11:57.262][CPU2][LTOS/N][000001261.193]:I/user.exaudio 播放完毕 1</span><br />
 [2026-07-28 14:11:57.267][CPU2][LTOS/N][000001261.194]:I/user.tts_speaker 播报事件回调，事件类型: 1</span><br />
 [2026-07-28 14:11:57.270][CPU2][LTOS/N][000001261.194]:I/user.tts_speaker 播放完成</span><br />
-<mark>[2026-07-28 14:11:57.434][CPU1][LTOS/N][000001261.362]:I/user.sip resp 180 Ringing from 180.152.6.34 8910</span><br />
+<mark>[2026-07-28 14:11:57.434][CPU1][LTOS/N][000001261.362]:I/user.sip resp 180 Ringing from cc.luatos.com 8910</span><br />
 [2026-07-28 14:11:57.437][CPU1][LTOS/N][000001261.367]:I/user.sip invite provisional response 180 Ringing</span><br />
 [2026-07-28 14:11:57.438][CPU1][LTOS/N][000001261.367]:I/user.exsip event: call action: ringing</span><br />
 [2026-07-28 14:11:57.439][CPU1][LTOS/N][000001261.368]:I/user.sip_callback STATE_DIALING call ringing table: 609292E0 nil</span><br />
@@ -577,27 +577,27 @@ a=ptime:20</span><br />
 [2026-07-29 16:26:49.531][CPU1][LTOS/N][000000003.163]:I/user.audio_drv 已设置普通播放(TTS)软件音量为: 20</span><br />
 [2026-07-29 16:26:49.541][CPU1][LTOS/N][000000003.164]:I/user.audio_drv 设置mic增益, 数字增益: 0x3f true 模拟增益: 0x03 true</span><br />
 [2026-07-29 16:26:49.553][CPU1][LTOS/N][000000003.164]:I/user.exsip exsip.init called, config type: table config: table: 6098E5F8</span><br />
-[2026-07-29 16:26:49.561][CPU1][LTOS/N][000000003.165]:I/user.exsip init completed: 1903CFC0@180.152.6.34</span><br />
+[2026-07-29 16:26:49.561][CPU1][LTOS/N][000000003.165]:I/user.exsip init completed: 1903CFC0@cc.luatos.com</span><br />
 [2026-07-29 16:26:49.572][CPU1][LTOS/N][000000003.228]:I/user.exsip subscribed to IP_READY and IP_LOSE</span><br />
 [2026-07-29 16:26:49.584][CPU1][LTOS/N][000000003.228]:I/user.exsip current adapter set: 4</span><br />
 [2026-07-29 16:26:49.592][CPU1][LTOS/N][000000003.231]:I/user.sip SIP task uses locked adapter: nil transport: udp</span><br />
 [2026-07-29 16:26:49.602][CPU1][LTOS/N][000000003.232]:I/user.sip locked_adapter initialized to default: 4</span><br />
 [2026-07-29 16:26:49.620][CPU1][LTOS/N][000000003.233]:I/user.sip creating socket with adapter: 4 locked_adapter: 4</span><br />
-[2026-07-29 16:26:49.623][CPU1][LTOS/N][000000003.234]:connect to 180.152.6.34,8910</span><br />
-[2026-07-29 16:26:49.632][CPU2][LTOS/N][000000003.234]:adapter 4 connect 180.152.6.34:8910 UDP</span><br />
+[2026-07-29 16:26:49.623][CPU1][LTOS/N][000000003.234]:connect to cc.luatos.com,8910</span><br />
+[2026-07-29 16:26:49.632][CPU2][LTOS/N][000000003.234]:adapter 4 connect cc.luatos.com:8910 UDP</span><br />
 [2026-07-29 16:26:49.643][CPU1][LTOS/N][000000003.235]:I/user.exsip started adapter nil</span><br />
-[2026-07-29 16:26:49.651][CPU1][LTOS/N][000000003.240]:I/user.sip send REGISTER 180.152.6.34 8910</span><br />
+[2026-07-29 16:26:49.651][CPU1][LTOS/N][000000003.240]:I/user.sip send REGISTER cc.luatos.com 8910</span><br />
 [2026-07-29 16:26:49.660][CPU2][LTOS/N][000000003.242]:I/user.exsip event: lifecycle action: online</span><br />
 [2026-07-29 16:26:49.671][CPU2][LTOS/N][000000003.242]:I/user.exsip lifecycle: online</span><br />
 [2026-07-29 16:26:49.686][CPU2][LTOS/N][000000003.242]:I/user.sip_callback STATE_INITING lifecycle online table: 6096ED08 nil</span><br />
 [2026-07-29 16:26:49.692][CPU2][LTOS/N][000000003.243]:I/user.sip_callback lifecycle event: online</span><br />
 [2026-07-29 16:26:49.702][CPU2][LTOS/N][000000003.243]:I/user.sip_callback SIP 服务已在线，本地IP地址为： 192.168.1.100</span><br />
-[2026-07-29 16:26:49.710][CPU2][LTOS/N][000000003.322]:I/user.sip resp 401 Unauthorized from 180.152.6.34 8910</span><br />
+[2026-07-29 16:26:49.710][CPU2][LTOS/N][000000003.322]:I/user.sip resp 401 Unauthorized from cc.luatos.com 8910</span><br />
 [2026-07-29 16:26:49.721][CPU2][LTOS/N][000000003.330]:I/user.sip send REGISTER (auth) cseq 2</span><br />
 [2026-07-29 16:26:49.729][CPU2][LTOS/N][000000003.332]:I/user.exsip event: register action: challenge</span><br />
 [2026-07-29 16:26:49.740][CPU2][LTOS/N][000000003.332]:I/user.sip_callback STATE_INITING register challenge table: 6096B688 nil</span><br />
 [2026-07-29 16:26:49.749][CPU2][LTOS/N][000000003.333]:I/user.sip_callback 收到认证挑战，继续注册流程</span><br />
-[2026-07-29 16:26:51.340][CPU1][LTOS/N][000000005.207]:I/user.sip resp 200 OK from 180.152.6.34 8910</span><br />
+[2026-07-29 16:26:51.340][CPU1][LTOS/N][000000005.207]:I/user.sip resp 200 OK from cc.luatos.com 8910</span><br />
 [2026-07-29 16:26:51.345][CPU1][LTOS/N][000000005.209]:I/user.sip next register in 570 sec</span><br />
 [2026-07-29 16:26:51.354][CPU1][LTOS/N][000000005.210]:I/user.sip UDP OPTIONS keepalive started, interval 25000 ms</span><br />
 [2026-07-29 16:26:51.362][CPU1][LTOS/N][000000005.211]:I/user.exsip event: register action: ok</span><br />
@@ -605,7 +605,7 @@ a=ptime:20</span><br />
 [2026-07-29 16:26:51.384][CPU1][LTOS/N][000000005.211]:I/user.sip_callback 注册成功，有效期: 600 SIP响应头: table: 6096AC50</span><br />
 [2026-07-29 16:26:51.393][CPU1][LTOS/N][000000005.212]:I/user.sip_callback STATE_INITING ready nil nil nil</span><br />
 <mark>[2026-07-29 16:26:51.403][CPU1][LTOS/N][000000005.212]:I/user.sip_callback SIP 服务已就绪 当前SIP状态: STATE_INITING</mark></span><br />
-[2026-07-29 16:26:51.411][CPU1][LTOS/N][000000005.215]:I/user.sip req NOTIFY from 180.152.6.34 8910</span><br />
+[2026-07-29 16:26:51.411][CPU1][LTOS/N][000000005.215]:I/user.sip req NOTIFY from cc.luatos.com 8910</span><br />
 [2026-07-29 16:26:51.424][CPU2][LTOS/N][000000005.219]:I/user.sip_app_main_task_func waitMsg STATE_INITING sip_callback MSG_READY nil</span><br />
 [2026-07-29 16:26:51.433][CPU2][LTOS/N][000000005.220]:I/user.sip_app_main_task_func after process STATE_READY</span><br />
 [2026-07-29 16:26:51.442][CPU2][LTOS/N][000000005.220]:I/user.sip_app_key SIP应用已初始化</span><br />
@@ -644,14 +644,14 @@ a=ptime:20</span><br />
 [2026-07-29 15:02:41.030][CPU1][LTOS/N][000000001.145]:I/user.audio_drv 已设置普通播放(TTS)软件音量为: 20</span><br />
 [2026-07-29 15:02:41.093][CPU1][LTOS/N][000000001.146]:I/user.audio_drv 设置mic增益, 数字增益: 0x3f true 模拟增益: 0x03 true</span><br />
 [2026-07-29 15:02:41.158][CPU1][LTOS/N][000000001.146]:I/user.exsip exsip.init called, config type: table config: table: 6098E6E0</span><br />
-[2026-07-29 15:02:41.194][CPU1][LTOS/N][000000001.147]:I/user.exsip init completed: 1903CFC0@180.152.6.34</span><br />
+[2026-07-29 15:02:41.194][CPU1][LTOS/N][000000001.147]:I/user.exsip init completed: 1903CFC0@cc.luatos.com</span><br />
 [2026-07-29 15:02:41.235][CPU2][LTOS/N][000000001.216]:I/user.exsip subscribed to IP_READY and IP_LOSE</span><br />
 [2026-07-29 15:02:41.280][CPU2][LTOS/N][000000001.217]:I/user.exsip current adapter set: 15</span><br />
 [2026-07-29 15:02:41.317][CPU2][LTOS/N][000000001.220]:I/user.sip SIP task uses locked adapter: nil transport: udp</span><br />
 [2026-07-29 15:02:41.354][CPU2][LTOS/N][000000001.220]:I/user.sip locked_adapter initialized to default: 15</span><br />
 [2026-07-29 15:02:41.394][CPU2][LTOS/N][000000001.221]:I/user.sip creating socket with adapter: 15 locked_adapter: 15</span><br />
-[2026-07-29 15:02:41.439][CPU2][LTOS/N][000000001.222]:connect to 180.152.6.34,8910</span><br />
-[2026-07-29 15:02:41.480][CPU2][LTOS/N][000000001.223]:adapter 15 connect 180.152.6.34:8910 UDP</span><br />
+[2026-07-29 15:02:41.439][CPU2][LTOS/N][000000001.222]:connect to cc.luatos.com,8910</span><br />
+[2026-07-29 15:02:41.480][CPU2][LTOS/N][000000001.223]:adapter 15 connect cc.luatos.com:8910 UDP</span><br />
 [2026-07-29 15:02:41.522][CPU2][LTOS/N][000000001.224]:I/user.exsip started adapter nil</span><br />
 <mark>[2026-07-29 15:02:41.564][CPU2][LTOS/N][000000001.224]:I/user.start_req SIP 主任务已启动</mark></span><br />
 [2026-07-29 15:02:41.625][CPU2][LTOS/N][000000001.225]:DHCP ready adapter=15 IP=192.168.111.1 gw=192.168.111.2</span><br />
@@ -661,18 +661,18 @@ a=ptime:20</span><br />
 [2026-07-29 15:02:41.828][CPU2][LTOS/N][000000001.227]:I/user.exsip IP_READY 192.168.111.1 15</span><br />
 [2026-07-29 15:02:41.873][CPU2][LTOS/N][000000001.227]:I/user.sip IP_READY 15</span><br />
 [2026-07-29 15:02:41.909][CPU2][LTOS/N][000000001.227]:I/user.dnsproxy 开始监听</span><br />
-[2026-07-29 15:02:41.963][CPU2][LTOS/N][000000001.232]:I/user.sip send REGISTER 180.152.6.34 8910</span><br />
+[2026-07-29 15:02:41.963][CPU2][LTOS/N][000000001.232]:I/user.sip send REGISTER cc.luatos.com 8910</span><br />
 [2026-07-29 15:02:42.001][CPU2][LTOS/N][000000001.234]:I/user.exsip event: lifecycle action: online</span><br />
 [2026-07-29 15:02:42.043][CPU2][LTOS/N][000000001.234]:I/user.exsip lifecycle: online</span><br />
 [2026-07-29 15:02:42.080][CPU2][LTOS/N][000000001.234]:I/user.sip_callback STATE_INITING lifecycle online table: 6096EC00 nil</span><br />
 [2026-07-29 15:02:42.117][CPU2][LTOS/N][000000001.234]:I/user.sip_callback lifecycle event: online</span><br />
 [2026-07-29 15:02:42.157][CPU2][LTOS/N][000000001.235]:I/user.sip_callback SIP 服务已在线，本地IP地址为： 192.168.111.1</span><br />
-[2026-07-29 15:02:42.217][CPU1][LTOS/N][000000002.281]:I/user.sip resp 401 Unauthorized from 180.152.6.34 8910</span><br />
+[2026-07-29 15:02:42.217][CPU1][LTOS/N][000000002.281]:I/user.sip resp 401 Unauthorized from cc.luatos.com 8910</span><br />
 [2026-07-29 15:02:42.262][CPU2][LTOS/N][000000002.290]:I/user.sip send REGISTER (auth) cseq 2</span><br />
 [2026-07-29 15:02:42.308][CPU2][LTOS/N][000000002.292]:I/user.exsip event: register action: challenge</span><br />
 [2026-07-29 15:02:42.349][CPU2][LTOS/N][000000002.293]:I/user.sip_callback STATE_INITING register challenge table: 6096B4E8 nil</span><br />
 [2026-07-29 15:02:42.387][CPU2][LTOS/N][000000002.293]:I/user.sip_callback 收到认证挑战，继续注册流程</span><br />
-[2026-07-29 15:02:42.445][CPU1][LTOS/N][000000004.358]:I/user.sip resp 200 OK from 180.152.6.34 8910</span><br />
+[2026-07-29 15:02:42.445][CPU1][LTOS/N][000000004.358]:I/user.sip resp 200 OK from cc.luatos.com 8910</span><br />
 [2026-07-29 15:02:42.490][CPU2][LTOS/N][000000004.361]:I/user.sip next register in 570 sec</span><br />
 [2026-07-29 15:02:42.537][CPU2][LTOS/N][000000004.362]:I/user.sip UDP OPTIONS keepalive started, interval 25000 ms</span><br />
 <mark>[2026-07-29 15:02:42.586][CPU2][LTOS/N][000000004.363]:I/user.exsip event: register action: ok</span><br />
@@ -699,20 +699,20 @@ a=ptime:20</span><br />
 [2026-07-29 17:37:43.400][CPU2][LTOS/N][000000072.197]:I/user.sip IP_LOSE 8</span><br />
 [2026-07-29 17:37:43.410][CPU2][LTOS/N][000000072.197]:I/user.sip default network changed from 8 to 2 , trigger reconnect</span><br />
 <mark>[2026-07-29 17:37:46.299][CPU1][LTOS/N][000000075.201]:I/user.sip creating socket with adapter: 2 locked_adapter: 2</mark></span><br />
-[2026-07-29 17:37:46.305][CPU1][LTOS/N][000000075.202]:connect to 180.152.6.34,8910</span><br />
-[2026-07-29 17:37:46.314][CPU2][LTOS/N][000000075.202]:adapter 2 connect 180.152.6.34:8910 UDP</span><br />
-[2026-07-29 17:37:46.325][CPU2][LTOS/N][000000075.208]:I/user.sip send REGISTER 180.152.6.34 8910</span><br />
+[2026-07-29 17:37:46.305][CPU1][LTOS/N][000000075.202]:connect to cc.luatos.com,8910</span><br />
+[2026-07-29 17:37:46.314][CPU2][LTOS/N][000000075.202]:adapter 2 connect cc.luatos.com:8910 UDP</span><br />
+[2026-07-29 17:37:46.325][CPU2][LTOS/N][000000075.208]:I/user.sip send REGISTER cc.luatos.com 8910</span><br />
 [2026-07-29 17:37:46.334][CPU1][LTOS/N][000000075.210]:I/user.exsip event: lifecycle action: online</span><br />
 [2026-07-29 17:37:46.345][CPU1][LTOS/N][000000075.211]:I/user.exsip lifecycle: online</span><br />
 [2026-07-29 17:37:46.354][CPU2][LTOS/N][000000075.212]:I/user.sip_callback STATE_READY lifecycle online table: 6094B808 nil</span><br />
 [2026-07-29 17:37:46.365][CPU2][LTOS/N][000000075.213]:I/user.sip_callback lifecycle event: online</span><br />
 [2026-07-29 17:37:46.374][CPU2][LTOS/N][000000075.213]:I/user.sip_callback SIP 服务已在线，本地IP地址为： 192.168.137.115</span><br />
-[2026-07-29 17:37:47.923][CPU1][LTOS/N][000000076.817]:I/user.sip resp 401 Unauthorized from 180.152.6.34 8910</span><br />
+[2026-07-29 17:37:47.923][CPU1][LTOS/N][000000076.817]:I/user.sip resp 401 Unauthorized from cc.luatos.com 8910</span><br />
 [2026-07-29 17:37:47.930][CPU1][LTOS/N][000000076.826]:I/user.sip send REGISTER (auth) cseq 7</span><br />
 [2026-07-29 17:37:47.942][CPU1][LTOS/N][000000076.829]:I/user.exsip event: register action: challenge</span><br />
 [2026-07-29 17:37:47.951][CPU1][LTOS/N][000000076.830]:I/user.sip_callback STATE_READY register challenge table: 60948278 nil</span><br />
 [2026-07-29 17:37:47.962][CPU1][LTOS/N][000000076.830]:I/user.sip_callback 收到认证挑战，继续注册流程</span><br />
-[2026-07-29 17:37:49.762][CPU1][LTOS/N][000000078.660]:I/user.sip resp 200 OK from 180.152.6.34 8910</span><br />
+[2026-07-29 17:37:49.762][CPU1][LTOS/N][000000078.660]:I/user.sip resp 200 OK from cc.luatos.com 8910</span><br />
 [2026-07-29 17:37:49.768][CPU1][LTOS/N][000000078.664]:I/user.sip next register in 570 sec</span><br />
 [2026-07-29 17:37:49.777][CPU1][LTOS/N][000000078.665]:I/user.sip UDP OPTIONS keepalive started, interval 25000 ms</span><br />
 [2026-07-29 17:37:49.786][CPU1][LTOS/N][000000078.666]:I/user.exsip event: register action: ok</span><br />
@@ -720,7 +720,7 @@ a=ptime:20</span><br />
 [2026-07-29 17:37:49.806][CPU1][LTOS/N][000000078.667]:I/user.sip_callback 注册成功，有效期: 600 SIP响应头: table: 60947210</span><br />
 [2026-07-29 17:37:49.816][CPU1][LTOS/N][000000078.667]:I/user.sip_callback STATE_READY ready nil nil nil</span><br />
 <mark>[2026-07-29 17:37:49.827][CPU1][LTOS/N][000000078.667]:I/user.sip_callback SIP 服务已就绪 当前SIP状态: STATE_READY</mark></span><br />
-[2026-07-29 17:37:49.834][CPU2][LTOS/N][000000078.672]:I/user.sip req NOTIFY from 180.152.6.34 8910</span><br />
+[2026-07-29 17:37:49.834][CPU2][LTOS/N][000000078.672]:I/user.sip req NOTIFY from cc.luatos.com 8910</span><br />
 [2026-07-29 17:37:49.846][CPU2][LTOS/N][000000078.677]:I/user.sip_app_main_task_func waitMsg STATE_READY sip_callback MSG_READY nil</span><br />
 [2026-07-29 17:37:49.855][CPU2][LTOS/N][000000078.677]:I/user.sip_app_main_task_func after process STATE_READY</span><br />
 </span><br />
@@ -771,28 +771,28 @@ a=ptime:20</span><br />
 [2026-07-29 17:54:34.158][CPU2][LTOS/N][000000077.777]:I/user.sip_app_main_task_func recv IP_READY 15 15</span><br />
 [2026-07-29 17:54:34.196][CPU2][LTOS/N][000000077.777]:I/user.start 开始初始化 SIP，当前状态: STATE_INITING</span><br />
 [2026-07-29 17:54:34.202][CPU2][LTOS/N][000000077.777]:I/user.exsip exsip.init called, config type: table config: table: 6098DC00</span><br />
-[2026-07-29 17:54:34.212][CPU2][LTOS/N][000000077.778]:I/user.exsip init completed: 1903CFC0@180.152.6.34</span><br />
+[2026-07-29 17:54:34.212][CPU2][LTOS/N][000000077.778]:I/user.exsip init completed: 1903CFC0@cc.luatos.com</span><br />
 [2026-07-29 17:54:34.223][CPU2][LTOS/N][000000077.779]:I/user.exsip subscribed to IP_READY and IP_LOSE</span><br />
 [2026-07-29 17:54:34.272][CPU2][LTOS/N][000000077.779]:I/user.exsip current adapter set: 15</span><br />
 [2026-07-29 17:54:34.280][CPU2][LTOS/N][000000077.782]:I/user.sip SIP task uses locked adapter: nil transport: udp</span><br />
 [2026-07-29 17:54:34.289][CPU2][LTOS/N][000000077.783]:I/user.sip locked_adapter initialized to default: 15</span><br />
 [2026-07-29 17:54:34.302][CPU2][LTOS/N][000000077.784]:I/user.sip creating socket with adapter: 15 locked_adapter: 15</span><br />
-[2026-07-29 17:54:34.312][CPU2][LTOS/N][000000077.784]:connect to 180.152.6.34,8910</span><br />
-[2026-07-29 17:54:34.321][CPU2][LTOS/N][000000077.785]:adapter 15 connect 180.152.6.34:8910 UDP</span><br />
+[2026-07-29 17:54:34.312][CPU2][LTOS/N][000000077.784]:connect to cc.luatos.com,8910</span><br />
+[2026-07-29 17:54:34.321][CPU2][LTOS/N][000000077.785]:adapter 15 connect cc.luatos.com:8910 UDP</span><br />
 [2026-07-29 17:54:34.333][CPU1][LTOS/N][000000077.786]:I/user.exsip started adapter nil</span><br />
-[2026-07-29 17:54:34.343][CPU2][LTOS/N][000000077.792]:I/user.sip send REGISTER 180.152.6.34 8910</span><br />
+[2026-07-29 17:54:34.343][CPU2][LTOS/N][000000077.792]:I/user.sip send REGISTER cc.luatos.com 8910</span><br />
 [2026-07-29 17:54:34.353][CPU2][LTOS/N][000000077.794]:I/user.exsip event: lifecycle action: online</span><br />
 [2026-07-29 17:54:34.367][CPU2][LTOS/N][000000077.794]:I/user.exsip lifecycle: online</span><br />
 [2026-07-29 17:54:34.379][CPU2][LTOS/N][000000077.795]:I/user.sip_callback STATE_INITING lifecycle online table: 6096A1A0 nil</span><br />
 [2026-07-29 17:54:34.387][CPU2][LTOS/N][000000077.795]:I/user.sip_callback lifecycle event: online</span><br />
 [2026-07-29 17:54:34.401][CPU2][LTOS/N][000000077.795]:I/user.sip_callback SIP 服务已在线，本地IP地址为： 192.168.111.1</span><br />
-[2026-07-29 17:54:34.735][CPU1][LTOS/N][000000078.361]:I/user.sip resp 401 Unauthorized from 180.152.6.34 8910</span><br />
+[2026-07-29 17:54:34.735][CPU1][LTOS/N][000000078.361]:I/user.sip resp 401 Unauthorized from cc.luatos.com 8910</span><br />
 [2026-07-29 17:54:34.742][CPU2][LTOS/N][000000078.370]:I/user.sip send REGISTER (auth) cseq 3</span><br />
 [2026-07-29 17:54:34.754][CPU2][LTOS/N][000000078.373]:I/user.exsip event: register action: challenge</span><br />
 [2026-07-29 17:54:34.767][CPU2][LTOS/N][000000078.373]:I/user.sip_callback STATE_INITING register challenge table: 6095C178 nil</span><br />
 [2026-07-29 17:54:34.775][CPU2][LTOS/N][000000078.373]:I/user.sip_callback 收到认证挑战，继续注册流程</span><br />
-[2026-07-29 17:54:36.486][CPU1][LTOS/N][000000080.122]:I/user.sip req NOTIFY from 180.152.6.34 8910</span><br />
-[2026-07-29 17:54:36.500][CPU2][LTOS/N][000000080.128]:I/user.sip resp 200 OK from 180.152.6.34 8910</span><br />
+[2026-07-29 17:54:36.486][CPU1][LTOS/N][000000080.122]:I/user.sip req NOTIFY from cc.luatos.com 8910</span><br />
+[2026-07-29 17:54:36.500][CPU2][LTOS/N][000000080.128]:I/user.sip resp 200 OK from cc.luatos.com 8910</span><br />
 [2026-07-29 17:54:36.507][CPU2][LTOS/N][000000080.131]:I/user.sip next register in 570 sec</span><br />
 [2026-07-29 17:54:36.521][CPU2][LTOS/N][000000080.132]:I/user.sip UDP OPTIONS keepalive started, interval 25000 ms</span><br />
 [2026-07-29 17:54:36.530][CPU2][LTOS/N][000000080.132]:I/user.exsip event: register action: ok</span><br />

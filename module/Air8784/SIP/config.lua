@@ -14,9 +14,9 @@ local config = {}
 -- ==================== SIP 配置 ====================
 
 config.sip = {
-    sip_server_addr = "180.152.6.34", -- 必填：4G 网络可达的 SIP 服务器
+    sip_server_addr = "cc.luatos.com", -- 必填：4G 网络可达的 SIP 服务器
     sip_server_port = 8910,
-    sip_domain = "180.152.6.34",      -- 留空时使用服务器地址
+    sip_domain = "cc.luatos.com",      -- 留空时使用服务器地址
     sip_username = mobile.imei() .. "0",    -- 必填：测试分机
     sip_password = "123456",    -- 必填：在本地填写，不打印到日志
     sip_transport = "udp", -- udp / tcp；RTP 仍使用 UDP

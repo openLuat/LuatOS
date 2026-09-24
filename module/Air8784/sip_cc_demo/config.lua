@@ -24,9 +24,9 @@
 
 local config = {
     -- ==================== SIP 服务器 ====================
-    sip_server_addr = "180.152.6.34",
+    sip_server_addr = "cc.luatos.com",
     sip_server_port = 8910,
-    sip_domain = "180.152.6.34",
+    sip_domain = "cc.luatos.com",
     sip_transport = "udp",
 
     -- ==================== 4G 模组 SIP 账号 ====================
@@ -35,7 +35,7 @@ local config = {
 
     -- ==================== 远程 SIP 客户端（控制端 / 被叫端） ====================
     -- 手机呼入时，模组呼叫该 SIP URI
-    remote_sip_uri = "sip:"..mobile.imei().."1@180.152.6.34",
+    remote_sip_uri = "sip:"..mobile.imei().."1@cc.luatos.com",
 
     -- ==================== 默认桥接目标手机号（SIP 呼入时拨打的号码） ====================
     target_phone_number = "1xxxxxxxxxx",

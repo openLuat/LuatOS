@@ -103,6 +103,11 @@ NW_STATE_LINK_OFF(0) → NW_STATE_OFF_LINE(1) → NW_STATE_CONNECTING(3)
 - Connect with host/port parameters
 - Event callbacks: on_connect, on_receive, on_close
 
+**libhttp 跨线程通知（luatos 模式）:**
+- `luat_http_client.c` → `luat_lib_http.c` 的通知必须走自包含的 `luat_http_msg_t`（`libhttp/luat_http.h`），消息内禁止携带 `luat_http_ctrl_t`（指针也不行）——多核平台上 luatos 与 lwip 不同核，共享控制块会竞争 free
+- `http_ctrl` 的访问与释放只在网络事件派发线程（lwip 板卡=lwip 任务；PC 上即 VM 线程，事件经 msgbus 派发）串行进行；释放/超时命令必须投递到**派发线程自己的队列**（`http_post_cmd`：lwip 板卡走 `network_tcpip_callback`，其余走 msgbus——**else 分支仅在网络事件经 msgbus 派发到 VM 线程的构建上成立**，新增非 msgbus 派发的适配器时必须重新评估），禁止嵌套在回调链里就地执行、也禁止投到别的线程（曾因投到 lwip 任务与 VM 派发并发而段错误）；跨线程寻址一律用 `idg`（`luat_http_idg_claim` 原子认领防重复释放；teardown 把已认领的 ctrl 指针作为所有权移交传给派发线程执行，属受控例外），luatos 模式的定时器回调同样以 idg 寻址
+- 消息及其 headers/body 的所有权随投递移交：消费端（VM 线程）用完调用 `luat_http_msg_free`；通知投递失败由生产端释放（终态交付失败另有 `luat_http_fail_notify` 轻量兜底防 Lua 侧挂起）；teardown/超时命令投递失败则放弃（罕见队列满会泄漏 ctrl/netc 槽位，以泄漏换正确性——不得就地执行补救）
+
 ## FEATURE FLAGS
 
 ```c

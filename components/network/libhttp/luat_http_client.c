@@ -25,7 +25,6 @@
 #include "luat_log.h"
 
 extern void DBG_Printf(const char* format, ...);
-extern void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg);
 #undef LLOGD
 #ifdef __LUATOS__
 #define LLOGD(format, ...) do {if (http_ctrl->debug_onoff) {luat_log_log(LUAT_LOG_DEBUG, LUAT_LOG_TAG, format, ##__VA_ARGS__);}} while(0)
@@ -74,19 +73,19 @@ static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 		luat_heap_free(http_ctrl->req_body);
 		http_ctrl->req_body = NULL;
 	}
-	if (http_ctrl->luatos_mode) {
-		if (http_ctrl->dst){
-			luat_heap_free(http_ctrl->dst);
-			http_ctrl->dst = NULL;
-		}
-		if (http_ctrl->headers){
-			luat_heap_free(http_ctrl->headers);
-			http_ctrl->headers = NULL;
-		}
-		if (http_ctrl->body){
-			luat_heap_free(http_ctrl->body);
-			http_ctrl->body = NULL;
-		}
+	// dst/headers/body 仅 luatos 模式会赋值; 无条件逐项判空释放,
+	// 覆盖 luatos_mode 尚未置位的初始化前错误路径(否则 dst 泄漏)
+	if (http_ctrl->dst){
+		luat_heap_free(http_ctrl->dst);
+		http_ctrl->dst = NULL;
+	}
+	if (http_ctrl->headers){
+		luat_heap_free(http_ctrl->headers);
+		http_ctrl->headers = NULL;
+	}
+	if (http_ctrl->body){
+		luat_heap_free(http_ctrl->body);
+		http_ctrl->body = NULL;
 	}
 
 	if (http_ctrl->req_auth) {
@@ -97,18 +96,75 @@ static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 	luat_heap_free(http_ctrl);
 }
 
-int http_close(luat_http_ctrl_t *http_ctrl){
-	LLOGI("http close %p", http_ctrl);
-	if (http_ctrl == NULL) {
-		// LLOGE("http_ctrl is NULL");
-		return -1;
+void luat_http_msg_free(luat_http_msg_t *msg) {
+	if (msg == NULL) {
+		return;
 	}
-	http_ctrl = luat_http_idg_get(http_ctrl->idg);
-	if (http_ctrl == NULL) {
-		// LLOGE("http_ctrl is NULL after idg get");
-		return -1;
+	if (msg->headers) {
+		luat_heap_free(msg->headers);
+		msg->headers = NULL;
 	}
-	luat_http_idg_unreg(http_ctrl->idg);
+	if (msg->body) {
+		luat_heap_free(msg->body);
+		msg->body = NULL;
+	}
+	luat_heap_free(msg);
+}
+
+/* 组装跨线程通知消息。is_terminal 时收尾下载文件并把 headers/body 所有权移交消息 */
+static luat_http_msg_t* luat_http_msg_build(luat_http_ctrl_t *http_ctrl, int event, int arg, int is_terminal) {
+	luat_http_msg_t *msg = (luat_http_msg_t *)luat_heap_malloc(sizeof(luat_http_msg_t));
+	if (msg == NULL) {
+		LLOGE("out of memory when malloc http msg");
+		return NULL;
+	}
+	memset(msg, 0, sizeof(luat_http_msg_t));
+	msg->idg = http_ctrl->idg;
+	msg->event = event;
+	msg->arg = arg;
+	msg->status_code = (int32_t)http_ctrl->parser.status_code;
+	msg->resp_content_len = (int32_t)http_ctrl->resp_content_len;
+	msg->body_len = http_ctrl->body_len;
+	msg->idp = http_ctrl->idp;
+	msg->http_cb = (int32_t)(intptr_t)http_ctrl->http_cb;
+	msg->http_cb_userdata = (int32_t)(intptr_t)http_ctrl->http_cb_userdata;
+	msg->is_download = http_ctrl->is_download;
+	msg->zbuff_mode = (http_ctrl->zbuff_body != NULL) ? 1 : 0;
+	msg->debug_onoff = http_ctrl->debug_onoff;
+#ifdef LUAT_USE_FOTA
+	msg->isfota = http_ctrl->isfota;
+#endif
+	if (is_terminal) {
+		// 终态时 fd 仍打开视为下载失败, 删掉半成品文件
+		if (http_ctrl->is_download && http_ctrl->fd != NULL) {
+			luat_fs_fclose(http_ctrl->fd);
+			http_ctrl->fd = NULL;
+			if (http_ctrl->dst) {
+				luat_fs_remove(http_ctrl->dst);
+			}
+			msg->download_ok = 0;
+		} else {
+			msg->download_ok = 1;
+		}
+		// headers/body 所有权移交(指针移交, 非拷贝), 此后 ctrl 不再触碰它们
+		msg->headers = http_ctrl->headers;
+		msg->headers_len = http_ctrl->headers_len;
+		http_ctrl->headers = NULL;
+		http_ctrl->headers_len = 0;
+		msg->body = http_ctrl->body;
+		http_ctrl->body = NULL;
+	}
+	return msg;
+}
+
+/* teardown: 释放 netc/timer 后 free ctrl。只在"网络归属线程"的安全点执行
+ * (lwip 线程队列 / msgbus 到 VM 线程), 与网络回调串行, 不嵌套在回调栈里 */
+static void http_teardown(void *ctx) {
+	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)ctx;
+	if (http_ctrl == NULL) {
+		return;
+	}
+	LLOGI("http teardown %p", http_ctrl);
 	if (http_ctrl->netc){
 		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
@@ -118,28 +174,73 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->timeout_timer){
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);
 		luat_release_rtos_timer(http_ctrl->timeout_timer);
-    	http_ctrl->timeout_timer = NULL;
+		http_ctrl->timeout_timer = NULL;
 	}
-	#if defined(LUAT_USE_LWIP) && (NO_SYS == 0)
-	network_tcpip_callback(http_close_clean, http_ctrl, 0);
-	#else
 	http_close_clean(http_ctrl);
-	#endif
+}
+
+static void http_teardown_tcpip_cb(void *ctx) {
+	http_teardown(ctx);
+}
+
+static int32_t l_http_teardown_msg_handler(lua_State *L, void* ptr) {
+	(void)L;
+	http_teardown(ptr);
+	return 0;
+}
+
+static int32_t l_http_timeout_msg_handler(lua_State *L, void* ptr);
+
+/* 把命令投递到"网络事件派发线程"的队列, 保证在当前回调链收工后串行执行:
+ * - lwip 板卡: 网络回调跑在 lwip 任务, 用 network_tcpip_callback 投到同一任务队列
+ * - PC 及其它: 网络事件经 msgbus 派发到 VM 线程(见 luat_network_adapter_posix.c),
+ *   teardown/超时同样走 msgbus
+ * 注意: 投递失败只能放弃(泄漏换正确性)——就地执行会嵌套在回调栈里释放,
+ * 跨线程执行会与在途回调链竞争 free(实测段错误)。 */
+static void http_post_cmd(void (*tcpip_fn)(void *), luat_msg_handler msg_fn, void *arg) {
+#if defined(LUAT_USE_LWIP) && (NO_SYS == 0) && !defined(LUAT_BSP_PC)
+	(void)msg_fn;
+	if (network_tcpip_callback(tcpip_fn, arg, 0) != 0) {
+		LLOGE("http cmd tcpip post fail, drop");
+	}
+#else
+	(void)tcpip_fn;
+	rtos_msg_t msg = {0};
+	msg.handler = msg_fn;
+	msg.ptr = arg;
+	if (luat_msgbus_put(&msg, 0) != 0) {
+		LLOGE("http cmd msgbus post fail, drop");
+	}
+#endif
+}
+
+int http_close(luat_http_ctrl_t *http_ctrl){
+	if (http_ctrl == NULL) {
+		return -1;
+	}
+	if (http_ctrl->idg == 0) {
+		// 尚未注册 idg(初始化前的错误路径): 无异步引用, 直接清理
+		http_close_clean(http_ctrl);
+		return 0;
+	}
+	// 原子认领: 只允许一个关闭路径继续, 其余直接返回, 防重复释放
+	http_ctrl = luat_http_idg_claim(http_ctrl->idg);
+	if (http_ctrl == NULL) {
+		return -1;
+	}
+	http_post_cmd(http_teardown_tcpip_cb, l_http_teardown_msg_handler, http_ctrl);
 	return 0;
 }
 
 #ifndef LUAT_COMPILER_NOWEAK
-LUAT_WEAK void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg){
-    if (error_code == HTTP_OK){
-        luat_http_cb http_cb = http_ctrl->http_cb;
-		if (http_cb) {
-        	http_cb(HTTP_STATE_GET_BODY, NULL, 0, http_ctrl->http_cb_userdata); // 为了兼容老代码
-        	http_cb(HTTP_STATE_GET_BODY_DONE, (void *)((uint32_t)http_ctrl->parser.status_code), 0, http_ctrl->http_cb_userdata);
-		}
-		http_ctrl->error_code = 0;
-        http_ctrl->state = HTTP_STATE_DONE;
-        luat_rtos_timer_stop(http_ctrl->timeout_timer);
-    }
+LUAT_WEAK int luat_http_client_onevent(luat_http_msg_t *msg){
+	/* 弱实现: 未链接 luat_lib_http.c 的构建, 丢弃通知 */
+	luat_http_msg_free(msg);
+	return 0;
+}
+LUAT_WEAK void luat_http_fail_notify(uint32_t idg, int error_code){
+	(void)idg;
+	(void)error_code;
 }
 #endif
 
@@ -201,6 +302,11 @@ static void http_network_close(luat_http_ctrl_t *http_ctrl)
 }
 
 static void http_report_result(luat_http_ctrl_t *http_ctrl, int error_code) {
+	// finished: 终态已上报过, 不再重复(防双终态)
+	if (http_ctrl->finished) {
+		LLOGD("http already finished, skip report %d", error_code);
+		return;
+	}
 	LLOGD("report result(1) %d tcp_closed %d nw state %d",error_code, http_ctrl->tcp_closed, http_ctrl->netc->state);
 	if (error_code != HTTP_OK && http_ctrl->is_download && http_ctrl->fd) {
 		LLOGW("closing open fd due to error %d", error_code);
@@ -246,13 +352,30 @@ error:
 	#ifdef LUAT_USE_NETDRV
 	luat_netdrv_fire_socket_event_netctrl(EV_NW_SOCKET_ERROR, http_ctrl->netc, 3);
 	#endif
-	luat_http_client_onevent(http_ctrl, error_code, 0);
+	http_ctrl->finished = 1;
+	{
+		// 终态: 组自包含消息(含 headers/body 所有权移交)投递到 VM 线程
+		luat_http_msg_t *msg = luat_http_msg_build(http_ctrl, error_code, 0, 1);
+		if (msg && luat_http_client_onevent(msg) == 0) {
+			// 消息已交付, 本会话收尾释放(认领 + 安全点 teardown), VM 侧不再触碰 http_ctrl
+			http_close(http_ctrl);
+		} else {
+			// 交付失败(硬 OOM/队列满): 转轻量兜底通知, 由 VM 线程完成 cwait/解除引用并负责
+			// close, 避免 Lua 侧永久挂起。本路径不 close(留给兜底 handler)
+			LLOGE("terminal notify fail, fallback idg %d", (int)http_ctrl->idg);
+			luat_http_fail_notify(http_ctrl->idg, error_code != 0 ? error_code : HTTP_ERROR_CONNECT);
+		}
+	}
 }
 
 // body接收回调
 static void luat_http_callback(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->http_cb && http_ctrl->luatos_mode){
-		luat_http_client_onevent(http_ctrl, HTTP_CALLBACK, http_ctrl->body_len);
+		// 进度通知: 只带标量快照, 不携带载荷(onevent 失败时消息已由生产者释放)
+		luat_http_msg_t *msg = luat_http_msg_build(http_ctrl, HTTP_CALLBACK, (int)http_ctrl->body_len, 0);
+		if (msg == NULL || luat_http_client_onevent(msg) != 0) {
+			LLOGW("http progress notify fail");
+		}
 		LLOGD("luat_http_callback content_length:%ld body_len:%ld",http_ctrl->resp_content_len, http_ctrl->body_len);
     }
 }
@@ -716,6 +839,27 @@ LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 #endif
 		}
 	}
+}
+
+static void http_idg_timeout_tcpip_cb(void *ctx) {
+	luat_http_ctrl_t *http_ctrl = luat_http_idg_get((uint32_t)(uintptr_t)ctx);
+	if (http_ctrl == NULL) {
+		// 已被认领/关闭, 丢弃本次超时
+		return;
+	}
+	luat_http_timeout_resp_error(http_ctrl);
+}
+
+static int32_t l_http_timeout_msg_handler(lua_State *L, void* ptr) {
+	(void)L;
+	http_idg_timeout_tcpip_cb(ptr);
+	return 0;
+}
+
+/* luatos 模式超时定时器回调: param 是 idg 而非 http_ctrl 裸指针,
+ * 投递到网络归属线程再查表, 避免 ctrl 已释放后被定时器线程解引用 */
+LUAT_RT_RET_TYPE luat_http_timer_callback_by_idg(LUAT_RT_CB_PARAM){
+	http_post_cmd(http_idg_timeout_tcpip_cb, l_http_timeout_msg_handler, param);
 }
 
 // 在确认 HTTP body 已经完整的前提下，主动结束本次 HTTP 事务，
@@ -1257,7 +1401,7 @@ int luat_http_client_pause(luat_http_ctrl_t *http_ctrl, uint8_t is_pause)
 	if (!http_ctrl->is_pause)
 	{
 		OS_EVENT event = {EV_NW_RESULT_EVENT, 0, 0, 0};
-		luat_lib_http_callback(&event, http_ctrl);
+		luat_lib_http_callback(&event, (void *)(uintptr_t)http_ctrl->idg);
 	}
 	return 0;
 }
@@ -1568,11 +1712,17 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
 int luat_http_client_start_luatos(luat_http_ctrl_t* http_ctrl) {
 	http_ctrl->luatos_mode = 1;
 	http_ctrl->tcp_closed = 0;
+	// 定时器必须在 connect 之前创建: connect 之后 http_ctrl 已移交网络侧,
+	// VM 线程再写字段会在网络侧极快完成并释放时产生 UAF。回调以 idg 寻址,
+	// 不持 http_ctrl 裸指针; connect 失败时已武装的定时器由 http_close→teardown 停止释放
 	if(http_ctrl->timeout){
-		http_ctrl->timeout_timer = luat_create_rtos_timer(luat_http_timer_callback, http_ctrl, NULL);
+		http_ctrl->timeout_timer = luat_create_rtos_timer(luat_http_timer_callback_by_idg, (void *)(uintptr_t)http_ctrl->idg, NULL);
+		if (http_ctrl->timeout_timer == NULL) {
+			LLOGE("no more timer for http");
+			return -1;
+		}
 		luat_start_rtos_timer(http_ctrl->timeout_timer, http_ctrl->timeout, 0);
 	}
-
 	if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
 		// network_close(http_ctrl->netc, 0);
 		LLOGE("can not connect! %s:%d", http_ctrl->host, http_ctrl->remote_port);

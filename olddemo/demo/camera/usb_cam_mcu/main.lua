@@ -3,24 +3,25 @@ VERSION = "1.0.0"
 
 log.style(1)
 
-gpio.setup(12, 1, gpio.PULLUP) -- 输出高，内部上拉可选
-
-lcd.init("custom", {
-	port = lcd.RGB,
-	hbp = 140,
-	hspw = 20,
-	hfp = 160,
-	vbp = 20,
-	vspw = 3,
-	vfp = 12,
-	bus_speed = 50 * 1000 * 1000,
-	pin_pwr = 2,
-	pin_rst = 15,
-	direction = 0,
-	w = 1024,
-	h = 600
-})
-
+gpio.setup(12, 1, gpio.PULLUP) -- 输出高，内部上拉可选 V001板子
+gpio.setup(58, 1, gpio.PULLUP) -- 输出高，内部上拉可选 V002板子
+if lcd then
+	lcd.init("custom", {
+		port = lcd.RGB,
+		hbp = 140,
+		hspw = 20,
+		hfp = 160,
+		vbp = 20,
+		vspw = 3,
+		vfp = 12,
+		bus_speed = 50 * 1000 * 1000,
+		pin_pwr = 2,
+		pin_rst = 15,
+		direction = 0,
+		w = 1024,
+		h = 600
+	})
+end
 
 local uartid = 3 -- 根据实际设备选取不同的uartid
 local result = uart.setup(uartid, -- 串口id
@@ -30,8 +31,8 @@ local result = uart.setup(uartid, -- 串口id
 )
 -- 摄像头图像基本参数，格式，长，宽
 local frame_type = 1    --mjpg
-local sensor_w = 1920
-local sensor_h = 1080
+local sensor_w = 640
+local sensor_h = 480
 local usb_app_id = nil
 -- 双缓冲接收图像数据
 local frame_buff0 = zbuff.create(sensor_w * sensor_h)
@@ -65,10 +66,11 @@ local function  camera_cb(app_id, event, param)
                 uart.tx(uartid, send_buff)
                 
             end
-        end
-        if param == 1 then
+        elseif param == 1 then
             log.info("usb摄像头接收数据，位于buffer1 ,数据长度", frame_buff1:used())
-        end
+        else
+		
+		end
         return
     end
     if event == usb.EV_CONNECT then
@@ -89,7 +91,9 @@ local function  camera_cb(app_id, event, param)
         camera.set_usb_config(usb_app_id, camera.CONF_UVC_RESOLUTION, frame_type, sensor_w, sensor_h)
         --camera.set_usb_config(usb_app_id, camera.CONF_UVC_RESOLUTION, 1, 5)
         camera.cache(camera.USB, usb_app_id, frame_buff0, frame_buff1)
-        camera.stream(camera.USB, usb_app_id)
+		--camera.stream(camera.USB, usb_app_ide) -- 只输出视频流
+        camera.stream(camera.USB, usb_app_id, nil, nil, true, true) -- 输出视频流同时扫码
+		--camera.stream(camera.USB, usb_app_id, nil, nil, false, true) -- 只扫码，不输出视频流
         return
 
     end
@@ -111,7 +115,7 @@ local function  camera_cb(app_id, event, param)
 end
 usb.on(0, usb_cb)
 --usb.debug(0, true)
-camera.preview(camera.USB, true)
+camera.preview(camera.USB, false)
 camera.on(camera.USB, "usb_raw", camera_cb)
 pm.power(pm.USB, false)		--确保USB外设是掉电状态
 usb.mode(0, usb.HOST)		--usb设置成主机模式

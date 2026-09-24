@@ -7,6 +7,7 @@
 @demo camera
 @tag LUAT_USE_CAMERA
 */
+#include "lua.h"
 #include "luat_base.h"
 #include "luat_camera.h"
 #include "luat_msgbus.h"
@@ -83,6 +84,10 @@ int l_camera_handler(lua_State *L, void* ptr) {
             	lua_pushinteger(L, LUAT_USB_EVENT_NEW_RX);
             	lua_pushinteger(L, u_event.usb_id);
             	break;
+            case LUAT_CAMERA_SCAN_DECODE:
+                lua_pushinteger(L, LUAT_USB_EVENT_NEW_RX);
+                lua_pushlstring(L, (char *)msg->arg1,msg->arg2);
+                break;
         	case LUAT_CAMERA_USB_CONNECT:
         		lua_pushinteger(L, LUAT_USB_EVENT_CONNECT);
         		lua_pushinteger(L, u_event.usb_id);
@@ -589,6 +594,11 @@ LUAT_WEAK int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t 
 {
 	return -1;
 }
+
+
+LUAT_WEAK int luat_camera_scan(int id, uint8_t on_off) {return -1;}
+
+LUAT_WEAK int luat_camera_frame_callback_on_off(int id, uint8_t on_off) {return -1;}
 #endif
 /**
 camera拍照
@@ -759,21 +769,32 @@ static int l_camera_set_reset_pin(lua_State* L) {
 
 /**
 camera输出/停止数据流
-@api camera.stream(id, app_id, jump_frame_cnt, min_data_len)
+@api camera.stream(id, app_id, jump_frame_cnt, min_data_len, frame_callback_enable, scan_enable)
 @int camera id
 @int app_id 如果是usb摄像头，则输入usb应用id，其他留空
 @int 跳帧，针对USB摄像头，跳过N帧后上报，一般情况正常传输是摄像头最高帧率，如果脚本处理不过来，可以跳过N帧上报，默认是0，即不跳
 @int 图像数据最小长度，针对USB摄像头ISO传输可能漏数据的情况，只有大于最小长度的图像帧会上报，默认是1KB
+@boolean 是否开启帧数据回调，默认开启，false不开启，true开启
+@boolean 是否开启扫码功能，默认不开启，false不开启，true开启
 @return boolean 成功返回true,否则返回false
 @usage
 camera.stream(camera.USB, app_id)       --默认不跳帧
 camera.stream(camera.USB, app_id, 1)    --跳过1帧上报
+camera.stream(camera.USB, app_id, nil, nil, false, true)    --关闭帧数据回调，开启扫码功能
 */
 static int l_camera_stream(lua_State *L) {
 	int camera_id = luaL_checkinteger(L, 1);
     int app_id = luaL_optinteger(L, 2, -1);
     uint8_t jump_frame_cnt = luaL_optinteger(L, 3, 0);
     uint32_t min_data_len = luaL_optinteger(L, 4, 1*1024);
+    uint8_t frame_callback_enable = 1;
+    uint8_t scan_enable = 0;
+    if (lua_isboolean(L, 5)) {
+        frame_callback_enable = lua_toboolean(L, 5);
+    }
+    if (lua_isboolean(L, 6)) {
+        scan_enable = lua_toboolean(L, 6);
+    }
 
     uint8_t usb_mode = 0;
     if (camera_id >= LUAT_CAMERA_TYPE_USB)
@@ -786,6 +807,8 @@ static int l_camera_stream(lua_State *L) {
     {
     	luat_usb_camera_stream_set_jump_frame_cnt(app_id, jump_frame_cnt);
     	luat_usb_camera_stream_set_min_data_len(app_id, min_data_len);
+        luat_camera_scan(camera_id, scan_enable);
+        luat_camera_frame_callback_on_off(camera_id, frame_callback_enable);
         lua_pushboolean(L, !luat_camera_start(app_id));
 
     }

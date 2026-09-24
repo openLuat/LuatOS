@@ -10,7 +10,6 @@ local g_call_generation = 0
 local g_media
 local g_media_pending
 local g_current_adapter
-local g_ready_adapters = {}
 local g_ip_event_subscribed = false
 local default_config = {
     sip_transport = "tcp", sip_server_port = 5060, rtp_port = 40000,
@@ -185,28 +184,16 @@ local function request_cc_media(session, call)
     end
 end
 
-local function ip_ready_handler(ip, adapter)
-    log_info("IP_READY", ip, adapter)
-    g_ready_adapters[adapter] = true
-end
-
 local function ip_lose_handler(adapter)
     log_info("IP_LOSE", adapter)
-    g_ready_adapters[adapter] = nil
     if not g_started then
         return
     end
     if adapter == g_current_adapter then
-        local all_down = true
-        for _ in pairs(g_ready_adapters) do
-            all_down = false
-            break
-        end
         log_warn("current adapter lost, triggering error", adapter)
         emit_callback("error", "network_changed", {
             reason = "current_adapter_lost",
-            adapter = adapter,
-            all_down = all_down
+            adapter = adapter
         })
     end
 end
@@ -363,12 +350,11 @@ function pcm_sip.start()
 
     setup_voip_callbacks()
 
-    -- 订阅 IP 就绪/丢失事件
+    -- 只订阅业务需要的当前网卡丢失事件；联网就绪由 exsipclient 维护。
     if not g_ip_event_subscribed then
-        sys.subscribe("IP_READY", ip_ready_handler)
         sys.subscribe("IP_LOSE", ip_lose_handler)
         g_ip_event_subscribed = true
-        log_info("subscribed to IP_READY and IP_LOSE")
+        log_info("subscribed to IP_LOSE")
     end
 
     -- 确定并记录当前实际使用的网卡
@@ -395,7 +381,6 @@ function pcm_sip.start()
     })
     if not start_call_ok or not sip_started then
         if g_ip_event_subscribed then
-            sys.unsubscribe("IP_READY", ip_ready_handler)
             sys.unsubscribe("IP_LOSE", ip_lose_handler)
             g_ip_event_subscribed = false
         end

@@ -2,6 +2,7 @@
 
 本目录用于没有外置 codec 的 Air8000，支持 SIP 呼入转手机、手机呼入转 SIP、双向语音、早期媒体/彩铃与挂断同步。
 CC 固定调用 `cc.init(0, cc.AUDIO_MODE_BRIDGE_PCM)`，VoIP 固定使用 `voip.AUDIO_MODE_BRIDGE`。
+首次成功调用 `cc.init` 后，CC 后端固定至重启；同模式重复初始化成功，普通 CC 与纯 PCM 模式之间的切换明确失败，包括挂断后的空闲阶段。首次初始化失败不会锁定后端。
 SIP 仅支持 PCMA/PCMU、8 kHz、20 ms；蜂窝侧支持 8/16 kHz PCM。
 
 本 demo 不初始化 codec、I2S、DAC、UART 音频或 Audio V2 音频请求，不提供本地听筒、麦克风、录音及通话中切换后端。
@@ -9,20 +10,21 @@ SIP 仅支持 PCMA/PCMU、8 kHz、20 ms；蜂窝侧支持 8/16 kHz PCM。
 
 ## 固件与烧录
 
-1. 使用已包含 CC 纯 PCM 后端和配套 SDK PCM 接口的 Air8000 13 号固件。
-   原 V2050、未集成该功能的普通固件不能仅通过更新脚本获得该能力；版本号本身不能作为判断依据。
+1. 使用已包含 CC 纯 PCM 后端和 SoC 本地 PCM 上行适配器的 Air8000 13 号固件。
+   固件链接标准 SDK 预编译库；PCM 上传缓冲、编码完成归还和媒体生命周期由 SoC 本地 `luat_cc_pcm_upload_*` 适配器处理，不依赖定制 SDK 的 `soc_mobile_pcm_*` 接口。
+   1.1.1 脚本应配套包含原生 CC 事件 session、PCM 重排和本轮修复的固件，并使用同次更新的公共 SIP 库。原 V2050、未集成该功能的普通固件不能仅通过更新脚本获得该能力；版本号本身不能作为判断依据。
    脚本检查 `cc.AUDIO_MODE_BRIDGE_PCM`、`bridgePcmStats()` 必需字段和单调时钟，能力不足或 CC 初始化失败时停止启动。
 2. 在 Luatools 新建脚本项目，添加**`main.lua`、`netdrv/` 下的 3 个脚本和 `sip_cc/` 下的 6 个脚本，共 10 个 `.lua` 文件**。
    添加子目录中的脚本时保留文件名，`require` 名称无需增加目录前缀。唯一入口为 `main.lua`。请移除项目中旧 demo 和诊断脚本的选择。
 3. 从本仓库的 [script/libs](../../../../script/libs) 目录直接添加以下公共库文件，保留原文件名：
-   `exsipclient.lua`、`exsipproto.lua`、`exnetif.lua`、`dnsproxy.lua`、`dhcpsrv.lua`、`httpdns.lua`、`udpsrv.lua`。
-   这些文件包含 Wi-Fi 驱动的间接依赖，可满足 Luatools 对脚本中 `require` 的合并检查；不需要复制到 demo 目录。
+   `exsipclient.lua`、`exsipproto.lua`、`exnetif.lua`、`dnsproxy.lua`、`dhcpsrv.lua`、`httpdns.lua`、`udpsrv.lua`、`exair153x_wdt.lua`。
+   这些文件包含 Wi-Fi 驱动的间接依赖及当前入口使用的外部看门狗库，可满足 Luatools 对脚本中 `require` 的合并检查；不需要复制到 demo 目录。
    `sys`、`sysplus` 使用固件内置库。
-4. 启动后应看到 `SIP_CC_BRIDGE_PCM 1.1.0`、`CC 初始化完成 bridge_pcm` 和 `SIP 注册成功`。
+4. 启动后应看到 `SIP_CC_BRIDGE_PCM 1.1.1`、`CC 初始化完成 bridge_pcm` 和 `SIP 注册成功`。
 
 ## 配置
 
-`sip_cc/config.lua` 和 `netdrv/netdrv_wifi.lua` 使用示例占位值。**烧录前必须填写实际参数**，占位值不能用于注册或拨号。
+`sip_cc/config.lua` 和 `netdrv/netdrv_wifi.lua` 中的参数需与实际环境一致。**烧录前填写或核对实际参数**，示例占位值不能用于注册或拨号。
 
 | 文件/参数 | 设置内容 |
 | --- | --- |
@@ -34,7 +36,7 @@ SIP 仅支持 PCMA/PCMU、8 kHz、20 ms；蜂窝侧支持 8/16 kHz PCM。
 | `cc_audio_start_timeout_ms` | 蜂窝业务接通后等待 PCM 就绪的超时，默认 **3000 ms**；重复事件不续期 |
 | `cc_media_min_connected_ms` | 原始 CONNECTED/CONNECTED_NUMBER 接通至少 **2000 ms** 才可计作缺 PCM；<=0 关闭统计 |
 | `cc_media_missing_call_limit` | 连续 **3** 通符合条件且无真实 PCM 时发布异常；<=0 关闭统计 |
-| `cc_media_reboot_on_error` | 默认 **true**，异常后清理并重启；false 仅观察异常事件 |
+| `cc_media_reboot_on_error` | true：异常后清理并重启；false：仅观察异常事件。以当前配置值为准 |
 | `netdrv/netdrv_device.lua`、`config.adapter` | 网卡驱动与 SIP/RTP 网卡必须一致 |
 
 默认使用 4G：启用 `require "netdrv_4g"`，`adapter=socket.LWIP_GP`。
@@ -47,11 +49,29 @@ SIP 仅支持 PCMA/PCMU、8 kHz、20 ms；蜂窝侧支持 8/16 kHz PCM。
 
 清理或间隔期间最多等待一通 SIP 来电，维持 `100 Trying`，不会提前发送 183、启动媒体或拨 CC。等待从新来电到达起最多 **3000 ms**，超时对该 Call-ID 回复 480；真实占线仍回复 486。等待中取消只移除该来电，不再次挂断旧 CC，也不重置旧通话的间隔。手机呼入同样等待释放和间隔，期间保持响铃；手机提前挂断不再拨 SIP。
 
-PCM 释放检查要求 `active`、`media_ready`、`dl_queued`、`ul_queued`、`sdk_active`、`sdk_pending`、`sdk_stop_waiting` 为整数零。手机新来电已由 C 层建立新 session 时，只允许该待接来电自身的 `active=1`；其余字段仍须为零，不能因旧 SDK pending 尚未归还而提前拨 SIP。检查仅在清理或等待阶段每 100 ms 执行，不持续打印统计。
+`bridgePcmStats()` 保留 `sdk_*` 字段名供现有 Lua 使用；这些字段由 SoC 本地上传适配器维护，表示实际上传阶段和编码缓冲归还状态，`sdk_completed` 不代表 RTP 已送达。
+
+PCM 释放检查要求 `active`、`media_ready`、`dl_queued`、`ul_queued`、`sdk_active`、`sdk_pending`、`sdk_stop_waiting` 为整数零。手机新来电已由 C 层建立新 session 时，只允许该待接来电自身的 `active=1`；其余字段仍须为零，不能因旧帧尚未归还而提前拨 SIP。检查仅在清理或等待阶段每 100 ms 执行，不持续打印统计。
 
 业务命令、定时器和转发事件带 Call-ID/本地代次；183 已发送且 VoIP 真正 `started` 后才拨 CC。停止媒体覆盖 STARTING，同一实例只请求停止一次；re-INVITE 更换媒体要先等旧实例释放。公共 `exsipclient.lua` 直接使用本仓库版本，保留 200 重传、ACK 截止、旧对话后台收尾及每通 RTP 端口隔离。
 
 号码优先从 Request-URI 提取，其次 To，最后使用 `target_phone_number`。保留 PCMA/PCMU、8 kHz/20 ms 和原有双向 PCM 通道，不接入外置音频驱动。
+
+## 1.1.1 媒体与注册行为
+
+原生 CC 通话事件为 `CC_IND(status, value, session)`，无 value 的事件传 nil，PLAY 的 value 不变；READY 是全局通知。AUDIO_START 仍在第二参数携带 session。Lua 按事件所属会话结算旧终止，避免新来电提前建立 native session 后吞掉旧终止。
+
+媒体 worker 维持绝对 20 ms 节拍：晚到跳过已错过的周期，每轮最多处理一帧；轻微迟到不持续移动基准。READY/ERROR 在媒体锁外投递。
+
+纯 PCM RTP 解码结果携带序号进入十帧交接 FIFO，六槽上行队列完成重排，并保留唯一的三帧起播门限。重复/迟到帧不重播；有后续帧时缺失时隙补静音；完全欠载重新三帧预缓存。SSRC 变化或 RX clear 清上行排序状态，重新起播。普通桥接的样本接口保留；纯 PCM 下手动 pcmOut 读半帧时，内部整帧读取暂缓，读完余量或清 RX 后恢复，发送方向不受影响。
+
+`cc.bridgePcmStats()` 增加 `ul_lost`（最终缺帧）、`ul_duplicate`（队列内重复）、`ul_late`（游标前的迟到帧）。`voip.stats().rx_lost` 为当前媒体 generation 的最终缺帧，包含可能的本地丢帧，不等于纯网络丢包；`rx_queue_dropped` 为交接 FIFO 溢出。`tx_packets/tx_bytes` 只计完整进入网络适配器的包，不表示对端收到；`tx_errors` 计发送失败或短接受。
+
+REGISTER 收到 500/503 后，公共 SIP 客户端复用注册定时器恢复；缺失/非法 Retry-After 默认等待 3 秒，合法值至少等待其指定时间。长等待分段计时，同服务器重连不提前重试；stop 清除等待。响应精确匹配 Call-ID、REGISTER CSeq 和连接，旧响应不影响新事务。续注册的临时失败不清当前通话和媒体。
+
+BRIDGE 模式不再分配无消费者的本地 mic/play 缓冲和 jitter buffer；SoC 上传副本池及真实完成归还机制保持。上传槽满和停止超时的既有故障策略保持。
+
+完整方案及实际验证记录见 [修复方案](../../../../docs/cc_sip_pcm_bridge_repair_plan.md)。
 
 ## 无真实 PCM 事件与恢复
 
@@ -69,13 +89,13 @@ sys.subscribe("CC_BRIDGE_MEDIA_ANOMALY", function(reason, detail)
 end)
 ```
 
-启用默认恢复时，停止接收新桥接，清理 SIP/CC/VoIP；实际释放后立即重启，最多等待 **3000 ms**。`cc_media_reboot_on_error=false` 仅观察，不进入恢复状态。原生 `CC_BRIDGE_MEDIA_ERROR(reason, session)` 继续按该 session 的 SDK 故障结束通话，不直接转换成三通无 PCM 异常。
+启用恢复时，停止接收新桥接，清理 SIP/CC/VoIP；实际释放后立即重启，最多等待 **3000 ms**。`cc_media_reboot_on_error=false` 仅观察，不进入恢复状态。原生 `CC_BRIDGE_MEDIA_ERROR(reason, session)` 继续按该 session 的 SDK 故障结束通话，不直接转换成三通无 PCM 异常。
 
-这项 Lua 统计是缓解与诊断措施，不代表已修复底层长期压测故障，也不能与原 C 监测完全等同。普通 CC 原生终结消息没有 session，统计被覆盖或原生事件丢失时不能保证识别；有过真实 PCM 后的中途断流不属于本判据。
+这项 Lua 统计用于缓解与诊断。纯 PCM 模式的原生通话事件现在携带入队时的 session，旧终止可以结算其所属通话；普通 CC 的原接口保持不变。真实 PCM 统计已被新 session 覆盖时仍按未知处理；有过真实 PCM 后的中途断流不属于本判据。
 
 ## 实机测试
 
-1. 按上述清单烧录 **10 个 demo 文件和 7 个当前公共依赖**，确认启动修复标识。旧客户目录保留，勿把其同名 `bridge.lua`、`cc_main.lua`、`sip_main.lua` 或旧媒体库混入此项目。
+1. 按上述清单烧录 **10 个 demo 文件和 8 个当前公共依赖**，确认启动修复标识。旧客户目录保留，勿把其同名 `bridge.lua`、`cc_main.lua`、`sip_main.lua` 或旧媒体库混入此项目。
 2. SIP 呼入转手机、手机呼入转 SIP 分别测试 PCMA/PCMU、响铃延迟接听和两侧挂断；检查真实彩铃、接通后的双向语音，分别记录蜂窝 8/16 kHz 覆盖情况。
 3. 在上一通挂断请求后立即发起下一通，交换 CC/VoIP 停止先后顺序，确认只保留 100，实际释放后至少 500 ms 才发 183/启动下一通；等待超过 3 秒回复 480。分别取消等待中、拨号中和 VoIP STARTING 中的通话。
 4. 丢弃 SIP ACK 后由手机先挂断，再立即拨入；确认旧信令后台收尾不影响新媒体，检查 SDP 协商的本地 RTP 端口与实际包流一致、旧端口残留包不会进入新通话。服务器/网络需允许已协商的候选本地端口。

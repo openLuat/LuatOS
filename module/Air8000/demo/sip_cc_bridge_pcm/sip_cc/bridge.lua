@@ -252,7 +252,7 @@ local function on_sip_incoming(from, uri, to, call_id, generation)
     local call = new_call("outgoing")
     call.call_id, call.sip_generation = call_id, generation
     call.sip_state, call.sip_done = "sip_incoming", false
-    call.number = parse_number(uri) or parse_number(to) or config.target_phone_number
+    call.number = config.target_phone_number
     call.deadline = now_ms() + WAIT_MS
     pending = call
     logi("SIP 来电", call_id, "目标", call.number)

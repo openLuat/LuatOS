@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Air8301 出厂固件</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#f0f2f5;color:#303133;}
+.header{height:56px;background:linear-gradient(90deg,#007AFF 0%,#0056B3 100%);color:#fff;display:flex;align-items:center;padding:0 20px;font-size:18px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.15);}
+.header .sub{font-size:12px;font-weight:400;opacity:.85;margin-left:12px;}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e4e7eb;overflow-x:auto;}
+.tab{padding:12px 22px;font-size:15px;color:#606266;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
+.tab.active{color:#007AFF;border-bottom-color:#007AFF;font-weight:600;}
+.page{display:none;padding:16px;max-width:1000px;margin:0 auto;}
+.page.active{display:block;}
+.card{background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.card h3{font-size:15px;color:#303133;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #f0f0f0;}
+.row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:14px;border-bottom:1px solid #f7f7f7;}
+.row:last-child{border-bottom:none;}
+.row .k{color:#909399;}
+.row .v{color:#303133;font-weight:500;}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+.dot.on{background:#34C759;box-shadow:0 0 5px #34C759;}
+.dot.off{background:#E63946;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;}
+.relay{background:#f8f9fa;border-radius:8px;padding:12px;text-align:center;}
+.relay .t{font-size:13px;color:#606266;margin-bottom:8px;}
+.relay .s{font-size:16px;font-weight:600;margin-bottom:10px;}
+.relay .s.on{color:#34C759;}
+.relay .s.off{color:#909399;}
+.switch{position:relative;display:inline-block;width:50px;height:28px;vertical-align:middle;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#e5e5ea;border-radius:14px;transition:.25s;}
+.slider:before{content:"";position:absolute;height:24px;width:24px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:.25s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.switch input:checked+.slider{background:#34C759;}
+.switch input:checked+.slider:before{transform:translateX(22px);}
+.btn{border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;transition:.2s;margin:2px;}
+.btn:hover{opacity:.85;}
+.btn-p{background:#007AFF;color:#fff;}
+.btn-s{background:#34C759;color:#fff;}
+.btn-d{background:#E63946;color:#fff;}
+.btn-g{background:#e4e7eb;color:#303133;}
+.input{width:100%;padding:7px 10px;border:1px solid #dcdfe6;border-radius:6px;font-size:14px;outline:none;}
+.input:focus{border-color:#007AFF;}
+.log{background:#1a1a2e;border-radius:8px;padding:8px 10px;font-family:Consolas,monospace;font-size:12px;color:#00ff88;height:120px;overflow-y:auto;line-height:1.6;}
+.log div{white-space:pre-wrap;word-break:break-all;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:6px 8px;text-align:left;border-bottom:1px solid #f0f0f0;}
+th{background:#f8f9fa;color:#606266;font-weight:600;}
+.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 22px;border-radius:20px;font-size:14px;opacity:0;transition:.3s;pointer-events:none;z-index:99;}
+.toast.show{opacity:1;}
+.bar{height:16px;background:#e4e7eb;border-radius:8px;overflow:hidden;margin-top:8px;}
+.bar>div{height:100%;width:0;background:#007AFF;color:#fff;font-size:10px;text-align:center;line-height:16px;transition:width .3s;}
+</style>
+</head>
+<body>
+<div class="header">Air8301 出厂固件<span class="sub" id="hdrSub">加载中...</span></div>
+<div class="tabs">
+  <div class="tab active" onclick="go('home',this)">概览</div>
+  <div class="tab" onclick="go('relay',this)">继电器</div>
+  <div class="tab" onclick="go('net',this)">网络</div>
+  <div class="tab" onclick="go('comm',this)">通讯</div>
+  <div class="tab" onclick="go('fota',this)">升级</div>
+  <div class="tab" onclick="go('cfg',this)">配置</div>
+</div>
+
+<!-- 概览 -->
+<div class="page active" id="page-home">
+  <div class="card"><h3>设备信息</h3>
+    <div class="row"><span class="k">项目</span><span class="v" id="h-project">--</span></div>
+    <div class="row"><span class="k">脚本版本</span><span class="v" id="h-version">--</span></div>
+    <div class="row"><span class="k">内核固件</span><span class="v" id="h-fw">--</span></div>
+    <div class="row"><span class="k">设备名称</span><span class="v" id="h-name">--</span></div>
+    <div class="row"><span class="k">IMEI</span><span class="v" id="h-imei">--</span></div>
+    <div class="row"><span class="k">ICCID</span><span class="v" id="h-iccid">--</span></div>
+    <div class="row"><span class="k">系统时间</span><span class="v" id="h-time">--</span></div>
+  </div>
+  <div class="card"><h3>运行数据</h3>
+    <div class="grid">
+      <div class="relay"><div class="t">环境温度</div><div class="s" id="h-temp">-- ℃</div></div>
+      <div class="relay"><div class="t">环境湿度</div><div class="s" id="h-humi">-- %RH</div></div>
+      <div class="relay"><div class="t">CPU温度</div><div class="s" id="h-cpu">-- ℃</div></div>
+      <div class="relay"><div class="t">VBAT电压</div><div class="s" id="h-vbat">-- V</div></div>
+      <div class="relay"><div class="t">4G信号</div><div class="s" id="h-csq">-- dBm</div></div>
+      <div class="relay"><div class="t">LBS定位</div><div class="s" style="font-size:12px;" id="h-lbs">--</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 继电器 -->
+<div class="page" id="page-relay">
+  <div class="card"><h3>485 继电器模块（UART11 主站 / 非隔离口）</h3>
+    <div class="grid" id="relayGrid"></div>
+    <div style="margin-top:10px;font-size:12px;color:#909399;text-align:center;">通道 0~3 依次对应从站寄存器 0x0001~0x0004（写 1=接通 / 写 0=断开）</div>
+    <div style="margin-top:8px;text-align:center;">
+      <button class="btn btn-s" onclick="relayCtl('all_open')">全部接通</button>
+      <button class="btn btn-d" onclick="relayCtl('all_close')">全部断开</button>
+      <button class="btn btn-p" onclick="relayCtl('read')">回读状态</button>
+    </div>
+  </div>
+  <div class="card"><h3>主站通讯日志</h3><div class="log" id="rlog"><div>等待操作...</div></div></div>
+</div>
+
+<!-- 网络 -->
+<div class="page" id="page-net">
+  <div class="card"><h3>网络状态</h3>
+    <div class="row"><span class="k">网口1 (内置网页)</span><span class="v" id="n-eth1">--</span></div>
+    <div class="row"><span class="k">网口2 (Modbus TCP)</span><span class="v" id="n-eth2">--</span></div>
+    <div class="row"><span class="k">WiFi</span><span class="v" id="n-wifi">--</span></div>
+    <div class="row"><span class="k">4G</span><span class="v" id="n-4g">--</span></div>
+    <div class="row"><span class="k">运营商</span><span class="v" id="n-op">--</span></div>
+  </div>
+  <div class="card"><h3>WiFi 配置</h3>
+    <div class="row"><span class="k" style="width:70px;">SSID</span><input class="input" id="w-ssid" style="width:auto;flex:1;" placeholder="WiFi名称"></div>
+    <div class="row"><span class="k" style="width:70px;">密码</span><input class="input" id="w-pwd" type="password" style="width:auto;flex:1;" placeholder="留空不修改"></div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-p" onclick="saveWifi()">保存并重连</button>
+      <button class="btn btn-g" onclick="scanWifi()">扫描WiFi</button>
+    </div>
+    <div id="scanList" style="margin-top:8px;font-size:13px;"></div>
+  </div>
+</div>
+
+<!-- 通讯 -->
+<div class="page" id="page-comm">
+  <div class="card"><h3>从站与主站配置</h3>
+    <div class="row"><span class="k">RS485 主站（继电器）</span><span class="v" id="c-master">--</span></div>
+    <div class="row"><span class="k">RS485 从站（串口板）</span><span class="v" id="c-slave">--</span></div>
+    <div class="row"><span class="k">Modbus TCP 从站</span><span class="v" id="c-tcp">--</span></div>
+  </div>
+  <div class="card"><h3>寄存器映射表</h3>
+    <table id="regTable"><tr><th>地址</th><th>数量</th><th>数据项</th><th>当前值</th></tr></table>
+  </div>
+  <div class="card"><h3>从站请求日志</h3><div class="log" id="slog"><div>等待主站请求...</div></div></div>
+  <div class="card"><h3>TCP 请求日志</h3><div class="log" id="tlog"><div>等待TCP请求...</div></div></div>
+</div>
+
+<!-- 升级 -->
+<div class="page" id="page-fota">
+  <div class="card"><h3>远程升级 (FOTA)</h3>
+    <div class="row"><span class="k">当前状态</span><span class="v" id="f-stage">--</span></div>
+    <div class="row"><span class="k">目标版本</span><span class="v" id="f-ver">--</span></div>
+    <div class="bar"><div id="f-bar">0%</div></div>
+    <div style="margin-top:10px;"><button class="btn btn-p" onclick="fotaCheck()">立即检测更新</button></div>
+  </div>
+  <div class="card"><h3>升级历史</h3><div id="f-hist" style="font-size:13px;color:#606266;">暂无记录</div></div>
+</div>
+
+<!-- 配置 -->
+<div class="page" id="page-cfg">
+  <div class="card"><h3>设备配置</h3>
+    <div class="row"><span class="k" style="width:90px;">设备名称</span><input class="input" id="cfg-name" style="width:auto;flex:1;"></div>
+    <div class="row"><span class="k" style="width:90px;">NTP服务器</span><input class="input" id="cfg-ntp" style="width:auto;flex:1;"></div>
+    <div class="row"><span class="k" style="width:90px;">时区</span>
+      <select class="input" id="cfg-tz" style="width:auto;flex:1;">
+        <option>UTC+8</option><option>UTC+0</option><option>UTC+9</option><option>UTC-5</option>
+      </select>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-p" onclick="saveCfg()">保存配置</button>
+      <button class="btn btn-d" onclick="resetCfg()">恢复默认</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function go(id,el){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  log('打开页面 '+id);
+}
+function log(msg){fetch('/api/log?msg='+encodeURIComponent(msg)).catch(function(){});}
+function toast(msg){
+  var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},1800);
+}
+function api(path,opt){return fetch(path,opt).then(function(r){return r.json();});}
+
+// 继电器卡片 DOM 引用（只在通道数变化时重建，避免每 3 秒整表重建打断用户点击）
+var relayEls=[];
+// 用户刚操作过的通道保护窗口：{want:期望状态, ts:操作时间戳}
+var pendSw={};
+function buildRelayDom(n){
+  var g=document.getElementById('relayGrid');
+  var h='';
+  for(var i=0;i<n;i++){
+    h+='<div class="relay"><div class="t">通道 '+i+'</div><div class="s off">断开</div>'+
+       '<label class="switch"><input type="checkbox" onchange="onRelaySw('+i+')"><span class="slider"></span></label></div>';
+  }
+  g.innerHTML=h;
+  relayEls=[];
+  for(var i=0;i<n;i++){
+    var card=g.children[i];
+    relayEls[i]={sw:card.getElementsByTagName('input')[0],txt:card.getElementsByClassName('s')[0]};
+  }
+}
+function renderRelay(list){
+  var g=document.getElementById('relayGrid');
+  if(!list||!list.length){g.innerHTML='';relayEls=[];return;}
+  if(relayEls.length!==list.length)buildRelayDom(list.length);
+  var now=Date.now();
+  for(var i=0;i<list.length;i++){
+    var el=relayEls[i];
+    if(!el)continue;
+    var on=list[i]===1;
+    if(pendSw[i]){
+      // 设备端为异步执行（485 主站需等继电器模块应答），保护窗口内保持用户点击后的位置
+      if(on===pendSw[i].want){pendSw[i]=null;}
+      else if(now-pendSw[i].ts<4000){continue;}
+      else{pendSw[i]=null;}
+    }
+    el.txt.textContent=on?'接通':'断开';
+    el.txt.className='s '+(on?'on':'off');
+    if(el.sw.checked!==on)el.sw.checked=on;
+  }
+}
+function onRelaySw(ch){
+  var el=relayEls[ch];
+  if(!el)return;
+  var on=el.sw.checked;
+  el.txt.textContent=on?'接通':'断开';
+  el.txt.className='s '+(on?'on':'off');
+  pendSw[ch]={want:on?1:0,ts:Date.now()};
+  relayCtl('toggle',ch);
+}
+function relayCtl(action,ch){
+  var body={action:action};
+  if(ch!==undefined)body.channel=ch;
+  // 批量操作：乐观标记所有通道，避免刷新时开关被拉回
+  if(action==='all_open'||action==='all_close'){
+    var want=action==='all_open'?1:0;
+    for(var i=0;i<relayEls.length;i++)pendSw[i]={want:want,ts:Date.now()};
+  }
+  // 回读：清空保护窗口，强制与设备端真实状态对齐
+  if(action==='read')pendSw={};
+  api('/api/relay/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+  .then(function(res){
+    toast(res.code===0?'指令已下发':'操作失败');
+    addLog('rlog','[操作] '+action+(ch!==undefined?(' 通道'+ch):''));
+    if(res.code!==0&&ch!==undefined)delete pendSw[ch];
+    // 设备端异步执行，分两次刷新以便及时显示设备端实际状态
+    setTimeout(function(){refresh();},800);
+    setTimeout(function(){refresh();},2200);
+  }).catch(function(){toast('请求失败');if(ch!==undefined)delete pendSw[ch];});
+}
+function addLog(id,text){
+  var el=document.getElementById(id);
+  var d=document.createElement('div');
+  d.textContent='['+new Date().toLocaleTimeString('zh-CN',{hour12:false})+'] '+text;
+  el.insertBefore(d,el.firstChild);
+  while(el.childNodes.length>30)el.removeChild(el.lastChild);
+}
+
+function refresh(){
+  api('/api/status').then(function(res){
+    if(res.code!==0||!res.data)return;
+    var d=res.data.device||{},s=res.data.sensor||{},n=res.data.network||{},c=res.data.comm||{};
+    document.getElementById('hdrSub').textContent='@'+(n.eth1&&n.eth1.ready?n.eth1.ip:(n.wifi&&n.wifi.ready?n.wifi.ip:'未联网'));
+    document.getElementById('h-project').textContent=d.project||'--';
+    document.getElementById('h-version').textContent=d.version||'--';
+    document.getElementById('h-fw').textContent=d.fw_version||'--';
+    document.getElementById('h-name').textContent=d.device_name||'--';
+    document.getElementById('h-imei').textContent=d.imei||'--';
+    document.getElementById('h-iccid').textContent=d.iccid||'--';
+    document.getElementById('h-time').textContent=d.ntp_time||'--';
+    document.getElementById('h-temp').textContent=(s.temperature||0).toFixed(1)+' ℃';
+    document.getElementById('h-humi').textContent=(s.humidity||0).toFixed(1)+' %RH';
+    document.getElementById('h-cpu').textContent=(s.cpu_temperature||0).toFixed(1)+' ℃';
+    document.getElementById('h-vbat').textContent=(s.vbat_voltage||0).toFixed(2)+' V';
+    document.getElementById('h-csq').textContent=(s.signal_strength||0)+' dBm';
+    document.getElementById('h-lbs').textContent=(s.latitude||'--')+','+(s.longitude||'--');
+    if(s.relay)renderRelay(s.relay);
+    document.getElementById('n-eth1').innerHTML=dot(n.eth1)+((n.eth1&&n.eth1.ip)||'--');
+    document.getElementById('n-eth2').innerHTML=dot(n.eth2)+((n.eth2&&n.eth2.ip)||'--');
+    document.getElementById('n-wifi').innerHTML=dot(n.wifi)+((n.wifi&&n.wifi.ready)?(n.wifi.ssid||'')+' '+(n.wifi.rssi||0)+'dBm':'未连接');
+    document.getElementById('n-4g').innerHTML=dot(n.net4g)+((n.net4g&&n.net4g.ready)?'在线':'离线');
+    document.getElementById('n-op').textContent=(n.net4g&&n.net4g.operator)||'--';
+    if(c.rs485_master)document.getElementById('c-master').textContent='UART'+c.rs485_master.uart+' / GPIO'+c.rs485_master.dir_pin+' / '+c.rs485_master.baud+' / 从站'+c.rs485_master.slave_id;
+    if(c.rs485_slave)document.getElementById('c-slave').textContent='UART'+c.rs485_slave.uart+' / GPIO'+c.rs485_slave.dir_pin+' / '+c.rs485_slave.baud+' / 从站'+c.rs485_slave.slave_id;
+    document.getElementById('c-tcp').textContent='192.168.1.185:502 / 从站1';
+    if(c.registers){
+      var h='<tr><th>地址</th><th>数量</th><th>数据项</th><th>当前值</th></tr>';
+      for(var i=0;i<c.registers.length;i++){
+        var r=c.registers[i];
+        h+='<tr><td>'+r.addr+'</td><td>'+r.cnt+'</td><td>'+r.name+'</td><td>'+r.value+'</td></tr>';
+      }
+      document.getElementById('regTable').innerHTML=h;
+    }
+    fill('slog',c.slave_log);
+    fill('tlog',c.tcp_log);
+  }).catch(function(){});
+}
+function dot(o){
+  var on=o&&o.ready;
+  return '<span class="dot '+(on?'on':'off')+'"></span>';
+}
+function fill(id,arr){
+  if(!arr||!arr.length)return;
+  var h='';
+  for(var i=0;i<arr.length;i++)h+='<div>'+arr[i]+'</div>';
+  document.getElementById(id).innerHTML=h;
+}
+
+function saveWifi(){
+  var d={};
+  var s=document.getElementById('w-ssid').value.trim();
+  var p=document.getElementById('w-pwd').value;
+  if(s)d.wifi_ssid=s;
+  if(p)d.wifi_pwd=p;
+  if(!s&&!p){toast('未修改');return;}
+  api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})
+  .then(function(res){toast(res.code===0?'已保存，WiFi重连中':'保存失败');});
+}
+function scanWifi(){
+  api('/api/wifi/scan',{method:'POST'}).then(function(){
+    toast('扫描中...');
+    setTimeout(function(){
+      api('/api/wifi/scan').then(function(res){
+        if(res.code===0&&res.data&&res.data.length){
+          var h='';
+          for(var i=0;i<res.data.length;i++){
+            var ap=res.data[i];
+            h+='<div class="row" style="cursor:pointer;" onclick="document.getElementById(\'w-ssid\').value=\''+ap.ssid+'\';"><span class="k">'+ap.ssid+'</span><span class="v">'+ap.rssi+' dBm</span></div>';
+          }
+          document.getElementById('scanList').innerHTML=h;
+        }else{toast('未扫描到WiFi');}
+      });
+    },3000);
+  });
+}
+
+function fotaCheck(){
+  api('/api/fota/check',{method:'POST'}).then(function(){toast('已触发检测');});
+}
+function refreshFota(){
+  api('/api/fota/status').then(function(res){
+    if(res.code!==0||!res.data)return;
+    var d=res.data;
+    document.getElementById('f-stage').textContent=d.msg||d.stage||'--';
+    document.getElementById('f-ver').textContent=d.version||'--';
+    var p=d.progress||0;
+    var b=document.getElementById('f-bar');
+    b.style.width=p+'%';b.textContent=p+'%';
+    if(d.history&&d.history.length){
+      var h='';
+      for(var i=0;i<d.history.length;i++){
+        h+='<div class="row"><span class="k">'+d.history[i].time+'</span><span class="v">'+d.history[i].ver+' '+d.history[i].status+'</span></div>';
+      }
+      document.getElementById('f-hist').innerHTML=h;
+    }
+  }).catch(function(){});
+}
+
+function loadCfg(){
+  api('/api/config').then(function(res){
+    if(res.code!==0||!res.data)return;
+    document.getElementById('cfg-name').value=res.data.device_name||'';
+    document.getElementById('cfg-ntp').value=res.data.ntp_server||'';
+    var tz=document.getElementById('cfg-tz');
+    for(var i=0;i<tz.options.length;i++){if(tz.options[i].value===res.data.timezone)tz.selectedIndex=i;}
+    document.getElementById('w-ssid').value=res.data.wifi_ssid||'';
+  }).catch(function(){});
+}
+function saveCfg(){
+  var d={
+    device_name:document.getElementById('cfg-name').value.trim(),
+    ntp_server:document.getElementById('cfg-ntp').value.trim(),
+    timezone:document.getElementById('cfg-tz').value
+  };
+  api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})
+  .then(function(res){toast(res.code===0?'配置已保存':'保存失败');});
+}
+function resetCfg(){
+  if(!confirm('确认恢复默认配置？'))return;
+  api('/api/reset',{method:'POST'}).then(function(res){toast(res.code===0?'已恢复默认':'操作失败');loadCfg();});
+}
+
+loadCfg();
+refresh();
+refreshFota();
+setInterval(refresh,3000);
+setInterval(refreshFota,5000);
+log('页面加载完成');
+</script>
+</body>
+</html>

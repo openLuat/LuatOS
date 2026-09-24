@@ -35,7 +35,11 @@ typedef union
 {
 	struct
 	{
-		uint8_t usb_id;
+		union {
+			uint8_t usb_id;
+			uint8_t frame_id;
+			uint8_t port_id;
+		};
 		uint8_t class;
 		uint8_t app_id;
 		uint8_t event;

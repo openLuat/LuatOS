@@ -69,7 +69,7 @@ local function  camera_cb(app_id, event, param)
         elseif param == 1 then
             log.info("usb摄像头接收数据，位于buffer1 ,数据长度", frame_buff1:used())
         else
-		
+			log.info("usb摄像头扫码完成", param)
 		end
         return
     end

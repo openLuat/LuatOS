@@ -29,6 +29,7 @@ typedef struct luat_camera_cb {
 } luat_camera_cb_t;
 static luat_camera_cb_t camera_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 static uint64_t camera_idp = 0;
+
 int l_camera_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
@@ -77,24 +78,24 @@ int l_camera_handler(lua_State *L, void* ptr) {
         	switch (u_event.event)
         	{
         	case LUAT_CAMERA_FRAME_RX_DONE:
-            	if (camera_cbs[camera_id].zbuff[u_event.usb_id])
+            	if (camera_cbs[camera_id].zbuff[u_event.frame_id])
             	{
-            		camera_cbs[camera_id].zbuff[u_event.usb_id]->used = msg->arg2;
+            		camera_cbs[camera_id].zbuff[u_event.frame_id]->used = msg->arg2;
             	}
             	lua_pushinteger(L, LUAT_USB_EVENT_NEW_RX);
-            	lua_pushinteger(L, u_event.usb_id);
+            	lua_pushinteger(L, u_event.frame_id);
             	break;
             case LUAT_CAMERA_SCAN_DECODE:
                 lua_pushinteger(L, LUAT_USB_EVENT_NEW_RX);
-                lua_pushlstring(L, (char *)msg->arg1,msg->arg2);
+                lua_pushstring(L, (char *)msg->arg2);
                 break;
         	case LUAT_CAMERA_USB_CONNECT:
         		lua_pushinteger(L, LUAT_USB_EVENT_CONNECT);
-        		lua_pushinteger(L, u_event.usb_id);
+        		lua_pushinteger(L, u_event.port_id);
         		break;
         	case LUAT_CAMERA_USB_DISCONNECT:
         		lua_pushinteger(L, LUAT_USB_EVENT_DISCONNECT);
-        		lua_pushinteger(L, u_event.usb_id);
+        		lua_pushinteger(L, u_event.port_id);
         		break;
         	case LUAT_CAMERA_FRAME_ERROR:
             	lua_pushinteger(L, LUAT_USB_EVENT_RX_ERROR);

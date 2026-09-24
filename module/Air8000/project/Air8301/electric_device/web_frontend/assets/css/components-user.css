@@ -1,0 +1,50 @@
+/* assets/css/components-user.css —— 由 index.html 内联样式拆出（原行区间 2070-2118），内容未改动 */
+/* ============ 操作记录 ============ */
+.act-empty{font-size:12px;color:var(--muted);letter-spacing:.3px;padding:9px}
+.act-line{
+  display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;
+  font-size:12px;color:var(--muted);letter-spacing:.3px;
+  padding:7px 10px;border-radius:9px;background:var(--soft-bg2);
+  border-left:2px solid var(--cyan);
+}
+.act-line.fail{border-left-color:var(--red);color:var(--red)}
+.act-line b{color:var(--text);font-weight:550}
+.act-line.fail b{color:var(--red)}
+
+/* ============ 用户菜单 ============ */
+.user-switch{position:relative;flex-shrink:0}
+.user-pop{
+  position:absolute;top:48px;right:0;z-index:75;
+  width:234px;padding:12px;border-radius:16px;
+  background:var(--panel-solid);border:1px solid var(--line-strong);
+  backdrop-filter:blur(28px);
+  box-shadow:0 24px 60px -18px var(--shadow-a),0 0 0 1px var(--soft-bg);
+  opacity:0;transform:translateY(-8px) scale(.96);pointer-events:none;
+  transition:opacity .28s cubic-bezier(.2,.8,.3,1),transform .28s cubic-bezier(.2,.8,.3,1);
+}
+.user-pop.show{opacity:1;transform:none;pointer-events:auto}
+.user-card{display:flex;align-items:center;gap:11px;padding:4px 4px 12px;border-bottom:1px solid var(--line)}
+.user-card .ua{
+  width:38px;height:38px;border-radius:12px;flex-shrink:0;
+  display:grid;place-items:center;font-size:17px;font-weight:700;
+  color:var(--active-text);
+  background:linear-gradient(145deg,var(--active-from),var(--active-to));
+  box-shadow:0 6px 20px -8px color-mix(in srgb,var(--cyan) 80%,transparent);
+}
+.user-card b{display:block;font-size:14px;font-weight:600;color:var(--text);letter-spacing:.4px}
+.user-card span{display:block;font-size:12px;color:var(--dim);margin-top:3px;letter-spacing:.3px}
+.user-menu{margin-top:9px}
+.user-item{
+  display:flex;align-items:center;gap:9px;
+  padding:10px;border-radius:11px;cursor:pointer;
+  font-size:14px;color:var(--dim);letter-spacing:.3px;
+  transition:all .22s;
+}
+.user-item svg{
+  width:15px;height:15px;flex-shrink:0;
+  fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+}
+.user-item:hover{background:var(--soft-bg);color:var(--text)}
+.user-item.danger{color:var(--red)}
+.user-item.danger:hover{background:color-mix(in srgb,var(--red) 14%,transparent)}
+

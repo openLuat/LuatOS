@@ -34,7 +34,7 @@ local CLR = theme.live()
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
-    local phys_w, phys_h = lcd.getSize()
+    local phys_w, phys_h = display.getSize()
     if rotation == 0 or rotation == 180 then
         screen_w, screen_h = phys_w, phys_h
     else
@@ -263,9 +263,7 @@ local function build_ui()
 main_container = theme.page_bg(airui.screen, screen_w, screen_h)
 
     -- 先估算标题栏高度，创建可滚动内容区（在下层）
-    local gh = _G.screen_h or 800
-    local compact = (gh > 0 and gh < 320)
-    titlebar_height = math.floor((compact and 48 or 60) * (_G.density_scale or 1.0))
+    titlebar_height = math.floor(60 * (_G.density_scale or 1.0))
 
     content_area = airui.container({
         parent = main_container,
@@ -280,7 +278,7 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
         exwin.close(window_id)
     end)
     if actual_th and actual_th > 0 and actual_th ~= titlebar_height then
-        -- 校正内容区起点（紧凑模式下标题栏更矮，内容区随之下移）
+        -- 校正内容区起点（估算高度与实际不一致时，内容区对齐标题栏实际高度）
         local dy = actual_th - titlebar_height
         titlebar_height = actual_th
         content_area:move(0, dy)

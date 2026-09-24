@@ -146,7 +146,7 @@ end)
 
 local function show_exit_password_popup()
     local density = _G.density_scale or 1.0
-    local screen_w, screen_h = lcd.getSize()
+    local screen_w, screen_h = display.getSize()
     local win_w = math.floor(screen_w * 0.80)
     local header_h = math.floor(44 * density)
     local mg = math.floor(16 * density)

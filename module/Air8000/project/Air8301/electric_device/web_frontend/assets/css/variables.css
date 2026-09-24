@@ -1,0 +1,188 @@
+/* assets/css/variables.css —— 由 index.html 内联样式拆出（原行区间 13-150），内容未改动 */
+/* ============ 主题变量（默认：星云蓝） ============
+   同时挂 [data-theme="nebula"]：设置页的主题预览卡靠 data-theme 属性局部覆盖变量，
+   若星云蓝只写在 :root 上，那张卡就不会覆盖，文字色会跟着当前主题跑而底色仍是深色 */
+:root,[data-theme="nebula"]{
+  --bg:#04060d;
+  --panel-from:rgba(17,25,44,.9);
+  --panel-to:rgba(8,12,22,.82);
+  --panel-solid:rgba(14,21,38,.96);
+  --sidebar-from:rgba(16,24,42,.92);
+  --sidebar-to:rgba(8,12,22,.78);
+  --chip-bg:rgba(16,24,42,.7);
+  --soft-bg:rgba(255,255,255,.045);
+  --soft-bg2:rgba(255,255,255,.028);
+  --track-bg:rgba(255,255,255,.08);
+  --line:rgba(90,150,255,.13);
+  --line-strong:rgba(90,170,255,.28);
+  --cyan:#22e1ff;
+  --violet:#8b5cf6;
+  --green:#2bffb0;
+  --amber:#ffb648;
+  --red:#ff4d6d;
+  --text:#e8f0ff;
+  --dim:#7d8fae;
+  --muted:#63748f;
+  --glow-1:rgba(34,225,255,.11);
+  --glow-2:rgba(139,92,246,.14);
+  --glow-3:rgba(43,255,176,.05);
+  --grid-line:rgba(80,140,255,.05);
+  --particle-1:#22e1ff;
+  --particle-2:#8b5cf6;
+  --particle-3:#2bffb0;
+  --particle-4:#4f8cff;
+  --particle-link:80,160,255;
+  --shadow-a:rgba(0,0,0,.95);
+  --shadow-b:rgba(0,0,0,.9);
+  --scroll:rgba(90,150,255,.25);
+  --scroll-hover:rgba(90,150,255,.45);
+  --mask:rgba(2,5,12,.6);
+  --active-text:#031a22;
+  --active-from:#5ceaff;
+  --active-to:#1fb6e8;
+  --toast-bg:rgba(14,22,40,.96);
+  --hover-soft:rgba(34,225,255,.055);
+  --hover-line:rgba(34,225,255,.14);
+  --chart-grid:rgba(90,150,255,.075);
+  --hint-bg:rgba(10,16,28,.96);
+}
+
+/* 极光翡翠 */
+[data-theme="aurora"]{
+  --bg:#020a08;
+  --panel-from:rgba(10,32,26,.9);
+  --panel-to:rgba(4,14,12,.85);
+  --panel-solid:rgba(8,28,22,.96);
+  --sidebar-from:rgba(10,32,26,.92);
+  --sidebar-to:rgba(4,14,12,.8);
+  --chip-bg:rgba(10,32,26,.72);
+  --soft-bg:rgba(34,255,208,.06);
+  --soft-bg2:rgba(34,255,208,.035);
+  --track-bg:rgba(34,255,208,.1);
+  --line:rgba(34,255,208,.13);
+  --line-strong:rgba(34,255,208,.32);
+  --cyan:#22ffd0;
+  --violet:#22d3ee;
+  --green:#7dff5c;
+  --amber:#ffd93d;
+  --red:#ff5c7c;
+  --text:#e0fff5;
+  --dim:#7fb5a5;
+  --muted:#5d8a7c;
+  --glow-1:rgba(34,255,208,.12);
+  --glow-2:rgba(34,211,238,.12);
+  --glow-3:rgba(125,255,92,.06);
+  --grid-line:rgba(34,255,208,.05);
+  --particle-1:#22ffd0;
+  --particle-2:#22d3ee;
+  --particle-3:#7dff5c;
+  --particle-4:#4ade80;
+  --particle-link:60,240,200;
+  --scroll:rgba(34,255,208,.25);
+  --scroll-hover:rgba(34,255,208,.45);
+  --mask:rgba(2,10,8,.62);
+  --active-text:#021a15;
+  --active-from:#5cffe0;
+  --active-to:#16c9a8;
+  --toast-bg:rgba(8,28,22,.96);
+  --hover-soft:rgba(34,255,208,.07);
+  --hover-line:rgba(34,255,208,.18);
+  --chart-grid:rgba(34,255,208,.07);
+  --hint-bg:rgba(6,20,16,.96);
+}
+
+/* 晨曦白（浅色） */
+[data-theme="dawn"]{
+  --bg:#eef2f9;
+  --panel-from:rgba(255,255,255,.92);
+  --panel-to:rgba(248,251,255,.85);
+  --panel-solid:rgba(255,255,255,.98);
+  --sidebar-from:rgba(255,255,255,.95);
+  --sidebar-to:rgba(240,246,255,.9);
+  --chip-bg:rgba(255,255,255,.75);
+  --soft-bg:rgba(15,23,42,.045);
+  --soft-bg2:rgba(15,23,42,.028);
+  --track-bg:rgba(15,23,42,.1);
+  --line:rgba(15,23,42,.09);
+  --line-strong:rgba(15,23,42,.18);
+  --cyan:#0088cc;
+  --violet:#7c3aed;
+  --green:#059669;
+  --amber:#d97706;
+  --red:#dc2626;
+  --text:#0f172a;
+  --dim:#64748b;
+  --muted:#94a3b8;
+  --glow-1:rgba(0,136,204,.08);
+  --glow-2:rgba(124,58,237,.08);
+  --glow-3:rgba(5,150,105,.05);
+  --grid-line:rgba(15,23,42,.045);
+  --particle-1:#0088cc;
+  --particle-2:#7c3aed;
+  --particle-3:#059669;
+  --particle-4:#0ea5e9;
+  --particle-link:60,120,180;
+  --shadow-a:rgba(15,23,42,.12);
+  --shadow-b:rgba(15,23,42,.08);
+  --scroll:rgba(15,23,42,.18);
+  --scroll-hover:rgba(15,23,42,.32);
+  --mask:rgba(15,23,42,.35);
+  --active-text:#ffffff;
+  --active-from:#38bdf8;
+  --active-to:#0284c7;
+  --toast-bg:rgba(255,255,255,.98);
+  --hover-soft:rgba(0,136,204,.07);
+  --hover-line:rgba(0,136,204,.2);
+  --chart-grid:rgba(15,23,42,.06);
+  --hint-bg:rgba(255,255,255,.98);
+}
+
+/* 薄雾青（浅色 · 比「晨曦白」更柔更淡的一档）
+   —— 底色压暗一档、彩度更低，长时间盯着不发白刺眼；主色走青绿，整体清爽。
+   —— 变量清单与「晨曦白」逐项对齐（同一个模板复制修改），
+      避免漏项导致某个组件回落到深色主题的取值。 */
+[data-theme="mist"]{
+  --bg:#e5ebea;
+  --panel-from:rgba(252,254,253,.93);
+  --panel-to:rgba(243,248,247,.86);
+  --panel-solid:rgba(252,254,253,.98);
+  --sidebar-from:rgba(252,254,253,.95);
+  --sidebar-to:rgba(237,245,243,.9);
+  --chip-bg:rgba(252,254,253,.76);
+  --soft-bg:rgba(16,42,39,.05);
+  --soft-bg2:rgba(16,42,39,.032);
+  --track-bg:rgba(16,42,39,.1);
+  --line:rgba(16,42,39,.1);
+  --line-strong:rgba(16,42,39,.2);
+  --cyan:#0e8f88;
+  --violet:#6f7cf0;
+  --green:#12916a;
+  --amber:#c07a10;
+  --red:#cf3f52;
+  --text:#14302d;
+  --dim:#526b69;          /* 比晨曦白的 #64748b 再深一档：浅底上正文/次要文字更清脆（对比度见下） */
+  --muted:#7f9694;
+  --glow-1:rgba(14,143,136,.09);
+  --glow-2:rgba(111,124,240,.08);
+  --glow-3:rgba(18,145,106,.06);
+  --grid-line:rgba(16,42,39,.05);
+  --particle-1:#0e8f88;
+  --particle-2:#6f7cf0;
+  --particle-3:#12916a;
+  --particle-4:#28a3a0;
+  --particle-link:90,150,145;
+  --shadow-a:rgba(16,42,39,.13);
+  --shadow-b:rgba(16,42,39,.09);
+  --scroll:rgba(16,42,39,.2);
+  --scroll-hover:rgba(16,42,39,.34);
+  --mask:rgba(16,42,39,.36);
+  --active-text:#ffffff;
+  --active-from:#2fb8b0;
+  --active-to:#0d7f78;
+  --toast-bg:rgba(252,254,253,.98);
+  --hover-soft:rgba(14,143,136,.08);
+  --hover-line:rgba(14,143,136,.22);
+  --chart-grid:rgba(16,42,39,.07);
+  --hint-bg:rgba(252,254,253,.98);
+}
+

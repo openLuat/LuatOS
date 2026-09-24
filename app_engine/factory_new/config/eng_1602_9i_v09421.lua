@@ -78,6 +78,7 @@ return {
         nand_flash = true,               -- 启用 NAND Flash 存储
         nes = true,                      -- 启用 NES 游戏按键（需配 nes_keys）
         battery = true,                  -- 启用电池管理（需配 hw.battery + ui.show_battery_icon）
+        file_transfer = true,            -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====

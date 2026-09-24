@@ -1,0 +1,518 @@
+/* assets/css/pages/device-detail.css —— 由 index.html 内联样式拆出（原行区间 1512-1990），内容未改动 */
+/* ============ 设备全屏页（覆盖整个设备列表区域） ============ */
+.dv{
+  position:absolute;inset:0;z-index:20;
+  display:flex;flex-direction:column;
+  padding:16px;
+  /* 渐变叠加在实色底上，保证完全盖住下层列表 */
+  background:linear-gradient(158deg,var(--panel-from),var(--panel-to)),var(--bg);
+  opacity:0;transform:translateY(12px) scale(.99);
+  pointer-events:none;
+  transition:opacity .28s ease,transform .4s cubic-bezier(.2,.8,.3,1);
+}
+.dv.show{opacity:1;transform:none;pointer-events:auto}
+
+/* ---- 顶部：返回 / 面包屑 / 页签 ---- */
+.dv-head{
+  display:flex;align-items:center;gap:14px;flex-shrink:0;
+  padding-bottom:13px;margin-bottom:13px;
+  border-bottom:1px solid var(--line);
+}
+.dv-back{
+  display:inline-flex;align-items:center;gap:7px;flex-shrink:0;
+  height:34px;padding:0 13px 0 9px;border-radius:11px;cursor:pointer;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--dim);
+  font-family:inherit;font-size:13px;letter-spacing:.4px;
+  transition:all .22s;
+}
+.dv-back:hover{color:var(--cyan);border-color:var(--hover-line);background:var(--hover-soft);transform:translateX(-2px)}
+.dv-back svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dv-crumb{display:flex;align-items:center;gap:8px;min-width:0;font-size:13px;letter-spacing:.4px;color:var(--muted)}
+.dv-crumb > span{color:var(--dim);white-space:nowrap}
+.dv-crumb svg{width:12px;height:12px;flex-shrink:0;stroke:var(--muted);fill:none;stroke-width:2}
+.dv-crumb b{
+  color:var(--text);font-weight:600;letter-spacing:.6px;
+  font-family:ui-monospace,Consolas,monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* 页签紧跟在面包屑之后，与设备定位信息组成同一组导航 */
+.dv-tabs{
+  flex-shrink:0;display:flex;gap:4px;padding:4px;
+  border-radius:13px;background:var(--soft-bg2);border:1px solid var(--line);
+}
+.dv-tab{
+  padding:7px 17px;border-radius:10px;cursor:pointer;border:0;background:none;
+  font-family:inherit;font-size:13px;letter-spacing:.4px;color:var(--dim);
+  transition:all .25s;
+}
+.dv-tab:hover{color:var(--text)}
+.dv-tab.active{
+  color:var(--active-text);
+  background:linear-gradient(145deg,var(--active-from),var(--active-to));
+  box-shadow:0 6px 18px -8px color-mix(in srgb,var(--cyan) 80%,transparent);
+}
+
+/* ---- 滚动区与页签页 ---- */
+.dv-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:14px}
+.dv-page{display:flex;flex-direction:column;gap:14px}
+.dv-page.hide{display:none}
+.dv-page{animation:dvIn .38s cubic-bezier(.2,.8,.3,1)}
+@keyframes dvIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---- 设备身份条 ---- */
+.dv-ident{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;gap:16px;
+  padding:17px;border-radius:16px;
+  background:linear-gradient(120deg,var(--soft-bg),var(--soft-bg2));
+  border:1px solid var(--line);
+}
+.dv-ident::after{
+  content:'';position:absolute;right:-50px;top:-90px;width:240px;height:240px;border-radius:50%;
+  background:radial-gradient(circle,color-mix(in srgb,var(--cyan) 15%,transparent),transparent 70%);
+  pointer-events:none;
+}
+.dv-ident-ic{
+  width:52px;height:52px;flex-shrink:0;border-radius:15px;display:grid;place-items:center;
+  background:linear-gradient(145deg,
+    color-mix(in srgb,var(--cyan) 20%,transparent),
+    color-mix(in srgb,var(--violet) 20%,transparent));
+  border:1px solid color-mix(in srgb,var(--cyan) 30%,transparent);
+}
+.dv-ident-ic svg{width:24px;height:24px;stroke:var(--cyan);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dv-ident-main{flex:1;min-width:0;position:relative;z-index:1}
+.dv-ident-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dv-ident-top h2{
+  font-size:20px;font-weight:650;letter-spacing:.6px;color:var(--text);
+  font-family:ui-monospace,Consolas,monospace;
+}
+.dv-badge{font-size:12px;padding:3px 10px;border-radius:20px;letter-spacing:.5px;border:1px solid transparent;white-space:nowrap}
+/* ---- 指标卡 ----
+   每张卡按数据性质配控件：连续量用量程条、枚举量用状态徽标、时间量用时刻+新鲜度 */
+.dv-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(182px,1fr));gap:12px}
+.dv-metric{
+  position:relative;overflow:hidden;
+  padding:13px 14px 12px;border-radius:15px;
+  background:linear-gradient(160deg,var(--soft-bg),var(--soft-bg2));
+  border:1px solid var(--line);
+  display:flex;flex-direction:column;gap:9px;
+  transition:border-color .25s,box-shadow .25s,transform .25s;
+}
+.dv-metric::after{                      /* 顶部一道很淡的高光，避免卡片发闷 */
+  content:'';position:absolute;left:0;right:0;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--hover-line),transparent);
+}
+.dv-metric:hover{border-color:var(--line-strong);transform:translateY(-2px);box-shadow:0 14px 30px -18px var(--shadow-a)}
+.dv-metric-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dv-metric-top span{font-size:12px;color:var(--dim);letter-spacing:.6px}
+.dv-metric-top svg{width:15px;height:15px;stroke:var(--muted);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+/* 数值行 */
+.dv-metric-value{display:flex;align-items:baseline;gap:4px;color:var(--text)}
+.dv-metric-value b{font-size:26px;font-weight:680;letter-spacing:-.2px;line-height:1;font-variant-numeric:tabular-nums}
+.dv-metric-value em{font-size:12px;font-style:normal;color:var(--dim);letter-spacing:.4px}
+.dv-metric-value.is-warn b{color:var(--amber)}
+/* 时间型数值：完整「年月日时分秒」，等宽小字一行放得下 */
+.dv-metric-value.is-time b{
+  font-size:14px;font-weight:600;letter-spacing:.2px;white-space:nowrap;
+  font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+}
+/* 电压量程条：底轨 = 满量程，填充 = 当前值，竖线 = 另一路电压 */
+.dv-gauge{position:relative;height:6px;border-radius:4px;background:var(--track-bg)}
+.dv-gauge-fill{display:block;height:100%;border-radius:4px;background:var(--cyan);transition:width .5s cubic-bezier(.2,.8,.3,1)}
+.dv-gauge.violet .dv-gauge-fill{background:var(--violet)}
+.dv-gauge.warn .dv-gauge-fill{background:var(--amber)}
+.dv-gauge.is-off .dv-gauge-fill{background:var(--muted)}
+.dv-gauge-mark{
+  position:absolute;top:-3px;width:2px;height:12px;border-radius:2px;
+  background:var(--dim);transform:translateX(-1px);
+}
+/* 状态徽标（枚举量用它） */
+.dv-state{display:inline-flex;align-items:center;gap:7px;font-size:15px;font-weight:600;letter-spacing:.3px;color:var(--text)}
+.dv-state i{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--muted);box-shadow:0 0 0 3px color-mix(in srgb,var(--muted) 20%,transparent)}
+.dv-state.ok{color:var(--green)}  .dv-state.ok i{background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 20%,transparent)}
+.dv-state.warn{color:var(--amber)} .dv-state.warn i{background:var(--amber);box-shadow:0 0 0 3px color-mix(in srgb,var(--amber) 20%,transparent)}
+.dv-state.off{color:var(--red)}   .dv-state.off i{background:var(--red);box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 20%,transparent)}
+/* 新鲜度行（最近上报） */
+.dv-fresh{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--dim);letter-spacing:.3px}
+.dv-fresh i{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--muted)}
+.dv-fresh.ok{color:var(--green)}  .dv-fresh.ok i{background:var(--green)}
+.dv-fresh.warn{color:var(--amber)} .dv-fresh.warn i{background:var(--amber)}
+.dv-fresh.off{color:var(--red)}   .dv-fresh.off i{background:var(--red)}
+/* 卡脚：来源与量程说明 */
+.dv-metric-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;font-size:11px;color:var(--muted);letter-spacing:.2px}
+.dv-metric-foot span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---- 卡片栅格 ---- */
+.dv-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.dv-col-12{grid-column:span 12}
+.dv-col-4{grid-column:span 4}
+.dv-col-5{grid-column:span 5}
+.dv-col-6{grid-column:span 6}
+.dv-col-7{grid-column:span 7}
+.dv-col-8{grid-column:span 8}
+.dv-card{
+  display:flex;flex-direction:column;min-width:0;
+  padding:15px;border-radius:15px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+  transition:border-color .3s;
+}
+.dv-card:hover{border-color:var(--hover-line)}
+.dv-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:13px}
+.dv-card-head h4{font-size:14px;font-weight:600;color:var(--text);letter-spacing:.4px}
+.dv-card-head p{font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:.4px}
+.dv-count{
+  font-size:11px;padding:3px 9px;border-radius:20px;letter-spacing:.5px;white-space:nowrap;
+  color:var(--muted);background:var(--soft-bg);border:1px solid var(--line);
+}
+/* ---- 参数键值 ---- */
+.dv-kv{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px}
+.dv-kv > div{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;
+  padding:9px 12px;border-radius:10px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+}
+.dv-kv span{font-size:12px;color:var(--muted);letter-spacing:.4px;flex-shrink:0}
+.dv-kv b{
+  font-size:13px;font-weight:600;color:var(--text);letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* ---- 事件时间线 ---- */
+.dv-events{display:flex;flex-direction:column;gap:8px;max-height:236px;overflow-y:auto}
+.dv-event{
+  display:flex;gap:10px;padding:10px 11px;border-radius:11px;
+  background:var(--soft-bg2);border:1px solid var(--line);border-left:2px solid var(--muted);
+}
+.dv-event.critical{border-left-color:var(--red)}
+.dv-event.warning{border-left-color:var(--amber)}
+.dv-event.info{border-left-color:var(--cyan)}
+.dv-event-main{flex:1;min-width:0}
+.dv-event-title{font-size:13px;color:var(--text);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dv-event-meta{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dv-event-time{font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0}
+
+/* ---- 分区卡片（指令控制页） ---- */
+/* 两组上下排列：「功能指令」并排两张卡，「监控与记录」各占一行 */
+.dv-cards{display:flex;flex-direction:column;gap:22px}
+.dv-group{display:flex;flex-direction:column;gap:11px;min-width:0}
+/* 组标题：青色竖条 + 加粗文字 + 渐隐横线 */
+.dv-group-label{
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;font-weight:600;color:var(--text);letter-spacing:1.6px;
+}
+.dv-group-label::before{
+  content:'';flex-shrink:0;width:3px;height:13px;border-radius:2px;
+  background:var(--cyan);box-shadow:0 0 8px var(--cyan);
+}
+.dv-group-label::after{
+  content:'';flex:1;height:1px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--cyan) 42%,transparent),transparent 72%);
+}
+/* 两组之间只用留白分隔（不画分隔线），间距保持与之前一致 */
+.dv-group + .dv-group{padding-top:18px}
+/* auto-fill：空轨道保留，卡宽锁定在约 1/4 行宽，不会因为卡片少而被拉宽 */
+.dv-group-body{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:13px;
+}
+/* 「监控与记录」两张卡平分一行：指令执行监控 | 指令下发记录 */
+.dv-group-body.wide{grid-template-columns:repeat(2,minmax(0,1fr))}
+.dv-block{
+  display:flex;flex-direction:column;min-width:0;
+  padding:12px 14px;border-radius:15px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+  transition:border-color .3s;
+}
+.dv-block:hover{border-color:var(--hover-line)}
+.dv-block-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.dv-block-title{min-width:0}
+.dv-block-title h4{font-size:14px;font-weight:600;color:var(--text);letter-spacing:.4px}
+.dv-block-title p{
+  font-size:12px;color:var(--muted);margin-top:3px;letter-spacing:.4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.dv-block-head .dv-count{margin-left:auto}
+
+/* ---- 功能块：卡头状态胶囊 + 标签值行 ---- */
+.dv-state{
+  margin-left:auto;flex-shrink:0;
+  padding:3px 10px;border-radius:20px;border:1px solid transparent;
+  font-size:12px;letter-spacing:.5px;white-space:nowrap;
+}
+/* 卡片够宽时标签值行自动排成两列，避免右侧留出大片空白 */
+.dv-rows{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  column-gap:22px;margin-bottom:10px;
+}
+.dv-rows > div{
+  display:flex;align-items:center;gap:12px;min-width:0;
+  padding:7px 0;border-bottom:1px dashed var(--line);
+}
+.dv-rows > div > span{flex-shrink:0;font-size:12px;color:var(--muted);letter-spacing:.4px}
+.dv-rows > div > b{
+  margin-left:auto;min-width:0;text-align:right;
+  font-size:13px;font-weight:600;color:var(--text);letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.dv-inline{display:flex;align-items:center;gap:9px;margin-left:auto}
+
+/* 开关机动作按钮 */
+.dv-act-row{display:flex;flex-wrap:wrap;gap:9px;margin-top:auto}
+.dv-act{
+  /* 开机 / 关机 / 重启 始终排在一行：flex-basis 归零后按 1:1:1 等分卡片宽度 */
+  flex:1 1 0;min-width:62px;
+  padding:9px 10px;border-radius:10px;cursor:pointer;
+  font-family:inherit;font-size:13px;font-weight:600;letter-spacing:.5px;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--text);
+  transition:all .22s;
+}
+.dv-act:hover:not(:disabled){transform:translateY(-2px);border-color:var(--line-strong)}
+.dv-act:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.dv-act[data-tone=ok]:hover:not(:disabled){
+  color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,transparent);
+  background:color-mix(in srgb,var(--green) 10%,transparent);
+}
+.dv-act[data-tone=danger]:hover:not(:disabled){
+  color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,transparent);
+  background:color-mix(in srgb,var(--red) 10%,transparent);
+}
+.dv-act[data-tone=warn]:hover:not(:disabled){
+  color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,transparent);
+  background:color-mix(in srgb,var(--amber) 10%,transparent);
+}
+.dv-act.current{
+  color:var(--cyan);border-color:color-mix(in srgb,var(--cyan) 42%,transparent);
+  background:color-mix(in srgb,var(--cyan) 11%,transparent);
+}
+.dv-act.running{border-color:var(--cyan);color:var(--cyan);animation:dvPulse 1s ease-in-out infinite}
+
+/* 上报周期：预设 chip + 自定义输入 */
+.dv-chips{display:flex;flex-wrap:wrap;gap:7px;margin-left:auto;justify-content:flex-end}
+.dv-chip{
+  padding:5px 12px;border-radius:8px;cursor:pointer;
+  font-family:inherit;font-size:13px;letter-spacing:.4px;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--dim);
+  transition:all .2s;
+}
+.dv-chip:hover:not(:disabled){color:var(--cyan);border-color:var(--hover-line);background:var(--hover-soft)}
+.dv-chip.active{
+  color:var(--cyan);border-color:color-mix(in srgb,var(--cyan) 45%,transparent);
+  background:color-mix(in srgb,var(--cyan) 12%,transparent);
+}
+.dv-chip:disabled{opacity:.5;cursor:not-allowed}
+.dv-num{
+  width:96px;padding:8px 12px;border-radius:9px;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--text);
+  font-family:inherit;font-size:14px;letter-spacing:.4px;
+  outline:none;transition:border-color .2s;
+}
+.dv-num:focus{border-color:color-mix(in srgb,var(--cyan) 50%,transparent)}
+.dv-num:disabled{opacity:.5;cursor:not-allowed}
+.dv-unit{font-size:13px;color:var(--dim)}
+.dv-apply{
+  padding:8px 20px;border-radius:9px;cursor:pointer;border:0;
+  font-family:inherit;font-size:13px;font-weight:600;letter-spacing:.5px;
+  color:var(--active-text);
+  background:linear-gradient(145deg,var(--active-from),var(--active-to));
+  box-shadow:0 8px 22px -10px color-mix(in srgb,var(--cyan) 90%,transparent);
+  transition:all .22s;
+}
+.dv-apply:hover:not(:disabled){transform:translateY(-2px)}
+.dv-apply:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* ---- 执行进度 ---- */
+.dv-progress{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.dv-bar{flex:1;height:7px;border-radius:4px;background:var(--track-bg);overflow:hidden}
+.dv-bar i{
+  display:block;height:100%;width:0;border-radius:4px;
+  background:linear-gradient(90deg,var(--cyan),var(--green));
+  box-shadow:0 0 14px color-mix(in srgb,var(--cyan) 60%,transparent);
+  transition:width .12s linear;
+}
+.dv-progress b{width:42px;text-align:right;font-size:13px;font-weight:600;color:var(--text)}
+.dv-progress.fail .dv-bar i{background:linear-gradient(90deg,var(--amber),var(--red));box-shadow:none}
+.dv-progress.fail b{color:var(--red)}
+/* 通栏卡片里把两阶段收敛到居中，避免拉得过散 */
+.dv-steps{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-width:420px;margin:auto auto 0}
+.dv-step{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.dv-step i{
+  position:relative;width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--soft-bg);border:1px solid var(--line);
+  transition:all .3s;
+}
+.dv-step i::after{content:'';width:6px;height:6px;border-radius:50%;background:var(--muted);transition:all .3s}
+.dv-step span{font-size:12px;color:var(--muted);letter-spacing:.3px;transition:color .3s}
+.dv-step.active i{border-color:var(--cyan);box-shadow:0 0 0 3px color-mix(in srgb,var(--cyan) 16%,transparent)}
+.dv-step.active i::after{background:var(--cyan)}
+.dv-step.active span{color:var(--cyan)}
+.dv-step.done i{border-color:var(--green);background:color-mix(in srgb,var(--green) 16%,transparent)}
+.dv-step.done i::after{background:var(--green)}
+.dv-step.done span{color:var(--text)}
+
+/* ---- 开关量输出通道 ---- */
+.dv-do-list{display:flex;flex-direction:column;gap:6px}
+.dv-do{
+  display:flex;align-items:center;gap:8px;min-width:0;
+  padding:6px 8px;border-radius:9px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+  transition:border-color .25s,background .25s;
+}
+.dv-do.on{
+  border-color:color-mix(in srgb,var(--green) 32%,transparent);
+  background:color-mix(in srgb,var(--green) 8%,transparent);
+}
+.dv-do-ch{
+  flex-shrink:0;font-family:ui-monospace,Consolas,monospace;
+  font-size:10px;letter-spacing:.4px;color:var(--muted);
+}
+.dv-do.on .dv-do-ch{color:var(--green)}
+.dv-do-name{
+  flex:1;min-width:0;font-size:12px;color:var(--text);letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.dv-do-state{flex-shrink:0;font-size:11px;color:var(--muted);letter-spacing:.3px}
+.dv-do.on .dv-do-state{color:var(--green)}
+.dv-mini{
+  flex-shrink:0;padding:3px 9px;border-radius:7px;cursor:pointer;
+  font-family:inherit;font-size:12px;letter-spacing:.3px;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--dim);
+  transition:all .2s;
+}
+.dv-mini:hover:not(:disabled){color:var(--cyan);border-color:var(--hover-line);background:var(--hover-soft)}
+.dv-mini:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---- 文字下发 ---- */
+.dv-text{display:flex;flex-direction:column;gap:9px}
+.dv-text-input{
+  width:100%;padding:9px 12px;border-radius:10px;resize:none;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--text);
+  font-family:inherit;font-size:13px;line-height:1.6;letter-spacing:.3px;
+  outline:none;transition:border-color .2s;
+}
+.dv-text-input::placeholder{color:var(--muted)}
+.dv-text-input:focus{border-color:color-mix(in srgb,var(--cyan) 50%,transparent)}
+.dv-text-input:disabled{opacity:.5;cursor:not-allowed}
+.dv-text .dv-apply{align-self:flex-end}
+
+/* ---- 操作记录 ---- */
+.dv-log{display:flex;flex-direction:column;gap:7px;max-height:236px;overflow-y:auto}
+/* 作为卡片最后一个元素时不留底部间距 */
+.dv-block > .dv-rows:last-child{margin-bottom:0}
+/* 记录行铺满整行：说明文字靠右，时间与动作留在左侧 */
+.act-line .act-note{margin-left:auto;text-align:right}
+
+/* ---- 数据报表：查询条件 ---- */
+.rp-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rp-seg{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--soft-bg2);border:1px solid var(--line)}
+.rp-seg button{
+  padding:6px 13px;border-radius:9px;border:0;background:none;cursor:pointer;
+  font-family:inherit;font-size:13px;letter-spacing:.3px;color:var(--dim);
+  transition:all .22s;
+}
+.rp-seg button:hover{color:var(--text)}
+.rp-seg button.active{
+  color:var(--active-text);
+  background:linear-gradient(145deg,var(--active-from),var(--active-to));
+  box-shadow:0 6px 16px -8px color-mix(in srgb,var(--cyan) 80%,transparent);
+}
+.rp-custom{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rp-custom > span{font-size:12px;color:var(--muted)}
+.rp-custom input[type=datetime-local]{
+  padding:6px 10px;border-radius:9px;
+  background:var(--soft-bg2);border:1px solid var(--line);color:var(--text);
+  font-family:inherit;font-size:13px;letter-spacing:.3px;
+  color-scheme:dark;
+}
+[data-theme="dawn"] .rp-custom input[type=datetime-local],
+[data-theme="mist"] .rp-custom input[type=datetime-local]{color-scheme:light}
+.rp-custom input[type=datetime-local]:focus{outline:none;border-color:var(--line-strong)}
+#rpQuery{
+  padding:7px 16px;border-radius:9px;border:0;cursor:pointer;
+  font-family:inherit;font-size:13px;font-weight:600;letter-spacing:.4px;
+  color:var(--active-text);
+  background:linear-gradient(145deg,var(--active-from),var(--active-to));
+  transition:all .22s;
+}
+#rpQuery:hover{transform:translateY(-1px);box-shadow:0 10px 22px -12px color-mix(in srgb,var(--cyan) 90%,transparent)}
+
+/* ---- 数据报表：趋势卡片 ---- */
+.rp-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.rp-card{
+  display:flex;flex-direction:column;min-width:0;
+  padding:15px;border-radius:15px;
+  background:var(--soft-bg2);border:1px solid var(--line);
+  transition:border-color .3s;
+}
+.rp-card:hover{border-color:var(--hover-line)}
+.rp-card-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.rp-card-head h4{font-size:14px;font-weight:600;color:var(--text);letter-spacing:.4px}
+.rp-card-head span{font-size:12px;color:var(--muted);letter-spacing:.4px}
+.rp-legend{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;margin:11px 0 3px}
+.rp-legend span{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--dim);letter-spacing:.3px}
+/* 菱形图例标记（与折线同色） */
+.rp-legend i{
+  width:7px;height:7px;flex-shrink:0;border-radius:1px;
+  border:1.5px solid var(--c,var(--cyan));transform:rotate(45deg);
+}
+.rp-plot{position:relative;height:178px;min-width:0}     /* 同上：气泡定位基准 */
+.rp-plot canvas{width:100%;height:100%;display:block}
+
+/* ---- 折线图鼠标读数气泡（基本信息趋势图与数据报表曲线共用） ---- */
+.dv-tip{
+  position:absolute;z-index:6;pointer-events:none;display:none;
+  padding:6px 9px;border-radius:9px;white-space:nowrap;
+  background:var(--panel-solid);border:1px solid var(--line-strong);
+  box-shadow:0 12px 28px -14px rgba(0,0,0,.9);
+  font-size:12px;line-height:1.75;letter-spacing:.3px;color:var(--text);
+  font-variant-numeric:tabular-nums;
+}
+.dv-tip .t-time{color:var(--dim);font-family:ui-monospace,Consolas,monospace;letter-spacing:.2px}
+.dv-tip b{font-weight:650}
+.dv-tip em{font-style:normal;color:var(--muted)}
+.dv-tip i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:1px}
+
+/* ---- 数据报表：明细表 ---- */
+.rp-export{
+  margin-left:auto;padding:7px 14px;border-radius:9px;cursor:pointer;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--dim);
+  font-family:inherit;font-size:12px;letter-spacing:.4px;transition:all .22s;
+}
+.rp-export:hover{color:var(--cyan);border-color:var(--hover-line);background:var(--hover-soft)}
+.rp-table-wrap{max-height:326px;overflow:auto;border-radius:12px;border:1px solid var(--line)}
+.rp-table{width:100%;border-collapse:collapse}
+.rp-table th{
+  position:sticky;top:0;z-index:1;
+  padding:9px 12px;font-size:12px;font-weight:600;letter-spacing:.6px;color:var(--muted);
+  text-align:center;white-space:nowrap;
+  background:var(--panel-solid);border-bottom:1px solid var(--line);
+}
+.rp-table td{
+  padding:8px 12px;text-align:center;white-space:nowrap;
+  font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.3px;
+  color:var(--dim);border-bottom:1px solid var(--soft-bg2);
+}
+.rp-table tbody tr:hover td{background:var(--hover-soft)}
+.rp-table tr.off td{opacity:.55}
+.rp-st{font-size:11px;padding:2px 8px;border-radius:20px;letter-spacing:.3px;font-family:inherit}
+.rp-st.ok{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
+.rp-st.alarm{color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,transparent)}
+.rp-st.off{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent)}
+
+@media(max-width:1180px){
+  .dv-col-4,.dv-col-5,.dv-col-6,.dv-col-7,.dv-col-8{grid-column:span 12}
+  .rp-charts{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:900px){
+  .dv{padding:12px}
+  .dv-head{flex-wrap:wrap;gap:10px}
+  .dv-crumb{display:none}
+  .dv-tabs{width:100%;justify-content:center}
+  .dv-ident{flex-wrap:wrap;gap:12px}
+  .dv-kv{grid-template-columns:1fr}
+  /* 功能块行：窄屏下标签与控件允许折行，卡片（含「监控与记录」）一律改为单列 */
+  .dv-group-body,.dv-group-body.wide{grid-template-columns:minmax(0,1fr)}
+  .dv-rows > div{flex-wrap:wrap}
+  .dv-inline,.dv-chips{margin-left:0;justify-content:flex-start}
+  .dv-act{flex:1 1 56px}
+}
+

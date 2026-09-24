@@ -1,0 +1,28 @@
+/* assets/css/pages/topo.css —— 由 index.html 内联样式拆出（原行区间 1085-1100），内容未改动 */
+/* ============ 拓扑 ============ */
+.topo-wrap{flex:1;min-height:0;position:relative}
+.topo-wrap svg{width:100%;height:100%;display:block}
+.topo-link{
+  stroke:color-mix(in srgb,var(--cyan) 30%,transparent);
+  stroke-width:1.2;fill:none;stroke-dasharray:5 7;
+  animation:flow 1.1s linear infinite;
+}
+@keyframes flow{to{stroke-dashoffset:-24}}
+.topo-link.hot{stroke:color-mix(in srgb,var(--amber) 55%,transparent)}
+/* 中心实心圆的呼吸动画规则见下方（原写 .topo-node circle.core，选择器失效，已改正） */
+@keyframes corePulse{0%,100%{opacity:.85}50%{opacity:1}}
+.topo-label{font-size:10px;fill:var(--dim);text-anchor:middle;letter-spacing:.3px}
+/* 中心实心圆里的「AirCloud 平台」标签
+   —— 它坐在亮色渐变圆（--cyan → --violet）上，所以文字必须用**深色**才看得清。
+   之前用的是 --active-text，那个变量在深色主题里是深色、在浅色主题里是白色 ——
+   跟着主题反向走，于是浅色主题下白字压在亮圆上发灰（用户反馈的"深浅色反了"）。
+   这里固定深色：三种主题下圆的底色都是亮/饱和色，深字都成立且一致。 */
+/* 注意选择器不能写 .topo-node —— 这个 SVG 的祖先链是 .topo-wrap > .panel…，根本没有 .topo-node，
+   写成 .topo-node 会静默失效（下面 circle.core 的呼吸动画就是因此一直没跑起来）。 */
+svg text.core-label{fill:#06263a}
+/* 中心实心圆的呼吸动画：原来写成 .topo-node circle.core —— 祖先不存在 → 规则静默失效 → 动画从未生效，
+   这里改成真实存在的作用域 .topo-wrap。on/off 用 opacity 0.85↔1，配合圆本身的发光是"缓慢呼吸"的观感。 */
+.topo-wrap svg circle.core{animation:corePulse 2.6s ease-in-out infinite}
+.topo-ping{transform-origin:center;animation:ping 2.4s ease-out infinite}
+@keyframes ping{0%{transform:scale(.4);opacity:.7}100%{transform:scale(2.2);opacity:0}}
+

@@ -4,7 +4,7 @@
  * 职责：
  * 1. 管理 UDP RTP socket 收发
  * 2. G.711 编解码
- * 3. Jitter Buffer 管理
+ * 3. 抖动缓冲区管理
  * 4. 音频 I/O（上行采集 + 下行播放）
  * 5. 后台 RTOS task + 定时器驱动
  * 6. 通过 msgbus 桥接回调到 Lua 层
@@ -36,7 +36,7 @@
 #define VOIP_RTP_PT_PCMU        0
 #define VOIP_RTP_PT_PCMA        8
 
-/* Codec 类型 */
+/* 编解码器类型 */
 typedef enum {
     VOIP_CODEC_PCMU = 0,
     VOIP_CODEC_PCMA = 1,
@@ -51,14 +51,14 @@ typedef enum {
 typedef struct {
     voip_codec_type_t codec;
     uint32_t stats_interval_ms;
-    uint32_t sample_rate;       /* default 8000 */
+    uint32_t sample_rate;       /* 默认 8000 */
     int      adapter;
     char     remote_ip[VOIP_MAX_IP_LEN];
     uint16_t remote_port;
     uint16_t local_port;
     uint16_t jitter_depth;
-    uint16_t ptime;             /* ms, default 20 */
-    uint8_t  multimedia_id;     /* audio device id */
+    uint16_t ptime;             /* 毫秒，默认 20 */
+    uint8_t  multimedia_id;     /* 音频设备编号 */
     uint8_t  aec_enable;
     uint8_t  aec_denoise;
     uint8_t  aec_mode;
@@ -81,11 +81,13 @@ typedef enum {
 typedef struct {
     uint32_t tx_packets;
     uint32_t tx_bytes;
+    uint32_t tx_errors; /* 未被 network_tx 完整接受的数据报。 */
     uint32_t rx_packets;
     uint32_t rx_bytes;
     uint32_t rx_parse_fail;
     uint32_t rx_bad_payload;
-    uint32_t event_send_failures; /* Cumulative notification failures across sessions. */
+    uint32_t rx_queue_dropped; /* 交接时丢弃的完整解码帧数。 */
+    uint32_t event_send_failures; /* 跨会话累计的通知失败次数。 */
     uint32_t rx_lost;
     uint32_t rx_out_of_order;
     uint32_t jb_played;
@@ -100,7 +102,7 @@ typedef struct {
     uint32_t audio_tx_commit_fail;
     uint32_t audio_tx_underrun;
     uint32_t audio_rx_dropped;
-    uint32_t audio_rx_samples; /* Native per-channel sample frames, including queue drops. */
+    uint32_t audio_rx_samples; /* 原生每声道采样帧数，包括队列丢弃部分。 */
     uint32_t audio_normalized_samples;
     uint32_t audio_render_samples;
 #endif
@@ -120,7 +122,7 @@ enum {
     VOIP_EVENT_SPK_DONE,    /* DAC 播放完成一帧 */
     VOIP_EVENT_STATS_TICK,  /* 统计输出定时器 */
 #ifdef LUAT_USE_VOIP_AUDIO_PORT
-    VOIP_EVENT_RAW_MIC_DATA, /* Optional Audio V2 raw PCM queue */
+    VOIP_EVENT_RAW_MIC_DATA, /* 可选的 Audio V2 原始 PCM 队列 */
 #endif
 #ifdef LUAT_USE_VOIP_BRIDGE
     VOIP_EVENT_BRIDGE_TX,   /* 桥接模式：外部PCM数据需要编码发送 */
@@ -145,6 +147,13 @@ typedef enum {
 /* 桥接缓冲区大小：20ms@8kHz=160samples, 预留10帧 = 1600samples */
 #define VOIP_BRIDGE_BUF_SAMPLES  1600
 #define VOIP_BRIDGE_BUF_BYTES    (VOIP_BRIDGE_BUF_SAMPLES * sizeof(int16_t))
+#define VOIP_BRIDGE_RX_FRAMES (VOIP_BRIDGE_BUF_SAMPLES / 160)
+#define VOIP_BRIDGE_PCM_PARTIAL (-2)
+typedef struct {
+    uint32_t stream_epoch;
+    uint16_t sequence;
+    int16_t pcm[160];
+} voip_bridge_rx_frame_t;
 #endif
 
 typedef struct {
@@ -204,20 +213,20 @@ typedef struct {
     /* RTP */
     voip_rtp_tx_state_t rtp_tx;
 
-    /* Codec */
-    void *encoder;              /* g711 encoder handle */
-    void *decoder;              /* g711 decoder handle */
+    /* 编解码器 */
+    void *encoder;              /* g711 编码器句柄 */
+    void *decoder;              /* g711 解码器句柄 */
 
-    luat_audio_data_codec_t codec_encoder;  /* RTP encoder codec state */
-    luat_audio_data_codec_t codec_decoder;  /* RTP decoder codec state */
+    luat_audio_data_codec_t codec_encoder;  /* RTP 编码器状态 */
+    luat_audio_data_codec_t codec_decoder;  /* RTP 解码器状态 */
     uint8_t g711_type;          /* G711_TYPE_ULAW / G711_TYPE_ALAW */
     uint8_t rtp_payload_type;   /* 0=PCMU, 8=PCMA */
 
-    /* Jitter Buffer */
+    /* 抖动缓冲区 */
     voip_jb_t *jb;
 
     /* 音频缓冲区 */
-    uint16_t frame_samples;     /* e.g. 160 for 20ms@8kHz */
+    uint16_t frame_samples;     /* 例如 20ms@8kHz 对应 160 个采样点 */
     uint16_t frame_bytes;       /* frame_samples * 2 (PCM16) */
     int16_t *tx_pcm_buf;        /* TX: PCM 编码前缓冲 */
     uint8_t *tx_g711_buf;       /* TX: G.711 编码后缓冲 */
@@ -233,9 +242,9 @@ typedef struct {
     uint8_t i2s_config_saved;
     uint8_t audio_started;
 #ifdef LUAT_USE_AUDIO_V2
-    void *audio_v2_ctrl;        /* audio_v2 driver control, audio_v2 builds only */
+    void *audio_v2_ctrl;        /* audio_v2 驱动控制，仅用于启用 audio_v2 的构建 */
 #ifdef LUAT_USE_VOIP_AUDIO_PORT
-    void *audio_port_state;     /* Optional raw PCM/explicit commit port */
+    void *audio_port_state;     /* 可选的原始 PCM/显式提交接口 */
 #endif
 #endif
     uint8_t trace_on;
@@ -246,18 +255,23 @@ typedef struct {
     volatile uint32_t tx_event_state;
     /* 桥接模式缓冲区（仅当 audio_mode == VOIP_AUDIO_MODE_BRIDGE 时有效） */
     int16_t *bridge_tx_buf;             /* 上行：外部PCM -> voip编码 -> RTP */
+    voip_bridge_rx_frame_t *bridge_rx_frames; /* 纯 PCM 带标记帧交接，共十帧。 */
+    uint32_t bridge_rx_stream;
+    uint32_t bridge_rx_ssrc;
+    uint8_t bridge_rx_ssrc_valid;
+    uint16_t bridge_rx_head_offset;
     int16_t *bridge_rx_buf;             /* 下行：RTP -> voip解码 -> 外部PCM */
     uint16_t bridge_tx_write_idx;     /* bridge_tx_buf 写索引 */
     uint16_t bridge_tx_read_idx;      /* bridge_tx_buf 读索引 */
-    uint16_t bridge_rx_write_idx;     /* bridge_rx_buf 写索引 */
-    uint16_t bridge_rx_read_idx;      /* bridge_rx_buf 读索引 */
+    uint16_t bridge_rx_write_idx;     /* RX 写索引：带标记帧或旧通路采样点。 */
+    uint16_t bridge_rx_read_idx;      /* RX 读索引：带标记帧或旧通路采样点。 */
     uint16_t bridge_tx_count;         /* bridge_tx_buf 有效样本数 */
-    uint16_t bridge_rx_count;         /* bridge_rx_buf 有效样本数 */
+    uint16_t bridge_rx_count;         /* 队列中的带标记帧数或旧通路采样点数。 */
     luat_rtos_mutex_t bridge_mutex;     /* 桥接缓冲区互斥锁 */
     luat_rtos_timer_t bridge_tone_timer; /* 桥接模式早期提示音定时器 */
     uint32_t bridge_tone_pos;
     uint8_t bridge_tone_on;
-    uint32_t bridge_generation; /* Changes on each media engine start. */
+    uint32_t bridge_generation; /* 每次媒体引擎启动时更新。 */
 #endif
 
     uint32_t mic_generation[VOIP_MIC_SLOT_COUNT];
@@ -290,11 +304,11 @@ typedef struct {
     uint8_t aec_ready;
 
     /* Lua 回调引用 */
-    int cb_state_ref;   /* LUA_REGISTRYINDEX ref for state callback */
-    int cb_stats_ref;   /* LUA_REGISTRYINDEX ref for stats callback */
-    int cb_error_ref;   /* LUA_REGISTRYINDEX ref for error callback */
+    int cb_state_ref;   /* 状态回调在 LUA_REGISTRYINDEX 中的引用 */
+    int cb_stats_ref;   /* 统计回调在 LUA_REGISTRYINDEX 中的引用 */
+    int cb_error_ref;   /* 错误回调在 LUA_REGISTRYINDEX 中的引用 */
 #ifdef LUAT_USE_VOIP_RECORD
-    int cb_record_ref;  /* LUA_REGISTRYINDEX ref for record callback */
+    int cb_record_ref;  /* 录音回调在 LUA_REGISTRYINDEX 中的引用 */
 #endif
 } voip_ctx_t;
 
@@ -305,7 +319,7 @@ typedef struct {
  */
 voip_ctx_t *voip_get_ctx(void);
 
-/** Register the audio_v2 PCM codec used by the VoIP Lua adapter. */
+/** 注册 VoIP Lua 适配层使用的 audio_v2 PCM 编解码器。 */
 void luat_voip_audio_codec_register(void);
 
 /**
@@ -330,10 +344,10 @@ voip_state_t voip_get_state(void);
  * 获取统计信息快照
  */
 void voip_get_stats(voip_stats_t *out);
-/* Push the same statistics table for stats() and the periodic Lua callback. */
+/* 为 stats() 和周期性 Lua 回调压入相同的统计表。 */
 void voip_push_stats(lua_State *L);
 
-/* Internal AEC/audio-backend interface. */
+/* 内部 AEC/音频后端接口。 */
 #ifdef LUAT_USE_VOIP_AUDIO_PORT
 int voip_audio_port_prepare(voip_ctx_t *ctx);
 void voip_audio_port_cleanup(voip_ctx_t *ctx);
@@ -360,13 +374,13 @@ const char *voip_aec_mode_name(const voip_ctx_t *ctx);
 int voip_is_running(void);
 
 #ifdef LUAT_USE_VOIP_RECORD
-/** Start/arm a local stereo WAV recording. */
+/** 启动或预备本地立体声 WAV 录音。 */
 int voip_record_start(const char *path, uint32_t max_seconds);
 
-/** Asynchronously drain and close the current recording. */
+/** 异步排空并关闭当前录音。 */
 int voip_record_stop(void);
 
-/** Get a point-in-time recording status snapshot. */
+/** 获取当前时刻的录音状态快照。 */
 void voip_record_get_status(voip_record_status_t *status);
 #endif
 
@@ -391,16 +405,19 @@ int voip_set_audio_mode(voip_audio_mode_t mode);
  * @return 实际消耗的样本数（可能小于请求数，如果缓冲区满）
  */
 int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples);
-/* Task-only frame exchange for the CC PCM backend. No audio device access.
- * state: 1 = running at G.711/8 kHz/20 ms, 0 = stopped, -1 = unsupported.
- * Each exchange checks expected_generation under the same lock as the copy.
- * clear direction masks: 1 = TX (CC->SIP), 2 = RX (SIP->CC).
- * Exchange returns -1 for stopped/stale/unsupported media, otherwise samples;
- * clear returns 0 for success or -1 without touching a different generation. */
+/* CC PCM 后端的帧交换接口，仅供任务调用，不访问音频设备。
+ * state：1 = 按 G.711/8 kHz/20 ms 运行，0 = 已停止，-1 = 不支持。
+ * 每次交换在复制数据的同一把锁内检查 expected_generation。
+ * clear 方向掩码：1 = TX (CC->SIP)，2 = RX (SIP->CC)。
+ * 媒体已停止、代次过期或不受支持时，交换返回 -1，否则返回采样点数；
+ * clear 成功返回 0，否则返回 -1，且不会操作其他代次。 */
 int voip_bridge_pcm_state(uint32_t *generation);
 int voip_bridge_pcm_clear(uint32_t expected_generation, unsigned directions);
 int voip_bridge_pcm_in_frame(uint32_t expected_generation, const int16_t pcm[160], uint32_t *dropped_frames);
-int voip_bridge_pcm_out_frame(uint32_t expected_generation, int16_t pcm[160]);
+/* 完整带标记帧返回 160，队列为空返回 0，不可用时返回 -1；
+ * PARTIAL 表示 pcmOut 已消费部分队首数据，调用方可跳过 RX
+ * 并继续其他媒体工作。此接口绝不拼接不同数据包。 */
+int voip_bridge_pcm_out_frame(uint32_t expected_generation, voip_bridge_rx_frame_t *frame);
 
 
 /**

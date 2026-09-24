@@ -76,6 +76,12 @@ local function system_init()
     aircloud.test_send_save_command(2, "778899")  -- 柜子2，取件码778899
     aircloud.test_send_save_command(3, "123456")  -- 柜子3，取件码123456
 
+    -- 开机欢迎语：系统初始化完成后立即播报
+    -- ectts 内部是队列 + 后台任务（等 500ms 初始化音频，播放失败自动重试 3 次），
+    -- 这里只入队，不会阻塞开机流程
+    local ectts = require "ectts"
+    ectts.say("欢迎使用合宙智能寄存柜")
+
     log.info("main", "系统初始化完成")
 end
 

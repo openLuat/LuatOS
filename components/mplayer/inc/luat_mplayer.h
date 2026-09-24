@@ -25,6 +25,10 @@ typedef struct luat_mplayer_ctx {
     int decode_running;   /* 解码线程运行标志(1=运行, 0=已请求停止) */
     void *decode_task;    /* 解码线程句柄 (TaskHandle_t) */
     void *done_sem;       /* 解码线程退出信号 (SemaphoreHandle_t) */
+    int render_running;   /* 渲染线程运行标志(1=运行, 0=已请求停止) */
+    void *render_task;    /* 渲染线程句柄 (TaskHandle_t) */
+    void *render_done_sem;/* 渲染线程退出信号 (SemaphoreHandle_t) */
+
 } luat_mplayer_t;
 
 /* 播放状态(与具体解码器解耦) */

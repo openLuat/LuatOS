@@ -66,6 +66,8 @@ require ("tp_gt911")              -- GT911 触摸（统一）
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器
 require ("net_init")
+require ("aircloud_app")          -- AirCloud 通用数据上报（能力探测型，有接口就采）
+require ("settings_report_win")   -- AirCloud 上报设置页（配 features.aircloud 使用）
 -- 应用工厂 / AI 聊天体积大，800×480 脚本区 1024KB 先不打包
 
 -- ==================== 1. 平台检测 ====================
@@ -125,7 +127,7 @@ local function load_project_config(project)
         return {
             name = "PC", chip = "PC", baseboard = "PC", pins = {},
             hw = {
-                lcd = { model = "lcd_display_rgb", params = { port = lcd.HWID_0, pin_rst = 36, direction = 0, w = 320, h = 480 }, need_buffer = false, screen_size = 4.0, font = { size = 14 }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+                lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = 320, h = 480 }, need_buffer = false, screen_size = 4.0, font = { size = 14 }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
                 tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
             },
             features = {
@@ -168,7 +170,7 @@ local function load_project_config(project)
     return {
         name = "PC", chip = "PC", baseboard = "PC", pins = {},
         hw = {
-            lcd = { model = "lcd_display_rgb", params = { port = lcd.HWID_0, pin_rst = 36, direction = 0, w = w, h = h }, need_buffer = need_buf, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+            lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = w, h = h }, need_buffer = need_buf, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
             tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
         },
         features = {

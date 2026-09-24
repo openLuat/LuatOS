@@ -17,7 +17,7 @@ if fe.buzzer then
     require "settings_buzz_app"     -- 触摸音效管理（仅当有蜂鸣器）
 end
 require "settings_about_app"    -- 关于页面信息
-require "settings_display_app"  -- 显示亮度管理
+require "settings_display_app"  -- 亮度与声音管理（PWM 背光 + 媒体音量）
 require "settings_storage_app"  -- 存储空间信息查询（内置Flash）
 if fe.sd_card or fe.nand_flash then
     require "storage_pri_app"       -- 外部存储初始化（仅当有SD卡/NAND Flash）

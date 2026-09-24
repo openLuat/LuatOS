@@ -1535,19 +1535,20 @@
                     <!-- 设备状态 -->
                     <div class="card" id="deviceInfoCard" data-page-node-id="13VhGRQKX87C7UHehJ5OEB">
                         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;" data-page-node-id="S7MaXbfuwdPHtyP8ryBNWl">
-                            <div style="min-width:0;" data-page-node-id="6mz0uJO4cZgTyR3GQJRbeI"><strong id="devName" style="font-size:15px;" data-page-node-id="c5GrtlWABeZwF1QDyLlCMk">--</strong><br data-page-node-id="FWl2PwmkwrSTjwHCPEsT7A"><span class="muted" id="devId" style="font-size:12px;" data-page-node-id="zlp5CYDitGbVNEC59jQoAW">IMEI: --</span></div>
+                            <div style="min-width:0;" data-page-node-id="6mz0uJO4cZgTyR3GQJRbeI"><strong id="devName" style="font-size:15px;" data-page-node-id="c5GrtlWABeZwF1QDyLlCMk">--</strong><br data-page-node-id="FWl2PwmkwrSTjwHCPEsT7A"><span class="muted" id="devId" style="font-size:12px;" data-page-node-id="zlp5CYDitGbVNEC59jQoAW">设备ID: --</span></div>
                             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" data-page-node-id="Xx1">
                                 <button class="btn btn-sm" id="refreshBtn" disabled style="font-size:12px;padding:2px 8px;" data-page-node-id="Xx2">刷新</button>
                                 <span id="signalLed" class="status-led offline" data-page-node-id="I3oINkjCYJKXgbiXNm3Tek">未选择设备</span>
                             </div>
                         </div>
                         <div style="font-size:12px;color:var(--muted);margin-top:6px;" data-page-node-id="DEEgT6UJrvbOjrHA3T7iyW">最后更新: <span id="devLastTime" data-page-node-id="Ak8S3ZzsmvqTqqJfsr4Yu8">--</span></div>
+                        <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="devExtra"></div>
                     </div>
                     <!-- 查询设备 -->
                     <div class="card" id="queryCard" data-page-node-id="s5aeRXGdFNKKXSjhZDXz3D">
                         <div class="card-title" data-page-node-id="x7moGlhWcxFYiApkjdwWVe">查询设备</div>
                         <div class="query-row" data-page-node-id="66foRJhKKTQHKYCYX3Ff9e">
-                            <input type="text" id="imeiInput" placeholder="输入 IMEI" data-page-node-id="4PxBKkQzdWqrHqlDfqMQXs" />
+                            <input type="text" id="imeiInput" placeholder="输入设备ID（平台设备号，非IMEI）" data-page-node-id="4PxBKkQzdWqrHqlDfqMQXs" />
                             <button class="btn" id="queryBtn" data-page-node-id="7a9HrHgqQ4baW8NDOWPHuc">查询</button>
                         </div>
                         <button class="btn btn-outline btn-sm" id="scanBtn" style="width:100%;margin-bottom:6px;" data-page-node-id="xuCV7HDuxfSCdZltV7jU5O">扫码</button>
@@ -1613,8 +1614,8 @@
                         <div class="card-title" data-page-node-id="KIT9gkJ4Jiz8GVuKmoTzWu">历史数据 <span class="muted" style="font-weight:400;font-size:11px;" id="historySummary" data-page-node-id="J80muHKDFObaiiVi2Bq0No"></span></div>
                         <div class="table-wrap" data-page-node-id="EjuG9fdO9XhzDh1ZzEHeUI">
                             <table data-page-node-id="Ba5TLg8F1aUsQdbmUcns5v">
-                                <thead data-page-node-id="5GOaFm4HmIYYrGlmIFJSuM"><tr data-page-node-id="C7CIAq0xGIe3aFzvIOIZEh"><th data-page-node-id="1YvY0Nx1Vh9ZCF9ylNWe1T">时间</th><th data-page-node-id="TsuzKgu0Z2DEuDuNdmpXcB">°C</th><th data-page-node-id="qtfF0q8KhX1qYjSrqA4dHf">%</th><th data-page-node-id="8o1X9G7ZRLNvAIwvLkfGmD">CPU</th><th data-page-node-id="qFSLHLBeHxdGRgaAENV3Dj">VOC</th><th data-page-node-id="F3iWeNtS7FTkD8DmBFVdC3">信号</th><th data-page-node-id="urPuiLnVztVoIyA9G3x1Vq">经度</th><th data-page-node-id="GbF5vZyt8ODrbuUndyKo1s">纬度</th></tr></thead>
-                                <tbody id="historyBody" data-page-node-id="H8Xr5LxAGVdQVFPs2VKRQA"><tr data-page-node-id="RlzB3jNXCoIowdKmq39cQA"><td colspan="8" style="text-align:center;color:var(--muted);" data-page-node-id="8qrgJwQKmmt5fCqQlTMo3K">选择设备后查询</td></tr></tbody>
+                                <thead data-page-node-id="5GOaFm4HmIYYrGlmIFJSuM"><tr data-page-node-id="C7CIAq0xGIe3aFzvIOIZEh"><th data-page-node-id="1YvY0Nx1Vh9ZCF9ylNWe1T">时间</th><th data-page-node-id="TsuzKgu0Z2DEuDuNdmpXcB">°C</th><th data-page-node-id="qtfF0q8KhX1qYjSrqA4dHf">%</th><th data-page-node-id="8o1X9G7ZRLNvAIwvLkfGmD">CPU</th><th data-page-node-id="qFSLHLBeHxdGRgaAENV3Dj">VOC</th><th data-page-node-id="F3iWeNtS7FTkD8DmBFVdC3">信号</th><th data-page-node-id="thBootCnt1">次数</th><th data-page-node-id="thMem1">内存</th><th data-page-node-id="urPuiLnVztVoIyA9G3x1Vq">经度</th><th data-page-node-id="GbF5vZyt8ODrbuUndyKo1s">纬度</th></tr></thead>
+                                <tbody id="historyBody" data-page-node-id="H8Xr5LxAGVdQVFPs2VKRQA"><tr data-page-node-id="RlzB3jNXCoIowdKmq39cQA"><td colspan="10" style="text-align:center;color:var(--muted);" data-page-node-id="8qrgJwQKmmt5fCqQlTMo3K">选择设备后查询</td></tr></tbody>
                             </table>
                         </div>
                         <button class="btn btn-sm btn-outline hidden" id="loadMoreBtn" style="margin-top:8px;width:100%;" data-page-node-id="lde7cw2JgVSXDVbr3snb2l">加载更多</button>
@@ -1633,8 +1634,9 @@
                         </div>
                         <div class="control-group" data-page-node-id="q01aaWpeyQHnAAvZt01M9K">
                             <label data-page-node-id="DC85oNedVShHBqRYFyefav">TTS</label>
-                            <input type="text" id="ttsText" placeholder="播报文字" disabled data-page-node-id="GhFRqvfFOXZq2VB1XnE6DM" />
+                            <textarea id="ttsText" rows="2" maxlength="100" placeholder="播报文字（最多100字）" disabled data-page-node-id="GhFRqvfFOXZq2VB1XnE6DM" style="flex:1 1 180px;min-width:0;padding:7px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;resize:vertical;"></textarea>
                             <button class="btn btn-sm" id="sendTtsBtn" disabled data-page-node-id="iCnBdBO0brAhl7gShcqqNe">发送</button>
+                            <button class="btn btn-sm btn-outline" id="ttsStopBtn" disabled data-page-node-id="TtsStopBtn">停止</button>
                         </div>
                         <div class="control-group" data-page-node-id="LedCtrlGroup">
                             <label data-page-node-id="LedLabel">LED控制</label>
@@ -1888,6 +1890,7 @@
                 setCycleBtn = $('setCycleBtn');
             const ttsText = $('ttsText'),
                 sendTtsBtn = $('sendTtsBtn'),
+                ttsStopBtn = $('ttsStopBtn'),
                 controlStatus = $('controlStatus'),
                 controlStatusLabel = $('controlStatusLabel');
             const ledBlinkBtn = $('ledBlinkBtn'),
@@ -2001,7 +2004,7 @@
                     projectSelect.innerHTML = '<option value="">请先登录</option>';
                     projectSelect.disabled = true;
                     setCycleBtn.disabled = true;
-                    sendTtsBtn.disabled = true;
+                    sendTtsBtn.disabled = true; ttsStopBtn.disabled = true;
                     reportCycle.disabled = true;
                     ttsText.disabled = true;
                     ledBlinkBtn.disabled = true;
@@ -2060,7 +2063,7 @@
                         S.infoWin = null; }
                     mapPlaceholder.textContent = '🗺️ 选择设备后显示位置';
                     setCycleBtn.disabled = true;
-                    sendTtsBtn.disabled = true;
+                    sendTtsBtn.disabled = true; ttsStopBtn.disabled = true;
                     reportCycle.disabled = true;
                     ttsText.disabled = true;
                     ledBlinkBtn.disabled = true;
@@ -2107,7 +2110,7 @@
                     try { loc = await throttledApi('/aircloud/latest_location', { client_id: imei }); } catch (e) { if (e
                             .type === 'auth' || e.type === 'unauthorized') throw e; }
                     S.latest = loc || null;
-                    const tags = [256, 257, 263, 782, 258, 512, 513];
+                    const tags = [256, 257, 263, 782, 258, 512, 513, 777, 1034, 1295, 1027];
                     let tagData = null;
                     try { tagData = await throttledApi('/aircloud/list_by_tags', { client_id: imei, tags, page: 1,
                             size: 1 }); } catch (e) { if (e.type === 'auth' || e.type === 'unauthorized') throw e; }
@@ -2139,14 +2142,14 @@
 
             // ---- 查询设备 ----
             async function queryDevice(imei) {
-                if (!imei || imei.trim() === '') { toast('请输入 IMEI', 'error'); return; }
+                if (!imei || imei.trim() === '') { toast('请输入设备ID（平台设备号，非IMEI）', 'error'); return; }
                 imei = imei.trim();
                 S.currentDeviceId = imei;
                 // 同步更新下拉选择
                 if (deviceSelect) deviceSelect.value = imei;
                 showNotice(queryStatus, '正在加载设备数据...', 'info');
                 setCycleBtn.disabled = false;
-                sendTtsBtn.disabled = false;
+                sendTtsBtn.disabled = false; ttsStopBtn.disabled = false;
                 reportCycle.disabled = false;
                 ttsText.disabled = false;
                 ledBlinkBtn.disabled = false;
@@ -2159,7 +2162,7 @@
                     try { loc = await throttledApi('/aircloud/latest_location', { client_id: imei }); } catch (e) { if (e
                             .type === 'auth' || e.type === 'unauthorized') throw e; }
                     S.latest = loc || null;
-                    const tags = [256, 257, 263, 782, 258, 512, 513];
+                    const tags = [256, 257, 263, 782, 258, 512, 513, 777, 1034, 1295, 1027];
                     let tagData = null;
                     try { tagData = await throttledApi('/aircloud/list_by_tags', { client_id: imei, tags, page: 1,
                             size: 1 }); } catch (e) { if (e.type === 'auth' || e.type === 'unauthorized') throw e; }
@@ -2183,13 +2186,17 @@
                     loadHistory(imei).catch(e => console.warn('[loadHistory]', e));
 
                     hideNotice(queryStatus);
-                    toast('设备数据加载完成', 'success');
+                    if (!loc && !Object.keys(S.tags).length) {
+                        toast('未查到数据：请输入平台「设备号」（设备上报的设备ID，如 C8C2C693F482），不是 IMEI', 'error');
+                    } else {
+                        toast('设备数据加载完成', 'success');
+                    }
                     renderDeviceList();
                 } catch (e) {
                     if (e.type === 'auth' || e.type === 'unauthorized') {
                         toast('该设备需要登录查看，请先登录', 'error');
                         setCycleBtn.disabled = true;
-                        sendTtsBtn.disabled = true;
+                        sendTtsBtn.disabled = true; ttsStopBtn.disabled = true;
                         reportCycle.disabled = true;
                         ttsText.disabled = true;
                         ledBlinkBtn.disabled = true;
@@ -2203,9 +2210,20 @@
             // ---- 显示设备数据 ----
             function displayDevice(imei, loc) {
                 devName.textContent = loc?.deviceid || imei;
-                devId.textContent = 'IMEI: ' + imei;
-                devLastTime.textContent = loc?.time || '--';
-                const isFresh = loc?.time ? (Date.now() - timeMs(loc.time) < 600000) : false;
+                devId.textContent = '设备ID: ' + imei;
+                // 在线判定基准时间：tag 上报时间优先，定位时间兜底。
+                // 【坑·真机踩过】不能只看 /aircloud/latest_location 的 loc.time：
+                //   1601 不上报经纬度 -> latest_location 恒为空 -> 永远显示「离线」，
+                //   但设备实际在线（下行毫秒级应答、tag 上报正常）。
+                const lastSeen = S.tagTime || loc?.time || '';
+                devLastTime.textContent = lastSeen || '--';
+                const extraBits = [];
+                if (S.tags[1027]?.value !== undefined) extraBits.push('固件 ' + S.tags[1027].value);
+                if (S.tags[777]?.value !== undefined) extraBits.push('开机 ' + S.tags[777].value + ' 次');
+                if (S.tags[1034]?.value !== undefined) extraBits.push('内存 ' + Math.round(Number(S.tags[1034].value) / 1024) + ' KB');
+                if (S.tags[263]?.value !== undefined) extraBits.push('CPU ' + S.tags[263].value + ' C');
+                document.getElementById('devExtra').textContent = extraBits.join(' · ');
+                const isFresh = lastSeen ? (Date.now() - timeMs(lastSeen) < 600000) : false;
                 signalLed.className = 'status-led ' + (isFresh ? 'online' : 'offline');
                 signalLed.textContent = isFresh ? '在线' : '离线';
                 controlStatusLabel.className = 'status-led ' + (isFresh ? 'online' : 'offline');
@@ -2222,7 +2240,11 @@
                         '<span style="font-size:14px;font-weight:400;">%</span>';
                     sCpu.innerHTML = (t[263]?.value ?? '--') +
                         '<span style="font-size:14px;font-weight:400;">°C</span>';
-                    sSignal.textContent = t[782]?.value ?? '--';
+                    const sigRaw = (t[782]?.value !== undefined && t[782]?.value !== null)
+                        ? t[782].value
+                        : (t[1295]?.value !== undefined && t[1295]?.value !== null
+                            ? (Number(t[1295].value) - 100) : undefined);
+                    sSignal.textContent = sigRaw ?? '--';
                     sVoc.innerHTML = (t[258]?.value ?? '--') +
                         '<span style="font-size:14px;font-weight:400;">ppb</span>';
                 }
@@ -2247,7 +2269,8 @@
             // ---- 清空 ----
             function clearDeviceData() {
                 devName.textContent = '--';
-                devId.textContent = 'IMEI: --';
+                devId.textContent = '设备ID: --';
+                document.getElementById('devExtra').textContent = '';
                 devLastTime.textContent = '--';
                 signalLed.className = 'status-led offline';
                 signalLed.textContent = '未选择设备';
@@ -2257,7 +2280,7 @@
                 sSignal.textContent = '--';
                 sVoc.innerHTML = '--<span style="font-size:14px;font-weight:400;">ppb</span>';
                 historyBody.innerHTML =
-                    '<tr><td colspan="8" style="text-align:center;color:var(--muted);">选择时间段后查询历史数据</td></tr>';
+                    '<tr><td colspan="10" style="text-align:center;color:var(--muted);">选择时间段后查询历史数据</td></tr>';
                 historySummary.textContent = '';
                 loadMoreBtn.classList.add('hidden');
                 S.history = [];
@@ -2304,7 +2327,7 @@
             }
 
             // ---- 历史 ----
-            const HISTORY_TAGS = [256, 257, 263, 258, 782, 512, 513];
+            const HISTORY_TAGS = [256, 257, 263, 258, 782, 512, 513, 777, 1034, 1295, 1027];
 
             async function loadHistory(imei, page = 1, size = 50) {
                 const tr = getTimeRange();
@@ -2358,7 +2381,7 @@
 
             function renderHistory() {
                 if (!S.history.length) { historyBody.innerHTML =
-                        '<tr><td colspan="8" style="text-align:center;color:var(--muted);">该时间段暂无数据</td></tr>';
+                        '<tr><td colspan="10" style="text-align:center;color:var(--muted);">该时间段暂无数据</td></tr>';
                     historySummary.textContent = ''; return; }
                 let html = '';
                 S.history.forEach(r => {
@@ -2369,7 +2392,7 @@
                         lng = gcj.lng.toFixed(6);
                         lat = gcj.lat.toFixed(6); }
                     html +=
-                        `<tr><td>${r.ct || '--'}</td><td>${r.t256 ?? '--'}</td><td>${r.t257 ?? '--'}</td><td>${r.t263 ?? '--'}</td><td>${r.t258 ?? '--'}</td><td>${r.t782 ?? '--'}</td><td>${lng}</td><td>${lat}</td></tr>`;
+                        `<tr><td>${r.ct || '--'}</td><td>${r.t256 ?? '--'}</td><td>${r.t257 ?? '--'}</td><td>${r.t263 ?? '--'}</td><td>${r.t258 ?? '--'}</td><td>${(r.t782 ?? (r.t1295 !== undefined ? (Number(r.t1295) - 100) : undefined)) ?? '--'}</td><td>${r.t777 ?? '--'}</td><td>${r.t1034 ?? '--'}</td><td>${lng}</td><td>${lat}</td></tr>`;
                 });
                 historyBody.innerHTML = html;
                 historySummary.textContent = '共 ' + S.historyTotal + ' 条 · ' + S.history.length + ' 行';
@@ -2689,11 +2712,29 @@
                 if (!text || text.trim() === '') { toast('请输入播报内容', 'error'); return; }
                 showNotice(controlStatus, '正在发送...', 'info');
                 try {
-                    await api('/aircloud/send_cmd', { client_id: imei, tag: 19, value: text.trim(),
-                    protocol: 1 });
-                    showNotice(controlStatus, 'TTS 发送成功', 'success');
+                    // ttshex: 文本转 UTF-8 十六进制下发（设备端解码播报）。
+                    // 实测（2026-09-23）纯文本走 tts: + ASCII 通道会被云端消毒成 '?'：
+                    // "tts:你好"(UTF-8 10字节) 到达设备只剩 "tts:??"(6字节)。
+                    // 纯十六进制是可打印 ASCII，任何 protocol/类型下都无损。
+                    const hex = Array.from(new TextEncoder().encode(text.trim()))
+                        .map(b => b.toString(16).padStart(2, '0')).join('');
+                    await api('/aircloud/send_cmd', { client_id: imei, tag: 19, value: 'ttshex:' + hex,
+                    protocol: 0 });
+                    showNotice(controlStatus, '已提交，等待设备播报', 'success');
                     setTimeout(() => hideNotice(controlStatus), 3000);
                 } catch (e) { showNotice(controlStatus, '发送失败：' + e.message, 'error'); }
+            }
+
+            async function stopTts(imei) {
+                if (!imei) { toast('请先选择设备', 'error'); return; }
+                if (!S.loggedIn) { toast('请先登录', 'error'); return; }
+                showNotice(controlStatus, '正在停止...', 'info');
+                try {
+                    await api('/aircloud/send_cmd', { client_id: imei, tag: 19, value: 'ttsstop',
+                    protocol: 0 });
+                    showNotice(controlStatus, '已发送停止指令', 'success');
+                    setTimeout(() => hideNotice(controlStatus), 3000);
+                } catch (e) { showNotice(controlStatus, '停止失败：' + e.message, 'error'); }
             }
 
             // ---- 事件绑定 ----
@@ -2759,7 +2800,7 @@
                         // 降级：拍照识别
                         this._fallbackPhotoScan();
                     } else {
-                        toast('当前浏览器不支持扫码，请手动输入 IMEI', 'error');
+                        toast('当前浏览器不支持扫码，请手动输入设备ID', 'error');
                     }
                 });
                 // 拍照扫码降级方案
@@ -2820,6 +2861,7 @@
                     setReportCycle(S.currentDeviceId, sec);
                 });
                 sendTtsBtn.addEventListener('click', () => { sendTts(S.currentDeviceId, ttsText.value); });
+                ttsStopBtn.addEventListener('click', () => { stopTts(S.currentDeviceId); });
 
                 // ---- LED控制 ----
                 async function controlLed(imei, command) {

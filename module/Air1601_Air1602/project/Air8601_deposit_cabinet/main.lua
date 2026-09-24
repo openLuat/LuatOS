@@ -50,8 +50,8 @@ require "aircloud"
 
 -- 加载网络模块（require 即自动初始化，无需手动 init）
 -- 用 4G：require "network_4g"
--- 用 WiFi：require "netdrv_wifi.lua"
-require "network_4g"
+-- 用 WiFi：require "netdrv_wifi"
+require "netdrv_wifi"
 
 -- 485 锁控模块
 require "uart_controller"
@@ -93,7 +93,7 @@ local function system_init()
     sys.wait(100)
 
     -- 延迟 300ms 初始化人脸模块：等 LCD/触摸完全就绪后再启动，
-    -- 避免 camera.init 与 lcd.init 竞争资源导致屏幕异常
+    -- 避免 camera.init 与 display.init 竞争资源导致屏幕异常
     sys.timerStart(function()
         local face_manager = require "face_manager"
         face_manager.init()

@@ -1,8 +1,8 @@
 --[[
 @module  video_win
 @summary 全屏播放页 —— 竖屏面板自动旋转成横屏，任意尺寸素材居中播放
-@version 1.1
-@date    2026.09.20
+@version 1.2
+@date    2026.09.23
 @author  江访
 
 === 消息协议（订阅/发布）===
@@ -26,7 +26,7 @@
 3. **旋转只改 airui 的显示旋转，不改面板方向**
    airui.set_rotation 会更新 airui 的逻辑宽高，但 screen_w / screen_h 这两个全局量
    只在 lcd_drv.init() 时算过一次、**不会跟着运行时旋转变**。
-   本页一律用 lcd.getSize()（面板物理尺寸）+ airui.status()（旋转后的逻辑尺寸），
+   本页一律用 display.getSize()（面板物理尺寸）+ airui.status()（旋转后的逻辑尺寸），
    绝不读那两个全局量。
 
 4. **播放器控件的父容器不能用 airui.container**
@@ -50,6 +50,11 @@
    同一段代码 —— 排列、尺寸、间距、配色策略结构性一致，不会再各自漂移。
    差别只有最右一格的文案：桌面是「全屏」（进来），本页是「窗口」（回去）。
    按钮的底色与文字色都由 video_bar 按主题令牌 + 当前状态算，本页不自己写颜色。
+
+7. **MP4 走 mplayer 硬解，画面挂 LCDC 视频层（叠在 UI 之上）**
+   播放矩形必须避开控制栏（否则按钮被画面盖住），大素材等比收进可用区
+   （视频层没有裁切容器）；循环靠轮询 EOS 重开实现。统一入口在
+   video_util.create_player，本页不直接碰 mplayer。
 ]]
 
 local theme = require "ui_theme"
@@ -65,7 +70,7 @@ local DEFAULT_VW, DEFAULT_VH = 480, 320
 local window_id = nil
 local bg = nil                -- 全屏黑底（airui.shape，不可滚动、不吃点击）
 local stage = nil             -- 舞台层：视频的父对象（换文件不影响它，因此不影响层级）
-local video_obj = nil         -- airui.video 实例
+local video_obj = nil         -- 播放器对象（airui.video 实例或 mplayer 适配器，接口同用法）
 local ctrl_bar = nil          -- 底部控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
 local empty_label = nil       -- 素材放不出来时的提示
 
@@ -138,8 +143,8 @@ end
 screen_w / screen_h 是 lcd_drv.init() 一次性算出来的，运行时旋转不会更新，
 所以物理尺寸只能问驱动。]]
 local function panel_size()
-    if lcd and lcd.getSize then
-        local ok, w, h = pcall(lcd.getSize)
+    if display and display.getSize then
+        local ok, w, h = pcall(display.getSize)
         if ok and w and h and w > 0 and h > 0 then return w, h end
     end
     return screen_w or 480, screen_h or 854
@@ -216,26 +221,25 @@ local function rebuild_video()
     end
     if not stage then return end
 
-    video_util.audio_ensure()
-
     local fmt = video_util.guess_format(current_file)
-    local vcfg = {
-        parent = stage,
-        x = geo.video_x, y = geo.video_y,
-        w = geo.video_w, h = geo.video_h,          -- 必须等于素材帧尺寸（不支持缩放）
-        src = current_file, format = fmt,
-        decode_mode = "hw",
-        loop = is_loop, auto_play = true,
-    }
-    if fmt == "hzv" then
-        -- HZV 容器自带逐帧时长与 MP3 音轨，Lua 不填 interval
-        vcfg.backend = "videoplayer"
-    else
-        vcfg.interval = 33   -- 30fps（调大即慢放，看着像卡住）
+    local vx, vy, vw, vh = geo.video_x, geo.video_y, geo.video_w, geo.video_h
+    if fmt == "mp4" then
+        --[[MP4 画面矩形：视频层叠在 UI 之上，不能沿用 overlay 摆法（超大素材
+        全屏居中会盖住控制栏）—— 一律等比收进「页边距与控制栏之间」的可用区。]]
+        vx, vy, vw, vh = video_util.fit_rect(0, geo.top_h, W,
+            H - geo.top_h - geo.bottom_h, geo.video_w, geo.video_h)
     end
 
-    local ok, v = pcall(airui.video, vcfg)
-    video_obj = (ok and v) and v or nil
+    --[[HZV/MJPG → airui.video（父容器内控件）；MP4 → mplayer 硬解（面板视频层）。
+    两种对象接口同用法（:play/:pause/:stop/:destroy），控制栏代码无感。
+    MP4 的音频由 mplayer 自管，create_player 内部会跳过 HZV 音轨初始化。]]
+    video_obj = video_util.create_player(current_file, {
+        parent = stage,
+        x = vx, y = vy,
+        w = vw, h = vh,          -- airui 路径必须等于素材帧尺寸（不支持缩放）
+        sx = vx, sy = vy,        -- 舞台在屏幕原点，逻辑屏坐标即画面绝对坐标
+        loop = is_loop,
+    })
     is_playing = (video_obj ~= nil)
 
     if not video_obj then

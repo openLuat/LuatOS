@@ -34,7 +34,7 @@ local CLR = theme.live()
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
-    local phys_w, phys_h = lcd.getSize()
+    local phys_w, phys_h = display.getSize()
     if rotation == 0 or rotation == 180 then
         SCREEN_W, SCREEN_H = phys_w, phys_h
     else

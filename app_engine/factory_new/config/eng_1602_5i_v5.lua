@@ -112,6 +112,7 @@ return {
         nes = true,                      -- 启用 NES 游戏按键（需配 nes_keys）
         battery = true,                  -- 启用电池管理（需配 hw.battery + ui.show_battery_icon）
         cloud_disk = true,               -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true,            -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -149,6 +150,7 @@ return {
         480×854 实测 播放器 364 / 已安装应用 158 / Dock 96（1 行 4 个/页，右上角分页器可翻页）。
         不写此项时该机型桌面与本改动前完全一致。]]
         show_video_area = true,          -- 桌面内置播放器区域（竖屏：时钟下方通栏，含独立控制栏）
+        show_file_transfer = true,     -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
     },
 
     -- ===== 存储设备: NAND Flash =====

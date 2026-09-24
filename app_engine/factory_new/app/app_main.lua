@@ -101,3 +101,23 @@ end
 if _G.project_config and _G.project_config.features and _G.project_config.features.cloud_disk then
     require "cloud_disk_app"
 end
+
+-- TTS 播报服务（云端 tts: 下行命令/本地共用播放路径，exaudio 统一播放）
+-- 仅 hw.audio 配置存在的板子加载；无音频板子收到 tts: 命令时
+-- aircloud_app 会惰性 require 兜底并回 ERR no audio
+if _G.project_config and _G.project_config.hw and _G.project_config.hw.audio then
+    require "tts_app"
+end
+
+-- AirCloud 数据上报业务层（通用能力探测：有接口就采，没有就跳过，不绑定型号）
+-- 等 IP_READY → excloud.setup/open → 定时采集组装 TLV 上报 → 响应下行命令
+-- 与 ui 层 settings_report_win 的门控条件必须一致
+if _G.project_config and _G.project_config.features and _G.project_config.features.aircloud then
+    require "aircloud_app"
+end
+
+-- 文件传输业务层（hzadb 服务管理/共享清单/传输记录，PC↔设备经日志口互传文件）
+-- 门控条件必须与 ui_main 里 file_transfer_win 的一致（见上方 cloud_disk 的说明）
+if _G.project_config and _G.project_config.features and _G.project_config.features.file_transfer then
+    require "file_transfer_app"
+end

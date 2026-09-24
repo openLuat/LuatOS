@@ -153,9 +153,11 @@ local function schedule_pcm_sample()
     end, 100)
 end
 
-local function bind_session()
+local function bind_session(event_session)
     local stats = read_stats()
-    if stats and stats.selected == true and integer(stats.session) and stats.session > 0 then
+    if integer(event_session) and event_session > 0 then
+        g_session = event_session
+    elseif stats and stats.selected == true and integer(stats.session) and stats.session > 0 then
         g_session = stats.session
     end
     monitor_settings()
@@ -232,7 +234,7 @@ local function finish_monitor()
 end
 
 local function stop_bridge_audio()
-    -- stats 已进入下一 session 时，不停止不属于本通的 native 媒体。
+    -- stats 已进入下一 session 时，不停止不属于本通的原生媒体。
     local stats = read_stats()
     if g_session and stats and stats.session == g_session and cc and cc.bridgeAudioStop then
         cc.bridgeAudioStop()
@@ -361,6 +363,12 @@ sys.subscribe("CC_HANGUP_REQ", on_cc_hangup_req)
 
 local function on_cc_event(status, value, extra)
     logi("事件", status, value, extra)
+    -- 原生 CC 第三参数是入队时的会话，不以最新 stats 否决旧通话的终止。
+    -- AUDIO_START 保留既有第二参数会话；READY 不属于某通电话。
+    local terminal = status == "DISCONNECTED" or status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED"
+    if terminal and extra ~= g_session then return end
+    if status ~= "READY" and status ~= "INCOMINGCALL" and status ~= "AUDIO_START" and
+        extra ~= nil and extra ~= g_session then return end
     if status == "READY" then
         g_ready = true
     elseif status == "INCOMINGCALL" then
@@ -375,7 +383,7 @@ local function on_cc_event(status, value, extra)
             return
         end
         begin_call(nil)
-        bind_session()
+        bind_session(extra)
         set_state(STATE_RINGING)
         sys.publish("CC_INCOMING", number, g_call_generation, g_session)
     elseif status == "CONNECTED" or status == "CONNECTED_NUMBER" or status == "ANSWER_CALL_DONE" then

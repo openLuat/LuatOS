@@ -85,7 +85,7 @@ local view = {}
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
-    local phys_w, phys_h = lcd.getSize()
+    local phys_w, phys_h = display.getSize()
     if rotation == 0 or rotation == 180 then
         screen_w, screen_h = phys_w, phys_h
     else
@@ -648,6 +648,50 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
     end
 
     local y = margin
+
+    --[[与PC互传跳转卡（文件传输子模块入口，文件传输是文件管理的子功能）。
+    门控必须与 ui_main 里 file_transfer_win 的一致：窗口没加载而入口在，
+    点击就是 publish 到没有订阅者的事件（ui_main 注释里的半残状态坑）。]]
+    local has_ft = _G.project_config and _G.project_config.features and _G.project_config.features.file_transfer
+        and _G.project_config.ui and _G.project_config.ui.show_file_transfer
+    if has_ft then
+        local ft_card = airui.container({
+            parent = scroll_area,
+            x = margin, y = y,
+            w = card_w, h = card_h,
+            color = theme.C.surface, color_opacity = theme.OPA.glass,
+            border_color = theme.C.stroke, border_width = 1, radius = theme.r("md"),
+            on_click = function() sys.publish("OPEN_FILE_TRANSFER_WIN") end,
+        })
+        local ft_title_h = math.floor(26 * density)
+        local ft_sub_h = math.floor(18 * density)
+        local ft_gap = math.floor(4 * density)
+        local ft_inner_y = math.floor((card_h - ft_title_h - ft_sub_h - ft_gap) / 2)
+        airui.label({
+            parent = ft_card,
+            x = math.floor(20 * density), y = ft_inner_y,
+            w = card_w - math.floor(80 * density), h = ft_title_h,
+            text = "与PC互传文件", font_size = theme.fs("h2"),
+            color = CLR.t1, align = airui.TEXT_ALIGN_LEFT,
+        })
+        airui.label({
+            parent = ft_card,
+            x = math.floor(20 * density), y = ft_inner_y + ft_title_h + ft_gap,
+            w = card_w - math.floor(80 * density), h = ft_sub_h,
+            text = "通过Luatools经日志口与电脑双向传输", font_size = theme.fs("caption"),
+            color = CLR.t2, align = airui.TEXT_ALIGN_LEFT,
+        })
+        airui.label({
+            parent = ft_card,
+            x = card_w - math.floor(50 * density), y = math.floor((card_h - math.floor(30 * density)) / 2),
+            w = math.floor(30 * density), h = math.floor(30 * density),
+            text = ">", font_size = theme.fs("h2"),
+            color = CLR.t2, align = airui.TEXT_ALIGN_CENTER,
+        })
+        table.insert(device_items, { ref = ft_card, label = "与PC互传文件", mount_point = nil })
+        y = y + card_h + card_spacing
+    end
+
     for _, dev in ipairs(mount_points) do
         local card = airui.container({
             parent = scroll_area,

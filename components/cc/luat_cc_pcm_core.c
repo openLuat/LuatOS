@@ -6,8 +6,8 @@
 #include <intrin.h>
 #endif
 
-/* Callers still serialize the whole operation. Atomic counter writes also
- * follow the repository rule for statistics touched by multiple threads. */
+/* 调用方仍须串行化整个操作。计数器采用原子写入，
+ * 同时遵守仓库对多线程访问统计量的要求。 */
 static void counter_add(uint32_t *counter, uint32_t amount)
 {
 #if defined(_MSC_VER)
@@ -55,15 +55,21 @@ static int check_session(luat_cc_pcm_core_t *core, uint32_t session)
     return 0;
 }
 
+static void flush_ul(luat_cc_pcm_core_t *core)
+{
+    counter_add(&core->counters.ul_flushed, core->ul_count);
+    core->ul_count = 0;
+    core->ul_ready = 0;
+    core->ul_stream = 0;
+    memset(core->ul_valid, 0, sizeof(core->ul_valid));
+}
+
 static void flush_queues(luat_cc_pcm_core_t *core)
 {
     counter_add(&core->counters.dl_flushed, core->dl_count);
-    counter_add(&core->counters.ul_flushed, core->ul_count);
     core->dl_read = 0;
     core->dl_count = 0;
-    core->ul_read = 0;
-    core->ul_count = 0;
-    core->ul_ready = 0;
+    flush_ul(core);
 }
 
 void luat_cc_pcm_core_init(luat_cc_pcm_core_t *core)
@@ -170,23 +176,54 @@ int luat_cc_pcm_core_pop_dl(luat_cc_pcm_core_t *core, uint32_t session,
 }
 
 int luat_cc_pcm_core_push_ul(luat_cc_pcm_core_t *core, uint32_t session,
+                             uint32_t stream, uint16_t sequence,
                              const int16_t *pcm, uint16_t samples)
 {
-    uint8_t write;
+    uint8_t write = LUAT_CC_PCM_CORE_QUEUE_FRAMES;
+    uint16_t distance;
     int ret = check_session(core, session);
     if (ret) return ret;
-    if (!pcm || samples != LUAT_CC_PCM_CORE_8K_SAMPLES) {
+    if (!stream || !pcm || samples != LUAT_CC_PCM_CORE_8K_SAMPLES) {
         counter_add(&core->counters.rejected_format, 1);
         return LUAT_CC_PCM_CORE_BAD_ARG;
     }
-    if (core->ul_count == LUAT_CC_PCM_CORE_QUEUE_FRAMES) {
-        core->ul_read = next_frame(core->ul_read);
-        core->ul_count--;
-        counter_add(&core->counters.ul_dropped, 1);
+    if (core->ul_stream != stream) {
+        flush_ul(core);
+        core->ul_stream = stream;
+        core->ul_expected = sequence;
     }
-    write = (uint8_t)((core->ul_read + core->ul_count) %
-                       LUAT_CC_PCM_CORE_QUEUE_FRAMES);
+    distance = (uint16_t)(sequence - core->ul_expected);
+    if (distance >= 0x8000U) {
+        counter_add(&core->counters.ul_late, 1);
+        return 0;
+    }
+    if (distance >= LUAT_CC_PCM_CORE_QUEUE_FRAMES) {
+        uint16_t advance = (uint16_t)(distance - (LUAT_CC_PCM_CORE_QUEUE_FRAMES - 1U));
+        uint32_t discarded = 0;
+        for (uint8_t i = 0; i < LUAT_CC_PCM_CORE_QUEUE_FRAMES; ++i) {
+            if (core->ul_valid[i] &&
+                (uint16_t)(core->ul_seq[i] - core->ul_expected) < advance) {
+                core->ul_valid[i] = 0;
+                core->ul_count--;
+                discarded++;
+            }
+        }
+        counter_add(&core->counters.ul_dropped, discarded);
+        counter_add(&core->counters.ul_lost, advance - discarded);
+        core->ul_expected = (uint16_t)(core->ul_expected + advance);
+    }
+    for (uint8_t i = 0; i < LUAT_CC_PCM_CORE_QUEUE_FRAMES; ++i) {
+        if (!core->ul_valid[i]) write = i;
+        else if (core->ul_seq[i] == sequence) {
+            counter_add(&core->counters.ul_duplicate, 1);
+            return 0;
+        }
+    }
+    /* 六个不同的序号位置始终能放入六个槽位。 */
+    if (write == LUAT_CC_PCM_CORE_QUEUE_FRAMES) return LUAT_CC_PCM_CORE_BAD_ARG;
     memcpy(core->ul[write], pcm, LUAT_CC_PCM_CORE_8K_SAMPLES * sizeof(int16_t));
+    core->ul_seq[write] = sequence;
+    core->ul_valid[write] = 1;
     core->ul_count++;
     counter_add(&core->counters.ul_pushed, 1);
     if (core->ul_count > core->counters.ul_high_water) {
@@ -201,6 +238,7 @@ int luat_cc_pcm_core_pop_ul(luat_cc_pcm_core_t *core, uint32_t session,
     const int16_t *pcm;
     uint16_t samples;
     uint16_t i;
+    uint8_t slot = LUAT_CC_PCM_CORE_QUEUE_FRAMES;
     int ret = check_session(core, session);
     if (ret) return ret;
     samples = cc_samples(core);
@@ -222,7 +260,19 @@ int luat_cc_pcm_core_pop_ul(luat_cc_pcm_core_t *core, uint32_t session,
         counter_add(&core->counters.ul_underflows, 1);
         return samples;
     }
-    pcm = core->ul[core->ul_read];
+    for (uint8_t n = 0; n < LUAT_CC_PCM_CORE_QUEUE_FRAMES; ++n) {
+        if (core->ul_valid[n] && core->ul_seq[n] == core->ul_expected) {
+            slot = n;
+            break;
+        }
+    }
+    core->ul_expected = (uint16_t)(core->ul_expected + 1U);
+    if (slot == LUAT_CC_PCM_CORE_QUEUE_FRAMES) {
+        memset(out, 0, (size_t)samples * sizeof(int16_t));
+        counter_add(&core->counters.ul_lost, 1);
+        return samples;
+    }
+    pcm = core->ul[slot];
     if (core->cc_rate == 16000U) {
         for (i = 0; i < LUAT_CC_PCM_CORE_8K_SAMPLES; i++) {
             int16_t next = (i + 1U < LUAT_CC_PCM_CORE_8K_SAMPLES) ?
@@ -234,7 +284,7 @@ int luat_cc_pcm_core_pop_ul(luat_cc_pcm_core_t *core, uint32_t session,
     } else {
         memcpy(out, pcm, (size_t)samples * sizeof(int16_t));
     }
-    core->ul_read = next_frame(core->ul_read);
+    core->ul_valid[slot] = 0;
     core->ul_count--;
     counter_add(&core->counters.ul_popped, 1);
     return samples;

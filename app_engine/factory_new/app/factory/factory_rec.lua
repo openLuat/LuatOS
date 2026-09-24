@@ -529,7 +529,7 @@ end
 --    不能用 _G.model_str（hmeta.model() 会带变体后缀，如 "Air1602_10in1"，服务端不识别）
 local function make_device_info()
     local model = rtos.bsp() or ""
-    local phys_w, phys_h = lcd.getSize()
+    local phys_w, phys_h = display.getSize()
     local rotation = 0
     if airui.get_rotation then
         rotation = airui.get_rotation()

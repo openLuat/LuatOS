@@ -1791,6 +1791,13 @@ local function sip_task(opts)
                 return true
             end
 
+            -- dialog.from/to 保留初始 INVITE 方向；对端发来的对话内请求方向始终是远端→本端。
+            local function incoming_dialog_headers(dialog)
+                if not dialog then return nil, nil end
+                if dialog.direction == "out" then return dialog.from, dialog.to end
+                return dialog.to, dialog.from
+            end
+
             local function handle_invite_request(req_headers, req_uri, body, rip, remote_port)
                 local invite_cseq = cseq_number(req_headers["cseq"]) or 1
                 local dialog = state.dialog
@@ -1810,9 +1817,16 @@ local function sip_task(opts)
                     return
                 end
 
-                if dialog and dialog.direction == "in" and dialog.call_id == req_headers["call-id"] then
+                if dialog and (dialog.direction == "in" or dialog.established) and dialog.call_id == req_headers["call-id"] then
+                    local local_to, remote_from = incoming_dialog_headers(dialog)
+                    if dialog.established and
+                        (header_tag_value(req_headers["to"]) ~= header_tag_value(local_to) or
+                         header_tag_value(req_headers["from"]) ~= header_tag_value(remote_from)) then
+                        net_send_on(netc, build_response(state, req_headers, 481, "Call/Transaction Does Not Exist", nil, ""))
+                        return
+                    end
                     local resp_headers = copy_headers(req_headers)
-                    resp_headers["to"] = dialog.to
+                    resp_headers["to"] = local_to
 
                     local response = dialog.invite_response
                     if response and response.cseq == invite_cseq then
@@ -1831,17 +1845,19 @@ local function sip_task(opts)
                         return
                     end
 
-                    local dialog_to_tag = header_tag_value(dialog.to)
+                    local dialog_to_tag = header_tag_value(local_to)
                     local req_to_tag = header_tag_value(req_headers["to"])
-                    -- 已建立来电对话内的 INVITE 按 re-INVITE 处理，不再抛成新的 incoming。
+                    -- 已建立的呼入/呼出对话均可接收 re-INVITE，不改变最初的通话方向。
                     if dialog.established and not dialog.terminating and dialog_to_tag and req_to_tag == dialog_to_tag then
                         if response and response.waiting_ack then
                             net_send_on(netc, build_response(state, resp_headers, 491, "Request Pending", nil, ""))
                             return
                         end
+                        log.info("sip", "accept re-INVITE", "direction", dialog.direction,
+                            "call-id", dialog.call_id, "cseq", invite_cseq)
                         local resp_body = build_dialog_sdp(state, dialog)
                         dialog.local_sdp = resp_body
-                        dialog.remote_uri = req_uri or dialog.remote_uri
+                        dialog.remote_uri = contact_uri(req_headers["contact"]) or dialog.remote_uri
                         dialog.remote_ip = rip or dialog.remote_ip
                         dialog.remote_sdp_raw = body
                         dialog.remote_sdp = parse_sdp(body)
@@ -1904,10 +1920,11 @@ local function sip_task(opts)
             local function handle_ack_request(req_headers)
                 local dialog = state.dialog
                 local response = dialog and dialog.invite_response
-                if not dialog or dialog.direction ~= "in" or dialog.call_id ~= req_headers["call-id"] or
+                local local_to, remote_from = incoming_dialog_headers(dialog)
+                if not dialog or dialog.call_id ~= req_headers["call-id"] or
                     not response or not response.waiting_ack or response.cseq ~= cseq_number(req_headers["cseq"]) or
-                    header_tag_value(req_headers["to"]) ~= header_tag_value(dialog.to) or
-                    header_tag_value(req_headers["from"]) ~= header_tag_value(dialog.from) then
+                    header_tag_value(req_headers["to"]) ~= header_tag_value(local_to) or
+                    header_tag_value(req_headers["from"]) ~= header_tag_value(remote_from) then
                     return
                 end
                 stop_invite_response(dialog)
@@ -1936,7 +1953,7 @@ local function sip_task(opts)
                     net_send_on(netc, build_response(state, req_headers, 481, "Call/Transaction Does Not Exist", nil, ""))
                     return
                 end
-                req_headers["to"] = dialog.to
+                req_headers["to"] = incoming_dialog_headers(dialog)
                 net_send_on(netc, build_response(state, req_headers, 200, "OK", nil, ""))
                 finish_call(dialog, "peer_hangup")
             end

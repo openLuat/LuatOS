@@ -453,7 +453,7 @@ end)
 
 -- 模块初始化（由 main.lua 在硬件初始化完成后显式调用）
 -- 若 face_init_task 与 system_init 并发执行，exfacecam.open 内部的 camera.init
--- 会与 hardware.init 内部的 lcd.init 竞争内存/系统资源，导致 LCD 初始化失败、屏幕不亮。
+-- 会与 hardware.init 内部的 display.init 竞争内存/系统资源，导致 LCD 初始化失败、屏幕不亮。
 function face_manager.init()
     log.info("face_manager", "人脸识别模块初始化")
     sys.taskInit(face_init_task)

@@ -28,7 +28,7 @@ local theme = require "ui_theme"
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
 
-local BOOT_VIDEO   = "/luatos_boot.hzv"
+local BOOT_VIDEO   = "/luadb/luatos_boot.hzv"
 local BOOT_VW      = 480
 local BOOT_VH      = 270
 -- 兜底上限：素材比这长就按此时间入场；素材更短则由 on_complete 提前入场
@@ -199,8 +199,7 @@ local function on_create()
     if not io.exists(video_path) then
         -- .hzv 优先（真机硬解）；素材还没换成 hzv 时回落同名 .mjpg，避免开机黑屏
         for _, p in ipairs({
-            "/luatos_boot.hzv", "/luadb/luatos_boot.hzv",
-            "/luatos_boot.mjpg", "/luadb/luatos_boot.mjpg",
+            "/luadb/luatos_boot.hzv","/luatos_boot.hzv", 
         }) do
             if io.exists(p) then
                 video_path = p

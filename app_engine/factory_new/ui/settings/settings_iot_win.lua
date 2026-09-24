@@ -1,8 +1,8 @@
 --[[
 @module  settings_iot_win
 @summary IOT 账号设置页面
-@version 1.4
-@date    2026.05.09
+@version 1.5
+@date    2026.09.22
 @author  江访
 ]]
 
@@ -26,7 +26,7 @@ local CLR = theme.live()
 
 local function update_screen_size()
     local rot = airui.get_rotation()
-    local pw, ph = lcd.getSize()
+    local pw, ph = display.getSize()
     if rot == 0 or rot == 180 then
         screen_w, screen_h = pw, ph
     else
@@ -67,20 +67,30 @@ local function rebuild_content(info)
     })
 
     if info and not info.is_guest then
+        --[[先算清各行 Y 与卡片总高，再建卡片 —— 原来卡片高度写死 0.35*screen_h，
+        登出按钮按比例累加定位后几乎没有底边距（480x800 只剩 4px，用户报的
+        「按钮没有与底部保留边距很难看」）。现在卡片高 =
+        按钮底 + 底边距，按钮与卡底始终留出与内边距同量级的空隙。]]
+        local inner_pad = math.floor(card_w * 0.08)
+        local info_label_h = math.floor(screen_h * 0.045)
+        local y0  = math.floor(screen_h * 0.04)                       -- 「已登录」
+        local y1  = y0 + info_label_h + math.floor(screen_h * 0.03)   -- 「账号」行
+        local y2  = y1 + info_label_h + math.floor(screen_h * 0.02)   -- 「昵称」行
+        local iby = y2 + info_label_h + math.floor(screen_h * 0.06)   -- 「登出」按钮
+        local bottom_pad = math.max(inner_pad, math.floor(screen_h * 0.03))
+        local card_h = iby + btn_h + bottom_pad
+
         local info_card = airui.container({
             parent = content_area,
             x = margin, y = math.floor(screen_h * 0.06),
-            w = card_w, h = math.floor(screen_h * 0.35),
+            w = card_w, h = card_h,
             color = CLR.surface, color_opacity = theme.OPA.glass, border_color = CLR.stroke, border_width = 1,
             radius = math.floor(row_h * 0.15)
         })
-        local inner_pad = math.floor(card_w * 0.08)
-        local info_label_h = math.floor(screen_h * 0.045)
-        local info_y = math.floor(screen_h * 0.04)
 
         airui.label({
             parent = info_card,
-            x = inner_pad, y = info_y,
+            x = inner_pad, y = y0,
             w = card_w - 2 * inner_pad, h = info_label_h,
             text = "已登录",
             font_size = font_size,
@@ -88,10 +98,9 @@ local function rebuild_content(info)
             align = airui.TEXT_ALIGN_CENTER
         })
 
-        info_y = info_y + info_label_h + math.floor(screen_h * 0.03)
         airui.label({
             parent = info_card,
-            x = inner_pad, y = info_y,
+            x = inner_pad, y = y1,
             w = math.floor(card_w * 0.25), h = info_label_h,
             text = "账号",
             font_size = font_size2,
@@ -104,7 +113,7 @@ local function rebuild_content(info)
         end
         airui.label({
             parent = info_card,
-            x = inner_pad + math.floor(card_w * 0.25), y = info_y,
+            x = inner_pad + math.floor(card_w * 0.25), y = y1,
             w = card_w - 2 * inner_pad - math.floor(card_w * 0.25), h = info_label_h,
             text = account_text,
             font_size = font_size2,
@@ -112,10 +121,9 @@ local function rebuild_content(info)
             align = airui.TEXT_ALIGN_LEFT
         })
 
-        info_y = info_y + info_label_h + math.floor(screen_h * 0.02)
         airui.label({
             parent = info_card,
-            x = inner_pad, y = info_y,
+            x = inner_pad, y = y2,
             w = math.floor(card_w * 0.25), h = info_label_h,
             text = "昵称",
             font_size = font_size2,
@@ -124,7 +132,7 @@ local function rebuild_content(info)
         })
         airui.label({
             parent = info_card,
-            x = inner_pad + math.floor(card_w * 0.25), y = info_y,
+            x = inner_pad + math.floor(card_w * 0.25), y = y2,
             w = card_w - 2 * inner_pad - math.floor(card_w * 0.25), h = info_label_h,
             text = info.nickname or "",
             font_size = font_size2,
@@ -132,7 +140,6 @@ local function rebuild_content(info)
             align = airui.TEXT_ALIGN_LEFT
         })
 
-        local iby = info_y + info_label_h + math.floor(screen_h * 0.06)
         local ibx = math.floor((card_w - btn_w) / 2)
         airui.button({
             parent = info_card,
@@ -249,6 +256,15 @@ local function rebuild_content(info)
                 end
                 sys.publish("IOT_LOGIN_REQUEST", account, password)
             end
+        })
+
+        --[[底部占位：登录按钮下方保留边距。content_area 可滚动，内容超出时
+        没有这块占位按钮就会贴死滚动区底缘，与底部没有间距。]]
+        airui.container({
+            parent = content_area,
+            x = 0, y = y + btn_h + math.floor(screen_h * 0.03),
+            w = 1, h = 1,
+            color = CLR.surface, color_opacity = 0
         })
     end
 end

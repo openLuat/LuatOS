@@ -20,6 +20,7 @@ enum
 	LUAT_CAMERA_FRAME_END,
 	LUAT_CAMERA_FRAME_RX_DONE,
 	LUAT_CAMERA_FRAME_ERROR,
+    LUAT_CAMERA_SCAN_DECODE,
 	LUAT_CAMERA_USB_CONNECT,
 	LUAT_CAMERA_USB_DISCONNECT,
 
@@ -245,6 +246,9 @@ int luat_camera_stop(int id);
 
 int luat_camera_preview(int id, uint8_t on_off);
 
+int luat_camera_scan(int id, uint8_t on_off);
+
+int luat_camera_frame_callback_on_off(int id, uint8_t on_off);
 
 int luat_camera_work_mode(int id, int mode);
 
@@ -262,6 +266,8 @@ void luat_camera_pwdn_pin(int id, uint8_t level);
 
 int luat_usb_camera_stream_on_off(uint8_t app_id, uint8_t on_off);
 
+int luat_usb_camera_stream_set_cache(uint8_t app_id, uint8_t **cache, uint8_t cache_num, uint32_t cache_len);
+
 int luat_usb_camera_stream_set_config_by_index(uint8_t app_id, uint8_t format_index, uint8_t resolution_index);
 
 int luat_usb_camera_stream_set_config(uint8_t app_id, uint8_t format_type, uint16_t w, uint16_t h);
@@ -275,6 +281,8 @@ int luat_usb_camera_stream_get_config_info(uint8_t app_id, uint8_t format_index,
 int luat_usb_camera_stream_set_min_data_len(uint8_t app_id, uint32_t min_data_len);
 
 int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t jump_frame_cnt);
+
+int luat_usb_camera_pause_on_off(uint8_t app_id, uint8_t on_off);
 
 extern int32_t g_camera_log_level;
 /** @}*/

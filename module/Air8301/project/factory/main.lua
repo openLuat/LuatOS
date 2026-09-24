@@ -1,7 +1,7 @@
 --[[
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑（Air8301 出厂固件，产测+业务合一）
-@version 2.0
+@version 1.0
 @date    2026.09.24
 @author  江访
 @usage
@@ -85,6 +85,10 @@ if BOOT_MODE == "factory" then
 elseif BOOT_MODE == "auto" then
     is_factory = not fskv.get("test_done")
 end
+
+-- 当前运行模式发布为全局变量，供两侧共享模块查询
+-- flash_app 据此决定是否开机自动挂载 /flash（产测模式不自动挂载，见 flash_app.lua 文件头说明）
+IS_FACTORY_MODE = is_factory
 
 
 -- ==================== 窗口管理器（固件内置扩展库，须在业务/UI模块之前加载） ====================

@@ -2,7 +2,7 @@
 @module  flash_app
 @summary SPI Flash挂载管理（8301出厂固件）
 @version 1.0
-@date    2026.09.22
+@date    2026.09.24
 @author  江访
 @usage
 SPI1/CS2=GPIO4 外部SPI NOR Flash。
@@ -13,6 +13,11 @@ SPI1/CS2=GPIO4 外部SPI NOR Flash。
 
 说明：Air8301 硬件上 Flash 与双 CH390 共用 SPI1 总线，CH390 未初始化时会下拉
 共享 CLK/MISO/MOSI，导致 Flash 读 JEDEC ID 失败。因此挂载必须等待 NETWORK_INIT_DONE。
+
+⚠️ 产测模式已禁用开机自动挂载（IS_FACTORY_MODE == true）：SPI1 同一时间只能一个设备用，
+开机即挂载会在 CH390 联网期间抢总线，且 CH390 停止/重启会重配 SPI1 把挂载打掉。
+产测模式下 Flash 改由 prod_test.lua 的 FLASH_TEST 指令按需 初始化/挂载/写读/卸载（自包含）。
+业务模式（IS_FACTORY_MODE ~= true）保持原有开机自动挂载行为不变。
 ]]
 
 local FLASH_MOUNT_POINT = "/flash"
@@ -150,4 +155,12 @@ end
 
 sys.subscribe("REQUEST_STATUS_REFRESH", on_status_refresh)
 
-sys.taskInit(flash_mount_task)
+-- 按运行模式决定是否开机自动挂载：
+--   业务模式（IS_FACTORY_MODE ~= true）→ 保持原行为，开机自动挂载 /flash
+--   产测模式（IS_FACTORY_MODE == true）→ 跳过自动挂载，由 prod_test 的 FLASH_TEST 指令按需挂载
+--     （SPI1 上 Flash 与双 CH390 三设备互斥，开机挂载会与 CH390 抢总线导致读写失败）
+if IS_FACTORY_MODE then
+    log.info("flash_app", "产测模式: 跳过开机自动挂载, /flash 由 FLASH_TEST 指令按需挂载")
+else
+    sys.taskInit(flash_mount_task)
+end

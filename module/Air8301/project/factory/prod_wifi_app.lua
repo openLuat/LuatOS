@@ -1,7 +1,7 @@
 --[[
 @module  prod_wifi_app
 @summary WiFi 扫描业务层模块（产测模式）
-@version 2.0
+@version 1.0
 @date    2026.08.04
 @version_note 产测专属：与业务模式隔离
 @usage

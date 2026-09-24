@@ -1,7 +1,7 @@
 --[[
 @module  prod_wifi_win
 @summary WiFi页面（产测模式），显示当前连接状态 + 扫描结果
-@version 2.0.0
+@version 1.0.0
 @date    2026.09.24
 @version_note 产测专属：消息名前缀改 OPEN_PROD_WIFI_WIN，避免与业务页面冲突
 @usage

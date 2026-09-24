@@ -1,7 +1,7 @@
 --[[
 @module  relay_ctrl
 @summary 继电器控制模块（8301 非隔离口 UART11，Modbus RTU 主站）
-@version 1.2
+@version 1.0
 @date    2026.09.24
 @usage
 本功能模块演示的内容为：

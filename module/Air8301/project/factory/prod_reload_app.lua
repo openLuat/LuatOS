@@ -1,7 +1,7 @@
 --[[
 @module  prod_reload_app
 @summary RELOAD 按键驱动模块（产测模式，WAKEUP2 唯一持有者）
-@version 2.0
+@version 1.0
 @date    2026.08.04
 @version_note 产测专属：仅保留按键检测上报，去掉长按 5 秒恢复出厂逻辑
 @usage

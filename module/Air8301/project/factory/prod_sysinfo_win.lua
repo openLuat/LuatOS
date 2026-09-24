@@ -1,7 +1,7 @@
 --[[
 @module  prod_sysinfo_win
 @summary 系统信息页面（产测模式），显示固件版本、运行时间、RAM、文件系统信息
-@version 2.0.0
+@version 1.0.0
 @date    2026.09.24
 @version_note 产测专属：消息名前缀改 OPEN_PROD_SYSINFO_WIN；去掉恢复出厂按钮（产测用 U 盘/指令 RST#）
 @usage

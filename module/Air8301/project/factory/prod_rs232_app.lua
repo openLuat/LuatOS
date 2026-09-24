@@ -1,7 +1,7 @@
 --[[
 @module  prod_rs232_app
 @summary 双RS232收发管理（产测模式）
-@version 2.0
+@version 1.0
 @date    2026.08.04
 @version_note 产测专属：业务模式未使用 RS232，产测用于 U232_TEST 自回环
 @usage

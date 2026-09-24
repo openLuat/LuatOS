@@ -1,18 +1,20 @@
 --[[
 @module  prod_network_app
 @summary 网络管理模块（产测模式），使用 exnetif 管理多网优先级
-@version 2.0
+@version 1.0
 @date    2026.08.04
-@version_note 产测专属：双网口作为 DHCP 客户端（业务模式为静态 IP + 网页 + TCP从站）
+@version_note 产测专属：双网口按需 DHCP（由 ETH_TEST 指令启动；业务模式为静态 IP + 网页 + TCP从站）
 @usage
-Air8000W 网络优先级：以太网1 > 以太网2 > WiFi > 4G。
-- 通过 exnetif.set_priority_order 统一初始化双 CH390 网卡 + WiFi + 4G
+Air8000W 网络优先级：WiFi > 4G。
+- 通过 exnetif.set_priority_order 只初始化 WiFi + 4G
+  （双 CH390 网口与 Flash 共用 SPI1，同一时间只能一个设备用，故改为按需启动，见 prod_test.lua 的 ETH_TEST）
 - 发布 STATUS_SIGNAL_UPDATED / STATUS_WIFI_UPDATED / STATUS_ETH_UPDATED 网络状态
 - 响应 NETWORK_STATUS_QUERY 主动查询
-- 初始化完成后发布 NETWORK_INIT_DONE（flash_app 依赖此消息挂载 Flash）
+- 初始化完成后发布 NETWORK_INIT_DONE
 - require 即自初始化，无对外接口
 
-产测用途：ETH_TEST,1/2# 检查对应网口能否通过 DHCP 拿到 IP。
+产测用途：ETH_TEST,1/2# 检查对应网口能否通过 DHCP 拿到 IP
+（由 prod_test.lua 按需 netdrv.setup 注册 + netdrv.dhcp 启动，启动前先停其他 SPI1 设备）。
 
 硬件引脚对照：
   以太网1: CH390H, SPI1/CS=GPIO12, INT=GPIO20,   供电=GPIO32(ETH_3.3V)
@@ -217,24 +219,13 @@ end
 -- 初始化并设置网络优先级
 local function init_network()
     log.info("prod_network_app", "初始化网络优先级...")
-    -- 网络优先级：以太网1 > 以太网2 > WiFi > 4G
-    -- 注意: 以太网1使用 ETHERNET(映射 LWIP_ETH), 以太网2使用 ETHUSER1(映射 LWIP_USER1),
-    --       两者不能都用 ETHUSER1, 否则第二路会覆盖第一路导致冲突
+    -- 网络优先级：WiFi > 4G
+    -- 注意: 双 CH390 网口与 Flash 共用 SPI1，同一时间只能一个设备用，故开机不在此初始化 CH390，
+    --       由 prod_test.lua 的 ETH_TEST,1/2# 指令按需 netdrv.setup 注册 + DHCP（启动前先停别的 SPI1 设备）
+    -- 硬件引脚对照（ETH_TEST 内使用）：
+    --   以太网1: CH390H, SPI1/CS=GPIO12, INT=GPIO20,   供电=GPIO32(ETH_3.3V)
+    --   以太网2: CH390H, SPI1/CS=GPIO5,  INT=CHG_DET, 供电=GPIO33(ETH_3.3V)
     exnetif.set_priority_order({
-        {
-            ETHERNET = {                               -- 网口1 → socket.LWIP_ETH (最高优先级)
-                pwrpin = 32,                           -- 以太网1 供电使能引脚 (ETH_3.3V)
-                tp = netdrv.CH390,                     -- 网卡芯片型号, SPI 方式外挂 CH390H/D
-                opts = { spi = 1, cs = 12, irq = 20 }, -- SPI1/CS0=GPIO12, 中断=GPIO20
-            }
-        },
-        {
-            ETHUSER1 = {                                        -- 网口2 → socket.LWIP_USER1
-                pwrpin = 33,                                    -- 以太网2 供电使能引脚 (ETH_3.3V)
-                tp = netdrv.CH390,                              -- 网卡芯片型号, SPI 方式外挂 CH390H/D
-                opts = { spi = 1, cs = 5, irq = gpio.WAKEUP6 }, -- SPI1/CS1=GPIO5, 中断=CHG_DET(gpio.WAKEUP6)
-            }
-        },
         {
             WIFI = {
                 ssid = DEFAULT_WIFI_SSID,
@@ -250,10 +241,8 @@ local function init_network()
     exnetif.notify_status(on_net_status)
     log.info("prod_network_app", "网络初始化完成")
 
-    -- 通知其它模块: CH390 网卡已初始化完成
-    -- 由于 Air8301 硬件上 Flash 与双 CH390 共用 SPI1 总线, 而 CH390 在未初始化时
-    -- 会下拉共享的 CLK/MISO/MOSI 信号导致 Flash 读 JEDEC ID 失败,
-    -- 因此 flash_app 必须等待本消息后才能挂载 Flash
+    -- 网络(WiFi/4G)初始化完成通知（原 flash_app 挂载时序依赖）
+    -- 注: 产测模式下 Flash 不随开机自动挂载（改由 FLASH_TEST 指令按需挂载），本消息保留供其他模块监听
     sys.publish("NETWORK_INIT_DONE")
 end
 

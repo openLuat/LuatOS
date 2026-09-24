@@ -1,7 +1,7 @@
 --[[
 @module  relay_win
 @summary 继电器控制页面（485 主站，8301出厂固件）
-@version 1.1
+@version 1.0
 @date    2026.09.24
 @author  江访
 @usage

@@ -1,7 +1,7 @@
 --[[
 @module  prod_reload_win
 @summary RELOAD按键状态页面（产测模式），显示按键按下/抬起状态
-@version 2.0.0
+@version 1.0.0
 @date    2026.09.24
 @version_note 产测专属：消息名前缀改 OPEN_PROD_RELOAD_WIN，避免与业务页面冲突
 @usage

@@ -17,9 +17,15 @@ Air8301 基于 Air8000W 主控（4G+WiFi+BLE+SPI屏）：
   继电器(DO_TEST) + Flash写读(FLASH_TEST) + RELOAD按键(RELOAD_TEST) + 系统控制。
 
 写号使用 prodmeta 库写入 OTP（key: PROD=工业型号, PCB=硬件版本）；校准位读取用 mobile.ecnpicfg()。
-232/485/ETH/Flash 测试复用产测 app 层的消息流（RS232_SEND_REQUEST/RS485_SEND_REQUEST/
-STATUS_ETH_UPDATED/FLASH_MOUNT_STATUS），不直接操作 UART/SPI，避免与屏幕终端冲突。
-含 sys.wait 的测试走 CONTROL 事件模式异步执行。
+232/485 测试复用产测 app 层的消息流（RS232_SEND_REQUEST / RS485_SEND_REQUEST），不直接操作 UART，
+避免与屏幕终端冲突；含 sys.wait 的测试走 CONTROL 事件模式异步执行。
+
+⚠️ SPI1 三设备互斥（Flash CS=GPIO4 / 网口1 CS=GPIO12 / 网口2 CS=GPIO5 共用 SPI1）：
+  SPI1 同一时间只能一个设备用，故：
+  1、开机不初始化双 CH390（见 prod_network_app.lua，只起 WiFi + 4G）；
+  2、FLASH_TEST 前先停掉双网口，再自包含 spi.deviceSetup + lf.init + lf.mount + 写读 + unmount + close；
+  3、ETH_TEST 前先卸载 Flash（防御性）并停掉另一个网口，再按需 netdrv.setup/ctrl 启动本网口 + DHCP。
+  这样彻底避免"网口活动打断 Flash 多事务读写序列"导致的 SEND failed rc=-1 / Wait busy timeout。
 
 模式隔离：本模块仅在 test_done 未置位时由 main.lua 加载；业务模块在 test_done 已置位时加载。
 ]]
@@ -57,11 +63,64 @@ sys.subscribe("STATUS_ETH_UPDATED", function(e1, ip1, e2, ip2)
     log.info("prod_test", "ETH状态更新: eth1=", eth1_ip, "eth2=", eth2_ip)
 end)
 
--- ================= Flash 挂载状态缓存（订阅 flash_app 的 FLASH_MOUNT_STATUS） =================
-local flash_mounted = false
-sys.subscribe("FLASH_MOUNT_STATUS", function(mounted)
-    flash_mounted = mounted and true or false
-end)
+-- ================= SPI1 设备互斥管理（Flash / 网口1 / 网口2 共用 SPI1） =================
+-- 8301 的 Flash 与双 CH390 共用 SPI1（Flash CS=GPIO4，网口1 CS=GPIO12，网口2 CS=GPIO5）。
+-- SPI1 同一时间只能一个设备用：启动某个设备前，必须先停掉其他 SPI1 设备。
+-- 因此开机不初始化双 CH390（只起 WiFi + 4G，见 prod_network_app），Flash / 网口全部按需启动，
+-- 测完保持 SPI1 空闲，下一个指令再按需启动对应设备（启动前先停别的）。
+
+local SPI_ID   = 1
+local SPI_FREQ = 25600000   -- 与 flash_app.lua 一致
+
+-- Flash 参数
+local FLASH_CS_PIN = 4
+local FLASH_MOUNT_POINT = "/flash"
+
+-- CH390 网口参数（与业务 net_drv.lua 一致；供电 GPIO32/33 已由 board_init 开机打开）
+local ETH_CFG = {
+    [1] = { adapter = socket.LWIP_ETH,   cs = 12, irq = 20           },
+    [2] = { adapter = socket.LWIP_USER1, cs = 5,  irq = gpio.WAKEUP6 },
+}
+local ch390_registered = { [1] = false, [2] = false }
+
+--[[
+停掉一个 CH390 网口（CTRL_UPDOWN=0 → task STOPPED，不再抢 SPI1）
+
+@local
+@function ch390_stop
+@param port number 网口序号（1/2）
+]]
+local function ch390_stop(port)
+    if not netdrv or not netdrv.CTRL_UPDOWN then return end
+    netdrv.ctrl(ETH_CFG[port].adapter, netdrv.CTRL_UPDOWN, 0)
+end
+
+--[[
+启动一个 CH390 网口
+首次 netdrv.setup 注册 + DHCP，后续 CTRL_UPDOWN=1 重启（DHCP 自动重连）
+
+@local
+@function ch390_start
+@param port number 网口序号（1/2）
+@return boolean 启动是否成功
+]]
+local function ch390_start(port)
+    local cfg = ETH_CFG[port]
+    spi.setup(SPI_ID, nil, 0, 0, 8, SPI_FREQ)  -- 恢复 SPI1 给 CH390（Flash 测试可能重配过）
+    if not ch390_registered[port] then
+        local ok = netdrv.setup(cfg.adapter, netdrv.CH390, { spi = SPI_ID, cs = cfg.cs, irq = cfg.irq })
+        if ok ~= true then
+            log.error("prod_test", "网口", port, "注册失败", tostring(ok))
+            return false
+        end
+        ch390_registered[port] = true
+        sys.wait(500)  -- 等 CH390 初始化
+        netdrv.dhcp(cfg.adapter, true)
+    else
+        netdrv.ctrl(cfg.adapter, netdrv.CTRL_UPDOWN, 1)  -- 重启，DHCP 自动重连
+    end
+    return true
+end
 
 -- ================= 232/485 回环测试捕获 =================
 -- 订阅 prod_rs232_app/prod_rs485_app 的收数消息捕获回环数据，无需直接操作 UART，避免与屏幕终端冲突
@@ -93,16 +152,37 @@ sys.subscribe("KEY_EVENT", function(evt)
     end
 end)
 
--- ================= Flash 写读对比测试 =================
+-- ================= Flash 写读对比测试（自包含，SPI1 独占） =================
 local function flash_test()
-    -- 等待 flash_app 挂载 /flash（收到 NETWORK_INIT_DONE 后挂载，最多等 5s）
-    local waited = 0
-    while not flash_mounted and waited < 5000 do
-        sys.wait(100)
-        waited = waited + 100
+    -- 停掉别的 SPI1 设备：两个网口
+    ch390_stop(1)
+    ch390_stop(2)
+    sys.wait(100)  -- 等 CH390 task 停止 SPI 活动
+
+    -- 卸载可能的残留挂载（防御性，pcall 容错）
+    pcall(lf.unmount, FLASH_MOUNT_POINT)
+
+    -- 自包含：每次重新 spi.deviceSetup + lf.init + lf.mount
+    local spi_device = spi.deviceSetup(SPI_ID, FLASH_CS_PIN, 0, 0, 8, SPI_FREQ, spi.MSB, 1, 0)
+    if not spi_device then
+        log.error("FLASH_TEST", "SPI 初始化失败")
+        return "ERROR"
     end
 
-    local test_file = "/flash/factory_test.txt"
+    local flash_dev = lf.init(spi_device)
+    if not flash_dev then
+        log.error("FLASH_TEST", "lf.init 失败")
+        spi_device:close()
+        return "ERROR"
+    end
+
+    if not lf.mount(flash_dev, FLASH_MOUNT_POINT) then
+        log.error("FLASH_TEST", "挂载失败")
+        spi_device:close()
+        return "ERROR"
+    end
+
+    local test_file = FLASH_MOUNT_POINT .. "/factory_test.txt"
     local test_data = ""
     for i = 1, 200 do
         test_data = test_data .. string.format("Air8301-FlashTest-%04d,", i)
@@ -110,7 +190,9 @@ local function flash_test()
 
     local f = io.open(test_file, "wb")
     if not f then
-        log.error("FLASH_TEST", "打开文件失败（/flash 未挂载或异常）")
+        log.error("FLASH_TEST", "打开文件失败")
+        lf.unmount(FLASH_MOUNT_POINT)
+        spi_device:close()
         return "ERROR"
     end
     f:write(test_data)
@@ -118,6 +200,10 @@ local function flash_test()
 
     local read_data = io.readFile(test_file)
     os.remove(test_file)
+
+    -- 清理（保持 SPI1 空闲，CH390 不重启，由下一个指令按需启动）
+    lf.unmount(FLASH_MOUNT_POINT)
+    spi_device:close()
 
     if read_data == test_data then
         log.info("FLASH_TEST", "读写一致", #test_data, "字节")
@@ -175,12 +261,22 @@ local function u485_test()
     return "ERROR"
 end
 
--- ================= 网口获取 IP 测试（8301 为 DHCP 客户端） =================
+-- ================= 网口获取 IP 测试（按需启动网口，DHCP 客户端） =================
 local function eth_test(port)
+    -- 停掉别的 SPI1 设备：Flash（防御性卸载）+ 另一个网口
+    pcall(lf.unmount, FLASH_MOUNT_POINT)
+    ch390_stop(port == 1 and 2 or 1)
+
+    -- 启动本网口（未注册则 netdrv.setup + DHCP，已注册则重启）
+    if not ch390_start(port) then
+        return "ERROR"
+    end
+
     -- 最多等 10s 拿到该网口 IP，拿到即回复；超时返回 ERROR
+    local adapter = ETH_CFG[port].adapter
     local waited = 0
     while waited < 10000 do
-        local ip = port == 1 and eth1_ip or eth2_ip
+        local ip = socket.localIP(adapter)
         if ip and ip ~= "" and ip ~= "0.0.0.0" then
             log.info("ETH_TEST", "Port", port, "IP", ip)
             return ip

@@ -1,7 +1,7 @@
 --[[
 @module  prod_rs485_app
 @summary 双RS485收发管理（产测模式）
-@version 2.0
+@version 1.0
 @date    2026.08.04
 @version_note 产测专属：与业务模式（UART11=9600 继电器主站）隔离，两口统一 115200
 @usage

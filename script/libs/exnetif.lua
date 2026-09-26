@@ -653,7 +653,8 @@ local function setup_airlink_4G(config)
     
     -- 判断是SPI模式还是UART模式
     local is_spi_mode = (config.airlink_type == airlink.MODE_SPI_MASTER or 
-                         config.airlink_type == airlink.MODE_SPI_SLAVE)
+                         config.airlink_type == airlink.MODE_SPI_SLAVE or
+                         config.airlink_type == airlink.MODE_HSPI_MASTER)
     local is_uart_mode = (config.airlink_type == airlink.MODE_UART)
     
     -- 根据模式配置不同的参数
@@ -750,7 +751,8 @@ local function setup_airlink_wifi(config)
 
     -- 判断是SPI模式还是UART模式
     local is_spi_mode = (config.airlink_type == airlink.MODE_SPI_MASTER or
-                         config.airlink_type == airlink.MODE_SPI_SLAVE)
+                         config.airlink_type == airlink.MODE_SPI_SLAVE or
+                         config.airlink_type == airlink.MODE_HSPI_MASTER)
     local is_uart_mode = (config.airlink_type == airlink.MODE_UART)
 
     -- 根据模式配置不同的参数

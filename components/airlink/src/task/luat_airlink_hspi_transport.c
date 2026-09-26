@@ -171,10 +171,6 @@ int xt804_hspi_spi_xfer(const uint8_t *tx, uint8_t *rx, uint16_t len) {
     return ret;
 }
 
-uint32_t xt804_hspi_get_tick_ms(void) {
-    return (uint32_t)(luat_mcu_tick64_ms() & 0xFFFFFFFF);
-}
-
 // ==================== 传输任务 ====================
 
 #define HSPI_CYCLE_MS       20      // 等命令超时：空载时休眠时长
@@ -186,6 +182,7 @@ static volatile uint8_t g_running = 0;
 static int g_peer_online = 1;       // 从机在线状态，由 transport 自己维护
 static int g_idle_cnt = 0;          // 连续无数据计数
 static int g_hspi_err_cnt = 0;      // 连续校验错误计数
+static uint32_t g_rd_batch = 0;     // Phase 1 读帧计数，每 N 帧冲一次 ACK
 
 
 /* 重建完整 luat_airlink_cmd_t 并分发 */
@@ -215,12 +212,33 @@ static int hspi_handle_interrupt(void) {
 
     int ret = xt804_hspi_read_data_intr(resp, &resp_len, &cmd_id);
     if (ret == 0 && resp_len > 0) {
-        //LLOGI("HSPI intr got cmd=0x%04X len=%d", cmd_id, resp_len);
         g_airlink_statistic.event_new_data.total++;
         dispatch_cmd(cmd_id, resp, resp_len);
         return 1;
     }
     return 0;
+}
+
+// 读数据时周期性冲发积压的 ACK，避免 ACK 憋到数据流停顿才发导致 RTT 过高
+#define HSPI_ACK_FLUSH_BATCH 8
+
+static void hspi_flush_ip_pkg(void) {
+    airlink_queue_item_t item = {0};
+    while (luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0) == 0 && item.cmd) {
+        int ret = xt804_hspi_send_cmd(item.cmd->cmd, item.cmd->data, item.cmd->len, NULL, NULL, 0);
+        if (ret == 0) {
+            g_airlink_statistic.tx_ip.total++;
+            g_airlink_statistic.tx_ip.ok++;
+            g_airlink_statistic.tx_bytes.total += item.cmd->len;
+            g_airlink_statistic.tx_bytes.ok += item.cmd->len;
+        } else {
+            g_airlink_statistic.tx_ip.total++;
+            g_airlink_statistic.tx_ip.err++;
+            LLOGW("HSPI IP flush failed %d", ret);
+        }
+        luat_airlink_cmd_free(item.cmd);
+        item = (airlink_queue_item_t){0};
+    }
 }
 
 // 声明：主机侧使能 XT804 HSPI INT 脚
@@ -241,7 +259,7 @@ static void hspi_transport_task(void *param) {
     airlink_flags_t peer_flags = {.rpc_supported = 1, .frag_supported = 0};
     luat_airlink_peer_flags_update(&peer_flags);
 
-    // ★ 记录任务句柄供 ISR 定向通知
+    // 记录任务句柄供 ISR 定向通知
     g_hspi_task_handle = xTaskGetCurrentTaskHandle();
     g_running = 1;
 
@@ -270,6 +288,11 @@ static void hspi_transport_task(void *param) {
         if (g_peer_online) {
             if (hspi_handle_interrupt()) {
                 g_idle_cnt = 0;
+                // 每 N 帧冲一次积压 ACK
+                if (++g_rd_batch >= HSPI_ACK_FLUSH_BATCH) {
+                    g_rd_batch = 0;
+                    hspi_flush_ip_pkg();
+                }
                 continue;
             }
         } else {
@@ -296,7 +319,7 @@ static void hspi_transport_task(void *param) {
                         g_peer_online = 1;
                         g_idle_cnt = 0;
                         luat_airlink_cmd_free(_item.cmd);
-                        continue;  // ★ 回 Phase 1 读从机回复
+                        continue;  // 回 Phase 1 读从机回复
                     }
                     luat_airlink_cmd_free(_item.cmd);
                 } else {
@@ -308,7 +331,7 @@ static void hspi_transport_task(void *param) {
                             g_peer_online = 1;
                             g_idle_cnt = 0;
                             luat_airlink_cmd_free(_item.cmd);
-                            continue;  // ★ 回 Phase 1 读从机回复
+                            continue;  // 回 Phase 1 读从机回复
                         }
                         luat_airlink_cmd_free(_item.cmd);
                     }
@@ -350,7 +373,7 @@ static void hspi_transport_task(void *param) {
             // 循环等通知 (INT 来了立即跳出)
             uint32_t elapsed = 0;
             while (elapsed < HSPI_CYCLE_MS) {
-                uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5));
+                uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1));
                 if (notified > 0) {
                     // INT 来了 — 在读数据前先看看有没有命令要发
                     // 但要记得: INT 可能意味着新数据, 需要先读后写
@@ -365,7 +388,12 @@ static void hspi_transport_task(void *param) {
                     // 没有命令, 继续等周期结束
                     continue;
                 }
-                elapsed += 5;
+                elapsed += 1;
+                // INT 通知在连续灌流时不可靠(0x06 读可清边沿)，超时后主动轮询，避免空等
+                if (hspi_handle_interrupt()) {
+                    g_idle_cnt = 0;
+                    // 不 break, 继续 while 轮询下一帧, 变紧读循环
+                }
                 // 超时: 检查 IPPKG 队列
                 if (luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0) == 0) {
                     has_cmd = 0;
@@ -443,7 +471,8 @@ int luat_airlink_start_hspi_master(void) {
         return -1;
     }
     g_running = 1;
-    int ret = luat_rtos_task_create(&g_task_hdl, 8 * 1024, 50,
+    // 优先级提到 lwip(110) 之上，让读帧即时执行，避免下载时被 lwip 抢占拖慢
+    int ret = luat_rtos_task_create(&g_task_hdl, 8 * 1024, 120,
                                     "hspi", hspi_transport_task, NULL, 0);
     if (ret != 0) {
         LLOGE("HSPI master task create failed %d", ret);

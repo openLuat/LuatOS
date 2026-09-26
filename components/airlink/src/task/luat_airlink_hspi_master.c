@@ -14,6 +14,11 @@
 #define LUAT_LOG_TAG "airlink.hspi"
 #include "luat_log.h"
 
+/* INT 丢失兜底: 0x06 bit0=0 但 RX_DAT_LEN 非零 → 强制读 0x10 尝试恢复。
+ * 连续灌流时 0x06 INT 是"读可清"边沿, 帧流不断时恒为 0; RETRY=1 即只要 0x02
+ * 非零就立即读(紧读循环), 0x02 为 0 仍走 n==0 提前返回不空读, CRC 兜底误读。 */
+#define HSPI_INT_MISS_RETRY 1
+
 static uint16_t crc16_modbus(const uint8_t *data, size_t len) {
     uint16_t crc = 0xFFFF;
     for (size_t i = 0; i < len; i++) {
@@ -76,7 +81,6 @@ static airlink_link_data_t* airlink_unpack(const uint8_t *data, size_t len) {
 }
 
 extern int xt804_hspi_spi_xfer(const uint8_t *tx, uint8_t *rx, uint16_t len);
-extern uint32_t xt804_hspi_get_tick_ms(void);
 
 /* 前向声明: hspi_rd 在 hspi_wr 之后定义, 但 hspi_tx_ready 需要调用它 */
 static int hspi_rd(uint8_t addr, uint8_t *data, uint16_t len);
@@ -145,8 +149,7 @@ static int hspi_wr(uint8_t addr, const uint8_t *data, uint16_t len) {
  */
 static int hspi_rd(uint8_t addr, uint8_t *data, uint16_t len) {
     uint8_t original_len = len;
-    // ★ 07-09 修复回归: 所有传输必须 4 字节对齐 (含寄存器读), 否则 XT804 不锁存 RX_DAT_LEN
-    //   → 长度寄存器与数据 desc 错位 (config(0) 组偶发 RPC 超时的根因)
+    // 所有传输必须 4 字节对齐（含寄存器读），否则 XT804 不锁存 RX_DAT_LEN
     uint16_t xfer = ((1 + len + 3) & ~3);
     uint8_t tx[20];
     uint8_t rx[20];
@@ -165,10 +168,8 @@ static int hspi_rd(uint8_t addr, uint8_t *data, uint16_t len) {
  * @brief 主机侧使能 XT804 HSPI INT 脚输出
  *
  * 写 HSPI 外部寄存器 SPI_INT_HOST_MASK(offset 0x05) = 0x0000 确保不屏蔽中断
- * ★ 注意: 不能读 SPI_INT_HOST_STTS(0x06) 来"确认"。
- *   手册 10.4.2.4: "读可清" — 读 0x06 会清除 pending 的中断状态。
- *   如果从机在主机启动前已经拉低 INT，这一读会导致后面 Phase 1 永远检测不到 INT。
- *   验证接口通可以通过写 MASK 寄存器是否成功来判断。
+ * 注意: 不能读 SPI_INT_HOST_STTS(0x06) 来"确认" — "读可清"会清 pending 中断。
+ * 验证接口通可以通过写 MASK 寄存器是否成功来判断。
  * 返回 0 成功, -1 失败
  */
 int xt804_hspi_enable_host_int(void) {
@@ -255,7 +256,7 @@ int xt804_hspi_read_response(uint8_t *resp, uint16_t *resp_len,
  *   [事务3] 读 DAT_PORT1(0x10)        → 读取数据
  *   [事务4] 读 SPI_INT_HOST_STTS(0x06) → 确认清除 (bit0=0)
  *
- * ★ 响应数据格式 (从机→主机):
+ * 响应数据格式 (从机→主机):
  *   HSPI 硬件剥离 AirLink 帧头 magic(4)+len(2)+crc16(2)=8B
  *   数据端口剩余: pkgid(4)+flags(4)+cmd_t(4)+payload
  *   再跳过 pkgid+flags(8B) 后得到 cmd_t
@@ -269,34 +270,51 @@ int xt804_hspi_read_response(uint8_t *resp, uint16_t *resp_len,
  */
 int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
                                uint16_t *cmd_id) {
-    // [事务0] 读 SPI_INT_HOST_STTS — 无 INT 则无新数据, RX_DAT_LEN 是旧值
-    //   "读可清"会清除 INT, 但没关系 — 只要读到 INT=1, 就确认有数据待读
+    // INT 丢失兜底: "读可清"可能吞掉 0x06 bit0, 但数据仍 pending (RX_DAT_LEN 非零)
+    static int s_int_miss_cnt = 0;
     uint8_t sts0[2];
     if (hspi_rd(0x06, sts0, 2) < 0) return -1;
-    if (!(sts0[0] & 0x01)) return -1;  // INT 未触发 → 无新数据 (RX_DAT_LEN 旧值)
 
-    // [事务1] 读 RX_DAT_LEN (已确认 INT 触发, 有数据. 如果=0 是硬件时序窗口, 重试)
     uint16_t n = 0;
-    for (int _try = 0; _try < 3; _try++) {
+    int have_int = (sts0[0] & 0x01);
+    int recovered = 0;  // 兜底恢复标志 (0x10 读到有效帧才置位)
+
+    if (!have_int) {
+        // bit0=0: 正常无新数据, 但 RX_DAT_LEN 可能仍是未读走的数据
         uint8_t rxl[2];
         if (hspi_rd(0x02, rxl, 2) < 0) return -1;
         n = rxl[0] | ((uint16_t)rxl[1] << 8);
-        if (n != 0 && n != 0xFFFF) break;
-        if (_try == 0 && (sts0[0] & 0x01)) {
-            // INT 触发了但 RX_DAT_LEN=0, 硬件时序窗口, 等 1ms 重试
-            luat_rtos_task_sleep(1);
-            continue;
+        if (n == 0 || n == 0xFFFF || n > 1600) {
+            s_int_miss_cnt = 0;   // 确实没数据
+            return -1;
         }
-        return -1;  // 真的没有数据
+        if (++s_int_miss_cnt < HSPI_INT_MISS_RETRY) {
+            return -1;            // 先积累, 避免 RX_DAT_LEN 旧值误读刷屏
+        }
+        s_int_miss_cnt = 0;
+        recovered = 1;            // 尝试兜底读, 靠 CRC 区分真数据/旧值垃圾
+        // fall through: 用 RX_DAT_LEN 读 0x10
+    } else {
+        s_int_miss_cnt = 0;
+        // INT 触发, 读 RX_DAT_LEN (硬件时序窗口重试)
+        for (int _try = 0; _try < 3; _try++) {
+            uint8_t rxl[2];
+            if (hspi_rd(0x02, rxl, 2) < 0) return -1;
+            n = rxl[0] | ((uint16_t)rxl[1] << 8);
+            if (n != 0 && n != 0xFFFF) break;
+            if (_try == 0) {
+                luat_rtos_task_sleep(1);
+                continue;
+            }
+            return -1;
+        }
     }
 
-    //LLOGD("HSPI RX_DAT_LEN=%u", n);
     uint16_t data_len = n;
+    if (data_len > 1600) return -1;  // 防御: 垃圾长度写穿栈缓冲 (死机根因)
 
     // [事务3] 读数据 (栈上数组, 4字节对齐) + CRC 校验
-    // ★ config(0) 修复: 从机 tls_hspi_tx_data 写后等主控读走 (单帧队列, wm_hspi.c)
-    //   → 主控用 0x10 末段读 (读即消耗 desc, 从机 valid 清后才写下一帧), 长度与数据一致
-    //   CRC 校验保留为防御 (单帧队列下正常路径不应触发)
+    // 主控用 0x10 末段读（读即消耗 desc，从机 valid 清后才写下一帧）；CRC 校验保留为防御
     uint16_t npad = (data_len + 3) & ~3;
     uint8_t tx_buf[1608];
     uint8_t rx_buf[1608];
@@ -311,17 +329,22 @@ int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
     memcpy(buf, rx_buf + 1, npad);
 
     uint16_t plen = data_len;
-    // 格式1 (magic 开头) → 必须 CRC 通过 (防御: 单帧队列下不应失败)
-    if (plen >= 4 && buf[0]==0xA1 && buf[1]==0xB1 && buf[2]==0xCA && buf[3]==0x66) {
+    int is_fmt1 = (plen >= 4 && buf[0]==0xA1 && buf[1]==0xB1 && buf[2]==0xCA && buf[3]==0x66);
+    if (is_fmt1) {
+        // 格式1 (magic 开头) → 必须 CRC 通过 (防御: 单帧队列下不应失败)
         if (airlink_unpack(buf, plen) == NULL) {
-            LLOGE("HSPI frame CRC fail len=%u — drop", plen);
+            // 兜底读到的旧值垃圾(CRC 不匹配)静默丢弃; 正常路径打印
+            if (!recovered) LLOGE("HSPI frame CRC fail len=%u — drop", plen);
             return -1;
         }
+    } else if (recovered) {
+        // 兜底路径严格要求格式1(magic+CRC), 无 magic 视为旧值垃圾丢弃
+        return -1;
     }
 
     // 解析: 格式1 已校验通过, 跳过帧头; 格式2 直接 cmd_t+payload
     uint8_t *pdata = buf;
-    if (plen >= 4 && buf[0]==0xA1 && buf[1]==0xB1 && buf[2]==0xCA && buf[3]==0x66) {
+    if (is_fmt1) {
         // airlink_link_data_t 头部 16 字节
         if (plen < 16) return -1;
         pdata = buf + 16;  // 跳过完整帧头
@@ -340,6 +363,7 @@ int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
     if (cmd_id) *cmd_id = cmd_id_val;
     *resp_len = pld_len_val;
     if (resp) memcpy(resp, pdata + 4, pld_len_val);
+    if (recovered) LLOGI("HSPI INT miss recovered cmd=0x%04X len=%u", cmd_id_val, pld_len_val);
     return 0;
 }
 

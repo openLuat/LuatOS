@@ -40,6 +40,7 @@ local face_task_timer = nil   -- 业务任务超时兜底定时器
 local task_seq = 0            -- 业务任务序号（防旧任务结果误用）
 local preview_x, preview_y = 0, 0   -- 摄像头预览区域位置
 local preview_w, preview_h = 0, 0   -- 摄像头预览区域尺寸
+local preview_box = nil             -- 预览区容器（【定格】定格图挂它下面，保证弹窗始终在定格图之上）
 local preview_started_flag = false  -- 本次窗口预览是否成功启动（供初始化完成后判断走并行还是串行）
 -- 人脸识别与预览并行相关状态
 local preview_token = 0        -- 本次预览的就绪令牌（校验 FACE_PREVIEW_READY 是否属于本次预览）
@@ -49,6 +50,7 @@ local preview_ready_timer = nil -- 等待预览就绪 / 延迟发起识别的定
 local face_started = false     -- 本次窗口是否已发起识别（防重复发起）
 local parallel_inflight = false -- 当前识别是否运行在并行模式（预览未停流）
 local serial_retry_used = false -- 是否已降级重试过（降级只做一次）
+local preview_freeze_pending = false -- 【定格】本次停流前是否先把最后一帧定格显示在预览框（仅"识别出结果"场景）
 local start_face_operation    -- 前向声明：on_create 的定时器回调先于函数体声明，需先声明避免解析成全局 nil
 local try_serial_retry        -- 前向声明：并行识别失败后的降级重试（函数体定义在文件后部，供结果回调调用）
 local stop_preview_after_face -- 前向声明：识别出结果后立即停流（函数体定义在文件后部，供结果回调调用）
@@ -187,12 +189,15 @@ local function create_ui()
 
     -- 摄像头预览区域（airui.camera 组件，face_preview 在其上创建）
     -- 视口用较小尺寸，降低 airui.camera 软件缩放 + LVGL 渲染负载，避免 "preview wait too much" 冻结
-    preview_w = math.floor(480 * density)
-    preview_h = math.floor(270 * density)
+    preview_w = math.floor(320 * density)
+    preview_h = math.floor(240 * density)   -- 4:3，与摄像头 320×240 预览/拍照/定格分辨率同比：
+                                            --   实时画面(cover)与定格画面(contain)都正好铺满，零黑边
     preview_x = math.floor((screen_w - preview_w) / 2)
     preview_y = header_h + math.floor(15 * density)
 
-    airui.container({
+    -- 预览区容器：既是黑底占位，也是【定格】定格图的父容器。
+    --   定格图挂在这一层，层级被限制在预览区内 → 之后创建的"识别结果弹窗"必定盖在它上面
+    preview_box = airui.container({
         parent = main_container,
         x = preview_x, y = preview_y,
         w = preview_w, h = preview_h,
@@ -393,6 +398,10 @@ end
 local function stop_preview_safe()
     pcall(function()
         local face_preview = require "face_preview"
+        if preview_freeze_pending then
+            preview_freeze_pending = false   -- 只定格一次
+            face_preview.freeze()            -- 【定格】先定格最后一帧，再停流，客户不会看到黑屏
+        end
         face_preview.stop()
     end)
 end
@@ -434,6 +443,7 @@ end
 --   此时 UI 销毁 + LVGL 重绘 + exwin 窗口切换同时进行，容易撞上 excamera 释放数据流的残留回调。
 --   把停流提前到“识别出结果”这个 CPU 空闲、界面稳定的时刻，关窗时 stop() 自然变成 no-op。
 stop_preview_after_face = function()
+    preview_freeze_pending = true   -- 【定格】本次停流前先把最后一帧定格到预览框（画面定格，避免黑屏）
     if not preview_started_flag then return end
     preview_started_flag = false
     sys.taskInit(function()
@@ -572,7 +582,9 @@ local function start_preview_only()
     if main_container and preview_w > 0 and preview_h > 0 then
         local ok_preview, res = pcall(function()
             local face_preview = require "face_preview"
-            return face_preview.start(main_container, preview_x, preview_y, preview_w, preview_h, current_mode)
+            -- 第一个参数是"预览区父容器"：airui.camera 内部仍固定挂 airui.screen，
+            -- 该参数只用于给【定格】定格图指定父容器（保证识别结果弹窗在定格图之上）
+            return face_preview.start(preview_box or main_container, preview_x, preview_y, preview_w, preview_h, current_mode)
         end)
         if not ok_preview then
             log.warn("ecface", "启动摄像头预览异常:", res)
@@ -716,6 +728,11 @@ local function on_destroy()
         face_preview.stop()
     end)
     preview_started_flag = false
+    -- 【定格】先销毁定格画面（它是预览区容器的子对象，必须早于父容器销毁，避免双重销毁）
+    pcall(function()
+        local face_preview = require "face_preview"
+        face_preview.destroy_frozen()
+    end)
     if main_container then
         main_container:destroy()
         main_container = nil
@@ -749,6 +766,7 @@ local function on_destroy()
     serial_retry_used = false
     busy = false
     done_flag = false
+    preview_box = nil   -- 预览区容器已随 main_container 一并销毁
     win_id = nil
     -- 业务任务可能仍在后台执行，强制复位业务状态，避免下次操作报"业务状态繁忙"
     local ok, err = pcall(function()

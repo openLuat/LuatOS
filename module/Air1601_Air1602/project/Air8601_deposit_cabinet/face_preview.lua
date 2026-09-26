@@ -21,7 +21,8 @@
 
 注意：
 1. 数据流不能常驻：常驻会让 luat_camera 任务事件队列爆满，CPU 被占满导致红外人脸识别处理不过来。
-2. 用最小分辨率(320×240)降低解码负载，保证识别期间 CPU 富余。
+2. 预览分辨率 320×240（config.face.preview.width/height）：与界面预览框 320×240 同比，
+   实时画面(cover)与定格画面(contain)都正好铺满，解码/渲染负载最低；提清晰度可改 480×320（须同步改预览框）。
 3. airui.camera 组件必须挂 airui.screen。
 4. 并行模式下预览帧率压到 busy_fps(3fps)，把 CPU 让给 UART2 人脸数据，避免识别超时。
 5. airui.camera 组件不支持画面旋转（无 rotation 参数、无 set_rotation 方法），
@@ -44,6 +45,12 @@ local reconnect_timer = nil -- 断开后等待自动重连的宽限定时器（�
 local connected_once = false  -- 本次预览是否已收到过 connected（区分"未连接"与"已连接后掉线"）
 local power_retry_done = false -- 本次预览是否已执行过"未连接 →  GPIO73 断电重试"（最多一次）
 local watch_running = false   -- 连接监控协程是否在跑（防止重复启动）
+-- 停流前的"最后一帧定格"：识别出结果立即停流时，先把最后一帧画面定格显示在预览框中，
+--   避免数据流释放 + airui.camera 组件销毁后，客户看到的是黑屏（视觉上是"画面定格"）。
+local last_rect = nil       -- 本次预览区域 {x,y,w,h,fit}（定格图与预览区同位置/同尺寸/同 fit）
+local frozen_img = nil      -- 定格帧显示组件（airui.image，挂在 airui.screen 上）
+local frozen_path = nil     -- 当前定格帧文件路径（换新帧前删除，避免 /ram 堆积）
+local frozen_seq = 0        -- 定格帧文件序号（文件名递增，避免命中 airui 图片缓存显示成旧帧）
 
 -- 销毁旧预览组件（pcall 保护）
 -- 销毁旧预览组件内部执行（pcall 包装）
@@ -79,6 +86,98 @@ end
 -- 强制关闭旧数据流（pcall 保护）
 local function force_close_camera()
     pcall(do_force_close_camera)
+end
+
+-- ==================== 停流前的"最后一帧定格" ====================
+-- 背景：识别一出结果就立刻停流（ecface 的 stop_preview_after_face），停流后数据流被释放、
+--       airui.camera 组件被销毁，预览框只剩黑色底容器 → 客户看到"黑屏"。
+-- 做法：停流前（数据流还在）抓一帧 JPEG 存到 /ram，再用 airui.image 以"预览区同位置/同尺寸/
+--       同 fit"盖在实时预览上；face_preview 随后销毁 camera 组件，定格图仍在 → 画面"定格"。
+-- 注意：1) M.capture 内含 sys.waitUntil，必须在协程内、且必须在 M.stop() 之前调用；
+--       2) airui 图片按路径缓存，故文件名递增不复用，并在换帧时删除旧文件；
+--       3) airui.image 显示 jpg 要求宽高为 16 的倍数（本工程预览 320×240 满足）。
+
+-- 销毁定格画面并删除其临时文件（可重复调用；开窗/关窗时都要调）
+local function destroy_frozen_frame()
+    if frozen_img then
+        pcall(function() frozen_img:destroy() end)
+        frozen_img = nil
+    end
+    if frozen_path then
+        pcall(os.remove, frozen_path)
+        frozen_path = nil
+    end
+end
+
+-- 销毁定格画面（对外接口：关窗时调用，避免定格图残留在主界面遮住界面）
+function M.destroy_frozen()
+    destroy_frozen_frame()
+end
+
+-- 抓取当前帧并在预览区定格显示（停流前调用，必须在协程内）
+-- @param timeout 可选，等待帧到达的超时(ms)，默认取 config.face.preview.freeze.timeout
+-- @return boolean 是否成功定格
+function M.freeze(timeout)
+    if config.get("face.preview.freeze.enabled", true) == false then return false end
+    if frozen_img then return true end        -- 本次预览已定格过，不重复抓帧
+    if not active then                        -- 数据流已停，取不到帧
+        log.info("face_preview", "预览未激活，跳过最后一帧定格")
+        return false
+    end
+    local rect = last_rect
+    if type(rect) ~= "table" or (rect.w or 0) <= 0 or (rect.h or 0) <= 0 then
+        log.warn("face_preview", "无预览区域信息，跳过最后一帧定格")
+        return false
+    end
+
+    local ok, data = M.capture(timeout or config.get("face.preview.freeze.timeout", 1500))
+    if not ok then
+        log.warn("face_preview", "定格帧抓取失败，按原逻辑直接停流:", tostring(data))
+        return false
+    end
+
+    -- 写 /ram（内存文件系统，写入快、不依赖 SD 卡；拍照留底另有 face_photo 负责）
+    frozen_seq = (frozen_seq % 1000) + 1
+    local path = string.format("/ram/face_freeze_%d.jpg", frozen_seq)
+    local f = io.open(path, "wb")
+    if not f then
+        log.warn("face_preview", "定格帧落盘失败，跳过定格:", path)
+        return false
+    end
+    f:write(data)
+    f:close()
+
+    -- 定格图在实时预览之后创建 → 创建顺序上位于 camera 组件之上（同一预览区容器内）
+    -- 定格图挂进预览区容器（相对坐标 0,0）：层级被限制在预览区内，之后创建的"识别结果弹窗"
+    --   （挂 airui.screen）必定盖在它上面；调用方没传容器时退回 airui.screen + 绝对坐标（兼容旧调用）
+    local frozen_parent = rect.parent or airui.screen
+    local fx, fy = rect.x, rect.y
+    if frozen_parent ~= airui.screen then
+        fx, fy = 0, 0
+    end
+    local iok, img = pcall(function()
+        return airui.image({
+            parent = frozen_parent,
+            x = fx, y = fy, w = rect.w, h = rect.h,
+            src = path,
+            -- 【重要】必须用 contain（等比缩放完整显示）：airui.image 的 cover 只做等比放大、
+            --   不做裁剪（实测会放大溢出预览框、盖住上方文字）。当前画面与预览框同为
+            --   320×240(4:3)，contain 与 cover 视觉一致；日后两者比例若不同也只留黑边、不越界。
+            fit = config.get("face.preview.freeze.fit", "contain"),
+        })
+    end)
+    if not iok or not img then
+        log.warn("face_preview", "定格帧显示失败:", tostring(img))
+        pcall(os.remove, path)
+        return false
+    end
+
+    destroy_frozen_frame()   -- 先建新图，再清掉旧图（旧组件销毁、旧文件删除）
+    frozen_img = img
+    frozen_path = path
+    log.info("face_preview", "最后一帧已定格到预览框", path, #data .. "字节",
+        "预览区", rect.x, rect.y, rect.w, rect.h, "fit", config.get("face.preview.freeze.fit", "contain"))
+    return true
 end
 
 -- 发布预览就绪事件（只发布一次，防止重复触发识别请求）
@@ -305,6 +404,8 @@ function M.start(parent, x, y, w, h, mode)
     if not closing then
         destroy_old_widget()
     end
+    -- 【定格】新一轮预览前清理上一轮的定格画面（否则会盖住实时预览）
+    destroy_frozen_frame()
     -- 清理上一轮的"断开重连宽限"定时器，避免旧定时器影响本次预览
     if reconnect_timer then
         sys.timerStop(reconnect_timer)
@@ -320,6 +421,11 @@ function M.start(parent, x, y, w, h, mode)
     --    旋转说明：airui.camera 组件的公开文档只列出 x/y/w/h/auto_start/parent，
     --    但实测日志显示未文档化的 fit 参数实际生效（fit=2 software），说明文档不全，
     --    因此此处把 rotation 直通传入做验证：若固件已支持则画面立即旋转，不支持则被忽略（无害）。
+    -- 【定格】记录本次预览区域与父容器：停流前 M.freeze() 需在"同位置/同尺寸"显示最后一帧。
+    --   parent 用调用方传入的预览区容器（airui.camera 自身仍固定挂 airui.screen）：
+    --   定格图挂进预览区容器后，层级被限制在预览区内，之后创建的"识别结果弹窗"必定盖在它上面。
+    last_rect = { parent = parent, x = x, y = y, w = w, h = h, fit = cfg.fit or "cover" }
+
     local rotate = cfg.rotation or 0
     widget = airui.camera({
         parent = airui.screen,

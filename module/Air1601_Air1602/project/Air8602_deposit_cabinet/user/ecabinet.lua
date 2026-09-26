@@ -201,32 +201,33 @@ local function create_ui()
                 sys.publish(evt)
             end,
         })
-        -- 图标（垂直居中偏上：39px 顶部留白）
+        -- 图标（内容块垂直居中：图标 51~125 + 文字 137~169，在 220 高按钮里上下各留 51）
         airui.image({
             parent = main_container,
             x = x + math.floor((btn_w - icon_size) / 2),
-            y = y + 39,
+            y = y + 51,
             w = icon_size, h = icon_size,
             src = icon_src,
         })
-        -- 文本（垂直居中偏下：紧贴图标下方）
+        -- 文本（跟随图标下移，间距保持 12：137~169；字号 24 / 字重 700）
         airui.label({
             parent = main_container,
             text = text,
-            x = x, y = y + 145,
-            w = btn_w, h = 36,
-            font_size = 22,
+            x = x, y = y + 137,
+            w = btn_w, h = 32,
+            font_size = 24,
             color = 0xFFFFFF,
             align = airui.TEXT_ALIGN_CENTER,
             font_weight = 700,
         })
     end
 
+    -- 图标素材与显示尺寸（74）对齐 8601 首页
     -- 取件按钮底色加深，避免与浅蓝柜墙 0x6FB5F5 混在一起
-    make_button(0, 0, 0x1A5FB4, "取件", "/luadb/qujian.png",  96, "OPEN_EXPRESS_RECEIVE_WIN")
-    make_button(1, 0, 0x34C9AF, "管理", "/luadb/guanli.png",  96, "OPEN_COURIER_MANAGEMENT_WIN")
-    make_button(0, 1, 0xF5A421, "存件", "/luadb/cunjian.png", 96, "OPEN_EXPRESS_SEND_WIN")
-    make_button(1, 1, 0xA78DFF, "帮助", "/luadb/bangzhu.png", 96, "OPEN_EXPRESS_HELP_WIN")
+    make_button(0, 0, 0x1A5FB4, "取件", "/luadb/qujian.png",  74, "OPEN_EXPRESS_RECEIVE_WIN")
+    make_button(1, 0, 0x34C9AF, "管理", "/luadb/guanli.png",  74, "OPEN_COURIER_MANAGEMENT_WIN")
+    make_button(0, 1, 0xF5A421, "存件", "/luadb/cunjian.png", 74, "OPEN_EXPRESS_SEND_WIN")
+    make_button(1, 1, 0xA78DFF, "帮助", "/luadb/bangzhu.png", 74, "OPEN_EXPRESS_HELP_WIN")
 end
 
 local function on_create()

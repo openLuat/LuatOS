@@ -117,7 +117,7 @@ end
 
 local function sample_pcm(stats)
     local call = g_monitor
-    if not call or call.finished then return end
+    if not call or call.finished or not call.phase_started_at or call.hangup_requested then return end
     if not monitor_settings() then
         call.disabled = true
         call.unknown = true
@@ -126,15 +126,17 @@ local function sample_pcm(stats)
         return
     end
     stats = stats or read_stats()
-    if not stats or stats.selected ~= true or not integer(call.session) or call.session == 0 or
-        stats.session ~= call.session or not integer(stats.dl_pushed) then
+    if call.unknown or not stats or stats.selected ~= true or not integer(call.session) or call.session == 0 or
+        stats.session ~= call.session or not integer(stats.dl_pushed) or
+        not integer(call.dl_baseline) or stats.dl_pushed < call.dl_baseline then
         call.unknown = true
         clear_missing_calls()
         stop_monitor_timer()
         return
     end
-    -- 该计数只来自有效 HAL 下行 PCM；上传静音、FIFO 长度、RTP 和 AUDIO_START 均不能替代。
-    if stats.dl_pushed > 0 then
+    call.last_dl = stats.dl_pushed
+    -- 只认本次接通媒体阶段的 HAL 下行增量；早期媒体和上传静音不能替代。
+    if stats.dl_pushed > call.dl_baseline then
         call.raw_seen = true
         clear_missing_calls()
         stop_monitor_timer()
@@ -143,7 +145,8 @@ end
 
 local function schedule_pcm_sample()
     local call = g_monitor
-    if not call or call.finished or call.raw_seen or call.unknown or g_monitor_timer then return end
+    if not call or call.finished or not call.phase_started_at or call.hangup_requested or
+        call.raw_seen or call.unknown or call.disabled or g_monitor_timer then return end
     local generation = g_call_generation
     g_monitor_timer = sys.timerStart(function()
         if generation ~= g_call_generation or call ~= g_monitor then return end
@@ -151,6 +154,31 @@ local function schedule_pcm_sample()
         sample_pcm()
         schedule_pcm_sample()
     end, 100)
+end
+
+local function begin_monitor_phase(stats)
+    local call = g_monitor
+    if not call or call.finished or call.hangup_requested then return end
+    stop_monitor_timer()
+    call.phase_started_at = now_ms()
+    call.raw_seen, call.unknown, call.disabled = false, false, false
+    if not monitor_settings() then
+        call.disabled = true
+        clear_missing_calls()
+        return
+    end
+    stats = stats or read_stats()
+    if not call.phase_started_at or not stats or stats.selected ~= true or
+        not integer(call.session) or call.session == 0 or stats.session ~= call.session or
+        not integer(stats.dl_pushed) then
+        call.unknown = true
+        clear_missing_calls()
+        return
+    end
+    call.dl_baseline, call.last_dl = stats.dl_pushed, stats.dl_pushed
+    call.native_phase = stats.phase
+    logi("PCM 接通阶段基线", call.session, "phase", stats.phase, "dl_pushed", call.dl_baseline)
+    schedule_pcm_sample()
 end
 
 local function bind_session(event_session)
@@ -162,8 +190,6 @@ local function bind_session(event_session)
     end
     monitor_settings()
     g_monitor = {session = g_session, generation = g_call_generation}
-    sample_pcm(stats)
-    schedule_pcm_sample()
 end
 
 local function begin_call(owner_token)
@@ -184,20 +210,23 @@ local function note_real_connected()
     if not call.connected_at then
         call.unknown = true
         clear_missing_calls()
+        return
     end
-    sample_pcm()
+    begin_monitor_phase()
 end
 
 local function note_hangup_requested()
     local call = g_monitor
     if not call or call.hangup_requested then return end
+    -- 挂断前最后采样，之后不再让清理期间的 PCM 改变本阶段的结论。
+    sample_pcm()
+    stop_monitor_timer()
     call.hangup_requested = true
     call.hangup_at = now_ms()
     if not call.hangup_at then
         call.unknown = true
         clear_missing_calls()
     end
-    sample_pcm()
 end
 
 local function finish_monitor()
@@ -212,22 +241,26 @@ local function finish_monitor()
         log.warn("cc_main", "PCM 统计未知，不计入连续异常", call.generation, call.session)
         return
     end
-    if not call.connected_at then return end
+    if not call.connected_at or not call.phase_started_at then return end
     local ended_at = call.hangup_requested and call.hangup_at or now_ms()
-    if not ended_at or ended_at < call.connected_at then
+    if not ended_at or ended_at < call.connected_at or ended_at < call.phase_started_at then
         clear_missing_calls()
         return
     end
     local duration = ended_at - call.connected_at
-    if duration < g_monitor_min then return end
+    local phase_duration = ended_at - call.phase_started_at
+    if phase_duration < g_monitor_min then return end
     g_missing_calls = g_missing_calls + 1
-    log.warn("cc_main", "已接通通话无真实 PCM", duration, "连续", g_missing_calls)
+    log.warn("cc_main", "接通阶段无真实 PCM", phase_duration, "接通时长", duration, "连续", g_missing_calls)
     if g_missing_calls >= g_monitor_limit and not g_anomaly_reported then
         g_anomaly_reported = true
         return {
             source = "bridgePcmStats.dl_pushed",
             generation = call.generation, owner_token = g_owner_token, session = call.session,
             connected_ms = duration, missing_calls = g_missing_calls,
+            phase_ms = phase_duration, phase = call.native_phase,
+            dl_baseline = call.dl_baseline, dl_pushed = call.last_dl,
+            dl_delta = call.last_dl - call.dl_baseline,
             min_connected_ms = g_monitor_min, missing_call_limit = g_monitor_limit,
         }
     end
@@ -256,6 +289,22 @@ local function publish_failure(reason, terminal)
     sys.publish("CC_FAILED", reason, g_call_generation, g_owner_token, g_session, terminal)
 end
 
+local function log_media_failure_stats(reason)
+    local stats = read_stats()
+    local call = g_monitor
+    if not stats or stats.session ~= g_session then
+        log.error("cc_main", "PCM 故障快照不可用", reason, "session", g_session)
+        return
+    end
+    log.error("cc_main", "PCM 故障快照", reason, "session", stats.session, "phase", stats.phase,
+        "dl_base", call and call.dl_baseline, "dl_now", stats.dl_pushed, "late_dl", stats.late_dl,
+        "active", stats.active, "ready", stats.media_ready, "fault", stats.fault)
+    log.error("cc_main", "PCM 上传快照", "active", stats.sdk_active, "epoch", stats.sdk_epoch,
+        "codec", stats.sdk_codec, "submitted", stats.sdk_submitted, "completed", stats.sdk_completed,
+        "pending", stats.sdk_pending, "stop_waiting", stats.sdk_stop_waiting,
+        "fault", stats.sdk_fault, "upload_errors", stats.upload_errors)
+end
+
 local function start_audio_start_timeout()
     if g_audio_start_timer then return end
     local timeout = tonumber(config.cc_audio_start_timeout_ms) or 0
@@ -267,6 +316,7 @@ local function start_audio_start_timeout()
         if g_state ~= STATE_DIALING and g_state ~= STATE_RINGING and g_state ~= STATE_CONNECTED then return end
         if not g_call_connected or g_media_ready then return end
         log.error("cc_main", "CC 音频通道启动超时", timeout)
+        log_media_failure_stats("audio_start_timeout")
         request_hangup()
         publish_failure("audio_start_timeout", false)
     end, timeout)
@@ -287,6 +337,7 @@ local function on_media_error(reason, session)
     local stats = read_stats()
     if session ~= nil and stats and stats.session ~= session then return end
     log.error("cc_main", "PCM 媒体故障", reason, "session", session)
+    log_media_failure_stats(reason or "pcm_media_error")
     request_hangup()
     publish_failure(reason or "pcm_media_error", false)
 end
@@ -407,8 +458,9 @@ local function on_cc_event(status, value, extra)
         finish_media_start()
     elseif (status == "PLAY" and value == 0) or status == "PLAY_STOP" then
         if g_state == STATE_IDLE or g_state == STATE_DISCONNECTING then return end
-        -- 媒体阶段结束不代表整通结束，也不清除本通的真实 PCM 证据。
+        -- 接通后重启媒体时重新取基线；重复 PLAY=0 不续期或重置该基线。
         sample_pcm()
+        if g_media_ready and g_monitor and g_monitor.connected_at then begin_monitor_phase() end
         g_media_ready = false
         if g_call_connected then start_audio_start_timeout() end
     elseif status == "DISCONNECTED" then

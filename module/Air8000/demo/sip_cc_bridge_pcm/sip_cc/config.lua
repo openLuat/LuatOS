@@ -17,7 +17,7 @@ return {
     auto_answer_sip = true,            -- SIP 来电时自动接听
     auto_handle_mobile_incoming = true,  -- 手机来电时自动拨打 SIP
     cc_audio_start_timeout_ms = 3000,
-    cc_media_min_connected_ms = 2000,   -- 原始 CC 接通至少 2 秒；<=0 关闭统计
-    cc_media_missing_call_limit = 3,    -- 连续 3 通无真实下行 PCM；<=0 关闭统计
-    cc_media_reboot_on_error = false,    -- false 仅发布异常事件，不自动重启
+    cc_media_min_connected_ms = 2000,   -- 真实接通后当前媒体阶段至少 2 秒；<=0 关闭统计
+    cc_media_missing_call_limit = 3,    -- 连续 3 通接通阶段无下行 PCM 增量；<=0 关闭统计
+    cc_media_reboot_on_error = true,    -- false 仅发布异常事件，不自动重启
 }

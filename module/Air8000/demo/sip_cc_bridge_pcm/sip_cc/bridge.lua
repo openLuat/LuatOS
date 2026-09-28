@@ -371,6 +371,12 @@ local function on_cc_failed(reason, generation, owner, session, terminal)
     call.cc_generation, call.pcm_session = generation, session
     -- 启动超时/SDK 错误只是发起挂断；继续等待 CC 终结事件。
     call.cc_stop_requested, call.cc_state = true, "cc_disconnecting"
+    -- 非终结 CC_FAILED 是本地媒体故障。尚未应答的 SIP 来电应返回 500；
+    -- 已请求应答的通话继续走挂断，避免在 200 已发送、ACK 未到时再发送失败响应。
+    if call.direction == "outgoing" and not call.sip_accept_requested and
+        (call.sip_state == "sip_incoming" or call.sip_state == "sip_progressing") then
+        stop_sip(call, 500, "Server Internal Error")
+    end
     if call == cleanup then
         stop_sip(call)
         drive()

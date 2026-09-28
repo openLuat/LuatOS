@@ -98,13 +98,19 @@ local function finish_call(reason, failed)
     publish_call(failed and "SIP_FAILED" or "SIP_DISCONNECTED", reason or "", call)
 end
 
-local function fail_call(reason)
+local function fail_call(reason, media_failure)
     if not g_call or g_state == STATE_IDLE or g_state == STATE_DISCONNECTING then return end
-    g_call.failure_reason = reason
+    local call = g_call
+    local reject_incoming = media_failure and call.direction == "in" and
+        (g_state == STATE_INCOMING or g_state == STATE_PROGRESSING)
+    call.failure_reason = reason
     reset_media_state()
     set_state(STATE_DISCONNECTING)
+    -- 本地媒体失败不能报被叫忙；fail 自身还会拒绝已请求 200 的通话，转回挂断。
+    if reject_incoming and pcm_sip.fail(500, "Server Internal Error",
+        call.call_id, call.sip_generation, call.owner_token) then return end
     -- 协议终结前保留通话归属，包括尚未获得 Call-ID 的外呼。
-    pcm_sip.hangUp(false, g_call.call_id, g_call.sip_generation, g_call.owner_token)
+    pcm_sip.hangUp(false, call.call_id, call.sip_generation, call.owner_token)
 end
 
 local function on_sip_dial_req(uri, owner_token)
@@ -131,13 +137,13 @@ end
 local function on_sip_accept_req(call_id, generation, owner_token)
     if not matches(call_id, generation, owner_token) or
         (g_state ~= STATE_INCOMING and g_state ~= STATE_PROGRESSING) then return end
-    if not pcm_sip.accept(g_call.call_id, g_call.sip_generation, g_call.owner_token) then fail_call("accept_failed") end
+    if not pcm_sip.accept(g_call.call_id, g_call.sip_generation, g_call.owner_token) then fail_call("accept_failed", true) end
 end
 
 local function on_sip_progress_req(call_id, generation, owner_token)
     if not matches(call_id, generation, owner_token) or g_state ~= STATE_INCOMING then return end
     set_state(STATE_PROGRESSING)
-    if not pcm_sip.progress(g_call.call_id, g_call.sip_generation, g_call.owner_token) then fail_call("progress_failed") end
+    if not pcm_sip.progress(g_call.call_id, g_call.sip_generation, g_call.owner_token) then fail_call("progress_failed", true) end
     -- 必须同时确认 183 已发送，并收到原生媒体实际启动的回调。
 end
 
@@ -216,7 +222,7 @@ local function on_sip_event(event, action, data)
             elseif action == "stop" then
                 g_media_ready = false
             elseif action == "error" or action == "failed" then
-                fail_call(data.reason or "media_start_failed")
+                fail_call(data.reason or "media_start_failed", true)
             end
         end
     elseif event == "lifecycle" then

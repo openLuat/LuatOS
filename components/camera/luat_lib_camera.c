@@ -597,7 +597,7 @@ LUAT_WEAK int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t 
 }
 
 
-LUAT_WEAK int luat_camera_scan(int id, uint8_t on_off) {return -1;}
+LUAT_WEAK int luat_camera_scan(int id, uint32_t type, uint8_t on_off) {return -1;}
 
 LUAT_WEAK int luat_camera_frame_callback_on_off(int id, uint8_t on_off) {return -1;}
 #endif
@@ -777,6 +777,7 @@ camera输出/停止数据流
 @int 图像数据最小长度，针对USB摄像头ISO传输可能漏数据的情况，只有大于最小长度的图像帧会上报，默认是1KB
 @boolean 是否开启帧数据回调，默认开启，false不开启，true开启
 @boolean 是否开启扫码功能，默认不开启，false不开启，true开启
+@int 扫码功能时解码器组合，见"SCAN_FMT_XXX",默认为SCAN_FMT_ALL，解码器在明确知道哪些码不用的情况下可以组合使用，减少解码时间
 @return boolean 成功返回true,否则返回false
 @usage
 camera.stream(camera.USB, app_id)       --默认不跳帧
@@ -796,7 +797,7 @@ static int l_camera_stream(lua_State *L) {
     if (lua_isboolean(L, 6)) {
         scan_enable = lua_toboolean(L, 6);
     }
-
+    uint32_t decode_type = luaL_optinteger(L, 7, LUAT_CAMERA_SCAN_CODE_ALL);
     uint8_t usb_mode = 0;
     if (camera_id >= LUAT_CAMERA_TYPE_USB)
     {
@@ -808,7 +809,7 @@ static int l_camera_stream(lua_State *L) {
     {
     	luat_usb_camera_stream_set_jump_frame_cnt(app_id, jump_frame_cnt);
     	luat_usb_camera_stream_set_min_data_len(app_id, min_data_len);
-        luat_camera_scan(camera_id, scan_enable);
+        luat_camera_scan(camera_id, decode_type, scan_enable);
         luat_camera_frame_callback_on_off(camera_id, frame_callback_enable);
         lua_pushboolean(L, !luat_camera_start(app_id));
 
@@ -1106,6 +1107,20 @@ static const rotable_Reg_t reg_camera[] =
     { "FORMAT_MJPG",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_MJPEG)},
     //@const FORMAT_H264 number USB摄像头的数据流类型H264
     { "FORMAT_H264",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_H264)},
+    //@const SCAN_FMT_1D number 扫码格式1D条形码包括(CODABAR Code128 Code93 Code39 Code32 PZN ITF ITF-14 DATABAR EAN_UPC EAN13 EAN8 EAN5 EAN2 UPC ISBN BARCODE TELEPEN DX_FILM_EDGE)
+    { "SCAN_FMT_1D",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_1D)},
+    //@const SCAN_FMT_QR number 扫码格式QR Code 消费领域必备
+    { "SCAN_FMT_QR",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_QR_CODE)},
+    //@const SCAN_FMT_DM number 扫码格式Data Matrix 常用于电子元件、医疗器械、制造业零部件追踪
+    { "SCAN_FMT_DM",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_DATA_MATRIX)},
+    //@const SCAN_FMT_AZTEC number 扫码格式Aztec Code 常用于交通票务、航空登机牌。
+    { "SCAN_FMT_AZTEC",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_AZTEC_CODE)},
+    //@const SCAN_FMT_PDF417 number 扫码格式PDF417 常用于身份证、驾照、物流单据、美国邮政
+    { "SCAN_FMT_PDF417",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_PDF417)},
+    //@const SCAN_FMT_MAXICODE number 扫码格式MaxiCode 主要用于UPS快递包裹分拣
+    { "SCAN_FMT_MAXICODE",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_MAXICODE)},
+    //@const SCAN_FMT_ALL number 扫码格式所有类型
+    { "SCAN_FMT_ALL",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_ALL)},
 	{ NULL,          ROREG_INT(0)}
 };
 

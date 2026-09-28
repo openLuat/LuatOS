@@ -60,6 +60,15 @@ enum
     LUAT_CAMERA_UVC_FORMAT_RAW = 0,
     LUAT_CAMERA_UVC_FORMAT_MJPEG,
     LUAT_CAMERA_UVC_FORMAT_H264,
+
+    LUAT_CAMERA_SCAN_CODE_ALL = 0,
+    LUAT_CAMERA_SCAN_CODE_1D = 1<<0,
+    LUAT_CAMERA_SCAN_CODE_QR_CODE = 1<<1,
+    LUAT_CAMERA_SCAN_CODE_DATA_MATRIX = 1<<2,
+    LUAT_CAMERA_SCAN_CODE_AZTEC_CODE = 1<<3,
+    LUAT_CAMERA_SCAN_CODE_PDF417 = 1<<4,
+    LUAT_CAMERA_SCAN_CODE_MAXICODE = 1<<5,
+
 };
 
 typedef struct luat_camera_conf
@@ -246,7 +255,7 @@ int luat_camera_stop(int id);
 
 int luat_camera_preview(int id, uint8_t on_off);
 
-int luat_camera_scan(int id, uint8_t on_off);
+int luat_camera_scan(int id, uint32_t decode_type, uint8_t on_off);
 
 int luat_camera_frame_callback_on_off(int id, uint8_t on_off);
 

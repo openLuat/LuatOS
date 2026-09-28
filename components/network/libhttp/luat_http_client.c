@@ -219,7 +219,16 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 		return -1;
 	}
 	if (http_ctrl->idg == 0) {
-		// 尚未注册 idg(初始化前的错误路径): 无异步引用, 直接清理
+		// 尚未注册 idg: 尚无网络回调或定时器引用, 同步归还已分配资源
+		if (http_ctrl->netc) {
+			network_release_ctrl(http_ctrl->netc);
+			http_ctrl->netc = NULL;
+		}
+		if (http_ctrl->timeout_timer) {
+			luat_stop_rtos_timer(http_ctrl->timeout_timer);
+			luat_release_rtos_timer(http_ctrl->timeout_timer);
+			http_ctrl->timeout_timer = NULL;
+		}
 		http_close_clean(http_ctrl);
 		return 0;
 	}
@@ -688,7 +697,9 @@ static const http_parser_settings parser_settings = {
 
 
 int luat_http_client_init(luat_http_ctrl_t* http_ctrl, int use_ipv6) {
-	luat_http_idg_register(http_ctrl);
+	if (luat_http_idg_register(http_ctrl) == 0) {
+		return -1;
+	}
 	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, (void*)http_ctrl->idg);
 
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
@@ -802,52 +813,21 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 static void luat_http_timeout_resp_error(luat_http_ctrl_t * http_ctrl) {
     http_report_result(http_ctrl, HTTP_ERROR_TIMEOUT);
 }
-#ifdef __LUATOS__
-static int luat_http_timeout_network_close(lua_State *L, void* ptr) {
-    luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t*)ptr;
-    if (!http_ctrl) return 0;
-    http_ctrl->error_code = HTTP_ERROR_TIMEOUT;
-    http_network_close(http_ctrl);
-    return 0;
-}
-#endif
-
-LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
-	luat_http_ctrl_t * http_ctrl = (luat_http_ctrl_t *)param;
-	if (http_ctrl->luatos_mode) {
-#ifdef __LUATOS__
-		network_tcpip_callback(luat_http_timeout_resp_error, http_ctrl, 0);
-#else
-		luat_http_timeout_resp_error(http_ctrl);
-#endif
-	} else {
-		if (http_ctrl->new_data)
-		{
-			http_ctrl->new_data = 0;
-		}
-		else
-		{
-#ifdef __LUATOS__
-			rtos_msg_t msg = {0};
-			msg.handler = luat_http_timeout_network_close;
-			msg.ptr = http_ctrl;
-			luat_msgbus_put(&msg, 0);
-#else
-			LLOGD("http timeout error!");
-			http_ctrl->error_code = HTTP_ERROR_TIMEOUT;
-			http_network_close(http_ctrl);
-#endif
-		}
-	}
-}
-
 static void http_idg_timeout_tcpip_cb(void *ctx) {
 	luat_http_ctrl_t *http_ctrl = luat_http_idg_get((uint32_t)(uintptr_t)ctx);
 	if (http_ctrl == NULL) {
 		// 已被认领/关闭, 丢弃本次超时
 		return;
 	}
-	luat_http_timeout_resp_error(http_ctrl);
+	if (http_ctrl->luatos_mode) {
+		luat_http_timeout_resp_error(http_ctrl);
+	} else if (http_ctrl->new_data) {
+		// C API 使用周期定时器: 有新数据时续期一次
+		http_ctrl->new_data = 0;
+	} else {
+		http_ctrl->error_code = HTTP_ERROR_TIMEOUT;
+		http_network_close(http_ctrl);
+	}
 }
 
 static int32_t l_http_timeout_msg_handler(lua_State *L, void* ptr) {
@@ -856,8 +836,8 @@ static int32_t l_http_timeout_msg_handler(lua_State *L, void* ptr) {
 	return 0;
 }
 
-/* luatos 模式超时定时器回调: param 是 idg 而非 http_ctrl 裸指针,
- * 投递到网络归属线程再查表, 避免 ctrl 已释放后被定时器线程解引用 */
+/* Lua 与 C API 共用 idg 定时器: 投递到网络归属线程再查表,
+ * 避免销毁后在途定时器回调解引用已释放的 ctrl */
 LUAT_RT_RET_TYPE luat_http_timer_callback_by_idg(LUAT_RT_CB_PARAM){
 	http_post_cmd(http_idg_timeout_tcpip_cb, l_http_timeout_msg_handler, param);
 }
@@ -1193,14 +1173,6 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 	if (!http_ctrl) return NULL;
     memset(http_ctrl,0,sizeof(luat_http_ctrl_t));
 
-	http_ctrl->timeout_timer = luat_create_rtos_timer(luat_http_timer_callback, http_ctrl, NULL);
-	if (!http_ctrl->timeout_timer)
-	{
-		luat_heap_free(http_ctrl);
-		LLOGE("no more timer");
-		return NULL;
-	}
-
 	if (adapter_index >= 0)
 	{
 		http_ctrl->netc = network_alloc_ctrl(adapter_index);
@@ -1211,14 +1183,25 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 	}
 	if (!http_ctrl->netc)
 	{
-		luat_release_rtos_timer(http_ctrl->timeout_timer);
 		luat_heap_free(http_ctrl);
 		LLOGE("no more network ctrl");
 		return NULL;
 	}
 
-	
-	luat_http_idg_register(http_ctrl);
+	if (luat_http_idg_register(http_ctrl) == 0) {
+		network_release_ctrl(http_ctrl->netc);
+		luat_heap_free(http_ctrl);
+		return NULL;
+	}
+	http_ctrl->timeout_timer = luat_create_rtos_timer(luat_http_timer_callback_by_idg,
+		(void *)(uintptr_t)http_ctrl->idg, NULL);
+	if (!http_ctrl->timeout_timer) {
+		luat_http_idg_unreg(http_ctrl->idg);
+		network_release_ctrl(http_ctrl->netc);
+		luat_heap_free(http_ctrl);
+		LLOGE("no more timer");
+		return NULL;
+	}
 
 	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, (void*)http_ctrl->idg);
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);

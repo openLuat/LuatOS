@@ -174,6 +174,7 @@ int luat_http_client_start_luatos(luat_http_ctrl_t* http);
  *      从根上避免多核平台上 luatos 与 lwip 对 http_ctrl 竞争 free
  */
 typedef struct luat_http_msg {
+	struct luat_http_msg *next;    /* terminal delivery retry queue */
 	uint32_t idg;                /* 会话标识, 仅用于日志/排查 */
 	int32_t  event;              /* HTTP_CALLBACK / 0(HTTP_OK) / HTTP_ERROR_xxx */
 	int32_t  arg;                /* HTTP_CALLBACK 时为 body_len */

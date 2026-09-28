@@ -42,6 +42,57 @@ end)
 int http_close(luat_http_ctrl_t *http_ctrl);
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method);
 
+static int32_t l_http_msg_handler(lua_State *L, void* ptr);
+static luat_http_msg_t *http_pending_head;
+static luat_http_msg_t *http_pending_tail;
+static luat_rtos_mutex_t http_pending_mutex;
+static void *http_retry_timer;
+#if defined(LUAT_USE_UTEST) && defined(LUAT_BSP_PC)
+static uint8_t http_utest_fail_terminal_once;
+static uint32_t http_utest_retry_delivered;
+
+void luat_http_utest_force_terminal_retry(void) {
+	luat_rtos_mutex_lock(http_pending_mutex, 0);
+	http_utest_fail_terminal_once = 1;
+	http_utest_retry_delivered = 0;
+	luat_rtos_mutex_unlock(http_pending_mutex);
+}
+
+uint32_t luat_http_utest_retry_delivered_count(void) {
+	luat_rtos_mutex_lock(http_pending_mutex, 0);
+	uint32_t count = http_utest_retry_delivered;
+	luat_rtos_mutex_unlock(http_pending_mutex);
+	return count;
+}
+#endif
+
+/* 终态消息已经脱离 ctrl, 队列满时留在这里由定时器非阻塞重试。 */
+static LUAT_RT_RET_TYPE http_retry_timer_cb(LUAT_RT_CB_PARAM) {
+	(void)param;
+	luat_rtos_mutex_lock(http_pending_mutex, 0);
+	while (http_pending_head) {
+		luat_http_msg_t *msg = http_pending_head;
+		luat_http_msg_t *next = msg->next;
+		rtos_msg_t rtmsg = {0};
+		rtmsg.handler = l_http_msg_handler;
+		rtmsg.ptr = msg;
+		msg->next = NULL;
+		if (luat_msgbus_put(&rtmsg, 0) != 0) {
+			msg->next = next;
+			break;
+		}
+#if defined(LUAT_USE_UTEST) && defined(LUAT_BSP_PC)
+		http_utest_retry_delivered++;
+#endif
+		// 入队成功后消费者可能立刻释放 msg, 此处只使用预存的 next
+		http_pending_head = next;
+		if (http_pending_head == NULL) {
+			http_pending_tail = NULL;
+		}
+	}
+	luat_rtos_mutex_unlock(http_pending_mutex);
+}
+
 static int http_add_header(luat_http_ctrl_t *http_ctrl, const char* name, const char* value){
 	if (name == NULL || value == NULL || strlen(name) == 0 || strlen(value) == 0) {
 		return -1;
@@ -249,7 +300,9 @@ static int l_http_request(lua_State *L) {
 	}
 	LLOGD("http action timeout %dms", http_ctrl->timeout);
 
-    luat_http_client_init(http_ctrl, use_ipv6);
+	if (luat_http_client_init(http_ctrl, use_ipv6) != 0) {
+		goto error;
+	}
 	http_ctrl->netc->is_debug = (uint8_t)is_debug;
 	http_ctrl->debug_onoff = (uint8_t)is_debug;
 	const char *method = luaL_optlstring(L, 1, "GET", &len);
@@ -383,6 +436,15 @@ static const rotable_Reg_t reg_http[] =
 };
 
 LUAMOD_API int luaopen_http( lua_State *L ) {
+	if (http_pending_mutex == NULL && luat_rtos_mutex_create(&http_pending_mutex) != 0) {
+		return luaL_error(L, "http pending mutex allocation failed");
+	}
+	if (http_retry_timer == NULL) {
+		http_retry_timer = luat_create_rtos_timer(http_retry_timer_cb, NULL, NULL);
+		if (http_retry_timer == NULL) {
+			return luaL_error(L, "http retry timer allocation failed");
+		}
+	}
     luat_newlib2(L, reg_http);
     return 1;
 }
@@ -497,9 +559,39 @@ int luat_http_client_onevent(luat_http_msg_t *msg) {
 	rtos_msg_t rtmsg = {0};
 	rtmsg.handler = l_http_msg_handler;
 	rtmsg.ptr = msg;
-	if (luat_msgbus_put(&rtmsg, 0) != 0) {
-		// 投递失败(队列满): 按所有权约定由生产者释放
-		LLOGE("http msgbus full, drop http event %d idg %d", msg->event, (int)msg->idg);
+	int put_result;
+#if defined(LUAT_USE_UTEST) && defined(LUAT_BSP_PC)
+	int force_fail = 0;
+	if (msg->event != HTTP_CALLBACK) {
+		luat_rtos_mutex_lock(http_pending_mutex, 0);
+		force_fail = http_utest_fail_terminal_once;
+		http_utest_fail_terminal_once = 0;
+		luat_rtos_mutex_unlock(http_pending_mutex);
+	}
+	put_result = force_fail ? -1 : luat_msgbus_put(&rtmsg, 0);
+#else
+	put_result = luat_msgbus_put(&rtmsg, 0);
+#endif
+	if (put_result != 0) {
+		if (msg->event != HTTP_CALLBACK && http_pending_mutex && http_retry_timer) {
+			// 终态不能丢弃; timer 自己重试入队, 不阻塞网络回调线程
+			luat_rtos_mutex_lock(http_pending_mutex, 0);
+			if (http_pending_head == NULL && luat_start_rtos_timer(http_retry_timer, 100, 1) != 0) {
+				luat_rtos_mutex_unlock(http_pending_mutex);
+				luat_http_msg_free(msg);
+				return -1;
+			}
+			msg->next = NULL;
+			if (http_pending_tail) {
+				http_pending_tail->next = msg;
+			} else {
+				http_pending_head = msg;
+			}
+			http_pending_tail = msg;
+			luat_rtos_mutex_unlock(http_pending_mutex);
+			return 0;
+		}
+		LLOGE("http msgbus full, drop progress event %d idg %d", msg->event, (int)msg->idg);
 		luat_http_msg_free(msg);
 		return -1;
 	}

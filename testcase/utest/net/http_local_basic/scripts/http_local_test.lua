@@ -7,6 +7,10 @@ function http_local_suite.test_http_local_get()
     assert(http.utest("http_local_get") == true, "http_local_get 失败")
 end
 
+function http_local_suite.test_http_local_terminal_retry()
+    assert(http.utest("http_local_terminal_retry") == true, "http_local_terminal_retry 失败")
+end
+
 function http_local_suite.test_http_local_get_json()
     assert(http.utest("http_local_get_json") == true, "http_local_get_json 失败")
 end

@@ -92,8 +92,11 @@ local function  camera_cb(app_id, event, param)
         --camera.set_usb_config(usb_app_id, camera.CONF_UVC_RESOLUTION, 1, 5)
         camera.cache(camera.USB, usb_app_id, frame_buff0, frame_buff1)
 		--camera.stream(camera.USB, usb_app_ide) -- 只输出视频流
-        camera.stream(camera.USB, usb_app_id, nil, nil, true, true) -- 输出视频流同时扫码
+        --camera.stream(camera.USB, usb_app_id, nil, nil, true, true) -- 输出视频流同时扫码
 		--camera.stream(camera.USB, usb_app_id, nil, nil, false, true) -- 只扫码，不输出视频流
+        --camera.stream(camera.USB, usb_app_id, nil, nil, false, true, camera.SCAN_FMT_QR) -- 只扫QR CODE码，不输出视频流
+        --camera.stream(camera.USB, usb_app_id, nil, nil, false, true, camera.SCAN_FMT_1D) -- 只扫条码，不输出视频流
+        camera.stream(camera.USB, usb_app_id, nil, nil, false, true, camera.SCAN_FMT_1D + camera.SCAN_FMT_QR) -- 只扫条码和QRCODE，不输出视频流
         return
 
     end

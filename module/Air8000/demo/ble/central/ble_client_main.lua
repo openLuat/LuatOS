@@ -2,12 +2,12 @@
 @module  ble_client_main
 @summary ble client 主应用功能模块
 @version 1.1
-@date    2026.05.18
+@date    2026.09.28
 @author  王世豪
 @usage
 本文件为ble client 主应用功能模块，核心业务逻辑为：
 1. 初始化BLE功能
-2. 扫描目标BLE设备（默认名称为"LuatOS"）
+2. 扫描目标BLE设备（按设备名称或MAC地址匹配，由config.match_mode选择）
 3. 建立与目标设备的连接
 4. 处理各类BLE事件（连接、断开连接、扫描报告、GATT操作完成等）
 5. 接收并处理来自其他模块的请求（如READ_REQ读取请求）
@@ -33,7 +33,9 @@ local TASK_NAME = ble_client_sender.TASK_NAME_PREFIX.."main"
 
 -- 配置参数
 config = {
-    target_device_name = "LuatOS", -- 目标设备名称
+    match_mode = "name",                 -- 目标设备匹配方式: "name"=按设备名称匹配, "mac"=按MAC地址匹配
+    target_device_name = "LuatOS",      -- 目标设备名称(match_mode为"name"时生效)
+    target_device_mac = "C8C2C6906602", -- 目标设备MAC地址(match_mode为"mac"时生效)
     target_service_uuid = "FA00",  -- 目标服务UUID
     target_notify_char = "EA01",   -- 目标通知特征值UUID
     target_write_char = "EA02",    -- 目标写入特征值UUID
@@ -75,11 +77,26 @@ sys.subscribe("WIFI_STATE_CHANGED", wifi_state_change)
 -- 设备过滤函数
 local function is_target_device(scan_param)
     log.info("scan_param", scan_param.data:toHex())
-    -- 检查设备名称是否匹配
-    if scan_param.data and scan_param.data:find(config.target_device_name) then
-        log.info("BLE", "发现目标设备: " .. config.target_device_name)
-        return true
+
+    if config.match_mode == "mac" then
+        -- 按MAC地址匹配
+        if not scan_param.adv_addr or not config.target_device_mac then
+            return false
+        end
+        local mac = scan_param.adv_addr:toHex():upper()
+        if mac == config.target_device_mac:upper() then
+            log.info("BLE", "发现目标设备, MAC匹配: " .. mac)
+            return true
+        end
+    else
+        -- 按设备名称匹配
+        if scan_param.data and config.target_device_name and
+           scan_param.data:find(config.target_device_name) then
+            log.info("BLE", "发现目标设备, 名称匹配: " .. config.target_device_name)
+            return true
+        end
     end
+
     return false
 end
 
@@ -284,6 +301,7 @@ local function ble_client_main_task_func()
                     uuid_service = string.fromHex(service_uuid),
                     uuid_characteristic = string.fromHex(char_uuid)
                 }
+
                 if ble_device then
                     ble_device:read_value(read_params)
                 end

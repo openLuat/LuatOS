@@ -55,8 +55,8 @@ function M.airui_init(cfg)
     -- 获取物理分辨率并初始化 AirUI。真机 AirUI(LUATOS) 依赖 display.init 已注册的 FB。
     local w, h = screen_get_size(cfg)
     local r = airui.init(w, h)
-    -- 开启调试模式
-    airui.debug(true)
+    -- -- 开启调试模式
+    -- airui.debug(true)
     if not r then
         log.error("lcd_common", "airui.init 失败")
         return r
@@ -114,21 +114,29 @@ function M.airui_init(cfg)
 end
 
 --[[
-开启背光
+开启背光（背光点亮的唯一收口，boot_ui 在首帧上屏后调用）
 支持两种模式:
   PWM 模式: backlight = { pwm_ch, pwm_freq } — 通过 PWM 通道调节亮度
   GPIO 模式: backlight = { gpio_bl } — 通过 GPIO 直接控制亮灭（不支持调光）
-@param table cfg  包含 backlight 配置
+背光使能脚取值优先级: backlight.gpio_bl > params.pin_bl
+  （params.pin_bl 已由 lcd_display_rgb.init 压低延后，此处点亮，防 RGB 残影闪屏）
+@param table cfg  hw.lcd 配置（含 backlight 与 params）
 ]]
 function M.backlight_on(cfg)
     local bl = cfg.backlight or {}
-    if bl.gpio_bl then
+    -- 背光使能 GPIO：显式 gpio_bl 优先，否则回落到 params.pin_bl
+    local gpio_pin = bl.gpio_bl or (cfg.params and cfg.params.pin_bl)
+    if gpio_pin and not bl.pwm_ch then
         -- GPIO 背光模式: 设置 GPIO 为输出高电平，不支持亮度调节
-        gpio.setup(bl.gpio_bl, 1)
-        gpio.set(bl.gpio_bl, 1)
-        log.info("lcd_common", "背光已开启 gpio=" .. bl.gpio_bl)
+        gpio.setup(gpio_pin, 1)
+        gpio.set(gpio_pin, 1)
+        log.info("lcd_common", "背光已开启 gpio=" .. gpio_pin)
     else
-        -- PWM 背光模式（默认）
+        -- PWM 背光模式（默认）；GPIO 使能 + PWM 调光的组合板先拉使能脚
+        if gpio_pin then
+            gpio.setup(gpio_pin, 1)
+            gpio.set(gpio_pin, 1)
+        end
         local ch = bl.pwm_ch or 0
         local freq = bl.pwm_freq or 1000
         pwm.setup(ch, freq, 100) -- 占空比 100%（最大亮度）

@@ -29,7 +29,8 @@ require 即执行，以下按顺序发生：
 
 4. 双字体路径：有 font.path → 从文件系统加载 .ttf（Air8101），无 path → 使用固件内置字库（其余平台）
 
-5. RGB 帧缓冲：SPI 屏直接刷屏，RGB 屏需要 setupBuff + autoFlush(false) 双缓冲避免撕裂
+5. RGB 帧缓冲：统一走 display.init 分配 FrameBuffer（need_buffer 仅作配置语义保留），
+   不再需要 lcd.setupBuff / autoFlush 手动管理
 ]]
 
 local M = {}
@@ -46,12 +47,6 @@ local function screen_get_size(cfg)
             return dw, dh
         end
     end
-    if lcd and lcd.getSize then
-        local lw, lh = lcd.getSize()
-        if lw and lw > 0 then
-            return lw, lh
-        end
-    end
     local p = cfg and cfg.params
     return (p and p.w) or 800, (p and p.h) or 480
 end
@@ -60,15 +55,11 @@ function M.airui_init(cfg)
     -- 获取物理分辨率并初始化 AirUI。真机 AirUI(LUATOS) 依赖 display.init 已注册的 FB。
     local w, h = screen_get_size(cfg)
     local r = airui.init(w, h)
+    -- -- 开启调试模式
+    -- airui.debug(true)
     if not r then
         log.error("lcd_common", "airui.init 失败")
         return r
-    end
-
-    -- lcd 路径才需要 setupBuff；display.init 已分配 FrameBuffer
-    if cfg.need_buffer and (not display or not display.getFbInfo) and lcd and lcd.setupBuff then
-        lcd.setupBuff(nil, true)
-        lcd.autoFlush(false)
     end
 
     -- 字体加载：文件系统 .ttf（Air8101）vs 固件内置字库（其余平台）
@@ -102,9 +93,9 @@ function M.airui_init(cfg)
     local rot = airui.get_rotation()
     local pw, ph = screen_get_size(cfg)
     if rot == 0 or rot == 180 then
-        _G.screen_w, _G.screen_h = pw, ph       -- 正常方向
+        _G.screen_w, _G.screen_h = pw, ph -- 正常方向
     else
-        _G.screen_h, _G.screen_w = pw, ph       -- 90/270度旋转后宽高互换
+        _G.screen_h, _G.screen_w = pw, ph -- 90/270度旋转后宽高互换
     end
     _G.is_landscape = (_G.screen_w > _G.screen_h)
 
@@ -113,7 +104,7 @@ function M.airui_init(cfg)
     -- 结果 ≥1.0，高分辨率屏放大 UI，低分辨率屏保持原始大小
     _G.screen_size = cfg.screen_size or 5.0
     local dp = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
-    local bp = 186.6                                  -- 基准 PPI（5寸 480×800）
+    local bp = 186.6                                   -- 基准 PPI（5寸 480×800）
     _G.density_scale = (dp / _G.screen_size) / bp
     _G.density_scale = math.max(1.0, _G.density_scale) -- 低分辨率屏不做缩小
     log.info("lcd_common", string.format("screen %dx%d size=%.1f\" density=%.2f",
@@ -123,70 +114,67 @@ function M.airui_init(cfg)
 end
 
 --[[
-开启背光
+开启背光（背光点亮的唯一收口，boot_ui 在首帧上屏后调用）
 支持两种模式:
   PWM 模式: backlight = { pwm_ch, pwm_freq } — 通过 PWM 通道调节亮度
   GPIO 模式: backlight = { gpio_bl } — 通过 GPIO 直接控制亮灭（不支持调光）
-@param table cfg  包含 backlight 配置
+背光使能脚取值优先级: backlight.gpio_bl > params.pin_bl
+  （params.pin_bl 已由 lcd_display_rgb.init 压低延后，此处点亮，防 RGB 残影闪屏）
+@param table cfg  hw.lcd 配置（含 backlight 与 params）
 ]]
 function M.backlight_on(cfg)
     local bl = cfg.backlight or {}
-    if bl.gpio_bl then
+    -- 背光使能 GPIO：显式 gpio_bl 优先，否则回落到 params.pin_bl
+    local gpio_pin = bl.gpio_bl or (cfg.params and cfg.params.pin_bl)
+    if gpio_pin and not bl.pwm_ch then
         -- GPIO 背光模式: 设置 GPIO 为输出高电平，不支持亮度调节
-        gpio.setup(bl.gpio_bl, 1)
-        gpio.set(bl.gpio_bl, 1)
-        log.info("lcd_common", "背光已开启 gpio=" .. bl.gpio_bl)
+        gpio.setup(gpio_pin, 1)
+        gpio.set(gpio_pin, 1)
+        log.info("lcd_common", "背光已开启 gpio=" .. gpio_pin)
     else
-        -- PWM 背光模式（默认）
+        -- PWM 背光模式（默认）；GPIO 使能 + PWM 调光的组合板先拉使能脚
+        if gpio_pin then
+            gpio.setup(gpio_pin, 1)
+            gpio.set(gpio_pin, 1)
+        end
         local ch = bl.pwm_ch or 0
         local freq = bl.pwm_freq or 1000
-        pwm.setup(ch, freq, 100)      -- 占空比 100%（最大亮度）
-        pwm.start(ch)                  -- 启动 PWM 输出
+        pwm.setup(ch, freq, 100) -- 占空比 100%（最大亮度）
+        pwm.start(ch)            -- 启动 PWM 输出
         log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq)
     end
 end
 
--- C 的 lcd 是只读 rotable，不能写 lcd.getSize。用 Lua 代理覆盖全局 lcd：
--- 页面仍调 lcd.getSize()，优先 display.getSize()；其它字段转给原 lcd（有的话）。
+-- PC 模拟器跳过 display.init，display.getSize() 会返回 0,0。用 Lua 代理覆盖全局 display：
+-- getSize 优先透传 display.getSize()，无效则回退 airui_init 算出的 _G.screen_w/h；
+-- 其它字段/方法（init/getFbInfo/...）原样透传给 C 的 display 库。
 do
-    local orig_lcd = lcd
-    local orig_getSize
-    if orig_lcd then
-        local ok, fn = pcall(function()
-            return orig_lcd.getSize
-        end)
-        if ok and type(fn) == "function" then
-            orig_getSize = fn
+    local orig_display = display
+    local proxy = {}
+    if orig_display then
+        setmetatable(proxy, { __index = orig_display })
+    end
+    function proxy.getSize(...)
+        if orig_display and orig_display.getSize then
+            local w, h = orig_display.getSize(...)
+            if w and w > 0 then
+                return w, h
+            end
         end
+        if _G.screen_w and _G.screen_w > 0 then
+            return _G.screen_w, _G.screen_h
+        end
+        return 800, 480
     end
-    local proxy = {
-        getSize = function()
-            if display and display.getSize then
-                local w, h = display.getSize()
-                if w and w > 0 then
-                    return w, h
-                end
-            end
-            if _G.screen_w and _G.screen_w > 0 then
-                return _G.screen_w, _G.screen_h
-            end
-            if orig_getSize then
-                return orig_getSize()
-            end
-            return 800, 480
-        end,
-    }
-    if orig_lcd then
-        setmetatable(proxy, { __index = orig_lcd })
-    end
-    rawset(_G, "lcd", proxy)
+
+    rawset(_G, "display", proxy)
 end
 
 -- ==================== 构建全局驱动接口（require 时自动执行） ====================
 -- 读取 project_config，动态 require LCD/TP 驱动模块，构建 _G.lcd_drv / _G.tp_drv
 -- 后续 ui_main.lua 通过这两个全局对象调用 init() / backlight_on()，不感知底层型号差异
 do
-    local cfg = _G.project_config
+    local cfg       = _G.project_config
 
     -- 动态加载驱动模块：根据配置中的 model 字段 require 对应 .lua 文件
     -- 例：cfg.hw.lcd.model = "lcd_display_rgb" → require "lcd_display_rgb"
@@ -194,19 +182,12 @@ do
     local tp_model  = require(cfg.hw.tp.model)
 
     -- LCD 驱动全局接口
-    _G.lcd_drv = {
+    _G.lcd_drv      = {
         init = function()
-            local ok
-            if rtos.bsp() == "PC" then
-                -- PC 模拟器：lcd.init 正常调用初始化虚拟显示，但 lcd.cmd/data 是硬件寄存器序列，模拟器跳过
-                local real_lcd = lcd
-                local pc_lcd = setmetatable({ cmd = function() end, data = function() end }, { __index = real_lcd })
-                rawset(_G, "lcd", pc_lcd)
-                ok = lcd_model.init(cfg.hw.lcd.params)
-                rawset(_G, "lcd", real_lcd)
-            else
-                ok = lcd_model.init(cfg.hw.lcd.params)
-            end
+            -- ic_init 已改为返回 custom_cmds 表（由 display.init 内部发送），
+            -- 无运行时 lcd.cmd/data 调用，PC 模拟器由 lcd_display_rgb 内部跳过 display.init，
+            -- 不再需要旧 lcd 库的命令桩
+            local ok = lcd_model.init(cfg.hw.lcd.params)
             if ok then
                 -- 硬件就绪后立即初始化 AirUI 渲染引擎（字体、旋转、密度）
                 M.airui_init(cfg.hw.lcd)
@@ -219,10 +200,15 @@ do
     }
 
     -- TP 触摸驱动全局接口
-    _G.tp_drv = {
+    _G.tp_drv       = {
         init = function()
             -- 初始化 GT911 触摸芯片（I2C 配置、中断引脚、分辨率映射）
             return tp_model.init(cfg.hw.tp.params)
+        end,
+        -- 恢复触摸 I2C 总线配置（exaudio.setup 会用 i2c.setup 重置总线，见 tp_gt911.i2c_restore）
+        i2c_restore = function()
+            if tp_model.i2c_restore then return tp_model.i2c_restore() end
+            return false
         end,
     }
 end

@@ -48,7 +48,7 @@ return {
             params = {
                 interface = "rgb",        -- RGB 接口
                 pin_rst = 38,            -- 复位引脚 GPIO38
-                pin_bl = 55,             -- 背光/供电 GPIO55（与 LCD_EN 共用）
+                pin_pwr = 55,            -- 屏供电使能 GPIO55（与 LCD_EN 共用，init 即拉高）；背光亮度走 PWM1，亮灭时机由 backlight_on 收口
                 w = 1024,                -- 水平分辨率
                 h = 600,                 -- 竖直分辨率
                 -- AirLCD_1070 屏专属 RGB 时序参数

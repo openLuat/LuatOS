@@ -63,11 +63,7 @@ return {
     -- ===== GPIO 上电时序 =====
     -- 按顺序初始化各外设供电和复位（顺序即依赖：喇叭→LCD→WiFi→UVC→4G→TP）
     power_on = {
-        { pin = 65, dir = 1, level = 1 },              -- SD_EN 拉高，等 100ms 就绪
-        { pin = 57, dir = 1, level = 0, delay = 100 }, -- WIFI_EN 拉高使能 WiFi 模组供电，等 100ms 就绪
-        { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
-        { pin = 64, dir = 0, level = 1, delay = 50 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
-        { pin = 15, dir = 0, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
+        -- { pin = 15, dir = 1, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
         { pin = 72, dir = 0, level = 1 },              -- TP I2C 上拉（485_RE_DE 拉高，同时 TP I2C 就绪）
     },
 
@@ -78,7 +74,7 @@ return {
             model = "lcd_display_rgb", -- 本工程统一 RGB 驱动（内部走 display.init）
             params = {
                 interface = "rgb",     -- RGB 接口
-                pin_rst = 15,          -- LCD_DISP = GPIO15（复位/显示使能）
+                -- pin_rst = 15,          -- LCD_DISP = GPIO15（复位/显示使能）
                 -- pin_de = 25,                -- LCD_DE = GPIO25 数据使能 —— 见文件头第 7 条，驱动不透传
                 w = 1024,              -- 水平分辨率
                 h = 600,               -- 竖直分辨率

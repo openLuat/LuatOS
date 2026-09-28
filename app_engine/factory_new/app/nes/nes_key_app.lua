@@ -6,7 +6,8 @@
 @author  江访
 
 由 app_main 根据 project_config.features.nes 条件加载。
-订阅 OPEN_WELCOME_WIN 事件（LCD初始化后触发），延迟注册GPIO中断。
+注册时机双保险：模块加载即注册（boot_ui 快速启动下 OPEN_WELCOME_WIN 早于
+app_main 加载，单纯订阅会漏）+ 订阅 OPEN_WELCOME_WIN 事件补注册，幂等可重入。
 
 按键类型（根据 key 名称自动分类）：
   - 方向键: NES_KEY_UP / NES_KEY_DOWN / NES_KEY_LEFT / NES_KEY_RIGHT
@@ -187,11 +188,8 @@ local function register_all_keys()
             log.warn("nes_key_app", "unknown key type:", key_name, "-> GPIO", pin)
         end
 
-        -- 硬件消抖
-        local debounce_ok = gpio.debounce(pin, HW_DEBOUNCE_MS, 1)
-        if debounce_ok == nil then
-            log.warn("nes_key_app", "debounce failed for", key_name, "GPIO", pin)
-        end
+        -- 硬件消抖：gpio.debounce(pin, ms, mode) 无返回值，失败只体现在后续误触发上
+        gpio.debounce(pin, HW_DEBOUNCE_MS, 1)
 
         -- 根据类型创建对应的回调
         local callback
@@ -245,6 +243,12 @@ end
 sys.subscribe("OPEN_WELCOME_WIN", function()
     register_all_keys()
 end)
+
+-- 兜底：boot_ui 快速启动流程中 OPEN_WELCOME_WIN 在 boot_task 第 2 步就发布，
+-- 本模块随 app_main 在第 6 步才加载，事件多半已派发完、单纯订阅会漏。
+-- 模块加载即注册一次（register_all_keys 幂等，与上面订阅重复调用无害）。
+-- LCD/TP 初始化在 app_main 之前已完成，此时注册 GPIO 中断是安全的。
+register_all_keys()
 
 -- NES 游戏启动后 airui.nes 初始化可能覆盖 GPIO，收到通知后补注册
 sys.subscribe("NES_GAME_STARTED", function()

@@ -21,6 +21,8 @@ return {
             params = {
                 interface = "rgb",
                 pin_rst = 15,
+                -- GPIO2 供电/背光一体（同脚）：无 ic_init，整体延后到 backlight_on
+                -- 一起开电+背光（首帧已入帧缓冲，无残影），策略见 lcd_display_rgb
                 pin_bl = 2,
                 pin_pwr = 2,
                 w = 800,

@@ -63,6 +63,14 @@ if _G.project_config and _G.project_config.features and _G.project_config.featur
     require "battery_app"
 end
 
+-- NES 游戏按键模块（按 features.nes 配置开关，需配 nes_keys）
+-- 注意 boot_ui 快速启动时序：OPEN_WELCOME_WIN 在 boot_task 第 2 步就已发布，
+-- app_main 第 6 步才被 require，单纯订阅事件会错过 ——
+-- nes_key_app 内部做了「加载即注册 + 订阅事件」双重兜底，此处 require 即可
+if _G.project_config and _G.project_config.features and _G.project_config.features.nes then
+    require "nes_key_app"
+end
+
 -- 加载 NTP 时间同步应用模块（订阅 IP_READY，首次联网自动向 ntp.aliyun.com 校时）
 require "ntp_app"
 

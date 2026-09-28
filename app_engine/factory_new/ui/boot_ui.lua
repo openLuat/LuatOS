@@ -136,12 +136,10 @@ local function boot_task()
     if not ok then
         log.error("boot_ui", "app_main 加载失败", err)
     end
-    sys.wait(0)
     ok, err = pcall(require, "ui_main")
     if not ok then
         log.error("boot_ui", "ui_main 加载失败", err)
     end
-    sys.wait(0)
 
     -- 7. 主题恢复（原 init_ui_task 语义：app_main 已跑完、无页面构建，直接改令牌即可）
     pcall(function() require("ui_theme").restore() end)

@@ -35,7 +35,7 @@ return {
             params = {
                 interface = "rgb",        -- RGB 接口
                 pin_rst = 15,            -- 复位引脚
-                pin_bl = 2,              -- 背光/供电 GPIO2（同时控制背光）
+                pin_bl = 2,              -- 背光使能 GPIO2（init 压低延后，首帧后由 backlight_on 点亮，防 RGB 残影）
                 w = 1024,                -- 水平分辨率
                 h = 600,                 -- 竖直分辨率
                 hbp = 140,               -- 水平后沿

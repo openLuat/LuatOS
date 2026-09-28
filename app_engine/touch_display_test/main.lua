@@ -50,7 +50,7 @@ PROJECT：项目名，ascii string类型
 
 VERSION：项目版本号，ascii string类型
 ]]
-PROJECT = "Engine_Air1602_5inch_480x854_005_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
+PROJECT = "Engine_Air8601_7inch_1024x600_010_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
 VERSION = "1.0.0"                                    -- 固件版本号
 
 -- 在日志中打印项目名和项目版本号

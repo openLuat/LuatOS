@@ -92,8 +92,9 @@
             --     h = 600,             -- 竖直分辨率（像素），如 320/480/854/600
                 -- xoffset = 0,      -- [可选,默认0] X 方向像素偏移
                 -- yoffset = 0,      -- [可选,默认0] Y 方向像素偏移
-                -- pin_bl = 2,       -- [可选] 背光/供电使能 GPIO
-                -- pin_pwr = 57,     -- [可选] 屏供电使能 GPIO（LCD_EN）
+                -- pin_bl = 2,       -- [可选] 背光使能 GPIO —— init 压低延后，首帧后由 backlight_on 点亮（防 RGB 残影）
+                -- pin_pwr = 57,     -- [可选] 屏供电使能 GPIO（LCD_EN）—— init 即拉高
+                --                     同脚(pin_bl == pin_pwr)且无 ic_init 时整体延后，开电+背光一起亮，无残影
 
                 -- === 需要 SPI 寄存器初始化的 RGB IC（NV3052C / ST7701S / GC9503 等）===
                 -- 两条路径二选一：

@@ -10,7 +10,22 @@ params: { port, pin_rst, pin_int, int_type, i2c_speed, w, h, gpio_reset }
 ]]
 local M = {}
 
+-- 最近一次 init 的总线参数：exaudio 等模块会用 i2c.setup 重置总线（丢轮询模式），
+-- i2c_restore() 供外部在音频初始化后恢复触摸总线配置
+local saved_params = nil
+
+--- 恢复触摸 I2C 总线配置（速率 + 轮询模式）
+--- @return boolean 是否已恢复（init 未跑过返回 false）
+function M.i2c_restore()
+    if not saved_params then return false end
+    local polling = saved_params.i2c_polling
+    if polling == nil then polling = true end
+    i2c.setup(saved_params.port, saved_params.i2c_speed or 0, polling)
+    return true
+end
+
 function M.init(params)
+    saved_params = params
     -- GPIO 复位序列（部分底板需要）
     if params.gpio_reset then
         gpio.setup(params.gpio_reset, 0)
@@ -18,10 +33,16 @@ function M.init(params)
     end
 
     -- I2C 初始化
+    -- 第三参 true = 轮询模式（API 文档原话："除非使用中有问题，否则留空"）。
+    -- 触摸坐标在 TP 中断路径里突发读，中断驱动 I2C 与嵌套中断相互干扰时，
+    -- 会恰好"仅触摸时"报 I2C 错误 —— 轮询模式根治；触摸带宽极小，性能无感。
+    -- params.i2c_polling 可显式传 false 回退平台默认（中断模式）。
+    local polling = params.i2c_polling
+    if polling == nil then polling = true end
     if params.i2c_speed then
-        i2c.setup(params.port, params.i2c_speed)
+        i2c.setup(params.port, params.i2c_speed, polling)
     else
-        i2c.setup(params.port)
+        i2c.setup(params.port, 0, polling)
     end
 
     -- tp.init

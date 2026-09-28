@@ -1,41 +1,54 @@
 --[[
 @module  welcome_win
-@summary 开机欢迎页 —— 黑色背景播放 HZV 开机动画
-@version 3.1
-@date    2026.09.20
+@summary 开机欢迎页 —— 先亮静态 logo，初始化完成后播 HZV 开机动画
+@version 4.0
+@date    2026.09.26
 @author  江访
 @usage
-订阅: OPEN_WELCOME_WIN  → 创建欢迎页，播放 /luatos_boot.hzv
+订阅: OPEN_WELCOME_WIN  → 创建欢迎页，进入 LOGO 阶段（黑底 + logo 图）
+订阅: BOOT_INIT_DONE    → 初始化完成，进入 VIDEO 阶段播放 /luatos_boot.hzv
 发布: OPEN_IDLE_WIN     → 动画播完或超时后发布，触发桌面窗口
 
-=== 视觉说明 ===
-黑色全屏背景 + 居中播放 HZV 开机动画（从容器头读取实际帧尺寸）。
+=== 两阶段状态机 ===
 
-=== 播放策略：单次播放，谁先完成谁先入场 ===
-loop = false，两条收尾路径共用同一个 finish()，先到者生效、后到者被 finished 标志挡住：
+  LOGO 阶段（on_create）：
+    黑底 + 居中 logo（/luadb/logo.png，128×128 1:1）。两个条件都满足才开播：
+      1. 最短停留 BOOT_LOGO_MIN_MS 展满（防止初始化过快 logo 一闪而过）；
+      2. BOOT_INIT_DONE 到达（或 BOOT_LOGO_MAX_WAIT_MS 兜底超时，防初始化卡死）。
 
-  1. on_complete —— videoplayer 解码到 EOF 时触发（素材播完）；
-  2. BOOT_MAX_WAIT_MS —— 兜底上限（素材比这更长，或 on_complete 没来）。
+  VIDEO 阶段（try_start_video）：
+    hzv_audio_ensure → airui.video 单次播放。收尾两条路径共用同一个 finish()，
+    先到者生效、后到者被 finished 标志挡住：
+      1. on_complete —— videoplayer 解码到 EOF 时触发（素材播完）；
+      2. BOOT_MAX_WAIT_MS —— 兜底上限（素材比这更长，或 on_complete 没来）。
 
 之所以必须留超时这条路：早期 MJPG 素材走的是软件解码路径，
 on_complete 未必会触发；且素材损坏、解码器起不来时，没有超时就会永久停在黑屏。
 
 HZV 容器自带 MP3 音轨与逐帧时长，由 videoplayer 后端统一驱动，
 Lua 侧不再手填 interval，也不再单独起一路「同名 MP3」。
+
+LOGO 阶段零主题依赖（黑底用字面量 0x000000，不 require ui_theme），
+使 welcome_win 可被 boot_ui 最早加载；logo 资源缺失时只显示黑底，流程不中断。
 ]]
 
-local theme = require "ui_theme"
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
 
 local BOOT_VIDEO   = "/luadb/luatos_boot.hzv"
 local BOOT_VW      = 480
 local BOOT_VH      = 270
+local LOGO_SIZE    = 128
 -- 兜底上限：素材比这长就按此时间入场；素材更短则由 on_complete 提前入场
 local BOOT_MAX_WAIT_MS = 5400
+-- logo 最短停留：防止初始化过快导致 logo 一闪而过
+local BOOT_LOGO_MIN_MS = 500
+-- logo 兜底：初始化卡死（如某模块 require 挂起）也强制开播，防止永久停在 logo
+local BOOT_LOGO_MAX_WAIT_MS = 3000
 
 local window_id = nil
 local bg_shape
+local logo_img
 local video_obj
 
 --[[收尾标记与定时器句柄
@@ -46,6 +59,15 @@ OPEN_IDLE_WIN 会让 exwin 重复创建桌面。
 ]]
 local finished = false
 local wait_timer = nil
+
+--[[LOGO→VIDEO 转换条件：最短停留展满(min_ok) 且 初始化完成(boot_ok) 才开播。
+boot_ok 有两条来路：BOOT_INIT_DONE 事件、logo 兜底超时；粘性标记
+_G.__boot_init_done 供 on_create 补查（防事件早于订阅丢失）。]]
+local min_ok = false
+local boot_ok = false
+local video_started = false
+local min_timer = nil
+local logo_wait_timer = nil
 
 --- 判断素材用哪种容器解析：优先看魔数，其次看扩展名
 --- @return "hzv" | "mjpg" | "mp4"
@@ -181,25 +203,38 @@ local function on_video_done()
     sys.timerStart(function() finish("播放完毕") end, 1)
 end
 
-local function on_create()
-    finished = false
-    wait_timer = nil
+--[[VIDEO 阶段入口：音频预热 + 播放 hzv（LOGO→VIDEO 转换唯一路径，只走一次）
 
-    -- 黑色全屏背景
-    bg_shape = airui.shape({
-        x = 0, y = 0, w = screen_w, h = screen_h,
-        items = {
-            { type = "rect", x = 0, y = 0, w = screen_w, h = screen_h,
-              fill = true, fill_color = theme.C.black, color = theme.C.black },
-        },
-    })
+转换条件 try_start_video 每次调用都检查：min_ok（最短停留展满）与
+boot_ok（BOOT_INIT_DONE 或 logo 兜底超时）同时满足才真正开播，
+两个条件哪条后到都由它自己触发开播，无需关心先后顺序。
+]]
+local function try_start_video()
+    if not (min_ok and boot_ok) then return end
+    if video_started or finished or not window_id then return end
+    video_started = true
+
+    if min_timer then
+        sys.timerStop(min_timer)
+        min_timer = nil
+    end
+    if logo_wait_timer then
+        sys.timerStop(logo_wait_timer)
+        logo_wait_timer = nil
+    end
+
+    -- logo 让位给视频（同为居中矩形，视频不透明会盖住 logo；销毁后也省一块解码缓存）
+    if logo_img then
+        pcall(logo_img.destroy, logo_img)
+        logo_img = nil
+    end
 
     -- 资源落点随烧录方式而变（/luadb/ 或根目录），先挑实际存在的那个
     local video_path = BOOT_VIDEO
     if not io.exists(video_path) then
         -- .hzv 优先（真机硬解）；素材还没换成 hzv 时回落同名 .mjpg，避免开机黑屏
         for _, p in ipairs({
-            "/luadb/luatos_boot.hzv","/luatos_boot.hzv", 
+            "/luadb/luatos_boot.hzv","/luatos_boot.hzv",
         }) do
             if io.exists(p) then
                 video_path = p
@@ -249,12 +284,93 @@ local function on_create()
     wait_timer = sys.timerStart(on_timeout, BOOT_MAX_WAIT_MS)
 end
 
+--[[初始化完成（boot_ui 在分批加载完业务与 UI 模块、主题恢复后发布）
+
+只置位并尝试开播；窗口尚未创建时 try_start_video 会被 window_id 挡住，
+开播时机由 on_create 查粘性标记 _G.__boot_init_done 补上（双保险）。
+]]
+local function on_boot_init_done()
+    boot_ok = true
+    if logo_wait_timer then
+        sys.timerStop(logo_wait_timer)
+        logo_wait_timer = nil
+    end
+    try_start_video()
+end
+
+local function on_create()
+    finished = false
+    wait_timer = nil
+    min_ok = false
+    boot_ok = false
+    video_started = false
+
+    -- 黑色全屏背景（0x000000 字面量：LOGO 阶段零主题依赖，可被 boot_ui 最早加载）
+    bg_shape = airui.shape({
+        x = 0, y = 0, w = screen_w, h = screen_h,
+        items = {
+            { type = "rect", x = 0, y = 0, w = screen_w, h = screen_h,
+              fill = true, fill_color = 0x000000, color = 0x000000 },
+        },
+    })
+
+    -- logo 资源落点容错（对齐 hzv 策略）；缺失只显示黑底，流程不中断
+    local logo_path = nil
+    for _, p in ipairs({ "/luadb/logo.png", "/logo.png" }) do
+        if io.exists(p) then
+            logo_path = p
+            break
+        end
+    end
+    if logo_path then
+        -- 128×128 居中 1:1 显示，不缩放
+        logo_img = airui.image({
+            x = math.floor((screen_w - LOGO_SIZE) / 2),
+            y = math.floor((screen_h - LOGO_SIZE) / 2),
+            w = LOGO_SIZE, h = LOGO_SIZE,
+            src = logo_path,
+        })
+        log.info("welcome_win", "LOGO 阶段", logo_path)
+    else
+        log.warn("welcome_win", "logo 资源缺失，LOGO 阶段仅显示黑底")
+    end
+
+    -- 最短停留：展满后放行开播（若 boot_ok 已就绪）
+    min_timer = sys.timerStart(function()
+        min_timer = nil
+        min_ok = true
+        try_start_video()
+    end, BOOT_LOGO_MIN_MS)
+
+    -- 兜底：初始化卡死也强制开播，防止永久停在 logo
+    logo_wait_timer = sys.timerStart(function()
+        logo_wait_timer = nil
+        log.warn("welcome_win", "初始化未在", BOOT_LOGO_MAX_WAIT_MS, "ms 内完成，兜底开播")
+        boot_ok = true
+        try_start_video()
+    end, BOOT_LOGO_MAX_WAIT_MS)
+
+    -- 粘性标记补查：BOOT_INIT_DONE 可能早于窗口创建（事件丢不了，见 on_boot_init_done 注释）
+    if _G.__boot_init_done then
+        boot_ok = true
+    end
+    try_start_video()
+end
+
 local function on_destroy()
     -- 先落闸，避免 close 之后残留的 on_complete 再触发一次收尾
     finished = true
     if wait_timer then
         sys.timerStop(wait_timer)
         wait_timer = nil
+    end
+    if min_timer then
+        sys.timerStop(min_timer)
+        min_timer = nil
+    end
+    if logo_wait_timer then
+        sys.timerStop(logo_wait_timer)
+        logo_wait_timer = nil
     end
 
     -- 兜底：停掉可能还在跑的容器音轨
@@ -267,6 +383,10 @@ local function on_destroy()
         pcall(video_obj.stop, video_obj)
         pcall(video_obj.destroy, video_obj)
         video_obj = nil
+    end
+    if logo_img then
+        pcall(logo_img.destroy, logo_img)
+        logo_img = nil
     end
     if bg_shape then
         bg_shape:destroy()
@@ -288,3 +408,4 @@ local function open_handler()
 end
 
 sys.subscribe("OPEN_WELCOME_WIN", open_handler)
+sys.subscribe("BOOT_INIT_DONE", on_boot_init_done)

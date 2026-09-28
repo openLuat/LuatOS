@@ -70,6 +70,12 @@ require ("aircloud_app")          -- AirCloud 通用数据上报（能力探测�
 require ("settings_report_win")   -- AirCloud 上报设置页（配 features.aircloud 使用）
 -- 应用工厂 / AI 聊天体积大，800×480 脚本区 1024KB 先不打包
 
+--[[boot_ui 延迟加载的聚合入口 **不登记** 在本清单（app_main / ui_main / welcome_win）：
+清单的 require 在 platform_loader 顶部立即执行，此刻 _G.project_config 尚未加载，
+app_main 的 features 门控会全部落空，且 require 缓存后不会二次执行，
+造成特性静默丢失。它们都是 boot_ui 源码内的静态 require 语句，
+编译系统文本扫描即可打包（与 features 门控里的 require "llm_chat" 同一机制）。]]
+
 -- ==================== 1. 平台检测 ====================
 -- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()
 local ok, _model = pcall(hmeta.model)
@@ -218,6 +224,10 @@ end
 -- power_on 格式: { pin=GPIO编号, dir=0输出/1输入, level=0低/1高, [delay=延时ms] }
 -- 例: Airlink WiFi 模组上电 → GPIO55 拉低 50ms → 拉高 120ms
 -- 使用 sys.taskInit 创建协程执行 sys.wait，避免阻塞主线程
+--
+-- 完成标记：整个序列（含各步 delay 的电源稳定时间）跑完后置 _G.__power_on_done
+-- 并发布 POWER_ON_DONE。boot_ui 以此为门再初始化触摸 —— I2C 总线上未上电的
+-- 设备会钳住 SDA/SCL，GT911 也会因电源未稳而软失败（触摸"完全失灵"）。
 if config.power_on then
     sys.taskInit(function()
         for _, step in ipairs(config.power_on) do
@@ -228,5 +238,10 @@ if config.power_on then
             end
         end
         log.info("platform_loader", "POWER_ON 完成, 步骤数:", #config.power_on)
+        _G.__power_on_done = true
+        sys.publish("POWER_ON_DONE")
     end)
+else
+    -- 无上电序列的板子视为立即就绪（boot_ui 以 _G.__power_on_done 为门）
+    _G.__power_on_done = true
 end

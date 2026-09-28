@@ -72,15 +72,15 @@ main.lua（设 PROJECT）
 platform_loader（平台检测 → PROJECT 映射 → 加载配置 → _G.project_config）
     │
     ├── lcd_common（动态 require LCD/TP 驱动 → 构建 _G.lcd_drv / _G.tp_drv）
-    ├── app_main（加载业务模块：net_init → wifi_app → ntp → settings → fota）
-    └── ui_main（LCD 初始化 → TP 初始化 → 欢迎页 → 背光 → sys.run() 事件循环）
+    └── boot_ui（快速点亮：display/airui → logo+背光 → logo 展示期间分批加载
+        app_main 业务模块与 ui_main 窗口清单 → BOOT_INIT_DONE → welcome 播 hzv → 桌面）
 ```
 
 ### 目录结构
 
 ```
 factory/
-├── main.lua                   # 入口（设 PROJECT，串联 6 阶段初始化）
+├── main.lua                   # 入口（设 PROJECT，串联 5 阶段初始化）
 ├── core/
 │   └── platform_loader.lua    # 平台检测 + 配置映射 + 引脚初始化 + GPIO 上电
 ├── config/                    # 硬件配置文件（每个 PROJECT 一个）
@@ -106,8 +106,9 @@ factory/
 │   ├── ntp/ntp_app.lua        # NTP 校时
 │   └── fota_app.lua           # OTA 固件升级
 ├── ui/                        # UI 层（纯事件驱动）
-│   ├── ui_main.lua            # UI 入口 + 硬件初始化序列
-│   ├── welcome_win.lua        # 开机欢迎页
+│   ├── boot_ui.lua            # 开机快速点亮 + 延迟初始化编排
+│   ├── ui_main.lua            # UI 窗口清单（boot_ui 在 logo 展示期间延迟加载）
+│   ├── welcome_win.lua        # 开机欢迎页（logo → hzv 两阶段）
 │   ├── idle_win.lua           # 桌面启动器
 │   ├── settings/              # 设置页面（9 个子页面）
 │   ├── wifi/                  # WiFi 页面

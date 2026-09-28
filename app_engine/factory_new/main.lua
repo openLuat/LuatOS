@@ -15,14 +15,15 @@ main.lua 是整个工厂固件的唯一入口，负责串联所有初始化阶�
   阶段1: require "platform_loader" → 平台检测 → 配置加载 → 引脚初始化 → _G.project_config 就绪
   阶段2: require "exwin" / "exapp" → 窗口管理器 + 应用沙箱（LuatOS 固件内置扩展库）
   阶段3: require "lcd_common" → 根据 project_config 构建 _G.lcd_drv / _G.tp_drv 全局驱动对象
-  阶段4: require "app_main" → 加载所有业务模块（网络/WiFi/NTP/FOTA/设置等），事件驱动自初始化
-  阶段5: require "ui_main" → 加载所有 UI 页面模块，创建 init_ui_task 协程（LCD→TP→欢迎页→背光）
-  阶段6: sys.run() → 启动事件循环，所有模块通过 publish/subscribe 解耦运行
+  阶段4: require "boot_ui" → 快速点亮（display/airui → logo+背光），随后在 logo 展示期间
+         分批延迟加载 app_main 业务模块与 ui_main 窗口清单，完成后发 BOOT_INIT_DONE
+  阶段5: sys.run() → 启动事件循环，所有模块通过 publish/subscribe 解耦运行
 
 === 关键设计决策 ===
 
 1. PROJECT 是唯一编译时变量：更换硬件只需改 PROJECT 字符串，其余全部由 platform_loader + 配置文件驱动
-2. require 顺序即初始化顺序：Lua 单线程，require 同步执行，不会出现竞态
+2. 快速点亮链路最先加载，重模块由 boot_ui 任务分批延迟加载：模块间依赖仍保持单向，
+   「点亮屏幕」不再等几十个模块加载完，其余初始化与 logo 展示并行
 3. 模块编译清单在 platform_loader 头部：编译系统静态分析 pcall(require, ...) 确定打包范围
 4. exwin/exapp 是固件内置扩展库，不在 factory 仓库中，由 LuatOS 核心库 提供
 ]]
@@ -66,7 +67,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air8602_9inch_1024x600_010_V000"
+PROJECT = "Engine_Air1602_5inch_480x854_005_V000"
 VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
 PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
 
@@ -115,15 +116,10 @@ exapp = require "exapp"
 -- 构建 _G.lcd_drv（含 init/backlight_on）和 _G.tp_drv（含 init）全局接口
 require "lcd_common"
 
--- ==================== 阶段4: 业务模块加载 ====================
--- 按顺序 require 各业务模块：net_init → wifi_app → status_provider → ntp → iot → settings → fota
--- 每个模块 require 时自动订阅事件、启动定时器，互不阻塞
-require "app_main"
+-- ==================== 阶段4: 快速点亮 + 延迟初始化编排 ====================
+-- require 即启动 boot 任务：display/airui → logo+背光 → 分批加载 app_main/ui_main → BOOT_INIT_DONE
+require "boot_ui"
 
--- ==================== 阶段5: UI 模块加载 + 启动 ====================
--- require 所有 UI 页面模块（注册窗口），然后 sys.taskInit 创建协程执行硬件初始化序列
-require "ui_main"
-
--- ==================== 阶段6: 启动事件循环 ====================
+-- ==================== 阶段5: 启动事件循环 ====================
 -- sys.run() 是 LuatOS 的主循环，永不返回。所有业务逻辑通过事件驱动在协程中运行
 sys.run()

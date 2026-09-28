@@ -55,6 +55,8 @@ function M.airui_init(cfg)
     -- 获取物理分辨率并初始化 AirUI。真机 AirUI(LUATOS) 依赖 display.init 已注册的 FB。
     local w, h = screen_get_size(cfg)
     local r = airui.init(w, h)
+    -- 开启调试模式
+    airui.debug(true)
     if not r then
         log.error("lcd_common", "airui.init 失败")
         return r
@@ -91,9 +93,9 @@ function M.airui_init(cfg)
     local rot = airui.get_rotation()
     local pw, ph = screen_get_size(cfg)
     if rot == 0 or rot == 180 then
-        _G.screen_w, _G.screen_h = pw, ph       -- 正常方向
+        _G.screen_w, _G.screen_h = pw, ph -- 正常方向
     else
-        _G.screen_h, _G.screen_w = pw, ph       -- 90/270度旋转后宽高互换
+        _G.screen_h, _G.screen_w = pw, ph -- 90/270度旋转后宽高互换
     end
     _G.is_landscape = (_G.screen_w > _G.screen_h)
 
@@ -102,7 +104,7 @@ function M.airui_init(cfg)
     -- 结果 ≥1.0，高分辨率屏放大 UI，低分辨率屏保持原始大小
     _G.screen_size = cfg.screen_size or 5.0
     local dp = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
-    local bp = 186.6                                  -- 基准 PPI（5寸 480×800）
+    local bp = 186.6                                   -- 基准 PPI（5寸 480×800）
     _G.density_scale = (dp / _G.screen_size) / bp
     _G.density_scale = math.max(1.0, _G.density_scale) -- 低分辨率屏不做缩小
     log.info("lcd_common", string.format("screen %dx%d size=%.1f\" density=%.2f",
@@ -129,8 +131,8 @@ function M.backlight_on(cfg)
         -- PWM 背光模式（默认）
         local ch = bl.pwm_ch or 0
         local freq = bl.pwm_freq or 1000
-        pwm.setup(ch, freq, 100)      -- 占空比 100%（最大亮度）
-        pwm.start(ch)                  -- 启动 PWM 输出
+        pwm.setup(ch, freq, 100) -- 占空比 100%（最大亮度）
+        pwm.start(ch)            -- 启动 PWM 输出
         log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq)
     end
 end
@@ -156,6 +158,7 @@ do
         end
         return 800, 480
     end
+
     rawset(_G, "display", proxy)
 end
 
@@ -163,7 +166,7 @@ end
 -- 读取 project_config，动态 require LCD/TP 驱动模块，构建 _G.lcd_drv / _G.tp_drv
 -- 后续 ui_main.lua 通过这两个全局对象调用 init() / backlight_on()，不感知底层型号差异
 do
-    local cfg = _G.project_config
+    local cfg       = _G.project_config
 
     -- 动态加载驱动模块：根据配置中的 model 字段 require 对应 .lua 文件
     -- 例：cfg.hw.lcd.model = "lcd_display_rgb" → require "lcd_display_rgb"
@@ -171,7 +174,7 @@ do
     local tp_model  = require(cfg.hw.tp.model)
 
     -- LCD 驱动全局接口
-    _G.lcd_drv = {
+    _G.lcd_drv      = {
         init = function()
             -- ic_init 已改为返回 custom_cmds 表（由 display.init 内部发送），
             -- 无运行时 lcd.cmd/data 调用，PC 模拟器由 lcd_display_rgb 内部跳过 display.init，
@@ -189,10 +192,15 @@ do
     }
 
     -- TP 触摸驱动全局接口
-    _G.tp_drv = {
+    _G.tp_drv       = {
         init = function()
             -- 初始化 GT911 触摸芯片（I2C 配置、中断引脚、分辨率映射）
             return tp_model.init(cfg.hw.tp.params)
+        end,
+        -- 恢复触摸 I2C 总线配置（exaudio.setup 会用 i2c.setup 重置总线，见 tp_gt911.i2c_restore）
+        i2c_restore = function()
+            if tp_model.i2c_restore then return tp_model.i2c_restore() end
+            return false
         end,
     }
 end

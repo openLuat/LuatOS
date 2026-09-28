@@ -1,21 +1,17 @@
 --[[
 @module  ui_main
-@summary UI 主模块，负责加载所有 UI 页面并启动硬件初始化序列
-@version 3.1
-@date    2026.09.16
+@summary UI 窗口清单模块：按清单加载全部内置窗口（由 boot_ui 在 logo 展示期间延迟加载）
+@version 3.2
+@date    2026.09.26
 @author  江访
 
 === 执行流程 ===
 
-  1. require 所有 UI 页面模块 → 注册窗口
-  2. init_ui_task 协程：
-     a. lcd_drv.init()         → LCD + AirUI 初始化
-     b. tp_drv.init()          → GT911 触摸初始化
-     c. lcd_drv.backlight_on() → 开启背光
-     d. OPEN_WELCOME_WIN       → welcome_win 播放 MJPG 开机动画
-     e. OPEN_IDLE_WIN          → welcome_win 播完后发布，进入桌面
+  本模块只做一件事：require 全部 UI 页面模块（注册窗口）。
+  硬件初始化与启动编排已移交 boot_ui：
+    lcd_drv.init → logo+背光 → 分批加载 app_main / 本模块 → BOOT_INIT_DONE
 
-  消息流: OPEN_WELCOME_WIN → (welcome_win 播视频) → OPEN_IDLE_WIN → idle_win
+  消息流: OPEN_WELCOME_WIN(logo) → BOOT_INIT_DONE → welcome 播 hzv → OPEN_IDLE_WIN → idle_win
 
   注: 「应用工厂 / AI 助手」两个窗口**不无条件 require** —— 它们常驻约占 1024KB，
   只在 config 的 features.app_factory / features.ai_chat 打开时才加载（见文件末尾）。
@@ -73,17 +69,5 @@ if _feat.file_transfer then
     require "file_transfer_win" -- 文件传输窗口（订阅 OPEN_FILE_TRANSFER_WIN）
 end
 
--- ==================== 硬件初始化协程 ====================
-local function init_ui_task()
-    -- 主题恢复重试：ui_theme_themes 被 require 时 fskv 很可能还没挂载完，
-    -- 这里（app_main 已跑完）再读一次，保证用户保存的主题开机不丢。
-    -- 此时还没有任何页面构建，直接改令牌即可，无需通知页面重建。
-    require("ui_theme").restore()
-
-    lcd_drv.init()
-    tp_drv.init()
-    lcd_drv.backlight_on()
-    sys.publish("OPEN_WELCOME_WIN")
-end
-
-sys.taskInit(init_ui_task)
+-- 硬件初始化与启动编排（lcd→logo+背光→分批加载→BOOT_INIT_DONE）已移交 boot_ui，
+-- 本模块不再创建 init_ui_task。

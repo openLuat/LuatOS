@@ -93,8 +93,8 @@ return {
         { pin = 74, dir = 0, level = 1 },              -- SD_EN 拉高
         { pin = 15, dir = 1, level = 0 }, -- WIFI_RST 高电平拉地
         { pin = 15, dir = 0, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
-        { pin = 73, dir = 0, level = 1 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
-        { pin = 58, dir = 0, level = 1 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
+        { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电；delay 200ms 等其就绪
+        { pin = 58, dir = 0, level = 1, delay = 50 },  -- RESET_4G 拉高释放 4G 复位；delay 50ms 等其就绪
     },
 
     -- ===== 硬件配置 =====

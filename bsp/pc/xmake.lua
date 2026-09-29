@@ -1184,6 +1184,15 @@ target("luatos-lua")
         add_includedirs(mp4player_src .. "/video_decode")
         add_includedirs(mp4player_src .. "/video_decode/avcodec")
         add_includedirs(mp4player_src .. "/video_decode/avcodec/h264")
+        -- mp4_decode.c 的 mplayer 胶水层引用 components/mplayer 的上下文结构体
+        add_includedirs(luatos.."components/mplayer/inc")
+        -- mp4player 的 plat_support.h 在 __LUATOS__ 下无条件 include luat_display.h,
+        -- 但 components/display/inc 只在 GUI 构建里加入过, 导致非 GUI 构建 C1083。
+        -- 只有头文件: luat_display_get_default() 的调用在 #if LUAT_USE_DISPLAY 内, 非 GUI 不引用。
+        add_includedirs(luatos.."components/display/inc")
+        -- FreeRTOS 兼容层(FreeRTOS.h/task.h/semphr.h), 仅 mp4_decode.c 用到,
+        -- 文件名通用, 只能在本特性开启时加入, 见 stubs/mp4player/FreeRTOS.h
+        add_includedirs("stubs/mp4player")
 
         -- ---- 音频公共模块 ----
         -- sound.c 已在 luatos-ext-components e011cd8c 拆到 platform/sound_dev_port.c
@@ -1213,8 +1222,17 @@ target("luatos-lua")
         --   现已移除 components/h264，因此可以正常编译）
 
         -- ---- MP4 解复用 + 解码协调层 ----
-        add_files(mp4player_src .. "/video_decode/mp4_decode.c")
+        -- mp4_decode.c 有两处 PC/MSVC 下需要打补丁的地方, 用强制包含处理:
+        --   1. msvc_attr_stub.h: 文件里用了 GCC 的 __attribute__((aligned(4))), MSVC 不认;
+        --      改 include 路径没用(错误点在所有 #include 之后)。
+        --   2. yuv_rgb_565.h: 上游只在 #if defined(LUAT_USE_DISPLAY) 里 include 它,
+        --      但 mplayer_h264_disp_cb() 无条件使用 YUV_RGB_Param, 非 GUI 构建会报
+        --      C2065。头文件本身自洽(只有结构体+函数声明), 提前包含无副作用。
+        add_files(mp4player_src .. "/video_decode/mp4_decode.c",
+            {forceincludes = {"msvc_attr_stub.h", "yuv_rgb_565.h"}})
         add_files(mp4player_src .. "/video_decode/video_rb.c")
+        -- YUV 帧队列（解码与渲染解耦），mp4_decode.c 的 movie_render_thread 依赖
+        add_files(mp4player_src .. "/video_decode/yuv_rb.c")
 
         -- ---- platform port（已适配 LuatOS VFS，仅含 luat_mp4player_port.c）----
         add_files(mp4player_src .. "/port/luat_mp4player_port.c")
@@ -1225,10 +1243,14 @@ target("luatos-lua")
         add_files("stubs/mp4player/dac_sound_pc.c")
         add_files("stubs/mp4player/i2s_sound_pc.c")
         add_files("stubs/mp4player/sys_dac_pc.c")
+        -- YUV_RGB_565() 在真机由 SoC C 库提供，LuatOS 内无实现，
+        -- PC 侧用库内已有的 yuv420p_to_rgb565_thumb() 转接。
+        add_files("stubs/mp4player/yuv_rgb_565_pc.c")
 
-        -- mp3player.c 自带 MINIMP3_IMPLEMENTATION（与真机同一份）。
-        -- PC 默认也会编 LuatOS components/multimedia/minimp3.c，必须先排除，否则 LNK2005。
-        remove_files(luatos .. "/components/multimedia/minimp3.c")
+        -- mp3player.c 不再自带 minimp3 实现（用 _MINIMP3_IMPLEMENTATION_GUARD 抑制），
+        -- 而复用 LuatOS components/multimedia/minimp3.c 的同一份实现。
+        -- 因此这里必须保留 LuatOS 的 minimp3.c，否则 mp3dec_init/mp3dec_decode_frame
+        -- （mp3_decode_port.c / luat_audio_codec_port_mp3.c 需要）会链接失败。
         add_includedirs(mp4player_src .. "/audio_decode/mp3")
         add_files(mp4player_src .. "/audio_decode/mp3/mp3player.c")
     end

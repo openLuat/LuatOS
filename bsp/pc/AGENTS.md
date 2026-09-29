@@ -325,3 +325,39 @@ end
 ```
 
 **目录约定**：`bsp/pc/stubs/<feature>/` — 存放只在特定可选功能开启时才参与编译的 PC stub 文件。
+
+### ⚠️ `stubs/mp4player/` 里的**头文件**桩不能全局加入 include 路径
+
+mp4player 的 `mp4_decode.c` 是按 MCU 写的，会 `#include "FreeRTOS.h" / "task.h" / "semphr.h"`。PC 没有 FreeRTOS，所以 `stubs/mp4player/` 下放了这三个兼容头，把 `xSemaphoreGive` / `vTaskSuspend` / `soc_task_sleep_ms` 映射到 LuatOS 的 `luat_rtos_*`。
+
+这四个文件名（`FreeRTOS.h`、`task.h`、`semphr.h`、`msvc_attr_stub.h`）**太通用**，一旦被全局 `add_includedirs` 加进去就会遮蔽别的同名头。规则：
+
+- `add_includedirs("stubs/mp4player")` **只能写在 mp4player 的 `if use_mp4player then` 块内**。
+- 往里加头文件前先确认该名字在整个 PC include 路径上没有别的来源。
+
+### 用 `forceincludes` 给上游源码打补丁
+
+上游代码有两类问题**改 include 路径解决不了**，必须用 xmake 的 per-file 强制包含：
+
+```lua
+add_files(mp4player_src .. "/video_decode/mp4_decode.c",
+    {forceincludes = {"msvc_attr_stub.h", "yuv_rgb_565.h"}})  -- 裸文件名，靠 -Istubs/mp4player 解析
+```
+
+- `msvc_attr_stub.h`：`__attribute__((aligned(4)))` 这类 GCC 扩展 MSVC 不认（错误点在所有 `#include` 之后）。
+- `yuv_rgb_565.h`：上游只在 `#if defined(LUAT_USE_DISPLAY)` 里 include 它，但 `mplayer_h264_disp_cb()` 无条件使用 `YUV_RGB_Param` → 非 GUI 构建 `C2065`。
+
+坑 1：**`forceincludes` 必须写裸文件名**。写相对路径（如 `stubs/mp4player/x.h`）时 MSVC 会相对**源文件所在目录**（这里是外部仓库 `luatos-ext-components/mp4player/video_decode/`）去找，必然 `C1083`。
+
+坑 2：可以传 table 一次包含多个，`add_files` 的第三参数（`{forceincludes=...}`）只对**这一条** `add_files` 生效，后续的 `add_files` 不受影响。
+
+### 上游 mp4player 会漂移，集成代码要按需核对
+
+`luatos-ext-components/mp4player` 由别的仓库维护，改动后 PC 集成代码里的假设会过期。历史上踩过的几处：
+
+- 上游给 `mp4player/audio_decode/mp3/mp3player.c` 加了 `_MINIMP3_IMPLEMENTATION_GUARD`，改为复用 LuatOS 的 `components/multimedia/minimp3.c`。PC 侧原先的 `remove_files(.../multimedia/minimp3.c)` 因此变成错误的——`mp3dec_init` / `mp3dec_decode_frame` 只有 LuatOS 那份实现。
+- 上游新增 `video_decode/yuv_rb.c`（YUV 帧队列），`mp4_decode.c` 直接调用其 `yuv_queue_*`，漏加就是 6 个 `LNK2019`。
+- 上游 `plat_support.h` 在 `__LUATOS__` 下无条件 `#include "luat_display.h"`，而 `components/display/inc` 只在 GUI 构建里加过 → 非 GUI 构建 `C1083`。
+- `YUV_RGB_565()` 真机由 SoC C 库提供，LuatOS 内没有实现，PC 侧用 `stubs/mp4player/yuv_rgb_565_pc.c` 转接到库内已有的 `yuv420p_to_rgb565_thumb()`。
+
+**核对方法**：`xmake -y` 跑完后只看链接错误里的 `LNK2019`/`LNK2005`，逐个回上游/本仓库找实现方，比反复全量编译快得多。想快速迭代单文件时可以用 `xmake project -k compile_commands .` 生成 `compile_commands.json`，复用其中该文件的完整编译参数单独跑 `cl`（~10 秒一轮）。

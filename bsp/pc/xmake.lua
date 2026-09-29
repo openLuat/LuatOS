@@ -422,6 +422,48 @@ target("luatos-lua")
         add_links("Mf", "mfplat", "mfreadwrite", "mfuuid", "windowscodecs", "ole32", "oleaut32")
     end
 
+    -- camera 扫码（Windows）：ZXing-C++ v3.1.1 软解码，源码位于
+    -- luatos-ext-components/zxing（与 luatos-sdk-ccm42xx-gcc 所用版本一致）。
+    -- 头文件 Version.h 为 cmake 生成物，PC 侧用 stubs/zxing/Version.h 代替，不改动上游。
+    -- 依赖是可选的：环境变量 LUAT_USE_CAMERA_SCAN=y 强制启用 / =n 强制禁用，
+    -- 未设置时按 luatos-ext-components/zxing 目录是否存在自动检测。
+    if is_host("windows") then
+        local zxing_src = luatos_ext_root .. "/zxing"
+        local env_scan = os.getenv("LUAT_USE_CAMERA_SCAN")
+        local use_camera_scan = os.isdir(zxing_src) and env_scan ~= "n"
+        if env_scan == "y" and not os.isdir(zxing_src) then
+            raise("LUAT_USE_CAMERA_SCAN=y 但未找到 " .. zxing_src)
+        end
+        if use_camera_scan then
+            add_defines("LUAT_USE_CAMERA_SCAN=1")
+            -- ZXing-C++ 3.x 需要 C++20（std::ranges），按文件设置标准，不动全局 cxx17；
+            -- ZXING_INTERNAL 对应上游 cmake 的 ZXING_PRIVATE_FLAGS（内部头 Quadrilateral.h 依赖它
+            -- 才暴露 ZXAlgorithms/Rectangle）；上游代码按第三方处理，关闭自身警告。
+            -- 上游 glob 不递归，这里用 ** 递归匹配，再按 core/CMakeLists.txt 的 ZXING_READERS 清单
+            -- 排除 writer 组（本场景只解码）；zueci 是 TextDecoder 依赖的 ECI 库，随源码树自带。
+            local zxing_writer_srcs = {
+                "ZXingC.cpp",                 -- C API，未启用 ZXING_C_API
+                "MultiFormatWriter.cpp", "TextEncoder.cpp",
+                "aztec/AZEncoder.cpp", "aztec/AZHighLevelEncoder.cpp", "aztec/AZToken.cpp", "aztec/AZWriter.cpp",
+                "datamatrix/DMECEncoder.cpp", "datamatrix/DMHighLevelEncoder.cpp",
+                "datamatrix/DMSymbolInfo.cpp", "datamatrix/DMWriter.cpp",
+                "oned/ODCodabarWriter.cpp", "oned/ODCode128Writer.cpp", "oned/ODCode39Writer.cpp",
+                "oned/ODCode93Writer.cpp", "oned/ODEAN13Writer.cpp", "oned/ODEAN8Writer.cpp",
+                "oned/ODITFWriter.cpp", "oned/ODUPCAWriter.cpp", "oned/ODUPCEWriter.cpp",
+                "oned/ODWriterHelper.cpp",
+                "pdf417/PDFEncoder.cpp", "pdf417/PDFHighLevelEncoder.cpp", "pdf417/PDFWriter.cpp",
+                "qrcode/QREncoder.cpp", "qrcode/QRMaskUtil.cpp", "qrcode/QRMatrixUtil.cpp", "qrcode/QRWriter.cpp",
+            }
+            local zxing_opts = {cxflags = {"/std:c++20", "/W0", "/DZXING_INTERNAL"}}
+            add_files("port/driver/luat_zxing_pc.cpp", {cxflags = {"/std:c++20"}})
+            add_files(zxing_src .. "/core/src/**.cpp|" .. table.concat(zxing_writer_srcs, "|"), zxing_opts)
+            add_files(zxing_src .. "/core/src/libzueci/*.c", {cxflags = {"/W0"}})
+            add_includedirs(zxing_src .. "/core/src", "stubs/zxing")
+        else
+            print("[pc-build] camera scan disabled: " .. zxing_src .. " not found (set LUAT_USE_CAMERA_SCAN=y to force)")
+        end
+    end
+
     -- voip
     add_includedirs(luatos.."components/voip/include")
     add_files(luatos.."components/voip/src/*.c")

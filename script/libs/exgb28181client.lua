@@ -2974,7 +2974,21 @@ local function process_packet(msg)
             return
         end
 
-        if st.auth_tried > 0 or not st.registered then
+        --[[
+        按响应的 CSeq **方法名**认领，别看本端状态（2026-09-29 修）。
+
+        原判据 `st.auth_tried > 0 or not st.registered` 是在猜"这条响应该不该
+        算注册的"：首次注册碰巧成立，但续注册是从"已注册"状态发出的无认证
+        REGISTER，两个条件都不成立 —— 平台回的 401 掉进 else 只被打印一行。
+        而 `next_reg` 已在发请求前清零、重排它的 `schedule_reregister()` 又只在
+        200 分支里调，于是**再没有东西会重排**：设备停在"已注册"假象里，直到 TCP
+        断开才重连（实测六次续注册六次全挂，每次等 12~22 小时）。
+
+        CSeq 是报文里现成的身份证（响应原样回抄），不依赖状态，首注册/续注册/
+        以后新增的注册路径都自动覆盖。
+        ]]
+        local cseq_method = (msg.headers["cseq"] or ""):match("%s+(%a+)$")
+        if cseq_method == "REGISTER" then
             handle_register_response(msg)
         else
             log_info("收到响应", msg.code, msg.reason)

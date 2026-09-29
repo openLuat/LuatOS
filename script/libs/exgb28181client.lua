@@ -765,20 +765,22 @@ local function handle_device_control(msg, sn)
     end
 
     --[[
-    交给应用执行一个控制项。
+    交给应用执行一个控制项：没注册处理者 → ERROR，处理者抛异常 → ERROR，
+    否则 → OK。统一在这里收口，是为了这两种情况在所有控制项上行为一致 ——
+    逐个子类型各写一遍迟早漏掉一种，而漏掉的表现是平台侧一直等到超时。
 
-    统一在这里收口，是为了让"没注册处理者""处理者抛异常"这两种情况在所有
-    控制项上行为一致 —— 逐个子类型各写一遍迟早会漏掉一种，而漏掉的表现是
-    平台侧一直等到超时。
+    `extra` 是给应用的第二个参数（目前只有云台用：那条 16 字符原始指令）。
+    **别漏传**：文档写的是 `handler(cmd, hex)`，曾经只传了 arg，按文档写的
+    应用会静默拿到 nil。
     ]]
-    local function dispatch(handler, ev_name, arg, desc)
+    local function dispatch(handler, ev_name, arg, desc, extra)
         if type(handler) ~= "function" then
             log_warn("收到" .. desc .. "但没有注册处理者，回 ERROR", desc)
             emit(ev_name, "unsupported", { arg = arg })
             answer("ERROR")
             return
         end
-        local ok, err = pcall(handler, arg)
+        local ok, err = pcall(handler, arg, extra)
         if not ok then
             log_error(desc .. "处理异常", err)
             answer("ERROR")
@@ -811,7 +813,7 @@ local function handle_device_control(msg, sn)
         if not cmd.ok then
             log_warn("PTZCmd 校验字节对不上，仍按解析结果处理", d.ptz_hex)
         end
-        dispatch(g_ptz_cb, "ptz", cmd, "云台指令")
+        dispatch(g_ptz_cb, "ptz", cmd, "云台指令", d.ptz_hex)
         return
     end
 

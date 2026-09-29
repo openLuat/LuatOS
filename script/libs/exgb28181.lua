@@ -140,8 +140,8 @@ end
 --[[
 向用户回调派发事件。回调内部异常不会向外抛出，避免打断协议任务。
 @api exgb28181.on 的回调原型
-@string event 事件大类，如 "register"、"invite"、"media"、"catalog"
-@string action 动作，如 "ok"、"incoming"、"ready"、"ended"
+@string event 事件大类，如 "register"、"invite"、"media"、"query"
+@string action 动作，如 "ok"、"accepted"、"ready"、"ended"
 @table data 事件负载
 ]]
 local function emit(event, action, data)

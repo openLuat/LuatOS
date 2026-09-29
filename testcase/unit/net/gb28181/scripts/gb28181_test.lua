@@ -241,8 +241,9 @@ end
 未启动时 is_registered() 必须为 false。
 
 注意 exgb28181 是模块级单例，无法真正清空已保存的配置，因此这里不测
-"未 init 就 start" 那条路径（它需要未初始化的干净状态）；该路径的用例
-放在 gb28181_client_test.lua 里，针对可自由构造的 client 测。
+"未 init 就 start" 那条路径（它需要未初始化的干净状态）。那条分支目前
+**没有用例覆盖**：client 侧没有 init()，只有门面 exgb28181.lua 有
+（`return false, "请先调用 init() 完成配置"`）。
 ]]
 function t.test_is_registered_false_when_not_started()
     assert(exgb28181.is_registered() == false,

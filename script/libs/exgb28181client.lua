@@ -398,7 +398,7 @@ UDP 上对端消亡既不给 CLOSED 也不给错误，只能靠"请求发出去�
 
 不另立"发送失败即判死"的分支，是为了避免误伤：TCP 发送缓冲瞬时打满这类
 无害抖动也会让 net_send 失败，而重建链路会**清掉名下所有点播/音频会话**
-（见 `_teardown_signaling`），代价不小。借用已有的 15 秒判据，语义一致、风险最小。
+（见 `_teardown_for_reconnect`），代价不小。借用已有的 15 秒判据，语义一致、风险最小。
 ]]
 local function send_register(auth)
     local text = send_request("REGISTER", {
@@ -765,9 +765,9 @@ local function handle_device_control(msg, sn)
     end
 
     --[[
-    交给应用执行一个控制项：没注册处理者 → ERROR，处理者抛异常 → ERROR，
-    否则 → OK。统一在这里收口，是为了这两种情况在所有控制项上行为一致 ——
-    逐个子类型各写一遍迟早漏掉一种，而漏掉的表现是平台侧一直等到超时。
+    统一在这里收口，是为了"没注册处理者""处理者抛异常"这两条规则在所有控制项上
+    行为一致（规则本身的理由见上面的"几个刻意的取舍"）—— 逐个子类型各写一遍
+    迟早漏掉一种，而漏掉的表现是平台侧一直等到超时。
 
     `extra` 是给应用的第二个参数（目前只有云台用：那条 16 字符原始指令）。
     **别漏传**：文档写的是 `handler(cmd, hex)`，曾经只传了 arg，按文档写的
@@ -1163,7 +1163,6 @@ local function media_close(sess)
     end
 end
 
--- 回一个 SIP 响应(状态码 + 可选 body)
 --[[
 回一条 SIP 响应。
 
@@ -1204,11 +1203,6 @@ local function reply(msg, code, reason, body, content_type, to_tag)
     return text
 end
 
---[[
-处理 INVITE。
-只接受视频 + PS/90000；不支持的请求回 488(Not Acceptable Here)，
-让平台明确知道设备在但会话建立不了，好过静默丢弃让平台一直等超时。
-]]
 --[[
 剥离 RTP 头，返回音频载荷与"是否 PS 封装"。
 
@@ -1464,6 +1458,11 @@ local function handle_audio_invite(msg, s)
     })
 end
 
+--[[
+处理 INVITE。
+只接受视频 + PS/90000；不支持的请求回 488(Not Acceptable Here)，
+让平台明确知道设备在但会话建立不了，好过静默丢弃让平台一直等超时。
+]]
 local function handle_invite(msg)
     local o = g_opts
 
@@ -2550,14 +2549,6 @@ function M.talks()
     return st.talks
 end
 
--- ---- 收包 ----
-
---[[
-收包。
-
-响应先看是不是某个会话的探针应答 —— 探针只关心"回没回"，任何状态码都算活着
-（481 说明平台人还在，只是不认这个对话；要区分的是"回都不回"）。
-]]
 -- ------------------------------------------------------------------
 -- 回放控制：SIP INFO 承载的 MANSRTSP
 -- ------------------------------------------------------------------
@@ -2948,6 +2939,14 @@ local function reap_expired_subs(now)
     end
 end
 
+-- ---- 收包 ----
+
+--[[
+收包。
+
+响应先看是不是某个会话的探针应答 —— 探针只关心"回没回"，任何状态码都算活着
+（481 说明平台人还在，只是不认这个对话；要区分的是"回都不回"）。
+]]
 local function process_packet(msg)
     if msg.code then
         --[[
@@ -3295,9 +3294,8 @@ local function sip_task()
 
     -- 单 tick 循环：既响应命令，也检查重注册/心跳是否到期
     while g_started do
-        -- **同时等两个主题**：TOPIC_STOP 是"信令链路死了"（由 net_cb 发），
-        -- 不等它就只能在 1 秒的 tick 里被动发现，重连慢一拍。
-        -- （原代码只等 TOPIC_CMD，而 net_cb 发的正是 TOPIC_STOP —— 没人接收。）
+        -- 同时等两个主题：TOPIC_STOP 只由 M.stop() 发（停止服务的唤醒信号）；
+        -- 链路失活不再发主题，改为置 st.dead，由下面的 tick 统一重建。
         sys.waitUntil({TOPIC_CMD, TOPIC_STOP}, 1000)
         local now = now_ms()
 
@@ -3417,7 +3415,7 @@ function M.start(opts)
     -- SPS/PPS，故缺省 true；关掉只在"上层已保证从头推"时才合理
     if g_opts.nal_wait_idr == nil then g_opts.nal_wait_idr = true end
     -- TCP 媒体承载时本端的倾向(setup)，仅当平台没指定方向时生效。
-    -- 具体取舍见 choose_tcp_setup 的注释
+    -- 具体取舍见 tcp_setup_choice 的注释
     g_opts.tcp_setup_prefer = g_opts.tcp_setup_prefer or "passive"
     -- TCP 会话的失活判定阈值(毫秒)。只在 TCP 下有意义，判据见
     -- session_death_reason：UDP 上"对端已死"不可观测，不做超时

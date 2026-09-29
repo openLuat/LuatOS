@@ -36,10 +36,62 @@ end)
 #endif
 #undef LLOGD
 #define LLOGD(fmt, ...) if (http_ctrl->debug_onoff) LLOGI("[%llx]" fmt, http_ctrl->idp, ##__VA_ARGS__)
+#define LLOGD_MSG(fmt, ...) if (msg->debug_onoff) LLOGI("[%llx]" fmt, msg->idp, ##__VA_ARGS__)
 
 
 int http_close(luat_http_ctrl_t *http_ctrl);
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method);
+
+static int32_t l_http_msg_handler(lua_State *L, void* ptr);
+static luat_http_msg_t *http_pending_head;
+static luat_http_msg_t *http_pending_tail;
+static luat_rtos_mutex_t http_pending_mutex;
+static void *http_retry_timer;
+#if defined(LUAT_USE_UTEST) && defined(LUAT_BSP_PC)
+static uint8_t http_utest_fail_terminal_once;
+static uint32_t http_utest_retry_delivered;
+
+void luat_http_utest_force_terminal_retry(void) {
+	luat_rtos_mutex_lock(http_pending_mutex, 0);
+	http_utest_fail_terminal_once = 1;
+	http_utest_retry_delivered = 0;
+	luat_rtos_mutex_unlock(http_pending_mutex);
+}
+
+uint32_t luat_http_utest_retry_delivered_count(void) {
+	luat_rtos_mutex_lock(http_pending_mutex, 0);
+	uint32_t count = http_utest_retry_delivered;
+	luat_rtos_mutex_unlock(http_pending_mutex);
+	return count;
+}
+#endif
+
+/* 终态消息已经脱离 ctrl, 队列满时留在这里由定时器非阻塞重试。 */
+static LUAT_RT_RET_TYPE http_retry_timer_cb(LUAT_RT_CB_PARAM) {
+	(void)param;
+	luat_rtos_mutex_lock(http_pending_mutex, 0);
+	while (http_pending_head) {
+		luat_http_msg_t *msg = http_pending_head;
+		luat_http_msg_t *next = msg->next;
+		rtos_msg_t rtmsg = {0};
+		rtmsg.handler = l_http_msg_handler;
+		rtmsg.ptr = msg;
+		msg->next = NULL;
+		if (luat_msgbus_put(&rtmsg, 0) != 0) {
+			msg->next = next;
+			break;
+		}
+#if defined(LUAT_USE_UTEST) && defined(LUAT_BSP_PC)
+		http_utest_retry_delivered++;
+#endif
+		// 入队成功后消费者可能立刻释放 msg, 此处只使用预存的 next
+		http_pending_head = next;
+		if (http_pending_head == NULL) {
+			http_pending_tail = NULL;
+		}
+	}
+	luat_rtos_mutex_unlock(http_pending_mutex);
+}
 
 static int http_add_header(luat_http_ctrl_t *http_ctrl, const char* name, const char* value){
 	if (name == NULL || value == NULL || strlen(name) == 0 || strlen(value) == 0) {
@@ -248,7 +300,9 @@ static int l_http_request(lua_State *L) {
 	}
 	LLOGD("http action timeout %dms", http_ctrl->timeout);
 
-    luat_http_client_init(http_ctrl, use_ipv6);
+	if (luat_http_client_init(http_ctrl, use_ipv6) != 0) {
+		goto error;
+	}
 	http_ctrl->netc->is_debug = (uint8_t)is_debug;
 	http_ctrl->debug_onoff = (uint8_t)is_debug;
 	const char *method = luaL_optlstring(L, 1, "GET", &len);
@@ -382,55 +436,66 @@ static const rotable_Reg_t reg_http[] =
 };
 
 LUAMOD_API int luaopen_http( lua_State *L ) {
+	if (http_pending_mutex == NULL && luat_rtos_mutex_create(&http_pending_mutex) != 0) {
+		return luaL_error(L, "http pending mutex allocation failed");
+	}
+	if (http_retry_timer == NULL) {
+		http_retry_timer = luat_create_rtos_timer(http_retry_timer_cb, NULL, NULL);
+		if (http_retry_timer == NULL) {
+			return luaL_error(L, "http retry timer allocation failed");
+		}
+	}
     luat_newlib2(L, reg_http);
     return 1;
 }
 
 //------------------------------------------------------
-int32_t l_http_callback(lua_State *L, void* ptr){
-	(void)ptr;
+int32_t l_http_msg_handler(lua_State *L, void* ptr){
 	char* temp;
 	char* header;
 	char* value;
 	uint16_t header_len = 0,value_len = 0;
 
-    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-	uint32_t idg = (uint32_t)(msg->ptr);
-	luat_http_ctrl_t* http_ctrl = luat_http_idg_get(idg);
-	if (http_ctrl == NULL){
-		LLOGI("http callback http_ctrl is NULL idg:%d", idg);
+	luat_http_msg_t* msg = (luat_http_msg_t*)ptr;
+	if (msg == NULL){
 		return 0;
 	}
-	uint64_t idp = http_ctrl->idp;
-	LLOGD("cb arg1:%d is_download:%d idp:%llx",msg->arg1,http_ctrl->is_download,idp);
-	LLOGD("cb status_code:%d resp_content_len:%d",http_ctrl->parser.status_code,http_ctrl->resp_content_len);
-	if (msg->arg1!=0 && msg->arg1!=HTTP_ERROR_FOTA ){
-		if (msg->arg1 == HTTP_CALLBACK){
-			lua_geti(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb);
-			// int userdata_type = lua_type(L, -2);
-			if (lua_isfunction(L, -1)) {
-				lua_pushinteger(L, http_ctrl->resp_content_len);
-				lua_pushinteger(L, msg->arg2);
-				if (http_ctrl->http_cb_userdata){
-					lua_geti(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb_userdata);
-					lua_call(L, 3, 0);
+	uint64_t idp = msg->idp;
+	LLOGD_MSG("msg event:%d arg:%d is_download:%d idp:%llx",msg->event,msg->arg,msg->is_download,idp);
+	LLOGD_MSG("msg status_code:%d resp_content_len:%d",msg->status_code,msg->resp_content_len);
+	if (msg->event != 0 && msg->event != HTTP_ERROR_FOTA ){
+		if (msg->event == HTTP_CALLBACK){
+			// 进度回调: 纯消息驱动, 不触碰 http_ctrl
+			if (msg->http_cb){
+				lua_geti(L, LUA_REGISTRYINDEX, msg->http_cb);
+				// int userdata_type = lua_type(L, -2);
+				if (lua_isfunction(L, -1)) {
+					lua_pushinteger(L, msg->resp_content_len);
+					lua_pushinteger(L, msg->arg);
+					if (msg->http_cb_userdata){
+						lua_geti(L, LUA_REGISTRYINDEX, msg->http_cb_userdata);
+						lua_call(L, 3, 0);
+					}else{
+						lua_call(L, 2, 0);
+					}
 				}else{
-					lua_call(L, 2, 0);
+					lua_pop(L, 1);
 				}
 			}
+			luat_http_msg_free(msg);
 			return 0;
 		}else{
-			lua_pushinteger(L, msg->arg1); // 把错误码返回去
+			lua_pushinteger(L, msg->event); // 把错误码返回去
 			luat_cbcwait(L, idp, 1);
 			goto exit;
 		}
 	}
-	
-	lua_pushinteger(L, msg->arg1==HTTP_ERROR_FOTA?HTTP_ERROR_FOTA:http_ctrl->parser.status_code);
+
+	lua_pushinteger(L, msg->event==HTTP_ERROR_FOTA?HTTP_ERROR_FOTA:msg->status_code);
 	lua_newtable(L);
-	// LLOGD("http_ctrl->headers:%.*s",http_ctrl->headers_len,http_ctrl->headers);
-	header = http_ctrl->headers;
-	while ( (http_ctrl->headers_len)>0 ){
+	// LLOGD_MSG("msg->headers:%.*s",msg->headers_len,msg->headers);
+	header = msg->headers;
+	while ( (msg->headers_len)>0 ){
 		value = strstr(header,":")+1;
 		if (value[1]==' '){
 			value++;
@@ -438,26 +503,22 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		temp = strstr(value,"\r\n")+2;
 		header_len = (uint16_t)(value-header)-1;
 		value_len = (uint16_t)(temp-value)-2;
-		LLOGD("header: [%.*s]:[%.*s]",header_len,header,value_len,value);
+		LLOGD_MSG("header: [%.*s]:[%.*s]",header_len,header,value_len,value);
 		lua_pushlstring(L, header,header_len);
 		lua_pushlstring(L, value,value_len);
 		lua_settable(L, -3);
-		http_ctrl->headers_len -= temp-header;
+		msg->headers_len -= temp-header;
 		header = temp;
 	}
-	// LLOGD("http_ctrl->body:%.*s len:%d",http_ctrl->body_len,http_ctrl->body,http_ctrl->body_len);
+	// LLOGD_MSG("msg->body:%.*s len:%d",msg->body_len,msg->body,msg->body_len);
 	// 处理body, 需要区分下载模式和非下载模式
-	if (http_ctrl->is_download) {
-		// 下载模式
-		if (http_ctrl->fd == NULL) {
+	if (msg->is_download) {
+		// 下载模式: 文件收尾已在客户端完成, download_ok 为 0 说明下载失败
+		if (msg->download_ok) {
 			// 下载操作一切正常, 返回长度
-			lua_pushinteger(L, http_ctrl->body_len);
+			lua_pushinteger(L, msg->body_len);
 			luat_cbcwait(L, idp, 3); // code, headers, body
 			goto exit;
-		}else if (http_ctrl->fd != NULL) {
-			// 下载中断了!!
-			luat_fs_fclose(http_ctrl->fd);
-			luat_fs_remove(http_ctrl->dst); // 移除文件
 		}
 		// 下载失败, 返回错误码
 		lua_pushinteger(L, -1);
@@ -465,45 +526,105 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		goto exit;
 	}
 #ifdef LUAT_USE_FOTA
-	else if(http_ctrl->isfota && http_ctrl->parser.status_code == 200){
-		lua_pushinteger(L, http_ctrl->body_len);
+	else if(msg->isfota && msg->status_code == 200){
+		lua_pushinteger(L, msg->body_len);
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
 #endif
-	else if (http_ctrl->zbuff_body) {
-		lua_pushinteger(L, http_ctrl->body_len);
+	else if (msg->zbuff_mode) {
+		lua_pushinteger(L, msg->body_len);
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
 	else {
 		// 非下载模式
-		lua_pushlstring(L, http_ctrl->body, http_ctrl->body_len);
+		lua_pushlstring(L, msg->body ? msg->body : "", msg->body ? msg->body_len : 0);
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
 exit:
-	if (http_ctrl->http_cb){
-		luaL_unref(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb);
-		http_ctrl->http_cb = NULL;
-		if (http_ctrl->http_cb_userdata){
-			luaL_unref(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb_userdata);
-			http_ctrl->http_cb_userdata = NULL;
+	if (msg->http_cb){
+		luaL_unref(L, LUA_REGISTRYINDEX, msg->http_cb);
+		if (msg->http_cb_userdata){
+			luaL_unref(L, LUA_REGISTRYINDEX, msg->http_cb_userdata);
 		}
 	}
-	if (http_ctrl->tcp_closed == 0 || http_ctrl->netc){
-		http_close(http_ctrl);
+	luat_http_msg_free(msg);
+	return 0;
+}
+
+int luat_http_client_onevent(luat_http_msg_t *msg) {
+	if (msg == NULL) {
+		return -1;
+	}
+	LLOGD_MSG("onevent event:%d idg:%d", msg->event, (int)msg->idg);
+	rtos_msg_t rtmsg = {0};
+	rtmsg.handler = l_http_msg_handler;
+	rtmsg.ptr = msg;
+	int put_result;
+#if defined(LUAT_USE_UTEST) && defined(LUAT_BSP_PC)
+	int force_fail = 0;
+	if (msg->event != HTTP_CALLBACK) {
+		luat_rtos_mutex_lock(http_pending_mutex, 0);
+		force_fail = http_utest_fail_terminal_once;
+		http_utest_fail_terminal_once = 0;
+		luat_rtos_mutex_unlock(http_pending_mutex);
+	}
+	put_result = force_fail ? -1 : luat_msgbus_put(&rtmsg, 0);
+#else
+	put_result = luat_msgbus_put(&rtmsg, 0);
+#endif
+	if (put_result != 0) {
+		if (msg->event != HTTP_CALLBACK && http_pending_mutex && http_retry_timer) {
+			// 终态不能丢弃; timer 自己重试入队, 不阻塞网络回调线程
+			luat_rtos_mutex_lock(http_pending_mutex, 0);
+			if (http_pending_head == NULL && luat_start_rtos_timer(http_retry_timer, 100, 1) != 0) {
+				luat_rtos_mutex_unlock(http_pending_mutex);
+				luat_http_msg_free(msg);
+				return -1;
+			}
+			msg->next = NULL;
+			if (http_pending_tail) {
+				http_pending_tail->next = msg;
+			} else {
+				http_pending_head = msg;
+			}
+			http_pending_tail = msg;
+			luat_rtos_mutex_unlock(http_pending_mutex);
+			return 0;
+		}
+		LLOGE("http msgbus full, drop progress event %d idg %d", msg->event, (int)msg->idg);
+		luat_http_msg_free(msg);
+		return -1;
 	}
 	return 0;
 }
 
-void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg) {
-	LLOGD("onevent %p %d", http_ctrl, error_code);
-	if (!http_ctrl->luatos_mode) return;
-	if (http_ctrl->timeout_timer && error_code != HTTP_CALLBACK){
-		luat_stop_rtos_timer(http_ctrl->timeout_timer);
+/* 终态交付失败兜底: 此时 ctrl 仍注册且未认领, 由本 handler 完成 cwait/解除引用并负责 close */
+static int32_t l_http_fail_msg_handler(lua_State *L, void* ptr){
+	uint32_t idg = (uint32_t)(uintptr_t)ptr;
+	rtos_msg_t* rtmsg = (rtos_msg_t*)lua_topointer(L, -1);
+	luat_http_ctrl_t* http_ctrl = luat_http_idg_get(idg);
+	if (http_ctrl == NULL){
+		return 0;
 	}
-	rtos_msg_t msg = {0};
-	msg.handler = l_http_callback;
-	msg.ptr = (void*)http_ctrl->idg;
-	msg.arg1 = error_code;
-	msg.arg2 = arg;
-	luat_msgbus_put(&msg, 0);
+	lua_pushinteger(L, rtmsg->arg1 != 0 ? rtmsg->arg1 : HTTP_ERROR_CONNECT);
+	luat_cbcwait(L, http_ctrl->idp, 1);
+	if (http_ctrl->http_cb){
+		luaL_unref(L, LUA_REGISTRYINDEX, (int)(intptr_t)http_ctrl->http_cb);
+		if (http_ctrl->http_cb_userdata){
+			luaL_unref(L, LUA_REGISTRYINDEX, (int)(intptr_t)http_ctrl->http_cb_userdata);
+		}
+	}
+	http_close(http_ctrl);
+	return 0;
+}
+
+void luat_http_fail_notify(uint32_t idg, int error_code) {
+	rtos_msg_t rtmsg = {0};
+	rtmsg.handler = l_http_fail_msg_handler;
+	rtmsg.ptr = (void*)(uintptr_t)idg;
+	rtmsg.arg1 = error_code;
+	if (luat_msgbus_put(&rtmsg, 0) != 0) {
+		// 双重失败(OOM+队列满): 只能放弃, 对应 Lua 任务将挂起
+		LLOGE("http fail notify lost idg %d", (int)idg);
+	}
 }

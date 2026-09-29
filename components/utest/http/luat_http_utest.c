@@ -9,6 +9,8 @@
 
 #ifdef LUAT_BSP_PC
 #include "luat_pc_http_utest.h"
+extern void luat_http_utest_force_terminal_retry(void);
+extern uint32_t luat_http_utest_retry_delivered_count(void);
 #endif
 
 static int finish_http_utest(lua_State *L, int status, lua_KContext ctx) {
@@ -80,7 +82,7 @@ static const char *http_local_lua_chunk =
     "local scheme = ca_pem and 'https' or 'http' "
     "local base = scheme .. '://127.0.0.1:' .. tostring(port) "
     "local method, path, hdrs, req_body, timeout, expect_code, expect_substr = 'GET', '/', nil, nil, 15000, 200, nil "
-    "if scenario == 'get' then "
+    "if scenario == 'get' or scenario == 'terminal_retry' then "
     "  path = '/' "
     "  expect_substr = 'OK' "
     "elseif scenario == 'get_json' then "
@@ -247,6 +249,9 @@ static int run_http_local_utest(lua_State *L, int use_tls, const char *scenario)
         luat_pc_http_utest_server_stop(server, 1000);
         goto fail;
     }
+	if (strcmp(scenario, "terminal_retry") == 0) {
+		luat_http_utest_force_terminal_retry();
+	}
 
     /* Push args: port, scenario, ca_pem */
     lua_pushinteger(L, helper_port);
@@ -264,6 +269,11 @@ static int run_http_local_utest(lua_State *L, int use_tls, const char *scenario)
         lua_pop(L, 1);
         lua_pushboolean(L, 0);
     }
+	if (strcmp(scenario, "terminal_retry") == 0 && luat_http_utest_retry_delivered_count() == 0) {
+		LLOGE("terminal notification did not pass through retry queue");
+		lua_pop(L, 1);
+		lua_pushboolean(L, 0);
+	}
 
     if (ca_pem) luat_heap_free(ca_pem);
     if (srv_cert_pem) luat_heap_free(srv_cert_pem);
@@ -502,6 +512,8 @@ int luat_http_utest(lua_State *L, const char *case_name) {
     /* ─── Local HTTP cases ─── */
     if (strcmp(case_name, "http_local_get") == 0)
         return run_http_local_utest(L, 0, "get");
+    if (strcmp(case_name, "http_local_terminal_retry") == 0)
+        return run_http_local_utest(L, 0, "terminal_retry");
     if (strcmp(case_name, "http_local_get_json") == 0)
         return run_http_local_utest(L, 0, "get_json");
     if (strcmp(case_name, "http_local_post_echo") == 0)

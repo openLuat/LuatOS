@@ -18,7 +18,6 @@
 #include "luat_log.h"
 
 extern void DBG_Printf(const char* format, ...);
-extern void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg);
 #undef LLOGD
 #ifdef __LUATOS__
 #define LLOGD(format, ...) do {if (http_ctrl->debug_onoff) {luat_log_log(LUAT_LOG_DEBUG, LUAT_LOG_TAG, format, ##__VA_ARGS__);}} while(0)
@@ -83,12 +82,17 @@ uint32_t luat_http_idg_register(luat_http_ctrl_t *http_ctrl) {
     http_ctrl->idg = idg;
     // 记录idg和http_ctrl的映射关系
     luat_http_idg_entry_t *new_entry = (luat_http_idg_entry_t *)luat_heap_malloc(sizeof(luat_http_idg_entry_t));
-    if (new_entry != NULL) {
-        new_entry->idg = idg;
-        new_entry->http_ctrl = http_ctrl;
-        new_entry->next = idg_head;
-        idg_head = new_entry;
+    if (new_entry == NULL) {
+        // 注册失败不能留下"已赋值但未注册"的 idg, 否则 claim 查不到, 永远无法回收
+        LLOGD("register idg %d entry alloc fail", idg);
+        luat_rtos_mutex_unlock(idg_mutex);
+        http_ctrl->idg = 0;
+        return 0;
     }
+    new_entry->idg = idg;
+    new_entry->http_ctrl = http_ctrl;
+    new_entry->next = idg_head;
+    idg_head = new_entry;
     LLOGD("register idg %d for http_ctrl %p", idg, http_ctrl);
     luat_rtos_mutex_unlock(idg_mutex);
     return idg;
@@ -138,4 +142,31 @@ int luat_http_idg_unreg(uint32_t idg) {
     }
     luat_rtos_mutex_unlock(idg_mutex);
     return -1;
+}
+
+luat_http_ctrl_t* luat_http_idg_claim(uint32_t idg) {
+    if (idg == 0 || idg_mutex == NULL) {
+        return NULL;
+    }
+    // 一次临界区内完成 get+unreg, 防止两侧同时 close 造成重复释放
+    luat_rtos_mutex_lock(idg_mutex, 0);
+    luat_http_idg_entry_t *entry = idg_head;
+    luat_http_idg_entry_t *prev = NULL;
+    while (entry) {
+        if (entry->idg == idg) {
+            if (prev) {
+                prev->next = entry->next;
+            } else {
+                idg_head = entry->next;
+            }
+            luat_http_ctrl_t *http_ctrl = entry->http_ctrl;
+            luat_heap_free(entry);
+            luat_rtos_mutex_unlock(idg_mutex);
+            return http_ctrl;
+        }
+        prev = entry;
+        entry = entry->next;
+    }
+    luat_rtos_mutex_unlock(idg_mutex);
+    return NULL;
 }

@@ -14,6 +14,11 @@
 
 #include "mbedtls/mbedtls_config.h"
 
+/* Server, ECDSA and X.509 writer are enabled by the upstream PC defaults. */
+#if defined(LUAT_USE_DTLS_SRTP)
+#define MBEDTLS_SSL_DTLS_SRTP
+#endif
+
 #undef MBEDTLS_SSL_PROTO_TLS1_3
 #undef MBEDTLS_CCM_C
 #undef MBEDTLS_ARIA_C

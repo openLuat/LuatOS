@@ -24,14 +24,20 @@ local audio_drv = require "audio_drv"
 local exaudio = require "exaudio"
 
 local TASK_NAME = "sip_app_main_task"
+-- 改为 true 启用 TLS/5061；需同时烧录 sip-ca.pem，详见 readme.md 的 TLS 章节。
+local SIP_USE_TLS = false
+
 --测试账号，根据自己实际情况修改
 local SIP_CONFIG = {
     sip_server_addr = "cc.luatos.com",
-    sip_server_port = 8910,
+    sip_server_port = SIP_USE_TLS and 5061 or 8910,
     sip_domain = "cc.luatos.com",
     sip_username = hmeta.devid().."0",
     sip_password = "123456",
-    sip_transport = exsip.TRANSPORT_UDP,
+    sip_transport = SIP_USE_TLS and exsip.TRANSPORT_TLS or exsip.TRANSPORT_UDP,
+    -- ca_cert 接收可信 CA 的 PEM 内容；也可直接填写 PEM 字符串。
+    sip_tls = SIP_USE_TLS and {ca_cert = io.readFile("/luadb/sip-ca.pem")} or nil,
+    media_encryption = "none", -- TLS 只加密信令；SDES/DTLS-SRTP 需服务端另行开启。
     auto_answer = false,
 }
 
@@ -65,6 +71,22 @@ local function start()
     if SIP_CONFIG.sip_server_addr == "xxx.xxx.xxx.xxx" then
         log.error("start", "请先配置 SIP 服务器地址和账号密码")
         return false
+    end
+
+    -- start() 由已等待网络就绪的任务调用；TLS 校验证书有效期，须先完成校时。
+    if type(SIP_CONFIG.sip_transport) == "string" and SIP_CONFIG.sip_transport:lower() == "tls" then
+        local ca = SIP_CONFIG.sip_tls and SIP_CONFIG.sip_tls.ca_cert
+        if type(ca) ~= "string" or #ca == 0 then
+            log.error("start", "tls_ca_required: 请烧录非空 CA 文件 /luadb/sip-ca.pem 或配置 ca_cert")
+            return false
+        end
+        log.info("start", "TLS 启动前网络校时")
+        socket.sntp()
+        if not sys.waitUntil("NTP_UPDATE", 10000) then
+            log.error("start", "TLS 校时失败，本次启动取消，5秒后重试")
+            return false
+        end
+        log.info("start", "TLS 网络校时成功")
     end
 
     if not g_audio_inited then

@@ -32,6 +32,12 @@ local luatos_ext_root = find_ext_root()
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x，4表示mbedtls 4.x
 local mbedtls_version = 3
 
+-- Secure VoIP is enabled by default; allow SDES-only and plaintext-only builds.
+local use_srtp = os.getenv("LUAT_USE_SRTP") ~= "n"
+local use_dtls_srtp = use_srtp and os.getenv("LUAT_USE_DTLS_SRTP") ~= "n"
+if use_srtp then add_defines("LUAT_USE_SRTP=1") end
+if use_dtls_srtp then add_defines("LUAT_USE_DTLS_SRTP=1") end
+
 local function env_enabled(name)
     return os.getenv(name) == "y"
 end
@@ -468,6 +474,28 @@ target("luatos-lua")
     add_includedirs(luatos.."components/voip/include")
     add_files(luatos.."components/voip/src/*.c")
     add_files(luatos.."components/voip/binding/*.c")
+
+    if use_srtp then
+        local srtp_root = luatos.."components/libsrtp/"
+        add_includedirs(srtp_root.."include")
+        -- Keep generic config.h / cipher.h / alloc.h private to libsrtp.
+        local srtp_options = {
+            forceincludes = {"luat_srtp_config.h"},
+            includedirs = {srtp_root.."port", srtp_root.."crypto/include"}
+        }
+        local srtp_sources = {
+            "srtp/srtp.c", "port/luat_srtp_alloc.c",
+            "crypto/cipher/cipher.c", "crypto/cipher/cipher_test_cases.c",
+            "crypto/cipher/null_cipher.c", "crypto/cipher/aes_icm_mbedtls.c",
+            "crypto/hash/auth.c", "crypto/hash/auth_test_cases.c",
+            "crypto/hash/null_auth.c", "crypto/hash/hmac_mbedtls.c",
+            "crypto/kernel/crypto_kernel.c", "crypto/kernel/err.c", "crypto/kernel/key.c",
+            "crypto/math/datatypes.c", "crypto/replay/rdb.c", "crypto/replay/rdbx.c"
+        }
+        for _, source in ipairs(srtp_sources) do
+            add_files(srtp_root..source, srtp_options)
+        end
+    end
 
     -- opus
     -- 只暴露 opus 根目录和公共 API 目录，避免 celt/silk/src 等内部短文件名头文件全局冲突

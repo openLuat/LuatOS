@@ -31,6 +31,182 @@
 
 #include <string.h>
 
+#ifdef LUAT_USE_SRTP
+#define VOIP_SECURITY_META "voip.security"
+#define VOIP_IDENTITY_META "voip.security.identity"
+typedef struct { luat_voip_security_t *ctx; } voip_security_ud_t;
+typedef struct { luat_voip_security_identity_t *identity; } voip_identity_ud_t;
+
+/* These handles own one reference; the media worker retains its own reference. */
+static int l_voip_security_release(lua_State *L)
+{
+    voip_security_ud_t *ud = luaL_testudata(L, 1, VOIP_SECURITY_META);
+    voip_identity_ud_t *identity = luaL_testudata(L, 1, VOIP_IDENTITY_META);
+    if (ud && ud->ctx) {
+        luat_voip_security_release(ud->ctx);
+        ud->ctx = NULL;
+    }
+    if (identity && identity->identity) {
+        luat_voip_security_identity_release(identity->identity);
+        identity->identity = NULL;
+    }
+    lua_pushboolean(L, ud || identity);
+    return 1;
+}
+
+static void voip_security_metatable(lua_State *L, const char *name)
+{
+    if (luaL_newmetatable(L, name)) {
+        lua_pushcfunction(L, l_voip_security_release);
+        lua_setfield(L, -2, "__gc");
+        lua_pushliteral(L, "protected");
+        lua_setfield(L, -2, "__metatable");
+    }
+    lua_setmetatable(L, -2);
+}
+
+static int voip_security_lua_error(lua_State *L, int error)
+{
+    lua_pushnil(L);
+    lua_pushstring(L, luat_voip_security_error_name(error));
+    return 2;
+}
+
+/*
+创建运行期 DTLS 证书身份，仅用于 exsip 安全协商；私钥不导出。
+@api voip.securityIdentity()
+@return userdata 身份句柄，失败返回nil及原因
+*/
+static int l_voip_security_identity(lua_State *L)
+{
+    int error = 0;
+    voip_identity_ud_t *ud = lua_newuserdata(L, sizeof(*ud));
+    memset(ud, 0, sizeof(*ud));
+    voip_security_metatable(L, VOIP_IDENTITY_META);
+    ud->identity = luat_voip_security_identity_create(&error);
+    if (!ud->identity) return voip_security_lua_error(L, error);
+    return 1;
+}
+
+/*
+创建安全媒体本地协商材料；同一 SDP 重传必须复用此句柄。
+@api voip.securityCreate(mode, identity)
+@string mode sdes或dtls-srtp
+@userdata identity DTLS可选运行期身份
+@return userdata 会话句柄，失败返回nil及原因
+*/
+static int l_voip_security_create(lua_State *L)
+{
+    const char *mode = luaL_checkstring(L, 1);
+    luat_voip_security_mode_t type;
+    luat_voip_security_identity_t *identity = NULL;
+    int error = 0;
+    if (!strcmp(mode, "sdes")) type = LUAT_VOIP_SECURITY_SDES;
+    else if (!strcmp(mode, "dtls-srtp")) type = LUAT_VOIP_SECURITY_DTLS;
+    else return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_UNSUPPORTED);
+    if (!lua_isnoneornil(L, 2)) {
+        voip_identity_ud_t *id = luaL_checkudata(L, 2, VOIP_IDENTITY_META);
+        if (!id->identity) return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_STATE);
+        identity = id->identity;
+    }
+    voip_security_ud_t *ud = lua_newuserdata(L, sizeof(*ud));
+    memset(ud, 0, sizeof(*ud));
+    voip_security_metatable(L, VOIP_SECURITY_META);
+    ud->ctx = luat_voip_security_create(type, identity, &error);
+    if (!ud->ctx) return voip_security_lua_error(L, error);
+    return 1;
+}
+
+/*
+获取本地 SDP 协商信息。SDES key 为敏感信息，只能通过经验证的 TLS 信令发送。
+@api voip.securityInfo(handle)
+@userdata handle 安全会话句柄
+@return table mode及suite/key或hash/fingerprint，失败返回nil及原因
+*/
+static int l_voip_security_info(lua_State *L)
+{
+    voip_security_ud_t *ud = luaL_checkudata(L, 1, VOIP_SECURITY_META);
+    luat_voip_security_info_t info = {0};
+    int error = luat_voip_security_info(ud->ctx, &info);
+    if (error) return voip_security_lua_error(L, error);
+    lua_newtable(L);
+    lua_pushstring(L, info.mode == LUAT_VOIP_SECURITY_SDES ? "sdes" : "dtls-srtp");
+    lua_setfield(L, -2, "mode");
+    if (info.mode == LUAT_VOIP_SECURITY_SDES) {
+        lua_pushliteral(L, LUAT_VOIP_SECURITY_SUITE); lua_setfield(L, -2, "suite");
+        lua_pushstring(L, info.key); lua_setfield(L, -2, "key");
+    } else {
+        lua_pushliteral(L, "sha-256"); lua_setfield(L, -2, "hash");
+        lua_pushstring(L, info.fingerprint); lua_setfield(L, -2, "fingerprint");
+    }
+    for (size_t i = 0; i < sizeof(info); i++) ((volatile unsigned char *)&info)[i] = 0;
+    return 1;
+}
+
+static const char *voip_security_string_field(lua_State *L, const char *name, size_t *len)
+{
+    const char *value;
+    /* Raw fields remain rooted in the remote table across userdata allocation. */
+    lua_pushstring(L, name);
+    lua_rawget(L, 2);
+    value = lua_type(L, -1) == LUA_TSTRING ? lua_tolstring(L, -1, len) : NULL;
+    if (value && memchr(value, 0, *len)) value = NULL;
+    lua_pop(L, 1);
+    return value;
+}
+
+/*
+以本地协商材料创建独立的已协商会话，原句柄不变，可交给voip.start的security字段。
+@api voip.securitySetRemote(handle, remote)
+@userdata handle 本地安全会话句柄
+@table remote mode,suite,key或mode,hash,fingerprint,role(active/passive)
+@return userdata 新句柄，失败返回nil及原因
+*/
+static int l_voip_security_set_remote(lua_State *L)
+{
+    voip_security_ud_t *source = luaL_checkudata(L, 1, VOIP_SECURITY_META);
+    luat_voip_security_remote_t remote = {0};
+    luat_voip_security_mode_t local_mode;
+    size_t len = 0;
+    int error;
+    luaL_checktype(L, 2, LUA_TTABLE);
+    if (!source->ctx) return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_STATE);
+    local_mode = luat_voip_security_mode(source->ctx);
+    const char *mode = voip_security_string_field(L, "mode", &len);
+    if (!mode || strcmp(mode, local_mode == LUAT_VOIP_SECURITY_SDES ? "sdes" : "dtls-srtp"))
+        return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+    if (local_mode == LUAT_VOIP_SECURITY_SDES) {
+        remote.suite = voip_security_string_field(L, "suite", &len);
+        remote.key = voip_security_string_field(L, "key", &len);
+        if (!remote.suite || !remote.key || len != LUAT_VOIP_SECURITY_KEY_TEXT - 1)
+            return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+    } else {
+        const char *hash = voip_security_string_field(L, "hash", &len);
+        if (!hash || strcmp(hash, "sha-256"))
+            return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+        const char *role = voip_security_string_field(L, "role", &len);
+        if (!role || (strcmp(role, "active") && strcmp(role, "passive")))
+            return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+        remote.dtls_client = !strcmp(role, "active");
+        remote.fingerprint = voip_security_string_field(L, "fingerprint", &len);
+        if (!remote.fingerprint || len != LUAT_VOIP_SECURITY_FINGERPRINT_TEXT - 1)
+            return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+    }
+    voip_security_ud_t *ud = lua_newuserdata(L, sizeof(*ud));
+    memset(ud, 0, sizeof(*ud));
+    voip_security_metatable(L, VOIP_SECURITY_META);
+    ud->ctx = luat_voip_security_clone_local(source->ctx, &error);
+    if (!ud->ctx) return voip_security_lua_error(L, error);
+    error = luat_voip_security_set_remote(ud->ctx, &remote);
+    if (error) {
+        luat_voip_security_release(ud->ctx);
+        ud->ctx = NULL;
+        return voip_security_lua_error(L, error);
+    }
+    return 1;
+}
+#endif
+
 #ifdef LUAT_USE_VOIP_PLAY
 static int voip_play_cb_ref;
 
@@ -374,6 +550,26 @@ static int l_voip_start(lua_State *L)
     /* adapter */
     lua_getfield(L, 1, "adapter");
     cfg.adapter = (int)luaL_optinteger(L, -1, network_register_get_default());
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "security");
+    if (!lua_isnil(L, -1)) {
+#ifdef LUAT_USE_SRTP
+        voip_security_ud_t *security = luaL_testudata(L, -1, VOIP_SECURITY_META);
+        if (!security || !security->ctx) {
+            lua_pop(L, 1);
+            lua_pushboolean(L, 0);
+            lua_pushliteral(L, "invalid_media_security");
+            return 2;
+        }
+        cfg.security = security->ctx;
+#else
+        lua_pop(L, 1);
+        lua_pushboolean(L, 0);
+        lua_pushliteral(L, "media_security_unsupported");
+        return 2;
+#endif
+    }
     lua_pop(L, 1);
 
     /* 基本校验 */
@@ -783,6 +979,13 @@ static const rotable_Reg_t reg_voip[] =
     { "stats",      ROREG_FUNC(l_voip_stats)},
     { "isRunning",  ROREG_FUNC(l_voip_is_running)},
     { "getState",   ROREG_FUNC(l_voip_get_state)},
+#ifdef LUAT_USE_SRTP
+    { "securityIdentity", ROREG_FUNC(l_voip_security_identity)},
+    { "securityCreate", ROREG_FUNC(l_voip_security_create)},
+    { "securityInfo", ROREG_FUNC(l_voip_security_info)},
+    { "securitySetRemote", ROREG_FUNC(l_voip_security_set_remote)},
+    { "securityRelease", ROREG_FUNC(l_voip_security_release)},
+#endif
 #ifdef LUAT_USE_VOIP_PLAY
     { "playTTS", ROREG_FUNC(l_voip_play_tts)},
     { "playFile", ROREG_FUNC(l_voip_play_file)},

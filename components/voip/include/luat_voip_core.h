@@ -19,6 +19,9 @@
 #include "luat_rtos.h"
 #include "luat_voip_jitterbuf.h"
 #include "luat_audio_data_codec.h"
+#ifdef LUAT_USE_SRTP
+#include "luat_voip_security.h"
+#endif
 #ifdef LUAT_USE_VOIP_RECORD
 #include "luat_voip_record.h"
 #endif
@@ -65,6 +68,9 @@ typedef struct {
     uint8_t  aec_agc;
     uint16_t aec_tail_ms;
     uint16_t aec_delay_samples;
+#ifdef LUAT_USE_SRTP
+    luat_voip_security_t *security; /* Retained until the media task stops. */
+#endif
 } voip_config_t;
 
 /* ======================== 状态 ======================== */
@@ -86,6 +92,7 @@ typedef struct {
     uint32_t rx_bytes;
     uint32_t rx_parse_fail;
     uint32_t rx_bad_payload;
+    uint32_t rx_security_fail; /* Authentication/replay failures, never decoded. */
     uint32_t rx_queue_dropped; /* 交接时丢弃的完整解码帧数。 */
     uint32_t event_send_failures; /* 跨会话累计的通知失败次数。 */
     uint32_t rx_lost;
@@ -257,6 +264,7 @@ typedef struct {
     int16_t *mic_buf[VOIP_MIC_SLOT_COUNT];
     uint8_t *udp_rx_buf;        /* UDP 收包缓冲 */
     uint16_t udp_rx_buf_size;
+    uint16_t rtp_packet_buf_size;
     uint8_t play_slot_count;
     uint8_t mic_write_idx;
     uint8_t last_completed_slot;

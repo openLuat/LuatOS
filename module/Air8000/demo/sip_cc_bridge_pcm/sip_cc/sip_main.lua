@@ -237,20 +237,22 @@ end
 
 function sip_main.init()
     logi("SIP 初始化开始")
-    local sip_ok = pcm_sip.init({
+    local sip_ok, init_reason = pcm_sip.init({
         sip_server_addr = config.sip_server_addr,
         sip_server_port = config.sip_server_port,
         sip_domain = config.sip_domain,
         sip_username = config.sip_username,
         sip_password = config.sip_password,
         sip_transport = config.sip_transport,
+        sip_tls = config.sip_tls,
+        media_encryption = config.media_encryption,
         rtp_port = config.rtp_port,
         codecs = {config.codec},
         ptime = config.ptime,
         adapter = config.adapter,
     })
     if not sip_ok then
-        log.error("sip_main", "pcm_sip.init 失败")
+        log.error("sip_main", "pcm_sip.init 失败", init_reason)
         return false
     end
 

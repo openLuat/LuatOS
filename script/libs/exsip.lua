@@ -100,12 +100,14 @@ exsip.start()
 exaudio = require "exaudio"
 
 local exsip = {}
+local sipproto = require "exsipproto"
 
 -- 常量定义 
 
 -- 传输协议
 exsip.TRANSPORT_UDP = "udp"
 exsip.TRANSPORT_TCP = "tcp"
+exsip.TRANSPORT_TLS = "tls"
 
 -- 编解码器
 exsip.CODEC_PCMU = "PCMU"
@@ -157,6 +159,7 @@ local g_ip_event_subscribed = false
 local default_config = {
     sip_transport = exsip.TRANSPORT_TCP,
     sip_server_port = exsip.DEFAULT_SIP_PORT,
+    media_encryption = "none",
     rtp_port = exsip.DEFAULT_RTP_PORT,
     expires = exsip.DEFAULT_EXPIRES,
     codecs = { exsip.CODEC_PCMU, exsip.CODEC_PCMA },
@@ -208,7 +211,9 @@ end
 local function emit_callback(event, ...)
     local cb = g_callbacks[event]
     if type(cb) == "function" then
-        local ok, err = pcall(cb, ...)
+        local args = table.pack(...)
+        for index = 1, args.n do args[index] = sipproto.public_payload(args[index]) end
+        local ok, err = pcall(cb, table.unpack(args, 1, args.n))
         if not ok then
             log_error("callback error:", event, err)
         end
@@ -442,6 +447,7 @@ local function start_voip_engine_now(session)
 
     log_info("start voip engine with adapter:", g_current_adapter, "remote:", session.remote_ip .. ":" .. session.remote_port)
     local ok = voip.start({
+        security = session.security,
         remote_ip = session.remote_ip,
         remote_port = tonumber(session.remote_port) or 10000,
         local_port = tonumber(session.local_rtp_port) or 0,
@@ -474,7 +480,7 @@ local function start_voip_engine_now(session)
             return
         end
         g_voip_uses_exaudio = use_sip_audio_v2
-        log_info("voip engine started", session.remote_ip .. ":" .. session.remote_port,
+        log_info("voip engine start requested", session.remote_ip .. ":" .. session.remote_port,
             "codec=" .. tostring(session.codec), "adapter", g_config and g_config.adapter)
         if g_auto_record_pending or g_call_connected then
             start_auto_record()
@@ -507,6 +513,7 @@ local function start_voip_engine(session)
             g_media_pending = false
             emit_callback("voip", "error", reason)
             if not g_media_requested then emit_callback("voip", "state", "stopped") end
+            if session.encryption ~= "none" and sipclient then sipclient.hangup(true, session.call_id) end
         end
         -- 上一个通话仍在释放 DMA 时，新的媒体请求等待 stopped。
         while current() and g_media_requested and remaining > 0 do
@@ -654,7 +661,6 @@ local function sip_event_handler(event, action, payload)
         if action == "ready" then
             local session = payload.session or payload
             log_info("media ready", session.remote_ip, session.remote_port, session.codec)
-            start_voip_engine(session)
             emit_callback("media", "ready", session)
         elseif action == "stop" then
             stop_call_record()
@@ -718,6 +724,10 @@ local function setup_voip_callbacks()
         voip.on("error", function(err)
             log_error("voip error:", err)
             emit_callback("voip", "error", err)
+            if g_started and g_config.media_encryption ~= "none" and sipclient then
+                stop_voip_engine()
+                sipclient.hangup(true)
+            end
         end)
 
         -- 未编入 LUAT_USE_VOIP_RECORD 的固件没有录音 API，也不注册未知事件。
@@ -739,11 +749,13 @@ CC<->SIP 桥接应在 CC/SIP 音频启动前配置，cc_sip_bridge=true 会自�
 @api exsip.init(config)
 @table config 配置参数表
 @string config.sip_server_addr SIP 服务器地址
-@number config.sip_server_port SIP 服务器端口，默认 5060
+@number config.sip_server_port SIP 服务器端口，TLS 默认 5061，其他传输默认 5060
 @string config.sip_domain SIP 域
 @string config.sip_username SIP 用户名
 @string config.sip_password SIP 密码
-@string config.sip_transport SIP 传输协议，"UDP" 或 "TCP"，默认 "TCP"
+@string config.sip_transport SIP 传输协议，"udp"、"tcp" 或 "tls"，默认 "tcp"
+@table config.sip_tls TLS 配置，tls 模式必须提供 ca_cert（可信 CA PEM 内容），始终验证服务端证书和域名
+@string config.media_encryption 媒体加密，"none"、"sdes" 或 "dtls-srtp"；默认 "none"，加密媒体要求 TLS 信令
 @number config.rtp_port 本地 RTP 端口，默认 40000
 @number config.expires 注册有效期（秒），默认 600
 @table config.codecs 编解码器列表，默认 {"PCMU", "PCMA"}
@@ -777,7 +789,6 @@ exsip.init({
 })
 ]]
 function exsip.init(config)
-    log_info("exsip.init called, config type:", type(config), "config:", config)
     if not config or type(config) ~= "table" then
         log_error("config must be a table")
         return false
@@ -785,6 +796,11 @@ function exsip.init(config)
 
     if not config.sip_server_addr or not config.sip_username or not config.sip_password then
         log_error("server, user and password are required")
+        return false
+    end
+    local security, security_err = sipproto.security_config(config)
+    if not security then
+        log_error("invalid security config:", security_err)
         return false
     end
 
@@ -823,6 +839,10 @@ function exsip.init(config)
         next_config[k] = v
     end
     next_config.record = record_config
+    next_config.sip_transport = security.transport
+    next_config.sip_server_port = security.port
+    next_config.sip_tls = security.tls
+    next_config.media_encryption = security.media
     if next_config.audio_mode ~= nil and (not voip or
         (next_config.audio_mode ~= voip.AUDIO_MODE_I2S and
          next_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE)) then
@@ -927,6 +947,9 @@ function exsip.start()
         sip_username = g_config.sip_username,
         sip_password = g_config.sip_password,
         sip_transport = g_config.sip_transport,
+        sip_tls = g_config.sip_tls,
+        media_encryption = g_config.media_encryption,
+        media_callback = start_voip_engine,
         adapter = g_config.adapter,
         rtp_port = g_config.rtp_port,
         expires = g_config.expires,

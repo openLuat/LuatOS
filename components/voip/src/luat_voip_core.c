@@ -82,7 +82,7 @@ static void voip_reset_session_state(voip_ctx_t *ctx);
 static int  voip_session_start(voip_ctx_t *ctx);
 static void voip_session_stop(voip_ctx_t *ctx, int notify_idle);
 static int  voip_runtime_init(voip_ctx_t *ctx);
-static void voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime);
+static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime);
 static int  voip_pack_rtp_packet(voip_rtp_tx_state_t *state, const uint8_t *payload, uint16_t payload_len, uint8_t *out_buf, uint16_t out_max_len, uint16_t *out_len);
 static int  voip_parse_rtp_packet(const uint8_t *data, uint16_t len, voip_rtp_parsed_t *out);
 static const int16_t *voip_prepare_tx_pcm(voip_ctx_t *ctx, const int16_t *mic_pcm,
@@ -185,6 +185,12 @@ static int32_t voip_net_cb(void *pdata, void *pparam)
         if (ctx->state == VOIP_STATE_RUNNING && ctx->task_handle) {
             voip_notify_data(ctx, &ctx->rx_event_state, VOIP_EVENT_RX_DATA, session);
         }
+#ifdef LUAT_USE_SRTP
+        else if (ctx->state == VOIP_STATE_STARTING && ctx->config.security && ctx->task_handle) {
+            /* The bounded handshake loop also checks the socket after timeout. */
+            luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_RX_DATA, 0, 0, session, 0);
+        }
+#endif
     } else if (ev_id == EV_NW_RESULT_CLOSE || ev_id == EV_NW_SOCKET_ERROR) {
         LLOGW("voip net event 0x%x", (unsigned)ev_id);
     }
@@ -291,9 +297,9 @@ static const int16_t *voip_prepare_tx_pcm(voip_ctx_t *ctx, const int16_t *mic_pc
     return voip_aec_process_frame(ctx, mic_pcm, render_seq, capture_seq, capture_tick_ms);
 }
 
-static void voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime)
+static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime)
 {
-    if (!state) return;
+    if (!state) return -1;
 
     memset(state, 0, sizeof(*state));
     state->payload_type = payload_type;
@@ -301,15 +307,16 @@ static void voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_t
     state->ptime = ptime ? ptime : VOIP_FRAME_MS_DEFAULT;
     state->samples_per_packet = (uint16_t)(state->clock_rate * state->ptime / 1000);
     PV_Union uPV;
-	luat_crypto_trng((char *)uPV.u8, 4);
+    if (luat_crypto_trng((char *)uPV.u8, 4)) return -1;
     state->seq = (uint16_t)(uPV.u32 & 0xFFFF);
-	luat_crypto_trng((char *)uPV.u8, 4);
+    if (luat_crypto_trng((char *)uPV.u8, 4)) return -1;
     state->timestamp = (uint32_t)(uPV.u32 & 0x7FFFFFFF);
-	luat_crypto_trng((char *)uPV.u8, 4);
+    if (luat_crypto_trng((char *)uPV.u8, 4)) return -1;
     state->ssrc = (uint32_t)(uPV.u32 & 0x7FFFFFFF);
     if (state->ssrc == 0) {
         state->ssrc = 1;
     }
+    return 0;
 }
 
 static int voip_pack_rtp_packet(voip_rtp_tx_state_t *state, const uint8_t *payload, uint16_t payload_len, uint8_t *out_buf, uint16_t out_max_len, uint16_t *out_len)
@@ -432,12 +439,29 @@ static int voip_send_tx_frame(voip_ctx_t *ctx, const int16_t *pcm,
     before = ctx->rtp_tx;
     ret = voip_pack_rtp_packet(&ctx->rtp_tx, ctx->tx_g711_buf,
             (uint16_t)out_len, ctx->rtp_packet_buf,
-            (uint16_t)(VOIP_RTP_HEADER_LEN + ctx->frame_samples), &rtp_len);
+            ctx->rtp_packet_buf_size, &rtp_len);
     if (ret < 0) return -1;
+#ifdef LUAT_USE_SRTP
+    if (ctx->config.security) {
+        size_t protected_len = rtp_len;
+        ret = luat_voip_security_protect(ctx->config.security, ctx->rtp_packet_buf,
+                &protected_len, ctx->rtp_packet_buf_size);
+        if (ret < 0) {
+            voip_stats_add(&ctx->stats.tx_errors, 1);
+            voip_notify_lua(VOIP_CB_ERROR, ret);
+            voip_stop();
+            return -1;
+        }
+        rtp_len = (uint16_t)protected_len;
+    }
+#endif
     ret = network_tx((network_ctrl_t *)ctx->netc, ctx->rtp_packet_buf,
             rtp_len, 0, NULL, 0, &tx_len, 0);
     if (ret < 0 || tx_len != rtp_len) {
-        ctx->rtp_tx = before;
+#ifdef LUAT_USE_SRTP
+        if (!ctx->config.security)
+#endif
+            ctx->rtp_tx = before;
         voip_stats_add(&ctx->stats.tx_errors, 1);
         return -1;
     }
@@ -782,6 +806,32 @@ static int voip_do_rx(voip_ctx_t *ctx)
         ctx->stats.rx_packets++;
         ctx->stats.rx_bytes += rd;
 
+#ifdef LUAT_USE_SRTP
+        if (ctx->config.security) {
+            int security_ret;
+            if (luat_voip_security_is_dtls(ctx->udp_rx_buf, (size_t)rd)) {
+                if (luat_voip_security_mode(ctx->config.security) != LUAT_VOIP_SECURITY_DTLS) {
+                    voip_stats_add(&ctx->stats.rx_security_fail, 1);
+                    continue;
+                }
+                security_ret = luat_voip_security_feed(ctx->config.security, ctx->udp_rx_buf, (size_t)rd);
+                if (security_ret >= 0) security_ret = luat_voip_security_step(ctx->config.security);
+                if (security_ret < 0) {
+                    voip_notify_lua(VOIP_CB_ERROR, security_ret);
+                    voip_stop();
+                }
+                continue;
+            }
+            size_t plain_len = (size_t)rd;
+            security_ret = luat_voip_security_unprotect(ctx->config.security, ctx->udp_rx_buf, &plain_len);
+            if (security_ret < 0) {
+                voip_stats_add(&ctx->stats.rx_security_fail, 1);
+                continue;
+            }
+            rd = (int)plain_len;
+        }
+#endif
+
         /* RTP 解析 */
         voip_rtp_parsed_t parsed;
         int ret = voip_parse_rtp_packet(ctx->udp_rx_buf, (uint16_t)rd, &parsed);
@@ -884,7 +934,11 @@ static int voip_alloc_buffers(voip_ctx_t *ctx)
 
     ctx->tx_pcm_buf     = (int16_t *)luat_heap_calloc(1, fb);
     ctx->tx_g711_buf    = (uint8_t *)luat_heap_calloc(1, fs); /* G.711：每个采样点 1 字节 */
-    ctx->rtp_packet_buf = (uint8_t *)luat_heap_calloc(1, VOIP_RTP_HEADER_LEN + fs);
+    ctx->rtp_packet_buf_size = VOIP_RTP_HEADER_LEN + fs;
+#ifdef LUAT_USE_SRTP
+    if (ctx->config.security) ctx->rtp_packet_buf_size += LUAT_VOIP_SECURITY_TAG_BYTES;
+#endif
+    ctx->rtp_packet_buf = (uint8_t *)luat_heap_calloc(1, ctx->rtp_packet_buf_size);
     ctx->rx_pcm_buf     = (int16_t *)luat_heap_calloc(1, fb);
     if (physical_audio) ctx->duplex_play_buf = (int16_t *)luat_heap_calloc(1, fb * ctx->play_slot_count);
     if (ctx->config.aec_enable) {
@@ -895,6 +949,12 @@ static int voip_alloc_buffers(voip_ctx_t *ctx)
 #endif
     }
     ctx->udp_rx_buf_size = VOIP_RTP_HEADER_LEN + fs + 64; /* 余量 */
+#ifdef LUAT_USE_SRTP
+    if (ctx->config.security &&
+            luat_voip_security_mode(ctx->config.security) == LUAT_VOIP_SECURITY_DTLS &&
+            ctx->udp_rx_buf_size < LUAT_VOIP_SECURITY_DATAGRAM_MAX)
+        ctx->udp_rx_buf_size = LUAT_VOIP_SECURITY_DATAGRAM_MAX;
+#endif
     ctx->udp_rx_buf     = (uint8_t *)luat_heap_calloc(1, ctx->udp_rx_buf_size);
 
     for (uint8_t index = 0; physical_audio && index < VOIP_MIC_SLOT_COUNT; index++) {
@@ -1154,6 +1214,12 @@ static void voip_cleanup(voip_ctx_t *ctx)
         network_release_ctrl((network_ctrl_t *)ctx->netc);
         ctx->netc = NULL;
     }
+#ifdef LUAT_USE_SRTP
+    if (ctx->config.security) {
+        luat_voip_security_release(ctx->config.security);
+        ctx->config.security = NULL;
+    }
+#endif
 
 
     /* 释放 codec */
@@ -1240,6 +1306,49 @@ static void voip_reset_session_state(voip_ctx_t *ctx)
 #endif
     memset(&ctx->stats, 0, sizeof(ctx->stats));
 }
+
+#ifdef LUAT_USE_SRTP
+static int voip_security_send(void *opaque, const uint8_t *data, size_t len)
+{
+    voip_ctx_t *ctx = opaque;
+    network_ctrl_t *netc = ctx->netc;
+    uint32_t sent = 0;
+    if (ctx->stop_requested || !netc) return -1;
+    if (netc->state != NW_STATE_ONLINE) return 0;
+    int ret = network_tx(netc, data, (uint32_t)len, 0, NULL, 0, &sent, 0);
+    return ret < 0 || sent != len ? -1 : (int)sent;
+}
+
+/* Runs on the media worker, never the Lua/event callback thread. No audio is
+ * started yet. Each wait is bounded so hangup and lost wakeups remain cancellable. */
+static int voip_security_handshake(voip_ctx_t *ctx)
+{
+    int ret = luat_voip_security_start(ctx->config.security, voip_security_send, ctx);
+    while (ret == LUAT_VOIP_SECURITY_PENDING && !ctx->stop_requested) {
+        unsigned received = 0;
+        luat_ip_addr_t remote_ip = {0};
+        uint16_t remote_port = 0;
+        while (received < VOIP_EVENT_BATCH_MAX && !ctx->stop_requested) {
+            int len = network_socket_receive(ctx->netc, ctx->udp_rx_buf,
+                    ctx->udp_rx_buf_size, 0, &remote_ip, &remote_port);
+            if (len <= 0) break;
+            received++;
+            /* SRTP arriving before verification is not sent to the decoder. */
+            if (!luat_voip_security_is_dtls(ctx->udp_rx_buf, (size_t)len)) continue;
+            ret = luat_voip_security_feed(ctx->config.security, ctx->udp_rx_buf, (size_t)len);
+            if (ret < 0) return ret;
+            ret = luat_voip_security_step(ctx->config.security);
+            if (ret != LUAT_VOIP_SECURITY_PENDING) return ret;
+        }
+        ret = luat_voip_security_step(ctx->config.security);
+        if (ret != LUAT_VOIP_SECURITY_PENDING) break;
+        luat_event_t wake;
+        luat_rtos_event_recv(ctx->task_handle, 0, &wake, NULL,
+                received == VOIP_EVENT_BATCH_MAX ? 1 : 50);
+    }
+    return ret;
+}
+#endif
 
 static int voip_session_start(voip_ctx_t *ctx)
 {
@@ -1335,7 +1444,12 @@ static int voip_session_start(voip_ctx_t *ctx)
         goto start_failed;
     }
     
-    voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, sample_rate, ptime);
+    if (voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, sample_rate, ptime) < 0) {
+#ifdef LUAT_USE_SRTP
+        voip_notify_lua(VOIP_CB_ERROR, LUAT_VOIP_SECURITY_E_CRYPTO);
+#endif
+        goto start_failed;
+    }
 
 
     int adapter_index = ctx->config.adapter;
@@ -1363,6 +1477,16 @@ static int voip_session_start(voip_ctx_t *ctx)
         LLOGE("udp connect failed: %d", ret);
         goto start_failed;
     }
+#ifdef LUAT_USE_SRTP
+    if (ctx->config.security) {
+        ret = voip_security_handshake(ctx);
+        if (ctx->stop_requested) goto start_cancelled;
+        if (ret != LUAT_VOIP_SECURITY_OK) {
+            voip_notify_lua(VOIP_CB_ERROR, ret);
+            goto start_failed;
+        }
+    }
+#endif
     
 
     if (
@@ -1465,7 +1589,13 @@ static int voip_runtime_init(voip_ctx_t *ctx)
     }
 #endif
 
-    ret = luat_rtos_task_create(&ctx->task_handle, 8 * 1024, 50, "voip", voip_task_entry, ctx, 32);
+    ret = luat_rtos_task_create(&ctx->task_handle,
+#ifdef LUAT_USE_DTLS_SRTP
+            16 * 1024,
+#else
+            8 * 1024,
+#endif
+            50, "voip", voip_task_entry, ctx, 32);
     if (ret != 0) {
         LLOGE("voip task create failed: %d", ret);
         ctx->state = VOIP_STATE_IDLE;
@@ -1697,7 +1827,11 @@ static int voip_lua_cb_handler(lua_State *L, void *ptr)
         if (ctx->cb_error_ref == 0) goto done;
         lua_geti(L, LUA_REGISTRYINDEX, ctx->cb_error_ref);
         if (!lua_isfunction(L, -1)) { lua_pop(L, 1); goto done; }
+#ifdef LUAT_USE_SRTP
+        lua_pushstring(L, msg->arg2 ? luat_voip_security_error_name(msg->arg2) : "internal_error");
+#else
         lua_pushstring(L, "internal_error");
+#endif
         lua_call(L, 1, 0);
     }
 #ifdef LUAT_USE_VOIP_RECORD
@@ -1748,6 +1882,10 @@ int voip_start(const voip_config_t *config)
     if (!config) {
         return -3;
     }
+#ifdef LUAT_USE_SRTP
+    if (config->security && (!luat_voip_security_configured(config->security) ||
+            luat_voip_security_state(config->security) != LUAT_VOIP_SECURITY_NEW)) return -3;
+#endif
 
     if (ctx->state != VOIP_STATE_IDLE) {
         LLOGW("voip already running, stop first");
@@ -1761,6 +1899,9 @@ int voip_start(const voip_config_t *config)
 
     /* 拷贝配置 */
     memcpy(&ctx->config, config, sizeof(voip_config_t));
+#ifdef LUAT_USE_SRTP
+    if (ctx->config.security) luat_voip_security_retain(ctx->config.security);
+#endif
     ctx->stop_requested = 0;
     /* 唤醒状态字的最低两位保留给 pending/dirty；零不是会话标识。 */
     ctx->audio_session = (ctx->audio_session % VOIP_EVENT_SESSION_MAX) + 1U;
@@ -1770,6 +1911,10 @@ int voip_start(const voip_config_t *config)
 #endif
     ctx->state = VOIP_STATE_STARTING;
     if (luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_START, 0, 0, ctx->audio_session, 0) != 0) {
+#ifdef LUAT_USE_SRTP
+        luat_voip_security_release(ctx->config.security);
+        ctx->config.security = NULL;
+#endif
         ctx->state = VOIP_STATE_IDLE;
         return -2;
     }
@@ -1833,6 +1978,7 @@ void voip_push_stats(lua_State *L)
     lua_pushinteger(L, stats.rx_bytes); lua_setfield(L, -2, "rx_bytes");
     lua_pushinteger(L, stats.rx_parse_fail); lua_setfield(L, -2, "rx_parse_fail");
     lua_pushinteger(L, stats.rx_bad_payload); lua_setfield(L, -2, "rx_bad_payload");
+    lua_pushinteger(L, stats.rx_security_fail); lua_setfield(L, -2, "rx_security_fail");
     lua_pushinteger(L, stats.rx_queue_dropped); lua_setfield(L, -2, "rx_queue_dropped");
     lua_pushinteger(L, stats.event_send_failures); lua_setfield(L, -2, "event_send_failures");
     lua_pushinteger(L, stats.rx_lost); lua_setfield(L, -2, "rx_lost");

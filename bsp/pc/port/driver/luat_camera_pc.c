@@ -671,3 +671,13 @@ int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t jump_frame
     (void)app_id; (void)jump_frame_cnt;
     return -1;
 }
+
+int luat_camera_scan(int id, uint32_t decode_type, uint8_t on_off) {
+    (void)id; (void)decode_type; (void)on_off;
+    return -1;
+}
+
+int luat_camera_frame_callback_on_off(int id, uint8_t on_off) {
+    (void)id; (void)on_off;
+    return -1;
+}

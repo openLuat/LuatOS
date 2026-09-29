@@ -96,7 +96,7 @@ local function play_call_notice()
         return
     end
     call_notice_played = true
-    local id, err = voip.playTTS("本次通话将会录音，请注意", {target = "sip", mode = "replace"})
+    local id, err = voip.playTTS("通话已建立，本段进行TTS播报测试", {target = "sip", mode = "replace"})
     if id then
         log.info("sip_call_notice", "远端录音提示已提交", "play_id", id)
     else

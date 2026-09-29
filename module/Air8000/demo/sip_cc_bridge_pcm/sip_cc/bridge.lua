@@ -15,7 +15,7 @@ local bridge = {}
 
 -- 播报方向："sip" 给 SIP 对端，"cc" 给手机 CC 对端，"both" 给两端。
 local CALL_NOTICE_TARGET = "both"
-local CALL_NOTICE_TEXT = "请注意，本次通话将会录音，谢谢配合"
+local CALL_NOTICE_TEXT = "通话已建立，本段进行TTS播报测试"
 -- nil 时播报 TTS；设置为 "/luadb/Time_travel_8k.mp3" 时播放已烧录的文件。
 local CALL_NOTICE_FILE = nil
 -- 两侧接通且媒体就绪后，等待此毫秒数再播报；设为 0 则立即播报。

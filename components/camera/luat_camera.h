@@ -257,20 +257,6 @@ int luat_camera_preview(int id, uint8_t on_off);
 
 int luat_camera_scan(int id, uint32_t decode_type, uint8_t on_off);
 
-/**
- * @brief utest 专用：对内存中的图像像素执行一次扫码解码（目前仅 PC 模拟器实现，其他平台返回 -1）
- * @param pix 像素数据，fmt=0 时为 RGB565LE，fmt=1 时为 8bit 灰度
- * @param fmt 像素格式，0=RGB565LE，1=灰度
- * @param w 图像宽
- * @param h 图像高
- * @param decode_type LUAT_CAMERA_SCAN_CODE_* 组合，0 表示全部码制
- * @param out 结果输出缓冲
- * @param out_len 输出缓冲长度
- * @return >0 解码结果长度，0 未命中，-1 失败
- */
-int luat_camera_utest_decode(const uint8_t *pix, int fmt, int w, int h,
-                             uint32_t decode_type, char *out, size_t out_len);
-
 int luat_camera_frame_callback_on_off(int id, uint8_t on_off);
 
 int luat_camera_work_mode(int id, int mode);
@@ -308,5 +294,19 @@ int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t jump_frame
 int luat_usb_camera_pause_on_off(uint8_t app_id, uint8_t on_off);
 
 extern int32_t g_camera_log_level;
+
+/**
+ * @brief utest 专用：对内存中的图像像素执行一次扫码解码（目前仅 PC 模拟器实现，其他平台返回 -1）
+ * @param pix 像素数据，fmt=0 时为 RGB565LE，fmt=1 时为 8bit 灰度
+ * @param fmt 像素格式，0=RGB565LE，1=灰度
+ * @param w 图像宽
+ * @param h 图像高
+ * @param decode_type LUAT_CAMERA_SCAN_CODE_* 组合，0 表示全部码制
+ * @param out 结果输出缓冲
+ * @param out_len 输出缓冲长度
+ * @return >0 解码结果长度，0 未命中，-1 失败
+ */
+int luat_camera_utest_decode(const uint8_t *pix, int fmt, int w, int h,
+                             uint32_t decode_type, char *out, size_t out_len);
 /** @}*/
 #endif

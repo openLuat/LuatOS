@@ -278,6 +278,34 @@ player SDK 中的 `plat_support.c` 通过 `#ifdef __LUATOS__` 条件编译，在
 - **无需替换**：不必将 `ad_fopen` 换成 `fopen` 或 `luat_fs_fopen`，在 `__LUATOS__` 构建中它们本质上是同一个
 - **文件路径**：测试时将资源文件放在脚本目录下，VFS 会正确解析
 
+## CAMERA SCAN (Windows)
+
+PC 模拟器支持扫码，链路与 `luatos-sdk-ccm42xx-gcc` 对齐：MF 摄像头取 MJPG 帧 → WIC 解出 8bit 灰度 → ZXing-C++ 软解码 → `camera.on(id, "scanned", cb)`。
+
+- 解码库 ZXing-C++ v3.1.1 源码位于 `luatos-ext-components/zxing`（由 `luatos_ext_root` 解析）。**版本需与 SDK 一致**，否则码制/识别率行为会有差异。
+- **依赖是可选的**：环境变量 `LUAT_USE_CAMERA_SCAN=y` 强制启用 / `=n` 强制禁用，未设置时按 `luatos_ext-components/zxing` 是否存在自动检测；未启用时 `camera.stream(..., scan_enable=true)` 无扫码行为、`camera.utest_qr_decode` 不存在，其余 camera 功能不受影响。启用时会定义宏 `LUAT_USE_CAMERA_SCAN`。
+- `core/Version.h` 是 cmake 生成物，PC 侧用 `bsp/pc/stubs/zxing/Version.h` 代替（READERS 开 / WRITERS 关），不改上游文件。
+- ZXing 3.x 需要 C++20：该目录的 TU 用 `{cxflags = {"/std:c++20", "/W0", "/DZXING_INTERNAL"}}` 单独指定（全局仍是 `cxx17`）。`ZXING_INTERNAL` 对应上游 cmake 的 `ZXING_PRIVATE_FLAGS`，缺了会在 `GridSampler.cpp` 报 `Size`/`Rectangle` 找不到；xmake 的 glob 不递归，故用 `core/src/**.cpp` 并排除 writer 组；`libzueci` 是 TextDecoder 的 ECI 依赖，需一并编译。
+- Lua 用法（`camera.init` 后可不开预览）：
+  ```lua
+  camera.on(0, "scanned", function(id, str) log.info("scan", str) end)
+  camera.stream(0, nil, nil, nil, false, true)   -- 最后一个参数 scan_enable
+  ```
+  非 USB 的 `camera.stream()` 分支在启用扫码的构建（宏 `LUAT_USE_CAMERA_SCAN`）下会调用 `luat_camera_scan()`，其他 BSP 不受影响。
+- 扫码结果通过静态环形缓冲经 msgbus 投递给 `l_camera_handler` 的 `scanned` 分支（该分支不释放内存，故不能传堆指针）。
+- 手动验证脚本：`bsp/pc/test/155.camera_scan/main.lua`（需本机摄像头）。
+
+### camera.utest_qr_decode（仅 utest 构建）
+
+无摄像头环境下验证解码链路，编译期由 `LUAT_USE_UTEST` + `LUAT_USE_CAMERA_SCAN` 两个宏同时控制（`$env:LUAT_USE_UTEST = "y"` 且启用扫码的构建才存在，否则用例自动跳过）：
+
+```lua
+local frame = videoplayer.read_frame(player)   -- frame.data 为 RGB565 小端像素
+local str = camera.utest_qr_decode(frame.data, frame.width, frame.height)  -- 可选 fmt(0=RGB565,1=灰度) 与码制组合
+```
+
+配套用例：`testcase/utest/lib/camera_qr_basic`（QR 图片 fixture 走 `/luadb/qr_test.jpg`）。
+
 ## ANTI-PATTERNS
 
 - ❌ Do NOT assume PC == hardware behavior (timing differences)

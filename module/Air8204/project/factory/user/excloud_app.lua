@@ -49,14 +49,21 @@ local function on_excloud_event(event, data)
             log.info("TLV字段", "含义:", tlv.field, "类型:", tlv.type, "值:", tlv.value)
 
             if tlv.field == excloud.FIELD_MEANINGS.CONTROL_COMMAND then
-                log.info("收到控制命令: " .. tostring(tlv.value))
-                excloud.mtn_log("cloud", "收到控制命令", tostring(tlv.value))
+                local cmd = tostring(tlv.value)
+                log.info("收到控制命令: " .. cmd)
+                excloud.mtn_log("cloud", "收到控制命令", cmd)
 
-                -- 处理控制命令并发送响应
+                -- 交由 device_ctrl 解析并执行命令，返回真实执行结果文本
+                -- 支持：recording / not_recording / record_local（控制类）
+                --       get_info / get_version / get_battery / get_signal / get_location / get_record_count（查询类）
+                -- 未知命令返回 "未知命令: xxx"，不再无脑回执"命令执行成功"
+                local result = device_ctrl.handle(cmd)
+
+                -- 回执平台（field=20，中文短句）
                 local response_ok, err_msg = excloud.send({{
                     field_meaning = excloud.FIELD_MEANINGS.CONTROL_RESPONSE,
                     data_type = excloud.DATA_TYPES.UNICODE,
-                    value = "命令执行成功"
+                    value = result
                 }}, false)
 
                 if not response_ok then

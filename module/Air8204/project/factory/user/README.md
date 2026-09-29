@@ -154,9 +154,16 @@ main.lua           仅定义 PROJECT / VERSION / PRODUCT_KEY，require "boot"，
 | 513 | 纬度 | FLOAT | GNSS（无解时回退 LBS） |
 | 1280 | 时间戳 | INTEGER | `os.time()` |
 
-> 下行控制：云端可下发 `record_ctrl` 远程控制录音开 / 关；本地录音开关为 GPIO22 硬件检测，两者状态变化均同步上报。
+## 八、数据中心下发格式
 
-
-
-
+| 命令字             | 功能                             |
+| ------------------ | -------------------------------- |
+| `recording`        | 远程开启录音                     |
+| `not_recording`    | 远程关闭录音                     |
+| `record_local`     | 恢复本地 GPIO22 开关控制录音     |
+| `get_info`         | 读取全部基础信息（聚合一包上报） |
+| `get_version`      | 读取固件版本（1027）             |
+| `get_battery`      | 读取电池电量（771）              |
+| `get_signal`       | 读取 4G 信号质量（782）          |
+| `get_record_count` | 读取录音文件数量（797）          |
 

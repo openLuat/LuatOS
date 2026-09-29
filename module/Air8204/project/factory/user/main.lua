@@ -32,7 +32,8 @@ VERSION = "001.000.001"
 --[[
 PRODUCT_KEY：合宙 IoT 平台（iot.openluat.com）产品密钥，仅用于整机成品 FOTA（libfota3）。
 注意：与基站定位（airlbs）的 project_key（见 lbs_util.lua）不是同一个，请勿混用。
-客户提供真实 KEY 前保持占位符；update.lua 会自动识别占位符并跳过 FOTA，避免无效连接。
+需在合宙 IoT 平台创建产品后获取并填入本行；置空或保留占位符时，
+update.lua 会自动识别并跳过 FOTA，避免无效连接。
 ]]
 PRODUCT_KEY = "YOUR_PRODUCT_KEY_HERE"
 

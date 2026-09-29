@@ -98,7 +98,6 @@ static const rotable_Reg_t reg_vtool[] =
     { "h264_encoder_init",  ROREG_FUNC(l_vtool_h264_encoder_init)},
     { "h264_encoder_start", ROREG_FUNC(l_vtool_h264_encoder_start)},
     { "h264_encoder_deinit",ROREG_FUNC(l_vtool_h264_encoder_deinit)},
-    { "psram_slab_dump",    ROREG_FUNC(l_vtool_psram_slab_dump)},
     #endif
 	{ NULL,                 ROREG_INT(0) }
 };

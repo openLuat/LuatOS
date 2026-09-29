@@ -751,7 +751,7 @@ local function sip_task(opts)
         options_pending = false,
         options_fail_count = 0,
         -- options_interval = tonumber(opts.options_interval) or 25000,
-        options_interval = tonumber(opts.options_interval) or 60000,
+        options_interval = tonumber(opts.options_interval) or 45000,
         options_max_fail = tonumber(opts.options_max_fail) or 3,
         call_timeout = tonumber(opts.call_timeout) or CALL_TIMEOUT,
         debug_sip_response = opts.debug_sip_response == true,

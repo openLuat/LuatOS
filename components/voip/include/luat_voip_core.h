@@ -121,6 +121,10 @@ enum {
     VOIP_EVENT_MIC_DATA,    /* I2S 采集到数据 */
     VOIP_EVENT_SPK_DONE,    /* DAC 播放完成一帧 */
     VOIP_EVENT_STATS_TICK,  /* 统计输出定时器 */
+#ifdef LUAT_USE_VOIP_PLAY
+    VOIP_EVENT_PLAY_STATE, /* Producer readiness or cancellation changed. */
+    VOIP_EVENT_PLAY_TICK,  /* The sole SIP playback sender's clock. */
+#endif
 #ifdef LUAT_USE_VOIP_AUDIO_PORT
     VOIP_EVENT_RAW_MIC_DATA, /* 可选的 Audio V2 原始 PCM 队列 */
 #endif
@@ -206,6 +210,23 @@ typedef struct {
     /* RTOS */
     luat_rtos_task_handle task_handle;
     luat_rtos_timer_t stats_timer;
+#ifdef LUAT_USE_VOIP_PLAY
+    luat_rtos_timer_t play_tx_timer;
+    volatile uint32_t play_tx_id;
+    volatile uint32_t play_tx_session;
+    volatile uint32_t play_tx_cookie;
+    volatile uint32_t play_tx_pending;
+    uint32_t play_tx_serial; /* Persists across sessions; callback binding key. */
+    uint64_t play_tx_anchor_ms;
+    uint64_t play_tx_next_due_ms;
+    uint64_t play_tx_last_send_ms;
+    uint64_t play_tx_base_ms;
+    uint32_t play_tx_anchor_timestamp;
+    int16_t play_tx_base[160]; /* Latest post-AEC native/bridge frame. */
+    uint8_t play_tx_base_valid;
+    uint8_t play_tx_last_send_valid;
+    uint8_t play_tx_handoff;
+#endif
 
     /* 网络 */
     void *netc;                 /* network_ctrl_t* */
@@ -253,6 +274,7 @@ typedef struct {
 
 #ifdef LUAT_USE_VOIP_BRIDGE
     volatile uint32_t tx_event_state;
+    volatile uint32_t bridge_speech_muted; /* Speech only; TTS injection remains audible. */
     /* 桥接模式缓冲区（仅当 audio_mode == VOIP_AUDIO_MODE_BRIDGE 时有效） */
     int16_t *bridge_tx_buf;             /* 上行：外部PCM -> voip编码 -> RTP */
     voip_bridge_rx_frame_t *bridge_rx_frames; /* 纯 PCM 带标记帧交接，共十帧。 */
@@ -318,6 +340,13 @@ typedef struct {
  * 获取全局单例上下文
  */
 voip_ctx_t *voip_get_ctx(void);
+
+#ifdef LUAT_USE_VOIP_PLAY
+/** Snapshot a running G.711/8 kHz/20 ms session; returns a play error otherwise. */
+int voip_play_media_snapshot(uint32_t *session);
+/** Notify the VoIP task that remote playback readiness changed. */
+void voip_play_wakeup(void);
+#endif
 
 /** 注册 VoIP Lua 适配层使用的 audio_v2 PCM 编解码器。 */
 void luat_voip_audio_codec_register(void);
@@ -439,6 +468,13 @@ int voip_bridge_pcm_out(int16_t *pcm, uint16_t max_samples);
  * @return 0 成功, <0 失败
  */
 int voip_bridge_tone(int on);
+
+/** Mute both speech directions of the running pure PCM bridge. Playback and
+ *  media clocks keep running. Returns 0 on success, -1 outside that backend. */
+int voip_bridge_mute(int on);
+/** Task-only query for a CC consumer. Returns 0 for stopped/stale generations.
+ *  Takes bridge_mutex, following the existing CC media -> bridge lock order. */
+int voip_bridge_speech_muted(uint32_t expected_generation);
 #endif
 
 #endif /* LUAT_VOIP_CORE_H */

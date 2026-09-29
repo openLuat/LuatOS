@@ -88,7 +88,24 @@ local function start()
     return true
 end
 
+-- 接通和媒体启动事件可能先后到达；每次通话只尝试一次远端播报。
+local call_notice_connected, call_notice_media_started, call_notice_played = false, false, false
+
+local function play_call_notice()
+    if not call_notice_connected or not call_notice_media_started or call_notice_played then
+        return
+    end
+    call_notice_played = true
+    local id, err = voip.playTTS("本次通话将会录音，请注意", {target = "sip", mode = "replace"})
+    if id then
+        log.info("sip_call_notice", "远端录音提示已提交", "play_id", id)
+    else
+        log.error("sip_call_notice", "远端录音提示提交失败", "reason", err)
+    end
+end
+
 local function stop()
+    call_notice_connected, call_notice_media_started, call_notice_played = false, false, false
     log.info("stop", "开始停止 SIP，当前状态:", g_sip_status)
     exsip.stop()
     exaudio.pm(exaudio.SHUTDOWN)
@@ -144,9 +161,12 @@ local function sip_callback(event, arg1, arg2, arg3)
         elseif sub_event == "ringing" then
             log.info("sip_callback", "对方响铃中")
         elseif sub_event == "connected" or sub_event == "established" then
+            call_notice_connected = true
+            play_call_notice()
             log.info("sip_callback", "通话已建立")
             sys.sendMsg(TASK_NAME, tag, "MSG_CONNECTED")
         elseif sub_event == "ended" then
+            call_notice_connected, call_notice_media_started, call_notice_played = false, false, false
             log.info("sip_callback", "通话已结束，结束原因为：", data.reason, "通话对象：", data.dialog)
             sys.sendMsg(TASK_NAME, tag, "MSG_DISCONNECTED", data.reason)
         end
@@ -157,6 +177,7 @@ local function sip_callback(event, arg1, arg2, arg3)
             local remote_port = data.remote_port or (data.session and data.session.remote_port) or ""
             log.info("sip_callback", "媒体通道就绪", remote_ip .. ":" .. remote_port)
         elseif sub_event == "stop" then
+            call_notice_media_started = false
             log.info("sip_callback", "媒体通道已关闭，关闭原因：", data.reason)
         end
     elseif event == "message" then
@@ -171,8 +192,11 @@ local function sip_callback(event, arg1, arg2, arg3)
         if sub_event == "state" then
             log.info("sip_callback", "VoIP状态:", data)
             if data == "started" then
+                call_notice_media_started = true
+                play_call_notice()
                 sys.publish("SIP_APP_MAIN_VOIP_STARTED")
             elseif data == "stopped" then
+                call_notice_media_started = false
                 -- VoIP stop is asynchronous.  Consumers that start playback
                 -- must wait until its I2S/DMA teardown has completed.
                 sys.publish("SIP_APP_MAIN_VOIP_STOPPED")
@@ -189,6 +213,7 @@ local function sip_callback(event, arg1, arg2, arg3)
         if sub_event == "online" then
             log.info("sip_callback", "SIP 服务已在线，本地IP地址为：", data.local_ip)
         else
+            call_notice_connected, call_notice_media_started, call_notice_played = false, false, false
             sys.sendMsg(TASK_NAME, tag, "MSG_ERROR")
         end
     elseif event == "error" then

@@ -8,6 +8,18 @@ SIP 仅支持 PCMA/PCMU、8 kHz、20 ms；蜂窝侧支持 8/16 kHz PCM。
 本 demo 不初始化 codec、I2S、DAC、UART 音频或 Audio V2 音频请求，不提供本地听筒、麦克风、录音及通话中切换后端。
 固件仍保留 Audio V2，供其他应用使用。`sip_cc/pcm_sip.lua` 处理本 demo 的 SIP 媒体控制；本目录不需要 `exsip.lua`、`exaudio.lua` 或 `audio_drv.lua`。
 
+## 接通后向对端播放 TTS 或音频文件
+
+需使用包含通话播放（`voip.playTTS`、`voip.playFile`）和双向桥接静音（`voip.bridgeMute`）的 Air8000 13 号固件。SIP 和 CC 均接通且媒体就绪后，先静音双向桥接语音，按当前配置等待 500 ms，再向 SIP 和手机 CC 两端播报一次“请注意，本次通话将会录音，谢谢配合”。可配置为播放本目录的 `Time_travel_8k.mp3`；183 提前媒体阶段不播报，两个桥接呼叫方向均生效。
+
+播放入口在 `sip_cc/bridge.lua` 的 `play_call_notice()`。修改文件顶部的 `CALL_NOTICE_TARGET` 可选择方向：`"sip"` 给 SIP 对端，`"cc"` 给手机 CC 对端，`"both"` 同时给两端（当前设置）。手机呼入时，SIP 接通后才发起 CC 接听，因此 CC 播报需等待两侧就绪。
+
+文件顶部的 `CALL_NOTICE_DELAY_MS` 控制播报前延时，单位毫秒，当前为 `500`，可改为 `1000`、`1500`、`2000` 或 `0`（立即播放）。从等待开始到本次播报结束，SIP → CC、CC → SIP 的原通话语音均静音；RTP 和 CC PCM 继续按原节拍发送静音或播报数据，不停传、不挂断。重复接通通知不会重新计时，挂断会取消待播报定时器，旧回调不会播到下一通。日志 `sip_call_notice` 依次输出双向静音、`delay_ms`、`play_id`、播报终态和恢复语音。匹配本次播放 ID 的 `done/stopped/error` 事件恢复双向通话；播放期间每 100 ms 查询一次状态，终态消息丢失时也能恢复。提交失败或定时器启动失败同样恢复。播报结束后不额外增加延时。
+
+播放使用 `mode="replace"`，选定目标听到播报，未选定的一端保持静音，结束后恢复正常桥接。`gain` 控制播报音量（0~1）。API 的 `mode="mix"` 可与通话语音混合，但本 demo 开启双向静音期间，原通话语音始终为静音；如需混音，需先解除 `voip.bridgeMute`。日志 `sip_call_notice` 输出目标、播放 ID 或提交失败原因；每通只尝试一次，挂断后下一通会重新播报。本功能仅播报提示，不会启动录音。
+
+`CALL_NOTICE_FILE` 默认为 `nil`，使用 `CALL_NOTICE_TEXT` 配置的 TTS 文本。将 `CALL_NOTICE_FILE` 设为 `"/luadb/Time_travel_8k.mp3"` 即切换为文件播放，同时在 Luatools 烧录列表中添加本目录的 `Time_travel_8k.mp3` 并保留文件名；不能把电脑的 `E:\...` 路径传给板端。替换音频时同步修改该路径并烧录新文件，也支持 PCM WAV 和裸 PCM16LE。一次只能有一个播放任务，同时播放给两端使用 `target="both"`。
+
 ## 固件与烧录
 
 1. 使用已包含 CC 纯 PCM 后端和 SoC 本地 PCM 上行适配器的 Air8000 13 号固件。
@@ -16,6 +28,7 @@ SIP 仅支持 PCMA/PCMU、8 kHz、20 ms；蜂窝侧支持 8/16 kHz PCM。
    脚本检查 `cc.AUDIO_MODE_BRIDGE_PCM`、`bridgePcmStats()` 必需字段和单调时钟，能力不足或 CC 初始化失败时停止启动。
 2. 在 Luatools 新建脚本项目，添加**`main.lua`、`netdrv/` 下的 3 个脚本和 `sip_cc/` 下的 6 个脚本，共 10 个 `.lua` 文件**。
    添加子目录中的脚本时保留文件名，`require` 名称无需增加目录前缀。唯一入口为 `main.lua`。请移除项目中旧 demo 和诊断脚本的选择。
+   选择文件播放时，同时添加本目录的 **`Time_travel_8k.mp3`** 音频资源，保留该文件名，板端路径为 `/luadb/Time_travel_8k.mp3`；使用默认 TTS 时不需要该资源。
 3. 从本仓库的 [script/libs](../../../../script/libs) 目录直接添加以下公共库文件，保留原文件名：
    `exsipclient.lua`、`exsipproto.lua`、`exnetif.lua`、`dnsproxy.lua`、`dhcpsrv.lua`、`httpdns.lua`、`udpsrv.lua`、`exair153x_wdt.lua`。
    这些文件包含 Wi-Fi 驱动的间接依赖及当前入口使用的外部看门狗库，可满足 Luatools 对脚本中 `require` 的合并检查；不需要复制到 demo 目录。

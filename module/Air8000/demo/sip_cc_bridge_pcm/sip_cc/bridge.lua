@@ -13,6 +13,14 @@ local cc_main = require "cc_main"
 local pcm_sip = require "pcm_sip"
 local bridge = {}
 
+-- 播报方向："sip" 给 SIP 对端，"cc" 给手机 CC 对端，"both" 给两端。
+local CALL_NOTICE_TARGET = "both"
+local CALL_NOTICE_TEXT = "请注意，本次通话将会录音，谢谢配合"
+-- nil 时播报 TTS；设置为 "/luadb/Time_travel_8k.mp3" 时播放已烧录的文件。
+local CALL_NOTICE_FILE = nil
+-- 两侧接通且媒体就绪后，等待此毫秒数再播报；设为 0 则立即播报。
+local CALL_NOTICE_DELAY_MS = 500
+
 local WAIT_MS, GAP_MS, POLL_MS, RECOVERY_MS = 3000, 500, 100, 3000
 local current, pending, cleanup
 local next_owner = 0
@@ -30,6 +38,81 @@ end
 
 local function logi(...)
     log.info("bridge", ...)
+end
+
+local function restore_call_notice_audio(call)
+    if not call.notice_muted then return end
+    call.notice_muted = false
+    if current ~= call or call.ending then return end
+    if voip.bridgeMute(false) then
+        log.info("sip_call_notice", "双向桥接语音已恢复")
+    end
+end
+
+local function on_call_notice_play(event, status)
+    local call = current
+    if not call or call.ending or call.notice_play_id ~= status.id then return end
+    if event == "done" or event == "stopped" or event == "error" then
+        call.notice_play_id = nil
+        log.info("sip_call_notice", "播报结束", event, "play_id", status.id, "reason", status.reason)
+        restore_call_notice_audio(call)
+    end
+end
+
+voip.on("play", on_call_notice_play)
+
+local function start_call_notice(call)
+    call.notice_timer = nil
+    -- 延时期间可能挂断或开始下一通，旧回调不得向新通话播报。
+    if current ~= call or call.ending or
+        call.sip_state ~= "sip_connected" or call.cc_state ~= "cc_connected" then
+        restore_call_notice_audio(call)
+        return
+    end
+    local opts = {target = CALL_NOTICE_TARGET, mode = "replace"}
+    local id, err
+    if CALL_NOTICE_FILE then
+        id, err = voip.playFile(CALL_NOTICE_FILE, opts)
+    else
+        id, err = voip.playTTS(CALL_NOTICE_TEXT, opts)
+    end
+    if id then
+        call.notice_play_id = id
+        log.info("sip_call_notice", "远端音频已提交", "source", CALL_NOTICE_FILE or "tts", "target", CALL_NOTICE_TARGET, "play_id", id)
+        drive()
+    else
+        log.error("sip_call_notice", "远端音频提交失败", "source", CALL_NOTICE_FILE or "tts", "target", CALL_NOTICE_TARGET, "reason", err)
+        restore_call_notice_audio(call)
+    end
+end
+
+-- 两侧接通事件均已确认各自媒体就绪；每通只安排一次，不因重复事件续期。
+local function play_call_notice(call)
+    if call.sip_state ~= "sip_connected" or call.cc_state ~= "cc_connected" or call.notice_played then return end
+    call.notice_played = true
+    if type(voip.bridgeMute) ~= "function" then
+        log.error("sip_call_notice", "当前固件缺少 voip.bridgeMute，请更新配套固件")
+        return
+    end
+    if not voip.bridgeMute(true) then
+        log.error("sip_call_notice", "双向桥接语音静音失败，本通跳过播报")
+        return
+    end
+    call.notice_muted = true
+    log.info("sip_call_notice", "双向桥接语音已静音")
+    if CALL_NOTICE_DELAY_MS <= 0 then
+        start_call_notice(call)
+        return
+    end
+    call.notice_timer = sys.timerStart(start_call_notice, CALL_NOTICE_DELAY_MS, call)
+    if call.notice_timer then
+        log.info("sip_call_notice", "等待播报", "target", CALL_NOTICE_TARGET, "delay_ms", CALL_NOTICE_DELAY_MS)
+    else
+        -- sys 在底层创建失败时仍保留无参数的回调登记。
+        sys.timerStop(start_call_notice)
+        log.error("sip_call_notice", "播报延时定时器启动失败")
+        restore_call_notice_audio(call)
+    end
 end
 
 local function new_call(direction)
@@ -106,6 +189,16 @@ end
 local function begin_cleanup(call)
     if call.ending then return end
     call.ending = true
+    if call.notice_timer then
+        sys.timerStop(call.notice_timer)
+        call.notice_timer = nil
+    end
+    if call.notice_play_id then
+        voip.playStop(call.notice_play_id)
+        call.notice_play_id = nil
+    end
+    -- 挂断过程保持静音，原生媒体停止时复位；旧播放终态不得解除新通话静音。
+    call.notice_muted = false
     if current == call then current = nil end
     if pending == call then pending = nil end
     -- 活动通话只会在上一通清理和间隔结束后建立，不会覆盖旧清理记录。
@@ -200,6 +293,15 @@ drive = function()
     if wake_timer then sys.timerStop(wake_timer); wake_timer = nil end
     if rebooted then return end
     local now = now_ms()
+    -- 播放终态消息可能入队失败；复用维护节拍查询，避免本通一直静音。
+    if current and current.notice_play_id then
+        local status = voip.playStatus()
+        if status.id == current.notice_play_id and status.state == "idle" then
+            current.notice_play_id = nil
+            log.info("sip_call_notice", "状态确认播报结束", "play_id", status.id, "reason", status.reason)
+            restore_call_notice_audio(current)
+        end
+    end
     if pending and pending.deadline and now >= pending.deadline then expire_pending(pending) end
     if cleanup and cleanup.cc_done and cleanup.sip_done and resources_released() then
         logi("旧通话清理完成", cleanup.call_id, cleanup.owner)
@@ -226,8 +328,8 @@ drive = function()
         if pending and not pending.expired and resources_released() then start_pending(pending) end
     end
 
-    -- 只在清理/等待阶段读取原生状态。空闲阶段最多保留一个间隔到期定时器。
-    if cleanup or pending or recovering then
+    -- 只在清理/等待或播报阶段查询状态。空闲阶段最多保留一个间隔到期定时器。
+    if cleanup or pending or recovering or (current and current.notice_play_id) then
         local delay = POLL_MS
         if pending and pending.deadline then delay = math.min(delay, pending.deadline - now) end
         if cooldown_until and cooldown_until > now then delay = math.min(delay, cooldown_until - now) end
@@ -288,6 +390,7 @@ local function on_sip_connected(call_id, generation, owner)
         sys.publish("CC_ACCEPT_REQ", call.cc_generation, call.owner)
     end
     if call.cc_state == "cc_connected" then call.connected_at = call.connected_at or now_ms() end
+    play_call_notice(call)
 end
 
 local function on_sip_ended(reason, call_id, generation, owner)
@@ -345,6 +448,7 @@ local function on_cc_connected(generation, owner, session)
         sip_request("SIP_ACCEPT_REQ", call)
     end
     if call.sip_state == "sip_connected" then call.connected_at = call.connected_at or now_ms() end
+    play_call_notice(call)
 end
 
 local function on_cc_ended(reason, generation, owner, session)

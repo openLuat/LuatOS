@@ -130,6 +130,69 @@ function t.test_restart_after_stop()
     reset()
 end
 
+--[[
+start 之后录像列表必须能整张替换。
+
+设备在持续录像，列表原先只在 start 时读一次 —— 新录的片子要等下次 start 才
+看得见，默认开着录像的设备等于一直向平台报旧列表。
+]]
+function t.test_set_records_after_start()
+    reset()
+    assert(client.start(base_opts()) == true)
+    assert(#client.records() == 0, "未配置 records 时应为空表")
+
+    assert(client.set_records({
+        { device_id = "35020000001310000001", name = "A",
+          file_path = "/luadb/a.mp4", address = "addr",
+          start_time = "2026-09-29T10:00:00",
+          end_time   = "2026-09-29T10:00:10" },
+    }) == true)
+
+    local recs = client.records()
+    assert(#recs == 1, "换列表后应立刻可见")
+    assert(recs[1].playable == true, "时间可解析的条目应标为可回放")
+    assert(type(recs[1].epoch) == "number", "应派生 epoch(与报给平台的时刻同源)")
+    reset()
+end
+
+--[[ 换的是整张表，不是追加：旧条目不该留下 ]]
+function t.test_set_records_replaces_whole_list()
+    reset()
+    assert(client.start(base_opts()) == true)
+
+    local function rec(name, t0)
+        return { device_id = "35020000001310000001", name = name,
+                 file_path = "/luadb/" .. name .. ".mp4", address = "addr",
+                 start_time = "2026-09-29T" .. t0 .. ":00",
+                 end_time   = "2026-09-29T" .. t0 .. ":10" }
+    end
+
+    client.set_records({ rec("A", "10:00"), rec("B", "10:01") })
+    assert(#client.records() == 2)
+
+    client.set_records({ rec("B", "10:01") })
+    local recs = client.records()
+    assert(#recs == 1 and recs[1].name == "B", "应整张替换，旧条目不该留下")
+    reset()
+end
+
+--[[ 非表入参按空列表处理（与 start 的 records 容错一致），不该报错 ]]
+function t.test_set_records_treats_junk_as_empty()
+    reset()
+    assert(client.start(base_opts()) == true)
+    client.set_records({
+        { device_id = "35020000001310000001", name = "A",
+          file_path = "/luadb/a.mp4", address = "addr",
+          start_time = "2026-09-29T10:00:00",
+          end_time   = "2026-09-29T10:00:10" },
+    })
+    assert(#client.records() == 1)
+
+    assert(client.set_records("这不是表") == true)
+    assert(#client.records() == 0, "非表入参应归一化为空列表")
+    reset()
+end
+
 --[[ on() 只接受函数或 nil ]]
 function t.test_on_accepts_function_and_nil()
     reset()

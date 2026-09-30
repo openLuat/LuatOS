@@ -3425,7 +3425,8 @@ function M.start(opts)
     -- 会话探针等应答的时长(见 probe_session)
     g_opts.probe_timeout_ms = g_opts.probe_timeout_ms or DEFAULT_PROBE_TIMEOUT_MS
 
-    -- 录像列表归一化一次，RecordInfo 应答与回放定位共用这一份(见 normalize_records)
+    -- 录像列表归一化一次，RecordInfo 应答与回放定位共用这一份(见 normalize_records)。
+    -- 之后可用 set_records() 整张替换 —— 设备在持续录像时就需要这个
     st.records = normalize_records(g_opts.records)
 
     g_cb = opts.event_callback
@@ -3509,14 +3510,36 @@ end
 --[[
 取归一化后的录像列表（回放源用）。
 
-返回的是**内部那份**而不是副本：回放会话每开一段录像都要读它，而录像列表
-在一次运行内不变。**调用方不要改它**。
+返回的是**内部那份**而不是副本：回放会话每开一段录像都要读它。**调用方不要
+改它** —— 要换列表用 `set_records()`，它整张换掉。
 
 @api exgb28181client.records()
 @return table 录像列表（可能为空表）
 ]]
 function M.records()
     return st.records or {}
+end
+
+--[[
+更新录像列表（**start 之后**用）。
+
+设备在持续录像、录像库随时在长，而列表原先只在 start 时读一次 —— 新录的片子
+要等下次 start 才看得见，默认开着录像的设备等于一直向平台报旧列表。
+
+换的是**整张新表**而不是就地改，于是 RecordInfo 与之后新开的回放会话立刻用上
+新列表，而**正在播的会话不受影响**（它握的是换表前那一份；若它续播时下一段已被
+删掉，走既有的 `open_at` 失败路径收尾，不会崩）。
+
+格式与 start 的 `records` 一致，每次都整体重新归一化，传原始配置或 `records()`
+取回的那份都行。**start() 会用 opts.records 覆盖它**，故请在 start 之后调。
+
+@api exgb28181client.set_records(list)
+@table list 录像列表，格式同 start 的 records
+@return boolean
+]]
+function M.set_records(list)
+    st.records = normalize_records(list)
+    return true
 end
 
 --[[

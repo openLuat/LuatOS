@@ -1,12 +1,12 @@
 --[[
-@module  sip_main
+@module  cc_sip
 @summary SIP 协议栈模块
 @version 1.0.1
 @date    2026.07.20
 @author  蒋骞
 @usage
 本文件为 SIP 协议栈模块，核心业务逻辑为：
-1、封装 exsip 的注册、事件处理、拨号、接听和挂断，通过发布/订阅消息与 bridge.lua 交互；
+1、封装 exsip 的注册、事件处理、拨号、接听和挂断，通过发布/订阅消息与 cc_bridge.lua 交互；
 2、exsip.init 固定 cc_sip_bridge = true、early_media = true、early_media_response = 183，
    SIP 侧只负责 RTP/PCM，CC<->SIP 的语音流桥接由固件完成；
 3、设置 voip.setAudioMode(voip.AUDIO_MODE_BRIDGE)，避免 SIP 与 CC 争用音频硬件；
@@ -16,16 +16,17 @@
 7、转发 SIP MESSAGE 为备用控制通道(SIP_MESSAGE)，并广播 VOIP_STARTED/VOIP_STOPPED
    供 bridge 在 voip 就绪后重启早期媒体回铃音；
 
-本文件对外提供 sip_main.init()/dial()/accept()/hangup()/get_state()/is_registered() 接口，
-直接在其他功能模块中require "cc_sip_main"就可以加载运行；
+本文件对外提供 cc_sip.init()/dial()/accept()/hangup()/get_state()/is_registered() 接口，
+直接在其他功能模块中require "cc_sip"就可以加载运行；
 ]]
+local task_voice = require "task_voice"
 
 local exsip = require "exsip"
-local config = require "cc_config"
+local config = require "sip_config"
 -- 自动加载桥接协调器
 local bridge = require "cc_bridge"
 
-local sip_main = {}
+local cc_sip = {}
 
 local STATE_IDLE = "sip_idle"
 local STATE_INCOMING = "sip_incoming"
@@ -38,10 +39,11 @@ local g_state = STATE_IDLE
 local g_registered = false
 
 local function logi(...)
-    log.info("sip_main", ...)
+    log.info("cc_sip", ...)
 end
 
 local function set_state(new_state)
+    if new_state~=STATE_IDLE then task_voice.cancel("bridge call state") end
     if g_state ~= new_state then
         logi("状态切换", g_state, "->", new_state)
         g_state = new_state
@@ -52,14 +54,14 @@ end
 
 local function on_sip_dial_req(uri,from_number)
     if g_state ~= STATE_IDLE then
-        log.warn("sip_main", "SIP 忙，无法拨号", g_state)
+        log.warn("cc_sip", "SIP 忙，无法拨号", g_state)
         return
     end
     set_state(STATE_DIALING)
     logi("执行拨号", uri)
     local ok = exsip.dial(uri,from_number)
     if not ok then
-        log.error("sip_main", "exsip.dial 失败")
+        log.error("cc_sip", "exsip.dial 失败")
         set_state(STATE_IDLE)
         sys.publish("SIP_FAILED", "dial_failed")
     end
@@ -67,13 +69,13 @@ end
 
 local function on_sip_accept_req()
     if g_state ~= STATE_INCOMING and g_state ~= STATE_PROGRESSING then
-        log.warn("sip_main", "当前不是来电状态", g_state)
+        log.warn("cc_sip", "当前不是来电状态", g_state)
         return
     end
     logi("执行接听")
     local ok = exsip.accept()
     if not ok then
-        log.error("sip_main", "exsip.accept 失败")
+        log.error("cc_sip", "exsip.accept 失败")
         set_state(STATE_IDLE)
         sys.publish("SIP_FAILED", "accept_failed")
     end
@@ -81,11 +83,11 @@ end
 
 local function on_sip_progress_req()
     if g_state ~= STATE_INCOMING then
-        log.warn("sip_main", "当前不能启动早期媒体", g_state)
+        log.warn("cc_sip", "当前不能启动早期媒体", g_state)
         return
     end
     if not exsip.progress or not exsip.progress() then
-        log.error("sip_main", "exsip.progress 失败")
+        log.error("cc_sip", "exsip.progress 失败")
         set_state(STATE_IDLE)
         sys.publish("SIP_FAILED", "progress_failed")
         return
@@ -96,21 +98,21 @@ end
 
 local function on_sip_hangup_req()
     if g_state == STATE_IDLE then
-        log.warn("sip_main", "SIP 已空闲")
+        log.warn("cc_sip", "SIP 已空闲")
         return
     end
     set_state(STATE_DISCONNECTING)
     logi("执行挂断")
     local ok = exsip.hangUp()
     if not ok then
-        log.error("sip_main", "exsip.hangUp 失败")
+        log.error("cc_sip", "exsip.hangUp 失败")
     end
 end
 
 -- bridge 请求结束 SIP 早期媒体：CC 忙/未就绪时避免 SIP 分支悬挂。
 local function on_sip_fail_req(code, reason)
     if g_state == STATE_IDLE then
-        log.warn("sip_main", "SIP 已空闲，忽略失败请求")
+        log.warn("cc_sip", "SIP 已空闲，忽略失败请求")
         return
     end
     if g_state == STATE_INCOMING or g_state == STATE_PROGRESSING then
@@ -192,7 +194,7 @@ local function on_sip_event(event, action, data)
             logi("VoIP 状态", data)
             -- 参考版：voip 在无有效 SIP 通话时意外启动(抢占 I2S/音频硬件)则立即停止。
             if data == "started" and (g_state == STATE_IDLE or g_state == STATE_DISCONNECTING) then
-                log.warn("sip_main", "VoIP 在无有效 SIP 通话时启动，立即停止")
+                log.warn("cc_sip", "VoIP 在无有效 SIP 通话时启动，立即停止")
                 if voip and voip.stop then
                     voip.stop()
                 end
@@ -206,7 +208,7 @@ local function on_sip_event(event, action, data)
             data = data or {}
             logi("VoIP 统计", data.tx_packets, data.rx_packets, data.rx_lost)
         elseif action == "error" then
-            log.error("sip_main", "VoIP 错误", data)
+            log.error("cc_sip", "VoIP 错误", data)
         end
 
     elseif event == "lifecycle" then
@@ -218,7 +220,7 @@ local function on_sip_event(event, action, data)
         end
 
     elseif event == "error" then
-        log.error("sip_main", "SIP 错误", action, data)
+        log.error("cc_sip", "SIP 错误", action, data)
 
     elseif event == "message" then
         if action == "rx" then
@@ -231,7 +233,7 @@ end
 
 -- ==================== 公共 API ====================
 
-function sip_main.init()
+function cc_sip.init()
     logi("SIP 初始化开始")
     local sip_ok = exsip.init({
         sip_server_addr = config.sip_server_addr,
@@ -250,7 +252,7 @@ function sip_main.init()
         adapter = config.adapter,
     })
     if not sip_ok then
-        log.error("sip_main", "exsip.init 失败")
+        log.error("cc_sip", "exsip.init 失败")
         return false
     end
 
@@ -262,47 +264,47 @@ function sip_main.init()
         if ok then
             logi("voip 已设置为桥接模式")
         else
-            log.warn("sip_main", "voip 设置桥接模式失败，尝试先停止后重试")
+            log.warn("cc_sip", "voip 设置桥接模式失败，尝试先停止后重试")
             if voip.stop then voip.stop() end
             sys.wait(500)
             ok = voip.setAudioMode(voip.AUDIO_MODE_BRIDGE)
             if ok then
                 logi("voip 桥接模式设置成功")
             else
-                log.error("sip_main", "voip 桥接模式设置失败")
+                log.error("cc_sip", "voip 桥接模式设置失败")
             end
         end
     else
-        log.warn("sip_main", "voip 模块不可用，跳过桥接模式设置")
+        log.warn("cc_sip", "voip 模块不可用，跳过桥接模式设置")
     end
 
     local start_ok = exsip.start()
     if not start_ok then
-        log.error("sip_main", "exsip.start 失败")
+        log.error("cc_sip", "exsip.start 失败")
         return false
     end
     logi("SIP 启动完成")
     return true
 end
 
-function sip_main.dial(uri)
+function cc_sip.dial(uri)
     sys.publish("SIP_DIAL_REQ", uri)
 end
 
-function sip_main.accept()
+function cc_sip.accept()
     sys.publish("SIP_ACCEPT_REQ")
 end
 
-function sip_main.hangup()
+function cc_sip.hangup()
     sys.publish("SIP_HANGUP_REQ")
 end
 
-function sip_main.get_state()
+function cc_sip.get_state()
     return g_state
 end
 
-function sip_main.is_registered()
+function cc_sip.is_registered()
     return g_registered
 end
 
-return sip_main
+return cc_sip

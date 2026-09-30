@@ -1,21 +1,17 @@
 --[[
-@module  audio_drv
-@summary Air1103 音频初始化及 SIP PCM 适配，exaudio 播放、Air1103 直接采集 MIC
+@module  single_audio
+@summary 单SIP的Air1103音频适配
 @version 1.0
-@date    2026.09.23
+@date    2026.09.29
 @author  王世豪
 @usage
-本文件为 Air1103 音频适配层（SIP PCM 桥接），核心业务逻辑为：
-1、exaudio.setup 初始化 Air1103（UART 模式，16kHz/16bit/单声道），air1103 直采 MIC，不启用 exaudio 录音任务；
-2、16kHz MIC ↔ 8kHz VoIP 经 voip.pcmResampler 双向重采样，capture_tick 上行搬运、playback_tick 下行补充；
-3、通话桥接 start/stop/stop_bridge：仅停桥接不复位芯片（复位延后到挂断提示音收尾），避免吞掉提示音；
-4、health_tick 监控 MIC 中断/恢复与 PCM 发送阻塞，异常 publish("AUDIO_DRV_ERROR") 由业务层重启会话；
-5、语音留言播放（play_message/stop_message，与通话共用播放 FIFO，通话中禁止）、振铃/挂断提示音；
-本文件对外提供 M.init/start/stop/is_ready 等接口，被 sip_app_main 与 msg_player 调用；
+提供初始化、采集、播放、恢复接口；使用 single_config.audio。
+volume 控制本机喇叭，mic_gain 控制本机MIC到SIP的重采样增益。
 ]]
 local exaudio = require "exaudio"
 local air1103 = require "air1103"
-local cfg = require("config").audio
+local single_config = require "single_config"
+local cfg = single_config.audio
 -- 16kHz/16bit/单声道：每10ms为320字节，与正常参考工程保持一致。
 local play_target = math.max(40, math.min(120, tonumber(cfg.play_buffer_ms) or 60)) // 10 * 320
 local M = {}
@@ -27,8 +23,6 @@ local down, up
 local queue, uplink = {}, ""
 local capture_timer, play_timer, health_timer
 local mic_s, mic_us, accept_s, accept_us = 0, 0, 0, 0
--- 留言播放状态（声明提前：init/start/is_ready 需要据此避免并发，实现见下方"语音留言播放"）
-local msg_playing, msg_done = false, false
 
 local function elapsed_ms(s, us)
     local now_s, now_us = mcu.ticks2(0)
@@ -60,7 +54,7 @@ local function start_record()
     -- 与正常参考工程一致：串口回调只入队，重采样仍在独立定时器执行。
     -- 不启动 exaudio.record_start，避免录音任务搬运、缓冲清零及回调覆盖。
     air1103.set_rx_enable(false)
-    air1103.on_audio_data(function(data)
+    local function on_audio_data(data)
         if not recording or current ~= generation then return end
         if type(data) ~= "string" or #data ~= 512 then return end
         mic_s, mic_us = mcu.ticks2(0)
@@ -72,7 +66,8 @@ local function start_record()
             if #queue == 8 then table.remove(queue, 1) end
             queue[#queue + 1] = data
         end
-    end)
+    end
+    air1103.on_audio_data(on_audio_data)
     local ok = air1103.reset()
     air1103.set_rx_enable(true)
     if not ok then stop_record() end
@@ -100,19 +95,14 @@ end
 function M.init()
     if M.is_ready() then return true end
     if running then return false end
-    -- 留言播放期间播放通道被占用，此时重初始化会打断播放
-    if msg_playing then
-        log.warn("audio_drv", "留言播放中，暂不重初始化音频")
-        return false
-    end
     local ok, err = M.check_firmware()
-    if not ok then log.error("audio_drv", err); return false end
+    if not ok then log.error("single_audio", err); return false end
     if not down then
         local gain = math.max(1, math.min(8, math.floor(tonumber(cfg.mic_gain) or 1)))
         local ok_down, new_down = pcall(voip.pcmResampler, 16000, 8000, gain)
         local ok_up, new_up = pcall(voip.pcmResampler, 8000, 16000)
         if not ok_down or not ok_up or not new_down or not new_up then
-            log.error("audio_drv", "PCM重采样器创建失败")
+            log.error("single_audio", "PCM重采样器创建失败")
             return false
         end
         down, up = new_down, new_up
@@ -129,7 +119,7 @@ function M.init()
         bits_per_sample=16, channels=1,
     })
     if not setup_ok or not result then
-        log.error("audio_drv", "exaudio.setup失败", result)
+        log.error("single_audio", "exaudio.setup失败", result)
         return false
     end
     exaudio.sip_voip_start, exaudio.sip_voip_stop = M.start, M.stop_bridge
@@ -141,7 +131,7 @@ function M.init()
     end
     if not ready then
         stop_record()
-        log.error("audio_drv", "未收到MIC数据，请检查供电、UART和固件")
+        log.error("single_audio", "未收到MIC数据，请检查供电、UART和固件")
         return false
     end
     initialized = true
@@ -169,8 +159,6 @@ function M.start(session)
     if not M.is_ready() then return false end
     if session and tonumber(session.sample_rate or 8000) ~= 8000 then return false end
     if running then return true end
-    -- 通话要用同一条播放 FIFO，先收掉可能残留的留言播放
-    if msg_playing then M.stop_message() end
     clear_pcm()
     if not set_volume() or not exaudio.play_start({type=2}) then return false end
     running = true
@@ -199,7 +187,7 @@ function M.start(session)
                 if set_volume() and exaudio.play_start({type=2}) then
                     mic_recovering = false
                     accept_s, accept_us = mcu.ticks2(0)
-                    log.info("audio_drv", "MIC_RECOVER_OK", "SIP会话保持")
+                    log.info("single_audio", "MIC_RECOVER_OK", "SIP会话保持")
                 else
                     reason = "MIC恢复后播放启动失败"
                 end
@@ -214,7 +202,7 @@ function M.start(session)
                 -- 不停止voip/SIP，等待真实MIC帧后恢复播放；超时仍上报业务层。
                 mic_recovering, mic_recovery_attempted = true, true
                 recover_s, recover_us = mcu.ticks2(0)
-                log.warn("audio_drv", "MIC_RECOVER_BEGIN", "age_ms", math.floor(elapsed_ms(mic_s, mic_us)))
+                log.warn("single_audio", "MIC_RECOVER_BEGIN", "age_ms", math.floor(elapsed_ms(mic_s, mic_us)))
                 exaudio.play_stop({type=2})
                 clear_pcm()
                 if not start_record() then reason = "通话中MIC复位失败" end
@@ -249,96 +237,13 @@ function M.stop(skip_recover)
     -- skip_recover=true: 挂断提示音需趁芯片就绪时播放，复位重启会吞掉紧跟的提示音，
     --                    故把MIC恢复延后到提示音队列收尾自行复位；保持GPIO供电。
     if not skip_recover then
-        if not start_record() then log.error("audio_drv", "MIC恢复失败") end
+        if not start_record() then log.error("single_audio", "MIC恢复失败") end
     end
 end
 
 -- 供 exsip 在停止媒体时调用：只停桥接，不复位芯片(复位延后到挂断提示音队列收尾)。
 function M.stop_bridge()
     return M.stop(true)
-end
-
--- ==================== 语音留言播放（短按 UP） ====================
--- Air1103 只支持 PCM 流式播放(type=2)，留言必须是 16kHz/16bit/单声道裸 PCM，
--- 20ms 一帧 = 640 字节。与通话共用同一条播放 FIFO，因此通话中禁止播放，
--- 来电/呼出时必须 stop_message() 让出通道。
-local MSG_FRAME = 640
-
--- 播放预置留言（异步，内部起任务喂数据）
--- @param string path 留言文件（16kHz/16bit/单声道裸 PCM）
--- @return boolean true 表示已开始播放
-function M.play_message(path)
-    if msg_playing then
-        log.warn("audio_drv", "留言正在播放，忽略重复触发")
-        return false
-    end
-    if running then
-        log.warn("audio_drv", "通话中，忽略留言播放")
-        return false
-    end
-    if not M.is_ready() then
-        log.warn("audio_drv", "音频未就绪，忽略留言播放")
-        return false
-    end
-    if not path or not io.exists(path) then
-        log.error("audio_drv", "留言文件不存在:", tostring(path))
-        return false
-    end
-    local size = io.fileSize(path) or 0
-    if size < MSG_FRAME then
-        log.error("audio_drv", "留言文件过小或不是16k/16bit/单声道PCM:", path, size)
-        return false
-    end
-    local fp = io.open(path, "rb")
-    if not fp then
-        log.error("audio_drv", "留言文件打开失败:", path)
-        return false
-    end
-    if not set_volume() or not exaudio.play_start({ type = 2, cbfnc = function() msg_done = true end }) then
-        fp:close()
-        log.error("audio_drv", "留言播放启动失败")
-        return false
-    end
-    msg_playing, msg_done = true, false
-    log.info("audio_drv", "开始播放留言", path, size, "字节")
-    sys.taskInit(function()
-        local offset = 0
-        while msg_playing and offset < size do
-            -- 按水位补帧，避免 FIFO 积压；留言不需要低延迟，可比通话更保守
-            if air1103.get_pending() < play_target + MSG_FRAME then
-                local data = fp:read(MSG_FRAME)
-                if not data or #data == 0 then break end
-                offset = offset + #data
-                -- 最后一帧带 is_end：exaudio 排空 FIFO 后回调 PLAY_DONE
-                exaudio.play_stream_write(data, offset >= size)
-            end
-            sys.wait(10)
-        end
-        fp:close()
-        -- 等排空回调(PLAY_DONE)，最多 3 秒，避免尾音被截断
-        local waited = 0
-        while not msg_done and waited < 3000 do
-            sys.wait(100)
-            waited = waited + 100
-        end
-        msg_playing = false
-        -- 停止播放会一并停掉芯片 MIC，必须复位恢复，否则后续通话没有上行
-        if not start_record() then log.error("audio_drv", "留言播放后MIC恢复失败") end
-        log.info("audio_drv", "留言播放结束")
-    end)
-    return true
-end
-
--- 打断留言播放：来电/呼出时调用，让出播放通道给振铃或通话语音
-function M.stop_message()
-    if not msg_playing then return end
-    log.info("audio_drv", "打断留言播放")
-    msg_playing = false
-    exaudio.play_stop({ type = 2 })
-end
-
-function M.is_message_playing()
-    return msg_playing
 end
 
 -- 本机提示音(按模型分发，透传 exaudio；air1103 模式复用芯片内嵌提示音与播放队列)
@@ -349,8 +254,6 @@ function M.play_ringback_loop() return exaudio.play_ringback_loop() end
 function M.stop_ringback(skip_reset) return exaudio.stop_ringback(skip_reset) end
 
 function M.is_ready()
-    -- 留言播放会停止芯片 MIC，此时没有上行数据属正常，不能判成音频故障
-    if msg_playing then return true end
     if ready and elapsed_ms(mic_s, mic_us) >= cfg.mic_timeout_ms then ready = false end
     return initialized and ready
 end

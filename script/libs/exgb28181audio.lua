@@ -105,6 +105,14 @@ function M.feed(s, body, is_ps)
         return
     end
 
+    --[[
+    **原生后端下这条分支不会走到**：C 侧已经把 PS 解封装完了，交过来的
+    is_ps 恒为 false。留着它是为仍按老契约传 PS 的调用方 —— 联调工具
+    tools/audio_bridge 就是直接喂 PS 给这里验重组逻辑的。
+
+    跨包缓冲 ps_pend 仍是这里保管：`gb.ps_demux_audio` 是无状态的，
+    尾部不完整的部分得由调用方留着再拼。
+    ]]
     if is_ps then
         st.down_ps = st.down_ps + 1
         if gb == nil or type(gb.ps_demux_audio) ~= "function" then
@@ -146,6 +154,15 @@ local function pump()
         return
     end
 
+    --[[
+    顺手把**下行**收一轮。
+
+    为什么挂在这里：这一拍是 20ms，正好是音频的节拍。客户端的 tick 是 1 秒，
+    挂那儿的话平台推来的声音会按秒成坨地进播放器。原生后端下 C 只是把解好的
+    G.711A 放进 sink 回调，收取的时机由调用方给 —— 而这里就是那个"该收的时机"。
+    ]]
+    client.poll_rx(sess)
+
     local used = rec_zb:used()
     if used < FRAME_BYTES then
         return                      -- 不足一帧，等下一拍
@@ -159,7 +176,25 @@ local function pump()
         return
     end
 
-    -- 按 20ms 切包。平台侧的抖动缓冲按包长工作，整块推会破坏它的节拍
+    if sess.stream then
+        --[[
+        原生后端：**整块交过去，不在这里切包**。
+
+        切包与时间戳推进是协议侧的固定知识，已经下沉到 C（一次调用切好），
+        省掉原先每包一次跨语言往返。上面那个 `used % FRAME_BYTES` 仍然必要：
+        半帧不能推给平台（会打乱对端抖动缓冲的节拍），余数留在缓冲里等下拍。
+        ]]
+        if client.talk_push(sess, pcma) then
+            st.up_frames = st.up_frames + #pcma / FRAME_BYTES
+            st.up_bytes  = st.up_bytes + #pcma
+        else
+            st.up_drop = st.up_drop + 1
+        end
+        return
+    end
+
+    -- 老后端：仍在这里按 20ms 切 —— 它那条路是 media_push，不切包。
+    -- 平台侧的抖动缓冲按包长工作，整块推会破坏它的节拍
     for i = 1, #pcma, FRAME_BYTES do
         local one = pcma:sub(i, i + FRAME_BYTES - 1)
         if client.talk_push(sess, one) then

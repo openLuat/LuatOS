@@ -1161,9 +1161,11 @@ target("luatos-lua")
     if use_gb28181 then
         add_defines("LUAT_USE_GB28181=1")
         add_includedirs(gb28181_src .. "/include", {public = true})
-        -- 本组件不设 port/：socket 句柄交不到 C，发送由 Lua 层泵字节
+        -- 收发实现在运行期注入（见其 include/luat_gb28181_transport.h）：
+        -- src/ 只声明函数表、不引用实现；实现放 binding/，故 src/ 不依赖 SDK 头
         add_files(gb28181_src .. "/src/*.c")
         add_files(gb28181_src .. "/binding/luat_lib_gb28181.c")
+        add_files(gb28181_src .. "/binding/luat_gb28181_transport_netadapter.c")
 
         -- 历史回放(record/)：用 mp4player 的 minimp4；未接入时组件自带实现
         add_includedirs(gb28181_src .. "/record")

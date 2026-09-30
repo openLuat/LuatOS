@@ -2,7 +2,7 @@
 
 ## 一、项目简介
 
-1. **成品整机**：Air8602（主控 Air1602）+ 10.1 寸 1024×600 RGB 屏（HX8282）+ GT911 电容触摸，界面全部用 AirUI 绘制。
+1. **成品整机**：Air8602。
 2. **四个入口**：取件（取件码开柜）/ 管理（管理员密码）/ 存件（小程序码）/ 帮助；本工程不含人脸识别与 FOTA。
 3. **联网**（按硬件版本二选一）：WiFi 版本板用 Air6205（UART3 airlink，2M）；4G 版本板用 Air780ER2（UART3 airlink，`4G_RST`=GPIO58）。
 4. **云端**：AirCloud 长连接（excloud，自动识别设备类型）做鉴权、控制命令（`save,柜号,取件码`）、事件 TLV 上报；业务数据走 HTTP（`api.luatos.com/iot/smart_locker`）。

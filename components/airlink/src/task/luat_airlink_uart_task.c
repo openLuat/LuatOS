@@ -22,6 +22,8 @@
 #define UART_BUFF_SIZE (4096)             // s_txbuff / s_rxbuff 大小 (临时缓冲)
 #define UNPACK_BUFF_SIZE (8 * 1024)       // rxbuf 环形缓冲区大小
 #define UART_ESC_FRAME_MAX   (UART_BUFF_SIZE)  // 单帧转义后最大长度, 与 s_txbuff/s_rxbuff 一致
+// 解析器失步看门狗: 收到数据却超过该时长未解出任何帧, 则强制清空 rxoffset 重同步
+#define AIRLINK_UART_RX_RESYNC_MS (500)
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"
@@ -42,6 +44,11 @@
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
+// UART RX overrun 标志: FIFO 溢出丢字节(帧界被破坏)时在驱动 ISR 内置位。
+// ccm42xx 由 luat_uart_ccm42xx.c 强定义并置位; 其它平台(如 ec7xx/780EHM)没有该驱动,
+// 此处用弱默认 0 兜底, 否则全平台共享代码链接报 undefined reference(2026-09-30 780EHM 编译实测)。
+// 弱默认=0 时 overrun 立即重同步不生效, 自动退回下方 AIRLINK_UART_RX_RESYNC_MS 看门狗。
+volatile uint32_t g_uart_rx_overrun __attribute__((weak)) = 0;
 
 static uint8_t basic_info[sizeof(luat_airlink_dev_info_t) + 64];
 typedef struct
@@ -58,7 +65,6 @@ typedef struct
 }luat_airlink_uart_ctrl_t;
 
 static luat_airlink_uart_ctrl_t g_airlink_uart = {0};
-
 
 static void luat_airlink_uart_transfer_task(void);
 static void luat_airlink_uart_receive_task(void);
@@ -176,23 +182,12 @@ __USER_FUNC_IN_RAM__ static int on_link_data_notify(airlink_link_data_t* link) {
     return 0;
 }
 
-static void unpack_data(uint8_t* buff, size_t len)
+static bool unpack_data(uint8_t* buff, size_t len)
 {
-    static uint32_t rx_fail_cnt = 0;
-    static uint64_t rx_last_log_tick = 0;
-    // 帧大小跟踪 (诊断用)
-    static uint16_t rx_esc_max = 0;
-    static uint16_t rx_raw_max = 0;
-
     // LLOGD("unpack_data: src len = %d", len);
     if (len < 2) {
         LLOGE("unpack_data: data too short");
-        return; // 数据太短, 无法解析
-    }
-    // 跟踪最大转义帧
-    if (len > rx_esc_max) {
-        rx_esc_max = len;
-        LLOGI("uart rx: new max escaped frame %u bytes", (unsigned)len);
+        return false; // 数据太短, 无法解析
     }
     // 存储最终数据到s_rxbuff
     uint8_t* unpacked_data = g_airlink_uart.s_rxbuff;
@@ -204,7 +199,7 @@ static void unpack_data(uint8_t* buff, size_t len)
                 if (unpacked_len >= UART_ESC_FRAME_MAX) {
                     LLOGW("unpack: overflow raw=%u limit=%u esc_len=%u — frame truncated",
                           (unsigned)(unpacked_len + 1), (unsigned)UART_ESC_FRAME_MAX, (unsigned)len);
-                    return;
+                    return false;
                 }
                 if (buff[i + 1] == 0x02) {
                     unpacked_data[unpacked_len++] = 0x7E; // 转义为0x7E
@@ -217,34 +212,21 @@ static void unpack_data(uint8_t* buff, size_t len)
             if (unpacked_len >= UART_ESC_FRAME_MAX) {
                 LLOGW("unpack: overflow raw=%u limit=%u esc_len=%u — frame truncated",
                       (unsigned)(unpacked_len + 1), (unsigned)UART_ESC_FRAME_MAX, (unsigned)len);
-                return;
+                return false;
             }
             unpacked_data[unpacked_len++] = buff[i]; // 普通数据直接复制
         }
     }
-    // 跟踪最大原始帧
-    if (unpacked_len > rx_raw_max) {
-        rx_raw_max = unpacked_len;
-        LLOGI("uart rx: new max raw frame %u bytes", (unsigned)unpacked_len);
-    }
     if (unpacked_len < sizeof(airlink_link_data_t)) {
         // LLOGE("unpack_data: unpacked data too short, len %d", unpacked_len);
-        return; // 解包后的数据太短, 无法解析
+        return false; // 解包后的数据太短, 无法解析
     }
     airlink_link_data_t *link = NULL;
     link = luat_airlink_data_unpack(unpacked_data, unpacked_len);
     if (link == NULL) {
-        rx_fail_cnt++;
-        uint64_t tnow = luat_mcu_tick64_ms();
-        if (tnow - rx_last_log_tick > 5000) {
-            LLOGW("uart rx: ok=%lu fail=%lu esc_max=%u raw_max=%u last_ok=%llums ago",
-                  g_airlink_statistic.tx_pkg.ok, rx_fail_cnt, rx_esc_max, rx_raw_max,
-                  (g_airlink_last_cmd_timestamp > 0) ? (tnow - g_airlink_last_cmd_timestamp) : 0);
-            rx_last_log_tick = tnow;
-            g_airlink_statistic.tx_pkg.err++;
-            g_airlink_statistic.tx_pkg.total++;
-        }
-        return; // 解析失败
+        g_airlink_statistic.tx_pkg.err++;
+        g_airlink_statistic.tx_pkg.total++;
+        return false; // 解析失败
     }
     // 解析成功了
     g_airlink_statistic.tx_pkg.ok++;
@@ -257,6 +239,7 @@ static void unpack_data(uint8_t* buff, size_t len)
     // 更新最后通讯时间戳，用于airlink.ready()判断
     g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
     luat_airlink_on_data_recv(link->data, link->len);
+    return true;
 }
 
 
@@ -268,6 +251,49 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
     // 首先, 输入的数据是否为0, 也可能是太长的数据
     if (len == 0) {
         return; // 不需要处理
+    }
+    // [修复] 解析器失步看门狗: 字节持续流入却长时间解不出任何帧(残帧吞帧/丢字节致帧尾被吞),
+    // 会让 rxbuf 永久卡在"等帧尾"状态(实测: ok 冻结、rxoffset 卡 173、40KB 流入 0 帧解出)。
+    // 帧有 CRC16 保护, 丢弃一个残帧无害(TCP 会重传); 不加干预则会拖到 link timeout(5.5s) 整链路断。
+    // 阈值 500ms: 2Mbps 下满帧(≤8KB 转义)最多 ~40ms 到齐, 500ms 为 12x 裕量, 不会误伤正常分片帧。
+    // [修复] overrun 信号驱动重同步: UART RX FIFO 溢出丢字节(帧界被破坏)是即时的确定性信号,
+    // 立即清空 rxbuf 重新找 0x7E 帧头, 比 500ms 看门狗更快恢复(overrun→重同步 ~0ms)。
+    if (g_uart_rx_overrun) {
+        g_uart_rx_overrun = 0;
+        if (g_airlink_uart.rxoffset > 0) {
+            LLOGD("uart overrun 重同步: 清空 rxoffset=%u", (unsigned)g_airlink_uart.rxoffset);
+            g_airlink_uart.rxoffset = 0;
+        }
+    }
+    if (g_airlink_uart.rxoffset > 0 && g_airlink_last_cmd_timestamp > 0) {
+        uint64_t _now = luat_mcu_tick64_ms();
+        if (_now - g_airlink_last_cmd_timestamp > AIRLINK_UART_RX_RESYNC_MS) {
+            // [修改] 长度感知看门狗: 500ms 未解出帧时, 先判 rxbuf 首部是否为合法帧头
+            // (magic A1B1CA66 + len 字段)。若是合法半帧(大帧尾因从机 TX 暂顿 >500ms 未到),
+            // 只等尾不 reset; 仅当帧头非法或已收字节 ≥ 理论帧长(帧损坏/丢字节)才重同步。
+            uint8_t *_hdr = g_airlink_uart.rxbuf;
+            size_t _have = (size_t)g_airlink_uart.rxoffset;
+            int _wait_tail = 0;
+            uint16_t _len = 0;
+            size_t _raw_max = 0;
+            if (_have >= 7 && _hdr[0] == 0x7E && _hdr[1] == 0xA1 && _hdr[2] == 0xB1
+                && _hdr[3] == 0xCA && _hdr[4] == 0x66) {
+                _len = (uint16_t)(_hdr[5] | ((uint16_t)_hdr[6] << 8));
+                _raw_max = 2 + 2 * ((size_t)sizeof(airlink_link_data_t) + (size_t)_len);
+                // len 是 u16(最大 65535) 理论可算 131104, 加 <= UART_BUFF_SIZE 兜底防等不存在的超长帧
+                if (_raw_max <= UART_BUFF_SIZE && _have < _raw_max) {
+                    _wait_tail = 1;
+                }
+            }
+            if (_wait_tail) {
+                // 合法半帧: 只等尾不 reset
+            } else {
+                LLOGD("uart rx 解析器失步: %llums 未解出帧, 强制清空 rxoffset=%u 重同步",
+                      (unsigned long long)(_now - g_airlink_last_cmd_timestamp),
+                      (unsigned)g_airlink_uart.rxoffset);
+                g_airlink_uart.rxoffset = 0;
+            }
+        }
     }
     // 当前 mobile RPC 最大原始 frame 约 3663B，UART 最坏转义后约 7328B；
     // 这里保留 8KiB 接收缓存，允许单个最大帧完整进入并等待包尾。
@@ -308,9 +334,9 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
             end_offset = offset + 1;
             while (end_offset < g_airlink_uart.rxoffset && rxbuff[end_offset] != 0x7E) {
                 end_offset++;
-                if ((end_offset - offset + 1) > UNPACK_BUFF_SIZE) {
+                if ((end_offset - offset + 1) > UART_BUFF_SIZE) {
                     LLOGW("rxbuf 搜索帧尾超限: span=%u limit=%u rxoffset=%u — 重置缓冲区",
-                          (unsigned)(end_offset - offset + 1), (unsigned)UNPACK_BUFF_SIZE, (unsigned)g_airlink_uart.rxoffset);
+                          (unsigned)(end_offset - offset + 1), (unsigned)UART_BUFF_SIZE, (unsigned)g_airlink_uart.rxoffset);
                     g_airlink_uart.rxoffset = 0;
                     break;
                 }
@@ -323,11 +349,27 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
             size_t data_len = end_offset - offset - 1; // 包头和包尾不算在内
             // 反转义数据
             if (data_len > 1) {
-                unpack_data(rxbuff + offset + 1, data_len); // 包头和包尾不算在内
+                if (!unpack_data(rxbuff + offset + 1, data_len)) { // 包头和包尾不算在内
+                    // 解包失败：半截帧(帧尾丢失)或假帧头会让 end_offset 落在下一帧头,
+                    // 此时 end_offset 后紧跟的不是下一帧头 0x7E, 需丢弃到 end_offset 前、
+                    // 保留 end_offset 作帧头重新同步; 否则(正常CRC错帧, end_offset 是真帧尾)
+                    // 走下方默认整帧丢弃。
+                    if (end_offset + 1 >= g_airlink_uart.rxoffset || rxbuff[end_offset + 1] != 0x7E) {
+                        memmove(rxbuff, rxbuff + end_offset, g_airlink_uart.rxoffset - end_offset);
+                        g_airlink_uart.rxoffset -= end_offset;
+                        offset = 0;
+                        continue;
+                    }
+                }
             }
             // 移动剩余数据到前面
             memmove(rxbuff, rxbuff + end_offset + 1, g_airlink_uart.rxoffset - end_offset - 1);
-            g_airlink_uart.rxoffset -= (end_offset + 1 - offset);
+            // [修复] 原 rxoffset -= (end_offset+1-offset) 在 offset>0(帧界错位后扫描到假头)时
+            // 少减了 offset 个字节: memmove 实际丢弃 [0..end_offset], 记账却只减 [offset..end_offset],
+            // 导致 rxoffset 虚高 offset 字节、下一轮读到垃圾尾。成功路径 offset 恒应为 0,
+            // 此处丢弃的是 [0..end_offset] 共 end_offset+1 字节, 与失败路径(丢 [0..end_offset-1])语义一致。
+            g_airlink_uart.rxoffset -= (end_offset + 1);
+            offset = 0;
         } else {
             // 没有找到包头, 移动一个字节
             offset++;
@@ -467,7 +509,9 @@ __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
         while (1) {
             static uint64_t uart_read_last_log = 0;
             uart_id = g_airlink_spi_conf.uart_id;
-            ret = luat_uart_read(uart_id, (char *)g_airlink_uart.s_rxbuff, 1024);
+            // [修改] 读块 1024→UART_BUFF_SIZE(4096): 下载大帧(≤~1415B)在 RX 积压时可整帧一次读入,
+            // 减少跨读分片(1024+391)概率, 配合长度看门狗进一步降低失步
+            ret = luat_uart_read(uart_id, (char *)g_airlink_uart.s_rxbuff, UART_BUFF_SIZE);
             if (ret <= 0)
             {
                 if (ret < 0) {

@@ -58,9 +58,13 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
             }
             else
             {
-                LLOGW("数据长度错误 tlen=%u total=%u buf_remain=%u offset=%u buf_len=%u",
+                LLOGD("数据长度错误 tlen=%u total=%u buf_remain=%u offset=%u buf_len=%u",
                       tlen, (unsigned)(tlen + 16), (unsigned)(len - i), (unsigned)i, (unsigned)len);
-                return NULL;
+                // 与 CRC 失败一致: 跳过当前 magic 继续扫描后续 magic。
+                // 主机 UART overrun 丢字节后, 0x7E 帧界可能被破坏, 两帧合并进同一 buffer,
+                // 帧内会含第二个完整帧; 直接 return 会连它一起丢掉。这里改为 continue 自愈。
+                i += 3; // 跳过当前 magic 的 4 字节 (循环末尾 i++ 会再+1)
+                continue;
             }
         }
     }

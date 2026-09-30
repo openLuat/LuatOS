@@ -1,5 +1,5 @@
 --[[
-@module  config
+@module  sip_config
 @summary 项目集中配置
 @version 1.0
 @date    2026.09.23
@@ -19,7 +19,7 @@
 以及可选的"本地也能听/说"，不参与 SIP<->CC 的桥接数据通路；
 
 烧录前请按实际环境修改 SIP 账号、密码、远程 SIP URI 和目标手机号；
-本文件对外提供 config 配置表，直接在其他功能模块中require "config"就可以加载运行；
+本文件对外提供 config 配置表，直接在其他功能模块中require "sip_config"就可以加载运行；
 ]]
 
 local config = {
@@ -38,9 +38,7 @@ local config = {
     remote_sip_uri = "sip:"..mobile.imei().."1@cc.luatos.com",
 
     -- ==================== 默认桥接目标手机号（SIP 呼入时拨打的号码） ====================
-    -- 8784 改造：不写死在代码里，改从 fskv 读取，支持 AirCloud 云端下发 phone:号码 修改，
-    -- 改完需重启（或由 bridge 下次呼出时生效）。未设置时为空串，CC 呼出会失败并打日志。
-    target_phone_number = fskv.get("cc_target_phone") or "",
+    target_phone_number = "1xxxxxxxxxx",
 
     -- ==================== 音频参数 ====================
     rtp_port = 40000,

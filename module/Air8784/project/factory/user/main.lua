@@ -1,25 +1,20 @@
 --[[
 @module  main
 @summary Air8784 出厂固件主入口（产测 + SIP 业务 + CC 业务合一）
-@version 1.0
-@date    2026.09.27
+@version 1.1
+@date    2026.09.30
 @author  王世豪
 @usage
 本工程为 Air8784 出厂固件（外挂 Air1103 语音芯片的 SIP 通话产品），
-产测、SIP 云端通话、CC(SIP↔手机 VoLTE 中转) 三种模式合一：
+产测 + 业务两阶段合一：
     1. fskv.get("test_done") 判断：
        未完成产测 → require "factory" 进产测模式（USB VUART_0，指令以 # 结尾，19 条指令）
-       已完成产测 → 业务模式，再由 fskv.get("work_mode") 分流：
-          "sip"（默认）→ require "app_main" 进 SIP 云端通话模式
-          "cc"        → require "cc_app_main" 进 CC 模式（SIP  ↔ 手机 VoLTE  桥接）
-       （调试可用常量 BOOT_MODE 强制 auto / normal / factory / cc，跳过产测或直达指定模式）
-    2. 业务模式：不请求网页端配置，开机直接使用预置参数（SIP 服务器 cc.luatos.com、账号 IMEI+0、
-       目标手机号由 AirCloud 下发）；AirCloud 上报/下行常驻，两种业务模式都加载 aircloud_data
-    3. SIP 模式：开机注册 SIP（账号 IMEI+0），SOS 键默认向 IMEI+1 拨号呼出、UP 键挂断，支持语音留言播放(msg_player)；
-       CC 模式：手机呼入转拨 SIP(IMEI+1)，SIP 呼入转拨手机号(cc_target_phone)，两侧由 cc_bridge 桥接语音
-    4. 上报：仅 AirCloud 基础心跳 + 周期上报（IMEI / ICCID / CSQ / CPU温度 / 电池电压 / 时间戳）
-    5. 下行控制命令（Tag 19/21/1281）：cycle:秒数 / led:on|off|blink / mode:cc|sip / phone:号码 / status / update
-    6. FOTA：开机即执行 libfota3 升级检测(update.init)，之后每 8 小时自动检测；仅合宙可据 IMEI 推送
+       已完成产测 → 业务模式（require "task_main"）
+       （调试可用常量 BOOT_MODE 强制 auto / normal / factory，跳过产测或直达业务模式）
+    2. 业务模式：沿用 sip_aircloud_setting 的网页任务逻辑（task_cloud 经 AirCloud
+       Tag19/20 收发 air8784.sip.v1 指令），SIP 与 SIP_CC 由 fskv 中 sip_task_v1 的任务
+       类型决定（pair/round 走单 SIP，phone 走 SIP_CC 桥接），不再使用本地产测预设参数
+    3. FOTA：首次烧录即执行 libfota3 升级检测，之后每 8 小时自动检测；仅合宙可据 IMEI 推送
 ]]
 
 --[[
@@ -34,10 +29,10 @@ VERSION：项目版本号,ascii string类型
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "Air8784_Factory"
-VERSION = "001.000.000"
+VERSION = "001.000.001"
 
--- 出厂固件版本：预置配置直接连接 AirCloud，不请求网页端配置
--- 此KEY值仅针对合宙官方IOT平台FOTA，如需使用请替换为项目对应KEY
+-- 出厂固件版本：业务模式由 AirCloud 网页任务下发配置（task_cloud，Tag19/20）
+-- 此KEY值仅针对合宙官方IOT平台FOTA(libfota3)，如需使用请替换为项目对应KEY
 -- 参考 https://docs.openluat.com/air780epm/luatos/app/ota/fota/
 PRODUCT_KEY = "AVbrqZ5tldhyJV8oXqLqa2jPmTey2zMg"
 
@@ -46,9 +41,8 @@ PRODUCT_KEY = "AVbrqZ5tldhyJV8oXqLqa2jPmTey2zMg"
 --   "auto"    按产测标记自动分流（出厂默认）：未产测 → 产测模式；已产测 → 业务模式
 --   "normal"  强制进业务模式（跳过产测检查），调试 SIP / AirCloud 用，无需先跑产测
 --   "factory" 强制进产测模式，调试产测指令用
---   "cc"      强制进 CC 模式（SIP↔手机中转），调试打手机号用
 -- 注意：强制 "normal" 时若未写号，日志 PROD/PCB 打印为 nil，不影响业务功能
-local BOOT_MODE = "auto"
+local BOOT_MODE = "normal"
 -- ============================================================
 
 log.info("main", PROJECT, VERSION)
@@ -73,21 +67,19 @@ update.init()
 -- ============================================================
 
 -- ==================== 开机模式分发 ====================
--- 业务模式由 fskv["work_mode"] 决定："sip"（默认，云端通话）/ "cc"（SIP↔手机中转）
--- 切换方式：AirCloud 下发 mode:cc / mode:sip，设备写标记后自动重启
+-- 产测完成后(test_done 存在)进入业务模式，由 task_main 内的 task_runtime 按
+-- fskv["sip_task_v1"] 任务类型选择单 SIP / SIP_CC 分支；SIP↔手机中转由网页任务决定
 local function decide_mode()
     if BOOT_MODE == "factory" then return "factory" end
-    if BOOT_MODE == "cc" then return "cc" end
-    if BOOT_MODE == "normal" then return fskv.get("work_mode") or "sip" end
+    if BOOT_MODE == "normal" then return "business" end
     -- auto
     if not fskv.get("test_done") then return "factory" end
-    return fskv.get("work_mode") or "sip"
+    return "business"
 end
 
 local mode = decide_mode()
 
--- 全局工作模式标记：aircloud_data 据此判断 SIP 状态字段是否有效
--- （CC 模式不加载 sip_app_main，订阅不到 SIP_APP_STATE，上报会是假数据）
+-- 当前模式标记（factory / business），供日志与后续扩展使用
 _G.WORK_MODE = mode
 
 if mode == "factory" then
@@ -99,16 +91,10 @@ else
     -- SIP + Air1103 依赖原生 crypto.checksum，缺失会在音频初始化阶段才报错，这里提前拦
     assert(crypto and type(crypto.checksum) == "function", "Native crypto.checksum is required for Air1103")
 
-    if mode == "cc" then
-        log.info("main", "进入业务模式:CC(SIP↔手机中转)")
-        require "netdrv_device"
-        require "cc_app_main"
-    else
-        log.info("main", "进入业务模式:SIP(云端通话)")
-        require "app_main"
-    end
-    -- AirCloud 上报与云端下行：两种业务模式都加载
-    require "aircloud_data"
+    -- 业务模式（产测完成后）：统一加载网页任务业务，SIP/CC 由任务类型决定
+    -- FOTA(libfota3) 已在开机阶段 update.init() 启动，此处不再处理
+    log.info("main", "进入业务模式:网页任务(SIP/CC 由 sip_task_v1 决定)")
+    require "task_main"
 end
 
 -- 用户代码已结束---------------------------------------------

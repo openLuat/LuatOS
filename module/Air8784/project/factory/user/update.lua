@@ -6,7 +6,7 @@
 @author  王世豪
 @usage
 默认 libfota3（只能合宙人员根据客户提供的IMEI升级，客户无法自行操作）。
-开机即执行检测一次，之后每 8 小时自动检测一次。
+设备首次烧录执行检测一次，之后每 8 小时自动检测一次。
 与工作模式无关（产测模式下也会检测），便于产线半成品直接拉到最新脚本。
 
 依赖：
@@ -41,10 +41,6 @@ function update.init()
         return
     end
 
-    -- 每次重启都立即检测一次：清掉上次检测时间戳，避免 8h 内重启被定时器跳过
-    -- （libfota3 用 /fota_timer_state.json 记录上次检测时间，存在则按 8h 冷却；删掉即视为首次运行）
-    pcall(function() os.remove("/fota_timer_state.json") end)
-
     -- request() 配置参数 + 启动 8h 定时；时间同步后检测到"首次运行"会立即触发一次检查
     libfota3.request({
         project_key = project_key,
@@ -60,8 +56,8 @@ function update.init()
         end,
     })
 
-    -- 立即检测由 request 在时间同步后自动触发（删状态文件后每次重启都走"首次运行立即触发"分支）
-    log.info("update", "libfota3 已启动（开机立即检测 + 每8小时自动检测）")
+    -- 立即检测由 request 在时间同步后自动触发
+    log.info("update", "libfota3 已启动（首次烧录检测 + 每8小时自动检测）")
 end
 
 --[[

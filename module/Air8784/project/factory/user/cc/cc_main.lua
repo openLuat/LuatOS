@@ -1,32 +1,33 @@
 --[[
 @module  cc_main
 @summary VoLTE 通话模块
-@version 1.0.1
-@date    2026.07.17
+@version 2.1
+@date    2026.09.29
 @author  蒋骞
 @usage
 本文件为 VoLTE 通话模块，核心业务逻辑为：
-1、封装 cc 库的初始化、事件处理、拨号、接听和挂断，通过发布/订阅消息与 bridge.lua 交互；
+1、封装 cc 库的初始化、事件处理、拨号、接听和挂断，通过发布/订阅消息与 cc_bridge.lua 交互；
 2、cc.init(0) 使用多媒体设备 id 0(Air1103 走 UART，不占用多媒体设备)；
 3、订阅 CC_IND 事件，把 READY/INCOMINGCALL/CONNECTED/SPEECH_START/PLAY/DISCONNECTED/
    HANGUP_CALL_DONE 等底层状态转成 CC_READY/CC_INCOMING/CC_CONNECTED/CC_DISCONNECTED/
    CC_FAILED/CC_MAKE_CALL_OK/CC_MEDIA_START 消息，交给 bridge 协调两侧通话；
-4、SPEECH_START 时若存在 audio_drv.enable_cc_codec 则调用它恢复外置 Codec 输出通路
+4、SPEECH_START 时若存在 cc_audio.enable_cc_codec 则调用它恢复外置 Codec 输出通路
    (Air780EHV+ES8311 场景；本工程 Air1103 无该接口，自动跳过)；
 5、挂断完成回到空闲时补发 CC_DISCONNECTED，避免 bridge 误判 CC 忙而拒绝后续 SIP 来电；
 
 本文件对外提供 cc_main.init()/dial()/accept()/hangup()/get_state()/is_ready() 接口，
 直接在其他功能模块中require "cc_main"就可以加载运行；
 ]]
+local task_voice = require "task_voice"
 
 local cc_main = {}
 
 -- 音频驱动（可选）：用于 SPEECH_START 时恢复外置编解码器输出通路
-local audio_drv
+local cc_audio
 do
-    local aok, aresult = pcall(require, "cc_audio_drv")
+    local aok, aresult = pcall(require, "cc_audio")
     if aok then
-        audio_drv = aresult
+        cc_audio = aresult
     end
 end
 
@@ -44,6 +45,7 @@ local function logi(...)
 end
 
 local function set_state(new_state)
+    if new_state~=STATE_IDLE then task_voice.cancel("bridge call state") end
     if g_state ~= new_state then
         logi("状态切换", g_state, "->", new_state)
         g_state = new_state
@@ -92,8 +94,9 @@ local function on_cc_accept_req()
     end
 end
 
-local function on_cc_hangup_req()
-    if g_state == STATE_IDLE then
+-- force用于失败播报期间释放底层呼叫，即使上层已标记为空闲也需等待挂断完成。
+local function on_cc_hangup_req(force)
+    if g_state == STATE_IDLE and not force then
         log.warn("cc_main", "CC 已空闲")
         return
     end
@@ -168,8 +171,8 @@ local function on_cc_event(status, value, extra)
         logi("CC 语音开始")
         -- audio_v2 接管 I2S 后，需恢复外置 ES8311 的 DAC/PA；
         -- 仅是硬件输出通路恢复，不会启用本地音频或改变桥接开关。
-        if audio_drv and audio_drv.enable_cc_codec then
-            audio_drv.enable_cc_codec(16000)
+        if cc_audio and cc_audio.enable_cc_codec then
+            cc_audio.enable_cc_codec(16000)
         end
 
     elseif status == "PLAY" then

@@ -40,6 +40,7 @@ local theme = require "ui_theme"
 -- 全屏播放页（ui/video_win.lua）用的是同一套，改口径只改模块。
 local video_picker = require "video_picker"
 local video_util = require "video_util"
+local mp4_takeover = require "mp4_takeover"
 
 local window_id = nil
 local main_container = nil
@@ -54,7 +55,7 @@ local apps_card = nil
   VP.ctrl_h / VP.frame_h / VP.current_file / VP.start_play / VP.open_picker
 跨窗口调用请走本文件已有的导出接口，别在别的窗口里直接碰这张表。]]
 local VP = {}
-VP.obj = nil                    -- 播放器对象（airui.video 实例或 mplayer 适配器，接口同用法）
+VP.obj = nil                    -- 播放器对象（airui.video 实例）
 VP.is_playing = true            -- 播放状态
 VP.is_loop = true               -- 循环状态
 VP.ctrl_bar = nil               -- 控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
@@ -1826,42 +1827,31 @@ local function media_frame_size(path)
     return video_util.frame_size(path, 480, VP.portrait and VP.BASE_H or 270)
 end
 
---[[在舞台层里创建视频对象（HZV/MJPG → airui.video，MP4 → mplayer 硬解）
+--[[在舞台层里创建视频对象（HZV/MJPG 走 airui.video；MP4 不进这里）
 
 两个创建点（VP.start_play / build_video_area）共用一份几何与格式分派：
 格式差异统一走 video_util.create_player，本函数只负责把素材帧尺寸折算成
 画面矩形。挂 VP 表而不是文件级 local：本文件顶层局部变量名额已顶到上限
 （见 VP 定义处注释）。
+MP4 分流在 VP.start_play：嵌入式路径固件栈溢出禁播，全屏观看走
+mp4_takeover（mplayer，参考 mp4_test），桌面卡片不嵌播 MP4。
 
 @param file_path string 素材路径
 @param parent    舞台层（缺省 VP.stage）
 @return 播放器对象或 nil（空态 UI 由调用方处理）]]
 function VP.create_video(file_path, parent)
-    local fmt = video_util.guess_format(file_path)
-
     -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
     local vw, vh = media_frame_size(file_path)
-    local vx_off, vy_off, ow, oh
-    if fmt == "mp4" then
-        --[[MP4 走面板视频层（叠在 UI 之上）：大素材等比收进画面区，
-        不能像 airui 路径那样「原尺寸裁切」—— 越界会盖住控制栏。]]
-        vx_off, vy_off, ow, oh = video_util.fit_rect(0, 0, VP.w, VP.frame_h, vw, vh)
-    else
-        if vh > VP.frame_h then vh = VP.frame_h end
-        vx_off = math.floor((VP.w - vw) / 2)
-        vy_off = math.floor((VP.frame_h - vh) / 2)
-        ow, oh = vw, vh
-    end
+    if vh > VP.frame_h then vh = VP.frame_h end
+    local vx_off = math.floor((VP.w - vw) / 2)
+    local vy_off = math.floor((VP.frame_h - vh) / 2)
 
     return video_util.create_player(file_path, {
         --[[挂 stage 而不是 video_card：本文件里「重建视频」的路径不止一条
         （换文件 / 切循环 / 重播 / 全屏返回），它们只重建 VP.obj、不重建控制栏。
         直接挂 video_card 的话，重建出来的视频会排到控制栏之后把它盖住。]]
         parent = parent or VP.stage,
-        x = vx_off, y = vy_off, w = ow, h = oh,
-        -- 视频层（MP4）收逻辑屏绝对坐标：舞台（卡片内 0,0）在屏幕上的原点
-        sx = content_x + VP.x + vx_off,
-        sy = VP.y + vy_off,
+        x = vx_off, y = vy_off, w = vw, h = vh,
         loop = VP.is_loop,
     })
 end
@@ -1872,6 +1862,21 @@ function VP.start_play(file_path)
 
     VP.current_file = file_path
 
+    --[[MP4 走 mplayer 全屏接管（mp4_takeover，参考 mp4_test 工程）
+
+    桌面卡片不嵌播 MP4：airui 嵌入式路径固件栈溢出禁播，mplayer 又是屏幕级
+    视频层（会盖住整个桌面）。选中即全屏单次播放（点屏幕退出、不循环），
+    卡片上只同步文件名。接管在 VP.stop 之后、卡片检查之前 ——
+    全屏接管用不到卡片，没建卡片的布局也能播。]]
+    if video_util.is_mp4(file_path) then
+        VP.resume_file = nil          -- 不进「恢复播放」：MP4 不该在回焦时自动再弹一次
+        VP.is_playing = false
+        sync_ctrl()
+        VP.show_ctrl()
+        mp4_takeover.start(file_path, {})
+        return
+    end
+
     local video_card = VP.card_ref
     if not video_card then
         log.warn("idle_win", "video_start_play: no video card ref")
@@ -1880,7 +1885,7 @@ function VP.start_play(file_path)
 
     -- 循环交回组件（loop 参数）。旧版是「每 3 秒 stop+play」手动重播，
     -- 会把正在解码的视频硬重启，画面就停在半路 —— 用户报的「播放卡住」。
-    -- 几何折算与格式分派（HZV/MJPG → airui.video，MP4 → mplayer 硬解）见 VP.create_video
+    -- 几何折算与格式分派见 VP.create_video
     VP.obj = VP.create_video(file_path, VP.stage or video_card)
 
     VP.is_playing = (VP.obj ~= nil)
@@ -1889,7 +1894,7 @@ function VP.start_play(file_path)
     VP.show_ctrl()
 
     -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、由 videoplayer
-    -- 统一驱动，MP4 的音轨由 mplayer 自管；find_companion_mp3 只认 .mjpg 后缀，
+    -- 统一驱动，MP4 组件暂无音频；find_companion_mp3 只认 .mjpg 后缀，
     -- 对 .hzv / .mp4 天然返回 nil。
     local mp3 = video_util.find_companion_mp3(file_path)
     if mp3 then
@@ -1901,7 +1906,16 @@ end
 
 -- 视频控制：播放/暂停切换
 function VP.toggle_play()
-    if not VP.obj then return end
+    if not VP.obj then
+        --[[MP4 全屏接管模式下没有嵌入播放器（见 VP.start_play），
+        「播放」键 = 重新全屏起播（mplayer 单次播放、不循环）。
+        接管还在跑时忽略 —— 画面盖着 UI 正常点不到，防御一下。]]
+        if VP.current_file and video_util.is_mp4(VP.current_file)
+            and not mp4_takeover.is_active() then
+            mp4_takeover.start(VP.current_file, {})
+        end
+        return
+    end
     if VP.is_playing then
         pcall(function() VP.obj:pause() end)
         VP.is_playing = false
@@ -1926,6 +1940,8 @@ end
 -- 视频控制：切换循环
 -- loop 只在创建组件时生效，所以切完标志位重建一次组件
 function VP.toggle_loop()
+    -- mplayer 无 loop API：MP4 不循环，键不响应（与全屏播放页同口径）
+    if VP.current_file and video_util.is_mp4(VP.current_file) then return end
     VP.is_loop = not VP.is_loop
     -- 文案（循环/单次）与底色（琥珀/中性）一起刷
     sync_ctrl()
@@ -1979,6 +1995,14 @@ local function on_video_file_changed(path)
     if type(path) ~= "string" or path == "" then return end
     if VP.current_file == path then return end
     VP.current_file = path
+    --[[MP4 只同步文件名、不进「恢复播放」：它的形态是全屏单次接管（mp4_takeover），
+    记进 resume_file 的话，回到桌面起播时会自动再弹一次全屏播放，很无礼。
+    桌面卡片对 MP4 的「播放」键就是重播入口（见 VP.toggle_play）。]]
+    if video_util.is_mp4(path) then
+        VP.resume_file = nil
+        sync_ctrl()
+        return
+    end
     VP.resume_file = path
     -- 桌面在前台时（理论上不会走到这里，因为只有全屏页会发这条消息）立即切过去
     if VP.obj then VP.start_play(path) end
@@ -2060,8 +2084,8 @@ local function build_video_area(parent)
         parent = video_card, x = 0, y = 0, w = VP.w, h = VP.frame_h,
     })
 
-    -- 几何折算与格式分派（HZV/MJPG → airui.video，MP4 → mplayer 硬解）见 VP.create_video；
-    -- 循环交给组件（MP4 由适配器轮询 EOS 重开），空态 UI 在下面按结果补
+    -- 几何折算与格式分派见 VP.create_video；
+    -- 循环交给组件（loop 参数），空态 UI 在下面按结果补
     VP.obj = VP.create_video(VP.current_file, VP.stage)
     VP.is_playing = (VP.obj ~= nil)
 

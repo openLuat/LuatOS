@@ -1,4 +1,4 @@
-# Air8601 智能寄存柜（刷脸存取 + 485 锁控 + AirCloud + 语音播报 + FOTA）
+# Air8601 人脸识别智能寄存柜方案
 
 ## 一、项目简介
 
@@ -70,7 +70,7 @@ Air8601_deposit_cabinet/
 |---|---|---|
 | RGB LCD | HX8282，RST=GPIO15 | 1024×600，总线 50MHz，背光 PIN43/GPIO13 |
 | 电容触摸 | GT911，I2C PORT1 | RST=GPIO56、INT=GPIO51，下降沿触发 |
-| 485 锁控板 | UART1，9600 8N1 | 收发方向脚 GPIO72（`uart.setup` 第 8 参数自动切换，脚本不手动控制） |
+| 485 锁控板 | UART1，9600 8N1 | 收发方向脚 GPIO72 |
 | WiFi 模组（WiFi 版本板） | UART3 airlink，2M | Air6205，EN=GPIO57 **低电平使能**，仅支持 2.4G 热点 |
 | 4G 模组（4G 版本板） | UART3 airlink | Air780ER2，`4G_RST`=GPIO64（拉低） |
 | 人脸识别模组 | UART2，115200 8N1 | AirCAMERA_1034，只走 UART |

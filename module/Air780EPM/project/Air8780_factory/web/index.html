@@ -960,6 +960,42 @@
             flex-shrink: 0;
         }
 
+        /* ---------- tag19 命令结果区 ---------- */
+        .cmd-result {
+            margin: 4px 0 12px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            font-size: 12px;
+            line-height: 1.9;
+        }
+        .cmd-result .cmd-head {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .cmd-result .cmd-line {
+            display: flex;
+            gap: 10px;
+        }
+        .cmd-result .cmd-line .k {
+            color: var(--muted);
+            min-width: 76px;
+            flex-shrink: 0;
+        }
+        .cmd-result .cmd-line .v {
+            color: var(--text);
+            word-break: break-all;
+        }
+        .cmd-result .cmd-raw {
+            color: var(--muted);
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin-top: 4px;
+            border-top: 1px dashed var(--border);
+            padding-top: 4px;
+        }
+
         /* ---------- 传感器 / 图表 / 地图 / 表格：默认（手机优先） ---------- */
         .sensor-grid {
             grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
@@ -1644,6 +1680,36 @@
                             <button class="btn btn-sm" id="ledOnBtn" disabled data-page-node-id="LedOnBtn">常亮</button>
                             <button class="btn btn-sm" id="ledOffBtn" disabled data-page-node-id="LedOffBtn">熄灭</button>
                         </div>
+                        <!-- ===== tag19 兼容命令（其它型号产品，命令字经 tag 19 字符串下发） ===== -->
+                        <div class="control-group" id="recCtrlGroup">
+                            <label>录音控制</label>
+                            <button class="btn btn-sm tag19-btn" data-tag19="recording" title="recording：远程开启录音" disabled>开启录音</button>
+                            <button class="btn btn-sm tag19-btn" data-tag19="not_recording" title="not_recording：远程关闭录音" disabled>关闭录音</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="record_local" title="record_local：恢复本地 GPIO22 开关控制录音" disabled>恢复本地开关</button>
+                        </div>
+                        <div class="control-group" id="recQueryGroup">
+                            <label>录音查询</label>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="get_info" title="get_info：读取全部基础信息（聚合一包上报）" disabled>全部信息</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="get_version" title="get_version：读取固件版本（tag 1027）" disabled>固件版本</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="get_battery" title="get_battery：读取电池电量（tag 771）" disabled>电池电量</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="get_signal" title="get_signal：读取 4G 信号质量（tag 782）" disabled>信号质量</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="get_record_count" title="get_record_count：读取录音文件数量（tag 797）" disabled>录音数量</button>
+                        </div>
+                        <div class="control-group" id="dataQueryGroup">
+                            <label>数据读取</label>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_all" title="read_all：一次性读取全部数据" disabled>全部数据</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_temp" title="read_temp：读取温度（temperature）" disabled>温度</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_humi" title="read_humi：读取湿度（humidity）" disabled>湿度</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_vbat" title="read_vbat：读取电池电压（vbat）" disabled>电池电压</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_cpu" title="read_cpu：读取 CPU 温度（cpu_temp）" disabled>CPU温度</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_lat" title="read_lat：读取纬度（latitude）" disabled>纬度</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_lng" title="read_lng：读取经度（longitude）" disabled>经度</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_csq" title="read_csq：读取 4G 信号（csq）" disabled>信号</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_imei" title="read_imei：读取 IMEI" disabled>IMEI</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_iccid" title="read_iccid：读取 ICCID" disabled>ICCID</button>
+                            <button class="btn btn-sm btn-outline tag19-btn" data-tag19="read_time" title="read_time：读取时间戳（timestamp）" disabled>时间</button>
+                        </div>
+                        <div id="cmdResult" class="cmd-result hidden"></div>
                         <div id="controlStatus" class="notice hidden" data-page-node-id="BASHyYt3H2vvCXJGR8Z8Kd"></div>
                     </div>
                 </div>
@@ -1892,7 +1958,8 @@
                 sendTtsBtn = $('sendTtsBtn'),
                 ttsStopBtn = $('ttsStopBtn'),
                 controlStatus = $('controlStatus'),
-                controlStatusLabel = $('controlStatusLabel');
+                controlStatusLabel = $('controlStatusLabel'),
+                cmdResult = $('cmdResult');
             const ledBlinkBtn = $('ledBlinkBtn'),
                 ledOnBtn = $('ledOnBtn'),
                 ledOffBtn = $('ledOffBtn');
@@ -2011,6 +2078,7 @@
                     ledOnBtn.disabled = true;
                     ledOffBtn.disabled = true;
                     refreshBtn.disabled = true;
+                    setTag19Enabled(false);
                     controlStatusLabel.className = 'status-led offline';
                     controlStatusLabel.textContent = '未登录';
                     clearDeviceData();
@@ -2070,6 +2138,7 @@
                     ledOnBtn.disabled = true;
                     ledOffBtn.disabled = true;
                     refreshBtn.disabled = true;
+                    setTag19Enabled(false);
                     controlStatusLabel.className = 'status-led offline';
                     controlStatusLabel.textContent = '未选中设备';
                 } catch (e) {
@@ -2156,6 +2225,7 @@
                 ledOnBtn.disabled = false;
                 ledOffBtn.disabled = false;
                 refreshBtn.disabled = false;
+                setTag19Enabled(true);
                 try {
                     // 1. 先获取最新数据（保证传感器数据先显示）
                     let loc = null;
@@ -2203,6 +2273,7 @@
                         ledOnBtn.disabled = true;
                         ledOffBtn.disabled = true;
                         refreshBtn.disabled = true;
+                        setTag19Enabled(false);
                     } else { toast('查询失败：' + e.message, 'error'); }
                 }
             }
@@ -2272,6 +2343,8 @@
                 devId.textContent = '设备ID: --';
                 document.getElementById('devExtra').textContent = '';
                 devLastTime.textContent = '--';
+                cmdResult.classList.add('hidden');
+                cmdResult.innerHTML = '';
                 signalLed.className = 'status-led offline';
                 signalLed.textContent = '未选择设备';
                 sTemp.innerHTML = '--<span style="font-size:14px;font-weight:400;">°C</span>';
@@ -2737,6 +2810,141 @@
                 } catch (e) { showNotice(controlStatus, '停止失败：' + e.message, 'error'); }
             }
 
+            /* ============================================================
+               tag19 兼容命令（其它型号产品，只做 web 端兼容）
+               命令字以字符串经 tag 19（控制命令-下行）下发：
+               - 录音设备（device_ctrl.lua）: recording / not_recording /
+                 record_local / get_info / get_version / get_battery /
+                 get_signal / get_record_count
+               - iRTU 类产品: read_all / read_temp / read_humi / read_vbat /
+                 read_cpu / read_lat / read_lng / read_csq / read_imei /
+                 read_iccid / read_time
+               查询类命令下发后自动拉取 tag 20（CONTROL_RESPONSE）及相关
+               tag 最新值回显。括号内 tag 为该命令上报的目标 tag。
+               ============================================================ */
+            // 查询命令 → 下发后需回读的 tag 列表（20=CONTROL_RESPONSE 设备回复）
+            const TAG19_QUERY_CMDS = {
+                get_info: [20, 1027, 771, 782, 797, 777],   // 聚合一包上报基础信息
+                get_version: [20, 1027],                    // 固件版本
+                get_battery: [20, 771],                     // 电池电量
+                get_signal: [20, 782],                      // 4G 信号质量
+                get_record_count: [20, 797],                // 录音文件数量
+                read_all: [20, 256, 257, 263, 771, 782, 512, 513],
+                read_temp: [20, 256],                       // temperature
+                read_humi: [20, 257],                       // humidity
+                read_vbat: [20, 771],                       // vbat
+                read_cpu: [20, 263],                        // cpu_temp
+                read_lat: [20, 513],                        // latitude
+                read_lng: [20, 512],                        // longitude
+                read_csq: [20, 782],                        // csq
+                read_imei: [20],                            // imei
+                read_iccid: [20],                           // iccid
+                read_time: [20]                             // timestamp
+            };
+            // tag → 展示名（与全站 tag 口径一致）
+            const TAG19_TAG_LABELS = {
+                20: '设备回复', 256: '温度', 257: '湿度', 258: 'VOC', 263: 'CPU温度',
+                512: '经度', 513: '纬度', 771: '电池电量', 777: '开机次数', 782: '信号',
+                797: '录音数量', 1027: '固件版本', 1034: '内存', 1295: '信号原始'
+            };
+            // 回复 JSON 字段 → 展示名（iRTU 类返回字段）
+            const TAG19_FIELD_LABELS = {
+                temperature: '温度', humidity: '湿度', cpu_temp: 'CPU温度', vbat: '电池电压',
+                latitude: '纬度', longitude: '经度', csq: '信号', imei: 'IMEI',
+                iccid: 'ICCID', timestamp: '时间戳'
+            };
+
+            // 与登录/选设备生命周期联动的禁用开关
+            function setTag19Enabled(enabled) {
+                document.querySelectorAll('.tag19-btn').forEach(b => { b.disabled = !enabled; });
+            }
+
+            const escHtml = s => String(s).replace(/[&<>"']/g,
+                c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+            // 渲染命令结果区：tag 20 回复（JSON 字段或文本）+ 相关 tag 最新值
+            function renderTag19Result(cmd, row, errMsg) {
+                const lines = [];
+                lines.push('<div class="cmd-head">命令结果：' + escHtml(cmd) + '</div>');
+                if (errMsg) {
+                    lines.push('<div class="cmd-line"><span class="k">读取失败</span><span class="v">' +
+                        escHtml(errMsg) + '</span></div>');
+                } else if (!row) {
+                    lines.push('<div class="cmd-line"><span class="k">提示</span><span class="v">' +
+                        '未读取到设备回复（设备可能离线或该型号不支持此命令）</span></div>');
+                } else {
+                    let content = 0;
+                    const resp = (row.val_20 !== undefined && row.val_20 !== null) ? String(row.val_20) : '';
+                    let parsed = null;
+                    if (resp) {
+                        try { parsed = JSON.parse(resp); } catch { parsed = null; }
+                    }
+                    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        // iRTU 类：JSON 返回字段逐项展示
+                        Object.keys(parsed).forEach(k => {
+                            const label = TAG19_FIELD_LABELS[k] || k;
+                            lines.push('<div class="cmd-line"><span class="k">' + escHtml(label) +
+                                '</span><span class="v">' + escHtml(parsed[k] ?? '--') + '</span></div>');
+                            content++;
+                        });
+                    } else if (resp) {
+                        // 录音设备 / 8780 类：tag 20 为纯文本回复
+                        lines.push('<div class="cmd-line"><span class="k">设备回复</span><span class="v">' +
+                            escHtml(resp) + '</span></div>');
+                        content++;
+                    }
+                    // 相关 tag 最新值（录音设备 get_* 经目标 tag 上报）
+                    (TAG19_QUERY_CMDS[cmd] || []).forEach(t => {
+                        if (t === 20) return;
+                        const val = row['val_' + t];
+                        if (val !== undefined && val !== null && val !== '') {
+                            lines.push('<div class="cmd-line"><span class="k">' +
+                                escHtml(TAG19_TAG_LABELS[t] || ('tag' + t)) + '</span><span class="v">' +
+                                escHtml(val) + '</span></div>');
+                            content++;
+                        }
+                    });
+                    if (!content) {
+                        lines.push('<div class="cmd-line"><span class="k">提示</span><span class="v">' +
+                            '暂无回复数据，请稍后重试</span></div>');
+                    }
+                    if (row.ct) lines.push('<div class="cmd-line"><span class="k">数据时间</span><span class="v">' +
+                        escHtml(row.ct) + '</span></div>');
+                }
+                cmdResult.innerHTML = lines.join('');
+                cmdResult.classList.remove('hidden');
+            }
+
+            // 下发 tag19 命令；查询类命令自动延迟后回读回复与相关 tag
+            async function sendTag19Cmd(imei, cmd) {
+                if (!imei) { toast('请先选择设备', 'error'); return; }
+                if (!S.loggedIn) { toast('请先登录', 'error'); return; }
+                showNotice(controlStatus, '正在发送命令 ' + cmd + ' ...', 'info');
+                try {
+                    await api('/aircloud/send_cmd', { client_id: imei, tag: 19, value: cmd,
+                        protocol: 0 });
+                    const pullTags = TAG19_QUERY_CMDS[cmd];
+                    if (pullTags) {
+                        showNotice(controlStatus, '命令已发送，正在读取设备回复...', 'info');
+                        // 设备处理 + 上报需要时间，稍等后回读
+                        await delay(1500);
+                        let row = null, errMsg = '';
+                        try {
+                            const res = await throttledApi('/aircloud/list_by_tags', {
+                                client_id: imei, tags: pullTags, page: 1, size: 1 });
+                            const rows = records(res);
+                            row = rows.length ? rows[0] : null;
+                        } catch (e) { errMsg = e.message; }
+                        renderTag19Result(cmd, row, errMsg);
+                        hideNotice(controlStatus);
+                    } else {
+                        showNotice(controlStatus, '命令已发送: ' + cmd + '（等待设备执行，状态变化将随上报更新）',
+                            'success');
+                        setTimeout(() => hideNotice(controlStatus), 5000);
+                    }
+                } catch (e) { showNotice(controlStatus, '发送失败：' + e.message, 'error'); }
+            }
+
             // ---- 事件绑定 ----
             function bindEvents() {
                 loginBtn.addEventListener('click', () => C.requireAuth());
@@ -2883,6 +3091,12 @@
                 ledBlinkBtn.addEventListener('click', () => controlLed(S.currentDeviceId, 'blink'));
                 ledOnBtn.addEventListener('click', () => controlLed(S.currentDeviceId, 'on'));
                 ledOffBtn.addEventListener('click', () => controlLed(S.currentDeviceId, 'off'));
+
+                // ---- tag19 兼容命令（录音控制 / 录音查询 / 数据读取）----
+                document.querySelectorAll('.tag19-btn').forEach(btn => {
+                    btn.addEventListener('click', () => sendTag19Cmd(S.currentDeviceId, btn
+                        .dataset.tag19));
+                });
                 refreshBtn.addEventListener('click', () => { if (S.currentDeviceId) refreshDevice(S.currentDeviceId, refreshBtn); });
                 loadMoreBtn.addEventListener('click', () => {
                     if (S.currentDeviceId) loadHistory(S.currentDeviceId, S.historyPage + 1);

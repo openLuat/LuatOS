@@ -66,29 +66,6 @@ function cc_audio.init()
     end
     log.info("cc_audio", "exaudio.setup 初始化成功(Air1103 模式)")
 
-    -- 串口初始化成功不等于芯片就绪：等待真实MIC帧确认芯片供电/串口响应。
-    -- 校验期间仅短暂开启解析；完成或失败后都停止上行，避免影响SIP_CC。
-    local responsive=false
-    if type(air1103.get_rx_stats)=="function" then
-        air1103.set_rx_enable(false)
-        if air1103.reset() then
-            -- 丢弃复位前残留帧，等待芯片重启后再确认新的连续上行。
-            sys.wait(hardware.boot_ms or 1500)
-            local before=air1103.get_rx_stats().mic_frames or 0
-            air1103.set_rx_enable(true)
-            local waited=0
-            local limit=hardware.ready_timeout_ms or 10000
-            while waited<limit do
-                sys.wait(20);waited=waited+20
-                local received=(air1103.get_rx_stats().mic_frames or 0)-before
-                if received>=3 then
-                    responsive=true
-                    log.info("cc_audio", "Air1103 hardware ready", "mic_frames", received, "wait_ms", waited)
-                    break
-                end
-            end
-        end
-    end
     -- 静默 Air1103 MIC 上行: 桥接不经过 1103, 不需要它的 MIC 数据,
     -- 不静默会被 32KB/s 上行占满 msgbus(up_test.lua 实测死机)
     air1103.stop_audio()
@@ -101,10 +78,6 @@ function cc_audio.init()
         exaudio.vol(math.ceil(cfg.air1103_volume * 100 / 31))
     else
         exaudio.vol(0)
-    end
-    if not responsive then
-        log.error("cc_audio", "Air1103 no MIC response; check power GPIO/UART/driver; local voice unavailable")
-        return false
     end
     initialized = true
     return true

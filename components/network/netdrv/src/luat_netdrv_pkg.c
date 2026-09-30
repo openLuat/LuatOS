@@ -41,6 +41,28 @@
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
 
+/* RNDIS NAT 模式共存问题定位日志: 1=开启(默认), 抓完日志后改 0 或删除本块 */
+#ifndef LUAT_CONF_RNDIS_NAT_DBG
+#define LUAT_CONF_RNDIS_NAT_DBG 0
+#endif
+#if LUAT_CONF_RNDIS_NAT_DBG
+#define NETDRV_PKG_DBG(fmt, ...) luat_log_log(LUAT_LOG_INFO, "RNDIS-NAT-DBG", fmt, ##__VA_ARGS__)
+#include <stdio.h>
+void luat_netdrv_dump_hex(const char* tag, const uint8_t* buff, uint16_t len, uint16_t maxlen) {
+    char tmp[220];
+    int off = 0;
+    uint16_t n = len < maxlen ? len : maxlen;
+    off += snprintf(tmp + off, sizeof(tmp) - off, "%s len=%u ", tag, (unsigned)len);
+    for (uint16_t i = 0; i < n && off < (int)sizeof(tmp) - 4; i++) {
+        off += snprintf(tmp + off, sizeof(tmp) - off, "%02X", buff[i]);
+    }
+    luat_log_log(LUAT_LOG_INFO, "RNDIS-NAT-DBG", "%s", tmp);
+}
+#else
+#define NETDRV_PKG_DBG(fmt, ...) do {} while (0)
+void luat_netdrv_dump_hex(const char* tag, const uint8_t* buff, uint16_t len, uint16_t maxlen) {}
+#endif
+
 __NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_input(uint8_t id, uint8_t src, uint8_t* buff, uint16_t len) {
     if (buff == NULL || len == 0) {
         return -1;
@@ -84,6 +106,19 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_output(uint8_t id, uint8_t dst, uint8
     }
     switch (dst) {
         case LUAT_NETDRV_CH_HW:
+        #if LUAT_CONF_RNDIS_NAT_DBG
+            {
+                static uint32_t _pkg_out_cnt = 0;
+                static uint32_t _ap_tx_dump = 0;
+                if ((_pkg_out_cnt++ & 0x1F) == 0) {
+                    NETDRV_PKG_DBG("pkg_output HW id=%d len=%u", id, (unsigned)len);
+                }
+                if (id == 3 && _ap_tx_dump < 8) {
+                    _ap_tx_dump++;
+                    luat_netdrv_dump_hex("ap_tx", buff, len, 54);
+                }
+            }
+        #endif
             drv->dataout(drv, drv->userdata, buff, len);
             return 0;
         // case LUAT_NETDRV_CH_LWIP:   // 未来: LWIP TX 拦截

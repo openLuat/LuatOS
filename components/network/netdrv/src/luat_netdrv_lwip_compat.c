@@ -32,6 +32,19 @@
 #include "luat_netdrv_lwip_compat.h"
 #include "lwip/opt.h"
 
+#define LUAT_LOG_TAG "netdrv.ip4"
+#include "luat_log.h"
+
+/* RNDIS NAT 模式共存问题定位日志: 1=开启(默认), 抓完日志后改 0 或删除本块 */
+#ifndef LUAT_CONF_RNDIS_NAT_DBG
+#define LUAT_CONF_RNDIS_NAT_DBG 0
+#endif
+#if LUAT_CONF_RNDIS_NAT_DBG
+#define NETDRV_IP4_RNDIS_DBG(fmt, ...) luat_log_log(LUAT_LOG_INFO, "RNDIS-NAT-DBG", fmt, ##__VA_ARGS__)
+#else
+#define NETDRV_IP4_RNDIS_DBG(fmt, ...) do {} while (0)
+#endif
+
 #if (LWIP_ARP || LWIP_ETHERNET) && defined(LUAT_USE_NETDRV_LWIP_ARP)
 
 #include "lwip/ip.h"
@@ -40,6 +53,8 @@
 #include "lwip/netif.h"
 #include "lwip/prot/ip4.h"
 #include "lwip/stats.h"
+#include "lwip/udp.h"
+extern struct udp_pcb *udp_pcbs;
 
 /*
  * 下面这些函数在标准 lwIP 里属于 'priv' 范畴, 不同 vendor 的头文件组织方式不一致
@@ -54,6 +69,51 @@ extern void   icmp_input(struct pbuf *p, struct netif *inp);
 
 /* lwIP 全局上下文变量, 由 vendor liblwip.a 导出. 用于给下游 *_input 提供当前包信息. */
 extern struct ip_globals ip_data;
+
+/*
+ * Air8000 multi-net UDP 分发保护:
+ * 当前 CSDK PLAT/libs/ec718hm-ims/liblwip.a 丢失了 udp_input_local_match() 内的
+ * netif_idx 过滤 (SDK commit 5add0a9c 清理调试打印时误删), 多 LAN (AP/RNDIS/ETH)
+ * 上同端口 UDP server 仅按 IP+broadcast 匹配会互相抢占, 典型现象是 AP 手机发来的
+ * DHCP DISCOVER 被 RNDIS 的 dhcpsrv PCB 抢走, AP dhcpsrv 永远收不到.
+ * 这里在调用 udp_input() 前临时摘除 netif_idx 与入站 netif 不符的 UDP PCB,
+ * 返回后原样挂回, 等价于把丢失的 netif 过滤补回来 (仅覆盖 LuatOS 叶子 netif 入包路径).
+ * 根因修复已同步到 luatos-sdk-ec7xx: udp.c 的 udp_input_local_match() 恢复过滤,
+ * 后续重编 liblwip.a 后本处逻辑保持兼容 (被过滤的 PCB 在 lib 内也会被跳过).
+ */
+static void luat_netdrv_udp_input_filtered(struct pbuf *p, struct netif *inp) {
+    struct udp_pcb *pcb;
+    struct udp_pcb *next;
+    struct udp_pcb *prev = NULL;
+    struct udp_pcb *removed = NULL;
+    u8_t in_idx = netif_get_index(inp);
+
+    pcb = udp_pcbs;
+    while (pcb != NULL) {
+        next = pcb->next;
+        if (pcb->netif_idx != NETIF_NO_INDEX && pcb->netif_idx != in_idx) {
+            if (prev == NULL) {
+                udp_pcbs = next;
+            } else {
+                prev->next = next;
+            }
+            pcb->next = removed;
+            removed = pcb;
+        } else {
+            prev = pcb;
+        }
+        pcb = next;
+    }
+
+    udp_input(p, inp);
+
+    while (removed != NULL) {
+        pcb = removed;
+        removed = pcb->next;
+        pcb->next = udp_pcbs;
+        udp_pcbs = pcb;
+    }
+}
 
 void luat_netdrv_ip4_input(struct pbuf *p, struct netif *inp)
 {
@@ -114,12 +174,45 @@ void luat_netdrv_ip4_input(struct pbuf *p, struct netif *inp)
         goto drop_clear_ctx;
     }
 
+#if LUAT_CONF_RNDIS_NAT_DBG
+    int dbg_dhcp = 0;
+    /* DHCP 报文诊断: 确认包已进入 LuatOS 兼容分发层 (绕过 SDK vendor 处理) */
+    if (IPH_PROTO(iphdr) == IP_PROTO_UDP && p->len >= 8) {
+        uint8_t* l4 = (uint8_t*)p->payload;
+        uint16_t dbg_sport = (uint16_t)((l4[0] << 8) | l4[1]);
+        uint16_t dbg_dport = (uint16_t)((l4[2] << 8) | l4[3]);
+        if (dbg_dport == 67 || dbg_dport == 68 || dbg_sport == 67 || dbg_sport == 68) {
+            struct udp_pcb* dbg_pcb = udp_pcbs;
+            uint16_t dbg_chksum = (uint16_t)((l4[6] << 8) | l4[7]);
+            dbg_dhcp = 1;
+            NETDRV_IP4_RNDIS_DBG("ip4_input dhcp %u->%u inp=%p num=%u chksum=0x%04X dest=0x%08X",
+                dbg_sport, dbg_dport, inp, inp->num, dbg_chksum,
+                ip4_addr_get_u32(ip_2_ip4(ip_current_dest_addr())));
+            while (dbg_pcb) {
+                if (dbg_pcb->local_port == 67 || dbg_pcb->local_port == 68) {
+                    NETDRV_IP4_RNDIS_DBG("dhcp pcb lp=%u rp=%u lip=0x%08X rip=0x%08X idx=%u flags=0x%02X so=0x%02X",
+                        dbg_pcb->local_port, dbg_pcb->remote_port,
+                        ip4_addr_get_u32(ip_2_ip4(&dbg_pcb->local_ip)),
+                        ip4_addr_get_u32(ip_2_ip4(&dbg_pcb->remote_ip)),
+                        dbg_pcb->netif_idx, dbg_pcb->flags, dbg_pcb->so_options);
+                }
+                dbg_pcb = dbg_pcb->next;
+            }
+        }
+    }
+#endif
+
     /* === 6. 按 protocol 分发 ===
      * RAW PCB 优先, 没人接才走标准协议栈.
      */
 #if LWIP_RAW
     if (raw_input(p, inp) != 0) {
         /* RAW PCB 吃掉了 */
+    #if LUAT_CONF_RNDIS_NAT_DBG
+        if (dbg_dhcp) {
+            NETDRV_IP4_RNDIS_DBG("dhcp raw_input ATE the pkg");
+        }
+    #endif
         goto cleanup_ctx;
     }
 #endif
@@ -130,7 +223,12 @@ void luat_netdrv_ip4_input(struct pbuf *p, struct netif *inp)
 #if LWIP_UDPLITE
         case IP_PROTO_UDPLITE:
 #endif
-            udp_input(p, inp);
+        #if LUAT_CONF_RNDIS_NAT_DBG
+            if (dbg_dhcp) {
+                NETDRV_IP4_RNDIS_DBG("dhcp call udp_input filtered inp_idx=%u", (unsigned)netif_get_index(inp));
+            }
+        #endif
+            luat_netdrv_udp_input_filtered(p, inp);
             break;
 #endif
 #if LWIP_TCP

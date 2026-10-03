@@ -1081,8 +1081,15 @@ PSRAM 带宽。下沉之后 Lua 只决定"何时泵"，字节不再跨界。
 出问题时翻回去即可，不必回退整个提交。
 ]]
 local function native_media()
+    --[[
+    别判 `type(gb) == "table"`：真机上这个 C 模块是 **userdata**（PC 上才是
+    table），那样写会让 `use_native_media = true` **静默失效**、永远退回老
+    后端（会话上只有 sess.media，没有 sess.stream）。
+
+    `gb.xxx` 的索引本身没问题（userdata 有元表），判"函数在不在"就够。
+    ]]
     return g_opts.use_native_media == true
-       and type(gb) == "table" and gb.stream_new ~= nil
+       and gb ~= nil and gb.stream_new ~= nil
 end
 
 --[[

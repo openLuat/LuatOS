@@ -1,13 +1,31 @@
 --[[
 @module  welcome_win
-@summary 开机欢迎页 —— 先亮静态 logo，初始化完成后播 HZV 开机动画
-@version 4.0
-@date    2026.09.26
+@summary 开机欢迎页 —— 先亮静态 logo，初始化完成后播开机动画（mp4/hzv/mjpg 自动识别）
+@version 4.1
+@date    2026.10.03
 @author  江访
 @usage
 订阅: OPEN_WELCOME_WIN  → 创建欢迎页，进入 LOGO 阶段（黑底 + logo 图）
-订阅: BOOT_INIT_DONE    → 初始化完成，进入 VIDEO 阶段播放 /luatos_boot.hzv
+订阅: BOOT_INIT_DONE    → 初始化完成，进入 VIDEO 阶段播放 BOOT_VIDEO
 发布: OPEN_IDLE_WIN     → 动画播完或超时后发布，触发桌面窗口
+
+=== 换开机动画素材只改一个常量 ===
+
+BOOT_VIDEO 指向哪个文件就播哪个，容器格式自动识别（video_util.guess_format）：
+
+  MP4（.mp4/.m4v 或 ftyp 魔数）→ mplayer 全屏接管（mp4_takeover）：
+      单次播放、点屏幕可跳过、EOS 自动收尾；声音走 mplayer 自己的音频通路
+      （功放脚按 hw.audio 手动使能，音量暂不跟系统音量）。
+      ⚠ 素材分辨率硬上限 480×320（mplayer 静态 RGB 缓冲），超限会被预检
+      拒播、直接跳桌面 —— 制作素材时务必压在上限以内。
+  HZV（"HZV1" 魔数 / .hzv）    → airui.video 嵌入式播放（videoplayer 后端，
+      容器自带 MP3 音轨与逐帧时长）。
+  MJPG（其它）                 → airui.video 嵌入式播放，interval 33ms 逐帧喂。
+
+MP4 不能走 airui.video 嵌入式路径：固件 C 层把 H.264 解码同步跑在调用方任务栈上，
+真机一播即 "luatos stack over flow" 断言死机（详见 video_util 文件头「MP4 嵌入式
+播放禁用」一节）；mp4_takeover 的 mplayer 配了 24KB 专用解码线程，是已真机验证的
+替代路径。所以格式差异只在 try_start_video 一处分流，探测统一用 video_util。
 
 === 两阶段状态机 ===
 
@@ -17,30 +35,37 @@
       2. BOOT_INIT_DONE 到达（或 BOOT_LOGO_MAX_WAIT_MS 兜底超时，防初始化卡死）。
 
   VIDEO 阶段（try_start_video）：
-    hzv_audio_ensure → airui.video 单次播放。收尾两条路径共用同一个 finish()，
-    先到者生效、后到者被 finished 标志挡住：
-      1. on_complete —— videoplayer 解码到 EOF 时触发（素材播完）；
-      2. BOOT_MAX_WAIT_MS —— 兜底上限（素材比这更长，或 on_complete 没来）。
+    按容器格式分流两条路径，收尾都汇入同一个 finish()：
+      1. HZV/MJPG —— airui.video 单次播放，on_complete（videoplayer 解码到 EOF）
+         触发收尾；
+      2. MP4 —— mp4_takeover.start 全屏接管，on_done（eos 播完 / touch 点屏 /
+         error / oversize）触发收尾。
+    另有一条独立的 BOOT_MAX_WAIT_MS 兜底上限（分格式两档），与正常收尾
+    先到者生效、后到者被 finished 标志挡住。
 
-之所以必须留超时这条路：早期 MJPG 素材走的是软件解码路径，
-on_complete 未必会触发；且素材损坏、解码器起不来时，没有超时就会永久停在黑屏。
-
-HZV 容器自带 MP3 音轨与逐帧时长，由 videoplayer 后端统一驱动，
-Lua 侧不再手填 interval，也不再单独起一路「同名 MP3」。
+之所以必须留超时这条路：早期 MJPG 素材走的是软件解码路径，on_complete 未必会
+触发；且素材损坏、解码器起不来时，没有超时就会永久停在黑屏。
 
 LOGO 阶段零主题依赖（黑底用字面量 0x000000，不 require ui_theme），
-使 welcome_win 可被 boot_ui 最早加载；logo 资源缺失时只显示黑底，流程不中断。
+使 welcome_win 可被 boot_ui 最早加载；video_util 也只轻量依赖 exaudio。
+mp4_takeover 顶部 require ui_theme，**必须懒加载**（takeover_mod，首次用到才
+require），否则会把主题依赖提前到 LOGO 阶段。logo 资源缺失时只显示黑底，流程不中断。
 ]]
 
+local video_util = require "video_util"
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
 
-local BOOT_VIDEO   = "/luadb/luatos_boot.hzv"
+-- 换开机动画素材只改这一行（mp4/hzv/mjpg 自动识别，勿改代码）
+local BOOT_VIDEO   = "/luadb/fruit.mp4"
 local BOOT_VW      = 480
 local BOOT_VH      = 270
 local LOGO_SIZE    = 128
--- 兜底上限：素材比这长就按此时间入场；素材更短则由 on_complete 提前入场
+-- 兜底上限（HZV/MJPG）：素材比这长就按此时间入场；素材更短则由 on_complete 提前入场
 local BOOT_MAX_WAIT_MS = 5400
+-- 兜底上限（MP4）：mp4 时长随内容走，给更宽裕的窗口（mplayer 自己轮询到 EOS，
+-- 这条只兜「is_playing 卡死 / 起播后异常」）
+local BOOT_MAX_WAIT_MS_MP4 = 15000
 -- logo 最短停留：防止初始化过快导致 logo 一闪而过
 local BOOT_LOGO_MIN_MS = 500
 -- logo 兜底：初始化卡死（如某模块 require 挂起）也强制开播，防止永久停在 logo
@@ -50,13 +75,14 @@ local window_id = nil
 local bg_shape
 local logo_img
 local video_obj
+-- mp4_takeover 懒加载缓存（见文件头：它会 require ui_theme，LOGO 阶段不能提前引入）
+local mp4_takeover
 
 --[[收尾标记与定时器句柄
 
-finished 是「只走一次」的闸门：on_complete 与超时是两条独立路径，
+finished 是「只走一次」的闸门：on_complete/on_done 与超时是多条独立路径，
 必须保证无论哪条先到，进入桌面这件事都只发生一次 —— 重复 publish
-OPEN_IDLE_WIN 会让 exwin 重复创建桌面。
-]]
+OPEN_IDLE_WIN 会让 exwin 重复创建桌面。]]
 local finished = false
 local wait_timer = nil
 
@@ -69,107 +95,23 @@ local video_started = false
 local min_timer = nil
 local logo_wait_timer = nil
 
---- 判断素材用哪种容器解析：优先看魔数，其次看扩展名
---- @return "hzv" | "mjpg" | "mp4"
-local function media_guess_format(path)
-    local f = io.open(path, "rb")
-    if f then
-        local magic = f:read(4)
-        f:close()
-        if magic == "HZV1" then return "hzv" end
+--- 懒加载 mp4_takeover：首次用到时才 require（它顶部拉 ui_theme，不能提前）
+--- @return table|nil
+local function takeover_mod()
+    if not mp4_takeover then
+        local ok, m = pcall(require, "mp4_takeover")
+        if ok then mp4_takeover = m end
     end
-    local ext = path:match("%.([^%.]+)$")
-    if ext then
-        ext = ext:lower()
-        if ext == "hzv" then return "hzv" end
-        if ext == "mp4" then return "mp4" end
-    end
-    return "mjpg"
+    return mp4_takeover
 end
 
---- HZV 的音轨由 Audio V2 播放，视频时钟跟随 DAC DMA sample counter：
---- 音频框架没起来时既不响、也不会走帧，所以这里做一次幂等初始化。
---- 首次真 setup，之后只 RESUME；失败不阻断画面创建。
-local function hzv_audio_ensure()
-    if not exaudio then return false end
-    if not (_G.project_config and _G.project_config.hw and _G.project_config.hw.audio) then
-        return false
-    end
-    if _G.__hzv_audio_ready then
-        pcall(exaudio.pm, exaudio.RESUME)
-        return true
-    end
-    local ac = _G.project_config.hw.audio
-    local ok = pcall(exaudio.setup, {
-        model       = ac.model or "dac",
-        pa_ctrl     = ac.pa_ctrl,
-        pa_on_level = ac.pa_on_level or 0,
-        dac_delay   = ac.dac_delay,
-    })
-    if ok then
-        pcall(exaudio.vol, ac.play_vol or 100)
-        _G.__hzv_audio_ready = true
-        return true
-    end
-    log.warn("welcome_win", "hzv: exaudio.setup 失败，音轨与播放时钟可能不可用")
-    return false
-end
-
---- 读媒体容器头拿回 (width, height)
---- HZV v1: 前 4 字节为 "HZV1"，0x44 / 0x46 处各一个 uint16 宽、高
---- 其它  : 按 MJPG/JPEG 扫 SOF0/SOF2 标记
---- 取不到返回 nil，由调用方回退默认尺寸
-local function media_read_dimensions(path)
-    local f = io.open(path, "rb")
-    if not f then return nil end
-    local data = f:read(512)  -- HZV 头部 0x48 以内 / JPEG 的 SOF 标记一般在 512 字节内
-    f:close()
-    if not data or #data < 8 then return nil end
-
-    -- HZV 容器：帧尺寸直接写在头里（Lua 下标从 1 起，0x44 → 69）
-    if data:sub(1, 4) == "HZV1" then
-        local hw = data:byte(69) + data:byte(70) * 256
-        local hh = data:byte(71) + data:byte(72) * 256
-        if hw > 0 and hh > 0 then return hw, hh end
-        return nil
-    end
-
-    local i = 1
-    while i <= #data - 1 do
-        if data:byte(i) == 0xFF then
-            local marker = data:byte(i + 1)
-            if marker == 0xC0 or marker == 0xC2 then
-                if i + 9 <= #data then
-                    local h = data:byte(i + 5) * 256 + data:byte(i + 6)
-                    local w = data:byte(i + 7) * 256 + data:byte(i + 8)
-                    return w, h
-                end
-                return nil
-            end
-            if marker ~= 0xD8 and marker ~= 0xD9 and (marker < 0xD0 or marker > 0xD7) then
-                if i + 3 <= #data then
-                    local seg_len = data:byte(i + 2) * 256 + data:byte(i + 3)
-                    i = i + 2 + seg_len
-                else
-                    break
-                end
-            else
-                i = i + 2
-            end
-        else
-            i = i + 1
-        end
-    end
-    return nil
-end
-
---[[收尾：进入桌面（播完 / 超时共用，只生效一次）
+--[[收尾：进入桌面（播完 / 点屏 / 超时 / 起播失败共用，只生效一次）
 
 @param reason string 仅用于日志，标明是哪条路径先到
 
 顺序上必须先停掉开机视频（释放文件句柄与解码器），再 publish OPEN_IDLE_WIN ——
-桌面播放器要打开同一个 /luatos_boot.hzv，句柄没释放会打不开。
-]]
+桌面播放器会打开同一个启动素材：hzv 的 videoplayer 句柄、mp4 的 mplayer 句柄
+没释放都会打不开（mplayer 的 open 还要 ~600KB 系统堆，不 close 就回不来）。]]
 local function finish(reason)
     if finished or not window_id then return end
     finished = true
@@ -180,6 +122,10 @@ local function finish(reason)
     end
 
     log.info("welcome_win", "开机动画结束(", reason, ")，进入桌面")
+    -- mplayer 接管（MP4 路径）：stop 幂等，没有接管在跑时是空操作
+    if mp4_takeover then
+        pcall(mp4_takeover.stop)
+    end
     if video_obj then
         pcall(video_obj.stop, video_obj)
         pcall(video_obj.destroy, video_obj)
@@ -193,22 +139,29 @@ local function on_timeout()
     finish("超时")
 end
 
---[[素材播完（videoplayer 解码到 EOF，仅 loop = false 时触发）
+--[[素材播完（videoplayer 解码到 EOF，仅 loop = false 时触发，HZV/MJPG 路径）
 
 这个回调是在 LVGL 的播放定时器里同步调进来的：此刻销毁视频控件，会把
 「正在执行的那个定时器」一起删掉。所以推后一个 tick 再收尾，
-让销毁发生在定时器回调之外。
-]]
+让销毁发生在定时器回调之外。]]
 local function on_video_done()
     sys.timerStart(function() finish("播放完毕") end, 1)
 end
 
---[[VIDEO 阶段入口：音频预热 + 播放 hzv（LOGO→VIDEO 转换唯一路径，只走一次）
+--[[MP4 接管收尾回调（mp4_takeover 的 on_done）
+
+reason: "eos" 播完 | "touch" 点屏幕跳过 | "error" 起播失败 |
+        "oversize" 超 480×320 上限 | "stop" 外部停止
+全部直接入场，开机不被素材问题卡死。同样推后一个 tick，与 on_video_done 同理。]]
+local function on_mp4_done(reason)
+    sys.timerStart(function() finish("mp4:" .. tostring(reason)) end, 1)
+end
+
+--[[VIDEO 阶段入口：按容器格式分流开播（LOGO→VIDEO 转换唯一路径，只走一次）
 
 转换条件 try_start_video 每次调用都检查：min_ok（最短停留展满）与
 boot_ok（BOOT_INIT_DONE 或 logo 兜底超时）同时满足才真正开播，
-两个条件哪条后到都由它自己触发开播，无需关心先后顺序。
-]]
+两个条件哪条后到都由它自己触发开播，无需关心先后顺序。]]
 local function try_start_video()
     if not (min_ok and boot_ok) then return end
     if video_started or finished or not window_id then return end
@@ -232,10 +185,8 @@ local function try_start_video()
     -- 资源落点随烧录方式而变（/luadb/ 或根目录），先挑实际存在的那个
     local video_path = BOOT_VIDEO
     if not io.exists(video_path) then
-        -- .hzv 优先（真机硬解）；素材还没换成 hzv 时回落同名 .mjpg，避免开机黑屏
-        for _, p in ipairs({
-            "/luadb/luatos_boot.hzv","/luatos_boot.hzv",
-        }) do
+        local base = BOOT_VIDEO:match("([^/]+)$") or BOOT_VIDEO
+        for _, p in ipairs({ "/luadb/" .. base, "/" .. base }) do
             if io.exists(p) then
                 video_path = p
                 break
@@ -243,17 +194,38 @@ local function try_start_video()
         end
     end
 
-    -- 从容器头读取实际帧尺寸，居中播放
-    local vw, vh = media_read_dimensions(video_path)
+    local fmt = video_util.guess_format(video_path)
+
+    --[[MP4：走 mplayer 全屏接管（mp4_takeover 自己开窗、点屏可跳过、EOS 自动收尾）。
+    禁走 airui.video —— 固件 H.264 解码栈溢出一播即死机（见文件头）。]]
+    if fmt == "mp4" then
+        local mpt = takeover_mod()
+        local started = false
+        if mpt then
+            started = mpt.start(video_path, { on_done = on_mp4_done })
+        end
+        if started then
+            log.info("welcome_win", "开机动画(mplayer 接管单次播放)", video_path)
+        else
+            -- mplayer 不可用 / 文件不存在：直接入场，不等超时
+            log.warn("welcome_win", "开机动画不可用", video_path)
+            sys.timerStart(function() finish("mp4不可用") end, 1)
+        end
+        wait_timer = sys.timerStart(on_timeout, BOOT_MAX_WAIT_MS_MP4)
+        return
+    end
+
+    --[[HZV / MJPG：嵌入式 airui.video。从容器头读取实际帧尺寸，居中播放
+    （airui.video 不支持缩放，尺寸不符只会溢出裁切，见 video_util 文件头）。]]
+    local vw, vh = video_util.read_dimensions(video_path)
     if not vw or not vh then vw, vh = BOOT_VW, BOOT_VH end
     local vx = math.floor((screen_w - vw) / 2)
     local vy = math.floor((screen_h - vh) / 2)
 
     -- HZV 的音轨由 Audio V2 播放，视频时钟跟随 DAC DMA sample counter：
     -- 音频框架没起来时画面同样不会走帧，所以先确保一次音频初始化。
-    hzv_audio_ensure()
+    video_util.audio_ensure()
 
-    local fmt = media_guess_format(video_path)
     local vcfg = {
         x = vx, y = vy, w = vw, h = vh,
         src = video_path,
@@ -287,8 +259,7 @@ end
 --[[初始化完成（boot_ui 在分批加载完业务与 UI 模块、主题恢复后发布）
 
 只置位并尝试开播；窗口尚未创建时 try_start_video 会被 window_id 挡住，
-开播时机由 on_create 查粘性标记 _G.__boot_init_done 补上（双保险）。
-]]
+开播时机由 on_create 查粘性标记 _G.__boot_init_done 补上（双保险）。]]
 local function on_boot_init_done()
     boot_ok = true
     if logo_wait_timer then
@@ -314,7 +285,7 @@ local function on_create()
         },
     })
 
-    -- logo 资源落点容错（对齐 hzv 策略）；缺失只显示黑底，流程不中断
+    -- logo 资源落点容错（对齐视频素材策略）；缺失只显示黑底，流程不中断
     local logo_path = nil
     for _, p in ipairs({ "/luadb/logo.png", "/logo.png" }) do
         if io.exists(p) then
@@ -358,7 +329,7 @@ local function on_create()
 end
 
 local function on_destroy()
-    -- 先落闸，避免 close 之后残留的 on_complete 再触发一次收尾
+    -- 先落闸，避免 close 之后残留的 on_complete / on_done 再触发一次收尾
     finished = true
     if wait_timer then
         sys.timerStop(wait_timer)
@@ -373,6 +344,10 @@ local function on_destroy()
         logo_wait_timer = nil
     end
 
+    -- 停掉可能还在跑的 mplayer 接管（MP4 路径）；stop 幂等
+    if mp4_takeover then
+        pcall(mp4_takeover.stop)
+    end
     -- 兜底：停掉可能还在跑的容器音轨
     -- 注意 exaudio 是容错加载的（可能为 nil），取字段必须在 pcall 之外先判空，
     -- 否则 exaudio.play_stop 本身就会抛 "attempt to index a nil value"

@@ -41,6 +41,8 @@ h264_* 调用 RPC 到大栈线程执行。固件修复后把下面的 MP4_PLAYBA
                                                 已就绪时 RESUME 并重新对齐 ac.play_vol 音量
 @api video_util.create_player(path, o)          按格式创建**嵌入式**播放器（airui.video，
                                                 MP4 因禁播返回 nil；MP4 全屏观看走 mp4_takeover）
+@api video_util.tp_bus_restore()                恢复触摸 I2C 总线配置（音频通路会重置总线，
+                                                mplayer 播放器侧需周期调用，见函数注释）
 ]]
 
 local ok_exaudio, exaudio = pcall(require, "exaudio")
@@ -269,6 +271,29 @@ function M.audio_ensure()
         return true
     end
     log.warn("video_util", "exaudio.setup 失败，音轨与播放时钟可能不可用")
+    return false
+end
+
+-- ==================== 触摸总线守护 ====================
+--[[恢复触摸 I2C 总线配置（播放类副作用的共用解药）
+
+音频通路启动时会无条件 i2c.setup(总线, FAST)，把触摸总线重置回中断模式
+（丢轮询设置）→ 触摸坐标在 TP 中断路径里突发读、与嵌套中断互相干扰，
+表现为「一放音频就 I2C 报错、触摸失灵」（i2c_failed: 从机地址5d 传输超时，
+0x5D = GT911），播完没人恢复就一直瞎。
+
+exaudio 侧的同类问题由 boot_ui 的 guard_tp_bus 包装入口根治；
+mplayer 的 AUDIO_V2 走 C 层、绕过 exaudio 的包装，只能在播放器侧事后恢复：
+  · 解码泵里**周期**调用（音频启动是异步的，只在收尾恢复救不了播放中的触摸）；
+  · teardown 后再各恢复一次（播完总线留在被重置的状态）。
+根治需改 C 层：audio_setup / audio v2 仅 codec model 需要 I2C 时才 i2c.setup。
+
+@return boolean 是否有可恢复的触摸驱动（PC 模拟器等无 tp_drv 时 false）]]
+function M.tp_bus_restore()
+    if _G.tp_drv and _G.tp_drv.i2c_restore then
+        pcall(_G.tp_drv.i2c_restore)
+        return true
+    end
     return false
 end
 

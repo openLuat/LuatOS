@@ -57,7 +57,8 @@ local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
 
 -- 换开机动画素材只改这一行（mp4/hzv/mjpg 自动识别，勿改代码）
-local BOOT_VIDEO   = "/luadb/fruit.mp4"
+-- local BOOT_VIDEO   = "/luadb/fruit.mp4"
+local BOOT_VIDEO   = "/luadb/luatos_boot.hzv"
 local BOOT_VW      = 480
 local BOOT_VH      = 270
 local LOGO_SIZE    = 128

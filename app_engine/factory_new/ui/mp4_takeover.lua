@@ -126,6 +126,8 @@ local function teardown_player(s)
         end
     end
     pa_off()
+    -- 音频通路把触摸总线留在被重置状态，收摊时恢复一次让触摸立刻回来
+    video_util.tp_bus_restore()
 end
 
 --[[结束一次接管：收播放器、关窗、回调
@@ -260,7 +262,15 @@ local function session_main(s)
     整段 pcall 包住：轮询里出错也必须走到 finish，否则会话悬死、player
     不 close，那 ~1MB 系统堆就再也回不来（接口清单要点 1：不 close 必漏）。]]
     local ok_poll = pcall(function()
+        local ticks = 0
         while s.player and not s.finished and mplayer.is_playing(s.player) do
+            --[[触摸总线守护：mplayer 的 AUDIO_V2 走 C 层，启动音频时无条件 i2c.setup
+            把触摸总线重置回中断模式 → GT911 读超时、触摸失灵（i2c_failed: 从机地址5d），
+            且播完没人恢复会一直瞎（见 video_util.tp_bus_restore）。每 500ms 恢复一次：
+            音频启动是异步的（起播后约 0.4s），只在收尾恢复救不了播放中「点屏幕退出」；
+            恢复本身只是一次 i2c.setup，开销可忽略。]]
+            ticks = ticks + 1
+            if ticks % 5 == 0 then video_util.tp_bus_restore() end
             sys.wait(POLL_MS)
         end
     end)

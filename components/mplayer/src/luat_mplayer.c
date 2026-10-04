@@ -258,6 +258,16 @@ int luat_mplayer_is_playing(luat_mplayer_t *m) {
     return 0;
 }
 
+int luat_mplayer_set_rect(luat_mplayer_t *m, int x, int y) {
+    if (!m || !m->is_open) return -1;
+    if (!m->media) return -1;
+    if (m->media_type == MEDIA_TYPE_MP4) {
+        return movie_mp4_set_rect((movie_mp4 *)m->media, x, y);
+    }
+    /* 音频类型无视频图层 */
+    return -1;
+}
+
 int luat_mplayer_is_paused(luat_mplayer_t *m) {
     if (!m || !m->is_open) return -1;
     if (m->media_type == MEDIA_TYPE_MP3) {

@@ -90,6 +90,29 @@ static int l_mplayer_play(lua_State *L) {
 }
 
 /*
+设置视频图层显示坐标(仅视频有效, 播放前或播放中均可调用)
+@api mplayer.set_rect(player, x, y)
+@userdata player mplayer.open()返回的播放器对象
+@number x 视频图层左上角x坐标, 传-1表示水平居中
+@number y 视频图层左上角y坐标, 传-1表示垂直居中
+@return boolean 成功返回true, 失败返回false
+@usage
+mplayer.set_rect(player, 40, 40)   -- 绝对坐标
+mplayer.set_rect(player, -1, -1)   -- 屏幕居中
+*/
+static int l_mplayer_set_rect(lua_State *L) {
+    LuaMediaPlayer *ud = (LuaMediaPlayer *)luaL_checkudata(L, 1, MP4_MOVIE_META);
+    int x = luaL_checkinteger(L, 2);
+    int y = luaL_checkinteger(L, 3);
+    if (!ud->m) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    lua_pushboolean(L, luat_mplayer_set_rect(ud->m, x, y) == 0);
+    return 1;
+}
+
+/*
 暂停播放
 @api mplayer.pause(player)
 @userdata player mplayer.open()返回的播放器对象
@@ -257,6 +280,7 @@ static const rotable_Reg_t reg_mplayer[] = {
     { "is_playing",     ROREG_FUNC(l_mplayer_is_playing)},
     { "is_paused",      ROREG_FUNC(l_mplayer_is_paused)},
     { "info",           ROREG_FUNC(l_mplayer_info)},
+    { "set_rect",       ROREG_FUNC(l_mplayer_set_rect)},
 
     /* Status constants */
     //@const STAT_STOP number 停止状态

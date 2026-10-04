@@ -70,6 +70,8 @@ int luat_mplayer_is_playing(luat_mplayer_t *m);
 int luat_mplayer_is_paused(luat_mplayer_t *m);
 /* 读取媒体信息到 info; 成功返回 0 */
 int luat_mplayer_info(luat_mplayer_t *m, luat_mplayer_info_t *info);
+/* 设置视频图层显示坐标(仅 MP4; 播放前或播放中均可调用); 成功返回 0 */
+int luat_mplayer_set_rect(luat_mplayer_t *m, int x, int y);
 
 #ifdef __cplusplus
 }

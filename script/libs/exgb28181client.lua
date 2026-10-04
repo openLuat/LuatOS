@@ -1016,14 +1016,16 @@ local function alloc_rtp_port()
     for i = 0, n - 1 do
         local p = base + i
         local used = false
-        -- 点播会话与主动发起的音频会话共用这个端口池：
-        -- 两者都真的占了 UDP 端口，分开分配迟早会撞在一起
+        -- 点播会话与音频会话共用这个端口池：两者都真的占了 UDP 端口，
+        -- 分开分配迟早会撞在一起。**两边字段名也必须一致** —— 早先音频会话
+        -- 叫 port、点播叫 local_port，这里就得写两个循环兜着；media_open()
+        -- 只认 local_port，于是漏掉一个就读到 nil（详见 handle_audio_invite）。
         for _, s in pairs(st.sessions) do
             if s.local_port == p then used = true break end
         end
         if not used then
             for _, s in pairs(st.talks) do
-                if s.port == p then used = true break end
+                if s.local_port == p then used = true break end
             end
         end
         if not used then return p end
@@ -1488,7 +1490,11 @@ local function handle_audio_invite(msg, s)
     local sess = {
         call_id      = call_id,
         session_name = s.session_name or "Talk",
-        port         = port,
+        -- 字段名与点播会话**保持一致**：media_open() 是两者共用的，它读 local_port。
+        -- 早先这里叫 port，于是音频 INVITE 走到 media_open 时拿到 nil，
+        -- 抛 "bad argument #3 to 'stream_open'"，**整个 INVITE 不回 200** ——
+        -- 现象是平台侧"发了 INVITE 收不到应答"，而 SIP 层看不出任何异常。
+        local_port   = port,
         incoming     = true,
         state        = "established",
         remote_ip    = s.conn_ip,
@@ -2333,7 +2339,7 @@ local function audio_open(sess)
         gb.stream_set_sink(sess.stream, nil)
         attach_audio_sink(sess)
 
-        local ok, err = gb.stream_open(sess.stream, "udp", sess.port)
+        local ok, err = gb.stream_open(sess.stream, "udp", sess.local_port)
         if not ok then
             gb.stream_close(sess.stream, 1)
             sess.stream = nil
@@ -2355,7 +2361,7 @@ local function audio_open(sess)
         end
     end)
     if not netc then return false, "创建音频 socket 失败" end
-    if not socket.config(netc, sess.port, true) then
+    if not socket.config(netc, sess.local_port, true) then
         socket.close(netc)
         return false, "音频端口绑定失败"
     end
@@ -2396,7 +2402,7 @@ function M.start_talk(opts)
         call_id      = call_id,
         from_tag     = from_tag,
         session_name = opts.session_name or "Broadcast",
-        port         = port,
+        local_port   = port,   -- 与点播会话同名，见 handle_audio_invite 里的说明
         state        = "inviting",
         rx_pkts      = 0,
         rx_bytes     = 0,
@@ -2553,7 +2559,7 @@ local function handle_talk_response(msg)
         send_ack(msg)
         emit("talk", "accepted", {
             call_id = call_id, session_name = sess.session_name,
-            sdp = msg.body, local_port = sess.port,
+            sdp = msg.body, local_port = sess.local_port,
         })
     else
         sess.state = "failed"

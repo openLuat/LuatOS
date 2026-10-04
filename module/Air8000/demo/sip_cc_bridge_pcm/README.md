@@ -8,27 +8,130 @@ SIP 仅支持 PCMA/PCMU、8 kHz、20 ms；蜂窝侧支持 8/16 kHz PCM。
 本 demo 不初始化 codec、I2S、DAC、UART 音频或 Audio V2 音频请求，不提供本地听筒、麦克风、录音及通话中切换后端。
 固件仍保留 Audio V2，供其他应用使用。`sip_cc/pcm_sip.lua` 处理本 demo 的 SIP 媒体控制；本目录不需要 `exsip.lua`、`exaudio.lua` 或 `audio_drv.lua`。
 
+## 接通后向对端播放 TTS 或音频文件
+
+需使用包含通话播放（`voip.playTTS`、`voip.playFile`）和双向桥接静音（`voip.bridgeMute`）的 Air8000 13 号固件。SIP 和 CC 均接通且媒体就绪后，先静音双向桥接语音，按当前配置等待 500 ms，再向 SIP 和手机 CC 两端播报一次“请注意，本次通话将会录音，谢谢配合”。可配置为播放本目录的 `Time_travel_8k.mp3`；183 提前媒体阶段不播报，两个桥接呼叫方向均生效。
+
+播放入口在 `sip_cc/bridge.lua` 的 `play_call_notice()`。修改文件顶部的 `CALL_NOTICE_TARGET` 可选择方向：`"sip"` 给 SIP 对端，`"cc"` 给手机 CC 对端，`"both"` 同时给两端（当前设置）。手机呼入时，SIP 接通后才发起 CC 接听，因此 CC 播报需等待两侧就绪。
+
+文件顶部的 `CALL_NOTICE_DELAY_MS` 控制播报前延时，单位毫秒，当前为 `500`，可改为 `1000`、`1500`、`2000` 或 `0`（立即播放）。从等待开始到本次播报结束，SIP → CC、CC → SIP 的原通话语音均静音；RTP 和 CC PCM 继续按原节拍发送静音或播报数据，不停传、不挂断。重复接通通知不会重新计时，挂断会取消待播报定时器，旧回调不会播到下一通。日志 `sip_call_notice` 依次输出双向静音、`delay_ms`、`play_id`、播报终态和恢复语音。匹配本次播放 ID 的 `done/stopped/error` 事件恢复双向通话；播放期间每 100 ms 查询一次状态，终态消息丢失时也能恢复。提交失败或定时器启动失败同样恢复。播报结束后不额外增加延时。
+
+播放使用 `mode="replace"`，选定目标听到播报，未选定的一端保持静音，结束后恢复正常桥接。`gain` 控制播报音量（0~1）。API 的 `mode="mix"` 可与通话语音混合，但本 demo 开启双向静音期间，原通话语音始终为静音；如需混音，需先解除 `voip.bridgeMute`。日志 `sip_call_notice` 输出目标、播放 ID 或提交失败原因；每通只尝试一次，挂断后下一通会重新播报。本功能仅播报提示，不会启动录音。
+
+`CALL_NOTICE_FILE` 默认为 `nil`，使用 `CALL_NOTICE_TEXT` 配置的 TTS 文本。将 `CALL_NOTICE_FILE` 设为 `"/luadb/Time_travel_8k.mp3"` 即切换为文件播放，同时在 Luatools 烧录列表中添加本目录的 `Time_travel_8k.mp3` 并保留文件名；不能把电脑的 `E:\...` 路径传给板端。替换音频时同步修改该路径并烧录新文件，也支持 PCM WAV 和裸 PCM16LE。一次只能有一个播放任务，同时播放给两端使用 `target="both"`。
+
 ## 固件与烧录
 
 1. 使用已包含 CC 纯 PCM 后端和 SoC 本地 PCM 上行适配器的 Air8000 13 号固件。
    固件链接标准 SDK 预编译库；PCM 上传缓冲、编码完成归还和媒体生命周期由 SoC 本地 `luat_cc_pcm_upload_*` 适配器处理，不依赖定制 SDK 的 `soc_mobile_pcm_*` 接口。
-   1.1.2 脚本应配套包含原生 CC 事件 session、PCM 重排功能的固件，并使用当前公共 SIP 库。本次返回码与接通阶段监测修复仅涉及脚本，不增加固件接口。原 V2050、未集成纯 PCM 功能的普通固件不能仅通过更新脚本获得该能力；版本号本身不能作为判断依据。
+   1.1.3 脚本应配套包含原生 CC 事件 session、PCM 重排功能的固件，并使用当前公共 SIP 库。SDES/DTLS-SRTP 还要求固件提供 `voip.securityCreate` 等安全接口。原 V2050、未集成纯 PCM 功能的普通固件不能仅通过更新脚本获得该能力；版本号本身不能作为判断依据。**普通 Air8000_1 不包含此项目所需的纯 PCM 桥接，必须使用 Air8000_13。**
    脚本检查 `cc.AUDIO_MODE_BRIDGE_PCM`、`bridgePcmStats()` 必需字段和单调时钟，能力不足或 CC 初始化失败时停止启动。
 2. 在 Luatools 新建脚本项目，添加**`main.lua`、`netdrv/` 下的 3 个脚本和 `sip_cc/` 下的 6 个脚本，共 10 个 `.lua` 文件**。
    添加子目录中的脚本时保留文件名，`require` 名称无需增加目录前缀。唯一入口为 `main.lua`。请移除项目中旧 demo 和诊断脚本的选择。
+   TLS 模式还需添加本目录的 **`sip-ca.pem`**，保留文件名；板端路径为 `/luadb/sip-ca.pem`。它是公开根证书，不含私钥。
+   选择文件播放时，同时添加本目录的 **`Time_travel_8k.mp3`** 音频资源，保留该文件名，板端路径为 `/luadb/Time_travel_8k.mp3`；使用默认 TTS 时不需要该资源。
 3. 从本仓库的 [script/libs](../../../../script/libs) 目录直接添加以下公共库文件，保留原文件名：
    `exsipclient.lua`、`exsipproto.lua`、`exnetif.lua`、`dnsproxy.lua`、`dhcpsrv.lua`、`httpdns.lua`、`udpsrv.lua`、`exair153x_wdt.lua`。
    这些文件包含 Wi-Fi 驱动的间接依赖及当前入口使用的外部看门狗库，可满足 Luatools 对脚本中 `require` 的合并检查；不需要复制到 demo 目录。
    `sys`、`sysplus` 使用固件内置库。
-4. 启动后应看到 `SIP_CC_BRIDGE_PCM 1.1.2`、`CC 初始化完成 bridge_pcm` 和 `SIP 注册成功`。
+4. 启动后应看到 `SIP_CC_BRIDGE_PCM 1.1.3`、TLS 模式的网络校时、`CC 初始化完成 bridge_pcm` 和 `SIP 注册成功`。
 
 ## 配置
+
+本项目由 `sip_main.lua` → `pcm_sip.lua` → 公共 `exsipclient.lua` 管理信令，不能只更新 `exsip.lua`。`sip_tls` 和 `media_encryption` 已沿这条链路透传，安全句柄通过内部媒体回调传给 `voip.start`；公开事件隐藏密钥，并在原生媒体实际 started 后才通知桥接媒体就绪。
+
+### TLS 配置与使用
+
+本项目当前配置为 `cc.luatos.com:5061`、TLS 信令和明文 RTP。下面说明与标准 SIP demo 对应，但本项目直接修改 [sip_cc/config.lua](sip_cc/config.lua)，没有 `SIP_USE_TLS` 开关；呼叫仍按原有 SIP ↔ 手机纯 PCM 桥接流程进行。
+
+#### 固件、脚本与配置
+
+1. 使用上文“固件与烧录”中包含纯 PCM 桥接和 SIP TLS 支持的配套 **Air8000_13** 固件；只更新 Lua 脚本不能补齐底层能力，旧固件不能仅凭版本号判断是否支持。
+2. 按上文清单烧录本目录应用脚本和当前公共依赖，尤其是 `exsipclient.lua`、`exsipproto.lua`。避免 Luatools 默认 lib 覆盖为旧版；本 demo 使用 `pcm_sip.lua`，不需要添加标准 demo 的 `exsip.lua`。
+3. 将本目录 [sip-ca.pem](sip-ca.pem) 加入 Luatools 资源文件列表，保留文件名。板端路径为 `/luadb/sip-ca.pem`，不能填写电脑上的本地路径。
+4. 在 `sip_cc/config.lua` 中核对以下字段，账号密码使用实际分配的值：
+
+```lua
+sip_server_addr = "cc.luatos.com",
+sip_server_port = 5061,
+sip_domain = "cc.luatos.com",
+sip_transport = "tls",
+sip_tls = {
+    ca_cert = io.readFile("/luadb/sip-ca.pem"),
+},
+media_encryption = "none", -- TLS 信令 + 明文 RTP
+```
+
+保持服务器地址为证书对应的域名，让 TLS 使用 SNI 并校验服务器名称；不要先解析再替换成服务器 IP。库在 TLS 未指定端口时默认使用 5061，TCP/UDP 默认使用 5060；本配置显式指定 5061。自建服务器按其实际监听端口和可信 CA 修改。
+
+需要测试原 TCP/UDP 时，将 `sip_transport` 改为 `"tcp"` 或 `"udp"`，同时改成服务器对应端口，并移除 `sip_tls` 或设为 `nil`；媒体保持 `"none"`。TLS 连接或证书验证失败不会自动切换传输协议。
+
+#### CA 来源与使用方式
+
+附带文件为 Let's Encrypt 官方公开的 **ISRG Root X2 根证书**，下载后保存为 `sip-ca.pem`，不含私钥，也不是客户端证书：
+
+- [官方证书目录](https://letsencrypt.org/certificates/)
+- [ISRG Root X2 官方 PEM 下载](https://letsencrypt.org/certs/isrg-root-x2.pem)
+- 证书 DER SHA-256：`69729b8e15a86efc177a57afb7171dfc64add28c2fca8cf1507e34453ccb1470`
+
+上述指纹是证书 DER 内容的哈希，不是 PEM 文本文件哈希。2026-09-29 已用此 CA 严格验证 `cc.luatos.com:5061` 的证书链和域名。更换服务器时，应从相应 CA 的官方渠道取得可信根证书；服务器更换签发链后也需检查是否更新 CA。
+
+`sip_tls.ca_cert` 接收 **PEM 内容**，不是文件路径，文件名也不是协议要求。可以在 `sip_cc/config.lua` 的配置表之前用 Lua 长字符串定义完整的 `ca_pem`（包含证书首尾标记和换行），再把字段替换为：
+
+```lua
+sip_tls = {ca_cert = ca_pem},
+```
+
+使用这种方式时无需烧录独立 PEM 文件。当前实现不自动读取 PC 系统 CA 库；缺失或为空会报 `tls_ca_required`，不能用 `sip_tls.verify = false` 跳过验证。
+
+#### 设备校时与启动顺序
+
+TLS 校验证书链、域名和有效期，设备时间必须正确。`sip_cc/sip_cc_app.lua` 在 TLS 模式先调用 `socket.sntp()`，等待 `NTP_UPDATE` 最多 10 秒，校时成功后才初始化 CC、SIP 和桥接业务。
+
+出现 `TLS 校时失败，停止启动` 时，本次应用初始化结束，**没有标准 SIP demo 的 5 秒自动重试**。排查网络和 SNTP 访问后重启设备再试；TCP/UDP 模式跳过这项校时等待。
+
+#### MicroSIP 对端设置
+
+使用与板端不同的 SIP 账号，在 MicroSIP 账号设置中填写：
+
+| 项目 | 值 |
+| --- | --- |
+| SIP 服务器 | `cc.luatos.com:5061` |
+| 域 | `cc.luatos.com` |
+| 用户名、登录名、密码 | 服务器分配给 PC 对端的账号信息 |
+| 传输 | `TLS` |
+| 加密媒体 | 已禁用，与板端 `media_encryption = "none"` 对应 |
+
+MicroSIP 不要求手选 CA，并不等于它使用 Windows 证书库验证了服务器。已核对的 [MicroSIP 3.21.3 官方源码](https://www.microsip.org/download/MicroSIP-3.21.3-src.7z)沿用 PJSIP 默认 TLS 配置，没有启用严格服务器证书验证；[PJSIP 文档](https://docs.pjsip.org/en/latest/api/generated/pjsip/group/group__PJSIP__TRANSPORT__TLS.html)说明 `verify_server` 默认 `PJ_FALSE`，此时证书验证错误不会使连接失败。本 demo 保留可信 CA 和严格服务器身份校验。
+
+#### 媒体模式与桥接通话验证
+
+`sip_transport = "tls"` 只加密 SIP 信令；`media_encryption = "none"` 仍使用明文 RTP。服务器启用对应能力、A13 固件具备相应安全接口后，才能改为 `"sdes"` 或 `"dtls-srtp"`。两种安全媒体都要求经过验证的 TLS 信令，协商失败不会回退明文；TLS 5061 可用不代表 SDES 已启用，DTLS 公网验收需等服务器开启。加密媒体配置作用于 SIP 媒体链路，CC 侧继续使用蜂窝通话和本地 PCM 桥接。
+
+启动和测试时依次检查：
+
+1. 日志出现 `TLS 启动前网络校时`，随后出现 `CC 初始化完成 bridge_pcm`、`transport: tls` 和连接 `cc.luatos.com,5061`。仅看到 `SIP 启动完成` 不代表已注册。
+2. `REGISTER` 可能先收到 `401 Unauthorized` 认证挑战，再收到 `200 OK`；出现 `event register ok`、`event ready` 后再拨号。
+3. MicroSIP 拨打模组 SIP 账号，检查板端收到 INVITE，发送 183 且 VoIP 启动后拨打手机；目标号码提取规则见后文，必要时在配置中设置 `target_phone_number`。手机接通、PCM 就绪后，应看到 SIP 200/ACK 和 `call established`。
+4. 手机呼入模组 SIM 号码时，检查按 `remote_sip_uri` 呼叫 MicroSIP。两种方向均检查双向语音、播报后恢复及两侧挂断；SIP 已建立通话挂断时应完成 BYE/200 和媒体释放。
+
+| 现象 | 检查项 |
+| --- | --- |
+| `tls_ca_required` | CA 是否烧录到 `/luadb/sip-ca.pem`；`ca_cert` 是否是非空 PEM 内容 |
+| `TLS 校时失败，停止启动` | 网卡及 SNTP 是否可达；恢复后重启设备 |
+| TLS 握手或证书校验失败 | 域名、设备时间、可信 CA、服务器证书有效期，以及配套固件和公共库 |
+| TLS 已连接但注册失败 | SIP 账号、密码、认证域和服务器权限；首次 401 本身不是 TLS 故障 |
+| 注册成功但呼叫失败 | INVITE 是否到板端、CC 是否就绪、目标手机号码和 `remote_sip_uri` 是否正确；不能仅凭 480 判断 TLS 故障 |
+| 注册成功但无声音 | 对端媒体模式、RTP 地址/端口和 CC PCM 就绪状态；TLS 成功不代表已启用 SRTP |
+| `media_security_unavailable` | 固件是否具备所选 SDES/DTLS-SRTP 能力；旧 A13 不能仅靠更新脚本获得安全媒体 |
+
+### 桥接与网络参数
 
 `sip_cc/config.lua` 和 `netdrv/netdrv_wifi.lua` 中的参数需与实际环境一致。**烧录前填写或核对实际参数**，示例占位值不能用于注册或拨号。
 
 | 文件/参数 | 设置内容 |
 | --- | --- |
-| `sip_cc/config.lua` 的 `sip_server_addr`、`sip_server_port`、`sip_domain` | SIP 服务器地址、端口及域；示例为 `sip.example.com:5060` |
+| `sip_cc/config.lua` 的 `sip_server_addr`、`sip_server_port`、`sip_domain` | SIP 服务器地址、端口及域；当前 TLS 示例为 `cc.luatos.com:5061` |
 | `sip_username`、`sip_password`、`sip_transport` | 模组 SIP 账号、密码和传输协议 |
 | `target_phone_number` | 未能从 SIP Request-URI、To 提取号码时使用的默认手机号 |
 | `remote_sip_uri` | 手机来电后拨打的 SIP 客户端 URI |

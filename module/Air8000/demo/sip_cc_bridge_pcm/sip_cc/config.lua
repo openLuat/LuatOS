@@ -2,10 +2,12 @@
 -- SIP 编码仅 PCMA/PCMU，ptime 固定 20；接通后媒体启动超时默认 3000 ms。
 -- 网络选择见 netdrv_device.lua；adapter 必须与所选网卡一致。
 return {
-    sip_server_addr = "sip.example.com",
-    sip_server_port = 5060,
-    sip_domain = "sip.example.com",
-    sip_transport = "udp",
+    sip_server_addr = "cc.luatos.com",
+    sip_server_port = 5061,
+    sip_domain = "cc.luatos.com",
+    sip_transport = "tls",
+    sip_tls = {ca_cert = io.readFile("/luadb/sip-ca.pem")}, -- 同步烧录本项目的公开 CA 证书
+    media_encryption = "none", -- 先验收 TLS 信令；服务器启用后显式改为 "sdes" / "dtls-srtp"
     sip_username = "YOUR_SIP_USERNAME",
     sip_password = "YOUR_SIP_PASSWORD",
     remote_sip_uri = "sip:REMOTE_USER@sip.example.com",

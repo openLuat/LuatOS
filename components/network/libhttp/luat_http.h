@@ -153,6 +153,8 @@ typedef struct{
 	// TCP连接是否已经关闭
 	uint8_t tcp_closed;
 	uint8_t http_body_is_finally;
+	// 终态通知是否已发出(防重复上报)
+	uint8_t finished;
 
 	uint32_t idg;
 }luat_http_ctrl_t;
@@ -160,6 +162,46 @@ typedef struct{
 //下面2个API是luatos内部使用，csdk不使用
 int luat_http_client_init(luat_http_ctrl_t* http, int ipv6);
 int luat_http_client_start_luatos(luat_http_ctrl_t* http);
+
+#ifdef __LUATOS__
+/**
+ * luatos 模式下 http 客户端 -> lua 绑定 的跨线程通知消息(自包含)。
+ * 所有权约定:
+ *   1. 消息及其 headers/body 由生产者(网络回调线程)分配; luat_msgbus_put 成功后
+ *      生产者不得再触碰, 由消费者(VM 线程)处理完后调用 luat_http_msg_free 释放
+ *   2. 投递失败时由生产者调用 luat_http_msg_free 释放
+ *   3. 消息绝不携带 luat_http_ctrl_t(指针也不带), 消费时机与 ctrl 生命周期无关,
+ *      从根上避免多核平台上 luatos 与 lwip 对 http_ctrl 竞争 free
+ */
+typedef struct luat_http_msg {
+	struct luat_http_msg *next;    /* terminal delivery retry queue */
+	uint32_t idg;                /* 会话标识, 仅用于日志/排查 */
+	int32_t  event;              /* HTTP_CALLBACK / 0(HTTP_OK) / HTTP_ERROR_xxx */
+	int32_t  arg;                /* HTTP_CALLBACK 时为 body_len */
+	int32_t  status_code;        /* parser.status_code 快照 */
+	int32_t  resp_content_len;   /* 进度回调需要 */
+	uint32_t body_len;           /* 响应长度快照 */
+	uint64_t idp;                /* luat_pushcwait 返回的 token, 原样带回 */
+	int32_t  http_cb;            /* lua registry ref, 0 表示无 */
+	int32_t  http_cb_userdata;
+	uint8_t  is_download;
+	uint8_t  isfota;
+	uint8_t  zbuff_mode;         /* 响应写入了用户 zbuff, 无 body 指针 */
+	uint8_t  download_ok;        /* 终态: 下载完成且文件保留 */
+	uint8_t  debug_onoff;
+	char    *headers;            /* 终态: 所有权移交给消费者, 可为 NULL */
+	uint32_t headers_len;
+	char    *body;               /* 终态: 所有权移交给消费者, 可为 NULL */
+} luat_http_msg_t;
+
+void luat_http_msg_free(luat_http_msg_t *msg);
+/* 通知入口: 返回 0 表示投递成功(消息所有权移交消费端); 非 0 表示投递失败(已由生产端释放)。
+ * 强符号在 luat_lib_http.c(投递 msgbus), 弱符号在 luat_http_client.c(直接释放) */
+int luat_http_client_onevent(luat_http_msg_t *msg);
+/* 终态交付失败的兜底通知: 只带 idg/error 的轻量消息, 由 VM 线程完成 cwait/解除引用并负责
+ * close, 避免 Lua 侧永久挂起。强符号在 luat_lib_http.c, 弱符号在 luat_http_client.c(空实现) */
+void luat_http_fail_notify(uint32_t idg, int error_code);
+#endif
 
 /**
  * @brief 创建一个http客户端
@@ -169,6 +211,8 @@ int luat_http_client_start_luatos(luat_http_ctrl_t* http);
  * @param adapter_index 网卡适配器，不清楚的写-1，系统自动分配
  * @return 成功返回客户端地址，失败返回NULL
  */
+/* 注意: 该 API 是"同步 C 回调"风格(luatos_mode=0), 定时器仍持 http_ctrl 裸指针,
+ * 仅适用于调用方自管生命周期、单线程回调的场景; 不要与 luat_http_client_start_luatos 混用 */
 luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int adapter_index);
 /**
  * @brief http客户端的通用配置，创建客户端时已经有默认配置，可以不配置
@@ -291,6 +335,10 @@ int luat_http_client_get_context_len(luat_http_ctrl_t *http_ctrl, uint32_t *len)
 uint32_t luat_http_idg_register(luat_http_ctrl_t *http_ctrl);
 
 luat_http_ctrl_t* luat_http_idg_get(uint32_t idg);
+
+/* 原子认领: 一次临界区内 get+unreg, 成功返回 ctrl 并摘除注册, 之后该 idg 一律查不到。
+ * 供 close/释放路径防重复释放(竞争 free 防线) */
+luat_http_ctrl_t* luat_http_idg_claim(uint32_t idg);
 
 int luat_http_idg_unreg(uint32_t idg);
 /** @}*/

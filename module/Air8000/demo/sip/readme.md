@@ -4,11 +4,18 @@
 
 SIP DEMO 项目是一个基于 Air8000 开发板的 SIP 通话演示项目，通过 Air8000 开发板实现 SIP 通话功能，支持 4G、WIFI、以太网三种网络方式以及多网融合情况下的 SIP 通话。
 
+### 接通后向对端播报 TTS
+
+使用启用通话播放功能（`voip.playTTS`）的 Air8000 13 号固件。通话接通且 VoIP 媒体实际启动后，自动向 SIP 对端播报一次“本次通话将会录音，请注意”，主叫和被叫均生效。
+
+播报使用 `target="sip"`、`mode="replace"`，期间以 TTS 替换发送语音，结束后恢复正常通话。日志 `sip_call_notice` 输出播放 ID 或提交失败原因；重复事件不会重复播报，挂断后下一通会重新播报。本功能演示录音提示语，不会启动录音。
+
 ### **文件结构**
 
 ```lua
 sip/
 ├── main.lua：主程序入口，加载网络驱动模块、SIP通话模块和按键处理
+├── sip-ca.pem：TLS 使用的公开 CA 根证书，需作为资源烧录
 ├── sip_app/
 │   ├── sip_app_main.lua：sip主入口;
 │   ├── sip_app_key.lua：按键相关处理;
@@ -82,11 +89,15 @@ sip/
 - 准备好软件环境之后，接下来查看[如何使用 LuaTools 烧录软件](https://docs.openluat.com/air780epm/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到 Air8000A 开发板中，或者查看 [Air8000A 整机开发板使用说明_V1.0.3](https://docs.openluat.com/air8000/product/file/Air8000_V2.0%E5%BC%80%E5%8F%91%E6%9D%BF%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E_V1.0.3.pdf) ，将本篇文章中演示使用的项目文件烧录到 Air8000A 开发板中。
 - lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件，如果测试有问题，尝试手动添加 libs（..\LuatOS\script\libs）;
 
+启用 TLS 请先完成 [4.5 TLS 配置与使用](#sip-tls)中的配套固件、三个 lib 和 CA 资源准备；默认 lib 或旧 V2034 固件不能替代这些要求。
+
 ### **4.2 API 介绍**
 
 这里仅介绍本篇文档所使用的 API，详情请查看：[API - exsip](https://docs.openluat.com/osapi/ext/exsip/)
 
 ### **4.3MicroSIP/LinPhone 测试 sip 通话功能**
+
+本节截图与 8910 参数对应原 UDP/TCP 用法；TLS 对端参数见 [4.5 TLS 配置与使用](#sip-tls)。
 
 ```lua
 服务器地址：cc.luatos.com
@@ -128,6 +139,86 @@ SIP传输方式：TCP/UDP
 ![](https://docs.openluat.com/air8000/luatos/app/multimedia/sip/image/sip_img11.jpg)
 ![](https://docs.openluat.com/air8000/luatos/app/multimedia/sip/image/sip_img12.jpg)
 
+<a id="sip-tls"></a>
+
+### **4.5 TLS 配置与使用**
+
+本 demo 默认保持 UDP、8910 端口。需要加密 SIP 信令时，按以下步骤启用 TLS；通话按键和音频使用方法不变。
+
+#### 固件、脚本与开关
+
+1. 使用包含本次 SIP TLS 支持的配套 Air8000 固件；上文 V2034 的测试说明适用于原有 UDP/TCP，不能据此认定该旧固件支持本节功能。
+2. 烧录当前版本的 `script/libs/exsip.lua`、`exsipclient.lua`、`exsipproto.lua`，避免 Luatools 默认 lib 覆盖为旧版，并同时烧录本目录的应用脚本。
+3. 在 `sip_app/sip_app_main.lua` 顶部把开关改为：
+
+```lua
+local SIP_USE_TLS = true
+```
+
+开关会自动将 `SIP_CONFIG.sip_transport` 设为 `exsip.TRANSPORT_TLS`、`sip_server_port` 设为 `5061`，并读取 `/luadb/sip-ca.pem`。账号仍在原 `SIP_CONFIG` 中配置；改回 `false` 即使用原 UDP/8910。
+
+保持 `sip_server_addr = "cc.luatos.com"`，不要先解析再改成 IP：TLS 连接需要这个域名发送 SNI 并校验证书名称，`sip_domain` 也使用 `cc.luatos.com`。
+
+自行配置时，`exsip.init(SIP_CONFIG)` 接收 TLS 参数，随后调用无参数的 `exsip.start()`。库在 TLS 未指定端口时默认使用 5061，其他传输默认 5060；本 demo 的开关会显式设置端口。证书校验或连接失败均不会自动改用 UDP/TCP。
+
+#### CA 文件与证书校验
+
+在 Luatools 的脚本和资源文件列表中添加本目录 `sip-ca.pem`，保留文件名；烧录后板端路径为 `/luadb/sip-ca.pem`。它是公开的 **ISRG Root X2 根证书**，不含私钥，不是客户端证书。
+
+来源：[Let's Encrypt 官方证书目录](https://letsencrypt.org/certificates/)中的 ISRG Root X2 自签证书（[PEM 文件](https://letsencrypt.org/certs/isrg-root-x2.pem)）。本文件证书的 DER 编码 SHA-256 为：
+
+```text
+69729b8e15a86efc177a57afb7171dfc64add28c2fca8cf1507e34453ccb1470
+```
+
+这里校验的是证书 DER 内容，不是 PEM 文本文件的哈希。更换 SIP 服务器时，应换成该服务器证书链对应的可信 CA；服务器更换签发链后也需检查是否更新此文件。
+
+配置传入的是 PEM **内容**，不是路径：
+
+```lua
+SIP_CONFIG.sip_tls = {ca_cert = io.readFile("/luadb/sip-ca.pem")}
+```
+
+也可以把完整 PEM（包含 `BEGIN CERTIFICATE`、`END CERTIFICATE` 和换行）保存为 Lua 长字符串 `ca_pem`，然后替换上面的赋值：
+
+```lua
+SIP_CONFIG.sip_tls = {ca_cert = ca_pem}
+```
+
+TLS 会校验证书链、服务器域名和证书有效期。应用在联网后、音频初始化前检查 CA 非空，并调用 `socket.sntp()` 等待 `NTP_UPDATE`（最多 10 秒）；失败则不启动 SIP，沿现有流程 5 秒后重试。TLS 关闭时不执行这项校时。
+
+#### MicroSIP 对端设置
+
+使用与板端不同的 SIP 账号，在 MicroSIP 账号设置中配置：
+
+| 项目 | 值 |
+|---|---|
+| SIP 服务器 | `cc.luatos.com:5061` |
+| 域 | `cc.luatos.com` |
+| 用户名、登录名、密码 | 服务器分配给 PC 对端的账号信息 |
+| 传输 | `TLS` |
+| 媒体加密 | 当前示例保持关闭，与板端 `media_encryption = "none"` 一致 |
+
+MicroSIP 不要求手选 CA，并不等于它使用 Windows 证书库验证了服务器。已核对的 [MicroSIP 3.21.3 官方源码](https://www.microsip.org/download/MicroSIP-3.21.3-src.7z)使用 PJSIP 默认 TLS 配置，没有设置 `verify_server`、CA 文件或自定义验证回调；[PJSIP 官方说明](https://docs.pjsip.org/en/latest/api/generated/pjsip/group/group__PJSIP__TRANSPORT__TLS.html)中 `verify_server` 默认 `PJ_FALSE`，证书验证错误不会使连接失败。本 demo 则要求可信 CA 并强制校验服务器身份。
+
+#### 媒体模式、运行检查与排错
+
+`SIP_USE_TLS = true` 只加密 SIP 信令。当前 `media_encryption = "none"` 仍使用明文 RTP；服务器启用对应能力且固件提供相应 SRTP/DTLS-SRTP 接口后，才能改成 `"sdes"` 或 `"dtls-srtp"` 以加密媒体。两种安全媒体模式都要求 TLS 信令，协商失败不会回退明文；尚未启用 DTLS 的服务器不能用于 DTLS-SRTP 公网验收。
+
+启动后依次检查：
+
+1. 网络就绪和 TLS 网络校时成功；校时超时应先排查网络及 SNTP 访问。
+2. SIP 连接目标为 `cc.luatos.com:5061`，完成证书校验及 TLS 握手。
+3. 注册可能先收到 `401` 认证挑战，再收到 `200 OK`；看到 `sip_callback` 的注册成功及 SIP 就绪事件后，再按原方法拨号、接听与挂断。
+
+| 现象 | 检查项 |
+|---|---|
+| CA 为空或读取失败 | 是否把 `sip-ca.pem` 作为资源烧录，文件名和 `/luadb/` 路径是否正确 |
+| TLS 校时失败 | 默认网卡是否联网，SNTP 是否可访问；应用会按现有流程重试 |
+| TLS 握手或证书校验失败 | 使用域名及 5061，设备时间正确，CA 与服务器证书链匹配，固件和三个库均为配套版本 |
+| 握手成功但注册失败 | SIP 账号、认证域及服务器权限；`401` 首次挑战本身不表示 TLS 失败 |
+| 注册成功但无声音 | 对端媒体配置、RTP 地址/端口及音频设备；TLS 握手成功不代表 SRTP 已启用 |
+
 ## **五、代码演示**
 
 程序架构
@@ -135,6 +226,7 @@ SIP传输方式：TCP/UDP
 ```lua
 sip/
 ├── main.lua：主程序入口，加载网络驱动模块、SIP通话模块和按键处理
+├── sip-ca.pem：TLS 使用的公开 CA 根证书，需作为资源烧录
 ├── sip_app/
 │   ├── sip_app_main.lua：sip主入口;
 │   ├── sip_app_key.lua：按键相关处理;
@@ -175,6 +267,8 @@ end
 ```
 
 ## **六、功能演示**
+
+本节各场景保留原 UDP/8910 的历史测试日志。启用 TLS 后应检查 5061 连接及证书校验；下方日志不是 TLS 或 SRTP 的实测记录。
 
 1、搭建好硬件环境
 

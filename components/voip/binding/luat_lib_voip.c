@@ -17,6 +17,10 @@
 #include "luat_mem.h"
 #include "luat_conf_bsp.h"
 #include "luat_voip_core.h"
+#ifdef LUAT_USE_VOIP_PLAY
+#include "luat_voip_play.h"
+#include "luat_msgbus.h"
+#endif
 #ifdef LUAT_USE_VOIP_BRIDGE
 #include "luat_voip_pcm_resampler.h"
 #endif
@@ -26,6 +30,383 @@
 #include "luat_log.h"
 
 #include <string.h>
+
+#ifdef LUAT_USE_SRTP
+#define VOIP_SECURITY_META "voip.security"
+#define VOIP_IDENTITY_META "voip.security.identity"
+typedef struct { luat_voip_security_t *ctx; } voip_security_ud_t;
+typedef struct { luat_voip_security_identity_t *identity; } voip_identity_ud_t;
+
+/* These handles own one reference; the media worker retains its own reference. */
+static int l_voip_security_release(lua_State *L)
+{
+    voip_security_ud_t *ud = luaL_testudata(L, 1, VOIP_SECURITY_META);
+    voip_identity_ud_t *identity = luaL_testudata(L, 1, VOIP_IDENTITY_META);
+    if (ud && ud->ctx) {
+        luat_voip_security_release(ud->ctx);
+        ud->ctx = NULL;
+    }
+    if (identity && identity->identity) {
+        luat_voip_security_identity_release(identity->identity);
+        identity->identity = NULL;
+    }
+    lua_pushboolean(L, ud || identity);
+    return 1;
+}
+
+static void voip_security_metatable(lua_State *L, const char *name)
+{
+    if (luaL_newmetatable(L, name)) {
+        lua_pushcfunction(L, l_voip_security_release);
+        lua_setfield(L, -2, "__gc");
+        lua_pushliteral(L, "protected");
+        lua_setfield(L, -2, "__metatable");
+    }
+    lua_setmetatable(L, -2);
+}
+
+static int voip_security_lua_error(lua_State *L, int error)
+{
+    lua_pushnil(L);
+    lua_pushstring(L, luat_voip_security_error_name(error));
+    return 2;
+}
+
+/*
+创建运行期 DTLS 证书身份，仅用于 exsip 安全协商；私钥不导出。
+@api voip.securityIdentity()
+@return userdata 身份句柄，失败返回nil及原因
+*/
+static int l_voip_security_identity(lua_State *L)
+{
+    int error = 0;
+    voip_identity_ud_t *ud = lua_newuserdata(L, sizeof(*ud));
+    memset(ud, 0, sizeof(*ud));
+    voip_security_metatable(L, VOIP_IDENTITY_META);
+    ud->identity = luat_voip_security_identity_create(&error);
+    if (!ud->identity) return voip_security_lua_error(L, error);
+    return 1;
+}
+
+/*
+创建安全媒体本地协商材料；同一 SDP 重传必须复用此句柄。
+@api voip.securityCreate(mode, identity)
+@string mode sdes或dtls-srtp
+@userdata identity DTLS可选运行期身份
+@return userdata 会话句柄，失败返回nil及原因
+*/
+static int l_voip_security_create(lua_State *L)
+{
+    const char *mode = luaL_checkstring(L, 1);
+    luat_voip_security_mode_t type;
+    luat_voip_security_identity_t *identity = NULL;
+    int error = 0;
+    if (!strcmp(mode, "sdes")) type = LUAT_VOIP_SECURITY_SDES;
+    else if (!strcmp(mode, "dtls-srtp")) type = LUAT_VOIP_SECURITY_DTLS;
+    else return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_UNSUPPORTED);
+    if (!lua_isnoneornil(L, 2)) {
+        voip_identity_ud_t *id = luaL_checkudata(L, 2, VOIP_IDENTITY_META);
+        if (!id->identity) return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_STATE);
+        identity = id->identity;
+    }
+    voip_security_ud_t *ud = lua_newuserdata(L, sizeof(*ud));
+    memset(ud, 0, sizeof(*ud));
+    voip_security_metatable(L, VOIP_SECURITY_META);
+    ud->ctx = luat_voip_security_create(type, identity, &error);
+    if (!ud->ctx) return voip_security_lua_error(L, error);
+    return 1;
+}
+
+/*
+获取本地 SDP 协商信息。SDES key 为敏感信息，只能通过经验证的 TLS 信令发送。
+@api voip.securityInfo(handle)
+@userdata handle 安全会话句柄
+@return table mode及suite/key或hash/fingerprint，失败返回nil及原因
+*/
+static int l_voip_security_info(lua_State *L)
+{
+    voip_security_ud_t *ud = luaL_checkudata(L, 1, VOIP_SECURITY_META);
+    luat_voip_security_info_t info = {0};
+    int error = luat_voip_security_info(ud->ctx, &info);
+    if (error) return voip_security_lua_error(L, error);
+    lua_newtable(L);
+    lua_pushstring(L, info.mode == LUAT_VOIP_SECURITY_SDES ? "sdes" : "dtls-srtp");
+    lua_setfield(L, -2, "mode");
+    if (info.mode == LUAT_VOIP_SECURITY_SDES) {
+        lua_pushliteral(L, LUAT_VOIP_SECURITY_SUITE); lua_setfield(L, -2, "suite");
+        lua_pushstring(L, info.key); lua_setfield(L, -2, "key");
+    } else {
+        lua_pushliteral(L, "sha-256"); lua_setfield(L, -2, "hash");
+        lua_pushstring(L, info.fingerprint); lua_setfield(L, -2, "fingerprint");
+    }
+    for (size_t i = 0; i < sizeof(info); i++) ((volatile unsigned char *)&info)[i] = 0;
+    return 1;
+}
+
+static const char *voip_security_string_field(lua_State *L, const char *name, size_t *len)
+{
+    const char *value;
+    /* Raw fields remain rooted in the remote table across userdata allocation. */
+    lua_pushstring(L, name);
+    lua_rawget(L, 2);
+    value = lua_type(L, -1) == LUA_TSTRING ? lua_tolstring(L, -1, len) : NULL;
+    if (value && memchr(value, 0, *len)) value = NULL;
+    lua_pop(L, 1);
+    return value;
+}
+
+/*
+以本地协商材料创建独立的已协商会话，原句柄不变，可交给voip.start的security字段。
+@api voip.securitySetRemote(handle, remote)
+@userdata handle 本地安全会话句柄
+@table remote mode,suite,key或mode,hash,fingerprint,role(active/passive)
+@return userdata 新句柄，失败返回nil及原因
+*/
+static int l_voip_security_set_remote(lua_State *L)
+{
+    voip_security_ud_t *source = luaL_checkudata(L, 1, VOIP_SECURITY_META);
+    luat_voip_security_remote_t remote = {0};
+    luat_voip_security_mode_t local_mode;
+    size_t len = 0;
+    int error;
+    luaL_checktype(L, 2, LUA_TTABLE);
+    if (!source->ctx) return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_STATE);
+    local_mode = luat_voip_security_mode(source->ctx);
+    const char *mode = voip_security_string_field(L, "mode", &len);
+    if (!mode || strcmp(mode, local_mode == LUAT_VOIP_SECURITY_SDES ? "sdes" : "dtls-srtp"))
+        return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+    if (local_mode == LUAT_VOIP_SECURITY_SDES) {
+        remote.suite = voip_security_string_field(L, "suite", &len);
+        remote.key = voip_security_string_field(L, "key", &len);
+        if (!remote.suite || !remote.key || len != LUAT_VOIP_SECURITY_KEY_TEXT - 1)
+            return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+    } else {
+        const char *hash = voip_security_string_field(L, "hash", &len);
+        if (!hash || strcmp(hash, "sha-256"))
+            return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+        const char *role = voip_security_string_field(L, "role", &len);
+        if (!role || (strcmp(role, "active") && strcmp(role, "passive")))
+            return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+        remote.dtls_client = !strcmp(role, "active");
+        remote.fingerprint = voip_security_string_field(L, "fingerprint", &len);
+        if (!remote.fingerprint || len != LUAT_VOIP_SECURITY_FINGERPRINT_TEXT - 1)
+            return voip_security_lua_error(L, LUAT_VOIP_SECURITY_E_INVALID);
+    }
+    voip_security_ud_t *ud = lua_newuserdata(L, sizeof(*ud));
+    memset(ud, 0, sizeof(*ud));
+    voip_security_metatable(L, VOIP_SECURITY_META);
+    ud->ctx = luat_voip_security_clone_local(source->ctx, &error);
+    if (!ud->ctx) return voip_security_lua_error(L, error);
+    error = luat_voip_security_set_remote(ud->ctx, &remote);
+    if (error) {
+        luat_voip_security_release(ud->ctx);
+        ud->ctx = NULL;
+        return voip_security_lua_error(L, error);
+    }
+    return 1;
+}
+#endif
+
+#ifdef LUAT_USE_VOIP_PLAY
+static int voip_play_cb_ref;
+
+typedef struct {
+    luat_voip_play_status_t status;
+    char event[12];
+} voip_play_lua_event_t;
+
+static void voip_play_push_status(lua_State *L, const luat_voip_play_status_t *status)
+{
+    static const char *states[] = {"idle", "loading", "playing", "stopping"};
+    lua_newtable(L);
+    lua_pushinteger(L, status->id); lua_setfield(L, -2, "id");
+    lua_pushinteger(L, status->session); lua_setfield(L, -2, "session");
+    lua_pushstring(L, status->state < 4 ? states[status->state] : "idle");
+    lua_setfield(L, -2, "state");
+    lua_pushstring(L, status->target == LUAT_VOIP_PLAY_TARGET_BOTH ? "both" :
+            status->target == LUAT_VOIP_PLAY_TARGET_CC ? "cc" : "sip");
+    lua_setfield(L, -2, "target");
+    lua_pushstring(L, status->mode == LUAT_VOIP_PLAY_MIX ? "mix" : "replace");
+    lua_setfield(L, -2, "mode");
+    lua_pushinteger(L, status->played_samples[0]); lua_setfield(L, -2, "sip_samples");
+    lua_pushinteger(L, status->played_samples[1]); lua_setfield(L, -2, "cc_samples");
+    if (status->reason[0]) lua_pushstring(L, status->reason); else lua_pushnil(L);
+    lua_setfield(L, -2, "reason");
+}
+
+static int voip_play_lua_handler(lua_State *L, void *ptr)
+{
+    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    voip_play_lua_event_t *event = (voip_play_lua_event_t *)msg->ptr;
+    (void)ptr;
+    lua_pop(L, 1);
+    if (!event) return 0;
+    if (voip_play_cb_ref) {
+        lua_rawgeti(L, LUA_REGISTRYINDEX, voip_play_cb_ref);
+        if (lua_isfunction(L, -1)) {
+            lua_pushstring(L, event->event);
+            voip_play_push_status(L, &event->status);
+            /* Release the snapshot before user Lua can raise an error. */
+            luat_heap_free(event);
+            lua_call(L, 2, 0);
+            return 0;
+        }
+        lua_pop(L, 1);
+    }
+    luat_heap_free(event);
+    return 0;
+}
+
+static void voip_play_notify(const char *name, const luat_voip_play_status_t *status)
+{
+    voip_play_lua_event_t *event = luat_heap_malloc(sizeof(*event));
+    rtos_msg_t msg = {0};
+    if (!event) { LLOGW("play event allocation failed"); return; }
+    memset(event, 0, sizeof(*event));
+    event->status = *status;
+    strncpy(event->event, name, sizeof(event->event) - 1);
+    msg.handler = voip_play_lua_handler;
+    msg.ptr = event;
+    if (luat_msgbus_put(&msg, 0) != 0) {
+        luat_heap_free(event);
+        LLOGW("play event enqueue failed");
+    }
+}
+
+static int voip_play_options(lua_State *L, luat_voip_play_options_t *options)
+{
+    lua_Number gain;
+    lua_Integer value;
+    const char *text;
+    memset(options, 0, sizeof(*options));
+    options->target = LUAT_VOIP_PLAY_TARGET_SIP;
+    options->mode = LUAT_VOIP_PLAY_REPLACE;
+    options->gain_q15 = 32768;
+    options->speech_gain_q15 = 16384;
+    options->sample_rate = 8000;
+    options->channels = 1;
+    if (lua_isnoneornil(L, 2)) return 0;
+    if (!lua_istable(L, 2)) return -1;
+    lua_getfield(L, 2, "target");
+    text = lua_isnil(L, -1) ? "sip" : lua_tostring(L, -1);
+    if (text && !strcmp(text, "sip")) options->target = LUAT_VOIP_PLAY_TARGET_SIP;
+    else if (text && !strcmp(text, "cc")) options->target = LUAT_VOIP_PLAY_TARGET_CC;
+    else if (text && !strcmp(text, "both")) options->target = LUAT_VOIP_PLAY_TARGET_BOTH;
+    else { lua_pop(L, 1); return -1; }
+    lua_pop(L, 1);
+    lua_getfield(L, 2, "mode");
+    text = lua_isnil(L, -1) ? "replace" : lua_tostring(L, -1);
+    if (text && !strcmp(text, "replace")) options->mode = LUAT_VOIP_PLAY_REPLACE;
+    else if (text && !strcmp(text, "mix")) options->mode = LUAT_VOIP_PLAY_MIX;
+    else { lua_pop(L, 1); return -1; }
+    lua_pop(L, 1);
+    const char *gain_keys[] = {"gain", "speech_gain"};
+    for (unsigned i = 0; i < 2; i++) {
+        lua_getfield(L, 2, gain_keys[i]);
+        if (!lua_isnil(L, -1)) {
+            if (!lua_isnumber(L, -1)) { lua_pop(L, 1); return -1; }
+            gain = lua_tonumber(L, -1);
+            if (!(gain >= 0 && gain <= 1)) { lua_pop(L, 1); return -1; }
+            if (i) options->speech_gain_q15 = (uint16_t)(gain * 32768 + 0.5);
+            else options->gain_q15 = (uint16_t)(gain * 32768 + 0.5);
+        }
+        lua_pop(L, 1);
+    }
+    lua_getfield(L, 2, "sample_rate");
+    if (!lua_isnil(L, -1)) {
+        int valid;
+        value = lua_tointegerx(L, -1, &valid);
+        if (!valid || value < 8000 || value > 48000) { lua_pop(L, 1); return -1; }
+        options->sample_rate = (uint32_t)value;
+    }
+    lua_pop(L, 1);
+    lua_getfield(L, 2, "channels");
+    if (!lua_isnil(L, -1)) {
+        int valid;
+        value = lua_tointegerx(L, -1, &valid);
+        if (!valid || (value != 1 && value != 2)) { lua_pop(L, 1); return -1; }
+        options->channels = (uint8_t)value;
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
+static int voip_play_start_lua(lua_State *L, int tts)
+{
+    size_t length;
+    const char *source = luaL_checklstring(L, 1, &length);
+    luat_voip_play_options_t options;
+    uint32_t id = 0;
+    int ret;
+    if (!length || memchr(source, 0, length) || voip_play_options(L, &options)) {
+        lua_pushnil(L); lua_pushliteral(L, "invalid_options"); return 2;
+    }
+    ret = luat_voip_play_init(voip_play_notify);
+    if (!ret) {
+        ret = tts ? luat_voip_play_start_tts(source, length, &options, &id) :
+                    luat_voip_play_start_file(source, &options, &id);
+    }
+    if (ret) {
+        lua_pushnil(L); lua_pushstring(L, luat_voip_play_error(ret)); return 2;
+    }
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+/*
+向当前通话对端播放TTS，不占用本地音频设备。
+@api voip.playTTS(text, opts)
+@string text UTF-8文本
+@table opts 可选配置：target="sip"/"cc"/"both"（cc/both仅支持纯PCM桥接），mode="replace"/"mix"，gain和speech_gain为0~1
+@return int 成功返回播放ID，失败返回nil
+@return string 失败原因；同一时刻只允许一个播报任务，忙时为busy
+@usage
+local id, err = voip.playTTS("您好，请稍候", {target="sip", mode="replace"})
+*/
+static int l_voip_play_tts(lua_State *L) { return voip_play_start_lua(L, 1); }
+
+/*
+向当前通话对端播放本地PCM16、PCM WAV或MP3文件。
+@api voip.playFile(path, opts)
+@string path 文件系统路径
+@table opts 同playTTS；裸PCM另支持sample_rate和channels，默认8000和1，格式PCM16LE
+@return int 成功返回播放ID，失败返回nil
+@return string 失败原因
+@usage
+local id, err = voip.playFile("/luadb/prompt.mp3", {target="both", mode="mix"})
+*/
+static int l_voip_play_file(lua_State *L) { return voip_play_start_lua(L, 0); }
+
+/*
+异步停止指定通话播报；终态事件或playStatus().state为idle表示资源已释放，可以再次播放。
+@api voip.playStop(id)
+@int id playTTS/playFile返回的播放ID
+@return boolean 是否接受停止请求
+@return string 失败原因
+*/
+static int l_voip_play_stop(lua_State *L)
+{
+    lua_Integer id = luaL_checkinteger(L, 1);
+    int ret = id > 0 && (uint64_t)id <= UINT32_MAX ?
+            luat_voip_play_stop((uint32_t)id) : LUAT_VOIP_PLAY_E_INVALID;
+    lua_pushboolean(L, ret == 0);
+    if (ret) { lua_pushstring(L, luat_voip_play_error(ret)); return 2; }
+    return 1;
+}
+
+/*
+查询通话播报状态。sip_samples/cc_samples为已提交到发送接口的8kHz源样本数，非对端播放确认。
+@api voip.playStatus()
+@return table id/state/target/mode/sip_samples/cc_samples/reason；state为idle/loading/playing/stopping
+*/
+static int l_voip_play_status(lua_State *L)
+{
+    luat_voip_play_status_t status = {0};
+    luat_voip_play_get_status(&status);
+    voip_play_push_status(L, &status);
+    return 1;
+}
+#endif
 
 /*
 启动voip语音通话
@@ -171,6 +552,26 @@ static int l_voip_start(lua_State *L)
     cfg.adapter = (int)luaL_optinteger(L, -1, network_register_get_default());
     lua_pop(L, 1);
 
+    lua_getfield(L, 1, "security");
+    if (!lua_isnil(L, -1)) {
+#ifdef LUAT_USE_SRTP
+        voip_security_ud_t *security = luaL_testudata(L, -1, VOIP_SECURITY_META);
+        if (!security || !security->ctx) {
+            lua_pop(L, 1);
+            lua_pushboolean(L, 0);
+            lua_pushliteral(L, "invalid_media_security");
+            return 2;
+        }
+        cfg.security = security->ctx;
+#else
+        lua_pop(L, 1);
+        lua_pushboolean(L, 0);
+        lua_pushliteral(L, "media_security_unsupported");
+        return 2;
+#endif
+    }
+    lua_pop(L, 1);
+
     /* 基本校验 */
     if (cfg.remote_ip[0] == '\0' || cfg.remote_port == 0) {
         LLOGE("voip.start: remote_ip and remote_port are required");
@@ -201,7 +602,7 @@ static int l_voip_stop(lua_State *L)
 /*
 注册voip回调函数
 @api voip.on(event, callback)
-@string event 事件名: "state", "stats", "error", "record"
+@string event 事件名: "state", "stats", "error", "record", "play"；play回调为(event, info)，事件为started/done/stopped/error
 @function callback 回调函数
 @return nil
 @usage
@@ -233,6 +634,10 @@ static int l_voip_on(lua_State *L)
         ref_ptr = &ctx->cb_stats_ref;
     } else if (strcmp(event, "error") == 0) {
         ref_ptr = &ctx->cb_error_ref;
+#ifdef LUAT_USE_VOIP_PLAY
+    } else if (strcmp(event, "play") == 0) {
+        ref_ptr = &voip_play_cb_ref;
+#endif
 #ifdef LUAT_USE_VOIP_RECORD
     } else if (strcmp(event, "record") == 0) {
         ref_ptr = &ctx->cb_record_ref;
@@ -545,6 +950,23 @@ static int l_voip_bridge_tone(lua_State *L)
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
+
+/*
+控制运行中的纯 PCM 桥接双向通话语音静音，TTS/音频注入和媒体节拍不受影响。
+仅 cc.AUDIO_MODE_BRIDGE_PCM 后端支持；会话启动和停止时自动恢复为未静音。
+@api voip.bridgeMute(on)
+@boolean on true静音原通话语音，false恢复
+@return boolean 成功返回true，非运行中的纯PCM桥接返回false
+@usage
+voip.bridgeMute(true)
+*/
+static int l_voip_bridge_mute(lua_State *L)
+{
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    lua_pushboolean(L, voip_bridge_mute(lua_toboolean(L, 1)) == 0);
+    return 1;
+}
+
 #endif
 
 #include "rotable2.h"
@@ -557,6 +979,19 @@ static const rotable_Reg_t reg_voip[] =
     { "stats",      ROREG_FUNC(l_voip_stats)},
     { "isRunning",  ROREG_FUNC(l_voip_is_running)},
     { "getState",   ROREG_FUNC(l_voip_get_state)},
+#ifdef LUAT_USE_SRTP
+    { "securityIdentity", ROREG_FUNC(l_voip_security_identity)},
+    { "securityCreate", ROREG_FUNC(l_voip_security_create)},
+    { "securityInfo", ROREG_FUNC(l_voip_security_info)},
+    { "securitySetRemote", ROREG_FUNC(l_voip_security_set_remote)},
+    { "securityRelease", ROREG_FUNC(l_voip_security_release)},
+#endif
+#ifdef LUAT_USE_VOIP_PLAY
+    { "playTTS", ROREG_FUNC(l_voip_play_tts)},
+    { "playFile", ROREG_FUNC(l_voip_play_file)},
+    { "playStop", ROREG_FUNC(l_voip_play_stop)},
+    { "playStatus", ROREG_FUNC(l_voip_play_status)},
+#endif
 #ifdef LUAT_USE_VOIP_RECORD
     { "recordStart", ROREG_FUNC(l_voip_record_start)},
     { "recordStop",  ROREG_FUNC(l_voip_record_stop)},
@@ -569,6 +1004,7 @@ static const rotable_Reg_t reg_voip[] =
     { "pcmOut",     ROREG_FUNC(l_voip_pcm_out)},
     { "pcmResampler", ROREG_FUNC(l_voip_pcm_resampler)},
     { "bridgeTone", ROREG_FUNC(l_voip_bridge_tone)},
+    { "bridgeMute", ROREG_FUNC(l_voip_bridge_mute)},
 #endif
 
     /* 常量 */

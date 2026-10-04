@@ -9,6 +9,7 @@
 
 local cc_main = require "cc_main"
 local sip_main = require "sip_main"
+local config = require "config"
 require "bridge"
 
 local TAG = "sip_cc_app"
@@ -21,6 +22,16 @@ local function app_task()
             "ip=" .. tostring(ip))
     else
         log.warn(TAG, "等待网络超时，继续初始化 SIP")
+    end
+
+    -- TLS 校验证书有效期；在启动任何通话业务前完成网络校时。
+    if type(config.sip_transport) == "string" and config.sip_transport:lower() == "tls" then
+        log.info(TAG, "TLS 启动前网络校时")
+        socket.sntp()
+        if not sys.waitUntil("NTP_UPDATE", 10000) then
+            log.error(TAG, "TLS 校时失败，停止启动")
+            return
+        end
     end
 
     -- 所有协调器已在模块加载时订阅事件，CC 必须先于 SIP 初始化。

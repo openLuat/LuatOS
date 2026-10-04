@@ -816,6 +816,9 @@ static int l_camera_stream(lua_State *L) {
     }
     else
     {
+#ifdef LUAT_USE_CAMERA_SCAN
+    	luat_camera_scan(camera_id, decode_type, scan_enable);
+#endif
     	lua_pushboolean(L, !luat_camera_start(camera_id));
     }
     return 1;
@@ -1035,6 +1038,56 @@ static int l_camera_set_usb_config(lua_State *L) {
     return 1;
 }
 
+#if defined(LUAT_USE_UTEST) && defined(LUAT_USE_CAMERA_SCAN)
+/**
+对内存中的图像像素执行一次扫码解码（PC模拟器utest专用，需LUAT_USE_UTEST=y且启用camera scan的构建）
+@api camera.utest_qr_decode(data, w, h, fmt, decode_type)
+@string/userdata 像素数据，string 或 zbuff
+@int 图像宽
+@int 图像高
+@int 像素格式，0=RGB565小端，1=8bit灰度，默认0
+@int 码制组合，见 SCAN_FMT 相关常量，默认全部码制
+@return string 解码成功返回内容字符串，未命中或失败返回nil
+@usage
+local frame = videoplayer.read_frame(player)
+local str = camera.utest_qr_decode(frame.data, frame.width, frame.height)
+*/
+static int l_camera_utest_qr_decode(lua_State *L) {
+    size_t data_len = 0;
+    const char *data = NULL;
+    luat_zbuff_t *zbuff = luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
+    if (zbuff) {
+        data = (const char *)zbuff->addr;
+        data_len = zbuff->used ? zbuff->used : zbuff->len;
+    } else {
+        data = luaL_checklstring(L, 1, &data_len);
+    }
+    int w = luaL_checkinteger(L, 2);
+    int h = luaL_checkinteger(L, 3);
+    int fmt = luaL_optinteger(L, 4, 0);
+    uint32_t decode_type = luaL_optinteger(L, 5, LUAT_CAMERA_SCAN_CODE_ALL);
+    size_t need = (fmt == 1) ? ((size_t)w * h) : ((size_t)w * h * 2);
+    if (w <= 0 || h <= 0 || data_len < need) {
+        lua_pushnil(L);
+        return 1;
+    }
+    size_t out_len = 4096;
+    char *out = (char *)luat_heap_malloc(out_len);
+    if (!out) {
+        lua_pushnil(L);
+        return 1;
+    }
+    int r = luat_camera_utest_decode((const uint8_t *)data, fmt, w, h, decode_type, out, out_len);
+    if (r > 0) {
+        lua_pushlstring(L, out, r);
+    } else {
+        lua_pushnil(L);
+    }
+    luat_heap_free(out);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_camera[] =
 {
@@ -1055,6 +1108,9 @@ static const rotable_Reg_t reg_camera[] =
 	{ "set_usb_config",		 ROREG_FUNC(l_camera_set_usb_config)},
 	{ "cache",		 ROREG_FUNC(l_camera_cache)},
 	{ "stream",		 ROREG_FUNC(l_camera_stream)},
+#if defined(LUAT_USE_UTEST) && defined(LUAT_USE_CAMERA_SCAN)
+	{ "utest_qr_decode", ROREG_FUNC(l_camera_utest_qr_decode)},
+#endif
     //@const AUTO number 摄像头工作在自动模式
 	{ "AUTO",        ROREG_INT(LUAT_CAMERA_MODE_AUTO)},
     //@const SCAN number 摄像头工作在扫码模式，只输出Y分量

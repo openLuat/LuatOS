@@ -1,0 +1,518 @@
+--- a/crypto/cipher/aes_icm_mbedtls.c
++++ b/crypto/cipher/aes_icm_mbedtls.c
+@@ -43,14 +43,14 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ #include <mbedtls/aes.h>
+-#include "aes_icm_ext.h"
+-#include "crypto_types.h"
+-#include "err.h" /* for srtp_debug */
+-#include "alloc.h"
+-#include "cipher_types.h"
++#include "../include/aes_icm_ext.h"
++#include "../include/crypto_types.h"
++#include "../include/err.h" /* for srtp_debug */
++#include "../include/alloc.h"
++#include "../include/cipher_types.h"
+ #include "cipher_test_cases.h"
+ 
+ srtp_debug_module_t srtp_mod_aes_icm = {
+--- a/crypto/cipher/cipher.c
++++ b/crypto/cipher/cipher.c
+@@ -45,14 +45,14 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "cipher.h"
+-#include "cipher_priv.h"
+-#include "crypto_types.h"
+-#include "err.h"   /* for srtp_debug */
+-#include "alloc.h" /* for crypto_alloc(), crypto_free()  */
++#include "../include/cipher.h"
++#include "../include/cipher_priv.h"
++#include "../include/crypto_types.h"
++#include "../include/err.h"   /* for srtp_debug */
++#include "../include/alloc.h" /* for crypto_alloc(), crypto_free()  */
+ 
+ srtp_debug_module_t srtp_mod_cipher = {
+     0,       /* debugging is off by default */
+@@ -99,7 +99,7 @@
+ 
+ srtp_err_status_t srtp_cipher_output(srtp_cipher_t *c,
+                                      uint8_t *buffer,
+-                                     uint32_t *num_octets_to_output)
++                                     unsigned int *num_octets_to_output)
+ {
+     /* zeroize the buffer */
+     octet_string_set_to_zero(buffer, *num_octets_to_output);
+@@ -110,7 +110,7 @@
+ 
+ srtp_err_status_t srtp_cipher_encrypt(srtp_cipher_t *c,
+                                       uint8_t *buffer,
+-                                      uint32_t *num_octets_to_output)
++                                      unsigned int *num_octets_to_output)
+ {
+     if (!c || !c->type || !c->state) {
+         return (srtp_err_status_bad_param);
+@@ -121,7 +121,7 @@
+ 
+ srtp_err_status_t srtp_cipher_decrypt(srtp_cipher_t *c,
+                                       uint8_t *buffer,
+-                                      uint32_t *num_octets_to_output)
++                                      unsigned int *num_octets_to_output)
+ {
+     if (!c || !c->type || !c->state) {
+         return (srtp_err_status_bad_param);
+--- a/crypto/cipher/cipher_test_cases.h
++++ b/crypto/cipher/cipher_test_cases.h
+@@ -38,10 +38,10 @@
+ #define CHIPHER_TEST_CASES_H
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "cipher.h"
++#include "../include/cipher.h"
+ 
+ extern const srtp_cipher_test_case_t srtp_aes_icm_128_test_case_0;
+ extern const srtp_cipher_test_case_t srtp_aes_icm_192_test_case_0;
+--- a/crypto/cipher/null_cipher.c
++++ b/crypto/cipher/null_cipher.c
+@@ -45,14 +45,14 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "datatypes.h"
+-#include "null_cipher.h"
+-#include "err.h" /* for srtp_debug */
+-#include "alloc.h"
+-#include "cipher_types.h"
++#include "../include/datatypes.h"
++#include "../include/null_cipher.h"
++#include "../include/err.h" /* for srtp_debug */
++#include "../include/alloc.h"
++#include "../include/cipher_types.h"
+ 
+ static srtp_err_status_t srtp_null_cipher_alloc(srtp_cipher_t **c,
+                                                 int key_len,
+--- a/crypto/hash/auth.c
++++ b/crypto/hash/auth.c
+@@ -44,12 +44,12 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "auth.h"
+-#include "err.h"       /* for srtp_debug */
+-#include "datatypes.h" /* for octet_string */
++#include "../include/auth.h"
++#include "../include/err.h"       /* for srtp_debug */
++#include "../include/datatypes.h" /* for octet_string */
+ 
+ /* the debug module for authentiation */
+ 
+--- a/crypto/hash/auth_test_cases.h
++++ b/crypto/hash/auth_test_cases.h
+@@ -38,10 +38,10 @@
+ #define AUTH_TEST_CASES_H
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "auth.h"
++#include "../include/auth.h"
+ 
+ extern const srtp_auth_test_case_t srtp_hmac_test_case_0;
+ 
+--- a/crypto/hash/hmac_mbedtls.c
++++ b/crypto/hash/hmac_mbedtls.c
+@@ -42,12 +42,12 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "auth.h"
+-#include "alloc.h"
+-#include "err.h" /* for srtp_debug */
++#include "../include/auth.h"
++#include "../include/alloc.h"
++#include "../include/err.h" /* for srtp_debug */
+ #include "auth_test_cases.h"
+ #include <mbedtls/md.h>
+ 
+--- a/crypto/hash/null_auth.c
++++ b/crypto/hash/null_auth.c
+@@ -45,13 +45,13 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "null_auth.h"
+-#include "err.h" /* for srtp_debug */
+-#include "alloc.h"
+-#include "cipher_types.h"
++#include "../include/null_auth.h"
++#include "../include/err.h" /* for srtp_debug */
++#include "../include/alloc.h"
++#include "../include/cipher_types.h"
+ 
+ static srtp_err_status_t srtp_null_auth_alloc(srtp_auth_t **a,
+                                               int key_len,
+--- a/crypto/include/aes_gcm.h
++++ b/crypto/include/aes_gcm.h
+@@ -47,7 +47,7 @@
+ #define AES_GCM_H
+ 
+ #include "cipher.h"
+-#include "srtp.h"
++#include "../../include/srtp.h"
+ #include "datatypes.h"
+ 
+ #ifdef OPENSSL
+--- a/crypto/include/auth.h
++++ b/crypto/include/auth.h
+@@ -46,7 +46,7 @@
+ #ifndef SRTP_AUTH_H
+ #define SRTP_AUTH_H
+ 
+-#include "srtp.h"
++#include "../../include/srtp.h"
+ #include "crypto_types.h" /* for values of auth_type_id_t */
+ 
+ #ifdef __cplusplus
+--- a/crypto/include/cipher.h
++++ b/crypto/include/cipher.h
+@@ -45,7 +45,7 @@
+ #ifndef SRTP_CIPHER_H
+ #define SRTP_CIPHER_H
+ 
+-#include "srtp.h"
++#include "../../include/srtp.h"
+ #include "crypto_types.h" /* for values of cipher_type_id_t */
+ 
+ #ifdef __cplusplus
+@@ -217,13 +217,13 @@
+                                      int direction);
+ srtp_err_status_t srtp_cipher_output(srtp_cipher_t *c,
+                                      uint8_t *buffer,
+-                                     uint32_t *num_octets_to_output);
++                                     unsigned int *num_octets_to_output);
+ srtp_err_status_t srtp_cipher_encrypt(srtp_cipher_t *c,
+                                       uint8_t *buffer,
+-                                      uint32_t *num_octets_to_output);
++                                      unsigned int *num_octets_to_output);
+ srtp_err_status_t srtp_cipher_decrypt(srtp_cipher_t *c,
+                                       uint8_t *buffer,
+-                                      uint32_t *num_octets_to_output);
++                                      unsigned int *num_octets_to_output);
+ srtp_err_status_t srtp_cipher_get_tag(srtp_cipher_t *c,
+                                       uint8_t *buffer,
+                                       uint32_t *tag_len);
+--- a/crypto/include/err.h
++++ b/crypto/include/err.h
+@@ -47,7 +47,7 @@
+ 
+ #include <stdio.h>
+ #include <stdarg.h>
+-#include "srtp.h"
++#include "../../include/srtp.h"
+ 
+ #if defined(__clang__) || (defined(__GNUC__) && defined(__has_attribute))
+ #if __has_attribute(format)
+--- a/crypto/include/sha1.h
++++ b/crypto/include/sha1.h
+@@ -48,7 +48,7 @@
+ #define SHA1_H
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+ #include "err.h"
+--- a/crypto/kernel/crypto_kernel.c
++++ b/crypto/kernel/crypto_kernel.c
+@@ -43,13 +43,13 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "alloc.h"
+-
+-#include "crypto_kernel.h"
+-#include "cipher_types.h"
++#include "../include/alloc.h"
++
++#include "../include/crypto_kernel.h"
++#include "../include/cipher_types.h"
+ 
+ /* the debug module for the crypto_kernel */
+ 
+--- a/crypto/kernel/err.c
++++ b/crypto/kernel/err.c
+@@ -43,11 +43,11 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "err.h"
+-#include "datatypes.h"
++#include "../include/err.h"
++#include "../include/datatypes.h"
+ #include <string.h>
+ 
+ /* srtp_err_file is the FILE to which errors are reported */
+--- a/crypto/kernel/key.c
++++ b/crypto/kernel/key.c
+@@ -43,10 +43,10 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "key.h"
++#include "../include/key.h"
+ 
+ #define soft_limit 0x10000
+ 
+--- a/crypto/math/datatypes.c
++++ b/crypto/math/datatypes.c
+@@ -44,14 +44,14 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+ #ifdef OPENSSL
+ #include <openssl/crypto.h>
+ #endif
+ 
+-#include "datatypes.h"
++#include "../include/datatypes.h"
+ 
+ #if defined(__SSE2__)
+ #include <tmmintrin.h>
+--- a/crypto/replay/rdb.c
++++ b/crypto/replay/rdb.c
+@@ -44,10 +44,10 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../../port/config.h"
+ #endif
+ 
+-#include "rdb.h"
++#include "../include/rdb.h"
+ 
+ #define rdb_bits_in_bitmask (8 * sizeof(v128_t))
+ 
+--- a/crypto/replay/rdbx.c
++++ b/crypto/replay/rdbx.c
+@@ -44,10 +44,10 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
+-#endif
+-
+-#include "rdbx.h"
++#include "../../port/config.h"
++#endif
++
++#include "../include/rdbx.h"
+ 
+ /*
+  * from RFC 3711:
+--- a/include/srtp_priv.h
++++ b/include/srtp_priv.h
+@@ -47,17 +47,17 @@
+ 
+ // Leave this as the top level import. Ensures the existence of defines
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "../port/config.h"
+ #endif
+ 
+ #include "srtp.h"
+-#include "rdbx.h"
+-#include "rdb.h"
+-#include "integers.h"
+-#include "cipher.h"
+-#include "auth.h"
+-#include "aes.h"
+-#include "crypto_kernel.h"
++#include "../crypto/include/rdbx.h"
++#include "../crypto/include/rdb.h"
++#include "../crypto/include/integers.h"
++#include "../crypto/include/cipher.h"
++#include "../crypto/include/auth.h"
++#include "../crypto/include/aes.h"
++#include "../crypto/include/crypto_kernel.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+--- a/srtp/srtp.c
++++ b/srtp/srtp.c
+@@ -42,19 +42,19 @@
+  *
+  */
+ 
+-#include "srtp_priv.h"
+-#include "stream_list_priv.h"
+-#include "crypto_types.h"
+-#include "err.h"
+-#include "alloc.h" /* for srtp_crypto_alloc() */
++#include "../include/srtp_priv.h"
++#include "../include/stream_list_priv.h"
++#include "../crypto/include/crypto_types.h"
++#include "../crypto/include/err.h"
++#include "../crypto/include/alloc.h" /* for srtp_crypto_alloc() */
+ 
+ #ifdef GCM
+-#include "aes_gcm.h" /* for AES GCM mode */
++#include "../crypto/include/aes_gcm.h" /* for AES GCM mode */
+ #endif
+ 
+ #ifdef OPENSSL_KDF
+ #include <openssl/kdf.h>
+-#include "aes_icm_ext.h"
++#include "../crypto/include/aes_icm_ext.h"
+ #endif
+ 
+ #include <limits.h>
+@@ -1571,7 +1571,7 @@
+ void srtp_event_reporter(srtp_event_data_t *data)
+ {
+     srtp_err_report(srtp_err_level_warning,
+-                    "srtp: in stream 0x%x: ", data->ssrc);
++                    "srtp: in stream 0x%x: ", (unsigned int)data->ssrc);
+ 
+     switch (data->event) {
+     case event_ssrc_collision:
+@@ -1664,7 +1664,7 @@
+         while (xtn_hdr_data < xtn_hdr_end) {
+             uint8_t xid = (*xtn_hdr_data & 0xf0) >> 4;
+             unsigned int xlen = (*xtn_hdr_data & 0x0f) + 1;
+-            uint32_t xlen_with_header = 1 + xlen;
++            unsigned int xlen_with_header = 1 + xlen;
+             xtn_hdr_data++;
+ 
+             if (xtn_hdr_data + xlen > xtn_hdr_end)
+@@ -1701,7 +1701,7 @@
+         while (xtn_hdr_data + 1 < xtn_hdr_end) {
+             uint8_t xid = *xtn_hdr_data;
+             unsigned int xlen = *(xtn_hdr_data + 1);
+-            uint32_t xlen_with_header = 2 + xlen;
++            unsigned int xlen_with_header = 2 + xlen;
+             xtn_hdr_data += 2;
+ 
+             if (xtn_hdr_data + xlen > xtn_hdr_end)
+@@ -2412,7 +2412,7 @@
+     srtp_err_status_t status;
+     int tag_len;
+     srtp_stream_ctx_t *stream;
+-    uint32_t prefix_len;
++    unsigned int prefix_len;
+     srtp_hdr_xtnd_t *xtn_hdr = NULL;
+     unsigned int mki_size = 0;
+     srtp_session_keys_t *session_keys = NULL;
+@@ -2755,7 +2755,8 @@
+     srtp_err_status_t status;
+     srtp_stream_ctx_t *stream;
+     uint8_t tmp_tag[SRTP_MAX_TAG_LEN];
+-    uint32_t tag_len, prefix_len;
++    uint32_t tag_len;
++    unsigned int prefix_len;
+     srtp_hdr_xtnd_t *xtn_hdr = NULL;
+     unsigned int mki_size = 0;
+     srtp_session_keys_t *session_keys = NULL;
+@@ -3965,7 +3966,7 @@
+     }
+     seq_num = srtp_rdb_get_value(&stream->rtcp_rdb);
+     trailer |= htonl(seq_num);
+-    debug_print(mod_srtp, "srtcp index: %x", seq_num);
++    debug_print(mod_srtp, "srtcp index: %x", (unsigned int)seq_num);
+ 
+     memcpy(trailer_p, &trailer, sizeof(trailer));
+ 
+@@ -4130,7 +4131,7 @@
+      */
+     /* this is easier than dealing with bitfield access */
+     seq_num = ntohl(trailer) & SRTCP_INDEX_MASK;
+-    debug_print(mod_srtp, "srtcp index: %x", seq_num);
++    debug_print(mod_srtp, "srtcp index: %x", (unsigned int)seq_num);
+     status = srtp_rdb_check(&stream->rtcp_rdb, seq_num);
+     if (status) {
+         return status;
+@@ -4288,7 +4289,7 @@
+     srtp_err_status_t status;
+     int tag_len;
+     srtp_stream_ctx_t *stream;
+-    uint32_t prefix_len;
++    unsigned int prefix_len;
+     uint32_t seq_num;
+     unsigned int mki_size = 0;
+     srtp_session_keys_t *session_keys = NULL;
+@@ -4409,7 +4410,7 @@
+         return status;
+     seq_num = srtp_rdb_get_value(&stream->rtcp_rdb);
+     trailer |= htonl(seq_num);
+-    debug_print(mod_srtp, "srtcp index: %x", seq_num);
++    debug_print(mod_srtp, "srtcp index: %x", (unsigned int)seq_num);
+ 
+     memcpy(trailer_p, &trailer, sizeof(trailer));
+ 
+@@ -4519,7 +4520,7 @@
+     unsigned int auth_len;
+     int tag_len;
+     srtp_stream_ctx_t *stream;
+-    uint32_t prefix_len;
++    unsigned int prefix_len;
+     uint32_t seq_num;
+     int e_bit_in_packet; /* whether the E-bit was found in the packet */
+     int sec_serv_confidentiality; /* whether confidentiality was requested */
+@@ -4642,7 +4643,7 @@
+      */
+     /* this is easier than dealing with bitfield access */
+     seq_num = ntohl(trailer) & SRTCP_INDEX_MASK;
+-    debug_print(mod_srtp, "srtcp index: %x", seq_num);
++    debug_print(mod_srtp, "srtcp index: %x", (unsigned int)seq_num);
+     status = srtp_rdb_check(&stream->rtcp_rdb, seq_num);
+     if (status)
+         return status;

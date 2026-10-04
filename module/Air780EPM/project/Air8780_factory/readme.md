@@ -86,6 +86,41 @@ Air8780_factory/
   "led:off"   → LED熄灭
 ```
 
+### 兼容其它型号的 tag19 命令（仅 Web 端兼容）
+
+Web 管理界面的「设备控制」页还提供两组兼容命令，经 tag 19（控制命令-下行）以字符串下发，
+用于同一 Web 端管理其它型号产品（8780 固件不做这些命令的解析，收到后回复未知命令，不影响现有功能）：
+
+**录音控制 / 录音查询**（录音类设备 device_ctrl）：
+
+| 命令字 | 功能 | 回读 tag |
+|--------|------|----------|
+| `recording` | 远程开启录音 | - |
+| `not_recording` | 远程关闭录音 | - |
+| `record_local` | 恢复本地 GPIO22 开关控制录音 | - |
+| `get_info` | 读取全部基础信息（聚合一包上报） | 20, 1027, 771, 782, 797, 777 |
+| `get_version` | 读取固件版本 | 20, 1027 |
+| `get_battery` | 读取电池电量 | 20, 771 |
+| `get_signal` | 读取 4G 信号质量 | 20, 782 |
+| `get_record_count` | 读取录音文件数量 | 20, 797 |
+
+**数据读取**（iRTU 类设备，返回字段 temperature/humidity/vbat/cpu_temp/latitude/longitude/csq/imei/iccid/timestamp）：
+
+| 命令字 | 动作 | 返回字段 |
+|--------|------|----------|
+| `read_all` | 一次性读取全部数据 | 全部字段 |
+| `read_temp` | 读取温度 | temperature |
+| `read_humi` | 读取湿度 | humidity |
+| `read_vbat` | 读取电池电压 | vbat |
+| `read_cpu` | 读取 CPU 温度 | cpu_temp |
+| `read_lat` / `read_lng` | 读取纬度 / 经度 | latitude / longitude |
+| `read_csq` | 读取 4G 信号 | csq |
+| `read_imei` / `read_iccid` | 读取 IMEI / ICCID | imei / iccid |
+| `read_time` | 读取时间戳 | timestamp |
+
+查询类命令下发后 Web 端自动回读 tag 20（CONTROL_RESPONSE）及相关 tag 最新值：
+回复为 JSON 时按返回字段逐项展示，纯文本回复直接显示，目标 tag 数值按名称并入命令结果区。
+
 ## Web管理界面
 
 访问Web管理界面可进行以下操作：
@@ -99,6 +134,7 @@ Air8780_factory/
 - 修改上报频率（5-600秒）
 - LED控制（闪烁5秒/常亮/熄灭）
 - TTS语音播报
+- 录音控制/录音查询、数据读取兼容命令（其它型号产品，命令结果自动回显）
 
 ### 历史数据
 - 查看历史传感器数据

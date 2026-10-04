@@ -1,5 +1,6 @@
 -- 仅用于本 demo：SIP 信令 + VoIP PCM 桥接，无本地音频后端。
 local pcm_sip = {}
+local proto = require "exsipproto"
 local sipclient
 local g_config
 local g_started = false
@@ -15,6 +16,7 @@ local default_config = {
     sip_transport = "tcp", sip_server_port = 5060, rtp_port = 40000,
     expires = 600, codecs = {"PCMU", "PCMA"}, ptime = 20,
     call_timeout = 30, debug_sip_response = false,
+    media_encryption = "none",
 }
 local function log_info(...) log.info("pcm_sip", ...) end
 local function log_warn(...) log.warn("pcm_sip", ...) end
@@ -23,7 +25,9 @@ local function log_error(...) log.error("pcm_sip", ...) end
 local function emit_callback(event, ...)
     local cb = g_callbacks[event]
     if type(cb) == "function" then
-        local ok, err = pcall(cb, ...)
+        local args = table.pack(...)
+        for i = 1, args.n do args[i] = proto.public_payload(args[i]) end
+        local ok, err = pcall(cb, table.unpack(args, 1, args.n))
         if not ok then
             log_error("callback error:", event, err)
         end
@@ -106,6 +110,7 @@ local function start_voip_engine(session)
     end
     g_current_adapter = session.adapter or g_current_adapter
     local ok = voip.start({
+        security = session.security,
         remote_ip = session.remote_ip,
         remote_port = tonumber(session.remote_port) or 10000,
         local_port = tonumber(session.local_rtp_port) or 0,
@@ -145,7 +150,8 @@ end
 local function same_session(a, b)
     return a and b and a.call_id == b.call_id and a.remote_ip == b.remote_ip and
         a.remote_port == b.remote_port and a.local_rtp_port == b.local_rtp_port and
-        a.codec == b.codec and a.ptime == b.ptime and a.remote_direction == b.remote_direction
+        a.codec == b.codec and a.ptime == b.ptime and a.remote_direction == b.remote_direction and
+        a.encryption == b.encryption and a.security == b.security
 end
 
 start_pending_media = function()
@@ -198,6 +204,12 @@ local function ip_lose_handler(adapter)
     end
 end
 
+-- 安全句柄只经内部入口交给原生媒体；公开事件中的句柄已经脱敏。
+local function sip_media_handler(session)
+    local call = event_call(session)
+    if call then request_cc_media(session, call) end
+end
+
 local function sip_event_handler(event, action, payload)
     payload = payload or {}
     log_info("event:", event, "action:", action)
@@ -210,6 +222,8 @@ local function sip_event_handler(event, action, payload)
             emit_callback("register", "challenge", payload)
         else
             g_registered = false
+            log_error("registration failed", payload.reason or "unknown", "source", payload.source,
+                "retrying", payload.retrying)
             emit_callback("register", "failed", payload)
         end
     elseif event == "call" then
@@ -243,8 +257,8 @@ local function sip_event_handler(event, action, payload)
         local call = event_call(payload)
         if not call then return end
         if action == "ready" then
-            local session = payload.session or payload
-            request_cc_media(session, call)
+            -- SDP 已准备；实际 ready 等待原生 VoIP started，不再次启动脱敏的会话。
+            return
         elseif action == "stop" then
             stop_voip_engine(call)
             emit_callback("media", "stop", with_identity(payload, call))
@@ -266,10 +280,12 @@ end
 local function native_media_error(reason, detail)
     local media = g_media
     local actual = native_state()
-    if not media or media.state == "stopping" or actual == "running" or actual == "starting" then return end
+    if not media or media.state == "stopping" or actual == "running" then return end
     -- C 层先投递错误事件，再清理资源并投递停止事件；getState 此时可能已返回空闲。
     -- 收到停止回调前，继续保留该媒体的通话归属。
     media.state = "stopping"
+    -- DTLS 失败事件可能先于 worker 清理到达 Lua；不能丢弃 STARTING 的错误。
+    if actual == "starting" then voip.stop() end
     media_state("error", media.call)
     media_state("stopping", media.call)
     if media.call == g_call and not media.call.terminating then
@@ -319,9 +335,18 @@ function pcm_sip.init(config)
     for _, codec in ipairs(codecs) do
         if codec ~= "PCMU" and codec ~= "PCMA" then return false end
     end
+    local security, reason = proto.security_config(config)
+    if not security then
+        log_error("invalid SIP config", reason)
+        return false, reason
+    end
     g_config = {}
     for k, v in pairs(default_config) do g_config[k] = v end
     for k, v in pairs(config) do g_config[k] = v end
+    g_config.sip_transport = security.transport
+    g_config.sip_server_port = security.port
+    g_config.sip_tls = security.tls
+    g_config.media_encryption = security.media
     g_config.sip_domain = g_config.sip_domain or g_config.sip_server_addr
     return true
 end
@@ -368,6 +393,9 @@ function pcm_sip.start()
         sip_username = g_config.sip_username,
         sip_password = g_config.sip_password,
         sip_transport = g_config.sip_transport,
+        sip_tls = g_config.sip_tls,
+        media_encryption = g_config.media_encryption,
+        media_callback = sip_media_handler,
         adapter = g_config.adapter,
         rtp_port = g_config.rtp_port,
         expires = g_config.expires,

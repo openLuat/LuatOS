@@ -32,6 +32,12 @@ local luatos_ext_root = find_ext_root()
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x，4表示mbedtls 4.x
 local mbedtls_version = 3
 
+-- Secure VoIP is enabled by default; allow SDES-only and plaintext-only builds.
+local use_srtp = os.getenv("LUAT_USE_SRTP") ~= "n"
+local use_dtls_srtp = use_srtp and os.getenv("LUAT_USE_DTLS_SRTP") ~= "n"
+if use_srtp then add_defines("LUAT_USE_SRTP=1") end
+if use_dtls_srtp then add_defines("LUAT_USE_DTLS_SRTP=1") end
+
 local function env_enabled(name)
     return os.getenv(name) == "y"
 end
@@ -422,10 +428,74 @@ target("luatos-lua")
         add_links("Mf", "mfplat", "mfreadwrite", "mfuuid", "windowscodecs", "ole32", "oleaut32")
     end
 
+    -- camera 扫码（Windows）：ZXing-C++ v3.1.1 软解码，源码位于
+    -- luatos-ext-components/zxing（与 luatos-sdk-ccm42xx-gcc 所用版本一致）。
+    -- 头文件 Version.h 为 cmake 生成物，PC 侧用 stubs/zxing/Version.h 代替，不改动上游。
+    -- 依赖是可选的：环境变量 LUAT_USE_CAMERA_SCAN=y 强制启用 / =n 强制禁用，
+    -- 未设置时按 luatos-ext-components/zxing 目录是否存在自动检测。
+    if is_host("windows") then
+        local zxing_src = luatos_ext_root .. "/zxing"
+        local env_scan = os.getenv("LUAT_USE_CAMERA_SCAN")
+        local use_camera_scan = os.isdir(zxing_src) and env_scan ~= "n"
+        if env_scan == "y" and not os.isdir(zxing_src) then
+            raise("LUAT_USE_CAMERA_SCAN=y 但未找到 " .. zxing_src)
+        end
+        if use_camera_scan then
+            add_defines("LUAT_USE_CAMERA_SCAN=1")
+            -- ZXing-C++ 3.x 需要 C++20（std::ranges），按文件设置标准，不动全局 cxx17；
+            -- ZXING_INTERNAL 对应上游 cmake 的 ZXING_PRIVATE_FLAGS（内部头 Quadrilateral.h 依赖它
+            -- 才暴露 ZXAlgorithms/Rectangle）；上游代码按第三方处理，关闭自身警告。
+            -- 上游 glob 不递归，这里用 ** 递归匹配，再按 core/CMakeLists.txt 的 ZXING_READERS 清单
+            -- 排除 writer 组（本场景只解码）；zueci 是 TextDecoder 依赖的 ECI 库，随源码树自带。
+            local zxing_writer_srcs = {
+                "ZXingC.cpp",                 -- C API，未启用 ZXING_C_API
+                "MultiFormatWriter.cpp", "TextEncoder.cpp",
+                "aztec/AZEncoder.cpp", "aztec/AZHighLevelEncoder.cpp", "aztec/AZToken.cpp", "aztec/AZWriter.cpp",
+                "datamatrix/DMECEncoder.cpp", "datamatrix/DMHighLevelEncoder.cpp",
+                "datamatrix/DMSymbolInfo.cpp", "datamatrix/DMWriter.cpp",
+                "oned/ODCodabarWriter.cpp", "oned/ODCode128Writer.cpp", "oned/ODCode39Writer.cpp",
+                "oned/ODCode93Writer.cpp", "oned/ODEAN13Writer.cpp", "oned/ODEAN8Writer.cpp",
+                "oned/ODITFWriter.cpp", "oned/ODUPCAWriter.cpp", "oned/ODUPCEWriter.cpp",
+                "oned/ODWriterHelper.cpp",
+                "pdf417/PDFEncoder.cpp", "pdf417/PDFHighLevelEncoder.cpp", "pdf417/PDFWriter.cpp",
+                "qrcode/QREncoder.cpp", "qrcode/QRMaskUtil.cpp", "qrcode/QRMatrixUtil.cpp", "qrcode/QRWriter.cpp",
+            }
+            local zxing_opts = {cxflags = {"/std:c++20", "/W0", "/DZXING_INTERNAL"}}
+            add_files("port/driver/luat_zxing_pc.cpp", {cxflags = {"/std:c++20"}})
+            add_files(zxing_src .. "/core/src/**.cpp|" .. table.concat(zxing_writer_srcs, "|"), zxing_opts)
+            add_files(zxing_src .. "/core/src/libzueci/*.c", {cxflags = {"/W0"}})
+            add_includedirs(zxing_src .. "/core/src", "stubs/zxing")
+        else
+            print("[pc-build] camera scan disabled: " .. zxing_src .. " not found (set LUAT_USE_CAMERA_SCAN=y to force)")
+        end
+    end
+
     -- voip
     add_includedirs(luatos.."components/voip/include")
     add_files(luatos.."components/voip/src/*.c")
     add_files(luatos.."components/voip/binding/*.c")
+
+    if use_srtp then
+        local srtp_root = luatos.."components/libsrtp/"
+        add_includedirs(srtp_root.."include")
+        -- Keep generic config.h / cipher.h / alloc.h private to libsrtp.
+        local srtp_options = {
+            forceincludes = {"luat_srtp_config.h"},
+            includedirs = {srtp_root.."port", srtp_root.."crypto/include"}
+        }
+        local srtp_sources = {
+            "srtp/srtp.c", "port/luat_srtp_alloc.c",
+            "crypto/cipher/cipher.c", "crypto/cipher/cipher_test_cases.c",
+            "crypto/cipher/null_cipher.c", "crypto/cipher/aes_icm_mbedtls.c",
+            "crypto/hash/auth.c", "crypto/hash/auth_test_cases.c",
+            "crypto/hash/null_auth.c", "crypto/hash/hmac_mbedtls.c",
+            "crypto/kernel/crypto_kernel.c", "crypto/kernel/err.c", "crypto/kernel/key.c",
+            "crypto/math/datatypes.c", "crypto/replay/rdb.c", "crypto/replay/rdbx.c"
+        }
+        for _, source in ipairs(srtp_sources) do
+            add_files(srtp_root..source, srtp_options)
+        end
+    end
 
     -- opus
     -- 只暴露 opus 根目录和公共 API 目录，避免 celt/silk/src 等内部短文件名头文件全局冲突
@@ -1184,6 +1254,15 @@ target("luatos-lua")
         add_includedirs(mp4player_src .. "/video_decode")
         add_includedirs(mp4player_src .. "/video_decode/avcodec")
         add_includedirs(mp4player_src .. "/video_decode/avcodec/h264")
+        -- mp4_decode.c 的 mplayer 胶水层引用 components/mplayer 的上下文结构体
+        add_includedirs(luatos.."components/mplayer/inc")
+        -- mp4player 的 plat_support.h 在 __LUATOS__ 下无条件 include luat_display.h,
+        -- 但 components/display/inc 只在 GUI 构建里加入过, 导致非 GUI 构建 C1083。
+        -- 只有头文件: luat_display_get_default() 的调用在 #if LUAT_USE_DISPLAY 内, 非 GUI 不引用。
+        add_includedirs(luatos.."components/display/inc")
+        -- FreeRTOS 兼容层(FreeRTOS.h/task.h/semphr.h), 仅 mp4_decode.c 用到,
+        -- 文件名通用, 只能在本特性开启时加入, 见 stubs/mp4player/FreeRTOS.h
+        add_includedirs("stubs/mp4player")
 
         -- ---- 音频公共模块 ----
         -- sound.c 已在 luatos-ext-components e011cd8c 拆到 platform/sound_dev_port.c
@@ -1213,8 +1292,17 @@ target("luatos-lua")
         --   现已移除 components/h264，因此可以正常编译）
 
         -- ---- MP4 解复用 + 解码协调层 ----
-        add_files(mp4player_src .. "/video_decode/mp4_decode.c")
+        -- mp4_decode.c 有两处 PC/MSVC 下需要打补丁的地方, 用强制包含处理:
+        --   1. msvc_attr_stub.h: 文件里用了 GCC 的 __attribute__((aligned(4))), MSVC 不认;
+        --      改 include 路径没用(错误点在所有 #include 之后)。
+        --   2. yuv_rgb_565.h: 上游只在 #if defined(LUAT_USE_DISPLAY) 里 include 它,
+        --      但 mplayer_h264_disp_cb() 无条件使用 YUV_RGB_Param, 非 GUI 构建会报
+        --      C2065。头文件本身自洽(只有结构体+函数声明), 提前包含无副作用。
+        add_files(mp4player_src .. "/video_decode/mp4_decode.c",
+            {forceincludes = {"msvc_attr_stub.h", "yuv_rgb_565.h"}})
         add_files(mp4player_src .. "/video_decode/video_rb.c")
+        -- YUV 帧队列（解码与渲染解耦），mp4_decode.c 的 movie_render_thread 依赖
+        add_files(mp4player_src .. "/video_decode/yuv_rb.c")
 
         -- ---- platform port（已适配 LuatOS VFS，仅含 luat_mp4player_port.c）----
         add_files(mp4player_src .. "/port/luat_mp4player_port.c")
@@ -1225,10 +1313,14 @@ target("luatos-lua")
         add_files("stubs/mp4player/dac_sound_pc.c")
         add_files("stubs/mp4player/i2s_sound_pc.c")
         add_files("stubs/mp4player/sys_dac_pc.c")
+        -- YUV_RGB_565() 在真机由 SoC C 库提供，LuatOS 内无实现，
+        -- PC 侧用库内已有的 yuv420p_to_rgb565_thumb() 转接。
+        add_files("stubs/mp4player/yuv_rgb_565_pc.c")
 
-        -- mp3player.c 自带 MINIMP3_IMPLEMENTATION（与真机同一份）。
-        -- PC 默认也会编 LuatOS components/multimedia/minimp3.c，必须先排除，否则 LNK2005。
-        remove_files(luatos .. "/components/multimedia/minimp3.c")
+        -- mp3player.c 不再自带 minimp3 实现（用 _MINIMP3_IMPLEMENTATION_GUARD 抑制），
+        -- 而复用 LuatOS components/multimedia/minimp3.c 的同一份实现。
+        -- 因此这里必须保留 LuatOS 的 minimp3.c，否则 mp3dec_init/mp3dec_decode_frame
+        -- （mp3_decode_port.c / luat_audio_codec_port_mp3.c 需要）会链接失败。
         add_includedirs(mp4player_src .. "/audio_decode/mp3")
         add_files(mp4player_src .. "/audio_decode/mp3/mp3player.c")
     end

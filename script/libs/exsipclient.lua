@@ -67,6 +67,7 @@ local proto = require "exsipproto"
 local M = {}
 -- 全局回调/控制（单实例）
 local g_callback = nil
+local g_media_callback = nil
 local g_started = false
 local g_stop = false
 
@@ -85,7 +86,7 @@ local function emit_event(event, action, payload)
     if type(g_callback) ~= "function" then
         return
     end
-    local ok, err = pcall(g_callback, event, action, payload or {})
+    local ok, err = pcall(g_callback, event, action, proto.public_payload(payload or {}))
     if not ok then
         log.error("sip", "callback error", event, action, err)
     end
@@ -207,6 +208,8 @@ local function emit_call(action, payload)
 end
 
 local function emit_media(action, payload)
+    -- 仅内部媒体入口接收安全句柄；应用事件随后拿到脱敏副本。
+    if action == "ready" and g_media_callback then g_media_callback(payload) end
     emit_domain_event(SIP_EVENT.MEDIA, action, payload)
 end
 
@@ -409,7 +412,9 @@ local function build_dialog_sdp(state, dialog)
         media = {
             local_rtp_port = dialog.local_rtp_port,
             codecs = state.media.codecs,
-            ptime = state.media.ptime
+            ptime = state.media.ptime,
+            sdp_version = dialog.sdp_version or 0,
+            security_info = dialog.security_info
         }
     }, "sendrecv")
 end
@@ -700,6 +705,9 @@ local function sip_task(opts)
 
         -- 传输层状态。
         sip_transport = opts.sip_transport,
+        tls = opts.sip_tls or {},
+        media_encryption = opts.media_encryption or "none",
+        security_identity = opts.security_identity,
         tcp_stream = "",
 
         -- REGISTER 事务基础字段。
@@ -751,7 +759,7 @@ local function sip_task(opts)
         options_pending = false,
         options_fail_count = 0,
         -- options_interval = tonumber(opts.options_interval) or 25000,
-        options_interval = tonumber(opts.options_interval) or 60000,
+        options_interval = tonumber(opts.options_interval) or 45000,
         options_max_fail = tonumber(opts.options_max_fail) or 3,
         call_timeout = tonumber(opts.call_timeout) or CALL_TIMEOUT,
         debug_sip_response = opts.debug_sip_response == true,
@@ -784,6 +792,53 @@ local function sip_task(opts)
         return out
     end
 
+    local function release_security(dialog)
+        if not dialog then return end
+        if dialog.pending_media then
+            release_security(dialog.pending_media)
+            dialog.pending_media = nil
+        end
+        for _, field in ipairs({"security", "security_offer"}) do
+            if dialog[field] then voip.securityRelease(dialog[field]); dialog[field] = nil end
+        end
+        for _, retired in ipairs(dialog.retired_security or {}) do voip.securityRelease(retired) end
+        dialog.retired_security = nil
+        dialog.security_info, dialog.security_remote = nil, nil
+    end
+
+    local function create_security(dialog)
+        if state.media_encryption == "none" then return true end
+        local ctx, err = voip.securityCreate(state.media_encryption, state.security_identity)
+        if not ctx then return nil, err or "security_create_failed" end
+        dialog.security_offer = ctx
+        dialog.security_info = voip.securityInfo(ctx)
+        if not dialog.security_info then release_security(dialog); return nil, "security_info_failed" end
+        dialog.security_info.tag = 1
+        return true
+    end
+
+    local function accept_security(dialog, remote, is_answer)
+        local params, err = proto.negotiate_security(state.media_encryption, remote, is_answer, dialog.security_info)
+        if not params then return nil, err end
+        if state.media_encryption == "none" then return true end
+        local previous = dialog.security_remote
+        if previous and previous.key == params.key and previous.fingerprint == params.fingerprint and
+            previous.role == params.role and previous.tag == params.tag then return true end
+        local ctx
+        ctx, err = voip.securitySetRemote(dialog.security_offer, params)
+        if not ctx then return nil, err or "security_negotiation_failed" end
+        local old = dialog.security
+        dialog.security, dialog.security_remote = ctx, params
+        dialog.security_info.tag = params.tag or 1
+        if not is_answer then dialog.security_info.setup = params.role end
+        if old then
+            -- C 媒体线程持有自己的引用；Lua 句柄在切换前保持有效。
+            dialog.retired_security = dialog.retired_security or {}
+            dialog.retired_security[#dialog.retired_security + 1] = old
+        end
+        return true
+    end
+
     -- 避免相同媒体参数的重复 ready 把上层音频引擎再次启动一遍。
     local function same_media_session(current, next_session)
         if not current or not next_session then
@@ -795,7 +850,8 @@ local function sip_task(opts)
                    tostring(current.codec or "") == tostring(next_session.codec or "") and
                    tonumber(current.ptime or 0) == tonumber(next_session.ptime or 0) and
                    tonumber(current.local_rtp_port or 0) == tonumber(next_session.local_rtp_port or 0) and
-                   tostring(current.remote_direction or "") == tostring(next_session.remote_direction or "")
+                   tostring(current.remote_direction or "") == tostring(next_session.remote_direction or "") and
+                   current.security == next_session.security
     end
 
     -- 当本地 SDP 和远端 SDP 都齐备后，整理出媒体会话描述并通知上层。
@@ -811,6 +867,7 @@ local function sip_task(opts)
         if not dialog.remote_sdp.audio_port or dialog.remote_sdp.audio_port <= 0 then
             return
         end
+        if state.media_encryption ~= "none" and not dialog.security then return end
 
         local session, err = build_media_session({
             call_id = dialog.call_id,
@@ -821,7 +878,9 @@ local function sip_task(opts)
             local_codecs = state.media.codecs,
             local_sdp = dialog.local_sdp,
             ptime = state.media.ptime,
-            source = source
+            source = source,
+            security = dialog.security,
+            encryption = state.media_encryption
         })
         if not session then
             log.warn("sip", "no common media codec")
@@ -834,6 +893,12 @@ local function sip_task(opts)
             state.media.session = session
             return
         end
+
+        if state.media.active then
+            emit_media("stop", {reason = "media_update", session = state.media.session})
+        end
+        for _, retired in ipairs(dialog.retired_security or {}) do voip.securityRelease(retired) end
+        dialog.retired_security = nil
 
         -- 通知外部媒体层启动当前会话。
 
@@ -924,6 +989,15 @@ local function sip_task(opts)
             remote_sdp_raw = inv.body,
             route_set = incoming_route_set(inv)
         }
+        local ok, err = create_security(dialog)
+        if ok then ok, err = accept_security(dialog, inv.remote_sdp, false) end
+        if not ok then
+            release_security(dialog)
+            net_send_on(state.netc, build_response(state, inv.headers, 488, "Not Acceptable Here", nil, ""))
+            state.incoming_invite = nil
+            emit_call("failed", {reason = err, call_id = dialog.call_id})
+            return nil
+        end
         state.dialog = dialog
         return dialog
     end
@@ -982,11 +1056,13 @@ local function sip_task(opts)
         end
 
         dialog = dialog or ensure_incoming_dialog(inv)
+        if not dialog then return false end
         code = tonumber(code) or 486
         reason = reason or ((code == 480) and "Temporarily Unavailable" or "Busy Here")
         log.info("sip", "fail incoming", code, reason)
         net_send_on(state.netc, build_response(state, copy_incoming_headers(inv, dialog), code, reason, nil, ""))
         stop_media("incoming_failed")
+        release_security(dialog)
         local ended_dialog = dialog
         state.dialog = nil
         state.incoming_invite = nil
@@ -1071,6 +1147,7 @@ local function sip_task(opts)
     local function release_closing_dialog(dialog, reason)
         if not is_closing_dialog(dialog) then return end
         stop_dialog_timers(dialog)
+        release_security(dialog)
         state.closing_dialogs[dialog.call_id] = nil
         log.info("sip", "closing released", dialog.call_id, reason)
     end
@@ -1099,6 +1176,8 @@ local function sip_task(opts)
         local cancel = build_cancel(state, state.dialog)
         net_send(cancel)
         local failed_dialog = state.dialog
+        stop_media("timeout")
+        release_security(failed_dialog)
         state.dialog = nil
         emit_call("failed", {
             code = 408,
@@ -1356,6 +1435,11 @@ local function sip_task(opts)
             cseq = 1,
             local_rtp_port = allocate_rtp_port()
         }
+        local ok, err = create_security(dialog)
+        if not ok then
+            emit_call("dial_rejected", {reason = err, target = target})
+            return
+        end
         state.dialog = dialog
         log.info("sip", "setting call timeout", state.call_timeout, "seconds")
         dialog.timeout_timer = sys.timerStart(on_call_timeout, state.call_timeout * 1000)
@@ -1399,6 +1483,7 @@ local function sip_task(opts)
         state.dialog = nil
         state.incoming_invite = nil
         stop_media(reason)
+        release_security(dialog)
         fail_dtmf(reason, code)
         log.info("sip", "call cleared", dialog.call_id, reason, code or "")
         emit_call(action or "ended", { reason = reason, code = code, dialog = dialog })
@@ -1644,6 +1729,7 @@ local function sip_task(opts)
         stop_reg_timer()
         stop_all_call_timers()
         stop_media("socket_closed")
+        release_security(state.dialog)
         state.dialog = nil
         state.incoming_invite = nil
         state.msg_tx = nil
@@ -1656,7 +1742,7 @@ local function sip_task(opts)
     -- 外部 API 只负责 `sys.publish()`，真正执行统一留在 SIP task 内。
     local function command_handler(action, arg)
         if g_stop then return end
-        log.info("sip", "cmd", action, arg or "")
+        log.info("sip", "cmd", action)
         if action == "invite_2xx_retry" then
             if is_pending_invite_response(arg) then
                 log.info("sip", "retry INVITE 200", arg.dialog.call_id, arg.cseq)
@@ -1891,12 +1977,28 @@ local function sip_task(opts)
                         end
                         log.info("sip", "accept re-INVITE", "direction", dialog.direction,
                             "call-id", dialog.call_id, "cseq", invite_cseq)
-                        local resp_body = build_dialog_sdp(state, dialog)
-                        dialog.local_sdp = resp_body
-                        dialog.remote_uri = contact_uri(req_headers["contact"]) or dialog.remote_uri
-                        dialog.remote_ip = rip or dialog.remote_ip
-                        dialog.remote_sdp_raw = body
-                        dialog.remote_sdp = parse_sdp(body)
+                        local pending = {
+                            local_rtp_port = dialog.local_rtp_port,
+                            sdp_version = (dialog.sdp_version or 0) + 1,
+                            remote_uri = contact_uri(req_headers["contact"]) or dialog.remote_uri,
+                            remote_ip = rip or dialog.remote_ip,
+                            remote_sdp_raw = body,
+                            remote_sdp = parse_sdp(body)
+                        }
+                        local accepted, security_err = create_security(pending)
+                        if accepted then accepted, security_err = accept_security(pending, pending.remote_sdp, false) end
+                        if accepted and not proto.pick_common_codec(state.media.codecs, pending.remote_sdp.codecs) then
+                            accepted, security_err = nil, "no_common_codec"
+                        end
+                        if not accepted then
+                            release_security(pending)
+                            net_send_on(netc, build_response(state, resp_headers, 488, "Not Acceptable Here", nil, ""))
+                            emit_media("rejected", {reason = security_err, call_id = dialog.call_id})
+                            return
+                        end
+                        local resp_body = build_dialog_sdp(state, pending)
+                        pending.local_sdp = resp_body
+                        dialog.pending_media = pending
                         send_invite_ok(dialog, resp_headers, resp_body, req_headers["to"])
                         return
                     end
@@ -1916,12 +2018,19 @@ local function sip_task(opts)
                 local local_tag = gen_token("tag")
                 local to_hdr = ensure_to_has_tag(req_headers["to"], local_tag)
                 req_headers["to"] = to_hdr
+                local remote_sdp = parse_sdp(body)
+                local remote_security, security_err = proto.negotiate_security(state.media_encryption, remote_sdp, false)
+                if not remote_security then
+                    net_send_on(netc, build_response(state, req_headers, 488, "Not Acceptable Here", nil, ""))
+                    emit_call("rejected", {call_id = req_headers["call-id"], reason = security_err})
+                    return
+                end
                 state.incoming_invite = {
                     headers = req_headers,
                     request_to = request_to,
                     uri = req_uri,
                     body = body,
-                    remote_sdp = parse_sdp(body),
+                    remote_sdp = remote_sdp,
                     remote_ip = rip,
                     remote_port = remote_port,
                     local_tag = local_tag
@@ -1973,6 +2082,16 @@ local function sip_task(opts)
                 end
                 -- re-INVITE 的 ACK 只完成媒体更新，不再触发 established。
                 if dialog.established then
+                    local pending = dialog.pending_media
+                    if pending then
+                        dialog.pending_media = nil
+                        if state.media_encryption ~= "none" then stop_media("media_update") end
+                        release_security(dialog)
+                        for _, field in ipairs({"security", "security_offer", "security_info", "security_remote",
+                            "remote_uri", "remote_ip", "remote_sdp_raw", "remote_sdp", "local_sdp", "sdp_version"}) do
+                            dialog[field] = pending[field]
+                        end
+                    end
                     maybe_start_media(dialog, "incoming_reinvite_ack")
                     return
                 end
@@ -2274,8 +2393,7 @@ local function sip_task(opts)
                     -- UAC: 路由集 = 200 OK 中 Record-Route 的原序（RFC 3261 §12.1.2）
                     state.dialog.route_set = parse_route_set(headers["record-route"])
                     state.dialog.remote_ip = rip
-                    state.dialog.remote_sdp_raw = body
-                    state.dialog.remote_sdp = parse_sdp(body)
+                    local remote_sdp = (#body > 0) and parse_sdp(body) or state.dialog.remote_sdp
                     state.dialog.established = true
                     stop_call_timeout()
                     net_send_on(netc, build_ack(state, state.dialog))
@@ -2284,6 +2402,16 @@ local function sip_task(opts)
                         send_dialog_bye(state.dialog)
                         return
                     end
+                    local accepted, security_err = accept_security(state.dialog, remote_sdp, true)
+                    if not accepted then
+                        state.dialog.terminating = true
+                        stop_media("security_negotiation_failed")
+                        send_dialog_bye(state.dialog)
+                        finish_call(state.dialog, security_err, 488, "failed")
+                        return
+                    end
+                    state.dialog.remote_sdp_raw = (#body > 0) and body or state.dialog.remote_sdp_raw
+                    state.dialog.remote_sdp = remote_sdp
                     maybe_start_media(state.dialog, "outgoing_200")
                     log.info("sip", "call established (outgoing)")
                     emit_call("established", {
@@ -2322,6 +2450,18 @@ local function sip_task(opts)
 
                 if code == 180 or code == 181 or code == 182 or code == 183 then
                     if state.dialog.terminating then return end
+                    if state.early_media and #body > 0 then
+                        local remote_sdp = parse_sdp(body)
+                        local accepted, security_err = accept_security(state.dialog, remote_sdp, true)
+                        if not accepted then
+                            net_send_on(netc, build_cancel(state, state.dialog))
+                            finish_call(state.dialog, security_err, 488, "failed")
+                            return
+                        end
+                        state.dialog.remote_sdp, state.dialog.remote_sdp_raw = remote_sdp, body
+                        state.dialog.remote_ip = rip
+                        maybe_start_media(state.dialog, "outgoing_early_media")
+                    end
                     -- 处理 180 Ringing、181 Call Is Being Forwarded、182 Queued、183 Session Progress
                     log.info("sip", "invite provisional response", code, reason)
                     emit_call("ringing", {
@@ -2527,7 +2667,7 @@ local function sip_task(opts)
                 local code, reason = parse_status(head)
                 log.info("sip", "resp", code or "?", reason or "?", "from", rip, remote_port or 0)
                 if state.debug_sip_response then
-                    log.info("sip", "response raw\r\n" .. head .. "\r\n\r\n" .. (body or ""))
+                    log.info("sip", "response raw\r\n" .. proto.redact(head .. "\r\n\r\n" .. (body or "")))
                 end
                 local headers = parse_headers(head)
                 handle_response_packet(code, reason, headers, body, rip)
@@ -2548,12 +2688,17 @@ local function sip_task(opts)
                 local resp = rxbuf:toStr(0, rxbuf:used())
                 rxbuf:del()
 
-                if state.sip_transport == "TCP" then
-                    -- TCP 是字节流：先拼到流缓冲里，再循环拆出完整 SIP 报文。
+                if state.sip_transport ~= "udp" then
+                    -- TCP/TLS 都是字节流，Content-Length 指明完整消息边界。
                     state.tcp_stream = state.tcp_stream .. resp
                     while true do
-                        local head, body
-                        head, body, state.tcp_stream = sip_pop_stream_message(state.tcp_stream)
+                        local head, body, framing_error
+                        head, body, state.tcp_stream, framing_error = sip_pop_stream_message(state.tcp_stream)
+                        if framing_error then
+                            emit_event(SIP_EVENT.ERROR, framing_error, {})
+                            sys.publish(TOPIC_DISCONNECT)
+                            return
+                        end
                         if not head then
                             break
                         end
@@ -2660,7 +2805,15 @@ local function sip_task(opts)
                 netCB(netc, event, param)
             end)
             state.netc = netc
-            socket.config(netc, state.local_port, (state.sip_transport == "udp"))
+            local configured = socket.config(netc, state.local_port, state.sip_transport == "udp",
+                state.sip_transport == "tls", nil, nil, nil, state.tls.ca_cert)
+            if not configured then
+                emit_register("failed", {reason = "socket_config_failed", source = "config", retrying = false})
+                clear_connection(netc)
+                socket.close(netc)
+                socket.release(netc)
+                break
+            end
 
             local succ = socket.connect(netc, state.sip_server_addr, state.sip_server_port)
             if not succ then
@@ -2700,6 +2853,8 @@ local function sip_task(opts)
     sys.unsubscribe("IP_READY", ip_ready_handler)
     sys.unsubscribe("IP_LOSE", ip_lose_handler)
     sys.unsubscribe("EXLIB_NETDRV_NETWORK_STATUS", network_status_handler)
+
+    if state.security_identity then voip.securityRelease(state.security_identity) end
 
     emit_lifecycle("stopped", {})
 end
@@ -2759,6 +2914,15 @@ if type(opts.event_callback) == "function" then
         g_callback = opts.event_callback
     end
 
+    local security, config_err = proto.security_config(opts)
+    if not security then
+        emit_register("failed", {reason = config_err, source = "config", retrying = false})
+        return false
+    end
+    opts.sip_transport, opts.sip_server_port = security.transport, security.port
+    opts.media_encryption, opts.sip_tls = security.media, security.tls
+    g_media_callback = type(opts.media_callback) == "function" and opts.media_callback or nil
+
     if (not opts.sip_server_addr) or (not opts.sip_server_port) or (not opts.sip_domain) or (not opts.sip_username) then
         log.error("sip", "invalid SIP config: required parameter missing")
         emit_register("failed", {
@@ -2812,6 +2976,32 @@ if type(opts.event_callback) == "function" then
     end
     
 
+    if opts.media_encryption ~= "none" then
+        if not voip or type(voip.securityCreate) ~= "function" or type(voip.securitySetRemote) ~= "function" or
+            type(voip.securityInfo) ~= "function" or type(voip.securityRelease) ~= "function" then
+            emit_register("failed", {reason = "media_security_unavailable", source = "config", retrying = false})
+            return false
+        end
+        if opts.media_encryption == "dtls-srtp" then
+            if type(voip.securityIdentity) ~= "function" then
+                emit_register("failed", {reason = "media_security_unavailable", source = "config", retrying = false})
+                return false
+            end
+            opts.security_identity = voip.securityIdentity()
+            if not opts.security_identity then
+                emit_register("failed", {reason = "dtls_identity_failed", source = "config", retrying = false})
+                return false
+            end
+        end
+        local probe = voip.securityCreate(opts.media_encryption, opts.security_identity)
+        if not probe then
+            if opts.security_identity then voip.securityRelease(opts.security_identity) end
+            opts.security_identity = nil
+            emit_register("failed", {reason = "media_security_unavailable", source = "config", retrying = false})
+            return false
+        end
+        voip.securityRelease(probe)
+    end
     g_stop = false
     g_started = true
 

@@ -66,7 +66,7 @@ return {
         { pin = 65, dir = 1, level = 1 },              -- SD_EN 拉高，等 100ms 就绪
         { pin = 57, dir = 1, level = 0, delay = 100 }, -- WIFI_EN 拉高使能 WiFi 模组供电，等 100ms 就绪
         { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
-        { pin = 64, dir = 0, level = 1, delay = 50 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
+        { pin = 64, dir = 1, level = 0, delay = 50 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
         { pin = 15, dir = 0, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
         { pin = 72, dir = 0, level = 1 },              -- TP I2C 上拉（485_RE_DE 拉高，同时 TP I2C 就绪）
     },
@@ -131,8 +131,8 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,        -- 启用 WiFi（Air6205，与 4G 二选一）
-        -- net_4g = true,                -- × 4G 未启用（与 WiFi 共享 UART3，默认走 WiFi）
+        -- wifi = true,        -- 启用 WiFi（Air6205，与 4G 二选一）
+        net_4g = true,                -- × 4G 未启用（与 WiFi 共享 UART3，默认走 WiFi）
         speaker = true,     -- 启用喇叭（DAC 接功放）
         mic = true,         -- 启用麦克风（板载 LINE_IN → 内置 ADC 录音）
                             --   与 speaker 成对声明：同族已启 AI 助手/应用工厂的板型
@@ -164,16 +164,16 @@ return {
     -- ⇒ 默认启用 WiFi；切 4G 时把下面两条的注释互换，切勿同时放开
     network = {
         -- Airlink UART WiFi（6205 模组，占用 UART3）—— 默认启用
-        {
-            type = "wifi_airlink_uart",
-            uart_id = 3,
-            baud = 2000000
-        },
+        -- {
+        --     type = "wifi_airlink_uart",
+        --     uart_id = 3,
+        --     baud = 2000000
+        -- },
 
         -- Airlink UART 4G（Air780ER2，同样占用 UART3，与 WiFi 互斥）
-        -- { type = "4g_airlink_uart",
-        --   uart_id = 3, baud = 2000000,
-        --   adapter = socket.LWIP_GP_GW },   -- Air1601 外挂 4G 的网卡标识
+        { type = "4g_airlink_uart",
+          uart_id = 3, baud = 2000000,
+          adapter = socket.LWIP_GP_GW },   -- Air1601 外挂 4G 的网卡标识
     },
 
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====
@@ -187,8 +187,8 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,         -- 桌面顶栏 WiFi 图标 ← 配 wifi 时打开
-        -- show_4g_icon = true,           -- × 桌面顶栏 4G 图标（net_4g 关闭时不要开，会显示假图标）
+        -- show_wifi_icon = true,         -- 桌面顶栏 WiFi 图标 ← 配 wifi 时打开
+        show_4g_icon = true,           -- × 桌面顶栏 4G 图标（net_4g 关闭时不要开，会显示假图标）
         show_brightness_slider = true, -- 设置页亮度滑块
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
         show_camera_preview = true,    -- 设置页摄像头预览入口 ← 见文件头第 10 条

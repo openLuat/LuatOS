@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module  ui_theme_themes
 @summary 内置主题预设（注册进 ui_theme 的主题表）
 @version 3.0

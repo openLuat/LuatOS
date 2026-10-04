@@ -11,12 +11,12 @@
 
 /** MP4 解码器*/
 #include "mp4_decode.h"
-#include "avcodec/h264_decode.h"
 
 /* 解码线程(基于 FreeRTOS; 信号量/挂起操作用到) */
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include <stdio.h>
 
 #include <string.h>
 
@@ -32,17 +32,38 @@
 #define MPLAYER_RS_STACK     8 * 1024
 #define MPLAYER_RS_PRIO      45   /* 略低于解码线程, 不抢占解码 */
 
+/* MP4 解码线程入口: 周期泵 movie_mp4_task(解复用+解码+音频启动) 与
+ * movie_render_task(按 PTS 对比音频主时钟渲染/丢帧), 节拍 10ms;
+ * EOS 后保持空转等待上层 close(与旧版 mplayer_mp4_thread 语义一致) */
+static void mplayer_mp4_task_entry(void *arg) {
+    luat_mplayer_t *m = (luat_mplayer_t *)arg;
+    movie_mp4 *mp4 = (movie_mp4 *)m->media;
+    while (m->decode_running) {
+        movie_mp4_task(mp4);
+        movie_render_task(mp4);
+        luat_rtos_task_sleep(2);
+    }
+    if (m->done_sem) {
+        xSemaphoreGive((SemaphoreHandle_t)m->done_sem);
+    }
+}
+
 /* 启动 mp4 解码线程 */
 static int mplayer_start_mp4_thread(luat_mplayer_t *m) {
     SemaphoreHandle_t sem = xSemaphoreCreateBinary();
-    if (!sem) return -1;
+    if (!sem) {
+        LLOGE("create done_sem failed");
+        return -1;
+    }
     m->done_sem = sem;
 
     m->decode_running = 1;
     m->decode_task = NULL;
     /*luat_rtos_task_create */
-    if (luat_rtos_task_create((luat_rtos_task_handle *)&m->decode_task, MPLAYER_DS_STACK,
-                              MPLAYER_DS_PRIO, "mplayer", mplayer_mp4_thread, m, 0) != 0) {
+    int rc = luat_rtos_task_create((luat_rtos_task_handle *)&m->decode_task, MPLAYER_DS_STACK,
+                              MPLAYER_DS_PRIO, "mplayer", mplayer_mp4_task_entry, m, 0);
+    if (rc != 0) {
+        LLOGE("task_create rc=%d", rc);
         m->decode_running = 0;
         xSemaphoreGive(sem);   /* 尚无线程会 give, 主动 give 避免 stop 阻塞 */
         return -1;
@@ -102,8 +123,6 @@ static void luat_mplayer_unload_media(void *media, MediaType type) {
     if (type == MEDIA_TYPE_MP4) {
         movie_mp4 *mp4 = (movie_mp4 *)media;
         movie_mp4_stop(mp4);
-        /* 释放解码器前先注销 H.264 解出帧回调, 避免悬垂指针 */
-        h264_set_disp_callback(NULL);
         movie_mp4_release(mp4);
         return;
     } else if (type == MEDIA_TYPE_MP3) {
@@ -144,11 +163,6 @@ luat_mplayer_t *luat_mplayer_open(const char *path) {
     m->decode_running = 0;
     m->decode_task = NULL;
     m->done_sem = NULL;
-
-    /* MP4: 注册 H.264 解出帧回调(仅验证 got_frame) */
-    if (type == MEDIA_TYPE_MP4) {
-        h264_set_disp_callback(mp4_yuv_enqueue_callback);
-    }
     return m;
 }
 
@@ -181,9 +195,11 @@ int luat_mplayer_play(luat_mplayer_t *m) {
     if (m->media_type == MEDIA_TYPE_MP4) {
         if (m->decode_running) return 0;   /* 已在播放 */
         if (movie_mp4_play((movie_mp4 *)m->media) != 0) {
+            printf("mplayer: movie_mp4_play failed\r\n");
             return -1;
         }
         if (mplayer_start_mp4_thread(m) != 0) {
+            printf("mplayer: start decode thread failed\r\n");
             movie_mp4_stop((movie_mp4 *)m->media);
             return -1;
         }
@@ -258,11 +274,34 @@ int luat_mplayer_is_playing(luat_mplayer_t *m) {
     return 0;
 }
 
-int luat_mplayer_set_rect(luat_mplayer_t *m, int x, int y) {
+int luat_mplayer_set_rect(luat_mplayer_t *m, int x, int y, int w, int h) {
     if (!m || !m->is_open) return -1;
     if (!m->media) return -1;
     if (m->media_type == MEDIA_TYPE_MP4) {
-        return movie_mp4_set_rect((movie_mp4 *)m->media, x, y);
+        /* 坐标进 mp4 视频层(luat_display set_layer), 播放前/播放中均可调;
+         * x/y=-1 居中; w/h 目前透传预留(不做缩放) */
+        return movie_mp4_set_rect((movie_mp4 *)m->media, x, y, w, h);
+    }
+    /* 音频类型无视频图层 */
+    return -1;
+}
+
+int luat_mplayer_set_audio_enable(luat_mplayer_t *m, int en) {
+    if (!m || !m->is_open) return -1;
+    if (!m->media) return -1;
+    if (m->media_type == MEDIA_TYPE_MP4) {
+        /* 写 movie->audio_en, 解码线程轮询生效; 播放中/暂停均可切换 */
+        return movie_mp4_set_audio_enable((movie_mp4 *)m->media, en);
+    }
+    /* 音频类型无此语义 */
+    return -1;
+}
+
+int luat_mplayer_set_layer_visible(luat_mplayer_t *m, int visible) {
+    if (!m || !m->is_open) return -1;
+    if (!m->media) return -1;
+    if (m->media_type == MEDIA_TYPE_MP4) {
+        return movie_mp4_set_layer_visible((movie_mp4 *)m->media, visible);
     }
     /* 音频类型无视频图层 */
     return -1;

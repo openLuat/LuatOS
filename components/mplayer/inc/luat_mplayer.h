@@ -71,7 +71,11 @@ int luat_mplayer_is_paused(luat_mplayer_t *m);
 /* 读取媒体信息到 info; 成功返回 0 */
 int luat_mplayer_info(luat_mplayer_t *m, luat_mplayer_info_t *info);
 /* 设置视频图层显示坐标(仅 MP4; 播放前或播放中均可调用); 成功返回 0 */
-int luat_mplayer_set_rect(luat_mplayer_t *m, int x, int y);
+int luat_mplayer_set_rect(luat_mplayer_t *m, int x, int y, int w, int h);
+/* 开关音频输出(仅 MP4; 0-静音 非0-输出; 播放中/暂停均可切换); 成功返回 0 */
+int luat_mplayer_set_audio_enable(luat_mplayer_t *m, int en);
+/* 开关视频图层显示(仅 MP4; 不停止解码, 仅控制是否送显); 成功返回 0 */
+int luat_mplayer_set_layer_visible(luat_mplayer_t *m, int visible);
 
 #ifdef __cplusplus
 }

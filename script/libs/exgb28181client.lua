@@ -1170,6 +1170,38 @@ local function poll_stream(sess)
 end
 
 --[[
+TCP 承载下，这一帧现在能交给后端吗？（UDP 恒 true —— 它没有建链这一步）
+
+**判断"通没通"别读 sess.link_up。** 那是 poll_stream 从 C 搬来的缓存，只在被
+poll 的那一刻刷新；而对端连上（accept）到下一次 poll 之间它还停在过期的
+false，那段窗口里的帧会被整段判成"链路不通"。原生后端去**问 C**
+（gb.stream_link_up 当场读 transport），没有缓存也就没有窗口。
+
+**没通时也不一律丢**，分两种：
+
+  · 从未连上过（起播）→ 仍然交出去。C 的 _tx 会返回 ERR_AGAIN 把包留在队首，
+    链路一通自然发出去。起播那几帧里有带 SPS/PPS 的首个 IDR，丢在这里后面
+    每个 IDR 都补不出参数集（现象：出图前黑一段）。
+  · 连上过又断了 → 丢掉。补发会把断线前的老画面推出去，错位比丢帧更糟。
+
+老后端（没有 sess.stream）没有 ERR_AGAIN 的保留语义，只能一律挡。
+
+判活用 sess.link_up / link_bad_ms，发数据用这个，两者语义不同。
+]]
+local function link_sendable(sess)
+    if not sess.media_tcp then
+        return true
+    end
+    if sess.stream == nil then
+        return sess.link_up and true or false   -- 老后端：由 socket 事件直接置位
+    end
+    if gb.stream_link_up(sess.stream) then
+        return true
+    end
+    return sess.link_up_once ~= true            -- 没通：只有"从没连上过"才值得等
+end
+
+--[[
 回调同时是"媒体链路是否还活着"的观测点。事件映射**很容易记反**，这里写明实测值：
 
     LINK=0x...10  ON_LINE=0x...11  TX_OK=0x...12  CLOSED=0x...13  EVENT=0x...14
@@ -2125,8 +2157,8 @@ function M.push_frame(sess, frame)
         return false, "not_ready"   -- 还没收到 ACK，或会话已结束
     end
     -- TCP 承载还要等连接真正建立(passive 是 accept，active 是 connect 完成)。
-    -- 在 link_up 之前发，数据会落到一个还没建好的通道上白丢。
-    if sess.media_tcp and not sess.link_up then
+    -- 该丢还是该入队等，见 link_sendable 的说明。
+    if not link_sendable(sess) then
         return false, "link_down"
     end
 
@@ -2694,8 +2726,8 @@ function M.talk_push(sess, pcma)
     if not has_media(sess) then
         return false          -- 没有上行队列(TCP 腿未建立时)/会话已结束
     end
-    if sess.media_tcp and not sess.link_up then
-        return false          -- TCP 还没连上，发出去也会被丢
+    if not link_sendable(sess) then
+        return false          -- 链路不通且不该等，见 link_sendable 的说明
     end
 
     if sess.stream then

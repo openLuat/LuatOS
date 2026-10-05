@@ -22,7 +22,7 @@
 
 === 纯函数（无 UI 依赖，可离线断言）===
 video_picker.parent_path(path)   当前目录 -> 上一级；根目录返回 nil
-video_picker.storage_index(path) 当前路径 -> 存储设备序号（1 内置 / 2 SD卡 / 3 Flash）
+video_picker.storage_index(path) 当前路径 -> 存储设备序号（1 内置 / 2 SD卡 / 3 外置存储）
 video_picker.list_items(dir)     目录 -> 可播放文件与子目录清单（已排序）
 
 @usage
@@ -30,6 +30,8 @@ local video_picker = require "video_picker"
 video_picker.open({
     start_path = "/",
     sw = screen_w, sh = screen_h,          -- 弹窗按这个尺寸定位与定大小
+    avoid = { x=, y=, w=, h= },            -- 可选：避让矩形（如桌面视频区），弹窗
+                                           -- 定位到不与它相交的空闲区、不遮挡播放画面
     on_pick = function(path) ... end,      -- 用户选中了某个视频文件
 })
 ]]
@@ -53,7 +55,7 @@ end
 M.STORAGE_ITEMS = {
     { text = "内置存储", path = "/" },
     { text = "SD卡",     path = "/sd/" },
-    { text = "Flash",    path = "/little_flash/" },
+    { text = "外置存储", path = "/little_flash/" },
 }
 
 -- 可播放的容器后缀（渲染前先按后缀筛，避免把整目录的图片/音频都列出来）
@@ -64,8 +66,9 @@ local overlay = nil      -- airui.win 实例
 local content_w = 0      -- 弹窗内容宽度（列表行宽按它算，不再依赖页面的 right_w）
 local cur_sw, cur_sh = 480, 854
 local cur_on_pick = nil
+local cur_avoid = nil     -- 避让矩形 {x,y,w,h}（屏幕坐标）：弹窗不盖住它（如桌面视频区）
 
---[[由当前路径反查存储设备序号（1 内置 / 2 SD卡 / 3 Flash）
+--[[由当前路径反查存储设备序号（1 内置 / 2 SD卡 / 3 外置存储）
 
 从第 2 项开始比前缀：内置存储的 "/" 是所有路径的前缀，先比它会把一切都判成内置。
 子目录（/sd/xxx/）仍归属同一个设备，所以用前缀匹配而不是全等。]]
@@ -152,7 +155,7 @@ local function render(dir_path, scroll_container)
             on_click = function()
                 if item.is_dir then
                     -- 进子目录：重建选择器（顺带刷新设备高亮与「返回上一级」）
-                    M.open({ start_path = item.path, sw = cur_sw, sh = cur_sh, on_pick = cur_on_pick })
+                    M.open({ start_path = item.path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
                 else
                     M.close()
                     if cur_on_pick then pcall(cur_on_pick, item.path) end
@@ -183,6 +186,41 @@ local function render(dir_path, scroll_container)
     end
 end
 
+--[[把弹窗放进不与避让矩形相交的空闲区（桌面视频区避让）
+
+候选区按「先两侧、后上下」生成，取面积最大的一块（1024×600 横屏双列会落
+到右列；480×854 竖屏通栏视频会落到视频带下方/上方）；空闲区比弹窗小就缩
+弹窗适配 —— 宁可弹窗矮一点也不遮挡正在播的画面。四面都放不下（避让矩形
+盖满屏）才返回 nil，调用方回退居中。
+
+@return table|nil { x, y, w, h }（屏幕坐标）]]
+local function place_avoiding(pw, ph, avoid, sw, sh)
+    local m = math.floor(8 * (_G.density_scale or 1.0))
+    local ax0, ay0 = avoid.x, avoid.y
+    local ax1, ay1 = avoid.x + avoid.w, avoid.y + avoid.h
+    local rects = {
+        { x = ax1 + m, y = m, w = sw - m - (ax1 + m), h = sh - 2 * m },   -- 右
+        { x = m, y = m, w = ax0 - m - m, h = sh - 2 * m },                -- 左
+        { x = m, y = ay1 + m, w = sw - 2 * m, h = sh - m - (ay1 + m) },   -- 下
+        { x = m, y = m, w = sw - 2 * m, h = ay0 - m - m },                -- 上
+    }
+    local best, best_area = nil, 0
+    for _, r in ipairs(rects) do
+        if r.w > 0 and r.h > 0 then
+            local area = r.w * r.h
+            if area > best_area then best, best_area = r, area end
+        end
+    end
+    if not best then return nil end
+    local w = math.min(pw, best.w)
+    local h = math.min(ph, best.h)
+    return {
+        x = best.x + math.floor((best.w - w) / 2),
+        y = best.y + math.floor((best.h - h) / 2),
+        w = w, h = h,
+    }
+end
+
 open_at = function(start_path)
     local d = _G.density_scale or 1.0
 
@@ -191,15 +229,24 @@ open_at = function(start_path)
     local picker_w = (cur_sw <= 560) and math.min(math.floor(cur_sw * 0.72), 460)
         or math.min(math.floor(cur_sw * 0.50), 460)
     local picker_h = math.floor(cur_sh * 0.70)
-    content_w = picker_w
     local pad_in = math.floor(12 * d)
+
+    --[[有避让矩形（桌面视频区）时把弹窗定位到不与它相交的空闲区并按需缩尺寸，
+    选文件时画面照常在播、两不相挡；没有避让时保持原居中观感。]]
+    local place = cur_avoid and place_avoiding(picker_w, picker_h, cur_avoid, cur_sw, cur_sh)
+    if place then
+        picker_w, picker_h = place.w, place.h
+    end
+    content_w = picker_w
 
     -- 使用 airui.win 创建独立弹窗，不影响底层布局。
     -- auto_center 走 lv_obj_center，按父对象（当前屏幕）**实时**尺寸居中 ——
-    -- 旋转后的横屏也能正确居中，不需要额外补偿。
+    -- 旋转后的横屏也能正确居中，不需要额外补偿；避让定位时改用显式 x/y。
     overlay = airui.win({
         parent = airui.screen, title = "选择视频文件",
-        w = picker_w, h = picker_h, close_btn = true, auto_center = true,
+        x = place and place.x or 0, y = place and place.y or 0,
+        w = picker_w, h = picker_h, close_btn = true,
+        auto_center = (place == nil),
         style = {
             bg_color = theme.C.dialog, header_bg_color = theme.C.dialog,
             content_bg_color = theme.C.dialog,
@@ -219,9 +266,13 @@ open_at = function(start_path)
     local quick_h = math.floor(28 * d)
     local quick_w = math.floor((picker_w - pad_in * 2 - math.floor(8 * d)) / 3)
     local quick_gap = math.floor(4 * d)
+    local quick_rows_h = quick_h * 2 + quick_gap   -- 设备行 + /luadb 行（见下）
     local active_storage = M.storage_index(start_path)
+    --[[/luadb 归属内置设备（storage_index 对它返回 1）：高亮与「内置存储」互斥，
+    同时亮会让人以为停在两个设备里。]]
+    local luadb_on = (start_path == "/luadb") or (start_path:sub(1, 7) == "/luadb/")
     for qi, q in ipairs(M.STORAGE_ITEMS) do
-        local on = (qi == active_storage)
+        local on = (qi == active_storage) and not (qi == 1 and luadb_on)
         theme.ghost_button(overlay, {
             x = pad_in + (qi - 1) * (quick_w + quick_gap), y = pad_in,
             w = quick_w, h = quick_h,
@@ -234,10 +285,27 @@ open_at = function(start_path)
             pressed_bg = on and theme.C.amber_deep or nil,
             pressed_bg_opa = on and theme.OPA.rail_active or nil,
             on_click = function()
-                M.open({ start_path = q.path, sw = cur_sw, sh = cur_sh, on_pick = cur_on_pick })
+                M.open({ start_path = q.path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
             end,
         })
     end
+
+    --[[/luadb 快捷入口：摆在「内置存储」正下方（内置资源分区，logo 与出厂素材
+    都在这里，从根目录点进去要两层）。]]
+    theme.ghost_button(overlay, {
+        x = pad_in, y = pad_in + quick_h + quick_gap,
+        w = quick_w, h = quick_h,
+        text = "/luadb", size = theme.F.tiny,
+        fg = luadb_on and theme.C.amber_light or theme.C.cyan,
+        bg = luadb_on and theme.C.amber or nil,
+        bg_opa = luadb_on and theme.OPA.rail_active or nil,
+        border = luadb_on and theme.C.amber or nil,
+        pressed_bg = luadb_on and theme.C.amber_deep or nil,
+        pressed_bg_opa = luadb_on and theme.OPA.rail_active or nil,
+        on_click = function()
+            M.open({ start_path = "/luadb/", sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
+        end,
+    })
 
     --[[「返回上一级」按钮
 
@@ -252,20 +320,20 @@ open_at = function(start_path)
     if parent_path then
         local back_w = clamp(math.floor(120 * d), 100, picker_w - pad_in * 2)
         theme.ghost_button(overlay, {
-            x = pad_in, y = pad_in + quick_h + back_gap,
+            x = pad_in, y = pad_in + quick_rows_h + back_gap,
             w = back_w, h = back_h,
             text = "< 返回上一级", size = theme.F.tiny,
             fg = theme.C.cyan,
             on_click = function()
                 -- 与进入子目录同款：重建选择器，顺带刷新设备高亮
-                M.open({ start_path = parent_path, sw = cur_sw, sh = cur_sh, on_pick = cur_on_pick })
+                M.open({ start_path = parent_path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
             end,
         })
     end
 
     -- 文件列表滚动区域（有返回按钮时整体下移一行）
     local back_row_h = parent_path and (back_gap + back_h) or 0
-    local list_y = pad_in + quick_h + back_row_h + pad_in
+    local list_y = pad_in + quick_rows_h + back_row_h + pad_in
     local scroll = airui.container({
         parent = overlay,
         x = 0, y = list_y, w = picker_w, h = picker_h - list_y - pad_in,
@@ -279,6 +347,7 @@ end
 @table o
   @string o.start_path 初始目录，默认 "/"
   @number o.sw,o.sh    按哪个逻辑屏尺寸算弹窗大小（旋转后的尺寸由调用方给）
+  @table o.avoid    可选：避让矩形 {x,y,w,h}（如桌面视频区），弹窗不与它相交
   @function o.on_pick  选中文件后的回调，参数为完整路径
 ]]
 function M.open(o)
@@ -287,6 +356,7 @@ function M.open(o)
     cur_sw = o.sw or screen_w or 480
     cur_sh = o.sh or screen_h or 854
     cur_on_pick = o.on_pick
+    cur_avoid = o.avoid
     open_at(o.start_path or "/")
 end
 

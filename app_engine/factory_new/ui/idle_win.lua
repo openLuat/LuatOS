@@ -2011,9 +2011,17 @@ function VP.open_picker(start_path)
     if not start then
         start = (VP.current_file and VP.current_file:match("^(.+/)")) or "/"
     end
+    --[[避让矩形 = 视频卡片：选择弹窗不盖住播放区，选文件时画面照常在播
+    （mp4_loop 的视频层叠在 UI 之上，重叠处还会反过来盖住弹窗，所以必须避开）。
+    没有视频区的布局不传，弹窗保持居中。]]
+    local avoid = nil
+    if VP.enabled or VP.portrait then
+        avoid = { x = content_x + VP.x, y = VP.y, w = VP.w, h = VP.h }
+    end
     video_picker.open({
         start_path = start,
         sw = screen_w, sh = screen_h,
+        avoid = avoid,
         on_pick = function(path) VP.start_play(path) end,
     })
 end

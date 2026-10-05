@@ -30,8 +30,7 @@ local video_picker = require "video_picker"
 video_picker.open({
     start_path = "/",
     sw = screen_w, sh = screen_h,          -- 弹窗按这个尺寸定位与定大小
-    avoid = { x=, y=, w=, h= },            -- 可选：避让矩形（如桌面视频区），弹窗
-                                           -- 定位到不与它相交的空闲区、不遮挡播放画面
+    avoid = { x=, y=, w=, h= },            -- 可选：避让矩形，弹窗不与其相交
     on_pick = function(path) ... end,      -- 用户选中了某个视频文件
 })
 ]]
@@ -66,7 +65,7 @@ local overlay = nil      -- airui.win 实例
 local content_w = 0      -- 弹窗内容宽度（列表行宽按它算，不再依赖页面的 right_w）
 local cur_sw, cur_sh = 480, 854
 local cur_on_pick = nil
-local cur_avoid = nil     -- 避让矩形 {x,y,w,h}（屏幕坐标）：弹窗不盖住它（如桌面视频区）
+local cur_avoid = nil     -- 避让矩形 {x,y,w,h}（屏幕坐标）
 
 --[[由当前路径反查存储设备序号（1 内置 / 2 SD卡 / 3 外置存储）
 
@@ -103,26 +102,17 @@ function M.parent_path(path)
     return parent
 end
 
---[[列出一个目录下的子目录与可播放视频（目录在前、各自按名字排序）
-
-luadb 两处特殊（luat_vfs_luadb.c：lsdir **忽略目录名**、平铺返回包内全部文件，
-打包名还可能是 "img/xxx.png" 这种子路径），不处理就会「点进 /luadb 看不到内容」：
-  1. 按当前目录的相对前缀过滤平铺名，剩余第一段合成子目录条目（逐层下钻）；
-  2. 尾斜杠路径个别实现返回空，去掉尾斜杠重试一次。
-真实目录型文件系统走同一套逻辑不受影响（名字不含 "/" 且不在 luadb 子路径时跳过合成）。
-根目录（"/"）另补 luadb 挂载点目录项：挂载点不会出现在 flash 根的 lsdir 里。
-
-@return table { { name=, is_dir=, path= }, ... }  读取失败时返回空表
-]]
+--[[列出目录下的子目录与可播放视频（目录在前、按名字排序）
+luadb 平铺名按当前目录前缀归位，剩余首段合成子目录；根目录补 luadb 目录项
+@return table { { name=, is_dir=, path= }, ... } 读取失败返回空表]]
 function M.list_items(dir_path)
     local ok, files = io.lsdir(dir_path, 200, 0)
-    -- 尾斜杠兜底：个别实现对 "/luadb/" 返回空、对 "/luadb" 正常
+    -- 尾斜杠兜底重试
     if (not ok or not files or #files == 0) and #dir_path > 1 and dir_path:sub(-1) == "/" then
         ok, files = io.lsdir((dir_path:gsub("/+$", "")), 200, 0)
     end
 
-    --[[平铺名归位（luadb）：以「当前子路径」为过滤前缀，剩余部分的第一段即本层
-    条目；还有后续段说明是子目录（luadb 打包没有真目录，全是文件名里的 "/"）。]]
+    -- 平铺名归位：前缀过滤后取剩余首段，有后续段则合成子目录
     local sub_prefix = ""
     if dir_path:sub(1, 7) == "/luadb/" then
         sub_prefix = dir_path:sub(8)
@@ -161,10 +151,8 @@ function M.list_items(dir_path)
         end
     end
 
-    --[[内置存储根下补 luadb 目录项：它是独立挂载点，flash 根的 lsdir 列不出它。
-    dexist 对挂载点根只认无尾斜杠写法（"/luadb" 命中前缀长度判定即返回真，
-    "/luadb/" 会落到 opendir —— luadb 不支持 opendir，恒假）。已在列表则不重复补。]]
-    if dir_path == "/" and io.dexist("/luadb") and not seen["luadb"] then
+    -- 根目录补 luadb 目录项（挂载点不进 flash 根的 lsdir）
+    if dir_path == "/" and not seen["luadb"] then
         items[#items + 1] = { name = "luadb", is_dir = true, path = "/luadb/" }
     end
 
@@ -182,7 +170,7 @@ function M.list_items(dir_path)
         end
     end
     if #out == 0 then
-        -- 空结果带原始计数：区分「lsdir 就没返回」还是「返回了但都被后缀滤掉」
+        -- 带原始计数便于排查
         log.warn("video_picker", "无可播内容", dir_path, "raw_ok=", ok, "raw_n=", files and #files or -1)
     end
     table.sort(out, function(a, b)
@@ -248,14 +236,8 @@ local function render(dir_path, scroll_container)
     end
 end
 
---[[把弹窗放进不与避让矩形相交的空闲区（桌面视频区避让）
-
-候选区按「先两侧、后上下」生成，取面积最大的一块（1024×600 横屏双列会落
-到右列；480×854 竖屏通栏视频会落到视频带下方/上方）；空闲区比弹窗小就缩
-弹窗适配 —— 宁可弹窗矮一点也不遮挡正在播的画面。四面都放不下（避让矩形
-盖满屏）才返回 nil，调用方回退居中。
-
-@return table|nil { x, y, w, h }（屏幕坐标）]]
+--[[弹窗避让定位：取不与 avoid 相交的最大空闲区居中，空间不足则缩小弹窗
+@return table|nil { x, y, w, h } 无处可放返回 nil]]
 local function place_avoiding(pw, ph, avoid, sw, sh)
     local m = math.floor(8 * (_G.density_scale or 1.0))
     local ax0, ay0 = avoid.x, avoid.y
@@ -286,24 +268,20 @@ end
 open_at = function(start_path)
     local d = _G.density_scale or 1.0
 
-    -- 弹窗尺寸：宽屏半屏（≤460，保持原观感）；窄屏放宽到 0.72 屏宽，
-    -- 否则 480 宽的面板上弹窗只有 240，文件名几乎看不见
+    -- 弹窗尺寸：宽屏取半屏（≤460），窄屏取 0.72 屏宽
     local picker_w = (cur_sw <= 560) and math.min(math.floor(cur_sw * 0.72), 460)
         or math.min(math.floor(cur_sw * 0.50), 460)
     local picker_h = math.floor(cur_sh * 0.70)
     local pad_in = math.floor(12 * d)
 
-    --[[有避让矩形（桌面视频区）时把弹窗定位到不与它相交的空闲区并按需缩尺寸，
-    选文件时画面照常在播、两不相挡；没有避让时保持原居中观感。]]
+    -- 有避让矩形时定位到空闲区，否则居中
     local place = cur_avoid and place_avoiding(picker_w, picker_h, cur_avoid, cur_sw, cur_sh)
     if place then
         picker_w, picker_h = place.w, place.h
     end
     content_w = picker_w
 
-    -- 使用 airui.win 创建独立弹窗，不影响底层布局。
-    -- auto_center 走 lv_obj_center，按父对象（当前屏幕）**实时**尺寸居中 ——
-    -- 旋转后的横屏也能正确居中，不需要额外补偿；避让定位时改用显式 x/y。
+    -- auto_center 居中；避让定位时用显式 x/y
     overlay = airui.win({
         parent = airui.screen, title = "选择视频文件",
         x = place and place.x or 0, y = place and place.y or 0,

@@ -104,7 +104,7 @@ end
 
 --[[列出目录下的子目录与可播放视频（目录在前、按名字排序）
 luadb 平铺名按当前目录前缀归位，剩余首段合成子目录；根目录补 luadb 目录项
-@return table { { name=, is_dir=, path= }, ... } 读取失败返回空表]]
+@return table items, number 原始条目数]]
 function M.list_items(dir_path)
     local ok, files = io.lsdir(dir_path, 200, 0)
     -- 尾斜杠兜底重试
@@ -122,6 +122,7 @@ function M.list_items(dir_path)
     for _, f in ipairs(files or {}) do
         local name = f.name
         local is_dir = (f.type == 1)
+        if name then name = name:gsub("^/+", "") end
         if name and (sub_prefix ~= "" or name:find("/", 1, true)) then
             if name:sub(1, #sub_prefix) == sub_prefix then
                 local rest = name:sub(#sub_prefix + 1)
@@ -177,7 +178,7 @@ function M.list_items(dir_path)
         if a.is_dir ~= b.is_dir then return a.is_dir end
         return a.name < b.name
     end)
-    return out
+    return out, (files and #files or 0)
 end
 
 function M.close()
@@ -192,7 +193,7 @@ local open_at
 
 local function render(dir_path, scroll_container)
     if not scroll_container then return end
-    local items = M.list_items(dir_path)
+    local items, raw_n = M.list_items(dir_path)
     local d = _G.density_scale or 1.0
     local row_h = math.floor(32 * d)
     local px = math.floor(8 * d)
@@ -230,7 +231,9 @@ local function render(dir_path, scroll_container)
     if #items == 0 then
         theme.label(scroll_container, {
             x = 0, y = math.floor(20 * d), w = list_w, h = row_h,
-            text = "无视频文件", px_size = math.floor(12 * d),
+            text = (raw_n and raw_n > 0) and ("无视频文件（目录共 " .. raw_n .. " 项）")
+                or "目录为空或读取失败",
+            px_size = math.floor(12 * d),
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
     end

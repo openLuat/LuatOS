@@ -105,29 +105,91 @@ end
 
 --[[列出一个目录下的子目录与可播放视频（目录在前、各自按名字排序）
 
+luadb 两处特殊（luat_vfs_luadb.c：lsdir **忽略目录名**、平铺返回包内全部文件，
+打包名还可能是 "img/xxx.png" 这种子路径），不处理就会「点进 /luadb 看不到内容」：
+  1. 按当前目录的相对前缀过滤平铺名，剩余第一段合成子目录条目（逐层下钻）；
+  2. 尾斜杠路径个别实现返回空，去掉尾斜杠重试一次。
+真实目录型文件系统走同一套逻辑不受影响（名字不含 "/" 且不在 luadb 子路径时跳过合成）。
+根目录（"/"）另补 luadb 挂载点目录项：挂载点不会出现在 flash 根的 lsdir 里。
+
 @return table { { name=, is_dir=, path= }, ... }  读取失败时返回空表
 ]]
 function M.list_items(dir_path)
-    local items = {}
     local ok, files = io.lsdir(dir_path, 200, 0)
-    if ok and files then
-        for _, f in ipairs(files) do
-            if f.type == 1 then
-                items[#items + 1] = { name = f.name, is_dir = true, path = dir_path .. f.name .. "/" }
-            elseif f.type == 0 then
-                local ext = f.name:match("%.([^%.]+)$")
-                if ext then ext = ext:lower() end
-                if ext and VIDEO_EXTS[ext] then
-                    items[#items + 1] = { name = f.name, is_dir = false, path = dir_path .. f.name }
+    -- 尾斜杠兜底：个别实现对 "/luadb/" 返回空、对 "/luadb" 正常
+    if (not ok or not files or #files == 0) and #dir_path > 1 and dir_path:sub(-1) == "/" then
+        ok, files = io.lsdir((dir_path:gsub("/+$", "")), 200, 0)
+    end
+
+    --[[平铺名归位（luadb）：以「当前子路径」为过滤前缀，剩余部分的第一段即本层
+    条目；还有后续段说明是子目录（luadb 打包没有真目录，全是文件名里的 "/"）。]]
+    local sub_prefix = ""
+    if dir_path:sub(1, 7) == "/luadb/" then
+        sub_prefix = dir_path:sub(8)
+    end
+
+    local items, seen = {}, {}
+    for _, f in ipairs(files or {}) do
+        local name = f.name
+        local is_dir = (f.type == 1)
+        if name and (sub_prefix ~= "" or name:find("/", 1, true)) then
+            if name:sub(1, #sub_prefix) == sub_prefix then
+                local rest = name:sub(#sub_prefix + 1)
+                if rest:sub(-1) == "/" then
+                    rest = rest:sub(1, -2)
+                    is_dir = true
                 end
+                local seg, more = rest:match("^([^/]+)/?(.*)$")
+                if rest == "" then
+                    name = nil
+                elseif more ~= "" then
+                    is_dir = true
+                    name = seg
+                else
+                    name = rest
+                end
+            else
+                name = nil
+            end
+        end
+        if name and name ~= "" and not seen[name] then
+            seen[name] = true
+            items[#items + 1] = {
+                name = name, is_dir = is_dir,
+                path = dir_path .. name .. (is_dir and "/" or ""),
+            }
+        end
+    end
+
+    --[[内置存储根下补 luadb 目录项：它是独立挂载点，flash 根的 lsdir 列不出它。
+    dexist 对挂载点根只认无尾斜杠写法（"/luadb" 命中前缀长度判定即返回真，
+    "/luadb/" 会落到 opendir —— luadb 不支持 opendir，恒假）。已在列表则不重复补。]]
+    if dir_path == "/" and io.dexist("/luadb") and not seen["luadb"] then
+        items[#items + 1] = { name = "luadb", is_dir = true, path = "/luadb/" }
+    end
+
+    -- 可播放过滤：文件只留视频容器后缀（见 VIDEO_EXTS），目录全保留
+    local out = {}
+    for _, it in ipairs(items) do
+        if it.is_dir then
+            out[#out + 1] = it
+        else
+            local ext = it.name:match("%.([^%.]+)$")
+            if ext then ext = ext:lower() end
+            if ext and VIDEO_EXTS[ext] then
+                out[#out + 1] = it
             end
         end
     end
-    table.sort(items, function(a, b)
+    if #out == 0 then
+        -- 空结果带原始计数：区分「lsdir 就没返回」还是「返回了但都被后缀滤掉」
+        log.warn("video_picker", "无可播内容", dir_path, "raw_ok=", ok, "raw_n=", files and #files or -1)
+    end
+    table.sort(out, function(a, b)
         if a.is_dir ~= b.is_dir then return a.is_dir end
         return a.name < b.name
     end)
-    return items
+    return out
 end
 
 function M.close()
@@ -266,13 +328,9 @@ open_at = function(start_path)
     local quick_h = math.floor(28 * d)
     local quick_w = math.floor((picker_w - pad_in * 2 - math.floor(8 * d)) / 3)
     local quick_gap = math.floor(4 * d)
-    local quick_rows_h = quick_h * 2 + quick_gap   -- 设备行 + /luadb 行（见下）
     local active_storage = M.storage_index(start_path)
-    --[[/luadb 归属内置设备（storage_index 对它返回 1）：高亮与「内置存储」互斥，
-    同时亮会让人以为停在两个设备里。]]
-    local luadb_on = (start_path == "/luadb") or (start_path:sub(1, 7) == "/luadb/")
     for qi, q in ipairs(M.STORAGE_ITEMS) do
-        local on = (qi == active_storage) and not (qi == 1 and luadb_on)
+        local on = (qi == active_storage)
         theme.ghost_button(overlay, {
             x = pad_in + (qi - 1) * (quick_w + quick_gap), y = pad_in,
             w = quick_w, h = quick_h,
@@ -290,23 +348,6 @@ open_at = function(start_path)
         })
     end
 
-    --[[/luadb 快捷入口：摆在「内置存储」正下方（内置资源分区，logo 与出厂素材
-    都在这里，从根目录点进去要两层）。]]
-    theme.ghost_button(overlay, {
-        x = pad_in, y = pad_in + quick_h + quick_gap,
-        w = quick_w, h = quick_h,
-        text = "/luadb", size = theme.F.tiny,
-        fg = luadb_on and theme.C.amber_light or theme.C.cyan,
-        bg = luadb_on and theme.C.amber or nil,
-        bg_opa = luadb_on and theme.OPA.rail_active or nil,
-        border = luadb_on and theme.C.amber or nil,
-        pressed_bg = luadb_on and theme.C.amber_deep or nil,
-        pressed_bg_opa = luadb_on and theme.OPA.rail_active or nil,
-        on_click = function()
-            M.open({ start_path = "/luadb/", sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
-        end,
-    })
-
     --[[「返回上一级」按钮
 
     摆在快捷设备行的下面、文件列表的上面，独占一行而不是挤进设备行
@@ -320,7 +361,7 @@ open_at = function(start_path)
     if parent_path then
         local back_w = clamp(math.floor(120 * d), 100, picker_w - pad_in * 2)
         theme.ghost_button(overlay, {
-            x = pad_in, y = pad_in + quick_rows_h + back_gap,
+            x = pad_in, y = pad_in + quick_h + back_gap,
             w = back_w, h = back_h,
             text = "< 返回上一级", size = theme.F.tiny,
             fg = theme.C.cyan,
@@ -333,7 +374,7 @@ open_at = function(start_path)
 
     -- 文件列表滚动区域（有返回按钮时整体下移一行）
     local back_row_h = parent_path and (back_gap + back_h) or 0
-    local list_y = pad_in + quick_rows_h + back_row_h + pad_in
+    local list_y = pad_in + quick_h + back_row_h + pad_in
     local scroll = airui.container({
         parent = overlay,
         x = 0, y = list_y, w = picker_w, h = picker_h - list_y - pad_in,

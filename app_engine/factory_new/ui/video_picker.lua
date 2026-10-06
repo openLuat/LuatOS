@@ -107,6 +107,7 @@ luadb 平铺名按当前目录前缀归位，剩余首段合成子目录；根�
 @return table items, number 原始条目数]]
 function M.list_items(dir_path)
     local ok, files = io.lsdir(dir_path, 200, 0)
+    if type(ok) == "table" and files == nil then files = ok; ok = true end
     -- 尾斜杠兜底重试
     if (not ok or not files or #files == 0) and #dir_path > 1 and dir_path:sub(-1) == "/" then
         ok, files = io.lsdir((dir_path:gsub("/+$", "")), 200, 0)
@@ -120,8 +121,8 @@ function M.list_items(dir_path)
 
     local items, seen = {}, {}
     for _, f in ipairs(files or {}) do
-        local name = f.name
-        local is_dir = (f.type == 1)
+        local name = (type(f) == "string") and f or f.name
+        local is_dir = (type(f) == "table" and f.type == 1)
         if name then name = name:gsub("^/+", "") end
         if name and (sub_prefix ~= "" or name:find("/", 1, true)) then
             if name:sub(1, #sub_prefix) == sub_prefix then
@@ -157,15 +158,18 @@ function M.list_items(dir_path)
         items[#items + 1] = { name = "luadb", is_dir = true, path = "/luadb/" }
     end
 
-    -- 可播放过滤：文件只留视频容器后缀（见 VIDEO_EXTS），目录全保留
+    -- 过滤：目录全保留；/luadb 下全部文件可见（非视频灰显），其余目录只留视频
+    local in_luadb = (dir_path:sub(1, 7) == "/luadb/")
     local out = {}
     for _, it in ipairs(items) do
         if it.is_dir then
+            it.playable = true
             out[#out + 1] = it
         else
             local ext = it.name:match("%.([^%.]+)$")
             if ext then ext = ext:lower() end
-            if ext and VIDEO_EXTS[ext] then
+            it.playable = (ext ~= nil and VIDEO_EXTS[ext] == true)
+            if it.playable or in_luadb then
                 out[#out + 1] = it
             end
         end
@@ -205,26 +209,25 @@ local function render(dir_path, scroll_container)
             radius = theme.R.sm, opa = 0,
             on_click = function()
                 if item.is_dir then
-                    -- 进子目录：重建选择器（顺带刷新设备高亮与「返回上一级」）
                     M.open({ start_path = item.path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
-                else
+                elseif item.playable then
                     M.close()
                     if cur_on_pick then pcall(cur_on_pick, item.path) end
                 end
             end,
         })
-        -- 目录用琥珀、文件用青色：靠颜色区分，不额外占一行说明
+        -- 目录琥珀、视频青色、非视频灰色
         theme.label(row, {
             x = px, y = 0, w = math.floor(18 * d), h = row_h,
             text = ">", px_size = math.floor(13 * d),
-            color = item.is_dir and theme.C.amber or theme.C.cyan,
+            color = item.is_dir and theme.C.amber or (item.playable and theme.C.cyan or theme.C.t3),
             align = airui.TEXT_ALIGN_CENTER,
         })
         theme.label(row, {
             x = px + math.floor(20 * d), y = 0,
             w = list_w - 2 * px - math.floor(24 * d), h = row_h,
             text = item.name, px_size = math.floor(12 * d),
-            color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
+            color = item.playable and theme.C.t1 or theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
         })
         y = y + row_h + math.floor(2 * d)
     end

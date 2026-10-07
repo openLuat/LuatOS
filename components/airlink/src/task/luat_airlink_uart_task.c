@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_airlink.h"

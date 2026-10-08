@@ -193,15 +193,22 @@ int luat_mplayer_play(luat_mplayer_t *m) {
     }
     if (!m->media) return -1;
     if (m->media_type == MEDIA_TYPE_MP4) {
-        if (m->decode_running) return 0;   /* 已在播放 */
-        if (movie_mp4_play((movie_mp4 *)m->media) != 0) {
+        movie_mp4 *mp4 = (movie_mp4 *)m->media;
+        int eos = (mp4->movie_status == MOVIE_MP4_STAT_EOS);
+        /* 播放中/暂停中重复 play 是空操作(不重播); EOS 后线程保持空转,
+         * decode_running 恒为 1, 若直接拦截则"播完后再点播放"永远无效,
+         * 故 EOS 状态放行, 复用空转线程重新 play。 */
+        if (m->decode_running && !eos) return 0;
+        if (movie_mp4_play(mp4) != 0) {
             printf("mplayer: movie_mp4_play failed\r\n");
             return -1;
         }
-        if (mplayer_start_mp4_thread(m) != 0) {
-            printf("mplayer: start decode thread failed\r\n");
-            movie_mp4_stop((movie_mp4 *)m->media);
-            return -1;
+        if (!m->decode_running) {
+            if (mplayer_start_mp4_thread(m) != 0) {
+                printf("mplayer: start decode thread failed\r\n");
+                movie_mp4_stop(mp4);
+                return -1;
+            }
         }
         /* 解码线程内联泵帧+渲染与帧节拍, 无需独立渲染线程 */
         return 0;

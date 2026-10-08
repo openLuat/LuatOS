@@ -132,7 +132,7 @@ mplayer.set_audio(player, true)    -- 恢复声音
 */
 static int l_mplayer_set_audio(lua_State *L) {
     LuaMediaPlayer *ud = (LuaMediaPlayer *)luaL_checkudata(L, 1, MP4_MOVIE_META);
-    int on = luaL_optinteger(L, 2, 0);
+    int on = lua_toboolean(L, 2);   /* main.lua 传 boolean, 不能用 luaL_optinteger */
     if (!ud->m) {
         lua_pushboolean(L, 0);
         return 1;

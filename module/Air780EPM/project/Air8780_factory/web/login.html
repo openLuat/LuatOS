@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#f0f5f9"><title>设备监控 · 登录</title>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#f0f5f9"><title>合宙设备运营台 · 登录</title>
 <style>
 :root{--primary:#1a73e8;--primary-dark:#1557b0;--bg:#f0f5f9;--card:#fff;--text:#1e293b;--muted:#64748b;--border:#e2e8f0;--radius:16px;--shadow:0 4px 24px rgba(0,0,0,0.06);font-family:'Segoe UI',system-ui,sans-serif}*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}.login-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:40px 32px;width:100%;max-width:400px}.login-card .brand{text-align:center;margin-bottom:28px}.login-card .brand h1{font-size:24px;font-weight:700;color:var(--text)}.login-card .brand p{color:var(--muted);font-size:14px;margin-top:4px}.login-btn{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:.2s}.login-btn:hover{background:var(--primary-dark)}.login-btn:disabled{opacity:.6;cursor:wait}.login-btn .spinner{display:none;width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}.login-btn.loading .spinner{display:inline-block}.login-btn.loading .btn-text{display:none}.error-msg{margin-top:16px;padding:12px;background:#fee2e2;color:#b91c1c;border-radius:10px;font-size:14px;display:none;text-align:center}.error-msg.show{display:block}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:480px){.login-card{padding:28px 20px}}
 </style>
 </head><body>
 <div class="login-card">
-  <div class="brand"><h1>📡 设备监控</h1><p>登录以管理您的设备</p></div>
+  <div class="brand"><img src="logo.jpg" alt="合宙" style="width:56px;height:56px;border-radius:12px;object-fit:cover;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:10px;"><h1>合宙设备运营台</h1><p>登录以管理您的设备</p></div>
   <button class="login-btn" id="loginBtn"><span class="spinner"></span><span class="btn-text">使用合宙账号登录</span></button>
+  <button class="login-btn" style="margin-top:10px;background:transparent;color:var(--primary);border:1px solid var(--primary);" onclick="location.href='index.html?demo=1'">免登录体验演示版</button>
   <div class="error-msg" id="errorMsg"></div>
 </div>
 <script>

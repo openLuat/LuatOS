@@ -88,8 +88,9 @@ Air8780_factory/
 
 ### 兼容其它型号的 tag19 命令（仅 Web 端兼容）
 
-Web 管理界面的「设备控制」页还提供两组兼容命令，经 tag 19（控制命令-下行）以字符串下发，
-用于同一 Web 端管理其它型号产品（8780 固件不做这些命令的解析，收到后回复未知命令，不影响现有功能）：
+Web 管理界面的「设备控制」页还提供若干兼容命令组（录音控制、录音查询、数据读取、继电器、三色LED），
+经 tag 19（控制命令-下行）下发，用于同一 Web 端管理其它型号产品（8780 固件不做这些命令的解析，
+收到后回复未知命令，不影响现有功能）：
 
 **录音控制 / 录音查询**（录音类设备 device_ctrl）：
 
@@ -118,8 +119,35 @@ Web 管理界面的「设备控制」页还提供两组兼容命令，经 tag 19
 | `read_imei` / `read_iccid` | 读取 IMEI / ICCID | imei / iccid |
 | `read_time` | 读取时间戳 | timestamp |
 
-查询类命令下发后 Web 端自动回读 tag 20（CONTROL_RESPONSE）及相关 tag 最新值：
-回复为 JSON 时按返回字段逐项展示，纯文本回复直接显示，目标 tag 数值按名称并入命令结果区。
+**继电器控制 / 三色LED**（8300/8301 工控板，JSON 载荷）：
+
+| 命令字 | 参数 | 动作 | 应答字段 |
+|--------|------|------|----------|
+| `relay_open` / `relay_close` / `relay_toggle` | `channel`(0~3) | 指定通道吸合 / 断开 / 翻转 | result、channel、relay |
+| `relay_all_open` / `relay_all_close` | - | 全部吸合 / 全部断开 | result、relay |
+| `relay_read` | - | 回读各路继电器状态 | result、relay |
+| `led_set` | `color`(red/green/blue/off) | 点亮指定颜色（三路互斥，仅 8300） | ok、color、led |
+| `led_off` / `led_read` | - | 全灭 / 回读当前颜色（仅 8300） | ok、led |
+
+### 载荷格式与型号差异
+
+同名 read_* 命令的载荷格式因型号而异，Web 端在「数据读取」组提供**格式开关**（选择持久化到浏览器本地）：
+
+| 格式 | 载荷示例 | 适用型号 |
+|------|----------|----------|
+| 文本 | `read_all` | iRTU 类、录音设备（纯文本命令字） |
+| JSON | `{"type":"read_all"}` | 8300（JSON 全量支持）、8301（**仅认 JSON**） |
+
+- 8300：11 条 `read_*` + 6 条 `relay_*` + 3 条 `led_*`，应答为 JSON（`ok`/`relay` 字符串 "1,0,1,0"/`color`/`led`），支持下行 Tag 19/21/1281
+- 8301：`read_all` + 6 条 `relay_*` + `read_temp/humi/vbat/cpu/csq/iccid/time` 共 14 条；
+  **不支持** `read_lat`/`read_lng`/`read_imei` 单项读取（read_all 应答中含这些字段）与 LED 命令；
+  应答带 `cmd` 回显 + `result`(success/fail) + `relay` 数组 `[1,0,0,0]`，仅认 JSON 载荷
+- 继电器通道参数 0~3（对应 4 路继电器）；8301 不传 `channel` 默认通道 0
+- 周期上报补充 tag：268 继电器状态（ASCII 逗号分隔）、783 ICCID、798 设备号(IMEI)、799 VBAT、1280 时间戳
+
+查询/控制类命令下发后 Web 端自动回读 tag 20（CONTROL_RESPONSE）及相关 tag 最新值：
+回复为 JSON 时按返回字段逐项展示（`relay` 数组展平为逗号分隔），纯文本回复直接显示，
+目标 tag 数值按名称并入命令结果区（与应答字段同名时自动去重）。
 
 ## Web管理界面
 
@@ -135,6 +163,7 @@ Web 管理界面的「设备控制」页还提供两组兼容命令，经 tag 19
 - LED控制（闪烁5秒/常亮/熄灭）
 - TTS语音播报
 - 录音控制/录音查询、数据读取兼容命令（其它型号产品，命令结果自动回显）
+- 继电器控制（通道0~3）与三色LED（8300/8301，JSON 载荷）；数据读取支持文本/JSON 格式切换
 
 ### 历史数据
 - 查看历史传感器数据

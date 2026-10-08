@@ -46,10 +46,15 @@ extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
 // UART RX overrun 标志: FIFO 溢出丢字节(帧界被破坏)时在驱动 ISR 内置位。
-// ccm42xx 由 luat_uart_ccm42xx.c 强定义并置位; 其它平台(如 ec7xx/780EHM)没有该驱动,
+// ccm42xx 由 luat_uart_ccm42xx.c 强定义并置位; 其它设备平台(如 ec7xx/780EHM)没有该驱动,
 // 此处用弱默认 0 兜底, 否则全平台共享代码链接报 undefined reference(2026-09-30 780EHM 编译实测)。
 // 弱默认=0 时 overrun 立即重同步不生效, 自动退回下方 AIRLINK_UART_RX_RESYNC_MS 看门狗。
+// PC 模拟器不编译 luat_uart_ccm42xx.c, 且 MSVC 不支持 __attribute__((weak)), 改为普通全局变量。
+#if defined(LUAT_BSP_PC)
+volatile uint32_t g_uart_rx_overrun = 0;
+#else
 volatile uint32_t g_uart_rx_overrun __attribute__((weak)) = 0;
+#endif
 
 static uint8_t basic_info[sizeof(luat_airlink_dev_info_t) + 64];
 typedef struct

@@ -10,6 +10,9 @@
 #include <string.h>
 
 #include "luat_videoplayer.h"
+#if defined(LUAT_USE_MP4PLAYER)
+#include "luat_mplayer.h"
+#endif
 
 #define LUAT_LOG_TAG "airui.video"
 #include "luat_log.h"
@@ -47,6 +50,7 @@ typedef struct {
  * backend 抽象层：
  * AirUI 组件统一走 open/read_frame/restart/close，
  * 后续可以接 videoplayer/ffmpeg/平台硬解而不改控件主逻辑。
+ * read_frame 为空表示后端自己送显（mplayer 的视频图层），控件不再拉 RGB565。
  */
 typedef struct airui_video_backend_ops {
     int (*open)(void **backend_ctx, const airui_video_open_opts_t *opts);
@@ -134,6 +138,37 @@ static void airui_video_stats_reset_window(airui_video_data_t *data);
 static void airui_video_stats_record_frame(airui_video_data_t *data);
 static void airui_video_timer_cb(lv_timer_t *timer);
 static int airui_video_sync_to_audio(airui_video_data_t *data);
+static bool airui_video_external_present(const airui_video_data_t *data);
+
+#if defined(LUAT_USE_MP4PLAYER)
+typedef struct {
+    luat_mplayer_t *player;
+    lv_coord_t last_x;
+    lv_coord_t last_y;
+    lv_coord_t last_w;
+    lv_coord_t last_h;
+    uint8_t rect_valid;
+} airui_video_mplayer_ctx_t;
+
+static int airui_video_mp_open(void **backend_ctx, const airui_video_open_opts_t *opts);
+static void airui_video_mp_close(void *backend_ctx);
+static int airui_video_mp_play(void *backend_ctx);
+static int airui_video_mp_pause(void *backend_ctx, bool pause);
+static int airui_video_mp_stop(void *backend_ctx);
+static void airui_video_mplayer_fit_size(lv_obj_t *video, airui_video_data_t *data);
+static void airui_video_mplayer_sync_rect(lv_obj_t *video, airui_video_data_t *data);
+static void airui_video_mplayer_on_timer(lv_obj_t *video, airui_video_data_t *data);
+
+static const airui_video_backend_ops_t g_airui_video_mplayer_ops = {
+    .open = airui_video_mp_open,
+    .close = airui_video_mp_close,
+    .read_frame = NULL,
+    .play = airui_video_mp_play,
+    .pause = airui_video_mp_pause,
+    .stop = airui_video_mp_stop,
+    .restart = airui_video_mp_stop,
+};
+#endif
 
 #if defined(LUAT_USE_VIDEOPLAYER)
 static int airui_video_vp_open(void **backend_ctx, const airui_video_open_opts_t *opts);
@@ -285,7 +320,7 @@ static airui_video_backend_t airui_video_parse_backend(lua_State *L, int idx, ai
     if (lua_type(L, -1) == LUA_TNUMBER) {
         int backend = (int)lua_tointeger(L, -1);
         lua_pop(L, 1);
-        if (backend >= AIRUI_VIDEO_BACKEND_AUTO && backend <= AIRUI_VIDEO_BACKEND_PLATFORM) {
+        if (backend >= AIRUI_VIDEO_BACKEND_AUTO && backend <= AIRUI_VIDEO_BACKEND_MPLAYER) {
             return (airui_video_backend_t)backend;
         }
         return def;
@@ -302,6 +337,9 @@ static airui_video_backend_t airui_video_parse_backend(lua_State *L, int idx, ai
         }
         if (strcmp(backend, "platform") == 0) {
             return AIRUI_VIDEO_BACKEND_PLATFORM;
+        }
+        if (strcmp(backend, "mplayer") == 0) {
+            return AIRUI_VIDEO_BACKEND_MPLAYER;
         }
         return AIRUI_VIDEO_BACKEND_AUTO;
     }
@@ -374,11 +412,31 @@ static int airui_video_select_backend(airui_video_data_t *data)
         data->format = airui_video_guess_format(data->src);
     }
 
-    /* auto 模式下先把 MJPG 路由到 videoplayer backend。 */
+    /* MP4 只走 mplayer。显式指定 videoplayer/ffmpeg/platform 视为不支持。 */
+    if (data->format == AIRUI_VIDEO_FORMAT_MP4_H264) {
+        if (data->backend != AIRUI_VIDEO_BACKEND_AUTO &&
+            data->backend != AIRUI_VIDEO_BACKEND_MPLAYER) {
+            return AIRUI_ERR_NOT_SUPPORTED;
+        }
+#if defined(LUAT_USE_MP4PLAYER)
+        data->backend = AIRUI_VIDEO_BACKEND_MPLAYER;
+        data->ops = &g_airui_video_mplayer_ops;
+        return AIRUI_OK;
+#else
+        return AIRUI_ERR_NOT_SUPPORTED;
+#endif
+    }
+
+    // mplayer 后端当前只支持 mp4 格式
+    if (data->backend == AIRUI_VIDEO_BACKEND_MPLAYER) {
+        return AIRUI_ERR_NOT_SUPPORTED;
+    }
+
+    /* auto 模式下把 MJPG / HZV 路由到 videoplayer backend。 */
     if (data->backend == AIRUI_VIDEO_BACKEND_AUTO) {
         if (data->format == AIRUI_VIDEO_FORMAT_AUTO ||
             data->format == AIRUI_VIDEO_FORMAT_MJPG ||
-            data->format == AIRUI_VIDEO_FORMAT_MP4_H264 ||
+            data->format == AIRUI_VIDEO_FORMAT_AVI_MJPG ||
             data->format == AIRUI_VIDEO_FORMAT_HZV) {
             data->backend = AIRUI_VIDEO_BACKEND_VIDEOPLAYER;
         }
@@ -675,6 +733,11 @@ static int airui_video_restart_and_prime(lv_obj_t *video, airui_video_data_t *da
         }
     }
 
+    /* mplayer 自己送显，没有可预览的 RGB565 帧。 */
+    if (airui_video_external_present(data)) {
+        return AIRUI_OK;
+    }
+
     /* stop()/EOF 后恢复时，先重置 backend，再立即解出首帧做预览。 */
     ret = airui_video_read_and_present(video, data, false);
     if (ret == AIRUI_VIDEO_STATUS_EOF) {
@@ -682,6 +745,269 @@ static int airui_video_restart_and_prime(lv_obj_t *video, airui_video_data_t *da
     }
     return ret;
 }
+
+static bool airui_video_external_present(const airui_video_data_t *data)
+{
+    return data != NULL && data->ops != NULL && data->ops->read_frame == NULL;
+}
+
+#if defined(LUAT_USE_MP4PLAYER)
+/* 与 mplayer.open 相同：先初始化 DAC，否则 dac_sound_start 因未初始化直接返回。 */
+extern int sound_dev_init(void);
+
+static int airui_video_mp_open(void **backend_ctx, const airui_video_open_opts_t *opts)
+{
+    airui_video_mplayer_ctx_t *ctx;
+    luat_mplayer_t *player;
+    int sound_ret;
+
+    if (backend_ctx == NULL || opts == NULL || opts->src == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    if (opts->format != AIRUI_VIDEO_FORMAT_MP4_H264 &&
+        opts->format != AIRUI_VIDEO_FORMAT_AUTO) {
+        return AIRUI_ERR_NOT_SUPPORTED;
+    }
+
+    sound_ret = sound_dev_init();
+    if (sound_ret != 0) {
+        LLOGW("video: sound_dev_init returned %d", sound_ret);
+    }
+
+    player = luat_mplayer_open(opts->src);
+    if (player == NULL) {
+        return AIRUI_ERR_INIT_FAILED;
+    }
+    /* 容器打开时默认出声，播放线程按这个标志喂音频。 */
+    luat_mplayer_set_audio_enable(player, 1);
+
+    ctx = (airui_video_mplayer_ctx_t *)luat_heap_malloc(sizeof(airui_video_mplayer_ctx_t));
+    if (ctx == NULL) {
+        luat_mplayer_close(player);
+        return AIRUI_ERR_NO_MEM;
+    }
+    memset(ctx, 0, sizeof(airui_video_mplayer_ctx_t));
+    ctx->player = player;
+    *backend_ctx = ctx;
+    return AIRUI_OK;
+}
+
+static void airui_video_mp_close(void *backend_ctx)
+{
+    airui_video_mplayer_ctx_t *ctx = (airui_video_mplayer_ctx_t *)backend_ctx;
+
+    if (ctx == NULL) {
+        return;
+    }
+    if (ctx->player != NULL) {
+        luat_mplayer_set_layer_visible(ctx->player, 0);
+        luat_mplayer_close(ctx->player);
+        ctx->player = NULL;
+    }
+    luat_heap_free(ctx);
+}
+
+static int airui_video_mp_play(void *backend_ctx)
+{
+    airui_video_mplayer_ctx_t *ctx = (airui_video_mplayer_ctx_t *)backend_ctx;
+
+    if (ctx == NULL || ctx->player == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    /* 暂停时解码线程还在，play() 会直接返回，这里改走 resume。 */
+    if (luat_mplayer_is_paused(ctx->player) == 1) {
+        return luat_mplayer_resume(ctx->player) == 0 ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
+    }
+    luat_mplayer_set_layer_visible(ctx->player, 1);
+    return luat_mplayer_play(ctx->player) == 0 ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
+}
+
+static int airui_video_mp_pause(void *backend_ctx, bool pause)
+{
+    airui_video_mplayer_ctx_t *ctx = (airui_video_mplayer_ctx_t *)backend_ctx;
+    int ret;
+
+    if (ctx == NULL || ctx->player == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    if (pause) {
+        ret = luat_mplayer_pause(ctx->player);
+    } else {
+        ret = luat_mplayer_resume(ctx->player);
+    }
+    return ret == 0 ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
+}
+
+static int airui_video_mp_stop(void *backend_ctx)
+{
+    airui_video_mplayer_ctx_t *ctx = (airui_video_mplayer_ctx_t *)backend_ctx;
+
+    if (ctx == NULL || ctx->player == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    /* 停掉解码线程。EOS 后线程仍在空转，只调 play() 不会从头再播。 */
+    return luat_mplayer_stop(ctx->player) == 0 ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
+}
+
+static void airui_video_mplayer_hide(airui_video_data_t *data)
+{
+    airui_video_mplayer_ctx_t *ctx;
+
+    if (data == NULL) {
+        return;
+    }
+    ctx = (airui_video_mplayer_ctx_t *)data->backend_ctx;
+    if (ctx == NULL || ctx->player == NULL) {
+        return;
+    }
+    luat_mplayer_set_layer_visible(ctx->player, 0);
+}
+
+static void airui_video_mplayer_fit_size(lv_obj_t *video, airui_video_data_t *data)
+{
+    airui_video_mplayer_ctx_t *ctx;
+    luat_mplayer_info_t info;
+
+    if (video == NULL || data == NULL || data->size_checked) {
+        return;
+    }
+    ctx = (airui_video_mplayer_ctx_t *)data->backend_ctx;
+    if (ctx == NULL || ctx->player == NULL) {
+        return;
+    }
+    if (luat_mplayer_info(ctx->player, &info) != 0 || info.width <= 0 || info.height <= 0) {
+        return;
+    }
+
+    data->size_checked = true;
+    data->frame_width = (uint16_t)info.width;
+    data->frame_height = (uint16_t)info.height;
+    if (data->requested_width != (lv_coord_t)info.width ||
+        data->requested_height != (lv_coord_t)info.height) {
+        LLOGW("video: scaling is not supported yet, requested size=%dx%d, video size=%dx%d, force reset widget size to %dx%d",
+              (int)data->requested_width,
+              (int)data->requested_height,
+              info.width,
+              info.height,
+              info.width,
+              info.height);
+        lv_obj_set_size(video, (lv_coord_t)info.width, (lv_coord_t)info.height);
+        ctx->rect_valid = 0;
+    }
+}
+
+
+static void airui_video_mplayer_sync_rect(lv_obj_t *video, airui_video_data_t *data)
+{
+    airui_video_mplayer_ctx_t *ctx;
+    lv_area_t area;
+    int x;
+    int y;
+    int w;
+    int h;
+
+    if (video == NULL || data == NULL) {
+        return;
+    }
+    ctx = (airui_video_mplayer_ctx_t *)data->backend_ctx;
+    if (ctx == NULL || ctx->player == NULL) {
+        return;
+    }
+
+    /* 只在第一次定位时强制布局。播放中每拍都 update_layout 会打断正在处理的触摸。 */
+    if (!ctx->rect_valid) {
+        lv_obj_update_layout(video);
+    }
+    lv_obj_get_coords(video, &area);
+    x = (int)area.x1;
+    y = (int)area.y1;
+    w = (int)(area.x2 - area.x1 + 1);
+    h = (int)(area.y2 - area.y1 + 1);
+    /* mplayer 把负坐标当成居中，控件贴边或超出屏幕时钳到 0。 */
+    if (x < 0) {
+        x = 0;
+    }
+    if (y < 0) {
+        y = 0;
+    }
+    if (w < 1) {
+        w = 1;
+    }
+    if (h < 1) {
+        h = 1;
+    }
+    if (ctx->rect_valid &&
+        ctx->last_x == (lv_coord_t)x && ctx->last_y == (lv_coord_t)y &&
+        ctx->last_w == (lv_coord_t)w && ctx->last_h == (lv_coord_t)h) {
+        return;
+    }
+    if (luat_mplayer_set_rect(ctx->player, x, y, w, h) != 0) {
+        return;
+    }
+    ctx->last_x = (lv_coord_t)x;
+    ctx->last_y = (lv_coord_t)y;
+    ctx->last_w = (lv_coord_t)w;
+    ctx->last_h = (lv_coord_t)h;
+    ctx->rect_valid = 1;
+}
+
+static void airui_video_mplayer_on_timer(lv_obj_t *video, airui_video_data_t *data)
+{
+    airui_video_mplayer_ctx_t *ctx;
+    luat_mplayer_info_t info;
+
+    if (video == NULL || data == NULL) {
+        return;
+    }
+    ctx = (airui_video_mplayer_ctx_t *)data->backend_ctx;
+    if (ctx == NULL || ctx->player == NULL) {
+        return;
+    }
+
+    /* 播放中只看结束状态，不改布局、不调 set_layer，避免打断触摸。 */
+    if (luat_mplayer_info(ctx->player, &info) != 0) {
+        data->playing = false;
+        lv_timer_pause(data->timer);
+        LLOGE("video: mplayer info failed");
+        return;
+    }
+
+    if (info.timestamp_ms > 0) {
+        data->audio_pts_ms = (uint64_t)info.timestamp_ms;
+        data->video_pts_ms = data->audio_pts_ms;
+    }
+    data->clock_mode = info.audio_sample_rate > 0 ? 1u : 0u;
+    if (info.fps > 0) {
+        data->fps_x100 = (uint32_t)info.fps * 100u;
+    }
+
+    if (info.status != LUAT_MPLAYER_STAT_EOS) {
+        return;
+    }
+
+    if (data->loop) {
+        ctx->rect_valid = 0;
+        if (airui_video_mp_stop(ctx) != AIRUI_OK || airui_video_mp_play(ctx) != AIRUI_OK) {
+            data->playing = false;
+            lv_timer_pause(data->timer);
+            LLOGE("video: mplayer loop restart failed");
+            return;
+        }
+        airui_video_mplayer_sync_rect(video, data);
+        return;
+    }
+
+    data->playing = false;
+    data->eof = true;
+    lv_timer_pause(data->timer);
+    {
+        airui_component_meta_t *complete_meta = airui_component_meta_get(video);
+        if (complete_meta != NULL && complete_meta->ctx != NULL) {
+            airui_component_call_callback(complete_meta, AIRUI_EVENT_COMPLETE, complete_meta->ctx->L);
+        }
+    }
+}
+#endif
 
 static void airui_video_timer_cb(lv_timer_t *timer)
 {
@@ -703,6 +1029,12 @@ static void airui_video_timer_cb(lv_timer_t *timer)
     if (data == NULL || data->timer != timer || !data->playing) {
         return;
     }
+#if defined(LUAT_USE_MP4PLAYER)
+    if (data->backend == AIRUI_VIDEO_BACKEND_MPLAYER) {
+        airui_video_mplayer_on_timer(video, data);
+        return;
+    }
+#endif
     #if defined(LUAT_USE_VIDEOPLAYER)
     ret = airui_video_sync_to_audio(data);
     if (ret == AIRUI_VIDEO_STATUS_WAIT) {
@@ -742,10 +1074,9 @@ static int airui_video_vp_open(void **backend_ctx, const airui_video_open_opts_t
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    /* videoplayer backend 当前接 MJPG、HZV 与可选的 MP4/H264。 */
+    /* videoplayer backend 接 MJPG 与 HZV。MP4 由 mplayer 后端播放。 */
     if (!(opts->format == AIRUI_VIDEO_FORMAT_AUTO ||
           opts->format == AIRUI_VIDEO_FORMAT_MJPG ||
-          opts->format == AIRUI_VIDEO_FORMAT_MP4_H264 ||
           opts->format == AIRUI_VIDEO_FORMAT_HZV)) {
         return AIRUI_ERR_NOT_SUPPORTED;
     }
@@ -1129,6 +1460,17 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
         return NULL;
     }
 
+    /* mplayer 与 direct_present 都占用 layer 1，MP4 只走 mplayer 的视频图层。 */
+    if (data->direct_render && data->format == AIRUI_VIDEO_FORMAT_MP4_H264) {
+        LLOGW("video: direct_render ignored for mp4, mplayer uses the video layer");
+        data->direct_render = false;
+    }
+
+    /* 画面在硬件图层上，这个 image 不参与点击，避免挡住旁边的按钮。 */
+    if (data->backend == AIRUI_VIDEO_BACKEND_MPLAYER) {
+        lv_obj_remove_flag(video, LV_OBJ_FLAG_CLICKABLE);
+    }
+
     if (data->direct_render) {
         /* 第二图层直推吃的是 RGB565 解码帧，MJPG / AVI-MJPG / HZV 都走同一条 present 路径。 */
         if (data->format != AIRUI_VIDEO_FORMAT_MJPG &&
@@ -1170,8 +1512,17 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
         return NULL;
     }
 
-    /* timer 默认先暂停，auto_play 再决定是否启动。 */
-    data->timer = lv_timer_create(airui_video_timer_cb, data->interval, video);
+    /* timer 默认先暂停，auto_play 再决定是否启动。
+     * mplayer 的定时器只轮询 EOS，放慢到 200ms，不跟视频帧走。 */
+    {
+        uint32_t period = data->interval;
+#if defined(LUAT_USE_MP4PLAYER)
+        if (data->backend == AIRUI_VIDEO_BACKEND_MPLAYER) {
+            period = 200;
+        }
+#endif
+        data->timer = lv_timer_create(airui_video_timer_cb, period, video);
+    }
     if (data->timer == NULL) {
         airui_component_meta_free(meta);
         lv_obj_delete(video);
@@ -1179,8 +1530,17 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
     }
     lv_timer_pause(data->timer);
 
-    /* 创建阶段先解一帧，确保控件未播放时也能看到首帧预览。 */
-    ret = airui_video_read_and_present(video, data, false);
+    /* mplayer 自己送显，创建阶段不拉帧。未 auto_play 时画面要等 play()。 */
+    if (airui_video_external_present(data)) {
+#if defined(LUAT_USE_MP4PLAYER)
+        airui_video_mplayer_fit_size(video, data);
+        airui_video_mplayer_sync_rect(video, data);
+#endif
+        ret = AIRUI_OK;
+    } else {
+        /* 创建阶段先解一帧，确保控件未播放时也能看到首帧预览。 */
+        ret = airui_video_read_and_present(video, data, false);
+    }
     if (ret == AIRUI_VIDEO_STATUS_EOF) {
         ret = AIRUI_OK;
     }
@@ -1229,6 +1589,11 @@ int airui_video_play(lv_obj_t *video)
     if (!data->playing) {
         airui_video_stats_reset_window(data);
     }
+#if defined(LUAT_USE_MP4PLAYER)
+    if (data->backend == AIRUI_VIDEO_BACKEND_MPLAYER) {
+        airui_video_mplayer_sync_rect(video, data);
+    }
+#endif
     if (data->ops->play != NULL && data->ops->play(data->backend_ctx) != AIRUI_OK) {
         return AIRUI_ERR_INIT_FAILED;
     }
@@ -1307,6 +1672,14 @@ int airui_video_stop(lv_obj_t *video)
     if (data->ops->stop != NULL && data->ops->stop(data->backend_ctx) != AIRUI_OK) {
         return AIRUI_ERR_INIT_FAILED;
     }
+#if defined(LUAT_USE_MP4PLAYER)
+    if (data->backend == AIRUI_VIDEO_BACKEND_MPLAYER) {
+        /* 停掉后收起视频层，避免最后一帧继续盖住界面。没有首帧预览。 */
+        airui_video_mplayer_hide(data);
+        data->eof = false;
+        return AIRUI_OK;
+    }
+#endif
     /* stop 的语义是停止并回到首帧，而不是仅仅暂停当前帧。 */
     ret = airui_video_restart_and_prime(video, data);
     if (ret != AIRUI_OK) {

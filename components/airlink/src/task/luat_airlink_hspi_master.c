@@ -363,7 +363,8 @@ int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
     if (cmd_id) *cmd_id = cmd_id_val;
     *resp_len = pld_len_val;
     if (resp) memcpy(resp, pdata + 4, pld_len_val);
-    if (recovered) LLOGI("HSPI INT miss recovered cmd=0x%04X len=%u", cmd_id_val, pld_len_val);
+    // INT miss 兜底属正常自愈, 关日志防刷屏(需诊断时放开)
+    // if (recovered) LLOGI("HSPI INT miss recovered cmd=0x%04X len=%u", cmd_id_val, pld_len_val);
     return 0;
 }
 

@@ -28,7 +28,7 @@ typedef enum {
 typedef enum {
     LUAT_VP_FMT_MJPG      = 0,  /* Raw MJPG stream */
     LUAT_VP_FMT_AVI_MJPG  = 1,  /* AVI container with MJPG (reserved) */
-    LUAT_VP_FMT_MP4_H264  = 2,  /* MP4 container with H264 (reserved) */
+    LUAT_VP_FMT_MP4_H264  = 2,  /* MP4 container; videoplayer no longer decodes it */
     LUAT_VP_FMT_HZV       = 3,  /* HZV container with MJPEG + audio */
 } luat_vp_format_t;
 

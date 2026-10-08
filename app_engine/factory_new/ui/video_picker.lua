@@ -102,15 +102,27 @@ function M.parent_path(path)
     return parent
 end
 
+-- 分页读全目录（io.lsdir 单次条数有上限，按 offset 翻页取全）
+local function lsdir_all(dir_path)
+    local files, offset = {}, 0
+    while offset < 1000 do
+        local ok, page = io.lsdir(dir_path, 50, offset)
+        if type(ok) == "table" and page == nil then page = ok; ok = true end
+        if not ok or type(page) ~= "table" or #page == 0 then break end
+        for _, f in ipairs(page) do files[#files + 1] = f end
+        offset = offset + #page
+    end
+    return files
+end
+
 --[[列出目录下的子目录与可播放视频（目录在前、按名字排序）
 luadb 平铺名按当前目录前缀归位，剩余首段合成子目录；根目录补 luadb 目录项
 @return table items, number 原始条目数]]
 function M.list_items(dir_path)
-    local ok, files = io.lsdir(dir_path, 200, 0)
-    if type(ok) == "table" and files == nil then files = ok; ok = true end
+    local files = lsdir_all(dir_path)
     -- 尾斜杠兜底重试
-    if (not ok or not files or #files == 0) and #dir_path > 1 and dir_path:sub(-1) == "/" then
-        ok, files = io.lsdir((dir_path:gsub("/+$", "")), 200, 0)
+    if (not files or #files == 0) and #dir_path > 1 and dir_path:sub(-1) == "/" then
+        files = lsdir_all((dir_path:gsub("/+$", "")))
     end
 
     -- 平铺名归位：前缀过滤后取剩余首段，有后续段则合成子目录
@@ -158,8 +170,7 @@ function M.list_items(dir_path)
         items[#items + 1] = { name = "luadb", is_dir = true, path = "/luadb/" }
     end
 
-    -- 过滤：目录全保留；/luadb 下全部文件可见（非视频灰显），其余目录只留视频
-    local in_luadb = (dir_path:sub(1, 7) == "/luadb/")
+    -- 过滤：目录全保留，文件只留可播视频
     local out = {}
     for _, it in ipairs(items) do
         if it.is_dir then
@@ -169,17 +180,19 @@ function M.list_items(dir_path)
             local ext = it.name:match("%.([^%.]+)$")
             if ext then ext = ext:lower() end
             it.playable = (ext ~= nil and VIDEO_EXTS[ext] == true)
-            if it.playable or in_luadb then
+            if it.playable then
                 out[#out + 1] = it
             end
         end
     end
     if #out == 0 then
         -- 带原始计数便于排查
-        log.warn("video_picker", "无可播内容", dir_path, "raw_ok=", ok, "raw_n=", files and #files or -1)
+        log.warn("video_picker", "无可播内容", dir_path, "raw_n=", files and #files or 0)
     end
     table.sort(out, function(a, b)
-        if a.is_dir ~= b.is_dir then return a.is_dir end
+        local ra = a.is_dir and 0 or (a.playable and 1 or 2)
+        local rb = b.is_dir and 0 or (b.playable and 1 or 2)
+        if ra ~= rb then return ra < rb end
         return a.name < b.name
     end)
     return out, (files and #files or 0)

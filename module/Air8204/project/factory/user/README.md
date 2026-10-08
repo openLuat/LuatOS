@@ -156,14 +156,13 @@ main.lua           仅定义 PROJECT / VERSION / PRODUCT_KEY，require "boot"，
 
 ## 八、数据中心下发格式
 
-| 命令字             | 功能                             |
-| ------------------ | -------------------------------- |
-| `recording`        | 远程开启录音                     |
-| `not_recording`    | 远程关闭录音                     |
-| `record_local`     | 恢复本地 GPIO22 开关控制录音     |
-| `get_info`         | 读取全部基础信息（聚合一包上报） |
-| `get_version`      | 读取固件版本（1027）             |
-| `get_battery`      | 读取电池电量（771）              |
-| `get_signal`       | 读取 4G 信号质量（782）          |
-| `get_record_count` | 读取录音文件数量（797）          |
+| 命令字             | 功能                         |
+| ------------------ | ---------------------------- |
+| `recording`        | 远程开启录音                 |
+| `not_recording`    | 远程关闭录音                 |
+| `record_local`     | 恢复本地 GPIO22 开关控制录音 |
+| `get_version`      | 读取固件版本（1027）         |
+| `get_battery`      | 读取电池电量（771）          |
+| `get_signal`       | 读取 4G 信号质量（782）      |
+| `get_record_count` | 读取录音文件数量（797）      |
 

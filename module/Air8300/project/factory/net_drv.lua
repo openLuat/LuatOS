@@ -1,7 +1,7 @@
 --[[
 @module  net_drv
 @summary 多网卡驱动（以太网手动 + 4G exnetif + WiFi 手动）
-@version 2.0
+@version 1.0
 @date    2026.06.10
 ]]
 

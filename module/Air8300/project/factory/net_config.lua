@@ -1,7 +1,7 @@
 --[[
 @module  net_config
 @summary 网络配置管理 — fskv 持久化存储
-@version 1.3
+@version 1.0
 @date    2026.06.09
 ]]
 

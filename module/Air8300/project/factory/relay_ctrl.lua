@@ -2,7 +2,7 @@
 @module  relay_ctrl
 @summary 485继电器控制模块（隔离口 UART1）
 @version 1.0
-@date    2026.09.24
+@date    2026.10.08
 @usage
 本功能模块演示的内容为：
 1、在隔离485（UART1）上以 Modbus RTU 主站模式控制 4 路继电器模块（从站地址1）
@@ -74,10 +74,11 @@ for i = 1, CH_COUNT do relay_state[i] = 0 end
 local read_fail_streak = 0
 local last_state_str = nil
 -- 485 原始帧调试开关：需要抓取 Modbus 收发原始字节时置为 true，
--- 日志 TAG 为 exmodbus.debug（打印接收到的原始数据），用于定位丢字节/帧不完整问题。
--- 【临时开启】当前现场需抓取库层原始帧以判定"丢末字节"发生在 UART 层还是库层，
---           抓取完成后请改回 false（该开关会打印全部收发原始字节，比较占日志）。
-local DEBUG_RAW = true
+-- 日志 TAG 为 exmodbus.debug（打印收发原始数据），用于定位丢字节/帧不完整问题。
+-- 注意：这是【库级全局开关】，开启后 RTU 主站与 TCP 主站的收发原始帧都会打印，
+--       每笔事务打印 2~3 行，非常占日志，仅在定位通信问题时临时开启，
+--       日常运行（出货固件）必须保持 false。
+local DEBUG_RAW = false
 exmodbus.debug(DEBUG_RAW)
 
 -- 创建 RTU 主站实例

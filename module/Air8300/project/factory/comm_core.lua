@@ -1,8 +1,8 @@
 --[[
 @module  comm_core
 @summary Modbus RTU 主站公共封装层
-@version 1.3
-@date    2026.09.24
+@version 1.0
+@date    2026.10.08
 @usage
 本文件为 Modbus RTU 主站公共封装层，统一封装 exmodbus 主站实例的创建、读操作、写操作，
 供 temp_sensor（温湿度采集）与 relay_ctrl（继电器控制）两个模块复用，避免重复代码。
@@ -57,6 +57,23 @@ local BUS_SILENCE_MS = 50
 local LOG_FAIL_THRESHOLD = 3
 -- 各操作的连续失败计数（key 为操作标识，成功时归零）
 local fail_streak = {}
+
+-- 末字节自愈日志降噪间隔。
+-- 背景：现场存在"应答末字节（CRC 高字节，值恰为 0x00）未进入接收缓冲"的常态现象，
+--       本书已用 CRC 反推补全自愈，数据完全可用、不影响业务；但若每次自愈都打印，
+--       2 秒周期的继电器回读会持续刷屏，掩盖真正有用的信息。
+--       故改为"首次打印 1 条 + 之后每 N 次打印 1 条"，既反映该现象是否仍在发生，又保持日志干净。
+local TAIL_FIX_LOG_INTERVAL = 300
+-- 末字节自愈累计次数（不归零，供降噪判断与故障持续观察）
+local tail_fix_count = 0
+
+-- 记录一次"末字节自愈"（按 TAIL_FIX_LOG_INTERVAL 降噪输出）
+local function log_tail_fix()
+    tail_fix_count = tail_fix_count + 1
+    if tail_fix_count == 1 or tail_fix_count % TAIL_FIX_LOG_INTERVAL == 0 then
+        log.info("comm_core", "应答末字节丢失, 已通过 CRC 反推补全, 累计:", tail_fix_count, "次")
+    end
+end
 
 -- 字节串转 HEX 字符串（调试打印用）
 function M.hex(s)
@@ -114,12 +131,6 @@ local function try_recover_tail(resp)
 end
 
 -- 应答帧校验（长度 + 从站地址 + 功能码 + CRC），并支持"末字节丢失"的自愈恢复
--- @param resp string 原始应答帧
--- @param slave_id number 期望的从站地址
--- @param func_code number 期望的功能码（注意：读线圈是 exmodbus.READ_COILS(0x01)，
---                  不是寄存器类型常量 exmodbus.COIL_STATUS(0)）
--- @param expect_len number|nil 期望的完整帧字节数（含 2 字节 CRC）；传 nil 时退化为"CRC 优先"的兼容逻辑
--- @return boolean ok, string frame（ok=true 时 frame 为通过校验的完整帧）
 local function check_and_fix(resp, slave_id, func_code, expect_len)
     if type(resp) ~= "string" or #resp < 4 then
         return false, resp
@@ -136,8 +147,7 @@ local function check_and_fix(resp, slave_id, func_code, expect_len)
             -- 仅缺少最后 1 个字节 → 尝试 CRC 反推补全（让自愈逻辑真正生效）
             local fixed = try_recover_tail(resp)
             if fixed then
-                log.warn("comm_core", "应答末字节丢失, 已通过 CRC 反推补全, 原长度:", #resp,
-                    "补全后长度:", #fixed)
+                log_tail_fix()
                 return true, fixed
             end
             log.warn("comm_core", "应答帧少 1 字节且 CRC 反推补全失败, 实际长度:", #resp,
@@ -163,7 +173,7 @@ local function check_and_fix(resp, slave_id, func_code, expect_len)
     end
     local fixed = try_recover_tail(resp)
     if fixed then
-        log.warn("comm_core", "应答末字节丢失, 已通过 CRC 反推补全, 原长度:", #resp)
+        log_tail_fix()
         return true, fixed
     end
     return false, resp
@@ -208,13 +218,7 @@ function M.create_master(cfg)
         log.error("comm_core", "RTU 主站创建失败, uart_id=", cfg.uart_id)
         return nil
     end
-    -- 【V1.2 关键修复】补写 concat_timeout。
-    -- exmodbus RTU 库的 modbus:new() 只从 config 拷贝 mode/uart_id/波特率/方向脚等字段，
-    -- 唯独把实例的 concat_timeout 固定写成 nil（库内 "obj.concat_timeout = nil"），
-    -- 于是库里 "if instance.concat_timeout then 启动拼接定时器 else 立即处理" 永远走 else 分支：
-    -- 串口回调中只要当场读不到更多字节，就把已收到的片段当成完整帧交给解析，
-    -- 造成"响应报文长度不足"/"数据长度不匹配，期望: 4 实际: -1"等间歇性失败（重试后常能成功）。
-    -- 实例是普通 table（__metatable 保护的是元表，不阻止字段赋值），此处直接补写即可生效。
+
     if cfg.concat_timeout then
         master.concat_timeout = cfg.concat_timeout
     end

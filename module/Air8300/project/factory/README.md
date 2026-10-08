@@ -114,7 +114,7 @@ TEST_DONE#                   标记完成 → 3 秒后重启进入用户模式
 | `led:off` / `led_off` | 全灭 |
 | `led` / `led_read` | 回读 LED 当前状态 |
 | `relay:open,0` / `relay:close,1` / `relay:toggle,2` | 继电器开 / 关 / 翻转（通道 0~3） |
-| `relay:read` / `read_all` | 回读继电器状态 / 读取全部数据 |
+| `relay:read` | 回读继电器状态 |
 
 > 分隔符支持 `:`、`,`、`#`；命令名不区分大小写；无法识别的载荷会被忽略并打印「无效命令」（不改变设备状态）。
 

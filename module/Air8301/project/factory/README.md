@@ -276,7 +276,7 @@ hw_reload.png
 ### 8.2 下行命令（JSON，经 CONTROL_COMMAND / IRTU_DOWN 下发）
 
 ```
-read_all / relay_open{channel} / relay_close{channel} / relay_toggle{channel}
+relay_open{channel} / relay_close{channel} / relay_toggle{channel}
 relay_all_open / relay_all_close / relay_read
 read_temp / read_humi / read_vbat / read_cpu / read_csq / read_iccid / read_time
 ```

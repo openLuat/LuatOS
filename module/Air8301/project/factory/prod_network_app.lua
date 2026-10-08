@@ -1,7 +1,7 @@
 --[[
 @module  prod_network_app
 @summary 网络管理模块（产测模式），使用 exnetif 管理多网优先级
-@version 1.0
+@version 2.0
 @date    2026.08.04
 @version_note 产测专属：双网口按需 DHCP（由 ETH_TEST 指令启动；业务模式为静态 IP + 网页 + TCP从站）
 @usage

@@ -1,14 +1,14 @@
 --[[
 @module  exd_nv3052c_rgb
 @summary NV3052C 显示IC初始化扩展库（RGB 接口）
-@version 1.0
+@version 1.1
 @date    2026.09.29
 @author  江访
 @usage
 本文件为 NV3052C 显示 IC（RGB 接口）的显示IC初始化扩展库，核心业务逻辑为：
 1、显示初始化：复位 + IC 寄存器初始化 + RGB 时序配置 + 帧缓冲分配（lcd 后端）
 2、双后端自动适配：优先使用display核心库初始化，固件不支持display核心库就使用lcd核心库初始化
-3、核心库内置面板直调 / 库内自带序列（use_builtin_ic，默认 true 用内置）
+3、核心库内置面板直调 / 库内自带序列（use_builtin_ic，默认 false 用自带序列）
 
 本扩展库单文件独立，拷本文件一个即可在工程中使用。
 初始化参数不传时使用内置默认值，传入则覆盖默认值。
@@ -19,6 +19,10 @@
 3、exd_nv3052c_rgb.version()：扩展库版本号查询
 
 -- 版本更新说明
+-- 版本号：202609301000
+-- 1、更新时间：2026-09-30
+-- 2、更新内容
+--   - use_builtin_ic 默认改为 false，库内自带序列优先（真机实测：核心库内置序列与面板批次不匹配时黑屏）；补充触摸初始化注意事项
 -- 版本号：202609291000（正式版）
 -- 1、更新时间：2026-09-29
 -- 2、更新内容
@@ -27,7 +31,7 @@
 local M = {}
 
 -- 扩展库版本号，格式 yyyymmddhhmm
-local VERSION = "202609291000"
+local VERSION = "202609301000"
 
 -- 显示 IC 固有参数（分辨率、时序、总线时钟、序列开关、核心库内置型号名）
 local ic_info = {
@@ -218,6 +222,7 @@ M.defaults = {
     pin_sda = 22,               -- IC 初始化 SPI 数据
     pin_cs = 2,                 -- IC 初始化 SPI 片选
     screen_size = 5.0,          -- 物理尺寸 5 英寸
+    use_builtin_ic = false,      -- 默认用库内自带初始化序列（实测可靠；核心库内置序列面向其他批次面板）
 }
 
 -- 运行状态缓存（模块级局部变量）
@@ -301,7 +306,7 @@ local function do_init(params)
         log.info("exd_nv3052c_rgb", "PC 模拟器，跳过显示初始化")
         return true, "display"
     end
-    -- use_builtin_ic 默认 true：核心库内置型号优先直调核心库接口
+    -- use_builtin_ic：M.defaults 默认 false 用库内自带序列；传 true 直调核心库内置型号
     local use_builtin = params.use_builtin_ic ~= false
     if backend == "display" then
         local cfg = {

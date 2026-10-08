@@ -1353,7 +1353,7 @@ static int l_audio_config(lua_State *L) {
     luat_audio_driver_probe_t probe;
     probe.probe_id = luaL_optinteger(L, 4, 0);
     luat_audio_driver_ctrl_t *ctrl = luat_audio_driver_probe(probe.probe_id ? &probe : NULL);
-    if (!ctrl) {
+    if (!ctrl || !ctrl->opts->config_private_param) {
         lua_pushboolean(L, 0);
         return 1;
     }

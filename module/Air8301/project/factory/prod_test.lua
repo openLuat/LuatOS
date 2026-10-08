@@ -445,6 +445,16 @@ local procTable = {
         sys.publish("DO_SET_REQUEST", ch, state)
         return "OK"
     end,
+    ["LED"] = function(id, findCom, data)
+        -- 状态灯：LED,1# 4G灯+WiFi灯全亮 / LED,0# 全灭
+        local onoff = tonumber(data)
+        if not onoff or (onoff ~= 0 and onoff ~= 1) then
+            return "ERROR"
+        end
+        sys.publish("LED_SET_REQUEST", 1, onoff)  -- 4G灯
+        sys.publish("LED_SET_REQUEST", 2, onoff)  -- WiFi灯
+        return "OK"
+    end,
     ["FLASH_TEST"] = function(id, findCom, data)
         -- SPI NAND Flash 写读对比，含 sys.wait，走 CONTROL 事件异步
         sys.publish("CONTROL", "FLASH_TEST", id)

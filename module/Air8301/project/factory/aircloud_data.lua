@@ -563,15 +563,7 @@ local function task_cmd_executor()
         if type(cmd) == "table" and cmd.type then
             -- 构建应答
             local resp = { cmd = cmd.type }
-            if cmd.type == "read_all" then
-                adc.open(adc.CH_CPU); resp.cpu_temp = (adc.get(adc.CH_CPU) or 0) / 1000; adc.close(adc.CH_CPU)
-                adc.open(adc.CH_VBAT); resp.vbat = (adc.get(adc.CH_VBAT) or 0) / 1000; adc.close(adc.CH_VBAT)
-                resp.temperature = rtu_temp or 0; resp.humidity = rtu_hum or 0
-                resp.latitude = lat or ""; resp.longitude = lng or ""
-                resp.csq = mobile.csq() or 0; resp.imei = mobile.imei() or ""; resp.iccid = mobile.iccid() or ""
-                resp.relay = relay_state
-                resp.timestamp = os.time()
-            elseif cmd.type == "relay_open" then
+            if cmd.type == "relay_open" then
                 local ch = cmd.channel or 0
                 local ok_exec = relay_ctrl.open(ch)
                 resp.relay = relay_ctrl.get_state()

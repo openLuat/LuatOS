@@ -94,6 +94,7 @@ typedef enum {
     AIRUI_VIDEO_BACKEND_VIDEOPLAYER,
     AIRUI_VIDEO_BACKEND_FFMPEG,
     AIRUI_VIDEO_BACKEND_PLATFORM,
+    AIRUI_VIDEO_BACKEND_MPLAYER,
 } airui_video_backend_t;
 
 /** Video 解码模式 */

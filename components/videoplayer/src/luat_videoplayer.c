@@ -2,7 +2,7 @@
  * luat_videoplayer.c - Video player core implementation
  *
  * Handles MJPG stream parsing and decoder dispatching.
- * MP4+H264 playback is supported when LUAT_USE_MP4PLAYER is defined.
+ * MP4 is not decoded here; AirUI plays it through the mplayer backend.
  */
 
 #include "luat_videoplayer.h"
@@ -32,10 +32,6 @@
 #endif
 
 #include <string.h>
-
-#ifdef LUAT_USE_MP4PLAYER
-#include "luat_mp4_videoplayer.h"
-#endif
 
 #ifdef LUAT_USE_HZV
 #include "luat_hzv.h"
@@ -170,9 +166,6 @@ struct luat_vp_ctx {
     size_t scan_buf_len;
     size_t scan_buf_pos;
     int eof;
-#ifdef LUAT_USE_MP4PLAYER
-    void *mp4_vctx;                     /* luat_mp4_vctx_t* for MP4 playback */
-#endif
 #ifdef LUAT_USE_HZV
     luat_hzv_reader_t *hzv;         /* HZV demuxer */
     uint32_t hzv_timescale;
@@ -385,26 +378,11 @@ luat_vp_ctx_t* luat_videoplayer_open(const char *path) {
 
     luat_vp_format_t fmt = detect_format(path);
 
-#ifdef LUAT_USE_MP4PLAYER
+    /* MP4 不再在这里解码，避免被当成 MJPG 去扫帧。播放走 AirUI 的 mplayer 后端。 */
     if (fmt == LUAT_VP_FMT_MP4_H264) {
-        luat_mp4_vctx_t *mp4ctx = luat_mp4_vctx_open(path);
-        if (!mp4ctx) {
-            VP_LOGW("failed to open mp4: %s", path);
-            return NULL;
-        }
-        luat_vp_ctx_t *ctx = (luat_vp_ctx_t *)VP_MALLOC(sizeof(luat_vp_ctx_t));
-        if (!ctx) {
-            luat_mp4_vctx_close(mp4ctx);
-            return NULL;
-        }
-        memset(ctx, 0, sizeof(luat_vp_ctx_t));
-        ctx->format = LUAT_VP_FMT_MP4_H264;
-        ctx->decode_mode = LUAT_VP_DECODE_SW;
-        ctx->mp4_vctx = mp4ctx;
-        VP_LOGD("opened %s as MP4+H264", path);
-        return ctx;
+        VP_LOGW("mp4 is not decoded by videoplayer: %s", path);
+        return NULL;
     }
-#endif
 
 #ifdef LUAT_USE_HZV
     if (fmt == LUAT_VP_FMT_HZV) {
@@ -506,13 +484,6 @@ void luat_videoplayer_close(luat_vp_ctx_t *ctx) {
 
     luat_videoplayer_stop(ctx);
 
-#ifdef LUAT_USE_MP4PLAYER
-    if (ctx->mp4_vctx) {
-        luat_mp4_vctx_close((luat_mp4_vctx_t *)ctx->mp4_vctx);
-        ctx->mp4_vctx = NULL;
-    }
-#endif
-
 #ifdef LUAT_USE_HZV
     if (ctx->hzv) {
         luat_hzv_close(ctx->hzv);
@@ -550,43 +521,9 @@ int luat_videoplayer_read_frame(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame) {
 
     memset(frame, 0, sizeof(luat_vp_frame_t));
 
-#ifdef LUAT_USE_MP4PLAYER
     if (ctx->format == LUAT_VP_FMT_MP4_H264) {
-        uint64_t copy_start_ms;
-        uint64_t copy_end_ms;
-        if (!ctx->mp4_vctx) return LUAT_VP_ERR_PARAM;
-        if (ctx->eof) return LUAT_VP_ERR_EOF;
-
-        uint16_t *raw_rgb = NULL;
-        int fw = 0, fh = 0;
-        int ret = luat_mp4_vctx_read_frame(
-                      (luat_mp4_vctx_t *)ctx->mp4_vctx,
-                      &raw_rgb, &fw, &fh);
-        if (ret == LUAT_MP4VP_EOF) { ctx->eof = 1; return LUAT_VP_ERR_EOF; }
-        if (ret != LUAT_MP4VP_OK || !raw_rgb) return LUAT_VP_ERR_DECODE;
-
-        /* Copy RGB565 data to a heap buffer owned by the caller (freed via frame_free) */
-        copy_start_ms = luat_videoplayer_prof_now_ms();
-        uint16_t *out = (uint16_t *)VP_MALLOC((size_t)fw * fh * 2);
-        if (!out) return LUAT_VP_ERR_NOMEM;
-        memcpy(out, raw_rgb, (size_t)fw * fh * 2);
-        copy_end_ms = luat_videoplayer_prof_now_ms();
-        luat_videoplayer_prof_add_time(LUAT_VP_PROF_T_COPY, (uint32_t)(copy_end_ms - copy_start_ms));
-
-        frame->data   = (uint8_t *)out;
-        frame->width  = (uint16_t)fw;
-        frame->height = (uint16_t)fh;
-
-        if (ctx->width == 0 && fw > 0) {
-            ctx->width  = (uint16_t)fw;
-            ctx->height = (uint16_t)fh;
-            VP_LOGD("mp4 video size: %dx%d", fw, fh);
-        }
-
-        luat_videoplayer_prof_mark_frame();
-        return LUAT_VP_OK;
+        return LUAT_VP_ERR_FORMAT;
     }
-#endif
 
 #ifdef LUAT_USE_HZV
     if (ctx->format == LUAT_VP_FMT_HZV) {
@@ -655,80 +592,16 @@ int luat_videoplayer_read_frame_ref(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, 
 
     memset(frame, 0, sizeof(luat_vp_frame_t));
 
-#ifdef LUAT_USE_MP4PLAYER
-    if (ctx->format == LUAT_VP_FMT_MP4_H264) {
-        uint16_t *raw_rgb = NULL;
-        int fw = 0;
-        int fh = 0;
-        int ret;
-
-        if (!ctx->mp4_vctx) return LUAT_VP_ERR_PARAM;
-        if (ctx->eof) return LUAT_VP_ERR_EOF;
-
-        ret = luat_mp4_vctx_read_frame(
-                  (luat_mp4_vctx_t *)ctx->mp4_vctx,
-                  &raw_rgb, &fw, &fh);
-        if (ret == LUAT_MP4VP_EOF) { ctx->eof = 1; return LUAT_VP_ERR_EOF; }
-        if (ret != LUAT_MP4VP_OK || !raw_rgb) return LUAT_VP_ERR_DECODE;
-
-        frame->data = (uint8_t *)raw_rgb;
-        frame->width = (uint16_t)fw;
-        frame->height = (uint16_t)fh;
-
-        if (ctx->width == 0 && fw > 0) {
-            ctx->width  = (uint16_t)fw;
-            ctx->height = (uint16_t)fh;
-            VP_LOGD("mp4 video size: %dx%d", fw, fh);
-        }
-
-        if (borrowed) {
-            *borrowed = 1;
-        }
-        luat_videoplayer_prof_mark_frame();
-        return LUAT_VP_OK;
-    }
-#endif
-
     return luat_videoplayer_read_frame(ctx, frame);
 }
 
 int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, uint8_t *out_buf, size_t out_buf_size) {
     if (!ctx || !frame || !out_buf) return LUAT_VP_ERR_PARAM;
-    (void)out_buf_size;   /* MJPG 借出路径由调用方保证缓冲足够，MP4 路径才用到该参数 */
-
     memset(frame, 0, sizeof(luat_vp_frame_t));
 
-#ifdef LUAT_USE_MP4PLAYER
     if (ctx->format == LUAT_VP_FMT_MP4_H264) {
-        int fw = 0;
-        int fh = 0;
-        int ret;
-
-        if (!ctx->mp4_vctx) return LUAT_VP_ERR_PARAM;
-        if (ctx->eof) return LUAT_VP_ERR_EOF;
-
-        ret = luat_mp4_vctx_read_frame_to(
-                  (luat_mp4_vctx_t *)ctx->mp4_vctx,
-                  (uint16_t *)out_buf,
-                  (int)(out_buf_size / 2u),
-                  &fw, &fh);
-        if (ret == LUAT_MP4VP_EOF) { ctx->eof = 1; return LUAT_VP_ERR_EOF; }
-        if (ret != LUAT_MP4VP_OK) return LUAT_VP_ERR_DECODE;
-
-        frame->data = out_buf;
-        frame->width = (uint16_t)fw;
-        frame->height = (uint16_t)fh;
-
-        if (ctx->width == 0 && fw > 0) {
-            ctx->width  = (uint16_t)fw;
-            ctx->height = (uint16_t)fh;
-            VP_LOGD("mp4 video size: %dx%d", fw, fh);
-        }
-
-        luat_videoplayer_prof_mark_frame();
-        return LUAT_VP_OK;
+        return LUAT_VP_ERR_FORMAT;
     }
-#endif
 
 #ifdef LUAT_USE_HZV
     if (ctx->format == LUAT_VP_FMT_HZV) {
@@ -880,13 +753,9 @@ int luat_videoplayer_set_decode_mode(luat_vp_ctx_t *ctx,
     if (mode != LUAT_VP_DECODE_SW && mode != LUAT_VP_DECODE_HW)
         return LUAT_VP_ERR_PARAM;
 
-#ifdef LUAT_USE_MP4PLAYER
-    /* MP4+H264 decoding is always software; silently accept mode changes. */
     if (ctx->format == LUAT_VP_FMT_MP4_H264) {
-        ctx->decode_mode = mode;
-        return LUAT_VP_OK;
+        return LUAT_VP_ERR_FORMAT;
     }
-#endif
 
     if (ctx->decode_mode == mode) return LUAT_VP_OK;
 

@@ -597,7 +597,7 @@ static int l_uart_setup(lua_State *L)
         uart_config.stop_bits = (uint8_t)stop_bits;
 
     uart_config.delay = luaL_optinteger(L, 10, 12000000/uart_config.baud_rate);
-    uart_config.debug_enable = luaL_optinteger(L, 11, LUAT_UART_DEBUG_ENABLE);
+    uart_config.debug_enable = luaL_optinteger(L, 11, LUAT_UART_DEBUG_ENABLE ^ 0xff);
     uart_config.error_drop = luaL_optinteger(L, 12, LUAT_UART_RX_ERROR_DROP_DATA);
 	lua_pushinteger(L, luat_uart_dispatch_setup(&uart_config));
     return 1;

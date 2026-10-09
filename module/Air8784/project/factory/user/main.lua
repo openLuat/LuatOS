@@ -29,7 +29,7 @@ VERSION：项目版本号,ascii string类型
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "Air8784_Factory"
-VERSION = "001.000.001"
+VERSION = "001.000.002"
 
 -- 出厂固件版本：业务模式由 AirCloud 网页任务下发配置（task_cloud，Tag19/20）
 -- 此KEY值仅针对合宙官方IOT平台FOTA(libfota3)，如需使用请替换为项目对应KEY
@@ -42,7 +42,7 @@ PRODUCT_KEY = "AVbrqZ5tldhyJV8oXqLqa2jPmTey2zMg"
 --   "normal"  强制进业务模式（跳过产测检查），调试 SIP / AirCloud 用，无需先跑产测
 --   "factory" 强制进产测模式，调试产测指令用
 -- 注意：强制 "normal" 时若未写号，日志 PROD/PCB 打印为 nil，不影响业务功能
-local BOOT_MODE = "normal"
+local BOOT_MODE = "auto"
 -- ============================================================
 
 log.info("main", PROJECT, VERSION)

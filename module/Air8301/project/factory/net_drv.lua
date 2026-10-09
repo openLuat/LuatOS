@@ -1,6 +1,6 @@
 --[[
 @module  net_drv
-@summary 多网卡驱动（以太网静态IP + 4G + WiFi + WiFi AP，Air8301 出厂固件）
+@summary 多网卡驱动（多网融合：网口1 / 网口2 / WiFi / 4G + WiFi AP，Air8301 出厂固件）
 @version 1.0
 @date    2026.09.22
 @author  江访
@@ -8,14 +8,22 @@
 Air8301 网络硬件：
 - 网口1：CH390H，SPI1 / CS=GPIO12，INT=GPIO20，供电 GPIO32（映射 socket.LWIP_ETH）
 - 网口2：CH390H，SPI1 / CS=GPIO5， INT=CHG_DET(gpio.WAKEUP6)，供电 GPIO33（映射 socket.LWIP_USER1）
-- 4G：exnetif 管理（最低优先级）
-- WiFi：手动 STA 连接 + AP 热点（供电脑直连访问内置网页）
+- 4G：映射 socket.LWIP_GP
+- WiFi：STA 连接（映射 socket.LWIP_STA）+ AP 热点（供电脑直连访问内置网页）
+
+多网融合（exnetif）：
+- 四张网卡（网口1 / 网口2 / WiFi / 4G）统一交给 exnetif.set_priority_order 初始化与调度，
+  配置表顺序即优先级顺序（取自 net_config.priority，可在屏幕「多网融合」页或内置网页调整）；
+- 高优先级链路掉线时自动切换到下一档可用链路，全部断网才回调 (nil, -1)；
+- WiFi AP 不参与多网融合调度，单独创建；
+- 优先级调整 / WiFi 配网 / 网口 IP 变化 → 增量重下发（exnetif 自动跳过已初始化网卡）。
 
 本模块职责：
-1、初始化双 CH390H 网口静态 IP、4G、WiFi、WiFi AP
+1、按优先级初始化四张网卡（多网融合）并创建 WiFi AP
 2、发布网络状态消息供 UI 显示：STATUS_SIGNAL_UPDATED / STATUS_WIFI_UPDATED / STATUS_ETH_UPDATED
-3、响应 NETWORK_STATUS_QUERY 主动查询
-4、初始化完成后发布 NETWORK_INIT_DONE（flash_app 依赖此消息挂载 Flash）
+3、发布当前生效网卡消息：NET_ACTIVE_UPDATED（多网融合调度结果）
+4、响应 NETWORK_STATUS_QUERY 主动查询
+5、初始化完成后发布 NETWORK_INIT_DONE（flash_app 依赖此消息挂载 Flash）
 ]]
 
 local exnetif = require "exnetif"
@@ -41,6 +49,9 @@ local eth2_ip = ""
 
 -- 4G CSQ 轮询间隔
 local MOBILE_POLL_INTERVAL = 3000
+
+-- 当前生效网卡中文名（多网融合调度结果，由 exnetif.notify_status 回调更新）
+local net_active = ""
 
 --[[
 CSQ 转信号等级（4G）
@@ -189,6 +200,8 @@ local function on_status_query()
     publish_signal_status()
     publish_wifi_status()
     publish_eth_status()
+    -- 多网融合：一并推送当前生效网卡，供页面打开时立即显示
+    sys.publish("NET_ACTIVE_UPDATED", nil, -1, net_active ~= "" and net_active or "查询中")
 end
 
 -- 4G 信号轮询任务
@@ -225,8 +238,136 @@ local function tz_to_offset(tz)
 end
 
 --[[
-网络初始化任务：
-以太网静态IP（网口1/网口2） → 4G → WiFi STA → WiFi AP(DHCP服务器)
+网卡适配器编号 → 中文名（多网融合状态显示用）
+
+@local
+@function adapter_cn
+@param adapter number 网卡编号（socket.LWIP_*）
+@return string 中文名（无法识别时返回适配器号字符串）
+]]
+local function adapter_cn(adapter)
+    if adapter == socket.LWIP_ETH then return "网口1" end
+    if adapter == socket.LWIP_USER1 then return "网口2" end
+    if socket.LWIP_STA and adapter == socket.LWIP_STA then return "WiFi" end
+    if socket.LWIP_GP and adapter == socket.LWIP_GP then return "4G" end
+    return tostring(adapter)
+end
+
+--[[
+多网融合状态回调（exnetif.notify_status）
+
+exnetif 在「当前生效网卡切换」或「全部网卡断网」时回调：
+- 有可用网络：net_type = 网卡类型字符串（"WiFi"/"Ethernet"/"8101SPIETH"/"4G"），adapter = 网卡编号
+- 全部断网：net_type = nil，adapter = -1
+本回调只做状态缓存与消息转发，供 UI（多网融合页 / 通信分区页）显示当前生效链路。
+
+@local
+@function on_net_status_change
+@param net_type string|nil 网卡类型字符串
+@param adapter number 网卡编号（-1 表示全部断网）
+]]
+local function on_net_status_change(net_type, adapter)
+    if net_type == nil or adapter == nil or adapter == -1 then
+        net_active = "无可用网络"
+        log.warn("net_drv", "多网融合: 全部网卡断网")
+        sys.publish("NET_ACTIVE_UPDATED", nil, -1, net_active)
+        return
+    end
+    net_active = adapter_cn(adapter)
+    log.info("net_drv", "多网融合: 当前生效网卡", net_active, net_type, adapter)
+    sys.publish("NET_ACTIVE_UPDATED", net_type, adapter, net_active)
+end
+
+--[[
+按 net_config.priority 构造并下发 exnetif 多网卡优先级配置（多网融合核心）
+
+四张网卡统一纳入 exnetif 调度，配置表顺序即优先级顺序：
+  eth1 → ETHERNET（网口1，socket.LWIP_ETH）
+  eth2 → ETHUSER1（网口2，socket.LWIP_USER1）
+  wifi → WIFI    （WiFi STA，socket.LWIP_STA）
+  4g   → LWIP_GP （4G，socket.LWIP_GP）
+高优先级链路掉线时，exnetif 自动切换到下一档可用链路；全部断网才回调 (nil, -1)。
+
+网口为局域网静态 IP 场景，配置 need_ping = false：
+仅以「链路 + IP_READY/IP_LOSE」判定网卡可用，避免「内网无外网 → ping 失败 → 全链路被判死」。
+（注：need_ping 在 exnetif 内部为单一变量，此处四张网卡统一传 false，语义一致。）
+
+重复调用为增量更新：已初始化的网卡跳过初始化（网口不会重复 setup），
+仅更新变化项，WiFi 凭证（ssid）变化时自动断开重连 —— 因此优先级调整与 WiFi 配网均走本函数。
+
+@local
+@function apply_priority_order
+@param cfg table net_config 配置表
+@return boolean 是否下发成功
+]]
+local function apply_priority_order(cfg)
+    local priority = cfg.priority or { "wifi", "eth1", "eth2", "4g" }
+
+    -- 各网卡的 exnetif 配置项（由闭包生成，保证改 IP / WiFi 后重建即生效）
+    local builders = {
+        eth1 = function()
+            return {
+                ETHERNET = {
+                    pwrpin = 32,                            -- 网口1 供电使能 GPIO32
+                    tp = netdrv.CH390,                      -- SPI 外挂 CH390H
+                    opts = { spi = 1, cs = 12, irq = 20 },  -- SPI1 / CS=GPIO12 / INT=GPIO20（中断模式）
+                    static_ip = {                           -- 局域网静态 IP
+                        ipv4 = cfg.eth1_ip, mark = cfg.eth1_mask, gw = cfg.eth1_gw,
+                    },
+                    need_ping = false,                      -- 局域网场景：按 IP 判定可用
+                },
+            }
+        end,
+        eth2 = function()
+            return {
+                ETHUSER1 = {
+                    pwrpin = 33,                             -- 网口2 供电使能 GPIO33
+                    tp = netdrv.CH390,
+                    opts = { spi = 1, cs = 5, irq = gpio.WAKEUP6 },  -- SPI1 / CS=GPIO5 / INT=CHG_DET
+                    static_ip = {
+                        ipv4 = cfg.eth2_ip, mark = cfg.eth2_mask, gw = cfg.eth2_gw,
+                    },
+                    need_ping = false,
+                },
+            }
+        end,
+        wifi = function()
+            return {
+                WIFI = {
+                    ssid = cfg.wifi_ssid,
+                    password = cfg.wifi_pwd,
+                    need_ping = false,                      -- 与网口统一（need_ping 为 exnetif 全局开关）
+                },
+            }
+        end,
+        ["4g"] = function()
+            return { LWIP_GP = true }                       -- 启用 4G
+        end,
+    }
+
+    -- 按 priority 顺序装配配置表（去重；缺项补到末尾，保证四张网卡都在列表中）
+    local order, used = {}, {}
+    for _, key in ipairs(priority) do
+        if builders[key] and not used[key] then
+            used[key] = true
+            order[#order + 1] = builders[key]()
+        end
+    end
+    for _, key in ipairs({ "wifi", "eth1", "eth2", "4g" }) do
+        if not used[key] then
+            used[key] = true
+            order[#order + 1] = builders[key]()
+        end
+    end
+
+    local ok = exnetif.set_priority_order(order)
+    log.info("net_drv", "多网融合优先级下发:", table.concat(priority, ">"), ok and "成功" or "失败")
+    return ok
+end
+
+--[[
+网络初始化任务（多网融合）：
+按 net_config.priority 统一初始化四张网卡（网口1 / 网口2 / WiFi STA / 4G） → WiFi AP(DHCP服务器)
 完成后发布 NETWORK_INIT_DONE
 
 @local
@@ -245,37 +386,18 @@ local function task_net_init()
     gpio.set(33, 1)
     sys.wait(200)
 
-    -- 以太网：手动初始化，零 DHCP 窗口
-    spi.setup(1, nil, 0, 0, 8, 25600000)
-
-    -- 补中断引脚 INT=GPIO20：CH390H 走中断模式（MCP 核实 opts.irq），
-    -- 避免驱动周期性轮询 SPI1，降低与同总线 SPI NAND / 另一片 CH390H 的总线争用
-    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi = 1, cs = 12, irq = 20})
-    netdrv.dhcp(socket.LWIP_ETH, false)
-    netdrv.ipv4(socket.LWIP_ETH, c.eth1_ip, c.eth1_mask, c.eth1_gw)
-    log.info("net_drv", "网口1静态IP:", c.eth1_ip)
-
-    sys.wait(300)
-
-    -- 补中断引脚 INT=CHG_DET（gpio.WAKEUP6，MCP 核实仅 Air8000 系列支持），同上网口1 的理由
-    netdrv.setup(socket.LWIP_USER1, netdrv.CH390, {spi = 1, cs = 5, irq = gpio.WAKEUP6})
-    netdrv.dhcp(socket.LWIP_USER1, false)
-    netdrv.ipv4(socket.LWIP_USER1, c.eth2_ip, c.eth2_mask, c.eth2_gw)
-    log.info("net_drv", "网口2静态IP:", c.eth2_ip)
+    -- 多网融合：按优先级统一交给 exnetif 初始化并调度四张网卡
+    -- exnetif 内部会完成 spi.setup + 供电使能 + netdrv.setup + 静态 IP 与 WiFi 连接，
+    -- 故此处不再手动 netdrv.setup/ipv4（exnetif 无法感知外部的手动初始化，会重复初始化）。
+    apply_priority_order(c)
 
     -- 通知其它模块: CH390 网卡已初始化完成
     -- Air8301 硬件上 Flash 与双 CH390 共用 SPI1 总线, CH390 在未初始化时会下拉共享的
-    -- CLK/MISO/MOSI 信号导致 Flash 读 JEDEC ID 失败, 因此 flash_app 必须等待本消息
+    -- CLK/MISO/MOSI 信号导致 Flash 读 JEDEC ID 失败, 因此 flash_app 必须等待本消息。
+    -- 本消息由「网口手动初始化之后」移到「apply_priority_order 之后」发布：
+    -- exnetif 初始化网口时每个网口内含 sys.wait(1000)，返回时 CH390 已初始化完毕，
+    -- 此时 SPI1 总线不再被下拉，挂载 Flash 才是安全的。
     sys.publish("NETWORK_INIT_DONE")
-
-    -- 4G：exnetif 管（唯一一次 socket.dft 切换在此）
-    exnetif.set_priority_order({{LWIP_GP = {}}})
-    log.info("net_drv", "4G已启动")
-
-    -- WiFi：最后手动连，此时无 socket.dft() 干扰 DHCP
-    wlan.init()
-    wlan.connect(c.wifi_ssid, c.wifi_pwd, 1)
-    log.info("net_drv", "WiFi连接中 SSID:", c.wifi_ssid)
 
     -- WiFi AP 热点：让电脑直连设备访问 Web
     wlan.createAP(c.ap_ssid or "Air8301", c.ap_pwd or "12345678")
@@ -285,17 +407,43 @@ local function task_net_init()
     log.info("net_drv", "WiFi AP就绪 SSID:", c.ap_ssid or "Air8301", "IP:", socket.localIP(socket.LWIP_AP))
 end
 
+-- 配置下发任务运行标志（单实例保护：连续调整优先级时合并为一次下发）
+local cfg_task_running = false
+
 --[[
-NET_CONFIG_UPDATED 回调：WiFi 重连 + 应用时区
+多网融合配置下发任务（在 task 中调用 exnetif，满足其「需要在 task 中调用」的要求）
+
+必须在协程中执行：exnetif 内部会调用 sys.wait（网口初始化 / WiFi 换凭证），
+不能在消息回调、定时器回调等非协程上下文中直接调用。
+
+@local
+@function net_config_apply_task
+]]
+local function net_config_apply_task()
+    -- 300ms 窗口：合并 UI 上连续点击「上移 / 下移」产生的多次 NET_CONFIG_UPDATED
+    sys.wait(300)
+    cfg_task_running = false
+    local cfg = net_config.load()      -- 取最新配置，窗口内的中间态无需逐次下发
+    apply_priority_order(cfg)
+    rtc.timezone(tz_to_offset(cfg.timezone or "UTC+8"))
+end
+
+--[[
+NET_CONFIG_UPDATED 回调：多网融合增量重排 + 应用时区
+
+优先级顺序 / WiFi 凭证 / 网口 IP 变化时统一走本回调：
+- 重新下发优先级配置表（exnetif 增量更新：已初始化网卡跳过，WiFi 凭证变化自动断连重连）
+- 应用时区
 
 @local
 @function on_net_config_updated
 @param cfg table 新的网络配置
 ]]
 local function on_net_config_updated(cfg)
-    wlan.disconnect()
-    wlan.connect(cfg.wifi_ssid, cfg.wifi_pwd, 1)
-    rtc.timezone(tz_to_offset(cfg.timezone or "UTC+8"))
+    -- 已有待执行任务时不再重复创建（任务执行时会读取最新配置）
+    if cfg_task_running then return end
+    cfg_task_running = true
+    sys.taskInit(net_config_apply_task)
 end
 
 sys.taskInit(task_net_init)
@@ -305,6 +453,8 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 sys.subscribe("WLAN_STA_INC", on_wlan_sta)
 sys.subscribe("NETWORK_STATUS_QUERY", on_status_query)
 sys.subscribe("NET_CONFIG_UPDATED", on_net_config_updated)
+-- 注册多网融合状态回调（须在 set_priority_order 之前注册，避免漏掉首次切换通知）
+exnetif.notify_status(on_net_status_change)
 sys.taskInit(mobile_poll_task)
 sys.taskInit(wifi_status_poll_task)
 
@@ -330,6 +480,13 @@ function M.get_operator()
     end
     return "--"
 end
+
+--[[
+获取当前生效网卡中文名（多网融合调度结果）
+
+@return string 网卡名（网口1 / 网口2 / WiFi / 4G / 无可用网络 / 查询中）
+]]
+function M.get_active_net() return net_active end
 
 -- 触发 WiFi 扫描
 function M.wifi_scan() wlan.scan() end

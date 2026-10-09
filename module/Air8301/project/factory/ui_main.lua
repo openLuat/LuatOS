@@ -43,6 +43,7 @@ require "comm_win"       -- 通信分区页（蜂窝/WiFi/RS485/以太网/Modbus
 require "io_win"         -- IO 分区页（DI/DO/继电器/蜂鸣器/状态灯）
 require "sys_win"        -- 系统分区页（看门狗/Flash/系统信息/远程升级/RELOAD）
 require "network_win"    -- 网络状态
+require "multi_net_win"  -- 多网融合（网卡优先级配置）
 require "wifi_win"       -- WiFi
 require "rs485_win"      -- RS485 通讯监视
 require "relay_win"      -- 继电器控制

@@ -1,6 +1,6 @@
 --[[
 @module  comm_win
-@summary 通信分区页（蜂窝 / WiFi / RS485 / 以太网 / Modbus）（8301出厂固件）
+@summary 通信分区页（蜂窝 / WiFi / RS485 / 以太网 / Modbus / 多网融合）（8301出厂固件）
 @version 1.0
 @date    2026.10.08
 @author  江访
@@ -8,12 +8,12 @@
 @usage
 方案A 界面范式中的「通信」分区页：
   顶部状态条 + 中部 3×2 功能磁贴 + 底部 Dock 分区导航。
-每个磁贴 = 图标 + 名称 + 实时状态摘要 + 右上状态指示灯，一眼看清各通道通断。
+每个磁贴 = 图标 + 名称 + 实时状态摘要，一眼看清各通道通断。
 点击磁贴进入对应功能详情页。
 
 分区划分（业务模式全部页面）：
   主页 —— 时间与天气仪表盘（idle_win）
-  通信 —— 本页：蜂窝 / WiFi / RS485-1 / 以太网 / Modbus
+  通信 —— 本页：蜂窝 / WiFi / RS485-1 / 以太网 / Modbus / 多网融合
   IO   —— DI / DO / 继电器 / 蜂鸣器 / 状态灯（io_win）
   系统 —— 看门狗 / Flash / 系统信息 / 远程升级 / RELOAD（sys_win）
 
@@ -21,6 +21,7 @@
   STATUS_SIGNAL_UPDATED(level)                  4G 信号
   STATUS_WIFI_UPDATED(conn,ssid,level,rssi)     WiFi
   STATUS_ETH_UPDATED(e1,ip1,e2,ip2)             以太网
+  NET_ACTIVE_UPDATED(net_type,adapter,name)     当前生效链路（多网融合）
   NETWORK_STATUS_QUERY                          打开时主动查询
 
 @note 本页只承载 Air8301 实际支持的功能（RS232 仅产测模式有，故业务模式通信分区不设）。
@@ -35,7 +36,7 @@ local status                       -- 状态条句柄
 local clock_timer = nil
 
 -- 磁贴句柄：name/sub/dot 可动态刷新
-local tile_net, tile_wifi, tile_485a, tile_eth, tile_modbus
+local tile_net, tile_wifi, tile_485a, tile_eth, tile_modbus, tile_multi
 
 -- 当前分区标识与切换防抖标志
 local NAV_KEY = "comm"
@@ -68,6 +69,7 @@ local function on_wifi_click()   sys.publish("OPEN_WIFI_WIN")    end
 local function on_485a_click()   sys.publish("OPEN_RS485_WIN")   end
 local function on_eth_click()    sys.publish("OPEN_NETWORK_WIN") end
 local function on_modbus_click() sys.publish("OPEN_MODBUS_WIN")  end
+local function on_multi_click()  sys.publish("OPEN_MULTINET_WIN") end
 
 -- ==================== Dock 分区导航 ====================
 
@@ -188,6 +190,23 @@ local function on_eth_updated(eth1_state, eth1_ip, eth2_state, eth2_ip)
 end
 
 --[[
+多网融合：当前生效链路更新（「多网融合」磁贴摘要显示当前生效网卡）
+
+@local
+@function on_active_updated
+@param net_type string|nil 网卡类型字符串
+@param adapter number 网卡编号
+@param name string 中文网卡名
+]]
+local function on_active_updated(net_type, adapter, name)
+    if not exwin.is_active(win_id) then return end
+    local text = name or "查询中"
+    local color = theme.SEM.info
+    if text == "无可用网络" then color = theme.SEM.danger end
+    set_tile_state(tile_multi, text, color)
+end
+
+--[[
 RS485 数据接收（业务模式仅 RS485-1 开放，摘要显示"通信中"）
 
 @local
@@ -224,13 +243,14 @@ local function create_ui()
     local cw = math.floor((ctx.w - GAP * (COLS - 1)) / COLS)
     local ch = math.floor((ctx.h - GAP * (ROWS - 1)) / ROWS)
 
-    -- 依次摆放 5 个磁贴（3 列 × 2 行，末格留空）
+    -- 依次摆放 6 个磁贴（3 列 × 2 行，末格为「多网融合」入口）
     local cells = {
         { icon = "/luadb/hw_network.png", text = "蜂窝网络", sub = "查询中...", dot = theme.C.t3, on_click = T.with_beep(on_net_click) },
         { icon = "/luadb/hw_wifi.png",    text = "WiFi",     sub = "查询中...", dot = theme.C.t3, on_click = T.with_beep(on_wifi_click) },
         { icon = "/luadb/hw_rs485.png",   text = "RS485-1",  sub = "9600",      dot = theme.SEM.success, on_click = T.with_beep(on_485a_click) },
         { icon = "/luadb/hw_network.png", text = "以太网",   sub = "查询中...", dot = theme.C.t3, on_click = T.with_beep(on_eth_click) },
         { icon = "/luadb/hw_rs485.png",   text = "Modbus",   sub = "从站",      dot = theme.SEM.info, on_click = T.with_beep(on_modbus_click) },
+        { icon = "/luadb/hw_network.png", text = "多网融合", sub = "查询中...", dot = theme.C.t3, on_click = T.with_beep(on_multi_click) },
     }
     local sect = theme.pal(NAV_KEY)       -- 通信分区配色（青）
     local handles = {}
@@ -253,6 +273,7 @@ local function create_ui()
     tile_485a   = handles[3]
     tile_eth    = handles[4]
     tile_modbus = handles[5]
+    tile_multi  = handles[6]
 end
 
 -- ==================== 窗口生命周期 ====================
@@ -270,6 +291,7 @@ local function on_create()
     sys.subscribe("STATUS_WIFI_UPDATED", on_wifi_updated)
     sys.subscribe("STATUS_ETH_UPDATED", on_eth_updated)
     sys.subscribe("RS485_DATA_RECEIVED", on_rs485_received)
+    sys.subscribe("NET_ACTIVE_UPDATED", on_active_updated)
     sys.publish("NETWORK_STATUS_QUERY")
     clock_timer = sys.timerLoopStart(refresh_clock, 1000)
 end
@@ -290,11 +312,12 @@ local function on_destroy()
         main_container = nil
     end
     status = nil
-    tile_net, tile_wifi, tile_485a, tile_eth, tile_modbus = nil, nil, nil, nil, nil
+    tile_net, tile_wifi, tile_485a, tile_eth, tile_modbus, tile_multi = nil, nil, nil, nil, nil, nil
     sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_signal_updated)
     sys.unsubscribe("STATUS_WIFI_UPDATED", on_wifi_updated)
     sys.unsubscribe("STATUS_ETH_UPDATED", on_eth_updated)
     sys.unsubscribe("RS485_DATA_RECEIVED", on_rs485_received)
+    sys.unsubscribe("NET_ACTIVE_UPDATED", on_active_updated)
     win_id = nil
 end
 

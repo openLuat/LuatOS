@@ -2,12 +2,17 @@
 @module  modbus_win
 @summary Modbus 寄存器监视页面（8301出厂固件）
 @version 1.0
-@date    2026.09.22
+@date    2026.10.08
 @author  江访
+
 @usage
 展示从站寄存器映射表的关键点位当前值（继电器状态、CPU温度、VBAT、信号强度、时间戳等）。
 每 2 秒自动刷新一次；订阅 RELAY_STATUS_UPDATE / TEMP_HUMIDITY_UPDATE 及时更新。
+
+视觉：ui_theme 深色玻璃态（2列×3行 点位卡片，标签弱化 + 数值突出）。
 ]]
+
+local theme = require "ui_theme"
 
 local win_id = nil
 local main_container, content
@@ -15,6 +20,11 @@ local relay_label, cpu_label, vbat_label, signal_label, temp_label, time_label
 
 -- 自动刷新定时器
 local refresh_timer = nil
+
+-- 布局常量（内容区 464×210）
+local CARD_W   = 228
+local CARD_H   = 64
+local CARD_GAP = 6
 
 --[[
 导航栏返回按钮点击
@@ -94,51 +104,48 @@ local function on_relay_status_update(state)
 end
 
 --[[
+创建一个寄存器点位卡片（标签 + 数值）
+
+@local
+@function create_point_card
+@param userdata parent 父容器
+@param number   x,y    位置
+@param string   label  点位标签（含寄存器地址）
+@param string   value  初始数值
+@return userdata value_label 数值 label
+]]
+local function create_point_card(parent, x, y, label, value)
+    local card = theme.card(parent, { x = x, y = y, w = CARD_W, h = CARD_H })
+    theme.label(card, {
+        x = 10, y = 6, w = CARD_W - 20, h = 19,
+        text = label, px_size = 16, color = theme.C.t3 })
+    return theme.label(card, {
+        x = 10, y = 30, w = CARD_W - 20, h = 21,
+        text = value, px_size = 18, color = theme.C.t1 })
+end
+
+--[[
 创建寄存器监视 UI
 
 @local
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
+    local ctx = theme.page({ title = "Modbus 寄存器", on_back = on_back_click })
+    main_container = ctx.base
 
-    T.titlebar(main_container, "Modbus 寄存器", on_back_click)
+    local x1 = ctx.x
+    local x2 = ctx.x + CARD_W + CARD_GAP
+    local y1 = ctx.y
+    local y2 = ctx.y + CARD_H + CARD_GAP
+    local y3 = ctx.y + 2 * (CARD_H + CARD_GAP)
 
-    content = airui.container({ parent = main_container, x = 0, y = T.CONTENT_Y, w = T.SCREEN_W, h = T.CONTENT_H, color = T.COLOR_BG })
-
-    local _, _, relay_content = T.info_card(content, 6, 44, "0x0000-04  继电器状态", "读取中...")
-    relay_label = relay_content
-
-    local _, _, temp_content = T.info_card(content, 56, 44, "0x0020  网口TCP温湿度", "-- / --")
-    temp_label = temp_content
-
-    local _, _, cpu_content = T.info_card(content, 106, 44, "0x0005-06  CPU温度", "--")
-    cpu_label = cpu_content
-
-    local _, _, vbat_content = T.info_card(content, 156, 44, "0x0007-08  VBAT电压", "--")
-    vbat_label = vbat_content
-
-    local _, _, sig_content = T.info_card(content, 6, 44, "0x001D  4G信号强度", "--")
-    sig_content:set_pos(240, 6)
-    signal_label = sig_content
-
-    -- 右上角补充：时间戳（覆盖在原卡片右侧）
-    local time_card = airui.container({
-        parent = content, x = 240, y = 156, w = 230, h = 44,
-        color = T.COLOR_CARD, radius = T.CARD_RADIUS,
-    })
-    airui.label({
-        parent = time_card, x = 10, y = 4, w = 210, h = 20,
-        text = "0x0038-39  时间戳",
-        font_size = T.FONT_CARD_TITLE, color = T.COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT,
-    })
-    time_label = airui.label({
-        parent = time_card, x = 10, y = 24, w = 210, h = 18,
-        text = "--",
-        font_size = T.FONT_SMALL, color = T.COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT,
-    })
+    relay_label  = create_point_card(ctx.base, x1, y1, "0x0000-04  继电器状态", "读取中...")
+    temp_label   = create_point_card(ctx.base, x2, y1, "0x0020  网口TCP温湿度", "-- / --")
+    cpu_label    = create_point_card(ctx.base, x1, y2, "0x0005-06  CPU温度", "--")
+    vbat_label   = create_point_card(ctx.base, x2, y2, "0x0007-08  VBAT电压", "--")
+    signal_label = create_point_card(ctx.base, x1, y3, "0x001D  4G信号强度", "--")
+    time_label   = create_point_card(ctx.base, x2, y3, "0x0038-39  时间戳", "--")
 
     refresh_regs()
 end
@@ -215,6 +222,12 @@ OPEN_MODBUS_WIN 消息处理器
 @function open_handler
 ]]
 local function open_handler()
+    -- 单实例保护：避免同页多实例并存时互相覆盖 win_id（会使点击准入判定失效）
+    if win_id and exwin.is_active(win_id) then return end
+    if win_id then
+        exwin.close(win_id)
+        win_id = nil
+    end
     win_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,

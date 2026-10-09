@@ -13,6 +13,8 @@
 
 ## 一、功能模块介绍
 
+本工程采用2052-114号固件，理论2026.10.9号以后的114号固件都支持。
+
 1、`main.lua`：主程序入口，定义 PROJECT / VERSION，`require "exwin"` 与各功能模块，仅含 require 与 `sys.run()`；
 
 2、`board_init.lua`：8301 上电时序（485 供电、LCD 使能/复位、蜂鸣器预置），并处理恢复出厂设置；
@@ -255,6 +257,29 @@ hw_reload.png
 ```
 
 缺失只会导致首页图标留白，不影响功能。
+
+样图展示
+
+开机动画
+
+![](https://docs.openluat.com/cdn/image/Air8301/1.png)
+
+主机面
+
+![](https://docs.openluat.com/cdn/image/Air8301/2.png)
+
+通信界面
+
+![](https://docs.openluat.com/cdn/image/Air8301/3.png)
+
+io界面
+
+![](https://docs.openluat.com/cdn/image/Air8301/4.png)
+
+系统界面
+
+![](https://docs.openluat.com/cdn/image/Air8301/5.png)
+
 
 ---
 

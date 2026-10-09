@@ -95,18 +95,33 @@ IS_FACTORY_MODE = is_factory
 -- 必须显式 require 才会创建全局 exwin 表，各 UI 窗口模块均依赖此全局变量
 exwin = require "exwin"
 
+-- 全局按键音注入：包装 airui.container，一处改动覆盖全部按钮（两种模式统一生效）
+-- 必须在各 UI 页面模块之前 require
+require "key_beep"
+
 
 if is_factory then
 
     -- ==================== 产测模式 ====================
     -- prod_test 内部会 require prod_app_main（产测 app 集）与 prod_ui_main（产测 UI 集）
     log.info("main", "未完成产测，进入产测模式")
+
+    -- 打印模组型号（OTP PROD）与硬件版本（OTP PCB），便于产线核对写号结果
+    -- 注：prodmeta 读取 OTP，未写号时返回 nil，日志显示 nil 属正常
+    local prodmeta = require "prodmeta"
+    log.info("main", "模组型号 PROD:", prodmeta.get("PROD"), "硬件版本 PCB:", prodmeta.get("PCB"))
+
     require "prod_test"
 
 else
 
-    -- ==================== 业务模式 ====================
-    log.info("main", "已完成产测，进入业务模式")
+    -- ==================== 业务模式（用户模式） ====================
+    log.info("main", "已完成产测，进入用户模式")
+
+    -- 打印模组型号（OTP PROD）与硬件版本（OTP PCB），便于出货与售后核对写号结果
+    -- 注：prodmeta 读取 OTP，未写号时返回 nil，日志显示 nil 属正常
+    local prodmeta = require "prodmeta"
+    log.info("main", "模组型号 PROD:", prodmeta.get("PROD"), "硬件版本 PCB:", prodmeta.get("PCB"))
 
     -- 板级初始化
     require "board_init"

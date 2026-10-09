@@ -22,7 +22,7 @@ EK73215+EK79001 为免初始化显示IC组合（显示侧双芯片）：无寄�
 ]]
 
 -- 加载 EK73215+EK79001 显示IC初始化扩展库
-local exd = require "exd_ek73215&79001rgb"
+local exd = require "exd_ek79001_rgb"
 
 -- 本板屏幕参数（EK73215+EK79001 7寸 1024x600）
 local SCREEN_W = 1024

@@ -9,7 +9,7 @@
 
 1. 上电时序：引脚复用 + 各外设供电使能
 2. DO (继电器) 初始状态为关闭
-3. 蜂鸣器初始化 (PWM2, 默认关闭)
+3. 蜂鸣器由 buzzer_drv 统一管理 (PWM2/PIN98, 0% 占空比静音待命，本模块不再直接操作 PWM)
 4. 状态灯初始化 (GPIO21=4G_STATUS, GPIO141=WIFI_STATUS)
 5. 恢复出厂设置：订阅 FACTORY_RESET_REQUEST（来源：系统信息页按钮 / reload_app 长按5秒）
 
@@ -21,6 +21,10 @@
   本模块不再注册该引脚，避免中断重复注册覆盖
 - 以太网1/2 CH390H 初始化由 network_app.lua 的 exnetif 统一管理
 ]]
+
+-- ==================== 0. 依赖模块 ====================
+-- 蜂鸣器 PWM 驱动：PWM2/PIN98 唯一占用者，require 即完成引脚复用并配置为 0% 占空比静音待命
+local buzzer_drv = require "buzzer_drv"
 
 -- ==================== 1. 上电时序 + 板级初始化任务 ====================
 
@@ -96,9 +100,8 @@ local function board_init_task()
     gpio.setup(25, 0)
     gpio.set(25, 0)
 
-    -- 蜂鸣器预置 0% 占空比，确保通电时不响（PWM2/PIN98）
-    pwm.setup(2, 2000, 0)
-    pwm.close(2)
+    -- 蜂鸣器：由 buzzer_drv 统一管理（require 时已配置为 0% 占空比静音待命）
+    -- 此前 board_init 与 buzzer_app 各自 pwm.setup/close 抢占 PWM2 且频率不一致，本次已收敛到驱动层
 
     -- 状态灯默认熄灭（GPIO21=4G_STATUS, GPIO141=WIFI_STATUS）
     gpio.setup(21, 0)
@@ -112,25 +115,8 @@ end
 sys.taskInit(board_init_task)
 
 -- ==================== 2. 蜂鸣器提示音 ====================
-
--- 蜂鸣器停止回调：关闭PWM通道
-local function beep_stop_cb()
-    pwm.close(2)
-end
-
---[[
-播放蜂鸣器提示音（短促滴一声）
-
-@local
-@function beep
-@param duration_ms number 持续时间(ms)，默认100ms
-]]
-local function beep(duration_ms)
-    duration_ms = duration_ms or 100
-    pwm.setup(2, 2000, 50)  -- 2kHz, 50% 占空比
-    pwm.start(2)
-    sys.timerStart(beep_stop_cb, duration_ms)
-end
+-- 提示音统一走 buzzer_drv（PWM2/PIN98 唯一占用者），本模块不再直接调用 pwm 接口
+-- 原 beep()/beep_stop_cb() 已删除，等价能力为 buzzer_drv.beep_bg(ms)
 
 -- ==================== 3. 恢复出厂设置 ====================
 
@@ -154,8 +140,8 @@ local function reset_factory()
 
     log.warn("board_init", "fskv 已清空，5 秒后重启...")
 
-    -- 蜂鸣器长鸣提示
-    beep(1000)
+    -- 蜂鸣器长鸣 1 秒提示（本函数为订阅回调，非协程上下文，用非阻塞接口定时关断）
+    buzzer_drv.beep_bg(1000)
 
     -- 5 秒后重启
     sys.timerStart(reboot_cb, 5000)

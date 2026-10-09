@@ -2,19 +2,29 @@
 @module  prod_flash_win
 @summary Flash存储页面（产测模式），显示芯片容量与文件系统使用情况
 @version 1.0
-@date    2026.09.24
-@version_note 产测专属：消息名前缀改 OPEN_PROD_FLASH_WIN，避免与业务页面冲突
+@date    2026.10.08
+@author  江访
+@version_note 产测专属：消息名前缀 OPEN_PROD_FLASH_WIN，避免与业务页面冲突
+
 @usage
 本页面只读展示外部 SPI Flash 存储信息：
-1、芯片容量（lf.getInfo 读取的物理容量）
-2、文件系统（挂载后总容量/已用/可用）
-3、挂载状态（已挂载/未挂载）
+1、挂载状态（已挂载/未挂载）
+2、芯片容量（lf.getInfo 读取的物理容量）
+3、文件系统（挂载后总容量/已用/可用）
 监听 FLASH_MOUNT_STATUS 消息，页面打开时发布 REQUEST_STATUS_REFRESH 主动拉取。
+
+视觉：ui_theme 深色玻璃态（3 条键值行，语义色表达挂载状态）。
 ]]
+
+local theme = require "ui_theme"
 
 local win_id = nil
 local main_container, content
-local chip_label, fs_label, status_label
+local status_label, chip_label, fs_label
+
+-- 布局常量（内容区 464×210：3×48 + 2×8 = 160，上下居中）
+local ROW_H   = 48
+local ROW_GAP = 8
 
 --[[
 导航栏返回按钮点击
@@ -44,10 +54,18 @@ local function on_flash_mount_status(mounted, total_kb, used_kb, capacity_kb)
     if status_label then
         if mounted then
             status_label:set_text("已挂载")
-            status_label:set_color(T.COLOR_GREEN)
+            status_label:set_color(theme.SEM.success)
         else
-            status_label:set_text("未挂载")
-            status_label:set_color(T.COLOR_DANGER)
+            -- 产测模式不常驻挂载：Flash 由 prod_test 的 FLASH_TEST 指令自包含地
+            -- 「按需挂载 → 写读 → 卸载」，flash_app 不参与，故此处是「按需状态」
+            -- 而非故障，用琥珀提示色，避免测试员误判为异常
+            if IS_FACTORY_MODE then
+                status_label:set_text("按需挂载（产测）")
+                status_label:set_color(theme.SEM.warning)
+            else
+                status_label:set_text("未挂载")
+                status_label:set_color(theme.SEM.danger)
+            end
         end
     end
 
@@ -56,14 +74,15 @@ local function on_flash_mount_status(mounted, total_kb, used_kb, capacity_kb)
         if capacity_kb and capacity_kb > 0 then
             local cap_mb = capacity_kb / 1024
             if cap_mb >= 1024 then
-                chip_label:set_text(string.format("芯片容量: %.2f GB", cap_mb / 1024))
+                chip_label:set_text(string.format("%.2f GB", cap_mb / 1024))
             else
-                chip_label:set_text(string.format("芯片容量: %.0f MB", cap_mb))
+                chip_label:set_text(string.format("%.0f MB", cap_mb))
             end
-            chip_label:set_color(T.COLOR_TEXT)
+            chip_label:set_color(theme.C.t1)
         else
-            chip_label:set_text("芯片容量: 未知")
-            chip_label:set_color(T.COLOR_TEXT_SECONDARY)
+            -- 产测模式未挂载时读不到 lf.getInfo，用「按需读取」而非「未知」（后者易被误判为故障）
+            chip_label:set_text(IS_FACTORY_MODE and "按需读取" or "未知")
+            chip_label:set_color(theme.C.t2)
         end
     end
 
@@ -73,12 +92,12 @@ local function on_flash_mount_status(mounted, total_kb, used_kb, capacity_kb)
             local total_mb = total_kb / 1024
             local used_mb = used_kb / 1024
             local free_mb = total_mb - used_mb
-            fs_label:set_text(string.format("总 %.1f MB  已用 %.1f MB  可用 %.1f MB",
-                total_mb, used_mb, free_mb))
-            fs_label:set_color(T.COLOR_TEXT)
+            fs_label:set_text(string.format("可用 %.1f MB %s 共 %.1f MB",
+                free_mb, theme.CHAR.sep, total_mb))
+            fs_label:set_color(theme.C.t1)
         else
             fs_label:set_text("--")
-            fs_label:set_color(T.COLOR_TEXT_SECONDARY)
+            fs_label:set_color(theme.C.t2)
         end
     end
 end
@@ -90,32 +109,29 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
+    local ctx = theme.page({ title = "Flash存储", on_back = on_back_click })
+    main_container = ctx.base
+    content = ctx.base
 
-    -- 顶部标题栏
-    T.titlebar(main_container, "Flash存储", on_back_click)
+    -- 上下居中：总高 160，内容区 210，顶部留白 25
+    local y = ctx.y + math.floor((ctx.h - (ROW_H * 3 + ROW_GAP * 2)) / 2)
 
-    -- 内容区域
-    content = airui.container({
-        parent = main_container,
-        x = 0,
-        y = T.CONTENT_Y,
-        w = T.SCREEN_W,
-        h = T.CONTENT_H,
-        color = T.COLOR_BG
-    })
+    local _, l_status = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 100,
+        label = "挂载状态", value = "获取中...", value_color = theme.C.t2 })
+    status_label = l_status
+    y = y + ROW_H + ROW_GAP
 
-    -- 挂载状态卡片
-    local _, _, status_content = T.info_card(content, 10, 60, "挂载状态", "获取中...")
-    status_label = status_content
+    local _, l_chip = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 100,
+        label = "芯片容量", value = "获取中...", value_color = theme.C.t2 })
+    chip_label = l_chip
+    y = y + ROW_H + ROW_GAP
 
-    -- 芯片容量卡片
-    local _, _, chip_content = T.info_card(content, 80, 60, "芯片容量", "获取中...")
-    chip_label = chip_content
-
-    -- 文件系统卡片
-    local _, _, fs_content = T.info_card(content, 150, 60, "文件系统", "获取中...")
-    fs_label = fs_content
+    local _, l_fs = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 100,
+        label = "文件系统", value = "获取中...", value_color = theme.C.t2 })
+    fs_label = l_fs
 end
 
 --[[
@@ -180,6 +196,12 @@ OPEN_PROD_FLASH_WIN 消息处理器
 @function open_handler
 ]]
 local function open_handler()
+    -- 单实例保护：避免同页多实例并存时互相覆盖 win_id（会使点击准入判定失效）
+    if win_id and exwin.is_active(win_id) then return end
+    if win_id then
+        exwin.close(win_id)
+        win_id = nil
+    end
     win_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,

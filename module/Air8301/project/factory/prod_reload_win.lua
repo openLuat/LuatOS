@@ -1,20 +1,31 @@
 --[[
 @module  prod_reload_win
 @summary RELOAD按键状态页面（产测模式），显示按键按下/抬起状态
-@version 2.0.0
-@date    2026.09.24
-@version_note 产测专属：消息名前缀改 OPEN_PROD_RELOAD_WIN，避免与业务页面冲突
+@version 2.0
+@date    2026.10.08
+@author  江访
+@version_note 产测专属：消息名前缀 OPEN_PROD_RELOAD_WIN，避免与业务页面冲突
+
 @usage
 本页面显示RELOAD（WAKEUP2）按键状态：
 1、当前状态（已按下/已抬起）
 2、按住时间（ms）
 3、按住5秒进度条
 监听 KEY_EVENT 消息（由 prod_reload_app 发布）。
+
+视觉：ui_theme 深色玻璃态（2 条键值行 + 进度面板）。
 ]]
+
+local theme = require "ui_theme"
 
 local win_id = nil
 local main_container, content
 local status_label, held_time_label, progress_bar
+
+-- 布局常量（内容区 464×210：46 + 8 + 46 + 8 + 78 = 186）
+local ROW_H      = 46
+local ROW_GAP    = 8
+local PROGRESS_H = 78
 
 --[[
 导航栏返回按钮点击
@@ -39,7 +50,7 @@ local function on_key_event(event)
     if event == "reload_down" then
         if status_label then
             status_label:set_text("已按下")
-            status_label:set_color(T.COLOR_GREEN)
+            status_label:set_color(theme.SEM.success)
         end
         if progress_bar then
             progress_bar:set_value(0)
@@ -47,7 +58,7 @@ local function on_key_event(event)
     elseif event == "reload_up" then
         if status_label then
             status_label:set_text("已抬起")
-            status_label:set_color(T.COLOR_DANGER)
+            status_label:set_color(theme.SEM.danger)
         end
         if progress_bar then
             progress_bar:set_value(0)
@@ -62,60 +73,39 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
+    local ctx = theme.page({ title = "RELOAD按键", on_back = on_back_click })
+    main_container = ctx.base
+    content = ctx.base
 
-    -- 顶部标题栏
-    T.titlebar(main_container, "RELOAD按键", on_back_click)
+    local y = ctx.y
 
-    -- 内容区域
-    content = airui.container({
-        parent = main_container,
-        x = 0,
-        y = T.CONTENT_Y,
-        w = T.SCREEN_W,
-        h = T.CONTENT_H,
-        color = T.COLOR_BG
+    -- 按键状态
+    local _, l_status = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 120,
+        label = "按键状态", value = "等待中...", value_color = theme.C.t2 })
+    status_label = l_status
+    y = y + ROW_H + ROW_GAP
+
+    -- 按住时间
+    local _, l_held = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 120,
+        label = "按住时间", value = "0 ms", value_color = theme.C.t1 })
+    held_time_label = l_held
+    y = y + ROW_H + ROW_GAP
+
+    -- 进度面板
+    local progress_card = theme.card(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = PROGRESS_H,
+        color = theme.C.panel, radius = theme.R.lg, border = theme.C.stroke_soft,
     })
-
-    -- 状态卡片
-    local _, _, status_content = T.info_card(content, 10, 60, "按键状态", "等待中...")
-    status_label = status_content
-
-    -- 按住时间卡片
-    local _, _, time_content = T.info_card(content, 80, 60, "按住时间", "0 ms")
-    held_time_label = time_content
-
-    -- 进度条卡片
-    local progress_card = airui.container({
-        parent = content,
-        x = T.MARGIN,
-        y = 150,
-        w = T.CARD_W,
-        h = 60,
-        color = T.COLOR_CARD,
-        radius = T.CARD_RADIUS
+    theme.label(progress_card, {
+        x = 12, y = 10, w = ctx.w - 24, h = 19,
+        text = "恢复出厂进度（按住5秒）", px_size = 16, color = theme.C.t3,
     })
-    airui.label({
-        parent = progress_card,
-        x = 10,
-        y = 4,
-        w = T.CARD_W - 20,
-        h = 20,
-        text = "按键检测中（RELOAD_TEST,1# 开启上报）",
-        font_size = T.FONT_CARD_TITLE,
-        color = T.COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    progress_bar = airui.bar({
-        parent = progress_card,
-        x = 10,
-        y = 28,
-        w = T.CARD_W - 20,
-        h = 20,
-        min = 0,
-        max = 100,
-        value = 0,
-        indicator_color = T.COLOR_ORANGE,
+    progress_bar = theme.bar(progress_card, {
+        x = 12, y = 42, w = ctx.w - 24, h = 18,
+        min = 0, max = 100, value = 0,
+        color = theme.C.amber,
     })
 end
 
@@ -176,6 +166,12 @@ OPEN_PROD_RELOAD_WIN 消息处理器
 @function open_handler
 ]]
 local function open_handler()
+    -- 单实例保护：避免同页多实例并存时互相覆盖 win_id（会使点击准入判定失效）
+    if win_id and exwin.is_active(win_id) then return end
+    if win_id then
+        exwin.close(win_id)
+        win_id = nil
+    end
     win_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,

@@ -1,13 +1,33 @@
 --[[
 @module  led_win
-@summary 状态灯控制页面，切换开关控制（8301出厂固件）
+@summary 状态灯控制页面，开关控制（8301出厂固件）
 @version 1.0
-@date    2026.09.22
+@date    2026.10.08
 @author  江访
+
 @usage
 4G灯(GPIO21)和WiFi灯(GPIO141)的ON/OFF控制。
-整卡可点击，右侧 iOS 风格切换开关。与 do_win 统一风格。
+整卡可点击切换，右侧为自绘开关指示。发布 LED_SET_REQUEST(ch, state)。
+与 do_win 统一风格。
+
+视觉：ui_theme 深色玻璃态（两张大卡片，卡片内左侧标题 + 右侧开关指示）。
+开关指示器为「只读」绘制（轨道 + 滑块均不响应点击），点击统一由卡片承接，
+从而避免「父卡片与子开关同时响应导致状态翻转两次」的问题。
+
+=== v2.1 修复：点击无响应 ===
+现象：进入本页后点击卡片/开关没有任何反应。
+根因：点击回调首行用 exwin.is_active(win_id) 作准入条件，而 win_id 是模块级变量。
+      批量回收（exwin 菜单切换事务）或重复打开产生多实例时，旧实例的 on_destroy
+      会把共享的 win_id 置为 nil，于是屏幕上这个实例的 is_active(win_id) 恒为 false，
+      所有点击在入口处被静默丢弃（表现为「点不动」）。
+修复：
+  1) 改用本地存活性标志 ui_alive（on_create 置真 / on_destroy 置假）作准入条件，
+     不再依赖 exwin 的栈顶状态 —— 只要本页还在屏幕上，点击必然生效；
+  2) open_handler 增加单实例保护，避免同页多实例互相覆盖 win_id；
+  3) 点击被丢弃时打印窗口栈快照，便于现场定位。
 ]]
+
+local theme = require "ui_theme"
 
 local win_id = nil
 local main_container, content
@@ -15,62 +35,236 @@ local led4g_track, led4g_knob, ledwifi_track, ledwifi_knob
 local led4g_state = 0
 local ledwifi_state = 0
 
+-- 本页 UI 存活性标志：只由 on_create / on_destroy 维护，点击回调据此准入
+local ui_alive = false
+
+-- 卡片几何（内容区 464×210：76 + 10 + 76 = 162，上下居中）
+local CARD_H   = 76
+local CARD_GAP = 10
+local SW_W, SW_H, SW_PAD = 44, 24, 3
+
+--[[
+导航栏返回按钮点击
+
+@local
+@function on_back_click
+]]
 local function on_back_click()
-    if not exwin.is_active(win_id) then return end
+    if not ui_alive then return end
     exwin.close(win_id)
 end
 
--- 4G灯切换
+--[[
+绘制开关指示器（轨道 + 滑块）
+
+v2.2：轨道与滑块均绑定传入的点击回调（已去重），与父卡片共用同一回调，
+      保证点开关区域也能响应；一次物理点击只翻转一次。
+
+@local
+@function make_switch
+@param parent userdata 父容器
+@param x number X 坐标
+@param y number Y 坐标
+@param state boolean 初始状态
+@param on_click function 点击回调（与父卡片同一去重回调，可为 nil）
+@return track userdata 轨道容器
+@return knob userdata 滑块容器
+]]
+local function make_switch(parent, x, y, state, on_click)
+    local on = (state == true)
+    local kd = SW_H - SW_PAD * 2
+    local track = theme.box(parent, {
+        x = x, y = y, w = SW_W, h = SW_H,
+        color = on and theme.C.green or theme.C.track,
+        opa = 255, radius = math.floor(SW_H / 2),
+        on_click = on_click,
+    })
+    local knob = theme.box(track, {
+        x = on and (SW_W - SW_PAD - kd) or SW_PAD, y = SW_PAD, w = kd, h = kd,
+        color = on and theme.C.knob or theme.C.knob_off,
+        opa = 255, radius = math.floor(kd / 2),
+        on_click = on_click,
+    })
+    return track, knob
+end
+
+--[[
+刷新开关指示器状态
+
+@local
+@function update_switch
+@param track userdata 轨道容器
+@param knob userdata 滑块容器
+@param state boolean 新状态
+]]
+local function update_switch(track, knob, state)
+    if not track or not knob then return end
+    local on = (state == true)
+    local kd = SW_H - SW_PAD * 2
+    local c = on and theme.C.green or theme.C.track
+    track:set_color(c, 255)
+    knob:set_color(on and theme.C.knob or theme.C.knob_off, 255)
+    knob:set_pos(on and (SW_W - SW_PAD - kd) or SW_PAD, SW_PAD)
+end
+
+--[[
+4G灯切换
+
+@local
+@function on_led4g_click
+]]
 local function on_led4g_click()
-    if not exwin.is_active(win_id) then return end
+    if not ui_alive then
+        log.warn("led_win", "点击被丢弃 4G灯 ui_alive=", ui_alive, "win_id=", win_id)
+        return
+    end
     led4g_state = led4g_state == 0 and 1 or 0
-    T.toggle_switch_update(led4g_track, led4g_knob, led4g_state == 1)
+    update_switch(led4g_track, led4g_knob, led4g_state == 1)
     sys.publish("LED_SET_REQUEST", 1, led4g_state)
+    log.info("led_win", "4G灯切换为", led4g_state)
 end
 
--- WiFi灯切换
+--[[
+WiFi灯切换
+
+@local
+@function on_ledwifi_click
+]]
 local function on_ledwifi_click()
-    if not exwin.is_active(win_id) then return end
+    if not ui_alive then
+        log.warn("led_win", "点击被丢弃 WiFi灯 ui_alive=", ui_alive, "win_id=", win_id)
+        return
+    end
     ledwifi_state = ledwifi_state == 0 and 1 or 0
-    T.toggle_switch_update(ledwifi_track, ledwifi_knob, ledwifi_state == 1)
+    update_switch(ledwifi_track, ledwifi_knob, ledwifi_state == 1)
     sys.publish("LED_SET_REQUEST", 2, ledwifi_state)
+    log.info("led_win", "WiFi灯切换为", ledwifi_state)
 end
 
+--[[
+创建单盏状态灯卡片（整卡可点击）
+
+@local
+@function create_led_card
+@param parent userdata 父容器
+@param y number Y 坐标
+@param title string 卡片标题
+@param subtitle string 引脚说明
+@param on_click function 点击回调
+@return track userdata 开关轨道
+@return knob userdata 开关滑块
+]]
+local function create_led_card(parent, y, title, subtitle, on_click)
+    -- 点击贯通：卡片、两行文字、开关轨道与滑块全部绑同一去重回调，
+    -- 避免「只有卡片空白处能点 → 按钮非常不灵敏」
+    local card, tap = theme.tap_card(parent, {
+        x = theme.PAD, y = y, w = theme.SCREEN_W - theme.PAD * 2, h = CARD_H,
+        color = theme.C.panel, radius = theme.R.lg, border = theme.C.stroke_soft,
+        on_click = on_click,
+    })
+    theme.label(card, {
+        x = 16, y = 12, w = 300, h = 22,
+        text = title, px_size = 18, color = theme.C.t1,
+        on_click = tap,
+    })
+    theme.label(card, {
+        x = 16, y = 42, w = 300, h = 19,
+        text = subtitle, px_size = 16, color = theme.C.t2,
+        on_click = tap,
+    })
+    local track, knob = make_switch(card, theme.SCREEN_W - theme.PAD * 2 - 16 - SW_W,
+        math.floor((CARD_H - SW_H) / 2), false, tap)
+    return track, knob
+end
+
+--[[
+创建UI界面
+
+@local
+@function create_ui
+]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
+    local ctx = theme.page({ title = "状态灯", on_back = on_back_click })
+    main_container = ctx.base
+    content = ctx.base
 
-    T.titlebar(main_container, "状态灯", on_back_click)
+    -- 上下居中：总高 162，内容区 210，顶部留白 24
+    local y = ctx.y + math.floor((ctx.h - (CARD_H * 2 + CARD_GAP)) / 2)
 
-    content = airui.container({ parent = main_container, x = 0, y = T.CONTENT_Y, w = T.SCREEN_W, h = T.CONTENT_H, color = T.COLOR_BG })
-
-    -- 4G灯控制卡片（整卡可点击）
-    local card1 = airui.container({ parent = content, x = T.MARGIN, y = T.MARGIN, w = T.CARD_W, h = 70, color = T.COLOR_CARD, radius = T.CARD_RADIUS, on_click = on_led4g_click })
-    airui.label({ parent = card1, x = 15, y = 10, w = 300, h = 26, text = "4G状态灯", font_size = T.FONT_TITLE, color = T.COLOR_TEXT, align = airui.TEXT_ALIGN_LEFT })
-    airui.label({ parent = card1, x = 15, y = 38, w = 300, h = 22, text = "GPIO21", font_size = T.FONT_SMALL, color = T.COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_LEFT })
-    -- 右侧切换开关（OFF）
-    led4g_track, led4g_knob = T.toggle_switch(card1, T.CARD_W - 65, 21, false, on_led4g_click)
-
-    -- WiFi灯控制卡片（整卡可点击）
-    local card2 = airui.container({ parent = content, x = T.MARGIN, y = 95, w = T.CARD_W, h = 70, color = T.COLOR_CARD, radius = T.CARD_RADIUS, on_click = on_ledwifi_click })
-    airui.label({ parent = card2, x = 15, y = 10, w = 300, h = 26, text = "WiFi状态灯", font_size = T.FONT_TITLE, color = T.COLOR_TEXT, align = airui.TEXT_ALIGN_LEFT })
-    airui.label({ parent = card2, x = 15, y = 38, w = 300, h = 22, text = "GPIO141", font_size = T.FONT_SMALL, color = T.COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_LEFT })
-    ledwifi_track, ledwifi_knob = T.toggle_switch(card2, T.CARD_W - 65, 21, false, on_ledwifi_click)
+    led4g_track, led4g_knob = create_led_card(ctx.base, y, "4G状态灯", "GPIO21", on_led4g_click)
+    ledwifi_track, ledwifi_knob = create_led_card(ctx.base, y + CARD_H + CARD_GAP,
+        "WiFi状态灯", "GPIO141", on_ledwifi_click)
 end
 
+--[[
+窗口创建回调
+
+@local
+@function on_create
+]]
 local function on_create()
+    ui_alive = true
     create_ui()
 end
 
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+]]
 local function on_destroy()
-    if main_container then main_container:destroy(); main_container = nil end
-    content = nil; led4g_track = nil; led4g_knob = nil; ledwifi_track = nil; ledwifi_knob = nil; win_id = nil
+    -- 先失效点击准入，再释放组件，避免销毁过程中回调仍被触发
+    ui_alive = false
+    if main_container then
+        main_container:destroy()
+        main_container = nil
+    end
+    content = nil
+    led4g_track = nil
+    led4g_knob = nil
+    ledwifi_track = nil
+    ledwifi_knob = nil
+    win_id = nil
 end
 
+--[[
+窗口获得焦点回调
+
+@local
+@function on_get_focus
+]]
 local function on_get_focus() end
+
+--[[
+窗口失去焦点回调
+
+@local
+@function on_lose_focus
+]]
 local function on_lose_focus() end
 
+--[[
+OPEN_LED_WIN 消息处理器
+
+单实例保护：已在栈顶的本页实例直接忽略重复请求；
+若存在残留的非活动实例则先回收，保证同一时刻只有一个本页实例。
+
+@local
+@function open_handler
+]]
 local function open_handler()
-    win_id = exwin.open({ on_create = on_create, on_destroy = on_destroy, on_lose_focus = on_lose_focus, on_get_focus = on_get_focus })
+    if win_id and exwin.is_active(win_id) then return end
+    if win_id then
+        exwin.close(win_id)
+        win_id = nil
+    end
+    win_id = exwin.open({
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_lose_focus = on_lose_focus,
+        on_get_focus = on_get_focus,
+    })
 end
 
 sys.subscribe("OPEN_LED_WIN", open_handler)

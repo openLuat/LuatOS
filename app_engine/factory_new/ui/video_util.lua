@@ -1,8 +1,8 @@
 --[[
 @module  video_util
 @summary 媒体素材工具（容器格式嗅探 / 帧尺寸读取 / HZV 音轨初始化 / 播放器创建）—— 播放类页面共用
-@version 1.4
-@date    2026.09.30
+@version 1.5
+@date    2026.10.09
 @author  江访
 
 === 为什么单独成模块 ===
@@ -15,45 +15,25 @@ idle_win（桌面播放器）与 video_win（全屏播放页）都要读素材�
 
 （welcome_win 里还有一份历史副本。开机路径没跟着迁移，改这里时别以为全工程都干净了。）
 
-=== MP4 播放走 mplayer 全屏接管（2026-09-30 起）===
-airui.video 的 MP4 嵌入式路径因固件 C 层解码栈溢出禁播（见下节），MP4 改走
-ui/mp4_takeover.lua：mplayer 全屏接管单次播放（open→set_rect(-1,-1)→play→
-轮询 is_playing→stop→close），流程照搬真机验证过的 mp4_test 工程
-（C:\luatools_v1\userprojs\mp4_test\user）。形态是「全屏、点屏幕退出、不循环」，
-桌面播放器与全屏播放页共用。HZV/MJPG 的嵌入式播放仍走 create_player。
-注意：MP4 有声音（mplayer 自带音频通路）；HZV 声音走容器音轨；MJPG 走同名 MP3。
-
-=== MP4 嵌入式播放禁用（2026-09-30，防固件 C 层栈溢出死机）===
-真机一播 MP4 即 "luatos stack over flow" 断言死机。根因在固件 C 层（仅指出、
-未改）：components/videoplayer/src/luat_mp4_videoplayer.c 把 FFmpeg H.264 解码
-（h264_decoder_init / h264_decode_nal / h264_deinit）同步跑在调用方任务栈上，
-栈需求 ~20KB（mplayer 为解码配了 24KB 专用线程，见 components/mplayer/src/
-luat_mplayer.c 的 MPLAYER_DS_STACK），Lua/LVGL 任务栈远不够。修复方向：把
-h264_* 调用 RPC 到大栈线程执行。固件修复后把下面的 MP4_PLAYBACK_ENABLED
-改回 true 即恢复嵌入式播放。在此之前帧尺寸探测已改为纯 Lua 解析容器盒
-（不碰解码器），浏览文件/构建布局不触发死机。
+=== MP4 / HZV / MJPG 统一走 airui.video（2026-10-09 起）===
+airui.video 已支持 HZV 与 MP4：MJPG / HZV 走 videoplayer 后端（控件内拉 RGB565 帧），
+MP4 按 format 自动路由到 mplayer 后端（自带音频通路、硬件图层送显、组件内部
+循环重播与 EOS 回调 on_complete）。桌面播放器（idle_win）与全屏播放页
+（video_win）三种格式的播放全部收口到 create_player 一个入口。
+MP4 的两个会话副作用（功放使能、触摸总线守护）也在这里收口，见「MP4 会话副作用」。
 
 @api video_util.guess_format(path)              容器格式："hzv" | "mjpg" | "mp4"
-@api video_util.is_mp4(path)                    是否 MP4 容器（调用方分流到 mp4_takeover）
 @api video_util.read_dimensions(path)           w, h；读不到返回 nil
 @api video_util.frame_size(path, def_w, def_h)  w, h；读不到时用调用方给的兜底值
 @api video_util.audio_ensure()                  幂等初始化 HZV 音轨（Audio V2），返回是否可用；
                                                 已就绪时 RESUME 并重新对齐 ac.play_vol 音量
 @api video_util.create_player(path, o)          按格式创建**嵌入式**播放器（airui.video，
-                                                MP4 因禁播返回 nil；MP4 全屏观看走 mp4_takeover）
+                                                HZV/MJPG/MP4 统一；o.on_complete=单次播完回调）
 @api video_util.tp_bus_restore()                恢复触摸 I2C 总线配置（音频通路会重置总线）
 ]]
 
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
-
---[[MP4 嵌入式播放开关：固件 C 层 H.264 解码栈溢出修复前禁播防死机
-
-置 false 时 create_player 对 MP4 返回 nil（走调用方的「无法播放」空态），
-点播放不再触发 "luatos stack over flow" 断言死机。固件修复
-（解码挪到大栈线程，详见文件头「MP4 嵌入式播放禁用」一节）后改回 true。
-注意：这只管**嵌入式**路径；MP4 全屏观看走 mp4_takeover（mplayer），不受此开关影响。]]
-local MP4_PLAYBACK_ENABLED = false
 
 local M = {}
 
@@ -80,22 +60,12 @@ function M.guess_format(path)
     return "mjpg"
 end
 
---[[是否 MP4 容器（按 guess_format 口径）
+--[[MP4 容器盒解析拿编码宽高（纯 Lua，不碰解码器）
 
-MP4 的播放路径与 HZV/MJPG 分道：嵌入式 airui.video 因固件栈溢出禁播，
-全屏观看走 mp4_takeover（mplayer，参考 mp4_test 工程）。
-调用方用这个函数分流，不要再各写 guess_format(...) == "mp4"。]]
-function M.is_mp4(path)
-    return M.guess_format(path) == "mp4"
-end
-
---[[MP4 容器盒解析拿编码宽高（纯 Lua，不碰 H.264 解码器）
-
-为什么不用 videoplayer.open+info：open 会初始化 FFmpeg 解码器并喂 SPS/PPS
-（luat_mp4_vctx_open），固件解码栈溢出未修复前，仅「读宽高」就可能触发
-"luatos stack over flow" 死机。探测只需要两个整数，自己解析 moov 盒足够：
-优先 stsd 里 avc1/hev1/hvc1/mp4v 的 VisualSampleEntry 宽高（载荷偏移 +24/+26），
-找不到再用 tkhd 尾部 16.16 定点显示宽高兜底。moov 超 2MB 放弃（正常素材远小于此）。
+只为读两个整数就 open 解码器太重（会初始化 FFmpeg / 硬解并喂 SPS/PPS），
+纯 Lua 解析 moov 盒足够：优先 stsd 里 avc1/hev1/hvc1/mp4v 的
+VisualSampleEntry 宽高（载荷偏移 +24/+26），找不到再用 tkhd 尾部 16.16
+定点显示宽高兜底。moov 超 2MB 放弃（正常素材远小于此）。
 盒结构：[size(4) type(4) payload...]，size==1 时 64 位盒长跟在头后。]]
 local function mp4_box_dimensions(path)
     local f = io.open(path, "rb")
@@ -369,20 +339,64 @@ function M.audio_toggle(should_loop)
     end
 end
 
+-- ==================== MP4 会话副作用（功放 / 触摸总线守护） ====================
+--[[mplayer 的音频通路启动时会把触摸 I2C 总线配置重置（真机踩过：GT911 读超时、
+触摸失灵），功放引脚也要手动使能（mplayer 自己不拉 PA）。airui.video 的 MP4
+后端内部同样走 mplayer，这两个副作用原样存在 —— 在创建/销毁播放器时统一收口：
+起播前 PA 使能 + 500ms 触摸总线守护泵，destroy 时统一收尾（见 wrap_mp4_player）。
+
+MP4 分辨率上限 480×320：mplayer 的 RGB 帧缓冲是静态数组，超限直接溢出
+（mp4 时代的真机教训），起播前用纯 Lua 盒解析读宽高拦截。]]
+local MP4_MAX_W = 480
+local MP4_MAX_H = 320
+
+local mp4_guard_timer = nil
+
+-- PA 功放使能/关闭（引脚与电平读板级 hw.audio）
+local function pa_set(on)
+    local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
+    if not (ac and ac.pa_ctrl) then return end
+    if on then
+        pcall(gpio.setup, ac.pa_ctrl, ac.pa_on_level or 0)
+    else
+        pcall(gpio.setup, ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
+    end
+end
+
+local function mp4_session_begin()
+    pa_set(true)
+    if mp4_guard_timer then return end
+    mp4_guard_timer = sys.timerLoopStart(function() M.tp_bus_restore() end, 500)
+end
+
+local function mp4_session_end()
+    if mp4_guard_timer then sys.timerStop(mp4_guard_timer); mp4_guard_timer = nil end
+    pa_set(false)
+    M.tp_bus_restore()
+end
+
+--[[包装 MP4 播放器：destroy 时统一收掉会话副作用
+
+接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
+HZV/MJPG 不涉及这些副作用，create_player 仍返回裸对象。]]
+local function wrap_mp4_player(v)
+    return {
+        play = function(_, ...) return v:play(...) end,
+        pause = function(_, ...) return v:pause(...) end,
+        stop = function(_, ...) return v:stop(...) end,
+        destroy = function(_)
+            pcall(function() v:destroy() end)
+            mp4_session_end()
+        end,
+    }
+end
+
 -- ==================== 播放器创建 ====================
---[[2026-09-30 起 MP4 不再走本入口：嵌入式 airui.video 的 MP4 路径有固件 C 层
-解码栈溢出（详见文件头），全屏观看改走 ui/mp4_takeover.lua（mplayer 单次接管，
-流程照搬 mp4_test 工程）。这里只负责 HZV/MJPG 的嵌入式播放器。
-
-曾短暂走过 airui.video 的 format="mp4"（V1.2.1 起组件支持，暂无音频），
-但真机一播即死机，等固件把 H.264 解码挪到大栈线程后再放开
-（MP4_PLAYBACK_ENABLED 改 true）。]]
-
 --[[按素材格式创建**嵌入式**播放器（唯一入口）
 
-HZV / MJPG 走 airui.video（父容器内的控件，随 UI 层级显示/隐藏）：
-HZV 的帧时序在容器内、MJPG 逐帧按 interval 喂。MP4 因禁播返回 nil
-（全屏观看请调用方分流到 mp4_takeover）。
+HZV / MJPG / MP4 都走 airui.video（父容器内的控件，随 UI 层级显示/隐藏）：
+MJPG 逐帧按 interval 喂；HZV / MP4 自带帧时序（HZV 容器帧时长 / MP4 PTS），
+循环（loop）与单次播完（on_complete）由组件统一处理，控制栏代码无感。
 两个播放页面（桌面播放器 / 全屏播放页）都走这里，格式差异只有一处实现。
 
 @table o
@@ -390,23 +404,28 @@ HZV 的帧时序在容器内、MJPG 逐帧按 interval 喂。MP4 因禁播返回
   @number   o.x,o.y    画面摆放位置（相对 parent）
   @number   o.w,o.h    画面尺寸（必须等于素材帧尺寸，不支持缩放）
   @boolean  o.loop     是否循环
+  @function o.on_complete 单次播完（loop=false 读到 EOF）回调
 @return userdata|nil 播放器对象（:play/:pause/:stop/:destroy），失败 nil
 ]]
 function M.create_player(path, o)
     o = o or {}
     local fmt = M.guess_format(path)
 
-    --[[禁播兜底：固件 H.264 解码栈溢出未修复前，创建即拒绝（返回 nil 走空态 UI），
-    不让 airui.video 起播触发死机（见文件头「MP4 嵌入式播放禁用」一节）。
-    MP4 的全屏观看走 mp4_takeover，调用方应先用 is_mp4 分流、不该走到这里。]]
-    if fmt == "mp4" and not MP4_PLAYBACK_ENABLED then
-        log.warn("video_util", "MP4 嵌入式播放已禁播：固件 H.264 解码栈溢出未修复（全屏观看走 mp4_takeover）", path)
-        return nil
-    end
-
-    --[[MP4 组件暂无音频，不必先起音频框架；HZV 的播放时钟依赖它、
-    MJPG 的配套 MP3 也走它，所以这两种照旧先确保一次。]]
-    if fmt ~= "mp4" then
+    if fmt == "mp4" then
+        -- 分辨率超限拒绝起播：调用方按「无法播放」走空态 UI
+        local w, h = M.read_dimensions(path)
+        if w and h and (w > MP4_MAX_W or h > MP4_MAX_H) then
+            log.warn("video_util", "MP4 超 480×320 上限，拒绝起播", w, h, path)
+            return nil
+        end
+        --[[停掉残留的配套/容器音频再起 mplayer：两路音频同开必打架。
+        MP4 的声音走 mplayer 自带音频通路（组件内部自行初始化），
+        不经 exaudio，也不需要 audio_ensure。]]
+        M.audio_stop()
+        if exaudio then pcall(exaudio.play_stop, { type = 0 }) end
+        mp4_session_begin()
+    else
+        -- HZV 的播放时钟依赖音频框架、MJPG 的配套 MP3 也走它，先确保一次
         M.audio_ensure()
     end
 
@@ -418,14 +437,24 @@ function M.create_player(path, o)
         loop = o.loop and true or false,
         auto_play = true,
     }
+    if o.on_complete then
+        vcfg.on_complete = o.on_complete
+    end
     if fmt == "mjpg" then
         vcfg.interval = 33   -- 30fps（调大即慢放，看着像卡住）
-    else
-        -- HZV 自带逐帧时长，MP4 按容器 PTS 走，Lua 都不填 interval
+    elseif fmt == "hzv" then
+        -- HZV 自带逐帧时长，不填 interval，显式走 videoplayer 后端；
+        -- MP4 不指定 backend，组件按 format 自动路由到 mplayer 后端
         vcfg.backend = "videoplayer"
     end
+
     local ok, v = pcall(airui.video, vcfg)
-    return (ok and v) and v or nil
+    if not ok or not v then
+        if fmt == "mp4" then mp4_session_end() end
+        return nil
+    end
+    if fmt == "mp4" then return wrap_mp4_player(v) end
+    return v
 end
 
 return M

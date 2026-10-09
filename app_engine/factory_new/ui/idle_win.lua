@@ -40,8 +40,6 @@ local theme = require "ui_theme"
 -- 全屏播放页（ui/video_win.lua）用的是同一套，改口径只改模块。
 local video_picker = require "video_picker"
 local video_util = require "video_util"
--- MP4 桌面嵌播（mplayer 层叠循环）
-local mp4_loop = require "mp4_loop"
 
 local window_id = nil
 local main_container = nil
@@ -56,12 +54,11 @@ local apps_card = nil
   VP.ctrl_h / VP.frame_h / VP.current_file / VP.start_play / VP.open_picker
 跨窗口调用请走本文件已有的导出接口，别在别的窗口里直接碰这张表。]]
 local VP = {}
-VP.obj = nil                    -- 播放器对象（airui.video 实例）
+VP.obj = nil                    -- 播放器对象（airui.video 实例；MP4 为带会话收尾的包装对象）
 VP.is_playing = true            -- 播放状态
 VP.is_loop = true               -- 循环状态
 VP.ctrl_bar = nil               -- 控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
 VP.ctrl_visible = true          -- 控制栏可见性
-VP.ctrl_timer = nil             -- 控制栏自动隐藏定时器（已停用，仅保留清理，防旧定时器残留）
 --[[播放/循环按钮与文件名标签不再各留一个引用，统一收进 VP.ctrl_bar
 
 这三个引用原先各存一份，于是「状态变了要记得刷哪个控件」全靠人工对齐 ——
@@ -73,8 +70,6 @@ VP.ctrl_timer = nil             -- 控制栏自动隐藏定时器（已停用，
 VP.current_file = "/luadb/fruit.mp4" 
 VP.card_ref = nil             -- 视频卡片容器引用（供切换文件时使用）
 VP.stage = nil                -- 画面舞台层：视频的父对象，先于控制栏创建（见 build_video_area）
-VP.loop_timer = nil           -- MJPG 循环定时器（已停用：循环改由组件 loop 参数负责）
-VP.auto_timer = nil           -- MP4 延后起播定时器
 -- 配套音频（同名 MP3）的播放状态已收进 video_util：桌面播放器与全屏播放页
 -- 共用一份，避免「两边同时出声」，也避免各自记一份状态后互相打架。
 -- 应用卡片表头计数标签（"已安装应用 | N"）。
@@ -1804,12 +1799,9 @@ local function sync_ctrl()
     VP.ctrl_bar:sync(VP.is_playing, VP.is_loop)
 end
 
--- 视频控制：停止并重建视频组件（切换文件或循环模式时用）
+-- 视频控制：停止并释放视频组件
 function VP.stop()
-    if VP.auto_timer then sys.timerStop(VP.auto_timer); VP.auto_timer = nil end
-    if VP.loop_timer then sys.timerStop(VP.loop_timer); VP.loop_timer = nil end
     video_util.audio_stop()
-    mp4_loop.stop()   -- MP4 层叠会话（mp4_loop）；没有会话时是空操作
     if VP.obj then
         pcall(function() VP.obj:stop() end)
         pcall(function() VP.obj:destroy() end)
@@ -1832,14 +1824,12 @@ local function media_frame_size(path)
     return video_util.frame_size(path, 480, VP.portrait and VP.BASE_H or 270)
 end
 
---[[在舞台层里创建视频对象（HZV/MJPG 走 airui.video；MP4 不进这里）
+--[[在舞台层里创建视频对象（HZV/MJPG/MP4 统一走 airui.video）
 
 两个创建点（VP.start_play / build_video_area）共用一份几何与格式分派：
 格式差异统一走 video_util.create_player，本函数只负责把素材帧尺寸折算成
 画面矩形。挂 VP 表而不是文件级 local：本文件顶层局部变量名额已顶到上限
 （见 VP 定义处注释）。
-MP4 分流在 VP.embed_mp4：airui.video 嵌入路径固件栈溢出禁播，桌面卡片
-改走 mp4_loop（mplayer 图层摆到舞台区、循环播放），本函数只服务 HZV/MJPG。
 
 @param file_path string 素材路径
 @param parent    舞台层（缺省 VP.stage）
@@ -1858,23 +1848,9 @@ function VP.create_video(file_path, parent)
         parent = parent or VP.stage,
         x = vx_off, y = vy_off, w = vw, h = vh,
         loop = VP.is_loop,
-    })
-end
-
---[[MP4 嵌位循环播放：mplayer 图层摆到舞台区
-图层坐标为屏幕绝对坐标，素材原生尺寸在舞台内居中
-@return boolean 是否成功起播]]
-function VP.embed_mp4(file_path)
-    local vw, vh = media_frame_size(file_path)
-    local vx_off = math.floor((VP.w - vw) / 2)
-    local vy_off = math.floor((VP.frame_h - vh) / 2)
-    if vx_off < 0 then vx_off = 0 end
-    if vy_off < 0 then vy_off = 0 end
-    return mp4_loop.start(file_path, {
-        x = content_x + VP.x + vx_off,
-        y = VP.y + vy_off,
-        loop = VP.is_loop,
-        on_eos = function()
+        --[[单次播完（loop=false 读到 EOF）：组件回调把状态翻回「已停」，
+        控制栏文案/底色跟着刷。循环模式下不会触发。]]
+        on_complete = function()
             VP.is_playing = false
             sync_ctrl()
         end,
@@ -1893,15 +1869,6 @@ function VP.start_play(file_path)
         return
     end
 
-    -- MP4 走 mplayer 层叠循环播放（VP.embed_mp4）
-    if video_util.is_mp4(file_path) then
-        VP.is_playing = VP.embed_mp4(file_path)
-        sync_ctrl()
-        VP.show_ctrl()
-        log.info("idle_win", "mp4 embed play", file_path, "ok=", VP.is_playing, "loop=", VP.is_loop)
-        return
-    end
-
     -- 循环交回组件（loop 参数）。旧版是「每 3 秒 stop+play」手动重播，
     -- 会把正在解码的视频硬重启，画面就停在半路 —— 用户报的「播放卡住」。
     -- 几何折算与格式分派见 VP.create_video
@@ -1912,9 +1879,8 @@ function VP.start_play(file_path)
     sync_ctrl()
     VP.show_ctrl()
 
-    -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、由 videoplayer
-    -- 统一驱动，MP4 组件暂无音频；find_companion_mp3 只认 .mjpg 后缀，
-    -- 对 .hzv / .mp4 天然返回 nil。
+    -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、
+    -- MP4 声音走 mplayer 自带音频通路；find_companion_mp3 只认 .mjpg 后缀。
     local mp3 = video_util.find_companion_mp3(file_path)
     if mp3 then
         video_util.audio_play(mp3, function() return VP.is_loop and VP.is_playing end)
@@ -1925,22 +1891,6 @@ end
 
 -- 视频控制：播放/暂停切换
 function VP.toggle_play()
-    -- MP4：pause/resume 切换；未在播时重新起播
-    if VP.current_file and video_util.is_mp4(VP.current_file) and not VP.obj then
-        if mp4_loop.is_active() then
-            if VP.is_playing then
-                mp4_loop.pause()
-                VP.is_playing = false
-            else
-                mp4_loop.resume()
-                VP.is_playing = true
-            end
-            sync_ctrl()
-        else
-            VP.start_play(VP.current_file)
-        end
-        return
-    end
     if not VP.obj then return end
     if VP.is_playing then
         pcall(function() VP.obj:pause() end)
@@ -1964,15 +1914,9 @@ function VP.restart()
 end
 
 -- 视频控制：切换循环
--- HZV/MJPG：loop 只在创建组件时生效，所以切完标志位重建一次组件
+-- loop 只在创建组件时生效（HZV/MJPG/MP4 一视同仁），所以切完标志位重建一次组件
 function VP.toggle_loop()
     VP.is_loop = not VP.is_loop
-    -- MP4：set_loop 即切，无需重建
-    if VP.current_file and video_util.is_mp4(VP.current_file) and mp4_loop.is_active() then
-        mp4_loop.set_loop(VP.is_loop)
-        sync_ctrl()
-        return
-    end
     -- 文案（循环/单次）与底色（琥珀/中性）一起刷
     sync_ctrl()
     if VP.current_file and VP.obj then
@@ -2034,7 +1978,7 @@ local function on_video_file_changed(path)
     -- 记进 resume_file，回桌面时恢复起播
     VP.resume_file = path
     -- 桌面在前台时（理论上不会走到这里，因为只有全屏页会发这条消息）立即切过去
-    if VP.obj or mp4_loop.is_active() then VP.start_play(path) end
+    if VP.obj then VP.start_play(path) end
 end
 
 -- 方案A：左列视频卡片（铺满内容区高度）+ 卡片底部常驻控制栏
@@ -2129,35 +2073,10 @@ local function build_video_area(parent)
         })
     end
 
-    -- 几何折算与格式分派见 VP.create_video / VP.embed_mp4
-    if video_util.is_mp4(VP.current_file) then
-        --[[MP4 延后起播：等开窗/焦点稳定后再拉 mplayer。开机时序里窗口焦点
-        簿记可能连环触发失焦重建，立即起播会被 stop 掉，还会踩 mplayer close
-        的堆泄漏（二次 open 失败）。失败自动重试两次，仍失败转空态。]]
-        VP.is_playing = true
-        if VP.auto_timer then sys.timerStop(VP.auto_timer) end
-        local function auto_start(attempt)
-            VP.auto_timer = nil
-            if not VP.card_ref or not VP.is_playing then return end
-            if mp4_loop.is_active() then return end
-            log.info("idle_win", "mp4 auto start", VP.current_file, "attempt", attempt)
-            if VP.embed_mp4(VP.current_file) then
-                VP.is_playing = true
-                sync_ctrl()
-            elseif attempt < 2 then
-                VP.auto_timer = sys.timerStart(function() auto_start(attempt + 1) end, 500)
-            else
-                VP.is_playing = false
-                sync_ctrl()
-                show_empty_state()
-            end
-        end
-        VP.auto_timer = sys.timerStart(function() auto_start(1) end, 300)
-    else
-        VP.obj = VP.create_video(VP.current_file, VP.stage)
-        VP.is_playing = (VP.obj ~= nil)
-        if not VP.is_playing then show_empty_state() end
-    end
+    -- 几何折算与格式分派见 VP.create_video
+    VP.obj = VP.create_video(VP.current_file, VP.stage)
+    VP.is_playing = (VP.obj ~= nil)
+    if not VP.is_playing then show_empty_state() end
 
     --[[控制栏（视频卡片底部，半透明深底）
 
@@ -2259,12 +2178,7 @@ local function on_destroy()
     log.info("idle_win", "on_destroy")
     if timer_handler then sys.timerStop(timer_handler); timer_handler = nil end
     stop_charge_anim()
-    -- 停止视频控制栏定时器
-    if VP.ctrl_timer then sys.timerStop(VP.ctrl_timer); VP.ctrl_timer = nil end
-    if VP.loop_timer then sys.timerStop(VP.loop_timer); VP.loop_timer = nil end
-    if VP.auto_timer then sys.timerStop(VP.auto_timer); VP.auto_timer = nil end
     -- 停止并释放视频播放组件
-    mp4_loop.stop()   -- MP4 层叠会话（mp4_loop）；没有会话时是空操作
     if VP.obj then
         pcall(function() VP.obj:stop() end)
         pcall(function() VP.obj:destroy() end)
@@ -2383,7 +2297,6 @@ local function on_get_focus()
 end
 
 local function on_lose_focus()
-    if VP.auto_timer then sys.timerStop(VP.auto_timer); VP.auto_timer = nil end
     if timer_handler then sys.timerStop(timer_handler); timer_handler = nil end
     stop_charge_anim()
     --[[失焦即释放视频解码资源
@@ -2402,12 +2315,6 @@ local function on_lose_focus()
         pcall(function() VP.obj:stop() end)
         pcall(function() VP.obj:destroy() end)
         VP.obj = nil
-    elseif mp4_loop.is_active() then
-        -- MP4 层叠会话：失焦释放，回焦按 resume_file 重起
-        if VP.current_file and VP.is_playing then
-            VP.resume_file = VP.current_file
-        end
-        mp4_loop.stop()
     end
     video_util.audio_stop()
 end

@@ -51,18 +51,15 @@
    差别只有最右一格的文案：桌面是「全屏」（进来），本页是「窗口」（回去）。
    按钮的底色与文字色都由 video_bar 按主题令牌 + 当前状态算，本页不自己写颜色。
 
-7. **MP4 走 mplayer 全屏接管，不走 airui.video**（2026-09-30 起）
-   airui.video 的 MP4 嵌入式路径有固件 C 层解码栈溢出（详见 video_util.lua 文件头），
-   MP4 分流到 ui/mp4_takeover.lua：全屏单次播放、点屏幕任意处退出、不循环，
-   流程照搬真机验证过的 mp4_test 工程。控制栏对 MP4 只剩「播放 = 重播」有意义，
-   「循环」点了不动（mplayer 无 loop API）。HZV/MJPG 仍走 airui.video，
-   统一入口在 video_util.create_player。
+7. **MP4 / HZV / MJPG 统一走 airui.video**（2026-10-09 起）
+   airui.video 已支持 HZV 与 MP4：MP4 由组件自动路由到 mplayer 后端（硬件图层
+   送显、自带音频通路、组件内部循环重播与 EOS 回调），三种格式统一入口
+   video_util.create_player，控制栏对所有格式一视同仁（播放/循环/重播都有效）。
 ]]
 
 local theme = require "ui_theme"
 local video_picker = require "video_picker"
 local video_util = require "video_util"
-local mp4_takeover = require "mp4_takeover"
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
 
@@ -73,7 +70,7 @@ local DEFAULT_VW, DEFAULT_VH = 480, 320
 local window_id = nil
 local bg = nil                -- 全屏黑底（airui.shape，不可滚动、不吃点击）
 local stage = nil             -- 舞台层：视频的父对象（换文件不影响它，因此不影响层级）
-local video_obj = nil         -- 播放器对象（airui.video 实例）
+local video_obj = nil         -- 播放器对象（airui.video 实例；MP4 为带会话收尾的包装对象）
 local ctrl_bar = nil          -- 底部控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
 local empty_label = nil       -- 素材放不出来时的提示
 
@@ -211,6 +208,19 @@ local function leave_landscape()
     end
 end
 
+--[[刷新控制栏：文件名 + 「播放」「循环」两个按钮的文案与状态色
+
+文案与颜色必须一起刷：状态切了只改文案不改色，看起来就是「按钮没反应」。
+颜色本身由 theme.video_bar 按「主题令牌 + 当前状态」算，本页只负责把状态喂进去。
+定义在 rebuild_video 之前：它的 on_complete 回调要引用本函数（局部函数须先声明后闭包）。]]
+local function sync_labels()
+    if not ctrl_bar then return end
+    if current_file then
+        ctrl_bar:set_file(current_file:match("([^/]+)$") or current_file)
+    end
+    ctrl_bar:sync(is_playing, is_loop)
+end
+
 --- 按当前 current_file / geo 重建视频控件（换文件、切循环都走这里）
 local function rebuild_video()
     if video_obj then
@@ -226,14 +236,18 @@ local function rebuild_video()
 
     local vx, vy, vw, vh = geo.video_x, geo.video_y, geo.video_w, geo.video_h
 
-    --[[HZV/MJPG 走 airui.video（父容器内控件，随 UI 层级显示/隐藏）。
-    MP4 不进这里 —— 嵌入式路径固件栈溢出禁播，已分流到 play_mp4（mplayer 全屏接管）。
+    --[[HZV/MJPG/MP4 统一走 airui.video（父容器内控件，随 UI 层级显示/隐藏）。
     循环/暂停/停止组件自带，控制栏代码无感。]]
     video_obj = video_util.create_player(current_file, {
         parent = stage,
         x = vx, y = vy,
         w = vw, h = vh,          -- airui 路径必须等于素材帧尺寸（不支持缩放）
         loop = is_loop,
+        -- 单次播完（loop=false 读到 EOF）：状态翻回「已停」，控制栏跟着刷
+        on_complete = function()
+            is_playing = false
+            sync_labels()
+        end,
     })
     is_playing = (video_obj ~= nil)
 
@@ -250,18 +264,6 @@ local function rebuild_video()
     end
 end
 
---[[刷新控制栏：文件名 + 「播放」「循环」两个按钮的文案与状态色
-
-文案与颜色必须一起刷：状态切了只改文案不改色，看起来就是「按钮没反应」。
-颜色本身由 theme.video_bar 按「主题令牌 + 当前状态」算，本页只负责把状态喂进去。]]
-local function sync_labels()
-    if not ctrl_bar then return end
-    if current_file then
-        ctrl_bar:set_file(current_file:match("([^/]+)$") or current_file)
-    end
-    ctrl_bar:sync(is_playing, is_loop)
-end
-
 --- 播放配套音频（同名 MP3）：只有 MJPG 素材有；HZV 的音轨在容器内
 local function start_companion_audio()
     video_util.audio_stop()
@@ -271,90 +273,10 @@ local function start_companion_audio()
     end
 end
 
---[[MP4：mplayer 全屏接管播放（参考 mp4_test，实现在 mp4_takeover.lua）
-
-本页舞台不放 MP4 画面（airui 嵌入式路径固件栈溢出禁播），只留一行提示；
-画面由接管层叠在整个 UI 之上全屏播放，播完 / 点屏幕退出后回到本页。
-mplayer 单次播放、不循环，所以「播放」键 = 重新起播，「循环」键不响应。]]
-local function play_mp4(path)
-    -- 清掉 airui 播放器与旧提示：舞台只留 MP4 提示
-    if video_obj then
-        pcall(function() video_obj:stop() end)
-        pcall(function() video_obj:destroy() end)
-        video_obj = nil
-    end
-    if empty_label then
-        pcall(function() empty_label:destroy() end)
-        empty_label = nil
-    end
-    local d = _G.density_scale or 1.0
-    if stage then
-        empty_label = theme.label(stage, {
-            x = 0, y = math.floor(H / 2) - math.floor(20 * d),
-            w = W, h = math.floor(34 * d),
-            text = "MP4 全屏播放 · 点屏幕退出后可重播",
-            px_size = math.floor(18 * d),
-            color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-        })
-    end
-
-    is_playing = true
-    sync_labels()
-    local ok = mp4_takeover.start(path, {
-        on_done = function(reason)
-            --[[接管结束（EOS / 点屏幕 / 出错）：回到本页，播放键可重播。
-            本页可能已被关掉（宿主清子树），此时什么都别动。]]
-            if not window_id then return end
-            is_playing = false
-            --[[起播失败（open/play 没起来、或超 480×320 分辨率上限）：
-            提示换成准确原因，别再骗用户去点屏幕。]]
-            if (reason == "error" or reason == "oversize") and empty_label then
-                pcall(function() empty_label:destroy() end)
-                empty_label = nil
-                local d = _G.density_scale or 1.0
-                if stage then
-                    empty_label = theme.label(stage, {
-                        x = 0, y = math.floor(H / 2) - math.floor(20 * d),
-                        w = W, h = math.floor(34 * d),
-                        text = (reason == "oversize")
-                            and "MP4 超 480×320 上限，无法播放" or "无法播放该文件",
-                        px_size = math.floor(18 * d),
-                        color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-                    })
-                end
-            end
-            sync_labels()
-        end,
-    })
-    if not ok then
-        -- 固件没有 mplayer 绑定 / 文件不存在：走「无法播放」空态
-        is_playing = false
-        if empty_label then
-            pcall(function() empty_label:destroy() end)
-            empty_label = nil
-        end
-        if stage then
-            empty_label = theme.label(stage, {
-                x = 0, y = math.floor(H / 2) - math.floor(20 * d),
-                w = W, h = math.floor(34 * d),
-                text = "无法播放该文件",
-                px_size = math.floor(18 * d),
-                color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-            })
-        end
-        sync_labels()
-        log.warn("video_win", "mp4 takeover start failed", path)
-    end
-end
-
 --- 切换到某个文件：重算几何 -> 重建画面 -> 刷新文案
 local function play(path)
     if type(path) ~= "string" or path == "" then return end
     current_file = path
-    if video_util.is_mp4(path) then
-        play_mp4(path)
-        return
-    end
     local vw, vh = video_util.frame_size(path, DEFAULT_VW, DEFAULT_VH)
     geo = calc_layout(W, H, vw, vh)
     rebuild_video()
@@ -364,14 +286,7 @@ local function play(path)
 end
 
 local function toggle_play()
-    if not video_obj then
-        --[[MP4 全屏接管模式下没有 airui 播放器（见 play_mp4），「播放」键 = 重新全屏起播。
-        接管还在跑时忽略（画面盖着 UI，正常点不到，防御一下）]]
-        if current_file and video_util.is_mp4(current_file) and not mp4_takeover.is_active() then
-            play_mp4(current_file)
-        end
-        return
-    end
+    if not video_obj then return end
     if is_playing then
         pcall(function() video_obj:pause() end)
         is_playing = false
@@ -384,10 +299,8 @@ local function toggle_play()
     sync_labels()
 end
 
--- loop 只在创建组件时生效，所以切完标志位整组重建一次
+-- loop 只在创建组件时生效（HZV/MJPG/MP4 一视同仁），所以切完标志位整组重建一次
 local function toggle_loop()
-    -- mplayer 无 loop API：MP4 不循环，键不响应（见文件头第 7 条）
-    if current_file and video_util.is_mp4(current_file) then return end
     is_loop = not is_loop
     sync_labels()
     if current_file then play(current_file) end
@@ -502,10 +415,7 @@ end
 
 local function on_destroy()
     log.info("video_win", "on_destroy")
-    -- 先置空：mp4_takeover.stop 的 on_done 回调据此判断本页已亡、不再刷控制栏
     window_id = nil
-    -- 本页起的 MP4 接管一并收掉（exwin 清子树时也会收，这里兜底成确定性收尾）
-    mp4_takeover.stop()
     video_util.audio_stop()
     if video_obj then
         pcall(function() video_obj:stop() end)

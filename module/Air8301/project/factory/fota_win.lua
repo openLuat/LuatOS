@@ -1,13 +1,18 @@
 --[[
 @module  fota_win
 @summary FOTA 远程升级页面（8301出厂固件）
-@version 1.0
-@date    2026.09.22
+@version 2.0
+@date    2026.10.08
 @author  江访
+
 @usage
-显示脚本版本、升级状态与进度，提供"检测更新"按钮。
+显示脚本版本、升级状态与进度，提供"检测更新"按钮与升级历史。
 - 每 2 秒轮询 fota_app.get_status() 刷新显示
+
+视觉：ui_theme 深色玻璃态（2 条键值行 + 进度条 + 主色按钮 + 历史面板）。
 ]]
+
+local theme = require "ui_theme"
 
 local win_id = nil
 local main_container, content
@@ -17,6 +22,11 @@ local fota_app = require "fota_app"
 
 -- 刷新定时器
 local refresh_timer = nil
+
+-- 布局常量（内容区 464×210）
+local ROW_H   = 36
+local ROW_GAP = 5
+local BTN_H   = 30
 
 --[[
 导航栏返回按钮点击
@@ -39,7 +49,7 @@ local function on_check_click()
     if not exwin.is_active(win_id) then return end
     if status_label then
         status_label:set_text("正在检测...")
-        status_label:set_color(T.COLOR_PRIMARY)
+        status_label:set_color(theme.SEM.warning)
     end
     fota_app.check()
 end
@@ -56,17 +66,18 @@ local function refresh_status()
 
     if ver_label then
         ver_label:set_text(tostring(VERSION or "--"))
+        ver_label:set_color(theme.C.t1)
     end
 
     if status_label then
         local msg = st.msg or st.stage or "--"
         status_label:set_text(msg)
         if st.stage == "error" then
-            status_label:set_color(T.COLOR_DANGER)
+            status_label:set_color(theme.SEM.danger)
         elseif st.stage == "download_done" then
-            status_label:set_color(T.COLOR_GREEN)
+            status_label:set_color(theme.SEM.success)
         else
-            status_label:set_color(T.COLOR_TEXT)
+            status_label:set_color(theme.C.t1)
         end
     end
 
@@ -77,14 +88,20 @@ local function refresh_status()
     if history_label and st.history and #st.history > 0 then
         local lines = {}
         for i, item in ipairs(st.history) do
-            if i > 4 then break end
-            lines[#lines + 1] = tostring(item.time or "--") .. "  " .. tostring(item.ver or "--") .. "  " .. tostring(item.status or "")
+            if i > 2 then break end
+            lines[#lines + 1] = tostring(item.time or "--") .. "  "
+                .. tostring(item.ver or "--") .. "  " .. tostring(item.status or "")
         end
         history_label:set_text(table.concat(lines, "\n"))
     end
 end
 
--- 定时刷新回调
+--[[
+定时刷新回调
+
+@local
+@function refresh_timer_cb
+]]
 local function refresh_timer_cb()
     refresh_status()
 end
@@ -96,29 +113,48 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
+    local ctx = theme.page({ title = "远程升级", on_back = on_back_click })
+    main_container = ctx.base
+    content = ctx.base
 
-    T.titlebar(main_container, "远程升级", on_back_click)
+    local y = ctx.y
 
-    content = airui.container({ parent = main_container, x = 0, y = T.CONTENT_Y, w = T.SCREEN_W, h = T.CONTENT_H, color = T.COLOR_BG })
+    local _, l_ver = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 130,
+        label = "当前脚本版本", value = "--" })
+    ver_label = l_ver
+    y = y + ROW_H + ROW_GAP
 
-    local _, _, ver_content = T.info_card(content, 6, 46, "当前脚本版本", "--")
-    ver_label = ver_content
+    local _, l_status = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 130,
+        label = "升级状态", value = "就绪" })
+    status_label = l_status
+    y = y + ROW_H + ROW_GAP + 6
 
-    local _, _, status_content = T.info_card(content, 58, 46, "升级状态", "就绪")
-    status_label = status_content
+    -- 进度条
+    progress_bar = theme.bar(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = 14,
+        min = 0, max = 100, value = 0, color = theme.C.amber })
+    y = y + 14 + 6
 
-    progress_bar = airui.bar({
-        parent = content,
-        x = T.MARGIN, y = 112, w = T.CARD_W, h = 20,
-        min = 0, max = 100, value = 0,
-        indicator_color = T.COLOR_PRIMARY,
-    })
+    -- 检测更新按钮
+    theme.btn(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = BTN_H,
+        text = "立即检测更新", on_click = on_check_click })
+    y = y + BTN_H + 6
 
-    T.btn_primary(content, T.MARGIN, 140, T.CARD_W, 34, "立即检测更新", on_check_click)
-
-    local _, _, history_content = T.info_card(content, 180, 40, "升级历史", "暂无记录")
-    history_label = history_content
+    -- 升级历史面板
+    local hh = ctx.h - (y - ctx.y)
+    if hh < 40 then hh = 40 end
+    local history_card = theme.card(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = hh,
+        color = theme.C.panel, radius = theme.R.lg, border = theme.C.stroke_soft })
+    theme.label(history_card, {
+        x = 12, y = 6, w = ctx.w - 24, h = 19,
+        text = "升级历史", px_size = 16, color = theme.C.t3 })
+    history_label = theme.label(history_card, {
+        x = 12, y = 28, w = ctx.w - 24, h = hh - 34,
+        text = "暂无记录", px_size = 16, color = theme.C.t1 })
 
     refresh_status()
 end
@@ -184,6 +220,12 @@ OPEN_FOTA_WIN 消息处理器
 @function open_handler
 ]]
 local function open_handler()
+    -- 单实例保护：避免同页多实例并存时互相覆盖 win_id（会使点击准入判定失效）
+    if win_id and exwin.is_active(win_id) then return end
+    if win_id then
+        exwin.close(win_id)
+        win_id = nil
+    end
     win_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,

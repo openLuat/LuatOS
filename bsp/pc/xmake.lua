@@ -384,6 +384,7 @@ target("luatos-lua")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_mp3.c")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_nb.c")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_wb.c")
+        add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_g729.c")
 
     -- speex codec
     if os.getenv("LUAT_SUPPORT_SPEEX") ~= "n" then
@@ -391,6 +392,24 @@ target("luatos-lua")
         add_includedirs(luatos.."components/speex/include")
         add_thirdparty_files(luatos.."components/speex/libspeex/*.c")
         add_files(luatos.."components/multimedia/audio/codec_adapter/luat_audio_codec_port_speex.c")
+    end
+
+    -- g729（可选外部组件）：源码位于 luatos-ext-components/g729。
+    -- 依赖是可选的：LUAT_USE_CODEC_G729=y 强制启用（缺失时报错）/ =n 强制禁用；
+    -- 未设置时按 luatos-ext-components/g729 目录是否存在自动检测。
+    -- 禁用时 LUAT_SUPPORT_G729 不定义，g729 胶水层（legacy codec 模块端口与
+    -- audio_v2 适配器）整文件宏保护编译为空，Lua 侧无 codec.G729。
+    local g729_src = luatos_ext_root .. "/g729"
+    local env_g729 = os.getenv("LUAT_USE_CODEC_G729")
+    local use_g729 = os.isdir(g729_src) and env_g729 ~= "n"
+    if env_g729 == "y" and not os.isdir(g729_src) then
+        raise("LUAT_USE_CODEC_G729=y 但未找到 " .. g729_src)
+    end
+    if use_g729 then
+        add_defines("LUAT_SUPPORT_G729=1")
+        g729_src = g729_src:gsub("\\", "/"):gsub("/$", "")
+        add_includedirs(g729_src, g729_src .. "/interface")
+        add_thirdparty_files(g729_src .. "/*.c")
     end
 
     -- audio_dsp（SpeexDSP 适配层，可选外部组件）

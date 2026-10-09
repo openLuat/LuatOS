@@ -2,23 +2,33 @@
 @module  prod_sysinfo_win
 @summary 系统信息页面（产测模式），显示固件版本、运行时间、RAM、文件系统信息
 @version 1.0
-@date    2026.09.24
-@version_note 产测专属：消息名前缀改 OPEN_PROD_SYSINFO_WIN；去掉恢复出厂按钮（产测用 U 盘/指令 RST#）
+@date    2026.10.08
+@author  江访
+@version_note 产测专属：消息名前缀 OPEN_PROD_SYSINFO_WIN；去掉恢复出厂按钮（产测用 U 盘/指令 RST#）
+
 @usage
 本页面只读展示系统信息：
 1、固件版本（VERSION）
 2、运行时间（mcu.ticks 转换时分秒）
-3、RAM使用（rtos.meminfo 多值返回，字节转MB，系统内存+Lua内存）
+3、内存使用（rtos.meminfo 多值返回，字节转MB，系统内存+Lua内存）
 4、文件系统信息（订阅 FLASH_MOUNT_STATUS）
 页面打开期间每 2 秒自动刷新运行时间与内存。
+
+视觉：ui_theme 深色玻璃态（4 条键值行，无操作按钮）。
 ]]
+
+local theme = require "ui_theme"
 
 local win_id = nil
 local main_container, content
-local uptime_label, ram_label, flash_label
+local ver_label, uptime_label, ram_label, flash_label
 
 -- 自动刷新定时器
 local refresh_timer = nil
+
+-- 布局常量（内容区 464×210：4×40 + 3×8 = 184，上下居中）
+local ROW_H   = 40
+local ROW_GAP = 8
 
 --[[
 导航栏返回按钮点击
@@ -40,6 +50,10 @@ end
 local function refresh_sysinfo()
     -- 版本号
     local ver = VERSION or "未知"
+    if ver_label then
+        ver_label:set_text(tostring(ver))
+        ver_label:set_color(theme.C.t1)
+    end
 
     -- 运行时间（mcu.ticks → 时分秒）
     local ticks = mcu.ticks() or 0
@@ -47,11 +61,9 @@ local function refresh_sysinfo()
     local hours = math.floor(total_sec / 3600)
     local mins = math.floor((total_sec % 3600) / 60)
     local secs = total_sec % 60
-    local uptime_str = string.format("%02d:%02d:%02d", hours, mins, secs)
-    local full_uptime = "固件: " .. ver .. "\n运行时间: " .. uptime_str
-
     if uptime_label then
-        uptime_label:set_text(full_uptime)
+        uptime_label:set_text(string.format("%02d:%02d:%02d", hours, mins, secs))
+        uptime_label:set_color(theme.C.t1)
     end
 
     -- RAM信息: rtos.meminfo 返回两个值(总, 已用), 单位字节
@@ -64,21 +76,19 @@ local function refresh_sysinfo()
     used_lua = used_lua or 0
 
     if ram_label then
-        local sys_line = "系统内存: "
-        local lua_line = "Lua内存: "
+        local sys_line, lua_line
         if total_sys > 0 then
-            sys_line = sys_line .. string.format("总 %.1f MB 已用 %.1f MB",
-                total_sys / 1024 / 1024, used_sys / 1024 / 1024)
+            sys_line = string.format("%.1f/%.1f MB", used_sys / 1024 / 1024, total_sys / 1024 / 1024)
         else
-            sys_line = sys_line .. "不支持"
+            sys_line = "不支持"
         end
         if total_lua > 0 then
-            lua_line = lua_line .. string.format("总 %.1f MB 已用 %.1f MB",
-                total_lua / 1024 / 1024, used_lua / 1024 / 1024)
+            lua_line = string.format("%.1f/%.1f MB", used_lua / 1024 / 1024, total_lua / 1024 / 1024)
         else
-            lua_line = lua_line .. "不支持"
+            lua_line = "不支持"
         end
-        ram_label:set_text(sys_line .. "\n" .. lua_line)
+        ram_label:set_text(string.format("系统 %s %s Lua %s", sys_line, theme.CHAR.sep, lua_line))
+        ram_label:set_color(theme.C.t1)
     end
 end
 
@@ -96,11 +106,14 @@ local function on_flash_mount_status(mounted, total_kb, used_kb)
             local total_mb = total_kb / 1024
             local used_mb = used_kb / 1024
             local free_mb = total_mb - used_mb
-            flash_label:set_text(string.format("总容量: %.1f MB\n可用容量: %.1f MB", total_mb, free_mb))
-            flash_label:set_color(T.COLOR_GREEN)
+            flash_label:set_text(string.format("可用 %.1f MB %s 共 %.1f MB",
+                free_mb, theme.CHAR.sep, total_mb))
+            flash_label:set_color(theme.SEM.success)
         else
-            flash_label:set_text("未挂载")
-            flash_label:set_color(T.COLOR_DANGER)
+            -- 产测模式不常驻挂载：Flash 由 prod_test 的 FLASH_TEST 指令按需挂载，
+            -- 此处是「按需状态」而非故障，用琥珀提示色，避免测试员误判
+            flash_label:set_text("按需挂载（产测）")
+            flash_label:set_color(theme.SEM.warning)
         end
     end
 end
@@ -112,67 +125,46 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
+    local ctx = theme.page({ title = "系统信息", on_back = on_back_click })
+    main_container = ctx.base
+    content = ctx.base
 
-    -- 顶部标题栏
-    T.titlebar(main_container, "系统信息", on_back_click)
+    -- 上下居中：总高 184，内容区 210，顶部留白 13
+    local y = ctx.y + math.floor((ctx.h - (ROW_H * 4 + ROW_GAP * 3)) / 2)
 
-    -- 内容区域
-    content = airui.container({
-        parent = main_container,
-        x = 0,
-        y = T.CONTENT_Y,
-        w = T.SCREEN_W,
-        h = T.CONTENT_H,
-        color = T.COLOR_BG
-    })
+    local _, l_ver = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 110,
+        label = "固件版本", value = "--" })
+    ver_label = l_ver
+    y = y + ROW_H + ROW_GAP
 
-    -- 固件版本+运行时间卡片
-    local _, _, uptime_content = T.info_card(content, 6, 48, "固件 / 运行时间", "加载中...")
-    uptime_label = uptime_content
+    local _, l_uptime = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 110,
+        label = "运行时间", value = "00:00:00" })
+    uptime_label = l_uptime
+    y = y + ROW_H + ROW_GAP
 
-    -- RAM状态卡片（系统内存 + Lua内存 两行）
-    local ram_card = airui.container({
-        parent = content,
-        x = T.MARGIN,
-        y = 62,
-        w = T.CARD_W,
-        h = 56,
-        color = T.COLOR_CARD,
-        radius = T.CARD_RADIUS
-    })
-    airui.label({
-        parent = ram_card,
-        x = 10,
-        y = 4,
-        w = T.CARD_W - 20,
-        h = 20,
-        text = "内存信息",
-        font_size = T.FONT_CARD_TITLE,
-        color = T.COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    ram_label = airui.label({
-        parent = ram_card,
-        x = 10,
-        y = 22,
-        w = T.CARD_W - 20,
-        h = 32,
-        text = "加载中...",
-        font_size = T.FONT_SMALL,
-        color = T.COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, l_ram = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 110,
+        label = "内存", value = "加载中..." })
+    ram_label = l_ram
+    y = y + ROW_H + ROW_GAP
 
-    -- 文件系统卡片
-    local _, _, flash_content = T.info_card(content, 122, 60, "文件系统", "加载中...")
-    flash_label = flash_content
+    local _, l_flash = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 110,
+        label = "文件系统", value = "加载中..." })
+    flash_label = l_flash
 
     -- 刷新信息
     refresh_sysinfo()
 end
 
--- 系统信息自动刷新回调：每2秒刷新运行时间+内存
+--[[
+系统信息自动刷新回调：每2秒刷新运行时间+内存
+
+@local
+@function refresh_timer_cb
+]]
 local function refresh_timer_cb()
     if exwin.is_active(win_id) then
         refresh_sysinfo()
@@ -212,6 +204,7 @@ local function on_destroy()
         main_container = nil
     end
     content = nil
+    ver_label = nil
     uptime_label = nil
     ram_label = nil
     flash_label = nil
@@ -248,6 +241,12 @@ OPEN_PROD_SYSINFO_WIN 消息处理器
 @function open_handler
 ]]
 local function open_handler()
+    -- 单实例保护：避免同页多实例并存时互相覆盖 win_id（会使点击准入判定失效）
+    if win_id and exwin.is_active(win_id) then return end
+    if win_id then
+        exwin.close(win_id)
+        win_id = nil
+    end
     win_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,

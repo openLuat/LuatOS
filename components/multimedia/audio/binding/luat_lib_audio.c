@@ -1447,6 +1447,7 @@ local len = audio_v2.get_codec_param(audio_v2.DATA_CODEC_PARAM_ENCODE_INPUT_LEN)
 */
 static int l_audio_get_codec_param(lua_State *L) {
     uint8_t org_codec_id = luaL_optinteger(L, 1, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
+    uint8_t param = luaL_optinteger(L, 2, 0);
     uint8_t codec_id = org_codec_id & ~LUAT_AUDIO_DATA_CODEC_TYPE_HW;
     if (codec_id >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
         lua_pushinteger(L, 0);
@@ -1457,7 +1458,7 @@ static int l_audio_get_codec_param(lua_State *L) {
         lua_pushinteger(L, 0);
         return 1;
     }
-    switch (codec_id) {
+    switch (param) {
         case LUAT_AUDIO_DATA_CODEC_PARAM_ENCODE_INPUT_LEN:
             lua_pushinteger(L, codec_opts->encode_min_input_len);
             break;
@@ -1608,6 +1609,8 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "DATA_CODEC_TYPE_G711_ULAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW)},
     //@const DATA_CODEC_TYPE_G711_ALAW number 编解码器类型G711_ALAW
     { "DATA_CODEC_TYPE_G711_ALAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW)},
+    //@const DATA_CODEC_TYPE_G729 number 编解码器类型G.729A, 8kHz单声道, 10字节/帧, 裸流无法自动识别需显式指定
+    { "DATA_CODEC_TYPE_G729",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G729)},
     //@const DATA_CODEC_TYPE_HW number 编解码器类型-硬件编解码器优先模式
     { "DATA_CODEC_TYPE_HW",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_HW)},
     //@const DSP_TYPE_SPEEXDSP number dsp类型speexdsp

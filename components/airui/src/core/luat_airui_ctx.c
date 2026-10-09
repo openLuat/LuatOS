@@ -525,11 +525,9 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
         return AIRUI_ERR_INIT_FAILED;
     }
     
-    // 完整帧缓冲使用 FULL；按 divisor 缩小的缓冲必须使用 PARTIAL。
-    uint32_t full_frame_size = width * height * lv_color_format_get_size(color_format);
-    lv_display_render_mode_t render_mode =
-        (buf_size >= full_frame_size) ? LV_DISPLAY_RENDER_MODE_FULL : LV_DISPLAY_RENDER_MODE_PARTIAL;
-    lv_display_set_buffers(ctx->display, buf1, buf2, buf_size, render_mode);
+    /* 始终按脏区绘制。缓冲够一整帧时如果走 FULL，任意一小块脏区都会在刷新前被扩成整屏。
+       PARTIAL 下缓冲够高时，一块脏区通常一次 flush 就画完，不会按 33ms 节拍重画整个屏幕。 */
+    lv_display_set_buffers(ctx->display, buf1, buf2, buf_size, LV_DISPLAY_RENDER_MODE_PARTIAL);
     
     // 平台提供三缓冲时，把第三块挂到 LVGL（借用平台缓冲，数据不释放）
     if (buf_count >= 3) {

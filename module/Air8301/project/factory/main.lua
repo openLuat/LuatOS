@@ -100,6 +100,17 @@ exwin = require "exwin"
 require "key_beep"
 
 
+-- ==================== 全局主题（按模式分设，v2.4 界面优化） ====================
+-- 页面一律引用令牌（theme.C.bg 等），在此一处 apply 即可整套换肤，页面代码零改动。
+--   产测模式 → light        （纯白 + 琥珀，维持原样）
+--   业务模式 → light_brand  （纯白 + 卡片浅灰白分层 + 品牌蓝主色 + 分区配色，v2.4 美化）
+-- 注意：必须在任何 UI 窗口创建之前调用；此处位于全部 UI 模块 require 之前，满足该前提。
+-- 注意：require 必须单独成句（不要写成 require("ui_theme").apply(...)），
+--       否则 Luatools 的脚本依赖扫描会误把 "ui_theme").apply("light" 当成模块名而报"合并失败"。
+local ui_theme = require "ui_theme"
+ui_theme.apply(is_factory and "light" or "light_brand")
+
+
 if is_factory then
 
     -- ==================== 产测模式 ====================
@@ -164,6 +175,10 @@ else
     -- 云端上报与定位
     require "airlbs_app"
     require "aircloud_data"
+
+    -- 「总览」首页「时间 + 天气」数据源（Open-Meteo 免费接口，无需申请 Key）
+    -- 依赖 airlbs_app 发布的定位 / 城市消息，故在其之后加载；产测模式不加载本模块
+    require "weather_app"
 
     -- FOTA 远程升级
     require "fota_app"

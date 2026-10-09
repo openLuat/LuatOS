@@ -1,7 +1,7 @@
 --[[
 @module  theme
 @summary UI 共享主题模块（Air8301 出厂固件）— 向后兼容桥接层
-@version 2.0
+@version 1.0
 @date    2026.10.08
 @author  江访
 
@@ -24,10 +24,11 @@ local ui = require "ui_theme"
 
 local T = {}
 
--- ==================== 颜色常量（映射到 ui_theme 深色令牌） ====================
-T.COLOR_PRIMARY        = ui.C.amber        -- 主强调色（琥珀）
-T.COLOR_PRIMARY_DARK   = ui.C.amber_deep   -- 深琥珀（按下态）
-T.COLOR_ACCENT         = ui.C.amber        -- 强调色
+-- ==================== 颜色常量（映射到 ui_theme 语义令牌） ====================
+-- 主强调色统一引用 ui.C.primary：产测模式=琥珀、业务模式=品牌蓝，随主题自动切换。
+T.COLOR_PRIMARY        = ui.C.primary      -- 主强调色（业务=品牌蓝 / 产测=琥珀）
+T.COLOR_PRIMARY_DARK   = ui.C.primary_deep -- 主色加深（按下态）
+T.COLOR_ACCENT         = ui.C.primary      -- 强调色
 T.COLOR_BG             = ui.C.bg           -- 页面底色
 T.COLOR_CARD           = ui.C.panel        -- 面板卡片底
 T.COLOR_TEXT           = ui.C.t1           -- 主文字
@@ -36,7 +37,7 @@ T.COLOR_DIVIDER        = ui.C.stroke       -- 分隔线、边框
 T.COLOR_WHITE          = 0xFFFFFF          -- 白
 T.COLOR_DANGER         = ui.C.rose         -- 危险 / 错误
 T.COLOR_GREEN          = ui.C.green        -- 成功 / 连接
-T.COLOR_ORANGE         = ui.C.amber        -- 警告 / 中等
+T.COLOR_ORANGE         = ui.C.amber        -- 警告 / 中等（琥珀，业务模式下为告警橙）
 
 -- ==================== 布局常量（480×272 横屏紧凑模式） ====================
 T.SCREEN_W        = ui.SCREEN_W                        -- 480
@@ -108,7 +109,7 @@ function T.info_card(parent, y, h, title_text, content_text)
 end
 
 --[[
-主按钮（琥珀实底 + 深色文字）
+主按钮（主强调色实底 + 反色文字）
 
 @param userdata parent   父容器
 @param number   x,y,w,h  位置尺寸
@@ -119,7 +120,7 @@ end
 function T.btn_primary(parent, x, y, w, h, text, on_click)
     return ui.btn(parent, {
         x = x, y = y, w = w, h = h, text = text,
-        bg = ui.C.amber, fg = ui.C.on_amber, on_click = on_click,
+        bg = ui.C.primary, fg = ui.C.on_primary, on_click = on_click,
     })
 end
 
@@ -200,6 +201,8 @@ function T.toggle_switch(parent, x, y, state, on_click)
         color = track_c, color_opacity = 255,
         radius = math.floor(h / 2),
         border_color = track_c, border_width = 1,
+        -- 裸 airui.container 的 scrollable 默认是 true，固定尺寸开关必须关闭滚动
+        scrollable = false,
         on_click = on_track_click,
     })
     local knob = airui.container({
@@ -207,6 +210,7 @@ function T.toggle_switch(parent, x, y, state, on_click)
         x = on and (w - pad - kd) or pad, y = pad, w = kd, h = kd,
         color = on and ui.C.knob or ui.C.knob_off, color_opacity = 255,
         radius = math.floor(kd / 2),
+        scrollable = false,
         on_click = on_track_click,
     })
     return track, knob

@@ -1,7 +1,7 @@
 --[[
 @module  watchdog_win
 @summary 看门狗状态页面，显示启用/禁用状态和喂狗时间（8301出厂固件）
-@version 2.0
+@version 1.0
 @date    2026.10.08
 @author  江访
 

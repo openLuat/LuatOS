@@ -1,7 +1,7 @@
 --[[
 @module  prod_idle_win
 @summary 产测首页·测试面板（8301出厂固件·产测模式）
-@version 3.3
+@version 1.0
 @date    2026.10.08
 @author  江访
 @version_note 产测专属：消息名前缀 OPEN_PROD_XXX_WIN，避免与业务页面冲突

@@ -1,7 +1,7 @@
 --[[
 @module  rtu_slave_regmap
 @summary Modbus RTU/TCP从站寄存器映射表（8301出厂固件）
-@version 1.1
+@version 1.0
 @date    2026.09.24
 @author  江访
 @usage

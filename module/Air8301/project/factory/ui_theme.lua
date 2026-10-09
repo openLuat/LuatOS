@@ -64,6 +64,12 @@ M.C = {
     scrim       = 0x0E141C,   -- 遮罩底
     white       = 0xFFFFFF,
     black       = 0x000000,
+    -- 品牌蓝系列（业务模式主色；产测模式不引用，此处给出缺省值以保证令牌恒定存在）
+    brand       = 0x2B6DE5,
+    brand_light = 0x5B90F0,
+    brand_deep  = 0x1F55C0,
+    brand_soft  = 0xEAF1FE,
+    on_brand    = 0xFFFFFF,
 }
 
 --[[语义色别名
@@ -152,12 +158,33 @@ end
 
 -- ==================== 三、基础绘制 ====================
 
+--[[关闭容器滚动条（全工程统一兜底，v2.3 修复）
+
+airui.container 底层是 LVGL 对象，默认带 SCROLLABLE 标志且 scrollbar_mode = AUTO：
+子控件只要比容器高出 / 宽出 1px（取整误差、行高差、居中偏移都会造成），
+容器就会在自身下边缘 / 右边缘画出一条滚动条 —— 这就是「按钮、小控件下方多出一条」的根因。
+
+注意：airui.container 的参数表里 **没有 scrollable 字段**，传了会被直接忽略，
+所以此前「传 scrollable = false 参数」的修法无效。必须用对象方法
+set_scrollbar_mode(0)（0 = LV_SCROLLBAR_MODE_OFF）关闭。
+部分固件版本无此方法，故做存在性判断 + pcall 保护。
+
+@param object obj airui 容器对象
+@return object 原对象（便于直接 return）
+]]
+local function no_scroll(obj)
+    if obj and obj.set_scrollbar_mode then
+        pcall(function() obj:set_scrollbar_mode(0) end)
+    end
+    return obj
+end
+
 --[[矩形容器（最常用的布局盒子）
   opa = 0 时完全透明（只当布局容器用）
   on_click / on_long_press 直接透传]]
 function M.box(parent, o)
     o = o or {}
-    return airui.container({
+    return no_scroll(airui.container({
         parent      = o.parent or parent,
         x           = o.x or 0,
         y           = o.y or 0,
@@ -172,7 +199,7 @@ function M.box(parent, o)
         clip_corner = (o.clip_corner == true),
         on_click    = o.on_click,
         on_long_press = o.on_long_press,
-    })
+    }))
 end
 
 --[[面板卡片（深色实底 + 1px 描边，替代玻璃态）
@@ -187,7 +214,7 @@ function M.card(parent, o)
     if o.border_w ~= nil then bw = o.border_w
     elseif border then bw = 1
     else bw = 0 end
-    return airui.container({
+    return no_scroll(airui.container({
         parent      = o.parent or parent,
         x           = o.x or 0,
         y           = o.y or 0,
@@ -202,7 +229,7 @@ function M.card(parent, o)
         clip_corner = (o.clip_corner == true),
         on_click    = o.on_click,
         on_long_press = o.on_long_press,
-    })
+    }))
 end
 
 --[[文本标签
@@ -240,7 +267,10 @@ function M.image(parent, o)
         h       = o.h or 24,
         src     = src,
         fit     = o.fit or "contain",
-        opacity = o.opacity or 255,
+        -- opacity 仅在调用方显式传入时下发：airui 的 opacity/zoom 仅对 PNG 生效，
+        -- 官方文档注明「jpg 必须为默认值」，对 JPEG 传入会干扰其解码渲染；
+        -- 不传时 airui 内部默认即 255（不透明），对 PNG 的行为完全等价。
+        opacity = o.opacity,
         on_click = o.on_click,
     })
 end
@@ -270,7 +300,10 @@ function M.divider(parent, o)
 end
 
 -- 分组小标题
+-- 兼容保护：若第一个参数是字符串（分区 key），说明调用方想取「分区配色」，
+-- 转交 M.pal 处理，避免误建 label 或与 M.pal 语义混淆。
 function M.section(parent, o)
+    if type(parent) == "string" then return M.pal(parent) end
     o = o or {}
     local fs = o.px_size or M.fs(o.size or "small")
     return M.label(parent, {
@@ -332,27 +365,35 @@ function M.tap_card(parent, o)
     return card, tap
 end
 
---[[主按钮（琥珀实底 + 深色文字）
+--[[主按钮（主强调色实底 + 反色文字）
   返回按钮容器；文字为子 label
-  v2.1：容器与文字 label 绑定同一去重回调（避免点到文字区域无响应）]]
+  v2.1：容器与文字 label 绑定同一去重回调（避免点到文字区域无响应）
+  v2.4：主色改引用语义令牌 M.C.primary —— 产测模式=琥珀、业务模式=品牌蓝，随主题自动切换]]
 function M.btn(parent, o)
     o = o or {}
     local w, h = o.w or 96, o.h or 34
-    local bg = o.bg or M.C.amber
-    local fg = o.fg or M.C.on_amber
+    local bg = o.bg or M.C.primary
+    local fg = o.fg or M.C.on_primary
     local fs = M.fs(o.size or "body")
     -- 点击贯通：容器与文字 label 绑同一去重回调，点文字区域同样生效
     local tap = o.on_click and M.click_once(o.on_click) or nil
-    local btn = airui.container({
+    local btn = no_scroll(airui.container({
         parent = o.parent or parent,
         x = o.x or 0, y = o.y or 0, w = w, h = h,
         color = bg, color_opacity = 255,
         radius = dp(o.radius or M.R.md),
         border_color = o.border, border_width = o.border and 1 or 0,
+        -- 按钮是固定尺寸控件，子 label 触边会让容器在下边缘画出滚动条；
+        -- 创建后由 no_scroll() 调 set_scrollbar_mode(0) 关闭（v2.3 修复）
         on_click = tap,
-    })
+    }))
     M.label(btn, {
-        x = 0, y = math.floor((h - (fs + 3)) / 2), w = w, h = fs + 3,
+        --[[标签宽度左右各内缩 2px（不触边）
+        airui.container 底层是 LVGL 对象：只要子元素与容器边缘「贴合」（哪怕 0px 差），
+        容器就会在自身下边缘画出滚动条 —— 这就是「按钮 / 返回键下方多出一条横线」的根因。
+        此前改用 set_scrollbar_mode(0) 的做法在部分固件版本上并无该方法（被静默跳过）；
+        内缩标签宽度属于「消除触边条件」，不依赖任何固件 API，可靠消除该横条。]]
+        x = 2, y = math.floor((h - (fs + 3)) / 2), w = w - 4, h = fs + 3,
         text = o.text or "", px_size = fs, color = fg,
         align = airui.TEXT_ALIGN_CENTER,
         on_click = tap,
@@ -360,8 +401,10 @@ function M.btn(parent, o)
     return btn
 end
 
---[[幽灵按钮（描边透明底）
-  on 为真时用强调色描边 + 强调色文字，用于「一组里选中当前项」]]
+--[[幽灵按钮（描边底）
+  on 为真时用主强调色描边 + 主强调色文字，用于「一组里选中当前项」
+  v2.4：主色改引用 M.C.primary，随主题自动切换（业务模式为品牌蓝、产测模式为琥珀）；
+        透明度仍沿用 M.OPA.glass_hi / M.OPA.fill，保证产测观感与改动前完全一致]]
 function M.ghost(parent, o)
     o = o or {}
     local w, h = o.w or 96, o.h or 34
@@ -369,20 +412,22 @@ function M.ghost(parent, o)
     local fs = M.fs(o.size or "body")
     -- 点击贯通：容器与文字 label 绑同一去重回调
     local tap = o.on_click and M.click_once(o.on_click) or nil
-    local btn = airui.container({
+    local btn = no_scroll(airui.container({
         parent = o.parent or parent,
         x = o.x or 0, y = o.y or 0, w = w, h = h,
-        color = on and M.C.amber or M.C.surface,
+        color = on and M.C.primary or M.C.surface,
         color_opacity = on and M.OPA.glass_hi or M.OPA.fill,
         radius = dp(o.radius or M.R.md),
-        border_color = on and M.C.amber or M.C.stroke,
+        border_color = on and M.C.primary or M.C.stroke,
         border_width = 1,
+        -- 同 M.btn：创建后由 no_scroll() 调 set_scrollbar_mode(0) 关闭（v2.3 修复）
         on_click = tap,
-    })
+    }))
     M.label(btn, {
-        x = 0, y = math.floor((h - (fs + 3)) / 2), w = w, h = fs + 3,
+        -- 标签宽度左右各内缩 2px，消除「子元素触边 → 容器画滚动条」（同 M.btn，v2.5 修复）
+        x = 2, y = math.floor((h - (fs + 3)) / 2), w = w - 4, h = fs + 3,
         text = o.text or "", px_size = fs,
-        color = on and M.C.amber_light or (o.fg or M.C.t1),
+        color = on and M.C.primary_light or (o.fg or M.C.t1),
         align = airui.TEXT_ALIGN_CENTER,
         on_click = tap,
     })
@@ -501,10 +546,11 @@ function M.row(parent, o)
     return row, title_label, right_label
 end
 
---[[功能磁贴（分区页入口：图标 + 名称 + 状态摘要 + 右上状态点）
+--[[功能磁贴（分区页入口：图标 + 名称 + 状态摘要）
   返回 tile, name_label, sub_label, dot
-    - sub / dot 为可选：不传则退化为「图标 + 名称」的纯入口磁贴
-    - name_label / sub_label / dot 可动态 set_text / set_color 做状态刷新
+    - sub 为可选：不传则退化为「图标 + 名称」的纯入口磁贴
+    - name_label / sub_label 可动态 set_text / set_color 做状态刷新
+    - dot 恒为 nil（依需求已移除右上角状态点，仅保留返回位以兼容调用方）
 ]]
 function M.tile(parent, o)
     o = o or {}
@@ -516,16 +562,15 @@ function M.tile(parent, o)
     local tap = o.on_click and M.click_once(o.on_click) or nil
     local tile = M.card(parent, {
         x = o.x, y = o.y, w = w, h = h,
-        color = o.color or M.C.panel,
+        -- v2.4：支持分区配色 —— 传入 accent_soft / accent_line 时使用分区浅底 + 分区描边，
+        -- 使「通信 / IO / 系统」各分区一眼可辨；不传则维持通用面板底（产测模式即如此）。
+        color = o.color or o.accent_soft or M.C.panel,
         radius = o.radius or M.R.md,
-        border = o.border or M.C.stroke_soft,
+        border = o.border or o.accent_line or M.C.stroke_soft,
         on_click = tap,
     })
-    -- 右上状态点（有 dot 才画）
+    -- 依需求移除磁贴右上角状态点；保留 dot 变量（恒为 nil）以兼容既有返回签名
     local dot = nil
-    if o.dot then
-        dot = M.dot(tile, { x = w - 16, y = 10, d = 8, color = o.dot, on_click = tap })
-    end
 
     local isz = o.icon_size or 26
     local iy = o.icon_y or 9
@@ -571,7 +616,7 @@ local function build_switch(parent, o)
     local kd = h - pad * 2
     local state = (o.checked == true)
     local enabled = (o.disabled ~= true)
-    local on_color = o.color or M.C.amber
+    local on_color = o.color or M.C.primary
     local track, knob
     local handle = { _state = state, _enabled = enabled }
 
@@ -615,21 +660,22 @@ local function build_switch(parent, o)
         click_cb = do_toggle
     end
 
-    track = airui.container({
+    track = no_scroll(airui.container({
         parent = o.parent or parent,
         x = o.x or 0, y = o.y or 0, w = w, h = h,
         color = track_color(state), color_opacity = 255,
         radius = math.floor(h / 2),
         border_color = track_color(state), border_width = 1,
+        -- 开关为固定尺寸控件，创建后由 no_scroll() 关闭滚动条（v2.3 修复）
         on_click = click_cb,
-    })
-    knob = airui.container({
+    }))
+    knob = no_scroll(airui.container({
         parent = track,
         x = state and (w - pad - kd) or pad, y = pad, w = kd, h = kd,
         color = state and M.C.knob or M.C.knob_off, color_opacity = 255,
         radius = math.floor(kd / 2),
         on_click = click_cb,
-    })
+    }))
     handle.track = track
     handle.knob = knob
 
@@ -659,14 +705,14 @@ end
   返回 airui.bar 对象（自带 set_value(v, anim)）]]
 function M.bar(parent, o)
     o = o or {}
-    return airui.bar({
+    return no_scroll(airui.bar({
         parent = o.parent or parent,
         x = o.x or 0, y = o.y or 0, w = o.w or 200, h = o.h or 8,
         min = o.min or 0, max = o.max or 100, value = o.value or 0,
         bg_color = o.track or M.C.track,
-        indicator_color = o.color or M.C.amber,
+        indicator_color = o.color or M.C.primary,
         radius = (o.radius ~= nil) and o.radius or dp(99),
-    })
+    }))
 end
 
 --[[输入框
@@ -686,9 +732,11 @@ function M.input(parent, o)
         parent = o.parent or parent,
         x = o.x or 0, y = o.y or 0, w = o.w or 200, h = o.h or 36,
         text = o.text, placeholder = o.placeholder,
-        max_len = o.max_len, mode = o.mode, align = o.align,
+        max_len = o.max_len, align = o.align,
         disabled = o.disabled, keyboard = o.keyboard,
-        password_mode = o.password_mode,
+        -- airui.textarea 的密码输入模式参数名是 mode（取值 "password"），并无 password_mode 字段；
+        -- 本封装兼容两种写法：显式传 mode 优先，否则由 password_mode 映射，避免密码被明文显示
+        mode = o.mode or (o.password_mode and "password" or nil),
         on_text_change = o.on_text_change,
         style = st,
     })
@@ -721,8 +769,9 @@ function M.header(parent, o)
         })
         local fsb = M.fs("h2")
         M.label(back, {
-            x = 0, y = math.floor((bs - (fsb + 3)) / 2), w = bs + 10, h = fsb + 3,
-            text = "<", px_size = fsb, color = M.C.amber_light,
+            -- "<" 文字左右各内缩 2px，消除「返回键下方滚动条」（子元素触边，v2.5 修复）
+            x = 2, y = math.floor((bs - (fsb + 3)) / 2), w = bs + 6, h = fsb + 3,
+            text = "<", px_size = fsb, color = M.C.primary_light,
             align = airui.TEXT_ALIGN_CENTER,
             on_click = back_tap,
         })
@@ -802,7 +851,7 @@ end
 -- ==================== 五之二、仪表盘范式（v2.0 新增） ====================
 --[[
 方案A：把「一个 5×3 图标总菜单」改为「4 个功能分区 + 底部 Dock 切换」。
-  - 分区页（总览/通信/IO/系统）用 M.shell() 搭建：顶部状态条 + 中部内容区 + 底部 Dock
+  - 分区页（主页/通信/IO/系统）用 M.shell() 搭建：顶部状态条 + 中部内容区 + 底部 Dock
   - 二级功能页继续用 M.page()（带返回键），业务逻辑不变
 这样首页成为实时状态仪表盘，功能入口按分区收纳，信息架构从「扁平 14 项」变为「4 分区」。
 ]]
@@ -810,11 +859,37 @@ end
 --[[底部分区导航定义
 字段：key 分区标识（与 shell 的 active 匹配）；label 显示名；icon 图标；msg 点击后发布的消息]]
 M.NAV = {
-    { key = "overview", label = "总览", icon = "/luadb/hw_sysinfo.png", msg = "OPEN_IDLE_WIN" },
+    { key = "overview", label = "主页", icon = "/luadb/hw_sysinfo.png", msg = "OPEN_IDLE_WIN" },
     { key = "comm",     label = "通信", icon = "/luadb/hw_network.png", msg = "OPEN_COMM_WIN" },
     { key = "io",       label = "IO",   icon = "/luadb/hw_di.png",      msg = "OPEN_IO_WIN"   },
     { key = "system",   label = "系统", icon = "/luadb/hw_flash.png",   msg = "OPEN_SYS_WIN"  },
 }
+
+--[[业务模式「分区主色」表（v2.4）
+仅为业务模式分区页提供辨识色：Dock 选中项与分区磁贴使用。
+字段：main 主色（描边 / 文字）、soft 极浅底、line 浅描边。
+产测模式不使用本表（产测页面不传 accent）。]]
+M.SECTION = {
+    overview = { main = 0x2B6DE5, soft = 0xEEF4FE, line = 0xC9DDFB },
+    comm     = { main = 0x12B5A8, soft = 0xE7F8F6, line = 0xBDE9E4 },
+    io       = { main = 0x22B573, soft = 0xE9F8F0, line = 0xC4ECDA },
+    system   = { main = 0x7C5CE6, soft = 0xF2EDFD, line = 0xD9CCF8 },
+}
+
+--[[取分区配色（缺省回退到主题主色）
+
+【重要】本函数原命名为 M.section，与上文「分组小标题」组件 M.section(parent, o) 同名。
+Lua 后定义者覆盖前者，导致分组小标题组件被本函数覆盖掉 —— 表现为
+「联网方式 / 4G信号 / 本机IP / 当前时间 / 天气」等所有分组小标题文字整片消失
+（调用 theme.section(parent, opts) 时实际执行的是本函数，只返回一个颜色表、不创建 label）。
+故改名为 M.pal，与组件 M.section 彻底区分，二者不再冲突。
+
+@param string key 分区标识（M.NAV[i].key）
+@return table { main, soft, line }
+]]
+function M.pal(key)
+    return M.SECTION[key] or { main = M.C.primary, soft = M.C.panel, line = M.C.stroke_soft }
+end
 
 -- 顶部状态条 / 底部 Dock / 底部操作条高度
 -- 480×272 下：状态条 30 + 间距 6 + 内容区 182 + 间距 6 + Dock 48 = 272，恰好铺满
@@ -824,8 +899,8 @@ M.DOCK_H   = 48
 M.BOTTOM_H = 44
 
 --[[顶部状态条（分区页专用）
-左侧标题（缺省 M.BRAND「合宙工业网关Air8301」），右侧自右向左排「时间 | 告警点 | WiFi点 | 信号点」。
-@return bar, handle   handle = { title, time, signal, wifi, alarm }，均为 label / 圆点容器，可动态 set_text / set_color
+左侧标题（缺省 M.BRAND「合宙工业网关Air8301」），右侧仅显示时间（依需求已移除告警 / WiFi / 信号三个状态点）。
+@return bar, handle   handle = { title, right, time, signal, wifi, alarm }，可动态 set_text / set_color；signal / wifi / alarm 恒为 nil
 ]]
 function M.statusbar(parent, o)
     o = o or {}
@@ -850,9 +925,7 @@ function M.statusbar(parent, o)
         align = airui.TEXT_ALIGN_LEFT,
     })
 
-    -- 右侧指示灯与时间（自右向左布局）
-    local d = 8
-    local dot_y = math.floor((h - d) / 2)
+    -- 右侧时间（自右向左布局）
     local rx = w - 10
 
     local time_w = 52
@@ -875,15 +948,9 @@ function M.statusbar(parent, o)
         rx = rx - right_w - 10
     end
 
-    local alarm = M.dot(bar, { x = rx - d, y = dot_y, d = d, color = o.alarm_color or M.C.t3 })
-    rx = rx - d - 10
-
-    local wifi = M.dot(bar, { x = rx - d, y = dot_y, d = d, color = o.wifi_color or M.C.t3 })
-    rx = rx - d - 10
-
-    local signal = M.dot(bar, { x = rx - d, y = dot_y, d = d, color = o.signal_color or M.C.t3 })
-
-    return bar, { title = title, right = right_label, time = time_label, signal = signal, wifi = wifi, alarm = alarm }
+    -- 依需求移除「时间左侧的三个状态点」（告警 / WiFi / 信号），不再绘制；
+    -- 句柄一律以 nil 返回，调用方（idle_win / comm_win）均先 if 判空再 set_color，行为安全。
+    return bar, { title = title, right = right_label, time = time_label, signal = nil, wifi = nil, alarm = nil }
 end
 
 --[[Dock 导航项点击回调工厂
@@ -894,11 +961,13 @@ local function make_nav_handler(o, item)
     end
 end
 
---[[底部 Dock 分区导航（4 项，当前分区以琥珀高亮）
+--[[底部 Dock 分区导航（4 项，当前分区以「分区主色」高亮）
 @table o
   active  当前分区 key（与 M.NAV[i].key 匹配）
   on_nav  function(key, msg, label) 点击回调
 @return dock 容器
+@note v2.4：选中项改用该分区的专属色（浅底 + 分区色描边与文字），替代原来的琥珀高亮，
+      四个分区一眼可辨；底色仍为浅色，不会遮挡分区图标本身。
 ]]
 function M.dock(parent, o)
     o = o or {}
@@ -919,15 +988,16 @@ function M.dock(parent, o)
     for i = 1, n do
         local item = M.NAV[i]
         local on = (item.key == o.active)
+        local sect = M.pal(item.key)
         local x = pad + (i - 1) * (iw + gap)
         -- 点击贯通：Dock 项容器、图标、文字绑同一去重回调
         local tap = M.click_once(make_nav_handler(o, item))
         local btn = M.card(dock, {
             x = x, y = 5, w = iw, h = ih,
-            color = on and M.C.amber or M.C.surface,
-            opa = on and M.OPA.glass_hi or 0,
+            color = on and sect.soft or M.C.surface,
+            opa = on and 255 or 0,
             radius = M.R.sm,
-            border = on and M.C.amber or nil,
+            border = on and sect.main or nil,
             border_w = on and 1 or 0,
             on_click = tap,
         })
@@ -939,7 +1009,7 @@ function M.dock(parent, o)
         M.label(btn, {
             x = tx, y = math.floor((ih - lh) / 2), w = iw - tx - 8, h = lh,
             text = item.label, px_size = fs,
-            color = on and M.C.amber_light or M.C.t2,
+            color = on and sect.main or M.C.t2,
             align = icon and airui.TEXT_ALIGN_LEFT or airui.TEXT_ALIGN_CENTER,
             on_click = tap,
         })
@@ -947,8 +1017,8 @@ function M.dock(parent, o)
     return dock
 end
 
---[[仪表盘状态卡（左上标题 + 右上状态点 + 中间英雄值 + 底部副值）
-@return card, handle   handle = { value, sub, dot }，三者均可动态 set_text / set_color
+--[[仪表盘状态卡（左上标题 + 中间英雄值 + 底部副值）
+@return card, handle   handle = { value, sub, dot }，value / sub 可动态 set_text / set_color；dot 恒为 nil
 ]]
 function M.stat_card(parent, o)
     o = o or {}
@@ -975,7 +1045,8 @@ function M.stat_card(parent, o)
         align = airui.TEXT_ALIGN_LEFT,
         on_click = tap,
     })
-    local dot = M.dot(card, { x = w - pad - 8, y = 11, d = 8, color = o.dot_color or M.C.t3, on_click = tap })
+    -- 依需求移除卡片右上角状态点；保留 dot 变量（恒为 nil）以兼容 handle.dot 判空写法
+    local dot = nil
 
     local value = M.label(card, {
         x = pad, y = 30, w = w - pad * 2, h = fs_v + 3,
@@ -1058,13 +1129,12 @@ M.THEME_ORDER = {}
 M.DEFAULT_THEME = "dark"
 M.current = M.DEFAULT_THEME
 
--- 基线快照（深色），apply 时先恢复基线再叠加覆写，避免主题互相污染
-local BASE_C, BASE_OPA, BASE_R = {}, {}, {}
-for k, v in pairs(M.C) do BASE_C[k] = v end
-for k, v in pairs(M.OPA) do BASE_OPA[k] = v end
-for k, v in pairs(M.R) do BASE_R[k] = v end
+--[[派生令牌：primary 系列 = 主强调色的语义别名（供通用组件引用）
 
--- 派生令牌：primary 系列是 amber 系列的语义别名（供通用组件引用）
+组件一律引用 M.C.primary，而不直接引用 amber / brand：
+  产测模式（light 主题）      → primary = 琥珀
+  业务模式（light_brand 主题）→ primary = 品牌蓝
+这样一套组件代码即可随主题自动换主色，页面代码零改动。]]
 local function sync_sem()
     M.SEM.danger  = M.C.rose
     M.SEM.success = M.C.green
@@ -1072,12 +1142,23 @@ local function sync_sem()
     M.SEM.info    = M.C.cyan
     M.SEM.link    = M.C.cyan
     M.SEM.accent  = M.C.violet
-    M.C.primary       = M.C.amber
-    M.C.primary_light = M.C.amber_light
-    M.C.primary_deep  = M.C.amber_deep
-    M.C.on_primary    = M.C.on_amber
+    -- 主题未显式指定 primary 时回退到琥珀（深色主题 / 产测浅色主题的主色）
+    if M.C.primary == nil then
+        M.C.primary       = M.C.amber
+        M.C.primary_light = M.C.amber_light
+        M.C.primary_deep  = M.C.amber_deep
+        M.C.on_primary    = M.C.on_amber
+    end
 end
 sync_sem()
+
+-- 基线快照（深色），apply 时先恢复基线再叠加覆写，避免主题互相污染
+-- 注意：必须在 sync_sem() 之后再快照，让 primary 系列一并纳入基线；
+--       否则从业务主题切回产测主题时，primary 会残留上一主题的品牌蓝。
+local BASE_C, BASE_OPA, BASE_R = {}, {}, {}
+for k, v in pairs(M.C) do BASE_C[k] = v end
+for k, v in pairs(M.OPA) do BASE_OPA[k] = v end
+for k, v in pairs(M.R) do BASE_R[k] = v end
 
 --[[注册主题
 @table spec { id, name, desc, colors, opa, radius }
@@ -1118,18 +1199,50 @@ end
 M.register({
     id = "dark", name = "琥珀夜空", desc = "深色玻璃态（默认）",
 })
--- 浅色主题（备用）：仅覆写色值，几何与字号保持一致
+-- 浅色主题（产测模式使用）：纯白背景，仅覆写色值，几何与字号保持一致
 M.register({
-    id = "light", name = "晨光浅色", desc = "高对比浅色",
+    id = "light", name = "晨光浅色", desc = "纯白背景（产测模式使用）",
     colors = {
-        bg = 0xF2F4F8, bg_top = 0xFFFFFF,
+        bg = 0xFFFFFF, bg_top = 0xFFFFFF,
         panel = 0xFFFFFF, panel_hi = 0xFFFFFF,
         t1 = 0x1B2431, t2 = 0x5B6472, t3 = 0x8B95A3,
         stroke = 0xD8DEE8, stroke_soft = 0xE6EAF1, stroke_hi = 0xC2CAD6,
         selected = 0xE8EEF7, pressed = 0xEDF1F7,
-        track = 0xD8DEE8, input_bg = 0xF2F4F8,
+        track = 0xD8DEE8, input_bg = 0xFFFFFF,
         knob = 0xFFFFFF, knob_off = 0xFFFFFF,
         divider = 0x1B2431,
+    },
+})
+
+--[[业务模式专属主题（v2.4 界面优化）
+仅在业务分支启用（main.lua 中 apply "light_brand"）；产测模式仍用 light，互不影响。
+设计要点：
+  1) 分层：页面底纯白 + 卡片/面板极浅灰白 0xF7F9FC，卡片描边偏冷灰，
+     使卡片在白底上「浮」起来，解决原来「全白一片、没有层次」的单调感；
+  2) 主色：品牌蓝 0x2B6DE5（primary 系列显式覆写，按钮 / 开关 / 进度条 / 返回键自动跟随），
+     琥珀降级为「告警 / 警告」专用色；
+  3) 语义色针对白底加深（绿 / 红 / 青 / 紫），保证对比度与可读性。]]
+M.register({
+    id = "light_brand", name = "品牌蓝", desc = "业务模式·现代扁平（纯白 + 品牌蓝）",
+    colors = {
+        bg = 0xFFFFFF, bg_top = 0xFFFFFF,
+        panel = 0xF7F9FC, panel_hi = 0xFFFFFF,
+        t1 = 0x1B2431, t2 = 0x5B6472, t3 = 0x8B95A3,
+        stroke = 0xE3E9F2, stroke_soft = 0xEDF1F7, stroke_hi = 0xC9D5E6,
+        selected = 0xEAF1FE, pressed = 0xF1F5FA,
+        track = 0xDCE3EC, input_bg = 0xF4F7FB,
+        knob = 0xFFFFFF, knob_off = 0xFFFFFF,
+        divider = 0x1B2431,
+        -- 主强调色：品牌蓝（primary 系列显式覆写 → 组件自动跟随）
+        primary = 0x2B6DE5, primary_light = 0x5B90F0, primary_deep = 0x1F55C0,
+        on_primary = 0xFFFFFF,
+        brand = 0x2B6DE5, brand_light = 0x5B90F0, brand_deep = 0x1F55C0,
+        brand_soft = 0xEAF1FE, on_brand = 0xFFFFFF,
+        -- 琥珀降级为「告警 / 警告」专用
+        amber = 0xF5A623, amber_light = 0xF7B84C, amber_deep = 0xD98410,
+        on_amber = 0xFFFFFF,
+        -- 语义色针对白底加深
+        green = 0x1FA971, rose = 0xE0454B, cyan = 0x1E9FD0, violet = 0x7C5CE6,
     },
 })
 

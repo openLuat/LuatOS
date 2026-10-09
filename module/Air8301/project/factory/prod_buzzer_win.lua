@@ -1,7 +1,7 @@
 --[[
 @module  prod_buzzer_win
 @summary 蜂鸣器测试页（产测模式），点击就响0.5秒
-@version 2.0
+@version 1.0
 @date    2026.10.08
 @author  江访
 @version_note 产测专属：消息名前缀 OPEN_PROD_BUZZER_WIN，避免与业务页面冲突

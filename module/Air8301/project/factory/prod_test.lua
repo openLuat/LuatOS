@@ -182,6 +182,17 @@ local function flash_test()
         return "ERROR"
     end
 
+    -- 打通产测 Flash 页面的数据源：
+    -- 产测模式下 flash_app 不参与挂载，页面取不到真实值（挂载状态/芯片容量显示 "--"），
+    -- 故 FLASH_TEST 挂载成功后主动上报真实的挂载状态与芯片容量给页面。
+    -- 注：产测 Flash 页不展示文件系统，故 total_kb / used_kb 固定传 0。
+    local capacity_kb = 0
+    local cap_bytes = lf.getInfo(flash_dev)
+    if cap_bytes then
+        capacity_kb = cap_bytes / 1024
+    end
+    sys.publish("FLASH_MOUNT_STATUS", true, 0, 0, capacity_kb)
+
     local test_file = FLASH_MOUNT_POINT .. "/factory_test.txt"
     local test_data = ""
     for i = 1, 200 do

@@ -1,7 +1,7 @@
 --[[
 @module  fota_win
 @summary FOTA 远程升级页面（8301出厂固件）
-@version 2.0
+@version 1.0
 @date    2026.10.08
 @author  江访
 

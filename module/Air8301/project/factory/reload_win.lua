@@ -1,16 +1,18 @@
 --[[
 @module  reload_win
-@summary RELOAD按键状态页面，显示按键按下/抬起状态和按住时间（8301出厂固件）
+@summary RELOAD按键状态页面，显示按键按下/抬起状态、按住时间和长按5秒恢复出厂进度（8301出厂固件）
 @version 1.0
-@date    2026.10.08
+@date    2026.10.09
 @author  江访
+@version_note v1.1 修复：「按住时间」恒为 0 ms、「恢复出厂进度」进度条不动；
+              现在按下期间每 100ms 按真实时长刷新，进度条按 5000ms 目标线性增长
 
 @usage
 本页面显示RELOAD（WAKEUP2）按键状态：
-1、当前状态（已按下/已抬起）
-2、按住时间（ms）
-3、按住5秒进度条
-监听 KEY_EVENT 消息。
+1、当前状态（等待中/已按下/已抬起）
+2、按住时间（ms，按下期间每 100ms 刷新，抬起后保留最终值）
+3、长按5秒恢复出厂进度条（按住期间 0~100% 线性增长，抬起后保留当次结果）
+监听 KEY_EVENT 消息（由 reload_app 发布）。
 
 视觉：ui_theme 深色玻璃态（2 条键值行 + 进度面板）。
 ]]
@@ -25,6 +27,53 @@ local status_label, held_time_label, progress_bar
 local ROW_H      = 46
 local ROW_GAP    = 8
 local PROGRESS_H = 78
+-- 按住时间 / 进度刷新周期（ms）
+local TICK_MS = 100
+-- 长按恢复出厂目标时长（ms）
+-- 须与 reload_app.RESET_HOLD_MS 保持一致：reload_app 在按住 5 秒时发布 FACTORY_RESET_REQUEST
+local HOLD_TARGET_MS = 5000
+
+-- 按住计时状态
+local press_start_ms = nil
+local tick_timer = nil
+
+--[[
+停止按住计时定时器（幂等）
+
+@local
+@function stop_tick
+]]
+local function stop_tick()
+    if tick_timer then
+        sys.timerStop(tick_timer)
+        tick_timer = nil
+    end
+end
+
+--[[
+刷新「按住时间」与「恢复出厂进度」
+
+elapsed = 当前时刻 - 按下时刻；进度 = elapsed / HOLD_TARGET_MS，夹到 100。
+
+@local
+@function update_hold
+]]
+local function update_hold()
+    if not press_start_ms then return end
+    local elapsed = mcu.ticks() - press_start_ms
+    if elapsed < 0 then elapsed = 0 end
+
+    if held_time_label then
+        held_time_label:set_text(elapsed .. " ms")
+        held_time_label:set_color(theme.C.t1)
+    end
+
+    if progress_bar then
+        local pct = math.floor(elapsed * 100 / HOLD_TARGET_MS)
+        if pct > 100 then pct = 100 end
+        progress_bar:set_value(pct)
+    end
+end
 
 --[[
 导航栏返回按钮点击
@@ -51,17 +100,23 @@ local function on_key_event(event)
             status_label:set_text("已按下")
             status_label:set_color(theme.SEM.success)
         end
+        -- 开始计时：记录按下时刻并启动周期刷新（进度条由 0 重新增长）
+        press_start_ms = mcu.ticks()
         if progress_bar then
             progress_bar:set_value(0)
         end
+        update_hold()
+        stop_tick()
+        tick_timer = sys.timerLoopStart(update_hold, TICK_MS)
     elseif event == "reload_up" then
         if status_label then
             status_label:set_text("已抬起")
             status_label:set_color(theme.SEM.danger)
         end
-        if progress_bar then
-            progress_bar:set_value(0)
-        end
+        -- 收尾：先刷新出最终按住时长与进度，再停止计时并复位
+        update_hold()
+        stop_tick()
+        press_start_ms = nil
     end
 end
 
@@ -126,6 +181,8 @@ end
 @function on_destroy
 ]]
 local function on_destroy()
+    stop_tick()
+    press_start_ms = nil
     if main_container then
         main_container:destroy()
         main_container = nil

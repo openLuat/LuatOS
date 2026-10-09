@@ -1,7 +1,7 @@
 --[[
 @module  key_beep
 @summary 全局按键音注入模块，一处改动覆盖全部按钮（Air8301 出厂固件）
-@version 2.0
+@version 1.0
 @date    2026.10.08
 @author  江访
 @usage

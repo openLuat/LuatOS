@@ -86,6 +86,8 @@ local function airlbs_multi_cells_wifi_task_func()
         })
         if result2 then
             log.info("airlbs.get_address", address)
+            -- 发布地址反查结果，供「主页」首页显示当前城市（weather_app 订阅 AIRLBS_ADDRESS_UPDATE）
+            sys.publish("AIRLBS_ADDRESS_UPDATE", address)
         else
             log.info("airlbs.get_address失败", address)
         end

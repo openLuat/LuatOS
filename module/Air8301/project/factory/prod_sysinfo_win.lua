@@ -1,32 +1,32 @@
 --[[
 @module  prod_sysinfo_win
-@summary 系统信息页面（产测模式），显示固件版本、运行时间、RAM、文件系统信息
+@summary 系统信息页面（产测模式），显示固件版本、运行时间、RAM
 @version 1.0
-@date    2026.10.08
+@date    2026.10.09
 @author  江访
-@version_note 产测专属：消息名前缀 OPEN_PROD_SYSINFO_WIN；去掉恢复出厂按钮（产测用 U 盘/指令 RST#）
+@version_note 产测专属：消息名前缀 OPEN_PROD_SYSINFO_WIN；去掉恢复出厂按钮（产测用 U 盘/指令 RST#）；
+              v1.1 按需求移除「文件系统」显示项（产测模式系统信息不再展示 Flash 容量）
 
 @usage
 本页面只读展示系统信息：
 1、固件版本（VERSION）
 2、运行时间（mcu.ticks 转换时分秒）
 3、内存使用（rtos.meminfo 多值返回，字节转MB，系统内存+Lua内存）
-4、文件系统信息（订阅 FLASH_MOUNT_STATUS）
 页面打开期间每 2 秒自动刷新运行时间与内存。
 
-视觉：ui_theme 深色玻璃态（4 条键值行，无操作按钮）。
+视觉：ui_theme 深色玻璃态（3 条键值行，无操作按钮）。
 ]]
 
 local theme = require "ui_theme"
 
 local win_id = nil
 local main_container, content
-local ver_label, uptime_label, ram_label, flash_label
+local ver_label, uptime_label, ram_label
 
 -- 自动刷新定时器
 local refresh_timer = nil
 
--- 布局常量（内容区 464×210：4×40 + 3×8 = 184，上下居中）
+-- 布局常量（内容区 464×210：3×40 + 2×8 = 136，上下居中）
 local ROW_H   = 40
 local ROW_GAP = 8
 
@@ -93,32 +93,6 @@ local function refresh_sysinfo()
 end
 
 --[[
-Flash 挂载状态回调: 更新文件系统信息显示
-
-@local
-@function on_flash_mount_status
-]]
-local function on_flash_mount_status(mounted, total_kb, used_kb)
-    if not exwin.is_active(win_id) then return end
-
-    if flash_label then
-        if mounted and total_kb and total_kb > 0 then
-            local total_mb = total_kb / 1024
-            local used_mb = used_kb / 1024
-            local free_mb = total_mb - used_mb
-            flash_label:set_text(string.format("可用 %.1f MB %s 共 %.1f MB",
-                free_mb, theme.CHAR.sep, total_mb))
-            flash_label:set_color(theme.SEM.success)
-        else
-            -- 产测模式不常驻挂载：Flash 由 prod_test 的 FLASH_TEST 指令按需挂载，
-            -- 此处是「按需状态」而非故障，用琥珀提示色，避免测试员误判
-            flash_label:set_text("按需挂载（产测）")
-            flash_label:set_color(theme.SEM.warning)
-        end
-    end
-end
-
---[[
 创建UI界面
 
 @local
@@ -129,8 +103,8 @@ local function create_ui()
     main_container = ctx.base
     content = ctx.base
 
-    -- 上下居中：总高 184，内容区 210，顶部留白 13
-    local y = ctx.y + math.floor((ctx.h - (ROW_H * 4 + ROW_GAP * 3)) / 2)
+    -- 上下居中：总高 136，内容区 210，顶部留白 37
+    local y = ctx.y + math.floor((ctx.h - (ROW_H * 3 + ROW_GAP * 2)) / 2)
 
     local _, l_ver = theme.kv_row(ctx.base, {
         x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 110,
@@ -148,12 +122,6 @@ local function create_ui()
         x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 110,
         label = "内存", value = "加载中..." })
     ram_label = l_ram
-    y = y + ROW_H + ROW_GAP
-
-    local _, l_flash = theme.kv_row(ctx.base, {
-        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label_w = 110,
-        label = "文件系统", value = "加载中..." })
-    flash_label = l_flash
 
     -- 刷新信息
     refresh_sysinfo()
@@ -179,9 +147,6 @@ end
 ]]
 local function on_create()
     create_ui()
-    sys.subscribe("FLASH_MOUNT_STATUS", on_flash_mount_status)
-    -- 主动请求一次 Flash 状态
-    sys.publish("REQUEST_STATUS_REFRESH")
     -- 启动自动刷新(每2秒刷新运行时间+内存)
     if not refresh_timer then
         refresh_timer = sys.timerLoopStart(refresh_timer_cb, 2000)
@@ -207,8 +172,6 @@ local function on_destroy()
     ver_label = nil
     uptime_label = nil
     ram_label = nil
-    flash_label = nil
-    sys.unsubscribe("FLASH_MOUNT_STATUS", on_flash_mount_status)
     win_id = nil
 end
 

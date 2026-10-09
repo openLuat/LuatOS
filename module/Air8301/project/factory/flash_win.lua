@@ -1,7 +1,7 @@
 --[[
 @module  flash_win
 @summary Flash存储页面，显示芯片容量与文件系统使用情况（8301出厂固件）
-@version 2.0
+@version 1.0
 @date    2026.10.08
 @author  江访
 

@@ -1,7 +1,7 @@
 --[[
 @module  ui_main
 @summary UI 主模块，负责加载所有 UI 页面并启动硬件初始化序列（8301出厂固件）
-@version 2.0
+@version 1.0
 @date    2026.10.08
 @author  江访
 
@@ -25,7 +25,7 @@ require 即执行，以下按顺序发生：
 
 === 本次 UI 优化说明（v3.0 界面范式重构·全部推广） ===
 界面范式由「14 项图标总菜单」改为「仪表盘 + 底部 Dock 四分区导航」：
-  总览 idle_win → 实时状态仪表盘（蜂窝/RS485-1/继电器/DO）
+  主页 idle_win → 时间与天气仪表盘（时间/日期/天气/设备状态）
   通信 comm_win → 通信通道磁贴；IO io_win → IO 磁贴；系统 sys_win → 系统磁贴。
 设计系统 ui_theme 提供 shell/statusbar/dock/stat_card/tile 等骨架与组件；
 本文件仍 require "theme"（向后兼容桥接层），用于设置全局 T 并提供按键音兜底。
@@ -38,7 +38,7 @@ local tp_drv  = require "tp_gt911"
 
 -- ==================== 加载所有 UI 页面模块（注册窗口，不立即显示） ====================
 require "boot_win"       -- 开机画面（LOGO 启动页，最先显示）
-require "idle_win"       -- 总览首页（实时状态仪表盘）
+require "idle_win"       -- 主页（时间与天气仪表盘）
 require "comm_win"       -- 通信分区页（蜂窝/WiFi/RS485/以太网/Modbus）
 require "io_win"         -- IO 分区页（DI/DO/继电器/蜂鸣器/状态灯）
 require "sys_win"        -- 系统分区页（看门狗/Flash/系统信息/远程升级/RELOAD）

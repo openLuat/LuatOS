@@ -1,7 +1,7 @@
 --[[
 @module  sys_win
 @summary 系统分区页（看门狗 / Flash / 系统信息 / 远程升级 / RELOAD）（8301出厂固件）
-@version 1.3
+@version 1.0
 @date    2026.10.08
 @author  江访
 
@@ -12,7 +12,7 @@
 点击磁贴进入对应功能详情页。
 
 分区划分（业务模式全部页面）：
-  总览 —— 实时状态仪表盘（idle_win）
+  主页 —— 时间与天气仪表盘（idle_win）
   通信 —— 蜂窝 / WiFi / RS485-1 / RS485-2 / 以太网 / Modbus（comm_win）
   IO   —— DI / DO / 继电器 / 蜂鸣器 / 状态灯（io_win）
   系统 —— 本页：看门狗 / Flash / 系统信息 / 远程升级 / RELOAD
@@ -185,6 +185,7 @@ local function create_ui()
         { icon = "/luadb/hw_network.png",  text = "远程升级", sub = "FOTA",       dot = theme.SEM.info, on_click = T.with_beep(on_fota_click) },
         { icon = "/luadb/hw_reload.png",   text = "RELOAD",  sub = "恢复出厂",    dot = theme.SEM.info, on_click = T.with_beep(on_reload_click) },
     }
+    local sect = theme.pal(NAV_KEY)       -- 系统分区配色（紫）
     local handles = {}
     for i, c in ipairs(cells) do
         local col = (i - 1) % COLS
@@ -194,6 +195,7 @@ local function create_ui()
         local _, _, sub_label, dot = theme.tile(ctx.base, {
             x = x, y = y, w = cw, h = ch,
             icon = c.icon, text = c.text, sub = c.sub, dot = c.dot,
+            accent_soft = sect.soft, accent_line = sect.line,
             on_click = c.on_click,
         })
         handles[i] = { nil, sub_label, dot }

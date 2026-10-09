@@ -1,7 +1,7 @@
 --[[
 @module  net_drv
 @summary 多网卡驱动（以太网静态IP + 4G + WiFi + WiFi AP，Air8301 出厂固件）
-@version 1.1
+@version 1.0
 @date    2026.09.22
 @author  江访
 @usage

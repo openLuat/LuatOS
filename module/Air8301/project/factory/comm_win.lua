@@ -12,7 +12,7 @@
 点击磁贴进入对应功能详情页。
 
 分区划分（业务模式全部页面）：
-  总览 —— 实时状态仪表盘（idle_win）
+  主页 —— 时间与天气仪表盘（idle_win）
   通信 —— 本页：蜂窝 / WiFi / RS485-1 / 以太网 / Modbus
   IO   —— DI / DO / 继电器 / 蜂鸣器 / 状态灯（io_win）
   系统 —— 看门狗 / Flash / 系统信息 / 远程升级 / RELOAD（sys_win）
@@ -232,6 +232,7 @@ local function create_ui()
         { icon = "/luadb/hw_network.png", text = "以太网",   sub = "查询中...", dot = theme.C.t3, on_click = T.with_beep(on_eth_click) },
         { icon = "/luadb/hw_rs485.png",   text = "Modbus",   sub = "从站",      dot = theme.SEM.info, on_click = T.with_beep(on_modbus_click) },
     }
+    local sect = theme.pal(NAV_KEY)       -- 通信分区配色（青）
     local handles = {}
     for i, c in ipairs(cells) do
         local col = (i - 1) % COLS
@@ -241,6 +242,7 @@ local function create_ui()
         local _, _, sub_label, dot = theme.tile(ctx.base, {
             x = x, y = y, w = cw, h = ch,
             icon = c.icon, text = c.text, sub = c.sub, dot = c.dot,
+            accent_soft = sect.soft, accent_line = sect.line,
             on_click = c.on_click,
         })
         handles[i] = { nil, sub_label, dot }

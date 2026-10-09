@@ -1,7 +1,7 @@
 --[[
 @module  comm_core
 @summary Modbus RTU 主站公共封装层（8301出厂固件）
-@version 1.1
+@version 1.0
 @date    2026.09.24
 @usage
 本文件为 Modbus RTU 主站公共封装层，统一封装 exmodbus 主站实例的创建、读操作、写操作，

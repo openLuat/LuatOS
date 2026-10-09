@@ -1,12 +1,27 @@
 --[[
 @module  boot_win
 @summary 开机画面（LOGO 启动页）—— 对齐工厂引擎 boot_ui + welcome_win 的启动范式
-@version 1.1
-@date    2026.10.08
+@version 1.0
+@date    2026.10.09
+@version_note v1.6 开机画面背景改为「跟随主题令牌 theme.C.bg」：配合全局浅色主题（纯白背景），
+              开机画面由纯黑底改为纯白底，产品名/版本号/启动提示文字自动转为深色（深色主题下仍为
+              深色底 + 浅色字，行为不变）；回退绘制版标识的底块改用 theme.C.t1，避免白底下与背景
+              融为一体而看不见。
+              v1.5 修复「非 PNG 格式的 LOGO 一律不显示」：文件头识别由仅 PNG 扩展为 PNG + JPEG，
+              不再「解析不出尺寸就放弃加载」——只要格式可识别即交给 airui 解码显示（等比只缩不放，
+              解析失败时用 144×144 正方形兜底），并新增文件头十六进制日志以判定真实格式；
+              同时对渐进式 JPEG 增加告警（部分平台不支持，需转基线 JPEG）。
+              v1.4 LOGO 改为「按真实尺寸等比自适应」并新增格式诊断日志：开机只读 PNG 文件头 33 字节
+              （不解码像素）得到宽高/位深/颜色类型/隔行标志，按 300×144 上限等比缩放后居中绘制，
+              解决非 128×128 的 LOGO 被强行塞进固定槽位导致拉伸、裁剪、甚至不显示的问题；
+              图片缺失、非 PNG 或文件损坏时自动回退绘制版标识。
+              v1.3 修正 v1.2 引入的错误引用 theme.M.BRAND（ui_theme 末尾 return M，外部拿到的就是 M 表本身，
+              品牌常量应写 theme.BRAND）；该错误会导致 on_create 抛异常、开机画面文字全部无法创建；
+              产品名显示「合宙工业网关Air8301」，产测/业务两种模式共用本页
 @author  江访
 
 @usage
-界面：全屏深色底 + 居中 LOGO（引擎主机同款 /luadb/logo.png，128×128 原尺寸）
+界面：全屏底色（浅色主题下为纯白 0xFFFFFF，深色主题下为深色）+ 居中 LOGO（/luadb/logo.png，按图片真实尺寸等比自适应，上限 300×144）
     + 产品名 + 版本号 + 底部启动指示点（循环点亮）。
 
 停留时长：最短 MIN_SHOW_MS=1800ms（保证 LOGO 被看清）、兜底 MAX_WAIT_MS=5000ms。
@@ -16,7 +31,7 @@
 
   lcd_drv.init()              LCD 硬件初始化（内含 lcd.clear，背光未开 → 用户不可见）
   lcd_drv.airui_init()        AirUI 引擎 + 字体 + 密度
-  OPEN_BOOT_WIN(next_msg)     本页创建（全屏深色底 + LOGO），next_msg 指定进入的首页
+  OPEN_BOOT_WIN(next_msg)     本页创建（全屏底色 + LOGO），next_msg 指定进入的首页
   sys.wait(100)               等 LOGO 首帧刷上屏
   lcd_drv.backlight_on()      开背光 ← 用户第一眼看到的就是开机画面（而非黑屏/白屏）
   tp_drv.init()               触摸初始化
@@ -35,10 +50,16 @@
 
 === 可移植性说明（零资源依赖） ===
 
-LOGO 资源：优先使用 /luadb/logo.png（128×128 原尺寸显示，源图 src/logo.png 即 128×128）；
-      资源缺失时自动回退为绘制版标识（圆角方块 + "8301"），因此本页缺图不会报错、不会影响开机流程。
-      若替换为其他尺寸的 LOGO，请同步调整 on_create 中的 lsz。颜色来源：底色用 theme.C.black
-      （与引擎主机 welcome_win 的纯黑底一致），文字与指示点复用 ui_theme 令牌。
+LOGO 资源：优先使用 /luadb/logo.png（工程内源文件为 src/logo.png，打包后即设备内的 /luadb/logo.png，
+      注意：放在工程根目录的图片不会被打包，必须放在 main.lua 同级的 src/ 目录下）；
+      开机时解析 PNG 文件头得到真实宽高，按 300×144 上限等比缩放并居中，可适配任意尺寸的 LOGO，
+      无需再手工调整代码常量。图片缺失、非 PNG 或文件损坏时自动回退为绘制版标识（圆角方块 + "8301"），
+      因此本页缺图不会报错、不会影响开机流程。
+      设备日志会打印 LOGO 的实际尺寸与格式（位深 / 颜色类型 / 隔行标志），便于排查「图片不显示」；
+      其中颜色类型 3（调色板）与隔行标志 1（Adam7 隔行）在部分平台不受支持，建议导出为 24 位
+      非隔行的直通式 PNG。
+      颜色来源：底色用 theme.C.bg（浅色主题 = 纯白 0xFFFFFF，深色主题 = 深色），文字与指示点复用
+      ui_theme 令牌，因此两种主题下都能保证对比度。
 
 入口消息 DOCK 与首页消息名解耦：业务模式传 "OPEN_IDLE_WIN"，
 产测模式传 "OPEN_PROD_IDLE_WIN"，本页不自带模式判断。
@@ -144,7 +165,7 @@ end
 @function on_create
 ]]
 local function on_create()
-    log.info("boot_win", "[UI-MARK] 开机画面 v1.1 已加载（LOGO 启动页，停留 1800ms）")
+    log.info("boot_win", "[UI-MARK] 开机画面 v1.6 已加载（LOGO 启动页，支持 PNG/JPEG，白底跟随主题，停留 1800ms）")
     finished = false
     min_ok = false
     boot_ok = false
@@ -153,29 +174,170 @@ local function on_create()
 
     local SW, SH = theme.SCREEN_W, theme.SCREEN_H
 
-    -- ---- 全屏深色底 ----
+    -- ---- 全屏底色（跟随主题） ----
+    -- 底色使用主题令牌 theme.C.bg：浅色主题下为纯白（0xFFFFFF），深色主题下为深色。
     -- 显式挂到 airui.screen；个别 airui 版本无该常量时回退为 nil（airui 默认挂屏幕）
     root = theme.box(airui.screen, {
         x = 0, y = 0, w = SW, h = SH,
-        color = theme.C.black,   -- 与引擎主机欢迎页一致：纯黑底衬托 LOGO
+        color = theme.C.bg,
     })
 
-    -- ---- LOGO：优先图片，缺失则绘制版标识 ----
-    local lsz = 128
-    local lx = math.floor((SW - lsz) / 2)
-    local ly = 20
+    -- ---- LOGO：优先图片（按真实尺寸等比自适应），缺失/损坏则绘制版标识 ----
+    -- 图片区：宽上限 300（两侧留边）、高上限 144（保证产品名/版本号/底部提示都有位置）
+    local IMG_MAX_W, IMG_MAX_H = 300, 144
+    local SLOT_Y = 20
+
+    --[[读取文件头前 n 字节并转成十六进制串（仅用于日志诊断真实格式）]]
+    local function head_hex(path, n)
+        local f = io.open(path, "rb") or io.open(path, "r")
+        if not f then return nil end
+        local s = f:read(n or 8)
+        f:close()
+        if not s then return nil end
+        local t = {}
+        for i = 1, #s do t[i] = string.format("%02X", s:byte(i)) end
+        return table.concat(t, " ")
+    end
+
+    --[[读取图片文件头，识别 PNG / JPEG 并取真实像素宽高（不解码像素，开销可忽略）。
+    返回 w, h, fmt, extra；无法取得宽高时 w/h 为 nil，但 fmt/extra 仍会返回，便于日志判定真实格式。
+    PNG 颜色类型：0 灰度、2 真彩、3 调色板、4 灰度+Alpha、6 真彩+Alpha；隔行：0 非隔行、1 Adam7。
+    JPEG 仅支持基线（baseline），渐进式（progressive）在部分平台不支持。]]
+    local function img_info(path)
+        local f = io.open(path, "rb") or io.open(path, "r")
+        if not f then return nil end
+        local sig = f:read(8) or ""
+        f:close()
+
+        -- ---- PNG：89 50 4E 47 0D 0A 1A 0A ----
+        if #sig >= 8 and sig:byte(1) == 0x89 and sig:byte(2) == 0x50
+            and sig:byte(3) == 0x4E and sig:byte(4) == 0x47 then
+            local g = io.open(path, "rb") or io.open(path, "r")
+            if not g then return nil, nil, "PNG" end
+            local hdr = g:read(33)
+            g:close()
+            -- 首个数据块必须是 IHDR（标识位于第 13~16 字节），否则文件已损坏
+            if not hdr or #hdr < 33 or hdr:sub(13, 16) ~= "IHDR" then
+                return nil, nil, "PNG", "文件头不完整或损坏"
+            end
+            local function be32(s, i)
+                return s:byte(i) * 0x1000000 + s:byte(i + 1) * 0x10000 + s:byte(i + 2) * 0x100 + s:byte(i + 3)
+            end
+            local w, h = be32(hdr, 17), be32(hdr, 21)
+            if w <= 0 or h <= 0 then return nil, nil, "PNG", "宽高非法" end
+            return w, h, "PNG",
+                ("颜色类型%d 隔行%d 位深%d"):format(hdr:byte(26) or -1, hdr:byte(29) or -1, hdr:byte(25) or -1)
+        end
+
+        -- ---- JPEG：FF D8 FF … ----
+        if #sig >= 3 and sig:byte(1) == 0xFF and sig:byte(2) == 0xD8 and sig:byte(3) == 0xFF then
+            local g = io.open(path, "rb") or io.open(path, "r")
+            if not g then return nil, nil, "JPEG" end
+            g:read(2)   -- 跳过 SOI
+            while true do
+                local mk = g:read(2)
+                if not mk or #mk < 2 or mk:byte(1) ~= 0xFF then break end
+                local marker = mk:byte(2)
+                if marker == 0x01 or (marker >= 0xD0 and marker <= 0xD7) then
+                    -- 无长度字段的标记，直接继续
+                elseif marker == 0xD9 then
+                    break
+                else
+                    local lb = g:read(2)
+                    if not lb or #lb < 2 then break end
+                    local seglen = lb:byte(1) * 256 + lb:byte(2)
+                    if seglen < 2 then break end
+                    -- SOF0~SOF15（排除 DHT=C4 / JPG=C8 / DAC=CC）内含图像宽高
+                    local is_sof = (marker >= 0xC0 and marker <= 0xCF)
+                        and marker ~= 0xC4 and marker ~= 0xC8 and marker ~= 0xCC
+                    if is_sof then
+                        local d = g:read(seglen - 2)
+                        if d and #d >= 5 then
+                            local h = d:byte(2) * 256 + d:byte(3)
+                            local w = d:byte(4) * 256 + d:byte(5)
+                            local ptype = (marker == 0xC2 or marker == 0xC6
+                                or marker == 0xCA or marker == 0xCE) and "渐进式" or "基线"
+                            g:close()
+                            if w > 0 and h > 0 then
+                                return w, h, "JPEG", ("%s 0x%02X"):format(ptype, marker)
+                            end
+                            return nil, nil, "JPEG", ptype
+                        end
+                        break
+                    else
+                        g:read(seglen - 2)   -- 丢弃该段（不用 seek，兼容性更好）
+                    end
+                end
+            end
+            g:close()
+            return nil, nil, "JPEG", "未找到 SOF 段"
+        end
+
+        return nil, nil, nil, "非 PNG / JPEG"
+    end
 
     local logo_path
-    for _, p in ipairs({ "/luadb/logo.png", "/logo.png" }) do
+    -- 依次尝试：工程 src 目录打包后的标准路径、保留子目录的打包方式、根文件系统
+    for _, p in ipairs({ "/luadb/logo.png", "/luadb/src/logo.png", "/logo.png" }) do
         if io.exists(p) then logo_path = p break end
     end
 
+    -- 读取图片头：识别格式并取真实尺寸（用于日志诊断与等比缩放，不作为「能否显示」的前提）
+    local logo_fmt, logo_w, logo_h, logo_bottom
     if logo_path then
-        theme.image(root, { x = lx, y = ly, w = lsz, h = lsz, src = logo_path })
+        local pw, ph, fmt, extra = img_info(logo_path)
+        logo_fmt = fmt
+        log.info("boot_win", "LOGO 资源:", logo_path, "字节:", io.fileSize(logo_path) or "未知",
+            "格式:", fmt or "无法识别", "宽高:", (pw and ph) and (pw .. "x" .. ph) or "解析失败", extra or "")
+        log.info("boot_win", "LOGO 文件头:", head_hex(logo_path, 8) or "读取失败")
+        if extra and string.find(extra, "渐进式") then
+            log.warn("boot_win", "LOGO 是渐进式 JPEG，部分平台不支持，请另存为基线 JPEG 或标准 PNG")
+        end
+        if logo_fmt == "JPEG" then
+            -- airui 的 JPEG 解码依赖硬件，仅部分平台支持（Air8301 不在支持之列），
+            -- 且要求图片宽高均为 16 的倍数；若照片区为空白，请用「画图」另存为 24 位 PNG。
+            log.warn("boot_win", "LOGO 为 JPEG：airui 的 JPEG 解码仅部分平台支持(Air8301 不支持)，"
+                .. "若照片区空白请用「画图」另存为 24 位 PNG（宽高需为 16 的倍数）")
+        end
+        if extra and string.find(extra, "颜色类型3") then
+            log.warn("boot_win", "LOGO 是调色板(Palette)PNG，部分平台不支持，建议导出为 24 位真彩 PNG")
+        end
+        if extra and string.find(extra, "隔行1") then
+            log.warn("boot_win", "LOGO 是 Adam7 隔行 PNG，部分平台不支持，建议导出为非隔行 PNG")
+        end
+        if pw and ph then
+            -- 只缩不放（放大会发糊），等比缩放到图片区上限内
+            local scale = math.min(IMG_MAX_W / pw, IMG_MAX_H / ph, 1)
+            logo_w = math.max(1, math.floor(pw * scale))
+            logo_h = math.max(1, math.floor(ph * scale))
+        end
+    end
+
+    -- 只要格式可识别（PNG / JPEG）就交给 airui 解码显示：
+    -- 尺寸解析成功 → 按真实比例「只缩不放」；解析失败 → 退化为 144×144 图片区兜底，不再直接放弃显示
+    if logo_path and (logo_fmt == "PNG" or logo_fmt == "JPEG") then
+        local bw, bh, lx, ly
+        if logo_w and logo_h then
+            bw, bh = logo_w, logo_h
+            lx = math.floor((SW - bw) / 2)
+            ly = SLOT_Y + math.floor((IMG_MAX_H - bh) / 2)   -- 在图片区内垂直居中
+        else
+            bw, bh = IMG_MAX_H, IMG_MAX_H                     -- 144×144 正方形兜底
+            lx = math.floor((SW - bw) / 2)
+            ly = SLOT_Y
+        end
+        theme.image(root, { x = lx, y = ly, w = bw, h = bh, src = logo_path, fit = "contain" })
+        logo_bottom = ly + bh
     else
+        if logo_path then
+            log.warn("boot_win", "LOGO 图片无法识别或不可用，回退为绘制版标识:", logo_path)
+        end
+        local lsz = 128
+        local lx = math.floor((SW - lsz) / 2)
+        local ly = SLOT_Y + math.floor((IMG_MAX_H - lsz) / 2)
         local logo_box = theme.box(root, {
             x = lx, y = ly, w = lsz, h = lsz,
-            color = theme.C.panel,
+            color = theme.C.t1,      -- 深色底块：白底下也能看清（浅色主题的 panel 为白色，会与白底融为一体）
             radius = theme.r("lg") + 6,
             border = theme.C.amber,
         })
@@ -184,13 +346,14 @@ local function on_create()
             text = "8301", px_size = 34, color = theme.C.amber,
             align = airui.TEXT_ALIGN_CENTER,
         })
+        logo_bottom = ly + lsz
     end
 
     -- ---- 产品名 ----
-    local title_y = ly + lsz + 10
+    local title_y = logo_bottom + 10
     theme.label(root, {
         x = 0, y = title_y, w = SW, h = 18 + 3,
-        text = "Air8301 出厂固件", px_size = 18, color = theme.C.t1,
+        text = theme.BRAND, px_size = 18, color = theme.C.t1,
         align = airui.TEXT_ALIGN_CENTER,
     })
 

@@ -1,7 +1,7 @@
 --[[
 @module  rs485_win
 @summary RS485 终端页面（8301出厂固件·业务模式）
-@version 3.0
+@version 1.0
 @date    2026.10.08
 @author  江访
 

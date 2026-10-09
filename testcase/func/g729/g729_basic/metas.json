@@ -1,0 +1,1 @@
+{"timeout": 30, "action_count": 1, "priority": 5, "description": "G.729A编解码基础测试(含与ITU参考码流的bit-exact对拍)", "platform": ["pc"]}

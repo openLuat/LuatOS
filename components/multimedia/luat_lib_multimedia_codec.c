@@ -30,6 +30,9 @@ extern const luat_codec_opts_t opus_codec_opts;
 #ifdef LUAT_SUPPORT_SPEEX
 extern const luat_codec_opts_t speex_codec_opts;
 #endif
+#ifdef LUAT_SUPPORT_G729
+extern const luat_codec_opts_t g729_codec_opts;
+#endif
 
 static const luat_codec_opts_t* const codec_opts_table[] = {
     [LUAT_MULTIMEDIA_DATA_TYPE_MP3]       = &mp3_codec_opts,
@@ -49,6 +52,9 @@ static const luat_codec_opts_t* const codec_opts_table[] = {
     [LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_NB]  = &speex_codec_opts,
     [LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_WB]  = &speex_codec_opts,
     [LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_UWB] = &speex_codec_opts,
+#endif
+#ifdef LUAT_SUPPORT_G729
+    [LUAT_MULTIMEDIA_DATA_TYPE_G729]      = &g729_codec_opts,
 #endif
     [LUAT_MULTIMEDIA_DATA_TYPE_OGG]       = NULL,
     [LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS]  = NULL,
@@ -93,9 +99,9 @@ const luat_codec_opts_t* luat_codec_get_ops(uint8_t type) {
 /**
 创建编解码用的codec
 @api codec.create(type, isDecoder, quality)
-@int 多媒体类型，目前支持codec.MP3 codec.AMR
+@int 多媒体类型，目前支持codec.MP3 codec.AMR codec.G729
 @boolean 是否是解码器，true解码器，false编码器，默认true，是解码器
-@int 编码等级，部分bsp有内部编解码器，可能需要提前输入编解码等级，不知道的就填7
+@int 编码等级，部分bsp有内部编解码器，可能需要提前输入编解码等级，不知道的就填7。G729编码器：0=仅Annex A(固定10字节/帧)，1=启用Annex B VAD/DTX(输出0/2/10字节变长帧)；G729解码器：0=裸10字节帧流，1=长度前缀容器(每帧1字节长度+负载)
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
 -- 目前支持：
@@ -104,12 +110,15 @@ const luat_codec_opts_t* luat_codec_get_ops(uint8_t type) {
 -- codec.AMR_WB 编码(部分BSP支持，例如Air780EHM,Air8000)+解码
 -- codec.WAV WAV本身就是PCM数据，无需编解码
 -- codec.ULAW codec.ALAW 编码+解码
+-- codec.G729 G.729A 编码+解码，支持Annex B (VAD/DTX/CNG)
 -- 创建解码器
 local decoder = codec.create(codec.MP3)--创建一个mp3的decoder
 -- 创建编码器
 local encoder = codec.create(codec.AMR, false)--创建一个amr的encoder
 -- 创建编码器
 local encoder = codec.create(codec.AMR_WB, false, 8)--创建一个amr-wb的encoder，编码等级默认8
+-- 创建G.729编码器，启用Annex B静音压缩，VAD开启时建议每次codec.encode只喂一帧(160字节)PCM
+local encoder = codec.create(codec.G729, false, 1)
  */
 static int l_codec_create(lua_State *L) {
     uint8_t type = luaL_optinteger(L, 1, LUAT_MULTIMEDIA_DATA_TYPE_MP3);
@@ -135,6 +144,13 @@ static int l_codec_create(lua_State *L) {
 #endif
 #endif
 
+#ifdef LUAT_SUPPORT_G729
+    if (type == LUAT_MULTIMEDIA_DATA_TYPE_G729) {
+        // G729: 0=Annex A(编码固定10字节/帧, 解码裸流), 1=Annex B(VAD/DTX, 解码走长度前缀容器)。
+        // 默认0, 不能沿用AMR的默认7; table形式的第3参同样按0处理
+        encode_level = lua_istable(L, 3) ? 0 : luaL_optinteger(L, 3, 0);
+    }
+#endif
     luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_newuserdata(L, sizeof(luat_multimedia_codec_t));
     if (coder == NULL) {
         lua_pushnil(L);
@@ -661,6 +677,8 @@ static const rotable_Reg_t reg_codec[] =
 	{ "SPEEX_WB",        ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_WB)},
 	//@const SPEEX_UWB number Speex超宽带格式(32kHz)
 	{ "SPEEX_UWB",       ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_UWB)},
+	//@const G729 number G.729A格式(8kHz, 10字节/帧)
+	{ "G729",            ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_G729)},
 	//@const VDDA_3V3 number codec 电压: 3.3V
 	{ "VDDA_3V3",        ROREG_INT(LUAT_CODEC_VDDA_3V3)},
 	//@const VDDA_1V8 number codec 电压: 1.8V

@@ -28,11 +28,20 @@ local M = {}
 local RTP_CODEC_PT = {
     PCMU = 0,
     PCMA = 8,
+    G729 = 18,
 }
 
 local RTP_PT_CODEC = {
     [0] = "PCMU",
     [8] = "PCMA",
+    [18] = "G729",
+}
+
+-- 对端 SDP 中常见的 G.729 别名写法
+local RTP_CODEC_ALIAS = {
+    ["G.729"] = "G729",
+    G729A = "G729",
+    G729B = "G729",
 }
 
 local function log_info(...)
@@ -453,6 +462,7 @@ end
 ]]
 function M.normalize_codec_name(name)
     local key = tostring(name or ""):upper()
+    key = RTP_CODEC_ALIAS[key] or key
     if RTP_CODEC_PT[key] then
         return key
     end
@@ -599,6 +609,11 @@ function M.build_sdp(state, direction)
             sdp[#sdp + 1] = "a=rtpmap:0 PCMU/8000\r\n"
         elseif pt == 8 then
             sdp[#sdp + 1] = "a=rtpmap:8 PCMA/8000\r\n"
+        elseif pt == 18 then
+            -- 显式声明 annexb=no：底层 G.729 通路为 Annex A 固定 10 字节帧，
+            -- 不处理 Annex B 的 2 字节 SID 帧（收到即丢弃，由抖动缓冲隐藏）。
+            sdp[#sdp + 1] = "a=rtpmap:18 G729/8000\r\n"
+            sdp[#sdp + 1] = "a=fmtp:18 annexb=no\r\n"
         end
     end
     sdp[#sdp + 1] = string.format("a=ptime:%d\r\n", ptime)

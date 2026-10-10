@@ -6,7 +6,7 @@
  *
  * 此文件实现：
  * 1. UDP socket 创建/收发
- * 2. G.711 编解码
+ * 2. 语音编解码（G.711 PCMU/PCMA、G.729A）
  * 3. 后台 RTOS task 事件循环
  * 4. 统计定时器
  * 5. 麦克风 I2S 采集回调 (真机)
@@ -430,10 +430,34 @@ static int voip_send_tx_frame(voip_ctx_t *ctx, const int16_t *pcm,
     (void)mic_energy;
     for (uint32_t i = 0; i < ctx->frame_samples; i++) out_energy += abs(pcm[i]);
     out_energy /= ctx->frame_samples;
-    ret = ctx->codec_encoder.opts->encode(&ctx->codec_encoder,
-            (const uint8_t *)pcm, ctx->frame_bytes, ctx->tx_g711_buf, &used, &out_len);
-    if (ret != LUAT_ERROR_NONE || used != ctx->frame_bytes || out_len != ctx->frame_samples) {
-        LLOGW("encode failed ret=%d used=%u out_len=%u", ret, used, out_len);
+    /* 按 codec 的最小编码输入分片循环：G.711 一次吃完整个帧（320 字节 PCM），
+     * G.729 每 10ms 子帧（160 字节 PCM）调用一次，码流拼进同一个 RTP 包。 */
+    {
+        const uint32_t in_step = ctx->codec_encoder.opts->encode_min_input_len;
+        const uint32_t out_max = ctx->codec_encoder.opts->encode_max_output_len;
+        uint32_t done = 0;
+        if (!in_step || (ctx->frame_bytes % in_step) || !out_max ||
+                out_max * (ctx->frame_bytes / in_step) > ctx->frame_samples) {
+            LLOGW("codec encode step=%u out_max=%u incompatible with frame_bytes=%u",
+                    in_step, out_max, ctx->frame_bytes);
+            return -1;
+        }
+        while (done < ctx->frame_bytes) {
+            uint32_t sub_used = 0, sub_out = 0;
+            ret = ctx->codec_encoder.opts->encode(&ctx->codec_encoder,
+                    (const uint8_t *)pcm + done, in_step,
+                    ctx->tx_g711_buf + out_len, &sub_used, &sub_out);
+            if (ret != LUAT_ERROR_NONE || sub_used != in_step) {
+                LLOGW("encode failed ret=%d used=%u/%u", ret, sub_used, in_step);
+                return -1;
+            }
+            done += sub_used;
+            out_len += sub_out;
+        }
+        used = done;
+    }
+    if (used != ctx->frame_bytes || out_len != ctx->rtp_payload_len) {
+        LLOGW("encode mismatch used=%u out_len=%u expected=%u", used, out_len, ctx->rtp_payload_len);
         return -1;
     }
     before = ctx->rtp_tx;
@@ -847,14 +871,14 @@ static int voip_do_rx(voip_ctx_t *ctx)
             continue;
         }
 
-        /* G.711 的每个载荷字节解码为两个 PCM 字节。每个 BSP 都分配
-         * 一帧 PCM 缓冲区，抖动缓冲区每次恰好消费一帧。 */
-        if (parsed.payload_len != ctx->frame_samples ||
-                parsed.payload_len > ctx->frame_bytes / sizeof(int16_t)) {
+        /* 每包载荷长度必须匹配 codec：G.711 每字节解码为两个 PCM 字节（20ms 包为 160），
+         * G.729 每 10ms 子帧 10 字节（20ms 包为 20）。不匹配的包——包括 G.729
+         * Annex B 的 2 字节 SID 帧——直接丢弃，由抖动缓冲区做丢包隐藏。 */
+        if (parsed.payload_len != ctx->rtp_payload_len) {
             ctx->stats.rx_bad_payload++;
             if ((ctx->stats.rx_bad_payload & 0x3FU) == 1U) {
                 LLOGW("drop RTP payload len=%u expected=%u seq=%u",
-                      parsed.payload_len, ctx->frame_samples, parsed.sequence);
+                      parsed.payload_len, ctx->rtp_payload_len, parsed.sequence);
             }
             continue;
         }
@@ -933,7 +957,7 @@ static int voip_alloc_buffers(voip_ctx_t *ctx)
 #endif
 
     ctx->tx_pcm_buf     = (int16_t *)luat_heap_calloc(1, fb);
-    ctx->tx_g711_buf    = (uint8_t *)luat_heap_calloc(1, fs); /* G.711：每个采样点 1 字节 */
+    ctx->tx_g711_buf    = (uint8_t *)luat_heap_calloc(1, fs); /* 编码后码流缓冲：G.711 每采样点 1 字节为上界，G.729 远小于此 */
     ctx->rtp_packet_buf_size = VOIP_RTP_HEADER_LEN + fs;
 #ifdef LUAT_USE_SRTP
     if (ctx->config.security) ctx->rtp_packet_buf_size += LUAT_VOIP_SECURITY_TAG_BYTES;
@@ -1373,13 +1397,27 @@ static int voip_session_start(voip_ctx_t *ctx)
     LLOGE("voio frame: samples=%d bytes=%d", ctx->frame_samples, ctx->frame_bytes);
     // const luat_audio_data_codec_opts_t *codec_opts = NULL;
 
-    uint8_t codec_type = VOIP_CODEC_PCMA;
-    if (ctx->config.codec == VOIP_CODEC_PCMA) {
+    uint8_t codec_type;
+    switch (ctx->config.codec) {
+    case VOIP_CODEC_PCMA:
         ctx->rtp_payload_type = VOIP_RTP_PT_PCMA;
         codec_type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW;
-    } else {
+        break;
+    case VOIP_CODEC_G729:
+        /* G.729A 固定 8kHz、10ms 帧，ptime 必须为 10ms 整数倍 */
+        if (sample_rate != 8000 || (ptime % 10)) {
+            LLOGE("g729 requires 8kHz sample rate and ptime multiple of 10ms, got rate=%u ptime=%u",
+                    (unsigned)sample_rate, (unsigned)ptime);
+            goto start_failed;
+        }
+        ctx->rtp_payload_type = VOIP_RTP_PT_G729;
+        codec_type = LUAT_AUDIO_DATA_CODEC_TYPE_G729;
+        break;
+    case VOIP_CODEC_PCMU:
+    default:
         ctx->rtp_payload_type = VOIP_RTP_PT_PCMU;
         codec_type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW;
+        break;
     }
 
     int ret = luat_audio_data_codec_bind(&ctx->codec_encoder, luat_audio_data_codec_find(codec_type), NULL);
@@ -1410,6 +1448,18 @@ static int voip_session_start(voip_ctx_t *ctx)
         luat_audio_data_codec_unbind(&ctx->codec_decoder);
         goto start_failed;
     }
+
+    /* 由 codec opts 推导每包码流长度：G.711(20ms)=160 字节，G.729(20ms)=20 字节。 */
+    if (!ctx->codec_encoder.opts->encode_min_input_len ||
+            (ctx->frame_bytes % ctx->codec_encoder.opts->encode_min_input_len)) {
+        LLOGE("codec encode_min_input_len=%u incompatible with frame_bytes=%u",
+                ctx->codec_encoder.opts->encode_min_input_len, ctx->frame_bytes);
+        luat_audio_data_codec_unbind(&ctx->codec_encoder);
+        luat_audio_data_codec_unbind(&ctx->codec_decoder);
+        goto start_failed;
+    }
+    ctx->rtp_payload_len = (uint16_t)(ctx->codec_encoder.opts->encode_max_output_len *
+            (ctx->frame_bytes / ctx->codec_encoder.opts->encode_min_input_len));
 
 
     /* 桥接模式关闭 AEC：纯数字转发不需要回声消除 */

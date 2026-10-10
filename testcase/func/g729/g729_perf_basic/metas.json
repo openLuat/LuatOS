@@ -1,0 +1,1 @@
+{"timeout": 180, "action_count": 1, "priority": 5, "description": "G.729A性能定标测试(编码/解码逐帧耗时测量, 兼作设备端bit-exact回归)", "platform": ["pc", "air8000"]}

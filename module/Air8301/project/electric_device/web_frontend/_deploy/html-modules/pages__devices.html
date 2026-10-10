@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="nebula">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>设备管理 · 上海合宙</title>
+<!-- 腾讯位置服务 JavaScript API GL：按 AirCloud 资源包《腾讯地图.md》要求，
+     Key 为项目内置常量，只出现在本加载地址中，不做输入项、不向用户索要 -->
+<script src="https://map.qq.com/api/gljs?v=1.exp&key=EZNBZ-VA6KW-ASMRR-3UE4S-M3QCO-EYBC6"></script>
+<!-- 公共样式（顺序 = 拆分前规则的原始顺序，勿调整） -->
+<link rel="stylesheet" href="../assets/css/variables.css">
+<link rel="stylesheet" href="../assets/css/reset.css">
+<link rel="stylesheet" href="../assets/css/layout.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+<link rel="stylesheet" href="../assets/css/pages/devices.css">
+<link rel="stylesheet" href="../assets/css/components-list.css">
+<link rel="stylesheet" href="../assets/css/pages/device-detail.css">
+<link rel="stylesheet" href="../assets/css/components-shell.css">
+<link rel="stylesheet" href="../assets/css/components-user.css">
+<link rel="stylesheet" href="../assets/css/components-dialog.css">
+<link rel="stylesheet" href="../assets/css/responsive.css">
+<!-- 本页专属样式：pages/devices.css / components-list.css / pages/device-detail.css -->
+<link rel="icon" type="image/png" href="../logo.png">
+</head>
+<body data-page="devices" data-page-name="设备管理">
+<canvas id="bg"></canvas>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">
+        <img src="../logo.png" alt="LuatOS">
+      </div>
+      <div class="brand-text">
+        <b>上海合宙</b>
+        <span>电力控制平台</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <!-- 业务功能 -->
+      <div class="nav-group">
+        <a class="nav-item" href="../index.html" data-tip="运营总览">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+          <span class="nav-text">运营总览</span>
+        </a>
+        <a class="nav-item active" href="devices.html" data-tip="设备管理">
+          <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+          <span class="nav-text">设备管理</span>
+        </a>
+        <a class="nav-item" href="alerts.html" data-tip="告警中心">
+          <svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v5M12 17.6v.2"/></svg>
+          <span class="nav-text">告警中心</span>
+        </a>
+        <a class="nav-item" href="map.html" data-tip="位置地图">
+          <svg viewBox="0 0 24 24"><path d="M12 21.5s7-6.5 7-11.4A7 7 0 1 0 5 10.1c0 4.9 7 11.4 7 11.4z"/><circle cx="12" cy="10" r="2.6"/></svg>
+          <span class="nav-text">位置地图</span>
+        </a>
+        <a class="nav-item" href="topo.html" data-tip="网络拓扑">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M10.2 13.4 6.6 16.8M13.8 13.4l3.6 3.4"/><circle cx="12" cy="12" r="2"/></svg>
+          <span class="nav-text">网络拓扑</span>
+        </a>
+      </div>
+
+      <!-- 第三部分：系统 -->
+      <div class="nav-group">
+        <a class="nav-item" href="settings.html" data-tip="系统设置">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          <span class="nav-text">系统设置</span>
+        </a>
+      </div>
+    </nav>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="proj-switch">
+          <button class="proj-btn" id="projBtn">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12.5 12 17l9-4.5"/><path d="M3 17 12 21.5 21 17"/></svg>
+            <span class="proj-cur">
+              <b id="projCurName">--</b>
+            </span>
+            <svg class="caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="proj-pop" id="projPop">
+            <div class="proj-pop-title">切换项目</div>
+            <div class="proj-list" id="projList"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="top-right">
+        <div class="user-switch">
+          <div class="avatar" id="avatarBtn" title="账号">运</div>
+          <div class="user-pop" id="userPop">
+            <div class="user-card">
+              <div class="ua">运</div>
+              <div>
+                <b id="userName">合宙用户</b>
+                <span id="userMobile">AirCloud 授权账号</span>
+              </div>
+            </div>
+            <div class="user-menu">
+              <div class="user-item danger" id="logoutBtn">
+                <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h10"/></svg>
+                <span>退出登录</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <!-- 栅格：本页只放自己用到的面板（行高与原视图定义一致） -->
+    <div class="grid" id="grid" style="grid-template-rows:minmax(0,1fr)">
+      <div class="panel span12" id="panel-devices">
+        <div class="panel-head">
+          <div>
+            <h3>设备列表</h3>
+          </div>
+          <!-- 标签页：前三枚是「连接」轴，分隔线右侧是独立的「告警」轴 -->
+          <div class="tabs" id="deviceTabs">
+            <div class="tab active" data-dev="all">全部 <b>0</b></div>
+            <div class="tab" data-dev="online">在线 <b>0</b></div>
+            <div class="tab" data-dev="offline">离线 <b>0</b></div>
+            <i class="tabs-div"></i>
+            <!-- 告警轴：与连接标签页相互独立，可与任一连接状态叠加 -->
+            <button class="mini-tg" id="devAlarmOnly" type="button" aria-pressed="false">
+              有告警 <b>0</b>
+            </button>
+          </div>
+        </div>
+        <div class="list-toolbar">
+          <div class="list-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/></svg>
+            <input id="devSearch" type="text" placeholder="输入设备号（IMEI）模糊搜索" autocomplete="off" spellcheck="false">
+            <button class="list-clear" id="devClear" title="清空">×</button>
+          </div>
+        </div>
+        <div class="panel-body" id="deviceList"></div>
+        <div class="pager">
+          <button class="pg-btn" id="devPrev" title="上一页">‹</button>
+          <span class="pg-info" id="devPageInfo">--</span>
+          <button class="pg-btn" id="devNext" title="下一页">›</button>
+        </div>
+
+        <!-- ============ 设备全屏页：完全覆盖设备列表区域 ============ -->
+        <div class="dv" id="deviceView">
+          <div class="dv-head">
+            <button class="dv-back" id="dvBack" title="返回设备列表">
+              <svg viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></svg>
+              <span>返回列表</span>
+            </button>
+            <div class="dv-crumb">
+              <span>设备管理</span>
+              <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+              <b id="dvCrumb">--</b>
+            </div>
+            <div class="dv-tabs">
+              <button class="dv-tab active" data-dv="basic">基本信息</button>
+              <button class="dv-tab" data-dv="report">数据报表</button>
+              <button class="dv-tab" data-dv="control">指令控制</button>
+            </div>
+          </div>
+
+          <div class="dv-scroll">
+
+            <!-- ---------- 页签一：基本信息 ---------- -->
+            <div class="dv-page" id="dvPageBasic">
+
+              <div class="dv-ident">
+                <div class="dv-ident-ic">
+                  <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+                </div>
+                <div class="dv-ident-main">
+                  <div class="dv-ident-top">
+                    <h2 id="dvId">--</h2>
+                    <span class="dv-badge" id="dvStatus">--</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dv-metrics" id="dvMetrics"></div>
+
+              <!-- 「实际电压趋势」已按需求删除：平台对每台设备的查询频率有硬约束，
+                   做不到秒级刷新，留着反而会让人误以为数据是实时的 -->
+
+              <div class="dv-grid">
+                <div class="dv-card dv-col-7">
+                  <div class="dv-card-head"><div><h4>设备参数</h4><p>出厂信息与运行参数</p></div></div>
+                  <div class="dv-kv" id="dvKv"></div>
+                </div>
+                <div class="dv-card dv-col-5">
+                  <div class="dv-card-head">
+                    <div><h4>相关事件</h4><p>该设备近期事件流</p></div>
+                    <span class="dv-count" id="dvEventCount">0 条</span>
+                  </div>
+                  <div class="dv-events" id="dvEvents"></div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- ---------- 页签二：数据报表 ---------- -->
+            <div class="dv-page hide" id="dvPageReport">
+
+              <div class="dv-card">
+                <div class="dv-card-head">
+                  <div><h4>查询条件</h4><p id="rpMeta">--</p></div>
+                  <span class="dv-count" id="rpCount">--</span>
+                </div>
+                <div class="rp-tools">
+                  <div class="rp-seg" id="rpSeg">
+                    <button type="button" data-range="1h">近 1 小时</button>
+                    <button type="button" data-range="6h" class="active">近 6 小时</button>
+                    <button type="button" data-range="24h">近 24 小时</button>
+                    <button type="button" data-range="7d">近 7 天</button>
+                  </div>
+                  <div class="rp-custom">
+                    <input type="datetime-local" id="rpFrom" title="开始时间">
+                    <span>至</span>
+                    <input type="datetime-local" id="rpTo" title="结束时间">
+                    <button type="button" id="rpQuery">查询</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rp-charts" id="rpCharts"></div>
+
+              <div class="dv-card">
+                <div class="dv-card-head">
+                  <div><h4>数据明细</h4><p id="rpTableSub">--</p></div>
+                  <button type="button" class="rp-export" id="rpExport">导出 CSV</button>
+                </div>
+                <div class="rp-table-wrap">
+                  <table class="rp-table">
+                    <thead>
+                      <tr>
+                        <th>时间</th><th>实际电压</th><th>设定电压</th>
+                        <th>工作状态</th><th>联网方式</th><th>信号强度</th><th>上报间隔</th><th>状态</th>
+                      </tr>
+                    </thead>
+                    <tbody id="rpBody"></tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- ---------- 页签三：指令控制 ---------- -->
+            <div class="dv-page hide" id="dvPageControl">
+              <div class="dv-cards">
+
+                <!-- 组一：具体功能指令 -->
+                <div class="dv-group">
+                  <div class="dv-group-label">功能指令</div>
+                  <div class="dv-group-body">
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>开关机控制</h4>
+                          <p>Tag 265 工作状态：1=开机运行 / 0=关机停止输出</p>
+                        </div>
+                        <span class="dv-state" id="dvPowerState">--</span>
+                      </div>
+                      <div class="dv-rows">
+                        <div><span>实际电压</span><b id="dvPowerLoad">--</b></div>
+                        <div><span>设定电压</span><b id="dvPowerTemp">--</b></div>
+                        <div><span>工作状态</span><b id="dvPowerSnr">--</b></div>
+                        <div><span>最近上报</span><b id="dvPowerHb">--</b></div>
+                      </div>
+                      <div class="dv-act-row" id="dvPowerBtns"></div>
+                    </section>
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>设定电压下发</h4>
+                          <p>Tag 800 设定电压：0 ~ 6000 V（步进 100 V，默认 3500 V）</p>
+                        </div>
+                        <span class="dv-state" id="dvPeriodState">--</span>
+                      </div>
+                      <div class="dv-rows">
+                        <div>
+                          <span>设定电压</span>
+                          <div class="dv-inline">
+                            <input class="dv-num" id="dvPeriodInput" type="number" min="0" max="6000" step="100" value="3500">
+                            <span class="dv-unit">V</span>
+                            <button class="dv-apply" id="dvPeriodApply">下发</button>
+                          </div>
+                        </div>
+                        <div><span>快速选择</span><div class="dv-chips" id="dvPeriodChips"></div></div>
+                        <div><span>取值范围</span><b>0 ~ 6000 V · 步进 100 V</b></div>
+                      </div>
+                    </section>
+
+                  </div>
+                </div>
+
+                <!-- 组二：监控与记录（两张卡各占一行） -->
+                <div class="dv-group">
+                  <div class="dv-group-label">监控与记录</div>
+                  <div class="dv-group-body wide">
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>指令执行监控</h4>
+                          <p id="dvExecSub">等待指令下发</p>
+                        </div>
+                        <span class="dv-state" id="dvExecState">空闲</span>
+                      </div>
+                      <div class="dv-progress" id="dvProgress">
+                        <div class="dv-bar"><i id="dvBar"></i></div>
+                        <b id="dvBarPct">0%</b>
+                      </div>
+                      <div class="dv-steps" id="dvSteps">
+                        <div class="dv-step"><i></i><span>指令下发</span></div>
+                        <div class="dv-step"><i></i><span>回执确认</span></div>
+                      </div>
+                    </section>
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>指令下发记录</h4>
+                          <p>本机指令历史 · 最新在上</p>
+                        </div>
+                        <span class="dv-count" id="dvLogCount">0 条</span>
+                      </div>
+                      <div class="dv-log" id="dvLog"></div>
+                    </section>
+
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- 告警中心 · 概览指标 -->
+    </div>
+  </div>
+</div>
+<div class="toast-wrap" id="toastWrap"></div>
+<!-- 退出登录确认 -->
+<div class="modal-mask" id="logoutMask">
+  <div class="confirm-box">
+    <h4>退出登录</h4>
+    <p>退出后需要重新登录才能继续访问控制台，确认退出当前账号吗？</p>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="logoutCancel">取消</button>
+      <button class="btn-danger" id="logoutConfirm">确认退出</button>
+    </div>
+  </div>
+</div>
+<!-- 公共能力 → 本页逻辑 → 页面启动（顺序不可调整） -->
+<script src="../assets/js/luat-sdk.js"></script>
+<script src="../assets/js/config.js"></script>
+<script src="../assets/js/storage.js"></script>
+<script src="../assets/js/utils.js"></script>
+<script src="../assets/js/http.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/guards.js"></script>
+<script src="../assets/js/components.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script src="../assets/js/pages/devices.js"></script>
+<script src="../assets/js/boot.js"></script>
+</body>
+</html>

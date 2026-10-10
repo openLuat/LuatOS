@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="nebula">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>上海合宙 · 电力控制平台</title>
+<!-- 腾讯位置服务 JavaScript API GL：按 AirCloud 资源包《腾讯地图.md》要求，
+     Key 为项目内置常量，只出现在本加载地址中，不做输入项、不向用户索要 -->
+<script src="https://map.qq.com/api/gljs?v=1.exp&key=EZNBZ-VA6KW-ASMRR-3UE4S-M3QCO-EYBC6"></script>
+<!-- 公共样式（阶段 1 抽公共壳：从内联 <style> 拆出。
+     加载顺序 = 拆分前规则的原始顺序，务必不要调整：相同优先级的规则靠后加载者生效，
+     顺序一变会出现层叠回归（例如 .rule-box 与 .confirm-box 的宽度覆盖关系） -->
+<link rel="stylesheet" href="assets/css/variables.css">
+<link rel="stylesheet" href="assets/css/reset.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/pages/settings.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/pages/overview.css">
+<link rel="stylesheet" href="assets/css/pages/devices.css">
+<link rel="stylesheet" href="assets/css/pages/alerts.css">
+<link rel="stylesheet" href="assets/css/pages/topo.css">
+<link rel="stylesheet" href="assets/css/pages/map.css">
+<link rel="stylesheet" href="assets/css/pages/device-detail.css">
+<link rel="stylesheet" href="assets/css/components-shell.css">
+<link rel="stylesheet" href="assets/css/components-user.css">
+<link rel="stylesheet" href="assets/css/components-dialog.css">
+<link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body>
+<canvas id="bg"></canvas>
+
+<div class="app">
+  <!-- ============ 侧边栏 ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">
+        <img src="luat-logo.png" alt="LuatOS">
+      </div>
+      <div class="brand-text">
+        <b>上海合宙</b>
+        <span>电力控制平台</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <!-- 业务功能 -->
+      <div class="nav-group">
+        <button class="nav-item active" data-tip="运营总览">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+          <span class="nav-text">运营总览</span>
+        </button>
+        <button class="nav-item" data-tip="设备管理">
+          <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+          <span class="nav-text">设备管理</span>
+        </button>
+        <button class="nav-item" data-tip="告警中心">
+          <svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v5M12 17.6v.2"/></svg>
+          <span class="nav-text">告警中心</span>
+        </button>
+        <button class="nav-item" data-tip="位置地图">
+          <svg viewBox="0 0 24 24"><path d="M12 21.5s7-6.5 7-11.4A7 7 0 1 0 5 10.1c0 4.9 7 11.4 7 11.4z"/><circle cx="12" cy="10" r="2.6"/></svg>
+          <span class="nav-text">位置地图</span>
+        </button>
+        <button class="nav-item" data-tip="网络拓扑">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M10.2 13.4 6.6 16.8M13.8 13.4l3.6 3.4"/><circle cx="12" cy="12" r="2"/></svg>
+          <span class="nav-text">网络拓扑</span>
+        </button>
+      </div>
+
+      <!-- 第三部分：系统 -->
+      <div class="nav-group">
+        <button class="nav-item" data-tip="系统设置">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          <span class="nav-text">系统设置</span>
+        </button>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ============ 主区域 ============ -->
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="proj-switch">
+          <button class="proj-btn" id="projBtn">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12.5 12 17l9-4.5"/><path d="M3 17 12 21.5 21 17"/></svg>
+            <span class="proj-cur">
+              <b id="projCurName">--</b>
+            </span>
+            <svg class="caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="proj-pop" id="projPop">
+            <div class="proj-pop-title">切换项目</div>
+            <div class="proj-list" id="projList"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="top-right">
+        <div class="user-switch">
+          <div class="avatar" id="avatarBtn" title="账号">运</div>
+          <div class="user-pop" id="userPop">
+            <div class="user-card">
+              <div class="ua">运</div>
+              <div>
+                <b id="userName">合宙用户</b>
+                <span id="userMobile">AirCloud 授权账号</span>
+              </div>
+            </div>
+            <div class="user-menu">
+              <div class="user-item danger" id="logoutBtn">
+                <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h10"/></svg>
+                <span>退出登录</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid" id="grid">
+      <!-- 概览饼图：连接口径（在线 / 离线） -->
+      <div class="panel span6" id="panel-online-pie">
+        <div class="panel-head pie-head">
+          <h3>设备在线分布</h3>
+        </div>
+        <div class="panel-body pie-body" id="pieOnline"></div>
+      </div>
+
+      <!-- 概览饼图：告警口径（有告警 / 无告警） -->
+      <div class="panel span6" id="panel-alarm-pie">
+        <div class="panel-head pie-head">
+          <h3>设备告警分布</h3>
+        </div>
+        <div class="panel-body pie-body" id="pieAlarm"></div>
+      </div>
+
+      <!-- 设备列表 -->
+      <div class="panel span4" id="panel-devices">
+        <div class="panel-head">
+          <div>
+            <h3>设备列表</h3>
+          </div>
+          <!-- 标签页：前三枚是「连接」轴，分隔线右侧是独立的「告警」轴 -->
+          <div class="tabs" id="deviceTabs">
+            <div class="tab active" data-dev="all">全部 <b>0</b></div>
+            <div class="tab" data-dev="online">在线 <b>0</b></div>
+            <div class="tab" data-dev="offline">离线 <b>0</b></div>
+            <i class="tabs-div"></i>
+            <!-- 告警轴：与连接标签页相互独立，可与任一连接状态叠加 -->
+            <button class="mini-tg" id="devAlarmOnly" type="button" aria-pressed="false">
+              有告警 <b>0</b>
+            </button>
+          </div>
+        </div>
+        <div class="list-toolbar">
+          <div class="list-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/></svg>
+            <input id="devSearch" type="text" placeholder="输入设备号（IMEI）模糊搜索" autocomplete="off" spellcheck="false">
+            <button class="list-clear" id="devClear" title="清空">×</button>
+          </div>
+        </div>
+        <div class="panel-body" id="deviceList"></div>
+        <div class="pager">
+          <button class="pg-btn" id="devPrev" title="上一页">‹</button>
+          <span class="pg-info" id="devPageInfo">--</span>
+          <button class="pg-btn" id="devNext" title="下一页">›</button>
+        </div>
+
+        <!-- ============ 设备全屏页：完全覆盖设备列表区域 ============ -->
+        <div class="dv" id="deviceView">
+          <div class="dv-head">
+            <button class="dv-back" id="dvBack" title="返回设备列表">
+              <svg viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></svg>
+              <span>返回列表</span>
+            </button>
+            <div class="dv-crumb">
+              <span>设备管理</span>
+              <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+              <b id="dvCrumb">--</b>
+            </div>
+            <div class="dv-tabs">
+              <button class="dv-tab active" data-dv="basic">基本信息</button>
+              <button class="dv-tab" data-dv="report">数据报表</button>
+              <button class="dv-tab" data-dv="control">指令控制</button>
+            </div>
+          </div>
+
+          <div class="dv-scroll">
+
+            <!-- ---------- 页签一：基本信息 ---------- -->
+            <div class="dv-page" id="dvPageBasic">
+
+              <div class="dv-ident">
+                <div class="dv-ident-ic">
+                  <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+                </div>
+                <div class="dv-ident-main">
+                  <div class="dv-ident-top">
+                    <h2 id="dvId">--</h2>
+                    <span class="dv-badge" id="dvStatus">--</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dv-metrics" id="dvMetrics"></div>
+
+              <div class="dv-grid">
+                <div class="dv-card dv-col-12">
+                  <div class="dv-card-head">
+                    <div><h4>实际电压趋势</h4><p id="dvChartSub">采样间隔 1s · 单位 V</p></div>
+                    <span class="dv-live"><i></i>LIVE</span>
+                  </div>
+                  <div class="dv-chart"><canvas id="dvChart"></canvas></div>
+                  <div class="dv-chart-foot">
+                    <span>当前<b id="dvChartNow">--</b></span>
+                    <span>均值<b id="dvChartAvg">--</b></span>
+                    <span>峰值<b id="dvChartPeak">--</b></span>
+                    <span>样本<b id="dvChartN">--</b></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dv-grid">
+                <div class="dv-card dv-col-7">
+                  <div class="dv-card-head"><div><h4>设备参数</h4><p>出厂信息与运行参数</p></div></div>
+                  <div class="dv-kv" id="dvKv"></div>
+                </div>
+                <div class="dv-card dv-col-5">
+                  <div class="dv-card-head">
+                    <div><h4>相关事件</h4><p>该设备近期事件流</p></div>
+                    <span class="dv-count" id="dvEventCount">0 条</span>
+                  </div>
+                  <div class="dv-events" id="dvEvents"></div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- ---------- 页签二：数据报表 ---------- -->
+            <div class="dv-page hide" id="dvPageReport">
+
+              <div class="dv-card">
+                <div class="dv-card-head">
+                  <div><h4>查询条件</h4><p id="rpMeta">--</p></div>
+                  <span class="dv-count" id="rpCount">--</span>
+                </div>
+                <div class="rp-tools">
+                  <div class="rp-seg" id="rpSeg">
+                    <button type="button" data-range="1h">近 1 小时</button>
+                    <button type="button" data-range="6h" class="active">近 6 小时</button>
+                    <button type="button" data-range="24h">近 24 小时</button>
+                    <button type="button" data-range="7d">近 7 天</button>
+                  </div>
+                  <div class="rp-custom">
+                    <input type="datetime-local" id="rpFrom" title="开始时间">
+                    <span>至</span>
+                    <input type="datetime-local" id="rpTo" title="结束时间">
+                    <button type="button" id="rpQuery">查询</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rp-charts" id="rpCharts"></div>
+
+              <div class="dv-card">
+                <div class="dv-card-head">
+                  <div><h4>数据明细</h4><p id="rpTableSub">--</p></div>
+                  <button type="button" class="rp-export" id="rpExport">导出 CSV</button>
+                </div>
+                <div class="rp-table-wrap">
+                  <table class="rp-table">
+                    <thead>
+                      <tr>
+                        <th>时间</th><th>实际电压</th><th>设定电压</th>
+                        <th>工作状态</th><th>联网方式</th><th>信号强度</th><th>上报间隔</th><th>状态</th>
+                      </tr>
+                    </thead>
+                    <tbody id="rpBody"></tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- ---------- 页签三：指令控制 ---------- -->
+            <div class="dv-page hide" id="dvPageControl">
+              <div class="dv-cards">
+
+                <!-- 组一：具体功能指令 -->
+                <div class="dv-group">
+                  <div class="dv-group-label">功能指令</div>
+                  <div class="dv-group-body">
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>开关机控制</h4>
+                          <p>Tag 265 工作状态：1=开机运行 / 0=关机停止输出</p>
+                        </div>
+                        <span class="dv-state" id="dvPowerState">--</span>
+                      </div>
+                      <div class="dv-rows">
+                        <div><span>实际电压</span><b id="dvPowerLoad">--</b></div>
+                        <div><span>设定电压</span><b id="dvPowerTemp">--</b></div>
+                        <div><span>工作状态</span><b id="dvPowerSnr">--</b></div>
+                        <div><span>最近上报</span><b id="dvPowerHb">--</b></div>
+                      </div>
+                      <div class="dv-act-row" id="dvPowerBtns"></div>
+                    </section>
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>设定电压下发</h4>
+                          <p>Tag 800 设定电压：0 ~ 6000 V（步进 100 V，默认 3500 V）</p>
+                        </div>
+                        <span class="dv-state" id="dvPeriodState">--</span>
+                      </div>
+                      <div class="dv-rows">
+                        <div>
+                          <span>设定电压</span>
+                          <div class="dv-inline">
+                            <input class="dv-num" id="dvPeriodInput" type="number" min="0" max="6000" step="100" value="3500">
+                            <span class="dv-unit">V</span>
+                            <button class="dv-apply" id="dvPeriodApply">下发</button>
+                          </div>
+                        </div>
+                        <div><span>快速选择</span><div class="dv-chips" id="dvPeriodChips"></div></div>
+                        <div><span>取值范围</span><b>0 ~ 6000 V · 步进 100 V</b></div>
+                      </div>
+                    </section>
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>设备信息</h4>
+                          <p>IMEI / ICCID / 固件版本 / 云端连接（AirCloud）</p>
+                        </div>
+                        <span class="dv-state" id="dvDoState">--</span>
+                      </div>
+                      <div class="dv-do-list" id="dvDoList"></div>
+                    </section>
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>运维日志上报</h4>
+                          <p>协议 9 · 通知设备上传本地运维日志（Tag 25）</p>
+                        </div>
+                        <span class="dv-state" id="dvTextState">--</span>
+                      </div>
+                      <div class="dv-text">
+                        <textarea class="dv-text-input" id="dvTextInput" rows="3" maxlength="120"
+                          placeholder="说明：默认 AirCloud 模式由云端下发 Tag 25 触发上报；此处可直接下发一次通知设备上传日志。"></textarea>
+                        <button class="dv-apply" id="dvTextSend">下发上报日志</button>
+                      </div>
+                      <div class="dv-rows">
+                        <div><span>最近下发</span><b id="dvTextLast">--</b></div>
+                        <div><span>下发通道</span><b>send_cmd · tag=25</b></div>
+                      </div>
+                    </section>
+
+                  </div>
+                </div>
+
+                <!-- 组二：监控与记录（两张卡各占一行） -->
+                <div class="dv-group">
+                  <div class="dv-group-label">监控与记录</div>
+                  <div class="dv-group-body wide">
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>指令执行监控</h4>
+                          <p id="dvExecSub">等待指令下发</p>
+                        </div>
+                        <span class="dv-state" id="dvExecState">空闲</span>
+                      </div>
+                      <div class="dv-progress" id="dvProgress">
+                        <div class="dv-bar"><i id="dvBar"></i></div>
+                        <b id="dvBarPct">0%</b>
+                      </div>
+                      <div class="dv-steps" id="dvSteps">
+                        <div class="dv-step"><i></i><span>指令下发</span></div>
+                        <div class="dv-step"><i></i><span>回执确认</span></div>
+                      </div>
+                    </section>
+
+                    <section class="dv-block">
+                      <div class="dv-block-head">
+                        <div class="dv-block-title">
+                          <h4>指令下发记录</h4>
+                          <p>本机指令历史 · 最新在上</p>
+                        </div>
+                        <span class="dv-count" id="dvLogCount">0 条</span>
+                      </div>
+                      <div class="dv-log" id="dvLog"></div>
+                    </section>
+
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- 告警中心 · 概览指标 -->
+      <div class="panel span12" id="panel-alert-kpi" style="display:none">
+        <div class="panel-head">
+          <div>
+            <h3>告警中心</h3>
+            <p id="akSub">--</p>
+          </div>
+          <div class="ak-actions">
+            <button class="ak-btn" id="akRules" type="button">
+              <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18" cy="18" r="2.4"/></svg>
+              告警规则
+            </button>
+            <button class="ak-btn primary" id="akBatch" type="button">
+              <svg viewBox="0 0 24 24"><path d="m4.5 12.5 4.5 4.5L19.5 6.5"/></svg>
+              批量处理
+            </button>
+          </div>
+        </div>
+        <div class="panel-body ak-body">
+          <div class="ak-grid" id="akGrid"></div>
+        </div>
+      </div>
+
+      <!-- 告警中心 · 列表（结构与设备列表保持一致：head 放筛选标签、搜索独立一行、底部同款分页） -->
+      <div class="panel span4" id="panel-alerts" style="display:none">
+        <div class="panel-head">
+          <div>
+            <h3>告警列表</h3>
+          </div>
+          <div class="tabs" id="alertTabs">
+            <div class="tab active" data-filter="all">全部 <b>0</b></div>
+            <div class="tab" data-filter="active">活动 <b>0</b></div>
+            <div class="tab" data-filter="critical">严重 <b>0</b></div>
+            <div class="tab" data-filter="warning">警告 <b>0</b></div>
+            <div class="tab" data-filter="info">提示 <b>0</b></div>
+          </div>
+        </div>
+        <div class="list-toolbar al-toolbar">
+          <div class="list-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/></svg>
+            <input id="alertSearch" type="text" placeholder="输入告警内容或设备 ID 模糊搜索" autocomplete="off" spellcheck="false">
+            <button class="list-clear" id="alertClear" title="清空">×</button>
+          </div>
+          <div class="al-status">
+            <button class="al-status-btn" id="alStatusBtn" type="button">全部状态 <i>▾</i></button>
+            <div class="al-status-pop" id="alStatusPop">
+              <button type="button" data-st="all" class="active">全部状态</button>
+              <button type="button" data-st="pending">待处理</button>
+              <button type="button" data-st="done">已处理</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="alert-list" id="alertList"></div>
+        </div>
+        <div class="pager">
+          <button class="pg-btn" id="alertPrev" title="上一页">‹</button>
+          <span class="pg-info" id="alertPageInfo">--</span>
+          <button class="pg-btn" id="alertNext" title="下一页">›</button>
+        </div>
+      </div>
+
+      <!-- 告警中心 · 右侧态势 -->
+      <div class="panel span4" id="panel-alert-side" style="display:none">
+        <div class="panel-head">
+          <div>
+            <h3>告警态势</h3>
+            <p id="asSub">近 7 天 · 按等级与类型</p>
+          </div>
+        </div>
+        <div class="panel-body as-body">
+          <div class="as-card">
+            <div class="as-card-head"><h4>告警趋势</h4><span id="asTrendSub">近 7 天 · 按等级堆叠</span></div>
+            <div class="as-legend">
+              <span><i class="crt"></i>严重</span>
+              <span><i class="wrn"></i>警告</span>
+              <span><i class="inf"></i>提示</span>
+            </div>
+            <div class="as-plot">
+              <div class="as-axis" id="asAxis"></div>
+              <div class="as-main">
+                <div class="as-lines"><i></i><i></i><i></i><i></i></div>
+                <div class="as-cols" id="asTrend"></div>
+              </div>
+            </div>
+            <div class="as-x" id="asX"></div>
+          </div>
+
+          <!-- 告警类型分布 与 通知通道 左右平分 -->
+          <div class="as-split">
+            <div class="as-card">
+              <div class="as-card-head"><h4>告警类型分布</h4><span>近 7 天占比</span></div>
+              <div class="as-bars" id="asCats"></div>
+            </div>
+
+            <div class="as-card">
+              <div class="as-card-head"><h4>通知通道</h4><span>每条告警推送到达情况</span></div>
+              <div class="as-chans" id="asChans"></div>
+              <button class="as-link" id="asToNotify" type="button">前往通知设置 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 拓扑 -->
+      <div class="panel span4" id="panel-topo">
+        <div class="panel-head">
+          <div>
+            <h3>网络拓扑</h3>
+          </div>
+        </div>
+        <div class="topo-wrap">
+          <svg id="topo" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+      </div>
+
+      <!-- 位置地图（初始隐藏，切到该视图时由 switchView 显示） -->
+      <div class="panel span12" id="panel-location" style="display:none">
+        <div class="panel-head">
+          <div>
+            <h3 id="locTitle">位置地图</h3>
+          </div>
+          <!-- 图例按两条轴合成三种组合：连接（在线/离线）× 告警（无/有） -->
+          <div class="loc-legend">
+            <span><i class="loc-dot ok"></i>在线 · 无告警</span>
+            <span><i class="loc-dot alarm"></i>在线 · 告警</span>
+            <span><i class="loc-dot off"></i>离线 · 失联</span>
+            <div class="lm2-base" id="lm2Base">
+              <button type="button" data-base="road" class="active">路网</button>
+              <button type="button" data-base="sat">卫星</button>
+            </div>
+            <button type="button" class="lm2-tg" id="lm2Heat"><i></i>热力</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="lm2" id="lm2">
+
+            <!-- 地图：瓦片底图 + 聚合标记 -->
+            <div class="lm2-map" id="lm2Map">
+              <div class="lm2-ghost" id="lm2Ghost"></div>
+              <div class="lm2-world" id="lm2World"></div>
+              <div class="lm2-marks" id="lm2Marks"></div>
+            </div>
+
+            <!-- 左侧悬浮面板：搜索 + 状态筛选 + 区域导航 -->
+            <aside class="lm2-rail">
+              <div class="lm2-search" id="lm2SearchBox">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+                <input type="text" id="lm2Search" placeholder="输入设备 ID 检索" autocomplete="off">
+                <button type="button" id="lm2Clear" title="清空">×</button>
+              </div>
+              <!-- 两条筛选轴：左三枚是「连接」，分隔线右侧是「告警」 -->
+              <div class="lm2-chips" id="lm2Chips">
+                <button type="button" data-dim="conn" data-val="all" class="active">全部</button>
+                <button type="button" data-dim="conn" data-val="online">在线</button>
+                <button type="button" data-dim="conn" data-val="offline">离线</button>
+                <i class="lm2-chips-div"></i>
+                <button type="button" data-dim="alarm" data-val="alarm">有告警</button>
+              </div>
+              <!-- 区域导航已移除：这里改为动态展示检索 / 筛选命中的设备 -->
+              <div class="loc-list" id="lm2List"></div>
+            </aside>
+
+            <div class="lm2-vp" id="lm2Vp">--</div>
+            <div class="lm2-pop" id="lm2Pop"></div>
+            <div class="lm2-ctrl">
+              <button type="button" data-zoom="in" title="放大">+</button>
+              <button type="button" data-zoom="out" title="缩小">−</button>
+              <button type="button" data-zoom="reset" title="回到园区">⟲</button>
+            </div>
+            <div class="lm2-scale" id="lm2Scale"></div>
+            <div class="loc-tip" id="locTip"></div>
+            <div class="lm2-card" id="lm2Card"></div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- 系统设置 -->
+      <div class="panel span12" id="panel-settings" style="display:none">
+        <div class="panel-head">
+          <div>
+            <h3>系统设置</h3>
+            <p id="setSub">界面外观与消息通知 · 配置自动保存到本地</p>
+          </div>
+          <div class="set-actions">
+            <button class="set-btn" id="setSelfTest" type="button">系统自检</button>
+            <button class="set-btn" id="setReset" type="button">恢复默认</button>
+            <button class="set-btn primary" id="setSave" type="button">保存配置</button>
+          </div>
+        </div>
+        <div class="panel-body">
+
+          <!-- 标签页 -->
+          <div class="set-tabs" id="setTabs">
+            <button class="set-tab active" data-set="theme" type="button">主题风格</button>
+            <button class="set-tab" data-set="notify" type="button">通知设置</button>
+          </div>
+
+          <!-- ---------- 页一：主题风格 ---------- -->
+          <div class="set-page" id="setPageTheme">
+            <div class="settings-block">
+              <div class="settings-label">配色方案</div>
+              <div class="settings-hint">选择平台整体配色，切换后立即生效</div>
+              <div class="theme-grid">
+                <button class="theme-opt active" data-theme="nebula">
+                  <span class="theme-swatch">
+                    <i style="background:#22e1ff"></i>
+                    <i style="background:#8b5cf6"></i>
+                    <i style="background:#2bffb0"></i>
+                  </span>
+                  <span class="theme-name">星云蓝</span>
+                </button>
+                <button class="theme-opt" data-theme="aurora">
+                  <span class="theme-swatch">
+                    <i style="background:#22ffd0"></i>
+                    <i style="background:#22d3ee"></i>
+                    <i style="background:#7dff5c"></i>
+                  </span>
+                  <span class="theme-name">极光翡翠</span>
+                </button>
+                <button class="theme-opt" data-theme="dawn">
+                  <span class="theme-swatch">
+                    <i style="background:#0088cc"></i>
+                    <i style="background:#7c3aed"></i>
+                    <i style="background:#059669"></i>
+                  </span>
+                  <span class="theme-name">晨曦白</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <div class="settings-label">界面动效</div>
+              <div class="settings-hint">关掉后界面立即切换为「无动画」模式，适合低配设备与远程桌面</div>
+              <div class="nt-list">
+                <div class="ui-row">
+                  <span class="ui-ic"><svg viewBox="0 0 24 24"><path d="M4 18 9 12l4 3.4L20 6"/></svg></span>
+                  <div class="ui-txt"><b>界面过渡动效</b><span>面板、列表、按钮的淡入与位移过渡</span></div>
+                  <button class="dv-switch" data-ui="motion" type="button" aria-pressed="false"><i></i></button>
+                </div>
+                <div class="ui-row">
+                  <span class="ui-ic"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 16 16 8"/></svg></span>
+                  <div class="ui-txt"><b>背景星链动效</b><span>背景粒子与连线动画，关闭可显著降低占用</span></div>
+                  <button class="dv-switch" data-ui="bg" type="button" aria-pressed="false"><i></i></button>
+                </div>
+                <div class="ui-row">
+                  <span class="ui-ic"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h13"/></svg></span>
+                  <div class="ui-txt"><b>指标数字滚动</b><span>KPI 数值变化时的滚动动画，关闭后直接落值</span></div>
+                  <button class="dv-switch" data-ui="roll" type="button" aria-pressed="false"><i></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ---------- 页二：通知设置 ---------- -->
+          <div class="set-page hide" id="setPageNotify">
+            <div class="settings-block">
+              <div class="settings-label">推送渠道</div>
+              <div class="settings-hint">告警产生后按渠道分发；点卡片展开详细配置，关闭的渠道不收消息</div>
+              <div class="nt-grid" id="ntGrid"></div>
+            </div>
+
+            <!-- 推送策略 与 推送记录 左右平分 -->
+            <div class="nt-cols">
+              <div class="settings-block">
+                <div class="settings-label">推送策略</div>
+                <div class="settings-hint">多台设备同时异常时按策略合并，避免消息轰炸</div>
+                <div class="nt-list" id="ntStrategy"></div>
+              </div>
+
+              <div class="settings-block">
+                <div class="settings-label" style="display:flex;align-items:center;gap:10px">
+                  推送记录
+                  <button class="nt-clear" id="ntClear" type="button" style="margin-left:auto">清空</button>
+                </div>
+                <div class="settings-hint">本次会话内通过各渠道发出的消息</div>
+                <div class="nt-log" id="ntLog"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- 告警规则 -->
+<div class="modal-mask" id="ruleMask">
+  <div class="confirm-box rule-box">
+    <h4>告警规则</h4>
+    <p>规则命中后按等级进入告警中心，并触发已启用的通知渠道</p>
+    <div class="rule-list" id="ruleList"></div>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="ruleClose">关闭</button>
+      <button class="set-btn primary" id="ruleSave" style="flex:1;height:38px">保存规则</button>
+    </div>
+  </div>
+</div>
+
+<!-- 退出登录确认 -->
+<div class="modal-mask" id="logoutMask">
+  <div class="confirm-box">
+    <h4>退出登录</h4>
+    <p>退出后需要重新登录才能继续访问控制台，确认退出当前账号吗？</p>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="logoutCancel">取消</button>
+      <button class="btn-danger" id="logoutConfirm">确认退出</button>
+    </div>
+  </div>
+</div>
+
+<!-- 公共能力与页面脚本（加载顺序 = LuatSDK → config → storage → utils → http → auth → guards → components → api → shell → 页面 → boot） -->
+<script src="assets/js/luat-sdk.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/storage.js"></script>
+<script src="assets/js/utils.js"></script>
+<script src="assets/js/http.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/guards.js"></script>
+<script src="assets/js/components.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/pages/overview.js"></script>
+<script src="assets/js/pages/devices.js"></script>
+<script src="assets/js/pages/alerts.js"></script>
+<script src="assets/js/pages/topo.js"></script>
+<script src="assets/js/pages/map.js"></script>
+<script src="assets/js/pages/settings.js"></script>
+<script src="assets/js/boot.js"></script>
+</body>
+</html>

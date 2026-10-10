@@ -1,0 +1,117 @@
+/* assets/css/pages/devices.css —— 由 index.html 内联样式拆出（原行区间 679-831），内容未改动 */
+/* ============ 设备列表 ============ */
+.dev-row{
+  display:flex;align-items:center;gap:11px;
+  padding:9px 10px;border-radius:11px;
+  cursor:pointer;transition:background .25s,transform .25s,border-color .25s;
+  border:1px solid transparent;
+}
+.dev-row:hover{
+  background:var(--hover-soft);
+  border-color:var(--hover-line);
+}
+/* 概览视图里的列表只作展示：去掉指针与悬停反馈，避免"可点击"的误导 */
+.dev-row.is-static{cursor:default}
+.dev-row.is-static:hover{background:transparent;border-color:transparent}
+.dev-row.is-static:hover .dev-info{transform:none}
+/* 位移加在内容块上而非整行：整行右移会撑出横向溢出区域 */
+.dev-row:hover .dev-info{transform:translateX(3px)}
+/* 状态圆点：ok 在线·无告警 / alarm 在线·告警 / off 离线·失联 */
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;position:relative}
+.dot.ok{background:var(--green);box-shadow:0 0 9px var(--green)}
+.dot.alarm{background:var(--amber);box-shadow:0 0 9px var(--amber);animation:blink 1.4s infinite}
+.dot.off{background:var(--red);box-shadow:0 0 9px var(--red)}
+.dot.ok::after{
+  content:'';position:absolute;inset:-4px;border-radius:50%;
+  border:1px solid var(--green);opacity:.55;animation:ripple 2s infinite;
+}
+@keyframes ripple{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.9);opacity:0}}
+.dev-info{flex:1;min-width:0;transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.dev-name{font-size:14px;color:var(--text);font-weight:520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dev-meta{font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:.3px}
+/* 状态文字沿用告警中心 .alert-tag 的胶囊样式；
+   胶囊文案同时写出两条轴（如「在线 · 告警」），配色取更严重的那条轴 */
+.dev-val{font-size:11px;padding:3px 8px;border-radius:6px;flex-shrink:0;letter-spacing:.4px;white-space:nowrap}
+.dev-val.ok{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+.dev-val.alarm{background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--amber)}
+.dev-val.off{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+
+/* ============ 设备列表（表格模式，面板够宽时启用） ============ */
+/* 列宽由 balanceDeviceColumns() 按内容量算后写入内联样式，
+   这里的模板仅作兜底（面板未挂载、量不到宽度时使用） */
+.dev-thead,.dev-row-t{
+  display:grid;align-items:center;gap:14px;
+  grid-template-columns:minmax(120px,1.6fr) minmax(92px,1.2fr) 78px 116px 92px 132px;
+}
+.dev-thead{
+  padding:0 12px 8px;border-bottom:1px solid var(--line);
+  font-size:12px;color:var(--muted);letter-spacing:.6px;
+  text-align:center;
+}
+/* 可排序表头：文字 + 双向箭头，点击在升 / 降序间切换 */
+.th-sort{
+  display:inline-flex;align-items:center;gap:5px;
+  justify-self:center;padding:0;border:0;background:none;cursor:pointer;
+  font:inherit;color:inherit;letter-spacing:inherit;
+  white-space:nowrap;user-select:none;
+  transition:color .2s;
+}
+.th-sort:hover{color:var(--cyan)}
+.th-ico{width:9px;height:13px;flex-shrink:0}
+.th-ico path{fill:var(--muted);transition:fill .2s,opacity .2s}
+/* 排序生效时高亮当前方向，另一侧箭头压暗 */
+.th-sort[data-dir="asc"] .up,
+.th-sort[data-dir="desc"] .down{fill:var(--cyan)}
+.th-sort[data-dir="asc"] .down,
+.th-sort[data-dir="desc"] .up{opacity:.25}
+/* 表格模式：标题与各列内容统一居中（text-align 由行继承给文本列） */
+.dev-row-t{
+  padding:10px 12px;border-radius:11px;border:1px solid transparent;
+  cursor:pointer;min-width:0;text-align:center;
+  transition:background .25s,border-color .25s;
+}
+.dev-row-t:hover{background:var(--hover-soft);border-color:var(--hover-line)}
+/* 概览视图里的表格行同样只作展示 */
+.dev-row-t.is-static{cursor:default}
+.dev-row-t.is-static:hover{background:transparent;border-color:transparent}
+.dt-static{font-size:12px;color:var(--muted);letter-spacing:.5px}
+.dt-id{
+  min-width:0;font-size:14px;font-weight:600;color:var(--text);letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.dt-cell{
+  min-width:0;font-size:13px;color:var(--dim);letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.dt-flex{display:flex;align-items:center;justify-content:center;gap:8px}
+.dt-ops{display:flex;gap:6px;justify-content:center}
+.mini-btn{
+  padding:4px 10px;border-radius:8px;cursor:pointer;
+  font-family:inherit;font-size:12px;letter-spacing:.3px;
+  background:var(--soft-bg);border:1px solid var(--line);color:var(--dim);
+  transition:all .2s;
+}
+.mini-btn:hover{color:var(--cyan);border-color:var(--hover-line);background:var(--hover-soft)}
+
+/* 通信质量信号格 */
+.q-bar{display:flex;align-items:flex-end;gap:2px;height:13px;flex-shrink:0}
+.q-bar i{width:3px;border-radius:1px;background:var(--track-bg)}
+.q-bar i:nth-child(1){height:4px}
+.q-bar i:nth-child(2){height:7px}
+.q-bar i:nth-child(3){height:10px}
+.q-bar i:nth-child(4){height:13px}
+.q-bar[data-lv="1"] i:nth-child(1),
+.q-bar[data-lv="2"] i:nth-child(-n+2),
+.q-bar[data-lv="3"] i:nth-child(-n+3),
+.q-bar[data-lv="4"] i:nth-child(-n+4){background:var(--qc,var(--cyan))}
+.q-text{font-size:12px;color:var(--dim);letter-spacing:.3px}
+/* 联网方式短标签（Tag 781）：4G / WiFi / 以太网 / 未上报
+   —— 与信号格并排，说明"这个信号强度是哪条链路的"（4G 与 WiFi 同刻度 0~31） */
+.net-tag{
+  flex-shrink:0;padding:1px 6px;border-radius:5px;
+  font-size:11px;letter-spacing:.3px;line-height:1.5;
+  border:1px solid var(--line);color:var(--dim);background:var(--soft-bg2);
+}
+.net-tag[data-net="1"]{color:var(--cyan);border-color:color-mix(in srgb,var(--cyan) 34%,transparent)}
+.net-tag[data-net="2"]{color:var(--violet);border-color:color-mix(in srgb,var(--violet) 34%,transparent)}
+.net-tag[data-net="3"]{color:var(--green);border-color:color-mix(in srgb,var(--green) 34%,transparent)}

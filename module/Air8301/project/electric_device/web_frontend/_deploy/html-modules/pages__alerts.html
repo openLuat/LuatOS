@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="nebula">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>告警中心 · 上海合宙</title>
+<!-- 腾讯位置服务 JavaScript API GL：按 AirCloud 资源包《腾讯地图.md》要求，
+     Key 为项目内置常量，只出现在本加载地址中，不做输入项、不向用户索要 -->
+<script src="https://map.qq.com/api/gljs?v=1.exp&key=EZNBZ-VA6KW-ASMRR-3UE4S-M3QCO-EYBC6"></script>
+<!-- 公共样式（顺序 = 拆分前规则的原始顺序，勿调整） -->
+<link rel="stylesheet" href="../assets/css/variables.css">
+<link rel="stylesheet" href="../assets/css/reset.css">
+<link rel="stylesheet" href="../assets/css/layout.css">
+<link rel="stylesheet" href="../assets/css/pages/settings.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+<link rel="stylesheet" href="../assets/css/components-list.css">
+<link rel="stylesheet" href="../assets/css/pages/alerts.css">
+<link rel="stylesheet" href="../assets/css/components-shell.css">
+<link rel="stylesheet" href="../assets/css/components-user.css">
+<link rel="stylesheet" href="../assets/css/components-dialog.css">
+<link rel="stylesheet" href="../assets/css/responsive.css">
+<!-- 本页专属样式：components-list.css / pages/alerts.css / pages/settings.css -->
+<link rel="icon" type="image/png" href="../logo.png">
+</head>
+<body data-page="alerts" data-page-name="告警中心">
+<canvas id="bg"></canvas>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">
+        <img src="../logo.png" alt="LuatOS">
+      </div>
+      <div class="brand-text">
+        <b>上海合宙</b>
+        <span>电力控制平台</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <!-- 业务功能 -->
+      <div class="nav-group">
+        <a class="nav-item" href="../index.html" data-tip="运营总览">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+          <span class="nav-text">运营总览</span>
+        </a>
+        <a class="nav-item" href="devices.html" data-tip="设备管理">
+          <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+          <span class="nav-text">设备管理</span>
+        </a>
+        <a class="nav-item active" href="alerts.html" data-tip="告警中心">
+          <svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v5M12 17.6v.2"/></svg>
+          <span class="nav-text">告警中心</span>
+        </a>
+        <a class="nav-item" href="map.html" data-tip="位置地图">
+          <svg viewBox="0 0 24 24"><path d="M12 21.5s7-6.5 7-11.4A7 7 0 1 0 5 10.1c0 4.9 7 11.4 7 11.4z"/><circle cx="12" cy="10" r="2.6"/></svg>
+          <span class="nav-text">位置地图</span>
+        </a>
+        <a class="nav-item" href="topo.html" data-tip="网络拓扑">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M10.2 13.4 6.6 16.8M13.8 13.4l3.6 3.4"/><circle cx="12" cy="12" r="2"/></svg>
+          <span class="nav-text">网络拓扑</span>
+        </a>
+      </div>
+
+      <!-- 第三部分：系统 -->
+      <div class="nav-group">
+        <a class="nav-item" href="settings.html" data-tip="系统设置">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          <span class="nav-text">系统设置</span>
+        </a>
+      </div>
+    </nav>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="proj-switch">
+          <button class="proj-btn" id="projBtn">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12.5 12 17l9-4.5"/><path d="M3 17 12 21.5 21 17"/></svg>
+            <span class="proj-cur">
+              <b id="projCurName">--</b>
+            </span>
+            <svg class="caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="proj-pop" id="projPop">
+            <div class="proj-pop-title">切换项目</div>
+            <div class="proj-list" id="projList"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="top-right">
+        <div class="user-switch">
+          <div class="avatar" id="avatarBtn" title="账号">运</div>
+          <div class="user-pop" id="userPop">
+            <div class="user-card">
+              <div class="ua">运</div>
+              <div>
+                <b id="userName">合宙用户</b>
+                <span id="userMobile">AirCloud 授权账号</span>
+              </div>
+            </div>
+            <div class="user-menu">
+              <div class="user-item danger" id="logoutBtn">
+                <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h10"/></svg>
+                <span>退出登录</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <!-- 栅格：本页只放自己用到的面板（行高与原视图定义一致） -->
+    <div class="grid" id="grid" style="grid-template-rows:auto minmax(0,1fr)">
+      <div class="panel span12" id="panel-alert-kpi">
+        <div class="panel-head">
+          <div>
+            <h3>告警中心</h3>
+            <p id="akSub">--</p>
+          </div>
+          <div class="ak-actions">
+            <button class="ak-btn" id="akRules" type="button">
+              <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18" cy="18" r="2.4"/></svg>
+              告警规则
+            </button>
+            <button class="ak-btn primary" id="akBatch" type="button">
+              <svg viewBox="0 0 24 24"><path d="m4.5 12.5 4.5 4.5L19.5 6.5"/></svg>
+              批量处理
+            </button>
+          </div>
+        </div>
+        <div class="panel-body ak-body">
+          <div class="ak-grid" id="akGrid"></div>
+        </div>
+      </div>
+
+      <!-- 告警中心 · 列表（结构与设备列表保持一致：head 放筛选标签、搜索独立一行、底部同款分页） -->
+      <div class="panel span6" id="panel-alerts">
+        <div class="panel-head">
+          <div>
+            <h3>告警列表</h3>
+          </div>
+          <div class="tabs" id="alertTabs">
+            <div class="tab active" data-filter="all">全部 <b>0</b></div>
+            <div class="tab" data-filter="active">活动 <b>0</b></div>
+            <div class="tab" data-filter="critical">严重 <b>0</b></div>
+            <div class="tab" data-filter="warning">警告 <b>0</b></div>
+            <div class="tab" data-filter="info">提示 <b>0</b></div>
+          </div>
+        </div>
+        <div class="list-toolbar al-toolbar">
+          <div class="list-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/></svg>
+            <input id="alertSearch" type="text" placeholder="输入告警内容或设备 ID 模糊搜索" autocomplete="off" spellcheck="false">
+            <button class="list-clear" id="alertClear" title="清空">×</button>
+          </div>
+          <div class="al-status">
+            <button class="al-status-btn" id="alStatusBtn" type="button">全部状态 <i>▾</i></button>
+            <div class="al-status-pop" id="alStatusPop">
+              <button type="button" data-st="all" class="active">全部状态</button>
+              <button type="button" data-st="pending">待处理</button>
+              <button type="button" data-st="done">已处理</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="alert-list" id="alertList"></div>
+        </div>
+        <div class="pager">
+          <button class="pg-btn" id="alertPrev" title="上一页">‹</button>
+          <span class="pg-info" id="alertPageInfo">--</span>
+          <button class="pg-btn" id="alertNext" title="下一页">›</button>
+        </div>
+      </div>
+
+      <!-- 告警中心 · 右侧态势 -->
+      <div class="panel span6" id="panel-alert-side">
+        <div class="panel-head">
+          <div>
+            <h3>告警态势</h3>
+            <p id="asSub">近 7 天 · 按等级与类型</p>
+          </div>
+        </div>
+        <div class="panel-body as-body">
+          <div class="as-card">
+            <div class="as-card-head"><h4>告警趋势</h4><span id="asTrendSub">近 7 天 · 按等级堆叠</span></div>
+            <div class="as-legend">
+              <span><i class="crt"></i>严重</span>
+              <span><i class="wrn"></i>警告</span>
+              <span><i class="inf"></i>提示</span>
+            </div>
+            <div class="as-plot">
+              <div class="as-axis" id="asAxis"></div>
+              <div class="as-main">
+                <div class="as-lines"><i></i><i></i><i></i><i></i></div>
+                <div class="as-cols" id="asTrend"></div>
+              </div>
+            </div>
+            <div class="as-x" id="asX"></div>
+          </div>
+
+          <!-- 告警类型分布 与 通知通道 左右平分 -->
+          <div class="as-split">
+            <div class="as-card">
+              <div class="as-card-head"><h4>告警类型分布</h4><span>近 7 天占比</span></div>
+              <div class="as-bars" id="asCats"></div>
+            </div>
+
+            <div class="as-card">
+              <div class="as-card-head"><h4>通知通道</h4><span>每条告警推送到达情况</span></div>
+              <div class="as-chans" id="asChans"></div>
+              <button class="as-link" id="asToNotify" type="button">前往通知设置 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 拓扑 -->
+    </div>
+  </div>
+</div>
+<div class="toast-wrap" id="toastWrap"></div>
+<!-- 告警规则 -->
+<div class="modal-mask" id="ruleMask">
+  <div class="confirm-box rule-box">
+    <h4>告警规则</h4>
+    <p>规则命中后按等级进入告警中心，并触发已启用的通知渠道</p>
+    <div class="rule-list" id="ruleList"></div>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="ruleClose">关闭</button>
+      <button class="set-btn primary" id="ruleSave" style="flex:1;height:38px">保存规则</button>
+    </div>
+  </div>
+</div>
+<!-- 退出登录确认 -->
+<div class="modal-mask" id="logoutMask">
+  <div class="confirm-box">
+    <h4>退出登录</h4>
+    <p>退出后需要重新登录才能继续访问控制台，确认退出当前账号吗？</p>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="logoutCancel">取消</button>
+      <button class="btn-danger" id="logoutConfirm">确认退出</button>
+    </div>
+  </div>
+</div>
+<!-- 公共能力 → 本页逻辑 → 页面启动（顺序不可调整） -->
+<script src="../assets/js/luat-sdk.js"></script>
+<script src="../assets/js/config.js"></script>
+<script src="../assets/js/storage.js"></script>
+<script src="../assets/js/utils.js"></script>
+<script src="../assets/js/http.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/guards.js"></script>
+<script src="../assets/js/components.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script src="../assets/js/pages/alerts.js"></script>
+<script src="../assets/js/boot.js"></script>
+</body>
+</html>

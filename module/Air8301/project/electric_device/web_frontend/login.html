@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="nebula">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 · 上海合宙电力控制平台</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+/* ============ 主题变量（与 multi_project_console.html 完全一致） ============ */
+:root,[data-theme="nebula"]{
+  --bg:#04060d;
+  --panel-from:rgba(17,25,44,.9);
+  --panel-to:rgba(8,12,22,.82);
+  --panel-solid:rgba(14,21,38,.96);
+  --sidebar-from:rgba(16,24,42,.92);
+  --sidebar-to:rgba(8,12,22,.78);
+  --chip-bg:rgba(16,24,42,.7);
+  --soft-bg:rgba(255,255,255,.045);
+  --soft-bg2:rgba(255,255,255,.028);
+  --track-bg:rgba(255,255,255,.08);
+  --line:rgba(90,150,255,.13);
+  --line-strong:rgba(90,170,255,.28);
+  --cyan:#22e1ff;
+  --violet:#8b5cf6;
+  --green:#2bffb0;
+  --amber:#ffb648;
+  --red:#ff4d6d;
+  --text:#e8f0ff;
+  --dim:#7d8fae;
+  --muted:#63748f;
+  --glow-1:rgba(34,225,255,.11);
+  --glow-2:rgba(139,92,246,.14);
+  --glow-3:rgba(43,255,176,.05);
+  --grid-line:rgba(80,140,255,.05);
+  --particle-1:#22e1ff;
+  --particle-2:#8b5cf6;
+  --particle-3:#2bffb0;
+  --particle-4:#4f8cff;
+  --particle-link:80,160,255;
+  --shadow-a:rgba(0,0,0,.95);
+  --shadow-b:rgba(0,0,0,.9);
+  --scroll:rgba(90,150,255,.25);
+  --scroll-hover:rgba(90,150,255,.45);
+  --mask:rgba(2,5,12,.6);
+  --active-text:#031a22;
+  --active-from:#5ceaff;
+  --active-to:#1fb6e8;
+  --toast-bg:rgba(14,22,40,.96);
+  --hover-soft:rgba(34,225,255,.055);
+  --hover-line:rgba(34,225,255,.14);
+  --chart-grid:rgba(90,150,255,.075);
+  --hint-bg:rgba(10,16,28,.96);
+}
+[data-theme="aurora"]{
+  --bg:#020a08;
+  --panel-from:rgba(10,32,26,.9);
+  --panel-to:rgba(4,14,12,.85);
+  --panel-solid:rgba(8,28,22,.96);
+  --sidebar-from:rgba(10,32,26,.92);
+  --sidebar-to:rgba(4,14,12,.8);
+  --chip-bg:rgba(10,32,26,.72);
+  --soft-bg:rgba(34,255,208,.06);
+  --soft-bg2:rgba(34,255,208,.035);
+  --track-bg:rgba(34,255,208,.1);
+  --line:rgba(34,255,208,.13);
+  --line-strong:rgba(34,255,208,.32);
+  --cyan:#22ffd0;
+  --violet:#22d3ee;
+  --green:#7dff5c;
+  --amber:#ffd93d;
+  --red:#ff5c7c;
+  --text:#e0fff5;
+  --dim:#7fb5a5;
+  --muted:#5d8a7c;
+  --glow-1:rgba(34,255,208,.12);
+  --glow-2:rgba(34,211,238,.12);
+  --glow-3:rgba(125,255,92,.06);
+  --grid-line:rgba(34,255,208,.05);
+  --particle-1:#22ffd0;
+  --particle-2:#22d3ee;
+  --particle-3:#7dff5c;
+  --particle-4:#4ade80;
+  --particle-link:60,240,200;
+  --scroll:rgba(34,255,208,.25);
+  --scroll-hover:rgba(34,255,208,.45);
+  --mask:rgba(2,10,8,.62);
+  --active-text:#021a15;
+  --active-from:#5cffe0;
+  --active-to:#16c9a8;
+  --toast-bg:rgba(8,28,22,.96);
+  --hover-soft:rgba(34,255,208,.07);
+  --hover-line:rgba(34,255,208,.18);
+  --chart-grid:rgba(34,255,208,.07);
+  --hint-bg:rgba(6,20,16,.96);
+}
+[data-theme="dawn"]{
+  --bg:#eef2f9;
+  --panel-from:rgba(255,255,255,.92);
+  --panel-to:rgba(248,251,255,.85);
+  --panel-solid:rgba(255,255,255,.98);
+  --sidebar-from:rgba(255,255,255,.95);
+  --sidebar-to:rgba(240,246,255,.9);
+  --chip-bg:rgba(255,255,255,.75);
+  --soft-bg:rgba(15,23,42,.045);
+  --soft-bg2:rgba(15,23,42,.028);
+  --track-bg:rgba(15,23,42,.1);
+  --line:rgba(15,23,42,.09);
+  --line-strong:rgba(15,23,42,.18);
+  --cyan:#0088cc;
+  --violet:#7c3aed;
+  --green:#059669;
+  --amber:#d97706;
+  --red:#dc2626;
+  --text:#0f172a;
+  --dim:#64748b;
+  --muted:#94a3b8;
+  --glow-1:rgba(0,136,204,.08);
+  --glow-2:rgba(124,58,237,.08);
+  --glow-3:rgba(5,150,105,.05);
+  --grid-line:rgba(15,23,42,.045);
+  --particle-1:#0088cc;
+  --particle-2:#7c3aed;
+  --particle-3:#059669;
+  --particle-4:#0ea5e9;
+  --particle-link:60,120,180;
+  --shadow-a:rgba(15,23,42,.12);
+  --shadow-b:rgba(15,23,42,.08);
+  --scroll:rgba(15,23,42,.18);
+  --scroll-hover:rgba(15,23,42,.32);
+  --mask:rgba(15,23,42,.35);
+  --active-text:#ffffff;
+  --active-from:#38bdf8;
+  --active-to:#0284c7;
+  --toast-bg:rgba(255,255,255,.98);
+  --hover-soft:rgba(0,136,204,.07);
+  --hover-line:rgba(0,136,204,.2);
+  --chart-grid:rgba(15,23,42,.06);
+  --hint-bg:rgba(255,255,255,.98);
+}
+
+/* ============ 基础 ============ */
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+  transition:background .55s ease,color .55s ease;
+}
+#bg{position:fixed;inset:0;z-index:0;display:block}
+body::before{
+  content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(900px 620px at 10% -12%,var(--glow-1),transparent 62%),
+    radial-gradient(820px 560px at 92% 112%,var(--glow-2),transparent 62%),
+    radial-gradient(700px 500px at 50% 55%,var(--glow-3),transparent 72%);
+  transition:background .55s ease;
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background-image:
+    linear-gradient(var(--grid-line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
+  background-size:48px 48px;
+  -webkit-mask-image:radial-gradient(circle at 50% 42%,#000 5%,transparent 82%);
+  mask-image:radial-gradient(circle at 50% 42%,#000 5%,transparent 82%);
+  transition:background-image .55s ease;
+}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--scroll-hover)}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ============ 品牌 Logo ============ */
+.logo{
+  width:42px;height:42px;border-radius:13px;flex-shrink:0;
+  display:grid;place-items:center;padding:5px;
+  /* LuatOS 标志是深色图形 + 透明底，需要浅色底衬才看得清 */
+  background:#fff;
+  border:1px solid color-mix(in srgb,var(--cyan) 35%,transparent);
+  animation:logoPulse 4s ease-in-out infinite;
+}
+@keyframes logoPulse{
+  0%,100%{box-shadow:0 0 22px color-mix(in srgb,var(--cyan) 25%,transparent),
+                 inset 0 0 16px color-mix(in srgb,var(--cyan) 10%,transparent)}
+  50%{box-shadow:0 0 40px color-mix(in srgb,var(--cyan) 50%,transparent),
+             inset 0 0 24px color-mix(in srgb,var(--cyan) 22%,transparent)}
+}
+.logo img{width:100%;height:100%;display:block;object-fit:contain}
+
+/* ============ 登录页（与模板同款） ============ */
+.login{
+  position:fixed;inset:0;z-index:110;
+  display:grid;place-items:center;
+  background:var(--mask);backdrop-filter:blur(16px) saturate(120%);
+  transition:opacity .38s ease,visibility .38s;
+}
+.login-card{
+  width:min(92vw,392px);padding:28px;border-radius:20px;
+  background:linear-gradient(158deg,var(--panel-from),var(--panel-to));
+  border:1px solid var(--line-strong);
+  backdrop-filter:blur(24px);
+  box-shadow:0 30px 72px -24px var(--shadow-a),inset 0 1px 0 var(--soft-bg);
+}
+.login-brand{display:flex;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.login-brand .logo{animation:none;margin:0}
+.login-brand b{display:block;font-size:17px;font-weight:650;letter-spacing:.7px;color:var(--text)}
+.login-brand span{display:block;font-size:11px;letter-spacing:1.4px;color:var(--dim);margin-top:3px}
+.login-title{font-size:19px;font-weight:650;color:var(--text);margin-top:20px;letter-spacing:.4px}
+.login-sub{font-size:13px;color:var(--dim);margin-top:6px;letter-spacing:.3px}
+.field{display:block;margin-top:16px}
+.field > span{display:block;font-size:12px;color:var(--dim);letter-spacing:.6px;margin-bottom:7px}
+.field input{
+  width:100%;height:42px;padding:0 13px;border-radius:12px;
+  background:var(--soft-bg2);border:1px solid var(--line);color:var(--text);
+  font-family:inherit;font-size:14px;letter-spacing:.4px;outline:none;
+  transition:border-color .22s,background .22s,box-shadow .22s;
+}
+.field input::placeholder{color:var(--muted)}
+.field input:focus{
+  border-color:var(--hover-line);background:var(--soft-bg);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--cyan) 14%,transparent);
+}
+.btn-primary{
+  width:100%;height:44px;margin-top:22px;border:none;border-radius:13px;cursor:pointer;
+  font-family:inherit;font-size:15px;font-weight:650;letter-spacing:.8px;
+  color:var(--active-text);
+  background:linear-gradient(145deg,var(--active-from),var(--active-to));
+  box-shadow:0 10px 28px -10px color-mix(in srgb,var(--cyan) 70%,transparent);
+  transition:transform .22s,box-shadow .22s,opacity .22s;
+}
+.btn-primary:hover:not(:disabled){
+  transform:translateY(-2px);
+  box-shadow:0 14px 34px -10px color-mix(in srgb,var(--cyan) 82%,transparent);
+}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn-primary + .btn-primary{margin-top:12px}
+.login-hint{margin-top:14px;font-size:12px;color:var(--muted);text-align:center;letter-spacing:.4px}
+.hide{display:none!important}
+
+/* ============ Toast（与模板同款） ============ */
+.toast-wrap{
+  position:fixed;top:22px;left:50%;transform:translateX(-50%);z-index:120;
+  display:flex;flex-direction:column;gap:9px;align-items:center;pointer-events:none;
+}
+.toast{
+  padding:11px 20px;border-radius:12px;font-size:14px;color:var(--text);
+  background:var(--toast-bg);
+  border:1px solid var(--line-strong);
+  box-shadow:0 14px 40px -12px var(--shadow-a);
+  backdrop-filter:blur(16px);
+  animation:toastIn .35s ease;
+}
+.toast.err{
+  color:var(--red);
+  border-color:color-mix(in srgb,var(--red) 55%,transparent);
+  box-shadow:0 14px 40px -12px var(--shadow-a),
+             0 0 0 1px color-mix(in srgb,var(--red) 22%,transparent);
+}
+.toast.err::before{
+  content:'';display:inline-block;vertical-align:middle;
+  width:6px;height:6px;margin-right:9px;border-radius:50%;
+  background:var(--red);box-shadow:0 0 10px var(--red);
+}
+@keyframes toastIn{from{opacity:0;transform:translateY(-16px) scale(.94)}to{opacity:1;transform:none}}
+.toast.out{animation:toastOut .4s forwards}
+@keyframes toastOut{to{opacity:0;transform:translateY(-14px) scale(.94)}}
+</style>
+<link rel="icon" type="image/png" href="logo.png">
+</head>
+<body data-page="login" data-auth="public">
+<canvas id="bg"></canvas>
+
+<!-- 登录卡片：结构与样式与模板登录页一致 -->
+<div class="login" id="loginView">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="logo">
+        <img src="logo.png" alt="LuatOS">
+      </div>
+      <div>
+        <b>上海合宙</b>
+        <span>电力控制平台</span>
+      </div>
+    </div>
+    <div class="login-title">登录控制台</div>
+    <div class="login-sub">通过合宙账号授权登录，进入电力控制平台</div>
+    <label class="field">
+      <span>授权状态</span>
+      <input id="loginStatus" type="text" readonly value="等待授权…">
+    </label>
+    <button class="btn-primary" id="loginBtn">使用合宙账号登录</button>
+    <button class="btn-primary hide" id="reenterBtn">重新进入应用</button>
+    <div class="login-hint" id="loginHint">登录将跳转至合宙统一授权页，授权完成后自动返回本页</div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* =========================================================
+   LuatSDK —— 独立、零依赖的请求与存储能力（唯一直接调用 fetch 的层）
+   ========================================================= */
+(function(global){
+  'use strict';
+  var config = {
+    API_HOST: 'https://api-iot.luatos.com',
+    BASE_HOST: 'https://iot.luatos.com',
+    API_BASE: 'https://api-iot.luatos.com/iot',
+    OAUTH_AUTHORIZE_URL: 'https://api-iot.luatos.com/iam/luat_oauth/authorize',
+    OAUTH_LOGIN_URL: 'https://api-iot.luatos.com/iam/luat_oauth/v2/login',
+    REQUEST_TIMEOUT: 15000
+  };
+  var reqInts = [], resInts = [];
+  var storage = {
+    get: function(key){
+      try { var raw = localStorage.getItem(key); if (raw === null || raw === '') return null; return JSON.parse(raw); }
+      catch (e) { return null; }
+    },
+    set: function(key, value){ try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch (e) { return false; } },
+    remove: function(key){ try { localStorage.removeItem(key); } catch (e) {} },
+    clear: function(prefix){
+      try {
+        var keys = [];
+        for (var i = 0; i < localStorage.length; i++){ var k = localStorage.key(i); if (k && k.indexOf(prefix) === 0) keys.push(k); }
+        for (var j = 0; j < keys.length; j++) localStorage.removeItem(keys[j]);
+      } catch (e) {}
+    },
+    sessionGet: function(key){ try { return sessionStorage.getItem(key); } catch (e) { return null; } },
+    sessionSet: function(key, value){ try { sessionStorage.setItem(key, value); return true; } catch (e) { return false; } },
+    sessionRemove: function(key){ try { sessionStorage.removeItem(key); } catch (e) {} }
+  };
+  function buildUrl(url, baseURL){
+    if (/^https?:\/\//i.test(url)) return url;
+    var base = baseURL || config.API_BASE;
+    return String(base).replace(/\/+$/, '') + '/' + String(url).replace(/^\/+/, '');
+  }
+  function makeError(type, message, extra){
+    var e = new Error(message || type); e.type = type;
+    if (extra) { for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) e[k] = extra[k]; }
+    return e;
+  }
+  function request(options){
+    var opts = options || {};
+    var cfg = {
+      url: opts.url, method: String(opts.method || 'GET').toUpperCase(), baseURL: opts.baseURL,
+      body: opts.body, params: opts.params,
+      headers: opts.headers ? Object.assign({}, opts.headers) : {},
+      timeout: opts.timeout || config.REQUEST_TIMEOUT
+    };
+    for (var i = 0; i < reqInts.length; i++){ var r = reqInts[i](cfg); if (r) cfg = r; }
+    var fullUrl = buildUrl(cfg.url, cfg.baseURL);
+    if (cfg.params){
+      var usp = new URLSearchParams();
+      Object.keys(cfg.params).forEach(function(k){ var v = cfg.params[k]; if (v !== undefined && v !== null) usp.append(k, v); });
+      var qs = usp.toString();
+      if (qs) fullUrl += (fullUrl.indexOf('?') > -1 ? '&' : '?') + qs;
+    }
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = setTimeout(function(){ if (controller) controller.abort(); }, cfg.timeout);
+    var init = { method: cfg.method, headers: cfg.headers };
+    if (controller) init.signal = controller.signal;
+    if (cfg.body !== undefined && cfg.body !== null){
+      if (typeof cfg.body === 'string'){ init.body = cfg.body; }
+      else { if (!init.headers['Content-Type']) init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(cfg.body); }
+    }
+    return fetch(fullUrl, init).then(function(res){
+      return res.text().then(function(text){
+        if (!res.ok) throw makeError('http', 'HTTP ' + res.status, { status: res.status });
+        if (!text) return {};
+        try { return JSON.parse(text); } catch (e) { throw makeError('parse', '响应解析失败'); }
+      });
+    }).catch(function(err){
+      if (err && (err.name === 'AbortError' || err.aborted)) throw makeError('timeout', '请求超时');
+      if (err && (err.type === 'http' || err.type === 'parse')) throw err;
+      throw makeError('network', '网络请求失败');
+    }).then(function(data){
+      for (var k = 0; k < resInts.length; k++){ var out = resInts[k](data); if (out !== undefined) data = out; }
+      return data;
+    }).then(function(data){ clearTimeout(timer); return data; }, function(err){ clearTimeout(timer); throw err; });
+  }
+  global.LuatSDK = {
+    config: config,
+    http: {
+      request: request,
+      get: function(url, params, c){ return request({ url: url, method: 'GET', params: params, baseURL: c && c.baseURL, headers: c && c.headers }); },
+      post: function(url, body, c){ return request({ url: url, method: 'POST', body: body, baseURL: c && c.baseURL, headers: c && c.headers }); },
+      interceptors: { request: { use: function(fn){ reqInts.push(fn); } }, response: { use: function(fn){ resInts.push(fn); } } }
+    },
+    storage: storage
+  };
+})(window);
+
+/* =========================================================
+   App.config —— 公开常量、真实接口表、appId、应用 base path
+   ========================================================= */
+window.App = window.App || {};
+App.config = (function(){
+  var SDK = window.LuatSDK;
+  var path = window.location.pathname;
+  var slash = path.lastIndexOf('/');
+  var basePath = (slash >= 0) ? path.slice(0, slash + 1) : '/';
+  var m = path.match(/\/ai_app\/luatos\/([^\/?#]+)/i);
+  var APP_ID_FALLBACK = '';
+  var appId = (m && m[1]) ? m[1] : APP_ID_FALLBACK;
+  return {
+    APP_ID: appId,
+    BASE_PATH: basePath,
+    API_HOST: SDK.config.API_HOST,
+    BASE_HOST: SDK.config.BASE_HOST,
+    API_BASE: SDK.config.API_BASE,
+    OAUTH_AUTHORIZE_URL: SDK.config.OAUTH_AUTHORIZE_URL,
+    OAUTH_LOGIN_URL: SDK.config.OAUTH_LOGIN_URL,
+    PAGE: document.body.getAttribute('data-page') || '',
+    AUTH: document.body.getAttribute('data-auth') || 'public',
+    API: {
+      PROJECTS: '/open_api/list_my_projects',
+      SEARCH_DEVICES: '/open_api/search_my_devices',
+      LIST_BY_TAGS: '/open_api/aircloud/list_by_tags',
+      LATEST_LOCATION: '/open_api/aircloud/latest_location',
+      SEND_CMD: '/open_api/aircloud/send_cmd'
+    },
+    TAGS: {
+      WORK_STATUS: 265, VOLTAGE: 799, SET_VOLTAGE: 800, ICCID: 783,
+      DEVICE_ID: 798, VERSION: 1027, SIGNAL: 782, REPORT_TIME: 1280,
+      LNG: 512, LAT: 513
+    },
+    TAG_META: {
+      265: { name: '工作状态', type: '整数', cat: '传感数据' },
+      512: { name: 'GNSS经度', type: '浮点数', cat: '定位数据' },
+      513: { name: 'GNSS纬度', type: '浮点数', cat: '定位数据' },
+      782: { name: '4G信号强度', type: '整数', cat: '设备参数' },
+      783: { name: 'ICCID', type: '整数', cat: '设备参数' },
+      798: { name: '设备号', type: '整数', cat: '设备参数' },
+      799: { name: '电压', type: '整数', cat: '传感数据' },
+      800: { name: '设定电压', type: '整数', cat: '设备参数' },
+      1027: { name: '固件版本号', type: '整数', cat: '软件数据' },
+      1280: { name: '时间', type: '整数', cat: '设备无关' },
+      19: { name: '控制命令', type: '嵌套TLV', cat: '控制信令' },
+      21: { name: 'iRTU下行命令', type: 'ASCII字符', cat: '控制信令' },
+      22: { name: 'iRTU上行回复', type: 'ASCII字符', cat: '控制信令' },
+      25: { name: '通知设备上传日志', type: 'ASCII字符', cat: '控制信令' },
+      1281: { name: '自定义数据', type: 'ASCII字符', cat: '设备无关' }
+    },
+    BIZ: {
+      VOLTAGE_MIN: 0, VOLTAGE_MAX: 6000, VOLTAGE_STEP: 100,
+      DEFAULT_SET_VOLTAGE: 3500, ONLINE_WINDOW_MS: 300000,
+      CONTROL_TAG: 19, DEVICE_MODEL: 'Air8301 · 电场发生器通讯控制板'
+    },
+    DEVICE_TAGS: [799, 265, 800, 783, 798, 1027, 782]
+  };
+})();
+
+/* =========================================================
+   App.storage
+   ========================================================= */
+App.storage = (function(){
+  var SDK = window.LuatSDK;
+  function id(){ return App.config.APP_ID || '_app'; }
+  var K = {
+    auth: function(){ return id() + '_auth'; }, service: function(){ return id() + '_service'; },
+    profile: function(){ return id() + '_profile'; }, tenant: function(){ return id() + '_tenant'; },
+    sets: function(){ return id() + '_sets'; }, mAuth: function(){ return 'm_' + id() + '_auth'; },
+    mService: function(){ return 'm_' + id() + '_service'; }, mProfile: function(){ return 'm_' + id() + '_profile'; },
+    mSets: function(){ return 'm_' + id() + '_sets'; }, host: function(){ return 'm_' + id() + '_host_session'; },
+    ui: function(){ return id() + '_ui'; }
+  };
+  function str(v){ return (typeof v === 'string') ? v : ''; }
+  function readBundle(a, s, p, t){
+    var A = SDK.storage.get(a) || {}, S = SDK.storage.get(s) || {}, P = SDK.storage.get(p) || {}, T = SDK.storage.get(t) || {};
+    return {
+      auth: { token: str(A.token), salt: str(A.salt) },
+      service: { sid: str(S.sid) },
+      profile: { name: str(P.name || P.user_name), mobile: str(P.mobile || P.user_phone) },
+      sets: T
+    };
+  }
+  function complete(ctx){ return !!(ctx && ctx.auth && ctx.auth.token && ctx.auth.salt && ctx.service && ctx.service.sid); }
+  return {
+    keys: K,
+    readIndependent: function(){ return readBundle(K.auth(), K.service(), K.profile(), K.sets()); },
+    readHost: function(){ return readBundle(K.mAuth(), K.mService(), K.mProfile(), K.mSets()); },
+    isComplete: complete,
+    hasHostSession: function(){ return SDK.storage.sessionGet(K.host()) === '1'; },
+    setHostSession: function(on){ if (on) SDK.storage.sessionSet(K.host(), '1'); else SDK.storage.sessionRemove(K.host()); },
+    saveLogin: function(value){
+      if (!value || !value.auth || !value.service) return false;
+      if (!complete({ auth: value.auth, service: value.service })) return false;
+      var ok1 = SDK.storage.set(K.auth(), { token: value.auth.token, salt: value.auth.salt });
+      var ok2 = SDK.storage.set(K.service(), { sid: value.service.sid });
+      var user = value.user || {};
+      SDK.storage.set(K.profile(), { name: str(user.name || user.user_name), mobile: str(user.mobile || user.user_phone) });
+      if (value.tenant) SDK.storage.set(K.tenant(), value.tenant); else SDK.storage.remove(K.tenant());
+      if (value.sets) SDK.storage.set(K.sets(), value.sets); else SDK.storage.remove(K.sets());
+      return ok1 && ok2;
+    },
+    clearIndependent: function(){
+      [K.auth(), K.service(), K.profile(), K.tenant(), K.sets()].forEach(function(k){ SDK.storage.remove(k); });
+      [K.mAuth(), K.mService(), K.mProfile(), K.mSets()].forEach(function(k){ SDK.storage.remove(k); });
+    },
+    clearHost: function(){ [K.mAuth(), K.mService(), K.mProfile(), K.mSets()].forEach(function(k){ SDK.storage.remove(k); }); },
+    applyHostInjection: function(p){
+      if (!str(p.m_token) || !str(p.m_salt) || !str(p.m_sid)) return false;
+      SDK.storage.set(K.mAuth(), { token: str(p.m_token), salt: str(p.m_salt) });
+      SDK.storage.set(K.mService(), { sid: str(p.m_sid) });
+      SDK.storage.set(K.mProfile(), { name: str(p.m_name), mobile: str(p.m_phone) });
+      var sets = {};
+      if (str(p.m_algorithm)) sets.algorithm = str(p.m_algorithm);
+      if (str(p.m_encryptOutput)) sets.encryptOutput = str(p.m_encryptOutput);
+      if (str(p.m_padding)) sets.padding = str(p.m_padding);
+      if (str(p.m_publicKey)) sets.publicKey = str(p.m_publicKey);
+      if (str(p.m_publicKeyEncoding)) sets.publicKeyEncoding = str(p.m_publicKeyEncoding);
+      if (Object.keys(sets).length) SDK.storage.set(K.mSets(), sets);
+      this.setHostSession(true);
+      return true;
+    },
+    getUi: function(){ return SDK.storage.get(K.ui()) || {}; },
+    setUi: function(obj){ SDK.storage.set(K.ui(), obj || {}); }
+  };
+})();
+
+/* =========================================================
+   App.utils
+   ========================================================= */
+App.utils = {
+  maskMobile: function(v){ var s = String(v || ''); return s.length < 7 ? s : s.slice(0, 3) + '****' + s.slice(-4); },
+  pad2: function(n){ return (n < 10 ? '0' : '') + n; },
+  formatTime: function(ts){
+    var d = new Date(ts);
+    return d.getFullYear() + '-' + this.pad2(d.getMonth() + 1) + '-' + this.pad2(d.getDate()) +
+      ' ' + this.pad2(d.getHours()) + ':' + this.pad2(d.getMinutes()) + ':' + this.pad2(d.getSeconds());
+  },
+  parseLocal: function(s){
+    if (!s || typeof s !== 'string') return NaN;
+    var m = s.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+    if (!m) return Date.parse(s);
+    return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+  },
+  formatLocalParam: function(ts){
+    var d = new Date(ts);
+    return d.getFullYear() + '-' + this.pad2(d.getMonth() + 1) + '-' + this.pad2(d.getDate()) +
+      ' ' + this.pad2(d.getHours()) + ':' + this.pad2(d.getMinutes()) + ':' + this.pad2(d.getSeconds());
+  },
+  fromNow: function(ts){
+    if (!ts || isNaN(ts)) return '--';
+    var sec = Math.max(0, Math.round((Date.now() - ts) / 1000));
+    if (sec < 60) return sec + ' 秒前';
+    if (sec < 3600) return Math.round(sec / 60) + ' 分钟前';
+    if (sec < 86400) return Math.round(sec / 3600) + ' 小时前';
+    return Math.round(sec / 86400) + ' 天前';
+  },
+  str: function(v){ return (v === undefined || v === null || v === '') ? '--' : String(v); },
+  num: function(v){ var n = Number(v); return isFinite(n) ? n : NaN; },
+  workStatusText: function(v){
+    if (v === 1 || v === '1') return '运行中';
+    if (v === 0 || v === '0') return '已关机';
+    if (v === 255 || v === '255') return '未同步';
+    return '--';
+  }
+};
+
+/* =========================================================
+   App.http
+   ========================================================= */
+App.http = (function(){
+  var SDK = window.LuatSDK;
+  var invalidHandler = null;
+  function headers(){
+    var ctx = App.auth.getAuthContext();
+    if (!ctx) return {};
+    return { 'authorization': ctx.auth.token, 'salt': ctx.auth.salt, 'sid': ctx.service.sid };
+  }
+  function handleBiz(promise){
+    return promise.then(function(res){
+      if (!res || typeof res.code === 'undefined') return res;
+      if (res.code === 0) return res;
+      if (res.code === 102 || res.code === 103 || res.code === 105){
+        var msg = (typeof res.value === 'string' && res.value) ? res.value : '登录状态已失效，请重新登录';
+        if (invalidHandler) invalidHandler();
+        var e = new Error(msg); e.type = 'auth'; e.code = res.code; throw e;
+      }
+      var m = (typeof res.value === 'string' && res.value) ? res.value : ('业务处理失败（code ' + res.code + '）');
+      var err = new Error(m); err.type = 'biz'; err.code = res.code; throw err;
+    });
+  }
+  return {
+    onInvalid: function(fn){ invalidHandler = fn; },
+    getHeaders: headers,
+    post: function(path, body){ return handleBiz(SDK.http.post(path, body || {}, { headers: headers() })); },
+    get: function(path, params){ return handleBiz(SDK.http.get(path, params || {}, { headers: headers() })); }
+  };
+})();
+
+/* =========================================================
+   App.auth
+   ========================================================= */
+App.auth = (function(){
+  var SDK = window.LuatSDK, C = App.config, S = App.storage;
+  var M_PARAMS = ['m_token','m_salt','m_sid','m_name','m_phone','m_algorithm','m_encryptOutput','m_padding','m_publicKey','m_publicKeyEncoding'];
+  var OAUTH_PARAMS = ['token','error','error_description','code','state'];
+  function query(name){ try { return new URLSearchParams(window.location.search).get(name) || ''; } catch (e) { return ''; } }
+  function hashQuery(name){
+    try { var h = window.location.hash.replace(/^#/, ''); if (!h) return ''; return new URLSearchParams(h).get(name) || ''; } catch (e) { return ''; }
+  }
+  function cleanUrl(removeKeys){
+    try {
+      var url = new URL(window.location.href);
+      removeKeys.forEach(function(k){ url.searchParams.delete(k); });
+      var next = url.pathname + (url.search ? url.search : '') + (url.hash ? url.hash : '');
+      window.history.replaceState(null, '', next);
+    } catch (e) {}
+  }
+  function consumeInjection(){
+    var p = {}, has = false;
+    M_PARAMS.forEach(function(k){ var v = query(k); p[k] = v; if (v) has = true; });
+    if (has) S.applyHostInjection(p);
+    cleanUrl(M_PARAMS);
+    return has;
+  }
+  function getAuthContext(){
+    if (S.hasHostSession()){ var host = S.readHost(); if (S.isComplete(host)) { host.source = 'host'; return host; } return null; }
+    var indep = S.readIndependent();
+    if (S.isComplete(indep)) { indep.source = 'app'; return indep; }
+    var host2 = S.readHost();
+    if (S.isComplete(host2)) { host2.source = 'host'; return host2; }
+    return null;
+  }
+  function isAuthenticated(){ return !!getAuthContext(); }
+  function getProfile(){ var ctx = getAuthContext(); return ctx ? ctx.profile : { name: '', mobile: '' }; }
+  function getAuthHeaders(){
+    var ctx = getAuthContext();
+    if (!ctx) return {};
+    return { 'authorization': ctx.auth.token, 'salt': ctx.auth.salt, 'sid': ctx.service.sid };
+  }
+  function validateReturnTo(path){
+    if (!path || typeof path !== 'string') return '';
+    if (path.charAt(0) !== '/' || path.charAt(1) === '/') return '';
+    if (/[\r\n\\]/.test(path)) return '';
+    if (/^[a-z][a-z0-9+.-]*:/i.test(path)) return '';
+    if (/\b(m_token|m_salt|m_sid|m_algorithm|m_encryptOutput|m_padding|m_publicKey|m_publicKeyEncoding|token)=/i.test(path)) return '';
+    return path;
+  }
+  function defaultHome(){ return C.BASE_PATH + 'index.html'; }
+  function currentReturnTo(){ var p = window.location.pathname; return (p.indexOf(C.BASE_PATH) === 0) ? (p + window.location.search) : p; }
+  function buildLoginUrl(returnTo){
+    var rt = validateReturnTo(returnTo || currentReturnTo()) || defaultHome();
+    return C.BASE_HOST + C.BASE_PATH + 'login.html?returnTo=' + encodeURIComponent(rt);
+  }
+  function goToLogin(){ window.location.replace(buildLoginUrl(currentReturnTo())); }
+  function requireAuth(){ if (!isAuthenticated()){ goToLogin(); return false; } return true; }
+  function loginInvalid(){
+    if (S.hasHostSession()){ S.clearHost(); return { mode: 'host', message: '登录状态已失效，请重新进入应用' }; }
+    S.clearIndependent();
+    var rt = validateReturnTo(currentReturnTo());
+    S.setUi(Object.assign({}, S.getUi(), { returnTo: rt }));
+    return { mode: 'app', message: '登录状态已失效，请重新登录', returnTo: rt };
+  }
+  function logout(){
+    if (S.hasHostSession()){ S.clearHost(); return { mode: 'host', message: '已退出当前设备账号，请重新进入应用' }; }
+    S.clearIndependent();
+    var rt = validateReturnTo(currentReturnTo());
+    S.setUi(Object.assign({}, S.getUi(), { returnTo: rt }));
+    window.location.replace(buildLoginUrl(rt));
+    return { mode: 'app' };
+  }
+  var pendingLogin = null;
+  function readOAuthToken(){ var t = query('token') || hashQuery('token'); return t ? String(t) : ''; }
+  function readOAuthError(){
+    var e = query('error') || hashQuery('error'), d = query('error_description') || hashQuery('error_description');
+    if (!e) return null;
+    return { error: String(e), description: d ? String(d) : '' };
+  }
+  function startOAuth(returnTo){
+    var rt = validateReturnTo(returnTo || query('returnTo') || defaultHome()) || defaultHome();
+    var callback = C.BASE_HOST + C.BASE_PATH + 'login.html?returnTo=' + encodeURIComponent(rt);
+    window.location.href = C.OAUTH_AUTHORIZE_URL + '?return_to=' + encodeURIComponent(callback);
+  }
+  function loginWithToken(token){
+    if (pendingLogin) return pendingLogin;
+    pendingLogin = SDK.http.post(C.OAUTH_LOGIN_URL + '?token=' + encodeURIComponent(token), undefined)
+      .then(function(res){
+        if (!res || res.code !== 0 || !res.value) throw new Error('授权登录失败');
+        var v = res.value, auth = { token: '', salt: '' }, service = { sid: '' };
+        if (v.auth) auth = { token: String(v.auth.token || ''), salt: String(v.auth.salt || '') };
+        if (v.service) service = { sid: String(v.service.sid || '') };
+        if (!auth.token || !auth.salt || !service.sid) throw new Error('授权信息不完整');
+        if (S.hasHostSession()){ S.setHostSession(true); }
+        else {
+          var ok = S.saveLogin({ auth: auth, service: service, user: v.user || {}, tenant: v.tenant || null, sets: v.sets || null });
+          if (!ok) throw new Error('登录状态保存失败');
+        }
+        return true;
+      })
+      .then(function(r){ pendingLogin = null; return r; }, function(e){ pendingLogin = null; throw e; });
+    return pendingLogin;
+  }
+  function resolveReturnTo(){
+    var safe = validateReturnTo(query('returnTo'));
+    if (safe) return safe;
+    safe = validateReturnTo(S.getUi().returnTo);
+    return safe || defaultHome();
+  }
+  function goHome(){ window.location.replace(C.BASE_HOST + resolveReturnTo()); }
+  return {
+    consumeInjection: consumeInjection, cleanUrl: cleanUrl,
+    getAuthContext: getAuthContext, isAuthenticated: isAuthenticated,
+    getAuthHeaders: getAuthHeaders, getProfile: getProfile,
+    validateReturnTo: validateReturnTo, defaultHome: defaultHome,
+    currentReturnTo: currentReturnTo, buildLoginUrl: buildLoginUrl,
+    goToLogin: goToLogin, requireAuth: requireAuth, loginInvalid: loginInvalid, logout: logout,
+    readOAuthToken: readOAuthToken, readOAuthError: readOAuthError, startOAuth: startOAuth,
+    loginWithToken: loginWithToken, resolveReturnTo: resolveReturnTo, goHome: goHome,
+    query: query, hashQuery: hashQuery
+  };
+})();
+
+/* =========================================================
+   App.guards
+   ========================================================= */
+App.guards = {
+  isProtected: function(){ return App.config.AUTH === 'required'; },
+  guard: function(){
+    if (App.guards.isProtected() && !App.auth.isAuthenticated()){ App.auth.goToLogin(); return false; }
+    return true;
+  }
+};
+
+/* =========================================================
+   App.components —— Toast（与模板一致的语义）
+   ========================================================= */
+App.components = (function(){
+  var wrap = null;
+  function toast(msg, isErr){
+    if (!wrap) wrap = document.getElementById('toastWrap');
+    if (!wrap) return;
+    var el = document.createElement('div');
+    el.className = 'toast' + (isErr ? ' err' : '');
+    el.textContent = String(msg);
+    wrap.appendChild(el);
+    setTimeout(function(){
+      el.classList.add('out');
+      setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 420);
+    }, isErr ? 4000 : 2600);
+  }
+  return { toast: toast, toastErr: function(m){ toast(m, true); } };
+})();
+
+/* =========================================================
+   页面逻辑：login.html —— 唯一登录页（OAuth 回调 + 安全回跳）
+   ========================================================= */
+(function(){
+  var C = App.config;
+  var UI = App.components;
+
+  var statusEl = document.getElementById('loginStatus');
+  var loginBtn = document.getElementById('loginBtn');
+  var reenterBtn = document.getElementById('reenterBtn');
+  var hintEl = document.getElementById('loginHint');
+  var busy = false;
+
+  function setStatus(text){ if (statusEl) statusEl.value = text; }
+  function setHint(text){ if (hintEl) hintEl.textContent = text; }
+  function setBtn(label, disabled){
+    if (!loginBtn) return;
+    loginBtn.textContent = label;
+    loginBtn.disabled = !!disabled;
+  }
+
+  /* 跟随用户在控制台选择的主题（默认星云蓝） */
+  (function applyTheme(){
+    try {
+      var saved = App.storage.getUi().theme;
+      if (saved === 'nebula' || saved === 'aurora' || saved === 'dawn'){
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch (e) {}
+  })();
+
+  /* 背景星链（与模板一致的视觉基底） */
+  (function bg(){
+    var cvs = document.getElementById('bg');
+    if (!cvs || !cvs.getContext) return;
+    var ctx = cvs.getContext('2d');
+    var W, H, dpr, parts = [];
+    function palette(){
+      var cs = getComputedStyle(document.documentElement);
+      return [cs.getPropertyValue('--particle-1').trim(), cs.getPropertyValue('--particle-2').trim(),
+              cs.getPropertyValue('--particle-3').trim(), cs.getPropertyValue('--particle-4').trim()];
+    }
+    function init(){
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = cvs.width = Math.floor(window.innerWidth * dpr);
+      H = cvs.height = Math.floor(window.innerHeight * dpr);
+      cvs.style.width = window.innerWidth + 'px';
+      cvs.style.height = window.innerHeight + 'px';
+      var pal = palette();
+      var count = Math.min(Math.floor(window.innerWidth / 26), 68);
+      parts = [];
+      for (var i = 0; i < count; i++){
+        parts.push({
+          x: Math.random() * W, y: Math.random() * H,
+          vx: (Math.random() - .5) * .28 * dpr, vy: (Math.random() - .5) * .28 * dpr,
+          r: (Math.random() * 1.5 + .6) * dpr, c: pal[i % pal.length], a: Math.random() * .5 + .25
+        });
+      }
+    }
+    function draw(){
+      ctx.clearRect(0, 0, W, H);
+      var linkDist = 135 * dpr, i, j;
+      for (i = 0; i < parts.length; i++){
+        var p = parts[i];
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > W) p.vx *= -1;
+        if (p.y < 0 || p.y > H) p.vy *= -1;
+      }
+      for (i = 0; i < parts.length; i++){
+        for (j = i + 1; j < parts.length; j++){
+          var a = parts[i], b = parts[j];
+          var dx = a.x - b.x, dy = a.y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+          if (d < linkDist){
+            ctx.strokeStyle = 'rgba(80,160,255,' + ((1 - d / linkDist) * .16) + ')';
+            ctx.lineWidth = .7 * dpr;
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          }
+        }
+      }
+      for (i = 0; i < parts.length; i++){
+        var q = parts[i];
+        ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2);
+        ctx.fillStyle = q.c; ctx.globalAlpha = q.a;
+        ctx.shadowBlur = 8 * dpr; ctx.shadowColor = q.c; ctx.fill();
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      }
+      requestAnimationFrame(draw);
+    }
+    init(); draw();
+    window.addEventListener('resize', init);
+  })();
+
+  loginBtn.addEventListener('click', function(){
+    if (busy) return;
+    busy = true;
+    setBtn('正在跳转授权…', true);
+    setStatus('正在跳转至合宙统一授权页面…');
+    var rt = App.auth.resolveReturnTo();
+    setTimeout(function(){ App.auth.startOAuth(rt); }, 120);
+  });
+
+  reenterBtn.addEventListener('click', function(){
+    setStatus('请从应用入口重新进入以恢复登录状态');
+  });
+
+  /* ---------- 初始化：OAuth 回调 → m_* 注入 → 宿主会话 → 来源选择 → 回跳 ---------- */
+  function init(){
+    /* appId 缺失：功能降级（不得虚构） */
+    if (!C.APP_ID){
+      setBtn('暂不可用', true);
+      setStatus('未检测到应用标识：需部署在 /ai_app/luatos/<应用名>/ 目录下');
+      setHint('请将 index.html 与 login.html 上传至合宙「AI 自建应用」目录后使用');
+      return;
+    }
+
+    /* 1) OAuth 错误回调 */
+    var oauthErr = App.auth.readOAuthError();
+    if (oauthErr){
+      App.auth.cleanUrl(['error','error_description','code','state','token']);
+      setStatus('授权失败：' + (oauthErr.description || oauthErr.error));
+      setBtn('重新登录', false);
+      UI.toastErr('授权失败，请重试');
+      return;
+    }
+
+    /* 2) OAuth token 回调（query / hash）—— token 只暂存内存，立即清理 */
+    var token = App.auth.readOAuthToken();
+    if (token){
+      App.auth.cleanUrl(['token','code','state','error','error_description']);
+      setStatus('正在完成登录…');
+      setBtn('登录中…', true);
+      App.auth.loginWithToken(token).then(function(){
+        setStatus('登录成功，正在进入控制台…');
+        App.auth.goHome();
+      }).catch(function(e){
+        setStatus('登录失败：' + (e && e.message ? e.message : '请稍后重试'));
+        setBtn('重新登录', false);
+        UI.toastErr('登录失败：' + (e && e.message ? e.message : '请稍后重试'));
+      });
+      return;
+    }
+
+    /* 3) m_* 宿主注入 */
+    App.auth.consumeInjection();
+
+    /* 4) 宿主会话标记 */
+    if (App.storage.hasHostSession()){
+      var host = App.storage.readHost();
+      if (App.storage.isComplete(host)){
+        setStatus('检测到已授权，正在进入控制台…');
+        App.auth.goHome();
+        return;
+      }
+      setBtn('等待应用重新授权', true);
+      reenterBtn.classList.remove('hide');
+      setStatus('登录状态已失效，请重新进入应用');
+      return;
+    }
+
+    /* 5) 独立会话有效认证：自动回跳 */
+    if (App.auth.isAuthenticated()){
+      setStatus('检测到已授权，正在进入控制台…');
+      App.auth.goHome();
+      return;
+    }
+
+    /* 6) 未登录：展示 OAuth 登录按钮 */
+    setStatus('等待授权…');
+    setBtn('使用合宙账号登录', false);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

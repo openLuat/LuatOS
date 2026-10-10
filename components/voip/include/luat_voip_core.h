@@ -3,7 +3,7 @@
  *
  * 职责：
  * 1. 管理 UDP RTP socket 收发
- * 2. G.711 编解码
+ * 2. 语音编解码（G.711 PCMU/PCMA、G.729A）
  * 3. 抖动缓冲区管理
  * 4. 音频 I/O（上行采集 + 下行播放）
  * 5. 后台 RTOS task + 定时器驱动
@@ -38,11 +38,13 @@
 #define VOIP_RTP_HEADER_LEN     12
 #define VOIP_RTP_PT_PCMU        0
 #define VOIP_RTP_PT_PCMA        8
+#define VOIP_RTP_PT_G729        18
 
 /* 编解码器类型 */
 typedef enum {
     VOIP_CODEC_PCMU = 0,
     VOIP_CODEC_PCMA = 1,
+    VOIP_CODEC_G729 = 2,    /* G.729A，仅 8kHz，ptime 必须为 10ms 整数倍 */
 } voip_codec_type_t;
 
 typedef enum {
@@ -248,7 +250,8 @@ typedef struct {
     luat_audio_data_codec_t codec_encoder;  /* RTP 编码器状态 */
     luat_audio_data_codec_t codec_decoder;  /* RTP 解码器状态 */
     uint8_t g711_type;          /* G711_TYPE_ULAW / G711_TYPE_ALAW */
-    uint8_t rtp_payload_type;   /* 0=PCMU, 8=PCMA */
+    uint8_t rtp_payload_type;   /* 0=PCMU, 8=PCMA, 18=G729 */
+    uint16_t rtp_payload_len;   /* 每包期望码流字节数，按 codec opts 推导（G.711=采样点数，G.729=ptime/10*10） */
 
     /* 抖动缓冲区 */
     voip_jb_t *jb;

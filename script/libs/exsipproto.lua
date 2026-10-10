@@ -28,11 +28,20 @@ local M = {}
 local RTP_CODEC_PT = {
     PCMU = 0,
     PCMA = 8,
+    G729 = 18,
 }
 
 local RTP_PT_CODEC = {
     [0] = "PCMU",
     [8] = "PCMA",
+    [18] = "G729",
+}
+
+-- 对端 SDP 中常见的 G.729 别名写法
+local RTP_CODEC_ALIAS = {
+    ["G.729"] = "G729",
+    G729A = "G729",
+    G729B = "G729",
 }
 
 --[[
@@ -462,6 +471,7 @@ end
 ]]
 function M.normalize_codec_name(name)
     local key = tostring(name or ""):upper()
+    key = RTP_CODEC_ALIAS[key] or key
     if RTP_CODEC_PT[key] then
         return key
     end
@@ -530,8 +540,8 @@ end
 
 --[[
 根据本地和远端 SDP 信息整理媒体会话参数，普通 SIP 通话和 CC<->SIP 桥接共用。
-当前 SIP 侧使用 G.711 PCMU/PCMA；sample_rate=8000、channels=1、bits=16 描述媒体引擎编解码前后的 PCM 格式，
-RTP 负载仍为 G.711 编码数据。CC 侧的 8kHz/16kHz 采样率适配由底层桥接处理，不改变这里的 SIP 媒体参数。
+当前 SIP 侧支持 G.711 PCMU/PCMA 与 G.729A；sample_rate=8000、channels=1、bits=16 描述媒体引擎编解码前后的 PCM 格式，
+RTP 负载为协商编码后的数据。CC 侧的 8kHz/16kHz 采样率适配由底层桥接处理，不改变这里的 SIP 媒体参数。
 @api exsipproto.build_media_session(params)
 @table params 媒体参数表，常见字段包括 call_id、remote_ip、remote_sdp、local_rtp_port、local_codecs、ptime、source
 @return table 媒体会话参数表
@@ -573,7 +583,7 @@ end
 
 --[[
 构造本地 SDP 描述。
-CC<->SIP 桥接沿用普通通话的 G.711 PCMU/PCMA 8kHz 协商格式，无需增加桥接专用 SDP 属性。
+CC<->SIP 桥接沿用普通通话的 SDP 协商格式（G.711 PCMU/PCMA 或 G.729A，8kHz），无需增加桥接专用 SDP 属性。
 @api exsipproto.build_sdp(state, direction)
 @table state SIP 状态表，需要包含 local_ip 以及 media 相关配置
 @string direction 媒体方向，例如 sendrecv、sendonly、recvonly
@@ -619,6 +629,11 @@ function M.build_sdp(state, direction)
             sdp[#sdp + 1] = "a=rtpmap:0 PCMU/8000\r\n"
         elseif pt == 8 then
             sdp[#sdp + 1] = "a=rtpmap:8 PCMA/8000\r\n"
+        elseif pt == 18 then
+            -- 显式声明 annexb=no：底层 G.729 通路为 Annex A 固定 10 字节帧，
+            -- 不处理 Annex B 的 2 字节 SID 帧（收到即丢弃，由抖动缓冲隐藏）。
+            sdp[#sdp + 1] = "a=rtpmap:18 G729/8000\r\n"
+            sdp[#sdp + 1] = "a=fmtp:18 annexb=no\r\n"
         end
     end
     sdp[#sdp + 1] = string.format("a=ptime:%d\r\n", ptime)

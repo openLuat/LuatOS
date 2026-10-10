@@ -418,7 +418,7 @@ voip.start({
     remote_ip   = "192.168.1.100",
     remote_port = 10000,
     local_port  = 10000,
-    codec       = 0,            -- 0:PCMU  1:PCMA
+    codec       = 0,            -- 0:PCMU  1:PCMA  2:G729(需固件启用LUAT_USE_CODEC_G729，仅8kHz，ptime为10ms整数倍；未编入时voip.G729为nil)
     ptime       = 20,           -- 打包时长 ms
     sample_rate = 8000,
     jitter_depth= 3,
@@ -464,7 +464,7 @@ static int l_voip_start(lua_State *L)
     cfg.local_port = (uint16_t)luaL_optinteger(L, -1, 0);
     lua_pop(L, 1);
 
-    /* codec: 0=PCMU, 1=PCMA */
+    /* codec: 0=PCMU, 1=PCMA, 2=G729 */
     lua_getfield(L, 1, "codec");
     cfg.codec = (uint8_t)luaL_optinteger(L, -1, VOIP_CODEC_PCMU);
     lua_pop(L, 1);
@@ -1010,6 +1010,9 @@ static const rotable_Reg_t reg_voip[] =
     /* 常量 */
     { "PCMU",       ROREG_INT(VOIP_CODEC_PCMU)},
     { "PCMA",       ROREG_INT(VOIP_CODEC_PCMA)},
+#ifdef LUAT_SUPPORT_G729
+    { "G729",       ROREG_INT(VOIP_CODEC_G729)},
+#endif
     { "AUDIO_MODE_I2S",   ROREG_INT(VOIP_AUDIO_MODE_I2S)},
 #ifdef LUAT_USE_VOIP_BRIDGE
     { "AUDIO_MODE_BRIDGE", ROREG_INT(VOIP_AUDIO_MODE_BRIDGE)},

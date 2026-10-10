@@ -56,17 +56,19 @@ require "welcome_win"
 -- 个别屏首帧慢可调到 150~200；代价只是背光晚亮几十 ms。
 local BOOT_BACKLIGHT_DELAY_MS = 100
 
---[[触摸总线守护：exaudio 的 audio_setup() 无条件 i2c.setup(codec总线, i2c.FAST)，
-会把触摸总线重置回中断模式（丢轮询设置）→ 音频播放（DMA 中断风暴）期间
-I2C 传输出错，表现为"播放音频就 I2C 报错，不管有没有触摸"。
-
-给 exaudio 的入口包一层：每次调用后立即恢复 tp 总线配置（速率 + 轮询）。
-exaudio 若是固件 rotable（不可写表），包不上则 log.warn 提示、行为不劣化。
-根治需改 exaudio 的 audio_setup：仅 codec model 需要 I2C 时才 i2c.setup。]]
-local function guard_tp_bus()
+--[[音频 I2C 守护（触摸总线兜底）：
+1) exaudio.setup 记忆化，只执行首次 —— audio_setup 每次都会 i2c.setup(codec总线)，
+   把触摸总线重置回中断模式（丢轮询设置），TTS/试听/录音的重复 setup 全部挡住；
+   首次成功后恢复一次触摸总线配置，失败不记账（下次可重试）。
+2) play_start/play_stop/record_start/pm 入口包一层，调用后立即恢复 ——
+   旧版 exaudio 的 pm(SHUTDOWN) 会关闭 I2C1（v3.3 已修），mp4 起播前的
+   play_stop 也走这条路，兜住固件内旧版 exaudio。
+exaudio 若是固件 rotable（不可写表），包不上则 log.warn 提示、行为不劣化。]]
+local function guard_audio_init()
     local ok, exaudio = pcall(require, "exaudio")
-    if not (ok and exaudio and type(exaudio) == "table") then return end
-    if rawget(exaudio, "__tp_bus_guard") then return end
+    if not (ok and exaudio) then return end
+    local t = type(exaudio)
+    if t ~= "table" and t ~= "userdata" then return end
 
     local function restore()
         if _G.tp_drv and _G.tp_drv.i2c_restore then
@@ -74,8 +76,28 @@ local function guard_tp_bus()
         end
     end
 
+    -- setup 仅首次执行，成功后恢复一次触摸总线配置
+    local raw_setup = exaudio.setup
+    if type(raw_setup) == "function" then
+        local setup_done = false
+        local ok1 = pcall(function()
+            exaudio.setup = function(cfg)
+                if setup_done then return true end
+                local r = raw_setup(cfg)
+                if r then
+                    setup_done = true
+                    restore()
+                    log.info("boot_ui", "音频初始化完成，触摸 I2C 配置已定型")
+                end
+                return r
+            end
+        end)
+        if ok1 then log.info("boot_ui", "exaudio.setup 已收口：仅首次初始化") end
+    end
+
+    -- 音频播录/电源入口调用后恢复触摸总线配置
     local wrapped = 0
-    for _, fname in ipairs({ "setup", "play_start", "record_start", "pm" }) do
+    for _, fname in ipairs({ "play_start", "play_stop", "record_start", "pm" }) do
         local raw = exaudio[fname]
         if type(raw) == "function" then
             local raw_fn = raw
@@ -89,8 +111,7 @@ local function guard_tp_bus()
             if ok2 then wrapped = wrapped + 1 end
         end
     end
-    pcall(function() exaudio.__tp_bus_guard = true end)
-    log.info("boot_ui", "exaudio 触摸总线守护已挂", wrapped, "个入口")
+    log.info("boot_ui", "exaudio 音频入口守护已挂", wrapped, "个入口")
 end
 
 local function boot_task()
@@ -128,8 +149,8 @@ local function boot_task()
         pcall(tp_drv.init)
     end
 
-    -- 5.5 触摸总线守护：exaudio 入口包一层，音频初始化后自动恢复 tp 总线配置
-    pcall(guard_tp_bus)
+    -- 5.5 音频 I2C 守护：setup 仅首次执行，音频入口调用后恢复 tp 总线配置
+    pcall(guard_audio_init)
 
     -- 6. 其余初始化：与 logo 展示并行，批间让出循环保证 logo 刷新不卡
     ok, err = pcall(require, "app_main")

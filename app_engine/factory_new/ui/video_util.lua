@@ -1,8 +1,8 @@
 --[[
 @module  video_util
 @summary 媒体素材工具（容器格式嗅探 / 帧尺寸读取 / HZV 音轨初始化 / 播放器创建）—— 播放类页面共用
-@version 1.5
-@date    2026.10.09
+@version 1.6
+@date    2026.10.10
 @author  江访
 
 === 为什么单独成模块 ===
@@ -25,8 +25,8 @@ MP4 的两个会话副作用（功放使能、触摸总线守护）也在这里�
 @api video_util.guess_format(path)              容器格式："hzv" | "mjpg" | "mp4"
 @api video_util.read_dimensions(path)           w, h；读不到返回 nil
 @api video_util.frame_size(path, def_w, def_h)  w, h；读不到时用调用方给的兜底值
-@api video_util.audio_ensure()                  幂等初始化 HZV 音轨（Audio V2），返回是否可用；
-                                                已就绪时 RESUME 并重新对齐 ac.play_vol 音量
+@api video_util.audio_ensure()                  幂等初始化配套音频框架（MJPG 的同名 MP3 用，
+                                                HZV 不走 exaudio），返回是否可用
 @api video_util.create_player(path, o)          按格式创建**嵌入式**播放器（airui.video，
                                                 HZV/MJPG/MP4 统一；o.on_complete=单次播完回调）
 @api video_util.tp_bus_restore()                恢复触摸 I2C 总线配置（音频通路会重置总线）
@@ -207,11 +207,15 @@ function M.frame_size(path, def_w, def_h)
     return def_w, def_h
 end
 
---[[HZV 音轨初始化（幂等）
+--[[配套音频框架初始化（幂等，MJPG 的同名 MP3 用）
 
-HZV 的音轨由 Audio V2 播放，视频时钟跟随 DAC DMA sample counter ——
-音频框架没起来时既不响、也不会走帧。所以创建 HZV 播放器前必须先确保一次；
-首次真 setup，之后只 RESUME。失败不阻断画面创建（只是没声音、可能不走帧）。
+首次真 setup，之后只 RESUME 并重新对齐 ac.play_vol（设置页「亮度和声音」会改
+ac.play_vol，回到播放路径时对齐一次）。失败不阻断画面创建（只是没声音）。
+
+HZV **不走这里**：它的音轨由 videoplayer 自己调用 luat_audio_request_play_stream，
+测试工程不碰 exaudio 一切正常；而 exaudio.setup 的 DAC 收尾会 audio_v2.shutdown
+关掉 codec 和功放 —— MP4 的 mplayer 刚把上一路请求标成结束、音频任务还没释放完，
+紧接着 shutdown 会让下一次 play_stream 没声音（真机踩过：MP4→HZV 切换后静音）。
 
 用全局标志 _G.__hzv_audio_ready 记账：桌面播放器与全屏播放页共用同一套音频框架，
 各自 setup 一次会互相打断，标志位必须跨模块共享。]]
@@ -342,15 +346,20 @@ end
 -- ==================== MP4 会话副作用（功放 / 触摸总线守护） ====================
 --[[mplayer 的音频通路启动时会把触摸 I2C 总线配置重置（真机踩过：GT911 读超时、
 触摸失灵），功放引脚也要手动使能（mplayer 自己不拉 PA）。airui.video 的 MP4
-后端内部同样走 mplayer，这两个副作用原样存在 —— 在创建/销毁播放器时统一收口：
-起播前 PA 使能 + 500ms 触摸总线守护泵，destroy 时统一收尾（见 wrap_mp4_player）。
+后端内部同样走 mplayer，这两个副作用原样存在 —— 在创建/销毁播放器时统一收口
+（见 wrap_mp4_player）；跨格式切换丢功放由 pa_reassert 补（见 create_player）。
+
+触摸总线恢复是事件驱动的：重置只发生在音频通路启动（起播 / 续播 / 循环重播 /
+异步初始化），每个事件点恢复一次再补两发延迟恢复即覆盖全程，不做周期泵
+（500ms 守护泵会在整个会话期无条件 i2c.setup，一直刷 i2c change_br 日志）。
+组件内部循环重播走不到包装层 play，故 MP4 的 loop 改为应用层续播
+（EOF 回调里 play() 从头重播，见 create_player），每轮重播都精确恢复一次。
+exaudio 路径的 I2C 守护在 boot_ui.guard_audio_init（setup 仅首次 + 入口恢复）。
 
 MP4 分辨率上限 480×320：mplayer 的 RGB 帧缓冲是静态数组，超限直接溢出
 （mp4 时代的真机教训），起播前用纯 Lua 盒解析读宽高拦截。]]
 local MP4_MAX_W = 480
 local MP4_MAX_H = 320
-
-local mp4_guard_timer = nil
 
 -- PA 功放使能/关闭（引脚与电平读板级 hw.audio）
 local function pa_set(on)
@@ -363,27 +372,85 @@ local function pa_set(on)
     end
 end
 
+-- 功放补枪的世代号：会话收尾后作废尚未触发的补枪
+local pa_gen = 0
+
+-- MP4 销毁会把功放拉高；HZV 的 exaudio.setup 收尾也会 shutdown 关掉功放。
+-- 切到 HZV/MJPG 后必须再打开，并在音频任务异步收尾之后补一次。
+local function pa_reassert()
+    pa_gen = pa_gen + 1
+    local gen = pa_gen
+    pa_set(true)
+    sys.timerStart(function()
+        if gen == pa_gen then pa_set(true) end
+    end, 200)
+end
+
+-- 事件点延迟恢复的句柄（重新布防/收尾时先停旧的）
+local settle_t = { nil, nil }
+
+--[[触摸总线恢复：立即一次 + 400/1500ms 各补一发。
+补枪覆盖音频通路的异步初始化（解码线程里才起音频，实测会把 Lua 调度卡住约 1s）。]]
+local function tp_bus_settle()
+    M.tp_bus_restore()
+    local delays = { 400, 1500 }
+    for i = 1, 2 do
+        if settle_t[i] then
+            sys.timerStop(settle_t[i])
+            settle_t[i] = nil
+        end
+        settle_t[i] = sys.timerStart(function() M.tp_bus_restore() end, delays[i])
+    end
+end
+
+-- 停掉未触发的延迟恢复（会话收尾）
+local function tp_bus_settle_cancel()
+    for i = 1, 2 do
+        if settle_t[i] then
+            sys.timerStop(settle_t[i])
+            settle_t[i] = nil
+        end
+    end
+end
+
 local function mp4_session_begin()
     pa_set(true)
-    if mp4_guard_timer then return end
-    mp4_guard_timer = sys.timerLoopStart(function() M.tp_bus_restore() end, 500)
 end
 
 local function mp4_session_end()
-    if mp4_guard_timer then sys.timerStop(mp4_guard_timer); mp4_guard_timer = nil end
+    tp_bus_settle_cancel()
+    pa_gen = pa_gen + 1   -- 作废尚未触发的 pa_reassert 补枪，防止收尾后功放被重新打开
     pa_set(false)
     M.tp_bus_restore()
 end
 
---[[包装 MP4 播放器：destroy 时统一收掉会话副作用
+--[[包装 MP4 播放器：音频通路启动相关的事件点恢复触摸总线，destroy 时统一收尾
 
 接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
+paused 字段记录用户暂停状态（应用层循环续播据此跳过，见 create_player）；
 HZV/MJPG 不涉及这些副作用，create_player 仍返回裸对象。]]
 local function wrap_mp4_player(v)
     return {
-        play = function(_, ...) return v:play(...) end,
-        pause = function(_, ...) return v:pause(...) end,
-        stop = function(_, ...) return v:stop(...) end,
+        paused = false,
+        play = function(self, ...)
+            local r = v:play(...)
+            self.paused = false
+            -- 续播/循环重播会重启音频通路，再次重置总线
+            tp_bus_settle()
+            return r
+        end,
+        pause = function(self, ...)
+            local r = v:pause(...)
+            self.paused = true
+            M.tp_bus_restore()
+            return r
+        end,
+        stop = function(self, ...)
+            local r = v:stop(...)
+            self.paused = true
+            M.tp_bus_restore()
+            return r
+        end,
         destroy = function(_)
             pcall(function() v:destroy() end)
             mp4_session_end()
@@ -396,7 +463,8 @@ end
 
 HZV / MJPG / MP4 都走 airui.video（父容器内的控件，随 UI 层级显示/隐藏）：
 MJPG 逐帧按 interval 喂；HZV / MP4 自带帧时序（HZV 容器帧时长 / MP4 PTS），
-循环（loop）与单次播完（on_complete）由组件统一处理，控制栏代码无感。
+单次播完（on_complete）由组件回调，循环控制栏代码无感 —— HZV/MJPG 循环
+由组件统一处理，MP4 循环为应用层续播（保证每轮重播都恢复触摸总线，见下）。
 两个播放页面（桌面播放器 / 全屏播放页）都走这里，格式差异只有一处实现。
 
 @table o
@@ -424,9 +492,17 @@ function M.create_player(path, o)
         M.audio_stop()
         if exaudio then pcall(exaudio.play_stop, { type = 0 }) end
         mp4_session_begin()
+    elseif fmt == "hzv" then
+        --[[HZV 音轨由 videoplayer 自己调用 luat_audio_request_play_stream。
+        不能在这里 exaudio.setup：DAC 模式收尾会 audio_v2.shutdown 关掉 codec 和功放，
+        而 MP4 的 mplayer 刚把上一路请求标成结束、音频任务还没释放完。
+        紧接着 shutdown，下一次 play_stream 就没有声音。
+        测试工程不碰 exaudio，只保持功放开，切换是正常的。]]
+        pa_reassert()
     else
-        -- HZV 的播放时钟依赖音频框架、MJPG 的配套 MP3 也走它，先确保一次
+        -- MJPG 配套 MP3 走 exaudio，先确保音频框架
         M.audio_ensure()
+        pa_reassert()
     end
 
     local vcfg = {
@@ -448,12 +524,33 @@ function M.create_player(path, o)
         vcfg.backend = "videoplayer"
     end
 
+    --[[MP4 的 loop 改为应用层续播（EOF 回调里 play() 从头重播）：组件内部
+    循环重播走不到包装层 play，每轮重启音频通路后恢复不了触摸总线。
+    重播与组件内部循环同为「play 从头重播」路径，画面无差异；
+    用户暂停中不续播（paused 状态由包装层维护）。]]
+    local player_obj = nil
+    if fmt == "mp4" and o.loop then
+        vcfg.loop = false
+        vcfg.on_complete = function()
+            if player_obj and not player_obj.paused then
+                player_obj:play()
+            end
+        end
+    end
+
     local ok, v = pcall(airui.video, vcfg)
     if not ok or not v then
         if fmt == "mp4" then mp4_session_end() end
         return nil
     end
-    if fmt == "mp4" then return wrap_mp4_player(v) end
+    if fmt == "mp4" then
+        player_obj = wrap_mp4_player(v)
+        -- auto_play 起播的音频初始化在解码线程里异步进行，布防延迟恢复
+        tp_bus_settle()
+        return player_obj
+    end
+    -- 播放器打开时音频任务可能再次把功放拉高，创建成功后再拉一次
+    pa_set(true)
     return v
 end
 

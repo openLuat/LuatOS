@@ -661,16 +661,19 @@ function driver.init()
         uart_INIT(4, dtu.uconf)
     end
     if dtu.pwrmod == "normal" then
+        -- 网络状态灯/就绪引脚按版本配置（避开软I2C SCL/SDA 与 485方向脚）
+        -- 例如 8782 的 SCL=GPIO27，netled 必须挪到 28，否则闪烁抢占 SCL 导致软I2C CRC error
+        local net_pin = factory_config.get_net_pin()
         -- 网络READY信号
         if not dtu.pins or not dtu.pins[2] or not default.pios[dtu.pins[2]] then 
-            netready = gpio.setup(26, 0)
+            netready = gpio.setup(net_pin.ready, 0)
         else
             netready = gpio.setup(tonumber(dtu.pins[2]:sub(4, -1)), 0)
             default.pios[dtu.pins[2]] = nil
         end
 
         if not dtu.pins or not dtu.pins[1] or not default.pios[dtu.pins[1]] then 
-            sys.taskInit(netled,27)
+            sys.taskInit(netled, net_pin.led)
         else
             sys.taskInit(netled, tonumber(dtu.pins[1]:sub(4, -1)))
             default.pios[dtu.pins[1]] = nil

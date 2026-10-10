@@ -27,6 +27,8 @@ local AirVOC_1000 = require "AirVOC_1000"
 -- 版本配置：I2C 模式/引脚 由 factory_config 集中管理
 local factory_config = require "factory_config"
 local i2c_cfg = factory_config.get_sensor_i2c()
+-- 传感器采集总开关（Air8700 仅透传，不采集传感器）
+local sensor_enabled = factory_config.get_sensor_enable()
 
 -- 当前I2C总线（硬件id 或 软件I2C对象）
 local bus
@@ -39,7 +41,16 @@ local MAX_FAIL = 10            -- 连续失败次数，超过后停止重试该�
 
 -- 初始化I2C总线（按版本配置创建）
 local function init_bus()
+    if not sensor_enabled then
+        log.info("sensor_task", "当前版本不采集传感器，已跳过I2C初始化")
+        return false
+    end
     if i2c_cfg.mode == "sw" then
+        -- ⚠️ 关键修复：iRTU default.lua 会把全部 GPIO 初始化为 PULLDOWN 输入，
+        -- 软 I2C 的 SCL/SDA 必须先清除下拉并加上拉，否则 recv 读不到应答返回 -1
+        -- （8780 硬件 I2C1 不受影响；8781/8782 软 I2C 必须做此处理）
+        gpio.setup(i2c_cfg.scl, nil, gpio.PULLUP)
+        gpio.setup(i2c_cfg.sda, nil, gpio.PULLUP)
         bus = i2c.createSoft(i2c_cfg.scl, i2c_cfg.sda, i2c_cfg.delay or 5)
         if not bus then
             log.error("sensor_task", "软件I2C创建失败", "SCL=", i2c_cfg.scl, "SDA=", i2c_cfg.sda)
@@ -119,6 +130,10 @@ end
 local temp, hum, voc = sensor_task.get_env()
 ]]
 function sensor_task.get_env()
+    -- 传感器采集禁用时直接返回 nil（Air8700 仅透传）
+    if not sensor_enabled then
+        return nil, nil, nil
+    end
     local temp, hum = read_sht30()
     local voc = read_voc()
     return temp, hum, voc

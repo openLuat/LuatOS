@@ -13,6 +13,8 @@
 local default = {}
 
 local db=require "db"
+-- 版本配置：软 I2C 引脚不设下拉，避免拉死 SCL/SDA 导致软 I2C recv 失败
+local factory_config = require "factory_config"
 
 local cfg
 
@@ -110,11 +112,23 @@ local function get_gpio_config()
         config = model_gpio_configs["Air780EPM_Air780EHM"] -- 默认使用Air780EPM/Air780EHM配置
     end
     
+    -- 软I2C引脚（8781/8782 成品板）：不初始化为 PULLDOWN，避免拉死 SCL/SDA 导致软 I2C recv 失败
+    local soft_i2c_pins = {}
+    local sensor_i2c = factory_config.get_sensor_i2c()
+    if sensor_i2c and sensor_i2c.mode == "sw" then
+        soft_i2c_pins[sensor_i2c.scl] = true
+        soft_i2c_pins[sensor_i2c.sda] = true
+    end
+
     -- 在函数内部动态初始化GPIO
     local gpio_config = {}
     for _, pin in ipairs(config.pins) do
         local pio_name = "pio" .. pin
-        gpio_config[pio_name] = gpio.setup(pin, nil, gpio.PULLDOWN)
+        if soft_i2c_pins[pin] then
+            gpio_config[pio_name] = gpio.setup(pin, nil) -- 软I2C引脚：不设下拉（由 sensor_task 接管）
+        else
+            gpio_config[pio_name] = gpio.setup(pin, nil, gpio.PULLDOWN)
+        end
     end
     
     return gpio_config

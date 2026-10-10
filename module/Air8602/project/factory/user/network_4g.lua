@@ -19,13 +19,6 @@
 
 local exnetif = require "exnetif"
 
---Air8602 4G_RST  拉低
-gpio.setup(58, 0, gpio.PULL_DOWN)
-
---Air8601 4G_RST  拉低
--- gpio.setup(64, 0, gpio.PULL_DOWN)
-
-
 local function ip_ready_func(ip, adapter)
     if adapter == socket.LWIP_GP_GW then
         -- 在位置1和2设置自定义的DNS服务器ip地址：

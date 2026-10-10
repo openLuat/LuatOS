@@ -14,8 +14,12 @@ VERSION = "001.999.001"
 
 log.info("main", PROJECT, VERSION)
 
+--Air8601 4G_RST  拉低
+-- gpio.setup(64, 0, gpio.PULLDOWN)
 
+--Air8602 4G_RST  拉低
 gpio.setup(58, 0, gpio.PULLDOWN)
+
 -- 加载硬件初始化模块
 local hardware = require "hardware"
 

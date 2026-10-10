@@ -28,6 +28,9 @@ log.info("main", PROJECT, VERSION)
 --Air8601 4G_RST  拉低
 gpio.setup(64, 0, gpio.PULLDOWN)
 
+--Air8602 4G_RST  拉低
+-- gpio.setup(58, 0, gpio.PULLDOWN)
+
 -- 硬件初始化模块（GPIO上电、LCD、触摸、背光）
 local hardware = require "hardware"
 hardware.init_density_scale()

@@ -18,6 +18,7 @@
   STATUS_SIGNAL_UPDATED(level)            4G 信号等级（net_drv 发布）
   STATUS_WIFI_UPDATED(conn,ssid,lv,rssi)  WiFi 连接状态（net_drv 发布）
   STATUS_ETH_UPDATED(e1,ip1,e2,ip2)       以太网 1/2 连接与 IP（net_drv 发布）
+  NET_ACTIVE_UPDATED(type,adapter,name)   多网融合当前生效链路（net_drv 发布）
   NETWORK_STATUS_QUERY                    打开页面时主动查询一次网络状态
   WEATHER_UPDATE(state)                   时间/天气数据源（weather_app 发布）
   WEATHER_QUERY                           打开页面时唤醒天气任务立即刷新
@@ -31,7 +32,10 @@
   2) 原四张状态卡（蜂窝网络 / RS485-1 / 继电器 / DO 输出）按需求移除，
      其入口分别由「通信」分区页与「IO」分区页承接，功能无损；
   3) 天气数据源为 Open-Meteo（免费、无需 Key），未定位或断网时天气区显示 "--"，
-     取到数据后自动刷新；城市名依赖基站定位反查，定位失败时显示 "--"。
+     取到数据后自动刷新；城市名依赖基站定位反查，定位失败时显示 "--"；
+  4) 底部「联网方式」与「通信 → 多网融合」页保持一致：优先显示 exnetif 多网融合调度的
+     当前生效链路（订阅 NET_ACTIVE_UPDATED）；仅在未取到该值时，才退回「按网卡链路判定」
+     （网口1 → 网口2 → WiFi → 4G）的原有逻辑。
 ]]
 
 local theme = require "ui_theme"
@@ -57,7 +61,8 @@ local nav_busy = false
 local last_date = ""
 
 -- 设备网络状态缓存（由 net_drv 的消息刷新）
-local dev = { e1 = 0, ip1 = "", e2 = 0, ip2 = "", wifi = false, ssid = "" }
+-- active：多网融合当前生效链路名（NET_ACTIVE_UPDATED），为空或「查询中」时退回各网卡链路判定
+local dev = { e1 = 0, ip1 = "", e2 = 0, ip2 = "", wifi = false, ssid = "", active = "" }
 
 -- 布局常量（内容区 464×182：上排 126 + 间距 6 + 下排 50 = 182）
 local GAP        = 6
@@ -141,7 +146,13 @@ end
 ]]
 local function recompute_net()
     local mode
-    if dev.e1 > 0 then
+    -- 多网融合（exnetif）模式下，非当前生效的网卡同样保持连接（exnetif 仅把默认网卡
+    -- socket.dft() 切到最高优先级可用网卡），因此不能按「哪张网卡有 IP 就用哪张」判断，
+    -- 否则会出现「多网融合页显示 WiFi、主页却显示网口1」的不一致。
+    -- 规则：优先采用多网融合调度的当前生效链路；未取到（空值 / 查询中）再退回原有链路判定。
+    if dev.active ~= "" and dev.active ~= "查询中" then
+        mode = (dev.active == "无可用网络") and "未连接" or dev.active
+    elseif dev.e1 > 0 then
         mode = "网口1"
     elseif dev.e2 > 0 then
         mode = "网口2"
@@ -203,6 +214,23 @@ local function on_signal_updated(level)
         lbl_sig:set_text(tostring(level) .. "级")
         lbl_sig:set_color(theme.C.t1)
     end
+end
+
+--[[多网融合当前生效链路更新（net_drv → NET_ACTIVE_UPDATED）
+
+exnetif 多网融合调度的结果：有可用网络时给出网卡中文名，全部断网时给出「无可用网络」。
+
+@local
+@function on_net_active
+@param net_type string|nil 网卡类型字符串（"WiFi" / "Ethernet" / "4G" 等）
+@param adapter number 网卡编号（-1 表示全部断网）
+@param name string 网卡中文名（网口1 / 网口2 / WiFi / 4G / 无可用网络 / 查询中）
+]]
+local function on_net_active(net_type, adapter, name)
+    dev.active = name or ""
+    -- 本页为常驻宿主：被分区页覆盖（非激活）时仍需更新缓存，回到本页后 on_get_focus
+    -- 才能立即显示正确的联网方式
+    if exwin.is_active(win_id) then recompute_net() end
 end
 
 -- ==================== 天气刷新 ====================
@@ -405,6 +433,7 @@ local function on_create()
     sys.subscribe("STATUS_SIGNAL_UPDATED", on_signal_updated)
     sys.subscribe("STATUS_WIFI_UPDATED", on_wifi_updated)
     sys.subscribe("STATUS_ETH_UPDATED", on_eth_updated)
+    sys.subscribe("NET_ACTIVE_UPDATED", on_net_active)
     sys.subscribe("WEATHER_UPDATE", on_weather_update)
     -- 主动查询一次网络状态与天气，避免打开页面时显示占位
     sys.publish("NETWORK_STATUS_QUERY")
@@ -434,6 +463,7 @@ local function on_destroy()
     sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_signal_updated)
     sys.unsubscribe("STATUS_WIFI_UPDATED", on_wifi_updated)
     sys.unsubscribe("STATUS_ETH_UPDATED", on_eth_updated)
+    sys.unsubscribe("NET_ACTIVE_UPDATED", on_net_active)
     sys.unsubscribe("WEATHER_UPDATE", on_weather_update)
     if _G.UIFW_HOST_WIN == win_id then _G.UIFW_HOST_WIN = nil end
     win_id = nil

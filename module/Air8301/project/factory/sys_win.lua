@@ -1,8 +1,8 @@
 --[[
 @module  sys_win
 @summary 系统分区页（看门狗 / Flash / 系统信息 / 远程升级 / RELOAD）（8301出厂固件）
-@version 1.0
-@date    2026.10.08
+@version 1.4
+@date    2026.10.10
 @author  江访
 
 @usage
@@ -13,7 +13,7 @@
 
 分区划分（业务模式全部页面）：
   主页 —— 时间与天气仪表盘（idle_win）
-  通信 —— 蜂窝 / WiFi / RS485-1 / RS485-2 / 以太网 / Modbus（comm_win）
+  通信 —— 网络状态 / WiFi / RS485-1 / Modbus / 多网融合（comm_win）
   IO   —— DI / DO / 继电器 / 蜂鸣器 / 状态灯（io_win）
   系统 —— 本页：看门狗 / Flash / 系统信息 / 远程升级 / RELOAD
 
@@ -182,7 +182,7 @@ local function create_ui()
         { icon = "/luadb/hw_watchdog.png", text = "看门狗",   sub = "查询中...",   dot = theme.C.t3,    on_click = T.with_beep(on_watchdog_click) },
         { icon = "/luadb/hw_flash.png",    text = "Flash 存储", sub = "查询中...", dot = theme.C.t3,    on_click = T.with_beep(on_flash_click) },
         { icon = "/luadb/hw_sysinfo.png",  text = "系统信息", sub = "固件 | 内存",  dot = theme.SEM.info, on_click = T.with_beep(on_sysinfo_click) },
-        { icon = "/luadb/hw_network.png",  text = "远程升级", sub = "FOTA",       dot = theme.SEM.info, on_click = T.with_beep(on_fota_click) },
+        { icon = "/luadb/hw_fota.png",     text = "远程升级", sub = "FOTA",       dot = theme.SEM.info, on_click = T.with_beep(on_fota_click) },
         { icon = "/luadb/hw_reload.png",   text = "RELOAD",  sub = "恢复出厂",    dot = theme.SEM.info, on_click = T.with_beep(on_reload_click) },
     }
     local sect = theme.pal(NAV_KEY)       -- 系统分区配色（紫）
@@ -214,7 +214,7 @@ end
 @function on_create
 ]]
 local function on_create()
-    log.info("sys_win", "[UI-MARK] 系统分区页 v1.3 已加载（品牌标题 + 事务式分区导航）")
+    log.info("sys_win", "[UI-MARK] 系统分区页 v1.4 已加载（远程升级独立图标）")
     create_ui()
     sys.subscribe("WATCHDOG_STATUS", on_watchdog_status)
     sys.subscribe("FLASH_MOUNT_STATUS", on_flash_mount_status)

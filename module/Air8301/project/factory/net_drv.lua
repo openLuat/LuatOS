@@ -346,15 +346,19 @@ local function apply_priority_order(cfg)
     }
 
     -- 按 priority 顺序装配配置表（去重；缺项补到末尾，保证四张网卡都在列表中）
+    -- WiFi 凭证为空（未配置 / 已「忘记网络」）时不纳入本表：exnetif 仅当配置表含
+    -- WIFI 条目时才处理 WiFi（exnetif.set_priority_order 内 type(config.WIFI)=="table" 判断），
+    -- 跳过可避免其尝试连接空 SSID；用户重新配网（ssid 变化）后自动重新纳入。
+    local wifi_on = (cfg.wifi_ssid ~= nil and cfg.wifi_ssid ~= "")
     local order, used = {}, {}
     for _, key in ipairs(priority) do
-        if builders[key] and not used[key] then
+        if builders[key] and not used[key] and (key ~= "wifi" or wifi_on) then
             used[key] = true
             order[#order + 1] = builders[key]()
         end
     end
     for _, key in ipairs({ "wifi", "eth1", "eth2", "4g" }) do
-        if not used[key] then
+        if not used[key] and (key ~= "wifi" or wifi_on) then
             used[key] = true
             order[#order + 1] = builders[key]()
         end

@@ -1,8 +1,8 @@
 --[[
 @module  led_win
 @summary 状态灯控制页面，开关控制（8301出厂固件）
-@version 1.0
-@date    2026.10.08
+@version 1.1
+@date    2026.10.10
 @author  江访
 
 @usage
@@ -14,22 +14,16 @@
 开关指示器为「只读」绘制（轨道 + 滑块均不响应点击），点击统一由卡片承接，
 从而避免「父卡片与子开关同时响应导致状态翻转两次」的问题。
 
-=== v2.1 修复：点击无响应 ===
-现象：进入本页后点击卡片/开关没有任何反应。
-根因：点击回调首行用 exwin.is_active(win_id) 作准入条件，而 win_id 是模块级变量。
-      批量回收（exwin 菜单切换事务）或重复打开产生多实例时，旧实例的 on_destroy
-      会把共享的 win_id 置为 nil，于是屏幕上这个实例的 is_active(win_id) 恒为 false，
-      所有点击在入口处被静默丢弃（表现为「点不动」）。
-修复：
-  1) 改用本地存活性标志 ui_alive（on_create 置真 / on_destroy 置假）作准入条件，
-     不再依赖 exwin 的栈顶状态 —— 只要本页还在屏幕上，点击必然生效；
-  2) open_handler 增加单实例保护，避免同页多实例互相覆盖 win_id；
-  3) 点击被丢弃时打印窗口栈快照，便于现场定位。
+点击准入用本地存活性标志 ui_alive（on_create 置真 / on_destroy 置假），
+不依赖 exwin 栈顶状态 —— 只要本页还在屏上，点击必然生效。
+窗口打开/销毁样板由 theme.win 统一承担（单实例保护：已有非活动实例先回收）。
+
+@note 变更 26（体积优化）：窗口样板下沉至 ui_theme.win，界面与交互行为不变。
 ]]
 
 local theme = require "ui_theme"
 
-local win_id = nil
+local W                        -- 窗口控制器（文件末尾由 theme.win 建立）
 local main_container, content
 local led4g_track, led4g_knob, ledwifi_track, ledwifi_knob
 local led4g_state = 0
@@ -51,14 +45,14 @@ local SW_W, SW_H, SW_PAD = 44, 24, 3
 ]]
 local function on_back_click()
     if not ui_alive then return end
-    exwin.close(win_id)
+    exwin.close(W.id)
 end
 
 --[[
 绘制开关指示器（轨道 + 滑块）
 
-v2.2：轨道与滑块均绑定传入的点击回调（已去重），与父卡片共用同一回调，
-      保证点开关区域也能响应；一次物理点击只翻转一次。
+轨道与滑块均绑定传入的点击回调（已去重），与父卡片共用同一回调，
+保证点开关区域也能响应；一次物理点击只翻转一次。
 
 @local
 @function make_switch
@@ -115,7 +109,7 @@ end
 ]]
 local function on_led4g_click()
     if not ui_alive then
-        log.warn("led_win", "点击被丢弃 4G灯 ui_alive=", ui_alive, "win_id=", win_id)
+        log.warn("led_win", "点击被丢弃 4G灯 ui_alive=", ui_alive, "win_id=", W.id)
         return
     end
     led4g_state = led4g_state == 0 and 1 or 0
@@ -132,7 +126,7 @@ WiFi灯切换
 ]]
 local function on_ledwifi_click()
     if not ui_alive then
-        log.warn("led_win", "点击被丢弃 WiFi灯 ui_alive=", ui_alive, "win_id=", win_id)
+        log.warn("led_win", "点击被丢弃 WiFi灯 ui_alive=", ui_alive, "win_id=", W.id)
         return
     end
     ledwifi_state = ledwifi_state == 0 and 1 or 0
@@ -225,46 +219,13 @@ local function on_destroy()
     led4g_knob = nil
     ledwifi_track = nil
     ledwifi_knob = nil
-    win_id = nil
 end
 
---[[
-窗口获得焦点回调
-
-@local
-@function on_get_focus
-]]
-local function on_get_focus() end
-
---[[
-窗口失去焦点回调
-
-@local
-@function on_lose_focus
-]]
-local function on_lose_focus() end
-
---[[
-OPEN_LED_WIN 消息处理器
-
-单实例保护：已在栈顶的本页实例直接忽略重复请求；
-若存在残留的非活动实例则先回收，保证同一时刻只有一个本页实例。
-
-@local
-@function open_handler
-]]
-local function open_handler()
-    if win_id and exwin.is_active(win_id) then return end
-    if win_id then
-        exwin.close(win_id)
-        win_id = nil
-    end
-    win_id = exwin.open({
-        on_create = on_create,
-        on_destroy = on_destroy,
-        on_lose_focus = on_lose_focus,
-        on_get_focus = on_get_focus,
-    })
-end
-
-sys.subscribe("OPEN_LED_WIN", open_handler)
+--[[窗口控制器（公共样板 theme.win）
+单实例保护（replace = true：本页已有非活动实例时先回收再新建），销毁时自动清空窗口 id。]]
+W = theme.win({
+    open = "OPEN_LED_WIN",
+    replace = true,
+    on_create = on_create,
+    on_destroy = on_destroy,
+})

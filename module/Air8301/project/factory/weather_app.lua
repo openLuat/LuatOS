@@ -1,32 +1,84 @@
 --[[
 @module  weather_app
-@summary 天气与位置数据应用（Open-Meteo 免费接口，8301出厂固件）
-@version 1.0
-@date    2026.10.09
+@summary 天气数据应用（内置城市表 + fskv 持久化，与基站定位解耦，8301出厂固件）
+@version 2.0
+@date    2026.10.10
 @author  江访
 
 @usage
-本文件为业务模式「主页」首页（idle_win）的「时间 + 天气」界面提供数据源。
+本文件为业务模式「主页」首页（idle_win）的「天气」卡片提供数据源。
 产测模式不加载本模块（见 main.lua 的模式分流），故产测首页不受影响。
 
-数据链路：
-  定位经纬度 ← 订阅 airlbs_app 发布的 Airlbs_LOCATION_UPDATE(lat, lng)
-  城市名称   ← 订阅 airlbs_app 发布的 AIRLBS_ADDRESS_UPDATE(address)
-  天气实况   ← Open-Meteo 免费接口（无需注册 Key，按经纬度查询）
-  解析结果   → sys.publish("WEATHER_UPDATE", state) 通知 UI 刷新
+数据链路（v2.0 起与基站定位彻底解耦）：
+  城市 / 经纬度 ← 本模块内置城市表（CITIES）+ fskv 持久化（键 WEATHER_CITY），默认深圳
+  天气实况      ← Open-Meteo 免费接口（无需注册 Key，按经纬度查询）
+  解析结果      → sys.publish("WEATHER_UPDATE", state) 通知 UI 刷新
+
+  与 v1.0 的差异：v1.0 的经纬度来自 airlbs_app 基站定位（Airlbs_LOCATION_UPDATE）
+  并经地址反查得到城市名；v2.0 起改由本地配置提供，定位链路（airlbs_app）保持独立运行，
+  仅用于 aircloud_data 的经纬度上报，不再影响天气。
 
 刷新策略：
   1) 任务启动后等待默认网卡就绪（IP_READY）；
   2) 每轮先回推一次缓存（UI 打开页面时能立刻看到上次结果），再拉取最新；
-  3) 之后每 REQUEST_INTERVAL（15 分钟）拉取一次；
-  4) UI 每次打开页面会发布 WEATHER_QUERY，可随时唤醒任务立即刷新。
+  3) 之后每 REQUEST_INTERVAL（5 分钟）拉取一次；
+  4) UI 每次打开页面会发布 WEATHER_QUERY，可随时唤醒任务立即刷新；
+  5) 城市变更（WEATHER_CITY_SET）立即刷新。
 
 容错：
-  - 未定位 / 请求失败时保留上一次成功结果，不把界面打回 "--"；
+  - 请求失败时保留上一次成功结果，不把界面打回 "--"；
   - 请求过程整体 pcall 包裹，单次异常不会终止常驻任务。
 
-本文件没有对外接口，直接在 main.lua 中 require "weather_app" 即可加载运行。
+对外接口：
+  M.get_city()    → string 当前城市名（供 weather_set_win 展示）
+  M.get_cities()  → table  内置城市表（{{名称, 纬度, 经度}, ...}，供 weather_set_win 展示）
+
+消息接口：
+  WEATHER_QUERY        无参          立即刷新请求（UI 打开页面时发布）
+  WEATHER_CITY_SET     name string   设置城市（保存到 fskv 并立即刷新）
+  WEATHER_UPDATE       state table   天气数据更新通知（本模块发布，UI 订阅）
 ]]
+
+local M = {}
+
+-- ==================== 内置城市表（名称 + 经纬度） ====================
+-- 说明：与基站定位解耦后，天气按本表选定的城市查询，不再依赖网络定位服务。
+-- 经纬度为城市中心坐标（保留两位小数），供 Open-Meteo 接口按经纬度查询使用。
+local CITIES = {
+    { "深圳", 22.55, 114.06 },
+    { "广州", 23.13, 113.26 },
+    { "北京", 39.90, 116.41 },
+    { "上海", 31.23, 121.47 },
+    { "天津", 39.13, 117.20 },
+    { "重庆", 29.56, 106.55 },
+    { "成都", 30.57, 104.07 },
+    { "杭州", 30.27, 120.15 },
+    { "武汉", 30.59, 114.31 },
+    { "西安", 34.34, 108.94 },
+    { "南京", 32.06, 118.80 },
+    { "苏州", 31.30, 120.58 },
+    { "郑州", 34.75, 113.63 },
+    { "长沙", 28.23, 112.94 },
+    { "东莞", 23.02, 113.75 },
+    { "青岛", 36.07, 120.38 },
+    { "沈阳", 41.80, 123.43 },
+    { "宁波", 29.87, 121.55 },
+    { "昆明", 25.05, 102.71 },
+    { "合肥", 31.82, 117.23 },
+    { "佛山", 23.02, 113.12 },
+    { "无锡", 31.49, 120.31 },
+    { "厦门", 24.48, 118.09 },
+    { "福州", 26.07, 119.30 },
+    { "济南", 36.65, 117.12 },
+    { "大连", 38.91, 121.61 },
+    { "哈尔滨", 45.80, 126.53 },
+    { "长春", 43.82, 125.32 },
+    { "石家庄", 38.04, 114.51 },
+    { "南宁", 22.82, 108.37 },
+}
+
+-- 出厂默认城市（首次开机 / 配置非法时使用）
+local DEFAULT_CITY = "深圳"
 
 -- ==================== 天气代码映射（WMO Weather interpretation codes） ====================
 
@@ -67,13 +119,15 @@ local WIND_DIRS = { "北", "东北", "东", "东南", "南", "西南", "西", "�
 -- 蒲福风级上限（km/h）：风速小于该值即为对应等级（1 级 1~5、2 级 6~11 ……）
 local BEAUFORT_MAX = { 1, 6, 12, 20, 29, 39, 50, 62, 75, 89, 103, 118 }
 
--- ==================== 事件名与刷新周期 ====================
+-- ==================== 事件名、存储键与刷新周期 ====================
 
-local QUERY_EVENT  = "WEATHER_QUERY"     -- 立即刷新请求（UI 打开页面时发布）
-local UPDATE_EVENT = "WEATHER_UPDATE"    -- 天气数据更新通知（本模块发布，UI 订阅）
+local QUERY_EVENT  = "WEATHER_QUERY"      -- 立即刷新请求（UI 打开页面时发布）
+local CITY_EVENT   = "WEATHER_CITY_SET"   -- 城市设置（weather_set_win 发布）
+local UPDATE_EVENT = "WEATHER_UPDATE"     -- 天气数据更新通知（本模块发布，UI 订阅）
+local CITY_KEY     = "WEATHER_CITY"       -- fskv 存储键：当前城市名
 
-local REQUEST_INTERVAL = 15 * 60 * 1000  -- 常规刷新周期：15 分钟
-local REQUEST_TIMEOUT  = 15000           -- 单次 HTTP 请求超时：15 秒
+local REQUEST_INTERVAL = 5 * 60 * 1000    -- 常规刷新周期：5 分钟
+local REQUEST_TIMEOUT  = 15000            -- 单次 HTTP 请求超时：15 秒
 
 -- ==================== 数据缓存 ====================
 
@@ -87,9 +141,9 @@ local REQUEST_TIMEOUT  = 15000           -- 单次 HTTP 请求超时：15 秒
   wind_level  number  风力等级（0~12）
   wind_speed  number  风速（km/h）
   tmax/tmin   number  今日最高 / 最低温度（℃）
-  city        string  城市名（来自基站定位的反查地址）
+  city        string  城市名（来自本地配置）
   update_time string  最近一次成功更新时间（HH:MM）
-  lat/lng     string  当前定位经纬度
+  lat/lng     number  当前城市经纬度
 ]]
 local state = {
     ok = false,
@@ -141,119 +195,73 @@ local function wind_dir_of(deg)
     return WIND_DIRS[i]
 end
 
---[[按 UTF-8 字符边界安全截断字符串（中文一个字占 3 字节，按字节截断会把汉字切成乱码）
+-- ==================== 城市配置 ====================
+
+--[[按城市名查内置城市表
 
 @local
-@function utf8_truncate
-@param str string 原字符串
-@param max_chars number 最大字符数
-@return string 截断后的字符串
+@function find_city
+@param name string 城市名（如「深圳」）
+@return number|nil 纬度
+@return number|nil 经度
 ]]
-local function utf8_truncate(str, max_chars)
-    local count, pos, len = 0, 1, #str
-    while pos <= len and count < max_chars do
-        local b = str:byte(pos)
-        local step = 1
-        if b >= 0xF0 then step = 4
-        elseif b >= 0xE0 then step = 3
-        elseif b >= 0xC0 then step = 2 end
-        pos = pos + step
-        count = count + 1
+local function find_city(name)
+    if type(name) ~= "string" or name == "" then return nil, nil end
+    for i = 1, #CITIES do
+        if CITIES[i][1] == name then return CITIES[i][2], CITIES[i][3] end
     end
-    if pos > len + 1 then pos = len + 1 end
-    return str:sub(1, pos - 1)
+    return nil, nil
 end
 
---[[从定位反查地址中提取城市名（只保留城市名，不带省份）
-地址可能为字符串（如「广东省深圳市南山区」）或 table（含 city/address 字段）。
-处理规则：
-  1) table 优先取 city，其次 cityname / district / address；均无则认为无城市信息
-     （不再退回 province，避免显示「广东省」这类省份名）；
-  2) 先清理空白与 ASCII 标点（部分接口用空格分隔各级行政区，如「广东省 深圳市」）；
-  3) 特别行政区先单独处理（「香港特别行政区」→「香港」）；
-  4) 剥离「中国」国家前缀与「省 / 自治区」前缀，再截取到「市」为止（天然去掉区县后缀）；
-  5) 仍无「市」时按「字符」截断（UTF-8 安全），避免撑破标签。
+--[[应用城市：查表并写入 state；非法城市名回退默认城市
 
 @local
-@function extract_city
-@param addr string|table 反查地址
-@return string 城市名（提取失败返回空串）
+@function apply_city_name
+@param name string 城市名
+@return string 实际生效的城市名
 ]]
-local function extract_city(addr)
-    local s
-    if type(addr) == "table" then
-        -- 兼容不同接口的字段命名
-        s = addr.city or addr.cityname or addr.district or addr.address
-    else
-        s = addr
+local function apply_city_name(name)
+    local lat, lng = find_city(name)
+    if not lat then
+        name = DEFAULT_CITY
+        lat, lng = find_city(name)
     end
-    if type(s) ~= "string" or s == "" then return "" end
-
-    -- 统一清理：去掉空白与 ASCII 标点（避免「广东省 深圳市」「广东-深圳」这类分隔）
-    s = string.gsub(s, "[%s%p]+", "")
-    if s == "" then return "" end
-
-    -- 特别行政区：「香港特别行政区」→「香港」
-    local sar = string.match(s, "^(.-)特别行政区")
-    if sar and sar ~= "" then return sar end
-
-    -- 剥离国家前缀（少数接口会以「中国」开头）
-    s = string.match(s, "^中国(.+)$") or s
-
-    -- 剥离省份 / 自治区前缀：「广东省深圳市南山区」→「深圳市南山区」
-    local tail = string.match(s, "省(.+)$") or string.match(s, "自治区(.+)$")
-    if tail and tail ~= "" then s = tail end
-
-    -- 截取到「市」为止：天然去掉区县 / 街道后缀（「深圳市南山区」→「深圳市」）
-    local city = string.match(s, "^([^市]+市)")
-    if city and city ~= "市" then return city end
-
-    -- 无「市」时（如仅返回「深圳」）按字符截断，避免撑破标签（UTF-8 安全，不会切坏中文）
-    return utf8_truncate(s, 6)
-end
-
--- ==================== 定位与地址订阅 ====================
-
---[[定位更新回调：缓存经纬度；尚未取到天气时立即唤醒任务拉取
-
-@local
-@function on_location_update
-@param lat string 纬度
-@param lng string 经度
-]]
-local function on_location_update(lat, lng)
-    if lat == nil or lng == nil or lat == "" or lng == "" then return end
-    local changed = (state.lat ~= lat) or (state.lng ~= lng)
+    state.city = name
     state.lat, state.lng = lat, lng
-    if changed and not state.ok then
+    return name
+end
+
+--[[从 fskv 加载城市配置（无保存则使用默认城市）
+
+@local
+@function load_city
+]]
+local function load_city()
+    fskv.init()
+    local name = fskv.get(CITY_KEY)
+    local city = apply_city_name((type(name) == "string" and name ~= "") and name or DEFAULT_CITY)
+    log.info("weather_app", "城市配置:", city, state.lat, state.lng)
+end
+
+--[[城市设置回调（WEATHER_CITY_SET）：保存到 fskv 并立即刷新天气
+
+@local
+@function on_city_set
+@param name string 城市名
+]]
+local function on_city_set(name)
+    if type(name) ~= "string" or name == "" then return end
+    local old = state.city
+    local city = apply_city_name(name)
+    fskv.set(CITY_KEY, city)
+    log.info("weather_app", "城市已设置:", city, state.lat, state.lng)
+    if city ~= old then
         sys.publish(QUERY_EVENT)
     end
-end
-
---[[地址反查更新回调：缓存城市名并刷新 UI
-
-@local
-@function on_address_update
-@param addr string|table 反查地址
-]]
-local function on_address_update(addr)
-    -- 打印原始反查结果（类型 + 内容），便于现场核对地址格式与城市提取是否正常
-    if type(addr) == "table" then
-        log.info("weather_app", "地址反查(原始):", json.encode(addr))
-    else
-        log.info("weather_app", "地址反查(原始):", tostring(addr))
-    end
-
-    local city = extract_city(addr)
-    log.info("weather_app", "城市提取结果:", (city ~= "") and city or "(空)")
-
-    if city == "" or city == state.city then return end
-    state.city = city
     publish_state()
 end
 
-sys.subscribe("Airlbs_LOCATION_UPDATE", on_location_update)
-sys.subscribe("AIRLBS_ADDRESS_UPDATE", on_address_update)
+sys.subscribe(CITY_EVENT, on_city_set)
 
 -- ==================== 天气请求 ====================
 
@@ -265,12 +273,12 @@ sys.subscribe("AIRLBS_ADDRESS_UPDATE", on_address_update)
 ]]
 local function request_weather()
     if state.lat == nil or state.lng == nil then
-        log.info("weather_app", "尚未定位，跳过天气请求")
+        log.info("weather_app", "未选择城市，跳过天气请求")
         return false
     end
 
-    local url = "https://api.open-meteo.com/v1/forecast?latitude=" .. state.lat ..
-        "&longitude=" .. state.lng ..
+    local url = "https://api.open-meteo.com/v1/forecast?latitude=" .. string.format("%.2f", state.lat) ..
+        "&longitude=" .. string.format("%.2f", state.lng) ..
         "&current=temperature_2m,relative_humidity_2m,apparent_temperature," ..
         "weather_code,wind_speed_10m,wind_direction_10m" ..
         "&daily=temperature_2m_max,temperature_2m_min" ..
@@ -320,7 +328,7 @@ local function request_weather()
 
     state.ok = true
     state.update_time = os.date("%H:%M")
-    log.info("weather_app", "天气更新:", state.text, state.temp, "℃ 湿度", state.humidity, "%")
+    log.info("weather_app", "天气更新:", state.city, state.text, state.temp, "℃ 湿度", state.humidity, "%")
     publish_state()
     return true
 end
@@ -338,17 +346,16 @@ local function weather_task()
         sys.waitUntil("IP_READY", 5000)
     end
 
+    -- 加载本地城市配置（内置城市表 + fskv，无需等待网络定位）
+    load_city()
+
     while true do
-        -- 每轮无条件回推一次缓存：即使天气尚未成功（ok=false），也要把已缓存的城市名推给 UI，
+        -- 每轮无条件回推一次缓存：即使天气尚未成功（ok=false），也要把已配置的城市名推给 UI，
         -- 否则主页打开时若天气未就绪，城市会恒显示 "--"
         publish_state()
 
         -- pcall 包裹：单次请求异常（DNS / TLS / 解析）不影响常驻任务
-        if state.lat and state.lng then
-            pcall(request_weather)
-        else
-            log.info("weather_app", "等待定位结果…")
-        end
+        pcall(request_weather)
 
         -- 常规周期等待；期间收到 WEATHER_QUERY 则立即唤醒刷新
         sys.waitUntil(QUERY_EVENT, REQUEST_INTERVAL)
@@ -356,3 +363,23 @@ local function weather_task()
 end
 
 sys.taskInit(weather_task)
+
+-- ==================== 对外接口 ====================
+
+--[[取当前城市名
+
+@return string 当前城市名
+]]
+function M.get_city()
+    return state.city
+end
+
+--[[取内置城市表（只读，供城市设置页展示）
+
+@return table {{名称, 纬度, 经度}, ...}
+]]
+function M.get_cities()
+    return CITIES
+end
+
+return M

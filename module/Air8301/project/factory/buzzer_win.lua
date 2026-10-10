@@ -13,7 +13,7 @@
 
 local theme = require "ui_theme"
 
-local win_id = nil
+local W                        -- 窗口控制器（文件末尾由 theme.win 建立）
 local main_container, content
 
 -- 面板几何（内容区 464×210）
@@ -27,8 +27,8 @@ local BTN_H  = 34
 @function on_back_click
 ]]
 local function on_back_click()
-    if not exwin.is_active(win_id) then return end
-    exwin.close(win_id)
+    if not W:is_active() then return end
+    exwin.close(W.id)
 end
 
 --[[
@@ -38,7 +38,7 @@ end
 @function on_test_click
 ]]
 local function on_test_click()
-    if not exwin.is_active(win_id) then return end
+    if not W:is_active() then return end
     sys.publish("BUZZER_BEEP_REQUEST")
 end
 
@@ -49,7 +49,7 @@ end
 @function on_music_click
 ]]
 local function on_music_click()
-    if not exwin.is_active(win_id) then return end
+    if not W:is_active() then return end
     sys.publish("BUZZER_MUSIC_REQUEST")
 end
 
@@ -118,44 +118,13 @@ local function on_destroy()
         main_container = nil
     end
     content = nil
-    win_id = nil
 end
 
---[[
-窗口获得焦点回调
-
-@local
-@function on_get_focus
-]]
-local function on_get_focus() end
-
---[[
-窗口失去焦点回调
-
-@local
-@function on_lose_focus
-]]
-local function on_lose_focus() end
-
---[[
-OPEN_BUZZER_WIN 消息处理器
-
-@local
-@function open_handler
-]]
-local function open_handler()
-    -- 单实例保护：避免同页多实例并存时互相覆盖 win_id（会使点击准入判定失效）
-    if win_id and exwin.is_active(win_id) then return end
-    if win_id then
-        exwin.close(win_id)
-        win_id = nil
-    end
-    win_id = exwin.open({
-        on_create = on_create,
-        on_destroy = on_destroy,
-        on_lose_focus = on_lose_focus,
-        on_get_focus = on_get_focus,
-    })
-end
-
-sys.subscribe("OPEN_BUZZER_WIN", open_handler)
+--[[窗口控制器（公共样板 theme.win）
+单实例保护（replace = true：本页已有非活动实例时先回收再新建），销毁时自动清空窗口 id。]]
+W = theme.win({
+    open = "OPEN_BUZZER_WIN",
+    replace = true,
+    on_create = on_create,
+    on_destroy = on_destroy,
+})

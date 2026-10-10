@@ -14,7 +14,7 @@
 
 local theme = require "ui_theme"
 
-local win_id = nil
+local W                        -- 窗口控制器（文件末尾由 theme.win 建立）
 local main_container, content
 local relay_label, cpu_label, vbat_label, signal_label, temp_label, time_label
 
@@ -33,8 +33,8 @@ local CARD_GAP = 6
 @function on_back_click
 ]]
 local function on_back_click()
-    if not exwin.is_active(win_id) then return end
-    exwin.close(win_id)
+    if not W:is_active() then return end
+    exwin.close(W.id)
 end
 
 --[[
@@ -44,7 +44,7 @@ end
 @function refresh_regs
 ]]
 local function refresh_regs()
-    if not exwin.is_active(win_id) then return end
+    if not W:is_active() then return end
 
     -- 继电器状态（从 relay_ctrl 缓存读取）
     local relay_ctrl = require "relay_ctrl"
@@ -83,7 +83,7 @@ end
 @param humi number 湿度
 ]]
 local function on_temp_humidity_update(temp, humi)
-    if not exwin.is_active(win_id) then return end
+    if not W:is_active() then return end
     if temp_label then
         temp_label:set_text(string.format("%.1f ℃ / %.1f %%RH", temp or 0, humi or 0))
     end
@@ -97,7 +97,7 @@ end
 @param state table 继电器状态数组
 ]]
 local function on_relay_status_update(state)
-    if not exwin.is_active(win_id) then return end
+    if not W:is_active() then return end
     if relay_label and type(state) == "table" then
         relay_label:set_text(table.concat(state, ", "))
     end
@@ -194,7 +194,6 @@ local function on_destroy()
     time_label = nil
     sys.unsubscribe("TEMP_HUMIDITY_UPDATE", on_temp_humidity_update)
     sys.unsubscribe("RELAY_STATUS_UPDATE", on_relay_status_update)
-    win_id = nil
 end
 
 --[[
@@ -207,33 +206,12 @@ local function on_get_focus()
     refresh_regs()
 end
 
---[[
-窗口失去焦点回调
-
-@local
-@function on_lose_focus
-]]
-local function on_lose_focus() end
-
---[[
-OPEN_MODBUS_WIN 消息处理器
-
-@local
-@function open_handler
-]]
-local function open_handler()
-    -- 单实例保护：避免同页多实例并存时互相覆盖 win_id（会使点击准入判定失效）
-    if win_id and exwin.is_active(win_id) then return end
-    if win_id then
-        exwin.close(win_id)
-        win_id = nil
-    end
-    win_id = exwin.open({
-        on_create = on_create,
-        on_destroy = on_destroy,
-        on_lose_focus = on_lose_focus,
-        on_get_focus = on_get_focus,
-    })
-end
-
-sys.subscribe("OPEN_MODBUS_WIN", open_handler)
+--[[窗口控制器（公共样板 theme.win）
+单实例保护（replace = true：本页已有非活动实例时先回收再新建），销毁时自动清空窗口 id。]]
+W = theme.win({
+    open = "OPEN_MODBUS_WIN",
+    replace = true,
+    on_create = on_create,
+    on_destroy = on_destroy,
+    on_get_focus = on_get_focus,
+})

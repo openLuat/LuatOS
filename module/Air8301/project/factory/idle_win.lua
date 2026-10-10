@@ -31,8 +31,9 @@
   1) 本页只承载 Air8301 实际支持的功能，不引入 8601 等大屏机型才有的应用；
   2) 原四张状态卡（蜂窝网络 / RS485-1 / 继电器 / DO 输出）按需求移除，
      其入口分别由「通信」分区页与「IO」分区页承接，功能无损；
-  3) 天气数据源为 Open-Meteo（免费、无需 Key），未定位或断网时天气区显示 "--"，
-     取到数据后自动刷新；城市名依赖基站定位反查，定位失败时显示 "--"；
+  3) 天气数据源为 Open-Meteo（免费、无需 Key），断网时天气区显示 "--"，取到数据后自动刷新；
+     城市按本地配置（weather_app 内置城市表，默认深圳）查询，点击天气卡城市名即进入
+     「城市设置」页切换城市（立即保存并刷新，无需等待基站定位）；
   4) 底部「联网方式」与「通信 → 多网融合」页保持一致：优先显示 exnetif 多网融合调度的
      当前生效链路（订阅 NET_ACTIVE_UPDATED）；仅在未取到该值时，才退回「按网卡链路判定」
      （网口1 → 网口2 → WiFi → 4G）的原有逻辑。
@@ -53,9 +54,8 @@ local lbl_city, lbl_temp, lbl_wtext, lbl_wdetail, lbl_wrange
 -- 底部设备状态条标签句柄
 local lbl_net, lbl_sig, lbl_ip
 
--- 当前分区标识（与 ui_theme.NAV 的 key 对应）与切换防抖标志
+-- 当前分区标识（与 ui_theme.NAV 的 key 对应）
 local NAV_KEY = "overview"
-local nav_busy = false
 
 -- 日期文本缓存：仅在日期变化时重绘，避免每秒刷新日期标签
 local last_date = ""
@@ -276,41 +276,29 @@ local function on_weather_update(st)
     end
 end
 
--- ==================== Dock 分区导航 ====================
-
---[[切换防抖复位：一次切换事务开始时置忙，短暂延时后自动解除
+--[[天气卡城市名点击：打开「城市设置」页切换城市
 
 @local
-@function reset_nav_busy
+@function on_city_click
 ]]
-local function reset_nav_busy()
-    nav_busy = false
+local function on_city_click()
+    if not exwin.is_active(win_id) then return end
+    sys.publish("OPEN_WEATHER_SET_WIN")
 end
 
---[[Dock 分区点击回调（exwin v2.1 事务式切换，杜绝白屏）
+-- ==================== Dock 分区导航 ====================
 
-切换流程（与旧实现的关键差异）：
-  旧：先 close 自己 → 延迟 30ms → 再开目标页。中间窗口栈为空，必然白屏一闪；
-      且连点会创建多个页面，导致栈顶错乱、is_active 判定失败（表现为「点不动」）。
-  新：不关自己，而是向 exwin 声明「一级菜单切换事务」（宿主 = 本常驻首页），
-      再由消息打开目标页；exwin 会在新页创建完成后自动回收宿主的旧子页。
-      全程始终有窗口在屏 → 无白屏；页面数恒定 → 不堆积 → 交互不再失效。
+--[[Dock 分区点击回调（公共样板 theme.make_nav）
+等价于原实现：同一 busy 防抖（400ms）+ 向 exwin 声明「一级菜单切换事务」（宿主 = 本常驻首页），
+再由消息打开目标页；exwin 会在新页创建完成后自动回收宿主的旧子页 —— 全程始终有窗口在屏（无白屏）、
+页面数恒定（不堆积），交互不会失效。
 
 @local
 @function on_nav
 @param key string 目标分区标识
 @param msg string 目标分区页的打开消息
 ]]
-local function on_nav(key, msg)
-    if key == NAV_KEY or nav_busy then return end
-    nav_busy = true
-    local host = _G.UIFW_HOST_WIN or win_id
-    if host and exwin.begin_menu_switch then
-        exwin.begin_menu_switch(host)
-    end
-    sys.publish(msg)
-    sys.timerStart(reset_nav_busy, 400)
-end
+local on_nav = theme.make_nav(NAV_KEY, function() return win_id end)
 
 -- ==================== UI 构建 ====================
 
@@ -364,8 +352,9 @@ local function create_ui()
     theme.section(card_w, { x = 10, y = 8, w = 50, text = "天气", color = theme.C.brand_deep })
     lbl_city = theme.label(card_w, {
         x = 62, y = 8, w = WEATHER_W - 72, h = 19,
-        text = "--", px_size = 16, color = theme.C.t3,
+        text = "--", px_size = 16, color = theme.C.brand,
         align = airui.TEXT_ALIGN_RIGHT,
+        on_click = on_city_click,
     })
 
     lbl_temp = theme.label(card_w, {

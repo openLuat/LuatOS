@@ -70,7 +70,6 @@ VERSION = "001.999.000"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
-
 -- ==================== 产测标记存储初始化（test_done 存于 fskv） ====================
 fskv.init()
 
@@ -177,7 +176,7 @@ else
     require "aircloud_data"
 
     -- 「总览」首页「时间 + 天气」数据源（Open-Meteo 免费接口，无需申请 Key）
-    -- 依赖 airlbs_app 发布的定位 / 城市消息，故在其之后加载；产测模式不加载本模块
+    -- 城市来自内置城市表 + fskv 持久化（默认深圳）；产测模式不加载本模块
     require "weather_app"
 
     -- FOTA 远程升级

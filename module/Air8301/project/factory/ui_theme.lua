@@ -1246,4 +1246,125 @@ M.register({
     },
 })
 
+-- ==================== 七、分区页 / 详情页公共样板（v2.5 体积优化） ====================
+--[[
+把 4 个分区页与约 20 个详情页里逐字重复的样板收敛到本区。
+对外行为、消息名、参数、防抖时长、几何算法、配色取值与改动前完全一致（纯等价搬移）。
+]]
+
+--[[状态条时钟刷新工厂（分区页共用）
+等价于各分区页原 refresh_clock：仅在本页可见时刷新状态条时间。
+@param function get_wid 返回当前窗口 id
+@param function get_st  返回 shell 的 status 句柄
+@return function 可直接交给 sys.timerLoopStart
+]]
+function M.make_clock(get_wid, get_st)
+    return function()
+        local wid = get_wid and get_wid()
+        if not wid or not exwin.is_active(wid) then return end
+        local st = get_st and get_st()
+        if st and st.time then st.time:set_text(os.date("%H:%M")) end
+    end
+end
+
+--[[Dock 分区导航回调工厂（分区页共用）
+等价于各分区页原 on_nav：同一 nav_busy 防抖（400ms）+ exwin 一级菜单切换事务。
+@param string nav_key 本页所属分区标识
+@param function get_wid 返回当前窗口 id
+@return function on_nav(key, msg)
+]]
+function M.make_nav(nav_key, get_wid)
+    local busy = false
+    local function reset_busy() busy = false end
+    return function(key, msg)
+        if key == nav_key or busy then return end
+        busy = true
+        local host = _G.UIFW_HOST_WIN or (get_wid and get_wid())
+        if host and exwin.begin_menu_switch then
+            exwin.begin_menu_switch(host)
+        end
+        sys.publish(msg)
+        sys.timerStart(reset_busy, 400)
+    end
+end
+
+--[[磁贴状态刷新（分区页共用）：摘要文字 + 指示灯颜色
+@param table handle M.tile_grid 返回的 { nil, sub_label, dot }
+@param string sub   新摘要文字
+@param number color 指示灯颜色
+]]
+function M.tile_state(handle, sub, color)
+    if not handle then return end
+    if handle[2] then handle[2]:set_text(sub) end
+    if handle[3] then handle[3]:set_color(color, 255) end
+end
+
+--[[磁贴网格铺设（分区页共用）
+等价于各分区页 create_ui 里的「3 列 × 2 行 逐格摆放」循环。
+@param table ctx   M.shell 返回的上下文
+@param table cells { { icon, text, sub, dot, on_click }, ... }
+@table  opts       { nav_key = 分区标识, cols = 3, rows = 2, gap = 6 }
+@return table handles 与 cells 等长的 { { nil, sub_label, dot }, ... }
+]]
+function M.tile_grid(ctx, cells, opts)
+    opts = opts or {}
+    local cols, rows, gap = opts.cols or 3, opts.rows or 2, opts.gap or 6
+    local cw = math.floor((ctx.w - gap * (cols - 1)) / cols)
+    local ch = math.floor((ctx.h - gap * (rows - 1)) / rows)
+    local sect = M.pal(opts.nav_key or "")
+    local handles = {}
+    for i, c in ipairs(cells) do
+        local x = ctx.x + ((i - 1) % cols) * (cw + gap)
+        local y = ctx.y + math.floor((i - 1) / cols) * (ch + gap)
+        local _, _, sub_label, dot = M.tile(ctx.base, {
+            x = x, y = y, w = cw, h = ch,
+            icon = c.icon, text = c.text, sub = c.sub, dot = c.dot,
+            accent_soft = sect.soft, accent_line = sect.line,
+            on_click = c.on_click,
+        })
+        handles[i] = { nil, sub_label, dot }
+    end
+    return handles
+end
+
+--[[二级功能页窗口工厂（详情页共用）
+等价于各详情页的「单实例保护 + exwin.open + 销毁收尾」样板。
+
+用法：
+    local W = theme.win({
+        open = "OPEN_XXX_WIN",
+        on_create = on_create, on_destroy = on_destroy,
+        on_get_focus = on_get_focus, on_lose_focus = on_lose_focus,
+    })
+回调签名统一为 function(W)；页内以 W.id 取窗口 id、W:is_active() 判本页是否可见。
+@return table W { id, is_active }
+]]
+function M.win(cfg)
+    local W = { id = nil }
+    function W:is_active()
+        return self.id ~= nil and exwin.is_active(self.id)
+    end
+    local uc, ud, ug, ul = cfg.on_create, cfg.on_destroy, cfg.on_get_focus, cfg.on_lose_focus
+    local function on_create() if uc then uc(W) end end
+    local function on_destroy()
+        if ud then ud(W) end
+        W.id = nil
+    end
+    local function on_get_focus() if ug then ug(W) end end
+    local function on_lose_focus() if ul then ul(W) end end
+    local function handler()
+        if W.id and exwin.is_active(W.id) then return end
+        if W.id and cfg.replace then
+            exwin.close(W.id)
+            W.id = nil
+        end
+        W.id = exwin.open({
+            on_create = on_create, on_destroy = on_destroy,
+            on_get_focus = on_get_focus, on_lose_focus = on_lose_focus,
+        })
+    end
+    sys.subscribe(cfg.open, handler)
+    return W
+end
+
 return M

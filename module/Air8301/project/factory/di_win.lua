@@ -15,7 +15,7 @@
 
 local theme = require "ui_theme"
 
-local win_id = nil
+local W                        -- 窗口控制器（文件末尾由 theme.win 建立）
 local main_container, content
 local di1_dot, di1_label, di2_dot, di2_label
 local history_text_list = {}
@@ -37,8 +37,8 @@ local DOT_D     = 26
 @function on_back_click
 ]]
 local function on_back_click()
-    if not exwin.is_active(win_id) then return end
-    exwin.close(win_id)
+    if not W:is_active() then return end
+    exwin.close(W.id)
 end
 
 --[[
@@ -92,7 +92,7 @@ DI状态变更消息回调
 @param di2 boolean DI2状态（true=ON, false=OFF）
 ]]
 local function on_di_status_changed(di1, di2)
-    if not exwin.is_active(win_id) then return end
+    if not W:is_active() then return end
 
     update_di(di1_dot, di1_label, di1)
     update_di(di2_dot, di2_label, di2)
@@ -202,48 +202,14 @@ local function on_destroy()
     history_label = nil
     history_text_list = {}
     sys.unsubscribe("DI_STATUS_CHANGED", on_di_status_changed)
-    win_id = nil
 end
 
---[[
-窗口获得焦点回调
-
-@local
-@function on_get_focus
-]]
-local function on_get_focus()
-    -- 不需要特殊处理
-end
-
---[[
-窗口失去焦点回调
-
-@local
-@function on_lose_focus
-]]
-local function on_lose_focus()
-    -- 不需要特殊处理
-end
-
---[[
-OPEN_DI_WIN 消息处理器
-
-@local
-@function open_handler
-]]
-local function open_handler()
-    -- 单实例保护：避免同页多实例并存时互相覆盖 win_id（会使点击准入判定失效）
-    if win_id and exwin.is_active(win_id) then return end
-    if win_id then
-        exwin.close(win_id)
-        win_id = nil
-    end
-    win_id = exwin.open({
-        on_create = on_create,
-        on_destroy = on_destroy,
-        on_lose_focus = on_lose_focus,
-        on_get_focus = on_get_focus,
-    })
-end
-
-sys.subscribe("OPEN_DI_WIN", open_handler)
+--[[窗口控制器（公共样板 theme.win）
+单实例保护（replace = true：本页已有非活动实例时先关闭再新建），销毁时自动清空窗口 id，
+与原 open_handler 行为完全一致；原空的 on_get_focus / on_lose_focus 无需再传。]]
+W = theme.win({
+    open = "OPEN_DI_WIN",
+    replace = true,
+    on_create = on_create,
+    on_destroy = on_destroy,
+})

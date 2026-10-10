@@ -39,6 +39,7 @@ local tp_drv  = require "tp_gt911"
 -- ==================== 加载所有 UI 页面模块（注册窗口，不立即显示） ====================
 require "boot_win"       -- 开机画面（LOGO 启动页，最先显示）
 require "idle_win"       -- 主页（时间与天气仪表盘）
+require "weather_set_win" -- 城市设置（主页天气卡城市名点击进入）
 require "comm_win"       -- 通信分区页（蜂窝/WiFi/RS485/以太网/Modbus）
 require "io_win"         -- IO 分区页（DI/DO/继电器/蜂鸣器/状态灯）
 require "sys_win"        -- 系统分区页（看门狗/Flash/系统信息/远程升级/RELOAD）

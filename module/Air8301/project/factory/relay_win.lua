@@ -47,7 +47,7 @@
 
 local theme = require "ui_theme"
 
-local win_id = nil
+local W                        -- 窗口控制器（文件末尾由 theme.win 建立）
 local main_container, content
 local ch_state_labels = {}      -- 每路状态文字 label
 local ch_switches = {}          -- 每路开关句柄（ui_theme.switch，只读指示器）
@@ -86,7 +86,7 @@ local SW_H     = 24
 ]]
 local function on_back_click()
     if not ui_alive then return end
-    exwin.close(win_id)
+    exwin.close(W.id)
 end
 
 --[[开启某通道的本地保护窗口
@@ -154,7 +154,7 @@ end
 ]]
 local function on_ch_click(ch)
     if not ui_alive then
-        log.warn("relay_win", "点击被丢弃 通道" .. ch .. " ui_alive=", ui_alive, "win_id=", win_id)
+        log.warn("relay_win", "点击被丢弃 通道" .. ch .. " ui_alive=", ui_alive, "win_id=", W.id)
         return
     end
     local idx = ch + 1
@@ -296,7 +296,6 @@ local function on_destroy()
     ch_state_labels = {}
     ch_switches = {}
     sys.unsubscribe("RELAY_STATUS_UPDATE", on_relay_status_update)
-    win_id = nil
 end
 
 --[[
@@ -310,35 +309,12 @@ local function on_get_focus()
     sys.publish("RELAY_SET_REQ", nil, "read")
 end
 
---[[
-窗口失去焦点回调
-
-@local
-@function on_lose_focus
-]]
-local function on_lose_focus() end
-
---[[
-OPEN_RELAY_WIN 消息处理器
-
-单实例保护：已在栈顶的本页实例直接忽略重复请求；
-若存在残留的非活动实例则先回收，保证同一时刻只有一个本页实例。
-
-@local
-@function open_handler
-]]
-local function open_handler()
-    if win_id and exwin.is_active(win_id) then return end
-    if win_id then
-        exwin.close(win_id)
-        win_id = nil
-    end
-    win_id = exwin.open({
-        on_create = on_create,
-        on_destroy = on_destroy,
-        on_lose_focus = on_lose_focus,
-        on_get_focus = on_get_focus,
-    })
-end
-
-sys.subscribe("OPEN_RELAY_WIN", open_handler)
+--[[窗口控制器（公共样板 theme.win）
+单实例保护（replace = true：本页已有非活动实例时先回收再新建），销毁时自动清空窗口 id。]]
+W = theme.win({
+    open = "OPEN_RELAY_WIN",
+    replace = true,
+    on_create = on_create,
+    on_destroy = on_destroy,
+    on_get_focus = on_get_focus,
+})

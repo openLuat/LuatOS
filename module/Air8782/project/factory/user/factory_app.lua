@@ -36,7 +36,7 @@
 - create.aircloudTask 收到tag19命令 → handle_control_command() → CONTROL_RESPONSE
 
 硬件配置（可按实际板子修改）：
-- LED控制引脚：LED_PIN=27（高电平点亮）
+- LED控制引脚：默认 GPIO27（高电平点亮）；8782P 因 GPIO27 被软I2C占用，自动改用 GPIO28
 - 网络状态灯由 iRTU netled 承载（预置配置中已移到 GPIO17，避免与LED冲突）
 ]]
 
@@ -49,7 +49,8 @@ local sensor_task = require "sensor_task"
 local factory_config = require "factory_config"
 
 -- ==================== 硬件与参数配置 ====================
-local LED_PIN = 27               -- 用户状态LED引脚（高电平点亮，可按板子修改）
+-- LED控制引脚：8782 用 GPIO28（高电平点亮），其他版本用 GPIO27
+local LED_PIN = (factory_config.get_ver() == "8782") and 28 or 27
 local DEFAULT_CYCLE = 180        -- 默认上报频率（秒）
 local MIN_CYCLE = 5              -- 最小上报频率（秒）
 local REPORT_CYCLE_KEY = "report_cycle"  -- fskv存储key（断电不丢失）
@@ -132,13 +133,35 @@ local function get_cpu_temp()
 end
 
 -- 获取LBS基站经纬度（免费单基站定位，失败返回nil）
+-- 参考官方 demo（Air780EPM/demo/lbsloc2/lbsloc2_app.lua）：
+--   1. 先等网络就绪（IP_READY）再扫描，否则 reqCellInfo 不产生 CELL_INFO_UPDATE
+--   2. lbsLoc2.request 内部优先用 mobile.scell()（当前驻网基站，无需扫描）
+--      只有 scell 无数据时才用 getCellInfo() 扫描结果
 local function get_lbs()
-    mobile.reqCellInfo(15)
-    local result = sys.waitUntil("CELL_INFO_UPDATE", 3000)
-    if not result then
-        log.warn("factory_app", "基站信息扫描超时")
-        return nil, nil
+    -- 1. 等待网络就绪（基站扫描与LBS定位均依赖网络，最多等30秒避免卡死）
+    local wait_net = 0
+    while not socket.adapter(socket.dft()) do
+        if wait_net >= 30000 then
+            log.warn("factory_app", "等待网络就绪超时，跳过LBS定位")
+            return nil, nil
+        end
+        sys.waitUntil("IP_READY", 1000)
+        wait_net = wait_net + 1000
     end
+    -- 2. 优先用当前驻网基站（mobile.scell，无需扫描）；无数据才发起基站扫描
+    local scell = mobile.scell and mobile.scell()
+    if not (scell and scell.mcc) then
+        local cellinfo = mobile.getCellInfo()
+        if not cellinfo or #cellinfo == 0 then
+            mobile.reqCellInfo(15)
+            local result = sys.waitUntil("CELL_INFO_UPDATE", 5000)  -- 3秒太短，提到5秒
+            if not result then
+                log.warn("factory_app", "基站信息扫描超时")
+                return nil, nil
+            end
+        end
+    end
+    -- 3. 请求定位
     local lat, lng, t = lbsLoc2.request(5000)
     lat, lng = tonumber(lat), tonumber(lng)
     if lat and lng then
@@ -330,7 +353,7 @@ local function start_default_gps()
         gnss.setup({
             gnssmode = 1,        -- 卫星全定位
             agps_enable = true,  -- AGPS加速定位
-            debug = false,
+            debug = true,        -- 打开GNSS调试输出（串口打印NMEA调试信息）
             uart_id = 2,         -- 8780G(Air780EGP) 内置GNSS默认UART2
             uartbaud = 115200,
         })
@@ -469,6 +492,27 @@ end
 -- ==================== 下行控制命令处理 ====================
 
 --[[
+hex 字符串 → UTF-8 字符串（用于 ttshex 命令，安全处理标点/空白）
+
+@string hex 形如 "e4bda0e5a5bd"
+@return string|nil UTF-8 文本，hex 非法返回 nil
+@usage
+local text = hex_to_str("e4bda0e5a5bd")  -- "你好"
+]]
+local function hex_to_str(hex)
+    if not hex or #hex == 0 or #hex % 2 ~= 0 then
+        return nil
+    end
+    local t = {}
+    for i = 1, #hex, 2 do
+        local byte = tonumber(hex:sub(i, i + 1), 16)
+        if not byte then return nil end
+        t[#t + 1] = string.char(byte)
+    end
+    return table.concat(t)
+end
+
+--[[
 处理 AirCloud 下行控制命令（tag 19 CONTROL_COMMAND）
 
 支持命令：
@@ -476,7 +520,8 @@ end
 - "led:blink"    → LED闪烁5秒
 - "led:on"       → LED常亮
 - "led:off"      → LED熄灭
-- "tts:文本"     → TTS播报（仅8780V）
+- "tts:文本"     → TTS播报（仅8780V，明文）
+- "ttshex:hex"   → TTS播报（仅8780V，hex→UTF-8中文）
 
 @string cmd 控制命令字符串
 @return string 响应文本（发送给 CONTROL_RESPONSE tag 20）
@@ -514,12 +559,28 @@ function factory_app.handle_control_command(cmd)
         end
         return resp_msg
     end
-    -- 3. TTS 播报
+    -- 3. TTS 播报（明文）
     local tts_text = cmd:match("^tts:(.+)$")
     if tts_text then
         local ok, err = factory_app.tts(tts_text)
         if not ok then
             resp_msg = "TTS执行失败: " .. tostring(err or "")
+        end
+        return resp_msg
+    end
+    -- 3.1 TTS 播报（hex 编码，下发如 ttshex:e4bda0... 解析为 UTF-8 中文）
+    local tts_hex = cmd:match("^ttshex:(%x+)$")
+    if tts_hex then
+        local text = hex_to_str(tts_hex)  -- hex → UTF-8 字符串
+        if text and #text > 0 then
+            local ok, err = factory_app.tts(text)
+            if not ok then
+                resp_msg = "TTS执行失败: " .. tostring(err or "")
+            end
+            log.info("factory_app", "ttshex 解析:", text)
+        else
+            resp_msg = "ttshex 解析失败: 无效的hex数据"
+            log.warn("factory_app", resp_msg)
         end
         return resp_msg
     end

@@ -19,9 +19,6 @@
 
 local exnetif = require "exnetif"
 
---Air8601 4G_RST  拉低
-gpio.setup(64, 0, gpio.PULL_DOWN)
-
 local function ip_ready_func(ip, adapter)
     if adapter == socket.LWIP_GP_GW then
         -- Air1601 通过 airlink(UART) 外挂 Air780ER2 实现 4G 联网，属于“桥接”架构：

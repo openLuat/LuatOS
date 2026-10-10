@@ -25,6 +25,8 @@ VERSION = "001.999.001"
 -- 打印项目名和版本号
 log.info("main", PROJECT, VERSION)
 
+--Air8601 4G_RST  拉低
+gpio.setup(64, 0, gpio.PULLDOWN)
 
 -- 硬件初始化模块（GPIO上电、LCD、触摸、背光）
 local hardware = require "hardware"

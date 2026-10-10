@@ -1,0 +1,1 @@
+{"timeout": 180, "action_count": 1, "priority": 5, "description": "G.729A逐阶段周期性能剖析(编码/解码各阶段ticks与调用次数分解, 兼作剖析器关闭时的bit-exact回归)", "platform": ["pc", "air8000"]}

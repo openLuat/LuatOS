@@ -16,7 +16,7 @@ local PCM_LEN = 20480
 local REF_LEN = 1280
 local G729_PCM_FRAME = 160   -- 80采样点 * 2字节, 一帧PCM
 local FRAMES = PCM_LEN / G729_PCM_FRAME  -- 128帧
-local MIN_SLOTS = 15         -- 剖析器阶段数(enc.* 12个 + dec.* 3个), 少于此说明端口没接上
+local MIN_SLOTS = 24         -- 剖析器阶段数(enc.* 21个 + dec.* 3个), 少于此说明端口没接上
 
 local function read_file(path)
     local f = io.open(path, "rb")
@@ -117,18 +117,33 @@ function g729_profile_test.test_profile_breakdown()
     local _, have_data = dump_profile("ENCODE", st)
     if have_data then
         -- enc.sf.filter 由两段组成(subframe前半: h1+xn, 后半: y1+gain_pit+xn2), 所以是 2 * 帧数 * 2子帧
+        -- enc.sf.pitch 现在只包 g729_Enc_lag3(每子帧1次); g729_Pitch_fr3_fast 由
+        -- enc.pitch.corhx/int/frac 三个子槽记账(每个子帧各1次, frac 早退路径也只记1次)
+        -- enc.lspq.qua 已不再记账, 由 6 个 enc.lspq.* 子槽替代(不再包整只 g729_Qua_lsp)
         check_slots(st, {
             ["enc.pre"]      = FRAMES,
             ["enc.lpc"]      = FRAMES,
             ["enc.vad"]      = FRAMES,
-            ["enc.lspq.qua"] = FRAMES,
-            ["enc.lspq.waz"] = FRAMES,
             ["enc.wsp"]      = FRAMES,
             ["enc.sf.filter"] = FRAMES * 4,
             ["enc.sf.pitch"] = FRAMES * 2,
             ["enc.sf.fixed"] = FRAMES * 2,
             ["enc.sf.gain"]  = FRAMES * 2,
             ["enc.misc"]     = FRAMES,
+            -- g729_Pitch_fr3_fast: 每帧2子帧, 每子帧各1段
+            ["enc.pitch.corhx"] = FRAMES * 2,
+            ["enc.pitch.int"]   = FRAMES * 2,
+            ["enc.pitch.frac"]  = FRAMES * 2,
+            -- g729_Qua_lsp: conv=lsf2+lsf2(2段), wgt=1, presel=2模式,
+            -- sel12=2模式*(sel1+sel2), pred=2模式*3段+last_select, quant=1
+            ["enc.lspq.conv"]   = FRAMES * 2,
+            ["enc.lspq.wgt"]    = FRAMES,
+            ["enc.lspq.presel"] = FRAMES * 2,
+            ["enc.lspq.sel12"]  = FRAMES * 4,
+            ["enc.lspq.pred"]   = FRAMES * 7,
+            ["enc.lspq.quant"]  = FRAMES,
+            -- 留在 cod_ld8a.c 里未拆的 LSP 插值/加权段
+            ["enc.lspq.waz"]    = FRAMES,
         }, "ENCODE")
     end
 end

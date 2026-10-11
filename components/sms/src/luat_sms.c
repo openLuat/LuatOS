@@ -313,10 +313,11 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
         pos += RaLen2;
 
         uint8_t ra_number[LUAT_MSG_MAX_ADDR_LEN + 1] = {0};
+        uint8_t ra_number_len = 0;
         if (((RaType >> 4) & 0x07) == 5)
         {
-            luat_sms_decode_7bit_data(Ra, RaLen2, ra_number, sizeof(ra_number), 0);
-            luat_sms_gsm_to_ascii(ra_number, RaLen2);
+            ra_number_len = (uint8_t)luat_sms_decode_7bit_data(Ra, RaLen2, ra_number, sizeof(ra_number), 0);
+            ra_number_len = luat_sms_gsm_to_ascii(ra_number, ra_number_len);
         }
         else
         {
@@ -333,8 +334,9 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
                     ra_number[i * 2 + 1] = int2hex((Ra[i] & 0xF0) >> 4);
                 }
             }
+            ra_number_len = RaLen;
         }
-        memcpy(msg_info->phone_address, ra_number, RaLen2 * 2);
+        memcpy(msg_info->phone_address, ra_number, ra_number_len);
 
         // SCTS - Service Centre Time Stamp (7 bytes)
         if (pos + 7 > pdu_len) return -1;
@@ -420,11 +422,12 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
     pos += OaLen2;
 
     uint8_t number[LUAT_MSG_MAX_ADDR_LEN + 1] = {0};
+    uint8_t number_len = 0;
 
     if (((OaType >> 4) & 0x07) == 5) // 7bit编码的字符串
     {
-        luat_sms_decode_7bit_data(Oa, OaLen2, number, sizeof(number), 0);
-        luat_sms_gsm_to_ascii(number, OaLen2);
+        number_len = (uint8_t)luat_sms_decode_7bit_data(Oa, OaLen2, number, sizeof(number), 0);
+        number_len = luat_sms_gsm_to_ascii(number, number_len);
     }
     else // 其他类型，按照半字节交换处理
     {
@@ -443,6 +446,7 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
                 number[i * 2 + 1] = int2hex((Oa[i] & 0xF0) >> 4);
             }
         }
+        number_len = OaLen;
     }
 
     // 边界检查: PID + DCS + SCTS(7 bytes)
@@ -597,7 +601,12 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
         }
         memset(user_payload, 0, 160 + 1);
 
-        luat_sms_decode_7bit_data(&payload[payload_pos], user_data_len, user_payload, 160, fill_bits);
+        uint16_t decoded_len = luat_sms_decode_7bit_data(&payload[payload_pos], user_data_len, user_payload, 160, fill_bits);
+        // length 是声明的 septet 数, 长短信场景可能因畸形 UDH 下溢, 以实际解码出的字符数为上限
+        if (length > decoded_len)
+        {
+            length = (uint8_t)decoded_len;
+        }
 
         length = luat_sms_gsm_to_ascii(user_payload, length);
 
@@ -656,7 +665,7 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
     msg_info->maxNum = maxNum;
     msg_info->seqNum = seqNum;
 
-    memcpy(msg_info->phone_address, number, OaLen2 * 2);
+    memcpy(msg_info->phone_address, number, number_len);
 
     msg_info->dcs_info.alpha_bet = encode_type;
     msg_info->sms_length = length;

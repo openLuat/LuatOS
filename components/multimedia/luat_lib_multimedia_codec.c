@@ -32,6 +32,13 @@ extern const luat_codec_opts_t speex_codec_opts;
 #endif
 #ifdef LUAT_SUPPORT_G729
 extern const luat_codec_opts_t g729_codec_opts;
+// 逐阶段周期剖析器的转发层, 实现在 g729_codec_port.c
+extern void g729_codec_profile_set(int on);
+extern int g729_codec_profile_enabled(void);
+extern unsigned long g729_codec_profile_ticks(int slot);
+extern int g729_codec_profile_calls(int slot);
+extern const char *g729_codec_profile_name(int slot);
+extern int g729_codec_profile_slots(void);
 #endif
 
 static const luat_codec_opts_t* const codec_opts_table[] = {
@@ -328,6 +335,8 @@ static int l_codec_encode_audio_data(lua_State *L) {
     lua_pushboolean(L, result > 0 ? 1 : 0);
     return 1;
 }
+
+
 
 #ifdef LUAT_USE_AUDIO_DTMF
 static uint32_t l_codec_dtmf_ratio_to_q10(lua_State *L, int index, uint32_t def_q10) {
@@ -643,6 +652,10 @@ static int l_codec_release(lua_State *L) {
     return l_codec_gc(L);
 }
 
+#if defined(LUAT_SUPPORT_G729) && defined(LUAT_USE_G729_PROFILE)
+static int l_codec_g729_profile(lua_State *L);
+#endif
+
 static const rotable_Reg_t reg_codec[] =
 {
     { "create" ,         ROREG_FUNC(l_codec_create)},
@@ -650,11 +663,14 @@ static const rotable_Reg_t reg_codec[] =
     { "info" , 		 	 ROREG_FUNC(l_codec_get_audio_info)},
     { "data",  		 	 ROREG_FUNC(l_codec_get_audio_data)},
 	{ "encode",  		 ROREG_FUNC(l_codec_encode_audio_data)},
+    { "release",         ROREG_FUNC(l_codec_release)},
 #ifdef LUAT_USE_AUDIO_DTMF
 	{ "dtmf_decode",    ROREG_FUNC(l_codec_dtmf_decode)},
 	{ "dtmf_encode",    ROREG_FUNC(l_codec_dtmf_encode)},
 #endif
-    { "release",         ROREG_FUNC(l_codec_release)},
+#if defined(LUAT_SUPPORT_G729) && defined(LUAT_USE_G729_PROFILE)
+    { "g729prof",        ROREG_FUNC(l_codec_g729_profile)},
+#endif
     //@const MP3 number MP3格式
 	{ "MP3",             ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_MP3)},
     //@const WAV number WAV格式
@@ -667,18 +683,24 @@ static const rotable_Reg_t reg_codec[] =
 	{ "ULAW",            ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_ULAW)},
 	//@const ALAW number G711 A-law格式
 	{ "ALAW",            ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_ALAW)},
+#ifdef LUAT_SUPPORT_OPUS
     //@const OPUS number OPUS格式
 	{ "OPUS",            ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_OPUS)},
     //@const OGG_OPUS number OGG封装OPUS格式
 	{ "OGG_OPUS",        ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS)},
+#endif
+#ifdef LUAT_SUPPORT_SPEEX
 	//@const SPEEX_NB number Speex窄带格式(8kHz)
 	{ "SPEEX_NB",        ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_NB)},
 	//@const SPEEX_WB number Speex宽带格式(16kHz)
 	{ "SPEEX_WB",        ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_WB)},
 	//@const SPEEX_UWB number Speex超宽带格式(32kHz)
 	{ "SPEEX_UWB",       ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_UWB)},
-	//@const G729 number G.729A格式(8kHz, 10字节/帧)
+#endif
+#if defined(LUAT_SUPPORT_G729)
+	//@const G729 number G.729A/B格式(8kHz, 10字节/帧)
 	{ "G729",            ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_G729)},
+#endif
 	//@const VDDA_3V3 number codec 电压: 3.3V
 	{ "VDDA_3V3",        ROREG_INT(LUAT_CODEC_VDDA_3V3)},
 	//@const VDDA_1V8 number codec 电压: 1.8V
@@ -695,3 +717,49 @@ LUAMOD_API int luaopen_multimedia_codec( lua_State *L ) {
     return 1;
 }
 
+#if defined(LUAT_SUPPORT_G729) && defined(LUAT_USE_G729_PROFILE)
+/**
+G.729A逐阶段周期剖析器: 读取每个编解码阶段累计的CPU周期数与调用次数, 或开关/清零统计
+@api codec.g729prof(on, reset)
+@boolean 可选, true=启用并清零, false=关闭并清零, 不传则只读取当前统计
+@boolean 可选, true=只清零计数器(保持当前启用状态)
+@return nil|table 读取时返回统计表, 其余情况返回nil
+@usage
+codec.g729prof(true)          -- 启用并清零, 然后跑若干帧编解码
+local st = codec.g729prof()   -- st.enabled / st.slots / st["enc.lpc"] = {ticks=, calls=}
+for name, v in pairs(st) do
+    if type(v) == "table" then log.info("prof", name, v.ticks, v.calls) end
+end
+codec.g729prof(false)         -- 关闭
+ */
+static int l_codec_g729_profile(lua_State *L) {
+    if (lua_isboolean(L, 1)) {
+        g729_codec_profile_set(lua_toboolean(L, 1));
+        return 0;
+    }
+    if (lua_toboolean(L, 2)) {
+        // 只清零: 重新设置一次启用状态即可, g729_profile_enable 内部先复位计数
+        g729_codec_profile_set(g729_codec_profile_enabled());
+        return 0;
+    }
+
+    lua_newtable(L);
+    lua_pushboolean(L, g729_codec_profile_enabled() != 0);
+    lua_setfield(L, -2, "enabled");
+
+    int slots = g729_codec_profile_slots();
+    lua_pushinteger(L, slots);
+    lua_setfield(L, -2, "slots");
+
+    // 每个阶段一条, 即使ticks为0也返回, 脚本侧不必关心哪些阶段存在
+    for (int i = 0; i < slots; i++) {
+        lua_newtable(L);
+        lua_pushinteger(L, (lua_Integer)g729_codec_profile_ticks(i));
+        lua_setfield(L, -2, "ticks");
+        lua_pushinteger(L, (lua_Integer)g729_codec_profile_calls(i));
+        lua_setfield(L, -2, "calls");
+        lua_setfield(L, -2, g729_codec_profile_name(i));
+    }
+    return 1;
+}
+#endif

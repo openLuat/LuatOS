@@ -18,6 +18,7 @@
 #include "luat_zbuff.h"
 #include "luat_mem.h"
 #include "g729a_interface.h"
+#include "g729a_profile.h"
 
 #define LUAT_LOG_TAG "g729"
 #include "luat_log.h"
@@ -192,4 +193,29 @@ const luat_codec_opts_t g729_codec_opts = {
     .decode_file_data = g729_codec_decode_file_data,
     .encode = g729_codec_encode
 };
+
+/* G.729A逐阶段周期剖析器的转发层: 让 codec.g729prof 的Lua绑定不依赖g729头文件 */
+void g729_codec_profile_set(int on) {
+    g729_profile_enable(on ? 1 : 0);
+}
+
+int g729_codec_profile_enabled(void) {
+    return (int)g729_profile_enabled();
+}
+
+unsigned long g729_codec_profile_ticks(int slot) {
+    return (unsigned long)g729_profile_ticks(slot);
+}
+
+int g729_codec_profile_calls(int slot) {
+    return (int)g729_profile_calls(slot);
+}
+
+const char *g729_codec_profile_name(int slot) {
+    return g729_profile_name(slot);
+}
+
+int g729_codec_profile_slots(void) {
+    return (int)G729P_SLOT_COUNT;
+}
 #endif

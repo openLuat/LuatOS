@@ -475,6 +475,26 @@ local function audio_queue_clear()
     return true
 end
 
+-- 应用DAC(内置ADC)麦克风增益
+-- 两个参数均由客户按 0-100 传入，由本函数线性映射到硬件范围：
+--   数字增益 dac_mic_dig_gain(0-100) -> 0-0x3f，默认 60
+--   模拟增益 dac_mic_ana_gain(0-100) -> 0-0x0f，默认 50
+-- 仅 model=="dac" 生效，固件未提供该接口(CFG_PARAM_ADC_DIG_GAIN为nil)时自动跳过
+local function apply_dac_mic_gain()
+    if audio_setup_param.model ~= "dac" or not audio_v2 then return end
+    if not audio_v2.CFG_PARAM_ADC_DIG_GAIN then return end
+    local dig = math.floor((dac_mic_dig_gain or 0) * 0x3f / 100)
+    if dig > 0x3f then dig = 0x3f elseif dig < 0 then dig = 0 end
+    local ok, err = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_DIG_GAIN, dig)
+    if not ok then log.warn("exaudio", "设置DAC数字增益失败:", err) end
+    if dac_mic_ana_gain and dac_mic_ana_gain > 0 then
+        local ana = math.floor(dac_mic_ana_gain * 0x0f / 100)
+        if ana > 0x0f then ana = 0x0f elseif ana < 0 then ana = 0 end
+        ok = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_ANA_GAIN, ana)
+        if not ok then log.warn("exaudio", "设置DAC模拟增益失败") end
+    end
+end
+
 -- ==================== audio_v2 回调处理 ====================
 local function audio_v2_callback(request_index, event, param)
     if event == audio_v2.REQUEST_START then
@@ -2454,26 +2474,6 @@ function exaudio.vol(play_volume, driver_probe_id)
         return audio.vol(MULTIMEDIA_ID, play_volume)
     end
     return false
-end
-
--- 应用DAC(内置ADC)麦克风增益
--- 两个参数均由客户按 0-100 传入，由本函数线性映射到硬件范围：
---   数字增益 dac_mic_dig_gain(0-100) -> 0-0x3f，默认 60
---   模拟增益 dac_mic_ana_gain(0-100) -> 0-0x0f，默认 50
--- 仅 model=="dac" 生效，固件未提供该接口(CFG_PARAM_ADC_DIG_GAIN为nil)时自动跳过
-local function apply_dac_mic_gain()
-    if audio_setup_param.model ~= "dac" or not audio_v2 then return end
-    if not audio_v2.CFG_PARAM_ADC_DIG_GAIN then return end
-    local dig = math.floor((dac_mic_dig_gain or 0) * 0x3f / 100)
-    if dig > 0x3f then dig = 0x3f elseif dig < 0 then dig = 0 end
-    local ok, err = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_DIG_GAIN, dig)
-    if not ok then log.warn("exaudio", "设置DAC数字增益失败:", err) end
-    if dac_mic_ana_gain and dac_mic_ana_gain > 0 then
-        local ana = math.floor(dac_mic_ana_gain * 0x0f / 100)
-        if ana > 0x0f then ana = 0x0f elseif ana < 0 then ana = 0 end
-        ok = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_ANA_GAIN, ana)
-        if not ok then log.warn("exaudio", "设置DAC模拟增益失败") end
-    end
 end
 
 -- 设置麦克风音量

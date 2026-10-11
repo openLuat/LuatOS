@@ -11,9 +11,8 @@
   实时点播(INVITE/SDP 协商/ACK/BYE，UDP 与 TCP 两种承载)、
   会话失活回收、以及语音对讲/广播的两条腿。
 
-协议编解码全部由 C 模块 gb28181 承担。本库做状态机，以及**缺省老后端下的**
-socket 收发与泵；原生后端（`use_native_media = true`）下收发自持在 C 侧，
-本库只决定何时泵。
+协议编解码与**媒体收发**全部由 C 模块 gb28181 承担（socket 也在 C 侧，
+经网络适配层自持），本库只做状态机与"何时泵"的决定 —— 字节不穿过本库。
 
 **媒体是指"字节"不是"声音"**：本库收已编码的载荷(视频是 annex-b 访问单元、
 音频是 G.711A)，PCM↔G.711A 与麦克风/喇叭都不在这里 —— 那些由
@@ -1074,71 +1073,36 @@ end
 -- 后两者在连上之前不能发数据，故用 sess.link_up 标记就绪。
 --
 --[[
-原生媒体后端（C 侧 stream）与 Lua 后端的选择器。
+会话手上有没有**可用的**媒体通道。
 
-**为什么要有两条**：媒体字节原先每一包都要穿过 Lua —— media_peek 把包拷成
-Lua 字符串、UDP 时再 sub(3) 剥掉 2 字节前缀又拷一次、socket.tx 拷进 socket
-缓冲。而 BK7258 上这些分配与拷贝，和摄像头管线、硬件 H264 编码器抢的是同一块
-PSRAM 带宽。下沉之后 Lua 只决定"何时泵"，字节不再跨界。
-
-老路径保留一个发布周期：`use_native_media` 缺省 false，置 true 才走原生 ——
-出问题时翻回去即可，不必回退整个提交。
-]]
-local function native_media()
-    --[[
-    别判 `type(gb) == "table"`：真机上这个 C 模块是 **userdata**（PC 上才是
-    table），那样写会让 `use_native_media = true` **静默失效**、永远退回老
-    后端（会话上只有 sess.media，没有 sess.stream）。
-
-    `gb.xxx` 的索引本身没问题（userdata 有元表），判"函数在不在"就够。
-    ]]
-    return g_opts.use_native_media == true
-       and gb ~= nil and gb.stream_new ~= nil
-end
-
---[[
-会话手上有没有**可用的**媒体通道。两条路径的统一判据。
-
-老路径原先写的是 `sess.media and sess.netc` 两个都要有：只有队列没有 socket
-时发不出去，那种会话不该被当成就绪。原生路径的一个 stream 就同时代表这两者，
-故判据是"stream 存在"。
+媒体收发都在 C 侧的 stream 里：队列、收发与发送策略都在它内部，所以
+"有 stream"就同时代表"既有队列、又有链路"，两者不必分开判。
 ]]
 local function has_media(sess)
-    if sess.stream then return true end
-    return sess.media ~= nil and sess.netc ~= nil
-end
-
--- 入队。原生走 stream（队列在它内部），否则走老的 media 句柄
-local function media_push(sess, data, ts)
-    if sess.stream then
-        return gb.stream_push(sess.stream, data, ts)
-    end
-    return gb.media_push(sess.media, data, ts)
+    return sess.stream ~= nil
 end
 
 --[[
-把下行音频接到音频桥上（原生后端）。
+把下行音频接到音频桥上。
 
-C 侧交过来的已经是**剥掉 RTP 头、必要时解过 PS** 的 G.711A，所以这里
-`is_ps` 恒为 false —— 老后端那个"还得自己再解一次 PS"的步骤没有了。
-回调签名保持不变，桥那边（exgb28181audio.feed）不用改。
+C 侧交过来的已经是**剥掉 RTP 头、必要时解过 PS** 的 G.711A，所以桥那边
+（exgb28181audio.feed）拿到即可直接喂播放通道，不必再判封装形态。
 ]]
 local function attach_audio_sink(sess)
     gb.stream_set_sink(sess.stream, function(pcma)
         if type(g_audio_cb) == "function" then
-            local ok, err = pcall(g_audio_cb, sess, pcma, false)
+            local ok, err = pcall(g_audio_cb, sess, pcma)
             if not ok then log_error("音频回调异常", err) end
         end
     end)
 end
 
 --[[
-把原生 stream 的链路状态同步到会话字段上。
+把 stream 的链路状态同步到会话字段上。
 
 为什么要镜一份而不是每次现取：`session_death_reason` 与两处 push 的守卫
-（`media_tcp and not link_up`）读的都是 sess 上的字段，而老后端正是由 socket
-回调直接写这些字段的。镜像过来，两条后端对上层就是同一种形状，判活逻辑
-一行都不用改。
+（`media_tcp and not link_up`）读的都是 sess 上的字段 —— 那些判活逻辑是照着
+"socket 回调直接写 sess 字段"的形状写的。镜像过来，上层一行都不用改。
 
 **在哪调**：flush_session（每帧都走，保证 TCP 建链后立刻能发）与
 reap_dead_sessions（空闲会话靠它，1 秒一轮）。两处都调不会重复消费事件 ——
@@ -1176,7 +1140,7 @@ TCP 承载下，这一帧现在能交给后端吗？（UDP 恒 true —— 它�
 
 **判断"通没通"别读 sess.link_up。** 那是 poll_stream 从 C 搬来的缓存，只在被
 poll 的那一刻刷新；而对端连上（accept）到下一次 poll 之间它还停在过期的
-false，那段窗口里的帧会被整段判成"链路不通"。原生后端去**问 C**
+false，那段窗口里的帧会被整段判成"链路不通"。这里去**问 C**
 （gb.stream_link_up 当场读 transport），没有缓存也就没有窗口。
 
 **没通时也不一律丢**，分两种：
@@ -1186,16 +1150,11 @@ false，那段窗口里的帧会被整段判成"链路不通"。原生后端去*
     每个 IDR 都补不出参数集（现象：出图前黑一段）。
   · 连上过又断了 → 丢掉。补发会把断线前的老画面推出去，错位比丢帧更糟。
 
-老后端（没有 sess.stream）没有 ERR_AGAIN 的保留语义，只能一律挡。
-
 判活用 sess.link_up / link_bad_ms，发数据用这个，两者语义不同。
 ]]
 local function link_sendable(sess)
     if not sess.media_tcp then
         return true
-    end
-    if sess.stream == nil then
-        return sess.link_up and true or false   -- 老后端：由 socket 事件直接置位
     end
     if gb.stream_link_up(sess.stream) then
         return true
@@ -1203,104 +1162,35 @@ local function link_sendable(sess)
     return sess.link_up_once ~= true            -- 没通：只有"从没连上过"才值得等
 end
 
---[[
-回调同时是"媒体链路是否还活着"的观测点。事件映射**很容易记反**，这里写明实测值：
-
-    LINK=0x...10  ON_LINE=0x...11  TX_OK=0x...12  CLOSED=0x...13  EVENT=0x...14
-
-  · ON_LINE            —— 链路可用
-  · TX_OK              —— 每次发送完成后各来一条（不是"有新数据"）
-  · EVENT(param == 0)  —— 有新数据可读
-  · EVENT(param != 0)  —— **对端断开或本地错误，这才是"链路断了"的信号**
-  · CLOSED             —— 只在**本端发起关闭**时回给我们（适配器里
-                          EV_NW_RESULT_CLOSE 仅在 close_flag 时发出；
-                          对端 FIN 走的是 NW_WAIT_EVENT 分支 → EVENT）
-
-所以判据是 `EVENT 且 param ~= 0`，**不是 socket.CLOSED** —— 名字叫 CLOSED
-很容易让人以为它是"连接被关闭"，用错的效果是每一次真实断开都被静默漏掉。
-LuatOS 自己的惯例也是这个：见 l2tp_client.c / ovpn_client.c 的
-`event->ID == EV_NW_RESULT_CLOSE || event->Param1 != 0`。
-
-不过单条 param≠0 的事件不能立刻判死：适配器里本地错误（如收包时分配失败，
-对应 EV_NW_SOCKET_ERROR）也走这条，那种是可恢复的。故记下"第一次可疑"的时刻，
-期间任何一次发送成功或重新 ON_LINE 都会清掉它（见 session_death_reason）。
-]]
-local function media_create(sess)
-    return socket.create(g_opts.adapter, function(sc, event, param)
-        if event == socket.ON_LINE then
-            sess.link_up = true
-            sess.link_up_once = true
-            sess.link_bad_ms = nil
-        elseif event == socket.EVENT and param ~= nil and param ~= 0 then
-            sess.link_up = false
-            if not sess.link_bad_ms then
-                sess.link_bad_ms = now_ms()
-                log_warn("媒体链路中断 param=" .. tostring(param))
-            end
-        elseif event == socket.CLOSED then
-            sess.link_up = false   -- 本端 close 完成，不据此判死
-        end
-    end)
-end
-
 local function media_open(sess)
-    if sess.stream then
-        --[[
-        原生后端：建链交给 C 侧的 stream（收发由注入的 transport 提供）。
+    --[[
+    建链交给 C 侧的 stream（收发由注入的 transport 提供，见
+    luat_gb28181_transport_netadapter.c）。
 
-        本端端口仍由上层分配 —— SDP 里要写一个确定的值，而"让底层挑一个再
-        读回来"在网络适配层上做不到（它要到 connect 才真正绑端口）。只有
-        TCP passive 是"本端监听等平台连进来"，那时不 connect。
-        ]]
-        local mode
-        if not sess.media_tcp then
-            mode = "udp"
-        elseif sess.tcp_setup == gb.TCP_SETUP_PASSIVE then
-            mode = "tcp_passive"
-        else
-            mode = "tcp"
-        end
-
-        local ok, err = gb.stream_open(sess.stream, mode, sess.local_port)
-        if not ok then return false, err or "媒体通道建立失败" end
-
-        if mode ~= "tcp_passive" then
-            local ok2, err2 = gb.stream_connect(sess.stream, sess.remote_ip, sess.remote_port)
-            if not ok2 then
-                gb.stream_close(sess.stream, 1)
-                return false, err2 or "媒体通道建立失败"
-            end
-            if not sess.media_tcp then sess.link_up = true end   -- UDP 绑上即可发
-        end
-        return true
-    end
-
-    local netc = media_create(sess)
-    if not netc then return false, "创建媒体 socket 失败" end
-
-    local is_tcp = sess.media_tcp
-    local ok
-
-    if is_tcp and sess.tcp_setup == gb.TCP_SETUP_PASSIVE then
-        -- 本端监听，等平台来连。TCP 媒体是长连接且一对一，故用一对一模式
-        ok = socket.config(netc, sess.local_port, false)
-        if ok then ok = socket.listen(netc) end
-        if not ok then
-            socket.close(netc)
-            return false, "媒体端口监听失败"
-        end
+    本端端口仍由上层分配 —— SDP 里要写一个确定的值，而"让底层挑一个再
+    读回来"在网络适配层上做不到（它要到 connect 才真正绑端口）。只有
+    TCP passive 是"本端监听等平台连进来"，那时不 connect。
+    ]]
+    local mode
+    if not sess.media_tcp then
+        mode = "udp"
+    elseif sess.tcp_setup == gb.TCP_SETUP_PASSIVE then
+        mode = "tcp_passive"
     else
-        ok = socket.config(netc, sess.local_port, not is_tcp)
-        if ok then ok = socket.connect(netc, sess.remote_ip, sess.remote_port) end
-        if not ok then
-            socket.close(netc)
-            return false, "媒体通道建立失败"
-        end
-        -- UDP 无"建链"概念，create 之后即可发
-        if not is_tcp then sess.link_up = true end
+        mode = "tcp"
     end
 
-    sess.netc = netc
+    local ok, err = gb.stream_open(sess.stream, mode, sess.local_port)
+    if not ok then return false, err or "媒体通道建立失败" end
+
+    if mode ~= "tcp_passive" then
+        local ok2, err2 = gb.stream_connect(sess.stream, sess.remote_ip, sess.remote_port)
+        if not ok2 then
+            gb.stream_close(sess.stream, 1)
+            return false, err2 or "媒体通道建立失败"
+        end
+        if not sess.media_tcp then sess.link_up = true end   -- UDP 绑上即可发
+    end
     return true
 end
 
@@ -1318,20 +1208,10 @@ local function media_close(sess)
         if not ok then log_error("停止回放异常", err) end
     end
     if sess.stream then
-        -- 原生后端：关链路与清队列都在 stream_close 里 —— 它就是那个唯一出口
+        -- 关链路与清队列都在 stream_close 里 —— 它就是那个唯一出口
         gb.stream_close(sess.stream, 1)
         sess.stream = nil
         sess.link_up = false
-        return
-    end
-    if sess.netc then
-        socket.close(sess.netc)
-        sess.netc = nil
-        sess.link_up = false
-    end
-    if sess.media then
-        gb.media_reset(sess.media)
-        sess.media = nil
     end
 end
 
@@ -1373,83 +1253,6 @@ local function reply(msg, code, reason, body, content_type, to_tag)
     })
     if text then net_send(text) end
     return text
-end
-
---[[
-剥离 RTP 头，返回音频载荷与"是否 PS 封装"。
-
-头部长度**不是恒定的 12 字节**：CSRC 计数在字节 1 的低 4 位，扩展位(X)置位时
-还要再跳过 4 字节扩展头 + 扩展内容，填充位(P)置位时末尾要按最后一个字节的值截断。
-少算任何一项都不会报错，只会**静默地多切或少切几个字节** —— 听感上是持续的
-背景噪声或周期性咔哒声，极难倒查到 RTP 头解析上。
-
-@param pkt 完整 RTP 包
-@return string|nil 载荷（**未做 PS 解封装**，由上层决定怎么处理）
-@return boolean 载荷是否以 PS 起始码 00 00 01 BA 开头
-]]
-local function audio_payload(pkt)
-    local n = #pkt
-    if n < 12 then return nil end
-
-    local b1 = string.byte(pkt, 1)
-    local hdr = 12 + (b1 % 16) * 4          -- 固定头 + CSRC
-    if (b1 % 32) >= 16 then                 -- X 位(bit4)：扩展头
-        if n < hdr + 4 then return nil end
-        local ext_words = (string.byte(pkt, hdr + 3) << 8) | string.byte(pkt, hdr + 4)
-        hdr = hdr + 4 + ext_words * 4
-    end
-    if n <= hdr then return nil end
-
-    local body = string.sub(pkt, hdr + 1)
-    if (b1 % 64) >= 32 then                 -- P 位(bit5)：末尾填充
-        local pad = body:byte(-1)
-        if pad and pad > 0 and pad < #body then
-            body = body:sub(1, #body - pad)
-        end
-    end
-    if #body < 4 then return nil end
-
-    local is_ps = (body:byte(1) == 0x00 and body:byte(2) == 0x00 and
-                   body:byte(3) == 0x01 and body:byte(4) == 0xBA)
-    return body, is_ps
-end
-
---[[
-投递一个收到的音频包：剥头 → 统计 → 交给上层回调。
-
-前 5 个包打十六进制是**判定平台用哪种封装的直接证据**（PS 流以 00 00 01 BA 开头，
-裸 PCMA 则直接是音频载荷），配合 rx_ps / rx_raw 两个累计计数，
-一次对讲就能确定，不必再猜。
-
-放在这里（而不是音频会话那段）是因为**发起方与受理方两处都要用** ——
-Lua 的局部变量只能向后可见，定义在使用点之后会静默解析成全局 nil。
-]]
-local function audio_deliver(sess, pkt)
-    sess.rx_pkts = (sess.rx_pkts or 0) + 1
-    sess.rx_bytes = (sess.rx_bytes or 0) + #pkt
-    if sess.rx_pkts <= 5 then
-        local hex = {}
-        for i = 1, math.min(16, #pkt) do
-            hex[#hex + 1] = string.format("%02X", string.byte(pkt, i))
-        end
-        log_info("音频包", #pkt, "字节:", table.concat(hex, " "))
-    end
-
-    local body, is_ps = audio_payload(pkt)
-    if not body then return end
-
-    -- 两种封装的累计比例：跑一次对讲就能看出平台到底用哪种
-    if is_ps then
-        sess.rx_ps = (sess.rx_ps or 0) + 1
-    else
-        sess.rx_raw = (sess.rx_raw or 0) + 1
-    end
-
-    -- 回调里跑的是用户的播放逻辑，异常不能打断收包循环
-    if type(g_audio_cb) == "function" then
-        local ok, err = pcall(g_audio_cb, sess, body, is_ps)
-        if not ok then log_error("音频回调异常", err) end
-    end
 end
 
 --[[
@@ -1499,8 +1302,6 @@ local function handle_audio_invite(msg, s)
         state        = "established",
         remote_ip    = s.conn_ip,
         remote_port  = s.port,
-        rx_pkts      = 0,
-        rx_bytes     = 0,
         -- 供失活判定：TCP 腿若始终连不上(如平台端口不可达)，要能被回收，
         -- 否则会一直挂在 talks() 里(实测见过"0 个包"挂几分钟的僵尸会话)
         started      = true,
@@ -1515,117 +1316,31 @@ local function handle_audio_invite(msg, s)
     ]]
     local is_tcp = (s.tcp == true)
     sess.media_tcp = is_tcp
-    sess.rxbuf = ""            -- TCP 下的字节流重组缓冲（RFC 4571 定界）
 
-    if native_media() then
-        --[[
-        原生后端：建链、收 RTP、剥头、（若是 PS）解封装全在 C 里走完，解出的
-        G.711A 由 sink 回调交回来。Lua 只把它喂给音频桥。
+    --[[
+    建链、收 RTP、剥头、（若是 PS）解封装全在 C 里走完，解出的 G.711A 由
+    sink 回调交回来（见 attach_audio_sink）。Lua 只把它喂给音频桥。
 
-        与老后端唯一的可见差别：`on_audio` 收到的载荷**已经是解好的 PCMA**
-        （老后端在 is_ps 时还得自己解一次），故这里传的 is_ps 恒为 false。
-        ]]
-        sess.stream = gb.stream_new(s.ssrc or 0, 8, 0, g_opts.adapter or 0)
-        if not sess.stream or not gb.stream_enable_rx(sess.stream) then
-            log_warn("音频会话创建失败(原生)")
-            reply(msg, 500, "Server Internal Error")
-            return
-        end
-        gb.stream_set_sink(sess.stream, nil)   -- 先清（重建会话时别留旧闭包）
-        attach_audio_sink(sess)
-
-        local ok, err = media_open(sess)
-        if not ok then
-            log_warn("音频通道建立失败", err)
-            gb.stream_close(sess.stream, 1)
-            sess.stream = nil
-            reply(msg, 500, "Server Internal Error")
-            return
-        end
-    else
-    local netc = socket.create(g_opts.adapter, function(sc, event, param)
-        if event == socket.ON_LINE then
-            sess.link_up = true
-            sess.link_up_once = true      -- 供失活判定区分"从未连上"与"连上后断了"
-            log_info("音频链路已建立")
-            emit("talk", "socket", { call_id = sess.call_id, event = "online" })
-            return
-        end
-        if event == socket.CLOSED then
-            -- TCP 承载下连接失败/断开是**异步**的：connect 返回 true 只代表
-            -- 开始连了。不记这个事件的话，连不上时表现为"静默地收不到数据"
-            sess.link_up = false
-            log_warn("音频链路断开")
-            emit("talk", "socket", { call_id = sess.call_id, event = "closed" })
-            return
-        end
-        if event ~= socket.EVENT or param ~= 0 then return end
-        local rxbuf = zbuff.create(2048)
-        if not rxbuf then return end
-        while true do
-            local ok, n = socket.rx(sc, rxbuf)
-            if not ok or not n or n <= 0 then break end
-            local d = rxbuf:toStr(0, rxbuf:used())
-            rxbuf:del()
-            if is_tcp then
-                -- RFC 4571：TCP 上没有"包"的边界，必须按长度前缀切
-                sess.rxbuf = sess.rxbuf .. d
-                while #sess.rxbuf >= 2 do
-                    local plen = (string.byte(sess.rxbuf, 1) << 8) | string.byte(sess.rxbuf, 2)
-                    if #sess.rxbuf < 2 + plen then break end
-                    local pkt = string.sub(sess.rxbuf, 3, 2 + plen)
-                    sess.rxbuf = string.sub(sess.rxbuf, 3 + plen)
-                    audio_deliver(sess, pkt)
-                end
-            else
-                audio_deliver(sess, d)
-            end
-        end
-    end)
-    if not netc then
-        log_warn("音频 socket 创建失败")
+    载荷类型必须是 8(PCMA)、SSRC 用平台在它 SDP 的 y= 里给的那个 ——
+    回传的流要和它对上（见 gb28181.stream_new 的说明）。
+    ]]
+    sess.stream = gb.stream_new(s.ssrc or 0, 8, 0, g_opts.adapter or 0)
+    if not sess.stream or not gb.stream_enable_rx(sess.stream) then
+        log_warn("音频会话创建失败")
         reply(msg, 500, "Server Internal Error")
         return
     end
+    gb.stream_set_sink(sess.stream, nil)   -- 先清（重建会话时别留旧闭包）
+    attach_audio_sink(sess)
 
-    if is_tcp then
-        -- 平台是 passive，本端是 active：不绑本地端口，直接连过去
-        if not s.conn_ip or not s.port or
-           not socket.config(netc, 0, false) or
-           not socket.connect(netc, s.conn_ip, s.port) then
-            socket.close(netc)
-            log_warn("音频 TCP 连接失败", s.conn_ip, s.port)
-            reply(msg, 500, "Server Internal Error")
-            return
-        end
-    else
-        if not socket.config(netc, port, true) then
-            socket.close(netc)
-            log_warn("音频端口绑定失败")
-            reply(msg, 500, "Server Internal Error")
-            return
-        end
-        -- 必须 connect 到平台 SDP 给的那对地址：一来只收协商好的来源，
-        -- 二来（实测）这套模拟器上未 connect 的 UDP socket 收不到任何数据
-        if s.conn_ip and s.port then
-            socket.connect(netc, s.conn_ip, s.port)
-        end
-    end
-    sess.netc = netc
-
-    -- 上行发送用的媒体队列。**载荷类型必须是 8(PCMA)** ——
-    -- 队列默认的 96 是给 PS 视频的，音频用 96 平台会当视频解
-    -- SSRC 用平台在它 SDP 的 y= 里给的那个：回传的流要和它对上
-    sess.media = gb.media_new(s.ssrc or 0, 0, o.media_queue_size or 32768, 8)
-    if not sess.media then
-        socket.close(netc)
-        log_warn("音频发送队列创建失败")
+    local ok, err = media_open(sess)
+    if not ok then
+        log_warn("音频通道建立失败", err)
+        gb.stream_close(sess.stream, 1)
+        sess.stream = nil
         reply(msg, 500, "Server Internal Error")
         return
     end
-    end
-
-    sess.frame_ts = 0
 
     st.talks[call_id] = sess
 
@@ -1647,7 +1362,7 @@ local function handle_audio_invite(msg, s)
         connection   = is_tcp and gb.TCP_CONN_NEW or nil,
     })
     if not answer then
-        socket.close(netc)
+        media_close(sess)
         st.talks[call_id] = nil
         log_warn("音频应答 SDP 构造失败")
         reply(msg, 500, "Server Internal Error")
@@ -1852,23 +1567,12 @@ local function handle_invite(msg)
         return
     end
 
-    -- 媒体会话与队列(队列容量按配置，默认 32KB)
-    if native_media() then
-        -- 原生后端：队列在 stream 内部，容量取编译期默认值(不接受 media_queue_size)
-        sess.stream = gb.stream_new(ssrc, 96, o.rtp_mtu, g_opts.adapter or 0)
-        if not sess.stream then
-            log_warn("媒体会话创建失败(原生)")
-            reply(msg, 500, "Server Internal Error")
-            return
-        end
-    else
-        local media = gb.media_new(ssrc, o.rtp_mtu, o.media_queue_size)
-        if not media then
-            log_warn("媒体队列创建失败")
-            reply(msg, 500, "Server Internal Error")
-            return
-        end
-        sess.media = media
+    -- 媒体会话（队列在 stream 内部，容量取编译期默认值）
+    sess.stream = gb.stream_new(ssrc, 96, o.rtp_mtu, g_opts.adapter or 0)
+    if not sess.stream then
+        log_warn("媒体会话创建失败")
+        reply(msg, 500, "Server Internal Error")
+        return
     end
 
     -- 访问单元规范化器：缓存 SPS/PPS，并在缺参数集的 IDR 前补上。
@@ -1877,7 +1581,7 @@ local function handle_invite(msg)
     sess.nal = gb.nal_new(o.ps_cfg.video_stream_type == 0x24, o.nal_wait_idr)
     if not sess.nal then
         log_warn("访问单元规范化器创建失败")
-        media_close(sess)       -- 走唯一出口：两条后端都清干净
+        media_close(sess)       -- 走唯一出口
         reply(msg, 500, "Server Internal Error")
         return
     end
@@ -2100,7 +1804,7 @@ local function reap_dead_sessions()
     local now = now_ms()
     local function sweep(tbl, tag)
         for call_id, sess in pairs(tbl) do
-            -- 原生后端：空闲会话靠这里收链路事件（活跃的由 flush_session 收）
+            -- 空闲会话靠这里收链路事件（活跃的由 flush_session 收）
             poll_stream(sess)
             local reason = M.session_death_reason(sess, now)
             if reason then
@@ -2206,12 +1910,12 @@ function M.push_frame(sess, frame)
     if not sess.head_sent then
         local head = gb.ps_stream_head(g_opts.ps_cfg, sess.frame_ts)
         if head then
-            media_push(sess, head, sess.frame_ts)
+            gb.stream_push(sess.stream, head, sess.frame_ts)
         end
         sess.head_sent = true
     end
 
-    if media_push(sess, ps, sess.frame_ts) == 0 then
+    if gb.stream_push(sess.stream, ps, sess.frame_ts) == 0 then
         -- 整帧被丢弃(队列满或帧过大)，统计里能查到
         return false, "queue_full"
     end
@@ -2221,24 +1925,7 @@ function M.push_frame(sess, frame)
 end
 
 --[[
-把会话队列里能发的包尽量发出去。
-
-UDP 与 TCP 的失败处理必须不同，原因见 C 层 luat_gb28181_media.h：
-  UDP 不可靠 -> 发送失败即丢本帧剩余，避免平台收到残帧
-  TCP 可靠   -> 只是缓冲区满，记录断点续发，**绝不能丢**
-
-"承载方式"取自**会话**而不是全局配置：同一个设备可能同时被要求走 UDP 和
-TCP 的两路点播，用全局配置会让其中一路按错误的格式发。
-
-发送路径用 peek + commit/advance 而不是 pop：失败或只发出去一部分时，
-那个包必须留在队首 —— 否则既不知道 UDP 该从哪丢到哪，也无从 TCP 续发。
-
-@api exgb28181client.flush_session(session)
-@table session
-@return int 本次发出的字节数
-]]
---[[
-收一轮下行音频（原生后端专用）。
+收一轮下行音频。
 
 **收的节奏要由调用方按音频的节拍来**，不能挂在 1 秒的 tick 上 —— 那样
 平台推来的声音会按秒成坨地进播放器。音频桥的上行泵本来就是 20ms 一拍，
@@ -2254,56 +1941,29 @@ function M.poll_rx(sess)
     return gb.stream_poll_rx(sess.stream)
 end
 
+--[[
+把会话队列里能发的包尽量发出去。
+
+出队、UDP/TCP 分支、断点续发、背压与丢帧**全在 C 里**（
+luat_gb28181_stream_pump）。这里只做两件事：先收一轮链路事件，再泵一次。
+
+UDP 与 TCP 的失败处理不同，原因见 C 层 luat_gb28181_media.h：
+  UDP 不可靠 -> 发送失败即丢本帧剩余，避免平台收到残帧
+  TCP 可靠   -> 只是缓冲区满，记录断点续发，**绝不能丢**
+
+"承载方式"取自**会话**而不是全局配置：同一个设备可能同时被要求走 UDP 和
+TCP 的两路点播，用全局配置会让其中一路按错误的格式发。
+
+@api exgb28181client.flush_session(session)
+@table session
+@return int 本次发出的字节数
+]]
 function M.flush_session(sess)
-    local sent = 0
+    if type(sess) ~= "table" or not sess.stream then return 0 end
 
-    if sess.stream then
-        -- 原生后端：出队、UDP/TCP 分支、断点续发全在 C 里（就是下面那段循环）。
-        -- **先收事件再泵**：TCP 建链完成才允许发，而那是异步到的
-        poll_stream(sess)
-        return gb.stream_pump(sess.stream, now_ms())
-    end
-
-    if not sess.media or not sess.netc then return 0 end
-
-    while true do
-        local pkt = gb.media_peek(sess.media)
-        if not pkt then break end
-
-        -- UDP 跳过 2 字节长度前缀；TCP 整块发 —— 那个前缀就是 RFC 4571 的长度帧
-        local payload = sess.media_tcp and pkt or pkt:sub(3)
-        local want    = #payload
-
-        local ok, txlen = socket.tx(sess.netc, payload)
-        if not ok then
-            if sess.media_tcp then
-                -- TCP 发不出去：连接可能已经断了(实测对端关闭后 tx 会一直失败)。
-                -- 记下第一次失败的时刻，持续失败超过阈值才判定为死 ——
-                -- 缓冲区一时满也会失败，但那种很快就能恢复，不会持续到阈值
-                sess.tx_fail_ms = sess.tx_fail_ms or now_ms()
-                break          -- 包留在队首，下次续发
-            end
-            gb.media_drop_partial(sess.media)   -- 拥塞：丢掉本帧剩余
-            break
-        end
-        -- 发出去了：既证明链路可用，也说明之前的可疑事件是本地可恢复错误
-        sess.tx_fail_ms = nil
-        sess.link_bad_ms = nil
-
-        txlen = txlen or want
-        sent = sent + txlen
-
-        if txlen >= want then
-            gb.media_commit(sess.media)
-        else
-            -- 只发出去一部分：记下断点，下一轮 peek 从断点续发。
-            -- UDP 不会走到这里(数据报要么整个发出要么整个失败)；
-            -- txlen 为 0 时不再重试，否则会在原地空转
-            gb.media_advance(sess.media, txlen)
-            if txlen == 0 then break end
-        end
-    end
-    return sent
+    -- **先收事件再泵**：TCP 建链完成才允许发，而那是异步到的
+    poll_stream(sess)
+    return gb.stream_pump(sess.stream, now_ms())
 end
 
 -- ------------------------------------------------------------------
@@ -2328,44 +1988,22 @@ GB28181-2016 §9.12 的语音广播/对讲与**点播方向相反**：
 -- **不 connect**：平台从哪个端口发音频要等它的应答 SDP 才知道，
 -- 事先 connect 会把所有来源都过滤掉。生产环境可在拿到对端地址后再收紧。
 local function audio_open(sess)
-    if native_media() then
-        -- 三段式里的前两段：建链 + 绑端口。**这里不 connect** —— 平台从哪个
-        -- 端口发音频要等它的应答 SDP 才知道，事先 connect 会把来源全过滤掉
-        -- （老后端同一处也是这么写的）。connect 在 handle_talk_response 里。
-        sess.stream = gb.stream_new(sess.ssrc or 0, 8, 0, g_opts.adapter or 0)
-        if not sess.stream or not gb.stream_enable_rx(sess.stream) then
-            return false, "创建音频会话失败(原生)"
-        end
-        gb.stream_set_sink(sess.stream, nil)
-        attach_audio_sink(sess)
-
-        local ok, err = gb.stream_open(sess.stream, "udp", sess.local_port)
-        if not ok then
-            gb.stream_close(sess.stream, 1)
-            sess.stream = nil
-            return false, err or "音频端口绑定失败"
-        end
-        return true
+    -- 三段式里的前两段：建链 + 绑端口。**这里不 connect** —— 平台从哪个
+    -- 端口发音频要等它的应答 SDP 才知道，事先 connect 会把来源全过滤掉。
+    -- connect 在 handle_talk_response 里。
+    sess.stream = gb.stream_new(sess.ssrc or 0, 8, 0, g_opts.adapter or 0)
+    if not sess.stream or not gb.stream_enable_rx(sess.stream) then
+        return false, "创建音频会话失败"
     end
+    gb.stream_set_sink(sess.stream, nil)
+    attach_audio_sink(sess)
 
-    local netc = socket.create(g_opts.adapter, function(sc, event, param)
-        if event ~= socket.EVENT or param ~= 0 then return end
-        local rxbuf = zbuff.create(2048)
-        if not rxbuf then return end
-        while true do
-            local ok, n = socket.rx(sc, rxbuf)
-            if not ok or not n or n <= 0 then break end
-            local d = rxbuf:toStr(0, rxbuf:used())
-            rxbuf:del()
-            audio_deliver(sess, d)
-        end
-    end)
-    if not netc then return false, "创建音频 socket 失败" end
-    if not socket.config(netc, sess.local_port, true) then
-        socket.close(netc)
-        return false, "音频端口绑定失败"
+    local ok, err = gb.stream_open(sess.stream, "udp", sess.local_port)
+    if not ok then
+        gb.stream_close(sess.stream, 1)
+        sess.stream = nil
+        return false, err or "音频端口绑定失败"
     end
-    sess.netc = netc
     return true
 end
 
@@ -2404,8 +2042,6 @@ function M.start_talk(opts)
         session_name = opts.session_name or "Broadcast",
         local_port   = port,   -- 与点播会话同名，见 handle_audio_invite 里的说明
         state        = "inviting",
-        rx_pkts      = 0,
-        rx_bytes     = 0,
     }
 
     local sdp = gb.sdp_build({
@@ -2527,16 +2163,8 @@ local function handle_talk_response(msg)
         ]]
         local rs = gb.sdp_parse(msg.body)
         if rs and rs.conn_ip and rs.port and rs.port > 0 then
-            if sess.stream then
-                -- 原生后端：三段式的最后一段，把对端钉死
-                local okc = gb.stream_connect(sess.stream, rs.conn_ip, rs.port)
-                if okc then
-                    sess.remote_ip, sess.remote_port = rs.conn_ip, rs.port
-                    log_info("音频收流已连向", rs.conn_ip, rs.port)
-                else
-                    log_warn("音频收流 connect 失败", rs.conn_ip, rs.port)
-                end
-            elseif socket.connect(sess.netc, rs.conn_ip, rs.port) then
+            -- 三段式的最后一段：把对端钉死
+            if gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
                 sess.remote_ip, sess.remote_port = rs.conn_ip, rs.port
                 log_info("音频收流已连向", rs.conn_ip, rs.port)
             else
@@ -2736,23 +2364,10 @@ function M.talk_push(sess, pcma)
         return false          -- 链路不通且不该等，见 link_sendable 的说明
     end
 
-    if sess.stream then
-        -- 原生后端：**切包与时间戳推进都在 C 里**，这里整块交过去即可
-        -- （一次调用切好，省掉原先每包一次跨语言往返）
-        local took = gb.stream_push_audio(sess.stream, pcma)
-        if took == 0 then
-            return false      -- 整包被丢弃(队列满)，统计里能查到
-        end
-        M.flush_session(sess)
-        return true
-    end
-
-    -- 音频的时钟就是采样率本身：每包按载荷字节数推进(PCMA 一字节一个采样)。
-    -- **不要写 `% 0xFFFFFFFF`** —— 32 位整数下它是 -1，`x % -1` 恒为 0，
-    -- 会让每包时间戳都变成 0（同样的坑在 push_frame 里踩过，见那里的说明）。
-    -- 回绕由 32 位整数自身与 C 层的 uint32_t 转换完成。
-    sess.frame_ts = (sess.frame_ts or 0) + #pcma
-    if media_push(sess, pcma, sess.frame_ts) == 0 then
+    -- **切包与时间戳推进都在 C 里**（G.711A 一字节一采样，按 8kHz 自推），
+    -- 这里整块交过去即可 —— 一次调用切好，省掉每包一次跨语言往返
+    local took = gb.stream_push_audio(sess.stream, pcma)
+    if took == 0 then
         return false          -- 整包被丢弃(队列满)，统计里能查到
     end
     M.flush_session(sess)
@@ -2760,29 +2375,26 @@ function M.talk_push(sess, pcma)
 end
 
 --[[
-注册**下行音频**回调：平台发来的音频包剥掉 RTP 头后交给它。
+注册**下行音频**回调：平台发来的音频交给它。
 
 与 talk_push 恰好是一对 —— 一个负责上行(本端采集 → 平台)，一个负责下行
 (平台 → 本端播放)。两者都只搬**已编码的 G.711A 字节**，PCM↔G.711A 的转换
 与麦克风/喇叭都归平台的音频框架(LuatOS 的 audio_v2 自带
 DATA_CODEC_TYPE_G711_ALAW，两端都用它即可，本组件不碰 codec)。
 
-回调签名 f(sess, body, is_ps)：
+回调签名 f(sess, body)：
   sess  音频会话表
-  body  剥掉 RTP 头之后的载荷。is_ps 为 false 时**直接就是 G.711A**，
-        可以原样喂给 audio_v2.input()
-  is_ps 载荷是否以 PS 起始码 00 00 01 BA 开头。**平台两种封装都可能**，
-        为 true 时需要先做 PS 解封装取出 PES(0xC0) 的载荷
+  body  **已经剥掉 RTP 头、必要时解过 PS** 的 G.711A，可以原样喂给
+        audio_v2.input()。收包侧的剥头与解封装都在 C 里做完，回调看不到
+        封装形态。
 返回值忽略。回调里抛异常不会打断收包循环（内部 pcall）。
-会话上的 rx_ps / rx_raw 是两种封装的累计计数，跑一次对讲即可判定平台用哪种。
 
 @api exgb28181client.on_audio(callback)
 @function callback 回调函数，传 nil 取消注册
 @return boolean
 @usage
 local client = require "exgb28181client"
-client.on_audio(function(sess, body, is_ps)
-    if is_ps then return end            -- PS 封装需先解封装，这里只处理裸 PCMA
+client.on_audio(function(sess, body)
     audio_v2.input(src_index, body, false)
 end)
 ]]
@@ -3449,7 +3061,7 @@ local function _teardown_for_reconnect()
         emit("call", "ended", { call_id = call_id, reason = "signaling_lost" })
     end
     for call_id, sess in pairs(st.talks) do
-        if sess.netc then socket.close(sess.netc) end
+        media_close(sess)       -- 音频会话同样要走唯一出口，否则 stream 不关、队列不清
         st.talks[call_id] = nil
         emit("call", "ended", { call_id = call_id, reason = "signaling_lost" })
     end
@@ -3686,11 +3298,7 @@ function M.start(opts)
     g_opts.rtp_port_base    = g_opts.rtp_port_base or 30000
     g_opts.max_sessions     = g_opts.max_sessions or 4
     g_opts.rtp_mtu          = g_opts.rtp_mtu or 0        -- 0 -> C 层默认(1400)
-    g_opts.media_queue_size = g_opts.media_queue_size or 32768
 
-    -- 媒体收发是否走 C 侧原生实现（见 native_media 的说明）。
-    -- **缺省关**：老路径仍在，现场出问题时翻回 false 即可，不必回退提交
-    g_opts.use_native_media = (g_opts.use_native_media == true)
     -- f= 行：描述媒体编码参数。取 0 表示由平台自行判断
     g_opts.media_format     = g_opts.media_format or "v/2/5/25/1/6000a/1a"
     -- PS 封装配置，随编码类型变化(H.264/H.265)

@@ -312,7 +312,7 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
         memcpy(Ra, &pdu_data[pos], RaLen2);
         pos += RaLen2;
 
-        uint8_t ra_number[30] = {0};
+        uint8_t ra_number[LUAT_MSG_MAX_ADDR_LEN + 1] = {0};
         if (((RaType >> 4) & 0x07) == 5)
         {
             luat_sms_decode_7bit_data(Ra, RaLen2, ra_number, sizeof(ra_number), 0);
@@ -419,7 +419,7 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
     memcpy(Oa, &pdu_data[pos], OaLen2);
     pos += OaLen2;
 
-    uint8_t number[30] = {0};
+    uint8_t number[LUAT_MSG_MAX_ADDR_LEN + 1] = {0};
 
     if (((OaType >> 4) & 0x07) == 5) // 7bit编码的字符串
     {

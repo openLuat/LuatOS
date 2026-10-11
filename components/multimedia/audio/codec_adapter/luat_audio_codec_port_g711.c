@@ -110,7 +110,12 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts = {
     .make_head = NULL,
     .encode = _g711_codec_encode,
     .decode_min_input_len = 160,
-    .decode_max_output_len = 160,
+    /* G.711A/μ 是 1 字节压缩 → 2 字节 16bit PCM（见 g711_codec.c 的
+       `*out_len = len * 2`），所以 160 字节输入解出来是 **320** 字节。
+       写 160 会让按它分配的缓冲少一半 —— decode_output_temp_buffer 只给
+       160+128=288 字节，解码却写 320 → 堆越界，跨核撞上时表现为
+       FreeRTOS 断言（reset reason 14）。 */
+    .decode_max_output_len = 320,
     .encode_min_input_len = 320,
     .encode_max_output_len = 160,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,
@@ -129,7 +134,8 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts = {
     .make_head = NULL,
     .encode = _g711_codec_encode,
     .decode_min_input_len = 160,
-    .decode_max_output_len = 160,
+    /* 同上：160 字节 G.711A 解码成 320 字节 PCM，不能报 160。 */
+    .decode_max_output_len = 320,
     .encode_min_input_len = 320,
     .encode_max_output_len = 160,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,

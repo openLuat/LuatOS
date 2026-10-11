@@ -158,4 +158,48 @@ function sms_test.test_multilang_ucs2_unpack()
     end
 end
 
+-- 长短信(2段, 7bit编码)重新排序并合并: 验证UDH跳过后7bit正文不截断
+function sms_test.test_long_7bit_sms_reassembly()
+    local pdus = {
+        -- Part 1/2, ref=0x6B, seq=1, UDL=160(含UDH 7 septets)
+        "00440A912143658709000062107021000000A00500036B020182C221B1683C2293CA25B3E97C42A3D229B56ABD62B35A584C36A3D56C375C2E281C128BC62332A95C329BCE27342A9D52ABD62B36AB85C564335ACD76C3E582C221B1683C2293CA25B3E97C42A3D229B56ABD62B35A584C36A3D56C375C2E281C128BC62332A95C329BCE27342A9D52ABD62B36AB85C564335ACD76C3E582C221B1683C2293",
+        -- Part 2/2, ref=0x6B, seq=2, UDL=14
+        "00440A9121436587090000621070210000000E0500036B0202944B66D3F98402"
+    }
+    local expected_full = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOP"
+
+    local parts = {}
+    for _, pdu in ipairs(pdus) do
+        local phone, text, meta = sms.unpack(pdu)
+        assert(phone == "1234567890" or phone == "+1234567890", "号码解析错误:" .. tostring(phone))
+        assert(type(text) == "string" and #text > 0, "7bit长短信分片文本为空")
+        assert(type(meta) == "table", "meta缺失")
+
+        local seq = pick(meta, {"seq", "seqNum"})
+        local total = pick(meta, {"total", "maxNum"})
+        local ref = pick(meta, {"ref", "refNum"})
+
+        assert(total == 2, "分片数量解析异常:" .. tostring(total))
+        assert(seq and seq >= 1 and seq <= total, "分片序号解析异常:" .. tostring(seq))
+        assert(ref == 0x6B, "分片参考号解析异常:" .. tostring(ref))
+        parts[seq] = text
+    end
+
+    for i = 1, 2 do
+        assert(parts[i], "缺少7bit分片" .. i)
+    end
+
+    local combined = table.concat(parts)
+    assert(combined == expected_full, "7bit长短信内容组装不一致")
+end
+
+-- 畸形UDH(UDL声明的septet数小于UDH实际占用)不得导致长度下溢/越界
+function sms_test.test_malformed_udh_no_overflow()
+    -- UDL=0x05 但携带6字节UDH(占7 septets), 旧实现 length 会下溢为254导致堆越界读
+    local pdu = "00440A91214365870900006210702100000005050003010101D3F2"
+    local ok, phone, text = pcall(sms.unpack, pdu)
+    assert(ok, "畸形UDH解析不应抛错")
+    assert(type(text) == "string" and #text <= 8, "畸形UDH应被裁剪到实际解码长度, 实际:" .. tostring(text and #text))
+end
+
 return sms_test

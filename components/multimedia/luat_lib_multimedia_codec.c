@@ -697,7 +697,7 @@ static const rotable_Reg_t reg_codec[] =
 	//@const SPEEX_UWB number Speex超宽带格式(32kHz)
 	{ "SPEEX_UWB",       ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_UWB)},
 #endif
-#if defined(LUAT_SUPPORT_G729) && defined(LUAT_USE_G729_PROFILE)
+#if defined(LUAT_SUPPORT_G729)
 	//@const G729 number G.729A/B格式(8kHz, 10字节/帧)
 	{ "G729",            ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_G729)},
 #endif

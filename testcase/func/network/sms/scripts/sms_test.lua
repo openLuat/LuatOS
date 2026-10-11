@@ -158,7 +158,15 @@ function sms_test.test_multilang_ucs2_unpack()
     end
 end
 
--- 长短信(2段, 7bit编码)重新排序并合并: 验证UDH跳过后7bit正文不截断
+local sms_pdu = require("sms_pdu")
+
+-- sms.unpack 仅在 PC 模拟器(LUA_USE_WINDOWS)注册, 真机跑本用例时跳过
+local function unpack_available()
+    return type(sms.unpack) == "function"
+end
+
+-- 长短信(2段, 7bit编码)重新排序并合并
+-- 基线用例: 该场景在长度钳位修复前后结果一致, 用于防止"UDH 跳过后正文被截断"的回归
 function sms_test.test_long_7bit_sms_reassembly()
     local pdus = {
         -- Part 1/2, ref=0x6B, seq=1, UDL=160(含UDH 7 septets)
@@ -195,11 +203,83 @@ end
 
 -- 畸形UDH(UDL声明的septet数小于UDH实际占用)不得导致长度下溢/越界
 function sms_test.test_malformed_udh_no_overflow()
+    if not unpack_available() then return end
     -- UDL=0x05 但携带6字节UDH(占7 septets), 旧实现 length 会下溢为254导致堆越界读
     local pdu = "00440A91214365870900006210702100000005050003010101D3F2"
     local ok, phone, text = pcall(sms.unpack, pdu)
     assert(ok, "畸形UDH解析不应抛错")
     assert(type(text) == "string" and #text <= 8, "畸形UDH应被裁剪到实际解码长度, 实际:" .. tostring(text and #text))
+end
+
+-- 7bit 字母地址(alphanumeric, OA type 0xD5): ADL 是字符数, 地址值占 ceil(ADL*7/8) 字节
+-- 旧实现按 (ADL+1)/2 取字节, 导致号码被截断且后续 PID/DCS/SCTS/UD 全部错位
+function sms_test.test_alpha_sender_7bit()
+    if not unpack_available() then return end
+    local phone, text, meta = sms.unpack(sms_pdu.buildAlphaDeliver("SMS", "hello"))
+    assert(phone == "SMS", "字母地址解析错误:" .. tostring(phone))
+    assert(text == "hello", "字母地址短信正文错误:" .. tostring(text))
+    assert(type(meta) == "table" and meta.year == 26 and meta.mon == 1 and meta.day == 7
+        and meta.hour == 12 and meta.min == 34 and meta.sec == 56, "字母地址短信时间戳错位")
+end
+
+-- 4 字符字母地址(ceil(4*7/8)=4 字节), 同样必须整段正确
+function sms_test.test_alpha_sender_7bit_long()
+    if not unpack_available() then return end
+    local phone, text = sms.unpack(sms_pdu.buildAlphaDeliver("BANK", "notice"))
+    assert(phone == "BANK", "字母地址解析错误:" .. tostring(phone))
+    assert(text == "notice", "字母地址短信正文错误:" .. tostring(text))
+end
+
+-- 解码出的填充位尾字符必须按 ADL 截断, 不能泄漏进号码
+function sms_test.test_alpha_sender_udl_trim()
+    if not unpack_available() then return end
+    for _, sender in ipairs({"SMS", "BANK", "S", "ALERT", "INFO-LINE"}) do
+        local phone = sms.unpack(sms_pdu.buildAlphaDeliver(sender, "ok"))
+        assert(phone == sender, string.format("字母地址[%s]应为原样, 实际[%s]", sender, tostring(phone)))
+    end
+end
+
+-- 合法分片的边界长度扫描: 防止长度钳位/UDH 处理把正常长短信截断
+function sms_test.test_segment_length_sweep()
+    if not unpack_available() then return end
+    local lengths = {1, 6, 7, 8, 49, 50, 51, 152, 153}
+    for _, udh16 in ipairs({false, true}) do
+        for _, len in ipairs(lengths) do
+            local text = string.rep("A", len)
+            local pdu = sms_pdu.buildSegment7bit(text, 0x6B, 2, 1, udh16)
+            local phone, got, meta = sms.unpack(pdu)
+            assert(phone == "1234567890", "分片号码解析错误:" .. tostring(phone))
+            assert(type(got) == "string" and #got == len,
+                string.format("udh16=%s len=%d 期望长度 %d, 实际 %s", tostring(udh16), len, len, tostring(got and #got)))
+            assert(meta and meta.refNum == 0x6B and meta.maxNum == 2 and meta.seqNum == 1,
+                string.format("udh16=%s len=%d 分片头解析异常", tostring(udh16), len))
+        end
+    end
+end
+
+-- 8bit 长短信: UDL 小于 UDH 占用属于非法 PDU, 必须拒绝而不是把 UDH 当正文
+function sms_test.test_malformed_udl_8bit_rejected()
+    if not unpack_available() then return end
+    local r = {sms.unpack(sms_pdu.buildMalformedUdl(0x04, 2))}
+    assert(#r == 0, "UDL小于UDH占用的8bit短信应被拒绝, 实际返回" .. #r .. "个值")
+end
+
+-- UCS2 长短信: 同上
+function sms_test.test_malformed_udl_ucs2_rejected()
+    if not unpack_available() then return end
+    local r = {sms.unpack(sms_pdu.buildMalformedUdl(0x08, 2))}
+    assert(#r == 0, "UDL小于UDH占用的UCS2短信应被拒绝, 实际返回" .. #r .. "个值")
+end
+
+-- 数值地址的普通 7bit 短信不受字母地址长度算法改动影响
+function sms_test.test_short_7bit_baseline()
+    if not unpack_available() then return end
+    for _, n in ipairs({1, 5, 10, 11}) do
+        local digits = string.rep("1", n)
+        local phone, text = sms.unpack(sms_pdu.buildShort7bit("ok", digits))
+        assert(phone == digits, string.format("%d位数值地址解析错误:%s", n, tostring(phone)))
+        assert(text == "ok", "数值地址短信正文错误:" .. tostring(text))
+    end
 end
 
 return sms_test

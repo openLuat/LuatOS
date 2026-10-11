@@ -54,9 +54,9 @@ client.start({
    中文会因编码不符而乱码，详见 C 层 luat_gb28181_xml.h 的说明
 ]]
 
--- C 模块：真机走 require，PC 模拟器需回退全局表。
--- 该模拟器用自定义加载器接管了 require，不解析 C 内建模块，
--- require "gb28181" 在此会失败，但模块仍在全局表上。
+-- C 模块 gb28181：实测真机上 require 同样失败（返回 false），模块实际挂在
+-- 全局表 gb28181 上是 userdata —— 所以回退那半才是真正起作用的。
+-- 这句 pcall 必需：裸 require 失败会让整个 main chunk 抛错（Luat: → VM exit → 重启）。
 local gb
 do
     local ok, mod = pcall(require, "gb28181")

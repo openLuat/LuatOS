@@ -15,6 +15,8 @@
 #include "string.h"
 #include "luat_zbuff.h"
 #include "luat_gpio.h"
+// 使 BSP 级软串口开关(LUAT_USE_SOFT_UART_SRAM / LUAT_SOFT_UART_RX_RING)对引擎可见
+#include "luat_conf_bsp.h"
 
 #ifdef LUAT_USE_DRV_UART
 #include "luat/drv_uart.h"
@@ -22,6 +24,10 @@
 
 #define LUAT_LOG_TAG "uart"
 #include "luat_log.h"
+#ifdef LUAT_SOFT_UART_WEDGE_DEBUG
+extern void luat_uart_soft_debug_dump(void);
+extern void luat_uart_soft_debug_mark_tx(int hwtimer_id);
+#endif
 
 
 
@@ -76,6 +82,9 @@ typedef struct
 	uint16_t tx_bit;
 	uint8_t rx_fifo[LUAT_UART_SOFT_FIFO_CNT];
 	uint8_t rx_fifo_cnt;
+#ifdef LUAT_SOFT_UART_RX_BATCH
+	uint8_t rx_msg_div;		/**< 已攒的字节数(批量上报用) */
+#endif
 	uint8_t tx_shift_bits;
 	uint8_t rx_shift_bits;
 	uint8_t data_bits;
@@ -93,6 +102,12 @@ typedef struct
     uint8_t is_inited;
     uint8_t is_tx_busy;
     uint8_t is_rx_busy;
+#ifdef LUAT_SOFT_UART_RX_RING
+    // ISR 与任务间的 SPSC 暂存环: ISR 只写(少碰 PSRAM), 任务侧取出再入 rx_buffer
+    volatile uint16_t rx_ring_r;
+    volatile uint16_t rx_ring_w;
+    uint8_t rx_ring[LUAT_SOFT_UART_RX_RING];
+#endif
 }luat_uart_soft_t;
 static luat_uart_soft_t *prv_uart_soft;
 
@@ -122,10 +137,16 @@ static uint16_t __LUAT_C_CODE_IN_RAM__ luat_uart_soft_check_party(uint8_t data, 
 
 static int __LUAT_C_CODE_IN_RAM__ luat_uart_soft_recv_start_irq(int pin, void *param)
 {
+	// GPIO 起始沿中断常开, 仅空闲/字节完成态(0xef)认作起始沿; 采样期间数据位的
+	// 下降沿直接忽略. 省掉每字节 4 次 GPIO 配置写(会打断 32k 同步流水线, 拖慢
+	// 下一字节起始沿检测, 且每写有同步开销)
+	if (prv_uart_soft->rx_shift_bits != 0xef)
+	{
+		return 0;
+	}
 	luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, prv_uart_soft->rx_period + (prv_uart_soft->rx_period >> 4));
 	prv_uart_soft->rx_shift_bits = 0;
 	prv_uart_soft->rx_parity_bit = prv_uart_soft->parity_odd;
-	luat_uart_soft_gpio_fast_irq_set(pin, 0);
 	luat_uart_soft_sleep_enable(0);
 	return 0;
 }
@@ -181,11 +202,15 @@ static int luat_uart_soft_setup(luat_uart_t *uart)
 	{
 	case 2:
 		prv_uart_soft->total_bits = prv_uart_soft->data_bits + prv_uart_soft->parity + 4;
-		prv_uart_soft->stop_period = luat_uart_soft_cal_baudrate(uart->baud_rate) * 3;
+		// 2 停止位: stop_period = 2 位时长
+		prv_uart_soft->stop_period = luat_uart_soft_cal_baudrate(uart->baud_rate) * 2;
 		break;
 	default:
 		prv_uart_soft->total_bits = prv_uart_soft->data_bits + prv_uart_soft->parity + 2;
-		prv_uart_soft->stop_period = luat_uart_soft_cal_baudrate(uart->baud_rate) * 2;
+		// 1 停止位: stop_period 必须等于位周期. 原先用 2 位时长会让 buffer 末尾停表时
+		// 比较值停在 2 位处, 下次任务侧 arm 后的首个匹配要等 2 位, 起始位被拉长一倍,
+		// 整个 buffer 的首字节被 PC 端移位采样读错(全双工下每个 buffer 约丢 1 字节)
+		prv_uart_soft->stop_period = luat_uart_soft_cal_baudrate(uart->baud_rate);
 		break;
 	}
 	if (uart->pin485 != 0xffffffff)
@@ -209,6 +234,7 @@ static int luat_uart_soft_setup(luat_uart_t *uart)
 	conf.pin = prv_uart_soft->tx_pin;
 	conf.mode = Luat_GPIO_OUTPUT;
 	luat_gpio_setup(&conf);
+	luat_uart_soft_gpio_cache_invalid(prv_uart_soft->tx_pin);
 	luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 1);
 	if (prv_uart_soft->pin485 != 0xff)
 	{
@@ -217,7 +243,7 @@ static int luat_uart_soft_setup(luat_uart_t *uart)
 		luat_gpio_set(prv_uart_soft->pin485, prv_uart_soft->rs485_rx_level);
 		luat_gpio_setup(&conf);
 	}
-	prv_uart_soft->rx_shift_bits = 0;
+	prv_uart_soft->rx_shift_bits = 0xef;	// 空闲态: 起始沿过滤器只放行此状态
 	prv_uart_soft->tx_shift_bits = 0;
 	prv_uart_soft->rx_fifo_cnt = 0;
 	prv_uart_soft->is_tx_busy = 0;
@@ -258,6 +284,31 @@ static void luat_uart_soft_close(void)
 	luat_uart_soft_sleep_enable(1);
 }
 
+#ifdef LUAT_SOFT_UART_RX_RING
+// 任务侧: 把 ISR 写入 SRAM 暂存环的数据灌入接收缓冲(PSRAM 写入不再发生在 ISR)
+static void __LUAT_C_CODE_IN_RAM__ luat_uart_soft_rx_ring_drain(void)
+{
+	uint16_t r = prv_uart_soft->rx_ring_r;
+	uint16_t w = prv_uart_soft->rx_ring_w;
+	while (r != w)
+	{
+		uint8_t tmp[64];
+		uint32_t n = 0;
+		while (r != w && n < sizeof(tmp))
+		{
+			tmp[n++] = prv_uart_soft->rx_ring[r];
+			r++;
+			if (r >= LUAT_SOFT_UART_RX_RING)
+			{
+				r = 0;
+			}
+		}
+		OS_BufferWriteLimit(&prv_uart_soft->rx_buffer, tmp, n);
+	}
+	prv_uart_soft->rx_ring_r = r;
+}
+#endif
+
 static uint32_t luat_uart_soft_read(uint8_t *data, uint32_t len)
 {
 //	if (!data) return prv_uart_soft->rx_buffer.Pos;
@@ -289,7 +340,7 @@ static int luat_uart_soft_write(const uint8_t *data, uint32_t len)
 		return -1;
 	}
 	node->data = luat_heap_alloc(NULL, NULL, 0, len);
-	if (!data)
+	if (!node->data)
 	{
 		luat_heap_alloc(NULL, node, 0, 0);
 		return -1;
@@ -306,8 +357,9 @@ static int luat_uart_soft_write(const uint8_t *data, uint32_t len)
 		node = (luat_uart_soft_tx_node_t *)prv_uart_soft->tx_queue_head.next;
 		Buffer_StaticInit(&prv_uart_soft->tx_buffer, node->data, node->len);
 		prv_uart_soft->tx_shift_bits = 0;
-		luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->tx_period);
+		// 先拉低起始位再装表, 与逐字节发送路径保持一致
 		luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
+		luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->tx_period);
 		if (prv_uart_soft->parity)
 		{
 			prv_uart_soft->tx_bit = (0xffff << prv_uart_soft->data_bits) | luat_uart_soft_check_party(prv_uart_soft->tx_buffer.Data[0], prv_uart_soft->data_bits, prv_uart_soft->parity_odd) | prv_uart_soft->tx_buffer.Data[0];
@@ -995,6 +1047,10 @@ static int l_uart_soft_handler_rx_done(lua_State *L, void* ptr)
     lua_pop(L, 1);
 	if (prv_uart_soft->is_inited)
 	{
+#ifdef LUAT_SOFT_UART_RX_RING
+		// 先把 ISR 写入 SRAM 暂存环的数据灌入接收缓冲
+		luat_uart_soft_rx_ring_drain();
+#endif
 //		if (msg->ptr && msg->arg1)
 //		{
 //			if (((uint32_t)msg->arg1 + prv_uart_soft->rx_buffer.Pos) > prv_uart_soft->rx_buffer.MaxLen)
@@ -1045,6 +1101,21 @@ static int l_uart_soft_handler_rx_done(lua_State *L, void* ptr)
 		}
 
 	}
+#ifdef LUAT_SOFT_UART_WEDGE_DEBUG
+	{
+		// E1 取证: 每 ~400 个接收字节(约 1s) 输出一次 TX 通道寄存器快照与事件记录
+		static uint32_t s_swd_div;
+		if (++s_swd_div >= 16)
+		{
+			char dbg_buf[64];
+			s_swd_div = 0;
+			luat_uart_soft_debug_dump();
+			snprintf(dbg_buf, sizeof(dbg_buf), "SWE busy=%d pos=%d/%d", (int)prv_uart_soft->is_tx_busy,
+			         (int)prv_uart_soft->tx_buffer.Pos, (int)prv_uart_soft->tx_buffer.MaxLen);
+			LLOGD(dbg_buf);
+		}
+	}
+#endif
 //	if (msg->ptr)
 //	{
 //		luat_heap_alloc(NULL, msg->ptr, 0, 0);
@@ -1148,26 +1219,63 @@ UART_SOFT_RX_BYTE_DONE:
 		return;
 	}
 UART_SOFT_RX_DONE:
-
+	// 先停表并重新武装起始沿中断, 保证下一起始沿不被数据搬运耽误
+	if (is_end)
+	{
+		luat_uart_soft_gpio_fast_irq_set(prv_uart_soft->rx_pin, 1);
+		luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, 0);
+	}
 	if (prv_uart_soft->rx_fifo_cnt || is_end)
 	{
         rtos_msg_t msg = {0};
         msg.handler = l_uart_soft_handler_rx_done;
 //        msg.ptr = luat_heap_alloc(0, 0, 0, prv_uart_soft->rx_fifo_cnt);
-        msg.arg1 = prv_uart_soft->rx_fifo_cnt;
         msg.arg2 = is_end;
+#ifdef LUAT_SOFT_UART_RX_RING
+        msg.arg1 = 0;
+        // ISR 内只把数据搬进 SRAM 暂存环; rx_buffer 的写入(可能在 PSRAM)由任务完成
+        {
+            uint8_t cnt = prv_uart_soft->rx_fifo_cnt;
+            uint8_t i;
+            for (i = 0; i < cnt; i++)
+            {
+                uint16_t w = prv_uart_soft->rx_ring_w;
+                uint16_t nw = w + 1;
+                if (nw >= LUAT_SOFT_UART_RX_RING)
+                {
+                    nw = 0;
+                }
+                if (nw != prv_uart_soft->rx_ring_r)
+                {
+                    prv_uart_soft->rx_ring[w] = prv_uart_soft->rx_fifo[i];
+                    prv_uart_soft->rx_ring_w = nw;
+                }
+            }
+        }
+        prv_uart_soft->rx_fifo_cnt = 0;
+#else
+        msg.arg1 = prv_uart_soft->rx_fifo_cnt;
 //        if (msg.ptr)
 //        {
 //        	memcpy(msg.ptr, prv_uart_soft->rx_fifo, prv_uart_soft->rx_fifo_cnt);
 //        }
         OS_BufferWriteLimit(&prv_uart_soft->rx_buffer, prv_uart_soft->rx_fifo, prv_uart_soft->rx_fifo_cnt);
         prv_uart_soft->rx_fifo_cnt = 0;
+#endif
+#ifdef LUAT_SOFT_UART_RX_BATCH
+        // 批量上报: is_end 每字节都触发, 任务侧唤醒(msgbus+回调)过密会在全双工时
+        // 阻塞 TX 位中断; 攒够 N 字节(或 fifo 满/真实结束)才通知任务
+        if (is_end)
+        {
+            prv_uart_soft->rx_msg_div++;
+            if (prv_uart_soft->rx_msg_div < LUAT_SOFT_UART_RX_BATCH)
+            {
+                return;
+            }
+        }
+        prv_uart_soft->rx_msg_div = 0;
+#endif
         luat_msgbus_put(&msg, 0);
-	}
-	if (is_end)
-	{
-		luat_uart_soft_gpio_fast_irq_set(prv_uart_soft->rx_pin, 1);
-		luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, 0);
 	}
 	return;
 }
@@ -1191,7 +1299,13 @@ static int l_uart_soft(lua_State *L) {
 #ifdef LUAT_USE_SOFT_UART
 	if (!prv_uart_soft)
 	{
+#ifdef LUAT_USE_SOFT_UART_SRAM
+		// 上下文含 ISR 热数据(rx_fifo/计数/位缓存/暂存环), 默认堆在 PSRAM,
+		// 这里改到 SRAM 堆, 避免位级 ISR 访问 PSRAM 造成抖动
+		prv_uart_soft = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_uart_soft_t));
+#else
 		prv_uart_soft = luat_heap_alloc(NULL, NULL, 0, sizeof(luat_uart_soft_t));
+#endif
 		if (prv_uart_soft)
 		{
 			memset(prv_uart_soft, 0, sizeof(luat_uart_soft_t));
@@ -1240,6 +1354,9 @@ static int l_uart_soft(lua_State *L) {
 		luat_uart_soft_setup_hwtimer_callback(prv_uart_soft->tx_hwtimer_id, NULL);
 		prv_uart_soft->is_inited = 0;
 	}
+#ifdef LUAT_SOFT_UART_WEDGE_DEBUG
+	luat_uart_soft_debug_mark_tx(prv_uart_soft->tx_hwtimer_id);
+#endif
 	if (!prv_uart_soft->is_inited)
 	{
 		lua_pushnil(L);

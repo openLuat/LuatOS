@@ -1611,6 +1611,8 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "DATA_CODEC_TYPE_G711_ALAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW)},
     //@const DATA_CODEC_TYPE_G729 number 编解码器类型G.729A, 8kHz单声道, 10字节/帧, 裸流无法自动识别需显式指定
     { "DATA_CODEC_TYPE_G729",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G729)},
+    //@const DATA_CODEC_TYPE_G722 number 编解码器类型G.722, 16kHz宽带单声道, 20ms帧: 640字节PCM↔160字节码流, 裸流无法自动识别需显式指定
+    { "DATA_CODEC_TYPE_G722",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G722)},
     //@const DATA_CODEC_TYPE_HW number 编解码器类型-硬件编解码器优先模式
     { "DATA_CODEC_TYPE_HW",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_HW)},
     //@const DSP_TYPE_SPEEXDSP number dsp类型speexdsp

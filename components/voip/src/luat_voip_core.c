@@ -1398,6 +1398,8 @@ static int voip_session_start(voip_ctx_t *ctx)
     // const luat_audio_data_codec_opts_t *codec_opts = NULL;
 
     uint8_t codec_type;
+    /* RTP 时钟：G.722 按 RFC3551 固定 8000Hz（虽然 PCM 是 16kHz），其余 codec 等于采样率 */
+    uint32_t rtp_clock_rate = sample_rate;
     switch (ctx->config.codec) {
     case VOIP_CODEC_PCMA:
         ctx->rtp_payload_type = VOIP_RTP_PT_PCMA;
@@ -1412,6 +1414,20 @@ static int voip_session_start(voip_ctx_t *ctx)
         }
         ctx->rtp_payload_type = VOIP_RTP_PT_G729;
         codec_type = LUAT_AUDIO_DATA_CODEC_TYPE_G729;
+        break;
+    case VOIP_CODEC_G722:
+        /* G.722 固定 16kHz 宽带、20ms 帧，ptime 必须为 20ms 整数倍 */
+        if (sample_rate != 16000 || (ptime % 20)) {
+            LLOGE("g722 requires 16kHz sample rate and ptime multiple of 20ms, got rate=%u ptime=%u",
+                    (unsigned)sample_rate, (unsigned)ptime);
+            goto start_failed;
+        }
+        ctx->rtp_payload_type = VOIP_RTP_PT_G722;
+        codec_type = LUAT_AUDIO_DATA_CODEC_TYPE_G722;
+        rtp_clock_rate = 8000;
+        /* AEC 路径按 8kHz 假设，宽带下直接关闭（同 bridge 模式处理） */
+        ctx->config.aec_enable = 0;
+        ctx->config.aec_denoise = 0;
         break;
     case VOIP_CODEC_PCMU:
     default:
@@ -1494,7 +1510,7 @@ static int voip_session_start(voip_ctx_t *ctx)
         goto start_failed;
     }
     
-    if (voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, sample_rate, ptime) < 0) {
+    if (voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, rtp_clock_rate, ptime) < 0) {
 #ifdef LUAT_USE_SRTP
         voip_notify_lua(VOIP_CB_ERROR, LUAT_VOIP_SECURITY_E_CRYPTO);
 #endif

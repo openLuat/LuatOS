@@ -79,6 +79,7 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_CC_BRIDGE_PCM, /**< CC-SIP桥接专用PCM直通编解码器，非Lua公共codec */
     LUAT_AUDIO_DATA_CODEC_TYPE_VOIP_PCM,  /**< VOIP专用PCM直通编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_G729,  /**< G.729 8kHz 编解码器（Annex A+B） */
+    LUAT_AUDIO_DATA_CODEC_TYPE_G722,  /**< G.722 16kHz 宽带编解码器（64kbps） */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
     LUAT_AUDIO_DATA_CODEC_TYPE_HW = 0x80, /**< 编解码器类型-硬件编解码器优先模式 */
 

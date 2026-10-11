@@ -385,6 +385,7 @@ target("luatos-lua")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_nb.c")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_wb.c")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_g729.c")
+        add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_g722.c")
 
     -- speex codec
     if os.getenv("LUAT_SUPPORT_SPEEX") ~= "n" then
@@ -410,6 +411,24 @@ target("luatos-lua")
         g729_src = g729_src:gsub("\\", "/"):gsub("/$", "")
         add_includedirs(g729_src, g729_src .. "/interface")
         add_thirdparty_files(g729_src .. "/*.c")
+    end
+
+    -- g722（可选外部组件）：源码位于 luatos-ext-components/libg722。
+    -- 依赖是可选的：LUAT_USE_CODEC_G722=y 强制启用（缺失时报错）/ =n 强制禁用；
+    -- 未设置时按 luatos-ext-components/libg722 目录是否存在自动检测。
+    -- 禁用时 LUAT_SUPPORT_G722 不定义，g722 胶水层（legacy codec 模块端口与
+    -- audio_v2 适配器）整文件宏保护编译为空，Lua 侧无 codec.G722。
+    local g722_src = luatos_ext_root .. "/libg722"
+    local env_g722 = os.getenv("LUAT_USE_CODEC_G722")
+    local use_g722 = os.isdir(g722_src) and env_g722 ~= "n"
+    if env_g722 == "y" and not os.isdir(g722_src) then
+        raise("LUAT_USE_CODEC_G722=y 但未找到 " .. g722_src)
+    end
+    if use_g722 then
+        add_defines("LUAT_SUPPORT_G722=1")
+        g722_src = g722_src:gsub("\\", "/"):gsub("/$", "")
+        add_includedirs(g722_src)
+        add_thirdparty_files(g722_src .. "/*.c")
     end
 
     -- audio_dsp（SpeexDSP 适配层，可选外部组件）

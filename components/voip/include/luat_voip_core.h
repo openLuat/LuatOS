@@ -39,12 +39,14 @@
 #define VOIP_RTP_PT_PCMU        0
 #define VOIP_RTP_PT_PCMA        8
 #define VOIP_RTP_PT_G729        18
+#define VOIP_RTP_PT_G722        9
 
 /* 编解码器类型 */
 typedef enum {
     VOIP_CODEC_PCMU = 0,
     VOIP_CODEC_PCMA = 1,
     VOIP_CODEC_G729 = 2,    /* G.729A，仅 8kHz，ptime 必须为 10ms 整数倍 */
+    VOIP_CODEC_G722 = 3,    /* G.722，仅 16kHz 宽带 64kbps，ptime 必须为 20ms 整数倍，RTP 时钟按 RFC3551 为 8000 */
 } voip_codec_type_t;
 
 typedef enum {

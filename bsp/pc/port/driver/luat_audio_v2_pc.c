@@ -595,6 +595,9 @@ void luat_audio_data_codec_register_all(void)
 #ifdef LUAT_SUPPORT_G729
     luat_audio_data_codec_register(&luat_audio_data_codec_g729_opts);
 #endif
+#ifdef LUAT_SUPPORT_G722
+    luat_audio_data_codec_register(&luat_audio_data_codec_g722_opts);
+#endif
 #ifdef LUAT_SUPPORT_SPEEX
 	luat_audio_data_codec_register(&luat_audio_data_codec_speex_nb_opts);
 	luat_audio_data_codec_register(&luat_audio_data_codec_speex_wb_opts);

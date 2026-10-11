@@ -324,6 +324,7 @@ PC 模拟器支持通过环境变量按需启用可选功能，遵循与 `LUAT_U
 | `LUAT_USE_UTEST` | `y` | 启用 C 层 utest（`socket.utest`、`http.utest` 等）。覆盖率和直接运行都需要 |
 | `MP4PLAYER_SRC_DIR` | 路径 | mp4player 源码根目录（与 `LUAT_USE_MP4PLAYER=y` 配合使用） |
 | `LUAT_USE_CODEC_G729` | `y`/`n` | G.729 编解码（Annex A+B，`codec.G729` / audio_v2 G729）。源码位于 `luatos-ext-components/g729`；`y` 强制启用（缺失时报错），`n` 强制禁用，未设置时按目录存在性自动检测。禁用时 `LUAT_SUPPORT_G729` 不定义，g729 胶水层编译为空 |
+| `LUAT_USE_CODEC_G722` | `y`/`n` | G.722 编解码（16kHz 宽带 64kbps，`codec.G722` / audio_v2 G722 / voip.G722）。源码位于 `luatos-ext-components/libg722`；`y` 强制启用（缺失时报错），`n` 强制禁用，未设置时按目录存在性自动检测。禁用时 `LUAT_SUPPORT_G722` 不定义，g722 胶水层编译为空 |
 | `LUATOS_EXT_ROOT` | 路径 | `luatos-ext-components` 仓库根目录。未设置时自动从脚本目录向上三级查找；**在 git worktree 中必须设置此变量**（或依赖自动 worktree 检测）。 |
 
 ### mp4player 启用示例（PowerShell）

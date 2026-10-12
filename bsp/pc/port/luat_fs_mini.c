@@ -6,16 +6,31 @@
 #include "luat_log.h"
 
 #include "dirent.h"
+#include "stdint.h"
+
+#include "luat_romfs.h"
 
 extern const struct luat_vfs_filesystem vfs_fs_posix;
 extern const struct luat_vfs_filesystem vfs_fs_luadb;
 extern const struct luat_vfs_filesystem vfs_fs_ram;
 extern const struct luat_vfs_filesystem vfs_fs_lfs2;
+extern const struct luat_vfs_filesystem vfs_fs_romfs;
 
 extern int cmdline_argc;
 extern char **cmdline_argv;
 
 extern char *luadb_ptr;
+
+// romfs 内嵌测试镜像(由 tools/romfs/mkromfs.py 生成)
+extern const uint8_t romfs_fixture_img[];
+extern const unsigned int romfs_fixture_img_len;
+
+// read 回调模式后端: 包一层 memcpy, 用于验证回调路径与指针路径行为一致
+static int romfs_fixture_read(void* userdata, char* buff, size_t offset, size_t len) {
+	if (offset + len > romfs_fixture_img_len) return -1;
+	memcpy(buff, romfs_fixture_img + offset, len);
+	return (int)len;
+}
 
 // 从命令行参数构建luadb
 
@@ -34,6 +49,7 @@ int luat_fs_init(void)
 	luat_vfs_reg(&vfs_fs_luadb);
 	luat_vfs_reg(&vfs_fs_ram);
 	luat_vfs_reg(&vfs_fs_lfs2);
+	luat_vfs_reg(&vfs_fs_romfs);
 
 	luat_fs_conf_t conf = {
 		.busname = "",
@@ -67,6 +83,27 @@ int luat_fs_init(void)
 
 	// 挂载/lfs2作为测试lfs文件系统的目录
 	pc_lfs2_mount();
+
+	// 挂载/romfs(指针模式)与/romfs2(read回调模式), 共用内嵌测试镜像
+	{
+		static luat_romfs_ctx_t romfs_ctx_ptr = {.userdata = (void*)romfs_fixture_img, .read = NULL};
+		luat_fs_conf_t conf_romfs = {
+			.busname = (char*)&romfs_ctx_ptr,
+			.type = "romfs",
+			.filesystem = "romfs",
+			.mount_point = "/romfs/",
+		};
+		luat_fs_mount(&conf_romfs);
+
+		static luat_romfs_ctx_t romfs_ctx_cb = {.userdata = (void*)romfs_fixture_img, .read = romfs_fixture_read};
+		luat_fs_conf_t conf_romfs2 = {
+			.busname = (char*)&romfs_ctx_cb,
+			.type = "romfs",
+			.filesystem = "romfs",
+			.mount_point = "/romfs2/",
+		};
+		luat_fs_mount(&conf_romfs2);
+	}
 
 #ifdef LUAT_USE_LVGL
 	lvgl_fs_init();

@@ -241,6 +241,10 @@ target("luatos-lua")
 
     add_thirdparty_files(luatos.."components/lfs/*.c")
 
+    -- romfs (只读镜像文件系统, /romfs 指针模式 /romfs2 read回调模式)
+    add_includedirs(luatos.."components/romfs", {public = true})
+    add_files(luatos.."components/romfs/*.c")
+
     -- add_files(luatos.."components/sfd/*.c")
     -- lua-cjson
     add_includedirs(luatos.."components/lua-cjson")

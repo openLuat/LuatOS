@@ -36,7 +36,6 @@ require("airui_camsnap")
 require("airui_checkbox")
 require("airui_slider")
 require("airui_nes")
-require("airui_gbc")
 require("airui_custom_hzfont")
 
 -- 当前显示的页面
@@ -81,7 +80,6 @@ local pages = {
     checkbox = "airui_checkbox",                -- 复选框演示
     slider = "airui_slider",                    -- 滑块演示
     nes = "airui_nes",                          -- NES模拟器演示
-    gbc = "airui_gbc",                          -- GBC模拟器演示
     custom_hzfont = "airui_custom_hzfont",      -- 自定义矢量字体演示
 }
 

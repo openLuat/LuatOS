@@ -56,8 +56,7 @@
 5. airui_shape.lua - 形状组件演示页面（直线、圆形、椭圆、矩形）
 6. airui_spinner.lua - 加载指示器组件演示页面（旋转动画）
 7. airui_nes.lua - NES模拟器组件演示页面（加载/luadb/game.nes运行FC游戏，需要固件启用NES支持）
-8. airui_gbc.lua - GBC模拟器组件演示页面（加载/luadb/game.gbc运行GBC游戏，需要固件启用GBC支持）
-9. airui_game.lua - 俄罗斯方块游戏演示页面
+8. airui_game.lua - 俄罗斯方块游戏演示页面
 
 ### 2.6 字体渲染演示
 1. airui_hzfont.lua - HzFont 内置矢量字体特性演示

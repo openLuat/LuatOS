@@ -49,6 +49,8 @@
 2.  **`airui_shape.lua`** - 形状组件演示（直线、圆形、椭圆、矩形）
 3.  **`airui_spinner.lua`** - 加载指示器组件演示（旋转动画）
 4.  **`airui_video.lua`** - 视频组件演示（MJPG播放）
+5.  **`airui_nes.lua`** - NES模拟器组件演示（加载/luadb/game.nes运行FC游戏，触控方向键/A/B/Start/Select操作）
+6.  **`airui_lottie.lua`** - Lottie动画组件演示（内联数据动画、播放控制、速率/循环/进度设置、切换文件源）
 
 ### 2.6 字体渲染演示
 1.  **`airui_hzfont.lua`** - HzFont 内置矢量字体特性演示（支持12-255号无级缩放、多文种混排）

@@ -24,6 +24,16 @@
 #define NET_DBG	LLOGD
 #define NET_ERR LLOGE
 
+/* RNDIS NAT 模式共存问题定位日志: 1=开启(默认), 抓完日志后改 0 或删除本块 */
+#ifndef LUAT_CONF_RNDIS_NAT_DBG
+#define LUAT_CONF_RNDIS_NAT_DBG 0
+#endif
+#if LUAT_CONF_RNDIS_NAT_DBG
+#define NET_LWIP2_RNDIS_DBG(fmt, ...) luat_log_log(LUAT_LOG_INFO, "RNDIS-NAT-DBG", fmt, ##__VA_ARGS__)
+#else
+#define NET_LWIP2_RNDIS_DBG(fmt, ...) do {} while (0)
+#endif
+
 #ifndef SOCKET_BUF_LEN
 #define SOCKET_BUF_LEN	(3 * TCP_MSS)
 #endif
@@ -468,6 +478,12 @@ static err_t net_lwip2_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	uint8_t adapter_index = ((uint32_t)arg) >> 16;
 	uint16_t len = 0;
 	// LLOGD("net_lwip2_udp_recv_cb %d %d", socket_id, adapter_index);
+#if LUAT_CONF_RNDIS_NAT_DBG
+	if (port == 67 || port == 68 || pcb->local_port == 67 || pcb->local_port == 68) {
+		NET_LWIP2_RNDIS_DBG("udp_recv sock=%u ad=%u local_port=%u remote_port=%u len=%u idx=%u",
+			socket_id, adapter_index, pcb->local_port, port, p ? p->tot_len : 0, pcb->netif_idx);
+	}
+#endif
 	if (p)
 	{
 		len = p->tot_len;
@@ -857,6 +873,14 @@ static void net_lwip2_task(void *param)
 				{
 					prvlwip.socket[socket_id].pcb.udp->flags &= ~UDP_FLAGS_CONNECTED;
 				}
+			#if LUAT_CONF_RNDIS_NAT_DBG
+				NET_LWIP2_RNDIS_DBG("udp_conn ad=%u sock=%u local=0x%08X port=%u remote=0x%08X:%u pcb_idx=%u binderr=%d",
+					adapter_index, socket_id,
+					local_ip ? ip_addr_get_ip4_u32(local_ip) : 0,
+					prvlwip.socket[socket_id].local_port,
+					ip_addr_get_ip4_u32(p_ip), prvlwip.socket[socket_id].remote_port,
+					prvlwip.socket[socket_id].pcb.udp->netif_idx, (int)error);
+			#endif
 				net_lwip2_callback_to_nw_task(adapter_index, EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
 			}
 
@@ -1242,6 +1266,12 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 			prvlwip.socket[socket_id].pcb.udp->recv_arg = uPV.p;
 			prvlwip.socket[socket_id].pcb.udp->recv = net_lwip2_udp_recv_cb;
 			prvlwip.socket[socket_id].pcb.udp->so_options |= SOF_BROADCAST|SOF_REUSEADDR;
+		#if LUAT_CONF_RNDIS_NAT_DBG
+			NET_LWIP2_RNDIS_DBG("udp_new ad=%u sock=%u netif=%p num=%u pcb_idx=%u",
+				adapter_index, socket_id, prvlwip.lwip_netif[adapter_index],
+				prvlwip.lwip_netif[adapter_index] ? prvlwip.lwip_netif[adapter_index]->num : 0,
+				prvlwip.socket[socket_id].pcb.udp->netif_idx);
+		#endif
 		}
 		else
 		{

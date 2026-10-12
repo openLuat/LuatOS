@@ -14,6 +14,16 @@
 #define LUAT_LOG_TAG "netdrv.napt.tcp"
 #include "luat_log.h"
 
+/* RNDIS NAT 模式共存问题定位日志: 1=开启(默认), 抓完日志后改 0 或删除本块 */
+#ifndef LUAT_CONF_RNDIS_NAT_DBG
+#define LUAT_CONF_RNDIS_NAT_DBG 0
+#endif
+#if LUAT_CONF_RNDIS_NAT_DBG
+#define NAPT_TCP_DBG(fmt, ...) luat_log_log(LUAT_LOG_INFO, "RNDIS-NAT-DBG", fmt, ##__VA_ARGS__)
+#else
+#define NAPT_TCP_DBG(fmt, ...) do {} while (0)
+#endif
+
 static uint8_t *tcp_buff;
 extern luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
 
@@ -65,6 +75,12 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 tcp_hdr->chksum = napt_inet_chksum_pseudo(ip_hdr, IP_PROTO_TCP,
                                                           tcp_hdr, ip_hdr_len - iphdr_len);
             }
+        #if LUAT_CONF_RNDIS_NAT_DBG
+            NAPT_TCP_DBG("wan2lan tcp lport=%u -> inet=0x%08X:%u wnet=0x%08X:%u",
+                (unsigned)ntohs(old_dst_port), (unsigned)mapping.inet_ip,
+                (unsigned)ntohs(mapping.inet_port), (unsigned)mapping.wnet_ip,
+                (unsigned)ntohs(mapping.wnet_port));
+        #endif
             return napt_output_to_lan(ctx, &mapping, ip_hdr, tcp_buff);
         }
         // LLOGD("没有找到TCP映射关系, 放行给LWIP处理");
@@ -94,6 +110,16 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             tcp_hdr->chksum = napt_inet_chksum_pseudo(ip_hdr, IP_PROTO_TCP,
                                                       tcp_hdr, ip_hdr_len - iphdr_len);
         }
+        #if LUAT_CONF_RNDIS_NAT_DBG
+        {
+            static uint32_t _tcp_out_dump = 0;
+            if (_tcp_out_dump < 6) {
+                extern void luat_netdrv_dump_hex(const char* tag, const uint8_t* buff, uint16_t len, uint16_t maxlen);
+                _tcp_out_dump++;
+                luat_netdrv_dump_hex("tcp_out", (const uint8_t*)ip_hdr, 60, 60);
+            }
+        }
+        #endif
         return napt_output_to_wan(ctx, gw, ip_hdr, tcp_buff);
     }
     // return 0;

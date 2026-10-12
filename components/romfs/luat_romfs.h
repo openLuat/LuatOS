@@ -19,6 +19,12 @@
 #ifndef LUAT_ROMFS_VERIFY_HEAD_CKSUM
 #define LUAT_ROMFS_VERIFY_HEAD_CKSUM 1  // mount 时校验镜像头 checksum
 #endif
+#ifndef LUAT_ROMFS_USE_DIR_CACHE
+#define LUAT_ROMFS_USE_DIR_CACHE 1      // mount 时把目录树载入内存缓存(约96B/节点), 0=退回镜像内联表查找(零RAM)
+#endif
+#ifndef LUAT_ROMFS_MAX_DIR_DEPTH
+#define LUAT_ROMFS_MAX_DIR_DEPTH 4      // 目录嵌套深度上限, 超出则 mount 失败
+#endif
 
 // 读取回调: 从镜像 offset 读 len 字节到 buff, 成功返回读取字节数, 失败返回负值
 // 单次调用 len 保证 <= 16MB

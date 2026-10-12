@@ -40,13 +40,12 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "Air8300_DataCollector"
+PROJECT = "Air8300_Factory"
 VERSION = "001.999.001"
 
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-log.info("8300出厂固件：485温湿度传感器已替换为485继电器模块，温湿度改由Modbus TCP采集")
 
 
 --[[

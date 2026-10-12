@@ -157,17 +157,26 @@ local function clearLines()
 end
 
 ----------------------------------------------------------------
--- 绘制函数：使用lcd.fill绘制棋盘
+-- 绘制函数：使用fill_rect绘制棋盘
 ----------------------------------------------------------------
+-- 矩形填充（display/lcd 核心库双后端，display优先）
+local function fill_rect(x1, y1, x2, y2, color)
+    if display and display.fill then
+        display.fill(x1, y1, x2, y2, color)
+    else
+        lcd.fill(x1, y1, x2, y2, color)
+    end
+end
+
 local function drawCell(x, y, color)
     local cx = BOARD_X + (x - 1) * CELL_SIZE
     local cy = BOARD_Y + (y - 1) * CELL_SIZE
-    lcd.fill(cx, cy, cx + CELL_SIZE - 2, cy + CELL_SIZE - 2, color)
+    fill_rect(cx, cy, cx + CELL_SIZE - 2, cy + CELL_SIZE - 2, color)
 end
 
 local function drawBoard()
     -- 绘制棋盘背景
-    lcd.fill(BOARD_X, BOARD_Y, BOARD_X + BOARD_W - 1, BOARD_Y + BOARD_H - 1, 0x1082) -- 深灰色背景
+    fill_rect(BOARD_X, BOARD_Y, BOARD_X + BOARD_W - 1, BOARD_Y + BOARD_H - 1, 0x1082) -- 深灰色背景
 
     -- 绘制固定的方块
     for y = 1, GRID_H do
@@ -179,8 +188,8 @@ local function drawBoard()
                 -- 绘制空单元格（带边框效果）
                 local cx = BOARD_X + (x - 1) * CELL_SIZE
                 local cy = BOARD_Y + (y - 1) * CELL_SIZE
-                lcd.fill(cx, cy, cx + CELL_SIZE - 2, cy + CELL_SIZE - 2, 0x0841)         -- 更深的灰色
-                lcd.fill(cx + 1, cy + 1, cx + CELL_SIZE - 3, cy + CELL_SIZE - 3, 0x18C3) -- 浅灰色内框
+                fill_rect(cx, cy, cx + CELL_SIZE - 2, cy + CELL_SIZE - 2, 0x0841)         -- 更深的灰色
+                fill_rect(cx + 1, cy + 1, cx + CELL_SIZE - 3, cy + CELL_SIZE - 3, 0x18C3) -- 浅灰色内框
             end
         end
     end
@@ -195,10 +204,10 @@ local function drawBoard()
     end
 
     -- 绘制棋盘边框
-    lcd.fill(BOARD_X - 2, BOARD_Y - 2, BOARD_X + BOARD_W + 1, BOARD_Y - 1, 0xFFFF)                 -- 上边框
-    lcd.fill(BOARD_X - 2, BOARD_Y + BOARD_H, BOARD_X + BOARD_W + 1, BOARD_Y + BOARD_H + 1, 0xFFFF) -- 下边框
-    lcd.fill(BOARD_X - 2, BOARD_Y - 2, BOARD_X - 1, BOARD_Y + BOARD_H + 1, 0xFFFF)                 -- 左边框
-    lcd.fill(BOARD_X + BOARD_W, BOARD_Y - 2, BOARD_X + BOARD_W + 1, BOARD_Y + BOARD_H + 1, 0xFFFF) -- 右边框
+    fill_rect(BOARD_X - 2, BOARD_Y - 2, BOARD_X + BOARD_W + 1, BOARD_Y - 1, 0xFFFF)                 -- 上边框
+    fill_rect(BOARD_X - 2, BOARD_Y + BOARD_H, BOARD_X + BOARD_W + 1, BOARD_Y + BOARD_H + 1, 0xFFFF) -- 下边框
+    fill_rect(BOARD_X - 2, BOARD_Y - 2, BOARD_X - 1, BOARD_Y + BOARD_H + 1, 0xFFFF)                 -- 左边框
+    fill_rect(BOARD_X + BOARD_W, BOARD_Y - 2, BOARD_X + BOARD_W + 1, BOARD_Y + BOARD_H + 1, 0xFFFF) -- 右边框
 end
 
 ----------------------------------------------------------------

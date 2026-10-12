@@ -1,13 +1,13 @@
 --[[
 @module  lcd_drv
-@summary LCD显示驱动模块，基于lcd核心库(Air1601版本)
+@summary LCD显示驱动模块，基于exd_ek79001_rgb显示IC初始化扩展库(Air1601版本)
 @version 1.0
 @date    2026.03.16
 @author  江访
 @usage
 本模块为LCD显示驱动功能模块，主要功能包括：
 1、初始化 LCD屏幕；
-2、配置LCD显示参数和显示缓冲区；
+2、配置LCD显示参数；
 3、初始化AirUI;
 4、支持多种屏幕方向和分辨率设置；
 
@@ -35,12 +35,19 @@ else
 end
 ]]
 
-local port, pin_reset, bl = lcd.RGB, 15, 2
+-- 加载 EK73215+EK79001 显示IC初始化扩展库
+local exd = require "exd_ek79001_rgb"
+
+local pin_rst, pin_pwr = 15, 2
 
 local function lcd_drv_init()
     -- 开启屏幕供电
-    local result = lcd.init("custom", {
-        port = port,
+    gpio.setup(pin_pwr, 1)
+    sys.wait(100)
+
+    -- 显示初始化（1024x600，本板时序覆盖默认值）
+    local ok, info = exd.setup({
+        pin_rst = pin_rst,
         hbp = 120,
         hspw = 40,
         hfp = 150,
@@ -48,24 +55,14 @@ local function lcd_drv_init()
         vspw = 10,
         vfp = 12,
         bus_speed = 51 * 1000 * 1000,
-        pin_pwr = bl,
-        pin_rst = pin_reset,
-        direction = 0,
-        w = 1024,
-        h = 600
     })
 
-    log.info("lcd.init", result)
-    log.info("lcd.getSize", lcd.getSize())
+    log.info("lcd_drv", "exd.setup", ok)
+    log.info("lcd_drv", "screen", info.w, info.h)
 
-    if result then
-        -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
-        lcd.setupBuff(nil, true)
-        lcd.autoFlush(false)
-
+    if ok then
         -- 初始化AirUI
-        local width, height = lcd.getSize()
-        local result = airui.init(width, height)
+        local result = airui.init(info.w, info.h)
         if not result then
             log.error("airui", "init failed")
             -- return result

@@ -37,6 +37,8 @@
 2. airui_dropdown.lua - 下拉框组件演示页面
 3. airui_input.lua - 输入框组件演示页面
 4. airui_msgbox.lua - 消息框组件演示页面
+5. airui_checkbox.lua - 复选框组件演示页面
+6. airui_slider.lua - 滑块组件演示页面
 
 ### 2.4 布局与高级组件演示
 1. airui_table_page.lua - 表格组件演示页面
@@ -44,10 +46,22 @@
 3. airui_win.lua - 窗口组件演示页面
 4. airui_switch_page.lua -多页面切换功能演示
 5. airui_all_component.lua - 所有组件演示页面
+6. airui_chart.lua - 图表组件演示页面
 
 ### 2.5 多媒体组件演示
-1. airui_video.lua - 视频组件演示页面
+1. airui_video.lua - 视频组件演示页面（支持MJPG、MP4、HZV三种格式切换播放）
 2. airui_camera_preview.lua - 摄像头预览演示页面（基于 excamera 扩展库）
+3. airui_camsnap.lua - 摄像头拍照演示页面（基于 excamera 扩展库）
+4. airui_animimg.lua - 动画图像组件演示页面（多帧PNG序列播放）
+5. airui_shape.lua - 形状组件演示页面（直线、圆形、椭圆、矩形）
+6. airui_spinner.lua - 加载指示器组件演示页面（旋转动画）
+7. airui_nes.lua - NES模拟器组件演示页面（加载/luadb/game.nes运行FC游戏，需要固件启用NES支持）
+8. airui_gbc.lua - GBC模拟器组件演示页面（加载/luadb/game.gbc运行GBC游戏，需要固件启用GBC支持）
+9. airui_game.lua - 俄罗斯方块游戏演示页面
+
+### 2.6 字体渲染演示
+1. airui_hzfont.lua - HzFont 内置矢量字体特性演示
+2. airui_custom_hzfont.lua - 自定义TTF矢量字体全貌展示（需配套NotoSansSC_subset.ttf烧录至文件系统）
 
 ## 三、演示效果
 ![](https://docs.openluat.com/air1601/luatos/app/multimedia/ui/airui/image/GmJgbSOURoLL9jxRgiBcjV2gnfg.jpg)

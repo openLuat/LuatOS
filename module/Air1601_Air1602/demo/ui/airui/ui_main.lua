@@ -33,6 +33,11 @@ require("airui_video")
 require("airui_all_component")
 require("airui_camera_preview")
 require("airui_camsnap")
+require("airui_checkbox")
+require("airui_slider")
+require("airui_nes")
+require("airui_gbc")
+require("airui_custom_hzfont")
 
 -- 当前显示的页面
 local current_page = nil
@@ -73,6 +78,11 @@ local pages = {
     all_component = "airui_all_component",      -- 所有组件演示
     camera_preview = "airui_camera_preview",    -- 摄像头预览演示
     camera_snapshot = "airui_camsnap",  -- 摄像头拍照演示
+    checkbox = "airui_checkbox",                -- 复选框演示
+    slider = "airui_slider",                    -- 滑块演示
+    nes = "airui_nes",                          -- NES模拟器演示
+    gbc = "airui_gbc",                          -- GBC模拟器演示
+    custom_hzfont = "airui_custom_hzfont",      -- 自定义矢量字体演示
 }
 
 -- 显示指定页面

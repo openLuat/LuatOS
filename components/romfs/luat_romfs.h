@@ -1,32 +1,36 @@
 #ifndef LUAT_ROMFS_H
 #define LUAT_ROMFS_H
 
+// 标准 romfs(-rom1fs-, genromfs 兼容)只读文件系统
+// 镜像生成: tools/romfs/mkromfs.py
+// 挂载: luat_fs_conf_t.busname 传 luat_romfs_ctx_t*
+
 #include "luat_base.h"
 
+#ifndef LUAT_ROMFS_MAX_NAME
+#define LUAT_ROMFS_MAX_NAME 64      // 单级文件名最大长度(不含NUL), 超长条目跳过
+#endif
+#ifndef LUAT_ROMFS_MAX_PATH
+#define LUAT_ROMFS_MAX_PATH 128     // 路径解析缓冲(含符号链接展开)
+#endif
+#ifndef LUAT_ROMFS_MAX_DEPTH
+#define LUAT_ROMFS_MAX_DEPTH 8      // 符号链接/硬链接链最大解析深度
+#endif
+#ifndef LUAT_ROMFS_VERIFY_HEAD_CKSUM
+#define LUAT_ROMFS_VERIFY_HEAD_CKSUM 1  // mount 时校验镜像头 checksum
+#endif
+
+// 读取回调: 从镜像 offset 读 len 字节到 buff, 成功返回读取字节数, 失败返回负值
+// 单次调用 len 保证 <= 16MB
 typedef int (*luat_romfs_read)(void* userdata, char* buff, size_t offset, size_t len);
 
-typedef struct luat_romfs_ctx
-{
-    void* userdata;
-    luat_romfs_read read;
-}luat_romfs_ctx;
+typedef struct luat_romfs_ctx {
+    void* userdata;        // 指针模式: 镜像基址; 回调模式: 用户上下文
+    luat_romfs_read read;  // NULL=指针模式(memcpy, 支持 mmap 零拷贝); 非NULL=read回调模式
+} luat_romfs_ctx_t;
 
-
-typedef struct romfs_file
-{
-    uint8_t next_offset[4];
-    uint32_t spec;
-    uint8_t size[4];
-    uint32_t checksum;
-    char name[16];
-} romfs_file_t;
-
-typedef struct romfs_fd
-{
-    romfs_file_t file;
-    size_t offset;
-    size_t addr;
-} romfs_fd_t;
-
+#ifdef LUAT_USE_FS_VFS
+extern const struct luat_vfs_filesystem vfs_fs_romfs;
+#endif
 
 #endif

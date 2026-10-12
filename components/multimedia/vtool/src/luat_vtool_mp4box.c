@@ -33,7 +33,7 @@ static int buffered_flush(mp4_ctx_t* ctx) {
     if (size == 0) {
         return 0;
     }
-    LLOGI("start flush buffer %d bytes %p", size, ctx->box_buff);
+    LLOGD("start flush buffer %d bytes %p", size, ctx->box_buff);
     if (ctx->box_buff && ctx->box_buff_offset > 0) {
         // 每次最多写入64KB
         #define FLUSH_CHUNK_SIZE (64 * 1024)
@@ -601,10 +601,13 @@ static int serialize_box_to_mem(mp4box_t* box, uint8_t* out, size_t cap, size_t*
 #define MP4BOX_MSG_WRITE_FRAME 0
 #define MP4BOX_MSG_CLOSE       1
 
-// 变长消息, 头和帧数据一次malloc, 队列里传递的是指针
+// 消息: 深拷贝模式使用 data[]; 零拷贝模式使用 ptr + release
 typedef struct {
     uint32_t type;
     uint32_t len;
+    uint8_t* ptr;
+    luat_vtool_mp4box_release_t release;
+    void* release_arg;
     uint8_t data[];
 } mp4box_msg_t;
 
@@ -618,7 +621,8 @@ typedef struct {
 #endif
 
 // 线程栈与优先级, 优先级参照camera_task(beken原始优先级7, configMAX_PRIORITIES=10, 换算为70)
-#define LUAT_VTOOL_MP4BOX_THREAD_STACK 4096
+// 写线程内会执行 mp4box_close_impl(), 走 FATFS 写 moov, 栈不能太小
+#define LUAT_VTOOL_MP4BOX_THREAD_STACK 8192
 #define LUAT_VTOOL_MP4BOX_THREAD_PRIO  70
 #define LUAT_VTOOL_MP4BOX_THREAD_NAME  "mp4box_w"
 
@@ -641,7 +645,10 @@ static void mp4box_write_task(void* param) {
             // 先把队列里残留的帧全部写完
             while (luat_rtos_queue_recv(ctx->queue, &msg, sizeof(msg), LUAT_NO_WAIT) == 0 && msg != NULL) {
                 if (msg->type == MP4BOX_MSG_WRITE_FRAME) {
-                    mp4box_write_frame_impl(ctx, msg->data, msg->len);
+                    mp4box_write_frame_impl(ctx, msg->ptr, msg->len);
+                }
+                if (msg->release) {
+                    msg->release(msg->release_arg);
                 }
                 luat_heap_free(msg);
                 msg = NULL;
@@ -650,8 +657,13 @@ static void mp4box_write_task(void* param) {
             luat_rtos_semaphore_release(ctx->exit_sem);
             // 用创建时保存的包装句柄自删, 不能传luat_rtos_get_current_handle()的裸句柄(类型不符会写坏TCB)
             luat_rtos_task_delete(self);
+            // 部分移植的task_delete会返回, 此处必须直接退出, 不得再访问已释放的ctx
+            return;
         }
-        mp4box_write_frame_impl(ctx, msg->data, msg->len);
+        mp4box_write_frame_impl(ctx, msg->ptr, msg->len);
+        if (msg->release) {
+            msg->release(msg->release_arg);
+        }
         luat_heap_free(msg);
         msg = NULL;
     }
@@ -719,12 +731,15 @@ mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t
         LLOGE("create mp4box queue failed, fallback to sync mode");
         ctx->queue = NULL;
     }
-    else if (luat_rtos_semaphore_create(&ctx->exit_sem, 0)) {
+    else if (luat_rtos_semaphore_create(&ctx->exit_sem, 1)) {
+        // init_count=1 => 初始为空, close() 里 take 才会真正等待写线程收尾
+        // (注意 luat_rtos 的语义: init_count=0 时会预置一次 give, 初始就是有信号的)
         LLOGE("create mp4box exit sem failed, fallback to sync mode");
         luat_rtos_queue_delete(ctx->queue);
         ctx->queue = NULL;
     }
-    else if (luat_rtos_task_create(&ctx->task, LUAT_VTOOL_MP4BOX_THREAD_STACK, LUAT_VTOOL_MP4BOX_THREAD_PRIO, LUAT_VTOOL_MP4BOX_THREAD_NAME, mp4box_write_task, ctx, 0)) {
+    else if (luat_rtos_task_create(&ctx->task, LUAT_VTOOL_MP4BOX_THREAD_STACK, LUAT_VTOOL_MP4BOX_THREAD_PRIO, LUAT_VTOOL_MP4BOX_THREAD_NAME, mp4box_write_task, ctx, 1)) {
+        // 本任务不接收 event, event_cout 传 1 而非默认 64, 减小句柄队列占用
         LLOGE("create mp4box write task failed, fallback to sync mode");
         luat_rtos_semaphore_delete(ctx->exit_sem);
         ctx->exit_sem = NULL;
@@ -918,36 +933,57 @@ static int mp4box_write_frame_impl(mp4_ctx_t* ctx, uint8_t* data, size_t len) {
 }
 
 int luat_vtool_mp4box_write_frame(mp4_ctx_t* ctx, uint8_t* data, size_t len) {
+    // 兼容旧接口: 帧数据用完即可释放, mp4box 内部深拷贝
+    return luat_vtool_mp4box_write_frame_ex(ctx, data, len, NULL, NULL);
+}
+
+// release != NULL 时为零拷贝: 帧数据所有权转交 mp4box, 写完或丢弃后回调 release
+int luat_vtool_mp4box_write_frame_ex(mp4_ctx_t* ctx, uint8_t* data, size_t len, luat_vtool_mp4box_release_t release, void* release_arg) {
 #ifdef LUAT_USE_VTOOL_MP4BOX_THREAD
-    // 线程模式: 深拷贝帧数据推入队列后立即返回, 实际写文件由写线程完成
+    // 线程模式: 推入队列后立即返回, 实际写文件由写线程完成
     if (ctx->thread_mode) {
         if (ctx->closing) {
             LLOGW("mp4box is closing, drop frame");
+            if (release) release(release_arg);
             return -1;
         }
         if (data == NULL || len == 0) {
+            if (release) release(release_arg);
             return 0;
         }
-        mp4box_msg_t* msg = luat_heap_malloc(sizeof(mp4box_msg_t) + len);
+        // 零拷贝不带 data[], 深拷贝才预留 len 字节
+        size_t msg_size = sizeof(mp4box_msg_t) + (release ? 0 : len);
+        mp4box_msg_t* msg = luat_heap_malloc(msg_size);
         if (msg == NULL) {
             ctx->drop_cnt++;
             LLOGW("mp4box alloc frame msg failed, drop_cnt=%u", (unsigned)ctx->drop_cnt);
+            if (release) release(release_arg);
             return 0;
         }
         msg->type = MP4BOX_MSG_WRITE_FRAME;
         msg->len = (uint32_t)len;
-        memcpy(msg->data, data, len);
+        msg->release = release;
+        msg->release_arg = release_arg;
+        if (release) {
+            msg->ptr = data;
+        } else {
+            memcpy(msg->data, data, len);
+            msg->ptr = msg->data;
+        }
         int ret = luat_rtos_queue_send(ctx->queue, &msg, sizeof(msg), LUAT_VTOOL_MP4BOX_THREAD_SEND_TIMEOUT);
         if (ret != 0) {
             luat_heap_free(msg);
             ctx->drop_cnt++;
             LLOGW("mp4box send frame failed %d, drop_cnt=%u", ret, (unsigned)ctx->drop_cnt);
+            if (release) release(release_arg);
             return 0;
         }
         return 0;
     }
 #endif
-    return mp4box_write_frame_impl(ctx, data, len);
+    int ret = mp4box_write_frame_impl(ctx, data, len);
+    if (release) release(release_arg);
+    return ret;
 }
 
 #ifdef LUAT_USE_VTOOL_MP4BOX_THREAD
@@ -1145,6 +1181,10 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
         }
         // 阻塞等待写线程把残留帧和moov全部写完
         luat_rtos_semaphore_take(ctx->exit_sem, LUAT_WAIT_FOREVER);
+        if (ctx->drop_cnt) {
+            // 丢帧统计, 录制性能排查用
+            LLOGW("mp4box dropped %u frames", (unsigned)ctx->drop_cnt);
+        }
         luat_rtos_queue_delete(ctx->queue);
         ctx->queue = NULL;
         luat_rtos_semaphore_delete(ctx->exit_sem);

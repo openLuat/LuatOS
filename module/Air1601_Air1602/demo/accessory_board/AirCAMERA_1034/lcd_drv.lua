@@ -1,6 +1,6 @@
 --[[
 @module  lcd_drv
-@summary LCD显示驱动模块，基于exd_ek79001_rgb显示IC初始化扩展库
+@summary LCD显示驱动模块，基于exd_hx8282_rgb显示IC初始化扩展库
 @version 1.0
 @date    2025.12.1
 @author  江访
@@ -35,27 +35,44 @@ else
 end
 ]]
 
--- 加载 EK73215+EK79001 显示IC初始化扩展库
-local exd = require "exd_ek79001_rgb"
+-- 加载 HX8282 显示IC初始化扩展库
+local exd = require "exd_hx8282_rgb"
 
 local pin_rst, pin_pwr = 15, 2
+
+-- 获取屏幕尺寸：固件支持display核心库用display接口，不支持用lcd接口，都取不到时用扩展库配置值
+local function get_screen_size(fallback_w, fallback_h)
+    local width, height = 0, 0
+    -- 固件支持display核心库用display接口获取
+    if rawget(_G, "display") and display.getSize then
+        width, height = display.getSize()
+    end
+    -- display接口取不到时用lcd接口获取
+    if (width == 0 or height == 0) and rawget(_G, "lcd") and lcd.getSize then
+        width, height = lcd.getSize()
+    end
+    -- 两个接口都取不到时用扩展库配置的分辨率
+    if width == 0 or height == 0 then
+        width, height = fallback_w, fallback_h
+    end
+    return width, height
+end
 
 local function lcd_drv_init()
     -- 开启屏幕供电
     gpio.setup(pin_pwr, 1)
     sys.wait(100)
 
-    -- 显示初始化（1024x600，时序用扩展库默认值，PCLK 高有效）
+    -- 显示初始化（1024x600，时序用扩展库默认值）
     local ok, info = exd.setup({
         pin_rst = pin_rst,
-        clk_polarity = 1,
     })
 
     log.info("lcd_drv", "exd.setup", ok)
 
     if ok then
         -- 初始化AirUI
-        local width, height = info.w, info.h
+        local width, height = get_screen_size(info.w, info.h)
         local result = airui.init(width, height)
         if not result then
             log.error("airui", "init failed")

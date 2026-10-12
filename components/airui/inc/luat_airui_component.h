@@ -78,11 +78,14 @@ typedef enum {
 } airui_component_type_t;
 
 /** Video 格式 */
+#define AIRUI_VIDEO_STATUS_EOF 1
+
 typedef enum {
     AIRUI_VIDEO_FORMAT_AUTO = 0,
     AIRUI_VIDEO_FORMAT_MJPG,
     AIRUI_VIDEO_FORMAT_AVI_MJPG,
     AIRUI_VIDEO_FORMAT_MP4_H264,
+    AIRUI_VIDEO_FORMAT_HZV,
 } airui_video_format_t;
 
 /** Video 后端 */
@@ -91,6 +94,7 @@ typedef enum {
     AIRUI_VIDEO_BACKEND_VIDEOPLAYER,
     AIRUI_VIDEO_BACKEND_FFMPEG,
     AIRUI_VIDEO_BACKEND_PLATFORM,
+    AIRUI_VIDEO_BACKEND_MPLAYER,
 } airui_video_backend_t;
 
 /** Video 解码模式 */
@@ -98,6 +102,20 @@ typedef enum {
     AIRUI_VIDEO_DECODE_SW = 0,
     AIRUI_VIDEO_DECODE_HW = 1,
 } airui_video_decode_mode_t;
+
+/** Video 实际呈现统计 */
+typedef struct {
+    uint64_t total_frames;
+    float fps;
+    uint64_t audio_pts_ms;
+    uint64_t video_pts_ms;
+    int32_t av_delta_ms;
+    uint32_t dropped_frames;
+    uint32_t audio_underruns;
+    uint8_t clock_mode;
+    airui_video_decode_mode_t decode_mode;
+    bool playing;
+} airui_video_stats_t;
 
 /** TabView 对齐常量 */
 typedef enum {
@@ -475,6 +493,7 @@ int airui_dropdown_set_options(lv_obj_t *dropdown, void *L, int idx);
 int airui_dropdown_set_selected(lv_obj_t *dropdown, int index); //设置下拉框选中项
 int airui_dropdown_get_selected(lv_obj_t *dropdown); //获取下拉框选中项
 int airui_dropdown_set_on_change(lv_obj_t *dropdown, int callback_ref); //设置改变回调
+int airui_dropdown_set_style(lv_obj_t *dropdown, void *L, int idx); //按样式表设置下拉框样式
 
 /**
  * Switch 组件创建
@@ -678,6 +697,7 @@ int airui_video_play(lv_obj_t *video);
 int airui_video_pause(lv_obj_t *video);
 int airui_video_stop(lv_obj_t *video);
 int airui_video_destroy(lv_obj_t *video);
+int airui_video_get_stats(lv_obj_t *video, airui_video_stats_t *stats);
 
 /**
  * Chart组件
@@ -761,6 +781,7 @@ int airui_gbc_set_key(lv_obj_t *gbc, int key, int pressed);
  */
 lv_obj_t *airui_camera_create_from_config(void *L, int idx);
 int airui_camera_set_fit(lv_obj_t *camera, const char *fit); /* center/contain/cover/stretch */
+int airui_camera_set_rotation(lv_obj_t *camera, int rotation); /* 0/90/180/270，顺时针 */
 int airui_camera_start(lv_obj_t *camera);
 int airui_camera_stop(lv_obj_t *camera);
 int airui_camera_destroy(lv_obj_t *camera);

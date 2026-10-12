@@ -1,0 +1,6 @@
+{
+  "name": "romfs_basic",
+  "summary": "ROMFS 只读文件系统: 指针/read回调双模式, 目录嵌套, 长文件名, 硬链接/符号链接, 只读保护",
+  "platform": ["pc"],
+  "timeout": 60
+}

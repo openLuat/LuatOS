@@ -34,6 +34,15 @@
  * @table config.options 选项列表（字符串数组）
  * @int config.default_index 默认选中项索引，默认 -1
  * @function config.on_change 选中项变化回调，参数为 (self, idx, value)
+ * @table config.style 样式表，可选，仅覆盖传入字段
+ * @int config.style.bg_color 主控件背景色（0xRRGGBB）
+ * @int config.style.text_color 主控件文字颜色（0xRRGGBB）
+ * @int config.style.border_color 主控件边框颜色（0xRRGGBB）
+ * @int config.style.border_width 主控件边框宽度
+ * @int config.style.list_bg_color 下拉列表背景色（0xRRGGBB）
+ * @int config.style.list_text_color 下拉列表文字颜色（0xRRGGBB）
+ * @int config.style.list_selected_bg_color 选中项背景色（0xRRGGBB）
+ * @int config.style.list_selected_text_color 选中项文字颜色（0xRRGGBB）
  * @userdata config.parent 父对象，可覆盖默认屏幕
  * @return userdata Dropdown 对象，失败返回 nil
  */
@@ -166,6 +175,20 @@ static int l_dropdown_set_on_change(lua_State *L)
 }
 
 /**
+ * Dropdown:set_style(style) 设置下拉框样式
+ * @api dropdown:set_style(style)
+ * @table style 样式表，仅覆盖传入字段
+ * @return nil
+ */
+static int l_dropdown_set_style(lua_State *L)
+{
+    lv_obj_t *dropdown = airui_check_component(L, 1, AIRUI_DROPDOWN_MT);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    airui_dropdown_set_style(dropdown, L, 2);
+    return 0;
+}
+
+/**
  * Dropdown:destroy（手动销毁）
  */
 static int l_dropdown_destroy(lua_State *L)
@@ -194,6 +217,7 @@ void airui_register_dropdown_meta(lua_State *L)
         {"get_selected", l_dropdown_get_selected},
         {"get_value", l_dropdown_get_value},
         {"set_on_change", l_dropdown_set_on_change},
+        {"set_style", l_dropdown_set_style},
         {"destroy", l_dropdown_destroy},
         {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}

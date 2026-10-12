@@ -20,9 +20,11 @@
 
 7、record_pcm_file: 录音到文件（PCM格式），开机自动录音5秒（16kHz/16bit/单声道），录音完成后自动播放
 
-8、sample-6s.mp3、10.amr: 用于测试本地音频文件播放
+8、record_pcm_to_1103: 录音到文件（PCM格式，通过Air1103语音芯片录音与播放）
 
-9、test.pcm: 用于测试pcm流式播放
+9、sample-6s.mp3、10.amr: 用于测试本地音频文件播放
+
+10、test.pcm: 用于测试pcm流式播放
 
 注意：本demo需要固件版本>=V1024才可播放音频
 
@@ -81,6 +83,7 @@ require "play_file"          -- 文件播放音频，支持mp3,amr,wav格式
 -- require "http_stream_play"  -- HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
 -- require "record_amr_file"        -- 录音到文件（AMR格式） 
 -- require "record_pcm_file"        -- 录音到文件（PCM格式）
+-- require "record_pcm_to_1103"        -- 录音到文件（PCM格式，通过Air1103语音芯片录音及播放）
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

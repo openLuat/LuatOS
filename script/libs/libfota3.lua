@@ -1,9 +1,9 @@
 --[[
 @module libfota3
 @summary 合宙整机成品FOTA升级库
-@version 2.0
-@date    2026.06.18
-@author  江访
+@version 1.0
+@date    2026.09.15
+@author  马梦阳
 
 @description
     提供完整的FOTA升级功能，支持 request() 启动自动检测定时器，
@@ -46,6 +46,25 @@ libfota3.check_update()
 -- 动态修改配置
 libfota3.config({auto = false})
 libfota3.config({auto = true, interval = 3600})
+
+
+-- 版本更新说明
+-
+-- 版本号：202609151040
+-- 1、更新时间：2026-09-15 10:40
+-- 2、更新内容（首版发布）
+--     新增 request() 接口，等待时间同步后启动自动检测定时器，支持基于时间戳的跨重启延续检测
+--     新增 check_update() 接口，手动触发检测更新，复用 running 互斥标志
+--     新增 config() 接口，动态修改配置参数并自动同步定时器启停
+--     新增 version() 接口，返回库版本号
+--     支持 HTTP 检测更新，自动向 FOTA 服务器查询新版本
+--     支持 HTTP 下载升级包，自动选择 PSRAM 或内部 Flash 存储临时文件
+--     支持 SHA256 校验，确保升级包完整性
+--     支持下载进度回调，实时反馈下载百分比
+--     支持用户确认回调，有屏设备可交互确认下载和重启操作
+--     支持升级结果上报，自动将升级成功/失败结果发送给 FOTA 服务器
+--     支持开机版本比对，重启后自动检测升级是否成功并上报
+--     支持多平台设备标识获取（IMEI/MAC/unique_id），覆盖 Air780E/Air8000/Air8101/Air1601/Air1602/Air1780 等系列
 ]]
 
 local libfota3 = {}
@@ -588,13 +607,13 @@ local function handle_boot()
         result_code = 1
         log.info("libfota3", "upgrade success", "core_changed", core_changed, "script_changed", script_changed)
         if opts and opts.on_status then
-            opts.on_status("upgrade_success", "升级成功", result_code)
+            opts.on_status("upgrade_success", "升级成功")
         end
     else
         result_code = 2
         log.info("libfota3", "upgrade failed, no version change")
         if opts and opts.on_status then
-            opts.on_status("upgrade_fail", "升级失败/无变化", result_code)
+            opts.on_status("upgrade_fail", "升级失败/无变化")
         end
     end
 
@@ -1031,6 +1050,18 @@ function libfota3.config(new_opts)
         setup_timer()
     end
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202609151040"
+@usage
+libfota3.version()
+]]
+function libfota3.version()
+    return "202609151040"
+end
+
+log.debug("libfota3", "version -> " .. libfota3.version())
 
 -- 模块加载时自动执行开机上报
 -- 此时 opts 为 nil，handle_boot 会使用默认值，不影响主流程

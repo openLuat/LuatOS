@@ -5,7 +5,7 @@
  * The real sys_dac.c configures DMA channels and DAC peripheral registers
  * that are specific to the CCM42xx SoC and do not exist on a PC host.
  * This stub provides the same function signatures so that dac_sound.c (and
- * transitively sound.c / mp4_decode.c) can link cleanly on the PC simulator.
+ * transitively sound_dev_port.c / mp4_decode.c) can link cleanly on the PC simulator.
  *
  * For real audio output on PC, replace this file with an SDL2 Audio backend
  * and update dac_sound_pc.c accordingly.

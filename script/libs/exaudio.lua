@@ -1,20 +1,42 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.5
-@date    2026.9.9
+@version 3.9
+@date    2026.9.21
 @author  拓毅恒
+@description
+本库负责音频硬件初始化、播放、录音和电源控制，可配合 exsip 使用普通 SIP 通话或 CC<->SIP 语音流桥接。
+启用 exsip.init({cc_sip_bridge=true, ...}) 后，CC 下行语音经固件桥接送往 SIP 对端，
+SIP 对端语音经固件桥接送入 CC 上行；需要固件同时具备 CC、VoIP PCM 桥接和对应音频后端支持。
+该模式的通话音频由 CC 底层管理，exsip 不调用本库的 sip_voip_start()，也不在启动 SIP 媒体前停止本地音频驱动。
+本库的 sip_voip_start()/sip_voip_stop() 用于普通 SIP 的本地 MIC/扬声器与 VoIP PCM 适配，
+并非 CC<->SIP 桥接开关；不要在 CC<->SIP 桥接通话中额外启动该本地 speech 请求。
+CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬件参数仍按实际板型调用 setup() 配置。
 @updates
+    v3.9 2026.9.21
+        1. 新增Air1103循环振铃接口 exaudio.play_ringback_loop()
+        2. 新增Air1103停止循环振铃接口 exaudio.stop_ringback([skip_reset])
+    v3.8 2026.9.20
+        1. 新增Air1103提示音播放接口 exaudio.play_ringback()/exaudio.play_hangup()，可用于SIP通话前后状态反馈。
+    v3.7 2026.9.18
+        1. 修复 DAC 模式下设置MIC音量导致 Air1601 死机问题。
+    v3.6 2026.9.16
+        1. 修复 air1103 模式在 Air1601 上 exaudio.setup 死机：
+           Air1601 跳过该 I2S 配置——其 Air1103 走 UART 录音/播放不需要 I2S 参数,
+           780EHM 等需要 cc 通话下行的型号仍正常配置 I2S。
+        2. air1103 模式下 exaudio.sip_voip_start/stop 跳过 audio_v2 的 SIP 桥接并直接返回成功:
+           Air1103 的 SIP 通话音频由业务层通过 voip.pcmIn/pcmOut 与 UART 自行桥接;
+           若此处返回 false, exsip 会判定桥接失败并执行 voip.stop(), 导致通话没有音频。
     v3.5 2026.9.9
         1. 新增 DAC模式麦克风增益设置：model="dac" 时 exaudio.mic_vol(vol[, ana_vol])数字/模拟增益均由客户按 0-100 传入。
            并在 REQUEST_DRIVER_START 与 pm(RESUME) 时自动重新应用，修复 Air8101 等纯DAC模组无法调节麦克风音量的问题。
     v3.4 2026.9.4
-        1. 修复 vb7014f 使用新框架进行VOLTE通话时无声问题。
+        1. 修复 air1103 使用新框架进行VOLTE通话时无声问题。
     v3.3 2026.9.1
         1. 修复Air1602开发板调用exaudio.play_stop()后exaudio.pm(exaudio.SHUTDOWN)会关闭I2C1、导致LCD触摸失效的问题。
-        2. 新增 vb7014f 支持：audio_setup_param 设置 model="vb7014f" 后，通过 UART1(可选) 驱动 VB7014F 播放与录音。
+        2. 新增 air1103 支持：audio_setup_param 设置 model="air1103" 后，通过 UART1(可选) 驱动 Air1103 播放与录音。
            播放：exaudio.play_start({type=2, ...}) 启动后，用 exaudio.play_stream_write() 流式喂入 16kHz/16bit/单声道 PCM；
-           录音：exaudio.record_start() 接收 VB7014F MIC 上行(16kHz/16bit/单声道, 512B/帧)，通过 path 回调逐段落盘。
+           录音：exaudio.record_start() 接收 Air1103 MIC 上行(16kHz/16bit/单声道, 512B/帧)，通过 path 回调逐段落盘。
     v3.2 2026.8.27
         1. 音频框架选择同时依据模组默认偏好和固件实际提供的audio/audio_v2库，
            修复未启用LUAT_USE_AUDIO_V2时仍误选新音频框架的问题。
@@ -95,21 +117,44 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202609211833
+-- 1、更新时间：2026-09-21 18:33
+--    新增Air1103循环振铃接口 exaudio.play_ringback_loop() 与停止接口 exaudio.stop_ringback([skip_reset])。
+--    exaudio.stop_ringback()：手动接听前调用，立即复位Air1103并恢复上行供通话使用；
+--    exaudio.stop_ringback(true)：对端挂断时调用，不复位Air1103，需紧接着调用 exaudio.play_hangup()，
+--    由挂断提示音播完后统一复位，避免复位重启(约1.4s)期间播放挂断提示音导致其无声。
+--    注意：传true只是把复位"延后"并非取消，若不调用 exaudio.play_hangup()，
+--    芯片不会复位、上行(MIC)无法恢复，挂断后主动呼出场景会没有声音。
+-- 版本号：202609201726
+-- 1、更新时间：2026-09-20 17:26
+--    新增Air1103提示音播放接口 exaudio.play_ringback()/exaudio.play_hangup()，
+--    可用于SIP通话前后状态反馈。
+-- 版本号：202609181400
+-- 1、更新时间：2026-09-18 14:00
+--    修复 DAC 模式下设置MIC音量导致 Air1601 死机问题。
+-- 版本号：202609161747
+-- 1、更新时间：2026-09-16 17:47
+--    修复 air1103 模式在 Air1601 上 exaudio.setup 死机：
+--       Air1601 跳过该 I2S 配置——其 Air1103 走 UART 录音/播放不需要 I2S 参数,
+--       780EHM 等需要 cc 通话下行的型号仍正常配置 I2S。
+-- 2、air1103 模式下 exaudio.sip_voip_start/stop 跳过 audio_v2 的 SIP 桥接并直接返回成功:
+--    Air1103 的 SIP 通话音频由业务层通过 voip.pcmIn/pcmOut 与 UART 自行桥接;
+--    若此处返回 false, exsip 会判定桥接失败并执行 voip.stop(), 导致通话没有音频。
 -- 版本号：202609091419
 -- 1、更新时间：2026-09-09 14:19
 --    新增 DAC模式麦克风增益设置：model="dac" 时 exaudio.mic_vol(vol[, ana_vol])数字/模拟增益均由客户按 0-100 传入。
 --    并在 REQUEST_DRIVER_START 与 pm(RESUME) 时自动重新应用，修复 Air8101 等纯DAC模组无法调节麦克风音量的问题。
 -- 版本号：202609041030
 -- 1、更新时间：2026-09-04 10:30
---    修复 vb7014f 使用新框架进行VOLTE通话时无声问题。
+--    修复 air1103 使用新框架进行VOLTE通话时无声问题。
 -- 版本号：202609011550
 -- 1、更新时间：2026-09-01 15:50
 --    修复Air1602开发板exaudio.pm(exaudio.SHUTDOWN)会关闭I2C1导致LCD触摸失效的问题。
--- 2、修复 vb7014f 模式(exaudio.setup({model="vb7014f"}))：原 vb7014f 分支在初始化 VB7014F 芯片后
+-- 2、修复 air1103 模式(exaudio.setup({model="air1103"}))：原 air1103 分支在初始化 Air1103 芯片后
 --    直接 return true，导致跳过 audio_v2_setup()，audio_v2.config(I2S参数) 从未执行，cc 通话下行
---    record 数据源节奏异常→下行数据断流、喇叭仅静音帧杂音。现已补上 audio_v2_setup 的 vb7014f 分支
---    (配置I2S 16k/16bit/LSB/RIGHT 并跳过 audio_v2.shutdown 低功耗休眠)，与 vb7014f 模式行为一致；
---    exaudio.pm 对 vb7014f/vb7014f 直接跳过电源控制。
+--    record 数据源节奏异常→下行数据断流、喇叭仅静音帧杂音。现已补上 audio_v2_setup 的 air1103 分支
+--    (配置I2S 16k/16bit/LSB/RIGHT 并跳过 audio_v2.shutdown 低功耗休眠)，与 air1103 模式行为一致；
+--    exaudio.pm 对 air1103/air1103 直接跳过电源控制。
 -- 版本号：202608272002
 -- 1、更新时间：2026-08-27 20:02
 --    音频框架选择同时依据模组默认偏好和固件实际提供的audio/audio_v2库，修复未启用LUAT_USE_AUDIO_V2时仍误选新音频框架的问题。
@@ -337,6 +382,7 @@ local audio_v2_stream_file_fp = nil  -- 流式播放文件句柄(audio_v2模式)
 local audio_v2_stream_codec_id = nil  -- 流式播放codec_id(audio_v2模式)
 local audio_v2_stream_data_start = nil  -- 流式播放数据起始位置(audio_v2模式)
 local audio_v2_record_zbuff = nil  -- 录音zbuff（audio_v2回调模式）
+-- 普通 SIP 本地音频适配资源；CC<->SIP 桥接使用 CC 底层资源，不使用本组请求和定时器。
 local sip_v2_request_index, sip_v2_source_index, sip_v2_record_zbuff, sip_v2_timer
 local audio_v2_stream_end_marked = false  -- 标记流式结束（队列模式）
 local audio_v2_es8311_drv = nil  -- ES8311驱动引用（audio_v2模式）
@@ -429,6 +475,26 @@ local function audio_queue_clear()
     return true
 end
 
+-- 应用DAC(内置ADC)麦克风增益
+-- 两个参数均由客户按 0-100 传入，由本函数线性映射到硬件范围：
+--   数字增益 dac_mic_dig_gain(0-100) -> 0-0x3f，默认 60
+--   模拟增益 dac_mic_ana_gain(0-100) -> 0-0x0f，默认 50
+-- 仅 model=="dac" 生效，固件未提供该接口(CFG_PARAM_ADC_DIG_GAIN为nil)时自动跳过
+local function apply_dac_mic_gain()
+    if audio_setup_param.model ~= "dac" or not audio_v2 then return end
+    if not audio_v2.CFG_PARAM_ADC_DIG_GAIN then return end
+    local dig = math.floor((dac_mic_dig_gain or 0) * 0x3f / 100)
+    if dig > 0x3f then dig = 0x3f elseif dig < 0 then dig = 0 end
+    local ok, err = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_DIG_GAIN, dig)
+    if not ok then log.warn("exaudio", "设置DAC数字增益失败:", err) end
+    if dac_mic_ana_gain and dac_mic_ana_gain > 0 then
+        local ana = math.floor(dac_mic_ana_gain * 0x0f / 100)
+        if ana > 0x0f then ana = 0x0f elseif ana < 0 then ana = 0 end
+        ok = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_ANA_GAIN, ana)
+        if not ok then log.warn("exaudio", "设置DAC模拟增益失败") end
+    end
+end
+
 -- ==================== audio_v2 回调处理 ====================
 local function audio_v2_callback(request_index, event, param)
     if event == audio_v2.REQUEST_START then
@@ -450,8 +516,8 @@ local function audio_v2_callback(request_index, event, param)
                 gpio.setup(audio_setup_param.pa_ctrl, audio_setup_param.pa_on_level)
             end
             log.info("exaudio", "audio_v2 driver start: ES8311 DAC/PA resumed")
-        elseif audio_setup_param.model == "dac" then
-            -- DAC(内置ADC)模式：每次启动请求时重新应用麦克风增益
+        elseif audio_setup_param.model == "dac" and MODULE_TYPE == "air8101" then
+            -- Air8101每次启动请求时重新应用麦克风增益
             apply_dac_mic_gain()
         end
     elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
@@ -513,6 +579,8 @@ local function audio_v2_callback(request_index, event, param)
             end
         end
     elseif event == audio_v2.REQUEST_GET_NEW_DATA then
+        -- 普通 SIP 上行：本地 MIC 的 8 kHz/16 bit/单声道 PCM -> VoIP 编码并发送 RTP。
+        -- CC<->SIP 模式的上行来源是 CC 对端语音，由固件直接转送，不经过此录音回调。
         if request_index == sip_v2_request_index and sip_v2_record_zbuff and voip then
             local used = sip_v2_record_zbuff:used()
             if used > 0 and type(voip.pcmIn) == "function" then
@@ -867,10 +935,10 @@ local function audio_v2_setup()
             sys.wait(100)
             log.info("exaudio.setup", "ES8311已重启", "dac_ctrl:", audio_setup_param.dac_ctrl)
         end
-    elseif audio_setup_param.model == "vb7014f" then
-        -- VB7014F外置语音芯片模式(780EHM等无本地音频硬件): 只初始化新音频框架,
+    elseif audio_setup_param.model == "air1103" then
+        -- Air1103外置语音芯片模式(780EHM等无本地音频硬件): 只初始化新音频框架,
         -- 不做I2C/PA/CODEC任何硬件操作, 后续在I2S参数段统一配置audio_v2并跳过低功耗休眠
-        log.info("exaudio.setup", "audio_v2 VB7014F模式初始化")
+        log.info("exaudio.setup", "audio_v2 Air1103模式初始化")
     else
         log.error("audio_v2不支持的model:", audio_setup_param.model)
         return false
@@ -880,7 +948,7 @@ local function audio_v2_setup()
     audio_v2.on(audio_v2_callback)
     
     -- 配置PA电源控制
-    if audio_setup_param.model ~= "vb7014f" and audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
+    if audio_setup_param.model ~= "air1103" and audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
         audio_v2.config_pa_power_ctrl(
             true,  -- 使能PA电源控制
             audio_setup_param.pa_ctrl,  -- PA控制引脚
@@ -943,11 +1011,16 @@ local function audio_v2_setup()
 
         -- ES8311模式下初始化完成后进入低功耗休眠（只关PA，不关Codec电源，防止配置丢失）
         audio_v2.shutdown(false, false, true)
-    elseif audio_setup_param.model == "vb7014f" then
-        audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
-        audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16, 16)
-        audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
-        log.info("exaudio.setup", "audio_v2 VB7014F模式初始化")
+    elseif audio_setup_param.model == "air1103" then
+        -- I2S参数配置: 供cc通话下行record数据源使用(780EHM等)。
+        -- 注意: 实测 Air1601/Air1602 调用 audio_v2.config 会触发底层 UsageFault(pc=0)死机,
+        --       且其 Air1103 UART 录音/播放场景不需要 I2S 参数, 故 Air1601/Air1602 跳过配置。
+        if MODULE_TYPE ~= "air1601" and MODULE_TYPE ~= "air1602" then
+            audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
+            audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16, 16)
+            audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
+        end
+        log.info("exaudio.setup", "audio_v2 Air1103模式初始化")
     else
         -- DAC等其他模式下初始化完成后进入低功耗休眠
         audio_v2.shutdown(false, true, true)
@@ -966,9 +1039,9 @@ end
 
 -- audio模式初始化
 local function audio_setup()
-    -- VB7014F走UART串口, 旧音频框架无需硬件初始化。
-    if audio_setup_param.model == "vb7014f" then
-        log.info("exaudio.setup", "audio旧框架 VB7014F模式: 无需本地音频硬件初始化")
+    -- Air1103走UART串口, 旧音频框架无需硬件初始化。
+    if audio_setup_param.model == "air1103" then
+        log.info("exaudio.setup", "audio旧框架 Air1103模式: 无需本地音频硬件初始化")
         return true
     end
 
@@ -1112,7 +1185,7 @@ end
 -- ==================== 模块接口 ====================
 -- 获取推荐的流式缓冲区大小
 function exaudio.get_stream_buffer_size()
-    if audio_setup_param.model == "vb7014f" then
+    if audio_setup_param.model == "air1103" then
         return 3200
     end
     if USE_AUDIO_V2 then
@@ -1134,130 +1207,130 @@ function exaudio.get_stream_buffer_size()
     return calculate_buffer_size(default_rate, default_depth, default_channels)
 end
 
--- ==================== vb7014f (VB7014F 语音芯片) 支持 ====================
--- 通过 UART 驱动 VB7014F 播放 PCM 流式音频。
-local vb7014f             = nil     -- require 得到的 vb7014f 模块引用，setup 时赋值
-local vb7014f_playing     = false   -- vb7014f 是否正在播放
-local vb7014f_vol         = 31      -- vb7014f 当前音量(0~31)
-local vb7014f_end_marked  = false   -- 已收到"结束"标记(数据喂完)，等待缓冲排空
-local vb7014f_drain_timer = nil     -- 缓冲排空轮询定时器
-local vb7014f_recording    = false -- vb7014f 是否正在录音(MIC上行)
-local vb7014f_record_param = nil   -- vb7014f 录音配置(含 path/cbfnc/time)
-local vb7014f_record_timer = nil   -- vb7014f 录音自动停止定时器
-local vb7014f_record_queue = {}    -- vb7014f 录音帧队列(512B string), UART回调入队/写任务出队
-local vb7014f_record_wtask = nil   -- vb7014f 录音写文件任务
-local vb7014f_record_out   = nil   -- vb7014f 录音攒批输出 zbuff
-local vb7014f_mic_vol      = 31    -- vb7014f 麦克风音量(协议暂不支持调节, 仅记录)
+-- ==================== air1103 (Air1103 语音芯片) 支持 ====================
+-- 通过 UART 驱动 Air1103 播放 PCM 流式音频。
+local air1103             = nil     -- require 得到的 air1103 模块引用，setup 时赋值
+local air1103_playing     = false   -- air1103 是否正在播放
+local air1103_vol         = 31      -- air1103 当前音量(0~31)
+local air1103_end_marked  = false   -- 已收到"结束"标记(数据喂完)，等待缓冲排空
+local air1103_drain_timer = nil     -- 缓冲排空轮询定时器
+local air1103_recording    = false -- air1103 是否正在录音(MIC上行)
+local air1103_record_param = nil   -- air1103 录音配置(含 path/cbfnc/time)
+local air1103_record_timer = nil   -- air1103 录音自动停止定时器
+local air1103_record_queue = {}    -- air1103 录音帧队列(512B string), UART回调入队/写任务出队
+local air1103_record_wtask = nil   -- air1103 录音写文件任务
+local air1103_record_out   = nil   -- air1103 录音攒批输出 zbuff
+local air1103_mic_vol      = 31    -- air1103 麦克风音量(协议暂不支持调节, 仅记录)
 
--- vb7014f 播放结束统一处理：停流 + 置状态 + 触发播放完成回调
-local function vb7014f_audio_done()
-    if not vb7014f then return end
-    vb7014f_end_marked = false
-    if vb7014f_drain_timer then
-        sys.timerStop(vb7014f_drain_timer)
-        vb7014f_drain_timer = nil
+-- air1103 播放结束统一处理：停流 + 置状态 + 触发播放完成回调
+local function air1103_audio_done()
+    if not air1103 then return end
+    air1103_end_marked = false
+    if air1103_drain_timer then
+        sys.timerStop(air1103_drain_timer)
+        air1103_drain_timer = nil
     end
-    vb7014f.play_stream_stop()
-    vb7014f_playing = false
+    air1103.play_stream_stop()
+    air1103_playing = false
     if audio_play_param and audio_play_param.cbfnc then
         audio_play_param.cbfnc(exaudio.PLAY_DONE)
     end
     sys.publish(EX_MSG_PLAY_DONE)
 end
 
--- 缓冲排空轮询：收到结束标记后，待全部 PCM 发到 VB7014F 再真正停止，避免尾音被清空截断
-local function vb7014f_check_drain()
-    if not vb7014f_end_marked then
-        if vb7014f_drain_timer then
-            sys.timerStop(vb7014f_drain_timer)
-            vb7014f_drain_timer = nil
+-- 缓冲排空轮询：收到结束标记后，待全部 PCM 发到 Air1103 再真正停止，避免尾音被清空截断
+local function air1103_check_drain()
+    if not air1103_end_marked then
+        if air1103_drain_timer then
+            sys.timerStop(air1103_drain_timer)
+            air1103_drain_timer = nil
         end
         return
     end
-    if not vb7014f or not vb7014f.is_running() or vb7014f.get_pending() <= 0 then
-        vb7014f_audio_done()
+    if not air1103 or not air1103.is_running() or air1103.get_pending() <= 0 then
+        air1103_audio_done()
     end
 end
 
 -- 标记结束并启动排空：若已无待发数据则立即结束，否则轮询至缓冲排空后再停止
-local function vb7014f_mark_end()
-    if not vb7014f or not vb7014f_playing then return end
-    vb7014f_end_marked = true
-    if not vb7014f.is_running() or vb7014f.get_pending() <= 0 then
-        vb7014f_audio_done()
-    elseif not vb7014f_drain_timer then
-        vb7014f_drain_timer = sys.timerLoopStart(vb7014f_check_drain, 10)
+local function air1103_mark_end()
+    if not air1103 or not air1103_playing then return end
+    air1103_end_marked = true
+    if not air1103.is_running() or air1103.get_pending() <= 0 then
+        air1103_audio_done()
+    elseif not air1103_drain_timer then
+        air1103_drain_timer = sys.timerLoopStart(air1103_check_drain, 10)
     end
 end
 
--- vb7014f 上行 MIC 为 16kHz/16bit/单声道(512B/帧, 32KB/s, 见芯片资料 XLS),
+-- air1103 上行 MIC 为 16kHz/16bit/单声道(512B/帧, 32KB/s, 见芯片资料 XLS),
 -- 原样写入文件即可, 不需要任何降采样/下混处理。
--- vb7014f 上行 MIC 数据回调：仅把每帧 512B PCM 入队
+-- air1103 上行 MIC 数据回调：仅把每帧 512B PCM 入队
 -- 队列上限: 防止写任务跟不上时无限积压(内存与停止后排空时间都不可控)
-local VB7014F_RECORD_QUEUE_MAX = 512   -- 帧数上限
-local function vb7014f_audio_data_cb(data)
-    if not vb7014f_recording or not vb7014f_record_param then return end
+local Air1103_RECORD_QUEUE_MAX = 512   -- 帧数上限
+local function air1103_audio_data_cb(data)
+    if not air1103_recording or not air1103_record_param then return end
     if not data or #data == 0 then return end
-    if #vb7014f_record_queue >= VB7014F_RECORD_QUEUE_MAX then
-        table.remove(vb7014f_record_queue, 1)  -- 丢最旧帧, 保持队列有界
+    if #air1103_record_queue >= Air1103_RECORD_QUEUE_MAX then
+        table.remove(air1103_record_queue, 1)  -- 丢最旧帧, 保持队列有界
     end
-    vb7014f_record_queue[#vb7014f_record_queue + 1] = data
+    air1103_record_queue[#air1103_record_queue + 1] = data
 end
 
--- vb7014f 录音写文件任务：从队列取帧攒批(4KB)后投递给上层 path
-local function vb7014f_record_writer()
+-- air1103 录音写文件任务：从队列取帧攒批(4KB)后投递给上层 path
+local function air1103_record_writer()
     local drain_budget = nil  -- 停止录音后的剩余排空批次数
     while true do
-        if #vb7014f_record_queue == 0 then
-            if not vb7014f_recording then
+        if #air1103_record_queue == 0 then
+            if not air1103_recording then
                 -- 触发完成回调
-                if vb7014f_record_param and type(vb7014f_record_param.cbfnc) == "function" then
-                    vb7014f_record_param.cbfnc(exaudio.RECORD_DONE)
+                if air1103_record_param and type(air1103_record_param.cbfnc) == "function" then
+                    air1103_record_param.cbfnc(exaudio.RECORD_DONE)
                 end
-                log.info("exaudio", "vb7014f录音已停止")
+                log.info("exaudio", "air1103录音已停止")
                 break
             end
             sys.wait(5)
         else
-            local path = vb7014f_record_param and vb7014f_record_param.path
+            local path = air1103_record_param and air1103_record_param.path
             if type(path) == "function" then
-                if not vb7014f_record_out then
-                    vb7014f_record_out = zbuff.create(8192)
+                if not air1103_record_out then
+                    air1103_record_out = zbuff.create(8192)
                 end
-                vb7014f_record_out:clear(0)
+                air1103_record_out:clear(0)
                 -- 关键: zbuff clear() 只 memset 不重置 used(), 必须手动 used(0);
                 -- 否则 used 从上一批累积, 批次越攒越大, 之后 used>=4096 不再消费新帧, 反复写同一段数据
-                vb7014f_record_out:used(0)
-                while #vb7014f_record_queue > 0 and vb7014f_record_out:used() < 4096 do
-                    local frame = table.remove(vb7014f_record_queue, 1)
+                air1103_record_out:used(0)
+                while #air1103_record_queue > 0 and air1103_record_out:used() < 4096 do
+                    local frame = table.remove(air1103_record_queue, 1)
                     if frame and #frame > 0 then
-                        vb7014f_record_out:copy(nil, frame)  -- 16kHz/16bit/单声道, 原样写入
+                        air1103_record_out:copy(nil, frame)  -- 16kHz/16bit/单声道, 原样写入
                     end
                 end
-                if vb7014f_record_out:used() > 0 then
-                    path(vb7014f_record_out, vb7014f_record_out:used())
+                if air1103_record_out:used() > 0 then
+                    path(air1103_record_out, air1103_record_out:used())
                 end
             elseif type(path) == "string" then
                 local f = io.open(path, "ab")
                 if f then
-                    while #vb7014f_record_queue > 0 do
-                        local frame = table.remove(vb7014f_record_queue, 1)
+                    while #air1103_record_queue > 0 do
+                        local frame = table.remove(air1103_record_queue, 1)
                         if frame and #frame > 0 then f:write(frame) end
                     end
                     f:close()
                 else
-                    vb7014f_record_queue = {}
+                    air1103_record_queue = {}
                 end
             else
-                vb7014f_record_queue = {}
+                air1103_record_queue = {}
             end
             -- 停止录音后限批排空: 最多再落盘 N 批, 之后丢弃剩余队列, 保证必触发 RECORD_DONE
-            if not vb7014f_recording then
+            if not air1103_recording then
                 if not drain_budget then
                     drain_budget = 40  -- 最多再落盘 40 批(≈160KB), 避免停止后还倒很久
                 elseif drain_budget <= 0 then
-                    log.warn("exaudio", "vb7014f录音停止后排空超时, 丢弃剩余队列")
-                    vb7014f_record_queue = {}
+                    log.warn("exaudio", "air1103录音停止后排空超时, 丢弃剩余队列")
+                    air1103_record_queue = {}
                 else
                     drain_budget = drain_budget - 1
                 end
@@ -1265,31 +1338,35 @@ local function vb7014f_record_writer()
             sys.wait(2)
         end
     end
-    vb7014f_record_wtask = nil
+    air1103_record_wtask = nil
 end
 
--- vb7014f 停止录音：停 MIC 上行
-local function vb7014f_record_stop()
-    if not vb7014f or not vb7014f_recording then return false end
-    vb7014f_recording = false
-    if vb7014f_record_timer then
-        sys.timerStop(vb7014f_record_timer)
-        vb7014f_record_timer = nil
+-- air1103 停止录音：停 MIC 上行
+local function air1103_record_stop()
+    if not air1103 or not air1103_recording then return false end
+    air1103_recording = false
+    if air1103_record_timer then
+        sys.timerStop(air1103_record_timer)
+        air1103_record_timer = nil
     end
-    vb7014f.stop_audio()          -- 02 01 停止上行 MIC 音频
-    vb7014f.set_rx_enable(false)  -- 从源头丢弃 VB7014F 上行数据, 彻底切断 cb 入队
-    -- RECORD_DONE 由 vb7014f_record_writer 在队列后触发;
+    air1103.stop_audio()          -- 02 01 停止上行 MIC 音频
+    air1103.set_rx_enable(false)  -- 从源头丢弃 Air1103 上行数据, 彻底切断 cb 入队
+    -- RECORD_DONE 由 air1103_record_writer 在队列后触发;
     -- 若写任务未运行(异常), 此处兜底触发, 避免回调丢失
-    if not vb7014f_record_wtask then
-        if vb7014f_record_param and type(vb7014f_record_param.cbfnc) == "function" then
-            vb7014f_record_param.cbfnc(exaudio.RECORD_DONE)
+    if not air1103_record_wtask then
+        if air1103_record_param and type(air1103_record_param.cbfnc) == "function" then
+            air1103_record_param.cbfnc(exaudio.RECORD_DONE)
         end
-        log.info("exaudio", "vb7014f录音已停止")
+        log.info("exaudio", "air1103录音已停止")
     end
     return true
 end
 
 -- 初始化
+-- audioConfigs.audio_mode="new"/"old" 选择本地音频框架，与 exsip.init 的 audio_mode（VoIP 路由）不同。
+-- CC<->SIP 桥接由 exsip.init({cc_sip_bridge=true, ...}) 选择；本接口仍按板型配置音频硬件，
+-- 不负责开启桥接或建立 CC/SIP 呼叫。i2s_sample、bits_per_sample、channels 是硬件配置，
+-- 不改变 SIP 的 SDP 编解码协商，也不改变 sip_voip_start() 使用的 8 kHz/16 bit/单声道 PCM 格式。
 function exaudio.setup(audioConfigs)
     if not audioConfigs or type(audioConfigs) ~= "table" then
         log.error("配置参数必须为table类型")
@@ -1321,8 +1398,8 @@ function exaudio.setup(audioConfigs)
 
     log.info("exaudio.setup", "当前使用" .. (USE_AUDIO_V2 and "新" or "旧") .. "音频框架")
 
-    -- 检查必要参数（vb7014f 走 UART，跳过此检查）
-    if audioConfigs.model ~= "vb7014f" then
+    -- 检查必要参数（air1103 走 UART，跳过此检查）
+    if audioConfigs.model ~= "air1103" then
         if USE_AUDIO_V2 then
             if not audio_v2 then
                 log.error("不支持audio_v2 库,请选择支持audio_v2 的core")
@@ -1338,8 +1415,8 @@ function exaudio.setup(audioConfigs)
 
     -- 检查编解码器型号
     if audioConfigs.model then
-        if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" and audioConfigs.model ~= "tm8211" and audioConfigs.model ~= "vb7014f" then
-            log.error("请指定正确的model: es8311、tm8211、dac 或 vb7014f")
+        if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" and audioConfigs.model ~= "tm8211" and audioConfigs.model ~= "air1103" then
+            log.error("请指定正确的model: es8311、tm8211、dac 或 air1103")
             return false
         end
         audio_setup_param.model = audioConfigs.model
@@ -1370,11 +1447,11 @@ function exaudio.setup(audioConfigs)
             log.warn("dac_ctrl(音频编解码控制管脚)是控制pop 音的重要管脚,建议硬件设计加上")
         end
         audio_setup_param.dac_ctrl = audioConfigs.dac_ctrl
-    elseif audio_setup_param.model == "vb7014f" then
+    elseif audio_setup_param.model == "air1103" then
         audio_setup_param.uart_id = audioConfigs.uart_id or 1
-        vb7014f = require "vb7014f"
-        vb7014f.init(audio_setup_param.uart_id, 2000000)
-        log.info("exaudio.setup", "VB7014F 芯片初始化完成")
+        air1103 = require "air1103"
+        air1103.init(audio_setup_param.uart_id, 2000000)
+        log.info("exaudio.setup", "Air1103 芯片初始化完成")
     else
         -- ES8311 I2S模式
         if not audio_setup_param.model or (audio_setup_param.model ~= "es8311") then
@@ -1454,6 +1531,7 @@ function exaudio.setup(audioConfigs)
     -- 通话自动唤醒
     -- 自动订阅CC_IND事件，每次通话PLAY（开始有音频输出）时自动exaudio.pm(exaudio.RESUME)唤醒ES8311，
     -- 通话结束后的休眠由业务脚本控制（demo内exaudio.pm(exaudio.SHUTDOWN)）
+    -- 此订阅仅管理本地硬件唤醒，不建立 CC<->SIP 语音路由，也不联动两侧呼叫状态。
     if type(cc) == "userdata" and not cc_auto_pm_enabled then
         cc_auto_pm_enabled = true
         sys.subscribe("CC_IND", function(status)
@@ -1475,10 +1553,10 @@ end
 
 -- 开始播放
 function exaudio.play_start(playConfigs)
-    -- VB7014F 模式: 仅支持 PCM 流式播放(type=2)
-    if audio_setup_param.model == "vb7014f" then
-        if not vb7014f then
-            log.error("vb7014f未初始化，请先调用exaudio.setup")
+    -- Air1103 模式: 仅支持 PCM 流式播放(type=2)
+    if audio_setup_param.model == "air1103" then
+        if not air1103 then
+            log.error("air1103未初始化，请先调用exaudio.setup")
             return false
         end
         if not playConfigs or type(playConfigs) ~= "table" then
@@ -1490,14 +1568,14 @@ function exaudio.play_start(playConfigs)
             return false
         end
         if playConfigs.type ~= 2 then
-            log.error("vb7014f仅支持播放pcm流式音频，请更换播放的音频文件")
+            log.error("air1103仅支持播放pcm流式音频，请更换播放的音频文件")
             return false
         end
         audio_play_param = playConfigs
-        vb7014f.play_stream_start(vb7014f_vol)
-        vb7014f_playing = true
-        vb7014f_end_marked = false
-        log.info("exaudio", "vb7014f流式播放已启动，等待play_stream_write喂数据")
+        air1103.play_stream_start(air1103_vol)
+        air1103_playing = true
+        air1103_end_marked = false
+        log.info("exaudio", "air1103流式播放已启动，等待play_stream_write喂数据")
         return true
     end
     if USE_AUDIO_V2 then
@@ -1792,7 +1870,26 @@ function exaudio.is_audio_v2()
     return USE_AUDIO_V2
 end
 
+--[[
+启动普通 SIP 通话的本地 Audio V2 PCM 适配，由 exsip 在选用该路由且 voip.start() 成功后调用。
+@api exaudio.sip_voip_start()
+@return boolean 成功返回 true，当前音频框架不支持或请求创建失败返回 false；Air1103 模式直接返回 true
+@usage
+-- 通常由 exsip 管理，无需业务层手动调用：
+-- 本地 MIC -> Audio V2 speech -> voip.pcmIn() -> SIP RTP 上行；
+-- SIP RTP 下行 -> voip.pcmOut() -> Audio V2 extern_source -> 本地扬声器。
+-- PCM 固定为 8 kHz、16 bit、单声道；下行每 20 ms 取 160 个采样点（320 字节）。
+-- CC<->SIP 桥接由固件转送 CC 下行和 SIP 下行，exsip 在 cc_sip_bridge=true 时跳过本接口。
+-- Air1103 模式不创建 Audio V2 请求；返回 true 仅表示跳过，UART 与 VoIP 的 PCM 搬运由业务层完成。
+-- 成功创建的本地适配需与 sip_voip_stop() 配对释放；本接口不调用 voip.start() 或管理 CC 呼叫。
+]]
 function exaudio.sip_voip_start()
+    -- Air1103(UART外置语音芯片)不需要audio_v2桥接: SIP通话音频由业务层通过 voip.pcmIn/pcmOut 与 UART 自行桥接。
+    -- 这里必须返回 true, 否则 exsip 会认为桥接失败并执行 voip.stop(), 导致通话没有音频。
+    if audio_setup_param.model == "air1103" then
+        log.info("exaudio", "air1103模式: 跳过audio_v2 SIP桥接, 由上层用voip.pcmIn/pcmOut与UART桥接")
+        return true
+    end
     if not USE_AUDIO_V2 or not audio_v2 or not voip or not sys then return false end
     if type(voip.pcmOut) ~= "function" or type(voip.pcmIn) ~= "function" then
         log.warn("exaudio", "voip bridge not supported in this firmware")
@@ -1810,6 +1907,7 @@ function exaudio.sip_voip_start()
     sip_v2_timer = sys.timerLoopStart(function()
         if not sip_v2_source_index or not voip.isRunning() then return end
         if type(voip.pcmOut) ~= "function" then return end
+        -- 普通 SIP 下行送到本地扬声器；暂时无 PCM 时补一帧静音，保持 20 ms 播放节奏。
         local pcm = voip.pcmOut(160) or string.rep("\0", 320)
         audio_v2.input(sip_v2_source_index, pcm, false)
     end, 20)
@@ -1817,10 +1915,133 @@ function exaudio.sip_voip_start()
     return true
 end
 
+--[[
+释放普通 SIP 本地音频适配的定时器、Audio V2 请求和录音缓冲，由 exsip 在停止媒体时调用。
+@api exaudio.sip_voip_stop()
+@return nil 无返回值
+@usage
+-- 仅清理 sip_voip_start() 创建的资源；VoIP 引擎停止由 exsip/voip.stop() 负责。
+-- CC<->SIP 固件桥接资源随 CC 媒体生命周期管理；此接口不挂断 CC，也不关闭 CC 桥接配置。
+-- Air1103 模式直接返回，业务层自行停止 UART PCM 搬运。
+]]
 function exaudio.sip_voip_stop()
+    -- air1103模式没有建立audio_v2桥接(见sip_voip_start), 无需停止
+    if audio_setup_param.model == "air1103" then return end
     if sip_v2_timer then sys.timerStop(sip_v2_timer) sip_v2_timer = nil end
     if sip_v2_request_index then audio_v2.stop(sip_v2_request_index) end
     sip_v2_request_index, sip_v2_source_index, sip_v2_record_zbuff = nil, nil, nil
+end
+
+--[[
+Air1103 播放来电振铃提示音，可在sip来电接通前调用（适用于自动接听场景）。
+@api exaudio.play_ringback([callback])
+@function callback 可选，播放完成回调；Air1103 模式下整段提示音播完时触发
+@return boolean 成功返回 true，模型未内置提示音或 Air1103 未初始化返回 false
+@usage
+-- 来电接通前先响铃，播放完成后接听：
+local function on_ringback_done()
+    log.info("sip", "振铃结束，开始接听")
+    -- 接听当前等待中的来电
+    exsip.accept()
+end
+
+exaudio.play_ringback(on_ringback_done)
+
+-- 调用后 Air1103 播放来电提示音（两段嘟嘟声）；
+-- 播完自动复位 Air1103 并恢复上行，用于后续SIP通话；
+-- 注意：提示音占用 Air1103 下行，通话桥接期间不要调用。
+]]
+function exaudio.play_ringback(callback)
+    if audio_setup_param.model == "air1103" then
+        if not air1103 or type(air1103.play_busy) ~= "function" then
+            log.warn("exaudio", "play_ringback: air1103 未初始化")
+            return false
+        end
+        return air1103.play_busy(callback)
+    end
+    log.warn("exaudio", "play_ringback: 当前模型未内置提示音", audio_setup_param.model)
+    return false
+end
+
+--[[
+Air1103 循环播放来电振铃提示音，未接通前一直响铃（适用于手动按键接通的场景）。
+@api exaudio.play_ringback_loop()
+@return boolean 成功返回 true，模型未内置提示音或 Air1103 未初始化返回 false
+@usage
+-- 来电后一直响铃，直到按键接听或对端挂断：
+exaudio.play_ringback_loop()
+-- 提示音占用 Air1103 下行；接听或挂断时需调用 exaudio.stop_ringback() 停止；
+-- 循环播放期间不复位芯片，结束后自动重播。
+]]
+function exaudio.play_ringback_loop()
+    if audio_setup_param.model == "air1103" then
+        if not air1103 or type(air1103.play_busy_loop) ~= "function" then
+            log.warn("exaudio", "play_ringback_loop: air1103 未初始化")
+            return false
+        end
+        return air1103.play_busy_loop()
+    end
+    log.warn("exaudio", "play_ringback_loop: 当前模型未内置提示音", audio_setup_param.model)
+    return false
+end
+
+--[[
+停止 Air1103 循环振铃提示音。
+@api exaudio.stop_ringback([skip_reset])
+@function skip_reset 可选，true 时不复位芯片(复位延后到紧随的提示音收尾)，必须紧接着调用 play_hangup() 等会收尾复位的提示音
+@return boolean 成功返回 true
+@usage
+-- 适用场景1：循环播放来电提示音时，手动接听前调用
+-- 按键接听前先停止振铃，再进行接听(此处立即复位芯片, 恢复上行供通话使用)：
+exaudio.stop_ringback()
+
+-- 适用场景2：循环播放来电提示音时，未手动接听，对端挂断时调用
+-- 先停振铃(传 true 不复位Air1103)、紧接着播挂断提示音；
+-- 用于避免复位时(约1.4s)调用挂断提示音，导致挂断提示音无声：
+exaudio.stop_ringback(true) -- 停止播放来电提示音（不复位Air1103）
+exaudio.play_hangup() -- 播放挂断提示音（播完后自动复位Air1103）
+
+-- 注意：skip_reset=true 只是把复位"延后"，并非取消复位。
+--       必须调用 play_hangup() 播放挂断提示音后，复位Air1103；
+--       注意：若传入true，不调用play_hangup() 芯片不会复位、上行(MIC)无法恢复，挂断后主动呼出场景会没有声音!!!
+]]
+function exaudio.stop_ringback(skip_reset)
+    if audio_setup_param.model == "air1103" then
+        if not air1103 or type(air1103.stop_tones) ~= "function" then
+            return false
+        end
+        return air1103.stop_tones(skip_reset)
+    end
+    return false
+end
+
+--[[
+Air1103 播放挂断提示音，需在对端sip通话挂断后调用。
+@api exaudio.play_hangup([callback])
+@function callback 可选，播放完成回调；整段提示音播完时触发
+@return boolean 成功返回 true，模型未内置提示音或 Air1103 未初始化返回 false
+@usage
+-- 对端挂断后播提示音
+local function on_hangup_done()
+    log.info("sip", "提示音播放结束")
+end
+
+exaudio.play_hangup(on_hangup_done)
+
+-- 调用后 Air1103 播放挂断提示音（三段短嘟声）；
+-- 注意：需在对端sip通话挂断后调用；
+-- 播完自动复位 Air1103 并恢复上行；提示音占用 Air1103 下行，通话桥接期间不要调用。
+]]
+function exaudio.play_hangup(callback)
+    if audio_setup_param.model == "air1103" then
+        if not air1103 or type(air1103.play_hangup) ~= "function" then
+            log.warn("exaudio", "play_hangup: air1103 未初始化")
+            return false
+        end
+        return air1103.play_hangup(callback)
+    end
+    log.warn("exaudio", "play_hangup: 当前模型未内置提示音", audio_setup_param.model)
+    return false
 end
 
 -- 流式播放数据写入
@@ -1830,12 +2051,12 @@ end
 -- @return written 实际写入的字节数(audio_v2)
 -- @return free_len FIFO剩余空间(audio_v2)
 function exaudio.play_stream_write(data, is_end)
-    if audio_setup_param.model == "vb7014f" then
-        if not vb7014f then return false end
+    if audio_setup_param.model == "air1103" then
+        if not air1103 then return false end
         if not data or #data == 0 then return false end
-        vb7014f.play_stream_write(data)
+        air1103.play_stream_write(data)
         if is_end then
-            vb7014f_mark_end()
+            air1103_mark_end()
         end
         return true
     end
@@ -1870,10 +2091,10 @@ end
 
 -- 停止播放
 function exaudio.play_stop(stopConfigs)
-    if audio_setup_param.model == "vb7014f" then
-        if not vb7014f then return false end
-        if vb7014f_playing then
-            vb7014f_audio_done()
+    if audio_setup_param.model == "air1103" then
+        if not air1103 then return false end
+        if air1103_playing then
+            air1103_audio_done()
         end
         return true
     end
@@ -1944,8 +2165,8 @@ end
 
 -- 检查播放是否结束
 function exaudio.is_end()
-    if audio_setup_param.model == "vb7014f" then
-        return not vb7014f_playing
+    if audio_setup_param.model == "air1103" then
+        return not air1103_playing
     end
     if USE_AUDIO_V2 then
         -- audio_v2使用is_all_done判断是否所有请求结束
@@ -2024,37 +2245,37 @@ function exaudio.record_start(recodConfigs)
         audio_record_param.cbfnc = nil
     end
 
-    -- vb7014f: 通过 UART MIC 上行录音(16kHz/16bit/单声道, 512B/帧)
-    if audio_setup_param.model == "vb7014f" then
-        if not vb7014f then
-            log.error("vb7014f未初始化，请先调用exaudio.setup")
+    -- air1103: 通过 UART MIC 上行录音(16kHz/16bit/单声道, 512B/帧)
+    if audio_setup_param.model == "air1103" then
+        if not air1103 then
+            log.error("air1103未初始化，请先调用exaudio.setup")
             return false
         end
         if audio_record_param.format ~= exaudio.PCM_16000 then
-            log.warn("vb7014f仅支持16kHz/16bit/单声道PCM录音，已按16k处理")
+            log.warn("air1103仅支持16kHz/16bit/单声道PCM录音，已按16k处理")
         end
         if type(audio_record_param.path) ~= "function" and type(audio_record_param.path) ~= "string" then
-            log.error("vb7014f录音必须指定流式回调或文件路径")
+            log.error("air1103录音必须指定流式回调或文件路径")
             return false
         end
-        vb7014f_record_param = audio_record_param
-        vb7014f_recording = true
-        vb7014f_record_queue = {}
-        vb7014f.set_rx_enable(true)  -- 恢复解析 VB7014F 上行数据(上一次停止时已关闭)
-        vb7014f.on_audio_data(vb7014f_audio_data_cb)
-        if not vb7014f_record_wtask then
-            vb7014f_record_wtask = sys.taskInit(vb7014f_record_writer)
+        air1103_record_param = audio_record_param
+        air1103_recording = true
+        air1103_record_queue = {}
+        air1103.set_rx_enable(true)  -- 恢复解析 Air1103 上行数据(上一次停止时已关闭)
+        air1103.on_audio_data(air1103_audio_data_cb)
+        if not air1103_record_wtask then
+            air1103_record_wtask = sys.taskInit(air1103_record_writer)
         end
-        if vb7014f_record_timer then sys.timerStop(vb7014f_record_timer); vb7014f_record_timer = nil end
+        if air1103_record_timer then sys.timerStop(air1103_record_timer); air1103_record_timer = nil end
         if audio_record_param.time and audio_record_param.time > 0 then
-            vb7014f_record_timer = sys.timerStart(function()
-                vb7014f_record_timer = nil
-                vb7014f_record_stop()
+            air1103_record_timer = sys.timerStart(function()
+                air1103_record_timer = nil
+                air1103_record_stop()
             end, audio_record_param.time * 1000)
         end
-        -- 复位 VB7014F 以(重新)启动 MIC 上行(复位后自动恢复上行音频)
-        vb7014f.reset()
-        log.info("exaudio", "vb7014f录音已开始(MIC上行)")
+        -- 复位 Air1103 以(重新)启动 MIC 上行(复位后自动恢复上行音频)
+        air1103.reset()
+        log.info("exaudio", "air1103录音已开始(MIC上行)")
         return true
     end
 
@@ -2161,8 +2382,8 @@ end
 
 -- 停止录音
 function exaudio.record_stop()
-    if audio_setup_param.model == "vb7014f" then
-        return vb7014f_record_stop()
+    if audio_setup_param.model == "air1103" then
+        return air1103_record_stop()
     end
     if USE_AUDIO_V2 then
         if audio_v2_record_request_index then
@@ -2213,13 +2434,13 @@ end
 -- @param driver_probe_id 驱动ID(可选,audio_v2模式支持)
 -- @return 是否成功
 function exaudio.vol(play_volume, driver_probe_id)
-    if audio_setup_param.model == "vb7014f" then
-        if not vb7014f then return false end
+    if audio_setup_param.model == "air1103" then
+        if not air1103 then return false end
         if check_param(play_volume, "number", "音量值") then
             local v = math.floor(play_volume * 31 / 100)
             if v > 31 then v = 31 elseif v < 0 then v = 0 end
-            vb7014f.set_volume(v)
-            vb7014f_vol = v
+            air1103.set_volume(v)
+            air1103_vol = v
             return true
         end
         return false
@@ -2255,33 +2476,13 @@ function exaudio.vol(play_volume, driver_probe_id)
     return false
 end
 
--- 应用DAC(内置ADC)麦克风增益
--- 两个参数均由客户按 0-100 传入，由本函数线性映射到硬件范围：
---   数字增益 dac_mic_dig_gain(0-100) -> 0-0x3f，默认 60
---   模拟增益 dac_mic_ana_gain(0-100) -> 0-0x0f，默认 50
--- 仅 model=="dac" 生效，固件未提供该接口(CFG_PARAM_ADC_DIG_GAIN为nil)时自动跳过
-local function apply_dac_mic_gain()
-    if audio_setup_param.model ~= "dac" or not audio_v2 then return end
-    if not audio_v2.CFG_PARAM_ADC_DIG_GAIN then return end
-    local dig = math.floor((dac_mic_dig_gain or 0) * 0x3f / 100)
-    if dig > 0x3f then dig = 0x3f elseif dig < 0 then dig = 0 end
-    local ok, err = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_DIG_GAIN, dig)
-    if not ok then log.warn("exaudio", "设置DAC数字增益失败:", err) end
-    if dac_mic_ana_gain and dac_mic_ana_gain > 0 then
-        local ana = math.floor(dac_mic_ana_gain * 0x0f / 100)
-        if ana > 0x0f then ana = 0x0f elseif ana < 0 then ana = 0 end
-        ok = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_ANA_GAIN, ana)
-        if not ok then log.warn("exaudio", "设置DAC模拟增益失败") end
-    end
-end
-
 -- 设置麦克风音量
 -- @param record_volume 麦克风音量值(0-100)，DAC模式下作为数字增益映射为 0-0x3f（默认 60）
 -- @param dac_ana_gain 可选，DAC模式专用模拟增益(0-100)，线性映射为 0-0x0f，不传则为默认 50
 -- @return 是否成功
 function exaudio.mic_vol(record_volume, dac_ana_gain)
-    if audio_setup_param.model == "vb7014f" then
-        log.info("exaudio", "vb7014f不支持调节麦克风音量")
+    if audio_setup_param.model == "air1103" then
+        log.info("exaudio", "air1103不支持调节麦克风音量")
         return false
     end
     if USE_AUDIO_V2 then
@@ -2295,8 +2496,8 @@ function exaudio.mic_vol(record_volume, dac_ana_gain)
             mic_vol = record_volume
             return true
         end
-        if audio_setup_param.model == "dac" then
-            -- DAC模式：无ES8311芯片，通过驱动配置设置麦克风数字/模拟增益
+        if audio_setup_param.model == "dac" and MODULE_TYPE == "air8101" then
+            -- DAC模式：通过驱动配置设置麦克风数字/模拟增益
             if not check_param(record_volume, "number", "麦克风音量值") then
                 return false
             end
@@ -2328,13 +2529,13 @@ end
 -- @param data 最后一帧数据(可选,audio_v2流式播放)
 -- @return 是否成功
 function exaudio.finish(data)
-    if audio_setup_param.model == "vb7014f" then
-        if not vb7014f then return false end
+    if audio_setup_param.model == "air1103" then
+        if not air1103 then return false end
         if data then
-            vb7014f.play_stream_write(data)
+            air1103.play_stream_write(data)
         end
-        if vb7014f_playing then
-            vb7014f_mark_end()
+        if air1103_playing then
+            air1103_mark_end()
         end
         return true
     end
@@ -2370,8 +2571,8 @@ end
 -- exaudio.pm(exaudio.SHUTDOWN)
 -- exaudio.pm(exaudio.RESUME)
 function exaudio.pm(pm_mode)
-    -- vb7014f无需通过音频休眠控制
-    if audio_setup_param.model == "vb7014f" then
+    -- air1103无需通过音频休眠控制
+    if audio_setup_param.model == "air1103" then
         return true
     end
 
@@ -2413,8 +2614,8 @@ function exaudio.pm(pm_mode)
                 es8311_drv.set_mute(audio_setup_param.i2c_id or 0, false)
                 es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, voice_vol)
                 es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, mic_vol)
-            elseif audio_setup_param.model == "dac" then
-                -- DAC(内置ADC)模式：唤醒后重新应用麦克风增益
+            elseif audio_setup_param.model == "dac" and MODULE_TYPE == "air8101" then
+                -- Air8101唤醒后重新应用麦克风增益
                 apply_dac_mic_gain()
             end
             -- 恢复外部 PA。
@@ -2624,7 +2825,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202609091419"
+    return "202609201726"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

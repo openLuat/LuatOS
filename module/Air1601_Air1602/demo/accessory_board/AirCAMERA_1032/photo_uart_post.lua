@@ -11,7 +11,7 @@
 3、遍历USB摄像头支持的格式和分辨率，只选择MJPEG格式 + 1024x576；
 4、接收一帧图像数据后停止流，将照片保存到/ram/photo.jpg；
 5、通过UART3将照片二进制数据发送到电脑；
-6、调用lcd.showImage将照片显示到LCD屏幕；
+6、调用airui.image将照片显示到LCD屏幕；
 7、拍照完成后关闭摄像头流，不再循环拍照。
 
 电脑端可使用 uart_receiver.py 接收照片数据。
@@ -234,12 +234,23 @@ sys.taskInit(function()
     log.info("photo_uart_post", "USB摄像头初始化完成，等待摄像头连接...")
 
     -- 在LCD上显示提示信息
-    lcd.clear(0x0000)
-    lcd.setFont(lcd.font_opposansm16)
-    lcd.setColor(0xFFFF, 0x0000)
-    lcd.drawStr(20, 100, "AirCAMERA_1032  photo + UART")
-    lcd.drawStr(20, 140, "Waiting camera...")
-    lcd.flush()
+    airui.shape({
+        x = 0, y = 0, w = LCD_W, h = LCD_H,
+        items = {
+            { type = "rect", x = 0, y = 0, w = LCD_W, h = LCD_H,
+              fill = true, fill_color = 0x000000, color = 0x000000 },
+        },
+    })
+    airui.label({
+        x = 20, y = 100, w = LCD_W - 40, h = 24,
+        text = "AirCAMERA_1032  photo + UART",
+        font_size = 16, color = 0xFFFFFF,
+    })
+    airui.label({
+        x = 20, y = 140, w = LCD_W - 40, h = 24,
+        text = "Waiting camera...",
+        font_size = 16, color = 0xFFFFFF,
+    })
 
     -- 保持任务运行
     while true do

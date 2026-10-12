@@ -7,6 +7,7 @@
 @demo camera
 @tag LUAT_USE_CAMERA
 */
+#include "lua.h"
 #include "luat_base.h"
 #include "luat_camera.h"
 #include "luat_msgbus.h"
@@ -28,6 +29,7 @@ typedef struct luat_camera_cb {
 } luat_camera_cb_t;
 static luat_camera_cb_t camera_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 static uint64_t camera_idp = 0;
+
 int l_camera_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
@@ -76,20 +78,24 @@ int l_camera_handler(lua_State *L, void* ptr) {
         	switch (u_event.event)
         	{
         	case LUAT_CAMERA_FRAME_RX_DONE:
-            	if (camera_cbs[camera_id].zbuff[u_event.usb_id])
+            	if (camera_cbs[camera_id].zbuff[u_event.frame_id])
             	{
-            		camera_cbs[camera_id].zbuff[u_event.usb_id]->used = msg->arg2;
+            		camera_cbs[camera_id].zbuff[u_event.frame_id]->used = msg->arg2;
             	}
             	lua_pushinteger(L, LUAT_USB_EVENT_NEW_RX);
-            	lua_pushinteger(L, u_event.usb_id);
+            	lua_pushinteger(L, u_event.frame_id);
             	break;
+            case LUAT_CAMERA_SCAN_DECODE:
+                lua_pushinteger(L, LUAT_USB_EVENT_NEW_RX);
+                lua_pushstring(L, (char *)msg->arg2);
+                break;
         	case LUAT_CAMERA_USB_CONNECT:
         		lua_pushinteger(L, LUAT_USB_EVENT_CONNECT);
-        		lua_pushinteger(L, u_event.usb_id);
+        		lua_pushinteger(L, u_event.port_id);
         		break;
         	case LUAT_CAMERA_USB_DISCONNECT:
         		lua_pushinteger(L, LUAT_USB_EVENT_DISCONNECT);
-        		lua_pushinteger(L, u_event.usb_id);
+        		lua_pushinteger(L, u_event.port_id);
         		break;
         	case LUAT_CAMERA_FRAME_ERROR:
             	lua_pushinteger(L, LUAT_USB_EVENT_RX_ERROR);
@@ -589,6 +595,11 @@ LUAT_WEAK int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t 
 {
 	return -1;
 }
+
+
+LUAT_WEAK int luat_camera_scan(int id, uint32_t type, uint8_t on_off) {return -1;}
+
+LUAT_WEAK int luat_camera_frame_callback_on_off(int id, uint8_t on_off) {return -1;}
 #endif
 /**
 camera拍照
@@ -759,22 +770,34 @@ static int l_camera_set_reset_pin(lua_State* L) {
 
 /**
 camera输出/停止数据流
-@api camera.stream(id, app_id, jump_frame_cnt, min_data_len)
+@api camera.stream(id, app_id, jump_frame_cnt, min_data_len, frame_callback_enable, scan_enable)
 @int camera id
 @int app_id 如果是usb摄像头，则输入usb应用id，其他留空
 @int 跳帧，针对USB摄像头，跳过N帧后上报，一般情况正常传输是摄像头最高帧率，如果脚本处理不过来，可以跳过N帧上报，默认是0，即不跳
 @int 图像数据最小长度，针对USB摄像头ISO传输可能漏数据的情况，只有大于最小长度的图像帧会上报，默认是1KB
+@boolean 是否开启帧数据回调，默认开启，false不开启，true开启
+@boolean 是否开启扫码功能，默认不开启，false不开启，true开启
+@int 扫码功能时解码器组合，见"SCAN_FMT_XXX",默认为SCAN_FMT_ALL，解码器在明确知道哪些码不用的情况下可以组合使用，减少解码时间
 @return boolean 成功返回true,否则返回false
 @usage
 camera.stream(camera.USB, app_id)       --默认不跳帧
 camera.stream(camera.USB, app_id, 1)    --跳过1帧上报
+camera.stream(camera.USB, app_id, nil, nil, false, true)    --关闭帧数据回调，开启扫码功能
 */
 static int l_camera_stream(lua_State *L) {
 	int camera_id = luaL_checkinteger(L, 1);
     int app_id = luaL_optinteger(L, 2, -1);
     uint8_t jump_frame_cnt = luaL_optinteger(L, 3, 0);
     uint32_t min_data_len = luaL_optinteger(L, 4, 1*1024);
-
+    uint8_t frame_callback_enable = 1;
+    uint8_t scan_enable = 0;
+    if (lua_isboolean(L, 5)) {
+        frame_callback_enable = lua_toboolean(L, 5);
+    }
+    if (lua_isboolean(L, 6)) {
+        scan_enable = lua_toboolean(L, 6);
+    }
+    uint32_t decode_type = luaL_optinteger(L, 7, LUAT_CAMERA_SCAN_CODE_ALL);
     uint8_t usb_mode = 0;
     if (camera_id >= LUAT_CAMERA_TYPE_USB)
     {
@@ -786,11 +809,16 @@ static int l_camera_stream(lua_State *L) {
     {
     	luat_usb_camera_stream_set_jump_frame_cnt(app_id, jump_frame_cnt);
     	luat_usb_camera_stream_set_min_data_len(app_id, min_data_len);
+        luat_camera_scan(camera_id, decode_type, scan_enable);
+        luat_camera_frame_callback_on_off(camera_id, frame_callback_enable);
         lua_pushboolean(L, !luat_camera_start(app_id));
 
     }
     else
     {
+#ifdef LUAT_USE_CAMERA_SCAN
+    	luat_camera_scan(camera_id, decode_type, scan_enable);
+#endif
     	lua_pushboolean(L, !luat_camera_start(camera_id));
     }
     return 1;
@@ -1010,6 +1038,56 @@ static int l_camera_set_usb_config(lua_State *L) {
     return 1;
 }
 
+#if defined(LUAT_USE_UTEST) && defined(LUAT_USE_CAMERA_SCAN)
+/**
+对内存中的图像像素执行一次扫码解码（PC模拟器utest专用，需LUAT_USE_UTEST=y且启用camera scan的构建）
+@api camera.utest_qr_decode(data, w, h, fmt, decode_type)
+@string/userdata 像素数据，string 或 zbuff
+@int 图像宽
+@int 图像高
+@int 像素格式，0=RGB565小端，1=8bit灰度，默认0
+@int 码制组合，见 SCAN_FMT 相关常量，默认全部码制
+@return string 解码成功返回内容字符串，未命中或失败返回nil
+@usage
+local frame = videoplayer.read_frame(player)
+local str = camera.utest_qr_decode(frame.data, frame.width, frame.height)
+*/
+static int l_camera_utest_qr_decode(lua_State *L) {
+    size_t data_len = 0;
+    const char *data = NULL;
+    luat_zbuff_t *zbuff = luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
+    if (zbuff) {
+        data = (const char *)zbuff->addr;
+        data_len = zbuff->used ? zbuff->used : zbuff->len;
+    } else {
+        data = luaL_checklstring(L, 1, &data_len);
+    }
+    int w = luaL_checkinteger(L, 2);
+    int h = luaL_checkinteger(L, 3);
+    int fmt = luaL_optinteger(L, 4, 0);
+    uint32_t decode_type = luaL_optinteger(L, 5, LUAT_CAMERA_SCAN_CODE_ALL);
+    size_t need = (fmt == 1) ? ((size_t)w * h) : ((size_t)w * h * 2);
+    if (w <= 0 || h <= 0 || data_len < need) {
+        lua_pushnil(L);
+        return 1;
+    }
+    size_t out_len = 4096;
+    char *out = (char *)luat_heap_malloc(out_len);
+    if (!out) {
+        lua_pushnil(L);
+        return 1;
+    }
+    int r = luat_camera_utest_decode((const uint8_t *)data, fmt, w, h, decode_type, out, out_len);
+    if (r > 0) {
+        lua_pushlstring(L, out, r);
+    } else {
+        lua_pushnil(L);
+    }
+    luat_heap_free(out);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_camera[] =
 {
@@ -1030,6 +1108,9 @@ static const rotable_Reg_t reg_camera[] =
 	{ "set_usb_config",		 ROREG_FUNC(l_camera_set_usb_config)},
 	{ "cache",		 ROREG_FUNC(l_camera_cache)},
 	{ "stream",		 ROREG_FUNC(l_camera_stream)},
+#if defined(LUAT_USE_UTEST) && defined(LUAT_USE_CAMERA_SCAN)
+	{ "utest_qr_decode", ROREG_FUNC(l_camera_utest_qr_decode)},
+#endif
     //@const AUTO number 摄像头工作在自动模式
 	{ "AUTO",        ROREG_INT(LUAT_CAMERA_MODE_AUTO)},
     //@const SCAN number 摄像头工作在扫码模式，只输出Y分量
@@ -1082,6 +1163,20 @@ static const rotable_Reg_t reg_camera[] =
     { "FORMAT_MJPG",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_MJPEG)},
     //@const FORMAT_H264 number USB摄像头的数据流类型H264
     { "FORMAT_H264",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_H264)},
+    //@const SCAN_FMT_1D number 扫码格式1D条形码包括(CODABAR Code128 Code93 Code39 Code32 PZN ITF ITF-14 DATABAR EAN_UPC EAN13 EAN8 EAN5 EAN2 UPC ISBN BARCODE TELEPEN DX_FILM_EDGE)
+    { "SCAN_FMT_1D",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_1D)},
+    //@const SCAN_FMT_QR number 扫码格式QR Code 消费领域必备
+    { "SCAN_FMT_QR",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_QR_CODE)},
+    //@const SCAN_FMT_DM number 扫码格式Data Matrix 常用于电子元件、医疗器械、制造业零部件追踪
+    { "SCAN_FMT_DM",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_DATA_MATRIX)},
+    //@const SCAN_FMT_AZTEC number 扫码格式Aztec Code 常用于交通票务、航空登机牌。
+    { "SCAN_FMT_AZTEC",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_AZTEC_CODE)},
+    //@const SCAN_FMT_PDF417 number 扫码格式PDF417 常用于身份证、驾照、物流单据、美国邮政
+    { "SCAN_FMT_PDF417",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_PDF417)},
+    //@const SCAN_FMT_MAXICODE number 扫码格式MaxiCode 主要用于UPS快递包裹分拣
+    { "SCAN_FMT_MAXICODE",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_MAXICODE)},
+    //@const SCAN_FMT_ALL number 扫码格式所有类型
+    { "SCAN_FMT_ALL",                  ROREG_INT(LUAT_CAMERA_SCAN_CODE_ALL)},
 	{ NULL,          ROREG_INT(0)}
 };
 

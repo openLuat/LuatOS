@@ -8,8 +8,12 @@
 #include <string.h>
 
 #ifdef LUAT_USE_VOIP_AEC
+#ifdef LUAT_VOIP_SPEEX_HEADER
+#include LUAT_VOIP_SPEEX_HEADER
+#else
 #include "speex/speex_echo.h"
 #include "speex/speex_preprocess.h"
+#endif
 #endif
 
 #if defined(LUAT_USE_VOIP_AEC) && defined(LUAT_USE_VOIP_AEC_BK) && \

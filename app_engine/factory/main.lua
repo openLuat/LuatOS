@@ -1,8 +1,8 @@
 --[[
 @module  main
 @summary app_engine_factory 主程序入口（配置驱动架构）
-@version 1.2
-@date    2026.05.22
+@version 1.3
+@date    2026.09.16
 @author  江访
 ]]
 
@@ -49,6 +49,7 @@ PROJECT：项目名，ascii string类型
   "Engine_Air1780H_4inch_480x272_000_V000"      → config/eng_1780h_4i_v0.lua    4.3寸SPI ST6201  +WiFi(airlink/6205)+ES8311+SD+NAND
   "Engine_Air1780H_4inch_320x480_000_V001"      → config/eng_1780h_4i_v1.lua    4寸SPI  ST7796   +WiFi(airlink/6205)+ES8311+SD+NAND+电池
   "Engine_Air8301_4inch_480x272_000_V000"       → config/eng_8301_4i_v0.lua     4.3寸SPI ST6201  +WiFi+4G+双以太网(CH390H)+NAND
+  "Engine_Air8601_7inch_1024x600_010_V000"      → config/eng_8601_7i_v0.lua     7寸RGB HX8282  +WiFi(airlink/6205)+4G(airlink/780ER2)二选一+UVC+RS485+SD+喇叭
 
 
   EVB turnkey 开发板系列:
@@ -82,7 +83,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "EVB_Air1601_7inch_1024x600_000_V012"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
+PROJECT = "Engine_Air1602_5inch_480x854_005_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
 VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
 PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
 

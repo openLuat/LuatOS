@@ -2,12 +2,12 @@
 
 ## 概述
 
-`videoplayer` 是 LuatOS 的视频播放组件，支持 MJPG 和 MP4+H264 格式的视频解码与播放。
+`videoplayer` 是 LuatOS 的视频播放组件，支持 MJPG 和 HZV 的逐帧解码。MP4 不在这里解码，由 AirUI video 的 mplayer 后端播放。
 
 ### 特性
 
 - **MJPG 解码播放**: 支持 raw MJPG 视频流的逐帧解码与显示
-- **MP4+H264 解码播放**: 支持 MP4 容器中的 H264 视频逐帧解码与显示（依赖 `LUAT_USE_H264`）
+- **HZV 播放**: 原生解析 HZV 容器中的 MJPEG 包、时间戳和帧时长，音频主时钟同步将在后续阶段接入
 - **软解/硬解切换**: MJPG 解码支持软件解码（基于 tjpgd）和硬件解码两种方案，可在运行时切换
 - **LCD 渲染**: 解码后的帧可直接绘制到 LCD 屏幕
 - **帧数据访问**: 支持读取解码后的 RGB565 帧数据供用户自行处理
@@ -19,13 +19,10 @@
 
 ```c
 #define LUAT_USE_VIDEOPLAYER 1
+#define LUAT_USE_HZV 1
 ```
 
-MP4+H264 播放还需要：
-
-```c
-#define LUAT_USE_H264 1
-```
+`LUAT_USE_MP4PLAYER` 表示固件编进 mp4player/mplayer，供 AirUI 的 mplayer 后端播放 MP4。videoplayer 自身不再解码 MP4。
 
 MJPG 软件解码依赖 `LUAT_USE_TJPGD`。
 
@@ -58,7 +55,7 @@ components/videoplayer/
 ├─────────────────────────────────┤
 │        播放器核心层               │
 │   luat_videoplayer.c             │
-│   - 文件格式解析 (MJPG/AVI/MP4)  │
+│   - 文件格式解析 (MJPG/AVI/HZV) │
 │   - 帧管理                       │
 │   - 解码器调度                    │
 ├──────────┬──────────────────────┤
@@ -167,7 +164,7 @@ end
 | `videoplayer.DECODE_HW` | 硬件解码模式 |
 | `videoplayer.FMT_MJPG` | MJPG 格式 |
 | `videoplayer.FMT_AVI_MJPG` | AVI+MJPG 格式 (预留) |
-| `videoplayer.FMT_MP4_H264` | MP4+H264 格式 (预留) |
+| `videoplayer.FMT_MP4_H264` | MP4 格式常量（不再解码，数值保留） |
 
 ## C API
 

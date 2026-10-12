@@ -1,5 +1,6 @@
-#include "luat_input_hid.h"
+#include "luat_base.h"
 #if defined(LUAT_USE_INPUT) && defined(LUAT_USE_INPUT_HID)
+#include "luat_input_hid.h"
 #include <string.h>
 #include <limits.h>
 

@@ -4,13 +4,13 @@ USB BSP 只负责传输，主库默认处理为 input 事件。对接新平台�
 
 ## 默认处理
 
-编译 `luat/weak/luat_usb_hid.c`、`components/input/luat_input_usb_hid.c` 及现有 HID 解析器/核心/日志，启用 `LUAT_USE_INPUT`、`LUAT_USE_INPUT_HID`。可选的 service、Lua 和 AirUI 使用原有配置。
+编译 `luat/weak/luat_usb_hid.c`、`components/input/luat_input_usb_hid.c` 及现有 HID 解析器/核心/队列/服务/日志，启用 `LUAT_USE_INPUT`、`LUAT_USE_INPUT_HID`。队列和服务随总开关启用，Lua 和 AirUI 按需配置。
 
 默认路径为 BSP 原始回调 → 主库报告环 → 共享 HID 任务 → input 消费者。核心和 HID 解析器仍无 RTOS/堆依赖；RTOS、内存和应用策略仅在 USB HID 接入模块中。
 
 AirUI 接入由 `components/airui/src/platform/luatos/luat_airui_input_service_luatos.c` 管理：在 AirUI 初始化时订阅 service 的设备生命周期，绑定已有及后续接入的键鼠设备。HID 适配器不包含 AirUI 头文件，不负责 GUI 初始化和绑定；未初始化 AirUI 时，input 及 Lua 订阅仍独立运行。原有 AirUI 触摸路径保持不变。
 
-service 由各 BSP 按需初始化，LuatOS 公共启动入口不调用。国芯在 `luat_main_ccm42xx.c` 中受 `LUAT_USE_INPUT_SERVICE` 控制，在 `luat_init()` 开头、创建 Lua 任务前调用；使用 RTOS 系统堆，无需等待 Lua VM 堆初始化。其他 BSP 或 `sysp` 宿主启用该服务时，需要在自己的启动入口完成初始化。HID、TP、AirUI 和 Lua input 只检查服务就绪，不再代为初始化。独立 C 应用须在启动 USB、TP 等生产者和消费者前调用 `luat_input_service_init()` 并检查返回值。未就绪时接入失败，初始化后需重新接入设备。
+service 由各 BSP 按需初始化，LuatOS 公共启动入口不调用。国芯在 `luat_main_ccm42xx.c` 中受 `LUAT_USE_INPUT` 控制，在 `luat_init()` 开头、创建 Lua 任务前调用；使用 RTOS 系统堆，无需等待 Lua VM 堆初始化。其他 BSP 或 `sysp` 宿主启用 input 时，需要在自己的启动入口完成初始化。HID、TP、AirUI 和 Lua input 只检查服务就绪，不再代为初始化。独立 C 应用须在启动 USB、TP 等生产者和消费者前调用 `luat_input_service_init()` 并检查返回值。未就绪时接入失败，初始化后需重新接入设备。
 
 ## 自定义处理
 

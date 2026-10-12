@@ -47,7 +47,7 @@ static inline int luat_fs_getc(FILE *f) {return getc(f);}
     sources = [root/'lua/src'/f'{name}.c' for name in names]
     sources += [component/'luat_input.c', component/'luat_input_queue.c', component/'luat_input_service.c',
                 root/'luat/modules/luat_lib_input.c', component/'tests/lua_input_test.c']
-    flags = ['-std=c11', '-O1', '-DLUAT_USE_INPUT', '-DLUAT_USE_INPUT_QUEUE', '-DLUAT_USE_INPUT_LUA',
+    flags = ['-std=c11', '-O1', '-DLUAT_USE_INPUT', '-DLUAT_USE_INPUT_LUA',
              '-I'+str(out), '-I'+str(root/'lua/include'), '-I'+str(root/'luat/include')]
     def compile_one(item):
         i, source = item

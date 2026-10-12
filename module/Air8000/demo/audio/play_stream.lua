@@ -44,7 +44,7 @@ end
 
 -- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
-    model= "es8311",          -- dac类型,可填入"es8311","tm8211","vb7014f"
+    model= "es8311",          -- dac类型,可填入"es8311","tm8211","air1103"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
     
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】

@@ -2846,6 +2846,19 @@
  * 未定义时 ecp.c 零改动成本, 本缓存完全不参与编译. */
 #define LUAT_CONF_MBEDTLS_ECP_CACHE
 
+/* DTLS-SRTP uses both client/server roles and an ephemeral local certificate. */
+#if defined(LUAT_USE_DTLS_SRTP)
+#define MBEDTLS_SSL_PROTO_DTLS
+#define MBEDTLS_SSL_DTLS_ANTI_REPLAY
+#define MBEDTLS_SSL_DTLS_HELLO_VERIFY
+#define MBEDTLS_SSL_DTLS_SRTP
+#define MBEDTLS_SSL_COOKIE_C
+#define MBEDTLS_SSL_SRV_C
+#define MBEDTLS_SSL_EXPORT_KEYS
+#define MBEDTLS_X509_CREATE_C
+#define MBEDTLS_X509_CRT_WRITE_C
+#endif
+
 #include "mbedtls/check_config.h"
 
 #endif /* MBEDTLS_CONFIG_H */

@@ -30,6 +30,9 @@ log.info("simid", mobile.simid())
 #include "luat_msgbus.h"
 
 #include "luat_mobile.h"
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+#include "luat_cc_pcm_bridge.h"
+#endif
 #include "luat_network_adapter.h"
 #include <string.h>
 
@@ -1663,6 +1666,20 @@ LUAMOD_API int luaopen_mobile( lua_State *L ) {
     return 1;
 }
 
+/* 追加 PCM 通话归属信息，保持各事件的 value 参数位置不变。 */
+static int l_mobile_cc_args(lua_State *L, void *session, int nargs) {
+    (void)L;
+    (void)session;
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+    if (luat_cc_pcm_selected()) {
+        if (nargs == 2) lua_pushnil(L);
+        lua_pushinteger(L, (uint32_t)(uintptr_t)session);
+        nargs = 4;
+    }
+#endif
+    return nargs;
+}
+
 static int l_mobile_event_handle(lua_State* L, void* ptr) {
     LUAT_MOBILE_EVENT_E event = {0};
     uint8_t index = 0;
@@ -1674,6 +1691,13 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
     event = msg->arg1;
     index = msg->arg2 >> 8;
     status = msg->arg2 & 0xFF;
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+    if (event == LUAT_MOBILE_EVENT_CC && msg->ptr && status != LUAT_MOBILE_CC_READY &&
+        (!luat_cc_pcm_selected() ||
+         (status != LUAT_MOBILE_CC_DISCONNECTED && status != LUAT_MOBILE_CC_HANGUP_CALL_DONE &&
+          status != LUAT_MOBILE_CC_MAKE_CALL_FAILED &&
+          (uint32_t)(uintptr_t)msg->ptr != luat_cc_pcm_session()))) return 0;
+#endif
 
 	// luat_mobile_cell_info_t cell_info;
 	// luat_mobile_signal_strength_info_t signal_info;
@@ -1927,7 +1951,7 @@ end)
         case LUAT_MOBILE_CC_INCOMINGCALL:
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "INCOMINGCALL");
-            lua_call(L, 2, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
             break;
         case LUAT_MOBILE_CC_CALL_NUMBER:
             // lua_pushstring(L, "CC_IND");
@@ -1935,55 +1959,61 @@ end)
             // lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_CONNECTED_NUMBER:
-            // lua_pushstring(L, "CC_IND");
-            // lua_pushstring(L, "CONNECTED_NUMBER");
-            // lua_call(L, 2, 0);
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+            if (!luat_cc_pcm_selected()) break;
+            /* 已验证的 IMS 呼出 Talking 路径会产生 COLP，
+             * 但不会另发 CONNECTED 事件。此处仅转发接通状态，
+             * 不转发接通号码及其类型。 */
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "CONNECTED_NUMBER");
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
+#endif
             break;
         case LUAT_MOBILE_CC_CONNECTED:
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "CONNECTED");
-            lua_call(L, 2, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
             break;
         case LUAT_MOBILE_CC_DISCONNECTED:
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "DISCONNECTED");
-            lua_call(L, 2, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
             break;
         case LUAT_MOBILE_CC_SPEECH_START:
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "SPEECH_START");
-            lua_call(L, 2, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
             break;
         case LUAT_MOBILE_CC_MAKE_CALL_OK:
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "MAKE_CALL_OK");
-            lua_call(L, 2, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
             break;
         case LUAT_MOBILE_CC_MAKE_CALL_FAILED:
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "MAKE_CALL_FAILED");
-            lua_call(L, 2, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
             break;
         case LUAT_MOBILE_CC_ANSWER_CALL_DONE:
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "ANSWER_CALL_DONE");
-            lua_call(L, 2, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
             break;
         case LUAT_MOBILE_CC_HANGUP_CALL_DONE:
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "HANGUP_CALL_DONE");
-            lua_call(L, 2, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
             break;
         case LUAT_MOBILE_CC_LIST_CALL_RESULT:
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "LIST_CALL_RESULT");
-            lua_call(L, 2, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 2), 0);
             break;
         case LUAT_MOBILE_CC_PLAY:// 最先 	
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "PLAY");
             lua_pushinteger(L, index);
-            lua_call(L, 3, 0);
+            lua_call(L, l_mobile_cc_args(L, msg->ptr, 3), 0);
             break;
         }
         break;
@@ -2053,6 +2083,10 @@ void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t stat
 #endif
 #if defined LUAT_USE_AIRLINK_EXEC_MOBILE
     luat_airlink_mobile_event_callback(event, index, status, ptr);
+#endif
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+    if (event == LUAT_MOBILE_EVENT_CC && luat_cc_pcm_selected())
+        ptr = (void *)(uintptr_t)luat_cc_pcm_session();
 #endif
     rtos_msg_t msg = {
         .handler = l_mobile_event_handle,

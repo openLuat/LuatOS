@@ -241,7 +241,7 @@ static bool lottie_alloc_buffer(airui_ctx_t *ctx, airui_lottie_data_t *data, int
 
     // 申请画布所需的像素缓冲区
     size_t buf_size = LV_DRAW_BUF_SIZE(w, h, LV_COLOR_FORMAT_ARGB8888_PREMULTIPLIED);
-    void *buf = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
+    void *buf = luat_heap_opt_calloc(LUAT_HEAP_PSRAM, 1, buf_size);
     if (buf == NULL) {
         LLOGE("lottie: draw buffer alloc failed (%zux%zu)", w, h);
         return false;
@@ -262,7 +262,7 @@ static bool lottie_alloc_buffer(airui_ctx_t *ctx, airui_lottie_data_t *data, int
         (uint32_t)buf_size);
     if (res != LV_RES_OK) {
         LLOGE("lottie: draw buf init failed");
-        airui_buffer_free(ctx, buf);
+        luat_heap_opt_free(LUAT_HEAP_PSRAM, buf);
         data->draw_buf_data = NULL;
         data->draw_buf_size = 0;
         return false;
@@ -380,7 +380,7 @@ static void lottie_cleanup_on_error(airui_ctx_t *ctx, airui_lottie_data_t *data,
 {
     if (data != NULL) {
         if (data->draw_buf_data != NULL && ctx != NULL) {
-            airui_buffer_free(ctx, data->draw_buf_data);
+            luat_heap_opt_free(LUAT_HEAP_PSRAM, data->draw_buf_data);
             data->draw_buf_data = NULL;
         }
         luat_heap_free(data);
@@ -625,7 +625,7 @@ int airui_lottie_destroy(lv_obj_t *lottie)
     if (data != NULL) {
         if (data->draw_buf_data != NULL && meta->ctx != NULL) {
             // 释放缓冲区
-            airui_buffer_free(meta->ctx, data->draw_buf_data);
+            luat_heap_opt_free(LUAT_HEAP_PSRAM, data->draw_buf_data);
             data->draw_buf_data = NULL;
         }
         luat_heap_free(data);

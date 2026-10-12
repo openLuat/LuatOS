@@ -182,6 +182,14 @@ int luat_log_set_dir(const char* dir) {
     return 0;
 }
 
+const char *luat_log_get_dir(void) {
+    return luat_log_dir;
+}
+
+int luat_log_ensure_dir(void) {
+    return luat_log_mkdir_p(luat_log_dir);
+}
+
 int luat_log_parse_cli(int argc, char** argv) {
     int i;
 

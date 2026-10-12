@@ -9,6 +9,9 @@
 
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
+#if LWIP_IPV6
+#include "lwip/nd6.h"
+#endif
 
 #include "luat_netdrv_event.h"
 
@@ -158,6 +161,16 @@ static void link_updown(tmpptr_t* ptr) {
     if (updown && netif_is_link_up(netif) == 0) {
         LLOGI("网卡(%d)设置为UP", drv->id);
         netif_set_link_up(netif);
+#if LWIP_IPV6 && defined(LUAT_USE_NETDRV_IPV6) && defined(LUAT_EC7XX_CSDK)
+        /* EC7xx SDK lwIP defaults this field to 0. Enable SLAAC before the
+         * first RA arrives so an autonomous prefix can create a global IP. */
+        netif_set_ip6_autoconfig_enabled(netif, 1);
+        if (netif_is_up(netif) &&
+            !ip6_addr_isinvalid(netif_ip6_addr_state(netif, 0))) {
+            nd6_start_rs_process(netif, 0);
+            LLOGI("adapter %d IPv6 SLAAC/RS started", drv->id);
+        }
+#endif
         net_lwip2_set_link_state(drv->id, 1);
         if (drv->dhcp_enable) {
             LLOGI("DHCP trigger for adapter %d (link=UP)", drv->id);

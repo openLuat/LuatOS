@@ -8,6 +8,17 @@
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
 具体包含哪些参数，如何填写参考：template.lua
 ]]
+
+-- ============================================================================
+-- ⚠️ 加载期安全兜底（本文件必须能在【真机】上安全加载完成）
+-- 同 factory_new 版本：core/platform_loader.lua 的"编译清单"里的 require 在
+-- 真机上也真的会执行，而真机固件不一定注册 SPI 用的 lcd 库（C 库，随 core）。
+-- lcd 缺失时 `port = lcd.HWID_0` 抛 nil 索引 → main 协程挂 → Lua VM exit；
+-- 且 .luac 被 strip，日志会伪装成 `(field 'lcd')` + 行号 -1。
+-- ============================================================================
+local lcd  = rawget(_G, "lcd")  or _G.lcd  or { HWID_0 = 0, RGB = 1 }
+local gpio = rawget(_G, "gpio") or _G.gpio or { WAKEUP0 = 0 }
+
 return {
     -- ===== 顶层信息 =====
     name = "PC",         -- PC 模拟器

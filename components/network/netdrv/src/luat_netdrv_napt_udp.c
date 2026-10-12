@@ -12,6 +12,16 @@
 #define LUAT_LOG_TAG "netdrv.napt.udp"
 #include "luat_log.h"
 
+/* RNDIS NAT 模式共存问题定位日志: 1=开启(默认), 抓完日志后改 0 或删除本块 */
+#ifndef LUAT_CONF_RNDIS_NAT_DBG
+#define LUAT_CONF_RNDIS_NAT_DBG 0
+#endif
+#if LUAT_CONF_RNDIS_NAT_DBG
+#define NAPT_UDP_DBG(fmt, ...) luat_log_log(LUAT_LOG_INFO, "RNDIS-NAT-DBG", fmt, ##__VA_ARGS__)
+#else
+#define NAPT_UDP_DBG(fmt, ...) do {} while (0)
+#endif
+
 extern luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 
 static uint8_t *udp_buff;
@@ -65,6 +75,12 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
                 udp_hdr->chksum = napt_inet_chksum_pseudo(ip_hdr, IP_PROTO_UDP,
                                                           udp_hdr, ip_hdr_len - iphdr_len);
             }
+        #if LUAT_CONF_RNDIS_NAT_DBG
+            NAPT_UDP_DBG("wan2lan udp lport=%u -> inet=0x%08X:%u wnet=0x%08X:%u",
+                (unsigned)ntohs(old_dst_port), (unsigned)mapping.inet_ip,
+                (unsigned)ntohs(mapping.inet_port), (unsigned)mapping.wnet_ip,
+                (unsigned)ntohs(mapping.wnet_port));
+        #endif
             return napt_output_to_lan(ctx, &mapping, ip_hdr, udp_buff);
         }
         // LLOGD("没有找到UDP映射关系, 放行给LWIP处理");

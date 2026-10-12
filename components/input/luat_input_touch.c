@@ -1,6 +1,6 @@
-#include "luat_input_touch.h"
-
+#include "luat_base.h"
 #ifdef LUAT_USE_INPUT_TOUCH
+#include "luat_input_touch.h"
 #include <stddef.h>
 #include <string.h>
 

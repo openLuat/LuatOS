@@ -1,6 +1,6 @@
-#include "luat_input.h"
-
+#include "luat_base.h"
 #ifdef LUAT_USE_INPUT
+#include "luat_input.h"
 #include <string.h>
 #ifdef _MSC_VER
 #include <intrin.h>

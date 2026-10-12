@@ -13,7 +13,7 @@ root = Path(__file__).resolve().parents[3]
 component = root / 'components/input'
 sources = [component / 'luat_input.c', component / 'luat_input_queue.c']
 flags = ['-std=c11', '-Wall', '-Wextra', '-Werror', '-Wpedantic', '-O2',
-         '-DLUAT_USE_INPUT', '-DLUAT_USE_INPUT_QUEUE', '-I' + str(root / 'luat/include')]
+         '-DLUAT_USE_INPUT', '-I' + str(root / 'luat/include')]
 cc = os.environ.get('CC', 'gcc')
 with tempfile.TemporaryDirectory(prefix='luat-input-') as folder:
     build = Path(folder)
@@ -24,7 +24,7 @@ with tempfile.TemporaryDirectory(prefix='luat-input-') as folder:
     subprocess.run(cmd, check=True)
     subprocess.run([str(exe)], check=True, timeout=30)
     smoke = build / ('core_only.exe' if os.name == 'nt' else 'core_only')
-    subprocess.run([cc, *(flag for flag in flags if flag != '-DLUAT_USE_INPUT_QUEUE'),
+    subprocess.run([cc, *flags,
                     str(sources[0]), str(component / 'tests/core_only_test.c'), '-o', str(smoke)], check=True)
     subprocess.run([str(smoke)], check=True, timeout=10)
     hid = build / ('hid_test.exe' if os.name == 'nt' else 'hid_test')
@@ -37,8 +37,9 @@ with tempfile.TemporaryDirectory(prefix='luat-input-') as folder:
                     str(component / 'luat_input_touch.c'), str(component / 'tests/touch_test.c'),
                     '-o', str(touch)], check=True)
     subprocess.run([str(touch)], check=True, timeout=30)
-    # Both feature-off and core-only builds must stay independent of queue/RTOS.
-    for source in [*sources, component / 'luat_input_hid.c', component / 'luat_input_touch.c']:
+    # Disabled modules must compile without RTOS; algorithm-only tests above
+    # select source files explicitly, not separate queue/service feature flags.
+    for source in [*sources, component / 'luat_input_service.c', component / 'luat_input_hid.c', component / 'luat_input_touch.c']:
         subprocess.run([cc, '-std=c11', '-Wall', '-Wextra', '-Werror', '-Wpedantic',
                         '-I' + str(root / 'luat/include'), '-c', str(source),
                         '-o', str(build / (source.stem + '_off.o'))], check=True)

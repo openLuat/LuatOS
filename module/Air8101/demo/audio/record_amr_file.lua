@@ -36,9 +36,7 @@
 
 local exaudio = require("exaudio")
 
--- TF卡配置参数（Air8101）
-local sd_spi_id = 0            -- SPI接口编号
-local sd_cs_pin = 32           -- TF卡片选引脚
+-- TF卡配置参数（Air8101_v3.0 开发板）
 local sd_power_pin = 50        -- TF卡电源/LDO控制引脚
 local sd_mount_path = "/sd"    -- TF卡挂载路径
 
@@ -197,29 +195,10 @@ local function mount_tf_card()
     
     -- 打开TF卡电源
     gpio.setup(sd_power_pin, 1, gpio.PULLUP)
-    -- 拉高CS脚避免干扰
-    gpio.setup(sd_cs_pin, 1, gpio.PULLUP)
-    
-    -- CH390 电源走的VBAT拨码开关，还有个LDO开关，对应GPIO53 ，CS脚GPIO34
-    gpio.setup(53, 1, gpio.PULLUP) 
-    gpio.setup(34, 1, gpio.PULLUP)
-
-    -- little flash 电源走的VBAT拨码开关 还有个LDO开关 对应 GPIO48   CS脚GPIO49
-    gpio.setup(48, 1, gpio.PULLUP)
-    gpio.setup(49, 1, gpio.PULLUP)
-    
-    -- 配置SPI0引脚功能
-    pins.setup(6, "SPI0_MISO")
-    pins.setup(71, "SPI0_MOSI")
-    pins.setup(72, "SPI0_CLK")
-    
-    -- 初始化SPI接口
-    spi.setup(sd_spi_id, nil, 0, 0, 8, 400 * 1000)
-    gpio.setup(sd_cs_pin, 1)
     
     -- 挂载TF卡，挂载失败时不自动格式化
-    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, sd_mount_path, sd_spi_id, sd_cs_pin, 16 * 1000 * 1000, sd_power_pin, 100, false)
-    
+    local mount_ok, mount_err = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
+
     if mount_ok then
         log.info("TF卡挂载成功", "挂载路径:", sd_mount_path)
         

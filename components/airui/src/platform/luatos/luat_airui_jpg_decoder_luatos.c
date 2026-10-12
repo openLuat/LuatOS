@@ -5,6 +5,7 @@
  */
 
 #include "luat_conf_bsp.h"
+#include "luat_lcd.h"
 #if defined(__BK72XX__)
     #include "luat_conf_bsp_air8101.h"
 #endif

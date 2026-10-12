@@ -1,8 +1,10 @@
 --[[
 @module exsipproto
-@summary SIP 协议辅助库，提供报文解析、Digest 鉴权、SIP 请求/响应构造、SDP 与媒体协商工具。
+@summary SIP 协议辅助库，为普通 SIP 通话和 CC<->SIP 语音流桥接提供报文解析、Digest 鉴权、SIP 请求/响应构造、SDP 与媒体协商工具。
 @usage
 本库主要给 exsipclient 等 SIP 信令模块复用，负责处理协议层字符串拼装与解析。
+当前已支持的 CC<->SIP 双向语音流桥接复用普通 SIP 通话的信令和 SDP 协商；
+桥接路由和 VoIP 媒体启停由 exsip 管理，底层 cc、voip 交换音频，exaudio 配置音频硬件；本库不转发音频，也不控制 CC 通话。
 使用前需要确保固件启用了 crypto 库中的 MD5 能力。
 
 基本用法：
@@ -26,18 +28,24 @@ local M = {}
 local RTP_CODEC_PT = {
     PCMU = 0,
     PCMA = 8,
+    G729 = 18,
+    G722 = 9,
 }
 
 local RTP_PT_CODEC = {
     [0] = "PCMU",
     [8] = "PCMA",
+    [18] = "G729",
+    [9] = "G722",
 }
 
-local function log_info(...)
-    if _G.log and type(log.info) == "function" then
-        log.info(...)
-    end
-end
+-- 对端 SDP 中常见的 G.729/G.722 别名写法
+local RTP_CODEC_ALIAS = {
+    ["G.729"] = "G729",
+    G729A = "G729",
+    G729B = "G729",
+    ["G.722"] = "G722",
+}
 
 --[[
 解析 SIP 头部字段。
@@ -76,23 +84,37 @@ function M.sip_find_header_end(s)
 end
 
 --[[
-从 TCP 流缓冲区中弹出一条完整的 SIP 报文。
+从 TCP/TLS 流缓冲区中弹出一条完整的 SIP 报文。
 @api exsipproto.pop_stream_message(stream)
-@string stream TCP 流式接收缓冲区
+@string stream TCP/TLS 流式接收缓冲区
 @return string 完整的 SIP 头部，数据不足时返回 nil
 @return string SIP 消息体，未携带消息体时返回空字符串
 @return string 剩余未消费的流数据
+@return string 报文格式错误原因，正常或数据不足时返回 nil
 ]]
 function M.pop_stream_message(stream)
+    -- TCP/TLS 保活空行不属于下一条 SIP 消息。
+    while stream:sub(1, 2) == "\r\n" do stream = stream:sub(3) end
     local header_end = M.sip_find_header_end(stream)
     if not header_end then
+        if #stream > 65536 then return nil, nil, "", "sip_message_too_large" end
         return nil, nil, stream
     end
 
     local head = stream:sub(1, header_end - 1)
-    local headers = M.parse_headers(head)
-    local cl = tonumber(headers["content-length"] or "0") or 0
+    local cl
+    for line in head:gmatch("[^\r\n]+") do
+        local name, value = line:match("^([^:%s]+)%s*:%s*(.-)%s*$")
+        if name and (name:lower() == "content-length" or name:lower() == "l") then
+            if not value:match("^%d+$") then return nil, nil, "", "invalid_content_length" end
+            local length = tonumber(value)
+            if cl and cl ~= length then return nil, nil, "", "conflicting_content_length" end
+            cl = length
+        end
+    end
+    if not cl then return nil, nil, "", "missing_content_length" end
     local total = header_end + cl - 1
+    if total > 65536 then return nil, nil, "", "sip_message_too_large" end
     if #stream < total then
         return nil, nil, stream
     end
@@ -319,7 +341,7 @@ end
 ]]
 function M.build_via(params)
     local transport = tostring(params.transport or "UDP"):upper()
-    local suffix = (transport == "TCP") and "" or ";rport"
+    local suffix = (transport == "UDP") and ";rport" or ""
     return string.format(
         "SIP/2.0/%s %s:%d;branch=z9hG4bK%s%s",
         transport,
@@ -340,8 +362,9 @@ function M.build_contact(params)
     local uri_params = {}
     local header_params = {}
 
-    if tostring(params.transport or "UDP"):upper() == "TCP" then
-        uri_params[#uri_params + 1] = "transport=tcp"
+    local transport = tostring(params.transport or "UDP"):lower()
+    if transport == "tcp" or transport == "tls" then
+        uri_params[#uri_params + 1] = "transport=" .. transport
     end
     for _, value in ipairs(params.uri_params or {}) do
         uri_params[#uri_params + 1] = value
@@ -451,6 +474,7 @@ end
 ]]
 function M.normalize_codec_name(name)
     local key = tostring(name or ""):upper()
+    key = RTP_CODEC_ALIAS[key] or key
     if RTP_CODEC_PT[key] then
         return key
     end
@@ -518,7 +542,9 @@ function M.codec_payload_type(codec)
 end
 
 --[[
-根据本地和远端 SDP 信息整理媒体会话参数。
+根据本地和远端 SDP 信息整理媒体会话参数，普通 SIP 通话和 CC<->SIP 桥接共用。
+当前 SIP 侧支持 G.711 PCMU/PCMA、G.729A 与 G.722；sample_rate（G722 为 16000，其余 8000）、channels=1、bits=16 描述媒体引擎编解码前后的 PCM 格式，
+RTP 负载为协商编码后的数据。CC 侧的 8kHz/16kHz 采样率适配由底层桥接处理，不改变这里的 SIP 媒体参数。
 @api exsipproto.build_media_session(params)
 @table params 媒体参数表，常见字段包括 call_id、remote_ip、remote_sdp、local_rtp_port、local_codecs、ptime、source
 @return table 媒体会话参数表
@@ -546,18 +572,21 @@ function M.build_media_session(params)
         local_codecs = params.local_codecs,
         codec = selected_codec,
         payload_type = M.codec_payload_type(selected_codec),
-        sample_rate = 8000,
+        sample_rate = selected_codec == "G722" and 16000 or 8000,
         channels = 1,
         bits = 16,
         ptime = tonumber(params.ptime or remote_sdp.ptime),
         local_sdp = params.local_sdp,
         remote_sdp = params.remote_sdp_raw,
+        security = params.security,
+        encryption = params.encryption or "none",
         source = params.source,
     }
 end
 
 --[[
 构造本地 SDP 描述。
+CC<->SIP 桥接沿用普通通话的 SDP 协商格式（G.711 PCMU/PCMA、G.729A 或 G.722），无需增加桥接专用 SDP 属性。
 @api exsipproto.build_sdp(state, direction)
 @table state SIP 状态表，需要包含 local_ip 以及 media 相关配置
 @string direction 媒体方向，例如 sendrecv、sendonly、recvonly
@@ -565,7 +594,6 @@ end
 ]]
 function M.build_sdp(state, direction)
     local ip = state.local_ip or "0.0.0.0"
-    log_info("test ip", ip)
     local media = state.media or {}
     local rtp_port = tonumber(media.local_rtp_port) or 0
     local ptime = tonumber(media.ptime) or 20
@@ -584,16 +612,34 @@ function M.build_sdp(state, direction)
 
     local sdp = {}
     sdp[#sdp + 1] = "v=0\r\n"
-    sdp[#sdp + 1] = string.format("o=luatos 0 0 IN IP4 %s\r\n", ip)
+    sdp[#sdp + 1] = string.format("o=luatos 0 %d IN IP4 %s\r\n", media.sdp_version or 0, ip)
     sdp[#sdp + 1] = "s=LuatOS\r\n"
     sdp[#sdp + 1] = string.format("c=IN IP4 %s\r\n", ip)
     sdp[#sdp + 1] = "t=0 0\r\n"
-    sdp[#sdp + 1] = string.format("m=audio %d RTP/AVP %s\r\n", rtp_port, table.concat(payloads, " "))
+    local security = media.security_info or {mode = "none"}
+    local profile = security.mode == "sdes" and "RTP/SAVP" or
+        (security.mode == "dtls-srtp" and "UDP/TLS/RTP/SAVP" or "RTP/AVP")
+    sdp[#sdp + 1] = string.format("m=audio %d %s %s\r\n", rtp_port, profile, table.concat(payloads, " "))
+    if security.mode == "sdes" then
+        sdp[#sdp + 1] = string.format("a=crypto:%d %s inline:%s\r\n",
+            security.tag or 1, security.suite, security.key)
+    elseif security.mode == "dtls-srtp" then
+        sdp[#sdp + 1] = "a=fingerprint:sha-256 " .. security.fingerprint .. "\r\n"
+        sdp[#sdp + 1] = "a=setup:" .. (security.setup or "actpass") .. "\r\n"
+    end
     for _, pt in ipairs(payloads) do
         if pt == 0 then
             sdp[#sdp + 1] = "a=rtpmap:0 PCMU/8000\r\n"
         elseif pt == 8 then
             sdp[#sdp + 1] = "a=rtpmap:8 PCMA/8000\r\n"
+        elseif pt == 18 then
+            -- 显式声明 annexb=no：底层 G.729 通路为 Annex A 固定 10 字节帧，
+            -- 不处理 Annex B 的 2 字节 SID 帧（收到即丢弃，由抖动缓冲隐藏）。
+            sdp[#sdp + 1] = "a=rtpmap:18 G729/8000\r\n"
+            sdp[#sdp + 1] = "a=fmtp:18 annexb=no\r\n"
+        elseif pt == 9 then
+            -- RFC 3551：G.722 的 RTP 时钟固定 8000Hz，虽然媒体 PCM 是 16kHz
+            sdp[#sdp + 1] = "a=rtpmap:9 G722/8000\r\n"
         end
     end
     sdp[#sdp + 1] = string.format("a=ptime:%d\r\n", ptime)
@@ -609,7 +655,6 @@ end
 ]]
 function M.parse_sdp(sdp)
     if type(sdp) ~= "string" or #sdp == 0 then return nil end
-    log_info("sip", "parsing remote SDP", sdp)
     local out = {
         conn_ip = nil,
         audio_port = nil,
@@ -617,25 +662,38 @@ function M.parse_sdp(sdp)
         codecs = {},
         direction = "sendrecv",
         ptime = nil,
+        crypto = {},
     }
-
+    local scope, selected = "session", false
     for line in sdp:gmatch("([^\r\n]+)") do
+        if line:match("^m=") then
+            local port, profile, payloads = line:match("^m=audio%s+(%d+)%s+([^%s]+)%s+(.+)$")
+            if port and not selected then
+                selected, scope = true, "audio"
+                out.audio_port, out.protocol = tonumber(port), profile:upper()
+                for pt in payloads:gmatch("%d+") do
+                    out.payloads[#out.payloads + 1] = tonumber(pt)
+                    local known = RTP_PT_CODEC[tonumber(pt)]
+                    if known then out.codecs[#out.codecs + 1] = known end
+                end
+            else
+                scope = "other"
+            end
+        end
+        if scope ~= "other" then
         local c_ip = line:match("^c=IN%s+IP4%s+([^%s]+)")
         if c_ip then
             out.conn_ip = c_ip
         end
 
-        local m_port, m_payloads = line:match("^m=audio%s+(%d+)%s+RTP/%u+%s+(.+)$")
-        if m_port then
-            out.audio_port = tonumber(m_port)
-            for pt in tostring(m_payloads):gmatch("(%d+)") do
-                local ptn = tonumber(pt)
-                out.payloads[#out.payloads + 1] = ptn
-                local known = RTP_PT_CODEC[ptn]
-                if known then
-                    out.codecs[#out.codecs + 1] = known
-                end
-            end
+        if line:match("^a=crypto:") then
+            local tag, suite, value = line:match("^a=crypto:(%d+)%s+(%S+)%s+(.+)$")
+            out.crypto[#out.crypto + 1] = {tag = tonumber(tag), suite = suite, value = value}
+        elseif line:match("^a=fingerprint:") then
+            local hash, fingerprint = line:match("^a=fingerprint:(%S+)%s+(%S+)%s*$")
+            out.hash, out.fingerprint = hash, fingerprint
+        elseif line:match("^a=setup:") then
+            out.setup = line:match("^a=setup:(%S+)%s*$")
         end
 
         local map_pt, map_codec = line:match("^a=rtpmap:(%d+)%s+([^/]+)/")
@@ -660,11 +718,107 @@ function M.parse_sdp(sdp)
         elseif line == "a=sendrecv" then
             out.direction = "sendrecv"
         end
+        end
     end
 
     out.codecs = M.normalize_codec_list(out.codecs)
 
     return out
+end
+
+-- 仅验证协商公开结构；密钥解码和密码算法由 C 层再次验证。
+function M.negotiate_security(mode, remote, is_answer, local_info)
+    mode = mode or "none"
+    if not remote or not remote.protocol then return nil, "missing_sdp" end
+    if mode == "none" then
+        if remote.protocol ~= "RTP/AVP" or #(remote.crypto or {}) > 0 or remote.fingerprint then
+            return nil, "media_encryption_mismatch"
+        end
+        return {mode = "none"}
+    elseif mode == "sdes" then
+        if remote.protocol ~= "RTP/SAVP" then return nil, "sdes_required" end
+        for _, entry in ipairs(remote.crypto or {}) do
+            if entry.suite == "AES_CM_128_HMAC_SHA1_80" and entry.tag and entry.tag > 0 then
+                local key = entry.value and entry.value:match("^inline:([A-Za-z0-9+/]+)$")
+                if key and #key == 40 and (not is_answer or entry.tag == ((local_info or {}).tag or 1)) then
+                    return {mode = mode, suite = entry.suite, key = key, tag = entry.tag}
+                end
+            end
+        end
+        return nil, "unsupported_sdes_crypto"
+    elseif mode == "dtls-srtp" then
+        if remote.protocol ~= "UDP/TLS/RTP/SAVP" and remote.protocol ~= "UDP/TLS/RTP/SAVPF" then
+            return nil, "dtls_srtp_required"
+        end
+        local fingerprint = remote.fingerprint
+        if remote.hash ~= "sha-256" or type(fingerprint) ~= "string" or #fingerprint ~= 95 or
+            not fingerprint:match("^%x%x[:%x]+$") then return nil, "invalid_fingerprint" end
+        local bytes = 0
+        for part in fingerprint:gmatch("[^:]+") do
+            if #part ~= 2 then return nil, "invalid_fingerprint" end
+            bytes = bytes + 1
+        end
+        if bytes ~= 32 then return nil, "invalid_fingerprint" end
+        local role
+        if remote.setup == "active" then role = "passive"
+        elseif remote.setup == "passive" then role = "active"
+        elseif remote.setup == "actpass" and not is_answer then role = "active"
+        else return nil, "invalid_dtls_setup" end
+        return {mode = mode, hash = "sha-256", fingerprint = fingerprint:upper(), role = role}
+    end
+    return nil, "invalid_media_encryption"
+end
+
+-- 发送到应用的副本不得包含 SDES key、身份/安全句柄或原始鉴权头。
+function M.redact(text)
+    if type(text) ~= "string" then return text end
+    return (text:gsub("[^\r\n]+", function(line)
+        local name = line:match("^%s*([^:]+)%s*:")
+        name = name and name:lower():gsub("%s+$", "")
+        if name == "authorization" or name == "proxy-authorization" then return name .. ": [redacted]" end
+        if line:lower():match("^a=crypto:") then return "a=crypto:[redacted]" end
+        return line
+    end))
+end
+
+function M.public_payload(value, seen)
+    if type(value) == "string" then return M.redact(value) end
+    if type(value) ~= "table" then
+        if type(value) == "userdata" or type(value) == "function" then return nil end
+        return value
+    end
+    seen = seen or {}
+    if seen[value] then return nil end
+    seen[value] = true
+    local out = {}
+    for key, item in pairs(value) do
+        local name = tostring(key):lower()
+        if name ~= "key" and name ~= "crypto" and name ~= "authorization" and
+            name ~= "proxy-authorization" and name ~= "password" and name ~= "sip_password" and
+            name ~= "security" and name ~= "security_offer" and name ~= "security_info" and
+            name ~= "security_remote" and name ~= "identity" and name ~= "invite_response" then
+            out[key] = M.public_payload(item, seen)
+        end
+    end
+    return out
+end
+
+function M.security_config(config)
+    local transport = config.sip_transport or "tcp"
+    if type(transport) ~= "string" then return nil, "invalid_transport" end
+    transport = transport:lower()
+    if transport ~= "udp" and transport ~= "tcp" and transport ~= "tls" then return nil, "invalid_transport" end
+    local media = config.media_encryption or "none"
+    if media ~= "none" and media ~= "sdes" and media ~= "dtls-srtp" then return nil, "invalid_media_encryption" end
+    if media ~= "none" and transport ~= "tls" then return nil, "encrypted_media_requires_tls" end
+    local tls = config.sip_tls or {}
+    if type(tls) ~= "table" then return nil, "invalid_tls_config" end
+    if transport == "tls" and (type(tls.ca_cert) ~= "string" or #tls.ca_cert == 0) then
+        return nil, "tls_ca_required"
+    end
+    if tls.verify == false then return nil, "tls_verification_required" end
+    return {transport = transport, media = media, tls = tls,
+        port = config.sip_server_port or (transport == "tls" and 5061 or 5060)}
 end
 
 return M

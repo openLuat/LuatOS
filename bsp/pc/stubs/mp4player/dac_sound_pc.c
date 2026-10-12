@@ -3,10 +3,9 @@
  * @brief PC simulator no-op stub for CCM42xx DAC/sound hardware interface.
  *
  * The real dac_sound.c drives platform-specific DAC + DMA peripheral registers
- * that do not exist on a PC host. This stub provides the same function
- * signatures so that sound.c (the generic audio abstraction layer) can link
- * cleanly on the PC simulator. All functions return 0 (success) and perform
- * no actual I/O.
+ * that do not exist on a PC host. This stub provides the current
+ * sound_dev_port signatures so that sound_dev_port.c can link on the PC
+ * simulator. All functions return 0 (success) and perform no actual I/O.
  *
  * For real audio output on PC, replace this file with an SDL2 Audio backend.
  */

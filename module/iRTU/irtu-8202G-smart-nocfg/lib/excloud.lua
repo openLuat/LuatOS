@@ -383,6 +383,13 @@ local FIELD_MEANINGS = {
     SMS_STATUS_RAW = 1048,             -- SMS 状态码原始值
     -- 通用测试数据类 (1280-1535)
     TIMESTAMP = 1280,                  -- 时间戳
+    -- ↓↓↓ 官方《工业模组出厂固件规划》定义的自定义字段（Air8780_factory，**必填**）
+    CUSTOM_DEVICE_ID = 1293,           -- 设备唯一标识（hmeta.devid()）
+    CUSTOM_PROJECT_NAME = 1294,        -- 项目名称（PROJECT 全局变量）
+    -- ↓↓↓ 本项目自定义字段号段：**1300 起**（2026-09-23 迁移）
+    --     原因：本项目原用 1292~1295，与官方 1293/1294 撞车，故整体后移：
+    --       1300 = 单点三轴(原1292)  1301 = 20Hz三轴流(原1293)
+    --       1302 = NMEA流(原1294)    1303 = 实时1秒三轴流(原1295)
     RANDOM_DATA = 1281,                -- 无意义数据
     BUSINESS_SN = 1282,                -- 业务SN
     HEARTBEAT_COUNT = 1283,            -- 心跳次数
@@ -2352,7 +2359,7 @@ function excloud.send(data, need_reply, is_auth_msg, silent)
     local message_body = ""
     local parts = {}
     for _, item in ipairs(data) do
-        -- BINARY 字段（如 1293 三轴流 900 字节）不打原值，只打长度，避免二进制刷串口日志
+        -- BINARY 字段（如 1301 三轴流 900 字节）不打原值，只打长度，避免二进制刷串口日志
         local value_log
         if (item.data_type == DATA_TYPES.BINARY or item.data_type == "BINARY")
                 and type(item.value) == "string" then

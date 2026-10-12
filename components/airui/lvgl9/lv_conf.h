@@ -154,7 +154,9 @@
  * and can't be drawn in chunks. */
 
 /** The target buffer size for simple layer chunks. */
+#ifndef LV_DRAW_LAYER_SIMPLE_BUF_SIZE
 #define LV_DRAW_LAYER_SIMPLE_BUF_SIZE    (24 * 1024)    /**< [bytes]*/
+#endif
 
 /* Limit the max allocated memory for simple and transformed layers.
  * It should be at least `LV_DRAW_LAYER_SIMPLE_BUF_SIZE` sized but if transformed layers are also used
@@ -243,7 +245,9 @@
 #endif
 
 /*Use TSi's aka (Think Silicon) NemaGFX */
+#ifndef LV_USE_NEMA_GFX
 #define LV_USE_NEMA_GFX 0
+#endif
 
 #if LV_USE_NEMA_GFX
     /** Select which NemaGFX HAL to use. Possible options:

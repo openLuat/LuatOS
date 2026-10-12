@@ -639,7 +639,8 @@ function driver.init()
     local uidgps = dtu.gps and dtu.gps.fun and tonumber(dtu.gps.fun[1])
     if not _G.IRTU_DISABLE_UART1 and uidgps ~= 1 and dtu.uconf and dtu.uconf[1] and tonumber(dtu.uconf[1][1]) == 1 then
         uart_INIT(1, dtu.uconf) end
-    if uidgps ~= 2 and dtu.uconf and dtu.uconf[2] and tonumber(dtu.uconf[2][1]) == 2 then uart_INIT(2, dtu.uconf) end
+    -- RFA 的内置 GNSS 测试固定使用 UART2，不受 iRTU 的 GPS 串口配置影响。
+    if not _G.IRTU_DISABLE_UART2 and uidgps ~= 2 and dtu.uconf and dtu.uconf[2] and tonumber(dtu.uconf[2][1]) == 2 then uart_INIT(2, dtu.uconf) end
     if uidgps ~= 3 and dtu.uconf and dtu.uconf[3] and tonumber(dtu.uconf[3][1]) == 3 then 
         uart_INIT(3, dtu.uconf)
     end

@@ -573,7 +573,7 @@ const luat_audio_driver_opts_t luat_audio_sdl_opts = {
     .rx_one_block_max_len = PC_AUDIO_MAX_BLOCK_LEN,
     .support_tx_loop = 1,
     .support_rx_loop = 1,
-    .support_full_loop = 1,
+    .support_full_loop = 0,
     .support_continue = 1,
     .is_tx_signed = 1,
     .is_rx_signed = 1,
@@ -591,6 +591,12 @@ void luat_audio_data_codec_register_all(void)
 #ifdef LUAT_USE_AUDIO_G711
     luat_audio_data_codec_register(&luat_audio_data_codec_g711_ulaw_opts);
     luat_audio_data_codec_register(&luat_audio_data_codec_g711_alaw_opts);
+#endif
+#ifdef LUAT_SUPPORT_G729
+    luat_audio_data_codec_register(&luat_audio_data_codec_g729_opts);
+#endif
+#ifdef LUAT_SUPPORT_G722
+    luat_audio_data_codec_register(&luat_audio_data_codec_g722_opts);
 #endif
 #ifdef LUAT_SUPPORT_SPEEX
 	luat_audio_data_codec_register(&luat_audio_data_codec_speex_nb_opts);

@@ -6,8 +6,8 @@ Lua 继续使用现有 `input.subscribe()`；`airui.device_bind_touch(tp_device)
 
 ## 编译与数据路径
 
-启用 `LUAT_USE_INPUT`、`LUAT_USE_INPUT_SERVICE`、`LUAT_USE_INPUT_TOUCH`、
-`LUAT_USE_INPUT_QUEUE`；Lua API 额外启用 `LUAT_USE_INPUT_LUA`。
+启用 `LUAT_USE_INPUT`、`LUAT_USE_INPUT_TOUCH`，核心、队列和服务由总开关统一启用；
+Lua API 额外启用 `LUAT_USE_INPUT_LUA`。
 service 目录及 C 消费者不依赖 Lua，Lua 重试定时器仍只在存在 Lua 订阅时运行。
 编译 input 核心/service/queue/touch，TP 公共层及 `luat_tp_input.c`；
 AirUI 平台再编译 `luat_airui_input_touch_luatos.c`。

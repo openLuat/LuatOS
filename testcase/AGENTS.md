@@ -18,7 +18,7 @@ testcase/
 │   ├── net/          #   tcp_basic, http_basic, https_basic, dtls_basic, socket_udp_limit_basic
 │   ├── lib/          #   core_basic, crypto_basic
 │   ├── sys/          #   ndk_basic
-│   ├── fs/           #   pgfs_basic
+│   ├── fs/           #   pgfs_basic, romfs_basic
 │   └── drv/          #   uart_basic, mobile_rfa_basic
 ├── unit/             # Lua unit tests, grouped by functional domain
 │   ├── driver/       #   adc, uart, spi, i2c, webp (PC-only camera demo 见 bsp/pc/test/)

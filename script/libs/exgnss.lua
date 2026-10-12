@@ -180,11 +180,6 @@ sys.subscribe("GNSS_STATE", function(event)
         save_loc()
         tid=sys.timerLoopStart(save_loc,600000)
         timetid=sys.timerStart(timer_fnc,10000)
-        if exgnss.opts then
-            if exgnss.opts.rtc==true then
-                sys.publish("NTP_UPDATE")
-            end
-        end
     elseif event == "LOSE" or event == "CLOSE" then
         -- log.info("libagps","libagps is close")
         sys.timerStop(tid)
@@ -334,7 +329,10 @@ local function is_agps()
     end
     if not exgnss.opts.agps_tm then
         socket.sntp()
-        sys.waitUntil("NTP_UPDATE", 5000)
+         -- NTP 对时最坏需 3 个服务器 × 2s 依次重试，超时须 ≥10s
+        if not sys.waitUntil("NTP_UPDATE", 10000) then
+            log.warn("exgnss", "sntp timeout")
+        end
     end
     local now = os.time()
     local agps_time = tonumber(io.readFile("/hxxt_tm") or "0") or 0

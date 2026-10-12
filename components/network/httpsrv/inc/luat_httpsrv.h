@@ -8,15 +8,12 @@
 typedef struct luat_httpsrv_ctx
 {
     uint16_t port;
-    uint16_t https;
-    char static_path[32];
+    uint8_t adapter_id;     // NW_ADAPTER_INDEX_LWIP_ANY(127) 表示绑定全部网卡
     int lua_ref_id;
-    int server_fd;
-    void* userdata;
-    uint8_t adapter_id;
-    struct netif* netif;
+    struct netif* netif;    // NULL = 绑定 IP_ADDR_ANY(0.0.0.0)
     struct tcp_pcb* pcb;
-    uint8_t allpath;
+    void* start_sem;        // luat_rtos_semaphore_t, start 同步用
+    int start_ret;          // lwip 线程回写的 bind/listen 结果
 }luat_httpsrv_ctx_t;
 
 

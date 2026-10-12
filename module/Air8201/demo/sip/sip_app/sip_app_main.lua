@@ -26,9 +26,9 @@ local exaudio = require "exaudio"
 local TASK_NAME = "sip_app_main_task"
 --测试账号，根据自己实际情况修改
 local SIP_CONFIG = {
-    sip_server_addr = "180.152.6.34",
+    sip_server_addr = "cc.luatos.com",
     sip_server_port = 8910,
-    sip_domain = "180.152.6.34",
+    sip_domain = "cc.luatos.com",
     sip_username = "15308770",
     sip_password = "Air.530877",
     sip_transport = exsip.TRANSPORT_UDP,

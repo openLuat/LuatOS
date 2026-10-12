@@ -20,6 +20,7 @@ enum
 	LUAT_CAMERA_FRAME_END,
 	LUAT_CAMERA_FRAME_RX_DONE,
 	LUAT_CAMERA_FRAME_ERROR,
+    LUAT_CAMERA_SCAN_DECODE,
 	LUAT_CAMERA_USB_CONNECT,
 	LUAT_CAMERA_USB_DISCONNECT,
 
@@ -59,6 +60,15 @@ enum
     LUAT_CAMERA_UVC_FORMAT_RAW = 0,
     LUAT_CAMERA_UVC_FORMAT_MJPEG,
     LUAT_CAMERA_UVC_FORMAT_H264,
+
+    LUAT_CAMERA_SCAN_CODE_ALL = 0,
+    LUAT_CAMERA_SCAN_CODE_1D = 1<<0,
+    LUAT_CAMERA_SCAN_CODE_QR_CODE = 1<<1,
+    LUAT_CAMERA_SCAN_CODE_DATA_MATRIX = 1<<2,
+    LUAT_CAMERA_SCAN_CODE_AZTEC_CODE = 1<<3,
+    LUAT_CAMERA_SCAN_CODE_PDF417 = 1<<4,
+    LUAT_CAMERA_SCAN_CODE_MAXICODE = 1<<5,
+
 };
 
 typedef struct luat_camera_conf
@@ -245,6 +255,9 @@ int luat_camera_stop(int id);
 
 int luat_camera_preview(int id, uint8_t on_off);
 
+int luat_camera_scan(int id, uint32_t decode_type, uint8_t on_off);
+
+int luat_camera_frame_callback_on_off(int id, uint8_t on_off);
 
 int luat_camera_work_mode(int id, int mode);
 
@@ -262,6 +275,8 @@ void luat_camera_pwdn_pin(int id, uint8_t level);
 
 int luat_usb_camera_stream_on_off(uint8_t app_id, uint8_t on_off);
 
+int luat_usb_camera_stream_set_cache(uint8_t app_id, uint8_t **cache, uint8_t cache_num, uint32_t cache_len);
+
 int luat_usb_camera_stream_set_config_by_index(uint8_t app_id, uint8_t format_index, uint8_t resolution_index);
 
 int luat_usb_camera_stream_set_config(uint8_t app_id, uint8_t format_type, uint16_t w, uint16_t h);
@@ -276,6 +291,22 @@ int luat_usb_camera_stream_set_min_data_len(uint8_t app_id, uint32_t min_data_le
 
 int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t jump_frame_cnt);
 
+int luat_usb_camera_pause_on_off(uint8_t app_id, uint8_t on_off);
+
 extern int32_t g_camera_log_level;
+
+/**
+ * @brief utest 专用：对内存中的图像像素执行一次扫码解码（目前仅 PC 模拟器实现，其他平台返回 -1）
+ * @param pix 像素数据，fmt=0 时为 RGB565LE，fmt=1 时为 8bit 灰度
+ * @param fmt 像素格式，0=RGB565LE，1=灰度
+ * @param w 图像宽
+ * @param h 图像高
+ * @param decode_type LUAT_CAMERA_SCAN_CODE_* 组合，0 表示全部码制
+ * @param out 结果输出缓冲
+ * @param out_len 输出缓冲长度
+ * @return >0 解码结果长度，0 未命中，-1 失败
+ */
+int luat_camera_utest_decode(const uint8_t *pix, int fmt, int w, int h,
+                             uint32_t decode_type, char *out, size_t out_len);
 /** @}*/
 #endif

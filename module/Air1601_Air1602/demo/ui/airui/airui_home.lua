@@ -40,6 +40,10 @@ local demos = {
     {name = "视频组件演示", icon = airui.SYMBOL_PLAY, page = "video", color = 0x3F51B5},
     {name = "摄像头预览演示", icon = airui.SYMBOL_IMAGE, page = "camera_preview", color = 0x1B5E20},
     {name = "摄像头拍照演示", icon = airui.SYMBOL_IMAGE, page = "camera_snapshot", color = 0x00695C},
+    {name = "复选框组件", icon = airui.SYMBOL_OK, page = "checkbox", color = 0x795548},
+    {name = "滑块组件", icon = airui.SYMBOL_SETTINGS, page = "slider", color = 0x009688},
+    {name = "NES模拟器", icon = airui.SYMBOL_PLAY, page = "nes", color = 0xE91E63},
+    {name = "自定义矢量字体", icon = airui.SYMBOL_EYE_OPEN, page = "custom_hzfont", color = 0x2196F3},
 }
 
 -- 创建主页UI

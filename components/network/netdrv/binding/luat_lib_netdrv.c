@@ -514,20 +514,17 @@ static int l_netdrv_ipv4(lua_State *L) {
 设置或读取ipv6地址
 @api netdrv.ipv6(id, addr, prefix, gw)
 @int 网络适配器编号, 例如 socket.LWIP_ETH
-@string ipv6地址, 如果是读取就不需要传. 设置时必须是合法的IPv6字面量, 不支持域名. 读取时传 "linklocal" 可单独读取链路本地地址
+@string ipv6地址, 如果是读取就不需要传. 设置时必须是合法的IPv6字面量, 不支持域名
 @int 前缀长度, 1~128, 可选, 默认64. 仅设置时有效
 @string ipv6网关, 可选. 当前仅用于回显, 不写入路由表
-@return table 读取时返回 {addr=地址, prefix=前缀长度, gw=网关, source=来源, state=状态}; 网卡不存在/未就绪或没有有效IPv6时返回空table
+@return table 读取时返回 {linklocal={addr=地址,prefix=前缀长度,state=状态}, global={addr=地址,prefix=前缀长度,state=状态}, gw=网关}; 某类地址不存在时不返回对应字段
 @return boolean 设置时返回成功与否
 @usage
 -- 注意: 并非所有netdrv都支持IPv6, 也不代表平台后端(LWIP实现)支持设置
--- 读取当前生效的IPv6信息(全局地址优先)
+-- 一次读取链路本地地址和全局可路由地址
 local info = netdrv.ipv6(socket.LWIP_ETH)
-log.info("netdrv", "ipv6", info.addr, info.prefix, info.source)
-
--- 单独读取链路本地地址(fe80::/10), 一般是根据MAC自动生成的
-local ll = netdrv.ipv6(socket.LWIP_ETH, "linklocal")
-log.info("netdrv", "linklocal", ll.addr)
+log.info("netdrv", "linklocal", info.linklocal and info.linklocal.addr)
+log.info("netdrv", "global", info.global and info.global.addr)
 
 -- 设置静态IPv6地址, 需要先调用 netdrv.setup 初始化网卡
 netdrv.ipv6(socket.LWIP_ETH, "2409:8a00:1234:5678::10", 64)
@@ -537,16 +534,35 @@ netdrv.ipv6(socket.LWIP_ETH, "fe80::1", 64)
 -- 该接口受 LUAT_USE_NETDRV_IPV6 宏控制, 关闭时整段不参与编译
 */
 #ifdef LUAT_USE_NETDRV_IPV6
+static void l_netdrv_push_ipv6_item(lua_State *L, struct netif *netif,
+                                     const luat_ip_addr_t *ipv6, uint8_t prefix) {
+    char buff[64] = {0};
+    const char* state = "valid";
+    ip6addr_ntoa_r(&ipv6->u_addr.ip6, buff, sizeof(buff));
+
+    if (netif) {
+        for (int i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
+            if (0 == memcmp(&netif->ip6_addr[i], &ipv6->u_addr.ip6, sizeof(ip6_addr_t))) {
+                state = (IP6_ADDR_PREFERRED == (netif->ip6_addr_state[i] & IP6_ADDR_PREFERRED))
+                    ? "preferred" : "valid";
+                break;
+            }
+        }
+    }
+
+    lua_newtable(L);
+    lua_pushstring(L, buff);
+    lua_setfield(L, -2, "addr");
+    lua_pushinteger(L, prefix);
+    lua_setfield(L, -2, "prefix");
+    lua_pushstring(L, state);
+    lua_setfield(L, -2, "state");
+}
+
 static int l_netdrv_ipv6(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    // "linklocal" 是读取模式的关键字, 不是要写入的地址
-    int read_linklocal = 0;
-    if (lua_isstring(L, 2)) {
-        const char* arg2 = lua_tostring(L, 2);
-        read_linklocal = (arg2 != NULL && strcmp(arg2, "linklocal") == 0);
-    }
-    // 设置模式 = 第2参数是字符串且不是 "linklocal" 关键字; 读取模式失败返回空table, 设置模式失败返回 false
-    int is_set = lua_isstring(L, 2) && !read_linklocal;
+    // 第2参数是字符串时为设置模式; 无第2参数时同时读取两类IPv6地址
+    int is_set = lua_isstring(L, 2);
     // 非法id: 读取返回空table(与"网卡不存在/无地址"一致), 设置返回 false
     if (id < 0 || id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
         LLOGW("非法的netdrv id %d", id);
@@ -581,7 +597,7 @@ static int l_netdrv_ipv6(lua_State *L) {
     }
 
     // ==== 设置模式 ====
-    if (lua_isstring(L, 2) && !read_linklocal) {
+    if (is_set) {
         size_t len = 0;
         const char* tmp = luaL_checklstring(L, 2, &len);
         char ipstr[64] = {0};
@@ -654,48 +670,32 @@ static int l_netdrv_ipv6(lua_State *L) {
     }
 
     // ==== 读取模式 ====
+    lua_newtable(L);
+    struct netif* netif = net_lwip2_get_netif((uint8_t)id);
     luat_ip_addr_t ipv6;
     uint8_t prefix = 64;
+
+    // 链路本地地址固定放在 linklocal 子table.
     memset(&ipv6, 0, sizeof(ipv6));
-    // 第2参数传字符串 "linklocal" 时, 只读链路本地地址(槽0);
-    // 否则返回"最可用"的地址(全局优先, 全网只有链路本地时才回落到 fe80::)
-    int read_ret = read_linklocal
-        ? net_lwip2_ipv6_linklocal_addr_info((uint8_t)id, &ipv6, &prefix)
-        : net_lwip2_ipv6_addr_info((uint8_t)id, &ipv6, &prefix);
-    if (0 != read_ret) {
-        lua_newtable(L);
-        return 1;
+    if (0 == net_lwip2_ipv6_linklocal_addr_info((uint8_t)id, &ipv6, &prefix)) {
+        // link-local 的网络前缀固定为 /64, 不复用静态全局地址的 prefix.
+        l_netdrv_push_ipv6_item(L, netif, &ipv6, 64);
+        lua_setfield(L, -2, "linklocal");
     }
-    char buff[64] = {0};
-    ip6addr_ntoa_r(&ipv6.u_addr.ip6, buff, sizeof(buff));
-    lua_newtable(L);
 
-    lua_pushstring(L, buff);
-    lua_setfield(L, -2, "addr");
+    // addr_info 在没有全局地址时会回退链路本地地址, 这里显式过滤,
+    // 保证 global 字段只表示真正可路由的 IPv6 地址.
+    memset(&ipv6, 0, sizeof(ipv6));
+    prefix = 64;
+    if (0 == net_lwip2_ipv6_addr_info((uint8_t)id, &ipv6, &prefix)
+        && !ip6_addr_islinklocal(&ipv6.u_addr.ip6)) {
+        l_netdrv_push_ipv6_item(L, netif, &ipv6, prefix);
+        lua_setfield(L, -2, "global");
+    }
 
-    lua_pushinteger(L, prefix);
-    lua_setfield(L, -2, "prefix");
-
-    // 网关: 记录用户设置的值; 当前不写入IPv6路由表, 仅作回显
+    // 网关: 记录用户设置的值; 当前不写入IPv6路由表, 仅作回显.
     lua_pushstring(L, netdrv->ipv6_gw);
     lua_setfield(L, -2, "gw");
-
-    lua_pushstring(L, ip6_addr_islinklocal(&ipv6.u_addr.ip6) ? "linklocal" : "static");
-    lua_setfield(L, -2, "source");
-
-    // state: lwip 用 "有效位" 描述地址状态, 这里只区分 preferred 与 deprecated
-    struct netif* netif = net_lwip2_get_netif((uint8_t)id);
-    const char* state = "preferred";
-    if (netif) {
-        for (int i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
-            if (0 == memcmp(&netif->ip6_addr[i], &ipv6.u_addr.ip6, sizeof(ip6_addr_t))) {
-                state = (IP6_ADDR_PREFERRED == (netif->ip6_addr_state[i] & IP6_ADDR_PREFERRED)) ? "preferred" : "valid";
-                break;
-            }
-        }
-    }
-    lua_pushstring(L, state);
-    lua_setfield(L, -2, "state");
     return 1;
 }
 

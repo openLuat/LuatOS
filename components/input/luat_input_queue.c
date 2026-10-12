@@ -1,6 +1,6 @@
+#include "luat_base.h"
+#ifdef LUAT_USE_INPUT
 #include "luat_input.h"
-
-#if defined(LUAT_USE_INPUT) && defined(LUAT_USE_INPUT_QUEUE)
 #include <string.h>
 
 static uintptr_t enter(luat_input_queue_t *q)

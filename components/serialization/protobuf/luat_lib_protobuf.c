@@ -112,6 +112,46 @@ typedef struct lpb_State {
     unsigned encode_order  : 1;
 } lpb_State;
 
+/*
+ * ============================ flash 体积裁剪 ============================
+ * LuatOS 只导出 protobuf.clear/load/encode/decode 四个 API(见文件末尾的
+ * reg_protobuf), 上游 luaopen_pb / option / hooks / Buffer / Slice / conv
+ * 都已在本文件的 #if 0 里关闭。于是 lpb_State 里那些"运行时开关"
+ * (int64_mode / enum_as_value / encode_mode / decode_default_array /
+ *  decode_default_message / use_enc_hooks / use_dec_hooks /
+ *  encode_default_values)没有任何 API 能写, 恒为 0, 但编译器无法证明,
+ * 对应的分支和 hooks 辅助函数就被整块编进了固件。
+ *
+ * LUAT_PROTOBUF_FULL_OPTIONS=0(默认): 把这些读取点固化成常量, 编译器即可
+ *   裁掉不可达分支。ARM -Os + --gc-sections 实测 14209B -> 13133B(-1076B),
+ *   当前四个 API 的可达行为不变(度量: pwsh bsp/pc/measure_protobuf_size.ps1)。
+ * LUAT_PROTOBUF_FULL_OPTIONS=1: 保留原运行时开关。将来若重新启用
+ *   luaopen_pb / protobuf.option, 必须同时置 1。
+ */
+#ifndef LUAT_PROTOBUF_FULL_OPTIONS
+#define LUAT_PROTOBUF_FULL_OPTIONS 0
+#endif
+
+#if LUAT_PROTOBUF_FULL_OPTIONS
+#define lpbS_int64_mode(LS)             ((LS)->int64_mode)
+#define lpbS_enum_as_value(LS)          ((LS)->enum_as_value)
+#define lpbS_encode_mode(LS)            ((LS)->encode_mode)
+#define lpbS_encode_default_values(LS)  ((LS)->encode_default_values)
+#define lpbS_decode_default_array(LS)   ((LS)->decode_default_array)
+#define lpbS_decode_default_message(LS) ((LS)->decode_default_message)
+#define lpbS_use_dec_hooks(LS)          ((LS)->use_dec_hooks)
+#define lpbS_use_enc_hooks(LS)          ((LS)->use_enc_hooks)
+#else
+#define lpbS_int64_mode(LS)             (LPB_NUMBER)
+#define lpbS_enum_as_value(LS)          (0)
+#define lpbS_encode_mode(LS)            (LPB_DEFDEF)
+#define lpbS_encode_default_values(LS)  (0)
+#define lpbS_decode_default_array(LS)   (0)
+#define lpbS_decode_default_message(LS) (0)
+#define lpbS_use_dec_hooks(LS)          (0)
+#define lpbS_use_enc_hooks(LS)          (0)
+#endif
+
 static int lpb_reftable(lua_State *L, int ref) {
     if (ref != LUA_NOREF) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
@@ -429,8 +469,11 @@ static int lpb_addtype(lua_State *L, pb_Buffer *b, int idx, int type, size_t *pl
 
 static void lpb_readtype(lua_State *L, lpb_State *LS, int type, pb_Slice *s) {
     lpb_Value v;
+#if !LUAT_PROTOBUF_FULL_OPTIONS
+    (void)LS; /* int64 模式已固化为常量, LS 仅在完整 API 档参与读取 */
+#endif
     switch (type) {
-#define pushinteger(n) lpb_pushinteger((L), (n), LS->int64_mode)
+#define pushinteger(n) lpb_pushinteger((L), (n), lpbS_int64_mode(LS))
     case PB_Tbool:  case PB_Tenum:
     case PB_Tint32: case PB_Tuint32: case PB_Tsint32:
     case PB_Tint64: case PB_Tuint64: case PB_Tsint64:
@@ -1313,11 +1356,11 @@ static int lpb_pushdeffield(lua_State *L, lpb_State *LS, const pb_Field *f, int 
     case PB_Tenum:
         if ((type = f ? f->type : NULL) == NULL) return 0;
         if ((f = pb_fname(type, f->default_value)) != NULL)
-            ret = LS->enum_as_value ?
-                (lpb_pushinteger(L, f->number, LS->int64_mode), 1) :
+            ret = lpbS_enum_as_value(LS) ?
+                (lpb_pushinteger(L, f->number, lpbS_int64_mode(LS)), 1) :
                 (lua_pushstring(L, (const char*)f->name), 1);
         else if (is_proto3)
-            ret = (f = pb_field(type, 0)) == NULL || LS->enum_as_value ?
+            ret = (f = pb_field(type, 0)) == NULL || lpbS_enum_as_value(LS) ?
                 (lua_pushinteger(L, 0), 1) :
                 (lua_pushstring(L, (const char*)f->name), 1);
         break;
@@ -1349,7 +1392,7 @@ static int lpb_pushdeffield(lua_State *L, lpb_State *LS, const pb_Field *f, int 
         if (f->default_value) {
             lua_Integer li = (lua_Integer)strtol((const char*)f->default_value, &end, 10);
             if ((const char*)f->default_value == end) return 0;
-            ret = (lpb_pushinteger(L, li, LS->int64_mode), 1);
+            ret = (lpb_pushinteger(L, li, lpbS_int64_mode(LS)), 1);
         } else if (is_proto3) ret = (lua_pushinteger(L, 0), 1);
     }
     return ret;
@@ -1359,11 +1402,11 @@ static void lpb_setdeffields(lua_State *L, lpb_State *LS, const pb_Type *t, lpb_
     const pb_Field *f = NULL;
     while (pb_nextfield(t, &f)) {
         int has_field = f->repeated ?
-            (flags & USE_REPEAT) && (t->is_proto3 || LS->decode_default_array)
+            (flags & USE_REPEAT) && (t->is_proto3 || lpbS_decode_default_array(LS))
             && (lua_newtable(L), 1) :
             !f->oneof_idx && (f->type_id != PB_Tmessage ?
                     (flags & USE_FIELD) :
-                    (flags & USE_MESSAGE) && LS->decode_default_message)
+                    (flags & USE_MESSAGE) && lpbS_decode_default_message(LS))
             && lpb_pushdeffield(L, LS, f, t->is_proto3);
         if (has_field) lua_setfield(L, -2, (const char*)f->name);
     }
@@ -1549,12 +1592,12 @@ static void lpbE_field(lpb_Env *e, const pb_Field *f, size_t *plen, int idx) {
     if (plen) *plen = 0;
     switch (f->type_id) {
     case PB_Tenum:
-        if (e->LS->use_enc_hooks) lpb_useenchooks(L, e->LS, f->type);
+        if (lpbS_use_enc_hooks(e->LS)) lpb_useenchooks(L, e->LS, f->type);
         lpbE_enum(e, f, idx);
         break;
 
     case PB_Tmessage:
-        if (e->LS->use_enc_hooks) lpb_useenchooks(L, e->LS, f->type);
+        if (lpbS_use_enc_hooks(e->LS)) lpb_useenchooks(L, e->LS, f->type);
         lpb_checktable(L, f, idx);
         len = pb_bufflen(b);
         lpbE_encode(e, f->type, idx);
@@ -1575,7 +1618,7 @@ static void lpbE_tagfield(lpb_Env *e, const pb_Field *f, int ignorezero, int idx
             pb_pair(f->number, pb_wtypebytype(f->type_id)));
     size_t ignoredlen;
     lpbE_field(e, f, &ignoredlen, idx);
-    if (!e->LS->encode_default_values && ignoredlen != 0 && ignorezero)
+    if (!lpbS_encode_default_values(e->LS) && ignoredlen != 0 && ignorezero)
         e->b->size -= (unsigned)(ignoredlen + hlen);
 }
 
@@ -1612,7 +1655,7 @@ static void lpbE_repeated(lpb_Env *e, const pb_Field *f, int idx) {
             lpbE_field(e, f, NULL, -1);
             lua_pop(L, 1);
         }
-        if (i == 1 && !e->LS->encode_default_values)
+        if (i == 1 && !lpbS_encode_default_values(e->LS))
             pb_bufflen(b) = bufflen;
         else
             lpb_addlength(L, b, len);
@@ -1684,7 +1727,7 @@ static int Lpb_encode(lua_State *L) {
     e.L = L, e.LS = LS, e.b = test_buffer(L, 3);
     if (e.b == NULL) pb_resetbuffer(e.b = &LS->buffer);
     lua_pushvalue(L, 2);
-    if (e.LS->use_enc_hooks) lpb_useenchooks(L, e.LS, t);
+    if (lpbS_use_enc_hooks(e.LS)) lpb_useenchooks(L, e.LS, t);
     lpbE_encode(&e, t, -1);
     if (e.b != &LS->buffer)
         lua_settop(L, 3);
@@ -1748,7 +1791,7 @@ static void lpb_usedechooks(lua_State *L, lpb_State *LS, const pb_Type *t) {
 }
 
 static void lpb_pushtypetable(lua_State *L, lpb_State *LS, const pb_Type *t) {
-    int mode = LS->encode_mode;
+    int mode = lpbS_encode_mode(LS);
     luaL_checkstack(L, 2, "too many levels");
     lpb_newmsgtable(L, t);
     switch (t->is_proto3 && mode == LPB_DEFDEF ? LPB_COPYDEF : mode) {
@@ -1761,7 +1804,7 @@ static void lpb_pushtypetable(lua_State *L, lpb_State *LS, const pb_Type *t) {
         lua_setmetatable(L, -2);
         break;
     default:
-        if (LS->decode_default_array || LS->decode_default_message)
+        if (lpbS_decode_default_array(LS) || lpbS_decode_default_message(LS))
             lpb_setdeffields(L, LS, t, USE_REPEAT|USE_MESSAGE);
         break;
     }
@@ -1786,11 +1829,11 @@ static void lpbD_rawfield(lpb_Env *e, const pb_Field *f) {
     case PB_Tenum:
         if (pb_readvarint64(s, &u64) == 0)
             luaL_error(L, "invalid varint value at offset %d", pb_pos(*s)+1);
-        if (!lpb_lstate(L)->enum_as_value)
+        if (!lpbS_enum_as_value(lpb_lstate(L)))
             ev = pb_field(f->type, (int32_t)u64);
         if (ev) lua_pushstring(L, (const char*)ev->name);
-        else lpb_pushinteger(L, (lua_Integer)u64, lpb_lstate(L)->int64_mode);
-        if (e->LS->use_dec_hooks) lpb_usedechooks(L, e->LS, f->type);
+        else lpb_pushinteger(L, (lua_Integer)u64, lpbS_int64_mode(lpb_lstate(L)));
+        if (lpbS_use_dec_hooks(e->LS)) lpb_usedechooks(L, e->LS, f->type);
         break;
 
     case PB_Tmessage:
@@ -1897,7 +1940,7 @@ static int lpbD_message(lpb_Env *e, const pb_Type *t) {
             lua_rawset(L, -3);
         }
     }
-    if (e->LS->use_dec_hooks) lpb_usedechooks(L, e->LS, t);
+    if (lpbS_use_dec_hooks(e->LS)) lpb_usedechooks(L, e->LS, t);
     return 1;
 }
 

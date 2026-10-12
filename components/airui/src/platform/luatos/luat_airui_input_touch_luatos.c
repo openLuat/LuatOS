@@ -125,7 +125,7 @@ bool airui_input_touch_read(airui_ctx_t *ctx, lv_indev_t *indev,
         data->state = LV_INDEV_STATE_RELEASED;
         return false;
     }
-    tp_frame_t sample;
+    tp_frame_t sample = {0};
     bool have_sample = false, cancelled, notify_sample = false;
     unsigned count;
     luat_input_service_lock();

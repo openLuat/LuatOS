@@ -11,6 +11,7 @@
 #include "luat_spi.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
+#include "luat_rtos.h"
 
 #ifdef __LUATOS__
 #include "lauxlib.h"
@@ -39,7 +40,7 @@ DSTATUS disk_initialize (BYTE pdrv) {
 	if (FATFS_POWER_PIN != 0xff)
 	{
 		luat_gpio_mode(FATFS_POWER_PIN, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 0);
-		luat_timer_mdelay(FATFS_POWER_DELAY);
+		luat_rtos_task_sleep(FATFS_POWER_DELAY);
 		luat_gpio_mode(FATFS_POWER_PIN, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
 	}
 	return disks[pdrv].opts->initialize(disks[pdrv].userdata);

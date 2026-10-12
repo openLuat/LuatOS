@@ -35,6 +35,18 @@ void luat_audio_base_init(void);
  * @param on_off 0 表示关闭调试信息输出，1 表示开启调试信息输出
  */
 void luat_audio_debug_switch(uint8_t on_off);
+
+typedef struct {
+    uint64_t played_samples;
+    uint32_t sample_rate;
+    uint32_t buffered_samples;
+    uint32_t underruns;
+    uint8_t running;
+} luat_audio_play_clock_t;
+
+/** 查询一个播放请求基于 DMA 实际消费量的播放时钟。 */
+int luat_audio_request_get_play_clock(luat_audio_request_block_t *request_block,
+                                      luat_audio_play_clock_t *clock);
 /**
  * @brief 注册音频驱动
  * 
@@ -66,6 +78,12 @@ luat_audio_driver_ctrl_t *luat_audio_driver_probe(luat_audio_driver_probe_t *pro
  * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
 int luat_audio_driver_set_default(luat_audio_driver_probe_t *probe);
+
+#ifdef LUAT_USE_VOIP_AUDIO_PORT
+/** Stop DMA synchronously only when the core has no active or queued request.
+ * Keeps the driver active and preserves codec/I2C configuration. */
+int luat_audio_driver_stop_if_idle(luat_audio_driver_ctrl_t *ctrl);
+#endif
 
 /**
  * @brief 获取所有已注册的音频驱动控制器

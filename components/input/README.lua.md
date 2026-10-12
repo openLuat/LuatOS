@@ -111,7 +111,7 @@ queue_bytes、queued_bytes、required_bytes、closed。
 
 ## 实现与平台接入
 
-编译开关：`LUAT_USE_INPUT`、`LUAT_USE_INPUT_QUEUE`、`LUAT_USE_INPUT_LUA`。
+编译开关：`LUAT_USE_INPUT`、`LUAT_USE_INPUT_LUA`，核心、队列和服务由总开关统一启用。
 其他平台需编译 service/queue/Lua 绑定、声明并注册 luaopen_input，再让驱动
 使用 `luat_input_service_core()`。平台在启动阶段初始化服务，随后所有核心
 register/feed/reset/unregister、目录 attach/detach 均持有服务锁。

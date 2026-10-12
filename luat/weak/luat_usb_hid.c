@@ -1,6 +1,6 @@
 #include "luat_base.h"
 #include "luat_usb_hid.h"
-#ifdef LUAT_USE_INPUT_HID
+#if defined(LUAT_USE_INPUT) && defined(LUAT_USE_INPUT_HID)
 #include "luat_input_usb_hid.h"
 #endif
 
@@ -18,7 +18,7 @@ LUAT_WEAK void luat_usb_hid_host_callback(luat_usb_hid_host_t *device,
         application_callback(device, event, data, length);
         return;
     }
-#ifdef LUAT_USE_INPUT_HID
+#if defined(LUAT_USE_INPUT) && defined(LUAT_USE_INPUT_HID)
     luat_input_usb_hid_callback(device, event, data, length);
 #else
     (void)device;

@@ -37,13 +37,22 @@ local function build_aircloud_tlv(d)
     table.insert(data, { field_meaning = 1291, data_type = DT.INTEGER, value = d.bat_change or 0 })         -- 充电状态
     -- 信号强度（CSQ，0-31 正整数，直接上报）
     table.insert(data, { field_meaning = FM.SIGNAL_STRENGTH_4G, data_type = DT.INTEGER, value = d.signal or 0 })
+    -- TIMESTAMP(1280)：Unix 时间戳（工业模组出厂固件规划：官方**必填**字段）
+    table.insert(data, { field_meaning = FM.TIMESTAMP, data_type = DT.INTEGER, value = os.time() })
+    -- CUSTOM_DEVICE_ID(1293) / CUSTOM_PROJECT_NAME(1294)：官方**必填**字段，每次上报都要有
+    local ok_am, am = pcall(require, "active_mode")
+    table.insert(data, { field_meaning = FM.CUSTOM_DEVICE_ID, data_type = DT.ASCII,
+        value = (ok_am and am and am.get_device_uid) and am.get_device_uid() or "unknown" })
+    table.insert(data, { field_meaning = FM.CUSTOM_PROJECT_NAME, data_type = DT.ASCII, value = PROJECT or "unknown" })
 
     -- 位置：解析 "lat,lng" 为经度/纬度分开上报（512=经度 513=纬度，ASCII）
     if d.gps and d.gps ~= "" then
         local lat, lng = d.gps:match("^([%d%.%-]+),([%d%.%-]+)$")
-        if lat and lng then
-            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.ASCII, value = tostring(lng) })
-            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.ASCII, value = tostring(lat) })
+        -- 2026-09-23 按官方口径改为 FLOAT（与 active_mode 的 build_aircloud_tlv 保持一致）
+        local lat_n, lng_n = tonumber(lat), tonumber(lng)
+        if lat_n and lng_n then
+            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.FLOAT, value = lng_n })
+            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.FLOAT, value = lat_n })
         end
     end
     table.insert(data, { field_meaning = FM.LOCATION_METHOD, data_type = DT.ASCII, value = tostring(d.gps_status or 0) })

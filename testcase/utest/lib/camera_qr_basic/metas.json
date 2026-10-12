@@ -1,0 +1,9 @@
+{
+    "timeout": 60,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "PC模拟器 camera.utest_qr_decode 扫码解码验证(需LUAT_USE_UTEST=y构建)"
+}

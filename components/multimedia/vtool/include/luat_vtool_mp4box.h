@@ -86,10 +86,24 @@ typedef struct mp4_ctx {
 
     uint64_t first_frame_tms; // 第一帧的时间戳, 单位ms
     uint64_t last_frame_tms; // 最后一帧的时间戳, 单位ms
+
+#ifdef LUAT_USE_VTOOL_MP4BOX_THREAD
+    luat_rtos_queue_t queue; // 写线程的消息队列
+    luat_rtos_task_handle task; // 写线程句柄
+    luat_rtos_semaphore_t exit_sem; // 写线程退出信号量, 初始为0
+    uint8_t thread_mode; // 写线程模式是否启用, 创建失败回退为0
+    uint8_t closing; // 关闭中标志, 置位后write_frame直接返回-1
+    uint32_t drop_cnt; // 丢弃帧计数
+    int close_ret; // 写线程收尾(moov等)的结果
+#endif
 }mp4_ctx_t;
 
 mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t frame_h, uint32_t frame_fps);
 int luat_vtool_mp4box_write_frame(mp4_ctx_t* ctx, uint8_t* data, size_t len);
+// 零拷贝写入: 帧数据所有权转交给 mp4box, 写完(或丢弃)后由 mp4box 调用 release(release_arg)
+// release 为 NULL 时退化为深拷贝模式
+typedef void (*luat_vtool_mp4box_release_t)(void* arg);
+int luat_vtool_mp4box_write_frame_ex(mp4_ctx_t* ctx, uint8_t* data, size_t len, luat_vtool_mp4box_release_t release, void* release_arg);
 int luat_vtool_mp4box_close(mp4_ctx_t* ctx);
 
 // int luat_vtool_jpeg_decoder_init(void);

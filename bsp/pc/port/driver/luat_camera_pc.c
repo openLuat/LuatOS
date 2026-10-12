@@ -359,6 +359,167 @@ static int pc_rgb24_to_jpeg(const uint8_t *rgb24, int w, int h, int quality,
     return SUCCEEDED(hr) ? 0 : -1;
 }
 
+/* ---------------- 扫码（ZXing 软解码） ---------------- */
+
+#ifdef LUAT_USE_CAMERA_SCAN
+
+extern int pc_zxing_decode_gray(const uint8_t *gray, int w, int h, uint32_t luat_scan_type,
+                                char *out, size_t out_len);
+
+/* JPEG -> 8bit 灰度（WIC）。输出缓冲用 luat_heap_malloc 分配，调用方负责释放。 */
+static int pc_jpeg_to_gray(const uint8_t *jpeg, size_t len, uint8_t **out_gray, int *out_w, int *out_h) {
+    IWICImagingFactory *pFactory = NULL;
+    IStream *pStream = NULL;
+    IWICBitmapDecoder *pDecoder = NULL;
+    IWICBitmapFrameDecode *pFrame = NULL;
+    IWICFormatConverter *pConv = NULL;
+    UINT w = 0, h = 0;
+    HRESULT hr;
+
+    hr = CoCreateInstance(&CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
+                          &IID_IWICImagingFactory, (void**)&pFactory);
+    if (SUCCEEDED(hr)) hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
+    if (SUCCEEDED(hr)) hr = pStream->lpVtbl->Write(pStream, jpeg, (ULONG)len, NULL);
+    if (SUCCEEDED(hr)) hr = pStream->lpVtbl->Seek(pStream, (LARGE_INTEGER){0}, STREAM_SEEK_SET, NULL);
+    if (SUCCEEDED(hr)) hr = pFactory->lpVtbl->CreateDecoderFromStream(pFactory, pStream, NULL, WICDecodeMetadataCacheOnDemand, &pDecoder);
+    if (SUCCEEDED(hr)) hr = pDecoder->lpVtbl->GetFrame(pDecoder, 0, &pFrame);
+    if (SUCCEEDED(hr)) hr = pFactory->lpVtbl->CreateFormatConverter(pFactory, &pConv);
+    if (SUCCEEDED(hr)) {
+        hr = pConv->lpVtbl->Initialize(pConv, (IWICBitmapSource *)pFrame,
+                                       &GUID_WICPixelFormat8bppGray,
+                                       WICBitmapDitherTypeNone, NULL, 0.0,
+                                       WICBitmapPaletteTypeCustom);
+    }
+    if (SUCCEEDED(hr)) hr = pConv->lpVtbl->GetSize(pConv, &w, &h);
+    if (SUCCEEDED(hr)) {
+        *out_gray = (uint8_t *)luat_heap_malloc((size_t)w * h);
+        if (!*out_gray) hr = E_OUTOFMEMORY;
+    }
+    if (SUCCEEDED(hr)) {
+        hr = pConv->lpVtbl->CopyPixels(pConv, NULL, w, w * h, *out_gray);
+    }
+    if (SUCCEEDED(hr)) {
+        *out_w = (int)w;
+        *out_h = (int)h;
+    } else if (*out_gray) {
+        luat_heap_free(*out_gray);
+        *out_gray = NULL;
+    }
+
+    if (pConv) pConv->lpVtbl->Release(pConv);
+    if (pFrame) pFrame->lpVtbl->Release(pFrame);
+    if (pDecoder) pDecoder->lpVtbl->Release(pDecoder);
+    if (pStream) pStream->lpVtbl->Release(pStream);
+    if (pFactory) pFactory->lpVtbl->Release(pFactory);
+    return SUCCEEDED(hr) ? 0 : -1;
+}
+
+static void pc_rgb565_to_gray(const uint8_t *rgb565, uint8_t *gray, int w, int h) {
+    const uint16_t *src = (const uint16_t *)rgb565;
+    for (int i = 0; i < w * h; i++) {
+        uint16_t p = src[i];
+        unsigned r = (p >> 11) & 0x1F;
+        unsigned g = (p >> 5) & 0x3F;
+        unsigned b = p & 0x1F;
+        /* 扩展到 8bit 后按 (77R + 150G + 29B) >> 8 取亮度 */
+        unsigned r8 = r << 3, g8 = g << 2, b8 = b << 3;
+        gray[i] = (uint8_t)((r8 * 77 + g8 * 150 + b8 * 29) >> 8);
+    }
+}
+
+/*
+ * 扫码结果经 luat_msgbus 投递给 l_camera_handler 的 "scanned" 分支，
+ * 该分支不会释放内存，因此这里用静态环形缓冲（解码周期 150ms，远大于
+ * msgbus 分发延迟，4 个槽足够覆盖）。
+ */
+#define PC_SCAN_RESULT_SLOTS 4
+#define PC_SCAN_RESULT_LEN 4096
+static char g_scan_results[PC_SCAN_RESULT_SLOTS][PC_SCAN_RESULT_LEN];
+static volatile unsigned g_scan_slot = 0;
+static volatile LONG g_scan_run = 0;
+static uint32_t g_scan_type = 0;
+static HANDLE g_scan_thread = NULL;
+static int gray_logged = 0;
+
+static DWORD WINAPI pc_scan_thread_proc(LPVOID param) {
+    pc_camera_ctx_t *ctx = pc_camera_get(0);
+    int img_size = ctx ? ctx->width * ctx->height : 0;
+    uint8_t *frame = img_size > 0 ? (uint8_t *)luat_heap_malloc(img_size) : NULL;
+    while (InterlockedCompareExchange(&g_scan_run, 1, 1) == 1) {
+        if (frame && ctx && ctx->reader &&
+            pc_read_frame(ctx, frame, NULL) == 0 && ctx->is_mjpg && ctx->capture_size > 0) {
+            uint8_t *gray = NULL;
+            int w = 0, h = 0;
+            if (pc_jpeg_to_gray(frame, ctx->capture_size, &gray, &w, &h) == 0 && gray) {
+                if (!gray_logged) {
+                    gray_logged = 1;
+                    LLOGI("scan frame ready, gray %dx%d", w, h);
+                }
+                unsigned slot = (g_scan_slot++) % PC_SCAN_RESULT_SLOTS;
+                int len = pc_zxing_decode_gray(gray, w, h, g_scan_type,
+                                               g_scan_results[slot], PC_SCAN_RESULT_LEN);
+                luat_heap_free(gray);
+                if (len > 0) {
+                    luat_msgbug_put2(l_camera_handler, g_scan_results[slot], 0, len, 0);
+                }
+            }
+        }
+        Sleep(150);
+    }
+    if (frame) luat_heap_free(frame);
+    (void)param;
+    return 0;
+}
+
+static int pc_scan_start(void) {
+    pc_camera_ctx_t *ctx = pc_camera_get(0);
+    if (!ctx) return -1;
+    if (InterlockedCompareExchange(&g_scan_run, 1, 0) == 1) return 0;
+    gray_logged = 0;
+    if (!ctx->reader) {
+        if (pc_mf_init() != 0) {
+            g_scan_run = 0;
+            return -1;
+        }
+        IMFSourceReader *reader = pc_open_default_reader();
+        if (!reader || pc_reader_set_format(reader, 640, 480, &MFVideoFormat_MJPG) != 0) {
+            if (reader) reader->lpVtbl->Release(reader);
+            pc_mf_deinit();
+            g_scan_run = 0;
+            return -1;
+        }
+        ctx->reader = reader;
+        ctx->id = 0;
+        ctx->width = 640;
+        ctx->height = 480;
+        ctx->is_mjpg = 1;
+    } else if (!ctx->is_mjpg) {
+        if (pc_reader_set_format(PC_CAST_READER(ctx), ctx->width, ctx->height,
+                                 &MFVideoFormat_MJPG) != 0) {
+            g_scan_run = 0;
+            return -1;
+        }
+        ctx->is_mjpg = 1;
+    }
+    g_scan_thread = CreateThread(NULL, 0, pc_scan_thread_proc, NULL, 0, NULL);
+    if (!g_scan_thread) {
+        g_scan_run = 0;
+        return -1;
+    }
+    return 0;
+}
+
+static void pc_scan_stop(void) {
+    if (InterlockedExchange(&g_scan_run, 0) == 0) return;
+    if (g_scan_thread) {
+        WaitForSingleObject(g_scan_thread, 3000);
+        CloseHandle(g_scan_thread);
+        g_scan_thread = NULL;
+    }
+}
+
+#endif /* LUAT_USE_CAMERA_SCAN */
+
 #endif /* _WIN32 */
 
 int luat_camera_init(luat_camera_conf_t *conf) {
@@ -424,6 +585,9 @@ int luat_camera_close(int id) {
     pc_camera_ctx_t *ctx = pc_camera_get(id);
     if (!ctx) return -1;
 #ifdef _WIN32
+#ifdef LUAT_USE_CAMERA_SCAN
+    pc_scan_stop();
+#endif
     if (ctx->reader) {
         IMFSourceReader *reader = PC_CAST_READER(ctx);
         reader->lpVtbl->Release(reader);
@@ -669,5 +833,44 @@ int luat_usb_camera_stream_set_min_data_len(uint8_t app_id, uint32_t min_data_le
 
 int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t jump_frame_cnt) {
     (void)app_id; (void)jump_frame_cnt;
+    return -1;
+}
+
+int luat_camera_scan(int id, uint32_t decode_type, uint8_t on_off) {
+    (void)id;
+#if defined(_WIN32) && defined(LUAT_USE_CAMERA_SCAN)
+    g_scan_type = decode_type;
+    if (on_off) {
+        return pc_scan_start();
+    }
+    pc_scan_stop();
+    return 0;
+#else
+    (void)decode_type; (void)on_off;
+    return -1;
+#endif
+}
+
+int luat_camera_utest_decode(const uint8_t *pix, int fmt, int w, int h,
+                             uint32_t decode_type, char *out, size_t out_len) {
+    if (!pix || w <= 0 || h <= 0 || !out || out_len == 0) return -1;
+#if defined(_WIN32) && defined(LUAT_USE_CAMERA_SCAN)
+    if (fmt == 0) {
+        uint8_t *gray = (uint8_t *)luat_heap_malloc((size_t)w * h);
+        if (!gray) return -1;
+        pc_rgb565_to_gray(pix, gray, w, h);
+        int r = pc_zxing_decode_gray(gray, w, h, decode_type, out, out_len);
+        luat_heap_free(gray);
+        return r;
+    }
+    return pc_zxing_decode_gray(pix, w, h, decode_type, out, out_len);
+#else
+    (void)fmt; (void)decode_type;
+    return -1;
+#endif
+}
+
+int luat_camera_frame_callback_on_off(int id, uint8_t on_off) {
+    (void)id; (void)on_off;
     return -1;
 }

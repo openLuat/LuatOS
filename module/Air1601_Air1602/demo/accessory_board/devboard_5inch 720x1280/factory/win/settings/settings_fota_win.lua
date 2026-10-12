@@ -34,7 +34,7 @@ local COLOR_GREEN          = 0x34C759
 
 local function update_screen_size()
     local rot = airui.get_rotation()
-    local pw, ph = lcd.getSize()
+    local pw, ph = lcd_drv.get_size()
     if rot == 0 or rot == 180 then
         screen_w, screen_h = pw, ph
     else

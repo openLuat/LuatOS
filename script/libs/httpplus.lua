@@ -38,6 +38,11 @@
 -- 支持 fota升级
 
 -- 版本更新说明
+-- 版本号：202610091640
+-- 1、更新时间：2026-10-09 16:40
+-- 2、更新内容
+--    响应头Content-Length识别改为大小写不敏感
+--    修复按Content-Length收齐body后未主动结束、等待服务器断开导致的请求超时问题
 -- 版本号：202607021200
 -- 1、更新时间：2026-07-02 12:00
 -- 2、更新内容
@@ -391,6 +396,15 @@ local function zbuff_find(buff, str)
     end
 end
 
+-- HTTP头字段名大小写不敏感, 统一按小写查找
+local function resp_header(headers, name)
+    for k, v in pairs(headers) do
+        if k:lower() == name then
+            return v
+        end
+    end
+end
+
 local function resp_parse(opts, data_len)
     -- 初始化resp
     if not opts.resp then
@@ -518,13 +532,15 @@ local function resp_parse(opts, data_len)
 
     -- 解析body
     -- 有Content-Length就好办
-    if opts.resp.headers["Content-Length"] then
-        opts.log(TAG, "有Content-Length", opts.resp.headers["Content-Length"])
+    local content_length = resp_header(opts.resp.headers, "content-length")
+    if content_length then
+        opts.log(TAG, "有Content-Length", content_length)
         -- 解析出声明的body长度
-        local declared = tonumber(opts.resp.headers["Content-Length"]) or 0
+        local declared = tonumber(content_length) or 0
         local new_data = rx_data
+        -- 累计已接收 body 总长度（无论是否缓存/是否有回调），用于判断是否收齐
+        opts.accumulated_body_len = (opts.accumulated_body_len or 0) + #new_data
         if opts.callback then
-            opts.accumulated_body_len = (opts.accumulated_body_len or 0) + #new_data
             -- log.info(TAG, "累计已接收 body 总长度", opts.accumulated_body_len, "声明长度", declared)
             if opts.userdata then
                 opts.callback(declared, #new_data, new_data, opts.userdata)
@@ -539,7 +555,13 @@ local function resp_parse(opts, data_len)
                 opts.resp.body:resize(declared)
             end
         end
-    elseif opts.resp.headers["Transfer-Encoding"] == "chunked" or opts.resp.headers["transfer-encoding"] == "chunked" then
+        -- body 已收齐, 主动结束, 不再等待服务器断开连接
+        if opts.accumulated_body_len >= declared then
+            opts.log(TAG, "body已收齐, 主动结束", opts.accumulated_body_len, declared)
+            opts.resp_done = true
+            sys.publish(opts.topic)
+        end
+    elseif resp_header(opts.resp.headers, "transfer-encoding") == "chunked" then
         -- 解析 chunked 编码：长度行（可含分号扩展）+ 数据 + CRLF，末块长度为0
         local function zbuff_find_from(buff, str, start_off)
             local used = buff:used()
@@ -587,6 +609,8 @@ local function resp_parse(opts, data_len)
                 -- 末块：忽略后续 trailers
                 opts.log(TAG, "末块：忽略后续 trailers")
                 opts.chunk_buff = nil  -- 释放 buffer
+                opts.resp_done = true
+                sys.publish(opts.topic)
                 break
             end
             if chunk_pos + clen + 2 > opts.chunk_buff:used() then
@@ -899,7 +923,7 @@ local function http_exec(opts)
     end
 
     -- 处理响应信息
-    while not opts.is_closed and not opts.is_timeout do
+    while not opts.is_closed and not opts.is_timeout and not opts.resp_done do
         sys.waitUntil(opts.topic, 100)
     end
     if timer_id and not opts.is_timeout then
@@ -1077,7 +1101,7 @@ end
 httpplus.version()
 ]]
 function httpplus.version()
-    return "202607021200"
+    return "202610091640"
 end
 
 log.debug("httpplus", "version -> " .. httpplus.version())

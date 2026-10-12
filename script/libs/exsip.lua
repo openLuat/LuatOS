@@ -1,17 +1,34 @@
 --[[
 @module exsip
-@summary SIP/VoIP 电话扩展库，简化 SIP 客户端使用
+@summary SIP/VoIP 电话扩展库，支持普通 SIP 通话与 CC<->SIP 双向语音流桥接
 @version 1.0
 @date    2026.04.10
 @author  蒋骞
 @usage
 本库封装了 exsipclient 和 VoIP 引擎，提供更简洁的 API 接口，
-让用户更容易上手 SIP/VoIP 电话功能。
+让用户更容易上手 SIP/VoIP 电话功能，当前已支持蜂窝通话（CC/VoLTE）与 SIP 的双向语音流桥接。
+
+CC<->SIP 桥接说明：
+1、在 exsip.init() 中设置 cc_sip_bridge = true，库会选择 voip.AUDIO_MODE_BRIDGE；
+   固件提供 cc.setBridge 时会同步选择 CC 桥接路由，应在 CC/SIP 音频启动前完成初始化。
+2、CC -> SIP：蜂窝对端语音解码为 PCM 后送入 VoIP，由 VoIP 编码为 G.711 RTP 发往 SIP 对端。
+   SIP -> CC：SIP RTP 经 VoIP 解码为 PCM 后送入 CC 上行，传给蜂窝对端。
+   SIP 侧使用 PCMU/PCMA/G729A、8kHz 单声道，CC 侧 8kHz/16kHz 的采样率适配由底层桥接完成。
+3、桥接依赖固件的 CC/VoIP PCM 桥接能力。CC 管理通话音频硬件，SIP 不再启动本地 Audio V2 speech；
+   应用无需在 Lua 中调用 voip.pcmIn/pcmOut 搬运 CC 音频。
+4、cc_sip_bridge 默认 false。audio_mode 选择 VoIP 音频模式，普通 SIP 下的 AUDIO_MODE_BRIDGE
+   用于本地 Audio V2 等 PCM 适配；经本库启用 CC<->SIP 桥接需设置 cc_sip_bridge = true。
+5、本库负责 SIP 信令和 VoIP 媒体启停；CC 的拨号、接听、挂断，以及两侧通话联动由应用控制。
+   SIP 来电转蜂窝外呼时，可先调用 exsip.progress() 建立 183 早期媒体，待 CC 接通后再调用 exsip.accept()。
+6、桥接模式下不启动 record.auto 自动录音。停止 SIP 或挂断不会清除桥接选择；切换路由前应停止
+   SIP 服务并等待 CC/SIP 媒体释放，再通过 exsip.init() 显式设置 cc_sip_bridge = false。
+完整的两侧通话联动示例见 module/Air8000/demo/sip_cc_bridge。
 
 基本用法：
 local exsip = require "exsip"
 
--- 配置 SIP 账号
+-- 配置 SIP 账号；下面的来电回调直接接听 SIP，适用于普通 SIP 通话。
+-- CC<->SIP 桥接时在配置中添加 cc_sip_bridge = true，并由应用协调 CC 呼叫与 SIP 接听。
 local config = {
     sip_server_addr = "192.168.1.100",
     sip_server_port = 5060,
@@ -51,6 +68,22 @@ exsip.start()
 -- exsip.hangUp()
 
 -- 版本更新说明
+-- 版本号：202610101050
+-- 1、更新时间：2026-10-10 10:50
+-- 2、更新内容
+--    新增 G.729A 编解码协商支持，config.codecs 可配置 "G729"（需固件编入 G729，
+--    SDP 显式声明 annexb=no）；协商结果固件不支持时显式报错，不再静默回退 PCMU。
+-- 版本号：202609171331
+-- 1、更新时间：2026-09-17 13:31
+-- 2、更新内容
+--    自动接听定时器绑定来电 Call-ID，忽略旧通话遗留的定时回调。
+--    接听命令携带当前 Call-ID，避免排队中的旧命令误接新通话。
+-- 版本号：202609161450
+-- 1、更新时间：2026-09-16 14:50
+-- 2、更新内容
+--    初始化阶段校验并选择 CC-SIP 桥接路由，失败时保留原配置。
+--    SIP 服务运行或媒体尚未释放时禁止更改路由，停止 SIP 后保留桥接选择。
+--    兼容缺少 cc.setBridge 的旧版桥接固件，保留桥接配置并打印警告继续初始化。
 -- 版本号：202608311130
 -- 1、更新时间：2026-08-31 11:30
 -- 2、更新内容
@@ -72,16 +105,19 @@ exsip.start()
 exaudio = require "exaudio"
 
 local exsip = {}
+local sipproto = require "exsipproto"
 
 -- 常量定义 
 
 -- 传输协议
 exsip.TRANSPORT_UDP = "udp"
 exsip.TRANSPORT_TCP = "tcp"
+exsip.TRANSPORT_TLS = "tls"
 
 -- 编解码器
 exsip.CODEC_PCMU = "PCMU"
 exsip.CODEC_PCMA = "PCMA"
+exsip.CODEC_G729 = "G729"
 
 -- 默认端口
 exsip.DEFAULT_SIP_PORT = 5060
@@ -105,6 +141,12 @@ local g_callbacks = {}
 local g_current_call = nil
 -- 本次 VoIP 是否由 exaudio 建立本地 audio_v2 收发链路。
 local g_voip_uses_exaudio = false
+-- 媒体准备任务可被 CANCEL / 挂断 / 断网取消；C start 已受理也属于占用。
+local g_media_generation = 0
+local g_media_pending = false
+local g_media_requested = false
+local g_media_stopping = false
+local MEDIA_PREPARE_TIMEOUT_MS = 2000
 local g_netdrv_subscribed = false
 -- 自动录音只在 call connected 后尝试一次；媒体晚于通话建立时允许延后重试。
 local g_call_connected = false
@@ -123,6 +165,7 @@ local g_ip_event_subscribed = false
 local default_config = {
     sip_transport = exsip.TRANSPORT_TCP,
     sip_server_port = exsip.DEFAULT_SIP_PORT,
+    media_encryption = "none",
     rtp_port = exsip.DEFAULT_RTP_PORT,
     expires = exsip.DEFAULT_EXPIRES,
     codecs = { exsip.CODEC_PCMU, exsip.CODEC_PCMA },
@@ -140,8 +183,9 @@ local default_config = {
     aec_tail = 200,
     early_media_response = 183,
     adapter = nil,  -- nil = 使用系统默认网卡
-    audio_mode = nil,  -- nil = 使用系统默认音频模式；voip.AUDIO_MODE_BRIDGE, -- 使用桥接模式
-    -- true: CC 独占音频硬件，SIP 仅提供 RTP/PCM 桥接，不启动本地 audio_v2 speech。
+    audio_mode = nil,  -- nil = 自动选择本地音频路径；CC 桥接启用时自动设为 AUDIO_MODE_BRIDGE。
+    -- true: 选择 CC<->SIP 双向语音流桥接，由 CC 管理音频硬件，SIP 仅处理 RTP/PCM。
+    -- false: 普通 SIP；AUDIO_MODE_BRIDGE 用于本地 PCM 适配，不选择 CC 桥接路由。
     cc_sip_bridge = false,
     record = {
         auto = false,
@@ -173,7 +217,9 @@ end
 local function emit_callback(event, ...)
     local cb = g_callbacks[event]
     if type(cb) == "function" then
-        local ok, err = pcall(cb, ...)
+        local args = table.pack(...)
+        for index = 1, args.n do args[index] = sipproto.public_payload(args[index]) end
+        local ok, err = pcall(cb, table.unpack(args, 1, args.n))
         if not ok then
             log_error("callback error:", event, err)
         end
@@ -341,16 +387,11 @@ local function stop_exaudio_voip_bridge()
     end
 end
 
-local function start_voip_engine(session)
+local function start_voip_engine_now(session)
     if not voip then
         log_error("voip core not support")
         return
     end
-    --关闭其他播报，避免和 VoIP 音频冲突
-    pcall(exaudio.play_stop, {type = 0}) 
-    pcall(exaudio.play_stop, {type = 1}) 
-    pcall(exaudio.play_stop, {type = 2}) 
-
     -- 唤醒音频硬件（audio_v2 框架下 ES8311 可能处于 shutdown，需先恢复）
     if exaudio.pm then
         pcall(exaudio.pm, exaudio.RESUME)
@@ -358,9 +399,15 @@ local function start_voip_engine(session)
 
     local codec_map = {
         [exsip.CODEC_PCMU] = voip.PCMU,
-        [exsip.CODEC_PCMA] = voip.PCMA
+        [exsip.CODEC_PCMA] = voip.PCMA,
+        [exsip.CODEC_G729] = voip.G729
     }
-    local codec = codec_map[session.codec] or voip.PCMU
+    local codec = codec_map[session.codec]
+    if not codec then
+        -- G729 协商成功但固件未编入（voip.G729 为 nil）时显式失败，不静默回退 PCMU
+        log_error("codec not supported by firmware:", session.codec)
+        return
+    end
 
     -- 普通SIP可自动选择C层直接硬件或Lua Audio V2 PCM bridge；CC-SIP桥接
     -- 必须由CC C层独占音频硬件，不能再启动本地SIP speech。
@@ -412,6 +459,7 @@ local function start_voip_engine(session)
 
     log_info("start voip engine with adapter:", g_current_adapter, "remote:", session.remote_ip .. ":" .. session.remote_port)
     local ok = voip.start({
+        security = session.security,
         remote_ip = session.remote_ip,
         remote_port = tonumber(session.remote_port) or 10000,
         local_port = tonumber(session.local_rtp_port) or 0,
@@ -433,6 +481,7 @@ local function start_voip_engine(session)
     })
 
     if ok then
+        g_media_requested = true
         local adapter_ok, bridge_ok = true, true
         if use_sip_audio_v2 then
             adapter_ok, bridge_ok = pcall(exaudio.sip_voip_start)
@@ -443,14 +492,82 @@ local function start_voip_engine(session)
             return
         end
         g_voip_uses_exaudio = use_sip_audio_v2
-        log_info("voip engine started", session.remote_ip .. ":" .. session.remote_port,
+        log_info("voip engine start requested", session.remote_ip .. ":" .. session.remote_port,
             "codec=" .. tostring(session.codec), "adapter", g_config and g_config.adapter)
         if g_auto_record_pending or g_call_connected then
             start_auto_record()
         end
+        return true
     else
         log_error("voip engine start failed")
     end
+    return false
+end
+
+local function start_voip_engine(session)
+    if not voip then
+        log_error("voip core not support")
+        return
+    end
+    -- 同一会话的 183 / 200 媒体通知不能重复申请硬件。
+    if g_media_pending or (g_media_requested and not g_media_stopping) then return end
+    g_media_generation = g_media_generation + 1
+    local generation = g_media_generation
+    g_media_pending = true
+    emit_callback("voip", "state", "starting")
+    sys.taskInit(function()
+        local remaining = MEDIA_PREPARE_TIMEOUT_MS
+        local function current()
+            return generation == g_media_generation and g_started
+        end
+        local function fail(reason)
+            if not current() then return end
+            g_media_pending = false
+            emit_callback("voip", "error", reason)
+            if not g_media_requested then emit_callback("voip", "state", "stopped") end
+            if session.encryption ~= "none" and sipclient then sipclient.hangup(true, session.call_id) end
+        end
+        -- 上一个通话仍在释放 DMA 时，新的媒体请求等待 stopped。
+        while current() and g_media_requested and remaining > 0 do
+            sys.wait(20)
+            remaining = remaining - 20
+        end
+        if not current() then return end
+        if g_media_requested then fail("audio_stop_timeout") return end
+        -- CC 桥接时保留 CC 正在使用的音频驱动和早期媒体，不执行普通 SIP 的本地播放清理。
+        if not (g_config and g_config.cc_sip_bridge) then
+            local stop_driver = audio_v2 and type(audio_v2.stop_driver) == "function" and
+                type(exaudio.is_audio_v2) == "function" and exaudio.is_audio_v2()
+            for play_type = 0, 2 do
+                local ok, err = pcall(exaudio.play_stop, {type = play_type})
+                if stop_driver and not ok then fail("audio_stop_failed: " .. tostring(err)) return end
+            end
+            -- 仅提供同步停驱动接口的 audio_v2 平台等待请求释放。
+            -- 其他平台保留原有的三次 play_stop pcall 后直接启动行为。
+            if stop_driver then
+                if type(exaudio.is_end) == "function" then
+                    while current() and remaining > 0 do
+                        local ok, done = pcall(exaudio.is_end)
+                        if not ok then fail("audio_state_failed") return end
+                        if done then break end
+                        sys.wait(20)
+                        remaining = remaining - 20
+                    end
+                    if not current() then return end
+                    if remaining <= 0 then fail("audio_stop_timeout") return end
+                end
+                -- request cancel 完成后停止空转的驱动，保留共享 I2C。
+                local ok, stopped = pcall(audio_v2.stop_driver)
+                if not ok or not stopped then fail("audio_driver_stop_failed") return end
+            end
+        end
+        if not current() then return end
+        g_media_pending = false
+        local ok, started = pcall(start_voip_engine_now, session)
+        if not ok or not started then
+            fail(ok and "audio_start_failed" or tostring(started))
+        end
+    end)
 end
 
 local function stop_voip_engine()
@@ -458,10 +575,19 @@ local function stop_voip_engine()
         return
     end
     stop_call_record()
+    local was_pending = g_media_pending
+    g_media_generation = g_media_generation + 1
+    g_media_pending = false
     stop_exaudio_voip_bridge()
-    if voip.isRunning() then
-        voip.stop()
-        log_info("voip engine stopping")
+    if g_media_requested or voip.isRunning() then
+        if not g_media_stopping then
+            g_media_stopping = true
+            emit_callback("voip", "state", "stopping")
+            voip.stop() -- 包括 start 已入队、尚未 reported started 的情况。
+            log_info("voip engine stopping")
+        end
+    elseif was_pending then
+        emit_callback("voip", "state", "stopped")
     end
 end
 
@@ -520,8 +646,11 @@ local function sip_event_handler(event, action, payload)
             emit_callback("call", "incoming", g_current_call)
             if g_config and g_config.auto_answer then
                 if g_config.delay_auto_answer > 0 then
+                    local call_id = payload.call_id
                     sys.timerStart(function()
-                        exsip.accept()
+                        if g_started and g_current_call and g_current_call.call_id == call_id then
+                            exsip.accept()
+                        end
                     end, g_config.delay_auto_answer * 1000)
                 else
                     exsip.accept()
@@ -534,6 +663,7 @@ local function sip_event_handler(event, action, payload)
             start_auto_record()
             emit_callback("call", "connected", payload)
         elseif action == "ended" or action == "failed" then
+            stop_voip_engine()
             stop_call_record()
             reset_call_record_state()
             emit_callback("call", "ended", payload)
@@ -543,7 +673,6 @@ local function sip_event_handler(event, action, payload)
         if action == "ready" then
             local session = payload.session or payload
             log_info("media ready", session.remote_ip, session.remote_port, session.codec)
-            start_voip_engine(session)
             emit_callback("media", "ready", session)
         elseif action == "stop" then
             stop_call_record()
@@ -588,6 +717,10 @@ local function setup_voip_callbacks()
     if voip then
         voip.on("state", function(state)
             log_info("voip state:", state)
+            if state == "stopped" or state == "idle" then
+                g_media_requested = false
+                g_media_stopping = false
+            end
             if state == "stopped" or state == "error" or state == "idle" then
                 stop_exaudio_voip_bridge()
                 stop_call_record()
@@ -603,6 +736,10 @@ local function setup_voip_callbacks()
         voip.on("error", function(err)
             log_error("voip error:", err)
             emit_callback("voip", "error", err)
+            if g_started and g_config.media_encryption ~= "none" and sipclient then
+                stop_voip_engine()
+                sipclient.hangup(true)
+            end
         end)
 
         -- 未编入 LUAT_USE_VOIP_RECORD 的固件没有录音 API，也不注册未知事件。
@@ -618,24 +755,33 @@ end
 
 --[[
 配置 SIP 参数。
+CC<->SIP 桥接应在 CC/SIP 音频启动前配置，cc_sip_bridge=true 会自动选择 AUDIO_MODE_BRIDGE。
+固件提供 cc.setBridge 时由本接口同步选择 CC 路由；旧版桥接固件缺少该接口时保留配置并警告。
+路由切换要求 SIP 服务停止且 CC/SIP 媒体已释放，校验或路由选择失败时保留原配置。
 @api exsip.init(config)
 @table config 配置参数表
 @string config.sip_server_addr SIP 服务器地址
-@number config.sip_server_port SIP 服务器端口，默认 5060
+@number config.sip_server_port SIP 服务器端口，TLS 默认 5061，其他传输默认 5060
 @string config.sip_domain SIP 域
 @string config.sip_username SIP 用户名
 @string config.sip_password SIP 密码
-@string config.sip_transport SIP 传输协议，"UDP" 或 "TCP"，默认 "TCP"
+@string config.sip_transport SIP 传输协议，"udp"、"tcp" 或 "tls"，默认 "tcp"
+@table config.sip_tls TLS 配置，tls 模式必须提供 ca_cert（可信 CA PEM 内容），始终验证服务端证书和域名
+@string config.media_encryption 媒体加密，"none"、"sdes" 或 "dtls-srtp"；默认 "none"，加密媒体要求 TLS 信令
 @number config.rtp_port 本地 RTP 端口，默认 40000
 @number config.expires 注册有效期（秒），默认 600
-@table config.codecs 编解码器列表，默认 {"PCMU", "PCMA"}
+@table config.codecs 编解码器列表，默认 {"PCMU", "PCMA"}；可选 "G729"（G.729A，需固件编入 G729，否则协商成功后启动媒体会失败）
 @number config.ptime 打包时长（毫秒），默认 20
 @boolean config.auto_answer 是否自动接听，默认 false
 @number config.delay_auto_answer 自动接听延迟（秒），默认 0
 @number config.call_timeout 拨号超时时间（秒），默认 30
 @boolean config.debug_sip_response 是否打印完整 SIP 服务器响应，默认 false
 @number config.adapter 网络适配器，nil=使用系统默认，socket.LWIP_GP=4G，socket.LWIP_STA=WiFi，socket.LWIP_ETH=以太网
-@table config.record 通话录音配置，默认关闭；支持 auto、dir、prefix、max_seconds
+@boolean config.cc_sip_bridge 是否启用 CC<->SIP 双向语音流桥接，默认 false；需固件支持 CC/VoIP PCM 桥接
+@number config.audio_mode VoIP 音频模式，nil=自动选择；支持 voip.AUDIO_MODE_I2S、voip.AUDIO_MODE_BRIDGE；CC 桥接时仅允许 nil 或 AUDIO_MODE_BRIDGE
+@boolean config.early_media 是否允许通过 progress() 发送来电早期媒体响应，默认 true
+@number config.early_media_response 来电早期响应，默认 183（带 SDP，可启动媒体）；设为 180 时仅发送振铃响应
+@table config.record 通话录音配置，默认关闭；支持 auto、dir、prefix、max_seconds；CC 桥接模式不启动自动录音
 @boolean config.aec 是否启用回声消除，默认 false；需要时由应用显式开启
 @string config.aec_mode AEC 后端，"speex" 或 "bk"，默认 "speex"
 @boolean config.aec_denoise 是否启用后端降噪，默认 true
@@ -655,7 +801,6 @@ exsip.init({
 })
 ]]
 function exsip.init(config)
-    log_info("exsip.init called, config type:", type(config), "config:", config)
     if not config or type(config) ~= "table" then
         log_error("config must be a table")
         return false
@@ -663,6 +808,11 @@ function exsip.init(config)
 
     if not config.sip_server_addr or not config.sip_username or not config.sip_password then
         log_error("server, user and password are required")
+        return false
+    end
+    local security, security_err = sipproto.security_config(config)
+    if not security then
+        log_error("invalid security config:", security_err)
         return false
     end
 
@@ -693,21 +843,60 @@ function exsip.init(config)
         return false
     end
 
-    g_config = {}
+    local next_config = {}
     for k, v in pairs(default_config) do
-        g_config[k] = v
+        next_config[k] = v
     end
     for k, v in pairs(config) do
-        g_config[k] = v
+        next_config[k] = v
     end
-    g_config.record = record_config
+    next_config.record = record_config
+    next_config.sip_transport = security.transport
+    next_config.sip_server_port = security.port
+    next_config.sip_tls = security.tls
+    next_config.media_encryption = security.media
+    if next_config.audio_mode ~= nil and (not voip or
+        (next_config.audio_mode ~= voip.AUDIO_MODE_I2S and
+         next_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE)) then
+        log_error("unsupported audio_mode")
+        return false
+    end
+    if next_config.cc_sip_bridge then
+        if not has_voip_pcm_bridge() then
+            log_error("CC-SIP bridge requires PCM bridge APIs")
+            return false
+        end
+        if next_config.audio_mode ~= nil and next_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE then
+            log_error("cc_sip_bridge conflicts with configured audio_mode")
+            return false
+        end
+        next_config.audio_mode = voip.AUDIO_MODE_BRIDGE
+    end
+    if g_config and (g_started or g_media_pending or g_media_requested) and
+        (next_config.cc_sip_bridge ~= g_config.cc_sip_bridge or
+         next_config.audio_mode ~= g_config.audio_mode) then
+        log_error("stop SIP and CC media before changing the audio route")
+        return false
+    end
+    if not next_config.sip_domain then
+        next_config.sip_domain = next_config.sip_server_addr
+    end
 
+    -- 在 CC 早期媒体启动前选择桥接路由；底层切换路由时检查两侧是否空闲，失败不改动状态。
+    -- 启用时同时选择 VoIP PCM 模式，后续由 CC C 层完成双向语音流转发。
+    if cc and type(cc.setBridge) == "function" then
+        local call_ok, selected = pcall(cc.setBridge, next_config.cc_sip_bridge)
+        if not call_ok or not selected then
+            log_error("CC-SIP route is busy or unavailable", selected)
+            return false
+        end
+    elseif next_config.cc_sip_bridge then
+        -- 旧版桥接固件通过 audio_mode 选择 CC 路由，兼容保留桥接配置。
+        log_warn("cc.setBridge unavailable; keeping legacy CC-SIP bridge mode")
+    end
+    g_config = next_config
     if g_config.cc_sip_bridge and g_config.record.auto then
         log_warn("automatic recording is disabled for CC-SIP bridge mode")
-    end
-
-    if not g_config.sip_domain then
-        g_config.sip_domain = g_config.sip_server_addr
     end
 
     log_info("init completed:", g_config.sip_username .. "@" .. g_config.sip_domain)
@@ -741,18 +930,7 @@ function exsip.start()
         return false
     end
 
-    -- CC桥接配置是一个完整契约：强制VoIP进入bridge模式，并禁止本地SIP speech。
-    if g_config.cc_sip_bridge then
-        if not has_voip_pcm_bridge() then
-            log_error("CC-SIP bridge is not supported in this firmware")
-            return false
-        end
-        if g_config.audio_mode ~= nil and g_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE then
-            log_error("cc_sip_bridge conflicts with configured audio_mode")
-            return false
-        end
-        g_config.audio_mode = voip.AUDIO_MODE_BRIDGE
-    end
+    -- init 已校验路由；旧版 CC 桥接固件在此通过 PCM 模式完成路由选择。
     if not set_voip_audio_mode(g_config.audio_mode) then
         return false
     end
@@ -781,6 +959,9 @@ function exsip.start()
         sip_username = g_config.sip_username,
         sip_password = g_config.sip_password,
         sip_transport = g_config.sip_transport,
+        sip_tls = g_config.sip_tls,
+        media_encryption = g_config.media_encryption,
+        media_callback = start_voip_engine,
         adapter = g_config.adapter,
         rtp_port = g_config.rtp_port,
         expires = g_config.expires,
@@ -811,6 +992,7 @@ end
 
 --[[
 停止 SIP 服务。
+停止 SIP 信令和 VoIP 媒体，保留 CC 桥接选择；CC 通话的挂断由应用单独处理。
 @api exsip.stop()
 @return nil 无返回值
 @usage
@@ -821,6 +1003,7 @@ function exsip.stop()
         return
     end
 
+    -- SIP 停止后 CC 可能仍在完成 PLAY_STOP，保留桥接选择直到后续 init 成功切换路由。
     stop_voip_engine()
 
     if sipclient and sipclient.stop then
@@ -835,10 +1018,11 @@ function exsip.stop()
         log_info("unsubscribed from IP_READY and IP_LOSE")
     end
 
-    local timeout = 1000
-    while g_started and timeout > 0 do
+    -- 保留原有 SIP 异步收尾的 1 秒窗口；仅未释放的媒体需要继续等待。
+    local elapsed = 0
+    while elapsed < 1000 or (g_media_requested and elapsed < MEDIA_PREPARE_TIMEOUT_MS) do
         sys.wait(10)
-        timeout = timeout - 10
+        elapsed = elapsed + 10
     end
     g_started = false
     g_registered = false
@@ -850,9 +1034,10 @@ function exsip.stop()
 end
 
 --[[
-拨打电话。
-@api exsip.dial(target)
+拨打 SIP 电话；CC 来电转 SIP 外呼时，应用可通过 from_number 透传蜂窝主叫号码作为显示名。
+@api exsip.dial(target, from_number)
 @string target 目标号码或 SIP URI，例如 "1002" 或 "sip:1002@example.com"
+@string from_number 可选，写入本次 SIP 外呼 From 头的显示名，不修改注册账号
 @return boolean 成功返回 true，失败返回 false
 @usage
 exsip.dial("1002")
@@ -879,6 +1064,7 @@ end
 
 --[[
 接听来电。
+桥接场景可由应用在 CC 接通后调用，只接听 SIP 侧，不代替 cc.accept()。
 @api exsip.accept()
 @return boolean 成功返回 true，失败返回 false
 @usage
@@ -895,13 +1081,15 @@ function exsip.accept()
         return false
     end
 
-    sipclient.answer()
+    sipclient.answer(g_current_call and g_current_call.call_id)
     log_info("answering call")
     return true
 end
 
 --[[
 发送来电早期媒体响应。
+默认发送 183 + SDP，协商完成后启动 VoIP，可用于向 SIP 对端转发 CC 侧早期语音。
+此操作不接听 SIP，也不发起 CC 呼叫；early_media=false 时不发送，响应配置为 180 时不启动早期媒体。
 @api exsip.progress()
 @return boolean 成功返回 true，失败返回 false
 @usage
@@ -924,7 +1112,7 @@ function exsip.progress()
 end
 
 --[[
-挂断通话。
+挂断 SIP 通话并请求停止 VoIP 媒体；桥接场景下应用还需处理 CC 侧挂断。
 @api exsip.hangUp()
 @return boolean 成功返回 true，失败返回 false
 @usage
@@ -941,6 +1129,7 @@ function exsip.hangUp()
         return false
     end
 
+    stop_voip_engine()
     sipclient.hangup()
     log_info("hanging up")
     return true
@@ -998,6 +1187,8 @@ end
 
 --[[
 注册事件回调。
+桥接模式沿用相同事件：media/ready 表示 SIP 媒体参数就绪，VoIP 启动结果由 voip 事件报告。
+call/connected、call/ended 只表示 SIP 侧通话状态，CC 侧状态与两侧接听、挂断联动由应用处理。
 @api exsip.on(callback)
 @function callback 统一回调函数，参数为 (event_type, arg1, arg2, arg3)
 @return nil 无返回值
@@ -1116,6 +1307,17 @@ function exsip.isRegistered()
 end
 
 --[[
+查询媒体是否占用音频，包含启动准备、C start 已受理以及等待 stopped。
+TTS / 本地播放应使用此接口，is_voip_running 仍保持原有通话运行语义。
+@api exsip.is_voip_busy()
+@return boolean 是否仍占用音频
+]]
+function exsip.is_voip_busy()
+    return g_media_pending or g_media_requested or g_media_stopping or
+        (voip and type(voip.isRunning) == "function" and voip.isRunning()) or false
+end
+
+--[[
 检查 VoIP 引擎是否正在运行。
 @api exsip.is_voip_running()
 @return boolean 正在运行返回 true，否则返回 false
@@ -1177,7 +1379,7 @@ end
 exsip.version()
 ]]
 function exsip.version()
-    return "202608311130"
+    return "202610101050"
 end
 
 log.debug("exsip", "version -> " .. exsip.version())

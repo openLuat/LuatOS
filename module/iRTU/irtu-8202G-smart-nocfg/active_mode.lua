@@ -8,7 +8,7 @@
 - 三个上报模式并存：实时上报 / GNSS 开启 / GNSS 关闭
 - GNSS 开启条件（满足任一）：开机后 300 秒内；gsensor 正在震动；当前未震动但最近 180 秒内震过；
   实时上报模式结束后 180 秒内（强制进入 GNSS 开启模式）
-- 实时上报（fast_report 下行命令触发）：每 1 秒上报一次，除 1293/1294 外其余 TLV 都上报，
+- 实时上报（fast_report 下行命令触发）：每 1 秒上报一次，除 1301/1302 外其余 TLV 都上报，
   持续 1 分钟，期间暂停 GNSS 开关评估；进入时必须开启 GNSS（若未开立即强制开）；
   重复收到命令重置倒计时；结束强制进入 GNSS 开启模式
 - 立即上报一次（get_device_data 下行命令触发，FORCE_REPORT 事件）：清零上报节流基准，
@@ -21,6 +21,31 @@ JSON 报文通道（RANDOM_DATA 封装）已整体移除；远程指令应答改
 ]]
 
 local active_mode = {}
+
+-- ⚠️⚠️ 【号段迁移公告 · 2026-09-23】本项目自定义 TLV 号段整体后移：
+--     1292 单点三轴 → **1300**      1293 20Hz三轴流 → **1301**
+--     1294 NMEA流   → **1302**      1295 实时1秒三轴流 → **1303**
+--   原因：官方《工业模组出厂固件规划》/Air8780_factory 已占用
+--         **1293=CUSTOM_DEVICE_ID、1294=CUSTOM_PROJECT_NAME**，本项目原编号与之撞车。
+--   1293/1294 现由官方语义使用（见下方 build_aircloud_tlv 的必填字段）。
+--   ⚠️ 本文件内**部分历史注释/日志**可能仍写作旧编号，一律以代码里的实际
+--      `field_meaning` 数值为准。
+
+-- 设备唯一标识（官方口径，用于必填字段 CUSTOM_DEVICE_ID(1293)）
+--   官方 aircloud_app.lua 的 get_device_id 为：hmeta.devid() → mcu.unique_id() → "unknown"
+-- 全部 pcall 兜底：hmeta 核心库在个别固件上可能取不到（详见 board.lua 的判据源说明）。
+-- 该函数同时供 180s 出厂上报任务复用（modules/factory_report.lua）。
+function active_mode.get_device_uid()
+    if hmeta and hmeta.devid then
+        local ok, v = pcall(hmeta.devid)
+        if ok and type(v) == "string" and v ~= "" then return v end
+    end
+    if mcu and mcu.unique_id then
+        local ok, v = pcall(mcu.unique_id)
+        if ok and type(v) == "string" and v ~= "" then return v end
+    end
+    return "unknown"
+end
 
 local config = require("config")
 local kvstore = require("kvstore")
@@ -53,7 +78,7 @@ local REPORT_GNSS_OFF = 300    -- GNSS 关闭期间上报间隔（秒）
 local GNSS_NO_FIX_LBS_INTERVAL = 1800  -- LBS 兜底：GNSS 开启且运动中连续无 fix 的时长阈值（秒 = 30 分钟）
 
 -- ====== 实时上报模式（fast_report，004.000.028 新增） ======
--- 服务器下发 fast_report 命令后进入：每秒上报一次，除 1293/1294 外其余 TLV 都上报，
+-- 服务器下发 fast_report 命令后进入：每秒上报一次，除 1301/1302 外其余 TLV 都上报，
 -- 持续 FAST_REPORT_DURATION 秒后结束；进行中重复收到命令重置倒计时（续期）；
 -- 结束后强制进入 GNSS 开启模式，并在 FAST_REPORT_GNSS_HOLD 秒内视为需要 GNSS
 -- （之后恢复按 gsensor 条件正常评估）。
@@ -96,8 +121,8 @@ local function switch_gnss_on(reason)
     gnss_active = true
     location.start_find_gps()                       -- 打开 GNSS（DEFAULT 常开应用）
     lowpower.set_mode(config.POWER_MODE.NORMAL)     -- 功耗 mode0（GNSS 需全功率）
-    gsensor.stream_start()                          -- 开启 20Hz 三轴流式采样（TLV 1293 数据源）
-    location.nmea_stream_start()                    -- 开启 1Hz NMEA 采样（TLV 1294 数据源）
+    gsensor.stream_start()                          -- 开启 20Hz 三轴流式采样（TLV 1301 数据源）
+    location.nmea_stream_start()                    -- 开启 1Hz NMEA 采样（TLV 1302 数据源）
     last_report_time = 0                            -- 立即触发一次上报
     tools.led_gnss_switched_on()                    -- LED 亮 10 秒（关→开切换提示）
     log.info("active_mode", "GNSS 开启（" .. reason .. "），功耗 mode0，每 10 秒上报")
@@ -175,7 +200,7 @@ end
 -- xyz_stream：GNSS 开启期间 20Hz 流式采样的三轴原始数据（二进制，仅走 TLV 通道）
 -- nmea_stream：GNSS 开启期间 1Hz 采样的定位五元组数据流（二进制，仅走 TLV 通道）
 -- gnss_active：GNSS 是否开启；开启且非实时上报时不上报 1292（单点三轴），缩短整包报文长度
--- fast_report_active（模块级）：实时上报模式下 1292 单点三轴照常上报（此时 1293/1294 流不带，
+-- fast_report_active（模块级）：实时上报模式下 1292 单点三轴照常上报（此时 1301/1302 流不带，
 --   改由 1295 上报最近 1 秒的 20 个样本，组包格式与 1293 完全相同）
 local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active, xyz_fast_stream)
     local FM = excloud.FIELD_MEANINGS
@@ -195,13 +220,42 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active, xyz_f
     table.insert(data, { field_meaning = 1291, data_type = DT.INTEGER, value = d.bat_change or 0 })              -- 充电状态
     -- 信号强度（CSQ，0-31 正整数，直接上报）
     table.insert(data, { field_meaning = FM.SIGNAL_STRENGTH_4G, data_type = DT.INTEGER, value = d.signal or 0 })
-    -- 位置：解析 "lat,lng" 为经度/纬度分开上报（512=经度 513=纬度，ASCII）
+
+    -- ===== 工业模组出厂固件规划（文档）要求的字段 =====
+    -- 依据：官方参考工程 Air8780_factory/app/aircloud/aircloud_app.lua（v1.2.0）
+    -- TIMESTAMP(1280)：Unix 时间戳 —— 官方**必填**字段，每次上报都要有
+    table.insert(data, { field_meaning = FM.TIMESTAMP, data_type = DT.INTEGER, value = os.time() })
+    -- CUSTOM_DEVICE_ID(1293) / CUSTOM_PROJECT_NAME(1294)：官方**必填**字段
+    -- （官方注释原文：1293 用 hmeta.devid()，以避免与 SIM_ICCID(783) 语义冲突）
+    table.insert(data, { field_meaning = FM.CUSTOM_DEVICE_ID,
+                         data_type = DT.ASCII, value = active_mode.get_device_uid() })
+    table.insert(data, { field_meaning = FM.CUSTOM_PROJECT_NAME,
+                         data_type = DT.ASCII, value = PROJECT or "unknown" })
+    -- ENV_TEMPERATURE(263)：CPU 内部温度（官方口径 adc.CH_CPU 原始值 ÷ 1000，单位 ℃）
+    -- 可选字段：读不到就不插（文档明确"未采集成功不影响其他数据上报"）；
+    -- 实时上报模式（1s/帧）下跳过，避免高频开关 ADC。
+    if not fast_report_active then
+        local cpu_temp = nil
+        local ok_cpu = pcall(function()
+            adc.open(adc.CH_CPU)
+            local raw = adc.get(adc.CH_CPU)
+            adc.close(adc.CH_CPU)
+            if raw and raw > 0 then cpu_temp = raw / 1000 end
+        end)
+        if ok_cpu and cpu_temp then
+            table.insert(data, { field_meaning = FM.ENV_TEMPERATURE, data_type = DT.FLOAT, value = cpu_temp })
+        end
+    end
+    -- 位置：解析 "lat,lng" 为经度/纬度分开上报（512=经度 513=纬度）
+    -- ★ 2026-09-23 按官方口径改为 **FLOAT**（官方 Air8780_factory 用 DATA_TYPES.FLOAT，
+    --   示例 121.473701 / 31.230416；本工程 FLOAT 编码为 ×1000 整数）。
     if d.gps and d.gps ~= "" then
         local gps_str = d.gps
         local lat, lng = gps_str:match("^([%d%.%-]+),([%d%.%-]+)$")
-        if lat and lng then
-            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.ASCII, value = tostring(lng) })
-            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.ASCII, value = tostring(lat) })
+        local lat_n, lng_n = tonumber(lat), tonumber(lng)
+        if lat_n and lng_n then
+            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.FLOAT, value = lng_n })
+            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.FLOAT, value = lat_n })
         end
     end
     table.insert(data, { field_meaning = FM.LOCATION_METHOD, data_type = DT.ASCII, value = tostring(d.gps_status or 0) })
@@ -209,37 +263,40 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active, xyz_f
     if d.band and d.band ~= "" then
         table.insert(data, { field_meaning = FM.SERVING_CELL, data_type = DT.ASCII, value = d.band })            -- 驻留频段
     end
-    -- DA221 三轴加速度：格式 "x,y,z"（单位 g，3位小数），自定义编号 1292
-    -- 上报条件：GNSS 关闭时（开启期间整包已带 1293 三轴原始流，单点三轴冗余，不上报以缩短报文），
-    -- 或实时上报模式下（1293/1294 流不上报，单点三轴作为 gsensor 状态随每秒报文上报）
+    -- DA221 三轴加速度：格式 "x,y,z"（单位 g，3位小数），自定义编号 **1300**
+    -- ★ 2026-09-23 号段迁移：原 1292 → **1300**。原因：官方（Air8780_factory）
+    --   已占用 1293=CUSTOM_DEVICE_ID / 1294=CUSTOM_PROJECT_NAME，本项目原有 1292~1295
+    --   与之撞车，故自定义字段整体迁到 1300 号段。
+    -- 上报条件：GNSS 关闭时（开启期间整包已带 1301 三轴原始流，单点三轴冗余，不上报以缩短报文），
+    -- 或实时上报模式下（1301/1302 流不上报，单点三轴作为 gsensor 状态随每秒报文上报）
     if (not gnss_active or fast_report_active)
         and d.gsensor_xyz and d.gsensor_xyz ~= "" then
-        table.insert(data, { field_meaning = 1292, data_type = DT.ASCII, value = d.gsensor_xyz })
+        table.insert(data, { field_meaning = 1300, data_type = DT.ASCII, value = d.gsensor_xyz })
     end
     -- DA221 20Hz 三轴原始数据流（仅 GNSS 开启期间采集）：最近 10 秒 200 个样本，
     -- 12bit 紧凑编码：每 2 样本 6 个 12bit 值拼 9 字节大端位流（bit 顺序 x1,y1,z1,x2,y2,z2），
-    -- 200 样本 = 100 组 × 9 字节 = 900 字节，二进制字段，自定义编号 1293。
+    -- 200 样本 = 100 组 × 9 字节 = 900 字节，二进制字段，自定义编号 **1301**（原 1293，见上注）。
     -- 注意：二进制只走本 TLV 通道，不进 JSON 报文。
     if xyz_stream and xyz_stream ~= "" then
-        table.insert(data, { field_meaning = 1293, data_type = DT.BINARY, value = xyz_stream })
+        table.insert(data, { field_meaning = 1301, data_type = DT.BINARY, value = xyz_stream })
     end
     -- GNSS 1Hz 定位五元组数据流（仅 GNSS 开启期间采集）：最近 10 个有效样本（10 秒），
     -- 每样本 10 字节 = 经度差/纬度差/速度/航向/海拔 各 2 字节有符号 int16 大端，时间正序，
-    -- 共 100 字节，二进制字段，自定义编号 1294。
+    -- 共 100 字节，二进制字段，自定义编号 **1302**（原 1294，见上注）。
     -- 编码约定：经纬度为相对本报文 512/513 坐标的差值 ×100000（1LSB≈1.1m，范围±0.33°）；
     -- 速度 0.1km/h/LSB（RMC 节值×1.852）；航向 0.1°/LSB；海拔 1m/LSB。
     -- 注意：二进制只走本 TLV 通道，不进 JSON 报文。
     if nmea_stream and nmea_stream ~= "" then
-        table.insert(data, { field_meaning = 1294, data_type = DT.BINARY, value = nmea_stream })
+        table.insert(data, { field_meaning = 1302, data_type = DT.BINARY, value = nmea_stream })
     end
     -- DA221 最近 1 秒三轴原始数据流（仅实时上报模式携带）：20Hz × 1 秒 = 20 个样本，
-    -- 组包格式与 1293 完全相同（12bit 紧凑编码，每 2 样本 9 字节）：
-    -- 12bit × 3 轴 × 20 样本 = 720bit = 90 字节，二进制字段，自定义编号 1295。
+    -- 组包格式与 1301 完全相同（12bit 紧凑编码，每 2 样本 9 字节）：
+    -- 12bit × 3 轴 × 20 样本 = 720bit = 90 字节，二进制字段，自定义编号 **1303**（原 1295，见上注）。
     -- 上报条件：fast_report_active 时取缓冲最近 20 个样本（这一秒的采样）；
-    -- GNSS 常规 10s 帧由 1293（200 样本）覆盖，1295 只属于实时 1s 帧。
+    -- GNSS 常规 10s 帧由 1301（200 样本）覆盖，1303 只属于实时 1s 帧。
     -- 注意：二进制只走本 TLV 通道，不进 JSON 报文。
     if xyz_fast_stream and xyz_fast_stream ~= "" then
-        table.insert(data, { field_meaning = 1295, data_type = DT.BINARY, value = xyz_fast_stream })
+        table.insert(data, { field_meaning = 1303, data_type = DT.BINARY, value = xyz_fast_stream })
     end
     if d.chip_model and d.chip_model ~= "" then
         table.insert(data, { field_meaning = FM.COMPONENT_MODEL, data_type = DT.ASCII, value = d.chip_model })   -- 元器件型号
@@ -260,7 +317,7 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active, xyz_f
         table.insert(data, { field_meaning = FM.SATELLITES_VISIBLE, data_type = DT.INTEGER, value = d.sat_visible or 0 }) -- 可见卫星数
     end
     -- 固件版本号（1027 FIRMWARE_VERSION）：仅 GNSS 关闭状态下上报。
-    -- 目的：GNSS 关闭期间节流到 300s 一帧，此时 1293/1294 流与 1292 均可能缺席，
+    -- 目的：GNSS 关闭期间节流到 300s 一帧，此时 1301/1302 流与 1292 均可能缺席，
     -- 附加版本字段让服务端在静默期仍能感知设备固件版本（如判断升级是否生效）；
     -- GNSS 开启（10s 帧）/ 实时上报（1s 帧）高频上报期间不加，避免版本信息重复浪费流量。
     if not gnss_active then
@@ -275,6 +332,8 @@ local function collect_data_and_report()
     log.info("active_mode", "开始收集数据")
 
     -- 唤醒全功率模式（低功耗等待后恢复）
+    -- 功耗档切换记录（已降级 debug：排障需要时调回 log.info 即可对齐时间线）
+    log.debug("active_mode", "切功耗档 pm.WORK_MODE = 0（上报前唤醒全功率）")
     pm.power(pm.WORK_MODE, 0)
 
     -- 等待网络就绪（最多30秒）
@@ -362,7 +421,7 @@ local function collect_data_and_report()
 
     -- DA221 三轴加速度（单位 g，协程上下文可直接读 I2C）
     -- 格式化为 "x,y,z" 逗号分隔字符串；JSON 报文始终携带，
-    -- TLV 1292 字段：GNSS 关闭或实时上报模式下上报（开启且非实时上报时由 1293 原始流替代，见 build_aircloud_tlv）
+    -- TLV 1300 字段：GNSS 关闭或实时上报模式下上报（开启且非实时上报时由 1293 原始流替代，见 build_aircloud_tlv）
     local x_acc, y_acc, z_acc = gsensor.read_xyz()
     local gsensor_xyz = ""
     if x_acc then
@@ -372,7 +431,7 @@ local function collect_data_and_report()
     end
 
     -- GNSS 开启且非实时上报期间：取 20Hz 流式采样的最近 200 个样本
-    -- （10 秒 × 20Hz，12bit 紧凑编码 = 100 组 × 9 字节 = 900 字节），作为 TLV 1293 二进制字段
+    -- （10 秒 × 20Hz，12bit 紧凑编码 = 100 组 × 9 字节 = 900 字节），作为 TLV 1301 二进制字段
     -- 随本次报文上报。注意：二进制数据只走 AirCloud TLV 通道，不进 JSON 报文（避免 json.encode
     -- 产生非法 JSON）；采样由 gsensor 常驻任务后台进行，本协程阻塞（等网络/发数据）期间采样不中断。
     -- 实时上报模式下不上报 1293（用户要求每秒报文只带常规字段），故不取流也不判异常。
@@ -382,7 +441,7 @@ local function collect_data_and_report()
         if stream_count > 0 then
             log.info("active_mode", "gsensor_stream:", stream_count, "样本", #gsensor_stream, "字节")
         else
-            log.info("active_mode", "gsensor_stream: 无数据（刚开启采样，本次报文不带 1293 字段）")
+            log.info("active_mode", "gsensor_stream: 无数据（刚开启采样，本次报文不带 1301 字段）")
             -- GNSS 开启期间 1293 流无样本属于采样异常（刚切换后首包除外），写入运维日志便于远程排查
             excloud.mtn_log("warn", "gsensor", "1293上报异常", "GNSS开启但流式采样0样本")
         end
@@ -400,7 +459,7 @@ local function collect_data_and_report()
         if fast_stream_count > 0 then
             log.info("active_mode", "fast_xyz_stream:", fast_stream_count, "样本", #fast_xyz_stream, "字节")
         else
-            log.info("active_mode", "fast_xyz_stream: 无数据（刚进入实时上报，本次报文不带 1295 字段）")
+            log.info("active_mode", "fast_xyz_stream: 无数据（刚进入实时上报，本次报文不带 1303 字段）")
         end
     end
 
@@ -424,7 +483,7 @@ local function collect_data_and_report()
     local gps_status = loc_data and loc_data.gps_status or 0
 
     -- GNSS 开启且非实时上报期间：取 1Hz NMEA 采样的最近 10 个样本（10 秒 × 10 字节 = 100 字节），
-    -- 作为 TLV 1294 二进制字段随本次报文上报。
+    -- 作为 TLV 1302 二进制字段随本次报文上报。
     -- 经纬度以本次报文坐标（512/513 字段，即 loc_data.gps）为参考做差值编码，
     -- 服务端用报文经纬度 + 差值即可还原每秒的绝对坐标。
     -- 注意：二进制数据只走 AirCloud TLV 通道，不进 JSON 报文；
@@ -441,7 +500,7 @@ local function collect_data_and_report()
         if nmea_count > 0 then
             log.info("active_mode", "nmea_stream:", nmea_count, "样本", #nmea_stream_bin, "字节")
         else
-            log.info("active_mode", "nmea_stream: 无数据（未定位成功，本次报文不带 1294 字段）")
+            log.info("active_mode", "nmea_stream: 无数据（未定位成功，本次报文不带 1302 字段）")
         end
     end
 
@@ -480,10 +539,10 @@ local function collect_data_and_report()
     log.info("active_mode", "==============================")
 
     -- AirCloud 通道：以 TLV 形式上报（其余字段不含 msg_id/type/ts/imei；
-    -- 1293 为 GNSS 开启期间的 20Hz 三轴原始数据流（12bit 紧凑编码），
-    -- 1294 为 GNSS 开启期间的 1Hz 定位五元组数据流，均为二进制，仅走此通道；
-    -- 1295 为实时上报模式最近 1 秒（20 样本）的三轴原始数据流，格式同 1293；
-    -- 1292 单点三轴：GNSS 关闭或实时上报模式下上报）
+    -- 1301 为 GNSS 开启期间的 20Hz 三轴原始数据流（12bit 紧凑编码），
+    -- 1302 为 GNSS 开启期间的 1Hz 定位五元组数据流，均为二进制，仅走此通道；
+    -- 1303 为实时上报模式最近 1 秒（20 样本）的三轴原始数据流，格式同 1301；
+    -- 1300 单点三轴：GNSS 关闭或实时上报模式下上报）
     create.send_aircloud(build_aircloud_tlv(d, gsensor_stream, nmea_stream_bin, gnss_active, fast_xyz_stream))
     log.info("active_mode", "数据已通过 AirCloud TLV 发送")
 
@@ -568,7 +627,7 @@ local function main_loop()
         fast_report_deadline = os.time() + FAST_REPORT_DURATION
         sys.publish(MOTION_EVENT)  -- 唤醒主循环：立即脱离 waitUntil，按 1s 节流进入实时上报
         log.info("active_mode", "收到 fast_report：进入实时上报模式，每", REPORT_FAST,
-            "秒上报（不带1293/1294），持续", FAST_REPORT_DURATION, "秒")
+            "秒上报（不带1301/1302），持续", FAST_REPORT_DURATION, "秒")
         excloud.mtn_log("info", "fast_report", "进入实时上报模式",
             "持续", FAST_REPORT_DURATION .. "s", "间隔", REPORT_FAST .. "s")
     end)

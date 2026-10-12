@@ -17,9 +17,12 @@
 // 通用设置
 
 /** AIRUI 库版本号 */
-#define AIRUI_VERSION "1.2.5"
+#define AIRUI_VERSION "1.2.6"
 
-/** AIRUI 自动刷新周期，单位：毫秒 */
+/** AIRUI 调用 LVGL timer handler 的周期，单位：毫秒 */
+#define AIRUI_HANDLER_PERIOD_MS 5
+
+/** AIRUI 显示刷新周期，单位：毫秒（约 30 FPS） */
 #define AIRUI_REFRESH_PERIOD_MS 33
 
 /** 刷新消息重试超时时间, 当前设计下刷新消息有时会发生丢失，需要支持画面刷新重试 */
@@ -151,6 +154,9 @@
         #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_16)
         #define LV_FONT_DEFAULT &lv_font_misans_16
     #endif
+
+    /** LVGL 简单层缓冲区大小 */
+    #define LV_DRAW_LAYER_SIMPLE_BUF_SIZE (512 * 1024)
 
     // 图片缓存配置 
     #ifdef LUAT_USE_AIRUI_IMAGE_CACHE_SIZE

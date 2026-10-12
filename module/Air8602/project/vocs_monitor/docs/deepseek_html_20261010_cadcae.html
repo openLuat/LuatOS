@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>上海合宙 | VOCs在线环境监测系统</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;background:#020304;overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;user-select:none;-webkit-tap-highlight-color:transparent;}
+  .stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+
+  .device.theme-dark{
+    --app-bg1:radial-gradient(900px 520px at 12% -10%,rgba(0,229,192,.085),transparent 62%);
+    --app-bg2:radial-gradient(760px 480px at 105% 110%,rgba(46,168,255,.075),transparent 60%);
+    --app-bg:#06090d; --cyan:#00e5c0; --blue:#2ea8ff; --amber:#ffb020;
+    --grid-line:rgba(0,229,192,.022); --ring:rgba(0,229,192,.10);
+    --accent-line:rgba(0,229,192,.45); --outer-glow:rgba(0,229,192,.07);
+    --drop-shadow:rgba(0,0,0,.9); --topbar-a:rgba(16,26,36,.92); --topbar-b:rgba(8,12,18,.55);
+    --nav-bg:rgba(7,11,16,.55); --status-bg:rgba(7,11,16,.75);
+    --panel-a:#0e1620; --panel-b:#0a1017; --panel-glow:rgba(0,229,192,.065);
+    --text:#d6e6ee; --text-bright:#eafaff; --text-soft:#9dbccc; --text-dim:#5d7d8f;
+    --text-faint:#44616f; --text-row:#b9d6e2; --nav-item:#3f5f70; --nav-hover:#8fd8e8;
+    --nav-hover-bg:rgba(0,229,192,.06); --accent-soft:rgba(0,229,192,.16);
+    --scan-opacity:.30; --vignette:rgba(0,0,0,.55);
+    --chip-text:#8fb4c6; --chip-bg:rgba(0,229,192,.045); --chip-border:rgba(0,229,192,.14);
+    --chip-run-border:rgba(0,229,192,.32); --chip-run-bg:rgba(0,229,192,.09);
+    --head-border:rgba(0,229,192,.12); --head-text:#4f6c7c;
+    --row-border:rgba(0,229,192,.05); --row-hover:rgba(0,229,192,.05);
+    --seg-border:rgba(0,229,192,.18); --seg-off:#5d7d8f; --seg-on-bg:rgba(0,229,192,.18);
+    --toggle-off-bg:rgba(255,255,255,.07); --toggle-off-border:rgba(0,229,192,.16);
+    --toggle-knob:#5d7d8f; --toggle-on-bg:rgba(0,229,192,.22);
+    --toggle-on-border:rgba(0,229,192,.5); --toggle-on-glow:rgba(0,229,192,.22);
+    --bar-bg:rgba(255,255,255,.055); --bar-grad-1:rgba(0,229,192,.35); --bar-grad-2:rgba(0,229,192,.4);
+    --step-border:rgba(0,229,192,.22); --step-bg:rgba(0,229,192,.05); --step-text:#7fd8e8;
+    --step-hover-bg:rgba(0,229,192,.18); --step-hover-text:#d5fff7;
+    --stat-bg:rgba(0,229,192,.035); --stat-border:rgba(0,229,192,.09); --stat-val:#e6f9ff;
+    --event-text:#93b3c2; --event-border:rgba(0,229,192,.05);
+  }
+  .device.theme-light{
+    --app-bg1:radial-gradient(900px 520px at 12% -10%,rgba(0,200,175,.10),transparent 62%);
+    --app-bg2:radial-gradient(760px 480px at 105% 110%,rgba(46,168,255,.10),transparent 60%);
+    --app-bg:#eef3f7; --cyan:#00a88e; --blue:#1d8fe0; --amber:#d98a00;
+    --grid-line:rgba(0,140,130,.07); --ring:rgba(0,150,140,.20);
+    --accent-line:rgba(0,168,142,.5); --outer-glow:rgba(0,168,142,.12);
+    --drop-shadow:rgba(90,120,140,.28); --topbar-a:#ffffff; --topbar-b:#f2f7fa;
+    --nav-bg:#e9f0f5; --status-bg:#eef4f8; --panel-a:#ffffff; --panel-b:#f7fbfd;
+    --panel-glow:rgba(0,180,160,.05); --text:#2a3f4d; --text-bright:#0f2430;
+    --text-soft:#4a6b7d; --text-dim:#7a95a5; --text-faint:#93aab8; --text-row:#3d5c6d;
+    --nav-item:#7a95a5; --nav-hover:#0b8f7a; --nav-hover-bg:rgba(0,168,142,.08);
+    --accent-soft:rgba(0,168,142,.18); --scan-opacity:.06; --vignette:rgba(150,175,190,.16);
+    --chip-text:#4a6b7d; --chip-bg:rgba(0,168,142,.07); --chip-border:rgba(0,168,142,.24);
+    --chip-run-border:rgba(0,168,142,.4); --chip-run-bg:rgba(0,168,142,.12);
+    --head-border:rgba(0,140,130,.22); --head-text:#7a95a5;
+    --row-border:rgba(0,140,130,.10); --row-hover:rgba(0,168,142,.07);
+    --seg-border:rgba(0,140,130,.28); --seg-off:#7a95a5; --seg-on-bg:rgba(0,168,142,.18);
+    --toggle-off-bg:rgba(0,0,0,.06); --toggle-off-border:rgba(0,140,130,.22);
+    --toggle-knob:#a8bcc8; --toggle-on-bg:rgba(0,168,142,.25);
+    --toggle-on-border:rgba(0,168,142,.55); --toggle-on-glow:rgba(0,168,142,.25);
+    --bar-bg:rgba(0,0,0,.07); --bar-grad-1:rgba(0,168,142,.3); --bar-grad-2:rgba(0,168,142,.45);
+    --step-border:rgba(0,140,130,.3); --step-bg:rgba(0,168,142,.08); --step-text:#0b8f7a;
+    --step-hover-bg:rgba(0,168,142,.2); --step-hover-text:#064a3e;
+    --stat-bg:rgba(0,168,142,.07); --stat-border:rgba(0,140,130,.16); --stat-val:#0f2430;
+    --event-text:#4a6b7d; --event-border:rgba(0,140,130,.10);
+  }
+
+  .device{width:1024px;height:600px;position:relative;overflow:hidden;
+    display:flex;flex-direction:column;transform-origin:center center;
+    color:var(--text);
+    background:var(--app-bg1),var(--app-bg2),var(--app-bg);
+    box-shadow:0 0 0 1px var(--ring),0 0 60px var(--outer-glow),0 30px 80px var(--drop-shadow);
+    transition:background .35s ease,color .35s ease,box-shadow .35s ease;}
+  .device::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(var(--grid-line) 1px,transparent 1px),
+                     linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
+    background-size:40px 40px;}
+  .scanlines{position:absolute;inset:0;z-index:60;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0,rgba(0,0,0,.16) 1px,transparent 1px,transparent 3px);
+    opacity:var(--scan-opacity);mix-blend-mode:multiply;transition:opacity .35s ease;}
+  .vignette{position:absolute;inset:0;z-index:61;pointer-events:none;
+    background:radial-gradient(125% 105% at 50% 50%,transparent 55%,var(--vignette) 100%);
+    transition:background .35s ease;}
+
+  /* ========== 顶栏 ========== */
+  .topbar{position:relative;z-index:2;height:58px;flex:0 0 58px;
+    display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+    border-bottom:1px solid var(--ring);
+    background:linear-gradient(180deg,var(--topbar-a),var(--topbar-b));
+    transition:background .35s ease,border-color .35s ease;}
+  .topbar::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+    background:linear-gradient(90deg,transparent,var(--accent-line),transparent);opacity:.6;}
+
+  .brand{display:flex;align-items:center;gap:11px;position:relative;z-index:2;}
+  .logo{width:32px;height:32px;flex:0 0 32px;filter:drop-shadow(0 0 3px rgba(160,180,255,.4));}
+  .brand-name{font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--text-bright);line-height:1.15;}
+  .brand-model{font-size:11px;color:var(--text-dim);letter-spacing:.05em;margin-top:2px;}
+
+  /* ---- 居中标题 ---- */
+  .topbar-center{
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    display:flex; align-items:center; gap:12px;
+    pointer-events:none;
+    z-index:1;
+  }
+  .topbar-center .tc-line{
+    width:26px; height:1px;
+    background:linear-gradient(90deg, transparent, var(--accent-line));
+    opacity:.85;
+  }
+  .topbar-center .tc-line.r{
+    background:linear-gradient(90deg, var(--accent-line), transparent);
+  }
+  .topbar-center .tc-text{
+    font-size:16px;
+    font-weight:600;
+    letter-spacing:.10em;
+    color:var(--text-bright);
+    white-space:nowrap;
+    text-shadow:0 0 14px var(--outer-glow);
+    transition:color .35s ease,text-shadow .35s ease;
+  }
+
+  .topbar-right{display:flex;align-items:center;gap:9px;position:relative;z-index:2;}
+  .chip{display:flex;align-items:center;gap:6px;height:26px;padding:0 11px;border-radius:13px;
+    font-size:11.5px;letter-spacing:.04em;color:var(--chip-text);
+    border:1px solid var(--chip-border);background:var(--chip-bg);white-space:nowrap;
+    transition:color .35s ease,background .35s ease,border-color .35s ease;}
+  .chip.running{color:var(--cyan);border-color:var(--chip-run-border);background:var(--chip-run-bg);}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);
+    box-shadow:0 0 8px var(--cyan);animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.35;transform:scale(.78);}}
+  .clock{font-family:"SFMono-Regular",Menlo,monospace;font-size:15.5px;font-weight:600;
+    letter-spacing:.06em;color:var(--text-bright);text-shadow:0 0 12px var(--outer-glow);
+    min-width:82px;text-align:right;transition:color .35s ease;}
+
+  .body{position:relative;z-index:1;flex:1;min-height:0;display:flex;}
+  .nav{width:70px;flex:0 0 70px;display:flex;flex-direction:column;align-items:center;
+    padding-top:12px;gap:4px;border-right:1px solid var(--ring);background:var(--nav-bg);
+    transition:background .35s ease,border-color .35s ease;}
+  .nav-btn{position:relative;width:60px;height:58px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:5px;border-radius:9px;
+    color:var(--nav-item);cursor:pointer;border:1px solid transparent;
+    transition:color .18s,background .18s,border-color .18s,box-shadow .18s;}
+  .nav-btn svg{width:20px;height:20px;flex:0 0 20px;}
+  .nav-label{font-size:11px;line-height:1;letter-spacing:.06em;color:inherit;white-space:nowrap;
+    transition:color .18s,text-shadow .18s;}
+  .nav-btn:hover{color:var(--nav-hover);background:var(--nav-hover-bg);}
+  .nav-btn.active{color:var(--cyan);background:linear-gradient(160deg,var(--accent-soft),transparent);
+    border-color:var(--ring);box-shadow:0 0 16px var(--outer-glow),inset 0 0 14px var(--accent-soft);}
+  .nav-btn.active .nav-label{text-shadow:0 0 10px var(--cyan);}
+  .nav-btn.active::before{content:'';position:absolute;left:-8px;top:50%;width:3px;height:22px;
+    margin-top:-11px;border-radius:0 3px 3px 0;background:var(--cyan);box-shadow:0 0 9px var(--cyan);}
+  .nav-btn .gear{fill:currentColor;}
+
+  .content{position:relative;flex:1;min-width:0;}
+  .view{position:absolute;inset:10px;display:none;gap:10px;}
+  .view.active{display:grid;animation:viewIn .3s cubic-bezier(.4,0,.2,1);}
+  @keyframes viewIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .view-overview{grid-template-columns:1fr 326px;grid-template-rows:312px 168px;}
+  .view-chrom{grid-template-columns:1fr 282px;grid-template-rows:1fr;}
+  .view-ms{grid-template-columns:1fr 282px;grid-template-rows:1fr;}
+  .view-data{grid-template-columns:1fr 308px;grid-template-rows:1fr;}
+  .view-settings{grid-template-columns:1fr 1fr;grid-template-rows:1fr;}
+
+  .panel{position:relative;display:flex;flex-direction:column;min-height:0;min-width:0;
+    border-radius:7px;border:1px solid var(--ring);
+    background:linear-gradient(155deg,var(--panel-a) 0%,var(--panel-b) 100%);overflow:hidden;
+    transition:background .35s ease,border-color .35s ease;}
+  .panel::before{content:'';position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(130% 90% at 0% 0%,var(--panel-glow),transparent 58%);}
+  .panel::after{content:'';position:absolute;top:0;right:0;width:11px;height:11px;
+    border-top:1px solid var(--accent-line);border-right:1px solid var(--accent-line);
+    border-top-right-radius:7px;pointer-events:none;}
+  .panel-head{position:relative;z-index:1;height:34px;flex:0 0 34px;
+    display:flex;align-items:center;justify-content:space-between;padding:0 12px;}
+  .panel-title{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;
+    letter-spacing:.09em;color:var(--text-soft);transition:color .35s ease;}
+  .panel-title::before{content:'';width:3px;height:12px;border-radius:2px;
+    background:linear-gradient(180deg,var(--cyan),transparent);box-shadow:0 0 7px var(--cyan);}
+  .panel-sub{font-size:10.5px;letter-spacing:.06em;color:var(--text-dim);font-family:"SFMono-Regular",Menlo,monospace;}
+  .chart-body{position:relative;z-index:1;flex:1;min-height:0;margin:0 8px 8px;}
+  .chart-body canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;min-width:0;}
+  .metric{position:relative;display:flex;flex-direction:column;justify-content:center;
+    padding:0 14px;border-radius:7px;min-width:0;border:1px solid var(--ring);
+    background:linear-gradient(155deg,var(--panel-a) 0%,var(--panel-b) 100%);overflow:hidden;
+    transition:background .35s ease,border-color .35s ease;}
+  .metric::before{content:'';position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(120% 100% at 0% 0%,var(--panel-glow),transparent 60%);}
+  .m-label{position:relative;z-index:1;font-size:11px;letter-spacing:.09em;color:var(--text-dim);
+    margin-bottom:9px;white-space:nowrap;}
+  .m-val{position:relative;z-index:1;font-family:"SFMono-Regular",Menlo,monospace;
+    font-size:24px;font-weight:600;line-height:1;color:var(--text-bright);letter-spacing:-.01em;
+    white-space:nowrap;text-shadow:0 0 16px var(--outer-glow);transition:color .35s ease;}
+  .m-val .u{font-size:11px;font-weight:500;color:var(--cyan);margin-left:3px;letter-spacing:.02em;}
+  .m-unit{position:relative;z-index:1;font-size:10px;color:var(--text-faint);margin-top:6px;
+    font-family:"SFMono-Regular",Menlo,monospace;letter-spacing:.05em;}
+  .m-bar{position:absolute;left:0;right:0;bottom:0;height:2.5px;background:var(--bar-bg);}
+  .m-bar i{display:block;height:100%;border-radius:0 2px 2px 0;
+    background:linear-gradient(90deg,var(--bar-grad-1),var(--cyan));box-shadow:0 0 9px var(--cyan);
+    transition:width .7s cubic-bezier(.4,0,.2,1);}
+  .m-bar.blue i{background:linear-gradient(90deg,rgba(46,168,255,.35),var(--blue));box-shadow:0 0 9px var(--blue);}
+  .m-bar.amber i{background:linear-gradient(90deg,rgba(255,176,32,.35),var(--amber));box-shadow:0 0 9px var(--amber);}
+
+  .voc-list{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;
+    justify-content:space-around;padding:0 14px 12px;}
+  .voc-row{display:flex;align-items:center;gap:9px;height:24px;}
+  .voc-name{width:50px;flex:0 0 50px;font-size:12px;color:var(--text-soft);letter-spacing:.03em;}
+  .voc-bar{flex:1;height:5px;border-radius:2.5px;background:var(--bar-bg);overflow:hidden;}
+  .voc-bar i{display:block;height:100%;border-radius:2.5px;
+    background:linear-gradient(90deg,var(--bar-grad-2),var(--cyan));box-shadow:0 0 8px var(--cyan);
+    transition:width .8s cubic-bezier(.4,0,.2,1);}
+  .voc-val{width:42px;flex:0 0 42px;text-align:right;font-family:"SFMono-Regular",Menlo,monospace;
+    font-size:12.5px;font-weight:600;color:var(--text-bright);}
+
+  .info-table{position:relative;z-index:1;flex:1;min-height:0;margin:0 12px 12px;
+    display:flex;flex-direction:column;}
+  .info-head,.info-row{display:grid;align-items:center;
+    grid-template-columns:26px 50px 1fr 46px;font-size:11.5px;}
+  .info-head{height:26px;color:var(--head-text);letter-spacing:.05em;
+    border-bottom:1px solid var(--head-border);font-size:10.5px;text-transform:uppercase;}
+  .info-row{height:31px;color:var(--text-row);border-bottom:1px solid var(--row-border);
+    transition:background .2s,color .35s ease;}
+  .info-row:hover{background:var(--row-hover);}
+  .info-row .idx{color:var(--text-dim);font-family:"SFMono-Regular",Menlo,monospace;}
+  .info-row .rt{font-family:"SFMono-Regular",Menlo,monospace;color:var(--text-soft);}
+  .info-row .nm{color:var(--text-bright);letter-spacing:.03em;}
+  .info-row .mt{font-family:"SFMono-Regular",Menlo,monospace;text-align:right;color:var(--cyan);font-weight:600;}
+  .info-row .mt.mid{color:var(--amber);}
+  .info-row .mt.low{color:var(--text-dim);}
+  .info-row.is-active{background:var(--row-hover);}
+  .info-row.is-active .nm{color:var(--cyan);}
+
+  .data-side{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;
+    padding:0 13px 13px;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;}
+  .stat{border:1px solid var(--stat-border);background:var(--stat-bg);border-radius:6px;
+    padding:10px 11px;transition:background .35s ease,border-color .35s ease;}
+  .stat .k{font-size:10.5px;color:var(--text-dim);letter-spacing:.06em;margin-bottom:7px;}
+  .stat .v{font-family:"SFMono-Regular",Menlo,monospace;font-size:17.5px;font-weight:600;
+    color:var(--stat-val);line-height:1;}
+  .stat .v small{font-size:10px;color:var(--cyan);margin-left:2px;font-weight:500;}
+  .event-list{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:2px;}
+  .event{display:flex;align-items:center;gap:9px;height:31px;font-size:11.5px;
+    color:var(--event-text);border-bottom:1px solid var(--event-border);}
+  .event .ev-time{font-family:"SFMono-Regular",Menlo,monospace;font-size:10.5px;
+    color:var(--text-dim);flex:0 0 42px;}
+  .event .ev-dot{width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:var(--cyan);
+    box-shadow:0 0 6px var(--cyan);}
+  .event .ev-dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+  .event .ev-dot.info{background:var(--blue);box-shadow:0 0 6px var(--blue);}
+  .event .ev-text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .set-list{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;
+    justify-content:space-around;padding:2px 15px 14px;}
+  .set-row{display:flex;align-items:center;justify-content:space-between;height:44px;
+    border-bottom:1px solid var(--row-border);}
+  .set-row:last-child{border-bottom:none;}
+  .set-name{font-size:12.5px;color:var(--text-soft);letter-spacing:.04em;}
+  .set-name small{display:block;font-size:10.5px;color:var(--text-dim);margin-top:3px;letter-spacing:.02em;}
+  .set-ctrl{display:flex;align-items:center;gap:8px;}
+  .set-val{font-family:"SFMono-Regular",Menlo,monospace;font-size:13px;font-weight:600;
+    color:var(--text-bright);min-width:72px;text-align:right;letter-spacing:.02em;}
+  .stepper{display:flex;align-items:center;gap:7px;}
+  .step-btn{width:22px;height:22px;border-radius:5px;border:1px solid var(--step-border);
+    color:var(--step-text);display:grid;place-items:center;cursor:pointer;font-size:14px;
+    line-height:1;background:var(--step-bg);
+    transition:background .18s,color .18s,box-shadow .18s;}
+  .step-btn:hover{background:var(--step-hover-bg);color:var(--step-hover-text);box-shadow:0 0 10px var(--outer-glow);}
+  .step-btn:active{transform:scale(.92);}
+  .toggle{width:42px;height:22px;border-radius:11px;position:relative;
+    background:var(--toggle-off-bg);border:1px solid var(--toggle-off-border);cursor:pointer;
+    transition:background .25s,border-color .25s,box-shadow .25s;flex:0 0 42px;}
+  .toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;
+    border-radius:50%;background:var(--toggle-knob);
+    transition:left .25s cubic-bezier(.4,0,.2,1),background .25s,box-shadow .25s;}
+  .toggle.on{background:var(--toggle-on-bg);border-color:var(--toggle-on-border);
+    box-shadow:0 0 12px var(--toggle-on-glow);}
+  .toggle.on::after{left:22px;background:var(--cyan);box-shadow:0 0 9px var(--cyan);}
+  .seg{display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--seg-border);}
+  .seg span{padding:5px 12px;font-size:11.5px;color:var(--seg-off);cursor:pointer;
+    letter-spacing:.03em;transition:background .2s,color .2s;}
+  .seg span.on{background:var(--seg-on-bg);color:var(--cyan);}
+
+  .statusbar{position:relative;z-index:2;height:32px;flex:0 0 32px;
+    display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+    border-top:1px solid var(--ring);background:var(--status-bg);font-size:11.5px;
+    color:var(--text-dim);letter-spacing:.04em;
+    transition:background .35s ease,border-color .35s ease,color .35s ease;}
+  .sb-group{display:flex;align-items:center;gap:18px;}
+  .sb-item{display:flex;align-items:center;gap:5px;white-space:nowrap;}
+  .sb-item b{font-family:"SFMono-Regular",Menlo,monospace;font-weight:600;
+    color:var(--text-soft);font-size:11.5px;}
+  .sb-item.ok{color:var(--cyan);}
+  .sb-item.ok i{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 7px var(--cyan);}
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="device theme-dark" id="device">
+
+    <header class="topbar">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 100 100" aria-label="上海合宙">
+          <defs>
+            <clipPath id="luatClip"><circle cx="50" cy="50" r="50"/></clipPath>
+          </defs>
+          <g clip-path="url(#luatClip)">
+            <circle cx="50" cy="50" r="50" fill="#2b1a6e"/>
+            <path d="M0,34 Q25,28 50,36 Q75,44 100,32 L100,58 Q75,72 50,64 Q25,56 0,68 Z" fill="#ffffff"/>
+          </g>
+          <text x="50" y="58" font-family="Georgia,'Times New Roman','Songti SC',serif"
+                font-size="24" font-weight="700" text-anchor="middle" fill="#2b1a6e">
+            Lua<tspan fill="#e63329">t</tspan>
+          </text>
+        </svg>
+        <div>
+          <div class="brand-name">上海合宙</div>
+          <div class="brand-model">智能大屏方案</div>
+        </div>
+      </div>
+
+      <!-- 居中标题 -->
+      <div class="topbar-center">
+        <span class="tc-line"></span>
+        <span class="tc-text">VOCs在线环境监测系统</span>
+        <span class="tc-line r"></span>
+      </div>
+
+      <div class="topbar-right">
+        <div class="chip running"><span class="dot"></span>运行中</div>
+        <div class="chip">方法 VOC-58</div>
+        <div class="clock" id="clock">--:--:--</div>
+      </div>
+    </header>
+
+    <div class="body">
+      <nav class="nav">
+        <div class="nav-btn active" data-view="overview" title="总览">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/>
+            <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/>
+            <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/>
+            <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/>
+          </svg>
+          <span class="nav-label">总览</span>
+        </div>
+        <div class="nav-btn" data-view="chrom" title="色谱">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 18h3l2-7 2.4 10L12 5l2.6 13L17 12l1.8 4H22"/>
+          </svg>
+          <span class="nav-label">色谱</span>
+        </div>
+        <div class="nav-btn" data-view="ms" title="质谱">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <path d="M4 20V13M8 20V7M12 20V3M16 20V10M20 20v-5"/>
+          </svg>
+          <span class="nav-label">质谱</span>
+        </div>
+        <div class="nav-btn" data-view="data" title="数据">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <ellipse cx="12" cy="6" rx="7.5" ry="3"/>
+            <path d="M4.5 6v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3V6"/>
+            <path d="M4.5 12v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3v-6"/>
+          </svg>
+          <span class="nav-label">数据</span>
+        </div>
+        <div class="nav-btn" data-view="settings" title="设置">
+          <svg viewBox="0 0 24 24">
+            <path class="gear" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.484.484 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/>
+          </svg>
+          <span class="nav-label">设置</span>
+        </div>
+      </nav>
+
+      <main class="content">
+        <div class="view view-overview active">
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">实时 TIC 色谱图</div>
+              <div class="panel-sub">RT / min · 相对强度</div>
+            </div>
+            <div class="chart-body"><canvas id="chromCanvas"></canvas></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">质谱图</div>
+              <div class="panel-sub" id="msScan">SCAN 1042</div>
+            </div>
+            <div class="chart-body"><canvas id="msCanvas"></canvas></div>
+          </section>
+          <div class="metrics">
+            <div class="metric">
+              <div class="m-label">TIC 强度</div>
+              <div class="m-val" id="v-tic">1.24<span class="u">×10⁶</span></div>
+              <div class="m-unit">cps</div>
+              <div class="m-bar"><i id="b-tic" style="width:72%"></i></div>
+            </div>
+            <div class="metric">
+              <div class="m-label">检出组分</div>
+              <div class="m-val" id="v-cmp">8<span class="u">种</span></div>
+              <div class="m-unit">VOCs identified</div>
+              <div class="m-bar blue"><i id="b-cmp" style="width:53%"></i></div>
+            </div>
+            <div class="metric">
+              <div class="m-label">分析周期</div>
+              <div class="m-val" id="v-cyc">63<span class="u">%</span></div>
+              <div class="m-unit">12.5 min / cycle</div>
+              <div class="m-bar amber"><i id="b-cyc" style="width:63%"></i></div>
+            </div>
+            <div class="metric">
+              <div class="m-label">载气压力</div>
+              <div class="m-val" id="v-pre">62.4<span class="u">kPa</span></div>
+              <div class="m-unit">Carrier gas</div>
+              <div class="m-bar"><i id="b-pre" style="width:78%"></i></div>
+            </div>
+          </div>
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">组分浓度</div>
+              <div class="panel-sub">μg/m³</div>
+            </div>
+            <div class="voc-list" id="vocList">
+              <div class="voc-row"><span class="voc-name">苯</span>
+                <div class="voc-bar"><i style="width:82%"></i></div>
+                <span class="voc-val" data-v="12.4">12.4</span></div>
+              <div class="voc-row"><span class="voc-name">甲苯</span>
+                <div class="voc-bar"><i style="width:57%"></i></div>
+                <span class="voc-val" data-v="8.6">8.6</span></div>
+              <div class="voc-row"><span class="voc-name">乙苯</span>
+                <div class="voc-bar"><i style="width:21%"></i></div>
+                <span class="voc-val" data-v="3.2">3.2</span></div>
+              <div class="voc-row"><span class="voc-name">二甲苯</span>
+                <div class="voc-bar"><i style="width:34%"></i></div>
+                <span class="voc-val" data-v="5.1">5.1</span></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="view view-chrom">
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">TIC 色谱图 · 全谱</div>
+              <div class="panel-sub">RT / min · 相对强度</div>
+            </div>
+            <div class="chart-body"><canvas id="bigChromCanvas"></canvas></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">峰识别结果</div>
+              <div class="panel-sub">11 PEAKS</div>
+            </div>
+            <div class="info-table">
+              <div class="info-head"><span>#</span><span>RT</span><span>组分</span><span>匹配</span></div>
+              <div class="info-row"><span class="idx">1</span><span class="rt">0.86</span><span class="nm">丙酮</span><span class="mt mid">86</span></div>
+              <div class="info-row"><span class="idx">2</span><span class="rt">1.42</span><span class="nm">异戊二烯</span><span class="mt mid">91</span></div>
+              <div class="info-row"><span class="idx">3</span><span class="rt">2.35</span><span class="nm">苯</span><span class="mt">98</span></div>
+              <div class="info-row is-active"><span class="idx">4</span><span class="rt">3.68</span><span class="nm">甲苯</span><span class="mt">99</span></div>
+              <div class="info-row"><span class="idx">5</span><span class="rt">4.51</span><span class="nm">乙苯</span><span class="mt">96</span></div>
+              <div class="info-row"><span class="idx">6</span><span class="rt">5.02</span><span class="nm">对二甲苯</span><span class="mt">94</span></div>
+              <div class="info-row"><span class="idx">7</span><span class="rt">5.44</span><span class="nm">间二甲苯</span><span class="mt mid">92</span></div>
+              <div class="info-row"><span class="idx">8</span><span class="rt">5.89</span><span class="nm">邻二甲苯</span><span class="mt mid">89</span></div>
+              <div class="info-row"><span class="idx">9</span><span class="rt">6.72</span><span class="nm">苯乙烯</span><span class="mt mid">88</span></div>
+              <div class="info-row"><span class="idx">10</span><span class="rt">7.60</span><span class="nm">萘</span><span class="mt low">84</span></div>
+              <div class="info-row"><span class="idx">11</span><span class="rt">8.45</span><span class="nm">正十一烷</span><span class="mt low">81</span></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="view view-ms">
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">质谱图 · 全谱扫描</div>
+              <div class="panel-sub">m/z 10 – 130 · EI 70eV</div>
+            </div>
+            <div class="chart-body"><canvas id="bigMsCanvas"></canvas></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">主要离子</div>
+              <div class="panel-sub">ABUNDANCE</div>
+            </div>
+            <div class="info-table">
+              <div class="info-head"><span>#</span><span>m/z</span><span>归属</span><span>丰度</span></div>
+              <div class="info-row is-active"><span class="idx">1</span><span class="rt">78</span><span class="nm">苯 · M⁺</span><span class="mt">100</span></div>
+              <div class="info-row"><span class="idx">2</span><span class="rt">91</span><span class="nm">甲苯 · M–1</span><span class="mt">78</span></div>
+              <div class="info-row"><span class="idx">3</span><span class="rt">106</span><span class="nm">二甲苯 · M⁺</span><span class="mt mid">33</span></div>
+              <div class="info-row"><span class="idx">4</span><span class="rt">77</span><span class="nm">苯基碎片</span><span class="mt mid">42</span></div>
+              <div class="info-row"><span class="idx">5</span><span class="rt">51</span><span class="nm">C₄H₃⁺</span><span class="mt mid">29</span></div>
+              <div class="info-row"><span class="idx">6</span><span class="rt">39</span><span class="nm">C₃H₃⁺</span><span class="mt low">25</span></div>
+              <div class="info-row"><span class="idx">7</span><span class="rt">105</span><span class="nm">C₈H₉⁺</span><span class="mt low">29</span></div>
+              <div class="info-row"><span class="idx">8</span><span class="rt">28</span><span class="nm">N₂ / CO</span><span class="mt low">21</span></div>
+              <div class="info-row"><span class="idx">9</span><span class="rt">92</span><span class="nm">甲苯同位素</span><span class="mt low">21</span></div>
+              <div class="info-row"><span class="idx">10</span><span class="rt">65</span><span class="nm">C₅H₅⁺</span><span class="mt low">19</span></div>
+              <div class="info-row"><span class="idx">11</span><span class="rt">74</span><span class="nm">背景组分</span><span class="mt low">17</span></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="view view-data">
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">浓度趋势</div>
+              <div class="panel-sub">近 60 分钟 · μg/m³</div>
+            </div>
+            <div class="chart-body"><canvas id="trendCanvas"></canvas></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">统计与事件</div>
+              <div class="panel-sub">TODAY</div>
+            </div>
+            <div class="data-side">
+              <div class="stat-grid">
+                <div class="stat"><div class="k">平均 TVOC</div><div class="v">9.8<small>μg/m³</small></div></div>
+                <div class="stat"><div class="k">峰值浓度</div><div class="v">18.6<small>μg/m³</small></div></div>
+                <div class="stat"><div class="k">超标次数</div><div class="v">3<small>次</small></div></div>
+                <div class="stat"><div class="k">有效率</div><div class="v">99.2<small>%</small></div></div>
+              </div>
+              <div class="event-list">
+                <div class="event"><span class="ev-time">14:22</span><span class="ev-dot warn"></span><span class="ev-text">苯浓度 12.4 μg/m³ 超出阈值</span></div>
+                <div class="event"><span class="ev-time">13:05</span><span class="ev-dot"></span><span class="ev-text">自动校准完成，偏差 0.4%</span></div>
+                <div class="event"><span class="ev-time">12:48</span><span class="ev-dot info"></span><span class="ev-text">方法 VOC-58 已加载</span></div>
+                <div class="event"><span class="ev-time">11:30</span><span class="ev-dot warn"></span><span class="ev-text">甲苯浓度短时升高 15.2 μg/m³</span></div>
+                <div class="event"><span class="ev-time">10:12</span><span class="ev-dot"></span><span class="ev-text">数据已同步至云端（1.2 MB）</span></div>
+                <div class="event"><span class="ev-time">09:00</span><span class="ev-dot info"></span><span class="ev-text">系统启动自检通过</span></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="view view-settings">
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">色谱方法参数</div>
+              <div class="panel-sub">VOC-58</div>
+            </div>
+            <div class="set-list">
+              <div class="set-row">
+                <span class="set-name">柱温起始<small>Column initial temp.</small></span>
+                <div class="set-ctrl">
+                  <div class="stepper" data-min="30" data-max="120" data-step="5" data-unit="°C">
+                    <div class="step-btn" data-dir="down">−</div>
+                    <span class="set-val" data-v="45">45 °C</span>
+                    <div class="step-btn" data-dir="up">+</div>
+                  </div>
+                </div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">升温速率<small>Heating rate</small></span>
+                <div class="set-ctrl">
+                  <div class="stepper" data-min="2" data-max="30" data-step="1" data-unit="°C/min">
+                    <div class="step-btn" data-dir="down">−</div>
+                    <span class="set-val" data-v="8">8 °C/min</span>
+                    <div class="step-btn" data-dir="up">+</div>
+                  </div>
+                </div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">进样口温度<small>Inlet temperature</small></span>
+                <div class="set-ctrl">
+                  <div class="stepper" data-min="150" data-max="300" data-step="10" data-unit="°C">
+                    <div class="step-btn" data-dir="down">−</div>
+                    <span class="set-val" data-v="220">220 °C</span>
+                    <div class="step-btn" data-dir="up">+</div>
+                  </div>
+                </div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">分流比<small>Split ratio</small></span>
+                <div class="set-ctrl">
+                  <div class="stepper" data-min="1" data-max="50" data-step="1" data-unit=":1">
+                    <div class="step-btn" data-dir="down">−</div>
+                    <span class="set-val" data-v="10">10 :1</span>
+                    <div class="step-btn" data-dir="up">+</div>
+                  </div>
+                </div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">扫描范围<small>Scan range</small></span>
+                <div class="set-ctrl">
+                  <div class="stepper" data-min="10" data-max="200" data-step="5" data-unit="m/z">
+                    <div class="step-btn" data-dir="down">−</div>
+                    <span class="set-val" data-v="130">130 m/z</span>
+                    <div class="step-btn" data-dir="up">+</div>
+                  </div>
+                </div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">载气类型<small>Carrier gas</small></span>
+                <div class="set-ctrl">
+                  <div class="seg">
+                    <span class="on">氦气 He</span><span>氮气 N₂</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title">系统配置</div>
+              <div class="panel-sub">SYSTEM</div>
+            </div>
+            <div class="set-list">
+              <div class="set-row">
+                <span class="set-name">界面主题<small>Theme style</small></span>
+                <div class="set-ctrl">
+                  <div class="seg" id="themeSeg">
+                    <span class="on" data-theme="dark">深色</span><span data-theme="light">浅色</span>
+                  </div>
+                </div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">自动校准<small>每 4 小时执行一次</small></span>
+                <div class="toggle on"></div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">数据云端上传<small>实时同步监测数据</small></span>
+                <div class="toggle on"></div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">超标声光报警<small>阈值 10 μg/m³</small></span>
+                <div class="toggle"></div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">谱图实时平滑<small>Savitzky-Golay 滤波</small></span>
+                <div class="toggle on"></div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">通信协议<small>Modbus TCP / RS-485</small></span>
+                <div class="set-ctrl">
+                  <div class="seg">
+                    <span class="on">Modbus</span><span>RS-485</span>
+                  </div>
+                </div>
+              </div>
+              <div class="set-row">
+                <span class="set-name">屏幕亮度<small>Display brightness</small></span>
+                <div class="set-ctrl">
+                  <div class="stepper" data-min="20" data-max="100" data-step="10" data-unit="%">
+                    <div class="step-btn" data-dir="down">−</div>
+                    <span class="set-val" data-v="80">80 %</span>
+                    <div class="step-btn" data-dir="up">+</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <footer class="statusbar">
+      <div class="sb-group">
+        <span class="sb-item ok"><i></i>系统正常</span>
+        <span class="sb-item">柱温 <b id="s-temp">42.6</b> °C</span>
+        <span class="sb-item">真空 <b>3.2×10⁻⁶</b> Pa</span>
+      </div>
+      <div class="sb-group">
+        <span class="sb-item">ETH 已连接</span>
+        <span class="sb-item">固件 <b>v2.4.1</b></span>
+      </div>
+    </footer>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
+
+  /* ---------- 自适应：只缩小，不放大 ---------- */
+  var deviceEl = $('device');
+  function fitStage() {
+    var s = Math.min(window.innerWidth / 1024, window.innerHeight / 600, 1);
+    deviceEl.style.transform = s < 1 ? 'scale(' + s + ')' : 'none';
+  }
+  window.addEventListener('resize', fitStage);
+  fitStage();
+
+  /* ---------- Canvas 主题配色 ---------- */
+  var THEME = {
+    dark: {
+      grid:'rgba(0,229,192,0.065)', axis:'rgba(0,229,192,0.22)', tick:'rgba(93,125,143,0.9)',
+      chromLine:'#00e5c0', chromGlow:'rgba(0,229,192,0.85)',
+      areaTop:'rgba(0,229,192,0.40)', areaMid:'rgba(0,229,192,0.09)', areaBot:'rgba(0,229,192,0)',
+      peakDot:'#9dfff0', peakText:'rgba(150,235,225,0.85)',
+      msHigh:'#4dffe0', msHighGlow:'rgba(0,229,192,0.95)',
+      msMid:'rgba(0,229,192,0.82)', msMidGlow:'rgba(0,229,192,0.6)',
+      msLow:'rgba(46,168,255,0.55)', msLine:'rgba(0,229,192,0.35)',
+      msText:'rgba(140,255,235,0.9)', legend:'rgba(180,215,228,0.9)'
+    },
+    light: {
+      grid:'rgba(0,140,130,0.10)', axis:'rgba(0,140,130,0.35)', tick:'rgba(90,115,130,0.95)',
+      chromLine:'#00a88e', chromGlow:'rgba(0,168,142,0.55)',
+      areaTop:'rgba(0,168,142,0.30)', areaMid:'rgba(0,168,142,0.07)', areaBot:'rgba(0,168,142,0)',
+      peakDot:'#0b8f7a', peakText:'rgba(0,120,105,0.9)',
+      msHigh:'#00a88e', msHighGlow:'rgba(0,168,142,0.8)',
+      msMid:'rgba(0,168,142,0.75)', msMidGlow:'rgba(0,168,142,0.5)',
+      msLow:'rgba(29,143,224,0.6)', msLine:'rgba(0,140,130,0.4)',
+      msText:'rgba(0,120,105,0.95)', legend:'rgba(60,90,105,0.95)'
+    }
+  };
+  var curTheme = 'dark';
+  var T = THEME.dark;
+
+  /* ---------- 图表注册 ---------- */
+  var charts = [
+    { el: $('chromCanvas'),    type: 'chrom' },
+    { el: $('msCanvas'),       type: 'ms'    },
+    { el: $('bigChromCanvas'), type: 'chrom' },
+    { el: $('bigMsCanvas'),    type: 'ms'    },
+    { el: $('trendCanvas'),    type: 'trend' }
+  ].map(function (c) {
+    return { el: c.el, type: c.type, ctx: c.el.getContext('2d'), w: 0, h: 0 };
+  });
+
+  function resizeCharts() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    charts.forEach(function (c) {
+      var w = c.el.clientWidth, h = c.el.clientHeight;
+      if (!w || !h) { c.w = 0; c.h = 0; return; }
+      c.el.width = Math.round(w * dpr);
+      c.el.height = Math.round(h * dpr);
+      c.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.w = w; c.h = h;
+    });
+  }
+  window.addEventListener('resize', resizeCharts);
+
+  /* ---------- 色谱 ---------- */
+  var CHROM_PEAKS = [
+    { x:0.055, h:0.17, w:0.0055 },
+    { x:0.115, h:0.40, w:0.0075 },
+    { x:0.190, h:0.26, w:0.0065 },
+    { x:0.270, h:0.64, w:0.0085, name:'苯' },
+    { x:0.355, h:0.21, w:0.0060 },
+    { x:0.440, h:0.86, w:0.0092, name:'甲苯' },
+    { x:0.540, h:0.29, w:0.0068 },
+    { x:0.628, h:0.51, w:0.0085, name:'乙苯' },
+    { x:0.715, h:0.36, w:0.0075 },
+    { x:0.806, h:0.58, w:0.0088, name:'二甲苯' },
+    { x:0.900, h:0.23, w:0.0065 }
+  ];
+
+  function chromSignal(x, t) {
+    var v = 0.013;
+    for (var i = 0; i < CHROM_PEAKS.length; i++) {
+      var p = CHROM_PEAKS[i];
+      var d = (x - p.x) / p.w;
+      v += p.h * Math.exp(-0.5 * d * d);
+    }
+    v += Math.sin(x * 173 + t * 0.0011) * 0.0042;
+    v += Math.sin(x * 389 - t * 0.0017) * 0.0026;
+    v += Math.sin(x * 71 + t * 0.0007) * 0.0032;
+    return v > 0 ? v : 0;
+  }
+
+  function drawChrom(c, t) {
+    var ctx = c.ctx, w = c.w, h = c.h;
+    ctx.clearRect(0, 0, w, h);
+    var padL = 44, padR = 12, padT = 14, padB = 26;
+    var pw = w - padL - padR, ph = h - padT - padB;
+    var baseY = padT + ph;
+    var fs = Math.max(10, Math.min(w / 62, 12.5));
+
+    ctx.save(); ctx.lineWidth = 1; ctx.setLineDash([2, 5]); ctx.strokeStyle = T.grid;
+    ctx.beginPath();
+    for (var i = 1; i < 5; i++) { var y = padT + ph * i / 5; ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); }
+    for (var j = 1; j < 6; j++) { var x = padL + pw * j / 6; ctx.moveTo(x, padT); ctx.lineTo(x, baseY); }
+    ctx.stroke(); ctx.restore();
+
+    ctx.strokeStyle = T.axis; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, baseY); ctx.lineTo(w - padR, baseY); ctx.stroke();
+
+    ctx.font = '10.5px ui-monospace, Menlo, monospace'; ctx.fillStyle = T.tick;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (var k = 0; k <= 5; k++) ctx.fillText(((5 - k) / 5).toFixed(1), padL - 7, padT + ph * k / 5);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (var m = 0; m <= 6; m++) ctx.fillText(String(m * 2), padL + pw * m / 6, baseY + 8);
+
+    var N = Math.max(300, Math.round(w * 0.75));
+    var pts = new Float32Array((N + 1) * 2);
+    for (var n = 0; n <= N; n++) {
+      var xn = n / N;
+      var vn = chromSignal(xn, t);
+      pts[n * 2] = padL + pw * xn;
+      pts[n * 2 + 1] = baseY - Math.min(vn, 1) * ph * 0.94;
+    }
+
+    var grad = ctx.createLinearGradient(0, padT, 0, baseY);
+    grad.addColorStop(0, T.areaTop);
+    grad.addColorStop(0.55, T.areaMid);
+    grad.addColorStop(1, T.areaBot);
+    ctx.beginPath(); ctx.moveTo(pts[0], baseY);
+    for (var a = 0; a < pts.length; a += 2) ctx.lineTo(pts[a], pts[a + 1]);
+    ctx.lineTo(pts[pts.length - 2], baseY); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+
+    ctx.beginPath();
+    for (var b = 0; b < pts.length; b += 2) {
+      if (b === 0) ctx.moveTo(pts[0], pts[1]); else ctx.lineTo(pts[b], pts[b + 1]);
+    }
+    ctx.strokeStyle = T.chromLine; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+    ctx.shadowColor = T.chromGlow; ctx.shadowBlur = 9; ctx.stroke(); ctx.shadowBlur = 0;
+
+    ctx.font = fs + 'px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    for (var q = 0; q < CHROM_PEAKS.length; q++) {
+      var pk = CHROM_PEAKS[q];
+      if (!pk.name) continue;
+      var px = padL + pw * pk.x;
+      var py = baseY - Math.min(pk.h + 0.02, 1) * ph * 0.94;
+      ctx.beginPath(); ctx.arc(px, py, 2.6, 0, Math.PI * 2);
+      ctx.fillStyle = T.peakDot; ctx.shadowColor = T.chromGlow; ctx.shadowBlur = 9;
+      ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = T.peakText; ctx.fillText(pk.name, px, py - 9);
+    }
+  }
+
+  /* ---------- 质谱 ---------- */
+  var MS_BASE = {
+    18:0.14,27:0.09,28:0.21,29:0.11,38:0.07,39:0.25,50:0.13,51:0.29,52:0.15,
+    62:0.09,63:0.12,65:0.19,74:0.17,77:0.42,78:1.00,79:0.11,89:0.15,91:0.78,
+    92:0.21,103:0.11,104:0.14,105:0.29,106:0.33,107:0.10,118:0.08,119:0.10,120:0.13
+  };
+  function msRnd(n) { var x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+  var MS_BARS = [];
+  for (var mz0 = 12; mz0 <= 130; mz0++) {
+    var v0 = MS_BASE[mz0] || 0;
+    if (!v0) v0 = msRnd(mz0) * 0.078 * (1 - (mz0 - 12) / 160);
+    if (v0 > 0.014) MS_BARS.push({ mz: mz0, v: v0 });
+  }
+
+  function drawMS(c, t) {
+    var ctx = c.ctx, w = c.w, h = c.h;
+    ctx.clearRect(0, 0, w, h);
+    var padL = 34, padR = 10, padT = 16, padB = 24;
+    var pw = w - padL - padR, ph = h - padT - padB;
+    var baseY = padT + ph;
+    var MZ_MIN = 10, MZ_MAX = 130;
+    var xOf = function (mz) { return padL + pw * (mz - MZ_MIN) / (MZ_MAX - MZ_MIN); };
+
+    ctx.save(); ctx.lineWidth = 1; ctx.setLineDash([2, 5]); ctx.strokeStyle = T.grid;
+    ctx.beginPath();
+    for (var i = 1; i < 4; i++) { var y = padT + ph * i / 4; ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); }
+    for (var j = 1; j < 5; j++) { var x = padL + pw * j / 5; ctx.moveTo(x, padT); ctx.lineTo(x, baseY); }
+    ctx.stroke(); ctx.restore();
+
+    ctx.strokeStyle = T.axis; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, baseY); ctx.lineTo(w - padR, baseY); ctx.stroke();
+
+    ctx.font = '10px ui-monospace, Menlo, monospace'; ctx.fillStyle = T.tick;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText('100', padL - 6, padT + 5);
+    ctx.fillText('50', padL - 6, padT + ph * 0.5);
+    ctx.fillText('0', padL - 6, baseY - 3);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (var k = 0; k <= 5; k++) {
+      var mzLbl = MZ_MIN + (MZ_MAX - MZ_MIN) * k / 5;
+      ctx.fillText(String(Math.round(mzLbl)), padL + pw * k / 5, baseY + 7);
+    }
+
+    var bw = Math.max(1.6, pw / 145);
+    for (var b = 0; b < MS_BARS.length; b++) {
+      var bar = MS_BARS[b];
+      var flick = 1 + Math.sin(t * 0.0012 + bar.mz * 0.73) * 0.055;
+      var inten = clamp(bar.v * flick, 0, 1);
+      var bx = xOf(bar.mz) - bw / 2;
+      var by = baseY - inten * ph * 0.92;
+      var bh = baseY - by;
+      if (bh < 0.8) continue;
+      if (inten > 0.7) { ctx.fillStyle = T.msHigh; ctx.shadowColor = T.msHighGlow; ctx.shadowBlur = 9; }
+      else if (inten > 0.3) { ctx.fillStyle = T.msMid; ctx.shadowColor = T.msMidGlow; ctx.shadowBlur = 5; }
+      else { ctx.fillStyle = T.msLow; ctx.shadowBlur = 0; }
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.shadowBlur = 0;
+    }
+
+    var bpx = xOf(78), bpy = baseY - 1 * ph * 0.92;
+    ctx.setLineDash([2, 3]); ctx.strokeStyle = T.msLine; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(bpx, bpy - 5); ctx.lineTo(bpx, padT + 2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.font = '10.5px ui-monospace, Menlo, monospace'; ctx.fillStyle = T.msText;
+    ctx.textAlign = bpx > w * 0.7 ? 'right' : 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('m/z 78', bpx + (bpx > w * 0.7 ? -5 : 5), padT + 2);
+  }
+
+  /* ---------- 趋势 ---------- */
+  var TREND = {
+    series: [
+      { name:'苯',   color:'#00e5c0', data:[] },
+      { name:'甲苯', color:'#2ea8ff', data:[] },
+      { name:'TVOC', color:'#ffb020', data:[] }
+    ]
+  };
+  var TREND_N = 60;
+  (function () {
+    TREND.series.forEach(function (s, si) {
+      var v = 6 + si * 2;
+      for (var i = 0; i < TREND_N; i++) {
+        v = clamp(v + (Math.random() - 0.5) * 2.6, 2, 19);
+        s.data.push(v);
+      }
+    });
+  })();
+
+  function updateTrendColors() {
+    var isLight = curTheme === 'light';
+    TREND.series[0].color = isLight ? '#00a88e' : '#00e5c0';
+    TREND.series[1].color = isLight ? '#1d8fe0' : '#2ea8ff';
+    TREND.series[2].color = isLight ? '#d98a00' : '#ffb020';
+  }
+
+  function drawTrend(c) {
+    var ctx = c.ctx, w = c.w, h = c.h;
+    ctx.clearRect(0, 0, w, h);
+    var padL = 46, padR = 16, padT = 38, padB = 30;
+    var pw = w - padL - padR, ph = h - padT - padB;
+    var baseY = padT + ph;
+    var MAXV = 24, N = TREND_N;
+    var xOf = function (i) { return padL + pw * i / (N - 1); };
+    var yOf = function (v) { return baseY - clamp(v / MAXV, 0, 1) * ph; };
+
+    ctx.save(); ctx.lineWidth = 1; ctx.setLineDash([2, 5]); ctx.strokeStyle = T.grid;
+    ctx.beginPath();
+    for (var i = 1; i <= 4; i++) { var y = padT + ph * i / 4; ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); }
+    for (var j = 1; j < 4; j++) { var x = padL + pw * j / 4; ctx.moveTo(x, padT); ctx.lineTo(x, baseY); }
+    ctx.stroke(); ctx.restore();
+
+    ctx.strokeStyle = T.axis; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, baseY); ctx.lineTo(w - padR, baseY); ctx.stroke();
+
+    ctx.font = '10.5px ui-monospace, Menlo, monospace'; ctx.fillStyle = T.tick;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (var k = 0; k <= 4; k++) ctx.fillText(String(MAXV - MAXV * k / 4), padL - 7, padT + ph * k / 4);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    var xl = ['-60','-45','-30','-15','0'];
+    for (var m = 0; m < 5; m++) ctx.fillText(xl[m] + 'min', padL + pw * m / 4, baseY + 8);
+
+    TREND.series.forEach(function (s) {
+      var g = ctx.createLinearGradient(0, padT, 0, baseY);
+      g.addColorStop(0, s.color + '33'); g.addColorStop(1, s.color + '00');
+      ctx.beginPath(); ctx.moveTo(xOf(0), baseY);
+      for (var i = 0; i < N; i++) ctx.lineTo(xOf(i), yOf(s.data[i]));
+      ctx.lineTo(xOf(N - 1), baseY); ctx.closePath();
+      ctx.fillStyle = g; ctx.fill();
+
+      ctx.beginPath();
+      for (var j = 0; j < N; j++) {
+        var px = xOf(j), py = yOf(s.data[j]);
+        if (j === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = s.color; ctx.lineWidth = 1.7; ctx.lineJoin = 'round';
+      ctx.shadowColor = s.color; ctx.shadowBlur = 7; ctx.stroke(); ctx.shadowBlur = 0;
+
+      var lx = xOf(N - 1), ly = yOf(s.data[N - 1]);
+      ctx.beginPath(); ctx.arc(lx, ly, 2.8, 0, Math.PI * 2);
+      ctx.fillStyle = s.color; ctx.shadowColor = s.color; ctx.shadowBlur = 9;
+      ctx.fill(); ctx.shadowBlur = 0;
+    });
+
+    var legX = padL;
+    ctx.font = '11.5px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    TREND.series.forEach(function (s) {
+      ctx.beginPath(); ctx.arc(legX + 4, 18, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = s.color; ctx.shadowColor = s.color; ctx.shadowBlur = 8;
+      ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = T.legend; ctx.fillText(s.name, legX + 13, 19);
+      legX += ctx.measureText(s.name).width + 36;
+    });
+  }
+
+  /* ---------- 渲染循环 ---------- */
+  function loop(now) {
+    for (var i = 0; i < charts.length; i++) {
+      var c = charts[i];
+      if (!c.w || !c.h) continue;
+      if (c.type === 'chrom') drawChrom(c, now);
+      else if (c.type === 'ms') drawMS(c, now);
+      else if (c.type === 'trend') drawTrend(c);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- 主题切换 ---------- */
+  function applyTheme(name) {
+    curTheme = (name === 'light') ? 'light' : 'dark';
+    T = THEME[curTheme];
+    deviceEl.classList.toggle('theme-light', curTheme === 'light');
+    deviceEl.classList.toggle('theme-dark', curTheme === 'dark');
+    updateTrendColors();
+  }
+
+  /* ---------- 视图切换 ---------- */
+  var navBtns = document.querySelectorAll('.nav-btn');
+  var views = document.querySelectorAll('.view');
+
+  function activateView(name) {
+    views.forEach(function (v) {
+      v.classList.toggle('active', v.classList.contains('view-' + name));
+    });
+    navBtns.forEach(function (b) {
+      b.classList.toggle('active', b.dataset.view === name);
+    });
+    requestAnimationFrame(function () {
+      resizeCharts();
+      requestAnimationFrame(resizeCharts);
+    });
+  }
+
+  navBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () { activateView(btn.dataset.view); });
+  });
+
+  /* ---------- 数据刷新 ---------- */
+  var tic = 1.24, cmp = 8, cyc = 63, pre = 62.4, temp = 42.6;
+
+  function refreshMetrics() {
+    tic = clamp(tic + (Math.random() - 0.5) * 0.055, 1.04, 1.48);
+    $('v-tic').innerHTML = tic.toFixed(2) + '<span class="u">×10⁶</span>';
+    $('b-tic').style.width = clamp((tic - 0.9) / 0.7 * 100, 8, 100) + '%';
+
+    if (Math.random() < 0.07) cmp = clamp(cmp + (Math.random() < 0.5 ? -1 : 1), 5, 12);
+    $('v-cmp').innerHTML = cmp + '<span class="u">种</span>';
+    $('b-cmp').style.width = clamp(cmp / 15 * 100, 10, 100) + '%';
+
+    cyc += 0.9; if (cyc > 100) cyc = 2;
+    $('v-cyc').innerHTML = Math.round(cyc) + '<span class="u">%</span>';
+    $('b-cyc').style.width = cyc + '%';
+
+    pre = clamp(pre + (Math.random() - 0.5) * 0.35, 60.5, 64.5);
+    $('v-pre').innerHTML = pre.toFixed(1) + '<span class="u">kPa</span>';
+    $('b-pre').style.width = clamp((pre - 58) / 8 * 100, 10, 100) + '%';
+
+    temp = clamp(temp + (Math.random() - 0.5) * 0.25, 41.8, 43.6);
+    $('s-temp').textContent = temp.toFixed(1);
+
+    document.querySelectorAll('#vocList .voc-row').forEach(function (row) {
+      var bar = row.querySelector('.voc-bar i');
+      var val = row.querySelector('.voc-val');
+      var v = parseFloat(val.dataset.v);
+      v = clamp(v + (Math.random() - 0.5) * 0.45, 1.0, 18);
+      val.dataset.v = v.toFixed(1);
+      val.textContent = v.toFixed(1);
+      bar.style.width = clamp(v / 18 * 100, 8, 100) + '%';
+    });
+  }
+
+  function pushTrend() {
+    TREND.series.forEach(function (s) {
+      var last = s.data[s.data.length - 1] || 8;
+      var v = clamp(last + (Math.random() - 0.5) * 3, 2, 19);
+      s.data.push(v);
+      if (s.data.length > TREND_N) s.data.shift();
+    });
+  }
+
+  /* ---------- 时钟 / 扫描号 ---------- */
+  function tickClock() {
+    var d = new Date();
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    $('clock').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
+  var scanNo = 1042;
+  function tickScan() {
+    scanNo += Math.floor(Math.random() * 3) + 1;
+    if (scanNo > 9999) scanNo = 1;
+    $('msScan').textContent = 'SCAN ' + String(scanNo).padStart(4, '0');
+  }
+
+  /* ---------- 设置项交互 ---------- */
+  document.querySelectorAll('.stepper').forEach(function (st) {
+    var valEl = st.querySelector('.set-val');
+    var min = parseFloat(st.dataset.min);
+    var max = parseFloat(st.dataset.max);
+    var step = parseFloat(st.dataset.step);
+    var unit = st.dataset.unit || '';
+    var v = parseFloat(valEl.dataset.v);
+    function render() {
+      var txt = (step < 1 ? v.toFixed(1) : String(Math.round(v)));
+      valEl.textContent = txt + ' ' + unit;
+      valEl.dataset.v = v;
+    }
+    st.querySelectorAll('.step-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var dir = btn.dataset.dir === 'up' ? 1 : -1;
+        v = clamp(v + dir * step, min, max);
+        render();
+      });
+    });
+  });
+
+  document.querySelectorAll('.toggle').forEach(function (t) {
+    t.addEventListener('click', function () { t.classList.toggle('on'); });
+  });
+
+  document.querySelectorAll('.seg').forEach(function (seg) {
+    seg.querySelectorAll('span').forEach(function (sp) {
+      sp.addEventListener('click', function () {
+        seg.querySelectorAll('span').forEach(function (o) { o.classList.remove('on'); });
+        sp.classList.add('on');
+      });
+    });
+  });
+
+  var themeSeg = $('themeSeg');
+  if (themeSeg) {
+    themeSeg.querySelectorAll('span').forEach(function (sp) {
+      sp.addEventListener('click', function () { applyTheme(sp.dataset.theme); });
+    });
+  }
+
+  /* ---------- 启动 ---------- */
+  updateTrendColors();
+  requestAnimationFrame(function () {
+    resizeCharts();
+    requestAnimationFrame(loop);
+  });
+
+  tickClock();
+  setInterval(tickClock, 1000);
+  setInterval(refreshMetrics, 900);
+  setInterval(tickScan, 1300);
+  setInterval(pushTrend, 3000);
+
+})();
+</script>
+</body>
+</html>

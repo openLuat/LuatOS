@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_mem.h"
+#include "luat_rtos.h"
 #include "luat_httpsrv.h"
 #include "luat_fs.h"
 
@@ -15,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "http_parser.h"
 
@@ -227,7 +229,7 @@ static int luat_client_cb(lua_State* L, void* ptr) {
     lua_geti(L, LUA_REGISTRYINDEX, client->lua_ref_id);
     if (lua_isnil(L, -1)) {
         // 回调函数不存在，需要关闭连接并清理资源
-        tcpip_callback(client_cleanup, NULL);
+        tcpip_callback(client_cleanup, client);
         return 0;
     }
     //lua_settop(L, 0);
@@ -515,8 +517,7 @@ static void srv_stop_cb(void* arg) {
         return;
     }
     if (ctx->pcb) {
-        tcp_recv(ctx->pcb, NULL);
-        tcp_sent(ctx->pcb, NULL);
+        // 监听状态的pcb没有recv/sent回调, 对LISTEN态设置会触发lwip断言, 直接close
         if(tcp_close(ctx->pcb))
         {
             tcp_abort(ctx->pcb);
@@ -535,18 +536,32 @@ static void luat_httpsrv_start_cb(luat_httpsrv_ctx_t* ctx) {
     int ret = 0;
     if (tcp == NULL) {
         HTTPSRV_DBG("out of memory when malloc httpsrv tcp_pcb");
-        return;
+        ctx->start_ret = -1;
+        goto start_done;
     }
     tcp->flags |= SOF_REUSEADDR;
-    ret = tcp_bind(tcp, &ctx->netif->ip_addr, ctx->port);
+    // netif为NULL时绑定0.0.0.0(IP_ADDR_ANY), 接受全部网卡上的连接
+    ret = tcp_bind(tcp, ctx->netif ? &ctx->netif->ip_addr : IP_ADDR_ANY, ctx->port);
     if (ret) {
         LLOGE("httpsrv bind port %d ret %d", ctx->port, ret);
         tcp_close(tcp);
-        return;
+        ctx->start_ret = ret;
+        goto start_done;
     }
-    ctx->pcb = tcp_listen_with_backlog(tcp, 1);
+    ctx->pcb = tcp_listen_with_backlog(tcp, 4);
+    if (ctx->pcb == NULL) {
+        LLOGE("httpsrv listen port %d failed", ctx->port);
+        tcp_close(tcp);
+        ctx->start_ret = -1;
+        goto start_done;
+    }
     tcp_arg(ctx->pcb, ctx);
     tcp_accept(ctx->pcb, srv_accept_cb);
+    ctx->start_ret = 0;
+start_done:
+    if (ctx->start_sem) {
+        luat_rtos_semaphore_release(ctx->start_sem);
+    }
     return;
 }
 
@@ -751,10 +766,22 @@ static int my_on_url(http_parser* parser, const char *at, size_t length) {
 //     return 0;
 // }
 
+// header名大小写不敏感比较, 仅用于识别Content-Length
+static int hdr_key_is_content_length(const char *at, size_t length) {
+    if (length != 14)
+        return 0;
+    const char* cl = "Content-Length";
+    for (size_t i = 0; i < 14; i++) {
+        if (tolower((unsigned char)at[i]) != tolower((unsigned char)cl[i]))
+            return 0;
+    }
+    return 1;
+}
+
 static int my_on_header_field(http_parser* parser, const char *at, size_t length) {
     // LLOGI("on_header_field %.*s", (int)length, at);
     client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
-    if (length == 14 && !memcmp(at, "Content-Length", 14)) {
+    if (hdr_key_is_content_length(at, length)) {
         client->next_header_value_is_content_length = 1;
     }
     else {

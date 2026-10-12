@@ -33,4 +33,4 @@ require "status_provider_app"
 
 -- 加载设置主模块（会通知settings_config_app进行初始化）
 require "settings_app"
-require "fota_app"
+-- require "fota_app"

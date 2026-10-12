@@ -29,14 +29,21 @@ function lowpower.init()
     log.info("lowpower", "低功耗管理模块初始化完成")
 end
 
--- 电池低压截止（没电保护，V004.000.039）
+-- 电池低压截止（没电保护，V004.000.039；多型号自适应，M2 起按 profile 分发动作）
 -- 判定来源：active_mode.battery_monitor_task（未充电且电压≤3200mV 连续2次确认后发布 BATTERY_EMPTY）
--- 动作链路：尽力补发低压状态帧 → YHM2712A 船运模式（电池 FET 断开 ~150nA，SYS 掉电主控关机）
---           → USB 插入充电后芯片自动退出船运恢复供电，重新开机充电。
+-- 动作按板级能力分发（config.BOARD.charger.cutoff.impl）：
+--   "ship_mode" 有 YHM2712A（8202 / 8201H）：船运模式断开电池 FET（~150nA），USB 插入自动开机续充
+--   "shutdown"  无 YHM2712A（8201G）：无船运能力 → 直接 pm.shutdown() 软件关机
+--   "none"      无充电管理能力：仅补发低压状态帧并告警，不执行关机（避免误判变砖）
+-- 三者共同前置：尽力补发一帧低压状态给云平台，保证平台能看到最后一帧电压。
 function lowpower.on_battery_empty(voltage_mv)
-    log.warn("lowpower", "电池没电保护触发，电压:", voltage_mv, "mV，进入船运模式关机（USB插入后自动开机）")
+    local cutoff = (config.BOARD and config.BOARD.charger
+        and config.BOARD.charger.cutoff and config.BOARD.charger.cutoff.impl) or "ship_mode"
+
+    log.warn("lowpower", "电池没电保护触发，电压:", voltage_mv, "mV，动作:", cutoff)
+
     sys.taskInit(function()
-        -- 1) 尽力补发一帧低压状态给云平台（仅 publish 异步，由云通道任务尝试发送，不阻塞本流程）
+        -- 1) 尽力补发一帧低压状态给云平台（异步 publish，不阻塞本流程）
         local okc, create = pcall(require, "create")
         if okc and create and create.send_aircloud then
             pcall(create.send_aircloud, {
@@ -44,22 +51,32 @@ function lowpower.on_battery_empty(voltage_mv)
                 { field_meaning = 1291, data_type = 0, value = 0 },              -- 充电状态 0
             })
         end
+
+        if cutoff == "none" then
+            log.error("lowpower", "本板无充电管理能力，不执行关机（请平台侧按最后电压告警处理）")
+            return
+        end
+
         sys.wait(1200)
 
-        -- 2) YHM2712A 船运模式：断开电池 FET，SYS 失去供电 → 主控关机（仅剩 ~150nA 自耗）
-        local oki, ic = pcall(require, "exs_yhm2712a")
-        local shipped = false
-        if oki and ic and ic.ship_mode then
-            shipped = ic.ship_mode()
-        end
-        if not shipped then
-            log.error("lowpower", "船运模式执行失败（充电IC通信异常？），回退软件关机")
+        -- 2) 有船运能力的板型：先断电池 FET（仅剩 ~150nA 自耗）
+        if cutoff == "ship_mode" then
+            local oki, ic = pcall(require, "exs_yhm2712a")
+            local shipped = false
+            if oki and ic and ic.ship_mode then
+                shipped = ic.ship_mode()
+            end
+            if not shipped then
+                log.error("lowpower", "船运模式执行失败（充电IC通信异常？），回退软件关机")
+            end
         end
 
-        -- 3) 双保险：若船运后系统仍短暂供电，主动关机兜底
+        -- 3) 兜底：若船运未生效（或本板无船运能力），主动软件关机
         sys.wait(500)
         if pm and pm.shutdown then
             pm.shutdown()
+        else
+            log.error("lowpower", "pm.shutdown 不可用，关机失败")
         end
     end)
 end

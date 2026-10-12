@@ -26,7 +26,17 @@ local function normal_task()
     log.info("drv_normal", "进入常规模式任务")
 
     -- 配置最低功耗模式为常规模式
+    -- 功耗档切换记录（已降级 debug：排障需要时调回 log.info 即可对齐时间线）
+    log.debug("drv_normal", "切功耗档 pm.WORK_MODE = 0（全功率）")
     pm.power(pm.WORK_MODE, 0)
+
+    -- 功耗档切换后重登记中断，并幂等重拉板级 I2C 支撑脚（外部上拉源 / 器件供电）。
+    -- 说明：低功耗配置"复位引脚配置"这一副作用**仅对中断注册有实证**；
+    --       输出电平是否丢失未证实（AGPIO 按官方说明可在低功耗保持），此处属保险动作。
+    local ok, gsensor = pcall(require, "gsensor")
+    if ok and gsensor and gsensor._restore_interrupt then
+        gsensor._restore_interrupt()
+    end
     
     log.info("drv_normal", "常规模式配置完成")
 end

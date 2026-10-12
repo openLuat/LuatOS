@@ -121,6 +121,10 @@
 #define LUAT_SUPPORT_OPUS   1
 #define LUAT_SUPPORT_SPEEX 1
 #define LUAT_USE_AUDIO_G711 1
+// LUAT_SUPPORT_G729 不在此定义：由 bsp/pc/xmake.lua 按 luatos-ext-components/g729
+// 目录存在性（或 LUAT_USE_CODEC_G729 环境变量）检测结果注入
+// LUAT_SUPPORT_G722 同理：由 luatos-ext-components/libg722
+// 目录存在性（或 LUAT_USE_CODEC_G722 环境变量）检测结果注入
 #define LUAT_USE_AUDIO_DTMF 1
 #define LUAT_USE_VOIP 1
 #define LUAT_USE_RECORD 1
@@ -197,6 +201,7 @@
 
 // 视频播放器(默认mjpeg播放)
 #define LUAT_USE_VIDEOPLAYER 1
+#define LUAT_USE_HZV 1
 // 视频播放器支持mp4播放
 // 注意: LUAT_USE_MP4PLAYER 由 xmake 动态控制（基于 luatos-ext-components/vedio_player 的存在性）
 // 请勿在此处硬编码，否则会导致编译配置与实际编译状态不一致
@@ -252,6 +257,8 @@
 // UI
 // LCD  是彩屏, 若使用LVGL就必须启用LCD
 #define LUAT_USE_LCD
+// Display 核心库 (新一代显示抽象层)
+#define LUAT_USE_DISPLAY 1
 // hzfont 字体库支持
 #define LUAT_USE_HZFONT 1
 #define LUAT_CONF_USE_HZFONT_BUILTIN_TTF 1

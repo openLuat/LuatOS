@@ -32,14 +32,15 @@ int luat_rtos_event_recv(luat_rtos_task_handle,uint32_t,luat_event_t*,void*,uint
     flags = ['-std=c11', '-Wall', '-Wextra', '-Werror', '-O1', '-I'+str(out), '-I'+str(root/'luat/include')]
     common = root/'components/input'
     callback = root/'luat/weak/luat_usb_hid.c'
-    sources = [common/'tests/usb_hid_test.c', common/'luat_input.c', common/'luat_input_hid.c', common/'luat_input_log.c', callback]
-    for service in (False, True):
+    sources = [common/'tests/usb_hid_test.c', common/'luat_input.c', common/'luat_input_hid.c', common/'luat_input_log.c',
+               common/'luat_input_service.c', common/'luat_input_queue.c', callback]
+    for airui in (False, True):
         extra = ['-DLUAT_USE_INPUT', '-DLUAT_USE_INPUT_HID']
         src = list(sources)
-        if service:
-            extra += ['-DLUAT_USE_INPUT_SERVICE', '-DLUAT_USE_INPUT_QUEUE', '-DLUAT_USE_AIRUI_LUATOS']
-            src += [common/'luat_input_service.c', common/'luat_input_queue.c', root/'components/airui/src/platform/luatos/luat_airui_input_service_luatos.c']
-        exe = out/f'hid_{service}.exe'
+        if airui:
+            extra += ['-DLUAT_USE_AIRUI_LUATOS']
+            src += [root/'components/airui/src/platform/luatos/luat_airui_input_service_luatos.c']
+        exe = out/f'hid_airui_{airui}.exe'
         subprocess.run([cc, *flags, *extra, *map(str, src), '-o', str(exe)], check=True)
         subprocess.run([str(exe)], check=True, timeout=20)
     # Macro-off transport callback links/runs without input, RTOS, heap or logs.
@@ -66,6 +67,6 @@ static void application(luat_usb_hid_host_t *d,luat_usb_hid_event_t e,const uint
 {(void)d;assert(e==LUAT_USB_HID_REPORT && n==1 && *p==42);received++;}
 int main(void){uint8_t p=42;luat_usb_hid_host_t d={0};luat_usb_hid_set_callback(application);luat_usb_hid_host_callback(&d,LUAT_USB_HID_REPORT,&p,1);assert(received==1);return 0;}
 ''')
-    subprocess.run([cc,*flags,'-DLUAT_USE_INPUT_HID',str(override),str(callback),'-o',str(out/'override.exe')],check=True)
+    subprocess.run([cc,*flags,'-DLUAT_USE_INPUT','-DLUAT_USE_INPUT_HID',str(override),str(callback),'-o',str(out/'override.exe')],check=True)
     subprocess.run([str(out/'override.exe')],check=True)
     print('USB HID callback PASS: input disabled and custom application override',flush=True)

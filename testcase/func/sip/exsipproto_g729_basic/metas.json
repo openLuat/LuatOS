@@ -1,0 +1,1 @@
+{"timeout": 30, "action_count": 1, "priority": 5, "description": "exsipproto G.729 SDP 协商测试(编解码表/别名/SDP构造与解析/编解码选择)", "platform": ["pc"]}

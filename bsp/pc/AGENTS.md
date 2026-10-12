@@ -144,6 +144,7 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
   - `net/https_basic`: HTTPS reachability against `https://www.qq.com`
   - `lib/core_basic`, `lib/crypto_basic`, `lib/miniz_basic`, `sys/ndk_basic`
   - `fs/pgfs_basic`: PGFS filesystem replay/FTL/gc selftests (all 17 tests are fully passing)
+  - `fs/romfs_basic`: ROMFS 只读文件系统双模式(指针/read回调)套件
 - Additional PC socket regression:
   - `socket_udp_limit_basic`: verifies `socket.rx(..., limit)` truncates UDP data and discards the unread datagram tail
 - DTLS loopback depends on the PC mbedTLS3 config in `include\mbedtls_config_pc_mbedtls3.h` enabling DTLS server/PSK support

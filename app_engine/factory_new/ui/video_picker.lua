@@ -22,7 +22,7 @@
 
 === 纯函数（无 UI 依赖，可离线断言）===
 video_picker.parent_path(path)   当前目录 -> 上一级；根目录返回 nil
-video_picker.storage_index(path) 当前路径 -> 存储设备序号（1 内置 / 2 SD卡 / 3 Flash）
+video_picker.storage_index(path) 当前路径 -> 存储设备序号（1 内置 / 2 SD卡 / 3 外置存储）
 video_picker.list_items(dir)     目录 -> 可播放文件与子目录清单（已排序）
 
 @usage
@@ -30,6 +30,7 @@ local video_picker = require "video_picker"
 video_picker.open({
     start_path = "/",
     sw = screen_w, sh = screen_h,          -- 弹窗按这个尺寸定位与定大小
+    avoid = { x=, y=, w=, h= },            -- 可选：避让矩形，弹窗不与其相交
     on_pick = function(path) ... end,      -- 用户选中了某个视频文件
 })
 ]]
@@ -53,7 +54,7 @@ end
 M.STORAGE_ITEMS = {
     { text = "内置存储", path = "/" },
     { text = "SD卡",     path = "/sd/" },
-    { text = "Flash",    path = "/little_flash/" },
+    { text = "外置存储", path = "/little_flash/" },
 }
 
 -- 可播放的容器后缀（渲染前先按后缀筛，避免把整目录的图片/音频都列出来）
@@ -64,8 +65,9 @@ local overlay = nil      -- airui.win 实例
 local content_w = 0      -- 弹窗内容宽度（列表行宽按它算，不再依赖页面的 right_w）
 local cur_sw, cur_sh = 480, 854
 local cur_on_pick = nil
+local cur_avoid = nil     -- 避让矩形 {x,y,w,h}（屏幕坐标）
 
---[[由当前路径反查存储设备序号（1 内置 / 2 SD卡 / 3 Flash）
+--[[由当前路径反查存储设备序号（1 内置 / 2 SD卡 / 3 外置存储）
 
 从第 2 项开始比前缀：内置存储的 "/" 是所有路径的前缀，先比它会把一切都判成内置。
 子目录（/sd/xxx/）仍归属同一个设备，所以用前缀匹配而不是全等。]]
@@ -100,31 +102,100 @@ function M.parent_path(path)
     return parent
 end
 
---[[列出一个目录下的子目录与可播放视频（目录在前、各自按名字排序）
+-- 分页读全目录（io.lsdir 单次条数有上限，按 offset 翻页取全）
+local function lsdir_all(dir_path)
+    local files, offset = {}, 0
+    while offset < 1000 do
+        local ok, page = io.lsdir(dir_path, 50, offset)
+        if type(ok) == "table" and page == nil then page = ok; ok = true end
+        if not ok or type(page) ~= "table" or #page == 0 then break end
+        for _, f in ipairs(page) do files[#files + 1] = f end
+        offset = offset + #page
+    end
+    return files
+end
 
-@return table { { name=, is_dir=, path= }, ... }  读取失败时返回空表
-]]
+--[[列出目录下的子目录与可播放视频（目录在前、按名字排序）
+luadb 平铺名按当前目录前缀归位，剩余首段合成子目录；根目录补 luadb 目录项
+@return table items, number 原始条目数]]
 function M.list_items(dir_path)
-    local items = {}
-    local ok, files = io.lsdir(dir_path, 200, 0)
-    if ok and files then
-        for _, f in ipairs(files) do
-            if f.type == 1 then
-                items[#items + 1] = { name = f.name, is_dir = true, path = dir_path .. f.name .. "/" }
-            elseif f.type == 0 then
-                local ext = f.name:match("%.([^%.]+)$")
-                if ext then ext = ext:lower() end
-                if ext and VIDEO_EXTS[ext] then
-                    items[#items + 1] = { name = f.name, is_dir = false, path = dir_path .. f.name }
+    local files = lsdir_all(dir_path)
+    -- 尾斜杠兜底重试
+    if (not files or #files == 0) and #dir_path > 1 and dir_path:sub(-1) == "/" then
+        files = lsdir_all((dir_path:gsub("/+$", "")))
+    end
+
+    -- 平铺名归位：前缀过滤后取剩余首段，有后续段则合成子目录
+    local sub_prefix = ""
+    if dir_path:sub(1, 7) == "/luadb/" then
+        sub_prefix = dir_path:sub(8)
+    end
+
+    local items, seen = {}, {}
+    for _, f in ipairs(files or {}) do
+        local name = (type(f) == "string") and f or f.name
+        local is_dir = (type(f) == "table" and f.type == 1)
+        if name then name = name:gsub("^/+", "") end
+        if name and (sub_prefix ~= "" or name:find("/", 1, true)) then
+            if name:sub(1, #sub_prefix) == sub_prefix then
+                local rest = name:sub(#sub_prefix + 1)
+                if rest:sub(-1) == "/" then
+                    rest = rest:sub(1, -2)
+                    is_dir = true
                 end
+                local seg, more = rest:match("^([^/]+)/?(.*)$")
+                if rest == "" then
+                    name = nil
+                elseif more ~= "" then
+                    is_dir = true
+                    name = seg
+                else
+                    name = rest
+                end
+            else
+                name = nil
+            end
+        end
+        if name and name ~= "" and not seen[name] then
+            seen[name] = true
+            items[#items + 1] = {
+                name = name, is_dir = is_dir,
+                path = dir_path .. name .. (is_dir and "/" or ""),
+            }
+        end
+    end
+
+    -- 根目录补 luadb 目录项（挂载点不进 flash 根的 lsdir）
+    if dir_path == "/" and not seen["luadb"] then
+        items[#items + 1] = { name = "luadb", is_dir = true, path = "/luadb/" }
+    end
+
+    -- 过滤：目录全保留，文件只留可播视频
+    local out = {}
+    for _, it in ipairs(items) do
+        if it.is_dir then
+            it.playable = true
+            out[#out + 1] = it
+        else
+            local ext = it.name:match("%.([^%.]+)$")
+            if ext then ext = ext:lower() end
+            it.playable = (ext ~= nil and VIDEO_EXTS[ext] == true)
+            if it.playable then
+                out[#out + 1] = it
             end
         end
     end
-    table.sort(items, function(a, b)
-        if a.is_dir ~= b.is_dir then return a.is_dir end
+    if #out == 0 then
+        -- 带原始计数便于排查
+        log.warn("video_picker", "无可播内容", dir_path, "raw_n=", files and #files or 0)
+    end
+    table.sort(out, function(a, b)
+        local ra = a.is_dir and 0 or (a.playable and 1 or 2)
+        local rb = b.is_dir and 0 or (b.playable and 1 or 2)
+        if ra ~= rb then return ra < rb end
         return a.name < b.name
     end)
-    return items
+    return out, (files and #files or 0)
 end
 
 function M.close()
@@ -139,7 +210,7 @@ local open_at
 
 local function render(dir_path, scroll_container)
     if not scroll_container then return end
-    local items = M.list_items(dir_path)
+    local items, raw_n = M.list_items(dir_path)
     local d = _G.density_scale or 1.0
     local row_h = math.floor(32 * d)
     local px = math.floor(8 * d)
@@ -151,55 +222,90 @@ local function render(dir_path, scroll_container)
             radius = theme.R.sm, opa = 0,
             on_click = function()
                 if item.is_dir then
-                    -- 进子目录：重建选择器（顺带刷新设备高亮与「返回上一级」）
-                    M.open({ start_path = item.path, sw = cur_sw, sh = cur_sh, on_pick = cur_on_pick })
-                else
+                    M.open({ start_path = item.path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
+                elseif item.playable then
                     M.close()
                     if cur_on_pick then pcall(cur_on_pick, item.path) end
                 end
             end,
         })
-        -- 目录用琥珀、文件用青色：靠颜色区分，不额外占一行说明
+        -- 目录琥珀、视频青色、非视频灰色
         theme.label(row, {
             x = px, y = 0, w = math.floor(18 * d), h = row_h,
             text = ">", px_size = math.floor(13 * d),
-            color = item.is_dir and theme.C.amber or theme.C.cyan,
+            color = item.is_dir and theme.C.amber or (item.playable and theme.C.cyan or theme.C.t3),
             align = airui.TEXT_ALIGN_CENTER,
         })
         theme.label(row, {
             x = px + math.floor(20 * d), y = 0,
             w = list_w - 2 * px - math.floor(24 * d), h = row_h,
             text = item.name, px_size = math.floor(12 * d),
-            color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
+            color = item.playable and theme.C.t1 or theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
         })
         y = y + row_h + math.floor(2 * d)
     end
     if #items == 0 then
         theme.label(scroll_container, {
             x = 0, y = math.floor(20 * d), w = list_w, h = row_h,
-            text = "无视频文件", px_size = math.floor(12 * d),
+            text = (raw_n and raw_n > 0) and ("无视频文件（目录共 " .. raw_n .. " 项）")
+                or "目录为空或读取失败",
+            px_size = math.floor(12 * d),
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
     end
 end
 
+--[[弹窗避让定位：取不与 avoid 相交的最大空闲区居中，空间不足则缩小弹窗
+@return table|nil { x, y, w, h } 无处可放返回 nil]]
+local function place_avoiding(pw, ph, avoid, sw, sh)
+    local m = math.floor(8 * (_G.density_scale or 1.0))
+    local ax0, ay0 = avoid.x, avoid.y
+    local ax1, ay1 = avoid.x + avoid.w, avoid.y + avoid.h
+    local rects = {
+        { x = ax1 + m, y = m, w = sw - m - (ax1 + m), h = sh - 2 * m },   -- 右
+        { x = m, y = m, w = ax0 - m - m, h = sh - 2 * m },                -- 左
+        { x = m, y = ay1 + m, w = sw - 2 * m, h = sh - m - (ay1 + m) },   -- 下
+        { x = m, y = m, w = sw - 2 * m, h = ay0 - m - m },                -- 上
+    }
+    local best, best_area = nil, 0
+    for _, r in ipairs(rects) do
+        if r.w > 0 and r.h > 0 then
+            local area = r.w * r.h
+            if area > best_area then best, best_area = r, area end
+        end
+    end
+    if not best then return nil end
+    local w = math.min(pw, best.w)
+    local h = math.min(ph, best.h)
+    return {
+        x = best.x + math.floor((best.w - w) / 2),
+        y = best.y + math.floor((best.h - h) / 2),
+        w = w, h = h,
+    }
+end
+
 open_at = function(start_path)
     local d = _G.density_scale or 1.0
 
-    -- 弹窗尺寸：宽屏半屏（≤460，保持原观感）；窄屏放宽到 0.72 屏宽，
-    -- 否则 480 宽的面板上弹窗只有 240，文件名几乎看不见
+    -- 弹窗尺寸：宽屏取半屏（≤460），窄屏取 0.72 屏宽
     local picker_w = (cur_sw <= 560) and math.min(math.floor(cur_sw * 0.72), 460)
         or math.min(math.floor(cur_sw * 0.50), 460)
     local picker_h = math.floor(cur_sh * 0.70)
-    content_w = picker_w
     local pad_in = math.floor(12 * d)
 
-    -- 使用 airui.win 创建独立弹窗，不影响底层布局。
-    -- auto_center 走 lv_obj_center，按父对象（当前屏幕）**实时**尺寸居中 ——
-    -- 旋转后的横屏也能正确居中，不需要额外补偿。
+    -- 有避让矩形时定位到空闲区，否则居中
+    local place = cur_avoid and place_avoiding(picker_w, picker_h, cur_avoid, cur_sw, cur_sh)
+    if place then
+        picker_w, picker_h = place.w, place.h
+    end
+    content_w = picker_w
+
+    -- auto_center 居中；避让定位时用显式 x/y
     overlay = airui.win({
         parent = airui.screen, title = "选择视频文件",
-        w = picker_w, h = picker_h, close_btn = true, auto_center = true,
+        x = place and place.x or 0, y = place and place.y or 0,
+        w = picker_w, h = picker_h, close_btn = true,
+        auto_center = (place == nil),
         style = {
             bg_color = theme.C.dialog, header_bg_color = theme.C.dialog,
             content_bg_color = theme.C.dialog,
@@ -234,7 +340,7 @@ open_at = function(start_path)
             pressed_bg = on and theme.C.amber_deep or nil,
             pressed_bg_opa = on and theme.OPA.rail_active or nil,
             on_click = function()
-                M.open({ start_path = q.path, sw = cur_sw, sh = cur_sh, on_pick = cur_on_pick })
+                M.open({ start_path = q.path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
             end,
         })
     end
@@ -258,7 +364,7 @@ open_at = function(start_path)
             fg = theme.C.cyan,
             on_click = function()
                 -- 与进入子目录同款：重建选择器，顺带刷新设备高亮
-                M.open({ start_path = parent_path, sw = cur_sw, sh = cur_sh, on_pick = cur_on_pick })
+                M.open({ start_path = parent_path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
             end,
         })
     end
@@ -279,6 +385,7 @@ end
 @table o
   @string o.start_path 初始目录，默认 "/"
   @number o.sw,o.sh    按哪个逻辑屏尺寸算弹窗大小（旋转后的尺寸由调用方给）
+  @table o.avoid    可选：避让矩形 {x,y,w,h}（如桌面视频区），弹窗不与它相交
   @function o.on_pick  选中文件后的回调，参数为完整路径
 ]]
 function M.open(o)
@@ -287,6 +394,7 @@ function M.open(o)
     cur_sw = o.sw or screen_w or 480
     cur_sh = o.sh or screen_h or 854
     cur_on_pick = o.on_pick
+    cur_avoid = o.avoid
     open_at(o.start_path or "/")
 end
 

@@ -381,7 +381,7 @@ static const rotable_Reg_t reg_videoplayer[] = {
     { "FMT_MJPG",         ROREG_INT(LUAT_VP_FMT_MJPG)},
     //@const FMT_AVI_MJPG number AVI+MJPG视频格式(预留)
     { "FMT_AVI_MJPG",     ROREG_INT(LUAT_VP_FMT_AVI_MJPG)},
-    //@const FMT_MP4_H264 number MP4+H264视频格式(预留)
+    //@const FMT_MP4_H264 number MP4+H264视频格式(不再解码，数值保留避免枚举错位)
     { "FMT_MP4_H264",     ROREG_INT(LUAT_VP_FMT_MP4_H264)},
     //@const FMT_HZV number HZV(MJPEG+音频)容器格式
     { "FMT_HZV",          ROREG_INT(LUAT_VP_FMT_HZV)},

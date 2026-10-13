@@ -46,6 +46,11 @@ local function init_bus()
         return false
     end
     if i2c_cfg.mode == "sw" then
+        -- ⚠️ 关键修复：iRTU default.lua 会把全部 GPIO 初始化为 PULLDOWN 输入，
+        -- 软 I2C 的 SCL/SDA 必须先清除下拉并加上拉，否则 recv 读不到应答返回 -1
+        -- （8780 硬件 I2C1 不受影响；8781/8782 软 I2C 必须做此处理）
+        gpio.setup(i2c_cfg.scl, nil, gpio.PULLUP)
+        gpio.setup(i2c_cfg.sda, nil, gpio.PULLUP)
         bus = i2c.createSoft(i2c_cfg.scl, i2c_cfg.sda, i2c_cfg.delay or 5)
         if not bus then
             log.error("sensor_task", "软件I2C创建失败", "SCL=", i2c_cfg.scl, "SDA=", i2c_cfg.sda)

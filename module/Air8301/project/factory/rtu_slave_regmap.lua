@@ -1,7 +1,7 @@
 --[[
 @module  rtu_slave_regmap
 @summary Modbus RTU/TCP从站寄存器映射表（8301出厂固件）
-@version 1.1
+@version 1.0
 @date    2026.09.24
 @author  江访
 @usage
@@ -53,6 +53,7 @@
 local exmodbus = require("exmodbus")
 local relay_ctrl = require("relay_ctrl")
 
+
 -- Air8301 RS485_1（UART1，隔离口）：方向脚 RE/DE = GPIO2，供电脚 GPIO29（由 board_init 拉高）
 -- 注意：GPIO2 ≤ 128，由 exmodbus 内部（uart.setup 的 pin485）按普通 GPIO 手动方向控制处理
 local rs485_dir_gpio = 2
@@ -96,12 +97,12 @@ local REG_ADDR = {
 -- 从站地址（与继电器主站一致）
 local SLAVE_ID = 1
 
--- 从站配置（RTU从站 / UART1 / 115200-8-N-1 / 方向脚 GPIO2）
+-- 从站配置（RTU从站 / UART1 / 9600-8-N-1 / 方向脚 GPIO2）
 local slave_config = {
     mode = exmodbus.RTU_SLAVE,
     slave_id = SLAVE_ID,
     uart_id = 1,
-    baud_rate = 115200,
+    baud_rate = 9600,
     data_bits = 8,
     stop_bits = 1,
     parity_bits = uart.None,
@@ -112,6 +113,10 @@ local slave_config = {
 
 -- 创建RTU从站实例
 local rtu_slave = exmodbus.create(slave_config)
+
+if rtu_slave then 
+    rtu_slave.concat_timeout = 50 
+end
 
 if not rtu_slave then
     log.info("rtu_slave", "RTU从站创建失败")

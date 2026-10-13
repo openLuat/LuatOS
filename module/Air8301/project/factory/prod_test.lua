@@ -13,7 +13,7 @@ Air8301 基于 Air8000W 主控（4G+WiFi+BLE+SPI屏）：
   2. 同时注册 USB 虚拟串口（uart.VUART_0 115200，# 结尾）指令接口，供上位机自动化测试。
 
 测试项：基础信息 + 校准位(ECNPICFG) + 写号(MODEL/HVERSION) + 232自回环(U232_TEST) +
-  485(1发2收)(U485_TEST) + 网口获取IP(ETH_TEST) + 看门狗(WD_TEST) + 蜂鸣器(BUZZER_TEST) +
+  485(1发2收)(U485_TEST) + 网口获取IP(ETH_TEST) + WiFi扫描(WIFI_TEST) + 看门狗(WD_TEST) + 蜂鸣器(BUZZER_TEST) +
   继电器(DO_TEST) + Flash写读(FLASH_TEST) + RELOAD按键(RELOAD_TEST) + 系统控制。
 
 写号使用 prodmeta 库写入 OTP（key: PROD=工业型号, PCB=硬件版本）；校准位读取用 mobile.ecnpicfg()。
@@ -182,6 +182,17 @@ local function flash_test()
         return "ERROR"
     end
 
+    -- 打通产测 Flash 页面的数据源：
+    -- 产测模式下 flash_app 不参与挂载，页面取不到真实值（挂载状态/芯片容量显示 "--"），
+    -- 故 FLASH_TEST 挂载成功后主动上报真实的挂载状态与芯片容量给页面。
+    -- 注：产测 Flash 页不展示文件系统，故 total_kb / used_kb 固定传 0。
+    local capacity_kb = 0
+    local cap_bytes = lf.getInfo(flash_dev)
+    if cap_bytes then
+        capacity_kb = cap_bytes / 1024
+    end
+    sys.publish("FLASH_MOUNT_STATUS", true, 0, 0, capacity_kb)
+
     local test_file = FLASH_MOUNT_POINT .. "/factory_test.txt"
     local test_data = ""
     for i = 1, 200 do
@@ -286,6 +297,35 @@ local function eth_test(port)
     end
     log.error("ETH_TEST", "Port", port, "获取 IP 超时")
     return "ERROR"
+end
+
+-- ================= WiFi 扫描测试（扫描附近热点，返回热点数量） =================
+local function wifi_test()
+    -- Air8000W 内置 WiFi，wlan 为核心库；扫描前先初始化（已初始化则幂等无害）
+    if not wlan or not wlan.scan or not wlan.scanResult then
+        log.error("WIFI_TEST", "wlan 不可用")
+        return "ERROR"
+    end
+    if wlan.init then
+        pcall(wlan.init)
+    end
+    wlan.scan()
+    -- 扫描是异步 API，启动后马上返回；等 WLAN_SCAN_DONE 消息（最多 10s）
+    if not sys.waitUntil("WLAN_SCAN_DONE", 10000) then
+        log.error("WIFI_TEST", "扫描超时")
+        return "ERROR"
+    end
+    local results = wlan.scanResult()
+    if not results or type(results) ~= "table" then
+        log.error("WIFI_TEST", "扫描结果为空")
+        return "ERROR"
+    end
+    local count = #results
+    for i, v in ipairs(results) do
+        log.info("WIFI_TEST", i, v.ssid, v.rssi)
+    end
+    log.info("WIFI_TEST", "扫描到", count, "个热点")
+    return tostring(count)
 end
 
 -- ================= 指令表 =================
@@ -413,6 +453,11 @@ local procTable = {
         sys.publish("CONTROL", "ETH_TEST", id, port)
         return
     end,
+    ["WIFI_TEST"] = function(id, findCom, data)
+        -- WiFi 扫描测试（返回热点数量），含 sys.wait，走 CONTROL 事件异步
+        sys.publish("CONTROL", "WIFI_TEST", id)
+        return
+    end,
     ["WD_TEST"] = function(id, findCom, data)
         -- Air153D 看门狗测试
         -- WD_TEST#:   触发强制复位（3次快速脉冲，设备约1s内重启），上位机检测重启即 PASS
@@ -443,6 +488,16 @@ local procTable = {
             return "ERROR"
         end
         sys.publish("DO_SET_REQUEST", ch, state)
+        return "OK"
+    end,
+    ["LED"] = function(id, findCom, data)
+        -- 状态灯：LED,1# 4G灯+WiFi灯全亮 / LED,0# 全灭
+        local onoff = tonumber(data)
+        if not onoff or (onoff ~= 0 and onoff ~= 1) then
+            return "ERROR"
+        end
+        sys.publish("LED_SET_REQUEST", 1, onoff)  -- 4G灯
+        sys.publish("LED_SET_REQUEST", 2, onoff)  -- WiFi灯
         return "OK"
     end,
     ["FLASH_TEST"] = function(id, findCom, data)
@@ -496,6 +551,8 @@ sys.taskInit(function()
             send_response(param2, eth_test(param3) .. "#")
         elseif param1 == "FLASH_TEST" then
             send_response(param2, flash_test() .. "#")
+        elseif param1 == "WIFI_TEST" then
+            send_response(param2, wifi_test() .. "#")
         end
     end
 end)

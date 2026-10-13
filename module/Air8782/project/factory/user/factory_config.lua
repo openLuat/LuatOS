@@ -37,16 +37,16 @@ factory_config.sensor_i2c = {
     ["8780"]  = { mode = "hw", hw_id = 1 },                    -- 硬件I2C id=1
     ["8780V"] = { mode = "hw", hw_id = 1 },                    -- 硬件I2C id=1
     ["8780G"] = { mode = "hw", hw_id = 1 },                    -- 硬件I2C id=1
-    ["8781"]  = { mode = "sw", scl = 26, sda = 28, delay = 5 }, -- 软件I2C：GPIO26=SCL、GPIO28=SDA（按实际接线修改）
-    ["8782"]  = { mode = "sw", scl = 27, sda = 21, delay = 5 }, -- 软件I2C：GPIO27=SCL、GPIO21=SDA（按实际接线修改）
+    ["8781"]  = { mode = "sw", scl = 26, sda = 28, delay = 50 }, -- 软件I2C：GPIO26=SCL、GPIO28=SDA（按实际接线修改）
+    ["8782"]  = { mode = "sw", scl = 27, sda = 1, delay = 50 }, -- 软件I2C：GPIO27=SCL、GPIO1=SDA（8782P可用GPIO仅1/27/21，21是WAKEUP4只能输入）
     ["8700"]  = { mode = "disable" },                          -- 仅透传，不采集传感器
 }
 
 -- 传感器采集总开关（false=禁用，sensor_task.get_env 直接返回 nil）
 factory_config.sensor_enable = {
     ["8780"]  = true,
-    ["8780V"] = true,
-    ["8780G"] = true,
+    ["8780V"] = false,  -- 8780V 不采集 I2C 传感器（主打 TTS 播报）
+    ["8780G"] = false,  -- 8780G 不采集 I2C 传感器（主打 GPS 定位上报）
     ["8781"]  = true,
     ["8782"]  = true,
     ["8700"]  = false,  -- 仅透传，不采集
@@ -101,6 +101,18 @@ factory_config.report_cycle = {
     ["8781"]  = 180,
     ["8782"]  = 180,
     ["8700"]  = 180,
+}
+
+-- ==================== iRTU 网络状态灯/网络就绪引脚（兜底） ====================
+-- 仅当预置 irtu.cfg 的 pins 为空时生效（预置 cfg 已配置 netled=17/netready=26，正常走预置值）
+-- 兜底值与预置 cfg 保持一致，避免与软 I2C SCL/SDA 及 LED_PIN 冲突
+factory_config.net_pin = {
+    ["8780"]  = { led = 17, ready = 26 },
+    ["8780V"] = { led = 17, ready = 26 },
+    ["8780G"] = { led = 17, ready = 26 },
+    ["8781"]  = { led = 17, ready = 26 },
+    ["8782"]  = { led = 17, ready = 26 },
+    ["8700"]  = { led = 17, ready = 26 },
 }
 
 -- ==================== 外置硬件看门狗（Air153C/Air153D） ====================
@@ -163,6 +175,11 @@ end
 -- 获取当前版本上报周期
 function factory_config.get_report_cycle()
     return factory_config.report_cycle[factory_config.DEVICE_VER]
+end
+
+-- 获取当前版本网络状态灯/就绪引脚
+function factory_config.get_net_pin()
+    return factory_config.net_pin[factory_config.DEVICE_VER]
 end
 
 -- 获取当前版本外置看门狗配置

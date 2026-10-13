@@ -75,7 +75,7 @@ end
 local function create_ui()
     -- 自适应分辨率（支持旋转）
     local rotation = airui.get_rotation()
-    local phys_w, phys_h = lcd.getSize()
+    local phys_w, phys_h = lcd_drv.get_size()
     if rotation == 0 or rotation == 180 then
         screen_w, screen_h = phys_w, phys_h
     else

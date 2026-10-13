@@ -26,14 +26,15 @@
  * @int config.w 宽度，默认 160
  * @int config.h 高度，默认 120
  * @string config.src 视频路径，必填
- * @string|int config.format 视频格式，可选，支持 "auto"、"mjpg"、"avi_mjpg"、"mp4"、"hzv"；"hzv" 为兼容别名
- * @string|int config.backend 后端类型，可选，支持 "auto"、"videoplayer"、"ffmpeg"、"platform"
- * @string|int config.decode_mode 解码模式，可选，支持 "sw"、"hw"
- * @boolean config.direct_render 是否使用独立硬件图层开窗直推，支持 MJPG / AVI-MJPG / HZV，默认 false
+ * @string|int config.format 视频格式，可选，支持 "auto"、"mjpg"、"avi_mjpg"、"mp4"、"hzv"；
+ * @string|int config.backend 后端类型，可选，支持 "auto"、"videoplayer"、"ffmpeg"、"platform"、"mplayer"。
+ * @string|int config.decode_mode 解码模式，可选，支持 "sw"、"hw"。
+ * @boolean config.direct_render 是否使用独立硬件图层开窗直推，支持 MJPG / AVI-MJPG / HZV，默认 false。
  * @int config.interval 播放间隔，单位毫秒，默认 33；HZV 会优先使用容器帧时长
  * @boolean config.loop 是否循环播放，默认 false
  * @boolean config.auto_play 是否创建后自动播放，默认 true
  * @function config.on_complete 播放结束回调，仅 loop=false 且读到 EOF 时触发，参数为 (self)
+ * @function config.on_click 点击回调，在控件矩形内按下后抬起且未滑动时触发，参数为 (self)。直出模式同样生效。未设置时控件不参与点击。
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Video 对象
  */
@@ -134,6 +135,37 @@ static int l_video_get_stats(lua_State *L)
 }
 
 /**
+ * Video:set_on_click(callback)
+ * @api video:set_on_click(callback)
+ * @function callback 点击回调，在控件矩形内按下后抬起且未滑动时触发，参数为 (self)
+ * @return nil
+ * @usage
+ * video:set_on_click(function(self)
+ *     self:destroy()
+ * end)
+ */
+static int l_video_set_on_click(lua_State *L)
+{
+    lv_obj_t *video = video_check(L);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+
+    lua_pushvalue(L, 2);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    airui_component_meta_t *meta = airui_component_meta_get(video);
+    if (meta != NULL) {
+        if (airui_component_enable_release_select_dispatch(meta) != AIRUI_OK ||
+            airui_component_set_callback_ref(meta, AIRUI_EVENT_CLICKED, ref) != AIRUI_OK) {
+            luaL_unref(L, LUA_REGISTRYINDEX, ref);
+            return luaL_error(L, "failed to enable video click dispatch");
+        }
+    } else {
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+    }
+    return 0;
+}
+
+/**
  * Video:destroy（手动销毁）
  * @api video:destroy()
  * @return nil
@@ -159,6 +191,7 @@ void airui_register_video_meta(lua_State *L)
         {"pause", l_video_pause},
         {"stop", l_video_stop},
         {"get_stats", l_video_get_stats},
+        {"set_on_click", l_video_set_on_click},
         {"destroy", l_video_destroy},
         {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}

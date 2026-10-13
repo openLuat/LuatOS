@@ -84,6 +84,14 @@ typedef struct
 
 static luat_cc_ctrl_t _l_cc;
 static int s_cc_initialized;
+#if defined(LUAT_USE_VOIP_PLAY) && defined(LUAT_USE_CC_PCM_BRIDGE)
+int luat_voip_play_cc_snapshot(luat_voip_play_cc_media_t *media)
+{
+    if (!media) return -1;
+    if (luat_cc_pcm_selected()) return luat_cc_pcm_play_snapshot(media);
+    return LUAT_VOIP_PLAY_E_CC_NOT_READY;
+}
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
 static int l_cc_pcm_unsupported(lua_State *L) {
     lua_pushboolean(L, 0);

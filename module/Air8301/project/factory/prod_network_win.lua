@@ -1,9 +1,11 @@
 --[[
 @module  prod_network_win
 @summary 网络状态页面（产测模式），显示4G信号强度、WiFi状态和以太网1/2状态
-@version 1.0.0
-@date    2026.09.24
-@version_note 产测专属：消息名前缀改 OPEN_PROD_NETWORK_WIN，避免与业务页面冲突
+@version 1.0
+@date    2026.10.08
+@author  江访
+@version_note 产测专属：消息名前缀 OPEN_PROD_NETWORK_WIN，避免与业务页面冲突
+
 @usage
 本页面只读展示三种网络状态：
 1、4G信号强度（等级1~5或"无服务"）
@@ -13,11 +15,19 @@
 WiFi 状态获取：
 - 订阅 STATUS_WIFI_UPDATED(connected, ssid, level, rssi) 实时更新
 - 打开页面时发布 NETWORK_STATUS_QUERY 主动查询一次
+
+视觉：ui_theme 深色玻璃态（4 条键值卡片，统一 48px 行高，语义色表达连接状态）。
 ]]
+
+local theme = require "ui_theme"
 
 local win_id = nil
 local main_container, content
 local signal_label, wifi_label, eth1_label, eth2_label
+
+-- 卡片行高与间距（4 行 x 48 + 3 x 6 = 210，正好铺满内容区）
+local ROW_H   = 48
+local ROW_GAP = 6
 
 --[[
 导航栏返回按钮点击
@@ -40,26 +50,21 @@ end
 local function on_status_signal_updated(level)
     if not exwin.is_active(win_id) then return end
     if not signal_label then return end
-    local text = ""
-    local color = T.COLOR_TEXT
+    local text, color
     if level == nil or level == 0 then
-        text = "无服务"
-        color = T.COLOR_DANGER
+        text, color = "无服务", theme.SEM.danger
     elseif level == 1 then
-        text = "信号：1级（微弱）"
-        color = T.COLOR_DANGER
+        text, color = "信号：1级（微弱）", theme.SEM.danger
     elseif level == 2 then
-        text = "信号：2级（较差）"
-        color = T.COLOR_ORANGE
+        text, color = "信号：2级（较差）", theme.SEM.warning
     elseif level == 3 then
-        text = "信号：3级（一般）"
-        color = T.COLOR_ORANGE
+        text, color = "信号：3级（一般）", theme.SEM.warning
     elseif level == 4 then
-        text = "信号：4级（良好）"
-        color = T.COLOR_GREEN
+        text, color = "信号：4级（良好）", theme.SEM.success
     elseif level == 5 then
-        text = "信号：5级（极强）"
-        color = T.COLOR_GREEN
+        text, color = "信号：5级（极强）", theme.SEM.success
+    else
+        text, color = "--", theme.C.t1
     end
     signal_label:set_text(text)
     signal_label:set_color(color)
@@ -74,17 +79,15 @@ end
 local function on_status_wifi_updated(connected, ssid, level, rssi)
     if not exwin.is_active(win_id) then return end
     if not wifi_label then return end
-    local text = ""
-    local color = T.COLOR_TEXT
+    local text, color
     if connected then
-        text = "已连接  " .. tostring(ssid or "")
+        text = "已连接 " .. tostring(ssid or "") .. theme.CHAR.sep
         if rssi and rssi ~= 0 then
-            text = text .. "  " .. tostring(rssi) .. "dBm"
+            text = text .. " " .. tostring(rssi) .. "dBm"
         end
-        color = T.COLOR_GREEN
+        color = theme.SEM.success
     else
-        text = "未连接"
-        color = T.COLOR_DANGER
+        text, color = "未连接", theme.SEM.danger
     end
     wifi_label:set_text(text)
     wifi_label:set_color(color)
@@ -99,11 +102,11 @@ end
 local function update_eth1(eth1_state, eth1_ip)
     if not eth1_label then return end
     if eth1_state and eth1_state > 0 then
-        eth1_label:set_text("已连接  " .. (eth1_ip or ""))
-        eth1_label:set_color(T.COLOR_GREEN)
+        eth1_label:set_text("已连接 " .. theme.CHAR.sep .. " " .. (eth1_ip or ""))
+        eth1_label:set_color(theme.SEM.success)
     else
         eth1_label:set_text("未连接")
-        eth1_label:set_color(T.COLOR_DANGER)
+        eth1_label:set_color(theme.SEM.danger)
     end
 end
 
@@ -116,11 +119,11 @@ end
 local function update_eth2(eth2_state, eth2_ip)
     if not eth2_label then return end
     if eth2_state and eth2_state > 0 then
-        eth2_label:set_text("已连接  " .. (eth2_ip or ""))
-        eth2_label:set_color(T.COLOR_GREEN)
+        eth2_label:set_text("已连接 " .. theme.CHAR.sep .. " " .. (eth2_ip or ""))
+        eth2_label:set_color(theme.SEM.success)
     else
         eth2_label:set_text("未连接")
-        eth2_label:set_color(T.COLOR_DANGER)
+        eth2_label:set_color(theme.SEM.danger)
     end
 end
 
@@ -143,33 +146,30 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
+    local ctx = theme.page({ title = "网络状态", on_back = on_back_click })
+    main_container = ctx.base
+    content = ctx.base
 
-    -- 顶部标题栏
-    T.titlebar(main_container, "网络状态", on_back_click)
+    local y = ctx.y
 
-    -- 内容区域
-    content = airui.container({
-        parent = main_container,
-        x = 0, y = T.CONTENT_Y, w = T.SCREEN_W, h = T.CONTENT_H,
-        color = T.COLOR_BG
-    })
+    local _, l1 = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label = "4G信号", value = "获取中..." })
+    signal_label = l1
+    y = y + ROW_H + ROW_GAP
 
-    -- 4G信号卡片
-    local _, _, signal_content = T.info_card(content, 50, 50, "4G信号", "获取中...")
-    signal_label = signal_content
+    local _, l2 = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label = "WiFi", value = "未连接" })
+    wifi_label = l2
+    y = y + ROW_H + ROW_GAP
 
-    -- WiFi状态卡片
-    local _, _, wifi_content = T.info_card(content, 66, 50, "WiFi", "未连接")
-    wifi_label = wifi_content
+    local _, l3 = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label = "以太网1", value = "获取中..." })
+    eth1_label = l3
+    y = y + ROW_H + ROW_GAP
 
-    -- 以太网1状态卡片
-    local _, _, eth1_content = T.info_card(content, 124, 42, "以太网1", "获取中...")
-    eth1_label = eth1_content
-
-    -- 以太网2状态卡片
-    local _, _, eth2_content = T.info_card(content, 172, 42, "以太网2", "获取中...")
-    eth2_label = eth2_content
+    local _, l4 = theme.kv_row(ctx.base, {
+        x = ctx.x, y = y, w = ctx.w, h = ROW_H, label = "以太网2", value = "获取中..." })
+    eth2_label = l4
 end
 
 --[[
@@ -237,6 +237,12 @@ OPEN_PROD_NETWORK_WIN 消息处理器
 @function open_handler
 ]]
 local function open_handler()
+    -- 单实例保护：避免同页多实例并存时互相覆盖 win_id（会使点击准入判定失效）
+    if win_id and exwin.is_active(win_id) then return end
+    if win_id then
+        exwin.close(win_id)
+        win_id = nil
+    end
     win_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,

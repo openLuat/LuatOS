@@ -1,8 +1,8 @@
 --[[
 @module  video_util
 @summary 媒体素材工具（容器格式嗅探 / 帧尺寸读取 / HZV 音轨初始化 / 播放器创建）—— 播放类页面共用
-@version 1.2
-@date    2026.09.23
+@version 1.6
+@date    2026.10.10
 @author  江访
 
 === 为什么单独成模块 ===
@@ -15,29 +15,25 @@ idle_win（桌面播放器）与 video_win（全屏播放页）都要读素材�
 
 （welcome_win 里还有一份历史副本。开机路径没跟着迁移，改这里时别以为全工程都干净了。）
 
+=== MP4 / HZV / MJPG 统一走 airui.video（2026-10-09 起）===
+airui.video 已支持 HZV 与 MP4：MJPG / HZV 走 videoplayer 后端（控件内拉 RGB565 帧），
+MP4 按 format 自动路由到 mplayer 后端（自带音频通路、硬件图层送显、组件内部
+循环重播与 EOS 回调 on_complete）。桌面播放器（idle_win）与全屏播放页
+（video_win）三种格式的播放全部收口到 create_player 一个入口。
+MP4 的两个会话副作用（功放使能、触摸总线守护）也在这里收口，见「MP4 会话副作用」。
+
 @api video_util.guess_format(path)              容器格式："hzv" | "mjpg" | "mp4"
 @api video_util.read_dimensions(path)           w, h；读不到返回 nil
 @api video_util.frame_size(path, def_w, def_h)  w, h；读不到时用调用方给的兜底值
-@api video_util.audio_ensure()                  幂等初始化 HZV 音轨（Audio V2），返回是否可用；
-                                                已就绪时 RESUME 并重新对齐 ac.play_vol 音量
-@api video_util.mp4_available()                 固件是否带 mplayer（MP4 硬解）
-@api video_util.fit_rect(x, y, aw, ah, w, h)    等比缩放并居中摆放的画面矩形 x, y, w, h
-@api video_util.create_player(path, o)          按格式创建播放器：
-                                                HZV/MJPG → airui.video，MP4 → mplayer 硬解
+@api video_util.audio_ensure()                  幂等初始化配套音频框架（MJPG 的同名 MP3 用，
+                                                HZV 不走 exaudio），返回是否可用
+@api video_util.create_player(path, o)          按格式创建**嵌入式**播放器（airui.video，
+                                                HZV/MJPG/MP4 统一；o.on_complete=单次播完回调）
+@api video_util.tp_bus_restore()                恢复触摸 I2C 总线配置（音频通路会重置总线）
 ]]
 
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
-
---[[mplayer（MP4 硬解）是固件内置 rotable 库，直接取全局；
-取不到再走 require 兜底（个别固件只注册包不挂全局）。
-没有 mplayer 的固件（如部分 Air1602）上 mp4_available() 返回 false，
-MP4 会走「无法播放该文件」空态，而不是像以前那样被误当 MJPG 白解一通。]]
-local mplayer = rawget(_G, "mplayer")
--- if mplayer == nil then
---     -- local ok_mp, mp = pcall(require, "mplayer")
---     if ok_mp then mplayer = mp end
--- end
 
 local M = {}
 
@@ -64,11 +60,90 @@ function M.guess_format(path)
     return "mjpg"
 end
 
+--[[MP4 容器盒解析拿编码宽高（纯 Lua，不碰解码器）
+
+只为读两个整数就 open 解码器太重（会初始化 FFmpeg / 硬解并喂 SPS/PPS），
+纯 Lua 解析 moov 盒足够：优先 stsd 里 avc1/hev1/hvc1/mp4v 的
+VisualSampleEntry 宽高（载荷偏移 +24/+26），找不到再用 tkhd 尾部 16.16
+定点显示宽高兜底。moov 超 2MB 放弃（正常素材远小于此）。
+盒结构：[size(4) type(4) payload...]，size==1 时 64 位盒长跟在头后。]]
+local function mp4_box_dimensions(path)
+    local f = io.open(path, "rb")
+    if not f then return nil end
+
+    local function be32(s, o)
+        local a, b, c, d = s:byte(o, o + 3)
+        return a * 16777216 + b * 65536 + c * 256 + d
+    end
+    local function be16(s, o)
+        local a, b = s:byte(o, o + 1)
+        return a * 256 + b
+    end
+
+    -- 顶层盒遍历找 moov（只读盒头跳过 mdat 等大盒，不整文件读入）
+    local moov = nil
+    local fsize = io.fileSize(path) or 0
+    local pos = 0
+    while pos + 8 <= fsize do
+        f:seek("set", pos)
+        local hdr = f:read(8)
+        if not hdr or #hdr < 8 then break end
+        local size = be32(hdr, 1)
+        if size == 1 then
+            local ext = f:read(8)
+            if not ext or #ext < 8 then break end
+            size = be32(ext, 1) * 4294967296 + be32(ext, 5)
+        elseif size == 0 then
+            size = fsize - pos
+        end
+        if size < 8 then break end
+        if hdr:sub(5, 8) == "moov" then
+            local msize = size - 8
+            if msize > 2 * 1024 * 1024 then break end
+            f:seek("set", pos + 8)
+            moov = f:read(msize)
+            break
+        end
+        pos = pos + size
+    end
+    f:close()
+    if not moov or #moov < 32 then return nil end
+
+    -- VisualSampleEntry：SampleEntry 头 8 字节 + 预留 16 字节后是 width/height
+    for _, tag in ipairs({ "avc1", "hvc1", "hev1", "mp4v" }) do
+        local i = moov:find(tag, 1, true)
+        while i do
+            local p = i + 4
+            if p + 27 <= #moov then
+                local w, h = be16(moov, p + 24), be16(moov, p + 26)
+                if w >= 16 and w <= 8192 and h >= 16 and h <= 8192 then return w, h end
+            end
+            i = moov:find(tag, i + 1, true)
+        end
+    end
+
+    -- tkhd 兜底：显示宽高是 16.16 定点在载荷尾部（v0 载荷 84 字节宽偏移 76，v1 为 96/88）
+    local i = moov:find("tkhd", 1, true)
+    while i do
+        local p = i + 4
+        if p + 4 <= #moov then
+            local woff = (moov:byte(p) == 1) and 88 or 76
+            if p + woff + 8 <= #moov then
+                local w = math.floor(be32(moov, p + woff) / 65536)
+                local h = math.floor(be32(moov, p + woff + 4) / 65536)
+                if w >= 16 and w <= 8192 and h >= 16 and h <= 8192 then return w, h end
+            end
+        end
+        i = moov:find("tkhd", i + 1, true)
+    end
+    return nil
+end
+
 --[[读媒体容器头拿回 (width, height)
 
 HZV v1: 前 4 字节为 "HZV1"，0x44 / 0x46 处各一个 uint16 宽、高
         （Lua 下标从 1 起，所以是 byte(69)/byte(70) 与 byte(71)/byte(72)）
-MP4 :   借 mplayer 解析一次拿宽高（box 结构在 Lua 里逐层解析不划算）
+MP4 :   纯 Lua 解析容器盒拿宽高（见 mp4_box_dimensions，不碰解码器）
 其它  : 按 MJPG/JPEG 扫 SOF0/SOF2 标记
 
 @return width, height 或 nil（调用方必须给兜底值）]]
@@ -86,21 +161,9 @@ function M.read_dimensions(path)
         return nil
     end
 
-    -- MP4（魔数 = 偏移 4 处的 "ftyp" box）：mplayer.open 只解析容器头，
-    -- 解码线程要到 play 才起，这里开一次拿 info 就关掉，开销很小
+    -- MP4（魔数 = 偏移 4 处的 "ftyp" box）：纯 Lua 解析容器盒，不碰 H.264 解码器
     if data:sub(5, 8) == "ftyp" then
-        if M.mp4_available() then
-            local p = mplayer.open(path)
-            if p then
-                local info = mplayer.info(p)
-                mplayer.close(p)
-                if info and info.width and info.width > 0
-                    and info.height and info.height > 0 then
-                    return info.width, info.height
-                end
-            end
-        end
-        return nil
+        return mp4_box_dimensions(path)
     end
 
     -- 扫描 SOI (FF D8) 之后的标记，找 SOF0 (FF C0) / SOF2 (FF C2)
@@ -144,11 +207,15 @@ function M.frame_size(path, def_w, def_h)
     return def_w, def_h
 end
 
---[[HZV 音轨初始化（幂等）
+--[[配套音频框架初始化（幂等，MJPG 的同名 MP3 用）
 
-HZV 的音轨由 Audio V2 播放，视频时钟跟随 DAC DMA sample counter ——
-音频框架没起来时既不响、也不会走帧。所以创建 HZV 播放器前必须先确保一次；
-首次真 setup，之后只 RESUME。失败不阻断画面创建（只是没声音、可能不走帧）。
+首次真 setup，之后只 RESUME 并重新对齐 ac.play_vol（设置页「亮度和声音」会改
+ac.play_vol，回到播放路径时对齐一次）。失败不阻断画面创建（只是没声音）。
+
+HZV **不走这里**：它的音轨由 videoplayer 自己调用 luat_audio_request_play_stream，
+测试工程不碰 exaudio 一切正常；而 exaudio.setup 的 DAC 收尾会 audio_v2.shutdown
+关掉 codec 和功放 —— MP4 的 mplayer 刚把上一路请求标成结束、音频任务还没释放完，
+紧接着 shutdown 会让下一次 play_stream 没声音（真机踩过：MP4→HZV 切换后静音）。
 
 用全局标志 _G.__hzv_audio_ready 记账：桌面播放器与全屏播放页共用同一套音频框架，
 各自 setup 一次会互相打断，标志位必须跨模块共享。]]
@@ -177,6 +244,17 @@ function M.audio_ensure()
         return true
     end
     log.warn("video_util", "exaudio.setup 失败，音轨与播放时钟可能不可用")
+    return false
+end
+
+-- ==================== 触摸总线守护 ====================
+--[[恢复触摸 I2C 总线配置（音频通路会重置总线）
+@return boolean 是否有可恢复的触摸驱动]]
+function M.tp_bus_restore()
+    if _G.tp_drv and _G.tp_drv.i2c_restore then
+        pcall(_G.tp_drv.i2c_restore)
+        return true
+    end
     return false
 end
 
@@ -265,252 +343,167 @@ function M.audio_toggle(should_loop)
     end
 end
 
--- ==================== MP4（mplayer 硬解，参考 mp4_test） ====================
---[[MP4 与 HZV/MJPG 的播放链路完全不同：
+-- ==================== MP4 会话副作用（功放 / 触摸总线守护） ====================
+--[[mplayer 的音频通路启动时会把触摸 I2C 总线配置重置（真机踩过：GT911 读超时、
+触摸失灵），功放引脚也要手动使能（mplayer 自己不拉 PA）。airui.video 的 MP4
+后端内部同样走 mplayer，这两个副作用原样存在 —— 在创建/销毁播放器时统一收口
+（见 wrap_mp4_player）；跨格式切换丢功放由 pa_reassert 补（见 create_player）。
 
-HZV/MJPG → airui.video（lv_image 逐帧刷新，不支持缩放）；
-MP4      → mplayer 硬解：解码线程把 H.264 帧（YUV→RGB565）挂到 LCDC 视频层
-           （layer 1）直接扫描显示，音轨由 C 层同步，Lua 不碰帧数据。
+触摸总线恢复是事件驱动的：重置只发生在音频通路启动（起播 / 续播 / 循环重播 /
+异步初始化），每个事件点恢复一次再补两发延迟恢复即覆盖全程，不做周期泵
+（500ms 守护泵会在整个会话期无条件 i2c.setup，一直刷 i2c change_br 日志）。
+组件内部循环重播走不到包装层 play，故 MP4 的 loop 改为应用层续播
+（EOF 回调里 play() 从头重播，见 create_player），每轮重播都精确恢复一次。
+exaudio 路径的 I2C 守护在 boot_ui.guard_audio_init（setup 仅首次 + 入口恢复）。
 
-两条链路的差异收在 create_player 一个入口后面，播放页面只面对统一的
-:play/:pause/:stop/:destroy 接口。关键差异与对策：
+MP4 分辨率上限 480×320：mplayer 的 RGB 帧缓冲是静态数组，超限直接溢出
+（mp4 时代的真机教训），起播前用纯 Lua 盒解析读宽高拦截。]]
+local MP4_MAX_W = 480
+local MP4_MAX_H = 320
 
-1. 画面坐标：视频层叠在 LVGL UI **之上**，矩形必须避开控制栏，否则按钮被
-   画面盖住（点得到但看不见）；且 set_rect 收的是**面板物理坐标**，airui
-   运行时旋转（set_rotation 只转显示不动面板）要按 lv_display_rotate_area
-   的口径换算（见 to_panel_rect）。
-2. 缩放语义：airui 路径「不支持缩放、大素材裁切」；视频层没有裁切容器，
-   大素材不缩就会盖住控制栏，所以 MP4 一律用 fit_rect 等比收进可用区。
-3. 循环：mplayer 没有 loop 参数，靠轮询 is_playing、EOS 后重开实现。
-4. set_rect 在部分固件的 Lua 绑定里还没有（LuatOS 主干 binding 只有
-   open/close/play/pause/resume/stop/is_playing/is_paused/info），
-   取不到时不报错，按 C 层默认全屏居中播放。]]
-
---- 固件是否带 mplayer（MP4 硬解）；没有则 MP4 走「无法播放」空态
-function M.mp4_available()
-    return mplayer ~= nil and type(mplayer.open) == "function"
-end
-
---[[打开功放（不初始化音频框架）
-
-mplayer 自管音轨，不需要 exaudio.setup；但功放使能脚是板级的，固件不会
-替你拉（参考 mp4_test 里手拉 AUDIOPA_EN）。参数取 project_config.hw.audio。]]
-local function pa_enable()
+-- PA 功放使能/关闭（引脚与电平读板级 hw.audio）
+local function pa_set(on)
     local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
-    if not ac or not ac.pa_ctrl then return end
-    pcall(gpio.setup, ac.pa_ctrl, ac.pa_on_level or 0)
+    if not (ac and ac.pa_ctrl) then return end
+    if on then
+        pcall(gpio.setup, ac.pa_ctrl, ac.pa_on_level or 0)
+    else
+        pcall(gpio.setup, ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
+    end
 end
 
---[[把 w×h 的画面等比收进 (aw × ah) 并居中，返回 x, y, w, h
+-- 功放补枪的世代号：会话收尾后作废尚未触发的补枪
+local pa_gen = 0
 
-放得下时保持原尺寸居中 —— 与 airui「不支持缩放」路径的摆放结果一致；
-放不下时等比缩小（视频层叠在 UI 之上，超出可用区就会盖住控制栏）。]]
-function M.fit_rect(ax, ay, aw, ah, w, h)
-    if not (w and h and w > 0 and h > 0) then return ax, ay, aw, ah end
-    local rw, rh = w, h
-    if rw > aw then
-        rh = math.floor(h * aw / w)
-        rw = aw
-    end
-    if rh > ah then
-        rw = math.floor(w * ah / h)
-        rh = ah
-    end
-    return ax + math.floor((aw - rw) / 2), ay + math.floor((ah - rh) / 2), rw, rh
+-- MP4 销毁会把功放拉高；HZV 的 exaudio.setup 收尾也会 shutdown 关掉功放。
+-- 切到 HZV/MJPG 后必须再打开，并在音频任务异步收尾之后补一次。
+local function pa_reassert()
+    pa_gen = pa_gen + 1
+    local gen = pa_gen
+    pa_set(true)
+    sys.timerStart(function()
+        if gen == pa_gen then pa_set(true) end
+    end, 200)
 end
 
---[[逻辑屏矩形 -> 面板物理矩形（airui 运行时旋转补偿）
+-- 事件点延迟恢复的句柄（重新布防/收尾时先停旧的）
+local settle_t = { nil, nil }
 
-mplayer 的视频层挂在 LCDC 上，坐标永远是面板物理坐标；播放页布局却按
-airui 旋转后的逻辑屏算。换算口径直接照抄 LVGL 的 lv_display_rotate_area
-（lvgl9/src/display/lv_display.c）—— 那是所有 UI 控件坐标落面板的唯一权威
-实现。rot=0 时是恒等变换（横屏机型永远走这条路，未做换算实测的只有
-竖屏机型的 90/270 分支）。]]
-local function to_panel_rect(x, y, w, h)
-    local rot = 0
-    if airui.get_rotation then
-        local ok, r = pcall(airui.get_rotation)
-        if ok and type(r) == "number" then rot = r % 360 end
+--[[触摸总线恢复：立即一次 + 400/1500ms 各补一发。
+补枪覆盖音频通路的异步初始化（解码线程里才起音频，实测会把 Lua 调度卡住约 1s）。]]
+local function tp_bus_settle()
+    M.tp_bus_restore()
+    local delays = { 400, 1500 }
+    for i = 1, 2 do
+        if settle_t[i] then
+            sys.timerStop(settle_t[i])
+            settle_t[i] = nil
+        end
+        settle_t[i] = sys.timerStart(function() M.tp_bus_restore() end, delays[i])
     end
-    if rot == 0 then return x, y, w, h end
-
-    -- 面板物理尺寸（不受旋转影响）；取不到时按工厂默认竖屏兜底
-    local pw, ph = 480, 854
-    if display and display.getSize then
-        local ok, dw, dh = pcall(display.getSize)
-        if ok and dw and dh and dw > 0 and dh > 0 then pw, ph = dw, dh end
-    end
-
-    if rot == 90 then
-        return y, ph - x - w, h, w
-    elseif rot == 180 then
-        return pw - x - w, ph - y - h, w, h
-    elseif rot == 270 then
-        return pw - y - h, x, h, w
-    end
-    return x, y, w, h
 end
 
---[[创建 MP4 播放器（mplayer 硬解），返回与 airui.video 同用法的对象
+-- 停掉未触发的延迟恢复（会话收尾）
+local function tp_bus_settle_cancel()
+    for i = 1, 2 do
+        if settle_t[i] then
+            sys.timerStop(settle_t[i])
+            settle_t[i] = nil
+        end
+    end
+end
 
-接口对齐播放页面现有的调用方式（全部经 pcall 以 : 方式调用）：
-  obj:play()    起播；暂停后续播走 resume；停止/EOS 后重播会重开
-  obj:pause()   暂停
-  obj:stop()    停止（回收解码线程，保留句柄）
-  obj:destroy() 彻底关闭（stop + close，幂等）
+local function mp4_session_begin()
+    pa_set(true)
+end
 
-@param path string  mp4 文件路径
-@param rect table|nil { x, y, w, h } 画面矩形（逻辑屏坐标，内部换算面板坐标）
-@param loop boolean 播完是否重播（轮询 EOS 后重开实现）
-@return table|nil 起播成功返回对象，失败返回 nil
-]]
-local function mp4_player(path, rect, loop)
-    local h = {
-        path = path,
-        rect = rect,
-        loop = loop and true or false,
-        player = nil,
-        state = nil,    -- nil | "playing" | "paused" | "eos" | "stopped"
-        watch = nil,
-        closed = false,
+local function mp4_session_end()
+    tp_bus_settle_cancel()
+    pa_gen = pa_gen + 1   -- 作废尚未触发的 pa_reassert 补枪，防止收尾后功放被重新打开
+    pa_set(false)
+    M.tp_bus_restore()
+end
+
+--[[包装 MP4 播放器：音频通路启动相关的事件点恢复触摸总线，destroy 时统一收尾
+
+接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
+paused 字段记录用户暂停状态（应用层循环续播据此跳过，见 create_player）；
+HZV/MJPG 不涉及这些副作用，create_player 仍返回裸对象。]]
+local function wrap_mp4_player(v)
+    return {
+        paused = false,
+        play = function(self, ...)
+            local r = v:play(...)
+            self.paused = false
+            -- 续播/循环重播会重启音频通路，再次重置总线
+            tp_bus_settle()
+            return r
+        end,
+        pause = function(self, ...)
+            local r = v:pause(...)
+            self.paused = true
+            M.tp_bus_restore()
+            return r
+        end,
+        stop = function(self, ...)
+            local r = v:stop(...)
+            self.paused = true
+            M.tp_bus_restore()
+            return r
+        end,
+        destroy = function(_)
+            pcall(function() v:destroy() end)
+            mp4_session_end()
+        end,
     }
-
-    local function stop_watch()
-        if h.watch then sys.timerStop(h.watch); h.watch = nil end
-    end
-
-    --[[EOS 轮询（200ms）
-
-    mplayer 没有播完回调也没有 loop 参数，is_playing 在 EOS 时翻 false
-    （参考 mp4_test 的收尾逻辑）。循环开着就重开，否则记账收尾。]]
-    local function start_watch()
-        if h.watch then return end
-        h.watch = sys.timerLoopStart(function()
-            if h.closed or h.state ~= "playing" or not h.player then return end
-            if mplayer.is_playing(h.player) then return end
-            if h.loop then
-                h:restart()
-            else
-                h.state = "eos"
-            end
-        end, 200)
-    end
-
-    local function apply_rect()
-        if not (mplayer.set_rect and h.player) then return end
-        if h.rect then
-            local x, y, w, hh = to_panel_rect(h.rect.x, h.rect.y, h.rect.w, h.rect.h)
-            --[[多传参兼容两种绑定：set_rect 若只收 (player, x, y)，多余实参被
-            Lua C 绑定忽略；若收 (player, x, y, w, h) 则四元全用上。与 mp4_test
-            的 set_rect(player, -1, -1) 同语义，只是把「全屏居中」换成指定矩形。]]
-            pcall(mplayer.set_rect, h.player, x, y, w, hh)
-        else
-            pcall(mplayer.set_rect, h.player, -1, -1)
-        end
-    end
-
-    --- 重开并起播：停止/EOS 后解码线程已回收，重开最稳（不赌 play 能续）
-    function h:restart()
-        if self.closed then return false end
-        stop_watch()
-        if self.player then
-            pcall(mplayer.stop, self.player)
-            pcall(mplayer.close, self.player)
-            self.player = nil
-        end
-        self.state = nil
-        self.player = mplayer.open(self.path)
-        if not self.player then return false end
-        apply_rect()
-        local ok = mplayer.play(self.player)
-        self.state = ok and "playing" or nil
-        if ok then start_watch() end
-        return ok and true or false
-    end
-
-    function h:play()
-        if self.closed then return false end
-        if self.state == "paused" and self.player then
-            local ok = mplayer.resume(self.player)
-            if ok then
-                self.state = "playing"
-                start_watch()
-            end
-            return ok and true or false
-        end
-        if self.state == "playing" and self.player and mplayer.is_playing(self.player) then
-            return true
-        end
-        return self:restart()
-    end
-
-    function h:pause()
-        if self.closed or not self.player then return false end
-        if self.state ~= "playing" then return true end
-        local ok = mplayer.pause(self.player)
-        if ok then self.state = "paused" end
-        return ok and true or false
-    end
-
-    function h:stop()
-        stop_watch()
-        if self.player then pcall(mplayer.stop, self.player) end
-        self.state = "stopped"
-        return true
-    end
-
-    function h:destroy()
-        if self.closed then return end
-        self.closed = true
-        stop_watch()
-        if self.player then
-            pcall(mplayer.stop, self.player)
-            pcall(mplayer.close, self.player)
-            self.player = nil
-        end
-    end
-
-    if not h:restart() then
-        h:destroy()
-        return nil
-    end
-    return h
 end
 
---[[按素材格式创建播放器（唯一入口）
+-- ==================== 播放器创建 ====================
+--[[按素材格式创建**嵌入式**播放器（唯一入口）
 
-HZV/MJPG → airui.video（父容器内的 lv_image 控件）；
-MP4      → mplayer 硬解（面板视频层，矩形避开 UI）。
-两个播放页面（桌面播放器 / 全屏播放页）都走这里，格式分派与差异处理
-只有一处实现。
+HZV / MJPG / MP4 都走 airui.video（父容器内的控件，随 UI 层级显示/隐藏）：
+MJPG 逐帧按 interval 喂；HZV / MP4 自带帧时序（HZV 容器帧时长 / MP4 PTS），
+单次播完（on_complete）由组件回调，循环控制栏代码无感 —— HZV/MJPG 循环
+由组件统一处理，MP4 循环为应用层续播（保证每轮重播都恢复触摸总线，见下）。
+两个播放页面（桌面播放器 / 全屏播放页）都走这里，格式差异只有一处实现。
 
 @table o
-  @userdata o.parent   airui 父容器（MP4 不用：画面挂 LCDC 视频层）
-  @number   o.x,o.y    画面摆放位置（相对 parent；airui 用）
-  @number   o.w,o.h    画面尺寸（airui 路径必须等于素材帧尺寸，不支持缩放）
-  @number   o.sx,o.sy  同一画面的逻辑屏绝对坐标（MP4 set_rect 用；缺省用 x,y）
+  @userdata o.parent   airui 父容器
+  @number   o.x,o.y    画面摆放位置（相对 parent）
+  @number   o.w,o.h    画面尺寸（必须等于素材帧尺寸，不支持缩放）
   @boolean  o.loop     是否循环
-@return userdata|table|nil 播放器对象（统一 :play/:pause/:stop/:destroy），失败 nil
+  @function o.on_complete 单次播完（loop=false 读到 EOF）回调
+@return userdata|nil 播放器对象（:play/:pause/:stop/:destroy），失败 nil
 ]]
 function M.create_player(path, o)
     o = o or {}
     local fmt = M.guess_format(path)
 
     if fmt == "mp4" then
-        if not M.mp4_available() then
-            log.warn("video_util", "固件无 mplayer，MP4 不可播", path)
+        -- 分辨率超限拒绝起播：调用方按「无法播放」走空态 UI
+        local w, h = M.read_dimensions(path)
+        if w and h and (w > MP4_MAX_W or h > MP4_MAX_H) then
+            log.warn("video_util", "MP4 超 480×320 上限，拒绝起播", w, h, path)
             return nil
         end
-        pa_enable()
-        local rect
-        if o.w and o.h and o.w > 0 and o.h > 0 then
-            rect = { x = o.sx or o.x or 0, y = o.sy or o.y or 0, w = o.w, h = o.h }
-        end
-        return mp4_player(path, rect, o.loop)
+        --[[停掉残留的配套/容器音频再起 mplayer：两路音频同开必打架。
+        MP4 的声音走 mplayer 自带音频通路（组件内部自行初始化），
+        不经 exaudio，也不需要 audio_ensure。]]
+        M.audio_stop()
+        if exaudio then pcall(exaudio.play_stop, { type = 0 }) end
+        mp4_session_begin()
+    elseif fmt == "hzv" then
+        --[[HZV 音轨由 videoplayer 自己调用 luat_audio_request_play_stream。
+        不能在这里 exaudio.setup：DAC 模式收尾会 audio_v2.shutdown 关掉 codec 和功放，
+        而 MP4 的 mplayer 刚把上一路请求标成结束、音频任务还没释放完。
+        紧接着 shutdown，下一次 play_stream 就没有声音。
+        测试工程不碰 exaudio，只保持功放开，切换是正常的。]]
+        pa_reassert()
+    else
+        -- MJPG 配套 MP3 走 exaudio，先确保音频框架
+        M.audio_ensure()
+        pa_reassert()
     end
-
-    -- HZV/MJPG：音频框架先起来（HZV 时钟依赖它；MJPG 的配套 MP3 也走它）
-    M.audio_ensure()
 
     local vcfg = {
         parent = o.parent,
@@ -520,14 +513,45 @@ function M.create_player(path, o)
         loop = o.loop and true or false,
         auto_play = true,
     }
-    if fmt == "hzv" then
-        -- HZV 容器自带逐帧时长与 MP3 音轨，Lua 不填 interval
-        vcfg.backend = "videoplayer"
-    else
-        vcfg.interval = 33   -- 30fps（调大即慢放，看着像卡住）
+    if o.on_complete then
+        vcfg.on_complete = o.on_complete
     end
+    if fmt == "mjpg" then
+        vcfg.interval = 33   -- 30fps（调大即慢放，看着像卡住）
+    elseif fmt == "hzv" then
+        -- HZV 自带逐帧时长，不填 interval，显式走 videoplayer 后端；
+        -- MP4 不指定 backend，组件按 format 自动路由到 mplayer 后端
+        vcfg.backend = "videoplayer"
+    end
+
+    --[[MP4 的 loop 改为应用层续播（EOF 回调里 play() 从头重播）：组件内部
+    循环重播走不到包装层 play，每轮重启音频通路后恢复不了触摸总线。
+    重播与组件内部循环同为「play 从头重播」路径，画面无差异；
+    用户暂停中不续播（paused 状态由包装层维护）。]]
+    local player_obj = nil
+    if fmt == "mp4" and o.loop then
+        vcfg.loop = false
+        vcfg.on_complete = function()
+            if player_obj and not player_obj.paused then
+                player_obj:play()
+            end
+        end
+    end
+
     local ok, v = pcall(airui.video, vcfg)
-    return (ok and v) and v or nil
+    if not ok or not v then
+        if fmt == "mp4" then mp4_session_end() end
+        return nil
+    end
+    if fmt == "mp4" then
+        player_obj = wrap_mp4_player(v)
+        -- auto_play 起播的音频初始化在解码线程里异步进行，布防延迟恢复
+        tp_bus_settle()
+        return player_obj
+    end
+    -- 播放器打开时音频任务可能再次把功放拉高，创建成功后再拉一次
+    pa_set(true)
+    return v
 end
 
 return M

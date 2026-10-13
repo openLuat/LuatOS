@@ -121,6 +121,10 @@
 #define LUAT_SUPPORT_OPUS   1
 #define LUAT_SUPPORT_SPEEX 1
 #define LUAT_USE_AUDIO_G711 1
+// LUAT_SUPPORT_G729 不在此定义：由 bsp/pc/xmake.lua 按 luatos-ext-components/g729
+// 目录存在性（或 LUAT_USE_CODEC_G729 环境变量）检测结果注入
+// LUAT_SUPPORT_G722 同理：由 luatos-ext-components/libg722
+// 目录存在性（或 LUAT_USE_CODEC_G722 环境变量）检测结果注入
 #define LUAT_USE_AUDIO_DTMF 1
 #define LUAT_USE_VOIP 1
 #define LUAT_USE_RECORD 1

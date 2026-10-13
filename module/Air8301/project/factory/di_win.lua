@@ -2,19 +2,33 @@
 @module  di_win
 @summary DI状态页面，显示DI1/DI2输入状态及历史记录（8301出厂固件）
 @version 1.0
-@date    2026.09.22
+@date    2026.10.08
 @author  江访
+
 @usage
-本页面以圆形指示器和文字显示DI1和DI2的当前状态（ON/OFF），
-下方显示状态变更历史记录。
+本页面以圆形指示器 + 文字显示DI1和DI2的当前状态（ON/OFF），下方显示状态变更历史记录。
 监听 DI_STATUS_CHANGED 消息更新。
+
+视觉：ui_theme 深色玻璃态（状态面板 + 历史面板）。状态圆点由 theme.dot 绘制，
+因为内置 hzfont 字库不含实心圆字形。
 ]]
 
-local win_id = nil
+local theme = require "ui_theme"
+
+local W                        -- 窗口控制器（文件末尾由 theme.win 建立）
 local main_container, content
-local di1_circle, di1_label, di2_circle, di2_label
+local di1_dot, di1_label, di2_dot, di2_label
 local history_text_list = {}
 local history_label
+
+-- 历史缓存上限（缓存 20 条，受面板高度限制仅显示最新 4 条）
+local HISTORY_MAX  = 20
+local HISTORY_SHOW = 4
+
+-- 面板几何（内容区 464×210：状态面板 84 + 6 + 历史面板 120 = 210）
+local STATE_H   = 84
+local STATE_GAP = 6
+local DOT_D     = 26
 
 --[[
 导航栏返回按钮点击
@@ -23,8 +37,50 @@ local history_label
 @function on_back_click
 ]]
 local function on_back_click()
-    if not exwin.is_active(win_id) then return end
-    exwin.close(win_id)
+    if not W:is_active() then return end
+    exwin.close(W.id)
+end
+
+--[[
+刷新单个 DI 通道的指示圆点与文字
+
+@local
+@function update_di
+@param dot userdata 圆点容器
+@param label userdata 状态文字label
+@param state boolean 状态（true=ON, false=OFF）
+]]
+local function update_di(dot, label, state)
+    if not dot or not label then return end
+    if state then
+        dot:set_color(theme.SEM.success, 255)
+        label:set_text("ON")
+        label:set_color(theme.SEM.success)
+    else
+        dot:set_color(theme.C.track, 255)
+        label:set_text("OFF")
+        label:set_color(theme.C.t2)
+    end
+end
+
+--[[
+把历史缓存拼成显示文本（只取最新 HISTORY_SHOW 条）
+
+@local
+@function build_history_text
+@param list table 历史缓存
+@return string 显示文本
+]]
+local function build_history_text(list)
+    local n = #list
+    if n == 0 then return "暂无记录" end
+    local lines = {}
+    local show = n < HISTORY_SHOW and n or HISTORY_SHOW
+    for i = 1, show do
+        -- 倒序取最新若干条（缓存尾部为最新）
+        lines[i] = list[n - i + 1]
+    end
+    return table.concat(lines, "\n")
 end
 
 --[[
@@ -36,40 +92,47 @@ DI状态变更消息回调
 @param di2 boolean DI2状态（true=ON, false=OFF）
 ]]
 local function on_di_status_changed(di1, di2)
-    if not exwin.is_active(win_id) then return end
-    if di1_circle and di1_label then
-        if di1 then
-            di1_circle:set_color(T.COLOR_GREEN)
-            di1_label:set_text("ON")
-            di1_label:set_color(T.COLOR_GREEN)
-        else
-            di1_circle:set_color(T.COLOR_DIVIDER)
-            di1_label:set_text("OFF")
-            di1_label:set_color(T.COLOR_TEXT_SECONDARY)
-        end
-    end
-    if di2_circle and di2_label then
-        if di2 then
-            di2_circle:set_color(T.COLOR_GREEN)
-            di2_label:set_text("ON")
-            di2_label:set_color(T.COLOR_GREEN)
-        else
-            di2_circle:set_color(T.COLOR_DIVIDER)
-            di2_label:set_text("OFF")
-            di2_label:set_color(T.COLOR_TEXT_SECONDARY)
-        end
-    end
+    if not W:is_active() then return end
+
+    update_di(di1_dot, di1_label, di1)
+    update_di(di2_dot, di2_label, di2)
 
     -- 记录历史
     local time_str = os.date("%H:%M:%S")
-    local status_str = "DI1:" .. (di1 and "ON" or "OFF") .. " DI2:" .. (di2 and "ON" or "OFF")
-    table.insert(history_text_list, time_str .. " " .. status_str)
-    if #history_text_list > 20 then
+    local status_str = "DI1:" .. (di1 and "ON" or "OFF") .. "  DI2:" .. (di2 and "ON" or "OFF")
+    table.insert(history_text_list, time_str .. "  " .. status_str)
+    if #history_text_list > HISTORY_MAX then
         table.remove(history_text_list, 1)
     end
     if history_label then
-        history_label:set_text(table.concat(history_text_list, "\n"))
+        history_label:set_text(build_history_text(history_text_list))
     end
+end
+
+--[[
+创建单个 DI 通道的显示块（标签 + 圆点 + 状态文字）
+
+@local
+@function create_di_block
+@param parent userdata 父容器
+@param x number 块起始 X 坐标
+@param name string 通道名
+@return dot userdata 圆点容器
+@return label userdata 状态文字label
+]]
+local function create_di_block(parent, x, name)
+    theme.label(parent, {
+        x = x + 16, y = 10, w = 100, h = 19,
+        text = name, px_size = 16, color = theme.C.t3,
+    })
+    local dot = theme.dot(parent, {
+        x = x + 22, y = 42, d = DOT_D, color = theme.C.track,
+    })
+    local label = theme.label(parent, {
+        x = x + 60, y = 44, w = 120, h = 22,
+        text = "OFF", px_size = 18, color = theme.C.t2,
+    })
+    return dot, label
 end
 
 --[[
@@ -79,131 +142,33 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
+    local ctx = theme.page({ title = "DI输入", on_back = on_back_click })
+    main_container = ctx.base
+    content = ctx.base
 
-    -- 顶部标题栏
-    T.titlebar(main_container, "DI输入", on_back_click)
+    -- 状态面板（左右两个通道）
+    local state_card = theme.card(ctx.base, {
+        x = ctx.x, y = ctx.y, w = ctx.w, h = STATE_H,
+        color = theme.C.panel, radius = theme.R.lg, border = theme.C.stroke_soft,
+    })
+    di1_dot, di1_label = create_di_block(state_card, 0, "DI1")
+    di2_dot, di2_label = create_di_block(state_card, 232, "DI2")
 
-    -- 内容区域
-    content = airui.container({
-        parent = main_container,
-        x = 0,
-        y = T.CONTENT_Y,
-        w = T.SCREEN_W,
-        h = T.CONTENT_H,
-        color = T.COLOR_BG
+    -- 历史面板
+    local hy = ctx.y + STATE_H + STATE_GAP
+    local hh = ctx.h - STATE_H - STATE_GAP
+    if hh < 40 then hh = 40 end
+    local history_card = theme.card(ctx.base, {
+        x = ctx.x, y = hy, w = ctx.w, h = hh,
+        color = theme.C.panel, radius = theme.R.lg, border = theme.C.stroke_soft,
     })
-
-    -- DI1 和 DI2 卡片
-    local di_card = airui.container({
-        parent = content,
-        x = T.MARGIN,
-        y = T.MARGIN,
-        w = T.CARD_W,
-        h = 80,
-        color = T.COLOR_CARD,
-        radius = T.CARD_RADIUS
+    theme.label(history_card, {
+        x = 12, y = 8, w = 200, h = 19,
+        text = "状态变更历史", px_size = 16, color = theme.C.t3,
     })
-
-    -- DI1
-    airui.label({
-        parent = di_card,
-        x = 20,
-        y = 6,
-        w = 60,
-        h = 20,
-        text = "DI1",
-        font_size = T.FONT_CARD_TITLE,
-        color = T.COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    -- DI1圆形指示器（用container模拟圆形）
-    di1_circle = airui.container({
-        parent = di_card,
-        x = 30,
-        y = 34,
-        w = 24,
-        h = 24,
-        color = T.COLOR_DIVIDER,
-        radius = 12
-    })
-    di1_label = airui.label({
-        parent = di_card,
-        x = 60,
-        y = 32,
-        w = 60,
-        h = 24,
-        text = "OFF",
-        font_size = T.FONT_TITLE,
-        color = T.COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-
-    -- DI2
-    airui.label({
-        parent = di_card,
-        x = 250,
-        y = 6,
-        w = 60,
-        h = 20,
-        text = "DI2",
-        font_size = T.FONT_CARD_TITLE,
-        color = T.COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    -- DI2圆形指示器
-    di2_circle = airui.container({
-        parent = di_card,
-        x = 260,
-        y = 34,
-        w = 24,
-        h = 24,
-        color = T.COLOR_DIVIDER,
-        radius = 12
-    })
-    di2_label = airui.label({
-        parent = di_card,
-        x = 290,
-        y = 32,
-        w = 60,
-        h = 24,
-        text = "OFF",
-        font_size = T.FONT_TITLE,
-        color = T.COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-
-    -- 历史记录卡片
-    local history_card = airui.container({
-        parent = content,
-        x = T.MARGIN,
-        y = 100,
-        w = T.CARD_W,
-        h = 114,
-        color = T.COLOR_CARD,
-        radius = T.CARD_RADIUS
-    })
-    airui.label({
-        parent = history_card,
-        x = 10,
-        y = 4,
-        w = 120,
-        h = 20,
-        text = "历史记录",
-        font_size = T.FONT_CARD_TITLE,
-        color = T.COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    history_label = airui.label({
-        parent = history_card,
-        x = 10,
-        y = 24,
-        w = T.CARD_W - 20,
-        h = 86,
-        text = "暂无记录",
-        font_size = T.FONT_SMALL,
-        color = T.COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
+    history_label = theme.label(history_card, {
+        x = 12, y = 32, w = ctx.w - 24, h = hh - 40,
+        text = "暂无记录", px_size = 16, color = theme.C.t1,
     })
 end
 
@@ -230,49 +195,21 @@ local function on_destroy()
         main_container = nil
     end
     content = nil
-    di1_circle = nil
+    di1_dot = nil
     di1_label = nil
-    di2_circle = nil
+    di2_dot = nil
     di2_label = nil
     history_label = nil
     history_text_list = {}
     sys.unsubscribe("DI_STATUS_CHANGED", on_di_status_changed)
-    win_id = nil
 end
 
---[[
-窗口获得焦点回调
-
-@local
-@function on_get_focus
-]]
-local function on_get_focus()
-    -- 不需要特殊处理
-end
-
---[[
-窗口失去焦点回调
-
-@local
-@function on_lose_focus
-]]
-local function on_lose_focus()
-    -- 不需要特殊处理
-end
-
---[[
-OPEN_DI_WIN 消息处理器
-
-@local
-@function open_handler
-]]
-local function open_handler()
-    win_id = exwin.open({
-        on_create = on_create,
-        on_destroy = on_destroy,
-        on_lose_focus = on_lose_focus,
-        on_get_focus = on_get_focus,
-    })
-end
-
-sys.subscribe("OPEN_DI_WIN", open_handler)
+--[[窗口控制器（公共样板 theme.win）
+单实例保护（replace = true：本页已有非活动实例时先关闭再新建），销毁时自动清空窗口 id，
+与原 open_handler 行为完全一致；原空的 on_get_focus / on_lose_focus 无需再传。]]
+W = theme.win({
+    open = "OPEN_DI_WIN",
+    replace = true,
+    on_create = on_create,
+    on_destroy = on_destroy,
+})

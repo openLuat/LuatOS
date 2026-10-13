@@ -19,7 +19,7 @@ local card_spacing = 20
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
-    local phys_w, phys_h = lcd.getSize()
+    local phys_w, phys_h = lcd_drv.get_size()
     if rotation == 0 or rotation == 180 then
         screen_w, screen_h = phys_w, phys_h
     else

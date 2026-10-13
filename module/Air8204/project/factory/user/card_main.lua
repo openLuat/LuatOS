@@ -16,8 +16,12 @@
      gps / http_app / RecordingManager / gpio_utils），以保证各模块间既有引用关系不变
 
 模块加载顺序（依赖自底向上，业务调度 app 最后加载）：
-  mem_monitor → network_watchdog → excloud / libnet / config → excloud_app → sd_test
-  → gpio_util → lbs_util → normal → http_app → es7243e → led_util → da221 → app
+  mem_monitor → network_watchdog → excloud / libnet / config → sd_test → gpio_util
+  → lbs_util → normal → http_app → es7243e → led_util → da221
+  → device_ctrl → excloud_app → app
+
+注意：device_ctrl（平台下行命令处理）必须在 excloud_app 之前加载，
+      因为 excloud_app 收到 CONTROL_COMMAND 时会调用 device_ctrl.handle()。
 ]]
 
 -- 系统监控与服务
@@ -30,7 +34,6 @@ libnet = require "libnet"
 config = require "config"
 
 -- 业务功能模块
-require "excloud_app"                  -- AirCloud 云平台接入（连接认证 / TLV 上报 / 下行命令 / 心跳 / 运维日志）
 RecordingManager = require "sd_test"   -- 录音存储库（TF 卡挂载 + 录音元数据库 + 上传状态机）
 gpio_utils = require "gpio_util"       -- 电池电量检测 + 录音开关检测
 lbs_util = require "lbs_util"          -- 基站/WiFi（airlbs）混合定位
@@ -39,6 +42,8 @@ http_app = require "http_app"          -- 录音文件上传
 require "es7243e"                      -- ES7243E 录音驱动（I2C 配置 + I2S 采集）
 led_util = require "led_util"          -- 双路 WS2812 状态灯
 require "da221"                        -- DA221 运动检测（动态开关定位省电）
+device_ctrl = require "device_ctrl"    -- 平台下行命令处理（控制类 + 基础信息查询，须在 excloud_app 之前加载）
+require "excloud_app"                  -- AirCloud 云平台接入（连接认证 / TLV 上报 / 下行命令 / 心跳 / 运维日志）
 
 -- 业务调度（最后加载，内部启动周期上报与上传轮询任务）
 require "app"

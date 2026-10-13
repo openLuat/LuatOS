@@ -25,7 +25,7 @@ VERSION：项目版本号,ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级,根据自己项目的需求,自定义格式即可
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "Air8780Factory"
+PROJECT = "Air8780P"
 VERSION = "001.001.000"
 
 -- 出厂固件版本：预置配置直接连接 AirCloud，不请求网页端配置
@@ -39,7 +39,7 @@ PRODUCT_KEY = "w1Nvdeca2nPLhOOEAwtnIoXuqav2hZ0o"
 --   "normal" 强制进入正常模式（跳过产测检查），调试 AirCloud 上报/下行用，无需先跑产测
 --   "factory" 强制进入产测模式，调试产测指令用
 -- 注意：强制 "normal" 时若未写号，日志 PROD/PCB 打印为 nil，不影响 iRTU 功能
-local BOOT_MODE = "auto"
+local BOOT_MODE = "normal"
 -- ============================================================
 
 log.info("main", PROJECT, VERSION)

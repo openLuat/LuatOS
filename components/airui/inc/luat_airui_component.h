@@ -94,6 +94,7 @@ typedef enum {
     AIRUI_VIDEO_BACKEND_VIDEOPLAYER,
     AIRUI_VIDEO_BACKEND_FFMPEG,
     AIRUI_VIDEO_BACKEND_PLATFORM,
+    AIRUI_VIDEO_BACKEND_MPLAYER,
 } airui_video_backend_t;
 
 /** Video 解码模式 */
@@ -780,6 +781,7 @@ int airui_gbc_set_key(lv_obj_t *gbc, int key, int pressed);
  */
 lv_obj_t *airui_camera_create_from_config(void *L, int idx);
 int airui_camera_set_fit(lv_obj_t *camera, const char *fit); /* center/contain/cover/stretch */
+int airui_camera_set_rotation(lv_obj_t *camera, int rotation); /* 0/90/180/270，顺时针 */
 int airui_camera_start(lv_obj_t *camera);
 int airui_camera_stop(lv_obj_t *camera);
 int airui_camera_destroy(lv_obj_t *camera);

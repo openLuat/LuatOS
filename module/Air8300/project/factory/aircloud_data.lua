@@ -146,7 +146,6 @@ sys.subscribe("RELAY_STATUS_UPDATE", on_relay_status_update)
 --   led / led_read                                  → 回读LED当前状态
 --   relay:open,0 / relay:close,1 / relay:toggle,2   → 继电器开/关/翻转（通道号 0~3）
 --   relay:read / relay_read                         → 回读继电器状态
---   read_all                                        → 读取全部数据
 -- @param value string 文本命令
 -- @return table|nil 解析成功返回含 type 字段的命令表，无法识别返回 nil
 local function parse_text_command(value)
@@ -176,7 +175,6 @@ local function parse_text_command(value)
     if single == "led_off" then return { type = "led_off" } end
     if single == "led_read" or single == "led" then return { type = "led_read" } end
     if single == "relay_read" then return { type = "relay_read" } end
-    if single == "read_all" then return { type = "read_all" } end
     return nil
 end
 
@@ -196,15 +194,7 @@ local function handle_control_command(value)
     mtn_log("aircloud", "收到命令:" .. tostring(cmd.type))
 
     local resp = {}
-    if cmd.type == "read_all" then
-        adc.open(adc.CH_CPU); resp.cpu_temp = adc.get(adc.CH_CPU) / 1000; adc.close(adc.CH_CPU)
-        adc.open(adc.CH_VBAT); resp.vbat = adc.get(adc.CH_VBAT) / 1000; adc.close(adc.CH_VBAT)
-        resp.temperature = rtu_temp or 0; resp.humidity = rtu_hum or 0
-        resp.latitude = lat or ""; resp.longitude = lng or ""
-        resp.csq = mobile.csq() or 0; resp.imei = mobile.imei() or ""; resp.iccid = mobile.iccid() or ""
-        resp.timestamp = os.time()
-        resp.relay = relay_ctrl.get_state()
-    elseif cmd.type == "read_temp" then
+    if cmd.type == "read_temp" then
         resp.temperature = rtu_temp or 0
     elseif cmd.type == "read_humi" then
         resp.humidity = rtu_hum or 0

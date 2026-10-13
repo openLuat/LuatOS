@@ -34,6 +34,9 @@ static int l_mplayer_open(lua_State *L) {
     LuaMediaPlayer *ud = (LuaMediaPlayer *)lua_newuserdata(L, sizeof(LuaMediaPlayer));
     memset(ud, 0, sizeof(LuaMediaPlayer));
 
+    extern int sound_dev_init(void);
+    sound_dev_init();
+
     ud->m = luat_mplayer_open(path);
     if (!ud->m) {
         lua_pop(L, 1);
@@ -86,6 +89,76 @@ static int l_mplayer_play(lua_State *L) {
         return 2;
     }
     lua_pushboolean(L, luat_mplayer_play(ud->m) == 0);
+    return 1;
+}
+
+/*
+设置视频图层显示坐标(仅视频有效, 播放前或播放中均可调用)
+@api mplayer.set_rect(player, x, y [, w, h])
+@userdata player mplayer.open()返回的播放器对象
+@number x 视频图层左上角x坐标, 传-1表示水平居中
+@number y 视频图层左上角y坐标, 传-1表示垂直居中
+@number w 预留: 目标宽, 传0省略则保持视频原生分辨率
+@number h 预留: 目标高, 传0省略则保持视频原生分辨率
+@return boolean 成功返回true, 失败返回false
+@usage
+mplayer.set_rect(player, 40, 40)   -- 绝对坐标
+mplayer.set_rect(player, -1, -1)   -- 屏幕居中
+*/
+static int l_mplayer_set_rect(lua_State *L) {
+    LuaMediaPlayer *ud = (LuaMediaPlayer *)luaL_checkudata(L, 1, MP4_MOVIE_META);
+    int x = luaL_checkinteger(L, 2);
+    int y = luaL_checkinteger(L, 3);
+    /* w/h 预留: 当前不上屏缩放, 仅透传存储; 传0省略表示保持视频原生分辨率 */
+    int w = luaL_optinteger(L, 4, 0);
+    int h = luaL_optinteger(L, 5, 0);
+    if (!ud->m) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    lua_pushboolean(L, luat_mplayer_set_rect(ud->m, x, y, w, h) == 0);
+    return 1;
+}
+
+/*
+开关音频输出(播放中/暂停均可切换)
+@api mplayer.set_audio(player, on)
+@userdata player mplayer.open()返回的播放器对象
+@boolean on true输出声音 false静音
+@return boolean 成功返回true, 失败返回false
+@usage
+mplayer.set_audio(player, false)   -- 静音
+mplayer.set_audio(player, true)    -- 恢复声音
+*/
+static int l_mplayer_set_audio(lua_State *L) {
+    LuaMediaPlayer *ud = (LuaMediaPlayer *)luaL_checkudata(L, 1, MP4_MOVIE_META);
+    int on = lua_toboolean(L, 2);   /* main.lua 传 boolean, 不能用 luaL_optinteger */
+    if (!ud->m) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    lua_pushboolean(L, luat_mplayer_set_audio_enable(ud->m, on) == 0);
+    return 1;
+}
+
+/*
+开关视频图层显示(不停止解码, 仅控制是否送显, 音频继续播放)
+@api mplayer.set_layer_visible(player, visible)
+@userdata player mplayer.open()返回的播放器对象
+@boolean visible true显示 false隐藏
+@return boolean 成功返回true, 失败返回false
+@usage
+mplayer.set_layer_visible(player, false)   -- 隐藏视频画面, 音频继续
+mplayer.set_layer_visible(player, true)    -- 恢复视频显示
+*/
+static int l_mplayer_set_layer_visible(lua_State *L) {
+    LuaMediaPlayer *ud = (LuaMediaPlayer *)luaL_checkudata(L, 1, MP4_MOVIE_META);
+    int visible = lua_toboolean(L, 2);
+    if (!ud->m) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    lua_pushboolean(L, luat_mplayer_set_layer_visible(ud->m, visible) == 0);
     return 1;
 }
 
@@ -257,6 +330,9 @@ static const rotable_Reg_t reg_mplayer[] = {
     { "is_playing",     ROREG_FUNC(l_mplayer_is_playing)},
     { "is_paused",      ROREG_FUNC(l_mplayer_is_paused)},
     { "info",           ROREG_FUNC(l_mplayer_info)},
+    { "set_rect",       ROREG_FUNC(l_mplayer_set_rect)},
+    { "set_audio",      ROREG_FUNC(l_mplayer_set_audio)},
+    { "set_layer_visible", ROREG_FUNC(l_mplayer_set_layer_visible)},
 
     /* Status constants */
     //@const STAT_STOP number 停止状态

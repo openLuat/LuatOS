@@ -99,7 +99,7 @@
 ``` lua
 I/user.main PLAY_MJPG 001.999.000
 I/user.播放器 初始化LCD和AirUI...
-I/user.lcd.init true
+I/user.lcd_drv exd.setup true
 I/user.airui init success 1024 600
 I/user.播放器 准备播放视频...
 I/user.播放器 LCD尺寸: 1024 x 600
@@ -117,7 +117,7 @@ I/user.播放器 视频开始播放
 
 ``` lua
 I/user.播放器 初始化LCD和AirUI...
-I/user.lcd.init true
+I/user.lcd_drv exd.setup true
 I/user.airui init success 1024 600
 I/user.播放器 准备播放视频...
 I/user.播放器 从服务器下载视频: https://appstoreoss.luatos.com/iot-apps/res/100197/video_160x160.mjpg

@@ -1,0 +1,1 @@
+{"timeout": 300, "action_count": 1, "priority": 5, "description": "G.729A编码质量度量(码流差异+解码PCM的SNR/分段SNR/增益比, 并用单帧码流损坏证明度量分辨率; bit-exact阶段兼作回归)", "platform": ["pc", "air8000"]}

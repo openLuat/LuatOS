@@ -86,7 +86,7 @@ local function play_video_with_airui()
     end
 
     -- 获取LCD尺寸
-    local lcd_width, lcd_height = lcd.getSize()
+    local lcd_width, lcd_height = lcd_drv.get_size()
     log.info("播放器", "LCD尺寸:", lcd_width, "x", lcd_height)
 
     -- 获取视频实际分辨率

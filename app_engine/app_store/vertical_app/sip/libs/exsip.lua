@@ -62,6 +62,7 @@ exsip.TRANSPORT_TCP = "tcp"
 -- 编解码器
 exsip.CODEC_PCMU = "PCMU"
 exsip.CODEC_PCMA = "PCMA"
+exsip.CODEC_G729 = "G729"
 
 -- 默认端口
 exsip.DEFAULT_SIP_PORT = 5060
@@ -147,9 +148,15 @@ local function start_voip_engine(session)
 
     local codec_map = {
         [exsip.CODEC_PCMU] = voip.PCMU,
-        [exsip.CODEC_PCMA] = voip.PCMA
+        [exsip.CODEC_PCMA] = voip.PCMA,
+        [exsip.CODEC_G729] = voip.G729
     }
-    local codec = codec_map[session.codec] or voip.PCMU
+    local codec = codec_map[session.codec]
+    if not codec then
+        -- G729 协商成功但固件未编入（voip.G729 为 nil）时显式失败，不静默回退 PCMU
+        log_error("codec not supported by firmware:", session.codec)
+        return
+    end
 
     log_info("start voip engine with adapter:", g_current_adapter, "remote:", session.remote_ip .. ":" .. session.remote_port)
     local ok = voip.start({
@@ -330,7 +337,7 @@ end
 @string config.sip_transport RTP 传输协议，"UDP" 或 "TCP"，默认 "TCP"
 @number config.rtp_port 本地 RTP 端口，默认 40000
 @number config.expires 注册有效期（秒），默认 600
-@table config.codecs 编解码器列表，默认 {"PCMU", "PCMA"}
+@table config.codecs 编解码器列表，默认 {"PCMU", "PCMA"}；可选 "G729"（G.729A，需固件编入 G729，否则协商成功后启动媒体会失败）
 @number config.ptime 打包时长（毫秒），默认 20
 @boolean config.auto_answer 是否自动接听，默认 false
 @number config.delay_auto_answer 自动接听延迟（秒），默认 0

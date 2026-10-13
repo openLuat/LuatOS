@@ -33,7 +33,8 @@ local VER = factory_config.get_ver()
 
 local prodmeta = require("prodmeta")
 -- 153c/153d 外置硬件看门狗（NPN 反相极性硬编码，8782 也用此库）
-local exair153x_wdt = require("exair153x_wdt")
+-- Air8700 板载【无】外置看门狗，仅 878x 系列使用；8700 上 WD_TEST 返回 ERROR
+local ok_wdt, exair153x_wdt = pcall(require, "exair153x_wdt")
 -- 内置 GNSS（仅8780G 使用，pcall 守卫缺库不崩）
 local ok_exgnss, exgnss = pcall(require, "exgnss")
 
@@ -70,7 +71,10 @@ local gnssOpened = false
 
 local netLed = gpio.setup(NET_LED_PIN, 0)
 -- 外置看门狗（自动喂狗，超时档位由硬件 STRAP 配置）
-exair153x_wdt.init({ wdt_pin = WD_FEED_PIN, auto_feed_period_s = 180 })
+-- Air8700 板载无外置看门狗，跳过初始化（仅保留软狗）
+if VER ~= "8700" and exair153x_wdt then
+    exair153x_wdt.init({ wdt_pin = WD_FEED_PIN, auto_feed_period_s = 180 })
+end
 
 -- ============================================================
 -- 通用辅助函数
@@ -377,6 +381,8 @@ local procTable = {
         return "OK"
     end,
     ["WD_TEST"] = function(id, findCom, data)
+        -- Air8700 板载无外置看门狗，WD_TEST 直接返回 ERROR
+        if VER == "8700" or not exair153x_wdt then return "ERROR" end
         -- WD_TEST#: 触发看门狗强制复位；WD_TEST,1#: 恢复正常喂狗
         if data == "" then
             exair153x_wdt.trigger_reset()

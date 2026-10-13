@@ -1,7 +1,7 @@
 --[[
 @module libfota3
 @summary 合宙整机成品FOTA升级库
-@version 2.0
+@version 1.0
 @date    2026.06.18
 @author  江访
 

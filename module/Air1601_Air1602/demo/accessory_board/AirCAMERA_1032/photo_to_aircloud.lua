@@ -11,7 +11,7 @@
 3、遍历USB摄像头支持的格式和分辨率，只选择MJPEG格式 + 1024x576；
 4、每10秒触发一次拍照：启动stream → 接收一帧 → 停止stream；
 5、将照片保存到/ram/photo.jpg；
-6、调用lcd.showImage将照片显示到LCD屏幕；
+6、调用airui.image将照片显示到LCD屏幕；
 7、通过excloud.upload_image将照片上传到合宙云平台。
 
 使用前需要：

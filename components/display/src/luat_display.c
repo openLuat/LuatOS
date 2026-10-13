@@ -247,10 +247,16 @@ int luat_display_flush(struct luat_display *disp)
         .w = info->draw_buf.width,
         .h = info->draw_buf.height,
     };
+    int ret;
 
     info->fb_index = (info->fb_index + 1) % info->fb_count;
 
-    return disp->display_funcs->fb_flush(disp, &rect, data, disp->rotation);
+    ret = disp->display_funcs->fb_flush(disp, &rect, data, disp->rotation);
+    /*fb_flush 只负责拷进 fb_index 指向的缓冲，整帧刷新在拷贝完成后再切页。*/
+    if (ret == 0 && disp->display_funcs->pan_display != NULL) {
+        disp->display_funcs->pan_display(disp, (int)info->fb_index);
+    }
+    return ret;
 }
 
 /*打开显示*/

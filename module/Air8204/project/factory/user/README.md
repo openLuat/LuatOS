@@ -4,11 +4,13 @@
 
 1. **产测 + 出货合一**：单固件按 `fskv` 中的 `test_done` 标记分流 —— 未产测进产测模式，产测完成自动进出货模式，产线与售后共用同一固件。
 2. **单入口分层**：`main.lua` 只保留固件常量 + 启动，启动逻辑下沉 `boot.lua`，两种模式各自独立装配，互不干扰。
-3. **产测模式**：USB 虚拟串口（VUART_0）响应 20 条产测指令，覆盖写号、录音、TF 卡、加速度、GNSS、RF 校准查询等。
+3. **产测模式**：USB 虚拟串口（VUART_0）响应 21 条产测指令，覆盖写号、录音、TF 卡、加速度、GNSS、WiFi 扫描、RF 校准查询等。
 4. **出货模式**：录音定位工牌完整业务 —— 录音采集/存卡/上传、GNSS + 基站双模定位、震动检测、双路 LED、电量上报、云端 TLV 交互。
 5. **FOTA 统一**：统一走 `libfota3`（整机成品 FOTA），由 `update.lua` 管理，消除双升级通道。
 
 ## 二、固件形态（两个模式）
+
+本工程使用的是780EGH 2052-113号固件，理论2026年10月10日后的113号固件都支持。
 
 | 模式 | 入口 | 触发条件 | 交互方式 | 用途 |
 |---|---|---|---|---|
@@ -87,6 +89,7 @@ main.lua           仅定义 PROJECT / VERSION / PRODUCT_KEY，require "boot"，
 | `LED` | `LED,1#` / `LED,0#` | 灯测试 | WS2812×2 + RGB 灯 R 路 点亮 / 熄灭 |
 | `RECORD` | `RECORD#` | 录音链路测试 | ES7243E 供电 + I2C1 配置 + I2S 采集，返回 `OK` / `ERROR` |
 | `SD_TEST` | `SD_TEST#` | TF 卡测试 | SPI0 挂载 + 写读比对，返回 `OK` / `ERROR` |
+| `WIFI_TEST` | `WIFI_TEST#` | WiFi 扫描 | 扫描附近热点，返回热点数量（如 `5`）；失败返回 `ERROR` |
 | `GS_STATE` | `GS_STATE#` | 加速度传感器测试 | I2C0 读 DA221 芯片 ID（期望 `0x13`） |
 | `GPSTEST` | `GPSTEST,1#` / `GPSTEST,0#` | GNSS 测试 | 开 / 关 GNSS，原始 NMEA 透传至 VUART_0 |
 | `ECNPICFG` | `ECNPICFG#` | 读 RF 校准标志 | 只读，返回 `passed` / `rfCaliDone` 等标志位 |
@@ -107,6 +110,7 @@ main.lua           仅定义 PROJECT / VERSION / PRODUCT_KEY，require "boot"，
 | TF 卡 | SPI0，CS = GPIO8（软件 CS），使能 GPIO1 | — |
 | DA221 加速度 | I2C0 地址 `0x27`，使能 GPIO20，芯片 ID `0x13` | — |
 | GNSS | 内置，UART2 | — |
+| WiFi | 内置（`wlan` 核心库），仅扫描 | — |
 | 录音模式开关 | GPIO22 输入（低电平 = 录音） | — |
 | VREF | GPIO23（开机拉高） | — |
 | 电池电压 | `adc.CH_VBAT` | — |
@@ -154,9 +158,15 @@ main.lua           仅定义 PROJECT / VERSION / PRODUCT_KEY，require "boot"，
 | 513 | 纬度 | FLOAT | GNSS（无解时回退 LBS） |
 | 1280 | 时间戳 | INTEGER | `os.time()` |
 
-> 下行控制：云端可下发 `record_ctrl` 远程控制录音开 / 关；本地录音开关为 GPIO22 硬件检测，两者状态变化均同步上报。
+## 八、数据中心下发格式
 
-
-
-
+| 命令字             | 功能                         |
+| ------------------ | ---------------------------- |
+| `recording`        | 远程开启录音                 |
+| `not_recording`    | 远程关闭录音                 |
+| `record_local`     | 恢复本地 GPIO22 开关控制录音 |
+| `get_version`      | 读取固件版本（1027）         |
+| `get_battery`      | 读取电池电量（771）          |
+| `get_signal`       | 读取 4G 信号质量（782）      |
+| `get_record_count` | 读取录音文件数量（797）      |
 

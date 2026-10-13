@@ -1,8 +1,8 @@
 --[[
 @module  video_win
 @summary 全屏播放页 —— 竖屏面板自动旋转成横屏，任意尺寸素材居中播放
-@version 1.2
-@date    2026.09.23
+@version 1.3
+@date    2026.09.30
 @author  江访
 
 === 消息协议（订阅/发布）===
@@ -51,10 +51,10 @@
    差别只有最右一格的文案：桌面是「全屏」（进来），本页是「窗口」（回去）。
    按钮的底色与文字色都由 video_bar 按主题令牌 + 当前状态算，本页不自己写颜色。
 
-7. **MP4 走 mplayer 硬解，画面挂 LCDC 视频层（叠在 UI 之上）**
-   播放矩形必须避开控制栏（否则按钮被画面盖住），大素材等比收进可用区
-   （视频层没有裁切容器）；循环靠轮询 EOS 重开实现。统一入口在
-   video_util.create_player，本页不直接碰 mplayer。
+7. **MP4 / HZV / MJPG 统一走 airui.video**（2026-10-09 起）
+   airui.video 已支持 HZV 与 MP4：MP4 由组件自动路由到 mplayer 后端（硬件图层
+   送显、自带音频通路、组件内部循环重播与 EOS 回调），三种格式统一入口
+   video_util.create_player，控制栏对所有格式一视同仁（播放/循环/重播都有效）。
 ]]
 
 local theme = require "ui_theme"
@@ -70,7 +70,7 @@ local DEFAULT_VW, DEFAULT_VH = 480, 320
 local window_id = nil
 local bg = nil                -- 全屏黑底（airui.shape，不可滚动、不吃点击）
 local stage = nil             -- 舞台层：视频的父对象（换文件不影响它，因此不影响层级）
-local video_obj = nil         -- 播放器对象（airui.video 实例或 mplayer 适配器，接口同用法）
+local video_obj = nil         -- 播放器对象（airui.video 实例；MP4 为带会话收尾的包装对象）
 local ctrl_bar = nil          -- 底部控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
 local empty_label = nil       -- 素材放不出来时的提示
 
@@ -208,6 +208,19 @@ local function leave_landscape()
     end
 end
 
+--[[刷新控制栏：文件名 + 「播放」「循环」两个按钮的文案与状态色
+
+文案与颜色必须一起刷：状态切了只改文案不改色，看起来就是「按钮没反应」。
+颜色本身由 theme.video_bar 按「主题令牌 + 当前状态」算，本页只负责把状态喂进去。
+定义在 rebuild_video 之前：它的 on_complete 回调要引用本函数（局部函数须先声明后闭包）。]]
+local function sync_labels()
+    if not ctrl_bar then return end
+    if current_file then
+        ctrl_bar:set_file(current_file:match("([^/]+)$") or current_file)
+    end
+    ctrl_bar:sync(is_playing, is_loop)
+end
+
 --- 按当前 current_file / geo 重建视频控件（换文件、切循环都走这里）
 local function rebuild_video()
     if video_obj then
@@ -221,24 +234,20 @@ local function rebuild_video()
     end
     if not stage then return end
 
-    local fmt = video_util.guess_format(current_file)
     local vx, vy, vw, vh = geo.video_x, geo.video_y, geo.video_w, geo.video_h
-    if fmt == "mp4" then
-        --[[MP4 画面矩形：视频层叠在 UI 之上，不能沿用 overlay 摆法（超大素材
-        全屏居中会盖住控制栏）—— 一律等比收进「页边距与控制栏之间」的可用区。]]
-        vx, vy, vw, vh = video_util.fit_rect(0, geo.top_h, W,
-            H - geo.top_h - geo.bottom_h, geo.video_w, geo.video_h)
-    end
 
-    --[[HZV/MJPG → airui.video（父容器内控件）；MP4 → mplayer 硬解（面板视频层）。
-    两种对象接口同用法（:play/:pause/:stop/:destroy），控制栏代码无感。
-    MP4 的音频由 mplayer 自管，create_player 内部会跳过 HZV 音轨初始化。]]
+    --[[HZV/MJPG/MP4 统一走 airui.video（父容器内控件，随 UI 层级显示/隐藏）。
+    循环/暂停/停止组件自带，控制栏代码无感。]]
     video_obj = video_util.create_player(current_file, {
         parent = stage,
         x = vx, y = vy,
         w = vw, h = vh,          -- airui 路径必须等于素材帧尺寸（不支持缩放）
-        sx = vx, sy = vy,        -- 舞台在屏幕原点，逻辑屏坐标即画面绝对坐标
         loop = is_loop,
+        -- 单次播完（loop=false 读到 EOF）：状态翻回「已停」，控制栏跟着刷
+        on_complete = function()
+            is_playing = false
+            sync_labels()
+        end,
     })
     is_playing = (video_obj ~= nil)
 
@@ -253,18 +262,6 @@ local function rebuild_video()
         })
         log.warn("video_win", "video create failed", current_file)
     end
-end
-
---[[刷新控制栏：文件名 + 「播放」「循环」两个按钮的文案与状态色
-
-文案与颜色必须一起刷：状态切了只改文案不改色，看起来就是「按钮没反应」。
-颜色本身由 theme.video_bar 按「主题令牌 + 当前状态」算，本页只负责把状态喂进去。]]
-local function sync_labels()
-    if not ctrl_bar then return end
-    if current_file then
-        ctrl_bar:set_file(current_file:match("([^/]+)$") or current_file)
-    end
-    ctrl_bar:sync(is_playing, is_loop)
 end
 
 --- 播放配套音频（同名 MP3）：只有 MJPG 素材有；HZV 的音轨在容器内
@@ -302,7 +299,7 @@ local function toggle_play()
     sync_labels()
 end
 
--- loop 只在创建组件时生效，所以切完标志位整组重建一次
+-- loop 只在创建组件时生效（HZV/MJPG/MP4 一视同仁），所以切完标志位整组重建一次
 local function toggle_loop()
     is_loop = not is_loop
     sync_labels()
@@ -418,6 +415,7 @@ end
 
 local function on_destroy()
     log.info("video_win", "on_destroy")
+    window_id = nil
     video_util.audio_stop()
     if video_obj then
         pcall(function() video_obj:stop() end)

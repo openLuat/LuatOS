@@ -86,6 +86,8 @@ require("airui_all_component") --所有组件综合演示
 -- require("airui_video")  -- 视频组件演示
 -- require("airui_sleep")  -- AirUI休眠管理演示，Air8101模块暂时不支持低功耗
 -- require("airui_slider")  -- 滑块组件演示
+-- require("airui_nes")  -- NES模拟器组件演示，ROM文件放到/luadb/game.nes
+-- require("airui_lottie")  -- Lottie动画组件演示，文件源需准备/luadb/anim.json
 
 -- 用户代码已结束
 -- 结尾总是这一句

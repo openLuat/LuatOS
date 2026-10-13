@@ -18,6 +18,13 @@ SPI1/CS2=GPIO4 外部SPI NOR Flash。
 开机即挂载会在 CH390 联网期间抢总线，且 CH390 停止/重启会重配 SPI1 把挂载打掉。
 产测模式下 Flash 改由 prod_test.lua 的 FLASH_TEST 指令按需 初始化/挂载/写读/卸载（自包含）。
 业务模式（IS_FACTORY_MODE ~= true）保持原有开机自动挂载行为不变。
+
+因此本版本把「页面驱动的 Flash 查询」改为「缓存驱动」：
+  - FLASH_MOUNT_STATUS 的结果缓存到内存（cache_*）
+  - REQUEST_STATUS_REFRESH 只重发缓存，零 I/O（不再访问 SPI NAND）
+  - 真实查询（io.fsstat）只在开机挂载后执行一次；后续如需重查，走内部查询协程
+    并按 QUERY_MIN_INTERVAL_MS 节流，避免与网卡频繁争抢 SPI1
+消息接口（FLASH_MOUNT_STATUS / REQUEST_STATUS_REFRESH）保持完全不变。
 ]]
 
 local FLASH_MOUNT_POINT = "/flash"
@@ -27,6 +34,14 @@ local FLASH_SPI_SPEED = 25600000 -- 25.6MHz
 
 local flash_mounted = false
 local flash_capacity_kb = 0   -- Flash 芯片总容量(KB)，由 lf.getInfo 获取，与文件系统可用容量无关
+
+-- ===== 状态缓存（页面请求只重发缓存，绝不触发 SPI 访问）=====
+local cache_valid = false                                  -- 缓存是否已产生过有效结果
+local cache_mounted, cache_total_kb, cache_used_kb = false, 0, 0
+
+-- ===== 真实查询节流（避免与 CH390 网卡频繁争抢 SPI1）=====
+local QUERY_MIN_INTERVAL_MS = 5000                         -- 两次真实查询的最小间隔(ms)
+local last_query_ms = 0
 
 --[[
 查询文件系统状态（挂载后）
@@ -64,6 +79,11 @@ end
 ]]
 local function publish_mount_status()
     local mounted, total_kb, used_kb = query_fs_status()
+    -- 写入缓存：后续页面请求可直接复用，无需再访问 SPI NAND
+    cache_valid = true
+    cache_mounted = mounted
+    cache_total_kb = total_kb or 0
+    cache_used_kb = used_kb or 0
     sys.publish("FLASH_MOUNT_STATUS", mounted, total_kb, used_kb, flash_capacity_kb)
 end
 
@@ -144,13 +164,45 @@ local function flash_mount_task()
 end
 
 --[[
-REQUEST_STATUS_REFRESH 订阅回调：重新查询并发布挂载状态（页面打开时主动拉取）
+内部真实查询协程：按需执行 io.fsstat（含 SPI NAND 访问），并做节流。
+
+为什么放进独立协程：
+  1) io.fsstat 是同步阻塞调用，放在 sys.publish 的订阅回调里会阻塞整个事件循环；
+  2) SPI1 上 Flash 与双 CH390H 共用总线，查询越频繁与网卡冲突的概率越高，
+     因此用 QUERY_MIN_INTERVAL_MS 限流（页面反复开关也只按最低频率真正查询）。
+
+@local
+@function flash_query_task
+]]
+local function flash_query_task()
+    while true do
+        sys.waitUntil("FLASH_QUERY_INTERNAL")
+        local now = mcu.ticks() or 0
+        if now - last_query_ms >= QUERY_MIN_INTERVAL_MS then
+            last_query_ms = now
+            publish_mount_status()
+        end
+    end
+end
+sys.taskInit(flash_query_task)
+
+--[[
+REQUEST_STATUS_REFRESH 订阅回调：重发缓存状态（零 I/O）
+
+页面（系统信息 / Flash 存储 / 系统分区页）打开或获得焦点时会请求刷新。
+本回调**只**重发内存缓存，绝不访问 SPI NAND，因此不会与 CH390 网卡争抢 SPI1。
+仅当缓存尚未就绪（开机查询未完成）时，才向内部查询协程投递一次真实查询。
 
 @local
 @function on_status_refresh
 ]]
 local function on_status_refresh()
-    publish_mount_status()
+    if cache_valid then
+        sys.publish("FLASH_MOUNT_STATUS", cache_mounted, cache_total_kb, cache_used_kb, flash_capacity_kb)
+    else
+        -- 缓存未就绪：异步投递真实查询（不阻塞本次事件回调）
+        sys.publish("FLASH_QUERY_INTERNAL")
+    end
 end
 
 sys.subscribe("REQUEST_STATUS_REFRESH", on_status_refresh)

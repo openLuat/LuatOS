@@ -13,7 +13,8 @@ Air8300 基于 Air8000W 的工业网关，无屏幕。外设：
   + 隔离 485（UART1，GPIO37 收发使能）+ 非隔离 485（UART3，GPIO36 收发使能 + GPIO29 供电）
   + 三色 LED（GPIO26=蓝 / GPIO27=红 / GPIO28=绿，高电平点亮）。
 产测包含：基础信息 + 校准位(ECNPICFG) + 写号(MODEL/HVERSION/MODEL?) + 网口获取IP(ETH_TEST,1#/2#)
-  + 485 一发一收(U485_TEST，A接A B接B) + 三色LED(LED_TEST) + 系统控制(RST/TEST_DONE)。
+  + 485 一发一收(U485_TEST，A接A B接B) + WiFi 扫描(WIFI_TEST，返回热点数量) + 三色LED(LED_TEST)
+  + 系统控制(RST/TEST_DONE)。
 写号使用 prodmeta 库写入 OTP（key: PROD=工业型号, PCB=硬件版本）；校准位读取用 mobile.ecnpicfg()。
 485 使用 uart.setup 内置 RS485 模式（固件自动控制 RE/DE）；ETH_TEST/U485_TEST 含 sys.wait，走 CONTROL 事件模式异步执行。
 通信通道：USB 虚拟串口（uart.VUART_0 115200，指令以 # 结尾）。
@@ -176,6 +177,35 @@ local function eth_test(port)
     return "ERROR"
 end
 
+-- ================= WiFi 扫描测试（扫描附近热点，返回热点数量，与 8301 产测 WIFI_TEST 一致） =================
+local function wifi_test()
+    -- Air8000W 内置 WiFi，wlan 为核心库；扫描前先初始化（已初始化则幂等无害）
+    if not wlan or not wlan.scan or not wlan.scanResult then
+        log.error("WIFI_TEST", "wlan 不可用")
+        return "ERROR"
+    end
+    if wlan.init then
+        pcall(wlan.init)
+    end
+    wlan.scan()
+    -- 扫描是异步 API，启动后马上返回；等 WLAN_SCAN_DONE 消息（最多 10s）
+    if not sys.waitUntil("WLAN_SCAN_DONE", 10000) then
+        log.error("WIFI_TEST", "扫描超时")
+        return "ERROR"
+    end
+    local results = wlan.scanResult()
+    if not results or type(results) ~= "table" then
+        log.error("WIFI_TEST", "扫描结果为空")
+        return "ERROR"
+    end
+    local count = #results
+    for i, v in ipairs(results) do
+        log.info("WIFI_TEST", i, v.ssid, v.rssi, v.bssid and v.bssid:toHex() or "")
+    end
+    log.info("WIFI_TEST", "扫描到", count, "个热点")
+    return tostring(count)
+end
+
 -- ================= 重启任务（RST 指令用，延时确保 OK# 回复已发出） =================
 local function reboot_later()
     sys.wait(500)
@@ -311,6 +341,12 @@ local function cmd_u485_test(id, findCom, data)
     return
 end
 
+local function cmd_wifi_test(id, findCom, data)
+    -- WiFi 扫描测试（扫描附近热点，返回热点数量），含 sys.wait，走 CONTROL 事件异步
+    sys.publish("CONTROL", "WIFI_TEST", id)
+    return
+end
+
 local function cmd_led_test(id, findCom, data)
     -- 三色 LED：LED_TEST,R# 红 / G# 绿 / B# 蓝 / 0# 全灭（高电平点亮，点亮前先全灭）
     local color = (data or ""):gsub("^%s*", ""):gsub("%s*$", ""):upper()
@@ -362,6 +398,7 @@ local procTable = {
     ["MODEL?"]    = cmd_model_query,
     ["ETH_TEST"]  = cmd_eth_test,
     ["U485_TEST"] = cmd_u485_test,
+    ["WIFI_TEST"] = cmd_wifi_test,
     ["LED_TEST"]  = cmd_led_test,
     ["RST"]       = cmd_rst,
     ["TEST_DONE"] = cmd_test_done,
@@ -376,6 +413,8 @@ local function control_task()
             send_response(param2, u485_test() .. "#")
         elseif param1 == "ETH_TEST" then
             send_response(param2, eth_test(param3) .. "#")
+        elseif param1 == "WIFI_TEST" then
+            send_response(param2, wifi_test() .. "#")
         end
     end
 end

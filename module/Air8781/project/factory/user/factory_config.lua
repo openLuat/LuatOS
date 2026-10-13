@@ -23,7 +23,7 @@ local factory_config = {}
 
 -- ==================== 【唯一需要手动调整】版本选择 ====================
 -- 可选值："8780" / "8780V" / "8780G" / "8781" / "8782" / "8700"
--- 默认 "8781"
+-- 本工程默认 "8781"（Air8781 工程；Air8780/Air8782 工程各自默认为 8780/8782）
 -- 说明：8780V=Air780EHV、8780G=Air780EGP/EGG，其余 8780 全系/8781/8782 主控均为 Air780EPM，
 --       8700 板载 Air700ECP（与 Air780EPM 同固件系列），仅透传。
 --       无法靠 hmeta.model() 自动区分 8781/8782，因此统一手动指定版本。
@@ -37,16 +37,16 @@ factory_config.sensor_i2c = {
     ["8780"]  = { mode = "hw", hw_id = 1 },                    -- 硬件I2C id=1
     ["8780V"] = { mode = "hw", hw_id = 1 },                    -- 硬件I2C id=1
     ["8780G"] = { mode = "hw", hw_id = 1 },                    -- 硬件I2C id=1
-    ["8781"]  = { mode = "sw", scl = 26, sda = 28, delay = 5 }, -- 软件I2C：GPIO26=SCL、GPIO28=SDA（按实际接线修改）
-    ["8782"]  = { mode = "sw", scl = 27, sda = 21, delay = 5 }, -- 软件I2C：GPIO27=SCL、GPIO21=SDA（按实际接线修改）
+    ["8781"]  = { mode = "sw", scl = 26, sda = 28, delay = 50 }, -- 软件I2C：GPIO26=SCL、GPIO28=SDA（按实际接线修改）
+    ["8782"]  = { mode = "sw", scl = 1, sda = 2, delay = 50 }, -- 软件I2C：GPIO1=SCL、GPIO2=SDA（官方Air8780P demo同款组合；GPIO27在开发板接LED不能做SCL）
     ["8700"]  = { mode = "disable" },                          -- 仅透传，不采集传感器
 }
 
 -- 传感器采集总开关（false=禁用，sensor_task.get_env 直接返回 nil）
 factory_config.sensor_enable = {
     ["8780"]  = true,
-    ["8780V"] = true,
-    ["8780G"] = true,
+    ["8780V"] = false,  -- 8780V 不采集 I2C 传感器（主打 TTS 播报）
+    ["8780G"] = false,  -- 8780G 不采集 I2C 传感器（主打 GPS 定位上报）
     ["8781"]  = true,
     ["8782"]  = true,
     ["8700"]  = false,  -- 仅透传，不采集
@@ -101,6 +101,18 @@ factory_config.report_cycle = {
     ["8781"]  = 180,
     ["8782"]  = 180,
     ["8700"]  = 180,
+}
+
+-- ==================== iRTU 网络状态灯/网络就绪引脚（兜底） ====================
+-- 仅当预置 irtu.cfg 的 pins 为空时生效（预置 cfg 已配置 netled=17/netready=26，正常走预置值）
+-- 兜底值与预置 cfg 保持一致，避免与软 I2C SCL/SDA 及 LED_PIN 冲突
+factory_config.net_pin = {
+    ["8780"]  = { led = 17, ready = 26 },
+    ["8780V"] = { led = 17, ready = 26 },
+    ["8780G"] = { led = 17, ready = 26 },
+    ["8781"]  = { led = 17, ready = 17 }, -- 8781P 仅 26/28 两个自由脚都给软I2C，netready 合并到 17，避免抢占 SCL
+    ["8782"]  = { led = 17, ready = 26 },
+    ["8700"]  = { led = 17, ready = 26 },
 }
 
 -- ==================== 外置硬件看门狗（Air153C/Air153D） ====================
@@ -165,6 +177,11 @@ function factory_config.get_report_cycle()
     return factory_config.report_cycle[factory_config.DEVICE_VER]
 end
 
+-- 获取当前版本网络状态灯/就绪引脚
+function factory_config.get_net_pin()
+    return factory_config.net_pin[factory_config.DEVICE_VER]
+end
+
 -- 获取当前版本外置看门狗配置
 function factory_config.get_wdt()
     return factory_config.wdt[factory_config.DEVICE_VER]
@@ -173,3 +190,4 @@ end
 log.info("factory_config", "当前版本:", factory_config.DEVICE_VER)
 
 return factory_config
+

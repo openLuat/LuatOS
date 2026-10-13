@@ -63,6 +63,21 @@ do
     gb = ok and mod or rawget(_G, "gb28181")
 end
 
+-- SIP 报文/Digest 走生态里的 exsipproto，不再由 C 层另起一套
+local proto
+do
+    local ok, mod = pcall(require, "exsipproto")
+    proto = ok and mod or nil
+end
+
+-- 报文构造与切包走 exgb28181sip：它把 exsipproto 按 GB28181 的头顺序拼装，
+-- 线上字节与被它取代的 C 实现逐字节一致（迁移时逐例比对过）。
+local sip
+do
+    local ok, mod = pcall(require, "exgb28181sip")
+    sip = ok and mod or nil
+end
+
 local M = {}
 
 local TOPIC_CMD  = "GB28181_CMD"
@@ -292,7 +307,7 @@ end
 --[[
 构造并发送一条设备发起的请求。
 @param method 方法名
-@param extra  追加/覆盖的 gb28181.sip_build 字段
+@param extra  追加/覆盖的 sip.build 字段
 ]]
 local function send_request(method, extra)
     extra = extra or {}
@@ -317,7 +332,7 @@ local function send_request(method, extra)
     }
     for k, v in pairs(extra) do cfg[k] = v end
 
-    local text, err = gb.sip_build(cfg)
+    local text, err = sip.build(cfg)
     if not text then
         log_error("构造报文失败", method, err)
         return nil
@@ -360,7 +375,7 @@ local function reply_ok(msg, opts)
         to_raw = to_raw .. ";tag=" .. opts.to_tag
     end
 
-    local text = gb.sip_build({
+    local text = sip.build({
         code        = 200,
         reason      = "OK",
         via_list    = vias,
@@ -468,7 +483,12 @@ local function handle_register_response(msg)
             emit("register", "fail", { code = msg.code, reason = "缺少认证挑战" })
             return
         end
-        local ch = gb.sip_parse_challenge(chal)
+        if not proto then
+            log_error("exsipproto 不可用, 无法计算摘要")
+            emit("register", "fail", { code = msg.code, reason = "exsipproto 不可用" })
+            return
+        end
+        local ch = proto.parse_www_authenticate(chal)
         if not ch then
             log_error("挑战解析失败")
             emit("register", "fail", { code = msg.code, reason = "挑战解析失败" })
@@ -478,7 +498,7 @@ local function handle_register_response(msg)
         -- qop 可能是列表("auth,auth-int")，本实现只支持 auth
         local qop, nc, cnonce
         if ch.qop then
-            qop = ch.qop:match("auth")
+            qop = proto.pick_qop(ch.qop)
             if not qop then
                 log_error("不支持的 qop", ch.qop)
                 emit("register", "fail", { code = msg.code, reason = "不支持的 qop" })
@@ -488,7 +508,8 @@ local function handle_register_response(msg)
             cnonce = gen_token("cn")
         end
 
-        local auth = gb.sip_authorization({
+        -- digest_auth 对缺字段是 assert 抛错(不是返回 nil)，故必须 pcall
+        local ok_auth, d = pcall(proto.digest_auth, {
             username  = g_opts.device_id,
             password  = g_opts.password or "",
             realm     = ch.realm,
@@ -501,11 +522,14 @@ local function handle_register_response(msg)
             opaque    = ch.opaque,
             algorithm = ch.algorithm,
         })
-        if not auth then
+        if not ok_auth or not d then
             log_error("摘要计算失败")
             emit("register", "fail", { code = msg.code, reason = "摘要计算失败" })
             return
         end
+        -- 407 必须用 Proxy-Authorization，头名在此决定
+        d.header_name = (msg.code == 407) and "Proxy-Authorization" or "Authorization"
+        local auth = proto.build_auth_header(d)
         log_info("收到挑战, 带摘要重发")
         send_register(auth)
         return
@@ -1233,7 +1257,7 @@ local function reply(msg, code, reason, body, content_type, to_tag)
         to_raw = to_raw .. ";tag=" .. to_tag
     end
     local cseq_hdr = msg.headers["cseq"] or "1 INVITE"
-    local text = gb.sip_build({
+    local text = sip.build({
         code        = code,
         reason      = reason,
         via_list    = vias,
@@ -1748,7 +1772,7 @@ function M.probe_session(sess, method)
         body = ""
     end
 
-    local text, err = gb.sip_build({
+    local text, err = sip.build({
         method       = method,
         -- in-dialog 请求的 Request-URI 是对端的 Contact，不是 To
         uri          = sess.remote_target or sess.remote_uri,
@@ -2108,19 +2132,14 @@ end
 
 -- 给平台的 2xx 应答回 ACK：不回的话平台会重传 200 直到超时，音频也不会开始
 local function send_ack(msg)
-    local vias = {}
-    for _, h in ipairs(msg.header_list or {}) do
-        if h.name:lower() == "via" then vias[#vias + 1] = h.value end
-    end
     local cseq = tonumber((msg.headers["cseq"] or "1"):match("^(%d+)")) or 1
-    local text = gb.sip_build({
+    local text = sip.build({
         method      = "ACK",
         uri         = string.format("sip:%s@%s", g_opts.server_id, g_opts.domain),
         transport   = string.upper(g_opts.transport),
         host        = st.local_ip,
         port        = st.sip_port,
         branch      = gen_token("z9hG4bK"),
-        via_list    = vias,
         from_raw    = msg.headers["from"],
         to_raw      = msg.headers["to"],
         call_id     = msg.headers["call-id"],
@@ -2621,7 +2640,7 @@ function send_notify(sub, body)
 
     sub.cseq = (sub.cseq or 0) + 1
 
-    local text = gb.sip_build({
+    local text = sip.build({
         method      = "NOTIFY",
         -- 对话内请求的请求行应指向订阅方的 Contact；平台没给就回落到服务端地址
         uri         = sub.contact or string.format("sip:%s@%s", o.server_id, o.domain),
@@ -2937,7 +2956,7 @@ local function feed(data)
     end
 
     while #st.rx > 0 do
-        local status, msg, consumed = gb.sip_pop(st.rx, g_opts.max_msg)
+        local status, msg, consumed = sip.pop(st.rx, g_opts.max_msg)
         if status == "ok" then
             st.rx = st.rx:sub(consumed + 1)
             local ok, err = pcall(process_packet, msg)
@@ -3275,6 +3294,14 @@ function M.start(opts)
     end
     if gb == nil then
         return false, "固件未开启 LUAT_USE_GB28181"
+    end
+    -- 报文构造/切包与摘要都在 Lua 侧（生态的 exsipproto + 本仓的 exgb28181sip）。
+    -- 在启动时早失败，免得跑到一半才因 nil 崩掉。
+    if proto == nil then
+        return false, "exsipproto 不可用(固件未开 crypto/MD5?)"
+    end
+    if sip == nil then
+        return false, "exgb28181sip 加载失败"
     end
 
     reset_state()

@@ -2790,6 +2790,7 @@ local function handle_subscribe(msg)
 
     -- 同一个 Call-ID 可能是刷新（平台到期前会带同样的对话信息重发）
     local sub = st.subs[call_id]
+    local is_new = (sub == nil)     -- 首次订阅（刷新不重发目录，见下面那段）
     if sub == nil then
         sub = {
             call_id  = call_id,
@@ -2826,6 +2827,30 @@ local function handle_subscribe(msg)
             },
         },
     })
+
+    --[[
+    长期 **Catalog** 订阅要立刻把当前目录推一次。
+
+    实测 WVP：注册时自动下发的是**长期**目录订阅（60 秒一续），它发完就等设备
+    把目录送过来 —— 只回 200 不给目录，平台侧就是"设备在线、手里没有通道"，
+    界面上根本没有可点播/可回放的通道（连"刷新通道信息"也会失败，因为它等
+    那条 NOTIFY 等不到）。原先只有 Expires:0（一次性拉取）那条路会给目录，
+    平台用长期订阅就一直拿不到，直到有人在界面上手动触发一次拉取。
+
+    只在这一条订阅**新建**时发：刷新（同 Call-ID 再来）说明对话还在、目录也没变，
+    再推一次纯属重复。之后目录有变化时由应用经 set_records 那条路推。
+    ]]
+    -- 目录订阅的判据**同时看 Event 头与 body**：实测 WVP 只给 `Event: Catalog`
+    -- 而 body 是空的（`cmd` 取不到），合宙 video.luatos.com 则在 body 里带
+    -- `<CmdType>Catalog</CmdType>`。只看 body 会漏掉前者。
+    local is_catalog = (cmd == "Catalog") or
+        (event:lower():find("catalog", 1, true) ~= nil)
+    if is_new and is_catalog then
+        sub.subscription_state = "active"       -- 订阅还活着（与取消那条的 terminated 相对）
+        send_catalog(msg, (q and q.sn) or 0, function(body)
+            send_notify(sub, body)
+        end)
+    end
 
     log_info("平台订阅", cmd, "expires=" .. tostring(expires), "Event=" .. event)
     emit("subscribe", "added", {

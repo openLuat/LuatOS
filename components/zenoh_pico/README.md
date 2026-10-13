@@ -91,9 +91,9 @@ LUAT_USE_ZENOH_PICO=y ZENOH_PICO_ROOT=/path/to/zenoh-pico ./build_macos.sh
 
 此完整PC命令尚未在本贡献环境通过：本机无xmake，现有macOS helper还固定i386；不把独立主机链接等同于PC模拟器构建。Linux/Windows同样使用各自既有helper并分别核验。
 
-官方目标BSP需要：同一套配置头与C11/atomic支持、仅上述官方通用源码及本模块4个src文件、统一network adapter/RTOS/堆/MCU时钟/TRNG实现，以及 `luaopen_zenohpico` 注册。PC的组件xmake片段给出明确固定Git源码清单；SDK自己的源文件表/注册表由官方提供实际路径并接入，不虚构Air8000用户C-SDK。
+官方目标BSP需要：同一套配置头与C11/atomic支持、仅上述官方通用源码及本模块4个src文件、统一network adapter/RTOS/堆/MCU时钟/TRNG实现，以及 `luaopen_zenohpico` 注册。PC的 `bsp/pc/xmake.lua` 给出明确固定Git源码清单，组件不包含独立xmake文件；桥接头位于 `components/zenoh_pico/include/luat_zenoh_pico.h`；SDK自己的源文件表/注册表由官方提供实际路径并接入，不虚构Air8000用户C-SDK。
 
-[最小demo](../../demo/zenoh_pico/main.lua) 要求先配置网卡就绪、填写测试router和adapter，再启动 `zenoh_peer <router> test/zenohpico/manual` 作为真实回显对端。demo未烧录验证。
+[最小demo](../../olddemo/demo/zenoh_pico/main.lua) 要求先配置网卡就绪、填写测试router和adapter，再启动 `zenoh_peer <router> test/zenohpico/manual` 作为真实回显对端。demo未烧录验证。
 
 ## 官方验收与回退
 

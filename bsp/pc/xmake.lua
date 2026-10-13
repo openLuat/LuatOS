@@ -157,6 +157,15 @@ add_includedirs("port/posix",{public = true})
 
 target("luatos-lua")
 
+    -- 默认关闭；显式启用才加载固定版本zenoh-pico及模块。
+    if env_enabled("LUAT_USE_ZENOH_PICO") then
+        local zp_component = path.absolute(path.join(os.scriptdir(), "../../components/zenoh_pico"))
+        on_load(function(target)
+            local integration = import("xmake", {rootdir = zp_component})
+            integration.main(target, zp_component)
+        end)
+    end
+
     -- 始终生成调试符号，让崩溃时的 StackWalk64 能解析函数名和文件行号
     if is_host("windows") then
         set_symbols("debug")

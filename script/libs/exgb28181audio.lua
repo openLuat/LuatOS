@@ -1,142 +1,52 @@
 --[[
 @module exgb28181audio
-@summary GB28181 语音对讲/广播的音频桥（audio_v2 ↔ exgb28181client）
-@version 0.1.0
-@date 2026.09.16
+@summary GB28181 对讲/广播的音频桥：麦克风/喇叭 ↔ voip
 
-把 exgb28181client 的音频会话与 LuatOS 的 audio_v2 框架接起来：上行走麦克风，
-下行走喇叭。本模块只搬字节，不做编解码 —— 两端都用 audio_v2 自带的
-DATA_CODEC_TYPE_G711_ALAW，PCM↔G.711A 的转换在框架内部完成。
+分工：信令与 SDP 归 exgb28181client（须设 external_audio=true + audio_port），
+编解码、AEC/降噪/AGC、抖动缓冲、RTP 收发全归 voip。本模块只搬 PCM：
+取录音喂 voip.pcmIn，从 voip.pcmOut 取出来写喇叭。
 
-分层：
-    gb28181(C)       协议编解码(PS 解封装等)，不碰编解码器
-    exgb28181client  信令 + 会话 + talk_push(上行出口) / on_audio(下行入口)
-    exgb28181audio   本文件：麦克风/喇叭 ↔ 会话
-    audio_v2(LuatOS) 音频框架：编解码、DMA、混音、驱动
+音频一律 PCM 16bit 单声道（DATA_CODEC_TYPE_VOIP_PCM 是 voip 注册的直通 codec）：
 
-不加 AEC：
-    对讲是双向同开的，理论上麦克风会拾到喇叭的声音。回声消除要在 PCM 域做，
-    而本桥两端都直接用 G.711A 直通(压缩域)，所以**不做 AEC**。
-    命令的取舍是：实现简单、Lua 层不碰编解码；代价是回声要靠结构隔离
-    (喇叭与麦克风的物理间距/腔体)处理，而不是靠算法。
+    local gba = require "exgb28181audio"
+    gba.start(sess)     -- talk/accepted 之后
+    gba.stop()
 
-基本用法：
-    local exgb28181audio = require "exgb28181audio"
-
-    -- 在平台的音频 INVITE 受理成功后(或 start_talk 发出后)打开
-    exgb28181audio.start(sess)
-    -- 会话结束时关闭
-    exgb28181audio.stop()
-
-start() 会**接管两个槽位**，stop() 会把它们还回去：
-
-  exgb28181client.on_audio  下行收包入口（收到先入队）
-  audio_v2.on               框架开口要数据时的写入点（拉模型，见 M.feed）
-
-所以应用侧不要另外注册这两个，否则后注册的会覆盖前者。
+注：voip 只做 UDP 承载；平台要求 TCP 时这条路不通。
 ]]
 
 local M = {}
 
--- 20ms @ 8kHz：G.711A 一帧 = 160 字节。上行按这个粒度切包，
--- 与 talk_push 的建议值、以及 G.711 编解码器的 one_frame_sample_cnt 一致。
-local FRAME_MS      = 20
-local FRAME_BYTES   = 160
-local SAMPLE_RATE   = 8000
+local FRAME_MS         = 20
+local FRAME_SAMPLES    = 160           -- 20ms @ 8kHz
+local FRAME_PCM_BYTES  = FRAME_SAMPLES * 2
+local SAMPLE_RATE      = 8000
 
-local a2        = nil    -- audio_v2 模块句柄
-local client    = nil    -- exgb28181client
-local req_idx   = nil    -- audio_v2.speech 返回的请求索引（上行录音、下行播放都挂在它上）
-local rec_zb    = nil    -- 录音缓冲（框架往里写 G.711A）
-local sess      = nil    -- 绑定的 gb28181 会话
-local timer     = nil    -- 上行泵
+-- 下行取不到 PCM 时补静音：不给数据播放节奏就断
+local SILENCE          = string.rep("\0", FRAME_PCM_BYTES)
+
+local a2        = nil
+local voip      = nil
+local client    = nil
+local req_idx   = nil    -- speech 索引（录音）
+local src_idx   = nil    -- extern_source 索引（播放）
+local rec_zb    = nil
+local sess      = nil
+local timer     = nil
 local running   = false
 
 local st = {
-    up_frames = 0, up_bytes = 0,          -- 上行：已推给平台的帧/字节
-    down_frames = 0, down_bytes = 0,      -- 下行：已交给 audio_v2 的帧/字节
-    down_drop_bytes = 0,                  -- 下行：进了桥但没进喇叭的字节（队列溢出丢弃）
-    up_drop = 0,                          -- talk_push 失败（会话没了/队列满）
-
-    -- 下行延迟定位用：框架开口的频率 / 那一刻剩余空间 / 队列积压
-    on_need_calls = 0,                    -- 框架开口要数据的次数
-    on_need_fails = 0,                    -- 其中 input 查询失败的次数
-    on_need_free  = -1,                   -- 最近一次上报的剩余空间
-    down_q_max    = 0,                    -- 排空瞬间队列积压的条目数
+    up_frames = 0, up_bytes = 0,
+    down_frames = 0, down_bytes = 0,
+    down_silence = 0,         -- voip 没数据、补了静音的帧数
+    down_drop_bytes = 0,      -- 取到了却写不进喇叭
+    up_drop = 0,              -- voip.pcmIn 拒收（桥接模式没开时恒涨）
+    on_need_free  = -1,
 }
-
--- 下行待播队列：只是"到货"与"框架开口"之间的中转，不是抖动缓冲 —— 留大等于加延迟。
--- 常态是空的（实测框架每秒开口约 100 次、每次取空）；要容的是起播瞬间的突发
--- （实测一次丢过 13600 字节 ≈ 1.7 秒）。超了丢最老的：至少听到的是近期的声音。
-local DOWN_Q_MAX   = 4 * 1024
-local down_q       = {}
-local down_q_bytes = 0
-
--- 抖动缓冲：开局先攒够这么多再喂，让播放 fifo 长期保有这段头寸去吸收抖动。
--- 平台推来的 RTP 是成块的、而框架"开口才给"，直接透传等于播放侧一直卡在
--- "刚好够、随时会饿"。代价是固定增加这段延迟 —— 拿延迟换连续。
--- （实测仍有断音，故未证实能消除，待查。）
-local DOWN_PREBUF  = 2400      -- 300ms @ G.711A 8KB/s
-local down_fed     = false     -- 本次会话是否已过预缓冲
-
---[[
-框架开口要数据时的唯一写入点：
-    audio_v2.input(req_idx)             查剩余空间
-    audio_v2.input(req_idx, data, 结束)  写入
-写不完的留队头；返回失败或写入 0 就停手 —— 硬塞会"写成功但进不了解码器"。
-]]
-local function on_need(idx, ev)
-    if not running or ev ~= a2.REQUEST_NEED_NEW_DATA then
-        return
-    end
-    if idx ~= req_idx then
-        return
-    end
-
-    st.on_need_calls = st.on_need_calls + 1
-    if #down_q > st.down_q_max then
-        st.down_q_max = #down_q
-    end
-
-    -- 抖动缓冲：攒够 DOWN_PREBUF 再放行。这段期间播放侧会灌空白
-    -- （实测空白累计到 4 次才算播放结束，约 2 秒，300ms 远在安全线内）。
-    if not down_fed then
-        if down_q_bytes < DOWN_PREBUF then
-            return
-        end
-        down_fed = true
-    end
-
-    local ok, _, free = a2.input(req_idx)
-    st.on_need_free = free or -1
-    if not ok then
-        st.on_need_fails = st.on_need_fails + 1
-        return
-    end
-
-    while free and free >= FRAME_BYTES and #down_q > 0 do
-        local body = down_q[1]
-        local r, wrote = a2.input(req_idx, body, false)
-        if not r or (wrote or 0) == 0 then
-            break
-        end
-        if (wrote or 0) < #body then
-            down_q[1] = body:sub((wrote or 0) + 1)     -- 部分写入，余下留队头
-            down_q_bytes = down_q_bytes - (wrote or 0)
-            break
-        end
-        table.remove(down_q, 1)
-        down_q_bytes = down_q_bytes - #body
-        free = free - (wrote or 0)
-    end
-end
 
 local function logi(...) log.info("gb28181audio", ...) end
 
---[[
-加载依赖。失败返回 false + 原因，不抛错 —— 与 exgb28181.lua 同样的理由：
-固件可能没开 LUAT_USE_AUDIO_V2，这时 require 本模块本身不该炸。
-]]
+-- 固件可能没开 LUAT_USE_AUDIO_V2 / 没编 voip，缺了一样就明确报出来
 local function load_deps()
     if a2 == nil then
         a2 = rawget(_G, "audio_v2")
@@ -146,6 +56,16 @@ local function load_deps()
         end
         if a2 == nil then
             return false, "audio_v2 不可用(固件未开 LUAT_USE_AUDIO_V2?)"
+        end
+    end
+    if voip == nil then
+        voip = rawget(_G, "voip")
+        if voip == nil then
+            local ok, mod = pcall(require, "voip")
+            voip = ok and mod or nil
+        end
+        if voip == nil then
+            return false, "voip 不可用(固件未编 LUAT_USE_VOIP?)"
         end
     end
     if client == nil then
@@ -158,99 +78,57 @@ local function load_deps()
     return true
 end
 
---[[
-下行数据入口：把平台发来的音频送进喇叭。
-
-由 start() 注册为 exgb28181client.on_audio 的回调，一般不需要自己调。
-
-@param s    音频会话
-@param body 已经剥掉 RTP 头、必要时解过 PS 的 G.711A（收包侧的处理都在 C 里）
-]]
-function M.feed(s, body)
-    if not running or type(body) ~= "string" or #body == 0 then
-        return
-    end
-
-    if req_idx == nil then
-        return
-    end
-
-    -- 只入队，不直接写：audio_v2 的输入是**拉模型**，框架在 REQUEST_NEED_NEW_DATA
-    -- 里问你要数据、并在那一刻才把口子接到解码器上。收包就写等于写进一个还没接上
-    -- 的口子 —— input() 返回"写成功"，数据却永远到不了解码器，播放侧只灌空白音。
-    -- 真机上验过：盲喂时解码器报 `decode once, no data output`，改成按需喂立刻
-    -- 读到 `decode raw mode read N bytes` 并出声。写入由 on_need() 做。
-    st.down_frames = st.down_frames + 1
-    st.down_bytes  = st.down_bytes + #body
-
-    down_q[#down_q + 1] = body
-    down_q_bytes = down_q_bytes + #body
-
-    -- 平台突发/网络抖动时队列可能涨得比喇叭消耗快；超上限丢最老的，
-    -- 并计入 down_drop_bytes（这个量就是"进了桥但没进喇叭"的字节）。
-    while down_q_bytes > DOWN_Q_MAX and #down_q > 0 do
-        local old = table.remove(down_q, 1)
-        down_q_bytes = down_q_bytes - #old
-        st.down_drop_bytes = st.down_drop_bytes + #old
-    end
-end
-
---[[
-上行泵：把麦克风缓冲里的 G.711A 按 160 字节(20ms)切包推给平台。
-
-为什么是轮询而不是录音回调：录音数据由框架写进 rec_zb，框架没有给 Lua 侧
-"每帧回调"的钩子(只有 C 层的 record_callback_frame_cnt 机制)。
-轮询的代价可以接受 —— 20ms 一次，每次只做一次 toStr/del。
-]]
+-- 20ms 一拍，上下行都在这拍上做完。播放是拉模型，没有数据时必须补静音
 local function pump()
-    if not running or rec_zb == nil or sess == nil then
+    if not running then
         return
     end
 
-    --[[
-    顺手把**下行**收一轮。
-
-    为什么挂在这里：这一拍是 20ms，正好是音频的节拍。客户端的 tick 是 1 秒，
-    挂那儿的话平台会按秒成坨地灌进下行队列 —— 而队列上限只有 4KB(250ms)，
-    成坨到达就是直接溢出丢数据。C 只把解好的 G.711A 放进 sink 回调，
-    收取的时机由调用方给 —— 而这里就是那个"该收的时机"。
-    ]]
-    client.poll_rx(sess)
-
-    local used = rec_zb:used()
-    if used < FRAME_BYTES then
-        return                      -- 不足一帧，等下一拍
-    end
-
-    -- 只取整数帧：余数留在缓冲里，避免把半帧推给平台
-    local n = used - (used % FRAME_BYTES)
-    local pcma = rec_zb:toStr(0, n)
-    rec_zb:del(0, n)
-    if type(pcma) ~= "string" or #pcma == 0 then
-        return
-    end
-
-    --[[
-    **整块交过去，不在这里切包。**
-
-    切包与时间戳推进是协议侧的固定知识，在 C 里做（一次调用切好），
-    省掉每包一次跨语言往返。上面那个 `used % FRAME_BYTES` 仍然必要：
-    半帧不能推给平台（会打乱对端抖动缓冲的节拍），余数留在缓冲里等下拍。
-    ]]
-    if client.talk_push(sess, pcma) then
-        st.up_frames = st.up_frames + #pcma / FRAME_BYTES
-        st.up_bytes  = st.up_bytes + #pcma
+    local pcm = voip.pcmOut(FRAME_SAMPLES)
+    if type(pcm) ~= "string" or #pcm == 0 then
+        pcm = SILENCE
+        st.down_silence = st.down_silence + 1
     else
-        st.up_drop = st.up_drop + 1
+        st.down_frames = st.down_frames + 1
+        st.down_bytes  = st.down_bytes + #pcm
+    end
+    if src_idx then
+        local ok, _, free = a2.input(src_idx)
+        st.on_need_free = free or -1
+        if ok then
+            local r, wrote = a2.input(src_idx, pcm, false)
+            if not r or (wrote or 0) == 0 then
+                st.down_drop_bytes = st.down_drop_bytes + #pcm
+            end
+        end
+    end
+
+    if rec_zb then
+        local used = rec_zb:used()
+        if used >= FRAME_PCM_BYTES then
+            -- 只取整数帧；半帧喂进去会让编码粒度错位
+            local n = used - (used % FRAME_PCM_BYTES)
+            local up = rec_zb:query(0, n)
+            rec_zb:del(0, n)
+            if type(up) == "string" and #up > 0 then
+                local c = voip.pcmIn(up)
+                if type(c) == "number" and c > 0 then
+                    st.up_frames = st.up_frames + c / FRAME_SAMPLES
+                    st.up_bytes  = st.up_bytes + c * 2
+                else
+                    st.up_drop = st.up_drop + 1
+                end
+            end
+        end
     end
 end
 
 --[[
-开启音频桥：打开 audio_v2 的全双工通道，并把上行泵跑起来。
+开启音频桥。
 
 @api exgb28181audio.start(session)
-@table session exgb28181client 的音频会话（start_talk 的返回值或 talk/accepted 事件里的会话）
-@return boolean 成功返回 true
+@table session exgb28181client 的音频会话（talk/accepted 事件里的那个）
+@return boolean
 @return string|nil 失败原因
 ]]
 function M.start(session)
@@ -260,59 +138,86 @@ function M.start(session)
     if type(session) ~= "table" then
         return false, "session 参数无效"
     end
+    if session.remote_ip == nil or session.remote_port == nil then
+        return false, "会话没有对端媒体地址(SDP 未协商?)"
+    end
 
     local ok, err = load_deps()
     if not ok then
         return false, err
     end
 
-    -- 录音回调粒度为 1 帧：让 rec_zb 尽快拿到数据，泵的延迟才小
-    rec_zb = zbuff.create(16 * 1024)
+    -- 桥接模式：voip 只做编解码/RTP，PCM 由本模块喂入/取走。
+    -- **漏了这句 pcmIn/pcmOut 全是空操作**（返回 0），而 voip.start 照样成功 ——
+    -- 表现为"对讲上行一个包都没有，录音侧却一直在编码"。
+    if voip.setAudioMode then
+        pcall(voip.setAudioMode, voip.AUDIO_MODE_BRIDGE)
+    end
+
+    -- 四个值都来自那次 SDP 协商；ssrc 平台按 SDP 的 y= 校验
+    local okv = voip.start({
+        codec       = voip.PCMA,
+        sample_rate = SAMPLE_RATE,
+        ptime       = FRAME_MS,
+        remote_ip   = session.remote_ip,
+        remote_port = session.remote_port,
+        local_port  = session.local_port,
+        ssrc        = session.ssrc,
+        aec_enable  = 1,
+        aec_denoise = 1,
+        aec_agc     = 1,
+    })
+    if not okv then
+        return false, "voip.start 失败"
+    end
+
+    rec_zb = zbuff.create(4096)
     if rec_zb == nil then
+        voip.stop()
         return false, "录音缓冲创建失败"
     end
 
-    -- 记录与播放都用 G.711A：两端一致，Lua 层不必碰编解码
-    local r, idx = a2.speech(a2.DATA_CODEC_TYPE_G711_ALAW, rec_zb, 1,
-                             a2.DATA_CODEC_TYPE_G711_ALAW,
-                             SAMPLE_RATE, 16, 1)
-    if not r then
+    -- 录音：VOIP_PCM 是直通 codec，rec_zb 里就是原始 PCM
+    local okr, rid = a2.speech(a2.DATA_CODEC_TYPE_VOIP_PCM, rec_zb, 1,
+                               a2.DATA_CODEC_TYPE_VOIP_PCM,
+                               SAMPLE_RATE, 16, 1)
+    if not okr then
         rec_zb = nil
-        return false, "audio_v2.speech 失败(音频设备被占用?)"
+        voip.stop()
+        return false, "audio_v2.speech 失败(音频设备被占用? 或未 setup)"
     end
-    req_idx = idx
+    req_idx = rid
 
-    --[[
-    下行的目标就是 speech 请求自己，不另开 extern_source。
+    -- 播放另开 extern_source 挂在同一请求上：下行 PCM 写到它给的索引
+    local oks, sid = a2.extern_source(rid, true, false,
+                                      a2.DATA_CODEC_TYPE_VOIP_PCM,
+                                      true, SAMPLE_RATE, 16, 1, true)
+    if not oks then
+        a2.stop(rid)
+        rec_zb, req_idx = nil, nil
+        voip.stop()
+        return false, "audio_v2.extern_source 失败"
+    end
+    src_idx = sid
 
-    解码泵读的是 `request_block->org_input_data_fifo`（见 luat_audio_core.c 的
-    _audio_decode_stream_to_fifo），而 audio_v2.input(request_index, ...) 才是
-    往那个口子写的 API。extern_source 建的是**另一个** fifo：往里写数据没人读，
-    真机日志表现为 `decode input fifo empty, decode end` + 播放侧一路灌空白音。
-    ]]
-    sess     = session
-    running  = true
-    st.up_frames, st.up_bytes, st.down_frames, st.down_bytes, st.up_drop = 0, 0, 0, 0, 0
-    st.down_drop_bytes = 0
-
-    down_q, down_q_bytes = {}, 0        -- 上一次会话的残留不能带进来
-    down_fed = false                    -- 新会话重新做一次预缓冲
-
-    -- 接管下行：start()/stop() 成对管这两个槽位，见文件头说明
-    client.on_audio(M.feed)             -- 收包入口（只入队）
-    a2.on(on_need)                      -- 框架开口要数据时的写入点
+    sess    = session
+    running = true
+    for k, v in pairs(st) do
+        if type(v) == "number" then st[k] = 0 end
+    end
+    st.on_need_free = -1
 
     timer = sys.timerLoopStart(pump, FRAME_MS)
 
-    logi("音频桥已开启", session.call_id or "")
+    logi("音频桥已开启(voip)", session.call_id or "",
+         session.remote_ip .. ":" .. tostring(session.remote_port),
+         "ssrc=" .. tostring(session.ssrc))
     return true
 end
 
 --[[
-关闭音频桥并释放音频通道。
-
-必须调用：audio_v2 的请求索引是全局有限的资源，不释放会一直占着音频设备，
-后续的 TTS/播放器/再次对讲都拿不到。
+关闭音频桥。必须调用：audio_v2 的请求索引是全局有限资源，不释放会一直占着
+音频设备；voip 不停则媒体端口不放开。
 ]]
 function M.stop()
     if not running then
@@ -324,23 +229,22 @@ function M.stop()
         sys.timerStop(timer)
         timer = nil
     end
-    if client then
-        client.on_audio(nil)        -- 摘掉下行回调，避免会话销毁后还被调用
-    end
-    if a2 then
-        pcall(a2.on, nil)           -- 把 audio_v2 的回调槽位还回去（应用可能自己要用）
+    if a2 and src_idx then
+        a2.stop(src_idx)
     end
     if a2 and req_idx then
         a2.stop(req_idx)
     end
+    if voip then
+        pcall(voip.stop)
+    end
 
-    req_idx, rec_zb, sess = nil, nil, nil
+    req_idx, src_idx, rec_zb, sess = nil, nil, nil, nil
     logi("音频桥已关闭")
     return true
 end
 
---[[
-查询是否已开启。
+--[[ 查询是否已开启
 @api exgb28181audio.is_running()
 @return boolean
 ]]
@@ -349,19 +253,22 @@ function M.is_running()
 end
 
 --[[
-统计。用于现场判断问题出在哪一段：
-    up_bytes        为 0 且 up_drop 增长 → talk_push 失败（会话没了/队列满）
-    up_frames       为 0 且 up_bytes 为 0 → 麦克风没数据（录音通道没开起来?）
-    down_bytes      一直为 0 → 下行没收到（对照 C 层 stream_stats 的 rx_* 计数）
-    down_drop_bytes 增长 → 数据到了桥却没进喇叭（队列积压被丢，见 M.feed）
-    on_need_calls   框架开口要数据的次数；恒为 0 说明播放侧根本没被驱动
+统计，用于现场判断问题出在哪一段：
+    up_drop 持续增长        → voip 桥接模式没开（pcmIn 全拒）
+    up_bytes 恒 0           → 麦克风没数据
+    down_silence 持续增长   → voip 没收到可放的
+    down_drop_bytes 增长    → 写不进喇叭
 @api exgb28181audio.stats()
-@return table
+@return table 另含 t.voip（voip 自己的统计与 aec_* 指标）
 ]]
 function M.stats()
     local t = {}
     for k, v in pairs(st) do t[k] = v end
     t.running = running
+    if voip and type(voip.stats) == "function" then
+        local ok, vs = pcall(voip.stats)
+        if ok then t.voip = vs end
+    end
     return t
 end
 

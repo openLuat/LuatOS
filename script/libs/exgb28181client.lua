@@ -1057,6 +1057,21 @@ local function alloc_rtp_port()
 end
 
 --[[
+音频会话的本地媒体端口。
+
+外部接管模式（g_opts.external_audio）下必须用调用方指定的那个：SDP 里报出去的
+就是它，而那个端口要留给外部引擎（如 voip）去绑 —— 本层不能再自己挑一个，
+否则两边抢同一个端口，或者平台按 SDP 把下行发到没人听的地方。
+非外部模式照旧从端口池里分配（点播仍走 alloc_rtp_port，不受影响）。
+]]
+local function alloc_audio_port()
+    if g_opts.external_audio and g_opts.audio_port then
+        return g_opts.audio_port
+    end
+    return alloc_rtp_port()
+end
+
+--[[
 决定 TCP 媒体承载下本端扮演的角色(setup 方向)。
 
 SDP offer/answer 的硬性规则：两端不能同时是 passive，也不能同时是 active。
@@ -1195,6 +1210,11 @@ local function media_open(sess)
     读回来"在网络适配层上做不到（它要到 connect 才真正绑端口）。只有
     TCP passive 是"本端监听等平台连进来"，那时不 connect。
     ]]
+    -- 外部接管：媒体归外部引擎，本层只走协商与 SDP
+    if g_opts.external_audio then
+        return true
+    end
+
     local mode
     if not sess.media_tcp then
         mode = "udp"
@@ -1299,7 +1319,7 @@ local function handle_audio_invite(msg, s)
         return
     end
 
-    local port = alloc_rtp_port()
+    local port = alloc_audio_port()
     if not port then
         log_warn("无可用端口")
         reply(msg, 503, "Service Unavailable")
@@ -1322,6 +1342,9 @@ local function handle_audio_invite(msg, s)
         -- 抛 "bad argument #3 to 'stream_open'"，**整个 INVITE 不回 200** ——
         -- 现象是平台侧"发了 INVITE 收不到应答"，而 SIP 层看不出任何异常。
         local_port   = port,
+        -- 让外部媒体引擎（如 voip）能拿到"本端发流该用哪个 SSRC"：
+        -- 这条路径下就是平台在它 SDP 的 y= 里给的那个（见下面 stream_new 的说明）
+        ssrc         = s.ssrc,
         incoming     = true,
         state        = "established",
         remote_ip    = s.conn_ip,
@@ -1348,22 +1371,25 @@ local function handle_audio_invite(msg, s)
     载荷类型必须是 8(PCMA)、SSRC 用平台在它 SDP 的 y= 里给的那个 ——
     回传的流要和它对上（见 gb28181.stream_new 的说明）。
     ]]
-    sess.stream = gb.stream_new(s.ssrc or 0, 8, 0, g_opts.adapter or 0)
-    if not sess.stream or not gb.stream_enable_rx(sess.stream) then
-        log_warn("音频会话创建失败")
-        reply(msg, 500, "Server Internal Error")
-        return
-    end
-    gb.stream_set_sink(sess.stream, nil)   -- 先清（重建会话时别留旧闭包）
-    attach_audio_sink(sess)
+    -- 外部接管：媒体链路由外部引擎建，这里只把协商结果走到 SDP 应答
+    if not g_opts.external_audio then
+        sess.stream = gb.stream_new(s.ssrc or 0, 8, 0, g_opts.adapter or 0)
+        if not sess.stream or not gb.stream_enable_rx(sess.stream) then
+            log_warn("音频会话创建失败")
+            reply(msg, 500, "Server Internal Error")
+            return
+        end
+        gb.stream_set_sink(sess.stream, nil)   -- 先清（重建会话时别留旧闭包）
+        attach_audio_sink(sess)
 
-    local ok, err = media_open(sess)
-    if not ok then
-        log_warn("音频通道建立失败", err)
-        gb.stream_close(sess.stream, 1)
-        sess.stream = nil
-        reply(msg, 500, "Server Internal Error")
-        return
+        local ok, err = media_open(sess)
+        if not ok then
+            log_warn("音频通道建立失败", err)
+            gb.stream_close(sess.stream, 1)
+            sess.stream = nil
+            reply(msg, 500, "Server Internal Error")
+            return
+        end
     end
 
     st.talks[call_id] = sess
@@ -1397,7 +1423,7 @@ local function handle_audio_invite(msg, s)
     log_info("已受理平台的音频 INVITE", call_id)
     emit("talk", "accepted", {
         call_id = call_id, session_name = sess.session_name,
-        local_port = port, incoming = true,
+        local_port = port, ssrc = sess.ssrc, incoming = true,
     })
 end
 
@@ -2015,6 +2041,10 @@ local function audio_open(sess)
     -- 三段式里的前两段：建链 + 绑端口。**这里不 connect** —— 平台从哪个
     -- 端口发音频要等它的应答 SDP 才知道，事先 connect 会把来源全过滤掉。
     -- connect 在 handle_talk_response 里。
+    -- 外部接管：不建收流链也不绑端口，SDP 报的 local_port 留给外部引擎（见 alloc_audio_port）
+    if g_opts.external_audio then
+        return true
+    end
     sess.stream = gb.stream_new(sess.ssrc or 0, 8, 0, g_opts.adapter or 0)
     if not sess.stream or not gb.stream_enable_rx(sess.stream) then
         return false, "创建音频会话失败"
@@ -2050,7 +2080,7 @@ function M.start_talk(opts)
         return nil, "信令未就绪"
     end
 
-    local port = opts.port or alloc_rtp_port()
+    local port = opts.port or alloc_audio_port()
     if not port then
         return nil, "无可用端口"
     end
@@ -2183,7 +2213,7 @@ local function handle_talk_response(msg)
         local rs = gb.sdp_parse(msg.body)
         if rs and rs.conn_ip and rs.port and rs.port > 0 then
             -- 三段式的最后一段：把对端钉死
-            if gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
+            if sess.stream and gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
                 sess.remote_ip, sess.remote_port = rs.conn_ip, rs.port
                 log_info("音频收流已连向", rs.conn_ip, rs.port)
             else

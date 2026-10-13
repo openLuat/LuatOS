@@ -312,9 +312,17 @@ target("luatos-lua")
     add_includedirs(luatos.."components/ymodem",{public = true})
     add_files(luatos.."components/ymodem/*.c")
 
-    -- profiler
+    -- profiler (内存分析, LUAT_USE_PROFILER)
     -- add_includedirs(luatos.."components/mempool/profiler/include",{public = true})
     -- add_files(luatos.."components/mempool/profiler/**.c")
+
+    -- prof (cycle profiler, 调优专用; 源内守卫, 默认空编译)
+    -- 开启: $env:LUAT_USE_PROF = "y" 后重编
+    add_includedirs(luatos.."components/prof/include",{public = true})
+    add_files(luatos.."components/prof/src/*.c", luatos.."components/prof/bind/*.c")
+    if env_enabled("LUAT_USE_PROF") then
+        add_defines("LUAT_USE_PROF=1")
+    end
 
     -- fastlz
     add_includedirs(luatos.."components/fastlz",{public = true})

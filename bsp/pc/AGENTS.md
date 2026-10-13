@@ -323,6 +323,7 @@ PC 模拟器支持通过环境变量按需启用可选功能，遵循与 `LUAT_U
 | `LUAT_USE_MGBA` | `y` | 启用 mGBA GameBoy 模拟器 |
 | `LUAT_USE_MP4PLAYER` | `y` | 启用 MP4/H.264/AAC 解码器。**默认关闭**（`y` 才编译）；mp4player 的 PC 集成目前链接不完整（缺 `avcodec/xvid/**`、`video_decode/video_decoder_if.c`、`luat_display_get_default` 等符号），修复前请勿默认开启。`n` 与默认同义 |
 | `LUAT_USE_UTEST` | `y` | 启用 C 层 utest（`socket.utest`、`http.utest` 等）。覆盖率和直接运行都需要 |
+| `LUAT_USE_PROF` | `y` | 启用 cycle profiler（Lua 库 `prof`，`components/prof`）。默认关闭；关闭时插桩宏编译为空、零开销。PC 侧 tick 走 rdtsc，`prof.ticks_per_us()` 为 0（NO-DATA，只比较占比） |
 | `LUAT_USE_CODEC_G729` | `y`/`n` | G.729 编解码（Annex A+B，`codec.G729` / audio_v2 G729）。源码位于 `luatos-ext-components/g729`；`y` 强制启用（缺失时报错），`n` 强制禁用，未设置时按目录存在性自动检测。禁用时 `LUAT_SUPPORT_G729` 不定义，g729 胶水层编译为空 |
 | `LUAT_USE_CODEC_G722` | `y`/`n` | G.722 编解码（16kHz 宽带 64kbps，`codec.G722` / audio_v2 G722 / voip.G722）。源码位于 `luatos-ext-components/libg722`；`y` 强制启用（缺失时报错），`n` 强制禁用，未设置时按目录存在性自动检测。禁用时 `LUAT_SUPPORT_G722` 不定义，g722 胶水层编译为空 |
 | `LUAT_OPUS_MODE` | `off`/`decode`/`full` | Opus 编解码（`codec.OPUS` / `codec.OGG_OPUS`）。源码位于 `luatos-ext-components/opus`；默认 `full`（编解码），`decode` 只编解码器链路（约省 87KB），`off` 强制禁用。目录缺失时**只告警不报错**并自动禁用（CI 没有 ext 仓库检出）。禁用时 `LUAT_SUPPORT_OPUS` 不定义，`components/multimedia/opus_port.c` 整文件编译为空 |

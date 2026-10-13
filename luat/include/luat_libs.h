@@ -4,6 +4,9 @@
 #include "lua.h"
 #include "lauxlib.h"
 
+/* Optional native zenoh-pico client. */
+LUAMOD_API int luaopen_zenohpico(lua_State *L);
+
 
 /** rtos库*/
 LUAMOD_API int luaopen_rtos( lua_State *L );

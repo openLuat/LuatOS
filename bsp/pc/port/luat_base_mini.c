@@ -133,6 +133,9 @@ static const luaL_Reg loadedlibs[] = {
   {"errDump", luaopen_errdump},
   {"httpsrv", luaopen_httpsrv},
 #endif
+#ifdef LUAT_USE_ZENOH_PICO
+  {"zenohpico", luaopen_zenohpico},
+#endif
 #ifdef LUAT_USE_RTMP
   {"rtmp", luaopen_rtmp},
 #endif

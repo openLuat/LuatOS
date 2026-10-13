@@ -29,3 +29,11 @@ python3 components/zenoh_pico/tests/run_host.py \
 ## 未验证
 
 完整 LuatOS PC helper/xmake、LuatOS 5.3 VM、Air8000 内核编译/链接/位宽、真机网卡及长期负载、Flash/堆/栈峰值和延迟均未验证。独立 POSIX 桥不替代真实 LuatOS network adapter、RTOS/BSP。没有设备或业务服务器动作。保持 Draft，目标编译与真机由官方补验。
+
+## 官方目录意见修订复验（2026-10-13）
+
+demo原样移动至 `olddemo/demo/zenoh_pico/main.lua`；桥接头原样移动至组件include；移除组件xmake并把原固定依赖/源码装配内联到PC xmake。独立只读复核确认三条意见覆盖、移动内容字节不变、include路径和demo链接有效，无新增阻断。
+
+本轮 `luac -p` 通过；两平台文件及全部6个本次C文件严格C11检查通过，128/125源文件ASan/UBSan重新编译链接通过。沙箱首次本机绑定EPERM，随后已批准权限下同一新二进制完成16项：`HOST_PASS checks=16 lua=Lua 5.5`、`PARTIAL_IO reads=1213 writes=558`、`HOST_EXIT 0`、`PEER_DONE received=28`、`PEER_EXIT 0`、`INTEROP_PASS`，无sanitizer异常。
+
+本轮host SHA256 `1516359ed491e1f9dbedd6127c44e701b285ac94069c9e3428ce00b9dde7991b`；peer SHA256 `402e5fc7e5955a6a830917661011763086bfbac6a8c5ea276eaa44f4d8d01759`。Lua5.5语法检查不代表xmake运行或LuatOS5.3验证，完整PC/BSP与真机边界继续保留。

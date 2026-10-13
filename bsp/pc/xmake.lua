@@ -1256,23 +1256,24 @@ target("luatos-lua")
     -- =========================================================
     -- mp4player（MP4/H.264/AAC 解码器）
     -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/mp4player
+    -- 默认**关闭**：mp4player 的 PC 集成目前链接不完整（缺 xvid 子树、
+    --   video_decode/video_decoder_if.c 与 luat_display_get_default 等符号，
+    --   见 bsp/pc/AGENTS.md 的 OPTIONAL FEATURES 说明），待修复后再恢复默认启用。
     -- 示例（PowerShell）：
-    --   $env:LUAT_USE_MP4PLAYER = "y"  # 显式启用
-    --   $env:LUAT_USE_MP4PLAYER = "n"  # 显式禁用
+    --   $env:LUAT_USE_MP4PLAYER = "y"  # 显式启用（当前会链接失败）
+    --   $env:LUAT_USE_MP4PLAYER = "n"  # 显式禁用（与默认一致）
     --   cmd /c build_windows_32bit_msvc.bat
     -- =========================================================
-    -- 自动检测：如果 luatos_ext_root/mp4player 不存在，自动禁用 MP4
+    -- 显式 opt-in：只有 LUAT_USE_MP4PLAYER=y 才编译 MP4 解码器
     local use_mp4player = false
     local mp4player_src = luatos_ext_root .. "/mp4player"
-    if os.isdir(mp4player_src) then
-        -- 检查环境变量 LUAT_USE_MP4PLAYER 的显式控制
-        local env_mp4 = os.getenv("LUAT_USE_MP4PLAYER")
-        if env_mp4 ~= "n" then
+    if os.getenv("LUAT_USE_MP4PLAYER") == "y" then
+        if os.isdir(mp4player_src) then
             use_mp4player = true
+        else
+            -- 显式要求启用但目录不存在，给出警告（保留，不强制失败）
+            print("Warning: LUAT_USE_MP4PLAYER=y but mp4player not found at: " .. mp4player_src)
         end
-    elseif os.getenv("LUAT_USE_MP4PLAYER") == "y" then
-        -- 显式要求启用但目录不存在，给出警告（保留，不强制失败）
-        print("Warning: LUAT_USE_MP4PLAYER=y but mp4player not found at: " .. mp4player_src)
     end
     
     if use_mp4player then

@@ -82,7 +82,7 @@ static void voip_reset_session_state(voip_ctx_t *ctx);
 static int  voip_session_start(voip_ctx_t *ctx);
 static void voip_session_stop(voip_ctx_t *ctx, int notify_idle);
 static int  voip_runtime_init(voip_ctx_t *ctx);
-static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime);
+static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime, uint32_t ssrc);
 static int  voip_pack_rtp_packet(voip_rtp_tx_state_t *state, const uint8_t *payload, uint16_t payload_len, uint8_t *out_buf, uint16_t out_max_len, uint16_t *out_len);
 static int  voip_parse_rtp_packet(const uint8_t *data, uint16_t len, voip_rtp_parsed_t *out);
 static const int16_t *voip_prepare_tx_pcm(voip_ctx_t *ctx, const int16_t *mic_pcm,
@@ -297,7 +297,7 @@ static const int16_t *voip_prepare_tx_pcm(voip_ctx_t *ctx, const int16_t *mic_pc
     return voip_aec_process_frame(ctx, mic_pcm, render_seq, capture_seq, capture_tick_ms);
 }
 
-static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime)
+static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime, uint32_t ssrc)
 {
     if (!state) return -1;
 
@@ -313,7 +313,11 @@ static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_ty
     state->timestamp = (uint32_t)(uPV.u32 & 0x7FFFFFFF);
     if (luat_crypto_trng((char *)uPV.u8, 4)) return -1;
     state->ssrc = (uint32_t)(uPV.u32 & 0x7FFFFFFF);
-    if (state->ssrc == 0) {
+    if (ssrc != 0) {
+        /* 调用方指定：GB28181 把同一个值写进 SDP 的 y=，平台按它校验 RTP，
+           随机值对不上会被平台拒收（实测 ZLM 打印"允许RTP推流，ssrc: <y 的值>"） */
+        state->ssrc = ssrc;
+    } else if (state->ssrc == 0) {
         state->ssrc = 1;
     }
     return 0;
@@ -1510,7 +1514,8 @@ static int voip_session_start(voip_ctx_t *ctx)
         goto start_failed;
     }
     
-    if (voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, rtp_clock_rate, ptime) < 0) {
+    if (voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, rtp_clock_rate, ptime,
+                               ctx->config.ssrc) < 0) {
 #ifdef LUAT_USE_SRTP
         voip_notify_lua(VOIP_CB_ERROR, LUAT_VOIP_SECURITY_E_CRYPTO);
 #endif

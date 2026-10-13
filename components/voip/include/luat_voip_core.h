@@ -65,6 +65,9 @@ typedef struct {
     uint16_t local_port;
     uint16_t jitter_depth;
     uint16_t ptime;             /* 毫秒，默认 20 */
+    uint32_t ssrc;              /* 发送端 SSRC；0 = 每次会话随机（默认）。
+                                   GB28181 要把这个值写进 SDP 的 y=，平台拿它校验 RTP，
+                                   故必须能指定 —— 随机值对不上会被平台拒收 */
     uint8_t  multimedia_id;     /* 音频设备编号 */
     uint8_t  aec_enable;
     uint8_t  aec_denoise;

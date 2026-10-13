@@ -474,6 +474,11 @@ static int l_voip_start(lua_State *L)
     cfg.ptime = (uint16_t)luaL_optinteger(L, -1, VOIP_FRAME_MS_DEFAULT);
     lua_pop(L, 1);
 
+    /* ssrc：发送端 SSRC，0 = 随机（缺省）。GB28181 的 SDP y= 要用它 */
+    lua_getfield(L, 1, "ssrc");
+    cfg.ssrc = (uint32_t)luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+
     /* sample_rate */
     lua_getfield(L, 1, "sample_rate");
     cfg.sample_rate = (uint32_t)luaL_optinteger(L, -1, VOIP_SAMPLE_RATE_DEFAULT);

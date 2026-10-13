@@ -6,6 +6,10 @@ local HELLO = "Hello ROMFS!\n"
 local NOTE  = "nested file ok\n"
 local LONG  = "long name ok\n"
 local LONGNAME = "a_very_long_file_name_over_16_chars.txt"
+-- 边界用例: 4 层目录里的文件 / 恰好 64 字节的名字(对应 luat_vfs_romfs.c 的两处 off-by-one 修复)
+local DEPTH4      = "depth4 dir file ok\n"          -- four/b/c/d/nested4.txt
+local NAME64      = string.rep("n", 60) .. ".txt"   -- 不含 NUL 恰好 64 字节
+local NAME64_DATA = "max name ok\n"
 
 local function databin_byte(i)  -- fixture data.bin 第 i 字节(0 基)
     return (i * 7 + 13) % 256
@@ -122,6 +126,30 @@ function romfs_test.test_callback_mode_parity()
     local b = f:read(1)
     f:close()
     assert(b and string.byte(b) == databin_byte(255), "回调模式 seek+read 不一致")
+end
+
+-- 4 层目录里的文件可用: 旧实现对目录的每个子节点(含文件)都做 depth+1 检查,
+-- 会让第 LUAT_ROMFS_MAX_DIR_DEPTH 层目录里的文件把整个 mount 判失败。
+function romfs_test.test_file_in_deepest_dir()
+    assert(io.exists("/romfs/four/b/c/d/nested4.txt") == true, "4 层目录内的文件应可见")
+    assert(io.readFile("/romfs/four/b/c/d/nested4.txt") == DEPTH4, "4 层目录内文件内容不匹配")
+    assert(io.fileSize("/romfs/four/b/c/d/nested4.txt") == #DEPTH4, "4 层目录内文件大小不匹配")
+    assert(io.exists("/romfs2/four/b/c/d/nested4.txt") == true, "回调模式 4 层目录文件缺失")
+end
+
+-- 恰好 LUAT_ROMFS_MAX_NAME(默认 64) 字节的名字可用: 旧实现"读满 64 字节仍未遇到 NUL"
+-- 就判名字过长, 会让 64 字节名被静默丢弃(条目不参与匹配也不出现在 lsdir 中)。
+function romfs_test.test_max_name_length_file()
+    assert(io.exists("/romfs/" .. NAME64) == true, "64 字节名字应可见")
+    assert(io.readFile("/romfs/" .. NAME64) == NAME64_DATA, "64 字节名字内容不匹配")
+    assert(io.fileSize("/romfs/" .. NAME64) == #NAME64_DATA, "64 字节名字大小不匹配")
+    local ok, ents = io.lsdir("/romfs/", 50, 0)
+    assert(ok == true, "lsdir /romfs/ 失败")
+    local seen = false
+    for _, e in ipairs(ents) do
+        if e.name == NAME64 then seen = true end
+    end
+    assert(seen, "64 字节名字应出现在 lsdir 中")
 end
 
 return romfs_test

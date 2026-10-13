@@ -1,12 +1,13 @@
 # 统计 opus 相关 .obj 的代码段体积 (.text$mn + .rdata)，按模块目录分组
 # -Since 指定后只统计该时间之后编译的 obj（排除 xmake 不自动清理的孤儿 obj）
 param(
-    [string]$ObjsRoot = "C:\Users\wendal\.qoder-cn\worktree\LuatOS\luTEXa\bsp\pc\build\.objs",
+    [string]$ObjsRoot = (Join-Path $PSScriptRoot "build\.objs"),
     [string]$Since = ""
 )
 
 $db = "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64\dumpbin.exe"
-$objs = Get-ChildItem $ObjsRoot -Recurse -Filter *.obj | Where-Object FullName -match "multimedia\\opus"
+# opus 源码在 luatos-ext-components/opus（见 bsp/pc/xmake.lua 的 opus 块），obj 路径同此
+$objs = Get-ChildItem $ObjsRoot -Recurse -Filter *.obj | Where-Object FullName -match "luatos-ext-components\\opus\\"
 if ($Since -ne "") {
     $cutoff = Get-Date $Since
     $stale = ($objs | Where-Object LastWriteTime -le $cutoff).Count

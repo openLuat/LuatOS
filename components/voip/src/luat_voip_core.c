@@ -1953,6 +1953,10 @@ int voip_start(const voip_config_t *config)
     if (!config) {
         return -3;
     }
+
+    /* VOIP_PCM 由本组件注册给 audio_v2（见 luat_voip_audio_v2.c）。不注册的话
+       speech/record 找不到该 codec、直接返回 false，录音通道起不来。内部幂等。 */
+    luat_voip_audio_codec_register();
 #ifdef LUAT_USE_SRTP
     if (config->security && (!luat_voip_security_configured(config->security) ||
             luat_voip_security_state(config->security) != LUAT_VOIP_SECURITY_NEW)) return -3;

@@ -30,8 +30,7 @@
 ```
 factory/
 ├── readme.md
-├── lib/                         # 脚本库（exsip / air1103 / exaudio / excloud / exmtn / httpplus / libfota3 / prodmeta…）
-└── user/
+└── user/                        # 业务代码（见下）；脚本库统一引用仓库共享库 script/libs，本工程不再内置 lib/
     ├── main.lua                 # 入口：test_done 分流产测/业务；FOTA 启动；全局定义
     ├── factory.lua              # 产测模式
     ├── update.lua               # FOTA 封装（libfota3）
@@ -429,7 +428,7 @@ TEST_DONE#               3 秒后自动重启进业务模式
 
 ## 十五、使用说明
 
-1. Luatools 烧录工程目录 + `lib/`（core = Air780EHM），同时将 `user/tv_ok.pcm` 加入烧录文件，确保设备上可通过 `/luadb/tv_ok.pcm` 读取（16 kHz、16 bit、单声道原始 PCM，不要用 WAV/MP3 改名替代；FOTA 更新时也需保留）。
+1. Luatools 烧录工程目录（user/）+ 仓库共享库 `script/libs`（core = Air780EHM；lib 选择该目录），同时将 `user/tv_ok.pcm` 加入烧录文件，确保设备上可通过 `/luadb/tv_ok.pcm` 读取（16 kHz、16 bit、单声道原始 PCM，不要用 WAV/MP3 改名替代；FOTA 更新时也需保留）。本工程已移除内置 `lib/`，库文件以 `script/libs` 为准。仓库共享库 `script/libs` 在线地址：https://gitee.com/openLuat/LuatOS/tree/master/script/libs （本地找不到该目录时，可在此获取最新版）。
 2. **产测→业务**：上位机发 `TEST_DONE#` → 重启进业务模式，无需重烧。
 3. **返修→产测**：重烧并勾「清除 KV」，或烧一个“清标记小工程”（`fskv.del("test_done")`）。
 4. **模式切换**：云端 `set_mode`（`single` / `phone`）→ 空闲后重启；SIP_CC 需插手机卡（VoLTE），单 SIP 用流量卡。

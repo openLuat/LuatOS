@@ -1,5 +1,5 @@
 --[[
-@module  exair153x_wdt
+@module exair153x_wdt
 @summary Air153C/Air153D 外置硬件看门狗扩展库
 @version 1.0
 @date    2026.09.20

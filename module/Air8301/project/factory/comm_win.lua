@@ -1,8 +1,8 @@
 --[[
 @module  comm_win
 @summary 通信分区页（网络状态 / WiFi / RS485-1 / Modbus / 多网融合）（8301出厂固件）
-@version 1.3
-@date    2026.10.10
+@version 1.0
+@date    2026.10.13
 @author  江访
 
 @usage
@@ -117,19 +117,19 @@ local function on_active_updated(net_type, adapter, name)
     theme.tile_state(tile_multi, text, color)
 end
 
---[[RS485 数据接收（业务模式仅 RS485-1 开放，摘要显示"通信中"）
+--[[RS485-1 从站请求/应答（业务模式 RS485-1 = Modbus RTU 从站，摘要显示"通信中"）
+
+数据源：MODBUS_RTU_REQ（rtu_slave_regmap.lua 每次请求/应答后发布）。
+v1.4 修正：原订阅 RS485_DATA_RECEIVED，该消息在业务模式下没有任何发布方
+          （仅产测 prod_rs485_app 发布），磁贴永远不会变为"通信中"。
 
 @local
-@function on_rs485_received
-@param port number 端口号(1或2)
-@param data string 接收数据
+@function on_rtu_req
+@param text string "[RTU] 请求:xx  应答:xx"
 ]]
-local function on_rs485_received(port, data)
+local function on_rtu_req(text)
     if not exwin.is_active(win_id) then return end
-    -- 业务模式只有 RS485-1 开放；RS485-2(UART11) 已由继电器主站占用，不再展示
-    if port == 1 then
-        theme.tile_state(tile_485a, "通信中", theme.SEM.success)
-    end
+    theme.tile_state(tile_485a, "通信中", theme.SEM.success)
 end
 
 -- ==================== UI 构建 ====================
@@ -174,11 +174,11 @@ end
 @function on_create
 ]]
 local function on_create()
-    log.info("comm_win", "[UI-MARK] 通信分区页 v1.3 已加载（WiFi 磁贴副标题固定为「WiFi配网」）")
+    log.info("comm_win", "[UI-MARK] 通信分区页 v1.4 已加载（RS485-1 磁贴改订阅 MODBUS_RTU_REQ）")
     create_ui()
     sys.subscribe("STATUS_SIGNAL_UPDATED", on_signal_updated)
     sys.subscribe("STATUS_WIFI_UPDATED", on_wifi_updated)
-    sys.subscribe("RS485_DATA_RECEIVED", on_rs485_received)
+    sys.subscribe("MODBUS_RTU_REQ", on_rtu_req)
     sys.subscribe("NET_ACTIVE_UPDATED", on_active_updated)
     sys.publish("NETWORK_STATUS_QUERY")
     clock_timer = sys.timerLoopStart(refresh_clock, 1000)
@@ -202,7 +202,7 @@ local function on_destroy()
     tile_net, tile_wifi, tile_485a, tile_modbus, tile_multi = nil, nil, nil, nil, nil
     sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_signal_updated)
     sys.unsubscribe("STATUS_WIFI_UPDATED", on_wifi_updated)
-    sys.unsubscribe("RS485_DATA_RECEIVED", on_rs485_received)
+    sys.unsubscribe("MODBUS_RTU_REQ", on_rtu_req)
     sys.unsubscribe("NET_ACTIVE_UPDATED", on_active_updated)
     win_id = nil
 end

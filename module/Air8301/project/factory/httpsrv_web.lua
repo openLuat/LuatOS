@@ -175,6 +175,26 @@ local slave_log = {}
 local tcp_log = {}
 
 --[[
+判断是否为"失败/错误"类日志
+
+按用户要求：现场 485 继电器模块应答帧不符合标准格式，主站失败多为误判，
+此类提示一律不上送网页（设备端串口 log.warn 仍保留，便于本地排查）。
+
+@local
+@function is_error_log
+@param msg string 日志文本
+@return boolean true=属于失败/错误类，应隐藏
+]]
+local function is_error_log(msg)
+    local s = tostring(msg or "")
+    return string.find(s, "失败", 1, true) ~= nil
+        or string.find(s, "错误", 1, true) ~= nil
+        or string.find(s, "异常", 1, true) ~= nil
+        or string.find(s, "超时", 1, true) ~= nil
+        or string.find(s, "不支持", 1, true) ~= nil
+end
+
+--[[
 RTU 从站请求日志回调
 
 @local
@@ -182,6 +202,7 @@ RTU 从站请求日志回调
 @param msg string 日志文本
 ]]
 local function on_modbus_rtu_req(msg)
+    if is_error_log(msg) then return end
     local s = string.format("[%s] %s", os.date("%H:%M:%S"), tostring(msg or ""))
     table.insert(slave_log, s)
     if #slave_log > 10 then table.remove(slave_log, 1) end
@@ -208,6 +229,8 @@ end
 @param msg string 日志文本
 ]]
 local function on_modbus_master_log(msg)
+    -- 兜底过滤：无论上游是否上送失败提示，"通讯"页的"从站请求日志"都不再显示报错内容
+    if is_error_log(msg) then return end
     local s = string.format("[%s] %s", os.date("%H:%M:%S"), tostring(msg or ""))
     table.insert(slave_log, s)
     if #slave_log > 10 then table.remove(slave_log, 1) end
@@ -354,8 +377,12 @@ local function handle_http_request(fd, method, uri, headers, body)
             local content = f:read("*a")
             f:close()
             log.info("httpsrv", "首页响应, 内容长度:", #content)
+            -- 禁止浏览器缓存内置网页：避免烧录新版本后浏览器仍展示旧页面（表现为"改了没生效"）
             return 200, {
                 ["Content-Type"] = "text/html; charset=utf-8",
+                ["Cache-Control"] = "no-store, no-cache, must-revalidate",
+                ["Pragma"] = "no-cache",
+                ["Expires"] = "0",
             }, content
         end
         log.warn("httpsrv", "index.html 文件未找到")

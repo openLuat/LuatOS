@@ -102,6 +102,7 @@ local function write_single_coil(channel, state)
     -- 通道号即线圈地址偏移（通道0 → 0x0000，通道3 → 0x0003）
     local addr = CH_BASE_ADDR + channel
     local status
+    local target          -- 本次操作的「意图」值（0/1），用于乐观更新缓存
 
     if state == "toggle" then
         -- 翻转：功能码 0x05，数据 0x5500（字段参数方式不支持，必须用原始帧）
@@ -119,33 +120,34 @@ local function write_single_coil(channel, state)
             raw_request = frame,
             timeout = 1000,
         })
-        if status == exmodbus.STATUS_SUCCESS then
-            -- 更新缓存：翻转即取反（channel+1 为 1-based 数组下标）
-            relay_state[channel + 1] = (relay_state[channel + 1] == 0) and 1 or 0
-        end
+        -- 翻转意图：对当前缓存取反（channel+1 为 1-based 数组下标）
+        target = (relay_state[channel + 1] == 0) and 1 or 0
     else
         -- 开/关：原始帧方式（0x05，容忍模块回显应答）
-        local value = (state == "open") and 1 or 0
+        target = (state == "open") and 1 or 0
         status, _ = comm_core.write_coil_raw(rtu_master, {
             slave_id = SLAVE_ID,
             start_addr = addr,
-            value = value,
+            value = target,
             timeout = 1000,
         })
-        if status == exmodbus.STATUS_SUCCESS then
-            relay_state[channel + 1] = value
-        end
     end
+
+    -- 乐观更新：命令一经下发，就把缓存与界面刷新为「用户意图」值。
+    -- 现场继电器模块应答帧不符合标准格式，命令实际已执行也常被判失败；
+    -- 若只在判定成功时更新缓存，缓存会停留在旧值，屏幕页/网页随后用旧值回刷，
+    -- 表现为「点了没反应 / 状态自己跳回 / 各页面显示不同步」。
+    relay_state[channel + 1] = target
+    sys.publish("RELAY_STATUS_UPDATE", relay_state)
 
     if status == exmodbus.STATUS_SUCCESS then
         log.info("relay_ctrl", "通道" .. channel .. "(" .. state .. ") 成功")
         publish_log("[主站] 通道" .. channel .. " " .. state .. " 成功")
-        -- 执行后广播最新状态
-        sys.publish("RELAY_STATUS_UPDATE", relay_state)
         return true
     end
     log.warn("relay_ctrl", "通道" .. channel .. "(" .. state .. ") 失败, 状态=", status)
-    publish_log("[主站] 通道" .. channel .. " " .. state .. " 失败(" .. tostring(status) .. ")")
+    -- 失败提示不上送网页：现场继电器模块应答帧不符合标准格式，失败多为误判，
+    -- 上送会让网页“通讯”页持续刷错误日志，故仅保留设备端日志。
     return false
 end
 
@@ -165,15 +167,17 @@ local function write_multiple_coils(vals)
         data = data,
         timeout = 1000,
     })
+    -- 乐观更新：全量操作一经下发，就把缓存与界面刷新为「用户意图」值（理由同单路写）
+    for i = 1, CH_COUNT do relay_state[i] = vals[i] end
+    sys.publish("RELAY_STATUS_UPDATE", relay_state)
+
     if status == exmodbus.STATUS_SUCCESS then
-        for i = 1, CH_COUNT do relay_state[i] = vals[i] end
         log.info("relay_ctrl", "多线圈写入成功")
         publish_log("[主站] 多线圈写入成功")
-        sys.publish("RELAY_STATUS_UPDATE", relay_state)
         return true
     end
     log.warn("relay_ctrl", "多线圈写入失败, 状态=", status)
-    publish_log("[主站] 多线圈写入失败(" .. tostring(status) .. ")")
+    -- 失败提示不上送网页（同上：现场模块非标准应答易误判，避免网页持续刷错误日志）
     return false
 end
 
@@ -239,7 +243,10 @@ function M.read_status()
         return relay_state
     end
     log.warn("relay_ctrl", "回读继电器状态失败")
-    publish_log("[主站] 回读状态失败")
+    -- 失败提示不上送网页（同上）
+    -- 但状态仍要广播一次：页面（屏幕/网页）打开或获得焦点时会请求回读，
+    -- 若失败不广播，页面会停留在「未知」或旧状态，造成显示与实际不同步。
+    sys.publish("RELAY_STATUS_UPDATE", relay_state)
     return nil
 end
 

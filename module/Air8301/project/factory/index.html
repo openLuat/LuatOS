@@ -75,6 +75,7 @@ th{background:#f8f9fa;color:#606266;font-weight:600;}
     <div class="row"><span class="k">IMEI</span><span class="v" id="h-imei">--</span></div>
     <div class="row"><span class="k">ICCID</span><span class="v" id="h-iccid">--</span></div>
     <div class="row"><span class="k">系统时间</span><span class="v" id="h-time">--</span></div>
+    <div class="row"><span class="k">网页版本</span><span class="v" id="h-web">--</span></div>
   </div>
   <div class="card"><h3>运行数据</h3>
     <div class="grid">
@@ -182,8 +183,15 @@ function api(path,opt){return fetch(path,opt).then(function(r){return r.json();}
 
 // 继电器卡片 DOM 引用（只在通道数变化时重建，避免每 3 秒整表重建打断用户点击）
 var relayEls=[];
-// 用户刚操作过的通道保护窗口：{want:期望状态, ts:操作时间戳}
-var pendSw={};
+// 继电器本地显示状态（每通道 0/1）：用于本地操作的即时回显。
+// 状态源说明：设备端 relay_ctrl 已改为「命令下发即乐观更新缓存并广播」，
+// 故设备端 relay_state 是可靠状态源（反映用户最后意图），网页端应以它为准，
+// 这样屏幕端 / 云端 / 网页端任一处操作都能互相同步。
+// 为避免「本地刚点击、设备端状态尚未更新时被轮询覆盖回旧值」，本地操作后开一个
+// 短暂的本地保护窗口 relayGuardUntil：窗口内忽略设备端状态，窗口过后恢复对齐。
+var relayUI=[];
+var relayGuardUntil=0;      // 本地操作保护窗口截止时间戳（ms），0 表示不保护
+var LOCAL_GUARD_MS=1500;    // 保护窗口时长：覆盖 HTTP 下发 + 设备端写线圈等待应答(最长1S) + 广播
 function buildRelayDom(n){
   var g=document.getElementById('relayGrid');
   var h='';
@@ -198,54 +206,61 @@ function buildRelayDom(n){
     relayEls[i]={sw:card.getElementsByTagName('input')[0],txt:card.getElementsByClassName('s')[0]};
   }
 }
-function renderRelay(list){
-  var g=document.getElementById('relayGrid');
-  if(!list||!list.length){g.innerHTML='';relayEls=[];return;}
-  if(relayEls.length!==list.length)buildRelayDom(list.length);
-  var now=Date.now();
-  for(var i=0;i<list.length;i++){
+// 按本地状态渲染全部继电器图标（滑动开关 + 文字）
+function renderRelayUI(){
+  for(var i=0;i<relayUI.length;i++){
     var el=relayEls[i];
     if(!el)continue;
-    var on=list[i]===1;
-    if(pendSw[i]){
-      // 设备端为异步执行（485 主站需等继电器模块应答），保护窗口内保持用户点击后的位置
-      if(on===pendSw[i].want){pendSw[i]=null;}
-      else if(now-pendSw[i].ts<4000){continue;}
-      else{pendSw[i]=null;}
-    }
+    var on=(relayUI[i]===1);
     el.txt.textContent=on?'接通':'断开';
     el.txt.className='s '+(on?'on':'off');
     if(el.sw.checked!==on)el.sw.checked=on;
   }
 }
+// 用设备端状态对齐本地显示（设备端已是可靠状态源）
+function applyDeviceRelay(list){
+  if(!list||!list.length)return;
+  if(relayEls.length!==list.length)buildRelayDom(list.length);
+  for(var i=0;i<list.length;i++)relayUI[i]=(list[i]===1)?1:0;
+  renderRelayUI();
+}
 function onRelaySw(ch){
   var el=relayEls[ch];
   if(!el)return;
-  var on=el.sw.checked;
+  var on=el.sw.checked?1:0;
+  relayUI[ch]=on;
+  // 立即按本地状态渲染本通道，后续轮询不再回弹
   el.txt.textContent=on?'接通':'断开';
   el.txt.className='s '+(on?'on':'off');
-  pendSw[ch]={want:on?1:0,ts:Date.now()};
-  relayCtl('toggle',ch);
+  // 使用绝对命令（open/close），只作用于本通道。
+  // 原用 toggle（0x05 + 0x5500 翻转）依赖继电器模块私有实现，实测会出现
+  // “关通道3连带关通道0、关通道2连带关通道1”的串扰，故改为按目标状态下发绝对命令。
+  relayCtl(on?'open':'close',ch);
 }
 function relayCtl(action,ch){
   var body={action:action};
   if(ch!==undefined)body.channel=ch;
-  // 批量操作：乐观标记所有通道，避免刷新时开关被拉回
+  // 批量操作：立即按目标状态更新全部图标（开关 + 文字），不再依赖设备端轮询回填
   if(action==='all_open'||action==='all_close'){
     var want=action==='all_open'?1:0;
-    for(var i=0;i<relayEls.length;i++)pendSw[i]={want:want,ts:Date.now()};
+    for(var i=0;i<relayEls.length;i++)relayUI[i]=want;
+    renderRelayUI();
+    relayGuardUntil=Date.now()+LOCAL_GUARD_MS;
   }
-  // 回读：清空保护窗口，强制与设备端真实状态对齐
-  if(action==='read')pendSw={};
+  // 单路操作：进入本地保护窗口，避免设备端状态尚未更新时被轮询覆盖回旧值
+  if(action==='open'||action==='close'||action==='toggle'){
+    relayGuardUntil=Date.now()+LOCAL_GUARD_MS;
+  }
+  // 回读：立即允许用设备端真实状态对齐本地显示
+  if(action==='read')relayGuardUntil=0;
   api('/api/relay/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
   .then(function(res){
     toast(res.code===0?'指令已下发':'操作失败');
     addLog('rlog','[操作] '+action+(ch!==undefined?(' 通道'+ch):''));
-    if(res.code!==0&&ch!==undefined)delete pendSw[ch];
-    // 设备端异步执行，分两次刷新以便及时显示设备端实际状态
+    // 设备端异步执行，分两次刷新以便"回读"时及时显示设备端真实状态
     setTimeout(function(){refresh();},800);
     setTimeout(function(){refresh();},2200);
-  }).catch(function(){toast('请求失败');if(ch!==undefined)delete pendSw[ch];});
+  }).catch(function(){toast('请求失败');});
 }
 function addLog(id,text){
   var el=document.getElementById(id);
@@ -273,7 +288,8 @@ function refresh(){
     document.getElementById('h-vbat').textContent=(s.vbat_voltage||0).toFixed(2)+' V';
     document.getElementById('h-csq').textContent=(s.signal_strength||0)+' dBm';
     document.getElementById('h-lbs').textContent=(s.latitude||'--')+','+(s.longitude||'--');
-    if(s.relay)renderRelay(s.relay);
+    // 保护窗口外：以设备端状态为准渲染，实现网页 / 屏幕 / 云端多端同步
+    if(s.relay&&Date.now()>=relayGuardUntil)applyDeviceRelay(s.relay);
     document.getElementById('n-eth1').innerHTML=dot(n.eth1)+((n.eth1&&n.eth1.ip)||'--');
     document.getElementById('n-eth2').innerHTML=dot(n.eth2)+((n.eth2&&n.eth2.ip)||'--');
     document.getElementById('n-wifi').innerHTML=dot(n.wifi)+((n.wifi&&n.wifi.ready)?(n.wifi.ssid||'')+' '+(n.wifi.rssi||0)+'dBm':'未连接');
@@ -379,12 +395,15 @@ function resetCfg(){
   api('/api/reset',{method:'POST'}).then(function(res){toast(res.code===0?'已恢复默认':'操作失败');loadCfg();});
 }
 
+// 内置网页版本号：用于确认设备实际加载的是哪一版页面（概览页可见，并随加载写入设备日志）
+var WEB_BUILD='2026.10.12-03';
+var hw=document.getElementById('h-web');if(hw)hw.textContent=WEB_BUILD;
 loadCfg();
 refresh();
 refreshFota();
-setInterval(refresh,3000);
+setInterval(refresh,1000);
 setInterval(refreshFota,5000);
-log('页面加载完成');
+log('网页版本 '+WEB_BUILD+' 加载完成');
 </script>
 </body>
 </html>

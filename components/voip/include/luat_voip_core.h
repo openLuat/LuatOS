@@ -19,6 +19,9 @@
 #include "luat_rtos.h"
 #include "luat_voip_jitterbuf.h"
 #include "luat_audio_data_codec.h"
+#ifdef LUAT_USE_VOIP_BRIDGE
+#include "luat_voip_bridge_pcm.h"
+#endif
 #ifdef LUAT_USE_SRTP
 #include "luat_voip_security.h"
 #endif
@@ -101,6 +104,16 @@ typedef struct {
     uint32_t event_send_failures; /* 跨会话累计的通知失败次数。 */
     uint32_t rx_lost;
     uint32_t rx_out_of_order;
+    uint32_t rx_decode_dropped; /* G.729 duplicate/late packets rejected before decode. */
+    uint32_t rx_concealed; /* Missing 20ms G.729 packets synthesized by frame erasure. */
+    uint32_t rx_decoder_resets; /* G.729 source changes or discontinuities. */
+    /* Per RTP PCM frame, wall time including task preemption. */
+    uint32_t encode_frames;
+    uint32_t encode_ms;
+    uint32_t encode_max_ms;
+    uint32_t decode_frames;
+    uint32_t decode_ms;
+    uint32_t decode_max_ms;
     uint32_t jb_played;
     uint32_t jb_silence;
     uint32_t aec_ref_underflow;
@@ -301,6 +314,7 @@ typedef struct {
     uint16_t bridge_rx_write_idx;     /* RX 写索引：带标记帧或旧通路采样点。 */
     uint16_t bridge_rx_read_idx;      /* RX 读索引：带标记帧或旧通路采样点。 */
     uint16_t bridge_tx_count;         /* bridge_tx_buf 有效样本数 */
+    voip_bridge_pcm_upsampler_t bridge_tx_upsampler; /* CC 8k -> SIP 16k 连续插值历史。 */
     uint16_t bridge_rx_count;         /* 队列中的带标记帧数或旧通路采样点数。 */
     luat_rtos_mutex_t bridge_mutex;     /* 桥接缓冲区互斥锁 */
     luat_rtos_timer_t bridge_tone_timer; /* 桥接模式早期提示音定时器 */
@@ -448,7 +462,8 @@ int voip_set_audio_mode(voip_audio_mode_t mode);
  */
 int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples);
 /* CC PCM 后端的帧交换接口，仅供任务调用，不访问音频设备。
- * state：1 = 按 G.711/8 kHz/20 ms 运行，0 = 已停止，-1 = 不支持。
+ * state：1 = 按 20 ms G.711/G.729 (8 kHz) 或 G.722 (16 kHz) 运行，
+ * 0 = 已停止，-1 = 不支持。交换帧固定为 8 kHz/160 采样点，G.722 自动转换。
  * 每次交换在复制数据的同一把锁内检查 expected_generation。
  * clear 方向掩码：1 = TX (CC->SIP)，2 = RX (SIP->CC)。
  * 媒体已停止、代次过期或不受支持时，交换返回 -1，否则返回采样点数；

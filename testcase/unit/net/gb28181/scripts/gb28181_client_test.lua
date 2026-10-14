@@ -468,6 +468,34 @@ function t.test_external_media_session_is_not_reclaimed_by_link_guess()
 end
 
 --[[
+外部接管模式下音频媒体端口必须**轮换**。
+
+voip 收尾后约 100ms 内媒体端口还没真正放开（getState 已 idle 但 socket 未释放），
+若每次都用同一个固定端口，这期间它绑不上会**静默**换一个别的 —— 而 SDP 报给平台的
+仍是配置那个，平台下行全丢且没有任何报错，现象只是"能听见对方、对方听不见我"。
+
+轮换规则是"避开上一次用的那个"，所以头两次调用必然覆盖配置端口与它的邻居；
+夹具与端到端实测见 gb28181/tests/tools/air1103_sim/README.md。
+]]
+function t.test_audio_media_port_rotates_in_external_mode()
+    reset()
+    local base, n = 31000, 4
+    assert(client.start(base_opts({
+        external_audio = true, audio_port = base, max_sessions = n,
+    })), "start 应成功")
+
+    local p1 = client.next_audio_port()
+    local p2 = client.next_audio_port()
+    assert(p1 ~= p2, "相邻两通电话必须换端口(固定端口会撞上未释放的 socket)")
+    assert(p1 == base or p2 == base,
+           "轮换应在配置端口与邻居之间来回，两次内应覆盖 " .. base)
+    for _, p in ipairs({ p1, p2, client.next_audio_port() }) do
+        assert(type(p) == "number" and p >= base and p < base + n,
+               "端口要落在 [audio_port, +max_sessions) 内，实际 " .. tostring(p))
+    end
+end
+
+--[[
 会话接口在"没有会话"时的契约。真实的 INVITE/ACK/BYE 生命周期依赖 socket，
 属联调，由 tests/tools/e2e_device + gb_platform_invite.py 覆盖。
 ]]

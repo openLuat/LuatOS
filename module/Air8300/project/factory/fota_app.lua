@@ -66,7 +66,7 @@ function M.start(auto, interval)
     g_interval = interval or 86400
     libfota3.request({
         project_key = "iYxeZKfyaP6YGHczPWW4EYoH0HbTxtLz",
-        script_name = "Air8300_DataCollector",
+        script_name = "Air8300_Factory",
         script_version = VERSION or "001.999.000",
         auto = auto or false,
         interval = interval or 86400,

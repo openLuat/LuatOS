@@ -23,7 +23,11 @@
   节点数见挂载日志 `dir cache %u nodes`), 运行时路径解析/lsdir 只走内存, 仅软链接目标串与文件数据仍读镜像;
   置 0 退回镜像内联表查找(零 RAM)。硬链接在 mount 期解析为节点索引(悬空硬链接标记 BROKEN, 按不存在处理);
   软链接保持惰性展开(运行时读目标串), 语义与关闭缓存时完全一致。
-- 目录嵌套上限 `LUAT_ROMFS_MAX_DIR_DEPTH`(默认 4), 超出则 mount 失败。
+- 目录嵌套上限 `LUAT_ROMFS_MAX_DIR_DEPTH`(默认 4): 第 4 层目录内的**文件**是合法的,
+  只禁止再嵌套一层子目录(即出现第 5 层目录时 mount 失败); 该检查只作用于
+  `LUAT_ROMFS_USE_DIR_CACHE=1` 的 mount 阶段, 关闭缓存时不做深度检查。
+- 单级文件名上限 `LUAT_ROMFS_MAX_NAME`(默认 64, 不含 NUL): 恰好 64 字节的名字可用,
+  更长的条目被标记 `name_too_long` 并跳过; 名字长度按"到 NUL 为止的字节数"判定。
 
 ## 镜像 regen
 

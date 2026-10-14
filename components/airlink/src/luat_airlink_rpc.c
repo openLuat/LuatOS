@@ -92,7 +92,7 @@ static void _update_perf_decode(uint32_t us) {
 /* nanopb typed RPC layer                                               */
 /* ------------------------------------------------------------------ */
 
-typedef struct {
+typedef struct rpc_sync_ctx {
     luat_rtos_semaphore_t sem;
     uint8_t*  out_buf;
     uint16_t  out_buf_size;

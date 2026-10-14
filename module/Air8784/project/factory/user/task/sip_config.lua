@@ -27,7 +27,11 @@ local config = {
     sip_server_addr = "cc.luatos.com",
     sip_server_port = 8910,
     sip_domain = "cc.luatos.com",
-    sip_transport = "udp",
+    sip_transport = "udp",                 -- udp / tcp / tls；默认 udp，TLS 为可选
+
+    -- ==================== SIP over TLS（可选） ====================
+    -- transport 设为 "tls" 时启用；需把 CA 证书烧录到 /luadb/sip-ca.pem
+    sip_tls_ca_path = "/luadb/sip-ca.pem",
 
     -- ==================== 4G 模组 SIP 账号 ====================
     sip_username = mobile.imei().."0",
@@ -67,5 +71,32 @@ local config = {
     -- 日志标签
     log_tag = "sip_cc_demo",
 }
+
+-- 启动即加载云端持久化的传输覆盖（从 fskv 读取，确保重启后仍生效）
+do
+    if fskv and type(fskv.get) == "function" then
+        local saved = fskv.get("sip_transport_cfg")
+        if type(saved) == "table" then
+            if saved.sip_transport then config.sip_transport = saved.sip_transport end
+            if saved.sip_server_port then config.sip_server_port = saved.sip_server_port end
+            log.info("sip_config", "已加载持久化传输覆盖", config.sip_transport, config.sip_server_port)
+        end
+    end
+end
+
+-- 云端/运行时覆盖入口：AirCloud 下发的 sip_transport / sip_server_port 由此生效
+-- 覆盖会持久化到 fskv，重启后由上方 do 块自动回载，无需重复下发。
+function config.apply(overrides)
+    if type(overrides) ~= "table" then return end
+    local changed = false
+    if overrides.sip_transport then config.sip_transport = overrides.sip_transport; changed = true end
+    if overrides.sip_server_port then config.sip_server_port = overrides.sip_server_port; changed = true end
+    if changed and fskv and type(fskv.set) == "function" then
+        fskv.set("sip_transport_cfg", {
+            sip_transport = config.sip_transport,
+            sip_server_port = config.sip_server_port,
+        })
+    end
+end
 
 return config

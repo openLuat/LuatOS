@@ -306,6 +306,7 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 | `CHG#` | 充电电压 | 电压值(mV)#（前端分压需换算） |
 | `LED,1#` / `LED,0#` | 三灯同亮/同灭（GPIO24/26/27） | OK# |
 | `ECNPICFG#` | RF 校准标志位（只读） | `true#` / `false#` / ERROR# |
+| `FLYMODE,1#` / `FLYMODE,0#` | 飞行模式 进入/退出（仅主 LTE，`mobile.flymode`） | `OK#` / 参数非 0/1 回 `ERROR#` |
 
 #### 按键检测（异步上报）
 
@@ -436,3 +437,43 @@ TEST_DONE#               3 秒后自动重启进业务模式
 6. **调试**：`main.lua` 顶部 `BOOT_MODE` 改 `normal`/`factory` 可跳过产测检查。
 7. **看门狗**：LuatOS 内置硬狗 9s 超时 / 3s 喂狗，默认启用。
 8. 业务参数以 `task/sip_config.lua`、`single/single_config.lua`、`task/task_voice_config.lua` 为准，烧录前按实际环境核对。
+
+
+## 十六、SIP over TLS 传输
+
+业务模式支持 SIP 信令走 TLS（端口默认 5061），由 `task/sip_config.lua` 的 `sip_transport` 控制（可选 `udp` / `tcp` / `tls`）。
+
+### 16.1 启用方式
+
+1. 将 CA 证书烧录到设备 `/luadb/sip-ca.pem`（对应 `sip_config` 的 `sip_tls_ca_path`）。
+2. 设 `sip_transport = "tls"`（默认端口 5061；非标准端口经 `sip_server_port` 覆盖）。
+3. 也可由云端经 `set_transport` 切换：`{"op":"set_transport","sip_transport":"tls"}`；切回 UDP：`{"op":"set_transport","sip_transport":"udp"}`。切换后设备约 1 秒重启生效并持久化。
+
+### 16.2 注意事项
+
+- **证书缺失**：开启 tls 但 `/luadb/sip-ca.pem` 不存在时，业务停在 `CONFIG_REQUIRED` 状态（日志 `TLS 开启但 CA 证书缺失`），经 OTA 补证书后无需重启即可自愈。
+- **固件版本要求**：TLS 功能需搭配 **v2054 及之后版本**的 22/122 固件；低于该版本的底层不支持 SIP over TLS，切勿在旧固件上启用 `sip_transport = "tls"`。
+
+
+## 十七、版本更新记录
+
+| 版本 | 状态 | 说明 |
+|------|------|------|
+| v001.000.004 | 当前版本 | 见下 |
+| v001.000.003 |         | 见下 |
+| v001.000.002 | 初始版本 | 初始发布 |
+
+### v001.000.004（当前版本）
+
+1. **支持 SIP over TLS**：`sip_transport` 可设为 `tls`（默认端口 5061），CA 证书烧录到 `/luadb/sip-ca.pem`；云端可经 `set_transport` 切换。
+2. **产测新增 FLYMODE 飞行模式指令**：`FLYMODE,1#` 进入飞行模式、`FLYMODE,0#` 退出（`mobile.flymode`，仅主 LTE；参数非 0/1 回 `ERROR#`）。
+
+### v001.000.003
+
+1. **脚本库统一**：删除 `factory/lib/` 内置脚本库，统一引用仓库共享库 `script/libs`。
+2. **SIM 卡自适应（main.lua）**：支持双卡自动切换、优先 SIM0（`mobile.simid(2, true)`）。
+3. **OPTIONS 保活修复（script/libs/exsipclient.lua）**：保活由仅 UDP 扩展为 UDP/TCP，修复服务器静默死亡（断电/宕机/拔线未发 FIN）时 TCP 不触发 CLOSED、导致永远不重连的问题。
+
+### v001.000.002（初始版本）
+
+- 初始发布版本。

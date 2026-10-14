@@ -36,6 +36,7 @@ function M.new(opts)
     local function snapshot(req,result)
         seq=seq+1
         return {schema="air8784.sip.v1",kind="snapshot",imei=opts.imei,boot=boot,seq=seq,
+            version=_G.VERSION,
             revision=record.revision,task=record.task,modes=a.modes,state=state(),
             index=index,req=req or last_req,result=result or last_result,
             sip_account_targets=true,round_sip_account_targets=true,mode_switch=a.mode_switch or false,active_mode=a.active_mode,

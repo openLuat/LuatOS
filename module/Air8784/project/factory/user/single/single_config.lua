@@ -22,6 +22,7 @@ config.sip = {
     sip_username = account.sip_username,
     sip_password = account.sip_password,
     sip_transport = account.sip_transport,
+    sip_tls_ca_path = account.sip_tls_ca_path,
     rtp_port = account.rtp_port,
     expires = 300,
     -- call_timeout = 60,

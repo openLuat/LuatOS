@@ -46,6 +46,7 @@ require ("eng_1602_10i_v0")       -- Air1602 10寸 1024×600
 require ("eng_1602_10i_v10421")   -- Air1602 10寸 1024×600 + NAND + NES + 电池
 require ("eng_8601_7i_v0")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205)/4G(780ER2) + SD + UVC + RS485
 require ("eng_8602_9i_v0")       -- Air8601 9寸 1024×600 HX8282 + Airlink UART WiFi(6205)/4G(780ER2) + SD + UVC + 双RS485
+require ("eng_8607_10i_v0")      -- Air8603 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
 
 -- EVB turnkey 开发板系列
 require ("evb_8101_5i_v0")        -- Air8101 5寸 800×480 H050IWV
@@ -100,6 +101,7 @@ local PROJECT_MAP = {
     ["Engine_Air1602_AirLCD_1100_10421_V000"]     = "eng_1602_10i_v10421",
     ["Engine_Air8601_7inch_1024x600_010_V000"]    = "eng_8601_7i_v0",
     ["Engine_Air8602_9inch_1024x600_010_V000"]    = "eng_8602_9i_v0",
+    ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
     -- EVB turnkey 开发板系列（已实现，≥800×480）
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
     ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",

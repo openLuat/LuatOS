@@ -7,7 +7,7 @@
 
 @usage
 通过 485（UART11）Modbus RTU 主站控制 4 路继电器模块。
-- 2×2 通道卡片，整卡可点击即翻转该路（发布 RELAY_SET_REQ(ch, "toggle")）
+- 2×2 通道卡片，整卡可点击即切换该路（按目标状态下发绝对命令 open/close）
 - 订阅 RELAY_STATUS_UPDATE 同步各开关与状态文字（通道 0~3）
 - 底部保留 全部接通 / 全部断开 / 回读状态
 
@@ -164,8 +164,11 @@ local function on_ch_click(ch)
     handle:set_state(target)
     update_label(idx, target)
     set_guard(idx)                    -- 进入本地保护期，避免被异步回读刷回
-    sys.publish("RELAY_SET_REQ", ch, "toggle")
-    log.info("relay_win", "通道" .. ch .. " 请求翻转 ->", target and "接通" or "断开")
+    -- 使用绝对命令（open/close），只作用于本通道。
+    -- 原用 toggle（0x05 + 0x5500 翻转）依赖继电器模块私有实现，实测会出现
+    -- “关通道3连带关通道0、关通道2连带关通道1”的串扰，故与网页端保持一致改为绝对命令。
+    sys.publish("RELAY_SET_REQ", ch, target and "open" or "close")
+    log.info("relay_win", "通道" .. ch .. " 请求" .. (target and "接通" or "断开"))
 end
 
 -- 各通道卡片点击回调（组件回调必须为具名函数）
@@ -179,7 +182,15 @@ local card_funcs = { on_ch0_click, on_ch1_click, on_ch2_click, on_ch3_click }
 -- 全部接通
 local function on_all_open_click()
     if not ui_alive then return end
-    for i = 1, CH_COUNT do set_guard(i) end   -- 全量操作同样进入本地保护期
+    -- 本地立即回显全部为「接通」，再下发。
+    -- 原因：设备端 relay_ctrl 在本命令执行完成后才会广播 RELAY_STATUS_UPDATE，
+    -- 而此处已开启本地保护窗口会忽略该次广播；若本地不回显，屏幕上会表现为
+    -- 「点了全部接通但界面没反应」。两端（屏幕/网页）显示因此保持一致。
+    for i = 1, CH_COUNT do
+        set_guard(i)
+        update_label(i, true)
+        if ch_switches[i] then ch_switches[i]:set_state(true) end
+    end
     sys.publish("RELAY_SET_REQ", nil, "all_open")
     log.info("relay_win", "请求全部接通")
 end
@@ -187,7 +198,12 @@ end
 -- 全部断开
 local function on_all_close_click()
     if not ui_alive then return end
-    for i = 1, CH_COUNT do set_guard(i) end
+    -- 本地立即回显全部为「断开」（理由同 on_all_open_click）
+    for i = 1, CH_COUNT do
+        set_guard(i)
+        update_label(i, false)
+        if ch_switches[i] then ch_switches[i]:set_state(false) end
+    end
     sys.publish("RELAY_SET_REQ", nil, "all_close")
     log.info("relay_win", "请求全部断开")
 end

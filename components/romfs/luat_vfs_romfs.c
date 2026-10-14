@@ -105,9 +105,13 @@ static int romfs_read_hdr(romfs_mount_t* fs, uint32_t off, romfs_hdr_t* hdr) {
         if (take) memcpy(hdr->name + stored, block, take);
         stored += take;
         field_len += chunk;
-        if (nul >= 0) break;
-        if (stored >= LUAT_ROMFS_MAX_NAME) hdr->name_too_long = 1;
+        if (nul >= 0) break;                                // 名字以 NUL 结束
+        if (field_len > LUAT_ROMFS_MAX_NAME) break;          // 已超过上限: 停止扫描, 该条目不可用
     }
+    /* 判定依据是"不含 NUL 的名字字节数": 恰好 LUAT_ROMFS_MAX_NAME 字节的名字是合法的,
+     * 只有更长的名字才标记为过长(旧实现按已读满 MAX_NAME 字节即判超长, 会误杀
+     * 恰好 MAX_NAME 字节的名字)。 */
+    if (field_len > LUAT_ROMFS_MAX_NAME) hdr->name_too_long = 1;
     hdr->name[stored] = 0;
     hdr->data_off = off + ROMFS_FH_FIXED + ((field_len + 1 + ROMFS_ALIGN - 1) & ~(ROMFS_ALIGN - 1u));
     return 0;
@@ -245,11 +249,14 @@ static void romfs_cache_count(romfs_build_t* b, uint32_t dir_off) {
         if (romfs_read_hdr(b->fs, cur, &h)) { b->err = 1; return; }
         cur = h.next;
         if ((h.name[0] == '.' && h.name[1] == 0) || (h.name[0] == '.' && h.name[1] == '.' && h.name[2] == 0)) continue;
-        if (b->depth + 1 > LUAT_ROMFS_MAX_DIR_DEPTH) {
-            LLOGW("romfs dir depth over %u, mount failed", (unsigned)LUAT_ROMFS_MAX_DIR_DEPTH);
-            b->err = 1; return;
-        }
         if (h.type == ROMFS_T_DIR) {
+            /* 深度上限只约束"再嵌套一层子目录": 第 MAX_DIR_DEPTH 层目录里的文件是合法的,
+             * 旧实现对每个子节点都做 depth+1 检查, 会让第 MAX_DIR_DEPTH 层目录里的文件
+             * 直接把 mount 判失败。 */
+            if (b->depth + 1 > LUAT_ROMFS_MAX_DIR_DEPTH) {
+                LLOGW("romfs dir depth over %u, mount failed", (unsigned)LUAT_ROMFS_MAX_DIR_DEPTH);
+                b->err = 1; return;
+            }
             b->depth++;
             romfs_cache_count(b, h.off);
             b->depth--;

@@ -60,6 +60,8 @@ static const char *airui_component_get_mt_name(uint8_t component_type)
             return AIRUI_SLIDER_MT;
         case AIRUI_COMPONENT_ANIMIMG:
             return AIRUI_ANIMIMG_MT;
+        case AIRUI_COMPONENT_VIDEO:
+            return AIRUI_VIDEO_MT;
         case AIRUI_COMPONENT_CHART:
             return AIRUI_CHART_MT;
         case AIRUI_COMPONENT_CHECKBOX:

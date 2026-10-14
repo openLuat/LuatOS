@@ -24,7 +24,7 @@ VERSION：项目版本号,ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级,根据自己项目的需求,自定义格式即可
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "Air8700Factory"
+PROJECT = "Air8700H"
 VERSION = "001.001.000"
 
 -- 出厂固件版本：预置配置直接连接 AirCloud，不请求网页端配置

@@ -118,13 +118,14 @@
 #define LUAT_USE_AUDIO 1
 #define LUAT_USE_AUDIO_V2 1
 #define LUAT_SUPPORT_AMR 1
-#define LUAT_SUPPORT_OPUS   1
 #define LUAT_SUPPORT_SPEEX 1
 #define LUAT_USE_AUDIO_G711 1
 // LUAT_SUPPORT_G729 不在此定义：由 bsp/pc/xmake.lua 按 luatos-ext-components/g729
 // 目录存在性（或 LUAT_USE_CODEC_G729 环境变量）检测结果注入
 // LUAT_SUPPORT_G722 同理：由 luatos-ext-components/libg722
 // 目录存在性（或 LUAT_USE_CODEC_G722 环境变量）检测结果注入
+// LUAT_SUPPORT_OPUS 同理：由 luatos-ext-components/opus 目录存在性检测结果注入
+// （LUAT_OPUS_MODE=off 可强制关闭，默认 full；目录缺失时不定义该宏）
 #define LUAT_USE_AUDIO_DTMF 1
 #define LUAT_USE_VOIP 1
 #define LUAT_USE_RECORD 1
@@ -203,7 +204,8 @@
 #define LUAT_USE_VIDEOPLAYER 1
 #define LUAT_USE_HZV 1
 // 视频播放器支持mp4播放
-// 注意: LUAT_USE_MP4PLAYER 由 xmake 动态控制（基于 luatos-ext-components/vedio_player 的存在性）
+// 注意: LUAT_USE_MP4PLAYER 由 xmake 控制（默认关闭, 仅 LUAT_USE_MP4PLAYER=y 时编译
+// luatos-ext-components/mp4player；见 bsp/pc/xmake.lua）
 // 请勿在此处硬编码，否则会导致编译配置与实际编译状态不一致
 // #define LUAT_USE_MP4PLAYER 1
 

@@ -1,8 +1,8 @@
 --[[
 @module  video_win
 @summary 全屏播放页 —— 竖屏面板自动旋转成横屏，任意尺寸素材居中播放
-@version 1.3
-@date    2026.09.30
+@version 1.4
+@date    2026.10.13
 @author  江访
 
 === 消息协议（订阅/发布）===
@@ -55,6 +55,11 @@
    airui.video 已支持 HZV 与 MP4：MP4 由组件自动路由到 mplayer 后端（硬件图层
    送显、自带音频通路、组件内部循环重播与 EOS 回调），三种格式统一入口
    video_util.create_player，控制栏对所有格式一视同仁（播放/循环/重播都有效）。
+
+8. **MP4 的视频图层永远在最上层**（HZV/MJPG 是控件内画面，不会）
+   mplayer 后端直显硬件视频图层，选择器弹窗会被正在播放的 MP4 盖住 ——
+   全屏模式下点「选择」先销毁 MP4 播放器再开弹窗，未选文件关弹窗时恢复播放
+   （见 open_picker）。
 ]]
 
 local theme = require "ui_theme"
@@ -312,6 +317,17 @@ end
 
 --- 打开文件选择器（弹窗按旋转后的逻辑尺寸算大小）
 local function open_picker()
+    --[[MP4 的视频图层永远在最上层，会盖住选择器弹窗（HZV/MJPG 是控件内画面不会）。
+    点「选择」先销毁正在播放的 MP4；未选文件关闭弹窗时恢复播放，选中则播新文件。]]
+    local resume_mp4 = false
+    if video_obj and current_file and video_util.guess_format(current_file) == "mp4" then
+        pcall(function() video_obj:stop() end)
+        pcall(function() video_obj:destroy() end)
+        video_obj = nil
+        is_playing = false
+        resume_mp4 = true
+        sync_labels()
+    end
     local start = (current_file and current_file:match("^(.+/)")) or "/"
     video_picker.open({
         start_path = start,
@@ -327,6 +343,10 @@ local function open_picker()
                 sys.publish("VIDEO_FILE_CHANGED", path)
             end
             play(path)
+        end,
+        on_cancel = function()
+            -- 未选文件关闭弹窗：恢复被销毁的 MP4 播放
+            if resume_mp4 and current_file then play(current_file) end
         end,
     })
 end

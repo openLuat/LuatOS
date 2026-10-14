@@ -26,6 +26,9 @@
 // 解析器失步看门狗: 收到数据却超过该时长未解出任何帧, 则强制清空 rxoffset 重同步
 #define AIRLINK_UART_RX_RESYNC_MS (500)
 
+// 帧间间隙: 从机背靠背发帧会让主机 RX FIFO 溢出丢字节。睡眠 = 帧传输耗时 + 期望间隙(自适应)。0=关闭。
+#define AIRLINK_UART_TX_FRAME_GAP_MS (1)   // 期望线上最小间隙(ms)
+
 #ifdef TYPE_EC718M
 #include "platform_def.h"
 #endif
@@ -482,6 +485,14 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             txbuff[offset++] = 0x7E;
             luat_uart_write(uart_id, txbuff, offset);
             // LLOGD("发送数据长度:%d", offset);
+            // 留 ≥1ms 线上间隙, 防止主机 RX 溢出(睡眠与 DMA 传输重叠, 按帧长自适应)
+            if (AIRLINK_UART_TX_FRAME_GAP_MS > 0) {
+                uint32_t tx_frame_ms = (offset + 199u) / 200u; // 帧传输耗时(ms) @2Mbps 8N1
+                luat_rtos_task_sleep(tx_frame_ms + AIRLINK_UART_TX_FRAME_GAP_MS);
+            }
+            if (offset > 1600) {
+                LLOGW("uart tx large frame %u bytes", (unsigned)offset);
+            }
         }
     }
     luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);

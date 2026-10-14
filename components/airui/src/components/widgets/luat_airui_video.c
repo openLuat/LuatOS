@@ -1466,7 +1466,8 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
         data->direct_render = false;
     }
 
-    /* 画面在硬件图层上，这个 image 不参与点击，避免挡住旁边的按钮。 */
+    /* 画面在硬件图层上。默认不参与点击，避免挡住旁边的按钮。
+     * 配置了 on_click 时，下面的 release-select 会把 CLICKABLE 加回来。 */
     if (data->backend == AIRUI_VIDEO_BACKEND_MPLAYER) {
         lv_obj_remove_flag(video, LV_OBJ_FLAG_CLICKABLE);
     }
@@ -1502,6 +1503,26 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
         int complete_ref = airui_component_capture_callback(L, idx, "on_complete");
         if (complete_ref != LUA_NOREF) {
             airui_component_bind_event(meta, AIRUI_EVENT_COMPLETE, complete_ref);
+        }
+    }
+
+    {
+        /* 抬起且未滑动才算点击。直出不往 lv_image 填位图，命中用的是控件矩形。 */
+        int click_ref = airui_component_capture_callback(L, idx, "on_click");
+        if (click_ref != LUA_NOREF) {
+            int click_ret = airui_component_enable_release_select_dispatch(meta);
+            if (click_ret == AIRUI_OK) {
+                click_ret = airui_component_set_callback_ref(meta, AIRUI_EVENT_CLICKED, click_ref);
+            }
+            if (click_ret != AIRUI_OK) {
+                /* set_callback_ref 成功后引用归 meta，失败时才由这里释放。 */
+                if (meta->callback_refs[AIRUI_EVENT_CLICKED] != click_ref) {
+                    luaL_unref(L_state, LUA_REGISTRYINDEX, click_ref);
+                }
+                airui_component_meta_free(meta);
+                lv_obj_delete(video);
+                return NULL;
+            }
         }
     }
 

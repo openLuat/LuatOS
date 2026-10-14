@@ -64,8 +64,10 @@ local function on_led_click()      sys.publish("OPEN_LED_WIN")      end
 ]]
 local function on_di_changed(di1, di2)
     if not exwin.is_active(win_id) then return end
-    local on1 = (di1 == 1 or di1 == true)
-    local on2 = (di2 == 1 or di2 == true)
+    -- 电平语义（原理图第 7 页）：DI 为光耦隔离输入，光耦导通（有外部输入）= 引脚被拉低 = 0
+    -- 常态无输入 = 4.7K 上拉到 3.3V = 1；故 0 = 有输入 = ON
+    local on1 = (di1 == 0)
+    local on2 = (di2 == 0)
     local color = (on1 or on2) and theme.SEM.success or theme.C.t2
     theme.tile_state(tile_di, "DI1 " .. (on1 and "ON" or "OFF") .. " | DI2 " .. (on2 and "ON" or "OFF"), color)
 end

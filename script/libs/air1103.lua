@@ -2,8 +2,8 @@
     @module  air1103
     @summary 合宙 Air1103 语音芯片 PCM+PCM 串口协议驱动（exaudio 内部驱动）
     @remark 内部模块：仅供 exaudio 扩展库调用，业务代码请勿直接 require；使用 Air1103 请走 exaudio.setup({model="air1103"})。
-    @version 1.3
-    @date    2026.09.20
+    @version 1.4
+    @date    2026.10.13
     @author  拓毅恒
     @usage
         local air1103 = require "air1103"
@@ -93,6 +93,8 @@ local stream_wr     = 0        -- 已写入字节
 local stream_rd     = 0        -- 已读取字节
 local silent_frame  = nil      -- 预打包静音保活帧(320B 全0 + 20 81 + 校验)
 local notify_token  = 0        -- 提示音播放归属令牌, 防止旧监视定时器误触发
+local report_tx_error = false -- TTS 专用: 检查 UART 完整提交结果
+local tx_error = nil
 
 -- ==================== 工具函数 ====================
 -- 微秒级时间戳(mcu.ticks2, 64bit 计数不溢出), 用于下行 10ms 节拍基准
@@ -268,16 +270,20 @@ end
 -- ==================== 流式播放(下行) ====================
 -- 启动流式播放发送任务(接 AI 大模型 / 通话下行音频)
 -- @param vol 音量(0~31), 可省; 非 nil 时先设置音量
+-- @param options 可选, {report_tx_error=true} 时记录失败/短写并停止发送
 -- @return boolean
 -- @remark 传输要求: 以 10ms/帧 从缓冲取 320B 切帧(命令 20 81)发送;
 --         队列空时自动补发静音帧(全0)保活, 保证数据流连续不断;
 --         每次唤醒最多连发 STREAM_BURST 帧, 防 Air1103 接收缓存(约2KB)溢出丢帧。
-function air1103.play_stream_start(vol)
-    if not is_inited then return false end
+function air1103.play_stream_start(vol, options)
+    if not is_inited then return false, "not_initialized" end
+    report_tx_error = options and options.report_tx_error == true or false
+    tx_error = nil
     if vol then air1103.set_volume(vol) end
     if not stream_buff then
         stream_buff = zbuff.create(STREAM_BUFF_LEN, 0, zbuff.HEAP_AUTO)
     end
+    if not stream_buff then return false, "no_memory" end
     stream_buff:clear(0)   -- 内存清零
     stream_buff:used(0)    -- used 归零(否则 del/avail 判断错位)
     stream_wr = 0
@@ -310,6 +316,12 @@ function air1103.play_stream_start(vol)
                 local body = stream_buff:toStr(stream_rd, FRAME_DOWN)
                 local f = pack(CMD_DOWN_AUDIO, body)
                 local wr = uart.write(UART_ID, f)
+                if report_tx_error and wr ~= #f then
+                    tx_error = "uart_write_failed"
+                    stream_running = false
+                    if stream_timer then sys.timerStop(stream_timer); stream_timer = nil end
+                    return
+                end
                 if wr and wr > 0 then
                     stream_rd = stream_rd + FRAME_DOWN
                     -- 逐帧压缩: 读游标超阈值即回收已读部分, 限制写偏移≤容量, 杜绝 zbuff 越界
@@ -322,7 +334,13 @@ function air1103.play_stream_start(vol)
             else
                 -- 队列空: 发静音帧保活(数据流永不断→Air1103 DAC 连续输出→消除爆音)
                 if STREAM_SILENT then
-                    uart.write(UART_ID, silent_frame)
+                    local wr = uart.write(UART_ID, silent_frame)
+                    if report_tx_error and wr ~= #silent_frame then
+                        tx_error = "uart_write_failed"
+                        stream_running = false
+                        if stream_timer then sys.timerStop(stream_timer); stream_timer = nil end
+                        return
+                    end
                 end
             end
             next_tx = next_tx + TX_INTERVAL_US  -- 基准前进 10ms/帧(落后则下轮继续补发)
@@ -370,12 +388,15 @@ function air1103.play_stream_write(data)
     stream_buff:used(stream_wr)
 end
 
--- 结束流式播放(播完队列剩余后停止)
-function air1103.play_stream_stop()
+-- 立即结束流式播放并丢弃待发数据
+-- @param keep_rx 可选, true 时不发送停 MIC 命令, 保留原接收开关状态
+function air1103.play_stream_stop(keep_rx)
     stream_running = false
     notify_token = notify_token + 1   -- 作废任何进行中的提示音监视定时器
     if stream_timer then sys.timerStop(stream_timer); stream_timer = nil end  -- 停循环定时器, 防空转
-    air1103.stop_audio()   -- 停止下行(同时发 02 01 停上行惯例, 由调用方按需恢复)
+    if not keep_rx then
+        air1103.stop_audio()   -- 默认沿用 02 01 停上行惯例, 由调用方按需恢复
+    end
     -- 清空残留原始缓冲+游标, 防内存残留到下一次通话
     if stream_buff then
         stream_buff:clear(0)
@@ -394,6 +415,11 @@ end
 -- 查询流式播放是否仍在运行
 function air1103.is_running()
     return stream_running
+end
+
+-- UART 提交失败/短写, 不代表芯片播放 ACK; 每次启动流时清空
+function air1103.get_tx_error()
+    return tx_error
 end
 
 -- ==================== 直接播放(下行, 绕过流式队列) ====================

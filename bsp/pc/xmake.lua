@@ -323,9 +323,17 @@ target("luatos-lua")
     add_includedirs(luatos.."components/ymodem",{public = true})
     add_files(luatos.."components/ymodem/*.c")
 
-    -- profiler
+    -- profiler (内存分析, LUAT_USE_PROFILER)
     -- add_includedirs(luatos.."components/mempool/profiler/include",{public = true})
     -- add_files(luatos.."components/mempool/profiler/**.c")
+
+    -- prof (cycle profiler, 调优专用; 源内守卫, 默认空编译)
+    -- 开启: $env:LUAT_USE_PROF = "y" 后重编
+    add_includedirs(luatos.."components/prof/include",{public = true})
+    add_files(luatos.."components/prof/src/*.c", luatos.."components/prof/bind/*.c")
+    if env_enabled("LUAT_USE_PROF") then
+        add_defines("LUAT_USE_PROF=1")
+    end
 
     -- fastlz
     add_includedirs(luatos.."components/fastlz",{public = true})
@@ -550,10 +558,15 @@ target("luatos-lua")
         end
     end
 
-    -- opus
-    -- 只暴露 opus 根目录和公共 API 目录，避免 celt/silk/src 等内部短文件名头文件全局冲突
-    -- 三档配置，环境变量 LUAT_OPUS_MODE 控制，默认 full（编码+解码，与原行为一致）：
-    --   off    : 不编译 opus（仅当 bsp/pc/include/luat_conf_bsp.h 的 LUAT_SUPPORT_OPUS 关闭时可用）
+    -- opus（可选外部组件）：源码位于 luatos-ext-components/opus（见该目录 README.md）。
+    -- 只暴露 opus 根目录和公共 API 目录，避免 celt/silk/src 等内部短文件名头文件全局冲突。
+    -- 依赖是可选的：LUAT_OPUS_MODE=off 强制禁用；默认 full 或 decode 时按
+    -- luatos-ext-components/opus 目录是否存在自动检测，目录缺失只告警不报错
+    -- （CI 没有 ext 仓库检出时必须还能构建）。启用时注入 LUAT_SUPPORT_OPUS=1，
+    -- opus 胶水层（components/multimedia/opus_port.c 与 legacy codec 模块注册）随之生效，
+    -- Lua 侧才有 codec.OPUS / codec.OGG_OPUS。
+    -- 三档配置，环境变量 LUAT_OPUS_MODE 控制，默认 full（编码+解码）：
+    --   off    : 不编译 opus，LUAT_SUPPORT_OPUS 不定义，胶水层整文件编译为空
     --   decode : 仅解码，体积最小（相对 full 去除全部编码链）
     --   full   : 编码+解码
     -- 实测体积（MSVC x86 代理口径，.text+.rdata，度量见 bsp/pc/measure_opus_size.ps1）：
@@ -562,21 +575,19 @@ target("luatos-lua")
     --   ARM 真机 -Os + gc-sections 下 decode 档预计 90-105KB，达到 100KB 级目标（待真机 map 验证）。
     -- 两档均永久剔除：multistream/projection/mapping_matrix（端口层未使用）、
     --   analysis/mlp/mlp_data（DISABLE_FLOAT_API 后为死代码）、mini_kfft（仅被已排除的
-    --   qext_compare.c 引用）、debug.c（仅 #if 0 调试统计）、各 *_demo/*_compare 测试程序。
+    --   qext_compare.c 引用）、各 *_demo/*_compare 测试程序（已在 ext 仓库中删除）。
     -- Air1601 真机启用时（luatos-sdk-ccm42xx-gcc csdk/project/luatos/xmake.lua）请复用本清单，
     --   另需内部 includedirs：opus/src、celt、celt/arm、silk、silk/arm、silk/fixed。
-    -- 原全量配置（回退用）：
-    --   add_defines("OPUS_ARM_ASM","USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1")
-    --   add_includedirs(luatos.."/components/multimedia/opus",
-    --                   luatos.."/components/multimedia/opus/include")
-    --   add_thirdparty_files(luatos.."/components/multimedia/opus/celt/*.c|opus_custom_demo.c",
-    --               luatos.."/components/multimedia/opus/celt/arm/armcpu.c",
-    --               luatos.."/components/multimedia/opus/celt/arm/arm_celt_map.c",
-    --               luatos.."/components/multimedia/opus/silk/*.c",
-    --               luatos.."/components/multimedia/opus/silk/fixed/*.c",
-    --               luatos.."/components/multimedia/opus/src/*.c|opus_compare.c|qext_compare.c|opus_demo.c")
     local opus_mode = os.getenv("LUAT_OPUS_MODE") or "full"
-    if opus_mode ~= "off" then
+    local opus_dir = luatos_ext_root .. "/opus"
+    local use_opus = opus_mode ~= "off" and os.isdir(opus_dir)
+    if opus_mode ~= "off" and not os.isdir(opus_dir) then
+        print("Warning: opus 未编入，未找到 " .. opus_dir
+            .. "（设置 LUATOS_EXT_ROOT，或用 LUAT_OPUS_MODE=off 静默禁用）")
+    end
+    if use_opus then
+        opus_dir = opus_dir:gsub("\\", "/"):gsub("/$", "")
+        add_defines("LUAT_SUPPORT_OPUS=1")
         -- FIXED_POINT=1    定点实现（silk/float 不编译）
         -- DISABLE_FLOAT_API 不暴露 float PCM API；端口层只用 int16 API，定义后
         --                   opus_encoder 的 analysis/mlp 音调分析链成为死代码，可移出文件清单
@@ -591,11 +602,7 @@ target("luatos-lua")
             -- 编码链未参与编译，同步裁掉端口层编码实现（见 opus_port.c 的宏守卫）
             add_defines("LUAT_OPUS_NO_ENCODER=1")
         end
-        add_includedirs(luatos.."/components/multimedia/opus",
-                        luatos.."/components/multimedia/opus/include"
-                        )
-
-        local opus_dir = luatos.."/components/multimedia/opus"
+        add_includedirs(opus_dir, opus_dir .. "/include")
 
         -- ---------- src ----------
         -- 解码必需：opus_decoder 无条件依赖 extensions.c（opus_extension_iterator_*）
@@ -1297,23 +1304,24 @@ target("luatos-lua")
     -- =========================================================
     -- mp4player（MP4/H.264/AAC 解码器）
     -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/mp4player
+    -- 默认**关闭**：mp4player 的 PC 集成目前链接不完整（缺 xvid 子树、
+    --   video_decode/video_decoder_if.c 与 luat_display_get_default 等符号，
+    --   见 bsp/pc/AGENTS.md 的 OPTIONAL FEATURES 说明），待修复后再恢复默认启用。
     -- 示例（PowerShell）：
-    --   $env:LUAT_USE_MP4PLAYER = "y"  # 显式启用
-    --   $env:LUAT_USE_MP4PLAYER = "n"  # 显式禁用
+    --   $env:LUAT_USE_MP4PLAYER = "y"  # 显式启用（当前会链接失败）
+    --   $env:LUAT_USE_MP4PLAYER = "n"  # 显式禁用（与默认一致）
     --   cmd /c build_windows_32bit_msvc.bat
     -- =========================================================
-    -- 自动检测：如果 luatos_ext_root/mp4player 不存在，自动禁用 MP4
+    -- 显式 opt-in：只有 LUAT_USE_MP4PLAYER=y 才编译 MP4 解码器
     local use_mp4player = false
     local mp4player_src = luatos_ext_root .. "/mp4player"
-    if os.isdir(mp4player_src) then
-        -- 检查环境变量 LUAT_USE_MP4PLAYER 的显式控制
-        local env_mp4 = os.getenv("LUAT_USE_MP4PLAYER")
-        if env_mp4 ~= "n" then
+    if os.getenv("LUAT_USE_MP4PLAYER") == "y" then
+        if os.isdir(mp4player_src) then
             use_mp4player = true
+        else
+            -- 显式要求启用但目录不存在，给出警告（保留，不强制失败）
+            print("Warning: LUAT_USE_MP4PLAYER=y but mp4player not found at: " .. mp4player_src)
         end
-    elseif os.getenv("LUAT_USE_MP4PLAYER") == "y" then
-        -- 显式要求启用但目录不存在，给出警告（保留，不强制失败）
-        print("Warning: LUAT_USE_MP4PLAYER=y but mp4player not found at: " .. mp4player_src)
     end
     
     if use_mp4player then

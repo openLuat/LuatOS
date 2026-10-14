@@ -47,6 +47,7 @@ PROJECT：项目名，ascii string类型
   "Engine_Air1602_5inch_480x854_005_V000"       → config/eng_1602_5i_v5.lua     5寸RGB  ST7701S +WiFi+NAND
   "Engine_Air8601_7inch_1024x600_010_V000"      → config/eng_8601_7i_v0.lua     7寸RGB HX8282  +WiFi(airlink/6205)+4G(airlink/780ER2)二选一+UVC+RS485+SD+喇叭
   "Engine_Air8602_9inch_1024x600_010_V000"      → config/eng_8602_9i_v0.lua     9寸RGB HX8282  +WiFi(airlink/6205)+4G(airlink/780ER2)二选一+UVC+双RS485+SD+喇叭
+  "Engine_Air8607_10inch_1024x600_000_V000"     → config/eng_8607_10i_v0.lua    10寸RGB +PWM背光+喇叭(HT6873)+SD，无网络
 
 
   EVB turnkey 开发板系列（≥800×480）:

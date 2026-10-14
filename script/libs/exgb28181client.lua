@@ -1031,6 +1031,20 @@ local function session_count()
     return n
 end
 
+-- 端口是否已被某个会话占着。点播会话与音频会话共用这个端口池：两者都真的占了
+-- UDP 端口，分开分配迟早会撞在一起。**两边字段名也必须一致** —— 早先音频会话
+-- 叫 port、点播叫 local_port，就得写两个循环兜着；media_open() 只认 local_port，
+-- 于是漏掉一个就读到 nil（详见 handle_audio_invite）。
+local function port_in_use(p)
+    for _, s in pairs(st.sessions) do
+        if s.local_port == p then return true end
+    end
+    for _, s in pairs(st.talks) do
+        if s.local_port == p then return true end
+    end
+    return false
+end
+
 -- 分配一个本地 RTP 端口：从配置的基址起，跳过已被占用的
 local function alloc_rtp_port()
     local base = g_opts.rtp_port_base
@@ -1038,23 +1052,13 @@ local function alloc_rtp_port()
     local i
     for i = 0, n - 1 do
         local p = base + i
-        local used = false
-        -- 点播会话与音频会话共用这个端口池：两者都真的占了 UDP 端口，
-        -- 分开分配迟早会撞在一起。**两边字段名也必须一致** —— 早先音频会话
-        -- 叫 port、点播叫 local_port，这里就得写两个循环兜着；media_open()
-        -- 只认 local_port，于是漏掉一个就读到 nil（详见 handle_audio_invite）。
-        for _, s in pairs(st.sessions) do
-            if s.local_port == p then used = true break end
-        end
-        if not used then
-            for _, s in pairs(st.talks) do
-                if s.local_port == p then used = true break end
-            end
-        end
-        if not used then return p end
+        if not port_in_use(p) then return p end
     end
     return nil
 end
+
+-- 上一次音频会话用的媒体端口，用来避开它（见 alloc_audio_port）
+local last_audio_port = nil
 
 --[[
 音频会话的本地媒体端口。
@@ -1063,12 +1067,50 @@ end
 就是它，而那个端口要留给外部引擎（如 voip）去绑 —— 本层不能再自己挑一个，
 否则两边抢同一个端口，或者平台按 SDP 把下行发到没人听的地方。
 非外部模式照旧从端口池里分配（点播仍走 alloc_rtp_port，不受影响）。
+
+**外部接管模式在 [audio_port, +max_sessions) 里轮换，每次都避开上一次用的那个**：
+voip 收尾后约 100ms 内媒体端口还没真正放开（getState 已 idle 但 socket 未释放），
+这期间它绑不上配置端口会**静默**换一个别的，而 SDP 报给平台的仍是配置那个 ——
+平台下行全丢且没有任何报错。换个空闲端口，SDP 报的与实际绑的就是同一个。
+详见 gb28181/tests/tools/air1103_sim/README.md。
 ]]
 local function alloc_audio_port()
-    if g_opts.external_audio and g_opts.audio_port then
-        return g_opts.audio_port
+    local base = g_opts.audio_port
+    if not (g_opts.external_audio and base) then
+        return alloc_rtp_port()
     end
-    return alloc_rtp_port()
+    local n = g_opts.max_sessions or 4
+    local reuse
+    for i = 0, n - 1 do
+        local p = base + i
+        if not port_in_use(p) then
+            if p ~= last_audio_port then
+                last_audio_port = p
+                return p
+            end
+            reuse = reuse or p          -- 空闲的就剩刚用过的那个，只能再用
+        end
+    end
+    if reuse then
+        last_audio_port = reuse
+        return reuse
+    end
+    -- 池子全被占着：退回配置端口。旧行为是"总能给一个"，不能因为改轮换
+    -- 就在这里返回 nil 把整通电话打断(宁可绑不上时走 voip 的既有回退)。
+    last_audio_port = base
+    return base
+end
+
+--[[
+下一个音频会话将使用的本地媒体端口（会推进轮换，所以别拿它当只读查询）。
+
+给联调看"这一通电话 SDP 里会报哪个端口"，也给单测验轮换。没配 `audio_port`
+（非外部接管）时返回端口池里的下一个。
+@api exgb28181client.next_audio_port()
+@return number|nil 端口号；非外部模式且池子已满时为 nil
+]]
+function M.next_audio_port()
+    return alloc_audio_port()
 end
 
 --[[

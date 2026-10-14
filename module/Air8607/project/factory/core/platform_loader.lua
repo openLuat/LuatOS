@@ -36,29 +36,8 @@ require 即执行，按以下顺序：
 require ("pc_default")            -- PC 模拟器回退
 
 -- Engine 引擎主机系列
-require ("eng_1602_5i_v2")        -- Air1602 5寸 720×1280 NV3052C
-require ("eng_1602_5i_v3")        -- Air1602 5寸 720×1280 NV3052C + NAND
-require ("eng_1602_5i_v5")        -- Air1602 5寸 480×854 ST7701S + NAND
-require ("eng_1602_7i_v0")        -- Air1602 7寸 1024×600
-require ("eng_1602_7i_v4")        -- Air1602 7寸 1024×600 + NAND + NES + 电池
-require ("eng_1602_9i_v09421")    -- Air1602 9寸 1024×600 + NAND + NES + 电池
-require ("eng_1602_10i_v0")       -- Air1602 10寸 1024×600
-require ("eng_1602_10i_v10421")   -- Air1602 10寸 1024×600 + NAND + NES + 电池
-require ("eng_8601_7i_v0")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205)/4G(780ER2) + SD + UVC + RS485
-require ("eng_8602_9i_v0")       -- Air8601 9寸 1024×600 HX8282 + Airlink UART WiFi(6205)/4G(780ER2) + SD + UVC + 双RS485
 require ("eng_8607_10i_v0")      -- Air8603 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
 
--- EVB turnkey 开发板系列
-require ("evb_8101_5i_v0")        -- Air8101 5寸 800×480 H050IWV
-require ("evb_8101_7i_v0")        -- Air8101 7寸 1024×600 HX8282
-require ("evb_8101_9i_v0")        -- Air8101 9寸 1024×600 HX8282
-require ("evb_8101_10i_v0")       -- Air8101 10寸 1024×600 HX8282 + 应用工厂
-require ("evb_8101b_5i_v1")       -- Air8101B 5寸 480×854 ST7701S
-require ("evb_8101b_5i_v2")       -- Air8101B 5寸 480×854 GC9503
-require ("evb_1601_5i_v11")       -- Air1601 5寸 800×480
-require ("evb_1601_7i_v11")       -- Air1601 7寸 1024×600
-require ("evb_1601_7i_v12")       -- Air1601 7寸 1024×600 + 4G + 以太网 + 应用工厂
-require ("evb_1601_10i_v11")      -- Air1601 10寸 1024×600
 
 -- 驱动
 require ("lcd_display_rgb")       -- RGB display 统一驱动

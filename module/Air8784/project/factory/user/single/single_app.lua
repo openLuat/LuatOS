@@ -113,8 +113,8 @@ local function single_app_task()
             return
         end
     end
-    if cfg.sip.sip_transport ~= "udp" and cfg.sip.sip_transport ~= "tcp" then
-        log.error("single_app", "sip_transport仅支持udp/tcp") return
+    if cfg.sip.sip_transport ~= "udp" and cfg.sip.sip_transport ~= "tcp" and cfg.sip.sip_transport ~= "tls" then
+        log.error("single_app", "sip_transport仅支持udp/tcp/tls") return
     end
     local sip_config = {}
     for key, value in pairs(cfg.sip) do sip_config[key] = value end
@@ -135,7 +135,20 @@ local function single_app_task()
         set_state("INIT")
         while not socket.adapter(socket.LWIP_GP) do sys.waitUntil("IP_READY", 1000) end
         sys.cleanMsg(TASK)
-        if exsip.init(sip_config) and exsip.start() then
+        -- TLS 证书按需读取：缺失则告警并等待重试（证书可经 OTA 补烧，无需重启即可自愈）
+        local cert_ok = true
+        if sip_config.sip_transport == "tls" then
+            local ca = io.readFile(sip_config.sip_tls_ca_path or "/luadb/sip-ca.pem")
+            if not ca then
+                log.error("single_app", "TLS 开启但 CA 证书缺失:", sip_config.sip_tls_ca_path)
+                set_state("CONFIG_REQUIRED")
+                cert_ok = false
+            else
+                sip_config.sip_tls = { ca_cert = ca }
+                log.info("single_app", "TLS 已启用，CA 证书长度", #ca)
+            end
+        end
+        if cert_ok and exsip.init(sip_config) and exsip.start() then
             while true do
                 if registered and single_audio.is_ready() and (state == "AUDIO_RECOVERING" or state == "AUDIO_ERROR") then
                     set_state("READY")

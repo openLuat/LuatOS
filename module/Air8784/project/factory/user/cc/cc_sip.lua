@@ -235,7 +235,7 @@ end
 
 function cc_sip.init()
     logi("SIP 初始化开始")
-    local sip_ok = exsip.init({
+    local init_tbl = {
         sip_server_addr = config.sip_server_addr,
         sip_server_port = config.sip_server_port,
         sip_domain = config.sip_domain,
@@ -250,7 +250,17 @@ function cc_sip.init()
         early_media = true,
         early_media_response = 183,
         adapter = config.adapter,
-    })
+    }
+    if config.sip_transport == "tls" then
+        local ca = io.readFile(config.sip_tls_ca_path or "/luadb/sip-ca.pem")
+        if not ca then
+            log.error("cc_sip", "TLS 开启但 CA 证书缺失:", config.sip_tls_ca_path)
+            return false
+        end
+        init_tbl.sip_tls = { ca_cert = ca }
+        logi("TLS 已启用，CA 证书长度", #ca)
+    end
+    local sip_ok = exsip.init(init_tbl)
     if not sip_ok then
         log.error("cc_sip", "exsip.init 失败")
         return false

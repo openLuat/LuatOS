@@ -39,6 +39,15 @@ local st = {
 
 local function logi(...) log.info("gb28181audio", ...) end
 
+-- voip 是否还活着。**不能用 voip.isRunning()**：它只在 RUNNING 时为真，而会话起来
+-- 后的前几毫秒是 STARTING，此时它报 false。谁在这段窗口里查一次，就会被误判成
+-- "会话已结束"而把桥拆掉(现象：刚接通就没声)。只有 idle/error 才是真的结束了。
+local function voip_alive()
+    if not voip or not voip.getState then return true end
+    local s = voip.getState()
+    return s ~= "idle" and s ~= "error"
+end
+
 --[[
 开启音频会话。
 
@@ -52,6 +61,16 @@ local function logi(...) log.info("gb28181audio", ...) end
 @return string|nil 失败原因
 ]]
 function M.start(session, opts)
+    -- voip.stop() 是异步的：Lua 侧投完事件就返回，媒体端口的释放和收尾在 voip 任务里
+    -- 稍后才做。这段时间里 isRunning() 已经报 false，但 getState() 还是 "stopping"；
+    -- 此时再 start 会被随后到达的停止事件拆掉 —— 现象是"新会话起来了却没声"。
+    -- 宁可显式失败让上层稍后重试，也不要静默起一个死会话。
+    if voip and voip.getState and voip.getState() ~= "idle" then
+        local msg = "voip 正忙(" .. tostring(voip.getState()) .. ")，上一会话还在收尾"
+        last_err = msg
+        st.last_error = msg
+        return false, msg
+    end
     local function fail(msg)
         last_err = msg
         st.last_error = msg
@@ -60,8 +79,8 @@ function M.start(session, opts)
 
     -- voip 可能自己收摊了（媒体连接被对端关掉，见 voip 侧）—— 以它为准，
     -- 否则这个陈旧的标志会让下一次 start 被"已启动"挡在门外
-    if running and voip and voip.isRunning and not voip.isRunning() then
-        logi("voip 已自行结束(媒体连接断开)，清掉旧状态")
+    if running and not voip_alive() then
+        logi("voip 已自行结束(" .. tostring(voip.getState()) .. ")，清掉旧状态")
         running = false
     end
     if running then
@@ -162,9 +181,9 @@ end
 function M.is_running()
     -- **以 voip 的实际状态为准**：媒体连接被对端关掉时 voip 会自己收摊，
     -- 此时本模块也要跟着变成"未运行"（调用方看到的是同一件事）
-    if running and voip and voip.isRunning and not voip.isRunning() then
+    if running and not voip_alive() then
         running = false
-        logi("voip 已自行结束(媒体连接断开)")
+        logi("voip 已自行结束(" .. tostring(voip.getState()) .. ")")
     end
     return running
 end

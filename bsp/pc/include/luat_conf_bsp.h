@@ -128,6 +128,9 @@
 // （LUAT_OPUS_MODE=off 可强制关闭，默认 full；目录缺失时不定义该宏）
 #define LUAT_USE_AUDIO_DTMF 1
 #define LUAT_USE_VOIP 1
+// 桥接模式：PCM 走 voip.pcmIn/pcmOut，不碰本地音频设备。PC 上开着它，
+// 才能在无 Air1103 硬件、无板载 codec 的情况下跑通外置语音芯片的对接逻辑。
+#define LUAT_USE_VOIP_BRIDGE 1
 #define LUAT_USE_RECORD 1
 
 //----------------------------

@@ -1103,6 +1103,23 @@ function M.tcp_setup_choice(offer_setup, prefer)
     return p
 end
 
+--[[
+把协商结果翻成外部媒体引擎认的承载名（exgb28181audio 原样透传给 voip）。
+
+@api exgb28181client.media_transport(media_tcp, tcp_setup)
+@boolean media_tcp 平台 SDP 的 m= 是否 TCP/RTP/AVP
+@string|nil tcp_setup 本端角色，见 tcp_setup_choice
+@return string "udp"|"tcp"|"tcp_passive"
+]]
+function M.media_transport(media_tcp, tcp_setup)
+    if not media_tcp then
+        return "udp"
+    end
+    -- 取不到角色时按**主动**算：主动方是自己连出去，设备在 NAT 后面也能通；
+    -- 反过来说"监听等平台连"在 NAT 后是必然失败的那个方向
+    return (tcp_setup == gb.TCP_SETUP_PASSIVE) and "tcp_passive" or "tcp"
+end
+
 -- 打开会话的媒体 socket(独立于信令 socket)。
 --
 -- UDP 与 TCP 的建链方式完全不同，故分三条路：
@@ -1323,6 +1340,9 @@ local function handle_audio_invite(msg, s)
     if not port then
         log_warn("无可用端口")
         reply(msg, 503, "Service Unavailable")
+        -- 拒绝必须让应用看得见（否则现象只是"没声音"，原因全在设备日志里、
+        -- 而设备日志成批丢）
+        emit("invite", "rejected", { reason = "无可用端口", incoming = true })
         return
     end
 
@@ -1363,6 +1383,28 @@ local function handle_audio_invite(msg, s)
     ]]
     local is_tcp = (s.tcp == true)
     sess.media_tcp = is_tcp
+
+    --[[
+    承载与角色都按平台 SDP 定：TCP 下本端取 offer 的反向(见 tcp_setup_choice)，
+    再翻成外部媒体引擎认的 transport —— 引擎据此决定"连过去"还是"听着等"，
+    这是它唯一需要知道的协商结果（见 exgb28181audio）。
+    ]]
+    local err
+    if is_tcp then
+        local tcp_setup
+        tcp_setup, err = M.tcp_setup_choice(s.setup, o.tcp_setup_prefer)
+        if not tcp_setup then
+            log_warn("音频承载协商失败", err)
+            reply(msg, 488, "Not Acceptable Here")
+            emit("invite", "rejected", { reason = "音频承载协商失败: " .. tostring(err),
+                                         incoming = true })
+            return
+        end
+        sess.tcp_setup = tcp_setup
+    end
+    sess.transport = M.media_transport(is_tcp, sess.tcp_setup)
+    -- 媒体归外部引擎：本层不再持判活判据（见 session_death_reason）
+    sess.external_media = g_opts.external_audio and true or nil
 
     --[[
     建链、收 RTP、剥头、（若是 PS）解封装全在 C 里走完，解出的 G.711A 由
@@ -1406,9 +1448,9 @@ local function handle_audio_invite(msg, s)
         -- 上行发送尚未实现，故先只声明接收
         direction    = "recvonly",
         has_ssrc     = 0,
-        -- 承载必须与平台要求一致；setup 方向取反（平台 passive → 本端 active）
+        -- 承载必须与平台要求一致；setup 方向取反（上面已算好，见 tcp_setup_choice）
         proto        = is_tcp and gb.PROTO_TCP or gb.PROTO_UDP,
-        setup        = is_tcp and gb.TCP_SETUP_ACTIVE or nil,
+        setup        = is_tcp and sess.tcp_setup or nil,
         connection   = is_tcp and gb.TCP_CONN_NEW or nil,
     })
     if not answer then
@@ -1424,6 +1466,10 @@ local function handle_audio_invite(msg, s)
     emit("talk", "accepted", {
         call_id = call_id, session_name = sess.session_name,
         local_port = port, ssrc = sess.ssrc, incoming = true,
+        -- 媒体引擎要这四个值才能起流：承载 + 对端地址（tcp_passive 时对端
+        -- 是连进来的那个，地址不填）
+        transport = sess.transport,
+        remote_ip = sess.remote_ip, remote_port = sess.remote_port,
     })
 end
 
@@ -1468,6 +1514,16 @@ local function handle_invite(msg)
     -- 语音对讲时平台还会**反向**给设备发一条音频 INVITE（双向/上行方向）
     if s.media == "audio" then
         handle_audio_invite(msg, s)
+        return
+    end
+
+    -- 本端不提供视频(opts.no_video)：视频 INVITE 一律 488。
+    -- **不能"收下却发不出流"**：平台那次点播会永不完成 —— WVP 的快照点播认领只在
+    -- 回调触发时释放，于是它每 5 秒拿着同一通道来撞，还会顺手收掉同通道的对讲。
+    if o.no_video then
+        log_warn("本端不提供视频(no_video), 拒绝视频 INVITE", tostring(s.media))
+        reply(msg, 488, "Not Acceptable Here")
+        emit("invite", "rejected", { reason = "本端不提供视频" })
         return
     end
 
@@ -1662,9 +1718,12 @@ local function handle_invite(msg)
 end
 
 local function handle_ack(msg)
-    local sess = st.sessions[msg.headers["call-id"]]
+    -- 两张表都要找（同 handle_bye）：只查点播表的话，每个对讲的 ACK 都会打那条
+    -- 警告，把真正的 Call-ID 不匹配淹掉
+    local call_id = msg.headers["call-id"]
+    local sess = st.sessions[call_id] or st.talks[call_id]
     if not sess then
-        log_warn("ACK 对应不到会话")
+        log_warn("ACK 对应不到会话", tostring(call_id))
         return
     end
     if not sess.started then
@@ -1731,6 +1790,11 @@ end
 function M.session_death_reason(sess, now, dead_ms)
     if type(sess) ~= "table" or not sess.media_tcp then
         return nil      -- 非 TCP：没有可信判据，不猜
+    end
+    -- 媒体交给外部引擎时本层不建链也不收流，那些判活判据全都无从更新 —— 拿它们
+    -- 判活就是"凭没看见就杀了它"（实测代价：对讲正好第 10 秒被回收，上行断在 527 包）
+    if sess.external_media then
+        return nil
     end
 
     now = now or now_ms()
@@ -1871,7 +1935,14 @@ end
 
 local function handle_bye(msg)
     local call_id = msg.headers["call-id"]
+    -- 两张表都要找：平台的 BYE 对两者长得一样，只看点播表的话音频会话会被回 200
+    -- 却留在表里 → 下一轮对讲起不来（外部音频桥还在跑，再 start 直接被拒）
     local sess = st.sessions[call_id]
+    local is_talk = false
+    if not sess then
+        sess = st.talks[call_id]
+        is_talk = (sess ~= nil)
+    end
 
     reply(msg, 200, "OK")   -- BYE 必须先回 200
     if not sess then
@@ -1883,8 +1954,13 @@ local function handle_bye(msg)
     end
 
     media_close(sess)
-    st.sessions[call_id] = nil
-    log_info("会话已结束", call_id)
+    if is_talk then
+        st.talks[call_id] = nil
+    else
+        st.sessions[call_id] = nil
+    end
+    log_info(is_talk and "音频会话已结束" or "会话已结束", call_id)
+    -- 与失活回收同口径(都是 call/ended)，音频桥的调用方只需接这一种
     emit("call", "ended", { call_id = call_id, reason = "bye" })
 end
 
@@ -2038,6 +2114,10 @@ GB28181-2016 §9.12 的语音广播/对讲与**点播方向相反**：
 -- **不 connect**：平台从哪个端口发音频要等它的应答 SDP 才知道，
 -- 事先 connect 会把所有来源都过滤掉。生产环境可在拿到对端地址后再收紧。
 local function audio_open(sess)
+    -- 本端发起的这条 INVITE 的 SDP 不带 m= 的协议行（见 start_talk），即 UDP；
+    -- 平台主动发起的那条才可能要求 TCP（见 handle_audio_invite）
+    sess.transport = M.media_transport(false)
+    sess.external_media = g_opts.external_audio and true or nil
     -- 三段式里的前两段：建链 + 绑端口。**这里不 connect** —— 平台从哪个
     -- 端口发音频要等它的应答 SDP 才知道，事先 connect 会把来源全过滤掉。
     -- connect 在 handle_talk_response 里。
@@ -2237,6 +2317,9 @@ local function handle_talk_response(msg)
         emit("talk", "accepted", {
             call_id = call_id, session_name = sess.session_name,
             sdp = msg.body, local_port = sess.local_port,
+            -- 与平台发起的那条口径一致（见 handle_audio_invite 的 emit）
+            transport = sess.transport,
+            remote_ip = sess.remote_ip, remote_port = sess.remote_port,
         })
     else
         sess.state = "failed"

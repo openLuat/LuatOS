@@ -394,6 +394,26 @@ function t.test_tcp_setup_choice_when_offer_leaves_it_open()
 end
 
 --[[
+协商结果到媒体引擎承载名的翻译（exgb28181audio 原样透传给 voip）。
+
+三种承载在引擎里是三套动作：udp 直接 connect；tcp 本端连出去；
+tcp_passive 本端监听等平台连。名字译错的表现是"连到了错误的角色"——
+流发得出去、平台却收不到，而 SIP 层完全正常。
+]]
+function t.test_media_transport_maps_setup_to_carrier()
+    assert(client.media_transport(false, nil) == "udp", "非 TCP 恒为 udp")
+    assert(client.media_transport(nil, nil) == "udp", "缺省即 UDP")
+    assert(client.media_transport(true, "active") == "tcp",
+           "本端 active = 连出去")
+    assert(client.media_transport(true, "passive") == "tcp_passive",
+           "本端 passive = 监听等平台连")
+    -- 角色缺失时按主动算：被动方向在 NAT 后必然不通，不该是缺省
+    assert(client.media_transport(true, nil) == "tcp",
+           "取不到角色时应退到主动（NAT 后的设备能连出去）")
+    assert(client.media_transport(true, "nonsense") == "tcp")
+end
+
+--[[
 音频会话（平台发起的 TCP 腿）同样要被失活判定覆盖。
 
 实测见过"0 个包"挂几分钟的僵尸音频会话：平台发了音频 INVITE、本端也受理并
@@ -418,6 +438,33 @@ function t.test_audio_session_is_reclaimed_when_link_never_comes_up()
     }
     assert(client.session_death_reason(udp, 99999999) == nil,
            "UDP 音频会话不该被超时误杀")
+end
+
+--[[
+媒体交给外部引擎（voip）时，**本层必须彻底放弃判活**。
+
+外部接管下本层不建链、不收流，link_up / link_bad_ms 永远停在初始值 ——
+拿它们判"链路没建起来"，命中的就是"我看不见"，而不是"链路坏了"。
+
+真机代价（Air8101 + TCP 对讲）：正好在第 10 秒命中，会话被回收、音频桥停、
+上行 RTP 在 527 包处整齐断掉；平台侧只看到"响了 10 秒就没声了"。
+]]
+function t.test_external_media_session_is_not_reclaimed_by_link_guess()
+    local ext = {
+        media_tcp = true, link_up = false, link_up_once = false,
+        external_media = true,
+        started = true, started_ms = 1000, state = "established", incoming = true,
+    }
+    assert(client.session_death_reason(ext, 99999999) == nil,
+           "外部引擎的链路不该由本层按超时杀(本层看不见它)")
+
+    -- 但**本层自己**建链的 TCP 会话仍要被覆盖，别把上面那条放得太宽
+    local own = {
+        media_tcp = true, link_up = false, link_up_once = false,
+        started = true, started_ms = 1000, state = "established",
+    }
+    assert(type(client.session_death_reason(own, 99999999)) == "string",
+           "本层建链的 TCP 会话仍要判失活")
 end
 
 --[[

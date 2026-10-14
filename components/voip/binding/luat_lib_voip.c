@@ -418,6 +418,7 @@ voip.start({
     remote_ip   = "192.168.1.100",
     remote_port = 10000,
     local_port  = 10000,
+    transport   = "udp",        -- "udp"缺省 / "tcp"本端主动连 / "tcp_passive"本端监听
     codec       = 0,            -- 0:PCMU  1:PCMA  2:G729(需固件启用LUAT_USE_CODEC_G729，仅8kHz，ptime为10ms整数倍；未编入时voip.G729为nil)  3:G722(需固件启用LUAT_USE_CODEC_G722，仅16kHz宽带，ptime为20ms整数倍，AEC自动关闭；未编入时voip.G722为nil)
     ptime       = 20,           -- 打包时长 ms
     sample_rate = 8000,
@@ -431,6 +432,9 @@ voip.start({
     aec_delay_samples = 160,
     aec_tail = 120,
 })
+@usage
+-- TCP 承载（RTP over TCP，RFC 4571 定界）。tcp_passive 时本端监听、remote_* 不填：
+voip.start({ transport = "tcp_passive", local_port = 31000, codec = voip.PCMA })
 */
 static int l_voip_start(lua_State *L)
 {
@@ -462,6 +466,28 @@ static int l_voip_start(lua_State *L)
     /* local_port */
     lua_getfield(L, 1, "local_port");
     cfg.local_port = (uint16_t)luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+
+    /* transport: "udp"(缺省) / "tcp"(本端主动连对端) / "tcp_passive"(本端监听)，
+       也接受 voip.TRANSPORT_* 常量。TCP 下 RTP 按 RFC 4571 定界 */
+    lua_getfield(L, 1, "transport");
+    if (lua_isstring(L, -1)) {
+        const char *t = lua_tostring(L, -1);
+        if (!strcmp(t, "udp")) {
+            cfg.transport = VOIP_TRANSPORT_UDP;
+        } else if (!strcmp(t, "tcp")) {
+            cfg.transport = VOIP_TRANSPORT_TCP_ACTIVE;
+        } else if (!strcmp(t, "tcp_passive")) {
+            cfg.transport = VOIP_TRANSPORT_TCP_PASSIVE;
+        } else {
+            LLOGE("voip.start: transport must be udp/tcp/tcp_passive");
+            lua_pop(L, 1);
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+    } else {
+        cfg.transport = (uint8_t)luaL_optinteger(L, -1, VOIP_TRANSPORT_UDP);
+    }
     lua_pop(L, 1);
 
     /* codec: 0=PCMU, 1=PCMA, 2=G729, 3=G722 */
@@ -577,8 +603,14 @@ static int l_voip_start(lua_State *L)
     }
     lua_pop(L, 1);
 
-    /* 基本校验 */
-    if (cfg.remote_ip[0] == '\0' || cfg.remote_port == 0) {
+    /* 基本校验。被动 TCP 没有对端地址可填（平台连进来），但它必须要本端端口 */
+    if (cfg.transport == VOIP_TRANSPORT_TCP_PASSIVE) {
+        if (cfg.local_port == 0) {
+            LLOGE("voip.start: tcp_passive requires local_port");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+    } else if (cfg.remote_ip[0] == '\0' || cfg.remote_port == 0) {
         LLOGE("voip.start: remote_ip and remote_port are required");
         lua_pushboolean(L, 0);
         return 1;
@@ -1025,6 +1057,9 @@ static const rotable_Reg_t reg_voip[] =
 #ifdef LUAT_USE_VOIP_BRIDGE
     { "AUDIO_MODE_BRIDGE", ROREG_INT(VOIP_AUDIO_MODE_BRIDGE)},
 #endif
+    { "TRANSPORT_UDP",         ROREG_INT(VOIP_TRANSPORT_UDP)},
+    { "TRANSPORT_TCP",         ROREG_INT(VOIP_TRANSPORT_TCP_ACTIVE)},
+    { "TRANSPORT_TCP_PASSIVE", ROREG_INT(VOIP_TRANSPORT_TCP_PASSIVE)},
 
     { NULL,         ROREG_INT(0)}
 };

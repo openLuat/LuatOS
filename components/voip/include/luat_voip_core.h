@@ -18,6 +18,7 @@
 #include "luat_base.h"
 #include "luat_rtos.h"
 #include "luat_voip_jitterbuf.h"
+#include "luat_voip_tcp_framer.h"
 #include "luat_audio_data_codec.h"
 #ifdef LUAT_USE_SRTP
 #include "luat_voip_security.h"
@@ -36,6 +37,13 @@
 #define VOIP_MIC_SLOT_COUNT     4
 #define VOIP_AEC_REF_HISTORY_FRAMES 8
 #define VOIP_RTP_HEADER_LEN     12
+/* TCP 下一次 read 的块大小。与"一个包多大"无关 —— 读多了由 framer 分成帧，
+   只是为了少绕几圈事件循环 */
+#define VOIP_TCP_READ_CHUNK    512
+/* 收包最多按几个"标准包"来备缓冲：**打包时长是平台定的，不是我们定的**
+   （实测 WVP/ZLM 的对讲下行 100ms 一个包 = 5 个 20ms 包）。这里留到 200ms，
+   再大的按畸形丢掉。 */
+#define VOIP_RX_MAX_PKTS_PER_FRAME 10
 #define VOIP_RTP_PT_PCMU        0
 #define VOIP_RTP_PT_PCMA        8
 #define VOIP_RTP_PT_G729        18
@@ -54,12 +62,21 @@ typedef enum {
     VOIP_AEC_MODE_BK = 1,
 } voip_aec_mode_t;
 
+/* RTP 承载。TCP 下按 RFC 4571 定界（见 luat_voip_tcp_framer.h）
+   PASSIVE 是"本端监听、平台连进来"，此时 remote_ip/remote_port 被忽略 */
+typedef enum {
+    VOIP_TRANSPORT_UDP = 0,
+    VOIP_TRANSPORT_TCP_ACTIVE = 1,
+    VOIP_TRANSPORT_TCP_PASSIVE = 2,
+} voip_transport_t;
+
 /* 用户传入的配置 */
 typedef struct {
     voip_codec_type_t codec;
     uint32_t stats_interval_ms;
     uint32_t sample_rate;       /* 默认 8000 */
     int      adapter;
+    uint8_t  transport;         /* voip_transport_t；默认 UDP */
     char     remote_ip[VOIP_MAX_IP_LEN];
     uint16_t remote_port;
     uint16_t local_port;
@@ -104,6 +121,8 @@ typedef struct {
     uint32_t event_send_failures; /* 跨会话累计的通知失败次数。 */
     uint32_t rx_lost;
     uint32_t rx_out_of_order;
+    uint32_t rx_frame_dropped; /* TCP 定界丢弃的整帧（长度前缀超限） */
+    uint32_t rx_frames;        /* 真正送进播放通路的 20ms 帧数（一个大包会切出多帧） */
     uint32_t jb_played;
     uint32_t jb_silence;
     uint32_t aec_ref_underflow;
@@ -270,8 +289,17 @@ typedef struct {
     int16_t *rx_pcm_buf;        /* RX: G.711 解码后缓冲 */
     int16_t *duplex_play_buf;   /* 全双工环形播放缓冲 */
     int16_t *mic_buf[VOIP_MIC_SLOT_COUNT];
-    uint8_t *udp_rx_buf;        /* UDP 收包缓冲 */
+    uint8_t *udp_rx_buf;        /* 收包缓冲（TCP 下是"一次读多少"的块缓冲） */
     uint16_t udp_rx_buf_size;
+    uint8_t *tcp_frame_buf;     /* TCP: 按 RFC4571 重组出的一个 RTP 包 */
+    uint16_t tcp_frame_cap;     /* 单帧上限，按 codec 的整包长度算（见 VOIP_RX_MAX_PKTS_PER_FRAME） */
+    voip_tcp_framer_t tcp_framer;
+    /* 一个大包切成多帧时，帧序号由**时间戳**推（序号是按包递增的，不能 +1：
+       会和下一包的序号撞车，抖动缓冲会当成重复/跳变一直 resync） */
+    uint32_t rx_ts_base;
+    uint16_t rx_ts_base_seq;
+    uint32_t rx_ts_ssrc;
+    uint8_t  rx_ts_base_valid;
     uint16_t rtp_packet_buf_size;
     uint8_t play_slot_count;
     uint8_t mic_write_idx;

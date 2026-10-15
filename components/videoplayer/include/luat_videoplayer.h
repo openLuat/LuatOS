@@ -167,6 +167,12 @@ int luat_videoplayer_pause(luat_vp_ctx_t *ctx, uint8_t pause);
 /** Stop container-owned audio playback. */
 int luat_videoplayer_stop(luat_vp_ctx_t *ctx);
 
+/**
+ * 循环回到片头。HZV 只把读位置拨回第一个包，并用已经抽出的音频重新开播。
+ * 不关闭解码器，也不再扫描 SD 卡。
+ */
+int luat_videoplayer_rewind(luat_vp_ctx_t *ctx);
+
 /** Query the audio-master clock for HZV playback. */
 int luat_videoplayer_get_av_clock(luat_vp_ctx_t *ctx, luat_vp_av_clock_t *clock);
 

@@ -61,6 +61,8 @@ typedef struct airui_video_backend_ops {
     void (*release_frame)(void *backend_ctx, airui_video_frame_t *frame);
     int (*skip_frames)(void *backend_ctx, uint32_t count);
     int (*restart)(void *backend_ctx);
+    /* 循环接缝：拨回开头并重播已有音频，不拆解码器。为空则仍走 restart。 */
+    int (*rewind)(void *backend_ctx);
     int (*play)(void *backend_ctx);
     int (*pause)(void *backend_ctx, bool pause);
     int (*stop)(void *backend_ctx);
@@ -186,6 +188,7 @@ static int airui_video_vp_read_frame(void *backend_ctx, airui_video_frame_t *fra
 static void airui_video_vp_release_frame(void *backend_ctx, airui_video_frame_t *frame);
 static int airui_video_vp_skip_frames(void *backend_ctx, uint32_t count);
 static int airui_video_vp_restart(void *backend_ctx);
+static int airui_video_vp_rewind(void *backend_ctx);
 static int airui_video_vp_play(void *backend_ctx);
 static int airui_video_vp_pause(void *backend_ctx, bool pause);
 static int airui_video_vp_stop(void *backend_ctx);
@@ -199,6 +202,7 @@ static const airui_video_backend_ops_t g_airui_video_videoplayer_ops = {
     .release_frame = airui_video_vp_release_frame,
     .skip_frames = airui_video_vp_skip_frames,
     .restart = airui_video_vp_restart,
+    .rewind = airui_video_vp_rewind,
     .play = airui_video_vp_play,
     .pause = airui_video_vp_pause,
     .stop = airui_video_vp_stop,
@@ -763,12 +767,16 @@ static int airui_video_read_and_present(lv_obj_t *video, airui_video_data_t *dat
         frame.data = airui_video_get_next_framebuffer(data);
         frame.data_size = data->framebuffer_size;
     }
-    /* 主播放路径：读一帧 -> 可选 loop 重启 -> 渲染 -> 释放 backend 帧。 */
+    /* 主播放路径：读一帧。循环到文件尾时拨回开头，当前画面留到新的第一帧解完。 */
     ret = data->ops->read_frame(data->backend_ctx, &frame);
-    if (ret == AIRUI_VIDEO_STATUS_EOF && allow_loop && data->loop && data->ops->restart != NULL) {
-        ret = data->ops->restart(data->backend_ctx);
-        if (ret == AIRUI_OK) {
-            if (data->playing && data->ops->play != NULL) {
+    if (ret == AIRUI_VIDEO_STATUS_EOF && allow_loop && data->loop) {
+        ret = AIRUI_ERR_NOT_SUPPORTED;
+        if (data->ops->rewind != NULL) {
+            ret = data->ops->rewind(data->backend_ctx);
+        }
+        if (ret != AIRUI_OK && data->ops->restart != NULL) {
+            ret = data->ops->restart(data->backend_ctx);
+            if (ret == AIRUI_OK && data->playing && data->ops->play != NULL) {
                 ret = data->ops->play(data->backend_ctx);
             }
         }
@@ -1355,6 +1363,16 @@ static int airui_video_vp_restart(void *backend_ctx)
     }
     ctx->player = player;
     return AIRUI_OK;
+}
+
+static int airui_video_vp_rewind(void *backend_ctx)
+{
+    airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
+
+    if (ctx == NULL || ctx->player == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    return luat_videoplayer_rewind(ctx->player) == LUAT_VP_OK ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
 }
 
 static int airui_video_sync_to_audio(airui_video_data_t *data)

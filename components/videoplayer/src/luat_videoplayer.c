@@ -750,6 +750,40 @@ int luat_videoplayer_stop(luat_vp_ctx_t *ctx)
     return LUAT_VP_OK;
 }
 
+int luat_videoplayer_rewind(luat_vp_ctx_t *ctx)
+{
+    if (ctx == NULL) return LUAT_VP_ERR_PARAM;
+    ctx->eof = 0;
+#ifdef LUAT_USE_HZV
+    if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv != NULL) {
+        if (luat_hzv_rewind(ctx->hzv) != LUAT_HZV_OK) {
+            return LUAT_VP_ERR_IO;
+        }
+#if defined(LUAT_USE_AUDIO_V2)
+        if (ctx->hzv_audio_data != NULL && ctx->hzv_audio_size > 0) {
+            int ret;
+            /* 停掉当前 DAC，再用同一份内存音频从头播。不重新抽包。 */
+            luat_videoplayer_stop(ctx);
+            ret = luat_videoplayer_play(ctx);
+            if (ret != LUAT_VP_OK) {
+                return ret;
+            }
+        }
+#endif
+        return LUAT_VP_OK;
+    }
+#endif
+    if (ctx->format == LUAT_VP_FMT_MJPG && ctx->fp != NULL) {
+        if (VP_FSEEK(ctx->fp, 0, SEEK_SET) != 0) {
+            return LUAT_VP_ERR_IO;
+        }
+        ctx->scan_buf_len = 0;
+        ctx->scan_buf_pos = 0;
+        return LUAT_VP_OK;
+    }
+    return LUAT_VP_ERR_NOIMPL;
+}
+
 int luat_videoplayer_get_av_clock(luat_vp_ctx_t *ctx, luat_vp_av_clock_t *clock)
 {
     if (ctx == NULL || clock == NULL) return LUAT_VP_ERR_PARAM;

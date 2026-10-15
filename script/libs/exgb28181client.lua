@@ -2334,12 +2334,21 @@ local function handle_talk_response(msg)
         ]]
         local rs = gb.sdp_parse(msg.body)
         if rs and rs.conn_ip and rs.port and rs.port > 0 then
-            -- 三段式的最后一段：把对端钉死
-            if sess.stream and gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
-                sess.remote_ip, sess.remote_port = rs.conn_ip, rs.port
-                log_info("音频收流已连向", rs.conn_ip, rs.port)
+            -- **先记对端地址，再谈连不连**。外部接管（external_audio）模式下本层
+            -- 没有 sess.stream —— 但仍必须把地址记下来交给外部引擎（voip 要靠它
+            -- connect）。原先只在 stream_connect 成功的分支里赋值，于是设备发起的
+            -- 那一路（腿 A：喊话）永远没有对端地址，音频桥直接报"没有对端媒体地址"，
+            -- 表现是**喊话没声音而对讲有声音**（对讲走 handle_audio_invite，地址来自
+            -- offer）。这条路径与 stream 有没有无关。
+            sess.remote_ip, sess.remote_port = rs.conn_ip, rs.port
+            if sess.stream then
+                if gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
+                    log_info("音频收流已连向", rs.conn_ip, rs.port)
+                else
+                    log_warn("音频收流 connect 失败", rs.conn_ip, rs.port)
+                end
             else
-                log_warn("音频收流 connect 失败", rs.conn_ip, rs.port)
+                log_info("音频对端地址已记下(外部引擎接管)", rs.conn_ip, rs.port)
             end
         else
             log_warn("平台 SDP 里没有可用的收流地址")

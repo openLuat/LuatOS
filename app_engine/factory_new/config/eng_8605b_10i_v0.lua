@@ -103,11 +103,11 @@ return {
             model = "tp_gt911",
             params = {
                 port = 1,              -- I2C 端口 1
-                pin_int = 255,         -- 255=LUAT_GPIO_NONE → C 层 20ms 轮询模式，不依赖 INT 线（本板 INT 实测卡死）
-                i2c_polling = false,   -- I2C 中断模式（对齐 demo 实测可用路径，见文件头第 5 条）
+                pin_rst = 72,          -- TP_RST = GPIO72
+                pin_int = 51,          -- TP_INT = WAKEUP = GPIO51
+                int_type = tp.FALLING, -- 下降沿触发
                 w = 1024,              -- 触摸面板宽度
                 h = 600,               -- 触摸面板高度
-                direction = 0,          -- 不旋转（由 AirUI set_rotation 统一处理）
             },
         },
         -- 音频: Air1103 外置语音芯片（UART6，内置 MIC/喇叭/AEC），见文件头第 2 条

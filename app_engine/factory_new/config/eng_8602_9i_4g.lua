@@ -1,8 +1,8 @@
 --[[
-@module  config.eng_8602_9i_v0
-@summary Air8601 引擎主机 9寸1024x600 RGB屏(HX8282) + Airlink UART WiFi(6205)/4G(780ER2)二选一 + USB摄像头 + 双RS485 + SD卡 + 喇叭 配置文件
-@version 1.1
-@date    2026.09.18
+@module  config.eng_8602_9i_4g
+@summary Air8601 引擎主机 9寸1024x600 RGB屏(HX8282) + Airlink UART 4G(780ER2) + USB摄像头 + 双RS485 + SD卡 + 喇叭 配置文件（4G 版）
+@version 1.2
+@date    2026.10.14
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -15,17 +15,18 @@
 4. 触摸 GT911 走 I2C1，需 pins 配置 I2C1 功能复用。
 5. SD 卡走 SPI1 总线，CS = PIN38（GPIO 待确认）。
 6. 双 RS485：UART1 = 485_1，UART2 = 485_2；485_EN1 = PIN51，485_EN2 = GPIO57（PIN47）。
-7. 【默认组网】默认启用 WiFi（airlink UART3）；4G 相关项全部注释（features.net_4g /
-   network 的 4g_airlink_uart / ui.show_4g_icon）。切到 4G 时把这三处按注释互换即可，
-   切勿两组同时放开 —— 二者抢同一个 UART3。
+7. 【固定组网 · 4G 版】本型号固定启用 Airlink UART 4G（Air780ER2，独占 UART3）。
+   同底板另有 WiFi 出货型号 Engine_Air8602_9inch_1024x600_010_WiFi_V000（config/eng_8602_9i_wifi.lua），
+   两型号是同一底板电阻切换的不同出货型号，配置只差 features / network / ui 三处，切勿混用。
+   （原 eng_8602_9i_v0.lua 单文件注释互换两组网络配置的做法已废弃，2026.10.14 拆分为两个独立型号。）
 8. 【LCD_DE = GPIO25】本板 LCD_DE 接 GPIO25（PIN58），但本工程统一 RGB 驱动 lcd_display_rgb
    只把白名单字段转给 display.init("custom", ...)，pin_de 不在白名单里 —— 写了也是空操作，
    故此处注释掉。若上板发现屏不亮/花屏，可考虑给 drv/lcd/lcd_display_rgb.lua 的 cfg 白名单
    补 pin_de 透传。
 9. 【PIN55 双重映射】用户提供的引脚表中 AUDIOPA_EN = PIN55 与 UVC_EN = PIN55 = GPIO73
-   共用同一物理引脚，存在冲突。此处按 7 寸版本（eng_8601_7i_v0）将 UVC_EN 设为 GPIO73，
-   AUDIOPA_EN 设为 GPIO 输出（具体 GPIO 待确认）。若上板发现喇叭功放/摄像头无法同时使能，
-   请核实原理图中 AUDIOPA_EN 的实际 GPIO 编号。
+   共用同一物理引脚，存在冲突。此处按 7 寸版本（eng_8601_7i_wifi / eng_8601_7i_4g）将 UVC_EN
+   设为 GPIO73，AUDIOPA_EN 设为 GPIO 输出（具体 GPIO 待确认）。若上板发现喇叭功放/摄像头
+   无法同时使能，请核实原理图中 AUDIOPA_EN 的实际 GPIO 编号。
 10. 【PIN51 双重映射】485_EN1 = PIN51 与 SD_EN = PIN51 = GPIO65 共用同一物理引脚，
     存在冲突。此处按 GPIO65 初始化（SD 供电优先），485_EN1 的 GPIO 待确认。若上板发现
     RS485_1 无法收发或 SD 卡无法识别，请核实原理图中 485_EN1 的实际 GPIO 编号。
@@ -33,7 +34,7 @@
     （与7寸配置一致），写了不报错也不生效，此处保留仅作能力声明。
 12. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO73（AUDIOPA_EN = PIN55），
     低电平有效。录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
-13. 本配置由7寸版本（config/eng_8601_7i_v0.lua）移植，差异：屏幕尺寸 7→9 寸、
+13. 本配置由7寸版本（config/eng_8601_7i_wifi.lua / eng_8601_7i_4g.lua）移植，差异：屏幕尺寸 7→9 寸、
     LCD_DE 新增 GPIO25（驱动暂不透传）、TP_RESET 改为 GPIO72、TP_INT 改为 GPIO51、
     SD_CS 改为 PIN38、新增双 RS485（UART1+UART2）。
 ]]
@@ -74,7 +75,7 @@ end
 
 return {
     -- ===== 顶层信息 =====
-    name = "Engine_Air8602_9inch_1024x600_010_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}
+    name = "Engine_Air8602_9inch_1024x600_010_4G_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}_{网络}
     chip = "Air1601", -- 主控芯片（RGB 屏 + Airlink UART 外挂 WiFi/4G）
     baseboard = "合宙引擎 AIR8601 V010 9寸", -- 底板型号
 
@@ -156,13 +157,12 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,        -- 启用 WiFi（Air6205，与 4G 二选一）
-        -- net_4g = true,                -- × 4G 未启用（与 WiFi 共享 UART3，默认走 WiFi）
+        net_4g = true,      -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 7 条
         speaker = true,     -- 启用喇叭（DAC PIN18 接 LM4871 功放）
         mic = true,         -- 启用麦克风（板载 LINE_IN → 内置 ADC 录音）
                             --   与 speaker 成对声明：同族已启 AI 助手/应用工厂的板型
                             --   （evb_1601_7i_v12 / evb_8101_10i_v0 / eng_1602_5i_v5 …
-                            --   以及 7 寸 eng_8601_7i_v0）都写了这一项，本板原缺失。当前
+                            --   以及 7 寸 eng_8601_7i_wifi/4g）都写了这一项，本板原缺失。当前
                             --   app/ 与 ui/ 里查不到消费方，属"能力声明"性质。
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=PIN38）
         rs485 = true,       -- RS485 接口 —— 见文件头第 11 条：暂无消费方（UART1+UART2 双路）
@@ -173,20 +173,12 @@ return {
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
-    -- Air6205 WiFi 与 Air780ER2 4G 共享 UART3，硬件上通过电阻二选一
-    -- ⇒ 默认启用 WiFi；切 4G 时把下面两条的注释互换，切勿同时放开
+    -- 本型号为 4G 版：Airlink UART 4G（Air780ER2）独占 UART3，见文件头第 7 条
+    -- WiFi 版见 config/eng_8602_9i_wifi.lua（同一底板电阻切换的另一出货型号）
     network = {
-        -- Airlink UART WiFi（6205 模组，占用 UART3）—— 默认启用
-        {
-            type = "wifi_airlink_uart",
-            uart_id = 3,
-            baud = 2000000
-        },
-
-        -- Airlink UART 4G（Air780ER2，同样占用 UART3，与 WiFi 互斥）
-        -- { type = "4g_airlink_uart",
-        --   uart_id = 3, baud = 2000000,
-        --   adapter = socket.LWIP_GP_GW },   -- Air1601 外挂 4G 的网卡标识
+        { type = "4g_airlink_uart",
+          uart_id = 3, baud = 2000000,
+          adapter = socket.LWIP_GP_GW },   -- Air1601 外挂 4G 的网卡标识
     },
 
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=PIN38）=====
@@ -200,8 +192,7 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,         -- 桌面顶栏 WiFi 图标 ← 配 wifi 时打开
-        -- show_4g_icon = true,           -- × 桌面顶栏 4G 图标（net_4g 关闭时不要开，会显示假图标）
+        show_4g_icon = true,           -- 桌面顶栏 4G 图标
         show_brightness_slider = true, -- 设置页亮度滑块
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
         show_camera_preview = true,    -- 设置页摄像头预览入口 ← 见文件头第 11 条

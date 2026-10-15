@@ -1450,6 +1450,11 @@
             return lat !== null && lng !== null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 &&
                 !(lat === 0 && lng === 0) ? { lat: lat, lng: lng } : null;
         }
+        // tag 坐标值还原为度：微度（度×1e6，INTEGER 上报）除以 1e6，旧数据为度直接返回
+        function tagCoord(v) {
+            const n = num(v);
+            return (n !== null && Math.abs(n) > 180) ? n / 1e6 : n;
+        }
         // WGS84 → GCJ02（设备 tag 上报的经纬度为 WGS84，腾讯地图为 GCJ02）
         (function () {
             const PI = Math.PI, A = 6378245.0, EE = 0.00669342162296594323;
@@ -1508,8 +1513,8 @@
             signal: { tag: 782, name: '信号', unit: 'dBm', note: '4G 信号质量' },
             sigRaw: { tag: 1295, name: '信号原始值', unit: '', note: 'csq+100，备用' },
             battery: { tag: 771, name: '电量', unit: '%', note: '电池电量' },
-            lng: { tag: 512, name: '经度', unit: '°', note: 'WGS84' },
-            lat: { tag: 513, name: '纬度', unit: '°', note: 'WGS84' },
+            lng: { tag: 512, name: '经度', unit: '°', note: 'WGS84，微度即度×1e6' },
+            lat: { tag: 513, name: '纬度', unit: '°', note: 'WGS84，微度即度×1e6' },
             boot: { tag: 777, name: '开机次数', unit: '次', note: '累计重启' },
             mem: { tag: 1034, name: '内存', unit: 'B', note: '可用内存' },
             fw: { tag: 1027, name: '固件版本', unit: '', note: '版本号' }
@@ -1753,7 +1758,7 @@
                     if (v !== undefined && v !== null) entry.tags[t] = v;
                 });
                 entry.lastSeen = row.ct || entry.lastSeen;
-                const raw = coordinate({ lat: tagValue(entry, 'lat'), lng: tagValue(entry, 'lng') });
+                const raw = coordinate({ lat: tagCoord(tagValue(entry, 'lat')), lng: tagCoord(tagValue(entry, 'lng')) });
                 if (raw) {
                     const gcj = wgs84ToGcj02(raw.lat, raw.lng);
                     entry.pos = { lat: gcj.lat, lng: gcj.lng };
@@ -1799,7 +1804,7 @@
                         if (v !== undefined && v !== null) entry.tags[t] = v;
                     });
                     entry.lastSeen = row.ct || entry.lastSeen;
-                    const raw = coordinate({ lat: tagValue(entry, 'lat'), lng: tagValue(entry, 'lng') });
+                    const raw = coordinate({ lat: tagCoord(tagValue(entry, 'lat')), lng: tagCoord(tagValue(entry, 'lng')) });
                     if (raw && !entry.pos) {
                         const gcj = wgs84ToGcj02(raw.lat, raw.lng);
                         entry.pos = { lat: gcj.lat, lng: gcj.lng };
@@ -2850,7 +2855,7 @@
             const base = e && e.tags ? e.tags : {};
             const startMs = timeMs(tr.start + ' 00:00:00'), endMs = timeMs(tr.end + ' 23:59:59');
             const stepMs = Math.max(1800000, Math.floor((endMs - startMs) / 60));
-            const lat0 = base[TAGMAP.lat.tag] || 31.23, lng0 = base[TAGMAP.lng.tag] || 121.47;
+            const lat0 = tagCoord(base[TAGMAP.lat.tag]) || 31.23, lng0 = tagCoord(base[TAGMAP.lng.tag]) || 121.47;
             for (let t = startMs; t <= endMs; t += stepMs) {
                 rows.push({
                     ct: fmtDateTime(new Date(t)),
@@ -2859,8 +2864,8 @@
                     ['val_' + TAGMAP.cpu.tag]: Math.round((30 + rnd() * 18) * 10) / 10,
                     ['val_' + TAGMAP.voc.tag]: Math.round(80 + rnd() * 500),
                     ['val_' + TAGMAP.signal.tag]: Math.round(-100 + rnd() * 40),
-                    ['val_' + TAGMAP.lat.tag]: Math.round((lat0 + (rnd() - 0.5) * 0.02) * 100000) / 100000,
-                    ['val_' + TAGMAP.lng.tag]: Math.round((lng0 + (rnd() - 0.5) * 0.02) * 100000) / 100000
+                    ['val_' + TAGMAP.lat.tag]: Math.round((lat0 + (rnd() - 0.5) * 0.02) * 1e6),
+                    ['val_' + TAGMAP.lng.tag]: Math.round((lng0 + (rnd() - 0.5) * 0.02) * 1e6)
                 });
             }
             rows.reverse();
@@ -2883,7 +2888,7 @@
             }
             body.innerHTML = S.history.map(r => {
                 let lng = '--', lat = '--';
-                const raw = coordinate({ lat: histVal(r, 'lat'), lng: histVal(r, 'lng') });
+                const raw = coordinate({ lat: tagCoord(histVal(r, 'lat')), lng: tagCoord(histVal(r, 'lng')) });
                 if (raw) {
                     const gcj = wgs84ToGcj02(raw.lat, raw.lng);
                     lng = gcj.lng.toFixed(6); lat = gcj.lat.toFixed(6);
@@ -2961,7 +2966,7 @@
         function renderTrackPane() {
             const points = [];
             S.history.forEach(r => {
-                const raw = coordinate({ lat: histVal(r, 'lat'), lng: histVal(r, 'lng') });
+                const raw = coordinate({ lat: tagCoord(histVal(r, 'lat')), lng: tagCoord(histVal(r, 'lng')) });
                 if (raw) {
                     const gcj = wgs84ToGcj02(raw.lat, raw.lng);
                     points.push({
@@ -3055,7 +3060,8 @@
                 }
                 (TAG19_QUERY_CMDS[cmd] || []).forEach(t => {
                     if (t === 20) return;
-                    const val = row['val_' + t];
+                    const rawVal = row['val_' + t];
+                    const val = (t === TAGMAP.lat.tag || t === TAGMAP.lng.tag) ? tagCoord(rawVal) : rawVal;
                     if (val !== undefined && val !== null && val !== '') {
                         const label = TAG19_TAG_LABELS[t] || ('tag' + t);
                         if (shown.has(label)) return;

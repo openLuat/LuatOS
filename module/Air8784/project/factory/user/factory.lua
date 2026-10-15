@@ -82,13 +82,16 @@ sys.taskInit(function()
     local exaudio = require("exaudio")
     local audioInited = false
 
+    -- 上电 2 秒后再操作 Air1103：避开开机初期外设/网络初始化的资源冲突
+    sys.wait(2000)
     -- 打开 Air1103 供电并初始化
     gpio.setup(AUDIO_EN_PIN, 1)
     sys.wait(200) -- 等 Air1103 上电稳定
     -- 注: 语音芯片现统一命名 Air1103; exaudio 3.9 起仅识别 model="air1103"
-    if exaudio.setup({ model = "air1103", uart_id = AUDIO_UART_ID }) then
+    -- audio_mode="new" 启用 audio_v2 音频框架
+    if exaudio.setup({ model = "air1103", uart_id = AUDIO_UART_ID, audio_mode = "new" }) then
         audioInited = true
-        log.info("factory", "Air1103 音频初始化成功")
+        log.info("factory", "Air1103 音频初始化成功(audio_v2)")
     else
         log.error("factory", "Air1103 音频初始化失败")
     end

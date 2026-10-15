@@ -153,6 +153,13 @@ static int __LUAT_C_CODE_IN_RAM__ luat_uart_soft_recv_start_irq(int pin, void *p
 
 static int luat_uart_soft_setup(luat_uart_t *uart)
 {
+#ifdef LUAT_SOFT_UART_MAX_BAUDRATE
+	if (uart->baud_rate > LUAT_SOFT_UART_MAX_BAUDRATE)
+	{
+		LLOGW("soft uart baudrate %u exceeds maximum %u", (unsigned int)uart->baud_rate, (unsigned int)LUAT_SOFT_UART_MAX_BAUDRATE);
+		return -1;
+	}
+#endif
 	prv_uart_soft->rx_buffer_size = uart->bufsz * 2;
 	prv_uart_soft->rx_buffer.MaxLen = uart->bufsz * 2;
 	luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);

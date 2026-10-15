@@ -15,6 +15,7 @@
 #include "lwip/ip6.h"
 #endif
 #include "net_lwip2.h"
+#include "net_lwip2_dns.h"
 #include "luat_crypto.h"
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
@@ -60,6 +61,11 @@ enum
 	EV_LWIP_FAST_TIMER,
 	EV_LWIP_NETIF_SET_IP,
 	EV_LWIP_NETIF_IPV6_BY_MAC,
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+	/* 新 DNS 客户端专用事件 */
+	EV_LWIP_DNS_RX,		/* Param1=报文缓冲(堆, 由处理方释放) Param2=长度 Param3=适配器 */
+	EV_LWIP_DNS_CFG,		/* Param1=net_lwip2_dns_ctl_t* (Lua 任务投递, tcpip 线程应用) */
+#endif
 };
 
 #define SOCKET_LOCK(ID)		platform_lock_mutex(prvlwip.socket[ID].mutex)
@@ -74,6 +80,15 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
 static ip_addr_t *net_lwip2_get_ip6(uint8_t adapter_index);
 static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+/* ---- 新 DNS 客户端适配层 ---- */
+static luat_netdrv_dns_ctx_t net_lwip2_dns_ctx;
+static uint8_t net_lwip2_dns_ctx_ready;
+static void net_lwip2_dns_done(void *user_ctx, void *param, uint8_t adapter_index, uint8_t ip_num, luat_dns_ip_result *ip);
+static uint8_t net_lwip2_dns_server_get(uint8_t adapter_index, uint8_t server_idx, luat_ip_addr_t *ip, void *user_ctx);
+static uint8_t net_lwip2_dns_send_all(void);
+static void net_lwip2_dns_timer_update(uint8_t adapter_index);
+#endif
 static int net_lwip2_check_ack(uint8_t adapter_index, int socket_id);
 #if LWIP_IPV6 && defined(LUAT_USE_NETDRV_IPV6)
 static void net_lwip2_ipv6_apply_set(uint8_t adapter_index, luat_ip_addr_t *ipv6, uint8_t prefix_len);
@@ -131,6 +146,19 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		int tmp = adapter_index;
 		prvlwip.dns_timer[adapter_index] = platform_create_timer(net_lwip2_timer_cb, (void *)tmp, NULL);
 	}
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+	/*
+	 * 新客户端是单例(缓存全局跨网卡共享), 只需初始化一次.
+	 * 放在这里而不是模块初始化里, 是因为它要用到 DNS 服务器表回调,
+	 * 而服务器表要等第一次注册适配器时才建好.
+	 */
+	if (0 == net_lwip2_dns_ctx_ready) {
+		net_lwip2_dns_ctx_ready = 1;
+		luat_netdrv_dns_init(&net_lwip2_dns_ctx);
+		luat_netdrv_dns_set_done_cb(&net_lwip2_dns_ctx, net_lwip2_dns_done, NULL);
+		luat_netdrv_dns_set_server_cb(&net_lwip2_dns_ctx, net_lwip2_dns_server_get, NULL);
+	}
+#endif
 	prvlwip.lwip_netif[adapter_index] = netif;
 }
 
@@ -501,6 +529,7 @@ static err_t net_lwip2_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	return ERR_OK;
 }
 
+#ifndef LUAT_USE_NETDRV_DNS_CLIENT
 static int32_t net_lwip2_dns_check_result(void *data, void *param)
 {
 	luat_dns_require_t *require = (luat_dns_require_t *)data;
@@ -530,9 +559,40 @@ static int32_t net_lwip2_dns_check_result(void *data, void *param)
 		return LIST_PASS;
 	}
 }
+#endif /* !LUAT_USE_NETDRV_DNS_CLIENT : 仅旧 dns_run 需要 */
 
 static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
 {
+	uint8_t adapter_index = (uint32_t)arg;
+	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY || prvlwip.lwip_netif[adapter_index] == NULL) {
+		return ERR_OK;
+	}
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+	/*
+	 * 新客户端不在 raw 回调里就地解析, 只把报文拷出来投递事件.
+	 * NO_SYS=0 时本回调与 net_lwip2_task 同处 tcpip 线程, 本来就串行;
+	 * 但 LUAT_LWIP_USE_EVENT 变体下两者分属不同循环, 就地解析会破坏
+	 * "DNS 状态只在单一上下文改动" 的不变式. 这里多一次小拷贝换取该不变式
+	 * 在所有 BSP 变体下都成立. 缓冲区所有权交给 EV_LWIP_DNS_RX 的处理方释放.
+	 */
+	if (p)
+	{
+		uint32_t plen = p->tot_len;
+		uint8_t *dbuf = luat_heap_malloc(plen);
+		if (dbuf)
+		{
+			pbuf_copy_partial(p, dbuf, plen, 0);
+		}
+		pbuf_free(p);
+		p = NULL;
+		if (dbuf)
+		{
+			platform_send_event(NULL, EV_LWIP_DNS_RX, (uint32_t)(uintptr_t)dbuf, plen,
+					adapter_index);
+		}
+	}
+	return ERR_OK;
+#else
 	Buffer_Struct msg_buf = {0};
 	Buffer_Struct tx_msg_buf = {0,0,0};
 	struct pbuf *out_p = NULL;
@@ -540,10 +600,6 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	int ret = 0;
 	char ip_string[64] = {0};
 	char ipstr2[64] = {0};
-	uint8_t adapter_index = (uint32_t)arg;
-	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY || prvlwip.lwip_netif[adapter_index] == NULL) {
-		return ERR_OK;
-	}
 	//LLOGD("%s:%d", __FILE__, __LINE__);
 	if (p)
 	{
@@ -584,8 +640,133 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 		platform_stop_timer(prvlwip.dns_timer[adapter_index]);
 	}
 	return ERR_OK;
+#endif
 }
 
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+/*
+ * 结果回调: 转成既有的 EV_NW_DNS_RESULT 事件投递给 socket 层.
+ * ip 数组的所有权按既有约定转移给接收方, 这里不得释放.
+ */
+static void net_lwip2_dns_done(void *user_ctx, void *param, uint8_t adapter_index, uint8_t ip_num, luat_dns_ip_result *ip)
+{
+	(void)user_ctx;
+	net_lwip2_callback_to_nw_task(adapter_index, EV_NW_DNS_RESULT, ip_num, ip, param);
+}
+
+/* 取指定适配器的 DNS 服务器; 服务器表仍复用 dns_client_t, 因此新旧实现行为一致 */
+static uint8_t net_lwip2_dns_server_get(uint8_t adapter_index, uint8_t server_idx, luat_ip_addr_t *ip, void *user_ctx)
+{
+	(void)user_ctx;
+	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
+	if (server_idx >= MAX_DNS_SERVER) return 0;
+	if (prvlwip.dns_client[adapter_index] == NULL) return 0;
+	memcpy(ip, &prvlwip.dns_client[adapter_index]->dns_server[server_idx], sizeof(luat_ip_addr_t));
+	return 1;
+}
+
+/*
+ * 跑一次调度并把产出的报文全部发出去.
+ * 这是"一次 pump 可发多条"的地方 —— 旧实现每次只能发一条, 且 1 秒才走一次.
+ * @return 成功发出的条数
+ */
+static uint8_t net_lwip2_dns_send_all(void)
+{
+	luat_netdrv_dns_txmsg_t msgs[NETDRV_DNS_TX_BURST];
+	uint32_t now = (uint32_t)luat_mcu_tick64_ms();
+	uint8_t n, i, sent = 0;
+
+	if (!net_lwip2_dns_ctx_ready) return 0;
+	n = luat_netdrv_dns_pump(&net_lwip2_dns_ctx, msgs, NETDRV_DNS_TX_BURST, now);
+	for (i = 0; i < n; i++)
+	{
+		luat_ip_addr_t server;
+		struct pbuf *p;
+		err_t err;
+		uint8_t ai = msgs[i].adapter_index;
+		if (ai >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) continue;
+		if (prvlwip.lwip_netif[ai] == NULL || prvlwip.dns_udp[ai] == NULL)
+		{
+			luat_netdrv_dns_report_send_err(&net_lwip2_dns_ctx, ai, msgs[i].server_idx, now);
+			continue;
+		}
+		if (!net_lwip2_dns_server_get(ai, msgs[i].server_idx, &server, NULL))
+		{
+			luat_netdrv_dns_report_send_err(&net_lwip2_dns_ctx, ai, msgs[i].server_idx, now);
+			continue;
+		}
+		p = pbuf_alloc(PBUF_TRANSPORT, msgs[i].len, PBUF_RAM);
+		if (p == NULL)
+		{
+			luat_netdrv_dns_report_send_err(&net_lwip2_dns_ctx, ai, msgs[i].server_idx, now);
+			continue;
+		}
+		pbuf_take(p, msgs[i].data, msgs[i].len);
+		err = udp_sendto_if(prvlwip.dns_udp[ai], p, &server, DNS_SERVER_PORT,
+				prvlwip.lwip_netif[ai]);
+		pbuf_free(p);
+		if (err)
+		{
+			LLOGE("dns sendto adapter %d server %d err %d", ai, msgs[i].server_idx, err);
+			luat_netdrv_dns_report_send_err(&net_lwip2_dns_ctx, ai, msgs[i].server_idx, now);
+			continue;
+		}
+		NET_DBG("dns tx adapter %d server %d len %d", ai, msgs[i].server_idx, msgs[i].len);
+		sent++;
+	}
+	return sent;
+}
+
+/*
+ * 有在途事务就起定时器, 空闲就停, 省电.
+ * 周期跟随 min_gap_ms: 定时器比节奏参数粗的话, 限速会退化成"每 tick 一条",
+ * 并发能力就废了.
+ */
+static void net_lwip2_dns_timer_update(uint8_t adapter_index)
+{
+	uint32_t period;
+	luat_netdrv_dns_cfg_t cfg;
+	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return;
+	if (prvlwip.dns_timer[adapter_index] == NULL) return;
+	luat_netdrv_dns_cfg_get(&net_lwip2_dns_ctx, &cfg);
+	period = cfg.min_gap_ms ? cfg.min_gap_ms : LUAT_NETDRV_DNS_DEF_MIN_GAP_MS;
+	if (period < 5) period = 5;
+	if (period > 100) period = 100;
+	if (net_lwip2_dns_ctx.stat.inflight > 0)
+	{
+		platform_start_timer(prvlwip.dns_timer[adapter_index], period, 1);
+	}
+	else
+	{
+		platform_stop_timer(prvlwip.dns_timer[adapter_index]);
+	}
+}
+
+int net_lwip2_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms)
+{
+	uint32_t wait = 0;
+	if (ctl == NULL) return -1;
+	if (!net_lwip2_dns_ctx_ready) return -1;
+	ctl->done = 0;
+	platform_send_event(NULL, EV_LWIP_DNS_CFG, (uint32_t)(uintptr_t)ctl, 0, 0);
+	/*
+	 * 轮询等待 tcpip 线程置位. 这里刻意不加锁: 加锁会在 tcpip 线程里引入
+	 * 优先级反转/死锁风险, 而本仓库现状也没有这个先例.
+	 * done 是最后写的对齐单字节, ARM 上原子的; 即便读到略旧的值,
+	 * 对"统计"这种观测用途也没有影响, 超时则按 stale 处理返回.
+	 */
+	while (!ctl->done)
+	{
+		if (wait >= timeout_ms) break;
+		luat_rtos_task_sleep(2);
+		wait += 2;
+	}
+	if (!ctl->done) return -1;
+	return 0;
+}
+#endif
+
+#ifndef LUAT_USE_NETDRV_DNS_CLIENT
 static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_buf)
 {
 	int i = 0;
@@ -624,6 +805,7 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 	}
 
 }
+#endif /* !LUAT_USE_NETDRV_DNS_CLIENT */
 
 // uint32_t net_lwip2_rand()
 // {
@@ -775,13 +957,60 @@ static void net_lwip2_task(void *param)
 
 	case EV_LWIP_DNS_TIMER:
 #ifdef LUAT_USE_DNS
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+		net_lwip2_dns_send_all();
+		net_lwip2_dns_timer_update(adapter_index);
+#else
 		net_lwip2_dns_tx_next(adapter_index, &tx_msg_buf);
 		if (!prvlwip.dns_client[adapter_index]->is_run && prvlwip.dns_timer[adapter_index])
 		{
 			platform_stop_timer(prvlwip.dns_timer[adapter_index]);
 		}
 #endif
+#endif
 		break;
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+	case EV_LWIP_DNS_RX:
+		{
+			/* Param1 是 recv 回调拷出来的报文, 所有权在本处理方 */
+			uint8_t *dbuf = (uint8_t *)(uintptr_t)event.Param1;
+			uint32_t dlen = event.Param2;
+			if (dbuf)
+			{
+				luat_netdrv_dns_rx_feed(&net_lwip2_dns_ctx, dbuf, dlen,
+						(uint32_t)luat_mcu_tick64_ms());
+				luat_heap_free(dbuf);
+			}
+			/* 应答可能立刻让出"换服务器重试"或新的一腿, 这里马上补一次调度 */
+			net_lwip2_dns_send_all();
+			net_lwip2_dns_timer_update(adapter_index);
+		}
+		break;
+	case EV_LWIP_DNS_CFG:
+		{
+			/* Lua 任务投递的控制块: 在 tcpip 线程里真正应用, 最后写 done */
+			net_lwip2_dns_ctl_t *ctl = (net_lwip2_dns_ctl_t *)(uintptr_t)event.Param1;
+			if (ctl)
+			{
+				uint32_t now = (uint32_t)luat_mcu_tick64_ms();
+				if (ctl->has_cfg)
+				{
+					luat_netdrv_dns_cfg_apply(&net_lwip2_dns_ctx, &ctl->cfg, now);
+				}
+				if (ctl->flush)
+				{
+					luat_netdrv_dns_cache_flush(&net_lwip2_dns_ctx);
+				}
+				luat_netdrv_dns_cfg_get(&net_lwip2_dns_ctx, &ctl->rcfg);
+				if (ctl->want_stat)
+				{
+					luat_netdrv_dns_stat_get(&net_lwip2_dns_ctx, &ctl->rstat);
+				}
+				ctl->done = 1;	/* 必须最后写, Lua 侧靠它判断 */
+			}
+		}
+		break;
+#endif
 	case EV_LWIP_SOCKET_RX_DONE:
 		if (!prvlwip.socket[socket_id].in_use || !prvlwip.socket[socket_id].pcb.ip || !prvlwip.socket[socket_id].is_tcp)
 		{
@@ -889,6 +1118,32 @@ static void net_lwip2_task(void *param)
 	case EV_LWIP_SOCKET_DNS:
 	case EV_LWIP_SOCKET_DNS_IPV6:
 		// LLOGD("event dns query");
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+		{
+			/*
+			 * 宏开启: 域名串与 ctrl 都由事件带进来, 域名用完即释放
+			 * (客户端会把域名拷进自己的事务里, 不再持有调用方的内存).
+			 */
+			char *domain = (char *)(uintptr_t)event.Param1;
+			void *ctrl = (void *)(uintptr_t)event.Param2;
+			uint8_t ipv6 = (event.ID == EV_LWIP_SOCKET_DNS_IPV6) ? 1 : 0;
+			if (domain)
+			{
+				uint32_t dlen = (uint32_t)strlen(domain);
+				/* 缓存命中会在这一步同步回调, 也可能建事务, 随后立即调度一次 */
+				if (luat_netdrv_dns_query(&net_lwip2_dns_ctx, domain, dlen, ipv6, ctrl,
+						adapter_index, (uint32_t)luat_mcu_tick64_ms()) != 0)
+				{
+					NET_DBG("dns query rejected: %.64s", domain);
+					/* 入队失败也要给 socket 层一个终态, 否则它会一直等 */
+					net_lwip2_callback_to_nw_task(adapter_index, EV_NW_DNS_RESULT, 0, 0, ctrl);
+				}
+				luat_heap_free(domain);
+			}
+			net_lwip2_dns_send_all();
+			net_lwip2_dns_timer_update(adapter_index);
+		}
+#else
 		if (!prvlwip.dns_client[adapter_index]->is_run && prvlwip.dns_timer[adapter_index])
 		{
 			platform_start_timer(prvlwip.dns_timer[adapter_index], 1000, 1);
@@ -897,6 +1152,7 @@ static void net_lwip2_task(void *param)
 		// LLOGD("event dns query 2");
 		net_lwip2_dns_tx_next(adapter_index, &tx_msg_buf);
 		// LLOGD("event dns query 3");
+#endif
 		break;
 	case EV_LWIP_SOCKET_LISTEN:
 		if (prvlwip.socket[socket_id].listen_tcp) {
@@ -981,6 +1237,17 @@ static void net_lwip2_task(void *param)
 	case EV_LWIP_NETIF_LINK_STATE:
 		{
 			uint8_t idx = event.Param3;
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+			/*
+			 * 链路断开: 缓存是全局的, 不同网卡背后可能是不同的 DNS 视图,
+			 * 断链后旧答案不再可信, 整表失效.
+			 * (整表失效是有意的简单化取舍, 换来可预测的行为)
+			 */
+			if (event.Param1 == 0 && net_lwip2_dns_ctx_ready)
+			{
+				luat_netdrv_dns_cache_flush(&net_lwip2_dns_ctx);
+			}
+#endif
 			net_lwip2_check_network_ready(idx);
 		}
 		break;
@@ -1708,6 +1975,16 @@ static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, vo
 	if (prvlwip.dns_client[adapter_index] == NULL) return -1;
 	memcpy(&prvlwip.dns_client[adapter_index]->dns_server[server_index], ip, sizeof(luat_ip_addr_t));
 	prvlwip.dns_client[adapter_index]->is_static_dns[server_index] = 1;
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+	/*
+	 * 缓存是全局的, 不同网卡背后可能是不同的 DNS 视图.
+	 * 服务器表一变就整表失效, 否则会返回由旧视图解析出来的地址.
+	 */
+	if (net_lwip2_dns_ctx_ready)
+	{
+		luat_netdrv_dns_cache_flush(&net_lwip2_dns_ctx);
+	}
+#endif
 	char buff[64] = {0};
 	ipaddr_ntoa_r(ip, buff, 64);
 	NET_DBG("设置DNS服务器 id %d index %d ip %s", adapter_index, server_index, buff);

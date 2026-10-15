@@ -43,10 +43,9 @@ irtu_8780_factory/
 ├── driver.lua               # 串口 / GPIO灯 / rrpc指令 / 自动任务 / 8782的485配置
 ├── gnss.lua                 # iRTU 自带GNSS模块（保留，出厂用 factory_app 内置GPS逻辑）
 ├── audio_config.lua         # 音频/TTS（8780V 使用）
-├── es8311.lua               # es8311 音频芯片驱动（8780V 产测录音/播放）
 ├── factory_config.lua       # ⭐ 版本配置（5个版本差异集中在这里，改DEVICE_VER即可切换）
 ├── watchdog_app.lua         # 外置硬件看门狗（Air153，按版本启用）
-├── exair153x_wdt.lua        # Air153C/Air153D 看门狗扩展库
+# 注：es8311 / exair153x_wdt / libfota3 均直接引用 script/libs 公共库，本目录不再放副本
 ├── factory_app.lua          # 业务编排：TLV/GPS构建 / 控制命令 / LED / TTS / 上报周期
 ├── sensor_task.lua          # I2C 传感器采集（SHT30 + VOC，容错 + 按版本硬/软I2C）
 ├── AirSHT30_1000.lua        # SHT30 驱动（支持硬件/软件 I2C）

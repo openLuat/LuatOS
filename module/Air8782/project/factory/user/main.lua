@@ -1,8 +1,8 @@
 --[[
 @module  main
 @summary Air878x 系列出厂固件入口（产测 + iRTU 合一，基于标准 iRTU + 预置配置）
-@version 2.0.0
-@date    2026.09.21
+@version 2.1.0
+@date    2026.10.15
 @author  李源龙
 @usage
 本工程为 Air8780 全系 / Air8781P / 8782P 出厂固件，产测与正常模式合一：
@@ -85,48 +85,8 @@ if boot_to_normal then
     local prodmeta = require("prodmeta")
     log.info("main", "模组型号 PROD:", prodmeta.get("PROD"), "硬件版本 PCB:", prodmeta.get("PCB"))
 
-    local rfa = require("rfa")
-
-    if rfa and atc then
-        -- 启动 RFA AT 服务器，同时绑定 USB 虚拟串口 VUART_0 和 UART1，两个端口都能响应 RFA AT 指令
-        -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致
-        rfa.start(uart.VUART_0, 115200)
-        rfa.start(1, 115200)
-        sys.taskInit(function()
-            local passed, status = mobile.ecnpicfg()
-            if passed then
-                -- 校准已完成: 允许加载irtu脚本, 再通过 AT+SETCFG? 查询是否处于rfa模式
-                -- 只有 rfa_mode 明确为(false)才退出rfa模式, VUART_0归irtu, 正常处理irtu数据
-                -- 读不到配置或rfa_mode为(true): 处于rfa模式, VUART_0归rfa的AT服务器, 禁用irtu的VUART_0数据回调
-                local rfa_mode = rfa.getRFAOnStatus()
-                log.info("main", "rfa_mode", rfa_mode)
-                if rfa_mode then
-                    log.info("main", "当前处于rfa模式, 禁用irtu的VUART_0和UART1数据回调")
-                    -- 置位全局标志, 通知irtu的driver不要注册VUART_0和UART1的数据回调
-                    _G.IRTU_DISABLE_VUART = true
-                    _G.IRTU_DISABLE_UART1 = true
-                    -- 内置 GNSS 的型号在 RFA 模式下由 GPS 测试指令独占 UART2。
-                    local model = hmeta.model()
-                    if model == "Air8000" or model == "Air8000A" or model == "Air8000G" or model == "Air8000D" or model == "Air8000U" or model == "Air8000N"
-                        or model == "Air780EGH" or model == "Air780EGP" or model == "Air780EGG" then
-                        _G.IRTU_DISABLE_UART2 = true
-                    end
-                else
-                    log.info("main", "已退出rfa模式, 进入iRTU模式")
-                    rfa.close()
-                end
-                -- 校准完成后无论是否退出rfa模式都加载irtu_main模块
-                require "irtu_main"
-            else
-                -- 校准未完成: 禁止require irtu代码, VUART_0只响应rfa的校准指令
-                log.info("main", "RFA校准查询超时或未完成，进入RFA校准模式，禁止加载irtu")
-            end
-        end)
-    else
-        log.info("main", "rfa模块未加载，默认iRTU模式")
-        --加载irtu_main模块
-        require "irtu_main"
-    end
+    -- 加载 iRTU 正常模式（无 RFA 校准流程）
+    require "irtu_main"
 else
     log.info("main", "未完成产测，进入产测模式（USB单通道）")
     -- 产测模式：独占 VUART_0，响应产测指令（见 factory.lua 指令表）

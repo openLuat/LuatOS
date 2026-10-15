@@ -50,16 +50,6 @@ factory_config.lbs_enable = {
     ["8700"]  = false,  -- 仅透传，不做 LBS
 }
 
--- TTS 播报（仅 8780V 启用）
-factory_config.tts = {
-    ["8780"]  = { enable = false },
-    ["8780V"] = { enable = true, text = "上海合宙欢迎你", interval = 10 }, -- 每10秒播报一次
-    ["8780G"] = { enable = false },
-    ["8781"]  = { enable = false },
-    ["8782"]  = { enable = false },
-    ["8700"]  = { enable = false },  -- Air700ECP 无 TTS
-}
-
 -- GPS 上报（仅 8780G 启用）
 factory_config.gps = {
     ["8780"]  = { enable = false },
@@ -131,11 +121,6 @@ end
 -- LBS 定位是否启用
 function factory_config.get_lbs_enable()
     return factory_config.lbs_enable[factory_config.DEVICE_VER] ~= false
-end
-
--- 获取当前版本TTS配置
-function factory_config.get_tts()
-    return factory_config.tts[factory_config.DEVICE_VER]
 end
 
 -- 获取当前版本GPS配置

@@ -53,7 +53,10 @@ end
 ]]
 local function update_di(dot, label, state)
     if not dot or not label then return end
-    if state then
+    -- 电平语义（原理图第 7 页）：DI 为光耦隔离输入，光耦导通（有外部输入）= 引脚被拉低 = 0
+    -- 常态无输入 = 4.7K 上拉到 3.3V = 1；故 0 = 有输入 = ON，1 = 无输入 = OFF
+    -- 注意：Lua 中 0 为真值，必须显式比较，不能直接写 if state
+    if state == 0 then
         dot:set_color(theme.SEM.success, 255)
         label:set_text("ON")
         label:set_color(theme.SEM.success)
@@ -100,7 +103,9 @@ local function on_di_status_changed(di1, di2)
 
     -- 记录历史
     local time_str = os.date("%H:%M:%S")
-    local status_str = "DI1:" .. (di1 and "ON" or "OFF") .. "  DI2:" .. (di2 and "ON" or "OFF")
+    local s1 = (di1 == 0) and "ON" or "OFF"
+    local s2 = (di2 == 0) and "ON" or "OFF"
+    local status_str = "DI1:" .. s1 .. "  DI2:" .. s2
     table.insert(history_text_list, time_str .. "  " .. status_str)
     if #history_text_list > HISTORY_MAX then
         table.remove(history_text_list, 1)

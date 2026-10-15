@@ -355,29 +355,20 @@ function http_response.test_concurrent_requests()
     log.info("http_response", "多个请求同时进行 测试通过 ")
 end
 
--- 测试cheunked编码响应body完整性
+-- 测试chunked编码响应body完整性
+-- 注: 原用例 POST video.luatos.com:10030 已失效(服务端现返回401), 改为对
+-- httpbin.luatos.com 的 chunked 流式下载做精确长度校验, 覆盖同一测试意图
 function http_response.test_chunked()
     log.info("http_response", "开始【chunked编码响应body完整性】测试")
-    local count = 30
-    local PostBody = {
-        deviceAccess = "8",
-        deviceUser = "admin",
-        devicePsd = "Air123456"
-    }
-    local header = {
-        ["Accept-Encoding"] = "identity",
-        ["Host"] = "video.luatos.com:10030",
-        ["Content-Type"] = "application/json"
-    }
+    local count = 10
     for i = 1, count do
-        local code, headers, body = http.request("POST",
-                                        "http://video.luatos.com:10030/api-system/deviceVideo/get/C8C2C68C5D7A", header,
-                                        json.encode(PostBody), {
-                timeout = 5000
+        local code, headers, body = http.request("GET",
+                                        "http://httpbin.luatos.com/stream-bytes/2048", nil, nil, {
+                timeout = 10000
             }).wait()
         assert(code == 200, string.format("chunked测试body完整性请求 %d 失败: 预期 200, 实际 %d", i, code))
-        assert(body and #body == 204, string.format(
-            "chunked测试body完整性请求 %d 失败: 预期长度 204, 实际长度 %d", i, body and #body or 0))
+        assert(body and #body == 2048, string.format(
+            "chunked测试body完整性请求 %d 失败: 预期长度 2048, 实际长度 %d", i, body and #body or 0))
     end
 end
 

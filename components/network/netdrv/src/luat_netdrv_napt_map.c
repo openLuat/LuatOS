@@ -420,7 +420,10 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t *ctx, luat_ne
          *   - UL: 源端口改写为映射端口(与 SDK lwIP tcp_out.c/udp.c 行为一致)
          *   - DL: PS 把发往该端口的下行交给 UE, luaNAPT 用同一端口命中映射表
          * 非 EC7xx-CSDK 平台无此符号(weak), 运行时自动跳过.
+         * MSVC(PC 模拟器)既没有 __attribute__((weak)) 也没有 PortMgr:
+         * 整块编译掉, 行为与该弱符号不存在时一致.
          */
+#if !defined(_MSC_VER)
         {
             extern unsigned short PortMgrUeUlProcess(unsigned char connType, unsigned char source,
                                                      unsigned short sourcePort, unsigned short destPort,
@@ -444,6 +447,7 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t *ctx, luat_ne
                 }
             }
         }
+#endif
         tmp.adapter_id = ctx->net->id;
         tmp.tm_ms = tnow;
         it = &napt_ctx->items[napt_ctx->item_last];

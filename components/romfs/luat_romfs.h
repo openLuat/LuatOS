@@ -8,7 +8,7 @@
 #include "luat_base.h"
 
 #ifndef LUAT_ROMFS_MAX_NAME
-#define LUAT_ROMFS_MAX_NAME 64      // 单级文件名最大长度(不含NUL), 超长条目跳过
+#define LUAT_ROMFS_MAX_NAME 64      // 单级文件名最大长度(不含NUL); 恰好该长度的名字可用, 更长者标记为过长并跳过
 #endif
 #ifndef LUAT_ROMFS_MAX_PATH
 #define LUAT_ROMFS_MAX_PATH 128     // 路径解析缓冲(含符号链接展开)
@@ -23,7 +23,7 @@
 #define LUAT_ROMFS_USE_DIR_CACHE 1      // mount 时把目录树载入内存缓存(约96B/节点), 0=退回镜像内联表查找(零RAM)
 #endif
 #ifndef LUAT_ROMFS_MAX_DIR_DEPTH
-#define LUAT_ROMFS_MAX_DIR_DEPTH 4      // 目录嵌套深度上限, 超出则 mount 失败
+#define LUAT_ROMFS_MAX_DIR_DEPTH 4      // 目录嵌套深度上限; 该层目录内的文件合法, 只禁止再嵌套一层子目录(超出则 mount 失败)
 #endif
 
 // 读取回调: 从镜像 offset 读 len 字节到 buff, 成功返回读取字节数, 失败返回负值

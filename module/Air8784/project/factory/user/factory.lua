@@ -9,6 +9,7 @@
 外设及测试项：
   - 基础信息: VERSION/IMEI/IMSI/ICCID/CSQ/MUID/VBAT
   - 校准位: ECNPICFG (mobile.ecnpicfg 只读)
+  - 飞行模式: FLYMODE,<1/0># 进入/退出(mobile.flymode, 仅主 LTE)
   - LED: 主LED GPIO24 + SMS_LED GPIO26 + NET_STATUS GPIO27, 一条指令同开同关
   - 按键: soc 按键 GPIO20, up 按键 GPIO21 (KEY,<pin>,<onoff># 开启/关闭, 按下上报 KEY20_PRESS#/KEY21_PRESS#)
   - 充电: ADC0 检测充电芯片电压(TP4055, 无充电控制脚), CHG# 返回电压值
@@ -81,19 +82,22 @@ sys.taskInit(function()
     local exaudio = require("exaudio")
     local audioInited = false
 
+    -- 上电 2 秒后再操作 Air1103：避开开机初期外设/网络初始化的资源冲突
+    sys.wait(2000)
     -- 打开 Air1103 供电并初始化
     gpio.setup(AUDIO_EN_PIN, 1)
     sys.wait(200) -- 等 Air1103 上电稳定
     -- 注: 语音芯片现统一命名 Air1103; exaudio 3.9 起仅识别 model="air1103"
-    if exaudio.setup({ model = "air1103", uart_id = AUDIO_UART_ID }) then
+    -- audio_mode="new" 启用 audio_v2 音频框架
+    if exaudio.setup({ model = "air1103", uart_id = AUDIO_UART_ID, audio_mode = "new" }) then
         audioInited = true
-        log.info("factory", "Air1103 音频初始化成功")
+        log.info("factory", "Air1103 音频初始化成功(audio_v2)")
     else
         log.error("factory", "Air1103 音频初始化失败")
     end
 
     while true do
-        local result, param1, param2 = sys.waitUntil("CONTROL")
+        local result, param1, param2, param3 = sys.waitUntil("CONTROL")
         if param1 == "RECORD" then
             if not audioInited then
                 table.insert(cacheTable, { transId = param2, data = "ERROR#" })
@@ -183,6 +187,13 @@ sys.taskInit(function()
                 table.insert(cacheTable, { transId = param2, data = (done and "OK" or "ERROR") .. "#" })
                 sys.publish("DATA_SEND")
             end
+        elseif param1 == "FLYMODE" then
+            -- 飞行模式在协程里执行：mobile.flymode 同步阻塞且走 RPC，不能进 uart 回调
+            local fid, onoff = param2, param3
+            mobile.flymode(0, onoff == 1)
+            log.info("factory", "飞行模式", onoff == 1 and "进入" or "退出", "完成")
+            table.insert(cacheTable, { transId = fid, data = "OK#" })
+            sys.publish("DATA_SEND")
         end
     end
 end)
@@ -277,6 +288,18 @@ local procTable = {
         else
             return "ERROR"
         end
+    end,
+    ["FLYMODE"] = function(id, findCom, data)
+        -- 仅校验 + 转发：mobile.flymode 是同步阻塞且走 airlink RPC，不能在 uart 接收回调
+        -- (proc 的调用链) 里直接调用，否则回调退不出、OK 回不出、整机卡死。
+        -- 真正执行丢到 CONTROL 协程（见下方音频任务）里做。
+        local onoff = tonumber(data)
+        if not onoff or (onoff ~= 0 and onoff ~= 1) then
+            return "ERROR"
+        end
+        log.info("factory", "飞行模式请求", onoff == 1 and "进入" or "退出")
+        sys.publish("CONTROL", "FLYMODE", id, onoff)
+        return -- 不立即回 OK，等 CONTROL 协程执行完再回
     end,
     ["HVERSION"] = function(id, findCom, data)
         -- 硬件版本：HVERSION,版本# 写 OTP PCB；HVERSION# 读回（未写返回 ERROR）

@@ -1,8 +1,8 @@
 --[[
 @module  video_util
 @summary 媒体素材工具（容器格式嗅探 / 帧尺寸读取 / HZV 音轨初始化 / 播放器创建）—— 播放类页面共用
-@version 1.6
-@date    2026.10.10
+@version 1.8
+@date    2026.10.13
 @author  江访
 
 === 为什么单独成模块 ===
@@ -356,8 +356,8 @@ end
 （EOF 回调里 play() 从头重播，见 create_player），每轮重播都精确恢复一次。
 exaudio 路径的 I2C 守护在 boot_ui.guard_audio_init（setup 仅首次 + 入口恢复）。
 
-MP4 分辨率上限 480×320：mplayer 的 RGB 帧缓冲是静态数组，超限直接溢出
-（mp4 时代的真机教训），起播前用纯 Lua 盒解析读宽高拦截。]]
+MP4 源分辨率上限 480×320：mplayer 的 RGB 帧缓冲是静态数组，超限直接溢出，
+起播前用纯 Lua 盒解析读宽高拦截。HZV/MJPG 无此上限（HZV 支持更大分辨率）。]]
 local MP4_MAX_W = 480
 local MP4_MAX_H = 320
 

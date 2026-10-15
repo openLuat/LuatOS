@@ -131,6 +131,11 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
         // LLOGD("NAPT 未开启");
         return 0; // NAPT没有开启
     }
+    // STA(2) 不属于 NAPT 下行侧，放行会让单播 DHCP OFFER 被误 NAT 消费，
+    // 导致 4G转WiFi 切 WiFi 拿不到 IP(no offer)，故入口直接放行。
+    if (id == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
+        return 0;
+    }
     luat_netdrv_t* drv = luat_netdrv_get(id);
     if (drv == NULL || drv->netif == NULL) {
         LLOGD("网关netif不存在,无法转发");

@@ -12,6 +12,9 @@
 #include "luat_base.h"
 #ifdef LUAT_USE_AUDIO_V2
 #include "luat_audio_data_codec.h"
+#ifdef LUAT_USE_AUDIO_TTS_PCM
+#include "luat_audio_tts_pcm.h"
+#endif
 #include "luat_audio_define.h"
 #include "luat_audio_request.h"
 #include "luat_malloc.h"
@@ -1529,12 +1532,86 @@ static int l_audio_set_debug(lua_State *L) {
     return 0;
 }
 
+#ifdef LUAT_USE_AUDIO_TTS_PCM
+#define LUAT_AUDIO_TTS_PCM_META "audio_v2.tts_pcm"
+#define LUAT_AUDIO_TTS_PCM_READ_MAX 3200
+
+typedef struct {
+    luat_audio_tts_pcm_session_t *session;
+} l_audio_tts_pcm_t;
+
+static int l_audio_tts_pcm_gc(lua_State *L)
+{
+    l_audio_tts_pcm_t *handle = luaL_checkudata(L, 1, LUAT_AUDIO_TTS_PCM_META);
+    luat_audio_tts_pcm_release(handle->session);
+    handle->session = NULL;
+    return 0;
+}
+
+/* Internal PCM source for exaudio; independent of audio playback request IDs. */
+static int l_audio_tts_pcm_start(lua_State *L)
+{
+    size_t length = 0;
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        lua_pushboolean(L, 0);
+        lua_pushliteral(L, "invalid_text");
+        return 2;
+    }
+    const char *text = lua_tolstring(L, 1, &length);
+    /* Allocate the Lua owner before accepting a native worker. */
+    l_audio_tts_pcm_t *handle = lua_newuserdata(L, sizeof(*handle));
+    memset(handle, 0, sizeof(*handle));
+    luaL_getmetatable(L, LUAT_AUDIO_TTS_PCM_META);
+    lua_setmetatable(L, -2);
+    luat_audio_tts_pcm_reason_t reason = luat_audio_tts_pcm_start(text, length, &handle->session);
+    if (reason != LUAT_AUDIO_TTS_PCM_OK) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, luat_audio_tts_pcm_reason_name(reason));
+        return 2;
+    }
+    lua_pushboolean(L, 1);
+    lua_insert(L, -2);
+    return 2;
+}
+
+static int l_audio_tts_pcm_read(lua_State *L)
+{
+    l_audio_tts_pcm_t *handle = luaL_checkudata(L, 1, LUAT_AUDIO_TTS_PCM_META);
+    lua_Integer capacity = luaL_optinteger(L, 2, LUAT_AUDIO_TTS_PCM_READ_MAX);
+    luaL_argcheck(L, capacity > 0 && capacity <= LUAT_AUDIO_TTS_PCM_READ_MAX, 2, "expected 1..3200 bytes");
+    luaL_argcheck(L, handle->session != NULL, 1, "released TTS session");
+    /* Temporary Lua-owned storage avoids a large buffer on the Lua task stack. */
+    void *buffer = lua_newuserdata(L, (size_t)capacity);
+    luat_audio_tts_pcm_state_t state;
+    luat_audio_tts_pcm_reason_t reason;
+    size_t length = luat_audio_tts_pcm_read(handle->session, buffer, (size_t)capacity, &state, &reason);
+    lua_pushlstring(L, buffer, length);
+    lua_pushstring(L, luat_audio_tts_pcm_state_name(state));
+    if (reason == LUAT_AUDIO_TTS_PCM_OK) lua_pushnil(L);
+    else lua_pushstring(L, luat_audio_tts_pcm_reason_name(reason));
+    return 3;
+}
+
+static int l_audio_tts_pcm_stop(lua_State *L)
+{
+    l_audio_tts_pcm_t *handle = luaL_checkudata(L, 1, LUAT_AUDIO_TTS_PCM_META);
+    luat_audio_tts_pcm_stop(handle->session);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_audio_v2[] =
 {
     { "input",			ROREG_FUNC(l_audio_input)},
 	{ "play",			ROREG_FUNC(l_audio_play)},
     { "tts",			ROREG_FUNC(l_audio_tts)},
+#ifdef LUAT_USE_AUDIO_TTS_PCM
+    { "tts_pcm_start",   ROREG_FUNC(l_audio_tts_pcm_start)},
+    { "tts_pcm_read",    ROREG_FUNC(l_audio_tts_pcm_read)},
+    { "tts_pcm_stop",    ROREG_FUNC(l_audio_tts_pcm_stop)},
+#endif
     { "stop",			ROREG_FUNC(l_audio_stop)},
     { "pause",			ROREG_FUNC(l_audio_pause)},
     { "get_play_clock",	ROREG_FUNC(l_audio_get_play_clock)},
@@ -1655,6 +1732,13 @@ static const rotable_Reg_t reg_audio_v2[] =
 };
 
 LUAMOD_API int luaopen_audio_v2( lua_State *L ) {
+#ifdef LUAT_USE_AUDIO_TTS_PCM
+    if (luaL_newmetatable(L, LUAT_AUDIO_TTS_PCM_META)) {
+        lua_pushcfunction(L, l_audio_tts_pcm_gc);
+        lua_setfield(L, -2, "__gc");
+    }
+    lua_pop(L, 1);
+#endif
     luat_newlib2(L, reg_audio_v2);
     return 1;
 }

@@ -11,10 +11,9 @@
 3.定时向串口发送数据
 ]]
 local uartid = 2   -- 根据实际设备选取不同的uartid
-local uart485Pin = 12   -- 用于控制485接收和发送的使能引脚（根据实际设备选取不同引脚）
+local uart485Pin = 64   -- 用于控制485接收和发送的使能引脚（根据实际设备选取不同引脚）
 
--- gpio.setup(1, 1)        --打开电源(开发板485供电脚是gpio1，用开发板测试需要开机初始化拉高gpio1)
--- gpio.setup(23, 1)       --打开上拉电源
+gpio.setup(46,1) --使能Air1602_v1.2开发板485_EN供电
 
 local function uart_send()
     -- 循环两秒向串口发一次数据

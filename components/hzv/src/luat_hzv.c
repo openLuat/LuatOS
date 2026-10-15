@@ -59,17 +59,33 @@ static uint64_t hz_le64(const uint8_t *p)
     return (uint64_t)hz_le32(p) | ((uint64_t)hz_le32(p + 4) << 32);
 }
 
+static const uint32_t *hz_crc32_table(void)
+{
+    static uint32_t tab[256];
+    static uint8_t ready;
+    unsigned i;
+
+    if (!ready) {
+        for (i = 0; i < 256u; i++) {
+            uint32_t value = (uint32_t)i;
+            unsigned bit;
+            for (bit = 0; bit < 8u; bit++) {
+                value = (value >> 1) ^ (0xedb88320u & (uint32_t)-(int32_t)(value & 1u));
+            }
+            tab[i] = value;
+        }
+        ready = 1;
+    }
+    return tab;
+}
+
 static uint32_t hz_crc32(const uint8_t *data, size_t size)
 {
+    const uint32_t *tab = hz_crc32_table();
     uint32_t crc = 0xffffffffu;
     size_t i;
     for (i = 0; i < size; i++) {
-        uint32_t value = (crc ^ data[i]) & 0xffu;
-        unsigned bit;
-        for (bit = 0; bit < 8; bit++) {
-            value = (value >> 1) ^ (0xedb88320u & (uint32_t)-(int32_t)(value & 1u));
-        }
-        crc = (crc >> 8) ^ value;
+        crc = (crc >> 8) ^ tab[(crc ^ data[i]) & 0xffu];
     }
     return crc ^ 0xffffffffu;
 }

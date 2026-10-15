@@ -64,10 +64,14 @@ end
 NTP同步主逻辑
 ]]
 local function ntp_sync_task()
-    -- Air1601/Air1602/Air1780需要显式设置默认网卡为STA
+    -- Air1601/Air1602/Air1780需要显式设置默认网卡为STA。
+    -- 先校验 STA 网卡有效再切：4G 桥接型号（如 8605 4G）没有 STA 网卡，
+    -- 盲切会把默认网卡切到无效的 STA(2)，NTP/天气/FOTA 全部报 adapter index invalid
     local chip = (_G.project_config and _G.project_config.chip) or ""
     if chip:find("Air1601") or chip:find("Air1602") or chip:find("Air1780") then
-        socket.dft(socket.LWIP_STA)
+        if socket.adapter(socket.LWIP_STA) then
+            socket.dft(socket.LWIP_STA)
+        end
     end
 
     -- 等待默认网卡就绪（IP_READY事件）

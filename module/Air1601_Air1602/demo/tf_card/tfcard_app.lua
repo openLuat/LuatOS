@@ -19,10 +19,16 @@
 11. 列举目录内容
 12. 删除文件
 13. 删除目录
+
+注意事项：如果使用Air8601或8602整机开发板测试，需将对应的SD供电使能脚置高电平
+
 本文件没有对外接口，直接在main.lua中require "tfcard_app"就可以加载运行
 ]] 
 
 local function tfcard_main_task()
+    -- gpio.setup(65, 1, gpio.PULLUP)    -- Air8601 整机开发板 SD 卡供电使能脚
+    -- gpio.setup(74, 1, gpio.PULLUP)    -- Air8602 整机开发板 SD 卡供电使能脚
+
     -- ##########  SPI初始化 ##########
     spi_id, pin_cs = 1, 8
     spi.setup(spi_id, nil, 0, 0,8,400000)

@@ -75,7 +75,7 @@
 | DI 输入 | GPIO16 / GPIO17（对 GND 短接触发） |
 | 状态灯 | GPIO21（4G）/ GPIO141（WiFi） |
 | 外部看门狗 | Air153D，GPIO27（`exair153x_wdt`，库默认 180 秒喂狗） |
-| RELOAD 按键 | WAKEUP2（长按 5 秒恢复出厂设置） |
+| RELOAD 按键 | WAKEUP2（业务模式长按 5 秒恢复出厂设置，保留 `test_done`，重启仍回业务模式） |
 
 > SPI1 上同时挂载 网口1 / 网口2 / SPI NAND 三个设备，存在总线争用风险，故两路网口均已配置中断引脚（`opts.irq`）以降低轮询频率。
 

@@ -11,7 +11,6 @@
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_fs.h"
-#include "luat_mcu.h"
 #define VP_MALLOC  luat_heap_malloc
 #define VP_FREE    luat_heap_free
 #define VP_FOPEN   luat_fs_fopen
@@ -61,14 +60,6 @@
 /* Debug flag */
 static int g_vp_debug = 0;
 
-typedef struct {
-    uint64_t window_start_ms;
-    uint64_t stage_ms[LUAT_VP_PROF_T_COUNT];
-    uint32_t frame_count;
-} luat_vp_profiler_t;
-
-static luat_vp_profiler_t g_vp_profiler;
-
 #ifdef __LUATOS__
 #define LUAT_LOG_TAG "videoplayer"
 #include "luat_log.h"
@@ -79,77 +70,6 @@ static luat_vp_profiler_t g_vp_profiler;
 #define VP_LOGD(...) do { if (g_vp_debug) { printf("[VP] "); printf(__VA_ARGS__); printf("\n"); } } while(0)
 #define VP_LOGW(...) do { printf("[VP WARN] "); printf(__VA_ARGS__); printf("\n"); } while(0)
 #endif
-
-static void luat_videoplayer_prof_maybe_log(uint64_t now_ms) {
-#ifdef __LUATOS__
-    uint64_t window_ms;
-
-    if (g_vp_profiler.window_start_ms == 0) {
-        g_vp_profiler.window_start_ms = now_ms;
-        return;
-    }
-
-    window_ms = now_ms - g_vp_profiler.window_start_ms;
-    if (window_ms < 1000) {
-        return;
-    }
-
-    if (g_vp_debug) {
-        uint64_t total_ms = 0;
-        size_t i;
-        for (i = 0; i < LUAT_VP_PROF_T_COUNT; i++) {
-            total_ms += g_vp_profiler.stage_ms[i];
-        }
-        LLOGI("perf 1s frames=%u window=%llu total=%llu demux=%llu read=%llu annexb=%llu decode=%llu yuv2rgb=%llu copy=%llu draw=%llu flush=%llu idle=%lld",
-              g_vp_profiler.frame_count,
-              (unsigned long long)window_ms,
-              (unsigned long long)total_ms,
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_DEMUX],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_READ],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_ANNEXB],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_DECODE],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_YUV2RGB],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_COPY],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_DRAW],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_FLUSH],
-              (long long)window_ms - (long long)total_ms);
-    }
-
-    memset(&g_vp_profiler, 0, sizeof(g_vp_profiler));
-    g_vp_profiler.window_start_ms = now_ms;
-#else
-    (void)now_ms;
-#endif
-}
-
-uint64_t luat_videoplayer_prof_now_ms(void) {
-#ifdef __LUATOS__
-    return luat_mcu_tick64_ms();
-#else
-    return 0;
-#endif
-}
-
-void luat_videoplayer_prof_add_time(luat_vp_prof_stage_t stage, uint32_t elapsed_ms) {
-    uint64_t now_ms = luat_videoplayer_prof_now_ms();
-    if ((unsigned)stage >= LUAT_VP_PROF_T_COUNT) {
-        return;
-    }
-    if (g_vp_profiler.window_start_ms == 0) {
-        g_vp_profiler.window_start_ms = now_ms;
-    }
-    g_vp_profiler.stage_ms[stage] += elapsed_ms;
-    luat_videoplayer_prof_maybe_log(now_ms);
-}
-
-void luat_videoplayer_prof_mark_frame(void) {
-    uint64_t now_ms = luat_videoplayer_prof_now_ms();
-    if (g_vp_profiler.window_start_ms == 0) {
-        g_vp_profiler.window_start_ms = now_ms;
-    }
-    g_vp_profiler.frame_count++;
-    luat_videoplayer_prof_maybe_log(now_ms);
-}
 
 /* ---- Player context ---- */
 struct luat_vp_ctx {
@@ -548,7 +468,6 @@ int luat_videoplayer_read_frame(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame) {
         frame->pts = packet.pts;
         frame->duration = packet.duration;
         frame->timescale = ctx->hzv_timescale;
-        luat_videoplayer_prof_mark_frame();
         return LUAT_VP_OK;
     }
 #endif
@@ -627,7 +546,6 @@ int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, u
         frame->pts = packet.pts;
         frame->duration = packet.duration;
         frame->timescale = ctx->hzv_timescale;
-        luat_videoplayer_prof_mark_frame();
         return LUAT_VP_OK;
     }
 #endif
@@ -661,7 +579,6 @@ int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, u
             VP_LOGD("video size: %dx%d", ctx->width, ctx->height);
         }
 
-        luat_videoplayer_prof_mark_frame();
         return LUAT_VP_OK;
     }
 }

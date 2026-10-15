@@ -85,18 +85,6 @@ typedef struct luat_vp_decoder_ops {
     void (*deinit)(void *ctx);
 } luat_vp_decoder_ops_t;
 
-typedef enum {
-    LUAT_VP_PROF_T_DEMUX = 0,
-    LUAT_VP_PROF_T_READ,
-    LUAT_VP_PROF_T_ANNEXB,
-    LUAT_VP_PROF_T_DECODE,
-    LUAT_VP_PROF_T_YUV2RGB,
-    LUAT_VP_PROF_T_COPY,
-    LUAT_VP_PROF_T_DRAW,
-    LUAT_VP_PROF_T_FLUSH,
-    LUAT_VP_PROF_T_COUNT
-} luat_vp_prof_stage_t;
-
 /* ---- Player context (opaque) ---- */
 typedef struct luat_vp_ctx luat_vp_ctx_t;
 
@@ -193,10 +181,6 @@ int luat_videoplayer_get_next_frame_time(luat_vp_ctx_t *ctx, uint64_t *pts_ms,
  * @param enable  1 to enable, 0 to disable.
  */
 void luat_videoplayer_set_debug(int enable);
-
-uint64_t luat_videoplayer_prof_now_ms(void);
-void luat_videoplayer_prof_add_time(luat_vp_prof_stage_t stage, uint32_t elapsed_ms);
-void luat_videoplayer_prof_mark_frame(void);
 
 /* ---- Decoder backends (provided by src/) ---- */
 

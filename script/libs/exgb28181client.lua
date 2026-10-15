@@ -1269,8 +1269,20 @@ local function media_open(sess)
     读回来"在网络适配层上做不到（它要到 connect 才真正绑端口）。只有
     TCP passive 是"本端监听等平台连进来"，那时不 connect。
     ]]
-    -- 外部接管：媒体归外部引擎，本层只走协商与 SDP
-    if g_opts.external_audio then
+    --[[
+    外部接管**只针对音频会话**：音频媒体归外部引擎(voip)，本层只走协商与 SDP。
+
+    **必须判会话，不能只看全局开关**：media_open() 是点播(视频)与音频 INVITE
+    共用的。早先这里只判 g_opts.external_audio，于是"点播 + 对讲"同时开启时，
+    **视频流也不会建链** —— 帧只入队不发，现象是队列积压到满(queue_full)、
+    平台上点播一直无画面，而 SIP 侧注册/INVITE/ACK 全部正常，从日志完全看不出
+    是媒体建链被跳过。(2026-10-14 音频改由 voip 托管时引入)
+
+    判据用会话级标记而不是全局开关 —— 与 session_death_reason 同一套约定：
+    只有音频的那两条路会置 external_media（见 handle_audio_invite / audio_open），
+    点播会话永远不带这个标记。
+    ]]
+    if sess.external_media then
         return true
     end
 

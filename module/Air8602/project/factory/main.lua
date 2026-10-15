@@ -51,7 +51,7 @@ VERSION：项目版本号，ascii string类型
 --   4G  版 → "Engine_Air8602_7inch_1024x600_011_V000"
 --   WiFi 版 → "Engine_Air8602_7inch_1024x600_010_V000"
 PROJECT = "Engine_Air8602_7inch_1024x600_011_V000"
-VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
+VERSION = "001.999.000"                               -- 固件版本号，用于 FOTA 升级比对
 -- 项目密钥，FOTA 云端鉴权：按 PROJECT 自动匹配通信版本（4G / WiFi 各一套 key）
 --   4G  版（_011_V000）→ 8dVr2ARIHdWgDGej0TLHqv3M2wMwXZmO
 --   WiFi版（_010_V000）→ hhhv6yuQw6cDzN6fqPT0n7Qnlca420WV

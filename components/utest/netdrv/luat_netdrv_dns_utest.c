@@ -915,16 +915,19 @@ static int t_cache_runtime_cfg(void)
 	}
 	if (luat_netdrv_dns_query(ctx, "a.com", 5, 0, (void *)1, 4, T_T0) != 0)
 	{
+		DNS_DBG("rtcfg: query1 rejected");
 		goto done;
 	}
 	if (luat_netdrv_dns_pump(ctx, tx, T_MAX_TX, T_T0) != 1)
 	{
+		DNS_DBG("rtcfg: pump1 != 1");
 		goto done;
 	}
 	rl = t_mk_resp(resp, sizeof(resp), t_txid_of(&tx[0]), "a.com", LUAT_NETDRV_DNS_TYPE_A,
 			0, rdata, 1, 600, 1);
 	if (rl < 0 || luat_netdrv_dns_rx_feed(ctx, resp, (uint32_t)rl, T_T0 + 10) != 0)
 	{
+		DNS_DBG("rtcfg: rx1 failed rl=%d", rl);
 		goto done;
 	}
 	/* 把上限压到 2s */
@@ -934,10 +937,114 @@ static int t_cache_runtime_cfg(void)
 	g_t.got = 0;
 	if (luat_netdrv_dns_query(ctx, "a.com", 5, 0, (void *)1, 4, T_T0 + 2100) != 0)
 	{
+		DNS_DBG("rtcfg: query2 rejected");
 		goto done;
 	}
 	if (g_t.got != 0)		/* 新的 2s 上限已生效, 条目已过期 */
 	{
+		DNS_DBG("rtcfg: got=%u want 0", (unsigned)g_t.got);
+		goto done;
+	}
+	rc = 0;
+done:
+	t_free(ctx);
+	return rc;
+}
+
+/*
+ * 运行时下调 cache_ttl 不得连带压缩负缓存.
+ *
+ * 两条缓存的生命周期口径不同: 正缓存走 min(记录TTL, cache_ttl_ms),
+ * 负缓存走 neg_ttl_ms. 如果 cfg_apply 用 cache_ttl_ms 一刀切地去钳所有条目,
+ * 把 cache_ttl 从 60s 调到 2s 会把 neg_ttl=10s 的 NXDOMAIN 负缓存也压成 2s ——
+ * 负缓存就名存实亡了(每个不存在的域名都会重新去打 DNS).
+ *
+ * 构造: 正缓存条目在 [2s, 10s) 窗口内过期, 负缓存条目必须活过这个窗口.
+ */
+static int t_cache_neg_ttl_not_clamped(void)
+{
+	luat_netdrv_dns_ctx_t *ctx = t_new();
+	luat_netdrv_dns_cfg_t cfg;
+	luat_netdrv_dns_txmsg_t tx[T_MAX_TX];
+	luat_netdrv_dns_stat_t st;
+	uint8_t resp[512];
+	uint8_t rdata[4] = { 1, 2, 3, 4 };
+	int rl;
+	int rc = -1;
+
+	if (ctx == NULL)
+	{
+		return -1;
+	}
+	/* 正缓存: a.com 记录 TTL 给足, 靠 cache_ttl 上限来约束 */
+	if (luat_netdrv_dns_query(ctx, "n1.com", 6, 0, (void *)1, 4, T_T0) != 0)
+	{
+		DNS_DBG("negttl: query1 rejected");
+		goto done;
+	}
+	if (luat_netdrv_dns_pump(ctx, tx, T_MAX_TX, T_T0) != 1)
+	{
+		goto done;
+	}
+	rl = t_mk_resp(resp, sizeof(resp), t_txid_of(&tx[0]), "n1.com", LUAT_NETDRV_DNS_TYPE_A,
+			0, rdata, 1, 600, 1);
+	if (rl < 0 || luat_netdrv_dns_rx_feed(ctx, resp, (uint32_t)rl, T_T0 + 10) != 0)
+	{
+		goto done;
+	}
+	/* 负缓存: n2.com 回 NXDOMAIN */
+	if (luat_netdrv_dns_query(ctx, "n2.com", 6, 0, (void *)1, 4, T_T0) != 0)
+	{
+		DNS_DBG("negttl: query2 rejected");
+		goto done;
+	}
+	if (luat_netdrv_dns_pump(ctx, tx, T_MAX_TX, T_T0 + 20) != 1)
+	{
+		goto done;
+	}
+	rl = t_mk_resp(resp, sizeof(resp), t_txid_of(&tx[0]), "n2.com", LUAT_NETDRV_DNS_TYPE_A,
+			3 /* NXDOMAIN */, NULL, 0, 0, 1);
+	if (rl < 0 || luat_netdrv_dns_rx_feed(ctx, resp, (uint32_t)rl, T_T0 + 30) != 0)
+	{
+		goto done;
+	}
+	luat_netdrv_dns_stat_get(ctx, &st);
+	if (st.cache_used != 2)
+	{
+		DNS_DBG("negttl: cache_used=%u want 2", (unsigned)st.cache_used);
+		goto done;
+	}
+
+	/* 把正缓存上限压到 2s, 负缓存 neg_ttl 保持默认 10s */
+	luat_netdrv_dns_cfg_get(ctx, &cfg);
+	cfg.cache_ttl_ms = 2000;
+	luat_netdrv_dns_cfg_apply(ctx, &cfg, T_T0 + 100);
+
+	/* 5s 之后: 正缓存早已过期(必须重新发包), 负缓存必须还在(不能发包) */
+	g_t.got = 0;
+	if (luat_netdrv_dns_query(ctx, "n1.com", 6, 0, (void *)1, 4, T_T0 + 5100) != 0)
+	{
+		goto done;
+	}
+	if (g_t.got != 0)
+	{
+		DNS_DBG("negttl: 正缓存未按 2s 上限过期");
+		goto done;
+	}
+	g_t.got = 0;
+	if (luat_netdrv_dns_query(ctx, "n2.com", 6, 0, (void *)1, 4, T_T0 + 5100) != 0)
+	{
+		goto done;
+	}
+	if (g_t.got != 1)
+	{
+		DNS_DBG("negttl: 负缓存被 cache_ttl 连带压缩了(got=%u want 1)", (unsigned)g_t.got);
+		goto done;
+	}
+	luat_netdrv_dns_stat_get(ctx, &st);
+	if (st.negative_hit != 1)
+	{
+		DNS_DBG("negttl: negative_hit=%llu want 1", (unsigned long long)st.negative_hit);
 		goto done;
 	}
 	rc = 0;
@@ -1357,6 +1464,169 @@ static int t_token_bucket(void)
 	if (st.tx != 20)
 	{
 		DNS_DBG("token_bucket: tx=%llu want 20", (unsigned long long)st.tx);
+		goto done;
+	}
+	rc = 0;
+done:
+	t_free(ctx);
+	return rc;
+}
+
+/*
+ * 队列推进不能停摆 —— 适配层定时器门控的回归用例.
+ *
+ * 背景(真机缺陷): 适配层原来用 ctx->stat.inflight > 0 决定调度定时器起停, 而
+ * stat.inflight 只统计"已发出"的事务, 排队中的(query_sent==0)不算. 于是出现:
+ *   最后一个在途事务完成时 inflight 归零, 若此刻令牌桶恰好为空(pump 的
+ *   "token==0 就 break" 分支), 队列里的事务既不会被 pump 发出(定时器已停,
+ *   没人再调 pump), 也不会被 sweep 超时回收(从未发出, 连 deadline_ms 都没有),
+ *   应用侧的 DNS 查询就永久挂起, 直到碰巧有下一个 DNS 事件把它顺带唤醒.
+ *
+ * 本用例不讲时序故事, 而是直接验证门控输出那个不变式:
+ *   "队列里还有没发出去的事务(query_sent==0) 时, should_schedule 必须为真"
+ * 同时验证反向: 全空(无事务)时必须为假, 否则定时器永远停不下来、白天空转.
+ */
+static int t_queue_drain_gate(void)
+{
+	luat_netdrv_dns_ctx_t *ctx = t_new();
+	luat_netdrv_dns_cfg_t cfg;
+	luat_netdrv_dns_txmsg_t tx[T_MAX_TX];
+	luat_netdrv_dns_stat_t st;
+	char dom[20][10];
+	int i, n;
+	int rc = -1;
+
+	if (ctx == NULL)
+	{
+		return -1;
+	}
+	for (i = 0; i < 20; i++)
+	{
+		snprintf(dom[i], sizeof(dom[i]), "q%d.com", i);
+	}
+	/*
+	 * 桶容量 = max_inflight = 8, 补满一整桶要 min_gap = 1000ms.
+	 * 这样 20 条查询必然"8 条在途 + 12 条排队", 排队深度可控.
+	 * cache_enable=0 让每条腿都真的建事务(不吃缓存), 与 t_token_bucket 一致.
+	 */
+	luat_netdrv_dns_cfg_get(ctx, &cfg);
+	cfg.cache_enable = 0;
+	cfg.max_inflight = 8;
+	cfg.min_gap_ms = 1000;
+	cfg.query_timeout_ms = 60000;	/* 别让事务在观测窗口内超时重发 */
+	cfg.max_retry = 0;
+	luat_netdrv_dns_cfg_apply(ctx, &cfg, T_T0);
+
+	/* ---------------- 基线: 全空时必须停表 ---------------- */
+	if (luat_netdrv_dns_should_schedule(ctx) != 0)
+	{
+		DNS_DBG("gate: 空 ctx 却要求起表(定时器会永不停)");
+		goto done;
+	}
+
+	for (i = 0; i < 20; i++)
+	{
+		if (luat_netdrv_dns_query(ctx, dom[i], 6, 0, (void *)1, 4, T_T0) != 0)
+		{
+			goto done;
+		}
+	}
+	/*
+	 * 一桶放 8 条, 剩下 12 条排队.
+	 * 必须一次把桶用光(单次 pump 只能产 max_out 条), 这里 T_MAX_TX=16 > 8,
+	 * 所以 8 条一次性出完, token 归零.
+	 */
+	n = luat_netdrv_dns_pump(ctx, tx, T_MAX_TX, T_T0);
+	if (n != 8)
+	{
+		DNS_DBG("gate: burst n=%d want 8", n);
+		goto done;
+	}
+	if (luat_netdrv_dns_queued(ctx) != 12)
+	{
+		DNS_DBG("gate: queued=%u want 12", (unsigned)luat_netdrv_dns_queued(ctx));
+		goto done;
+	}
+	if (luat_netdrv_dns_should_schedule(ctx) != 1)
+	{
+		DNS_DBG("gate: 还有 12 条排队却要求停表 —— 队列会饿死");
+		goto done;
+	}
+
+	/*
+	 * 核心不变式: 每轮把在途全部答完, 只要还有排队事务,
+	 * should_schedule 就必须一直为真. 定时器一旦被停, 队列就再也没人推.
+	 */
+	for (i = 0; i < 2; i++)
+	{
+		uint32_t t = T_T0 + (uint32_t)(i + 1) * 1000;	/* 每轮补满一桶 */
+		if (t_answer_all(ctx, tx, n, t + 10) != 0)
+		{
+			goto done;
+		}
+		/*
+		 * 这一刻的状态就是真机上会停摆的状态: 在途已清空, 但队列里还有
+		 * 12-4*(i+1) 条没发出去。
+		 *
+		 * 下面这一步是本用例的关键 —— 直接断言"旧口径会得出停表"这件事:
+		 *   live inflight == 0 && queued > 0  =>  must schedule
+		 * 旧实现的门控正是 `stat.inflight > 0`, 在这个状态下必然返回"停表",
+		 * 而停表后队列就再也没人推(定时器是 RX 驱动路径之外唯一的 pump 调用者)。
+		 *
+		 * 注意必须用 luat_netdrv_dns_inflight()(现算)而不是 stat.inflight(快照):
+		 * 后者只在 pump 末尾更新, 不调 pump 时是旧值 —— 本用例最初就是被它骗到,
+		 * 误以为"答完后仍有 8 个在途"。
+		 */
+		if (luat_netdrv_dns_inflight(ctx) != 0)
+		{
+			DNS_DBG("gate: 轮 %d 在途未清空 inflight=%u", i,
+					(unsigned)luat_netdrv_dns_inflight(ctx));
+			goto done;
+		}
+		if (luat_netdrv_dns_queued(ctx) == 0)
+		{
+			DNS_DBG("gate: 轮 %d 队列已空, 与预期不符", i);
+			goto done;
+		}
+		if (luat_netdrv_dns_should_schedule(ctx) != 1)
+		{
+			DNS_DBG("gate: 轮 %d inflight=0 且队列非空(%u), 门控却要求停表 —— 停摆",
+					i, (unsigned)luat_netdrv_dns_queued(ctx));
+			goto done;
+		}
+		/* 补满一桶后必须能继续推进 */
+		n = luat_netdrv_dns_pump(ctx, tx, T_MAX_TX, t);
+		if (n <= 0)
+		{
+			DNS_DBG("gate: 轮 %d 队列还在却没放出任何报文", i);
+			goto done;
+		}
+		if (luat_netdrv_dns_queued(ctx) > 0 && luat_netdrv_dns_should_schedule(ctx) != 1)
+		{
+			DNS_DBG("gate: 轮 %d 放出 %d 条后仍有排队却要停表", i, n);
+			goto done;
+		}
+	}
+	/* 4 + 4 + 4 = 12 条已全部放完 */
+	if (luat_netdrv_dns_queued(ctx) != 0)
+	{
+		DNS_DBG("gate: 队列未排空, 仍剩 %u 条", (unsigned)luat_netdrv_dns_queued(ctx));
+		goto done;
+	}
+	if (t_answer_all(ctx, tx, n, T_T0 + 4000) != 0)
+	{
+		goto done;
+	}
+
+	/* ---------------- 全空后必须允许停表 ---------------- */
+	if (luat_netdrv_dns_has_pending(ctx) != 0)
+	{
+		DNS_DBG("gate: 事务未全部回收");
+		goto done;
+	}
+	if (luat_netdrv_dns_should_schedule(ctx) != 0)
+	{
+		DNS_DBG("gate: 已空闲却要求继续起表(定时器永不停, 空转耗电)");
 		goto done;
 	}
 	rc = 0;
@@ -1820,11 +2090,13 @@ static const t_case_t t_cases[] = {
 	{ "cache_hit_no_tx", t_cache_hit_no_tx },
 	{ "cache_ttl_policy", t_cache_ttl_policy },
 	{ "cache_runtime_cfg", t_cache_runtime_cfg },
+	{ "cache_neg_ttl_not_clamped", t_cache_neg_ttl_not_clamped },
 	{ "cache_evict", t_cache_evict },
 	{ "negative_and_servfail", t_negative_and_servfail },
 	{ "retry_and_rotation", t_retry_and_rotation },
 	{ "max_inflight_cap", t_max_inflight_cap },
 	{ "token_bucket", t_token_bucket },
+	{ "queue_drain_gate", t_queue_drain_gate },
 	{ "malformed_rejected", t_malformed_rejected },
 	{ "no_question", t_no_question },
 	{ "flush", t_flush },

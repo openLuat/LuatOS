@@ -25,17 +25,42 @@
 #define __LUAT_NETDRV_DNS_H__
 
 /*
- * 刻意不引 c_common.h, 也不引 SDK 的 bsp_common.h.
+ * 关于 c_common.h / 平台 bsp_common.h 的撞名问题 —— 这里的事实必须写清楚,
+ * 否则后来者会照着一段不成立的注释去改 include, 必然踩坑:
  *
- * 原因: 这两份头重复定义了同一批类型 —— Time_UserDataStruct /
- * Date_UserDataStruct / Time_Union / Date_Union, 而且 CCM42xx SDK 的
- * bsp_common.h 连 luat_netdrv_dns_node_t 都是同一个类型名. 任何同时看见两者的编译单元
- * 必然报 conflicting types.
- * 而本头会被两类编译单元包含:
+ *   c_common.h 与 CCM42xx SDK 的 bsp_common.h 重复定义了同一批类型
+ *   (Time_UserDataStruct / Date_UserDataStruct / Time_Union / Date_Union,
+ *    连 llist_head 都同名), 同时可见必然 conflicting types.
+ *
+ * 【本头并没有做到"不引 c_common.h"】
+ *   下面这两行是必需的:
+ *     - dns_def.h            提供 luat_dns_ip_result / MAX_DNS_SERVER / DNS_SERVER_PORT
+ *     - luat_network_adapter.h 提供 luat_ip_addr_t / network_ip_is_vaild / MAX_DNS_IP
+ *   而 dns_def.h 与 luat_network_adapter.h 在【非 SDK 构建】下都会把 c_common.h 拉进来
+ *   (实测: PC 上 luat_netdrv_dns.c.obj.d 里确实有 components/common/c_common.h).
+ *
+ * 【真正避免冲突的是 luat_network_adapter.h 里既有的守卫, 不是本文件的私有链表】
+ *   luat_network_adapter.h:5-11
+ *     #if defined(__SOC_BSP__) || ... 
+ *     #include "bsp_common.h"          // 先定义 __BSP_COMMON_H__
+ *     #endif
+ *     #ifndef __BSP_COMMON_H__
+ *     #include "c_common.h"          // SDK 构建下被守卫挡住, 不会与 bsp_common.h 并存
+ *     #endif
+ *
+ * 【那本文件的私有链表是干什么的】
+ *   它是为了不依赖 c_common.h 的 llist_* 实现 —— 后者用 GCC 语句表达式 ({...}),
+ *   MSVC 编不过; 而且类型名会与 SDK 头撞名. 也就是说私有链表解决的是
+ *   "MSVC 可编译 + 类型名独立", 不是"避免引入 c_common.h". 两件事不要混为一谈.
+ *
+ * 【本头会被两类编译单元包含】
  *   1. luat_lib_netdrv.c —— 经 luat_netdrv.h -> lwip pbuf -> lwipopts 见过 bsp_common.h
  *   2. SDK 侧单元       —— 经 csdk/interface/net_lwip.h -> net_lwip2.h 见过 bsp_common.h
- * 所以本模块自带一套最小私有链表, 与平台头彻底解耦.
- * 这几条链表全部是模块私有, 不对外暴露, 重复实现的代价可以忽略.
+ *   所以对本头做任何 include 增删, 都要同时评估这两条链.
+ *
+ * 【想真正做到解耦该怎么做】
+ *   把 luat_dns_ip_result / MAX_DNS_SERVER / DNS_SERVER_PORT 从 dns_def.h 抽到 netdrv
+ *   自己的头里, 让本模块不再引 dns_def.h. 那才是"与平台头解耦"的正解, 目前没做.
  */
 #include "dns_def.h"
 #include "luat_network_adapter.h"
@@ -323,6 +348,62 @@ void luat_netdrv_dns_stat_get(const luat_netdrv_dns_ctx_t *ctx, luat_netdrv_dns_
 
 /** 清空整个缓存. 切网卡 / 换 DNS 服务器 / DHCP 续约变更 DNS 列表时必须调用 */
 void luat_netdrv_dns_cache_flush(luat_netdrv_dns_ctx_t *ctx);
+
+/**
+ * 是否还有未完成的工作(在途 + 排队 + 退避等待中的事务).
+ *
+ * 适配层的定时器起停必须问这个, 不能只看 stat.inflight:
+ * stat.inflight 只统计"已发出、等应答"的事务, 排队中的不算.
+ * 只要出现"最后一个在途事务刚完成、同时令牌桶恰好被掏空"的时刻,
+ * 只看 inflight 会让定时器停掉, 而队列里还有没发出去的事务 —— 它们既不会
+ * 被 pump 发出(没人再调 pump), 也不会被 sweep 超时回收(从未发出, 没有 deadline),
+ * 表现为应用侧 DNS 查询永久挂起, 直到碰巧有下一个 DNS 事件把它顺带唤醒.
+ */
+uint8_t luat_netdrv_dns_has_pending(const luat_netdrv_dns_ctx_t *ctx);
+
+/**
+ * 当前是否应当让调度定时器保持运行. 等价于"还有未完成的事务"(= has_pending).
+ *
+ * 【为什么适配层不能只判 stat.inflight】
+ * stat.inflight 只统计"已发出、等应答"的事务, 排队中的(query_sent==0)不算.
+ * 反例(默认配置 max_inflight=8 / min_gap=20ms):
+ *   t=0    8 条并发瞬间发出, 令牌桶被掏空(token=0), 队列假设还有 N 条;
+ *   t=1..7 每来一个应答, pump 补 1 个令牌、放行 1 条, 令牌收支恰好为 0
+ *          (RX 驱动的 pump 频率远高于 20ms 定时器, 见 dns_token_refill 的
+ *           elapsed*cap/gap 取整);
+ *   t=8    第 8 个应答到达: inflight 归零, 若此刻 token==0, pump 在
+ *          "token == 0" 处直接 break, 队列里仍有 N 条没发;
+ *          只看 inflight 的门控会在这里 platform_stop_timer。
+ *   之后没有任何机制再调 pump: sweep_timeouts 跳过 !query_sent 的事务
+ *   (它们从未发出, 连 deadline_ms 都没有), 于是这些查询永久挂起,
+ *   直到碰巧有下一个 DNS 事件把它顺带唤醒。
+ *
+ * 用 has_pending 就安全: 只要还有事务(不论在途/排队/退避), 定时器就在跑,
+ * 每个 period(<=100ms)补一次令牌; 补满整桶最多 min_gap_ms(<=1000ms),
+ * 对应最多 ceil(min_gap/period) 个 tick。期间没有东西能在 has_pending 为真时
+ * 停掉定时器, 所以队列一定会被推进。空闲(无事务)时照常停表, 省电语义不变。
+ *
+ * 注意不要在这里附加"token > 0"之类的条件: 桶闲置 min_gap_ms 后必然被补满
+ * 到 cap(>=1), token 恒 > 0, 条件会退化成恒真、定时器永不停, 白白空转。
+ */
+uint8_t luat_netdrv_dns_should_schedule(const luat_netdrv_dns_ctx_t *ctx);
+
+/**
+ * pump 最近一次执行时的"待发队列深度"(query_sent==0 且未完成的事务数).
+ * 从事务链表现算, 只用于诊断/测试断言。
+ * "队列深度长期 > 0 而 inflight == 0" 就是停摆的指纹。
+ */
+uint16_t luat_netdrv_dns_queued(const luat_netdrv_dns_ctx_t *ctx);
+
+/**
+ * 当前在途事务数(已发出、等应答), 从事务链表现算。
+ *
+ * 与 stat.inflight 的区别很重要: stat.inflight 是 pump 末尾写的快照, 只有调过
+ * pump 才更新, 不调 pump 时读到的是旧值(真机测试曾据此误判"仍有 8 个在途")。
+ * 需要"此刻真实在途数"时用本函数。门控本身不要依赖任何 inflight 数字 —— 用
+ * should_schedule。
+ */
+uint16_t luat_netdrv_dns_inflight(const luat_netdrv_dns_ctx_t *ctx);
 
 /** 把统计计数清零(不改变配置, 也不清缓存) */
 void luat_netdrv_dns_stat_reset(luat_netdrv_dns_ctx_t *ctx);

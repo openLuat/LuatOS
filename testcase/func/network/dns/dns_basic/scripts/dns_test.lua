@@ -127,6 +127,56 @@ local function is_ipv6_str(ip)
     return ip and ip:find(":", 1, true) ~= nil
 end
 
+--[[
+在途峰值采样器.
+
+⚠️ 不要用 sys.timerStart(fn, 10) 的单发定时器来测峰值: 那只有一次采样机会,
+几乎必然错过峰值, 断言就变成"看起来在测、其实没测".
+这里做成周期性采样, 并且一定要拿到 timer 返回的 id 才停 ——
+sys.timerStop 传错 id 是静默 no-op, 定时器会一直跑到进程结束.
+
+采样周期给 25ms 而不是 5ms 是有意的:
+  - netdrv.ctrl(CTRL_DNS) 内部要投递事件到 tcpip 线程并轮询等 done, 单次接近 1~2ms;
+    5ms 周期会让定时器回调几乎占满 VM 任务, 也会显著放大 SDK 定时器
+    "回调与删除竞争" 而产生的 "luat_timer_get no find" 噪声日志。
+  - DNS 应答是毫秒~几十毫秒级, 25ms 足够捕捉到"多条同时在途"的窗口
+    (实测峰值仍能采到 8 / 双栈采到 2)。
+另外回调里用 pcall 包住: 采样失败不该影响被测用例,
+停止后仍可能有一次在途回调, 也要能安全返回。
+]]
+local function probe_peak_start(period_ms)
+    local st = { peak = 0, samples = 0, stopped = false }
+    local function tick()
+        if st.stopped then
+            return
+        end
+        pcall(function()
+            local ok, info = netdrv.ctrl(ETH, netdrv.CTRL_DNS, { stat = true })
+            if ok and info and info.stat then
+                st.samples = st.samples + 1
+                if info.stat.inflight > st.peak then
+                    st.peak = info.stat.inflight
+                end
+            end
+        end)
+    end
+    st.id = sys.timerStart(tick, period_ms or 25)
+    return st
+end
+
+local function probe_peak_stop(st)
+    if not st then
+        return 0
+    end
+    -- 先立旗再停表: 停表不保证不再回调, 回调也要立刻变成 no-op
+    st.stopped = true
+    if st.id then
+        sys.timerStop(st.id)
+        st.id = nil
+    end
+    return st.peak
+end
+
 -- ================================================================ 用例
 
 function dnstest.setUp()
@@ -275,18 +325,8 @@ function dnstest.test_dns_burst_concurrency()
     local done = 0
     local resolved = 0
 
-    -- 采样在途数, 证明这些查询确实是同时在途的
-    local peak = 0
-    local sampling = true
-    sys.timerStart(function()
-        if not sampling then
-            return
-        end
-        local ok, info = netdrv.ctrl(ETH, netdrv.CTRL_DNS, { stat = true })
-        if ok and info and info.stat and info.stat.inflight > peak then
-            peak = info.stat.inflight
-        end
-    end, 10)
+    -- 周期性采样在途数, 证明这些查询确实是同时在途的(见 probe_peak_start 的说明)
+    local probe = probe_peak_start()
 
     local st0 = dns_stat()
     for i = 1, n do
@@ -314,6 +354,7 @@ function dnstest.test_dns_burst_concurrency()
     assert(#ctrls >= 4, "可用 socket 太少, 无法验证并发(只有 " .. #ctrls .. " 个)")
     sys.waitUntil(topic, 25000)
     sys.wait(300)
+    local peak = probe_peak_stop(probe)
 
     for _, ctrl in ipairs(ctrls) do
         local a = socket.remoteIP(ctrl)
@@ -323,11 +364,10 @@ function dnstest.test_dns_burst_concurrency()
         socket.close(ctrl)
         socket.release(ctrl)
     end
-    sampling = false
-    sys.timerStop(topic .. "_probe")
 
+    assert(peak >= 2, "未观测到并发在途(峰值 " .. peak .. ", 采样 " .. probe.samples
+        .. " 次), 多个查询没有真正同时发出")
     local st1 = dns_stat()
-    assert(peak >= 2, "未观测到并发在途(峰值 " .. peak .. "), 多个查询没有真正同时发出")
     assert(st1.inflight == 0, "仍有 " .. st1.inflight .. " 个查询挂在途, 事务没有回收")
     assert(st1.tx - st0.tx == #ctrls, "发出请求数应等于并发查询数, 实际 " .. tostring(st1.tx - st0.tx))
     assert(resolved >= 4, "并发查询里只有 " .. resolved .. " 个拿到地址")
@@ -338,6 +378,7 @@ end
 -- 8) 双栈合并: AAAA + A 两条腿的结果要合并返回, 而不是互相覆盖
 function dnstest.test_dns_dual_stack_merge()
     reset_dns()
+    local st0 = dns_stat()
     local ips = resolve(DOMAINS[5], true)
     assert(ips ~= nil, "双栈解析未能发起")
     assert(#ips >= 1, "双栈解析失败, 没有拿到任何地址")
@@ -349,9 +390,28 @@ function dnstest.test_dns_dual_stack_merge()
     end
     -- 上限是 4 条(MAX_DNS_IP), 不能超过
     assert(#ips <= 4, "返回地址数 " .. #ips .. " 超过 4 条上限")
+
+    --[[
+    这里刻意【不】用峰值采样断言"两条腿同时在途"。
+    实测本次固件: 双栈查询从发出到拿结果只有约 48ms, 而两条腿同时在途的窗口
+    只有 1~2ms —— 定时器采样几乎必然落空(曾经采到"峰值 1、仅 1 次采样"),
+    断言就成了 flaky 噪声, 而不是缺陷信号。
+
+    改成两条确定性的证据:
+      1. tx 增量 >= 2  —— AAAA 与 A 两条腿的报文都发出来了(不是只发一条);
+      2. cache_used 增长 >= 1 —— 结果确实按各自 qtype 入库了(AAAA 若上游无记录
+         则只入库 A, 所以是 >= 1 而不是 == 2)。
+    这比"总发包 2 条"强: 它同时要求两条腿都被发出【且】分别落缓存,
+    串行实现(先 AAAA 全部完成后才发 A)在这里同样会通过, 但那种串行化
+    只影响时延、不影响正确性 —— 时延由 test_dns_burst_concurrency 的并发峰值覆盖。
+    ]]
     local st = dns_stat()
+    local dtx = st.tx - st0.tx
+    assert(dtx >= 2, "双栈查询应至少发出 2 条报文(AAAA+A), 实际 " .. tostring(dtx))
+    assert(st.cache_used > st0.cache_used, "双栈结果没有入库, cache_used "
+        .. tostring(st0.cache_used) .. " -> " .. tostring(st.cache_used))
     assert(st.inflight == 0, "双栈查询结束后仍有事务挂在途")
-    log.info(TAG, "双栈合并 ok", table.concat(ips, ","))
+    log.info(TAG, "双栈合并 ok", table.concat(ips, ","), "tx增量=" .. tostring(dtx))
 end
 
 -- 9) 手动失效: flush 之后同样的域名必须重新发包
@@ -367,10 +427,15 @@ function dnstest.test_dns_cache_flush()
     assert(st2.tx == st1.tx, "flush 前应命中缓存, tx " .. st1.tx .. " -> " .. st2.tx)
 
     assert(netdrv.ctrl(ETH, netdrv.CTRL_DNS, { flush = true }), TAG .. " flush 调用失败")
+    -- flush 之后紧接着读一次: 必须是 0 条, 不能等到下一次查询把新条目写进去再看
+    local st_flushed = dns_stat()
+    assert(st_flushed.cache_used == 0, "flush 之后仍有残留缓存条目: "
+        .. tostring(st_flushed.cache_used))
     local after = resolve(DOMAINS[6], false)
     assert(after and #after >= 1, "flush 后重新解析失败")
     local st3 = dns_stat()
-    assert(st3.cache_used <= 1, "flush 之后不应残留缓存条目, cache_used=" .. tostring(st3.cache_used))
+    assert(st3.cache_used == 1, "flush 后只解析了 1 个域名, 缓存里应当恰好 1 条, 实际 "
+        .. tostring(st3.cache_used))
     assert(st3.tx > st2.tx, "flush 之后必须重新发包, tx 仍是 " .. st3.tx)
     log.info(TAG, "手动失效 ok, tx", st2.tx, "->", st3.tx)
 end
@@ -412,9 +477,29 @@ end
 -- 11) 长跑无泄漏: 反复解析 + 反复 flush 之后, C 堆占用不得持续增长
 function dnstest.test_dns_no_growth()
     reset_dns()
+    --[[
+    ⚠️ 度量口径要说清楚, 否则这条用例是"看起来在测、其实没测":
+      - rtos.meminfo("sys") 是 luat_heap_* 所在的系统堆(PC 侧为 sram_bget,
+        真机由 SDK 的 luat_heap_* 实现), 正是 DNS 客户端分配缓存条目/事务/结果数组的地方。
+      - 必须先把在途查询全部收敛(等 inflight 归零)再取值, 否则量到的是"还没跑完的活",
+        不是泄漏; 反过来如果刚好停在低谷取值, 又会把泄漏掩盖掉。
+    ]]
     local function sys_used()
         local _, used = rtos.meminfo("sys")
         return used
+    end
+
+    -- 等所有在途事务收敛, 保证下面两次取样都在"空闲态"
+    local function wait_dns_idle(timeout_ms)
+        local deadline = mcu.ticks() + (timeout_ms or 5000)
+        while mcu.ticks() < deadline do
+            local st = dns_stat()
+            if st.inflight == 0 then
+                return true
+            end
+            sys.wait(20)
+        end
+        return false
     end
 
     -- 预热, 让内部结构稳定下来
@@ -422,6 +507,7 @@ function dnstest.test_dns_no_growth()
         resolve(DOMAINS[1], false)
         netdrv.ctrl(ETH, netdrv.CTRL_DNS, { flush = true })
     end
+    assert(wait_dns_idle(5000), "预热后仍有查询挂在途, 无法得到干净的内存基线")
     sys.wait(200)
 
     local before = sys_used()
@@ -432,6 +518,8 @@ function dnstest.test_dns_no_growth()
         assert(ips ~= nil, "第 " .. i .. " 轮解析未能发起")
         assert(netdrv.ctrl(ETH, netdrv.CTRL_DNS, { flush = true }), "第 " .. i .. " 轮 flush 失败")
     end
+    -- 关键: 先把最后一轮的在途事务收干净, 再取 after
+    assert(wait_dns_idle(10000), "长跑结束仍有查询挂在途, 内存对比不成立")
     sys.wait(500)
     local after = sys_used()
 

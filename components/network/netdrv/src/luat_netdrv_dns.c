@@ -1119,13 +1119,27 @@ void luat_netdrv_dns_cfg_apply(luat_netdrv_dns_ctx_t *ctx, const luat_netdrv_dns
 		 * 上限被调小时, 已有条目必须跟着收紧.
 		 * 只对新查询生效的话, 用户把 TTL 从 60s 调到 2s 后, 老条目还能再活 60s,
 		 * "运行时改配置立刻生效"就变成了半句话.
+		 *
+		 * 两条注意:
+		 *  1. 正/负缓存的生命周期口径不同, 必须分别钳:
+		 *       正缓存 -> now + cache_ttl_ms
+		 *       负缓存 -> now + neg_ttl_ms
+		 *     只按 cache_ttl_ms 一刀切的话, 把 cache_ttl 从 60s 调到 2s 会连带把
+		 *     neg_ttl=10s 的 NXDOMAIN 负缓存也压成 2s, 负缓存就名存实亡了.
+		 *     (neg_ttl_ms == 0 的分支上面已处理: 负缓存直接被丢弃)
+		 *  2. 收紧要"无条件取较小值", 不要写成"仅当 exp > deadline 才改".
+		 *     后者在 exp == deadline 时是 no-op, 而 dns_try_cache 用
+		 *     DNS_TIME_REACHED 判定过期(>= 即过期), 即"正好落在 deadline 上"算已过期 ——
+		 *     两处口径不一致, 会让边界上的条目保留不可用的时间. 取较小值天然幂等.
 		 */
-		uint32_t deadline = now + ctx->cfg.cache_ttl_ms;
 		for (node = ctx->cache_head.next; node != &ctx->cache_head; node = node->next)
 		{
 			luat_netdrv_dns_cache_ent_t *ent = LUAT_NETDRV_DNS_ENTRY(node,
 					luat_netdrv_dns_cache_ent_t, node);
-			if (ent->expire_ms > deadline)
+			uint32_t ttl = ent->is_negative ? ctx->cfg.neg_ttl_ms : ctx->cfg.cache_ttl_ms;
+			uint32_t deadline = now + ttl;
+			/* 有符号差值比较: now + ttl 回绕时也不会误判 */
+			if (DNS_TIME_REACHED(ent->expire_ms, deadline))
 			{
 				ent->expire_ms = deadline;
 			}
@@ -1162,6 +1176,84 @@ void luat_netdrv_dns_stat_reset(luat_netdrv_dns_ctx_t *ctx)
 	memset(&ctx->stat, 0, sizeof(ctx->stat));
 	ctx->stat.cache_used = used;
 	ctx->stat.inflight = inflight;
+}
+
+/*
+ * 统计"未完成的事务"总数: 在途(已发出等应答) + 排队(未发出) + 退避等待中.
+ * 适配层的定时器起停必须用这个口径, 不能只看 stat.inflight, 原因见头文件声明处。
+ */
+uint8_t luat_netdrv_dns_has_pending(const luat_netdrv_dns_ctx_t *ctx)
+{
+	const luat_netdrv_dns_node_t *node;
+	if (ctx == NULL || !ctx->inited)
+	{
+		return 0;
+	}
+	for (node = ctx->txn_head.next; node != &ctx->txn_head; node = node->next)
+	{
+		const luat_netdrv_dns_txn_t *txn = LUAT_NETDRV_DNS_ENTRY(node, luat_netdrv_dns_txn_t, node);
+		if (!txn->done)
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
+uint16_t luat_netdrv_dns_queued(const luat_netdrv_dns_ctx_t *ctx)
+{
+	const luat_netdrv_dns_node_t *node;
+	uint16_t n = 0;
+	if (ctx == NULL || !ctx->inited)
+	{
+		return 0;
+	}
+	for (node = ctx->txn_head.next; node != &ctx->txn_head; node = node->next)
+	{
+		const luat_netdrv_dns_txn_t *txn = LUAT_NETDRV_DNS_ENTRY(node, luat_netdrv_dns_txn_t, node);
+		if (!txn->done && !txn->query_sent)
+		{
+			n++;
+		}
+	}
+	return n;
+}
+
+uint16_t luat_netdrv_dns_inflight(const luat_netdrv_dns_ctx_t *ctx)
+{
+	const luat_netdrv_dns_node_t *node;
+	uint16_t n = 0;
+	if (ctx == NULL || !ctx->inited)
+	{
+		return 0;
+	}
+	for (node = ctx->txn_head.next; node != &ctx->txn_head; node = node->next)
+	{
+		const luat_netdrv_dns_txn_t *txn = LUAT_NETDRV_DNS_ENTRY(node, luat_netdrv_dns_txn_t, node);
+		if (!txn->done && txn->query_sent)
+		{
+			n++;
+		}
+	}
+	return n;
+}
+
+uint8_t luat_netdrv_dns_should_schedule(const luat_netdrv_dns_ctx_t *ctx)
+{
+	/*
+	 * 口径就是"还有未完成的事务", 不能加上"token > 0"之类的额外条件。
+	 *
+	 * 曾经考虑过"有事务 || 桶里有令牌" —— 那是错的: 桶闲置 min_gap_ms 后必然被
+	 * 补满到 cap(见 dns_token_refill), 而 cap >= 1, 于是 token 恒 > 0,
+	 * 条件退化成"永远为真", 定时器永不停 —— 省电语义直接失效, 白白空转。
+	 *
+	 * 只用 has_pending 就足够, 且是可达性证明过的:
+	 * 队列里有 query_sent==0 的事务时, 定时器始终在跑, 每个 period(<=100ms)都会
+	 * 补一次令牌; 而"补满整桶"最多需要 min_gap_ms(<=1000ms), 对应最多
+	 * ceil(min_gap/period) 个 tick —— 期间没有任何东西能在 has_pending 为真时
+	 * 把定时器停掉, 所以令牌一定会被补齐, 队列一定会被推进。
+	 */
+	return luat_netdrv_dns_has_pending(ctx);
 }
 
 /* ===================================================================== */

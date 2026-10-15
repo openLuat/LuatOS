@@ -84,10 +84,33 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 /* ---- 新 DNS 客户端适配层 ---- */
 static luat_netdrv_dns_ctx_t net_lwip2_dns_ctx;
 static uint8_t net_lwip2_dns_ctx_ready;
+/*
+ * 调度定时器周期(clamp(min_gap, 5, 100)).
+ *
+ * 缓存成普通变量而不是每次 luat_netdrv_dns_cfg_get() 读 ctx->cfg:
+ * net_lwip2_dns_timer_update() 也会从 Lua 任务线程被调用, 而 ctx 内的状态按约定
+ * 只在 tcpip 线程改动; 跨线程去读整个 cfg 结构体会破坏那条不变式(可能读到
+ * 半新半旧的配置). 这里只读一个 uint32 标量, 且只在 tcpip 线程写, 冲突面收敛到
+ * "一个对齐字", 是可接受的放宽(定时器周期取到旧值也只是晚一个 tick 生效).
+ */
+static uint32_t net_lwip2_dns_timer_period = LUAT_NETDRV_DNS_DEF_MIN_GAP_MS;
+/*
+ * 各网卡调度定时器当前是否在跑.
+ *
+ * 用途是"只在状态切换时动定时器", 而不是每来一条 DNS 报文就重启一次:
+ *   - platform_start_timer 在 FreeRTOS 移植里是
+ *     xTimerIsTimerActive -> xTimerStop -> xTimerChangePeriod -> xTimerStart,
+ *     对已经在跑的定时器重复调用是纯粹的浪费;
+ *   - 更重要的是它会显著放大 SDK 侧"定时器回调与删除竞争"的窗口,
+ *     表现是日志里反复出现 luat_timer_get ... no find!!! 。
+ * 计时精度不受影响: 定时器是重复触发(is_repeat=1), 它自己会按 period 一直到期。
+ */
+static uint8_t net_lwip2_dns_timer_running[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 static void net_lwip2_dns_done(void *user_ctx, void *param, uint8_t adapter_index, uint8_t ip_num, luat_dns_ip_result *ip);
 static uint8_t net_lwip2_dns_server_get(uint8_t adapter_index, uint8_t server_idx, luat_ip_addr_t *ip, void *user_ctx);
 static uint8_t net_lwip2_dns_send_all(void);
 static void net_lwip2_dns_timer_update(uint8_t adapter_index);
+static uint32_t net_lwip2_dns_timer_period_update(void);
 #endif
 static int net_lwip2_check_ack(uint8_t adapter_index, int socket_id);
 #if LWIP_IPV6 && defined(LUAT_USE_NETDRV_IPV6)
@@ -145,6 +168,10 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		// #endif
 		int tmp = adapter_index;
 		prvlwip.dns_timer[adapter_index] = platform_create_timer(net_lwip2_timer_cb, (void *)tmp, NULL);
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+		/* 新建的定时器处于停止态, 与 net_lwip2_dns_timer_running[] 保持一致 */
+		net_lwip2_dns_timer_running[adapter_index] = 0;
+#endif
 	}
 #ifdef LUAT_USE_NETDRV_DNS_CLIENT
 	/*
@@ -564,7 +591,13 @@ static int32_t net_lwip2_dns_check_result(void *data, void *param)
 static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
 {
 	uint8_t adapter_index = (uint32_t)arg;
+	/*
+	 * 早退前必须释放 pbuf: 这个 cb 是 lwIP 交给我们的所有权, 不释放就漏。
+	 * arg 在 net_lwip2_set_netif 里是先建 pcb/recv_arg 再赋 lwip_netif 的,
+	 * 所以"pcb 已绑定但 netif 还没赋上"这个窗口是真实存在的, 此时每个入包都会走到这里。
+	 */
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY || prvlwip.lwip_netif[adapter_index] == NULL) {
+		if (p) pbuf_free(p);
 		return ERR_OK;
 	}
 #ifdef LUAT_USE_NETDRV_DNS_CLIENT
@@ -661,6 +694,11 @@ static uint8_t net_lwip2_dns_server_get(uint8_t adapter_index, uint8_t server_id
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
 	if (server_idx >= MAX_DNS_SERVER) return 0;
 	if (prvlwip.dns_client[adapter_index] == NULL) return 0;
+	/*
+	 * ip 允许为 NULL(客户端只想知道该槽位有没有配服务器时会这么传),
+	 * 此时按契约返回"该槽位是否有效"即可, 不要去写指针。
+	 */
+	if (ip == NULL) return 1;
 	memcpy(ip, &prvlwip.dns_client[adapter_index]->dns_server[server_idx], sizeof(luat_ip_addr_t));
 	return 1;
 }
@@ -717,36 +755,65 @@ static uint8_t net_lwip2_dns_send_all(void)
 	return sent;
 }
 
-/*
- * 有在途事务就起定时器, 空闲就停, 省电.
- * 周期跟随 min_gap_ms: 定时器比节奏参数粗的话, 限速会退化成"每 tick 一条",
- * 并发能力就废了.
- */
-static void net_lwip2_dns_timer_update(uint8_t adapter_index)
+/* 重新计算调度定时器周期: clamp(min_gap_ms, 5, 100). 只在 tcpip 线程调用。 */
+static uint32_t net_lwip2_dns_timer_period_update(void)
 {
-	uint32_t period;
 	luat_netdrv_dns_cfg_t cfg;
-	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return;
-	if (prvlwip.dns_timer[adapter_index] == NULL) return;
+	uint32_t period;
 	luat_netdrv_dns_cfg_get(&net_lwip2_dns_ctx, &cfg);
 	period = cfg.min_gap_ms ? cfg.min_gap_ms : LUAT_NETDRV_DNS_DEF_MIN_GAP_MS;
 	if (period < 5) period = 5;
 	if (period > 100) period = 100;
-	if (net_lwip2_dns_ctx.stat.inflight > 0)
+	net_lwip2_dns_timer_period = period;
+	return period;
+}
+
+/*
+ * 有未完成事务就起定时器, 空闲就停, 省电.
+ * 周期跟随 min_gap_ms: 定时器比节奏参数粗的话, 限速会退化成"每 tick 一条",
+ * 并发能力就废了.
+ *
+ * 【门控口径】必须用 luat_netdrv_dns_should_schedule(), 不能用
+ * net_lwip2_dns_ctx.stat.inflight > 0 —— 后者只统计已发出的事务, 排队中的不算,
+ * 会出现"最后一个在途事务完成时令牌桶恰好为空、定时器被停掉、队列里的查询
+ * 永久发不出去"的停摆。详见 luat_netdrv_dns_should_schedule 的声明注释。
+ */
+static void net_lwip2_dns_timer_update(uint8_t adapter_index)
+{
+	uint8_t want;
+	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return;
+	if (prvlwip.dns_timer[adapter_index] == NULL) return;
+	want = luat_netdrv_dns_should_schedule(&net_lwip2_dns_ctx);
+	if (want == net_lwip2_dns_timer_running[adapter_index])
 	{
-		platform_start_timer(prvlwip.dns_timer[adapter_index], period, 1);
+		/* 状态没变就不碰定时器: 避免每收一条报文都 stop/start 一次 */
+		return;
+	}
+	if (want)
+	{
+		platform_start_timer(prvlwip.dns_timer[adapter_index], net_lwip2_dns_timer_period, 1);
 	}
 	else
 	{
 		platform_stop_timer(prvlwip.dns_timer[adapter_index]);
 	}
+	net_lwip2_dns_timer_running[adapter_index] = want;
 }
 
 int net_lwip2_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms)
 {
 	uint32_t wait = 0;
 	if (ctl == NULL) return -1;
-	if (!net_lwip2_dns_ctx_ready) return -1;
+	if (!net_lwip2_dns_ctx_ready) {
+		/*
+		 * 客户端还没初始化(本网卡未注册 / 走到的是非 lwIP 适配层)。
+		 * 必须显式报错: 否则 Lua 侧只看到 "false, nil", 完全不知道原因。
+		 */
+		LLOGE("netdrv.CTRL_DNS: dns client not ready (net_lwip2_set_netif 未执行?)");
+		return -1;
+	}
+	/* 周期是标量, 由 tcpip 线程维护, 这里读的是稳定值(见其声明的注释) */
+	ctl->timer_period_ms = net_lwip2_dns_timer_period;
 	ctl->done = 0;
 	platform_send_event(NULL, EV_LWIP_DNS_CFG, (uint32_t)(uintptr_t)ctl, 0, 0);
 	/*
@@ -1006,6 +1073,12 @@ static void net_lwip2_task(void *param)
 				{
 					luat_netdrv_dns_stat_get(&net_lwip2_dns_ctx, &ctl->rstat);
 				}
+				/*
+				 * 周期可能刚被 has_cfg 那一趟改掉, 在 tcpip 线程里重算并回读,
+				 * 顺带让本网卡的定时器按新周期继续跑(或就此停下)。
+				 */
+				ctl->timer_period_ms = net_lwip2_dns_timer_period_update();
+				net_lwip2_dns_timer_update(adapter_index);
 				ctl->done = 1;	/* 必须最后写, Lua 侧靠它判断 */
 			}
 		}

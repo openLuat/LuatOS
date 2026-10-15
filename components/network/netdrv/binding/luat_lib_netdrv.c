@@ -968,7 +968,13 @@ static int l_netdrv_dns_ctrl(lua_State *L, int id)
     uint32_t v;
     int want_stat = 0;
 
-    (void)id;   /* DNS 客户端是全局单例, id 只用于接口一致性 */
+    /*
+     * DNS 客户端是全局单例(缓存跨网卡共享), id 不参与寻址 —— 但也不能默默忽略:
+     * 传错网卡号却"成功"会让人以为配置只对某张网卡生效。至少留一条日志。
+     */
+    if (luat_netdrv_get(id) == NULL) {
+        LLOGW("netdrv.CTRL_DNS: no such netdrv %d (DNS client is global, id is ignored)", id);
+    }
 
     if (lua_type(L, 3) != LUA_TTABLE) {
         return luaL_error(L, "netdrv.CTRL_DNS expects a table as the 3rd argument");

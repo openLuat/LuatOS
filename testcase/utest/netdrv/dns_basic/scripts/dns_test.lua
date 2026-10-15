@@ -58,6 +58,11 @@ function suite.test_dns_utest_cache_runtime_cfg()
     assert(netdrv.dns_utest("cache_runtime_cfg") == true, "运行时改配置未生效")
 end
 
+-- 下调 cache_ttl 不得连带压缩 neg_ttl 负缓存
+function suite.test_dns_utest_cache_neg_ttl()
+    assert(netdrv.dns_utest("cache_neg_ttl_not_clamped") == true, "负缓存被 cache_ttl 连带压缩")
+end
+
 -- 容量上限与 LRU 淘汰
 function suite.test_dns_utest_cache_evict()
     assert(netdrv.dns_utest("cache_evict") == true, "LRU 淘汰行为不符")
@@ -81,6 +86,12 @@ end
 -- 节奏限速: 允许突发, 限制持续速率
 function suite.test_dns_utest_token_bucket()
     assert(netdrv.dns_utest("token_bucket") == true, "节奏限速行为不符")
+end
+
+-- 队列推进不得停摆: 只要还有没发出去的事务, 适配层定时器就不能停
+-- (对应真机缺陷: inflight 归零 + 令牌桶为空 → 定时器停掉 → 排队查询永久挂起)
+function suite.test_dns_utest_queue_drain_gate()
+    assert(netdrv.dns_utest("queue_drain_gate") == true, "队列推进门控不正确(可能停摆)")
 end
 
 -- 畸形 / 串包 / 伪造 / 截断应答必须被丢弃且不完成事务

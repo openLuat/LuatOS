@@ -172,12 +172,14 @@ static int posix_cli_dispatch_resp(client_socket_ctx_t* client) {
 }
 
 static int posix_cli_serve_static(client_socket_ctx_t* client, const char* path, size_t len) {
-    luat_httpsrv_send_static_head(client, path, len);
+    // 先 fopen 再发头: 打不开就返回 0 交回 Lua 回调(可正常回 404),
+    // 而不是先发 200 + Content-Length 再发不出 body.
     FILE* fd = luat_fs_fopen(path, "rb");
     if (fd == NULL) {
         LLOGE("open %s FAIL!!", path);
-        return 1;
+        return 0;
     }
+    luat_httpsrv_send_static_head(client, path, len);
     // 阻塞 socket: 循环读文件直接写出, 发完即止
     char buff[HTTPSRV_SEND_CHUNK];
     size_t total = 0;

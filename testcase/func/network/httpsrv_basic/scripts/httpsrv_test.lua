@@ -193,8 +193,10 @@ function M.test_httpsrv_static_file()
     local ok = start_server(port)
     assert(ok == true, "httpsrv.start should return true")
 
-    -- 本文件自身就在 /luadb 下, 用它验证静态文件通道
-    local resp, err = http_request(host, port, "GET /httpsrv_test.lua HTTP/1.0\r\nHost: test\r\n\r\n", 8000)
+    -- 用非 .lua 的 fixture 验证静态文件通道.
+    -- 注意不能请求用例自己的 .lua: 真机上脚本会被 luac 预编译成 .luac,
+    -- /luadb 下没有 .lua 源文件, 请求它只会拿到 404(仅 PC 模拟器能过).
+    local resp, err = http_request(host, port, "GET /httpsrv_static.txt HTTP/1.0\r\nHost: test\r\n\r\n", 8000)
     assert(resp, "static request failed: " .. tostring(err))
     log.info("test", "static resp len:", #resp)
     assert(resp:find("200"), "expected 200 response, got: " .. resp:sub(1, 200))

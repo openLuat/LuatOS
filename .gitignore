@@ -114,6 +114,8 @@ openspec/*
 .chroma_code/
 components/h264/test/test_h264
 testcase/ctx.json
+# luatos-cli 的本机 ctx 覆盖(含 WiFi 口令等, 不入库)
+testcase/local_ctx.json
 bsp/pc/pclogs/
 bsp/pc/spidrv/
 bsp/pc/fskv.bin

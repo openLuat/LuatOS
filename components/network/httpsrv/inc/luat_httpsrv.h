@@ -20,6 +20,7 @@ typedef struct luat_httpsrv_ctx
     void* hlisten;           // 后端监听句柄: tcp_pcb* 或 socket fd
     void* priv;              // 后端私有数据: lwIP 存 netif, posix 存 posix_srv_t*
     void* start_sem;        // luat_rtos_semaphore_t, start 同步用
+    void* stop_sem;         // luat_rtos_semaphore_t, stop 同步用(等监听 pcb 真正 close)
     int start_ret;          // 后端线程回写的 bind/listen 结果
 }luat_httpsrv_ctx_t;
 

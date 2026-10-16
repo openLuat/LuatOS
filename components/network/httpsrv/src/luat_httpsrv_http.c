@@ -455,6 +455,12 @@ static int my_on_url(http_parser* parser, const char *at, size_t length) {
         return HPE_INVALID_URL;
     }
     client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
+    // URL 跨 TCP 分段或同一条连接上流水线发了多个请求时, 本回调会被调用多次,
+    // 不先释放就会泄漏上一份 uri.
+    if (client->uri) {
+        luat_heap_free(client->uri);
+        client->uri = NULL;
+    }
     client->uri = luat_heap_malloc(length + 1);
     if (client->uri) {
         memcpy(client->uri, at, length);
@@ -506,7 +512,13 @@ static int my_on_header_field(http_parser* parser, const char *at, size_t length
 static int my_on_header_value(http_parser* parser, const char *at, size_t length) {
     client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
     if (client->next_header_value_is_content_length) {
-        client->expect_body_size = atoi(at);
+        // at 不是 NUL 结尾的字符串: lwIP 后端里 buff 恰好只分配 pbuf->tot_len 字节,
+        // 头值在缓冲区末尾被截断时 atoi() 会读越界(读到未初始化/越界字节).
+        // 先拷进本地小缓冲再解析, 顺便把超长数字截断掉.
+        char num[16] = {0};
+        size_t n = length < sizeof(num) - 1 ? length : sizeof(num) - 1;
+        memcpy(num, at, n);
+        client->expect_body_size = (size_t)strtoul(num, NULL, 10);
         client->next_header_value_is_content_length = 0;
     }
     // 填充到 req_headers 链表中

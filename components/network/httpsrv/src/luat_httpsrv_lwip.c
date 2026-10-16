@@ -14,6 +14,7 @@
 
 #include "lwip/opt.h"
 #include "lwip/tcp.h"
+#include "lwip/ip.h"        // ip_set_option
 #include "lwip/ip_addr.h"
 #include "lwip/tcpip.h"
 #include "lwip/netif.h"
@@ -229,7 +230,17 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
                 else {
                     ctx->sbuff_offset = ret;
                     ret = lwip_cli_send(ctx, (const char*)ctx->sbuff, ctx->sbuff_offset);
-                    ctx->sbuff_offset = 0;
+                    if (ret == 0) {
+                        ctx->sbuff_offset = 0;
+                    }
+                    else {
+                        // tcp_write 失败(典型是 ERR_MEM: 发送队列/pbuf 暂时耗尽).
+                        // 这里绝不能清 sbuff_offset: 文件位置已经前进, 丢掉这一段就再也补不回来,
+                        // 客户端拿到的是比 Content-Length 短一截的坏文件.
+                        // 保留偏移并退出, 等下一次 client_sent_cb 从 sbuff_offset 续传.
+                        HTTPSRV_DBG("static send busy, retry later %d", ret);
+                        break;
+                    }
                 }
             }
         }
@@ -288,18 +299,14 @@ static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
 
 // 静态文件: 先发头, 再把文件句柄挂上, 后续由 client_sent_cb 流式发送
 static int lwip_cli_serve_static(client_socket_ctx_t* client, const char* path, size_t len) {
-    luat_httpsrv_send_static_head(client, path, len);
+    // 先 fopen 再发头: 打不开就返回 0 交回 Lua 回调(可以正常回 404),
+    // 而不是先发 200 + Content-Length 再发不出 body, 让客户端收到一个残缺响应.
     FILE* fd = luat_fs_fopen(path, "rb");
     if (fd == NULL) {
-        struct tcp_pcb* pcb = (struct tcp_pcb*)client->hconn;
-        tcp_recv(pcb, NULL);
-        tcp_sent(pcb, NULL);
-        if (tcp_close(pcb)) {
-            tcp_abort(pcb);
-        }
         LLOGE("open %s FAIL!!", path);
-        return 1;
+        return 0;
     }
+    luat_httpsrv_send_static_head(client, path, len);
     client->fd = fd;
     client->sbuff_offset = 0;
     return 1;
@@ -310,6 +317,8 @@ static void srv_stop_cb(void* arg) {
     if (ctx == NULL) {
         return;
     }
+    // 先把 sem 取出来: 后面 ctx 会被释放
+    void* stop_sem = ctx->stop_sem;
     if (ctx->hlisten) {
         // 监听状态的pcb没有recv/sent回调, 对LISTEN态设置会触发lwip断言, 直接close
         struct tcp_pcb* pcb = (struct tcp_pcb*)ctx->hlisten;
@@ -319,6 +328,9 @@ static void srv_stop_cb(void* arg) {
         ctx->hlisten = NULL;
     }
     luat_httpsrv_free(ctx);
+    if (stop_sem) {
+        luat_rtos_semaphore_release(stop_sem);
+    }
 }
 
 static void luat_httpsrv_start_cb(luat_httpsrv_ctx_t* ctx) {
@@ -329,7 +341,12 @@ static void luat_httpsrv_start_cb(luat_httpsrv_ctx_t* ctx) {
         ctx->start_ret = -1;
         goto start_done;
     }
-    tcp->flags |= SOF_REUSEADDR;
+    // 注意: 必须写 so_options, 不能写 pcb->flags.
+    // SOF_REUSEADDR(0x04) 是 ip 层选项位, tcp_bind 用 ip_get_option() 读 so_options;
+    // 而 flags 里的 0x04 是 TF_INFR(快速重传中). 旧写法 tcp->flags |= SOF_REUSEADDR
+    // 既没打开地址复用(于是 tcp_bind 仍会扫 TIME_WAIT 列表), 又给监听 pcb 设了个假状态位.
+    // 真机实测后果: stop() 后立刻在同端口 start() 会 tcp_bind ERR_USE 而失败.
+    ip_set_option(tcp, SOF_REUSEADDR);
     // priv为NULL时绑定0.0.0.0(IP_ADDR_ANY), 接受全部网卡上的连接
     struct netif* netif = (struct netif*)ctx->priv;
     ret = tcp_bind(tcp, netif ? &netif->ip_addr : IP_ADDR_ANY, ctx->port);
@@ -364,8 +381,33 @@ static int lwip_srv_start(luat_httpsrv_ctx_t* ctx) {
     return ret;
 }
 
+// stop 必须同步等监听 pcb 真正 close 掉再返回, 与 PC(posix) 后端保持同一语义:
+// 否则调用方 stop() 之后立刻在同一个端口 start(), 会撞上还没关掉的旧监听 pcb -> ERR_USE.
+// 注意 lwIP 的 tcpip_callback() 只负责投递, 不等回调执行完(LuatOS lwip22 与 BK lwip 2.1.2 都是),
+// 所以这里必须自己用信号量等.
 static void lwip_srv_stop(luat_httpsrv_ctx_t* ctx) {
-    tcpip_callback(srv_stop_cb, ctx);
+    void* sem = NULL;
+    if (luat_rtos_semaphore_create(&sem, 0) != 0) {
+        LLOGW("create stop_sem failed, stop asynchronously");
+        tcpip_callback(srv_stop_cb, ctx);
+        return;
+    }
+    ctx->stop_sem = sem;    // 必须在投递之前挂上, srv_stop_cb 会读它
+    if (tcpip_callback(srv_stop_cb, ctx) != ERR_OK) {
+        // 没投出去, 回调不会跑, 自己收尾(此时 ctx 还没被释放)
+        ctx->stop_sem = NULL;
+        luat_rtos_semaphore_delete(sem);
+        srv_stop_cb(ctx);
+        return;
+    }
+    if (luat_rtos_semaphore_take(sem, 1000) == 0) {
+        // 回调已在 tcpip 线程跑完并释放了信号量; ctx 此时已被 free, 之后不能再碰 ctx
+        luat_rtos_semaphore_delete(sem);
+    }
+    else {
+        // 超时: 回调可能还会释放这个信号量, 按 start 路径同一口径"宁可泄漏也不能 use-after-free"
+        LLOGE("wait httpsrv stop timeout, leak stop_sem");
+    }
 }
 
 static const char* lwip_srv_local_ip(luat_httpsrv_ctx_t* ctx, char* buff, size_t len) {

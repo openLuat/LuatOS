@@ -1,0 +1,8 @@
+HTTPSRV_STATIC_FILE_MARKER
+httpsrv 静态文件通道 fixture.
+
+为什么需要这个文件而不是直接用 httpsrv_test.lua:
+  PC 模拟器把脚本源目录直接挂成 /luadb, 所以请求 /httpsrv_test.lua 能命中;
+  真机走 luatos-cli 合成 script.bin 时会用 luac 预编译, 设备上只有
+  /luadb/httpsrv_test.luac, 没有 .lua 源文件 —— 请求 .lua 必然 404.
+非 .lua 文件是原样打包的, 两端都存在, 因此用它做静态文件用例.

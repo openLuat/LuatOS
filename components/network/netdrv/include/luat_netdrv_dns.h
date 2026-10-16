@@ -188,6 +188,14 @@ typedef struct
 	uint64_t send_err;		/* 发送失败(由适配层回报)的次数 */
 	uint16_t inflight;		/* 当前在途事务数 */
 	uint16_t cache_used;	/* 当前缓存条目数 */
+	/*
+	 * 能力位(不是计数器): 当前构建能否表达 AAAA 结果, 即 lwIP 是否编入了
+	 * IPv6(LWIP_IPV6). 为 0 时双栈查询只发 A 那条腿 —— 发 AAAA 也存不下来,
+	 * 结果里不可能出现 IPv6 地址, 这不是解析失败.
+	 * 由 luat_netdrv_dns_stat_get() 每次现算填入, 不存在 ctx->stat 里
+	 * (统计会被 memset 重置, 能力位不该跟着被清掉).
+	 */
+	uint8_t ipv6;
 }luat_netdrv_dns_stat_t;
 
 /* ---- 缓存条目 ---- */

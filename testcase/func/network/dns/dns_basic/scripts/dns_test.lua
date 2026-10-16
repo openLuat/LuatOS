@@ -67,6 +67,23 @@ local function dns_cfg()
     return info.cfg
 end
 
+--[[
+本构建的双栈查询应该发出几条报文.
+
+判据不能用"是不是真机/是不是 WiFi": 有的 BSP 的 lwIP 压根没编入 IPv6
+(bk7258 就是这样 —— AP 的 lwipopts.h 把 LWIP_IPV6 挂在 CONFIG_IPV6 下面,
+而生成的 sdkconfig.h 里没有 CONFIG_IPV6), 这时客户端只会发 A 那条腿:
+AAAA 查询就算发出去, 结果也存不下来(见 dns_ip_from_aaaa 的空分支),
+所以"只发 1 条"是正确行为, 不是缺陷.
+
+能力位由 DNS 客户端自己在 stat 里报(stat.ipv6), 别在 Lua 侧拿
+netdrv.ipv6 是否存在去猜 —— 那个宏管的是 netdrv 层的 IPv6 API,
+和"DNS 能不能表达 AAAA"不是同一个开关.
+]]
+local function dual_legs_want()
+    return dns_stat().ipv6 == 1 and 2 or 1
+end
+
 -- 每次测试前把缓存清干净, 并保证配置回到默认, 避免用例之间互相污染
 local function reset_dns()
     local c = dns_cfg()
@@ -82,6 +99,31 @@ local function reset_dns()
         min_gap      = 20,
         flush        = true,
     }), TAG .. " 恢复默认配置失败, 原值 " .. tostring(c and c.cache_ttl))
+end
+
+--[[
+等网卡真的拿到 IP.
+
+为什么必须有这一步:
+  netready.exec() 在 Wi-Fi 机型上只调 wlan.connect(ssid, password, 1) —— 第 3 个参数是
+  auto_reconnect, 不是"等到连上", 关联 + DHCP 全程异步;
+  而 testrunner.initNetwork() 只在配置了 status_url / report_url 时才等 IP_READY,
+  两个都没配时直接 return true —— 测试会在没有 IP 的网卡上开始跑,
+  前几个域名必然撞上"UDP 发不出去", 表现为随机几条解析失败.
+  以太网机型通常一两百毫秒就绪, 一次就过, 所以放在这里两边都安全.
+
+用 netdrv.ready(-1)("是否有任意网卡就绪")而不是等 IP_READY 事件: 事件可能已经发过了,
+等它会把"已经就绪"误判成超时.
+]]
+local function wait_net_ready(timeout_ms)
+    local deadline = mcu.ticks() + (timeout_ms or 30000)
+    while mcu.ticks() < deadline do
+        if netdrv.ready(-1) then
+            return true
+        end
+        sys.wait(200)
+    end
+    return false
 end
 
 -- ---------------------------------------------------------------- 解析面
@@ -183,6 +225,8 @@ end
 function dnstest.setUp()
     -- 宏没打开的话 CTRL_DNS 常量不存在, 后面所有用例都无从谈起, 直接在入口拦掉
     assert(netdrv.CTRL_DNS ~= nil, "netdrv.CTRL_DNS 不存在, LUAT_USE_NETDRV_DNS_CLIENT 宏未生效")
+    -- 网卡没 IP 就发包, 失败原因会伪装成"DNS 解析失败", 先等就绪再测
+    assert(wait_net_ready(30000), "等网卡拿到 IP 超时(30s), 联网还没成功")
     reset_dns()
 end
 
@@ -219,10 +263,13 @@ function dnstest.test_dns_resolve_aaaa()
     end
     assert(v4 >= 1, "双栈查询丢了 IPv4 结果, 只拿到: " .. table.concat(ips, ","))
     local st1 = dns_stat()
-    -- 双栈两条腿并发发出, 一次查询至少应该产生 2 个请求
-    assert(st1.tx - st0.tx >= 2, "双栈查询应至少发出 2 条请求(A+AAAA), 实际 "
+    -- 双栈两条腿并发发出, 一次查询至少应该产生 2 个请求;
+    -- 但 lwIP 未编入 IPv6 的构建只发 A(AAAA 存不下来), 这时 1 条才是对的
+    local want = dual_legs_want()
+    assert(st1.tx - st0.tx >= want, "双栈查询应至少发出 " .. want .. " 条请求(A+AAAA), 实际 "
         .. tostring(st1.tx - st0.tx))
-    log.info(TAG, "AAAA 解析 ok", table.concat(ips, ","), "tx增量=" .. tostring(st1.tx - st0.tx))
+    log.info(TAG, "AAAA 解析 ok", table.concat(ips, ","), "tx增量=" .. tostring(st1.tx - st0.tx),
+        "ipv6能力=" .. tostring(st1.ipv6))
 end
 
 -- 3) 缓存命中: 第二次解析不能再发包, 且 cache_hit 必须涨
@@ -400,6 +447,8 @@ function dnstest.test_dns_dual_stack_merge()
 
     改成两条确定性的证据:
       1. tx 增量 >= 2  —— AAAA 与 A 两条腿的报文都发出来了(不是只发一条);
+         ⚠️ 这个 2 只在"构建编入了 IPv6"时成立: lwIP 没有 IPv6 时不发 AAAA
+         (发了也存不下来), 此时正确的增量是 1, 用 dual_legs_want() 取实际期望值;
       2. cache_used 增长 >= 1 —— 结果确实按各自 qtype 入库了(AAAA 若上游无记录
          则只入库 A, 所以是 >= 1 而不是 == 2)。
     这比"总发包 2 条"强: 它同时要求两条腿都被发出【且】分别落缓存,
@@ -408,11 +457,13 @@ function dnstest.test_dns_dual_stack_merge()
     ]]
     local st = dns_stat()
     local dtx = st.tx - st0.tx
-    assert(dtx >= 2, "双栈查询应至少发出 2 条报文(AAAA+A), 实际 " .. tostring(dtx))
+    local want = dual_legs_want()
+    assert(dtx >= want, "双栈查询应至少发出 " .. want .. " 条报文(AAAA+A), 实际 " .. tostring(dtx))
     assert(st.cache_used > st0.cache_used, "双栈结果没有入库, cache_used "
         .. tostring(st0.cache_used) .. " -> " .. tostring(st.cache_used))
     assert(st.inflight == 0, "双栈查询结束后仍有事务挂在途")
-    log.info(TAG, "双栈合并 ok", table.concat(ips, ","), "tx增量=" .. tostring(dtx))
+    log.info(TAG, "双栈合并 ok", table.concat(ips, ","), "tx增量=" .. tostring(dtx),
+        "ipv6能力=" .. tostring(st.ipv6))
 end
 
 -- 9) 手动失效: flush 之后同样的域名必须重新发包

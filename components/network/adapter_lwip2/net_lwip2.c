@@ -811,7 +811,7 @@ static void net_lwip2_dns_timer_update(uint8_t adapter_index)
  * 之所以不让各平台各叫各的名字再由绑定层分支: 那会把"哪个平台"的知识渗进绑定层,
  * 而绑定层本来只需要知道"有个 CTRL_DNS 入口"。
  *
- * 【必须二选一】PC 上 components/network/adapter_lwip2/*.c 也会被编译(PC 用 lwIP
+ * 【必须二选一】PC 上 components/network/adapter_lwip2/ 目录下的 .c 也会被编译(PC 用 lwIP
  * 头也能过编译), 但同时提供同名符号会重复定义。BSP 定义
  * LUAT_NETDRV_DNS_TRANSPORT_POSIX 即表示"传输层交给 POSIX 适配层", 本实现让位。
  * 若在 PC 上漏定义它: lwIP 实现会被链进去, 而 PC 从不调用 net_lwip2_set_netif,

@@ -959,6 +959,8 @@ static void l_netdrv_dns_push_stat(lua_State *L, const luat_netdrv_dns_stat_t *s
     PUSH_U("send_err", st->send_err);
     PUSH_U("inflight", st->inflight);
     PUSH_U("cache_used", st->cache_used);
+    /* 能力位, 不是计数器: 0 表示本构建的 lwIP 没编入 IPv6, 双栈查询只发 A */
+    PUSH_U("ipv6", st->ipv6);
 #undef PUSH_U
 }
 

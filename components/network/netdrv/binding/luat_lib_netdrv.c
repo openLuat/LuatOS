@@ -1102,10 +1102,28 @@ static int l_netdrv_ctrl(lua_State *L) {
     int cmd = luaL_checkinteger(L, 2);
     int arg = 0;
 
-    /* DNS 分支: 第三个参数是 table, 与整数路径互不影响 */
+    /*
+     * DNS 分支: 第三个参数是 table, 与整数路径互不影响.
+     *
+     * 这个分支必须整体包在宏里: l_netdrv_dns_ctrl 只在
+     * LUAT_USE_NETDRV_DNS_CLIENT 打开时才存在, 否则链接期会报
+     * undefined reference(未开启该宏的 BSP, 例如 Air780EPM/EC7xx 就会踩到).
+     * 不能用 #ifdef 之外的写法让它在关闭时"碰巧能用"——那会把 0x10 这个
+     * 控制码漏给驱动的私有 cmd.
+     */
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
     if (cmd == LUAT_NETDRV_CTRL_DNS) {
         return l_netdrv_dns_ctrl(L, id);
     }
+#else
+    if (cmd == LUAT_NETDRV_CTRL_DNS) {
+        /* 未开启新 DNS 客户端: 明确报错 + 给 Lua 侧一个可判断的 false */
+        LLOGW("netdrv.CTRL_DNS unavailable: LUAT_USE_NETDRV_DNS_CLIENT not enabled in this BSP");
+        lua_pushboolean(L, 0);
+        lua_pushnil(L);
+        return 2;
+    }
+#endif
 
     arg = luaL_checkinteger(L, 3);
     luat_netdrv_t* drv = luat_netdrv_get(id);

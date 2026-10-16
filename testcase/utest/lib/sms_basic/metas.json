@@ -1,0 +1,9 @@
+{
+    "timeout": 90,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "sms C层utest: UTF-8 <-> UCS2 编解码(含2字节字符/非法输入)"
+}

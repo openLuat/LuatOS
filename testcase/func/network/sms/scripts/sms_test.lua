@@ -282,4 +282,22 @@ function sms_test.test_short_7bit_baseline()
     end
 end
 
+-- UCS2 正文里的 2 字节字符与全角点号必须原样还原
+-- · U+00B7(UTF-8 2 字节), 。U+3002 / ．U+FF0E(UTF-8 3 字节)
+function sms_test.test_ucs2_two_byte_chars()
+    if not unpack_available() then return end
+    local cases = {
+        { text = "\u{00B7}",                    desc = "中点 U+00B7" },
+        { text = "\u{3002}\u{FF0E}",            desc = "全角点号 。．" },
+        { text = "1\u{00B7}2\u{3002}3\u{FF0E}4", desc = "混排" },
+        { text = "\u{00E9}\u{00B7}\u{4F60}\u{597D}", desc = "2字节+中文" },
+    }
+    for _, case in ipairs(cases) do
+        local phone, text = sms.unpack(sms_pdu.buildShortUcs2(case.text))
+        assert(phone == "1234567890", "号码解析错误:" .. tostring(phone))
+        assert(text == case.text,
+            string.format("%s 解码错误, 期望[%s] 实际[%s]", case.desc, case.text, tostring(text)))
+    end
+end
+
 return sms_test

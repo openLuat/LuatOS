@@ -43,7 +43,7 @@ LuatOS/
 ├── components/       # Extension libraries (90+ components)
 │   ├── network/      # Network stacks (LwIP, MQTT, HTTP, NDK)
 │   ├── airui/        # GUI framework (LVGL 9 based)
-│   ├── ndk/          # NDK socket adapter (RV32C sim + hosting)
+│   ├── ndk/          # NDK RV32IMA VM sandbox (CSR host ABI: GPIO/UART/CRYPTO; not sockets)
 │   ├── pgfs/         # PGFS flash filesystem
 │   ├── luat_image/   # Unified image decoding (JPG/PNG/WebP)
 │   ├── mbedtls/      # Cryptography library
@@ -305,7 +305,10 @@ Before reporting task completion, verify:
 | `components/network/adapter/luat_network_adapter.c` | Network framework state machine |
 | `components/network/adapter/luat_network_adapter.h` | Network adapter API definitions |
 | `components/network/adapter/luat_lib_socket.c` | Socket Lua bindings |
-| `components/ndk/src/luat_ndk.c` | NDK socket adapter |
+| `components/ndk/src/luat_ndk.c` | NDK RV32IMA VM sandbox (NOT a socket layer — see `components/ndk/AGENTS.md`) |
+| `components/network/httpsrv/src/luat_httpsrv_http.c` | httpsrv transport-agnostic HTTP layer (shared by both backends) |
+| `components/network/httpsrv/src/luat_httpsrv_posix.c` | httpsrv PC backend (host winsock/BSD; PC-only) |
+| `components/network/httpsrv/src/luat_httpsrv_lwip.c` | httpsrv firmware backend (lwIP raw API) |
 | `components/pgfs/src/pgfs.c` | PGFS flash filesystem core |
 | `components/luat_image/luat_image.c` | Image decoder dispatch table |
 | `script/corelib/sys.lua` | Lua task system core |

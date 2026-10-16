@@ -23,8 +23,24 @@ local exfacecam = require "exfacecam"
 
 log.info(tag, "人脸识别demo启动")
 
--- 12号GPIO配置（AirCAMERA_1034摄像头供电控制引脚），需要拉高使能
-gpio.setup(58, 1, gpio.PULLUP)
+-- ============ 硬件环境配置（按实际板型修改 HARDWARE_ENV，命名与 board_config.lua 一致） ============
+--   "Air1601_V11"  - Air1601 V1.1：摄像头供电 GPIO12（5V_EN）
+--   "Air1601_V12"  - Air1601 V1.2：摄像头供电 GPIO58（VC_EN）
+--   "Air1602_V12"  - Air1602 V1.2：摄像头供电 GPIO58（VC_EN）
+--   "Air8601"      - Air8601：      摄像头供电 GPIO73（UVC_EN）
+--   "Air8602"      - Air8602：      摄像头供电 GPIO73（UVC_EN）
+HARDWARE_ENV = "Air1601_V12"   -- 默认Air1601 V1.2；使用Air8601/Air1602请改为对应板型
+
+-- 摄像头供电控制引脚（按 HARDWARE_ENV 选择），需要拉高使能
+local cam_power_pin_map = {
+    Air1601_V11 = 12,
+    Air1601_V12 = 58,
+    Air1602_V12 = 58,
+    Air8601     = 73,
+    Air8602     = 73,
+}
+local cam_power_pin = cam_power_pin_map[HARDWARE_ENV] or 58
+gpio.setup(cam_power_pin, 1, gpio.PULLUP)
 
 -- ======== 配置参数 ========
 local cam_width = 1280       -- 摄像头采集宽度

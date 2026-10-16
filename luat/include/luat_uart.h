@@ -204,6 +204,8 @@ int luat_uart_soft_setup_hwtimer_callback(int hwtimer_id, CommonFun_t callback);
 void luat_uart_soft_gpio_fast_output(int pin, uint8_t value);
 uint8_t luat_uart_soft_gpio_fast_input(int pin);
 void luat_uart_soft_gpio_fast_irq_set(int pin, uint8_t onoff);
+// 引脚 cfg 变更(如重新 setup)后使 fast_output 的整字缓存失效, 避免写出陈旧配置
+void luat_uart_soft_gpio_cache_invalid(int pin);
 /**
  * @brief 软件串口所需硬件定时周期
  *

@@ -24,7 +24,7 @@ int luat_drv_gpio_open(luat_gpio_cfg_t* gpio) {
         return luat_gpio_open(gpio);
     }
     else {
-        #if defined(LUAT_USE_AIRLINK_RPC)
+        #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_GPIO)
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_gpio_open(gpio);
         #endif
@@ -40,7 +40,7 @@ int luat_drv_gpio_set(int pin, int level) {
         return luat_gpio_set(pin, level);
     }
     else {
-        #if defined(LUAT_USE_AIRLINK_RPC)
+        #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_GPIO)
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_gpio_set(pin, level);
         #endif
@@ -61,7 +61,7 @@ int luat_drv_gpio_setup(luat_gpio_t* gpio) {
         return luat_gpio_setup(gpio);
     }
     else {
-        #if defined(LUAT_USE_AIRLINK_RPC)
+        #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_GPIO)
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_gpio_setup(gpio);
         #endif
@@ -79,7 +79,7 @@ int luat_drv_gpio_get(int pin, int* val) {
         return 0;
     }
     else {
-        #if defined(LUAT_USE_AIRLINK_RPC)
+        #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_GPIO)
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_gpio_get(pin, val);
         #endif

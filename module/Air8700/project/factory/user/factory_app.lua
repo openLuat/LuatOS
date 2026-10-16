@@ -1,6 +1,6 @@
 --[[
 @module  factory_app
-@summary 出厂固件业务编排模块（版本化：TLV上报 / 控制命令 / LED / TTS / GPS / 上报周期）
+@summary 出厂固件业务编排模块（版本化：TLV上报 / 控制命令 / LED / GPS / 上报周期）
 @version 2.0
 @date    2026.09.20
 @author  李源龙
@@ -9,7 +9,6 @@
 
 版本行为：
 - 8780  ：硬件I2C传感器 + 180s结构化上报 + 串口透传
-- 8780V ：8780基础上 + 每10秒TTS播报"上海合宙欢迎你"
 - 8780G ：8780基础上 + 开机打开GPS，每30秒上报GPS（无GPS回退LBS基站定位）
 - 8781  ：8780基础上，传感器改软件I2C（GPIO模拟）
 - 8782  ：8781基础上，串口1配置为RS485
@@ -25,9 +24,8 @@
    - "led:blink"    → LED闪烁5秒
    - "led:on"       → LED常亮
    - "led:off"      → LED熄灭
-   - "tts:文本"     → TTS播报（仅8780V）
 4、start_report_timer()：启动周期结构化上报定时器（默认180秒）
-5、TTS/GPS 开机自动启动（按版本启用，见 start_version_features）
+5、GPS 开机自动启动（按版本启用，见 start_version_features）
 
 数据流向：
 - create.aircloudTask 连接成功后 → start_report_timer(uid)
@@ -174,6 +172,12 @@ function factory_app.build_report_tlv()
         field_meaning = excloud.FIELD_MEANINGS.DEVICE_ID,
         data_type = excloud.DATA_TYPES.ASCII,
         value = mobile.imei()
+    })
+    -- 必填：模组型号
+    table.insert(tlv_list, {
+        field_meaning = excloud.FIELD_MEANINGS.COMPONENT_MODEL,
+        data_type = excloud.DATA_TYPES.ASCII,
+        value = "Air8700P"
     })
     -- 必填：时间戳
     table.insert(tlv_list, {
@@ -392,80 +396,6 @@ function factory_app.led_ctl(action)
     return true
 end
 
--- ==================== TTS 播报（仅8780V，按版本启用） ====================
-
--- 版本TTS配置
-local tts_cfg = factory_config.get_tts()      -- {enable, text, interval}
-local DEFAULT_TTS_TEXT = tts_cfg.text or "上海合宙欢迎你"   -- 开机欢迎播报文本
-local audio_inited = false
-local boot_tts_done = false
-
--- 初始化音频（仅 8780V 版本生效，幂等；失败可重试）
-local function init_audio()
-    if audio_inited then return true end
-    if not tts_cfg.enable then
-        log.info("factory_app", "当前版本不启用TTS:", factory_config.get_ver())
-        return false
-    end
-    local ok, audio_config = pcall(require, "audio_config")
-    if not ok or not audio_config or not audio_config.init then
-        log.error("factory_app", "音频模块不可用")
-        return false
-    end
-    local init_ok = audio_config.init()
-    if not init_ok then
-        log.error("factory_app", "音频初始化失败（ES8311）")
-        return false
-    end
-    audio_inited = true
-    log.info("factory_app", "音频初始化完成")
-    return true
-end
-
---[[
-TTS 语音播报（仅 8780V 版本支持，其他版本返回错误）
-
-@string text 播报文本
-@return boolean 是否执行成功
-@return string|nil 错误信息
-@usage
-local ok, err = factory_app.tts("温度正常")
-]]
-function factory_app.tts(text)
-    if not tts_cfg.enable then
-        return false, "当前版本不支持TTS"
-    end
-    if not init_audio() then
-        return false, "音频初始化失败"
-    end
-    local ok, audio_config = pcall(require, "audio_config")
-    if not ok or not audio_config or not audio_config.audio_play_tts then
-        log.error("factory_app", "音频模块不可用")
-        return false, "音频模块不可用"
-    end
-    audio_config.audio_play_tts(text)
-    log.info("factory_app", "TTS播报:", text)
-    return true, nil
-end
-
--- 开机播报欢迎语（仅8780V，播一次，网络就绪后执行）
-local function start_boot_tts()
-    if not tts_cfg.enable then
-        log.info("factory_app", "当前版本不启动TTS:", factory_config.get_ver())
-        return
-    end
-    sys.taskInit(function()
-        -- 等待网络就绪（TTS云端合成）
-        while not socket.adapter(socket.dft()) do
-            sys.waitUntil("IP_READY", 1000)
-        end
-        if boot_tts_done then return end
-        boot_tts_done = true
-        factory_app.tts(DEFAULT_TTS_TEXT)
-        log.info("factory_app", "开机欢迎语播报:", DEFAULT_TTS_TEXT)
-    end)
-end
-
 -- ==================== 下行控制命令处理 ====================
 
 --[[
@@ -476,7 +406,6 @@ end
 - "led:blink"    → LED闪烁5秒
 - "led:on"       → LED常亮
 - "led:off"      → LED熄灭
-- "tts:文本"     → TTS播报（仅8780V）
 
 @string cmd 控制命令字符串
 @return string 响应文本（发送给 CONTROL_RESPONSE tag 20）
@@ -514,16 +443,7 @@ function factory_app.handle_control_command(cmd)
         end
         return resp_msg
     end
-    -- 3. TTS 播报
-    local tts_text = cmd:match("^tts:(.+)$")
-    if tts_text then
-        local ok, err = factory_app.tts(tts_text)
-        if not ok then
-            resp_msg = "TTS执行失败: " .. tostring(err or "")
-        end
-        return resp_msg
-    end
-    -- 4. 未知命令
+    -- 3. 未知命令
     resp_msg = "未知命令格式: " .. cmd
     log.warn("factory_app", resp_msg)
     return resp_msg
@@ -531,10 +451,8 @@ end
 
 -- ==================== 版本特性启动 ====================
 -- 按 factory_config.DEVICE_VER 启用对应版本能力：
---   8780V → 开机播报一次欢迎语 + 收到服务器 tts: 命令时播报
 --   8780G → 开机开GPS，每30秒GPS上报（无GPS回退LBS）
 --   其他版本 → 均自动跳过
-start_boot_tts()
 start_default_gps()
 
 log.info("factory_app", "版本特性启动完成，当前版本:", factory_config.get_ver())

@@ -11,7 +11,7 @@
 本工程基于 `Air8780/project/factory`（Air8780 出厂固件）拆分而来，作为 Air8700P 出厂固件：
 
 1. **不允许请求网页端配置**：`default.lua` 已移除 `config_init`，开机直接加载预置 `irtu.cfg`，默认通道 = **AirCloud**。
-2. **定位：仅串口透传 + AirCloud 基础心跳上报**（IMEI/CSQ/CPU温度），不采集 I2C 传感器、不做 TTS、不做 GPS/LBS。
+2. **定位：仅串口透传 + AirCloud 基础心跳上报**（IMEI/CSQ/CPU温度），不采集 I2C 传感器、不做 GPS/LBS、无音频功能。
 3. **无外置硬件看门狗**：Air8700 板载无 Air153 看门狗芯片，仅保留 LuatOS 软狗 wdt（9s/3s，main.lua 通用）。
 4. **下行控制命令**：支持 `cycle:秒数` / `led:blink|on|off`，保留 iRTU 原有 rrpc 指令（`rrpc,getimei` 等）。
 5. **产测 + iRTU 合一**：产测指令仅保留通用项 + 写号（OTP），WD_TEST 返回 ERROR（无外置看门狗）。
@@ -37,11 +37,8 @@ Air8700/project/factory/
 ├── create.lua               # 网络通道（aircloudTask 心跳上报 + 下行命令）
 ├── driver.lua               # 串口 / GPIO灯 / rrpc指令 / 自动任务
 ├── gnss.lua                 # iRTU 自带GNSS模块（保留未用，8700 无内置GNSS）
-├── audio_config.lua         # 音频/TTS（保留未用，8700 无音频）
-├── es8311.lua               # es8311 音频驱动（保留未用）
 ├── factory_config.lua       # ⭐ 版本配置（8700 定位差异集中在这里）
 ├── watchdog_app.lua         # 外置硬件看门狗（8700 配置 disable，自动跳过）
-├── exair153x_wdt.lua        # Air153C/Air153D 看门狗扩展库（8700 不启用）
 ├── factory_app.lua          # 业务编排：心跳上报 / 控制命令 / LED / 上报周期
 ├── sensor_task.lua          # I2C 传感器采集（8700 配置 disable，get_env 返回 nil）
 ├── AirSHT30_1000.lua        # SHT30 驱动（8700 不采集，保留文件）
@@ -53,6 +50,7 @@ Air8700/project/factory/
 ```
 
 > 依赖：`../lib/` 下的 iRTU 扩展库（db/dtulib/excloud/lbsLoc2/libnet 等），与 irtu_basic 相同。
+> 外置看门狗驱动 `exair153x_wdt` 直接使用公共扩展库 `script/libs/exair153x_wdt.lua`（user 目录不再放定制版）；音频相关库（exaudio/es8311/air1103/audio_config）本工程已全部移除，烧录时无需勾选。
 
 ## 四、出厂配置基线（irtu.cfg）
 
@@ -89,8 +87,6 @@ Air8700/project/factory/
 | LED 控制 | `led:blink` / `led:on` / `led:off` | 8700 |
 | 查询 IMEI | `rrpc,getimei`（走 tag 21 IRTU_DOWN） | 8700 |
 
-> TTS（`tts:文本`）Air8700 不支持（Air700ECP 无 TTS），返回失败。
-
 ## 七、使用说明
 
 1. 用 Luatools 将本工程目录 + `../lib/` 扩展库一并烧录到 Air8700P。
@@ -106,7 +102,10 @@ Air8700/project/factory/
 | main.lua | PROJECT=Air8700Factory；版本注释改为 8700P |
 | factory_config.lua | DEVICE_VER="8700"；sensor_enable/lbs_enable 加 8700=false；wdt 8700=disable |
 | sensor_task.lua | 支持 sensor_enable 开关（8700 禁用时 get_env 返回 nil，不初始化 I2C） |
-| factory_app.lua | LBS 按版本开关（8700 不做 LBS） |
-| factory.lua | exair153x_wdt 改 pcall 加载；8700 跳过看门狗初始化；WD_TEST 返回 ERROR |
+| factory_app.lua | LBS 按版本开关（8700 不做 LBS）；移除 TTS 相关全部逻辑 |
+| factory.lua | exair153x_wdt 改 pcall 加载；8700 跳过看门狗初始化；WD_TEST 返回 ERROR；移除 RECORD/PLAY 等 8780V 音频指令 |
+| create.lua | 移除 audio_result 订阅与 tcp/mqtt/aircloud 三处 audioresult_ 异步回包路由 |
+| driver.lua | 移除 exaudio/audio_config require 与 ttsplay/fileplay/stopplay/setvol/getvol 五个音频 rrpc 指令 |
+| 文件删除 | audio_config.lua、es8311.lua、exair153x_wdt.lua（看门狗改用 script/libs 扩展库） |
 | watchdog_app.lua | 已支持 enable 开关（8700 disable 自动跳过） |
 | README.md | 重写为 Air8700 版 |

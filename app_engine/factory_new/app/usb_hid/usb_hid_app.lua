@@ -39,14 +39,17 @@ local devices = {}             -- 已连接设备表 {id = {name, caps}}
 
 --[[
 @function usb_power_control
-@summary USB 电源控制
-@param boolean on true=开启, false=关闭
+@summary USB 电源控制（VBUS 只确保供电，禁止断电）
+@param boolean on true=确保供电, false=忽略（禁止拉低）
 @return nil
 ]]
 local function usb_power_control(on)
-    -- GPIO 控制 VBUS 供电（Air8601 开发板）
+    -- VBUS_GPIO=12 在 8605/8605B 上与 5V_EN 是同一物理脚，5V 轨同时给触摸屏供电：
+    -- 拉低断电会把 GT911 掉电复位、触摸直接失灵（2026-10-15 实测）。
+    -- 任何路径（含禁用 USB HID）都不得拉低，VBUS 保持常供电。
+    if not on then return end
     if VBUS_GPIO then
-        gpio.setup(VBUS_GPIO, on and 1 or 0, gpio.PULLUP)
+        gpio.setup(VBUS_GPIO, 1, gpio.PULLUP)
         sys.wait(100)
     end
 end

@@ -42,6 +42,15 @@ PRODUCT_KEY = "w1Nvdeca2nPLhOOEAwtnIoXuqav2hZ0o"
 local BOOT_MODE = "normal"
 -- ============================================================
 
+-- ==================== 【调试用】RFA 校准模式开关 ====================
+-- 可选值：
+--   false 默认：跳过 RFA 校准流程，开机直接进入 iRTU（UART1 不被 RFA 占用，调试串口透传用）
+--   true        启动 RFA AT 服务器（同时绑定 VUART_0 和 UART1），
+--               rfa_mode 为 true 时 UART1 由 RFA 独占
+-- 注意：量产固件应设为 true；false 时跳过 ecnpicfg 校准检查
+local RFA_ENABLE = false
+-- ============================================================
+
 log.info("main", PROJECT, VERSION)
 
 -- 初始化 fskv（产测标记 test_done 存储）
@@ -87,7 +96,7 @@ if boot_to_normal then
 
     local rfa = require("rfa")
 
-    if rfa and atc then
+    if RFA_ENABLE and rfa and atc then
         -- 启动 RFA AT 服务器，同时绑定 USB 虚拟串口 VUART_0 和 UART1，两个端口都能响应 RFA AT 指令
         -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致
         rfa.start(uart.VUART_0, 115200)
@@ -123,7 +132,11 @@ if boot_to_normal then
             end
         end)
     else
-        log.info("main", "rfa模块未加载，默认iRTU模式")
+        if not RFA_ENABLE then
+            log.info("main", "RFA_ENABLE=false 跳过RFA，直接进入iRTU模式")
+        else
+            log.info("main", "rfa模块未加载，默认iRTU模式")
+        end
         --加载irtu_main模块
         require "irtu_main"
     end

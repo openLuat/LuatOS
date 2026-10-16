@@ -145,6 +145,9 @@ local function on_sip_event(event, action, data)
         if action == "ok" then
             g_registered = true
             logi("SIP 注册成功")
+        elseif action == "challenge" then
+            -- 收到 401 挑战，exsip 会自动带凭证重发 REGISTER，属正常握手流程，非失败
+            logi("SIP 注册中(挑战鉴权)")
         else
             g_registered = false
             logi("SIP 注册失败", action)

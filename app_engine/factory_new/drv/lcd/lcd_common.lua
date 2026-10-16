@@ -1,8 +1,8 @@
 --[[
 @module  lcd_common
 @summary LCD/TP 驱动加载 + AirUI 初始化 + 密度缩放 + 背光控制（所有平台共用）
-@version 1.0
-@date    2026.05.22
+@version 1.1
+@date    2026.10.15
 @author  江访
 
 === 执行流程 ===
@@ -120,6 +120,8 @@ end
   GPIO 模式: backlight = { gpio_bl } — 通过 GPIO 直接控制亮灭（不支持调光）
 背光使能脚取值优先级: backlight.gpio_bl > params.pin_bl
   （params.pin_bl 已由 lcd_display_rgb.init 压低延后，此处点亮，防 RGB 残影闪屏）
+PWM 初始占空比取 backlight.level（settings_display_app 从 fskv 恢复/写回的亮度值），
+无记录时默认 100%
 @param table cfg  hw.lcd 配置（含 backlight 与 params）
 ]]
 function M.backlight_on(cfg)
@@ -139,9 +141,11 @@ function M.backlight_on(cfg)
         end
         local ch = bl.pwm_ch or 0
         local freq = bl.pwm_freq or 1000
-        pwm.setup(ch, freq, 100) -- 占空比 100%（最大亮度）
+        -- 占空比取 backlight.level（settings_display_app 从 fskv 恢复/写回的亮度），无记录默认 100%
+        local duty = bl.level or 100
+        pwm.setup(ch, freq, duty) -- 配置并缓存，不输出
         pwm.start(ch)            -- 启动 PWM 输出
-        log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq)
+        log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq .. " duty=" .. duty)
     end
 end
 

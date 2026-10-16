@@ -3220,8 +3220,6 @@ end
 -- ------------------------------------------------------------------
 
 local function net_cb(netc, event, param)
-    -- 降为 debug：这是每包都打的调试信息，留在 INFO 级会在真机上持续刷屏
-    log.debug("net_cb event =", event)
     if event == socket.ON_LINE then
         st.online = true
 
@@ -3249,7 +3247,6 @@ local function net_cb(netc, event, param)
             if not succ then break end
             if not data_len or data_len <= 0 then break end
             local data = rxbuf:toStr(0, rxbuf:used())
-            log.debug("收到", #data, "字节")   -- 同上，逐包调试信息
             rxbuf:del()
             if not feed(data) and string.upper(g_opts.transport) == "TCP" then
                 log_warn("TCP 流错位, 断连重注册")

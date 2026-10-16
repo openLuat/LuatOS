@@ -1,7 +1,8 @@
 # netdrv L2TPv2 客户端驱动设计文档
 
-> 适用范围：在 LuatOS `netdrv` 框架下新增 L2TPv2（RFC 2661）客户端驱动（LAC），
-> 当前首期落地 PC 模拟器（`bsp/pc`），硬件 BSP 按需开启 `LUAT_USE_NETDRV_L2TP`。
+> 适用范围：在 LuatOS `netdrv` 框架下新增 L2TPv2（RFC 2661）客户端驱动（LAC）。
+> 首期落地 PC 模拟器（`bsp/pc`），2026-10 完成 **Air1601 真机（CH390 外挂以太网）使能**
+> 与真实运营商 LNS 互通验证，见 §8。
 
 ---
 
@@ -268,6 +269,13 @@ LUAT_L2TP_TEST=pap build/out/luatos-lua.exe \
 回归：`netdrv_evt_pkg`（19/19）、`netdrv_lwip_intercept_basic`（3/3）通过；
 PC 增量编译 `Build completed successfully`，无新增告警。
 
+### 真实 LNS 联调用例（`testcase/unit/net/netdrv_l2tp_real_lns/`）
+
+mock LNS 覆盖协议细节，另一套用例覆盖**与真实运营商 LNS 的互通**（PC + Air1601
+都能跑，凭据走环境变量或 `/luadb/lns_secret.txt`，不入库）：隧道就绪 → IPCP 地址
+→ 隧道内 TCP/HTTP 往返。2026-10 在 PC 与 Air1601(COM23) 上均 `### OVERALL_PASS ###`，
+错误口令对照场景 `### OVERALL_FAIL ###`（证明不是空跑）。详见 §8。
+
 ### mock LNS 实现要点（实测中踩过的坑，写在这里供后续参考）
 
 - 每端第一条控制消息 NS 从 **0** 开始（SCCRP 的 NS 必须为 0）；
@@ -286,27 +294,39 @@ PC 增量编译 `Build completed successfully`，无新增告警。
 
 ## 6. 尚待完善之处
 
-1. **硬件 BSP 使能**：首期只落地 PC。硬件 BSP 需要确认 lwip 导出
-   `pbuf/netif/sys/ip4_input` 等符号；若未导出 `ip4_input`，在
-   `LUAT_USE_NETDRV_LWIP_ARP` 下把 vendor `ppp.c` 的调用改走
-   `luat_netdrv_ip4_input`。硬件侧建议在正式发布前跑一遍 mock LNS 验证。
+1. ~~**硬件 BSP 使能**~~ **已完成（2026-10，Air1601/CCM4211）**：原担心
+   `ip4_input` 等 lwIP 符号未导出——实测不成立，真机与 PC 共用
+   `components/network/lwip22`，静态链接无符号白名单，`ip4_input` 直接可用，
+   **不需要**改走 `luat_netdrv_ip4_input`。SDK 侧接线见 §8。
 2. **IPCP DNS 下发**：PC 当前 `LWIP_DNS=0`，`ppp.c` 的 `sdns()` 未编译，
-   IPCP 携带的 DNS 选项会被忽略。后续可评估启用 `LWIP_DNS` 或由驱动把
-   IPCP 协商出的 DNS 写入 `net_lwip2` 的 `set_dns_server`。
+   IPCP 携带的 DNS 选项会被忽略（真机同）。后续可评估启用 `LWIP_DNS`
+   或由驱动把 IPCP 协商出的 DNS 写入 `net_lwip2` 的 `set_dns_server`。
 3. **LNS 域名支持**：`l2tp_remote_ip` 仅支持 IP 字面量；可通过传输 adapter
    的 DNS 能力扩展域名解析（同 OpenVPN 现状）。
 4. **隧道认证自动化测试**：`l2tp_secret` 的 Challenge/Challenge-Response
    流程已实现，mock LNS 也支持 `--secret`，但当前四场景未覆盖，待补测试。
 5. **认证/加密能力扩展**：MSCHAPv2、MPPE（CCP）、EAP 需要额外 vendor
    `chap_ms.c/ccp.c/mppe.c/eap.c` 并调整编译选项，属后续需求。
+   已调研清楚：`chap-new.c/auth.c/lcp.c` 里的 MSCHAPv2 客户端代码**已经具备**，
+   只是被 `MSCHAP_SUPPORT 0` 编掉；补 `chap_ms.c` + MD4 垫片（mbedtls 3.x 无 MD4）
+   即可；MPPE 还需 `ccp.c/mppe.c` + 本地 RC4（本仓库 mbedtls 各版本都无 ARC4）。
+   触发条件：LNS 只允许 MSCHAPv2/EAP 时（当前实测的 LNS 只要 CHAP-MD5，不需要）。
 6. **多实例**：当前按单会话设计（`MEMP_NUM_PPP_PCB=1`），多隧道/多会话、
    隧道切换未支持。
 7. **资源释放细节**：配置字符串（用户名/密码/密钥）在客户端生命周期内保留，
    用户停止后不释放（便于再次启动）；PPP 会话若处于 `TERMINATE` 进行中，
    `ppp_free` 会等待状态归位，极端时序下可能保留 pcb 等待下一次 start 清理。
-8. **定时器预算**：`MEMP_NUM_SYS_TIMEOUT` 由 17 提到 24 以容纳
-   PPP/L2TP 的 LCP-FSM + LCP-Echo + 认证 + IPCP-FSM + L2TP 控制/周期定时器；
-   硬件侧若同时跑 OpenVPN/WG，需按实际固件核对预算。
+8. ~~**定时器预算**~~ **真机口径已修正**：`MEMP_NUM_SYS_TIMEOUT` 在真机上是
+   **死代码**——`lwipopts.h` 里 `LWIP_TIMERS_CUSTOM=1`，`core/timeouts.c` 与
+   SYS_TIMEOUT 内存池都不参与编译，定时器由
+   `components/network/lwip22/port/luat_rtos/luat_rtos_lwip.c` 用 RTOS 定时器实现
+   （堆分配，受 `LUAT_HEAP_SIZE` 约束）。真机侧必须满足的两个移植前提：
+   - `sys_jiffies()` 必须由移植层提供（`LWIP_TIMERS_CUSTOM=1` 时 lwip 不自带；
+     `ppp/magic.c` 用它做随机种子）——已补；
+   - `sys_untimeout()` **不能是空实现**：`ppp_close()` 用它取消 holdoff 的
+     `ppp_do_connect` 定时器，而 `ppp_free()` 随后会 `mem_free(pcb)`，空实现会让
+     定时器打到已释放的 pcb 上（use-after-free，只有真机会走这条路）——已按
+     "登记表 + id 寻址" 实现，见该文件 `sys_timeout/sys_untimeout` 注释。
 9. **CI 集成**：mock LNS 依赖本机 UDP 端口，目前是手工编排；后续可封装成
    CI job（起 LNS -> 跑模拟器 -> 校验 OVERALL_PASS）。
 10. **文档与 API 注释**：`luat_lib_netdrv.c` 已补充 `netdrv.L2TP` 用法注释，
@@ -320,3 +340,62 @@ PC 增量编译 `Build completed successfully`，无新增告警。
 - `components/network/lwip22/include/netif/ppp/ppp_opts.h`（选项语义）
 - RFC 2661（Layer Two Tunneling Protocol "L2TP"）
 - `testcase/unit/net/netdrv_l2tp_basic/mock_lns.py`（测试用 LNS 参考实现）
+- `testcase/unit/net/netdrv_l2tp_real_lns/`（真实 LNS 联调用例 + 协议探针/中继工具）
+
+---
+
+## 8. 真机（Air1601）使能与真实 LNS 互通（2026-10 实测）
+
+### 8.1 客户现场与实测结论
+
+客户给的 Windows 配置是「VPN 类型 = L2TP/IPsec + 数据加密 = 可选加密 +
+身份验证 = PAP/CHAP/MS-CHAPv2」，LNS `58.213.164.4`。实测结论：
+
+- 该 LNS **允许无 IPsec 的明文 L2TP**（单个裸 SCCRQ 32ms 内回 SCCRP，主机名
+  `tietaIDC.VPNserver-4`），因此**不需要** IKEv1/ESP 传输模式；
+- LNS 在 LCP ConfReq 中唯一要求的认证是 **CHAP alg=5（MD5）**，
+  **不需要** MS-CHAPv2、**不需要** MPPE/CCP；
+- 隧道 + PPP + IPCP 全部打通，隧道内 `/32` 地址 + 对端 `10.129.128.1`，
+  隧道内 HTTP 往返正常。
+
+即：**既有实现（PAP + CHAP-MD5）直接可用**。代价是隧道内数据不加密
+（仅 CHAP-MD5 认证），若客户要求传输加密则需另做 IKEv1 + ESP 传输模式
+（`docs/ipsec-design.md` §1 明确列为不做项，属重量级新功能）。
+
+### 8.2 SDK 侧接线（跨仓库改动，`luatos-sdk-ccm42xx-gcc`）
+
+`csdk/project/luatos/`：
+
+1. `include/luat_conf_bsp.h`：加 `#define LUAT_USE_NETDRV_L2TP 1`
+   （该开关在 LuatOS 仓库里只有 `bsp/pc` 定义过）。
+2. `xmake.lua`：剔除 `lwip22/netif/ppp/**.c`（避免与 vendor 副本重复），并加
+   `components/network/l2tp` 的 include + `src/ppp/*.c` + 三个客户端 TU
+   （后两者附加 `LUAT_L2TP_PPP_BUILD=1`）+ `luat_netdrv_l2tp.c`。
+   与 `bsp/pc/xmake.lua:955-963` 同款。
+3. 真机固件体积：FLASH 6.54MB / 8MB（77.99%），链接通过。
+
+### 8.3 真机测试链路上的三个坑
+
+- **默认网卡必须钉住**：`luat_netdrv_l2tp.c` 在 `setup()` 时把
+  `network_register_get_default()` 记为外层 UDP 传输网卡。Air1601 同时有
+  mobile/wlan，不显式 `socket.dft(socket.LWIP_ETH)` 可能从 4G/WiFi 出去；
+  且 netdrv 虚拟网卡注册后默认网卡会漂移成隧道自身。
+  `testcase/common/scripts/netready.lua` 的 Air1601 CH390 分支已补
+  `socket.dft(socket.LWIP_ETH)`，用例侧也做了兜底钉住。
+- **传输网卡上线时序**：试运行中点 1.05s 就 `netdrv.setup(L2TP)`，而 CH390 的
+  link/DHCP 到 1.74s 才好，客户端会打印 `transport offline, deferring start`
+  并按退避重试，2s 后自愈——这是设计内行为，不是故障。
+- **LuaDB 文件名上限 27 字节**（含 `.luac`）：长文件名的用例脚本会被
+  `luatos-cli` 打包阶段直接拒绝，真机用例文件名要短。
+
+### 8.4 真机测试跑法
+
+```powershell
+$CLI = "D:\github\luatos-cli\target\release\luatos-cli.exe"
+$SOC = "D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos\out\LuatOS-SoC_V1029_Air160X.soc"
+& $CLI flash test --soc $SOC --port COM23 --baud 6000000 `
+  --script D:\github\LuatOS\testcase\common\scripts `
+  --script D:\github\LuatOS\testcase\unit\net\netdrv_l2tp_real_lns\scripts `
+  --script <放 lns_secret.txt 的目录> `
+  --timeout 150 --keyword "### OVERALL_PASS ###" --fail-keyword "### OVERALL_FAIL ###"
+```

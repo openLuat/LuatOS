@@ -207,6 +207,7 @@ PPP MRU 默认 1450（`L2TP_DEFAULT_MTU`，可用 `l2tp_mtu` 配置）；L2TP �
 | `components/network/l2tp/src/luat_netdrv_l2tp.c` | netdrv 胶水层（setup/ctrl/dhcp/debug/状态回调） |
 | `components/network/l2tp/src/ppp/*.c` | vendored lwip 2.2.1 PPP 源码（12 个文件；含 MS-CHAPv2 的 `chap_ms.c` 与 `pppcrypt.c`） |
 | `components/network/l2tp/src/ppp/luat_ppp_md4.c/.h` | MD4（MS-CHAPv2 必需，各版 mbedtls 都不带；BSD 许可，vendor 自 lwip polarssl 副本） |
+| `components/network/l2tp/src/ppp/luat_ppp_dns.c` | IPCP DNS 落点（PPP 子集内 `dns_setserver/dns_getserver` 重定向到这里，见 §6.2） |
 | `components/network/l2tp/src/ppp/luat_ppp_opts_override.h` | PPP 编译选项覆盖 |
 | `components/network/l2tp/include/ppp_settings.h` | lwip `PPP_INCLUDE_SETTINGS_HEADER` port 钩子 |
 | `components/network/netdrv/include/luat_netdrv.h` | `luat_netdrv_l2tp_conf_t` + `conf.l2tp_conf` |
@@ -277,9 +278,12 @@ LUAT_L2TP_TEST=pap build/out/luatos-lua.exe \
 #   --port 1705 --auth mschapv2 --bad-auth-response            (mschapv2-bad)
 #   --port 1706 --auth pap --secret tunnel-secret-123          (secret)
 #   --port 1707 --auth pap --secret tunnel-secret-123          (secret-bad)
+#   --port 1708 --auth pap --no-dns                            (no-dns)
+#
+# 全量回归: pwsh -File tools/l2tp_matrix.ps1    (自动起停 mock, 逐个判 OVERALL_PASS)
 ```
 
-八个场景全部实测通过（`### OVERALL_PASS ###`）：
+九个场景全部实测通过（`### OVERALL_PASS ###`）：
 
 | 场景 | 验证点 |
 |---|---|
@@ -291,6 +295,11 @@ LUAT_L2TP_TEST=pap build/out/luatos-lua.exe \
 | mschapv2-bad | LNS 回**算错的** Authenticator Response -> 客户端必须拒绝建链（`chapms2_check_success`） |
 | secret | L2TP 隧道认证（共享密钥）通过 + 隧道内 echo |
 | secret-bad | 隧道密钥不匹配 -> LNS 回 StopCCN -> 一直 not ready |
+| no-dns | IPCP 不下发 DNS：隧道与 IP 直连照旧可用，但域名解析不了（mock 只在被下发的那个 DNS 地址上应答，避免用网关回落地址解析成功而掩盖问题） |
+
+另：pap/chap/mschapv2 三个正向场景还会额外做一次**隧道内域名解析**——
+mock 在 IPCP 下发的 DNS 地址上应答 `lns.test`，用例用域名建链 + echo 成功，
+证明 DNS 不是"设上了但没用"。
 
 > `mschapv2*` 场景需要 `pycryptodome`（`pip install pycryptodome`）；缺失时 mock 会在
 > 启动阶段明确报错退出，不会静默降级成别的认证方式。
@@ -329,9 +338,16 @@ mock LNS 覆盖协议细节，另一套用例覆盖**与真实运营商 LNS 的�
    `ip4_input` 等 lwIP 符号未导出——实测不成立，真机与 PC 共用
    `components/network/lwip22`，静态链接无符号白名单，`ip4_input` 直接可用，
    **不需要**改走 `luat_netdrv_ip4_input`。SDK 侧接线见 §8。
-2. **IPCP DNS 下发**：PC 当前 `LWIP_DNS=0`，`ppp.c` 的 `sdns()` 未编译，
-   IPCP 携带的 DNS 选项会被忽略（真机同）。后续可评估启用 `LWIP_DNS`
-   或由驱动把 IPCP 协商出的 DNS 写入 `net_lwip2` 的 `set_dns_server`。
+2. ~~**IPCP DNS 下发**~~ **已支持**：PPP 这一组 TU 以 `LWIP_DNS=1` 编译（IPCP 的
+   `CI_MS_DNS1/2` 处理与 `ppp.c` 的 `sdns()/cdns()` 都在 `#if LWIP_DNS` 里，
+   不开就既不会向 LNS 要 DNS、也会忽略对端 NAK 里带的 DNS），并把
+   `dns_setserver/dns_getserver` 宏重定向到 `src/ppp/luat_ppp_dns.c` 存下来；
+   链路 up 时由 `luat_netdrv_l2tp.c` 取走调 `network_set_dns_server()` 装到隧道网卡
+   （net_lwip2 同时失效该网卡 DNS 缓存）。另外必须 `ppp_set_usepeerdns(ppp, 1)`，
+   否则 `wo->req_dns1/2` 全为 0，DNS 请求根本不会发出。
+   与 lwip 核心 `dns.c` 完全解耦（本 BSP 全局 `LWIP_DNS` 仍是 0），
+   不影响其它网卡/组件的 DNS 行为。注意：**真实那台 LNS 不推 DNS**
+   （中继抓包确认 IPCP 只有 IP-Address），所以端到端解析只在 mock LNS 上验证。
 3. **LNS 域名支持**：`l2tp_remote_ip` 仅支持 IP 字面量；可通过传输 adapter
    的 DNS 能力扩展域名解析（同 OpenVPN 现状）。
 4. **隧道认证自动化测试**：`l2tp_secret` 的 Challenge/Challenge-Response

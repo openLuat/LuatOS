@@ -1,6 +1,6 @@
 {
     "name": "netdrv_l2tp_basic",
-    "description": "netdrv L2TPv2 client basic tests (PC, needs mock_lns.py; scenarios: pap/chap/reject/reconnect/mschapv2/mschapv2-bad/secret/secret-bad; mschapv2 needs pycryptodome)",
+    "description": "netdrv L2TPv2 client basic tests (PC, needs mock_lns.py; scenarios: pap/chap/reject/reconnect/mschapv2/mschapv2-bad/secret/secret-bad/no-dns; mschapv2 needs pycryptodome). Full matrix: pwsh -File tools/l2tp_matrix.ps1",
     "platforms": ["PC"],
     "deps": ["netdrv"]
 }

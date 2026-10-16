@@ -68,6 +68,18 @@
 #undef LWIP_USE_EXTERNAL_MBEDTLS
 #define LWIP_USE_EXTERNAL_MBEDTLS 1
 
+/* ---- IPCP DNS ----
+ * 本 BSP 全局 LWIP_DNS=0(lwip 核心 dns.c 是空对象), 但 IPCP 的 CI_MS_DNS1/2
+ * 处理与 ppp.c 的 sdns()/cdns() 都在 #if LWIP_DNS 里, 不开就根本不会向 LNS
+ * 要 DNS。所以只让 PPP 这一组 TU 认为 LWIP_DNS=1, 并把 dns_setserver/
+ * dns_getserver 重定向到 luat_ppp_dns.c(存下来), 由 netdrv 胶水层在链路 up 时
+ * 调 network_set_dns_server() 交给 LuatOS 适配器层。
+ * 与 lwip 核心的 dns.c 完全解耦 —— 不改动其它网卡/组件的 DNS 行为。 */
+#undef LWIP_DNS
+#define LWIP_DNS 1
+#define dns_setserver luat_ppp_dns_set_server
+#define dns_getserver luat_ppp_dns_get_server
+
 /* netif/ppp/pppcrypt.h maps lwip_md5_* to mbedtls_md5_* but relies on the
  * port to provide the mbedTLS headers, so pull in md5.h here (it is included
  * after ppp_opts.h / lwipopts.h, before any pppcrypt.h usage).

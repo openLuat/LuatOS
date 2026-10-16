@@ -256,6 +256,52 @@ class LNS:
         dst = socket.inet_ntoa(pkt[16:20])
         if proto == 6:
             self.handle_tcp(src, dst, pkt[ihl:])
+        elif proto == 17:
+            self.handle_udp(src, dst, pkt[ihl:])
+
+    # ------------------------------------------------------- DNS responder
+    def handle_udp(self, src, dst, udp):
+        if len(udp) < 8:
+            return
+        sport, dport, ulen, _chk = struct.unpack("!HHHH", udp[:8])
+        payload = udp[8:ulen] if 8 <= ulen <= len(udp) else udp[8:]
+        self.log("UDP %s:%d -> %s:%d len=%d" % (src, sport, dst, dport, len(payload)))
+        # 只在"IPCP 确实下发了 DNS, 且查询打到那个地址"时才应答。
+        # 否则客户端可以用网关等回落地址解析成功, 用例就区分不出 DNS 到底有没有生效。
+        if dport == 53 and not self.args.no_dns and dst == self.args.dns1 \
+                and len(payload) >= 12:
+            self.answer_dns(src, sport, payload)
+
+    def answer_dns(self, src, sport, query):
+        """最小 DNS 应答: 任何 A 查询都回 --dns-reply-ip (默认隧道对端地址)。
+        用途是验证 IPCP 下发的 DNS 真被客户端装到隧道网卡上并实际使用了 ——
+        只有装上了, 客户端才会把查询发到这里。"""
+        tid = query[:2]
+        i, labels = 12, []
+        while i < len(query) and query[i] != 0 and len(labels) < 16:
+            ln = query[i]
+            labels.append(query[i + 1:i + 1 + ln].decode("latin1"))
+            i += 1 + ln
+        if i >= len(query):
+            return
+        name = ".".join(labels)
+        qend = min(i + 1 + 4, len(query))          # 根标签 + qtype + qclass
+        # 应答: 指针指向问题里的 QNAME + A 记录
+        ans = b"\xc0\x0c" + struct.pack("!HHIH", 1, 1, 30, 4) + ip4(self.args.dns_reply_ip)
+        resp = tid + struct.pack("!HHHHH", 0x8180, 1, 1, 0, 0) + query[12:qend] + ans
+
+        udp_out = struct.pack("!HHHH", 53, sport, 8 + len(resp), 0) + resp
+        self.inner_send(self.args.dns_reply_ip, src, 17, udp_out)
+        self.log("DNS %s -> %s" % (name, self.args.dns_reply_ip))
+
+    def inner_send(self, src, dst, proto, payload):
+        """把一段传输层载荷封成 IPv4 包, 走 L2TP 数据面回给客户端"""
+        total = 20 + len(payload)
+        ip_hdr = struct.pack("!BBHHHBBH4s4s", 0x45, 0, total, 0, 0, 64,
+                             proto, 0, ip4(src), ip4(dst))
+        ip_chk = checksum(ip_hdr)
+        ip_hdr = ip_hdr[:10] + struct.pack("!H", ip_chk) + ip_hdr[12:]
+        self.udp_send_to_client(self.l2tp_data(u16(PPP_IP) + ip_hdr + payload))
 
     def handle_tcp(self, src, dst, tcp):
         if len(tcp) < 20:
@@ -521,11 +567,14 @@ class LNS:
                 self.log("IPCP Configure-Ack (%s)" % self.args.ip)
             else:
                 opts = b"\x03\x06" + ip4(self.args.ip)
-                opts += b"\x81\x06" + ip4(self.args.dns1)
-                opts += b"\x83\x06" + ip4(self.args.dns2)
+                if not self.args.no_dns:
+                    opts += b"\x81\x06" + ip4(self.args.dns1)   # Primary DNS
+                    opts += b"\x83\x06" + ip4(self.args.dns2)   # Secondary DNS
                 nak = struct.pack("!BBH", 3, ident, 4 + len(opts)) + opts
                 self.udp_send_to_client(self.ppp_send(PPP_IPCP, nak))
-                self.log("IPCP Configure-Nak -> %s" % self.args.ip)
+                self.log("IPCP Configure-Nak -> %s%s" % (
+                    self.args.ip, " (no DNS)" if self.args.no_dns else
+                    " dns=%s/%s" % (self.args.dns1, self.args.dns2)))
             # IPCP is symmetric: send our own Configure-Request so the
             # client's FSM can leave ACKRCVD and open IPCP.
             if not self.ipcp_confreq_sent:
@@ -720,6 +769,10 @@ def main():
     ap.add_argument("--ip", default="192.168.8.2")
     ap.add_argument("--dns1", default="192.168.8.1")
     ap.add_argument("--dns2", default="8.8.8.8")
+    ap.add_argument("--dns-reply-ip", default="192.168.8.1",
+                    help="隧道内 DNS 应答器返回的 A 记录地址")
+    ap.add_argument("--no-dns", action="store_true",
+                    help="IPCP 不下发 DNS(用于验证不下发时客户端不受影响)")
     ap.add_argument("--reject-auth", action="store_true")
     ap.add_argument("--bad-auth-response", action="store_true",
                     help="MSCHAPv2: 故意回一个算错的 Authenticator Response")

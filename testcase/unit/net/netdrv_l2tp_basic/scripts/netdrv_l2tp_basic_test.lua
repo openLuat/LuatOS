@@ -36,11 +36,13 @@ local function wait_ready(timeout_ms)
 end
 
 -- 隧道内 TCP echo: 连接对端 7 端口, 发送一段数据, 等待原样回显
-local function tcp_echo_through_tunnel()
+-- host 可以是 IP, 也可以是域名(用于验证 IPCP 下发的 DNS 是否真的生效)
+local function tcp_echo_through_tunnel(host)
     local got = false
     local echoed = false
     local closed = false
     local payload = "hello-l2tp-echo-" .. tostring(mcu.ticks())
+    host = host or TUNNEL_PEER
 
     local sk = socket.create(L2TP_ADAPTER, function(sc, event, param)
         log.info("l2tp_test", "socket event", event, param)
@@ -67,8 +69,8 @@ local function tcp_echo_through_tunnel()
     end)
     assert(sk, "socket.create on L2TP adapter failed")
     socket.config(sk, nil, false, false)
-    local ok, result = socket.connect(sk, TUNNEL_PEER, 7)
-    log.info("l2tp_test", "connect", ok, result)
+    local ok, result = socket.connect(sk, host, 7)
+    log.info("l2tp_test", "connect", host, ok, result)
 
     local deadline = mcu.ticks() + 15000
     while mcu.ticks() < deadline do
@@ -81,8 +83,8 @@ local function tcp_echo_through_tunnel()
         sys.wait(200)
     end
     socket.close(sk)
-    assert(echoed, "TCP echo through L2TP tunnel failed, got=" .. tostring(got)
-           .. " closed=" .. tostring(closed))
+    assert(echoed, "TCP echo through L2TP tunnel failed (" .. tostring(host) .. "), got="
+           .. tostring(got) .. " closed=" .. tostring(closed))
     return true
 end
 
@@ -153,6 +155,49 @@ function M.test_l2tp_tunnel_secret_mismatch()
     assert(not wait_ready(15000),
            "L2TP must NOT become ready with a wrong tunnel secret")
     log.info("l2tp_test", "wrong tunnel secret rejected as expected")
+    return true
+end
+
+-- IPCP DNS 端到端: mock LNS 在 192.168.8.1:53 应答 "lns.test" -> 192.168.8.1。
+-- 用**域名**建链成功, 才说明 IPCP 下发的 DNS 真被装到隧道网卡上并被用上了
+-- (只断言"设置成功"是不够的: 设了不用等于没设)。
+function M.test_l2tp_ipcp_dns()
+    if M.mode ~= "pap" and M.mode ~= "chap" and M.mode ~= "mschapv2" then
+        return true -- 非本模式, 跳过
+    end
+    assert(setup_l2tp(), "netdrv.setup(L2TP) failed")
+    assert(wait_ready(30000), "L2TP not ready within 30s")
+    assert(tcp_echo_through_tunnel("lns.test"), "DNS-resolved echo failed")
+    log.info("l2tp_test", "tunnel DNS resolve + echo ok")
+    return true
+end
+
+-- 负向: mock 用 --no-dns 不下发 DNS(隧道本身仍正常), 此时域名应解析不了,
+-- 但隧道内直连 IP 必须照旧可用 —— 证明"不下发 DNS"不会连带影响链路
+function M.test_l2tp_no_ipcp_dns()
+    if M.mode ~= "no-dns" then
+        return true -- 非本模式, 跳过
+    end
+    assert(setup_l2tp(), "netdrv.setup(L2TP) failed")
+    assert(wait_ready(30000), "L2TP not ready within 30s (DNS 不下发不应影响建链)")
+    assert(tcp_echo_through_tunnel(), "IP echo failed without IPCP DNS")
+
+    local online = false
+    local sk = socket.create(L2TP_ADAPTER, function(sc, event, param)
+        if event == socket.ON_LINE then
+            online = true
+        end
+    end)
+    assert(sk, "socket.create failed")
+    socket.config(sk, nil, false, false)
+    socket.connect(sk, "lns.test", 7)
+    local deadline = mcu.ticks() + 8000
+    while mcu.ticks() < deadline and not online do
+        sys.wait(200)
+    end
+    socket.close(sk)
+    assert(not online, "域名不该解析成功(对端未下发 DNS)")
+    log.info("l2tp_test", "no IPCP DNS: domain unresolved as expected, IP path still ok")
     return true
 end
 

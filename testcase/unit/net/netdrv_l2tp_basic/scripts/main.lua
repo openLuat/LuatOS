@@ -11,6 +11,8 @@ VERSION = "1.0.0"
 --                  客户端必须拒绝建链                  (mock LNS 端口 1705, --bad-auth-response)
 --   secret       : L2TP 隧道认证(共享密钥)通过         (mock LNS 端口 1706, --secret xxx)
 --   secret-bad   : 隧道密钥不匹配, 不应 ready          (mock LNS 端口 1707, --secret xxx)
+--   no-dns       : IPCP 不下发 DNS, 隧道仍可用但域名解析不了
+--                                                      (mock LNS 端口 1708, --no-dns)
 local mode = os.getenv and os.getenv("LUAT_L2TP_TEST") or "pap"
 local port = 1701
 if mode == "chap" then
@@ -25,6 +27,8 @@ elseif mode == "secret" then
     port = 1706
 elseif mode == "secret-bad" then
     port = 1707
+elseif mode == "no-dns" then
+    port = 1708
 end
 
 testrunner = require("testrunner")

@@ -203,6 +203,11 @@ void l2tp_abort_connect(l2tp_client_t *cli);
 void l2tp_stop_internal(l2tp_client_t *cli);
 void l2tp_schedule_retry(l2tp_client_t *cli, const char *reason);
 
+/* IPCP 协商到的 DNS(网络字节序 IPv4; 0 = 没有), idx 0=主 1=备。
+ * 实现见 src/ppp/luat_ppp_dns.c: PPP 子集内 LWIP_DNS=1, dns_setserver 被重定向
+ * 到这里存下来, 由 luat_netdrv_l2tp.c 在链路 up 时推给 network_set_dns_server()。 */
+uint32_t luat_ppp_dns_get_server_u32(uint8_t idx);
+
 #ifdef __cplusplus
 }
 #endif

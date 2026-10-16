@@ -50,10 +50,15 @@ typedef struct
 }net_lwip2_dns_ctl_t;
 
 /**
- * 应用 DNS 配置并按需回读统计.
- * @return 0 成功并已取回回读数据; < 0 超时(回读数据可能是上一次的值)
+ * 应用 DNS 配置并按需回读统计. 这是【平台无关】的入口名, 由各平台适配层提供:
+ *   - 真机(Air1601 等): net_lwip2.c 里的实现, 报文收发在 tcpip 线程,
+ *     配置经事件投递 + done 握手跨线程应用;
+ *   - PC 模拟器: bsp/pc 的 POSIX 适配层里的实现, 报文收发在独立 dns 线程,
+ *     配置在同进程内直接应用。
+ * Lua 绑定层只认这个名字, 不需要知道自己是哪个平台。
+ * @return 0 成功并已取回回读数据; < 0 失败(客户端未就绪等)
  */
-int net_lwip2_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms);
+int netdrv_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms);
 
 #endif /* LUAT_USE_NETDRV_DNS_CLIENT */
 

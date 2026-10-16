@@ -995,7 +995,7 @@ static int l_netdrv_dns_ctrl(lua_State *L, int id)
      */
     memset(&ctl, 0, sizeof(ctl));
     ctl.done = 0;
-    if (net_lwip2_dns_ctrl(&ctl, NETDRV_DNS_STAT_TIMEOUT) != 0) {
+    if (netdrv_dns_ctrl(&ctl, NETDRV_DNS_STAT_TIMEOUT) != 0) {
         lua_pushboolean(L, 0);
         lua_pushnil(L);
         return 2;
@@ -1037,7 +1037,7 @@ static int l_netdrv_dns_ctrl(lua_State *L, int id)
         ctl.want_stat = 1;
     }
 
-    if (net_lwip2_dns_ctrl(&ctl, NETDRV_DNS_STAT_TIMEOUT) != 0) {
+    if (netdrv_dns_ctrl(&ctl, NETDRV_DNS_STAT_TIMEOUT) != 0) {
         lua_pushboolean(L, 0);
         lua_pushnil(L);
         return 2;

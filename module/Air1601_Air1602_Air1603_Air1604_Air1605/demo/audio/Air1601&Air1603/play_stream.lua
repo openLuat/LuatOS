@@ -19,11 +19,27 @@
 
 local exaudio = require("exaudio")
 
+-- 硬件环境配置说明
+-- 本Demo支持以下硬件环境，请根据实际使用情况修改HARDWARE_ENV变量：
+--   "AIR1601_V1_1"  - Air1601 V1.1开发板：PA_EN = IO12
+--   "AIR1601_V1_2"  - Air1601 V1.2开发板：PA_EN = IO73
+--   "AIR1603_8607"  - Air1603 / 8607开发板：PA_EN = IO73
+-- 详细说明请参考本目录下的readme.md文件
+HARDWARE_ENV = "AIR1601_V1_2"  -- Air1601 V1.2开发板(PA_EN=IO73)。使用8607开发板请改为"AIR1603_8607"
+
+-- PA脚映射：不同板型/版本的功放使能脚不同
+local pa_pin_map = {
+    AIR1601_V1_1 = 12,
+    AIR1601_V1_2 = 73,
+    AIR1603_8607 = 73,
+}
+local pa_pin = pa_pin_map[HARDWARE_ENV] or 73
+
 -- 音频初始化设置参数 (DAC模式)
 local audio_setup_param ={
     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
     
-    pa_ctrl = 12,             -- 音频放大器电源控制管脚，Air1601_V1.1开发板-IO12，Air1601_V1.2开发板-IO73
+    pa_ctrl = pa_pin,         -- 音频放大器电源控制管脚，Air1601_V1.1-IO12，Air1601_V1.2/8607-IO73
     pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
     dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }

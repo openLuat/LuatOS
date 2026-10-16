@@ -85,7 +85,7 @@ static void voip_reset_session_state(voip_ctx_t *ctx);
 static int  voip_session_start(voip_ctx_t *ctx);
 static void voip_session_stop(voip_ctx_t *ctx, int notify_idle);
 static int  voip_runtime_init(voip_ctx_t *ctx);
-static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime);
+static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime, uint32_t ssrc);
 static int  voip_pack_rtp_packet(voip_rtp_tx_state_t *state, const uint8_t *payload, uint16_t payload_len, uint8_t *out_buf, uint16_t out_max_len, uint16_t *out_len);
 static int  voip_parse_rtp_packet(const uint8_t *data, uint16_t len, voip_rtp_parsed_t *out);
 static const int16_t *voip_prepare_tx_pcm(voip_ctx_t *ctx, const int16_t *mic_pcm,
@@ -211,6 +211,18 @@ static int32_t voip_net_cb(void *pdata, void *pparam)
     uint32_t ev_id = event->ID;
 
     if (ev_id == EV_NW_RESULT_EVENT) {
+        /* Param1 != 0 = 收包侧出错。**TCP 上对端关闭媒体连接就是这么报的**（事件号仍是
+           RX_READY、Param1=-1，CLOSE 事件根本不来），必须收摊，否则下一次对讲起不来。
+           UDP 没有连接语义，不动它。 */
+        if (event->Param1 != 0 && ctx->config.transport != VOIP_TRANSPORT_UDP &&
+                (ctx->state == VOIP_STATE_RUNNING || ctx->state == VOIP_STATE_STARTING)) {
+            LLOGW("voip 媒体连接异常(p1=%d)，结束会话", (int)event->Param1);
+            ctx->stop_requested = 1;
+            if (ctx->task_handle) {
+                luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_STOP, 0, 0, session, 0);
+            }
+            return 0;
+        }
         if (ctx->state == VOIP_STATE_RUNNING && ctx->task_handle) {
             voip_notify_data(ctx, &ctx->rx_event_state, VOIP_EVENT_RX_DATA, session);
         }
@@ -222,6 +234,17 @@ static int32_t voip_net_cb(void *pdata, void *pparam)
 #endif
     } else if (ev_id == EV_NW_RESULT_CLOSE || ev_id == EV_NW_SOCKET_ERROR) {
         LLOGW("voip net event 0x%x", (unsigned)ev_id);
+        /* **必须收摊**：对端关了媒体连接这条路就废了。只记日志的话状态停在 RUNNING、
+           还往死连接里发，下一次 voip.start 会因"已经在跑"失败（真机：网页挂断后再点
+           对讲就再接不上）。本函数在网络回调上下文，不能调 voip_stop()（它 suspend
+           所有任务，在这里 suspend 自己就回不来），只做原子标志 + 发停止事件。 */
+        if (ctx->state == VOIP_STATE_RUNNING || ctx->state == VOIP_STATE_STARTING) {
+            uint32_t session = ctx->audio_session;
+            ctx->stop_requested = 1;
+            if (ctx->task_handle) {
+                luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_STOP, 0, 0, session, 0);
+            }
+        }
     }
     return 0;
 }
@@ -326,7 +349,7 @@ static const int16_t *voip_prepare_tx_pcm(voip_ctx_t *ctx, const int16_t *mic_pc
     return voip_aec_process_frame(ctx, mic_pcm, render_seq, capture_seq, capture_tick_ms);
 }
 
-static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime)
+static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime, uint32_t ssrc)
 {
     if (!state) return -1;
 
@@ -342,7 +365,11 @@ static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_ty
     state->timestamp = (uint32_t)(uPV.u32 & 0x7FFFFFFF);
     if (luat_crypto_trng((char *)uPV.u8, 4)) return -1;
     state->ssrc = (uint32_t)(uPV.u32 & 0x7FFFFFFF);
-    if (state->ssrc == 0) {
+    if (ssrc != 0) {
+        /* 调用方指定：GB28181 把同一个值写进 SDP 的 y=，平台按它校验 RTP，
+           随机值对不上会被平台拒收（实测 ZLM 打印"允许RTP推流，ssrc: <y 的值>"） */
+        state->ssrc = ssrc;
+    } else if (state->ssrc == 0) {
         state->ssrc = 1;
     }
     return 0;
@@ -514,16 +541,26 @@ static int voip_send_tx_frame(voip_ctx_t *ctx, const int16_t *pcm,
         LLOGW("encode mismatch used=%u out_len=%u expected=%u", used, out_len, ctx->rtp_payload_len);
         return -1;
     }
+    /* TCP 要在 RTP 包前加 RFC 4571 的长度前缀：包体往后挪两字节打包，
+       前缀回填缓冲头（规则见 luat_voip_tcp_framer.h） */
+    int is_tcp = (ctx->config.transport != VOIP_TRANSPORT_UDP);
+    uint8_t *wire_buf = ctx->rtp_packet_buf;
+    uint16_t wire_cap = ctx->rtp_packet_buf_size;
+    if (is_tcp) {
+        wire_buf += VOIP_TCP_PREFIX_LEN;
+        wire_cap -= VOIP_TCP_PREFIX_LEN;
+    }
+
     before = ctx->rtp_tx;
     ret = voip_pack_rtp_packet(&ctx->rtp_tx, ctx->tx_g711_buf,
-            (uint16_t)out_len, ctx->rtp_packet_buf,
-            ctx->rtp_packet_buf_size, &rtp_len);
+            (uint16_t)out_len, wire_buf,
+            wire_cap, &rtp_len);
     if (ret < 0) return -1;
 #ifdef LUAT_USE_SRTP
     if (ctx->config.security) {
         size_t protected_len = rtp_len;
-        ret = luat_voip_security_protect(ctx->config.security, ctx->rtp_packet_buf,
-                &protected_len, ctx->rtp_packet_buf_size);
+        ret = luat_voip_security_protect(ctx->config.security, wire_buf,
+                &protected_len, wire_cap);
         if (ret < 0) {
             voip_stats_add(&ctx->stats.tx_errors, 1);
             voip_notify_lua(VOIP_CB_ERROR, ret);
@@ -533,7 +570,12 @@ static int voip_send_tx_frame(voip_ctx_t *ctx, const int16_t *pcm,
         rtp_len = (uint16_t)protected_len;
     }
 #endif
-    ret = network_tx((network_ctrl_t *)ctx->netc, ctx->rtp_packet_buf,
+    if (is_tcp) {
+        voip_tcp_prefix_write(ctx->rtp_packet_buf, rtp_len);
+        wire_buf = ctx->rtp_packet_buf;
+        rtp_len = (uint16_t)(rtp_len + VOIP_TCP_PREFIX_LEN);
+    }
+    ret = network_tx((network_ctrl_t *)ctx->netc, wire_buf,
             rtp_len, 0, NULL, 0, &tx_len, 0);
     if (ret < 0 || tx_len != rtp_len) {
 #ifdef LUAT_USE_SRTP
@@ -950,6 +992,146 @@ static int voip_g729_rx_prepare(voip_ctx_t *ctx, const voip_rtp_parsed_t *parsed
 #endif
 #endif
 
+/* 把一帧解码后的 PCM（在 ctx->rx_pcm_buf）交给桥或抖动缓冲。序号由调用方给。 */
+static void voip_deliver_frame(voip_ctx_t *ctx, uint16_t seq, uint32_t ssrc)
+{
+#ifdef LUAT_USE_VOIP_BRIDGE
+    if (ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE) {
+        uint16_t samples = ctx->frame_samples;
+        if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+        if (ctx->bridge_rx_frames) {
+            if (!ctx->bridge_rx_ssrc_valid || ctx->bridge_rx_ssrc != ssrc) {
+                voip_bridge_rx_clear(ctx);
+                ctx->bridge_rx_ssrc = ssrc;
+                ctx->bridge_rx_ssrc_valid = 1;
+                ctx->stats.last_rx_seq_valid = 0;
+            }
+            voip_bridge_rx_push(ctx, seq);
+        } else {
+            for (uint16_t i = 0; i < samples; i++) {
+                if (ctx->bridge_rx_count >= VOIP_BRIDGE_BUF_SAMPLES) {
+                    ctx->bridge_rx_read_idx = (ctx->bridge_rx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+                    ctx->bridge_rx_count--;
+                }
+                ctx->bridge_rx_buf[ctx->bridge_rx_write_idx] = ctx->rx_pcm_buf[i];
+                ctx->bridge_rx_write_idx = (ctx->bridge_rx_write_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+                ctx->bridge_rx_count++;
+            }
+        }
+        if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+    } else {
+        voip_jb_push(ctx->jb, seq, ctx->rx_pcm_buf);
+    }
+#else
+    voip_jb_push(ctx->jb, seq, ctx->rx_pcm_buf);
+#endif
+    voip_stats_add(&ctx->stats.rx_frames, 1);
+    voip_track_rx_sequence(ctx, seq);
+}
+
+/* 处理一个完整的 RTP 包 —— UDP 的一个数据报，或 TCP 按 RFC 4571 拼出的一帧。
+   承载无关：承载的差异只体现在"怎么把包凑出来"，凑出来之后一模一样。 */
+static void voip_handle_rtp(voip_ctx_t *ctx, const uint8_t *pkt, uint16_t len)
+{
+    /* RTP 解析 */
+    voip_rtp_parsed_t parsed;
+    int ret = voip_parse_rtp_packet(pkt, (uint16_t)len, &parsed);
+    if (ret < 0) {
+        ctx->stats.rx_parse_fail++;
+        LLOGE("rtp parse failed: %d", ret);
+        return;
+    }
+
+    if (parsed.payload_type != ctx->rtp_payload_type) {
+        ctx->stats.rx_bad_payload++;
+        LLOGE("unexpected RTP payload type: %u", parsed.payload_type);
+        return;
+    }
+
+    /* 只要求是**整包的整数倍**：包长是平台定的（实测 WVP 的对讲下行 100ms/800 字节），
+       要求严格相等会把每个下行包整包丢掉（现象：喇叭没声、平台侧流却正常）。
+       非整数倍（含 G.729 的 2 字节 SID 帧）仍按畸形丢，交给抖动缓冲隐藏。 */
+    if (parsed.payload_len == 0 || (parsed.payload_len % ctx->rtp_payload_len) != 0) {
+        ctx->stats.rx_bad_payload++;
+        if ((ctx->stats.rx_bad_payload & 0x3FU) == 1U) {
+            LLOGW("drop RTP payload len=%u not a multiple of %u seq=%u",
+                  parsed.payload_len, ctx->rtp_payload_len, parsed.sequence);
+        }
+        return;
+    }
+
+    /* G.729 是有状态编码：迟到的包不能再解（会污染预测器历史）。重复/乱序丢弃，
+       有限丢包先补出静音帧，见 voip_g729_rx_prepare 里的说明。 */
+#if defined(LUAT_USE_VOIP_BRIDGE) && defined(LUAT_SUPPORT_G729)
+    if (ctx->config.codec == VOIP_CODEC_G729 && ctx->bridge_rx_frames) {
+        int prepared = voip_g729_rx_prepare(ctx, &parsed);
+        if (prepared <= 0) {
+            if (prepared < 0) voip_stats_add(&ctx->stats.rx_bad_payload, 1);
+            return;
+        }
+    }
+#endif
+
+    /* 按整包切开逐块解。**帧序号按时间戳推，不能拿包序号 +1** —— 序号是按"包"递增的，
+       切出来的第 2..N 帧会撞上下一包的序号，抖动缓冲满屏 `jb resync` 直至重启。 */
+    uint32_t ts_step = ctx->frame_samples;
+    if (!ctx->rx_ts_base_valid || ctx->rx_ts_ssrc != parsed.ssrc) {
+        ctx->rx_ts_base = parsed.timestamp;
+        ctx->rx_ts_base_seq = parsed.sequence;
+        ctx->rx_ts_ssrc = parsed.ssrc;
+        ctx->rx_ts_base_valid = 1;
+    }
+    /* 只在**时间戳往回跳**时重对时基。**不能加上限**：正常流跑久了就会超过任何上限，
+       那样会周期性误重对，帧序号被拉回包序号量级 → 抖动缓冲一路 resync。 */
+    int32_t ts_off = (int32_t)(parsed.timestamp - ctx->rx_ts_base);
+    if (ts_off < 0) {
+        ctx->rx_ts_base = parsed.timestamp;
+        ctx->rx_ts_base_seq = parsed.sequence;
+        ts_off = 0;
+    }
+
+    uint16_t units = (uint16_t)(parsed.payload_len / ctx->rtp_payload_len);
+    for (uint16_t u = 0; u < units; u++) {
+        const uint8_t *chunk = parsed.payload + (uint32_t)u * ctx->rtp_payload_len;
+        uint16_t seq = (uint16_t)(ctx->rx_ts_base_seq +
+                (uint32_t)(ts_off + (int32_t)u * (int32_t)ts_step) / ts_step);
+        uint32_t pcm_len = 0;
+        uint32_t used = 0;
+        uint64_t started_ms = luat_mcu_tick64_ms();
+
+        ret = ctx->codec_decoder.opts->decode(&ctx->codec_decoder, NULL, chunk,
+                ctx->rtp_payload_len, (uint8_t *)ctx->rx_pcm_buf, &pcm_len, &used);
+        voip_stats_codec_time(ctx, 0, started_ms);
+
+        if (ret == LUAT_ERROR_NONE &&
+            pcm_len == ctx->frame_bytes && used == ctx->rtp_payload_len) {
+            voip_deliver_frame(ctx, seq, parsed.ssrc);
+        } else {
+#if defined(LUAT_USE_VOIP_BRIDGE) && defined(LUAT_SUPPORT_G729)
+            /* 解坏了：G.729 的预测器已经不可信，重开解码器 */
+            if (ctx->config.codec == VOIP_CODEC_G729 && ctx->bridge_rx_frames) {
+                (void)voip_g729_rx_restart(ctx, parsed.ssrc);
+            }
+#endif
+            ctx->stats.rx_bad_payload++;
+            if ((ctx->stats.rx_bad_payload & 0x3FU) == 1U) {
+                LLOGW("drop decoded RTP ret=%d pcm=%u/%u used=%u/%u seq=%u",
+                      ret, pcm_len, ctx->frame_bytes, used,
+                      ctx->rtp_payload_len, seq);
+            }
+        }
+    }
+}
+
+/* 定界拼出的一帧：整帧都在了，才交给解码 */
+static void voip_tcp_on_frame(void *user, const uint8_t *data, uint16_t len)
+{
+    voip_ctx_t *ctx = (voip_ctx_t *)user;
+
+    ctx->stats.rx_packets++;    /* TCP 下"一个包"= 定界出的完整帧 */
+    voip_handle_rtp(ctx, data, len);
+}
+
 static int voip_do_rx(voip_ctx_t *ctx)
 {
     if (!ctx->netc) return 0;
@@ -957,19 +1139,30 @@ static int voip_do_rx(voip_ctx_t *ctx)
     network_ctrl_t *netc = (network_ctrl_t *)ctx->netc;
     luat_ip_addr_t remote_ip = {0};
     uint16_t remote_port = 0;
+    int is_tcp = (ctx->config.transport != VOIP_TRANSPORT_UDP);
 
     unsigned processed = 0;
     const unsigned batch_limit = voip_media_batch_limit(ctx);
     while (processed < batch_limit && !ctx->stop_requested) {
 
         int rd = network_socket_receive(netc, ctx->udp_rx_buf, ctx->udp_rx_buf_size, 0, &remote_ip, &remote_port);
-        if (rd <= 0) 
+        if (rd <= 0)
         {
             break;
         }
         processed++;
-        ctx->stats.rx_packets++;
         ctx->stats.rx_bytes += rd;
+
+        if (is_tcp) {
+            /* TCP 是字节流：一次读到的是多少个包不定，先按 RFC 4571 拼回整帧
+               （SRTP 只在 UDP 上，见 voip_start 的说明） */
+            voip_tcp_framer_feed(&ctx->tcp_framer, ctx->udp_rx_buf, (uint16_t)rd,
+                    ctx->tcp_frame_buf, ctx->tcp_frame_cap,
+                    voip_tcp_on_frame, ctx, &ctx->stats.rx_frame_dropped);
+            continue;
+        }
+
+        ctx->stats.rx_packets++;
 
 #ifdef LUAT_USE_SRTP
         if (ctx->config.security) {
@@ -997,96 +1190,7 @@ static int voip_do_rx(voip_ctx_t *ctx)
         }
 #endif
 
-        /* RTP 解析 */
-        voip_rtp_parsed_t parsed;
-        int ret = voip_parse_rtp_packet(ctx->udp_rx_buf, (uint16_t)rd, &parsed);
-        if (ret < 0) {
-            ctx->stats.rx_parse_fail++;
-            LLOGE("rtp parse failed: %d", ret);
-            continue;
-        }
-
-        if (parsed.payload_type != ctx->rtp_payload_type) {
-            ctx->stats.rx_bad_payload++;
-            LLOGE("unexpected RTP payload type: %u", parsed.payload_type);
-            continue;
-        }
-
-        /* 每包载荷长度必须匹配 codec：G.711 每字节解码为两个 PCM 字节（20ms 包为 160），
-         * G.729 每 10ms 子帧 10 字节（20ms 包为 20）。不匹配的包——包括 G.729
-         * Annex B 的 2 字节 SID 帧——直接丢弃，由抖动缓冲区做丢包隐藏。 */
-        if (parsed.payload_len != ctx->rtp_payload_len) {
-            ctx->stats.rx_bad_payload++;
-            if ((ctx->stats.rx_bad_payload & 0x3FU) == 1U) {
-                LLOGW("drop RTP payload len=%u expected=%u seq=%u",
-                      parsed.payload_len, ctx->rtp_payload_len, parsed.sequence);
-            }
-            continue;
-        }
-
-#if defined(LUAT_USE_VOIP_BRIDGE) && defined(LUAT_SUPPORT_G729)
-        if (ctx->config.codec == VOIP_CODEC_G729 && ctx->bridge_rx_frames) {
-            int prepared = voip_g729_rx_prepare(ctx, &parsed);
-            if (prepared <= 0) {
-                if (prepared < 0) voip_stats_add(&ctx->stats.rx_bad_payload, 1);
-                continue;
-            }
-        }
-#endif
-        uint32_t pcm_len = 0;
-        uint32_t used = 0;
-        uint64_t started_ms = luat_mcu_tick64_ms();
-
-        ret = ctx->codec_decoder.opts->decode(&ctx->codec_decoder, NULL, parsed.payload, parsed.payload_len, (uint8_t *)ctx->rx_pcm_buf, &pcm_len, &used);
-        voip_stats_codec_time(ctx, 0, started_ms);
-
-        if (ret == LUAT_ERROR_NONE &&
-            pcm_len == ctx->frame_bytes && used == parsed.payload_len
-            ) {
-#ifdef LUAT_USE_VOIP_BRIDGE
-            if (ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE) {
-                uint16_t samples = (uint16_t)(pcm_len / sizeof(int16_t));
-                if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
-                if (ctx->bridge_rx_frames) {
-                    if (!ctx->bridge_rx_ssrc_valid || ctx->bridge_rx_ssrc != parsed.ssrc) {
-                        voip_bridge_rx_clear(ctx);
-                        ctx->bridge_rx_ssrc = parsed.ssrc;
-                        ctx->bridge_rx_ssrc_valid = 1;
-                        ctx->stats.last_rx_seq_valid = 0;
-                    }
-                    voip_bridge_rx_push(ctx, parsed.sequence);
-                } else {
-                    for (uint16_t i = 0; i < samples; i++) {
-                        if (ctx->bridge_rx_count >= VOIP_BRIDGE_BUF_SAMPLES) {
-                            ctx->bridge_rx_read_idx = (ctx->bridge_rx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
-                            ctx->bridge_rx_count--;
-                        }
-                        ctx->bridge_rx_buf[ctx->bridge_rx_write_idx] = ctx->rx_pcm_buf[i];
-                        ctx->bridge_rx_write_idx = (ctx->bridge_rx_write_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
-                        ctx->bridge_rx_count++;
-                    }
-                }
-                if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
-            } else {
-                voip_jb_push(ctx->jb, parsed.sequence, ctx->rx_pcm_buf);
-            }
-#else
-            voip_jb_push(ctx->jb, parsed.sequence, ctx->rx_pcm_buf);
-#endif
-            voip_track_rx_sequence(ctx, parsed.sequence);
-        } else {
-#if defined(LUAT_USE_VOIP_BRIDGE) && defined(LUAT_SUPPORT_G729)
-            if (ctx->config.codec == VOIP_CODEC_G729 && ctx->bridge_rx_frames) {
-                (void)voip_g729_rx_restart(ctx, parsed.ssrc);
-            }
-#endif
-            ctx->stats.rx_bad_payload++;
-            if ((ctx->stats.rx_bad_payload & 0x3FU) == 1U) {
-                LLOGW("drop decoded RTP ret=%d pcm=%u/%u used=%u/%u seq=%u",
-                      ret, pcm_len, ctx->frame_bytes, used,
-                      parsed.payload_len, parsed.sequence);
-            }
-        }
+        voip_handle_rtp(ctx, ctx->udp_rx_buf, (uint16_t)rd);
     }
     return processed == batch_limit && !ctx->stop_requested;
 }
@@ -1108,6 +1212,8 @@ static int voip_alloc_buffers(voip_ctx_t *ctx)
 #ifdef LUAT_USE_SRTP
     if (ctx->config.security) ctx->rtp_packet_buf_size += LUAT_VOIP_SECURITY_TAG_BYTES;
 #endif
+    if (ctx->config.transport != VOIP_TRANSPORT_UDP)
+        ctx->rtp_packet_buf_size += VOIP_TCP_PREFIX_LEN;    /* RFC 4571 长度前缀 */
     ctx->rtp_packet_buf = (uint8_t *)luat_heap_calloc(1, ctx->rtp_packet_buf_size);
     ctx->rx_pcm_buf     = (int16_t *)luat_heap_calloc(1, fb);
     if (physical_audio) ctx->duplex_play_buf = (int16_t *)luat_heap_calloc(1, fb * ctx->play_slot_count);
@@ -1118,14 +1224,27 @@ static int voip_alloc_buffers(voip_ctx_t *ctx)
         ctx->aec_ref_history = (int16_t *)luat_heap_calloc(VOIP_AEC_REF_HISTORY_FRAMES, fb);
 #endif
     }
-    ctx->udp_rx_buf_size = VOIP_RTP_HEADER_LEN + fs + 64; /* 余量 */
+    /* 收包缓冲按"平台最大的打包时长"备（见 VOIP_RX_MAX_PKTS_PER_FRAME）：
+       只按一帧备的话大包在收包阶段就被截断。 */
+    uint16_t payload_max = (uint16_t)(ctx->rtp_payload_len * VOIP_RX_MAX_PKTS_PER_FRAME);
+    ctx->udp_rx_buf_size = VOIP_RTP_HEADER_LEN + payload_max + 64; /* 余量 */
 #ifdef LUAT_USE_SRTP
     if (ctx->config.security &&
             luat_voip_security_mode(ctx->config.security) == LUAT_VOIP_SECURITY_DTLS &&
             ctx->udp_rx_buf_size < LUAT_VOIP_SECURITY_DATAGRAM_MAX)
         ctx->udp_rx_buf_size = LUAT_VOIP_SECURITY_DATAGRAM_MAX;
 #endif
+    if (ctx->config.transport != VOIP_TRANSPORT_UDP &&
+            ctx->udp_rx_buf_size < VOIP_TCP_READ_CHUNK) {
+        ctx->udp_rx_buf_size = VOIP_TCP_READ_CHUNK;
+    }
     ctx->udp_rx_buf     = (uint8_t *)luat_heap_calloc(1, ctx->udp_rx_buf_size);
+    if (ctx->config.transport != VOIP_TRANSPORT_UDP) {
+        ctx->tcp_frame_cap = (uint16_t)(VOIP_RTP_HEADER_LEN + payload_max + 8);
+        if (ctx->tcp_frame_cap < VOIP_TCP_FRAME_MAX) ctx->tcp_frame_cap = VOIP_TCP_FRAME_MAX;
+        ctx->tcp_frame_buf = (uint8_t *)luat_heap_calloc(1, ctx->tcp_frame_cap);
+        voip_tcp_framer_reset(&ctx->tcp_framer);
+    }
 
     for (uint8_t index = 0; physical_audio && index < VOIP_MIC_SLOT_COUNT; index++) {
         ctx->mic_buf[index] = (int16_t *)luat_heap_calloc(1, fb);
@@ -1137,7 +1256,8 @@ static int voip_alloc_buffers(voip_ctx_t *ctx)
 #ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
         (ctx->config.aec_enable && (!ctx->aec_ref_buf || !ctx->aec_ref_history)) ||
 #endif
-        !ctx->udp_rx_buf) {
+        !ctx->udp_rx_buf ||
+        (ctx->config.transport != VOIP_TRANSPORT_UDP && !ctx->tcp_frame_buf)) {
         return -1;
     }
 
@@ -1335,6 +1455,8 @@ static void voip_free_buffers(voip_ctx_t *ctx)
     if (ctx->aec_ref_history) { luat_heap_free(ctx->aec_ref_history); ctx->aec_ref_history = NULL; }
 #endif
     if (ctx->udp_rx_buf)      { luat_heap_free(ctx->udp_rx_buf);      ctx->udp_rx_buf = NULL; }
+    if (ctx->tcp_frame_buf)   { luat_heap_free(ctx->tcp_frame_buf);   ctx->tcp_frame_buf = NULL; }
+    voip_tcp_framer_reset(&ctx->tcp_framer);
     for (uint8_t index = 0; index < VOIP_MIC_SLOT_COUNT; index++) {
         if (ctx->mic_buf[index]) {
             luat_heap_free(ctx->mic_buf[index]);
@@ -1455,6 +1577,8 @@ static void voip_reset_session_state(voip_ctx_t *ctx)
     ctx->aec_sync_fault = 0;
 #endif
     ctx->aec_ready = 0;
+    ctx->rx_ts_base_valid = 0;      /* 帧序号的时间戳基准，每个会话重新对 */
+    voip_tcp_framer_reset(&ctx->tcp_framer);
 #ifdef LUAT_USE_VOIP_BRIDGE
     ctx->bridge_tx_write_idx = 0;
     ctx->bridge_tx_read_idx = 0;
@@ -1657,7 +1781,8 @@ static int voip_session_start(voip_ctx_t *ctx)
         goto start_failed;
     }
     
-    if (voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, rtp_clock_rate, ptime) < 0) {
+    if (voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, rtp_clock_rate, ptime,
+                               ctx->config.ssrc) < 0) {
 #ifdef LUAT_USE_SRTP
         voip_notify_lua(VOIP_CB_ERROR, LUAT_VOIP_SECURITY_E_CRYPTO);
 #endif
@@ -1668,6 +1793,7 @@ static int voip_session_start(voip_ctx_t *ctx)
     int adapter_index = ctx->config.adapter;
     luat_ip_addr_t remote_ip = {0};
     network_ctrl_t *netc;
+    uint8_t is_tcp = (ctx->config.transport != VOIP_TRANSPORT_UDP) ? 1 : 0;
     if (adapter_index < 0) adapter_index = NW_ADAPTER_INDEX_LWIP_GPRS;
     netc = network_alloc_ctrl((uint8_t)adapter_index);
     if (!netc) {
@@ -1676,19 +1802,30 @@ static int voip_session_start(voip_ctx_t *ctx)
     }
     ctx->netc = netc;
     network_init_ctrl(netc, NULL, voip_net_cb, (void *)(uintptr_t)ctx->audio_session);
-    network_set_base_mode(netc, 0 /* UDP */, 0, 0, 0, 0, 0);
+    network_set_base_mode(netc, is_tcp, 10000, 0, 0, 0, 0);
     if (ctx->config.local_port) {
         network_set_local_port(netc, ctx->config.local_port);
     }
-    ipaddr_aton(ctx->config.remote_ip, &remote_ip);
-    if (!network_ip_is_vaild(&remote_ip)) {
-        LLOGE("invalid remote ip: %s", ctx->config.remote_ip);
-        goto start_failed;
+    if (ctx->config.transport == VOIP_TRANSPORT_TCP_PASSIVE) {
+        /* 被动方只监听，不连：平台连进来后 accept 落在同一个 ctrl 上，
+           收发路径与主动方完全一样。此时 remote_ip/remote_port 无意义 */
+        if (network_listen(netc, 0) < 0) {
+            LLOGE("tcp listen failed, port=%u", ctx->config.local_port);
+            goto start_failed;
+        }
     }
-    ret = network_connect(netc, NULL, 0, &remote_ip, ctx->config.remote_port, 5000);
-    if (ret < 0) {
-        LLOGE("udp connect failed: %d", ret);
-        goto start_failed;
+    else {
+        ipaddr_aton(ctx->config.remote_ip, &remote_ip);
+        if (!network_ip_is_vaild(&remote_ip)) {
+            LLOGE("invalid remote ip: %s", ctx->config.remote_ip);
+            goto start_failed;
+        }
+        /* TCP 的完成由 EV_NW_RESULT_CONNECT 事件报告（非阻塞发起） */
+        ret = network_connect(netc, NULL, 0, &remote_ip, ctx->config.remote_port, 5000);
+        if (ret < 0) {
+            LLOGE("%s connect failed: %d", is_tcp ? "tcp" : "udp", ret);
+            goto start_failed;
+        }
     }
 #ifdef LUAT_USE_SRTP
     if (ctx->config.security) {
@@ -1700,7 +1837,7 @@ static int voip_session_start(voip_ctx_t *ctx)
         }
     }
 #endif
-    
+
 
     if (
 #ifdef LUAT_USE_VOIP_BRIDGE
@@ -2113,9 +2250,23 @@ int voip_start(const voip_config_t *config)
     if (!config) {
         return -3;
     }
+    if (config->transport > VOIP_TRANSPORT_TCP_PASSIVE) {
+        LLOGE("unknown transport: %u", config->transport);
+        return -3;
+    }
+
+    /* VOIP_PCM 由本组件注册给 audio_v2（见 luat_voip_audio_v2.c）。不注册的话
+       speech/record 找不到该 codec、直接返回 false，录音通道起不来。内部幂等。 */
+    luat_voip_audio_codec_register();
 #ifdef LUAT_USE_SRTP
     if (config->security && (!luat_voip_security_configured(config->security) ||
             luat_voip_security_state(config->security) != LUAT_VOIP_SECURITY_NEW)) return -3;
+    /* DTLS-SRTP 的握手是 UDP 上的。**明确拒绝，不静默降级成明文** ——
+       否则调用方会以为媒体是加密的 */
+    if (config->transport != VOIP_TRANSPORT_UDP && config->security) {
+        LLOGE("SRTP 仅支持 UDP 承载");
+        return -3;
+    }
 #endif
 
     if (ctx->state != VOIP_STATE_IDLE) {
@@ -2214,6 +2365,8 @@ void voip_push_stats(lua_State *L)
     lua_pushinteger(L, stats.event_send_failures); lua_setfield(L, -2, "event_send_failures");
     lua_pushinteger(L, stats.rx_lost); lua_setfield(L, -2, "rx_lost");
     lua_pushinteger(L, stats.rx_out_of_order); lua_setfield(L, -2, "rx_out_of_order");
+    lua_pushinteger(L, stats.rx_frame_dropped); lua_setfield(L, -2, "rx_frame_dropped");
+    lua_pushinteger(L, stats.rx_frames); lua_setfield(L, -2, "rx_frames");
     lua_pushinteger(L, stats.rx_decode_dropped); lua_setfield(L, -2, "rx_decode_dropped");
     lua_pushinteger(L, stats.rx_concealed); lua_setfield(L, -2, "rx_concealed");
     lua_pushinteger(L, stats.rx_decoder_resets); lua_setfield(L, -2, "rx_decoder_resets");

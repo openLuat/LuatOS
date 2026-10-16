@@ -32,6 +32,7 @@ local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
     end
+    sys.publish("AUDIO_PLAY_DONE", event)  -- 通知播放任务：本首已结束，可切下一首
 end
 
 --  音频播放的配置
@@ -48,20 +49,20 @@ local audio_play_param ={
 -----主task,处理播放音频---------
 ---------------------------------
 
-local index_number = 1
+local index_number = 0
 local function audio_task()
     log.info("开始播放音频文件")
     if exaudio.setup(audio_setup_param) then
         exaudio.vol(70)            -- 喇叭音量
-        exaudio.play_start(audio_play_param) -- 仅仅支持task 中运行
         while true do
-            sys.wait(3000)
-            if index_number % 2 == 0 then
-                exaudio.play_start({type = 0, content = "/luadb/sample-6s.mp3", cbfnc = play_end})
-            else
-                exaudio.play_start({type = 0, content = "/luadb/10.amr", cbfnc = play_end})
-            end
+            -- 交替播放 mp3 / amr，index 从 0 开始 → 首首 mp3，与原逻辑一致
+            local content = (index_number % 2 == 0) and "/luadb/sample-6s.mp3" or "/luadb/10.amr"
+            log.info("audio_task", "开始播放", content)
+            exaudio.play_start({type = 0, content = content, cbfnc = play_end})
+            -- 严格等待本次播放结束回调，避免固定 sleep 打断 6s 的 mp3
+            sys.waitUntil("AUDIO_PLAY_DONE", 30000)  -- 30s 超时兜底，防止异常死等
             index_number = index_number + 1
+            sys.wait(300)          -- 两首间留间隔，防连播爆音
         end
     end
 end

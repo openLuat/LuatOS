@@ -1,8 +1,8 @@
 --[[
 @module  settings_about_win
 @summary 关于设备子页面（TabOS 主题化）
-@version 3.1
-@date    2026.09.22
+@version 3.2
+@date    2026.10.15
 @author  江访
 
 === 消息协议 ===
@@ -11,6 +11,11 @@
 发布: CONFIG_GET_DEVICE_NAME     -> 请求设备名称
 订阅: ABOUT_DEVICE_INFO(info)    -> { device_name, model, unique_id, version, kernel }
 订阅: CONFIG_DEVICE_NAME_VALUE(name)
+
+=== v3.2 修复 ===
+弹窗无法关闭：软键盘弹起后盖住弹窗底部的取消/保存按钮，点击落到键盘上。
+弹窗改为避开键盘占据的屏幕底部区域定位，关闭路径统一走 close_edit_dialog
+（逐容错），取消/保存/失焦/销毁都可靠关窗。
 
 === v3.0 重写解决的两件事 ===
 1) 文字溢出容器
@@ -40,6 +45,27 @@ local product_name = "合宙引擎主机"
 local value_setters = {}
 -- 字段 -> 当前显示值（点「设备名称」时作为输入框初值，避免拿到截断后的文本）
 local current_values = {}
+
+-- 清理软键盘并置空弹窗引用（不负责删窗体；删窗体走 close_edit_dialog 或 C 侧关闭回调）
+local function cleanup_edit_dialog()
+    local kb = soft_keyboard
+    soft_keyboard = nil
+    if kb and not kb:is_destroyed() then
+        pcall(kb.hide, kb)
+        pcall(kb.destroy, kb)
+    end
+    edit_win = nil
+    name_input = nil
+end
+
+-- 关闭编辑弹窗（取消/保存/失焦/页面销毁统一入口，各步容错互不影响）
+local function close_edit_dialog()
+    local win = edit_win
+    cleanup_edit_dialog()
+    if win and not win:is_destroyed() then
+        pcall(win.close, win)
+    end
+end
 
 --[[可展示的信息行。lines = 该值最多占几行（决定行高与截断预算）]]
 local ITEMS = {
@@ -176,6 +202,18 @@ local function create_edit_win(device_name)
     local win_h = header_h + content_h
     local btn_y = content_h - pad - btn_h
 
+    --[[弹窗定位：按钮贴内容区底边，整窗必须避开软键盘弹起占住的屏幕底部区域
+    （键盘 + 输入预览条 + 拼音候选栏，按键盘高再留 dp(96) 余量）。原来用
+    auto_center 垂直居中，键盘弹出后正好盖住取消/保存，点击落到按键上，
+    弹窗无法关闭。放不下时贴顶显示（按钮在上沿，键盘只能盖到窗体下沿）。]]
+    local kb_stack_h = math.floor(200 * (_G.density_scale or 1.0)) + theme.dp(96)
+    local win_x = math.floor((sw - win_w) / 2)
+    local win_y = math.floor((sh - win_h) / 2)
+    if win_y + win_h > sh - kb_stack_h then
+        win_y = sh - kb_stack_h - win_h
+    end
+    if win_y < theme.dp(8) then win_y = theme.dp(8) end
+
     --[[键盘统一规范（与 wifi 密码键盘一致）：
         parent 必须是「宽 = 内容区宽」的本页根容器 —— 拼音候选栏与输入预览框
         都由 C 侧建在键盘的父对象上、宽度取父宽的 100%（整屏宽就会左右超出键盘）；
@@ -194,9 +232,9 @@ local function create_edit_win(device_name)
     edit_win = airui.win({
         parent = main_container,
         title = "更改设备名称",
+        x = win_x, y = win_y,
         w = win_w, h = win_h,
         close_btn = false,
-        auto_center = true,
         style = {
             bg_color = theme.C.dialog,
             header_bg_color = theme.C.panel_hi,
@@ -209,22 +247,9 @@ local function create_edit_win(device_name)
         },
         on_close = function(self)
             log.info("settings_about", "编辑窗口已关闭")
-            if soft_keyboard then
-                soft_keyboard:destroy()
-                soft_keyboard = nil
-            end
-            edit_win = nil
+            cleanup_edit_dialog()
         end
     })
-
-    local function close_all()
-        if soft_keyboard then
-            soft_keyboard:hide()
-            soft_keyboard:destroy()
-            soft_keyboard = nil
-        end
-        if edit_win then edit_win:close() end
-    end
 
     -- 以下子元素均相对内容区 (0,0) 布局（content_pad = 0）
     name_input = theme.input({
@@ -245,7 +270,7 @@ local function create_edit_win(device_name)
     theme.ghost_button(edit_win, {
         x = pad, y = btn_y, w = btn_w, h = btn_h,
         text = "取消", size = 14,
-        on_click = function() close_all() end,
+        on_click = function() close_edit_dialog() end,
     })
     theme.button(edit_win, {
         x = pad * 2 + btn_w, y = btn_y, w = btn_w, h = btn_h,
@@ -256,7 +281,7 @@ local function create_edit_win(device_name)
             if new_name and #new_name > 0 then
                 if value_setters.device_name then value_setters.device_name(new_name) end
                 sys.publish("CONFIG_SET_DEVICE_NAME", new_name)
-                close_all()
+                close_edit_dialog()
                 airui.msgbox({
                     title = "提示", text = "设备名称已保存", buttons = {"确定"},
                     on_action = function(self) self:hide() end,
@@ -338,16 +363,11 @@ end
 local function on_destroy()
     sys.unsubscribe("ABOUT_DEVICE_INFO", on_device_info)
     sys.unsubscribe("CONFIG_DEVICE_NAME_VALUE", on_device_name)
-    if soft_keyboard then
-        soft_keyboard:destroy()
-        soft_keyboard = nil
-    end
+    close_edit_dialog()
     if main_container then
         main_container:destroy()
         main_container = nil
     end
-    edit_win = nil
-    name_input = nil
     value_setters = {}
     current_values = {}
 end
@@ -355,12 +375,7 @@ end
 local function on_get_focus() end
 
 local function on_lose_focus()
-    if soft_keyboard then
-        soft_keyboard:hide()
-        soft_keyboard:destroy()
-        soft_keyboard = nil
-    end
-    if edit_win then edit_win:close() end
+    close_edit_dialog()
 end
 
 local function open_handler()

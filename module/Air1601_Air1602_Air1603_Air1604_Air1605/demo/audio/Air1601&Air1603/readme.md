@@ -29,6 +29,7 @@
 - 然后循环交替播放10.amr和sample-6s.mp3，播放间隔3秒
 - 使用内置DAC输出音频
 - 需要固件版本>=V1024才可播放音频
+- PA 功放脚由文件顶部 `HARDWARE_ENV` 切换（默认 `AIR1603_8607`=IO73，Air1601 用 `AIR1601_V1_1`/`AIR1601_V1_2`），详见下方「硬件环境配置」章节
 
 ### 2、TTS文字转语音功能（play_tts.lua）
 
@@ -37,6 +38,7 @@
 - 音色包括：许久、许多、晓萍、唐老鸭、许宝宝
 - 使用内置DAC输出音频
 - 需要固件版本>=V1024才可播放音频
+- PA 功放脚由文件顶部 `HARDWARE_ENV` 切换（默认 `AIR1603_8607`=IO73，Air1601 用 `AIR1601_V1_1`/`AIR1601_V1_2`），详见下方「硬件环境配置」章节
 
 ### 3、流式音频播放功能（play_stream.lua）
 
@@ -44,6 +46,7 @@
 - 支持PCM/MP3/AMR/WAV格式
 - 通过流式传输不断填入播放的音频数据
 - 需要固件版本>=V1024才可播放音频
+- PA 功放脚由文件顶部 `HARDWARE_ENV` 切换（默认 `AIR1603_8607`=IO73，Air1601 用 `AIR1601_V1_1`/`AIR1601_V1_2`），详见下方「硬件环境配置」章节
 
 ### 4、HTTP下载音频文件播放功能（http_download_play.lua）
 
@@ -69,6 +72,19 @@
 - 录音文件保存到TF卡（/sd/record.pcm），TF卡挂载失败时保存到内部存储（/record.pcm）
 - 通过Air1103语音芯片输出音频（UART串口驱动，无需内置DAC）
 - 注意：此功能Air1601和Air1602均支持
+
+## 硬件环境配置（HARDWARE_ENV）
+
+本目录各音频 demo（play_file.lua、play_tts.lua、play_stream.lua、http_download_play.lua、http_stream_play.lua）的 PA 功放使能脚因板型/版本不同而不同，通过文件顶部的 `HARDWARE_ENV` 变量切换，无需改动 `audio_setup_param.pa_ctrl`：
+
+| HARDWARE_ENV 值 | 适用板型 | PA 使能脚(IO) | pa_on_level |
+| --- | --- | --- | --- |
+| AIR1601_V1_1 | Air1601 V1.1 开发板 | 12 | 1 |
+| AIR1601_V1_2 | Air1601 V1.2 开发板 | 73 | 1 |
+| AIR1603_8607 | Air1603 / 8607 开发板 | 73 | 1 |
+
+- 默认值：`AIR1603_8607`（PA=IO73）。使用 Air1601 请改为 `AIR1601_V1_1` 或 `AIR1601_V1_2`。
+- `pa_on_level` 本目录各 demo 已按板型内置为 1（高电平使能），通常无需改动。
 
 ## 演示硬件环境
 
@@ -122,6 +138,7 @@
 2. 打开main.lua，取消注释`require "play_file"`，注释其他require
 3. 将代码下载到开发板并运行
 4. **演示效果**：初始化后播放sample-6s.mp3，然后循环交替播放10.amr和sample-6s.mp3，间隔3秒
+5. PA 功放脚按板型在 play_file.lua 顶部 `HARDWARE_ENV` 设置（默认 `AIR1603_8607`=IO73，Air1601 用 `AIR1601_V1_1`/`AIR1601_V1_2`），详见上方「硬件环境配置」章节
 
 **运行结果示例：**
 
@@ -140,6 +157,7 @@ I/user.播放完成 true
 2. 打开main.lua，取消注释`require "play_tts"`，注释其他require
 3. 将代码下载到开发板并运行
 4. **演示效果**：初始化后播放默认TTS，然后循环播放5种音色的TTS，间隔3秒
+5. PA 功放脚按板型在 play_tts.lua 顶部 `HARDWARE_ENV` 设置（默认 `AIR1603_8607`=IO73，Air1601 用 `AIR1601_V1_1`/`AIR1601_V1_2`），详见上方「硬件环境配置」章节
 
 **运行结果示例：**
 
@@ -159,6 +177,7 @@ tts decode sync end
 2. 打开main.lua，确保保留`require "play_stream"`这一行
 3. 将代码下载到开发板并运行
 4. **演示效果**：读取test.pcm文件数据进行流式播放
+5. PA 功放脚按板型在 play_stream.lua 顶部 `HARDWARE_ENV` 设置（默认 `AIR1603_8607`=IO73，Air1601 用 `AIR1601_V1_1`/`AIR1601_V1_2`），详见上方「硬件环境配置」章节
 
 **运行结果示例：**
 

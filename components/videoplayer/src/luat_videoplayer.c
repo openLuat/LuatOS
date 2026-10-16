@@ -41,6 +41,7 @@
 #include "luat_audio_request.h"
 #include "luat_audio_data_codec.h"
 #include "luat_audio_channel.h"
+#include "luat_mcu.h"
 #endif
 
 /* Read buffer size for scanning MJPG stream */
@@ -100,6 +101,12 @@ struct luat_vp_ctx {
     volatile uint8_t hzv_audio_started;
     volatile uint8_t hzv_audio_driver_started;
     volatile uint8_t hzv_audio_done;
+    /* DAC 块完成时的锚点。块与块之间用系统 tick 把主时钟补顺。 */
+    uint64_t hzv_clock_anchor_pts_ms;
+    uint64_t hzv_clock_anchor_tick_ms;
+    uint64_t hzv_clock_anchor_samples;
+    uint32_t hzv_clock_block_ms;
+    uint8_t hzv_clock_anchor_valid;
 #endif
 #endif
 };
@@ -708,6 +715,7 @@ int luat_videoplayer_play(luat_vp_ctx_t *ctx)
         ctx->hzv_audio_done = 0;
         ctx->hzv_audio_driver_started = 0;
         ctx->hzv_audio_feed_offset = 0;
+        ctx->hzv_clock_anchor_valid = 0;
         ctx->hzv_audio_started = 1;
         ret = luat_audio_request_play_stream(&ctx->hzv_audio_request, NULL, codec,
             &common_param, 0, 0, 0, hzv_audio_callback, ctx, NULL);
@@ -727,6 +735,9 @@ int luat_videoplayer_pause(luat_vp_ctx_t *ctx, uint8_t pause)
 #if defined(LUAT_USE_HZV) && defined(LUAT_USE_AUDIO_V2)
     if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv_audio_started &&
         ctx->hzv_audio_request.data_channel) {
+        if (pause) {
+            ctx->hzv_clock_anchor_valid = 0;
+        }
         return luat_audio_channel_play(ctx->hzv_audio_request.data_channel, !pause) == 0 ?
             LUAT_VP_OK : LUAT_VP_ERR_IO;
     }
@@ -745,6 +756,7 @@ int luat_videoplayer_stop(luat_vp_ctx_t *ctx)
         ctx->hzv_audio_started = 0;
         ctx->hzv_audio_driver_started = 0;
         ctx->hzv_audio_done = 1;
+        ctx->hzv_clock_anchor_valid = 0;
     }
 #endif
     return LUAT_VP_OK;
@@ -784,6 +796,62 @@ int luat_videoplayer_rewind(luat_vp_ctx_t *ctx)
     return LUAT_VP_ERR_NOIMPL;
 }
 
+#if defined(LUAT_USE_HZV) && defined(LUAT_USE_AUDIO_V2)
+/* 当前 DMA 块的时长。主时钟在这一块之内用 tick 外推，不越过下一次块完成。 */
+static uint32_t hzv_play_block_ms(luat_vp_ctx_t *ctx, uint32_t sample_rate)
+{
+    luat_audio_driver_ctrl_t *ctrl;
+    uint32_t bytes_per_sample;
+    uint32_t block_samples;
+
+    if (sample_rate == 0 || ctx->hzv_audio_request.data_channel == NULL ||
+        ctx->hzv_audio_request.data_channel->driver_ctrl == NULL) {
+        return 0;
+    }
+    ctrl = ctx->hzv_audio_request.data_channel->driver_ctrl;
+    bytes_per_sample = ctrl->tx_param.data_align * ctrl->tx_param.channel_nums;
+    if (bytes_per_sample == 0 || ctrl->one_play_block_len == 0) {
+        return 0;
+    }
+    block_samples = ctrl->one_play_block_len / bytes_per_sample;
+    if (block_samples == 0) {
+        return 0;
+    }
+    return (uint32_t)((uint64_t)block_samples * 1000ULL / sample_rate);
+}
+
+/*
+ * 采样数变化时重新锚定到 DAC 已播出的位置。
+ * 同一块内 media_now = anchor_pts + (tick - anchor_tick)，并且不超过这一块的结尾。
+ */
+static uint64_t hzv_smooth_audio_pts(luat_vp_ctx_t *ctx, uint64_t raw_pts_ms,
+                                     uint64_t played_samples, uint32_t sample_rate)
+{
+    uint64_t now = luat_mcu_tick64_ms();
+    uint64_t elapsed;
+    uint32_t block_ms = hzv_play_block_ms(ctx, sample_rate);
+
+    if (block_ms > 0) {
+        ctx->hzv_clock_block_ms = block_ms;
+    }
+    if (!ctx->hzv_clock_anchor_valid || played_samples != ctx->hzv_clock_anchor_samples) {
+        ctx->hzv_clock_anchor_pts_ms = raw_pts_ms;
+        ctx->hzv_clock_anchor_tick_ms = now;
+        ctx->hzv_clock_anchor_samples = played_samples;
+        ctx->hzv_clock_anchor_valid = 1;
+        return raw_pts_ms;
+    }
+    if (ctx->hzv_clock_block_ms == 0) {
+        return ctx->hzv_clock_anchor_pts_ms;
+    }
+    elapsed = now >= ctx->hzv_clock_anchor_tick_ms ? now - ctx->hzv_clock_anchor_tick_ms : 0;
+    if (elapsed > ctx->hzv_clock_block_ms) {
+        elapsed = ctx->hzv_clock_block_ms;
+    }
+    return ctx->hzv_clock_anchor_pts_ms + elapsed;
+}
+#endif
+
 int luat_videoplayer_get_av_clock(luat_vp_ctx_t *ctx, luat_vp_av_clock_t *clock)
 {
     if (ctx == NULL || clock == NULL) return LUAT_VP_ERR_PARAM;
@@ -792,12 +860,20 @@ int luat_videoplayer_get_av_clock(luat_vp_ctx_t *ctx, luat_vp_av_clock_t *clock)
     if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv_audio_started) {
         luat_audio_play_clock_t audio_clock;
         if (luat_audio_request_get_play_clock(&ctx->hzv_audio_request, &audio_clock) == 0) {
-            clock->audio_pts_ms = audio_clock.sample_rate ?
+            uint64_t raw_pts_ms = audio_clock.sample_rate ?
                 audio_clock.played_samples * 1000ULL / audio_clock.sample_rate : 0;
             clock->buffered_samples = audio_clock.buffered_samples;
             clock->underruns = audio_clock.underruns;
-            clock->running = audio_clock.running;
             clock->clock_mode = 1;
+            /* 驱动真正出声之后才让 tick 往前走。暂停和停播都停在上次的 DAC 位置。 */
+            clock->running = (audio_clock.running && ctx->hzv_audio_driver_started) ? 1 : 0;
+            if (!clock->running) {
+                ctx->hzv_clock_anchor_valid = 0;
+                clock->audio_pts_ms = raw_pts_ms;
+            } else {
+                clock->audio_pts_ms = hzv_smooth_audio_pts(ctx, raw_pts_ms,
+                    audio_clock.played_samples, audio_clock.sample_rate);
+            }
             return LUAT_VP_OK;
         }
     }

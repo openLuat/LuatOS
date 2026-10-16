@@ -144,6 +144,17 @@ elseif is_host("linux") then
     add_defines("LUAT_CONF_USE_LIBSYS_SOURCE")
     add_cflags("-ffunction-sections -fdata-sections")
     add_cflags("-Wno-unused-parameter -Wno-unused-function -Wno-unused-variable")
+    -- GCC 14+ 与 Clang 16+ 把下列诊断从警告提升为错误, 导致本仓库中大量既有代码
+    -- 在较新的 Linux 工具链上无法编译(该组合不在上游 CI 覆盖范围内 —— CI 走 Windows/MSVC)。
+    -- 这里降级回警告, 以恢复 Linux 下的可构建性。
+    --
+    -- 注意: 这是兜底而非修复。这些警告中确实夹杂真实缺陷, 例如
+    --   components/multimedia/luat_lib_multimedia_audio.c 曾把函数指针的地址
+    --   当作函数指针存储; components/camera 存在未声明函数调用。
+    -- 建议后续逐项清理后再移除本兜底。
+    add_cflags("-Wno-error=incompatible-pointer-types")
+    add_cflags("-Wno-error=int-conversion")
+    add_cflags("-Wno-error=implicit-function-declaration")
     add_ldflags("-Wl,--gc-sections")
 elseif is_host("macos") then
     add_defines("LUA_USE_MACOSX")
@@ -1270,6 +1281,35 @@ target("luatos-lua")
         
         -- 添加 Windows 库
         add_links("shlwapi")
+    end
+
+    -- =========================================================
+    -- gb28181（GB/T 28181-2016 设备侧协议组件，外部仓 luatos-ext-components）
+    -- LUAT_USE_GB28181=y 启用 / =n 禁用；未设置时按目录存在性自动检测
+    -- =========================================================
+    local use_gb28181 = false
+    local gb28181_src = luatos_ext_root .. "/gb28181"
+    if os.isdir(gb28181_src) then
+        if os.getenv("LUAT_USE_GB28181") ~= "n" then
+            use_gb28181 = true
+        end
+    elseif os.getenv("LUAT_USE_GB28181") == "y" then
+        print("Warning: LUAT_USE_GB28181=y but gb28181 not found at: " .. gb28181_src)
+    end
+
+    if use_gb28181 then
+        add_defines("LUAT_USE_GB28181=1")
+        add_includedirs(gb28181_src .. "/include", {public = true})
+        -- 收发实现在运行期注入（见其 include/luat_gb28181_transport.h）：
+        -- src/ 只声明函数表、不引用实现；实现放 binding/，故 src/ 不依赖 SDK 头
+        add_files(gb28181_src .. "/src/*.c")
+        add_files(gb28181_src .. "/binding/luat_lib_gb28181.c")
+        add_files(gb28181_src .. "/binding/luat_gb28181_transport_netadapter.c")
+
+        -- 历史回放(record/)：用 mp4player 的 minimp4；未接入时组件自带实现
+        add_includedirs(gb28181_src .. "/record")
+        add_includedirs(luatos_ext_root .. "/mp4player/video_decode")
+        add_files(gb28181_src .. "/record/*.c")
     end
 
     -- =========================================================

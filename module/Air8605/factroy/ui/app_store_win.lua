@@ -1146,18 +1146,26 @@ local function on_action_done(app_id, action, success)
     end
 end
 
+-- 错误弹窗句柄：重复错误事件复用同一弹窗，不叠层（叠层会表现为"点确定消不掉"）
+local err_box = nil
+
 local function on_error(error_msg)
     close_progress_dialog()
-    local msg_box = airui.msgbox({
+    if err_box then return end
+    err_box = airui.msgbox({
         w = math.min(400, screen_w - 80),
         h = math.floor(screen_h * 0.28),
         style = { text_font_size = button_font_size },
         title = "错误",
         text = error_msg,
         buttons = { "确定" },
-        on_action = function(self, btn_label) self:hide() end
+        on_action = function(self, btn_label)
+            self:hide()
+            self:destroy()
+            err_box = nil
+        end
     })
-    msg_box:show()
+    err_box:show()
 end
 
 -------------------------------------------------------------------------------
@@ -1202,6 +1210,7 @@ local function on_destroy()
     sys.unsubscribe("APP_STORE_LIST_UPDATED", on_list_updated)
     sys.unsubscribe("APP_STORE_PROGRESS", on_progress)
     sys.unsubscribe("APP_STORE_ERROR", on_error)
+    if err_box then pcall(function() err_box:destroy() end); err_box = nil end
     sys.unsubscribe("APP_STORE_ACTION_DONE", on_action_done)
     sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", on_installed_updated)
     sys.unsubscribe("APP_STORE_ICON_READY", on_icon_ready)

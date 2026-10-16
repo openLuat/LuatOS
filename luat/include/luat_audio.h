@@ -151,6 +151,8 @@ luat_record_ctrl_t *luat_audio_get_record_config(uint8_t multimedia_id);
 
 int luat_audio_record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param);
 int luat_audio_record_cb_default(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param);
+// 参数是函数指针本身, 不是指向函数指针的指针:
+// record_callback 字段的类型就是 luat_audio_record_cb_t, 且所有调用方都直接传函数名或 NULL。
 void luat_audio_record_set_callback(luat_audio_record_cb_t cb);
 
 #endif

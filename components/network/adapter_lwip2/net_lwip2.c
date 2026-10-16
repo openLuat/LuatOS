@@ -850,6 +850,7 @@ int netdrv_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms)
 	return 0;
 }
 #endif /* !LUAT_NETDRV_DNS_TRANSPORT_POSIX */
+#endif /* LUAT_USE_NETDRV_DNS_CLIENT : 新客户端适配层到此为止 */
 
 #ifndef LUAT_USE_NETDRV_DNS_CLIENT
 static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_buf)

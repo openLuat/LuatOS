@@ -809,11 +809,11 @@ static void posix_dns_init_once(void)
 /*
  * netdrv.CTRL_DNS 的 PC 侧入口。
  *
- * 叫 netdrv_dns_ctrl 而不是 net_lwip2_dns_ctrl: PC 上 lwIP 也在编
- * (LUAT_USE_LWIP=1), net_lwip2.c 会定义同名的那个, 会重复符号。
- * 绑定层统一调 netdrv_dns_ctrl(), 由各平台提供自己的实现:
- *   真机(Air1601 等) -> net_lwip2_dns_ctrl(报文收发在 tcpip 线程)
- *   PC 模拟器        -> 本函数(报文收发在独立 dns 线程)
+ * 实现平台无关的 netdrv_dns_ctrl(): 绑定层统一调这个名字, 各平台各提供一个实现。
+ *   真机(Air1601/Air780EPM 等) -> net_lwip2.c 里的实现(报文收发在 tcpip 线程)
+ *   PC 模拟器                  -> 本函数(报文收发在独立 dns 线程)
+ * Air160X 这类真机构建只 glob components/network/adapter_lwip2, 不含本文件,
+ * 所以两边同时提供同名符号不会冲突。
  *
  * PC 的 Lua 与适配层同进程, 没有真机那条"投递事件再等 done"的跨线程通道,
  * 所以这里直接在本线程应用配置并回读。控制块结构体沿用 net_lwip2_dns_ctl_t,

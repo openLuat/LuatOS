@@ -1227,6 +1227,8 @@ void luat_netdrv_dns_stat_get(const luat_netdrv_dns_ctx_t *ctx, luat_netdrv_dns_
 	if (ctx && out)
 	{
 		*out = ctx->stat;
+		/* 能力位每次现算, 见 dns_can_ipv6() 与头文件里该字段的说明 */
+		out->ipv6 = (uint8_t)dns_can_ipv6();
 	}
 }
 

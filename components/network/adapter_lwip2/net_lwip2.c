@@ -800,7 +800,25 @@ static void net_lwip2_dns_timer_update(uint8_t adapter_index)
 	net_lwip2_dns_timer_running[adapter_index] = want;
 }
 
-int net_lwip2_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms)
+/*
+ * netdrv.CTRL_DNS 在真机(lwIP 传输)侧的入口。
+ *
+ * 名字是【平台无关】的 netdrv_dns_ctrl: 绑定层只认这个符号, 各平台各提供一个实现。
+ *   真机(Air1601/Air780EPM 等) -> 本函数, 报文收发在 tcpip 线程, 配置经事件投递
+ *                                 + done 握手跨线程应用
+ *   PC 模拟器                  -> bsp/pc 的 POSIX 适配层里的实现, 报文收发在独立
+ *                                 dns 线程, 配置同进程内直接应用
+ * 之所以不让各平台各叫各的名字再由绑定层分支: 那会把"哪个平台"的知识渗进绑定层,
+ * 而绑定层本来只需要知道"有个 CTRL_DNS 入口"。
+ *
+ * 【必须二选一】PC 上 components/network/adapter_lwip2/ 目录下的 .c 也会被编译(PC 用 lwIP
+ * 头也能过编译), 但同时提供同名符号会重复定义。BSP 定义
+ * LUAT_NETDRV_DNS_TRANSPORT_POSIX 即表示"传输层交给 POSIX 适配层", 本实现让位。
+ * 若在 PC 上漏定义它: lwIP 实现会被链进去, 而 PC 从不调用 net_lwip2_set_netif,
+ * 于是 net_lwip2_dns_ctx_ready 恒为 0, netdrv.CTRL_DNS 会一直报 "dns client not ready"。
+ */
+#ifndef LUAT_NETDRV_DNS_TRANSPORT_POSIX
+int netdrv_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms)
 {
 	uint32_t wait = 0;
 	if (ctl == NULL) return -1;
@@ -831,7 +849,8 @@ int net_lwip2_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms)
 	if (!ctl->done) return -1;
 	return 0;
 }
-#endif
+#endif /* !LUAT_NETDRV_DNS_TRANSPORT_POSIX */
+#endif /* LUAT_USE_NETDRV_DNS_CLIENT : 新客户端适配层到此为止 */
 
 #ifndef LUAT_USE_NETDRV_DNS_CLIENT
 static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_buf)

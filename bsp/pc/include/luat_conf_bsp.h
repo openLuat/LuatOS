@@ -297,6 +297,11 @@
 // 该宏由公共头显式要求 BSP 声明, 不做默认值兜底(见 luat_netdrv_dns.h 的功能开关说明).
 // 只有打开它, netdrv.CTRL_DNS / netdrv.dns_utest 才存在(PC 侧 utest 套件 testcase/utest/netdrv/dns_basic 依赖它).
 #define LUAT_USE_NETDRV_DNS_CLIENT 1
+// DNS 客户端的传输层选 POSIX(宿主 UDP socket), 由 bsp/pc 的 POSIX 适配层提供
+// netdrv_dns_ctrl(). PC 上 components/network/adapter_lwip2/*.c 也会被编译, 但那条
+// lwIP 传输在本 BSP 里没有 netif(不注册适配器), 若两边同时定义会重复符号, 故显式二选一.
+// 详见 components/network/adapter_lwip2/net_lwip2_dns.h 里 netdrv_dns_ctrl 的说明.
+#define LUAT_NETDRV_DNS_TRANSPORT_POSIX 1
 #endif
 
 #define LUAT_UART_MAX_DEVICE_COUNT 128

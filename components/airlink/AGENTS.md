@@ -60,12 +60,28 @@ cmd /c build_windows_32bit_msvc.bat full
 
 ### 哪些文件在 PC 上编译
 
-在 `bsp/pc/xmake.lua` 中，以下文件被 `remove_files` 排除（硬件专用）：
-- `src/driver/*.c` — 硬件驱动
-- `src/exec/luat_airlink_cmd_exec_gpio/uart/wlan/bluetooth.c` — 非 RPC 版 exec handler
+`bsp/pc/xmake.lua` 先是 `add_files(luatos .. "components/airlink/**.c")`（整目录通配），
+之后只有下面两条 `remove_files` 是**生效**的（硬件专用）：
+
+- `src/exec/luat_airlink_cmd_exec_bluetooth.c`
 - `src/task/luat_airlink_spi_slave_task.c`
 
-以下文件**正常参与 PC 编译**：
+⚠️ 历史上还有四条 `remove_files`，它们**现在都是注释掉的**，不要照着旧文档以为被排除了：
+
+```lua
+-- remove_files(luatos .. "components/airlink/src/driver/*.c")
+-- remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_wlan.c")
+-- remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_gpio.c")
+-- remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_uart.c")
+```
+
+所以 `src/driver/` 下的驱动（含 `luat_airlink_drv_uart.c`）以及 gpio/uart/wlan 的非 RPC exec
+handler **确实参与 PC 编译**，改动它们时必须保证 MSVC 也能过——2026-10 就因此踩过一次：
+`luat_airlink_drv_uart.c` 直接用 GCC 的 `__sync_val_compare_and_swap` / `__sync_lock_test_and_set`，
+arm-gcc 正常、MSVC 报 `LNK2019`。该文件现已改用 `atomic_ptr_swap` / `atomic_ptr_cas` 两个宏
+（MSVC 走 `InterlockedXxx`，GCC 走 `__sync_*`），新增原子操作请沿用同一套包装。
+
+以下文件同样正常参与 PC 编译：
 - `src/exec/luat_airlink_cmd_exec_rpc_*.c` — nanopb typed RPC handlers
 - `src/exec/luat_airlink_rpc_nb_table.c` — 静态 handler 表
 - `src/luat_airlink_rpc.c` — RPC 框架

@@ -15,7 +15,7 @@
  * 阻塞 socket 自带背压, 不需要 lwIP 那套 tcp_sent 流控状态机.
  *
  * 整个文件被 LUAT_HTTPSRV_POSIX_BACKEND 包起来: 固件的编译脚本在 luat-soc-* 仓库里,
- * 通常用 components/network/httpsrv/src/*.c 通配收集源文件. 没有这个开关的话固件也会
+ * 通常用 components/network/httpsrv/src/ 目录下的 .c 通配收集源文件. 没有这个开关的话固件也会
  * 尝试编译本文件, 而 luat_posix_compat.h 只存在于 bsp/pc 下, 会直接编译失败.
  * 该宏由 bsp/pc/xmake.lua 在"确实把这个文件加进编译列表"的同一条件下定义, 两者必须一致.
  * ISO C 要求空翻译单元至少有一个声明, 所以留一个 typedef 占位.

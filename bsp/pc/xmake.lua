@@ -1285,16 +1285,22 @@ target("luatos-lua")
 
     -- =========================================================
     -- gb28181（GB/T 28181-2016 设备侧协议组件，外部仓 luatos-ext-components）
-    -- LUAT_USE_GB28181=y 启用 / =n 禁用；未设置时按目录存在性自动检测
+    -- 默认【关闭】，只有显式 LUAT_USE_GB28181=y 才启用。
+    --
+    -- 不再是"目录存在就自动开启": gb28181 的源码用了 GCC 的 __atomic_* 内建
+    -- (luat_gb28181_media.c)，而 PC 构建走的是 MSVC —— 自动开启会让任何拉全了
+    -- luatos-ext-components 的人在 Windows 上直接撞 26 个 C2065，等于默认构建是坏的。
+    -- 口径对齐同表的 mp4player("PC 集成未完成前默认关")：集成补齐(把 __atomic_* 换成
+    -- InterlockedXxx 或 C11 atomic)之后再改回自动检测。
     -- =========================================================
     local use_gb28181 = false
     local gb28181_src = luatos_ext_root .. "/gb28181"
-    if os.isdir(gb28181_src) then
-        if os.getenv("LUAT_USE_GB28181") ~= "n" then
+    if os.getenv("LUAT_USE_GB28181") == "y" then
+        if os.isdir(gb28181_src) then
             use_gb28181 = true
+        else
+            print("Warning: LUAT_USE_GB28181=y but gb28181 not found at: " .. gb28181_src)
         end
-    elseif os.getenv("LUAT_USE_GB28181") == "y" then
-        print("Warning: LUAT_USE_GB28181=y but gb28181 not found at: " .. gb28181_src)
     end
 
     if use_gb28181 then

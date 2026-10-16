@@ -578,19 +578,65 @@ static int dns_parse_rrs(dns_rd_t *r, uint16_t count, uint16_t want_qtype, int i
 /* 缓存                                                                  */
 /* ===================================================================== */
 
+/* flush_adapter 会用到下面这两个, 先声明 */
+static void dns_cache_unlink(luat_netdrv_dns_cache_ent_t *ent);
+static void dns_cache_count_update(luat_netdrv_dns_ctx_t *ctx);
+
+/*
+ * 把网卡号归一化成"缓存归属键".
+ *
+ * share=0(默认): 直接用 adapter_index —— 缓存按网卡隔离, 因为同一个域名在
+ *   不同出口背后可能是不同的权威 DNS 视图(地域调度/运营商内网/多 WAN 分流).
+ * share=1: 一律归到 0 —— 缓存键退化为 (name, qtype), 跨网卡共享.
+ *
+ * 查找与写入都必须经这个函数, 否则两种键空间会混在一起。
+ */
+static uint8_t dns_cache_owner(const luat_netdrv_dns_ctx_t *ctx, uint8_t adapter_index)
+{
+	if (ctx->cfg.share)
+	{
+		return 0;
+	}
+	return adapter_index;
+}
+
 static luat_netdrv_dns_cache_ent_t *dns_cache_find(luat_netdrv_dns_ctx_t *ctx,
-		const uint8_t *name, uint32_t name_len, uint16_t qtype)
+		const uint8_t *name, uint32_t name_len, uint16_t qtype, uint8_t adapter_index)
 {
 	luat_netdrv_dns_node_t *node;
+	uint8_t owner = dns_cache_owner(ctx, adapter_index);
 	for (node = ctx->cache_head.next; node != &ctx->cache_head; node = node->next)
 	{
 		luat_netdrv_dns_cache_ent_t *ent = LUAT_NETDRV_DNS_ENTRY(node, luat_netdrv_dns_cache_ent_t, node);
-		if (ent->qtype == qtype && dns_name_cmp(ent->name, ent->name_len, name, name_len) == 0)
+		if (ent->adapter_index == owner && ent->qtype == qtype &&
+			dns_name_cmp(ent->name, ent->name_len, name, name_len) == 0)
 		{
 			return ent;
 		}
 	}
 	return NULL;
+}
+
+/* 只失效某张网卡的缓存条目(链路断开 / 该网卡换了 DNS 服务器时用) */
+void luat_netdrv_dns_cache_flush_adapter(luat_netdrv_dns_ctx_t *ctx, uint8_t adapter_index)
+{
+	luat_netdrv_dns_node_t *node, *next;
+	uint8_t owner;
+	if (ctx == NULL)
+	{
+		return;
+	}
+	owner = dns_cache_owner(ctx, adapter_index);
+	for (node = ctx->cache_head.next; node != &ctx->cache_head; node = next)
+	{
+		luat_netdrv_dns_cache_ent_t *ent = LUAT_NETDRV_DNS_ENTRY(node, luat_netdrv_dns_cache_ent_t, node);
+		next = node->next;
+		if (ent->adapter_index == owner)
+		{
+			dns_cache_unlink(ent);
+		}
+	}
+	dns_cache_count_update(ctx);
 }
 
 static void dns_cache_unlink(luat_netdrv_dns_cache_ent_t *ent)
@@ -635,12 +681,13 @@ static void dns_cache_gc(luat_netdrv_dns_ctx_t *ctx, uint32_t now)
 	dns_cache_count_update(ctx);
 }
 
-static void dns_cache_store(luat_netdrv_dns_ctx_t *ctx, const uint8_t *name, uint32_t name_len,
-		uint16_t qtype, const luat_dns_ip_result *ip, uint8_t ip_num, uint32_t min_ttl_ms,
-		uint8_t is_negative, uint32_t now)
+static void dns_cache_store(luat_netdrv_dns_ctx_t *ctx, uint8_t adapter_index, const uint8_t *name,
+		uint32_t name_len, uint16_t qtype, const luat_dns_ip_result *ip, uint8_t ip_num,
+		uint32_t min_ttl_ms, uint8_t is_negative, uint32_t now)
 {
 	luat_netdrv_dns_cache_ent_t *ent;
 	uint32_t ttl;
+	uint8_t owner = dns_cache_owner(ctx, adapter_index);
 
 	if (!ctx->cfg.cache_enable || ctx->cfg.cache_num == 0)
 	{
@@ -675,7 +722,7 @@ static void dns_cache_store(luat_netdrv_dns_ctx_t *ctx, const uint8_t *name, uin
 		}
 	}
 
-	ent = dns_cache_find(ctx, name, name_len, qtype);
+	ent = dns_cache_find(ctx, name, name_len, qtype, adapter_index);
 	if (ent == NULL)
 	{
 		/* 超上限时按 LRU 淘汰队首 */
@@ -693,6 +740,7 @@ static void dns_cache_store(luat_netdrv_dns_ctx_t *ctx, const uint8_t *name, uin
 			return;
 		}
 		dns_node_init(&ent->node);
+		ent->adapter_index = owner;
 		ent->name_len = (uint8_t)name_len;
 		memcpy(ent->name, name, name_len);
 		ent->qtype = qtype;
@@ -995,6 +1043,12 @@ int luat_netdrv_dns_init(luat_netdrv_dns_ctx_t *ctx)
 	ctx->cfg.cache_num = LUAT_NETDRV_DNS_DEF_CACHE_NUM;
 	ctx->cfg.cache_ttl_ms = LUAT_NETDRV_DNS_DEF_CACHE_TTL_MS;
 	ctx->cfg.neg_ttl_ms = LUAT_NETDRV_DNS_DEF_NEG_TTL_MS;
+	/*
+	 * share 默认 0: 缓存按网卡隔离.
+	 * 不同出口背后可能是不同的权威 DNS 视图(地域调度/运营商内网/多 WAN 分流),
+	 * 默认共享会把各出口的答案混在一起。要共享的简单设备显式打开即可。
+	 */
+	ctx->cfg.share = 0;
 	ctx->cfg.max_inflight = LUAT_NETDRV_DNS_DEF_MAX_INFLIGHT;
 	ctx->cfg.max_retry = LUAT_NETDRV_DNS_DEF_MAX_RETRY;
 	ctx->cfg.query_timeout_ms = LUAT_NETDRV_DNS_DEF_TIMEOUT_MS;
@@ -1073,12 +1127,14 @@ void luat_netdrv_dns_cfg_apply(luat_netdrv_dns_ctx_t *ctx, const luat_netdrv_dns
 		uint32_t now)
 {
 	uint32_t old_cap;
+	uint8_t old_share;
 	luat_netdrv_dns_node_t *node;
 	if (ctx == NULL || cfg == NULL)
 	{
 		return;
 	}
 	old_cap = ctx->cfg.cache_num;
+	old_share = ctx->cfg.share;
 	ctx->cfg = *cfg;
 	/* 强制不变量, 防止上层传入 0 造成除零或队列自锁 */
 	if (ctx->cfg.max_inflight == 0)
@@ -1093,6 +1149,16 @@ void luat_netdrv_dns_cfg_apply(luat_netdrv_dns_ctx_t *ctx, const luat_netdrv_dns
 	if (ctx->token > ctx->cfg.max_inflight)
 	{
 		ctx->token = ctx->cfg.max_inflight;
+	}
+	/*
+	 * share 切换会改变缓存键空间(是否含 adapter_index), 两种键空间不能混用:
+	 * 否则隔离模式下按 owner=7 写的条目, 在切到共享后永远查不到(残留在表里占坑),
+	 * 而共享模式下 owner=0 的条目又会被"按网卡 flush"误伤。
+	 * 直接整表失效最省心, 代价只是一次冷启动。
+	 */
+	if (old_share != ctx->cfg.share)
+	{
+		luat_netdrv_dns_cache_flush(ctx);
 	}
 	if (ctx->cfg.cache_num < old_cap)
 	{
@@ -1262,10 +1328,11 @@ uint8_t luat_netdrv_dns_should_schedule(const luat_netdrv_dns_ctx_t *ctx)
 
 /*
  * 尝试用缓存直接完成一条腿.
+ * adapter_index 参与缓存键(cfg.share=0 时按网卡隔离, 见 dns_cache_owner).
  * @return 1 已处理(含负缓存命中); 0 需要走网络
  */
-static int dns_try_cache(luat_netdrv_dns_ctx_t *ctx, const uint8_t *name, uint32_t name_len,
-		uint16_t qtype, uint32_t now, luat_dns_ip_result *out, uint8_t *out_num)
+static int dns_try_cache(luat_netdrv_dns_ctx_t *ctx, uint8_t adapter_index, const uint8_t *name,
+		uint32_t name_len, uint16_t qtype, uint32_t now, luat_dns_ip_result *out, uint8_t *out_num)
 {
 	luat_netdrv_dns_cache_ent_t *ent;
 
@@ -1273,7 +1340,7 @@ static int dns_try_cache(luat_netdrv_dns_ctx_t *ctx, const uint8_t *name, uint32
 	{
 		return 0;
 	}
-	ent = dns_cache_find(ctx, name, name_len, qtype);
+	ent = dns_cache_find(ctx, name, name_len, qtype, adapter_index);
 	if (ent == NULL)
 	{
 		ctx->stat.cache_miss++;
@@ -1306,7 +1373,7 @@ static int dns_leg_from_cache(luat_netdrv_dns_ctx_t *ctx, luat_netdrv_dns_req_t 
 	luat_dns_ip_result cached[LUAT_NETDRV_DNS_MAX_RR];
 	uint8_t cached_num = 0;
 
-	if (!dns_try_cache(ctx, name, name_len, qtype, now, cached, &cached_num))
+	if (!dns_try_cache(ctx, req->adapter_index, name, name_len, qtype, now, cached, &cached_num))
 	{
 		return 0;
 	}
@@ -1580,7 +1647,8 @@ int luat_netdrv_dns_rx_feed(luat_netdrv_dns_ctx_t *ctx, const uint8_t *data, uin
 		/* 域名不存在是确定性结果, 立即失败, 不做无谓重试 */
 		DNS_LOGI("%.*s NXDOMAIN", txn->name_len, txn->name);
 		ctx->stat.nxdomain++;
-		dns_cache_store(ctx, txn->name, txn->name_len, txn->qtype, NULL, 0, 0, 1, now_ms);
+		dns_cache_store(ctx, txn->adapter_index, txn->name, txn->name_len, txn->qtype,
+				NULL, 0, 0, 1, now_ms);
 		dns_leg_finish(ctx, txn);
 		return 0;
 	}
@@ -1626,8 +1694,8 @@ int luat_netdrv_dns_rx_feed(luat_netdrv_dns_ctx_t *ctx, const uint8_t *data, uin
 	if (parsed_num)
 	{
 		uint32_t ttl_ms = (min_ttl > 0x7FFFFFFFUL) ? 0x7FFFFFFFUL : (min_ttl * 1000UL);
-		dns_cache_store(ctx, txn->name, txn->name_len, txn->qtype, parsed, parsed_num,
-				ttl_ms, 0, now_ms);
+		dns_cache_store(ctx, txn->adapter_index, txn->name, txn->name_len, txn->qtype,
+				parsed, parsed_num, ttl_ms, 0, now_ms);
 		if (txn->req && !txn->req->notified)
 		{
 			dns_req_add_ip(txn->req, parsed, parsed_num);

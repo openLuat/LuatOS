@@ -1312,13 +1312,14 @@ static void net_lwip2_task(void *param)
 			uint8_t idx = event.Param3;
 #ifdef LUAT_USE_NETDRV_DNS_CLIENT
 			/*
-			 * 链路断开: 缓存是全局的, 不同网卡背后可能是不同的 DNS 视图,
-			 * 断链后旧答案不再可信, 整表失效.
-			 * (整表失效是有意的简单化取舍, 换来可预测的行为)
+			 * 链路断开: 这条出口的旧答案不再可信, 失效它自己的缓存。
+			 * 只失效本网卡(而不是整表): share=0 时各网卡的 DNS 视图是分开的,
+			 * 别的网卡的有效缓存没必要被牵连。share=1 时该函数等价于整表失效
+			 * (所有条目 owner 都是 0), 语义仍然正确。
 			 */
 			if (event.Param1 == 0 && net_lwip2_dns_ctx_ready)
 			{
-				luat_netdrv_dns_cache_flush(&net_lwip2_dns_ctx);
+				luat_netdrv_dns_cache_flush_adapter(&net_lwip2_dns_ctx, idx);
 			}
 #endif
 			net_lwip2_check_network_ready(idx);
@@ -2050,12 +2051,13 @@ static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, vo
 	prvlwip.dns_client[adapter_index]->is_static_dns[server_index] = 1;
 #ifdef LUAT_USE_NETDRV_DNS_CLIENT
 	/*
-	 * 缓存是全局的, 不同网卡背后可能是不同的 DNS 视图.
-	 * 服务器表一变就整表失效, 否则会返回由旧视图解析出来的地址.
+	 * 这台服务器只服务本网卡, 它变了就只失效本网卡的缓存:
+	 * share=0 时别的网卡的答案由别的服务器/出口给出, 不该被牵连。
+	 * share=1 时等价于整表失效(所有条目 owner 都是 0), 语义仍正确。
 	 */
 	if (net_lwip2_dns_ctx_ready)
 	{
-		luat_netdrv_dns_cache_flush(&net_lwip2_dns_ctx);
+		luat_netdrv_dns_cache_flush_adapter(&net_lwip2_dns_ctx, adapter_index);
 	}
 #endif
 	char buff[64] = {0};

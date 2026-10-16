@@ -144,6 +144,23 @@ typedef struct
 	uint32_t cache_ttl_ms;	/* 记录 TTL 上限, 0 = 不缓存.        默认 60000ms */
 	uint32_t neg_ttl_ms;	/* NXDOMAIN 负缓存时长.              默认 10000ms */
 	uint8_t cache_enable;	/* 缓存总开关, 0 关闭.              默认 1       */
+	/*
+	 * 缓存是否跨网卡共享, 默认 0(不共享).
+	 *
+	 * 默认不共享的原因: 一条缓存条目是"由某台 DNS 服务器经某条出口链路"解析出来的.
+	 * 出口不同 -> 权威 DNS 可能给出不同答案:
+	 *   - 地域就近调度(CDN): 蜂窝出口与以太网出口可能落在不同 POP;
+	 *   - 运营商内网域名: 只在某条链路的 DNS 上可解析;
+	 *   - 多 WAN 分流: 各出口的 DNS 视图本就不同.
+	 * 共享会把这些答案混在一起, 让"A 出口解析出的地址"被 B 出口的连接复用;
+	 * 反过来也有害: B 出口解析失败(或 NXDOMAIN)会污染 A 出口的查询结果。
+	 *
+	 * 置 1 则显式共享: 缓存键退化为 (name, qtype), 适合"各网卡 DNS 视为等价"
+	 * 的简单设备, 可以省一份缓存。
+	 *
+	 * 运行时切换本开关会整表失效(两种键空间不能混用), 见 luat_netdrv_dns_cfg_apply。
+	 */
+	uint8_t share;			/* 缓存跨网卡共享, 0 = 按网卡隔离.   默认 0       */
 	uint8_t max_inflight;	/* 最大在途事务数, 至少 1.          默认 8       */
 	uint8_t max_retry;		/* 单台服务器最多重试次数.           默认 2       */
 	uint16_t query_timeout_ms;	/* 单次尝试超时.            默认 2000ms   */
@@ -173,6 +190,12 @@ typedef struct
 typedef struct luat_netdrv_dns_cache_ent
 {
 	luat_netdrv_dns_node_t node;
+	/*
+	 * 归属网卡. cfg.share=0 时它是缓存键的一部分(按网卡隔离);
+	 * cfg.share=1 时入表统一写 0(归一化), 因为此时键里不含网卡。
+	 * 详见 luat_netdrv_dns_cfg_t.share 的说明。
+	 */
+	uint8_t adapter_index;
 	uint8_t name_len;
 	uint8_t name[LUAT_NETDRV_DNS_MAX_DOMAIN];
 	uint16_t qtype;
@@ -348,6 +371,15 @@ void luat_netdrv_dns_stat_get(const luat_netdrv_dns_ctx_t *ctx, luat_netdrv_dns_
 
 /** 清空整个缓存. 切网卡 / 换 DNS 服务器 / DHCP 续约变更 DNS 列表时必须调用 */
 void luat_netdrv_dns_cache_flush(luat_netdrv_dns_ctx_t *ctx);
+
+/**
+ * 只清掉某张网卡的缓存条目.
+ *
+ * share=0(默认)时应优先用这个: 链路断开 / 该网卡换了 DNS 服务器时,
+ * 影响面只是这张网卡自己的解析视图, 没必要把别的网卡的有效缓存一起废掉。
+ * share=1 时所有条目都归在 owner=0, 本函数等价于 luat_netdrv_dns_cache_flush。
+ */
+void luat_netdrv_dns_cache_flush_adapter(luat_netdrv_dns_ctx_t *ctx, uint8_t adapter_index);
 
 /**
  * 是否还有未完成的工作(在途 + 排队 + 退避等待中的事务).

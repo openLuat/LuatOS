@@ -1053,6 +1053,147 @@ done:
 	return rc;
 }
 
+/*
+ * 缓存默认按网卡隔离(share=0), 打开 share 才跨网卡共享.
+ *
+ * 动机: 一条缓存是"某台DNS服务器经某条出口链路"解析出来的. 出口不同 ->
+ * 权威DNS可能给出不同答案(地域就近调度/运营商内网域名/多WAN分流),
+ * 共享会让"A出口解析出的地址"被B出口的连接复用; 反向也有害: B出口的
+ * NXDOMAIN 会污染 A 出口的查询。
+ *
+ * 本用例覆盖三件事:
+ *   1. share=0: 同一域名在网卡1解析后, 网卡2 查询必须【不命中】(要重新发包);
+ *   2. share=1: 网卡2 必须命中网卡1 写入的条目(不新增发包);
+ *   3. share 开关切换时整表失效(两种键空间不能混用), 且切换后行为正确。
+ */
+static int t_cache_adapter_isolated(void)
+{
+	luat_netdrv_dns_ctx_t *ctx = t_new();
+	luat_netdrv_dns_cfg_t cfg;
+	luat_netdrv_dns_txmsg_t tx[T_MAX_TX];
+	luat_netdrv_dns_stat_t st;
+	uint8_t resp[512];
+	uint8_t rdata[4] = { 1, 2, 3, 4 };
+	int rl;
+	int rc = -1;
+
+	if (ctx == NULL)
+	{
+		return -1;
+	}
+	luat_netdrv_dns_cfg_get(ctx, &cfg);
+	if (cfg.share != 0)
+	{
+		DNS_DBG("share: 默认应为 0(按网卡隔离), 实际 %u", (unsigned)cfg.share);
+		goto done;
+	}
+
+	/* ---- 1. share=0: 网卡 1 解析并入库 ---- */
+	if (luat_netdrv_dns_query(ctx, "s.com", 5, 0, (void *)1, 1, T_T0) != 0)
+	{
+		goto done;
+	}
+	if (luat_netdrv_dns_pump(ctx, tx, T_MAX_TX, T_T0) != 1)
+	{
+		DNS_DBG("share: pump1 != 1");
+		goto done;
+	}
+	rl = t_mk_resp(resp, sizeof(resp), t_txid_of(&tx[0]), "s.com", LUAT_NETDRV_DNS_TYPE_A,
+			0, rdata, 1, 300, 1);
+	if (rl < 0 || luat_netdrv_dns_rx_feed(ctx, resp, (uint32_t)rl, T_T0 + 10) != 0)
+	{
+		goto done;
+	}
+	luat_netdrv_dns_stat_get(ctx, &st);
+	if (st.cache_used != 1)
+	{
+		DNS_DBG("share: cache_used=%u want 1", (unsigned)st.cache_used);
+		goto done;
+	}
+	/* 网卡 1 自己应当命中 */
+	g_t.got = 0;
+	if (luat_netdrv_dns_query(ctx, "s.com", 5, 0, (void *)1, 1, T_T0 + 100) != 0 || g_t.got != 1)
+	{
+		DNS_DBG("share: 同网卡未命中");
+		goto done;
+	}
+	/* 网卡 2 必须【不命中】: 这是隔离的核心语义 */
+	g_t.got = 0;
+	if (luat_netdrv_dns_query(ctx, "s.com", 5, 0, (void *)1, 2, T_T0 + 200) != 0)
+	{
+		goto done;
+	}
+	if (g_t.got != 0)
+	{
+		DNS_DBG("share: share=0 时网卡2 命中了他网卡缓存(应为隔离)");
+		goto done;
+	}
+
+	/* 让网卡 2 的这条事务收尾, 免得干扰后面 */
+	if (luat_netdrv_dns_pump(ctx, tx, T_MAX_TX, T_T0 + 300) != 1)
+	{
+		DNS_DBG("share: pump2 != 1");
+		goto done;
+	}
+	if (t_answer_all(ctx, tx, 1, T_T0 + 310) != 0)
+	{
+		goto done;
+	}
+
+	/* ---- 2. 切到 share=1: 必须整表失效, 然后网卡 1 重新解析 ---- */
+	luat_netdrv_dns_cfg_get(ctx, &cfg);
+	cfg.share = 1;
+	luat_netdrv_dns_cfg_apply(ctx, &cfg, T_T0 + 400);
+	luat_netdrv_dns_stat_get(ctx, &st);
+	if (st.cache_used != 0)
+	{
+		DNS_DBG("share: 切换 share 后未整表失效, cache_used=%u", (unsigned)st.cache_used);
+		goto done;
+	}
+	if (luat_netdrv_dns_query(ctx, "s.com", 5, 0, (void *)1, 1, T_T0 + 500) != 0)
+	{
+		goto done;
+	}
+	if (luat_netdrv_dns_pump(ctx, tx, T_MAX_TX, T_T0 + 500) != 1)
+	{
+		DNS_DBG("share: pump3 != 1");
+		goto done;
+	}
+	rl = t_mk_resp(resp, sizeof(resp), t_txid_of(&tx[0]), "s.com", LUAT_NETDRV_DNS_TYPE_A,
+			0, rdata, 1, 300, 1);
+	if (rl < 0 || luat_netdrv_dns_rx_feed(ctx, resp, (uint32_t)rl, T_T0 + 510) != 0)
+	{
+		goto done;
+	}
+	/* 共享模式下, 另一张网卡必须命中同一份缓存 */
+	g_t.got = 0;
+	if (luat_netdrv_dns_query(ctx, "s.com", 5, 0, (void *)1, 2, T_T0 + 600) != 0 || g_t.got != 1)
+	{
+		DNS_DBG("share: share=1 时网卡2 未共享到缓存 (got=%u)", (unsigned)g_t.got);
+		goto done;
+	}
+	luat_netdrv_dns_stat_get(ctx, &st);
+	if (st.cache_used != 1)
+	{
+		DNS_DBG("share: share=1 时条目数应为 1, 实际 %u", (unsigned)st.cache_used);
+		goto done;
+	}
+
+	/* ---- 3. share=1 时按网卡 flush 等价于整表失效 ---- */
+	luat_netdrv_dns_cache_flush_adapter(ctx, 2);
+	luat_netdrv_dns_stat_get(ctx, &st);
+	if (st.cache_used != 0)
+	{
+		DNS_DBG("share: share=1 时按网卡 flush 应清空整表, cache_used=%u",
+				(unsigned)st.cache_used);
+		goto done;
+	}
+	rc = 0;
+done:
+	t_free(ctx);
+	return rc;
+}
+
 /* cache_num=2 时第 3 个域名淘汰 LRU */
 static int t_cache_evict(void)
 {
@@ -2090,6 +2231,7 @@ static const t_case_t t_cases[] = {
 	{ "cache_hit_no_tx", t_cache_hit_no_tx },
 	{ "cache_ttl_policy", t_cache_ttl_policy },
 	{ "cache_runtime_cfg", t_cache_runtime_cfg },
+	{ "cache_adapter_isolated", t_cache_adapter_isolated },
 	{ "cache_neg_ttl_not_clamped", t_cache_neg_ttl_not_clamped },
 	{ "cache_evict", t_cache_evict },
 	{ "negative_and_servfail", t_negative_and_servfail },

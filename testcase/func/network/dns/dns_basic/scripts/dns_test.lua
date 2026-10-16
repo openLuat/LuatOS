@@ -72,6 +72,7 @@ local function reset_dns()
     local c = dns_cfg()
     assert(netdrv.ctrl(ETH, netdrv.CTRL_DNS, {
         cache_enable = true,
+        share        = false,   -- 默认口径: 缓存按网卡隔离
         cache_num    = 32,
         cache_ttl    = 60,
         neg_ttl      = 10,
@@ -446,8 +447,11 @@ function dnstest.test_dns_runtime_config()
     local base = dns_cfg()
     assert(base.cache_num == 32 and base.cache_ttl == 60, "默认配置不符预期: cache_num="
         .. tostring(base.cache_num) .. " cache_ttl=" .. tostring(base.cache_ttl))
+    -- share 默认必须是 false: 出口不同 -> 权威DNS视图可能不同, 不能默认混用
+    assert(base.share == false, "share 默认应为 false, 实际 " .. tostring(base.share))
 
     assert(netdrv.ctrl(ETH, netdrv.CTRL_DNS, {
+        share        = true,
         cache_num    = 8,
         cache_ttl    = 30,
         neg_ttl      = 5,
@@ -458,6 +462,7 @@ function dnstest.test_dns_runtime_config()
     }), TAG .. " 写入运行时配置失败")
 
     local now = dns_cfg()
+    assert(now.share == true, "share 未生效: " .. tostring(now.share))
     assert(now.cache_num == 8, "cache_num 未生效: " .. tostring(now.cache_num))
     assert(now.cache_ttl == 30, "cache_ttl 未生效: " .. tostring(now.cache_ttl))
     assert(now.neg_ttl == 5, "neg_ttl 未生效: " .. tostring(now.neg_ttl))
@@ -469,6 +474,7 @@ function dnstest.test_dns_runtime_config()
     -- 改回去
     reset_dns()
     local back = dns_cfg()
+    assert(back.share == false, "share 未能恢复: " .. tostring(back.share))
     assert(back.cache_num == 32 and back.cache_ttl == 60, "配置未能恢复: cache_num="
         .. tostring(back.cache_num) .. " cache_ttl=" .. tostring(back.cache_ttl))
     log.info(TAG, "运行时配置 ok")

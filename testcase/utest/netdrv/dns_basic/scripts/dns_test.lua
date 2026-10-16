@@ -63,6 +63,12 @@ function suite.test_dns_utest_cache_neg_ttl()
     assert(netdrv.dns_utest("cache_neg_ttl_not_clamped") == true, "负缓存被 cache_ttl 连带压缩")
 end
 
+-- 缓存默认按网卡隔离(share=false); 打开 share 才跨网卡共享
+-- (出口不同 -> 权威DNS可能给出不同答案, 共享会把各出口的答案混在一起)
+function suite.test_dns_utest_cache_adapter_isolated()
+    assert(netdrv.dns_utest("cache_adapter_isolated") == true, "缓存未按网卡隔离或 share 切换异常")
+end
+
 -- 容量上限与 LRU 淘汰
 function suite.test_dns_utest_cache_evict()
     assert(netdrv.dns_utest("cache_evict") == true, "LRU 淘汰行为不符")

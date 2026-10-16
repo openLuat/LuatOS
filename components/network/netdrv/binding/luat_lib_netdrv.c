@@ -898,7 +898,7 @@ static int l_netdrv_dns_get_bool(lua_State *L, const char *key, uint8_t *out)
 static void l_netdrv_dns_check_keys(lua_State *L)
 {
     static const char *known[] = {
-        "cache_enable", "cache_num", "cache_ttl", "neg_ttl",
+        "cache_enable", "share", "cache_num", "cache_ttl", "neg_ttl",
         "max_inflight", "timeout", "max_retry", "min_gap",
         "flush", "stat", NULL
     };
@@ -924,6 +924,8 @@ static void l_netdrv_dns_push_cfg(lua_State *L, const luat_netdrv_dns_cfg_t *cfg
 {
     lua_pushboolean(L, cfg->cache_enable);
     lua_setfield(L, -2, "cache_enable");
+    lua_pushboolean(L, cfg->share);
+    lua_setfield(L, -2, "share");
     lua_pushinteger(L, cfg->cache_num);
     lua_setfield(L, -2, "cache_num");
     lua_pushinteger(L, cfg->cache_ttl_ms / 1000);
@@ -1002,6 +1004,7 @@ static int l_netdrv_dns_ctrl(lua_State *L, int id)
 
     /* has_cfg 只在确实有 key 被接受时才置 1, 避免"只读"被当成"修改" */
     if (l_netdrv_dns_get_bool(L, "cache_enable", &cfg.cache_enable) == 1) { ctl.has_cfg = 1; }
+    if (l_netdrv_dns_get_bool(L, "share", &cfg.share) == 1) { ctl.has_cfg = 1; }
     if (l_netdrv_dns_get_int(L, "cache_num", 0, LUAT_NETDRV_DNS_LIM_CACHE_NUM_MAX, &v) == 0) {
         cfg.cache_num = v; ctl.has_cfg = 1;
     }
@@ -1074,6 +1077,9 @@ netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DOWN, 0)
 -- DNS 客户端配置(第三个参数改传 table)
 netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DNS, {
     cache_enable = true,  -- 缓存总开关
+    share        = false, -- 缓存是否跨网卡共享, 默认 false(按网卡隔离)
+                          --   出口不同 -> 权威DNS可能给出不同答案(地域调度/
+                          --   运营商内网/多WAN分流), 共享会把各出口的答案混在一起
     cache_num    = 32,    -- 缓存条目上限, 0=不缓存
     cache_ttl    = 60,    -- 秒, 记录TTL上限, 0=不缓存
     neg_ttl      = 10,    -- 秒, NXDOMAIN 负缓存时长
@@ -1088,7 +1094,7 @@ netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DNS, { flush = true })
 
 -- 读回当前配置与统计(第一个返回值=是否成功)
 local ok, info = netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DNS, { stat = true })
--- info.cfg  = { cache_num=32, cache_ttl=60, ... }
+-- info.cfg  = { cache_enable=true, share=false, cache_num=32, cache_ttl=60, ... }
 -- info.stat = { query=.., cache_hit=.., tx=.., rx=.., inflight=.., .. }
 */
 static int l_netdrv_ctrl(lua_State *L) {

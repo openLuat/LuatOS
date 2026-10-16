@@ -14,6 +14,11 @@
 6、exmodbus.debug(enable)：设置 debug 开关，开启后会打印接收和发送的原始数据
 
 -- 版本更新说明
+-- 版本号：202610161100
+-- 1、更新时间：2026-10-16 11:00
+-- 2、更新内容
+--    修复 RTU 主站解析响应帧缺少 CRC 校验的问题
+--
 -- 版本号：202607021200
 -- 1、更新时间：2026-07-02 12:00
 -- 2、更新内容
@@ -418,7 +423,7 @@ end
 exmodbus.version()
 ]]
 function exmodbus.version()
-    return "202607021200"
+    return "202610161100"
 end
 
 log.debug("exmodbus", "version -> " .. exmodbus.version())

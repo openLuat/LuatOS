@@ -759,6 +759,15 @@ local function parse_rtu_response(response, config, function_code)
         return return_data
     end
 
+    -- 验证响应帧 CRC；
+    local calc_crc = crypto.crc16_modbus(response:sub(1, -3))
+    local recv_crc = string.byte(response, -2) + bit.lshift(string.byte(response, -1), 8)
+    if calc_crc ~= recv_crc then
+        log.error("exmodbus", "响应帧 CRC 校验失败，丢弃该帧")
+        return_data.status = exmodbus_ref.STATUS_DATA_INVALID
+        return return_data
+    end
+
     -- 提取响应中的字段；
     local actual_slave_id = string.byte(response, 1)
     local actual_function_code = string.byte(response, 2)

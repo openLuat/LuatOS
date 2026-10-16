@@ -13,7 +13,7 @@ idle_win（桌面播放器）与 video_win（全屏播放页）都要读素材�
 也就是说，帧尺寸读错**不会**把画面拉伸，只会让控件溢出容器、把画面切掉一块 ——
 同一份口径必须只有一处实现，否则两个页面的裁切行为会不一致。
 
-（welcome_win 里还有一份历史副本。开机路径没跟着迁移，改这里时别以为全工程都干净了。）
+（welcome_win 里的历史副本已随 welcome 页面删除，全工程只剩这一处实现。）
 
 === MP4 / HZV / MJPG 统一走 airui.video（2026-10-09 起）===
 airui.video 已支持 HZV 与 MP4：MJPG / HZV 走 videoplayer 后端（控件内拉 RGB565 帧），

@@ -1,8 +1,8 @@
 --[[
 @module  file_manager_app
 @summary 文件管理业务逻辑层，封装 io API 提供目录遍历、文件操作
-@version 1.0
-@date    2026.06.02
+@version 1.1
+@date    2026.10.15
 @author  江访
 ]]
 
@@ -44,15 +44,27 @@ end
 @return table 子项列表 { {name, size, type}, ... }，type=0文件 type=1目录
 ]]
 local function list_directory(dir_path)
-    local max_count = 200
+    -- io.lsdir 单次条数有上限（C 层钳到 100），按 offset 翻页取全
+    local page_size = 100
+    local max_total = 1000
+    local items = {}
     local offset = 0
-    local ret, data = io.lsdir(dir_path, max_count, offset)
-    if ret then
-        return true, data or {}
-    else
-        log.warn("file_manager", "lsdir fail", dir_path, ret, data)
-        return false, {}
+    while true do
+        local ret, data = io.lsdir(dir_path, page_size, offset)
+        if not ret then
+            log.warn("file_manager", "lsdir fail", dir_path, ret, data)
+            return false, {}
+        end
+        data = data or {}
+        for _, item in ipairs(data) do
+            items[#items + 1] = item
+        end
+        if #data < page_size or #items >= max_total then
+            break
+        end
+        offset = offset + page_size
     end
+    return true, items
 end
 
 --[[

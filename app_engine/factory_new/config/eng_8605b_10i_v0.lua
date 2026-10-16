@@ -59,13 +59,13 @@ return {
         { pin = 12, dir = 0, level = 1 }, -- 5V_EN 拉高，5V 供电
         -- { pin = 15, dir = 0, level = 1 }, -- LCD_DISP 拉高使能 LCD 显示
         { pin = 73, dir = 0, level = 1 }, -- AUDIOPA_EN = Air1103 供电，拉高常供电（见文件头第 2 条）
-        { pin = 56, dir = 0, level = 1 }, -- 9V_EN 拉高，等 100ms 就绪
+        { pin = 56, dir = 0, level = 1, delay = 100 }, -- 9V_EN 拉高，等 100ms 就绪
         { pin = 44, dir = 0, level = 1 }, -- 12V_EN 拉高，12V 供电
         { pin = 52, dir = 0, level = 1 }, -- 5VOUT_EN 拉高，对外 5V 输出使能
         { pin = 74, dir = 0, level = 1 }, -- SD_EN 拉高，SD 卡供电
-        { pin = 64, dir = 0, level = 1 }, -- WiFi_RESET = 4G_RESET 先拉高 50ms（见文件头第 3 条）
-        { pin = 64, dir = 0, level = 0 }, -- 维持低 120ms，WiFi/4G 模组复位释放
-        { pin = 58, dir = 0, level = 1, }, -- UVC_EN 拉高，等 200ms 摄像头就绪
+        { pin = 64, dir = 0, level = 1, delay = 50 }, -- WiFi_RESET = 4G_RESET 先拉高 50ms（见文件头第 3 条）
+        { pin = 64, dir = 0, level = 0, delay = 120 }, -- 维持低 120ms，WiFi/4G 模组复位释放
+        { pin = 58, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高，等 200ms 摄像头就绪
         { pin = 14, dir = 0, level = 1 }, -- 485_EN 拉高使能 485 收发（见文件头第 8 条）
         { pin = 65, dir = 0, level = 1 }, -- 485_EN1 拉高使能 485 收发（见文件头第 8 条）
         { pin = 49, dir = 0, level = 1 }, -- 485_EN2 拉高使能 485 收发（见文件头第 8 条）

@@ -11,8 +11,8 @@ AUTHOR = {"mavis"}
 
 依赖:
   1. 板子已联网(以太网或蜂窝均可), testrunner 会先调 netready 拉起网卡
-  2. 固件里 LUAT_USE_NETDRV_DNS_CLIENT 宏已打开(默认开),
-     即 netdrv.CTRL_DNS 这个常量必须存在
+  2. 固件的 luat_conf_bsp.h 里显式定义了 LUAT_USE_NETDRV_DNS_CLIENT
+     (公共头不做默认值兜底, 未定义则走旧实现), 即 netdrv.CTRL_DNS 这个常量必须存在
 ]]
 
 _G.sys = require("sys")

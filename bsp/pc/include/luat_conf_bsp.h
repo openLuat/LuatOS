@@ -293,6 +293,10 @@
 #define LUAT_USE_LWIP 1
 // #define LUAT_USE_ULWIP 1
 #define LUAT_USE_DNS 1
+// 显式启用 netdrv 新 DNS 客户端. 未定义则走旧的 components/ethernet/common/dns_client.c.
+// 该宏由公共头显式要求 BSP 声明, 不做默认值兜底(见 luat_netdrv_dns.h 的功能开关说明).
+// 只有打开它, netdrv.CTRL_DNS / netdrv.dns_utest 才存在(PC 侧 utest 套件 testcase/utest/netdrv/dns_basic 依赖它).
+#define LUAT_USE_NETDRV_DNS_CLIENT 1
 #endif
 
 #define LUAT_UART_MAX_DEVICE_COUNT 128

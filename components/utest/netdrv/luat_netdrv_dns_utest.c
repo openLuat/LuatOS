@@ -14,8 +14,8 @@
 #include "luat_base.h"
 
 /*
- * 头文件必须先于下面的 #if 引入: LUAT_USE_NETDRV_DNS_CLIENT 是由
- * luat_netdrv_dns.h 自己从 LUAT_USE_DNS 推导出来的, 先判后引会永远判假.
+ * 头文件必须先于下面的 #if 引入: LUAT_USE_NETDRV_DNS_CLIENT 由 BSP 的
+ * luat_conf_bsp.h 显式定义, 公共头不做兜底推导; 先判后引会永远判假.
  */
 #include "luat_netdrv_dns.h"
 

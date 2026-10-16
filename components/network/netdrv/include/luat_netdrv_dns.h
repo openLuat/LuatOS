@@ -89,21 +89,25 @@ typedef struct luat_netdrv_dns_node
  *   - 未定义 : 使用旧实现 components/ethernet/common/dns_client.c
  *   - 已定义 : 使用本实现
  *
- * 默认口径: 只要 BSP 定义了 LUAT_USE_DNS 就默认启用新客户端.
+ * 默认口径: 【本头不提供任何默认值兜底】需要该实现的 BSP 必须在自己的
+ * luat_conf_bsp.h 里显式声明:
+ *   #define LUAT_USE_NETDRV_DNS_CLIENT 1
+ * 与 luat_netdrv.h:25-26 对 LUAT_USE_NETDRV_IPV6 的口径一致。
  *
- * 【有意偏离既有约定, 特此登记】
- * luat_netdrv.h:25-26 对 LUAT_USE_NETDRV_IPV6 声明"本文件不提供任何默认值兜底,
- * 需要该能力的 BSP 必须在自己的 luat_conf_bsp.h 里显式写出". 本模块没有照做,
- * 理由有二:
- *   1. DNS 客户端被定位为 netdrv 的核心功能而非可选附加能力, 默认关闭会让
- *      所有平台都要额外改一次 BSP 配置, 收益为零;
- *   2. Air1601 等 BSP 的 luat_conf_bsp.h 在 SDK 仓库(luatos-sdk-ccm42xx-gcc)内,
- *      不在本仓库内. 默认开启意味着启用新客户端【零跨仓库改动】.
- * 如需回退, BSP 定义 LUAT_USE_NETDRV_DNS_CLIENT_LEGACY 即可, 无需改本文件.
+ * 【为什么不做成"定义了 LUAT_USE_DNS 就自动开启"】
+ * 曾经是那样(自动推导, 另提供 LUAT_NETDRV_DNS_CLIENT_LEGACY 回退), 目的是让
+ * Air1601 这类"luat_conf_bsp.h 在 SDK 仓库内"的 BSP 零跨仓库改动即可生效。
+ * 但它的代价是一处隐性耦合, 已被废弃:
+ *   - LUAT_USE_DNS 是各 SDK 早就存在的"有没有 DNS 能力"开关, 与"用哪套实现"
+ *     是两件事。自动推导让这一个宏悄悄承担了第二个语义, 而 SDK 侧编辑配置的
+ *     人从宏名和注释里看不出这一点;
+ *   - 于是想单独回退实现时 SDK 侧无从下手(回退宏只写在本仓库注释里); 而注掉
+ *     LUAT_USE_DNS 想省 flash 时, 会连 DNS 能力一起掉到旧实现, 而不是只切换实现;
+ *   - 新 BSP 首次写 LUAT_USE_DNS 时, 会在没有任何评审提示的情况下默认拿到新实现
+ *     —— 而两者行为有真实差异(并发 / 令牌桶节奏 / TTL上限 / 负缓存 / 缓存是否按
+ *     网卡隔离)。
+ * 现在改用显式开关: LUAT_USE_DNS 恢复"只管能力"的单一语义, 职责边界清楚。
  */
-#if defined(LUAT_USE_DNS) && !defined(LUAT_NETDRV_DNS_CLIENT_LEGACY)
-#define LUAT_USE_NETDRV_DNS_CLIENT 1
-#endif
 
 #ifdef LUAT_USE_NETDRV_DNS_CLIENT
 

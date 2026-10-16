@@ -16,8 +16,6 @@ local gnss = require "gnss"
 local exgnss= require "exgnss"
 local exvib= require "exvib"
 
-local exaudio = require "exaudio"
-local audio_config = require "audio_config"
 local lbsLoc2 = require"lbsLoc2"
 local airlbs = require "airlbs"
 local dtulib = require "dtulib"
@@ -430,46 +428,6 @@ cmd.rrpc = {
             return "simcross,ok,"..t[1] 
         else
             return "simcross,error,"..t[1]
-        end
-    end,
-    ["ttsplay"] = function(t) 
-        if t then
-            local result=audio_config.audio_play_tts(t[1])
-            return "rrpc,ttsplay,"..(result and "OK" or "ERROR")
-        end
-    end,
-    ["setvol"] = function(t) 
-        if t and tonumber(t[1])>=0 and tonumber(t[1])<=100 then
-            if exaudio.vol(tonumber(t[1])) then
-                fskv.set("vol",tonumber(t[1]))
-                return "rrpc,setvol,OK"
-            else
-                return "rrpc,setvol,ERROR"
-            end
-        else
-            return "rrpc,setvol,ERROR"
-        end
-    end,
-    ["getvol"] = function(t) 
-        if fskv.get("vol") then
-            return "rrpc,getvol,"..fskv.get("vol")
-        else
-            return "rrpc,getvol,65"
-        end
-    end,
-    ["fileplay"] = function(t) 
-        if t then
-            local result=audio_config.audio_play_file(t[1],t[2],t[3])
-            return "rrpc,fileplay,"..(result and "OK" or "ERROR")
-        end
-    end,
-    ["stopplay"] = function(t) 
-        if t then
-            if exaudio.play_stop() then
-                return "rrpc,stopplay,OK"
-            else
-                return "rrpc,stopplay,ERROR"
-            end
         end
     end,
 }

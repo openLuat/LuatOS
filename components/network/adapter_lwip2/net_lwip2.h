@@ -6,6 +6,12 @@
 #include "luat_network_adapter.h"
 #include "dhcp_def.h"
 
+/*
+ * 注意: 本头会被 SDK 侧的 csdk/interface/include/net_lwip.h 转发给 SDK 编译单元,
+ * 所以绝对不能在这里引入 c_common.h(或任何会引入它的头).
+ * 新 DNS 客户端的适配层声明在 net_lwip2_dns.h, 由需要它的 .c 自行包含.
+ */
+
 struct netif;
 
 /*
@@ -14,6 +20,22 @@ struct netif;
  *   - 已定义 : 启用(惯例写 1, 判据只看是否定义)
  * 本文件可能不经由 luat_netdrv.h 被包含, 因此这里不再自行兜底定义;
  * 开启该能力的唯一位置是 BSP 的 luat_conf_bsp.h.
+ */
+
+/*
+ * ==== 新 DNS 客户端(LUAT_USE_NETDRV_DNS_CLIENT) ====
+ *
+ * 该宏必须由 BSP 在自己的 luat_conf_bsp.h 里显式定义:
+ *   #define LUAT_USE_NETDRV_DNS_CLIENT 1
+ * 公共头不做任何默认值兜底(与上面 LUAT_USE_NETDRV_IPV6 的口径一致)。
+ * 未定义时走旧实现 components/ethernet/common/dns_client.c。
+ *
+ * 宏开启时:
+ *   - prvlwip.dns_client[] 退化为"仅保存每张网卡的 DNS 服务器表",
+ *     旧的 dns_run/dns_require 调用全部不再参与编译;
+ *   - 真正的解析由 luat_netdrv_dns.c 完成; 缓存默认按网卡隔离, 可用
+ *     cfg.share 打开跨网卡共享(见 luat_netdrv_dns.h);
+ *   - 定时器周期由 1000ms 收紧到 clamp(min_gap_ms, 5, 100), 否则节奏参数会失效.
  */
 
 #ifdef LWIP_NUM_SOCKETS

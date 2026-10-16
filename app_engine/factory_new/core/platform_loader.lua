@@ -8,7 +8,7 @@
 === 执行流程 ===
 
 require 即执行，按以下顺序：
-  1. 编译清单：require (...) 声明所有需要打包进固件的模块（编译系统静态分析用）
+  1. 编译清单：包进永不调用的 _compile_manifest()，仅供编译系统文本扫描打包，运行时不执行
   2. 平台检测：hmeta.model() → 识别芯片型号 → 设 _G.model_str / _G.is_pc
   3. PROJECT 映射：长命名 "Engine_Air1602_5inch_720x1280_002_V000" → 短文件名 "eng_1602_5i_v2"
   4. 配置加载：require(cfg_name) → 返回配置 table → 存入 _G.project_config
@@ -25,14 +25,19 @@ require 即执行，按以下顺序：
   第二级：配置文件 require 返回非 table → PC 配置（根据 PROJECT 名推断分辨率）
   第三级：PROJECT_MAP 未命中 → PC配置
 
-- require 编译清单：头部 require (...) 不是给运行时用的，是给编译系统静态分析用的。
-  编译系统扫描这些 require 语句决定哪些 .lua 文件打包进固件。
+- require 编译清单：不是给运行时用的，是给编译系统文本扫描用的。
+  编译系统扫描这些 require 语句决定哪些 .lua 文件打包进固件；
+  包进永不调用的函数后运行时不执行，动态 require（变量名）扫不到的文件才必须登记。
 ]]
 
--- ==================== 编译清单（编译系统静态分析，运行时无害） ====================
--- 新增驱动或配置文件时在此加一行，编译系统会自动打包对应 .lua 文件
+-- ==================== 编译清单（编译系统文本扫描，运行时不执行） ====================
+-- 新增驱动或配置文件时在此加一行，编译系统会自动打包对应 .lua 文件。
+-- 包进永不调用的函数：这些 require 若在顶层执行，会在点亮屏幕前把全部配置 +
+-- 整条网络库链（≈400ms）加载进启动关键路径；函数体内的静态 require 编译系统
+-- 文本扫描同样能扫到（与 app_main / ui_main 的函数体 require 同一机制）。
 
 -- 编译清单：≥800×480 分辨率的配置/驱动（编译系统静态分析）
+local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
 
 -- Engine 引擎主机系列
@@ -44,8 +49,13 @@ require ("eng_1602_7i_v4")        -- Air1602 7寸 1024×600 + NAND + NES + 电�
 require ("eng_1602_9i_v09421")    -- Air1602 9寸 1024×600 + NAND + NES + 电池
 require ("eng_1602_10i_v0")       -- Air1602 10寸 1024×600
 require ("eng_1602_10i_v10421")   -- Air1602 10寸 1024×600 + NAND + NES + 电池
-require ("eng_8601_7i_v0")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205)/4G(780ER2) + SD + UVC + RS485
-require ("eng_8602_9i_v0")       -- Air8601 9寸 1024×600 HX8282 + Airlink UART WiFi(6205)/4G(780ER2) + SD + UVC + 双RS485
+require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + RS485（WiFi 版）
+require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + RS485（4G 版）
+require ("eng_8602_9i_wifi")     -- Air8602 9寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + 双RS485（WiFi 版）
+require ("eng_8602_9i_4g")       -- Air8602 9寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + 双RS485（4G 版）
+require ("eng_8605_10i_wifi")    -- Air8605 10寸 1024×600 + Airlink UART WiFi(6205) + Air1103语音 + SD + UVC + RS485（WiFi 版）
+require ("eng_8605_10i_4g")      -- Air8605 10寸 1024×600 + Airlink UART 4G(780ER2) + Air1103语音 + SD + UVC + RS485（4G 版）
+require ("eng_8605b_10i_v0")     -- Air8605B 10寸 1024×600 + WiFi(SPI2)/4G(UART3)双网 + Air1103语音(UART6) + NAND + 双RS485
 require ("eng_8607_10i_v0")      -- Air8603 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
 
 -- EVB turnkey 开发板系列
@@ -63,6 +73,7 @@ require ("evb_1601_10i_v11")      -- Air1601 10寸 1024×600
 -- 驱动
 require ("lcd_display_rgb")       -- RGB display 统一驱动
 require ("tp_gt911")              -- GT911 触摸（统一）
+require ("periph_loader")         -- 外设预留框架（config.peripherals，require 无副作用）
 
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器
@@ -70,12 +81,12 @@ require ("net_init")
 require ("aircloud_app")          -- AirCloud 通用数据上报（能力探测型，有接口就采）
 require ("settings_report_win")   -- AirCloud 上报设置页（配 features.aircloud 使用）
 -- 应用工厂 / AI 聊天体积大，800×480 脚本区 1024KB 先不打包
+end
 
---[[boot_ui 延迟加载的聚合入口 **不登记** 在本清单（app_main / ui_main / welcome_win）：
-清单的 require 在 platform_loader 顶部立即执行，此刻 _G.project_config 尚未加载，
-app_main 的 features 门控会全部落空，且 require 缓存后不会二次执行，
-造成特性静默丢失。它们都是 boot_ui 源码内的静态 require 语句，
-编译系统文本扫描即可打包（与 features 门控里的 require "llm_chat" 同一机制）。]]
+
+--[[app_main / ui_main 等聚合入口 **不登记** 在本清单：它们由 boot_ui 源码内的
+函数体静态 require 文本扫描打包（与 features 门控里的 require "llm_chat" 同一机制）。
+清单内只放「动态 require（变量名）扫不到」的文件——各机型配置、驱动、外设框架。]]
 
 -- ==================== 1. 平台检测 ====================
 -- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()
@@ -99,8 +110,13 @@ local PROJECT_MAP = {
     ["Engine_Air1602_7inch_1024x600_004_V000"]     = "eng_1602_7i_v4",
     ["Engine_Air1602_AirLCD_1090_09421_V000"]     = "eng_1602_9i_v09421",
     ["Engine_Air1602_AirLCD_1100_10421_V000"]     = "eng_1602_10i_v10421",
-    ["Engine_Air8601_7inch_1024x600_010_V000"]    = "eng_8601_7i_v0",
-    ["Engine_Air8602_9inch_1024x600_010_V000"]    = "eng_8602_9i_v0",
+    ["Engine_Air8601_7inch_1024x600_010_WiFi_V000"] = "eng_8601_7i_wifi",
+    ["Engine_Air8601_7inch_1024x600_010_4G_V000"]   = "eng_8601_7i_4g",
+    ["Engine_Air8602_9inch_1024x600_010_WiFi_V000"] = "eng_8602_9i_wifi",
+    ["Engine_Air8602_9inch_1024x600_010_4G_V000"]   = "eng_8602_9i_4g",
+    ["Engine_Air8605_10inch_1024x600_000_WIFI_V000"] = "eng_8605_10i_wifi",
+    ["Engine_Air8605_10inch_1024x600_000_4G_V000"]   = "eng_8605_10i_4g",
+    ["Engine_Air8605B_10inch_1024x600_000_V000"]     = "eng_8605b_10i_v0",
     ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
     -- EVB turnkey 开发板系列（已实现，≥800×480）
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
@@ -223,7 +239,7 @@ end
 
 -- ==================== 6. GPIO 供电上电（底板决定） ====================
 -- 对应设计文档 阶段 2.2 POWER_ON：设置 GPIO 方向/电平，控制外设供电
--- power_on 格式: { pin=GPIO编号, dir=0输出/1输入, level=0低/1高, [delay=延时ms] }
+-- power_on 格式: { pin=GPIO编号, dir=0低/1高, level=0低/1高, [delay=延时ms] }
 -- 例: Airlink WiFi 模组上电 → GPIO55 拉低 50ms → 拉高 120ms
 -- 使用 sys.taskInit 创建协程执行 sys.wait，避免阻塞主线程
 --

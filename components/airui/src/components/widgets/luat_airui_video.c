@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "luat_videoplayer.h"
+#include "luat_airui_conf.h"
 #if defined(LUAT_USE_MP4PLAYER)
 #include "luat_mplayer.h"
 #endif
@@ -59,6 +60,8 @@ typedef struct airui_video_backend_ops {
     void (*release_frame)(void *backend_ctx, airui_video_frame_t *frame);
     int (*skip_frames)(void *backend_ctx, uint32_t count);
     int (*restart)(void *backend_ctx);
+    /* 循环接缝：拨回开头并重播已有音频，不拆解码器。为空则仍走 restart。 */
+    int (*rewind)(void *backend_ctx);
     int (*play)(void *backend_ctx);
     int (*pause)(void *backend_ctx, bool pause);
     int (*stop)(void *backend_ctx);
@@ -101,6 +104,7 @@ typedef struct {
     uint32_t audio_underruns;
     int32_t av_delta_ms;
     uint8_t clock_mode;
+    uint8_t clock_running;
 } airui_video_data_t;
 
 #if defined(LUAT_USE_VIDEOPLAYER)
@@ -177,6 +181,7 @@ static int airui_video_vp_read_frame(void *backend_ctx, airui_video_frame_t *fra
 static void airui_video_vp_release_frame(void *backend_ctx, airui_video_frame_t *frame);
 static int airui_video_vp_skip_frames(void *backend_ctx, uint32_t count);
 static int airui_video_vp_restart(void *backend_ctx);
+static int airui_video_vp_rewind(void *backend_ctx);
 static int airui_video_vp_play(void *backend_ctx);
 static int airui_video_vp_pause(void *backend_ctx, bool pause);
 static int airui_video_vp_stop(void *backend_ctx);
@@ -190,6 +195,7 @@ static const airui_video_backend_ops_t g_airui_video_videoplayer_ops = {
     .release_frame = airui_video_vp_release_frame,
     .skip_frames = airui_video_vp_skip_frames,
     .restart = airui_video_vp_restart,
+    .rewind = airui_video_vp_rewind,
     .play = airui_video_vp_play,
     .pause = airui_video_vp_pause,
     .stop = airui_video_vp_stop,
@@ -231,6 +237,7 @@ static void airui_video_release_data(void *user_data)
     }
 
     /* 先停 timer，再释放 backend/framebuffer，避免回调踩已释放内存。 */
+    data->playing = false;
     if (data->timer != NULL) {
         lv_timer_delete(data->timer);
         data->timer = NULL;
@@ -585,7 +592,6 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
 static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, const airui_video_frame_t *frame)
 {
     int ret;
-    uint64_t copy_start_ms;
     uint8_t *target_buf;
 
     if (video == NULL || data == NULL || frame == NULL || frame->data == NULL) {
@@ -602,7 +608,8 @@ static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, 
         }
         if (period_ms <= UINT32_MAX) {
             data->interval = (uint32_t)period_ms;
-            if (data->timer != NULL) {
+            /* 音频主时钟在走时，节拍跟界面刷新走，不把周期改成整帧。 */
+            if (!data->clock_running && data->timer != NULL) {
                 lv_timer_set_period(data->timer, data->interval);
             }
         }
@@ -634,9 +641,7 @@ static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, 
     }
 
     if (frame->data != target_buf) {
-        copy_start_ms = luat_videoplayer_prof_now_ms();
         memcpy(target_buf, frame->data, data->framebuffer_size);
-        luat_videoplayer_prof_add_time(LUAT_VP_PROF_T_COPY, (uint32_t)(luat_videoplayer_prof_now_ms() - copy_start_ms));
     }
 
     data->framebuffer_index = (uint8_t)((data->framebuffer_index + 1u) & 0x1u);
@@ -677,12 +682,16 @@ static int airui_video_read_and_present(lv_obj_t *video, airui_video_data_t *dat
         frame.data = airui_video_get_next_framebuffer(data);
         frame.data_size = data->framebuffer_size;
     }
-    /* 主播放路径：读一帧 -> 可选 loop 重启 -> 渲染 -> 释放 backend 帧。 */
+    /* 主播放路径：读一帧。循环到文件尾时拨回开头，当前画面留到新的第一帧解完。 */
     ret = data->ops->read_frame(data->backend_ctx, &frame);
-    if (ret == AIRUI_VIDEO_STATUS_EOF && allow_loop && data->loop && data->ops->restart != NULL) {
-        ret = data->ops->restart(data->backend_ctx);
-        if (ret == AIRUI_OK) {
-            if (data->playing && data->ops->play != NULL) {
+    if (ret == AIRUI_VIDEO_STATUS_EOF && allow_loop && data->loop) {
+        ret = AIRUI_ERR_NOT_SUPPORTED;
+        if (data->ops->rewind != NULL) {
+            ret = data->ops->rewind(data->backend_ctx);
+        }
+        if (ret != AIRUI_OK && data->ops->restart != NULL) {
+            ret = data->ops->restart(data->backend_ctx);
+            if (ret == AIRUI_OK && data->playing && data->ops->play != NULL) {
                 ret = data->ops->play(data->backend_ctx);
             }
         }
@@ -1048,7 +1057,7 @@ static void airui_video_timer_cb(lv_timer_t *timer)
         return;
     }
 
-    /* timer 只负责唤醒调度，HZV 的实际呈现时刻由音频主时钟决定。 */
+    /* 到点才解码。下一拍仍由界面刷新进来，再对一次主时钟。 */
     ret = airui_video_read_and_present(video, data, true);
     if (ret != AIRUI_OK) {
         data->playing = false;
@@ -1267,6 +1276,16 @@ static int airui_video_vp_restart(void *backend_ctx)
     return AIRUI_OK;
 }
 
+static int airui_video_vp_rewind(void *backend_ctx)
+{
+    airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
+
+    if (ctx == NULL || ctx->player == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    return luat_videoplayer_rewind(ctx->player) == LUAT_VP_OK ? AIRUI_OK : AIRUI_ERR_INIT_FAILED;
+}
+
 static int airui_video_sync_to_audio(airui_video_data_t *data)
 {
     airui_video_clock_t clock;
@@ -1281,24 +1300,26 @@ static int airui_video_sync_to_audio(airui_video_data_t *data)
     }
     memset(&clock, 0, sizeof(clock));
     ret = data->ops->get_clock(data->backend_ctx, &clock);
-    if (ret != AIRUI_OK || clock.clock_mode == 0) return AIRUI_OK;
+    if (ret != AIRUI_OK || clock.clock_mode == 0) {
+        data->clock_running = 0;
+        return AIRUI_OK;
+    }
     data->audio_pts_ms = clock.audio_pts_ms;
     data->audio_underruns = clock.underruns;
     data->clock_mode = clock.clock_mode;
+    data->clock_running = clock.running ? 1u : 0u;
 
     ret = data->ops->get_next_frame_time(data->backend_ctx, &next_pts_ms, &duration_ms);
     if (ret == AIRUI_VIDEO_STATUS_EOF) return AIRUI_OK;
     if (ret != AIRUI_OK) return ret;
     if (next_pts_ms > clock.audio_pts_ms + 10u) {
-        /* HZV 音视频同容器：WAIT 而不 read_frame 会停掉解复用，音频 DMA 播完缓冲后时钟冻住，
-           画面也就停在首帧。第二图层直推很快，更容易提前进入 WAIT，因此 DAC 未起、
-           时钟未跑或缓冲空时必须继续读帧给音频补数。 */
-        if (!clock.running || clock.audio_pts_ms == 0u || clock.buffered_samples == 0u) {
-            lv_timer_set_period(data->timer, 5);
+        /* 音频整段已抽出，时钟不靠继续读包来走。DAC 未起时仍要先出帧。 */
+        if (!data->clock_running) {
+            lv_timer_set_period(data->timer, AIRUI_HANDLER_PERIOD_MS);
             return AIRUI_OK;
         }
-        uint64_t wait_ms = next_pts_ms - clock.audio_pts_ms - 10u;
-        lv_timer_set_period(data->timer, wait_ms > 20u ? 20u : (uint32_t)wait_ms);
+        /* 下一帧还早。等下一次界面刷新再读主时钟，不再另开定时器。 */
+        lv_timer_set_period(data->timer, AIRUI_HANDLER_PERIOD_MS);
         return AIRUI_VIDEO_STATUS_WAIT;
     }
 
@@ -1314,7 +1335,7 @@ static int airui_video_sync_to_audio(airui_video_data_t *data)
         if (ret != AIRUI_OK) return ret;
     }
     data->av_delta_ms = (int32_t)((int64_t)data->video_pts_ms - (int64_t)clock.audio_pts_ms);
-    lv_timer_set_period(data->timer, 1);
+    lv_timer_set_period(data->timer, AIRUI_HANDLER_PERIOD_MS);
     return AIRUI_OK;
 }
 
@@ -1640,6 +1661,7 @@ int airui_video_pause(lv_obj_t *video)
         return AIRUI_ERR_INIT_FAILED;
     }
     data->playing = false;
+    data->clock_running = 0;
     data->fps_x100 = 0;
     data->fps_window_frames = 0;
     lv_timer_pause(data->timer);
@@ -1687,6 +1709,7 @@ int airui_video_stop(lv_obj_t *video)
     }
 
     data->playing = false;
+    data->clock_running = 0;
     data->fps_x100 = 0;
     data->fps_window_frames = 0;
     lv_timer_pause(data->timer);

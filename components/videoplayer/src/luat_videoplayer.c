@@ -11,7 +11,6 @@
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_fs.h"
-#include "luat_mcu.h"
 #define VP_MALLOC  luat_heap_malloc
 #define VP_FREE    luat_heap_free
 #define VP_FOPEN   luat_fs_fopen
@@ -42,6 +41,7 @@
 #include "luat_audio_request.h"
 #include "luat_audio_data_codec.h"
 #include "luat_audio_channel.h"
+#include "luat_mcu.h"
 #endif
 
 /* Read buffer size for scanning MJPG stream */
@@ -61,14 +61,6 @@
 /* Debug flag */
 static int g_vp_debug = 0;
 
-typedef struct {
-    uint64_t window_start_ms;
-    uint64_t stage_ms[LUAT_VP_PROF_T_COUNT];
-    uint32_t frame_count;
-} luat_vp_profiler_t;
-
-static luat_vp_profiler_t g_vp_profiler;
-
 #ifdef __LUATOS__
 #define LUAT_LOG_TAG "videoplayer"
 #include "luat_log.h"
@@ -79,77 +71,6 @@ static luat_vp_profiler_t g_vp_profiler;
 #define VP_LOGD(...) do { if (g_vp_debug) { printf("[VP] "); printf(__VA_ARGS__); printf("\n"); } } while(0)
 #define VP_LOGW(...) do { printf("[VP WARN] "); printf(__VA_ARGS__); printf("\n"); } while(0)
 #endif
-
-static void luat_videoplayer_prof_maybe_log(uint64_t now_ms) {
-#ifdef __LUATOS__
-    uint64_t window_ms;
-
-    if (g_vp_profiler.window_start_ms == 0) {
-        g_vp_profiler.window_start_ms = now_ms;
-        return;
-    }
-
-    window_ms = now_ms - g_vp_profiler.window_start_ms;
-    if (window_ms < 1000) {
-        return;
-    }
-
-    if (g_vp_debug) {
-        uint64_t total_ms = 0;
-        size_t i;
-        for (i = 0; i < LUAT_VP_PROF_T_COUNT; i++) {
-            total_ms += g_vp_profiler.stage_ms[i];
-        }
-        LLOGI("perf 1s frames=%u window=%llu total=%llu demux=%llu read=%llu annexb=%llu decode=%llu yuv2rgb=%llu copy=%llu draw=%llu flush=%llu idle=%lld",
-              g_vp_profiler.frame_count,
-              (unsigned long long)window_ms,
-              (unsigned long long)total_ms,
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_DEMUX],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_READ],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_ANNEXB],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_DECODE],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_YUV2RGB],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_COPY],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_DRAW],
-              (unsigned long long)g_vp_profiler.stage_ms[LUAT_VP_PROF_T_FLUSH],
-              (long long)window_ms - (long long)total_ms);
-    }
-
-    memset(&g_vp_profiler, 0, sizeof(g_vp_profiler));
-    g_vp_profiler.window_start_ms = now_ms;
-#else
-    (void)now_ms;
-#endif
-}
-
-uint64_t luat_videoplayer_prof_now_ms(void) {
-#ifdef __LUATOS__
-    return luat_mcu_tick64_ms();
-#else
-    return 0;
-#endif
-}
-
-void luat_videoplayer_prof_add_time(luat_vp_prof_stage_t stage, uint32_t elapsed_ms) {
-    uint64_t now_ms = luat_videoplayer_prof_now_ms();
-    if ((unsigned)stage >= LUAT_VP_PROF_T_COUNT) {
-        return;
-    }
-    if (g_vp_profiler.window_start_ms == 0) {
-        g_vp_profiler.window_start_ms = now_ms;
-    }
-    g_vp_profiler.stage_ms[stage] += elapsed_ms;
-    luat_videoplayer_prof_maybe_log(now_ms);
-}
-
-void luat_videoplayer_prof_mark_frame(void) {
-    uint64_t now_ms = luat_videoplayer_prof_now_ms();
-    if (g_vp_profiler.window_start_ms == 0) {
-        g_vp_profiler.window_start_ms = now_ms;
-    }
-    g_vp_profiler.frame_count++;
-    luat_videoplayer_prof_maybe_log(now_ms);
-}
 
 /* ---- Player context ---- */
 struct luat_vp_ctx {
@@ -180,6 +101,12 @@ struct luat_vp_ctx {
     volatile uint8_t hzv_audio_started;
     volatile uint8_t hzv_audio_driver_started;
     volatile uint8_t hzv_audio_done;
+    /* DAC 块完成时的锚点。块与块之间用系统 tick 把主时钟补顺。 */
+    uint64_t hzv_clock_anchor_pts_ms;
+    uint64_t hzv_clock_anchor_tick_ms;
+    uint64_t hzv_clock_anchor_samples;
+    uint32_t hzv_clock_block_ms;
+    uint8_t hzv_clock_anchor_valid;
 #endif
 #endif
 };
@@ -548,7 +475,6 @@ int luat_videoplayer_read_frame(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame) {
         frame->pts = packet.pts;
         frame->duration = packet.duration;
         frame->timescale = ctx->hzv_timescale;
-        luat_videoplayer_prof_mark_frame();
         return LUAT_VP_OK;
     }
 #endif
@@ -627,7 +553,6 @@ int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, u
         frame->pts = packet.pts;
         frame->duration = packet.duration;
         frame->timescale = ctx->hzv_timescale;
-        luat_videoplayer_prof_mark_frame();
         return LUAT_VP_OK;
     }
 #endif
@@ -661,7 +586,6 @@ int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, u
             VP_LOGD("video size: %dx%d", ctx->width, ctx->height);
         }
 
-        luat_videoplayer_prof_mark_frame();
         return LUAT_VP_OK;
     }
 }
@@ -791,6 +715,7 @@ int luat_videoplayer_play(luat_vp_ctx_t *ctx)
         ctx->hzv_audio_done = 0;
         ctx->hzv_audio_driver_started = 0;
         ctx->hzv_audio_feed_offset = 0;
+        ctx->hzv_clock_anchor_valid = 0;
         ctx->hzv_audio_started = 1;
         ret = luat_audio_request_play_stream(&ctx->hzv_audio_request, NULL, codec,
             &common_param, 0, 0, 0, hzv_audio_callback, ctx, NULL);
@@ -810,6 +735,9 @@ int luat_videoplayer_pause(luat_vp_ctx_t *ctx, uint8_t pause)
 #if defined(LUAT_USE_HZV) && defined(LUAT_USE_AUDIO_V2)
     if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv_audio_started &&
         ctx->hzv_audio_request.data_channel) {
+        if (pause) {
+            ctx->hzv_clock_anchor_valid = 0;
+        }
         return luat_audio_channel_play(ctx->hzv_audio_request.data_channel, !pause) == 0 ?
             LUAT_VP_OK : LUAT_VP_ERR_IO;
     }
@@ -828,10 +756,101 @@ int luat_videoplayer_stop(luat_vp_ctx_t *ctx)
         ctx->hzv_audio_started = 0;
         ctx->hzv_audio_driver_started = 0;
         ctx->hzv_audio_done = 1;
+        ctx->hzv_clock_anchor_valid = 0;
     }
 #endif
     return LUAT_VP_OK;
 }
+
+int luat_videoplayer_rewind(luat_vp_ctx_t *ctx)
+{
+    if (ctx == NULL) return LUAT_VP_ERR_PARAM;
+    ctx->eof = 0;
+#ifdef LUAT_USE_HZV
+    if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv != NULL) {
+        if (luat_hzv_rewind(ctx->hzv) != LUAT_HZV_OK) {
+            return LUAT_VP_ERR_IO;
+        }
+#if defined(LUAT_USE_AUDIO_V2)
+        if (ctx->hzv_audio_data != NULL && ctx->hzv_audio_size > 0) {
+            int ret;
+            /* 停掉当前 DAC，再用同一份内存音频从头播。不重新抽包。 */
+            luat_videoplayer_stop(ctx);
+            ret = luat_videoplayer_play(ctx);
+            if (ret != LUAT_VP_OK) {
+                return ret;
+            }
+        }
+#endif
+        return LUAT_VP_OK;
+    }
+#endif
+    if (ctx->format == LUAT_VP_FMT_MJPG && ctx->fp != NULL) {
+        if (VP_FSEEK(ctx->fp, 0, SEEK_SET) != 0) {
+            return LUAT_VP_ERR_IO;
+        }
+        ctx->scan_buf_len = 0;
+        ctx->scan_buf_pos = 0;
+        return LUAT_VP_OK;
+    }
+    return LUAT_VP_ERR_NOIMPL;
+}
+
+#if defined(LUAT_USE_HZV) && defined(LUAT_USE_AUDIO_V2)
+/* 当前 DMA 块的时长。主时钟在这一块之内用 tick 外推，不越过下一次块完成。 */
+static uint32_t hzv_play_block_ms(luat_vp_ctx_t *ctx, uint32_t sample_rate)
+{
+    luat_audio_driver_ctrl_t *ctrl;
+    uint32_t bytes_per_sample;
+    uint32_t block_samples;
+
+    if (sample_rate == 0 || ctx->hzv_audio_request.data_channel == NULL ||
+        ctx->hzv_audio_request.data_channel->driver_ctrl == NULL) {
+        return 0;
+    }
+    ctrl = ctx->hzv_audio_request.data_channel->driver_ctrl;
+    bytes_per_sample = ctrl->tx_param.data_align * ctrl->tx_param.channel_nums;
+    if (bytes_per_sample == 0 || ctrl->one_play_block_len == 0) {
+        return 0;
+    }
+    block_samples = ctrl->one_play_block_len / bytes_per_sample;
+    if (block_samples == 0) {
+        return 0;
+    }
+    return (uint32_t)((uint64_t)block_samples * 1000ULL / sample_rate);
+}
+
+/*
+ * 采样数变化时重新锚定到 DAC 已播出的位置。
+ * 同一块内 media_now = anchor_pts + (tick - anchor_tick)，并且不超过这一块的结尾。
+ */
+static uint64_t hzv_smooth_audio_pts(luat_vp_ctx_t *ctx, uint64_t raw_pts_ms,
+                                     uint64_t played_samples, uint32_t sample_rate)
+{
+    uint64_t now = luat_mcu_tick64_ms();
+    uint64_t elapsed;
+    uint32_t block_ms = hzv_play_block_ms(ctx, sample_rate);
+
+    if (block_ms > 0) {
+        ctx->hzv_clock_block_ms = block_ms;
+    }
+    if (!ctx->hzv_clock_anchor_valid || played_samples != ctx->hzv_clock_anchor_samples) {
+        ctx->hzv_clock_anchor_pts_ms = raw_pts_ms;
+        ctx->hzv_clock_anchor_tick_ms = now;
+        ctx->hzv_clock_anchor_samples = played_samples;
+        ctx->hzv_clock_anchor_valid = 1;
+        return raw_pts_ms;
+    }
+    if (ctx->hzv_clock_block_ms == 0) {
+        return ctx->hzv_clock_anchor_pts_ms;
+    }
+    elapsed = now >= ctx->hzv_clock_anchor_tick_ms ? now - ctx->hzv_clock_anchor_tick_ms : 0;
+    if (elapsed > ctx->hzv_clock_block_ms) {
+        elapsed = ctx->hzv_clock_block_ms;
+    }
+    return ctx->hzv_clock_anchor_pts_ms + elapsed;
+}
+#endif
 
 int luat_videoplayer_get_av_clock(luat_vp_ctx_t *ctx, luat_vp_av_clock_t *clock)
 {
@@ -841,12 +860,20 @@ int luat_videoplayer_get_av_clock(luat_vp_ctx_t *ctx, luat_vp_av_clock_t *clock)
     if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv_audio_started) {
         luat_audio_play_clock_t audio_clock;
         if (luat_audio_request_get_play_clock(&ctx->hzv_audio_request, &audio_clock) == 0) {
-            clock->audio_pts_ms = audio_clock.sample_rate ?
+            uint64_t raw_pts_ms = audio_clock.sample_rate ?
                 audio_clock.played_samples * 1000ULL / audio_clock.sample_rate : 0;
             clock->buffered_samples = audio_clock.buffered_samples;
             clock->underruns = audio_clock.underruns;
-            clock->running = audio_clock.running;
             clock->clock_mode = 1;
+            /* 驱动真正出声之后才让 tick 往前走。暂停和停播都停在上次的 DAC 位置。 */
+            clock->running = (audio_clock.running && ctx->hzv_audio_driver_started) ? 1 : 0;
+            if (!clock->running) {
+                ctx->hzv_clock_anchor_valid = 0;
+                clock->audio_pts_ms = raw_pts_ms;
+            } else {
+                clock->audio_pts_ms = hzv_smooth_audio_pts(ctx, raw_pts_ms,
+                    audio_clock.played_samples, audio_clock.sample_rate);
+            }
             return LUAT_VP_OK;
         }
     }

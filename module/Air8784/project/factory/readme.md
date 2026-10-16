@@ -177,9 +177,18 @@ factory/
 |---|---|
 | `update` / `fota` | 触发一次 FOTA 升级检查（libfota3） |
 
-- 在 AirCloud 消息下发工具里，命令类型选 **控制命令 (Tag19)**、数据类型 **ASCII字符**，消息内容填 `update` 或 `fota`。
-- 兼容 JSON（`{"op":"update"}` / `{"type":"update"}` / `{"command":"update"}`）与文本短命令 `update` / `fota`。
-- 触发升级不需要填 `imei` / `revision`。
+
+兼容 JSON（`{"op":"update"}` / `{"type":"update"}` / `{"command":"update"}`）与文本短命令 `update` / `fota`。触发升级不需要填 `imei` / `revision`。
+
+操作步骤（以 [合宙 IoT 平台](https://iot.luatos.com/) 为例）：
+
+1\. 登录后，顶部菜单选择 **基础能力 → AirCloud → AirCloud 上报记录**：
+   ![打开 AirCloud 上报记录菜单](https://docs.openluat.com/air8784/product/images/aircloud_upgrade_menu.png)
+
+2\. 找到目标设备，点击 **下发**，命令类型选 **控制命令 (Tag19)**，数据类型选 **ASCII字符**，消息内容填 `update` 或 `fota`：
+   ![下发升级命令](https://docs.openluat.com/air8784/product/images/aircloud_upgrade_send.png)
+
+3\. 设备收到命令后调用 libfota3 检查并执行升级。
 
 ## 十、网页端操作
 
@@ -446,8 +455,15 @@ TEST_DONE#               3 秒后自动重启进业务模式
 ### 16.1 启用方式
 
 1. 将 CA 证书烧录到设备 `/luadb/sip-ca.pem`（对应 `sip_config` 的 `sip_tls_ca_path`）。
-2. 设 `sip_transport = "tls"`（默认端口 5061；非标准端口经 `sip_server_port` 覆盖）。
-3. 也可由云端经 `set_transport` 切换：`{"op":"set_transport","sip_transport":"tls"}`；切回 UDP：`{"op":"set_transport","sip_transport":"udp"}`。切换后设备约 1 秒重启生效并持久化。
+2. 设 `sip_transport = "tls"`（默认端口 5061；非标准端口把 `sip_server_port` 改为对应值，如 `sip_server_port = 5062`）。
+3. 也可由 [合宙 IoT 平台](https://iot.luatos.com/) 云端下发 `set_transport` 切换：
+  - 进入 **基础能力 → AirCloud → AirCloud 上报记录**：
+   ![打开 AirCloud 上报记录菜单](https://docs.openluat.com/air8784/product/images/aircloud_upgrade_menu.png)
+     
+  - 选择设备，命令类型选 **控制命令 (Tag19)**，数据类型选 **ASCII字符**，消息内容填 `{"op":"set_transport","sip_transport":"tls"}`（切回 UDP 则填 `{"op":"set_transport","sip_transport":"udp"}`）；如需非默认端口，附加 `sip_server_port`，例如 `{"op":"set_transport","sip_transport":"tls","sip_server_port":5062}`，点击 **下发**：
+   ![下发 TLS 切换命令](https://docs.openluat.com/air8784/product/images/aircloud_tls_send.png)
+
+  - 切换后设备约 1 秒重启生效并持久化（传输与端口均持久化到 fskv，重启后自动回载）。
 
 ### 16.2 注意事项
 

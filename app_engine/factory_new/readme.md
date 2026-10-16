@@ -73,8 +73,8 @@ main.lua（设 PROJECT）
 platform_loader（平台检测 → PROJECT 映射 → 加载配置 → _G.project_config）
     │
     ├── lcd_common（动态 require LCD/TP 驱动 → 构建 _G.lcd_drv / _G.tp_drv）
-    └── boot_ui（快速点亮：display/airui → logo+背光 → logo 展示期间分批加载
-        app_main 业务模块与 ui_main 窗口清单 → BOOT_INIT_DONE → welcome 播 hzv → 桌面）
+    └── boot_ui（快速点亮：display → airui.init → logo+背光 → logo 展示期间加载
+        字体与核心批 → 直接进桌面；可选批 app_main/ui_main.optional 独立协程并行）
 ```
 
 ### 目录结构
@@ -109,7 +109,6 @@ factory/
 ├── ui/                        # UI 层（纯事件驱动）
 │   ├── boot_ui.lua            # 开机快速点亮 + 延迟初始化编排
 │   ├── ui_main.lua            # UI 窗口清单（boot_ui 在 logo 展示期间延迟加载）
-│   ├── welcome_win.lua        # 开机欢迎页（logo → hzv 两阶段）
 │   ├── idle_win.lua           # 桌面启动器
 │   ├── settings/              # 设置页面（9 个子页面）
 │   ├── wifi/                  # WiFi 页面
@@ -236,7 +235,6 @@ return {
 
 | 窗口 | 文件 | 功能 |
 |------|------|------|
-| 欢迎页 | `ui/welcome_win.lua` | 开机引导动画 |
 | 桌面 | `ui/idle_win.lua` | 时间/日期/信号/快捷入口/外部应用网格 |
 | 设置主页 | `ui/settings/settings_win.lua` | 功能入口列表（WiFi/亮度和声音/存储/声音/关于/更新） |
 | 亮度和声音 | `ui/settings/settings_display_win.lua` | 亮度滑块 + 媒体音量滑块（有音频硬件时默认启用） |

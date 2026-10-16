@@ -1,17 +1,18 @@
 --[[
 @module  boot_ui
 @summary 开机快速点亮 + 延迟初始化编排：display就绪→logo+背光→供电就绪→分批加载→通知播hzv
-@version 1.2
-@date    2026.09.26
+@version 1.3
+@date    2026.10.15
 @author  江访
 
 === 执行流程 ===
 
 require "boot_ui" 即启动 boot_task 协程（main.lua 阶段4）：
 
+  0. fskv 初始化 → settings_display_app.restore() 恢复音量/亮度到配置表
   1. lcd_drv.init()             → display + AirUI 初始化（屏幕尺寸/字体/旋转/密度）
   2. OPEN_WELCOME_WIN           → welcome 进入 LOGO 阶段（黑底 + logo，不开播）
-  3. sys.wait(100) → backlight_on() → logo 首帧上屏后再开背光
+  3. sys.wait(100) → backlight_on() → logo 首帧上屏后再开背光（亮度取恢复值）
   4. 等 POWER_ON_DONE           → 上电序列（含各步 delay 稳定时间）全部完成才碰 I2C
   5. tp_drv.init()              → 触摸初始化（失败 200ms 后重试一次）
   6. 分批 require app_main / ui_main → 业务与 UI 窗口（批间 sys.wait(0) 让 logo 刷新不卡）
@@ -115,6 +116,12 @@ local function guard_audio_init()
 end
 
 local function boot_task()
+    -- 0. 先初始化 fskv，再做其余初始化：恢复用户音量/背光亮度写回配置表
+    --    （hw.audio.play_vol / hw.lcd.backlight.level），背光点亮与后续起播直接使用；
+    --    fskv 挂载是异步的，未就绪时 settings_display_app 内后台短轮询重试
+    pcall(fskv.init)
+    pcall(function() require("settings_display_app").restore() end)
+
     -- 1. display + airui 初始化（拿到屏幕尺寸/字体/旋转/密度）
     local ok, err = pcall(lcd_drv.init)
     if not ok then

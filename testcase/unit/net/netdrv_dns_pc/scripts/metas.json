@@ -1,0 +1,6 @@
+{
+    "name": "netdrv_dns_pc",
+    "summary": "PC 模拟器接入 netdrv DNS 客户端: 验证解析走的是公共状态机(宿主 UDP socket 收发)而非宿主 getaddrinfo, 覆盖 tx/rx 增长、缓存命中、flush、双栈两条腿、NXDOMAIN 负缓存、运行时配置回读",
+    "platform": ["pc"],
+    "timeout": 120
+}

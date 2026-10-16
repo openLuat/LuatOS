@@ -1,8 +1,8 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.10
-@date    2026.10.13
+@version 3.11
+@date    2026.10.16
 @author  拓毅恒
 @description
 本库负责音频硬件初始化、播放、录音和电源控制，可配合 exsip 使用普通 SIP 通话或 CC<->SIP 语音流桥接。
@@ -13,6 +13,8 @@ SIP 对端语音经固件桥接送入 CC 上行；需要固件同时具备 CC、
 并非 CC<->SIP 桥接开关；不要在 CC<->SIP 桥接通话中额外启动该本地 speech 请求。
 CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬件参数仍按实际板型调用 setup() 配置。
 @updates
+    v3.11 2026.10.16
+        1. Air1103 TTS 起播先持续发送 200ms 静音，再读取语音 PCM，预留首次/空闲后的播放通路启动时间。
     v3.10 2026.10.13
         1. Air1103 在具备 tts_pcm 能力的新音频固件上支持 type=1 离线 TTS。
         2. TTS 使用单会话、有界 PCM 搬运和尾音收尾；停止时保留 MIC 上行状态。
@@ -1227,6 +1229,7 @@ local air1103_mic_vol      = 31    -- air1103 麦克风音量(协议暂不支持
 local air1103_tts_session = nil   -- 独立于普通音频请求编号, 持有 PCM 服务句柄
 local AIR1103_TTS_FRAME = 320
 local AIR1103_TTS_WATERMARK = 3200 -- 100ms, 远低于驱动的丢帧水位
+local AIR1103_TTS_LEAD_MS = 200  -- 起播先送静音, 首批语音保留在 native FIFO 中
 local AIR1103_TTS_TAIL_MS = 100   -- 初值; 必须按两型号实机尾音结果确认
 
 -- 请求取消后仍保留播放占用, 直到 read 确认原生任务已退出并清理。
@@ -1258,6 +1261,7 @@ end
 local function air1103_tts_worker(session)
     local remainder = ""
     local native_done = false
+    local lead_ms = AIR1103_TTS_LEAD_MS
     local tail_ms = nil
     while air1103_tts_session == session do
         if not session.stop_reason then
@@ -1276,6 +1280,10 @@ local function air1103_tts_worker(session)
                 air1103_tts_done(session, session.stop_reason)
                 return
             end
+        elseif lead_ms > 0 then
+            -- UART 已启动, 空队列由驱动按节拍发送静音; 此阶段不读取/丢弃语音。
+            -- 每轮仍检查取消和发送错误, 避免预热阻塞 play_stop。
+            lead_ms = lead_ms - 10
         elseif native_done then
             if air1103.get_pending() == 0 then
                 tail_ms = tail_ms or AIR1103_TTS_TAIL_MS
@@ -2980,7 +2988,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202610130000"
+    return "202610160000"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

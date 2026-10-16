@@ -119,6 +119,10 @@ sys.subscribe("GNSS_STATE",gnss_state)
 
 
 -- 版本更新说明
+-- 版本号：202610161500
+-- 1、更新时间：2026-10-16 15:00
+-- 2、更新内容
+--    新增exgnss.setpps(pps)接口，用于配置GNSS芯片的1PPS输出，返回值以芯片返回的$OK/$FAIL为准
 -- 版本号：202607021200
 -- 1、更新时间：2026-07-02 12:00
 -- 2、更新内容
@@ -141,6 +145,98 @@ local taskFlag=false
 local agpsFlag=false
 
 local timeres=false
+
+--1PPS 配置（exgnss.setpps）相关的内部状态
+--等待应答的1PPS配置请求，nil 表示当前没有请求
+local pps_req
+--两段式配置里登记下来的"定位成功后要下发的波形"，nil 表示没有
+local pps_after
+--底层原始数据的行缓冲，用于从NMEA数据流里挑出芯片的应答
+local pps_buf = ""
+--底层数据回调是否已经注册过（只有调用过setpps才会注册，不影响不使用setpps的脚本）
+local pps_hooked = false
+--GNSS定位状态是否已经订阅过（只有用到两段式配置才会订阅）
+local pps_subscribed = false
+--等待应答超时的最大重试次数（GNSS刚打开、芯片还没启动完成时需要重试）
+local pps_retry_max = 3
+--单次等待应答的超时时间，单位毫秒
+local pps_timeout_ms = 500
+--前向声明：pps_send里要挂超时定时器、pps_timeout里要重发，两者互相引用
+local pps_timeout
+
+--校验一组1PPS参数：三个成员必须是整数类型的number，且length小于interval，内部函数使用
+local function pps_check(pps)
+    if type(pps) ~= "table" then return false end
+    local interval, length, flag = pps.interval, pps.length, pps.flag
+    --字符串、浮点、inf、nan都在这里挡掉，避免拼命令行时报错；length<interval是芯片的硬性要求
+    return type(interval)=="number" and type(length)=="number" and type(flag)=="number"
+        and interval%1==0 and length%1==0 and flag%1==0 and length < interval
+end
+
+--下发一组已经校验过的1PPS参数，stage用于回调区分是哪一段（"before"/"after"，单段式为nil），内部函数使用
+local function pps_send(pps, cb, stage)
+    local cmd = string.format("$CFGTP,%d,%d,%d,0,0,0\r\n", pps.interval, pps.length, pps.flag)
+    log.info("exgnss", "setpps", cmd:sub(1, -3))
+    pps_buf = ""
+    pps_req = {cmd=cmd, cb=cb, stage=stage, retry=1, timer=sys.timerStart(pps_timeout, pps_timeout_ms)}
+    uart.write(uart_id, cmd)
+end
+
+--定位成功的消息处理：把登记好的"定位后"波形下发下去，内部函数使用
+local function pps_fixed_hook(event)
+    if event ~= "FIXED" or not pps_after or pps_req then return end
+    local cfg = pps_after
+    pps_after = nil
+    pps_send(cfg, cfg.cb, "after")
+end
+
+--结束一次1PPS配置：清状态、停超时定时器、执行回调，内部函数使用
+local function pps_stop(result)
+    local req = pps_req
+    if not req then return end
+    pps_req = nil
+    if req.timer then sys.timerStop(req.timer) end
+    log.info("exgnss", "setpps", result and "芯片返回设置成功" or "芯片返回设置失败")
+    if req.cb then
+        --回调是用户代码，出错不能影响库本身
+        local success, err = pcall(req.cb, result, req.stage)
+        if not success then log.error("exgnss", "setpps 回调执行出错", err) end
+    end
+    --已经定位成功、但"定位后"的波形还没下发（定位事件在上一次请求结束前就到了），这里补上
+    if pps_after and libgnss.isFix() then pps_fixed_hook("FIXED") end
+end
+
+--等待应答超时：还有重试次数就重发，否则按失败结束，内部函数使用
+pps_timeout = function()
+    local req = pps_req
+    if not req then return end
+    if req.retry < pps_retry_max then
+        req.retry = req.retry + 1
+        log.warn("exgnss", "setpps", "等待芯片应答超时，第" .. req.retry .. "次")
+        uart.write(uart_id, req.cmd)
+        req.timer = sys.timerStart(pps_timeout, pps_timeout_ms)
+    else
+        pps_stop(false)
+    end
+end
+
+--libgnss底层原始数据回调，内部函数使用，不推荐给脚本层使用
+--作用：从底层收到的数据里挑出GNSS芯片对1PPS配置命令的应答（$OK表示成功，$FAIL表示失败）
+local function exgnss_raw_cb(data)
+    if type(data) ~= "string" then return end
+    pps_buf = pps_buf .. data
+    --按行处理：只认以换行结尾的完整行，避免把半截数据当应答；命令回显是"#xxx"，不会命中这里
+    for line in pps_buf:gmatch("([^\r\n]+)\r?\n") do
+        local upper = line:upper()
+        if upper:find("^%$OK") then
+            pps_stop(true)
+        elseif upper:find("^%$FAIL") then
+            pps_stop(false)
+        end
+    end
+    --丢弃已经处理完的完整行，只保留最后一段不完整的
+    pps_buf = pps_buf:match("([^\r\n]*)$") or ""
+end
 
 --保存经纬度到文件区
 local function save_loc(lat,lng)
@@ -1068,13 +1164,85 @@ function exgnss.last_loc()
     end
 end
 --[[
+配置GNSS芯片的1PPS输出（非阻塞，配置结果通过回调返回）
+@api exgnss.setpps(pps,cb)
+@table pps 单段式：{interval=脉冲周期,length=脉冲宽度,flag=脉冲配置}，三个成员都是整数类型的number；
+            两段式：{before=定位前的波形,after=定位成功后的波形}，两个成员都是和单段式一样的表
+@param cb function类型，可选；配置结果回调，回调形式为cb(result,stage)，result为true表示芯片返回设置成功、false表示设置失败或者等待应答超时，stage为"before"/"after"表示是定位前还是定位后的那一段，单段式时为nil
+@return boolean true表示请求已受理（参数合法、GNSS已打开），false表示参数错误、GNSS未打开或者上一次配置还没有结果
+@usage
+-- 单段式：立即下发这条波形
+exgnss.setpps({interval=1000000,length=500000,flag=1}, function(result)
+    log.info("setpps", result)
+end)
+-- 两段式：立即下发before（定位前的波形），定位成功后自动下发after（定位后的波形）；
+--         如果调用时已经定位成功，就只下发after；只给after时，本次不下发、等定位成功后下发
+exgnss.setpps({before={interval=1000000,length=0,flag=7},
+               after={interval=1000000,length=500000,flag=1}}, function(result,stage)
+    log.info("setpps", stage, result)
+end)
+-- 1PPS参数含义与Air510W使用手册中的$CFGTP指令一致：interval是脉冲周期；length是脉冲宽度，
+-- 必须小于interval，flag的bit1决定它是高电平宽度还是低电平宽度，bit2决定是否总是输出
+]]
+function exgnss.setpps(pps,cb)
+    --兼容exgnss.open的写法，第二个参数也可以传{cb=function(result) end}
+    if type(cb)=="table" then cb=cb.cb end
+    if type(pps)~="table" or (cb~=nil and type(cb)~="function") then
+        log.warn("exgnss", "setpps 参数错误", "需要table类型的1PPS参数表和function类型的回调")
+        return false
+    end
+    --单段式就是一组的1PPS参数；两段式是{before=...,after=...}
+    local before, after = pps.before, pps.after
+    local target, stage = pps, nil
+    if before or after then
+        if (before and not pps_check(before)) or (after and not pps_check(after)) then
+            log.warn("exgnss", "setpps 参数错误", "before/after 参数不合法")
+            return false
+        end
+    elseif not pps_check(pps) then
+        log.warn("exgnss", "setpps 参数错误", pps.interval, pps.length, pps.flag)
+        return false
+    end
+    --未打开或者上一次请求还没有结果，都不受理
+    if not openFlag or pps_req then
+        log.warn("exgnss", "setpps 失败", openFlag and "上一次1PPS配置还没有结果" or "GNSS 未打开")
+        return false
+    end
+    --首次调用时才注册底层原始数据回调，用于接收芯片应答；不调用setpps的脚本完全不占用它
+    if not pps_hooked then
+        pps_hooked = true
+        if libgnss.on then libgnss.on("raw", exgnss_raw_cb)
+        else log.warn("exgnss", "固件不支持libgnss.on，setpps无法获取芯片应答") end
+    end
+    --两段式：已经定位成功就直接下发after，否则先把after登记下来、等定位成功后自动下发
+    if before or after then
+        if after and libgnss.isFix() then
+            target, stage = after, "after"
+        else
+            if after then
+                if not pps_subscribed then
+                    pps_subscribed = true
+                    sys.subscribe("GNSS_STATE", pps_fixed_hook)
+                end
+                after.cb = cb
+                pps_after = after
+            end
+            target, stage = before, before and "before" or nil
+        end
+    end
+    --只有after、且还没定位成功时，本次只登记不下发
+    if target then pps_send(target, cb, stage) end
+    return true
+end
+
+--[[
 获取库版本信息
 @return string 年月日时分，例如： "202606300102"
 @usage
 exgnss.version()
 ]]
 function exgnss.version()
-    return "202607021200"
+    return "202610161500"
 end
 
 log.debug("exgnss", "version -> " .. exgnss.version())

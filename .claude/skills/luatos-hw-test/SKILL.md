@@ -66,6 +66,13 @@ LuatOS 这边只需关心三件事:
    pgfs_vfs_adapter.c.o
    ```
 3. **PC 编译能过 ≠ 真机能过**。MSVC 对 implicit function declaration 是 warning,arm-gnu 是 error。每次新增/修改函数时同步加 header 声明,别只靠 PC 编译验证。(本仓库 2026-06-03 就发生过 `pgfs_file_remove` 漏声明、PC 编译过、Air1601 编译挂的事故。)
+4. ⚠️ **更隐蔽的一类:PC 侧的头文件集合 ≠ 真机侧。** PC 模拟器根本没有芯片 SDK 的 `bsp_common.h`,所以头文件撞名类错误 PC 100% 测不出来。
+   - 典型症状:`error: conflicting types for 'Time_UserDataStruct'` / `redefinition of 'struct llist_head_t'`
+   - 根因:`components/common/c_common.h` 与 SDK 的 `csdk/core/include/bsp_common.h` 重复定义了同一批类型(连 `llist_head` 都一样)
+   - 传染路径:SDK 的 `csdk/interface/include/net_lwip.h` → LuatOS 的 `net_lwip2.h`;以及 `luat_lib_netdrv.c` 经 `luat_netdrv.h` → lwip pbuf → `lwipopts.h`
+   - **规则:给会被 SDK 转发链碰到的公共头加 include 前,先确认它不会拖进 `c_common.h`。** 真需要链表就模块自带一套私有实现(新模块尤其该这么做)
+
+   定位技巧:看 `build\.deps\...\*.o.d` 依赖文件,直接确认出问题的 TU 被哪些头传染了。
 
 ---
 
@@ -74,8 +81,11 @@ LuatOS 这边只需关心三件事:
 设环境变量更紧凑:
 ```bash
 CLI='D:\github\luatos-cli\target\release\luatos-cli.exe'
-SOC='D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos\out\LuatOS-SoC_V1021_Air1601.soc'
+SOC='D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos\out\LuatOS-SoC_V1027_Air160X.soc'
 ```
+
+⚠️ `.soc` 文件名随 SDK 版本变(`V1021_Air1601` → `V1027_Air160X`),**不要写死**,直接 `ls out/*.soc` 取最新的那个。
+`--script` 传相对路径会按 CWD 解析,必须传绝对路径,否则报 `系统找不到指定的路径`。
 
 ### 4.1 `flash run` — 一次性刷 .soc + 抓启动日志
 ```bash
@@ -146,6 +156,9 @@ SOC='D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos\out\LuatOS-SoC_V1021_A
 - 单元小用例:`--timeout 15`(默认)
 - 回归套件(含 mount + 多次 IO + reset):`--timeout 60~120`
 - 涉及大文件 unzip / NES 仿真负载:更长,先用 `flash run --tail-log-secs 180` 摸底再定
+- ⚠️ **依赖真实网络的用例要按最坏路径算超时**,不是按正常应答时间。
+  举例:DNS 解析内部是 `timeout(2s) × (max_retry+1)` 次尝试,再叠加指数退避和换服务器间隔,
+  DNS 服务器彻底不响应时最坏接近 15~20s。测试侧等待值给 8s 就会把"慢"误判成"失败"。
 
 ---
 
@@ -276,6 +289,22 @@ end
 | 大规模 GC/FTL/契约 | ✅ 跑这里 | ⚠️ 真机回归只挑无 PC 等价物的(NAND 信号完整性、真 SPI 时序、wdt 行为) |
 
 凡能在 PC 上写的契约/边界/单元测试,**优先在 PC 上写**——快、可重复、有覆盖率。真机回归只验证 PC 无法模拟的部分。
+
+### 8.1 ⚠️ 反过来也要成立:PC 覆盖不到真机专属路径
+
+PC 全绿不代表功能可用。以下几类路径**只在真机存在**,PC 上根本走不到,必须靠真机用例兜底:
+
+| 路径类型 | PC 模拟器 | 真机 |
+|---|---|---|
+| 跨线程事件通道(`platform_send_event` + 对方置 `done`) | ❌ PC 的 utest 直接调 C API,绕开了整条链 | ✅ 必须真机验 |
+| ISR 回调 / 硬件定时器周期 | ❌ | ✅ |
+| 芯片 SDK 头参与编译的 TU | ❌ SDK 头不存在 | ✅ |
+| 真实 DNS/HTTP 等网络往返 | ⚠️ 可连真网但没有时序压力 | ✅ |
+
+2026-10 实例:netdrv DNS 客户端的 `netdrv.ctrl(CTRL_DNS)` 跨线程配置通道,
+"读当前配置"那一趟误带了 `has_cfg=1`,把全零配置写回、把默认 `cache_num=32/cache_ttl=60s`
+冲成 0,导致**缓存整体静默失效**。PC 的 22 个 utest 全绿,真机第一次跑就 7/11 FAIL。
+识别特征就是 §8 表格最后一行 —— 回读字段全是 0 而写入返回成功。
 
 ---
 

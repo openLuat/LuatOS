@@ -825,9 +825,20 @@ target("luatos-lua")
     add_files(luatos.."components/network/wireguard/src/*.c")
 
     -- httpsrv
+    -- HTTP 协议层(请求解析/静态文件路由/响应拼装/Lua 派发)两平台共用,
+    -- 传输后端二选一: PC 用宿主 socket(winsock/BSD), 真机用 lwIP raw API.
+    -- PC 上的 lwIP 没有任何 netif, 走 lwIP 只会"监听成功但收不到连接".
+    -- LUAT_HTTPSRV_POSIX_BACKEND 必须与下面的文件选择保持同一条件,
+    -- 否则 luat_lib_httpsrv.c 会引用到一个根本没被编译进去的符号.
     add_includedirs(luatos.."components/network/httpsrv/inc",{public = true})
-    add_files(luatos.."components/network/httpsrv/src/*.c")
-    -- add_files(luatos.."components/network/httpsrv/binding/*.c")
+    add_files(luatos.."components/network/httpsrv/src/luat_httpsrv_http.c")
+    if is_host("windows") or is_host("linux") or is_host("macos") then
+        add_defines("LUAT_HTTPSRV_POSIX_BACKEND=1")
+        add_files(luatos.."components/network/httpsrv/src/luat_httpsrv_posix.c")
+    else
+        add_files(luatos.."components/network/httpsrv/src/luat_httpsrv_lwip.c")
+    end
+    add_files(luatos.."components/network/httpsrv/src/luat_lib_httpsrv.c")
 
     -- ercoap
     -- add_includedirs(luatos.."components/network/ercoap/include",{public = true})

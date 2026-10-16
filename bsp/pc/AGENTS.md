@@ -182,6 +182,26 @@ cd build\out
 
 The PC simulator uses the host OS adapter for async network I/O. Key architecture:
 
+### ⚠️ Two Disconnected TCP/IP Stacks (the #1 gotcha)
+
+| | Stack | adapter index | PC state |
+|---|---|---|---|
+| A | lwIP 2.2 (`components/network/lwip22`) | 0~16 (`LWIP_*`) | **no `netif_add` anywhere on PC** — an island; nothing routes to it |
+| B | Host OS stack (winsock/BSD) | 17 (`NW_ADAPTER_INDEX_ETH0`) | live, has the real LAN IP the browser reaches |
+
+They share **zero** bytes. `tcpip_init()` runs a real tcpip thread, and binding inside
+lwIP (`tcp_bind`/`tcp_listen`) *succeeds* — but no inbound packet can ever be delivered,
+because PC never calls `netif_add` and host traffic never enters lwIP.
+
+Consequences to keep in mind:
+- `luat_netdrv_get(idx)` only serves lwIP netifs (0~16); it returns NULL for `ETH0`(17),
+  so anything that assumes "default adapter ⇒ netdrv" fails on PC.
+- A service implemented directly on lwIP raw API is **dead code on PC** even though it
+  reports success. This is why `httpsrv` has two backends
+  (`luat_httpsrv_posix.c` for PC, `luat_httpsrv_lwip.c` for firmware) behind a vtable
+  in `components/network/httpsrv/inc/luat_httpsrv_transport.h`.
+- Prefer the host stack for anything that must be reachable from a browser.
+
 ### Threading Model
 - **Main thread**: Lua VM, message bus, coroutine scheduling
 - **Network worker**: Handles async I/O callbacks

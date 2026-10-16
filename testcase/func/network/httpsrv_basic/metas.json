@@ -5,5 +5,5 @@
     },
     "action_count" : 1,
     "priority" : 5,
-    "description" : "HTTP Server(httpsrv)全网卡绑定功能测试(仅PC模拟器)"
+    "description" : "httpsrv 功能测试: 端口冲突拒绝/GET-POST真实往返/静态文件/路径穿越防护/LWIP_ANY绑定"
 }

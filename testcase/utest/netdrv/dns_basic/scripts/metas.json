@@ -1,0 +1,6 @@
+{
+  "name": "dns_basic",
+  "summary": "netdrv 现代 DNS 客户端 C 层单元测试: 报文编解码 / 并发在途 / 双栈合并 / 缓存与负缓存 / 重试退避与服务器轮转 / 节奏限速 / 畸形报文拒绝",
+  "platform": ["pc"],
+  "timeout": 120
+}

@@ -42,7 +42,7 @@
         audio_mode / play_vol
       ▪ app/factory/factory_rec.lua（应用工厂录音）：
         同上 + record_format / max_record_time / mic_vol
-      ▪ ui/welcome_win.lua、ui/video_util.lua（开机 HZV / 桌面视频配套音轨）：
+      ▪ ui/video_util.lua（桌面视频配套音轨）：
         model / pa_ctrl / pa_on_level / dac_delay / play_vol
     注意 dac_delay 只在旧音频框架 audio_setup() 里被消费；新框架 audio_v2 的 DAC 通路
     实际只把 pa_delay 透传给 audio_v2.config_pa_power_ctrl()，dac_delay 不起作用（保留仅为兼容）。
@@ -64,7 +64,7 @@ return {
     -- ===== GPIO 上电时序 =====
     -- 按顺序初始化各外设供电和复位（顺序即依赖：喇叭→LCD→WiFi→UVC→4G→TP）
     power_on = {
-        { pin = 65, dir = 1, level = 1 },              -- SD_EN 拉高，等 100ms 就绪
+        { pin = 65, dir = 1, level = 1, delay = 100 }, -- SD_EN 拉高，等 100ms 就绪
         { pin = 57, dir = 1, level = 0, delay = 100 }, -- WIFI_EN 拉高使能 WiFi 模组供电，等 100ms 就绪
         { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
         { pin = 64, dir = 1, level = 0, delay = 50 },  -- RESET_4G 拉高释放 4G 复位，等 50ms

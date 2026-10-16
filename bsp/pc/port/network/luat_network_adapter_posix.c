@@ -6,7 +6,9 @@
  *  - Each connected TCP socket runs a dedicated I/O pthread (PTHREAD_CREATE_DETACHED).
  *  - TCP server sockets run an accept pthread that stays alive as long as the socket is open.
  *  - UDP sockets run a single recv pthread.
- *  - DNS queries run in a temporary detached pthread (getaddrinfo).
+ *  - DNS: 打开 LUAT_USE_NETDRV_DNS_CLIENT 时走 netdrv 的 DNS 客户端
+ *    (宿主 UDP socket 收发 + 公共状态机 luat_netdrv_dns.c, 专用 dns pthread);
+ *    未打开时退回 getaddrinfo 的老实现。
  *  - All events are dispatched to the Lua thread via luat_msgbus_put().
  *  - All heap allocations use luat_heap_* (consistent with the rest of LuatOS).
  *    luat_network_adapter.c frees dns_ip with luat_heap_free().
@@ -22,6 +24,9 @@
 #include "luat_msgbus.h"
 #include "luat_network_adapter.h"
 #include "luat_timer_engine.h"
+#include "luat_mcu.h"
+/* netdrv DNS 客户端: 只在本文件里用来实现平台无关的 netdrv_dns_ctrl() */
+#include "net_lwip2_dns.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -531,6 +536,322 @@ static void *udp_recv_thread(void *arg)
 
 /* ─── DNS thread ─────────────────────────────────────────────────────────────── */
 typedef struct { char domain[256]; void *param; } posix_dns_query_t;
+
+/* ─── netdrv DNS client transport (PC) ───────────────────────────────────────────
+ *
+ * PC 模拟器既要"真的能用 DNS", 又要能验证 netdrv 那套 DNS 客户端(并发/缓存/负缓存/
+ * 按网卡隔离...), 所以这里不再用宿主 getaddrinfo, 而是:
+ *   用宿主 UDP socket 收发 DNS 报文, 状态机交给公共模块 luat_netdrv_dns.c.
+ * 这样 PC 上和 Air1601 上跑的是【同一份】DNS 逻辑与同一套 netdrv.CTRL_DNS 配置接口,
+ * 真机 testcase 里那些 stat 断言在 PC 上才有意义。
+ *
+ * 与 net_lwip2 的差异只在传输层与线程模型:
+ *   - lwIP 侧: 报文收发在 tcpip 线程, 定时器(period)驱动 pump, 跨线程配置走
+ *     net_lwip2_dns_ctl_t + 事件投递;
+ *   - PC 侧(本文件): 报文收发在独立 dns 线程, 该线程的 select 超时即 pump 节拍,
+ *     配置直接在本进程内调用(PC 的 Lua 与适配层同进程, 不需要跨线程控制块)。
+ * 共同点是"什么时候该继续调度"统一问 luat_netdrv_dns_should_schedule(),
+ * 避免各处自己判 inflight 而重现"队列停摆"那个缺陷。
+ */
+#if defined(LUAT_USE_NETDRV_DNS_CLIENT)
+
+#define POSIX_DNS_SERVER_MAX   2
+#define POSIX_DNS_SELECT_MS    20      /* pump 节拍: 与默认 min_gap(20ms) 对齐 */
+#define POSIX_DNS_RX_MAX       600
+
+typedef struct {
+    luat_netdrv_dns_ctx_t ctx;         /* 状态机(公共模块) */
+    luat_ip_addr_t        server[POSIX_DNS_SERVER_MAX];
+    uint8_t               server_num;
+    uint8_t               want_stat;   /* ctrl 回读请求(单进程内, 无需 done 握手) */
+    uint8_t               flush_req;
+    pthread_mutex_t       lock;        /* 保护 ctx: dns 线程 / Lua 线程 / 配置线程 */
+    sock_fd_t             fd;          /* DNS 用 UDP socket */
+    volatile int          running;     /* dns 线程是否在跑 */
+    volatile int          stop;        /* 请求 dns 线程退出 */
+    pthread_t             tid;
+} posix_dns_ctx_t;
+
+static posix_dns_ctx_t g_dns;
+static int             g_dns_inited;
+
+static int posix_dns_setup_server_table(void);
+
+/* 域名 -> 报文, 走公共 DNS 模块; 真正的收发在 dns 线程里, 这里只入队。 */
+static int posix_dns_start_query(const char *domain, uint32_t len, void *param,
+                                 uint8_t is_ipv6)
+{
+    uint32_t now;
+    if (!g_dns_inited || domain == NULL || len == 0) return -1;
+    now = (uint32_t)luat_mcu_tick64_ms();
+    pthread_mutex_lock(&g_dns.lock);
+    int rc = luat_netdrv_dns_query(&g_dns.ctx, domain, len, is_ipv6, param,
+                                  (uint8_t)NW_ADAPTER_INDEX_ETH0, now);
+    pthread_mutex_unlock(&g_dns.lock);
+    if (rc != 0) {
+        LLOGW("dns query rejected: %.*s (rc=%d)", (int)len, domain, rc);
+    }
+    return rc;
+}
+
+/*
+ * dns 线程: 既是收包线程, 也是 pump 节拍来源。
+ * select 超时(20ms)与"收到报文"都会触发一次 pump; 没有待办就退出,
+ * 下次 posix_dns() 再拉起 —— 与 net_lwip2 侧"空闲即停表"的省电口径一致。
+ */
+static void *posix_dns_thread(void *arg)
+{
+    uint8_t rx[POSIX_DNS_RX_MAX];
+    uint8_t pending_started = 0;
+    (void)arg;
+
+    for (;;) {
+        luat_netdrv_dns_txmsg_t msgs[8];
+        uint8_t n, i;
+        int rc;
+        fd_set rfds;
+        struct timeval tv;
+        uint32_t now;
+
+        if (g_dns.stop) break;
+
+        FD_ZERO(&rfds);
+        FD_SET(g_dns.fd, &rfds);
+        tv.tv_sec  = 0;
+        tv.tv_usec = POSIX_DNS_SELECT_MS * 1000;
+        rc = select((int)g_dns.fd + 1, &rfds, NULL, NULL, &tv);
+
+        if (rc > 0 && FD_ISSET(g_dns.fd, &rfds)) {
+            struct sockaddr_in from;
+            int flen = (int)sizeof(from);
+            int rl = recvfrom(g_dns.fd, (char *)rx, (int)sizeof(rx), 0,
+                              (struct sockaddr *)&from, &flen);
+            if (rl > 0) {
+                now = (uint32_t)luat_mcu_tick64_ms();
+                pthread_mutex_lock(&g_dns.lock);
+                luat_netdrv_dns_rx_feed(&g_dns.ctx, rx, (uint32_t)rl, now);
+                pthread_mutex_unlock(&g_dns.lock);
+            }
+        }
+
+        /* pump: 发到期/重试的报文 */
+        now = (uint32_t)luat_mcu_tick64_ms();
+        pthread_mutex_lock(&g_dns.lock);
+        n = luat_netdrv_dns_pump(&g_dns.ctx, msgs, (uint8_t)(sizeof(msgs) / sizeof(msgs[0])), now);
+        pthread_mutex_unlock(&g_dns.lock);
+        for (i = 0; i < n; i++) {
+            luat_ip_addr_t *srv = &g_dns.server[msgs[i].server_idx < g_dns.server_num
+                                                ? msgs[i].server_idx : 0];
+            struct sockaddr_in dst;
+            memset(&dst, 0, sizeof(dst));
+            dst.sin_family = AF_INET;
+            /* luat_ip_addr_t 按网络字节序存放 IPv4(lwIP 约定), 可直接用 */
+            memcpy(&dst.sin_addr, &srv->u_addr.ip4.addr, 4);
+            dst.sin_port = htons(53);      /* DNS_SERVER_PORT */
+            if (sendto(g_dns.fd, (const char *)msgs[i].data, msgs[i].len, 0,
+                       (struct sockaddr *)&dst, sizeof(dst)) < 0) {
+                LLOGD("dns tx fail srv=%u err=%d", (unsigned)msgs[i].server_idx, sock_errno);
+                pthread_mutex_lock(&g_dns.lock);
+                luat_netdrv_dns_report_send_err(&g_dns.ctx, msgs[i].adapter_index,
+                                                msgs[i].server_idx, now);
+                pthread_mutex_unlock(&g_dns.lock);
+            }
+        }
+
+        /* 没有待办就退出, 省电(与真机"空闲停表"一致) */
+        pthread_mutex_lock(&g_dns.lock);
+        int more = luat_netdrv_dns_should_schedule(&g_dns.ctx);
+        pthread_mutex_unlock(&g_dns.lock);
+        if (!more) break;
+        pending_started = 1;
+    }
+
+    pthread_mutex_lock(&g_dns.lock);
+    g_dns.running = 0;
+    pthread_mutex_unlock(&g_dns.lock);
+    (void)pending_started;
+    return NULL;
+}
+
+/* 确保 dns 线程在跑(有查询时才拉起) */
+static void posix_dns_kick(void)
+{
+    pthread_mutex_lock(&g_dns.lock);
+    if (g_dns.running) { pthread_mutex_unlock(&g_dns.lock); return; }
+    g_dns.running = 1;
+    g_dns.stop = 0;
+    pthread_mutex_unlock(&g_dns.lock);
+    if (start_detached_thread(posix_dns_thread, NULL) != 0) {
+        pthread_mutex_lock(&g_dns.lock);
+        g_dns.running = 0;
+        pthread_mutex_unlock(&g_dns.lock);
+        LLOGE("dns thread start failed");
+    }
+}
+
+static uint8_t posix_dns_server_get(uint8_t adapter_index, uint8_t server_idx,
+                                    luat_ip_addr_t *ip, void *user_ctx)
+{
+    (void)adapter_index; (void)user_ctx;
+    if (server_idx >= g_dns.server_num) return 0;
+    if (ip == NULL) return 1;
+    *ip = g_dns.server[server_idx];
+    return 1;
+}
+
+static void posix_dns_done(void *user_ctx, void *param, uint8_t adapter_index,
+                           uint8_t ip_num, luat_dns_ip_result *ip)
+{
+    (void)adapter_index; (void)user_ctx;
+    /* 与 net_lwip2 的既有约定一致: ip 数组所有权转移给接收方(EV_NW_DNS_RESULT) */
+    cb_to_nw_task(EV_NW_DNS_RESULT, ip_num, (size_t)ip, (size_t)param);
+}
+
+/* 从宿主系统读取真实 DNS 服务器(Windows: GetAdaptersAddresses; POSIX: resolv.conf) */
+static int posix_dns_setup_server_table(void)
+{
+    uint8_t n = 0;
+#if defined(_WIN32) || defined(_WIN64)
+    ULONG bufLen = 16 * 1024;
+    IP_ADAPTER_ADDRESSES *addrs = (IP_ADAPTER_ADDRESSES *)luat_heap_malloc(bufLen);
+    if (addrs) {
+        ULONG flags = GAA_FLAG_SKIP_UNICAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST;
+        if (GetAdaptersAddresses(AF_INET, flags, NULL, addrs, &bufLen) == NO_ERROR) {
+            IP_ADAPTER_ADDRESSES *a = addrs;
+            while (a && n < POSIX_DNS_SERVER_MAX) {
+                IP_ADAPTER_DNS_SERVER_ADDRESS *d = a->FirstDnsServerAddress;
+                while (d && n < POSIX_DNS_SERVER_MAX) {
+                    if (d->Address.lpSockaddr &&
+                        d->Address.lpSockaddr->sa_family == AF_INET) {
+                        struct sockaddr_in *sin = (struct sockaddr_in *)d->Address.lpSockaddr;
+                        network_set_ip_ipv4(&g_dns.server[n], sin->sin_addr.s_addr);
+                        n++;
+                    }
+                    d = d->Next;
+                }
+                a = a->Next;
+            }
+        }
+        luat_heap_free(addrs);
+    }
+#else
+    {
+        FILE *f = fopen("/etc/resolv.conf", "r");
+        if (f) {
+            char line[256];
+            while (n < POSIX_DNS_SERVER_MAX && fgets(line, sizeof(line), f)) {
+                struct in_addr ia;
+                if (sscanf(line, "nameserver %15s", line) == 1 &&
+                    inet_pton(AF_INET, line, &ia) == 1) {
+                    network_set_ip_ipv4(&g_dns.server[n], ia.s_addr);
+                    n++;
+                }
+            }
+            fclose(f);
+        }
+    }
+#endif
+    /*
+     * 兜底: 读不到系统 DNS(或全是 IPv6)时用公共解析器, 否则 PC 侧 DNS 直接不可用。
+     */
+    if (n == 0) {
+        network_set_ip_ipv4(&g_dns.server[0], htonl(0xDF5F5F5FUL)); /* 223.5.5.5 */
+        n = 1;
+    }
+
+    /*
+     * 只保留"与宿主同网段"的 DNS 服务器。
+     *
+     * 为什么必须要这一步: 宿主上常配着多张网卡/多个 DNS(例如 VPN 或虚拟网卡的
+     * 10.x.x.x), 其中一些从本机根本不可达。netdrv 客户端会在超时后轮转到那些服务器,
+     * 于是同一次解析要多花好几秒(实测 .invalid 查询被转到不可达服务器后, 重试退避
+     * 能拖到 10s+), PC 上的测试会因此大面积间歇性失败 —— 而这与被测逻辑无关。
+     * 同网段的服务器是唯一能确定可达的(默认网关/DHCP 下发), 优先保留它。
+     * 一个都没有时保留原有列表, 交给上层。
+     */
+    {
+        uint32_t local = posix_get_host_ipv4_u32();
+        uint8_t  kept = 0, k;
+        for (k = 0; k < n; k++) {
+            /* 网络字节序, 直接按字节比前 3 段 */
+            const uint8_t *cand = (const uint8_t *)&g_dns.server[k].u_addr.ip4.addr;
+            const uint8_t *lo   = (const uint8_t *)&local;
+            if ((cand[0] & 0xFF) == (lo[0] & 0xFF) &&
+                (cand[1] & 0xFF) == (lo[1] & 0xFF) &&
+                (cand[2] & 0xFF) == (lo[2] & 0xFF)) {
+                g_dns.server[kept++] = g_dns.server[k];
+            }
+        }
+        if (kept > 0) n = kept;
+    }
+    g_dns.server_num = n;
+    return n;
+}
+
+static void posix_dns_init_once(void)
+{
+    if (g_dns_inited) return;
+    memset(&g_dns, 0, sizeof(g_dns));
+    pthread_mutex_init(&g_dns.lock, NULL);
+    g_dns.fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (g_dns.fd == INVALID_SOCK_FD) {
+        LLOGE("dns socket create failed");
+        return;
+    }
+    luat_netdrv_dns_init(&g_dns.ctx);
+    luat_netdrv_dns_set_done_cb(&g_dns.ctx, posix_dns_done, NULL);
+    luat_netdrv_dns_set_server_cb(&g_dns.ctx, posix_dns_server_get, NULL);
+    posix_dns_setup_server_table();
+    g_dns_inited = 1;
+    LLOGI("netdrv dns client enabled (posix transport), servers=%u", (unsigned)g_dns.server_num);
+}
+
+/*
+ * netdrv.CTRL_DNS 的 PC 侧入口。
+ *
+ * 实现平台无关的 netdrv_dns_ctrl(): 绑定层统一调这个名字, 各平台各提供一个实现。
+ *   真机(Air1601/Air780EPM 等) -> net_lwip2.c 里的实现(报文收发在 tcpip 线程)
+ *   PC 模拟器                  -> 本函数(报文收发在独立 dns 线程)
+ * Air160X 这类真机构建只 glob components/network/adapter_lwip2, 不含本文件,
+ * 所以两边同时提供同名符号不会冲突。
+ *
+ * PC 的 Lua 与适配层同进程, 没有真机那条"投递事件再等 done"的跨线程通道,
+ * 所以这里直接在本线程应用配置并回读。控制块结构体沿用 net_lwip2_dns_ctl_t,
+ * 让 Lua 绑定层不必区分平台。
+ */
+int netdrv_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms)
+{
+    uint32_t now;
+    (void)timeout_ms;
+    if (ctl == NULL) return -1;
+    posix_dns_init_once();
+    if (!g_dns_inited) {
+        LLOGE("netdrv.CTRL_DNS: dns client not ready");
+        return -1;
+    }
+    now = (uint32_t)luat_mcu_tick64_ms();
+    pthread_mutex_lock(&g_dns.lock);
+    if (ctl->has_cfg) {
+        luat_netdrv_dns_cfg_apply(&g_dns.ctx, &ctl->cfg, now);
+    }
+    if (ctl->flush) {
+        luat_netdrv_dns_cache_flush(&g_dns.ctx);
+    }
+    luat_netdrv_dns_cfg_get(&g_dns.ctx, &ctl->rcfg);
+    if (ctl->want_stat) {
+        luat_netdrv_dns_stat_get(&g_dns.ctx, &ctl->rstat);
+    }
+    pthread_mutex_unlock(&g_dns.lock);
+    /* 周期口径与真机一致: clamp(min_gap, 5, 100) */
+    ctl->timer_period_ms = ctl->rcfg.min_gap_ms ? ctl->rcfg.min_gap_ms
+                                                : LUAT_NETDRV_DNS_DEF_MIN_GAP_MS;
+    if (ctl->timer_period_ms < 5)   ctl->timer_period_ms = 5;
+    if (ctl->timer_period_ms > 100) ctl->timer_period_ms = 100;
+    ctl->done = 1;
+    return 0;
+}
+
+#endif /* LUAT_USE_NETDRV_DNS_CLIENT */
 
 static void *dns_resolve_thread(void *arg)
 {
@@ -1143,6 +1464,12 @@ static int posix_user_cmd(int socket_id, uint64_t tag, uint32_t cmd, uint32_t va
 static int posix_dns(const char *domain_name, uint32_t len, void *param, void *user_data)
 {
     (void)user_data;
+#if defined(LUAT_USE_NETDRV_DNS_CLIENT)
+    /* 走 netdrv 的 DNS 客户端(与真机同一份状态机), 不再用宿主 getaddrinfo */
+    if (posix_dns_start_query(domain_name, len, param, 0) != 0) return -1;
+    posix_dns_kick();
+    return 0;
+#else
     posix_dns_query_t *q = luat_heap_calloc(1, sizeof(posix_dns_query_t));
     if (!q) return -1;
     size_t copy_len = len < 255 ? len : 255;
@@ -1154,13 +1481,43 @@ static int posix_dns(const char *domain_name, uint32_t len, void *param, void *u
         return -1;
     }
     return 0;
+#endif
 }
 
 static int posix_dns_ipv6(const char *domain_name, uint32_t len, void *param, void *user_data)
-{ (void)domain_name;(void)len;(void)param;(void)user_data; return -1; }
+{
+    (void)user_data;
+#if defined(LUAT_USE_NETDRV_DNS_CLIENT)
+    /* 双栈: 客户端会并发发 AAAA + A 两条腿并合并去重 */
+    if (posix_dns_start_query(domain_name, len, param, 1) != 0) return -1;
+    posix_dns_kick();
+    return 0;
+#else
+    (void)domain_name;(void)len;(void)param;
+    return -1;
+#endif
+}
 
 static int posix_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data)
-{ (void)server_index;(void)ip;(void)user_data; return 0; }
+{
+#if defined(LUAT_USE_NETDRV_DNS_CLIENT)
+    (void)user_data;
+    posix_dns_init_once();
+    if (!g_dns_inited || server_index >= POSIX_DNS_SERVER_MAX || ip == NULL) return -1;
+    /*
+     * 服务器表一变, 该视图下的旧答案不再可信 -> 失效缓存。
+     * 各网卡 DNS 视图不同, 但 PC 只有一张网卡(ETH0), 直接整表即可。
+     */
+    pthread_mutex_lock(&g_dns.lock);
+    g_dns.server[server_index] = *ip;
+    if (server_index + 1 > g_dns.server_num) g_dns.server_num = server_index + 1;
+    luat_netdrv_dns_cache_flush_adapter(&g_dns.ctx, (uint8_t)NW_ADAPTER_INDEX_ETH0);
+    pthread_mutex_unlock(&g_dns.lock);
+    return 0;
+#else
+    (void)server_index;(void)ip;(void)user_data; return 0;
+#endif
+}
 
 static int posix_set_mac(uint8_t *mac, void *user_data)
 { (void)mac;(void)user_data; return 0; }

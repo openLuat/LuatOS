@@ -307,6 +307,10 @@ static void _audio_extern_source_finish(luat_audio_extern_source_t *extern_sourc
 		return;
 	}
 	luat_audio_request_block_t *request_block = _luat_audio.current_request_block;
+    if (!request_block) {
+        luat_audio_extern_source_deinit(extern_source);
+        return;
+    }
 	if (request_block->extern_play_source == extern_source) {
 		LLOGC(luat_audio_debug_flag, "extern play source %p finish", extern_source);
 		request_block->extern_play_source = NULL;

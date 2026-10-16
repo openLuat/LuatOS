@@ -1,0 +1,11 @@
+{
+    "timeout" : 600,
+    "model" : {
+        "air1601":[101],
+        "air1602":[101]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "netdrv 现代 DNS 客户端真机测试: A/AAAA解析 / 缓存命中与过期 / LRU淘汰 / 负缓存 / 并发在途 / 双栈合并 / 手动失效 / 运行时配置 / 长跑无泄漏"
+}

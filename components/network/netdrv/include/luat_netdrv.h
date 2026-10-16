@@ -49,6 +49,9 @@ enum {
 enum {
     LUAT_NETDRV_CTRL_RESET,
     LUAT_NETDRV_CTRL_UPDOWN,
+    //DNS 客户端配置. 第三个参数传 table(见 netdrv.ctrl 文档).
+    //取值从 0x10 起, 给驱动私有 cmd 留出低段空间.
+    LUAT_NETDRV_CTRL_DNS = 0x10,
 };
 
 typedef struct luat_netdrv_ip_conf

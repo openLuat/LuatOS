@@ -1,8 +1,8 @@
 --[[
 @module  file_manager_win
 @summary 文件管理窗口模块，包含设备列表页和目录浏览页
-@version 1.2
-@date    2026.06.24
+@version 1.3
+@date    2026.10.15
 @author  江访
 
 设计原则：
@@ -107,14 +107,19 @@ local function update_screen_size()
     row_h = math.floor(44 * density)
 end
 
+-- 拼接路径，目录尾部已有 "/" 时不重复加
+local function join_path(dir, name)
+    if dir:sub(-1) == "/" then return dir .. name end
+    return dir .. "/" .. name
+end
+
 local function get_full_path(sub_path)
-    local base = current_mount_point
-    -- 去掉挂载点尾部的 "/"，保证后续拼接不会出现双斜杠
-    if base ~= "/" then
-        base = base:match("^(.+)/$") or base
-    end
-    if sub_path == "" then return base end
-    return base .. "/" .. sub_path
+    --[[挂载点尾部斜杠原样保留，不能剥掉：
+    VFS 按前缀匹配挂载点，TF 卡挂载前缀是 "/sd/"，剥掉后传 "/sd" 匹配不到
+    该挂载（会落到内置 "/" 去查 sd 目录），io.lsdir 静默返回空表；
+    保留 "/sd/" 则剥前缀后剩空串，正好是该挂载的根目录。]]
+    if not sub_path or sub_path == "" then return current_mount_point end
+    return join_path(current_mount_point, sub_path)
 end
 
 -- 获取父路径（去掉最后一段），下级返回上级
@@ -220,7 +225,7 @@ local function navigate_to_parent()
 end
 
 local function on_item_click(item)
-    local full_path = get_full_path(current_sub_path) .. "/" .. item.name
+    local full_path = join_path(get_full_path(current_sub_path), item.name)
     if multi_select_mode then
         -- 多选模式：toggle 选中项（文件和文件夹都支持多选）
         if selected_paths[full_path] then
@@ -325,7 +330,7 @@ view.render_directory = function()
     for _, item in ipairs(files) do sorted[#sorted + 1] = item end
 
     for _, item in ipairs(sorted) do
-        local full_path = get_full_path(current_sub_path) .. "/" .. item.name
+        local full_path = join_path(get_full_path(current_sub_path), item.name)
         local is_on = (selected_paths[full_path] ~= nil) or (full_path == selected_path)
 
         local row = mk_row(is_on, function() on_item_click(item) end)
@@ -555,7 +560,7 @@ view.build_directory_view = function()
             dst_dir = selected_path
         end
         for _, item in ipairs(clip_items) do
-            local dst_path = dst_dir .. "/" .. item.name
+            local dst_path = join_path(dst_dir, item.name)
             if dst_path == item.path then
                 log.warn("file_manager", "paste skip, same path", dst_path)
                 goto paste_continue
@@ -943,7 +948,7 @@ view.show_create_dialog = function()
             if selected_is_dir and selected_path and selected_path ~= parent_path then
                 parent_path = selected_path
             end
-            local path = parent_path .. "/" .. name
+            local path = join_path(parent_path, name)
             file_manager_app.create_directory(path)
             refresh_directory()
         end
@@ -974,7 +979,7 @@ view.show_create_dialog = function()
             if selected_is_dir and selected_path then
                 parent_path = selected_path
             end
-            local path = parent_path .. "/" .. name
+            local path = join_path(parent_path, name)
             file_manager_app.create_file(path)
             refresh_directory()
         end

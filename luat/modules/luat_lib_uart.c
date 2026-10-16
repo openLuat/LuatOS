@@ -901,24 +901,37 @@ uart.rx(1, buff)
 static int l_uart_rx(lua_State *L)
 {
     uint8_t id = luaL_checkinteger(L, 1);
-	int result;
-    if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
-    	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-		result = luat_uart_dispatch_rx_size(id);
-        if (result > (buff->len - buff->used))
-        {
-        	__zbuff_resize(buff, buff->len + result);
-        }
-		luat_uart_dispatch_read(id, buff->addr + buff->used, result);
-        lua_pushinteger(L, result);
-        buff->used += result;
-        return 1;
-    }
-    else
-    {
+    if (!lua_isuserdata(L, 2)) {
         lua_pushinteger(L, 0);
         return 1;
     }
+    luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
+    if (buff->used > buff->len) {
+        LLOGE("uart rx invalid zbuff length");
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    int requested = luat_uart_dispatch_rx_size(id);
+    if (requested <= 0) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    if ((size_t)requested > buff->len - buff->used) {
+        uint64_t new_len = (uint64_t)buff->len + (uint64_t)requested;
+        if (new_len > 0xFFFFFFFFu || __zbuff_resize(buff, (uint32_t)new_len) != 0) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+    }
+    // 查询后缓存可能变化；只把本次实际读到的字节计入used。
+    int result = luat_uart_dispatch_read(id, buff->addr + buff->used, (size_t)requested);
+    if (result < 0 || result > requested) {
+        LLOGE("uart rx invalid read length %d", result);
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    buff->used += (size_t)result;
+    lua_pushinteger(L, result);
     return 1;
 }
 

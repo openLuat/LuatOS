@@ -248,6 +248,16 @@ end
 -- 设备会钳住 SDA/SCL，GT911 也会因电源未稳而软失败（触摸"完全失灵"）。
 if config.power_on then
     sys.taskInit(function()
+        -- 背光 PWM 上电前先压灭：PWM 引脚默认高电平，上电瞬间 BL 即被拉高点亮，
+        -- 与 backlight_on 的延时表无关 → 背光提前亮。故上电序列一开始就用 0 占空比
+        -- 压住 PWM 背光通道，等 boot_ui 首帧后 backlight_on 再点亮。
+        -- 仅 PWM 背光板（backlight.pwm_ch 存在）需要；GPIO 背光板由 pin_bl 压低延后，无需此步。
+        local bl = config.hw and config.hw.lcd and config.hw.lcd.backlight
+        if bl and bl.pwm_ch then
+            pcall(pwm.setup, bl.pwm_ch, bl.pwm_freq or 1000, 0)  -- 占空比 0 = 熄灭
+            pcall(pwm.start, bl.pwm_ch)
+            log.info("platform_loader", "背光 PWM", bl.pwm_ch, "上电即压灭(占空比0)")
+        end
         for _, step in ipairs(config.power_on) do
             gpio.setup(step.pin, step.dir)
             gpio.set(step.pin, step.level)

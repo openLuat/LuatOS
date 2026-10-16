@@ -54,15 +54,15 @@ return {
     -- ===== GPIO 上电时序 =====
     -- 按顺序初始化各外设供电和复位（顺序即依赖：电源轨→SD→4G复位→UVC→LCD→485）
     power_on = {
-        { pin = 72, dir = 0, level = 0, delay = 20 },  -- TP_RST 拉低 20ms，干净复位触摸芯片
-        { pin = 72, dir = 0, level = 1, delay = 60 },  -- 释放复位：INT 上拉锁 0x14 干净启动，INT 输出可恢复
+        { pin = 72, dir = 0, level = 0},  -- TP_RST 拉低 20ms，干净复位触摸芯片
+        { pin = 72, dir = 0, level = 1 },  -- 释放复位：INT 上拉锁 0x14 干净启动，INT 输出可恢复
         { pin = 12, dir = 0, level = 1 }, -- 5V_EN 拉高，5V 供电
         { pin = 73, dir = 0, level = 1 }, -- AUDIOPA_EN = Air1103 供电脚，拉高常供电（见文件头第 2 条）
-        { pin = 56, dir = 0, level = 1, delay = 100 }, -- 9V_EN 拉高，等 100ms 就绪
+        { pin = 56, dir = 0, level = 1 }, -- 9V_EN 拉高，等 100ms 就绪
         -- { pin = 44, dir = 0, level = 1 }, -- 12V_EN 拉高（4G 版专有，见文件头第 9 条）
         { pin = 74, dir = 0, level = 1 }, -- SD_EN 拉高，SD 卡供电
-        { pin = 64, dir = 1, level = 0, delay = 120 }, -- 4G_RESET 维持低 120ms 使能
-        { pin = 58, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高，等 200ms 摄像头就绪
+        { pin = 64, dir = 1, level = 0 }, -- 4G_RESET 维持低 120ms 使能
+        { pin = 58, dir = 0, level = 1 }, -- UVC_EN 拉高，等 200ms 摄像头就绪
         { pin = 15, dir = 0, level = 1 }, -- LCD_DISP 拉高使能 LCD 显示
         { pin = 14, dir = 0, level = 1 }, -- 485_EN 拉高使能 485 收发（见文件头第 8 条）
         { pin = 65, dir = 0, level = 1 }, -- 485_EN1 拉高使能 485 收发（见文件头第 8 条）

@@ -372,7 +372,7 @@ local function pa_set(on)
     end
 end
 
--- 功放补枪的世代号：会话收尾后作废尚未触发的补枪
+-- 跨格式功放补枪的世代号（HZV/MJPG 路径用，与任一 MP4 会话无关）
 local pa_gen = 0
 
 -- MP4 销毁会把功放拉高；HZV 的 exaudio.setup 收尾也会 shutdown 关掉功放。
@@ -386,50 +386,60 @@ local function pa_reassert()
     end, 200)
 end
 
--- 事件点延迟恢复的句柄（重新布防/收尾时先停旧的）
-local settle_t = { nil, nil }
-
---[[触摸总线恢复：立即一次 + 400/1500ms 各补一发。
-补枪覆盖音频通路的异步初始化（解码线程里才起音频，实测会把 Lua 调度卡住约 1s）。]]
-local function tp_bus_settle()
-    M.tp_bus_restore()
-    local delays = { 400, 1500 }
-    for i = 1, 2 do
-        if settle_t[i] then
-            sys.timerStop(settle_t[i])
-            settle_t[i] = nil
-        end
-        settle_t[i] = sys.timerStart(function() M.tp_bus_restore() end, delays[i])
-    end
-end
-
--- 停掉未触发的延迟恢复（会话收尾）
-local function tp_bus_settle_cancel()
-    for i = 1, 2 do
-        if settle_t[i] then
-            sys.timerStop(settle_t[i])
-            settle_t[i] = nil
-        end
-    end
-end
-
-local function mp4_session_begin()
-    pa_set(true)
-end
-
-local function mp4_session_end()
-    tp_bus_settle_cancel()
-    pa_gen = pa_gen + 1   -- 作废尚未触发的 pa_reassert 补枪，防止收尾后功放被重新打开
-    pa_set(false)
-    M.tp_bus_restore()
-end
-
 --[[包装 MP4 播放器：音频通路启动相关的事件点恢复触摸总线，destroy 时统一收尾
 
 接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
 paused 字段记录用户暂停状态（应用层循环续播据此跳过，见 create_player）；
-HZV/MJPG 不涉及这些副作用，create_player 仍返回裸对象。]]
+HZV/MJPG 不涉及这些副作用，create_player 仍返回裸对象。
+
+**会话状态按实例归属（修「全屏↔窗口切换几次后 MP4 不显示」）**：
+功放补枪世代 gen 与触摸总线恢复定时器 settle_t 收进每个播放器自己的 sess 表，
+不再用模块级共享一份。此前 idle_win 的桌面播放器与 video_win 的全屏播放器共用
+同一份 pa_gen/settle_t，切换时上一页 destroy 的收尾会 cancel 掉下一页刚布防的
+恢复定时器、或翻错世代号作废不该作废的补枪，几次之后 mplayer 的音频/总线会话
+被搅坏、画面黑屏不更新。下沉到实例后，destroy 只收尾自己的会话，互不干扰。]]
 local function wrap_mp4_player(v)
+    local sess = {
+        gen = 0,                 -- 本实例功放补枪世代号
+        settle_t = { nil, nil }, -- 本实例触摸总线延迟恢复句柄
+    }
+
+    -- 触摸总线恢复：立即一次 + 400/1500ms 各补一发（补枪覆盖音频通路异步初始化）
+    local function tp_bus_settle()
+        M.tp_bus_restore()
+        local delays = { 400, 1500 }
+        for i = 1, 2 do
+            if sess.settle_t[i] then
+                sys.timerStop(sess.settle_t[i])
+                sess.settle_t[i] = nil
+            end
+            sess.settle_t[i] = sys.timerStart(function() M.tp_bus_restore() end, delays[i])
+        end
+    end
+
+    -- 停掉本实例未触发的延迟恢复（会话收尾）
+    local function tp_bus_settle_cancel()
+        for i = 1, 2 do
+            if sess.settle_t[i] then
+                sys.timerStop(sess.settle_t[i])
+                sess.settle_t[i] = nil
+            end
+        end
+    end
+
+    -- 本实例会话收尾：只停自己的定时器；作废补枪要连全局功放世代一起翻
+    -- （功放是全局唯一硬件资源，pa_reassert 的跨格式补枪也操控它，收尾须全局封枪）
+    local function mp4_session_end()
+        tp_bus_settle_cancel()
+        sess.gen = sess.gen + 1
+        pa_gen = pa_gen + 1          -- 作废 pa_reassert 尚未触发的跨格式补枪
+        pa_set(false)
+        M.tp_bus_restore()
+    end
+
+    -- 构造即布防初始触摸总线恢复（auto_play 起播的音频初始化在解码线程里异步进行）
+    tp_bus_settle()
+
     return {
         paused = false,
         play = function(self, ...)
@@ -491,7 +501,7 @@ function M.create_player(path, o)
         不经 exaudio，也不需要 audio_ensure。]]
         M.audio_stop()
         if exaudio then pcall(exaudio.play_stop, { type = 0 }) end
-        mp4_session_begin()
+        pa_set(true)
     elseif fmt == "hzv" then
         --[[HZV 音轨由 videoplayer 自己调用 luat_audio_request_play_stream。
         不能在这里 exaudio.setup：DAC 模式收尾会 audio_v2.shutdown 关掉 codec 和功放，
@@ -540,13 +550,16 @@ function M.create_player(path, o)
 
     local ok, v = pcall(airui.video, vcfg)
     if not ok or not v then
-        if fmt == "mp4" then mp4_session_end() end
+        if fmt == "mp4" then
+            -- 起播失败收尾：此时未 wrap，无实例定时器，直接关功放 + 恢复触摸总线
+            pa_set(false)
+            M.tp_bus_restore()
+        end
         return nil
     end
     if fmt == "mp4" then
+        -- wrap 内部构造时已布防初始触摸总线恢复（auto_play 起播的音频初始化在解码线程里异步进行）
         player_obj = wrap_mp4_player(v)
-        -- auto_play 起播的音频初始化在解码线程里异步进行，布防延迟恢复
-        tp_bus_settle()
         return player_obj
     end
     -- 播放器打开时音频任务可能再次把功放拉高，创建成功后再拉一次

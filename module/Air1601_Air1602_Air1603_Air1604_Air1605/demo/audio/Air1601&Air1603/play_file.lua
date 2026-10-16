@@ -18,11 +18,27 @@
 
 local exaudio = require "exaudio"
 
+-- 硬件环境配置说明
+-- 本Demo支持以下硬件环境，请根据实际使用情况修改HARDWARE_ENV变量：
+--   "AIR1601_V1_1"  - Air1601 V1.1开发板：PA_EN = IO12
+--   "AIR1601_V1_2"  - Air1601 V1.2开发板：PA_EN = IO73
+--   "AIR1603_8607"  - Air1603 / 8607开发板：PA_EN = IO73
+-- 详细说明请参考本目录下的readme.md文件
+HARDWARE_ENV = "AIR1603_8607"  -- Air1601 V1.2开发板(PA_EN=IO73)。使用8607开发板请改为"AIR1603_8607"
+
+-- PA脚映射：不同板型/版本的功放使能脚不同
+local pa_pin_map = {
+    AIR1601_V1_1 = 12,
+    AIR1601_V1_2 = 73,
+    AIR1603_8607 = 73,
+}
+local pa_pin = pa_pin_map[HARDWARE_ENV] or 73
+
 -- 音频初始化设置参数 (DAC模式)
 local audio_setup_param ={
     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
     
-    pa_ctrl = 12,             -- 音频放大器电源控制管脚，Air1601_V1.1开发板-IO12，Air1601_V1.2开发板-IO73
+    pa_ctrl = pa_pin,         -- 音频放大器电源控制管脚，Air1601_V1.1开发板-IO12，Air1601_V1.2/8607开发板-IO73
     pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
     dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
@@ -32,6 +48,7 @@ local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
     end
+    sys.publish("AUDIO_PLAY_DONE", event)  -- 通知播放任务：本首已结束，可切下一首
 end
 
 --  音频播放的配置
@@ -48,20 +65,20 @@ local audio_play_param ={
 -----主task,处理播放音频---------
 ---------------------------------
 
-local index_number = 1
+local index_number = 0
 local function audio_task()
     log.info("开始播放音频文件")
     if exaudio.setup(audio_setup_param) then
         exaudio.vol(70)            -- 喇叭音量
-        exaudio.play_start(audio_play_param) -- 仅仅支持task 中运行
         while true do
-            sys.wait(3000)
-            if index_number % 2 == 0 then
-                exaudio.play_start({type = 0, content = "/luadb/sample-6s.mp3", cbfnc = play_end})
-            else
-                exaudio.play_start({type = 0, content = "/luadb/10.amr", cbfnc = play_end})
-            end
+            -- 交替播放 mp3 / amr
+            local content = (index_number % 2 == 0) and "/luadb/sample-6s.mp3" or "/luadb/10.amr"
+            log.info("audio_task", "开始播放", content)
+            exaudio.play_start({type = 0, content = content, cbfnc = play_end})
+            -- 严格等待本次播放结束回调，避免固定 sleep 打断 6s 的 mp3
+            sys.waitUntil("AUDIO_PLAY_DONE", 30000)  -- 30s 超时兜底，防止异常死等
             index_number = index_number + 1
+            sys.wait(300)          -- 两首间留间隔，防连播爆音
         end
     end
 end

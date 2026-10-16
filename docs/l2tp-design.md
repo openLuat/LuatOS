@@ -14,9 +14,10 @@ LuatOS 需要在内网/办公网场景下提供「二层隧道 + PPP 拨号」�
 需求边界（与 lwip 自带 `pppol2tp.c` 的能力边界一致）：
 
 - ✅ L2TPv2 客户端（LAC），PPP over L2TP（UDP 隧道）
-- ✅ PPP 认证：PAP + CHAP(MD5)；可选 L2TP 隧道共享密钥认证（`l2tp_secret`）
+- ✅ PPP 认证：PAP + CHAP(MD5) + **MS-CHAPv2**（RFC 2759，含双向认证）；
+  可选 L2TP 隧道共享密钥认证（`l2tp_secret`）
 - ❌ LNS（服务端）、L2TPv3、隧道切换、多隧道/多会话
-- ❌ MSCHAPv2 / MPPE / EAP / CCP
+- ❌ MPPE / EAP / CCP（LNS 强制加密时才需要，见 §6.5）
 
 核心约束：**外层 UDP 传输一律走 LuatOS network adapter**（`network_ctrl_t` UDP
 模式，与 OpenVPN 客户端一致），不直接创建 lwip `udp_pcb`。这样 VPN 虚拟网卡与
@@ -124,10 +125,16 @@ per-file 命令行宏会被覆盖；同时 `ppp_opts.h` 的 `#if PPP_SUPPORT` �
 
 ```
 PPP_SUPPORT=1, PPPOL2TP/PPPOS/PPPOE=0, LWIP_PPP_API=0,
-PAP_SUPPORT=1, CHAP_SUPPORT=1, MSCHAP/EAP/CCP/MPPE/VJ/LQR=0,
+PAP_SUPPORT=1, CHAP_SUPPORT=1, MSCHAP_SUPPORT=1, EAP/CCP/MPPE/VJ/LQR=0,
+PPP_MD5_RANDM=1,
 PPP_IPV4_SUPPORT=(LWIP_IPV4), PPP_IPV6_SUPPORT=0, PPP_SERVER=0,
 LWIP_USE_EXTERNAL_MBEDTLS=1, MEMP_NUM_PPP_PCB=1
 ```
+
+MS-CHAPv2 额外需要三块密码学件，都由 mbedtls + 本地垫片解决（见 §3.5）：
+DES（3DES 挑战应答 / NT 口令哈希）、SHA1（Authenticator Response）、
+MD4（NT 口令哈希 —— **本仓库所有 mbedtls 版本都不带**，走
+`src/ppp/luat_ppp_md4.c` 的 vendor 实现）。
 
 配套提供 `components/network/l2tp/include/ppp_settings.h`：`lwip22/include/arch/cc.h`
 无条件定义 `PPP_INCLUDE_SETTINGS_HEADER`，但仓库从未提供该 port 头文件
@@ -147,7 +154,17 @@ lwip 的 `pppol2tp.c` 与 `udp_pcb` 强耦合，且其头文件要求
 
 ### 3.5 认证与隧道密钥
 
-- `ppp_set_auth(ppp, PPPAUTHTYPE_ANY, user, passwd)`：PAP/CHAP-MD5 均可；
+- `ppp_set_auth(ppp, PPPAUTHTYPE_ANY, user, passwd)`：PAP / CHAP-MD5 / MS-CHAPv2
+  均可 —— 用哪种由**对端在 LCP ConfReq 里指定**，客户端只负责表达自己能做什么；
+- MS-CHAPv2 的客户端代码本来就在 `chap-new.c` / `auth.c` / `lcp.c` 里，之前只是被
+  `MSCHAP_SUPPORT 0` 编掉。打开后：
+  - 能力广播：`CHAP_MDTYPE_SUPPORTED`（`ppp_impl.h`）自动含 `MDTYPE_MICROSOFT_V2`，
+    `lcp.c` 把它装进 `ao->chap_mdtype`，对端要 0x81 时直接 ACK，不需要 NAK 往返；
+  - 响应：`chapms2_make_response()` → PeerChallenge(16) | Reserved(8) |
+    NT-Response(24) | Flags(1)，其中 NT-Response = 3×DES(ChallengeHash, NT-Pw-Hash)；
+  - **双向认证**：客户端会校验 Success 里的 Authenticator Response
+    （`chapms2_check_success`），算错即视为认证失败并断链 —— 这一点 mock LNS 侧
+    有独立的 RFC 2759 实现做交叉验证（含 `--bad-auth-response` 负例）。
 - `l2tp_secret` 非空时按 RFC 2661 在 SCCRQ/SCCRP/SCCCN 中携带
   Challenge / Challenge-Response AVP（MD5(消息类型|secret|challenge)）。
 - 认证选项由**对端**在 LCP ConfReq 中提出：lwip 客户端的 LCP ConfReq 本身
@@ -188,7 +205,8 @@ PPP MRU 默认 1450（`L2TP_DEFAULT_MTU`，可用 `l2tp_mtu` 配置）；L2TP �
 | `components/network/l2tp/src/l2tp_ppp.c` | PPP 胶水（link_callbacks + 状态回调） |
 | `components/network/netdrv/include/luat_netdrv_l2tp.h` | netdrv 胶水层头文件 |
 | `components/network/l2tp/src/luat_netdrv_l2tp.c` | netdrv 胶水层（setup/ctrl/dhcp/debug/状态回调） |
-| `components/network/l2tp/src/ppp/*.c` | vendored lwip 2.2.1 PPP 源码（10 个文件） |
+| `components/network/l2tp/src/ppp/*.c` | vendored lwip 2.2.1 PPP 源码（12 个文件；含 MS-CHAPv2 的 `chap_ms.c` 与 `pppcrypt.c`） |
+| `components/network/l2tp/src/ppp/luat_ppp_md4.c/.h` | MD4（MS-CHAPv2 必需，各版 mbedtls 都不带；BSD 许可，vendor 自 lwip polarssl 副本） |
 | `components/network/l2tp/src/ppp/luat_ppp_opts_override.h` | PPP 编译选项覆盖 |
 | `components/network/l2tp/include/ppp_settings.h` | lwip `PPP_INCLUDE_SETTINGS_HEADER` port 钩子 |
 | `components/network/netdrv/include/luat_netdrv.h` | `luat_netdrv_l2tp_conf_t` + `conf.l2tp_conf` |
@@ -251,13 +269,17 @@ python testcase/unit/net/netdrv_l2tp_basic/mock_lns.py --port 1701 --auth pap --
 LUAT_L2TP_TEST=pap build/out/luatos-lua.exe \
     ../../testcase/common/scripts/ ../../testcase/unit/net/netdrv_l2tp_basic/scripts/
 
-# chap / reject / reconnect 场景分别用：
-#   --port 1702 --auth chap          (LUAT_L2TP_TEST=chap)
-#   --port 1703 --reject-auth        (LUAT_L2TP_TEST=reject)
-#   --port 1701 --drop-after 8       (LUAT_L2TP_TEST=reconnect)
+# 其余场景 (端口/flag 与 LUAT_L2TP_TEST 一一对应, 见该套件 scripts/main.lua 顶部):
+#   --port 1702 --auth chap                                   (chap)
+#   --port 1703 --reject-auth                                 (reject)
+#   --port 1701 --drop-after 8                                (reconnect)
+#   --port 1704 --auth mschapv2                               (mschapv2)
+#   --port 1705 --auth mschapv2 --bad-auth-response            (mschapv2-bad)
+#   --port 1706 --auth pap --secret tunnel-secret-123          (secret)
+#   --port 1707 --auth pap --secret tunnel-secret-123          (secret-bad)
 ```
 
-四个场景均已实测通过（`### OVERALL_PASS ###`）：
+八个场景全部实测通过（`### OVERALL_PASS ###`）：
 
 | 场景 | 验证点 |
 |---|---|
@@ -265,6 +287,15 @@ LUAT_L2TP_TEST=pap build/out/luatos-lua.exe \
 | chap | CHAP-MD5 认证（挑战/响应校验）+ 同样链路验证 |
 | reject | 密码错误 -> 认证失败、一直 not ready |
 | reconnect | 会话中途断开 -> `IP_LOSE` -> 自动重连成功 |
+| mschapv2 | MS-CHAPv2 认证：mock 侧用独立实现（pycryptodome MD4/DES/SHA1）重算 NT-Response 并校验，客户端再互验 Authenticator Response |
+| mschapv2-bad | LNS 回**算错的** Authenticator Response -> 客户端必须拒绝建链（`chapms2_check_success`） |
+| secret | L2TP 隧道认证（共享密钥）通过 + 隧道内 echo |
+| secret-bad | 隧道密钥不匹配 -> LNS 回 StopCCN -> 一直 not ready |
+
+> `mschapv2*` 场景需要 `pycryptodome`（`pip install pycryptodome`）；缺失时 mock 会在
+> 启动阶段明确报错退出，不会静默降级成别的认证方式。
+> mock 侧那套 MS-CHAPv2 已用 RFC 2759 §9.2 的四条测试向量自检过
+> （NT-Hash / ChallengeHash / NT-Response / AuthenticatorResponse）。
 
 回归：`netdrv_evt_pkg`（19/19）、`netdrv_lwip_intercept_basic`（3/3）通过；
 PC 增量编译 `Build completed successfully`，无新增告警。
@@ -305,12 +336,13 @@ mock LNS 覆盖协议细节，另一套用例覆盖**与真实运营商 LNS 的�
    的 DNS 能力扩展域名解析（同 OpenVPN 现状）。
 4. **隧道认证自动化测试**：`l2tp_secret` 的 Challenge/Challenge-Response
    流程已实现，mock LNS 也支持 `--secret`，但当前四场景未覆盖，待补测试。
-5. **认证/加密能力扩展**：MSCHAPv2、MPPE（CCP）、EAP 需要额外 vendor
-   `chap_ms.c/ccp.c/mppe.c/eap.c` 并调整编译选项，属后续需求。
-   已调研清楚：`chap-new.c/auth.c/lcp.c` 里的 MSCHAPv2 客户端代码**已经具备**，
-   只是被 `MSCHAP_SUPPORT 0` 编掉；补 `chap_ms.c` + MD4 垫片（mbedtls 3.x 无 MD4）
-   即可；MPPE 还需 `ccp.c/mppe.c` + 本地 RC4（本仓库 mbedtls 各版本都无 ARC4）。
-   触发条件：LNS 只允许 MSCHAPv2/EAP 时（当前实测的 LNS 只要 CHAP-MD5，不需要）。
+5. **认证/加密能力扩展**：~~MSCHAPv2~~、MPPE（CCP）、EAP。
+   **MS-CHAPv2 已完成**（见 §3.5，客户端代码本来就具备，打开 `MSCHAP_SUPPORT`
+   并补 `chap_ms.c/pppcrypt.c` + MD4 垫片即可）。
+   仍未做的是 MPPE（隧道内加密）与 EAP：MPPE 还需 vendor `ccp.c/mppe.c`
+   外加一份本地 RC4（本仓库各版 mbedtls 都无 ARC4），且 PAP+MPPE 不可能
+   （密钥来自 NT 口令哈希）；触发条件是 LNS 把加密策略从"可选"改成"必需"。
+   EAP 目前只会被 NAK 成 CHAP，纯 EAP 的 LNS 连不上。
 6. **多实例**：当前按单会话设计（`MEMP_NUM_PPP_PCB=1`），多隧道/多会话、
    隧道切换未支持。
 7. **资源释放细节**：配置字符串（用户名/密码/密钥）在客户端生命周期内保留，

@@ -88,7 +88,7 @@ end
 
 -- 正向: 建立隧道 + PPP 认证 + IPCP 下发 IP + 隧道内 TCP echo
 function M.test_l2tp_connect()
-    if M.mode ~= "pap" and M.mode ~= "chap" then
+    if M.mode ~= "pap" and M.mode ~= "chap" and M.mode ~= "mschapv2" then
         return true -- 非本模式, 跳过
     end
     assert(setup_l2tp(), "netdrv.setup(L2TP) failed")
@@ -103,6 +103,20 @@ function M.test_l2tp_connect()
     return true
 end
 
+-- MS-CHAPv2 双向认证负向: LNS 回一个算错的 Authenticator Response,
+-- 客户端必须验出来并拒绝建链(chap_ms.c 的 chapms2_check_success)。
+-- 这一条是 MSCHAPv2 独有的: CHAP-MD5/PAP 没有服务端应答校验。
+function M.test_l2tp_mschapv2_mutual_auth()
+    if M.mode ~= "mschapv2-bad" then
+        return true -- 非本模式, 跳过
+    end
+    assert(setup_l2tp(), "netdrv.setup(L2TP) failed")
+    assert(not wait_ready(20000),
+           "L2TP must NOT become ready when the LNS AuthResponse is wrong")
+    log.info("l2tp_test", "bad AuthResponse rejected as expected")
+    return true
+end
+
 -- 负向: 密码错误 -> 认证失败, 不应 ready
 function M.test_l2tp_auth_fail()
     if M.mode ~= "reject" then
@@ -113,6 +127,32 @@ function M.test_l2tp_auth_fail()
     -- 认证失败后客户端会退避重试, 这里只需要确认一直没有 ready
     assert(not wait_ready(12000), "L2TP should NOT become ready with bad password")
     log.info("l2tp_test", "auth fail: not ready as expected")
+    return true
+end
+
+-- L2TP 隧道认证(共享密钥)正向: 带正确 secret -> 建链成功 + 隧道内 echo
+function M.test_l2tp_tunnel_secret()
+    if M.mode ~= "secret" then
+        return true -- 非本模式, 跳过
+    end
+    assert(setup_l2tp({ l2tp_secret = "tunnel-secret-123" }),
+           "netdrv.setup(L2TP) failed")
+    assert(wait_ready(30000), "L2TP with tunnel secret not ready within 30s")
+    assert(tcp_echo_through_tunnel(), "TCP echo failed with tunnel secret")
+    return true
+end
+
+-- 隧道认证负向: secret 不匹配 -> LNS 回 StopCCN, 不应 ready
+-- (隧道认证是 L2TP 控制面的认证, 与 PPP 认证是两件事)
+function M.test_l2tp_tunnel_secret_mismatch()
+    if M.mode ~= "secret-bad" then
+        return true -- 非本模式, 跳过
+    end
+    assert(setup_l2tp({ l2tp_secret = "wrong-tunnel-secret" }),
+           "netdrv.setup(L2TP) failed")
+    assert(not wait_ready(15000),
+           "L2TP must NOT become ready with a wrong tunnel secret")
+    log.info("l2tp_test", "wrong tunnel secret rejected as expected")
     return true
 end
 

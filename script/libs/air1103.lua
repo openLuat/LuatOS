@@ -2,8 +2,8 @@
     @module  air1103
     @summary 合宙 Air1103 语音芯片 PCM+PCM 串口协议驱动（exaudio 内部驱动）
     @remark 内部模块：仅供 exaudio 扩展库调用，业务代码请勿直接 require；使用 Air1103 请走 exaudio.setup({model="air1103"})。
-    @version 1.4
-    @date    2026.10.13
+    @version 1.5
+    @date    2026.10.16
     @author  拓毅恒
     @usage
         local air1103 = require "air1103"
@@ -474,14 +474,30 @@ end
 
 -- 本地提示音音频库
 -- 格式统一为 16k/16bit/LE PCM; 业务层通过 play_tone/play_busy/play_hangup 调用。
-local tones = {
-    -- 振铃提示音
-    busy = gen_sine(400, 1500, 0.5) .. gen_silence(100),
-    -- 挂断提示音
-    hangup = gen_sine(300, 300, 0.3) .. gen_silence(120) .. gen_sine(300, 300, 0.3) .. gen_silence(120) .. gen_sine(300, 300, 0.3),
-    -- 组间静音 1 秒: 用于振铃间停顿
-    gap = gen_silence(1000),
-}
+-- PCM 数据由电脑离线预生成为文件(air1103_<name>.pcm, 默认放 /luadb/),
+-- 首次播放时才 io.open 读取并缓存; 不在模块加载期动态合成/分配,
+-- 避免启动期大块分配导致死机。
+local TONE_PATH = "/luadb/"      -- 提示音 .pcm 所在目录(末尾需要斜杠)
+local tone_cache = {}
+local function load_tone(name)
+    local v = tone_cache[name]
+    if v ~= nil then return v end       -- 已读过(含读取失败)
+    local f = io.open(TONE_PATH .. "air1103_" .. name .. ".pcm", "rb")
+    if f then
+        v = f:read("*a")
+        f:close()
+    end
+    if v == nil or v == "" then v = false end
+    tone_cache[name] = v
+    return v or nil
+end
+
+-- 设置提示音 .pcm 所在目录(可选, 默认 /luadb/; 末尾自动补斜杠)
+function air1103.set_tone_path(path)
+    if type(path) == "string" and path ~= "" then
+        TONE_PATH = path:sub(-1) == "/" and path or (path .. "/")
+    end
+end
 
 -- 播放队列(FIFO): 元素为 {name=提示音名, data=PCM 数据}
 local play_queue = {}
@@ -498,7 +514,7 @@ local function queue_pump()
     if #play_queue == 0 and tone_loop then
         for i = 1, #tone_loop do
             local nm = tone_loop[i]
-            local data = tones[nm]
+            local data = load_tone(nm)
             if data then play_queue[#play_queue + 1] = { name = nm, data = data } end
         end
     end
@@ -541,7 +557,7 @@ end
 -- @param on_done  可选, 整队播放完成时回调
 -- @return boolean
 function air1103.play_tone(name, on_done)
-    local data = tones[name]
+    local data = load_tone(name)
     if not data or #data == 0 or not is_inited then return false end
     -- 避免只入队不播放
     if queue_running and not stream_running then

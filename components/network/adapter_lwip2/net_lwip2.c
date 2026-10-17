@@ -25,6 +25,19 @@
 #define NET_DBG	LLOGD
 #define NET_ERR LLOGE
 
+/* IPv6 双栈 socket: PCB 用 ANY 类型, 这样同一个 socket 既能连 IPv4 也能连 IPv6;
+ * 监听/绑定用 IP_ANY_TYPE 才能同时接受 v4/v6 连接(只传 NULL 会被 lwIP 当作
+ * IPv4 ANY, 只监听 v4)。 */
+#if LWIP_IPV6
+#define NET_LWIP2_TCP_NEW()   tcp_new_ip_type(IPADDR_TYPE_ANY)
+#define NET_LWIP2_UDP_NEW()   udp_new_ip_type(IPADDR_TYPE_ANY)
+#define NET_LWIP2_ANY_IP      IP_ANY_TYPE
+#else
+#define NET_LWIP2_TCP_NEW()   tcp_new()
+#define NET_LWIP2_UDP_NEW()   udp_new()
+#define NET_LWIP2_ANY_IP      NULL
+#endif
+
 /* RNDIS NAT 模式共存问题定位日志: 1=开启(默认), 抓完日志后改 0 或删除本块 */
 #ifndef LUAT_CONF_RNDIS_NAT_DBG
 #define LUAT_CONF_RNDIS_NAT_DBG 0
@@ -932,7 +945,7 @@ static void net_lwip2_task(void *param)
 	Buffer_Struct tx_msg_buf = {0,0,0};
 	// HANDLE cur_task = luat_get_current_task();
 	socket_data_t *p = NULL;
-	ip_addr_t *p_ip, *local_ip;
+	const ip_addr_t *p_ip, *local_ip;
 	struct pbuf *out_p = NULL;
 	int error = 0;
 //	uint8_t active_flag;
@@ -1176,6 +1189,11 @@ static void net_lwip2_task(void *param)
 				udp_bind_netif(prvlwip.socket[socket_id].pcb.udp, prvlwip.lwip_netif[adapter_index]);
 			}
 			// NET_DBG("udp bind %d", prvlwip.socket[socket_id].local_port);
+#if LWIP_IPV6
+			if (local_ip == NULL) {
+				local_ip = NET_LWIP2_ANY_IP;
+			}
+#endif
 			error = udp_bind(prvlwip.socket[socket_id].pcb.udp, local_ip, prvlwip.socket[socket_id].local_port);
 			if (error) {
 				NET_DBG("udp bind ret %d port %d", error, prvlwip.socket[socket_id].local_port);
@@ -1258,7 +1276,7 @@ static void net_lwip2_task(void *param)
 			net_lwip2_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
 			break;
 		}
-		error = tcp_bind(prvlwip.socket[socket_id].pcb.tcp, NULL, prvlwip.socket[socket_id].local_port);
+		error = tcp_bind(prvlwip.socket[socket_id].pcb.tcp, NET_LWIP2_ANY_IP, prvlwip.socket[socket_id].local_port);
 		if (error) {
 			LLOGE("tcp listen port %d ret %d", prvlwip.socket[socket_id].local_port, error);
         	net_lwip2_tcp_error(adapter_index, socket_id);
@@ -1557,7 +1575,7 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 		return;
 	if (prvlwip.socket[socket_id].is_tcp)
 	{
-		prvlwip.socket[socket_id].pcb.tcp = tcp_new();
+		prvlwip.socket[socket_id].pcb.tcp = NET_LWIP2_TCP_NEW();
 		if (!prvlwip.socket[socket_id].pcb.tcp)
 		{
 			NET_DBG("try to abort fin wait 1 tcp");
@@ -1579,7 +1597,7 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 			{
 				tcp_abort(dpcb);
 			}
-			prvlwip.socket[socket_id].pcb.tcp = tcp_new();
+			prvlwip.socket[socket_id].pcb.tcp = NET_LWIP2_TCP_NEW();
 		}
 		if (prvlwip.socket[socket_id].pcb.tcp)
 		{
@@ -1615,7 +1633,7 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 	else
 	{
 		// LLOGE("udp new in net_lwip2");
-		prvlwip.socket[socket_id].pcb.udp = udp_new();
+		prvlwip.socket[socket_id].pcb.udp = NET_LWIP2_UDP_NEW();
 		if (prvlwip.socket[socket_id].pcb.udp)
 		{
 			// Air8000 multi-net: pin Lua/socket UDP PCB early to current adapter netif
@@ -2505,10 +2523,21 @@ int net_lwip2_ipv6_is_ready(uint8_t adapter_index) { return 0; }
 
 #endif /* LWIP_IPV6 && defined(LUAT_USE_NETDRV_IPV6) */
 
+/* 返回带 type 的 ip_addr_t 副本。不能直接把 netif->ip6_addr[] 强转成
+ * ip_addr_t*: ip6_addr_t 只有 16 字节地址, ip_addr_t 末尾还有 type(以及
+ * zone 字段), 强转会读到相邻内存, 导致 IP_IS_V6() 判断错误。 */
+static ip_addr_t net_lwip2_ip6_source[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
+
 static ip_addr_t *net_lwip2_get_ip6(uint8_t adapter_index)
 {
 	#if LWIP_IPV6 && defined(LUAT_USE_NETDRV_IPV6)
-	return (ip_addr_t*)net_lwip2_get_ip6_slot(adapter_index, NULL);
+	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
+		return NULL;
+	}
+	if (net_lwip2_ipv6_addr_info(adapter_index, &net_lwip2_ip6_source[adapter_index], NULL) == 0) {
+		return &net_lwip2_ip6_source[adapter_index];
+	}
+	return NULL;
 	#else
 	return NULL;
 	#endif

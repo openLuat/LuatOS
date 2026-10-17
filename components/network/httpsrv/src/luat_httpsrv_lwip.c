@@ -334,7 +334,14 @@ static void srv_stop_cb(void* arg) {
 }
 
 static void luat_httpsrv_start_cb(luat_httpsrv_ctx_t* ctx) {
+#if LWIP_IPV6 && !ENABLE_PSIF
+    /* 双栈监听: PCB 用 ANY 类型, bind 用 IP_ANY_TYPE; 指定适配器时再用
+     * tcp_bind_netif 限定网卡。只传 NULL/IP_ADDR_ANY 会被 lwIP 当作 IPv4 ANY,
+     * IPv6 客户端连不进来。 */
+    struct tcp_pcb* tcp = tcp_new_ip_type(IPADDR_TYPE_ANY);
+#else
     struct tcp_pcb* tcp = tcp_new();
+#endif
     int ret = 0;
     if (tcp == NULL) {
         HTTPSRV_DBG("out of memory when malloc httpsrv tcp_pcb");
@@ -347,9 +354,16 @@ static void luat_httpsrv_start_cb(luat_httpsrv_ctx_t* ctx) {
     // 既没打开地址复用(于是 tcp_bind 仍会扫 TIME_WAIT 列表), 又给监听 pcb 设了个假状态位.
     // 真机实测后果: stop() 后立刻在同端口 start() 会 tcp_bind ERR_USE 而失败.
     ip_set_option(tcp, SOF_REUSEADDR);
-    // priv为NULL时绑定0.0.0.0(IP_ADDR_ANY), 接受全部网卡上的连接
+    // priv为NULL时绑定全部网卡; 指定 netif 时限定到该网卡
     struct netif* netif = (struct netif*)ctx->priv;
+#if LWIP_IPV6 && !ENABLE_PSIF
+    if (netif) {
+        tcp_bind_netif(tcp, netif);
+    }
+    ret = tcp_bind(tcp, IP_ANY_TYPE, ctx->port);
+#else
     ret = tcp_bind(tcp, netif ? &netif->ip_addr : IP_ADDR_ANY, ctx->port);
+#endif
     if (ret) {
         LLOGE("httpsrv bind port %d ret %d", ctx->port, ret);
         tcp_close(tcp);

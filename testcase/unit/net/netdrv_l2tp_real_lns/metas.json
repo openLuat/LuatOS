@@ -1,0 +1,6 @@
+{
+    "name": "netdrv_l2tp_real_lns",
+    "description": "netdrv L2TPv2 client against a real LNS (58.213.164.4): tunnel + CHAP-MD5 auth + IPCP + in-tunnel HTTP. Needs L2TP_PASS env (PC) or /luadb/lns_secret.txt (device).",
+    "platforms": ["PC", "air1601"],
+    "deps": ["netdrv"]
+}

@@ -7,6 +7,7 @@
 #include "dns_def.h"
 #include "lwip/tcpip.h"
 #include "lwip/init.h"
+#include <string.h>		/* memset, sys_timeout 的定时器节点初始化 */
 
 #include "luat_network_adapter.h"
 #include "net_lwip_port.h"
@@ -31,12 +32,42 @@ typedef struct
 	lwip_cyclic_timer_handler handler;
 }lwip_timer_handler_t;
 
-typedef struct
+typedef struct lwip_timer
 {
 	sys_timeout_handler handler;
 	void *args;
 	luat_rtos_timer_t timer;
+	/* 登记表用: 供 sys_untimeout 反查 + 事件按 id 寻址(见 sys_timeout 注释) */
+	struct lwip_timer *next;
+	uint32_t id;
 }lwip_timer_t;
+
+/* sys_timeout 建立的单次定时器登记表。定时器回调与 EV_LWIP_TIMEOUT 事件都只
+ * 携带 id(整数)而不携带节点指针, 所以 sys_untimeout 可以安全地把节点摘链并
+ * 释放: 即便此前投递的事件/回调随后才被调度, 也只会按 id 查表失败而直接返回,
+ * 不会解引用已释放内存。链表操作统一在 luat_rtos_entry_critical 保护下进行。 */
+static lwip_timer_t *prv_user_timer_list = NULL;
+static uint32_t prv_user_timer_id = 0;
+
+/* 在临界区内调用: 按 id 摘链并返回该节点, 未找到返回 NULL */
+static lwip_timer_t* prv_user_timer_unlink_by_id(uint32_t id)
+{
+	lwip_timer_t *node = prv_user_timer_list;
+	lwip_timer_t *prev = NULL;
+	while(node)
+	{
+		if (node->id == id)
+		{
+			if (prev) prev->next = node->next;
+			else prv_user_timer_list = node->next;
+			node->next = NULL;
+			return node;
+		}
+		prev = node;
+		node = node->next;
+	}
+	return NULL;
+}
 
 static const lwip_timer_handler_t prv_lwip_timer_list[LWIP_SYS_TIMER_CNT] =
 {
@@ -136,7 +167,8 @@ __LUAT_C_CODE_IN_ISR__ static LUAT_RT_RET_TYPE luat_lwip_sys_timer_cb(LUAT_RT_CB
 
 __LUAT_C_CODE_IN_ISR__ static LUAT_RT_RET_TYPE luat_lwip_timer_cb(LUAT_RT_CB_PARAM)
 {
-	luat_send_event_to_task(prvlwip.task_handle, EV_LWIP_TIMEOUT, (uint32_t)param, 0, 0);
+	/* param 是定时器 id(不是节点指针), 见 sys_timeout */
+	luat_send_event_to_task(prvlwip.task_handle, EV_LWIP_TIMEOUT, (uint32_t)(uintptr_t)param, 0, 0);
 	return LUAT_RT_RET;
 }
 
@@ -226,10 +258,18 @@ static void luat_lwip_task(void *param)
 			prv_lwip_timer_list[event.param1].handler();
 			break;
 		case EV_LWIP_TIMEOUT:
-			user_timer = (lwip_timer_t *)event.param1;
-			user_timer->handler(user_timer->args);
-			luat_release_rtos_timer(user_timer->timer);
-			luat_heap_free(user_timer);
+			/* 先按 id 摘链(与 sys_untimeout 互斥), 摘不到说明已被取消 */
+			{
+				uint32_t critical = luat_rtos_entry_critical();
+				user_timer = prv_user_timer_unlink_by_id((uint32_t)event.param1);
+				luat_rtos_exit_critical(critical);
+			}
+			if (user_timer)
+			{
+				user_timer->handler(user_timer->args);
+				luat_release_rtos_timer(user_timer->timer);
+				luat_heap_free(user_timer);
+			}
 			break;
 		default:
 			luat_lwip_event_run(&event);
@@ -281,18 +321,79 @@ void sys_timeouts_init(void)
 }
 void sys_timeout(u32_t msecs, sys_timeout_handler handler, void *arg)
 {
+	uint32_t critical;
 	lwip_timer_t *user_timer = luat_heap_malloc(sizeof(lwip_timer_t));
-	user_timer->timer = luat_create_rtos_timer(luat_lwip_timer_cb, (void *)user_timer, NULL);
+	if (user_timer == NULL)
+	{
+		LLOGE("sys_timeout: no mem for timer");
+		return;
+	}
+	memset(user_timer, 0, sizeof(lwip_timer_t));
 	user_timer->handler = handler;
 	user_timer->args = arg;
+
+	/* 先登记再启动定时器: 定时器回调只带 id, 必须保证 id 已在表内 */
+	critical = luat_rtos_entry_critical();
+	prv_user_timer_id++;
+	if (prv_user_timer_id == 0) prv_user_timer_id = 1; /* 0 保留 */
+	user_timer->id = prv_user_timer_id;
+	user_timer->next = prv_user_timer_list;
+	prv_user_timer_list = user_timer;
+	luat_rtos_exit_critical(critical);
+
+	user_timer->timer = luat_create_rtos_timer(luat_lwip_timer_cb, (void *)(uintptr_t)user_timer->id, NULL);
+	if (user_timer->timer == NULL)
+	{
+		LLOGE("sys_timeout: create timer failed");
+		critical = luat_rtos_entry_critical();
+		prv_user_timer_unlink_by_id(user_timer->id);
+		luat_rtos_exit_critical(critical);
+		luat_heap_free(user_timer);
+		return;
+	}
 	luat_start_rtos_timer(user_timer->timer, msecs, 0);
 }
 void sys_untimeout(sys_timeout_handler handler, void *arg)
 {
-	;
+	uint32_t critical;
+	lwip_timer_t *node;
+	lwip_timer_t *prev = NULL;
+
+	critical = luat_rtos_entry_critical();
+	node = prv_user_timer_list;
+	while(node)
+	{
+		if (node->handler == handler && node->args == arg)
+		{
+			if (prev) prev->next = node->next;
+			else prv_user_timer_list = node->next;
+			node->next = NULL;
+			break;
+		}
+		prev = node;
+		node = node->next;
+	}
+	luat_rtos_exit_critical(critical);
+
+	if (node == NULL)
+	{
+		/* 已经到期并被处理, 或从未登记, 都属于无事可做 */
+		return;
+	}
+	/* 摘链后即使定时器已经触发, 其回调也只会投递一个查不到 id 的事件 */
+	luat_stop_rtos_timer(node->timer);
+	luat_release_rtos_timer(node->timer);
+	luat_heap_free(node);
 }
 
 u32_t sys_now(void)
 {
+	return (u32_t)luat_mcu_tick64_ms();
+}
+
+u32_t sys_jiffies(void)
+{
+	/* LWIP_TIMERS_CUSTOM=1 时 lwip 自带的 core/timeouts.c 不参与编译, sys_jiffies
+	 * 归移植层提供。ppp/magic.c 用它做随机数种子, 给毫秒时钟即可。 */
 	return (u32_t)luat_mcu_tick64_ms();
 }

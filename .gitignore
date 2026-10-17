@@ -162,3 +162,8 @@ app_store/
 *.bin
 single_app.json
 .qoder/
+
+# 本地联调临时目录(含真实账号/口令), 勿入库
+.tmp_*/
+lns_secret.txt
+

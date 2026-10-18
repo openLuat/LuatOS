@@ -7,11 +7,43 @@
 #include "luat_mem.h"
 #include "luat_msgbus.h"
 #include <string.h>
+#ifdef _MSC_VER
+#include <windows.h>
+#endif
 
 #define LUAT_LOG_TAG "airlink.uart"
 #include "luat_log.h"
 
+/*
+ * 原子指针操作的可移植包装.
+ *
+ * 本文件在 PC 模拟器上也参与编译(bsp/pc/xmake.lua 用 airlink 全目录通配收集, 而
+ * src/driver 目录下 .c 的 remove_files 目前是注释掉的), 但 MSVC 没有 GCC 的 __sync_
+ * 内建 —— 直接调用会在 Windows 构建报 LNK2019: __sync_lock_test_and_set 与
+ * __sync_val_compare_and_swap. 按仓库 AGENTS.md 的口径(MSVC 走 InterlockedXxx,
+ * GCC 走 __sync_)包一层, 两个宏与内建逐条对齐:
+ *   atomic_ptr_swap(p, v)   <- __sync_lock_test_and_set(p, v)     : 原子写入 v, 返回旧值
+ *   atomic_ptr_cas(p, o, n) <- __sync_val_compare_and_swap(p, o, n): 相等时写入 n, 返回旧值
+ * 只用在这三个"发布/摘除接收缓存指针"的地方, 不想为它引入更重的抽象.
+ */
+#ifdef _MSC_VER
+#define atomic_ptr_swap(p, v)   ((void *)InterlockedExchangePointer((PVOID volatile *)(p), (PVOID)(v)))
+#define atomic_ptr_cas(p, o, n) ((void *)InterlockedCompareExchangePointer((PVOID volatile *)(p), (PVOID)(n), (PVOID)(o)))
+#else
+#define atomic_ptr_swap(p, v)   __sync_lock_test_and_set((p), (v))
+#define atomic_ptr_cas(p, o, n) __sync_val_compare_and_swap((p), (o), (n))
+#endif
+
 int l_uart_handler(lua_State *L, void* ptr);
+
+// 接收缓存与互斥锁。close() 释放时需要引用，故定义在文件顶部。
+typedef struct drv_uart_buff {
+    size_t remain;
+    size_t buff_size;
+    luat_rtos_mutex_t mutex;
+    uint8_t buff[4];
+} drv_uart_buff_t;
+static drv_uart_buff_t* uart_rx_buffs[10];
 
 
 int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
@@ -77,79 +109,130 @@ int luat_airlink_drv_uart_close(int uart_id) {
     memcpy(cmd->data + 8, &tmp, 1);
     item.cmd = cmd;
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+
+    // 释放接收缓存与互斥锁，避免反复 open/close 累积泄漏。
+    // 约定：close 由应用层在无并发读写时调用，此处先原子摘除指针再释放。
+    if (uart_id >= 10 && uart_id <= 19) {
+        drv_uart_buff_t* buff = atomic_ptr_swap(&uart_rx_buffs[uart_id - 10], NULL);
+        if (buff != NULL) {
+            luat_rtos_mutex_delete(buff->mutex);
+            luat_heap_free(buff);
+        }
+    }
     return 0;
 }
 
-typedef struct drv_uart_buff {
-    size_t remain;
-    size_t buff_size;
-    uint8_t buff[4];
-}drv_uart_buff_t;
-static drv_uart_buff_t* uart_rx_buffs[10];
+// 缓存和锁完全初始化后再原子发布；并发创建的败者释放自己的私有副本。
+static drv_uart_buff_t* uart_rx_buff_get(uint8_t id, int create) {
+    drv_uart_buff_t* buff = atomic_ptr_cas(&uart_rx_buffs[id], NULL, NULL);
+    if (buff != NULL || !create) {
+        return buff;
+    }
+    drv_uart_buff_t* candidate = luat_heap_malloc(4096 + sizeof(drv_uart_buff_t));
+    if (candidate == NULL) {
+        LLOGE("RX buffer allocation failed");
+        return NULL;
+    }
+    candidate->remain = 0;
+    candidate->buff_size = 4096;
+    candidate->mutex = NULL;
+    if (luat_rtos_mutex_create(&candidate->mutex) != 0) {
+        luat_heap_free(candidate);
+        LLOGE("RX mutex creation failed");
+        return NULL;
+    }
+    buff = atomic_ptr_cas(&uart_rx_buffs[id], NULL, candidate);
+    if (buff != NULL) {
+        luat_rtos_mutex_delete(candidate->mutex);
+        luat_heap_free(candidate);
+        return buff;
+    }
+    return candidate;
+}
+
+// 原生接收和Lua读取共用同一把锁；有限等待避免阻塞AirLink任务。
+static int uart_rx_buff_lock(drv_uart_buff_t* buff, int uart_id) {
+    if (luat_rtos_mutex_lock(buff->mutex, 20) != 0) {
+        LLOGE("RX mutex timeout uart %d", uart_id);
+        return -103;
+    }
+    return 0;
+}
 
 int luat_airlink_drv_uart_data_cb(int uart_id, void* buffer, size_t length) {
-    // TODO 要接收UART BUFF数据, 返回给用户代码
-    if (uart_id >= 10 && uart_id <= 19) {
-        uint8_t realy_id = uart_id - 10;
-        if (uart_rx_buffs[realy_id] == NULL) {
-            uart_rx_buffs[realy_id] = luat_heap_malloc(4096 + sizeof(drv_uart_buff_t));
-            if (uart_rx_buffs[realy_id] == NULL) {
-                LLOGE("内存分配失败!!");
-                return -101;
-            }
-            uart_rx_buffs[realy_id]->buff_size = 4096;
-            uart_rx_buffs[realy_id]->remain = 0;
-        }
-        if (uart_rx_buffs[realy_id]->remain + length > uart_rx_buffs[realy_id]->buff_size) {
-            LLOGE("RX OVERFLOW remain %d income %d", uart_rx_buffs[realy_id]->remain, length);
-            // 如果新数据本身就超过缓冲区大小,直接丢弃
-            if (length > uart_rx_buffs[realy_id]->buff_size) {
-                uart_rx_buffs[realy_id]->remain = 0;
-                return -102;
-            }
-            // 丢弃旧数据头部, 保留尾部, 给新数据腾出空间
-            size_t keep = uart_rx_buffs[realy_id]->buff_size - length;
-            if (keep > 0 && keep < uart_rx_buffs[realy_id]->remain) {
-                memmove(uart_rx_buffs[realy_id]->buff, uart_rx_buffs[realy_id]->buff + uart_rx_buffs[realy_id]->remain - keep, keep);
-            }
-            uart_rx_buffs[realy_id]->remain = keep;
-        }
-        memcpy(uart_rx_buffs[realy_id]->buff + uart_rx_buffs[realy_id]->remain,  buffer, length);
-        uart_rx_buffs[realy_id]->remain += length;
-        
-        rtos_msg_t msg = {0};
-        msg.handler = l_uart_handler;
-        msg.ptr = NULL;
-        msg.arg1 = uart_id;
-        msg.arg2 = uart_rx_buffs[realy_id]->remain;
-        luat_msgbus_put(&msg, 0);
+    if (uart_id < 10 || uart_id > 19) {
         return 0;
     }
+    drv_uart_buff_t* buff = uart_rx_buff_get(uart_id - 10, 1);
+    if (buff == NULL) {
+        return -101;
+    }
+    if (uart_rx_buff_lock(buff, uart_id) != 0) {
+        return -103;
+    }
+    size_t old_remain = buff->remain;
+    if (length > buff->buff_size) {
+        buff->remain = 0;
+        luat_rtos_mutex_unlock(buff->mutex);
+        LLOGE("RX OVERFLOW remain %u income %lu", (unsigned)old_remain, (unsigned long)length);
+        return -102;
+    }
+    int overflow = length > buff->buff_size - buff->remain;
+    if (overflow) {
+        size_t keep = buff->buff_size - length;
+        if (keep > 0 && keep < buff->remain) {
+            memmove(buff->buff, buff->buff + buff->remain - keep, keep);
+        }
+        buff->remain = keep;
+    }
+    memcpy(buff->buff + buff->remain, buffer, length);
+    buff->remain += length;
+    size_t notified_remain = buff->remain;
+    luat_rtos_mutex_unlock(buff->mutex);
+
+    // 日志和异步通知放锁外；通知长度是追加完成时的快照。
+    if (overflow) {
+        LLOGE("RX OVERFLOW remain %u income %lu", (unsigned)old_remain, (unsigned long)length);
+    }
+    rtos_msg_t msg = {0};
+    msg.handler = l_uart_handler;
+    msg.ptr = NULL;
+    msg.arg1 = uart_id;
+    msg.arg2 = notified_remain;
+    luat_msgbus_put(&msg, 0);
     return 0;
 }
 
 int luat_airlink_drv_uart_read(int uart_id, void* data, size_t length) {
-    if (uart_id >= 10 && uart_id <= 19) {
-        uint8_t realy_id = uart_id - 10;
-        if (uart_rx_buffs[realy_id] == NULL) {
-            return 0;
-        }
-        if (data == NULL) {
-            return uart_rx_buffs[realy_id]->remain;
-        }
-        if (length > uart_rx_buffs[realy_id]->remain) {
-            length = uart_rx_buffs[realy_id]->remain;
-        }
-        memcpy(data, uart_rx_buffs[realy_id]->buff, length);
-        memmove(uart_rx_buffs[realy_id]->buff, uart_rx_buffs[realy_id]->buff + length, uart_rx_buffs[realy_id]->remain - length);
-        uart_rx_buffs[realy_id]->remain -= length;
-        // LLOGD("uart[%d] read %d bytes remain %d", uart_id, length, uart_rx_buffs[realy_id]->remain);
-        return length;
+    if (uart_id < 10 || uart_id > 19) {
+        return 0;
     }
-    return 0;
+    drv_uart_buff_t* buff = uart_rx_buff_get(uart_id - 10, 0);
+    if (buff == NULL) {
+        return 0;
+    }
+    if (uart_rx_buff_lock(buff, uart_id) != 0) {
+        return -103;
+    }
+    if (data == NULL) {
+        size_t remain = buff->remain;
+        luat_rtos_mutex_unlock(buff->mutex);
+        return (int)remain;
+    }
+    if (length > buff->remain) {
+        length = buff->remain;
+    }
+    memcpy(data, buff->buff, length);
+    memmove(buff->buff, buff->buff + length, buff->remain - length);
+    buff->remain -= length;
+    luat_rtos_mutex_unlock(buff->mutex);
+    return (int)length;
 }
 
 int luat_airlink_drv_uart_sent_cb(int uart_id, void* buffer, size_t length) {
+    // 发送完成通知不携带数据，保留统一回调签名。
+    (void)buffer;
+    (void)length;
     rtos_msg_t msg = {0};
     msg.handler = l_uart_handler;
     msg.ptr = NULL;
@@ -160,11 +243,17 @@ int luat_airlink_drv_uart_sent_cb(int uart_id, void* buffer, size_t length) {
 }
 
 int luat_airlink_drv_uart_rx_clear(int uart_id) {
-    if (uart_id >= 10 && uart_id <= 19) {
-        uint8_t realy_id = uart_id - 10;
-        if (uart_rx_buffs[realy_id] != NULL) {
-            uart_rx_buffs[realy_id]->remain = 0;
-        }
+    if (uart_id < 10 || uart_id > 19) {
+        return 0;
     }
+    drv_uart_buff_t* buff = uart_rx_buff_get(uart_id - 10, 0);
+    if (buff == NULL) {
+        return 0;
+    }
+    if (uart_rx_buff_lock(buff, uart_id) != 0) {
+        return -103;
+    }
+    buff->remain = 0;
+    luat_rtos_mutex_unlock(buff->mutex);
     return 0;
 }

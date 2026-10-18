@@ -89,12 +89,14 @@
 #define SPI_TF_WRITE_TO_MS	((uint64_t)FATFS_WRITE_TO)
 #define SPI_TF_READ_TO_MS	(100)
 
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
 /* 多扇区读：一次 SPI 最多这么多个扇区，数据仍走 DMA。 */
 #define SPITF_BULK_MAX_SECTORS 32u
 /* 两个扇区之间允许的 0xFF 空档上限，含数据令牌 0xFE。 */
 #define SPITF_BULK_GAP         16u
 /* 寻找第一个数据令牌时，每次从线上读入的字节数。 */
 #define SPITF_TOKEN_SCAN       32u
+#endif
 
 typedef struct
 {
@@ -218,6 +220,7 @@ typedef struct
 extern uint8_t FATFS_NO_CRC_CHECK;
 extern uint16_t FATFS_WRITE_TO;
 static luat_spitf_ctrl_t g_s_spitf;
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
 /* 多扇区读的接收缓冲。第一次按需要申请，之后复用。 */
 static uint8_t *s_spitf_bulk;
 static uint32_t s_spitf_bulk_cap;
@@ -229,6 +232,7 @@ static uint8_t s_spitf_carry[768];
 static uint32_t s_spitf_carry_len;
 /* 本次 CMD18 批量解析失败后，重试改走逐扇区读。下一次读盘会清掉。 */
 static uint8_t s_spitf_force_slow;
+#endif
 static void luat_spitf_read_config(luat_spitf_ctrl_t *spitf);
 
 static void luat_spitf_cs(luat_spitf_ctrl_t *spitf, uint8_t OnOff)
@@ -518,6 +522,7 @@ SDHC_SPIWRITEBLOCKDATA_DONE:
 	return Result;
 }
 
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
 /*
  * 计算一个扇区数据的 CRC16-CCITT。
  * 结果与 CRC16Cal(src, 512, 0, CRC16_CCITT_GEN, 0) 相同，按字节查 256 项表。
@@ -773,12 +778,14 @@ static int spitf_read_bulk_chunk(luat_spitf_ctrl_t *spitf, uint32_t n, uint8_t *
 	s_spitf_carry_len = head;
 	return 0;
 }
+#endif
 
 /*
  * 收完当前 CMD18 的数据阶段。命令本身已经由调用方发出。
- * 剩余扇区多于 1 个且没有强制慢路径时，按最多 32 个扇区一段批量读入，
- * CRC16 用查表。只剩 1 个扇区，或上一段批量失败后的重试，改为每个扇区
- * 三次 SPI：找 0xFE、读 512 字节、再读 2 字节 CRC，CRC 逐位计算。
+ * LUAT_USE_SPI_TF_READ_FAST 打开时，剩余扇区多于 1 个且没有强制慢路径，
+ * 按最多 32 个扇区一段批量读入，CRC16 用查表。堆申请失败或解析失败后，
+ * 以及宏关闭、只剩 1 个扇区时，改为每个扇区三次 SPI：找 0xFE、读 512 字节、
+ * 再读 2 字节 CRC，CRC 逐位计算。
  * 读到的扇区写入 spitf->DataBuf.Data，并推进 DataBuf.Pos。
  *
  * @param spitf SD SPI 控制器。DataBuf.MaxLen 是本次要读的扇区数，Pos 是已完成的个数。
@@ -788,6 +795,7 @@ static int spitf_read_bulk_chunk(luat_spitf_ctrl_t *spitf, uint32_t n, uint8_t *
  */
 static int32_t luat_spitf_read_data(luat_spitf_ctrl_t *spitf)
 {
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
 	if (!s_spitf_force_slow && (spitf->DataBuf.MaxLen - spitf->DataBuf.Pos) > 1)
 	{
 		uint32_t left = spitf->DataBuf.MaxLen - spitf->DataBuf.Pos;
@@ -811,6 +819,7 @@ static int32_t luat_spitf_read_data(luat_spitf_ctrl_t *spitf)
 		}
 		return ERROR_NONE;
 	}
+#endif
 
 	uint64_t OpEndTick;
 	int Result = -ERROR_OPERATION_FAILED;
@@ -1167,7 +1176,9 @@ static void luat_spitf_read_blocks(luat_spitf_ctrl_t *spitf, uint8_t *Buf, uint3
 	uint8_t error = 1;
 	uint32_t address;
 	Buffer_StaticInit(&spitf->DataBuf, Buf, BlockNums);
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
 	s_spitf_force_slow = 0;
+#endif
 	if (spitf->SDSC)
 	{
 		if (luat_spitf_cmd(spitf, CMD16, 512, 1))

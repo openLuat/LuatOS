@@ -54,8 +54,8 @@ return {
     -- ===== GPIO 上电时序 =====
     -- 按顺序初始化各外设供电和复位（顺序即依赖：电源轨→SD→4G复位→UVC→LCD→485）
     power_on = {
-        { pin = 72, dir = 0, level = 0, delay = 20 },  -- TP_RST 拉低 20ms，干净复位触摸芯片
-        { pin = 72, dir = 0, level = 1, delay = 60 },  -- 释放复位：INT 上拉锁 0x14 干净启动，INT 输出可恢复
+        { pin = 72, dir = 0, level = 0},  -- TP_RST 拉低 20ms，干净复位触摸芯片
+        { pin = 72, dir = 0, level = 1 },  -- 释放复位：INT 上拉锁 0x14 干净启动，INT 输出可恢复
         { pin = 12, dir = 0, level = 1 }, -- 5V_EN 拉高，5V 供电
         { pin = 73, dir = 0, level = 1 }, -- AUDIOPA_EN = Air1103 供电脚，拉高常供电（见文件头第 2 条）
         { pin = 56, dir = 0, level = 1 }, -- 9V_EN 拉高，等 100ms 就绪

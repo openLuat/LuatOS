@@ -37,6 +37,19 @@
 - 在 main.lua 中注释掉 `require "mjpg_player"`
 - 上电后自动下载并播放
 
+## 硬件环境配置（HARDWARE_ENV）
+
+本 demo 的 LCD 因板型/屏幕不同，驱动、复位脚、分辨率与背光方式都不同，通过 `lcd_drv.lua` 顶部的 `HARDWARE_ENV` 变量切换：
+
+| HARDWARE_ENV 值 | 适用板型 | 驱动 | pin_rst | 分辨率 | 背光 |
+| --- | --- | --- | --- | --- | --- |
+| EK79001_5INCH | 原5寸RGB屏(EK79001 IC) | exd_ek79001_rgb | 22 | 5寸 | GPIO8 |
+| AIR8607_10INCH | 合宙引擎 Air8607 10寸RGB | lcd_display_rgb | 15 | 1024x600 | PWM3(GPIO13) |
+
+- 默认值：`AIR8607_10INCH`（10寸 RGB，PWM 背光）。使用原 5 寸屏请改为 `EK79001_5INCH`。
+- Air8607 参数（pin_rst=15、RGB 时序 hbp=140/hspw=20/hfp=160/vbp=20/vspw=3/vfp=12@50MHz、背光 PWM3=GPIO13）参考 `module/Air8607/project/factory/config/eng_8607_10i_v0.lua`。
+- 注意：Air8607 固件不自带 `exd_ek79001_rgb`，原 5 寸屏选项需对应固件支持；烧录到 Air8607 请保持 `AIR8607_10INCH`。
+
 ## 演示硬件环境
 
 1、Air1601/Air1602开发板一块+LCD屏幕

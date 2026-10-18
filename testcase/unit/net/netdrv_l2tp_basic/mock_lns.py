@@ -27,6 +27,16 @@ import sys
 import threading
 import time
 
+# MS-CHAPv2 校验需要 MD4(NT 口令哈希) + DES(挑战应答) + SHA1(Authenticator Response)。
+# 只在这一个场景用到, 所以做成可选依赖: 缺了就在启动时明确报错退出, 不要静默降级。
+try:
+    from Crypto.Cipher import DES as _DES
+    from Crypto.Hash import MD4 as _MD4
+    from Crypto.Hash import SHA1 as _SHA1
+    HAVE_CRYPTO = True
+except Exception:  # pragma: no cover - 取决于运行环境
+    HAVE_CRYPTO = False
+
 # ---------------------------------------------------------------- L2TP AVP
 AVP_MESSAGE = 0
 AVP_VERSION = 2
@@ -60,6 +70,60 @@ PPP_PAP = 0xC023
 PPP_CHAP = 0xC223
 PPP_IPCP = 0x8021
 PPP_IP = 0x0021
+
+
+# ---------------------------------------------------------------- MS-CHAPv2
+# RFC 2759 / RFC 3079 里 LNS 侧需要的那几步(独立于被测客户端实现, 用于交叉验证)
+MAGIC1 = b"Magic server to client signing constant"
+MAGIC2 = b"Pad to make it do more than one iteration"
+
+
+def _str_to_key(key7):
+    """56bit -> 64bit DES 密钥(补奇偶位), 与 pppcrypt_56_to_64_bit_key 等价"""
+    k = bytes(key7) + b"\x00"
+
+    def get7(start):
+        word = (k[start // 8] << 8) | k[start // 8 + 1]
+        word >>= 15 - (start % 8 + 7)
+        return word & 0xFE
+
+    return bytes([get7(0), get7(7), get7(14), get7(21), get7(28), get7(35), get7(42), get7(49)])
+
+
+def _des_ecb_encrypt(data8, key7):
+    return _DES.new(_str_to_key(key7), _DES.MODE_ECB).encrypt(data8)
+
+
+def _nt_password_hash(password):
+    """MD4(UTF-16LE(password)); 传入 bytes 时按原样哈希(用于 PasswordHashHash)"""
+    if isinstance(password, str):
+        password = password.encode("utf-16-le")
+    return _MD4.new(password).digest()
+
+
+def _challenge_hash(peer_challenge, auth_challenge, username):
+    """SHA1(PeerChallenge | AuthenticatorChallenge | UserName)[0:8]"""
+    h = _SHA1.new(peer_challenge + auth_challenge + username.encode("utf-8")).digest()
+    return h[:8]
+
+
+def _challenge_response(challenge8, password):
+    """3xDES(ChallengeHash, NT-Password-Hash 补到 21 字节) -> 24 字节 NT-Response"""
+    z = _nt_password_hash(password) + b"\x00" * 5      # 16 -> 21
+    return (_des_ecb_encrypt(challenge8, z[0:7])
+            + _des_ecb_encrypt(challenge8, z[7:14])
+            + _des_ecb_encrypt(challenge8, z[14:21]))
+
+
+def _generate_authenticator_response(password, nt_response, peer_challenge,
+                                     auth_challenge, username):
+    """RFC 2759 的 Authenticator Response, 40 个十六进制大写字符(客户端会互验)。
+    注意第二步哈希的是 8 字节 ChallengeHash, 不是原始 AuthenticatorChallenge
+    (lwIP chap_ms.c:675-682 / RFC 2759 §8.7 原文)。"""
+    pw_hash_hash = _nt_password_hash(_nt_password_hash(password))
+    digest = _SHA1.new(pw_hash_hash + nt_response + MAGIC1).digest()
+    challenge8 = _challenge_hash(peer_challenge, auth_challenge, username)
+    return _SHA1.new(digest + challenge8 + MAGIC2).digest().hex().upper()
 
 
 def u16(v):
@@ -108,7 +172,9 @@ class LNS:
         self.challenge = None
         self.auth_done = False
         self.lcp_options = b""
-        self.offer_chap = (args.auth == "chap")
+        self.offer_chap = (args.auth in ("chap", "mschapv2"))
+        # CHAP 算法: 0x05 = CHAP-MD5, 0x81 = MS-CHAPv2 (LCP CI_AUTHTYPE 里带)
+        self.chap_alg = 0x81 if args.auth == "mschapv2" else 0x05
         self.our_confreq_sent = False
         self.chap_sent = False
         self.our_magic = random.getrandbits(32)
@@ -190,6 +256,52 @@ class LNS:
         dst = socket.inet_ntoa(pkt[16:20])
         if proto == 6:
             self.handle_tcp(src, dst, pkt[ihl:])
+        elif proto == 17:
+            self.handle_udp(src, dst, pkt[ihl:])
+
+    # ------------------------------------------------------- DNS responder
+    def handle_udp(self, src, dst, udp):
+        if len(udp) < 8:
+            return
+        sport, dport, ulen, _chk = struct.unpack("!HHHH", udp[:8])
+        payload = udp[8:ulen] if 8 <= ulen <= len(udp) else udp[8:]
+        self.log("UDP %s:%d -> %s:%d len=%d" % (src, sport, dst, dport, len(payload)))
+        # 只在"IPCP 确实下发了 DNS, 且查询打到那个地址"时才应答。
+        # 否则客户端可以用网关等回落地址解析成功, 用例就区分不出 DNS 到底有没有生效。
+        if dport == 53 and not self.args.no_dns and dst == self.args.dns1 \
+                and len(payload) >= 12:
+            self.answer_dns(src, sport, payload)
+
+    def answer_dns(self, src, sport, query):
+        """最小 DNS 应答: 任何 A 查询都回 --dns-reply-ip (默认隧道对端地址)。
+        用途是验证 IPCP 下发的 DNS 真被客户端装到隧道网卡上并实际使用了 ——
+        只有装上了, 客户端才会把查询发到这里。"""
+        tid = query[:2]
+        i, labels = 12, []
+        while i < len(query) and query[i] != 0 and len(labels) < 16:
+            ln = query[i]
+            labels.append(query[i + 1:i + 1 + ln].decode("latin1"))
+            i += 1 + ln
+        if i >= len(query):
+            return
+        name = ".".join(labels)
+        qend = min(i + 1 + 4, len(query))          # 根标签 + qtype + qclass
+        # 应答: 指针指向问题里的 QNAME + A 记录
+        ans = b"\xc0\x0c" + struct.pack("!HHIH", 1, 1, 30, 4) + ip4(self.args.dns_reply_ip)
+        resp = tid + struct.pack("!HHHHH", 0x8180, 1, 1, 0, 0) + query[12:qend] + ans
+
+        udp_out = struct.pack("!HHHH", 53, sport, 8 + len(resp), 0) + resp
+        self.inner_send(self.args.dns_reply_ip, src, 17, udp_out)
+        self.log("DNS %s -> %s" % (name, self.args.dns_reply_ip))
+
+    def inner_send(self, src, dst, proto, payload):
+        """把一段传输层载荷封成 IPv4 包, 走 L2TP 数据面回给客户端"""
+        total = 20 + len(payload)
+        ip_hdr = struct.pack("!BBHHHBBH4s4s", 0x45, 0, total, 0, 0, 64,
+                             proto, 0, ip4(src), ip4(dst))
+        ip_chk = checksum(ip_hdr)
+        ip_hdr = ip_hdr[:10] + struct.pack("!H", ip_chk) + ip_hdr[12:]
+        self.udp_send_to_client(self.l2tp_data(u16(PPP_IP) + ip_hdr + payload))
 
     def handle_tcp(self, src, dst, tcp):
         if len(tcp) < 20:
@@ -296,7 +408,7 @@ class LNS:
                 opts = struct.pack("!BBH", 1, 4, 1500)          # MRU
                 opts += struct.pack("!BBI", 5, 6, magic)        # Magic-Number
                 if self.offer_chap:
-                    opts += struct.pack("!BBHB", 3, 5, PPP_CHAP, 0x05)  # CHAP MD5
+                    opts += struct.pack("!BBHB", 3, 5, PPP_CHAP, self.chap_alg)
                 else:
                     opts += struct.pack("!BBH", 3, 4, PPP_PAP)  # PAP
                 req = struct.pack("!BBH", 1, ident + 10, 4 + len(opts)) + opts
@@ -359,6 +471,9 @@ class LNS:
         if code == 1:  # Challenge (client -> us means we initiated? Actually client only responds)
             pass
         elif code == 2:  # Response
+            if self.chap_alg == 0x81:
+                self.handle_chap_mschapv2(ident, body)
+                return
             if len(body) >= 17:
                 rlen = body[0]
                 resp = body[1:1 + 16]
@@ -380,6 +495,64 @@ class LNS:
                         PPP_CHAP, struct.pack("!BBH", 4, ident, 7) + b"\x03ERR"))
                     self.log("CHAP auth FAILED (%s)" % name)
 
+    def check_challenge_response(self, avps):
+        """RFC 2661 §4.4.2: ChallengeResponse = MD5(MessageType(SCCCN) | Secret | Challenge)"""
+        rv = self.avp_value(avps, AVP_CHALLENGE_RESP)
+        if not rv or len(rv) != 16 or self.challenge is None:
+            return False
+        expect = hashlib.md5(bytes([MSG_SCCCN]) + self.secret + self.challenge).digest()
+        return rv == expect
+
+    def handle_chap_mschapv2(self, ident, body):
+        """MS-CHAPv2 Response 线格式(RFC 2759 §4):
+             Value-Size(1)=49 | PeerChallenge(16) | Reserved(8) | NT-Response(24) | Flags(1) | Name
+           校验 NT-Response 后回 Success, 且必须带上 Authenticator Response
+           (lwIP 客户端会互验, 算错就掉线 —— 这正是"独立实现交叉验证"的价值)。"""
+        if len(body) < 50:
+            self.log("MSCHAPv2 response too short: %d" % len(body))
+            return
+        rlen = body[0]
+        peer_challenge = body[1:17]
+        reserved = body[17:25]
+        nt_response = body[25:49]
+        flags = body[49]
+        name = body[50:].decode("latin1", "replace")
+
+        ok, why = False, ""
+        if rlen != 49:
+            why = "value-size=%d != 49" % rlen
+        elif reserved != b"\x00" * 8:
+            why = "reserved not zero: %s" % reserved.hex()
+        elif flags != 0:
+            why = "flags=0x%02x" % flags
+        elif self.args.reject_auth:
+            why = "reject-auth"
+        else:
+            ch = _challenge_hash(peer_challenge, self.challenge, name)
+            expect = _challenge_response(ch, self.args.password)
+            if expect != nt_response:
+                why = "NT-Response mismatch (expect %s got %s)" % (expect.hex(), nt_response.hex())
+            else:
+                auth_resp = _generate_authenticator_response(
+                    self.args.password, nt_response, peer_challenge, self.challenge, name)
+                ok = True
+
+        if ok:
+            self.auth_done = True
+            if self.args.bad_auth_response:
+                # 故意算错: 客户端必须互验出来并拒绝这条链路
+                auth_resp = ("0" if auth_resp[0] != "0" else "1") + auth_resp[1:]
+            msg = ("S=%s M=Welcome" % auth_resp).encode()
+            self.udp_send_to_client(self.ppp_send(
+                PPP_CHAP, struct.pack("!BBH", 3, ident, 4 + len(msg)) + msg))
+            self.log("MSCHAPv2 auth ok (%s) S=%s%s"
+                     % (name, auth_resp, " [CORRUPTED]" if self.args.bad_auth_response else ""))
+        else:
+            msg = b"E=691 R=0 M=Authentication failed"
+            self.udp_send_to_client(self.ppp_send(
+                PPP_CHAP, struct.pack("!BBH", 4, ident, 4 + len(msg)) + msg))
+            self.log("MSCHAPv2 auth FAILED (%s): %s" % (name, why))
+
     def handle_ipcp(self, p):
         if len(p) < 4:
             return
@@ -394,11 +567,14 @@ class LNS:
                 self.log("IPCP Configure-Ack (%s)" % self.args.ip)
             else:
                 opts = b"\x03\x06" + ip4(self.args.ip)
-                opts += b"\x81\x06" + ip4(self.args.dns1)
-                opts += b"\x83\x06" + ip4(self.args.dns2)
+                if not self.args.no_dns:
+                    opts += b"\x81\x06" + ip4(self.args.dns1)   # Primary DNS
+                    opts += b"\x83\x06" + ip4(self.args.dns2)   # Secondary DNS
                 nak = struct.pack("!BBH", 3, ident, 4 + len(opts)) + opts
                 self.udp_send_to_client(self.ppp_send(PPP_IPCP, nak))
-                self.log("IPCP Configure-Nak -> %s" % self.args.ip)
+                self.log("IPCP Configure-Nak -> %s%s" % (
+                    self.args.ip, " (no DNS)" if self.args.no_dns else
+                    " dns=%s/%s" % (self.args.dns1, self.args.dns2)))
             # IPCP is symmetric: send our own Configure-Request so the
             # client's FSM can leave ACKRCVD and open IPCP.
             if not self.ipcp_confreq_sent:
@@ -499,6 +675,20 @@ class LNS:
             self.log("SCCRQ -> SCCRP (tunnel 0x%x)" % self.our_tunnel_id)
 
         elif msgtype == MSG_SCCCN:
+            # 隧道认证(共享密钥): 客户端在 SCCCN 里带回 ChallengeResponse,
+            # 校验不过就按 RFC 2661 回 StopCCN(result=2 general error) 结束隧道。
+            if self.secret is not None and not self.check_challenge_response(avps):
+                self.udp_send_to_client(self.ctrl_msg(
+                    self.our_ns, self.client_ns + 1, self.client_tunnel_id, 0, [
+                        self.avp(AVP_MESSAGE, u16(MSG_STOPCCN)),
+                        self.avp(AVP_RESULTCODE, struct.pack("!HH", 2, 0)),
+                    ]))
+                self.our_ns += 1
+                self.phase = "INIT"
+                self.log("SCCCN tunnel-auth FAILED -> StopCCN")
+                return
+            if self.secret is not None:
+                self.log("SCCCN tunnel-auth ok")
             # ZLB ack: shares the next real message's NS slot, so our_ns
             # is NOT incremented (lwip pppol2tp does not advance peer_ns on ZLB).
             self.udp_send_to_client(self.ctrl_msg(
@@ -572,19 +762,30 @@ class LNS:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=1701)
-    ap.add_argument("--auth", choices=["pap", "chap"], default="pap")
+    ap.add_argument("--auth", choices=["pap", "chap", "mschapv2"], default="pap")
     ap.add_argument("--user", default="testuser")
     ap.add_argument("--pass", dest="password", default="testpass")
     ap.add_argument("--secret", default=None)
     ap.add_argument("--ip", default="192.168.8.2")
     ap.add_argument("--dns1", default="192.168.8.1")
     ap.add_argument("--dns2", default="8.8.8.8")
+    ap.add_argument("--dns-reply-ip", default="192.168.8.1",
+                    help="隧道内 DNS 应答器返回的 A 记录地址")
+    ap.add_argument("--no-dns", action="store_true",
+                    help="IPCP 不下发 DNS(用于验证不下发时客户端不受影响)")
     ap.add_argument("--reject-auth", action="store_true")
+    ap.add_argument("--bad-auth-response", action="store_true",
+                    help="MSCHAPv2: 故意回一个算错的 Authenticator Response")
     ap.add_argument("--drop-after", type=float, default=0)
     ap.add_argument("--log", action="store_true")
     args = ap.parse_args()
+    if args.auth == "mschapv2" and not HAVE_CRYPTO:
+        print("--auth mschapv2 需要 pycryptodome (MD4/DES/SHA1): pip install pycryptodome",
+              file=sys.stderr)
+        return 2
     lns = LNS(args)
     lns.run()
+    return 0
 
 
 if __name__ == "__main__":

@@ -144,6 +144,17 @@ elseif is_host("linux") then
     add_defines("LUAT_CONF_USE_LIBSYS_SOURCE")
     add_cflags("-ffunction-sections -fdata-sections")
     add_cflags("-Wno-unused-parameter -Wno-unused-function -Wno-unused-variable")
+    -- GCC 14+ 与 Clang 16+ 把下列诊断从警告提升为错误, 导致本仓库中大量既有代码
+    -- 在较新的 Linux 工具链上无法编译(该组合不在上游 CI 覆盖范围内 —— CI 走 Windows/MSVC)。
+    -- 这里降级回警告, 以恢复 Linux 下的可构建性。
+    --
+    -- 注意: 这是兜底而非修复。这些警告中确实夹杂真实缺陷, 例如
+    --   components/multimedia/luat_lib_multimedia_audio.c 曾把函数指针的地址
+    --   当作函数指针存储; components/camera 存在未声明函数调用。
+    -- 建议后续逐项清理后再移除本兜底。
+    add_cflags("-Wno-error=incompatible-pointer-types")
+    add_cflags("-Wno-error=int-conversion")
+    add_cflags("-Wno-error=implicit-function-declaration")
     add_ldflags("-Wl,--gc-sections")
 elseif is_host("macos") then
     add_defines("LUA_USE_MACOSX")
@@ -825,9 +836,20 @@ target("luatos-lua")
     add_files(luatos.."components/network/wireguard/src/*.c")
 
     -- httpsrv
+    -- HTTP 协议层(请求解析/静态文件路由/响应拼装/Lua 派发)两平台共用,
+    -- 传输后端二选一: PC 用宿主 socket(winsock/BSD), 真机用 lwIP raw API.
+    -- PC 上的 lwIP 没有任何 netif, 走 lwIP 只会"监听成功但收不到连接".
+    -- LUAT_HTTPSRV_POSIX_BACKEND 必须与下面的文件选择保持同一条件,
+    -- 否则 luat_lib_httpsrv.c 会引用到一个根本没被编译进去的符号.
     add_includedirs(luatos.."components/network/httpsrv/inc",{public = true})
-    add_files(luatos.."components/network/httpsrv/src/*.c")
-    -- add_files(luatos.."components/network/httpsrv/binding/*.c")
+    add_files(luatos.."components/network/httpsrv/src/luat_httpsrv_http.c")
+    if is_host("windows") or is_host("linux") or is_host("macos") then
+        add_defines("LUAT_HTTPSRV_POSIX_BACKEND=1")
+        add_files(luatos.."components/network/httpsrv/src/luat_httpsrv_posix.c")
+    else
+        add_files(luatos.."components/network/httpsrv/src/luat_httpsrv_lwip.c")
+    end
+    add_files(luatos.."components/network/httpsrv/src/luat_lib_httpsrv.c")
 
     -- ercoap
     -- add_includedirs(luatos.."components/network/ercoap/include",{public = true})
@@ -1259,6 +1281,41 @@ target("luatos-lua")
         
         -- 添加 Windows 库
         add_links("shlwapi")
+    end
+
+    -- =========================================================
+    -- gb28181（GB/T 28181-2016 设备侧协议组件，外部仓 luatos-ext-components）
+    -- 默认【关闭】，只有显式 LUAT_USE_GB28181=y 才启用。
+    --
+    -- 不再是"目录存在就自动开启": gb28181 的源码用了 GCC 的 __atomic_* 内建
+    -- (luat_gb28181_media.c)，而 PC 构建走的是 MSVC —— 自动开启会让任何拉全了
+    -- luatos-ext-components 的人在 Windows 上直接撞 26 个 C2065，等于默认构建是坏的。
+    -- 口径对齐同表的 mp4player("PC 集成未完成前默认关")：集成补齐(把 __atomic_* 换成
+    -- InterlockedXxx 或 C11 atomic)之后再改回自动检测。
+    -- =========================================================
+    local use_gb28181 = false
+    local gb28181_src = luatos_ext_root .. "/gb28181"
+    if os.getenv("LUAT_USE_GB28181") == "y" then
+        if os.isdir(gb28181_src) then
+            use_gb28181 = true
+        else
+            print("Warning: LUAT_USE_GB28181=y but gb28181 not found at: " .. gb28181_src)
+        end
+    end
+
+    if use_gb28181 then
+        add_defines("LUAT_USE_GB28181=1")
+        add_includedirs(gb28181_src .. "/include", {public = true})
+        -- 收发实现在运行期注入（见其 include/luat_gb28181_transport.h）：
+        -- src/ 只声明函数表、不引用实现；实现放 binding/，故 src/ 不依赖 SDK 头
+        add_files(gb28181_src .. "/src/*.c")
+        add_files(gb28181_src .. "/binding/luat_lib_gb28181.c")
+        add_files(gb28181_src .. "/binding/luat_gb28181_transport_netadapter.c")
+
+        -- 历史回放(record/)：用 mp4player 的 minimp4；未接入时组件自带实现
+        add_includedirs(gb28181_src .. "/record")
+        add_includedirs(luatos_ext_root .. "/mp4player/video_decode")
+        add_files(gb28181_src .. "/record/*.c")
     end
 
     -- =========================================================

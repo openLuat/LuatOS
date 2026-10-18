@@ -171,7 +171,10 @@ int luat_onenet_token(iotauth_ctx_t* ctx,const iotauth_onenet_t* onenet) {
 int luat_iotda_token(iotauth_ctx_t* ctx,const char* device_id,const char* device_secret,long long cur_timestamp,int ins_timestamp){
     char hmac[65] = {0};
     char timestamp[11] = {0};
-    struct tm *timeinfo = localtime( &cur_timestamp );
+    /* localtime() 需要 const time_t*, 不能直接传 long long* ——
+       两者在本平台虽同为 8 字节, 但类型不兼容, GCC 14+ 会直接报错。 */
+    time_t local_timestamp = (time_t)cur_timestamp;
+    struct tm *timeinfo = localtime( &local_timestamp );
     if(snprintf_(timestamp, 11, "%04d%02d%02d%02d", (timeinfo->tm_year)+1900,timeinfo->tm_mon+1,timeinfo->tm_mday,timeinfo->tm_hour)<0){
         return -1;
     }

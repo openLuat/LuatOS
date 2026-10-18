@@ -20,14 +20,36 @@
 12. 删除文件
 13. 删除目录
 
-注意事项：如果使用Air8601或8602整机开发板测试，需将对应的SD供电使能脚置高电平
+注意事项：如使用 Air8601/Air8602/Air8607 整机开发板测试，请将本文件顶部的 HARDWARE_ENV 改为 "8601_DEV_BOARD" / "8602_DEV_BOARD" / "8607_DEV_BOARD"，自动将对应 SD_EN 置高；核心板直连用默认的 "CORE_BOARD" 即可。
 
 本文件没有对外接口，直接在main.lua中require "tfcard_app"就可以加载运行
-]] 
+]]
+
+-- 硬件环境配置说明
+-- 本Demo支持以下硬件环境，请根据实际使用情况修改HARDWARE_ENV变量：
+--   "CORE_BOARD"      - 核心板直连（默认）：SD卡供电直连VCC，无需将SD_EN置高
+--   "8601_DEV_BOARD"  - 8601开发板：SD_EN = GPIO65，需置高使能供电
+--   "8602_DEV_BOARD"  - 8602开发板：SD_EN = GPIO74，需置高使能供电
+--   "8607_DEV_BOARD"  - 8607开发板：SD_EN = GPIO74，需置高使能供电（SPI1, CS=GPIO8）
+-- 详细说明请参考本目录下的readme.md文件
+HARDWARE_ENV = "CORE_BOARD"  -- 核心板直连(默认)
 
 local function tfcard_main_task()
-    -- gpio.setup(65, 1, gpio.PULLUP)    -- Air8601 整机开发板 SD 卡供电使能脚
-    -- gpio.setup(74, 1, gpio.PULLUP)    -- Air8602 整机开发板 SD 卡供电使能脚
+    -- ##########  SD 卡供电使能（按 HARDWARE_ENV 选择） ##########
+    -- 核心板直连：SD 卡供电直连 VCC，无需置高 SD_EN
+    -- 8601 开发板：SD_EN = GPIO65，置高使能供电
+    -- 8602 开发板：SD_EN = GPIO74，置高使能供电
+    local pin_sd_en
+    if HARDWARE_ENV == "8601_DEV_BOARD" then
+        pin_sd_en = 65
+    elseif HARDWARE_ENV == "8602_DEV_BOARD" or HARDWARE_ENV == "8607_DEV_BOARD" then
+        pin_sd_en = 74
+    else  -- "CORE_BOARD" 核心板直连（默认）
+        pin_sd_en = nil
+    end
+    if pin_sd_en then
+        gpio.setup(pin_sd_en, 1, gpio.PULLUP)
+    end
 
     -- ##########  SPI初始化 ##########
     spi_id, pin_cs = 1, 8

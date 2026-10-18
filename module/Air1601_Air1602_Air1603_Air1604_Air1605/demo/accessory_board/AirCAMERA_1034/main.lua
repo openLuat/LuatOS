@@ -44,6 +44,7 @@ VERSION：项目版本号，"XXX.YYY.ZZZ"格式
 ]]
 PROJECT = "Air1601_AirCAMERA_1034_Demo"
 VERSION = "001.999.000"
+BOARD   = "Air8601"                   -- ← 改这一行即可切换开发板
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -58,43 +59,17 @@ if wdt then
     log.info("main", "看门狗初始化成功")
 end
 
-local function http_get_test()
-    while true do
-        sys.wait(10000)
-        -- 本功能在2025.9.3
-        log.info("网卡状态", netdrv.ready(socket.LWIP_ETH))
-        -- 发起一个HTTP GET请求。
-        log.info("发起HTTP GET请求", "https://httpbin.luatos.com/bytes/2048")
-        local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {
-            timeout = 9000,
-            adapter = socket.LWIP_ETH
-        }).wait()
-
-        -- 打印HTTP请求的结果，包括响应码code和响应体长度#body。
-        if code == 200 then
-            log.info("HTTP请求成功", "响应码", code, "响应体长度", body and #body)
-            sys.publish("打印网卡信息", "succeeded")
-        else
-            log.error("HTTP请求失败", "错误码", code)
-            sys.publish("打印网卡信息", "failed")
-        end
-    end
-end
-
-
-sys.taskInit(http_get_test)
-
 -- 加载网络驱动模块
 -- 注意：仅 photo_to_aircloud（拍照上传云平台）需要网络时才打开；
 --       face_demo、audio_record 不需要网络，请保持注释状态
 -- 使用前需将 netdrv/ 目录和 netdrv_device.lua 一并拷贝到本工程
-require "netdrv_device"
+-- require "netdrv_device"
 
 -- 人脸识别demo（AirCAMERA_1034 人脸模组，UART2 + GPIO12，不需要网络）
 require "face_demo"
 
 -- 拍照+云平台上传（需要网络 + GPIO58，需同时打开上面的 netdrv_device）
-require "photo_to_aircloud"
+-- require "photo_to_aircloud"
 
 -- USB摄像头麦克风录音（GPIO58 + GPIO56 + SPI1，不需要网络）
 -- require "audio_record"

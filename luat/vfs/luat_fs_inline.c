@@ -166,9 +166,28 @@ int luat_vfs_inline_fexist(void* userdata, const char *filename) {
 }
 
 size_t luat_vfs_inline_fsize(void* userdata, const char *filename) {
-    luat_fs_inline_t *fd = (luat_fs_inline_t*)(userdata);
-    //LLOGD("fsize %p %p %d %d", userdata, fd);
-    return fd->size;
+    // 与 fopen/fexist 同一套查找逻辑: 内嵌表是编译期常量, 不依赖 userdata.
+    // 注意不能解引用 userdata —— "/lua/" 挂载点是 luat_fs_mount 里手工创建的,
+    // userdata 为 NULL(2026-10 实测 httpsrv 回退查找 /lua/xxx 时在此空指针崩溃)
+    (void)userdata;
+    const luadb_file_t* file = NULL;
+#ifdef LUAT_CONF_VM_64bit
+    #if defined(LUA_USE_LINUX) || (defined(LUA_USE_WINDOWS) && defined(__XMAKE_BUILD__))
+    file = luat_inline2_libs_64bit_size64;
+    #else
+    file = luat_inline2_libs_64bit_size32;
+    #endif
+#else
+    file = luat_inline2_libs;
+#endif
+
+    while (file != NULL && file->ptr != NULL) {
+        if (!memcmp(file->name, filename, strlen(filename)+1)) {
+            return file->size;
+        }
+        file ++;
+    }
+    return 0;
 }
 
 int luat_vfs_inline_mount(void** userdata, luat_fs_conf_t *conf) {

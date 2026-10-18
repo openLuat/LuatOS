@@ -129,6 +129,34 @@ function M.buildShort7bit(text, digits)
     return to_hex(pdu)
 end
 
+--- UCS2 单条短信(无 UDH): text 为 UTF-8, UD 按大端存放 UCS2 码点
+function M.buildShortUcs2(text, digits)
+    local body = {}
+    local i = 1
+    while i <= #text do
+        local b = string.byte(text, i)
+        local cp
+        if b < 0x80 then
+            cp = b
+            i = i + 1
+        elseif b < 0xE0 then
+            cp = ((b & 0x1F) << 6) + (string.byte(text, i + 1) & 0x3F)
+            i = i + 2
+        elseif b < 0xF0 then
+            cp = ((b & 0x0F) << 12) + ((string.byte(text, i + 1) & 0x3F) << 6)
+                + (string.byte(text, i + 2) & 0x3F)
+            i = i + 3
+        else
+            error("sms_pdu: UCS2 构造不支持 4 字节 UTF-8 序列")
+        end
+        body[#body + 1] = string.char((cp >> 8) & 0xFF, cp & 0xFF)
+    end
+    body = table.concat(body)
+    local pdu = deliver_header(0x04, numeric_oa(digits or DEFAULT_OA_DIGITS), 0x08)
+        .. string.char(#body) .. body
+    return to_hex(pdu)
+end
+
 --- 畸形 PDU: 声明的 TP-UDL 小于 UDH 实际占用
 -- dcs = 0x04 (8bit) 或 0x08 (UCS2); udl 通常填 2
 function M.buildMalformedUdl(dcs, udl)

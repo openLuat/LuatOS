@@ -13,19 +13,19 @@ main.lua 是整个工厂固件的唯一入口，负责串联所有初始化阶�
 
   阶段0: 设置 PROJECT / VERSION / PROJECT_KEY（编译时确定）
   阶段1: require "platform_loader" → 平台检测 → 配置加载 → 引脚初始化 → _G.project_config 就绪
-  阶段2: require "exwin" / "exapp" → 窗口管理器 + 应用沙箱（LuatOS 固件内置扩展库）
-  阶段3: require "lcd_common" → 根据 project_config 构建 _G.lcd_drv / _G.tp_drv 全局驱动对象
-  阶段4: require "boot_ui" → 快速点亮（display/airui → logo+背光），随后在 logo 展示期间
-         分批延迟加载 app_main 业务模块与 ui_main 窗口清单，完成后发 BOOT_INIT_DONE
-  阶段5: sys.run() → 启动事件循环，所有模块通过 publish/subscribe 解耦运行
+  阶段2: require "lcd_common" → 根据 project_config 构建 _G.lcd_drv / _G.tp_drv 全局驱动对象
+  阶段3: require "boot_ui" → 快速点亮（display → airui.init → logo+背光），显示完成后
+         加载 exwin/exapp、分批加载 app_main/ui_main 核心批与可选批，核心批完成直接进桌面
+  阶段4: sys.run() → 启动事件循环，所有模块通过 publish/subscribe 解耦运行
 
 === 关键设计决策 ===
 
 1. PROJECT 是唯一编译时变量：更换硬件只需改 PROJECT 字符串，其余全部由 platform_loader + 配置文件驱动
 2. 快速点亮链路最先加载，重模块由 boot_ui 任务分批延迟加载：模块间依赖仍保持单向，
    「点亮屏幕」不再等几十个模块加载完，其余初始化与 logo 展示并行
-3. 模块编译清单在 platform_loader 头部：编译系统静态分析 pcall(require, ...) 确定打包范围
-4. exwin/exapp 是固件内置扩展库，不在 factory 仓库中，由 LuatOS 核心库 提供
+3. 模块编译清单在 platform_loader 头部：编译系统文本扫描 require (...) 确定打包范围，
+   清单包进永不调用的函数，运行时不执行（否则会提前加载到点亮屏幕前的关键路径）
+4. exwin/exapp 是固件内置扩展库，由 boot_ui 在显示完成后加载（exapp require 时扫各存储应用）
 ]]
 
 -- ==================== 编译时配置（更换硬件只需改这三行） ====================
@@ -73,7 +73,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air8602_9inch_1024x600_010_WiFi_V000"
+PROJECT = "Engine_Air8607_10inch_1024x600_000_V000"
 VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
 PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
 
@@ -111,21 +111,16 @@ log.info("main", PROJECT, VERSION)
 -- require 即执行：平台检测 → PROJECT 短名映射 → require 配置文件 → 设 _G.project_config → 配引脚
 require "platform_loader"
 
--- ==================== 阶段2: 窗口管理 + 应用沙箱（固件内置扩展库） ====================
--- exwin: 窗口栈管理（open/close/焦点切换），所有 UI 页面的容器
--- exapp: 外部应用管理（扫描/安装/卸载/生命周期），运行从应用商店下载的 .exapp 应用
-exwin = require "exwin"
-exapp = require "exapp"
-
--- ==================== 阶段3: LCD/TP 驱动对象构建 ====================
+-- ==================== 阶段2: LCD/TP 驱动对象构建 ====================
 -- 根据 _G.project_config.hw.lcd / hw.tp 动态 require 对应驱动模块
--- 构建 _G.lcd_drv（含 init/backlight_on）和 _G.tp_drv（含 init）全局接口
+-- 构建 _G.lcd_drv（含 hw_init/airui_init/airui_core_init/backlight_on）和 _G.tp_drv 全局接口
 require "lcd_common"
 
--- ==================== 阶段4: 快速点亮 + 延迟初始化编排 ====================
--- require 即启动 boot 任务：display/airui → logo+背光 → 分批加载 app_main/ui_main → BOOT_INIT_DONE
+-- ==================== 阶段3: 快速点亮 + 延迟初始化编排 ====================
+-- 注：exwin/exapp（窗口管理 + 应用沙箱，固件内置扩展库）在 boot_ui 里、显示完成后才加载
+-- require 即启动 boot 任务：display → airui.init → logo+背光 → 核心批 → 进桌面（可选批并行）
 require "boot_ui"
 
--- ==================== 阶段5: 启动事件循环 ====================
+-- ==================== 阶段4: 启动事件循环 ====================
 -- sys.run() 是 LuatOS 的主循环，永不返回。所有业务逻辑通过事件驱动在协程中运行
 sys.run()

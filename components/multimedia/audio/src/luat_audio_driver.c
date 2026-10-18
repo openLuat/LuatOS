@@ -84,6 +84,10 @@ int luat_audio_driver_config_pa_power_ctrl(struct luat_audio_driver_ctrl *ctrl, 
         luat_gpio_open(&cfg);
         luat_gpio_set(pa_power_pin, !pa_power_on_level);
         #endif
+        /* 上面把 PA 拉回了无效电平，状态标志必须跟着清 —— 否则下一次 start 会因
+           "PA 已经是开的"跳过拉高，而引脚实际是关的：第一次通话有声、挂断后再讲
+           **喇叭没声而麦克风正常**（真机实测，PA 是本板 GPIO27）。 */
+        ctrl->pa_power_state = 0;
     }
     return 0;
 }

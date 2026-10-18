@@ -23,7 +23,7 @@ return {
     power_on = {
         -- { pin = 12, dir = 0, level = 0, delay = 50  },  -- 拉低 50ms 复位
         -- { pin = 12, dir = 0, level = 1, delay = 120 },  -- 拉高 120ms 使能
-        { pin = 12, dir = 0, level = 1 },  -- 拉高 120ms 使能
+        { pin = 12, dir = 0, level = 1, delay = 120 },  -- 拉高 120ms 使能
     },
 
     -- ===== 硬件配置 =====

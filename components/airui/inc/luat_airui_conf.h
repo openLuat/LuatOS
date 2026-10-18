@@ -17,7 +17,7 @@
 // 通用设置
 
 /** AIRUI 库版本号 */
-#define AIRUI_VERSION "1.2.6"
+#define AIRUI_VERSION "1.3.0"
 
 /** AIRUI 调用 LVGL timer handler 的周期，单位：毫秒 */
 #define AIRUI_HANDLER_PERIOD_MS 5

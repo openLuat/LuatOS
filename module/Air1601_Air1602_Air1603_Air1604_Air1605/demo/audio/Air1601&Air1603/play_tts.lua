@@ -24,7 +24,7 @@ local exaudio = require("exaudio")
 --   "AIR1601_V1_2"  - Air1601 V1.2开发板：PA_EN = IO73
 --   "AIR1603_8607"  - Air1603 / 8607开发板：PA_EN = IO73
 -- 详细说明请参考本目录下的readme.md文件
-HARDWARE_ENV = "AIR1601_V1_2"  -- 默认Air1603/8607(PA_EN=IO73)。使用Air1601请改为"AIR1601_V1_1"或"AIR1601_V1_2"
+HARDWARE_ENV = "AIR1601_V1_2"  -- Air1601 V1.2开发板(PA_EN=IO73)。使用8607开发板请改为"AIR1603_8607"
 
 -- PA脚映射：不同板型/版本的功放使能脚不同
 local pa_pin_map = {

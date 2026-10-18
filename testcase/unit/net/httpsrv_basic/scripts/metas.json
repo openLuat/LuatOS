@@ -1,0 +1,6 @@
+{
+    "name": "httpsrv_basic",
+    "summary": "httpsrv 修复回归(PC posix 后端): query 原样透传、静态文件带 query 命中、svg MIME(image/svg+xml)、5KB POST 内容完整、同端口 stop/start 重绑且回调切换、8 路并发、半个请求断开x10 后服务仍可用; Content-Length 头正确(覆盖 %zu 修复)。lwIP 跨 pbuf 路径另经 Air1601 真机验证",
+    "platform": ["pc"],
+    "timeout": 180
+}

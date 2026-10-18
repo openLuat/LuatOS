@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1024,height=600,initial-scale=1">
+<title>太阳能热水工程控制系统 · Solar Hot Water Engineering Controller</title>
+<style>
+:root{
+  --bg:#060a12;
+  --txt:#e9eff8;
+  --sub:#8593a9;
+  --dim:#5d6b81;
+  --line:rgba(255,255,255,.085);
+  --cyan:#22d3ee;
+  --blue:#3b82f6;
+  --amber:#ff9d3d;
+  --red:#ff5b6e;
+  --green:#2ee6a8;
+  --violet:#8b7cff;
+  --gold:#ffd166;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#04070d}
+body{
+  display:grid;place-items:center;
+  font-family:"HarmonyOS Sans SC","PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,sans-serif;
+  color:var(--txt);
+  font-size:13px;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+svg{display:block}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+.stage{
+  position:relative;width:1024px;height:600px;flex:none;
+  transform-origin:center center;
+  background:
+    radial-gradient(1100px 520px at 10% -12%, rgba(34,211,238,.115), transparent 62%),
+    radial-gradient(900px 500px at 102% -6%, rgba(255,157,61,.085), transparent 58%),
+    radial-gradient(900px 620px at 46% 128%, rgba(59,130,246,.12), transparent 62%),
+    linear-gradient(180deg,#080d17 0%,#060a12 55%,#05080f 100%);
+  border-radius:6px;
+  overflow:hidden;
+  box-shadow:0 40px 120px -30px #000;
+}
+.stage::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+  background-size:26px 26px;
+  -webkit-mask-image:radial-gradient(120% 92% at 46% 0%,#000 26%,transparent 86%);
+  mask-image:radial-gradient(120% 92% at 46% 0%,#000 26%,transparent 86%);
+}
+.app{position:relative;z-index:1;display:flex;width:100%;height:100%}
+
+/* ---------- 侧边导航 ---------- */
+.side{
+  width:92px;flex:none;height:100%;
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 0 12px;
+  border-right:1px solid rgba(255,255,255,.055);
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.008));
+  backdrop-filter:blur(12px);
+}
+.brand{display:flex;flex-direction:column;align-items:center;gap:7px;margin-bottom:16px}
+.brand-logo{
+  width:42px;height:42px;border-radius:13px;
+  display:grid;place-items:center;color:#050a12;
+  background:linear-gradient(145deg,#7fe7ff,#22d3ee 42%,#3b82f6);
+  box-shadow:0 8px 22px -8px rgba(34,211,238,.9),inset 0 1px 0 rgba(255,255,255,.6);
+}
+.brand-logo svg{width:24px;height:24px}
+.brand-txt{font-size:9px;letter-spacing:2.2px;font-weight:700;color:#9fb2cc}
+.brand-txt em{font-style:normal;color:var(--cyan)}
+
+.nav{display:flex;flex-direction:column;gap:4px;width:100%;padding:0 9px}
+.nav-item{
+  position:relative;width:100%;height:56px;border-radius:13px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  color:#7e8ea6;transition:color .22s,background .22s,transform .22s;
+}
+.nav-item svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nav-item span{font-size:10.5px;letter-spacing:.6px}
+.nav-item:hover{color:#cfdcee;background:rgba(255,255,255,.045)}
+.nav-item.active{
+  color:#eaf6ff;
+  background:linear-gradient(135deg,rgba(34,211,238,.20),rgba(59,130,246,.12));
+  box-shadow:0 6px 20px -10px rgba(34,211,238,.85),inset 0 0 0 1px rgba(34,211,238,.26);
+}
+.nav-item.active::before{
+  content:'';position:absolute;left:-9px;top:14px;bottom:14px;width:3px;border-radius:0 4px 4px 0;
+  background:linear-gradient(180deg,#7fe7ff,#22d3ee);
+  box-shadow:0 0 12px rgba(34,211,238,.95);
+}
+.nav-item.active svg{filter:drop-shadow(0 0 6px rgba(34,211,238,.7))}
+
+.side-foot{
+  margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:7px;
+  padding-top:12px;border-top:1px solid rgba(255,255,255,.06);width:60px;
+}
+.bars{display:flex;align-items:flex-end;gap:2.5px;height:14px}
+.bars i{width:4px;border-radius:2px;background:rgba(255,255,255,.16)}
+.bars i.on{background:linear-gradient(180deg,#7fe7ff,#22d3ee);box-shadow:0 0 7px rgba(34,211,238,.8)}
+.bars i:nth-child(1){height:5px}.bars i:nth-child(2){height:8px}
+.bars i:nth-child(3){height:11px}.bars i:nth-child(4){height:14px}
+.side-clock{font-size:11px;color:#8fa1b9;letter-spacing:.5px}
+.side-tag{font-size:8.5px;color:#4d5b70;letter-spacing:1px}
+
+/* ---------- 主区 ---------- */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;height:100%}
+.topbar{
+  height:56px;flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px 0 14px;border-bottom:1px solid rgba(255,255,255,.055);
+  background:linear-gradient(180deg,rgba(255,255,255,.032),transparent);
+}
+.tb-left{display:flex;align-items:baseline;gap:10px;min-width:0}
+.tb-left h1{font-size:17px;font-weight:600;letter-spacing:.5px;white-space:nowrap}
+.tb-left h1::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cyan);margin-left:9px;vertical-align:2px;box-shadow:0 0 10px var(--cyan);animation:pulse 2s infinite}
+.tb-sub{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-right{display:flex;align-items:center;gap:8px}
+.chip{
+  display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:9px;
+  font-size:11px;color:#a9bad2;letter-spacing:.3px;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075);
+}
+.chip svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 9px var(--green);animation:pulse 2.2s infinite}
+.dot.warn{background:var(--amber);box-shadow:0 0 9px var(--amber)}
+.clock{
+  display:flex;align-items:center;height:26px;padding:0 12px;border-radius:9px;font-size:12.5px;font-weight:600;
+  letter-spacing:1.1px;color:#dff2ff;
+  background:linear-gradient(135deg,rgba(34,211,238,.16),rgba(59,130,246,.10));
+  border:1px solid rgba(34,211,238,.26);
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.28}}
+
+.pages{position:relative;flex:1;min-height:0;overflow:hidden}
+.page{
+  position:absolute;inset:0;padding:14px 16px 14px 12px;
+  display:flex;flex-direction:column;gap:12px;
+  opacity:0;transform:translateY(12px) scale(.992);pointer-events:none;
+  transition:opacity .3s ease,transform .34s cubic-bezier(.2,.8,.3,1);
+}
+.page.active{opacity:1;transform:none;pointer-events:auto}
+
+/* ---------- 通用卡片 ---------- */
+.card{
+  position:relative;border-radius:14px;padding:11px 13px;
+  background:linear-gradient(155deg,rgba(255,255,255,.062),rgba(255,255,255,.018) 46%,rgba(255,255,255,.036));
+  border:1px solid var(--line);
+  box-shadow:0 12px 34px -16px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.07);
+  overflow:hidden;
+}
+.card::after{
+  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(120% 58% at 50% -22%,rgba(126,178,255,.10),transparent 62%);
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;position:relative;z-index:1}
+.ch-title{font-size:12.5px;font-weight:600;letter-spacing:.4px;color:#dbe8f8}
+.ch-title::before{
+  content:'';display:inline-block;width:3px;height:12px;border-radius:2px;margin-right:7px;vertical-align:-2px;
+  background:linear-gradient(180deg,#7fe7ff,#22d3ee);box-shadow:0 0 8px rgba(34,211,238,.75);
+}
+.ch-sub{font-size:10px;color:var(--dim)}
+.badge{
+  font-size:10px;padding:2px 8px;border-radius:7px;letter-spacing:.4px;font-weight:600;
+}
+.badge.ok{color:#0a2218;background:linear-gradient(135deg,#7ff0c4,#2ee6a8)}
+.badge.run{color:#04222b;background:linear-gradient(135deg,#8beeff,#22d3ee)}
+.badge.warn{color:#2a1602;background:linear-gradient(135deg,#ffd08a,#ff9d3d)}
+.badge.off{color:#8b9ab1;background:rgba(255,255,255,.09)}
+.badge.err{color:#2a0409;background:linear-gradient(135deg,#ff98a6,#ff5b6e)}
+
+/* ---------- 温度卡 ---------- */
+.trow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;height:140px;flex:none}
+.tcard{
+  position:relative;border-radius:14px;padding:10px 11px;overflow:hidden;
+  display:flex;flex-direction:column;
+  background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02) 55%,rgba(255,255,255,.04));
+  border:1px solid var(--line);
+  box-shadow:0 12px 30px -16px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.07);
+}
+.tcard::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c);
+  box-shadow:0 0 14px var(--c);opacity:.85;
+}
+.tcard::after{
+  content:'';position:absolute;right:-30px;top:-38px;width:96px;height:96px;border-radius:50%;
+  background:radial-gradient(circle,var(--c),transparent 68%);opacity:.20;pointer-events:none;
+}
+.tc-head{display:flex;align-items:center;gap:6px;position:relative;z-index:1}
+.tc-tag{
+  font-size:9px;font-weight:700;letter-spacing:.6px;padding:1.5px 6px;border-radius:5px;
+  color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--c) 32%,transparent);
+}
+.tc-name{font-size:11px;color:#a8b8cd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-val{display:flex;align-items:baseline;gap:2px;margin-top:5px;position:relative;z-index:1}
+.tc-val b{font-size:30px;font-weight:700;line-height:1;letter-spacing:-.6px;color:#fff;text-shadow:0 0 22px color-mix(in srgb,var(--c) 55%,transparent)}
+.tc-val i{font-style:normal;font-size:11px;color:var(--c);font-weight:600}
+.spark{width:100%;height:22px;margin-top:auto;position:relative;z-index:1}
+.spark path{fill:none;stroke:var(--c);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.spark .fill{fill:color-mix(in srgb,var(--c) 22%,transparent);stroke:none}
+.tc-bar{height:4px;border-radius:3px;background:rgba(255,255,255,.075);overflow:hidden;margin-top:6px;position:relative;z-index:1}
+.tc-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 55%,transparent),var(--c));box-shadow:0 0 10px var(--c);transition:width .8s ease}
+.tc-foot{display:flex;justify-content:space-between;font-size:9.5px;color:var(--dim);margin-top:5px;position:relative;z-index:1}
+
+/* ---------- 中排 ---------- */
+.mrow{display:flex;gap:12px;height:196px;flex:none}
+.tank-card{width:268px;flex:none;display:flex;flex-direction:column}
+.tank-body{flex:1;display:flex;gap:10px;align-items:center;margin-top:6px}
+.tank-svg{width:96px;height:150px;flex:none}
+.wave-anim{animation:waveMove 3.4s linear infinite}
+@keyframes waveMove{from{transform:translateX(0)}to{transform:translateX(-24px)}}
+.tank-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.big-num{display:flex;align-items:baseline;gap:2px}
+.big-num b{font-size:38px;font-weight:700;line-height:1;letter-spacing:-1.2px;color:#fff;text-shadow:0 0 26px rgba(34,211,238,.6)}
+.big-num i{font-style:normal;font-size:13px;font-weight:600;color:var(--cyan)}
+.mini-list{display:flex;flex-direction:column;gap:5px}
+.mini-list div{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);padding-bottom:4px;border-bottom:1px dashed rgba(255,255,255,.06)}
+.mini-list b{color:#c8d8ec;font-weight:600}
+.mini-list b.ok{color:var(--green)}
+
+.press-card{width:190px;flex:none;display:flex;flex-direction:column;align-items:center}
+.ring-wrap{position:relative;width:132px;height:132px;margin-top:2px}
+.ring{width:100%;height:100%;transform:rotate(0deg)}
+.ring-bg{fill:none;stroke:rgba(255,255,255,.075);stroke-width:9;stroke-linecap:round}
+.ring-fg{fill:none;stroke:url(#pgrad);stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.2,.8,.3,1);filter:drop-shadow(0 0 7px rgba(255,157,61,.65))}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.ring-center b{font-size:26px;font-weight:700;letter-spacing:-.6px;color:#fff}
+.ring-center i{font-style:normal;font-size:10.5px;color:var(--amber);font-weight:600}
+.press-foot{display:flex;gap:8px;font-size:10px;color:var(--dim);margin-top:auto}
+.press-foot b{color:var(--green)}
+
+.cyc-card{flex:1;min-width:0;display:flex;flex-direction:column}
+.cyc-body{flex:1;display:flex;gap:14px;margin-top:8px;align-items:center}
+.dt-block{width:130px;flex:none}
+.dt-label{font-size:10.5px;color:var(--dim);letter-spacing:.5px}
+.dt-val{display:flex;align-items:baseline;gap:2px;margin:2px 0 4px}
+.dt-val b{font-size:34px;font-weight:700;line-height:1;letter-spacing:-1px;color:#fff;text-shadow:0 0 24px rgba(255,157,61,.55)}
+.dt-val i{font-style:normal;font-size:12px;color:var(--amber);font-weight:600}
+.dt-hint{font-size:10px;color:var(--dim);line-height:1.5}
+.cyc-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.pipe{width:100%;height:30px}
+.pipe-base{fill:none;stroke:rgba(255,255,255,.09);stroke-width:8;stroke-linecap:round}
+.pipe-flow{fill:none;stroke:url(#fgrad);stroke-width:8;stroke-linecap:round;stroke-dasharray:9 15;animation:flow 1.1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-48}}
+.cyc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cyc-stats div{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:6px 8px}
+.cyc-stats span{display:block;font-size:9.5px;color:var(--dim)}
+.cyc-stats b{font-size:13px;font-weight:600;color:#dff0ff}
+
+/* ---------- 继电器 ---------- */
+.rrow{height:156px;flex:none;display:flex;flex-direction:column}
+.relays{flex:1;display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:9px}
+.relay{
+  position:relative;border-radius:11px;padding:9px 10px;text-align:left;overflow:hidden;
+  display:flex;flex-direction:column;gap:4px;
+  background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.07);
+  transition:border-color .25s,background .25s,transform .16s,box-shadow .3s;
+}
+.relay:active{transform:scale(.975)}
+.relay .glow{
+  position:absolute;right:-24px;bottom:-28px;width:78px;height:78px;border-radius:50%;
+  background:radial-gradient(circle,rgba(46,230,168,.85),transparent 70%);opacity:0;transition:opacity .45s;
+}
+.relay.on{border-color:rgba(46,230,168,.4);background:linear-gradient(160deg,rgba(46,230,168,.14),rgba(46,230,168,.03));box-shadow:0 0 0 1px rgba(46,230,168,.1),0 10px 26px -14px rgba(46,230,168,.7)}
+.relay.on .glow{opacity:.16}
+.relay-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
+.relay-ico{
+  width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:#8ea0b8;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.07);transition:.3s;
+}
+.relay-ico svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.relay.on .relay-ico{color:#05271b;background:linear-gradient(140deg,#8bf3cd,#2ee6a8);box-shadow:0 0 16px -2px rgba(46,230,168,.8)}
+.sw{width:30px;height:17px;border-radius:9px;background:rgba(255,255,255,.11);position:relative;transition:background .28s;flex:none}
+.sw i{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#8b9ab1;transition:transform .28s cubic-bezier(.3,1.4,.5,1),background .28s}
+.relay.on .sw{background:rgba(46,230,168,.32)}
+.relay.on .sw i{transform:translateX(13px);background:#eafff7;box-shadow:0 0 10px rgba(46,230,168,1)}
+.relay-name{font-size:11px;color:#c3d1e4;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;z-index:1}
+.relay-sub{display:flex;align-items:center;justify-content:space-between;font-size:9.5px;color:var(--dim);position:relative;z-index:1;margin-top:auto}
+.relay.on .relay-sub b{color:var(--green)}
+.relay-sub b{color:#7d8da5;font-weight:600;letter-spacing:.6px}
+
+/* ---------- 控制页 ---------- */
+.cols{display:flex;gap:12px;flex:1;min-height:0}
+.mode-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+.mode-card{flex:1 1 0;min-height:0;display:flex;flex-direction:column;padding:10px 12px}
+.mode-head{display:flex;align-items:center;justify-content:space-between;flex:none}
+.mode-ico{
+  width:30px;height:30px;border-radius:10px;display:grid;place-items:center;color:#0a1a22;
+  background:linear-gradient(140deg,#8beeff,#22d3ee);box-shadow:0 8px 20px -10px rgba(34,211,238,.9);
+}
+.mode-ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.mode-card.amber .mode-ico{background:linear-gradient(140deg,#ffd08a,#ff9d3d);box-shadow:0 8px 20px -10px rgba(255,157,61,.9);color:#2a1602}
+.mode-card.green .mode-ico{background:linear-gradient(140deg,#8bf3cd,#2ee6a8);box-shadow:0 8px 20px -10px rgba(46,230,168,.9);color:#05271b}
+.mode-title{font-size:12.5px;font-weight:600;margin-top:8px;flex:none}
+.mode-desc{
+  font-size:9.5px;color:var(--dim);margin-top:3px;line-height:1.45;flex:none;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+}
+.param-rows{margin-top:auto;display:flex;flex-direction:column;gap:4px}
+.prow{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;color:#9fb0c7;line-height:16px}
+.prow b{color:#e2eefc;font-weight:600;font-size:11.5px}
+.prow .unit{font-size:9.5px;color:var(--dim);margin-left:2px}
+
+.right-col{width:404px;flex:none;display:flex;flex-direction:column;gap:12px}
+.pump-card{flex:1;display:flex;flex-direction:column}
+.pump-vis{flex:1;display:flex;align-items:center;justify-content:center;gap:18px;position:relative}
+.pump-ring{position:relative;width:126px;height:126px;flex:none}
+.pump-ring > svg{width:100%;height:100%}
+.pump-core{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+}
+.pump-blade{width:42px;height:42px;flex:none;color:var(--cyan);animation:spin 1.6s linear infinite;filter:drop-shadow(0 0 10px rgba(34,211,238,.85))}
+.pump-blade.stop{animation-play-state:paused;color:#5d6b81;filter:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pump-state{font-size:10.5px;line-height:1;color:var(--green);letter-spacing:.6px;font-weight:600;flex:none}
+.pump-kv{display:flex;flex-direction:column;gap:9px;flex:1;min-width:0}
+.pump-kv div{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:7px;border-bottom:1px dashed rgba(255,255,255,.07);font-size:11px;color:var(--dim)}
+.pump-kv b{font-size:15px;font-weight:700;color:#e6f2ff}
+.timeline{height:6px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;display:flex;margin-top:8px}
+.timeline i{height:100%}
+.proto-card{padding:11px 13px}
+.proto-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+.proto-item{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+  font-size:11px;color:#a4b5cb;
+}
+.proto-item .sw{width:34px;height:19px}
+.proto-item .sw i{width:15px;height:15px}
+.proto-item.on .sw{background:rgba(34,211,238,.32)}
+.proto-item.on .sw i{transform:translateX(15px);background:#eaffff;box-shadow:0 0 10px rgba(34,211,238,1)}
+.proto-item .sw i{transition:transform .28s cubic-bezier(.3,1.4,.5,1),background .28s}
+
+/* ---------- 曲线页 ---------- */
+.tabs{display:flex;align-items:center;gap:8px;flex:none;height:40px}
+.tab{
+  height:30px;padding:0 15px;border-radius:9px;font-size:11.5px;color:#93a4bb;letter-spacing:.4px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);transition:.22s;
+}
+.tab:hover{color:#dbe8f8;background:rgba(255,255,255,.075)}
+.tab.active{
+  color:#eafcff;border-color:rgba(34,211,238,.34);
+  background:linear-gradient(135deg,rgba(34,211,238,.20),rgba(59,130,246,.12));
+  box-shadow:0 6px 18px -10px rgba(34,211,238,.9);
+}
+.legend{display:flex;gap:14px;margin-left:auto;align-items:center}
+.legend span{display:flex;align-items:center;gap:6px;font-size:11px;color:#96a7be}
+.legend em{width:14px;height:3px;border-radius:2px;display:block}
+.stat-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:none;height:64px}
+.stat-tile{
+  display:flex;flex-direction:column;justify-content:center;gap:3px;padding:0 14px;border-radius:12px;
+  background:linear-gradient(155deg,rgba(255,255,255,.058),rgba(255,255,255,.018));
+  border:1px solid var(--line);
+}
+.stat-tile span{font-size:10px;color:var(--dim);letter-spacing:.4px}
+.stat-tile b{font-size:19px;font-weight:700;color:#eaf4ff;letter-spacing:-.4px}
+.stat-tile b i{font-style:normal;font-size:10.5px;color:var(--dim);margin-left:3px;font-weight:500}
+.chart-card{flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 14px 8px}
+.chart-wrap{flex:1;min-height:0;margin-top:6px}
+
+/* ---------- 报警页 ---------- */
+.alarm-left{width:266px;flex:none;display:flex;flex-direction:column;gap:12px}
+.alarm-stat{flex:1;display:flex;flex-direction:column;padding:13px 14px}
+.as-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px;flex:1}
+.as-grid div{
+  border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;justify-content:center;gap:2px;
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);
+}
+.as-grid span{font-size:10px;color:var(--dim)}
+.as-grid b{font-size:24px;font-weight:700;letter-spacing:-.6px}
+.alarm-list-card{flex:1;min-width:0;display:flex;flex-direction:column;padding:11px 6px 11px 13px}
+.alarm-scroll{flex:1;overflow-y:auto;margin-top:8px;padding-right:8px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+.alarm-scroll::-webkit-scrollbar{width:4px}
+.alarm-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:3px}
+.alarm-item{
+  display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:11px;margin-bottom:7px;
+  background:linear-gradient(120deg,rgba(255,255,255,.042),rgba(255,255,255,.014));
+  border:1px solid rgba(255,255,255,.055);position:relative;overflow:hidden;
+}
+.alarm-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--s)}
+.sev{
+  width:30px;height:30px;flex:none;border-radius:9px;display:grid;place-items:center;color:var(--s);
+  background:color-mix(in srgb,var(--s) 15%,transparent);border:1px solid color-mix(in srgb,var(--s) 30%,transparent);
+}
+.sev svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.alarm-main{flex:1;min-width:0}
+.alarm-txt{font-size:11.5px;color:#dbe7f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alarm-meta{font-size:9.5px;color:var(--dim);margin-top:3px;display:flex;gap:10px}
+.alarm-tag{font-size:9.5px;padding:2px 8px;border-radius:6px;flex:none;font-weight:600}
+.alarm-tag.done{color:#8b9ab1;background:rgba(255,255,255,.08)}
+.alarm-tag.todo{color:#2a1602;background:linear-gradient(135deg,#ffd08a,#ff9d3d)}
+
+/* ---------- 参数页 ---------- */
+.pgroup{flex:1;min-width:0;display:flex;flex-direction:column;padding:12px 14px}
+.pgroup-head{display:flex;align-items:center;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.07)}
+.pgroup-ico{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--cyan);background:rgba(34,211,238,.13);border:1px solid rgba(34,211,238,.24)}
+.pgroup-ico svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.pgroup-head b{font-size:12.5px;font-weight:600}
+.pgroup-head span{margin-left:auto;font-size:9.5px;color:var(--dim)}
+.set-rows{flex:1;display:flex;flex-direction:column;justify-content:space-around;padding-top:4px}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.set-row>span{font-size:11px;color:#9fb0c7;white-space:nowrap}
+.stepper{display:flex;align-items:center;gap:0;border-radius:9px;overflow:hidden;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.stepper button{
+  width:24px;height:26px;display:grid;place-items:center;color:#8fa1b9;font-size:14px;line-height:1;transition:.18s;
+}
+.stepper button:hover{background:rgba(34,211,238,.18);color:#eafcff}
+.stepper button:active{background:rgba(34,211,238,.34)}
+.stepper .val{
+  min-width:62px;text-align:center;font-size:12px;font-weight:600;color:#e8f4ff;
+  border-left:1px solid rgba(255,255,255,.08);border-right:1px solid rgba(255,255,255,.08);line-height:26px;
+}
+.pill{
+  font-size:11.5px;font-weight:600;color:#dbf1ff;padding:4px 12px;border-radius:8px;
+  background:rgba(34,211,238,.11);border:1px solid rgba(34,211,238,.22);letter-spacing:.4px;
+}
+.pill.warn{color:#ffdca8;background:rgba(255,157,61,.12);border-color:rgba(255,157,61,.26)}
+.btn-primary{
+  flex:2;height:44px;border-radius:11px;font-size:12.5px;font-weight:700;letter-spacing:1.2px;color:#04141c;
+  background:linear-gradient(135deg,#8beeff,#22d3ee 48%,#3b82f6);
+  box-shadow:0 14px 34px -14px rgba(34,211,238,.95),inset 0 1px 0 rgba(255,255,255,.55);
+  transition:transform .16s,box-shadow .25s,filter .2s;
+}
+.btn-primary:hover{filter:brightness(1.08);box-shadow:0 16px 40px -12px rgba(34,211,238,1),inset 0 1px 0 rgba(255,255,255,.6)}
+.btn-primary:active{transform:scale(.985)}
+
+/* ---------- 系统页 ---------- */
+.sys-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;gap:12px;flex:1;min-height:0}
+.sys-card{display:flex;flex-direction:column;padding:12px 14px}
+.kv{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--dim);padding:5px 0;border-bottom:1px dashed rgba(255,255,255,.06)}
+.kv:last-child{border-bottom:none}
+.kv b{color:#dceaf9;font-weight:600;font-size:11.5px}
+.kv b.g{color:var(--green)}
+.kv b.a{color:var(--amber)}
+.sig-wrap{display:flex;align-items:flex-end;gap:6px;margin:10px 0 4px}
+.sig-bars{display:flex;align-items:flex-end;gap:4px;height:34px}
+.sig-bars i{width:8px;border-radius:3px;background:linear-gradient(180deg,#8bf3cd,#2ee6a8);box-shadow:0 0 10px -1px rgba(46,230,168,.85)}
+.sig-bars i.off{background:rgba(255,255,255,.12);box-shadow:none}
+.sig-bars i:nth-child(1){height:9px}.sig-bars i:nth-child(2){height:16px}
+.sig-bars i:nth-child(3){height:24px}.sig-bars i:nth-child(4){height:34px}
+.sig-val{display:flex;flex-direction:column;gap:1px}
+.sig-val b{font-size:26px;font-weight:700;letter-spacing:-.8px;color:#fff}
+.sig-val b i{font-style:normal;font-size:11px;color:var(--dim);font-weight:500;margin-left:3px}
+.sig-val span{font-size:10px;color:var(--green)}
+.meter{height:7px;border-radius:4px;background:rgba(255,255,255,.075);overflow:hidden;margin-top:5px}
+.meter i{display:block;height:100%;border-radius:4px;transition:width .8s ease}
+
+/* ---------- 提示条 ---------- */
+.toasts{position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:80;pointer-events:none}
+.toast{
+  display:flex;align-items:center;gap:10px;padding:10px 15px;border-radius:12px;min-width:238px;
+  background:linear-gradient(135deg,rgba(20,29,45,.97),rgba(12,18,30,.97));
+  border:1px solid rgba(255,255,255,.11);
+  box-shadow:0 16px 42px -14px rgba(0,0,0,.95);
+  animation:tin .36s cubic-bezier(.18,.95,.3,1.2);
+}
+.toast.out{animation:tout .3s ease forwards}
+.toast em{width:7px;height:7px;border-radius:50%;background:var(--tc,#22d3ee);box-shadow:0 0 10px var(--tc,#22d3ee);flex:none}
+.toast div b{display:block;font-size:11.5px;color:#eaf3ff;font-weight:600}
+.toast div span{font-size:10px;color:#8194ad}
+@keyframes tin{from{opacity:0;transform:translateX(30px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes tout{to{opacity:0;transform:translateX(24px) scale(.94)}}
+
+/* ---------- 开机 ---------- */
+.boot{
+  position:absolute;inset:0;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  background:radial-gradient(700px 420px at 50% 46%,rgba(34,211,238,.10),transparent 66%),#05080f;
+  transition:opacity .55s ease,visibility .55s;
+}
+.boot.hide{opacity:0;visibility:hidden}
+.boot-logo{
+  width:74px;height:74px;border-radius:22px;display:grid;place-items:center;color:#050a12;
+  background:linear-gradient(145deg,#7fe7ff,#22d3ee 44%,#3b82f6);
+  box-shadow:0 0 60px -6px rgba(34,211,238,.85),inset 0 2px 0 rgba(255,255,255,.7);
+  animation:pop .8s cubic-bezier(.2,.9,.3,1.2);
+}
+.boot-logo svg{width:42px;height:42px}
+@keyframes pop{from{opacity:0;transform:scale(.6) rotate(-14deg)}to{opacity:1;transform:none}}
+.boot h2{font-size:17px;font-weight:600;letter-spacing:3px}
+.boot p{font-size:10.5px;color:#63748c;letter-spacing:3.4px}
+.boot-bar{width:190px;height:3px;border-radius:2px;background:rgba(255,255,255,.09);overflow:hidden}
+.boot-bar i{display:block;height:100%;width:0;border-radius:2px;background:linear-gradient(90deg,#22d3ee,#3b82f6);animation:load 1.05s ease forwards}
+@keyframes load{to{width:100%}}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+
+  <!-- 开机画面 -->
+  <div class="boot" id="boot">
+    <div class="boot-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4.2"/>
+        <path d="M12 2.4v2.2M12 19.4v2.2M2.4 12h2.2M19.4 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/>
+      </svg>
+    </div>
+    <h2>太阳能热水工程控制系统</h2>
+    <p>SOLAR HOT WATER CONTROLLER</p>
+    <div class="boot-bar"><i></i></div>
+  </div>
+
+  <div class="app">
+    <!-- 侧边导航 -->
+    <aside class="side">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="11" r="3.6"/>
+            <path d="M12 2.6v1.8M12 17.6v1.8M3.6 11h1.8M18.6 11h1.8M6.1 5.1l1.3 1.3M16.6 15.6l1.3 1.3M17.9 5.1l-1.3 1.3M7.4 15.6l-1.3 1.3"/>
+            <path d="M4.5 21.4c1.4-1.6 3.4-2.4 7.5-2.4s6.1.8 7.5 2.4"/>
+          </svg>
+        </div>
+        <div class="brand-txt">SOLAR<em>OS</em></div>
+      </div>
+
+      <nav class="nav" id="nav">
+        <button class="nav-item active" data-page="dash">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="2.1"/><path d="M13.5 11.6 19.5 5.5"/><path d="M20.6 13.6a8.8 8.8 0 1 0-17.2 0"/></svg>
+          <span>监控</span>
+        </button>
+        <button class="nav-item" data-page="ctrl">
+          <svg viewBox="0 0 24 24"><path d="M4 7.5h9M17.5 7.5H20M4 16.5h3M11.5 16.5H20"/><circle cx="15" cy="7.5" r="2.3"/><circle cx="9" cy="16.5" r="2.3"/></svg>
+          <span>控制</span>
+        </button>
+        <button class="nav-item" data-page="chart">
+          <svg viewBox="0 0 24 24"><path d="M4 18.5V5M4 18.5H20"/><path d="M6.6 15.2 10.4 9.6l3 3.4 2.3-5.2 3.3 5.6"/></svg>
+          <span>曲线</span>
+        </button>
+        <button class="nav-item" data-page="alarm">
+          <svg viewBox="0 0 24 24"><path d="M18 15.4V10.4a6 6 0 1 0-12 0v5l-1.9 2.6h15.8L18 15.4Z"/><path d="M10 21h4"/></svg>
+          <span>记录</span>
+        </button>
+        <button class="nav-item" data-page="param">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2.1"/><circle cx="15.4" cy="12" r="2.1"/><circle cx="8.6" cy="17" r="2.1"/></svg>
+          <span>设置</span>
+        </button>
+        <button class="nav-item" data-page="sys">
+          <svg viewBox="0 0 24 24"><rect x="6.4" y="6.4" width="11.2" height="11.2" rx="2.2"/><rect x="9.8" y="9.8" width="4.4" height="4.4" rx="1"/><path d="M9.6 3.2v3.2M14.4 3.2v3.2M9.6 17.6v3.2M14.4 17.6v3.2M3.2 9.6h3.2M3.2 14.4h3.2M17.6 9.6h3.2M17.6 14.4h3.2"/></svg>
+          <span>系统</span>
+        </button>
+      </nav>
+
+      <div class="side-foot">
+        <div class="bars"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+        <div class="side-clock num" id="sideClock">--:--</div>
+        <div class="side-tag">4G · OK</div>
+      </div>
+    </aside>
+
+    <!-- 主区 -->
+    <div class="main">
+      <header class="topbar">
+        <div class="tb-left">
+          <h1 id="pageTitle">系统监控</h1>
+          <span class="tb-sub" id="pageSub">实时运行数据总览</span>
+        </div>
+        <div class="tb-right">
+          <div class="chip"><span class="dot"></span>4G 在线</div>
+          <div class="chip">
+            <svg viewBox="0 0 24 24"><path d="M4 14v-3.5a8 8 0 0 1 16 0V14"/><rect x="3.4" y="14" width="4" height="6" rx="1.4"/><rect x="16.6" y="14" width="4" height="6" rx="1.4"/></svg>
+            485 · 0x01
+          </div>
+          <div class="chip">
+            <svg viewBox="0 0 24 24"><path d="M12 3.6 20 8v10.4L12 20l-8-1.6V8l8-4.4Z"/><path d="M8.6 12.6h6.8"/></svg>
+            SD 8G
+          </div>
+          <div class="clock num" id="clock">--:--:--</div>
+        </div>
+      </header>
+
+      <div class="pages">
+
+        <!-- ============ 1. 监控 ============ -->
+        <section class="page active" id="page-dash">
+          <div class="trow" id="trow"></div>
+
+          <div class="mrow">
+            <!-- 水位 -->
+            <div class="card tank-card">
+              <div class="card-head">
+                <span class="ch-title">水箱水位</span>
+                <span class="badge ok" id="levelBadge">正常</span>
+              </div>
+              <div class="tank-body">
+                <svg class="tank-svg" viewBox="0 0 96 150">
+                  <defs>
+                    <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="#6fe3ff" stop-opacity=".95"/>
+                      <stop offset="55%" stop-color="#22a8f0"/>
+                      <stop offset="100%" stop-color="#0b5fc4"/>
+                    </linearGradient>
+                    <clipPath id="tankClip"><rect x="8" y="8" width="80" height="134" rx="14"/></clipPath>
+                  </defs>
+                  <rect x="8" y="8" width="80" height="134" rx="14" fill="rgba(255,255,255,.035)" stroke="rgba(255,255,255,.13)" stroke-width="1.2"/>
+                  <g clip-path="url(#tankClip)">
+                    <g class="wave-anim"><path id="wavePath" fill="url(#wg)" d=""/></g>
+                  </g>
+                  <rect x="8" y="8" width="80" height="134" rx="14" fill="none" stroke="rgba(255,255,255,.13)" stroke-width="1.2"/>
+                  <g stroke="rgba(255,255,255,.16)" stroke-width="1" stroke-dasharray="3 4">
+                    <path d="M88 41.5h6M88 75h6M88 108.5h6"/>
+                  </g>
+                  <g fill="rgba(255,255,255,.62)" font-size="8.5" font-weight="600"
+                     style="paint-order:stroke;stroke:rgba(3,14,28,.6);stroke-width:2.6px;stroke-linejoin:round">
+                    <text x="15" y="26">100%</text>
+                    <text x="15" y="79">50%</text>
+                    <text x="15" y="132">0%</text>
+                  </g>
+                </svg>
+                <div class="tank-side">
+                  <div class="big-num"><b class="num" id="levelVal">82</b><i>%</i></div>
+                  <div class="mini-list">
+                    <div><span>水箱容积</span><b>5.0 m³</b></div>
+                    <div><span>当前水量</span><b class="num" id="volVal">4.10 m³</b></div>
+                    <div><span>上水阀 KM2</span><b class="ok" id="valveState">已关闭</b></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 压力 -->
+            <div class="card press-card">
+              <div class="card-head"><span class="ch-title">系统压力</span></div>
+              <div class="ring-wrap">
+                <svg viewBox="0 0 120 120">
+                  <defs>
+                    <linearGradient id="pgrad" x1="0" y1="1" x2="1" y2="0">
+                      <stop offset="0" stop-color="#2ee6a8"/>
+                      <stop offset="55%" stop-color="#ffd166"/>
+                      <stop offset="100%" stop-color="#ff5b6e"/>
+                    </linearGradient>
+                  </defs>
+                  <path class="ring-bg" d="M21.82 98.18 A54 54 0 1 1 98.18 98.18"/>
+                  <path class="ring-fg" id="pressRing" d="M21.82 98.18 A54 54 0 1 1 98.18 98.18" stroke-dasharray="254.47 339.29" stroke-dashoffset="254.47"/>
+                </svg>
+                <div class="ring-center">
+                  <b class="num" id="pressVal">0.32</b><i>MPa</i>
+                </div>
+              </div>
+              <div class="press-foot"><span>量程 0–1.0 MPa</span><b id="pressTag">压力正常</b></div>
+            </div>
+
+            <!-- 集热循环 -->
+            <div class="card cyc-card">
+              <div class="card-head">
+                <span class="ch-title">集热循环 · 温差控制</span>
+                <span class="badge run" id="cycBadge">运行中</span>
+              </div>
+              <div class="cyc-body">
+                <div class="dt-block">
+                  <div class="dt-label">ΔT 温差 (T1 − T2)</div>
+                  <div class="dt-val"><b class="num" id="dtVal">23.6</b><i>°C</i></div>
+                  <div class="dt-hint">启动阈值 ≥ 8.0℃<br>停止阈值 ≤ 3.0℃</div>
+                </div>
+                <div class="cyc-right">
+                  <svg class="pipe" viewBox="0 0 260 30" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="fgrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0" stop-color="#22d3ee" stop-opacity=".25"/>
+                        <stop offset="50%" stop-color="#7fe7ff"/>
+                        <stop offset="100%" stop-color="#ff9d3d" stop-opacity=".35"/>
+                      </linearGradient>
+                    </defs>
+                    <path class="pipe-base" d="M6 15H254"/>
+                    <path class="pipe-flow" d="M6 15H254"/>
+                  </svg>
+                  <div class="cyc-stats">
+                    <div><span>循环泵 KM1</span><b id="pumpOnOff">运行</b></div>
+                    <div><span>今日循环</span><b class="num">6 次</b></div>
+                    <div><span>累计运行</span><b class="num">2h18m</b></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 继电器 -->
+          <div class="card rrow">
+            <div class="card-head">
+              <span class="ch-title">继电器输出</span>
+              <span class="ch-sub">6 路干接点 · 点击可手动切换</span>
+            </div>
+            <div class="relays" id="relays"></div>
+          </div>
+        </section>
+
+        <!-- ============ 2. 控制 ============ -->
+        <section class="page" id="page-ctrl">
+          <div class="cols">
+            <div class="mode-col">
+              <div class="card mode-card" data-mode>
+                <div class="mode-head">
+                  <div class="mode-ico">
+                    <svg viewBox="0 0 24 24"><path d="M20.4 12a8.4 8.4 0 1 1-2.5-6"/><path d="M20.6 5v4.4h-4.4"/></svg>
+                  </div>
+                  <span class="badge run">已启用</span>
+                </div>
+                <div class="mode-title">温差循环</div>
+                <div class="mode-desc">集热器温度高于水箱温度达到启动差值时，循环泵 KM1 启动，将热量搬入水箱；温差低于停止值后延时停机。</div>
+                <div class="param-rows">
+                  <div class="prow"><span>启动温差</span><b class="num">8.0<span class="unit">℃</span></b></div>
+                  <div class="prow"><span>停止温差</span><b class="num">3.0<span class="unit">℃</span></b></div>
+                  <div class="prow"><span>循环泵延时</span><b class="num">30<span class="unit">s</span></b></div>
+                </div>
+              </div>
+
+              <div class="card mode-card amber" data-mode>
+                <div class="mode-head">
+                  <div class="mode-ico">
+                    <svg viewBox="0 0 24 24"><path d="M12 3.4v3M12 17.6v3M4.6 12h3M16.4 12h3"/><circle cx="12" cy="12" r="4"/><path d="M9 21.4h6"/></svg>
+                  </div>
+                  <span class="badge warn">已启用</span>
+                </div>
+                <div class="mode-title">定温上水 / 定时上水</div>
+                <div class="mode-desc">水位低于下限且在设定时段内开启上水阀 KM2，达到上限水位后关闭；夜间低温时段自动避免上水。</div>
+                <div class="param-rows">
+                  <div class="prow"><span>上水下限</span><b class="num">30<span class="unit">%</span></b></div>
+                  <div class="prow"><span>上水上限</span><b class="num">95<span class="unit">%</span></b></div>
+                  <div class="prow"><span>上水时段</span><b class="num">06:00 / 18:00</b></div>
+                </div>
+              </div>
+
+              <div class="card mode-card green" data-mode>
+                <div class="mode-head">
+                  <div class="mode-ico">
+                    <svg viewBox="0 0 24 24"><path d="M13.2 3 5.6 13.4h5.6L10.8 21l7.6-10.4h-5.6L13.2 3Z"/></svg>
+                  </div>
+                  <span class="badge off">待机</span>
+                </div>
+                <div class="mode-title">电加热辅助</div>
+                <div class="mode-desc">水箱温度低于启动值且处于低谷电时段时投入电加热 KM3；水位低于干烧保护值时强制切断加热回路。</div>
+                <div class="param-rows">
+                  <div class="prow"><span>加热启动</span><b class="num">50<span class="unit">℃</span></b></div>
+                  <div class="prow"><span>加热停止</span><b class="num">60<span class="unit">℃</span></b></div>
+                  <div class="prow"><span>加热时段</span><b class="num">22:00 – 06:00</b></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="right-col">
+              <div class="card pump-card">
+                <div class="card-head">
+                  <span class="ch-title">循环泵运行状态</span>
+                  <span class="badge run" id="pumpBadge">KM1 运行中</span>
+                </div>
+                <div class="pump-vis">
+                  <div class="pump-ring">
+                    <svg viewBox="0 0 120 120">
+                      <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="8"/>
+                      <circle id="pumpRing" cx="60" cy="60" r="50" fill="none" stroke="url(#pmp)" stroke-width="8"
+                        stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="94.25"
+                        transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .9s ease"/>
+                      <defs>
+                        <linearGradient id="pmp" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0" stop-color="#7fe7ff"/><stop offset="100%" stop-color="#3b82f6"/>
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div class="pump-core">
+                      <svg class="pump-blade" id="pumpBlade" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                        <circle cx="12" cy="12" r="9.2"/>
+                        <path d="M12 12c0-4.4 1.6-6.4 3.6-6.4S18.6 9.4 12 12Z"/>
+                        <path d="M12 12c-3.8 2.2-6.1 2.1-7.1.4S5.9 8.5 12 12Z"/>
+                        <path d="M12 12c1.4 4.2.6 6.5-1.4 7.1s-4-2.3 1.4-7.1Z"/>
+                      </svg>
+                      <span class="pump-state" id="pumpStateTxt">RUNNING</span>
+                    </div>
+                  </div>
+                  <div class="pump-kv">
+                    <div><span>实时功率</span><b class="num">1.42 kW</b></div>
+                    <div><span>运行时长</span><b class="num">2h 18m</b></div>
+                    <div><span>今日启动</span><b class="num">6 次</b></div>
+                    <div><span>累计流量</span><b class="num">18.6 m³</b></div>
+                  </div>
+                </div>
+                <div class="timeline" title="近12小时运行占比">
+                  <i style="width:22%;background:linear-gradient(180deg,#7fe7ff,#22d3ee)"></i>
+                  <i style="width:0"></i>
+                  <i style="width:31%;background:linear-gradient(180deg,#7fe7ff,#22d3ee)"></i>
+                  <i style="width:0"></i>
+                  <i style="width:14%;background:linear-gradient(180deg,#7fe7ff,#22d3ee)"></i>
+                  <i style="width:0"></i>
+                  <i style="width:26%;background:linear-gradient(180deg,#7fe7ff,#22d3ee)"></i>
+                </div>
+              </div>
+
+              <div class="card proto-card">
+                <div class="card-head">
+                  <span class="ch-title">运行模式与保护</span>
+                  <span class="badge run" id="modeBadge">自动</span>
+                </div>
+                <div class="proto-grid">
+                  <div class="proto-item on" data-prot>自动运行模式 <span class="sw"><i></i></span></div>
+                  <div class="proto-item on" data-prot>防冻保护 <span class="sw"><i></i></span></div>
+                  <div class="proto-item on" data-prot>高温保护 85℃ <span class="sw"><i></i></span></div>
+                  <div class="proto-item on" data-prot>防干烧保护 <span class="sw"><i></i></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ 3. 曲线 ============ -->
+        <section class="page" id="page-chart">
+          <div class="tabs">
+            <button class="tab active" data-range="24h">近 24 小时</button>
+            <button class="tab" data-range="7d">近 7 天</button>
+            <button class="tab" data-range="30d">近 30 天</button>
+            <div class="legend">
+              <span><em style="background:linear-gradient(90deg,#ff9d3d,#ffd166)"></em>集热器 T1</span>
+              <span><em style="background:linear-gradient(90deg,#ff5b6e,#ff98a6)"></em>水箱 T2</span>
+              <span><em style="background:linear-gradient(90deg,#22d3ee,#7fe7ff)"></em>回水 T3</span>
+            </div>
+          </div>
+
+          <div class="stat-3">
+            <div class="stat-tile"><span>集热器最高温度</span><b class="num" id="stMax">92.6<i>℃</i></b></div>
+            <div class="stat-tile"><span>集热器最低温度</span><b class="num" id="stMin">34.2<i>℃</i></b></div>
+            <div class="stat-tile"><span>平均得热量</span><b class="num">186.4<i>kWh</i></b></div>
+          </div>
+
+          <div class="card chart-card">
+            <div class="card-head">
+              <span class="ch-title">温度变化趋势</span>
+              <span class="ch-sub" id="chartSub">采样间隔 1 小时 · 共 24 点</span>
+            </div>
+            <div class="chart-wrap">
+              <svg id="chart" viewBox="0 0 872 352" preserveAspectRatio="none" style="width:100%;height:100%"></svg>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ 4. 报警记录 ============ -->
+        <section class="page" id="page-alarm">
+          <div class="cols">
+            <div class="alarm-left">
+              <div class="card alarm-stat">
+                <div class="card-head"><span class="ch-title">报警统计</span><span class="ch-sub">近 7 天</span></div>
+                <div class="as-grid">
+                  <div><span>今日报警</span><b class="num" style="color:#ff9d3d">3</b></div>
+                  <div><span>未处理</span><b class="num" style="color:#ff5b6e">1</b></div>
+                  <div><span>历史累计</span><b class="num" style="color:#7fe7ff">128</b></div>
+                  <div><span>已恢复</span><b class="num" style="color:#2ee6a8">127</b></div>
+                </div>
+              </div>
+              <div class="card" style="padding:13px 14px">
+                <div class="card-head"><span class="ch-title">设备健康度</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px;margin:10px 0 4px">
+                  <b class="num" style="font-size:30px;font-weight:700;color:#2ee6a8">96</b>
+                  <span style="font-size:11px;color:#5d6b81">/100 分</span>
+                </div>
+                <div class="meter"><i style="width:96%;background:linear-gradient(90deg,#22d3ee,#2ee6a8)"></i></div>
+                <div style="font-size:10px;color:#5d6b81;margin-top:8px;line-height:1.6">传感器在线 7/7 · 通信正常<br>继电器动作正常 · 无硬件故障</div>
+              </div>
+            </div>
+
+            <div class="card alarm-list-card">
+              <div class="card-head">
+                <span class="ch-title">事件与报警记录</span>
+                <span class="ch-sub">点击可标记处理</span>
+              </div>
+              <div class="alarm-scroll" id="alarmScroll"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ 5. 参数设置 ============ -->
+        <section class="page" id="page-param">
+          <div class="cols">
+            <div class="card pgroup">
+              <div class="pgroup-head">
+                <span class="pgroup-ico"><svg viewBox="0 0 24 24"><path d="M12 3.5v6M12 14.5v6"/><circle cx="12" cy="12" r="2.6"/></svg></span>
+                <b>温度参数</b><span>℃</span>
+              </div>
+              <div class="set-rows" id="setTemp"></div>
+            </div>
+
+            <div class="card pgroup">
+              <div class="pgroup-head">
+                <span class="pgroup-ico"><svg viewBox="0 0 24 24"><path d="M12 3.2s5.4 5.6 5.4 9.6a5.4 5.4 0 0 1-10.8 0C6.6 8.8 12 3.2 12 3.2Z"/></svg></span>
+                <b>水位参数</b><span>%</span>
+              </div>
+              <div class="set-rows" id="setLevel"></div>
+            </div>
+
+            <div class="card pgroup">
+              <div class="pgroup-head">
+                <span class="pgroup-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3 2.2"/></svg></span>
+                <b>时间与通讯</b><span>485 / 4G</span>
+              </div>
+              <div class="set-rows" id="setComm"></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;flex:none;height:44px">
+            <button class="tab" style="flex:1;height:44px" id="btnReset">恢复出厂参数</button>
+            <button class="btn-primary" id="btnSave">保存并下发到主控</button>
+          </div>
+        </section>
+
+        <!-- ============ 6. 系统信息 ============ -->
+        <section class="page" id="page-sys">
+          <div class="sys-grid">
+            <div class="card sys-card">
+              <div class="card-head"><span class="ch-title">设备信息</span><span class="badge ok">在线</span></div>
+              <div style="margin-top:8px">
+                <div class="kv"><span>产品型号</span><b>Air8602 热水工程控制器</b></div>
+                <div class="kv"><span>设备 ID</span><b class="num">SN-8602-2026-0046</b></div>
+                <div class="kv"><span>固件版本</span><b class="num">LuatOS V2.0.3</b></div>
+                <div class="kv"><span>硬件版本</span><b class="num">HW V1.2</b></div>
+                <div class="kv"><span>连续运行</span><b class="num g">12 天 04 时</b></div>
+                <div class="kv"><span>主控芯片</span><b class="num">Air8602 · 1.2 GHz</b></div>
+                <div class="kv"><span>系统时间</span><b class="num">2026-10-12 15:46</b></div>
+                <div class="kv"><span>程序授权</span><b class="g">已激活</b></div>
+              </div>
+            </div>
+
+            <div class="card sys-card">
+              <div class="card-head"><span class="ch-title">4G 通信</span><span class="badge run">已连接</span></div>
+              <div class="sig-wrap">
+                <div class="sig-bars"><i></i><i></i><i></i><i class="off"></i></div>
+                <div class="sig-val"><b class="num">-68<i>dBm</i></b><span>信号良好</span></div>
+              </div>
+              <div style="margin-top:auto">
+                <div class="kv"><span>运营商</span><b>中国移动 LTE</b></div>
+                <div class="kv"><span>本机 IP</span><b class="num">10.42.118.73</b></div>
+                <div class="kv"><span>ICCID</span><b class="num">89860****8829</b></div>
+                <div class="kv"><span>在线时长</span><b class="num g">12 天 04 时</b></div>
+                <div class="kv"><span>数据上报</span><b class="g">正常 · 60 s</b></div>
+              </div>
+            </div>
+
+            <div class="card sys-card">
+              <div class="card-head"><span class="ch-title">存储 / SD 卡</span><span class="badge ok">已挂载</span></div>
+              <div style="margin-top:10px">
+                <div class="kv" style="border:none;padding-bottom:2px"><span>SD 卡 8 GB</span><b class="num">已用 2.8 GB</b></div>
+                <div class="meter"><i style="width:35%;background:linear-gradient(90deg,#22d3ee,#3b82f6)"></i></div>
+              </div>
+              <div style="margin-top:12px">
+                <div class="kv" style="border:none;padding-bottom:2px"><span>日志分区</span><b class="num">已用 1.9 GB</b></div>
+                <div class="meter"><i style="width:48%;background:linear-gradient(90deg,#7fe7ff,#22d3ee)"></i></div>
+              </div>
+              <div style="margin-top:12px">
+                <div class="kv" style="border:none;padding-bottom:2px"><span>历史曲线数据</span><b class="num">已用 0.9 GB</b></div>
+                <div class="meter"><i style="width:22%;background:linear-gradient(90deg,#ffd08a,#ff9d3d)"></i></div>
+              </div>
+              <div style="margin-top:auto">
+                <div class="kv"><span>剩余可用</span><b class="num g">5.2 GB</b></div>
+                <div class="kv"><span>文件系统</span><b class="num">FAT32 · 已挂载</b></div>
+              </div>
+            </div>
+
+            <div class="card sys-card">
+              <div class="card-head"><span class="ch-title">串口 / 485</span><span class="ch-sub">3 路</span></div>
+              <div style="margin-top:8px">
+                <div class="kv"><span>PORT1 · 隔离 485</span><b class="num g">地址 0x01 · 9600</b></div>
+                <div class="kv"><span>PORT2 · 采集 MCU</span><b class="num g">115200 · 已连接</b></div>
+                <div class="kv"><span>PORT3 · 预留</span><b style="color:#5d6b81">未启用</b></div>
+                <div class="kv"><span>校验 / 停止位</span><b class="num">None / 1</b></div>
+                <div class="kv"><span>总线设备数</span><b class="num">2 台</b></div>
+                <div class="kv"><span>通信成功率</span><b class="num g">99.8 %</b></div>
+                <div class="kv"><span>平均响应</span><b class="num">12 ms</b></div>
+                <div class="kv"><span>端口隔离</span><b class="g">2500 V 已隔离</b></div>
+              </div>
+            </div>
+
+            <div class="card sys-card">
+              <div class="card-head"><span class="ch-title">采集通道</span><span class="badge ok">7/7 正常</span></div>
+              <div style="margin-top:8px">
+                <div class="kv"><span>温度输入 T1–T5</span><b class="num g">5 路在线</b></div>
+                <div class="kv"><span>水位输入</span><b class="num g">1 路在线</b></div>
+                <div class="kv"><span>压力变送器</span><b class="num g">4–20 mA 正常</b></div>
+                <div class="kv"><span>采样周期</span><b class="num">1000 ms</b></div>
+                <div class="kv"><span>采样精度</span><b class="num">12 bit</b></div>
+                <div class="kv"><span>数据上报</span><b class="num">60 s / 次</b></div>
+                <div class="kv"><span>通道自检</span><b class="g">全部通过</b></div>
+              </div>
+            </div>
+
+            <div class="card sys-card">
+              <div class="card-head"><span class="ch-title">电源与输出</span><span class="badge ok">正常</span></div>
+              <div style="margin-top:8px">
+                <div class="kv"><span>输入电源</span><b class="num">DC 12 V</b></div>
+                <div class="kv"><span>实测电压</span><b class="num g">12.3 V</b></div>
+                <div class="kv"><span>整机电流</span><b class="num">0.42 A</b></div>
+                <div class="kv"><span>继电器输出</span><b class="num">6 路 / 已吸合 3 路</b></div>
+                <div class="kv"><span>触点容量</span><b class="num">5 A / 250 VAC</b></div>
+                <div class="kv"><span>板载温度</span><b class="num">38.6 ℃</b></div>
+                <div class="kv"><span>硬件看门狗</span><b class="g">运行正常</b></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---------------- 基础数据 ---------------- */
+  const TEMPS = [
+    {tag:'T1', name:'集热器温度', color:'#ff9d3d', v:76.4, min:0,  max:120, lo:35, hi:105, hist:[]},
+    {tag:'T2', name:'水箱温度',   color:'#ff5b6e', v:52.8, min:0,  max:100, lo:30, hi:80,  hist:[]},
+    {tag:'T3', name:'回水温度',   color:'#22d3ee', v:61.2, min:0,  max:100, lo:25, hi:75,  hist:[]},
+    {tag:'T4', name:'供水温度',   color:'#3b82f6', v:48.6, min:0,  max:100, lo:25, hi:70,  hist:[]},
+    {tag:'T5', name:'环境温度',   color:'#2ee6a8', v:21.4, min:-20,max:60,  lo:-5, hi:45,  hist:[]}
+  ];
+
+  const RELAYS = [
+    {code:'KM1', name:'集热循环泵', on:true,  note:'温差循环',
+     icon:'<circle cx="12" cy="12" r="8.4"/><path d="M20.4 12a8.4 8.4 0 1 1-2.5-6"/><path d="M20.6 5v4.4h-4.4"/>'},
+    {code:'KM2', name:'上水电磁阀', on:false, note:'定温上水',
+     icon:'<path d="M12 3.2s5.4 5.6 5.4 9.6a5.4 5.4 0 0 1-10.8 0C6.6 8.8 12 3.2 12 3.2Z"/><path d="M12 12.4v4.6M10 15l2 2 2-2"/>'},
+    {code:'KM3', name:'电加热器',   on:false, note:'定时加热',
+     icon:'<path d="M13.2 3 5.6 13.4h5.6L10.8 21l7.6-10.4h-5.6L13.2 3Z"/>'},
+    {code:'KM4', name:'供水泵',     on:true,  note:'恒压供水',
+     icon:'<circle cx="12" cy="12" r="3.2"/><path d="M12 3.4v3.2M12 17.4v3.2M3.4 12h3.2M17.4 12h3.2"/>'},
+    {code:'KM5', name:'回水循环泵', on:true,  note:'回水控制',
+     icon:'<path d="M20.4 12a8.4 8.4 0 1 1-2.5-6"/><path d="M20.6 5v4.4h-4.4"/>'},
+    {code:'KM6', name:'伴热带',     on:false, note:'防冻备用',
+     icon:'<path d="M9.4 14.6V5.4a2.6 2.6 0 0 1 5.2 0v9.2a4.4 4.4 0 1 1-5.2 0Z"/><path d="M12 9.6v5.4"/>'}
+  ];
+
+  const ALARMS = [
+    {s:'#ff5b6e', sev:'crit', t:'14:32:18', txt:'系统压力过高 (0.86 MPa)，泄压阀动作后恢复正常', src:'压力通道', done:true},
+    {s:'#ff9d3d', sev:'warn', t:'13:05:41', txt:'水箱温度传感器 T2 信号异常，已切换至备用采样值', src:'采集 MCU', done:false},
+    {s:'#22d3ee', sev:'info', t:'11:48:02', txt:'4G 网络重连成功，当前信号强度 -68 dBm', src:'4G 通信', done:true},
+    {s:'#ff9d3d', sev:'warn', t:'09:12:33', txt:'水位低于下限 30%，自动上水程序启动并完成补水', src:'水位通道', done:true},
+    {s:'#2ee6a8', sev:'ok',   t:'07:00:00', txt:'定时上水任务执行完成，水位由 42% 升至 91%', src:'定时任务', done:true},
+    {s:'#ff5b6e', sev:'crit', t:'昨日 22:16', txt:'集热器超温保护触发 (118 ℃)，循环泵强制启动散热', src:'高温保护', done:true},
+    {s:'#2ee6a8', sev:'ok',   t:'昨日 18:00', txt:'定时上水任务执行完成，水位由 38% 升至 88%', src:'定时任务', done:true},
+    {s:'#22d3ee', sev:'info', t:'昨日 15:20', txt:'485 总线设备 0x02 采集器接入，通信正常', src:'485 总线', done:true}
+  ];
+
+  const SET_TEMP = [
+    {label:'集热循环启动温差', val:8.0, step:0.5, unit:'℃'},
+    {label:'集热循环停止温差', val:3.0, step:0.5, unit:'℃'},
+    {label:'电加热启动温度',   val:50,  step:1,   unit:'℃'},
+    {label:'电加热停止温度',   val:60,  step:1,   unit:'℃'},
+    {label:'高温保护温度',     val:85,  step:1,   unit:'℃'},
+    {label:'防冻启动温度',     val:5,   step:1,   unit:'℃'}
+  ];
+  const SET_LEVEL = [
+    {label:'上水启动水位', val:30, step:5, unit:'%'},
+    {label:'上水停止水位', val:95, step:5, unit:'%'},
+    {label:'低水位报警',   val:20, step:5, unit:'%'},
+    {label:'防干烧保护值', val:15, step:5, unit:'%'}
+  ];
+  const SET_COMM = [
+    {label:'定时上水 1',   val:'06:00', type:'text'},
+    {label:'定时上水 2',   val:'18:00', type:'text'},
+    {label:'加热时段起点', val:'22:00', type:'text'},
+    {label:'485 从站地址', val:'0x01',  type:'text'},
+    {label:'485 波特率',   val:'9600',  type:'text'},
+    {label:'数据上报间隔', val:60, step:10, unit:'s'}
+  ];
+
+  const $  = s => document.querySelector(s);
+
+  /* ---------------- 顶部时钟 ---------------- */
+  function tick(){
+    const d = new Date();
+    const p = n => String(n).padStart(2,'0');
+    const hm = p(d.getHours())+':'+p(d.getMinutes());
+    $('#clock').textContent = hm + ':' + p(d.getSeconds());
+    $('#sideClock').textContent = hm;
+  }
+  tick(); setInterval(tick, 1000);
+
+  /* ---------------- 导航 ---------------- */
+  const PAGES = {
+    dash : ['系统监控','实时运行数据总览'],
+    ctrl : ['循环控制','集热循环 · 上水 · 加热策略'],
+    chart: ['历史曲线','温度变化趋势分析'],
+    alarm: ['报警记录','系统事件与故障追溯'],
+    param: ['参数设置','运行参数与通讯配置'],
+    sys  : ['系统信息','设备状态 · 通信 · 存储']
+  };
+  document.querySelectorAll('.nav-item').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.page;
+      document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b===btn));
+      document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id === 'page-'+id));
+      $('#pageTitle').textContent = PAGES[id][0];
+      $('#pageSub').textContent   = PAGES[id][1];
+      if(id === 'chart') drawChart(currentRange);
+    });
+  });
+
+  /* ---------------- 温度卡 ---------------- */
+  const trow = $('#trow');
+  trow.innerHTML = TEMPS.map((t,i)=>`
+    <div class="tcard" style="--c:${t.color}">
+      <div class="tc-head"><span class="tc-tag">${t.tag}</span><span class="tc-name">${t.name}</span></div>
+      <div class="tc-val"><b class="num" id="tv${i}">${t.v.toFixed(1)}</b><i>°C</i></div>
+      <svg class="spark" viewBox="0 0 100 22" preserveAspectRatio="none">
+        <path class="fill" id="tf${i}" d=""/>
+        <path id="ts${i}" d=""/>
+      </svg>
+      <div class="tc-bar"><i id="tb${i}"></i></div>
+      <div class="tc-foot"><span id="tn${i}">采样正常</span><span class="num" id="tr${i}">0–120℃</span></div>
+    </div>`).join('');
+
+  function seedHist(t){
+    t.hist = [];
+    const base = t.v;
+    for(let i=0;i<20;i++){
+      const k = i/19;
+      t.hist.push(base + (Math.sin(k*6.2+t.tag.charCodeAt(1))*0.5 + (k-0.5))*4.2);
+    }
+  }
+  function drawSpark(i){
+    const t = TEMPS[i], h = t.hist;
+    if(h.length<2) return;
+    const min = Math.min(...h), max = Math.max(...h), span = (max-min)||1;
+    const pts = h.map((v,k)=>[ (k/(h.length-1))*100, 20 - ((v-min)/span)*17 ]);
+    const d = pts.map((p,k)=>(k?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+    $('#ts'+i).setAttribute('d', d);
+    $('#tf'+i).setAttribute('d', d + ` L100,22 L0,22 Z`);
+  }
+  TEMPS.forEach((t,i)=>{ seedHist(t); drawSpark(i); });
+
+  function updateTemps(){
+    TEMPS.forEach((t,i)=>{
+      const drift = (Math.random()-0.5) * 0.5;
+      t.v = Math.min(t.max, Math.max(t.min, t.v + drift));
+      t.hist.push(t.v); if(t.hist.length>20) t.hist.shift();
+      drawSpark(i);
+      $('#tv'+i).textContent = t.v.toFixed(1);
+      $('#tb'+i).style.width = (((t.v - t.min)/(t.max - t.min))*100).toFixed(1)+'%';
+      $('#tn'+i).textContent = t.v > t.hi ? '高温' : (t.v < t.lo ? '偏低' : '采样正常');
+      $('#tn'+i).style.color = t.v > t.hi ? '#ff5b6e' : (t.v < t.lo ? '#ff9d3d' : '');
+    });
+
+    const dt = TEMPS[0].v - TEMPS[1].v;
+    $('#dtVal').textContent = dt.toFixed(1);
+    const running = dt >= 3;
+    $('#cycBadge').textContent = running ? '运行中' : '待机';
+    $('#cycBadge').className = 'badge ' + (running ? 'run' : 'off');
+    $('#pumpOnOff').textContent = running ? '运行' : '停止';
+    $('#pumpBadge').textContent = running ? 'KM1 运行中' : 'KM1 已停止';
+    $('#pumpBadge').className = 'badge ' + (running ? 'run' : 'off');
+    $('#pumpStateTxt').textContent = running ? 'RUNNING' : 'STANDBY';
+    $('#pumpBlade').classList.toggle('stop', !running);
+    const pct = Math.min(1, Math.max(0.06, (dt+6)/30));
+    $('#pumpRing').setAttribute('stroke-dashoffset', (314.16*(1-pct)).toFixed(1));
+
+    drawChart(currentRange, true);
+  }
+
+  /* ---------------- 水位 ---------------- */
+  let level = 82;
+  const TANK = {top:8, bottom:142, h:134};
+  function waveD(top){
+    const amp = 3.4, period = 24;
+    let d = `M-48 ${top.toFixed(1)}`;
+    for(let x=-48; x<144; x+=period){
+      d += ` q ${period/4} ${-amp} ${period/2} 0 q ${period/4} ${amp} ${period/2} 0`;
+    }
+    d += ` L144 160 L-48 160 Z`;
+    return d;
+  }
+  function setLevel(v){
+    level = Math.min(100, Math.max(0, v));
+    const top = TANK.bottom - TANK.h * level/100;
+    $('#wavePath').setAttribute('d', waveD(top));
+    $('#levelVal').textContent = Math.round(level);
+    $('#volVal').textContent = (5.0*level/100).toFixed(2) + ' m³';
+    const b = $('#levelBadge');
+    if(level >= 95){ b.textContent='已满'; b.className='badge run'; }
+    else if(level <= 20){ b.textContent='低水位'; b.className='badge err'; }
+    else if(level <= 30){ b.textContent='偏低'; b.className='badge warn'; }
+    else { b.textContent='正常'; b.className='badge ok'; }
+    const valveEl = $('#valveState');
+    valveEl.textContent = level <= 30 ? '上水中' : '已关闭';
+    valveEl.style.color = valveEl.textContent === '上水中' ? '#2ee6a8' : '';
+  }
+  setLevel(level);
+
+  /* ---------------- 压力 ---------------- */
+  const PRESS_MAX = 1.0, RING_LEN = 254.47;
+  function setPress(p){
+    p = Math.min(PRESS_MAX, Math.max(0, p));
+    $('#pressVal').textContent = p.toFixed(2);
+    $('#pressRing').setAttribute('stroke-dashoffset', (RING_LEN*(1 - p/PRESS_MAX)).toFixed(1));
+    const tag = $('#pressTag');
+    if(p > 0.75){ tag.textContent='压力偏高'; tag.style.color='#ff5b6e'; }
+    else if(p < 0.12){ tag.textContent='压力偏低'; tag.style.color='#ff9d3d'; }
+    else { tag.textContent='压力正常'; tag.style.color='#2ee6a8'; }
+  }
+  setPress(0.32);
+
+  /* ---------------- 继电器 ---------------- */
+  const relayBox = $('#relays');
+  relayBox.innerHTML = RELAYS.map((r,i)=>`
+    <button class="relay ${r.on?'on':''}" data-i="${i}">
+      <span class="glow"></span>
+      <span class="relay-top">
+        <span class="relay-ico"><svg viewBox="0 0 24 24">${r.icon}</svg></span>
+        <span class="sw"><i></i></span>
+      </span>
+      <span class="relay-name">${r.name}</span>
+      <span class="relay-sub"><span>${r.code} · ${r.note}</span><b>${r.on?'ON':'OFF'}</b></span>
+    </button>`).join('');
+
+  relayBox.addEventListener('click', e=>{
+    const el = e.target.closest('.relay'); if(!el) return;
+    const i = +el.dataset.i, r = RELAYS[i];
+    r.on = !r.on;
+    el.classList.toggle('on', r.on);
+    el.querySelector('.relay-sub b').textContent = r.on ? 'ON' : 'OFF';
+    toast(r.on ? '#2ee6a8' : '#8593a9', r.name + (r.on ? ' 已吸合' : ' 已断开'), r.code + ' · 手动操作');
+  });
+
+  /* ---------------- 提示条 ---------------- */
+  function toast(color, title, sub){
+    const box = $('#toasts');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.style.setProperty('--tc', color);
+    el.innerHTML = `<em></em><div><b>${title}</b><span>${sub||''}</span></div>`;
+    box.appendChild(el);
+    setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(), 320); }, 2400);
+    while(box.children.length > 3) box.firstChild.remove();
+  }
+
+  /* ---------------- 控制页交互 ---------------- */
+  document.querySelectorAll('[data-mode]').forEach(c=>{
+    c.addEventListener('click', e=>{
+      if(e.target.closest('.prow')) return;
+      const b = c.querySelector('.badge');
+      const on = !b.classList.contains('off');
+      if(on){ b.textContent='待机'; b.className='badge off'; }
+      else { b.textContent='已启用'; b.className='badge warn'; }
+      toast('#22d3ee','控制策略已切换', c.querySelector('.mode-title').textContent);
+    });
+  });
+  document.querySelectorAll('[data-prot]').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      c.classList.toggle('on');
+      const on = c.classList.contains('on');
+      toast(on?'#2ee6a8':'#8593a9', c.textContent.trim().replace('  ',' '), on?'保护已开启':'保护已关闭');
+    });
+  });
+  $('#modeBadge').addEventListener('click', ()=>{
+    const b = $('#modeBadge'), auto = b.textContent === '自动';
+    b.textContent = auto ? '手动' : '自动';
+    b.className = 'badge ' + (auto ? 'warn' : 'run');
+    toast('#22d3ee','运行模式切换', auto ? '已切换到手动控制模式' : '已切换到自动运行模式');
+  });
+
+  /* ---------------- 报警列表 ---------------- */
+  const ICO = {
+    crit:'<path d="M12 3.6 21.4 20H2.6L12 3.6Z"/><path d="M12 10v4.4M12 17.4h.01"/>',
+    warn:'<path d="M12 3.6 21.4 20H2.6L12 3.6Z"/><path d="M12 10v4.4M12 17.4h.01"/>',
+    info:'<circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2M12 7.9h.01"/>',
+    ok:'<circle cx="12" cy="12" r="8.6"/><path d="M8.2 12.4l2.6 2.6 5-5.2"/>'
+  };
+  $('#alarmScroll').innerHTML = ALARMS.map(a=>`
+    <div class="alarm-item" style="--s:${a.s}">
+      <span class="sev"><svg viewBox="0 0 24 24">${ICO[a.sev]}</svg></span>
+      <span class="alarm-main">
+        <span class="alarm-txt">${a.txt}</span>
+        <span class="alarm-meta"><span>${a.t}</span><span>${a.src}</span></span>
+      </span>
+      <span class="alarm-tag ${a.done?'done':'todo'}">${a.done?'已处理':'待处理'}</span>
+    </div>`).join('');
+
+  $('#alarmScroll').addEventListener('click', e=>{
+    const item = e.target.closest('.alarm-item'); if(!item) return;
+    const tag = item.querySelector('.alarm-tag');
+    if(tag.classList.contains('todo')){
+      tag.classList.remove('todo'); tag.classList.add('done'); tag.textContent='已处理';
+      const crit = item.querySelector('.sev').style.color;
+      toast('#2ee6a8','报警已确认处理', item.querySelector('.alarm-txt').textContent.slice(0,22));
+    }
+  });
+
+  /* ---------------- 参数设置 ---------------- */
+  function stepperRow(label, val, step, unit){
+    return `<div class="set-row">
+      <span>${label}</span>
+      <span class="stepper" data-step="${step}" data-unit="${unit||''}">
+        <button data-d="-1">−</button>
+        <span class="val num">${val}${unit||''}</span>
+        <button data-d="1">+</button>
+      </span></div>`;
+  }
+  function textRow(label, val){
+    return `<div class="set-row"><span>${label}</span><span class="pill num">${val}</span></div>`;
+  }
+  const fmtVal = (v, step) => step < 1 ? v.toFixed(1) : String(v);
+  $('#setTemp').innerHTML  = SET_TEMP.map(r=>stepperRow(r.label, fmtVal(r.val, r.step), r.step, r.unit)).join('');
+  $('#setLevel').innerHTML = SET_LEVEL.map(r=>stepperRow(r.label, fmtVal(r.val, r.step), r.step, r.unit)).join('');
+  $('#setComm').innerHTML  = SET_COMM.map(r=> r.type==='text' ? textRow(r.label, r.val) : stepperRow(r.label, r.val, r.step, r.unit)).join('');
+
+  document.querySelectorAll('.stepper').forEach(st=>{
+    const step = parseFloat(st.dataset.step), unit = st.dataset.unit;
+    st.addEventListener('click', e=>{
+      const b = e.target.closest('button'); if(!b) return;
+      const out = st.querySelector('.val');
+      let cur = parseFloat(out.textContent) || 0;
+      cur = Math.round((cur + parseFloat(b.dataset.d) * step) * 10)/10;
+      out.textContent = (step < 1 ? cur.toFixed(1) : cur) + unit;
+    });
+  });
+  $('#btnSave').addEventListener('click', ()=> toast('#2ee6a8','参数已保存并下发','主控已确认，参数生效'));
+  $('#btnReset').addEventListener('click', ()=>{
+    toast('#ff9d3d','已恢复出厂参数','请点击保存以写入主控');
+  });
+
+  /* ---------------- 曲线 ---------------- */
+  const CW = 872, CH = 352, PAD = {l:44, r:28, t:16, b:28};
+  const Y_MAX = 120, Y_MIN = 0;
+  let currentRange = '24h';
+
+  function genSeries(base, amp, phase, n, seed){
+    const a = [];
+    for(let i=0;i<n;i++){
+      const t = i/(n-1)*Math.PI*2;
+      const noise = Math.sin(t*7.3 + phase*3.1 + seed) * amp * 0.10;
+      a.push(base + amp*Math.sin(t*0.92 + phase) + amp*0.34*Math.sin(t*2.6 + phase*2) + noise);
+    }
+    return a;
+  }
+  function seriesFor(range){
+    if(range === '24h'){
+      return {n:24, sub:'采样间隔 1 小时 · 共 25 点', xLab:i=>String(i).padStart(2,'0')+':00',
+        s:[genSeries(70,20,0.4,25,1.1), genSeries(52,7,2.1,25,2.3), genSeries(45,6,3.4,25,3.7)]};
+    }
+    if(range === '7d'){
+      const lab=['周一','周二','周三','周四','周五','周六','周日'];
+      return {n:7, sub:'采样间隔 1 天 · 共 8 点', xLab:i=>lab[i%7],
+        s:[genSeries(72,16,0.9,8,4.1), genSeries(53,6,2.6,8,5.3), genSeries(46,5,1.4,8,6.7)]};
+    }
+    return {n:30, sub:'采样间隔 1 天 · 共 31 点', xLab:i=>i===0?'':(i%5===0?i+'d':''),
+      s:[genSeries(71,17,1.3,31,7.1), genSeries(52,6,3.1,31,8.3), genSeries(45,5,0.7,31,9.7)]};
+  }
+  const COLORS = [
+    {a:'#ff9d3d', b:'#ffd166'},
+    {a:'#ff5b6e', b:'#ff98a6'},
+    {a:'#22d3ee', b:'#7fe7ff'}
+  ];
+
+  function smooth(pts){
+    if(pts.length < 2) return '';
+    let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+    for(let i=0;i<pts.length-1;i++){
+      const p0 = pts[i-1] || pts[i], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2] || p2;
+      const c1x = p1[0] + (p2[0]-p0[0])/6, c1y = p1[1] + (p2[1]-p0[1])/6;
+      const c2x = p2[0] - (p3[0]-p1[0])/6, c2y = p2[1] - (p3[1]-p1[1])/6;
+      d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+    }
+    return d;
+  }
+
+  function drawChart(range, isRefresh){
+    if(range) currentRange = range;
+    const cfg = seriesFor(currentRange);
+    const svg = $('#chart');
+    $('#chartSub').textContent = cfg.sub;
+    $('#stMax').innerHTML = Math.max(...cfg.s[0]).toFixed(1) + '<i>℃</i>';
+    $('#stMin').innerHTML = Math.min(...cfg.s[0]).toFixed(1) + '<i>℃</i>';
+
+    const x0 = PAD.l, x1 = CW - PAD.r, y0 = PAD.t, y1 = CH - PAD.b;
+    const px = i => x0 + (i/(cfg.s[0].length-1))*(x1-x0);
+    const py = v => y1 - ((v - Y_MIN)/(Y_MAX - Y_MIN))*(y1-y0);
+
+    let out = `<defs>
+      <linearGradient id="ga0" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9d3d" stop-opacity=".28"/><stop offset="1" stop-color="#ff9d3d" stop-opacity="0"/></linearGradient>
+      <linearGradient id="ga1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5b6e" stop-opacity=".22"/><stop offset="1" stop-color="#ff5b6e" stop-opacity="0"/></linearGradient>
+      <linearGradient id="ga2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity=".22"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient>
+    </defs>`;
+
+    for(let v=0; v<=Y_MAX; v+=20){
+      const y = py(v).toFixed(1);
+      out += `<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="rgba(255,255,255,.055)" stroke-width="1"/>`;
+      out += `<text x="${x0-8}" y="${(+y+3.5).toFixed(1)}" fill="#5d6b81" font-size="10" text-anchor="end">${v}</text>`;
+    }
+
+    const n = cfg.s[0].length;
+    const step = Math.max(1, Math.ceil(n/13));
+    for(let i=0;i<n;i+=step){
+      out += `<text x="${px(i).toFixed(1)}" y="${y1+16}" fill="#5d6b81" font-size="9.5" text-anchor="middle">${cfg.xLab(i)}</text>`;
+    }
+
+    cfg.s.forEach((arr, si)=>{
+      const pts = arr.map((v,i)=>[px(i), py(v)]);
+      const d = smooth(pts);
+      out += `<path d="${d} L${x1},${y1} L${x0},${y1} Z" fill="url(#ga${si})"/>`;
+      out += `<path d="${d}" fill="none" stroke="${COLORS[si].a}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 6px ${COLORS[si].a}88)"/>`;
+      if(!isRefresh){
+        const last = pts[pts.length-1];
+        out += `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="4" fill="${COLORS[si].a}" stroke="#08101c" stroke-width="2"/>`;
+      }
+    });
+
+    svg.innerHTML = out;
+  }
+  document.querySelectorAll('.tab[data-range]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab[data-range]').forEach(x=>x.classList.toggle('active', x===b));
+      drawChart(b.dataset.range);
+    });
+  });
+  drawChart('24h');
+
+  /* ---------------- 实时刷新 ---------------- */
+  setInterval(()=>{
+    updateTemps();
+    const p = Math.min(0.92, Math.max(0.08, 0.32 + (Math.random()-0.5)*0.06));
+    setPress(p);
+    const d = (Math.random()-0.48)*0.5;
+    setLevel(level + (level > 30 && level < 40 ? Math.abs(d)*1.6 : d*0.35));
+  }, 2000);
+  setTimeout(updateTemps, 400);
+
+  /* ---------------- 自适应缩放 ---------------- */
+  const stage = $('#stage');
+  function fit(){
+    const s = Math.min(window.innerWidth/1024, window.innerHeight/600, 1);
+    stage.style.transform = 'scale(' + s.toFixed(4) + ')';
+  }
+  fit(); window.addEventListener('resize', fit);
+
+  /* ---------------- 开机动画 ---------------- */
+  setTimeout(()=>{
+    $('#boot').classList.add('hide');
+    setTimeout(()=>{
+      toast('#22d3ee','系统启动完成','采集 7 路 · 输出 6 路 · 4G 在线');
+    }, 620);
+  }, 1150);
+
+})();
+</script>
+</body>
+</html>

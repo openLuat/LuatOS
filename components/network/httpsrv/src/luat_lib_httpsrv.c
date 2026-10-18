@@ -189,13 +189,22 @@ static int l_httpsrv_stop(lua_State *L) {
         if (srvs[i] != NULL && srvs[i]->port == port && srvs[i]->adapter_id == adapter_index) {
             luat_httpsrv_ctx_t* ctx = srvs[i];
             srvs[i] = NULL;
-            if (ctx->lua_ref_id != LUA_NOREF) {
-                luaL_unref(L, LUA_REGISTRYINDEX, ctx->lua_ref_id);
-                ctx->lua_ref_id = LUA_NOREF;
-            }
+            // 先停监听. 在途连接可能仍要 dispatch 到 Lua 回调,
+            // 所以 lua_ref 此刻不能 unref —— 它随 ctx 一起延迟释放:
+            // 在途计数(accept 时累加, cleanup 时递减)归零前 ref 保持有效,
+            // 杜绝了 ref 槽位被 luaL_ref 复用后张冠李戴调错回调的竞态
             if (ctx->vt) {
                 ctx->vt->srv_stop(ctx);
             }
+            if (luat_httpsrv_ctx_mark_stopped(ctx)) {
+                // 没有在途连接: 本线程直接 unref + 释放
+                if (ctx->lua_ref_id != LUA_NOREF) {
+                    luaL_unref(L, LUA_REGISTRYINDEX, ctx->lua_ref_id);
+                    ctx->lua_ref_id = LUA_NOREF;
+                }
+                luat_httpsrv_free(ctx);
+            }
+            // else: 最后一个在途连接收尾时经 msgbus 投递释放(Lua 线程执行 unref+free)
             lua_pushboolean(L, 1);
             return 1;
         }

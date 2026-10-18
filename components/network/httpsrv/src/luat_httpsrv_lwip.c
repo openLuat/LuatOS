@@ -31,6 +31,8 @@
 extern int g_httpsrv_debug;
 #define HTTPSRV_DBG(...) if (g_httpsrv_debug) LLOGD(__VA_ARGS__)
 
+#define HTTPSRV_MAX_REQ_BUFF (64 * 1024) // 单条请求(头+体)的接收上限, 与 body 上限同一量级
+
 static int lwip_cli_serve_static(client_socket_ctx_t* client, const char* path, size_t len);
 
 //================================
@@ -86,11 +88,13 @@ static void lwip_cli_cleanup(client_socket_ctx_t* client) {
 // Lua 回调在 Lua 线程跑完, 这里把写操作切回 tcpip 线程
 static void client_dispatch_cb(void* arg) {
     client_socket_ctx_t* client = (client_socket_ctx_t*)arg;
-    if (client->discard) {
-        // 回调已被 GC, 不用发响应, 直接回收
+    if (client->discard || client->dead) {
+        // 回调已被 GC 或对端已异常断开, 不用发响应, 直接回收
         luat_httpsrv_client_cleanup(client);
         return;
     }
+    // 从这刻起 Lua 线程不会再碰 client, err 回调可以直接回收
+    client->resp_dispatched = 1;
     luat_httpsrv_send_response(client);
     tcp_output((struct tcp_pcb*)client->hconn);
 }
@@ -126,6 +130,9 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
         return ERR_ABRT;
     }
     HTTPSRV_DBG("tpcb %p p %p len %d err %d", tpcb, p, p->tot_len, err);
+    // 累积式接收: 一条请求可能跨多个 pbuf(TCP 分段)到达, 必须续写而不是覆盖,
+    // 否则前一个分段的内容丢失, parser 只看到最后一个分段必然解析失败.
+    // 总量设上限, 防"只发头部不收尾"把堆耗尽(与 body 64KB 上限同一量级).
     if (ctx->buff == NULL) {
         ctx->buff = luat_heap_malloc(p->tot_len);
         if (ctx->buff == NULL) {
@@ -140,29 +147,39 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
         ctx->buff_offset = 0;
         ctx->buff_size = p->tot_len;
     }
-    if (ctx->buff_size < p->tot_len) {
-        char* ptr = luat_heap_realloc(ctx->buff, p->tot_len + 1);
-        if (ptr == NULL) {
-            LLOGW("out of memory when realloc client buff %d", p->tot_len);
-            luat_heap_free(ctx->buff);
-            ctx->buff = NULL;
+    if (ctx->buff_offset + p->tot_len > ctx->buff_size) {
+        size_t new_size = ctx->buff_offset + p->tot_len;
+        if (new_size > HTTPSRV_MAX_REQ_BUFF) {
+            LLOGW("request too large, limit %d", HTTPSRV_MAX_REQ_BUFF);
+            pbuf_free(p);
             tcp_arg(tpcb, NULL);
             tcp_abort(tpcb);
             ctx->hconn = NULL;
             luat_httpsrv_client_cleanup(ctx);
             return ERR_ABRT;
         }
-        ctx->buff_offset = 0;
+        char* ptr = (char*)luat_heap_realloc(ctx->buff, new_size);
+        if (ptr == NULL) {
+            LLOGW("out of memory when realloc client buff %d", new_size);
+            pbuf_free(p);
+            tcp_arg(tpcb, NULL);
+            tcp_abort(tpcb);
+            ctx->hconn = NULL;
+            luat_httpsrv_client_cleanup(ctx);
+            return ERR_ABRT;
+        }
         ctx->buff = ptr;
-        ctx->buff_size = p->tot_len;
+        ctx->buff_size = new_size;
     }
-    pbuf_copy_partial(p, ctx->buff, p->tot_len, 0);
-    ctx->buff_offset = p->tot_len;
-    HTTPSRV_DBG("request %.*s", p->len, p->payload);
+    pbuf_copy_partial(p, ctx->buff + ctx->buff_offset, p->tot_len, 0);
+    size_t feed_offset = ctx->buff_offset;
+    ctx->buff_offset += p->tot_len;
+    HTTPSRV_DBG("request chunk %d bytes, total %d", p->tot_len, ctx->buff_offset);
     tcp_recved(tpcb, p->tot_len);
 
-    // http_parser 已在连接建立时初始化，这里只需执行解析
-    luat_httpsrv_parser_exec(ctx, (const char*)ctx->buff, ctx->buff_offset);
+    // http_parser 已在连接建立时初始化，这里只需执行解析.
+    // 只喂新增的字节, parser 自身跨段续解析
+    luat_httpsrv_parser_exec(ctx, (const char*)ctx->buff + feed_offset, ctx->buff_offset - feed_offset);
     if (ctx->parser.http_errno != HPE_OK) {
         LLOGW("parser errno %d != HPE_OK", ctx->parser.http_errno);
         tcp_arg(tpcb, NULL);
@@ -194,6 +211,9 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
             // tcp_close(tpcb);
             return ERR_OK;
         }
+        // 已派发到 Lua 线程: 本结构的所有权在响应投回 tcpip 线程之前属于 Lua 侧,
+        // err 回调在此期间只准标记 dead, 不得直接回收(否则 Lua 线程 use-after-free)
+        ctx->lua_pending = 1;
     }
     else {
         HTTPSRV_DBG("wait more data");
@@ -265,7 +285,20 @@ static void client_err_cb(void *arg, err_t err) {
         tcp_sent(pcb, NULL);
         tcp_recv(pcb, NULL);
     }
+    // lwIP 调 err 回调时 pcb 已被回收, 之后任何路径都不得再碰 hconn
     client->hconn = NULL;
+    if (client->lua_pending && !client->resp_dispatched) {
+        // 请求已派发到 Lua 线程但响应还没投回 tcpip 线程: Lua 线程仍持有 client 指针,
+        // 现在 free 就是 use-after-free. 只标记 dead, 由 client_dispatch_cb 的出口统一回收
+        client->dead = 1;
+        return;
+    }
+    if (client->lua_pending && client->resp_dispatched) {
+        // 响应已投回 tcpip 线程, Lua 线程不会再碰 client;
+        // pcb 已死 sent_cb 也不会再来, 这里直接收, 否则无人释放
+        luat_httpsrv_client_cleanup(client);
+        return;
+    }
     luat_httpsrv_client_cleanup(client);
 }
 
@@ -289,6 +322,8 @@ static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
     ctx->lua_ref_id = srvctx->lua_ref_id;
     // 在连接建立时初始化 http_parser，而非每次收到数据时
     luat_httpsrv_parser_init(ctx);
+    // 挂在途计数: 保证 stop() 之后本连接仍可使用 lua_ref_id(ref 随 ctx 延迟释放)
+    luat_httpsrv_client_attached(srvctx, ctx);
     tcp_arg(newpcb, ctx);
     tcp_recv(newpcb, client_recv_cb);
     tcp_sent(newpcb, client_sent_cb);
@@ -327,7 +362,9 @@ static void srv_stop_cb(void* arg) {
         }
         ctx->hlisten = NULL;
     }
-    luat_httpsrv_free(ctx);
+    // 注意: 这里不释放 ctx. ctx(连同 lua_ref_id)由 Lua 线程侧延迟释放:
+    // stop() 置 STOPPED 位后若无在途连接则当场释放, 否则等最后一个连接收尾
+    // 经 msgbus 释放(见 luat_httpsrv_client_cleanup)
     if (stop_sem) {
         luat_rtos_semaphore_release(stop_sem);
     }

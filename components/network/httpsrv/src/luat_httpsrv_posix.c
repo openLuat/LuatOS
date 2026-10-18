@@ -115,7 +115,10 @@ static int start_detached_thread(void* (*fn)(void*), void* arg) {
     return ret;
 }
 
-// 最后一个持有者负责释放: posix_srv_t 与它绑定的 ctx 同生共死
+// 最后一个持有者负责释放 srv 本身. 注意 ctx 不在此释放:
+// ctx(连同 lua_ref_id)由 Lua 线程侧延迟释放 —— stop() 置 STOPPED 位后
+// 若无在途连接则当场释放, 否则等最后一个连接收尾经 msgbus 释放.
+// 因此这里释放 srv 后 ctx->priv 成为悬垂指针, stop 返回后无人再使用它.
 static void posix_srv_release(posix_srv_t* srv) {
     pthread_mutex_lock(&srv->lock);
     srv->refcnt--;
@@ -126,7 +129,6 @@ static void posix_srv_release(posix_srv_t* srv) {
     }
     pthread_cond_destroy(&srv->closed_cond);
     pthread_mutex_destroy(&srv->lock);
-    luat_httpsrv_free(srv->ctx);
     luat_heap_free(srv);
     HTTPSRV_DBG("posix srv released");
 }
@@ -286,9 +288,14 @@ static void* posix_client_thread(void* arg) {
         // client->priv 访问 pc 去 signal, 那就是 use-after-free.
         // 正确做法是只关连接, 把 client 与 pc 一起泄漏掉 —— 与 luat_lib_httpsrv.c 里
         // start 超时的处理保持同一口径(宁可泄漏也不能误伤).
+        // 但 client 上挂的在途计数必须归还, 否则已 stop 的服务 ctx 永远等不到释放
         LLOGE("wait lua response timeout, leak client %p", client);
         posix_cli_close(client->hconn);
         client->hconn = NULL;
+        if (srv && srv->ctx) {
+            luat_httpsrv_ctx_client_abandoned(srv->ctx);
+            client->srv_ctx = NULL;
+        }
         goto release;
     }
 
@@ -403,11 +410,13 @@ static void* posix_accept_thread(void* arg) {
         client->priv = pc;
         client->lua_ref_id = ctx->lua_ref_id;
         luat_httpsrv_parser_init(client);
+        // 挂在途计数: 保证 stop() 之后本连接仍可使用 lua_ref_id(ref 随 ctx 延迟释放)
+        luat_httpsrv_client_attached(ctx, client);
 
         if (start_detached_thread(posix_client_thread, client) != 0) {
             LLOGE("start client thread failed");
-            posix_cli_cleanup(client);
-            luat_heap_free(client);
+            // 与 attach 配对的减计数在 luat_httpsrv_client_cleanup 里完成
+            luat_httpsrv_client_cleanup(client);
             pthread_mutex_lock(&srv->lock);
             srv->conn_cnt--;
             srv->refcnt--;

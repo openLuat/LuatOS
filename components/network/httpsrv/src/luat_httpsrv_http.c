@@ -26,6 +26,34 @@
 
 #include "http_parser.h"
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
+
+/* state_word(在途计数|STOPPED 位)的原子操作, 遵循项目惯例:
+ * MSVC 用 _Interlocked 内建(不需要 windows.h), 其余编译器用 __sync 内建 */
+static inline uint32_t httpsrv_word_inc(volatile uint32_t* w) {
+#ifdef _MSC_VER
+    return (uint32_t)_InterlockedIncrement((volatile long*)w);
+#else
+    return __sync_add_and_fetch(w, 1u);
+#endif
+}
+static inline uint32_t httpsrv_word_dec(volatile uint32_t* w) {
+#ifdef _MSC_VER
+    return (uint32_t)_InterlockedDecrement((volatile long*)w);
+#else
+    return __sync_sub_and_fetch(w, 1u);
+#endif
+}
+static inline uint32_t httpsrv_word_or(volatile uint32_t* w, uint32_t bits) {
+#ifdef _MSC_VER
+    return (uint32_t)_InterlockedOr((volatile long*)w, (long)bits);
+#else
+    return __sync_or_and_fetch(w, bits);
+#endif
+}
+
 int g_httpsrv_debug = 0;
 
 #define HTTPSRV_DBG(...) if (g_httpsrv_debug) LLOGD(__VA_ARGS__)
@@ -50,7 +78,7 @@ static const ct_reg_t ct_regs[] = {
     {"jpg",      "image/jpeg"},
     {"png",     "image/png"},
     {"gif",     "image/gif"},
-    {"svg",     "svg+xml"},
+    {"svg",     "image/svg+xml"},
     {"json",    "application/json; charset=utf-8"},
     {"js",      "application/javascript; charset=utf-8"},
     {"css",     "text/css"},
@@ -79,14 +107,17 @@ static const char* ct_find(const char* path) {
 //================================
 // client methods
 
+static int my_on_message_begin(http_parser* parser);
 static int my_on_message_complete(http_parser* parser);
 static int my_on_url(http_parser* parser, const char *at, size_t length);
 static int my_on_header_field(http_parser* parser, const char *at, size_t length);
 static int my_on_header_value(http_parser* parser, const char *at, size_t length);
 static int my_on_body(http_parser* parser, const char *at, size_t length);
 static int luat_client_cb(lua_State* L, void* ptr);
+static int luat_httpsrv_ctx_release_cb(lua_State* L, void* ptr);
 
 static const struct http_parser_settings hp_settings = {
+    .on_message_begin = my_on_message_begin,
     .on_url = my_on_url,
     .on_header_field = my_on_header_field,
     .on_header_value = my_on_header_value,
@@ -149,12 +180,50 @@ void luat_httpsrv_client_cleanup(client_socket_ctx_t* client) {
     if (client == NULL) {
         return;
     }
+    luat_httpsrv_ctx_t* srv = client->srv_ctx;
     if (client->vt) {
         client->vt->cli_cleanup(client);
     }
     luat_httpsrv_free_common(client);
     HTTPSRV_DBG("free client %p", client);
     luat_heap_free(client);
+    // 归还在途计数. 若这是最后一个收尾的连接且服务已 stop,
+    // ctx 的 unref+free 交给 Lua 线程(msgbus), 本函数可能跑在后端线程, 不能 luaL_unref
+    if (srv) {
+        uint32_t r = httpsrv_word_dec(&srv->state_word);
+        if ((r & HTTPSRV_CTX_STOPPED_BIT) && (r & ~HTTPSRV_CTX_STOPPED_BIT) == 0) {
+            rtos_msg_t msg = {
+                .handler = luat_httpsrv_ctx_release_cb,
+                .ptr = srv
+            };
+            if (luat_msgbus_put(&msg, 0) != 0) {
+                LLOGE("httpsrv ctx release msg put failed, leak ctx %p", srv);
+            }
+        }
+    }
+}
+
+void luat_httpsrv_client_attached(luat_httpsrv_ctx_t* ctx, client_socket_ctx_t* client) {
+    client->srv_ctx = ctx;
+    httpsrv_word_inc(&ctx->state_word);
+}
+
+int luat_httpsrv_ctx_mark_stopped(luat_httpsrv_ctx_t* ctx) {
+    uint32_t r = httpsrv_word_or(&ctx->state_word, HTTPSRV_CTX_STOPPED_BIT);
+    return (r & ~HTTPSRV_CTX_STOPPED_BIT) == 0;
+}
+
+void luat_httpsrv_ctx_client_abandoned(luat_httpsrv_ctx_t* ctx) {
+    uint32_t r = httpsrv_word_dec(&ctx->state_word);
+    if ((r & HTTPSRV_CTX_STOPPED_BIT) && (r & ~HTTPSRV_CTX_STOPPED_BIT) == 0) {
+        rtos_msg_t msg = {
+            .handler = luat_httpsrv_ctx_release_cb,
+            .ptr = ctx
+        };
+        if (luat_msgbus_put(&msg, 0) != 0) {
+            LLOGE("httpsrv ctx release msg put failed, leak ctx %p", ctx);
+        }
+    }
 }
 
 //================================
@@ -184,7 +253,9 @@ void luat_httpsrv_send_response(client_socket_ctx_t* client) {
     snprintf(buff, sizeof(buff), "HTTP/1.0 %d %s\r\n", code, msg);
     client->vt->cli_send(client, buff, strlen(buff));
 
-    snprintf(buff, sizeof(buff), "Content-Length: %zu\r\n", body_size);
+    // 固件 SDK 的 printf 不支持 %zu 长度修饰符(实测输出字面 "zu", 导致
+    // 严格 HTTP 客户端报 Invalid Content-Length), 这里用 %u + unsigned 截断
+    snprintf(buff, sizeof(buff), "Content-Length: %u\r\n", (unsigned)body_size);
     client->vt->cli_send(client, buff, strlen(buff));
     client->vt->cli_send(client, "Connection: close\r\n", strlen("Connection: close\r\n"));
     if (headers && strlen(headers)) {
@@ -204,7 +275,8 @@ void luat_httpsrv_send_static_head(client_socket_ctx_t* client, const char* path
     HTTPSRV_DBG("sending %s", path);
     char *buff = client->sbuff;
     client->vt->cli_send(client, "HTTP/1.0 200 OK\r\n", strlen("HTTP/1.0 200 OK\r\n"));
-    snprintf(buff, sizeof(client->sbuff), "Content-Length: %zu\r\n", len);
+    // 同 send_response: SDK printf 不支持 %zu, 用 %u + unsigned(文件不可能超 4GB)
+    snprintf(buff, sizeof(client->sbuff), "Content-Length: %u\r\n", (unsigned)len);
     client->vt->cli_send(client, buff, strlen(buff));
     client->vt->cli_send(client, "X-Powered-By: LuatOS\r\n", strlen("X-Powered-By: LuatOS\r\n"));
     const char* ctype = ct_find(path);
@@ -244,18 +316,24 @@ void luat_httpsrv_send_static_head(client_socket_ctx_t* client, const char* path
 
 // 把 uri 解析成实际文件路径. 命中返回 1 并填充 path_out/out_len.
 int luat_httpsrv_resolve_static(client_socket_ctx_t* client, char* path_out, size_t path_size, size_t* out_len) {
-    if (strlen(client->uri) < 1 || strlen(client->uri) > 200) {
+    // 静态路由只看路径部分: query string(如 /style.css?v=1 的 cache-busting 参数)不参与文件查找,
+    // 但完整 uri 仍原样传给 Lua 回调, 用户脚本可自取参数
+    const char* q = strchr(client->uri, '?');
+    size_t uri_len = q ? (size_t)(q - client->uri) : strlen(client->uri);
+    if (uri_len < 1 || uri_len > 200) {
         // 太长就不支持了
         HTTPSRV_DBG("path too long [%s] > 200", client->uri);
         return 0;
     }
+    char uri_path[201] = {0};
+    memcpy(uri_path, client->uri, uri_len);
     // 检查路径遍历攻击
-    if (strstr(client->uri, "..") != NULL) {
+    if (strstr(uri_path, "..") != NULL) {
         LLOGW("path traversal attack detected: %s", client->uri);
         return 0;
     }
     char path[256] = {0};
-    const char* uri_to_use = strlen(client->uri) == 1 ? "/index.html" : client->uri;
+    const char* uri_to_use = uri_len == 1 ? "/index.html" : uri_path;
     int ret = snprintf(path, sizeof(path), "/luadb%s", uri_to_use);
     if (ret < 0 || ret >= sizeof(path)) {
         LLOGW("path buffer overflow prevented");
@@ -311,8 +389,10 @@ int luat_httpsrv_dispatch_request(client_socket_ctx_t* client) {
 static int luat_client_cb(lua_State* L, void* ptr) {
     client_socket_ctx_t* client = (client_socket_ctx_t*)ptr;
     lua_geti(L, LUA_REGISTRYINDEX, client->lua_ref_id);
-    if (lua_isnil(L, -1)) {
-        // 回调函数不存在，需要关闭连接并清理资源
+    if (!lua_isfunction(L, -1)) {
+        // 回调函数不存在(服务已 stop 且 ref 已被回收)或被复用成非函数值,
+        // 需要关闭连接并清理资源. 用 isfunction 而不是 isnil 挡住 ref 槽位复用的情况
+        lua_pop(L, 1);
         client->discard = 1;
         int ret = client->vt->cli_dispatch_resp(client);
         if (ret) {
@@ -434,8 +514,34 @@ int luat_httpsrv_free(luat_httpsrv_ctx_t* ctx) {
     return 0;
 }
 
+// ctx 延迟释放的出口, 只在 Lua 线程执行(msgbus).
+// 走到这里说明 listen 已停且最后一个在途连接也已收尾, lua_ref 可以安全 unref
+static int luat_httpsrv_ctx_release_cb(lua_State* L, void* ptr) {
+    luat_httpsrv_ctx_t* ctx = (luat_httpsrv_ctx_t*)ptr;
+    if (ctx->lua_ref_id != LUA_NOREF) {
+        luaL_unref(L, LUA_REGISTRYINDEX, ctx->lua_ref_id);
+        ctx->lua_ref_id = LUA_NOREF;
+    }
+    HTTPSRV_DBG("httpsrv ctx released %p", ctx);
+    return luat_httpsrv_free(ctx);
+}
+
 //================================
 // http_parser 回调
+
+static int my_on_message_begin(http_parser* parser) {
+    client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
+    if (client->recv_done) {
+        // 流水线里的后续消息: 本条连接只处理一个请求, 保留已收完的 uri
+        return 0;
+    }
+    // 新的一条请求开始: 重置上一条的 uri 累积状态
+    if (client->uri) {
+        luat_heap_free(client->uri);
+        client->uri = NULL;
+    }
+    return 0;
+}
 
 static int my_on_message_complete(http_parser* parser) {
     HTTPSRV_DBG("on_message_complete");
@@ -450,26 +556,31 @@ static int my_on_message_complete(http_parser* parser) {
 
 static int my_on_url(http_parser* parser, const char *at, size_t length) {
     HTTPSRV_DBG("on_header_url %p %d", at, length);
+    client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
+    if (client->recv_done) {
+        // 同一条连接上流水线带了下一个请求: 当前实现一条连接只处理一个请求,
+        // 忽略后续请求的 url, 保留本条 uri 供即将进行的 dispatch
+        return 0;
+    }
     if (length > 1024) {
         LLOGW("request URL is too long!!! %d", length);
         return HPE_INVALID_URL;
     }
-    client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
-    // URL 跨 TCP 分段或同一条连接上流水线发了多个请求时, 本回调会被调用多次,
-    // 不先释放就会泄漏上一份 uri.
-    if (client->uri) {
-        luat_heap_free(client->uri);
-        client->uri = NULL;
+    // 同一条消息的 URL 可能分多个 chunk 到达(跨 TCP 分段), 必须累积而不是覆盖,
+    // 否则只剩最后一段, dispatch 拿到的就是残缺的 uri
+    size_t old_len = client->uri ? strlen(client->uri) : 0;
+    if (old_len + length > 1024) {
+        LLOGW("request URL is too long!!! %d", old_len + length);
+        return HPE_INVALID_URL;
     }
-    client->uri = luat_heap_malloc(length + 1);
-    if (client->uri) {
-        memcpy(client->uri, at, length);
-        client->uri[length] = 0;
-    }
-    else {
+    char* ptr = (char*)luat_heap_realloc(client->uri, old_len + length + 1);
+    if (ptr == NULL) {
         LLOGE("fail to malloc uri!!!");
         return HPE_INVALID_URL;
     }
+    client->uri = ptr;
+    memcpy(ptr + old_len, at, length);
+    ptr[old_len + length] = 0;
     return 0;
 }
 

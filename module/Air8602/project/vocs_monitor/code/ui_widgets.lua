@@ -122,8 +122,8 @@ function W.bar(parent, x, y, w, h, pct, color, bg)
     })
 end
 
--- 芯片（带可选脉冲圆点）
-function W.chip(parent, x, y, w, text, running, T)
+-- 芯片（带可选脉冲圆点）；on_click 为可选点击回调（如顶栏「运行中」状态组件）
+function W.chip(parent, x, y, w, text, running, T, on_click)
     local c = airui.container({
         parent = parent,
         x = W.d(x), y = W.d(y), w = W.d(w), h = W.d(28),
@@ -131,6 +131,7 @@ function W.chip(parent, x, y, w, text, running, T)
         color = running and T.accent_soft or T.chip_bg,
         border_color = running and T.cyan or T.ring,
         border_width = 1,
+        on_click = on_click,
     })
     local tx = 11
     if running then

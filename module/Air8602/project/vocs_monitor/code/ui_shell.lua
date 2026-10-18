@@ -289,7 +289,12 @@ local function build_topbar(T)
     top.clock = W.label(root, screen_w - 116, 18, 100, 22, "--:--:--", 15.5, T.text_bright,
         airui.TEXT_ALIGN_RIGHT)
     top.chip_method = W.chip(root, screen_w - 256, 16, 126, "方法 VOC-58", false, T)
-    top.chip_run = W.chip(root, screen_w - 354, 16, 84, "运行中", true, T)
+    -- 「运行中」状态组件：点击进入窗口深度测试的第 1 级窗口（ui_depth）
+    top.chip_run = W.chip(root, screen_w - 354, 16, 84, "运行中", true, T, function()
+        -- 日志保持短 ASCII：Air8602 日志口会把单行截断，中文日志基本只剩前缀
+        log.info("ui_shell", "click depth")
+        sys.publish("OPEN_VOCS_DEPTH_WIN")
+    end)
 end
 
 -- ================= 左侧导航 =================

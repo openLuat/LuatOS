@@ -23,6 +23,11 @@ require "ui_chrom"
 require "ui_ms"
 require "ui_data"
 require "ui_settings"
+-- 窗口深度测试（require 即订阅 OPEN_VOCS_DEPTH_WIN；点击顶栏「运行中」进入第 1 级）
+-- require "ui_depth"
+
+-- RAM 使用情况监控（require 即启动，每秒打印一行 sys / lua / psram）
+-- require "ram_monitor"
 
 -- 数据层（模拟数据源，周期性广播 VOCS_DATA）
 local mock_data = require "mock_data"

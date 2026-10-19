@@ -80,29 +80,29 @@ local function gnss_fnc()
     --设置gnss参数
     exgnss.setup(gnssotps)
     --开启gnss应用
-    -- exgnss.open(exgnss.TIMER,{tag="modeTimer",val=60,cb=mode1_cb})  --使用TIMER模式，开启60s后关闭
+    exgnss.open(exgnss.TIMER,{tag="modeTimer",val=60,cb=mode1_cb})  --使用TIMER模式，开启60s后关闭
     exgnss.open(exgnss.DEFAULT,{tag="modeDefault",cb=mode2_cb}) --使用DEFAULT模式，开启后一直运行  
-    -- exgnss.open(exgnss.TIMERORSUC,{tag="modeTimerorsuc",val=60,cb=mode3_cb})    --使用TIMERORSUC模式，开启60s，如果定位成功，则直接关闭
-    -- sys.wait(40000)
-    -- log.info("关闭一个gnss应用，然后查看下所有应用的状态")
-    -- --关闭一个gnss应用
-    -- exgnss.close(exgnss.TIMER,{tag="modeTimer"})--关闭tag为modeTimer应用
-    -- --查询3个gnss应用状态
-    -- log.info("gnss应用状态1",exgnss.is_active(exgnss.TIMER,{tag="modeTimer"}))
-    -- log.info("gnss应用状态2",exgnss.is_active(exgnss.DEFAULT,{tag="modeDefault"}))
-    -- log.info("gnss应用状态3",exgnss.is_active(exgnss.TIMERORSUC,{tag="modeTimerorsuc"}))
-    -- sys.wait(10000)
-    -- --关闭所有gnss应用
-    -- exgnss.close_all()
-    -- --查询3个gnss应用状态
-    -- log.info("gnss应用状态1",exgnss.is_active(exgnss.TIMER,{tag="modeTimer"}))
-    -- log.info("gnss应用状态2",exgnss.is_active(exgnss.DEFAULT,{tag="modeDefault"}))
-    -- log.info("gnss应用状态3",exgnss.is_active(exgnss.TIMERORSUC,{tag="modeTimerorsuc"}))
-    -- --查询最后一次定位结果
-    -- local loc= exgnss.last_loc()
-    -- if loc then
-    --     log.info("lastloc", loc.lat,loc.lng)
-    -- end
+    exgnss.open(exgnss.TIMERORSUC,{tag="modeTimerorsuc",val=60,cb=mode3_cb})    --使用TIMERORSUC模式，开启60s，如果定位成功，则直接关闭
+    sys.wait(40000)
+    log.info("关闭一个gnss应用，然后查看下所有应用的状态")
+    --关闭一个gnss应用
+    exgnss.close(exgnss.TIMER,{tag="modeTimer"})--关闭tag为modeTimer应用
+    --查询3个gnss应用状态
+    log.info("gnss应用状态1",exgnss.is_active(exgnss.TIMER,{tag="modeTimer"}))
+    log.info("gnss应用状态2",exgnss.is_active(exgnss.DEFAULT,{tag="modeDefault"}))
+    log.info("gnss应用状态3",exgnss.is_active(exgnss.TIMERORSUC,{tag="modeTimerorsuc"}))
+    sys.wait(10000)
+    --关闭所有gnss应用
+    exgnss.close_all()
+    --查询3个gnss应用状态
+    log.info("gnss应用状态1",exgnss.is_active(exgnss.TIMER,{tag="modeTimer"}))
+    log.info("gnss应用状态2",exgnss.is_active(exgnss.DEFAULT,{tag="modeDefault"}))
+    log.info("gnss应用状态3",exgnss.is_active(exgnss.TIMERORSUC,{tag="modeTimerorsuc"}))
+    --查询最后一次定位结果
+    local loc= exgnss.last_loc()
+    if loc then
+        log.info("lastloc", loc.lat,loc.lng)
+    end
 end
 
 sys.taskInit(gnss_fnc)

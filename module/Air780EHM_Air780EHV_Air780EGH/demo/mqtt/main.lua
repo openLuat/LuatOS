@@ -79,7 +79,7 @@ require "netdrv_device"
 -- 加载串口应用功能模块
 require "uart_app"
 -- 加载定时器应用功能模块
--- require "timer_app"
+require "timer_app"
 
 -- 加载mqtt client 主应用功能模块
 require "mqtt_main"

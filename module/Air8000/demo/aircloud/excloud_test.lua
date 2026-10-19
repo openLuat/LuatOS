@@ -106,7 +106,7 @@ function excloud_task_func()
     local ok, err_msg = excloud.setup({
         use_getip = true, -- 使用getip服务
         device_type = 1,   -- 4G设备
-        auth_key = "JQtKg5M7h8HTMw8CgqMpRh77hySLlUwx",
+        auth_key = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi",
         transport = "tcp",       -- 使用TCP传输
         auto_reconnect = true,   -- 自动重连
         reconnect_interval = 10, -- 重连间隔(秒)

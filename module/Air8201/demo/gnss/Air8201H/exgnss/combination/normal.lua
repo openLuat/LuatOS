@@ -117,7 +117,7 @@ local function gnss_fnc()
         -- 可选值：1-100，不开启该内容则表示不开启静态抑制，不管速度值多少，都上报原本的定位数据，单位：cm/s,
         -- 也就是说如果设置最大速度值为100cm/s，100cm/s=1m/s=3.6km/h，如果速度值小于100cm/s，gnss会持续上报最后一条定位数据
         -- 直到速度值大于100cm/s，才上报新的定位数据，这样做可以避免在静止状态下，gnss会有静态飘移的情况，导致定位数据不准确
-       -- static=100
+        -- static=100
     }
     exgnss.setup(gnssotps)  --配置GNSS参数
     exgnss.open(exgnss.TIMER,{tag="normal",val=60,cb=normal_cb}) --打开一个60s的TIMERORSUC应用，该模式定位成功关闭

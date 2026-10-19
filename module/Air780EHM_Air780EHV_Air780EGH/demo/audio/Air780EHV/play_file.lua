@@ -66,7 +66,7 @@ local audio_play_param ={
                             -- 如果是播放文件,支持mp3,amr,wav格式
                             -- 如果是tts,内容格式见:https://docs.openluat.com/osapi/ext/exaudio/#tts_2
                             -- 流式播放，支持PCM/MP3/AMR/WAV格式,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
-    content = "/luadb/imhere.mp3",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
+    content = "/luadb/sample-6s.mp3",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
     cbfnc = play_end,            -- 播放完毕回调函数
 }
 
@@ -113,7 +113,7 @@ local function audio_task()
             if msg[2] ==  "NEXT_AUDIO" then  
                 
                 if index_number %2 == 0 then     --  切换音频路径
-                    audio_path = "/luadb/imhere.mp3"
+                    audio_path = "/luadb/sample-6s.mp3"
                 else
                     audio_path = "/luadb/10.amr"
                 end

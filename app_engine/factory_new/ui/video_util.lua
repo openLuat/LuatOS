@@ -445,6 +445,7 @@ local function wrap_mp4_player(v)
         play = function(self, ...)
             local r = v:play(...)
             self.paused = false
+            pa_set(true)            -- PA_EN 跟随播放：起播开功放
             -- 续播/循环重播会重启音频通路，再次重置总线
             tp_bus_settle()
             return r
@@ -452,12 +453,14 @@ local function wrap_mp4_player(v)
         pause = function(self, ...)
             local r = v:pause(...)
             self.paused = true
+            pa_set(false)           -- PA_EN 跟随暂停：暂停关功放
             M.tp_bus_restore()
             return r
         end,
         stop = function(self, ...)
             local r = v:stop(...)
             self.paused = true
+            pa_set(false)           -- PA_EN 跟随停止：停止关功放
             M.tp_bus_restore()
             return r
         end,
@@ -539,11 +542,21 @@ function M.create_player(path, o)
     重播与组件内部循环同为「play 从头重播」路径，画面无差异；
     用户暂停中不续播（paused 状态由包装层维护）。]]
     local player_obj = nil
-    if fmt == "mp4" and o.loop then
-        vcfg.loop = false
-        vcfg.on_complete = function()
-            if player_obj and not player_obj.paused then
-                player_obj:play()
+    if fmt == "mp4" then
+        if o.loop then
+            vcfg.loop = false
+            vcfg.on_complete = function()
+                -- 应用层续播：走包装层 play，PA 与触摸总线恢复自动跟上
+                if player_obj and not player_obj.paused then
+                    player_obj:play()
+                end
+            end
+        else
+            -- 单次播完（EOF）：关功放，再回调调用方（翻播放状态/刷控制栏）
+            local user_complete = vcfg.on_complete
+            vcfg.on_complete = function()
+                pa_set(false)
+                if user_complete then user_complete() end
             end
         end
     end

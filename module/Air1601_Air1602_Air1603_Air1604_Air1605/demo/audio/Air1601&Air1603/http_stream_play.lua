@@ -147,7 +147,30 @@ local function http_callback(total_len, recv_len, recv_data)
             -- AMR/MP3/WAV：先缓冲数据，解析文件头获取真实采样率/声道数
             table.insert(warm_buf, recv_data)
             local combined = table.concat(warm_buf)
-            local info = exaudio.parse_audio_info(combined, need_header_parse, parse_pos)
+            -- 缓冲数据模式下 parse_audio_info 不会自动重试：返回 sample_rate:0 + data_start 表示需推进位置继续解析。
+            -- 服务端常以单个 chunk 一次性返回全部数据，不会再触发“下一包回调”，
+            -- 若只等下一包会永远卡死在 sys.waitUntil("PLAYBACK_DONE")；故必须就地在已缓冲数据上按 data_start 推进重试。
+            -- 头部若带 ID3v2 标签（"ID3" 开头），先按标签长度跳过，使首包即定位到 MP3 帧，避免重复解析/重复打印 ID3 日志
+            -- ID3v2 头：3字节"ID3" + 2字节版本 + 1字节flags + 4字节syncsafe长度（每字节高位置0）。
+            if combined:sub(1, 3) == "ID3" then
+                local c7, c8, c9, c10 = combined:byte(7, 10)
+                if c7 and c8 and c9 and c10 then
+                    local tag_len = (c7 % 128) * 0x200000 + (c8 % 128) * 0x4000 + (c9 % 128) * 0x80 + (c10 % 128)
+                    parse_pos = 10 + tag_len
+                end
+            end
+            -- 单点调用 parse_audio_info 并就地按 data_start 推进重试，
+            -- 数据一次性到达时也不会死等“下一包”；guard 上限 + 位置不前进即退出，防止异常死循环。
+            local info
+            local guard = 0
+            while guard < 32 do
+                info = exaudio.parse_audio_info(combined, need_header_parse, parse_pos)
+                guard = guard + 1
+                if not (info and info.sample_rate == 0) then break end
+                local next_pos = info.data_start or (parse_pos + chunk_size)
+                if next_pos <= parse_pos or next_pos >= #combined then break end
+                parse_pos = next_pos
+            end
             if info and info.sample_rate and info.sample_rate > 0 then
                 play_sr = info.sample_rate
                 play_bits = info.data_bits or play_bits
@@ -178,7 +201,6 @@ local function http_callback(total_len, recv_len, recv_data)
                     log.info("stream", "写入首块纯音频:", #all_data, "字节")
                 end
             elseif info and info.sample_rate == 0 then
-                parse_pos = info.data_start or (parse_pos + chunk_size)
                 log.info("stream", "头解析需继续缓冲")
             else
                 log.error("stream", "文件头解析失败")
@@ -277,11 +299,14 @@ local function play_task()
 
     local http_elapsed = mcu.ticks2() - stats_http_start_tick
     local http_elapsed_ms = ticks_to_ms(http_elapsed)
+    -- 下载可能在 1 个 tick(<1ms)内完成导致 http_elapsed_ms 为 0，除零会得到 inf，这里加保护
+    local http_speed = (http_elapsed_ms and http_elapsed_ms > 0)
+        and math.floor(stats_http_total * 1000 / http_elapsed_ms) or 0
     log.info("stat_summary",
         "http_total:", stats_http_total,
         "http_chunks:", stats_http_chunks,
         "http_time_ms:", http_elapsed_ms,
-        "http_speed:", math.floor(stats_http_total * 1000 / http_elapsed_ms), "B/s")
+        "http_speed:", http_speed, "B/s")
 
     -- 通知流式数据已全部写入，可以结束
     exaudio.finish()

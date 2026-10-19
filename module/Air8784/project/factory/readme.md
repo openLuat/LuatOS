@@ -306,7 +306,7 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 | SOS 按键 | GPIO20 | `KEY,20,1#` 开启后按下/松开上报 `KEY20_PRESS#` / `KEY20_RELEASE#` |
 | UP 按键 | GPIO21 | `KEY,21,1#` 开启后上报 `KEY21_PRESS#` / `KEY21_RELEASE#` |
 | 电池电压 | ADC `CH_VBAT` | `VBAT#` 读 |
-| 充电电压 | ADC0 | `CHG#` 读（若前端有分压需按电路换算） |
+| 电池电压(ADC0 分压) | ADC0 | `CHG#` 读，BAT 经 R33(1MΩ)+R34(300kΩ) 分压，读数 ×13/3×1.0345(单点校准) 还原为电池电压(mV)；CHRG 未引主控 GPIO，充电中状态读不出 |
 | Air1103 供电 | GPIO22 | 进产测时已拉高；UART1 固定 2M 波特率 |
 
 ### 3. 指令列表
@@ -322,7 +322,7 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 | `CSQ#` | 信号强度 | 数字#（0=无信号）/ ERROR# |
 | `MUID#` | 模组唯一标识 | 非空# / ERROR# |
 | `VBAT#` | 电池电压 | 电压值(mV，两位小数)# / ERROR# |
-| `CHG#` | 充电电压 | 电压值(mV)#（前端分压需换算） |
+| `CHG#` | 电池电压(ADC0 分压) | 电压值(mV)#，BAT 经 R33(1MΩ)+R34(300kΩ) 分压，读数 ×13/3×1.0345 校准还原；ADC0 需先 `adc.setRange(ADC_RANGE_1_2)` 再 open |
 | `LED,1#` / `LED,0#` | 三灯同亮/同灭（GPIO24/26/27） | OK# |
 | `ECNPICFG#` | RF 校准标志位（只读） | `true#` / `false#` / ERROR# |
 | `FLYMODE,1#` / `FLYMODE,0#` | 飞行模式 进入/退出（仅主 LTE，`mobile.flymode`） | `OK#` / 参数非 0/1 回 `ERROR#` |
@@ -381,7 +381,7 @@ VERSION#                  校验固件版本
 IMEI#  IMSI#  ICCID#      记录三码
 CSQ#                      判信号强度阈值
 ECNPICFG#                 必须为 true#
-VBAT#  CHG#               电池与充电电压
+VBAT#  CHG#               电池电压(VBAT 供电 / ADC0 分压校准)
 LED,1# → 目视 → LED,0#    三灯同亮同灭
 KEY,20,1# → 按 SOS → 收 KEY20_PRESS# → KEY,20,0#
 KEY,21,1# → 按 UP  → 收 KEY21_PRESS# → KEY,21,0#

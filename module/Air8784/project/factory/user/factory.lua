@@ -12,7 +12,7 @@
   - 飞行模式: FLYMODE,<1/0># 进入/退出(mobile.flymode, 仅主 LTE)
   - LED: 主LED GPIO24 + SMS_LED GPIO26 + NET_STATUS GPIO27, 一条指令同开同关
   - 按键: soc 按键 GPIO20, up 按键 GPIO21 (KEY,<pin>,<onoff># 开启/关闭, 按下上报 KEY20_PRESS#/KEY21_PRESS#)
-  - 充电: ADC0 检测充电芯片电压(TP4055, 无充电控制脚), CHG# 返回电压值
+  - 充电: ADC0 检测电池电压(BAT 经 R33 1MΩ + R34 300kΩ 分压，读数 ×13/3×1.0345 单点校准还原)，CHG# 返回电池电压(mV)；充电状态 CHRG 未引主控 GPIO，充电视状态读不出
   - 音频: Air1103 语音芯片(GPIO22 供电, UART1 2M 波特率, 仅 PCM), RECORD#/PLAY#
 写号使用 prodmeta 库写入 OTP（key: PROD=工业型号, PCB=硬件版本）。
 校准位读取用 mobile.ecnpicfg() 只读接口。
@@ -237,13 +237,18 @@ local procTable = {
         return string.format("%.2f", vbat)
     end,
     ["CHG"] = function(id, findCom, data)
-        -- 充电芯片电压：ADC0 直读，返回 mV。充电无需控制(TP4055 无控制脚)。
-        -- 注：如 ADC0 前端有分压电阻，此处需按实际电路换算，当前直接返回 ADC0 读数(mV)
+        local CHG_CAL = 1.0345
+        if adc.setRange then
+            local r = adc.ADC_RANGE_1_2 or adc.ADC_RANGE_MIN
+            if r then adc.setRange(r) end
+        end
         adc.open(0)
         local v = adc.get(0)
         adc.close(0)
         if not v then return "ERROR" end
-        return v
+        local mv = v * 13 / 3 * CHG_CAL
+        log.info("factory.chg", "ADC0 原始读数(mV)", v, "电池电压(mV)", mv)
+        return string.format("%.2f", mv)
     end,
     ["LED"] = function(id, findCom, data)
         -- 一条指令同时打开/关闭三个灯(LED/SMS_LED/NET_STATUS)

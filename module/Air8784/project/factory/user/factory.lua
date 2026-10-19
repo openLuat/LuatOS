@@ -20,6 +20,7 @@
 
 local factory = {}
 local prodmeta = require("prodmeta")
+local retest = require("retest")
 
 log.info("测试模式", "启动中")
 
@@ -82,8 +83,6 @@ sys.taskInit(function()
     local exaudio = require("exaudio")
     local audioInited = false
 
-    -- 上电 2 秒后再操作 Air1103：避开开机初期外设/网络初始化的资源冲突
-    sys.wait(2000)
     -- 打开 Air1103 供电并初始化
     gpio.setup(AUDIO_EN_PIN, 1)
     sys.wait(200) -- 等 Air1103 上电稳定
@@ -342,7 +341,7 @@ local procTable = {
         return v or "ERROR"
     end,
     ["RST"] = function(id, findCom, data)
-        -- 单独重启（RST#）：不写 test_done，收到即重启（500ms 延时确保 OK# 回复发出）
+        -- 单独重启（RST#）：不改变产测/返工状态，收到即重启（500ms 延时确保 OK# 回复发出）
         log.info("factory", "重启设备")
         sys.taskInit(function()
             sys.wait(500)
@@ -351,13 +350,33 @@ local procTable = {
         return "OK"
     end,
     ["TEST_DONE"] = function(id, findCom, data)
-        -- 清理外设再写入完成标记(reboot 前)
+        -- 清理外设(reboot 前)
         pcall(gpio.setup, AUDIO_EN_PIN, 0)
         led(0)
         smsLed(0)
         netStatusLed(0)
-        fskv.set("test_done", true)
-        log.info("测试完成，已保存状态，3秒后重启")
+        if retest.is_rework() then
+            -- 返工产测：仅删除返工标记(不动 OTP1)，重启后 OTP1 有值 -> 正常模式
+            if not retest.clear_rework() then
+                log.error("factory", "清除返工标记失败")
+                return "ERROR"
+            end
+            log.info("factory", "返工产测完成，已清除返工标记，3秒后重启")
+        else
+            -- 首次产测：校验/补写 OTP1(型号 PROD、硬件版本 PCB、IMEI) 并读回
+            local prod = prodmeta.get("PROD")
+            if not prod or prod == "" then
+                log.error("factory", "型号(PROD)未写入，无法完成首次产测")
+                return "ERROR"
+            end
+            local imei = mobile.imei()
+            if imei and imei ~= "" and prodmeta.get("IMEI") ~= imei then
+                local ok, err = prodmeta.set("IMEI", imei)
+                if not ok then log.error("factory", "写IMEI失败", err) end
+            end
+            log.info("factory", "首次产测完成，OTP1 型号/硬件版本/IMEI",
+                prod, prodmeta.get("PCB"), prodmeta.get("IMEI"), "3秒后重启")
+        end
         sys.timerStart(pm.reboot, 3000)
         return "OK"
     end,
@@ -410,6 +429,23 @@ uart.on(usbTrans, "receive", function(id, len)
             break
         end
         usbRxCache = usbRxCache .. data
+        -- 先处理 MODEL_RETEST#CONFIRM / MODEL_RETEST?：其 # 为"命令/数据"分隔符，
+        -- 与产测指令表"命令,数据#"的 # 结束符不同，故在通用 proc 之前单独解析。
+        while true do
+            local kind, rest = retest.parse(usbRxCache)
+            if not kind then
+                break
+            end
+            usbRxCache = rest
+            local reply = retest.apply(kind)
+            if reply then
+                table.insert(cacheTable, { transId = usbTrans, data = reply .. "#" })
+                sys.publish("DATA_SEND")
+            end
+            if kind == "confirm" then
+                sys.taskInit(function() sys.wait(500); pm.reboot() end)
+            end
+        end
         while true do
             result, usbRxCache = proc(usbTrans, usbRxCache)
             if not result then

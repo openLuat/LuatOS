@@ -34,14 +34,15 @@ factory/
     ├── sensor_task.lua      # 硬件 I2C1 传感器采集（SHT30 + VOC，独立容错）
     ├── AirSHT30_1000.lua    # SHT30 驱动（open(bus) 兼容硬件 I2C id）
     ├── AirVOC_1000.lua      # AGS02MA VOC 驱动（open(bus) 兼容硬件 I2C id）
-    ├── libfota3.lua         # FOTA 升级库
-    ├── update.lua           # 升级任务（开机检测 + 每 8h）
+    ├── update.lua           # 升级任务（开机检测 + 每 8h，libfota3 走默认库）
     ├── irtu.cfg             # 预置配置（烧录到 /luadb/irtu.cfg）
     ├── irtu.json            # 配置参考（可导入 iRTU 配置工具）
     └── README.md
 ```
 
 > 依赖：`../lib/` 下的 iRTU 扩展库（db/dtulib 等），与标准 iRTU 相同。
+>
+> 注：`libfota3` 直接引用 `script/libs` 默认扩展库，本目录不再放副本；LuaTools 烧录时务必勾选「添加默认 lib」。
 
 ## 三、开机流程
 
@@ -105,7 +106,7 @@ factory/
 
 ## 八、使用说明
 
-1. 用 Luatools 将本工程 `user/` 目录 + `lib/` 扩展库一并烧录到 Air780EPM。
+1. 用 Luatools 将本工程 `user/` 目录 + `lib/` 扩展库一并烧录到 Air780EPM，**务必勾选「添加默认 lib」**（libfota3 等公共库由默认库提供）。
 2. 修改 `irtu.cfg` 中的 AuthKey 为实际 AirCloud 项目密钥。
 3. 开机即进入正常 AirCloud 上报模式，每 180s 结构化上报一次（含信号/IMEI/CPU温度/温湿度/VOC/LBS 经纬度），UART1 透传。
 4. FOTA：`PROJECT = "Air780EPMFactory"`、`VERSION`、`PRODUCT_KEY` 决定升级目标，改名/换项目时需同步（见 main.lua、update.lua）。

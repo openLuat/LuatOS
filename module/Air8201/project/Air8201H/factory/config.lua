@@ -118,7 +118,7 @@ config.USB_POWER_FOLLOW_CHARGE = true
 
 -- 看门狗配置（Air153C 硬件看门狗）
 -- 硬件接线：AGPIO24 → NPN → WTDOG（见 exair153x_wdt 库注释）
--- 默认开启：喂狗 GPIO24，周期 180 秒（Air153C 超时固定 240s，喂狗周期需 >150s）
+-- 默认开启：喂狗 GPIO24，周期 180 秒（Air153C 超时固定 240s，喂狗周期需显著小于该值）
 config.WDT_CONFIG = {
     ENABLE = BP.wdt.enable == true,          -- 是否启用看门狗（由板级能力决定）
     -- ⚠️ 上面那句「AGPIO24 → NPN → WTDOG」描述的是 **8202 的接线**，**不可外推到 8201G**：
@@ -126,7 +126,7 @@ config.WDT_CONFIG = {
     --    GPIO24 是 G-Sensor 供电，接 V_BCKP**（`gsensor.power_pin = 24` 正确）。
     --    曾据本行注释误判 8201G 的 24 脚角色（看门狗喂狗脚），故在此显式标注以免再犯。
     FEED_PIN = BP.wdt.feed_pin,              -- 喂狗引脚（AGPIO24 → NPN → WTDOG）
-    FEED_INTERVAL = BP.wdt.interval or 180,  -- 喂狗间隔(秒)，需大于150
+    FEED_INTERVAL = BP.wdt.interval or 180,  -- 喂狗间隔(秒)，Air153C 超时 240s，建议 180s
 }
 
 -- 硬件引脚定义（板级派生；其余引脚配置由 profile/各驱动内部管理）

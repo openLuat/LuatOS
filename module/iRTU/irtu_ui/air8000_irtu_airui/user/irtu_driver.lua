@@ -60,16 +60,16 @@ local function netledTask(led)
 end
 
 local function updateNetPins()
-    -- 更新网络引脚
-    if not dtu.pins or not dtu.pins[2] or not driver.pios[dtu.pins[2]] then
+    -- 更新网络引脚（pins[2]=NETRDY；空串/未配置则用默认GPIO26）
+    if not dtu.pins or not dtu.pins[2] or dtu.pins[2] == "" or not driver.pios[dtu.pins[2]] then
         netready = gpio.setup(26, 0)
     else
         netready = gpio.setup(tonumber(dtu.pins[2]:sub(4, -1)), 0)
         driver.pios[dtu.pins[2]] = nil
     end
-    -- 更新网络引脚
+    -- 更新网络引脚（pins[1]=NETLED；空串/未配置则用默认GPIO27）
     local ledPin = 27
-    if dtu.pins and dtu.pins[1] and driver.pios[dtu.pins[1]] then
+    if dtu.pins and dtu.pins[1] and dtu.pins[1] ~= "" and driver.pios[dtu.pins[1]] then
         ledPin = tonumber(dtu.pins[1]:sub(4, -1))
         driver.pios[dtu.pins[1]] = nil
     end

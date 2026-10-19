@@ -123,8 +123,9 @@ local function build_tlv()
         return location.get_lbs_location()
     end)
     if ok and type(loc) == "table" and loc.lat and loc.lng then
-        table.insert(data, { field_meaning = FM.GNSS_LATITUDE,  data_type = DT.FLOAT, value = loc.lat })
-        table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.FLOAT, value = loc.lng })
+        -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
+        table.insert(data, { field_meaning = FM.GNSS_LATITUDE,  data_type = DT.ASCII, value = string.format("%.6f", loc.lat) })
+        table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.ASCII, value = string.format("%.6f", loc.lng) })
     else
         log.warn("factory_report", "LBS 定位失败，本次不带上报经纬度（不影响其它字段）")
     end

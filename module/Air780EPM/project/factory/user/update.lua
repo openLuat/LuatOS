@@ -9,7 +9,7 @@
 开机即执行检测一次，之后每 8 小时自动检测一次。
 
 依赖：
-  libfota3.lua（已放入本工程目录）
+  libfota3.lua（默认扩展库 script/libs，工程内无本地副本，烧录勾选「添加默认 lib」）
 
 服务器下发指令支持：
   {"command":"update","data":{"params":{}}}          -- 触发升级检查

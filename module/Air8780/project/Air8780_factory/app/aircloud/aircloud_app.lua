@@ -342,18 +342,19 @@ function excloud_task_func()
             end
 
             -- LBS经纬度
+            -- 2026-10-19 改 ASCII（%.6f）：FLOAT 为 ×1000 整数编码，只保留 3 位小数
             if lat ~= nil and lng ~= nil then
                 -- 纬度
                 table.insert(tlv_list, {
                     field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-                    data_type = excloud.DATA_TYPES.FLOAT,
-                    value = lat
+                    data_type = excloud.DATA_TYPES.ASCII,
+                    value = string.format("%.6f", lat)
                 })
                 -- 经度
                 table.insert(tlv_list, {
                     field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-                    data_type = excloud.DATA_TYPES.FLOAT,
-                    value = lng
+                    data_type = excloud.DATA_TYPES.ASCII,
+                    value = string.format("%.6f", lng)
                 })
                 log.info("aircloud", string.format("LBS: lat=%.6f lng=%.6f", lat, lng))
             end

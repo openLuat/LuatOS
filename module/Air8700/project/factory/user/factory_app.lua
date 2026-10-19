@@ -8,16 +8,12 @@
 本模块为出厂固件的业务编排模块，版本差异由 factory_config 集中控制：
 
 版本行为：
-- 8780  ：硬件I2C传感器 + 180s结构化上报 + 串口透传
-- 8780G ：8780基础上 + 开机打开GPS，每30秒上报GPS（无GPS回退LBS基站定位）
-- 8781  ：8780基础上，传感器改软件I2C（GPIO模拟）
-- 8782  ：8781基础上，串口1配置为RS485
+- 8700  ：串口透传 + 180s结构化上报（IMEI/CSQ/CPU温度/LBS基站经纬度），不采集传感器、不做GPS
 
 核心功能：
 1、build_report_tlv()：构建 AirCloud 结构化 TLV 上报数据（所有版本通用）
    必填字段：信号强度(782)/设备ID(798)/时间戳(1280)/CPU温度(263)
-   可选字段：温度(256)/湿度(257)/VOC(258)（传感器，失败跳过）
-            纬度(513)/经度(512)（LBS基站定位，失败跳过）
+   可选字段：纬度(513)/经度(512)（LBS基站定位，失败跳过）
 2、build_gps_tlv()：构建 GPS TLV（仅8780G），GPS失败回退LBS
 3、handle_control_command()：处理下行控制命令（tag 19）
    - "cycle:秒数"   → 修改上报频率（最小5秒，fskv持久化，重启生效）
@@ -42,7 +38,6 @@ local factory_app = {}
 
 local excloud = require "excloud"
 local lbsLoc2 = require "lbsLoc2"
-local sensor_task = require "sensor_task"
 -- 版本配置
 local factory_config = require "factory_config"
 
@@ -130,13 +125,32 @@ local function get_cpu_temp()
 end
 
 -- 获取LBS基站经纬度（免费单基站定位，失败返回nil）
+-- 参考官方 demo（Air780EPM/demo/lbsloc2/lbsloc2_app.lua）：
+--   1. 先等网络就绪（IP_READY）再扫描，否则 reqCellInfo 不产生 CELL_INFO_UPDATE
+--   2. lbsLoc2.request 内部优先用 mobile.scell()（当前驻网基站，无需扫描）
+--      只有 scell 无数据时才用 getCellInfo() 扫描结果
 local function get_lbs()
-    mobile.reqCellInfo(15)
-    local result = sys.waitUntil("CELL_INFO_UPDATE", 3000)
-    if not result then
-        log.warn("factory_app", "基站信息扫描超时")
-        return nil, nil
+    -- 1. 等待网络就绪（基站扫描与LBS定位均依赖网络，最多等30秒避免卡死）
+    local wait_net = 0
+    while not socket.adapter(socket.dft()) do
+        if wait_net >= 30000 then
+            log.warn("factory_app", "等待网络就绪超时，跳过LBS定位")
+            return nil, nil
+        end
+        sys.waitUntil("IP_READY", 1000)
+        wait_net = wait_net + 1000
     end
+    -- 2. 优先用当前驻网基站（mobile.scell，无需扫描）；无数据才发起基站扫描
+    local scell = mobile.scell and mobile.scell()
+    if not (scell and scell.mcc) then
+        local cellinfo = mobile.getCellInfo()
+        if not cellinfo or #cellinfo == 0 then
+            mobile.reqCellInfo(15)
+            -- 等待基站扫描结果；扫描超时不致命，下方 request 内部仍会再取驻网基站 scell 兜底
+            sys.waitUntil("CELL_INFO_UPDATE", 5000)
+        end
+    end
+    -- 3. 请求定位
     local lat, lng, t = lbsLoc2.request(5000)
     lat, lng = tonumber(lat), tonumber(lng)
     if lat and lng then
@@ -194,42 +208,20 @@ function factory_app.build_report_tlv()
             value = cpu_temp
         })
     end
-    -- 可选：SHT30 温湿度 / VOC 空气质量（采集失败自动跳过，不影响主数据上报）
-    local temp, hum, voc = sensor_task.get_env()
-    if temp then
-        table.insert(tlv_list, {
-            field_meaning = excloud.FIELD_MEANINGS.TEMPERATURE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = temp
-        })
-    end
-    if hum then
-        table.insert(tlv_list, {
-            field_meaning = excloud.FIELD_MEANINGS.HUMIDITY,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = hum
-        })
-    end
-    if voc then
-        table.insert(tlv_list, {
-            field_meaning = excloud.FIELD_MEANINGS.PARTICULATE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = voc
-        })
-    end
-    -- 可选：LBS基站经纬度（按版本开关，Air8700 仅透传不定位）
+    -- 可选：LBS基站经纬度（按版本开关，Air8700 已启用，定位失败自动跳过）
     if factory_config.get_lbs_enable() then
         local lat, lng = get_lbs()
         if lat and lng then
+            -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
             table.insert(tlv_list, {
                 field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-                data_type = excloud.DATA_TYPES.FLOAT,
-                value = lat
+                data_type = excloud.DATA_TYPES.ASCII,
+                value = string.format("%.6f", lat)
             })
             table.insert(tlv_list, {
                 field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-                data_type = excloud.DATA_TYPES.FLOAT,
-                value = lng
+                data_type = excloud.DATA_TYPES.ASCII,
+                value = string.format("%.6f", lng)
             })
         end
     end
@@ -293,15 +285,16 @@ function factory_app.build_gps_tlv()
     local tlv_list = {}
     local lat, lng, method = get_location()
     if lat and lng then
+        -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
         table.insert(tlv_list, {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = lat
+            data_type = excloud.DATA_TYPES.ASCII,
+            value = string.format("%.6f", lat)
         })
         table.insert(tlv_list, {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = lng
+            data_type = excloud.DATA_TYPES.ASCII,
+            value = string.format("%.6f", lng)
         })
         -- 定位方式：2=GPS，1=LBS（可选字段）
         table.insert(tlv_list, {

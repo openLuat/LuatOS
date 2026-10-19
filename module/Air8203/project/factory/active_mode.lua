@@ -251,15 +251,15 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active, xyz_f
         end
     end
     -- 位置：解析 "lat,lng" 为经度/纬度分开上报（512=经度 513=纬度）
-    -- ★ 2026-09-23 按官方口径改为 **FLOAT**（官方 Air8780_factory 用 DATA_TYPES.FLOAT，
-    --   示例 121.473701 / 31.230416；本工程 FLOAT 编码为 ×1000 整数）。
+    -- ★ 2026-10-19 改 ASCII（%.6f）：FLOAT 在 excloud 中为 ×1000 整数编码，
+    --   只保留 3 位小数（约 100 米网格截断）；ASCII 完整 6 位小数（约 0.1 米）。
     if d.gps and d.gps ~= "" then
         local gps_str = d.gps
         local lat, lng = gps_str:match("^([%d%.%-]+),([%d%.%-]+)$")
         local lat_n, lng_n = tonumber(lat), tonumber(lng)
         if lat_n and lng_n then
-            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.FLOAT, value = lng_n })
-            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.FLOAT, value = lat_n })
+            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.ASCII, value = string.format("%.6f", lng_n) })
+            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.ASCII, value = string.format("%.6f", lat_n) })
         end
     end
     table.insert(data, { field_meaning = FM.LOCATION_METHOD, data_type = DT.ASCII, value = tostring(d.gps_status or 0) })

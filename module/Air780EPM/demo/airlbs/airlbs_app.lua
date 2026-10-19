@@ -22,8 +22,8 @@ local timeout = 10 -- 扫描基站/wifi 做 基站/wifi定位 的超时时间，
 
 --  以下为合宙LBS平台开通的项目id和秘钥
 --  以下项目密钥和id请根据实际项目进行修改，https://iot.openluat.com/lbs/bs 在此网址中我的项目下
-local airlbs_project_id = "hgM0Xi"
-local airlbs_project_key = "XEkKZv7hwYnASyXgaFAo4EwtG09X6OXi"
+local airlbs_project_id = "dwlIK6"
+local airlbs_project_key = "gdUjUOSMqhdC5V6HZckaB2mtfQ46wzlW"
 local lat , lng = nil, nil
 
 
@@ -83,7 +83,9 @@ local function airlbs_multi_cells_wifi_task_func()
 
     -- 如需wifi定位,需要硬件以及固件支持wifi扫描功能
     local wifi_info = nil
-    if wlan then
+    sys.wait(4000)
+    while 1 do
+        if wlan then
         wlan.init()--初始化wlan
         wlan.scan()--扫描wifi
         sys.waitUntil("WLAN_SCAN_DONE", timeout * 1000)--等待扫描完成
@@ -91,7 +93,6 @@ local function airlbs_multi_cells_wifi_task_func()
         log.info("scan", "wifi_info", #wifi_info)--打印扫描结果
     end
 
-    while 1 do
         local result, data = airlbs.request({
             project_id = airlbs_project_id,-- 项目ID
             project_key = airlbs_project_key,-- 项目密钥
@@ -126,7 +127,7 @@ local function airlbs_multi_cells_wifi_task_func()
 end
 
 --多基站定位
-sys.taskInit(airlbs_multi_cells_task_func)
+-- sys.taskInit(airlbs_multi_cells_task_func)
 
 --多基站+多wifi定位
 sys.taskInit(airlbs_multi_cells_wifi_task_func)

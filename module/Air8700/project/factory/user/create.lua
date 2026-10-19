@@ -989,7 +989,7 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
                 }
             }, false)                   -- 不需要服务器回复
         elseif kind == "report" then
-            -- 出厂固件：结构化 TLV 上报（温度/湿度/VOC/CPU温度/信号/LBS）
+            -- 出厂固件：结构化 TLV 上报（CPU温度/信号/LBS）
             local tlv_list = factory_app.build_report_tlv()
             if #tlv_list > 0 then
                 local ok, err_msg = excloud.send(tlv_list, false)

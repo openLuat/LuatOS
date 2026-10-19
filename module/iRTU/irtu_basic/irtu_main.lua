@@ -20,10 +20,14 @@ local driver = require "driver"
 local create = require "create"
 -- 加载audio_config模块，如果需要音频功能，请加载此模块
 -- local audio_config= require "audio_config"
+-- 加载外置硬件看门狗模块（Air153C），按 dtu.wdt 配置启用
+local air153c_wdt = require "air153c_wdt"
 
 local function irtu_init()
     -- 初始化配置
     default.init()
+    -- 初始化外置硬件看门狗（Air153C）
+    air153c_wdt.init()
     -- 初始化驱动
     driver.init()
     -- 启动服务器

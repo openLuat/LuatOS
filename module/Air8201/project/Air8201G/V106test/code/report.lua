@@ -439,15 +439,16 @@ function report.send_status()
         local location_source = location.source or "UNKNOWN"
         log.info("REPORT", "位置来源:", location_source, "经纬度:", location.lat, location.lng)
 
+        -- 2026-10-19 经纬度改 ASCII（%.6f），绕过 FLOAT ×1000 截断
         table.insert(data, {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = location.lat
+            data_type = excloud.DATA_TYPES.ASCII,
+            value = string.format("%.6f", location.lat)
         })
         table.insert(data, {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = location.lng
+            data_type = excloud.DATA_TYPES.ASCII,
+            value = string.format("%.6f", location.lng)
         })
         table.insert(data, {
             field_meaning = excloud.FIELD_MEANINGS.LOCATION_METHOD,
@@ -512,15 +513,16 @@ function report.send_location()
     end
 
     local data = {
+        -- 2026-10-19 经纬度改 ASCII（%.6f），绕过 FLOAT ×1000 截断
         {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-            data_type     = excloud.DATA_TYPES.FLOAT,
-            value         = location.lat
+            data_type     = excloud.DATA_TYPES.ASCII,
+            value         = string.format("%.6f", location.lat)
         },
         {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-            data_type     = excloud.DATA_TYPES.FLOAT,
-            value         = location.lng
+            data_type     = excloud.DATA_TYPES.ASCII,
+            value         = string.format("%.6f", location.lng)
         },
         {
             field_meaning = excloud.FIELD_MEANINGS.LOCATION_METHOD,

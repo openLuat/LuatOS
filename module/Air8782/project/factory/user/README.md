@@ -15,6 +15,27 @@
 3. **结构化 TLV 上报**：`factory_app.lua` 构建 AirCloud 结构化 TLV 数据（与 web 端字段一致），默认 180 秒上报一次。
 4. **下行控制命令**：支持 `cycle:秒数` / `led:blink|on|off` / `tts:文本`（仅 8780V），保留 iRTU 原有 rrpc 指令（`rrpc,getimei` 等）。
 5. **一套固件，5 个版本**：所有版本差异集中在 `factory_config.lua`，烧录时只需改 `DEVICE_VER` 一个变量。
+6. **产测 + iRTU 合一（V3，与 Air8780 完全一致）**：启动分流采用 fskv 返工标记 + OTP1 判空双存储。
+
+### V3 启动分流
+
+`main.lua` 中 `BOOT_MODE = "auto"`（默认），按以下顺序判断：
+
+1. fskv 有返工标记 `model_retest` → 产测模式（**返工产测，全程不动 OTP1**）
+2. fskv 无标记且 OTP1 为空 → 产测模式（**首次产测**，通过后 MODEL/HVERSION 写号入 OTP1）
+3. fskv 无标记且 OTP1 有值 → 正常模式（require irtu_main）
+
+返工指令（USB VUART_0 文本协议，见 [retest.lua](retest.lua)）：
+
+| 指令 | 作用 | 回复 |
+|---|---|---|
+| `MODEL_RETEST#CONFIRM#` | 魔法字校验后写 fskv 返工标记，800ms 后重启进产测 | `OK#` / `ERROR#` |
+| `MODEL_RETEST?#` | 查询返工标记是否存在 | `HAS#` / `NONE#` |
+
+- 正常模式下在 [driver.lua](driver.lua) 的 read() 中拦截（仅 VUART_0），命中不走 config/rrpc/透传；
+- 产测模式下在 [factory.lua](factory.lua) 的 proc 前由 extract_retest 提取拦截；
+- TEST_DONE 收尾双分支：首测校验 OTP1 非空；返工删除 `model_retest` 标记；任一校验失败不重启并返回 ERROR；
+- 调试可用 `BOOT_MODE = "normal" / "factory"` 强制模式。
 
 ## 二、5 个版本说明
 
@@ -34,8 +55,9 @@
 
 ```
 irtu_8780_factory/
-├── main.lua                 # 入口（产测+iRTU合一，test_done 分流）
+├── main.lua                 # 入口（产测+iRTU合一，V3：fskv返工标记→OTP1判空分流）
 ├── factory.lua              # ⭐ 产测模式（USB VUART_0 响应产测指令，按版本聚合）
+├── retest.lua               # ⭐ V3 返工模块（model_retest 标记 + MODEL_RETEST 指令）
 ├── prodmeta.lua             # OTP 写号（PROD型号/PCB版本）
 ├── irtu_main.lua            # iRTU 功能初始化（default/driver/create）
 ├── default.lua              # 配置加载（已移除网页拉取，直连 AirCloud）
@@ -44,6 +66,7 @@ irtu_8780_factory/
 ├── gnss.lua                 # iRTU 自带GNSS模块（保留，出厂用 factory_app 内置GPS逻辑）
 ├── audio_config.lua         # 音频/TTS（8780V 使用）
 ├── factory_config.lua       # ⭐ 版本配置（5个版本差异集中在这里，改DEVICE_VER即可切换）
+├── update.lua               # FOTA 升级（libfota3 默认扩展库，开机即检测）
 ├── watchdog_app.lua         # 外置硬件看门狗（Air153，按版本启用）
 # 注：es8311 / exair153x_wdt / libfota3 均直接引用 script/libs 公共库，本目录不再放副本
 ├── factory_app.lua          # 业务编排：TLV/GPS构建 / 控制命令 / LED / TTS / 上报周期
@@ -52,7 +75,6 @@ irtu_8780_factory/
 ├── AirVOC_1000.lua          # AGS02MA VOC 驱动（支持硬件/软件 I2C）
 ├── irtu.cfg                 # 预置配置（烧录到 /luadb/irtu.cfg）
 ├── irtu.json                # 配置参考（可导入 iRTU 配置工具）
-├── 产测指令文档.md           # ⭐ 产测指令说明（指令表/管脚/测试流程）
 └── README.md
 ```
 
@@ -118,7 +140,7 @@ irtu_8780_factory/
 2. **切换版本**：修改 `factory_config.lua` 顶部 `DEVICE_VER`（`"8780"` / `"8780V"` / `"8780G"` / `"8781"` / `"8782"`），重新烧录即可。
 3. 修改 `irtu.cfg` 中的 AuthKey 为实际 AirCloud 项目密钥（`JQtKg5M7h8HTMw8CgqMpRh77hySLlUwx` 为 irtu_basic 预置值，需确认）。
 4. 按板子接线确认软件I2C引脚（8781/8782）与 LED 引脚（`factory_config.lua` / `factory_app.lua`）。
-5. **产测**：新板子默认进产测模式（USB VUART_0，指令见 [产测指令文档.md](产测指令文档.md)），完成 `TEST_DONE#` 后重启进正常模式。
+5. **产测**：新板子 OTP1 为空默认进产测模式（USB VUART_0，指令见 factory.lua 指令表），首测写号后 `TEST_DONE#` 校验 OTP1 非空再重启进正常模式；返工时发 `MODEL_RETEST#CONFIRM#` 置标记后重启进产测。
 6. 8780V：开机联网后播报一次欢迎语；收到服务器 `tts:文本` 命令时播报对应文本。
 7. 8780G：烧录后自动开GPS，每30秒上报一次（无GPS自动回退LBS基站定位）。
 8. 8782：串口1自动配置为 RS485（方向脚默认 GPIO26，按实际板子修改 `factory_config.lua` 的 `uart485.dir_pin`）。
@@ -128,7 +150,7 @@ irtu_8780_factory/
 
 | 文件 | 改动 |
 |---|---|
-| main.lua | 改为产测+iRTU 合一（test_done 分流）；PROJECT=Air8780Factory；VREF(GPIO23) 常开 |
+| main.lua | 改为产测+iRTU 合一（V3：fskv model_retest 返工标记 → OTP1 判空分流）；PROJECT 按工程；VREF(GPIO23) 常开 |
 | factory.lua | **新增**：产测模式，按版本聚合 5 型号产测指令（基础/写号/音频/GPS/485） |
 | prodmeta.lua | **新增**：OTP 写号（PROD 型号 / PCB 硬件版本） |
 | es8311.lua | **新增**：es8311 音频驱动（8780V 产测录音/播放） |

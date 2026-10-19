@@ -95,6 +95,7 @@ local function mqtt_client_event_cbfunc(mqtt_client, event, data, payload, metas
 
     -- 收到服务器的心跳应答
     elseif event == "pong" then
+        log.info("mqtt_client_event_cbfunc", "pong")
         -- 接收到数据，通知网络环境检测看门狗功能模块进行喂狗
         sys.publish("FEED_NETWORK_WATCHDOG")
 
@@ -162,7 +163,7 @@ local function mqtt_client_main_task_func()
         -- 设置mqtt keepalive时间为120秒
         -- 如果没有设置，内核固件中默认为180秒
         -- 有需要的话，可以打开注释
-        -- mqtt_client:keepalive(120)
+        mqtt_client:keepalive(60)
 
         -- 设置遗嘱消息，有需要的话，可以打开注释
         -- mqtt_client:will(TOPIC_PREFIX .. "/status", "offline")

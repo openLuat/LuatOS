@@ -247,15 +247,15 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active, xyz_f
         end
     end
     -- 位置：解析 "lat,lng" 为经度/纬度分开上报（512=经度 513=纬度）
-    -- ★ 2026-09-23 按官方口径改为 **FLOAT**（官方 Air8780_factory 用 DATA_TYPES.FLOAT，
-    --   示例 121.473701 / 31.230416；本工程 FLOAT 编码为 ×1000 整数）。
+    -- ★ 2026-10-19 改 ASCII（%.6f）：FLOAT 在 excloud 中为 ×1000 整数编码，
+    --   只保留 3 位小数（约 100 米网格截断）；ASCII 完整 6 位小数（约 0.1 米）。
     if d.gps and d.gps ~= "" then
         local gps_str = d.gps
         local lat, lng = gps_str:match("^([%d%.%-]+),([%d%.%-]+)$")
         local lat_n, lng_n = tonumber(lat), tonumber(lng)
         if lat_n and lng_n then
-            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.FLOAT, value = lng_n })
-            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.FLOAT, value = lat_n })
+            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.ASCII, value = string.format("%.6f", lng_n) })
+            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.ASCII, value = string.format("%.6f", lat_n) })
         end
     end
     table.insert(data, { field_meaning = FM.LOCATION_METHOD, data_type = DT.ASCII, value = tostring(d.gps_status or 0) })
@@ -651,14 +651,22 @@ local function main_loop()
     -- 启动低电量监测
     sys.taskInit(battery_monitor_task)
 
-    -- 加载云平台连接模块（触发连接，由 create.lua 统一管理）
-    -- 004.000.037 起无 startup JSON 上报，等待云连接成功后直接进入主循环
-    sys.waitUntil("CLOUD_CONNECTED", 30000)
-    log.info("active_mode", "云平台连接成功，进入主循环")
-
     -- 开机窗口基准：开机 300 秒内 GNSS 常开（mcu.ticks 为毫秒级 tick，不受 NTP 校时影响）
     boot_ticks = mcu.ticks()
-    last_report_time = 0
+
+    -- ★ 开机即开 GNSS（不等待云连接）：上电立即开始搜星，AirCloud 连接在后台并行，
+    --   避免"先等云连上(约10~40s)才开 GNSS"白白浪费冷启动搜星时间。
+    --   （此时 LED 已 init；gsensor/location/lowpower 在 app 初始化阶段均已就绪）
+    switch_gnss_on("开机立即")
+
+    -- 等待云平台连接（GNSS 已在后台并行搜星）
+    -- 004.000.037 起无 startup JSON 上报，等待云连接成功后直接进入主循环
+    sys.waitUntil("CLOUD_CONNECTED", 30000)
+    log.info("active_mode", "云平台连接完成，进入上报主循环（GNSS 已提前搜星）")
+
+    -- 云连接完成后重置上报基准：首帧按 10s 节奏发送，确保链路已就绪
+    -- （switch_gnss_on 内部曾把 last_report_time 置 0，若不重置会在云未连上时立即发首帧）
+    last_report_time = os.time()
 
     log.info("active_mode", "上报模式：实时上报(1s,fast_report) / GNSS开(10s) / GNSS关(300s)，实时上报结束强制进GNSS开")
 

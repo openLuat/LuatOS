@@ -254,8 +254,9 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active, xyz_f
         local lat, lng = gps_str:match("^([%d%.%-]+),([%d%.%-]+)$")
         local lat_n, lng_n = tonumber(lat), tonumber(lng)
         if lat_n and lng_n then
-            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.FLOAT, value = lng_n })
-            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.FLOAT, value = lat_n })
+            -- 2026-10-19 改为 ASCII 字符串（%.6f），绕过 FLOAT 编码 ×1000 只留3位小数的截断
+            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.ASCII, value = string.format("%.6f", lng_n) })
+            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.ASCII, value = string.format("%.6f", lat_n) })
         end
     end
     table.insert(data, { field_meaning = FM.LOCATION_METHOD, data_type = DT.ASCII, value = tostring(d.gps_status or 0) })

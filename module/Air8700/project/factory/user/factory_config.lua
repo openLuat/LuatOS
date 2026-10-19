@@ -6,8 +6,8 @@
 @author  李源龙
 @usage
 Air8700 独立工程配置。Air8700P 板载 Air700ECP（与 Air780EPM 同固件系列，代码可复用），
-本版定位：仅串口透传 + AirCloud 连接（基础心跳上报），
-不做 I2C 传感器采集、不做 TTS、不做 GPS/LBS、无外置看门狗。
+本版定位：串口透传 + AirCloud 连接（基础心跳上报 + LBS 基站定位上报），
+不做传感器采集、不做 TTS、不做 GPS、无外置看门狗。
 各业务模块从这里读取配置，烧录时如需调整只需改 DEVICE_VER。
 ]]
 
@@ -20,34 +20,14 @@ factory_config.DEVICE_VER = "8700"
 
 -- ==================== 各版本差异配置 ====================
 
--- 传感器 I2C 总线（Air8700 仅透传，不采集传感器）
-factory_config.sensor_i2c = {
-    ["8780"]  = { mode = "hw", hw_id = 1 },                    -- 硬件I2C id=1
-    ["8780V"] = { mode = "hw", hw_id = 1 },                    -- 硬件I2C id=1
-    ["8780G"] = { mode = "hw", hw_id = 1 },                    -- 硬件I2C id=1
-    ["8781"]  = { mode = "sw", scl = 26, sda = 28, delay = 5 }, -- 软件I2C：GPIO26=SCL、GPIO28=SDA（按实际接线修改）
-    ["8782"]  = { mode = "sw", scl = 27, sda = 21, delay = 5 }, -- 软件I2C：GPIO27=SCL、GPIO21=SDA（按实际接线修改）
-    ["8700"]  = { mode = "disable" },                          -- 仅透传，不采集传感器
-}
-
--- 传感器采集总开关（false=禁用，sensor_task.get_env 直接返回 nil）
-factory_config.sensor_enable = {
-    ["8780"]  = true,
-    ["8780V"] = true,
-    ["8780G"] = true,
-    ["8781"]  = true,
-    ["8782"]  = true,
-    ["8700"]  = false,  -- 仅透传，不采集
-}
-
--- LBS 基站定位开关（Air8700 仅透传，不做 LBS）
+-- LBS 基站定位开关（Air8700 已启用基站定位上报）
 factory_config.lbs_enable = {
     ["8780"]  = true,
     ["8780V"] = true,
     ["8780G"] = true,
     ["8781"]  = true,
     ["8782"]  = true,
-    ["8700"]  = false,  -- 仅透传，不做 LBS
+    ["8700"]  = true,  -- 启用 LBS 基站定位上报
 }
 
 -- GPS 上报（仅 8780G 启用）
@@ -106,16 +86,6 @@ end
 -- 当前版本是否是指定版本
 function factory_config.is(ver)
     return factory_config.DEVICE_VER == ver
-end
-
--- 获取当前版本I2C配置
-function factory_config.get_sensor_i2c()
-    return factory_config.sensor_i2c[factory_config.DEVICE_VER]
-end
-
--- 传感器采集是否启用
-function factory_config.get_sensor_enable()
-    return factory_config.sensor_enable[factory_config.DEVICE_VER] ~= false
 end
 
 -- LBS 定位是否启用

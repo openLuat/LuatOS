@@ -8,8 +8,7 @@
 本文件为出厂固件的功能初始化模块，核心业务逻辑为：
     加载default,gnss,driver,create,watchdog_app模块，然后开启task，在task中初始化各个模块
     其中基础功能模块为default,driver,create
-    传感器采集模块（sensor_task + factory_app）由 create → factory_app → sensor_task 链式加载，
-    无需在此显式加载
+    业务编排模块 factory_app 由 create 链式加载，无需在此显式加载
     外置看门狗（watchdog_app）按版本启用（5个版本均带 Air153）
     GNSS定位功能目前仅支持Air780EGG,Air780EGP,Air780EGH等内置GNSS的模块（8780G/S），
     8780G 版本的 GPS 由 factory_app 自动启用，无需在此打开 gnss.init()

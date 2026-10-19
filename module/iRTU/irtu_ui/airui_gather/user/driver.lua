@@ -385,15 +385,16 @@ function driver.init()
         uart_INIT(4, dtu.uconf)
     end
     if dtu.pwrmod == "normal" then
-        -- 网络READY信号
-        if not dtu.pins or not dtu.pins[2] or not default.pios[dtu.pins[2]] then 
+        -- 网络READY信号（pins[2]=NETRDY；空串/未配置则用默认GPIO26）
+        if not dtu.pins or not dtu.pins[2] or dtu.pins[2] == "" or not default.pios[dtu.pins[2]] then 
             netready = gpio.setup(26, 0)
         else
             netready = gpio.setup(tonumber(dtu.pins[2]:sub(4, -1)), 0)
             default.pios[dtu.pins[2]] = nil
         end
 
-        if not dtu.pins or not dtu.pins[1] or not default.pios[dtu.pins[1]] then 
+        -- 网络LED（pins[1]=NETLED；空串/未配置则用默认GPIO27）
+        if not dtu.pins or not dtu.pins[1] or dtu.pins[1] == "" or not default.pios[dtu.pins[1]] then 
             sys.taskInit(netled,27)
         else
             sys.taskInit(netled, tonumber(dtu.pins[1]:sub(4, -1)))

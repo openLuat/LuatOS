@@ -38,11 +38,17 @@
 -- 支持 fota升级
 
 -- 版本更新说明
+-- 版本号：202610191600
+-- 1、更新时间：2026-10-19 16:00
+-- 2、更新内容
+--    新增重定向自动跟随：httpplus.request 默认自动跟随 301/302/303/307/308 重定向
+--    （支持 http->https、绝对/相对 Location、端口变化），可通过 follow_redirect=false 关闭、max_redirect 控制跳转上限
 -- 版本号：202610091640
 -- 1、更新时间：2026-10-09 16:40
 -- 2、更新内容
 --    响应头Content-Length识别改为大小写不敏感
 --    修复按Content-Length收齐body后未主动结束、等待服务器断开导致的请求超时问题
+-- 历史版本：
 -- 版本号：202607021200
 -- 1、更新时间：2026-07-02 12:00
 -- 2、更新内容
@@ -976,6 +982,8 @@ local opts = {
     dst = nil, -- 可选,文件下载路径，设置后会自动将响应内容写入该文件
     fota = false, -- 可选,是否为fota升级模式，设置为true会使用fota系统功能进行升级
                   -- fota模式下resp会额外返回: fota_success(boolean)是否成功, fota_msg(string)结果描述
+    follow_redirect = true, -- 可选,是否自动跟随 301/302/303/307/308 重定向,默认true;设为false则保留原始重定向响应(返回302等)
+    max_redirect = 10, -- 可选,自动跟随重定向的最大跳转次数,默认10,超过则返回最后一次重定向响应
 }
 
 local code, resp = httpplus.request({url="https://httpbin.luatos.com/get"})
@@ -1024,65 +1032,187 @@ else
     log.error("fota升级失败", resp.fota_msg)
 end
 ]]
+-- 将重定向 Location 头解析为绝对 URL
+-- base_url: 当前请求 URL；location: Location 头（可能为 绝对URL / 绝对路径 / 相对路径）
+-- 自动处理协议与端口变化（如 http://:80 -> https://:443）
+local function resolve_redirect(base_url, location)
+    -- 已是绝对 URL（含协议头），直接返回
+    if location:match("^%w+://") then
+        return location
+    end
+    local scheme, host, port, path = base_url:match("^(%w+)://([^:/]+):?(%d*)(/?.*)$")
+    if not scheme then
+        return location
+    end
+    local authority = scheme .. "://" .. host .. (port and port ~= "" and (":" .. port) or "")
+    if location:sub(1, 1) == "/" then
+        -- 绝对路径：替换整条 path
+        return authority .. location
+    end
+    -- 相对路径：基于当前目录拼接
+    local dir = path:match("^(.*/)") or "/"
+    return authority .. dir .. location
+end
+
 function httpplus.request(opts)
-    -- 参数解析
+    -- 参数解析（首次）
     local ret = http_opts_parse(opts)
     if ret then
         return ret
     end
 
-    -- 执行请求
-    local ok, err = pcall(http_exec, opts)
-    
-    -- 清理资源
-    if opts.write_fd then
-        opts.write_fd:close()
-        opts.write_fd = nil
+    -- 重定向跟随：默认开启，可通过 follow_redirect=false 关闭（保留原始重定向响应）
+    local follow_redirect = (opts.follow_redirect ~= false)
+    local MAX_REDIRECT = opts.max_redirect or 10
+    local redirect_count = 0
+    local cur_url = opts.url
+
+    -- 关闭并释放一个请求跳的连接；wait_closed=true 时会等待底层真正断开后再释放，
+    -- 用于即将跟随重定向、需要彻底回收 socket/SSL 资源的场景
+    local function close_hop(h, wait_closed)
+        if h.write_fd then
+            h.write_fd:close()
+            h.write_fd = nil
+        end
+        if h.netc then
+            if not h.is_closed then
+                socket.close(h.netc)
+                if wait_closed then
+                    sys.waitUntil(h.topic, 3000)
+                end
+            end
+            socket.release(h.netc)
+            h.netc = nil
+        end
     end
 
-    if opts.fota and ok and (opts.resp_code == 200 or opts.resp_code == 206) then
-        if opts.fota_error then
-            log.error(TAG, "fota.run写入失败，升级取消")
-            fota.finish(false)
-            if opts.resp then
-                opts.resp.fota_success = false
-                opts.resp.fota_msg = "fota.run写入失败"
-            end
-        else
-            local succ, fotaDone = fota.isDone()
-            if succ and fotaDone then
-                log.info(TAG, "fota升级包接收完成")
-                fota.finish(true)
-                if opts.resp then
-                    opts.resp.fota_success = true
-                    opts.resp.fota_msg = "升级成功，请重启设备"
+    -- 重定向链的最终结果（由末跳/异常写入），用于阻塞式同步返回
+    local result_code, result_resp
+    local chain_done = false
+
+    -- 每一跳放到独立任务中执行，上一跳任务结束后底层网络栈才有完整回收周期，规避连续建连导致的 TLS 死机
+    local function run_hop(url)
+        local function body()
+            -- 每个跳转使用全新的 opts 副本，避免上次请求的状态（resp/header_parsed/is_closed 等）残留
+            local hop_opts = {}
+            for k, v in pairs(opts) do
+                if k == "headers" then
+                    hop_opts.headers = {}
+                    for hk, hv in pairs(v) do hop_opts.headers[hk] = hv end
+                else
+                    hop_opts[k] = v
                 end
+            end
+            hop_opts.url = url
+            -- 重定向跳转：依据新 URL 重新解析 host/port/uri/is_ssl，并刷新 Host 头
+            if redirect_count > 0 then
+                hop_opts.headers["Host"] = nil
+                local perr = http_opts_parse(hop_opts)
+                if perr then
+                    result_code = hop_opts.resp_code
+                    result_resp = hop_opts.resp
+                    chain_done = true
+                    return
+                end
+            end
+
+            -- 执行请求
+            local ok, err = pcall(http_exec, hop_opts)
+            local code = hop_opts.resp_code
+            local is_redirect = (code == 301 or code == 302 or code == 303 or code == 307 or code == 308)
+
+            -- fota 处理仅在最终（非重定向）响应上执行
+            if ok and not is_redirect and hop_opts.fota then
+                if hop_opts.fota_error then
+                    log.error(TAG, "fota.run写入失败，升级取消")
+                    fota.finish(false)
+                    if hop_opts.resp then
+                        hop_opts.resp.fota_success = false
+                        hop_opts.resp.fota_msg = "fota.run写入失败"
+                    end
+                else
+                    local succ, fotaDone = fota.isDone()
+                    if succ and fotaDone then
+                        log.info(TAG, "fota升级包接收完成")
+                        fota.finish(true)
+                        if hop_opts.resp then
+                            hop_opts.resp.fota_success = true
+                            hop_opts.resp.fota_msg = "升级成功，请重启设备"
+                        end
+                    else
+                        log.error(TAG, "fota升级失败", succ, fotaDone)
+                        fota.finish(false)
+                        if hop_opts.resp then
+                            hop_opts.resp.fota_success = false
+                            hop_opts.resp.fota_msg = "fota.isDone检查失败"
+                        end
+                    end
+                end
+            end
+
+            if not ok then
+                log.error(TAG, err)
+                close_hop(hop_opts, false)
+                result_code = hop_opts.resp_code
+                result_resp = hop_opts.resp
+                chain_done = true
+                return
+            end
+
+            -- 处理重定向（follow_redirect=false 时保留原始重定向响应，不跟随）
+            if is_redirect and follow_redirect then
+                local location = hop_opts.resp and hop_opts.resp.headers and
+                    (hop_opts.resp.headers["Location"] or hop_opts.resp.headers["location"] or hop_opts.resp.headers["Location "])
+                if not location then
+                    log.warn(TAG, "重定向", code, "但无 Location 头，停止跟随")
+                    close_hop(hop_opts, false)
+                    result_code = code
+                    result_resp = hop_opts.resp
+                    chain_done = true
+                    return
+                end
+                redirect_count = redirect_count + 1
+                if redirect_count > MAX_REDIRECT then
+                    log.warn(TAG, "重定向次数过多", redirect_count, "停止跟随")
+                    close_hop(hop_opts, false)
+                    result_code = code
+                    result_resp = hop_opts.resp
+                    chain_done = true
+                    return
+                end
+                cur_url = resolve_redirect(cur_url, location)
+                log.info(TAG, "跟随重定向", code, "->", cur_url)
+                -- 本跳彻底释放连接后，起一个全新任务执行下一跳，让底层网络栈完全复位
+                close_hop(hop_opts, true)
+                sys.taskInit(run_hop, cur_url)
             else
-                log.error(TAG, "fota升级失败", succ, fotaDone)
-                fota.finish(false)
-                if opts.resp then
-                    opts.resp.fota_success = false
-                    opts.resp.fota_msg = "fota.isDone检查失败"
-                end
+                close_hop(hop_opts, false)
+                result_code = code
+                result_resp = hop_opts.resp
+                chain_done = true
+            end
+        end
+
+        -- 整跳逻辑包在保护调用中，任何异常都保证 chain_done 被置位，避免调用方永久阻塞
+        local ok, e = xpcall(body, function(e) return e end)
+        if not ok then
+            log.error(TAG, "httpplus.request 内部异常:", e)
+            if not chain_done then
+                result_code = -199
+                result_resp = tostring(e)
+                chain_done = true
             end
         end
     end
-    
-    if opts.netc then
-        -- 清理连接
-        if not opts.is_closed then
-            socket.close(opts.netc)
-        end
-        socket.release(opts.netc)
-        opts.netc = nil
-    end
-    
-    -- 处理响应或错误
-    if not ok then
-        log.error(TAG, err)
-        return -199, err
+
+    -- 启动重定向链（首跳任务），随后阻塞当前协程直到整条链完成
+    sys.taskInit(run_hop, cur_url)
+    while not chain_done do
+        sys.wait(10)
     end
 
+    opts.resp_code = result_code
+    opts.resp = result_resp
     -- 如果是 is_big_file 模式，resp.body 应为 nil 或空
     if opts.no_cache_body then
         -- 可选：显式设置 body 为 nil，避免误解
@@ -1090,7 +1220,7 @@ function httpplus.request(opts)
             opts.resp.body = nil
         end
     end
-    
+
     return opts.resp_code, opts.resp
 end
 
@@ -1101,7 +1231,7 @@ end
 httpplus.version()
 ]]
 function httpplus.version()
-    return "202610091640"
+    return "202610191600"
 end
 
 log.debug("httpplus", "version -> " .. httpplus.version())

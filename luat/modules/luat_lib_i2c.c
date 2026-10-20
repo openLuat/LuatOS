@@ -911,7 +911,19 @@ static int l_i2c_no_block_transfer(lua_State *L)
 
 	luat_zbuff_t *rbuff = ((luat_zbuff_t *)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE));
 	if (lua_isinteger(L, 5) && rbuff) {
-		rx_len = luaL_checkinteger(L, 5);
+		lua_Integer rx_len_arg = luaL_checkinteger(L, 5);
+		if (rx_len_arg < 0) {
+			LLOGE("i2c no block transfer rx_len %d is invalid", (int)rx_len_arg);
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+		rx_len = (size_t)rx_len_arg;
+		/* this path always writes into the zbuff from offset 0, so capacity must be >= rx_len */
+		if (rx_len > rbuff->len && ((uint64_t)rx_len > 0xFFFFFFFFu || __zbuff_resize(rbuff, (uint32_t)rx_len))) {
+			LLOGE("i2c no block transfer rx buffer resize failed");
+			lua_pushboolean(L, 0);
+			return 1;
+		}
 		rx_buff = rbuff->addr;
 		rbuff->used = rx_len;
 	}

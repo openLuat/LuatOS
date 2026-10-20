@@ -736,7 +736,10 @@ static int l_spi_device_transfer(lua_State *L) {
         return 0;
     }
     if (lua_isinteger(L, 3)){
-        send_length = (size_t)lua_tointeger(L, 3);
+        size_t send_len = (size_t)lua_tointeger(L, 3);
+        /* only allow shrinking: never exceed the real data length */
+        if (send_len <= send_length)
+            send_length = send_len;
     }
     size_t recv_length = luaL_optinteger(L,4,1);
     //长度为0时，直接返回空字符串

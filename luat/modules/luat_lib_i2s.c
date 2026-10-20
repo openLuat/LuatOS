@@ -144,7 +144,10 @@ static int l_i2s_send(lua_State *L) {
         buff = (uint8_t*)luaL_checklstring(L, 2, &len);
     }
     if (lua_type(L, 3) == LUA_TNUMBER) {
-        len = luaL_checkinteger(L, 3);
+        lua_Integer user_len = luaL_checkinteger(L, 3);
+        /* only allow shrinking: never exceed the real data length */
+        if (user_len >= 0 && (size_t)user_len <= len)
+            len = (size_t)user_len;
     }
     int ret = luat_i2s_send(id, buff, len);
     lua_pushboolean(L, ret == len ? 1 : 0);

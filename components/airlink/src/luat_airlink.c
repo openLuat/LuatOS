@@ -755,7 +755,12 @@ int luat_airlink_send2transport(luat_airlink_cmd_t* cmd, uint8_t mode) {
         LLOGE("send2transport: 无效 mode %d", mode);
         return -1;
     }
+#ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
     luat_rtos_queue_t cq = g_transport_slots[mode].cmd_queue;
+#else
+    // 非多传输模式: 与 cmd_recv_for_mode 对齐, 回落全局队列 (避免发送/接收队列不对称)
+    luat_rtos_queue_t cq = airlink_cmd_queue;
+#endif
     if (cq == NULL) {
         LLOGE("send2transport: mode %d 无 cmd_queue", mode);
         return -2;

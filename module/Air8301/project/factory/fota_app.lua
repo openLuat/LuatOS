@@ -102,7 +102,7 @@ function M.start(auto, interval)
     libfota3.request({
         project_key = "s1cP06A26uv0oDEukzplfvlpHAmt33Ag",
         script_name = "Air8301_Factory",
-        script_version = VERSION or "001.999.000",
+        script_version = VERSION,
         auto = auto or false,
         interval = interval or 86400,
         on_status = on_status,

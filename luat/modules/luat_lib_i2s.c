@@ -59,7 +59,7 @@ int luat_i2s_event_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint
 	rtos_msg_t msg;
 	switch (event){
     case LUAT_I2S_EVENT_RX_DONE:
-        if (!i2s_rx_buffer[id] || !i2s_cbs[id]){
+        if (id >= I2S_DEVICE_MAX_CNT || !i2s_rx_buffer[id] || !i2s_cbs[id]){
             return -1;
         }
 
@@ -165,7 +165,7 @@ local succ = i2s.recv(0, buffer, 3200);
 */
 static int l_i2s_recv(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    if (id >= I2S_DEVICE_MAX_CNT)
+    if (id < 0 || id >= I2S_DEVICE_MAX_CNT)
     {
     	lua_pushboolean(L, 0);
         return 1;
@@ -214,7 +214,7 @@ end)
 */
 static int l_i2s_on(lua_State *L) {
     int i2s_id = luaL_checkinteger(L, 1);
-    if (i2s_id >= I2S_DEVICE_MAX_CNT)
+    if (i2s_id < 0 || i2s_id >= I2S_DEVICE_MAX_CNT)
     {
         lua_pushliteral(L, "no such i2s id");
         return 1;

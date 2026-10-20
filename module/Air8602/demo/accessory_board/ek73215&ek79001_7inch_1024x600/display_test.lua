@@ -6,7 +6,7 @@
 @author  江访
 @usage
 本文件为 7 寸 EK73215+EK79001 显示测试模块，核心测试流程为：
-1、power_on()     —— 供电配置，本板 LCD_DISP = GPIO15，用户按原理图自行拉高
+1、power_on()     —— 供电与背光 PWM3 上电占空比 0 配置，本板 LCD_DISP = GPIO15，用户按原理图自行拉高
 2、exd.setup()    —— 显示初始化，扩展库仅做显示IC初始化（复位 + RGB 时序 + 帧缓冲）
 3、draw_ui()      —— 界面绘制，深色背景 + 型号标题
 4、backlight_on() —— 背光点亮，PWM3，界面就绪后用户自行点亮
@@ -28,10 +28,13 @@ local exd = require "exd_ek79001_rgb"
 local SCREEN_W = 1024
 local SCREEN_H = 600
 
--- 供电配置
+-- 供电与背光 PWM3 上电占空比 0 配置
 -- LCD 供电/显示使能引脚由用户按底板原理图控制，扩展库不操作 pin_pwr
 -- 本板 LCD_DISP = GPIO15（兼 LCD 复位脚，显示初始化内部会做复位时序）
 local function power_on()
+    -- 背光 PWM3 上电占空比 0
+    pwm.setup(3, 1000, 0)  -- 通道 3，1kHz，占空比 0
+    pwm.start(3)
     -- LCD_DISP = GPIO15（兼 LCD 复位脚，显示初始化内部会做复位时序）
     gpio.setup(15, 1)   -- 输出高电平，使能 LCD 显示
     sys.wait(100)       -- 等供电稳定

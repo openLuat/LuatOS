@@ -178,6 +178,15 @@ if config.pins and pins then
     log.info("platform_loader", "引脚配置完成, 数量:", #config.pins)
 end
 
+-- ==================== 5.5 背光 PWM 上电占空比 0 ====================
+-- PWM 背光通道上电即以占空比 0 启动，首帧上屏后由 lcd_common.backlight_on 点亮
+local bl_cfg = config.hw and config.hw.lcd and config.hw.lcd.backlight
+if pwm and bl_cfg and bl_cfg.pwm_ch then
+    pcall(pwm.setup, bl_cfg.pwm_ch, bl_cfg.pwm_freq or 1000, 0)
+    pcall(pwm.start, bl_cfg.pwm_ch)
+    log.info("platform_loader", "背光 PWM 上电占空比 0, ch=", bl_cfg.pwm_ch)
+end
+
 -- ==================== 6. GPIO 供电上电（底板决定） ====================
 -- 对应设计文档 阶段 2.2 POWER_ON：设置 GPIO 方向/电平，控制外设供电
 -- power_on 格式: { pin=GPIO编号, dir=0低/1高(初始电平，随后被 level 覆盖), level=0低/1高, [delay=延时ms] }

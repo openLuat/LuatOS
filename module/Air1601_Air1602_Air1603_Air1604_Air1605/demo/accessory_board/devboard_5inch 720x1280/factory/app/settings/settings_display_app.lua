@@ -19,10 +19,10 @@ local PWM_FREQ = 10000         -- PWM 频率 10kHz
 ]]
 local function init_pwm()
     if not pwm_initialized then
-        pwm.setup(PWM_CHANNEL, PWM_FREQ, current_brightness)
+        pwm.setup(PWM_CHANNEL, PWM_FREQ, 0) -- 上电占空比 0
         pwm.start(PWM_CHANNEL)
         pwm_initialized = true
-        log.info("settings_display_app", "PWM 初始化完成，初始亮度: " .. current_brightness)
+        log.info("settings_display_app", "PWM 初始化完成，上电占空比 0")
     end
 end
 

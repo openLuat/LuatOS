@@ -47,6 +47,13 @@ local lcd_hw = {
 
 local cfg = lcd_hw[HARDWARE_ENV] or lcd_hw.AIR8607_10INCH
 
+-- PWM 背光上电占空比 0，界面就绪前保持熄灭
+if cfg.backlight and cfg.backlight.pwm_ch then
+    pwm.setup(cfg.backlight.pwm_ch, cfg.backlight.pwm_freq or 1000, 0)
+    pwm.start(cfg.backlight.pwm_ch)
+    log.info("lcd_drv", "背光上电占空比0 PWM ch=" .. cfg.backlight.pwm_ch)
+end
+
 local lcd_width, lcd_height = cfg.w or 1024, cfg.h or 600
 
 -- 开启背光：PWM 调光 或 GPIO 直拉

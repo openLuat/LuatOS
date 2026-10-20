@@ -75,9 +75,9 @@ local function ui_build()
     local root = airui.container({ x = 0, y = 0, w = 320, h = 480, color = COLOR_BG })
 
     -- 标题区
-    airui.label({ parent = root, text = "合宙设备", x = 24, y = 30, w = 180, h = 24, color = COLOR_INK })
+    airui.label({ parent = root, text = "合宙设备", x = 24, y = 30, w = 120, h = 24, color = COLOR_INK })
     airui.label({
-        parent = root, text = "v" .. tostring(VERSION), x = 196, y = 30, w = 100, h = 24,
+        parent = root, text = "v" .. tostring(VERSION), x = 140, y = 30, w = 156, h = 24,
         color = COLOR_SUB, align = airui.TEXT_ALIGN_RIGHT,
     })
     airui.label({ parent = root, text = "环境监测终端", x = 24, y = 60, w = 272, h = 24, color = COLOR_SUB })

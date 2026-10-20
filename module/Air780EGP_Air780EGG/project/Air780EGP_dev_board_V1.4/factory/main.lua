@@ -43,7 +43,7 @@ PROJECT：项目名，ascii string 类型
 VERSION：项目版本号，使用合宙 iot.openluat.com 远程升级需按 "XXX.YYY.ZZZ" 三段格式定义
 ]]
 PROJECT = "Air780EGP_DevBoard_V1.4"
-VERSION = "001.001.000"
+VERSION = "001.999.000"
 
 -- AirCloud 云平台鉴权密钥（FOTA/设备绑定共用）
 PROJECT_KEY = "u6cQtTkP2xcDZSARC9cwD7x2iWSFP7vz"

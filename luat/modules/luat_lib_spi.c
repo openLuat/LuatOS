@@ -682,7 +682,7 @@ static int l_spi_device_setup(lua_State *L) {
 spi_device:close()
 */
 static int l_spi_device_close(lua_State *L) {
-    luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+    luat_spi_device_t* spi_device = (luat_spi_device_t*)luaL_checkudata(L, 1, META_SPI);
     int ret = luat_spi_device_close(spi_device);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -706,7 +706,7 @@ local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区
 local recv = spi_device:transfer(buff)--把zbuff数据从指针开始，全发出去,并读取数据
 */
 static int l_spi_device_transfer(lua_State *L) {
-    luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+    luat_spi_device_t* spi_device = (luat_spi_device_t*)luaL_checkudata(L, 1, META_SPI);
     size_t send_length = 0;
     char* send_buff = NULL;
     char* recv_buff = NULL;
@@ -781,7 +781,7 @@ local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区
 local result = spi_device:send(buff)--把zbuff数据从指针开始，全发出去
 */
 static int l_spi_device_send(lua_State *L) {
-    luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+    luat_spi_device_t* spi_device = (luat_spi_device_t*)luaL_checkudata(L, 1, META_SPI);
     size_t len = 0;
     char* send_buff = NULL;
     int ret = 0;
@@ -829,7 +829,7 @@ spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
 local recv = spi_device:recv(4)--接收4字节数据
 */
 static int l_spi_device_recv(lua_State *L) {
-    luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+    luat_spi_device_t* spi_device = (luat_spi_device_t*)luaL_checkudata(L, 1, META_SPI);
     int len = luaL_optinteger(L, 2,1);
     char* recv_buff = luat_heap_malloc(len);
     if(recv_buff == NULL) return 0;
@@ -935,7 +935,7 @@ static int l_spi_no_block_transfer(lua_State *L)
         result = luat_spi_no_block_transfer(id, tx_buff, rx_buff, len, luat_irq_hardware_cb_handler, cb_topic);
     }
     else {
-    	luat_spi_device_t* spi_dev = (luat_spi_device_t*)lua_touserdata(L, 1);
+    	luat_spi_device_t* spi_dev = (luat_spi_device_t*)luaL_checkudata(L, 1, META_SPI);
     	luat_spi_device_config(spi_dev);
     	luat_gpio_set(spi_dev->spi_config.cs, 0);
     	result = luat_spi_no_block_transfer(spi_dev->bus_id, tx_buff, rx_buff, len, luat_irq_hardware_cb_handler, cb_topic);

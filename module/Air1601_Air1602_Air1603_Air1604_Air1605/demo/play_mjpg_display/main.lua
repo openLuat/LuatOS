@@ -42,6 +42,13 @@ local LCD_W, LCD_H = cfg.w, cfg.h
 -- 视频文件路径（放 luadb 分区）
 local VIDEO = "/luadb/fly_man_80.mjpg"
 
+-- PWM 背光上电占空比 0，界面就绪前保持熄灭
+if cfg.backlight and cfg.backlight.pwm_ch then
+    pwm.setup(cfg.backlight.pwm_ch, cfg.backlight.pwm_freq or 1000, 0)
+    pwm.start(cfg.backlight.pwm_ch)
+    log.info("main", "背光上电占空比0 PWM ch=" .. cfg.backlight.pwm_ch)
+end
+
 sys.taskInit(function()
     -- ===== 1. 用 display 库初始化 RGB 屏 =====
     -- 注意：AirUI 通过 luat_display_get_by_id(0) 取默认屏，这里必须显式 id=0

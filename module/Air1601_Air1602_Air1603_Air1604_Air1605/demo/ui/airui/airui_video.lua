@@ -1,14 +1,15 @@
 --[[
 @module video_page
 @summary 视频组件演示
-@version 1.1
-@date    2026.10.12
+@version 1.2
+@date    2026.10.19
 @author  江访
 @usage
 本文件演示airui.video组件的用法，支持MJPG、MP4、HZV三种格式视频切换播放：
 1、MJPG：MJPEG序列，fly_man.mjpg示例资源随工程烧录；
-2、MP4：H.264视频，无音频，需自行准备/luadb/fly_man.mp4；
-3、HZV：HZV/HZMP4容器，支持音视频同步播放，需自行准备/luadb/fly_man.hzv。
+2、MP4：H.264视频，带音频，需自行准备/luadb/fly_man.mp4；
+3、HZV：HZV/HZMP4容器，支持音视频同步播放，需自行准备/luadb/fly_man.hzv；
+4、功放PA跟随播放状态控制：播放开启，暂停/停止/销毁关闭。
 ]]
 
 local airui_video = {}
@@ -24,6 +25,19 @@ local VIDEO_FORMATS = {
     {name = "HZV",  src = "/luadb/fly_man.hzv",  format = "hzv"},
 }
 local current_format = 1
+
+-- 功放PA使能引脚及开启电平，按实际硬件修改
+local PA_PIN = 73
+local PA_ON_LEVEL = 0
+
+-- 控制功放PA开关，on为true开启功放，on为false关闭功放
+local function pa_set(on)
+    if on then
+        gpio.setup(PA_PIN, PA_ON_LEVEL)
+    else
+        gpio.setup(PA_PIN, PA_ON_LEVEL == 1 and 0 or 1)
+    end
+end
 
 -- 创建视频组件
 local function create_video(fmt)
@@ -59,6 +73,7 @@ local function destroy_video()
         video:destroy()
         video = nil
     end
+    pa_set(false)
 end
 
 -- 切换视频格式
@@ -143,6 +158,7 @@ function airui_video.create_ui()
         text = "播放",
         on_click = function()
             if video then
+                pa_set(true)
                 video:play()
             end
         end
@@ -155,6 +171,7 @@ function airui_video.create_ui()
         on_click = function()
             if video then
                 video:pause()
+                pa_set(false)
             end
         end
     })
@@ -166,6 +183,7 @@ function airui_video.create_ui()
         on_click = function()
             if video then
                 video:stop()
+                pa_set(false)
             end
         end
     })

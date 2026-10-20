@@ -88,7 +88,7 @@ function on_excloud_event(event, data)
                     }
                 }, false)
                 if not ok then
-                    log.info("发送控制响应失败: " .. err_msg)
+                    log.info("发送控制响应失败: " .. tostring(err_msg))
                 end
             end
         end
@@ -97,10 +97,13 @@ function on_excloud_event(event, data)
     elseif event == "reconnect_failed" then
         log.info("重连失败，已尝试 " .. data.count .. " 次")
     elseif event == "send_result" then
+        -- excloud 的 error_msg 直接来自 socket.tx 的第 2 个返回值，
+        -- 而 socket.tx 返回的是 boolean（是否为部分发送），不一定是字符串，
+        -- 拼接前必须 tostring，否则发送失败时会抛 "concatenate a boolean value"
         if data.success then
-            log.info("发送成功，流水号: " .. data.sequence_num)
+            log.info("发送成功，流水号: " .. tostring(data.sequence_num))
         else
-            log.info("发送失败: " .. data.error_msg)
+            log.info("发送失败: " .. tostring(data.error_msg))
         end
     end
 end

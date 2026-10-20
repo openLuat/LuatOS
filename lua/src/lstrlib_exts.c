@@ -255,7 +255,7 @@ int l_str_split (lua_State *L) {
   for (size_t i = 0; i < len; i++)
   {
     // LLOGD("d[%s] [%.*s] %d", delimiters, dlen, str+i, dlen);
-    if (!memcmp(delimiters, str+i, dlen)) {
+    if (i + dlen <= len && !memcmp(delimiters, str+i, dlen)) {
       // LLOGD("match %d %i %d",prev, i, keepEmtry);
       if ((prev+1) != i || (keepEmtry)) {
         lua_pushinteger(L, count);

@@ -18,7 +18,7 @@ BOOT_MODE 可强制：auto（默认）/ factory（强制重测）/ normal（跳�
 所有脚本文件平铺在本目录（烧录合并器不支持子目录 require），require 直接用文件名。
 ]]
 
-PROJECT = "EVB_Air8101B_10inch_1024x600_000"
+PROJECT = "Air8101_Factory"
 VERSION = "001.999.001"
 
 -- 强制模式：调试用，出货前保持 "auto"

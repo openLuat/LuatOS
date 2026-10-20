@@ -17,7 +17,7 @@ if fota_enable then
     libfota2 = require "libfota2"
 end
 
-local Posturl = "http://video.luatos.com:10030/api-system/deviceVideo/get"
+local Posturl = "http://video.luatos.com:1935/api-system/deviceVideo/get"
 local PostBody = {
     deviceAccess = "8",         -- 8 代表接入方式为RTMP
     deviceUser = "admin",       -- 平台录像机设置的设备用户（不是登录用的用户名）
@@ -156,7 +156,7 @@ sys.taskInit(function()
     log.info("打印设备的ID号",GetDeviceid)--3030170932
     local URL = Posturl.."/"..GetDeviceid
     log.info("打印的URL",URL)
-    local Camera_header = {["Accept-Encoding"]="identity",["Host"]="video.luatos.com:10030",["Content-Type"] = "application/json"}
+    local Camera_header = {["Accept-Encoding"]="identity",["Host"]="video.luatos.com:1935",["Content-Type"] = "application/json"}
     while true do
         local code,headers,body = http.request("POST", URL,Camera_header,json.encode(PostBody),{ debug = true }).wait()
         log.info("打印的请求code",code)

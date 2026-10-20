@@ -356,7 +356,7 @@ function http_response.test_concurrent_requests()
 end
 
 -- 测试chunked编码响应body完整性
--- 注: 原用例 POST video.luatos.com:10030 已失效(服务端现返回401), 改为对
+-- 注: 原用例 POST video.luatos.com:1935 已失效(服务端现返回401), 改为对
 -- httpbin.luatos.com 的 chunked 流式下载做精确长度校验, 覆盖同一测试意图
 function http_response.test_chunked()
     log.info("http_response", "开始【chunked编码响应body完整性】测试")

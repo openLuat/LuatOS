@@ -804,7 +804,15 @@ static int l_i2c_transfer(lua_State *L)
 		rx_len = 0;
 	}
 	else if (lua_isinteger(L, 5)) {
-		rx_len = luaL_checkinteger(L, 5);
+		lua_Integer rx_len_arg = luaL_checkinteger(L, 5);
+		if (rx_len_arg < 0) {
+			LLOGE("i2c transfer rx_len %d is invalid", (int)rx_len_arg);
+			if (tx_heap_flag) luat_heap_free(tx_buff);
+			lua_pushboolean(L, 0);
+			lua_pushnil(L);
+			return 2;
+		}
+		rx_len = (size_t)rx_len_arg;
 		if (rx_len) {
 			if (!rbuff) {
 				rx_buff = luat_heap_malloc(rx_len);
@@ -817,8 +825,15 @@ static int l_i2c_transfer(lua_State *L)
                 }
 			}
 			else {
-				if ((rbuff->used + rx_len) > rbuff->len) {
-					__zbuff_resize(rbuff, rbuff->len + rx_len);
+				if ((uint64_t)rbuff->used + (uint64_t)rx_len > rbuff->len) {
+					uint64_t new_len = (uint64_t)rbuff->len + (uint64_t)rx_len;
+					if (new_len > 0xFFFFFFFFu || __zbuff_resize(rbuff, (uint32_t)new_len)) {
+						LLOGE("i2c transfer rx buffer resize failed");
+						if (tx_heap_flag) luat_heap_free(tx_buff);
+						lua_pushboolean(L, 0);
+						lua_pushnil(L);
+						return 2;
+					}
 				}
 				rx_buff = rbuff->addr + rbuff->used;
 			}

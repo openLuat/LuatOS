@@ -185,6 +185,12 @@ function excloud_task_func()
         log.info("未获取到二维码信息")
     end
 
+    -- 连续发送失败计数：底层 network_tx 返回 -1 后会把 need_close 置位，
+    -- 该标志只在下次建链时清零，若上层不主动断开就会在同一连接上永久失败。
+    -- 因此连续失败达到阈值后主动 close + open，强制重建连接。
+    local send_fail_count = 0
+    local SEND_FAIL_MAX = 3
+
     while true do
         local result, temp_val, hum_val, voc_val = sys.waitUntil("read_sensor_rsp")
 
@@ -235,9 +241,23 @@ function excloud_task_func()
 
             local ok, err_msg = excloud.send(tlv_list, false)
             if ok then
+                send_fail_count = 0
                 log.info("数据上报成功")
             else
-                log.error("数据上报失败:", err_msg)
+                send_fail_count = send_fail_count + 1
+                log.error("数据上报失败:", tostring(err_msg), "连续失败", send_fail_count .. "/" .. SEND_FAIL_MAX)
+                if send_fail_count >= SEND_FAIL_MAX then
+                    send_fail_count = 0
+                    log.warn("连续发送失败，主动断开并重连")
+                    excloud.close()
+                    sys.wait(1000)
+                    local ok2, err2 = excloud.open()
+                    if ok2 then
+                        log.info("重连指令已下发")
+                    else
+                        log.error("重连失败:", tostring(err2))
+                    end
+                end
             end
         end
     end

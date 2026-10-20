@@ -12,7 +12,7 @@ local config = {
     -- sip_tls = {ca_cert = io.readFile("/luadb/sip-ca.pem")}, -- sip项目通用公开 CA 证书
     -- media_encryption = "none", -- 先验收 TLS 信令；服务器启用后显式改为 "sdes" / "dtls-srtp"
     remote_sip_uri = "sip:"..hmeta.devid().."1".."@cc.luatos.com",
-    target_phone_number = "15057721363",
+    target_phone_number = "1xxxxxxxxxx",
     rtp_port = 40000,
     codec = "PCMA", -- 支持 PCMA/PCMU/G729/G722
     -- codecs = { -- 多个 codec 时，按顺序尝试

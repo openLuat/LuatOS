@@ -831,7 +831,7 @@ static int l_i2c_transfer(lua_State *L)
 		if (rx_buff && rx_len) {
 			result = luat_i2c_transfer(id, addr, tx_buff, tx_len, rx_buff, rx_len);
 		} else {
-			result = luat_i2c_transfer(id, addr, NULL, 0, tx_buff, tx_len);
+			result = luat_i2c_transfer(id, addr, tx_buff, tx_len, NULL, 0);
 		}
 	}else if (lua_isuserdata(L, 1)){
         luat_ei2c_t *ei2c = toei2c(L);

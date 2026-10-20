@@ -325,6 +325,12 @@ static int l_bit64_calculate(lua_State *L, uint8_t op)
 		}
 		if (!fa && !fb)
 		{
+			if (i64_b == 0)
+			{
+				lua_pushnil(L);
+				lua_pushstring(L, "division by zero");
+				return 2;
+			}
 			if (flag1)
 			{
 				u64 = (uint64_t)i64_a / (uint64_t)i64_b;

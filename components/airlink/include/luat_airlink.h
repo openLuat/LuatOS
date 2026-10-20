@@ -48,9 +48,8 @@ typedef struct airlink_flags {
     uint32_t queue_ip: 1; // 用于ip包的队列是否还有数据
     uint32_t irq_ready: 1; // 是否切换到IRQ模式
     uint32_t irq_pin: 4;   // 中断管脚号, 这是传给SLAVE的, 从 GPIO12(GPIO140)开始算
-    uint32_t rpc_supported: 1; // 是否支持nanopb RPC指令 (cmd 0x30)
-    uint32_t frag_supported: 1; // 是否支持cmd分片传输 (cmd 0x32)
-    uint32_t reserved: 22; // 保留位, 用于扩展
+    // rpc/frag 能力位已迁到 devinfo.caps (见 luat_airlink_devinfo.h), 不再占用包头标志位
+    uint32_t reserved: 24; // 保留位, 用于扩展
 }airlink_flags_t;
 
 typedef struct airlink_link_data {
@@ -209,10 +208,10 @@ uint32_t luat_airlink_sversion(void);
 void luat_airlink_current_mode_set(int mode);
 int luat_airlink_current_mode_get(void);
 
-// 对端 flags 追踪: 传输层在收到每个链路包后调用 luat_airlink_peer_flags_update
-// 更新对端的能力标志 (如 rpc_supported).
-// 上层调用 luat_airlink_peer_rpc_supported() 来查询对端是否支持 nanopb RPC.
-void luat_airlink_peer_flags_update(const airlink_flags_t* flags);
+// 对端能力追踪: 收到对端 devinfo (cmd 0x10) 时调用 luat_airlink_peer_caps_update
+// 更新对端的能力位 (rpc/frag, 见 luat_airlink_devinfo.h 的 AIRLINK_CAP_*).
+// 上层调用 luat_airlink_peer_rpc_supported() 查询对端是否支持 nanopb RPC.
+void luat_airlink_peer_caps_update(uint8_t caps);
 int luat_airlink_peer_rpc_supported(void);
 int luat_airlink_peer_frag_supported(void);
 uint16_t luat_airlink_transport_max_data_len(uint8_t mode);

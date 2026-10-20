@@ -44,8 +44,7 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
                 crc16_data = luat_crc16_modbus(&buff[i + 4 + 4], tlen + 8);
                 if (crc16_data == crc16)
                 {
-                    // 更新对端 flags, 用于能力协商
-                    luat_airlink_peer_flags_update(&link->flags);
+                    // 能力协商已迁到 devinfo.caps (在 cmd 0x10 handler 里提取), 此处不再每帧回读 flags
                     return link;
                 }
                 else
@@ -88,14 +87,7 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, u
     data->pkgid = next_pkg_id++;
     memset(&data->flags, 0, sizeof(data->flags));
 
-    // 如果支持RPC, 那就把对应的flags设置一下
-    // 注: 原判据 link_data_cb 是传输层回调(与RPC无关), 会导致所有UART固件误报 rpc=1;
-    // 改为编译期宏判断, 只有真正编译了RPC模块的固件才宣称支持RPC
-#ifdef LUAT_USE_AIRLINK_RPC
-    data->flags.rpc_supported = 1;
-#endif
-    // 分片传输能力标记
-    data->flags.frag_supported = 1;
+    // rpc/frag 能力位已迁到 devinfo.caps (随 cmd 0x10 心跳下发), 不再每帧写包头标志
 
 
     memcpy(data->data, buff, len);

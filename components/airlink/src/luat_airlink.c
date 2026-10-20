@@ -206,29 +206,27 @@ luat_airlink_spi_conf_t g_airlink_spi_conf;
 airlink_statistic_t g_airlink_statistic;
 uint64_t g_airlink_last_cmd_timestamp;
 
-// 最近一次收到的对端 flags (由传输层在收到报文时调用 luat_airlink_peer_flags_update 更新)
-static airlink_flags_t g_airlink_peer_flags;
+// 对端能力位 (由 devinfo handler 收到 cmd 0x10 时调用 luat_airlink_peer_caps_update 更新)
+static uint8_t g_airlink_peer_caps;
 
-void luat_airlink_peer_flags_update(const airlink_flags_t* flags) {
-    if (flags) {
-        static uint8_t peer_flags_logged = 0;
-        g_airlink_peer_flags = *flags;
-        if (!peer_flags_logged || luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp > 2500) {
-            LLOGI("peer flags: rpc=%u frag=%u raw=0x%08lX",
-                  flags->rpc_supported, flags->frag_supported, *(uint32_t*)flags);
-            peer_flags_logged = 1;
-            // 对端重连后重新发送本端设备信息，确保对端能拿到最新状态
-            luat_airlink_self_dev_info_notify();
-        }
+void luat_airlink_peer_caps_update(uint8_t caps) {
+    static uint8_t peer_caps_logged = 0;
+    g_airlink_peer_caps = caps;
+    if (!peer_caps_logged || luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp > 2500) {
+        LLOGI("peer caps: rpc=%u frag=%u (raw=0x%02X)",
+              (caps & AIRLINK_CAP_RPC) ? 1 : 0, (caps & AIRLINK_CAP_FRAG) ? 1 : 0, caps);
+        peer_caps_logged = 1;
+        // 对端重连后重新发送本端设备信息，确保对端能拿到最新状态
+        luat_airlink_self_dev_info_notify();
     }
 }
 
 int luat_airlink_peer_rpc_supported(void) {
-    return g_airlink_peer_flags.rpc_supported ? 1 : 0;
+    return (g_airlink_peer_caps & AIRLINK_CAP_RPC) ? 1 : 0;
 }
 
 int luat_airlink_peer_frag_supported(void) {
-    return g_airlink_peer_flags.frag_supported ? 1 : 0;
+    return (g_airlink_peer_caps & AIRLINK_CAP_FRAG) ? 1 : 0;
 }
 
 // SPI/UART 统一分片阈值: TEST_BUFF_SIZE(1600) - sizeof(airlink_link_data_t)(16) - sizeof(luat_airlink_cmd_t)(4)

@@ -40,9 +40,15 @@ typedef struct luat_airlink_dev_cat_info {
     uint8_t unique_id[32];
 } luat_airlink_dev_wifi_cat_t;
 
+// 能力位 (dev_info.caps): bit0=rpc(cmd 0x30), bit1=frag(cmd 0x32 重组)
+#define AIRLINK_CAP_RPC   0x01
+#define AIRLINK_CAP_FRAG  0x02
+
 typedef struct luat_airlink_dev_info
 {
     uint8_t tp;
+    uint8_t caps;        // 能力位: bit0=rpc, bit1=frag（原 pad 字节, offset 1）
+    uint8_t reserved[2]; // 对齐保留（原 pad 字节 offset 2-3, 保持 union 4 字节对齐）
     union
     {
         luat_airlink_dev_wifi_info_t wifi;

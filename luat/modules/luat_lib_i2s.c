@@ -64,7 +64,7 @@ int luat_i2s_event_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint
         }
 
         len = (rx_len > i2s_rx_buffer[id]->len)?i2s_rx_buffer[id]->len:rx_len;
-        memcpy(i2s_rx_buffer[id]->addr, rx_data, rx_len);
+        memcpy(i2s_rx_buffer[id]->addr, rx_data, len);
         i2s_rx_buffer[id]->used = len;
         msg.handler = l_i2s_handler;
         msg.ptr = NULL;

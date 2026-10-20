@@ -7,6 +7,14 @@
 #include "luat_rtos.h"
 #include <stdio.h>
 #include <stdlib.h>
+extern int host_race_arm(int point);
+extern int host_race_arrived(void);
+extern void host_race_release(void);
+extern int host_race_closed(void);
+static int race_arm(lua_State *L) { lua_pushboolean(L, host_race_arm((int)luaL_checkinteger(L, 1)) == 0); return 1; }
+static int race_arrived(lua_State *L) { lua_pushboolean(L, host_race_arrived()); return 1; }
+static int race_release(lua_State *L) { (void)L; host_race_release(); return 0; }
+static int race_closed(lua_State *L) { lua_pushboolean(L, host_race_closed()); return 1; }
 int luaopen_zenohpico(lua_State *L);
 int host_message(rtos_msg_t *out);
 long host_allocations(void);
@@ -49,6 +57,10 @@ int main(int argc, char **argv) {
     lua_State *L = luaL_newstate(); if (!L) return 2;
     luaL_openlibs(L); luaL_requiref(L, "zenohpico", luaopen_zenohpico, 1); lua_pop(L, 1);
     lua_pushcfunction(L, pump); lua_setglobal(L, "host_pump");
+    lua_pushcfunction(L, race_arm); lua_setglobal(L, "host_race_arm");
+    lua_pushcfunction(L, race_arrived); lua_setglobal(L, "host_race_arrived");
+    lua_pushcfunction(L, race_release); lua_setglobal(L, "host_race_release");
+    lua_pushcfunction(L, race_closed); lua_setglobal(L, "host_race_closed");
     lua_pushcfunction(L, allocated); lua_setglobal(L, "host_allocations");
     lua_pushcfunction(L, failure); lua_setglobal(L, "host_fail_after");
     lua_pushcfunction(L, sleep_without_pump); lua_setglobal(L, "host_sleep");

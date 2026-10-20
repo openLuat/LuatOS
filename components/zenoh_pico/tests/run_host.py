@@ -51,6 +51,8 @@ def main():
     parser.add_argument("--lua-root", type=Path, help="existing Lua prefix, without pkg-config")
     parser.add_argument("--router", type=Path)
     parser.add_argument("--sanitize", action="store_true")
+    parser.add_argument("--get-tests", action="store_true", help="run real bidirectional Get lifecycle tests instead of legacy Pub/Sub suite")
+    parser.add_argument("--race-tests", choices=("dequeue", "enqueue", "both"), help="deterministic real worker close/admission interleavings")
     parser.add_argument("--skip-build", action="store_true", help="run existing binaries after test-only edits; hashes are printed")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[3]
@@ -83,7 +85,7 @@ def main():
         if args.sanitize:
             compiler += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"]
         host_files = [component / n for n in ("src/luat_zenoh_pico.c", "src/luat_lib_zenoh_pico.c", "src/zenoh_luatos_system.c", "src/zenoh_luatos_tcp.c", "tests/host_main.c", "tests/host_port.c")]
-        generic_defs = ["-DZENOH_GENERIC"]
+        generic_defs = ["-DZENOH_GENERIC", "-DLUAT_ZENOH_TEST_BARRIERS"]
         run([args.cc, "-std=c11", "-Wall", "-Wextra", "-Werror", "-fsyntax-only", *defs, *generic_defs, *includes, *[a for a in lua_flags if a.startswith("-I")], *host_files])
         common = [*sources, pico / "src/system/unix/system.c", pico / "src/system/unix/network.c"]
         generic_compiler = [a for a in compiler if a not in host_defs] + generic_defs
@@ -117,11 +119,19 @@ def main():
                 time.sleep(0.05)
         else:
             raise TimeoutError("router listen")
-        peer = subprocess.Popen([str(output / "zenoh_peer"), endpoint, prefix], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        peer = subprocess.Popen([str(output / "zenoh_peer"), endpoint, prefix] + (["--get"] if args.get_tests else []), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         ready(peer, "READY")
-        result = subprocess.run([str(output / "zenoh_host_test"), str(component / "tests/host_test.lua"), endpoint, prefix], timeout=65)
+        test_file = "tests/host_get_race.lua" if args.race_tests else "tests/host_get_test.lua" if args.get_tests else "tests/host_test.lua"
+        environment = os.environ.copy()
+        if args.race_tests:
+            environment["ZENOH_TEST_RACE_CASE"] = args.race_tests
+        result = subprocess.run([str(output / "zenoh_host_test"), str(component / test_file), endpoint, prefix],
+                                timeout=100 if args.get_tests else 65, env=environment)
         print("HOST_EXIT", result.returncode, flush=True)
         if result.returncode:
+            peer.terminate()
+            text, _ = peer.communicate(timeout=5)
+            print(text, end="", flush=True); print("PEER_FAILURE_CLEANUP_EXIT", peer.returncode, flush=True)
             raise RuntimeError("host test failed")
         text, _ = peer.communicate(timeout=8)
         print(text, end="", flush=True); print("PEER_EXIT", peer.returncode)

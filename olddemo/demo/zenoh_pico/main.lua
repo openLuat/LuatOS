@@ -2,8 +2,10 @@
 PROJECT = "zenoh_pico_demo"
 VERSION = "1.0.0"
 local sys = require("sys")
-local socket = require("socket")
-local z = require("zenohpico")
+-- LuatOS内建C库从全局取得；wlan/socket等可能是可索引rotable userdata。
+local socket = assert(rawget(_G, "socket"), "目标未注册socket内建库")
+local z = assert(rawget(_G, "zenohpico"), "目标未注册zenohpico内建库")
+assert(type(z.poll) == "function" and type(z.open) == "function", "zenohpico接口不完整")
 
 -- 在网卡就绪后运行；替换为自己的测试router，默认文档地址不可用于实测。
 local ROUTER = "tcp/192.0.2.1:7447"

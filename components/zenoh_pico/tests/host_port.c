@@ -211,3 +211,60 @@ int host_disconnect(void) {
 unsigned host_short_reads(void) { return atomic_load(&short_reads); }
 unsigned host_short_writes(void) { return atomic_load(&short_writes); }
 #endif
+
+/* 测试屏障暂停真实线程，终态仍由worker/SDK生成，不注入回调。 */
+#include "luat_zenoh_pico.h"
+int host_disconnect(void);
+static pthread_mutex_t race_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t race_ready = PTHREAD_COND_INITIALIZER;
+static int race_point, race_arrived, race_released, race_closed, race_thread_live;
+static uint32_t race_generation;
+static pthread_t race_thread;
+void luat_zp_test_barrier(int point, uint32_t generation) {
+    pthread_mutex_lock(&race_lock);
+    if (race_point == point) {
+        race_arrived = 1; race_generation = generation;
+        pthread_cond_broadcast(&race_ready);
+        while (!race_released) pthread_cond_wait(&race_ready, &race_lock);
+        race_point = 0;
+    }
+    pthread_mutex_unlock(&race_lock);
+}
+static void *race_disconnect(void *unused) {
+    (void)unused;
+    pthread_mutex_lock(&race_lock);
+    while (!race_arrived) pthread_cond_wait(&race_ready, &race_lock);
+    uint32_t generation = race_generation;
+    pthread_mutex_unlock(&race_lock);
+    int disconnected = host_disconnect() == 0;
+    uint64_t deadline = luat_mcu_tick64_ms() + 5000;
+    while (luat_zenoh_pico_state(generation) != LUAT_ZP_CLOSED && luat_mcu_tick64_ms() < deadline)
+        luat_rtos_task_sleep(1);
+    pthread_mutex_lock(&race_lock);
+    race_closed = disconnected && luat_zenoh_pico_state(generation) == LUAT_ZP_CLOSED;
+    race_released = 1; pthread_cond_broadcast(&race_ready);
+    pthread_mutex_unlock(&race_lock);
+    return NULL;
+}
+int host_race_arm(int point) {
+    if (point != 1 && point != 2) return -1;
+    pthread_mutex_lock(&race_lock);
+    if (race_point || race_thread_live) { pthread_mutex_unlock(&race_lock); return -1; }
+    race_point = point; race_arrived = race_released = race_closed = 0;
+    pthread_mutex_unlock(&race_lock);
+    if (point == 2) {
+        if (pthread_create(&race_thread, NULL, race_disconnect, NULL)) return -1;
+        race_thread_live = 1;
+    }
+    return 0;
+}
+int host_race_arrived(void) {
+    pthread_mutex_lock(&race_lock); int value = race_arrived; pthread_mutex_unlock(&race_lock); return value;
+}
+void host_race_release(void) {
+    pthread_mutex_lock(&race_lock); race_released = 1; pthread_cond_broadcast(&race_ready); pthread_mutex_unlock(&race_lock);
+}
+int host_race_closed(void) {
+    if (race_thread_live) { pthread_join(race_thread, NULL); race_thread_live = 0; }
+    pthread_mutex_lock(&race_lock); int value = race_closed; pthread_mutex_unlock(&race_lock); return value;
+}

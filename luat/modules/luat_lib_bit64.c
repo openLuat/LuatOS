@@ -141,6 +141,10 @@ static int l_bit64_show(lua_State *L)
 			len = snprintf_((char*)data, 63, "0x%llx", i64);
 		}
 	}
+	if (len >= sizeof(data))
+	{
+		len = sizeof(data) - 1;
+	}
 	lua_pushlstring(L, (const char*)data, len);
 	return 1;
 }

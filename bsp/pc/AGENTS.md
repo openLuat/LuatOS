@@ -370,11 +370,11 @@ mp4player 的 `mp4_decode.c` 是按 MCU 写的，会 `#include "FreeRTOS.h" / "t
 
 ```lua
 add_files(mp4player_src .. "/video_decode/mp4_decode.c",
-    {forceincludes = {"msvc_attr_stub.h", "yuv_rgb_565.h"}})  -- 裸文件名，靠 -Istubs/mp4player 解析
+    {forceincludes = {"msvc_attr_stub.h"}})  -- 裸文件名，靠 -Istubs/mp4player 解析
 ```
 
 - `msvc_attr_stub.h`：`__attribute__((aligned(4)))` 这类 GCC 扩展 MSVC 不认（错误点在所有 `#include` 之后）。
-- `yuv_rgb_565.h`：上游只在 `#if defined(LUAT_USE_DISPLAY)` 里 include 它，但 `mplayer_h264_disp_cb()` 无条件使用 `YUV_RGB_Param` → 非 GUI 构建 `C2065`。
+  （曾同时强制包含 `yuv_rgb_565.h`：早期 `mp4_decode.c` 在非 GUI 构建下无条件用 `YUV_RGB_Param` 会 `C2065`；上游重构后该引用已消失，故移除。）
 
 坑 1：**`forceincludes` 必须写裸文件名**。写相对路径（如 `stubs/mp4player/x.h`）时 MSVC 会相对**源文件所在目录**（这里是外部仓库 `luatos-ext-components/mp4player/video_decode/`）去找，必然 `C1083`。
 
@@ -387,6 +387,9 @@ add_files(mp4player_src .. "/video_decode/mp4_decode.c",
 - 上游给 `mp4player/audio_decode/mp3/mp3player.c` 加了 `_MINIMP3_IMPLEMENTATION_GUARD`，改为复用 LuatOS 的 `components/multimedia/minimp3.c`。PC 侧原先的 `remove_files(.../multimedia/minimp3.c)` 因此变成错误的——`mp3dec_init` / `mp3dec_decode_frame` 只有 LuatOS 那份实现。
 - 上游新增 `video_decode/yuv_rb.c`（YUV 帧队列），`mp4_decode.c` 直接调用其 `yuv_queue_*`，漏加就是 6 个 `LNK2019`。
 - 上游 `plat_support.h` 在 `__LUATOS__` 下无条件 `#include "luat_display.h"`，而 `components/display/inc` 只在 GUI 构建里加过 → 非 GUI 构建 `C1083`。
-- `YUV_RGB_565()` 真机由 SoC C 库提供，LuatOS 内没有实现，PC 侧用 `stubs/mp4player/yuv_rgb_565_pc.c` 转接到库内已有的 `yuv420p_to_rgb565_thumb()`。
+- `YUV_RGB_565()` 曾是 SoC C 库里的 `yuv420p_to_rgb565_thumb()`，PC 侧用 `stubs/mp4player/yuv_rgb_565_pc.c` 转接。上游重构后 `YUV_RGB_565` / `yuv420p_to_rgb565_thumb` / `avcodec/h264_decode.h` **全部消失且已无调用点**（真机侧改由 `video_decode/yuv_rgb_565.s` 手写汇编提供、当前同样无调用），PC 的 stub 与 `forceincludes` 已随之删除。
+- `mp4player/audio_decode/mp3/mp3player.c` 里 `data + len`（`data` 为 `void*`）是 GCC 扩展，MSVC 报 `C2036` → 已改成 `(uint8_t *)data + len`。
+- 上游 `audio_decode/aac/`（含 `libfaad/`）与 `audio_decode/audio_decoder_if.c`、`fdk_adapter.c` **均已不存在**（`audio_decoder_if.c` 现在 `video_decode/` 下）。PC 侧原先的 `add_thirdparty_files(.../aac/libfaad/*.c)` 与三条 `audio_decode/aac*` `add_includedirs` 会分别报 configure 期 `cannot match` / `includedir not found`，已删除；AAC 走 `video_decode/ffmpeg_aac_adapter.c` + FFmpeg 的 `libavcodec/aacdec.c`。
+- 上游 `video_decode/mp4demux.h` 在头里手写了一个非 `static` 的 `strdup()`。MSVC `/MD` 下 `<string.h>` 已把 `strdup` 声明为 `__declspec(dllimport)`，重复定义报 `C4273`（不一致的 dll 链接）→ 该定义已用 `#ifndef _MSC_VER` 包起来：PC 复用 CRT 的 strdup（与 `free()` 同属 CRT 堆），真机保留原实现（经 `--wrap=malloc` 与 `free()` 同一个 TLSF 堆）。顺带一提，头文件里定义非 `static` 函数意味着**只能有一个 .c include 它**，多一个就是 `LNK2005`；目前只有 `mp4_decode.c` include。
 
 **核对方法**：`xmake -y` 跑完后只看链接错误里的 `LNK2019`/`LNK2005`，逐个回上游/本仓库找实现方，比反复全量编译快得多。想快速迭代单文件时可以用 `xmake project -k compile_commands .` 生成 `compile_commands.json`，复用其中该文件的完整编译参数单独跑 `cl`（~10 秒一轮）。

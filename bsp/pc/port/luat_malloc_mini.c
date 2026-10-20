@@ -241,10 +241,14 @@ void* luat_heap_opt_zalloc(LUAT_HEAP_TYPE_E type,size_t size){
 }
 
 void* luat_heap_opt_memalign(LUAT_HEAP_TYPE_E type, size_t alignment, size_t size){
-    if (alignment > SizeQuant) {
-        LLOGW("luat_heap_opt_memalign: unsupported alignment=%zu size=%zu", alignment, size);
-        return NULL;
-    }
+    /*
+     * Same rationale as luat_heap_memalign() above: bget offers no aligned
+     * allocation, and the PC simulator has no DMA / cache-line coherency
+     * requirement, so an over-aligned request (e.g. mp4player's YUV_ALIGN=32)
+     * is served by a plain allocation of the same size. Returning NULL for
+     * alignment > SizeQuant used to make video_decode's yuv_queue_alloc() fail.
+     */
+    (void)alignment;
     return luat_heap_opt_malloc(type, size);
 }
 

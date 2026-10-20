@@ -1233,8 +1233,6 @@ target("luatos-lua")
 
     -- =========================================================
     -- mp4player（MP4/H.264/AAC 解码器）
-    -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/mp4player
-    -- 示例（PowerShell）：
     --   $env:LUAT_USE_MP4PLAYER = "y"  # 显式启用
     --   $env:LUAT_USE_MP4PLAYER = "n"  # 显式禁用
     --   cmd /c build_windows_32bit_msvc.bat
@@ -1255,6 +1253,8 @@ target("luatos-lua")
     
     if use_mp4player then
         add_defines("LUAT_USE_MP4PLAYER=1")
+        -- 关闭jpeg解码器
+        add_defines("ENABLE_MJPEG_DECODER=0")
 
         local mp4player_src = luatos_ext_root .. "/mp4player"
         -- 统一为正斜杠，xmake 在 Windows 下两者均支持
@@ -1267,80 +1267,127 @@ target("luatos-lua")
         add_includedirs(mp4player_src .. "/port")
         add_includedirs(mp4player_src .. "/audio_decode")
         add_includedirs(mp4player_src .. "/audio_decode/platform")
-        add_includedirs(mp4player_src .. "/audio_decode/aac")
-        add_includedirs(mp4player_src .. "/audio_decode/aac/include")
-        add_includedirs(mp4player_src .. "/audio_decode/aac/libfaad")
         add_includedirs(mp4player_src .. "/video_decode")
         add_includedirs(mp4player_src .. "/video_decode/avcodec")
         add_includedirs(mp4player_src .. "/video_decode/avcodec/h264")
         -- mp4_decode.c 的 mplayer 胶水层引用 components/mplayer 的上下文结构体
         add_includedirs(luatos.."components/mplayer/inc")
-        -- mp4player 的 plat_support.h 在 __LUATOS__ 下无条件 include luat_display.h,
-        -- 但 components/display/inc 只在 GUI 构建里加入过, 导致非 GUI 构建 C1083。
-        -- 只有头文件: luat_display_get_default() 的调用在 #if LUAT_USE_DISPLAY 内, 非 GUI 不引用。
         add_includedirs(luatos.."components/display/inc")
-        -- FreeRTOS 兼容层(FreeRTOS.h/task.h/semphr.h), 仅 mp4_decode.c 用到,
-        -- 文件名通用, 只能在本特性开启时加入, 见 stubs/mp4player/FreeRTOS.h
         add_includedirs("stubs/mp4player")
 
         -- ---- 音频公共模块 ----
-        -- sound.c 已在 luatos-ext-components e011cd8c 拆到 platform/sound_dev_port.c
         add_files(mp4player_src .. "/audio_decode/audio_rb.c")
         add_files(mp4player_src .. "/audio_decode/platform/sound_dev_port.c")
 
-        -- ---- AAC 解码（libfaad，第三方代码，关闭所有警告）----
-        add_thirdparty_files(mp4player_src .. "/audio_decode/aac/libfaad/*.c")
 
-        -- ---- H.264 解码器（avcodec，FFmpeg 派生，关闭所有警告）----
+        -- ---- H.264 解码器（libavcodec + libavutil，FFmpeg 派生，关闭所有警告）----
         -- atomic_gcc.h 已在 MSVC 下添加 #ifdef _MSC_VER 兼容处理，无需额外 defines。
-        add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/h264/*.c")
+        local h264_root = mp4player_src .. "/video_decode/avcodec/h264"
+        add_includedirs(h264_root .. "/libavcodec")
+
+        -- 解码器适配层（video_decode/avcodec/ 下的 *_adapter.c）
         add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/*.c")
-        -- libavutil 是 avcodec 的底层库（av_frame_*, av_samples_*, av_image_*, av_opt_* 等）
-        add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/h264/libavutil/*.c")
-        -- file_open.c 依赖 <fcntl.h> O_CREAT 等宏（config.h 未启用 HAVE_FCNTL），改用 PC stub
-        remove_files(mp4player_src .. "/video_decode/avcodec/h264/libavutil/file_open.c")
-        -- *_template.c 是通过 #include 引入的模板文件，不直接参与编译
-        remove_files(mp4player_src .. "/video_decode/avcodec/*_template.c")
-        remove_files(mp4player_src .. "/video_decode/avcodec/h264/*_template.c")
-        -- yuv2rgb_neon.c 使用 ARM NEON intrinsics，PC 不可编译
-        remove_files(mp4player_src .. "/video_decode/avcodec/yuv2rgb_neon.c")
-        -- h264/yuv.c 与 SDL2 的 yuv_rgb_std.c 重复定义 yuv420_rgb24_std 等函数，排除之
-        remove_files(mp4player_src .. "/video_decode/avcodec/h264/yuv.c")
-        -- h264_decode.c 是独立的 H264 解码桥接层，供 luat_mp4_videoplayer.c 调用
-        -- （以前因为与 components/h264/src/h264_decoder.c 符号冲突而被排除；
-        --   现已移除 components/h264，因此可以正常编译）
+        -- mjpeg_adapter.c 关闭jpeg解码器
+        remove_files(mp4player_src .. "/video_decode/avcodec/mjpeg_adapter.c")
+
+        -- libavutil：
+        local avutil_files = {
+            "adler32.c", "aes.c", "aes_ctr.c", "audio_fifo.c", "avstring.c", "base64.c",
+            "blowfish.c", "bprint.c", "buffer.c", "camellia.c", "cast5.c", "channel_layout.c",
+            "color_utils.c", "crc.c", "des.c", "dict.c", "display.c", "downmix_info.c",
+            "encryption_info.c", "error.c", "eval.c", "fifo.c", "fixed_dsp.c", "float_dsp.c",
+            "frame.c", "hash.c", "hdr_dynamic_metadata.c", "hmac.c", "hwcontext.c",
+            "hwcontext_mediacodec.c", "imgutils.c", "integer.c", "intmath.c", "lfg.c", "lls.c",
+            "log.c", "log2_tab.c", "lzo.c", "mastering_display_metadata.c", "mathematics.c",
+            "md5.c", "mem.c", "murmur3.c", "opt.c", "parseutils.c", "pca.c", "pixdesc.c",
+            "pixelutils.c", "random_seed.c", "rational.c", "rc4.c", "reverse.c", "ripemd.c",
+            "samplefmt.c", "sha.c", "sha512.c", "slicethread.c", "spherical.c", "stereo3d.c",
+            "tea.c", "threadmessage.c", "time.c", "timecode.c", "tree.c", "twofish.c", "tx.c",
+            "utils.c", "xga_font_data.c", "xtea.c",
+            "arm/float_dsp_init_cortexm.c",
+        }
+
+        -- libavcodec：
+        local avcodec_files = {
+            -- AAC 音频解码族
+            "aacdec.c", "aacps_float.c", "aacpsdsp_float.c", "aacsbr.c", "aactab.c",
+            "adts_header.c", "cbrt_data.c", "fft_float.c", "kbdwin.c", "mdct15.c",
+            "mdct_float.c", "mpeg4audio.c", "sbrdsp.c", "sinewin.c",
+            -- H.264 解码族
+            "cabac.c", "h2645_parse.c", "h264_cabac.c", "h264_cavlc.c", "h264_direct.c",
+            "h264_loopfilter.c", "h264_mb.c", "h264_parse.c", "h264_parser.c",
+            "h264_picture.c", "h264_ps.c", "h264_refs.c", "h264_sei.c", "h264_slice.c",
+            "h264chroma.c", "h264data.c", "h264dec.c", "h264dsp.c", "h264idct.c",
+            "h264pred.c", "h264qpel.c",
+            -- MPEG-4 Part2 / Xvid 解码族
+            "error_resilience.c", "me_cmp.c", "mpeg4video.c", "mpeg4video_parser.c",
+            "mpeg4videodec.c", "xvididct.c",
+            -- H.263 解码族
+            "h263.c", "h263_parser.c", "h263data.c", "h263dsp.c", "h263dec.c", "ituh263dec.c",
+            -- MPEG-1/2 解码族
+            "golomb.c", "mpeg12.c", "mpeg12data.c", "mpeg12dec.c", "mpeg12framerate.c",
+            "mpeg_er.c", "mpegpicture.c", "mpegutils.c", "mpegvideo.c",
+            "mpegvideo_motion.c", "mpegvideo_parser.c", "mpegvideodata.c", "mpegvideodsp.c", "rl.c",
+            -- DSP / IDCT / 像素处理
+            "blockdsp.c", "fdctdsp.c", "hpeldsp.c", "idctdsp.c", "jfdctfst.c", "jfdctint.c",
+            "jrevdct.c", "pixblockdsp.c", "qpeldsp.c", "simple_idct.c", "videodsp.c",
+            -- 编解码框架 / 工具
+            "allcodecs.c", "avdct.c", "avpacket.c", "avpicture.c", "bitstream.c",
+            "bitstream_filter.c", "bitstream_filters.c", "bsf.c", "codec_desc.c",
+            "codec_list.c", "decode.c", "encode.c", "imgconvert.c", "mathtables.c",
+            "null_bsf.c", "options.c", "parser.c", "parser_list.c", "parsers.c",
+            "profiles.c", "raw.c", "startcode.c", "utils.c",
+            -- Cortex-M7 汇编支持
+            "arm/fft_init_cortexm.c", "arm/hpeldsp_init_cortexm.c",
+            "arm/idctdsp_init_cortexm.c", "arm/pixblockdsp_init_cortexm.c",
+        }
+
+        local ffmpeg_file_options = thirdparty_file_options()
+        for _, f in ipairs(avutil_files) do
+            add_files(h264_root .. "/libavutil/" .. f, ffmpeg_file_options)
+        end
+        for _, f in ipairs(avcodec_files) do
+            add_files(h264_root .. "/libavcodec/" .. f, ffmpeg_file_options)
+        end
 
         -- ---- MP4 解复用 + 解码协调层 ----
-        -- mp4_decode.c 有两处 PC/MSVC 下需要打补丁的地方, 用强制包含处理:
-        --   1. msvc_attr_stub.h: 文件里用了 GCC 的 __attribute__((aligned(4))), MSVC 不认;
-        --      改 include 路径没用(错误点在所有 #include 之后)。
-        --   2. yuv_rgb_565.h: 上游只在 #if defined(LUAT_USE_DISPLAY) 里 include 它,
-        --      但 mplayer_h264_disp_cb() 无条件使用 YUV_RGB_Param, 非 GUI 构建会报
-        --      C2065。头文件本身自洽(只有结构体+函数声明), 提前包含无副作用。
         add_files(mp4player_src .. "/video_decode/mp4_decode.c",
-            {forceincludes = {"msvc_attr_stub.h", "yuv_rgb_565.h"}})
+            {forceincludes = {"msvc_attr_stub.h"}})
         add_files(mp4player_src .. "/video_decode/video_rb.c")
         -- YUV 帧队列（解码与渲染解耦），mp4_decode.c 的 movie_render_thread 依赖
         add_files(mp4player_src .. "/video_decode/yuv_rb.c")
-
+        -- mp4_decode.c 按 codec 分派解码器: video_decoder_find_if / audio_decoder_find_if
+        add_files(mp4player_src .. "/video_decode/video_decoder_if.c")
+        add_files(mp4player_src .. "/video_decode/audio_decoder_if.c")
+        -- audio_decoder_if.c 分派表引用的两个适配器（ENABLE_FFMPEG_AACDEC / ENABLE_MP3_DECODER 默认都开）
+        add_files(mp4player_src .. "/video_decode/ffmpeg_aac_adapter.c")
+        add_files(mp4player_src .. "/audio_decode/mp3_adapter.c")
         -- ---- platform port（已适配 LuatOS VFS，仅含 luat_mp4player_port.c）----
         add_files(mp4player_src .. "/port/luat_mp4player_port.c")
 
         -- ---- PC audio stubs（替代 CCM42xx DAC/DMA/I2S 硬件驱动）----
-        -- platform/ 中的 dac_sound.c / i2s_sound.c / sys_dac.c 依赖 CCM42xx 外设，不编译；
-        -- sound_dev_port.c 同时引用 DAC 与 I2S，PC 侧各用一份 no-op stub。
         add_files("stubs/mp4player/dac_sound_pc.c")
         add_files("stubs/mp4player/i2s_sound_pc.c")
         add_files("stubs/mp4player/sys_dac_pc.c")
-        -- YUV_RGB_565() 在真机由 SoC C 库提供，LuatOS 内无实现，
-        -- PC 侧用库内已有的 yuv420p_to_rgb565_thumb() 转接。
-        add_files("stubs/mp4player/yuv_rgb_565_pc.c")
 
-        -- mp3player.c 不再自带 minimp3 实现（用 _MINIMP3_IMPLEMENTATION_GUARD 抑制），
-        -- 而复用 LuatOS components/multimedia/minimp3.c 的同一份实现。
-        -- 因此这里必须保留 LuatOS 的 minimp3.c，否则 mp3dec_init/mp3dec_decode_frame
-        -- （mp3_decode_port.c / luat_audio_codec_port_mp3.c 需要）会链接失败。
         add_includedirs(mp4player_src .. "/audio_decode/mp3")
         add_files(mp4player_src .. "/audio_decode/mp3/mp3player.c")
+
+        -- ---- mplayer API 层（components/mplayer）----
+        -- 与设备侧同样编 binding + src; 并在 port/luat_base_mini.c 里用
+        -- LUAT_USE_MPLAYER 把 {"mplayer", luaopen_mplayer} 注册进 Lua 表。
+        -- 注意: 非 GUI 构建的 display 后端由 stubs/mp4player/luat_display_pc.c 提供
+        -- 无头 sink(见该文件注释), 故 mplayer.set_rect 可用、逐帧 disp_output 会真的
+        -- 跑起来, 只是不上屏; GUI 构建则用真 display 组件, 此时无头 sink 不参与。
+        add_defines("LUAT_USE_MPLAYER=1")
+        add_includedirs(luatos.."components/mplayer/inc")
+        add_files(luatos.."components/mplayer/src/*.c")
+        add_files(luatos.."components/mplayer/binding/*.c")
+        -- YUV420P -> RGB565: 设备侧由 video_decode/yuv_rgb_565.s(Thumb-2) 提供
+        add_files("stubs/mp4player/yuv_rgb_565_pc.c")
+        -- luat_display_get_default() 的提供方(二选一, 不可重复定义)
+        if not use_gui then
+            add_files("stubs/mp4player/luat_display_pc.c")
+        end
     end
 target_end()

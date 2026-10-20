@@ -168,6 +168,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_LCD
   {"lcd",    luaopen_lcd},
 #endif
+#ifdef LUAT_USE_MPLAYER
+  {"mplayer", luaopen_mplayer},           // MP4 播放器(components/mplayer, 由 bsp/pc/xmake.lua 打开)
+#endif
 #ifdef LUAT_USE_PINYIN
   {"pinyin", luaopen_pinyin},
 #endif

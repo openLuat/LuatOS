@@ -19,6 +19,8 @@ VERSION = "001.999.001"
 
 log.info("main", PROJECT, VERSION)
 
+
+
 -- 1. 软件看门狗：9 秒超时，3 秒喂一次（两种模式都要保护）
 if wdt then
     wdt.init(9000)
@@ -77,7 +79,8 @@ local function start_normal_mode()
     -- 板载 SPI Flash 挂载（失败不阻塞主流程）
     local storage = require "storage"
     storage.mount()
-    storage.ensure_fixed()        -- 首次挂载时写入固定值，供远程指令读取
+    -- 固定值延后 10 秒写：避开启动期 SPI1 与内存高峰，写失败也不影响主流程
+    sys.timerStart(storage.ensure_fixed, 10000)
     local log_ok = storage.log("boot", "启动 " .. PROJECT .. " " .. VERSION)
     log.info("main", "运行日志写入:", log_ok and "OK" or "FAIL")
 

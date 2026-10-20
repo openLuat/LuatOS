@@ -13,6 +13,9 @@
 local M = {}
 
 local DEFAULTS = {
+    -- 配置结构版本：需要强制刷新旧设备上的默认值时 +1
+    cfg_ver = 2,
+
     -- 设备标识
     device_name = "Air8380",
 
@@ -47,12 +50,16 @@ local DEFAULTS = {
 
     -- FOTA
     fota_auto = true,
-    fota_interval = 86400,            -- 自动检测间隔（秒）
+    fota_first_delay = 60,            -- 开机后首次检测延迟（秒）
+    fota_interval = 14400,            -- 自动检测间隔（秒），4 小时
 
     -- 网络看门狗
     net_watchdog_enable = true,
     net_watchdog_timeout = 900,       -- 无 IP/无成功上报超过该秒数则重启
 }
+
+-- 配置版本升级时，用新默认值覆盖这些字段（旧设备 fskv 里存过的旧值会被刷新）
+local CFG_FORCE_ON_MIGRATE = { "fota_interval", "fota_first_delay" }
 
 local cfg
 
@@ -63,6 +70,15 @@ function M.load()
     if type(saved) == "table" then
         for k, v in pairs(DEFAULTS) do
             if saved[k] == nil then saved[k] = v end
+        end
+        -- 配置版本迁移：旧设备 fskv 里存的是旧默认值，这里强制刷成新默认
+        if saved.cfg_ver ~= DEFAULTS.cfg_ver then
+            for _, k in ipairs(CFG_FORCE_ON_MIGRATE) do
+                saved[k] = DEFAULTS[k]
+            end
+            saved.cfg_ver = DEFAULTS.cfg_ver
+            fskv.set("APP_CFG", saved)
+            log.info("app_config", "配置已迁移到版本", tostring(DEFAULTS.cfg_ver))
         end
         cfg = saved
         log.info("app_config", "已加载 fskv 配置")

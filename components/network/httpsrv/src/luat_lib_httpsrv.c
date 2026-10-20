@@ -12,8 +12,6 @@
 #include "luat_httpsrv.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv.h"
-#include "lwip/netif.h"
-#include "lwip/ip_addr.h"
 
 #define LUAT_LOG_TAG "httpsrv"
 #include "luat_log.h"
@@ -21,8 +19,35 @@
 #define LUAT_HTTPSRV_COUNT 16
 
 // 服务槽位, 空槽为NULL
-// ctx生命周期: start成功时挂载到本数组, stop时摘除, ctx内存由lwip线程(srv_stop_cb)释放
+// ctx生命周期: start成功时挂载到本数组, stop时摘除, ctx内存由后端线程释放
 static luat_httpsrv_ctx_t* srvs[LUAT_HTTPSRV_COUNT];
+
+/*
+选择传输后端.
+
+PC 模拟器上有两套互不连通的 TCP/IP 协议栈:
+  A. lwIP 2.2   —— 模拟器内那一套, PC 上没有 netif, 是一座孤岛
+  B. 宿主 OS 栈  —— 有真实局域网 IP, 浏览器访问的就是这一套
+真机只有 A; PC 上只有 B 能真正收到包, 所以 PC 一律走宿主 socket 后端,
+包括 socket.LWIP_ANY(它的语义就是"绑定全部网卡", 映射为宿主的 0.0.0.0).
+*/
+static const luat_httpsrv_transport_t* httpsrv_pick_transport(uint8_t adapter_index, luat_netdrv_t** out_drv) {
+    *out_drv = NULL;
+#if defined(LUAT_HTTPSRV_POSIX_BACKEND)
+    (void)adapter_index;
+    return &luat_httpsrv_transport_posix;
+#else
+    if (adapter_index != NW_ADAPTER_INDEX_LWIP_ANY) {
+        luat_netdrv_t* drv = luat_netdrv_get(adapter_index);
+        if (drv == NULL || drv->netif == NULL) {
+            LLOGW("该网络还没准备好 %d", adapter_index);
+            return NULL;
+        }
+        *out_drv = drv;
+    }
+    return &luat_httpsrv_transport_lwip;
+#endif
+}
 
 /*
 启动并监听一个http端口
@@ -58,6 +83,8 @@ httpsrv.start(80, on_request, socket.LWIP_ANY)
 -- 情况2: /abc.html , 先查找 /abc.html, 不存在的话查找 /abc.html.gz
 -- 若gz存在, 会自动以压缩文件进行响应, 绝大部分浏览器支持.
 -- 当前默认查找 /luadb/xxx 下的文件,暂不可配置
+-- 注意: 回调第一个参数 client 是该连接的后端句柄, 仅供调试使用,
+--       真机是 tcp_pcb*, PC 模拟器是 socket fd, 跨平台不保证一致, 请勿依赖.
 */
 static int l_httpsrv_start(lua_State *L) {
     char buff[64] = {0};
@@ -68,12 +95,9 @@ static int l_httpsrv_start(lua_State *L) {
     }
     uint8_t adapter_index = luaL_optinteger(L, 3, network_register_get_default());
     luat_netdrv_t* drv = NULL;
-    if (adapter_index != NW_ADAPTER_INDEX_LWIP_ANY) {
-        drv = luat_netdrv_get(adapter_index);
-        if (drv == NULL || drv->netif == NULL) {
-            LLOGW("该网络还没准备好 %d", adapter_index);
-            return 0;
-        }
+    const luat_httpsrv_transport_t* vt = httpsrv_pick_transport(adapter_index, &drv);
+    if (vt == NULL) {
+        return 0;
     }
     // 冲突检查: 端口相同且(adapter相同 或 任一方绑定全部网卡)视为冲突
     for (size_t i = 0; i < LUAT_HTTPSRV_COUNT; i++)
@@ -101,14 +125,15 @@ static int l_httpsrv_start(lua_State *L) {
         return 0;
     }
 
-    luat_httpsrv_ctx_t* ctx = luat_httpsrv_malloc(port, adapter_index);
+    luat_httpsrv_ctx_t* ctx = luat_httpsrv_malloc(port, adapter_index, vt);
     if (ctx == NULL) {
         return 0;
     }
-    ctx->netif = drv ? drv->netif : NULL;
+    // lwIP 后端需要 netif 才能决定绑哪张网卡; posix 后端一律绑 0.0.0.0
+    ctx->priv = drv ? (void*)drv->netif : NULL;
     lua_pushvalue(L, 2);
     ctx->lua_ref_id = luaL_ref(L, LUA_REGISTRYINDEX);
-    // 同步等待lwip线程完成bind/listen, 避免bind失败但Lua侧假成功
+    // 同步等待后端完成bind/listen, 避免bind失败但Lua侧假成功
     if (luat_rtos_semaphore_create(&ctx->start_sem, 0)) {
         LLOGE("create start_sem failed");
         luaL_unref(L, LUA_REGISTRYINDEX, ctx->lua_ref_id);
@@ -116,28 +141,23 @@ static int l_httpsrv_start(lua_State *L) {
         luat_httpsrv_free(ctx);
         return 0;
     }
-    int ret = luat_httpsrv_start(ctx);
+    int ret = vt->srv_start(ctx);
     if (ret == 0) {
         if (luat_rtos_semaphore_take(ctx->start_sem, 3000) == 0) {
             // start_cb已执行完毕, 结果有效
             ret = ctx->start_ret;
         }
         else {
-            // tcpip线程3秒未响应, 系统级故障, ctx与sem只能泄漏, 不能释放(避免use-after-free)
-            LLOGE("wait httpsrv start result timeout, tcpip thread dead?");
+            // 后端3秒未响应, 系统级故障, ctx与sem只能泄漏, 不能释放(避免use-after-free)
+            LLOGE("wait httpsrv start result timeout, backend dead?");
             return 0;
         }
     }
     luat_rtos_semaphore_delete(ctx->start_sem);
     ctx->start_sem = NULL;
     if (ret == 0) {
-        if (ctx->netif) {
-            ipaddr_ntoa_r(&ctx->netif->ip_addr, buff, 32);
-        }
-        else {
-            memcpy(buff, "0.0.0.0", 8);
-        }
-        LLOGI("http listen at %s:%d", buff, ctx->port);
+        const char* ip = vt->srv_local_ip(ctx, buff, sizeof(buff));
+        LLOGI("http listen at %s:%d [%s backend]", ip ? ip : "?", ctx->port, vt->name);
         srvs[index] = ctx;
     }
     else {
@@ -169,11 +189,22 @@ static int l_httpsrv_stop(lua_State *L) {
         if (srvs[i] != NULL && srvs[i]->port == port && srvs[i]->adapter_id == adapter_index) {
             luat_httpsrv_ctx_t* ctx = srvs[i];
             srvs[i] = NULL;
-            if (ctx->lua_ref_id != LUA_NOREF) {
-                luaL_unref(L, LUA_REGISTRYINDEX, ctx->lua_ref_id);
-                ctx->lua_ref_id = LUA_NOREF;
+            // 先停监听. 在途连接可能仍要 dispatch 到 Lua 回调,
+            // 所以 lua_ref 此刻不能 unref —— 它随 ctx 一起延迟释放:
+            // 在途计数(accept 时累加, cleanup 时递减)归零前 ref 保持有效,
+            // 杜绝了 ref 槽位被 luaL_ref 复用后张冠李戴调错回调的竞态
+            if (ctx->vt) {
+                ctx->vt->srv_stop(ctx);
             }
-            luat_httpsrv_stop(ctx);
+            if (luat_httpsrv_ctx_mark_stopped(ctx)) {
+                // 没有在途连接: 本线程直接 unref + 释放
+                if (ctx->lua_ref_id != LUA_NOREF) {
+                    luaL_unref(L, LUA_REGISTRYINDEX, ctx->lua_ref_id);
+                    ctx->lua_ref_id = LUA_NOREF;
+                }
+                luat_httpsrv_free(ctx);
+            }
+            // else: 最后一个在途连接收尾时经 msgbus 投递释放(Lua 线程执行 unref+free)
             lua_pushboolean(L, 1);
             return 1;
         }
@@ -211,7 +242,7 @@ static const rotable_Reg_t reg_httpsrv[] =
 	{ NULL,          ROREG_INT(0) }
 };
 
-LUAMOD_API int luaopen_httpsrv( lua_State *L ) {
+LUAMOD_API int luaopen_httpsrv( lua_State * L ) {
     luat_newlib2(L, reg_httpsrv);
     return 1;
 }

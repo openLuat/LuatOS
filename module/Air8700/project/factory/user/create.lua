@@ -8,7 +8,7 @@
 本文件为出厂固件的服务器通道配置，主要包含TCP/UDP，MQTT,AirCloud等协议的初始化。
 相对 irtu_basic 的改动集中在 aircloudTask：
     1. 连接成功后启动周期上报定时器（默认180s），上报结构化 TLV 数据
-    2. 处理下行控制命令（tag 19）：cycle:秒数 / led:blink|on|off / tts:文本
+    2. 处理下行控制命令（tag 19）：cycle:秒数 / led:blink|on|off
     3. 保留串口透传（RANDOM_DATA）与 rrpc 指令（tag 21）能力
 ]]
 create = {}
@@ -19,11 +19,9 @@ local dtulib = require "dtulib"
 local excloud= require ("excloud")
 local lbsLoc2 = require("lbsLoc2")
 local default = require("default")
--- 出厂固件业务模块：传感器采集 / LED / TTS / 上报周期 / 控制命令
+-- 出厂固件业务模块：传感器采集 / LED / 上报周期 / 控制命令
 local factory_app = require "factory_app"
 local dtu
-local audio_uid="a"
-local audio_cid="a"
 local gps_psm=false
 
 local datalink, defChan = {}, 1
@@ -34,14 +32,6 @@ interval[uart.VUART_0], samptime[uart.VUART_0] = 0, 0
 local latdata, lngdata = 0, 0
 
 local output, input = {}, {}
-
-sys.subscribe("audio_result", function(data)
-    if audio_uid~="a" and audio_cid~="a" then
-        sys.publish("NET_SENT_RDY_" .. audio_uid, "audioresult_"..audio_cid,data)
-        audio_uid="a"
-        audio_cid="a"
-    end
-end)
 
 -- 用户读取ADC
 function create.getADC(id)
@@ -210,22 +200,6 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
                     else
                         -- log.info("匹配CID失败",data)
                     end
-                elseif data:match("audioresult_") then
-                    if data== "audioresult_"..cid then
-                        -- log.info("匹配CID成功",cid)
-                        table.insert(outputSocket, data2)
-                        if waitsend==0 then
-                            sys_send(dName, socket.EVENT, 0)
-                            waitsend=1
-                        else
-                            log.info("太快了，晚500ms发")
-                            sys.timerStart(function ()
-                            sys_send(dName, socket.EVENT, 0)
-                            end,500)
-                        end
-                    else
-                        -- log.info("匹配CID失败",data)
-                    end
                 elseif data:match("CID_") then
                     -- 检查CID是否匹配
                     if data== "CID_"..cid then
@@ -327,8 +301,6 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
                     log.info("收到服务器数据，长度", rx_buff:used())
                     local data = rx_buff:toStr(0, rx_buff:used())
                     if data:sub(1, 5) == "rrpc," or data:sub(1, 7) == "config," then
-                        audio_uid=uid
-                        audio_cid=cid
                         -- 对于 getreallocation 指令，我们需要传递来源信息（网络）给 userapi，以便异步响应
                         local res, msg
                         if data:find("getreallocation") or data:find("getairlbslocation") then
@@ -625,36 +597,6 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
                             else
                                 -- log.info("匹配CID失败",data)
                             end
-                        elseif topic:match("audioresult_") then
-                            -- log.info("是GPS发过来的消息")
-                            if topic== "audioresult_"..cid then
-                                if  upprotFnc then -- 转换为用户自定义报文
-                                    local res, msg, index = pcall(upprotFnc, data)
-                                    if not res or not msg then
-                                        log.error("数据流模版错误:", msg)
-                                    else
-                                        index = tonumber(index) or 1
-                                        local pub_topic = (pub[index]:sub(-1, -1) == "+" and messageId) and
-                                            pub[index]:sub(1, -2) .. messageId or pub[index]
-                                        log.info("-----发布的主题:", pub_topic)
-                                        if not mqttc:publish(pub_topic, res and msg or data, tonumber(pub[index + 1]) or qos,
-                                                retain) then
-                                            break
-                                        end
-                                    end
-                                else
-                                    local pub_topic = (pub[1]:sub(-1, -1) == "+" and messageId) and pub[1]:sub(1, -2) ..
-                                        messageId or pub[1]
-                                    log.info("-----发布的主题:", pub_topic)
-                                    if not mqttc:publish(pub_topic, data, tonumber(pub[2]) or qos, retain) then
-                                        break
-                                    end
-                                end
-                                messageId = false
-                                log.info('The client actively reports status information.')
-                            else
-                                -- log.info("匹配CID失败",data)
-                            end
                         elseif topic:match("CID_") then
                             -- 检查CID是否匹配
                             if topic== "CID_"..cid then
@@ -720,8 +662,6 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
                         log.info("RET2", ret, topic, data, payload)
                         -- 这里执行用户自定义的指令
                         if payload:sub(1, 5) == "rrpc," or payload:sub(1, 7) == "config," then
-                            audio_uid=uid
-                            audio_cid=cid
                             local res, msg = pcall(create.userapi, payload, pios)
                             if not res then
                                 log.error("远程查询的API错误:", msg)
@@ -891,7 +831,7 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
             log.info("收到消息, 流水号: " .. data.header.sequence_num)
             -- 处理服务器下发的消息
             for _, tlv in ipairs(data.tlvs) do
-                --控制命令（tag 19）：cycle:秒数 / led:blink|on|off / tts:文本
+                --控制命令（tag 19）：cycle:秒数 / led:blink|on|off
                 if tlv.field == excloud.FIELD_MEANINGS.CONTROL_COMMAND then
                     log.info("收到控制命令: " .. tostring(tlv.value),tlv.field)
                     -- 出厂固件：执行控制命令并获取响应文本
@@ -912,8 +852,6 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
                     --irtu命令
                 elseif  tlv.field == excloud.FIELD_MEANINGS.IRTU_DOWN then
                     if tlv.value:sub(1, 5) == "rrpc," or tlv.value:sub(1, 7) == "config," then
-                        audio_uid=uid
-                        audio_cid=cid
                         local res, msg = pcall(create.userapi, tlv.value)
                             if not res then
                                 log.error("远程查询的API错误:", msg)
@@ -1017,14 +955,6 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
                     else
                         -- log.info("匹配CID失败",data)
                     end
-                elseif data:match("audioresult_") then
-                    if data== "audioresult_"..cid then
-                        -- log.info("匹配CID成功",cid)
-                        table.insert(outputSocket, data2)
-                        sys.publish(report_event, "serial")
-                    else
-                        -- log.info("匹配CID失败",data)
-                    end
                 elseif data:match("CID_") then
                     -- 检查CID是否匹配
                     if data== "CID_"..cid then
@@ -1059,7 +989,7 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
                 }
             }, false)                   -- 不需要服务器回复
         elseif kind == "report" then
-            -- 出厂固件：结构化 TLV 上报（温度/湿度/VOC/CPU温度/信号/LBS）
+            -- 出厂固件：结构化 TLV 上报（CPU温度/信号/LBS）
             local tlv_list = factory_app.build_report_tlv()
             if #tlv_list > 0 then
                 local ok, err_msg = excloud.send(tlv_list, false)

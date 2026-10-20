@@ -1,0 +1,1 @@
+{"timeout": 120, "action_count": 1, "priority": 5, "description": "通用 cycle profiler(prof 组件)端到端验证: 注册/启停/计数/清零/关态零采集语义, 基于内建 prof.selftest 模块, 无需外部消费者; 未开启 LUAT_USE_PROF 的固件整体 SKIP", "platform": ["pc", "air8000"]}

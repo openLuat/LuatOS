@@ -104,7 +104,7 @@ log.info("main", PROJECT, VERSION)
 --                      控制485接收和发送的使能脚：GPIO24
 --   "DEV_BOARD_V1.2" - V1.2开发板
 --                      控制485接收和发送的使能脚：GPIO25
-HARDWARE_ENV = "DEV_BOARD_V1.3"  -- 修改此值适配不同开发板版本："DEV_BOARD_V1.3"=V1.3开发板, "DEV_BOARD_V1.2"=V1.2开发板
+HARDWARE_ENV = "DEV_BOARD_V1.2"  -- 修改此值适配不同开发板版本："DEV_BOARD_V1.3"=V1.3开发板, "DEV_BOARD_V1.2"=V1.2开发板
 
 
 
@@ -134,13 +134,13 @@ HARDWARE_ENV = "DEV_BOARD_V1.3"  -- 修改此值适配不同开发板版本："D
 -- 以下三种方式只能选择其中一种打开，否则会导致功能冲突
 
 -- 加载 RTU 主站应用模块（字段参数方式）
-require "param_field"
+-- require "param_field"
 
 -- 加载 RTU 主站应用模块（原始帧方式）
 -- require "raw_frame"
 
 -- 加载温湿度传感器模块
--- require "temp_hum_sensor"
+require "temp_hum_sensor"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -51,8 +51,9 @@ local function build_aircloud_tlv(d)
         -- 2026-09-23 按官方口径改为 FLOAT（与 active_mode 的 build_aircloud_tlv 保持一致）
         local lat_n, lng_n = tonumber(lat), tonumber(lng)
         if lat_n and lng_n then
-            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.FLOAT, value = lng_n })
-            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.FLOAT, value = lat_n })
+            -- 2026-10-19 改为 ASCII 字符串（%.6f），绕过 FLOAT ×1000 截断
+            table.insert(data, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.ASCII, value = string.format("%.6f", lng_n) })
+            table.insert(data, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.ASCII, value = string.format("%.6f", lat_n) })
         end
     end
     table.insert(data, { field_meaning = FM.LOCATION_METHOD, data_type = DT.ASCII, value = tostring(d.gps_status or 0) })

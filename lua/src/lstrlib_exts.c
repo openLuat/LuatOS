@@ -112,40 +112,55 @@ void luat_str_ucs2_to_char(char* source, size_t size, char* dst2, size_t* outlen
     luat_heap_free(buff);
 }
 
-int luat_str_utf8_to_ucs2(char* source, size_t source_len, char* dst, size_t dstlen, size_t* outlen) {
-    uint16_t unicode = 0;
+int luat_str_utf8_to_ucs2(const char* source, size_t source_len, char* dst, size_t dstlen, size_t* outlen) {
     size_t tmplen = 0;
-    for (size_t i = 0; i < source_len; i++)
+    size_t i = 0;
+    while (i < source_len)
     {
-        if(tmplen >= dstlen) {
+        uint8_t c = (uint8_t)source[i];
+        uint32_t unicode = 0;
+        size_t seq_len = 0;
+
+        /* 按首字节判定 UTF-8 序列长度, 必须从长到短判断:
+         * 110xxxxx & 0xE0 == 0xC0, 只有与 0xE0 相等才是 3 字节序列 */
+        if (c < 0x80) {                 /* 0xxxxxxx */
+            unicode = c;
+            seq_len = 1;
+        }
+        else if ((c & 0xE0) == 0xC0) {  /* 110xxxxx 10xxxxxx */
+            unicode = c & 0x1F;
+            seq_len = 2;
+        }
+        else if ((c & 0xF0) == 0xE0) {  /* 1110xxxx 10xxxxxx 10xxxxxx */
+            unicode = c & 0x0F;
+            seq_len = 3;
+        }
+        else if ((c & 0xF8) == 0xF0) {  /* 11110xxx ... 超出 BMP, UCS2 无法表示 */
             return -1;
         }
-        // 首先是不是单字节
-        if (source[i] & 0x80) {
-            // 非ASCII编码
-            if (source[i] & 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
-                unicode = ((source[i] & 0x0F) << 12) + ((source[i+1] & 0x3F) << 6) + (source[i+2] & 0x3F);
-                dst[tmplen++] = (unicode >> 8) & 0xFF;
-                dst[tmplen++] = unicode & 0xFF;
-                i+=2;
-                continue;
-            }
-            if (source[i] & 0xC0) { // 110xxxxx 10xxxxxx
-                unicode = ((source[i] & 0x1F) << 6) + (source[i+1] & 0x3F);
-                dst[tmplen++] = (unicode >> 8) & 0xFF;
-                dst[tmplen++] = unicode & 0xFF;
-                i++;
-                continue;
-            }
+        else {                          /* 非法首字节(含孤立的续字节 10xxxxxx) */
             return -1;
         }
-        // 单个ASCII字符, 但需要扩展到2位
-        else {
-            // ASCII编码
-            dst[tmplen++] = 0x00;
-            dst[tmplen++] = source[i];
-            continue;
+
+        /* 序列被截断或续字节格式非法时直接失败, 不能越界读取 */
+        if (i + seq_len > source_len) {
+            return -1;
         }
+        for (size_t k = 1; k < seq_len; k++) {
+            uint8_t cc = (uint8_t)source[i + k];
+            if ((cc & 0xC0) != 0x80) {
+                return -1;
+            }
+            unicode = (unicode << 6) | (cc & 0x3F);
+        }
+
+        /* 每个码点固定输出 2 字节(大端), 与 SMS 的 TP-UDL(字节数) 语义一致 */
+        if (tmplen + 2 > dstlen) {
+            return -1;
+        }
+        dst[tmplen++] = (unicode >> 8) & 0xFF;
+        dst[tmplen++] = unicode & 0xFF;
+        i += seq_len;
     }
     *outlen = tmplen;
     return 0;

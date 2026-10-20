@@ -27,7 +27,7 @@ int luat_drv_ble_uuid_swap(uint8_t* uuid_data, luat_ble_uuid_type uuid_type)
 }
 
 int luat_drv_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb){
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_init(luat_ble, luat_ble_cb);
     #endif
@@ -36,7 +36,7 @@ int luat_drv_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb){
 
 int luat_drv_ble_deinit(luat_ble_t* luat_ble)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_deinit(luat_ble);
     #endif
@@ -45,7 +45,7 @@ int luat_drv_ble_deinit(luat_ble_t* luat_ble)
 
 int luat_drv_ble_set_name(luat_ble_t* luat_ble, char* name, uint8_t len)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_set_name(luat_ble, name, len);
     #endif
@@ -54,7 +54,7 @@ int luat_drv_ble_set_name(luat_ble_t* luat_ble, char* name, uint8_t len)
 
 int luat_drv_ble_set_max_mtu(luat_ble_t* luat_ble, uint16_t max_mtu)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_set_max_mtu(luat_ble, max_mtu);
     #endif
@@ -64,7 +64,7 @@ int luat_drv_ble_set_max_mtu(luat_ble_t* luat_ble, uint16_t max_mtu)
 // advertise
 int luat_drv_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* adv_cfg)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_create_advertising(luat_ble, adv_cfg);
     #endif
@@ -73,7 +73,7 @@ int luat_drv_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* ad
 
 int luat_drv_ble_set_adv_data(luat_ble_t* luat_ble, uint8_t* adv_buff, uint8_t adv_len)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_set_adv_data(luat_ble, adv_buff, adv_len);
     #endif
@@ -82,7 +82,7 @@ int luat_drv_ble_set_adv_data(luat_ble_t* luat_ble, uint8_t* adv_buff, uint8_t a
 
 int luat_drv_ble_set_scan_rsp_data(luat_ble_t* luat_ble, uint8_t* rsp_data, uint8_t rsp_len)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_set_scan_rsp_data(luat_ble, rsp_data, rsp_len);
     #endif
@@ -91,7 +91,7 @@ int luat_drv_ble_set_scan_rsp_data(luat_ble_t* luat_ble, uint8_t* rsp_data, uint
 
 int luat_drv_ble_start_advertising(luat_ble_t* luat_ble)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_start_advertising(luat_ble);
     #endif
@@ -100,7 +100,7 @@ int luat_drv_ble_start_advertising(luat_ble_t* luat_ble)
 
 int luat_drv_ble_stop_advertising(luat_ble_t* luat_ble)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_stop_advertising(luat_ble);
     #endif
@@ -109,7 +109,7 @@ int luat_drv_ble_stop_advertising(luat_ble_t* luat_ble)
 
 int luat_drv_ble_delete_advertising(luat_ble_t* luat_ble)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_delete_advertising(luat_ble);
     #endif
@@ -119,7 +119,7 @@ int luat_drv_ble_delete_advertising(luat_ble_t* luat_ble)
 // gatt
 int luat_drv_ble_create_gatt(luat_ble_t* luat_ble, luat_ble_gatt_service_t* luat_ble_gatt_service)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_create_gatt(luat_ble, luat_ble_gatt_service);
     #endif
@@ -129,7 +129,7 @@ int luat_drv_ble_create_gatt(luat_ble_t* luat_ble, luat_ble_gatt_service_t* luat
 // slaver
 int luat_drv_ble_read_response_value(luat_ble_t* luat_ble, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint32_t len)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_read_response_value(luat_ble, conn_idx, service_id, att_handle, data, len);
     #endif
@@ -138,7 +138,7 @@ int luat_drv_ble_read_response_value(luat_ble_t* luat_ble, uint8_t conn_idx, uin
 
 int luat_drv_ble_write_notify_value(luat_ble_t* luat_ble, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_write_notify_value(luat_ble, conn_idx, service_id, att_handle, data, len);
     #endif
@@ -148,7 +148,7 @@ int luat_drv_ble_write_notify_value(luat_ble_t* luat_ble, uint8_t conn_idx, uint
 // scanning
 int luat_drv_ble_create_scanning(luat_ble_t* luat_ble, luat_ble_scan_cfg_t* scan_cfg)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_create_scanning(luat_ble, scan_cfg);
     #endif
@@ -158,7 +158,7 @@ int luat_drv_ble_create_scanning(luat_ble_t* luat_ble, luat_ble_scan_cfg_t* scan
 
 int luat_drv_ble_start_scanning(luat_ble_t* luat_ble)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_start_scanning(luat_ble);
     #endif
@@ -167,7 +167,7 @@ int luat_drv_ble_start_scanning(luat_ble_t* luat_ble)
 
 int luat_drv_ble_stop_scanning(luat_ble_t* luat_ble)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_stop_scanning(luat_ble);
     #endif
@@ -176,7 +176,7 @@ int luat_drv_ble_stop_scanning(luat_ble_t* luat_ble)
 
 int luat_drv_ble_delete_scanning(luat_ble_t* luat_ble)
 {
-    #ifdef LUAT_USE_AIRLINK_RPC
+    #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_BLUETOOTH)
     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
         return luat_airlink_drv_rpc_ble_delete_scanning(luat_ble);
     #endif

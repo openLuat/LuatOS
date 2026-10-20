@@ -207,6 +207,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_PROFILER
   {"profiler", luaopen_profiler},
 #endif
+#ifdef LUAT_USE_PROF
+  {"prof", luaopen_prof},
+#endif
 #ifdef LUAT_USE_VTOOL
   {"vtool", luaopen_vtool},
 #endif
@@ -272,6 +275,9 @@ static const luaL_Reg loadedlibs[] = {
 #endif
 #ifdef LUAT_USE_VOIP
   {"voip", luaopen_voip},
+#endif
+#ifdef LUAT_USE_GB28181
+  {"gb28181", luaopen_gb28181},
 #endif
   {NULL, NULL}
 };

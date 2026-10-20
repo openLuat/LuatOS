@@ -144,6 +144,7 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
   - `net/https_basic`: HTTPS reachability against `https://www.qq.com`
   - `lib/core_basic`, `lib/crypto_basic`, `lib/miniz_basic`, `sys/ndk_basic`
   - `fs/pgfs_basic`: PGFS filesystem replay/FTL/gc selftests (all 17 tests are fully passing)
+  - `fs/romfs_basic`: ROMFS 只读文件系统双模式(指针/read回调)套件
 - Additional PC socket regression:
   - `socket_udp_limit_basic`: verifies `socket.rx(..., limit)` truncates UDP data and discards the unread datagram tail
 - DTLS loopback depends on the PC mbedTLS3 config in `include\mbedtls_config_pc_mbedtls3.h` enabling DTLS server/PSK support
@@ -180,6 +181,26 @@ cd build\out
 **File**: `port/network/luat_network_adapter_posix.c`
 
 The PC simulator uses the host OS adapter for async network I/O. Key architecture:
+
+### ⚠️ Two Disconnected TCP/IP Stacks (the #1 gotcha)
+
+| | Stack | adapter index | PC state |
+|---|---|---|---|
+| A | lwIP 2.2 (`components/network/lwip22`) | 0~16 (`LWIP_*`) | **no `netif_add` anywhere on PC** — an island; nothing routes to it |
+| B | Host OS stack (winsock/BSD) | 17 (`NW_ADAPTER_INDEX_ETH0`) | live, has the real LAN IP the browser reaches |
+
+They share **zero** bytes. `tcpip_init()` runs a real tcpip thread, and binding inside
+lwIP (`tcp_bind`/`tcp_listen`) *succeeds* — but no inbound packet can ever be delivered,
+because PC never calls `netif_add` and host traffic never enters lwIP.
+
+Consequences to keep in mind:
+- `luat_netdrv_get(idx)` only serves lwIP netifs (0~16); it returns NULL for `ETH0`(17),
+  so anything that assumes "default adapter ⇒ netdrv" fails on PC.
+- A service implemented directly on lwIP raw API is **dead code on PC** even though it
+  reports success. This is why `httpsrv` has two backends
+  (`luat_httpsrv_posix.c` for PC, `luat_httpsrv_lwip.c` for firmware) behind a vtable
+  in `components/network/httpsrv/inc/luat_httpsrv_transport.h`.
+- Prefer the host stack for anything that must be reachable from a browser.
 
 ### Threading Model
 - **Main thread**: Lua VM, message bus, coroutine scheduling
@@ -320,17 +341,23 @@ PC 模拟器支持通过环境变量按需启用可选功能，遵循与 `LUAT_U
 |----------|----|------|
 | `LUAT_USE_GUI` | `y` | 启用 SDL2 GUI / AirUI |
 | `LUAT_USE_MGBA` | `y` | 启用 mGBA GameBoy 模拟器 |
-| `LUAT_USE_MP4PLAYER` | `y` | 启用 MP4/H.264/AAC 解码器 |
+| `LUAT_USE_MP4PLAYER` | `y` | 启用 MP4/H.264/AAC 解码器。**默认关闭**（`y` 才编译）；mp4player 的 PC 集成目前链接不完整（缺 `avcodec/xvid/**`、`video_decode/video_decoder_if.c`、`luat_display_get_default` 等符号），修复前请勿默认开启。`n` 与默认同义 |
+| `LUAT_USE_GB28181` | `y` | 启用 gb28181（`luatos-ext-components/gb28181`）。**默认关闭**（`y` 才编译）；其源码用了 GCC 的 `__atomic_*` 内建（`src/luat_gb28181_media.c`），MSVC 不认，自动开启会直接撞 26 个 `C2065`。想验它请用 Linux/macOS 的 GCC 构建，或先把它移植到 `InterlockedXxx`/C11 `atomic` |
 | `LUAT_USE_UTEST` | `y` | 启用 C 层 utest（`socket.utest`、`http.utest` 等）。覆盖率和直接运行都需要 |
-| `MP4PLAYER_SRC_DIR` | 路径 | mp4player 源码根目录（与 `LUAT_USE_MP4PLAYER=y` 配合使用） |
+| `LUAT_USE_PROF` | `y` | 启用 cycle profiler（Lua 库 `prof`，`components/prof`）。默认关闭；关闭时插桩宏编译为空、零开销。PC 侧 tick 走 rdtsc，`prof.ticks_per_us()` 为 0（NO-DATA，只比较占比） |
 | `LUAT_USE_CODEC_G729` | `y`/`n` | G.729 编解码（Annex A+B，`codec.G729` / audio_v2 G729）。源码位于 `luatos-ext-components/g729`；`y` 强制启用（缺失时报错），`n` 强制禁用，未设置时按目录存在性自动检测。禁用时 `LUAT_SUPPORT_G729` 不定义，g729 胶水层编译为空 |
+| `LUAT_USE_CODEC_G722` | `y`/`n` | G.722 编解码（16kHz 宽带 64kbps，`codec.G722` / audio_v2 G722 / voip.G722）。源码位于 `luatos-ext-components/libg722`；`y` 强制启用（缺失时报错），`n` 强制禁用，未设置时按目录存在性自动检测。禁用时 `LUAT_SUPPORT_G722` 不定义，g722 胶水层编译为空 |
+| `LUAT_OPUS_MODE` | `off`/`decode`/`full` | Opus 编解码（`codec.OPUS` / `codec.OGG_OPUS`）。源码位于 `luatos-ext-components/opus`；默认 `full`（编解码），`decode` 只编解码器链路（约省 87KB），`off` 强制禁用。目录缺失时**只告警不报错**并自动禁用（CI 没有 ext 仓库检出）。禁用时 `LUAT_SUPPORT_OPUS` 不定义，`components/multimedia/opus_port.c` 整文件编译为空 |
+| `LUAT_OPUS_SMALL_FOOTPRINT` | `y` | 与 `LUAT_OPUS_MODE` 配合：以算法换静态表，再省约 6KB，有音质/CPU 代价 |
 | `LUATOS_EXT_ROOT` | 路径 | `luatos-ext-components` 仓库根目录。未设置时自动从脚本目录向上三级查找；**在 git worktree 中必须设置此变量**（或依赖自动 worktree 检测）。 |
 
 ### mp4player 启用示例（PowerShell）
 
+⚠️ 当前 mp4player 的 PC 集成链接不完整（见上表），`y` 会以 LNK2019 失败；
+默认关闭时无需设置任何变量。修复后再按下面方式启用：
+
 ```powershell
 $env:LUAT_USE_MP4PLAYER = "y"
-$env:MP4PLAYER_SRC_DIR  = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
 cmd /c build_windows_32bit_msvc.bat
 ```
 

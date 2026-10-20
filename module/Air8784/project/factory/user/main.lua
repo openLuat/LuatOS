@@ -1,16 +1,17 @@
 --[[
 @module  main
 @summary Air8784 出厂固件主入口（产测 + SIP 业务 + CC 业务合一）
-@version 1.1
-@date    2026.09.30
+@version 1.5
+@date    2026.10.17
 @author  王世豪
 @usage
 本工程为 Air8784 出厂固件（外挂 Air1103 语音芯片的 SIP 通话产品），
 产测 + 业务两阶段合一：
-    1. fskv.get("test_done") 判断：
-       未完成产测 → require "factory" 进产测模式（USB VUART_0，指令以 # 结尾，19 条指令）
-       已完成产测 → 业务模式（require "task_main"）
-       （调试可用常量 BOOT_MODE 强制 auto / normal / factory，跳过产测或直达业务模式）
+    1. 启动分流(fskv 返工标记 -> OTP1 出厂产测信息)：
+       有返工标记            → 产测模式(返工产测)（USB VUART_0，指令以 # 结尾）
+       无标记 且 OTP1 为空   → 产测模式(首次产测)
+       无标记 且 OTP1 有值   → 正常模式(require "task_main")
+       （调试可用常量 BOOT_MODE 强制 auto / normal / factory）
     2. 业务模式：沿用 sip_aircloud_setting 的网页任务逻辑（task_cloud 经 AirCloud
        Tag19/20 收发 air8784.sip.v1 指令），SIP 与 SIP_CC 由 fskv 中 sip_task_v1 的任务
        类型决定（pair/round 走单 SIP，phone 走 SIP_CC 桥接），不再使用本地产测预设参数
@@ -29,7 +30,7 @@ VERSION：项目版本号,ascii string类型
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "Air8784_Factory"
-VERSION = "001.000.002"
+VERSION = "001.000.005"
 
 -- 出厂固件版本：业务模式由 AirCloud 网页任务下发配置（task_cloud，Tag19/20）
 -- 此KEY值仅针对合宙官方IOT平台FOTA(libfota3)，如需使用请替换为项目对应KEY
@@ -47,11 +48,14 @@ local BOOT_MODE = "auto"
 
 log.info("main", PROJECT, VERSION)
 
--- 初始化 fskv（产测标记 test_done 存储）
+-- 初始化 fskv（返工标记等键值存储）
 fskv.init()
 
 -- 打开全局上拉 VREF(GPIO23)：按键与外设上拉依赖此参考电压，产测与业务模式全程常开
 gpio.setup(23, 1)
+
+-- SIM 卡自适应：双卡自动切换，优先使用 SIM0
+mobile.simid(2, true)
 
 -- 硬狗防止程序卡死
 if wdt then
@@ -67,13 +71,26 @@ update.init()
 -- ============================================================
 
 -- ==================== 开机模式分发 ====================
--- 产测完成后(test_done 存在)进入业务模式，由 task_main 内的 task_runtime 按
--- fskv["sip_task_v1"] 任务类型选择单 SIP / SIP_CC 分支；SIP↔手机中转由网页任务决定
+-- 分流顺序：fskv 返工标记 -> OTP1(型号/硬件版本/IMEI)
+--   有返工标记          -> 产测模式(返工产测)
+--   无标记且 OTP1 为空   -> 产测模式(首次产测)
+--   无标记且 OTP1 有值   -> 正常模式(业务)
+-- 业务分支由 task_main 内的 task_runtime 按 fskv["sip_task_v1"] 选择单 SIP / SIP_CC
+local prodmeta = require("prodmeta")
+local retest = require("retest")
+
+-- OTP1 是否有出厂产测信息(以型号 PROD 为准)
+local function otp_ready()
+    local prod = prodmeta.get("PROD")
+    return prod ~= nil and prod ~= ""
+end
+
 local function decide_mode()
     if BOOT_MODE == "factory" then return "factory" end
     if BOOT_MODE == "normal" then return "business" end
     -- auto
-    if not fskv.get("test_done") then return "factory" end
+    if retest.is_rework() then return "factory" end
+    if not otp_ready() then return "factory" end
     return "business"
 end
 
@@ -86,12 +103,14 @@ if mode == "factory" then
     log.info("main", "进入产测模式(USB 单通道)")
     require "factory"
 else
-    local prodmeta = require("prodmeta")
     log.info("main", "模组型号 PROD:", prodmeta.get("PROD"), "硬件版本 PCB:", prodmeta.get("PCB"))
     -- SIP + Air1103 依赖原生 crypto.checksum，缺失会在音频初始化阶段才报错，这里提前拦
     assert(crypto and type(crypto.checksum) == "function", "Native crypto.checksum is required for Air1103")
 
-    -- 业务模式（产测完成后）：统一加载网页任务业务，SIP/CC 由任务类型决定
+    -- 正常模式仅注册 MODEL_RETEST 一条 USB 指令：返工时写标记并重启进入产测
+    retest.init_normal()
+
+    -- 业务模式：统一加载网页任务业务，SIP/CC 由任务类型决定
     -- FOTA(libfota3) 已在开机阶段 update.init() 启动，此处不再处理
     log.info("main", "进入业务模式:网页任务(SIP/CC 由 sip_task_v1 决定)")
     require "task_main"

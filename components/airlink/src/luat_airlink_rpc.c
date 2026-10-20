@@ -92,7 +92,7 @@ static void _update_perf_decode(uint32_t us) {
 /* nanopb typed RPC layer                                               */
 /* ------------------------------------------------------------------ */
 
-typedef struct {
+typedef struct rpc_sync_ctx {
     luat_rtos_semaphore_t sem;
     uint8_t*  out_buf;
     uint16_t  out_buf_size;
@@ -145,8 +145,11 @@ static void rpc_sync_ctx_release(rpc_sync_ctx_t* ctx) {
                 }
             }
             luat_rtos_mutex_unlock(g_yield_list_mutex);
-            luat_rtos_timer_stop(ctx->timeout_timer);
-            luat_rtos_timer_delete(ctx->timeout_timer);
+            if (ctx->timeout_timer) {
+                luat_rtos_timer_stop(ctx->timeout_timer);
+                luat_rtos_timer_delete(ctx->timeout_timer);
+                ctx->timeout_timer = NULL;   // 防任何路径二次 stop/delete
+            }
         }
         if (!ctx->is_yield) {
             luat_rtos_semaphore_delete(ctx->sem);
@@ -949,10 +952,9 @@ int luat_airlink_rpc_nb_call_yield(lua_State* L, uint8_t mode, uint16_t rpc_id,
 
     if (luat_airlink_result_reg(&regx) != 0) {
         LLOGE("rpc_nb_call_yield: result_reg full");
-        luat_rtos_timer_delete(ctx->timeout_timer);
         rpc_sync_ctx_release(ctx);  // refcnt 3→2
         rpc_sync_ctx_release(ctx);  // refcnt 2→1
-        rpc_sync_ctx_release(ctx);  // refcnt 1→0
+        rpc_sync_ctx_release(ctx);  // refcnt 1→0, 内部 stop+delete 超时定时器
         _stats_lock(); g_rpc_stats.call_total++; g_rpc_stats.call_send_fail++; _stats_unlock();
         return AIRLINK_ERR_RESULT_REG_FULL;
     }
@@ -963,10 +965,9 @@ int luat_airlink_rpc_nb_call_yield(lua_State* L, uint8_t mode, uint16_t rpc_id,
     if (!cmd) {
         LLOGE("rpc_nb_call_yield: cmd_new failed");
         luat_airlink_result_unreg(pkgid);
-        luat_rtos_timer_delete(ctx->timeout_timer);
         rpc_sync_ctx_release(ctx);  // response_slot ref (unreg'd)
         rpc_sync_ctx_release(ctx);  // timer ref
-        rpc_sync_ctx_release(ctx);  // coroutine ref
+        rpc_sync_ctx_release(ctx);  // coroutine ref, 内部 stop+delete 超时定时器
         _stats_lock(); g_rpc_stats.call_total++; g_rpc_stats.call_send_fail++; _stats_unlock();
         return -2;
     }
@@ -983,10 +984,9 @@ int luat_airlink_rpc_nb_call_yield(lua_State* L, uint8_t mode, uint16_t rpc_id,
         LLOGE("rpc_nb_call_yield: timer start failed");
         luat_airlink_cmd_free(cmd);
         luat_airlink_result_unreg(pkgid);
-        luat_rtos_timer_delete(ctx->timeout_timer);
         rpc_sync_ctx_release(ctx);  // response_slot ref (unreg'd)
         rpc_sync_ctx_release(ctx);  // timer ref
-        rpc_sync_ctx_release(ctx);  // coroutine ref
+        rpc_sync_ctx_release(ctx);  // coroutine ref, 内部 delete 超时定时器
         _stats_lock(); g_rpc_stats.call_total++; g_rpc_stats.call_send_fail++; _stats_unlock();
         return -2;
     }
@@ -997,13 +997,10 @@ int luat_airlink_rpc_nb_call_yield(lua_State* L, uint8_t mode, uint16_t rpc_id,
 
     if (send_ret != 0) {
         LLOGE("rpc_nb_call_yield: send2transport failed ret=%d", send_ret);
-        // 停止定时器 (尚未 fire, 安全停止)
-        luat_rtos_timer_stop(ctx->timeout_timer);
         luat_airlink_result_unreg(pkgid);
-        luat_rtos_timer_delete(ctx->timeout_timer);
         rpc_sync_ctx_release(ctx);  // response_slot ref (unreg'd)
         rpc_sync_ctx_release(ctx);  // timer ref
-        rpc_sync_ctx_release(ctx);  // coroutine ref
+        rpc_sync_ctx_release(ctx);  // coroutine ref, 内部 stop+delete 超时定时器
         _stats_lock(); g_rpc_stats.call_total++; g_rpc_stats.call_send_fail++; _stats_unlock();
         return -3;
     }

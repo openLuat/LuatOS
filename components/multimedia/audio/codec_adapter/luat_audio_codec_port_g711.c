@@ -110,7 +110,9 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts = {
     .make_head = NULL,
     .encode = _g711_codec_encode,
     .decode_min_input_len = 160,
-    .decode_max_output_len = 160,
+    /* G.711A/μ 1 字节 → 2 字节 PCM：160 字节输入解出 320。报 160 会让输出缓冲
+       少一半，解码越界（真机表现为断言，reset reason 14）。 */
+    .decode_max_output_len = 320,
     .encode_min_input_len = 320,
     .encode_max_output_len = 160,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,
@@ -129,7 +131,8 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts = {
     .make_head = NULL,
     .encode = _g711_codec_encode,
     .decode_min_input_len = 160,
-    .decode_max_output_len = 160,
+    /* 同 ULAW：160 字节 G.711A 解出 320 字节 PCM，不能报 160。 */
+    .decode_max_output_len = 320,
     .encode_min_input_len = 320,
     .encode_max_output_len = 160,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,

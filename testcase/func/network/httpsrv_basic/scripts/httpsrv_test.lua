@@ -1,20 +1,63 @@
--- httpsrv 全网卡绑定(socket.LWIP_ANY)功能测试
--- PC模拟器: 验证 start/冲突拒绝/stop; PC 上 lwip 无就绪网卡, HTTP 回环降级跳过
--- 真机: 额外验证 HTTP 回环(STA/AP 双网卡场景)
--- 注意: 用例内部步骤有顺序依赖(start->dup->roundtrip->stop), 集中在单个test_函数内保证执行顺序
+-- httpsrv 功能测试
+-- PC模拟器: httpsrv 走宿主 socket 后端, 与浏览器同一套协议栈, 可以做真实 HTTP 往返
+--           (回归 httpsrv 之前 PC 上只能"监听成功但收不到连接"的假成功)
+-- 真机: 走 lwIP 后端, 绑定 socket.LWIP_ANY 全网卡
+-- 注意: 各用例使用独立端口且自行 start/stop, 彼此无顺序依赖
 local M = {}
 
-local TEST_PORT = 18080
+local IS_PC = (rtos and rtos.bsp and rtos.bsp() == "PC")
+
+-- 静态文件用例用它确认"文件确实被读出来并返回了"
+local STATIC_MARKER = "HTTPSRV_STATIC_FILE_MARKER"
+
+local last_req = {}
 
 local function on_request(client, method, uri, headers, body)
-    log.info("httpsrv_test", "on_request", method, uri)
-    return 200, {}, "hello httpsrv"
+    last_req.method = method
+    last_req.uri = uri
+    last_req.headers = headers
+    last_req.body = body
+    if uri == "/api/ok" then
+        return 200, {["Content-Type"] = "application/json"}, '{"ok":true}'
+    elseif uri == "/echo" then
+        return 200, {["Content-Type"] = "text/plain"}, "echo:" .. tostring(body)
+    end
+    return 404, {}, "Not Found " .. uri
 end
 
--- 等待socket到达指定状态
+-- 找到可以用于 HTTP 往返的目标地址. 返回 nil 表示本平台当前无可用地址
+local function resolve_target()
+    if IS_PC then
+        return "127.0.0.1", "PC 宿主 socket"
+    end
+    local ok, adapter = socket.adapter()
+    if ok and adapter and adapter >= 1 and adapter <= 16 then
+        local ip = socket.localIP(adapter)
+        if ip and ip ~= "0.0.0.0" then
+            return ip, "adapter " .. tostring(adapter)
+        end
+    end
+    return nil, "no lwip netif"
+end
+
+-- 启动服务: PC 用默认 adapter(之前这条路径必然失败), 真机用 LWIP_ANY
+local function start_server(port)
+    if IS_PC then
+        return httpsrv.start(port, on_request)
+    end
+    return httpsrv.start(port, on_request, socket.LWIP_ANY)
+end
+
+local function stop_server(port)
+    if IS_PC then
+        return httpsrv.stop(port, nil)
+    end
+    return httpsrv.stop(port, nil, socket.LWIP_ANY)
+end
+
+-- 等待 socket 到达指定状态
 local function wait_state(netc, target, timeout_ms, desc)
-    local deadline = timeout_ms / 100
-    for i = 1, deadline do
+    for _ = 1, timeout_ms / 100 do
         sys.wait(100)
         local st = socket.state(netc)
         if st == target then return true end
@@ -23,69 +66,191 @@ local function wait_state(netc, target, timeout_ms, desc)
     error(string.format("%s: expected state %d, got %d(%s)", desc, target, st, tostring(str)))
 end
 
-function M.test_httpsrv_any_bind()
-    log.info("test", "=== test_httpsrv_any_bind ===")
+-- 用 socket 发一次 HTTP 请求, 返回完整响应字符串
+local function http_request(host, port, req, timeout_ms)
+    local cli = socket.create()
+    if not cli then return nil, "socket create failed" end
+    socket.config(cli)
+    if not socket.connect(cli, host, port) then
+        socket.close(cli)
+        return nil, "connect failed"
+    end
+    wait_state(cli, 5, 5000, "client online") -- NW_STATE_ONLINE = 5
+    if not socket.tx(cli, req) then
+        socket.close(cli)
+        return nil, "tx failed"
+    end
+    local rx = zbuff.create(4096)
+    for _ = 1, (timeout_ms or 5000) / 50 do
+        sys.wait(50)
+        local _, len = socket.rx(cli, rx)
+        if len and len > 0 then break end
+    end
+    local resp = rx:used() > 0 and rx:toStr(0, rx:used()) or ""
+    rx:del()
+    socket.close(cli)
+    return resp
+end
 
-    -- 步骤1: 绑定全部网卡启动
-    local ok = httpsrv.start(TEST_PORT, on_request, socket.LWIP_ANY)
+local function start_roundtrip()
+    local host, why = resolve_target()
+    if not host then
+        log.warn("test", "skip http roundtrip:", why)
+        return nil
+    end
+    log.info("test", "roundtrip target", host, why)
+    return host
+end
+
+-- 用例1: 端口被占时必须返回 false, 不能再出现"监听成功但没人能把包送进来"的假成功
+function M.test_httpsrv_bind_conflict()
+    log.info("test", "=== test_httpsrv_bind_conflict ===")
+    local port = 18081
+    if not IS_PC then
+        log.warn("test", "skip: bind conflict check only covers PC host socket")
+        return
+    end
+
+    -- 先用 socket 占住端口
+    local hog = socket.create()
+    assert(hog, "socket create failed")
+    assert(socket.config(hog, port), "config listen port failed")
+    assert(socket.listen(hog), "occupy port failed")
+    log.info("test", "port", port, "occupied by socket.listen")
+
+    -- httpsrv 再抢同一个端口必须失败
+    local ok = httpsrv.start(port, on_request)
+    log.info("test", "start on occupied port:", ok)
+    assert(ok ~= true, "httpsrv.start on an occupied port must NOT report success")
+
+    socket.close(hog)
+    sys.wait(500)
+
+    -- 端口释放后应能正常启动
+    ok = httpsrv.start(port, on_request)
+    log.info("test", "start after release:", ok)
+    assert(ok == true, "httpsrv.start should succeed once the port is free")
+    ok = httpsrv.stop(port, nil)
+    assert(ok == true, "httpsrv.stop should return true")
+    log.info("test", "=== test_httpsrv_bind_conflict PASSED ===")
+end
+
+-- 用例2: GET/POST 真实往返
+function M.test_httpsrv_http_roundtrip()
+    log.info("test", "=== test_httpsrv_http_roundtrip ===")
+    local port = 18080
+    local host = start_roundtrip()
+    if not host then return end
+
+    local ok = start_server(port)
+    log.info("test", "start:", ok)
+    assert(ok == true, "httpsrv.start should return true")
+
+    -- GET
+    local resp, err = http_request(host, port, "GET /api/ok HTTP/1.0\r\nHost: test\r\n\r\n")
+    assert(resp, "GET failed: " .. tostring(err))
+    log.info("test", "GET resp:", resp)
+    assert(resp:find("200"), "expected 200 response, got: " .. resp)
+    assert(resp:find('{"ok":true}'), "expected json body, got: " .. resp)
+    assert(last_req.method == "GET", "expected method GET, got " .. tostring(last_req.method))
+    assert(last_req.uri == "/api/ok", "expected uri /api/ok, got " .. tostring(last_req.uri))
+
+    -- POST 带 body
+    resp, err = http_request(host, port, "POST /echo HTTP/1.0\r\nHost: test\r\nContent-Length: 5\r\n\r\nhello")
+    assert(resp, "POST failed: " .. tostring(err))
+    log.info("test", "POST resp:", resp)
+    assert(resp:find("200"), "expected 200 response, got: " .. resp)
+    assert(resp:find("echo:hello"), "expected echoed body, got: " .. resp)
+    assert(last_req.method == "POST", "expected method POST, got " .. tostring(last_req.method))
+    assert(last_req.body == "hello", "expected body hello, got " .. tostring(last_req.body))
+
+    -- 重复启动被拒绝
+    ok = httpsrv.start(port, on_request, socket.LWIP_ANY)
+    assert(not ok, "duplicate httpsrv.start on same port should fail")
+
+    ok = stop_server(port)
+    assert(ok == true, "httpsrv.stop should return true")
+    ok = stop_server(port)
+    assert(not ok, "second httpsrv.stop should fail")
+
+    -- stop 返回后端口必须已经真正释放, 否则同端口立刻重启会 bind 失败
+    ok = start_server(port)
+    log.info("test", "restart on same port:", ok)
+    assert(ok == true, "httpsrv.start must succeed immediately after stop on the same port")
+    ok = stop_server(port)
+    assert(ok == true, "httpsrv.stop should return true")
+
+    log.info("test", "=== test_httpsrv_http_roundtrip PASSED ===")
+end
+
+-- 用例3: 静态文件
+function M.test_httpsrv_static_file()
+    log.info("test", "=== test_httpsrv_static_file ===")
+    local port = 18082
+    local host = start_roundtrip()
+    if not host then return end
+
+    local ok = start_server(port)
+    assert(ok == true, "httpsrv.start should return true")
+
+    -- 用非 .lua 的 fixture 验证静态文件通道.
+    -- 注意不能请求用例自己的 .lua: 真机上脚本会被 luac 预编译成 .luac,
+    -- /luadb 下没有 .lua 源文件, 请求它只会拿到 404(仅 PC 模拟器能过).
+    local resp, err = http_request(host, port, "GET /httpsrv_static.txt HTTP/1.0\r\nHost: test\r\n\r\n", 8000)
+    assert(resp, "static request failed: " .. tostring(err))
+    log.info("test", "static resp len:", #resp)
+    assert(resp:find("200"), "expected 200 response, got: " .. resp:sub(1, 200))
+    assert(resp:find(STATIC_MARKER, 1, true), "static file content not served, len=" .. #resp)
+
+    ok = stop_server(port)
+    assert(ok == true, "httpsrv.stop should return true")
+    log.info("test", "=== test_httpsrv_static_file PASSED ===")
+end
+
+-- 用例4: 路径穿越必须被拦掉, 落到 Lua 回调而不是返回文件
+function M.test_httpsrv_path_traversal()
+    log.info("test", "=== test_httpsrv_path_traversal ===")
+    local port = 18083
+    local host = start_roundtrip()
+    if not host then return end
+
+    local ok = start_server(port)
+    assert(ok == true, "httpsrv.start should return true")
+
+    local resp, err = http_request(host, port, "GET /../luat_conf_bsp.h HTTP/1.0\r\nHost: test\r\n\r\n")
+    assert(resp, "traversal request failed: " .. tostring(err))
+    log.info("test", "traversal resp:", resp:sub(1, 120))
+    -- 未命中静态文件 -> 走 Lua 回调 -> 404, 不应泄露文件内容
+    assert(resp:find("404"), "path traversal should not serve a file, got: " .. resp:sub(1, 200))
+    assert(not resp:find("LUAT_USE_LWIP", 1, true), "path traversal leaked file content")
+
+    ok = stop_server(port)
+    assert(ok == true, "httpsrv.stop should return true")
+    log.info("test", "=== test_httpsrv_path_traversal PASSED ===")
+end
+
+-- 用例5: socket.LWIP_ANY 写法在 PC 上原样可用
+-- Air8300/Air8301 factory 固件用的是 httpsrv.start(port, cb, socket.LWIP_ANY),
+-- PC 上必须能原样跑通, 否则开发时得改代码才能验证
+function M.test_httpsrv_lwip_any_bind()
+    log.info("test", "=== test_httpsrv_lwip_any_bind ===")
+    local port = 18084
+    local host = start_roundtrip()
+    if not host then return end
+
+    local ok = httpsrv.start(port, on_request, socket.LWIP_ANY)
     log.info("test", "start with LWIP_ANY:", ok)
     assert(ok == true, "httpsrv.start with socket.LWIP_ANY should return true")
 
-    -- 步骤2: 同端口重复启动被拒绝
-    ok = httpsrv.start(TEST_PORT, on_request, socket.LWIP_ANY)
-    log.info("test", "dup start:", ok)
-    assert(not ok, "duplicate httpsrv.start on same port should fail")
+    local resp, err = http_request(host, port, "GET /api/ok HTTP/1.0\r\nHost: test\r\n\r\n")
+    assert(resp, "LWIP_ANY roundtrip failed: " .. tostring(err))
+    log.info("test", "resp:", resp:sub(1, 60))
+    assert(resp:find("200"), "expected 200 response, got: " .. resp:sub(1, 120))
+    assert(resp:find('{"ok":true}'), "expected json body, got: " .. resp:sub(1, 120))
 
-    -- 步骤3: ANY与具体网卡同端口冲突被拒绝
-    -- PC上具体网卡未就绪会提前返回失败, 两种路径结果一致(不成功)
-    ok = httpsrv.start(TEST_PORT, on_request, socket.LWIP_STA)
-    log.info("test", "conflict start:", ok)
-    assert(not ok, "start with specific adapter on ANY-bound port should fail")
-
-    -- 步骤4: HTTP 回环, 仅当就绪网卡是LWIP协议栈(1~16)时才可能成功
-    -- PC上就绪的是ETH0(=17, posix协议栈), 与lwip内的httpsrv是两套协议栈, 互通不了, 跳过
-    local isReady, adapter = socket.adapter()
-    if isReady and adapter and adapter >= 1 and adapter <= 16 then
-        local ip = socket.localIP(adapter)
-        log.info("test", "roundtrip via ip", ip, "adapter", adapter)
-        if ip and ip ~= "0.0.0.0" then
-            local cli = socket.create(adapter)
-            assert(cli, "socket create failed")
-            socket.config(cli)
-            local succ = socket.connect(cli, ip, TEST_PORT)
-            assert(succ, "connect to httpsrv failed")
-            wait_state(cli, 5, 5000, "client online") -- NW_STATE_ONLINE = 5
-            succ = socket.tx(cli, "GET / HTTP/1.0\r\nHost: test\r\n\r\n")
-            assert(succ, "tx http request failed")
-            local rx_buff = zbuff.create(1024)
-            for i = 1, 50 do
-                sys.wait(100)
-                local _, len = socket.rx(cli, rx_buff)
-                if len and len > 0 then break end
-            end
-            local resp = rx_buff:used() > 0 and rx_buff:toStr(0, rx_buff:used()) or ""
-            rx_buff:del()
-            socket.close(cli)
-            log.info("test", "http resp:", resp)
-            assert(resp:find("200"), "expected 200 response, got: " .. resp)
-            assert(resp:find("hello httpsrv"), "expected body, got: " .. resp)
-        end
-    else
-        log.warn("test", "no IP READY lwip netif, skip http roundtrip")
-    end
-
-    -- 步骤5: 停止服务
-    ok = httpsrv.stop(TEST_PORT, nil, socket.LWIP_ANY)
-    log.info("test", "stop:", ok)
+    ok = httpsrv.stop(port, nil, socket.LWIP_ANY)
     assert(ok == true, "httpsrv.stop should return true")
-
-    -- 步骤6: 重复停止被拒绝
-    ok = httpsrv.stop(TEST_PORT, nil, socket.LWIP_ANY)
-    log.info("test", "dup stop:", ok)
-    assert(not ok, "second httpsrv.stop should fail")
-
-    sys.wait(500)
-    log.info("test", "=== test_httpsrv_any_bind PASSED ===")
+    log.info("test", "=== test_httpsrv_lwip_any_bind PASSED ===")
 end
 
 return M

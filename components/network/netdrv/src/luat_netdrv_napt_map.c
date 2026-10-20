@@ -13,6 +13,16 @@
 #define LUAT_LOG_TAG "netdrv.napt.map"
 #include "luat_log.h"
 
+/* RNDIS NAT 模式共存问题定位日志: 1=开启(默认), 抓完日志后改 0 或删除本块 */
+#ifndef LUAT_CONF_RNDIS_NAT_DBG
+#define LUAT_CONF_RNDIS_NAT_DBG 0
+#endif
+#if LUAT_CONF_RNDIS_NAT_DBG
+#define NAPT_MAP_DBG(fmt, ...) luat_log_log(LUAT_LOG_INFO, "RNDIS-NAT-DBG", fmt, ##__VA_ARGS__)
+#else
+#define NAPT_MAP_DBG(fmt, ...) do {} while (0)
+#endif
+
 // 端口分配范围
 #define NAPT_PORT_RANGE_START     0x1BBC
 #define NAPT_PORT_RANGE_END       0x6AAA
@@ -402,6 +412,42 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t *ctx, luat_ne
             ret = NAPT_RET_NO_MEMORY;
             break;
         }
+        /*
+         * RNDIS NAT 模式修复: 把 WAN 端口注册到 SDK PS 的 PortMgr, 并采用其返回的
+         * "对外端口" 作为映射端口. NAT 模式下 PS 只把已注册端口(以及 DNS/ICMP 特例)
+         * 的下行交给 UE, 未注册端口的下行 TCP 会被 PS 直接丢弃.
+         * 注册后:
+         *   - UL: 源端口改写为映射端口(与 SDK lwIP tcp_out.c/udp.c 行为一致)
+         *   - DL: PS 把发往该端口的下行交给 UE, luaNAPT 用同一端口命中映射表
+         * 非 EC7xx-CSDK 平台无此符号(weak), 运行时自动跳过.
+         * MSVC(PC 模拟器)既没有 __attribute__((weak)) 也没有 PortMgr:
+         * 整块编译掉, 行为与该弱符号不存在时一致.
+         */
+#if !defined(_MSC_VER)
+        {
+            extern unsigned short PortMgrUeUlProcess(unsigned char connType, unsigned char source,
+                                                     unsigned short sourcePort, unsigned short destPort,
+                                                     unsigned char ipType, unsigned char cid,
+                                                     unsigned char lanState) __attribute__((weak));
+            extern unsigned char NetMgrAdptGetLanChannelStatusByIp4Cid(unsigned char cid) __attribute__((weak));
+            if (PortMgrUeUlProcess != NULL) {
+                uint16_t old_port = tmp.wnet_local_port;
+                uint16_t pm_port = PortMgrUeUlProcess(
+                    (napt_ctx->ip_tp == IP_PROTO_TCP) ? 1 : 0, 1,
+                    ntohs(old_port), 0, 4, 1,
+                    (NetMgrAdptGetLanChannelStatusByIp4Cid != NULL) ? NetMgrAdptGetLanChannelStatusByIp4Cid(1) : 1);
+                if (pm_port != 0) {
+                    tmp.wnet_local_port = htons(pm_port);
+                }
+                if (napt_ctx->item_last < 8 || pm_port != ntohs(old_port)) {
+                    NAPT_MAP_DBG("portmgr reg tp=%u port %u -> %u",
+                                 (unsigned)napt_ctx->ip_tp,
+                                 (unsigned)ntohs(old_port),
+                                 (unsigned)(pm_port != 0 ? pm_port : ntohs(old_port)));
+                }
+            }
+        }
+#endif
         tmp.adapter_id = ctx->net->id;
         tmp.tm_ms = tnow;
         it = &napt_ctx->items[napt_ctx->item_last];
@@ -417,12 +463,16 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t *ctx, luat_ne
         uint16_t new_index = (uint16_t)(napt_ctx->item_last - 1);
         napt_hash_insert_w2l(napt_ctx, new_index);
         napt_hash_insert_l2w(napt_ctx, new_index);
-        // LLOGI("NAPT新建映射: 协议=%d inet=%08X:%d->wnet=%08X:%d local_port=%d idx=%d/%d",
-        //       napt_ctx->ip_tp,
-        //       tmp.inet_ip, ntohs(tmp.inet_port),
-        //       tmp.wnet_ip, ntohs(tmp.wnet_port),
-        //       ntohs(tmp.wnet_local_port),
-        //       new_index, napt_ctx->item_max);
+        // 前 8 条全打, 之后每 8 条打 1 条, 观察 luaNAPT 分配的 WAN 端口是否与 SDK NAT 冲突
+        if (napt_ctx->item_last <= 8 || ((napt_ctx->item_last & 7) == 0)) {
+            NAPT_MAP_DBG("new map tp=%u inet=0x%08X:%u wnet=0x%08X:%u local_port=%u idx=%u/%u ad=%u",
+                  (unsigned)napt_ctx->ip_tp,
+                  (unsigned)tmp.inet_ip, (unsigned)ntohs(tmp.inet_port),
+                  (unsigned)tmp.wnet_ip, (unsigned)ntohs(tmp.wnet_port),
+                  (unsigned)ntohs(tmp.wnet_local_port),
+                  (unsigned)new_index, (unsigned)napt_ctx->item_max,
+                  (unsigned)tmp.adapter_id);
+        }
         ret = 0;
         break;
     }

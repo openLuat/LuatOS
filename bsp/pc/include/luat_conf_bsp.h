@@ -118,13 +118,19 @@
 #define LUAT_USE_AUDIO 1
 #define LUAT_USE_AUDIO_V2 1
 #define LUAT_SUPPORT_AMR 1
-#define LUAT_SUPPORT_OPUS   1
 #define LUAT_SUPPORT_SPEEX 1
 #define LUAT_USE_AUDIO_G711 1
 // LUAT_SUPPORT_G729 不在此定义：由 bsp/pc/xmake.lua 按 luatos-ext-components/g729
 // 目录存在性（或 LUAT_USE_CODEC_G729 环境变量）检测结果注入
+// LUAT_SUPPORT_G722 同理：由 luatos-ext-components/libg722
+// 目录存在性（或 LUAT_USE_CODEC_G722 环境变量）检测结果注入
+// LUAT_SUPPORT_OPUS 同理：由 luatos-ext-components/opus 目录存在性检测结果注入
+// （LUAT_OPUS_MODE=off 可强制关闭，默认 full；目录缺失时不定义该宏）
 #define LUAT_USE_AUDIO_DTMF 1
 #define LUAT_USE_VOIP 1
+// 桥接模式：PCM 走 voip.pcmIn/pcmOut，不碰本地音频设备。PC 上开着它，
+// 才能在无 Air1103 硬件、无板载 codec 的情况下跑通外置语音芯片的对接逻辑。
+#define LUAT_USE_VOIP_BRIDGE 1
 #define LUAT_USE_RECORD 1
 
 //----------------------------
@@ -201,7 +207,8 @@
 #define LUAT_USE_VIDEOPLAYER 1
 #define LUAT_USE_HZV 1
 // 视频播放器支持mp4播放
-// 注意: LUAT_USE_MP4PLAYER 由 xmake 动态控制（基于 luatos-ext-components/vedio_player 的存在性）
+// 注意: LUAT_USE_MP4PLAYER 由 xmake 控制（默认关闭, 仅 LUAT_USE_MP4PLAYER=y 时编译
+// luatos-ext-components/mp4player；见 bsp/pc/xmake.lua）
 // 请勿在此处硬编码，否则会导致编译配置与实际编译状态不一致
 // #define LUAT_USE_MP4PLAYER 1
 
@@ -289,6 +296,15 @@
 #define LUAT_USE_LWIP 1
 // #define LUAT_USE_ULWIP 1
 #define LUAT_USE_DNS 1
+// 显式启用 netdrv 新 DNS 客户端. 未定义则走旧的 components/ethernet/common/dns_client.c.
+// 该宏由公共头显式要求 BSP 声明, 不做默认值兜底(见 luat_netdrv_dns.h 的功能开关说明).
+// 只有打开它, netdrv.CTRL_DNS / netdrv.dns_utest 才存在(PC 侧 utest 套件 testcase/utest/netdrv/dns_basic 依赖它).
+#define LUAT_USE_NETDRV_DNS_CLIENT 1
+// DNS 客户端的传输层选 POSIX(宿主 UDP socket), 由 bsp/pc 的 POSIX 适配层提供
+// netdrv_dns_ctrl(). PC 上 components/network/adapter_lwip2/*.c 也会被编译, 但那条
+// lwIP 传输在本 BSP 里没有 netif(不注册适配器), 若两边同时定义会重复符号, 故显式二选一.
+// 详见 components/network/adapter_lwip2/net_lwip2_dns.h 里 netdrv_dns_ctrl 的说明.
+#define LUAT_NETDRV_DNS_TRANSPORT_POSIX 1
 #endif
 
 #define LUAT_UART_MAX_DEVICE_COUNT 128

@@ -13,7 +13,8 @@ Air8300 基于 Air8000W 的工业网关，无屏幕。外设：
   + 隔离 485（UART1，GPIO37 收发使能）+ 非隔离 485（UART3，GPIO36 收发使能 + GPIO29 供电）
   + 三色 LED（GPIO26=蓝 / GPIO27=红 / GPIO28=绿，高电平点亮）。
 产测包含：基础信息 + 校准位(ECNPICFG) + 写号(MODEL/HVERSION/MODEL?) + 网口获取IP(ETH_TEST,1#/2#)
-  + 485 一发一收(U485_TEST，A接A B接B) + 三色LED(LED_TEST) + 系统控制(RST/TEST_DONE)。
+  + 485 一发一收(U485_TEST，A接A B接B) + WiFi 扫描(WIFI_TEST，返回热点数量) + 三色LED(LED_TEST)
+  + 系统控制(RST/TEST_DONE)。
 写号使用 prodmeta 库写入 OTP（key: PROD=工业型号, PCB=硬件版本）；校准位读取用 mobile.ecnpicfg()。
 485 使用 uart.setup 内置 RS485 模式（固件自动控制 RE/DE）；ETH_TEST/U485_TEST 含 sys.wait，走 CONTROL 事件模式异步执行。
 通信通道：USB 虚拟串口（uart.VUART_0 115200，指令以 # 结尾）。
@@ -51,6 +52,19 @@ local LED_BLUE  = 26
 -- 网口 DHCP 获取 IP 超时(ms)
 local ETH_DHCP_TIMEOUT = 10000
 
+-- 飞行模式状态：进入飞行模式会断外设供电、关 WiFi/BLE 协处理器、并关 USB 15 秒测功耗；
+-- ETH_TEST / WIFI_TEST 据此先恢复，usb_off 期间跳过 USB 应答发送
+local pwr_state = { flymode = false, usb_off = false }
+
+-- USB 关闭时长（ms）：仅用于飞行模式下的功耗对照测试，到点自动恢复，避免板子失联
+local USB_OFF_TIME = 10000
+
+-- WiFi/BLE 协处理器使能：Air8000W 的 WiFi/BLE 是独立协处理器，mobile.flymode 只关 4G 射频、不会关它
+local function set_wifi_power(on)
+    local ok = pm.power(pm.WIFI, on)
+    log.info("factory", "WiFi/BLE 协处理器", on and "开" or "关", ok)
+end
+
 -- ================= 串口命令接口 =================
 local usbTrans = uart.VUART_0
 local usbRxCache = ""
@@ -78,8 +92,9 @@ local function on_ip_ready(ip, adapter)
 end
 sys.subscribe("IP_READY", on_ip_ready)
 
--- ================= 以太网初始化（双 CH390，DHCP 客户端） =================
-local function init_network()
+-- ================= 以太网（双 CH390，DHCP 客户端） =================
+-- 打开双网口（需在 task 中调用；进出飞行模式时复用）
+local function eth_open()
     -- 双 CH390 共用 SPI1，必须同时上电，否则 SPI 信号电平混乱导致通讯失败
     gpio.setup(ETH1_PWR, 1, gpio.PULLUP)
     gpio.setup(ETH2_PWR, 1, gpio.PULLUP)
@@ -90,7 +105,18 @@ local function init_network()
     })
     log.info("factory", "双网口初始化完成（DHCP 客户端）")
 end
-sys.taskInit(init_network)
+
+-- 彻底关闭双网口（需在 task 中调用）：拉低供电 + 关 SPI + 关 PHY，状态置 STOPED，防止被后台任务自动重开
+local function eth_close()
+    exnetif.close(false, socket.LWIP_ETH)
+    exnetif.close(false, socket.LWIP_USER1)
+    -- close 内部会 gpio.close(pwrpin) 释放引脚，这里重新配成输出低，确保 LDO EN 被拉低（断电）
+    gpio.setup(ETH1_PWR, 0)
+    gpio.setup(ETH2_PWR, 0)
+    log.info("factory", "双网口已关闭（供电/SPI/PHY 全关）")
+end
+
+sys.taskInit(eth_open)
 
 -- ================= 485 初始化（隔离 UART1 + 非隔离 UART3） =================
 local u485_rx = { active = false, data = nil }
@@ -176,6 +202,40 @@ local function eth_test(port)
     return "ERROR"
 end
 
+-- ================= WiFi 扫描测试（扫描附近热点，返回热点数量，与 8301 产测 WIFI_TEST 一致） =================
+local function wifi_test()
+    -- Air8000W 内置 WiFi，wlan 为核心库；扫描前先初始化（已初始化则幂等无害）
+    if not wlan or not wlan.scan or not wlan.scanResult then
+        log.error("WIFI_TEST", "wlan 不可用")
+        return "ERROR"
+    end
+    -- 飞行模式下 WiFi/BLE 协处理器的供电使能是关掉的，扫描前先恢复并等协处理器就绪
+    if pwr_state.flymode then
+        set_wifi_power(true)
+        sys.wait(300)
+    end
+    if wlan.init then
+        pcall(wlan.init)
+    end
+    wlan.scan()
+    -- 扫描是异步 API，启动后马上返回；等 WLAN_SCAN_DONE 消息（最多 10s）
+    if not sys.waitUntil("WLAN_SCAN_DONE", 10000) then
+        log.error("WIFI_TEST", "扫描超时")
+        return "ERROR"
+    end
+    local results = wlan.scanResult()
+    if not results or type(results) ~= "table" then
+        log.error("WIFI_TEST", "扫描结果为空")
+        return "ERROR"
+    end
+    local count = #results
+    for i, v in ipairs(results) do
+        log.info("WIFI_TEST", i, v.ssid, v.rssi, v.bssid and v.bssid:toHex() or "")
+    end
+    log.info("WIFI_TEST", "扫描到", count, "个热点")
+    return tostring(count)
+end
+
 -- ================= 重启任务（RST 指令用，延时确保 OK# 回复已发出） =================
 local function reboot_later()
     sys.wait(500)
@@ -228,14 +288,64 @@ local function cmd_vbat(id, findCom, data)
     return string.format("%.2f", vbat)
 end
 
+-- 非隔离 485 供电（GPIO29 / EN3），飞行模式时断电
+local function set_rs485_power(on)
+    if on then
+        gpio.setup(RS485_NONISO_PWR, 1, gpio.PULLUP)
+    else
+        gpio.setup(RS485_NONISO_PWR, 0)
+    end
+    log.info("factory", "非隔离485供电(GPIO29)", on)
+end
+
+local function led_all_off()
+    gpio.set(LED_RED, 0)
+    gpio.set(LED_GREEN, 0)
+    gpio.set(LED_BLUE, 0)
+end
+
 local function cmd_flymode(id, findCom, data)
     -- 飞行模式开关：FLYMODE,1# 开，FLYMODE,0# 关（只操作主 LTE，adapter=0）
     local onoff = tonumber(data)
     if not onoff or (onoff ~= 0 and onoff ~= 1) then
         return "ERROR"
     end
-    log.info("FLYMODE", onoff)
-    mobile.flymode(0, onoff == 1)
+    local ret = mobile.flymode(0, onoff == 1)
+    pwr_state.flymode = (onoff == 1)
+    log.info("FLYMODE", "set", onoff, "ret", ret)
+    if onoff == 1 then
+        -- 进入飞行模式：彻底关双网口（供电+SPI+PHY）、断非隔离485供电、灭三色 LED、关 WiFi/BLE 协处理器
+        -- 仍关不掉的：隔离 485(CA-IS3092VW，USB_VBUS 常供电)、USB（产测通信要留着）、DCDC/LDO 静态
+        sys.taskInit(function()
+            eth_close()
+            set_rs485_power(false)
+            led_all_off()
+            set_wifi_power(false)
+            log.info("factory", "飞行模式：板级外设已全部关闭")
+        end)
+        -- USB：先等 OK# 回复发完，再关 USB 供电测功耗，到点自动恢复（期间收不到指令、看不到日志）
+        -- 注：两个更激进的方案都试过并已回退：WORK_MODE 1 低功耗模式电流无变化且内部电源啸叫；
+        --     WORK_MODE 3（PSM+）进不去、电流反而更高
+        sys.taskInit(function()
+            sys.wait(2000)
+            pwr_state.usb_off = true
+            pm.power(pm.USB, false)      -- 关 USB 供电
+            sys.wait(USB_OFF_TIME)
+            pm.power(pm.USB, true)
+            sys.wait(500)
+            uart.setup(usbTrans, 115200) -- USB 重新上电后恢复虚拟串口
+            pwr_state.usb_off = false
+            log.info("factory", "USB 已恢复", USB_OFF_TIME / 1000, "秒")
+        end)
+    else
+        -- 退出飞行模式：恢复网口与 WiFi/BLE 协处理器（网口要等 DHCP 重新协商才会重新拿 IP）
+        sys.taskInit(function()
+            eth_open()
+            set_rs485_power(true)
+            set_wifi_power(true)
+            log.info("factory", "飞行模式：板级外设已恢复")
+        end)
+    end
     return "OK"
 end
 
@@ -311,6 +421,12 @@ local function cmd_u485_test(id, findCom, data)
     return
 end
 
+local function cmd_wifi_test(id, findCom, data)
+    -- WiFi 扫描测试（扫描附近热点，返回热点数量），含 sys.wait，走 CONTROL 事件异步
+    sys.publish("CONTROL", "WIFI_TEST", id)
+    return
+end
+
 local function cmd_led_test(id, findCom, data)
     -- 三色 LED：LED_TEST,R# 红 / G# 绿 / B# 蓝 / 0# 全灭（高电平点亮，点亮前先全灭）
     local color = (data or ""):gsub("^%s*", ""):gsub("%s*$", ""):upper()
@@ -362,6 +478,7 @@ local procTable = {
     ["MODEL?"]    = cmd_model_query,
     ["ETH_TEST"]  = cmd_eth_test,
     ["U485_TEST"] = cmd_u485_test,
+    ["WIFI_TEST"] = cmd_wifi_test,
     ["LED_TEST"]  = cmd_led_test,
     ["RST"]       = cmd_rst,
     ["TEST_DONE"] = cmd_test_done,
@@ -375,7 +492,14 @@ local function control_task()
         if param1 == "U485_TEST" then
             send_response(param2, u485_test() .. "#")
         elseif param1 == "ETH_TEST" then
+            -- 飞行模式下网口（供电/SPI/PHY）是彻底关闭的，测试前先把网口恢复起来
+            if pwr_state.flymode then
+                log.info("factory", "ETH_TEST：飞行模式下网口已关闭，先恢复网口")
+                eth_open()
+            end
             send_response(param2, eth_test(param3) .. "#")
+        elseif param1 == "WIFI_TEST" then
+            send_response(param2, wifi_test() .. "#")
         end
     end
 end
@@ -445,7 +569,8 @@ local function usb_send_task()
     while true do
         if #cacheTable > 0 then
             local data = table.remove(cacheTable, 1)
-            if data.transId == usbTrans then
+            -- usb_off 期间（关 USB 测功耗）USB 不可用，直接跳过发送，恢复后再正常应答
+            if data.transId == usbTrans and not pwr_state.usb_off then
                 uart.write(usbTrans, data.data)
                 sys.waitUntil("USB_SENT_DONE")
             end

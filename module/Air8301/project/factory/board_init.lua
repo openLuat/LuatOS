@@ -12,6 +12,7 @@
 3. 蜂鸣器由 buzzer_drv 统一管理 (PWM2/PIN98, 0% 占空比静音待命，本模块不再直接操作 PWM)
 4. 状态灯初始化 (GPIO21=4G_STATUS, GPIO141=WIFI_STATUS)
 5. 恢复出厂设置：订阅 FACTORY_RESET_REQUEST（来源：系统信息页按钮 / reload_app 长按5秒）
+   清空用户配置后回写 test_done，重启仍进业务模式（不会掉进产测模式）
 
 注意：
 - RS485 RE/DE 由 uart.setup 内置 RS485 模式控制（comm_core.lua / rtu_slave_manage.lua），
@@ -129,16 +130,29 @@ end
 --[[
 恢复出厂设置（删除 fskv 中所有用户配置 + 5秒后重启）
 
+注意：test_done 是「产测完成标记」，main.lua 开机按它分流（true=业务模式，nil=产测模式），
+      不属于用户配置。若被 fskv.clear 一并清掉，业务模式长按 RELOAD 恢复出厂后重启会掉进产测模式，
+      故此处先备份 test_done，清空后回写。
+
 @local
 @function reset_factory
 ]]
 local function reset_factory()
     log.warn("board_init", "执行恢复出厂设置...")
 
+    -- 备份产测完成标记（用户配置之外的状态，恢复出厂不得清除）
+    local test_done = fskv.get("test_done")
+
     -- 删除所有 fskv 用户配置
     pcall(fskv.clear)
 
-    log.warn("board_init", "fskv 已清空，5 秒后重启...")
+    -- 回写产测完成标记，确保重启后仍进入业务（出厂）模式
+    if test_done then
+        fskv.set("test_done", test_done)
+        log.info("board_init", "保留产测完成标记 test_done，重启后仍进入业务模式")
+    end
+
+    log.warn("board_init", "用户配置已清空（保留 test_done），5 秒后重启...")
 
     -- 蜂鸣器长鸣 1 秒提示（本函数为订阅回调，非协程上下文，用非阻塞接口定时关断）
     buzzer_drv.beep_bg(1000)

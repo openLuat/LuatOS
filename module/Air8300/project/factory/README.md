@@ -5,7 +5,7 @@
 | 项目 | 内容 |
 |------|------|
 | 硬件型号 | **Air8300**（主控 Air8000W，EC718HM） |
-| 项目标识 | `PROJECT = "Air8300_DataCollector"` |
+| 项目标识 | `PROJECT = "Air8300_Factory"` |
 | 固件版本 | `VERSION = "001.999.001"` |
 | 软件框架 | LuatOS（Lua 脚本） |
 | 工程代码 | `firmware/code/`（Luatools 烧录此目录） |
@@ -62,8 +62,8 @@
 ### 3.1 设备烧录
 
 1. Air8300 通过 USB 连接电脑，Luatools 选择脚本目录 **`firmware/code/`**；
-2. 选择对应 Air8000W（Air8300）底层固件，下载脚本；
-3. 复位后看日志首行应为 `I/user.main Air8300_DataCollector 001.999.001`。
+2. 选择对应 Air8000W底层固件，本工程使用的是2052-1号固件，下载脚本；
+3. 复位后看日志首行应为 `I/user.main Air8300_Factory 001.999.001`。
 
 ### 3.2 产测模式（产线）
 
@@ -76,13 +76,12 @@ IMSI# / ICCID# / CSQ#        插卡信息（需插 SIM 卡）
 ECNPICFG#                    读取 RF 校准标志位
 MODEL,Air8300#   MODEL?#     OTP 写入 / 读回工业模组型号
 HVERSION,V1.0#   HVERSION#   OTP 写入 / 读回硬件版本
+WIFI_TEST#            		 wifi扫描
 LED_TEST,R# / G# / B# / 0#   三色 LED
 ETH_TEST,1# / ETH_TEST,2#    网口1 / 网口2 DHCP 获取 IP
 U485_TEST#                   485 一发一收（A 接 A、B 接 B）
 TEST_DONE#                   标记完成 → 3 秒后重启进入用户模式
 ```
-
-完整指令表、管脚定义、推荐测试流程、常见问题见 **`firmware/doc/产测指令文档.md`**。
 
 产测完成重启后进入用户模式，常用入口：
 

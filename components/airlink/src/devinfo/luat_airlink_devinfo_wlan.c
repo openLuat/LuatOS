@@ -152,6 +152,9 @@ void luat_airlink_devinfo_init(AIRLINK_DEV_INFO_UPDATE_CB cb)
 {
     luat_airlink_dev_info_t *devinfo = luat_airlink_self_dev_info_ptr();
     devinfo->tp = 0x01;
+#ifdef LUAT_USE_AIRLINK_RPC
+    devinfo->caps = AIRLINK_CAP_RPC;   // 从机支持 RPC
+#endif
     uint32_t fw_version = 30;
     memcpy(devinfo->wifi.version, &fw_version, sizeof(uint32_t));   // 版本
     g_airlink_wlan_evt_cb = wifi_evt_handler;

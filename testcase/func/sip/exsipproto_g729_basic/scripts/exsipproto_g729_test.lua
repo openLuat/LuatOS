@@ -38,7 +38,7 @@ function exsipproto_g729_test.test_codec_payload_type()
     assert(proto.codec_payload_type("G.729") == 18, "G.729 alias payload type should be 18")
     assert(proto.codec_payload_type("PCMU") == 0, "PCMU payload type regression")
     assert(proto.codec_payload_type("PCMA") == 8, "PCMA payload type regression")
-    assert(proto.codec_payload_type("G722") == nil, "unsupported codec should return nil")
+    assert(proto.codec_payload_type("G723") == nil, "unsupported codec should return nil")
     log.info("exsipproto_g729_test", "codec payload type PASS")
 end
 

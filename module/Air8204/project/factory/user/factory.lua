@@ -13,7 +13,7 @@ Air8204 是智能录音工牌（主控 Air780EGH），出货模式是 card_main�
   - 内置 GNSS（Air780EGH，exgnss 库，UART2 默认）
   - 录音模式开关 GPIO22（输入，低=录音）+ VREF GPIO23（开机拉高，见 boot.lua）
   - 电池电压 adc.CH_VBAT（读 mV）
-产测指令：基础信息 + LED + RECORD(ES7243E) + SD_TEST + GS_STATE + GPSTEST + 校准位(ECNPICFG)
+产测指令：基础信息 + LED + RECORD(ES7243E) + SD_TEST + GS_STATE + GPSTEST + WiFi扫描(WIFI_TEST) + 校准位(ECNPICFG)
 + 飞行模式(FLYMODE) + 写号(MODEL/HVERSION/MODEL?) + 系统控制(RST/TEST_DONE/PCBA_TEST_DONE)。
 写号使用 prodmeta 库写入 OTP（key: PROD=工业型号, PCB=硬件版本）；校准位用 mobile.ecnpicfg() 只读。
 RECORD/SD_TEST 含 sys.wait，走 CONTROL 事件模式异步执行。
@@ -181,6 +181,45 @@ local function sd_test()
     return result
 end
 
+-- ================= WiFi 扫描测试（WIFI_TEST，走 CONTROL 异步，与 8301/8300 产测一致） =================
+-- Air780EGH 内置 WiFi（仅扫描，不支持连接/AP），wlan 为核心库，无需 require。
+-- 扫描与 4G 共用天线和射频通路，官方 demo 注明 Air780 系列扫描间隔"只能更长不能短"，
+-- 故等待超时取 10 秒（与 8301/8300 产测保持一致）；失败不重试，由上位机决定是否复测。
+local function wifi_test()
+    -- 容错：固件未集成 wlan（无 WiFi 能力）时直接判失败，不影响其它产测指令
+    if not wlan or not wlan.scan or not wlan.scanResult then
+        log.error("WIFI_TEST", "wlan 不可用（固件未集成 WiFi 能力）")
+        return "ERROR"
+    end
+
+    -- 初始化（已初始化则幂等无害）
+    if wlan.init then
+        pcall(wlan.init)
+    end
+
+    wlan.scan()
+    -- 扫描是异步 API，启动后马上返回；等 WLAN_SCAN_DONE 消息（最多 10 秒）
+    if not sys.waitUntil("WLAN_SCAN_DONE", 10000) then
+        log.error("WIFI_TEST", "扫描超时")
+        return "ERROR"
+    end
+
+    -- 读取扫描结果：每个元素含 ssid(string) / rssi / bssid(binary)
+    local results = wlan.scanResult()
+    if not results or #results == 0 then
+        log.error("WIFI_TEST", "扫描结果为空")
+        return "ERROR"
+    end
+
+    -- 逐个打印热点明细，便于产线定位问题；回复仅返回热点数量（与 8301/8300 一致）
+    local count = #results
+    for i, v in ipairs(results) do
+        log.info("WIFI_TEST", i, v.ssid, v.rssi, v.bssid and v.bssid:toHex() or "")
+    end
+    log.info("WIFI_TEST", "扫描到", count, "个热点")
+    return tostring(count)
+end
+
 local procTable = {
     ["VERSION"] = function(id, findCom, data)
         return PROJECT .. "_" .. VERSION
@@ -295,6 +334,11 @@ local procTable = {
         sys.publish("CONTROL", "SD_TEST", id)
         return
     end,
+    ["WIFI_TEST"] = function(id, findCom, data)
+        -- WiFi 扫描：扫描附近热点，返回热点数量，含 sys.wait，走 CONTROL 事件异步处理
+        sys.publish("CONTROL", "WIFI_TEST", id)
+        return
+    end,
     ["ECNPICFG"] = function(id, findCom, data)
         -- 检查 RF 校准标志位（同步只读接口）
         -- 注意：该接口在 C 层被 LUAT_USE_MOBILE_ECNPICFG 宏包着，固件没开宏时是 nil，
@@ -389,7 +433,7 @@ local procTable = {
     end,
 }
 
--- ================= CONTROL 事件任务（异步测试：RECORD / SD_TEST） =================
+-- ================= CONTROL 事件任务（异步测试：RECORD / SD_TEST / WIFI_TEST） =================
 sys.taskInit(function()
     while true do
         local result, param1, param2 = sys.waitUntil("CONTROL")
@@ -398,6 +442,8 @@ sys.taskInit(function()
             send_response(param2, record_test() .. "#")
         elseif param1 == "SD_TEST" then
             send_response(param2, sd_test() .. "#")
+        elseif param1 == "WIFI_TEST" then
+            send_response(param2, wifi_test() .. "#")
         end
     end
 end)

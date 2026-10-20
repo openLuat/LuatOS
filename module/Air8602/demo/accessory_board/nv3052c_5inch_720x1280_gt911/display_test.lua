@@ -6,7 +6,7 @@
 @author  江访
 @usage
 本文件为 5寸 NV3052C 显示 + GT911 触摸测试模块，核心测试流程为：
-1、power_on()     —— 供电与 I2C1 引脚复用配置，本板 LCD_DISP = GPIO15，用户按原理图自行拉高
+1、power_on()     —— 供电、背光 PWM3 上电占空比 0 与 I2C1 引脚复用配置，本板 LCD_DISP = GPIO15，用户按原理图自行拉高
 2、exd.setup()    —— 显示初始化，扩展库仅做显示IC初始化（复位 + 寄存器初始化 + RGB 时序 + 帧缓冲）
 3、touch_init()   —— GT911 触摸初始化，i2c.setup + tp.init("gt911") + airui 绑定，用户自行初始化
 4、draw_ui()      —— 界面绘制，深色背景 + 型号标题 + 提示文字
@@ -32,10 +32,13 @@ local SCREEN_H = 1280
 -- 触摸点记录
 local dots = {}
 
--- 供电与 I2C1 引脚复用配置
+-- 供电、背光 PWM3 上电占空比 0 与 I2C1 引脚复用配置
 -- LCD 供电/显示使能引脚由用户按底板原理图控制，扩展库不操作 pin_pwr
 -- 本板 LCD_DISP = GPIO15（兼 LCD 复位脚，显示初始化内部会做复位时序）
 local function power_on()
+    -- 背光 PWM3 上电占空比 0
+    pwm.setup(3, 1000, 0)  -- 通道 3，1kHz，占空比 0
+    pwm.start(3)
     -- I2C1 引脚复用（GT911 触摸总线）
     pins.setup(33, "I2C1_CLK")
     pins.setup(32, "I2C1_SDA")

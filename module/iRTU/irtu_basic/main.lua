@@ -31,31 +31,29 @@ log.info("main", PROJECT, VERSION)
 
 local rfa = require("rfa")
 
+-- 模式开关：true=进入RFA产测模式(USB/UART1被RFA AT服务器占用)；false=正常iRTU模式(USB/UART1由iRTU接管)
+-- 客户定制：默认 false，仅用于串口配置，不进入RFA模式
+local RFA_MODE = false
+
 --添加硬狗防止程序卡死
 if wdt then
     wdt.init(9000) -- 初始化watchdog设置为9s
     sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
 end
 
-if rfa and atc then
-    -- 启动 RFA AT 服务器，同时绑定 USB 虚拟串口 VUART_0 和 UART1，两个端口都能响应 RFA AT 指令
-    -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致
+if rfa and atc and RFA_MODE then
+    -- RFA 产测模式：启动 RFA AT 服务器，绑定 USB 虚拟串口 VUART_0 和 UART1
     rfa.start(uart.VUART_0, 115200)
     rfa.start(1, 115200)
     sys.taskInit(function()
         local passed, status = mobile.ecnpicfg()
         if passed then
-            -- 校准已完成: 允许加载irtu脚本, 再通过 AT+SETCFG? 查询是否处于rfa模式
-            -- 只有 rfa_mode 明确为(false)才退出rfa模式, VUART_0归irtu, 正常处理irtu数据
-            -- 读不到配置或rfa_mode为(true): 处于rfa模式, VUART_0归rfa的AT服务器, 禁用irtu的VUART_0数据回调
             local rfa_mode = rfa.getRFAOnStatus()
             log.info("main", "rfa_mode", rfa_mode)
             if rfa_mode then
                 log.info("main", "当前处于rfa模式, 禁用irtu的VUART_0和UART1数据回调")
-                -- 置位全局标志, 通知irtu的driver不要注册VUART_0和UART1的数据回调
                 _G.IRTU_DISABLE_VUART = true
                 _G.IRTU_DISABLE_UART1 = true
-                -- 内置 GNSS 的型号在 RFA 模式下由 GPS 测试指令独占 UART2。
                 local model = hmeta.model()
                 if model == "Air8000" or model == "Air8000A" or model == "Air8000G" or model == "Air8000D" or model == "Air8000U" or model == "Air8000N"
                     or model == "Air780EGH" or model == "Air780EGP" or model == "Air780EGG" then
@@ -65,15 +63,13 @@ if rfa and atc then
                 log.info("main", "已退出rfa模式, 进入iRTU模式")
                 rfa.close()
             end
-            -- 校准完成后无论是否退出rfa模式都加载irtu_main模块
             require "irtu_main"
         else
-            -- 校准未完成: 禁止require irtu代码, VUART_0只响应rfa的校准指令
             log.info("main", "RFA校准查询超时或未完成，进入RFA校准模式，禁止加载irtu")
         end
     end)
 else
-    log.info("main", "rfa模块未加载，默认iRTU模式")
+    log.info("main", "正常iRTU模式（RFA_MODE=" .. tostring(RFA_MODE) .. "），VUART_0和UART1由 iRTU 接管")
     --加载irtu_main模块
     require "irtu_main"
 end

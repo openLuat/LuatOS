@@ -443,6 +443,37 @@ local board = require("board")
 board.init()
 -- ======================================================
 
+-- ====== 一次性迁移打标（外场 FOTA 老设备防误入产测） ======
+-- 背景：产测功能在 004.000.041 被整体移除，本版本加回。在网老设备没有 test_done，
+-- 若简单按"无 test_done 即进产测"，外场 FOTA 后会全部误入产测。
+-- 老设备正常运行必由 kvstore 首启写 initialized；故：有 initialized 而无 test_done
+-- 的设备一律自动补打 test_done，进入正常模式。全新板无 initialized，才会真正进产测。
+if fskv.get("initialized") and not fskv.get("test_done") then
+    fskv.set("test_done", true)
+    log.info("main", "在网老设备一次性补打 test_done，进正常模式")
+end
+
+-- ====== 一次性重进产测（fact_reenter 的 FACTCLR 隐蔽口令置位 f_enter） ======
+-- 必须先立即清除 f_enter，保证该请求只生效一次（即使产测异常也不会反复卡死）。
+if fskv.get("f_enter") then
+    fskv.del("f_enter")
+    fskv.del("test_done")
+    log.info("main", "收到一次性重进产测请求，已清 test_done")
+end
+
+-- ====== 产测模式分发（仅 Air8201G / Air8201H） ======
+-- 全新板（无 test_done）→ 进产测，跳过 sim_slot / update / 云连接；
+-- board.init 已完成 H 的 1.8V 电平域与管脚复用，产测直接安全使用。
+-- 8202 / unknown 不提供产测，无论 test_done 与否都走正常链。
+local is_factory_board = (board.id == board.ID_8201G) or (board.id == board.ID_8201H)
+if not fskv.get("test_done") and is_factory_board then
+    log.info("main", "未完成产测，进入产测模式（板型:", tostring(board.id), "）")
+    require("factory").init()
+    -- 产测模式自包含，调度器启动后不再返回；后续正常链不会执行
+    sys.run()
+end
+-- ======================================================
+
 -- ====== SIM 卡槽选择与热插拔检测（SIM0 在位检测，拔出回落 SIM1） ======
 -- 必须在任何联网动作（FOTA / 驻网 / 云连接）之前执行：
 --   · 开机读板级 SIM0 检测脚电平（board.profile.sim.det_pin；
@@ -515,11 +546,12 @@ local function start_app()
     boot_lbs_report.start()
 end
 
--- ========== 启动（产测已整体移除） ==========
--- 历史版本的 BOOT_MODE(0/1/2) 与产测分支已按产品决策删除：
--- 本套软件不需要产测功能，启动链固定为唯一路径，避免"未完成产测则进产测"导致
--- 识别失败板型进入错误流程。
+-- ========== 启动正常模式 ==========
+-- 产测模式已在上方分发：未完成产测的 G/H 板进入 factory 后即 sys.run()，不会走到这里。
+-- 到达此处的均为正常模式设备。正常业务不使用 USB 虚拟串口，挂一个极轻量的隐蔽监听，
+-- 供产线/售后通过 FACTCLR 口令一次性重进产测（详见 fact_reenter.lua）。
 log.info("main", "启动应用（板型:", tostring(board.id), "）")
+require("fact_reenter").start()
 sys.taskInit(start_app)
 
 -- 用户代码已结束---------------------------------------------

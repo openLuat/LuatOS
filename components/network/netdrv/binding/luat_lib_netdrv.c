@@ -21,10 +21,14 @@
 #include "luat_netdrv_drv.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv_event.h"
+/* 显式包含: 下面 netdrv.CTRL_DNS / netdrv.dns_utest 的编译开关依赖该头推导出的宏,
+ * 不能只依赖 net_lwip2.h 的间接引入 */
+#include "luat_netdrv_dns.h"
 #ifdef LUAT_USE_NETDRV_IPSEC
 #include "luat_netdrv_ipsec.h"
 #endif
 #include "net_lwip2.h"
+#include "net_lwip2_dns.h"
 
 #ifdef LUAT_USE_NETDRV_LWIP_ARP
 #include "luat_netdrv_lwip_etharp.h"
@@ -514,20 +518,17 @@ static int l_netdrv_ipv4(lua_State *L) {
 设置或读取ipv6地址
 @api netdrv.ipv6(id, addr, prefix, gw)
 @int 网络适配器编号, 例如 socket.LWIP_ETH
-@string ipv6地址, 如果是读取就不需要传. 设置时必须是合法的IPv6字面量, 不支持域名. 读取时传 "linklocal" 可单独读取链路本地地址
+@string ipv6地址, 如果是读取就不需要传. 设置时必须是合法的IPv6字面量, 不支持域名
 @int 前缀长度, 1~128, 可选, 默认64. 仅设置时有效
 @string ipv6网关, 可选. 当前仅用于回显, 不写入路由表
-@return table 读取时返回 {addr=地址, prefix=前缀长度, gw=网关, source=来源, state=状态}; 网卡不存在/未就绪或没有有效IPv6时返回空table
+@return table 读取时返回 {linklocal={addr=地址,prefix=前缀长度,state=状态}, global={addr=地址,prefix=前缀长度,state=状态}, gw=网关}; 某类地址不存在时不返回对应字段
 @return boolean 设置时返回成功与否
 @usage
 -- 注意: 并非所有netdrv都支持IPv6, 也不代表平台后端(LWIP实现)支持设置
--- 读取当前生效的IPv6信息(全局地址优先)
+-- 一次读取链路本地地址和全局可路由地址
 local info = netdrv.ipv6(socket.LWIP_ETH)
-log.info("netdrv", "ipv6", info.addr, info.prefix, info.source)
-
--- 单独读取链路本地地址(fe80::/10), 一般是根据MAC自动生成的
-local ll = netdrv.ipv6(socket.LWIP_ETH, "linklocal")
-log.info("netdrv", "linklocal", ll.addr)
+log.info("netdrv", "linklocal", info.linklocal and info.linklocal.addr)
+log.info("netdrv", "global", info.global and info.global.addr)
 
 -- 设置静态IPv6地址, 需要先调用 netdrv.setup 初始化网卡
 netdrv.ipv6(socket.LWIP_ETH, "2409:8a00:1234:5678::10", 64)
@@ -537,16 +538,35 @@ netdrv.ipv6(socket.LWIP_ETH, "fe80::1", 64)
 -- 该接口受 LUAT_USE_NETDRV_IPV6 宏控制, 关闭时整段不参与编译
 */
 #ifdef LUAT_USE_NETDRV_IPV6
+static void l_netdrv_push_ipv6_item(lua_State *L, struct netif *netif,
+                                     const luat_ip_addr_t *ipv6, uint8_t prefix) {
+    char buff[64] = {0};
+    const char* state = "valid";
+    ip6addr_ntoa_r(&ipv6->u_addr.ip6, buff, sizeof(buff));
+
+    if (netif) {
+        for (int i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
+            if (0 == memcmp(&netif->ip6_addr[i], &ipv6->u_addr.ip6, sizeof(ip6_addr_t))) {
+                state = (IP6_ADDR_PREFERRED == (netif->ip6_addr_state[i] & IP6_ADDR_PREFERRED))
+                    ? "preferred" : "valid";
+                break;
+            }
+        }
+    }
+
+    lua_newtable(L);
+    lua_pushstring(L, buff);
+    lua_setfield(L, -2, "addr");
+    lua_pushinteger(L, prefix);
+    lua_setfield(L, -2, "prefix");
+    lua_pushstring(L, state);
+    lua_setfield(L, -2, "state");
+}
+
 static int l_netdrv_ipv6(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    // "linklocal" 是读取模式的关键字, 不是要写入的地址
-    int read_linklocal = 0;
-    if (lua_isstring(L, 2)) {
-        const char* arg2 = lua_tostring(L, 2);
-        read_linklocal = (arg2 != NULL && strcmp(arg2, "linklocal") == 0);
-    }
-    // 设置模式 = 第2参数是字符串且不是 "linklocal" 关键字; 读取模式失败返回空table, 设置模式失败返回 false
-    int is_set = lua_isstring(L, 2) && !read_linklocal;
+    // 第2参数是字符串时为设置模式; 无第2参数时同时读取两类IPv6地址
+    int is_set = lua_isstring(L, 2);
     // 非法id: 读取返回空table(与"网卡不存在/无地址"一致), 设置返回 false
     if (id < 0 || id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
         LLOGW("非法的netdrv id %d", id);
@@ -581,7 +601,7 @@ static int l_netdrv_ipv6(lua_State *L) {
     }
 
     // ==== 设置模式 ====
-    if (lua_isstring(L, 2) && !read_linklocal) {
+    if (is_set) {
         size_t len = 0;
         const char* tmp = luaL_checklstring(L, 2, &len);
         char ipstr[64] = {0};
@@ -654,48 +674,32 @@ static int l_netdrv_ipv6(lua_State *L) {
     }
 
     // ==== 读取模式 ====
+    lua_newtable(L);
+    struct netif* netif = net_lwip2_get_netif((uint8_t)id);
     luat_ip_addr_t ipv6;
     uint8_t prefix = 64;
+
+    // 链路本地地址固定放在 linklocal 子table.
     memset(&ipv6, 0, sizeof(ipv6));
-    // 第2参数传字符串 "linklocal" 时, 只读链路本地地址(槽0);
-    // 否则返回"最可用"的地址(全局优先, 全网只有链路本地时才回落到 fe80::)
-    int read_ret = read_linklocal
-        ? net_lwip2_ipv6_linklocal_addr_info((uint8_t)id, &ipv6, &prefix)
-        : net_lwip2_ipv6_addr_info((uint8_t)id, &ipv6, &prefix);
-    if (0 != read_ret) {
-        lua_newtable(L);
-        return 1;
+    if (0 == net_lwip2_ipv6_linklocal_addr_info((uint8_t)id, &ipv6, &prefix)) {
+        // link-local 的网络前缀固定为 /64, 不复用静态全局地址的 prefix.
+        l_netdrv_push_ipv6_item(L, netif, &ipv6, 64);
+        lua_setfield(L, -2, "linklocal");
     }
-    char buff[64] = {0};
-    ip6addr_ntoa_r(&ipv6.u_addr.ip6, buff, sizeof(buff));
-    lua_newtable(L);
 
-    lua_pushstring(L, buff);
-    lua_setfield(L, -2, "addr");
+    // addr_info 在没有全局地址时会回退链路本地地址, 这里显式过滤,
+    // 保证 global 字段只表示真正可路由的 IPv6 地址.
+    memset(&ipv6, 0, sizeof(ipv6));
+    prefix = 64;
+    if (0 == net_lwip2_ipv6_addr_info((uint8_t)id, &ipv6, &prefix)
+        && !ip6_addr_islinklocal(&ipv6.u_addr.ip6)) {
+        l_netdrv_push_ipv6_item(L, netif, &ipv6, prefix);
+        lua_setfield(L, -2, "global");
+    }
 
-    lua_pushinteger(L, prefix);
-    lua_setfield(L, -2, "prefix");
-
-    // 网关: 记录用户设置的值; 当前不写入IPv6路由表, 仅作回显
+    // 网关: 记录用户设置的值; 当前不写入IPv6路由表, 仅作回显.
     lua_pushstring(L, netdrv->ipv6_gw);
     lua_setfield(L, -2, "gw");
-
-    lua_pushstring(L, ip6_addr_islinklocal(&ipv6.u_addr.ip6) ? "linklocal" : "static");
-    lua_setfield(L, -2, "source");
-
-    // state: lwip 用 "有效位" 描述地址状态, 这里只区分 preferred 与 deprecated
-    struct netif* netif = net_lwip2_get_netif((uint8_t)id);
-    const char* state = "preferred";
-    if (netif) {
-        for (int i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
-            if (0 == memcmp(&netif->ip6_addr[i], &ipv6.u_addr.ip6, sizeof(ip6_addr_t))) {
-                state = (IP6_ADDR_PREFERRED == (netif->ip6_addr_state[i] & IP6_ADDR_PREFERRED)) ? "preferred" : "valid";
-                break;
-            }
-        }
-    }
-    lua_pushstring(L, state);
-    lua_setfield(L, -2, "state");
     return 1;
 }
 
@@ -852,6 +856,210 @@ static int l_netdrv_ready(lua_State *L) {
     return 1;
 }
 
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+/* 读一个整数字段并做范围检查; 越界返回 -1(拒绝该项, 不静默截断) */
+static int l_netdrv_dns_get_int(lua_State *L, const char *key, uint32_t min, uint32_t max, uint32_t *out)
+{
+    int32_t v;
+    if (lua_getfield(L, -1, key) == LUA_TNUMBER) {
+        lua_Number n = lua_tonumber(L, -1);
+        if (n < 0 || n > (lua_Number)max || n != (lua_Number)(uint32_t)n) {
+            lua_pop(L, 1);
+            LLOGW("netdrv.CTRL_DNS.%s out of range [%u,%u]", key, min, max);
+            return -1;
+        }
+        v = (int32_t)n;
+        if ((uint32_t)v < min) {
+            lua_pop(L, 1);
+            LLOGW("netdrv.CTRL_DNS.%s out of range [%u,%u]", key, min, max);
+            return -1;
+        }
+        *out = (uint32_t)v;
+        lua_pop(L, 1);
+        return 0;
+    }
+    lua_pop(L, 1);
+    return 1;   /* 该项不存在, 不改动 */
+}
+
+/* 读一个布尔字段 */
+static int l_netdrv_dns_get_bool(lua_State *L, const char *key, uint8_t *out)
+{
+    if (lua_getfield(L, -1, key) == LUA_TBOOLEAN) {
+        *out = lua_toboolean(L, -1) ? 1 : 0;
+        lua_pop(L, 1);
+        return 1;
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
+/* 校验 table 里是否混进了无法识别的 key(不静默吞掉拼写错误) */
+static void l_netdrv_dns_check_keys(lua_State *L)
+{
+    static const char *known[] = {
+        "cache_enable", "share", "cache_num", "cache_ttl", "neg_ttl",
+        "max_inflight", "timeout", "max_retry", "min_gap",
+        "flush", "stat", NULL
+    };
+    lua_pushnil(L);
+    while (lua_next(L, -2) != 0) {
+        const char *k = lua_tostring(L, -2);
+        int i, found = 0;
+        if (k == NULL) {
+            lua_pop(L, 1);
+            continue;
+        }
+        for (i = 0; known[i]; i++) {
+            if (strcmp(k, known[i]) == 0) { found = 1; break; }
+        }
+        if (!found) {
+            LLOGW("netdrv.CTRL_DNS unknown key: %s", k);
+        }
+        lua_pop(L, 1);
+    }
+}
+
+static void l_netdrv_dns_push_cfg(lua_State *L, const luat_netdrv_dns_cfg_t *cfg)
+{
+    lua_pushboolean(L, cfg->cache_enable);
+    lua_setfield(L, -2, "cache_enable");
+    lua_pushboolean(L, cfg->share);
+    lua_setfield(L, -2, "share");
+    lua_pushinteger(L, cfg->cache_num);
+    lua_setfield(L, -2, "cache_num");
+    lua_pushinteger(L, cfg->cache_ttl_ms / 1000);
+    lua_setfield(L, -2, "cache_ttl");
+    lua_pushinteger(L, cfg->neg_ttl_ms / 1000);
+    lua_setfield(L, -2, "neg_ttl");
+    lua_pushinteger(L, cfg->max_inflight);
+    lua_setfield(L, -2, "max_inflight");
+    lua_pushinteger(L, cfg->query_timeout_ms);
+    lua_setfield(L, -2, "timeout");
+    lua_pushinteger(L, cfg->max_retry);
+    lua_setfield(L, -2, "max_retry");
+    lua_pushinteger(L, cfg->min_gap_ms);
+    lua_setfield(L, -2, "min_gap");
+}
+
+static void l_netdrv_dns_push_stat(lua_State *L, const luat_netdrv_dns_stat_t *st)
+{
+#define PUSH_U(k, v) do { lua_pushinteger(L, (lua_Integer)(v)); lua_setfield(L, -2, k); } while (0)
+    PUSH_U("query", st->query);
+    PUSH_U("cache_hit", st->cache_hit);
+    PUSH_U("cache_miss", st->cache_miss);
+    PUSH_U("negative_hit", st->negative_hit);
+    PUSH_U("tx", st->tx);
+    PUSH_U("rx", st->rx);
+    PUSH_U("nxdomain", st->nxdomain);
+    PUSH_U("timeout", st->timeout);
+    PUSH_U("evict", st->evict);
+    PUSH_U("malformed", st->malformed);
+    PUSH_U("max_inflight_hit", st->max_inflight_hit);
+    PUSH_U("send_err", st->send_err);
+    PUSH_U("inflight", st->inflight);
+    PUSH_U("cache_used", st->cache_used);
+    /* 能力位, 不是计数器: 0 表示本构建的 lwIP 没编入 IPv6, 双栈查询只发 A */
+    PUSH_U("ipv6", st->ipv6);
+#undef PUSH_U
+}
+
+/* netdrv.ctrl(id, netdrv.CTRL_DNS, table) 的实现 */
+static int l_netdrv_dns_ctrl(lua_State *L, int id)
+{
+    net_lwip2_dns_ctl_t ctl;
+    luat_netdrv_dns_cfg_t cfg;
+    uint32_t v;
+    int want_stat = 0;
+
+    /*
+     * DNS 客户端是全局单例(缓存跨网卡共享), id 不参与寻址 —— 但也不能默默忽略:
+     * 传错网卡号却"成功"会让人以为配置只对某张网卡生效。至少留一条日志。
+     */
+    if (luat_netdrv_get(id) == NULL) {
+        LLOGW("netdrv.CTRL_DNS: no such netdrv %d (DNS client is global, id is ignored)", id);
+    }
+
+    if (lua_type(L, 3) != LUA_TTABLE) {
+        return luaL_error(L, "netdrv.CTRL_DNS expects a table as the 3rd argument");
+    }
+
+    l_netdrv_dns_check_keys(L);
+
+    /*
+     * 以"当前生效值"为基准做增量修改: 只传要改的 key,
+     * 其余保持不变. 因为真实配置在 tcpip 线程里, 这里先读一次快照再叠加.
+     *
+     * 第一趟必须 has_cfg = 0(纯读).
+     * 曾经写成 1, 结果每读一次统计就把全零配置应用下去,
+     * 把 cache_num / cache_ttl 这些默认值冲成 0 —— 表现就是缓存整体失效、
+     * 回读全是 0, 而且只在真机上暴露(PC 模拟器不走这条跨线程路径).
+     */
+    memset(&ctl, 0, sizeof(ctl));
+    ctl.done = 0;
+    if (netdrv_dns_ctrl(&ctl, NETDRV_DNS_STAT_TIMEOUT) != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushnil(L);
+        return 2;
+    }
+    cfg = ctl.rcfg;
+
+    /* has_cfg 只在确实有 key 被接受时才置 1, 避免"只读"被当成"修改" */
+    if (l_netdrv_dns_get_bool(L, "cache_enable", &cfg.cache_enable) == 1) { ctl.has_cfg = 1; }
+    if (l_netdrv_dns_get_bool(L, "share", &cfg.share) == 1) { ctl.has_cfg = 1; }
+    if (l_netdrv_dns_get_int(L, "cache_num", 0, LUAT_NETDRV_DNS_LIM_CACHE_NUM_MAX, &v) == 0) {
+        cfg.cache_num = v; ctl.has_cfg = 1;
+    }
+    if (l_netdrv_dns_get_int(L, "cache_ttl", 0, LUAT_NETDRV_DNS_LIM_CACHE_TTL_MAX / 1000, &v) == 0) {
+        cfg.cache_ttl_ms = v * 1000; ctl.has_cfg = 1;
+    }
+    if (l_netdrv_dns_get_int(L, "neg_ttl", 0, LUAT_NETDRV_DNS_LIM_NEG_TTL_MAX / 1000, &v) == 0) {
+        cfg.neg_ttl_ms = v * 1000; ctl.has_cfg = 1;
+    }
+    if (l_netdrv_dns_get_int(L, "max_inflight", 1, LUAT_NETDRV_DNS_LIM_INFLIGHT_MAX, &v) == 0) {
+        cfg.max_inflight = (uint8_t)v; ctl.has_cfg = 1;
+    }
+    if (l_netdrv_dns_get_int(L, "timeout", LUAT_NETDRV_DNS_LIM_TIMEOUT_MIN,
+            LUAT_NETDRV_DNS_LIM_TIMEOUT_MAX, &v) == 0) {
+        cfg.query_timeout_ms = (uint16_t)v; ctl.has_cfg = 1;
+    }
+    if (l_netdrv_dns_get_int(L, "max_retry", 0, LUAT_NETDRV_DNS_LIM_RETRY_MAX, &v) == 0) {
+        cfg.max_retry = (uint8_t)v; ctl.has_cfg = 1;
+    }
+    if (l_netdrv_dns_get_int(L, "min_gap", 0, LUAT_NETDRV_DNS_LIM_MIN_GAP_MAX, &v) == 0) {
+        cfg.min_gap_ms = (uint16_t)v; ctl.has_cfg = 1;
+    }
+
+    ctl.flush = l_netdrv_dns_get_bool(L, "flush", &ctl.flush);
+    want_stat = l_netdrv_dns_get_bool(L, "stat", &ctl.want_stat);
+    ctl.cfg = cfg;
+
+    if (!ctl.has_cfg && !ctl.flush && !want_stat) {
+        /* 什么都没要求: 只回读, 不做任何改动 */
+        ctl.want_stat = 1;
+    }
+
+    if (netdrv_dns_ctrl(&ctl, NETDRV_DNS_STAT_TIMEOUT) != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushnil(L);
+        return 2;
+    }
+
+    lua_pushboolean(L, 1);
+    if (!want_stat) {
+        return 1;
+    }
+    lua_newtable(L);
+    lua_newtable(L);
+    l_netdrv_dns_push_cfg(L, &ctl.rcfg);
+    lua_setfield(L, -2, "cfg");
+    lua_newtable(L);
+    l_netdrv_dns_push_stat(L, &ctl.rstat);
+    lua_setfield(L, -2, "stat");
+    return 2;
+}
+#endif /* LUAT_USE_NETDRV_DNS_CLIENT */
+
 /*
 给具体的驱动发送控制指令
 @api netdrv.ctrl(id, cmd, arg)
@@ -867,11 +1075,59 @@ netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_RESET, netdrv.RESET_HARD)
 -- 关闭CH390H通信并下电PHY，可用于降功耗；第三个参数1=关闭，0=重新启动
 netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DOWN, 1)
 netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DOWN, 0)
+
+-- DNS 客户端配置(第三个参数改传 table)
+netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DNS, {
+    cache_enable = true,  -- 缓存总开关
+    share        = false, -- 缓存是否跨网卡共享, 默认 false(按网卡隔离)
+                          --   出口不同 -> 权威DNS可能给出不同答案(地域调度/
+                          --   运营商内网/多WAN分流), 共享会把各出口的答案混在一起
+    cache_num    = 32,    -- 缓存条目上限, 0=不缓存
+    cache_ttl    = 60,    -- 秒, 记录TTL上限, 0=不缓存
+    neg_ttl      = 10,    -- 秒, NXDOMAIN 负缓存时长
+    max_inflight = 8,     -- 最大在途查询数
+    timeout      = 2000,  -- ms, 单次尝试超时
+    max_retry    = 2,     -- 单台DNS服务器最大重试次数
+    min_gap      = 20,    -- ms, 发送节奏(令牌桶)
+})
+
+-- 手动让整个DNS缓存失效
+netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DNS, { flush = true })
+
+-- 读回当前配置与统计(第一个返回值=是否成功)
+local ok, info = netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DNS, { stat = true })
+-- info.cfg  = { cache_enable=true, share=false, cache_num=32, cache_ttl=60, ... }
+-- info.stat = { query=.., cache_hit=.., tx=.., rx=.., inflight=.., .. }
 */
 static int l_netdrv_ctrl(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int cmd = luaL_checkinteger(L, 2);
-    int arg = luaL_checkinteger(L, 3);
+    int arg = 0;
+
+    /*
+     * DNS 分支: 第三个参数是 table, 与整数路径互不影响.
+     *
+     * 这个分支必须整体包在宏里: l_netdrv_dns_ctrl 只在
+     * LUAT_USE_NETDRV_DNS_CLIENT 打开时才存在, 否则链接期会报
+     * undefined reference(未开启该宏的 BSP, 例如 Air780EPM/EC7xx 就会踩到).
+     * 不能用 #ifdef 之外的写法让它在关闭时"碰巧能用"——那会把 0x10 这个
+     * 控制码漏给驱动的私有 cmd.
+     */
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+    if (cmd == LUAT_NETDRV_CTRL_DNS) {
+        return l_netdrv_dns_ctrl(L, id);
+    }
+#else
+    if (cmd == LUAT_NETDRV_CTRL_DNS) {
+        /* 未开启新 DNS 客户端: 明确报错 + 给 Lua 侧一个可判断的 false */
+        LLOGW("netdrv.CTRL_DNS unavailable: LUAT_USE_NETDRV_DNS_CLIENT not enabled in this BSP");
+        lua_pushboolean(L, 0);
+        lua_pushnil(L);
+        return 2;
+    }
+#endif
+
+    arg = luaL_checkinteger(L, 3);
     luat_netdrv_t* drv = luat_netdrv_get(id);
     if (drv == NULL) {
         LLOGW("not such netdrv %d", id);
@@ -925,6 +1181,26 @@ extern int luat_ipsec_utest(lua_State *L, const char *case_name);
 static int l_netdrv_ipsec_utest(lua_State *L) {
     const char *case_name = luaL_optstring(L, 1, "all");
     lua_pushboolean(L, luat_ipsec_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
+/*
+运行现代 DNS 客户端的 C 层单元测试(假传输层)
+@api netdrv.dns_utest(case)
+@string 用例名, 省略或传 "all" 跑全部
+@return boolean 是否全部通过
+@usage
+-- 跑全部用例
+netdrv.dns_utest()
+-- 只跑并发相关用例
+netdrv.dns_utest("concurrent_inflight")
+*/
+#if defined(LUAT_USE_UTEST) && defined(LUAT_USE_NETDRV_DNS_CLIENT)
+extern int luat_netdrv_dns_utest(lua_State *L, const char *case_name);
+static int l_netdrv_dns_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "all");
+    lua_pushboolean(L, luat_netdrv_dns_utest(L, case_name) == 0);
     return 1;
 }
 #endif
@@ -1135,6 +1411,9 @@ static const rotable_Reg_t reg_netdrv[] =
     { "ipsec_sim_addr_change", ROREG_FUNC(l_netdrv_ipsec_sim_addr_change)},
     { "ipsec_utest", ROREG_FUNC(l_netdrv_ipsec_utest)},
 #endif
+#if defined(LUAT_USE_UTEST) && defined(LUAT_USE_NETDRV_DNS_CLIENT)
+    { "dns_utest",       ROREG_FUNC(l_netdrv_dns_utest)},
+#endif
     { "on",             ROREG_FUNC(l_netdrv_on)},
     { "send_raw",       ROREG_FUNC(l_netdrv_send_raw)},
 #ifdef LUAT_USE_MREPORT
@@ -1176,6 +1455,10 @@ static const rotable_Reg_t reg_netdrv[] =
     { "RESET_HARD",     ROREG_INT(0x101)},
     //@const RESET_SOFT number 请求对网卡软复位,当前仅支持CH390H
     { "RESET_SOFT",     ROREG_INT(0x102)},
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
+    //@const CTRL_DNS number 控制类型-DNS客户端配置,第三个参数传table
+    { "CTRL_DNS",       ROREG_INT(LUAT_NETDRV_CTRL_DNS)},
+#endif
 
     //@const EVT_SOCKET number 事件类型-socket事件
     { "EVT_SOCKET",     ROREG_INT(LUAT_NETDRV_EVT_SOCKET)},

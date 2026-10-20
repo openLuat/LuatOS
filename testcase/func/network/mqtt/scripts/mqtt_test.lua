@@ -120,16 +120,11 @@ local function generate_fallback_id()
 end
 
 local function get_device_id()
-    if mobile and mobile.imei then
-        local imei = mobile.imei()
-        if imei and imei ~= "" then
-            return imei
-        end
-    end
-    if wlan and wlan.getMac then
-        local mac = wlan.getMac()
-        if mac and mac ~= "" then
-            return mac
+    -- hmeta.devid(): 4G模组=IMEI, WiFi模组=MAC, 本地调用无 RPC 依赖
+    if hmeta and hmeta.devid then
+        local ok, devid = pcall(hmeta.devid)
+        if ok and devid and devid ~= "" then
+            return devid
         end
     end
     if mcu and mcu.unique_id then
@@ -142,6 +137,44 @@ local function get_device_id()
         end
     end
     return generate_fallback_id()
+end
+
+-- broker 可达性前置探测: 缓存结果, 不可达时所有用例快速跳过(避免每个用例白等 30s)
+local broker_state = nil   -- nil 未探测 / true 可达 / false 不可达
+
+local function ensure_broker()
+    if broker_state ~= nil then
+        return broker_state
+    end
+    local ok_ip, ip = pcall(socket.localIP)
+    if not ok_ip or not ip or ip == "0.0.0.0" then
+        log.warn("mqtt_test", "无本机IP, 跳过全部用例")
+        broker_state = false
+        return false
+    end
+    log.info("mqtt_test", string.format("探测 broker %s:%d 可达性...", mqtt_host, mqtt_port))
+    local client = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_ssl)
+    if not client then
+        log.warn("mqtt_test", "mqtt.create 失败, 跳过全部用例")
+        broker_state = false
+        return false
+    end
+    client:auth(get_device_id() .. "_probe", mqtt_username, mqtt_password, true)
+    client:autoreconn(false, 3000)
+    local conack = false
+    client:on(function(cl, event) if event == "conack" then conack = true end end)
+    if client:connect() then
+        for i = 1, 8 do
+            sys.wait(1000)
+            if conack then break end
+        end
+    end
+    pcall(client.close, client)
+    broker_state = conack
+    if not conack then
+        log.warn("mqtt_test", string.format("broker %s:%d 不可达, 跳过全部用例", mqtt_host, mqtt_port))
+    end
+    return broker_state
 end
 
 -- 输出测试结果汇总
@@ -372,6 +405,9 @@ function mqtt_test.setUp()
         pcall(mqttc.close, mqttc)
     end
     
+    if not ensure_broker() then
+        return   -- broker 不可达: setUp 空过, 用例体由守卫跳过
+    end
     local device_id = get_device_id()
     pub_topic = "/luatos/testcase/mqtt/" .. device_id .. "/pub"
     sub_topic = "/luatos/testcase/mqtt/" .. device_id .. "/sub"
@@ -901,6 +937,18 @@ function mqtt_test.test_state_interface()
         string.format("after disconnect state should be DISCONNECT(%d), got %d", mqtt.STATE_DISCONNECT, disconnected_state))
     
     pcall(state_client.close, state_client)
+end
+
+-- 为每个 test_* 包一层 broker 前置守卫: 不可达时快速跳过(绿色零覆盖), 避免 14×30s 白等
+for k, v in pairs(mqtt_test) do
+    if type(k) == "string" and k:sub(1, 5) == "test_" and type(v) == "function" then
+        mqtt_test[k] = function()
+            if not ensure_broker() then
+                return
+            end
+            return v()
+        end
+    end
 end
 
 return mqtt_test

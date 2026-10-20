@@ -79,6 +79,8 @@ sys.subscribe("EFFECTIVE_VIBRATION",eff_vib)
 
 -- 上传定位信息，支持RMC、GGA、VTG三种格式或者是用户自定义格式
 function gnss.locateMessage(mode)
+    -- 出厂固件 gps.fun 可能为空，rrpc gnssmsg 可能传入 nil；直接返回 nil 避免索引 nil 崩溃
+    if not mode then return nil end
     local sendtable={rmc={}, gga={}, vtg={}}
     if mode.rmc then
         sendtable.rmc = exgnss.rmc(0)
@@ -120,6 +122,11 @@ local function gnss_state(event, ticks)
 
     -- ticks number类型 是事件发生的时间,一般可以忽略
     log.info("exgnss", "state", event)
+    -- 出厂固件 GNSS 由 factory_app 直接管理（自有 TLV 上报），irtu_main 中 gnss.init() 已注释，dtu 为 nil
+    -- 此处仅记录状态日志，不执行 iRTU 标准的 NET_SENT_RDY 上报，避免对 nil dtu 索引崩溃
+    if not dtu then
+        return
+    end
     if event=="FIXED" then
         sys.publish("NET_SENT_RDY_1","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
         sys.publish("NET_SENT_RDY_3","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))

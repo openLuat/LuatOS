@@ -18,7 +18,11 @@
 #include "luat_base.h"
 #include "luat_rtos.h"
 #include "luat_voip_jitterbuf.h"
+#include "luat_voip_tcp_framer.h"
 #include "luat_audio_data_codec.h"
+#ifdef LUAT_USE_VOIP_BRIDGE
+#include "luat_voip_bridge_pcm.h"
+#endif
 #ifdef LUAT_USE_SRTP
 #include "luat_voip_security.h"
 #endif
@@ -36,15 +40,24 @@
 #define VOIP_MIC_SLOT_COUNT     4
 #define VOIP_AEC_REF_HISTORY_FRAMES 8
 #define VOIP_RTP_HEADER_LEN     12
+/* TCP 下一次 read 的块大小。与"一个包多大"无关 —— 读多了由 framer 分成帧，
+   只是为了少绕几圈事件循环 */
+#define VOIP_TCP_READ_CHUNK    512
+/* 收包最多按几个"标准包"来备缓冲：**打包时长是平台定的，不是我们定的**
+   （实测 WVP/ZLM 的对讲下行 100ms 一个包 = 5 个 20ms 包）。这里留到 200ms，
+   再大的按畸形丢掉。 */
+#define VOIP_RX_MAX_PKTS_PER_FRAME 10
 #define VOIP_RTP_PT_PCMU        0
 #define VOIP_RTP_PT_PCMA        8
 #define VOIP_RTP_PT_G729        18
+#define VOIP_RTP_PT_G722        9
 
 /* 编解码器类型 */
 typedef enum {
     VOIP_CODEC_PCMU = 0,
     VOIP_CODEC_PCMA = 1,
     VOIP_CODEC_G729 = 2,    /* G.729A，仅 8kHz，ptime 必须为 10ms 整数倍 */
+    VOIP_CODEC_G722 = 3,    /* G.722，仅 16kHz 宽带 64kbps，ptime 必须为 20ms 整数倍，RTP 时钟按 RFC3551 为 8000 */
 } voip_codec_type_t;
 
 typedef enum {
@@ -52,17 +65,29 @@ typedef enum {
     VOIP_AEC_MODE_BK = 1,
 } voip_aec_mode_t;
 
+/* RTP 承载。TCP 下按 RFC 4571 定界（见 luat_voip_tcp_framer.h）
+   PASSIVE 是"本端监听、平台连进来"，此时 remote_ip/remote_port 被忽略 */
+typedef enum {
+    VOIP_TRANSPORT_UDP = 0,
+    VOIP_TRANSPORT_TCP_ACTIVE = 1,
+    VOIP_TRANSPORT_TCP_PASSIVE = 2,
+} voip_transport_t;
+
 /* 用户传入的配置 */
 typedef struct {
     voip_codec_type_t codec;
     uint32_t stats_interval_ms;
     uint32_t sample_rate;       /* 默认 8000 */
     int      adapter;
+    uint8_t  transport;         /* voip_transport_t；默认 UDP */
     char     remote_ip[VOIP_MAX_IP_LEN];
     uint16_t remote_port;
     uint16_t local_port;
     uint16_t jitter_depth;
     uint16_t ptime;             /* 毫秒，默认 20 */
+    uint32_t ssrc;              /* 发送端 SSRC；0 = 每次会话随机（默认）。
+                                   GB28181 要把这个值写进 SDP 的 y=，平台拿它校验 RTP，
+                                   故必须能指定 —— 随机值对不上会被平台拒收 */
     uint8_t  multimedia_id;     /* 音频设备编号 */
     uint8_t  aec_enable;
     uint8_t  aec_denoise;
@@ -99,6 +124,18 @@ typedef struct {
     uint32_t event_send_failures; /* 跨会话累计的通知失败次数。 */
     uint32_t rx_lost;
     uint32_t rx_out_of_order;
+    uint32_t rx_frame_dropped; /* TCP 定界丢弃的整帧（长度前缀超限） */
+    uint32_t rx_frames;        /* 真正送进播放通路的 20ms 帧数（一个大包会切出多帧） */
+    uint32_t rx_decode_dropped; /* G.729 duplicate/late packets rejected before decode. */
+    uint32_t rx_concealed; /* Missing 20ms G.729 packets synthesized by frame erasure. */
+    uint32_t rx_decoder_resets; /* G.729 source changes or discontinuities. */
+    /* Per RTP PCM frame, wall time including task preemption. */
+    uint32_t encode_frames;
+    uint32_t encode_ms;
+    uint32_t encode_max_ms;
+    uint32_t decode_frames;
+    uint32_t decode_ms;
+    uint32_t decode_max_ms;
     uint32_t jb_played;
     uint32_t jb_silence;
     uint32_t aec_ref_underflow;
@@ -265,8 +302,17 @@ typedef struct {
     int16_t *rx_pcm_buf;        /* RX: G.711 解码后缓冲 */
     int16_t *duplex_play_buf;   /* 全双工环形播放缓冲 */
     int16_t *mic_buf[VOIP_MIC_SLOT_COUNT];
-    uint8_t *udp_rx_buf;        /* UDP 收包缓冲 */
+    uint8_t *udp_rx_buf;        /* 收包缓冲（TCP 下是"一次读多少"的块缓冲） */
     uint16_t udp_rx_buf_size;
+    uint8_t *tcp_frame_buf;     /* TCP: 按 RFC4571 重组出的一个 RTP 包 */
+    uint16_t tcp_frame_cap;     /* 单帧上限，按 codec 的整包长度算（见 VOIP_RX_MAX_PKTS_PER_FRAME） */
+    voip_tcp_framer_t tcp_framer;
+    /* 一个大包切成多帧时，帧序号由**时间戳**推（序号是按包递增的，不能 +1：
+       会和下一包的序号撞车，抖动缓冲会当成重复/跳变一直 resync） */
+    uint32_t rx_ts_base;
+    uint16_t rx_ts_base_seq;
+    uint32_t rx_ts_ssrc;
+    uint8_t  rx_ts_base_valid;
     uint16_t rtp_packet_buf_size;
     uint8_t play_slot_count;
     uint8_t mic_write_idx;
@@ -299,6 +345,7 @@ typedef struct {
     uint16_t bridge_rx_write_idx;     /* RX 写索引：带标记帧或旧通路采样点。 */
     uint16_t bridge_rx_read_idx;      /* RX 读索引：带标记帧或旧通路采样点。 */
     uint16_t bridge_tx_count;         /* bridge_tx_buf 有效样本数 */
+    voip_bridge_pcm_upsampler_t bridge_tx_upsampler; /* CC 8k -> SIP 16k 连续插值历史。 */
     uint16_t bridge_rx_count;         /* 队列中的带标记帧数或旧通路采样点数。 */
     luat_rtos_mutex_t bridge_mutex;     /* 桥接缓冲区互斥锁 */
     luat_rtos_timer_t bridge_tone_timer; /* 桥接模式早期提示音定时器 */
@@ -446,7 +493,8 @@ int voip_set_audio_mode(voip_audio_mode_t mode);
  */
 int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples);
 /* CC PCM 后端的帧交换接口，仅供任务调用，不访问音频设备。
- * state：1 = 按 G.711/8 kHz/20 ms 运行，0 = 已停止，-1 = 不支持。
+ * state：1 = 按 20 ms G.711/G.729 (8 kHz) 或 G.722 (16 kHz) 运行，
+ * 0 = 已停止，-1 = 不支持。交换帧固定为 8 kHz/160 采样点，G.722 自动转换。
  * 每次交换在复制数据的同一把锁内检查 expected_generation。
  * clear 方向掩码：1 = TX (CC->SIP)，2 = RX (SIP->CC)。
  * 媒体已停止、代次过期或不受支持时，交换返回 -1，否则返回采样点数；

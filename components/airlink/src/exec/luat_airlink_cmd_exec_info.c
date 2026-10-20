@@ -39,6 +39,10 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
         // wifi固件比4G固件更新的, 那就抛弃掉后面的数据
     }
     memcpy(&g_airlink_ext_dev_info, dev, len);
+    // 从对端 devinfo 提取能力位 (rpc/frag), 更新对端能力状态
+    if (len >= 2) {
+        luat_airlink_peer_caps_update(dev->caps);
+    }
     #ifdef LUAT_USE_DRV_WLAN
     if (dev->tp == 1) {
         // WIFI设备

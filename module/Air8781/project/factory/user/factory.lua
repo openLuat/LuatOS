@@ -1,16 +1,20 @@
 --[[
 @module  factory
-@summary Air878x 系列出厂固件产测模块（融合 8780/8780V/8780G/8781/8782 产测指令）
-@version 1.0
-@date    2026.09.21
+@summary Air878x 系列出厂固件产测模块（融合 8780/8780V/8780G/8781/8782 产测指令，V3）
+@version 1.1
+@date    2026.10.16
 @author  李源龙（融合自产测代码 air201_func_test_tool）
 @usage
-本模块为 Air878x 出厂固件的产测模式，与正常模式（irtu_main）通过 test_done 分流。
+本模块为 Air878x 出厂固件的产测模式，V3 启动分流由 main.lua 完成（fskv 返工标记 → OTP1 判空）。
 产测通过 USB 虚拟串口 uart.VUART_0 收发指令，波特率 115200，指令以 # 结尾。
+- 首次产测：MODEL/HVERSION 写号入 OTP1，TEST_DONE 校验 OTP1 非空后重启进正常模式
+- 返工产测：fskv 有 model_retest 标记，TEST_DONE 删除标记（不动 OTP1）后重启进正常模式
+- 返工指令 MODEL_RETEST#CONFIRM / MODEL_RETEST? 由 retest 模块在 proc 前拦截
 
 指令集（按版本融合）：
 - 通用指令：VERSION/IMEI/IMSI/ICCID/CSQ/MUID/VBAT/ECNPICFG/LED/WD_TEST/FLYMODE/RST/TEST_DONE/PCBA_TEST_DONE
 - 写号指令：MODEL/MODEL?(OTP PROD)、HVERSION(OTP PCB)
+- 返工指令：MODEL_RETEST#CONFIRM/MODEL_RETEST?（V3，见 retest.lua）
 - 8780V 专属：RECORD(录音5s)/PLAY(回放)
 - 8780G 专属：GPSTEST(内置GNSS透传)/GS_STATE(DA221加速度ID)
 - 8782 专属：LDO(排针3.3V)/U232_TEST(232回环)/485独立测试(U485_TEST)
@@ -32,6 +36,10 @@ local VER = factory_config.get_ver()
 -- ============================================================================
 
 local prodmeta = require("prodmeta")
+-- V3 返工标记（fskv model_retest）：区分首测/返工，返工通过后删标记
+local retest = require("retest")
+local isRetest = retest.is_set()
+log.info("测试模式", "本次产测类型:", isRetest and "返工产测（不动OTP1）" or "首次产测（写号入OTP1）")
 -- 153c/153d 外置硬件看门狗（NPN 反相极性硬编码，8782 也用此库）
 -- Air8700 板载【无】外置看门狗，仅 878x 系列使用；8700 上 WD_TEST 返回 ERROR
 local ok_wdt, exair153x_wdt = pcall(require, "exair153x_wdt")
@@ -533,7 +541,7 @@ local procTable = {
         return "OK"
     end,
     ["TEST_DONE"] = function(id, findCom, data)
-        -- 测试完成：关闭外设，写 test_done，延时重启进 iRTU 正常模式
+        -- 测试完成：先关外设，再按 V3 区分首测 / 返工收尾
         netLed(0)
         if VER == "8780V" then
             pcall(gpio.setup, AUDIO_PA_PIN, 0)
@@ -549,14 +557,37 @@ local procTable = {
             pcall(gpio.setup, GNSS_POWER_PIN, 0)
             pcall(i2c.close, GSENSOR_I2C_ID)
         end
-        fskv.set("test_done", true)
-        log.info("测试完成，已保存状态，3秒后重启")
-        if pm and pm.reboot then
-            sys.timerStart(pm.reboot, 3000)
-        else
-            log.error("factory", "固件不支持 pm.reboot，请手动重启（test_done 已写入）")
+        -- 收尾并安排重启：返回 nil 表示收尾失败（已 log.error）
+        local function finish_and_reboot()
+            if isRetest then
+                -- 返工产测：全程不动 OTP1，删除 fskv 返工标记并读回校验
+                local ok, err = retest.clear_flag()
+                if not ok then
+                    log.error("factory", "返工标记删除失败，不重启:", err)
+                    return false
+                end
+                log.info("测试完成（返工），返工标记已删除，3秒后重启进正常模式")
+            else
+                -- 首次产测：型号/硬件版本已由 MODEL/HVERSION 写入 OTP1，此处校验非空
+                if next(prodmeta.get_all()) == nil then
+                    log.error("factory", "OTP1 为空，未写号，禁止结束首测")
+                    return false
+                end
+                log.info("测试完成（首测），OTP1 写号已就绪，3秒后重启进正常模式")
+            end
+            if pm and pm.reboot then
+                sys.timerStart(pm.reboot, 3000)
+            else
+                log.error("factory", "固件不支持 pm.reboot，请手动重启")
+                return false
+            end
+            return true
         end
-        return "OK"
+
+        if finish_and_reboot() then
+            return "OK"
+        end
+        return "ERROR"
     end,
     ["PCBA_TEST_DONE"] = function(id, findCom, data)
         if not (pm and pm.shutdown) then
@@ -602,6 +633,25 @@ local function proc(id, data)
 end
 
 -- ============================================================
+-- V3 返工指令帧提取（命令内部含额外 #，会破坏 proc 解析，必须在 proc 前拦截）
+-- 工厂工具帧以 # 结尾，只在收到完整帧（含尾 #）时提取，避免半截帧误判
+-- @return string|nil frame, string|nil rest 命中返回帧文本与剩余缓存
+-- ============================================================
+local function extract_retest(cache)
+    -- 查询帧：MODEL_RETEST?#
+    local s, e = cache:find("^%s*MODEL_RETEST%?#")
+    if s then
+        return cache:sub(s, e), cache:sub(e + 1)
+    end
+    -- 设置帧：MODEL_RETEST#<参数>#（参数不含 #）
+    s, e = cache:find("^%s*MODEL_RETEST#[^#]*#")
+    if s then
+        return cache:sub(s, e), cache:sub(e + 1)
+    end
+    return nil
+end
+
+-- ============================================================
 -- 串口收发（USB 虚拟串口 VUART_0）
 -- ============================================================
 uart.setup(usbTrans, 115200)
@@ -614,6 +664,14 @@ uart.on(usbTrans, "receive", function(id, len)
             break
         end
         usbRxCache = usbRxCache .. data
+        -- V3：先拦截返工指令（首测/返工模式下均可响应，用于重新置位返工标记）
+        while true do
+            local frame, rest = extract_retest(usbRxCache)
+            if not frame then break end
+            usbRxCache = rest
+            local reply = retest.on_data(frame)
+            send_response(usbTrans, (reply or "ERROR") .. "#")
+        end
         while true do
             result, usbRxCache = proc(usbTrans, usbRxCache)
             if not result then

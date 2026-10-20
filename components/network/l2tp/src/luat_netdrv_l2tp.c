@@ -26,6 +26,30 @@ typedef struct {
 } luat_netdrv_l2tp_ctx_t;
 
 /**
+ * 把 IPCP 协商到的 DNS 交给 LuatOS 适配器层
+ *
+ * PPP 子集内 LWIP_DNS=1, 所以 IPCP 会向 LNS 要 DNS 并落到 luat_ppp_dns.c;
+ * 这里在链路 up 时取走, 调 network_set_dns_server() 装到本虚拟网卡上
+ * (net_lwip2 会同时失效该网卡的 DNS 缓存)。密钥网卡的 dns_client 要在线后才
+ * 分配, 所以必须放在链路 up 之后做。
+ */
+static void l2tp_netdrv_apply_ipcp_dns(luat_netdrv_t *drv) {
+    uint8_t i;
+    for (i = 0; i < 2; i++) {
+        uint32_t dns = luat_ppp_dns_get_server_u32(i);
+        luat_ip_addr_t ip;
+        if (dns == 0) {
+            continue;
+        }
+        network_set_ip_ipv4(&ip, dns);
+        network_set_dns_server(drv->id, i, &ip);
+        LLOGI("[%d] IPCP DNS%d = %d.%d.%d.%d", drv->id, i + 1,
+              (int)(dns & 0xFF), (int)((dns >> 8) & 0xFF),
+              (int)((dns >> 16) & 0xFF), (int)((dns >> 24) & 0xFF));
+    }
+}
+
+/**
  * PPP 链路状态回调 (在 tcpip 线程执行)
  *
  * err_code 复用 lwip PPP 的错误码:
@@ -42,6 +66,7 @@ static void l2tp_netdrv_link_status_cb(l2tp_client_t *cli, int err_code, void *u
         /* PPP 的 sifup() 已调用 netif_set_link_up; 这里补上 lwip2 适配器
          * 链路状态与 IP_READY 事件 (luat_netdrv_set_link_updown 此时是 no-op) */
         net_lwip2_set_link_state(drv->id, 1);
+        l2tp_netdrv_apply_ipcp_dns(drv);
         luat_netdrv_send_ip_event(drv, 1);
     } else {
         LLOGE("[%d] L2TP link down, err_code=%d", drv->id, err_code);

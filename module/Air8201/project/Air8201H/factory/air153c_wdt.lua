@@ -19,11 +19,9 @@ function air153c_wdt.init()
         return
     end
 
+    -- 新版 exair153x_wdt（202609201735）已取消 150s 硬下限（MIN_AUTO_FEED_PERIOD=0），
+    -- 周期过短由库内部警告（实际最短约 4.45s），此处直接透传，不再二次钳制。
     local feed_interval = cfg.FEED_INTERVAL or 180
-    if feed_interval < 150 then
-        log.warn("air153c_wdt", "喂狗时间过小，强制为150秒")
-        feed_interval = 150
-    end
 
     local init_ok = exair153x_wdt.init({
         wdt_pin            = cfg.FEED_PIN,

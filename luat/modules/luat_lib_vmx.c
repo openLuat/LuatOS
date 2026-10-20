@@ -54,6 +54,9 @@ static const luaL_Reg loadedlibs[] = {
   {"json", luaopen_cjson},             // json
   {"zbuff", luaopen_zbuff},            // 
   {"crypto", luaopen_crypto},
+#ifdef LUAT_USE_PROF
+  {"prof", luaopen_prof},              // cycle profiler, 调优专用
+#endif
 #ifdef LUAT_USE_GPIO
   {"gpio",   luaopen_gpio},
 #endif

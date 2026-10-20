@@ -1,8 +1,8 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.9
-@date    2026.9.21
+@version 3.11
+@date    2026.10.16
 @author  拓毅恒
 @description
 本库负责音频硬件初始化、播放、录音和电源控制，可配合 exsip 使用普通 SIP 通话或 CC<->SIP 语音流桥接。
@@ -13,6 +13,11 @@ SIP 对端语音经固件桥接送入 CC 上行；需要固件同时具备 CC、
 并非 CC<->SIP 桥接开关；不要在 CC<->SIP 桥接通话中额外启动该本地 speech 请求。
 CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬件参数仍按实际板型调用 setup() 配置。
 @updates
+    v3.11 2026.10.16
+        1. Air1103 TTS 起播先持续发送 200ms 静音，再读取语音 PCM，预留首次/空闲后的播放通路启动时间。
+    v3.10 2026.10.13
+        1. Air1103 在具备 tts_pcm 能力的新音频固件上支持 type=1 离线 TTS。
+        2. TTS 使用单会话、有界 PCM 搬运和尾音收尾；停止时保留 MIC 上行状态。
     v3.9 2026.9.21
         1. 新增Air1103循环振铃接口 exaudio.play_ringback_loop()
         2. 新增Air1103停止循环振铃接口 exaudio.stop_ringback([skip_reset])
@@ -473,6 +478,26 @@ local function audio_queue_clear()
     audio_stream_queue.data = {}
     audio_stream_queue.sequenceIndex = 1
     return true
+end
+
+-- 应用DAC(内置ADC)麦克风增益
+-- 两个参数均由客户按 0-100 传入，由本函数线性映射到硬件范围：
+--   数字增益 dac_mic_dig_gain(0-100) -> 0-0x3f，默认 60
+--   模拟增益 dac_mic_ana_gain(0-100) -> 0-0x0f，默认 50
+-- 仅 model=="dac" 生效，固件未提供该接口(CFG_PARAM_ADC_DIG_GAIN为nil)时自动跳过
+local function apply_dac_mic_gain()
+    if audio_setup_param.model ~= "dac" or not audio_v2 then return end
+    if not audio_v2.CFG_PARAM_ADC_DIG_GAIN then return end
+    local dig = math.floor((dac_mic_dig_gain or 0) * 0x3f / 100)
+    if dig > 0x3f then dig = 0x3f elseif dig < 0 then dig = 0 end
+    local ok, err = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_DIG_GAIN, dig)
+    if not ok then log.warn("exaudio", "设置DAC数字增益失败:", err) end
+    if dac_mic_ana_gain and dac_mic_ana_gain > 0 then
+        local ana = math.floor(dac_mic_ana_gain * 0x0f / 100)
+        if ana > 0x0f then ana = 0x0f elseif ana < 0 then ana = 0 end
+        ok = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_ANA_GAIN, ana)
+        if not ok then log.warn("exaudio", "设置DAC模拟增益失败") end
+    end
 end
 
 -- ==================== audio_v2 回调处理 ====================
@@ -1201,6 +1226,140 @@ local air1103_record_queue = {}    -- air1103 录音帧队列(512B string), UART
 local air1103_record_wtask = nil   -- air1103 录音写文件任务
 local air1103_record_out   = nil   -- air1103 录音攒批输出 zbuff
 local air1103_mic_vol      = 31    -- air1103 麦克风音量(协议暂不支持调节, 仅记录)
+local air1103_tts_session = nil   -- 独立于普通音频请求编号, 持有 PCM 服务句柄
+local AIR1103_TTS_FRAME = 320
+local AIR1103_TTS_WATERMARK = 3200 -- 100ms, 远低于驱动的丢帧水位
+local AIR1103_TTS_LEAD_MS = 200  -- 起播先送静音, 首批语音保留在 native FIFO 中
+local AIR1103_TTS_TAIL_MS = 100   -- 初值; 必须按两型号实机尾音结果确认
+
+-- 请求取消后仍保留播放占用, 直到 read 确认原生任务已退出并清理。
+local function air1103_tts_cancel(session, reason)
+    if air1103_tts_session ~= session or session.stop_reason then return end
+    session.stop_reason = reason
+    if air1103_drain_timer then
+        sys.timerStop(air1103_drain_timer)
+        air1103_drain_timer = nil
+    end
+    air1103_end_marked = false
+    air1103.play_stream_stop(true)
+    audio_v2.tts_pcm_stop(session.handle)
+end
+
+local function air1103_tts_done(session, reason)
+    if air1103_tts_session ~= session then return end
+    air1103.play_stream_stop(true)
+    air1103_tts_session = nil
+    air1103_playing = false
+    air1103_end_marked = false
+    session.handle = nil
+    audio_play_param = {}
+    -- 先清旧会话, 回调中可以立即启动下一句。
+    if session.callback then session.callback(exaudio.PLAY_DONE, reason) end
+    sys.publish(EX_MSG_PLAY_DONE, reason)
+end
+
+local function air1103_tts_worker(session)
+    local remainder = ""
+    local native_done = false
+    local lead_ms = AIR1103_TTS_LEAD_MS
+    local tail_ms = nil
+    while air1103_tts_session == session do
+        if not session.stop_reason then
+            local tx_error = air1103.get_tx_error()
+            if tx_error then
+                air1103_tts_cancel(session, tx_error)
+            elseif not air1103.is_running() then
+                air1103_tts_cancel(session, "playback_stopped")
+            end
+        end
+
+        if session.stop_reason then
+            -- 取消时不再向 UART 写入, 只等待 PCM 服务发布已清理的终态。
+            local _, state = audio_v2.tts_pcm_read(session.handle, AIR1103_TTS_WATERMARK)
+            if state == "done" or state == "stopped" or state == "error" then
+                air1103_tts_done(session, session.stop_reason)
+                return
+            end
+        elseif lead_ms > 0 then
+            -- UART 已启动, 空队列由驱动按节拍发送静音; 此阶段不读取/丢弃语音。
+            -- 每轮仍检查取消和发送错误, 避免预热阻塞 play_stop。
+            lead_ms = lead_ms - 10
+        elseif native_done then
+            if air1103.get_pending() == 0 then
+                tail_ms = tail_ms or AIR1103_TTS_TAIL_MS
+                if tail_ms <= 0 then
+                    air1103_tts_done(session, "done")
+                    return
+                end
+                -- 驱动在队列空时仍按正常节拍发静音, 覆盖 UART/芯片尾音延迟。
+            end
+        else
+            local space = AIR1103_TTS_WATERMARK - air1103.get_pending()
+            if space >= AIR1103_TTS_FRAME then
+                local pcm, state, reason = audio_v2.tts_pcm_read(session.handle, space - #remainder)
+                if state == "error" or state == "stopped" then
+                    air1103_tts_done(session, reason or (state == "stopped" and "stopped" or "synthesis_failed"))
+                    return
+                elseif state == "stopping" then
+                    air1103_tts_cancel(session, "stopped")
+                else
+                    local data = remainder .. (pcm or "")
+                    local whole = #data - (#data % AIR1103_TTS_FRAME)
+                    if whole > 0 then
+                        air1103.play_stream_write(data:sub(1, whole))
+                    end
+                    remainder = data:sub(whole + 1)
+                    if state == "done" then
+                        native_done = true
+                        if #remainder % 2 ~= 0 then
+                            air1103_tts_done(session, "invalid_pcm")
+                            return
+                        end
+                        if #remainder > 0 then
+                            air1103.play_stream_write(remainder .. string.rep("\0", AIR1103_TTS_FRAME - #remainder))
+                            remainder = ""
+                        end
+                    end
+                end
+            end
+        end
+        sys.wait(10)
+        if tail_ms then tail_ms = tail_ms - 10 end
+    end
+end
+
+local function air1103_tts_start(config)
+    if not USE_AUDIO_V2 or not audio_v2
+        or type(audio_v2.tts_pcm_start) ~= "function"
+        or type(audio_v2.tts_pcm_read) ~= "function"
+        or type(audio_v2.tts_pcm_stop) ~= "function" then
+        return false, "unsupported"
+    end
+    if type(config.content) ~= "string" or #config.content == 0 then
+        return false, "invalid_text"
+    end
+    if config.cbfnc ~= nil and type(config.cbfnc) ~= "function" then
+        return false, "invalid_callback"
+    end
+    local ok, reason = air1103.play_stream_start(air1103_vol, {report_tx_error = true})
+    if not ok then return false, reason or "not_initialized" end
+    local accepted, handle = audio_v2.tts_pcm_start(config.content)
+    if not accepted then
+        air1103.play_stream_stop(true)
+        return false, handle
+    end
+    local session = {handle = handle, callback = config.cbfnc}
+    air1103_tts_session = session
+    air1103_playing = true
+    air1103_end_marked = false
+    if air1103_drain_timer then
+        sys.timerStop(air1103_drain_timer)
+        air1103_drain_timer = nil
+    end
+    audio_play_param = config
+    sys.taskInit(air1103_tts_worker, session)
+    return true
+end
 
 -- air1103 播放结束统一处理：停流 + 置状态 + 触发播放完成回调
 local function air1103_audio_done()
@@ -1430,7 +1589,10 @@ function exaudio.setup(audioConfigs)
     elseif audio_setup_param.model == "air1103" then
         audio_setup_param.uart_id = audioConfigs.uart_id or 1
         air1103 = require "air1103"
-        air1103.init(audio_setup_param.uart_id, 2000000)
+        if not air1103.init(audio_setup_param.uart_id, 2000000) then
+            log.error("exaudio.setup", "Air1103 芯片初始化失败")
+            return false
+        end
         log.info("exaudio.setup", "Air1103 芯片初始化完成")
     else
         -- ES8311 I2S模式
@@ -1531,13 +1693,14 @@ function exaudio.setup(audioConfigs)
     end
 end
 
--- 开始播放
+-- 开始播放。Air1103 type=1 需要 audio_mode=new 及固件 tts_pcm 能力。
+-- TTS 返回 true 仅表示受理; cbfnc(PLAY_DONE, reason) 通知 done/stopped/错误。
 function exaudio.play_start(playConfigs)
-    -- Air1103 模式: 仅支持 PCM 流式播放(type=2)
+    -- Air1103 模式: TTS(type=1) 与 PCM 流式播放(type=2) 共用一个下行流。
     if audio_setup_param.model == "air1103" then
         if not air1103 then
             log.error("air1103未初始化，请先调用exaudio.setup")
-            return false
+            return false, "not_initialized"
         end
         if not playConfigs or type(playConfigs) ~= "table" then
             log.error("播放配置必须为table类型")
@@ -1547,12 +1710,19 @@ function exaudio.play_start(playConfigs)
             log.error("type必须为数值(0:文件,1:TTS,2:流式)")
             return false
         end
-        if playConfigs.type ~= 2 then
-            log.error("air1103仅支持播放pcm流式音频，请更换播放的音频文件")
-            return false
+        if air1103_playing or air1103.is_running() then
+            return false, "busy"
         end
+        if playConfigs.type == 1 then
+            return air1103_tts_start(playConfigs)
+        end
+        if playConfigs.type ~= 2 then
+            log.error("air1103仅支持TTS或PCM流式音频")
+            return false, "unsupported"
+        end
+        local ok, reason = air1103.play_stream_start(air1103_vol)
+        if not ok then return false, reason end
         audio_play_param = playConfigs
-        air1103.play_stream_start(air1103_vol)
         air1103_playing = true
         air1103_end_marked = false
         log.info("exaudio", "air1103流式播放已启动，等待play_stream_write喂数据")
@@ -1933,6 +2103,7 @@ exaudio.play_ringback(on_ringback_done)
 ]]
 function exaudio.play_ringback(callback)
     if audio_setup_param.model == "air1103" then
+        if air1103_playing then return false, "busy" end
         if not air1103 or type(air1103.play_busy) ~= "function" then
             log.warn("exaudio", "play_ringback: air1103 未初始化")
             return false
@@ -1955,6 +2126,7 @@ exaudio.play_ringback_loop()
 ]]
 function exaudio.play_ringback_loop()
     if audio_setup_param.model == "air1103" then
+        if air1103_playing then return false, "busy" end
         if not air1103 or type(air1103.play_busy_loop) ~= "function" then
             log.warn("exaudio", "play_ringback_loop: air1103 未初始化")
             return false
@@ -2014,6 +2186,7 @@ exaudio.play_hangup(on_hangup_done)
 ]]
 function exaudio.play_hangup(callback)
     if audio_setup_param.model == "air1103" then
+        if air1103_playing then return false, "busy" end
         if not air1103 or type(air1103.play_hangup) ~= "function" then
             log.warn("exaudio", "play_hangup: air1103 未初始化")
             return false
@@ -2032,6 +2205,7 @@ end
 -- @return free_len FIFO剩余空间(audio_v2)
 function exaudio.play_stream_write(data, is_end)
     if audio_setup_param.model == "air1103" then
+        if air1103_tts_session then return false, "busy" end
         if not air1103 then return false end
         if not data or #data == 0 then return false end
         air1103.play_stream_write(data)
@@ -2073,6 +2247,10 @@ end
 function exaudio.play_stop(stopConfigs)
     if audio_setup_param.model == "air1103" then
         if not air1103 then return false end
+        if air1103_tts_session then
+            air1103_tts_cancel(air1103_tts_session, "stopped")
+            return true
+        end
         if air1103_playing then
             air1103_audio_done()
         end
@@ -2177,6 +2355,10 @@ local audio_v2_record_codec_map = {
 
 -- 开始录音
 function exaudio.record_start(recodConfigs)
+    -- 录音启动会复位 Air1103; TTS 全生命周期内拒绝新录音, 不改已有录音/MIC状态。
+    if audio_setup_param.model == "air1103" and air1103_tts_session then
+        return false, "busy"
+    end
     if not recodConfigs or type(recodConfigs) ~= "table" then
         log.error("录音配置必须为table类型")
         return false
@@ -2456,26 +2638,6 @@ function exaudio.vol(play_volume, driver_probe_id)
     return false
 end
 
--- 应用DAC(内置ADC)麦克风增益
--- 两个参数均由客户按 0-100 传入，由本函数线性映射到硬件范围：
---   数字增益 dac_mic_dig_gain(0-100) -> 0-0x3f，默认 60
---   模拟增益 dac_mic_ana_gain(0-100) -> 0-0x0f，默认 50
--- 仅 model=="dac" 生效，固件未提供该接口(CFG_PARAM_ADC_DIG_GAIN为nil)时自动跳过
-local function apply_dac_mic_gain()
-    if audio_setup_param.model ~= "dac" or not audio_v2 then return end
-    if not audio_v2.CFG_PARAM_ADC_DIG_GAIN then return end
-    local dig = math.floor((dac_mic_dig_gain or 0) * 0x3f / 100)
-    if dig > 0x3f then dig = 0x3f elseif dig < 0 then dig = 0 end
-    local ok, err = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_DIG_GAIN, dig)
-    if not ok then log.warn("exaudio", "设置DAC数字增益失败:", err) end
-    if dac_mic_ana_gain and dac_mic_ana_gain > 0 then
-        local ana = math.floor(dac_mic_ana_gain * 0x0f / 100)
-        if ana > 0x0f then ana = 0x0f elseif ana < 0 then ana = 0 end
-        ok = pcall(audio_v2.config, audio_v2.CFG_PARAM_ADC_ANA_GAIN, ana)
-        if not ok then log.warn("exaudio", "设置DAC模拟增益失败") end
-    end
-end
-
 -- 设置麦克风音量
 -- @param record_volume 麦克风音量值(0-100)，DAC模式下作为数字增益映射为 0-0x3f（默认 60）
 -- @param dac_ana_gain 可选，DAC模式专用模拟增益(0-100)，线性映射为 0-0x0f，不传则为默认 50
@@ -2530,6 +2692,7 @@ end
 -- @return 是否成功
 function exaudio.finish(data)
     if audio_setup_param.model == "air1103" then
+        if air1103_tts_session then return false, "busy" end
         if not air1103 then return false end
         if data then
             air1103.play_stream_write(data)
@@ -2825,7 +2988,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202609201726"
+    return "202610160000"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

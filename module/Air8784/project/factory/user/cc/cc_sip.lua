@@ -145,6 +145,9 @@ local function on_sip_event(event, action, data)
         if action == "ok" then
             g_registered = true
             logi("SIP 注册成功")
+        elseif action == "challenge" then
+            -- 收到 401 挑战，exsip 会自动带凭证重发 REGISTER，属正常握手流程，非失败
+            logi("SIP 注册中(挑战鉴权)")
         else
             g_registered = false
             logi("SIP 注册失败", action)
@@ -235,7 +238,7 @@ end
 
 function cc_sip.init()
     logi("SIP 初始化开始")
-    local sip_ok = exsip.init({
+    local init_tbl = {
         sip_server_addr = config.sip_server_addr,
         sip_server_port = config.sip_server_port,
         sip_domain = config.sip_domain,
@@ -250,7 +253,17 @@ function cc_sip.init()
         early_media = true,
         early_media_response = 183,
         adapter = config.adapter,
-    })
+    }
+    if config.sip_transport == "tls" then
+        local ca = io.readFile(config.sip_tls_ca_path or "/luadb/sip-ca.pem")
+        if not ca then
+            log.error("cc_sip", "TLS 开启但 CA 证书缺失:", config.sip_tls_ca_path)
+            return false
+        end
+        init_tbl.sip_tls = { ca_cert = ca }
+        logi("TLS 已启用，CA 证书长度", #ca)
+    end
+    local sip_ok = exsip.init(init_tbl)
     if not sip_ok then
         log.error("cc_sip", "exsip.init 失败")
         return false

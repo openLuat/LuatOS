@@ -46,6 +46,7 @@
 | 12 | Air8101 | 引擎主机 | EVB_Air8101_V1.0；AirLCD_1100 | 1024*600 10寸RGB触摸屏；Wifi；以太网；应用工厂(内置DAC喇叭/麦克风) | EVB_Air8101_AirLCD_1100_000_V020 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101_10inch1_1024x600_000_V010_back_view.png"> |
 | 13 | Air8101B | 引擎主机 | 合宙引擎 8101B V002 | 480*854 5寸RGB触摸屏；Wifi | EVB_Air8101B_5inch_480x854_000_V010 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101B_5inch_480x854_000_V010_back_view.png"> |
 | 14 | Air1780H | 引擎主机 | 合宙引擎 AIR1780H V000 4.3寸 | 480*272 4.3寸SPI触摸屏(ST6201)；WiFi(airlink 6205)；ES8311录音播放；SD卡；NAND Flash；PWM0背光调节 | Engine_Air1780H_4inch_480x272_000_V000 | | |
+| 15 | Air1603 | 引擎主机 | 合宙引擎 AIR8607 V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；SD卡 | Engine_Air8607_10inch_1024x600_000_V000 | | |
 
 ---
 
@@ -72,8 +73,8 @@ main.lua（设 PROJECT）
 platform_loader（平台检测 → PROJECT 映射 → 加载配置 → _G.project_config）
     │
     ├── lcd_common（动态 require LCD/TP 驱动 → 构建 _G.lcd_drv / _G.tp_drv）
-    └── boot_ui（快速点亮：display/airui → logo+背光 → logo 展示期间分批加载
-        app_main 业务模块与 ui_main 窗口清单 → BOOT_INIT_DONE → welcome 播 hzv → 桌面）
+    └── boot_ui（快速点亮：display → airui.init → logo+背光 → logo 展示期间加载
+        字体与核心批 → 直接进桌面；可选批 app_main/ui_main.optional 独立协程并行）
 ```
 
 ### 目录结构
@@ -108,7 +109,6 @@ factory/
 ├── ui/                        # UI 层（纯事件驱动）
 │   ├── boot_ui.lua            # 开机快速点亮 + 延迟初始化编排
 │   ├── ui_main.lua            # UI 窗口清单（boot_ui 在 logo 展示期间延迟加载）
-│   ├── welcome_win.lua        # 开机欢迎页（logo → hzv 两阶段）
 │   ├── idle_win.lua           # 桌面启动器
 │   ├── settings/              # 设置页面（9 个子页面）
 │   ├── wifi/                  # WiFi 页面
@@ -235,7 +235,6 @@ return {
 
 | 窗口 | 文件 | 功能 |
 |------|------|------|
-| 欢迎页 | `ui/welcome_win.lua` | 开机引导动画 |
 | 桌面 | `ui/idle_win.lua` | 时间/日期/信号/快捷入口/外部应用网格 |
 | 设置主页 | `ui/settings/settings_win.lua` | 功能入口列表（WiFi/亮度和声音/存储/声音/关于/更新） |
 | 亮度和声音 | `ui/settings/settings_display_win.lua` | 亮度滑块 + 媒体音量滑块（有音频硬件时默认启用） |

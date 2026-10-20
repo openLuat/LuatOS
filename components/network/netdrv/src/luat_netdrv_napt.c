@@ -25,6 +25,16 @@
 #define LUAT_LOG_TAG "netdrv.napt"
 #include "luat_log.h"
 
+/* RNDIS NAT 模式共存问题定位日志: 1=开启(默认), 抓完日志后改 0 或删除本块 */
+#ifndef LUAT_CONF_RNDIS_NAT_DBG
+#define LUAT_CONF_RNDIS_NAT_DBG 0
+#endif
+#if LUAT_CONF_RNDIS_NAT_DBG
+#define NAPT_RNDIS_DBG(fmt, ...) luat_log_log(LUAT_LOG_INFO, "RNDIS-NAT-DBG", fmt, ##__VA_ARGS__)
+#else
+#define NAPT_RNDIS_DBG(fmt, ...) do {} while (0)
+#endif
+
 #define UDP_MAP_TIMEOUT (60 * 1000)
 #define NAPT_MAX_PACKET_SIZE (1520)
 
@@ -44,6 +54,19 @@ static void napt_sync_gw_netif(int adapter_id) {
     if (drv->netif == real_netif) return;
     uint32_t old_ip = drv->netif ? ip_addr_get_ip4_u32(&drv->netif->ip_addr) : 0;
     uint32_t new_ip = ip_addr_get_ip4_u32(&real_netif->ip_addr);
+#if LUAT_CONF_RNDIS_NAT_DBG
+    {
+        luat_netdrv_t* _dbg_usb_drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_USB);
+        struct netif* _dbg_sdk_usb = net_lwip_get_netif(NW_ADAPTER_INDEX_LWIP_USB);
+        NAPT_RNDIS_DBG("sync adapter=%d drv=%p(ip 0x%08X) real=%p(ip 0x%08X) usbdrv=%p usbslot=%p",
+                       adapter_id, drv->netif, old_ip, real_netif, new_ip,
+                       _dbg_usb_drv ? _dbg_usb_drv->netif : NULL, _dbg_sdk_usb);
+        if (old_ip == 0) {
+            NAPT_RNDIS_DBG("sync FIRST-BIND(NO-GUARD) real=%p ip=0x%08X -> drv->netif",
+                           real_netif, new_ip);
+        }
+    }
+#endif
     /* Air8000 fix (v3): Two-layer RNDIS detection.
      * v2 (precise) layer alone is INSUFFICIENT because napt_enable runs BEFORE
      * luat_netdrv_rndis_link_up() assigns netdrv_rndis.netif, so the USB drv
@@ -91,6 +114,8 @@ static void napt_sync_gw_netif(int adapter_id) {
               adapter_id, new_ip, old_ip);
         return;
     }
+    NAPT_RNDIS_DBG("sync BIND adapter=%d old=%p(ip 0x%08X) -> new=%p(ip 0x%08X)",
+                   adapter_id, drv->netif, old_ip, real_netif, new_ip);
     LLOGI("NAPT netif sync: adapter=%d old=%p(IP %08X) -> new=%p(IP %08X)", adapter_id, drv->netif, old_ip, real_netif, new_ip);
     drv->netif = real_netif;
         #endif
@@ -106,6 +131,11 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
         // LLOGD("NAPT 未开启");
         return 0; // NAPT没有开启
     }
+    // STA(2) 不属于 NAPT 下行侧，放行会让单播 DHCP OFFER 被误 NAT 消费，
+    // 导致 4G转WiFi 切 WiFi 拿不到 IP(no offer)，故入口直接放行。
+    if (id == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
+        return 0;
+    }
     luat_netdrv_t* drv = luat_netdrv_get(id);
     if (drv == NULL || drv->netif == NULL) {
         LLOGD("网关netif不存在,无法转发");
@@ -115,6 +145,35 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
         LLOGD("包长度不合法, 拒绝改写 %d", len);
         return 0;
     }
+#if LUAT_CONF_RNDIS_NAT_DBG
+    if (id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
+        static uint32_t _ap_rx_dump = 0;
+        if (_ap_rx_dump < 8) {
+            extern void luat_netdrv_dump_hex(const char* tag, const uint8_t* buff, uint16_t len, uint16_t maxlen);
+            _ap_rx_dump++;
+            luat_netdrv_dump_hex("ap_rx", buff, (uint16_t)len, 54);
+        }
+    }
+    /* AP(3) 上的 DHCP 报文诊断: 广播包会在下面的广播判断里提前 return 0,
+     * 这里先记录 DHCP 报文是否到达, 用于区分"没到 NAPT 层"和"到了但被丢" */
+    if (id == NW_ADAPTER_INDEX_LWIP_WIFI_AP && len >= 42) {
+        uint8_t* dbg_eth = buff;
+        if (dbg_eth[12] == 0x08 && dbg_eth[13] == 0x00) {
+            struct ip_hdr* dbg_iph = (struct ip_hdr*)(buff + SIZEOF_ETH_HDR);
+            if (IPH_PROTO(dbg_iph) == IP_PROTO_UDP && (dbg_iph->_v_hl & 0x0F) >= 5) {
+                struct udp_hdr* dbg_uh = (struct udp_hdr*)(((uint8_t*)dbg_iph) + (dbg_iph->_v_hl & 0x0F) * 4);
+                uint16_t dbg_sport = ntohs(dbg_uh->src);
+                uint16_t dbg_dport = ntohs(dbg_uh->dest);
+                if (dbg_sport == 68 || dbg_dport == 68 || dbg_sport == 67 || dbg_dport == 67) {
+                    static uint32_t _dhcp_dbg_cnt = 0;
+                    if ((_dhcp_dbg_cnt++ & 0x03) == 0) {
+                        NAPT_RNDIS_DBG("AP dhcp pkg %u->%u", dbg_sport, dbg_dport);
+                    }
+                }
+            }
+        }
+    }
+#endif
     luat_netdrv_t* gw = luat_netdrv_get(s_gw_adapter_id);
     if (gw == NULL || gw->netif == NULL) {
         return 0; // 网关不存在, 那就没有转发
@@ -216,6 +275,23 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
     // if (tused_us > 100) {
     //     LLOGI("time used %4lld us tp %2d way %d", tused_us, IPH_PROTO(ctx.iphdr), s_gw_adapter_id == id);
     // }
+#if LUAT_CONF_RNDIS_NAT_DBG
+    {
+        static uint32_t _pkg_dbg_cnt = 0;
+        if (ret != 0 || ((_pkg_dbg_cnt++ & 0x1F) == 0)) {
+            uint16_t _dbg_sp = 0, _dbg_dp = 0;
+            if (IPH_PROTO(ctx.iphdr) == IP_PROTO_TCP || IPH_PROTO(ctx.iphdr) == IP_PROTO_UDP) {
+                uint8_t* _dbg_l4 = ((uint8_t*)ctx.iphdr) + (ctx.iphdr->_v_hl & 0x0F) * 4;
+                memcpy(&_dbg_sp, _dbg_l4, 2);
+                memcpy(&_dbg_dp, _dbg_l4 + 2, 2);
+                _dbg_sp = ntohs(_dbg_sp);
+                _dbg_dp = ntohs(_dbg_dp);
+            }
+            NAPT_RNDIS_DBG("pkg_input id=%d is_wnet=%d proto=%u ret=%d sp=%u dp=%u",
+                           id, ctx.is_wnet, IPH_PROTO(ctx.iphdr), ret, _dbg_sp, _dbg_dp);
+        }
+    }
+#endif
     return ret;
 }
 #endif
@@ -252,6 +328,14 @@ void luat_netdrv_napt_enable(int adapter_id) {
         luat_netdrv_napt_init_contexts();
     }
     s_gw_adapter_id = adapter_id;
+#if LUAT_CONF_RNDIS_NAT_DBG
+    {
+        luat_netdrv_t* _dbg_gw = luat_netdrv_get(adapter_id);
+        NAPT_RNDIS_DBG("enable adapter=%d drv=%p netif=%p ip=0x%08X",
+                       adapter_id, _dbg_gw, _dbg_gw ? _dbg_gw->netif : NULL,
+                       (_dbg_gw && _dbg_gw->netif) ? ip_addr_get_ip4_u32(&_dbg_gw->netif->ip_addr) : 0);
+    }
+#endif
     napt_sync_gw_netif(adapter_id);
     // struct netif* gprsnet = net_lwip_get_netif(adapter_id);
     // LLOGI("NAPT enable: adapter=%d, gprsnet=%p ip=%08X", adapter_id, gprsnet, gprsnet ? ip_addr_get_ip4_u32(&gprsnet->ip_addr) : 0);
@@ -288,6 +372,14 @@ void luat_netdrv_napt_disable(void) {
 }
 void luat_netdrv_napt_set_gw(int adapter_id) {
     LLOGD("NAPT set_gw: adapter=%d", adapter_id);
+#if LUAT_CONF_RNDIS_NAT_DBG
+    {
+        luat_netdrv_t* _dbg_gw = luat_netdrv_get(adapter_id);
+        NAPT_RNDIS_DBG("set_gw adapter=%d netif=%p ip=0x%08X",
+                       adapter_id, _dbg_gw ? _dbg_gw->netif : NULL,
+                       (_dbg_gw && _dbg_gw->netif) ? ip_addr_get_ip4_u32(&_dbg_gw->netif->ip_addr) : 0);
+    }
+#endif
     s_gw_adapter_id = adapter_id;
     napt_sync_gw_netif(adapter_id);
     if (adapter_id > 0) {

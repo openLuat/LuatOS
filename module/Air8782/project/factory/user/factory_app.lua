@@ -154,11 +154,8 @@ local function get_lbs()
         local cellinfo = mobile.getCellInfo()
         if not cellinfo or #cellinfo == 0 then
             mobile.reqCellInfo(15)
-            local result = sys.waitUntil("CELL_INFO_UPDATE", 5000)  -- 3秒太短，提到5秒
-            if not result then
-                log.warn("factory_app", "基站信息扫描超时")
-                return nil, nil
-            end
+            -- 等待基站扫描结果；扫描超时不致命，下方 request 内部仍会再取驻网基站 scell 兜底
+            sys.waitUntil("CELL_INFO_UPDATE", 5000)
         end
     end
     -- 3. 请求定位
@@ -197,6 +194,12 @@ function factory_app.build_report_tlv()
         field_meaning = excloud.FIELD_MEANINGS.DEVICE_ID,
         data_type = excloud.DATA_TYPES.ASCII,
         value = mobile.imei()
+    })
+    -- 必填：模组型号
+    table.insert(tlv_list, {
+        field_meaning = excloud.FIELD_MEANINGS.COMPONENT_MODEL,
+        data_type = excloud.DATA_TYPES.ASCII,
+        value = "Air8782P"
     })
     -- 必填：时间戳
     table.insert(tlv_list, {
@@ -240,15 +243,16 @@ function factory_app.build_report_tlv()
     if factory_config.get_lbs_enable() then
         local lat, lng = get_lbs()
         if lat and lng then
+            -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
             table.insert(tlv_list, {
                 field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-                data_type = excloud.DATA_TYPES.FLOAT,
-                value = lat
+                data_type = excloud.DATA_TYPES.ASCII,
+                value = string.format("%.6f", lat)
             })
             table.insert(tlv_list, {
                 field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-                data_type = excloud.DATA_TYPES.FLOAT,
-                value = lng
+                data_type = excloud.DATA_TYPES.ASCII,
+                value = string.format("%.6f", lng)
             })
         end
     end
@@ -312,15 +316,16 @@ function factory_app.build_gps_tlv()
     local tlv_list = {}
     local lat, lng, method = get_location()
     if lat and lng then
+        -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
         table.insert(tlv_list, {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = lat
+            data_type = excloud.DATA_TYPES.ASCII,
+            value = string.format("%.6f", lat)
         })
         table.insert(tlv_list, {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = lng
+            data_type = excloud.DATA_TYPES.ASCII,
+            value = string.format("%.6f", lng)
         })
         -- 定位方式：2=GPS，1=LBS（可选字段）
         table.insert(tlv_list, {

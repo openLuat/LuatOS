@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "../src/luat_voip_aec_sync.h"
+#include "../include/luat_voip_aec_sync.h"
 
 #define FRAME_SAMPLES 160U
 #define SAMPLE_RATE 8000U

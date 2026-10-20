@@ -18,6 +18,7 @@ function M.start(adapter)
     local cloud=require "excloud"
     local engine=require "task_engine"
     local update=require "update"
+    local sip_config=require "sip_config"
     assert(fskv and fskv.init(), "fskv unavailable")
     local key, imei="sip_task_v1", mobile.imei()
     local controller
@@ -69,6 +70,20 @@ function M.start(adapter)
         controller.command({schema="air8784.sip.v1",imei=imei,op="set_mode",
             req="mode"..tostring(mode_seq),expected=cur_rev,revision=new_revision(mode_seq),runtime_mode=m})
     end
+    -- 传输切换：udp / tcp / tls；tls 默认端口 5061，udp/tcp 默认 8910。
+    local DEFAULT_PORT={udp=8910,tcp=8910,tls=5061}
+    local function switch_transport(t,port)
+        if t~="udp" and t~="tcp" and t~="tls" then
+            log.warn("task_cloud","invalid sip_transport",tostring(t));return
+        end
+        port=port or DEFAULT_PORT[t]
+        sip_config.apply({sip_transport=t,sip_server_port=port})
+        log.info("task_cloud","sip_transport ->",t,"port",port,"1秒后重启生效")
+        if cloud.status().is_authenticated then
+            cloud.send({{field_meaning=20,data_type=3,value=json.encode({schema="air8784.sip.v1",kind="ack",op="set_transport",result="ok",sip_transport=t,sip_server_port=port,imei=imei})}},false)
+        end
+        sys.timerStart(rtos.reboot,1000)
+    end
     local function on_cloud_event(event,data)
         if event=="auth_result" then
             if data and data.success then
@@ -85,6 +100,8 @@ function M.start(adapter)
                             trigger_update()
                         elseif op=="mode_set" or op=="mode" then
                             switch_mode(c.mode or c.value or c.runtime_mode)
+                        elseif op=="set_transport" or op=="transport" then
+                            switch_transport(c.sip_transport or c.value or c.transport, c.sip_server_port)
                         else
                             log.info("task_cloud", "command", c.op, "req", c.req)
                             controller.command(c)
@@ -98,6 +115,7 @@ function M.start(adapter)
                         else
                             local head, arg = low:match("^([%a_]+)[:,#](.+)$")
                             if head=="mode" then switch_mode(arg)
+                            elseif head=="transport" then switch_transport(arg)
                             else log.warn("task_cloud", "invalid command JSON") end
                         end
                     end

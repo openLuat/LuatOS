@@ -1,131 +1,148 @@
 --[[
 @module  app_main
-@summary 应用主入口模块，负责按顺序加载所有业务功能模块
-@version 1.4
-@date    2026.09.16
+@summary 业务模块聚合入口：core() 核心批 + optional() 可选批（boot_ui 分批调用）
+@version 2.0
+@date    2026.10.16
 @author  江访
 
 === 执行流程 ===
 
-require 即执行，main.lua 调用 require "app_main" 时以下模块按顺序加载：
+boot_ui 在 logo 展示期间分批调用本模块的两个函数：
 
-  1. net_manager    → 统一网络管理器（读取 config.network，构建 exnetif 优先级列表）
-                     替代旧的 wifi_app + netdrv_eth_spi，初始化所有非WiFi兜底网络
-  2. net_init       → 统一网络事件订阅（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志）
-  3. wifi_app_real  → WiFi 业务层（自动连接、扫描、UI交互），不再做4G/以太网初始化
-  4. status_provider_app → 状态栏数据源（时间/信号/电量定时更新，发布 STATUS_UPDATE）
-  5. weather_app    → 天气服务（按出口 IP 自动定位城市，查询天气并发布 WEATHER_UPDATED）
-  6. ntp_app        → NTP 时间同步（订阅 IP_READY，联网后自动校时）
-  7. settings_iot_app → IOT 平台账号登录/登出
-  8. settings_app   → 设置主框架（fskv 持久化配置）
-  9. fota_app       → 固件 OTA 升级
- 10. file_manager_app → 文件管理业务层
- 11. factory_app   → 应用工厂业务层（仅 features.app_factory 时加载，级联 factory_rec）
- 12. llm_chat      → AI 助手业务层（仅 features.ai_chat 时加载）
+  core()     核心批（进桌面前必须完成）：
+    1. status_provider_app → 状态栏数据源（时间/信号/电量定时更新，发布 STATUS_*)
+    2. settings_iot_app    → IOT 平台账号登录/登出
+    3. settings_app        → 设置主框架（fskv 持久化，级联 8 个 settings_*_app 子模块）
+    4. fota_app            → 固件 OTA 升级
+    5. file_manager_app    → 文件管理业务层（file_manager_win 同批加载）
 
-=== 网络架构变化 ===
+  optional() 可选批（独立协程与桌面并行，功能开关门控）：
+    1. net_manager    → 统一网络管理器（task 中 init，读取 config.network 构建 exnetif 优先级）
+    2. net_init       → 统一网络事件订阅（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志）
+    3. wifi_app_real  → WiFi 业务层（自动连接、扫描、UI交互），不做4G/以太网初始化
+    4. weather_app    → 天气服务（按出口 IP 自动定位城市，发布 WEATHER_UPDATED）
+    5. battery_app    → 电池管理（features.battery）
+    6. nes_key_app    → NES 游戏按键（features.nes，模块加载即注册）
+    7. ntp_app        → NTP 时间同步（订阅 IP_READY）
+    （1~4、7 为网络族，has_net 门控：无网络板不加载，见下方 optional() 内注释）
+    8. factory_app    → 应用工厂（features.app_factory，级联 factory_rec）
+    9. usb_hid_app    → USB HID 键鼠（features.usb_hid）
+   10. llm_chat       → AI 助手（features.ai_chat）
+   11. cloud_disk_app → 合宙网盘（features.cloud_disk）
+   12. tts_app        → TTS 播报（hw.audio）
+   13. aircloud_app   → AirCloud 数据上报（features.aircloud）
+   14. file_transfer_app → hzadb 文件传输（features.file_transfer）
+   15. periph_loader  → 外设预留框架（config.peripherals，未实现 type 记日志跳过）
 
-旧: wifi_app (分发) → wifi_app_real (混合4G/WiFi/以太网) + netdrv_eth_spi
-新: net_manager (统一读 config → exnetif.set_priority_order)
-    wifi_app_real (仅 WiFi 扫描/连接/UI 交互)
+=== 关键约束 ===
+
+1. UI 窗口与业务层必须成对、同批加载（见 ui_main 同款注释）：只加载 UI 会
+   「窗口能开、按钮没反应」，只加载业务会白占内存
+2. 门控条件必须与 ui_main 对应窗口的门控完全一致
+3. require 只用文件名不带路径；函数体内静态 require 由编译系统文本扫描打包，
+   不需要登记 platform_loader 编译清单（清单已包进永不调用的函数，不参与运行时）
 ]]
 
--- 加载统一网络管理器（require 时不初始化，只注册接口）
--- 替代旧的 require "wifi_app" + require "netdrv_eth_spi"
--- 必须在 net_init 之前加载，使 exnetif IP 事件能被 net_init 正常订阅
-local net_manager = require "net_manager"
+local M = {}
 
--- 传入 project_config，在 task 中初始化 net_manager 并启动所有网络
--- exnetif.set_priority_order 内部使用 sys.wait()，必须在 task 中调用
-sys.taskInit(function()
-    local ok, err = pcall(net_manager.init, _G.project_config)
-    if not ok then
-        log.error("app_main", "net_manager.init 失败，桌面继续运行", err)
+-- ==================== 核心批：进桌面前必须完成 ====================
+function M.core()
+    -- 状态提供 app 模块（系统时间/4G信号/WiFi信号 定时更新，发布 STATUS_* 给状态栏）
+    require "status_provider_app"
+    -- IOT 账号模块（合宙 IoT 平台登录/登出，需联网，订阅 LOGIN_REQUEST/LOGOUT_REQUEST）
+    require "settings_iot_app"
+    -- 设置主模块（级联 require 所有 settings_*_app 子模块，fskv 初始化和配置加载）
+    require "settings_app"
+    -- FOTA 固件升级模块（订阅 IP_READY，定时向 iot.openluat.com 检查固件更新）
+    require "fota_app"
+    -- 文件管理业务层（file_manager_win 也会 require，这里保证启动即注册）
+    require "file_manager_app"
+end
+
+-- ==================== 可选批：与桌面并行加载，功能开关门控 ====================
+function M.optional()
+    local cfg = _G.project_config or {}
+    local feat = cfg.features or {}
+
+    -- 网络族：无网络板（features 无 wifi/net_4g/ethernet 且未配 network 段，如 8607）
+    -- 不加载网络栈（net_manager 会拖出 exnetif/httpplus 等整条库链）
+    local has_net = (type(cfg.network) == "table" and #cfg.network > 0)
+        or feat.wifi or feat.net_4g or feat.ethernet
+    if has_net then
+        -- 统一网络管理器（require 时不初始化，只注册接口）
+        -- 替代旧的 require "wifi_app" + require "netdrv_eth_spi"
+        -- 必须在 net_init 之前加载，使 exnetif IP 事件能被 net_init 正常订阅
+        local net_manager = require "net_manager"
+        -- 传入 project_config，在 task 中初始化 net_manager 并启动所有网络
+        -- exnetif.set_priority_order 内部使用 sys.wait()，必须在 task 中调用
+        sys.taskInit(function()
+            local ok, err = pcall(net_manager.init, cfg)
+            if not ok then
+                log.error("app_main", "net_manager.init 失败，桌面继续运行", err)
+            end
+        end)
+
+        -- 统一网络事件订阅（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志）
+        require "net_init"
+        -- WiFi 业务层（仅 WiFi 扫描/连接/配置管理，不含4G/以太网初始化）
+        require "wifi_app_real"
+        -- 天气服务模块（订阅 IP_READY，联网后按出口 IP 自动定位城市并查询天气，
+        -- 发布 WEATHER_UPDATED 给桌面天气卡；数据源全部免 key）
+        require "weather_app"
     end
-end)
 
--- 加载统一网络事件订阅模块（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志）
-require "net_init"
+    -- 电池管理（ADC 电压检测 + USB 充电检测）
+    if feat.battery then
+        require "battery_app"
+    end
 
--- 加载 WiFi 业务层（仅 WiFi 扫描/连接/配置管理，不含4G/以太网初始化）
--- net_manager 已处理所有非WiFi网络的初始化兜底
-require "wifi_app_real"
+    -- NES 游戏按键（需配 nes_keys；模块加载即注册幂等，见 nes_key_app 头部说明）
+    if feat.nes then
+        require "nes_key_app"
+    end
 
--- 加载状态提供 app 模块（系统时间/4G信号/WiFi信号 定时更新，发布 STATUS_UPDATE 给状态栏）
-require "status_provider_app"
+    -- NTP 时间同步（订阅 IP_READY，首次联网自动向 ntp.aliyun.com 校时；无网络板不加载）
+    if has_net then
+        require "ntp_app"
+    end
 
--- 加载天气服务模块（订阅 IP_READY，联网后按出口 IP 自动定位城市并查询天气，
--- 发布 WEATHER_UPDATED 给桌面天气卡；数据源全部免 key，见模块头部说明）
-require "weather_app"
+    -- 应用工厂（录音 → 生成 → 安装链路，级联 require factory_rec）
+    if feat.app_factory then
+        require "factory_app"
+    end
 
--- 加载电池管理模块（按 features.battery 配置开关，ADC 电压检测 + USB 充电检测）
-if _G.project_config and _G.project_config.features and _G.project_config.features.battery then
-    require "battery_app"
+    -- USB HID 键盘鼠标管理
+    if feat.usb_hid then
+        require "usb_hid_app"
+    end
+
+    -- AI 助手（WebSocket 会话 + STT/TTS，订阅 AI_CHAT_*）
+    if feat.ai_chat then
+        require "llm_chat"
+    end
+
+    -- 合宙网盘（IoT 登录取 space_key → device_space/list_files → 下载到最高优先级存储）
+    if feat.cloud_disk then
+        require "cloud_disk_app"
+    end
+
+    -- TTS 播报服务（云端 tts 下行命令/本地共用播放路径）；仅 hw.audio 配置存在的板子加载
+    if cfg.hw and cfg.hw.audio then
+        require "tts_app"
+    end
+
+    -- AirCloud 数据上报（能力探测：有接口就采，没有就跳过，不绑定型号）
+    if feat.aircloud then
+        require "aircloud_app"
+    end
+
+    -- 文件传输（hzadb 服务管理/共享清单/传输记录，PC↔设备经日志口互传文件）
+    if feat.file_transfer then
+        require "file_transfer_app"
+    end
+
+    -- 外设预留框架：按 config.peripherals 逐个初始化，未实现 type 记日志跳过
+    pcall(function() require("periph_loader").init_all(cfg.peripherals) end)
 end
 
--- NES 游戏按键模块（按 features.nes 配置开关，需配 nes_keys）
--- 注意 boot_ui 快速启动时序：OPEN_WELCOME_WIN 在 boot_task 第 2 步就已发布，
--- app_main 第 6 步才被 require，单纯订阅事件会错过 ——
--- nes_key_app 内部做了「加载即注册 + 订阅事件」双重兜底，此处 require 即可
-if _G.project_config and _G.project_config.features and _G.project_config.features.nes then
-    require "nes_key_app"
-end
-
--- 加载 NTP 时间同步应用模块（订阅 IP_READY，首次联网自动向 ntp.aliyun.com 校时）
-require "ntp_app"
-
--- 加载 IOT 账号模块（合宙 IoT 平台登录/登出，需联网，订阅 LOGIN_REQUEST/LOGOUT_REQUEST）
-require "settings_iot_app"
-
--- 加载设置主模块（会级联 require 所有 settings_*_app 子模块，fskv 初始化和配置加载）
-require "settings_app"
-
--- 加载 FOTA 固件升级模块（订阅 IP_READY，定时向 iot.openluat.com 检查固件更新）
-require "fota_app"
-
--- 文件管理业务层（file_manager_win 也会 require，这里保证启动即注册）
-require "file_manager_app"
-
--- 应用工厂业务层（录音 → 生成 → 安装链路，级联 require factory_rec）
--- 与 ui_main 里 factory_win 的门控条件保持一致：UI 加载了却没加载业务层，
--- 窗口能打开但录音/生成按钮没反应；业务层加载了却没加载 UI，则纯占内存。
-if _G.project_config and _G.project_config.features and _G.project_config.features.app_factory then
-    require "factory_app"
-end
-
--- USB HID 键盘鼠标管理（按 features.usb_hid 配置开关）
-if _G.project_config and _G.project_config.features and _G.project_config.features.usb_hid then
-    require "usb_hid_app"
-end
-
--- AI 助手业务层（WebSocket 会话 + STT/TTS，订阅 AI_CHAT_*）
-if _G.project_config and _G.project_config.features and _G.project_config.features.ai_chat then
-    require "llm_chat"
-end
-
--- 合宙网盘业务层（IoT 登录取 space_key → device_space/list_files → 下载到最高优先级存储）
--- 门控条件必须与 ui_main 里 cloud_disk_win 的一致，否则会出现
--- 「桌面图标能显示、点进去没反应」或「窗口在但业务层没加载」两种半残状态
-if _G.project_config and _G.project_config.features and _G.project_config.features.cloud_disk then
-    require "cloud_disk_app"
-end
-
--- TTS 播报服务（云端 tts: 下行命令/本地共用播放路径，exaudio 统一播放）
--- 仅 hw.audio 配置存在的板子加载；无音频板子收到 tts: 命令时
--- aircloud_app 会惰性 require 兜底并回 ERR no audio
-if _G.project_config and _G.project_config.hw and _G.project_config.hw.audio then
-    require "tts_app"
-end
-
--- AirCloud 数据上报业务层（通用能力探测：有接口就采，没有就跳过，不绑定型号）
--- 等 IP_READY → excloud.setup/open → 定时采集组装 TLV 上报 → 响应下行命令
--- 与 ui 层 settings_report_win 的门控条件必须一致
-if _G.project_config and _G.project_config.features and _G.project_config.features.aircloud then
-    require "aircloud_app"
-end
-
--- 文件传输业务层（hzadb 服务管理/共享清单/传输记录，PC↔设备经日志口互传文件）
--- 门控条件必须与 ui_main 里 file_transfer_win 的一致（见上方 cloud_disk 的说明）
-if _G.project_config and _G.project_config.features and _G.project_config.features.file_transfer then
-    require "file_transfer_app"
-end
+return M

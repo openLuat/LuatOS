@@ -100,6 +100,10 @@ typedef struct mp4_ctx {
 
 mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t frame_h, uint32_t frame_fps);
 int luat_vtool_mp4box_write_frame(mp4_ctx_t* ctx, uint8_t* data, size_t len);
+// 零拷贝写入: 帧数据所有权转交给 mp4box, 写完(或丢弃)后由 mp4box 调用 release(release_arg)
+// release 为 NULL 时退化为深拷贝模式
+typedef void (*luat_vtool_mp4box_release_t)(void* arg);
+int luat_vtool_mp4box_write_frame_ex(mp4_ctx_t* ctx, uint8_t* data, size_t len, luat_vtool_mp4box_release_t release, void* release_arg);
 int luat_vtool_mp4box_close(mp4_ctx_t* ctx);
 
 // int luat_vtool_jpeg_decoder_init(void);

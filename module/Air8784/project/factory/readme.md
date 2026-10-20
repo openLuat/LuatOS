@@ -5,7 +5,7 @@
 
 ## 一、项目简介
 
-1. **产测 + 业务合一**：开机读 `fskv test_done` 分流。未产测 → 进产测模式；产测完成后写标记重启，进业务模式。
+1. **产测 + 业务合一**：开机按 `fskv` 返工标记 → OTP1（型号/硬件版本/IMEI）分流。无返工标记且 OTP1 为空 → 进产测模式（首次产测）；OTP1 有值 → 进业务模式；有返工标记 → 进返工产测。产测完成后写标记重启，进业务模式。
 2. **一个设备只保存一个当前任务**。任务类型分为 `pair`、`round`、`phone`；运行分支分为 `single`（单 SIP）和 `phone`（SIP_CC），同一时间只加载一套通话与音频模块。
 3. **业务参数来自网页**：不再使用本地产测预设参数，改为由 AirCloud 网页下发任务配置，设备持久保存后按任务执行。
 4. **AirCloud 收发**：Tag19 接收 JSON 命令，Tag20 上报任务状态快照。
@@ -16,12 +16,14 @@
 
 | 模式 | 触发条件 | 加载模块 | 业务 |
 |---|---|---|---|
-| 产测 | 无 `test_done` | `factory.lua` | USB VUART_0 响应产测指令 |
-| 业务 · 单 SIP | `test_done` + 运行模式 `single` | `task/task_main` → `single/` | 单 SIP 通话（pair/round） |
-| 业务 · SIP_CC | `test_done` + 运行模式 `phone` | `task/task_main` → `cc/` | SIP↔手机(VoLTE) 桥接（phone） |
+| 产测 · 返工产测 | 有 `fskv["model_retest"]` 返工标记 | `factory.lua` | USB VUART_0 响应产测指令 |
+| 产测 · 首次产测 | 无返工标记 且 OTP1 为空（PROD 未写） | `factory.lua` | USB VUART_0 响应产测指令 |
+| 业务 · 单 SIP | 无返工标记 且 OTP1 有值 + 运行模式 `single` | `task/task_main` → `single/` | 单 SIP 通话（pair/round） |
+| 业务 · SIP_CC | 无返工标记 且 OTP1 有值 + 运行模式 `phone` | `task/task_main` → `cc/` | SIP↔手机(VoLTE) 桥接（phone） |
 | 调试 BOOT_MODE | `main.lua` 顶部常量 | — | `auto`(默认)/`normal`(强制业务)/`factory`(强制产测) |
 
-- 业务分支由 `task/task_runtime.lua` 读 `fskv["sip_task_v1"]` 的 `runtime_mode` 决定，缺省为 `phone`。
+- 分流顺序（`main.lua` `decide_mode`）：`fskv` 返工标记 → OTP1（型号/硬件版本/IMEI）；返工标记优先，其次按 OTP1 是否有值决定产测或业务。
+- 业务分支由 `task/task_runtime.lua` 读 `fskv["sip_task_v1"]` 的 `runtime_mode` 决定，缺省为 `phone`。正常模式仅注册 `MODEL_RETEST` 一条产测指令（返工用）。
 - 运行模式切换（网页 `set_mode`）需固件具备 `cc.setBridge` 和 `rtos.reboot`，否则只提供 `phone` 模式。
 
 
@@ -30,12 +32,16 @@
 ```
 factory/
 ├── readme.md
-├── lib/                         # 脚本库（exsip / air1103 / exaudio / excloud / exmtn / httpplus / libfota3 / prodmeta…）
-└── user/
-    ├── main.lua                 # 入口：test_done 分流产测/业务；FOTA 启动；全局定义
-    ├── factory.lua              # 产测模式
+└── user/                        # 业务代码（见下）；脚本库统一引用仓库共享库 script/libs，本工程不再内置 lib/
+    ├── main.lua                 # 入口：按 fskv 返工标记 → OTP1 分流 产测/业务；FOTA 启动；全局定义
+    ├── factory.lua              # 产测模式（含返工产测）
+    ├── retest.lua               # 返工标记 + MODEL_RETEST 指令（产测与正常模式共用 USB VUART_0）
     ├── update.lua               # FOTA 封装（libfota3）
     ├── tv_ok.pcm                # “任务已生效”提示音（烧录到 /luadb/tv_ok.pcm）
+    ├── sip-ca.pem               # SIP over TLS 的 CA 证书（烧录到 /luadb/sip-ca.pem）
+    ├── air1103_busy.pcm         # Air1103 忙提示音
+    ├── air1103_gap.pcm          # Air1103 间隔提示音
+    ├── air1103_hangup.pcm       # Air1103 挂断提示音
     ├── netdrv/
     │   └── netdrv_4g.lua        # 4G 网卡
     ├── task/                    # 共用：网页任务 / 云端 / 按键 / 语音 / 共用配置
@@ -158,7 +164,7 @@ factory/
 
 ### 9.1 代码运行流程
 
-1. `main.lua` 读 `fskv test_done`：未产测 → `factory.lua`（产测）；已产测 → `task/task_main.lua`（业务），并开机启动 FOTA。
+1. `main.lua` 按 `fskv` 返工标记 → OTP1 分流：无返工标记且 OTP1 为空 → `factory.lua`（产测）；OTP1 有值 → `task/task_main.lua`（业务）；有返工标记 → `factory.lua`（返工产测），并开机启动 FOTA。
 2. `task_runtime.lua` 根据 `fskv["sip_task_v1"]` 的 `runtime_mode` 选择 `single` 或 `phone` 分支。
 3. 对应分支初始化 SIP 与音频。
 4. `task_adapter.lua` 对接任务引擎（`task_engine.lua`）及 AirCloud 控制（`task_cloud.lua`）。
@@ -178,9 +184,18 @@ factory/
 |---|---|
 | `update` / `fota` | 触发一次 FOTA 升级检查（libfota3） |
 
-- 在 AirCloud 消息下发工具里，命令类型选 **控制命令 (Tag19)**、数据类型 **ASCII字符**，消息内容填 `update` 或 `fota`。
-- 兼容 JSON（`{"op":"update"}` / `{"type":"update"}` / `{"command":"update"}`）与文本短命令 `update` / `fota`。
-- 触发升级不需要填 `imei` / `revision`。
+
+兼容 JSON（`{"op":"update"}` / `{"type":"update"}` / `{"command":"update"}`）与文本短命令 `update` / `fota`。触发升级不需要填 `imei` / `revision`。
+
+操作步骤（以 [合宙 IoT 平台](https://iot.luatos.com/) 为例）：
+
+1\. 登录后，顶部菜单选择 **基础能力 → AirCloud → AirCloud 上报记录**：
+   ![打开 AirCloud 上报记录菜单](https://docs.openluat.com/air8784/product/images/aircloud_upgrade_menu.png)
+
+2\. 找到目标设备，点击 **下发**，命令类型选 **控制命令 (Tag19)**，数据类型选 **ASCII字符**，消息内容填 `update` 或 `fota`：
+   ![下发升级命令](https://docs.openluat.com/air8784/product/images/aircloud_upgrade_send.png)
+
+3\. 设备收到命令后调用 libfota3 检查并执行升级。
 
 ## 十、网页端操作
 
@@ -270,13 +285,16 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 
 ### 1. 启动模式（main.lua）
 
-| test_done | 行为 |
+| 条件 | 行为 |
 |---|---|
-| 无（默认） | 进入产测模式（`require "factory"`，独占 VUART_0 响应指令） |
-| 有 | 进入业务模式（`require "task_main"`），串口不再响应产测指令 |
+| 有 `fskv["model_retest"]` 返工标记 | 进入产测模式（返工产测），`require "factory"`，独占 VUART_0 响应指令 |
+| 无返工标记 且 OTP1 为空（PROD 未写） | 进入产测模式（首次产测），`require "factory"` |
+| 无返工标记 且 OTP1 有值 | 进入业务模式，`require "task_main"`；仅注册 `MODEL_RETEST` 一条产测指令 |
 
-> 产测完成后发 `TEST_DONE#` 写 test_done 并重启进入业务模式。
-> 需要重新产测：清 fskv 的 test_done 键（重烧勾「清除 KV」），或烧一个“清标记小工程”（`fskv.del("test_done")`）。
+> 分流顺序：返工标记优先，其次按 OTP1（型号/硬件版本/IMEI）是否有值决定产测或业务。
+> 首次产测完成：`TEST_DONE#` 写 OTP1（型号/硬件版本/IMEI）并重启进业务模式。
+> 返工产测完成：`TEST_DONE#` 仅清返工标记（不动 OTP1）并重启进业务模式。
+> 已在业务模式需要返工：发 `MODEL_RETEST#CONFIRM` 写返工标记并重启进返工产测（无需重烧）；或重烧并勾「清除 KV」。
 
 ### 2. 管脚定义（板子统一）
 
@@ -288,7 +306,7 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 | SOS 按键 | GPIO20 | `KEY,20,1#` 开启后按下/松开上报 `KEY20_PRESS#` / `KEY20_RELEASE#` |
 | UP 按键 | GPIO21 | `KEY,21,1#` 开启后上报 `KEY21_PRESS#` / `KEY21_RELEASE#` |
 | 电池电压 | ADC `CH_VBAT` | `VBAT#` 读 |
-| 充电电压 | ADC0 | `CHG#` 读（若前端有分压需按电路换算） |
+| 电池电压(ADC0 分压) | ADC0 | `CHG#` 读，BAT 经 R33(1MΩ)+R34(300kΩ) 分压，读数 ×13/3×1.0345(单点校准) 还原为电池电压(mV)；CHRG 未引主控 GPIO，充电中状态读不出 |
 | Air1103 供电 | GPIO22 | 进产测时已拉高；UART1 固定 2M 波特率 |
 
 ### 3. 指令列表
@@ -297,16 +315,17 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 
 | 指令 | 功能 | 返回值 |
 |------|------|--------|
-| `VERSION#` | 固件版本 | `Air8784_Factory_001.000.000#` |
+| `VERSION#` | 固件版本 | `Air8784_Factory_001.000.005#` |
 | `IMEI#` | IMEI | 15 位# / ERROR# |
 | `IMSI#` | SIM IMSI | IMSI# / ERROR# |
 | `ICCID#` | SIM ICCID | ICCID# / ERROR# |
 | `CSQ#` | 信号强度 | 数字#（0=无信号）/ ERROR# |
 | `MUID#` | 模组唯一标识 | 非空# / ERROR# |
 | `VBAT#` | 电池电压 | 电压值(mV，两位小数)# / ERROR# |
-| `CHG#` | 充电电压 | 电压值(mV)#（前端分压需换算） |
+| `CHG#` | 电池电压(ADC0 分压) | 电压值(mV)#，BAT 经 R33(1MΩ)+R34(300kΩ) 分压，读数 ×13/3×1.0345 校准还原；ADC0 需先 `adc.setRange(ADC_RANGE_1_2)` 再 open |
 | `LED,1#` / `LED,0#` | 三灯同亮/同灭（GPIO24/26/27） | OK# |
 | `ECNPICFG#` | RF 校准标志位（只读） | `true#` / `false#` / ERROR# |
+| `FLYMODE,1#` / `FLYMODE,0#` | 飞行模式 进入/退出（仅主 LTE，`mobile.flymode`） | `OK#` / 参数非 0/1 回 `ERROR#` |
 
 #### 按键检测（异步上报）
 
@@ -331,9 +350,20 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 
 | 指令 | 功能 | 返回值 |
 |------|------|--------|
-| `RST#` | 单独重启（不写 test_done，重启后还进产测） | OK#（回 OK 后 500ms 重启） |
-| `TEST_DONE#` | 测试完成（写 `fskv["test_done"]=true`，3s 重启进业务模式） | OK# |
+| `RST#` | 单独重启（不改产测/返工状态，重启后还进产测） | OK#（回 OK 后 500ms 重启） |
+| `TEST_DONE#` | 测试完成：首次产测写 OTP1（PROD/PCB/IMEI），返工产测仅清返工标记；3s 重启进业务模式 | OK# |
 | `PCBA_TEST_DONE#` | 测试完成关机（不写 fskv，`pm.shutdown`） | OK#（回 OK 后 3s 关机） |
+
+#### 返工指令（MODEL_RETEST，产测/正常模式共用）
+
+`#` 在 `MODEL_RETEST` 指令中为“命令/数据”分隔符（末尾不带 `#`），与产测指令表“命令,数据#”的 `#` 结束符不同，故在通用解析前单独解析（`retest.parse`）。
+
+| 指令 | 功能 | 返回值 |
+|------|------|--------|
+| `MODEL_RETEST#CONFIRM` | 校验魔法字 `CONFIRM`（区分大小写，去空白后全匹配）→ 写 `fskv["model_retest"]` 返工标记 → 重启进返工产测 | `OK#`（回 OK 后 500ms 重启）/ `ERROR#` |
+| `MODEL_RETEST?` | 查询返工标记状态 | `有#` / `无#` |
+
+> 正常模式仅响应此一条产测指令，业务运行不受影响。返工产测完成后 `TEST_DONE#` 会清掉返工标记并自动进业务模式，无需重烧。
 
 #### 音频指令（Air1103）
 
@@ -351,7 +381,7 @@ VERSION#                  校验固件版本
 IMEI#  IMSI#  ICCID#      记录三码
 CSQ#                      判信号强度阈值
 ECNPICFG#                 必须为 true#
-VBAT#  CHG#               电池与充电电压
+VBAT#  CHG#               电池电压(VBAT 供电 / ADC0 分压校准)
 LED,1# → 目视 → LED,0#    三灯同亮同灭
 KEY,20,1# → 按 SOS → 收 KEY20_PRESS# → KEY,20,0#
 KEY,21,1# → 按 UP  → 收 KEY21_PRESS# → KEY,21,0#
@@ -361,6 +391,8 @@ MODEL,Air8784#  → MODEL?#      写型号并核对
 HVERSION,V1.0#  → HVERSION#    写硬件版本并核对
 TEST_DONE#               3 秒后自动重启进业务模式
 ```
+
+> 返工产测流程与首次产测基本相同（通常不重写 OTP1），完成后 `TEST_DONE#` 仅清返工标记；正常模式发 `MODEL_RETEST#CONFIRM` 即可进入返工产测，无需重烧。
 
 ### 5. 时序注意（上位机必须照做）
 
@@ -429,11 +461,66 @@ TEST_DONE#               3 秒后自动重启进业务模式
 
 ## 十五、使用说明
 
-1. Luatools 烧录工程目录 + `lib/`（core = Air780EHM），同时将 `user/tv_ok.pcm` 加入烧录文件，确保设备上可通过 `/luadb/tv_ok.pcm` 读取（16 kHz、16 bit、单声道原始 PCM，不要用 WAV/MP3 改名替代；FOTA 更新时也需保留）。
+1. Luatools 烧录工程目录（user/）+ 仓库共享库 `script/libs`（core = Air780EHM；lib 选择该目录），同时将 `user/tv_ok.pcm` 加入烧录文件，确保设备上可通过 `/luadb/tv_ok.pcm` 读取（16 kHz、16 bit、单声道原始 PCM，不要用 WAV/MP3 改名替代；FOTA 更新时也需保留）。本工程已移除内置 `lib/`，库文件以 `script/libs` 为准。仓库共享库 `script/libs` 在线地址：https://gitee.com/openLuat/LuatOS/tree/master/script/libs （本地找不到该目录时，可在此获取最新版）。
 2. **产测→业务**：上位机发 `TEST_DONE#` → 重启进业务模式，无需重烧。
-3. **返修→产测**：重烧并勾「清除 KV」，或烧一个“清标记小工程”（`fskv.del("test_done")`）。
+3. **返修→产测**：正常模式发 `MODEL_RETEST#CONFIRM` 写返工标记并重启进返工产测（无需重烧）；或重烧并勾「清除 KV」清掉 OTP1 与返工标记。
 4. **模式切换**：云端 `set_mode`（`single` / `phone`）→ 空闲后重启；SIP_CC 需插手机卡（VoLTE），单 SIP 用流量卡。
 5. **FOTA**：合宙按 IMEI 推送；云端发 `update` 即时检测；开机与每 8h 自动检测。
 6. **调试**：`main.lua` 顶部 `BOOT_MODE` 改 `normal`/`factory` 可跳过产测检查。
 7. **看门狗**：LuatOS 内置硬狗 9s 超时 / 3s 喂狗，默认启用。
 8. 业务参数以 `task/sip_config.lua`、`single/single_config.lua`、`task/task_voice_config.lua` 为准，烧录前按实际环境核对。
+
+
+## 十六、SIP over TLS 传输
+
+业务模式支持 SIP 信令走 TLS（端口默认 5061），由 `task/sip_config.lua` 的 `sip_transport` 控制（可选 `udp` / `tcp` / `tls`）。
+
+### 16.1 启用方式
+
+1. 将 CA 证书烧录到设备 `/luadb/sip-ca.pem`（对应 `sip_config` 的 `sip_tls_ca_path`）。
+2. 设 `sip_transport = "tls"`（默认端口 5061；非标准端口把 `sip_server_port` 改为对应值，如 `sip_server_port = 5062`）。
+3. 也可由 [合宙 IoT 平台](https://iot.luatos.com/) 云端下发 `set_transport` 切换：
+  - 进入 **基础能力 → AirCloud → AirCloud 上报记录**：
+   ![打开 AirCloud 上报记录菜单](https://docs.openluat.com/air8784/product/images/aircloud_upgrade_menu.png)
+     
+  - 选择设备，命令类型选 **控制命令 (Tag19)**，数据类型选 **ASCII字符**，消息内容填 `{"op":"set_transport","sip_transport":"tls"}`（切回 UDP 则填 `{"op":"set_transport","sip_transport":"udp"}`）；如需非默认端口，附加 `sip_server_port`，例如 `{"op":"set_transport","sip_transport":"tls","sip_server_port":5062}`，点击 **下发**：
+   ![下发 TLS 切换命令](https://docs.openluat.com/air8784/product/images/aircloud_tls_send.png)
+
+  - 切换后设备约 1 秒重启生效并持久化（传输与端口均持久化到 fskv，重启后自动回载）。
+
+### 16.2 注意事项
+
+- **证书缺失**：开启 tls 但 `/luadb/sip-ca.pem` 不存在时，业务停在 `CONFIG_REQUIRED` 状态（日志 `TLS 开启但 CA 证书缺失`），经 OTA 补证书后无需重启即可自愈。
+- **固件版本要求**：TLS 功能需搭配 **v2056 及之后版本**的 13号 固件；低于该版本的底层不支持 SIP over TLS，切勿在旧固件上启用 `sip_transport = "tls"`。
+
+
+## 十七、版本更新记录
+
+| 版本 | 状态 | 说明 |
+|------|------|------|
+| v001.000.005 | 当前版本 | 见下 |
+| v001.000.004 |         | 见下 |
+| v001.000.003 |         | 见下 |
+| v001.000.002 | 初始版本 | 初始发布 |
+
+### v001.000.005（当前版本）
+
+1. **返工（retest）机制**：一套固件同时含产测与正式逻辑，启动按 `fskv` 返工标记 → OTP1（型号/硬件版本/IMEI）分流；正常模式经 `MODEL_RETEST#CONFIRM` 写返工标记并重启进返工产测，全程不动 OTP1，无需重烧。
+2. **新增 `retest.lua`**：返工标记读写 + `MODEL_RETEST#CONFIRM` / `MODEL_RETEST?` 指令（产测与正常模式共用 USB VUART_0）。
+3. **新增 Air1103 提示音**：`air1103_busy.pcm` / `air1103_gap.pcm` / `air1103_hangup.pcm`（忙/间隔/挂断提示音）。
+4. **启动分流改为三级路由**：返工标记 → OTP1；`TEST_DONE#` 区分首次产测（写 OTP1）与返工产测（仅清返工标记）。
+
+### v001.000.004
+
+1. **支持 SIP over TLS**：`sip_transport` 可设为 `tls`（默认端口 5061），CA 证书烧录到 `/luadb/sip-ca.pem`；云端可经 `set_transport` 切换。
+2. **产测新增 FLYMODE 飞行模式指令**：`FLYMODE,1#` 进入飞行模式、`FLYMODE,0#` 退出（`mobile.flymode`，仅主 LTE；参数非 0/1 回 `ERROR#`）。
+
+### v001.000.003
+
+1. **脚本库统一**：删除 `factory/lib/` 内置脚本库，统一引用仓库共享库 `script/libs`。
+2. **SIM 卡自适应（main.lua）**：支持双卡自动切换、优先 SIM0（`mobile.simid(2, true)`）。
+3. **OPTIONS 保活修复（script/libs/exsipclient.lua）**：保活由仅 UDP 扩展为 UDP/TCP，修复服务器静默死亡（断电/宕机/拔线未发 FIN）时 TCP 不触发 CLOSED、导致永远不重连的问题。
+
+### v001.000.002（初始版本）
+
+- 初始发布版本。

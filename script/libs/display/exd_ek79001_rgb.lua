@@ -14,6 +14,10 @@
 3、exd_ek79001_rgb.version()：扩展库版本号查询
 
 -- 版本更新说明
+-- 版本号：202610121218
+-- 1、更新时间：2026-10-12
+-- 2、更新内容
+--   - setup 参数新增 clk_polarity（PCLK 极性，1=高有效/上升沿采样），display 后端透传 pclk_polarity，lcd 后端无极性配置忽略该参数
 -- 版本号：202610091000
 -- 1、更新时间：2026-10-09
 -- 2、更新内容
@@ -26,7 +30,7 @@
 local M = {}
 
 -- 扩展库版本号，格式 yyyymmddhhmm
-local VERSION = "202610091000"
+local VERSION = "202610121218"
 
 -- 显示 IC 固有参数（分辨率、时序、总线时钟）
 local ic_info = {
@@ -90,6 +94,7 @@ local function do_init(params)
             vbp = params.vbp, vspw = params.vspw, vfp = params.vfp,
             pclk_hz = params.bus_speed,
             pin_rst = params.pin_rst,
+            pclk_polarity = params.clk_polarity, -- display 字段名是 pclk_polarity，1=高有效/上升沿采样
         }
         local ok, err = lib.init("custom", cfg)
         if not ok then
@@ -105,6 +110,7 @@ local function do_init(params)
         bus_speed = params.bus_speed,
         pin_rst = params.pin_rst,
         direction = rot_to_direction(params.rotation),
+        -- clk_polarity 仅 display 后端支持，lcd 后端不透传
     }
     local ok = lib.init("custom", cfg)
     if not ok then
@@ -162,6 +168,9 @@ params
 @usage
 -- 基础用法：只传板级复位脚
 local ok, info = exd_ek79001_rgb.setup({ pin_rst = 20 })
+
+-- 需要指定 PCLK 极性时传 clk_polarity（1=高有效/上升沿采样，0=低有效）
+local ok, info = exd_ek79001_rgb.setup({ pin_rst = 20, clk_polarity = 1 })
 ]]
 function M.setup(params)
     if state.inited then

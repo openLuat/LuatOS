@@ -971,6 +971,15 @@ static int l_sms_set_report_cb(lua_State *L) {
     return 0;
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_sms_utest(lua_State *L, const char *case_name);
+static int l_sms_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "ucs2_encode_basic");
+    lua_pushboolean(L, luat_sms_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_sms[] =
 {
@@ -984,6 +993,9 @@ static const rotable_Reg_t reg_sms[] =
     { "debug",          ROREG_FUNC(l_sms_set_debug)},
     #if defined(LUA_USE_WINDOWS)
     { "unpack",         ROREG_FUNC(l_sms_pdu_unpack)},
+    #endif
+    #ifdef LUAT_USE_UTEST
+    { "utest",          ROREG_FUNC(l_sms_utest)},
     #endif
 	{ NULL,             ROREG_INT(0)}
 };

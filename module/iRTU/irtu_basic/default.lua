@@ -40,6 +40,7 @@ local dtu = {
     apn = {nil, nil, nil}, -- 用户自定义APN
     cmds = {{}, {}}, -- 自动采集任务参数
     pins = {"", ""}, -- 用户自定义IO: netled,netready
+    wdt = {on = 0, feed_pin = "", feed_interval = 200}, -- 外置硬件看门狗（Air153C）: 开关/喂狗引脚/喂狗周期秒
     conf = {{}, {}, {}, {}, {}, {}, {}}, -- 用户通道参数
     project_key="",
     uconf = {

@@ -1,13 +1,16 @@
 --[[
 @module  main
-@summary Air8700P 出厂固件入口（产测 + iRTU 合一，基于标准 iRTU + 预置配置）
-@version 1.0.0
-@date    2026.09.21
-@author  李源龙
+@summary Air8700P 出厂固件入口（产测 + iRTU 合一 V3，基于标准 iRTU + 预置配置）
+@version 2.0.0
+@date    2026.10.16
+@author   李源龙
 @usage
-本工程为 Air8700P 工业模组出厂固件（板载 Air700ECP，与 Air780EPM 同固件系列），产测与正常模式合一：
-    1. fskv.get("test_done") 判断：未完成产测 → require "factory" 进产测模式（USB VUART_0 收发指令）
-       已完成产测 → require "irtu_main" 进正常模式（AirCloud 上报/下行）
+本工程为 Air8700P 工业模组出厂固件（板载 Air700ECP，与 Air780EPM 同固件系列），产测与正常模式合一（V3）：
+    1. auto 分流按 fskv → OTP1 顺序：
+       fskv 有返工标记 model_retest → require "factory" 进产测模式（返工，不动 OTP1）；
+       fskv 无标记且 OTP1 为空 → 进产测模式（首测，通过后型号/硬件版本写入 OTP1）；
+       fskv 无标记且 OTP1 有值 → require "irtu_main" 进正常模式（AirCloud 上报/下行）
+       正常模式 USB 发 MODEL_RETEST#CONFIRM 写 fskv 返工标记并重启，详见 retest.lua
     2. 正常模式：不允许请求网页端配置，开机直接使用预置 irtu.cfg（默认通道=AirCloud）
     3. 定位：仅串口透传 + AirCloud 基础心跳上报（IMEI/CSQ/CPU温度）
     4. 下行控制命令（tag 19）：cycle:秒数 / led:blink|on|off
@@ -24,8 +27,11 @@ VERSION：项目版本号,ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级,根据自己项目的需求,自定义格式即可
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "Air8700Factory"
-VERSION = "001.001.000"
+PROJECT = "Air8700P"
+--8700H
+-- PROJECT = "Air8700H"
+
+VERSION = "001.001.002"
 
 -- 出厂固件版本：预置配置直接连接 AirCloud，不请求网页端配置
 -- 此KEY值仅针对合宙官方IOT平台FOTA，如需使用请替换为项目对应KEY
@@ -34,16 +40,25 @@ PRODUCT_KEY = "w1Nvdeca2nPLhOOEAwtnIoXuqav2hZ0o"
 
 -- ==================== 【调试用】启动模式选择 ====================
 -- 可选值：
---   "auto"   按产测标记自动分流（默认）：已完成产测 → 正常模式；未完成 → 产测模式
---   "normal" 强制进入正常模式（跳过产测检查），调试 AirCloud 上报/下行用，无需先跑产测
+--   "auto"   自动分流（默认）：fskv 返工标记 → OTP1 判空，命中任一产测条件进产测模式
+--   "normal" 强制进入正常模式（跳过检查），调试 AirCloud 上报/下行用，无需先跑产测
 --   "factory" 强制进入产测模式，调试产测指令用
 -- 注意：强制 "normal" 时若未写号，日志 PROD/PCB 打印为 nil，不影响 iRTU 功能
 local BOOT_MODE = "auto"
 -- ============================================================
 
+-- ==================== 【调试用】RFA 校准模式开关 ====================
+-- 可选值：
+--   false 默认：跳过 RFA 校准流程，开机直接进入 iRTU（UART1 不被 RFA 占用，调试串口透传用）
+--   true        启动 RFA AT 服务器（同时绑定 VUART_0 和 UART1），
+--               rfa_mode 为 true 时 UART1 由 RFA 独占
+-- 注意：量产固件应设为 true；false 时跳过 ecnpicfg 校准检查
+local RFA_ENABLE = false
+-- ============================================================
+
 log.info("main", PROJECT, VERSION)
 
--- 初始化 fskv（产测标记 test_done 存储）
+-- 初始化 fskv（V3 返工标记 model_retest 存储）
 fskv.init()
 
 -- 打开全局上拉 VREF(GPIO23)：为板载上拉电阻提供参考电压，产测与正常模式全程常开
@@ -62,31 +77,58 @@ local update = require("update")
 update.init()
 -- ============================================================
 
--- ============ 开机模式分发：产测 / 正常（iRTU）合一 ============
+-- ============ 开机模式分发：产测 / 正常（iRTU）合一（V3） ============
 -- BOOT_MODE 控制：
---   "auto"   → 按 fskv.get("test_done") 分流（产测标记）
---   "normal" → 强制正常模式（跳过产测检查，调试用）
---   "factory" → 强制产测模式（调试用）
-local boot_to_normal = false
-if BOOT_MODE == "normal" then
-    boot_to_normal = true
-    log.info("main", "BOOT_MODE=normal 强制进入正常模式（调试用）")
-elseif BOOT_MODE == "factory" then
-    boot_to_normal = false
-    log.info("main", "BOOT_MODE=factory 强制进入产测模式（调试用）")
-else
-    boot_to_normal = fskv.get("test_done") and true or false
+--   "normal"  → 强制正常模式（跳过检查，调试用）
+--   "factory" → 强制产测模式（跳过检查，调试用）
+--   "auto"    → 按 fskv 返工标记 → OTP1 顺序分流（默认）：
+--               1) fskv 有返工标记 model_retest → 产测模式（返工产测，全程不动 OTP1）
+--               2) fskv 无标记且 OTP1 为空      → 产测模式（首次产测，通过后写号入 OTP1）
+--               3) fskv 无标记且 OTP1 有值      → 正常模式
+local retest = require("retest")
+local RETEST_KEY = retest.KEY
+local prodmeta = require("prodmeta")
+
+-- OTP1 是否为空：读取 key=value 表，空表视为裸板未产测
+local function otp1_empty()
+    local ok, all = pcall(prodmeta.get_all)
+    if not ok or type(all) ~= "table" then
+        log.error("main", "OTP1 读取失败，按未产测处理")
+        return true
+    end
+    return next(all) == nil
 end
 
+local boot_to_normal = false
+local boot_reason = ""
+if BOOT_MODE == "normal" then
+    boot_to_normal = true
+    boot_reason = "BOOT_MODE=normal 强制进入正常模式（调试用）"
+elseif BOOT_MODE == "factory" then
+    boot_to_normal = false
+    boot_reason = "BOOT_MODE=factory 强制进入产测模式（调试用）"
+else
+    -- auto：先查 fskv 返工标记，再查 OTP1
+    if fskv.get(RETEST_KEY) then
+        boot_to_normal = false
+        boot_reason = "fskv 命中返工标记 model_retest，进入产测模式（返工）"
+    elseif otp1_empty() then
+        boot_to_normal = false
+        boot_reason = "fskv 无返工标记且 OTP1 为空，进入产测模式（首次产测）"
+    else
+        boot_to_normal = true
+        boot_reason = "fskv 无返工标记且 OTP1 有值，进入正常模式"
+    end
+end
+log.info("main", boot_reason)
+
 if boot_to_normal then
-    log.info("main", "已完成产测，加载 iRTU 正常模式")
     -- 打印写入的模组型号和硬件版本（OTP，由产测写号写入）
-    local prodmeta = require("prodmeta")
     log.info("main", "模组型号 PROD:", prodmeta.get("PROD"), "硬件版本 PCB:", prodmeta.get("PCB"))
 
     local rfa = require("rfa")
 
-    if rfa and atc then
+    if RFA_ENABLE and rfa and atc then
         -- 启动 RFA AT 服务器，同时绑定 USB 虚拟串口 VUART_0 和 UART1，两个端口都能响应 RFA AT 指令
         -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致
         rfa.start(uart.VUART_0, 115200)
@@ -122,12 +164,15 @@ if boot_to_normal then
             end
         end)
     else
-        log.info("main", "rfa模块未加载，默认iRTU模式")
+        if not RFA_ENABLE then
+            log.info("main", "RFA_ENABLE=false 跳过RFA，直接进入iRTU模式")
+        else
+            log.info("main", "rfa模块未加载，默认iRTU模式")
+        end
         --加载irtu_main模块
         require "irtu_main"
     end
 else
-    log.info("main", "未完成产测，进入产测模式（USB单通道）")
     -- 产测模式：独占 VUART_0，响应产测指令（见 factory.lua 指令表）
     require "factory"
 end

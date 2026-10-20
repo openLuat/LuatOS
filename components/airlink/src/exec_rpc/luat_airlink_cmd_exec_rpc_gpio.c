@@ -172,11 +172,16 @@ static int gpio_rpc_handler(uint16_t rpc_id,
         if (cfg.mode == Luat_GPIO_IRQ) {
             // 创建 IRQ 基础设施 (首次, 仅从机侧生效)
             if (rpc_gpio_irq_queue == NULL) {
-                luat_rtos_queue_create(&rpc_gpio_irq_queue, 1 * 1024, sizeof(luat_event_t));
+                // 注意: 第 2 参数是 event 个数(每个 luat_event_t=16B), 不是字节数。
+                // 原 1024 个 = 16KB, 挤爆 heap4(共63KB) 导致后续 4KB task 栈分配失败、
+                // NOTIFY task 从未启动。GPIO 中断事件会被 task 立即消费, 32 个(512B)足够。
+                luat_rtos_queue_create(&rpc_gpio_irq_queue, 32, sizeof(luat_event_t));
             }
             if (rpc_gpio_irq_task_handle == NULL) {
-                luat_rtos_task_create(&rpc_gpio_irq_task_handle, 4 * 1024, 55, "airlink_gpio",
-                                      rpc_gpio_irq_cb_task, NULL, 0);
+                if (luat_rtos_task_create(&rpc_gpio_irq_task_handle, 4 * 1024, 55, "airlink_gpio",
+                                          rpc_gpio_irq_cb_task, NULL, 0) != 0) {
+                    LLOGW("gpio irq notify task create FAILED (heap4 不足?)");
+                }
             }
             cfg.irq_cb   = rpc_gpio_irq_cb;
             cfg.irq_args = NULL;

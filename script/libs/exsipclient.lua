@@ -62,6 +62,11 @@ sip.start({
 --    上报注册失败并默认等待 10 秒后开始新一轮；无通话时沿用原有断线重连流程。
 -- 5、注册响应等待与续期定时器校验所属连接及当前实例，停止或重连后的旧回调不再生效。
 
+-- 更新说明：2026-10-13
+-- 版本号：202610131730
+-- 1、OPTIONS 保活由仅 UDP 改为 UDP/TCP/TLS 均启用，修复服务器静默死亡时，
+--    TCP/TLS 不触发 CLOSED、永远不重连的问题；连续 options_max_fail 次无响应即断线重连。
+
 local proto = require "exsipproto"
 
 local M = {}
@@ -753,7 +758,7 @@ local function sip_task(opts)
         dtmf_timer = nil,
         dtmf_timeout = tonumber(opts.dtmf_timeout) or 5000,
 
-        -- UDP NAT 保活（OPTIONS Ping），TCP 模式下不使用。
+        -- UDP / TCP / TLS 保活（OPTIONS Ping）：探测服务器存活。TCP/TLS 下服务器静默死亡无 CLOSED 事件，故同样启用。
         options_cseq = 0,
         options_timer = nil,
         options_pending = false,
@@ -1335,8 +1340,9 @@ local function sip_task(opts)
         log.info("sip", "next register in", delay_s, "sec")
     end
 
-    -- 启动 UDP OPTIONS 保活定时器（仅 UDP 模式下调用）。
+    -- 启动 OPTIONS 保活定时器（所有传输模式下均调用）。
     -- 每隔 options_interval ms 发一次 OPTIONS，连续 options_max_fail 次无响应则主动触发断线重连。
+    -- TCP/TLS 仅依赖 socket.CLOSED 无法感知服务器静默死亡（断电/宕机未发 FIN），故同样靠 OPTIONS 探测存活。
     local start_options_keepalive
     start_options_keepalive = function()
         if state.options_timer then
@@ -2244,9 +2250,9 @@ local function sip_task(opts)
                     state.options_triggered_register = false
 
                     schedule_reregister(tonumber(exp) or state.expires)
-                    if state.sip_transport == "udp" then
-                        start_options_keepalive()
-                    end
+                    -- 启用 OPTIONS 保活：探测服务器存活。仅依赖 socket.CLOSED 无法感知服务器
+                    -- 静默死亡（断电/宕机/拔线未发 FIN），连续 options_max_fail 次无响应即触发断线重连。
+                    start_options_keepalive()
                     emit_register("ok", {
                         expires = tonumber(exp) or state.expires,
                         headers = headers

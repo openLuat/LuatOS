@@ -353,7 +353,7 @@
   · SIM：新增「2s 延迟复检 + 自动纠正卡槽」，避免开机早期读数失败导致长期用错卡槽。
 ]]
 PROJECT = "Air8202"
-VERSION = "004.000.064"
+VERSION = "004.000.066"
 FOTA_MODE = 3  -- 3=libfota3(默认,只能合宙人员根据客户提供的IMEI升级,客户无法自行操作), 2=libfota2(IoT平台,客户自行管理)
 
 -- ====== 项目密钥（FOTA升级使用，libfota3 和 libfota2 统一从此读取） ======
@@ -398,13 +398,10 @@ local board = require("board")
 board.init()
 -- ======================================================
 
--- ====== SIM 卡槽选择与热插拔检测（SIM0 在位检测，拔出回落 SIM1） ======
--- 必须在任何联网动作（FOTA / 驻网 / 云连接）之前执行：
---   · 开机读板级 SIM0 检测脚电平（board.profile.sim.det_pin；
---     硬件确认：8202 = WAKEUP0 / 8201G = WAKEUP2 / 8201H = WAKEUP2）→ 高 = SIM0 / 低 = SIM1
---   · 随后把该脚配为热插拔中断：下降沿(拔出) 切 SIM1 / 上升沿(插入) 切 SIM0，
---     切换时按官网要求"进出一次飞行模式"并遵守 simid 与 flymode 的互斥约束
--- 详见 sim_slot.lua
+-- ====== SIM 卡槽选择（8202 硬件只有 SIM2 卡槽，默认使用卡槽2） ======
+-- 客户定制：8202 只有 SIM2 卡槽，在联网动作（FOTA/驻网/云连接）之前固定 mobile.simid(1)。
+mobile.simid(1)
+log.info("main", "8202 默认使用 SIM 卡槽2（mobile.simid(1)）")
 local sim_slot = require("sim_slot")
 sim_slot.init()
 -- ======================================================================

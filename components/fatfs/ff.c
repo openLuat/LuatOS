@@ -4049,6 +4049,24 @@ FRESULT f_read (
 				if (csect + cc > fs->csize) {	/* Clip at cluster boundary */
 					cc = fs->csize - csect;
 				}
+#if FF_USE_FASTSEEK == 0
+				{	/* 下一簇号连续时并进同一次 disk_read，避免每个簇单独 CMD18。 */
+					DWORD clst = fp->clust;
+					UINT remain_sec = btr / SS(fs);
+					if (remain_sec > 256) remain_sec = 256;
+					while (cc < remain_sec) {
+						DWORD nxt = get_fat(&fp->obj, clst);
+						UINT add;
+						if (nxt != clst + 1) break;
+						add = fs->csize;
+						if (cc + add > remain_sec) add = remain_sec - cc;
+						cc += add;
+						clst = nxt;
+						if (add < fs->csize) break;
+					}
+					fp->clust = clst;
+				}
+#endif
 				if (disk_read(fs->pdrv, rbuff, sect, cc) != RES_OK) ABORT(fs, FR_DISK_ERR);
 #if !FF_FS_READONLY && FF_FS_MINIMIZE <= 2		/* Replace one of the read sectors with cached data if it contains a dirty sector */
 #if FF_FS_TINY

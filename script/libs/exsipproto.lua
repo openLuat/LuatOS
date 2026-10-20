@@ -29,19 +29,22 @@ local RTP_CODEC_PT = {
     PCMU = 0,
     PCMA = 8,
     G729 = 18,
+    G722 = 9,
 }
 
 local RTP_PT_CODEC = {
     [0] = "PCMU",
     [8] = "PCMA",
     [18] = "G729",
+    [9] = "G722",
 }
 
--- 对端 SDP 中常见的 G.729 别名写法
+-- 对端 SDP 中常见的 G.729/G.722 别名写法
 local RTP_CODEC_ALIAS = {
     ["G.729"] = "G729",
     G729A = "G729",
     G729B = "G729",
+    ["G.722"] = "G722",
 }
 
 --[[
@@ -60,6 +63,34 @@ function M.parse_headers(resp)
         end
     end
     return headers
+end
+
+--[[
+解析 SIP 头部为**保序**结构。
+
+与 parse_headers 的区别：不丢重复头、保留出现顺序 —— 响应回抄多条 Via 时需要它
+（parse_headers 是小写映射，重复头会被后者覆盖）。
+@api exsipproto.parse_head(head, opts)
+@string head SIP 头部字符串
+@table opts 可选：max_headers 上限，默认 24，超出即截断
+@return table { list = {{name=,value=},…}, map = {小写名=值}, count = n }
+]]
+function M.parse_head(head, opts)
+    local max_headers = (opts and opts.max_headers) or 24
+    local list, map = {}, {}
+    if type(head) ~= "string" then
+        return { list = list, map = map, count = 0 }
+    end
+    for line in head:gmatch("([^\r\n]+)\r?\n") do
+        if line == "" then break end
+        local k, v = line:match("^([^:]+)%s*:%s*(.*)$")
+        if k and v then
+            if #list >= max_headers then break end
+            list[#list + 1] = { name = k, value = v }
+            map[k:lower()] = v
+        end
+    end
+    return { list = list, map = map, count = #list }
 end
 
 --[[
@@ -126,6 +157,64 @@ end
 
 -- 兼容别名，等价于 pop_stream_message。
 M.sip_pop_stream_message = M.pop_stream_message
+
+--[[
+从流缓冲区中弹出一条 SIP 报文 —— 可控版：状态三态 + 可选容忍缺失 Content-Length。
+
+与 pop_stream_message 的区别：
+  1. 返回显式状态，调用方不必用"nil + 空串"区分"数据不够"与"报文坏"；
+  2. allow_missing_content_length=true 时**容忍缺 Content-Length**（UDP 上平台常不发；
+     GB28181 侧的 C 实现在此处同样是容忍的），默认 false 与 pop_stream_message 一样严格。
+pop_stream_message 本身上面一字未改，exsipclient 继续用它。
+@api exsipproto.pop_message(stream, opts)
+@string stream TCP/TLS 流式接收缓冲区
+@table opts 可选：allow_missing_content_length(默认 false) / max_msg(默认 65536) / max_headers(默认 24)
+@return string 状态："ok" / "need_more" / "bad"
+@return string SIP 头部：ok 时为头部；need_more 时为 nil；bad 时为 nil
+@return string SIP 消息体：ok 时为消息体（无体则空串）
+@return string 剩余流数据：ok 时；need_more 时原样返回 stream；bad 时为空串
+@return string 失败原因：仅 bad 时给出
+]]
+function M.pop_message(stream, opts)
+    opts = opts or {}
+    local max_msg = opts.max_msg or 65536
+
+    -- TCP/TLS 保活空行不属于下一条 SIP 消息
+    while stream:sub(1, 2) == "\r\n" do stream = stream:sub(3) end
+    if #stream > max_msg then return "bad", nil, nil, "", "sip_message_too_large" end
+
+    local header_end = M.sip_find_header_end(stream)
+    if not header_end then
+        return "need_more", nil, nil, stream
+    end
+    if header_end - 1 > max_msg then return "bad", nil, nil, "", "sip_message_too_large" end
+
+    local head = stream:sub(1, header_end - 1)
+    local cl, seen = nil, false
+    for line in head:gmatch("[^\r\n]+") do
+        local name, value = line:match("^([^:%s]+)%s*:%s*(.-)%s*$")
+        if name and (name:lower() == "content-length" or name:lower() == "l") then
+            if not value:match("^%d+$") then return "bad", nil, nil, "", "invalid_content_length" end
+            local length = tonumber(value)
+            if seen and cl ~= length then return "bad", nil, nil, "", "conflicting_content_length" end
+            cl, seen = length, true
+        end
+    end
+    if not seen then
+        if not opts.allow_missing_content_length then
+            return "bad", nil, nil, "", "missing_content_length"
+        end
+        cl = 0
+    end
+
+    local total = header_end + cl - 1
+    if total > max_msg then return "bad", nil, nil, "", "sip_message_too_large" end
+    if #stream < total then return "need_more", nil, nil, stream end
+
+    local body = ""
+    if cl > 0 then body = stream:sub(header_end, header_end + cl - 1) end
+    return "ok", head, body, stream:sub(total + 1)
+end
 
 --[[
 拆分单条 SIP 报文为头部和消息体。
@@ -333,18 +422,37 @@ end
 --[[
 构造 Via 头字段值。
 @api exsipproto.build_via(params)
-@table params Via 参数表，常见字段包括 transport、local_ip、local_port、branch
+@table params Via 参数表，常见字段包括 transport、local_ip、local_port、branch；
+             另有两个可选开关（默认值 = 本库原有行为，不传则输出不变）：
+             branch_prefix  branch 前缀，默认 "z9hG4bK"（RFC 3261 的 magic cookie）；传 "" 表示不加
+             rport_first    true 时输出 `;rport;branch=…`（rport 仍只对 UDP 有意义），
+                            默认 false 输出 `;branch=…;rport`
 @return string Via 头字段值
 ]]
 function M.build_via(params)
     local transport = tostring(params.transport or "UDP"):upper()
-    local suffix = (transport == "UDP") and ";rport" or ""
+    local use_rport = (transport == "UDP")
+    local branch_prefix = params.branch_prefix
+    if branch_prefix == nil then branch_prefix = "z9hG4bK" end
+    local branch_part = "branch=" .. branch_prefix .. (params.branch or "")
+
+    if params.rport_first then
+        return string.format(
+            "SIP/2.0/%s %s:%d%s;%s",
+            transport,
+            params.local_ip or "0.0.0.0",
+            tonumber(params.local_port) or 0,
+            use_rport and ";rport" or "",
+            branch_part
+        )
+    end
+    local suffix = use_rport and ";rport" or ""
     return string.format(
-        "SIP/2.0/%s %s:%d;branch=z9hG4bK%s%s",
+        "SIP/2.0/%s %s:%d;%s%s",
         transport,
         params.local_ip or "0.0.0.0",
         tonumber(params.local_port) or 0,
-        params.branch or "",
+        branch_part,
         suffix
     )
 end
@@ -381,6 +489,48 @@ function M.build_contact(params)
         uri_suffix,
         header_suffix
     )
+end
+
+--[[
+构造名字地址（From/To 的值）：<uri>[;tag=tag]。
+@api exsipproto.build_name_addr(uri, tag)
+@string uri SIP URI
+@string tag 可选；nil 或空串则不加 tag
+@return string 名字地址
+]]
+function M.build_name_addr(uri, tag)
+    local s = "<" .. tostring(uri or "") .. ">"
+    if tag ~= nil and tag ~= "" then
+        s = s .. ";tag=" .. tag
+    end
+    return s
+end
+
+--[[
+从 SIP URI 中取 user 部分。
+@api exsipproto.uri_user(uri)
+@string uri SIP URI，容忍名字地址形式 <sip:...>
+@return string user 部分；URI 不含 user（如 host-only）时返回 nil
+]]
+function M.uri_user(uri)
+    if type(uri) ~= "string" or uri == "" then return nil end
+    local s = uri
+    if s:sub(1, 1) == "<" then                 -- 名字地址：只在尖括号内找
+        local close = s:find(">", 2, true)
+        if not close then return nil end
+        s = s:sub(2, close - 1)
+    end
+    s = s:gsub("^[Ss][Ii][Pp][Ss]?:", "")      -- 跳 scheme（大小写不敏感）
+    local at = s:find("@", 1, true)
+    if not at then return nil end
+    -- ';' 或 '?' 先于 '@' 出现 → 是 host-only URI，没有 user 部分
+    local semi = s:find(";", 1, true)
+    local qm = s:find("?", 1, true)
+    local stop = math.min(semi or (at + 1), qm or (at + 1))
+    if stop <= at then return nil end
+    local user = s:sub(1, at - 1)
+    if user == "" then return nil end
+    return user
 end
 
 --[[
@@ -540,7 +690,7 @@ end
 
 --[[
 根据本地和远端 SDP 信息整理媒体会话参数，普通 SIP 通话和 CC<->SIP 桥接共用。
-当前 SIP 侧支持 G.711 PCMU/PCMA 与 G.729A；sample_rate=8000、channels=1、bits=16 描述媒体引擎编解码前后的 PCM 格式，
+当前 SIP 侧支持 G.711 PCMU/PCMA、G.729A 与 G.722；sample_rate（G722 为 16000，其余 8000）、channels=1、bits=16 描述媒体引擎编解码前后的 PCM 格式，
 RTP 负载为协商编码后的数据。CC 侧的 8kHz/16kHz 采样率适配由底层桥接处理，不改变这里的 SIP 媒体参数。
 @api exsipproto.build_media_session(params)
 @table params 媒体参数表，常见字段包括 call_id、remote_ip、remote_sdp、local_rtp_port、local_codecs、ptime、source
@@ -569,7 +719,7 @@ function M.build_media_session(params)
         local_codecs = params.local_codecs,
         codec = selected_codec,
         payload_type = M.codec_payload_type(selected_codec),
-        sample_rate = 8000,
+        sample_rate = selected_codec == "G722" and 16000 or 8000,
         channels = 1,
         bits = 16,
         ptime = tonumber(params.ptime or remote_sdp.ptime),
@@ -583,7 +733,7 @@ end
 
 --[[
 构造本地 SDP 描述。
-CC<->SIP 桥接沿用普通通话的 SDP 协商格式（G.711 PCMU/PCMA 或 G.729A，8kHz），无需增加桥接专用 SDP 属性。
+CC<->SIP 桥接沿用普通通话的 SDP 协商格式（G.711 PCMU/PCMA、G.729A 或 G.722），无需增加桥接专用 SDP 属性。
 @api exsipproto.build_sdp(state, direction)
 @table state SIP 状态表，需要包含 local_ip 以及 media 相关配置
 @string direction 媒体方向，例如 sendrecv、sendonly、recvonly
@@ -634,6 +784,9 @@ function M.build_sdp(state, direction)
             -- 不处理 Annex B 的 2 字节 SID 帧（收到即丢弃，由抖动缓冲隐藏）。
             sdp[#sdp + 1] = "a=rtpmap:18 G729/8000\r\n"
             sdp[#sdp + 1] = "a=fmtp:18 annexb=no\r\n"
+        elseif pt == 9 then
+            -- RFC 3551：G.722 的 RTP 时钟固定 8000Hz，虽然媒体 PCM 是 16kHz
+            sdp[#sdp + 1] = "a=rtpmap:9 G722/8000\r\n"
         end
     end
     sdp[#sdp + 1] = string.format("a=ptime:%d\r\n", ptime)

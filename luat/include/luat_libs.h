@@ -143,6 +143,8 @@ LUAMOD_API int luaopen_hmeta( lua_State *L );
 LUAMOD_API int luaopen_sms( lua_State *L );
 LUAMOD_API int luaopen_errdump( lua_State *L );
 LUAMOD_API int luaopen_profiler( lua_State *L );
+/** cycle profiler库(性能周期剖析, 调优专用, 需 LUAT_USE_PROF)*/
+LUAMOD_API int luaopen_prof( lua_State *L );
 LUAMOD_API int luaopen_fskv( lua_State *L );
 LUAMOD_API int luaopen_max30102( lua_State *L );
 
@@ -230,4 +232,6 @@ LUAMOD_API int luaopen_voip( lua_State *L );
 LUAMOD_API int luaopen_memprof(lua_State *L);
 /** 内部AT */
 LUAMOD_API int luaopen_atc( lua_State *L );
+/** GB28181设备侧协议库 */
+LUAMOD_API int luaopen_gb28181( lua_State *L );
 #endif

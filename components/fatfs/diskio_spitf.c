@@ -89,6 +89,15 @@
 #define SPI_TF_WRITE_TO_MS	((uint64_t)FATFS_WRITE_TO)
 #define SPI_TF_READ_TO_MS	(100)
 
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
+/* 多扇区读：一次 SPI 最多这么多个扇区，数据仍走 DMA。 */
+#define SPITF_BULK_MAX_SECTORS 32u
+/* 两个扇区之间允许的 0xFF 空档上限，含数据令牌 0xFE。 */
+#define SPITF_BULK_GAP         16u
+/* 寻找第一个数据令牌时，每次从线上读入的字节数。 */
+#define SPITF_TOKEN_SCAN       32u
+#endif
+
 typedef struct
 {
   uint8_t  Reserved1:2;               /* Reserved */
@@ -211,6 +220,19 @@ typedef struct
 extern uint8_t FATFS_NO_CRC_CHECK;
 extern uint16_t FATFS_WRITE_TO;
 static luat_spitf_ctrl_t g_s_spitf;
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
+/* 多扇区读的接收缓冲。第一次按需要申请，之后复用。 */
+static uint8_t *s_spitf_bulk;
+static uint32_t s_spitf_bulk_cap;
+/* 与接收缓冲分开的 0xFF 发送缓冲，避免同一块内存同时收发。 */
+static uint8_t *s_spitf_tx;
+static uint32_t s_spitf_tx_cap;
+/* 上一段为凑空档多时钟进来的尾巴，下一段从这里接着切。 */
+static uint8_t s_spitf_carry[768];
+static uint32_t s_spitf_carry_len;
+/* 本次 CMD18 批量解析失败后，重试改走逐扇区读。下一次读盘会清掉。 */
+static uint8_t s_spitf_force_slow;
+#endif
 static void luat_spitf_read_config(luat_spitf_ctrl_t *spitf);
 
 static void luat_spitf_cs(luat_spitf_ctrl_t *spitf, uint8_t OnOff)
@@ -500,8 +522,305 @@ SDHC_SPIWRITEBLOCKDATA_DONE:
 	return Result;
 }
 
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
+/*
+ * 计算一个扇区数据的 CRC16-CCITT。
+ * 结果与 CRC16Cal(src, 512, 0, CRC16_CCITT_GEN, 0) 相同，按字节查 256 项表。
+ * 表在第一次调用时生成，之后重复使用。
+ *
+ * @param src 扇区数据，长度必须是 __SDHC_BLOCK_LEN__（512）。不含后面的 2 字节 CRC。
+ * @return 该 512 字节的 CRC16。
+ */
+static uint16_t spitf_crc16_block(const uint8_t *src)
+{
+	static uint16_t tab[256];
+	static uint8_t ready;
+	uint16_t crc;
+	uint16_t i;
+
+	if (!ready)
+	{
+		for (i = 0; i < 256; i++)
+		{
+			uint16_t c = 0;
+			uint8_t b = (uint8_t)i;
+			int bit;
+			for (bit = 8; bit > 0; bit--)
+			{
+				if (c & 0x8000)
+				{
+					c = (uint16_t)((c << 1) ^ CRC16_CCITT_GEN);
+				}
+				else
+				{
+					c = (uint16_t)(c << 1);
+				}
+				if (b & (1u << (bit - 1)))
+				{
+					c ^= CRC16_CCITT_GEN;
+				}
+			}
+			tab[i] = c;
+		}
+		ready = 1;
+	}
+	crc = 0;
+	for (i = 0; i < __SDHC_BLOCK_LEN__; i++)
+	{
+		crc = (uint16_t)((crc << 8) ^ tab[(crc >> 8) ^ src[i]]);
+	}
+	return crc;
+}
+
+/*
+ * 在 CMD18 的数据阶段寻找第一个 0xFE 数据令牌。
+ * 每次时钟读入 SPITF_TOKEN_SCAN 字节，最多扫 2048 字节。
+ *
+ * @param spitf      SD SPI 控制器，使用其中的 SpiID 和 TempData。
+ * @param prefix     输出缓冲。令牌后面已经读进来的字节写到这里，容量至少 SPITF_TOKEN_SCAN。
+ * @param prefix_len 输出这些字节的长度。令牌落在本次扫描的最后一个字节时为 0。
+ * @return 0 找到令牌；-1 表示 SPI 传输失败，或扫满仍没有 0xFE。
+ */
+static int spitf_find_data_token(luat_spitf_ctrl_t *spitf, uint8_t *prefix, uint32_t *prefix_len)
+{
+	uint32_t scanned = 0;
+	uint32_t i;
+
+	*prefix_len = 0;
+	while (scanned < 2048u)
+	{
+		memset(spitf->TempData, 0xff, SPITF_TOKEN_SCAN);
+		if (luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, SPITF_TOKEN_SCAN,
+				(char *)spitf->TempData, SPITF_TOKEN_SCAN) != (int)SPITF_TOKEN_SCAN)
+		{
+			return -1;
+		}
+		for (i = 0; i < SPITF_TOKEN_SCAN; i++)
+		{
+			if (spitf->TempData[i] == 0xfe)
+			{
+				*prefix_len = SPITF_TOKEN_SCAN - i - 1;
+				if (*prefix_len)
+				{
+					memcpy(prefix, spitf->TempData + i + 1, *prefix_len);
+				}
+				return 0;
+			}
+		}
+		scanned += SPITF_TOKEN_SCAN;
+	}
+	return -1;
+}
+
+/*
+ * 保证一块堆缓冲的容量不小于 need。已有缓冲够用时不重新分配。
+ * 第一次多扇区读会申请接收缓冲和发送缓冲，之后一直复用。
+ *
+ * @param buf  缓冲指针。分配成功后更新；失败时原来的指针保持不变。
+ * @param cap  当前容量，单位字节。分配成功后更新为 need。
+ * @param need 本次需要的字节数。
+ * @return 0 容量已经够，或新缓冲分配成功；-1 堆申请失败。
+ */
+static int spitf_ensure_buf(uint8_t **buf, uint32_t *cap, uint32_t need)
+{
+	uint8_t *nb;
+	if (need <= *cap)
+	{
+		return 0;
+	}
+	nb = (uint8_t *)luat_heap_malloc(need);
+	if (nb == NULL)
+	{
+		return -1;
+	}
+	if (*buf)
+	{
+		luat_heap_free(*buf);
+	}
+	*buf = nb;
+	*cap = need;
+	return 0;
+}
+
+/*
+ * 从当前 CMD18 数据流读出 n 个扇区。
+ * 先定位数据令牌，再一次 DMA 把这一段时钟进来，在缓冲里切开每个扇区并核对 CRC16。
+ * 为了对齐扇区间空档而多读进来的尾巴留在 s_spitf_carry，下一段从那里接着切。
+ * 堆缓冲申请失败、令牌丢失或 CRC 不符时返回失败。调用方应发 CMD12，再改逐扇区读。
+ *
+ * @param spitf SD SPI 控制器。
+ * @param n     本段扇区数，范围 1..SPITF_BULK_MAX_SECTORS。
+ * @param base  目标地址，至少能放下 n * 512 字节的扇区数据，不含令牌和 CRC。
+ * @return 0 这 n 个扇区已写入 base；-1 本段失败，线上位置不再可靠。
+ */
+static int spitf_read_bulk_chunk(luat_spitf_ctrl_t *spitf, uint32_t n, uint8_t *base)
+{
+	uint8_t prefix[SPITF_TOKEN_SCAN];
+	uint32_t prefix_len = 0;
+	uint32_t per = SPITF_BULK_GAP + 1u + 512u + 2u;
+	uint32_t remain;
+	uint32_t need;
+	uint32_t i;
+	uint32_t head;
+	uint8_t *p;
+	uint8_t *end;
+	int first_needs_token;
+
+	if (n == 0)
+	{
+		return -1;
+	}
+	if (s_spitf_carry_len == 0)
+	{
+		if (spitf_find_data_token(spitf, prefix, &prefix_len) != 0 || prefix_len > 512u)
+		{
+			return -1;
+		}
+		first_needs_token = 0;
+	}
+	else
+	{
+		if (s_spitf_carry_len > sizeof(s_spitf_carry))
+		{
+			return -1;
+		}
+		prefix_len = s_spitf_carry_len;
+		first_needs_token = 1;
+	}
+	remain = (first_needs_token ? 0u : ((512u - prefix_len) + 2u)) + (n - (first_needs_token ? 0u : 1u)) * per + SPITF_BULK_GAP;
+	if (remain < prefix_len && first_needs_token)
+	{
+		return -1;
+	}
+	if (first_needs_token && remain >= prefix_len)
+	{
+		remain -= prefix_len;
+	}
+	need = prefix_len + remain;
+	if (spitf_ensure_buf(&s_spitf_bulk, &s_spitf_bulk_cap, need) != 0)
+	{
+		return -1;
+	}
+	if (prefix_len)
+	{
+		if (first_needs_token)
+		{
+			memcpy(s_spitf_bulk, s_spitf_carry, prefix_len);
+			s_spitf_carry_len = 0;
+		}
+		else
+		{
+			memcpy(s_spitf_bulk, prefix, prefix_len);
+		}
+	}
+	if (remain)
+	{
+		if (spitf_ensure_buf(&s_spitf_tx, &s_spitf_tx_cap, remain) != 0)
+		{
+			return -1;
+		}
+		memset(s_spitf_tx, 0xff, remain);
+		if (luat_spi_transfer(spitf->SpiID, (const char *)s_spitf_tx, remain,
+				(char *)(s_spitf_bulk + prefix_len), remain) != (int)remain)
+		{
+			return -1;
+		}
+	}
+
+	p = s_spitf_bulk;
+	end = s_spitf_bulk + need;
+	for (i = 0; i < n; i++)
+	{
+		if (i > 0 || first_needs_token)
+		{
+			uint8_t *scan = p;
+			uint8_t *limit = p + SPITF_BULK_GAP + 1u;
+			if (limit > end)
+			{
+				limit = end;
+			}
+			while (scan < limit && *scan != 0xfe)
+			{
+				scan++;
+			}
+			if (scan >= limit || *scan != 0xfe)
+			{
+				return -1;
+			}
+			p = scan + 1;
+		}
+		if ((uint32_t)(end - p) < 514u)
+		{
+			return -1;
+		}
+		if (!FATFS_NO_CRC_CHECK)
+		{
+			uint16_t crc16 = spitf_crc16_block(p);
+			uint16_t crc16_check = (uint16_t)(((uint16_t)p[512] << 8) | p[513]);
+			if (crc16 != crc16_check)
+			{
+				LLOGD("crc16 error %04x %04x", crc16, crc16_check);
+				return -1;
+			}
+		}
+		memcpy(base + i * __SDHC_BLOCK_LEN__, p, __SDHC_BLOCK_LEN__);
+		p += 514;
+	}
+	head = (uint32_t)(end - p);
+	if (head > sizeof(s_spitf_carry))
+	{
+		return -1;
+	}
+	if (head)
+	{
+		memcpy(s_spitf_carry, p, head);
+	}
+	s_spitf_carry_len = head;
+	return 0;
+}
+#endif
+
+/*
+ * 收完当前 CMD18 的数据阶段。命令本身已经由调用方发出。
+ * LUAT_USE_SPI_TF_READ_FAST 打开时，剩余扇区多于 1 个且没有强制慢路径，
+ * 按最多 32 个扇区一段批量读入，CRC16 用查表。堆申请失败或解析失败后，
+ * 以及宏关闭、只剩 1 个扇区时，改为每个扇区三次 SPI：找 0xFE、读 512 字节、
+ * 再读 2 字节 CRC，CRC 逐位计算。
+ * 读到的扇区写入 spitf->DataBuf.Data，并推进 DataBuf.Pos。
+ *
+ * @param spitf SD SPI 控制器。DataBuf.MaxLen 是本次要读的扇区数，Pos 是已完成的个数。
+ * @return ERROR_NONE 表示本次数据已收完。
+ *         批量读失败时返回 -ERROR_OPERATION_FAILED，并置 s_spitf_force_slow。
+ *         调用方应发 CMD12 结束这次 CMD18，再重试；重试会走逐扇区读。
+ */
 static int32_t luat_spitf_read_data(luat_spitf_ctrl_t *spitf)
 {
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
+	if (!s_spitf_force_slow && (spitf->DataBuf.MaxLen - spitf->DataBuf.Pos) > 1)
+	{
+		uint32_t left = spitf->DataBuf.MaxLen - spitf->DataBuf.Pos;
+		spitf->SPIError = 0;
+		spitf->SDHCError = 0;
+		s_spitf_carry_len = 0;
+		uint8_t *base = spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__;
+
+		while (left)
+		{
+			uint32_t n = left > SPITF_BULK_MAX_SECTORS ? SPITF_BULK_MAX_SECTORS : left;
+			if (spitf_read_bulk_chunk(spitf, n, base) != 0)
+			{
+				s_spitf_force_slow = 1;
+				LLOGD("sd seq read fallback");
+				return -ERROR_OPERATION_FAILED;
+			}
+			spitf->DataBuf.Pos += n;
+			base += n * __SDHC_BLOCK_LEN__;
+			left -= n;
+		}
+		return ERROR_NONE;
+	}
+#endif
+
 	uint64_t OpEndTick;
 	int Result = -ERROR_OPERATION_FAILED;
 	uint16_t ReadLen, DummyLen, RemainingLen;
@@ -857,6 +1176,9 @@ static void luat_spitf_read_blocks(luat_spitf_ctrl_t *spitf, uint8_t *Buf, uint3
 	uint8_t error = 1;
 	uint32_t address;
 	Buffer_StaticInit(&spitf->DataBuf, Buf, BlockNums);
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
+	s_spitf_force_slow = 0;
+#endif
 	if (spitf->SDSC)
 	{
 		if (luat_spitf_cmd(spitf, CMD16, 512, 1))

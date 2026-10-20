@@ -27,6 +27,56 @@ local function uart_setup()
     uart.setup(uart_id, 2000000, 8, 1, uart.None, uart.LSB, 2048)
 end
 
+local spi_id = 0
+-- 片选引脚
+local spi_cs = 8
+-- 数据宽度
+local spi_databits = 8
+-- CPHA
+local spi_cpha = 0
+-- CPOL
+local spi_cpol = 0
+-- 时钟速率
+local spi_speed = 30*1000*1000
+-- 以下三项留空即用驱动默认值(高位在前/主模式/全双工)
+local spi_bit_order = nil
+local spi_mode = nil
+local spi_communication = nil
+if rtos.bsp() == "Air1601" or rtos.bsp() == "Air1602" then
+    spi_id = 1
+    spi_cs = 14
+    spi_irq = 51
+else
+    gpio.setup(20, 1, gpio.PULLUP) -- 打开CH390H LDO供电
+end
+
+
+-- Air1601/1602: 外挂 CH390 以太网 (SPI1 + CS14)。
+-- 原来 netready 只在"mobile 不存在"的构建里初始化 CH390, Air1601/1602 都编了
+-- mobile, 所以那段是死代码; 这里提到前面统一初始化, 并用 ch390_inited 兜住,
+-- 避免在无 mobile 的构建里被下面的历史副本重复初始化。
+local ch390_inited = false
+
+local function ch390_setup()
+    if ch390_inited then
+        return
+    end
+    ch390_inited = true
+    local result = spi.setup(spi_id, nil, spi_cpha, spi_cpol, spi_databits, spi_speed, spi_bit_order, spi_mode, spi_communication)
+    log.info("netready_1601", "spi open", result)
+    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {
+        spi = spi_id,
+        cs = spi_cs,
+        -- irq = spi_irq
+    })
+    sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
+    netdrv.dhcp(socket.LWIP_ETH, true)
+    log.info("LWIP_ETH", "mac addr", netdrv.mac(socket.LWIP_ETH))
+    -- L2TP/OpenVPN 这类隧道在 setup 时把"当前默认网卡"记为外层传输网卡,
+    -- 不钉住的话可能从 4G/WiFi 出去而不是以太网
+    socket.dft(socket.LWIP_ETH)
+end
+
 function netready.exec(ctx, timeout)
     local model = hmeta.model()
     log.info("hmeta.model()", model)
@@ -86,6 +136,9 @@ function netready.exec(ctx, timeout)
         -- airlink.start(airlink.MODE_UART) -- 启动airlink的串口模式
         -- sys.wait(100)
     end
+    if hmeta.model() == "Air1601" then
+        ch390_setup()
+    end
     -- 应该 根据 型号和上下文, 进行联网操作
     if mobile then
         -- 什么都不做
@@ -108,34 +161,11 @@ function netready.exec(ctx, timeout)
         log.info("wlan", "connect", ssid, password)
         socket.dft(socket.LWIP_STA)
     elseif socket then
-        -- 1601的话初始化以太网
+        -- 1601/1602 的外挂以太网已在前面 ch390_setup() 里初始化过(带 ch390_inited 去重),
+        -- 这里只是无 mobile 构建下的历史兜底路径
         if hmeta.model() == "Air1601" or hmeta.model() == "Air1602" then
             log.info("netready_1601", "使用以太网，开始初始化")
-            local result = spi.setup(1, -- spi_id
-            nil, 0, -- CPHA
-            0, -- CPOL
-            8, -- 数据宽度
-            25600000 -- ,--频率
-            -- spi.MSB,--高低位顺序    可选，默认高位在前
-            -- spi.master,--主模式     可选，默认主
-            -- spi.full--全双工       可选，默认全双工
-            )
-            log.info("main", "open", result)
-            if result ~= 0 then -- 返回值为0，表示打开成功
-                log.info("main", "spi open error", result)
-                return
-            end
-            -- 初始化指定netdrv设备,
-            -- socket.LWIP_ETH 网络适配器编号
-            -- netdrv.CH390外挂CH390
-            -- SPI ID 1, 片选 GPIO12
-            netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {
-                spi = 1,
-                cs = 14
-            })
-            sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
-            netdrv.dhcp(socket.LWIP_ETH, true)
-            log.info("LWIP_ETH", "mac addr", netdrv.mac(socket.LWIP_ETH))
+            ch390_setup()
         else
             -- 适配了socket库也OK, 就当1秒联网吧
             sys.timerStart(sys.publish, 1000, "IP_READY")

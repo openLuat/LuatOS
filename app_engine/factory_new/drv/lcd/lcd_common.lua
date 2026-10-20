@@ -1,8 +1,8 @@
 --[[
 @module  lcd_common
-@summary LCD/TP 驱动加载 + AirUI 初始化 + 密度缩放 + 背光控制（所有平台共用）
-@version 1.0
-@date    2026.05.22
+@summary LCD/TP 驱动加载 + AirUI 分段初始化 + 密度缩放 + 背光控制（所有平台共用）
+@version 1.2
+@date    2026.10.16
 @author  江访
 
 === 执行流程 ===
@@ -12,17 +12,21 @@ require 即执行，以下按顺序发生：
   1. 读 _G.project_config.hw.lcd / hw.tp → 获取驱动 model 名和 params 参数
   2. require(lcd_model) / require(tp_model) → 动态加载对应的 LCD/TP 驱动模块
   3. 构建全局接口：
-     _G.lcd_drv.init()           → lcd_model.init(params) → M.airui_init(cfg)  [LCD硬件→AirUI初始化]
-     _G.lcd_drv.backlight_on()   → M.backlight_on(cfg)                         [背光PWM开启]
-     _G.tp_drv.init()            → tp_model.init(params)                        [触摸芯片初始化]
+     _G.lcd_drv.hw_init()          → lcd_model.init(params)   [LCD 硬件初始化]
+     _G.lcd_drv.airui_init()       → M.airui_init(cfg)        [airui.init + 旋转/尺寸/密度]
+     _G.lcd_drv.airui_core_init()  → M.airui_core_init(cfg)   [字体加载等核心初始化]
+     _G.lcd_drv.init()             → hw_init + airui_init + airui_core_init  [一步到位（兼容）]
+     _G.lcd_drv.backlight_on()     → M.backlight_on(cfg)      [背光开启]
+     _G.tp_drv.init()              → tp_model.init(params)    [触摸芯片初始化]
 
 === 关键设计决策 ===
 
 1. 驱动去平台化：不硬编码 LCD/TP 型号，根据 project_config.hw.lcd.model 动态 require。
    同款 GT911 触摸芯片在 Air8000W 用 I2C0，在 Air1602 用 I2C1，仅 params 不同
 
-2. AirUI 初始化嵌入 lcd_drv.init()：LCD 硬件初始化成功后立即调 AirUI 初始化 + 字体加载 +
-   密度缩放计算，保证 ui_main 拿到 lcd_drv 时 AirUI 已就绪
+2. AirUI 初始化拆两段：airui_init（airui.init 引擎 + 旋转/尺寸/密度）→
+   airui_core_init（字体加载等核心初始化）。boot_ui 用第一段先点亮 logo，
+   字体是初始化中最重的一步（读字库建 cache），延后到 logo 展示期间执行
 
 3. 密度缩放基于 PPI 比值：基准 5寸 480×800 ≈ 187 PPI，实际 PPI = sqrt(w²+h²) / screen_size，
    density_scale = 实际PPI / 基准PPI，最小 1.0（低分辨率屏不做缩小）
@@ -35,11 +39,6 @@ require 即执行，以下按顺序发生：
 
 local M = {}
 
---[[
-初始化 AirUI + 字体加载 + 旋转/分辨率计算 + 密度缩放
-@param table cfg  config.hw.lcd 配置（含 need_buffer, font, rotation, screen_size, backlight）
-@return boolean  true=成功, false(或nil)=airui.init 失败
-]]
 local function screen_get_size(cfg)
     if display and display.getSize then
         local dw, dh = display.getSize()
@@ -51,6 +50,12 @@ local function screen_get_size(cfg)
     return (p and p.w) or 800, (p and p.h) or 480
 end
 
+--[[
+airui.init 引擎初始化（不含字体）：airui.init + 屏幕旋转 + 逻辑分辨率 + 密度缩放
+logo 绘制依赖本段产出的 _G.screen_w/h，字体与页面加载依赖 density_scale
+@param table cfg  config.hw.lcd 配置（含 need_buffer, font, rotation, screen_size, backlight）
+@return boolean  true=成功, false(或nil)=airui.init 失败
+]]
 function M.airui_init(cfg)
     -- 获取物理分辨率并初始化 AirUI。真机 AirUI(LUATOS) 依赖 display.init 已注册的 FB。
     local w, h = screen_get_size(cfg)
@@ -62,29 +67,7 @@ function M.airui_init(cfg)
         return r
     end
 
-    -- 字体加载：文件系统 .ttf（Air8101）vs 固件内置字库（其余平台）
-    local font_cfg = cfg.font or {}
-    if font_cfg.path then
-        -- 从文件系统加载 TTF 字体（如 "/MiSans_gb2312.ttf"）
-        airui.font_load({
-            type       = font_cfg.type or "hzfont",
-            path       = font_cfg.path,
-            size       = font_cfg.size or 20,
-            cache_size = font_cfg.cache_size or 1024,
-            antialias  = font_cfg.antialias or 1,
-            global     = font_cfg.global,
-        })
-    else
-        -- 使用固件编译时内置的汉字字库（更快，不占文件系统空间）
-        airui.font_load({
-            type       = font_cfg.type or "hzfont",
-            size       = font_cfg.size or 16,
-            cache_size = font_cfg.cache_size or 1024,
-            antialias  = font_cfg.antialias or 1,
-        })
-    end
-
-    -- 屏幕旋转（0=正常, 90/180/270 度旋转）
+    -- 屏幕旋转（0=正常, 90/180/270 度旋转），必须在画 logo 之前定方向
     local rotation = cfg.rotation or 0
     airui.set_rotation(rotation)
     log.info("lcd_common", "airui version: " .. airui.version())
@@ -114,12 +97,42 @@ function M.airui_init(cfg)
 end
 
 --[[
-开启背光（背光点亮的唯一收口，boot_ui 在首帧上屏后调用）
+字体加载等核心初始化（初始化中最重的一步，boot_ui 延后到 logo 展示期间调用）
+双路径：文件系统 .ttf（Air8101）vs 固件内置字库（其余平台）
+@param table cfg  config.hw.lcd 配置（font 字段）
+]]
+function M.airui_core_init(cfg)
+    local font_cfg = cfg.font or {}
+    if font_cfg.path then
+        -- 从文件系统加载 TTF 字体（如 "/MiSans_gb2312.ttf"）
+        airui.font_load({
+            type       = font_cfg.type or "hzfont",
+            path       = font_cfg.path,
+            size       = font_cfg.size or 20,
+            cache_size = font_cfg.cache_size or 1024,
+            antialias  = font_cfg.antialias or 1,
+            global     = font_cfg.global,
+        })
+    else
+        -- 使用固件编译时内置的汉字字库（更快，不占文件系统空间）
+        airui.font_load({
+            type       = font_cfg.type or "hzfont",
+            size       = font_cfg.size or 16,
+            cache_size = font_cfg.cache_size or 1024,
+            antialias  = font_cfg.antialias or 1,
+        })
+    end
+end
+
+--[[
+开启背光（背光点亮的唯一收口，boot_ui 在 logo 首帧上屏后调用）
 支持两种模式:
   PWM 模式: backlight = { pwm_ch, pwm_freq } — 通过 PWM 通道调节亮度
   GPIO 模式: backlight = { gpio_bl } — 通过 GPIO 直接控制亮灭（不支持调光）
 背光使能脚取值优先级: backlight.gpio_bl > params.pin_bl
   （params.pin_bl 已由 lcd_display_rgb.init 压低延后，此处点亮，防 RGB 残影闪屏）
+PWM 初始占空比取 backlight.level（settings_display_app 从 fskv 恢复/写回的亮度值），
+无记录时默认 100%
 @param table cfg  hw.lcd 配置（含 backlight 与 params）
 ]]
 function M.backlight_on(cfg)
@@ -139,9 +152,11 @@ function M.backlight_on(cfg)
         end
         local ch = bl.pwm_ch or 0
         local freq = bl.pwm_freq or 1000
-        pwm.setup(ch, freq, 100) -- 占空比 100%（最大亮度）
+        -- 占空比取 backlight.level（settings_display_app 从 fskv 恢复/写回的亮度），无记录默认 100%
+        local duty = bl.level or 100
+        pwm.setup(ch, freq, duty) -- 配置并缓存，不输出
         pwm.start(ch)            -- 启动 PWM 输出
-        log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq)
+        log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq .. " duty=" .. duty)
     end
 end
 
@@ -172,7 +187,8 @@ end
 
 -- ==================== 构建全局驱动接口（require 时自动执行） ====================
 -- 读取 project_config，动态 require LCD/TP 驱动模块，构建 _G.lcd_drv / _G.tp_drv
--- 后续 ui_main.lua 通过这两个全局对象调用 init() / backlight_on()，不感知底层型号差异
+-- 后续 boot_ui 通过这两个全局对象调用 hw_init / airui_init / airui_core_init /
+-- backlight_on / init，不感知底层型号差异
 do
     local cfg       = _G.project_config
 
@@ -183,14 +199,26 @@ do
 
     -- LCD 驱动全局接口
     _G.lcd_drv      = {
+        -- LCD 硬件初始化（FrameBuffer 分配、RGB 时序/IC 序列），不碰 airui
+        hw_init = function()
+            return lcd_model.init(cfg.hw.lcd.params)
+        end,
+        -- airui.init 引擎初始化（旋转/尺寸/密度），boot_ui 在 logo 前调用
+        airui_init = function()
+            return M.airui_init(cfg.hw.lcd)
+        end,
+        -- 字体加载等核心初始化，boot_ui 延后到 logo 展示期间调用
+        airui_core_init = function()
+            return M.airui_core_init(cfg.hw.lcd)
+        end,
+        -- 一步到位（兼容入口）：硬件 + airui.init + 字体
         init = function()
-            -- ic_init 已改为返回 custom_cmds 表（由 display.init 内部发送），
-            -- 无运行时 lcd.cmd/data 调用，PC 模拟器由 lcd_display_rgb 内部跳过 display.init，
-            -- 不再需要旧 lcd 库的命令桩
             local ok = lcd_model.init(cfg.hw.lcd.params)
             if ok then
-                -- 硬件就绪后立即初始化 AirUI 渲染引擎（字体、旋转、密度）
-                M.airui_init(cfg.hw.lcd)
+                ok = M.airui_init(cfg.hw.lcd)
+                if ok then
+                    M.airui_core_init(cfg.hw.lcd)
+                end
             end
             return ok
         end,

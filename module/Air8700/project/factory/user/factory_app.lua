@@ -1,6 +1,6 @@
 --[[
 @module  factory_app
-@summary 出厂固件业务编排模块（版本化：TLV上报 / 控制命令 / LED / TTS / GPS / 上报周期）
+@summary 出厂固件业务编排模块（版本化：TLV上报 / 控制命令 / LED / GPS / 上报周期）
 @version 2.0
 @date    2026.09.20
 @author  李源龙
@@ -8,26 +8,20 @@
 本模块为出厂固件的业务编排模块，版本差异由 factory_config 集中控制：
 
 版本行为：
-- 8780  ：硬件I2C传感器 + 180s结构化上报 + 串口透传
-- 8780V ：8780基础上 + 每10秒TTS播报"上海合宙欢迎你"
-- 8780G ：8780基础上 + 开机打开GPS，每30秒上报GPS（无GPS回退LBS基站定位）
-- 8781  ：8780基础上，传感器改软件I2C（GPIO模拟）
-- 8782  ：8781基础上，串口1配置为RS485
+- 8700  ：串口透传 + 180s结构化上报（IMEI/CSQ/CPU温度/LBS基站经纬度），不采集传感器、不做GPS
 
 核心功能：
 1、build_report_tlv()：构建 AirCloud 结构化 TLV 上报数据（所有版本通用）
    必填字段：信号强度(782)/设备ID(798)/时间戳(1280)/CPU温度(263)
-   可选字段：温度(256)/湿度(257)/VOC(258)（传感器，失败跳过）
-            纬度(513)/经度(512)（LBS基站定位，失败跳过）
+   可选字段：纬度(513)/经度(512)（LBS基站定位，失败跳过）
 2、build_gps_tlv()：构建 GPS TLV（仅8780G），GPS失败回退LBS
 3、handle_control_command()：处理下行控制命令（tag 19）
    - "cycle:秒数"   → 修改上报频率（最小5秒，fskv持久化，重启生效）
    - "led:blink"    → LED闪烁5秒
    - "led:on"       → LED常亮
    - "led:off"      → LED熄灭
-   - "tts:文本"     → TTS播报（仅8780V）
 4、start_report_timer()：启动周期结构化上报定时器（默认180秒）
-5、TTS/GPS 开机自动启动（按版本启用，见 start_version_features）
+5、GPS 开机自动启动（按版本启用，见 start_version_features）
 
 数据流向：
 - create.aircloudTask 连接成功后 → start_report_timer(uid)
@@ -44,7 +38,6 @@ local factory_app = {}
 
 local excloud = require "excloud"
 local lbsLoc2 = require "lbsLoc2"
-local sensor_task = require "sensor_task"
 -- 版本配置
 local factory_config = require "factory_config"
 
@@ -132,13 +125,32 @@ local function get_cpu_temp()
 end
 
 -- 获取LBS基站经纬度（免费单基站定位，失败返回nil）
+-- 参考官方 demo（Air780EPM/demo/lbsloc2/lbsloc2_app.lua）：
+--   1. 先等网络就绪（IP_READY）再扫描，否则 reqCellInfo 不产生 CELL_INFO_UPDATE
+--   2. lbsLoc2.request 内部优先用 mobile.scell()（当前驻网基站，无需扫描）
+--      只有 scell 无数据时才用 getCellInfo() 扫描结果
 local function get_lbs()
-    mobile.reqCellInfo(15)
-    local result = sys.waitUntil("CELL_INFO_UPDATE", 3000)
-    if not result then
-        log.warn("factory_app", "基站信息扫描超时")
-        return nil, nil
+    -- 1. 等待网络就绪（基站扫描与LBS定位均依赖网络，最多等30秒避免卡死）
+    local wait_net = 0
+    while not socket.adapter(socket.dft()) do
+        if wait_net >= 30000 then
+            log.warn("factory_app", "等待网络就绪超时，跳过LBS定位")
+            return nil, nil
+        end
+        sys.waitUntil("IP_READY", 1000)
+        wait_net = wait_net + 1000
     end
+    -- 2. 优先用当前驻网基站（mobile.scell，无需扫描）；无数据才发起基站扫描
+    local scell = mobile.scell and mobile.scell()
+    if not (scell and scell.mcc) then
+        local cellinfo = mobile.getCellInfo()
+        if not cellinfo or #cellinfo == 0 then
+            mobile.reqCellInfo(15)
+            -- 等待基站扫描结果；扫描超时不致命，下方 request 内部仍会再取驻网基站 scell 兜底
+            sys.waitUntil("CELL_INFO_UPDATE", 5000)
+        end
+    end
+    -- 3. 请求定位
     local lat, lng, t = lbsLoc2.request(5000)
     lat, lng = tonumber(lat), tonumber(lng)
     if lat and lng then
@@ -175,6 +187,12 @@ function factory_app.build_report_tlv()
         data_type = excloud.DATA_TYPES.ASCII,
         value = mobile.imei()
     })
+    -- 必填：模组型号
+    table.insert(tlv_list, {
+        field_meaning = excloud.FIELD_MEANINGS.COMPONENT_MODEL,
+        data_type = excloud.DATA_TYPES.ASCII,
+        value = "Air8700P"
+    })
     -- 必填：时间戳
     table.insert(tlv_list, {
         field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
@@ -190,42 +208,20 @@ function factory_app.build_report_tlv()
             value = cpu_temp
         })
     end
-    -- 可选：SHT30 温湿度 / VOC 空气质量（采集失败自动跳过，不影响主数据上报）
-    local temp, hum, voc = sensor_task.get_env()
-    if temp then
-        table.insert(tlv_list, {
-            field_meaning = excloud.FIELD_MEANINGS.TEMPERATURE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = temp
-        })
-    end
-    if hum then
-        table.insert(tlv_list, {
-            field_meaning = excloud.FIELD_MEANINGS.HUMIDITY,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = hum
-        })
-    end
-    if voc then
-        table.insert(tlv_list, {
-            field_meaning = excloud.FIELD_MEANINGS.PARTICULATE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = voc
-        })
-    end
-    -- 可选：LBS基站经纬度（按版本开关，Air8700 仅透传不定位）
+    -- 可选：LBS基站经纬度（按版本开关，Air8700 已启用，定位失败自动跳过）
     if factory_config.get_lbs_enable() then
         local lat, lng = get_lbs()
         if lat and lng then
+            -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
             table.insert(tlv_list, {
                 field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-                data_type = excloud.DATA_TYPES.FLOAT,
-                value = lat
+                data_type = excloud.DATA_TYPES.ASCII,
+                value = string.format("%.6f", lat)
             })
             table.insert(tlv_list, {
                 field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-                data_type = excloud.DATA_TYPES.FLOAT,
-                value = lng
+                data_type = excloud.DATA_TYPES.ASCII,
+                value = string.format("%.6f", lng)
             })
         end
     end
@@ -289,15 +285,16 @@ function factory_app.build_gps_tlv()
     local tlv_list = {}
     local lat, lng, method = get_location()
     if lat and lng then
+        -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
         table.insert(tlv_list, {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = lat
+            data_type = excloud.DATA_TYPES.ASCII,
+            value = string.format("%.6f", lat)
         })
         table.insert(tlv_list, {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = lng
+            data_type = excloud.DATA_TYPES.ASCII,
+            value = string.format("%.6f", lng)
         })
         -- 定位方式：2=GPS，1=LBS（可选字段）
         table.insert(tlv_list, {
@@ -392,80 +389,6 @@ function factory_app.led_ctl(action)
     return true
 end
 
--- ==================== TTS 播报（仅8780V，按版本启用） ====================
-
--- 版本TTS配置
-local tts_cfg = factory_config.get_tts()      -- {enable, text, interval}
-local DEFAULT_TTS_TEXT = tts_cfg.text or "上海合宙欢迎你"   -- 开机欢迎播报文本
-local audio_inited = false
-local boot_tts_done = false
-
--- 初始化音频（仅 8780V 版本生效，幂等；失败可重试）
-local function init_audio()
-    if audio_inited then return true end
-    if not tts_cfg.enable then
-        log.info("factory_app", "当前版本不启用TTS:", factory_config.get_ver())
-        return false
-    end
-    local ok, audio_config = pcall(require, "audio_config")
-    if not ok or not audio_config or not audio_config.init then
-        log.error("factory_app", "音频模块不可用")
-        return false
-    end
-    local init_ok = audio_config.init()
-    if not init_ok then
-        log.error("factory_app", "音频初始化失败（ES8311）")
-        return false
-    end
-    audio_inited = true
-    log.info("factory_app", "音频初始化完成")
-    return true
-end
-
---[[
-TTS 语音播报（仅 8780V 版本支持，其他版本返回错误）
-
-@string text 播报文本
-@return boolean 是否执行成功
-@return string|nil 错误信息
-@usage
-local ok, err = factory_app.tts("温度正常")
-]]
-function factory_app.tts(text)
-    if not tts_cfg.enable then
-        return false, "当前版本不支持TTS"
-    end
-    if not init_audio() then
-        return false, "音频初始化失败"
-    end
-    local ok, audio_config = pcall(require, "audio_config")
-    if not ok or not audio_config or not audio_config.audio_play_tts then
-        log.error("factory_app", "音频模块不可用")
-        return false, "音频模块不可用"
-    end
-    audio_config.audio_play_tts(text)
-    log.info("factory_app", "TTS播报:", text)
-    return true, nil
-end
-
--- 开机播报欢迎语（仅8780V，播一次，网络就绪后执行）
-local function start_boot_tts()
-    if not tts_cfg.enable then
-        log.info("factory_app", "当前版本不启动TTS:", factory_config.get_ver())
-        return
-    end
-    sys.taskInit(function()
-        -- 等待网络就绪（TTS云端合成）
-        while not socket.adapter(socket.dft()) do
-            sys.waitUntil("IP_READY", 1000)
-        end
-        if boot_tts_done then return end
-        boot_tts_done = true
-        factory_app.tts(DEFAULT_TTS_TEXT)
-        log.info("factory_app", "开机欢迎语播报:", DEFAULT_TTS_TEXT)
-    end)
-end
-
 -- ==================== 下行控制命令处理 ====================
 
 --[[
@@ -476,7 +399,6 @@ end
 - "led:blink"    → LED闪烁5秒
 - "led:on"       → LED常亮
 - "led:off"      → LED熄灭
-- "tts:文本"     → TTS播报（仅8780V）
 
 @string cmd 控制命令字符串
 @return string 响应文本（发送给 CONTROL_RESPONSE tag 20）
@@ -514,16 +436,7 @@ function factory_app.handle_control_command(cmd)
         end
         return resp_msg
     end
-    -- 3. TTS 播报
-    local tts_text = cmd:match("^tts:(.+)$")
-    if tts_text then
-        local ok, err = factory_app.tts(tts_text)
-        if not ok then
-            resp_msg = "TTS执行失败: " .. tostring(err or "")
-        end
-        return resp_msg
-    end
-    -- 4. 未知命令
+    -- 3. 未知命令
     resp_msg = "未知命令格式: " .. cmd
     log.warn("factory_app", resp_msg)
     return resp_msg
@@ -531,10 +444,8 @@ end
 
 -- ==================== 版本特性启动 ====================
 -- 按 factory_config.DEVICE_VER 启用对应版本能力：
---   8780V → 开机播报一次欢迎语 + 收到服务器 tts: 命令时播报
 --   8780G → 开机开GPS，每30秒GPS上报（无GPS回退LBS）
 --   其他版本 → 均自动跳过
-start_boot_tts()
 start_default_gps()
 
 log.info("factory_app", "版本特性启动完成，当前版本:", factory_config.get_ver())

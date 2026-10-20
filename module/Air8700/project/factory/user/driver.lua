@@ -16,11 +16,11 @@ local gnss = require "gnss"
 local exgnss= require "exgnss"
 local exvib= require "exvib"
 
-local exaudio = require "exaudio"
-local audio_config = require "audio_config"
 local lbsLoc2 = require"lbsLoc2"
 local airlbs = require "airlbs"
 local dtulib = require "dtulib"
+-- V3 工厂返工指令（MODEL_RETEST#CONFIRM / MODEL_RETEST?），仅 USB VUART_0 拦截
+local retest = require "retest"
 
 local dtu
 local cfg
@@ -432,46 +432,6 @@ cmd.rrpc = {
             return "simcross,error,"..t[1]
         end
     end,
-    ["ttsplay"] = function(t) 
-        if t then
-            local result=audio_config.audio_play_tts(t[1])
-            return "rrpc,ttsplay,"..(result and "OK" or "ERROR")
-        end
-    end,
-    ["setvol"] = function(t) 
-        if t and tonumber(t[1])>=0 and tonumber(t[1])<=100 then
-            if exaudio.vol(tonumber(t[1])) then
-                fskv.set("vol",tonumber(t[1]))
-                return "rrpc,setvol,OK"
-            else
-                return "rrpc,setvol,ERROR"
-            end
-        else
-            return "rrpc,setvol,ERROR"
-        end
-    end,
-    ["getvol"] = function(t) 
-        if fskv.get("vol") then
-            return "rrpc,getvol,"..fskv.get("vol")
-        else
-            return "rrpc,getvol,65"
-        end
-    end,
-    ["fileplay"] = function(t) 
-        if t then
-            local result=audio_config.audio_play_file(t[1],t[2],t[3])
-            return "rrpc,fileplay,"..(result and "OK" or "ERROR")
-        end
-    end,
-    ["stopplay"] = function(t) 
-        if t then
-            if exaudio.play_stop() then
-                return "rrpc,stopplay,OK"
-            else
-                return "rrpc,stopplay,ERROR"
-            end
-        end
-    end,
 }
 
 
@@ -483,7 +443,16 @@ local function read(uid, idx)
     log.info("UART_" .. uid .. " read:", #s, (s:sub(1, 100):toHex()))
     log.info("串口数据长度:", #s)
     -- 根据透传标志位判断是否解析数据
-    
+
+    -- V3：仅 USB 虚拟串口拦截工厂返工指令，命中即处理，不走 config/rrpc/透传
+    if uid == uart.VUART_0 then
+        local reply, handled = retest.on_data(s)
+        if handled then
+            log.info("read: MODEL_RETEST handled ->", reply)
+            return write(uid, reply)
+        end
+    end
+
     -- DTU的参数配置
     if s:sub(1, 7) == "config," or s:sub(1, 5) == "rrpc," then
         -- 对于 getreallocation 和 getairlbslocation 指令，我们需要传递来源信息（串口）给 userapi，以便异步响应

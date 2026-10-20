@@ -52,10 +52,10 @@ local function judge_device()
         model_name = "Air724UG"
         chip_name = "UIS8910"
     elseif device_name == "Air1601" then
-        model_name = "Air1601"
+        model_name = {"Air1601"}
         chip_name = "CCM4211"
     elseif device_name == "Air1602" then
-        model_name = "Air1602"
+        model_name = {"Air1602"}
         chip_name = "CCM4211"
     else
         log.info("未知的设备名称")

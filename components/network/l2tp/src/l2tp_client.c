@@ -341,10 +341,15 @@ static int l2tp_start_internal(l2tp_client_t *cli) {
     net_lwip2_set_netif(cli->adapter_index, &cli->netif);
     net_lwip2_register_adapter(cli->adapter_index);
 
-    /* Authentication (PAP + CHAP-MD5) */
+    /* Authentication (PAP / CHAP-MD5 / MS-CHAPv2; 由对端在 LCP 里点名) */
     if (cli->username && cli->username_len > 0) {
         ppp_set_auth(ppp, PPPAUTHTYPE_ANY, cli->username, cli->password ? cli->password : "");
     }
+
+    /* 向 LNS 索取 DNS(IPCP CI_MS_DNS1/2)。不开这个, ipcp.c 的 wo->req_dns1/2
+     * 全为 0, 既不会请求也会忽略对端 NAK 里带的 DNS。
+     * 取到的地址落在 luat_ppp_dns.c, 链路 up 时由 netdrv 胶水层推给适配器层。 */
+    ppp_set_usepeerdns(ppp, 1);
 
     /* Use the PPP interface as the default route */
     ppp_set_default(ppp);

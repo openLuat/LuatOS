@@ -144,14 +144,16 @@ local function location_data_upload()
 
         else
             -- 上报基础状态数据
+            -- 2026-10-19 经纬度统一 %.6f 格式化（约 0.1 米精度），
+            -- 与其它出厂固件口径一致，避免 tostring(number) 丢失精度
             local ok, err_msg = excloud.send({{
                 field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
                 data_type = excloud.DATA_TYPES.ASCII,
-                value = gpsData[1].longitude
+                value = gpsData[1].longitude ~= "" and string.format("%.6f", tonumber(gpsData[1].longitude)) or ""
             }, {
                 field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
                 data_type = excloud.DATA_TYPES.ASCII,
-                value = gpsData[1].latitude
+                value = gpsData[1].latitude ~= "" and string.format("%.6f", tonumber(gpsData[1].latitude)) or ""
             }, {
                 field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
                 data_type = excloud.DATA_TYPES.INTEGER,

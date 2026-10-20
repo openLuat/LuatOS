@@ -34,6 +34,7 @@ static int l_bit64_to32(lua_State *L)
     if (len != 9)
     {
     	lua_pushnil(L);
+        return 1;
     }
     if (data[8])
     {

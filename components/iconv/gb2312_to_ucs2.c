@@ -26,8 +26,11 @@ uint16_t gb2312_to_ucs(uint16_t gb2312)
     }
     else
     {
-        uint16_t offset = ((gb2312 >> 8) - 0xA0) * 94 + ((gb2312 & 0x00ff) - 0xA1);
-        ucs = gb2312_to_ucs2_table[offset];
+        int offset = ((gb2312 >> 8) - 0xA0) * 94 + ((gb2312 & 0x00ff) - 0xA1);
+        if (offset >= 0 && (size_t)offset < sizeof(gb2312_to_ucs2_table)/sizeof(gb2312_to_ucs2_table[0]))
+            ucs = gb2312_to_ucs2_table[offset];
+        else
+            ucs = 0x003F; /* invalid GB2312 sequence, yield '?' */
     }
 
     return ucs;
@@ -35,7 +38,8 @@ uint16_t gb2312_to_ucs(uint16_t gb2312)
 
 size_t iconv_gb2312_to_ucs2_endian(char **_inbuf, size_t *inbytesleft, char **_outbuf, size_t *outbytesleft, int endian)
 {
-    uint16_t offset,gb2312;
+    int offset;
+    uint16_t gb2312;
     char *gbbuf = *_inbuf;
     uint16_t *ucs2buf = (uint16_t*)*_outbuf;
     uint16_t ucs2;
@@ -66,7 +70,10 @@ size_t iconv_gb2312_to_ucs2_endian(char **_inbuf, size_t *inbytesleft, char **_o
             inlen -= 2;
             
             offset = ((gb2312>>8) - 0xA0)*94/*(0xFE-0xA1+1)*/ + ((gb2312&0x00ff) - 0xA1);
-            ucs2 = gb2312_to_ucs2_table[offset];
+            if (offset >= 0 && (size_t)offset < sizeof(gb2312_to_ucs2_table)/sizeof(gb2312_to_ucs2_table[0]))
+                ucs2 = gb2312_to_ucs2_table[offset];
+            else
+                ucs2 = 0x003F; /* invalid GB2312 sequence, yield '?' */
         }
         else
         {

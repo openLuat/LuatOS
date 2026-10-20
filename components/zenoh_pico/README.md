@@ -108,22 +108,24 @@ python3 components/zenoh_pico/tests/run_host.py \
   --router /path/to/zenohd --sanitize
 ```
 
+独立主机脚本`run_host.py`仍单独用Git核对上述SDK固定提交及工作树；这属于主机复验来源门禁，不是PC xmake构建要求，本轮不改变该脚本。
+
 Get完整回归使用同一命令加 `--get-tests`，选择独立peer `--get` 和 `tests/host_get_test.lua`；默认仍原16项Pub/Sub。peer可选 `--two-rounds` 会校验 `LuatOS\0zenoh-pico\255:1/2` 两个20B值，双轮后正常退出，无需stop，独立墙钟上限240秒；默认peer保原60秒及stop合同。
 
 有pkg-config时可用 `--lua-pkg lua5.3` 代替 `--lua-root`。仅编译时不传 `--router`。输出 `HOST_PASS`、`HOST_EXIT 0`、`PEER_EXIT 0`、`INTEROP_PASS` 才是完整主机通过；只看到 `BUILD_PASS` 不算互通。端口已有占用则停止，测试结束只清理自己的子进程。`--skip-build` 仅用于测试脚本修改后的已知二进制复验，会打印实际SHA；默认始终构建。
 
 ## PC与目标BSP接入
 
-PC新增装配由 `LUAT_USE_ZENOH_PICO=y` 显式开启，外置 `ZENOH_PICO_ROOT` 必须指向上述固定且未修改的Git依赖树。关闭时不加载组件或寻找依赖。使用原BSP helper构建：
+PC新增装配由 `LUAT_USE_ZENOH_PICO=y` 显式开启，外置 `ZENOH_PICO_ROOT` 指向已准备好的zenoh-pico 1.9.0本地源码根目录（含`include/`和`src/`），可以是解压目录或仓库工作树，不要求`.git`。构建不执行Git命令、不下载源码；版本与来源由准备源码的调用方负责核对。关闭时不加载组件或寻找依赖。使用原BSP helper构建：
 
 ```sh
 cd bsp/pc
 LUAT_USE_ZENOH_PICO=y ZENOH_PICO_ROOT=/path/to/zenoh-pico ./build_macos.sh
 ```
 
-此完整PC命令尚未在本贡献环境通过：本机无xmake，现有macOS helper还固定i386；不把独立主机链接等同于PC模拟器构建。Linux/Windows同样使用各自既有helper并分别核验。
+2026-10-20使用官方xmake 3.0.4在macOS arm64实际执行抽取的原装配段（仅组件路径替换为绝对路径，不模拟xmake API）：关闭时不找SDK；普通源码树与无`.git`目录均装配122个相同的通用SDK源及4个组件源；缺必要头或通用目录明确报错。无`.git`目录的126源C11静态库编译/归档通过，有上游警告，不代表最终可执行文件链接。编译器识别在`on_config`阶段执行，避免`on_load`提前读取工具链。完整PC helper实际尝试未通过：仍固定i386，配置阶段因外部包仓库获取失败而退出，尚未完成PC可执行文件链接；不将该隔离组件编译或独立主机测试等同于完整PC模拟器构建。Linux/Windows完整构建亦未验证。
 
-官方目标BSP需要：同一套配置头与C11/atomic支持、仅上述官方通用源码及本模块4个src文件、统一network adapter/RTOS/堆/MCU时钟/TRNG实现，以及 `luaopen_zenohpico` 注册。PC的 `bsp/pc/xmake.lua` 给出明确固定Git源码清单，组件不包含独立xmake文件；桥接头位于 `components/zenoh_pico/include/luat_zenoh_pico.h`；SDK自己的源文件表/注册表由官方提供实际路径并接入，不虚构Air8000用户C-SDK。
+官方目标BSP需要：同一套配置头与C11/atomic支持、仅上述官方通用源码及本模块4个src文件、统一network adapter/RTOS/堆/MCU时钟/TRNG实现，以及 `luaopen_zenohpico` 注册。PC的 `bsp/pc/xmake.lua` 按固定通用目录范围生成排序后的本地C源码清单，不纳入其它`system/`平台实现，组件不包含独立xmake文件；桥接头位于 `components/zenoh_pico/include/luat_zenoh_pico.h`；SDK自己的源文件表/注册表由官方提供实际路径并接入，不虚构Air8000用户C-SDK。
 
 [最小demo](../../olddemo/demo/zenoh_pico/main.lua) 要求先配置网卡就绪、填写测试router和adapter，再启动 `zenoh_peer <router> test/zenohpico/manual` 作为真实回显对端。demo未烧录验证。
 

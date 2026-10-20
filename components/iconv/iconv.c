@@ -1,4 +1,5 @@
 
+#include <stdint.h>
 #include <string.h>
 #include "iconv.h"
 #include "prv_iconv.h"
@@ -46,8 +47,10 @@ size_t iconv_convert (iconv_t __cd, char ** __inbuf, size_t * __inbytesleft, cha
     if(__inbuf == NULL || *__inbuf == NULL)
         return (size_t)-1;
 
-    if(_map_cd < &iconv_map[0] &&
-        _map_cd > &iconv_map[sizeof(iconv_map)/sizeof(iconv_map[0])])
+    /* the original `< start && > end` is never true, i.e. no check at all;
+     * uintptr_t also avoids UB from comparing pointers into different objects */
+    if((uintptr_t)_map_cd < (uintptr_t)&iconv_map[0] ||
+        (uintptr_t)_map_cd >= (uintptr_t)&iconv_map[sizeof(iconv_map)/sizeof(iconv_map[0])])
         return (size_t)-1;
 
     return _map_cd->fct(__inbuf, __inbytesleft, __outbuf, __outbytesleft);

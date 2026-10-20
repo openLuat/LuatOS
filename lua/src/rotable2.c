@@ -126,8 +126,20 @@ static int rotable_udata_index( lua_State* L ) {
   rotable* t = (rotable*)lua_touserdata( L, 1 );
   char const* s = lua_tostring( L, 2 );
   const rotable_Reg_t* p = 0;
+  if( t == 0 ) {
+    lua_pushliteral( L, "bad rotable self" );
+    lua_error( L );
+  }
   lua_getuservalue( L, 1 );
   p = (const rotable_Reg_t*)lua_touserdata( L, -1 );
+  /* the uservalue is always a light userdata written by rotable2_newlib; a value
+   * forged via debug.setuservalue must not be dereferenced as a reg array.
+   * Cheap type checks only: this is the __index hot path, so no check_rotable
+   * metatable/registry lookup here. */
+  if( !lua_islightuserdata( L, -1 ) || p == 0 ) {
+    lua_pushliteral( L, "invalid rotable registry" );
+    lua_error( L );
+  }
   const rotable_Reg_t* p2 = p;
   p = find_key( p, t->n, s );
   if( p ) {
@@ -165,6 +177,10 @@ static int rotable_iter( lua_State* L ) {
   int isnil = lua_isnil(L, 2);
   lua_getuservalue( L, 1 );
   p = (const rotable_Reg_t*)lua_touserdata( L, -1 );
+  if( !lua_islightuserdata( L, -1 ) || p == 0 ) {
+    lua_pushliteral( L, "invalid rotable registry" );
+    lua_error( L );
+  }
 
   if (isnil) {
     lua_pushstring(L, p->name);
@@ -172,6 +188,10 @@ static int rotable_iter( lua_State* L ) {
     return 2;
   }
   key = lua_tostring(L, 2);
+  /* a non-string key makes lua_tostring return NULL, and reg_compare() is strcmp */
+  if( key == 0 ) {
+    return 0;
+  }
 
   for( q = p; q->name != NULL; ++q ) {
       if( 0 == reg_compare( key, q ) ) {

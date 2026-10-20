@@ -45,6 +45,11 @@
 
 -- 版本更新说明
 -
+-- 版本号：202610201721
+-- 1、更新时间：2026-10-20 17:21
+-- 2、更新内容
+--    设备ID获取统一改为 hmeta.devid()（4G模组返回IMEI、WiFi模组返回MAC、MCU模组返回unique_id的hex值）
+-
 -- 版本号：202609011645
 -- 1、更新时间：2026-09-01 16:45
 -- 2、更新内容
@@ -415,14 +420,14 @@ end
 
 -- 按设备类型获取真实设备ID
 local function get_device_id_by_type()
-    if config.device_type == 1 then
-        local imei = mobile.imei()
-        log.info("[excloud]4G设备", "IMEI:", imei, "MUID:", mobile.muid())
-        return imei
-    elseif config.device_type == 2 then
-        return wlan.getMac(nil, true)
-    elseif config.device_type == 3 then
-        return mcu.unique_id():toHex()
+    if config.device_type == 1 or config.device_type == 2 or config.device_type == 3 then
+        -- hmeta.devid(): 4G模组返回IMEI，WiFi模组返回MAC地址，MCU模组返回unique_id的hex值
+        local ok, device_id = pcall(hmeta.devid)
+        log.info("[excloud]设备ID", "类型:", config.device_type, "设备ID:", device_id)
+        if not ok or not device_id or device_id == "" then
+            return nil, "hmeta.devid()获取设备ID失败"
+        end
+        return device_id
     elseif config.device_type == 9 then
         if not config.virtual_phone_number then
             return nil, "虚拟设备需要配置 virtual_phone_number"
@@ -2373,12 +2378,12 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 
 --[[
 获取库版本信息900943
-@return string 年月日时分，例如： "202607021900"
+@return string 年月日时分，例如： "202610201721"
 @usage
 excloud.version()
 ]]
 function excloud.version()
-    return "202609011645"
+    return "202610201721"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

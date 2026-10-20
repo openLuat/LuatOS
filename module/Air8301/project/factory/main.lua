@@ -64,7 +64,7 @@ PROJECT：项目名，ascii string类型
 VERSION：项目版本号，ascii string类型，使用合宙iot.openluat.com远程升级时必须按"XXX.YYY.ZZZ"三段格式定义
 ]]
 PROJECT = "Air8301_Factory"
-VERSION = "001.999.000"
+VERSION = "001.999.001"
 
 
 -- 在日志中打印项目名和项目版本号

@@ -37,13 +37,16 @@ local function build_priority(c)
                 pwrpin = board.ldo.eth.pin,           -- P4 U401 网口 LDO 使能
                 tp = netdrv.CH390,
                 opts = { spi = board.spi.id, cs = board.eth.cs, irq = board.eth.irq },
-                need_ping = false,                     -- 工业现场常无外网，按 IP 就绪判定
+                -- 必须真实探测外网（httpdns 解析 baidu.com）才认为网口可用：
+                -- need_ping=false 时只要拿到 IP 就把网口设为默认链路，
+                -- 若现场网口只有内网/网关不通，云连接会走这条死链路，TLS 握手阶段会崩（实测）
+                need_ping = true,
                 -- 切网时不断开已有 socket：否则 excloud 长连接在 4G 上刚建立就被强杀，
                 -- 会导致 libnet 内部状态错乱（实测出现过 C 层死机）
                 auto_socket_switch = false,
             }
             if c.eth_mode == "dhcp" then
-                eth_cfg.need_ping = false
+                -- 走 DHCP，不需要静态地址（need_ping 保持上面的 true）
             else
                 eth_cfg.static_ip = {
                     ipv4 = c.eth_ip,
@@ -57,7 +60,9 @@ local function build_priority(c)
                 WIFI = {
                     ssid = c.wifi_ssid,
                     password = c.wifi_pwd or "",
-                    need_ping = false,
+                    -- 注意：exnetif 的 need_ping 是全局开关，按 eth→wifi→4g 顺序 setup，
+                    -- 这里写 false 会把网口设的 true 覆盖掉，必须保持一致
+                    need_ping = true,
                     auto_socket_switch = false,
                 }
             })

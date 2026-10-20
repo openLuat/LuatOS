@@ -91,7 +91,8 @@ function M.start()
         script_name = PROJECT,
         script_version = VERSION,
         auto = c.fota_auto ~= false,
-        interval = c.fota_interval or 86400,
+        first_delay = c.fota_first_delay or 60,
+        interval = c.fota_interval or 14400,
         on_status = on_status,
         on_confirm = on_confirm,
     })

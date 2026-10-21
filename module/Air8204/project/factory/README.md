@@ -24,33 +24,31 @@
 ## 三、目录结构
 
 ```
-8204出厂固件/
-├── README.md                  # 本文件
-│   ├── user/                  # LuaTools 脚本目录
-│   │   ├── main.lua           # 入口：PROJECT / VERSION / PRODUCT_KEY + require "boot"
-│   │   ├── boot.lua           # ⭐ 启动分流：VREF / 软狗 / FOTA / test_done 判定
-│   │   ├── factory.lua        # ⭐ 产测模式（USB VUART_0 响应产测指令）
-│   │   ├── card_main.lua      # ⭐ 出货模式装配（录音定位工牌应用）
-│   │   ├── prodmeta.lua       # OTP 写号（PROD 型号 / PCB 硬件版本）
-│   │   ├── update.lua         # FOTA 管理（libfota3，开机 + 定时循环）
-│   │   ├── config.lua         # 全局配置与状态枚举
-│   │   ├── app.lua            # 业务调度（上报周期、录音上传）
-│   │   ├── es7243e.lua        # ES7243E 录音 ADC 驱动
-│   │   ├── sd_test.lua        # TF 卡挂载与录音数据库
-│   │   ├── http_app.lua       # 录音文件云端上传
-│   │   ├── normal.lua         # GNSS 卫星定位
-│   │   ├── lbs_util.lua       # 基站/WiFi 混合定位（airlbs）
-│   │   ├── da221.lua          # DA221 加速度传感器与运动判定
-│   │   ├── exvib.lua          # 震动检测扩展（8204 适配版，i2cId=0）
-│   │   ├── led_util.lua       # 双路 WS2812 状态指示
-│   │   ├── gpio_util.lua      # 电量检测与录音开关
-│   │   ├── excloud_app.lua    # excloud 云端接入
-│   │   ├── mem_monitor.lua    # 内存监控
-│   │   ├── network_watchdog.lua # 网络业务看门狗
-│   │   ├── libfota3.lua       # 整机成品 FOTA 库
-│   │   └── pins_Air780EGH.json # 引脚定义
-│   ├── lib/                   # 扩展库
+factory/                       # LuaTools 脚本目录
+├── main.lua                   # 入口：PROJECT / VERSION / PRODUCT_KEY + require "boot"
+├── app/                       # 应用层
+│   ├── boot.lua               # ⭐ 启动分流：VREF / 软狗 / FOTA / test_done 判定
+│   ├── card_main.lua          # ⭐ 出货模式装配（录音定位工牌应用）
+│   ├── app.lua                # 业务调度（上报周期、录音上传）
+│   ├── config.lua             # 全局配置与状态枚举
+│   ├── device_ctrl.lua        # 平台下行命令处理（远程控制 + 基础信息查询）
+│   ├── factory.lua            # ⭐ 产测模式（USB VUART_0 响应产测指令）
+│   ├── net/network_watchdog.lua  # 网络业务看门狗
+│   ├── aircloud/              # excloud_app（excloud 云端接入）/ lbs_util（基站/WiFi 混合定位）
+│   ├── web/                   # http_app（录音文件云端上传）
+│   ├── fota/                  # update（FOTA 管理，libfota3）/ fota（废弃占位）
+│   ├── gnss/                  # normal（GNSS 卫星定位）
+│   ├── io/                    # gpio_util（电量检测与录音开关）/ led_util（双路 WS2812 状态指示）
+│   ├── media/                 # sd_test（TF 卡挂载与录音数据库）
+│   └── sys/                   # mem_monitor（内存监控）
+├── drv/                       # 外设驱动
+│   ├── audio/es7243e.lua      # ES7243E 录音 ADC 驱动
+│   ├── sensor/da221.lua       # DA221 加速度传感器与运动判定
+│   └── board/pins_Air780EGH.json  # 引脚定义
+└── libs/                      # 扩展库：airlbs / httpplus / libnet / libfota3 / prodmeta / exvib
 ```
+
+> 目录只是工程组织方式，烧录时脚本按文件名平铺进 `/luadb`，各模块 `require "xxx"` 不带目录名（与 Air8780_factory 一致）；README 本身放在烧录目录之外，烧录时不会被打包。
 
 ## 四、启动流程
 

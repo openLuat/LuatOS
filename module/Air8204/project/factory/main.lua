@@ -25,6 +25,32 @@ VERSION：项目版本号，ascii string 类型
         如果使用合宙 iot.openluat.com 进行远程升级，必须按照 "XXX.YYY.ZZZ" 三段格式定义：
             X、Y、Z 各表示 1 位数字，因为历史原因，YYY 这三位数字必须存在，但没有任何用处
 ]]
+--[[
+==================== 工程目录结构（参照 Air8780_factory） ====================
+main.lua          入口（原 user/main.lua，已移到烧录根目录）
+app/              应用层，按功能分子目录
+  boot.lua            启动初始化 + 产测/出货分流
+  card_main.lua       出货模式装配入口
+  app.lua             业务调度（录音上传 / 状态上报 / 定位上报）
+  config.lua          全局配置表与状态枚举
+  device_ctrl.lua     云端下行命令处理
+  factory.lua         产测模式主控
+  net/                network_watchdog
+  aircloud/           excloud_app / lbs_util
+  web/                http_app（录音文件上传）
+  fota/               update / fota（后者为废弃占位）
+  gnss/               normal（exgnss 开关与取经纬度）
+  io/                 gpio_util / led_util
+  media/              sd_test（TF 卡挂载 + 录音管理）
+  sys/                mem_monitor
+drv/               驱动层
+  audio/es7243e       录音 ADC（I2C1 配置 + I2S + AMR 编码）
+  sensor/da221        震动中断计数，联动 GNSS/LBS
+  board/pins_Air780EGH.json  LuaTools 引脚映射表
+libs/              扩展库拷贝：airlbs / httpplus / libnet / libfota3 / prodmeta / exvib
+
+烧录时脚本按文件名平铺进 /luadb，所以各模块 require "xxx" 一律不带目录名。
+]]
 PROJECT = "Air8204_Factory"
 -- iot 限制，只能上传 xxx.yyy.zzz 格式的三位数字版本号；因 yyy 不生效，建议中间一位永远写 000
 VERSION = "001.000.001"

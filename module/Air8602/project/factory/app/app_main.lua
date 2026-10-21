@@ -129,3 +129,9 @@ end
 if _G.project_config and _G.project_config.features and _G.project_config.features.file_transfer then
     require "file_transfer_app"
 end
+
+-- 双路 RS485 业务层（UART1 = 485_1 / UART2 = 485_2，内置方向控制 + 收发测试）
+-- 门控条件必须与 ui_main 里 rs485_win 的一致
+if _G.project_config and _G.project_config.features and _G.project_config.features.rs485 then
+    require "rs485_app"
+end

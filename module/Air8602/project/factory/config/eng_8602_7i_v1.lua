@@ -14,7 +14,7 @@
 2. Air8602 与 Air8601 硬件差异（新建本配置时已按 8602 校准）：
    ▪ 7寸屏驱动 IC 为 JD9165BA（免初始化 IC），非 9寸的 HX8282；RGB 时序同为 140/20/160/20/3/12 @50MHz，复用统一驱动 lcd_display_rgb。
    ▪ 无 UVC 摄像头（8601 有）→ 不声明 usb_camera / show_camera_preview。
-   ▪ 双路隔离 RS485（8601 单路）→ features.rs485 仅作能力声明，业务侧暂无消费方。
+   ▪ 双路隔离 RS485（8601 单路）→ UART1（485_1）+ UART2（485_2），已接入设置页「RS485 测试」。
    ▪ 无 I2C / UART 扩展接口、USB 转串口为 CH347F（双串口）。
 3. 触摸 GT911 走 I2C1（pins 复用 33/32），RST=GPIO72、INT=GPIO51，下降沿触发。
 4. 背光 PWM3 @1kHz；LCD_DISP = GPIO15（兼复位脚，display.init 内部做复位时序，power_on 里额外拉高作显示使能）。
@@ -109,6 +109,13 @@ return {
             record_format = "AMR_NB", -- 录音格式（AMR 体积小，上传 ASR 省内存）
             max_record_time = 30,   -- 最长录音时长(秒)，到时自动停止
         },
+        -- 双路隔离 RS485：UART1 = 485_1，UART2 = 485_2（方向脚由 uart.setup 第 8 参数内置切换）
+        rs485 = {
+            uart1 = { id = 1, dir_pin = 65, baud = 9600 }, -- 485_1：方向脚 = GPIO65（485_EN1 同构）
+            uart2 = { id = 2, dir_pin = 57, baud = 9600 }, -- 485_2：方向脚 = GPIO57（原理图 485_EN2）
+            rx_buff = 1024,    -- 单次接收缓冲（字节）
+            tx_delay = 20000,  -- 发送完成到切换接收的延时(us)，9600 建议 20000
+        },
     },
 
     -- ===== 功能开关（只写 = true 的项）=====
@@ -121,7 +128,7 @@ return {
                             --   语音生成 APP 的「录音→识别」在 Air1601 上录不到有效声音，
                             --   需 Air1602（对讲）才真正可用。功能保留，勿删。
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
-        rs485 = true,       -- 双路隔离 RS485 —— 能力声明，暂无业务消费方（UART1+UART2）
+        rs485 = true,       -- 双路隔离 RS485（UART1 485_1 + UART2 485_2）→ 设置页「RS485 测试」收发测试
         app_factory = true, -- 启用"应用工厂"内置应用
         ai_chat = true,     -- 启用"AI聊天助手"内置应用
         cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）

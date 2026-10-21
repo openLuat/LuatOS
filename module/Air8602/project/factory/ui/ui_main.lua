@@ -69,5 +69,9 @@ if _feat.file_transfer then
     require "file_transfer_win" -- 文件传输窗口（订阅 OPEN_FILE_TRANSFER_WIN）
 end
 
+if _feat.rs485 then
+    require "rs485_win"         -- 双路 RS485 测试窗口（订阅 OPEN_RS485_WIN）
+end
+
 -- 硬件初始化与启动编排（lcd→logo+背光→分批加载→BOOT_INIT_DONE）已移交 boot_ui，
 -- 本模块不再创建 init_ui_task。

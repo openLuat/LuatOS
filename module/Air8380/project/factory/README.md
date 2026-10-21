@@ -19,28 +19,42 @@ Air8380 工业模组（主控 Air8000W，4G Cat.1 + WiFi/BLE 协处理器）的*
 ## 2 目录
 
 ```
-8380/
-├─ README.md
-├─ doc/                     设计说明 + AirCloud 下行指令表
-└─ firmware/                ← Luatools 烧录时选这个目录
-   ├─ main.lua              入口：PROJECT/VERSION、上电顺序
-   ├─ board.lua             硬件引脚与电源使能（唯一改引脚的文件）
-   ├─ app_config.lua        运行配置 + fskv 持久化
-   ├─ factory.lua           产测模式（USB 指令，集成自「8380出厂产测」）
-   ├─ prodmeta.lua          OTP 产品元数据（PROD/PCB）
-   ├─ net_drv.lua           网卡驱动 + 多网融合
-   ├─ aircloud_app.lua      AirCloud 上报 / 运维日志 / 下行命令
-   ├─ airlbs_app.lua        airlbs 定位（多基站 / 多基站+WiFi）
-   ├─ fota_app.lua          FOTA 封装
-   ├─ net_watchdog.lua      网络看门狗
-   ├─ storage.lua           SPI Flash 挂载与文件读写
-   └─ status.lua            运行状态聚合
+factory/
+├── main.lua                  入口：PROJECT/VERSION、上电顺序
+├── app/
+│   ├── factory.lua           产测模式（USB 指令，集成自「8380出厂产测」）
+│   ├── net/
+│   │   ├── net_drv.lua       网卡驱动 + 多网融合
+│   │   └── net_watchdog.lua  网络看门狗
+│   ├── aircloud/
+│   │   ├── aircloud_app.lua  AirCloud 上报 / 运维日志 / 下行命令
+│   │   └── airlbs_app.lua    airlbs 定位（多基站 / 多基站+WiFi）
+│   ├── fota/
+│   │   └── fota_app.lua      FOTA 封装
+│   └── sys/
+│       ├── app_config.lua    运行配置 + fskv 持久化
+│       ├── status.lua        运行状态聚合
+│       └── storage.lua       SPI Flash 挂载与文件读写
+├── drv/
+│   └── board/
+│       └── board.lua         硬件引脚与电源使能（唯一改引脚的文件）
+└── libs/
+    ├── airlbs.lua            airlbs 定位服务
+    ├── dhcpsrv.lua           exnetif 顶层依赖，必须随工程存在（本工程不再启用 AP）
+    ├── dnsproxy.lua          exnetif 顶层依赖，必须随工程存在（本工程不再启用 AP）
+    ├── exnetif.lua           多网融合优先级调度
+    ├── httpdns.lua           exnetif 顶层依赖，必须随工程存在（本工程不再启用 AP）
+    ├── libfota3.lua          FOTA 整机升级
+    ├── libnet.lua            airlbs 定位服务的网络底层
+    └── prodmeta.lua          OTP 产品元数据（PROD/PCB）
 ```
+
+> 目录只是工程组织方式，烧录时脚本按文件名平铺进 `/luadb`，各模块 `require "xxx"` 不带目录名（与 Air8780_factory 一致）；README 本身放在烧录目录之外，烧录时不会被打包。
 
 ## 3 烧录
 
 1. USB 连接 8380（或 5 个调试过孔 + 下载转接板）；
-2. Luatools 选脚本目录 `firmware/`，底层选 Air8000W 对应固件（114 号，V2052 及以上）；
+2. Luatools 选脚本目录 `factory/`，底层选 Air8000W 对应固件（114 号，V2052 及以上）；
 3. 烧录后日志首行应为 `I/user.main Air8380_Factory 001.999.001`。
 
 > 脚本区容量有限：不要把文档、图片、readme 放进 `firmware/`。

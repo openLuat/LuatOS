@@ -14,6 +14,21 @@
 产测模式的 factory.lua 自带任务，直接 require 即可。
 ]]
 
+--[[
+==================== 工程目录结构（参照 Air8780_factory） ====================
+main.lua          入口（原 user/main.lua，已移到烧录根目录）
+app/              应用层，按功能分子目录
+  factory.lua         产测模式主控（USB 虚拟串口指令）
+  net/                net_drv / net_watchdog
+  aircloud/           aircloud_app / airlbs_app
+  fota/               fota_app
+  sys/                app_config / status / storage
+drv/board/board.lua  硬件引脚与电源定义（全工程唯一引脚来源）
+libs/              扩展库拷贝：airlbs / dhcpsrv / dnsproxy / exnetif / httpdns /
+                   libfota3 / libnet / prodmeta
+
+烧录时脚本按文件名平铺进 /luadb，所以各模块 require "xxx" 一律不带目录名。
+]]
 PROJECT = "Air8380_Factory"
 VERSION = "001.999.001"
 

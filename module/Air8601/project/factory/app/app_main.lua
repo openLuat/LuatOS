@@ -22,6 +22,7 @@ require 即执行，main.lua 调用 require "app_main" 时以下模块按顺序�
  10. file_manager_app → 文件管理业务层
  11. factory_app   → 应用工厂业务层（仅 features.app_factory 时加载，级联 factory_rec）
  12. llm_chat      → AI 助手业务层（仅 features.ai_chat 时加载）
+ 13. face_app      → 人脸识别业务层（仅 features.face_recognition 时加载）
 
 === 网络架构变化 ===
 
@@ -128,4 +129,10 @@ end
 -- 门控条件必须与 ui_main 里 file_transfer_win 的一致（见上方 cloud_disk 的说明）
 if _G.project_config and _G.project_config.features and _G.project_config.features.file_transfer then
     require "file_transfer_app"
+end
+
+-- 人脸识别业务层（AirCAMERA_1034 人脸模组，UART2 115200 8N1，订阅 FACE_*_REQ）
+-- 门控条件必须与 ui_main 里 settings_face_win 的一致（见上方 cloud_disk 的说明）
+if _G.project_config and _G.project_config.features and _G.project_config.features.face_recognition then
+    require "face_app"
 end

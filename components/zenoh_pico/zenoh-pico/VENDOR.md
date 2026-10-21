@@ -51,3 +51,24 @@
    `LUAT_USE_ZENOH_PICO=y xmake`，确认无缺头文件报错。
 
 裁剪只按"目录 + 头文件闭包"机械处理，不改写任何上游源码；因此与上游的差异永远只有"少了哪些文件"。
+
+## 行尾（LF）
+
+上游是 LF，本目录也必须是 LF——否则"逐字节未修改"就不成立了。在 Windows 上复制时
+容易整棵树变成 CRLF（等于每个文件多出一个 `CR`/行），所以：
+
+- `components/zenoh_pico/.gitattributes` 已把本目录钉成 `* text=auto eol=lf`，
+  `git add` 时自动归一到 LF；
+- 复制完可用下列命令自查，输出为空才算干净：
+
+  ```sh
+  git ls-files --eol -- components/zenoh_pico | grep -v 'i/lf'
+  git diff --ignore-cr-at-eol --stat -- components/zenoh_pico   # 必须为空
+  ```
+
+- 想确认某个文件与上游完全一致，直接比 blob 哈希（比"看行数"可靠）：
+
+  ```sh
+  git hash-object components/zenoh_pico/zenoh-pico/include/zenoh-pico/api/primitives.h
+  # 应等于上游 1.9.0 同名文件的 blob sha
+  ```

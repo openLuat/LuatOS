@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>农业大棚智能控制大屏 · Agri Greenhouse Control Center</title>
+<style>
+  :root{
+    --bg0:#040c1a; --bg1:#071629; --bg2:#0b2138;
+    --card:rgba(12,33,58,.72); --card2:rgba(16,42,72,.55);
+    --line:rgba(0,200,255,.16); --line2:rgba(0,200,255,.30);
+    --cyan:#22d9ff; --blue:#3e7bff; --green:#2ee6a0;
+    --amber:#ffc857; --orange:#ff9440; --red:#ff5b6e; --purple:#9d7bff;
+    --txt:#dcebff; --txt2:#8fb2d4; --txt3:#5c7fa6;
+    --sh:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:100%;height:100%;background:var(--bg0);overflow:hidden;
+    font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;color:var(--txt);}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(34,217,255,.10), transparent 60%),
+      radial-gradient(1000px 620px at 90% 110%, rgba(46,230,160,.10), transparent 60%),
+      linear-gradient(160deg,#04101f 0%,#061527 45%,#040d1a 100%);
+    position:relative;
+  }
+  body::before{
+    content:"";position:absolute;inset:0;pointer-events:none;opacity:.35;
+    background-image:
+      linear-gradient(rgba(34,217,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,217,255,.05) 1px, transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse at center, #000 30%, transparent 85%);
+    -webkit-mask-image:radial-gradient(ellipse at center, #000 30%, transparent 85%);
+  }
+  #screen{
+    width:1920px;height:1080px;position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%) scale(1);transform-origin:center center;
+    padding:14px;display:flex;flex-direction:column;gap:12px;
+  }
+
+  /* ===== 顶部条 ===== */
+  .topbar{
+    height:82px;flex:none;display:flex;align-items:center;gap:24px;padding:0 22px;
+    background:linear-gradient(90deg, rgba(10,30,54,.85), rgba(13,42,72,.6) 40%, rgba(10,30,54,.85));
+    border:1px solid var(--line);border-radius:12px;position:relative;overflow:hidden;box-shadow:var(--sh);
+  }
+  .topbar::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--cyan),var(--green),transparent);opacity:.8;
+  }
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand .logo{
+    width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(145deg, rgba(34,217,255,.22), rgba(46,230,160,.18));
+    border:1px solid var(--line2);box-shadow:0 0 22px rgba(34,217,255,.25);
+  }
+  .brand h1{
+    font-size:30px;letter-spacing:3px;font-weight:700;white-space:nowrap;
+    background:linear-gradient(180deg,#eaf7ff,#7fe4ff 55%,#2ee6a0);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .brand p{font-size:11px;letter-spacing:2.4px;color:var(--txt3);margin-top:3px;text-transform:uppercase;}
+  .kpi-row{display:flex;gap:12px;flex:1;justify-content:center;}
+  .kpi{
+    min-width:148px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(34,217,255,.10), rgba(34,217,255,.02));
+  }
+  .kpi .k-t{font-size:12px;color:var(--txt2);letter-spacing:1px;}
+  .kpi .k-v{font-size:23px;font-weight:700;line-height:1.25;font-family:"Segoe UI",Arial;}
+  .kpi .k-v small{font-size:12px;color:var(--txt2);font-weight:400;margin-left:3px;}
+  .kpi.good .k-v{color:var(--green);} .kpi.cool .k-v{color:var(--cyan);}
+  .kpi.warn{border-color:rgba(255,200,87,.4);background:linear-gradient(180deg, rgba(255,200,87,.12), rgba(255,200,87,.02));}
+  .kpi.warn .k-v{color:var(--amber);}
+  .top-right{display:flex;align-items:center;gap:14px;}
+  .weather-mini{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;
+    background:rgba(34,217,255,.08);border:1px solid var(--line);}
+  .weather-mini .wt{font-size:12px;color:var(--txt2);line-height:1.6;}
+  .weather-mini .wt b{color:var(--txt);font-size:15px;}
+  .clock{text-align:right;}
+  .clock .c-time{font-size:29px;font-weight:700;letter-spacing:2px;color:#eaf7ff;
+    font-family:"Consolas","Segoe UI",monospace;line-height:1.1;}
+  .clock .c-date{font-size:12px;color:var(--txt2);letter-spacing:1.5px;margin-top:2px;}
+  .btn{
+    padding:8px 14px;border-radius:8px;border:1px solid var(--line2);color:var(--cyan);
+    background:rgba(34,217,255,.10);cursor:pointer;font-size:13px;letter-spacing:1px;
+    transition:.2s;user-select:none;white-space:nowrap;
+  }
+  .btn:hover{background:rgba(34,217,255,.22);box-shadow:0 0 16px rgba(34,217,255,.3);transform:translateY(-1px);}
+
+  /* ===== 主体栅格 ===== */
+  .main{flex:1;display:grid;grid-template-columns:462px 1fr 462px;gap:12px;min-height:0;}
+  .col{display:flex;flex-direction:column;gap:12px;min-height:0;}
+  .panel{
+    background:linear-gradient(180deg, var(--card), var(--card2));
+    border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);
+    display:flex;flex-direction:column;min-height:0;position:relative;overflow:hidden;
+  }
+  .panel::before,.panel::after{content:"";position:absolute;width:14px;height:14px;pointer-events:none;opacity:.65;}
+  .panel::before{left:-1px;top:-1px;border-left:2px solid var(--cyan);border-top:2px solid var(--cyan);border-top-left-radius:10px;}
+  .panel::after{right:-1px;bottom:-1px;border-right:2px solid var(--cyan);border-bottom:2px solid var(--cyan);border-bottom-right-radius:10px;}
+  .p-hd{
+    flex:none;height:40px;display:flex;align-items:center;gap:10px;padding:0 14px;
+    background:linear-gradient(90deg, rgba(34,217,255,.16), rgba(34,217,255,.02) 65%, transparent);
+    border-bottom:1px solid var(--line);
+  }
+  .p-hd .bar{width:4px;height:16px;border-radius:2px;background:linear-gradient(180deg,var(--cyan),var(--green));}
+  .p-hd .t{font-size:16px;font-weight:700;letter-spacing:1.5px;}
+  .p-hd .en{font-size:10px;letter-spacing:1.6px;color:var(--txt3);text-transform:uppercase;}
+  .p-hd .sp{flex:1;}
+  .p-hd .tag{font-size:11px;color:var(--txt2);padding:3px 10px;border-radius:20px;
+    border:1px solid var(--line);background:rgba(34,217,255,.07);}
+  .p-bd{flex:1;min-height:0;padding:12px 14px;overflow:hidden;}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 9px;border-radius:20px;letter-spacing:.5px;}
+  .chip.ok{color:var(--green);background:rgba(46,230,160,.13);border:1px solid rgba(46,230,160,.35);}
+  .chip.warn{color:var(--amber);background:rgba(255,200,87,.13);border:1px solid rgba(255,200,87,.35);}
+  .chip.bad{color:var(--red);background:rgba(255,91,110,.15);border:1px solid rgba(255,91,110,.4);}
+  .chip.info{color:var(--cyan);background:rgba(34,217,255,.12);border:1px solid rgba(34,217,255,.32);}
+  .chip.off{color:var(--txt3);background:rgba(143,178,212,.10);border:1px solid rgba(143,178,212,.22);}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+  .dot.g{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.8s infinite;}
+  .dot.y{background:var(--amber);box-shadow:0 0 8px var(--amber);}
+  .dot.r{background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse 1.2s infinite;}
+  .dot.gray{background:var(--txt3);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes scan{0%{transform:translateX(-40px);}100%{transform:translateX(920px);}}
+  @keyframes rise{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  /* ===== 仪表 ===== */
+  .gauge-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;height:100%;}
+  .gauge{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .gauge > svg{width:100%;height:96px;display:block;}
+  .g-label{position:absolute;top:0;left:6px;font-size:12px;color:var(--txt2);letter-spacing:1px;display:flex;align-items:center;gap:5px;}
+  .g-range{width:100%;display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);padding:0 30px;margin-top:-8px;}
+
+  /* ===== 区域卡片 ===== */
+  .zone-grid{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;height:100%;}
+  .zone{
+    border:1px solid var(--line);border-radius:10px;padding:9px 10px;position:relative;overflow:hidden;
+    background:linear-gradient(160deg, rgba(34,217,255,.09), rgba(34,217,255,.02) 55%, rgba(46,230,160,.05));
+    display:flex;flex-direction:column;gap:6px;cursor:pointer;transition:.25s;
+  }
+  .zone:hover{border-color:var(--line2);transform:translateY(-2px);box-shadow:0 8px 22px rgba(34,217,255,.16);}
+  .zone .z-hd{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .zone .z-name{font-size:13px;font-weight:700;letter-spacing:.5px;white-space:nowrap;}
+  .zone .z-id{font-size:10px;color:var(--txt3);letter-spacing:1px;}
+  .z-row{display:flex;align-items:center;gap:7px;}
+  .z-row .zi{width:15px;height:15px;opacity:.9;flex:none;}
+  .z-row b{font-size:19px;font-weight:700;font-family:"Segoe UI",Arial;line-height:1;}
+  .z-row i{font-style:normal;font-size:10px;color:var(--txt2);margin-left:-3px;}
+  .bar{flex:1;height:5px;border-radius:4px;background:rgba(143,178,212,.18);overflow:hidden;}
+  .bar span{display:block;height:100%;border-radius:4px;transition:width .8s;}
+  .z-spark{width:100%;height:24px;opacity:.85;}
+
+  /* ===== 表格 ===== */
+  .tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .tbl th{
+    color:var(--txt2);font-weight:500;letter-spacing:1px;font-size:11.5px;padding:6px 5px;
+    background:rgba(34,217,255,.09);border-bottom:1px solid var(--line);
+  }
+  .tbl th:first-child{border-top-left-radius:8px;border-bottom-left-radius:8px;text-align:left;}
+  .tbl th:last-child{border-top-right-radius:8px;border-bottom-right-radius:8px;}
+  .tbl td{padding:6.5px 5px;text-align:center;border-bottom:1px dashed rgba(34,217,255,.12);}
+  .tbl tr:hover td{background:rgba(34,217,255,.07);}
+  .tbl .zone-col{text-align:left;font-weight:700;white-space:nowrap;}
+  .mini-bar{width:58px;height:5px;border-radius:4px;background:rgba(143,178,212,.18);display:inline-block;overflow:hidden;vertical-align:middle;margin-left:5px;}
+  .mini-bar span{display:block;height:100%;border-radius:4px;}
+
+  /* ===== 棚区分布图 ===== */
+  .map-wrap{position:relative;height:100%;}
+  .map-wrap svg.map{width:100%;height:100%;display:block;}
+  .scanline{animation:scan 6s linear infinite;}
+  .legend{position:absolute;right:4px;bottom:0;display:flex;gap:12px;font-size:11px;color:var(--txt2);}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px;}
+
+  /* ===== 趋势图 ===== */
+  .tabs{display:flex;gap:8px;}
+  .tab{font-size:12px;padding:4px 13px;border-radius:16px;border:1px solid var(--line);
+    color:var(--txt2);cursor:pointer;transition:.2s;user-select:none;letter-spacing:1px;}
+  .tab:hover{color:var(--cyan);border-color:var(--line2);}
+  .tab.on{color:#04222e;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--green));border-color:transparent;}
+  .chart-wrap{position:relative;height:100%;}
+  .chart-wrap svg{width:100%;height:100%;display:block;}
+  .legend-row{display:flex;gap:18px;font-size:11.5px;color:var(--txt2);align-items:center;}
+  .legend-row .li{display:flex;align-items:center;gap:6px;}
+  .legend-row .sw{width:18px;height:4px;border-radius:3px;display:inline-block;}
+  .tip{
+    position:absolute;pointer-events:none;min-width:158px;padding:9px 12px;border-radius:8px;
+    background:rgba(8,26,46,.95);border:1px solid var(--line2);box-shadow:0 8px 24px rgba(0,0,0,.4);
+    font-size:12px;line-height:1.9;opacity:0;transition:opacity .15s;z-index:20;
+  }
+  .tip b{color:var(--cyan);letter-spacing:1px;}
+  .tip .r{display:flex;justify-content:space-between;gap:14px;}
+  .tip .r span:last-child{font-weight:700;font-family:"Segoe UI",Arial;}
+
+  /* ===== 设备控制 ===== */
+  .mode-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+  .mode-btn{
+    padding:6px 14px;font-size:12.5px;border-radius:8px;cursor:pointer;letter-spacing:1px;
+    border:1px solid var(--line);background:rgba(34,217,255,.07);color:var(--txt2);transition:.2s;
+  }
+  .mode-btn:hover{color:var(--cyan);border-color:var(--line2);transform:translateY(-1px);}
+  .mode-btn.on{
+    color:#04222e;font-weight:700;border-color:transparent;
+    background:linear-gradient(135deg,var(--amber),#ffa62e);box-shadow:0 6px 18px rgba(255,166,46,.28);
+  }
+  .dev-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .dev{
+    border:1px solid var(--line);border-radius:10px;padding:9px 10px 8px;position:relative;overflow:hidden;
+    background:linear-gradient(170deg, rgba(34,217,255,.08), rgba(34,217,255,.015));
+    cursor:pointer;transition:.25s;user-select:none;
+  }
+  .dev:hover{transform:translateY(-2px);border-color:var(--line2);box-shadow:0 10px 22px rgba(34,217,255,.16);}
+  .dev.on{
+    border-color:rgba(46,230,160,.5);
+    background:linear-gradient(170deg, rgba(46,230,160,.16), rgba(46,230,160,.03));
+    box-shadow:0 0 22px rgba(46,230,160,.14) inset;
+  }
+  .dev .d-hd{display:flex;align-items:center;gap:8px;}
+  .dev .d-ic{
+    width:32px;height:32px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    background:rgba(34,217,255,.12);border:1px solid var(--line);
+  }
+  .dev.on .d-ic{background:rgba(46,230,160,.18);border-color:rgba(46,230,160,.4);}
+  .dev .d-name{font-size:13.5px;font-weight:700;letter-spacing:.5px;}
+  .dev .d-sub{font-size:10px;color:var(--txt3);letter-spacing:1px;margin-top:1px;}
+  .dev .d-st{margin:7px 0 6px;display:flex;align-items:center;justify-content:space-between;}
+  .dev .d-val{font-size:11px;color:var(--txt2);letter-spacing:.5px;}
+  .dev .d-val b{color:var(--cyan);font-size:12.5px;font-family:"Segoe UI",Arial;}
+  .dev.on .d-val b{color:var(--green);}
+  .sw{width:38px;height:20px;border-radius:12px;background:rgba(143,178,212,.25);position:relative;transition:.25s;flex:none;}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;
+    background:#cfe6ff;transition:.25s;box-shadow:0 2px 6px rgba(0,0,0,.35);}
+  .dev.on .sw{background:linear-gradient(135deg,var(--green),#12b981);}
+  .dev.on .sw::after{left:20px;}
+  .d-foot{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;color:var(--txt3);letter-spacing:.5px;}
+  .fan-spin{animation:spin 1.6s linear infinite;transform-origin:12px 12px;}
+
+  /* ===== 气象 / 水质 / 告警 / toast ===== */
+  .wx-top{display:flex;gap:12px;align-items:center;}
+  .wx-main{flex:none;width:172px;height:172px;position:relative;}
+  .wx-main svg{width:100%;height:100%;}
+  .wx-stats{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .wx-cell{border:1px solid var(--line);border-radius:9px;padding:6px 9px;background:rgba(34,217,255,.055);}
+  .wx-cell .l{font-size:10.5px;color:var(--txt3);letter-spacing:1px;display:flex;align-items:center;gap:5px;}
+  .wx-cell .v{font-size:19px;font-weight:700;font-family:"Segoe UI",Arial;margin-top:2px;}
+  .wx-cell .v small{font-size:10px;color:var(--txt2);margin-left:3px;font-weight:400;}
+  .wx-foot{margin-top:10px;display:flex;gap:8px;}
+  .wx-foot .f{flex:1;text-align:center;border:1px solid var(--line);border-radius:9px;padding:6px 4px;background:rgba(34,217,255,.05);}
+  .wx-foot .f .l{font-size:10px;color:var(--txt3);letter-spacing:1px;}
+  .wx-foot .f .v{font-size:16px;font-weight:700;margin-top:2px;font-family:"Segoe UI",Arial;}
+
+  .wq-score{display:flex;align-items:center;gap:14px;margin-bottom:10px;}
+  .wq-ring{width:100px;height:100px;flex:none;position:relative;}
+  .wq-ring svg{width:100%;height:100%;}
+  .wq-ring .txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .wq-ring .txt b{font-size:25px;font-weight:700;color:var(--green);font-family:"Segoe UI",Arial;line-height:1;}
+  .wq-ring .txt i{font-style:normal;font-size:10px;color:var(--txt3);letter-spacing:2px;margin-top:3px;}
+  .wq-note{flex:1;font-size:12px;color:var(--txt2);line-height:2;}
+  .wq-note .hl{color:var(--green);}
+  .wq-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  .wq-cell{border:1px solid var(--line);border-radius:9px;padding:6px 8px;background:rgba(34,217,255,.05);position:relative;}
+  .wq-cell .l{font-size:10.5px;color:var(--txt3);letter-spacing:1px;display:flex;align-items:center;gap:5px;}
+  .wq-cell .v{font-size:18px;font-weight:700;font-family:"Segoe UI",Arial;margin-top:3px;}
+  .wq-cell .v small{font-size:10px;color:var(--txt2);font-weight:400;margin-left:2px;}
+  .wq-cell .st{position:absolute;right:7px;top:6px;}
+
+  .alarm-sum{display:flex;gap:8px;margin-bottom:10px;}
+  .alarm-sum .s{flex:1;text-align:center;border-radius:9px;padding:7px 4px;border:1px solid var(--line);background:rgba(34,217,255,.05);}
+  .alarm-sum .s .v{font-size:21px;font-weight:700;font-family:"Segoe UI",Arial;}
+  .alarm-sum .s .l{font-size:10.5px;color:var(--txt3);letter-spacing:1.5px;margin-top:1px;}
+  .alarm-list{height:calc(100% - 74px);overflow-y:auto;padding-right:6px;}
+  .alarm-list::-webkit-scrollbar{width:5px;}
+  .alarm-list::-webkit-scrollbar-thumb{background:rgba(34,217,255,.35);border-radius:4px;}
+  .alarm-list::-webkit-scrollbar-track{background:rgba(34,217,255,.07);border-radius:4px;}
+  .al{
+    display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-radius:9px;margin-bottom:8px;
+    border:1px solid var(--line);background:rgba(34,217,255,.045);animation:rise .4s ease both;
+  }
+  .al.lv1{border-color:rgba(255,91,110,.38);background:rgba(255,91,110,.09);}
+  .al.lv2{border-color:rgba(255,200,87,.32);background:rgba(255,200,87,.07);}
+  .al .ic{width:28px;height:28px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(34,217,255,.12);}
+  .al.lv1 .ic{background:rgba(255,91,110,.18);}
+  .al.lv2 .ic{background:rgba(255,200,87,.16);}
+  .al .bd{flex:1;min-width:0;}
+  .al .l1{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--txt3);letter-spacing:.8px;}
+  .al .msg{font-size:12.5px;line-height:1.65;margin-top:3px;color:var(--txt);}
+  .al .act{margin-top:6px;display:flex;gap:8px;}
+  .al .mini-btn{
+    font-size:11px;padding:3px 11px;border-radius:6px;cursor:pointer;letter-spacing:1px;
+    border:1px solid var(--line2);color:var(--cyan);background:rgba(34,217,255,.10);transition:.2s;
+  }
+  .al .mini-btn:hover{background:rgba(34,217,255,.24);}
+  .al.done{opacity:.52;}
+  .al.done .mini-btn{color:var(--green);border-color:rgba(46,230,160,.4);background:rgba(46,230,160,.10);cursor:default;}
+
+  #toast{
+    position:absolute;top:112px;left:50%;transform:translateX(-50%) translateY(-12px);
+    padding:11px 26px;border-radius:10px;font-size:14px;letter-spacing:1.5px;z-index:99;
+    background:rgba(10,32,56,.96);border:1px solid var(--line2);color:var(--cyan);
+    box-shadow:0 12px 34px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:.35s;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div id="screen">
+  <div id="toast"></div>
+
+  <!-- ======== 顶部 ======== -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2ee6a0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 20C4 11 10 5 20 4c1 10-4 16-11 16-2.4 0-5-.3-5-1z" fill="rgba(46,230,160,.18)"/>
+          <path d="M5 20C8 14 12 10 17 7"/><path d="M14 12h3v3"/><circle cx="17" cy="12" r="1.4" fill="#22d9ff" stroke="none"/><circle cx="14" cy="16" r="1.4" fill="#22d9ff" stroke="none"/>
+        </svg>
+      </div>
+      <div>
+        <h1>农业大棚智能控制大屏</h1>
+        <p>Agri-Greenhouse Smart Control Center · Air8607</p>
+      </div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi cool"><div class="k-t">棚内平均温度</div><div class="k-v" id="kpi-temp">26.4<small>℃</small></div></div>
+      <div class="kpi cool"><div class="k-t">棚内平均湿度</div><div class="k-v" id="kpi-hum">68<small>%RH</small></div></div>
+      <div class="kpi good"><div class="k-t">CO₂ 浓度</div><div class="k-v" id="kpi-co2">620<small>ppm</small></div></div>
+      <div class="kpi good"><div class="k-t">光照强度</div><div class="k-v" id="kpi-lux">32.4<small>klux</small></div></div>
+      <div class="kpi warn"><div class="k-t">今日告警 / 待处理</div><div class="k-v"><span id="kpi-alarm">5</span><small>条 / </small><span id="kpi-pending">3</span><small>条</small></div></div>
+      <div class="kpi good"><div class="k-t">传感器在线</div><div class="k-v">32<small>/ 34 台</small></div></div>
+      <div class="kpi cool"><div class="k-t">设备运行</div><div class="k-v"><span id="kpi-dev">4</span><small>/ 10 台</small></div></div>
+    </div>
+    <div class="top-right">
+      <div class="weather-mini">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#ffc857" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="12" cy="10" r="4"/><path d="M12 2.5v2M12 15.5v2M4 10H2M22 10h-2M5.6 3.6 7 5M18.4 3.6 17 5"/>
+          <path d="M6 20h11a3 3 0 0 0 0-6 4.5 4.5 0 0 0-8.4-1.2A3.2 3.2 0 0 0 6 20z" fill="rgba(255,200,87,.15)"/>
+        </svg>
+        <div class="wt">
+          <b id="wx-out">22.6℃</b> 多云转晴<br>
+          <span id="wx-wind">东南风 3级 · 3.4m/s</span>
+        </div>
+      </div>
+      <div class="clock">
+        <div class="c-time" id="clock-time">00:00:00</div>
+        <div class="c-date" id="clock-date">2026-01-01 星期四</div>
+      </div>
+      <div class="btn" id="btn-full">全屏显示</div>
+      <div class="btn" id="btn-refresh">刷新数据</div>
+    </div>
+  </div>
+
+  <!-- ======== 主体 ======== -->
+  <div class="main">
+
+    <!-- ===== 左列 ===== -->
+    <div class="col">
+      <section class="panel" style="height:250px">
+        <div class="p-hd"><span class="bar"></span><span class="t">环境实时指标</span><span class="en">Environment</span><span class="sp"></span><span class="tag"><span class="dot g"></span> 实时采集 5s</span></div>
+        <div class="p-bd"><div class="gauge-grid" id="gauge-grid"></div></div>
+      </section>
+
+      <section class="panel" style="flex:1">
+        <div class="p-hd"><span class="bar"></span><span class="t">分区环境监测</span><span class="en">Zones</span><span class="sp"></span><span class="tag" id="zone-tag">6 个区域 · 12 路温湿度</span></div>
+        <div class="p-bd"><div class="zone-grid" id="zone-grid"></div></div>
+      </section>
+
+      <section class="panel" style="height:300px">
+        <div class="p-hd"><span class="bar"></span><span class="t">土壤墒情监测</span><span class="en">Soil</span><span class="sp"></span><span class="tag"><span class="dot g"></span> 18 路土壤传感器</span></div>
+        <div class="p-bd">
+          <table class="tbl" id="soil-tbl">
+            <thead><tr>
+              <th>种植区域</th><th>土温(℃)</th><th>含水率</th><th>pH</th><th>EC(mS/cm)</th><th>状态</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <!-- ===== 中列 ===== -->
+    <div class="col">
+      <section class="panel" style="height:308px">
+        <div class="p-hd"><span class="bar"></span><span class="t">大棚区域分布总览</span><span class="en">Greenhouse Map</span><span class="sp"></span>
+          <span class="tag"><span class="dot g"></span> 6 棚区 · 10 类设备 · 环控联动正常</span></div>
+        <div class="p-bd">
+          <div class="map-wrap">
+            <svg class="map" viewBox="0 0 900 300" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <linearGradient id="zoneG" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="rgba(34,217,255,.18)"/><stop offset="100%" stop-color="rgba(34,217,255,.03)"/>
+                </linearGradient>
+                <linearGradient id="scanG" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="rgba(34,217,255,0)"/><stop offset="50%" stop-color="rgba(34,217,255,.16)"/><stop offset="100%" stop-color="rgba(34,217,255,0)"/>
+                </linearGradient>
+                <linearGradient id="ledG" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="rgba(255,200,87,0)"/><stop offset="50%" stop-color="rgba(255,200,87,.85)"/><stop offset="100%" stop-color="rgba(255,200,87,0)"/>
+                </linearGradient>
+              </defs>
+
+              <!-- 外棚轮廓 -->
+              <rect x="8" y="16" width="884" height="258" rx="14" fill="rgba(34,217,255,.035)" stroke="rgba(34,217,255,.35)" stroke-width="1.4"/>
+              <path d="M40 16 Q 190 -2 340 16" fill="none" stroke="rgba(34,217,255,.35)" stroke-width="1.4"/>
+              <path d="M340 16 Q 490 -2 640 16" fill="none" stroke="rgba(34,217,255,.35)" stroke-width="1.4"/>
+              <path d="M640 16 Q 770 -2 860 16" fill="none" stroke="rgba(34,217,255,.35)" stroke-width="1.4"/>
+              <text x="22" y="12" fill="#5c7fa6" font-size="11" letter-spacing="2">NORTH · 顶棚卷帘 / 遮阳网覆盖区</text>
+
+              <!-- 道路 -->
+              <line x1="30" y1="146" x2="872" y2="146" stroke="rgba(34,217,255,.28)" stroke-width="1.2" stroke-dasharray="10 8"/>
+              <line x1="312" y1="30" x2="312" y2="262" stroke="rgba(34,217,255,.18)" stroke-width="1" stroke-dasharray="8 8"/>
+              <line x1="592" y1="30" x2="592" y2="262" stroke="rgba(34,217,255,.18)" stroke-width="1" stroke-dasharray="8 8"/>
+
+              <!-- LED 补光灯带 -->
+              <rect x="46" y="36" width="250" height="3" fill="url(#ledG)" opacity=".55"/>
+              <rect x="326" y="36" width="250" height="3" fill="url(#ledG)" opacity=".55"/>
+              <rect x="606" y="36" width="250" height="3" fill="url(#ledG)" opacity=".55"/>
+              <rect x="46" y="150" width="250" height="3" fill="url(#ledG)" opacity=".35"/>
+              <rect x="326" y="150" width="250" height="3" fill="url(#ledG)" opacity=".35"/>
+              <rect x="606" y="150" width="250" height="3" fill="url(#ledG)" opacity=".35"/>
+
+              <!-- 6 个棚区 -->
+              <g id="map-zones">
+                <rect class="zone-rect" x="46" y="44" width="250" height="94" rx="10" fill="url(#zoneG)"/>
+                <rect class="zone-rect" x="326" y="44" width="250" height="94" rx="10" fill="url(#zoneG)"/>
+                <rect class="zone-rect hot" x="606" y="44" width="250" height="94" rx="10"/>
+                <rect class="zone-rect wet" x="46" y="158" width="250" height="94" rx="10"/>
+                <rect class="zone-rect" x="326" y="158" width="250" height="94" rx="10" fill="url(#zoneG)"/>
+                <rect class="zone-rect" x="606" y="158" width="250" height="94" rx="10" fill="url(#zoneG)"/>
+              </g>
+
+              <!-- 棚区文字 -->
+              <g font-family="Microsoft YaHei" >
+                <text x="60" y="70" fill="#dcebff" font-size="15" font-weight="bold">A1 · 育苗区</text>
+                <text x="60" y="102" fill="#22d9ff" font-size="22" font-weight="bold"><tspan id="map-t0">25.2</tspan><tspan font-size="12" fill="#8fb2d4">℃</tspan><tspan dx="14" fill="#2ee6a0" font-size="22"><tspan id="map-h0">75</tspan><tspan font-size="12" fill="#8fb2d4">%RH</tspan></tspan></text>
+                <text x="60" y="126" fill="#5c7fa6" font-size="11">雾培 · 24℃恒温 · 补光 60%</text>
+
+                <text x="340" y="70" fill="#dcebff" font-size="15" font-weight="bold">A2 · 番茄种植区</text>
+                <text x="340" y="102" fill="#22d9ff" font-size="22" font-weight="bold"><tspan id="map-t1">26.8</tspan><tspan font-size="12" fill="#8fb2d4">℃</tspan><tspan dx="14" fill="#2ee6a0" font-size="22"><tspan id="map-h1">68</tspan><tspan font-size="12" fill="#8fb2d4">%RH</tspan></tspan></text>
+                <text x="340" y="126" fill="#5c7fa6" font-size="11">开花期 · 滴灌运行 · CO₂ 650ppm</text>
+
+                <text x="620" y="70" fill="#dcebff" font-size="15" font-weight="bold">A3 · 黄瓜种植区</text>
+                <text x="620" y="102" fill="#ff9440" font-size="22" font-weight="bold"><tspan id="map-t2">28.6</tspan><tspan font-size="12" fill="#8fb2d4">℃</tspan><tspan dx="14" fill="#2ee6a0" font-size="22"><tspan id="map-h2">72</tspan><tspan font-size="12" fill="#8fb2d4">%RH</tspan></tspan></text>
+                <text x="620" y="126" fill="#ff9440" font-size="11">温度偏高 · 风机 + 湿帘已联动</text>
+
+                <text x="60" y="184" fill="#dcebff" font-size="15" font-weight="bold">B1 · 叶菜种植区</text>
+                <text x="60" y="216" fill="#22d9ff" font-size="22" font-weight="bold"><tspan id="map-t3">24.6</tspan><tspan font-size="12" fill="#8fb2d4">℃</tspan><tspan dx="14" fill="#ffc857" font-size="22"><tspan id="map-h3">84</tspan><tspan font-size="12" fill="#8fb2d4">%RH</tspan></tspan></text>
+                <text x="60" y="240" fill="#ffc857" font-size="11">湿度偏高 · 已开顶窗通风</text>
+
+                <text x="340" y="184" fill="#dcebff" font-size="15" font-weight="bold">B2 · 草莓种植区</text>
+                <text x="340" y="216" fill="#22d9ff" font-size="22" font-weight="bold"><tspan id="map-t4">23.9</tspan><tspan font-size="12" fill="#8fb2d4">℃</tspan><tspan dx="14" fill="#2ee6a0" font-size="22"><tspan id="map-h4">66</tspan><tspan font-size="12" fill="#8fb2d4">%RH</tspan></tspan></text>
+                <text x="340" y="240" fill="#5c7fa6" font-size="11">结果期 · 水肥一体 · 滴灌待机</text>
+
+                <text x="620" y="184" fill="#dcebff" font-size="15" font-weight="bold">B3 · 花卉育苗区</text>
+                <text x="620" y="216" fill="#22d9ff" font-size="22" font-weight="bold"><tspan id="map-t5">25.8</tspan><tspan font-size="12" fill="#8fb2d4">℃</tspan><tspan dx="14" fill="#2ee6a0" font-size="22"><tspan id="map-h5">70</tspan><tspan font-size="12" fill="#8fb2d4">%RH</tspan></tspan></text>
+                <text x="620" y="240" fill="#5c7fa6" font-size="11">催花期 · 补光 80% · 加热待机</text>
+              </g>
+
+              <!-- 设备标记 -->
+              <g font-family="Microsoft YaHei" font-size="11">
+                <g><rect x="22" y="288" width="86" height="0" fill="none"/></g>
+                <g transform="translate(30,272)"><rect width="72" height="22" rx="6" fill="rgba(46,230,160,.16)" stroke="rgba(46,230,160,.5)"/><text x="36" y="15" fill="#2ee6a0" text-anchor="middle">湿帘 ×2</text></g>
+                <g transform="translate(112,272)"><rect width="72" height="22" rx="6" fill="rgba(46,230,160,.16)" stroke="rgba(46,230,160,.5)"/><text x="36" y="15" fill="#2ee6a0" text-anchor="middle">风机 ×4</text></g>
+                <g transform="translate(194,272)"><rect width="82" height="22" rx="6" fill="rgba(34,217,255,.12)" stroke="rgba(34,217,255,.4)"/><text x="41" y="15" fill="#22d9ff" text-anchor="middle">卷帘 60%</text></g>
+                <g transform="translate(286,272)"><rect width="82" height="22" rx="6" fill="rgba(34,217,255,.12)" stroke="rgba(34,217,255,.4)"/><text x="41" y="15" fill="#22d9ff" text-anchor="middle">遮阳 70%</text></g>
+                <g transform="translate(378,272)"><rect width="82" height="22" rx="6" fill="rgba(34,217,255,.12)" stroke="rgba(34,217,255,.4)"/><text x="41" y="15" fill="#22d9ff" text-anchor="middle">喷淋待机</text></g>
+                <g transform="translate(470,272)"><rect width="82" height="22" rx="6" fill="rgba(46,230,160,.16)" stroke="rgba(46,230,160,.5)"/><text x="41" y="15" fill="#2ee6a0" text-anchor="middle">浇灌运行</text></g>
+                <g transform="translate(562,272)"><rect width="82" height="22" rx="6" fill="rgba(34,217,255,.12)" stroke="rgba(34,217,255,.4)"/><text x="41" y="15" fill="#22d9ff" text-anchor="middle">水肥待机</text></g>
+                <g transform="translate(654,272)"><rect width="82" height="22" rx="6" fill="rgba(34,217,255,.12)" stroke="rgba(34,217,255,.4)"/><text x="41" y="15" fill="#22d9ff" text-anchor="middle">加热待机</text></g>
+                <g transform="translate(746,272)"><rect width="82" height="22" rx="6" fill="rgba(46,230,160,.16)" stroke="rgba(46,230,160,.5)"/><text x="41" y="15" fill="#2ee6a0" text-anchor="middle">补光 80%</text></g>
+                <g transform="translate(822,272)"><rect width="56" height="22" rx="6" fill="rgba(255,200,87,.14)" stroke="rgba(255,200,87,.5)"/><text x="28" y="15" fill="#ffc857" text-anchor="middle">CO₂</text></g>
+              </g>
+
+              <!-- 喷淋/灌溉管线 -->
+              <path d="M60 143 H 856" stroke="rgba(46,230,160,.45)" stroke-width="1.6" stroke-dasharray="6 10" fill="none">
+                <animate attributeName="stroke-dashoffset" from="0" to="-64" dur="3s" repeatCount="indefinite"/>
+              </path>
+              <path d="M312 146 V 250 M592 146 V 250" stroke="rgba(34,217,255,.22)" stroke-width="1.2" stroke-dasharray="5 7" fill="none"/>
+
+              <!-- 扫描线 -->
+              <rect class="scanline" x="-60" y="16" width="70" height="258" fill="url(#scanG)"/>
+            </svg>
+            <div class="legend">
+              <span><i style="background:#2ee6a0"></i>环境适宜</span>
+              <span><i style="background:#ffc857"></i>需要关注</span>
+              <span><i style="background:#ff9440"></i>偏高/偏低</span>
+              <span><i style="background:#22d9ff"></i>设备通信正常</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:1">
+        <div class="p-hd"><span class="bar"></span><span class="t">24 小时环境趋势</span><span class="en">Trend</span><span class="sp"></span>
+          <div class="tabs" id="trend-tabs">
+            <div class="tab on" data-k="temp">温度</div>
+            <div class="tab" data-k="hum">湿度</div>
+            <div class="tab" data-k="co2">CO₂</div>
+            <div class="tab" data-k="lux">光照</div>
+          </div>
+        </div>
+        <div class="p-bd">
+          <div class="chart-wrap">
+            <svg id="trend-svg" viewBox="0 0 940 268" preserveAspectRatio="none"></svg>
+            <div class="tip" id="trend-tip"></div>
+          </div>
+          <div class="legend-row" style="margin-top:2px">
+            <div class="li"><span class="sw" style="background:#22d9ff"></span>棚内平均</div>
+            <div class="li"><span class="sw" style="background:#ff9440"></span>区域最高</div>
+            <div class="li"><span class="sw" style="background:#9d7bff"></span>区域最低</div>
+            <div class="li" style="margin-left:auto;color:#5c7fa6">数据每 5 分钟采样 · 单位 <b id="trend-unit" style="color:#22d9ff">℃</b></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="height:334px">
+        <div class="p-hd"><span class="bar"></span><span class="t">设备控制中心</span><span class="en">Devices</span><span class="sp"></span>
+          <span class="tag"><span class="dot g"></span> 自动环控已启用 · <span id="dev-run-tag">4</span> 台运行中</span></div>
+        <div class="p-bd">
+          <div class="mode-row" id="mode-row">
+            <div class="mode-btn on" data-mode="auto">自动环控</div>
+            <div class="mode-btn" data-mode="vent">通风降温</div>
+            <div class="mode-btn" data-mode="shade">遮阳防晒</div>
+            <div class="mode-btn" data-mode="light">补光增产</div>
+            <div class="mode-btn" data-mode="irrig">灌溉水肥</div>
+            <div class="mode-btn" data-mode="heat">加温保温</div>
+            <div class="mode-btn" data-mode="off">一键全关</div>
+          </div>
+          <div class="dev-grid" id="dev-grid"></div>
+        </div>
+      </section>
+    </div>
+    <!-- ===== 右列 ===== -->
+    <div class="col">
+      <section class="panel" style="height:296px">
+        <div class="p-hd"><span class="bar"></span><span class="t">室外气象站</span><span class="en">Weather</span><span class="sp"></span><span class="tag"><span class="dot g"></span> 采集正常</span></div>
+        <div class="p-bd">
+          <div class="wx-top">
+            <div class="wx-main">
+              <svg viewBox="0 0 200 200">
+                <defs>
+                  <radialGradient id="windG" cx="50%" cy="50%">
+                    <stop offset="60%" stop-color="rgba(34,217,255,0)"/><stop offset="100%" stop-color="rgba(34,217,255,.12)"/>
+                  </radialGradient>
+                </defs>
+                <circle cx="100" cy="100" r="88" fill="url(#windG)" stroke="rgba(34,217,255,.28)"/>
+                <circle cx="100" cy="100" r="64" fill="none" stroke="rgba(34,217,255,.18)" stroke-dasharray="4 6"/>
+                <circle cx="100" cy="100" r="38" fill="none" stroke="rgba(34,217,255,.18)" stroke-dasharray="4 6"/>
+                <g stroke="rgba(34,217,255,.35)">
+                  <line x1="100" y1="12" x2="100" y2="26"/><line x1="100" y1="174" x2="100" y2="188"/>
+                  <line x1="12" y1="100" x2="26" y2="100"/><line x1="174" y1="100" x2="188" y2="100"/>
+                  <line x1="38" y1="38" x2="48" y2="48"/><line x1="162" y1="38" x2="152" y2="48"/>
+                  <line x1="38" y1="162" x2="48" y2="152"/><line x1="162" y1="162" x2="152" y2="152"/>
+                </g>
+                <g fill="#8fb2d4" font-size="13" font-family="Microsoft YaHei" text-anchor="middle">
+                  <text x="100" y="14">北</text><text x="100" y="199">南</text>
+                  <text x="10" y="105">西</text><text x="192" y="105">东</text>
+                </g>
+                <g id="wind-arrow" transform="rotate(135 100 100)">
+                  <path d="M100 26 L 110 52 L 100 44 L 90 52 Z" fill="#22d9ff" opacity=".95"/>
+                  <line x1="100" y1="44" x2="100" y2="100" stroke="#22d9ff" stroke-width="2.4" stroke-linecap="round"/>
+                  <animateTransform attributeName="transform" type="rotate" values="135 100 100;141 100 100;135 100 100" dur="4s" repeatCount="indefinite" additive="replace"/>
+                </g>
+                <text x="100" y="92" text-anchor="middle" fill="#dcebff" font-size="12" font-family="Microsoft YaHei">东南风</text>
+                <text x="100" y="122" text-anchor="middle" fill="#22d9ff" font-size="30" font-weight="bold" font-family="Segoe UI" id="wind-speed">3.4</text>
+                <text x="100" y="140" text-anchor="middle" fill="#5c7fa6" font-size="11" font-family="Microsoft YaHei">m/s · 3 级</text>
+              </svg>
+            </div>
+            <div class="wx-stats">
+              <div class="wx-cell"><div class="l">室外温度</div><div class="v" id="out-temp">22.6<small>℃</small></div></div>
+              <div class="wx-cell"><div class="l">室外湿度</div><div class="v" id="out-hum">54<small>%RH</small></div></div>
+              <div class="wx-cell"><div class="l">大气压力</div><div class="v">1013<small>hPa</small></div></div>
+              <div class="wx-cell"><div class="l">光照强度</div><div class="v" id="out-lux">45.2<small>klux</small></div></div>
+            </div>
+          </div>
+          <div class="wx-foot">
+            <div class="f"><div class="l">今日降雨</div><div class="v">0.0<small style="font-size:10px;color:#8fb2d4"> mm</small></div></div>
+            <div class="f"><div class="l">瞬时风速</div><div class="v" id="wind-gust">5.1<small style="font-size:10px;color:#8fb2d4"> m/s</small></div></div>
+            <div class="f"><div class="l">风向</div><div class="v">东南<small style="font-size:10px;color:#8fb2d4"> 135°</small></div></div>
+            <div class="f"><div class="l">露点温度</div><div class="v">12.8<small style="font-size:10px;color:#8fb2d4"> ℃</small></div></div>
+            <div class="f"><div class="l">紫外线</div><div class="v">中等<small style="font-size:10px;color:#8fb2d4"> 5</small></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="height:300px">
+        <div class="p-hd"><span class="bar"></span><span class="t">灌溉水质监测</span><span class="en">Water Quality</span><span class="sp"></span><span class="tag"><span class="dot g"></span> 蓄水池 / 主管路</span></div>
+        <div class="p-bd">
+          <div class="wq-score">
+            <div class="wq-ring">
+              <svg viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(34,217,255,.12)" stroke-width="10"/>
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#2ee6a0" stroke-width="10" stroke-linecap="round"
+                        stroke-dasharray="289 314" transform="rotate(-90 60 60)"/>
+                <circle cx="60" cy="60" r="38" fill="rgba(46,230,160,.06)" stroke="rgba(46,230,160,.25)"/>
+              </svg>
+              <div class="txt"><b>92</b><i>WATER SCORE</i></div>
+            </div>
+            <div class="wq-note">
+              综合水质：<span class="hl">优良</span>，符合滴灌/水肥一体要求。<br>
+              最近检测：今天 14:30 · 过滤器压差正常<br>
+              建议：浊度接近上限，<span style="color:#ffc857">建议 3 日内反冲洗砂石过滤器</span>
+            </div>
+          </div>
+          <div class="wq-grid">
+            <div class="wq-cell"><div class="st chip ok">正常</div><div class="l">水温</div><div class="v" id="wq-t">18.6<small>℃</small></div><div class="bar" style="margin-top:6px"><span style="width:46%;background:linear-gradient(90deg,#22d9ff,#2ee6a0)"></span></div></div>
+            <div class="wq-cell"><div class="st chip ok">正常</div><div class="l">pH 值</div><div class="v" id="wq-ph">7.2</div><div class="bar" style="margin-top:6px"><span style="width:62%;background:linear-gradient(90deg,#22d9ff,#2ee6a0)"></span></div></div>
+            <div class="wq-cell"><div class="st chip ok">正常</div><div class="l">溶解氧</div><div class="v">6.8<small>mg/L</small></div><div class="bar" style="margin-top:6px"><span style="width:72%;background:linear-gradient(90deg,#22d9ff,#2ee6a0)"></span></div></div>
+            <div class="wq-cell"><div class="st chip ok">正常</div><div class="l">电导率</div><div class="v">1.24<small>mS/cm</small></div><div class="bar" style="margin-top:6px"><span style="width:52%;background:linear-gradient(90deg,#22d9ff,#2ee6a0)"></span></div></div>
+            <div class="wq-cell"><div class="st chip warn">关注</div><div class="l">浊度</div><div class="v">3.4<small>NTU</small></div><div class="bar" style="margin-top:6px"><span style="width:78%;background:linear-gradient(90deg,#ffc857,#ff9440)"></span></div></div>
+            <div class="wq-cell"><div class="st chip ok">正常</div><div class="l">蓄水池液位</div><div class="v">82<small>%</small></div><div class="bar" style="margin-top:6px"><span style="width:82%;background:linear-gradient(90deg,#22d9ff,#2ee6a0)"></span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:1">
+        <div class="p-hd"><span class="bar"></span><span class="t">智能告警中心</span><span class="en">Alarms</span><span class="sp"></span>
+          <span class="tag" id="alarm-tag"><span class="dot r"></span> 3 条待处理</span></div>
+        <div class="p-bd">
+          <div class="alarm-sum">
+            <div class="s"><div class="v" style="color:#ff5b6e" id="al-lv1">1</div><div class="l">紧急</div></div>
+            <div class="s"><div class="v" style="color:#ffc857" id="al-lv2">2</div><div class="l">警告</div></div>
+            <div class="s"><div class="v" style="color:#22d9ff" id="al-lv3">2</div><div class="l">提示</div></div>
+            <div class="s"><div class="v" style="color:#2ee6a0" id="al-done">0</div><div class="l">已处理</div></div>
+          </div>
+          <div class="alarm-list" id="alarm-list"></div>
+        </div>
+      </section>
+    </div>
+
+  </div>
+</div>
+<script>
+/* ================= 基础工具 ================= */
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const pad = n => (n < 10 ? '0' + n : '' + n);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+/* ================= 图标库 ================= */
+const ICONS = {
+  thermo:'<path d="M12 3a2 2 0 0 1 2 2v8.1a4.4 4.4 0 1 1-4 0V5a2 2 0 0 1 2-2z"/><circle cx="12" cy="17.4" r="1.7" fill="currentColor" stroke="none"/><path d="M12 8v7"/>',
+  humid:'<path d="M12 3.2s6.2 6.6 6.2 10.5A6.2 6.2 0 0 1 5.8 13.7C5.8 9.8 12 3.2 12 3.2z"/><path d="M9.2 14.2a2.9 2.9 0 0 0 2.4 2.6"/>',
+  co2:'<circle cx="12" cy="12" r="8.4"/><path d="M8 10.2a2 2 0 0 1 3.4-1.4M8 10.2v3.6a2 2 0 0 0 3.4 1.4M13 9h2.4a1.8 1.8 0 0 1 0 3.6H13zM13 12.6h2.8a1.8 1.8 0 0 1 0 3.6H13V9"/>',
+  sun:'<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4 7 7M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/>',
+  soil:'<path d="M3 8h18M3 13h18M3 18h18"/><path d="M7 8V5.5M12 8V4.5M17 8V6"/>',
+  ph:'<path d="M12 3.5s5.4 5.8 5.4 9.2A5.4 5.4 0 0 1 6.6 12.7C6.6 9.3 12 3.5 12 3.5z"/><text x="12" y="15.6" text-anchor="middle" font-size="6.4" stroke="none" fill="currentColor">pH</text>',
+  water:'<path d="M3 9c2-1.6 4-1.6 6 0s4 1.6 6 0 4-1.6 6 0"/><path d="M3 14c2-1.6 4-1.6 6 0s4 1.6 6 0 4-1.6 6 0"/><path d="M3 19c2-1.6 4-1.6 6 0s4 1.6 6 0 4-1.6 6 0"/>',
+  wind:'<path d="M3 8h11a2.6 2.6 0 1 0-2.6-2.8M3 12.5h15a2.8 2.8 0 1 1-2.8 3M3 17h8.5a2.3 2.3 0 1 1-2.3 2.5"/>',
+  shutter:'<rect x="4" y="3.5" width="16" height="4" rx="1.4"/><path d="M4 8h16M4 11.5h16M4 15h16"/><rect x="4" y="18" width="16" height="3" rx="1.2"/>',
+  wet:'<rect x="3.5" y="3.5" width="17" height="12" rx="1.6"/><path d="M3.5 8h17M3.5 11.7h17M8.6 3.5v12M15.4 3.5v12"/><path d="M8 18.4c0 1.3 1 2.1 1 2.1s1-.8 1-2.1a1 1 0 0 0-2 0zM14 18.4c0 1.3 1 2.1 1 2.1s1-.8 1-2.1a1 1 0 0 0-2 0z"/>',
+  fan:'<circle cx="12" cy="12" r="2.1"/><path d="M12 9.9c0-3.4 1-6.4 3.4-6.4S19 6.4 16.6 8.4c-1.6 1.3-3.6 1.5-4.6 1.5zM14.1 12c3.4 0 6.4 1 6.4 3.4S17.6 19 15.6 16.6c-1.3-1.6-1.5-3.6-1.5-4.6zM12 14.1c0 3.4-1 6.4-3.4 6.4S5 17.6 7.4 15.6c1.6-1.3 3.6-1.5 4.6-1.5zM9.9 12c-3.4 0-6.4-1-6.4-3.4S6.4 5 8.4 7.4c1.3 1.6 1.5 3.6 1.5 4.6z"/>',
+  shade:'<path d="M3 6.5h18M3 11h18M3 15.5h18M3 20h18"/><path d="M6.5 4v16M12 4v16M17.5 4v16"/>',
+  co2gen:'<rect x="5" y="7" width="14" height="13" rx="2"/><path d="M9 7V4.5h6V7"/><path d="M8.6 12h6.8M8.6 15.6h6.8"/><circle cx="12" cy="9.6" r=".9" fill="currentColor" stroke="none"/>',
+  spray:'<path d="M7 4h7v4H7z"/><path d="M10.5 8v3.5"/><path d="M6 20c0-2.6 2-4.4 4.5-4.4S15 17.4 15 20"/><path d="M17 5.5v2M20 7.5l-1.4 1M14.6 7.5 16 8.5M19.4 11.6h-2M17 14.6v-2"/>',
+  irrig:'<path d="M4 8h8v5a4 4 0 0 1-8 0z"/><path d="M12 10.5h4a2 2 0 0 1 2 2v1"/><path d="M18 14.5v1.2M20 16.6v1.2M16 16.6v1.2"/><path d="M6 8V6.2h4V8"/>',
+  fert:'<path d="M9 3.5h6v3l2.6 4.4a5 5 0 1 1-11.2 0L9 6.5z"/><path d="M7.2 13.2h9.6"/><circle cx="10.4" cy="16.4" r="1" fill="currentColor" stroke="none"/><circle cx="13.8" cy="17.8" r="1.2" fill="currentColor" stroke="none"/>',
+  heater:'<rect x="4" y="4" width="16" height="16" rx="2.2"/><path d="M8.6 16.4c-1-1.2-1-2.3 0-3.5s1-2.3 0-3.5M12 16.4c-1-1.2-1-2.3 0-3.5s1-2.3 0-3.5M15.4 16.4c-1-1.2-1-2.3 0-3.5s1-2.3 0-3.5"/>',
+  led:'<rect x="5.5" y="9" width="13" height="8" rx="1.8"/><path d="M8 9V6.4M12 9V5.4M16 9V6.4"/><path d="M9 12.2h6M9 14.6h6"/>',
+  bell:'<path d="M6.5 16.8V11a5.5 5.5 0 0 1 11 0v5.8l1.4 1.8H5.1z"/><path d="M10 20.2a2.1 2.1 0 0 0 4 0"/>',
+  drop:'<path d="M12 3.5s6 6.3 6 10a6 6 0 1 1-12 0c0-3.7 6-10 6-10z"/>',
+  temp:'<path d="M12 3a2 2 0 0 1 2 2v8.1a4.4 4.4 0 1 1-4 0V5a2 2 0 0 1 2-2z"/>',
+  check:'<path d="M5 12.5 10 17.5 19 7"/>',
+  gear:'<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.9 1.9M16.6 16.6l1.9 1.9M18.5 5.5l-1.9 1.9M7.4 16.6l-1.9 1.9"/>'
+};
+function ic(name, size, color) {
+  return '<svg width="' + (size || 16) + '" height="' + (size || 16) + '" viewBox="0 0 24 24" fill="none" stroke="' +
+    (color || 'currentColor') + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || '') + '</svg>';
+}
+
+/* ================= 数据 ================= */
+const zones = [
+  { id:'A1', name:'育苗区',     t:25.2, h:75, tOpt:[22,28], hOpt:[65,82], note:'雾培 · 24℃恒温' },
+  { id:'A2', name:'番茄种植区', t:26.8, h:68, tOpt:[22,30], hOpt:[60,80], note:'开花期 · 滴灌运行' },
+  { id:'A3', name:'黄瓜种植区', t:28.6, h:72, tOpt:[22,30], hOpt:[65,85], note:'温度偏高 · 风机联动' },
+  { id:'B1', name:'叶菜种植区', t:24.6, h:84, tOpt:[18,26], hOpt:[60,80], note:'湿度偏高 · 顶窗通风' },
+  { id:'B2', name:'草莓种植区', t:23.9, h:66, tOpt:[18,26], hOpt:[55,75], note:'结果期 · 水肥一体' },
+  { id:'B3', name:'花卉育苗区', t:25.8, h:70, tOpt:[20,28], hOpt:[60,80], note:'催花期 · 补光 80%' }
+];
+const soil = [
+  { z:'育苗区 A1',     t:22.4, w:58, ph:6.6, ec:1.3 },
+  { z:'番茄区 A2',     t:23.1, w:41, ph:6.4, ec:1.6 },
+  { z:'黄瓜区 A3',     t:23.8, w:46, ph:6.8, ec:1.5 },
+  { z:'叶菜区 B1',     t:21.9, w:63, ph:6.2, ec:1.2 },
+  { z:'草莓区 B2',     t:21.2, w:22, ph:6.1, ec:1.8 },
+  { z:'花卉区 B3',     t:22.8, w:52, ph:7.1, ec:1.1 }
+];
+const devices = [
+  { id:'shutter', name:'卷帘',     sub:'顶窗卷膜机', icon:'shutter', on:true,  val:'开度 60%',  foot:'自动 · 0.75kW' },
+  { id:'wet',     name:'湿帘',     sub:'蒸发降温',   icon:'wet',     on:false, val:'水泵待机',   foot:'自动 · 1.1kW' },
+  { id:'fan',     name:'风机',     sub:'环流 ×4',   icon:'fan',     on:true,  val:'转速 1200',  foot:'自动 · 0.55kW' },
+  { id:'shade',   name:'遮阳网',   sub:'外遮阳',     icon:'shade',   on:true,  val:'展开 70%',   foot:'自动 · 0.37kW' },
+  { id:'co2gen',  name:'CO₂发生器', sub:'气肥',      icon:'co2gen',  on:false, val:'目标 800ppm', foot:'自动 · 0.2kW' },
+  { id:'spray',   name:'喷淋',     sub:'微雾降温',   icon:'spray',   on:false, val:'待机',      foot:'手动 · 0.4kW' },
+  { id:'irrig',   name:'浇灌',     sub:'滴灌管路',   icon:'irrig',   on:true,  val:'流量 2.4m³/h', foot:'联动 · 1.5kW' },
+  { id:'fert',    name:'水肥',     sub:'施肥一体机', icon:'fert',    on:false, val:'EC 目标 1.6', foot:'待机 · 0.6kW' },
+  { id:'heat',    name:'加热',     sub:'热风炉',     icon:'heater',  on:false, val:'设定 18℃',  foot:'自动 · 3.0kW' },
+  { id:'led',     name:'LED补光',  sub:'补光灯组',   icon:'led',     on:true,  val:'亮度 80%',   foot:'定时 · 0.9kW' }
+];
+const alarms = [
+  { lv:1, time:'14:32', src:'叶菜区 B1', tag:'湿度上限', msg:'空气湿度 92%RH 超出上限，已自动开启顶窗与环流风机通风除湿。', done:false },
+  { lv:2, time:'14:05', src:'草莓区 B2', tag:'土壤缺墒', msg:'土壤含水率 22% 低于阈值 30%，已联动启动滴灌 15 分钟。', done:false },
+  { lv:2, time:'13:47', src:'室外气象站', tag:'大风预警', msg:'瞬时风速 8.2m/s 超过 7 级阈值，遮阳网与卷帘已自动收拢保护。', done:false },
+  { lv:3, time:'12:20', src:'灌溉水质', tag:'浊度偏高', msg:'浊度 3.4NTU 接近上限，建议 3 日内对砂石过滤器反冲洗。', done:true },
+  { lv:3, time:'11:58', src:'CO₂发生器', tag:'气瓶压力', msg:'气瓶剩余压力 18%，请在 2 日内安排更换或充装。', done:true }
+];
+/* 趋势数据（24 点，程序化生成，保证曲线自然） */
+function wave(base, amp, phase, jitter, seed) {
+  let s = seed; const out = [];
+  for (let i = 0; i < 24; i++) {
+    s = (s * 9301 + 49297) % 233280;
+    const v = base + amp * Math.sin((i - phase) / 24 * Math.PI * 2) + (s / 233280 - 0.5) * jitter;
+    out.push(Math.round(v * 10) / 10);
+  }
+  return out;
+}
+const TREND = {
+  temp: { unit:'℃', max:34, min:16, series:[
+    { name:'棚内平均', color:'#22d9ff', data: wave(25, 4.2, 8, 0.7, 11) },
+    { name:'区域最高', color:'#ff9440', data: wave(28, 4.6, 8, 0.8, 23) },
+    { name:'区域最低', color:'#9d7bff', data: wave(21.5, 3.4, 8, 0.6, 37) } ] },
+  hum: { unit:'%RH', max:100, min:30, series:[
+    { name:'棚内平均', color:'#22d9ff', data: wave(72, -11, 8, 2.2, 51) },
+    { name:'区域最高', color:'#ff9440', data: wave(84, -8, 8, 2.4, 63) },
+    { name:'区域最低', color:'#9d7bff', data: wave(58, -12, 8, 2.0, 77) } ] },
+  co2: { unit:'ppm', max:1200, min:300, series:[
+    { name:'棚内平均', color:'#22d9ff', data: wave(700, -240, 8, 40, 83) },
+    { name:'区域最高', color:'#ff9440', data: wave(820, -260, 8, 46, 97) },
+    { name:'区域最低', color:'#9d7bff', data: wave(560, -200, 8, 34, 113) } ] },
+  lux: { unit:'klux', max:60, min:0, series:[
+    { name:'棚内平均', color:'#22d9ff', data: (function(){ const o=[]; for(let i=0;i<24;i++){ o.push(Math.round(Math.max(0, 34*Math.sin((i-6)/12*Math.PI))*10)/10 + (i>18? 6:0)); } return o; })() },
+    { name:'区域最高', color:'#ff9440', data: (function(){ const o=[]; for(let i=0;i<24;i++){ o.push(Math.round(Math.max(0, 45*Math.sin((i-6)/12*Math.PI))*10)/10 + (i>18? 8:0)); } return o; })() },
+    { name:'区域最低', color:'#9d7bff', data: (function(){ const o=[]; for(let i=0;i<24;i++){ o.push(Math.round(Math.max(0, 18*Math.sin((i-6)/12*Math.PI))*10)/10 + (i>18? 3:0)); } return o; })() } ] }
+};
+/* ================= 仪表 ================= */
+const GAUGES = [
+  { key:'temp', label:'棚内温度',  icon:'thermo', unit:'℃',   min:10,  max:40,  val:26.4, color:'#22d9ff' },
+  { key:'hum',  label:'空气湿度',  icon:'humid',  unit:'%RH', min:20,  max:100, val:68,   color:'#2ee6a0' },
+  { key:'co2',  label:'CO₂浓度',  icon:'co2',    unit:'ppm', min:300, max:1500,val:620,  color:'#ffc857' },
+  { key:'lux',  label:'光照强度',  icon:'sun',    unit:'klux',min:0,   max:60,  val:32.4, color:'#9d7bff' }
+];
+function polar(cx, cy, r, deg) {
+  const a = deg * Math.PI / 180;
+  return [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+}
+function arcPath(cx, cy, r, a0, a1) {
+  const p0 = polar(cx, cy, r, a0), p1 = polar(cx, cy, r, a1);
+  const large = Math.abs(a1 - a0) > 180 ? 1 : 0;
+  return 'M ' + p0[0].toFixed(1) + ' ' + p0[1].toFixed(1) + ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + p1[0].toFixed(1) + ' ' + p1[1].toFixed(1);
+}
+function renderGauges() {
+  $('#gauge-grid').innerHTML = GAUGES.map(g => {
+    const cx = 100, cy = 96, r = 68, a0 = -135, a1 = 135;
+    const ratio = clamp((g.val - g.min) / (g.max - g.min), 0, 1);
+    const av = a0 + (a1 - a0) * ratio;
+    let ticks = '';
+    for (let k = 0; k <= 8; k++) {
+      const ang = a0 + (a1 - a0) * k / 8;
+      const p1 = polar(cx, cy, r + 6, ang), p2 = polar(cx, cy, r + (k % 4 === 0 ? 13 : 10), ang);
+      ticks += '<line x1="' + p1[0].toFixed(1) + '" y1="' + p1[1].toFixed(1) + '" x2="' + p2[0].toFixed(1) + '" y2="' + p2[1].toFixed(1) + '" stroke="rgba(34,217,255,' + (k % 4 === 0 ? '.45' : '.2') + ')" stroke-width="1.4"/>';
+    }
+    const nd = polar(cx, cy, r - 18, av), nd0 = polar(cx, cy, 8, av);
+    return '<div class="gauge">' +
+      '<div class="g-label">' + ic(g.icon, 14, g.color) + g.label + '</div>' +
+      '<svg viewBox="0 0 200 152">' +
+        '<defs><linearGradient id="gg-' + g.key + '" x1="0" y1="1" x2="1" y2="0">' +
+          '<stop offset="0%" stop-color="' + g.color + '" stop-opacity=".35"/><stop offset="100%" stop-color="' + g.color + '"/>' +
+        '</linearGradient></defs>' +
+        ticks +
+        '<path d="' + arcPath(cx, cy, r, a0, a1) + '" fill="none" stroke="rgba(143,178,212,.16)" stroke-width="11" stroke-linecap="round"/>' +
+        '<path d="' + arcPath(cx, cy, r, a0, av) + '" fill="none" stroke="url(#gg-' + g.key + ')" stroke-width="11" stroke-linecap="round"/>' +
+        '<line x1="' + nd0[0].toFixed(1) + '" y1="' + nd0[1].toFixed(1) + '" x2="' + nd[0].toFixed(1) + '" y2="' + nd[1].toFixed(1) + '" stroke="' + g.color + '" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>' +
+        '<circle cx="' + cx + '" cy="' + cy + '" r="5.5" fill="#071629" stroke="' + g.color + '" stroke-width="2"/>' +
+        '<text x="' + cx + '" y="66" text-anchor="middle" fill="' + g.color + '" font-size="27" font-weight="bold" font-family="Segoe UI,Arial">' + g.val + '</text>' +
+        '<text x="' + cx + '" y="86" text-anchor="middle" fill="#8fb2d4" font-size="12" font-family="Microsoft YaHei">' + g.unit + '</text>' +
+        '<text x="34" y="146" text-anchor="middle" fill="#5c7fa6" font-size="10">' + g.min + '</text>' +
+        '<text x="166" y="146" text-anchor="middle" fill="#5c7fa6" font-size="10">' + g.max + '</text>' +
+      '</svg></div>';
+  }).join('');
+}
+
+/* ================= 分区卡片 ================= */
+function spark(seed, color) {
+  let s = seed; const pts = [];
+  for (let i = 0; i < 12; i++) {
+    s = (s * 9301 + 49297) % 233280;
+    pts.push(4 + (s / 233280) * 16);
+  }
+  return '<svg class="z-spark" viewBox="0 0 120 26" preserveAspectRatio="none">' +
+    '<path d="M ' + pts.map((v, i) => (i * 110 / 11).toFixed(1) + ' ' + v.toFixed(1)).join(' L ') +
+    '" fill="none" stroke="' + color + '" stroke-width="1.6" opacity=".8"/></svg>';
+}
+function zoneStatus(z) {
+  if (z.t > z.tOpt[1] + 1) return { cls:'warn', txt:'温度偏高' };
+  if (z.t < z.tOpt[0]) return { cls:'warn', txt:'温度偏低' };
+  if (z.h > z.hOpt[1]) return { cls:'warn', txt:'湿度偏高' };
+  if (z.h < z.hOpt[0]) return { cls:'bad', txt:'湿度偏低' };
+  return { cls:'ok', txt:'环境适宜' };
+}
+function renderZones() {
+  $('#zone-grid').innerHTML = zones.map((z, i) => {
+    const st = zoneStatus(z);
+    const tp = clamp((z.t - 15) / 25 * 100, 4, 100), hp = clamp(z.h, 4, 100);
+    return '<div class="zone" data-i="' + i + '">' +
+      '<div class="z-hd"><div><div class="z-name">' + z.id + ' · ' + z.name + '</div><div class="z-id">' + z.note + '</div></div>' +
+        '<span class="chip ' + st.cls + '">' + st.txt + '</span></div>' +
+      '<div class="z-row">' + ic('thermo', 15, '#22d9ff') + '<b style="color:#22d9ff">' + z.t.toFixed(1) + '</b><i>℃</i>' +
+        '<div class="bar"><span style="width:' + tp + '%;background:linear-gradient(90deg,#22d9ff,#2ee6a0)"></span></div></div>' +
+      '<div class="z-row">' + ic('humid', 15, '#2ee6a0') + '<b style="color:#2ee6a0">' + Math.round(z.h) + '</b><i>%</i>' +
+        '<div class="bar"><span style="width:' + hp + '%;background:linear-gradient(90deg,#2ee6a0,#22d9ff)"></span></div></div>' +
+      spark(101 + i * 37, i % 2 ? '#2ee6a0' : '#22d9ff') + '</div>';
+  }).join('');
+}
+
+/* ================= 土壤表 ================= */
+function renderSoil() {
+  $('#soil-tbl tbody').innerHTML = soil.map(s => {
+    const st = s.w < 30 ? { c:'bad',  t:'缺墒' } : s.w < 42 ? { c:'warn', t:'偏干' } : { c:'ok', t:'适宜' };
+    const barColor = s.w < 30 ? '#ff5b6e' : s.w < 42 ? '#ffc857' : '#2ee6a0';
+    return '<tr><td class="zone-col">' + s.z + '</td>' +
+      '<td>' + s.t.toFixed(1) + '</td>' +
+      '<td>' + s.w + '%<span class="mini-bar"><span style="width:' + s.w + '%;background:' + barColor + '"></span></span></td>' +
+      '<td style="color:' + (s.ph < 6.3 ? '#ffc857' : '#2ee6a0') + '">' + s.ph.toFixed(1) + '</td>' +
+      '<td>' + s.ec.toFixed(1) + '</td>' +
+      '<td><span class="chip ' + st.c + '">' + st.t + '</span></td></tr>';
+  }).join('');
+}
+
+/* ================= 趋势图 ================= */
+let trendKey = 'temp';
+function renderTrend() {
+  const cfg = TREND[trendKey];
+  const W = 940, H = 268, L = 52, R = 16, T = 18, B = 30;
+  const iw = W - L - R, ih = H - T - B;
+  const X = i => L + iw * i / 23;
+  const Y = v => T + ih * (1 - (clamp(v, cfg.min, cfg.max) - cfg.min) / (cfg.max - cfg.min));
+  let g = '<defs><linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="#22d9ff" stop-opacity=".32"/><stop offset="100%" stop-color="#22d9ff" stop-opacity="0"/></linearGradient></defs>';
+  for (let k = 0; k <= 4; k++) {
+    const v = cfg.min + (cfg.max - cfg.min) * k / 4, y = Y(v);
+    g += '<line x1="' + L + '" y1="' + y.toFixed(1) + '" x2="' + (W - R) + '" y2="' + y.toFixed(1) + '" stroke="rgba(34,217,255,.10)"/>' +
+      '<text x="' + (L - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" fill="#5c7fa6" font-size="11">' + Math.round(v) + '</text>';
+  }
+  for (let i = 0; i < 24; i += 3) {
+    g += '<text x="' + X(i).toFixed(1) + '" y="' + (H - 9) + '" text-anchor="middle" fill="#5c7fa6" font-size="11">' + pad(i) + ':00</text>';
+  }
+  cfg.series.forEach((s, si) => {
+    let d = '';
+    s.data.forEach((v, i) => { d += (i ? ' L ' : 'M ') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); });
+    if (si === 0) {
+      g += '<path d="' + d + ' L ' + X(23).toFixed(1) + ' ' + (T + ih) + ' L ' + X(0).toFixed(1) + ' ' + (T + ih) + ' Z" fill="url(#trendFill)"/>';
+    }
+    g += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="' + (si === 0 ? 2.6 : 1.8) + '" stroke-linejoin="round"/>';
+    g += '<circle cx="' + X(23).toFixed(1) + '" cy="' + Y(s.data[23]).toFixed(1) + '" r="3.6" fill="' + s.color + '"/>';
+  });
+  g += '<g id="trend-hover"></g>';
+  $('#trend-svg').innerHTML = g;
+  $('#trend-unit').textContent = cfg.unit;
+}
+function bindTrendHover() {
+  const svg = $('#trend-svg'), tip = $('#trend-tip'), wrap = svg.parentElement;
+  svg.addEventListener('mousemove', e => {
+    const r = svg.getBoundingClientRect();
+    const relX = (e.clientX - r.left) / r.width * 940;
+    const idx = clamp(Math.round((relX - 52) / (940 - 52 - 16) * 23), 0, 23);
+    const cfg = TREND[trendKey];
+    const L = 52, R = 16, T = 18, B = 30, W = 940, H = 268;
+    const iw = W - L - R, ih = H - T - B;
+    const X = L + iw * idx / 23;
+    const Y = v => T + ih * (1 - (clamp(v, cfg.min, cfg.max) - cfg.min) / (cfg.max - cfg.min));
+    let hg = '<line x1="' + X.toFixed(1) + '" y1="' + T + '" x2="' + X.toFixed(1) + '" y2="' + (T + ih) + '" stroke="rgba(34,217,255,.5)" stroke-dasharray="4 4"/>';
+    cfg.series.forEach(s => {
+      hg += '<circle cx="' + X.toFixed(1) + '" cy="' + Y(s.data[idx]).toFixed(1) + '" r="4.2" fill="#071629" stroke="' + s.color + '" stroke-width="2"/>';
+    });
+    $('#trend-hover').innerHTML = hg;
+    tip.innerHTML = '<b>' + pad(idx) + ':00 · ' + cfg.unit + '</b>' + cfg.series.map(s =>
+      '<div class="r"><span style="color:' + s.color + '">' + s.name + '</span><span>' + s.data[idx] + '</span></div>').join('');
+    const wr = wrap.getBoundingClientRect();
+    let left = e.clientX - wr.left + 16;
+    if (left > wr.width - 180) left = e.clientX - wr.left - 180;
+    tip.style.left = left + 'px';
+    tip.style.top = clamp(e.clientY - wr.top - 30, 4, wr.height - 120) + 'px';
+    tip.style.opacity = 1;
+  });
+  svg.addEventListener('mouseleave', () => {
+    tip.style.opacity = 0;
+    const h = $('#trend-hover'); if (h) h.innerHTML = '';
+  });
+  $$('#trend-tabs .tab').forEach(t => t.addEventListener('click', () => {
+    $$('#trend-tabs .tab').forEach(x => x.classList.remove('on'));
+    t.classList.add('on');
+    trendKey = t.dataset.k;
+    renderTrend();
+  }));
+}
+/* ================= 设备控制 ================= */
+function devIcon(d) {
+  let s = ic(d.icon, 20, d.on ? '#2ee6a0' : '#22d9ff');
+  if (d.on && d.id === 'fan') s = s.replace('<svg ', '<svg class="fan-spin" ');
+  return s;
+}
+function renderDevices() {
+  $('#dev-grid').innerHTML = devices.map((d, i) =>
+    '<div class="dev' + (d.on ? ' on' : '') + '" data-i="' + i + '">' +
+      '<div class="d-hd"><div class="d-ic">' + devIcon(d) + '</div>' +
+        '<div><div class="d-name">' + d.name + '</div><div class="d-sub">' + d.sub + '</div></div></div>' +
+      '<div class="d-st"><span class="chip ' + (d.on ? 'ok' : 'off') + '"><span class="dot ' + (d.on ? 'g' : 'gray') + '"></span>' +
+        (d.on ? '运行中' : '已停止') + '</span><div class="sw"></div></div>' +
+      '<div class="d-val">状态 <b>' + d.val + '</b></div>' +
+      '<div class="d-foot"><span>' + d.foot + '</span></div>' +
+    '</div>').join('');
+  const run = devices.filter(d => d.on).length;
+  $('#kpi-dev').textContent = run;
+  $('#dev-run-tag').textContent = run;
+}
+function toggleDevice(i, silent) {
+  const d = devices[i];
+  d.on = !d.on;
+  renderDevices();
+  if (!silent) toast(d.name + (d.on ? ' 已启动' : ' 已停止'), d.on ? 'ok' : 'warn');
+}
+const MODES = {
+  auto:  { set:{ shutter:1, fan:1, shade:1, led:1, irrig:1 }, msg:'自动环控已启用：风机 / 卷帘 / 遮阳 / 补光 / 滴灌联动运行' },
+  vent:  { set:{ fan:1, wet:1, shutter:1, shade:0, spray:1, heat:0 }, msg:'通风降温模式：风机 + 湿帘 + 顶窗 + 微雾已开启' },
+  shade: { set:{ shade:1, shutter:0, fan:1, wet:0, spray:0 }, msg:'遮阳防晒模式：遮阳网展开 100%，卷帘收起' },
+  light: { set:{ led:1, shutter:0, shade:1 }, msg:'补光增产模式：LED 补光灯组全功率运行' },
+  irrig: { set:{ irrig:1, fert:1, spray:0 }, msg:'灌溉水肥模式：滴灌 + 水肥一体机运行中' },
+  heat:  { set:{ heat:1, shutter:0, wet:0, fan:1 }, msg:'加温保温模式：热风炉运行，卷帘放下保温' },
+  off:   { set:'all0', msg:'已一键关闭全部环境控制设备' }
+};
+function applyMode(key) {
+  const m = MODES[key];
+  if (!m) return;
+  devices.forEach((d, i) => {
+    if (m.set === 'all0') { devices[i].on = false; return; }
+    if (m.set[d.id] !== undefined) devices[i].on = !!m.set[d.id];
+  });
+  $$('#mode-row .mode-btn').forEach(b => b.classList.toggle('on', b.dataset.mode === key));
+  renderDevices();
+  toast(m.msg, key === 'off' ? 'warn' : 'ok');
+}
+function bindDevices() {
+  $('#dev-grid').addEventListener('click', e => {
+    const el = e.target.closest('.dev');
+    if (!el) return;
+    toggleDevice(+el.dataset.i);
+    $$('#mode-row .mode-btn').forEach(b => b.classList.remove('on'));
+  });
+  $('#mode-row').addEventListener('click', e => {
+    const b = e.target.closest('.mode-btn');
+    if (b) applyMode(b.dataset.mode);
+  });
+}
+
+/* ================= 告警 ================= */
+function renderAlarms() {
+  const lvName = { 1:'紧急', 2:'警告', 3:'提示' };
+  const lvColor = { 1:'#ff5b6e', 2:'#ffc857', 3:'#22d9ff' };
+  $('#alarm-list').innerHTML = alarms.map((a, i) =>
+    '<div class="al lv' + a.lv + (a.done ? ' done' : '') + '" data-i="' + i + '">' +
+      '<div class="ic">' + ic(a.lv === 3 ? 'bell' : 'bell', 16, lvColor[a.lv]) + '</div>' +
+      '<div class="bd">' +
+        '<div class="l1"><span style="color:' + lvColor[a.lv] + ';font-weight:700">' + lvName[a.lv] + '</span>' +
+          '<span>' + a.time + '</span><span>' + a.src + '</span><span class="chip ' + (a.lv === 1 ? 'bad' : a.lv === 2 ? 'warn' : 'info') + '">' + a.tag + '</span></div>' +
+        '<div class="msg">' + a.msg + '</div>' +
+        '<div class="act"><div class="mini-btn">' + (a.done ? '已处理' : '确认处理') + '</div>' +
+          '<div class="mini-btn">查看详情</div></div>' +
+      '</div></div>').join('');
+  updateAlarmCounts();
+}
+function updateAlarmCounts() {
+  const cnt = l => alarms.filter(a => a.lv === l && !a.done).length;
+  $('#al-lv1').textContent = cnt(1);
+  $('#al-lv2').textContent = cnt(2);
+  $('#al-lv3').textContent = cnt(3);
+  $('#al-done').textContent = alarms.filter(a => a.done).length;
+  const pending = alarms.filter(a => !a.done).length;
+  $('#kpi-pending').textContent = pending;
+  $('#kpi-alarm').textContent = alarms.length;
+  $('#alarm-tag').innerHTML = '<span class="dot ' + (pending ? 'r' : 'g') + '"></span> ' + pending + ' 条待处理';
+}
+function bindAlarms() {
+  $('#alarm-list').addEventListener('click', e => {
+    const btn = e.target.closest('.mini-btn');
+    if (!btn) return;
+    const box = btn.closest('.al');
+    const a = alarms[+box.dataset.i];
+    if (btn.textContent === '确认处理') {
+      a.done = true;
+      renderAlarms();
+      toast('告警已确认处理，已写入运行日志', 'ok');
+    } else {
+      toast('[' + a.src + '] ' + a.tag + '：详情已在日志中心展开', 'ok');
+    }
+  });
+}
+
+/* ================= toast / 时钟 / 自适应 ================= */
+let toastTimer = null;
+function toast(msg, type) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.style.color = type === 'warn' ? '#ffc857' : type === 'bad' ? '#ff5b6e' : '#22d9ff';
+  t.style.borderColor = type === 'warn' ? 'rgba(255,200,87,.5)' : 'rgba(34,217,255,.3)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function tickClock() {
+  const n = new Date();
+  const week = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][n.getDay()];
+  $('#clock-time').textContent = pad(n.getHours()) + ':' + pad(n.getMinutes()) + ':' + pad(n.getSeconds());
+  $('#clock-date').textContent = n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate()) + ' ' + week;
+}
+function fitScreen() {
+  const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+  $('#screen').style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+}
+
+/* ================= 模拟数据刷新 ================= */
+function simulate() {
+  zones.forEach(z => {
+    z.t = Math.round((z.t + rnd(-0.3, 0.3)) * 10) / 10;
+    z.h = Math.round(clamp(z.h + rnd(-1.2, 1.2), 35, 96));
+    z.t = clamp(z.t, 16, 34);
+    const idx = zones.indexOf(z);
+    const mt = $('#map-t' + idx), mh = $('#map-h' + idx);
+    if (mt) mt.textContent = z.t.toFixed(1);
+    if (mh) mh.textContent = Math.round(z.h);
+  });
+  soil.forEach(s => {
+    s.w = Math.round(clamp(s.w + rnd(-0.8, 0.8), 12, 80));
+    s.t = Math.round((s.t + rnd(-0.15, 0.15)) * 10) / 10;
+  });
+  GAUGES[0].val = Math.round((zones.reduce((a, z) => a + z.t, 0) / zones.length) * 10) / 10;
+  GAUGES[1].val = Math.round(zones.reduce((a, z) => a + z.h, 0) / zones.length);
+  GAUGES[2].val = Math.round(clamp(GAUGES[2].val + rnd(-18, 18), 380, 1200));
+  GAUGES[3].val = Math.round(clamp(GAUGES[3].val + rnd(-1.4, 1.4), 2, 58) * 10) / 10;
+  renderGauges();
+  renderZones();
+  renderSoil();
+  $('#kpi-temp').innerHTML = GAUGES[0].val.toFixed(1) + '<small>℃</small>';
+  $('#kpi-hum').innerHTML = GAUGES[1].val + '<small>%RH</small>';
+  $('#kpi-co2').innerHTML = GAUGES[2].val + '<small>ppm</small>';
+  $('#kpi-lux').innerHTML = (GAUGES[3].val / 10).toFixed(1) + '<small>klux</small>';
+  const ws = Math.round(clamp(3.4 + rnd(-0.7, 0.9), 0.2, 12) * 10) / 10;
+  $('#wind-speed').textContent = ws.toFixed(1);
+  $('#wind-gust').innerHTML = (ws + rnd(0.8, 2.2)).toFixed(1) + '<small style="font-size:10px;color:#8fb2d4"> m/s</small>';
+  $('#out-temp').innerHTML = (22.6 + rnd(-0.4, 0.4)).toFixed(1) + '<small>℃</small>';
+}
+
+/* ================= 初始化 ================= */
+renderGauges();
+renderZones();
+renderSoil();
+renderTrend();
+bindTrendHover();
+renderDevices();
+bindDevices();
+renderAlarms();
+bindAlarms();
+tickClock();
+fitScreen();
+
+window.addEventListener('resize', fitScreen);
+setInterval(tickClock, 1000);
+setInterval(simulate, 4000);
+
+$('#btn-full').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+});
+$('#btn-refresh').addEventListener('click', () => {
+  simulate();
+  toast('数据已刷新 · 34 路传感器 / 10 台设备通信正常', 'ok');
+});
+</script>
+</body>
+</html>

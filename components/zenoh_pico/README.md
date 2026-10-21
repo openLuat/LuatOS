@@ -1,19 +1,19 @@
 # zenoh-pico：可选原生 TCP client（Draft）
 
-为 LuatOS 提供外置官方 zenoh-pico 1.9.0 的最小原生 Lua 绑定。默认关闭；独立库名 `zenohpico`，不替换已有 Lua `zenoh` 实现。
+为 LuatOS 提供官方 zenoh-pico 1.9.0 的最小原生 Lua 绑定。默认关闭；独立库名 `zenohpico`，不替换已有 Lua `zenoh` 实现。
 
-本贡献含 generic 系统/TCP 适配、Lua 绑定、PC 可选装配、独立真实对端与最小 demo。本贡献实现Get发起和Queryable应答；当前实际证据见 [TEST_RESULTS.md](TEST_RESULTS.md)。我们负责继续完成目标测试和修复，目标构建需要对应BSP环境；主机测试不代表设备已可运行。
+本组件含 1.9.0 核心源码（裁剪副本）、generic 系统/TCP 适配与 Lua 绑定。PC 侧装配、真实对端与主机回归在 [bsp/pc/zenoh_pico](../../bsp/pc/zenoh_pico)，最小 demo 见 [olddemo/demo/zenoh_pico/main.lua](../../olddemo/demo/zenoh_pico/main.lua)。本组件实现Get发起和Queryable应答；主机测试证据见 [bsp/pc/zenoh_pico/TEST_RESULTS.md](../../bsp/pc/zenoh_pico/TEST_RESULTS.md)。目标构建需要对应BSP环境；主机测试不代表设备已可运行。
 
 ## 固定依赖
 
-- zenoh-pico **1.9.0**：`e83d39b4415f6897e8d6c3b3b651ca88a05f4a17`。
+- zenoh-pico **1.9.0**：`e83d39b4415f6897e8d6c3b3b651ca88a05f4a17`，核心源码已裁剪入库在
+  [zenoh-pico/](zenoh-pico)（只含嵌入式所需文件，`version.txt` 供构建期核对，说明见
+  [zenoh-pico/VENDOR.md](zenoh-pico/VENDOR.md)）。
 - 测试 router：zenohd **1.9.0**。
-- 原第三方核心源码不修改、不整仓复制；两个派生公共头保留原版权和许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+- 第三方核心源码逐字节未修改，两个派生公共头保留原版权和许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
-```sh
-git clone --branch 1.9.0 https://github.com/eclipse-zenoh/zenoh-pico.git ../zenoh-pico
-git -C ../zenoh-pico checkout --detach e83d39b4415f6897e8d6c3b3b651ca88a05f4a17
-```
+组件目录只放模组固件要用的东西：`include/`（配置头与LuatOS平台适配）、`src/`（Lua绑定与generic系统/TCP）、
+`zenoh-pico/`（官方核心源码裁剪副本）。PC 专有的装配脚本、真实对端与测试脚本不在本目录。
 
 1.9.0 的裁剪限制：保持 `Z_RUNTIME_MAX_TASKS=64`，否则 executor.c 的默认容量与 runtime.h 的结构布局不一致。保留上游默认 `BATCHING=1`，Lua 不提供 batching API；`INTEREST=0` 避开该版本不完整的 MATCHING/多播组合。不要混用1.10的头或平台入口。
 
@@ -100,32 +100,35 @@ Get的id仅代表本地接纳，必须核实际reply及done。timeout_ms默认30
 
 ## 独立主机复验
 
+主机回归脚本、真实对端与 unix 后端源码都在 [bsp/pc/zenoh_pico](../../bsp/pc/zenoh_pico)，不随组件进固件。
 需已安装 Python3、C11编译器、Lua开发库和zenohd1.9.0；工具不会自动安装依赖。宿主Lua版本在输出中记录。主机桥的网络控制API基于真实POSIX socket，固定127.0.0.1:17447，每次最多读取7字节/写入17字节，直接执行本模块的generic系统/TCP源码；对端则用官方Unix网络后端。它不代替真实LuatOS网络框架或RTOS/BSP。
 
 ```sh
-python3 components/zenoh_pico/tests/run_host.py \
-  --zenoh-root ../zenoh-pico --lua-root /path/to/lua-prefix \
-  --router /path/to/zenohd --sanitize
+python3 bsp/pc/zenoh_pico/run_host.py \
+  --lua-root /path/to/lua-prefix --router /path/to/zenohd --sanitize
 ```
 
-独立主机脚本`run_host.py`仍单独用Git核对上述SDK固定提交及工作树；这属于主机复验来源门禁，不是PC xmake构建要求，本轮不改变该脚本。
+默认编译库内 vendored 的 1.9.0 源码（`components/zenoh_pico/zenoh-pico`），核对 `version.txt` 并打印源码清单摘要；
+如需对照另一份 1.9.0 工作树，用 `--zenoh-root ../zenoh-pico`，此时按 Git 固定提交做来源门禁。
 
-Get完整回归使用同一命令加 `--get-tests`，选择独立peer `--get` 和 `tests/host_get_test.lua`；默认仍原16项Pub/Sub。peer可选 `--two-rounds` 会校验 `LuatOS\0zenoh-pico\255:1/2` 两个20B值，双轮后正常退出，无需stop，独立墙钟上限240秒；默认peer保原60秒及stop合同。
+Get完整回归使用同一命令加 `--get-tests`，选择独立peer `--get` 和 `host_get_test.lua`；默认仍原16项Pub/Sub。peer可选 `--two-rounds` 会校验 `LuatOS\0zenoh-pico\255:1/2` 两个20B值，双轮后正常退出，无需stop，独立墙钟上限240秒；默认peer保原60秒及stop合同。
 
 有pkg-config时可用 `--lua-pkg lua5.3` 代替 `--lua-root`。仅编译时不传 `--router`。输出 `HOST_PASS`、`HOST_EXIT 0`、`PEER_EXIT 0`、`INTEROP_PASS` 才是完整主机通过；只看到 `BUILD_PASS` 不算互通。端口已有占用则停止，测试结束只清理自己的子进程。`--skip-build` 仅用于测试脚本修改后的已知二进制复验，会打印实际SHA；默认始终构建。
 
 ## PC与目标BSP接入
 
-PC新增装配由 `LUAT_USE_ZENOH_PICO=y` 显式开启，外置 `ZENOH_PICO_ROOT` 指向已准备好的zenoh-pico 1.9.0本地源码根目录（含`include/`和`src/`），可以是解压目录或仓库工作树，不要求`.git`。构建不执行Git命令、不下载源码；版本与来源由准备源码的调用方负责核对。关闭时不加载组件或寻找依赖。使用原BSP helper构建：
+PC装配由 `LUAT_USE_ZENOH_PICO=y` 显式开启，默认编译库内 vendored 源码；`ZENOH_PICO_ROOT` 仅用于指向另一份
+1.9.0 源码树做对照（可选）。构建不执行Git命令、不下载源码；关闭时不加载组件或寻找依赖。使用原BSP helper构建：
 
 ```sh
 cd bsp/pc
-LUAT_USE_ZENOH_PICO=y ZENOH_PICO_ROOT=/path/to/zenoh-pico ./build_macos.sh
+LUAT_USE_ZENOH_PICO=y ./build_macos.sh
 ```
 
-2026-10-20使用官方xmake 3.0.4在macOS arm64实际执行抽取的原装配段（仅组件路径替换为绝对路径，不模拟xmake API）：关闭时不找SDK；普通源码树与无`.git`目录均装配122个相同的通用SDK源及4个组件源；缺必要头或通用目录明确报错。无`.git`目录的126源C11静态库编译/归档通过，有上游警告，不代表最终可执行文件链接。编译器识别在`on_config`阶段执行，避免`on_load`提前读取工具链。完整PC helper实际尝试未通过：仍固定i386，配置阶段因外部包仓库获取失败而退出，尚未完成PC可执行文件链接；不将该隔离组件编译或独立主机测试等同于完整PC模拟器构建。Linux/Windows完整构建亦未验证。
+确认过：装配段只纳入 `api/collections/link/net/protocol/runtime/session/transport/utils/system/common` 十个通用目录，
+不纳入 `system/{unix,windows,...}` 等平台后端；缺必要头或通用目录会明确报错；版本来自 `version.txt` 且必须是 1.9.0。
 
-官方目标BSP需要：同一套配置头与C11/atomic支持、仅上述官方通用源码及本模块4个src文件、统一network adapter/RTOS/堆/MCU时钟/TRNG实现，以及 `luaopen_zenohpico` 注册。PC的 `bsp/pc/xmake.lua` 按固定通用目录范围生成排序后的本地C源码清单，不纳入其它`system/`平台实现，组件不包含独立xmake文件；桥接头位于 `components/zenoh_pico/include/luat_zenoh_pico.h`；SDK自己的源文件表/注册表由官方提供实际路径并接入，不虚构Air8000用户C-SDK。
+官方目标BSP需要：同一套配置头与C11/atomic支持、仅上述官方通用源码及本模块4个src文件、统一network adapter/RTOS/堆/MCU时钟/TRNG实现，以及 `luaopen_zenohpico` 注册。桥接头位于 `components/zenoh_pico/include/luat_zenoh_pico.h`；EC7xx 侧的接线在 soc 仓库 `project/luatos/xmake.lua`，内建库注册在 `interface/src/luat_base_ec7xx.c`，开关按固件号放在 `project/luatos/inc/luat_conf_bsp_types_ec718hm.h`（1/101 号固件）。
 
 [最小demo](../../olddemo/demo/zenoh_pico/main.lua) 要求先配置网卡就绪、填写测试router和adapter，再启动 `zenoh_peer <router> test/zenohpico/manual` 作为真实回显对端。demo未烧录验证。
 

@@ -168,14 +168,22 @@ add_includedirs("port/posix",{public = true})
 
 target("luatos-lua")
 
-    -- 默认关闭；显式启用才从本地源码目录装配zenoh-pico及模块。
+    -- 默认关闭；显式启用才装配 zenoh-pico 及 zenohpico 内建库。
+    -- 1.9.0 核心源码已随 components/zenoh_pico/zenoh-pico 一起入库(只含嵌入式所需文件),
+    -- ZENOH_PICO_ROOT 仅在需要用另一份 1.9.0 源码树做对照时才设置.
     if env_enabled("LUAT_USE_ZENOH_PICO") then
         local zp_component = path.absolute(path.join(os.scriptdir(), "../../components/zenoh_pico"))
         on_load(function(target)
             local root = os.getenv("ZENOH_PICO_ROOT")
-            assert(root and root ~= "", "LUAT_USE_ZENOH_PICO=y requires ZENOH_PICO_ROOT")
-            root = path.absolute(root)
-            -- 本地源码可来自归档或仓库；构建不访问Git元数据或网络。
+            if root and root ~= "" then
+                root = path.absolute(root)
+                print("zenoh-pico: 使用外部源码树 " .. root)
+            else
+                root = path.join(zp_component, "zenoh-pico")
+            end
+            -- 源码可来自归档或仓库；构建不访问Git元数据或网络, 版本由 version.txt 核对.
+            local version = io.readfile(path.join(root, "version.txt"))
+            assert(version and version:gsub("%s+", "") == "1.9.0", "zenoh-pico must be 1.9.0 at " .. root)
             for _, name in ipairs({"include/zenoh-pico/api/primitives.h", "include/zenoh-pico/system/platform.h"}) do
                 assert(os.isfile(path.join(root, name)), "zenoh-pico source missing: " .. path.join(root, name))
             end
@@ -187,7 +195,7 @@ target("luatos-lua")
             local areas = {"api", "collections", "link", "net", "protocol", "runtime", "session", "transport", "utils", "system/common"}
             local sources = {}
             for _, area in ipairs(areas) do
-                -- 限定原通用目录；不递归纳入system/unix等其它平台实现。
+                -- 限定原通用目录；不递归纳入system/unix等其它平台实现(PC对端源码在 bsp/pc/zenoh_pico/unix_backend)。
                 local files = os.files(path.join(root, "src", area, "**.c"))
                 assert(#files > 0, "zenoh-pico source area missing or empty: " .. path.join(root, "src", area))
                 for _, name in ipairs(files) do table.insert(sources, name) end

@@ -21,12 +21,23 @@ def run(args):
     subprocess.run(list(map(str, args)), check=True)
 
 def source_files(root):
-    if subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip() != PIN:
-        raise RuntimeError("zenoh-pico must be the pinned 1.9.0 commit")
-    subprocess.run(["git", "-C", str(root), "diff", "--exit-code"], check=True, stdout=subprocess.DEVNULL)
-    subprocess.run(["git", "-C", str(root), "diff", "--cached", "--exit-code"], check=True, stdout=subprocess.DEVNULL)
-    names = subprocess.check_output(["git", "-C", str(root), "ls-tree", "-r", "--name-only", "HEAD"], text=True).splitlines()
-    return [root / n for n in names if n.endswith(".c") and any(n.startswith("src/" + a + "/") for a in AREAS)]
+    # 库内 vendored 源码树(components/zenoh_pico/zenoh-pico)不带 .git, 用 version.txt + 清单摘要核对;
+    # 传 --zenoh-root 指向外部 git 工作树时, 仍按固定提交做来源门禁.
+    if (root / ".git").is_dir():
+        if subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip() != PIN:
+            raise RuntimeError("zenoh-pico must be the pinned 1.9.0 commit")
+        subprocess.run(["git", "-C", str(root), "diff", "--exit-code"], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["git", "-C", str(root), "diff", "--cached", "--exit-code"], check=True, stdout=subprocess.DEVNULL)
+        names = subprocess.check_output(["git", "-C", str(root), "ls-tree", "-r", "--name-only", "HEAD"], text=True).splitlines()
+        files = [root / n for n in names if n.endswith(".c") and any(n.startswith("src/" + a + "/") for a in AREAS)]
+    else:
+        version = (root / "version.txt").read_text(encoding="utf-8").strip()
+        if version != "1.9.0":
+            raise RuntimeError("vendored zenoh-pico must be 1.9.0, got " + version)
+        files = sorted(root.glob("src/**/*.c"))
+        files = [f for f in files if any(f.relative_to(root).as_posix().startswith("src/" + a + "/") for a in AREAS)]
+    print("PUBLIC", hashlib.sha256("".join(f.name + ":" + hashlib.sha256(f.read_bytes()).hexdigest() for f in files).encode()).hexdigest(), flush=True)
+    return files
 
 def ready(proc, token, seconds=8):
     with selectors.DefaultSelector() as sel:
@@ -44,7 +55,7 @@ def ready(proc, token, seconds=8):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--zenoh-root", required=True, type=Path)
+    parser.add_argument("--zenoh-root", type=Path, help="外部 zenoh-pico 1.9.0 工作树; 默认用库内 vendored 源码")
     parser.add_argument("--build-dir", type=Path)
     parser.add_argument("--cc", default="clang")
     parser.add_argument("--lua-pkg", default="lua")
@@ -56,14 +67,18 @@ def main():
     parser.add_argument("--skip-build", action="store_true", help="run existing binaries after test-only edits; hashes are printed")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[3]
+    here = Path(__file__).resolve().parent
     component = repo / "components/zenoh_pico"
     output = args.build_dir or repo.parent / "build"
     output.mkdir(parents=True, exist_ok=True)
-    pico = args.zenoh_root.resolve()
+    # 默认用随库入库的 1.9.0 源码(components/zenoh_pico/zenoh-pico), 可用 --zenoh-root 指向外部工作树对照
+    pico = (args.zenoh_root or (component / "zenoh-pico")).resolve()
     sources = source_files(pico)
     print("PIN", PIN, "host", platform.platform(), flush=True)
     if not args.skip_build:
         includes = ["-I" + str(p) for p in (component / "include", pico / "include", repo / "luat/include", repo / "components/common", repo / "components/network/adapter")]
+        # 真实对端(peer)走官方 unix 后端, 源码随 bsp/pc/zenoh_pico/unix_backend 提供, 不进组件目录
+        peer_includes = includes + ["-I" + str(here / "unix_backend/include")]
         defs = ["-DZENOH_C_STANDARD=11", "-DZENOH_COMPILER_CLANG"]
         # 独立检查真实设备平台C接口；非ARM ABI/固件链接证明。
         run([args.cc, "-std=c11", "-Wall", "-Wextra", "-Werror", "-fsyntax-only", "-DZENOH_GENERIC", *defs, *includes,
@@ -81,16 +96,16 @@ def main():
             lua_flags = shlex.split(subprocess.check_output(["pkg-config", "--cflags", "--libs", args.lua_pkg], text=True))
             print("LUA_PKG", subprocess.check_output(["pkg-config", "--modversion", args.lua_pkg], text=True).strip(), flush=True)
         host_defs = ["-DLUAT_ZENOH_HOST_TEST", "-DZENOH_MACOS" if sys.platform == "darwin" else "-DZENOH_LINUX"]
-        compiler = [args.cc, "-std=c11", "-O1", "-g", *defs, *host_defs, *includes]
+        compiler = [args.cc, "-std=c11", "-O1", "-g", *defs, *host_defs, *peer_includes]
         if args.sanitize:
             compiler += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"]
-        host_files = [component / n for n in ("src/luat_zenoh_pico.c", "src/luat_lib_zenoh_pico.c", "src/zenoh_luatos_system.c", "src/zenoh_luatos_tcp.c", "tests/host_main.c", "tests/host_port.c")]
+        host_files = [component / n for n in ("src/luat_zenoh_pico.c", "src/luat_lib_zenoh_pico.c", "src/zenoh_luatos_system.c", "src/zenoh_luatos_tcp.c")] + [here / n for n in ("host_main.c", "host_port.c")]
         generic_defs = ["-DZENOH_GENERIC", "-DLUAT_ZENOH_TEST_BARRIERS"]
         run([args.cc, "-std=c11", "-Wall", "-Wextra", "-Werror", "-fsyntax-only", *defs, *generic_defs, *includes, *[a for a in lua_flags if a.startswith("-I")], *host_files])
-        common = [*sources, pico / "src/system/unix/system.c", pico / "src/system/unix/network.c"]
+        common = [*sources, here / "unix_backend/system.c", here / "unix_backend/network.c"]
         generic_compiler = [a for a in compiler if a not in host_defs] + generic_defs
         run([*generic_compiler, *sources, *host_files, *lua_flags, "-pthread", "-o", output / "zenoh_host_test"])
-        run([*compiler, *common, component / "tests/peer.c", "-pthread", "-o", output / "zenoh_peer"])
+        run([*compiler, *common, here / "peer.c", "-pthread", "-o", output / "zenoh_peer"])
     else:
         for name in ("zenoh_host_test", "zenoh_peer"):
             binary = output / name
@@ -121,11 +136,11 @@ def main():
             raise TimeoutError("router listen")
         peer = subprocess.Popen([str(output / "zenoh_peer"), endpoint, prefix] + (["--get"] if args.get_tests else []), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         ready(peer, "READY")
-        test_file = "tests/host_get_race.lua" if args.race_tests else "tests/host_get_test.lua" if args.get_tests else "tests/host_test.lua"
+        test_file = here / ("host_get_race.lua" if args.race_tests else "host_get_test.lua" if args.get_tests else "host_test.lua")
         environment = os.environ.copy()
         if args.race_tests:
             environment["ZENOH_TEST_RACE_CASE"] = args.race_tests
-        result = subprocess.run([str(output / "zenoh_host_test"), str(component / test_file), endpoint, prefix],
+        result = subprocess.run([str(output / "zenoh_host_test"), str(test_file), endpoint, prefix],
                                 timeout=100 if args.get_tests else 65, env=environment)
         print("HOST_EXIT", result.returncode, flush=True)
         if result.returncode:

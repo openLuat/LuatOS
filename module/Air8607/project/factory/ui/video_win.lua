@@ -1,8 +1,8 @@
 --[[
 @module  video_win
 @summary 全屏播放页 —— 竖屏面板自动旋转成横屏，任意尺寸素材居中播放
-@version 1.4
-@date    2026.10.13
+@version 1.5
+@date    2026.10.20
 @author  江访
 
 === 消息协议（订阅/发布）===
@@ -38,7 +38,7 @@
 5. **层级靠「创建顺序」定，且换文件不能打乱它**（同一父对象内 LVGL 按创建顺序绘制）
    后建的压住先建的，所以本页的真实顺序是：
 
-       黑底 bg → 舞台层 stage → 视频 play(file) → 底部控制栏
+       黑底 bg → 舞台层 stage → 视频 play(file) → 点击拦截层 hit_layer → 底部控制栏
 
    少了这条，素材比屏幕大时画面会盖住控制栏。
    而「视频为什么挂在 stage 上」正是为了保住这条：换文件时是**在 stage 内部**重建视频对象，
@@ -60,6 +60,14 @@
    mplayer 后端直显硬件视频图层，选择器弹窗会被正在播放的 MP4 盖住 ——
    全屏模式下点「选择」先销毁 MP4 播放器再开弹窗，未选文件关弹窗时恢复播放
    （见 open_picker）。
+
+9. **全屏区必须有一层「吃点击」的拦截层**（2026-10-20）
+   bg 与 stage 都是 airui.shape，C 端显式去掉了 CLICKABLE（luat_airui_shape.c），
+   整块全屏区不吃点击 —— 点击会**穿透到压在下面的桌面应用卡片/Dock**，
+   表现是「全屏时点空白处，桌面被点开了某个页面」，之后就出现窗口栈、焦点与
+   画面不一致，回桌面后点哪都不对。
+   所以 on_create 在画面之上、控制栏之下叠一层透明 hit_layer（theme.card +
+   空 on_click）把落点全吃掉；控制栏后建，仍压在它上面正常可点。
 ]]
 
 local theme = require "ui_theme"
@@ -74,6 +82,7 @@ local DEFAULT_VW, DEFAULT_VH = 480, 320
 
 local window_id = nil
 local bg = nil                -- 全屏黑底（airui.shape，不可滚动、不吃点击）
+local hit_layer = nil         -- 点击拦截层（吃点击的容器，挡住穿透到桌面的点击）
 local stage = nil             -- 舞台层：视频的父对象（换文件不影响它，因此不影响层级）
 local video_obj = nil         -- 播放器对象（airui.video 实例；MP4 为带会话收尾的包装对象）
 local ctrl_bar = nil          -- 底部控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
@@ -425,7 +434,23 @@ local function on_create(init_file)
     -- 5) 画面（先建，处于最底层）
     play(file)
 
-    -- 6) 控制栏（后建，压在画面之上）
+    --[[5.5) 点击拦截层：挡住穿透到桌面的点击（修「全屏时能点到 idle_win 应用」）
+
+    全屏黑底 bg 与舞台 stage 都是 airui.shape，C 端显式去掉了 CLICKABLE
+    （luat_airui_shape.c），整块全屏区不吃点击 → 触摸穿透到压在下面的桌面应用卡片。
+    这里在画面之上、控制栏之下叠一层吃点击的容器，把落到全屏区的点击全部吃掉
+    （on_click 空函数，不响应任何动作）。
+    层级顺序（LVGL 同层后建压上层）：bg(不吃点击) → stage(不吃点击，视频) →
+    hit_layer(吃点击，挡住穿透) → ctrl_bar(吃点击，压最上仍可点)。
+    用 theme.card（airui.container，默认 CLICKABLE）而不是 shape；透明无边框不圆角，
+    视觉上完全不可见。]]
+    hit_layer = theme.card(bg, {
+        x = 0, y = 0, w = W, h = H,
+        color = theme.C.black, opa = 0, radius = 0, border_w = 0,
+        on_click = function() end,   -- 吃掉点击，不触发任何动作
+    })
+
+    -- 6) 控制栏（后建，压在画面与拦截层之上）
     build_controls()
 
     log.info("video_win", string.format("fullscreen %dx%d rot=%s file=%s overlay=%s",
@@ -449,6 +474,7 @@ local function on_destroy()
 
     if bg then pcall(function() bg:destroy() end); bg = nil end
     stage = nil
+    hit_layer = nil   -- 挂 bg 下，随 bg 级联销毁
     ctrl_bar = nil
     empty_label = nil
     current_file = nil

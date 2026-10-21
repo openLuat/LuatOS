@@ -24,6 +24,26 @@ function M.i2c_restore()
     return true
 end
 
+--[[重新初始化触摸（复位 → i2c 重配 → tp.init → 重新绑定 airui）
+
+什么时候需要：音频/视频通路启动会重配 I2C1，如果重配发生在 tp 的读事务中途，
+GT911 可能停在半事务状态 —— 此时光 i2c.setup 把速率改回来是不够的（芯片不再应答），
+必须重新走一遍复位 + init 才能救回来。表现就是「屏幕亮、日志正常、整块屏点不动」。
+
+只做已有的初始化动作，不引入新参数：saved_params 就是 init 时的原样配置。
+本机（内置 DAC，无外挂 codec）I2C1 上只有 GT911，复位不会伤到别的芯片。]]
+--- @return boolean 是否重新初始化成功
+function M.reinit()
+    if not saved_params then return false end
+    log.warn("gt911", "触摸重新初始化")
+    local ok, r = pcall(M.init, saved_params)
+    if not ok then
+        log.error("gt911", "触摸重新初始化异常", r)
+        return false
+    end
+    return r and true or false
+end
+
 function M.init(params)
     saved_params = params
     -- GPIO 复位序列（部分底板需要）

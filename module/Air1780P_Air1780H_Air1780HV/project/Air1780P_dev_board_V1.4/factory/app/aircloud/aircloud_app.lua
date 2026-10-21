@@ -11,7 +11,7 @@ AirCloud excloud 协议通信，负责设备与云端的数据交互：
 
 Air1780P 无 4G / 无 GNSS，因此不包含 4G 信号强度与 LBS 定位字段。
 
-上报字段：设备ID(1293)、项目名(1294)、时间戳、温度、湿度、VOC、CPU 温度
+上报字段：设备ID(798)、项目名(802)、时间戳、温度、湿度、VOC、CPU 温度
 下行命令（CONTROL_COMMAND tag 19）：
   - "cycle:秒数" → 设置上报频率（最小 5 秒）
   - "led:blink" / "led:on" / "led:off" → LED 控制
@@ -115,13 +115,6 @@ local function get_device_id()
     if ok and id and id ~= "" then
         return id
     end
-    -- Air1780P 无 IMEI，用模组唯一 ID 的十六进制串作为设备标识
-    ok, id = pcall(mcu.unique_id)
-    if ok and id then
-        local ok2, hex = pcall(function() return id:toHex() end)
-        if ok2 and hex then return hex end
-        return tostring(id)
-    end
     return "unknown"
 end
 
@@ -202,8 +195,8 @@ function excloud_task_func()
             local cpu_temp = get_cpu_temp()
 
             local tlv_list = {
-                { field_meaning = 1293, data_type = excloud.DATA_TYPES.ASCII, value = device_id },
-                { field_meaning = 1294, data_type = excloud.DATA_TYPES.ASCII, value = PROJECT },
+                { field_meaning = excloud.FIELD_MEANINGS.DEVICE_ID, data_type = excloud.DATA_TYPES.ASCII, value = device_id },
+                { field_meaning = excloud.FIELD_MEANINGS.PROJECT_NAME, data_type = excloud.DATA_TYPES.ASCII, value = PROJECT },
                 { field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP, data_type = excloud.DATA_TYPES.INTEGER, value = os.time() }
             }
 

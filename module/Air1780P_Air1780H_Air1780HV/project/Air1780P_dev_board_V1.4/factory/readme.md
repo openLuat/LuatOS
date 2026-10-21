@@ -55,7 +55,7 @@ local BOOT_MODE = "auto"    -- "auto" 自动分流 / "factory" 强制产测 / "n
 
 - **以太网联网**：`exnetif.set_priority_order` 配置 `ETHERNET = {pwrpin = 20, tp = netdrv.CH390, opts = {spi = 0, cs = 8}}`，DHCP 自动获取 IP；获取 IP 后自动设置 DNS 223.5.5.5 / 114.114.114.114
 - **传感器采集**：VOC 空气质量（AGS02MA，硬件 I2C1）+ 485温湿度（Modbus RTU，UART1），默认 60 秒采集一次
-- **AirCloud 上报**：excloud TCP 协议，上报设备ID(1293)/项目名(1294)/时间戳/温度/湿度/VOC/CPU温度
+- **AirCloud 上报**：excloud TCP 协议，上报设备ID(798)/项目名(802)/时间戳/温度/湿度/VOC/CPU温度
 - **云端控制**（tag 19）：`cycle:秒数` 改上报频率、`led:blink|on|off` LED 控制
 - **屏幕展示**：320×480 竖屏单页，界面由 AirUI 绘制，展示网络（READY/CONNECTING）、地址（本机 IP）、传感器（TEMP/HUM/VOC）、信息（设备ID/版本）
 - **FOTA 升级**：基于 `libfota3`，开机后联网并完成时间同步即启动自动检测，默认 24 小时检测一次；检测到新版本自动下载、自动重启升级。`libfota3` 已内置 `Air1780` 型号分支，无需改动

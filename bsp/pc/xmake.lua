@@ -168,6 +168,42 @@ add_includedirs("port/posix",{public = true})
 
 target("luatos-lua")
 
+    -- 默认关闭；显式启用才从本地源码目录装配zenoh-pico及模块。
+    if env_enabled("LUAT_USE_ZENOH_PICO") then
+        local zp_component = path.absolute(path.join(os.scriptdir(), "../../components/zenoh_pico"))
+        on_load(function(target)
+            local root = os.getenv("ZENOH_PICO_ROOT")
+            assert(root and root ~= "", "LUAT_USE_ZENOH_PICO=y requires ZENOH_PICO_ROOT")
+            root = path.absolute(root)
+            -- 本地源码可来自归档或仓库；构建不访问Git元数据或网络。
+            for _, name in ipairs({"include/zenoh-pico/api/primitives.h", "include/zenoh-pico/system/platform.h"}) do
+                assert(os.isfile(path.join(root, name)), "zenoh-pico source missing: " .. path.join(root, name))
+            end
+            for _, name in ipairs({"include/zenoh-pico.h", "include/zenoh-pico/config.h", "include/zenoh_generic_config.h", "include/zenoh_generic_platform.h", "include/zenoh_luatos_platform.h", "include/luat_zenoh_pico.h", "src/luat_lib_zenoh_pico.c", "src/luat_zenoh_pico.c", "src/zenoh_luatos_system.c", "src/zenoh_luatos_tcp.c"}) do
+                assert(os.isfile(path.join(zp_component, name)), "zenoh-pico component missing: " .. path.join(zp_component, name))
+            end
+            target:add("defines", "LUAT_USE_ZENOH_PICO=1", "ZENOH_GENERIC", "ZENOH_C_STANDARD=11")
+            target:add("includedirs", path.join(zp_component, "include"), path.join(root, "include"))
+            local areas = {"api", "collections", "link", "net", "protocol", "runtime", "session", "transport", "utils", "system/common"}
+            local sources = {}
+            for _, area in ipairs(areas) do
+                -- 限定原通用目录；不递归纳入system/unix等其它平台实现。
+                local files = os.files(path.join(root, "src", area, "**.c"))
+                assert(#files > 0, "zenoh-pico source area missing or empty: " .. path.join(root, "src", area))
+                for _, name in ipairs(files) do table.insert(sources, name) end
+            end
+            table.sort(sources)
+            for _, name in ipairs(sources) do target:add("files", name) end
+            target:add("files", path.join(zp_component, "src", "*.c"))
+        end)
+        on_config(function(target)
+            local _, toolkind = target:tool("cc")
+            if toolkind == "clang" then target:add("defines", "ZENOH_COMPILER_CLANG")
+            elseif toolkind == "cl" then target:add("defines", "ZENOH_COMPILER_MSVC")
+            else target:add("defines", "ZENOH_COMPILER_GCC") end
+        end)
+    end
+
     -- 始终生成调试符号，让崩溃时的 StackWalk64 能解析函数名和文件行号
     if is_host("windows") then
         set_symbols("debug")

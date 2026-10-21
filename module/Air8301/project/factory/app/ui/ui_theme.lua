@@ -149,11 +149,23 @@ end
 
 --[[图标路径解析
 以 "/" 开头的视为真实路径直接使用；否则按 /luadb/<name>.png 拼接。
-8301 出厂固件的硬件图标统一放在 /luadb/hw_*.png。]]
+8301 出厂固件的图标源文件在工程 web/ 目录：打包器把子目录内容平铺时设备内是
+/luadb/hw_*.png，若打包器保留子目录则是 /luadb/web/hw_*.png —— 这里做一次存在性兜底，
+两种打包方式都能显示图标。]]
 function M.resolve_icon(v)
     if v == nil or v == "" then return nil end
-    if string.sub(v, 1, 1) == "/" then return v end
-    return "/luadb/" .. v .. ".png"
+    local has_io = io and io.exists
+    if string.sub(v, 1, 1) == "/" then
+        if has_io and not io.exists(v) and io.exists("/luadb/web" .. v) then
+            return "/luadb/web" .. v
+        end
+        return v
+    end
+    local p = "/luadb/" .. v .. ".png"
+    if has_io and not io.exists(p) and io.exists("/luadb/web/" .. v .. ".png") then
+        return "/luadb/web/" .. v .. ".png"
+    end
+    return p
 end
 
 -- ==================== 三、基础绘制 ====================

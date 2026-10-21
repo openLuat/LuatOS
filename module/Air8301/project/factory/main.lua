@@ -63,6 +63,29 @@ BOOT_MODE 调试开关（方便调试，出货保持 "auto"）：
 PROJECT：项目名，ascii string类型
 VERSION：项目版本号，ascii string类型，使用合宙iot.openluat.com远程升级时必须按"XXX.YYY.ZZZ"三段格式定义
 ]]
+--[[
+==================== 工程目录结构（参照 Air8780_factory） ====================
+factory/
+  main.lua          入口（PROJECT / VERSION + 启动分流，位置不可下移）
+  app/              应用层，按功能分子目录
+    app_main.lua        业务编排
+    net/                net_config / net_drv / net_watchdog / time_sync
+    modbus/             comm_core / relay_ctrl / rtu_slave_regmap / tcp_slave / tcp_modbus_master
+    web/                httpsrv_web（内置网页服务）
+    aircloud/           aircloud_data / airlbs_app / weather_app
+    fota/               fota_app
+    io/                 di_app / do_app / buzzer_app / led_app / flash_app / reload_app / watchdog_app
+    ui/                 ui_main / ui_theme / theme / key_beep + 各业务 *_win.lua 页面
+    prod/               产测：prod_test / prodmeta / prod_app_main / prod_ui_main / prod_*_win / prod_*_app
+  drv/              驱动层：board_init + lcd/ tp/ buzzer/ wdt/ netdrv/
+  web/              网页与图片资源：index.html、hw_*.png、logo.png（设备内为 /luadb/xxx）
+  libs/             本地扩展库位置（固件内置库不必放这里，当前为空）
+
+目录只是工程组织方式：烧录时脚本按文件名平铺进 /luadb，所以下面所有模块
+require "xxx" 一律不带目录名（与 Air8780_factory 一致）。
+]]
+
+
 PROJECT = "Air8301_Factory"
 VERSION = "001.999.001"
 

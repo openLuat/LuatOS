@@ -50,8 +50,8 @@
 
 === 可移植性说明（零资源依赖） ===
 
-LOGO 资源：优先使用 /luadb/logo.png（工程内源文件为 src/logo.png，打包后即设备内的 /luadb/logo.png，
-      注意：放在工程根目录的图片不会被打包，必须放在 main.lua 同级的 src/ 目录下）；
+LOGO 资源：优先使用 /luadb/logo.png（工程内源文件为 web/logo.png，打包后即设备内的 /luadb/logo.png；
+      若打包工具保留子目录，则退到 /luadb/web/logo.png）；
       开机时解析 PNG 文件头得到真实宽高，按 300×144 上限等比缩放并居中，可适配任意尺寸的 LOGO，
       无需再手工调整代码常量。图片缺失、非 PNG 或文件损坏时自动回退为绘制版标识（圆角方块 + "8301"），
       因此本页缺图不会报错、不会影响开机流程。
@@ -277,8 +277,8 @@ local function on_create()
     end
 
     local logo_path
-    -- 依次尝试：工程 src 目录打包后的标准路径、保留子目录的打包方式、根文件系统
-    for _, p in ipairs({ "/luadb/logo.png", "/luadb/src/logo.png", "/logo.png" }) do
+    -- 依次尝试：web/ 目录被打包平铺后的标准路径、保留子目录的打包方式、根文件系统
+    for _, p in ipairs({ "/luadb/logo.png", "/luadb/web/logo.png", "/logo.png" }) do
         if io.exists(p) then logo_path = p break end
     end
 

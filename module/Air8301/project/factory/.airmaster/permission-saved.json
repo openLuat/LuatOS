@@ -1,0 +1,14 @@
+[
+  {
+    "action": "external_directory",
+    "resource": "D:/luatos/LuatOS/module/Air8000/demo/*"
+  },
+  {
+    "action": "external_directory",
+    "resource": "D:/luatos/LuatOS/module/Air8301/*"
+  },
+  {
+    "action": "external_directory",
+    "resource": "D:/luatos/LuatOS/*"
+  }
+]

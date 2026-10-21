@@ -40,6 +40,23 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
+--[[
+==================== 工程目录结构（参照 Air8780_factory） ====================
+main.lua          入口（PROJECT / VERSION + 产测/业务分流，位置不可下移）
+app/              应用层，按功能分子目录
+  factory.lua         产测模式主控（USB 虚拟串口指令）
+  net/                net_config / net_drv / net_watchdog
+  modbus/             comm_core / relay_ctrl / rtu_slave_regmap / tcp_slave / tcp_modbus_master
+  web/                httpsrv_web（内置网页服务）
+  aircloud/           aircloud_data / airlbs_app
+  fota/               fota_app
+  io/                 gpio_ctrl / led / power_mgr
+drv/netdrv/        网卡驱动选择入口 netdrv_device
+libs/              扩展库拷贝：libfota3 / prodmeta
+web/               网页资源：index.html（设备内为 /luadb/index.html）
+
+烧录时脚本按文件名平铺进 /luadb，所以各模块 require "xxx" 一律不带目录名。
+]]
 PROJECT = "Air8300_Factory"
 VERSION = "001.999.001"
 

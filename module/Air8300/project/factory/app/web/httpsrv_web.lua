@@ -267,7 +267,10 @@ local function handle_http_request(fd, method, uri, headers, body)
     end
     
     if uri == "/" or uri == "/index.html" then
+        -- 网页源文件在工程 web/ 目录：打包平铺时设备内为 /luadb/index.html，
+        -- 保留子目录时为 /luadb/web/index.html，两种都尝试
         local f = io.open("/luadb/index.html", "r")
+        if not f then f = io.open("/luadb/web/index.html", "r") end
         if f then
             local content = f:read("*a")
             f:close()

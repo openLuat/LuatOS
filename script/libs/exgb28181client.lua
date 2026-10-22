@@ -1364,7 +1364,8 @@ end
 平台判定对讲失败并**把整条对讲停掉** —— 现象是"音频收到一半就断"，
 而 SIP 层此前一切正常，极难倒查。
 
-本端只做**受理与收流**；把本端采集的音频回传（上行）是后续的事。
+本端只做**受理与协商**；收流、解码播放与上行都由选定的外部音频引擎在
+该会话上完成（见 exgb28181audio / exgb28181audio_raw）。
 ]]
 local function handle_audio_invite(msg, s)
     local o = g_opts
@@ -1428,7 +1429,7 @@ local function handle_audio_invite(msg, s)
         state        = "established",
         remote_ip    = s.conn_ip,
         remote_port  = s.port,
-        -- 供失活判定：TCP 腿若始终连不上(如平台端口不可达)，要能被回收，
+        -- 供失活判定：TCP 会话若始终连不上(如平台端口不可达)，要能被回收，
         -- 否则会一直挂在 talks() 里(实测见过"0 个包"挂几分钟的僵尸会话)
         started      = true,
         started_ms   = now_ms(),
@@ -1477,8 +1478,9 @@ local function handle_audio_invite(msg, s)
         port         = port,
         payload_type = 8,
         rtpmap       = "PCMA/8000",
-        -- 平台发起的这条是对讲（双向），本端应答可收可发；
-        -- 上行发送尚未实现，故先只声明接收
+        -- 平台发起的这条是对讲（双向）。上行由音频引擎在该会话上发送；
+        -- 应答仍按历史实现声明 recvonly —— 实测 WVP/ZLM 不按应答方向限制
+        -- 上行（双向实测零丢包），改成 sendrecv 未在平台上复验，暂不动。
         direction    = "recvonly",
         has_ssrc     = 0,
         -- 承载必须与平台要求一致；setup 方向取反（上面已算好，见 tcp_setup_choice）
@@ -1951,7 +1953,7 @@ end
 
 -- 外部音频引擎连续多少个 tick(1s 一个)都报告"没在跑"才回收会话。
 -- 不是 1 次就杀：换会话时应用会先 stop 再 start，中间有几十到几百毫秒的空窗；
--- 只按单次采样会把刚切过去的腿 B 误杀。
+-- 只按单次采样会把刚切过去的对讲会话误杀。
 local AUDIO_ALIVE_MISS_MAX = 3
 
 -- 回收已死的会话。只在 tick 里调用，保证会话表的改动都发生在同一个上下文
@@ -2280,12 +2282,12 @@ GB28181-2016 §9.12 的语音广播/对讲与**点播方向相反**：
     → **设备向平台发起 INVITE**(s=Broadcast, m=audio, PCMA/8000)
     → 平台回 200 OK(带它自己的 SDP) → 设备回 ACK → 平台推音频
 
-本段只做到"发起 → 应答 → ACK"，外加**观测**收到的音频包。
-音频的解码与播放(PCMA→PCM→喇叭)是下一步的事，不在这一段里。
+本段只做到"发起 → 应答 → ACK"并登记会话；音频的收流、解码播放与上行
+都由外部引擎在该会话上完成（见 exgb28181audio / exgb28181audio_raw）。
 
-观测部分的意义不只在于功能：平台的应答 SDP 与随后真实的 RTP 载荷，
-是判定"音频到底走裸 PCMA 还是 PS 内 PES 0xC0"的直接证据 ——
-这个封装问题在标准与实现里两种都存在，只能实测。
+会话里记下的对端 SDP 与随后真实的 RTP 载荷，是判定"音频到底走裸 PCMA
+还是 PS 内 PES 0xC0"的直接证据 —— 这个封装问题在标准与实现里两种都存在，
+只能实测（C 侧两种都能解）。
 ]]
 
 -- 登记音频会话的媒体归属。
@@ -2363,11 +2365,11 @@ function M.start_talk(opts)
     video.luatos.com 对 **UDP offer 也回** `m=audio ... TCP/RTP/AVP` +
     `a=setup:passive`。offer/answer 的承载不一致时，它的媒体会话可能只
     accept 连接、不激活音频发送器（设备侧现象：TCP 连上了、50 包/秒发出去，
-    但 rx 恒为 0）。显式 offer TCP 让协商合法，也排除"它按 UDP 理解这条腿"。
+    但 rx 恒为 0）。显式 offer TCP 让协商合法，也排除"它按 UDP 理解这个会话"。
 
     setup 固定 active，不再单列开关：
       · 合宙平台不认 `actpass`（回 500），只认 `active`；
-      · WVP 的腿 A 走 UDP，根本不看 setup。
+      · WVP 的广播会话走 UDP，根本不看 setup。
     所以"TCP ⇒ active"是当前两个平台唯一的合法组合。
     ]]
     local offer_tcp = g_opts.audio_offer_tcp and true or false
@@ -2382,11 +2384,12 @@ function M.start_talk(opts)
         --[[
         offer 方向固定 sendrecv。
 
-        §9.12 的广播名义上是"设备只收"，但合宙 video.luatos.com 把同一条腿
-        当**双向会话**（200 OK 回 sendrecv，且从不发腿 B），声明 recvonly 时
-        它会按"设备不发送"丢掉上行。WVP 则相反：它的应答固定 `a=sendonly`
-        （InviteRequestProcessor.sendOk 里写死），**不解析 offer 的 direction**，
-        上行在另发的 Talk INVITE(腿 B) 里。所以 sendrecv 对两者都成立。
+        §9.12 的广播名义上是"设备只收"，但合宙 video.luatos.com 把同一个会话
+        当**双向会话**（200 OK 回 sendrecv，且不会另发对讲 INVITE），声明
+        recvonly 时它会按"设备不发送"丢掉上行。WVP 则相反：它的应答固定
+        `a=sendonly`（InviteRequestProcessor.sendOk 里写死），**不解析 offer
+        的 direction**，上行在另行发起的 Talk INVITE（对讲会话）里。
+        所以 sendrecv 对两者都成立。
         ]]
         direction    = "sendrecv",
         -- y=<SSRC> 总是带，见上面 ssrc 的说明。
@@ -2546,7 +2549,7 @@ local function handle_talk_response(msg)
             -- 与平台发起的那条口径一致（见 handle_audio_invite 的 emit）
             transport = sess.transport,
             remote_ip = sess.remote_ip, remote_port = sess.remote_port,
-            -- 平台应答的方向：sendrecv = 这条腿双向（上行也在这里走）
+            -- 平台应答的方向：sendrecv = 这个会话双向（上行也在这里走）
             direction = sess.direction,
         })
     else

@@ -9,14 +9,27 @@
   (DeviceInfo / DeviceStatus / ConfigDownload / Catalog 目录分页 /
    RecordInfo 录像列表)、
   实时点播(INVITE/SDP 协商/ACK/BYE，UDP 与 TCP 两种承载)、
-  会话失活回收、以及语音对讲/广播的两条腿。
+  会话失活回收、以及语音对讲/广播的两种会话。
 
 协议编解码与**媒体收发**全部由 C 模块 gb28181 承担（socket 也在 C 侧，
 经网络适配层自持），本库只做状态机与"何时泵"的决定 —— 字节不穿过本库。
 
-**媒体是指"字节"不是"声音"**：本库收已编码的载荷(视频是 annex-b 访问单元、
-音频是 G.711A)，PCM↔G.711A 与麦克风/喇叭都不在这里 —— 那些由
-`exgb28181audio.lua` 接 LuatOS 的 audio_v2 完成(见该文件头)。
+**媒体是指"字节"不是"声音"**：点播视频的载荷(annexb 访问单元)经本库入队
+发送；**音频会话的媒体则始终由外部引擎接管** —— 本库只协商端口/SDP，把
+承载与对端地址交给引擎，不建音频 socket、不碰 PCMA。发布库自带的引擎是
+`exgb28181audio.lua`（voip 的 native / bridge 两种模式）；PC 模拟器与板上
+探针可用 `exgb28181audio_raw.lua`（裸 C stream）。外置芯片等板级后端同理。
+
+稳定 API（应用只应依赖这些）：
+    start(opts) / stop() / on(callback) / is_registered()
+    sessions() / talks() / push_frame(sess, frame) / push_ps_audio(sess, pcma)
+    flush_session(sess) / start_talk(opts) / stop_talk(call_id)
+    records() / set_records(list) / subscriptions()
+    on_playback(handler) / on_ptz(handler) / on_drag_zoom(handler) /
+    on_home_position(handler) / report_alarm(opts) / send_broadcast_notify(id)
+诊断：probe_session（SIP 对话探活）。
+内部/测试用：session_death_reason、tcp_setup_choice、media_transport、
+sub_expired、alarm_transport、next_audio_port、keepalive、emit_event。
 
 基本用法：
 local client = require "exgb28181client"
@@ -87,9 +100,6 @@ local MAX_AUTH_RETRY = 2
 
 local g_opts    = nil
 local g_cb      = nil
-local g_audio_cb = nil    -- 下行音频回调。与 g_cb 一样放模块局部而不是 g_opts：
-                          -- on_audio() 可能在 start() 之前被调用(音频桥先于信令起来)，
-                          -- 挂在 g_opts 上会在那时炸 "attempt to index a nil value"
 local g_playback_cb = nil -- 回放源钩子(见 on_playback)。同样放模块局部：
                           -- exgb28181playback 通常在 client.start() 之前就 setup()
 local g_ptz_cb = nil      -- 云台指令处理者(见 on_ptz)。同上，应用会在 start() 前注册
@@ -1063,12 +1073,13 @@ local last_audio_port = nil
 --[[
 音频会话的本地媒体端口。
 
-外部接管模式（g_opts.external_audio）下必须用调用方指定的那个：SDP 里报出去的
-就是它，而那个端口要留给外部引擎（如 voip）去绑 —— 本层不能再自己挑一个，
-否则两边抢同一个端口，或者平台按 SDP 把下行发到没人听的地方。
-非外部模式照旧从端口池里分配（点播仍走 alloc_rtp_port，不受影响）。
+音频媒体始终由外部引擎接管，所以这个端口**必须由调用方通过 `audio_port`
+指定**：SDP 里报出去的就是它，而那个端口要留给引擎（voip / 裸 stream /
+外置芯片）去绑 —— 本层不能自己挑一个，否则两边抢同一个端口，或者平台按
+SDP 把下行发到没人听的地方。没配 `audio_port` 时退回点播端口池（仅在没有
+并发点播时安全，联调够用）。
 
-**外部接管模式在 [audio_port, +max_sessions) 里轮换，每次都避开上一次用的那个**：
+**在 [audio_port, +max_sessions) 里轮换，每次都避开上一次用的那个**：
 voip 收尾后约 100ms 内媒体端口还没真正放开（getState 已 idle 但 socket 未释放），
 这期间它绑不上配置端口会**静默**换一个别的，而 SDP 报给平台的仍是配置那个 ——
 平台下行全丢且没有任何报错。换个空闲端口，SDP 报的与实际绑的就是同一个。
@@ -1076,7 +1087,7 @@ voip 收尾后约 100ms 内媒体端口还没真正放开（getState 已 idle �
 ]]
 local function alloc_audio_port()
     local base = g_opts.audio_port
-    if not (g_opts.external_audio and base) then
+    if not base then
         return alloc_rtp_port()
     end
     local n = g_opts.max_sessions or 4
@@ -1105,9 +1116,9 @@ end
 下一个音频会话将使用的本地媒体端口（会推进轮换，所以别拿它当只读查询）。
 
 给联调看"这一通电话 SDP 里会报哪个端口"，也给单测验轮换。没配 `audio_port`
-（非外部接管）时返回端口池里的下一个。
+时返回点播端口池里的下一个。
 @api exgb28181client.next_audio_port()
-@return number|nil 端口号；非外部模式且池子已满时为 nil
+@return number|nil 端口号；未配 audio_port 且端口池已满时为 nil
 ]]
 function M.next_audio_port()
     return alloc_audio_port()
@@ -1181,21 +1192,6 @@ local function has_media(sess)
 end
 
 --[[
-把下行音频接到音频桥上。
-
-C 侧交过来的已经是**剥掉 RTP 头、必要时解过 PS** 的 G.711A，所以桥那边
-（exgb28181audio.feed）拿到即可直接喂播放通道，不必再判封装形态。
-]]
-local function attach_audio_sink(sess)
-    gb.stream_set_sink(sess.stream, function(pcma)
-        if type(g_audio_cb) == "function" then
-            local ok, err = pcall(g_audio_cb, sess, pcma)
-            if not ok then log_error("音频回调异常", err) end
-        end
-    end)
-end
-
---[[
 把 stream 的链路状态同步到会话字段上。
 
 为什么要镜一份而不是每次现取：`session_death_reason` 与两处 push 的守卫
@@ -1260,32 +1256,18 @@ local function link_sendable(sess)
     return sess.link_up_once ~= true            -- 没通：只有"从没连上过"才值得等
 end
 
+--[[
+建立**点播(视频)**会话的媒体链。音频会话不走这里 —— 它们的媒体由外部引擎
+持有，本层没有 stream（见 handle_audio_invite / audio_open）。
+
+建链交给 C 侧的 stream（收发由注入的 transport 提供，见
+luat_gb28181_transport_netadapter.c）。
+
+本端端口仍由上层分配 —— SDP 里要写一个确定的值，而"让底层挑一个再
+读回来"在网络适配层上做不到（它要到 connect 才真正绑端口）。只有
+TCP passive 是"本端监听等平台连进来"，那时不 connect。
+]]
 local function media_open(sess)
-    --[[
-    建链交给 C 侧的 stream（收发由注入的 transport 提供，见
-    luat_gb28181_transport_netadapter.c）。
-
-    本端端口仍由上层分配 —— SDP 里要写一个确定的值，而"让底层挑一个再
-    读回来"在网络适配层上做不到（它要到 connect 才真正绑端口）。只有
-    TCP passive 是"本端监听等平台连进来"，那时不 connect。
-    ]]
-    --[[
-    外部接管**只针对音频会话**：音频媒体归外部引擎(voip)，本层只走协商与 SDP。
-
-    **必须判会话，不能只看全局开关**：media_open() 是点播(视频)与音频 INVITE
-    共用的。早先这里只判 g_opts.external_audio，于是"点播 + 对讲"同时开启时，
-    **视频流也不会建链** —— 帧只入队不发，现象是队列积压到满(queue_full)、
-    平台上点播一直无画面，而 SIP 侧注册/INVITE/ACK 全部正常，从日志完全看不出
-    是媒体建链被跳过。(2026-10-14 音频改由 voip 托管时引入)
-
-    判据用会话级标记而不是全局开关 —— 与 session_death_reason 同一套约定：
-    只有音频的那两条路会置 external_media（见 handle_audio_invite / audio_open），
-    点播会话永远不带这个标记。
-    ]]
-    if sess.external_media then
-        return true
-    end
-
     local mode
     if not sess.media_tcp then
         mode = "udp"
@@ -1436,13 +1418,11 @@ local function handle_audio_invite(msg, s)
     local sess = {
         call_id      = call_id,
         session_name = s.session_name or "Talk",
-        -- 字段名与点播会话**保持一致**：media_open() 是两者共用的，它读 local_port。
-        -- 早先这里叫 port，于是音频 INVITE 走到 media_open 时拿到 nil，
-        -- 抛 "bad argument #3 to 'stream_open'"，**整个 INVITE 不回 200** ——
-        -- 现象是平台侧"发了 INVITE 收不到应答"，而 SIP 层看不出任何异常。
+        -- 外部引擎要绑的那个本地端口（SDP 里报的也是它）。
+        -- 字段名与点播会话保持一致，事件/状态打印可共用一套读取代码。
         local_port   = port,
         -- 让外部媒体引擎（如 voip）能拿到"本端发流该用哪个 SSRC"：
-        -- 这条路径下就是平台在它 SDP 的 y= 里给的那个（见下面 stream_new 的说明）
+        -- 这条路径下就是平台在它 SDP 的 y= 里给的那个
         ssrc         = s.ssrc,
         incoming     = true,
         state        = "established",
@@ -1482,36 +1462,10 @@ local function handle_audio_invite(msg, s)
         sess.tcp_setup = tcp_setup
     end
     sess.transport = M.media_transport(is_tcp, sess.tcp_setup)
-    -- 媒体归外部引擎：本层不再持判活判据（见 session_death_reason）
-    sess.external_media = g_opts.external_audio and true or nil
-
-    --[[
-    建链、收 RTP、剥头、（若是 PS）解封装全在 C 里走完，解出的 G.711A 由
-    sink 回调交回来（见 attach_audio_sink）。Lua 只把它喂给音频桥。
-
-    载荷类型必须是 8(PCMA)、SSRC 用平台在它 SDP 的 y= 里给的那个 ——
-    回传的流要和它对上（见 gb28181.stream_new 的说明）。
-    ]]
-    -- 外部接管：媒体链路由外部引擎建，这里只把协商结果走到 SDP 应答
-    if not g_opts.external_audio then
-        sess.stream = gb.stream_new(s.ssrc or 0, 8, 0, g_opts.adapter or 0)
-        if not sess.stream or not gb.stream_enable_rx(sess.stream) then
-            log_warn("音频会话创建失败")
-            reply(msg, 500, "Server Internal Error")
-            return
-        end
-        gb.stream_set_sink(sess.stream, nil)   -- 先清（重建会话时别留旧闭包）
-        attach_audio_sink(sess)
-
-        local ok, err = media_open(sess)
-        if not ok then
-            log_warn("音频通道建立失败", err)
-            gb.stream_close(sess.stream, 1)
-            sess.stream = nil
-            reply(msg, 500, "Server Internal Error")
-            return
-        end
-    end
+    -- 媒体归外部引擎：本层不建音频 socket、也不持判活判据（见
+    -- session_death_reason）。应用收到下面的 emit 后用 session 里的
+    -- local_port/remote_ip/remote_port/transport/ssrc 去起自己的音频引擎。
+    sess.external_media = true
 
     st.talks[call_id] = sess
 
@@ -2005,13 +1959,14 @@ local AUDIO_ALIVE_MISS_MAX = 3
  回收失活的会话。
 
  **点播会话（st.sessions）与音频会话（st.talks）都要遍历**。
+ 点播靠本层自己的 stream 判活（session_death_reason）。
  音频媒体归外部引擎，本层看不到它的 socket —— 应用通过 start 的
  `audio_alive(sess)` 钩子告诉本层"这个会话的引擎还活着吗"：
    · 引擎在平台关媒体后会自行停止，而 SIP 对话可能还挂着；
    · 没有这个钩子，会话会一直留在 talks() 里、占着媒体端口，下一轮对讲
      可能被"已启动"挡掉。
- 只查已建立的外部会话；连续 AUDIO_ALIVE_MISS_MAX 个 tick 报 false 才回收
- （见上面的空窗说明）。回收动作与 BYE 同口径：清表 + emit("call","ended")。
+ 连续 AUDIO_ALIVE_MISS_MAX 个 tick 报 false 才回收（见上面的空窗说明）。
+ 回收动作与 BYE 同口径：清表 + emit("call","ended")，应用只需接这一种事件。
     ]]
 local function reap_dead_sessions()
     local now = now_ms()
@@ -2184,23 +2139,6 @@ function M.push_frame(sess, frame)
 end
 
 --[[
-收一轮下行音频。
-
-**收的节奏要由调用方按音频的节拍来**，不能挂在 1 秒的 tick 上 —— 那样
-平台推来的声音会按秒成坨地进播放器。音频桥的上行泵本来就是 20ms 一拍，
-在那里顺手收最自然（见 exgb28181audio.pump）。
-
-@api exgb28181client.poll_rx(session)
-@return int 本轮投递的音频次数
-]]
-function M.poll_rx(sess)
-    if type(sess) ~= "table" or not sess.stream then
-        return 0
-    end
-    return gb.stream_poll_rx(sess.stream)
-end
-
---[[
 把会话队列里能发的包尽量发出去。
 
 出队、UDP/TCP 分支、断点续发、背压与丢帧**全在 C 里**（
@@ -2350,35 +2288,13 @@ GB28181-2016 §9.12 的语音广播/对讲与**点播方向相反**：
 这个封装问题在标准与实现里两种都存在，只能实测。
 ]]
 
--- 绑定本地端口收音频。
--- **不 connect**：平台从哪个端口发音频要等它的应答 SDP 才知道，
--- 事先 connect 会把所有来源都过滤掉。生产环境可在拿到对端地址后再收紧。
+-- 登记音频会话的媒体归属。
+-- 本层不建音频 socket：端口怎么用、向谁发、怎么收都归外部引擎。这里只把
+-- offer 阶段的承载初值记下（缺省 UDP），真正的承载在 handle_talk_response
+-- 里按平台应答的 m= 覆盖（见那里）。
 local function audio_open(sess)
-    -- 这里的承载描述的是当前这个 stream 实际怎么开的，不是 offer 写了什么：
-    -- 非外部模式下下面立刻按 UDP 绑端口，外部模式下本层没有 stream。
-    -- offer 即使写了 TCP（audio_offer_tcp），这里仍填 "udp"。
     sess.transport = M.media_transport(false)
-    sess.external_media = g_opts.external_audio and true or nil
-    -- 三段式里的前两段：建链 + 绑端口。**这里不 connect** —— 平台从哪个
-    -- 端口发音频要等它的应答 SDP 才知道，事先 connect 会把来源全过滤掉。
-    -- connect 在 handle_talk_response 里。
-    -- 外部接管：不建收流链也不绑端口，SDP 报的 local_port 留给外部引擎（见 alloc_audio_port）
-    if g_opts.external_audio then
-        return true
-    end
-    sess.stream = gb.stream_new(sess.ssrc or 0, 8, 0, g_opts.adapter or 0)
-    if not sess.stream or not gb.stream_enable_rx(sess.stream) then
-        return false, "创建音频会话失败"
-    end
-    gb.stream_set_sink(sess.stream, nil)
-    attach_audio_sink(sess)
-
-    local ok, err = gb.stream_open(sess.stream, "udp", sess.local_port)
-    if not ok then
-        gb.stream_close(sess.stream, 1)
-        sess.stream = nil
-        return false, err or "音频端口绑定失败"
-    end
+    sess.external_media = true
     return true
 end
 
@@ -2571,13 +2487,8 @@ local function handle_talk_response(msg)
         sess.state = "established"
 
         --[[
-        按平台的应答 SDP 把音频 socket **connect 到对端的收流地址**。
-
-        两重理由：
-        1) 正确性：只接受协商好的那一对端，别把端口开给所有人
-        2) **可工作性**：实测这套模拟器上，绑定了但未 connect 的 UDP socket
-           **收不到任何数据**（回调不触发）—— 音频包全被丢掉，而 SIP 层
-           看起来完全正常，极难倒查
+        把平台应答里的收流地址、承载与方向记到会话上，随 emit 交给外部
+        引擎 —— 引擎据此 connect/监听并起流。本层不碰音频 socket。
         ]]
         local rs = gb.sdp_parse(msg.body)
         if rs and rs.conn_ip and rs.port and rs.port > 0 then
@@ -2602,34 +2513,18 @@ local function handle_talk_response(msg)
                     sess.tcp_setup = tcp_setup
                 end
             end
-            if g_opts.external_audio then
-                -- 媒体由外部引擎(voip)建链，把应答的承载原样交给它
-                sess.transport = M.media_transport(is_tcp, sess.tcp_setup)
-            elseif is_tcp then
-                -- 非外部模式：audio_open() 已经按 UDP 建好 socket，无法原地改协议。
-                -- 这里显式告警，避免悄悄用错承载。
-                log_warn("平台应答要求 TCP，但本地媒体链路已按 UDP 建立",
-                         "external_audio=false 时需要重建 stream")
-            end
+            -- 媒体由外部引擎建链，把应答的承载原样交给它
+            sess.transport = M.media_transport(is_tcp, sess.tcp_setup)
             log_info("音频应答方向", tostring(rs.direction),
                      "承载", tostring(sess.transport))
 
-            -- **先记对端地址，再谈连不连**。外部接管（external_audio）模式下本层
-            -- 没有 sess.stream —— 但仍必须把地址记下来交给外部引擎（voip 要靠它
-            -- connect）。原先只在 stream_connect 成功的分支里赋值，于是设备发起的
-            -- 那一路（设备发起的广播：喊话）永远没有对端地址，音频桥直接报"没有对端媒体地址"，
-            -- 表现是**喊话没声音而对讲有声音**（对讲走 handle_audio_invite，地址来自
-            -- offer）。这条路径与 stream 有没有无关。
+            -- **先记对端地址，再谈别的**。外部引擎（voip / raw）要靠它去
+            -- connect。原先只在 stream_connect 成功的分支里赋值，于是设备发起的
+            -- 那一路永远没有对端地址，音频引擎直接报"没有对端媒体地址"，
+            -- 表现是**喊话没声音而对讲有声音**（对讲走 handle_audio_invite，
+            -- 地址来自 offer）。这条路径与 stream 有没有无关。
             sess.remote_ip, sess.remote_port = rs.conn_ip, rs.port
-            if sess.stream then
-                if gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
-                    log_info("音频收流已连向", rs.conn_ip, rs.port)
-                else
-                    log_warn("音频收流 connect 失败", rs.conn_ip, rs.port)
-                end
-            else
-                log_info("音频对端地址已记下(外部引擎接管)", rs.conn_ip, rs.port)
-            end
+            log_info("音频对端地址已记下(外部引擎接管)", rs.conn_ip, rs.port)
         else
             log_warn("平台 SDP 里没有可用的收流地址")
         end
@@ -2804,160 +2699,6 @@ function M.send_broadcast_notify(target_id)
 end
 
 --[[
-向音频会话推送一段**已编码的 G.711A(PCMA)载荷**（对讲的上行方向）。
-
-与视频侧的约定一致：**组件收已编码的数据**，PCM→PCMA 的编码归平台层
-(LuatOS 的 multimedia 本来就有 .g711a 能力)。这样 src/ 不必引入 codec，
-而"打包 + 发送"直接复用现成的媒体队列 —— 队列、背压、TCP 断点续发都是现成的。
-
-时间戳按 8kHz 推进(G.711A 1 字节 = 1 采样)，与视频的 90kHz 不同 ——
-同一会话里两者的时钟基准不一样。
-
-@api exgb28181client.talk_push(session, pcma)
-@table session
-@string pcma 已编码的 G.711A 载荷(建议每包 160 字节 = 20ms@8kHz)
-@return boolean
-]]
-function M.talk_push(sess, pcma)
-    if type(sess) ~= "table" or type(pcma) ~= "string" or #pcma == 0 then
-        return false
-    end
-    if not has_media(sess) then
-        return false          -- 没有上行队列(TCP 腿未建立时)/会话已结束
-    end
-    if not link_sendable(sess) then
-        return false          -- 链路不通且不该等，见 link_sendable 的说明
-    end
-
-    -- **切包与时间戳推进都在 C 里**（G.711A 一字节一采样，按 8kHz 自推），
-    -- 这里整块交过去即可 —— 一次调用切好，省掉每包一次跨语言往返
-    local took = gb.stream_push_audio(sess.stream, pcma)
-    if took == 0 then
-        return false          -- 整包被丢弃(队列满)，统计里能查到
-    end
-    M.flush_session(sess)
-    return true
-end
-
---[[
-注册**下行音频**回调：平台发来的音频交给它。
-
-与 talk_push 恰好是一对 —— 一个负责上行(本端采集 → 平台)，一个负责下行
-(平台 → 本端播放)。两者都只搬**已编码的 G.711A 字节**，PCM↔G.711A 的转换
-与麦克风/喇叭都归平台的音频框架(LuatOS 的 audio_v2 自带
-DATA_CODEC_TYPE_G711_ALAW，两端都用它即可，本组件不碰 codec)。
-
-回调签名 f(sess, body)：
-  sess  音频会话表
-  body  **已经剥掉 RTP 头、必要时解过 PS** 的 G.711A，可以原样喂给
-        audio_v2.input()。收包侧的剥头与解封装都在 C 里做完，回调看不到
-        封装形态。
-返回值忽略。回调里抛异常不会打断收包循环（内部 pcall）。
-
-@api exgb28181client.on_audio(callback)
-@function callback 回调函数，传 nil 取消注册
-@return boolean
-@usage
-local client = require "exgb28181client"
-client.on_audio(function(sess, body)
-    audio_v2.input(src_index, body, false)
-end)
-]]
-function M.on_audio(callback)
-    if callback ~= nil and type(callback) ~= "function" then
-        return false
-    end
-    g_audio_cb = callback
-    return true
-end
-
---[[
-下行音频探针（诊断用）。
-
-不启 voip，改由 C 侧收流把**已剥 RTP 头**的 PCMA 交给探针，统计静音码占比：
-  · 0xD5(G.711A 静音) 接近 100%  → 平台在发静音**帧**，设备当然没声；
-  · 非 0xD5 字节占比可观、样本在变 → 平台确实在发语音，设备无声要查播放侧。
-
-probe_start 会占用公开的 on_audio 回调（停止时恢复之前的回调），并起一个
-20ms 的轮询任务把各 talk 会话的收流泵起来。仅用于联调，正常使用不要开。
-@api exgb28181client.probe_start()
-@return boolean, string|nil
-]]
-local probe = {
-    active = false, gen = 0,
-    frames = 0, bytes = 0, d5 = 0,
-    prev_cb = nil, saved = false,
-}
-
-local function probe_on_audio(_sess, pcma)
-    if type(pcma) ~= "string" or #pcma == 0 then return end
-    local d5 = 0
-    for i = 1, #pcma do
-        if pcma:byte(i) == 0xD5 then d5 = d5 + 1 end
-    end
-    probe.frames = probe.frames + 1
-    probe.bytes  = probe.bytes + #pcma
-    probe.d5     = probe.d5 + d5
-
-    if probe.frames == 1 or probe.frames % 50 == 0 then
-        local hex = {}
-        for i = 1, math.min(16, #pcma) do
-            hex[#hex + 1] = string.format("%02X", pcma:byte(i))
-        end
-        log_info(("AUDIO-PROBE 帧=%d 字节=%d 静音码D5=%.1f%% 本帧非D5=%d 样本=%s")
-                 :format(probe.frames, probe.bytes,
-                         probe.bytes > 0 and (probe.d5 * 100 / probe.bytes) or 0,
-                         #pcma - d5, table.concat(hex, " ")))
-    end
-end
-
-function M.probe_start()
-    if probe.active then return true end
-    if g_opts and g_opts.external_audio then
-        return false, "外部音频接管模式下没有 sess.stream，探针收不到数据"
-    end
-    probe.active = true
-    probe.gen = probe.gen + 1
-    probe.frames, probe.bytes, probe.d5 = 0, 0, 0
-    -- 保存并接管公开回调；probe_stop 时恢复
-    probe.prev_cb = g_audio_cb
-    probe.saved = true
-    M.on_audio(probe_on_audio)
-
-    local gen = probe.gen
-    sys.taskInit(function()
-        while probe.active and probe.gen == gen do
-            -- st.talks 在 client.start() 之前是 nil
-            for _, sess in pairs(st.talks or {}) do
-                M.poll_rx(sess)
-            end
-            sys.wait(20)
-        end
-    end)
-    return true
-end
-
-function M.probe_stop()
-    if not probe.active then return true end
-    probe.active = false
-    probe.gen = probe.gen + 1
-    if probe.saved then
-        M.on_audio(probe.prev_cb)
-        probe.prev_cb = nil
-        probe.saved = false
-    end
-    return true
-end
-
-function M.probe_stats()
-    return {
-        frames = probe.frames,
-        bytes  = probe.bytes,
-        d5     = probe.d5,     -- 原始计数，百分比由调用方算
-    }
-end
-
---[[
 结束由本端发起的音频会话：向平台发 BYE 并释放本地端口。
 
 @api exgb28181client.stop_talk([call_id])
@@ -2987,7 +2728,20 @@ function M.stop_talk(call_id)
     return n
 end
 
--- 列出当前进行中的音频会话(供上层观察)
+--[[
+列出当前进行中的音频会话(供上层观察，也是音频引擎的输入)。
+
+字段契约（外部引擎据此起流）：
+  call_id/session_name   标识
+  local_port             本端媒体端口（SDP 里报的就是它）
+  ssrc                   上行该用的 SSRC（平台发起时来自它 SDP 的 y=）
+  transport              "udp" / "tcp" / "tcp_passive"
+  remote_ip/remote_port  平台侧收流地址（设备发起的会话在 200 OK 后才齐全）
+  direction              平台声明的方向（sendrecv/sendonly/recvonly）
+
+@api exgb28181client.talks()
+@return table 以 Call-ID 为键的会话表
+]]
 function M.talks()
     return st.talks
 end
@@ -3640,7 +3394,7 @@ local function _teardown_for_reconnect()
         emit("call", "ended", { call_id = call_id, reason = "signaling_lost" })
     end
     for call_id, sess in pairs(st.talks) do
-        media_close(sess)       -- 音频会话同样要走唯一出口，否则 stream 不关、队列不清
+        media_close(sess)       -- 会话销毁走唯一出口（音频没有 stream，这里是空操作）
         st.talks[call_id] = nil
         emit("call", "ended", { call_id = call_id, reason = "signaling_lost" })
     end
@@ -3861,16 +3615,18 @@ end
 --[[
 启动 GB28181 信令客户端。
 
-音频媒体由外部引擎接管；对讲/广播要求 `audio_port` 给出媒体端口基址
-（每次都从 `[audio_port, +max_sessions)` 里挑一个空闲的写进 SDP）。
+音频媒体始终由外部引擎接管，因此对讲/广播要求 `audio_port` 给出媒体端口
+基址（每次都从 `[audio_port, +max_sessions)` 里挑一个空闲的写进 SDP）：
+应用收到 talk 事件后用会话里的 local_port/remote_ip/remote_port/transport
+起自己的引擎（exgb28181audio 或其它后端）。
 
 @api exgb28181client.start(opts)
 @table opts 配置，见模块头部用法示例；音频相关：audio_port、max_sessions
 @function opts.audio_alive 可选，function(sess) -> boolean
-    本层看不到外部引擎的 socket，靠这个钩子判断会话的引擎是否还在运行。
-    连续 3 秒为 false 时以"外部音频引擎已停止"回收会话并发 call/ended
-    （与 BYE 同口径）。引擎在平台关媒体后会自行停止，不提供这个钩子时
-    只能靠平台 BYE 结束，会话会残留在 talks() 里。
+    音频媒体归外部引擎，本层看不到引擎的 socket。应用给出"这条会话的引擎
+    是否还在运行"；连续 3 秒为 false 时本层以"外部音频引擎已停止"回收会话
+    并发 call/ended（与 BYE 同口径）。引擎在平台关媒体后会自行停止，不提供
+    这个钩子时只能靠平台 BYE 结束，会话会残留在 talks() 里。
 @return boolean 成功返回 true
 @return string|nil 失败原因
 ]]
@@ -3944,12 +3700,6 @@ function M.start(opts)
 
     g_cb = opts.event_callback
 
-    -- 音频回调也可经 opts 传入（与 on_audio() 等价）。只在本轮显式给了才覆盖，
-    -- 否则保留之前 on_audio() 注册的那个 —— 音频桥可能先于 start() 起来
-    if opts.audio_callback ~= nil then
-        g_audio_cb = opts.audio_callback
-    end
-
     -- 一次 start 内保持稳定的 Call-ID 与 From tag：
     -- 重注册若换了它们，服务端可能判为新事务甚至返回 482
     st.call_id  = gen_token("call") .. "@" .. g_opts.server_addr
@@ -3966,8 +3716,6 @@ end
 @return boolean 成功返回 true
 ]]
 function M.stop()
-    -- 探针泵必须无条件停掉：它可能在 start() 之前就被 probe_start() 拉起
-    M.probe_stop()
     if not g_started then return true end
     g_started = false
     sys.publish(TOPIC_STOP)

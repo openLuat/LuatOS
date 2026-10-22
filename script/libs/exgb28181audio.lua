@@ -2,10 +2,11 @@
 @module exgb28181audio
 @summary GB28181 对讲/广播的音频通路（native / bridge）
 
-分工：信令与 SDP 归 exgb28181client（须设 external_audio=true；audio_port 是媒体
-端口的基址，实际每次通话在 `[它, +max_sessions)` 里轮换）。
-本模块只管音频会话与 PCM/编码搬运；codec 上电、I2C、I2S 引脚等板级初始化由应用做。
-外置语音芯片（air1103）属于板级实现，已移到 demo 的 audio_air1103 模块。
+分工：信令与 SDP 归 exgb28181client（音频媒体始终由外部引擎接管；`audio_port`
+是媒体端口的基址，实际每次通话在 `[它, +max_sessions)` 里轮换）。
+本模块就是"voip 引擎"：只管音频会话与 PCM/编码搬运；codec 上电、I2C、I2S
+引脚等板级初始化由应用做。外置语音芯片（air1103）属于板级实现，已移到 demo 的
+audio_air1103 模块；PC/探针可改用 exgb28181audio_raw（裸 C stream）。
 
 稳定 API：
     available() / warn_optional() / wait_idle(timeout_ms, opts)

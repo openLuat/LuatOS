@@ -7,12 +7,17 @@ exgb28181audio 的 start/mic_start 依赖 voip/audio_v2 硬件路径，PC 模拟
   · G.711A 编解码（alaw_encode / pcm_to_alaw / alaw_to_pcm）
   · PCM 增益/钳位（pcm_gain）
   · 稳定 API 的存在与参数校验（不启动真实音频）
+  · 裸流后端 exgb28181audio_raw 的可用性与参数拒绝（不建链）
 
 testrunner 用 pairs() 遍历，执行顺序不确定，每个用例自备状态。
 ]]
 
 local ok, mod = pcall(require, "exgb28181audio")
 local gba = ok and mod or rawget(_G, "exgb28181audio")
+
+-- 裸 C stream 后端（PC/探针）：不依赖 voip，PC 上也能加载
+local okr, modr = pcall(require, "exgb28181audio_raw")
+local raw = okr and modr or rawget(_G, "exgb28181audio_raw")
 
 local t = {}
 
@@ -114,6 +119,31 @@ function t.test_idle_api_safe()
     local s = gba.stats()
     assert(type(s) == "table" and type(s.mic) == "table",
            "stats 应返回表并带 mic 子表")
+end
+
+function t.test_raw_backend_available_and_idle()
+    assert(raw ~= nil, "require exgb28181audio_raw 失败")
+    assert(raw.available() == true, "PC 上应有 gb28181.stream_*")
+    assert(raw.is_running() == false, "初始不应在运行")
+    assert(raw.stop() == true, "空闲时 stop 应返回 true")
+    local s = raw.stats()
+    assert(type(s) == "table", "stats 应返回表")
+    assert(s.mode == nil and s.mic_active == false,
+           "未运行时 mode 应为 nil、mic_active 为 false")
+end
+
+function t.test_raw_backend_rejects_bad_session()
+    -- 没有 local_port：必须在建链前拒绝，不能碰 socket
+    local ok1, why1 = raw.start({ call_id = "no-port" })
+    assert(ok1 == false and type(why1) == "string")
+
+    -- 未知承载：同样在 stream_new 之前拒绝
+    local ok2, why2 = raw.start({
+        call_id = "bad-transport", local_port = 31000, transport = "sctp",
+    })
+    assert(ok2 == false and type(why2) == "string")
+    assert(why2:find("承载", 1, true) ~= nil, "错误应指明承载不合法")
+    assert(raw.is_running() == false, "失败后不能留下运行状态")
 end
 
 return t

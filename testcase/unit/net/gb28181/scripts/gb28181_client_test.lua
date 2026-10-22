@@ -468,7 +468,7 @@ function t.test_external_media_session_is_not_reclaimed_by_link_guess()
 end
 
 --[[
-外部接管模式下音频媒体端口必须**轮换**。
+音频媒体端口必须**轮换**（音频媒体始终由外部引擎接管）。
 
 voip 收尾后约 100ms 内媒体端口还没真正放开（getState 已 idle 但 socket 未释放），
 若每次都用同一个固定端口，这期间它绑不上会**静默**换一个别的 —— 而 SDP 报给平台的
@@ -477,11 +477,11 @@ voip 收尾后约 100ms 内媒体端口还没真正放开（getState 已 idle �
 轮换规则是"避开上一次用的那个"，所以头两次调用必然覆盖配置端口与它的邻居；
 夹具与端到端实测见 gb28181/tests/tools/air1103_sim/README.md。
 ]]
-function t.test_audio_media_port_rotates_in_external_mode()
+function t.test_audio_media_port_rotates()
     reset()
     local base, n = 31000, 4
     assert(client.start(base_opts({
-        external_audio = true, audio_port = base, max_sessions = n,
+        audio_port = base, max_sessions = n,
     })), "start 应成功")
 
     local p1 = client.next_audio_port()

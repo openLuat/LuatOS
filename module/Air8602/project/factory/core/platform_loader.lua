@@ -67,8 +67,8 @@ _G.is_pc = (not ok) or (_G.model_str == "PC") or (_G.model_str == "")
 -- eng = Engine 引擎主机, evb = EVB turnkey 开发板, cor = Core 核心板
 local PROJECT_MAP = {
     -- Air8602 7寸（WiFi / 4G 两个版本）
-    ["Engine_Air8602_7inch_1024x600_010_V000"]    = "eng_8602_7i_v0",  -- WiFi 版
-    ["Engine_Air8602_7inch_1024x600_011_V000"]    = "eng_8602_7i_v1",  -- 4G 版
+    ["Engine_Air8602_7inch_1024x600_010_WiFi_V000"] = "eng_8602_7i_v0",  -- WiFi 版
+    ["Engine_Air8602_7inch_1024x600_011_4G_V000"]   = "eng_8602_7i_v1",  -- 4G 版
 }
 
 -- ==================== 3. 加载项目配置 ====================

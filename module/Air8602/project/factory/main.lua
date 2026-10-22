@@ -37,8 +37,8 @@ PROJECT：项目名，ascii string类型
 已实现的配置（修改 PROJECT 为以下任一值即可切换硬件）：
 
   Air8602 7寸（WiFi / 4G 两个版本）:
-  "Engine_Air8602_7inch_1024x600_010_V000"      → config/eng_8602_7i_v0.lua     7寸RGB JD9165BA +WiFi(airlink/6205)+双RS485+SD+喇叭
-  "Engine_Air8602_7inch_1024x600_011_V000"      → config/eng_8602_7i_v1.lua     7寸RGB JD9165BA +4G(airlink/780ER2)+双RS485+SD+喇叭
+  "Engine_Air8602_7inch_1024x600_010_WiFi_V000" → config/eng_8602_7i_v0.lua     7寸RGB JD9165BA +WiFi(airlink/6205)+双RS485+SD+喇叭
+  "Engine_Air8602_7inch_1024x600_011_4G_V000"   → config/eng_8602_7i_v1.lua     7寸RGB JD9165BA +4G(airlink/780ER2)+双RS485+SD+喇叭
 
 VERSION：项目版本号，ascii string类型
         如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
@@ -48,16 +48,16 @@ VERSION：项目版本号，ascii string类型
 ]]
 -- main.lua - 程序入口文件
 -- 当前机型：Air8602 7寸 4G 版。切换硬件只需改这一行 PROJECT：
---   4G  版 → "Engine_Air8602_7inch_1024x600_011_V000"
---   WiFi 版 → "Engine_Air8602_7inch_1024x600_010_V000"
-PROJECT = "Engine_Air8602_7inch_1024x600_011_V000"
+--   4G  版 → "Engine_Air8602_7inch_1024x600_011_4G_V000"
+--   WiFi版 → "Engine_Air8602_7inch_1024x600_010_WiFi_V000"
+PROJECT = "Engine_Air8602_7inch_1024x600_011_4G_V000"
 VERSION = "001.999.000"                               -- 固件版本号，用于 FOTA 升级比对
 -- 项目密钥，FOTA 云端鉴权：按 PROJECT 自动匹配通信版本（4G / WiFi 各一套 key）
---   4G  版（_011_V000）→ 8dVr2ARIHdWgDGej0TLHqv3M2wMwXZmO
---   WiFi版（_010_V000）→ hhhv6yuQw6cDzN6fqPT0n7Qnlca420WV
-if PROJECT:find("_011_V000") then
+--   4G  版（_4G_V000）→ 8dVr2ARIHdWgDGej0TLHqv3M2wMwXZmO
+--   WiFi版（_WiFi_V000）→ hhhv6yuQw6cDzN6fqPT0n7Qnlca420WV
+if PROJECT:find("_4G_V000") then
     PROJECT_KEY = "8dVr2ARIHdWgDGej0TLHqv3M2wMwXZmO"
-elseif PROJECT:find("_010_V000") then
+elseif PROJECT:find("_WiFi_V000") then
     PROJECT_KEY = "hhhv6yuQw6cDzN6fqPT0n7Qnlca420WV"
 else
     PROJECT_KEY = ""   -- 兜底：未知 PROJECT 时留空

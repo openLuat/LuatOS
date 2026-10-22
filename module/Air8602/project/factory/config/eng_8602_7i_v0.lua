@@ -31,7 +31,7 @@
 
 return {
     -- ===== 顶层信息 =====
-    name = "Engine_Air8602_7inch_1024x600_010_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}（010 = WiFi 版）
+    name = "Engine_Air8602_7inch_1024x600_010_WiFi_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}_{网络}（010 = WiFi 版）
     chip = "Air1601", -- 主控芯片（RGB 屏 + Airlink UART 外挂 WiFi/4G）
     baseboard = "合宙引擎 AIR8602 V010 7寸", -- 底板型号
 

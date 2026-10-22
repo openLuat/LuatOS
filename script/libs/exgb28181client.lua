@@ -1995,22 +1995,50 @@ local function check_probe_timeout()
     end
 end
 
+-- 外部音频引擎连续多少个 tick(1s 一个)都报告"没在跑"才回收会话。
+-- 不是 1 次就杀：换会话时应用会先 stop 再 start，中间有几十到几百毫秒的空窗；
+-- 只按单次采样会把刚切过去的腿 B 误杀。
+local AUDIO_ALIVE_MISS_MAX = 3
+
 -- 回收已死的会话。只在 tick 里调用，保证会话表的改动都发生在同一个上下文
 --[[
  回收失活的会话。
 
- **点播会话（st.sessions）与音频会话（st.talks）都要遍历** ——
- 实测出现过音频会话连不上（TCP 腿的端口没发布）却一直挂在 talks() 里的情况：
- `收流中 [xxx]: 0 个包`，既不报错也不消失。判据与点播共用
- session_death_reason（音频会话同样带 media_tcp / link_up / started 字段）。
+ **点播会话（st.sessions）与音频会话（st.talks）都要遍历**。
+ 音频媒体归外部引擎，本层看不到它的 socket —— 应用通过 start 的
+ `audio_alive(sess)` 钩子告诉本层"这个会话的引擎还活着吗"：
+   · 引擎在平台关媒体后会自行停止，而 SIP 对话可能还挂着；
+   · 没有这个钩子，会话会一直留在 talks() 里、占着媒体端口，下一轮对讲
+     可能被"已启动"挡掉。
+ 只查已建立的外部会话；连续 AUDIO_ALIVE_MISS_MAX 个 tick 报 false 才回收
+ （见上面的空窗说明）。回收动作与 BYE 同口径：清表 + emit("call","ended")。
     ]]
 local function reap_dead_sessions()
     local now = now_ms()
+    local alive_cb = g_opts and g_opts.audio_alive
     local function sweep(tbl, tag)
         for call_id, sess in pairs(tbl) do
             -- 空闲会话靠这里收链路事件（活跃的由 flush_session 收）
             poll_stream(sess)
-            local reason = M.session_death_reason(sess, now)
+            local reason
+            -- **只查已建立的会话**：设备发起的会话在 200 OK 前是 inviting，
+            -- 那段时间引擎还没起，不能拿来计"没在跑"（慢平台会被误杀）。
+            if tbl == st.talks and sess.external_media
+               and sess.state == "established"
+               and type(alive_cb) == "function" then
+                local ok, alive = pcall(alive_cb, sess)
+                if ok and alive then
+                    sess.audio_alive_miss = 0
+                else
+                    -- 回调抛异常也按"没活着"计，但不能因此立刻判死
+                    local miss = (sess.audio_alive_miss or 0) + 1
+                    sess.audio_alive_miss = miss
+                    if miss >= AUDIO_ALIVE_MISS_MAX then
+                        reason = "外部音频引擎已停止"
+                    end
+                end
+            end
+            reason = reason or M.session_death_reason(sess, now)
             if reason then
                 log_warn("回收失活会话", tag, call_id, reason)
                 media_close(sess)
@@ -3832,8 +3860,17 @@ end
 
 --[[
 启动 GB28181 信令客户端。
+
+音频媒体由外部引擎接管；对讲/广播要求 `audio_port` 给出媒体端口基址
+（每次都从 `[audio_port, +max_sessions)` 里挑一个空闲的写进 SDP）。
+
 @api exgb28181client.start(opts)
-@table opts 配置，见模块头部用法示例
+@table opts 配置，见模块头部用法示例；音频相关：audio_port、max_sessions
+@function opts.audio_alive 可选，function(sess) -> boolean
+    本层看不到外部引擎的 socket，靠这个钩子判断会话的引擎是否还在运行。
+    连续 3 秒为 false 时以"外部音频引擎已停止"回收会话并发 call/ended
+    （与 BYE 同口径）。引擎在平台关媒体后会自行停止，不提供这个钩子时
+    只能靠平台 BYE 结束，会话会残留在 talks() 里。
 @return boolean 成功返回 true
 @return string|nil 失败原因
 ]]

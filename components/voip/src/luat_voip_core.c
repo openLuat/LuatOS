@@ -232,7 +232,8 @@ static int32_t voip_net_cb(void *pdata, void *pparam)
             luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_RX_DATA, 0, 0, session, 0);
         }
 #endif
-    } else if (ev_id == EV_NW_RESULT_CLOSE || ev_id == EV_NW_SOCKET_ERROR) {
+    } else if (ev_id == EV_NW_RESULT_CLOSE || ev_id == EV_NW_SOCKET_ERROR ||
+               ev_id == EV_NW_SOCKET_REMOTE_CLOSE || ev_id == EV_NW_SOCKET_CLOSE_OK) {
         LLOGW("voip net event 0x%x", (unsigned)ev_id);
         /* **必须收摊**：对端关了媒体连接这条路就废了。只记日志的话状态停在 RUNNING、
            还往死连接里发，下一次 voip.start 会因"已经在跑"失败（真机：网页挂断后再点

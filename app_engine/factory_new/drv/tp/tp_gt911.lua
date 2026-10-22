@@ -14,6 +14,10 @@ local M = {}
 -- i2c_restore() 供外部在音频初始化后恢复触摸总线配置
 local saved_params = nil
 
+-- 内核 tp 库不支持重复 init（第二次会打印 E/tp tp has been initialized!!!），
+-- 试过一次失败就封枪，见 M.reinit
+local reinit_disabled = false
+
 --- 恢复触摸 I2C 总线配置（速率 + 轮询模式）
 --- @return boolean 是否已恢复（init 未跑过返回 false）
 function M.i2c_restore()
@@ -22,6 +26,27 @@ function M.i2c_restore()
     if polling == nil then polling = true end
     i2c.setup(saved_params.port, saved_params.i2c_speed or 0, polling)
     return true
+end
+
+--[[重新初始化触摸（复位 → i2c 重配 → tp.init → 重新绑定 airui）
+
+什么时候需要：音频/视频通路启动会重配 I2C1，如果重配发生在 tp 的读事务中途，
+GT911 可能停在半事务状态 —— 此时光 i2c.setup 把速率改回来是不够的。
+内置 DAC 机型 I2C1 上只有 GT911，复位不会伤到别的芯片。
+
+**注意（2026-10-22 真机验证）**：当前内核的 tp 库不支持重复 init，
+第二次调用会打印 `E/tp tp has been initialized!!!` 并返回失败。
+所以这里失败一次就**永久封枪**（reinit_disabled），之后只走 i2c_restore，
+避免每次会话收尾都刷一条 error；等固件侧支持 deinit/重复 init 再放开。]]
+--- @return boolean 是否重新初始化成功
+function M.reinit()
+    if not saved_params or reinit_disabled then return false end
+    log.warn("gt911", "触摸重新初始化")
+    local ok, r = pcall(M.init, saved_params)
+    if ok and r then return true end
+    reinit_disabled = true
+    log.warn("gt911", "内核 tp 库不支持重复 init，后续只做 I2C 总线恢复")
+    return false
 end
 
 function M.init(params)

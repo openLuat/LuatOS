@@ -1,8 +1,8 @@
 --[[
 @module  video_util
 @summary 媒体素材工具（容器格式嗅探 / 帧尺寸读取 / HZV 音轨初始化 / 播放器创建）—— 播放类页面共用
-@version 1.8
-@date    2026.10.13
+@version 1.9
+@date    2026.10.20
 @author  江访
 
 === 为什么单独成模块 ===
@@ -258,6 +258,46 @@ function M.tp_bus_restore()
     return false
 end
 
+--[[触摸硬恢复：i2c.setup 之上再补一层 —— 重新初始化 GT911（复位 + tp.init + 重新绑定）
+
+为什么光 i2c.setup 不够：音频通路重配 I2C1 若正好落在 tp 的读事务中间，
+GT911 会停在半事务状态，之后所有读都不应答 —— 速率改回来也没用，
+现象就是「屏幕亮、日志正常、整块屏点不动」。
+延时执行（默认 300ms）是为了避开 mplayer / 音频收尾那一刻，别在同一时刻抢总线。
+
+@param number delay_ms 延迟毫秒数，缺省 300
+@return boolean 是否排上了（没有可用的触摸驱动时返回 false）
+]]
+local tp_recover_t = nil
+function M.tp_recover(delay_ms)
+    if not (_G.tp_drv and _G.tp_drv.reinit) then return false end
+    if tp_recover_t then
+        sys.timerStop(tp_recover_t)
+        tp_recover_t = nil
+    end
+    tp_recover_t = sys.timerStart(function()
+        tp_recover_t = nil
+        local ok, r = pcall(_G.tp_drv.reinit)
+        if ok and r then
+            log.info("video_util", "触摸重新初始化完成")
+        end
+        -- 失败不打日志：tp_gt911.reinit 内部已把「内核不支持重复 init」记过一次，
+        -- 每次会话收尾再刷一条 error 纯属噪音；此时 i2c_restore 那一步仍然生效
+    end, delay_ms or 300)
+    return true
+end
+
+--[[触摸总线恢复：立即一次 + 400/1500ms 各补一发（发射即忘，只给非 MP4 路径用）
+
+HZV/MJPG 的音轨由 videoplayer 自己发起音频请求，起播同样可能重配 codec 总线；
+MP4 会话有自己**可取消**的一份（收进实例的 sess 表），不要混用。]]
+local function tp_bus_settle_once()
+    M.tp_bus_restore()
+    for _, delay_ms in ipairs({ 400, 1500 }) do
+        sys.timerStart(function() M.tp_bus_restore() end, delay_ms)
+    end
+end
+
 -- ==================== 配套音频（同名 MP3） ====================
 --[[只有 MJPG 素材需要：HZV 的音轨在容器内、由 videoplayer 统一驱动，无需另外一路。
 两个页面（桌面播放器 / 全屏播放页）共用一份播放状态，而不是各记一份 ——
@@ -413,7 +453,13 @@ local function wrap_mp4_player(v)
                 sys.timerStop(sess.settle_t[i])
                 sess.settle_t[i] = nil
             end
-            sess.settle_t[i] = sys.timerStart(function() M.tp_bus_restore() end, delays[i])
+            --[[回调里先把句柄置空：sys.timerStart 的是一次性定时器，触发后 id 即失效，
+            不清空的话下一次 tp_bus_settle 会拿失效 id 去 sys.timerStop，
+            日志里就是 "luat_timer_get ... no find!!!"（噪音，且没必要）]]
+            sess.settle_t[i] = sys.timerStart(function()
+                sess.settle_t[i] = nil
+                M.tp_bus_restore()
+            end, delays[i])
         end
     end
 
@@ -435,6 +481,9 @@ local function wrap_mp4_player(v)
         pa_gen = pa_gen + 1          -- 作废 pa_reassert 尚未触发的跨格式补枪
         pa_set(false)
         M.tp_bus_restore()
+        --[[会话收尾是触摸最容易被搞坏的时机（mplayer 释放音频通路会重配一次 I2C1）：
+        先 i2c.setup 把速率改回来，再延时重新初始化 GT911 兜底。]]
+        M.tp_recover(300)
     end
 
     -- 构造即布防初始触摸总线恢复（auto_play 起播的音频初始化在解码线程里异步进行）
@@ -454,14 +503,15 @@ local function wrap_mp4_player(v)
             local r = v:pause(...)
             self.paused = true
             pa_set(false)           -- PA_EN 跟随暂停：暂停关功放
-            M.tp_bus_restore()
+            -- 暂停不会再重配音频通路，这里不碰 I2C1：i2c.setup 本身会打断 tp 的读事务，
+            -- 每多一次就多一次把 GT911 读坏的窗口（收尾时统一硬恢复，见 mp4_session_end）
             return r
         end,
         stop = function(self, ...)
             local r = v:stop(...)
             self.paused = true
             pa_set(false)           -- PA_EN 跟随停止：停止关功放
-            M.tp_bus_restore()
+            -- 同上：停止后必然走 destroy → mp4_session_end，那里统一恢复
             return r
         end,
         destroy = function(_)
@@ -550,6 +600,8 @@ function M.create_player(path, o)
                 if player_obj and not player_obj.paused then
                     player_obj:play()
                 end
+                -- EOS 也是音频通路收尾的时机（mplayer 停解码/放音频会重配 I2C1）
+                M.tp_recover(300)
             end
         else
             -- 单次播完（EOF）：关功放，再回调调用方（翻播放状态/刷控制栏）
@@ -557,7 +609,16 @@ function M.create_player(path, o)
             vcfg.on_complete = function()
                 pa_set(false)
                 if user_complete then user_complete() end
+                M.tp_recover(300)
             end
+        end
+    elseif vcfg.on_complete then
+        --[[HZV/MJPG 单次播完：组件回调用户回调后，同样补一次触摸硬恢复。
+        循环模式下组件内部自己重播、不停音频通路，不会触发这里。]]
+        local user_complete = vcfg.on_complete
+        vcfg.on_complete = function()
+            user_complete()
+            M.tp_recover(300)
         end
     end
 
@@ -577,6 +638,9 @@ function M.create_player(path, o)
     end
     -- 播放器打开时音频任务可能再次把功放拉高，创建成功后再拉一次
     pa_set(true)
+    --[[HZV/MJPG 的音轨由 videoplayer 自己发起音频请求，起播同样会重配 codec 总线；
+    这里补两发延迟恢复（发射即忘，这类播放器没有可收尾的会话对象）。]]
+    tp_bus_settle_once()
     return v
 end
 

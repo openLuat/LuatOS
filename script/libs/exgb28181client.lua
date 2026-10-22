@@ -1323,6 +1323,11 @@ local function media_close(sess)
         if not ok then log_error("停止回放异常", err) end
     end
     if sess.stream then
+        -- 先停 C pacer 再关流：pacer 任务可能正在泵这个 stream
+        if sess.pacer_on and gb.stream_pacer_stop then
+            gb.stream_pacer_stop(sess.stream)
+        end
+        sess.pacer_on = nil
         -- 关链路与清队列都在 stream_close 里 —— 它就是那个唯一出口
         gb.stream_close(sess.stream, 1)
         sess.stream = nil
@@ -2053,6 +2058,21 @@ function M.push_frame(sess, frame)
     end
 
     --[[
+    C 侧 pacer 接管发送节奏：固件带 `gb.stream_pacer_start` 就自动启用
+    （脚本与固件解耦，旧固件没有该函数则保持原来的 Lua flush 路径）。
+    启动后由 C 任务每 10ms 泵一次队列，Lua 被调度挤占也不会让发送节拍抖。
+    ]]
+    if gb.stream_pacer_start and not sess.pacer_on then
+        local okp, why = gb.stream_pacer_start(sess.stream)
+        sess.pacer_on = okp and true or nil
+        if okp then
+            log_info("C pacer 已启动", sess.call_id)
+        else
+            log_warn("C pacer 启动失败，继续用 Lua flush", tostring(why))
+        end
+    end
+
+    --[[
     时间戳按真实经过的毫秒数推进，避免与平台侧的时钟漂移。
 
     **这里原先写的是 `% 0xFFFFFFFF`，在 32 位整数下是错的**：`0xFFFFFFFF`
@@ -2147,6 +2167,113 @@ function M.flush_session(sess)
 end
 
 -- ------------------------------------------------------------------
+-- 视频流内嵌音频(PS PES 0xC0)
+-- ------------------------------------------------------------------
+--[[
+直播时平台通常从**视频 PS 流**里取音频(PES stream_id=0xC0)，而不是另开
+一条 GB28181 音频会话。C 层的 ps_write_audio 没暴露到 Lua，但 PS 包格式
+是固定的，这里按 C 的逐字节规则构造，再走现成的 gb.stream_push 入**视频
+会话**的媒体队列 —— 不需要改 C、不需要重编固件。
+
+Pack Header 14 字节 + PES(0xC0) + PCMA。规则与
+luat_gb28181_ps.c 的 _write_pack_header/_write_pes_header 一致：
+SCR_base 直接取 90kHz PTS，mux_rate 固定 6106。
+]]
+local PS_AUDIO_MUX_RATE = 6106
+local PS_AUDIO_FRAME_BYTES = 160   -- 8kHz × 20ms
+
+local function ps_audio_pack(pcma, pts_90k)
+    local base = pts_90k & 0x1FFFFFFFF
+    local p = base
+    local pack = string.char(
+        0x40 | (((base >> 30) & 0x07) << 3) | 0x04 | ((base >> 28) & 0x03),
+        (base >> 20) & 0xFF,
+        (((base >> 15) & 0x1F) << 3) | 0x04 | ((base >> 13) & 0x03),
+        (base >> 5) & 0xFF,
+        ((base & 0x1F) << 3) | 0x04,
+        0x01,
+        (PS_AUDIO_MUX_RATE >> 14) & 0xFF,
+        (PS_AUDIO_MUX_RATE >> 6) & 0xFF,
+        ((PS_AUDIO_MUX_RATE & 0x3F) << 2) | 0x03,
+        0xF8)
+
+    local pes_len = 3 + 5 + #pcma
+    if pes_len > 0xFFFF then pes_len = 0 end
+
+    local pts = string.char(
+        0x20 | (((p >> 30) & 0x07) << 1) | 0x01,
+        (p >> 22) & 0xFF,
+        (((p >> 15) & 0x7F) << 1) | 0x01,
+        (p >> 7) & 0xFF,
+        ((p & 0x7F) << 1) | 0x01)
+
+    return "\0\0\1\186" .. pack ..
+           "\0\0\1\192" .. string.char((pes_len >> 8) & 0xFF, pes_len & 0xFF) ..
+           string.char(0x84, 0x80, 0x05) .. pts .. pcma
+end
+
+--[[
+向**视频会话**推一段已编码的 G.711A，作为 PS 内嵌音频(PES 0xC0)。
+
+- 只用于点播会话；对讲音频会话的 stream 是 PT=8 裸 PCMA，不能混用；
+- 每 160 字节(20ms)一帧，PTS/RTP 时间戳都按 90kHz 推进 1440；
+- `ps_cfg.has_audio` 必须为 1，否则 PS 流头(PSM)里不会声明音频，
+  平台可能不认后续的 0xC0。
+
+@api exgb28181client.push_ps_audio(session, pcma)
+@table session 点播会话(media/ready 里的 sess)
+@string pcma 已编码的 G.711A，任意长度；尾部不足 160 字节的部分不入队
+@return boolean
+]]
+function M.push_ps_audio(sess, pcma)
+    if type(sess) ~= "table" or type(pcma) ~= "string" or #pcma == 0 then
+        return false
+    end
+    if not sess.started or not has_media(sess) then
+        return false
+    end
+    if not link_sendable(sess) then
+        return false
+    end
+    -- 视频会话的首个 PS 流头发出前不要插音频：平台先看到音频包会失去
+    -- 时间基（流头里的 PSM 才是它认 0xC0 的依据）。
+    if not sess.head_sent then
+        return false
+    end
+
+    local ts = sess.ps_audio_ts or sess.frame_ts or 0
+
+    --[[
+    优先用 C 绑定：切帧、PS 封装、入队一次跨语言调用完成。
+    新固件有 `gb.stream_push_audio_ps`；旧固件没有时回退到下面的 Lua 封包，
+    保证脚本本身与固件版本解耦。
+    ]]
+    if gb.stream_push_audio_ps then
+        local took = gb.stream_push_audio_ps(sess.stream, pcma, ts)
+        if took < PS_AUDIO_FRAME_BYTES then return false end
+        sess.ps_audio_ts = ts + (took // PS_AUDIO_FRAME_BYTES) *
+                           ((PS_AUDIO_FRAME_BYTES * 90) // 8)
+        M.flush_session(sess)
+        return true
+    end
+
+    local off, pushed = 0, 0
+    while #pcma - off >= PS_AUDIO_FRAME_BYTES do
+        local ps = ps_audio_pack(pcma:sub(off + 1, off + PS_AUDIO_FRAME_BYTES), ts)
+        if gb.stream_push(sess.stream, ps, ts & 0xFFFFFFFF) == 0 then
+            break
+        end
+        ts = ts + (PS_AUDIO_FRAME_BYTES * 90) // 8   -- 160 样本 × 90000/8000 = 1800
+        off = off + PS_AUDIO_FRAME_BYTES
+        pushed = pushed + 1
+    end
+    if pushed == 0 then return false end
+    sess.ps_audio_ts = ts
+    M.flush_session(sess)
+    return true
+end
+
+-- ------------------------------------------------------------------
 -- 设备主动发起的音频会话(里程碑 M6.1 第一步：发起方)
 -- ------------------------------------------------------------------
 --[[
@@ -2172,7 +2299,8 @@ local function audio_open(sess)
     这里的承载描述的是**当前这个 stream 实际怎么开的**，不是 offer 写了什么：
     非外部模式下下面立刻按 UDP 绑端口（应答到达后若平台要求 TCP，
     handle_talk_response 会关掉它并按新承载重建）；外部模式下本层没有 stream，
-    这个值只是初值，同样会被应答覆盖。
+    这个值只是初值，同样会被应答覆盖。所以 offer 即使写了 TCP
+    （audio_offer_tcp），这里仍填 "udp"。
     ]]
     sess.transport = M.media_transport(false)
     sess.external_media = g_opts.external_audio and true or nil
@@ -2228,14 +2356,46 @@ function M.start_talk(opts)
     local call_id  = gen_token("talk") .. "@" .. tostring(st.local_ip)
     local from_tag = "luat" .. gen_token("tag")
 
+    --[[
+    音频 offer 要不要带 y=<SSRC>。
+
+    §9.12 / WVP 的口径是音频不带 y（SSRC 由平台生成）；但有些平台用 SDP 的
+    y= 标识音频流，offer 里没有它就**不建下行**（实测合宙 video.luatos.com
+    的应答是 `y=null`，随后一个 RTP 包都不回）。打开 audio_offer_ssrc 时生成
+    一个非零 SSRC：既写进 offer 的 y=，也交给 voip 做上行 RTP 的 SSRC，
+    两边才是同一个值。用 0 会被部分平台当成非法 SSRC（WVP 的实测）。
+    ]]
+    local ssrc
+    if g_opts.audio_offer_ssrc then
+        -- 序号要避开"同时存在的会话"：只数点播会让两路并发的对讲拿到同一个
+        -- SSRC。点播 + 音频一起数，与端口池的口径一致。
+        local seq = session_count() + 1
+        for _ in pairs(st.talks) do seq = seq + 1 end
+        ssrc = gb.ssrc_make(false, o.domain, seq)
+        if not ssrc then
+            return nil, "生成音频 SSRC 失败"
+        end
+    end
+
     local sess = {
         call_id      = call_id,
         from_tag     = from_tag,
         session_name = opts.session_name or "Broadcast",
         local_port   = port,   -- 与点播会话同名，见 handle_audio_invite 里的说明
+        ssrc         = ssrc,   -- nil = 由 voip 自己随机（y= 也不写）
         state        = "inviting",
     }
 
+    --[[
+    offer 的媒体承载。缺省 UDP，与 §9.12 和 WVP 一致。
+
+    `audio_offer_tcp` 打开时改成 TCP + actpass：实测合宙 video.luatos.com
+    对 **UDP offer 也回** `m=audio ... TCP/RTP/AVP` + `a=setup:passive`。
+    offer/answer 的承载不一致时，它的媒体会话可能只 accept 连接、不激活
+    音频发送器（设备侧现象：TCP 连上了、50 包/秒发出去，但 rx 恒为 0）。
+    显式 offer TCP 让协商合法，也排除"它按 UDP 理解这条腿"这一种解释。
+    ]]
+    local offer_tcp = g_opts.audio_offer_tcp and true or false
     local sdp = gb.sdp_build({
         owner_id     = o.device_id,
         ip           = st.local_ip,
@@ -2244,12 +2404,31 @@ function M.start_talk(opts)
         port         = port,
         payload_type = 8,          -- G.711A
         rtpmap       = "PCMA/8000",
-        -- 本端只收：这与 §9.12 里设备作为接收方一致
-        direction    = "recvonly",
-        -- 音频**不带 y=**：SSRC 由平台侧决定（它没收到会自己生成一个随机值）。
+        --[[
+        §9.12 的广播是"设备只收"，WVP 也是这么用的（它是 recvonly，上行靠
+        平台另发的 Talk INVITE/腿 B）。
+
+        但有些平台把这同一条腿当**双向会话**：合宙 video.luatos.com 的 200 OK
+        回 `a=sendrecv`，且从不发腿 B —— 上行只能在 Broadcast 里走。此时
+        offer 必须声明 sendrecv，否则严格按 offer 处理的平台会把设备上行丢掉
+        （设备照发，平台不播）。由 audio_offer_direction 按平台配置。
+        ]]
+        direction    = g_opts.audio_offer_direction or "recvonly",
+        -- 缺省**不带 y=**：SSRC 由平台侧决定（它没收到会自己生成一个随机值）。
         -- 带上一个 0 反而可能被当成非法 SSRC —— 实测 WVP 对 y=0000000000
-        -- 的处理就是"取不到来源"
-        has_ssrc     = 0,
+        -- 的处理就是"取不到来源"。audio_offer_ssrc 打开时给非零值，见上面。
+        has_ssrc     = ssrc and 1 or 0,
+        ssrc         = ssrc or 0,
+        --[[
+        TCP offer。setup 由 audio_offer_tcp_setup 决定，缺省 actpass（本端两种
+        角色都能干）。**有的平台不认 actpass**：合宙 video.luatos.com 对
+        `a=setup:actpass` 回 500，但对 `a=setup:active` 正常回 200 + passive
+        （PC 模拟器 gbipc_simu 的 offer 就是 active，平台对它下发真实语音）。
+        ]]
+        proto        = offer_tcp and gb.PROTO_TCP or nil,
+        setup        = offer_tcp and (g_opts.audio_offer_tcp_setup
+                                      or gb.TCP_SETUP_ACTPASS) or nil,
+        connection   = offer_tcp and gb.TCP_CONN_NEW or nil,
     })
     if not sdp then
         return nil, "音频 SDP 构造失败"
@@ -2353,13 +2532,17 @@ local function handle_talk_response(msg)
             --[[
             **承载以平台应答为准，不能沿用本端 offer 的 UDP。**
 
-            腿 A（设备发的 Broadcast）的 offer 按 §9.12 写的是 UDP，但实测有的
-            平台会回 `m=audio ... TCP/RTP/AVP` + `a=setup:passive`（平台在 NAT 外
-            监听、等设备连出去）。早先这里只取了 conn_ip/port，sess.transport 还是
-            audio_open() 里写死的 "udp"：设备把 UDP 包发给平台的 TCP 监听端口，
-            平台一个都收不到；它也不会往 SDP 里的内网地址发音频。现象就是
-            `音频下行=0 上行>0 voip[rx=0 jbsil 每秒 +50]`，两侧无声，而 SIP 全部
-            正常。应答是 UDP 的平台（如 WVP 的腿 A）走这条切换分支时什么都不改。
+            腿 A（设备发的 Broadcast）的 offer 按 §9.12 写的是 UDP，但实测合宙
+            video.luatos.com 对它回的 200 OK 是：
+
+                m=audio 36018 TCP/RTP/AVP 8
+                a=setup:passive          ← 平台在 NAT 外监听，等设备连出去
+
+            早先这里只取了 conn_ip/port，sess.transport 还是 audio_open() 里
+            写死的 "udp"：设备把 UDP 包发给平台的 TCP 监听端口，平台一个都收不到；
+            它也不会往 SDP 里的内网地址(192.168.x.x)发音频。实测现象就是
+            `音频下行=0 上行=157k voip[rx=0 jbsil 每秒 +50]`，两侧无声，而 SIP
+            全部正常。WVP 的腿 A 回 UDP，走这条切换分支时什么都不改。
             ]]
             local answer_tcp = (rs.tcp == true)
             local tcp_setup
@@ -2376,8 +2559,9 @@ local function handle_talk_response(msg)
             local new_transport = M.media_transport(answer_tcp, tcp_setup)
             local rebuilt = false
             if new_transport ~= sess.transport then
-                -- sess.transport 的初值只是 audio_open 里那个 socket 的承载；
-                -- 真正有意义的证据是平台应答的 proto/setup。
+                -- 注意这里不写 "udp -> tcp"：sess.transport 的初值只是
+                -- audio_open 里那个 socket 的承载，offer 可能本来就是 TCP
+                -- （见 audio_offer_tcp）。真正有意义的证据是平台应答的 proto/setup。
                 log_info("音频承载按平台应答确定", new_transport,
                          "proto=" .. tostring(rs.proto),
                          "setup=" .. tostring(rs.setup))
@@ -2414,6 +2598,10 @@ local function handle_talk_response(msg)
             end
             log_info("音频 SSRC", "应答 y=" .. tostring(rs.ssrc),
                      "本端 offer=" .. tostring(sess.ssrc))
+            -- 平台应答的方向决定这条腿是单向还是双向（见 start_talk 的说明）
+            sess.direction = rs.direction
+            log_info("音频应答方向", tostring(rs.direction),
+                     "承载", tostring(sess.transport))
 
             -- **先记对端地址，再谈连不连**。外部接管（external_audio）模式下本层
             -- 没有 sess.stream —— 但仍必须把地址记下来交给外部引擎（voip 要靠它
@@ -2465,6 +2653,8 @@ local function handle_talk_response(msg)
             -- 与平台发起的那条口径一致（见 handle_audio_invite 的 emit）
             transport = sess.transport,
             remote_ip = sess.remote_ip, remote_port = sess.remote_port,
+            -- 平台应答的方向：sendrecv = 这条腿双向（上行也在这里走）
+            direction = sess.direction,
         })
     else
         sess.state = "failed"
@@ -3247,6 +3437,12 @@ end
 ]]
 local function feed(data)
     if type(data) ~= "string" or #data == 0 then return true end
+
+    -- 原始收包日志（调试开关）：只在前 160 字节，换行折成 | 便于单行查看。
+    -- 排查"平台回了什么却解析不出来"时，这是第一手证据。
+    if g_opts.debug_sip then
+        log_info("SIP RX", #data, (data:sub(1, 160):gsub("[\r\n]", "|")))
+    end
 
     if string.upper(g_opts.transport) == "TCP" then
         st.rx = st.rx .. data

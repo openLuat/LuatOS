@@ -160,7 +160,7 @@ if _G.is_pc then
     socket.dft(socket.ETH0)
     _G.mobile = {}
     function mobile.imei() return "pc_simulator" end    -- FOTA 等需要 IMEI 的场景
-    function mobile.csq() return 99 end                  -- 信号强度满格（状态栏显示用）
+    function mobile.csq() return 25 end                  -- 信号良好（状态栏显示用，0/99 视为无信号）
     function mobile.simPin() return false end            -- 无 SIM 卡
     function mobile.setAuto() end                        -- 空操作
     function mobile.flymode() end                        -- 空操作

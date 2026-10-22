@@ -2168,8 +2168,12 @@ GB28181-2016 §9.12 的语音广播/对讲与**点播方向相反**：
 -- **不 connect**：平台从哪个端口发音频要等它的应答 SDP 才知道，
 -- 事先 connect 会把所有来源都过滤掉。生产环境可在拿到对端地址后再收紧。
 local function audio_open(sess)
-    -- 本端发起的这条 INVITE 的 SDP 不带 m= 的协议行（见 start_talk），即 UDP；
-    -- 平台主动发起的那条才可能要求 TCP（见 handle_audio_invite）
+    --[[
+    这里的承载描述的是**当前这个 stream 实际怎么开的**，不是 offer 写了什么：
+    非外部模式下下面立刻按 UDP 绑端口（应答到达后若平台要求 TCP，
+    handle_talk_response 会关掉它并按新承载重建）；外部模式下本层没有 stream，
+    这个值只是初值，同样会被应答覆盖。
+    ]]
     sess.transport = M.media_transport(false)
     sess.external_media = g_opts.external_audio and true or nil
     -- 三段式里的前两段：建链 + 绑端口。**这里不 connect** —— 平台从哪个
@@ -2346,6 +2350,71 @@ local function handle_talk_response(msg)
         ]]
         local rs = gb.sdp_parse(msg.body)
         if rs and rs.conn_ip and rs.port and rs.port > 0 then
+            --[[
+            **承载以平台应答为准，不能沿用本端 offer 的 UDP。**
+
+            腿 A（设备发的 Broadcast）的 offer 按 §9.12 写的是 UDP，但实测有的
+            平台会回 `m=audio ... TCP/RTP/AVP` + `a=setup:passive`（平台在 NAT 外
+            监听、等设备连出去）。早先这里只取了 conn_ip/port，sess.transport 还是
+            audio_open() 里写死的 "udp"：设备把 UDP 包发给平台的 TCP 监听端口，
+            平台一个都收不到；它也不会往 SDP 里的内网地址发音频。现象就是
+            `音频下行=0 上行>0 voip[rx=0 jbsil 每秒 +50]`，两侧无声，而 SIP 全部
+            正常。应答是 UDP 的平台（如 WVP 的腿 A）走这条切换分支时什么都不改。
+            ]]
+            local answer_tcp = (rs.tcp == true)
+            local tcp_setup
+            if answer_tcp then
+                -- 应答里的 a=setup 是**平台自己**的角色，本端取它的反面
+                -- （与 handle_audio_invite 的规则一致）。
+                tcp_setup = M.tcp_setup_choice(rs.setup, g_opts.tcp_setup_prefer)
+                if not tcp_setup then
+                    log_warn("音频应答的 a=setup 无效", rs.setup,
+                             "按 active 处理(设备主动连平台；NAT 后也只能这样)")
+                    tcp_setup = gb.TCP_SETUP_ACTIVE
+                end
+            end
+            local new_transport = M.media_transport(answer_tcp, tcp_setup)
+            local rebuilt = false
+            if new_transport ~= sess.transport then
+                -- sess.transport 的初值只是 audio_open 里那个 socket 的承载；
+                -- 真正有意义的证据是平台应答的 proto/setup。
+                log_info("音频承载按平台应答确定", new_transport,
+                         "proto=" .. tostring(rs.proto),
+                         "setup=" .. tostring(rs.setup))
+                sess.transport = new_transport
+                -- 非外部接管：stream 已在 audio_open() 里按 UDP 建好，必须重建
+                -- （外部接管时本层没有 stream，voip 会按新 transport 自己连）
+                if sess.stream then
+                    gb.stream_close(sess.stream, 1)
+                    sess.stream = gb.stream_new(sess.ssrc or 0, 8, 0, g_opts.adapter or 0)
+                    if sess.stream and gb.stream_enable_rx(sess.stream) then
+                        attach_audio_sink(sess)
+                        rebuilt = true
+                    else
+                        sess.stream = nil
+                        log_warn("音频承载切换失败: 重建收流通道失败")
+                        media_close(sess)
+                    end
+                end
+            end
+            sess.media_tcp = answer_tcp
+            sess.tcp_setup = tcp_setup
+
+            --[[
+            平台在应答的 y= 里给了 SSRC 时以它为准（与点播同一条约定：SSRC 写进
+            SDP 的 y= 就是平台按它校验 RTP 的那个值）。`y=null` / 没有 y 时
+            rs.ssrc 为 nil，保留本端 offer 里的那个（可能是 nil）。
+            ]]
+            if rs.ssrc and rs.ssrc ~= 0 then
+                if sess.ssrc and sess.ssrc ~= rs.ssrc then
+                    log_info("平台应答指定了音频 SSRC, 采用平台值",
+                             rs.ssrc, "原 offer", sess.ssrc)
+                end
+                sess.ssrc = rs.ssrc
+            end
+            log_info("音频 SSRC", "应答 y=" .. tostring(rs.ssrc),
+                     "本端 offer=" .. tostring(sess.ssrc))
+
             -- **先记对端地址，再谈连不连**。外部接管（external_audio）模式下本层
             -- 没有 sess.stream —— 但仍必须把地址记下来交给外部引擎（voip 要靠它
             -- connect）。原先只在 stream_connect 成功的分支里赋值，于是设备发起的
@@ -2354,13 +2423,26 @@ local function handle_talk_response(msg)
             -- offer）。这条路径与 stream 有没有无关。
             sess.remote_ip, sess.remote_port = rs.conn_ip, rs.port
             if sess.stream then
-                if gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
-                    log_info("音频收流已连向", rs.conn_ip, rs.port)
+                if rebuilt then
+                    -- 新建的 stream 还没 stream_open/connect，交给 media_open 统一做
+                    local okm, errm = media_open(sess)
+                    if okm then
+                        log_info("音频收流已连向", rs.conn_ip, rs.port, "(" .. sess.transport .. ")")
+                    else
+                        log_warn("音频收流 connect 失败", rs.conn_ip, rs.port, errm)
+                    end
                 else
-                    log_warn("音频收流 connect 失败", rs.conn_ip, rs.port)
+                    if gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
+                        log_info("音频收流已连向", rs.conn_ip, rs.port)
+                    else
+                        log_warn("音频收流 connect 失败", rs.conn_ip, rs.port)
+                    end
                 end
+            elseif sess.external_media then
+                log_info("音频对端地址已记下(外部引擎接管)", rs.conn_ip, rs.port,
+                         tostring(sess.transport))
             else
-                log_info("音频对端地址已记下(外部引擎接管)", rs.conn_ip, rs.port)
+                log_warn("音频收流通道不可用(承载切换失败)", rs.conn_ip, rs.port)
             end
         else
             log_warn("平台 SDP 里没有可用的收流地址")
@@ -3136,6 +3218,22 @@ local function process_packet(msg)
     -- 平台订阅：设备是被订阅方，之后用 NOTIFY 把警情推回去(见 handle_subscribe)
     if msg.method == "SUBSCRIBE" then
         handle_subscribe(msg)
+        return
+    end
+
+    if not msg.method then
+        --[[
+        起始行既不是请求行也不是状态行 = 这一"条"根本不是 SIP 报文。
+        最常见的原因是 TCP 流错位：上一条报文缺 Content-Length，剩下的消息体
+        （如 SDP/XML）被当成了下一条报文的头部。
+
+        **不要回 200**：msg 里没有 CSeq/Method，reply_ok 会拼出一条无意义的响应，
+        只会把对端的 SIP 事务搅得更乱。把起始行原样打出来 —— 这是判断
+        "是平台发了畸形报文"还是"我们自己切错包"的唯一证据。
+        ]]
+        log_warn("无法识别的 SIP 报文",
+                 "起始行=[" .. tostring(msg.start_line) .. "]",
+                 "body=" .. #tostring(msg.body or "") .. "字节")
         return
     end
 

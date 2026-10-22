@@ -195,8 +195,17 @@ function M.pop(data, max_msg)
         headers     = ph.map,
         header_list = ph.list,
         body        = body or "",
+        -- 起始行原样留在消息表里：既不是请求行也不是状态行时，上层要靠它定位
+        -- TCP 流错位/对端畸形报文（光看 method=nil 什么也判断不了）
+        start_line  = start_line or "",
     }
     local code, reason = proto.parse_status(start_line or head)
+    if not code then
+        -- 容忍没有 reason phrase 的状态行（如 "SIP/2.0 200"）：exsipproto 的
+        -- parse_status 要求代码后还有一段文本，放过这种合法但少见的写法。
+        local c = (start_line or ""):match("^SIP/2%.0%s+(%d%d%d)%s*$")
+        if c then code, reason = tonumber(c), "" end
+    end
     if code then
         msg.code, msg.reason = code, reason
     else

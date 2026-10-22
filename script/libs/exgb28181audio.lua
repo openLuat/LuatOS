@@ -1,27 +1,37 @@
 --[[
 @module exgb28181audio
-@summary GB28181 对讲/广播的音频：会话交给 voip（板载 codec）或 voip 的 PCM 桥接（外置芯片）
+@summary GB28181 对讲/广播的音频通路：audio_v2 PCM 桥接、外置芯片
 
 分工：信令与 SDP 归 exgb28181client（须设 external_audio=true；audio_port 是媒体
 端口的**基址**，实际每次通话在 `[它, +max_sessions)` 里轮换，见那边 alloc_audio_port）。
+本模块只管音频会话与 PCM/编码搬运；codec 上电、I2C、I2S 引脚等板级初始化由应用做。
 
     local gba = require "exgb28181audio"
-    gba.start(sess, { pa_gpio = 27 })                 -- 板载 codec
+    -- 板级初始化由应用负责：codec 上电/I2C/ES8311/I2S/功放脚
+    gba.start(sess, { hw_prepare = board_audio_prepare }) -- 板载 codec（voip 直驱）
+    gba.start(sess, { mode = "bridge" })               -- audio_v2 speech + voip PCM 桥接
     gba.start(sess, { chip = "air1103", uart_id = 2 }) -- 外置语音芯片
+    gba.mic_start({ on_frame = fn })                   -- 麦克风采集（视频内嵌音频）
     gba.stop()
 
 承载按会话的 `transport` 原样透传："udp"/"tcp"/"tcp_passive"（TCP 下 RTP 按
 RFC 4571 定界，由 voip 内部处理）。
 
-**板载 codec（缺省）**：编解码/AEC/抖动缓冲/RTP/麦克风与喇叭全归 voip，本模块只把
-协商结果转过去、开功放与音量、把统计换个名字报出来。**不搬 PCM、不碰音频设备** ——
-BK 驱动在 `voip_is_running()` 时把 audio_v2 的通用播放泵整个掐掉
-（`luat_audio_bk72xx_v2.c`），桥接喂进去的下行到不了喇叭（真机现象：连底噪都没有）。
+**板载 codec（缺省 / `mode="native"`）**：编解码/AEC/抖动缓冲/RTP/麦克风与喇叭
+全归 voip，本模块只把协商结果转过去、设软件音量、把统计换个名字报出来。
+
+**`mode="bridge"`**：voip 只做 RTP/编码/抖动缓冲，PCM 由 audio_v2 采/放 ——
+麦克风 → `voip.pcmIn`，`voip.pcmOut` → `audio_v2.input`。用于需要应用侧同时
+处理 PCM 的板子（例如视频流内嵌音频）。麦克风与对讲**互斥**：同一时刻只有一个去处。
 
 **外置芯片（`chip="air1103"`）**：芯片在模组外，没有 codec 给 voip 驱动，只能走
 voip 的 PCM 桥接 —— 本模块这时的活儿多一层：双向重采样、控芯片播放节拍、收尾复位
 芯片把 MIC 上行拉回来。骨架与 Air8784 的 `single/single_audio.lua`（同款芯片的
 SIP 场景）一致，便于两边一起维护。详见 ARCHITECTURE.md §4.7。
+
+**麦克风采集（`mic_start`）**：audio_v2.record 出 RAW PCM，音频回调只把数据
+切成 20ms 帧入队；库内 10ms 采集泵判字节序、编码成 PCMA 后再交给 `on_frame`。
+只负责采集与编码，推到哪个会话由调用方决定。
 ]]
 
 local M = {}
@@ -32,7 +42,9 @@ local SAMPLE_RATE   = 8000
 local sess      = nil
 local running   = false
 local last_err  = nil
-local pa_gpio   = nil
+-- 当前对讲会话的模式：nil | "native" | "bridge" | "air1103"。
+-- mic 采集不在这里，它有独立的 mic.active（两者互斥，但不是同一个状态）。
+local active_mode = nil
 
 local st = {
     up_frames = 0, up_bytes = 0,
@@ -53,6 +65,149 @@ local function voip_alive()
     local s = voip.getState()
     return s ~= "idle" and s ~= "error"
 end
+
+-- ==================== G.711A 编解码 ====================
+
+-- PCM16LE → G.711A（带饱和；G.711 编码器本身没有增益参数）
+local function alaw_encode(s)
+    local sign = 0
+    if s >= 0 then
+        sign = 0x80
+    else
+        s = -s
+    end
+    if s > 32635 then s = 32635 end
+    if s >= 256 then
+        local exp, mask = 7, 0x4000
+        while exp > 0 and (s & mask) == 0 do
+            exp = exp - 1
+            mask = mask >> 1
+        end
+        local mant = (s >> (exp + 3)) & 0x0F
+        return (sign | (exp << 4) | mant) ~ 0x55
+    end
+    return (sign | (s >> 4)) ~ 0x55
+end
+
+local function pcm_to_alaw(pcm, gain, swap)
+    local out = {}
+    for i = 1, #pcm - 1, 2 do
+        local b0, b1 = pcm:byte(i), pcm:byte(i + 1)
+        if swap then b0, b1 = b1, b0 end
+        local s = b0 | (b1 << 8)
+        if s >= 0x8000 then s = s - 0x10000 end
+        if gain and gain ~= 1 then
+            s = math.floor(s * gain + 0.5)
+            if s > 32767 then s = 32767
+            elseif s < -32768 then s = -32768 end
+        end
+        out[#out + 1] = string.char(alaw_encode(s))
+    end
+    return table.concat(out)
+end
+
+local function alaw_decode(a)
+    a = a ~ 0x55
+    local sign = a & 0x80
+    local exp = (a & 0x70) >> 4
+    local data = (a & 0x0F) << 4
+    if exp == 0 then
+        data = data + 8
+    elseif exp == 1 then
+        data = data + 0x108
+    else
+        data = (data + 0x108) << (exp - 1)
+    end
+    if sign ~= 0 then return data else return -data end
+end
+
+local function alaw_to_pcm(pcma)
+    local out = {}
+    for i = 1, #pcma do
+        local v = alaw_decode(pcma:byte(i)) & 0xFFFF
+        out[#out + 1] = string.char(v & 0xFF, (v >> 8) & 0xFF)
+    end
+    return table.concat(out)
+end
+
+local function pcm_gain(pcm, gain)
+    if not gain or gain == 1 then return pcm end
+    local out = {}
+    for i = 1, #pcm - 1, 2 do
+        local s = pcm:byte(i) | (pcm:byte(i + 1) << 8)
+        if s >= 0x8000 then s = s - 0x10000 end
+        s = math.floor(s * gain + 0.5)
+        if s > 32767 then s = 32767
+        elseif s < -32768 then s = -32768 end
+        local v = s & 0xFFFF
+        out[#out + 1] = string.char(v & 0xFF, (v >> 8) & 0xFF)
+    end
+    return table.concat(out)
+end
+
+--[[
+板级音频初始化由应用负责（codec 上电/I2C/ES8311/I2S/功放脚都是板子相关的）。
+
+本库在每次 start/mic_start 前调用 opts.hw_prepare()，应用在这里把自己的
+硬件初始化/参数写进驱动。没有传就不做任何硬件操作。
+]]
+local function hw_prepare(opts)
+    if type(opts.hw_prepare) ~= "function" then return true end
+    local ok, err = pcall(opts.hw_prepare, opts)
+    if not ok then
+        log.error("gb28181audio", "hw_prepare 异常", tostring(err))
+        return false, "hw_prepare 失败"
+    end
+    return true
+end
+
+--[[ 音频能力自检：对讲必须有 voip；audio_v2 是可选的（只影响软件音量/增益） ]]
+function M.available()
+    if voip == nil then return false, "固件没编 voip(LUAT_USE_VOIP)" end
+    return true
+end
+
+function M.warn_optional()
+    if audio_v2 == nil then
+        log.warn("gb28181audio", "固件没有 audio_v2：软件音量/增益不可用")
+    end
+end
+
+--[[
+等音频请求/voip 收尾。**会 yield**，只能在协程里调用。
+opts.voip = true 时连 voip 一起等到 idle（voip.stop 是异步的）。
+]]
+function M.wait_idle(timeout_ms, opts)
+    opts = opts or {}
+    local timeout = timeout_ms or 200
+    local has_audio_api = audio_v2 and audio_v2.is_all_done
+    -- 老固件没有 is_all_done：保底睡一段，行为与旧 demo 一致
+    if not has_audio_api and not opts.voip then
+        sys.wait(timeout_ms or 100)
+        return true
+    end
+    local waited = 0
+    local function audio_done()
+        if not has_audio_api then return true end
+        return audio_v2.is_all_done()
+    end
+    local function voip_done()
+        if not opts.voip then return true end
+        if not (voip and voip.getState) then return true end
+        return voip.getState() == "idle"
+    end
+    while (not audio_done() or not voip_done()) and waited < timeout do
+        sys.wait(10)
+        waited = waited + 10
+    end
+    return audio_done() and voip_done()
+end
+
+-- 暴露纯函数，供 demo 的 tone/自测复用
+M.alaw_encode  = alaw_encode
+M.pcm_to_alaw  = pcm_to_alaw
+M.alaw_to_pcm  = alaw_to_pcm
+M.pcm_gain     = pcm_gain
 
 -- ==================== 外置语音芯片：Air1103 ====================
 -- 芯片自己管 MIC/喇叭/AEC，模组这侧只搬 PCM：
@@ -172,11 +327,14 @@ local function start_air1103(session, opts)
         return fail("固件未编 voip 桥接(LUAT_USE_VOIP_BRIDGE)")
     end
 
+    if not opts.uart_id then
+        return fail("air1103 需要 uart_id（板级配置）")
+    end
     exa   = exa   or require "exaudio"
     a1103 = a1103 or require "air1103"
     if not chip_ready then
         local ok, res = pcall(exa.setup, {
-            model = "air1103", uart_id = opts.uart_id or 2,
+            model = "air1103", uart_id = opts.uart_id,
             bits_per_sample = 16, channels = 1,
         })
         if not ok or not res then return fail("exaudio.setup 失败(model=air1103)") end
@@ -219,6 +377,7 @@ local function start_air1103(session, opts)
     sess    = session
     chip    = "air1103"
     running = true
+    active_mode = "air1103"
     last_err = nil
     up_q, up_tail = {}, ""
     st.last_error = nil
@@ -247,26 +406,483 @@ local function start_air1103(session, opts)
     return true
 end
 
+-- ==================== 麦克风采集（视频内嵌音频） ====================
+--[[
+audio_v2.record 把麦克风编成 RAW PCM，每 20ms 一帧(320 字节)。回调里只入队/
+切帧，由 on_frame 交给应用（通常是 client.push_ps_audio 编码进视频 PS）。
+
+**与对讲互斥**：mic_start 拒绝在 voip 忙/对讲运行时启动；M.start 也会先
+mic_stop()。麦克风同一时刻只能服务一个去处。
+]]
+local MIC_BACKLOG_FRAMES = 8    -- 音频回调一次最多保留的积压
+local MIC_QUEUE_FRAMES   = 10   -- 任务侧待发队列上限(200ms)
+
+local mic = {
+    buf = nil, req = nil, active = false,
+    pcm_tail = "", frames = 0,
+    on_frame = nil, gain = 4, debug = false,
+    err_logged = 0,
+    rxq = {}, dropped = 0, gen = 0, pushed = 0,
+    -- 字节序判定：nil = 还没判；判定后固定用 true/false
+    pcm_swap = nil, diag_frames = 0, diag_le = 0, diag_be = 0,
+}
+
+-- 前向声明：audio_v2 只有一个全局回调，mic 和 bridge 共用（定义在后文）
+local audio_dispatch
+
+-- 音频回调只取出+入队：这里在 audio msgbus 路径里，编码/网络操作会拖死
+-- 消息泵并触发看门狗 NMI（2026-10-21 实测）。编码和 on_frame 交给采集泵。
+local function mic_on_audio(_req, event)
+    if event ~= audio_v2.REQUEST_GET_NEW_DATA or not mic.active then return end
+    local n = mic.buf:used()
+    if n == 0 then return end
+
+    -- 丢掉过老积压；按 16bit 样本对齐，否则后续字节序会整体错开
+    local keep = 320 * MIC_BACKLOG_FRAMES
+    if n > keep then
+        local drop = n - keep
+        drop = drop - drop % 2
+        if drop > 0 then
+            mic.buf:del(0, drop)
+            mic.dropped = mic.dropped + drop // 320
+            n = n - drop
+        end
+    end
+
+    local data = mic.buf:toStr(0, n)
+    mic.buf:del()
+    mic.frames = mic.frames + 1
+    if mic.frames == 1 or (mic.debug and mic.frames % 50 == 0) then
+        logi(("MIC 采集 第%d帧 %d字节"):format(mic.frames, #data))
+    end
+
+    mic.pcm_tail = mic.pcm_tail .. data
+    local q = mic.rxq
+    while #mic.pcm_tail >= 320 do
+        q[#q + 1] = mic.pcm_tail:sub(1, 320)
+        mic.pcm_tail = mic.pcm_tail:sub(321)
+    end
+    while #q > MIC_QUEUE_FRAMES do
+        table.remove(q, 1)
+        mic.dropped = mic.dropped + 1
+    end
+end
+
+-- 一帧 PCM 在小端/大端两种解释下的平均幅度之和。
+-- 正常语音集中在 0 附近；字节序反了会把低字节读成高字节，幅度恒在 1 万上下。
+local function mic_abs_sums(pcm)
+    local le, be = 0, 0
+    for i = 1, #pcm - 1, 2 do
+        local b0, b1 = pcm:byte(i), pcm:byte(i + 1)
+        local v = b0 | (b1 << 8)
+        if v >= 0x8000 then v = v - 0x10000 end
+        le = le + math.abs(v)
+        v = b1 | (b0 << 8)
+        if v >= 0x8000 then v = v - 0x10000 end
+        be = be + math.abs(v)
+    end
+    return le, be
+end
+
+local function mic_frame_stats(pcm, swap)
+    local mn, mx, sum, zc, prev = 32767, -32768, 0, 0, 0
+    for i = 1, #pcm - 1, 2 do
+        local b0, b1 = pcm:byte(i), pcm:byte(i + 1)
+        if swap then b0, b1 = b1, b0 end
+        local s = b0 | (b1 << 8)
+        if s >= 0x8000 then s = s - 0x10000 end
+        if s < mn then mn = s end
+        if s > mx then mx = s end
+        sum = sum + math.abs(s)
+        if i > 1 and ((s >= 0) ~= (prev >= 0)) then zc = zc + 1 end
+        prev = s
+    end
+    return mn, mx, sum // 160, zc
+end
+
+-- 采集泵：取一帧、判字节序（前 50 帧）、编码、交给 on_frame。
+-- 运行在普通 Lua 任务里，可以安全调用网络/PS 封装。
+local function mic_pump_task(gen)
+    while mic.active and mic.gen == gen do
+        local q = mic.rxq
+        if #q > 0 then
+            local pcm = table.remove(q, 1)
+            local swap = mic.pcm_swap
+            if swap == nil then
+                local le, be = mic_abs_sums(pcm)
+                mic.diag_frames = mic.diag_frames + 1
+                mic.diag_le = mic.diag_le + le
+                mic.diag_be = mic.diag_be + be
+                if mic.diag_frames >= 50 then
+                    local nl = mic.diag_frames * 160
+                    mic.pcm_swap = (mic.diag_be * 2 < mic.diag_le)
+                    logi(("PCM 字节序判定 swap=%s LE均值=%d BE均值=%d")
+                         :format(tostring(mic.pcm_swap),
+                                 mic.diag_le // nl, mic.diag_be // nl))
+                end
+                swap = false      -- 判定前先按 LE 发，避免静音
+            end
+
+            local pcma = pcm_to_alaw(pcm, mic.gain, swap)
+            local ok, err = pcall(mic.on_frame, pcma)
+            if not ok then
+                mic.err_logged = mic.err_logged + 1
+                if mic.err_logged == 1 or mic.err_logged % 100 == 0 then
+                    log.warn("gb28181audio", "on_frame 回调异常", tostring(err))
+                end
+            end
+            mic.pushed = mic.pushed + 1
+            if mic.debug and mic.pushed % 50 == 0 then
+                local mn, mx, avg, zc = mic_frame_stats(pcm, swap)
+                logi(("内嵌音频 已推 %d 次 PCM min=%d max=%d 均幅=%d 过零=%d/160 swap=%s")
+                     :format(mic.pushed, mn, mx, avg, zc, tostring(swap)))
+            end
+        end
+        sys.wait(10)
+    end
+end
+
+--[[
+启动麦克风采集。
+opts.on_frame  必填，function(pcma) —— 每 20ms 一帧 160B PCMA
+opts.mic_gain  软件增益，缺省 4（G.711A 编码器本身无增益）
+opts.debug     打开 audio_v2 内部日志，缺省 false
+@return boolean, string|nil
+]]
+function M.mic_start(opts)
+    opts = opts or {}
+    if type(opts.on_frame) ~= "function" then
+        return false, "mic_start 需要 on_frame 回调"
+    end
+    -- 已启动：只更新回调/增益，不重开请求（多路视频/换会话时要用新闭包）
+    if mic.active then
+        mic.on_frame = opts.on_frame
+        mic.gain = opts.mic_gain or mic.gain
+        return true
+    end
+    if running or (voip and voip.getState and voip.getState() ~= "idle") then
+        return false, "对讲/voip 正在使用音频设备"
+    end
+    if not (audio_v2 and audio_v2.record) then
+        return false, "固件没有 audio_v2.record"
+    end
+    if audio_v2.DATA_CODEC_TYPE_RAW == nil then
+        return false, "固件没有 RAW 录音模式"
+    end
+    if audio_v2.debug then audio_v2.debug(opts.debug and true or false) end
+    if audio_v2.get_driver_info then
+        local n, def = audio_v2.get_driver_info()
+        logi("audio_v2 驱动数=" .. tostring(n) .. " 默认=" .. tostring(def))
+    end
+    -- 板级初始化（codec/I2S/功放）由应用在 hw_prepare 里做
+    local okhw, wh = hw_prepare(opts)
+    if not okhw then return false, wh end
+    if not mic.buf then
+        mic.buf = zbuff.create(2048)
+        if not mic.buf then return false, "zbuff 创建失败" end
+    end
+    audio_v2.on(audio_dispatch)
+    mic.buf:del()
+    mic.pcm_tail = ""
+    mic.rxq = {}
+    mic.frames = 0
+    mic.dropped = 0
+    mic.pushed = 0
+    mic.err_logged = 0
+    mic.pcm_swap = nil
+    mic.diag_frames = 0
+    mic.diag_le = 0
+    mic.diag_be = 0
+    mic.on_frame = opts.on_frame
+    mic.gain = opts.mic_gain or 4
+    mic.debug = opts.debug and true or false
+    local ok, idx = audio_v2.record(mic.buf, 1,
+        audio_v2.DATA_CODEC_TYPE_RAW, 0, SAMPLE_RATE, 16, 1)
+    if not ok then return false, "audio_v2.record 启动失败" end
+    mic.req, mic.active = idx, true
+    -- 采集泵：回调只入队，编码/推流在这里做（见 mic_on_audio 的说明）
+    mic.gen = mic.gen + 1
+    local gen = mic.gen
+    sys.taskInit(function() mic_pump_task(gen) end)
+    logi("麦克风采集已启动 request=" .. tostring(idx) ..
+         " (RAW PCM, gain=" .. tostring(mic.gain) .. ")")
+    return true
+end
+
+function M.mic_stop()
+    if not mic.active then return end
+    mic.active = false
+    mic.gen = mic.gen + 1          -- 让采集泵退出（可能还卡在 sys.wait 里）
+    if mic.req and audio_v2.stop then pcall(audio_v2.stop, mic.req) end
+    mic.req = nil
+    mic.pcm_tail = ""
+    mic.rxq = {}
+end
+
+function M.mic_active()
+    return mic.active
+end
+
+-- ==================== 对讲 PCM 桥接（audio_v2.speech + voip.pcmIn/out） ====================
+--[[
+bridge 模式下 voip 只做 RTP/编码/JB，PCM 由应用通过 audio_v2 采/放：
+
+    麦克风 PCM ── voip.pcmIn() → 对讲上行 RTP
+    voip.pcmOut() → audio_v2.input() → 喇叭
+
+**麦克风同一时刻只有一个去处**：非对讲时走 mic_start 编进视频 PS；进入对讲时
+mic_stop()，这里只喂 voip 上行。bridge 不再往视频 PS 推音频 —— 一份 PCM
+双推会把两边节拍绑死，一边卡住两边都断。
+]]
+local bridge = {
+    active = false, gen = 0, buf = nil, req = nil,
+    rxq = {}, rx_tail = "", pcm = "", need = false,
+    gain = 4, debug = false,
+    dbg = { rec = 0, rec_bytes = 0, rec_empty = 0, play = 0,
+            pcm_in = 0, pcm_cons = 0, pcm_err = 0, drop = 0, retry = 0 },
+}
+
+-- 上行只保留最近 5 帧（100ms）。再多就丢最旧的，绝不把延迟越积越大。
+local BRIDGE_RXQ_MAX = 5
+
+local function bridge_on_rec()
+    bridge.dbg.rec = bridge.dbg.rec + 1
+    local n = bridge.buf:used()
+    if n == 0 then
+        -- 事件到了但 save_buffer 是空的：编码器没产出（不是 RX 没数据）
+        bridge.dbg.rec_empty = bridge.dbg.rec_empty + 1
+        return
+    end
+    bridge.dbg.rec_bytes = bridge.dbg.rec_bytes + n
+    if bridge.dbg.rec == 1 then
+        logi("bridge 首次录音回调", n .. "字节PCMA")
+    end
+    local pcma = bridge.buf:toStr(0, n)
+    bridge.buf:del()
+    pcma = bridge.rx_tail .. pcma
+    bridge.rx_tail = ""
+    -- 切整帧：回调可能一次给好几帧（Lua 侧被 GC 拖慢时尤其明显），
+    -- 但 voip.pcmIn 的接口语义就是 20ms 一帧，这里统一切成 160 字节。
+    local pos, len = 1, #pcma
+    while len - pos + 1 >= 160 do
+        bridge.rxq[#bridge.rxq + 1] = pcma:sub(pos, pos + 159)
+        pos = pos + 160
+    end
+    if pos <= len then bridge.rx_tail = pcma:sub(pos) end
+    while #bridge.rxq > BRIDGE_RXQ_MAX do
+        table.remove(bridge.rxq, 1)
+        bridge.dbg.drop = bridge.dbg.drop + 1
+    end
+end
+
+local function bridge_on_play(_req)
+    bridge.dbg.play = bridge.dbg.play + 1
+    bridge.need = true
+end
+
+-- 上行按整帧、每 5ms 最多喂一帧；下行 5ms 一拍。
+local function bridge_task()
+    bridge.gen = bridge.gen + 1
+    local gen = bridge.gen
+    sys.taskInit(function()
+        while bridge.active and bridge.gen == gen do
+            if bridge.pcm == "" and #bridge.rxq > 0 then
+                local pcma = table.remove(bridge.rxq, 1)
+                bridge.pcm = pcm_gain(alaw_to_pcm(pcma), bridge.gain)
+            end
+
+            if bridge.pcm ~= "" then
+                bridge.dbg.pcm_in = bridge.dbg.pcm_in + 1
+                local used = tonumber(voip.pcmIn(bridge.pcm)) or 0
+                if used > 0 then
+                    bridge.dbg.pcm_cons = bridge.dbg.pcm_cons + used
+                    bridge.pcm = bridge.pcm:sub(used * 2 + 1)
+                    bridge.dbg.retry = 0
+                else
+                    -- -1 = voip 还没到 RUNNING / 不在 bridge 模式；0 = 环形缓冲满
+                    bridge.dbg.pcm_err = bridge.dbg.pcm_err + 1
+                    bridge.dbg.retry = bridge.dbg.retry + 1
+                    if bridge.dbg.pcm_err == 1 then
+                        log.warn("gb28181audio", "voip.pcmIn 未消费",
+                                 "返回=" .. tostring(used),
+                                 "状态=" .. tostring(voip.getState and voip.getState()))
+                    end
+                    if bridge.dbg.retry >= 40 then   -- 40 × 5ms = 200ms
+                        bridge.dbg.retry = 0
+                        bridge.dbg.drop = bridge.dbg.drop + 1
+                        bridge.pcm = ""
+                    end
+                end
+            end
+
+            -- 下行：voip.pcmOut → PCM → PCMA → speech 播放输入。
+            -- 每次补到 40ms，5ms 一拍，避免 speech 播放 FIFO 欠载造成断音。
+            if bridge.need then
+                bridge.need = false
+                local _, _, free = audio_v2.input(bridge.req, "", false)
+                free = tonumber(free) or 0
+                if free >= 1 then
+                    local n = math.min(free, 320)
+                    local pcm = voip.pcmOut(n)
+                    local want = n * 2
+                    if not pcm then pcm = "" end
+                    if #pcm < want then
+                        pcm = pcm .. string.rep("\0", want - #pcm)
+                    elseif #pcm > want then
+                        pcm = pcm:sub(1, want)
+                    end
+                    audio_v2.input(bridge.req, pcm_to_alaw(pcm, 1), false)
+                end
+            end
+
+            sys.wait(5)
+        end
+    end)
+end
+
+-- 单一 audio_v2 回调：按 request 分发到"麦克风采集"或"对讲 bridge"
+audio_dispatch = function(req, event)
+    if event == audio_v2.REQUEST_GET_NEW_DATA then
+        if bridge.active and req == bridge.req then
+            bridge_on_rec()
+        elseif mic.active and req == mic.req then
+            mic_on_audio(req, event)
+        end
+    elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
+        if bridge.active and req == bridge.req then
+            bridge_on_play(req)
+        end
+    end
+end
+
+local function bridge_start(session, opts)
+    local function fail(msg)
+        last_err = msg
+        st.last_error = msg
+        return false, msg
+    end
+    if not (audio_v2 and audio_v2.speech and audio_v2.input) then
+        return fail("audio_v2 不支持 speech/input")
+    end
+    if not (voip and voip.setAudioMode and voip.pcmIn and voip.pcmOut) then
+        return fail("voip 不支持 bridge")
+    end
+    if voip.AUDIO_MODE_BRIDGE == nil then
+        return fail("voip 没有 AUDIO_MODE_BRIDGE")
+    end
+    if voip.getState and voip.getState() ~= "idle" then
+        return fail("voip 正忙(" .. tostring(voip.getState()) .. ")")
+    end
+
+    -- 麦克风与对讲互斥
+    M.mic_stop()
+
+    if not bridge.buf then
+        bridge.buf = zbuff.create(2048)
+        if not bridge.buf then return fail("zbuff 创建失败") end
+    end
+    bridge.buf:del()
+    bridge.rxq, bridge.rx_tail, bridge.pcm, bridge.need = {}, "", "", false
+    bridge.dbg = { rec = 0, rec_bytes = 0, rec_empty = 0, play = 0,
+                   pcm_in = 0, pcm_cons = 0, pcm_err = 0, drop = 0, retry = 0 }
+    bridge.gain = opts.bridge_gain or 4
+    bridge.debug = opts.debug and true or false
+
+    if voip.setAudioMode(voip.AUDIO_MODE_BRIDGE) == false then
+        return fail("voip.setAudioMode(BRIDGE) 失败")
+    end
+    local okv = voip.start({
+        codec       = voip.PCMA,
+        sample_rate = SAMPLE_RATE,
+        ptime       = FRAME_MS,
+        transport   = session.transport,
+        remote_ip   = session.remote_ip,
+        remote_port = session.remote_port,
+        local_port  = session.local_port,
+        ssrc        = session.ssrc,
+        -- bridge 下 AEC 的参考链路不完整，先关掉，避免削掉上行
+        aec_enable  = 0,
+        aec_denoise = 0,
+        aec_agc     = 0,
+    })
+    if not okv then
+        return fail("voip.start 失败")
+    end
+
+    audio_v2.on(audio_dispatch)
+    -- bridge 诊断期强制打开 audio_v2 内部日志；停止/失败时恢复到配置值
+    if audio_v2.debug then pcall(audio_v2.debug, true) end
+    --[[
+    **全双工用 speech 单请求**：录音/播放共用同一个 I2S 时钟和请求块，
+    避免 record + stream 两个独立请求各自跑块节奏（正是撕裂/倍速的来源）。
+    RAW 编解码器在 speech 里被绑定拒绝，所以用 G.711A：录音回调给 PCMA，
+    播放侧 input 也收 PCMA。dsp_type=0xFF：不绑 BSP 的 SpeexDSP。
+    ]]
+    local ok, req = audio_v2.speech(
+        audio_v2.DATA_CODEC_TYPE_G711_ALAW, bridge.buf, 1,
+        audio_v2.DATA_CODEC_TYPE_G711_ALAW, SAMPLE_RATE, 16, 1, nil, 0xFF)
+    if not ok then
+        pcall(voip.stop)
+        if audio_v2.debug then pcall(audio_v2.debug, opts.debug and true or false) end
+        return fail("audio_v2.speech 失败")
+    end
+
+    bridge.req, bridge.active = req, true
+    bridge_task()
+    logi("对讲 bridge 已启动(speech G711A)",
+         "req=" .. tostring(req), "麦克风只走对讲上行")
+    return true
+end
+
+local function bridge_stop()
+    if not bridge.active and not bridge.req then return end
+    bridge.active = false
+    bridge.gen = bridge.gen + 1          -- 让还在 sys.wait 的旧任务退出
+    if bridge.req and audio_v2 and audio_v2.stop then
+        pcall(audio_v2.stop, bridge.req)
+    end
+    bridge.req = nil
+    if voip then pcall(voip.stop) end
+    if audio_v2 and audio_v2.debug then
+        pcall(audio_v2.debug, bridge.debug and true or false)
+    end
+    local d = bridge.dbg
+    logi("对讲 bridge 已关闭",
+         ("录音事件=%d 字节=%d 空=%d 播放事件=%d pcmIn=%d 已消费样本=%d 未消费=%d 丢帧=%d")
+         :format(d.rec, d.rec_bytes, d.rec_empty, d.play,
+                 d.pcm_in, d.pcm_cons, d.pcm_err, d.drop))
+end
+
 --[[
 开启音频会话。
 
 @api exgb28181audio.start(session[, opts])
 @table session exgb28181client 的音频会话（talk/accepted 事件里的那个）
 @table opts 可选：
-    chip      "air1103" 时走外置语音芯片：PCM 经 voip 桥接 + UART 与芯片交换。
-              此时 pa_gpio/pa_level 不适用（功放在芯片侧），volume 按芯片的 0~31 档给
-    uart_id   芯片所在串口，缺省 2
+    hw_prepare function  每次 start 前调用，应用在这里做板级初始化
+                         （codec 上电/I2C/ES8311/I2S/功放脚）
+    audio_mode 板级音频模式，缺省 voip.AUDIO_MODE_I2S，可覆盖
+    chip      "air1103" 时走外置语音芯片：PCM 经 voip 桥接 + UART 与芯片交换
+    uart_id   芯片所在串口，**air1103 必填**
     mic_gain  上行重采样增益 1~8，缺省 1（芯片够响就别动）
-    play_buffer_ms 下行水位(ms)，缺省 60、最小 40。**只在芯片模式下有意义**：
-              欠载(爆音)就调大、嫌延迟高就调小，判据看 stats().down_silence 恒为 0
-    pa_gpio   功放使能脚（如 27），给了就拉高；**喇叭完全没声时先查这里**
-    pa_level  功放有效的电平，缺省 1（高有效）
+    play_buffer_ms 下行水位(ms)，缺省 60、最小 40。**只在芯片模式下有意义**
     volume    软件音量 0~1000，缺省不动
 @return boolean
 @return string|nil 失败原因
 ]]
 function M.start(session, opts)
     opts = opts or {}
+
+    -- 模式归一化：chip 优先（保持 air1103 老用法），其次 opts.mode。
+    local mode = opts.mode or "native"
+    if opts.chip == "air1103" then mode = "air1103" end
+    if mode ~= "native" and mode ~= "bridge" and mode ~= "air1103" then
+        local msg = "未知音频模式: " .. tostring(mode)
+        last_err = msg
+        st.last_error = msg
+        return false, msg
+    end
+
     -- voip.stop() 是异步的：Lua 侧投完事件就返回，媒体端口的释放和收尾在 voip 任务里
     -- 稍后才做。这段时间里 isRunning() 已经报 false，但 getState() 还是 "stopping"；
     -- 此时再 start 会被随后到达的停止事件拆掉 —— 现象是"新会话起来了却没声"。
@@ -277,24 +893,42 @@ function M.start(session, opts)
         st.last_error = msg
         return false, msg
     end
-    if opts.chip == "air1103" then
-        return start_air1103(session, opts)
-    end
-    local function fail(msg)
-        last_err = msg
-        st.last_error = msg
-        return false, msg
-    end
 
     -- voip 可能自己收摊了（媒体连接被对端关掉，见 voip 侧）—— 以它为准，
     -- 否则这个陈旧的标志会让下一次 start 被"已启动"挡在门外
     if running and not voip_alive() then
         logi("voip 已自行结束(" .. tostring(voip.getState()) .. ")，清掉旧状态")
         running = false
+        if active_mode == "bridge" then
+            bridge.gen = bridge.gen + 1
+            bridge.active = false
+        end
     end
     if running then
-        return fail("已启动，请先 stop()")
+        local msg = "已启动，请先 stop()"
+        last_err = msg
+        st.last_error = msg
+        return false, msg
     end
+
+    if mode == "air1103" then
+        return start_air1103(session, opts)
+    end
+
+    -- 板级初始化（codec/I2S/功放）由应用的 hw_prepare 完成
+    local okhw, wh = hw_prepare(opts)
+    if not okhw then
+        last_err = wh
+        st.last_error = wh
+        return false, wh
+    end
+
+    local function fail(msg)
+        last_err = msg
+        st.last_error = msg
+        return false, msg
+    end
+
     if type(session) ~= "table" then
         return fail("session 参数无效")
     end
@@ -311,27 +945,34 @@ function M.start(session, opts)
         return fail("voip 不可用(固件未编 LUAT_USE_VOIP?)")
     end
 
-    opts = opts or {}
-    -- 功放与音量是**板级**的事，库不替应用猜；喇叭没声（连底噪都没有）时第一个查这里。
-    -- 正确做法是把 PA 脚交给音频驱动（Air8101 的 demo 也是这么配的），它会在音频
-    -- 启动/停止时自己拉放；自己 gpio.setup 只在没有这个 API 的老固件上兜底 ——
-    -- 那样驱动起来时可能把脚复用掉，而且停了也不会放开。
-    if opts.pa_gpio and audio_v2 and audio_v2.config_pa_power_ctrl then
-        local okp = audio_v2.config_pa_power_ctrl(true, opts.pa_gpio,
-                                            opts.pa_level or 1, opts.pa_delay or 200)
-        logi("功放脚已交给音频驱动 GPIO" .. tostring(opts.pa_gpio),
-             "电平", opts.pa_level or 1, tostring(okp))
-    elseif opts.pa_gpio and gpio then
-        gpio.setup(opts.pa_gpio, opts.pa_level or 1)
-        pa_gpio = opts.pa_gpio        -- 自己拉的才由自己放开（见 M.stop）
-        logi("功放脚已直拉 GPIO" .. tostring(opts.pa_gpio))
+    if mode == "bridge" then
+        local ok, err = bridge_start(session, opts)
+        if ok then
+            sess      = session
+            running   = true
+            active_mode = "bridge"
+            last_err  = nil
+            st.last_error = nil
+        end
+        return ok, err
     end
     if opts.volume and audio_v2 and audio_v2.soft_volume then
         pcall(audio_v2.soft_volume, opts.volume)
     end
 
-    -- 这些值都来自那次 SDP 协商；ssrc 平台按 SDP 的 y= 校验。
-    -- 不调 setAudioMode：默认就是 voip 自己驱动音频设备，正是我们要的
+    -- 显式恢复板级音频模式：上一次可能是 bridge，voip 会停在 BRIDGE。
+    -- 默认 I2S，板子不同可通过 opts.audio_mode 覆盖。
+    local audio_mode = opts.audio_mode or voip.AUDIO_MODE_I2S
+    if voip.setAudioMode and audio_mode ~= nil then
+        if voip.setAudioMode(audio_mode) == false then
+            return fail("voip.setAudioMode 失败")
+        end
+    end
+    -- AEC 默认开；opts.aec=false 可关掉做对照（AEC 参考异常时会压掉麦克风）
+    local aec = 1
+    if opts.aec ~= nil then
+        aec = opts.aec and 1 or 0
+    end
     local okv = voip.start({
         codec        = voip.PCMA,
         sample_rate  = SAMPLE_RATE,
@@ -341,9 +982,9 @@ function M.start(session, opts)
         remote_port  = session.remote_port,
         local_port   = session.local_port,
         ssrc         = session.ssrc,
-        aec_enable   = 1,
-        aec_denoise  = 1,
-        aec_agc      = 1,
+        aec_enable   = aec,
+        aec_denoise  = aec,
+        aec_agc      = aec,
     })
     if not okv then
         return fail("voip.start 失败")
@@ -351,6 +992,7 @@ function M.start(session, opts)
 
     sess    = session
     running = true
+    active_mode = "native"
     last_err = nil
     for k, v in pairs(st) do
         if type(v) == "number" then st[k] = 0 end
@@ -366,12 +1008,19 @@ end
 -- 关闭音频会话。必须调，否则 voip 不停、媒体端口不放开。
 -- 同步即可：只需 voip.stop()（发个停止事件就返回），没有会互锁的音频任务收尾。
 function M.stop()
-    if not running then
-        return true
-    end
+    -- **按 active_mode 清理，不能只看 running**：voip 自行结束时 running 已经被
+    -- 清掉，但 speech 请求和 bridge 任务还在，必须一起收掉。
+    local mode = active_mode
     running = false
 
-    if chip == "air1103" then
+    if mode == "bridge" then
+        bridge_stop()
+        active_mode = nil
+        sess = nil
+        return true
+    end
+
+    if mode == "air1103" or chip == "air1103" then
         sys.timerStop(up_timer); up_timer = nil
         sys.timerStop(dn_timer); dn_timer = nil
         up_q, up_tail = {}, ""
@@ -382,19 +1031,23 @@ function M.stop()
         if a1103 then pcall(chip_uplink_restore) end
         chip = nil
         sess = nil
+        active_mode = nil
         logi("外置芯片音频会话已关闭")
         return true
     end
 
-    if voip then
-        pcall(voip.stop)
+    if mode == "native" then
+        if voip then pcall(voip.stop) end
+        sess = nil
+        active_mode = nil
+        logi("音频会话已关闭")
+        return true
     end
-    if pa_gpio and gpio then
-        gpio.setup(pa_gpio, 0)      -- 自己拉的自己放开；交给驱动的那种由驱动管
-        pa_gpio = nil
-    end
+
+    -- 没有记录的活动会话，但 voip 可能还活着（上层只做了部分清理）：兜底停掉。
+    if voip and voip_alive() then pcall(voip.stop) end
     sess = nil
-    logi("音频会话已关闭")
+    active_mode = nil
     return true
 end
 
@@ -407,6 +1060,11 @@ function M.is_running()
     -- 此时本模块也要跟着变成"未运行"（调用方看到的是同一件事）
     if running and not voip_alive() then
         running = false
+        if active_mode == "bridge" then
+            -- 让还在 sys.wait 的 bridge 任务也退出；资源由 M.stop 清理
+            bridge.gen = bridge.gen + 1
+            bridge.active = false
+        end
         logi("voip 已自行结束(" .. tostring(voip.getState()) .. ")")
     end
     return running
@@ -431,6 +1089,8 @@ function M.stats()
 
     local t = {
         running   = running,
+        mode      = active_mode,
+        mic_active = mic.active,
         up_frames      = vs.tx_packets or 0,
         up_bytes       = (vs.tx_packets or 0) * 320,
         up_drop        = vs.tx_errors or 0,
@@ -440,7 +1100,23 @@ function M.stats()
         down_drop_bytes = (vs.rx_queue_dropped or 0) * 320,
         last_error     = st.last_error,
         voip      = vs,
+        -- 视频内嵌音频的采集侧读数（mic_start 时才有意义）
+        mic = {
+            frames = mic.frames, queued = #mic.rxq,
+            dropped = mic.dropped, pushed = mic.pushed,
+            swap = mic.pcm_swap,
+        },
     }
+    if active_mode == "bridge" then
+        local d = bridge.dbg
+        t.bridge = {
+            rec = d.rec, rec_bytes = d.rec_bytes, rec_empty = d.rec_empty,
+            play = d.play, pcm_in = d.pcm_in, pcm_cons = d.pcm_cons,
+            pcm_err = d.pcm_err, drop = d.drop, retry = d.retry,
+            queued = #bridge.rxq,
+            cur_frame_samples = #bridge.pcm // 2,
+        }
+    end
     if chip == "air1103" then
         -- 芯片通路全是"另一侧"的读数，必须一起看才有意义
         t.chip          = "air1103"

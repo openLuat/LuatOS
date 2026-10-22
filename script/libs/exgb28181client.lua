@@ -1395,6 +1395,26 @@ local function handle_audio_invite(msg, s)
         return
     end
 
+    --[[
+    SDP 的 `m=audio 0` 表示这条媒体流被禁用(RFC 3264)。实测 WVP 在
+    `PlayServiceImpl.talk` 里：`startSendRtpPassive`(让 ZLM 开收流端口)抛
+    ControllerException 后**只打日志、没有 return**，仍然调用 talkStreamCmd，
+    于是发出来的 Talk INVITE 就是 `m=audio 0`。此时 remote_port=0，
+    voip.start 会直接报 "remote_ip and remote_port are required"。
+
+    这不是设备端能修的：平台侧 ZLM 收流端口没分配成功(端口耗尽/旧流没释放)。
+    设备只做一件事——按"媒体不可用"拒绝，不占本地端口、不建会话，
+    并把原因写清楚，让日志能直接指向平台。
+    ]]
+    if s.conn_ip == nil or s.port == nil or s.port <= 0 then
+        log_warn("平台音频 INVITE 的媒体端口为 0(m=audio 0), 拒绝",
+                 "平台侧 ZLM 收流端口分配失败(检查 WVP/ZLM 日志与端口范围)")
+        reply(msg, 488, "Not Acceptable Here")
+        emit("invite", "rejected",
+             { reason = "平台 SDP m=audio 0，媒体未分配", incoming = true })
+        return
+    end
+
     local port = alloc_audio_port()
     if not port then
         log_warn("无可用端口")
@@ -1659,6 +1679,17 @@ local function handle_invite(msg)
         return
     end
 
+    --[[
+    **视频点播用设备自己生成的 SSRC，不套用平台 INVITE 里的 y=。**
+
+    曾经按"平台 y= 是它分配给我的 SSRC"改成优先用平台值，结果在合宙
+    视频物联网平台上反而整路不出图：平台按自己 INVITE 里的 y= 建流，设备
+    应答/推流换成设备自己生成的 100490001 才正常（历史可用日志如此）。
+    WVP/ZLM 那边 `openRtpServer` 也接受设备自己的 SSRC（实测 ssrc=1 也收）。
+    两个平台行为不一致，故选**历史验证过、且两边都能接受**的生成方式。
+
+    平台完全没给 y= 的非标准实现也走同一条生成路径。
+    ]]
     local ssrc = gb.ssrc_make(is_playback, o.domain, session_count() + 1)
     if not ssrc then
         log_warn("SSRC 生成失败")
@@ -2295,13 +2326,9 @@ GB28181-2016 §9.12 的语音广播/对讲与**点播方向相反**：
 -- **不 connect**：平台从哪个端口发音频要等它的应答 SDP 才知道，
 -- 事先 connect 会把所有来源都过滤掉。生产环境可在拿到对端地址后再收紧。
 local function audio_open(sess)
-    --[[
-    这里的承载描述的是**当前这个 stream 实际怎么开的**，不是 offer 写了什么：
-    非外部模式下下面立刻按 UDP 绑端口（应答到达后若平台要求 TCP，
-    handle_talk_response 会关掉它并按新承载重建）；外部模式下本层没有 stream，
-    这个值只是初值，同样会被应答覆盖。所以 offer 即使写了 TCP
-    （audio_offer_tcp），这里仍填 "udp"。
-    ]]
+    -- 这里的承载描述的是当前这个 stream 实际怎么开的，不是 offer 写了什么：
+    -- 非外部模式下下面立刻按 UDP 绑端口，外部模式下本层没有 stream。
+    -- offer 即使写了 TCP（audio_offer_tcp），这里仍填 "udp"。
     sess.transport = M.media_transport(false)
     sess.external_media = g_opts.external_audio and true or nil
     -- 三段式里的前两段：建链 + 绑端口。**这里不 connect** —— 平台从哪个
@@ -2357,24 +2384,23 @@ function M.start_talk(opts)
     local from_tag = "luat" .. gen_token("tag")
 
     --[[
-    音频 offer 要不要带 y=<SSRC>。
+    音频 offer **总是**带一个非零 y=<SSRC>。
 
-    §9.12 / WVP 的口径是音频不带 y（SSRC 由平台生成）；但有些平台用 SDP 的
-    y= 标识音频流，offer 里没有它就**不建下行**（实测合宙 video.luatos.com
-    的应答是 `y=null`，随后一个 RTP 包都不回）。打开 audio_offer_ssrc 时生成
-    一个非零 SSRC：既写进 offer 的 y=，也交给 voip 做上行 RTP 的 SSRC，
-    两边才是同一个值。用 0 会被部分平台当成非法 SSRC（WVP 的实测）。
+    - 合宙 video.luatos.com 用 y= 标识音频流，offer 没有它就不建下行
+      （实测应答 `y=null`，随后一个 RTP 包都不回）；
+    - WVP 对 y= 的处理是"有就用、没有就生成随机值"（InviteRequestProcessor
+      453~486 行），并且会把它回显进 200 OK —— 带非零值对 WVP 完全无害，
+      而且让上面 offer 与下面 voip 上行用的是同一个 SSRC；
+    - y=0 反而会被部分平台当成非法 SSRC。
+
+    序号要避开"同时存在的会话"：只数点播会让两路并发的对讲拿到同一个 SSRC。
+    点播 + 音频一起数，与端口池的口径一致。
     ]]
-    local ssrc
-    if g_opts.audio_offer_ssrc then
-        -- 序号要避开"同时存在的会话"：只数点播会让两路并发的对讲拿到同一个
-        -- SSRC。点播 + 音频一起数，与端口池的口径一致。
-        local seq = session_count() + 1
-        for _ in pairs(st.talks) do seq = seq + 1 end
-        ssrc = gb.ssrc_make(false, o.domain, seq)
-        if not ssrc then
-            return nil, "生成音频 SSRC 失败"
-        end
+    local seq = session_count() + 1
+    for _ in pairs(st.talks) do seq = seq + 1 end
+    local ssrc = gb.ssrc_make(false, o.domain, seq)
+    if not ssrc then
+        return nil, "生成音频 SSRC 失败"
     end
 
     local sess = {
@@ -2389,11 +2415,16 @@ function M.start_talk(opts)
     --[[
     offer 的媒体承载。缺省 UDP，与 §9.12 和 WVP 一致。
 
-    `audio_offer_tcp` 打开时改成 TCP + actpass：实测合宙 video.luatos.com
-    对 **UDP offer 也回** `m=audio ... TCP/RTP/AVP` + `a=setup:passive`。
-    offer/answer 的承载不一致时，它的媒体会话可能只 accept 连接、不激活
-    音频发送器（设备侧现象：TCP 连上了、50 包/秒发出去，但 rx 恒为 0）。
-    显式 offer TCP 让协商合法，也排除"它按 UDP 理解这条腿"这一种解释。
+    `audio_offer_tcp` 打开时改成 TCP + `a=setup:active`：实测合宙
+    video.luatos.com 对 **UDP offer 也回** `m=audio ... TCP/RTP/AVP` +
+    `a=setup:passive`。offer/answer 的承载不一致时，它的媒体会话可能只
+    accept 连接、不激活音频发送器（设备侧现象：TCP 连上了、50 包/秒发出去，
+    但 rx 恒为 0）。显式 offer TCP 让协商合法，也排除"它按 UDP 理解这条腿"。
+
+    setup 固定 active，不再单列开关：
+      · 合宙平台不认 `actpass`（回 500），只认 `active`；
+      · WVP 的腿 A 走 UDP，根本不看 setup。
+    所以"TCP ⇒ active"是当前两个平台唯一的合法组合。
     ]]
     local offer_tcp = g_opts.audio_offer_tcp and true or false
     local sdp = gb.sdp_build({
@@ -2405,29 +2436,20 @@ function M.start_talk(opts)
         payload_type = 8,          -- G.711A
         rtpmap       = "PCMA/8000",
         --[[
-        §9.12 的广播是"设备只收"，WVP 也是这么用的（它是 recvonly，上行靠
-        平台另发的 Talk INVITE/腿 B）。
+        offer 方向固定 sendrecv。
 
-        但有些平台把这同一条腿当**双向会话**：合宙 video.luatos.com 的 200 OK
-        回 `a=sendrecv`，且从不发腿 B —— 上行只能在 Broadcast 里走。此时
-        offer 必须声明 sendrecv，否则严格按 offer 处理的平台会把设备上行丢掉
-        （设备照发，平台不播）。由 audio_offer_direction 按平台配置。
+        §9.12 的广播名义上是"设备只收"，但合宙 video.luatos.com 把同一条腿
+        当**双向会话**（200 OK 回 sendrecv，且从不发腿 B），声明 recvonly 时
+        它会按"设备不发送"丢掉上行。WVP 则相反：它的应答固定 `a=sendonly`
+        （InviteRequestProcessor.sendOk 里写死），**不解析 offer 的 direction**，
+        上行在另发的 Talk INVITE(腿 B) 里。所以 sendrecv 对两者都成立。
         ]]
-        direction    = g_opts.audio_offer_direction or "recvonly",
-        -- 缺省**不带 y=**：SSRC 由平台侧决定（它没收到会自己生成一个随机值）。
-        -- 带上一个 0 反而可能被当成非法 SSRC —— 实测 WVP 对 y=0000000000
-        -- 的处理就是"取不到来源"。audio_offer_ssrc 打开时给非零值，见上面。
-        has_ssrc     = ssrc and 1 or 0,
-        ssrc         = ssrc or 0,
-        --[[
-        TCP offer。setup 由 audio_offer_tcp_setup 决定，缺省 actpass（本端两种
-        角色都能干）。**有的平台不认 actpass**：合宙 video.luatos.com 对
-        `a=setup:actpass` 回 500，但对 `a=setup:active` 正常回 200 + passive
-        （PC 模拟器 gbipc_simu 的 offer 就是 active，平台对它下发真实语音）。
-        ]]
+        direction    = "sendrecv",
+        -- y=<SSRC> 总是带，见上面 ssrc 的说明。
+        has_ssrc     = 1,
+        ssrc         = ssrc,
         proto        = offer_tcp and gb.PROTO_TCP or nil,
-        setup        = offer_tcp and (g_opts.audio_offer_tcp_setup
-                                      or gb.TCP_SETUP_ACTPASS) or nil,
+        setup        = offer_tcp and gb.TCP_SETUP_ACTIVE or nil,
         connection   = offer_tcp and gb.TCP_CONN_NEW or nil,
     })
     if not sdp then
@@ -2451,11 +2473,13 @@ function M.start_talk(opts)
       WVP 的 InviteMessageInfo 里 channelIds[0]→targetChannelId、
       channelIds[1]→**sourceChannelId**，而它用 sourceChannelId 查通道。
 
-    SSRC 段填 0：音频的 SSRC 由平台侧生成，本端不指定。
-    多通道设备应传 channel_id 指定要对讲的通道，缺省用设备编码。
+    SSRC 段填本次 offer 生成的 SSRC（与 SDP 的 y= 一致）；WVP 只解析冒号
+    前面的 ID 部分，不关心 SSRC。多通道设备应传 channel_id 指定要对讲的
+    通道，缺省用设备编码。
     ]]
     local chan = opts.channel_id or o.device_id
-    local subject = string.format("%s:0,%s:0", o.server_id, chan)
+    local subject = string.format("%s:%s,%s:0",
+                                  o.server_id, tostring(ssrc), chan)
 
     local text = send_request("INVITE", {
         -- To 是**平台**，不是本端(send_request 的默认是给注册用的)
@@ -2529,75 +2553,6 @@ local function handle_talk_response(msg)
         ]]
         local rs = gb.sdp_parse(msg.body)
         if rs and rs.conn_ip and rs.port and rs.port > 0 then
-            --[[
-            **承载以平台应答为准，不能沿用本端 offer 的 UDP。**
-
-            腿 A（设备发的 Broadcast）的 offer 按 §9.12 写的是 UDP，但实测合宙
-            video.luatos.com 对它回的 200 OK 是：
-
-                m=audio 36018 TCP/RTP/AVP 8
-                a=setup:passive          ← 平台在 NAT 外监听，等设备连出去
-
-            早先这里只取了 conn_ip/port，sess.transport 还是 audio_open() 里
-            写死的 "udp"：设备把 UDP 包发给平台的 TCP 监听端口，平台一个都收不到；
-            它也不会往 SDP 里的内网地址(192.168.x.x)发音频。实测现象就是
-            `音频下行=0 上行=157k voip[rx=0 jbsil 每秒 +50]`，两侧无声，而 SIP
-            全部正常。WVP 的腿 A 回 UDP，走这条切换分支时什么都不改。
-            ]]
-            local answer_tcp = (rs.tcp == true)
-            local tcp_setup
-            if answer_tcp then
-                -- 应答里的 a=setup 是**平台自己**的角色，本端取它的反面
-                -- （与 handle_audio_invite 的规则一致）。
-                tcp_setup = M.tcp_setup_choice(rs.setup, g_opts.tcp_setup_prefer)
-                if not tcp_setup then
-                    log_warn("音频应答的 a=setup 无效", rs.setup,
-                             "按 active 处理(设备主动连平台；NAT 后也只能这样)")
-                    tcp_setup = gb.TCP_SETUP_ACTIVE
-                end
-            end
-            local new_transport = M.media_transport(answer_tcp, tcp_setup)
-            local rebuilt = false
-            if new_transport ~= sess.transport then
-                -- 注意这里不写 "udp -> tcp"：sess.transport 的初值只是
-                -- audio_open 里那个 socket 的承载，offer 可能本来就是 TCP
-                -- （见 audio_offer_tcp）。真正有意义的证据是平台应答的 proto/setup。
-                log_info("音频承载按平台应答确定", new_transport,
-                         "proto=" .. tostring(rs.proto),
-                         "setup=" .. tostring(rs.setup))
-                sess.transport = new_transport
-                -- 非外部接管：stream 已在 audio_open() 里按 UDP 建好，必须重建
-                -- （外部接管时本层没有 stream，voip 会按新 transport 自己连）
-                if sess.stream then
-                    gb.stream_close(sess.stream, 1)
-                    sess.stream = gb.stream_new(sess.ssrc or 0, 8, 0, g_opts.adapter or 0)
-                    if sess.stream and gb.stream_enable_rx(sess.stream) then
-                        attach_audio_sink(sess)
-                        rebuilt = true
-                    else
-                        sess.stream = nil
-                        log_warn("音频承载切换失败: 重建收流通道失败")
-                        media_close(sess)
-                    end
-                end
-            end
-            sess.media_tcp = answer_tcp
-            sess.tcp_setup = tcp_setup
-
-            --[[
-            平台在应答的 y= 里给了 SSRC 时以它为准（与点播同一条约定：SSRC 写进
-            SDP 的 y= 就是平台按它校验 RTP 的那个值）。`y=null` / 没有 y 时
-            rs.ssrc 为 nil，保留本端 offer 里的那个（可能是 nil）。
-            ]]
-            if rs.ssrc and rs.ssrc ~= 0 then
-                if sess.ssrc and sess.ssrc ~= rs.ssrc then
-                    log_info("平台应答指定了音频 SSRC, 采用平台值",
-                             rs.ssrc, "原 offer", sess.ssrc)
-                end
-                sess.ssrc = rs.ssrc
-            end
-            log_info("音频 SSRC", "应答 y=" .. tostring(rs.ssrc),
-                     "本端 offer=" .. tostring(sess.ssrc))
             -- 平台应答的方向决定这条腿是单向还是双向（见 start_talk 的说明）
             sess.direction = rs.direction
             log_info("音频应答方向", tostring(rs.direction),
@@ -2611,26 +2566,13 @@ local function handle_talk_response(msg)
             -- offer）。这条路径与 stream 有没有无关。
             sess.remote_ip, sess.remote_port = rs.conn_ip, rs.port
             if sess.stream then
-                if rebuilt then
-                    -- 新建的 stream 还没 stream_open/connect，交给 media_open 统一做
-                    local okm, errm = media_open(sess)
-                    if okm then
-                        log_info("音频收流已连向", rs.conn_ip, rs.port, "(" .. sess.transport .. ")")
-                    else
-                        log_warn("音频收流 connect 失败", rs.conn_ip, rs.port, errm)
-                    end
+                if gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
+                    log_info("音频收流已连向", rs.conn_ip, rs.port)
                 else
-                    if gb.stream_connect(sess.stream, rs.conn_ip, rs.port) then
-                        log_info("音频收流已连向", rs.conn_ip, rs.port)
-                    else
-                        log_warn("音频收流 connect 失败", rs.conn_ip, rs.port)
-                    end
+                    log_warn("音频收流 connect 失败", rs.conn_ip, rs.port)
                 end
-            elseif sess.external_media then
-                log_info("音频对端地址已记下(外部引擎接管)", rs.conn_ip, rs.port,
-                         tostring(sess.transport))
             else
-                log_warn("音频收流通道不可用(承载切换失败)", rs.conn_ip, rs.port)
+                log_info("音频对端地址已记下(外部引擎接管)", rs.conn_ip, rs.port)
             end
         else
             log_warn("平台 SDP 里没有可用的收流地址")
@@ -2871,6 +2813,92 @@ function M.on_audio(callback)
     end
     g_audio_cb = callback
     return true
+end
+
+--[[
+下行音频探针（诊断用）。
+
+不启 voip，改由 C 侧收流把**已剥 RTP 头**的 PCMA 交给探针，统计静音码占比：
+  · 0xD5(G.711A 静音) 接近 100%  → 平台在发静音**帧**，设备当然没声；
+  · 非 0xD5 字节占比可观、样本在变 → 平台确实在发语音，设备无声要查播放侧。
+
+probe_start 会占用公开的 on_audio 回调（停止时恢复之前的回调），并起一个
+20ms 的轮询任务把各 talk 会话的收流泵起来。仅用于联调，正常使用不要开。
+@api exgb28181client.probe_start()
+@return boolean, string|nil
+]]
+local probe = {
+    active = false, gen = 0,
+    frames = 0, bytes = 0, d5 = 0,
+    prev_cb = nil, saved = false,
+}
+
+local function probe_on_audio(_sess, pcma)
+    if type(pcma) ~= "string" or #pcma == 0 then return end
+    local d5 = 0
+    for i = 1, #pcma do
+        if pcma:byte(i) == 0xD5 then d5 = d5 + 1 end
+    end
+    probe.frames = probe.frames + 1
+    probe.bytes  = probe.bytes + #pcma
+    probe.d5     = probe.d5 + d5
+
+    if probe.frames == 1 or probe.frames % 50 == 0 then
+        local hex = {}
+        for i = 1, math.min(16, #pcma) do
+            hex[#hex + 1] = string.format("%02X", pcma:byte(i))
+        end
+        log_info(("AUDIO-PROBE 帧=%d 字节=%d 静音码D5=%.1f%% 本帧非D5=%d 样本=%s")
+                 :format(probe.frames, probe.bytes,
+                         probe.bytes > 0 and (probe.d5 * 100 / probe.bytes) or 0,
+                         #pcma - d5, table.concat(hex, " ")))
+    end
+end
+
+function M.probe_start()
+    if probe.active then return true end
+    if g_opts and g_opts.external_audio then
+        return false, "外部音频接管模式下没有 sess.stream，探针收不到数据"
+    end
+    probe.active = true
+    probe.gen = probe.gen + 1
+    probe.frames, probe.bytes, probe.d5 = 0, 0, 0
+    -- 保存并接管公开回调；probe_stop 时恢复
+    probe.prev_cb = g_audio_cb
+    probe.saved = true
+    M.on_audio(probe_on_audio)
+
+    local gen = probe.gen
+    sys.taskInit(function()
+        while probe.active and probe.gen == gen do
+            -- st.talks 在 client.start() 之前是 nil
+            for _, sess in pairs(st.talks or {}) do
+                M.poll_rx(sess)
+            end
+            sys.wait(20)
+        end
+    end)
+    return true
+end
+
+function M.probe_stop()
+    if not probe.active then return true end
+    probe.active = false
+    probe.gen = probe.gen + 1
+    if probe.saved then
+        M.on_audio(probe.prev_cb)
+        probe.prev_cb = nil
+        probe.saved = false
+    end
+    return true
+end
+
+function M.probe_stats()
+    return {
+        frames = probe.frames,
+        bytes  = probe.bytes,
+        d5     = probe.d5,     -- 原始计数，百分比由调用方算
+    }
 end
 
 --[[
@@ -3411,22 +3439,6 @@ local function process_packet(msg)
         return
     end
 
-    if not msg.method then
-        --[[
-        起始行既不是请求行也不是状态行 = 这一"条"根本不是 SIP 报文。
-        最常见的原因是 TCP 流错位：上一条报文缺 Content-Length，剩下的消息体
-        （如 SDP/XML）被当成了下一条报文的头部。
-
-        **不要回 200**：msg 里没有 CSeq/Method，reply_ok 会拼出一条无意义的响应，
-        只会把对端的 SIP 事务搅得更乱。把起始行原样打出来 —— 这是判断
-        "是平台发了畸形报文"还是"我们自己切错包"的唯一证据。
-        ]]
-        log_warn("无法识别的 SIP 报文",
-                 "起始行=[" .. tostring(msg.start_line) .. "]",
-                 "body=" .. #tostring(msg.body or "") .. "字节")
-        return
-    end
-
     log_info("暂不处理的请求", msg.method)
     reply_ok(msg)
 end
@@ -3646,8 +3658,18 @@ local function _reconnect_signaling()
     end
     st.netc = netc
 
-    -- local_port 给 0 表示"由系统挑一个"（见下面读回的那段）
-    if not socket.config(netc, o.local_port or 0,
+    --[[
+    重连时换一个本地端口（0 = 系统挑）。
+
+    原因（2026-10-22 实测）：SIP 链路被平台侧静默断开后，若仍从同一个
+    本地端口（配置的 5060）向同一个服务器端口重连，公网 NAT 上旧四元组
+    的残留状态会让新 SYN 直接被 RST —— 日志是每次 `connect error -8`，
+    退避到几十秒后仍然失败。首次建链仍用配置端口（Contact/平台配置都
+    按它来过），只有重建时才换。
+    ]]
+    local local_port = o.local_port or 0
+    if st.reconnect_delay then local_port = 0 end
+    if not socket.config(netc, local_port,
                          string.upper(o.transport) ~= "TCP") then
         socket.close(netc)
         st.netc = nil
@@ -3678,6 +3700,21 @@ end
 
 local function sip_task()
     local o = g_opts
+
+    --[[
+    判活窗口必须**大于一个心跳周期**，否则一次慢应答/漏应答就会把
+    一条还活着的链路判死，并把正在推的媒体会话一起拆掉。
+
+    2026-10-22 在 video.luatos.com 上实测：keepalive=10s、窗口固定 15s，
+    第一次心跳约 10 秒后才回（平台负载），第二次心跳刚发出 6 秒，窗口
+    就从"上次收到报文"那笔账上超时了 —— 设备主动断链，随后媒体会话被
+    `signaling_lost` 清掉，平台侧表现为"看着看着自动断开"。
+
+    取 keepalive + 15s：keepalive=60 时窗口 75s（容忍平台慢应答），
+    keepalive=10 时窗口 25s（至少能容下一次漏回）。
+    ]]
+    local reply_timeout = math.max(SIGNALING_REPLY_TIMEOUT_MS,
+        (o.keepalive or 60) * 1000 + SIGNALING_REPLY_TIMEOUT_MS)
 
     --[[
     首次建链走与重连**同一套代码**。
@@ -3713,7 +3750,7 @@ local function sip_task()
         必须在重建判断**之前**做 —— 否则先重建、后判死，会把刚建好的链路又拆掉。
         ]]
         if not st.dead and st.await_since and st.last_rx_at and
-           (now - st.last_rx_at) >= SIGNALING_REPLY_TIMEOUT_MS then
+           (now - st.last_rx_at) >= reply_timeout then
             _signal_dead("信令请求超时无应答")
         end
 
@@ -3864,6 +3901,8 @@ end
 @return boolean 成功返回 true
 ]]
 function M.stop()
+    -- 探针泵必须无条件停掉：它可能在 start() 之前就被 probe_start() 拉起
+    M.probe_stop()
     if not g_started then return true end
     g_started = false
     sys.publish(TOPIC_STOP)

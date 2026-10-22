@@ -184,7 +184,6 @@ local function cc_function(status)
         -- 通话结束，主动进入低功耗模式
         exaudio.pm(exaudio.SHUTDOWN)
     end
-    -- 注：PLAY（来电铃声/通话语音）由系统自动处理，此处无需额外干预
 end
 
 sys.subscribe("CC_IND", cc_function)

@@ -4,26 +4,6 @@
 
 基于合宙 Air780EPM V1.2 开发板 + AirLCD_1000 屏的默认出厂固件，开机即联网、采集传感器、定时上报 AirCloud，并通过 320×480 竖屏展示状态。无 iRTU、无本地 web、无外置看门狗（仅内核软狗）。
 
-固件同时包含出厂产测功能，按 V3 出厂流程开机自动分流。
-
-## 出厂流程（V3）
-
-`main.lua` 上电后按以下顺序判定：
-
-1. `fskv` 中存在 `retest_flag` → 进入**产测模式（返工产测）**
-2. OTP1 为空（未写过任何 prodmeta 数据）→ 进入**产测模式（首次产测）**
-3. 其他情况 → 进入**正常模式**
-
-产测模式只加载 `prod_test.lua`，不加载 LCD/按键/业务/UI；正常模式在原业务基础上额外加载 `prod_retest.lua`，仅监听返工指令。
-
-`main.lua` 中 `BOOT_MODE` 可用于调试时强制指定模式：
-
-```lua
-local BOOT_MODE = "auto"    -- "auto" 自动分流 / "factory" 强制产测 / "normal" 强制正常模式
-```
-
-产测数据全部写入 OTP1（`prodmeta`），不写入 flash；移芯 EC7xx 平台在擦写 OTP 前会自动进入飞行模式，写完退出。V3 要求 OTP 不加锁。
-
 ## 硬件配置
 
 | 组件 | 型号 | 接口 | 引脚 |
@@ -49,10 +29,7 @@ local BOOT_MODE = "auto"    -- "auto" 自动分流 / "factory" 强制产测 / "n
 
 ```
 factory/
-├── main.lua                  # 入口：V3 开机分流 → 产测模式 / 正常模式
-├── prod_test.lua             # 产测模式主程序（USB VUART 指令 + 485 测试 + LED + OTP 写号）
-├── prod_retest.lua           # 正常模式返工入口（仅 MODEL_RETEST / MODEL_RETEST?）
-├── prodmeta.lua              # OTP1 key=value 存储（含 EC 平台飞行模式补丁）
+├── main.lua                  # 入口：初始化驱动/业务/UI
 ├── libfota3.lua              # FOTA 升级库（共享库 script/libs/libfota3.lua）
 ├── app/
 │   ├── app_main.lua          # 加载 netdrv/aircloud/sensor/led/fota
@@ -83,65 +60,6 @@ factory/
 1. 用 Luatools 烧录 Air780EPM 最新内核固件（LuatOS-SoC Air780EPM 1 号固件）
 2. 将本目录所有 `.lua` 脚本 + `res/` 下的 `.bin` 字库文件烧录到脚本分区
 3. 上电后自动运行，屏幕显示单页信息（网络 / 温湿度 / VOC / 设备信息）
-4. 首次烧录（OTP1 为空）上电会进入产测模式，完成产测并下发 `TEST_DONE` 后重启进入正常模式
-
-## 产测模式
-
-### 通道与协议
-
-- 通道：USB 虚拟串口 `uart.VUART_0`，115200 8N1
-- 协议：`命令#` 或 `命令,数据#`（以 `#` 结尾）
-- 回复：成功 `OK#`，失败 `ERROR#`，查询类命令直接返回值 + `#`
-- 命令名不区分大小写（内部统一转大写匹配）；参数原样使用，区分大小写
-
-### 指令表
-
-| 指令 | 功能 | 回复 |
-|------|------|------|
-| `VERSION#` | 查询固件版本 | `PROJECT_VERSION#` |
-| `IMEI#` | 查询 IMEI | `IMEI#` |
-| `IMSI#` | 查询 IMSI | `IMSI#` |
-| `ICCID#` | 查询 ICCID | `ICCID#` |
-| `CSQ#` | 查询信号强度 | `CSQ#` |
-| `MUID#` | 查询模组唯一 ID | `MUID#` |
-| `VBAT#` | 查询供电电压（mV） | `电压#` |
-| `ECNPICFG#` | 查询射频校准标志 | `true#` / `false#` |
-| `LED,1#` / `LED,0#` | LED（GPIO27）点亮 / 熄灭 | `OK#` |
-| `MODEL,型号#` | 写 OTP1 的 `PROD`，写后读回校验 | `OK#` / `ERROR#` |
-| `MODEL?#` | 读回 `PROD` | `型号#` |
-| `HVERSION,版本#` | 写 OTP1 的 `PCB`，写后读回校验 | `OK#` / `ERROR#` |
-| `HVERSION#` | 读回 `PCB` | `版本#` |
-| `MODEL_RETEST,CONFIRM#` | 写返工标记并重启 | `OK#` |
-| `MODEL_RETEST?#` | 查询返工标记 | `true#` / `false#` |
-| `RST#` | 重启设备 | `OK#` |
-| `TEST_DONE#` | 产测完成，删除返工标记，3 秒后重启 | `OK#` |
-
-说明：
-
-- `MODEL` / `HVERSION` 的写入在独立 CONTROL 协程中执行（OTP 擦写需先进入飞行模式，`mobile.flymode` 为同步阻塞调用，不能在串口回调中直接执行）。
-- 型号/版本字符串不能为空，且不能包含 `,` 或 `=`。
-- `ECNPICFG` 依赖固件开启 `LUAT_USE_MOBILE_ECNPICFG`，未开启时返回 `ERROR#`。
-- V3 流程不对 OTP 加锁，便于返工重写。
-
-### 485 测试
-
-产测模式下 485 常开，无需 USB 指令触发：
-
-- GPIO1 → 485 芯片供电（常开）
-- GPIO23 → 485 vref 拉高
-- GPIO25 → 方向控制（0=接收，1=发送）
-- UART1，9600 8N1
-
-测试方法：PC 通过 USB 转 485 连接开发板 A/B，发送 `U485_TEST`，设备回 `485TEST\r\n`。
-
-### 返工流程
-
-正常模式下仍可通过 USB 虚拟串口下发返工指令（`prod_retest.lua` 只响应该指令，不影响业务）：
-
-1. 下发 `MODEL_RETEST,CONFIRM#`（魔法字 `CONFIRM` 区分大小写、去首尾空格后全匹配）
-2. 设备回 `OK#`，写入 `retest_flag` 并重启
-3. 重启后进入产测模式，可重新执行 `MODEL` / `HVERSION` 等写号
-4. 下发 `TEST_DONE#`，删除返工标记，3 秒后重启进入正常模式
 
 ## 密钥（重要）
 

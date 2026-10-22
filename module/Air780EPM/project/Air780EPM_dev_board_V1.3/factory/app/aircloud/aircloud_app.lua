@@ -9,7 +9,7 @@ AirCloud excloud 协议通信，负责设备与云端的数据交互：
   - 主任务等待网络就绪，定期上报传感器数据
   - 处理云端下发的控制命令并回复
 
-上报字段：4G 信号、设备ID(1293)、项目名(1294)、时间戳、温度、湿度、VOC、CPU 温度、LBS 经纬度
+上报字段：4G 信号、设备ID(798)、项目名(802)、时间戳、温度、湿度、VOC、CPU 温度、LBS 经纬度
 下行命令（CONTROL_COMMAND tag 19）：
   - "cycle:秒数" → 设置上报频率（最小 5 秒）
   - "led:blink" / "led:on" / "led:off" → LED 控制
@@ -150,18 +150,8 @@ function excloud_task_func()
         sys.waitUntil("IP_READY", 1000)
     end
 
-    local device_type
-    if rtos.bsp() == "PC" then
-        device_type = 9
-    elseif rtos.bsp() ~= "Air8101" then
-        device_type = 1
-    else
-        device_type = 2
-    end
-
     local ok, err_msg = excloud.setup({
         use_getip = true,
-        device_type = device_type,
         auth_key = PROJECT_KEY,
         transport = "tcp",
         auto_reconnect = true,
@@ -183,7 +173,10 @@ function excloud_task_func()
     end
     log.info("excloud服务已开启")
 
-    excloud.start_heartbeat()
+    -- 新版 excloud 心跳需带 TLV 数据，否则空数据发送会失败
+    excloud.start_heartbeat(300, {
+        { field_meaning = excloud.FIELD_MEANINGS.HEARTBEAT_COUNT, data_type = excloud.DATA_TYPES.INTEGER, value = 1 }
+    })
     log.info("自动心跳已启动")
 
     local qrinfo = excloud.get_qrinfo()
@@ -207,8 +200,8 @@ function excloud_task_func()
 
             local tlv_list = {
                 { field_meaning = excloud.FIELD_MEANINGS.SIGNAL_STRENGTH_4G, data_type = excloud.DATA_TYPES.INTEGER, value = mobile.csq() },
-                { field_meaning = 1293, data_type = excloud.DATA_TYPES.ASCII, value = device_id },
-                { field_meaning = 1294, data_type = excloud.DATA_TYPES.ASCII, value = PROJECT },
+                { field_meaning = excloud.FIELD_MEANINGS.DEVICE_ID, data_type = excloud.DATA_TYPES.ASCII, value = device_id },
+                { field_meaning = excloud.FIELD_MEANINGS.PROJECT_NAME, data_type = excloud.DATA_TYPES.ASCII, value = PROJECT },
                 { field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP, data_type = excloud.DATA_TYPES.INTEGER, value = os.time() }
             }
 

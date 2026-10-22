@@ -88,6 +88,7 @@ local function  camera_cb(app_id, event, param)
             end
         end
         log.info("设置图像格式", frame_type, sensor_w, sensor_h)
+		camera.ctrl_plane_init(usb_app_id)
         camera.set_usb_config(usb_app_id, camera.CONF_UVC_RESOLUTION, frame_type, sensor_w, sensor_h)
         --camera.set_usb_config(usb_app_id, camera.CONF_UVC_RESOLUTION, 1, 5)
         camera.cache(camera.USB, usb_app_id, frame_buff0, frame_buff1)

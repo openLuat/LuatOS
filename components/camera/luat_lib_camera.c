@@ -1088,6 +1088,19 @@ static int l_camera_utest_qr_decode(lua_State *L) {
 }
 #endif
 
+
+/**
+初始化UVC的CT/PU控制界面，读取写入CT/PU参数前至少初始化一次 --本函数于 2026.10.22 新增, 当前仅Air1601可用
+@api camera.uvc_ct_pu_init(app_id)
+@int app_id usb应用id
+@return nil
+*/
+static int l_camera_uvc_ctrl_plane_init(lua_State *L)
+{
+    luat_usb_camera_ct_pu_get_info(luaL_checkinteger(L, 1));
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_camera[] =
 {
@@ -1108,6 +1121,7 @@ static const rotable_Reg_t reg_camera[] =
 	{ "set_usb_config",		 ROREG_FUNC(l_camera_set_usb_config)},
 	{ "cache",		 ROREG_FUNC(l_camera_cache)},
 	{ "stream",		 ROREG_FUNC(l_camera_stream)},
+    { "ctrl_plane_init", ROREG_FUNC(l_camera_uvc_ctrl_plane_init)},
 #if defined(LUAT_USE_UTEST) && defined(LUAT_USE_CAMERA_SCAN)
 	{ "utest_qr_decode", ROREG_FUNC(l_camera_utest_qr_decode)},
 #endif
@@ -1156,6 +1170,9 @@ static const rotable_Reg_t reg_camera[] =
     { "CONF_UVC_FORMAT",               ROREG_INT(LUAT_CAMERA_CONF_UVC_FORMAT)},
     //@const CONF_UVC_RESOLUTION number USB摄像头的数据流中具体数据信息，包括图像大小和帧率
     { "CONF_UVC_RESOLUTION",               ROREG_INT(LUAT_CAMERA_CONF_UVC_RESOLUTION)},
+
+    //@const CONF_UVC_CT_SCAN_MODE number USB摄像头的扫描模式
+    { "CONF_UVC_CT_SCAN_MODE",       ROREG_INT(LUAT_UVC_CT_SCANNING_MODE_CONTROL)},
 
     //@const FORMAT_RAW number USB摄像头数据流类型无压缩原始图像
     { "FORMAT_RAW",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_RAW)},

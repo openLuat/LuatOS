@@ -6,28 +6,6 @@
 
 Air780EGP 为 EC7xx 平台（Flash 4MB / RAM 4MB），功能与 Air780EPM 一致，**内部集成 GNSS 与 G-Sensor**；不支持 SD 卡、触摸屏与 LCD（EGP 固件中 `lcd` 与 `libgnss`/`otp` 互斥，本工程需 GNSS+OTP），仅支持 LuatOS 二次开发（不支持 AT 指令）。
 
-固件同时包含出厂产测功能，按 V3 出厂流程开机自动分流。
-
-## 出厂流程（V3）
-
-`main.lua` 上电后按以下顺序判定：
-
-1. `fskv` 中存在 `retest_flag` → 进入**产测模式（返工产测）**
-2. OTP1 为空（未写过任何 prodmeta 数据）→ 进入**产测模式（首次产测）**
-3. 其他情况 → 进入**正常模式**
-
-产测模式只加载 `prod_test.lua`，不加载按键/业务；正常模式在原业务基础上额外加载 `prod_retest.lua`，仅监听返工指令。
-
-`main.lua` 中 `BOOT_MODE` 可用于调试时强制指定模式：
-
-```lua
-local BOOT_MODE = "normal"  -- 当前固定正常模式；量产时改回 "auto" 自动分流
-```
-
-取值：`"auto"` 按 V3 自动判定 / `"factory"` 强制产测 / `"normal"` 强制正常模式。
-
-产测数据全部写入 OTP1（`prodmeta`），不写入 flash；移芯 EC7xx 平台在擦写 OTP 前会自动进入飞行模式，写完退出。V3 要求 OTP 不加锁。
-
 ## 硬件配置
 
 | 组件 | 型号 | 接口 | 引脚 |
@@ -61,10 +39,7 @@ local BOOT_MODE = "normal"  -- 当前固定正常模式；量产时改回 "auto"
 
 ```
 factory/
-├── main.lua                  # 入口：V3 开机分流 → 产测模式 / 正常模式
-├── prod_test.lua             # 产测模式主程序（USB VUART 指令 + 485/GNSS 测试 + LED + OTP 写号）
-├── prod_retest.lua           # 正常模式返工入口（仅 MODEL_RETEST / MODEL_RETEST?）
-├── prodmeta.lua              # OTP1 key=value 存储（含 EC 平台飞行模式补丁）
+├── main.lua                  # 入口：硬件初始化 + 加载按键/业务
 ├── libfota3.lua              # FOTA 升级库（共享库 script/libs/libfota3.lua）
 ├── app/
 │   ├── app_main.lua          # 加载 netdrv/aircloud/sensor/led/fota
@@ -89,75 +64,9 @@ factory/
 1. 用 Luatools 烧录 Air780EGP 内核固件（LuatOS-SoC Air780EGP 内核，需含 `libgnss` 与 `otp` 的版本，如 103/104/105/106 号）
 2. 将本目录所有 `.lua` 脚本烧录到脚本分区
 3. 上电后自动运行（无屏幕，运行日志通过 USB 虚拟串口查看）
-4. 首次烧录（OTP1 为空）上电会进入产测模式，完成产测并下发 `TEST_DONE` 后重启进入正常模式
 
-> 内核需包含 `LUAT_USE_LIBGNSS`（`exgnss`）、`otp`（`prodmeta`）等组件，否则产测/定位功能会降级或报错。
+> 内核需包含 `LUAT_USE_LIBGNSS`（`exgnss`）等组件，否则定位功能会降级或报错。
 > 注意：Air780EGP 官方固件中 `lcd` 与 `libgnss`/`otp` 互斥，含 `lcd` 的固件（如 1/2/7/8 号）没有 GNSS 与 OTP，本工程不使用这类固件。
-
-## 产测模式
-
-### 通道与协议
-
-- 通道：USB 虚拟串口 `uart.VUART_0`，115200 8N1
-- 协议：`命令#` 或 `命令,数据#`（以 `#` 结尾）
-- 回复：成功 `OK#`，失败 `ERROR#`，查询类命令直接返回值 + `#`
-- 命令名不区分大小写（内部统一转大写匹配）；参数原样使用，区分大小写
-
-### 指令表
-
-| 指令 | 功能 | 回复 |
-|------|------|------|
-| `VERSION#` | 查询固件版本 | `PROJECT_VERSION#` |
-| `IMEI#` | 查询 IMEI | `IMEI#` |
-| `IMSI#` | 查询 IMSI | `IMSI#` |
-| `ICCID#` | 查询 ICCID | `ICCID#` |
-| `CSQ#` | 查询信号强度 | `CSQ#` |
-| `MUID#` | 查询模组唯一 ID | `MUID#` |
-| `VBAT#` | 查询供电电压（mV） | `电压#` |
-| `ECNPICFG#` | 查询射频校准标志 | `true#` / `false#` |
-| `LED,1#` / `LED,0#` | LED（GPIO27）点亮 / 熄灭 | `OK#` |
-| `GPSTEST,1#` | 开启内置 GNSS，NMEA 透传到 USB（并下发 `$CFGTP` 提速到 5Hz） | `OK#` |
-| `GPSTEST,0#` | 关闭内置 GNSS | `OK#` |
-| `GPSFIX?#` | 查询是否已定位（需先 `GPSTEST,1#`） | `true#` / `false#` |
-| `MODEL,型号#` | 写 OTP1 的 `PROD`，写后读回校验 | `OK#` / `ERROR#` |
-| `MODEL?#` | 读回 `PROD` | `型号#` |
-| `HVERSION,版本#` | 写 OTP1 的 `PCB`，写后读回校验 | `OK#` / `ERROR#` |
-| `HVERSION#` | 读回 `PCB` | `版本#` |
-| `MODEL_RETEST,CONFIRM#` | 写返工标记并重启 | `OK#` |
-| `MODEL_RETEST?#` | 查询返工标记 | `true#` / `false#` |
-| `RST#` | 重启设备（重启前先关闭 GNSS） | `OK#` |
-| `TEST_DONE#` | 产测完成：关闭 GNSS、删除返工标记，3 秒后重启 | `OK#` |
-
-说明：
-
-- `MODEL` / `HVERSION` 的写入在独立 CONTROL 协程中执行（OTP 擦写需先进入飞行模式，`mobile.flymode` 为同步阻塞调用，不能在串口回调中直接执行）。
-- 型号/版本字符串不能为空，且不能包含 `,` 或 `=`。
-- `ECNPICFG` 依赖固件开启 `LUAT_USE_MOBILE_ECNPICFG`，未开启时返回 `ERROR#`。
-- `GPSTEST` / `GPSFIX?` 依赖固件内置 `exgnss` 库，不可用时 `GPSTEST` 返回 `ERROR#`、`GPSFIX?` 返回 `false#`。
-- 内置 GNSS 定位需在开阔处进行，冷启动首次定位通常需要数十秒；产测时建议先 `GPSTEST,1#`，用上位机看 NMEA 或轮询 `GPSFIX?#`。
-- V3 流程不对 OTP 加锁，便于返工重写。
-
-### 485 测试
-
-产测模式下 485 常开，无需 USB 指令触发：
-
-- 485_3V3 由 LP5907 常开供电（无 GPIO 开关）
-- VREF（GPIO23）由 `main.lua` 统一拉高（模组内部常高，不能拉低）
-- GPIO24 → 方向控制（0=接收，1=发送）
-- UART1，9600 8N1
-
-测试方法：PC 通过 USB 转 485 连接开发板 A/B，发送 `U485_TEST`，设备回 `485TEST\r\n`。
-
-> V1.4 的 GPIO1（PIN22）已改为 PWM0 蜂鸣器输出，产测代码不再把 GPIO1 当 485 芯片供电拉高。
-
-### 返工流程
-
-正常模式下仍可通过 USB 虚拟串口下发返工指令（`prod_retest.lua` 只响应该指令，不影响业务）：
-
-1. 下发 `MODEL_RETEST,CONFIRM#`（魔法字 `CONFIRM` 区分大小写、去首尾空格后全匹配）
-2. 设备回 `OK#`，写入 `retest_flag` 并重启
-3. 重启后进入产测模式，可重新执行 `MODEL` / `HVERSION` 等写号
-4. 下发 `TEST_DONE#`，删除返工标记，3 秒后重启进入正常模式
 
 ## 密钥（重要）
 

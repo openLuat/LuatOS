@@ -13,12 +13,14 @@ local function wait_for(predicate, limit)
     error("timeout")
 end
 local events, samples, operations, errors_seen = {}, {}, {}, 0
+local control_events = {}
 local function control(_, event)
+    control_events[#control_events + 1] = event
     events[event.id] = event
     if event.kind == "error" then errors_seen = errors_seen + 1 end
 end
 local function connect()
-    events = {}; errors_seen = 0
+    events = {}; control_events = {}; errors_seen = 0
     local handle, err = z.open(ENDPOINT, 0, control)
     assert(handle, err)
     wait_for(function() return z.state(handle) == z.ONLINE end)
@@ -29,6 +31,27 @@ local function close(handle)
     assert(z.close(handle)); assert(z.close(handle))
     wait_for(function() return z.state(handle) == z.CLOSED end)
     host_pump(100)
+    assert(events[0].kind == "closed" and events[0].code == 0)
+    assert(events[0].reason == nil and events[0].io_failure == nil, "stale fault on normal close")
+end
+-- 保留两个终态事件，不能用同一id的最后一项覆盖来代替首错一致性检查。
+local function fault_pair()
+    local failure, terminal, failure_index, terminal_index
+    for i, event in ipairs(control_events) do
+        if event.kind == "error" and event.id == 0 then failure, failure_index = event, i end
+        if event.kind == "closed" then terminal, terminal_index = event, i end
+    end
+    assert(failure and terminal and failure_index < terminal_index, "missing ordered error/closed events")
+    assert(failure.reason == "io_failure", "error lost first IO failure reason")
+    assert(terminal.reason == "io_failure", "closed lost first IO failure reason")
+    assert(terminal.code == failure.code, "closed replaced the original SDK error code")
+    local first = assert(failure.io_failure, "missing error IO snapshot")
+    local last = assert(terminal.io_failure, "missing closed IO snapshot")
+    for _, field in ipairs({"stage", "generation", "command_id", "command_op", "command_bytes",
+                            "rc", "requested", "transferred", "elapsed_ms", "total_tx", "total_rx"}) do
+        assert(first[field] ~= nil and first[field] == last[field], "changed first IO field: " .. field)
+    end
+    return last, terminal
 end
 local function subscribe(handle)
     samples = {}; operations = {}
@@ -147,6 +170,25 @@ test("real TCP disconnect and explicit recovery", function()
     close(recovered)
     assert(host_allocations() == baseline)
 end)
+test("handshake IO failure survives close and recovery", function()
+    events = {}; control_events = {}; errors_seen = 0
+    host_write_failure_after(5)
+    local h = assert(z.open(ENDPOINT, 0, control))
+    host_write_release()
+    wait_for(function() return z.state(h) == z.CLOSED and errors_seen > 0 end)
+    host_pump(100)
+    for _, event in ipairs(control_events) do assert(event.kind ~= "opened", "failed handshake became online") end
+    local bytes, later = host_write_failure_stats()
+    assert(bytes == 5 and later == 0, "continued writing after incomplete handshake")
+    local d, terminal = fault_pair()
+    assert(d.stage == "tx_error" and d.rc == -1 and d.transferred == 5 and d.requested > 5)
+    assert(d.generation > 0 and d.command_id == 0 and d.command_op == 0 and d.command_bytes == 0)
+    assert(terminal.code < 0 and terminal.code ~= -7, "handshake error was replaced by worker -7")
+    print("HANDSHAKE_IO_CODE " .. terminal.code)
+    host_write_failure_after(-1)
+    local recovered = connect(); close(recovered)
+    assert(host_allocations() == baseline, "handshake fault leaked allocations")
+end)
 test("partial frame failure stops all later writes", function()
     local h = connect()
     host_write_failure_after(5)
@@ -157,6 +199,12 @@ test("partial frame failure stops all later writes", function()
     host_pump(100)
     local bytes, later = host_write_failure_stats()
     assert(bytes == 5 and later == 0, "continued writing after incomplete frame")
+    local d, terminal = fault_pair()
+    assert(d.stage == "tx_error" and d.rc == -1)
+    assert(d.transferred == 5 and d.requested > 5 and d.total_tx >= 5)
+    assert(d.generation > 0 and d.command_id == second - 1 and d.command_op > 0)
+    assert(d.command_bytes == #"incomplete first frame" and d.elapsed_ms >= 0)
+    assert(terminal.reason == "io_failure" and terminal.code == -7)
     assert(not events[second] or events[second].kind ~= "published")
     host_write_failure_after(-1)
     local recovered = connect(); subscribe(recovered)

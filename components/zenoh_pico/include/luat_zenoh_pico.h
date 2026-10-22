@@ -16,11 +16,20 @@ enum { LUAT_ZP_CLOSED, LUAT_ZP_OPENING, LUAT_ZP_ONLINE, LUAT_ZP_CLOSING, LUAT_ZP
 enum { LUAT_ZP_PUBLISH = 1, LUAT_ZP_SUBSCRIBE, LUAT_ZP_UNSUBSCRIBE,
        LUAT_ZP_GET, LUAT_ZP_CANCEL_GET, LUAT_ZP_QUERYABLE, LUAT_ZP_UNQUERYABLE,
        LUAT_ZP_REPLY, LUAT_ZP_FINISH_QUERY };
+/* worker独占可变诊断；事件保存值副本，不跨线程暴露可变指针。 */
+typedef struct {
+    const char *stage;
+    uint32_t generation, command_id, command_op;
+    int rc;
+    size_t command_bytes, requested, transferred;
+    uint64_t elapsed_ms, total_tx, total_rx;
+} luat_zp_io_failure_t;
 typedef struct {
     uint32_t generation, id, subscriber, request, queryable, query;
     int code;
     size_t key_len, payload_len, parameters_len;
     const char *kind, *operation, *reason;
+    luat_zp_io_failure_t io_failure;
     char key[LUAT_ZP_KEY_MAX + 1];
     uint8_t payload[LUAT_ZP_PAYLOAD_MAX];
     char parameters[LUAT_ZP_PARAMETERS_MAX + 1];
@@ -41,6 +50,9 @@ int luat_zenoh_pico_pop(luat_zp_event_t **event);
 void luat_zenoh_pico_event_free(luat_zp_event_t *event);
 void luat_zenoh_pico_wake(void);
 void luat_zenoh_pico_io_fail(void);
+void luat_zenoh_pico_io_fail_at(const char *stage, int rc, size_t requested,
+                              size_t transferred, uint64_t elapsed_ms);
+void luat_zenoh_pico_io_progress(int sending, size_t bytes);
 int luat_zenoh_pico_io_failed(void);
 void luat_zenoh_pico_rng_fail(void);
 int luat_zenoh_pico_rng_failed(void);

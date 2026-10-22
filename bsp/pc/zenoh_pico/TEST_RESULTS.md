@@ -1,6 +1,26 @@
 # 测试证据与未验证项
 
-## 当前验收状态（2026-10-20）
+## 当前增量验收（2026-10-22）
+
+基于官方 master `8f98b4ff94650f3d2dbfc3a5981fa4c928cfe696`，使用当前仓库内置 SDK 源码和官方已迁移的 `bsp/pc/zenoh_pico` 目录，不恢复旧测试路径。环境 macOS 26.5 arm64、Lua 5.5.1、zenohd 1.9.0；严格 C11 检查、128/125 源 ASan/UBSan 重编，隔离 loopback 真实 socket 短读/短写。公开源码摘要 `89db1a9137b198b2c0e4aeee3508de36f1f1694cae6498585b08211bfade310d`。
+
+发现并修复两个可复现缺口：
+
+- 默认 PC peer 编译缺 `system/common/system_error.h` 和 `utils/mutex.h`，真实构建退出 1；补齐固定 SDK 1.9.0 的原文头后重编成功，仅供 PC Unix peer。
+- 握手半帧写失败时 SDK 返回 `-100`，旧关闭分类仅处理 `-7`，导致 error 有 `io_failure` 而 closed 丢失该分类。新真实 socket 反例修复前 host/runner 退出 1（closed lost first IO failure reason），修复后保留 SDK 原码并保持 error/closed 首错快照一致。
+
+| 同一重编二进制的回归 | 实际结果 |
+| --- | --- |
+| 基础及首错诊断 | 17 项；host/peer/runner 均 0；握手首错、部分帧后停止写、重开后无旧诊断、分配回基线 |
+| Get/Queryable 生命周期 | 19 项；host/peer/runner 均 0；peer 15 请求、4 反向查询 |
+| 关闭与接纳交错 | 2 项；host/peer/runner 均 0；真实 worker 调度屏障与 socket |
+
+共 **38 项**；三组 stderr 均空，无 ASan/UBSan 报告。host SHA256 `9aa2b7c874650c97ac3b76911da5baf25462a5ad61a85a6aaa82e15a86f2e12b`；peer SHA256 `e1a15af94fb3bceda84dd225361b323d383b8d60764ab90e5b695020627b797e`。
+
+专用 Air8000 V2055/113/64 位历史实测已通过短包双向 Get 和 4096B Pub/Sub；4096B Query 仍出现 `-7`、对端未见请求。本轮未编译或刷写目标 SoC，**不能将主机通过当作该真机缺陷关闭**。当前修复提供首次失败层证据，不放宽超时、缓存或载荷上限。目标 BSP 构建、原失败组合、长期稳定性和 1024KiB 新配置仍待分别验收，详见 [配置及验收请求](../../../components/zenoh_pico/AIR8000_PROFILE_REQUEST.md)。下列内容是历史证据，不覆盖本节边界。
+
+
+## 历史验收状态（2026-10-20）
 
 Get/Queryable、owned query、local cancel及两处关闭/接纳竞态修复已重新从固定PR基线构建验证。严格C11检查和128/125源ASan/UBSan重建通过；真实Lua5.5.1、zenohd1.9.0及固定SDK e83d39b4415f6897e8d6c3b3b651ca88a05f4a17，隔离loopback端点。
 

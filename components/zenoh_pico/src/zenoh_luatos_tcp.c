@@ -53,16 +53,23 @@ z_result_t _z_open_tcp(_z_sys_net_socket_t *s, const _z_sys_net_endpoint_t ep, u
 }
 size_t _z_read_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
     tcp_context_t *c = s.context;
-    if (!c || !c->net || n > UINT32_MAX) { luat_zenoh_pico_io_fail(); return SIZE_MAX; }
+    if (luat_zenoh_pico_io_failed()) return SIZE_MAX;
+    if (!c || !c->net || n > UINT32_MAX) {
+        luat_zenoh_pico_io_fail_at("rx_context", -1, n, 0, 0); return SIZE_MAX;
+    }
     uint32_t got = 0;
     int rc = network_rx(c->net, p, (uint32_t)n, 0, NULL, NULL, &got);
-    if (rc < 0) luat_zenoh_pico_io_fail();
+    if (rc < 0 || got > n) {
+        luat_zenoh_pico_io_fail_at("rx_error", rc, n, got, 0); return SIZE_MAX;
+    }
+    luat_zenoh_pico_io_progress(0, got);
     /* network_wait_rx(0)会永久等待；此处始终使用非阻塞实际读取。 */
     return rc == 0 && got ? got : SIZE_MAX;
 }
 size_t _z_read_exact_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
     tcp_context_t *c = s.context;
-    if (!c) return SIZE_MAX;
+    if (luat_zenoh_pico_io_failed()) return SIZE_MAX;
+    if (!c) { luat_zenoh_pico_io_fail_at("rx_exact_context", -1, n, 0, 0); return SIZE_MAX; }
     uint64_t start = luat_mcu_tick64_ms(); size_t done = 0;
     while (done < n && luat_mcu_tick64_ms() - start < c->timeout) {
         size_t got = _z_read_tcp(s, p + done, n - done);
@@ -71,12 +78,15 @@ size_t _z_read_exact_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
         else luat_rtos_task_sleep(1);
     }
     if (done == n) return done;
-    luat_zenoh_pico_io_fail(); return SIZE_MAX;
+    luat_zenoh_pico_io_fail_at("rx_exact_timeout", 0, n, done, luat_mcu_tick64_ms() - start);
+    return SIZE_MAX;
 }
 size_t _z_send_tcp(const _z_sys_net_socket_t s, const uint8_t *p, size_t n) {
     if (luat_zenoh_pico_io_failed()) return SIZE_MAX;
     tcp_context_t *c = s.context;
-    if (!c || n > UINT32_MAX) return SIZE_MAX;
+    if (!c || !c->net || n > UINT32_MAX) {
+        luat_zenoh_pico_io_fail_at("tx_context", -1, n, 0, 0); return SIZE_MAX;
+    }
     uint64_t start = luat_mcu_tick64_ms(); size_t done = 0;
     while (done < n && luat_mcu_tick64_ms() - start < c->timeout) {
         uint32_t sent = 0;
@@ -84,11 +94,17 @@ size_t _z_send_tcp(const _z_sys_net_socket_t s, const uint8_t *p, size_t n) {
         if (elapsed_ms >= c->timeout) break;
         uint32_t remaining = c->timeout - (uint32_t)elapsed_ms;
         int rc = network_tx(c->net, p + done, (uint32_t)(n - done), 0, NULL, 0, &sent, remaining);
-        if (rc != 0 || sent > n - done) break;
+        if (sent <= n - done) luat_zenoh_pico_io_progress(1, sent);
+        if (rc != 0 || sent > n - done) {
+            luat_zenoh_pico_io_fail_at("tx_error", rc, n, done + (sent <= n - done ? sent : 0),
+                                      luat_mcu_tick64_ms() - start);
+            return SIZE_MAX;
+        }
         done += sent;
         if (!sent) luat_rtos_task_sleep(1);
     }
     if (done == n) return done;
     /* 部分帧已发送时不可在新消息上继续，所属任务必须关闭连接。 */
-    luat_zenoh_pico_io_fail(); return SIZE_MAX;
+    luat_zenoh_pico_io_fail_at("tx_timeout", 0, n, done, luat_mcu_tick64_ms() - start);
+    return SIZE_MAX;
 }

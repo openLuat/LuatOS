@@ -258,6 +258,16 @@ static int dispatch(lua_State *L) {
     lua_pushinteger(L, e->queryable); lua_setfield(L, -2, "queryable_id");
     lua_pushinteger(L, e->query); lua_setfield(L, -2, "query_id");
     if (e->reason) { lua_pushstring(L, e->reason); lua_setfield(L, -2, "reason"); }
+    if (e->io_failure.stage) {
+        lua_newtable(L);
+        lua_pushstring(L, e->io_failure.stage); lua_setfield(L, -2, "stage");
+#define IO_FIELD(name) lua_pushinteger(L, (lua_Integer)e->io_failure.name); lua_setfield(L, -2, #name)
+        IO_FIELD(generation); IO_FIELD(command_id); IO_FIELD(command_op); IO_FIELD(command_bytes);
+        IO_FIELD(rc); IO_FIELD(requested); IO_FIELD(transferred); IO_FIELD(elapsed_ms);
+        IO_FIELD(total_tx); IO_FIELD(total_rx);
+#undef IO_FIELD
+        lua_setfield(L, -2, "io_failure");
+    }
     if (!strcmp(e->kind, "query")) {
         query_t *q = lua_newuserdata(L, sizeof(*q)); q->generation = e->generation; q->token = e->query; q->finished = 0;
         luaL_setmetatable(L, QUERY); lua_setfield(L, -2, "query");

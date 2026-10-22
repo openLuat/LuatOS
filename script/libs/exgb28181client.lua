@@ -2553,15 +2553,43 @@ local function handle_talk_response(msg)
         ]]
         local rs = gb.sdp_parse(msg.body)
         if rs and rs.conn_ip and rs.port and rs.port > 0 then
-            -- 平台应答的方向决定这条腿是单向还是双向（见 start_talk 的说明）
+            -- 平台应答的方向决定这个会话是单向还是双向（见 start_talk 的说明）
             sess.direction = rs.direction
+            --[[
+            **承载以平台应答的 m= 为准，不能沿用 offer 时的判断**。
+
+            合宙 video.luatos.com 对 UDP offer 也回 `m=audio ... TCP/RTP/AVP`
+            + `a=setup:passive`：它把自己当被动方，等设备主动连 TCP。原实现
+            在 audio_open() 里先把 sess.transport 记成 "udp"，应答时不更新，
+            于是 voip 往平台的 TCP 监听端口发/收 UDP —— 表现为**广播没声音**，
+            而 SIP 和日志看上去一切正常。
+            c5a8dede 曾经做过这个切换，重构时被回退了；这里按应答补回来。
+            ]]
+            local is_tcp = (rs.tcp == true)
+            if is_tcp then
+                local tcp_setup, terr = M.tcp_setup_choice(rs.setup, g_opts.tcp_setup_prefer)
+                if not tcp_setup then
+                    log_warn("音频应答承载协商失败", terr)
+                else
+                    sess.tcp_setup = tcp_setup
+                end
+            end
+            if g_opts.external_audio then
+                -- 媒体由外部引擎(voip)建链，把应答的承载原样交给它
+                sess.transport = M.media_transport(is_tcp, sess.tcp_setup)
+            elseif is_tcp then
+                -- 非外部模式：audio_open() 已经按 UDP 建好 socket，无法原地改协议。
+                -- 这里显式告警，避免悄悄用错承载。
+                log_warn("平台应答要求 TCP，但本地媒体链路已按 UDP 建立",
+                         "external_audio=false 时需要重建 stream")
+            end
             log_info("音频应答方向", tostring(rs.direction),
                      "承载", tostring(sess.transport))
 
             -- **先记对端地址，再谈连不连**。外部接管（external_audio）模式下本层
             -- 没有 sess.stream —— 但仍必须把地址记下来交给外部引擎（voip 要靠它
             -- connect）。原先只在 stream_connect 成功的分支里赋值，于是设备发起的
-            -- 那一路（腿 A：喊话）永远没有对端地址，音频桥直接报"没有对端媒体地址"，
+            -- 那一路（设备发起的广播：喊话）永远没有对端地址，音频桥直接报"没有对端媒体地址"，
             -- 表现是**喊话没声音而对讲有声音**（对讲走 handle_audio_invite，地址来自
             -- offer）。这条路径与 stream 有没有无关。
             sess.remote_ip, sess.remote_port = rs.conn_ip, rs.port

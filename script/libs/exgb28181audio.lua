@@ -639,7 +639,9 @@ local bridge = {
     rxq = {}, rx_tail = "", pcm = "", need = false,
     gain = 4, debug = false,
     dbg = { rec = 0, rec_bytes = 0, rec_empty = 0, play = 0,
-            pcm_in = 0, pcm_cons = 0, pcm_err = 0, drop = 0, retry = 0 },
+            pcm_in = 0, pcm_cons = 0, pcm_err = 0, drop = 0, retry = 0,
+            loop_tx = 0, loop_rx = 0, input_calls = 0,
+            pcm_max_ms = 0, input_max_ms = 0 },
 }
 
 -- 上行只保留最近 5 帧（100ms）。再多就丢最旧的，绝不把延迟越积越大。
@@ -680,12 +682,20 @@ local function bridge_on_play(_req)
     bridge.need = true
 end
 
--- 上行按整帧、每 5ms 最多喂一帧；下行 5ms 一拍。
-local function bridge_task()
+--[[
+上行、下行分两个任务。
+
+上行任务只做 voip.pcmIn；下行任务只在播放事件到来时补 speech 播放 FIFO。
+拆开是为了定位/规避一类故障：audio_v2.input 内部会 suspend_all，一旦它变慢，
+同任务里的上行喂帧就会被一起拖住，表现为 rxq 溢出大量丢帧（2026-10-22 实测：
+录音 47 帧/秒，实际只喂进去 17 帧/秒，丢 131 帧）。
+]]
+local function bridge_tx_task()
     bridge.gen = bridge.gen + 1
     local gen = bridge.gen
     sys.taskInit(function()
         while bridge.active and bridge.gen == gen do
+            bridge.dbg.loop_tx = bridge.dbg.loop_tx + 1
             if bridge.pcm == "" and #bridge.rxq > 0 then
                 local pcma = table.remove(bridge.rxq, 1)
                 bridge.pcm = pcm_gain(alaw_to_pcm(pcma), bridge.gain)
@@ -693,7 +703,10 @@ local function bridge_task()
 
             if bridge.pcm ~= "" then
                 bridge.dbg.pcm_in = bridge.dbg.pcm_in + 1
+                local t0 = now_ms()
                 local used = tonumber(voip.pcmIn(bridge.pcm)) or 0
+                local dt = now_ms() - t0
+                if dt > bridge.dbg.pcm_max_ms then bridge.dbg.pcm_max_ms = dt end
                 if used > 0 then
                     bridge.dbg.pcm_cons = bridge.dbg.pcm_cons + used
                     bridge.pcm = bridge.pcm:sub(used * 2 + 1)
@@ -714,15 +727,25 @@ local function bridge_task()
                     end
                 end
             end
+            sys.wait(5)
+        end
+    end)
+end
 
+local function bridge_rx_task()
+    local gen = bridge.gen
+    sys.taskInit(function()
+        while bridge.active and bridge.gen == gen do
+            bridge.dbg.loop_rx = bridge.dbg.loop_rx + 1
             -- 下行：voip.pcmOut → PCM → PCMA → speech 播放输入。
-            -- 每次补到 40ms，5ms 一拍，避免 speech 播放 FIFO 欠载造成断音。
+            -- 每次最多补 80ms；5ms 一拍，减少 suspend_all 次数。
             if bridge.need then
                 bridge.need = false
+                local t0 = now_ms()
                 local _, _, free = audio_v2.input(bridge.req, "", false)
                 free = tonumber(free) or 0
                 if free >= 1 then
-                    local n = math.min(free, 320)
+                    local n = math.min(free, 640)
                     local pcm = voip.pcmOut(n)
                     local want = n * 2
                     if not pcm then pcm = "" end
@@ -733,8 +756,10 @@ local function bridge_task()
                     end
                     audio_v2.input(bridge.req, pcm_to_alaw(pcm, 1), false)
                 end
+                bridge.dbg.input_calls = bridge.dbg.input_calls + 1
+                local dt = now_ms() - t0
+                if dt > bridge.dbg.input_max_ms then bridge.dbg.input_max_ms = dt end
             end
-
             sys.wait(5)
         end
     end)
@@ -784,7 +809,9 @@ local function bridge_start(session, opts)
     bridge.buf:del()
     bridge.rxq, bridge.rx_tail, bridge.pcm, bridge.need = {}, "", "", false
     bridge.dbg = { rec = 0, rec_bytes = 0, rec_empty = 0, play = 0,
-                   pcm_in = 0, pcm_cons = 0, pcm_err = 0, drop = 0, retry = 0 }
+                   pcm_in = 0, pcm_cons = 0, pcm_err = 0, drop = 0, retry = 0,
+                   loop_tx = 0, loop_rx = 0, input_calls = 0,
+                   pcm_max_ms = 0, input_max_ms = 0 }
     bridge.gain = opts.bridge_gain or 4
     bridge.debug = opts.debug and true or false
 
@@ -828,7 +855,8 @@ local function bridge_start(session, opts)
     end
 
     bridge.req, bridge.active = req, true
-    bridge_task()
+    bridge_tx_task()
+    bridge_rx_task()
     logi("对讲 bridge 已启动(speech G711A)",
          "req=" .. tostring(req), "麦克风只走对讲上行")
     return true
@@ -850,7 +878,10 @@ local function bridge_stop()
     logi("对讲 bridge 已关闭",
          ("录音事件=%d 字节=%d 空=%d 播放事件=%d pcmIn=%d 已消费样本=%d 未消费=%d 丢帧=%d")
          :format(d.rec, d.rec_bytes, d.rec_empty, d.play,
-                 d.pcm_in, d.pcm_cons, d.pcm_err, d.drop))
+                 d.pcm_in, d.pcm_cons, d.pcm_err, d.drop),
+         ("上行循环=%d 下行循环=%d 补包=%d pcm耗时=%dms 补包耗时=%dms")
+         :format(d.loop_tx, d.loop_rx, d.input_calls,
+                 d.pcm_max_ms, d.input_max_ms))
 end
 
 --[[
@@ -973,6 +1004,17 @@ function M.start(session, opts)
     if opts.aec ~= nil then
         aec = opts.aec and 1 or 0
     end
+    --[[
+    jitter_depth 按承载分开：
+
+    UDP（广播）：平台 20ms 一个包，JB 预存 6 帧(120ms)足够吸收 Wi-Fi 抖动。
+    TCP（对讲）：ZLM 的 RTP-over-TCP 是**按 MSS 成批写的**——实测每个 TCP 段
+    1340 字节 ≈ 7.7 个 RTP 帧 ≈ 150ms 音频，一撮一撮到达。JB 预存必须覆盖
+    一个批次再加余量，否则每批之间必然欠载：实测 depth=3 时对讲 jbsil 涨到
+    15 帧/秒、满屏 `jb resync`。12 帧=240ms，覆盖 150ms 批次 + 90ms 余量。
+    ]]
+    local jb_depth = opts.jitter_depth
+                     or ((transport == "udp") and 6 or 12)
     local okv = voip.start({
         codec        = voip.PCMA,
         sample_rate  = SAMPLE_RATE,
@@ -982,6 +1024,7 @@ function M.start(session, opts)
         remote_port  = session.remote_port,
         local_port   = session.local_port,
         ssrc         = session.ssrc,
+        jitter_depth = jb_depth,
         aec_enable   = aec,
         aec_denoise  = aec,
         aec_agc      = aec,

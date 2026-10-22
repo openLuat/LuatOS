@@ -67,6 +67,17 @@
  *   - fill 是否填充，bool
  *   - fill_color 填充颜色，默认同 color
  *   - fill_opacity 填充透明度，0-255
+ * arc 圆弧：
+ *   - type = "arc"
+ *   - cx, cy 圆心坐标
+ *   - r 外半径
+ *   - start_angle 起点角度，单位度。0 度在 3 点钟方向，顺时针增大
+ *   - end_angle 终点角度，单位度。沿顺时针从 start_angle 画到 end_angle
+ *   - 起止角相差 360 度及以上时画整圆；起止角相同则不画
+ *   - color 线条颜色，0xRRGGBB
+ *   - width 线宽，默认 1
+ *   - opacity 透明度，0-255，默认 255
+ *   - rounded 两端是否圆头，bool。round_start / round_end 任一为 true 时同样圆头
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Shape 对象
  *
@@ -78,6 +89,7 @@
  *         {type = "circle", cx = 40, cy = 60, r = 18, color = 0x00ff00, width = 2},
  *         {type = "ellipse", cx = 100, cy = 60, rx = 30, ry = 18, color = 0x00ffff, width = 2},
  *         {type = "rect", x = 140, y = 30, w = 40, h = 40, radius = 8, color = 0xffffff, width = 2, fill = true, fill_color = 0x334455},
+ *         {type = "arc", cx = 40, cy = 60, r = 28, start_angle = 135, end_angle = 45, color = 0x22d3ee, width = 6, rounded = true},
  *     }
  * })
  */

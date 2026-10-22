@@ -25,7 +25,8 @@ typedef enum {
     AIRUI_SHAPE_ITEM_LINE = 1,
     AIRUI_SHAPE_ITEM_CIRCLE,
     AIRUI_SHAPE_ITEM_ELLIPSE,
-    AIRUI_SHAPE_ITEM_RECT
+    AIRUI_SHAPE_ITEM_RECT,
+    AIRUI_SHAPE_ITEM_ARC
 } airui_shape_item_type_t;
 
 typedef struct {
@@ -66,6 +67,13 @@ typedef struct {
             int16_t h;
             int16_t radius;
         } rect;
+        struct {
+            int16_t cx;
+            int16_t cy;
+            int16_t r;
+            int16_t start_angle;
+            int16_t end_angle;
+        } arc;
     } data;
 } airui_shape_item_t;
 
@@ -90,6 +98,8 @@ static void airui_shape_draw_line_item(lv_layer_t *layer, const lv_area_t *coord
 static void airui_shape_draw_circle_item(lv_layer_t *layer, const lv_area_t *coords, const airui_shape_item_t *item);
 static void airui_shape_draw_rect_item(lv_layer_t *layer, const lv_area_t *coords, const airui_shape_item_t *item);
 static void airui_shape_draw_ellipse_item(lv_layer_t *layer, const lv_area_t *coords, const airui_shape_item_t *item);
+static void airui_shape_prepare_arc_angles(int16_t start_in, int16_t end_in, int32_t *start_out, int32_t *end_out);
+static void airui_shape_draw_arc_item(lv_layer_t *layer, const lv_area_t *coords, const airui_shape_item_t *item);
 
 static airui_ctx_t *airui_shape_get_ctx(lua_State *L)
 {
@@ -236,6 +246,9 @@ static int airui_shape_parse_item(lua_State *L, int idx, airui_shape_item_t *ite
         else if (strcmp(type, "rect") == 0) {
             item->type = AIRUI_SHAPE_ITEM_RECT;
         }
+        else if (strcmp(type, "arc") == 0) {
+            item->type = AIRUI_SHAPE_ITEM_ARC;
+        }
     }
 
     color = lv_color_hex(0xffffff);
@@ -325,6 +338,22 @@ static int airui_shape_parse_item(lua_State *L, int idx, airui_shape_item_t *ite
             }
             if (item->data.rect.radius < 0) {
                 item->data.rect.radius = 0;
+            }
+            break;
+
+        case AIRUI_SHAPE_ITEM_ARC:
+            item->data.arc.cx = (int16_t)airui_marshal_integer(L, abs_idx, "cx", 0);
+            item->data.arc.cy = (int16_t)airui_marshal_integer(L, abs_idx, "cy", 0);
+            item->data.arc.r = (int16_t)airui_marshal_integer(L, abs_idx, "r", 0);
+            item->data.arc.start_angle = (int16_t)airui_marshal_integer(L, abs_idx, "start_angle", 0);
+            item->data.arc.end_angle = (int16_t)airui_marshal_integer(L, abs_idx, "end_angle", 0);
+            if (item->data.arc.r < 0) {
+                item->data.arc.r = 0;
+            }
+            /* lv_draw_arc has one rounded flag for both ends. */
+            if (airui_marshal_bool(L, abs_idx, "rounded", false)) {
+                item->round_start = 1;
+                item->round_end = 1;
             }
             break;
 
@@ -480,6 +509,67 @@ static void airui_shape_draw_ellipse_item(lv_layer_t *layer, const lv_area_t *co
     }
 }
 
+static void airui_shape_prepare_arc_angles(int16_t start_in, int16_t end_in, int32_t *start_out, int32_t *end_out)
+{
+    int32_t start = start_in;
+    int32_t end = end_in;
+    int32_t span = end - start;
+
+    /* A full turn uses LVGL's closed-ring path: end = start + 360. */
+    if (span >= 360 || span <= -360) {
+        start %= 360;
+        if (start < 0) {
+            start += 360;
+        }
+        *start_out = start;
+        *end_out = start + 360;
+        return;
+    }
+
+    /* Fold the start into [0, 359] and shift the end with it. */
+    if (start >= 360 || start < 0) {
+        int32_t turns = start / 360;
+        if (start < 0 && (start % 360) != 0) {
+            turns -= 1;
+        }
+        start -= turns * 360;
+        end -= turns * 360;
+    }
+
+    *start_out = start;
+    *end_out = end;
+}
+
+static void airui_shape_draw_arc_item(lv_layer_t *layer, const lv_area_t *coords, const airui_shape_item_t *item)
+{
+    int32_t r = item->data.arc.r;
+    int32_t start_angle;
+    int32_t end_angle;
+    lv_draw_arc_dsc_t dsc;
+
+    if (r <= 0) {
+        return;
+    }
+
+    airui_shape_prepare_arc_angles(item->data.arc.start_angle, item->data.arc.end_angle, &start_angle, &end_angle);
+    if (start_angle == end_angle) {
+        return;
+    }
+
+    lv_draw_arc_dsc_init(&dsc);
+    dsc.base.layer = layer;
+    dsc.color = item->color;
+    dsc.width = item->width;
+    dsc.opa = item->opa;
+    dsc.rounded = item->round_start || item->round_end;
+    dsc.center.x = coords->x1 + item->data.arc.cx;
+    dsc.center.y = coords->y1 + item->data.arc.cy;
+    dsc.radius = (uint16_t)r;
+    dsc.start_angle = start_angle;
+    dsc.end_angle = end_angle;
+    lv_draw_arc(layer, &dsc);
+}
+
 static void airui_shape_draw(lv_event_t *e, airui_shape_data_t *data)
 {
     lv_obj_t *shape = lv_event_get_current_target(e);
@@ -506,6 +596,9 @@ static void airui_shape_draw(lv_event_t *e, airui_shape_data_t *data)
                 break;
             case AIRUI_SHAPE_ITEM_RECT:
                 airui_shape_draw_rect_item(layer, &coords, item);
+                break;
+            case AIRUI_SHAPE_ITEM_ARC:
+                airui_shape_draw_arc_item(layer, &coords, item);
                 break;
             default:
                 break;

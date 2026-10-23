@@ -108,6 +108,24 @@ int host_message(rtos_msg_t *out) {
 /* 主机堆实现先调用libc，之后再引入c_common的malloc映射，避免递归。 */
 #include "luat_network_adapter.h"
 static pthread_mutex_t network_lock = PTHREAD_MUTEX_INITIALIZER;
+/* 仅此测试线程的16槽通知队列；不代替目标RTOS或ACK时序。 */
+static _Thread_local luat_event_t network_events[16];
+static _Thread_local unsigned network_event_head, network_event_count;
+int luat_rtos_event_recv(luat_rtos_task_handle task, uint32_t id, luat_event_t *out,
+                         luat_rtos_event_wait_callback_t *callback, uint32_t timeout) {
+    (void)callback;
+    if (!task || id || !out || timeout != LUAT_NO_WAIT || !network_event_count) return -1;
+    *out = network_events[network_event_head];
+    network_event_head = (network_event_head + 1) % 16; --network_event_count; return 0;
+}
+static int host_network_notice(void) {
+    if (network_event_count == 16) {
+        fputs("HOST_NETWORK_NOTICE_OVERFLOW\n", stderr); return -1;
+    }
+    luat_event_t event = {0}; event.id = EV_NW_RESULT_TX;
+    network_events[(network_event_head + network_event_count++) % 16] = event;
+    return 0;
+}
 static int current_socket = -1;
 static atomic_uint short_reads, short_writes;
 static atomic_int write_budget = -1, write_fault, write_gate;
@@ -179,7 +197,7 @@ int network_rx(network_ctrl_t *c, uint8_t *p, uint32_t n, int flags, luat_ip_add
 }
 int network_tx(network_ctrl_t *c, const uint8_t *p, uint32_t n, int flags, luat_ip_addr_t *ip,
                 uint16_t port, uint32_t *sent, uint32_t timeout) {
-    (void)flags; (void)ip; (void)port; (void)timeout; *sent = 0;
+    (void)flags; (void)ip; (void)port; *sent = 0;
     /* 仅故障测试：让VM在第一笔写前确定入队两条命令，最长等待100ms。 */
     for (int i = 0; atomic_load(&write_gate) && i < 100; ++i) luat_rtos_task_sleep(1);
     if (atomic_load(&write_fault)) { atomic_fetch_add(&writes_after_fault, 1); return -1; }
@@ -201,6 +219,8 @@ int network_tx(network_ctrl_t *c, const uint8_t *p, uint32_t n, int flags, luat_
         atomic_fetch_add(&failure_bytes, *sent);
     }
     if (*sent < n) atomic_fetch_add(&short_writes, 1);
+    /* 对齐network API：非阻塞接纳后待完成返回1；此桥不模拟目标ACK。 */
+    if (*sent && !timeout) return host_network_notice() == 0 ? 1 : -1;
     return 0;
 }
 int host_disconnect(void) {

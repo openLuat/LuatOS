@@ -71,10 +71,11 @@ update.init()
 -- ============================================================
 
 -- ==================== 开机模式分发 ====================
--- 分流顺序：fskv 返工标记 -> OTP1(型号/硬件版本/IMEI)
---   有返工标记          -> 产测模式(返工产测)
---   无标记且 OTP1 为空   -> 产测模式(首次产测)
---   无标记且 OTP1 有值   -> 正常模式(业务)
+-- 分流顺序：fskv 返工标记 -> fskv 首测保护标记 -> OTP1(型号/硬件版本/IMEI)
+--   有返工标记              -> 产测模式(返工产测)
+--   有首测保护标记          -> 产测模式(首测中途复位后继续产测)
+--   无标记且 OTP1 为空       -> 产测模式(首次产测)，进入前自动写首测保护标记
+--   无标记且 OTP1 有值       -> 正常模式(业务)
 -- 业务分支由 task_main 内的 task_runtime 按 fskv["sip_task_v1"] 选择单 SIP / SIP_CC
 local prodmeta = require("prodmeta")
 local retest = require("retest")
@@ -89,8 +90,14 @@ local function decide_mode()
     if BOOT_MODE == "factory" then return "factory" end
     if BOOT_MODE == "normal" then return "business" end
     -- auto
+    -- 分流顺序：返工标记 -> 首测保护标记 -> OTP1 是否为空
     if retest.is_rework() then return "factory" end
-    if not otp_ready() then return "factory" end
+    if retest.is_firsttest() then return "factory" end   -- 首测中途复位后回到产测
+    if not otp_ready() then
+        -- 裸板首次产测：进入前写首测保护标记，防止写号后看门狗等复位误入正常模式
+        retest.set_firsttest()
+        return "factory"
+    end
     return "business"
 end
 

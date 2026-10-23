@@ -30,9 +30,10 @@
    本配置是 PWM3 调光。上板前请再核对一次。
 9. 本配置由 factory 工程同名配置（factory/config/eng_8601_7i_v0.lua）移植，硬件参数一致；
    差异只在驱动模型（本工程走 lcd_display_rgb）与 UI 段（桌面入口开关）。
-10. features.usb_camera 由 ui/settings/settings_face_win.lua 消费（人脸录入/验证页的摄像头
-    实时预览）；features.rs485 与 ui.show_camera_preview 目前在 app/ 与 ui/ 里仍查不到消费方，
-    写了不报错也不生效，此处保留仅作能力声明。
+10. features.usb_camera 只作能力声明，Lua 侧没有读取方；摄像头实时预览实际由
+    features.face_recognition 门控（app/face/face_app.lua + ui/settings/settings_face_win.lua）。
+    features.rs485 与 ui.show_camera_preview 同样查不到消费方，写了不报错也不生效，
+    此处保留仅作能力声明。
 11. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO74（AUDIOPA_EN），
     **低电平有效**（pa_on_level = 0 → 播放时 exaudio 把 GPIO74 拉低使能，空闲/关机拉高）。
     录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
@@ -149,7 +150,7 @@ return {
                             --   本板原缺失。当前 app/ 与 ui/ 里查不到消费方，属"能力声明"性质
                             --   （与 usb_camera / rs485 同一类，见文件头第 10 条）。
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
-        usb_camera = true,  -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
+        usb_camera = true,  -- USB 摄像头（UVC）—— 见文件头第 10 条：能力声明，暂无读取方
         rs485 = true,       -- RS485 接口 —— 见文件头第 10 条：暂无消费方
         usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）
         app_factory = true, -- 启用"应用工厂"内置应用

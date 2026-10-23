@@ -112,7 +112,7 @@ local function load_deps()
         end
     end
     if type(gb.record_open) ~= "function" then
-        return false, "C 层没有 record_open(固件版本太旧?)"
+        return false, "C 层没有 record_open(固件未开 LUAT_USE_GB28181_RECORD，或是旧固件)"
     end
     if client == nil then
         local ok, mod = pcall(require, "exgb28181client")

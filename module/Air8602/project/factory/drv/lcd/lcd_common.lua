@@ -139,9 +139,11 @@ function M.backlight_on(cfg)
         end
         local ch = bl.pwm_ch or 0
         local freq = bl.pwm_freq or 1000
-        pwm.setup(ch, freq, 100) -- 占空比 100%（最大亮度）
+        -- 占空比取 backlight.level（settings_display_app 从 fskv 恢复/写回），无记录默认 100%
+        local duty = bl.level or 100
+        pwm.setup(ch, freq, duty)
         pwm.start(ch)            -- 启动 PWM 输出
-        log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq)
+        log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq .. " duty=" .. duty)
     end
 end
 

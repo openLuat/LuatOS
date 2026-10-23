@@ -115,6 +115,10 @@ local function guard_audio_init()
 end
 
 local function boot_task()
+    -- 0. 先恢复用户亮度到 hw.lcd.backlight.level，backlight_on 点亮时直接使用
+    pcall(fskv.init)
+    pcall(function() require("settings_display_app").restore() end)
+
     -- 1. display + airui 初始化（拿到屏幕尺寸/字体/旋转/密度）
     local ok, err = pcall(lcd_drv.init)
     if not ok then

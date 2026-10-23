@@ -1,8 +1,8 @@
 --[[
 @module  settings_display_app
 @summary 亮度与声音业务逻辑层
-@version 1.2
-@date    2026.09.23
+@version 1.3
+@date    2026.10.23
 @author  江访
 @usage
 本模块为亮度与声音业务逻辑层，管理PWM背光亮度调节与喇叭媒体音量。
@@ -29,16 +29,18 @@ project_config.hw.audio.play_vol，本模块把用户音量写回该字段，
 ]]
 -- ==================== 局部变量 ====================
 local pwm_initialized = false  -- PWM 初始化标志
-local current_brightness = 100    -- 当前亮度值 (10-100)
 
 -- 从配置文件读取背光 PWM 参数（hw.lcd.backlight）
 local pwm_channel, pwm_freq = 0, 1000
 local cfg = _G.project_config
-if cfg and cfg.hw and cfg.hw.lcd and cfg.hw.lcd.backlight then
-    local bl = cfg.hw.lcd.backlight
-    pwm_channel = bl.pwm_ch or 0
-    pwm_freq = bl.pwm_freq or 1000
+local bl_cfg = cfg and cfg.hw and cfg.hw.lcd and cfg.hw.lcd.backlight
+if bl_cfg then
+    pwm_channel = bl_cfg.pwm_ch or 0
+    pwm_freq = bl_cfg.pwm_freq or 1000
 end
+
+local FSKV_BRIGHTNESS = "display_brightness"  -- 背光亮度 fskv 持久化键
+local current_brightness = (bl_cfg and bl_cfg.level) or 100  -- 当前亮度值 (10-100)
 
 -- ==================== 媒体音量 ====================
 -- exaudio 是固件扩展库，须 require 绑定（welcome_win / video_util / llm_chat 同款拿法），
@@ -140,6 +142,29 @@ local function init_pwm()
 end
 
 --[[
+@function write_back_brightness
+@summary 背光亮度写回配置表 hw.lcd.backlight.level（backlight_on 开机点亮取该值作占空比）
+@param level 亮度值 (10-100)
+]]
+local function write_back_brightness(level)
+    if cfg and cfg.hw and cfg.hw.lcd then
+        local lcd = cfg.hw.lcd
+        lcd.backlight = lcd.backlight or {}
+        lcd.backlight.level = level
+    end
+end
+
+--[[
+@function save_brightness
+@summary 亮度持久化到 fskv（fskv 挂载是异步的，先 init 确保就绪）
+@param level 亮度值 (10-100)
+]]
+local function save_brightness(level)
+    pcall(fskv.init)
+    pcall(fskv.set, FSKV_BRIGHTNESS, level)
+end
+
+--[[
 @function set_brightness
 @summary 设置背光亮度并上报变更事件
 @param level 亮度值 (10-100)
@@ -158,6 +183,10 @@ local function set_brightness(level)
     if not ok then
         log.error("settings_display", "PWM setDuty 失败:", err)
     end
+    -- 写回配置表：backlight_on 开机点亮读 backlight.level 作占空比
+    write_back_brightness(level)
+    -- 持久化：重启后恢复用户亮度
+    save_brightness(level)
     log.info("settings_display", "亮度设置为: " .. level .. "%")
     -- 上报亮度变化事件
     sys.publish("DISPLAY_BRIGHTNESS_CHANGED", current_brightness)
@@ -181,6 +210,47 @@ local function init_volume()
     -- 免得各起播方的 or 70 / or 100 兜底不一致
     if ac then ac.play_vol = current_volume end
     log.info("settings_display", "媒体音量恢复: " .. current_volume .. "%")
+end
+
+--[[
+@function restore
+@summary 从 fskv 恢复背光亮度，写回 hw.lcd.backlight.level（backlight_on 点亮取该值作占空比）
+]]
+local restored = false
+local restore_retrying = false
+local function restore()
+    if restored then return true end
+    if not fskv then restored = true; return true end  -- 无 fskv 库：保持默认亮度
+    -- 未就绪时 fskv.get 返回 nil，与「无记录」区分不了，直接返回等重试
+    local ok_i, inited = pcall(fskv.init)
+    if not (ok_i and inited) then
+        -- fskv 异步挂载未就绪：后台短轮询重试，避免开机首次恢复失败后永久用默认值
+        if not restore_retrying then
+            restore_retrying = true
+            sys.taskInit(function()
+                for _ = 1, 20 do
+                    sys.wait(200)
+                    if restore() then break end
+                end
+                restore_retrying = false
+            end)
+        end
+        return false
+    end
+
+    local ok, val = pcall(fskv.get, FSKV_BRIGHTNESS)
+    if ok and type(val) == "number" then
+        current_brightness = val
+        if current_brightness < 10 then current_brightness = 10 end
+        if current_brightness > 100 then current_brightness = 100 end
+    end
+    -- 无论是否有记录都写回：backlight_on 点亮时读 level
+    write_back_brightness(current_brightness)
+    -- PWM 可能已由 backlight_on 启动：能设就热应用，未启动则等 backlight_on 用 level 配置
+    pcall(pwm.setDuty, pwm_channel, current_brightness)
+    restored = true
+    log.info("settings_display", "背光亮度恢复: " .. current_brightness .. "%")
+    return true
 end
 
 sys.subscribe("SETTINGS_APP_INIT", init_volume)
@@ -211,8 +281,9 @@ sys.subscribe("DISPLAY_BRIGHTNESS_SET", function(level)
     end
 end)
 
--- 订阅亮度查询事件（业务层上报当前值）
+-- 订阅亮度查询事件（业务层上报当前值；查询前对齐一次 fskv 恢复）
 sys.subscribe("DISPLAY_BRIGHTNESS_GET", function()
+    restore()
     sys.publish("DISPLAY_BRIGHTNESS_VALUE", current_brightness)
 end)
 
@@ -230,3 +301,9 @@ if has_audio then
     -- 订阅试听事件（设置页音量滑块旁的「测试」）
     sys.subscribe("AUDIO_PLAY_TEST", play_volume_test)
 end
+
+-- ==================== 模块导出 ====================
+-- boot_ui 开机第 0 步先 fskv.init 再调 restore()，恢复亮度供 backlight_on 点亮使用
+local M = {}
+M.restore = restore
+return M

@@ -88,7 +88,17 @@ local function  camera_cb(app_id, event, param)
             end
         end
         log.info("设置图像格式", frame_type, sensor_w, sensor_h)
+		--简单演示CT/PU控制
+		--[[
 		camera.ctrl_plane_init(usb_app_id)
+		log.info("自动曝光模式", camera.ctrl_plane_get(usb_app_id, camera.UVC_CT_AE_MODE))
+		log.info("绝对曝光时间", camera.ctrl_plane_get(usb_app_id, camera.UVC_CT_EXPOSURE_ABSOLUTE))
+		log.info("绝对光圈", camera.ctrl_plane_get(usb_app_id, camera.UVC_CT_IRIS_ABSOLUTE))
+		log.info("白平衡色温", camera.ctrl_plane_get(usb_app_id, camera.UVC_PU_WB_TEMPERATURE))
+		log.info("修改白平衡色温为手动", camera.ctrl_plane_set(usb_app_id, camera.UVC_PU_WB_TEMPERATURE_AUTO, 0))
+		log.info("修改白平衡色温值为4000", camera.ctrl_plane_set(usb_app_id, camera.UVC_PU_WB_TEMPERATURE, 4000))	
+	    log.info("白平衡色温", camera.ctrl_plane_get(usb_app_id, camera.UVC_PU_WB_TEMPERATURE))	
+		]]
         camera.set_usb_config(usb_app_id, camera.CONF_UVC_RESOLUTION, frame_type, sensor_w, sensor_h)
         --camera.set_usb_config(usb_app_id, camera.CONF_UVC_RESOLUTION, 1, 5)
         camera.cache(camera.USB, usb_app_id, frame_buff0, frame_buff1)

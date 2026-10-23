@@ -147,11 +147,6 @@ void luat_usb_camera_ct_pu_get_info(uint8_t app_id)
                 } else {
                     _ct_ctrl_table[i].state = temp;
                 }
-                if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_LEN, i, 1, &temp)) {
-                    LLOGE("ct%d %s get len error", i, _ct_name[i]);
-                } else {
-                    _ct_ctrl_table[i].len = temp;
-                }
             }
 
             if (!(_ct_ctrl_table[i].flag & _F_COMPOSITE)) {
@@ -209,11 +204,6 @@ void luat_usb_camera_ct_pu_get_info(uint8_t app_id)
                     continue;
                 } else {
                     _pu_ctrl_table[i].state = temp;
-                }
-                if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_LEN, i|LUAT_UVC_PU_MASK, 1, &temp)) {
-                    LLOGE("pu%d %s get len error", i, _pu_name[i]);
-                } else {
-                    _pu_ctrl_table[i].len = temp;
                 }
             }
             

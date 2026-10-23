@@ -39,7 +39,7 @@ client.start({
     server_port = 5060,
     domain      = "3502000000",
     device_id   = "35020000001320000001",
-    password    = "wvp_sip_password",
+    password    = "sip_password",
     transport   = "udp",
     device = {
         name         = "LuatOS-IPC",
@@ -198,7 +198,7 @@ end
 
 按 os.time() 即**设备本地时区**解释，与 C 层 record_format_time 用的
 localtime_r 同一口径。两边必须一致：平台拿设备报的字符串换算回放 SDP 的
-t= 行(实测 WVP 如此)，设备拿同一个 Unix 秒去 seek 录像文件；一边本地、
+t= 行(实测平台如此)，设备拿同一个 Unix 秒去 seek 录像文件；一边本地、
 一边 UTC 的话，平台上看到的回放起点会整体差一个时区。
 
 @return int|nil Unix 秒；格式不符返回 nil
@@ -755,8 +755,8 @@ end
 应答平台的查询：先回 200 OK，再回带应答体的 MESSAGE。
 
 先回 200 OK 是 SIP 的要求(任何请求都要有响应)，且必须回抄请求的 Via/
-From/To；MESSAGE 里才是 MANSCDP 的业务应答。少任何一个，WVP 这类
-平台都可能判定设备异常。
+From/To；MESSAGE 里才是 MANSCDP 的业务应答。少任何一个，部分平台
+都可能判定设备异常。
 ]]
 --[[
 处理平台下发的设备控制(DeviceControl)。
@@ -884,7 +884,7 @@ local function handle_query(msg)
 
     早先这里不分，Notify 也走 Query 的分支 —— 未知 CmdType 会回一个
     `Result=ERROR` 的 Response。对 Query 那是"设备在线但给不了"，对 Notify
-    却是**明确告诉平台"设备拒绝"**：实测 WVP 收到后不建立待接通的广播，
+    却是**明确告诉平台"设备拒绝"**：实测平台收到后不建立待接通的广播，
     于是设备随后按 §9.12 发起的 INVITE 被判"非语音广播"而 403 —— 整条
     语音广播/对讲链路断在这里。
     ]]
@@ -1360,7 +1360,7 @@ end
 --[[
 受理**平台主动发起**的音频 INVITE（语音对讲的双向/上行方向）。
 
-为什么必须受理：实测 WVP 在语音对讲过程中会发这样一条；设备若回 488，
+为什么必须受理：实测平台在语音对讲过程中会发这样一条；设备若回 488，
 平台判定对讲失败并**把整条对讲停掉** —— 现象是"音频收到一半就断"，
 而 SIP 层此前一切正常，极难倒查。
 
@@ -1379,19 +1379,18 @@ local function handle_audio_invite(msg, s)
     end
 
     --[[
-    SDP 的 `m=audio 0` 表示这条媒体流被禁用(RFC 3264)。实测 WVP 在
-    `PlayServiceImpl.talk` 里：`startSendRtpPassive`(让 ZLM 开收流端口)抛
-    ControllerException 后**只打日志、没有 return**，仍然调用 talkStreamCmd，
-    于是发出来的 Talk INVITE 就是 `m=audio 0`。此时 remote_port=0，
+    SDP 的 `m=audio 0` 表示这条媒体流被禁用(RFC 3264)。实测部分平台在
+    对讲流程里：媒体服务器开收流端口失败后**只打日志、没有 return**，
+    仍然发 talk INVITE，于是报文里就是 `m=audio 0`。此时 remote_port=0，
     voip.start 会直接报 "remote_ip and remote_port are required"。
 
-    这不是设备端能修的：平台侧 ZLM 收流端口没分配成功(端口耗尽/旧流没释放)。
-    设备只做一件事——按"媒体不可用"拒绝，不占本地端口、不建会话，
+    这不是设备端能修的：平台侧媒体服务器收流端口没分配成功(端口耗尽/
+    旧流没释放)。设备只做"媒体不可用"拒绝，不占本地端口、不建会话，
     并把原因写清楚，让日志能直接指向平台。
     ]]
     if s.conn_ip == nil or s.port == nil or s.port <= 0 then
         log_warn("平台音频 INVITE 的媒体端口为 0(m=audio 0), 拒绝",
-                 "平台侧 ZLM 收流端口分配失败(检查 WVP/ZLM 日志与端口范围)")
+                 "平台侧媒体服务器收流端口分配失败(检查平台/媒体服务器日志与端口范围)")
         reply(msg, 488, "Not Acceptable Here")
         emit("invite", "rejected",
              { reason = "平台 SDP m=audio 0，媒体未分配", incoming = true })
@@ -1521,8 +1520,8 @@ local function handle_invite(msg)
       s= 行区分实时(Play/Playback/Download)——同一个 INVITE 处理函数
          要服务三类语义完全不同的请求
       t= 行是回放的**起止时间**(两个 Unix 秒)，只在回放时给出
-      u= 行是 `<设备编码>:<录像ID>`，**不是时间段** —— 实测(WVP-Pro
-         2026-09-17)填的是 `:0`，曾经误以为它是起止时间
+      u= 行是 `<设备编码>:<录像ID>`，**不是时间段** —— 实测填的是
+         `:0`，曾经误以为它是起止时间
       m=/a=rtpmap 决定承载与封装：回放 offer 常见一次给多个载荷类型
          (如 `96 97 98 99` = PS/MPEG4/H264/H265)，要靠 m= 声明的那个去挑
     与对讲路径(handle_talk_response)保持同一做法，避免"音频有日志、视频没有"。
@@ -1553,7 +1552,7 @@ local function handle_invite(msg)
     end
 
     -- 本端不提供视频(opts.no_video)：视频 INVITE 一律 488。
-    -- **不能"收下却发不出流"**：平台那次点播会永不完成 —— WVP 的快照点播认领只在
+    -- **不能"收下却发不出流"**：平台那次点播会永不完成 —— 平台的快照点播认领只在
     -- 回调触发时释放，于是它每 5 秒拿着同一通道来撞，还会顺手收掉同通道的对讲。
     if o.no_video then
         log_warn("本端不提供视频(no_video), 拒绝视频 INVITE", tostring(s.media))
@@ -1638,11 +1637,10 @@ local function handle_invite(msg)
     --[[
     **视频点播用设备自己生成的 SSRC，不套用平台 INVITE 里的 y=。**
 
-    曾经按"平台 y= 是它分配给我的 SSRC"改成优先用平台值，结果在合宙
-    视频物联网平台上反而整路不出图：平台按自己 INVITE 里的 y= 建流，设备
-    应答/推流换成设备自己生成的 100490001 才正常（历史可用日志如此）。
-    WVP/ZLM 那边 `openRtpServer` 也接受设备自己的 SSRC（实测 ssrc=1 也收）。
-    两个平台行为不一致，故选**历史验证过、且两边都能接受**的生成方式。
+    曾经按"平台 y= 是它分配给我的 SSRC"改成优先用平台值，结果在部分平台
+    上反而整路不出图：平台按自己 INVITE 里的 y= 建流，设备应答/推流换成
+    设备自己生成的 100490001 才正常。媒体服务器那边也接受设备自己的 SSRC
+    （实测 ssrc=1 也收）。不同平台行为不一致，故选**两边都能接受**的生成方式。
 
     平台完全没给 y= 的非标准实现也走同一条生成路径。
     ]]
@@ -1870,15 +1868,15 @@ end
 --[[
 对一个已建立的会话发一条 in-dialog 请求并跟踪其应答。
 
-**不要拿它做失活判据 —— 已实测否决**（WVP-Pro v2.7.4，2026-09-14）：
+**不要拿它做失活判据 —— 已实测否决**（平台实测）：
 
   OPTIONS  平台完全不处理对话内 OPTIONS → 根本没应答
-  INFO     WVP 用自己内部的事务表匹配，永远回 404「事务未找到」，
+  INFO     平台用自己内部的事务表匹配，永远回 404「事务未找到」，
            因此**无法区分"对话还在"与"对话已被平台丢弃"**
-  INVITE   回 500，并且 WVP 抛异常后直接注销流、停掉点播 ——
+  INVITE   回 500，并且平台抛异常后直接注销流、停掉点播 ——
            探针把被探测的会话弄坏了
 
-即便把 WVP 的内部匹配方式逆向对了也不该用：判据落在某个平台的实现细节上，
+即便把平台的内部匹配方式逆向对了也不该用：判据落在某个平台的实现细节上，
 换一家平台就不成立，那就不是判据。另外 INFO 在 GB28181 里承载 MANSRTSP
 （回放控制），在真的实现了它的平台上，这个空 INFO 可能被当成控制指令 ——
 把它当"无害的 ping"是把平台行为想简单了。
@@ -2094,8 +2092,8 @@ function M.push_frame(sess, frame)
     **这里原先写的是 `% 0xFFFFFFFF`，在 32 位整数下是错的**：`0xFFFFFFFF`
     会溢出成 -1，而 `x % -1` 恒等于 0 —— 于是**每一帧的 RTP 时间戳都是 0**。
     这是个"本地怎么测都看不出来"的故障：载荷是对的、包序是对的、ffmpeg 也能解，
-    只有真正按时间戳组帧的接收端(ZLM)会拒收，表现为"平台收到了流但一直不出图"。
-    实测就是这样：ZLM 打了"允许RTP推流"后再无下文，而把同一份字节流用递进的
+    只有真正按时间戳组帧的接收端(媒体服务器)会拒收，表现为"平台收到了流但一直不出图"。
+    实测就是这样：媒体服务器打了"允许RTP推流"后再无下文，而把同一份字节流用递进的
     时间戳喂进去就正常注册。
 
     取模本来是想做 32 位回绕，但**不需要**：RTP 时间戳字段本就 32 位，C 层收的是
@@ -2332,11 +2330,11 @@ function M.start_talk(opts)
     --[[
     音频 offer **总是**带一个非零 y=<SSRC>。
 
-    - 合宙 video.luatos.com 用 y= 标识音频流，offer 没有它就不建下行
+    - 部分平台用 y= 标识音频流，offer 没有它就不建下行
       （实测应答 `y=null`，随后一个 RTP 包都不回）；
-    - WVP 对 y= 的处理是"有就用、没有就生成随机值"（InviteRequestProcessor
-      453~486 行），并且会把它回显进 200 OK —— 带非零值对 WVP 完全无害，
-      而且让上面 offer 与下面 voip 上行用的是同一个 SSRC；
+    - 平台对 y= 的处理是"有就用、没有就生成随机值"，并且会把它回显进
+      200 OK —— 带非零值对平台完全无害，而且让上面 offer 与下面 voip
+      上行用的是同一个 SSRC；
     - y=0 反而会被部分平台当成非法 SSRC。
 
     序号要避开"同时存在的会话"：只数点播会让两路并发的对讲拿到同一个 SSRC。
@@ -2359,17 +2357,17 @@ function M.start_talk(opts)
     }
 
     --[[
-    offer 的媒体承载。缺省 UDP，与 §9.12 和 WVP 一致。
+    offer 的媒体承载。缺省 UDP，与 §9.12 一致。
 
-    `audio_offer_tcp` 打开时改成 TCP + `a=setup:active`：实测合宙
-    video.luatos.com 对 **UDP offer 也回** `m=audio ... TCP/RTP/AVP` +
+    `audio_offer_tcp` 打开时改成 TCP + `a=setup:active`：实测部分平台
+    对 **UDP offer 也回** `m=audio ... TCP/RTP/AVP` +
     `a=setup:passive`。offer/answer 的承载不一致时，它的媒体会话可能只
     accept 连接、不激活音频发送器（设备侧现象：TCP 连上了、50 包/秒发出去，
     但 rx 恒为 0）。显式 offer TCP 让协商合法，也排除"它按 UDP 理解这个会话"。
 
     setup 固定 active，不再单列开关：
-      · 合宙平台不认 `actpass`（回 500），只认 `active`；
-      · WVP 的广播会话走 UDP，根本不看 setup。
+      · 部分平台不认 `actpass`（回 500），只认 `active`；
+      · 另一些平台的广播会话走 UDP，根本不看 setup。
     所以"TCP ⇒ active"是当前两个平台唯一的合法组合。
     ]]
     local offer_tcp = g_opts.audio_offer_tcp and true or false
@@ -2412,11 +2410,10 @@ function M.start_talk(opts)
 
     **顺序按媒体流方向，不是按谁发起请求**：本会话是 recvonly（平台发音频、
     本端收），故发送者是**平台**、接收者是**本端通道**。写反的后果实测是
-    WVP 拿平台的 id 去查通道 → 查不到 → 403 Forbidden：
-      WVP 的 InviteMessageInfo 里 channelIds[0]→targetChannelId、
-      channelIds[1]→**sourceChannelId**，而它用 sourceChannelId 查通道。
+    平台拿自己的 id 去查通道 → 查不到 → 403 Forbidden：它会用 Subject 里
+    第二个（接收者/source）ID 查通道。
 
-    SSRC 段填本次 offer 生成的 SSRC（与 SDP 的 y= 一致）；WVP 只解析冒号
+    SSRC 段填本次 offer 生成的 SSRC（与 SDP 的 y= 一致）；平台只解析冒号
     前面的 ID 部分，不关心 SSRC。多通道设备应传 channel_id 指定要对讲的
     通道，缺省用设备编码。
     ]]
@@ -2475,7 +2472,7 @@ local function handle_talk_response(msg)
     1xx 是临时应答(Trying / Ringing 等)，**不是失败**：平台已受理，最终应答
     还在后面。这里必须原样等待，绝不能走下面的失败分支 —— 那会
     media_close() 释放本地端口，等真正的 200 OK 到达时会话已经没了。
-    (实测踩到：WVP 先回 100 Trying，被当成拒绝，链路明明通了却看着像 403。)
+    (实测踩到：平台先回 100 Trying，被当成拒绝，链路明明通了却看着像 403。)
     ]]
     if msg.code >= 100 and msg.code < 200 then
         log_info("音频会话临时应答", msg.code, msg.reason)
@@ -2496,7 +2493,7 @@ local function handle_talk_response(msg)
             --[[
             **承载以平台应答的 m= 为准，不能沿用 offer 时的判断**。
 
-            合宙 video.luatos.com 对 UDP offer 也回 `m=audio ... TCP/RTP/AVP`
+            有的平台对 UDP offer 也回 `m=audio ... TCP/RTP/AVP`
             + `a=setup:passive`：它把自己当被动方，等设备主动连 TCP。原实现
             在 audio_open() 里先把 sess.transport 记成 "udp"，应答时不更新，
             于是 voip 往平台的 TCP 监听端口发/收 UDP —— 表现为**广播没声音**，
@@ -2665,7 +2662,7 @@ end
 --[[
 向平台发一条 MANSCDP 的 Broadcast 通知(Notify)。
 
-GB28181-2016 §9.12 的方向是"平台通知设备"，但实测 WVP-Pro 这个分支里
+GB28181-2016 §9.12 的方向是"平台通知设备"，但实测该平台这个分支里
 **收通知的是平台**（`BroadcastNotifyMessageHandler` 挂在请求处理链上，
 且 `AudioBroadcastManager.update()` 由它触发）—— 即设备先声明"我要广播"，
 平台建立待接通记录，随后设备发起的 INVITE 才会被接受。
@@ -2779,7 +2776,7 @@ luat_gb28181_mansrtsp.h 的说明（取自真实平台源码，不是照标准�
 1. **SIP 层一律回 200**，业务上的"不支持"写在 MANSRTSP 的应答体里。
    标准要求"不支持的控制命令返回明确错误而不中断会话"—— 用 SIP 4xx 表达
    错误有被平台当成会话异常的风险，写进 body 则两边都满足。
-   （实测 WVP 收到应答后并不解析 body，回什么它都行；换一家会解析的平台时
+   （实测平台收到应答后并不解析 body，回什么它都行；换一家会解析的平台时
      这个体就是有效的。）
 
 2. **实时点播会话收到 MANSRTSP 一律忽略**：没有时间轴可控制，拖它没有意义。
@@ -2869,7 +2866,7 @@ end
 ## 与 MESSAGE 那条路的取舍
 
 报警既能用 MESSAGE 直接发（M6.5 已实现并实测过），也能走这条订阅链路。
-**两者在平台侧落地的结果并不一样**（实测读 WVP 源码）：
+**两者在平台侧落地的结果并不一样**（实测读平台源码）：
 
   · MESSAGE 路径对 `AlarmMethod=7`（其他）有旁路：只发 Redis，**不入告警列表**；
     订阅链路那条路**没有**这个旁路，同样一条报警会照常入库。
@@ -2882,7 +2879,7 @@ end
 
 RFC 3265 要求收到 SUBSCRIBE 后**立即回一条 NOTIFY**（哪怕没有内容）。
 **本组件不发那条空的**：GB28181 的报警订阅语义是"有警情才发"，而平台侧
-对空 body 的 NOTIFY 只会记一行 `未获取到消息体` 的错误日志（实测 WVP 的
+对空 body 的 NOTIFY 只会记一行 `未获取到消息体` 的错误日志（实测平台的
 `NotifyRequestProcessor`），除了满足仪式感没有收益。真遇到要求它的平台，
 在 `handle_subscribe` 末尾补一条 `send_notify(sub, nil)` 即可。
 ]]
@@ -2994,7 +2991,7 @@ end
 平台的 SUBSCRIBE 里带一个 MANSCDP 的 `<Query><CmdType>…</CmdType></Query>`
 说明订阅什么，`Expires` 头说明订多久。
 
-  · `Event` 头的取值**不是** `alarm`：实测 WVP 订阅报警发的是 `presence`
+  · `Event` 头的取值**不是** `alarm`：实测平台订阅报警发的是 `presence`
     （目录订阅才是 `Catalog`），带一个 eventId。本层原样回抄，不解释。
   · 应答里必须补 To-tag（见 reply_ok 的说明），否则对话没建起来。
   · `Expires: 0` **不是"订 0 秒"，而且有两种含义**（RFC 3265 §3.1.1）：
@@ -3042,8 +3039,8 @@ local function handle_subscribe(msg)
             现象：REGISTER 明明 200 OK，平台界面上设备始终"不在线"
                   （平台手里没有通道，就没有可播的通道）
 
-        实测(2026-09-22，合宙 video.luatos.com / LiveMedia 平台)：CSeq 从 18
-        一路涨上去、Call-ID 不变，是平台**等不到东西**在轮询，不是重传。
+        实测：CSeq 从 18 一路涨上去、Call-ID 不变，
+        是平台**等不到东西**在轮询，不是重传。
 
         只有 Catalog 补这条：报警订阅的"当前状态"没有对应语义(没有警情就是没有)，
         为它发一条空 NOTIFY 只会在平台侧留一行"未获取到消息体"的错误日志。
@@ -3116,7 +3113,7 @@ local function handle_subscribe(msg)
     --[[
     长期 **Catalog** 订阅要立刻把当前目录推一次。
 
-    实测 WVP：注册时自动下发的是**长期**目录订阅（60 秒一续），它发完就等设备
+    实测平台：注册时自动下发的是**长期**目录订阅（60 秒一续），它发完就等设备
     把目录送过来 —— 只回 200 不给目录，平台侧就是"设备在线、手里没有通道"，
     界面上根本没有可点播/可回放的通道（连"刷新通道信息"也会失败，因为它等
     那条 NOTIFY 等不到）。原先只有 Expires:0（一次性拉取）那条路会给目录，
@@ -3125,8 +3122,8 @@ local function handle_subscribe(msg)
     只在这一条订阅**新建**时发：刷新（同 Call-ID 再来）说明对话还在、目录也没变，
     再推一次纯属重复。之后目录有变化时由应用经 set_records 那条路推。
     ]]
-    -- 目录订阅的判据**同时看 Event 头与 body**：实测 WVP 只给 `Event: Catalog`
-    -- 而 body 是空的（`cmd` 取不到），合宙 video.luatos.com 则在 body 里带
+    -- 目录订阅的判据**同时看 Event 头与 body**：实测平台只给 `Event: Catalog`
+    -- 而 body 是空的（`cmd` 取不到），另一些平台则在 body 里带
     -- `<CmdType>Catalog</CmdType>`。只看 body 会漏掉前者。
     local is_catalog = (cmd == "Catalog") or
         (event:lower():find("catalog", 1, true) ~= nil)
@@ -3514,7 +3511,7 @@ local function sip_task()
     判活窗口必须**大于一个心跳周期**，否则一次慢应答/漏应答就会把
     一条还活着的链路判死，并把正在推的媒体会话一起拆掉。
 
-    2026-10-22 在 video.luatos.com 上实测：keepalive=10s、窗口固定 15s，
+    实测：keepalive=10s、窗口固定 15s，
     第一次心跳约 10 秒后才回（平台负载），第二次心跳刚发出 6 秒，窗口
     就从"上次收到报文"那笔账上超时了 —— 设备主动断链，随后媒体会话被
     `signaling_lost` 清掉，平台侧表现为"看着看着自动断开"。
@@ -3873,7 +3870,7 @@ end
 是"0-255 的像素"还是"万分比"，只有具体设备（ISP/镜头）知道，替调用方
 挑一种解释，挑错了比不解释更难查。
 
-**平台不等这条指令的应答**（实测 WVP 的 `dragZoomCmd` 不注册 Result 订阅），
+**平台不等这条指令的应答**（实测平台的 `dragZoomCmd` 不注册 Result 订阅），
 但本层仍会回一条 —— 多回一条无害，而漏回会让"某天换了个平台"时出问题。
 
 @api exgb28181client.on_drag_zoom(handler)
@@ -3902,7 +3899,7 @@ end
 字段取值：`enabled` 为 0/1；`reset_time`(等待秒数)与 `preset_index`(预置位号)
 **为 -1 表示平台没给** —— 0 是合法取值，不能用 0 兼作"没给"。
 
-**这一项平台会等应答里的 `Result`**（实测 WVP 的 `homePositionCmd` 注册了
+**这一项平台会等应答里的 `Result`**（实测平台的 `homePositionCmd` 注册了
 MessageEvent 订阅），所以千万别在这里默默失败：处理者抛异常时本层会回
 ERROR，那就是正确的表达。
 

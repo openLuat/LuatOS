@@ -5,7 +5,7 @@
 @date    2026.09.17
 
 平台点"历史回放"时，INVITE 的 SDP 给的是**时间段**（t= 起止 Unix 秒）而不是
-文件名 —— 实测 WVP-Pro 的 `playbackStreamCmd` 里 `u=` 填的是
+文件名 —— 实测平台的 `playbackStreamCmd` 里 `u=` 填的是
 `<通道编码>:0`，**不是录像 ID**。所以"该播哪一段"只能设备自己按时间对。
 
 本模块就是这一步：时间段 → 录像文件 → 按时间轴喂帧。
@@ -560,7 +560,7 @@ end
 @param sess    会话
 @param seconds 偏移秒数（**相对回放起点**，>=0）
 
-为什么是相对而不是绝对：实测 WVP 的 `playSeekCmd` 发的是
+为什么是相对而不是绝对：实测平台的 `playSeekCmd` 发的是
 `Range: npt=<秒>-`，而 npt(normal play time) 在 RTSP 里对一段"存储的节目"
 就是相对节目开头的偏移；同一平台恢复播放时发的 `Range: npt=now-` 是同一套
 语义（now = 当前位置，不可能是绝对时刻）。所以这里的秒数相对 t_start。

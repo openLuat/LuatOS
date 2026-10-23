@@ -9,6 +9,9 @@ exgb28181audio 的 start/mic_start 依赖 voip/audio_v2 硬件路径，PC 模拟
   · 稳定 API 的存在与参数校验（不启动真实音频）
   · 裸流后端 exgb28181audio_raw 的可用性与参数拒绝（不建链）
 
+裸流后端已不随 script/libs 发布（放在组件仓库 gb28181/tests/tools/）。
+要跑那组用例，把该目录也加入脚本搜索路径；没带时整组自动跳过。
+
 testrunner 用 pairs() 遍历，执行顺序不确定，每个用例自备状态。
 ]]
 
@@ -121,29 +124,36 @@ function t.test_idle_api_safe()
            "stats 应返回表并带 mic 子表")
 end
 
-function t.test_raw_backend_available_and_idle()
-    assert(raw ~= nil, "require exgb28181audio_raw 失败")
-    assert(raw.available() == true, "PC 上应有 gb28181.stream_*")
-    assert(raw.is_running() == false, "初始不应在运行")
-    assert(raw.stop() == true, "空闲时 stop 应返回 true")
-    local s = raw.stats()
-    assert(type(s) == "table", "stats 应返回表")
-    assert(s.mode == nil and s.mic_active == false,
-           "未运行时 mode 应为 nil、mic_active 为 false")
-end
+-- 裸流后端的用例只在找得到模块时注册：它已不随 script/libs 发布，
+-- 跑法见文件头的说明（不带上对应目录时整组跳过，而不是判失败）。
+if raw then
+    function t.test_raw_backend_available_and_idle()
+        assert(raw.available() == true, "PC 上应有 gb28181.stream_*")
+        assert(raw.is_running() == false, "初始不应在运行")
+        assert(raw.stop() == true, "空闲时 stop 应返回 true")
+        local s = raw.stats()
+        assert(type(s) == "table", "stats 应返回表")
+        assert(s.mode == nil and s.mic_active == false,
+               "未运行时 mode 应为 nil、mic_active 为 false")
+    end
 
-function t.test_raw_backend_rejects_bad_session()
-    -- 没有 local_port：必须在建链前拒绝，不能碰 socket
-    local ok1, why1 = raw.start({ call_id = "no-port" })
-    assert(ok1 == false and type(why1) == "string")
+    function t.test_raw_backend_rejects_bad_session()
+        -- 没有 local_port：必须在建链前拒绝，不能碰 socket
+        local ok1, why1 = raw.start({ call_id = "no-port" })
+        assert(ok1 == false and type(why1) == "string")
 
-    -- 未知承载：同样在 stream_new 之前拒绝
-    local ok2, why2 = raw.start({
-        call_id = "bad-transport", local_port = 31000, transport = "sctp",
-    })
-    assert(ok2 == false and type(why2) == "string")
-    assert(why2:find("承载", 1, true) ~= nil, "错误应指明承载不合法")
-    assert(raw.is_running() == false, "失败后不能留下运行状态")
+        -- 未知承载：同样在 stream_new 之前拒绝
+        local ok2, why2 = raw.start({
+            call_id = "bad-transport", local_port = 31000, transport = "sctp",
+        })
+        assert(ok2 == false and type(why2) == "string")
+        assert(why2:find("承载", 1, true) ~= nil, "错误应指明承载不合法")
+        assert(raw.is_running() == false, "失败后不能留下运行状态")
+    end
+else
+    log.warn("gb28181_audio_test",
+             "没有 exgb28181audio_raw：跳过裸流后端用例" ..
+             "（把组件仓库 gb28181/tests/tools/ 加入脚本路径可跑）")
 end
 
 return t

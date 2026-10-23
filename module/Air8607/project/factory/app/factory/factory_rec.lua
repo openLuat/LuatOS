@@ -209,6 +209,14 @@ local function codec_restore_task()
     codec_restore_scheduled = false
 end
 
+-- PA 功放关闭（跟随播放状态：录音收尾/退出窗口用，录音本窗口不出声）
+local function pa_off()
+    local ac = get_audio_config()
+    if ac and ac.pa_ctrl then
+        gpio.setup(ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
+    end
+end
+
 -- 录音完成收尾（两框架共用，防重复执行）
 local function finalize_record(manual_stop)
     if v2_finalized then return end
@@ -240,6 +248,7 @@ local function finalize_record(manual_stop)
         codec_restore_scheduled = true
         sys.taskInit(codec_restore_task)
     end
+    pa_off()
 end
 
 
@@ -383,6 +392,8 @@ local function rec_setup()
     end
     state = "idle"
     sys.publish("FACTORY_REC_READY", true, "音频就绪")
+    -- 本窗口不出声：pm(RESUME) 顺带拉高的 PA 立即关（录音起录/收尾再跟随开关）
+    pa_off()
 end
 
 --[[
@@ -412,6 +423,7 @@ local function rec_reset()
         codec_restore_scheduled = true
         sys.taskInit(codec_restore_task)
     end
+    pa_off()
 end
 
 -- ==================== 录音 ====================

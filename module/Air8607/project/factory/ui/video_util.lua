@@ -317,6 +317,17 @@ function M.find_companion_mp3(mjpg_path)
     return nil
 end
 
+-- PA 功放使能/关闭（引脚与电平读板级 hw.audio；出声开、暂停/停止/播完/销毁关）
+local function pa_set(on)
+    local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
+    if not (ac and ac.pa_ctrl) then return end
+    if on then
+        pcall(gpio.setup, ac.pa_ctrl, ac.pa_on_level or 0)
+    else
+        pcall(gpio.setup, ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
+    end
+end
+
 --[[开始播放一路配套音频
 
 @param mp3_path string 音频文件路径
@@ -341,12 +352,16 @@ function M.audio_play(mp3_path, should_loop)
                         play_loop(path)
                     else
                         audio_playing = false
+                        pa_set(false)   -- 配套音频播完关功放（PA 跟随出声状态）
                     end
                 end
             end
         })
     end
     audio_playing = play_loop(mp3_path)
+    if audio_playing then
+        pa_set(true)   -- 配套音频出声开功放
+    end
     log.info("video_util", "companion audio start", mp3_path, "ok=", audio_playing)
     return audio_playing
 end
@@ -358,6 +373,7 @@ function M.audio_stop()
         pcall(exaudio.play_stop, { type = 0 })
         audio_mp3 = nil
         audio_playing = false
+        pa_set(false)   -- 配套音频停止关功放
     end
 end
 
@@ -367,6 +383,7 @@ function M.audio_toggle(should_loop)
     if audio_playing then
         pcall(exaudio.play_stop, { type = 0 })
         audio_playing = false
+        pa_set(false)   -- 暂停配套音频关功放
     else
         M.audio_play(audio_mp3, should_loop)
     end
@@ -394,17 +411,6 @@ MP4 源分辨率上限 480×320：mplayer 的 RGB 帧缓冲是静态数组，超
 起播前用纯 Lua 盒解析读宽高拦截。HZV/MJPG 无此上限（HZV 支持更大分辨率）。]]
 local MP4_MAX_W = 480
 local MP4_MAX_H = 320
-
--- PA 功放使能/关闭（引脚与电平读板级 hw.audio）
-local function pa_set(on)
-    local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
-    if not (ac and ac.pa_ctrl) then return end
-    if on then
-        pcall(gpio.setup, ac.pa_ctrl, ac.pa_on_level or 0)
-    else
-        pcall(gpio.setup, ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
-    end
-end
 
 -- 功放补枪的世代号：会话收尾后作废尚未触发的补枪
 local pa_gen = 0
@@ -436,7 +442,7 @@ end
 
 接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
 paused 字段记录用户暂停状态（应用层循环续播据此跳过，见 create_player）；
-HZV/MJPG 不涉及这些副作用，create_player 仍返回裸对象。
+HZV/MJPG 不涉及这些副作用，create_player 返回只管功放的轻包装（wrap_basic_player）。
 
 **会话状态按实例归属（修「全屏↔窗口切换几次后 MP4 不显示 / 回到桌面点不动」）**：
 触摸总线恢复定时器 settle_t 收进每个播放器自己的 sess 表，不再用模块级共享一份。
@@ -522,6 +528,34 @@ local function wrap_mp4_player(v)
         destroy = function(_)
             pcall(function() v:destroy() end)
             session_end()
+        end,
+    }
+end
+
+--[[包装 HZV/MJPG 播放器：PA 跟随播放状态（起播开、暂停/停止/销毁关）
+
+接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
+这两类没有 mplayer 的总线副作用，无需会话定时器，只管功放。]]
+local function wrap_basic_player(v)
+    return {
+        play = function(self, ...)
+            local r = v:play(...)
+            pa_set(true)             -- PA_EN 跟随播放：起播开功放
+            return r
+        end,
+        pause = function(self, ...)
+            local r = v:pause(...)
+            pa_set(false)            -- PA_EN 跟随暂停：暂停关功放
+            return r
+        end,
+        stop = function(self, ...)
+            local r = v:stop(...)
+            pa_set(false)            -- PA_EN 跟随停止：停止关功放
+            return r
+        end,
+        destroy = function(_)
+            pcall(function() v:destroy() end)
+            pa_set(false)            -- PA_EN 跟随销毁：销毁关功放
         end,
     }
 end
@@ -618,10 +652,11 @@ function M.create_player(path, o)
             end
         end
     elseif vcfg.on_complete then
-        --[[HZV/MJPG 单次播完：组件回调用户回调后，同样补一次触摸硬恢复。
-        循环模式下组件内部自己重播、不停音频通路，不会触发这里。]]
+        --[[HZV/MJPG 单次播完：先关功放（PA 跟随出声状态），再回调调用方，
+        最后补一次触摸硬恢复。循环模式下组件内部自己重播、不停音频通路，不会触发这里。]]
         local user_complete = vcfg.on_complete
         vcfg.on_complete = function()
+            pa_set(false)
             user_complete()
             M.tp_recover(300)
         end
@@ -629,11 +664,9 @@ function M.create_player(path, o)
 
     local ok, v = pcall(airui.video, vcfg)
     if not ok or not v then
-        if fmt == "mp4" then
-            -- 起播失败收尾：此时还没 wrap，没有实例定时器，直接关功放 + 恢复触摸总线
-            pa_set(false)
-            M.tp_bus_restore()
-        end
+        -- 起播失败收尾：此时还没 wrap，没有实例定时器，直接关功放 + 恢复触摸总线
+        pa_set(false)
+        M.tp_bus_restore()
         return nil
     end
     if fmt == "mp4" then
@@ -647,7 +680,7 @@ function M.create_player(path, o)
     这里补两发延迟恢复（发射即忘，这类播放器没有可收尾的会话对象）。
     与桌面/全屏切换时序无关，因此不存在 MP4 那种「被对端 cancel」的问题。]]
     tp_bus_settle_once()
-    return v
+    return wrap_basic_player(v)
 end
 
 return M

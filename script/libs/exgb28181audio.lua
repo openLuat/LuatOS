@@ -29,6 +29,8 @@ start 的 opts（稳定面）：
     aec           native 专用，布尔，默认 true
     bridge_gain   bridge 专用，上行增益 1~8，默认 4
     debug         bridge 专用，audio_v2 调试日志
+    tx            是否发送上行，默认 true。喊话/广播会话传 false：
+                  只收流/播放，不产生任何 RTP 上行（对端常声明 sendonly）
 
 承载按会话的 `transport` 原样透传："udp"/"tcp"/"tcp_passive"（TCP 下 RTP 按
 RFC 4571 定界，由 voip 内部处理）。
@@ -682,6 +684,8 @@ local function bridge_start(session, opts)
     local transport = session.transport or "udp"
     local jb_depth = opts.jitter_depth
                      or ((transport == "udp") and 6 or 12)
+    local tx = true
+    if opts.tx ~= nil then tx = opts.tx and true or false end
     local okv = voip.start({
         codec       = voip.PCMA,
         sample_rate = SAMPLE_RATE,
@@ -696,6 +700,7 @@ local function bridge_start(session, opts)
         aec         = false,
         aec_denoise = false,
         aec_agc     = false,
+        tx_mute     = not tx,
     })
     if not okv then
         return fail("voip.start 失败")
@@ -763,6 +768,8 @@ end
     aec           native 专用，布尔，默认 true
     bridge_gain   bridge 专用，上行增益 1~8，默认 4
     debug         bridge 专用，audio_v2 调试日志
+    tx            是否发送上行，默认 true。喊话/广播会话传 false：
+                  只收流/播放，不产生任何 RTP 上行（对端常声明 sendonly）
 @return boolean
 @return string|nil 失败原因
 ]]
@@ -852,6 +859,9 @@ function M.start(session, opts)
         jb_depth = tonumber(jb_depth) or 0
         if jb_depth < 1 then return fail("jitter_depth 必须是正整数") end
     end
+    -- 只收不发：喊话/广播时设备只播放、不回传麦克风（默认双向）
+    local tx = true
+    if opts.tx ~= nil then tx = opts.tx and true or false end
     local okv = voip.start({
         codec        = voip.PCMA,
         sample_rate  = SAMPLE_RATE,
@@ -865,6 +875,7 @@ function M.start(session, opts)
         aec          = aec,
         aec_denoise  = aec,
         aec_agc      = aec,
+        tx_mute      = not tx,
     })
     if not okv then return fail("voip.start 失败") end
 

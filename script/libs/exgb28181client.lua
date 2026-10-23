@@ -1478,10 +1478,10 @@ local function handle_audio_invite(msg, s)
         port         = port,
         payload_type = 8,
         rtpmap       = "PCMA/8000",
-        -- 平台发起的这条是对讲（双向）。上行由音频引擎在该会话上发送；
-        -- 应答仍按历史实现声明 recvonly —— 实测 WVP/ZLM 不按应答方向限制
-        -- 上行（双向实测零丢包），改成 sendrecv 未在平台上复验，暂不动。
-        direction    = "recvonly",
+        -- 平台发起的这条是"对讲"，双向：设备在该会话上发送上行，
+        -- 所以应答声明 sendrecv（与实际行为一致）。喊话会话的
+        -- "只收不发"由音频引擎的 tx=false 保证，与本应答无关。
+        direction    = "sendrecv",
         has_ssrc     = 0,
         -- 承载必须与平台要求一致；setup 方向取反（上面已算好，见 tcp_setup_choice）
         proto        = is_tcp and gb.PROTO_TCP or gb.PROTO_UDP,
@@ -2382,16 +2382,12 @@ function M.start_talk(opts)
         payload_type = 8,          -- G.711A
         rtpmap       = "PCMA/8000",
         --[[
-        offer 方向固定 sendrecv。
+        offer 方向 recvonly：广播是平台→设备单向，设备只收不放。
 
-        §9.12 的广播名义上是"设备只收"，但合宙 video.luatos.com 把同一个会话
-        当**双向会话**（200 OK 回 sendrecv，且不会另发对讲 INVITE），声明
-        recvonly 时它会按"设备不发送"丢掉上行。WVP 则相反：它的应答固定
-        `a=sendonly`（InviteRequestProcessor.sendOk 里写死），**不解析 offer
-        的 direction**，上行在另行发起的 Talk INVITE（对讲会话）里。
-        所以 sendrecv 对两者都成立。
+        上行只走平台发起的对讲会话；设备对广播会话统一 tx=false（只播放），
+        SDP 如实声明 recvonly。
         ]]
-        direction    = "sendrecv",
+        direction    = "recvonly",
         -- y=<SSRC> 总是带，见上面 ssrc 的说明。
         has_ssrc     = 1,
         ssrc         = ssrc,

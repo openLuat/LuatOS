@@ -503,6 +503,9 @@ static int voip_send_tx_frame(voip_ctx_t *ctx, const int16_t *pcm,
     int ret;
     voip_rtp_tx_state_t before;
     if (!ctx->netc || !pcm) return -1;
+    /* 只收不发（喊话/广播）：设备不回传麦克风。SDP 里对端通常声明
+       a=sendonly，发了也只是白发，还会占用上行带宽/发送队列。 */
+    if (ctx->config.tx_mute) return 0;
     (void)capture_seq;
     (void)capture_tick_ms;
     (void)mic_energy;

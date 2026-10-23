@@ -93,6 +93,10 @@ typedef struct {
     uint8_t  aec_denoise;
     uint8_t  aec_mode;
     uint8_t  aec_agc;
+    /* 只收不发：仍然收流/解码/播放，但不产生任何 RTP 上行。
+       GB28181 的"喊话/广播"是平台→设备单向，设备不应回传麦克风；
+       SDP 里对端也常声明 a=sendonly。 */
+    uint8_t  tx_mute;
     uint16_t aec_tail_ms;
     uint16_t aec_delay_samples;
 #ifdef LUAT_USE_SRTP

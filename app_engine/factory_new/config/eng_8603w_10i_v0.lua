@@ -10,7 +10,7 @@
 
 注意：
 1. Air8603W 主控平台为 Air1603。本型号为 WiFi 版（Air6205 模组，UART3），同底板另有
-   4G 出货型号 Engine_Air8603M_10inch_1024x600_000_V000（config/eng_8603m_10i_v0.lua），
+   4G 出货型号 Engine_Air8603M1_10inch_1024x600_000_4G_V000（config/eng_8603m_10i_v0.lua），
    两型号是同一底板网络模组切换的不同出货型号，配置只差 network / features / ui 三处，切勿混用。
 2. 【音频 = Air1103 语音芯片】UART6（固定 2M 波特率），单芯片集成 MIC + 喇叭 + AEC，
    exaudio 走 model="air1103" + audio_mode="new" 新框架（与 config/eng_8605b_10i_v0.lua 同款）。
@@ -53,7 +53,7 @@
 
 return {
     -- ===== 顶层信息 =====
-    name = "Engine_Air8603W_10inch_1024x600_000_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}
+    name = "Engine_Air8603W_10inch_1024x600_000_WiFi_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}_{网络}
     chip = "Air1603", -- 主控芯片平台（同 config/eng_8607a_10i_v0.lua）
     baseboard = "合宙引擎 AIR8603W V000 10寸", -- 底板型号
 

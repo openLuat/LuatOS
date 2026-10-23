@@ -43,6 +43,7 @@
 
 #include "luat_rtp.h"
 #include "luat_conf_bsp.h"
+
 #include "g711_codec/g711_codec.h"
 #ifdef LUAT_SUPPORT_G729
 #include "g729a_interface.h"
@@ -368,7 +369,7 @@ static int voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_ty
     state->ssrc = (uint32_t)(uPV.u32 & 0x7FFFFFFF);
     if (ssrc != 0) {
         /* 调用方指定：GB28181 把同一个值写进 SDP 的 y=，平台按它校验 RTP，
-           随机值对不上会被平台拒收（实测 ZLM 打印"允许RTP推流，ssrc: <y 的值>"） */
+           随机值对不上会被平台拒收 */
         state->ssrc = ssrc;
     } else if (state->ssrc == 0) {
         state->ssrc = 1;
@@ -1052,9 +1053,7 @@ static void voip_handle_rtp(voip_ctx_t *ctx, const uint8_t *pkt, uint16_t len)
         return;
     }
 
-    /* 只要求是**整包的整数倍**：包长是平台定的（实测 WVP 的对讲下行 100ms/800 字节），
-       要求严格相等会把每个下行包整包丢掉（现象：喇叭没声、平台侧流却正常）。
-       非整数倍（含 G.729 的 2 字节 SID 帧）仍按畸形丢，交给抖动缓冲隐藏。 */
+    /* 载荷必须是整帧的整数倍（一个包可能带多帧）；非整数倍按畸形丢。 */
     if (parsed.payload_len == 0 || (parsed.payload_len % ctx->rtp_payload_len) != 0) {
         ctx->stats.rx_bad_payload++;
         if ((ctx->stats.rx_bad_payload & 0x3FU) == 1U) {
@@ -1079,26 +1078,59 @@ static void voip_handle_rtp(voip_ctx_t *ctx, const uint8_t *pkt, uint16_t len)
     /* 按整包切开逐块解。**帧序号按时间戳推，不能拿包序号 +1** —— 序号是按"包"递增的，
        切出来的第 2..N 帧会撞上下一包的序号，抖动缓冲满屏 `jb resync` 直至重启。 */
     uint32_t ts_step = ctx->frame_samples;
+    uint16_t units = (uint16_t)(parsed.payload_len / ctx->rtp_payload_len);
     if (!ctx->rx_ts_base_valid || ctx->rx_ts_ssrc != parsed.ssrc) {
+        /* 新流/新会话：帧序号从头推，包序号只作为初值 */
+        ctx->rx_next_frame_seq_valid = 0;
         ctx->rx_ts_base = parsed.timestamp;
         ctx->rx_ts_base_seq = parsed.sequence;
         ctx->rx_ts_ssrc = parsed.ssrc;
         ctx->rx_ts_base_valid = 1;
+        ctx->rx_last_ts_valid = 0;
     }
-    /* 只在**时间戳往回跳**时重对时基。**不能加上限**：正常流跑久了就会超过任何上限，
-       那样会周期性误重对，帧序号被拉回包序号量级 → 抖动缓冲一路 resync。 */
+    /* 时间戳可能与包序号不同步：序号 +1，timestamp 却多跳几帧。按
+       units × step 判单包 delta，偏差超过 ±1 帧就重锚；帧序号接续
+       上一帧，不能退回包序号。 */
+    if (ctx->rx_last_ts_valid) {
+        int32_t ts_delta = (int32_t)(parsed.timestamp - ctx->rx_last_ts);
+        int32_t expected = (int32_t)units * (int32_t)ts_step;
+        if (ts_delta < expected - (int32_t)ts_step ||
+                ts_delta > expected + (int32_t)ts_step) {
+            /* 只在前 20 次打印，避免平台抖动时刷屏 */
+            static uint32_t reanchor_logs;
+            if (reanchor_logs < 20) {
+                reanchor_logs++;
+                LLOGW("rx ts re-anchor: delta=%ld expected=%ld rtp_seq=%u units=%u",
+                      (long)ts_delta, (long)expected,
+                      (unsigned)parsed.sequence, (unsigned)units);
+            }
+            ctx->rx_ts_base = parsed.timestamp;
+            ctx->rx_ts_base_seq = ctx->rx_next_frame_seq_valid
+                                  ? ctx->rx_next_frame_seq
+                                  : (uint16_t)parsed.sequence;
+            ctx->rx_ts_ssrc = parsed.ssrc;
+            ctx->rx_ts_base_valid = 1;
+        }
+    }
+    ctx->rx_last_ts = parsed.timestamp;
+    ctx->rx_last_ts_valid = 1;
+    /* 时间戳回退时重锚；帧序号同样接续上一帧。 */
     int32_t ts_off = (int32_t)(parsed.timestamp - ctx->rx_ts_base);
     if (ts_off < 0) {
         ctx->rx_ts_base = parsed.timestamp;
-        ctx->rx_ts_base_seq = parsed.sequence;
+        ctx->rx_ts_base_seq = ctx->rx_next_frame_seq_valid
+                              ? ctx->rx_next_frame_seq
+                              : (uint16_t)parsed.sequence;
         ts_off = 0;
     }
 
-    uint16_t units = (uint16_t)(parsed.payload_len / ctx->rtp_payload_len);
     for (uint16_t u = 0; u < units; u++) {
         const uint8_t *chunk = parsed.payload + (uint32_t)u * ctx->rtp_payload_len;
         uint16_t seq = (uint16_t)(ctx->rx_ts_base_seq +
                 (uint32_t)(ts_off + (int32_t)u * (int32_t)ts_step) / ts_step);
+        /* 记下下一帧序号，供重锚时接续 */
+        ctx->rx_next_frame_seq = (uint16_t)(seq + 1);
+        ctx->rx_next_frame_seq_valid = 1;
         uint32_t pcm_len = 0;
         uint32_t used = 0;
         uint64_t started_ms = luat_mcu_tick64_ms();
@@ -1582,6 +1614,8 @@ static void voip_reset_session_state(voip_ctx_t *ctx)
 #endif
     ctx->aec_ready = 0;
     ctx->rx_ts_base_valid = 0;      /* 帧序号的时间戳基准，每个会话重新对 */
+    ctx->rx_last_ts_valid = 0;
+    ctx->rx_next_frame_seq_valid = 0;
     voip_tcp_framer_reset(&ctx->tcp_framer);
 #ifdef LUAT_USE_VOIP_BRIDGE
     ctx->bridge_tx_write_idx = 0;

@@ -200,6 +200,7 @@ typedef struct
 	uint32_t OCR;
 	uint32_t SpiSpeed;
 	uint8_t *TempData;
+	uint8_t *DummyData;
 	uint16_t WriteWaitCnt;
 	uint8_t CSPin;
 	uint8_t SpiID;
@@ -436,93 +437,6 @@ SDHC_SPIREADREGDATA_DONE:
 	return Result;
 }
 
-
-static int32_t luat_spitf_write_data(luat_spitf_ctrl_t *spitf)
-{
-	uint64_t OpEndTick;
-	int Result = -ERROR_OPERATION_FAILED;
-	uint16_t TxLen, DoneFlag, waitCnt;
-	uint16_t i, crc16;
-	spitf->SPIError = 0;
-	spitf->SDHCError = 0;
-	OpEndTick = luat_mcu_tick64_ms() + SPI_TF_WRITE_TO_MS;
-	while( (spitf->DataBuf.Pos < spitf->DataBuf.MaxLen) && (luat_mcu_tick64_ms() < OpEndTick) )
-	{
-		spitf->TempData[0] = 0xff;
-		spitf->TempData[1] = 0xff;
-		//LLOGD("%u,%u", spitf->DataBuf.Pos, spitf->DataBuf.MaxLen);
-		spitf->TempData[2] = 0xfc;
-		memcpy(spitf->TempData + 3, spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__, __SDHC_BLOCK_LEN__);
-		crc16 = CRC16Cal(spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__, __SDHC_BLOCK_LEN__, 0, CRC16_CCITT_GEN, 0);
-		BytesPutBe16(spitf->TempData + 3 + __SDHC_BLOCK_LEN__, crc16);
-		spitf->TempData[5 + __SDHC_BLOCK_LEN__] = 0xff;
-		TxLen = 6 + __SDHC_BLOCK_LEN__;
-		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, TxLen, (char *)spitf->TempData, TxLen);
-		if ((spitf->TempData[5 + __SDHC_BLOCK_LEN__] & 0x1f) != 0x05)
-		{
-			LLOGD("write data error! %d %02x", spitf->DataBuf.Pos, spitf->TempData[5 + __SDHC_BLOCK_LEN__]);
-			spitf->SDHCError = 1;
-			goto SDHC_SPIWRITEBLOCKDATA_DONE;
-		}
-		DoneFlag = 0;
-		waitCnt = 0;
-		while( (luat_mcu_tick64_ms() < OpEndTick) && !DoneFlag )
-		{
-			TxLen = spitf->WriteWaitCnt?spitf->WriteWaitCnt:80;
-			memset(spitf->TempData, 0xff, TxLen);
-			luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, TxLen, (char *)spitf->TempData, TxLen);
-			for(i = 4; i < TxLen; i++)
-			{
-				if (spitf->TempData[i] == 0xff)
-				{
-					DoneFlag = 1;
-					if ((i + waitCnt) < __SDHC_BLOCK_LEN__)
-					{
-						if ((i + waitCnt) != spitf->WriteWaitCnt)
-						{
-							spitf->WriteWaitCnt = i + waitCnt + 8;
-						}
-					}
-					break;
-				}
-			}
-			waitCnt += TxLen;
-		}
-		if (!DoneFlag)
-		{
-			LLOGD("write data timeout!");
-			spitf->SDHCError = 1;
-			goto SDHC_SPIWRITEBLOCKDATA_DONE;
-		}
-		spitf->DataBuf.Pos++;
-		OpEndTick = luat_mcu_tick64_ms() + SPI_TF_WRITE_TO_MS;
-	}
-	Result = ERROR_NONE;
-SDHC_SPIWRITEBLOCKDATA_DONE:
-	spitf->TempData[0] = 0xfd;
-	luat_spi_send(spitf->SpiID, (const char *)spitf->TempData, 1);
-
-	OpEndTick = luat_mcu_tick64_ms() + SPI_TF_WRITE_TO_MS;
-	DoneFlag = 0;
-	while( (luat_mcu_tick64_ms() < OpEndTick) && !DoneFlag )
-	{
-		TxLen = 512;
-		memset(spitf->TempData, 0xff, TxLen);
-		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, TxLen, (char *)spitf->TempData, TxLen);
-		for(i = 4; i < TxLen; i++)
-		{
-			if (spitf->TempData[i] == 0xff)
-			{
-				DoneFlag = 1;
-				break;
-			}
-		}
-	}
-	luat_spitf_cs(spitf, 0);
-	return Result;
-}
-
-#if defined(LUAT_USE_SPI_TF_READ_FAST)
 /*
  * 计算一个扇区数据的 CRC16-CCITT。
  * 结果与 CRC16Cal(src, 512, 0, CRC16_CCITT_GEN, 0) 相同，按字节查 256 项表。
@@ -572,6 +486,95 @@ static uint16_t spitf_crc16_block(const uint8_t *src)
 	return crc;
 }
 
+static int32_t luat_spitf_write_data(luat_spitf_ctrl_t *spitf)
+{
+	uint64_t OpEndTick;
+	int Result = -ERROR_OPERATION_FAILED;
+	uint16_t TxLen, DoneFlag, waitCnt;
+	uint16_t i, crc16;
+	spitf->SPIError = 0;
+	spitf->SDHCError = 0;
+	OpEndTick = luat_mcu_tick64_ms() + SPI_TF_WRITE_TO_MS;
+	while( (spitf->DataBuf.Pos < spitf->DataBuf.MaxLen) && (luat_mcu_tick64_ms() < OpEndTick) )
+	{
+		spitf->TempData[0] = 0xff;
+		spitf->TempData[1] = 0xff;
+		//LLOGD("%u,%u", spitf->DataBuf.Pos, spitf->DataBuf.MaxLen);
+		spitf->TempData[2] = 0xfc;
+		memcpy(spitf->TempData + 3, spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__, __SDHC_BLOCK_LEN__);
+		crc16 = spitf_crc16_block(spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__);
+		BytesPutBe16(spitf->TempData + 3 + __SDHC_BLOCK_LEN__, crc16);
+		spitf->TempData[5 + __SDHC_BLOCK_LEN__] = 0xff;
+		TxLen = 6 + __SDHC_BLOCK_LEN__;
+		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, TxLen, (char *)spitf->TempData, TxLen);
+		if ((spitf->TempData[5 + __SDHC_BLOCK_LEN__] & 0x1f) != 0x05)
+		{
+			LLOGD("write data error! %d %02x", spitf->DataBuf.Pos, spitf->TempData[5 + __SDHC_BLOCK_LEN__]);
+			spitf->SDHCError = 1;
+			goto SDHC_SPIWRITEBLOCKDATA_DONE;
+		}
+		DoneFlag = 0;
+		waitCnt = 0;
+		while( (luat_mcu_tick64_ms() < OpEndTick) && !DoneFlag )
+		{
+			TxLen = spitf->WriteWaitCnt?spitf->WriteWaitCnt:80;
+			//memset(spitf->TempData, 0xff, TxLen);
+			luat_spi_transfer(spitf->SpiID, (const char *)spitf->DummyData, TxLen, (char *)spitf->TempData, TxLen);
+			for(i = 4; i < TxLen; i++)
+			{
+				if (spitf->TempData[i] == 0xff)
+				{
+					DoneFlag = 1;
+					if ((i + waitCnt) < __SDHC_BLOCK_LEN__)
+					{
+						if ((i + waitCnt) != spitf->WriteWaitCnt)
+						{
+							spitf->WriteWaitCnt = i + waitCnt + 8;
+						}
+					}
+					break;
+				}
+			}
+			waitCnt += TxLen;
+		}
+		if (!DoneFlag)
+		{
+			LLOGD("write data timeout!");
+			spitf->SDHCError = 1;
+			goto SDHC_SPIWRITEBLOCKDATA_DONE;
+		}
+		spitf->DataBuf.Pos++;
+		OpEndTick = luat_mcu_tick64_ms() + SPI_TF_WRITE_TO_MS;
+	}
+	Result = ERROR_NONE;
+SDHC_SPIWRITEBLOCKDATA_DONE:
+	spitf->TempData[0] = 0xfd;
+	luat_spi_send(spitf->SpiID, (const char *)spitf->TempData, 1);
+
+	OpEndTick = luat_mcu_tick64_ms() + SPI_TF_WRITE_TO_MS;
+	DoneFlag = 0;
+	while( (luat_mcu_tick64_ms() < OpEndTick) && !DoneFlag )
+	{
+		TxLen = 512;
+		//memset(spitf->TempData, 0xff, TxLen);
+		luat_spi_transfer(spitf->SpiID, (const char *)spitf->DummyData, TxLen, (char *)spitf->TempData, TxLen);
+		for(i = 4; i < TxLen; i++)
+		{
+			if (spitf->TempData[i] == 0xff)
+			{
+				DoneFlag = 1;
+				break;
+			}
+		}
+	}
+	luat_spitf_cs(spitf, 0);
+	return Result;
+}
+
+
+
+
+#if defined(LUAT_USE_SPI_TF_READ_FAST)
 /*
  * 在 CMD18 的数据阶段寻找第一个 0xFE 数据令牌。
  * 每次时钟读入 SPITF_TOKEN_SCAN 字节，最多扫 2048 字节。
@@ -832,10 +835,10 @@ static int32_t luat_spitf_read_data(luat_spitf_ctrl_t *spitf)
 	while( (spitf->DataBuf.Pos < spitf->DataBuf.MaxLen) && (luat_mcu_tick64_ms() < OpEndTick) )
 	{
 
-		DummyLen = (__SDHC_BLOCK_LEN__ >> 1);
-		memset(spitf->TempData, 0xff, DummyLen);
+		DummyLen = __SDHC_BLOCK_LEN__;
+//		memset(spitf->TempData, 0xff, DummyLen);
 //		LLOGD("read blocks %u,%u", spitf->DataBuf.Pos, spitf->DataBuf.MaxLen);
-		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, DummyLen, (char *)spitf->TempData, DummyLen);
+		luat_spi_transfer(spitf->SpiID, (const char *)spitf->DummyData, DummyLen, (char *)spitf->TempData, DummyLen);
 		RemainingLen = 0;
 		for(i = 0; i < DummyLen; i++)
 		{
@@ -847,25 +850,30 @@ static int32_t luat_spitf_read_data(luat_spitf_ctrl_t *spitf)
 				{
 					memcpy(spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__, spitf->TempData + i + 1, ReadLen);
 				}
-//				LLOGD("read result %u,%u", ReadLen, RemainingLen);
+				//LLOGD("read result %u,%u,%u", i,ReadLen, RemainingLen);
 				goto READ_REST_DATA;
 			}
 		}
 		continue;
 READ_REST_DATA:
 		pBuf = spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__ + ReadLen;
-		memset(pBuf, 0xff, RemainingLen);
-		luat_spi_transfer(spitf->SpiID, (const char *)pBuf, RemainingLen, (char *)pBuf, RemainingLen);
-		memset(spitf->TempData, 0xff, 2);
-		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, 2, (char *)spitf->TempData, 2);
+		// memset(pBuf, 0xff, RemainingLen);
+		// luat_spi_transfer(spitf->SpiID, (const char *)pBuf, RemainingLen, (char *)pBuf, RemainingLen);
+		// memset(spitf->TempData, 0xff, 2);
+		// luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, 2, (char *)spitf->TempData, 2);
+		DummyLen = RemainingLen + 2;
+		luat_spi_transfer(spitf->SpiID, (const char *)spitf->DummyData, DummyLen, (char *)spitf->TempData, DummyLen);
+		memcpy(pBuf, spitf->TempData, RemainingLen);
 		if (FATFS_NO_CRC_CHECK)
 		{
 
 		}
 		else
 		{
-			crc16 = CRC16Cal(spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__, __SDHC_BLOCK_LEN__, 0, CRC16_CCITT_GEN, 0);
-			crc16_check = BytesGetBe16(spitf->TempData);
+			//crc16 = CRC16Cal(spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__, __SDHC_BLOCK_LEN__, 0, CRC16_CCITT_GEN, 0);
+			crc16 = spitf_crc16_block(spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__);
+			//crc16_check = BytesGetBe16(spitf->TempData);
+			crc16_check = BytesGetBe16(spitf->TempData + RemainingLen);
 			if (crc16 != crc16_check)
 			{
 				LLOGD("crc16 error %04x %04x", crc16, crc16_check);
@@ -893,6 +901,11 @@ static void luat_spitf_init(luat_spitf_ctrl_t *spitf)
 	if (!spitf->TempData)
 	{
 		spitf->TempData = luat_heap_malloc(__SDHC_BLOCK_LEN__ + 8);
+	}
+	if (!spitf->DummyData)
+	{
+		spitf->DummyData = luat_heap_malloc(__SDHC_BLOCK_LEN__ + 8);
+		memset(spitf->DummyData, 0xff, __SDHC_BLOCK_LEN__ + 8);
 	}
 	luat_spi_change_speed(spitf->SpiID, 400000);
 	spitf->ExtraClockNeeded = 0; /* default */

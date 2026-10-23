@@ -27,7 +27,7 @@
 #include "luat_log.h"
 
 /* 解码线程参数 */
-#define MPLAYER_DS_STACK     24 * 1024
+#define MPLAYER_DS_STACK     64 * 1024   /* H264 FFmpeg 宏块解码吃栈大, 24KB 会栈溢出 */
 /* 解码线程优先级不能高于 luatos 主任务(80>>2=20)：H264 单帧解码 40~106ms 密集
  * 占用 CPU，若高于主任务会抢占 UI → 界面卡顿。保持 50(>>2=12) 低于主任务。
  * 代价：播放中可能被 UI/文件选择器临时抢占产生解码尖峰、偶发跳帧(轻微不同步)，
@@ -123,7 +123,6 @@ static void mplayer_mp4_task_entry(void *arg)
     movie_mp4 *mp4 = (movie_mp4 *)m->media;
     while (m->decode_running) {
         movie_mp4_task(mp4);
-        movie_render_task(mp4);
         luat_rtos_task_sleep(2);
     }
     if (m->done_sem) {
@@ -131,48 +130,77 @@ static void mplayer_mp4_task_entry(void *arg)
     }
     vTaskSuspend(NULL);
 }
-/* MP4 渲染线程入口*/
+/* MP4 渲染线程入口: 只按 PTS 渲染/丢帧, 不解码 */
 static void mplayer_mp4_render_task(void *arg) 
 {
     luat_mplayer_t *m = (luat_mplayer_t *)arg;
     movie_mp4 *mp4 = (movie_mp4 *)m->media;
-    while (m->decode_running) {
-        movie_mp4_task(mp4);
+    while (m->render_running) {
         movie_render_task(mp4);
-        luat_rtos_task_sleep(2);
+        luat_rtos_task_sleep(20);
     }
-    if (m->done_sem) {
-        xSemaphoreGive((SemaphoreHandle_t)m->done_sem);
+    if (m->render_done_sem) {
+        xSemaphoreGive((SemaphoreHandle_t)m->render_done_sem);
     }
     vTaskSuspend(NULL);
 }
 
-/* 启动 mp4 解码线程 */
+/* 启动 mp4 解码线程 + 渲染线程 */
 static int mplayer_start_mp4_thread(luat_mplayer_t *m) {
-    SemaphoreHandle_t sem = xSemaphoreCreateBinary();
-    if (!sem) {
-        LLOGE("create done_sem failed");
+    SemaphoreHandle_t dsem = xSemaphoreCreateBinary();
+    SemaphoreHandle_t rsem = xSemaphoreCreateBinary();
+    if (!dsem || !rsem) {
+        if (dsem) vSemaphoreDelete(dsem);
+        if (rsem) vSemaphoreDelete(rsem);
+        LLOGE("create thread done_sem failed");
         return -1;
     }
-    m->done_sem = sem;
+    m->done_sem = dsem;
+    m->render_done_sem = rsem;
 
     m->decode_running = 1;
+    m->render_running = 1;
     m->decode_task = NULL;
-    /*luat_rtos_task_create */
+    m->render_task = NULL;
+
     int rc = luat_rtos_task_create((luat_rtos_task_handle *)&m->decode_task, MPLAYER_DS_STACK,
                               MPLAYER_DS_PRIO, "mplayer", mplayer_mp4_task_entry, m, 0);
     if (rc != 0) {
-        LLOGE("task_create rc=%d", rc);
+        LLOGE("decode task_create rc=%d", rc);
         m->decode_running = 0;
-        xSemaphoreGive(sem);   /* 尚无线程会 give, 主动 give 避免 stop 阻塞 */
+        m->render_running = 0;
+        vSemaphoreDelete(dsem);
+        m->done_sem = NULL;
+        vSemaphoreDelete(rsem);
+        m->render_done_sem = NULL;
+        return -1;
+    }
+
+    rc = luat_rtos_task_create((luat_rtos_task_handle *)&m->render_task, MPLAYER_RS_STACK,
+                              MPLAYER_RS_PRIO, "mplayer_render", mplayer_mp4_render_task, m, 0);
+    if (rc != 0) {
+        LLOGE("render task_create rc=%d", rc);
+        /* 回滚: 先停已创建的解码线程, 再清信号量 */
+        m->decode_running = 0;
+        m->render_running = 0;
+        if (m->decode_task) {
+            if (m->done_sem) {
+                xSemaphoreTake((SemaphoreHandle_t)m->done_sem, pdMS_TO_TICKS(MPLAYER_DS_STOP_TO));
+            }
+            luat_rtos_task_delete((luat_rtos_task_handle)m->decode_task);
+            m->decode_task = NULL;
+        }
+        if (m->done_sem) { vSemaphoreDelete((SemaphoreHandle_t)m->done_sem); m->done_sem = NULL; }
+        if (m->render_done_sem) { vSemaphoreDelete((SemaphoreHandle_t)m->render_done_sem); m->render_done_sem = NULL; }
         return -1;
     }
     return 0;
 }
 
-/* 停止并回收解码线程 */
+/* 停止并回收解码线程 + 渲染线程 */
 static void mplayer_stop_mp4_thread(luat_mplayer_t *m) {
     m->decode_running = 0;
+    m->render_running = 0;
     if (m->decode_task) {
         if (m->done_sem) {
             xSemaphoreTake((SemaphoreHandle_t)m->done_sem, pdMS_TO_TICKS(MPLAYER_DS_STOP_TO));
@@ -180,9 +208,20 @@ static void mplayer_stop_mp4_thread(luat_mplayer_t *m) {
         luat_rtos_task_delete((luat_rtos_task_handle)m->decode_task);
         m->decode_task = NULL;
     }
+    if (m->render_task) {
+        if (m->render_done_sem) {
+            xSemaphoreTake((SemaphoreHandle_t)m->render_done_sem, pdMS_TO_TICKS(MPLAYER_DS_STOP_TO));
+        }
+        luat_rtos_task_delete((luat_rtos_task_handle)m->render_task);
+        m->render_task = NULL;
+    }
     if (m->done_sem) {
         vSemaphoreDelete((SemaphoreHandle_t)m->done_sem);
         m->done_sem = NULL;
+    }
+    if (m->render_done_sem) {
+        vSemaphoreDelete((SemaphoreHandle_t)m->render_done_sem);
+        m->render_done_sem = NULL;
     }
 }
 
@@ -262,6 +301,9 @@ luat_mplayer_t *luat_mplayer_open(const char *path) {
     m->decode_running = 0;
     m->decode_task = NULL;
     m->done_sem = NULL;
+    m->render_running = 0;
+    m->render_task = NULL;
+    m->render_done_sem = NULL;
     return m;
 }
 

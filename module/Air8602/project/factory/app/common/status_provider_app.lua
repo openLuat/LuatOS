@@ -189,7 +189,7 @@ local function get_wifi_signal_level()
     return wifi_signal_level
 end
 
--- 4G移动网络信号部分（仅Air8000）
+-- 4G移动网络信号部分
 local mobile_signal_level = -1
 local sim_present = false
 local mobile_timer = nil
@@ -199,23 +199,29 @@ if has_4g then
 end
 
 local function update_mobile_signal()
-    -- airlink 4G（如 Air1601）不支持 CSQ 查询，跳过
-    if _G.project_config and (_G.project_config.chip == "Air1601" or _G.project_config.chip == "Air1602") then
-        if _G.project_config.network then
-            for _, nc in ipairs(_G.project_config.network) do
-                if nc.type and nc.type:find("4g_airlink", 1, true) then
-                    return
-                end
-            end
+    local old_level = mobile_signal_level
+    -- airlink 4G（Air1601/Air1602）收不到从机的 SIM_IND，SIM 状态只写在从机 devinfo 里，
+    -- 因此这里在轮询中补查一次；一旦就绪就不再重复查询
+    if not sim_present then
+        local ok, pin = pcall(mobile.simPin)
+        local ready = ok and pin or false
+        if ready then
+            sim_present = true
+            log.info("status_provider", "SIM状态", "就绪")
         end
     end
-    local old_level = mobile_signal_level
     if not sim_present then
         mobile_signal_level = -1
     else
         local ok, csq = pcall(mobile.csq)
-        if not ok then csq = 99 end
-        if csq == 99 or csq <= 5 then
+        if not ok then
+            log.warn("status_provider", "4G信号查询异常", csq)
+            csq = nil
+        end
+        -- csq 查询失败、返回 0（无信号）或 99（未知）都视为无信号
+        if csq == nil or csq == 0 or csq == 99 then
+            mobile_signal_level = -1
+        elseif csq <= 5 then
             mobile_signal_level = 1
         elseif csq <= 10 then
             mobile_signal_level = 2
@@ -226,8 +232,10 @@ local function update_mobile_signal()
         else
             mobile_signal_level = 5
         end
+        log.debug("status_provider", "4G信号查询", "csq", csq or "nil", "level", mobile_signal_level)
     end
     if old_level ~= mobile_signal_level then
+        log.info("status_provider", "4G信号等级更新", old_level, "->", mobile_signal_level)
         sys.publish("STATUS_SIGNAL_UPDATED", mobile_signal_level)
     end
 end

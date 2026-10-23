@@ -804,7 +804,15 @@ static int l_i2c_transfer(lua_State *L)
 		rx_len = 0;
 	}
 	else if (lua_isinteger(L, 5)) {
-		rx_len = luaL_checkinteger(L, 5);
+		lua_Integer rx_len_arg = luaL_checkinteger(L, 5);
+		if (rx_len_arg < 0) {
+			LLOGE("i2c transfer rx_len %d is invalid", (int)rx_len_arg);
+			if (tx_heap_flag) luat_heap_free(tx_buff);
+			lua_pushboolean(L, 0);
+			lua_pushnil(L);
+			return 2;
+		}
+		rx_len = (size_t)rx_len_arg;
 		if (rx_len) {
 			if (!rbuff) {
 				rx_buff = luat_heap_malloc(rx_len);
@@ -817,8 +825,15 @@ static int l_i2c_transfer(lua_State *L)
                 }
 			}
 			else {
-				if ((rbuff->used + rx_len) > rbuff->len) {
-					__zbuff_resize(rbuff, rbuff->len + rx_len);
+				if ((uint64_t)rbuff->used + (uint64_t)rx_len > rbuff->len) {
+					uint64_t new_len = (uint64_t)rbuff->len + (uint64_t)rx_len;
+					if (new_len > 0xFFFFFFFFu || __zbuff_resize(rbuff, (uint32_t)new_len)) {
+						LLOGE("i2c transfer rx buffer resize failed");
+						if (tx_heap_flag) luat_heap_free(tx_buff);
+						lua_pushboolean(L, 0);
+						lua_pushnil(L);
+						return 2;
+					}
 				}
 				rx_buff = rbuff->addr + rbuff->used;
 			}
@@ -831,7 +846,7 @@ static int l_i2c_transfer(lua_State *L)
 		if (rx_buff && rx_len) {
 			result = luat_i2c_transfer(id, addr, tx_buff, tx_len, rx_buff, rx_len);
 		} else {
-			result = luat_i2c_transfer(id, addr, NULL, 0, tx_buff, tx_len);
+			result = luat_i2c_transfer(id, addr, tx_buff, tx_len, NULL, 0);
 		}
 	}else if (lua_isuserdata(L, 1)){
         luat_ei2c_t *ei2c = toei2c(L);
@@ -896,7 +911,19 @@ static int l_i2c_no_block_transfer(lua_State *L)
 
 	luat_zbuff_t *rbuff = ((luat_zbuff_t *)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE));
 	if (lua_isinteger(L, 5) && rbuff) {
-		rx_len = luaL_checkinteger(L, 5);
+		lua_Integer rx_len_arg = luaL_checkinteger(L, 5);
+		if (rx_len_arg < 0) {
+			LLOGE("i2c no block transfer rx_len %d is invalid", (int)rx_len_arg);
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+		rx_len = (size_t)rx_len_arg;
+		/* this path always writes into the zbuff from offset 0, so capacity must be >= rx_len */
+		if (rx_len > rbuff->len && ((uint64_t)rx_len > 0xFFFFFFFFu || __zbuff_resize(rbuff, (uint32_t)rx_len))) {
+			LLOGE("i2c no block transfer rx buffer resize failed");
+			lua_pushboolean(L, 0);
+			return 1;
+		}
 		rx_buff = rbuff->addr;
 		rbuff->used = rx_len;
 	}

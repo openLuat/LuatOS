@@ -8,13 +8,35 @@
 | 项目标识 | `PROJECT = "Air8300_Factory"` |
 | 固件版本 | `VERSION = "001.999.001"` |
 | 软件框架 | LuatOS（Lua 脚本） |
-| 工程代码 | `firmware/code/`（Luatools 烧录此目录） |
+| 工程代码 | `factory/`（分层组织，Luatools 烧录此目录） |
 | 设计文档 | `firmware/doc/` |
 | 产测通道 | USB 虚拟串口 `uart.VUART_0`，115200 8N1，指令以 `#` 结尾 |
 
 ---
 
-## 1 功能概览
+## 1 目录结构
+
+```
+factory/
+├── main.lua          入口
+├── app/
+│   ├── factory.lua       产测模式主控
+│   ├── net/              net_config / net_drv / net_watchdog
+│   ├── modbus/           comm_core / relay_ctrl / rtu_slave_regmap / tcp_slave / tcp_modbus_master
+│   ├── web/              httpsrv_web
+│   ├── aircloud/         aircloud_data / airlbs_app
+│   ├── fota/             fota_app
+│   └── io/               gpio_ctrl / led / power_mgr
+├── drv/netdrv/       netdrv_device
+├── libs/             libfota3 / prodmeta
+└── web/              index.html
+```
+
+> 目录只是工程组织方式，烧录时脚本按文件名平铺进 `/luadb`，各模块 `require "xxx"` 不带目录名（与 Air8780_factory 一致）；README 本身放在烧录目录之外，烧录时不会被打包。
+
+---
+
+## 2 功能概览
 
 | 能力 | 说明 |
 |------|------|
@@ -31,7 +53,7 @@
 
 ---
 
-## 2 双模分发机制
+## 3 双模分发机制
 
 `main.lua` 开机按 `BOOT_MODE` 与 `fskv` 标记 `test_done` 分流：
 
@@ -57,15 +79,15 @@
 
 ---
 
-## 3 快速开始
+## 4 快速开始
 
-### 3.1 设备烧录
+### 4.1 设备烧录
 
-1. Air8300 通过 USB 连接电脑，Luatools 选择脚本目录 **`firmware/code/`**；
+1. Air8300 通过 USB 连接电脑，Luatools 选择脚本目录 **`factory/`**；
 2. 选择对应 Air8000W底层固件，本工程使用的是2052-1号固件，下载脚本；
 3. 复位后看日志首行应为 `I/user.main Air8300_Factory 001.999.001`。
 
-### 3.2 产测模式（产线）
+### 4.2 产测模式（产线）
 
 新板（或已清 `test_done` 的板）上电即进产测模式，用串口工具（SSCOM / Luatools 串口工具）打开**USB 虚拟串口**，115200 8N1，发送以 `#` 结尾的指令：
 
@@ -123,7 +145,7 @@ TEST_DONE#                   标记完成 → 3 秒后重启进入用户模式
 
 > LED 为**三路互斥**器件，同一时刻只点亮一路，不支持混色与亮度调节；上电默认全灭。
 
-### 4.4 重测与调试
+### 4.3 重测与调试
 
 | 场景 | 操作 |
 |------|------|

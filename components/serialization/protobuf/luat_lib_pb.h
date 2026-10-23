@@ -351,6 +351,7 @@ PB_NS_END
 #define PB_MIN_STRTABLE_SIZE  16
 #define PB_MIN_HASHTABLE_SIZE 8
 #define PB_HASHLIMIT          5
+#define PB_MAX_DEPTH          16
 
 #include <assert.h>
 #include <stdlib.h>
@@ -533,7 +534,9 @@ PB_API size_t pb_readbytes(pb_Slice *s, pb_Slice *pv) {
     return s->p - p;
 }
 
-PB_API size_t pb_readgroup(pb_Slice *s, uint32_t tag, pb_Slice *pv) {
+static size_t pb_skipvalue_r(pb_Slice *s, uint32_t tag, int depth);
+
+static size_t pb_readgroup_r(pb_Slice *s, uint32_t tag, pb_Slice *pv, int depth) {
     const char *p = s->p;
     uint32_t newtag = 0;
     size_t count;
@@ -547,13 +550,17 @@ PB_API size_t pb_readgroup(pb_Slice *s, uint32_t tag, pb_Slice *pv) {
             pv->end = s->p - count;
             return s->p - p;
         }
-        if (pb_skipvalue(s, newtag) == 0) break;
+        if (pb_skipvalue_r(s, newtag, depth) == 0) break;
     }
     s->p = p;
     return 0;
 }
 
-PB_API size_t pb_skipvalue(pb_Slice *s, uint32_t tag) {
+PB_API size_t pb_readgroup(pb_Slice *s, uint32_t tag, pb_Slice *pv) {
+    return pb_readgroup_r(s, tag, pv, 1);
+}
+
+static size_t pb_skipvalue_r(pb_Slice *s, uint32_t tag, int depth) {
     const char *p = s->p;
     size_t ret = 0;
     pb_Slice data;
@@ -563,10 +570,18 @@ PB_API size_t pb_skipvalue(pb_Slice *s, uint32_t tag) {
     case PB_T64BIT:  ret = pb_skipslice(s, 8); break;
     case PB_TBYTES:  ret = pb_skipbytes(s); break;
     case PB_T32BIT:  ret = pb_skipslice(s, 4); break;
-    case PB_TGSTART: ret = pb_readgroup(s, tag, &data); break;
+    case PB_TGSTART:
+        /* bound GROUP nesting: a crafted packet would otherwise recurse until the stack overflows */
+        if (depth < PB_MAX_DEPTH)
+            ret = pb_readgroup_r(s, tag, &data, depth + 1);
+        break;
     }
     if (!ret) s->p = p;
     return ret;
+}
+
+PB_API size_t pb_skipvalue(pb_Slice *s, uint32_t tag) {
+    return pb_skipvalue_r(s, tag, 1);
 }
 
 PB_API size_t pb_skipvarint(pb_Slice *s) {

@@ -379,6 +379,10 @@ local procTable = {
                 local ok, err = prodmeta.set("IMEI", imei)
                 if not ok then log.error("factory", "写IMEI失败", err) end
             end
+            -- 删除首测保护标记(首测正常结束才解除，中途复位仍保留以继续产测)
+            if not retest.clear_firsttest() then
+                log.warn("factory", "首测保护标记删除失败")
+            end
             log.info("factory", "首次产测完成，OTP1 型号/硬件版本/IMEI",
                 prod, prodmeta.get("PCB"), prodmeta.get("IMEI"), "3秒后重启")
         end

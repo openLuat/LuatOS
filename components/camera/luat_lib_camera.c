@@ -92,10 +92,12 @@ int l_camera_handler(lua_State *L, void* ptr) {
         	case LUAT_CAMERA_USB_CONNECT:
         		lua_pushinteger(L, LUAT_USB_EVENT_CONNECT);
         		lua_pushinteger(L, u_event.port_id);
+                luat_usb_camera_ctrl_plane_get_all_info(u_event.app_id);
         		break;
         	case LUAT_CAMERA_USB_DISCONNECT:
         		lua_pushinteger(L, LUAT_USB_EVENT_DISCONNECT);
         		lua_pushinteger(L, u_event.port_id);
+                luat_usb_camera_ctrl_plane_clear_all_info();
         		break;
         	case LUAT_CAMERA_FRAME_ERROR:
             	lua_pushinteger(L, LUAT_USB_EVENT_RX_ERROR);
@@ -1088,6 +1090,69 @@ static int l_camera_utest_qr_decode(lua_State *L) {
 }
 #endif
 
+/**
+USB摄像头标准控制界面读取CT/PU参数 --本函数于 2026.10.23 新增, 当前仅Air1601可用
+@api camera.ctrl_plane_get(app_id, param)
+@int app_id usb应用id
+@int param 参数名称，必须用camera.UVC_CT_XXX和camera.UVC_PU_XXX定义的常量
+@return boolean 该项参数成功被读取返回true,无法读取返回false
+@return boolean 该项参数是否可以读取 true是
+@return boolean 该项参数是否可以写入 true是
+@return boolean 该项参数当前是否会被自动模式锁定无法写入 true是，在写入前需要将对应的自动模式关闭
+@return boolean 该项参数是否是取值范围 true是，只有是的情况下后续最大值，最小值和步进值才有意义
+@return int 当前值
+@return int 默认值
+@return int 最小值
+@return int 最大值
+@return int 步进值
+*/
+static int l_camera_uvc_ctrl_plane_get(lua_State *L)
+{
+    luat_uvc_ctrl_param_t def_param = {0};
+    luat_uvc_ctrl_param_t *param = luat_usb_camera_ctrl_plane_get(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
+    if (!param) {
+        param = &def_param;
+    }
+    lua_pushboolean(L, param->state);
+    lua_pushboolean(L, param->state & LUAT_UVC_CTRL_CAP_GET);
+    lua_pushboolean(L, param->state & LUAT_UVC_CTRL_CAP_SET);
+    lua_pushboolean(L, param->state & LUAT_UVC_CTRL_CAP_DISABLED_AUTO);
+    lua_pushboolean(L, (param->flag & _F_RANGE) && (!(param->flag & _F_COMPOSITE)));
+    lua_pushinteger(L, param->cur);
+    lua_pushinteger(L, param->def);
+    lua_pushinteger(L, param->min);
+    lua_pushinteger(L, param->max);
+    lua_pushinteger(L, param->res);
+    return 10;
+}
+
+/**
+USB摄像头标准控制界面写入CT/PU参数 --本函数于 2026.10.23 新增, 当前仅Air1601可用
+@api camera.ctrl_plane_set(app_id, param, value)
+@int app_id usb应用id
+@int param 参数，必须用camera.UVC_CT_XXX和camera.UVC_PU_XXX定义的常量
+@int value 参数值
+@return boolean true成功 false失败
+*/
+static int l_camera_uvc_ctrl_plane_set(lua_State *L)
+{
+    int ret = luat_usb_camera_ctrl_plane_set(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2), luaL_checkinteger(L, 3));
+    lua_pushboolean(L, !ret);
+    return 1;
+}
+
+/**
+USB摄像头标准控制界面刷新全部参数，一般不需要调用，除非出现摄像头识别阶段出错无法读取全部有效数据的情况，才使用 --本函数于 2026.10.23 新增, 当前仅Air1601可用
+@api camera.ctrl_plane_refresh(app_id)
+@int app_id usb应用id
+@return nil
+*/
+static int l_camera_uvc_ctrl_plane_refresh(lua_State *L)
+{
+    luat_usb_camera_ctrl_plane_get_all_info(luaL_checkinteger(L, 1));
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_camera[] =
 {
@@ -1108,6 +1173,9 @@ static const rotable_Reg_t reg_camera[] =
 	{ "set_usb_config",		 ROREG_FUNC(l_camera_set_usb_config)},
 	{ "cache",		 ROREG_FUNC(l_camera_cache)},
 	{ "stream",		 ROREG_FUNC(l_camera_stream)},
+    { "ctrl_plane_get", ROREG_FUNC(l_camera_uvc_ctrl_plane_get)},
+    { "ctrl_plane_set", ROREG_FUNC(l_camera_uvc_ctrl_plane_set)},
+    { "ctrl_plane_refresh", ROREG_FUNC(l_camera_uvc_ctrl_plane_refresh)},
 #if defined(LUAT_USE_UTEST) && defined(LUAT_USE_CAMERA_SCAN)
 	{ "utest_qr_decode", ROREG_FUNC(l_camera_utest_qr_decode)},
 #endif
@@ -1157,6 +1225,85 @@ static const rotable_Reg_t reg_camera[] =
     //@const CONF_UVC_RESOLUTION number USB摄像头的数据流中具体数据信息，包括图像大小和帧率
     { "CONF_UVC_RESOLUTION",               ROREG_INT(LUAT_CAMERA_CONF_UVC_RESOLUTION)},
 
+    //@const UVC_CT_SCANNING_MODE number USB摄像头的扫描模式：0=隔行 1=逐行
+    { "UVC_CT_SCANNING_MODE",       ROREG_INT(LUAT_UVC_CT_SCANNING_MODE_CONTROL)},
+    //@const UVC_CT_AE_MODE number USB摄像头的自动曝光模式：1=手动 2=自动 4=快门优先(曝光时间手动) 8=光圈优先(光圈手动) 的组合位图
+    { "UVC_CT_AE_MODE",       ROREG_INT(LUAT_UVC_CT_AE_MODE_CONTROL)},
+    //@const UVC_CT_AE_PRIORITY number USB摄像头的自动曝光优先级：0=保帧率 1=允许降帧换曝光
+    { "UVC_CT_AE_PRIORITY",       ROREG_INT(LUAT_UVC_CT_AE_PRIORITY_CONTROL)},
+    //@const UVC_CT_EXPOSURE_ABSOLUTE number USB摄像头的绝对曝光时间，单位100us
+    { "UVC_CT_EXPOSURE_ABSOLUTE",       ROREG_INT(LUAT_UVC_CT_EXPOSURE_TIME_ABSOLUTE_CONTROL)},
+    //@const UVC_CT_EXPOSURE_RELATIVE number USB摄像头的相对曝光时间：-1/0/1档，写0回到默认值
+    { "UVC_CT_EXPOSURE_RELATIVE",       ROREG_INT(LUAT_UVC_CT_EXPOSURE_TIME_RELATIVE_CONTROL)},
+    //@const UVC_CT_FOCUS_ABSOLUTE number USB摄像头的绝对对焦位置，单位mm，值越小越近
+    { "UVC_CT_FOCUS_ABSOLUTE",       ROREG_INT(LUAT_UVC_CT_FOCUS_ABSOLUTE_CONTROL)},
+    //@const UVC_CT_FOCUS_RELATIVE number USB摄像头的相对对焦：复合参数，方向+速度，方向写0才停止
+    { "UVC_CT_FOCUS_RELATIVE",       ROREG_INT(LUAT_UVC_CT_FOCUS_RELATIVE_CONTROL)},
+    //@const UVC_CT_FOCUS_AUTO number USB摄像头的自动对焦开关：1=自动 0=手动
+    { "UVC_CT_FOCUS_AUTO",       ROREG_INT(LUAT_UVC_CT_FOCUS_AUTO_CONTROL)},
+    //@const UVC_CT_IRIS_ABSOLUTE number USB摄像头的绝对光圈，值为光圈F值x100，f/2.8=280
+    { "UVC_CT_IRIS_ABSOLUTE",       ROREG_INT(LUAT_UVC_CT_IRIS_ABSOLUTE_CONTROL)},
+    //@const UVC_CT_IRIS_RELATIVE number USB摄像头的相对光圈：-1/0/1档
+    { "UVC_CT_IRIS_RELATIVE",       ROREG_INT(LUAT_UVC_CT_IRIS_RELATIVE_CONTROL)},
+    //@const UVC_CT_ZOOM_ABSOLUTE number USB摄像头的绝对变焦，单位mm(物方焦距)
+    { "UVC_CT_ZOOM_ABSOLUTE",       ROREG_INT(LUAT_UVC_CT_ZOOM_ABSOLUTE_CONTROL)},
+    //@const UVC_CT_ZOOM_RELATIVE number USB摄像头的相对变焦：复合参数，方向+数字变焦开关+速度
+    { "UVC_CT_ZOOM_RELATIVE",       ROREG_INT(LUAT_UVC_CT_ZOOM_RELATIVE_CONTROL)},
+    //@const UVC_CT_PANTILT_ABSOLUTE number USB摄像头的绝对云台：Pan/Tilt各4字节，单位弧秒
+    { "UVC_CT_PANTILT_ABSOLUTE",       ROREG_INT(LUAT_UVC_CT_PANTILT_ABSOLUTE_CONTROL)},
+    //@const UVC_CT_PANTILT_RELATIVE number USB摄像头的相对云台：Pan/Tilt各{方向,速度}
+    { "UVC_CT_PANTILT_RELATIVE",       ROREG_INT(LUAT_UVC_CT_PANTILT_RELATIVE_CONTROL)},
+    //@const UVC_CT_ROLL_ABSOLUTE number USB摄像头的绝对旋转角度，单位度，范围-180~180
+    { "UVC_CT_ROLL_ABSOLUTE",       ROREG_INT(LUAT_UVC_CT_ROLL_ABSOLUTE_CONTROL)},
+    //@const UVC_CT_ROLL_RELATIVE number USB摄像头的相对旋转：复合参数，方向+速度
+    { "UVC_CT_ROLL_RELATIVE",       ROREG_INT(LUAT_UVC_CT_ROLL_RELATIVE_CONTROL)},
+    //@const UVC_CT_PRIVACY number USB摄像头的隐私遮挡开关：1=遮挡不出图 0=正常
+    { "UVC_CT_PRIVACY",       ROREG_INT(LUAT_UVC_CT_PRIVACY_CONTROL)},
+    //@const UVC_CT_FOCUS_SIMPLE number USB摄像头的简易对焦(UVC1.5)：0=全范围 1=微距 2=人物 3=风景
+    { "UVC_CT_FOCUS_SIMPLE",       ROREG_INT(LUAT_UVC_CT_FOCUS_SIMPLE_CONTROL)},
+    //@const UVC_CT_WINDOW number USB摄像头的数字窗口(UVC1.5)：top/left/bottom/right/steps/step_units共12字节复合参数
+    { "UVC_CT_WINDOW",       ROREG_INT(LUAT_UVC_CT_WINDOW_CONTROL)},
+    //@const UVC_CT_ROI number USB摄像头的感兴趣区域(ROI)：AE/AF生效的矩形区域，10字节复合参数
+    { "UVC_CT_ROI",       ROREG_INT(LUAT_UVC_CT_REGION_OF_INTEREST_CONTROL)},
+
+    //@const UVC_PU_BACKLIGHT number USB摄像头的背光补偿：逆光下提升暗部亮度
+    { "UVC_PU_BACKLIGHT",       ROREG_INT(LUAT_UVC_PU_BACKLIGHT_COMPENSATION_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_BRIGHTNESS number USB摄像头的亮度，有符号相对值
+    { "UVC_PU_BRIGHTNESS",       ROREG_INT(LUAT_UVC_PU_BRIGHTNESS_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_CONTRAST number USB摄像头的对比度：明暗反差
+    { "UVC_PU_CONTRAST",       ROREG_INT(LUAT_UVC_PU_CONTRAST_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_GAIN number USB摄像头的增益：图像信号放大倍数
+    { "UVC_PU_GAIN",       ROREG_INT(LUAT_UVC_PU_GAIN_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_POWER_LINE_FREQUENCY number USB摄像头的工频抗闪烁：0=禁用 1=50Hz 2=60Hz 3=自动
+    { "UVC_PU_POWER_LINE_FREQUENCY",       ROREG_INT(LUAT_UVC_PU_POWER_LINE_FREQUENCY_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_HUE number USB摄像头的色相，单位度x100
+    { "UVC_PU_HUE",       ROREG_INT(LUAT_UVC_PU_HUE_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_SATURATION number USB摄像头的饱和度：色彩浓淡
+    { "UVC_PU_SATURATION",       ROREG_INT(LUAT_UVC_PU_SATURATION_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_SHARPNESS number USB摄像头的锐度：边缘增强强度
+    { "UVC_PU_SHARPNESS",       ROREG_INT(LUAT_UVC_PU_SHARPNESS_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_GAMMA number USB摄像头的伽马校正，取值=gamma x100
+    { "UVC_PU_GAMMA",       ROREG_INT(LUAT_UVC_PU_GAMMA_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_WB_TEMPERATURE number USB摄像头的白平衡色温，单位K
+    { "UVC_PU_WB_TEMPERATURE",       ROREG_INT(LUAT_UVC_PU_WHITE_BALANCE_TEMPERATURE_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_WB_TEMPERATURE_AUTO number USB摄像头的自动白平衡(色温模式)开关：1=自动 0=手动
+    { "UVC_PU_WB_TEMPERATURE_AUTO",       ROREG_INT(LUAT_UVC_PU_WHITE_BALANCE_TEMPERATURE_AUTO_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_WB_COMPONENT number USB摄像头的分量白平衡：Blue在前Red在后各2字节，共4字节复合参数
+    { "UVC_PU_WB_COMPONENT",       ROREG_INT(LUAT_UVC_PU_WHITE_BALANCE_COMPONENT_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_WB_COMPONENT_AUTO number USB摄像头的自动白平衡(分量模式)开关：1=自动 0=手动
+    { "UVC_PU_WB_COMPONENT_AUTO",       ROREG_INT(LUAT_UVC_PU_WHITE_BALANCE_COMPONENT_AUTO_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_DIGITAL_MULTIPLIER number USB摄像头的数字倍率，x100，已被规范标记废弃
+    { "UVC_PU_DIGITAL_MULTIPLIER",       ROREG_INT(LUAT_UVC_PU_DIGITAL_MULTIPLIER_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_DIGITAL_MULTIPLIER_LIMIT number USB摄像头的数字倍率上限，已被规范标记废弃
+    { "UVC_PU_DIGITAL_MULTIPLIER_LIMIT",       ROREG_INT(LUAT_UVC_PU_DIGITAL_MULTIPLIER_LIMIT_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_HUE_AUTO number USB摄像头的自动色相开关：1=自动 0=手动
+    { "UVC_PU_HUE_AUTO",       ROREG_INT(LUAT_UVC_PU_HUE_AUTO_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_ANALOG_VIDEO_STANDARD number USB摄像头的模拟视频制式，只读，仅模拟输入设备有效
+    { "UVC_PU_ANALOG_VIDEO_STANDARD",       ROREG_INT(LUAT_UVC_PU_ANALOG_VIDEO_STANDARD_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_ANALOG_LOCK_STATUS number USB摄像头的模拟信号锁定状态，只读
+    { "UVC_PU_ANALOG_LOCK_STATUS",       ROREG_INT(LUAT_UVC_PU_ANALOG_LOCK_STATUS_CONTROL|LUAT_UVC_PU_MASK)},
+    //@const UVC_PU_CONTRAST_AUTO number USB摄像头的对比度自动开关：1=自动 0=手动
+    { "UVC_PU_CONTRAST_AUTO",       ROREG_INT(LUAT_UVC_PU_CONTRAST_AUTO_CONTROL|LUAT_UVC_PU_MASK)},
     //@const FORMAT_RAW number USB摄像头数据流类型无压缩原始图像
     { "FORMAT_RAW",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_RAW)},
     //@const FORMAT_MJPG number USB摄像头的数据流类型mjpg

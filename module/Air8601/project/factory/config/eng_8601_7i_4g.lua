@@ -30,8 +30,9 @@
    本配置是 PWM3 调光。上板前请再核对一次。
 9. 本配置由 factory 工程同名配置（factory/config/eng_8601_7i_v0.lua）移植，硬件参数一致；
    差异只在驱动模型（本工程走 lcd_display_rgb）与 UI 段（桌面入口开关）。
-10. features.usb_camera / rs485 与 ui.show_camera_preview 目前在 app/ 与 ui/ 里查不到消费方
-    （与 factory 工程一致），写了不报错也不生效，此处保留仅作能力声明。
+10. features.usb_camera 由 ui/settings/settings_face_win.lua 消费（人脸录入/验证页的摄像头
+    实时预览）；features.rs485 与 ui.show_camera_preview 目前在 app/ 与 ui/ 里仍查不到消费方，
+    写了不报错也不生效，此处保留仅作能力声明。
 11. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO74（AUDIOPA_EN），
     **低电平有效**（pa_on_level = 0 → 播放时 exaudio 把 GPIO74 拉低使能，空闲/关机拉高）。
     录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
@@ -155,6 +156,9 @@ return {
         ai_chat = true,     -- 启用"AI聊天助手"内置应用
         cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
         file_transfer = true, -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        face_recognition = true, -- 启用"人脸识别"（AirCAMERA_1034 人脸模组：UART2 115200 8N1，
+                                 --   无复位脚；GPIO73 UVC_EN 供电已在 power_on 中处理）
+                                 --   设置页左栏入口 + app/face/face_app.lua 业务层同时受此开关门控
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====

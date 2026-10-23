@@ -67,8 +67,8 @@ _G.is_pc = (not ok) or (_G.model_str == "PC") or (_G.model_str == "")
 -- eng = Engine 引擎主机, evb = EVB turnkey 开发板, cor = Core 核心板
 local PROJECT_MAP = {
     -- Air8602 7寸（WiFi / 4G 两个版本）
-    ["Engine_Air8602_7inch_1024x600_010_V000"]    = "eng_8602_7i_v0",  -- WiFi 版
-    ["Engine_Air8602_7inch_1024x600_011_V000"]    = "eng_8602_7i_v1",  -- 4G 版
+    ["Engine_Air8602_7inch_1024x600_010_WiFi_V000"] = "eng_8602_7i_v0",  -- WiFi 版
+    ["Engine_Air8602_7inch_1024x600_011_4G_V000"]   = "eng_8602_7i_v1",  -- 4G 版
 }
 
 -- ==================== 3. 加载项目配置 ====================
@@ -160,7 +160,7 @@ if _G.is_pc then
     socket.dft(socket.ETH0)
     _G.mobile = {}
     function mobile.imei() return "pc_simulator" end    -- FOTA 等需要 IMEI 的场景
-    function mobile.csq() return 99 end                  -- 信号强度满格（状态栏显示用）
+    function mobile.csq() return 25 end                  -- 信号良好（状态栏显示用，0/99 视为无信号）
     function mobile.simPin() return false end            -- 无 SIM 卡
     function mobile.setAuto() end                        -- 空操作
     function mobile.flymode() end                        -- 空操作

@@ -69,5 +69,9 @@ if _feat.file_transfer then
     require "file_transfer_win" -- 文件传输窗口（订阅 OPEN_FILE_TRANSFER_WIN）
 end
 
+if _feat.face_recognition then
+    require "settings_face_win" -- 人脸识别页（订阅 OPEN_FACE_WIN，入口在设置页左栏）
+end
+
 -- 硬件初始化与启动编排（lcd→logo+背光→分批加载→BOOT_INIT_DONE）已移交 boot_ui，
 -- 本模块不再创建 init_ui_task。

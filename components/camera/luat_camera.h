@@ -239,6 +239,46 @@ typedef void (*luat_camera_frame_data_callback_t)(luat_camera_frame_data_t *prev
 void luat_camera_set_preview_data_callback(int id, luat_camera_frame_data_callback_t callback, void *user_data);
 void luat_camera_set_frame_data_callback(int id, luat_camera_frame_data_callback_t callback, void *user_data);
 
+int luat_usb_camera_stream_on_off(uint8_t app_id, uint8_t on_off);
+
+int luat_usb_camera_stream_set_cache(uint8_t app_id, uint8_t **cache, uint8_t cache_num, uint32_t cache_len);
+
+int luat_usb_camera_stream_set_config_by_index(uint8_t app_id, uint8_t format_index, uint8_t resolution_index);
+
+int luat_usb_camera_stream_set_config(uint8_t app_id, uint8_t format_type, uint16_t w, uint16_t h);
+
+int luat_usb_camera_stream_get_config_format_num(uint8_t app_id, uint8_t *format_num);
+
+int luat_usb_camera_stream_get_config_resolution_num(uint8_t app_id, uint8_t format_index, uint8_t *format_type, uint8_t *resolution_num);
+
+int luat_usb_camera_stream_get_config_info(uint8_t app_id, uint8_t format_index, uint8_t resolution_index, uint8_t *fps, uint16_t *w, uint16_t *h);
+
+int luat_usb_camera_stream_set_min_data_len(uint8_t app_id, uint32_t min_data_len);
+
+int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t jump_frame_cnt);
+
+int luat_usb_camera_pause_on_off(uint8_t app_id, uint8_t on_off);
+
+typedef struct {
+    int min;
+    int max;
+    int res;
+    int def;
+    int cur;
+    uint8_t bit;
+    uint8_t len;
+    uint8_t flag;
+    uint8_t state;  //0 disable 其他 support，具体看GET_INFO
+}luat_uvc_ctrl_param_t;
+
+void luat_usb_camera_ctrl_plane_get_all_info(uint8_t app_id);
+void luat_usb_camera_ctrl_plane_clear_all_info(void);
+luat_uvc_ctrl_param_t *luat_usb_camera_ctrl_plane_get(uint8_t app_id, uint8_t sn);
+int luat_usb_camera_ctrl_plane_set(uint8_t app_id, uint8_t sn, int value);
+
+void luat_usb_camera_ctrl_plane_get_map(uint8_t app_id, uint32_t *ct_map, uint32_t *pu_map);//bsp负责具体实现
+int luat_usb_camera_ctrl_plane_request_get(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v);//bsp负责具体实现
+int luat_usb_camera_ctrl_plane_request_set(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v);//bsp负责具体实现
 /**********以下是luatos使用，csdk不要使用***********/
 /**
  * @brief 开始接收camera数据
@@ -273,25 +313,7 @@ void luat_camera_reset_pin(int id, uint8_t level);
 
 void luat_camera_pwdn_pin(int id, uint8_t level);
 
-int luat_usb_camera_stream_on_off(uint8_t app_id, uint8_t on_off);
 
-int luat_usb_camera_stream_set_cache(uint8_t app_id, uint8_t **cache, uint8_t cache_num, uint32_t cache_len);
-
-int luat_usb_camera_stream_set_config_by_index(uint8_t app_id, uint8_t format_index, uint8_t resolution_index);
-
-int luat_usb_camera_stream_set_config(uint8_t app_id, uint8_t format_type, uint16_t w, uint16_t h);
-
-int luat_usb_camera_stream_get_config_format_num(uint8_t app_id, uint8_t *format_num);
-
-int luat_usb_camera_stream_get_config_resolution_num(uint8_t app_id, uint8_t format_index, uint8_t *format_type, uint8_t *resolution_num);
-
-int luat_usb_camera_stream_get_config_info(uint8_t app_id, uint8_t format_index, uint8_t resolution_index, uint8_t *fps, uint16_t *w, uint16_t *h);
-
-int luat_usb_camera_stream_set_min_data_len(uint8_t app_id, uint32_t min_data_len);
-
-int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t jump_frame_cnt);
-
-int luat_usb_camera_pause_on_off(uint8_t app_id, uint8_t on_off);
 
 extern int32_t g_camera_log_level;
 

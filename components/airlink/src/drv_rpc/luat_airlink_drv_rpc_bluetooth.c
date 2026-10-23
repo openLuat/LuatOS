@@ -8,6 +8,7 @@
 #include "drv_bluetooth.pb.h"
 #include "luat_ble.h"
 #include "luat_bt.h"
+#include "luat_drv_ble.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "airlink.drv.bt"

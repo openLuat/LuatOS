@@ -47,6 +47,9 @@
 | 13 | Air8101B | 引擎主机 | 合宙引擎 8101B V002 | 480*854 5寸RGB触摸屏；Wifi | EVB_Air8101B_5inch_480x854_000_V010 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101B_5inch_480x854_000_V010_back_view.png"> |
 | 14 | Air1780H | 引擎主机 | 合宙引擎 AIR1780H V000 4.3寸 | 480*272 4.3寸SPI触摸屏(ST6201)；WiFi(airlink 6205)；ES8311录音播放；SD卡；NAND Flash；PWM0背光调节 | Engine_Air1780H_4inch_480x272_000_V000 | | |
 | 15 | Air1603 | 引擎主机 | 合宙引擎 AIR8607 V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；SD卡 | Engine_Air8607_10inch_1024x600_000_V000 | | |
+| 16 | Air1603 | 引擎主机 | 合宙引擎 AIR8607A V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；UVC摄像头(AirCAMERA_1032/AirUVC_1000)；无SD卡 | Engine_Air8607A_10inch_1024x600_000_V000 | | |
+| 17 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；Air1103语音(UART6)；PWM背光调节；UVC摄像头；三路RS485(非隔离×1/隔离×2)；UART2；SD卡 | Engine_Air8603W_10inch_1024x600_000_V000 | | |
+| 18 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；Air1103语音(UART6)；PWM背光调节；UVC摄像头；三路RS485(非隔离×1/隔离×2)；UART2；SD卡 | Engine_Air8603M_10inch_1024x600_000_V000 | | |
 
 ---
 
@@ -153,6 +156,18 @@ return {
         show_wifi_icon = true, show_storage_settings = true, ...
     },
 
+    -- 外设接口（UVC / RS485 / UART，同一 type 可配多条，靠 id 区分）
+    -- 开关入口在桌面「功能测试」，需 features.other_func + ui.show_other_func 同时为 true
+    peripherals = {
+        { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
+        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65,
+          power_pin = 14, baud = 9600 },
+        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil,
+          power_pin = 14, baud = 9600 },
+        { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200,
+          databits = 8, parity = "N", stopbits = 1 },
+    },
+
     -- 存储设备配置（sd_card、nand_flash、little_flash）
     storage = {
         sd_card = { spi_id = 0, pin_cs = 32, speed = 20000000},
@@ -225,6 +240,7 @@ return {
 |------|------|------|
 | 设置框架 | `app/settings/settings_app.lua` | 设置主框架，级联加载子模块 |
 | 亮度和声音 | `app/settings/settings_display_app.lua` | PWM 背光 + 媒体音量管理 |
+| 设置当前时间 | `app/settings/settings_time_app.lua` | 手动校准系统时钟（rtc.set 写入） |
 | 触摸音效 | `app/settings/settings_buzz_app.lua` | 触摸反馈音管理 |
 | 存储信息 | `app/settings/settings_storage_app.lua` | 多挂载点容量采集 + 快速/全量双通道 |
 | 内存信息 | `app/settings/settings_memory_app.lua` | 系统/LuaVM/PSRAM 内存采集 |
@@ -236,8 +252,9 @@ return {
 | 窗口 | 文件 | 功能 |
 |------|------|------|
 | 桌面 | `ui/idle_win.lua` | 时间/日期/信号/快捷入口/外部应用网格 |
-| 设置主页 | `ui/settings/settings_win.lua` | 功能入口列表（WiFi/亮度和声音/存储/声音/关于/更新） |
+| 设置主页 | `ui/settings/settings_win.lua` | 功能入口列表（WiFi/亮度和声音/设置当前时间/存储/声音/关于/更新） |
 | 亮度和声音 | `ui/settings/settings_display_win.lua` | 亮度滑块 + 媒体音量滑块（有音频硬件时默认启用） |
+| 设置当前时间 | `ui/settings/settings_time_win.lua` | 年月日时分秒加减调节 + 直接输入，保存写入系统时钟 |
 | 存储页 | `ui/settings/settings_storage_win.lua` | 文件系统容量 + 内存占用（6 卡片，两阶段加载） |
 | 存储优先级 | `ui/settings/storage_pri_win.lua` | 拖拽排序应用安装位置 |
 | 声音设置 | `ui/settings/settings_sound_win.lua` | 蜂鸣器开关/音量/时长 |
@@ -248,6 +265,26 @@ return {
 | WiFi 详情 | `ui/wifi/wifi_detail_win.lua` | SSID/IP/MAC/信号/断开 |
 | WiFi 连接 | `ui/wifi/wifi_connect_win.lua` | 密码输入/高级配置 |
 | 应用市场 | `ui/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
+| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 外设分组开关与状态 |
+| UVC 预览 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本固件无 MP4 封装)（点功能测试页的 UVC 行进入） |
+| 485 测试 | `ui/rs485_test_win.lua` | HEX / 文本发送 + 收发历史（点功能测试页的 RS485 行进入） |
+
+### 6.6 外设接口
+
+由 `config.peripherals` 声明式配置，同一 `type` 可配多条（UART1 / UART2 / 多路 485），靠 `id` 区分。
+开关由 `features.other_func` + `ui.show_other_func` 控制（桌面图标显示）。
+已配该段的型号：eng_8605_10i_wifi / eng_8605_10i_4g / eng_8605b_10i_v0 / eng_8607a_10i_v0 /
+eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，见配置文件头第 12 条）/
+eng_8603w_10i_v0 / eng_8603m_10i_v0（三路 485 + UART2，其中 485_3 与 uart2 共用物理 UART2
+不可同时开、UVC_EN 与 485_3 的 DE 共用 GPIO58，见配置文件头第 7、8 条）。
+
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 外设框架 | `drv/periph/periph_loader.lua` | 按 config.peripherals 逐条初始化，未实现 type 记日志跳过 |
+| UVC 摄像头 | `drv/periph/periph_uvc.lua` | 纯供电开关（数据流由 UVC 预览页独占） |
+| RS485 | `drv/periph/periph_rs485.lua` | 多路 DE 方向控制 + 供电脚引用计数 |
+| 通用串口 | `drv/periph/periph_uart.lua` | 任意 UART 接口（波特率/数据位/校验/停止位） |
+| 功能测试 | `app/other_func/other_func_app.lua` | 外设实例开关与状态（订阅 OTHER_FUNC_*） |
 
 ---
 
@@ -314,4 +351,5 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
 4. **WiFi 无法扫描**：Air160x 系列检查 airlink `pin_cs`/`pin_rdy` 配置，Air8000W/Air8101 检查 exnetif 配置
 5. **4G 无信号**：检查 SIM 卡是否插入、`features.net_4g` 是否设为 true、芯片是否支持 4G
 6. **存储页面卡顿**：NAND Flash 的 `io.fsstat` 耗时较长（2-8 秒），页面使用两阶段加载避免 UI 冻结
-7. **图片无法显示**：确认图片资源已正确烧录到�
+7. **图片无法显示**：确认图片资源已正确烧录到设备
+8. **UVC 拍照 / 录像失败**（日志出现 `D/camera not support yet` / `无法启动摄像头`）：`excamera.photo` / `excamera.video` 走的是 `camera.start` + `camera.capture` 的 DVP/SPI 采集通路，USB 摄像头上不适用；本工程 UVC 预览页直接取 MJPEG 推流帧落盘（.jpg / .mjpg）。�

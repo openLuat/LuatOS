@@ -1543,6 +1543,7 @@ typedef struct lpb_Env {
     lpb_State *LS;
     pb_Buffer *b;
     pb_Slice *s;
+    int depth;
 } lpb_Env;
 
 static void lpbE_encode (lpb_Env *e, const pb_Type *t, int idx);
@@ -1915,6 +1916,8 @@ static int lpbD_message(lpb_Env *e, const pb_Type *t) {
     lua_State *L = e->L;
     pb_Slice *s = e->s;
     uint32_t tag;
+    if (++e->depth > PB_MAX_DEPTH)
+        luaL_error(L, "protobuf message too deep");
     luaL_checkstack(L, t->field_count * 2, "not enough stack space for fields");
     while (pb_readvarint32(s, &tag)) {
         const pb_Field *f = pb_field(t, pb_gettag(tag));
@@ -1941,6 +1944,7 @@ static int lpbD_message(lpb_Env *e, const pb_Type *t) {
         }
     }
     if (lpbS_use_dec_hooks(e->LS)) lpb_usedechooks(L, e->LS, t);
+    --e->depth;
     return 1;
 }
 
@@ -1954,7 +1958,7 @@ static int lpbD_decode(lua_State *L, pb_Slice s, int start) {
         lua_pop(L, 1);
         lpb_pushtypetable(L, LS, t);
     }
-    e.L = L, e.LS = LS, e.s = &s;
+    e.L = L, e.LS = LS, e.s = &s, e.depth = 0;
     return lpbD_message(&e, t);
 }
 
@@ -2047,7 +2051,7 @@ static int Lpb_unpack(lua_State* L) {
     const pb_Type* t = lpb_type(LS, lpb_checkslice(L, 1));
     pb_Slice s = lpb_checkslice(L, 2);
     lpb_Env e;
-    e.L = L, e.LS = LS, e.s = &s;
+    e.L = L, e.LS = LS, e.s = &s, e.depth = 0;
     argcheck(L, t != NULL, 1, "type '%s' does not exists", lua_tostring(L, 1));
     return lpbD_unpack(&e, t);
 }

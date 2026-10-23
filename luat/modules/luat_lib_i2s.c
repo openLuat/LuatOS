@@ -59,12 +59,12 @@ int luat_i2s_event_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint
 	rtos_msg_t msg;
 	switch (event){
     case LUAT_I2S_EVENT_RX_DONE:
-        if (!i2s_rx_buffer[id] || !i2s_cbs[id]){
+        if (id >= I2S_DEVICE_MAX_CNT || !i2s_rx_buffer[id] || !i2s_cbs[id]){
             return -1;
         }
 
         len = (rx_len > i2s_rx_buffer[id]->len)?i2s_rx_buffer[id]->len:rx_len;
-        memcpy(i2s_rx_buffer[id]->addr, rx_data, rx_len);
+        memcpy(i2s_rx_buffer[id]->addr, rx_data, len);
         i2s_rx_buffer[id]->used = len;
         msg.handler = l_i2s_handler;
         msg.ptr = NULL;
@@ -144,7 +144,10 @@ static int l_i2s_send(lua_State *L) {
         buff = (uint8_t*)luaL_checklstring(L, 2, &len);
     }
     if (lua_type(L, 3) == LUA_TNUMBER) {
-        len = luaL_checkinteger(L, 3);
+        lua_Integer user_len = luaL_checkinteger(L, 3);
+        /* only allow shrinking: never exceed the real data length */
+        if (user_len >= 0 && (size_t)user_len <= len)
+            len = (size_t)user_len;
     }
     int ret = luat_i2s_send(id, buff, len);
     lua_pushboolean(L, ret == len ? 1 : 0);
@@ -165,7 +168,7 @@ local succ = i2s.recv(0, buffer, 3200);
 */
 static int l_i2s_recv(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    if (id >= I2S_DEVICE_MAX_CNT)
+    if (id < 0 || id >= I2S_DEVICE_MAX_CNT)
     {
     	lua_pushboolean(L, 0);
         return 1;
@@ -214,7 +217,7 @@ end)
 */
 static int l_i2s_on(lua_State *L) {
     int i2s_id = luaL_checkinteger(L, 1);
-    if (i2s_id >= I2S_DEVICE_MAX_CNT)
+    if (i2s_id < 0 || i2s_id >= I2S_DEVICE_MAX_CNT)
     {
         lua_pushliteral(L, "no such i2s id");
         return 1;

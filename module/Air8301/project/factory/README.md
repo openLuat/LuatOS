@@ -11,11 +11,41 @@
 
 ---
 
-注意：烧录此工程时需要将readme文件删除，否则会报超出脚本区大小错误
+注意：本 README 已放在**烧录目录之外**（`module/Air8301/project/README_factory.md`），
+烧录脚本目录 `module/Air8301/project/factory/` 里不再包含任何 md 文档，因此烧录时**无需再手动取消勾选 README**。
 
 ## 一、功能模块介绍
 
 本工程采用2052-114号固件，理论2026.10.9号以后的114号固件都支持。
+
+### 1.0 目录结构（参照 Air8780_factory）
+
+烧录目录 `factory/` 与 `module/Air8780/project/Air8780_factory` 保持同一套组织方式：
+
+```
+factory/
+├── main.lua          入口（PROJECT / VERSION + 启动分流，位置不可下移）
+├── app/              应用层，按功能分子目录
+│   ├── app_main.lua      业务编排
+│   ├── net/              net_config / net_drv / net_watchdog / time_sync
+│   ├── modbus/           comm_core / relay_ctrl / rtu_slave_regmap / tcp_slave / tcp_modbus_master
+│   ├── web/              httpsrv_web（内置网页服务）
+│   ├── aircloud/         aircloud_data / airlbs_app / weather_app
+│   ├── fota/             fota_app
+│   ├── io/               di_app / do_app / buzzer_app / led_app / flash_app / reload_app / watchdog_app
+│   ├── ui/               ui_main / ui_theme / theme / key_beep + 各业务 *_win.lua 页面
+│   └── prod/             产测：prod_test / prodmeta / prod_app_main / prod_ui_main / prod_*_win / prod_*_app
+├── drv/              驱动层：board_init + lcd/ tp/ buzzer/ wdt/ netdrv/
+├── web/              网页与图片资源：index.html、hw_*.png（界面图标）、logo.png（开机 LOGO）
+└── libs/             本地扩展库位置（固件内置库不必放这里，当前为空）
+```
+
+目录只是工程组织方式：烧录时脚本按文件名平铺进 `/luadb`，所以各模块内 `require "xxx"`
+一律不带目录名（与 Air8780_factory 一致），运行时没有层级概念。
+资源文件同理，`web/` 内的文件打包后在设备上的路径是 `/luadb/index.html`、`/luadb/hw_*.png`；
+代码里对 `/luadb/web/...` 也做了存在性兜底，打包工具若保留子目录同样能读到。
+
+README 本身放在烧录目录之外（`module/Air8301/project/README_factory.md`），烧录时不会被打包。
 
 1、`main.lua`：主程序入口，定义 PROJECT / VERSION，`require "exwin"` 与各功能模块，仅含 require 与 `sys.run()`；
 
@@ -348,7 +378,7 @@ curl -X POST http://192.168.1.183/api/relay/control \
 | 恢复出厂 | `reload_win.lua` | RELOAD 键状态 |
 | 远程升级 | `fota_win.lua` | FOTA 检测与触发 |
 
-**首页图标资源**：`idle_win.lua` 引用 `/luadb/hw_*.png`（共 11 个），需从 `hardware_test/src/` 原样复制到烧录文件系统：
+**首页图标资源**：`idle_win.lua` 等页面引用 `/luadb/hw_*.png`，源文件在工程 `web/` 目录（打包后即 `/luadb/hw_*.png`）：
 
 ```
 hw_network.png  hw_wifi.png   hw_rs485.png   hw_di.png      hw_do.png

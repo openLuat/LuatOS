@@ -5,11 +5,11 @@
 @author  合宙（合并HH+QD版本）
 @usage
 -- 应用场景
-该扩展库适用于各种物联网设备（如4G/WiFi/MCU/模拟器虚拟设备）与云端服务器进行数据交互的场景。
+该扩展库适用于各种物联网设备（如4G/WiFi/MCU/Air1780/模拟器虚拟设备）与云端服务器进行数据交互的场景。
 可用于设备状态上报、数据采集、远程控制等物联网应用。
 
 实现的功能：
-1. 支持多种设备类型（4G/WiFi/MCU/虚拟设备）的接入认证
+1. 支持多种设备类型（4G/WiFi/MCU/Air1780/虚拟设备）的接入认证
 2. 提供TCP、UDP、MQTT三种传输协议选择
 3. 实现设备与云端的双向通信（数据上报和命令下发）
 4. 支持数据的TLV格式编解码
@@ -44,6 +44,23 @@
 21. excloud.version() - 获取库版本号
 
 -- 版本更新说明
+
+-- 版本号：202610212319
+-- 1、更新时间：2026-10-21 23:19
+-- 2、更新内容
+--    新增设备类型4（Air1780系列，无基频4G模组），从类型3中拆分
+--    类型4的设备ID通过hmeta.devid()获取，按IMEI方式编码
+--    类型4不依赖mobile库，鉴权串为auth_key-设备ID
+--    新增字段定义：气压(266)、井盖状态(267)、继电器状态(268)
+--    新增字段定义：WiFi原始数据(801)、项目名称(802)
+--    新增字段定义：上升(1285)、下降(1286)、停止(1287)、固件升级(1288)
+--    新增字段定义：工作模式(1290)、电池电压变化值(1291)、DA221三轴加速度计数据(1292)
+--    新增字段定义：五秒原始加速度数据块(1293)、SIP终端状态(1294)
+
+-- 版本号：202610201721
+-- 1、更新时间：2026-10-20 17:21
+-- 2、更新内容
+--    设备ID获取统一改为 hmeta.devid()（4G模组返回IMEI、WiFi模组返回MAC、MCU模组返回unique_id的hex值）
 -
 -- 版本号：202609011645
 -- 1、更新时间：2026-09-01 16:45
@@ -112,7 +129,7 @@ local exmtn = require "exmtn"
 
 local config = {
     -- 核心配置
-    device_type = 1,         -- 设备类型: 1=4G主控, 2=WiFi主控, 3=MCU主控, 9=虚拟设备
+    device_type = 1,         -- 设备类型: 1=4G主控, 2=WiFi主控, 3=MCU主控, 4=Air1780系列, 9=虚拟设备
     device_id = "",          -- 设备ID（自动获取）
     protocol_version = 2,    -- 协议版本号
     transport = "",          -- 传输协议: "tcp" / "udp" / "mqtt"
@@ -291,6 +308,9 @@ local FIELD_MEANINGS = {
     ENV_TEMPERATURE = 263,             -- CPU温度/环境温度
     POWER_METERING = 264,              -- 电量计量
     WORK_STATUS = 265,                 -- 工作状态
+    PRESSURE = 266,                    -- 气压(hPa)
+    MANHOLE_COVER_STATUS = 267,        -- 井盖状态
+    RELAY_STATUS = 268,                -- 继电器状态
     -- GNSS 资产管理类 (512-767)
     GNSS_LONGITUDE = 512,              -- GNSS经度
     GNSS_LATITUDE = 513,               -- GNSS纬度
@@ -336,6 +356,8 @@ local FIELD_MEANINGS = {
     DEVICE_ID = 798,                   -- 设备号（IMEI）
     VOLTAGE = 799,                     -- 实际电压
     SET_VOLTAGE = 800,                 -- 设置电压
+    WIFI_RAW_DATA = 801,               -- WiFi原始数据
+    PROJECT_NAME = 802,                -- 项目名称
     -- 软件 & 短信日志类 (1024-1279)
     LUA_CORE_ERROR = 1024,             -- Lua核心库错误上报
     LUA_EXT_ERROR = 1025,              -- Lua扩展卡错误上报
@@ -368,6 +390,15 @@ local FIELD_MEANINGS = {
     BUSINESS_SN = 1282,                -- 业务SN
     HEARTBEAT_COUNT = 1283,            -- 心跳次数
     ONLINE_DURATION = 1284,            -- 在线时长
+    ASCEND = 1285,                     -- 上升
+    DESCEND = 1286,                    -- 下降
+    STOP = 1287,                       -- 停止
+    FIRMWARE_UPGRADE = 1288,           -- 固件升级
+    WORK_MODE = 1290,                  -- 工作模式
+    BATTERY_VOLTAGE_DELTA = 1291,      -- 电池电压变化值
+    DA221_ACCEL_DATA = 1292,           -- DA221三轴加速度计的数据
+    ACCEL_RAW_BLOCK_5S = 1293,         -- 五秒原始加速度数据块
+    SIP_TERMINAL_STATUS = 1294,        -- SIP终端状态
 }
 
 -- 大端编码
@@ -415,14 +446,14 @@ end
 
 -- 按设备类型获取真实设备ID
 local function get_device_id_by_type()
-    if config.device_type == 1 then
-        local imei = mobile.imei()
-        log.info("[excloud]4G设备", "IMEI:", imei, "MUID:", mobile.muid())
-        return imei
-    elseif config.device_type == 2 then
-        return wlan.getMac(nil, true)
-    elseif config.device_type == 3 then
-        return mcu.unique_id():toHex()
+    if config.device_type == 1 or config.device_type == 2 or config.device_type == 3 or config.device_type == 4 then
+        -- hmeta.devid(): 4G模组返回IMEI，WiFi模组返回MAC地址，MCU模组返回unique_id的hex值，Air1780系列返回IMEI
+        local ok, device_id = pcall(hmeta.devid)
+        log.info("[excloud]设备ID", "类型:", config.device_type, "设备ID:", device_id)
+        if not ok or not device_id or device_id == "" then
+            return nil, "hmeta.devid()获取设备ID失败"
+        end
+        return device_id
     elseif config.device_type == 9 then
         if not config.virtual_phone_number then
             return nil, "虚拟设备需要配置 virtual_phone_number"
@@ -451,8 +482,8 @@ end
 -- 将设备ID进行编码
 local function packDeviceInfo(deviceType, deviceId)
     -- 验证设备类型
-    if deviceType ~= 1 and deviceType ~= 2 and deviceType ~= 3 and deviceType ~= 9 then
-        log.info("[excloud]设备类型错误: 支持的类型为 1(4G)/2(WiFi)/3(MCU)/9(虚拟设备)")
+    if deviceType ~= 1 and deviceType ~= 2 and deviceType ~= 3 and deviceType ~= 4 and deviceType ~= 9 then
+        log.info("[excloud]设备类型错误: 支持的类型为 1(4G)/2(WiFi)/3(MCU)/4(Air1780)/9(虚拟设备)")
     end
 
     -- 设备类型字节
@@ -462,8 +493,8 @@ local function packDeviceInfo(deviceType, deviceId)
     local cleanId = deviceId:gsub("[^%w]", ""):upper()
 
     -- 处理不同类型的设备ID
-    if deviceType == 1 then
-        -- 4G设备 - IMEI处理
+    if deviceType == 1 or deviceType == 4 then
+        -- 4G设备 / Air1780系列 - IMEI处理
         cleanId = cleanId:gsub("%D", ""):sub(1, 14)
         if #cleanId < 14 then
             cleanId = string.rep("0", 14 - #cleanId) .. cleanId
@@ -1061,7 +1092,7 @@ local function getip(getip_type)
             if getip_type == 5 then
                 log.info("[excloud]MQTT连接信息", "host:", response_json.conninfo.ssl, "port:",
                     response_json.conninfo.port, "user:", response_json.conninfo.username)
-                log.info("[excloud]MQTT设备认证", "client:", mobile.imei(), "pwd:", mobile.muid())
+                log.info("[excloud]MQTT设备认证", "client:", config.device_id)
             else
                 log.info("[excloud]TCP/UDP连接信息", "host:", response_json.conninfo.ipv4, "port:",
                     response_json.conninfo.port, "key:", response_json.conninfo.key)
@@ -1871,8 +1902,10 @@ local function get_device_type()
             return 1
         elseif model:find("^Air8101") then 
             return 2
-        elseif model:find("^Air1601") or model:find("^Air1602") or model:find("^Air1780") then 
+        elseif model:find("^Air1601") or model:find("^Air1602") then 
             return 3
+        elseif model:find("^Air1780") then
+            return 4
         else
             log.warn("get_device_type", "未知设备类型:", model)
             return 0xFF
@@ -2056,6 +2089,7 @@ function excloud.open()
         --   client_id: config.client_id → hmeta.devid() → 设备硬件接口(imei/mac/unique_id)
         --   username:  config.username → hmeta.devid() → 设备硬件接口(同client_id)
         --   password:  config.password → hmeta.muid() → 设备硬件接口(muid/"")
+        --   Air1780系列(4)无mobile库，client_id/username来自hmeta.devid()，password与MCU一致
         -- 注：当use_getip=true且用户未手动设置时，getip返回的username/password会填充config（{imei}/{muid}占位符除外）
         local ok, devid = pcall(hmeta.devid)
         local ok2, muid_val = pcall(hmeta.muid)
@@ -2072,6 +2106,11 @@ function excloud.open()
         elseif config.device_type == 3 then
             -- MCU设备
             client_id = config.client_id or (ok and devid) or mcu.unique_id()
+            username = config.username or client_id
+            password = config.password or (ok2 and muid_val) or ""
+        elseif config.device_type == 4 then
+            -- Air1780系列（无基频4G模组，不依赖mobile库）
+            client_id = config.client_id or (ok and devid)
             username = config.username or client_id
             password = config.password or (ok2 and muid_val) or ""
         else
@@ -2373,12 +2412,12 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 
 --[[
 获取库版本信息900943
-@return string 年月日时分，例如： "202607021900"
+@return string 年月日时分，例如： "202610201721"
 @usage
 excloud.version()
 ]]
 function excloud.version()
-    return "202609011645"
+    return "202610212319"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

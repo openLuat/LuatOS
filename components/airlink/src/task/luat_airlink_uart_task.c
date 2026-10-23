@@ -27,7 +27,12 @@
 #define AIRLINK_UART_RX_RESYNC_MS (500)
 
 // 帧间间隙: 从机背靠背发帧会让主机 RX FIFO 溢出丢字节。睡眠 = 帧传输耗时 + 期望间隙(自适应)。0=关闭。
-#define AIRLINK_UART_TX_FRAME_GAP_MS (1)   // 期望线上最小间隙(ms)
+// 仅 EC718(780EPM/780ER2 4G从机)需要帧间间隙; BK7236(6205)背靠背无溢出, 间隙反而拖慢下载。
+#ifdef TYPE_EC718M
+#define AIRLINK_UART_TX_FRAME_GAP_MS (1)   // EC718: 期望线上最小间隙(ms)
+#else
+#define AIRLINK_UART_TX_FRAME_GAP_MS (0)   // 其它从机: 关闭
+#endif
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"

@@ -143,6 +143,12 @@ function M.optional()
 
     -- 外设预留框架：按 config.peripherals 逐个初始化，未实现 type 记日志跳过
     pcall(function() require("periph_loader").init_all(cfg.peripherals) end)
+
+    -- 功能测试业务层（config.peripherals 外设开关与状态）
+    -- 必须在 init_all 之后加载：此时外设 handle 已登记，直接挂接，不会重复登记
+    if feat.other_func then
+        require "other_func_app"
+    end
 end
 
 return M

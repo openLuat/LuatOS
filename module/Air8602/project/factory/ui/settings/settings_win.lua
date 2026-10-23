@@ -49,6 +49,7 @@ local ENTRY_ICONS = {
     ["OPEN_AUTOSTART_WIN"]   = "autostart",
     ["OPEN_ABOUT_WIN"]       = "about",
     ["OPEN_AIRCLOUD_WIN"]    = "cloud",
+    ["OPEN_RS485_WIN"]       = "sort",
 }
 
 local function update_screen_size()
@@ -81,6 +82,7 @@ local function collect_entries()
     if fe.buzzer and ui.show_buzzer_settings then add("触摸音效", "OPEN_SOUND_WIN", "触摸反馈音开关与音量") end
     if fe.aircloud then add("数据上报", "OPEN_AIRCLOUD_WIN", "AirCloud 云端上报开关与周期") end
     add("后装APP自启", "OPEN_AUTOSTART_WIN", "开机自动启动指定应用")
+    if fe.rs485 then add("RS485 测试", "OPEN_RS485_WIN", "双路 485 收发测试") end
     add("关于设置", "OPEN_ABOUT_WIN", "设备型号、唯一ID与版本信息")
     return entries
 end

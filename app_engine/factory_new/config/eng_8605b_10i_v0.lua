@@ -71,6 +71,16 @@ return {
         { pin = 49, dir = 0, level = 1 }, -- 485_EN2 拉高使能 485 收发（见文件头第 8 条）
     },
 
+    -- ===== 外设清单（运行时可开关的控制脚，与 power_on 的开机默认供电同一物理脚）=====
+    -- UVC_EN = PIN48 = GPIO58 / 485_EN = GPIO14 / 485_EN1 = PIN51 = GPIO65 / 485_EN2 = PIN65 = GPIO49
+    peripherals = {
+        { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 }, -- UVC_EN，200ms 就绪
+        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, baud = 9600 }, -- DE = 485_EN1，供电域 485_EN
+        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 }, -- DE 脚未引出，供电域 485_EN
+        { type = "rs485", id = "485_3", name = "隔离485",   uart_id = 6, de_pin = 49, power_pin = 14, baud = 9600 }, -- DE = 485_EN2，供电域 485_EN
+        { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },
+    },
+
     -- ===== 硬件配置 =====
     hw = {
         -- 屏幕: RGB 10寸 1024×600（免序列四合一，无需 SPI 初始化引脚）；背光 PWM3 调光
@@ -133,6 +143,7 @@ return {
         nand_flash = true,    -- 启用 NAND Flash（SPI2，CS=GPIO47）
         usb_camera = true,    -- USB 摄像头（UVC）—— 暂无消费方，仅作能力声明
         rs485 = true,         -- RS485 接口 —— 暂无消费方，仅作能力声明
+        other_func = true,    -- 启用"功能测试"（peripherals 外设清单）
         usb_hid = true,       -- USB 键盘鼠标（5V_EN=GPIO12 即 VBUS 供电，见文件头第 9 条）
         app_factory = true,   -- 启用"应用工厂"内置应用
         ai_chat = true,       -- 启用"AI聊天助手"内置应用（语音经 Air1103）
@@ -190,6 +201,7 @@ return {
         show_brightness_slider = true, -- 设置页亮度滑块
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card/nand_flash 时打开
         show_camera_preview = true,    -- 设置页摄像头预览入口（暂无消费方，仅作能力声明）
+        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
         show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
         show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
         show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开

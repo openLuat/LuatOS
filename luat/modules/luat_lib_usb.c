@@ -123,13 +123,26 @@ static int l_usb_rx(lua_State *L)
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
     	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         int result = luat_usb_rx(usb_id, app_id, NULL, 0);	//读出当前缓存的长度
-        if (result > (buff->len - buff->used))
+        if (result < 0 || buff->used > buff->len)
         {
-        	__zbuff_resize(buff, buff->len + result);
+        	lua_pushinteger(L, 0);
+        	return 1;
+        }
+        if ((size_t)result > buff->len - buff->used)
+        {
+        	if (__zbuff_resize(buff, buff->len + result))
+        	{
+        		lua_pushinteger(L, 0);
+        		return 1;
+        	}
         }
         result = luat_usb_rx(usb_id, app_id, buff->addr + buff->used, result);
+        if (result < 0)
+        {
+        	result = 0;
+        }
         lua_pushinteger(L, result);
-        buff->used += result;
+        buff->used += (size_t)result;
         return 1;
     }
     else

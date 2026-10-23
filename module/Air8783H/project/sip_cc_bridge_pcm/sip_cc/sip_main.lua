@@ -247,7 +247,7 @@ function sip_main.init()
         sip_tls = config.sip_tls,
         media_encryption = config.media_encryption,
         rtp_port = config.rtp_port,
-        codecs = {config.codec},
+        codecs = config.codecs or {config.codec},
         ptime = config.ptime,
         adapter = config.adapter,
         debug_sip_response = true,

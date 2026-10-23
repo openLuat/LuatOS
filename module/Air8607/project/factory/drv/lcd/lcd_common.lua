@@ -214,6 +214,13 @@ do
             if tp_model.i2c_restore then return tp_model.i2c_restore() end
             return false
         end,
+        --[[触摸硬恢复：重新初始化（复位 + tp.init + 重新绑定 airui）
+        音频/视频通路若在 tp 的读事务中途重配 I2C1，GT911 会停在半事务状态不再应答，
+        此时只有重新 init 才能救回来（调用方见 ui/video_util.lua 的 tp_recover）]]
+        reinit = function()
+            if tp_model.reinit then return tp_model.reinit() end
+            return false
+        end,
     }
 end
 

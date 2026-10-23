@@ -99,6 +99,27 @@ local function set_volume(level)
 end
 
 --[[
+@function pa_off
+@summary PA 功放关闭（跟随播放状态：试听播完/被打断收尾用）
+]]
+local function pa_off()
+    if ac and ac.pa_ctrl then
+        gpio.setup(ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
+    end
+end
+
+--[[
+@function on_test_play_event
+@summary 试听播放事件回调，收到 PLAY_DONE 关 PA
+@param event 播放事件
+]]
+local function on_test_play_event(event)
+    if event == exaudio.PLAY_DONE then
+        pa_off()
+    end
+end
+
+--[[
 @function play_volume_test
 @summary 播放一段试听语音（llm_chat TTS 同款 exaudio 配方，勿走旧框架 audio.tts）
 ]]
@@ -133,7 +154,7 @@ local function play_volume_test()
     pcall(exaudio.setup, sp)
     if exaudio.vol then pcall(exaudio.vol, current_volume) end
     pcall(exaudio.play_stop, { type = 1 })
-    pcall(exaudio.play_start, { type = 1, content = "音量测试" })
+    pcall(exaudio.play_start, { type = 1, content = "音量测试", cbfnc = on_test_play_event })
 end
 
 -- ==================== 内部函数 ====================

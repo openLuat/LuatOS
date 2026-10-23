@@ -34,6 +34,7 @@ static int l_bit64_to32(lua_State *L)
     if (len != 9)
     {
     	lua_pushnil(L);
+        return 1;
     }
     if (data[8])
     {
@@ -139,6 +140,10 @@ static int l_bit64_show(lua_State *L)
 		{
 			len = snprintf_((char*)data, 63, "0x%llx", i64);
 		}
+	}
+	if (len >= sizeof(data))
+	{
+		len = sizeof(data) - 1;
 	}
 	lua_pushlstring(L, (const char*)data, len);
 	return 1;
@@ -320,6 +325,12 @@ static int l_bit64_calculate(lua_State *L, uint8_t op)
 		}
 		if (!fa && !fb)
 		{
+			if (i64_b == 0)
+			{
+				lua_pushnil(L);
+				lua_pushstring(L, "division by zero");
+				return 2;
+			}
 			if (flag1)
 			{
 				u64 = (uint64_t)i64_a / (uint64_t)i64_b;

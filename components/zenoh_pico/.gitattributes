@@ -1,0 +1,23 @@
+# Auto-detect text files and normalize line endings to LF.
+#
+# Scoped to components/zenoh_pico on purpose:
+#   - zenoh-pico/ is a trimmed copy of upstream zenoh-pico 1.9.0, and VENDOR.md
+#     promises it is byte-for-byte unmodified. Upstream is LF.
+#   - include/ and src/ are LuatOS glue code, also LF.
+# The tree was first added from a Windows working copy, so every vendored file
+# landed as CRLF (upstream bytes + one CR per line). These rules keep the whole
+# component LF so the copy stays byte-identical to upstream.
+* text=auto eol=lf
+
+# Source files - enforce LF
+*.c     text eol=lf
+*.h     text eol=lf
+*.lua   text eol=lf
+*.py    text eol=lf
+*.sh    text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.cmake text eol=lf
+Makefile text eol=lf

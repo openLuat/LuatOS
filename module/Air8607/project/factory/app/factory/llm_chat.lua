@@ -53,6 +53,7 @@ local page_active = true          -- AI 助手页面是否在前台（不在前�
 local tts_queue = {}
 local tts_voice = ""
 local tts_fallback_timer = nil  -- done 帧丢失兜底定时器
+local tts_gen = 0               -- 播放代次：新起播 +1，旧协程据此跳过收尾关 PA
 
 -- ==================== 设备信息 ====================
 
@@ -93,6 +94,14 @@ end
 
 -- ==================== TTS ====================
 
+--- PA 功放关闭（跟随播放状态：播完/停止/退出收尾用）
+local function pa_off()
+    local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
+    if ac and ac.pa_ctrl then
+        gpio.setup(ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
+    end
+end
+
 -- 通过 exaudio.play_start 播放 TTS（统一走 exaudio 路径，兼容 DAC / ES8311 / TM8211 等所有 model）
 -- 不再走旧框架 audio.tts()：旧框架在 DAC 模式下不出声（PA/DAC 通路未正确配置）
 tts_play_text = function(text)
@@ -111,6 +120,8 @@ tts_play_text = function(text)
         return
     end
     tts_playing = true
+    tts_gen = tts_gen + 1
+    local my_gen = tts_gen
     sys.publish("AI_CHAT_STATUS", "TTS 播放中")
     local done = false
     local ok = exaudio.play_start({
@@ -142,6 +153,12 @@ tts_play_text = function(text)
         log.warn("llm_chat", "exaudio.play_start TTS 失败")
     end
     tts_playing = false
+    -- 播完/超时收尾关 PA（跟随播放状态）：请求还在就补一次干净停止；
+    -- 代次已易主（新起播接管）时不动，收尾归新播报
+    if tts_gen == my_gen then
+        if not done then pcall(exaudio.play_stop, { type = 1 }) end
+        pa_off()
+    end
     sys.publish("AI_CHAT_STATUS", "")
 end
 
@@ -153,6 +170,7 @@ tts_stop = function()
     -- SHUTDOWN 会导致 DAC 下电，再 setup+play_start 会失败（Air8601 DAC 模式已验证）
     tts_playing = false
     tts_queue = {}
+    pa_off()
 end
 
 tts_deinit = function() if tts_inited then tts_stop(); tts_inited = false end end

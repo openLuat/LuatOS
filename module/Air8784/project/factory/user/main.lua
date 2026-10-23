@@ -1,8 +1,8 @@
 --[[
 @module  main
 @summary Air8784 出厂固件主入口（产测 + SIP 业务 + CC 业务合一）
-@version 1.5
-@date    2026.10.17
+@version 1.6
+@date    2026.10.23
 @author  王世豪
 @usage
 本工程为 Air8784 出厂固件（外挂 Air1103 语音芯片的 SIP 通话产品），
@@ -30,7 +30,7 @@ VERSION：项目版本号,ascii string类型
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "Air8784_Factory"
-VERSION = "001.000.005"
+VERSION = "001.000.006"
 
 -- 出厂固件版本：业务模式由 AirCloud 网页任务下发配置（task_cloud，Tag19/20）
 -- 此KEY值仅针对合宙官方IOT平台FOTA(libfota3)，如需使用请替换为项目对应KEY

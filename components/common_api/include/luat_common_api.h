@@ -49,8 +49,11 @@ enum {
 };
 typedef union {
 	uint8_t u8[4];
+	int8_t ii8[4];
 	uint16_t u16[2];
+	int16_t ii16[4];
 	uint32_t u32;
+	int32_t ii32;
     uint8_t *p8;
     uint16_t *p16;
     uint32_t *p32;

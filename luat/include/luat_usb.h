@@ -239,6 +239,12 @@ int luat_usb_host_reset_device(int id, uint8_t app_id);
 #define LUAT_UVC_REQUEST_GET_RES_ALL 0x94U
 #define LUAT_UVC_REQUEST_GET_DEF_ALL 0x97U
 
+#define LUAT_UVC_CTRL_CAP_GET            (1u << 0)  /* D0 */
+#define LUAT_UVC_CTRL_CAP_SET            (1u << 1)  /* D1 */
+#define LUAT_UVC_CTRL_CAP_DISABLED_AUTO  (1u << 2)  /* D2 状态位 */
+#define LUAT_UVC_CTRL_CAP_AUTOUPDATE     (1u << 3)  /* D3 */
+#define LUAT_UVC_CTRL_CAP_ASYNC          (1u << 4)  /* D4 */
+#define LUAT_UVC_CTRL_CAP_DISABLED_COMMIT (1u << 5) /* D5 状态位 */
 
 #define LUAT_UVC_PU_MASK                        0x80U
 /********************** usb eth ***********************/

@@ -1090,7 +1090,7 @@ static int l_camera_utest_qr_decode(lua_State *L) {
 
 
 /**
-初始化UVC的CT/PU控制界面，读取写入CT/PU参数前至少初始化一次 --本函数于 2026.10.22 新增, 当前仅Air1601可用
+USB摄像头标准控制界面初始化，读取写入CT/PU参数前至少初始化一次 --本函数于 2026.10.22 新增, 当前仅Air1601可用
 @api camera.uvc_ct_pu_init(app_id)
 @int app_id usb应用id
 @return nil
@@ -1099,6 +1099,57 @@ static int l_camera_uvc_ctrl_plane_init(lua_State *L)
 {
     luat_usb_camera_ct_pu_get_info(luaL_checkinteger(L, 1));
     return 0;
+}
+
+/**
+USB摄像头标准控制界面读取CT/PU参数 --本函数于 2026.10.23 新增, 当前仅Air1601可用
+@api camera.uvc_ct_pu_init(app_id, param)
+@int app_id usb应用id
+@int param 参数名称，必须用camera.UVC_CT_XXX和camera.UVC_PU_XXX定义的常量
+@return boolean 该项参数成功被读取返回true,无法读取返回false
+@return boolean 该项参数是否可以读取 true是
+@return boolean 该项参数是否可以写入 true是
+@return boolean 该项参数当前是否被自动模式锁定无法写入 true是
+@return boolean 该项参数是否是取值范围 true是，只有是的情况下后续最大值，最小值和步进值才有意义
+@return int 当前值
+@return int 默认值
+@return int 最小值
+@return int 最大值
+@return int 步进值
+*/
+static int l_camera_uvc_ctrl_plane_get(lua_State *L)
+{
+    luat_uvc_ctrl_param_t def_param = {0};
+    luat_uvc_ctrl_param_t *param = luat_usb_camera_ct_pu_get(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
+    if (!param) {
+        param = &def_param;
+    }
+    lua_pushboolean(L, param->state);
+    lua_pushboolean(L, param->state & LUAT_UVC_CTRL_CAP_GET);
+    lua_pushboolean(L, param->state & LUAT_UVC_CTRL_CAP_SET);
+    lua_pushboolean(L, param->state & LUAT_UVC_CTRL_CAP_DISABLED_AUTO);
+    lua_pushboolean(L, (param->flag & _F_RANGE) && (!(param->flag & _F_COMPOSITE)));
+    lua_pushinteger(L, param->cur);
+    lua_pushinteger(L, param->def);
+    lua_pushinteger(L, param->min);
+    lua_pushinteger(L, param->max);
+    lua_pushinteger(L, param->res);
+    return 10;
+}
+
+/**
+USB摄像头标准控制界面写入CT/PU参数 --本函数于 2026.10.23 新增, 当前仅Air1601可用
+@api camera.uvc_ct_pu_init(app_id, param, value)
+@int app_id usb应用id
+@int param 参数，必须用camera.UVC_CT_XXX和camera.UVC_PU_XXX定义的常量
+@int value 参数值
+@return boolean true成功 false失败
+*/
+static int l_camera_uvc_ctrl_plane_set(lua_State *L)
+{
+    int ret = luat_usb_camera_ct_pu_set(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2), luaL_checkinteger(L, 3));
+    lua_pushboolean(L, !ret);
+    return 1;
 }
 
 #include "rotable2.h"
@@ -1122,6 +1173,8 @@ static const rotable_Reg_t reg_camera[] =
 	{ "cache",		 ROREG_FUNC(l_camera_cache)},
 	{ "stream",		 ROREG_FUNC(l_camera_stream)},
     { "ctrl_plane_init", ROREG_FUNC(l_camera_uvc_ctrl_plane_init)},
+    { "ctrl_plane_get", ROREG_FUNC(l_camera_uvc_ctrl_plane_get)},
+    { "ctrl_plane_set", ROREG_FUNC(l_camera_uvc_ctrl_plane_set)},
 #if defined(LUAT_USE_UTEST) && defined(LUAT_USE_CAMERA_SCAN)
 	{ "utest_qr_decode", ROREG_FUNC(l_camera_utest_qr_decode)},
 #endif
@@ -1172,7 +1225,7 @@ static const rotable_Reg_t reg_camera[] =
     { "CONF_UVC_RESOLUTION",               ROREG_INT(LUAT_CAMERA_CONF_UVC_RESOLUTION)},
 
     //@const CONF_UVC_CT_SCAN_MODE number USB摄像头的扫描模式
-    { "CONF_UVC_CT_SCAN_MODE",       ROREG_INT(LUAT_UVC_CT_SCANNING_MODE_CONTROL)},
+    { "UVC_CT_SCAN_MODE",       ROREG_INT(LUAT_UVC_CT_SCANNING_MODE_CONTROL)},
 
     //@const FORMAT_RAW number USB摄像头数据流类型无压缩原始图像
     { "FORMAT_RAW",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_RAW)},

@@ -1,8 +1,8 @@
 --[[
 @module  config.template
 @summary 项目配置文件参数手册（可复制后修改为实际配置）
-@version 1.2
-@date    2026.06.01
+@version 1.3
+@date    2026.10.22
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -70,21 +70,46 @@
     -- },
 
     -- ============================================================
-    -- 三(补)、外设预留列表 peripherals（可选，没用到则删掉整个 peripherals）
+    -- 三(补)、外设清单 peripherals（可选，没用到则删掉整个 peripherals）
     -- ============================================================
     -- 声明式外设清单，由 drv/periph/periph_loader.lua 在可选批逐个初始化。
     -- 未实现的 type 只登记不动作（记日志跳过），配置先行、驱动实现后补。
+    -- 数组每个元素是一个外设实例：同一 type 可写多条（多路 485、多路 UART），靠 id 区分。
     -- 字段约定:
     --   type          [必填] 外设类型: uvc / rs485 / spi_cam / can / onewire / i2c / uart / pwm / adc
+    --   id            [必填] 实例标识，同 type 多条时区分各路，全表唯一（如 "uvc1" / "485_1" / "uart2"）
+    --   name          [必填] UI 显示名，"功能测试"列表中展示的名称（如 "UVC摄像头" / "非隔离485"）
+    --   en_pin        [条件] 使能引脚 GPIO（uvc 等单使能外设用），运行时可开关控制
+    --   pin12_free    [可选] uvc 专用：en_pin = 12 时必须显式置 true 才允许驱动。
+    --                         GPIO12 在多数板子上是 USB VBUS（断电会连带杀掉触摸屏），
+    --                         故默认禁止；本板若确认 GPIO12 为独立可控的 UVC_EN 才放开
+    --   de_pin        [条件] 收发方向控制引脚 GPIO（rs485 用），DE 脚未引出时写 nil
+    --   power_pin     [条件] 该路供电域总使能脚 GPIO（rs485 用），同一供电域多路共用一个脚
+    --   uart_id       [条件] 挂载的 UART 接口号（rs485 / uart 用）
+    --   baud          [条件] 波特率（rs485 / uart 用），如 9600 / 115200
+    --   databits      [可选] 数据位（uart 用），默认 8
+    --   parity        [可选] 校验位（uart 用）: "N"=无校验 / "E"=偶校验 / "O"=奇校验，默认 "N"
+    --   stopbits      [可选] 停止位（uart 用），默认 1
     --   ready_delay   [可选] 上电稳定延时(ms)，loader 在 init 前等待（谁用谁等）
-    --   其余字段      透传给驱动 init(params)（en_pin / en_pins / uart_id / bus 等，按 type 约定）
+    --   w / h         [可选] uvc 专用：首选 MJPEG 输出分辨率，预览页优先按它取档；
+    --                         不写则用预览页默认档 1280×720；像素数超过 max_pixels 时不生效
+    --   max_pixels    [可选] uvc 专用：源分辨率像素上限（w×h），缺省 921600（1280×720）。
+    --                         相机侧固定开销约 4.25×w×h 字节，越大留给 airui.camera 显示
+    --                         缓冲的余量越小（预览区会跟着收小），1920×1080 会挤爆内存
+    --   其余字段      透传给驱动 init(params)（en_pins / bus 等，按 type 约定）
+    --
+    -- 例: UVC 摄像头 ×1 + RS485 ×2（共用 UART1 与 485_EN 供电脚）+ UART ×1
     -- peripherals = {
-    --     { type = "uvc",     en_pin = 58, ready_delay = 200 },   -- UVC 摄像头，200ms 就绪
-    --     { type = "rs485",   en_pins = {14, 65, 49}, uart_id = 11 },
+    --     { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
+    --     { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, baud = 9600 },
+    --     { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 },
+    --     { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },
+    -- },
+    --
+    -- 预留 type（配置先行，驱动实现后补）:
     --     { type = "spi_cam" },   -- SPI 摄像头（预留）
     --     { type = "can" },       -- CAN（预留）
     --     { type = "onewire" },   -- 1-Wire（预留）
-    -- },
 
     -- ============================================================
     -- 四、硬件配置（必填）
@@ -203,6 +228,7 @@
     --     bluetooth = true,    -- 启用蓝牙
     --     can = true,          -- 启用CAN总线
     --     rs485 = true,        -- 启用RS485接口
+    --     other_func = true,   -- 启用"功能测试"（peripherals 外设清单入口），通常同时设 ui.show_other_func = true
     --     usb_camera = true,   -- 启用USB摄像头，通常同时设 ui.show_camera_preview = true
     --     spi_camera = true,   -- 启用SPI摄像头，通常同时设 ui.show_camera_preview = true
     --     i2c_sensor = true,   -- 启用I2C传感器(SHT30温湿度/VOC等)，通常同时设 ui.show_sensor_panel = true
@@ -305,6 +331,7 @@
     --     show_buzzer_settings = true,     -- 设置页蜂鸣器(触摸声音)开关  ← 通常配 buzzer 时打开
     --     show_ethernet_settings = true,   -- 设置页以太网设置入口        ← 通常配 ethernet 时打开
     --     show_camera_preview = true,      -- 设置页摄像头预览入口        ← 通常配 usb_camera/spi_camera 时打开
+    --     show_other_func = true,         -- 桌面"功能测试"图标            ← 通常配 other_func 时打开，列出 peripherals 外设清单
     --     show_sensor_panel = true,        -- 设置页传感器数据面板        ← 通常配 i2c_sensor 时打开
     --     show_battery_icon = true,        -- 桌面顶栏电池图标           ← 通常配 battery 时打开
     --     show_app_factory = true,         -- 桌面"应用工厂"入口         ← 通常配 app_factory 时打开

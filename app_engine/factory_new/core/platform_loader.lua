@@ -53,10 +53,13 @@ require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART
 require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + RS485（4G 版）
 require ("eng_8602_9i_wifi")     -- Air8602 9寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + 双RS485（WiFi 版）
 require ("eng_8602_9i_4g")       -- Air8602 9寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + 双RS485（4G 版）
+require ("eng_8603w_10i_v0")     -- Air8603W 10寸 1024×600 + Airlink UART WiFi(6205) + Air1103语音(UART6) + UVC + 三路RS485 + UART2 + SD
+require ("eng_8603m_10i_v0")     -- Air8603M 10寸 1024×600 + Airlink UART 4G(780ER2) + Air1103语音(UART6) + UVC + 三路RS485 + UART2 + SD
 require ("eng_8605_10i_wifi")    -- Air8605 10寸 1024×600 + Airlink UART WiFi(6205) + Air1103语音 + SD + UVC + RS485（WiFi 版）
 require ("eng_8605_10i_4g")      -- Air8605 10寸 1024×600 + Airlink UART 4G(780ER2) + Air1103语音 + SD + UVC + RS485（4G 版）
 require ("eng_8605b_10i_v0")     -- Air8605B 10寸 1024×600 + WiFi(SPI2)/4G(UART3)双网 + Air1103语音(UART6) + NAND + 双RS485
 require ("eng_8607_10i_v0")      -- Air8603 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
+require ("eng_8607a_10i_v0")     -- Air8603 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + UVC，无 SD（无网络）
 
 -- EVB turnkey 开发板系列
 require ("evb_8101_5i_v0")        -- Air8101 5寸 800×480 H050IWV
@@ -74,6 +77,9 @@ require ("evb_1601_10i_v11")      -- Air1601 10寸 1024×600
 require ("lcd_display_rgb")       -- RGB display 统一驱动
 require ("tp_gt911")              -- GT911 触摸（统一）
 require ("periph_loader")         -- 外设预留框架（config.peripherals，require 无副作用）
+require ("periph_uvc")            -- UVC 摄像头外设（纯供电开关，数据流走 UVC 预览页）
+require ("periph_rs485")          -- RS485 外设（多路，DE 方向 + 供电引用计数）
+require ("periph_uart")           -- 通用串口外设（收发计数 + 环形缓冲）
 
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器
@@ -114,10 +120,13 @@ local PROJECT_MAP = {
     ["Engine_Air8601_7inch_1024x600_010_4G_V000"]   = "eng_8601_7i_4g",
     ["Engine_Air8602_9inch_1024x600_010_WiFi_V000"] = "eng_8602_9i_wifi",
     ["Engine_Air8602_9inch_1024x600_010_4G_V000"]   = "eng_8602_9i_4g",
+    ["Engine_Air8603W_10inch_1024x600_000_V000"]    = "eng_8603w_10i_v0",
+    ["Engine_Air8603M_10inch_1024x600_000_V000"]    = "eng_8603m_10i_v0",
     ["Engine_Air8605_10inch_1024x600_000_WIFI_V000"] = "eng_8605_10i_wifi",
     ["Engine_Air8605_10inch_1024x600_000_4G_V000"]   = "eng_8605_10i_4g",
     ["Engine_Air8605B_10inch_1024x600_000_V000"]     = "eng_8605b_10i_v0",
     ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
+    ["Engine_Air8607A_10inch_1024x600_000_V000"]  = "eng_8607a_10i_v0",
     -- EVB turnkey 开发板系列（已实现，≥800×480）
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
     ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",

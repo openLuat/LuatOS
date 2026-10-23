@@ -59,29 +59,30 @@ local function get_current_adapter()
 end
 
 local function start_http_server()
-    -- 等待网络就绪事件（ IP_READYK）
-    local _, result = sys.waitUntil("IP_READY")
-    log.info("httpsrv", "网络就绪事件:", result)
-    
-    -- 获取当前使用的网卡适配器
-    local adapter, adapter_name = get_current_adapter()
-    if not adapter then
-        log.error("httpsrv", "未找到可用的网卡适配器")
-        return
+    -- 等待网络就绪事件，再启动 HTTP 服务器。
+    while true do
+        sys.waitUntil("IP_READY")
+        log.info("httpsrv", "收到网络就绪事件，校验网卡与IP")
+
+        -- 获取当前使用的网卡适配器
+        local adapter, adapter_name = get_current_adapter()
+        if adapter then
+            local local_ip = socket.localIP(adapter)
+            if local_ip and local_ip ~= "0.0.0.0" then
+                -- 启动HTTP服务器
+                httpsrv.start(80, handle_http_request, adapter)
+                log.info("HTTP", "文件服务器已启动，使用" .. adapter_name .. "模式")
+
+                if adapter == socket.LWIP_AP then
+                    log.info("HTTP", "请连接WiFi: luatos8888 密码: 12345678")
+                end
+
+                log.info("HTTP", "访问地址: http://" .. (local_ip or "192.168.4.1"))
+                return
+            end
+        end
+        log.warn("httpsrv", "网卡未就绪，等待下一轮 IP_READY")
     end
-    
-    local local_ip = socket.localIP(adapter)
-    log.info("httpsrv", "网卡:", adapter_name, "IP:", local_ip)
-    
-    -- 启动HTTP服务器
-    httpsrv.start(80, handle_http_request, adapter)
-    log.info("HTTP", "文件服务器已启动，使用" .. adapter_name .. "模式")
-    
-    if adapter == socket.LWIP_AP then
-        log.info("HTTP", "请连接WiFi: luatos8888 密码: 12345678")
-    end
-    
-    log.info("HTTP", "访问地址: http://" .. (local_ip or "192.168.4.1"))
 end
 
 -- local function scan_done_handle()

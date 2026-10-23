@@ -19,8 +19,8 @@
 -- 根据自己的项目需求，只需要require以下两种中的一种即可；
 
 -- 加载“WIFI STA网卡”驱动模块
--- require "netdrv_wifi"
+require "netdrv_wifi"
 
 -- 加载“通过spi外挂CH390H芯片的以太网卡”驱动模块
-require "netdrv_eth_spi"
+-- require "netdrv_eth_spi"
 

@@ -136,16 +136,8 @@ function excloud_task_func()
         sys.waitUntil("IP_READY", 1000)
     end
 
-    local device_type
-    if rtos.bsp() == "PC" then
-        device_type = 9
-    else
-        device_type = 1
-    end
-
     local ok, err_msg = excloud.setup({
         use_getip = true,
-        device_type = device_type,
         auth_key = PROJECT_KEY,
         transport = "tcp",
         auto_reconnect = true,
@@ -167,7 +159,14 @@ function excloud_task_func()
     end
     log.info("excloud服务已开启")
 
-    excloud.start_heartbeat()
+    -- 新版 excloud 心跳需带 TLV 数据，否则空数据发送失败
+    excloud.start_heartbeat(300, {
+        {
+            field_meaning = excloud.FIELD_MEANINGS.HEARTBEAT_COUNT,
+            data_type = excloud.DATA_TYPES.INTEGER,
+            value = 1
+        }
+    })
     log.info("自动心跳已启动")
 
     local qrinfo = excloud.get_qrinfo()

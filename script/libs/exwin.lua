@@ -1,8 +1,8 @@
 --[[
 @module  exwin
 @summary UI窗口管理扩展库
-@version 2.1.0
-@date    2026.09.17
+@version 2.2.0
+@date    2026.10.22
 @author  江访
 @usage
 本文件为窗口管理扩展库，核心业务逻辑为：
@@ -11,6 +11,8 @@
 3、提供页面打开、关闭、查询活动、返回首页等导航功能
 4、【v2.0】窗口可携带 owner（归属者）字段，形成「一级菜单 → 二级菜单 → 多级子页」的树形归属，
     从而支持「切换一级菜单时销毁其整棵子树」，避免窗口无上界堆积。
+5、【v2.2】窗口可登记页面根控件（root），被盖住的页面自动隐藏根控件、回到它时再显示，
+    避免下层页面在整屏重画时被重复绘制。未登记 root 的窗口行为不变。
 
 窗口定义通过 Lua 表描述，需包含以下回调：
 - on_create()：窗口创建时调用(必须有)
@@ -30,6 +32,12 @@
 9、【v2.0】exwin.get_owner(win_id)    ：查询 win_id 的归属者 id（顶层窗口返回 nil）
 10、【v2.1】exwin.begin_menu_switch(id)：声明一次一级菜单切换事务，由 exwin 在新页创建完成后回收旧页
 11、【v2.1】exwin.children_of(id)      ：列出 id 的全部直接子窗口 id
+12、【v2.2】exwin.bind_root(root,opts) ：把页面根控件登记到当前窗口，被盖住时自动隐藏
+
+关于 root（页面根控件）：
+- 登记后，只有栈顶窗口与 keep_visible 的窗口会显示根控件，其余一律隐藏；
+- 显隐统一由 exwin 在开窗/关窗/焦点结算时收敛，调用方无需自行管理；
+- 未登记 root 的窗口行为与 v2.1 完全一致。
 
 关于 owner（归属者）：
 - exwin.open({...}) 未显式指定 owner 时，默认取**开窗时的栈顶窗口 id**，即「谁开的我，我就归谁」。
@@ -38,6 +46,14 @@
   二级页面（设置里的 iot 等）的 owner 会自动落到其父页面（设置）上，无需调用方手写层级数字。
 
 -- 版本更新说明
+-- 版本号：202610221800
+-- 1、更新时间：2026-10-22 18:00
+-- 2、更新内容
+--    新增 exwin.bind_root(root, opts)：把页面根控件登记到当前窗口，被盖住时自动隐藏、回到它时再显示。
+--    根因：exwin 此前只改焦点，不改绘制参与度，被盖住的页面控件原样留在活动屏上。
+--    宽屏带左栏（页面根只占右侧内容区）时，整屏失效无法被 LVGL 的顶层全覆盖裁剪命中，
+--    下层页面会跟着整棵重画一遍。隐藏根控件后既省绘制，也顺带挡掉触摸命中。
+--    兼容性：未登记 root 的窗口行为完全不变；新增字段仅写入窗口记录，不改动任何既有回调的顺序与签名。
 -- 版本号：202609171720
 -- 1、更新时间：2026-09-17 17:20
 -- 2、更新内容
@@ -86,16 +102,66 @@ local function find_index_by_id(id)
     return nil
 end
 
+--[[内部函数：实际执行根控件的隐藏/显示
+
+单独拆出是为了让 pcall 能整体兜住：
+控件已 destroy、方法不存在、userdata 索引失败等情况都不应影响窗口栈逻辑。]]
+local function do_set_root_hidden(root, hidden)
+    root:set_hidden(hidden)
+end
+
+--[[内部函数：隐藏或显示页面根控件
+
+只用 set_hidden，不调用 open()：open() 除了清除 HIDDEN 还会把控件挪到父容器最上层，
+在「恢复显示」时会翻掉页面之间的层级关系。
+
+@local
+@function set_root_hidden
+@param root userdata|table 页面根控件
+@param hidden boolean true=隐藏
+]]
+local function set_root_hidden(root, hidden)
+    if root == nil then return end
+    pcall(do_set_root_hidden, root, hidden and true or false)
+end
+
+--[[内部函数：按窗口栈收敛所有已登记根控件的显隐
+
+只有栈顶窗口与 keep_visible 的窗口保持显示，其余隐藏。
+幂等：重复调用结果一致，因此可以在开窗、关窗、焦点结算等任意时机调用，
+不必区分「隐藏下层」和「显示自己」两条路径。
+
+@local
+@function sync_root_visibility
+]]
+local function sync_root_visibility()
+    if suppress_focus then return end
+    local top = win_stack[#win_stack]
+    for _, w in ipairs(win_stack) do
+        if w.root then
+            local want = (w == top) or (w.keep_visible == true)
+            if w.root_shown ~= want then
+                set_root_hidden(w.root, not want)
+                w.root_shown = want
+            end
+        end
+    end
+end
+
 --[[内部函数：结算焦点
 
 把焦点交给当前栈顶。suppress_focus 为真时跳过
-（批量销毁期间由调用者在收尾时手动结算一次）。]]
+（批量销毁期间由调用者在收尾时手动结算一次）。
+焦点结算前后各收敛一次根控件显隐：
+之前的那次把新栈顶显示出来，之后的那次兜住 on_get_focus 里重建了根控件的情况。]]
 local function settle_focus()
     if suppress_focus then return end
+    sync_root_visibility()
     local top = win_stack[#win_stack]
     if top and top.get_focus then
         pcall(top.get_focus)
     end
+    sync_root_visibility()
 end
 
 --[[内部函数：递归收集 id 的全部后代（不含 id 自身）
@@ -148,6 +214,10 @@ local function destroy_many(victim)
             if w.destroy then
                 pcall(w.destroy)
             end
+            -- 根控件随窗口销毁，立刻断开引用，避免后续 sync 误操作已销毁的控件
+            w.root = nil
+            w.root_shown = nil
+            w.keep_visible = nil
             table.remove(win_stack, vi)
         end
     end
@@ -212,9 +282,16 @@ function exwin.open(config)
         get_focus = config.on_get_focus
     }
 
-    -- 如果存在当前窗口，先让其失去焦点
-    if current and current.lose_focus then
-        pcall(current.lose_focus)
+    -- 如果存在当前窗口，先隐藏它的根控件，再让其失去焦点
+    --（keep_visible 的窗口即使被盖住也要露出，例如桌面的左栏）
+    if current then
+        if not current.keep_visible then
+            set_root_hidden(current.root, true)
+            current.root_shown = false
+        end
+        if current.lose_focus then
+            pcall(current.lose_focus)
+        end
     end
 
     -- 新窗口入栈
@@ -243,6 +320,9 @@ function exwin.open(config)
             --（sw.victims 中不含栈顶，destroy_many 内部的 top_affected 亦为 false）
         end
     end
+
+    -- 收敛根控件显隐：新窗口已建好自己的根控件，这里一并把它显示出来、压住其余页面
+    sync_root_visibility()
 
     return new_id
 end
@@ -443,6 +523,42 @@ function exwin.get_owner(win_id)
 end
 
 --[[
+把页面根控件登记到当前窗口
+
+登记后，该页面被别的窗口盖住时根控件自动隐藏、回到它时自动显示。
+必须在窗口的 on_create 里调用（此刻当前窗口就是它自己），或者在 on_get_focus 里重建根控件后再次调用。
+
+hide/show 只做 set_hidden，不改变控件的层级顺序；控件已销毁时静默跳过。
+
+@api exwin.bind_root(root, opts)
+@param root userdata|table 页面根控件，传 nil 解除登记
+@param table opts 可选配置，可包含：
+    @boolean keep_visible 为 true 时即使被盖住也保持显示（如桌面需要露出左侧栏）
+@return boolean 是否登记成功（栈为空时返回 false）
+@usage
+-- 页面自己创建完根控件后登记
+main_container = theme.page_bg(parent, ...)
+exwin.bind_root(main_container)
+
+-- 桌面需要被盖住时仍露出左栏
+exwin.bind_root(main_container, { keep_visible = true })
+]]
+function exwin.bind_root(root, opts)
+    local top = win_stack[#win_stack]
+    if not top then return false end
+
+    -- 换了根控件才需要重置显隐状态，重复登记同一根控件时保持幂等
+    if top.root ~= root then
+        top.root = root
+        top.root_shown = nil
+    end
+    top.keep_visible = (type(opts) == "table" and opts.keep_visible == true) or nil
+
+    sync_root_visibility()
+    return true
+end
+
+--[[
 查询窗口是否为当前活动页面
 
 @api exwin.is_active(win_id)
@@ -472,10 +588,7 @@ function exwin.return_idle()
     -- 从栈顶向下遍历，销毁除栈底（第一个窗口）外的所有窗口
     -- 栈底窗口的ID应为1（假设第一个打开的窗口是首页）
     if #win_stack <= 1 then
-        local home = win_stack[1]
-        if home and home.get_focus then
-            pcall(home.get_focus)
-        end
+        settle_focus()
         return
     end
 
@@ -495,15 +608,23 @@ end
 --[[
 获取窗口栈调试快照（供日志/自检使用，不参与业务逻辑）
 
+返回的是可 json 编码的字段，root 以布尔量形式给出（控件对象本身无法序列化）。
+
 @api exwin.dump()
-@return table { {id=, owner=, depth=}, ... } 自底向上的窗口列表
+@return table { {id=, owner=, index=, root_bound=, keep_visible=}, ... } 自底向上的窗口列表
 @usage
 log.info("exwin", "stack =", json.encode(exwin.dump()))
 ]]
 function exwin.dump()
     local out = {}
     for i, w in ipairs(win_stack) do
-        out[#out + 1] = { id = w.id, owner = w.owner, index = i }
+        out[#out + 1] = {
+            id = w.id,
+            owner = w.owner,
+            index = i,
+            root_bound = w.root ~= nil,
+            keep_visible = w.keep_visible == true,
+        }
     end
     return out
 end
@@ -525,7 +646,7 @@ end
 exwin.version()
 ]]
 function exwin.version()
-    return "202609171720"
+    return "202610221800"
 end
 
 log.debug("exwin", "version -> " .. exwin.version())

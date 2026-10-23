@@ -1,5 +1,12 @@
 --[[
 @module  netdrv_4g
+@summary 4G 网络适配与联网事件处理
+@usage
+负责本项目 4G 网络接入相关设置及 IP 状态事件，供 SIP 和云端业务使用。
+]]
+
+--[[
+@module  netdrv_4g
 @summary “4G网卡”驱动模块
 @version 1.0
 @date    2025.07.01

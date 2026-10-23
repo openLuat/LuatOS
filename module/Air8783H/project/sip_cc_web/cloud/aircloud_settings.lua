@@ -1,3 +1,11 @@
+--[[
+@module  aircloud_settings
+@summary SIP 与 SOS 配置持久化后端
+@usage
+校验云端参数并保存配置，生成公开配置、能力及待重启状态。
+接听偏好属于兼容存储字段，不应理解为当前 PCM 业务已经实现对应行为。
+]]
+
 -- PCM project configuration backend; answer preferences are storage-only.
 local M = {}
 local sos = require "sos_config"
@@ -122,7 +130,7 @@ function M.capabilities(mode)
     for _,f in ipairs(compatibility_fields) do writable[#writable+1]=f end
     for _,f in ipairs(sos.fields) do writable[#writable+1]=f end
     if M.platform=="8784" and mode=="sip" then writable[#writable+1]="audio.volume";writable[#writable+1]="audio.mic_gain" end
-    return {commands={"get_sip_status","get_sip_config","get_status","set_config"},
+    return {commands={"get_sip_status","get_sip_config","get_status","set_config","update","fota"},
         unsupported_commands={"get_location","speak_battery","play_tts"},writable_fields=writable,
         modes=M.switchable and {"sip","sip_cc"} or {"sip_cc"},max_targets=M.platform=="8784" and 3 or 1,
         max_sip_peers=1,keys=M.platform=="8784",outgoing_sos=M.platform=="8784",

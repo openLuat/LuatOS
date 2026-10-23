@@ -1,3 +1,11 @@
+--[[
+@module  sos_config
+@summary SOS 配置校验与协议数据转换
+@usage
+提供模式、号码列表及映射的校验、归一化和复制功能。
+本模块不操作硬件或持久化存储，由各项目配置模块调用。
+]]
+
 -- Pure SOS wire validation. No hardware or storage side effects.
 local M = {}
 M.fields={"sos_mode","sos_sip_numbers","sos_sip_cc_numbers","sos_sip_cc_peers","sos_sip_cc_map","sos_cc_numbers","sos_numbers"}

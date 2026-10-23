@@ -1,3 +1,11 @@
+--[[
+@module  air153c_wdt
+@summary Air153C 外部看门狗业务封装
+@usage
+读取 config.WDT_CONFIG，通过上游 exair153x_wdt 初始化看门狗。
+未启用时跳过初始化，GPIO 与喂狗周期由项目配置指定。
+]]
+
 local air153c_wdt = {}
 
 local config = require "config"

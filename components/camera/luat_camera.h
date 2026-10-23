@@ -271,14 +271,14 @@ typedef struct {
     uint8_t state;  //0 disable 其他 support，具体看GET_INFO
 }luat_uvc_ctrl_param_t;
 
-void luat_usb_camera_ct_pu_get_info(uint8_t app_id);
+void luat_usb_camera_ctrl_plane_get_all_info(uint8_t app_id);
+void luat_usb_camera_ctrl_plane_clear_all_info(void);
+luat_uvc_ctrl_param_t *luat_usb_camera_ctrl_plane_get(uint8_t app_id, uint8_t sn);
+int luat_usb_camera_ctrl_plane_set(uint8_t app_id, uint8_t sn, int value);
 
-luat_uvc_ctrl_param_t *luat_usb_camera_ct_pu_get(uint8_t app_id, uint8_t sn);
-int luat_usb_camera_ct_pu_set(uint8_t app_id, uint8_t sn, int value);
-
-void luat_usb_camera_ct_pu_get_map(uint8_t app_id, uint32_t *ct_map, uint32_t *pu_map);//bsp负责具体实现
-int luat_usb_camera_ct_pu_request_get(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v);//bsp负责具体实现
-int luat_usb_camera_ct_pu_request_set(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v);//bsp负责具体实现
+void luat_usb_camera_ctrl_plane_get_map(uint8_t app_id, uint32_t *ct_map, uint32_t *pu_map);//bsp负责具体实现
+int luat_usb_camera_ctrl_plane_request_get(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v);//bsp负责具体实现
+int luat_usb_camera_ctrl_plane_request_set(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v);//bsp负责具体实现
 /**********以下是luatos使用，csdk不要使用***********/
 /**
  * @brief 开始接收camera数据

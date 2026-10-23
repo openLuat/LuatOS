@@ -92,10 +92,12 @@ int l_camera_handler(lua_State *L, void* ptr) {
         	case LUAT_CAMERA_USB_CONNECT:
         		lua_pushinteger(L, LUAT_USB_EVENT_CONNECT);
         		lua_pushinteger(L, u_event.port_id);
+                luat_usb_camera_ctrl_plane_get_all_info(u_event.app_id);
         		break;
         	case LUAT_CAMERA_USB_DISCONNECT:
         		lua_pushinteger(L, LUAT_USB_EVENT_DISCONNECT);
         		lua_pushinteger(L, u_event.port_id);
+                luat_usb_camera_ctrl_plane_clear_all_info();
         		break;
         	case LUAT_CAMERA_FRAME_ERROR:
             	lua_pushinteger(L, LUAT_USB_EVENT_RX_ERROR);
@@ -1088,22 +1090,9 @@ static int l_camera_utest_qr_decode(lua_State *L) {
 }
 #endif
 
-
-/**
-USB摄像头标准控制界面初始化，读取写入CT/PU参数前至少初始化一次 --本函数于 2026.10.22 新增, 当前仅Air1601可用
-@api camera.uvc_ct_pu_init(app_id)
-@int app_id usb应用id
-@return nil
-*/
-static int l_camera_uvc_ctrl_plane_init(lua_State *L)
-{
-    luat_usb_camera_ct_pu_get_info(luaL_checkinteger(L, 1));
-    return 0;
-}
-
 /**
 USB摄像头标准控制界面读取CT/PU参数 --本函数于 2026.10.23 新增, 当前仅Air1601可用
-@api camera.uvc_ct_pu_init(app_id, param)
+@api camera.ctrl_plane_get(app_id, param)
 @int app_id usb应用id
 @int param 参数名称，必须用camera.UVC_CT_XXX和camera.UVC_PU_XXX定义的常量
 @return boolean 该项参数成功被读取返回true,无法读取返回false
@@ -1120,7 +1109,7 @@ USB摄像头标准控制界面读取CT/PU参数 --本函数于 2026.10.23 新增
 static int l_camera_uvc_ctrl_plane_get(lua_State *L)
 {
     luat_uvc_ctrl_param_t def_param = {0};
-    luat_uvc_ctrl_param_t *param = luat_usb_camera_ct_pu_get(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
+    luat_uvc_ctrl_param_t *param = luat_usb_camera_ctrl_plane_get(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
     if (!param) {
         param = &def_param;
     }
@@ -1139,7 +1128,7 @@ static int l_camera_uvc_ctrl_plane_get(lua_State *L)
 
 /**
 USB摄像头标准控制界面写入CT/PU参数 --本函数于 2026.10.23 新增, 当前仅Air1601可用
-@api camera.uvc_ct_pu_init(app_id, param, value)
+@api camera.ctrl_plane_set(app_id, param, value)
 @int app_id usb应用id
 @int param 参数，必须用camera.UVC_CT_XXX和camera.UVC_PU_XXX定义的常量
 @int value 参数值
@@ -1147,9 +1136,21 @@ USB摄像头标准控制界面写入CT/PU参数 --本函数于 2026.10.23 新增
 */
 static int l_camera_uvc_ctrl_plane_set(lua_State *L)
 {
-    int ret = luat_usb_camera_ct_pu_set(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2), luaL_checkinteger(L, 3));
+    int ret = luat_usb_camera_ctrl_plane_set(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2), luaL_checkinteger(L, 3));
     lua_pushboolean(L, !ret);
     return 1;
+}
+
+/**
+USB摄像头标准控制界面刷新全部参数，一般不需要调用，除非出现摄像头识别阶段出错无法读取全部有效数据的情况，才使用 --本函数于 2026.10.23 新增, 当前仅Air1601可用
+@api camera.ctrl_plane_refresh(app_id)
+@int app_id usb应用id
+@return nil
+*/
+static int l_camera_uvc_ctrl_plane_refresh(lua_State *L)
+{
+    luat_usb_camera_ctrl_plane_get_all_info(luaL_checkinteger(L, 1));
+    return 0;
 }
 
 #include "rotable2.h"
@@ -1172,9 +1173,9 @@ static const rotable_Reg_t reg_camera[] =
 	{ "set_usb_config",		 ROREG_FUNC(l_camera_set_usb_config)},
 	{ "cache",		 ROREG_FUNC(l_camera_cache)},
 	{ "stream",		 ROREG_FUNC(l_camera_stream)},
-    { "ctrl_plane_init", ROREG_FUNC(l_camera_uvc_ctrl_plane_init)},
     { "ctrl_plane_get", ROREG_FUNC(l_camera_uvc_ctrl_plane_get)},
     { "ctrl_plane_set", ROREG_FUNC(l_camera_uvc_ctrl_plane_set)},
+    { "ctrl_plane_refresh", ROREG_FUNC(l_camera_uvc_ctrl_plane_refresh)},
 #if defined(LUAT_USE_UTEST) && defined(LUAT_USE_CAMERA_SCAN)
 	{ "utest_qr_decode", ROREG_FUNC(l_camera_utest_qr_decode)},
 #endif

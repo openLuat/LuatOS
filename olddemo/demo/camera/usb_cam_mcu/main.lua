@@ -90,7 +90,6 @@ local function  camera_cb(app_id, event, param)
         log.info("设置图像格式", frame_type, sensor_w, sensor_h)
 		--简单演示CT/PU控制
 		--[[
-		camera.ctrl_plane_init(usb_app_id)
 		log.info("自动曝光模式", camera.ctrl_plane_get(usb_app_id, camera.UVC_CT_AE_MODE))
 		log.info("绝对曝光时间", camera.ctrl_plane_get(usb_app_id, camera.UVC_CT_EXPOSURE_ABSOLUTE))
 		log.info("绝对光圈", camera.ctrl_plane_get(usb_app_id, camera.UVC_CT_IRIS_ABSOLUTE))

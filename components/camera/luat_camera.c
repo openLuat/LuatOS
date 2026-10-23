@@ -60,7 +60,7 @@ static const char *_pu_name[LUAT_UVC_PU_CONTRAST_AUTO_CONTROL + 1] =
     "模拟信号锁定状态",
     "自动对比度",
 };
-
+static int _ctrl_plane_usb_app_id = -1;
 static luat_uvc_ctrl_param_t _ct_ctrl_table[LUAT_UVC_CT_REGION_OF_INTEREST_CONTROL + 1] = {
 /* 0x00 */  {0},                                       //VIDEO_CT_CONTROL_UNDEFINED 占位置
 /* 0x01 */  {0, 1, 1, 1, 0, LUAT_UVC_CT_BIT_SCANNING_MODE, 1, _F_TYPE_C_, 0},     //VIDEO_CT_SCANNING_MODE_CONTROL 扫描模式：隔行采集开关，1 字节 0 隔行 / 1 逐行；def 1 = 逐行（现代 sensor 默认）；无 GET_DEF，def 仅作兜底
@@ -128,11 +128,15 @@ static int _get_v(uint32_t v, uint8_t len, uint8_t is_signed)
         return v;
     }
 }
+void luat_usb_camera_ctrl_plane_clear_all_info()
+{
+    _ctrl_plane_usb_app_id = -1;
+}
 
-void luat_usb_camera_ct_pu_get_info(uint8_t app_id)
+void luat_usb_camera_ctrl_plane_get_all_info(uint8_t app_id)
 {
     uint32_t ct, pu;
-    luat_usb_camera_ct_pu_get_map(app_id, &ct, &pu);
+    luat_usb_camera_ctrl_plane_get_map(app_id, &ct, &pu);
     uint32_t temp;
     for(uint32_t i = 1; i <= LUAT_UVC_CT_REGION_OF_INTEREST_CONTROL; i++) {
         if (ct & ((uint32_t)1 << _ct_ctrl_table[i].bit)) {
@@ -140,7 +144,7 @@ void luat_usb_camera_ct_pu_get_info(uint8_t app_id)
                 _ct_ctrl_table[i].state = 0;
                 continue;
             } else {
-                if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_INFO, i, 1, &temp)) {
+                if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_INFO, i, 1, &temp)) {
                     LLOGE("ct%d %s get info error", i, _ct_name[i]);
                     _ct_ctrl_table[i].state = 0;
                     continue;
@@ -150,36 +154,36 @@ void luat_usb_camera_ct_pu_get_info(uint8_t app_id)
             }
 
             if (!(_ct_ctrl_table[i].flag & _F_COMPOSITE)) {
-                if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_CUR, i, _ct_ctrl_table[i].len, &temp)) {
+                if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_CUR, i, _ct_ctrl_table[i].len, &temp)) {
                     LLOGE("ct%d %s get cur error", i, _ct_name[i]);
                 }
                 _ct_ctrl_table[i].cur = _get_v(temp, _ct_ctrl_table[i].len, _ct_ctrl_table[i].flag & _F_SIGNED);
                 _ct_ctrl_table[i].def = _ct_ctrl_table[i].cur;
                 if (_ct_ctrl_table[i].flag & _F_DEF) {
-                    if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_DEF, i, _ct_ctrl_table[i].len, &temp)) {
+                    if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_DEF, i, _ct_ctrl_table[i].len, &temp)) {
                         LLOGE("ct%d %s get def error", i, _ct_name[i]);
                     }
                     _ct_ctrl_table[i].def = _get_v(temp, _ct_ctrl_table[i].len, _ct_ctrl_table[i].flag & _F_SIGNED);
                 }
                 if (_ct_ctrl_table[i].flag & _F_RANGE) {
                     
-                    if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_MIN, i, _ct_ctrl_table[i].len, &temp)) {
+                    if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_MIN, i, _ct_ctrl_table[i].len, &temp)) {
                         LLOGE("ct%d %s get min error", i, _ct_name[i]);
                     }
                     _ct_ctrl_table[i].min = _get_v(temp, _ct_ctrl_table[i].len, _ct_ctrl_table[i].flag & _F_SIGNED);
                     
-                    if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_MAX, i, _ct_ctrl_table[i].len, &temp)) {
+                    if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_MAX, i, _ct_ctrl_table[i].len, &temp)) {
                         LLOGE("ct%d %s get max error", i, _ct_name[i]);
                     }
                     _ct_ctrl_table[i].max = _get_v(temp, _ct_ctrl_table[i].len, _ct_ctrl_table[i].flag & _F_SIGNED);
                     
-                    if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_RES, i, _ct_ctrl_table[i].len, &temp)) {
+                    if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_RES, i, _ct_ctrl_table[i].len, &temp)) {
                         LLOGE("ct%d %s get res error", i, _ct_name[i]);
                     }
                     _ct_ctrl_table[i].res = _get_v(temp, _ct_ctrl_table[i].len, _ct_ctrl_table[i].flag & _F_SIGNED);
                 } else if (LUAT_UVC_CT_AE_MODE_CONTROL == i) {
                     
-                    if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_RES, i, _ct_ctrl_table[i].len, &temp)) {
+                    if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_RES, i, _ct_ctrl_table[i].len, &temp)) {
                         LLOGE("ct%d %s get res error", i, _ct_name[i]);
                     }
                     _ct_ctrl_table[i].res = _get_v(temp, _ct_ctrl_table[i].len, _ct_ctrl_table[i].flag & _F_SIGNED);
@@ -198,7 +202,7 @@ void luat_usb_camera_ct_pu_get_info(uint8_t app_id)
                 _pu_ctrl_table[i].state = 0;
                 continue;
             } else {
-                if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_INFO, i|LUAT_UVC_PU_MASK, 1, &temp)) {
+                if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_INFO, i|LUAT_UVC_PU_MASK, 1, &temp)) {
                     LLOGE("pu%d %s get info error", i, _pu_name[i]);
                     _pu_ctrl_table[i].state = 0;
                     continue;
@@ -209,31 +213,31 @@ void luat_usb_camera_ct_pu_get_info(uint8_t app_id)
             
             if (!(_pu_ctrl_table[i].flag & _F_COMPOSITE)) {
                 
-                if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_CUR, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
+                if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_CUR, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
                     LLOGE("pu%d %s get cur error", i, _pu_name[i]);
                 }
                 _pu_ctrl_table[i].cur = _get_v(temp, _pu_ctrl_table[i].len, _pu_ctrl_table[i].flag & _F_SIGNED);
                 _pu_ctrl_table[i].def = _pu_ctrl_table[i].cur;
                 if (_pu_ctrl_table[i].flag & _F_DEF) {
                     
-                    if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_DEF, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
+                    if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_DEF, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
                         LLOGE("pu%d %s def cur error", i, _pu_name[i]);
                     }
                     _pu_ctrl_table[i].def = _get_v(temp, _pu_ctrl_table[i].len, _pu_ctrl_table[i].flag & _F_SIGNED);
                 }
                 if (_pu_ctrl_table[i].flag & _F_RANGE) {
                     
-                    if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_MIN, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
+                    if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_MIN, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
                         LLOGE("pu%d %s min cur error", i, _pu_name[i]);
                     }
                     _pu_ctrl_table[i].min = _get_v(temp, _pu_ctrl_table[i].len, _pu_ctrl_table[i].flag & _F_SIGNED);
                     
-                    if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_MAX, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
+                    if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_MAX, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
                         LLOGE("pu%d %s max cur error", i, _pu_name[i]);
                     }
                     _pu_ctrl_table[i].max = _get_v(temp, _pu_ctrl_table[i].len, _pu_ctrl_table[i].flag & _F_SIGNED);
                     
-                    if (luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_RES, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
+                    if (luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_RES, i|LUAT_UVC_PU_MASK, _pu_ctrl_table[i].len, &temp)) {
                         LLOGE("pu%d %s max res error", i, _pu_name[i]);
                     }
                     _pu_ctrl_table[i].res = _get_v(temp, _pu_ctrl_table[i].len, _pu_ctrl_table[i].flag & _F_SIGNED);
@@ -245,10 +249,12 @@ void luat_usb_camera_ct_pu_get_info(uint8_t app_id)
             _pu_ctrl_table[i].state = 0;
         }
     }
+    _ctrl_plane_usb_app_id = app_id;
 }
 
-luat_uvc_ctrl_param_t *luat_usb_camera_ct_pu_get(uint8_t app_id, uint8_t sn)
+luat_uvc_ctrl_param_t *luat_usb_camera_ctrl_plane_get(uint8_t app_id, uint8_t sn)
 {
+    if (_ctrl_plane_usb_app_id != app_id) return NULL;
     if (sn & LUAT_UVC_PU_MASK) {
         sn &= ~LUAT_UVC_PU_MASK;
         if (sn && sn <= LUAT_UVC_PU_CONTRAST_AUTO_CONTROL) {
@@ -265,13 +271,14 @@ luat_uvc_ctrl_param_t *luat_usb_camera_ct_pu_get(uint8_t app_id, uint8_t sn)
     }
 }
 
-int luat_usb_camera_ct_pu_set(uint8_t app_id, uint8_t sn, int value)
+int luat_usb_camera_ctrl_plane_set(uint8_t app_id, uint8_t sn, int value)
 {
-    luat_uvc_ctrl_param_t *param = luat_usb_camera_ct_pu_get(app_id, sn);
-    if (!param->state) {
+    if (_ctrl_plane_usb_app_id != app_id) return -LUAT_ERROR_PERMISSION_DENIED;
+    luat_uvc_ctrl_param_t *param = luat_usb_camera_ctrl_plane_get(app_id, sn);
+    if (!param || !param->state) {
         return -LUAT_ERROR_NO_SUCH_ID;
     }
-    if (param->flag & _F_COMPOSITE) {
+    if ((param->len > 4) || !(param->state & LUAT_UVC_CTRL_CAP_SET)) {
         return -LUAT_ERROR_CMD_NOT_SUPPORT;
     }
     int old = value;
@@ -281,7 +288,7 @@ int luat_usb_camera_ct_pu_set(uint8_t app_id, uint8_t sn, int value)
         } else if (value >= param->max) {
             value = param->max;
         } else {
-            value = param->min + ((value-param->min)/param->res)*param->res;
+            value = param->min + ((value-param->min + (param->res >> 1))/param->res)*param->res;
         }
     } 
     luat_data_union_t set_data;
@@ -308,22 +315,22 @@ int luat_usb_camera_ct_pu_set(uint8_t app_id, uint8_t sn, int value)
         }
         break;
     }
-    if (luat_usb_camera_ct_pu_request_set(app_id, LUAT_UVC_REQUEST_SET_CUR, sn, param->len, &set_data.u32)) {
+    if (luat_usb_camera_ctrl_plane_request_set(app_id, LUAT_UVC_REQUEST_SET_CUR, sn, param->len, &set_data.u32)) {
         return -LUAT_ERROR_OPERATION_FAILED;
     }
     param->cur = value;
-    if (!luat_usb_camera_ct_pu_request_get(app_id, LUAT_UVC_REQUEST_GET_CUR, sn, param->len, &set_data.u32)) {
+    if (!luat_usb_camera_ctrl_plane_request_get(app_id, LUAT_UVC_REQUEST_GET_CUR, sn, param->len, &set_data.u32)) {
         param->cur = _get_v(set_data.u32, param->len, param->flag & _F_SIGNED);
         if (sn & LUAT_UVC_PU_MASK) {
             LLOGI("%s set %d cur %d", _pu_name[sn & ~LUAT_UVC_PU_MASK], old, param->cur);
         } else {
-            LLOGI("%s set %d cur %d", _ct_name[sn & ~LUAT_UVC_PU_MASK], old, param->cur);
+            LLOGI("%s set %d cur %d", _ct_name[sn], old, param->cur);
         }
     }
     return LUAT_ERROR_NONE;
 
 }
 
-LUAT_WEAK void luat_usb_camera_ct_pu_get_map(uint8_t app_id, uint32_t *ct_map, uint32_t *pu_map) {*ct_map = 0;*pu_map=0;}
-LUAT_WEAK int luat_usb_camera_ct_pu_request_get(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v) {return -1;}
-LUAT_WEAK int luat_usb_camera_ct_pu_request_set(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v) {return -1;}
+LUAT_WEAK void luat_usb_camera_ctrl_plane_get_map(uint8_t app_id, uint32_t *ct_map, uint32_t *pu_map) {*ct_map = 0;*pu_map=0;}
+LUAT_WEAK int luat_usb_camera_ctrl_plane_request_get(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v) {return -1;}
+LUAT_WEAK int luat_usb_camera_ctrl_plane_request_set(uint8_t app_id, uint8_t request, uint8_t sn, uint8_t len, uint32_t *v) {return -1;}

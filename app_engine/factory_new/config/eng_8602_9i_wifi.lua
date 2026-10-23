@@ -1,7 +1,7 @@
 --[[
 @module  config.eng_8602_9i_wifi
 @summary Air8601 引擎主机 9寸1024x600 RGB屏(HX8282) + Airlink UART WiFi(6205) + USB摄像头 + 双RS485 + SD卡 + 喇叭 配置文件（WiFi 版）
-@version 1.2
+@version 1.3
 @date    2026.10.14
 @author  江访
 @usage
@@ -14,7 +14,13 @@
 3. LCD 为 HX8282 RGB 9寸 1024×600，走本工程统一 RGB 驱动 lcd_display_rgb，背光 PWM3 可调光。
 4. 触摸 GT911 走 I2C1，需 pins 配置 I2C1 功能复用。
 5. SD 卡走 SPI1 总线，CS = PIN38（GPIO 待确认）。
-6. 双 RS485：UART1 = 485_1，UART2 = 485_2；485_EN1 = PIN51，485_EN2 = GPIO57（PIN47）。
+6. 双 RS485：485_UART_TXD1 / 485_UART_RXD1 = UART1，485_UART_TXD2 / 485_UART_RXD2 = UART2；
+   485_EN1 = PIN51 = GPIO65 = DE（走 UART1），485_EN2 = PIN47 = GPIO57 = DE（走 UART2）。
+   本板无独立 485 供电脚（peripherals 的 rs485 条目不写 power_pin），DE 由 periph_rs485
+   在开串口时置接收态，上电不预拉。
+   两路的隔离属性按同族约定填：非隔离 485 走 UART1（manual_init = true，进 485 测试页
+   不自动上电开串口，点该路按钮才初始化），另一路记作隔离 485。8602 引脚表未标注隔离
+   属性，若实际相反请改 name 与 manual_init。
 7. 【固定组网 · WiFi 版】本型号固定启用 Airlink UART WiFi（6205，独占 UART3）。
    同底板另有 4G 出货型号 Engine_Air8602_9inch_1024x600_010_4G_V000（config/eng_8602_9i_4g.lua），
    两型号是同一底板电阻切换的不同出货型号，配置只差 features / network / ui 三处，切勿混用。
@@ -27,11 +33,13 @@
    共用同一物理引脚，存在冲突。此处按 7 寸版本（eng_8601_7i_wifi / eng_8601_7i_4g）将 UVC_EN
    设为 GPIO73，AUDIOPA_EN 设为 GPIO 输出（具体 GPIO 待确认）。若上板发现喇叭功放/摄像头
    无法同时使能，请核实原理图中 AUDIOPA_EN 的实际 GPIO 编号。
-10. 【PIN51 双重映射】485_EN1 = PIN51 与 SD_EN = PIN51 = GPIO65 共用同一物理引脚，
-    存在冲突。此处按 GPIO65 初始化（SD 供电优先），485_EN1 的 GPIO 待确认。若上板发现
-    RS485_1 无法收发或 SD 卡无法识别，请核实原理图中 485_EN1 的实际 GPIO 编号。
-11. features.usb_camera / rs485 与 ui.show_camera_preview 目前在 app/ 与 ui/ 里查不到消费方
-    （与7寸配置一致），写了不报错也不生效，此处保留仅作能力声明。
+10. 【PIN51 双重映射 · 按引脚表定案】485_EN1 = PIN51 = GPIO65 = DE，与早前记录的
+    "SD_EN = PIN51 = GPIO65" 说法冲突。本文件 power_on 实际把 SD_EN 配在 GPIO74，
+    故 485_EN1 的 de_pin 按 GPIO65 填。若上板出现 RS485_1 与 SD 卡互相影响，
+    请核实 SD_EN 的实际 GPIO 编号。
+11. features.usb_camera 与 ui.show_camera_preview 目前在 app/ 与 ui/ 里查不到消费方
+    （与7寸配置一致），写了不报错也不生效，此处保留仅作能力声明。features.rs485 同为
+    能力声明，485 测试入口由 config.peripherals 的 rs485 条目驱动（见第 6 条）。
 12. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO73（AUDIOPA_EN = PIN55），
     低电平有效。录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
 13. 本配置由7寸版本（config/eng_8601_7i_wifi.lua / eng_8601_7i_4g.lua）移植，差异：屏幕尺寸 7→9 寸、
@@ -89,13 +97,21 @@ return {
     -- ===== GPIO 上电时序 =====
     -- 按顺序初始化各外设供电和复位（顺序即依赖：喇叭→LCD→WiFi→UVC→4G→TP）
     -- 【PIN55 冲突】见文件头第 9 条：AUDIOPA_EN 与 UVC_EN 共用 PIN55，此处暂按 GPIO73（UVC_EN）初始化
-    -- 【PIN51 冲突】见文件头第 10 条：485_EN1 与 SD_EN 共用 PIN51，此处暂按 GPIO65（SD_EN）初始化
+    -- 【PIN51】485_EN1 = PIN51 = GPIO65 = DE：DE 由 periph_rs485 开串口时置接收态，此处不预拉（见文件头第 6 条）
     power_on = {
         { pin = 74, dir = 0, level = 1 },              -- SD_EN 拉高
         { pin = 64, dir = 1, level = 0 }, -- WIFI_RST 高电平拉地
         { pin = 15, dir = 0, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
         { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电；delay 200ms 等其就绪
         { pin = 58, dir = 1, level = 0, delay = 50 },  -- RESET_4G 拉高释放 4G 复位；delay 50ms 等其就绪
+    },
+
+    -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
+    -- 485_1 = 非隔离(UART1 + DE=GPIO65) / 485_2 = 隔离(UART2 + DE=GPIO57)，见文件头第 6 条
+    -- manual_init = true：485 测试页进页面不自动上电开串口，点该路按钮才初始化
+    peripherals = {
+        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, baud = 9600, manual_init = true }, -- DE = 485_EN1 = PIN51 = GPIO65
+        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 2, de_pin = 57, baud = 9600 }, -- DE = 485_EN2 = PIN47 = GPIO57
     },
 
     -- ===== 硬件配置 =====
@@ -165,7 +181,8 @@ return {
                             --   以及 7 寸 eng_8601_7i_wifi/4g）都写了这一项，本板原缺失。当前
                             --   app/ 与 ui/ 里查不到消费方，属"能力声明"性质。
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=PIN38）
-        rs485 = true,       -- RS485 接口 —— 见文件头第 11 条：暂无消费方（UART1+UART2 双路）
+        rs485 = true,       -- 启用 RS485 接口（双路，条目在 peripherals，见文件头第 6 条）
+        other_func = true,  -- 启用"功能测试"（peripherals 外设清单，485 测试入口）
         app_factory = true, -- 启用"应用工厂"内置应用
         ai_chat = true,     -- 启用"AI聊天助手"内置应用
         cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
@@ -196,6 +213,7 @@ return {
         show_brightness_slider = true, -- 设置页亮度滑块
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
         show_camera_preview = true,    -- 设置页摄像头预览入口 ← 见文件头第 11 条
+        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
         show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
         show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
         show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开

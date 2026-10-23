@@ -1,7 +1,7 @@
 --[[
 @module  other_func_win
 @summary 功能测试页面（TabOS 深色玻璃态）——UVC / RS485 / 串口 外设开关、状态与测试入口
-@version 1.1
+@version 1.2
 @date    2026.10.23
 @author  江访
 @usage
@@ -9,11 +9,13 @@
 发布: OTHER_FUNC_GET / OTHER_FUNC_SET(id, enabled)
 订阅: OTHER_FUNC_STATUS(list) / OTHER_FUNC_CHANGED(list) / OTHER_FUNC_SET_RESULT(id, ok, err)
 
-页面按 UVC / RS485 / 串口 三组展示实例，组内保持 config.peripherals 声明顺序：
-同一 type 可配多条（UART1 / UART2 / 多路 485），每条独立开关，下方显示驱动上报的状态描述。
+页面按 UVC / RS485 / 串口 三组展示实例，组内保持 config.peripherals 声明顺序。
+RS485 不管配了几路，列表里只出一行「RS485 测试」（见 MERGE_TITLE），几路全进同一个
+收发测试页逐路列出；其余 type 一条配置一行，每条独立开关，下方显示驱动上报的状态描述。
 
 行可点：UVC 行进预览页（预览/拍照/录像），RS485 行进收发测试页（发送 + 收发历史），
 开窗事件见 TYPE_PAGE；没有测试页的 type 行不可点。开关只管供电与接口打开。
+合并行的开关一次通断该 type 的全部实例。
 ]]
 
 local theme = require "ui_theme"
@@ -39,8 +41,16 @@ local TYPE_PAGE = {
     uart  = nil,
 }
 
--- 实例行控件：id → { info_label, info_w, switch }
+-- 合并成单行入口的 type：配置里有几条都只出一行，几路全在子页里逐路列
+local MERGE_TITLE = {
+    rs485 = "RS485 测试",
+}
+
+-- 实例行控件：行键 → { info_label, info_w, switch, members, state, info }
+-- 合并行的行键是 type 名，其余行的行键是实例 id
 local rows = {}
+-- 实例 id → 行键（合并行下多个 id 指向同一行）
+local row_of = {}
 
 local function update_screen_size()
     sw, sh = screen_w or 480, screen_h or 800
@@ -59,7 +69,8 @@ end
 --[[
 @function collect_instances
 @summary 按 config.peripherals 收集可管理实例，按 type 分组并保持声明顺序
-@return table  { { type=, title=, items={ {id=, name=, info=, type=, page=}, ... } }, ... }
+合并类型的全部实例并成一行，成员 id 全挂在这一行上
+@return table  { { type=, title=, items={ {key=, name=, type=, page=, members={id...}}, ... } }, ... }
 ]]
 local function collect_instances()
     local cfg = _G.project_config or {}
@@ -84,13 +95,29 @@ local function collect_instances()
                         by_type[t] = g
                         groups[#groups + 1] = g
                     end
-                    g.items[#g.items + 1] = {
-                        id = p.id,
-                        name = p.name or p.id or t,
-                        info = "",
-                        type = t,
-                        page = TYPE_PAGE[t],
-                    }
+                    if MERGE_TITLE[t] then
+                        -- 同 type 全并一行，行里挂全部成员 id
+                        local it = g.items[1]
+                        if not it then
+                            it = {
+                                key = t,
+                                name = MERGE_TITLE[t],
+                                type = t,
+                                page = TYPE_PAGE[t],
+                                members = {},
+                            }
+                            g.items[1] = it
+                        end
+                        it.members[#it.members + 1] = p.id
+                    else
+                        g.items[#g.items + 1] = {
+                            key = p.id,
+                            name = p.name or p.id or t,
+                            type = t,
+                            page = TYPE_PAGE[t],
+                            members = { p.id },
+                        }
+                    end
                 end
             end
         end
@@ -106,16 +133,16 @@ end
 
 --[[
 @function build_item_row
-@summary 单个外设实例行：名称 + 状态描述 + （可点进子页）+ 开关
+@summary 单行入口：名称 + 状态描述 + （可点进子页）+ 开关
 @param parent 父容器
 @param x, y, w, h 行几何
-@param it 实例 { id, name, info, type, page }
+@param it 实例行 { key, name, type, page, members }
 ]]
 local function build_item_row(parent, x, y, w, h, it)
     -- 有子页的行整行可点；开关是行的子控件，点开关不会冒泡到行的 on_click
     local row = theme.box(parent, {
         x = x, y = y, w = w, h = h, color = theme.C.black, opa = 0,
-        on_click = it.page and function() sys.publish(it.page, it.id) end or nil,
+        on_click = it.page and function() sys.publish(it.page, it.members[1]) end or nil,
     })
 
     local pad2 = theme.dp(12)
@@ -161,11 +188,22 @@ local function build_item_row(parent, x, y, w, h, it)
         x = w - pad2 - sw_w, y = math.floor((h - sw_h) / 2),
         w = sw_w, h = sw_h, checked = false,
         on_change = function(handle)
-            sys.publish("OTHER_FUNC_SET", it.id, handle:get_state())
+            -- 合并行一次通断该 type 的全部实例
+            local on = handle:get_state()
+            for i = 1, #it.members do
+                sys.publish("OTHER_FUNC_SET", it.members[i], on)
+            end
         end,
     })
 
-    rows[it.id] = { info_label = info_label, info_w = txw, switch = togg }
+    local rec = {
+        info_label = info_label, info_w = txw, switch = togg,
+        members = it.members, state = {}, info = {},
+    }
+    rows[it.key] = rec
+    for i = 1, #it.members do
+        row_of[it.members[i]] = it.key
+    end
 end
 
 local function build_ui()
@@ -242,32 +280,78 @@ local function safe_switch(togg, method, ...)
 end
 
 --[[
+@function row_text
+@summary 行的第二行文字：单实例给驱动描述，合并行给「几路 / 打开几路」
+@param r 行记录
+@return string
+]]
+local function row_text(r)
+    local n = #r.members
+    local on, known = 0, 0
+    for i = 1, n do
+        local v = r.state[r.members[i]]
+        if v ~= nil then
+            known = known + 1
+            if v then on = on + 1 end
+        end
+    end
+    if known == 0 then return "驱动未就绪" end
+    if n == 1 then return tostring(r.info[r.members[1]] or "") end
+    return string.format("%d 路 | 已打开 %d/%d", n, on, n)
+end
+
+--[[
+@function update_row
+@summary 按行内各实例的状态刷新文字与开关
+@param r 行记录
+]]
+local function update_row(r)
+    if not r then return end
+    local n = #r.members
+    local on, known = 0, 0
+    for i = 1, n do
+        local v = r.state[r.members[i]]
+        if v ~= nil then
+            known = known + 1
+            if v then on = on + 1 end
+        end
+    end
+    if r.info_label and not r.info_label:is_destroyed() then
+        r.info_label:set_text(theme.fit_text(row_text(r), r.info_w or 0, theme.fs("micro")))
+    end
+    if known == 0 then
+        safe_switch(r.switch, "set_state", false)
+        safe_switch(r.switch, "set_enabled", false)
+    else
+        safe_switch(r.switch, "set_enabled", true)
+        -- 合并行要全开才算开，部分打开时开关保持关
+        safe_switch(r.switch, "set_state", on == n)
+    end
+end
+
+--[[
 @function apply_list
 @summary 用驱动状态列表刷新各行开关与状态描述
 @param list { { id=, enabled=, info= }, ... }
 ]]
 local function apply_list(list)
     if type(list) ~= "table" then return end
-    local got = {}
+    -- 每次整份重填，列表始终是全量快照，避免上一轮的残留状态
+    for _, r in pairs(rows) do
+        r.state = {}
+        r.info = {}
+    end
     for _, s in ipairs(list) do
-        local r = rows[s.id]
-        if r then
-            got[s.id] = true
-            if r.info_label and not r.info_label:is_destroyed() then
-                r.info_label:set_text(theme.fit_text(tostring(s.info or ""), r.info_w or 0, theme.fs("micro")))
+        if s then
+            local r = rows[row_of[s.id] or s.id]
+            if r then
+                r.state[s.id] = s.enabled and true or false
+                r.info[s.id] = tostring(s.info or "")
             end
-            safe_switch(r.switch, "set_enabled", true)
-            safe_switch(r.switch, "set_state", s.enabled and true or false)
         end
     end
-    for id, r in pairs(rows) do
-        if not got[id] then
-            if r.info_label and not r.info_label:is_destroyed() then
-                r.info_label:set_text("驱动未就绪")
-            end
-            safe_switch(r.switch, "set_state", false)
-            safe_switch(r.switch, "set_enabled", false)
-        end
+    for _, r in pairs(rows) do
+        update_row(r)
     end
 end
 
@@ -289,6 +373,7 @@ end
 
 local function on_create()
     rows = {}
+    row_of = {}
     build_ui()
     sys.subscribe("OTHER_FUNC_STATUS", apply_list)
     sys.subscribe("OTHER_FUNC_CHANGED", apply_list)
@@ -302,6 +387,7 @@ local function on_destroy()
     sys.unsubscribe("OTHER_FUNC_SET_RESULT", on_set_result)
     if main_container then main_container:destroy(); main_container = nil end
     rows = {}
+    row_of = {}
 end
 
 local function on_get_focus() end

@@ -27,7 +27,9 @@
    本板无 NAND Flash，不配 storage.nand_flash、不开 features.nand_flash。
 6. 【看门狗 153D】WG_OUT = PIN47 = GPIO57 是看门狗芯片的复位输出（接系统复位），
    本工程无喂狗/监听消费方，固件不配置该脚；若量产固件被看门狗复位，需补喂狗逻辑。
-7. 【三路 RS485 + UART2 共用 UART2】485_EN = GPIO64 是 485 功能总供电，power_on 拉高使能；
+7. 【三路 RS485 + UART2 共用 UART2】485_EN = GPIO64 是 485 功能总供电，power_on 拉高使能，之后常供电不回落；
+   故三路都写 power_hold = true，驱动只补高不关断（末路 stop 不拉低），
+   否则关掉最后一路会把整组 485 的电一起掐掉。
    485_EN1 = PIN51 = GPIO65 是非隔离 485 的 DE，走 UART1；
    485_EN2 = GPIO58 是隔离 485 之二的 DE，走 UART2。
    三路 485 的分配：485_1 非隔离(UART1 + DE=GPIO65) / 485_2 隔离(UART1，DE 未引出) /
@@ -68,8 +70,6 @@ return {
     -- ===== GPIO 上电时序 =====
     -- 按顺序初始化各外设供电和复位（顺序即依赖：触摸复位→电源轨→SD→UVC→485→Air1103）
     power_on = {
-        { pin = 72, dir = 0, level = 0, delay = 20 },  -- TP_RST 拉低 20ms，干净复位触摸芯片
-        { pin = 72, dir = 0, level = 1, delay = 60 },  -- 释放复位：INT 上拉锁 0x14 干净启动，INT 输出可恢复
         { pin = 12, dir = 0, level = 1 },              -- 5V_EN 拉高，5V 供电
         { pin = 56, dir = 0, level = 1, delay = 100 }, -- 9V_EN 拉高，等 100ms 就绪
         { pin = 44, dir = 0, level = 1 },              -- 12V_EN 拉高，12V 供电
@@ -77,19 +77,18 @@ return {
         { pin = 74, dir = 0, level = 1 },              -- SD_EN 拉高，SD 卡供电
         { pin = 58, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高，等 200ms 摄像头就绪（同一脚也是 485_EN2，见文件头第 8 条）
         { pin = 64, dir = 0, level = 1 },              -- 485_EN 拉高，485 功能总供电
-        { pin = 65, dir = 0, level = 1 },              -- 485_EN1 拉高，非隔离 485 的 DE
         { pin = 73, dir = 0, level = 1 },              -- AUDIOPA_EN = Air1103 供电，拉高常供电（见文件头第 2 条）
-        -- { pin = 15, dir = 0, level = 1 }, -- LCD_DISP 由 lcd_display_rgb 的 pin_rst 处理，此处不重复
     },
 
     -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
     -- 485_3 与 uart2 共用物理 UART2，不可同时打开，见文件头第 7 条
     -- UVC_EN 与 485_3 的 DE 共用 GPIO58，见文件头第 8 条
+    -- manual_init = true：485 测试页进页面不自动上电开串口，点该路按钮才初始化
     peripherals = {
         { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 }, -- UVC_EN，200ms 就绪
-        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 64, baud = 9600 }, -- DE = 485_EN1，供电域 485_EN
-        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 64, baud = 9600 }, -- DE 脚未引出，供电域 485_EN
-        { type = "rs485", id = "485_3", name = "隔离485",   uart_id = 2, de_pin = 58, power_pin = 64, baud = 9600 }, -- DE = 485_EN2 = UVC_EN，供电域 485_EN
+        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 64, power_hold = true, baud = 9600, manual_init = true }, -- DE = 485_EN1，供电域 485_EN
+        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 64, power_hold = true, baud = 9600 }, -- DE 脚未引出，供电域 485_EN
+        { type = "rs485", id = "485_3", name = "隔离485",   uart_id = 2, de_pin = 58, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN2 = UVC_EN，供电域 485_EN
         { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 }, -- 与 485_3 共用 UART2
     },
 

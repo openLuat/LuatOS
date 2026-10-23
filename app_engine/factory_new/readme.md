@@ -265,16 +265,19 @@ return {
 | WiFi 详情 | `ui/wifi/wifi_detail_win.lua` | SSID/IP/MAC/信号/断开 |
 | WiFi 连接 | `ui/wifi/wifi_connect_win.lua` | 密码输入/高级配置 |
 | 应用市场 | `ui/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
-| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 外设分组开关与状态 |
+| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 外设分组开关与状态；485 不管几路只出一行「RS485 测试」 |
 | UVC 预览 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本固件无 MP4 封装)（点功能测试页的 UVC 行进入） |
-| 485 测试 | `ui/rs485_test_win.lua` | HEX / 文本发送 + 收发历史（点功能测试页的 RS485 行进入） |
+| 485 测试 | `ui/rs485_test_win.lua` | 多路通道卡 + 统一收发日志 + 交叉线判定（点功能测试页的「RS485 测试」行进入） |
 
 ### 6.6 外设接口
 
 由 `config.peripherals` 声明式配置，同一 `type` 可配多条（UART1 / UART2 / 多路 485），靠 `id` 区分。
-开关由 `features.other_func` + `ui.show_other_func` 控制（桌面图标显示）。
+开关由 `features.other_func` + `ui.show_other_func` 控制（桌面图标显示，两处都要 true）。
+列表里 `type = "rs485"` 的多条配置**合并成一行**「RS485 测试」，几路全在同一个收发测试页
+逐路列出；其余 type 一条配置一行，每条独立开关。
 已配该段的型号：eng_8605_10i_wifi / eng_8605_10i_4g / eng_8605b_10i_v0 / eng_8607a_10i_v0 /
 eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，见配置文件头第 12 条）/
+eng_8602_9i_wifi / eng_8602_9i_4g（双路 485，无独立供电脚）/
 eng_8603w_10i_v0 / eng_8603m_10i_v0（三路 485 + UART2，其中 485_3 与 uart2 共用物理 UART2
 不可同时开、UVC_EN 与 485_3 的 DE 共用 GPIO58，见配置文件头第 7、8 条）。
 
@@ -346,10 +349,27 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
 ## 十、故障排除
 
 1. **持续重启**：检查 `PROJECT` 是否正确、配置文件是否存在、LCD 驱动 model 名是否匹配
-2. **显示异常**：检查 LCD 接线，确认配置文件中 `direction` 旋转参数正确
-3. **触摸无响应**：检查 I2C 接线，确认 GT911 `pin_rst`/`pin_int` 引脚配置正确
-4. **WiFi 无法扫描**：Air160x 系列检查 airlink `pin_cs`/`pin_rdy` 配置，Air8000W/Air8101 检查 exnetif 配置
-5. **4G 无信号**：检查 SIM 卡是否插入、`features.net_4g` 是否设为 true、芯片是否支持 4G
-6. **存储页面卡顿**：NAND Flash 的 `io.fsstat` 耗时较长（2-8 秒），页面使用两阶段加载避免 UI 冻结
-7. **图片无法显示**：确认图片资源已正确烧录到设备
-8. **UVC 拍照 / 录像失败**（日志出现 `D/camera not support yet` / `无法启动摄像头`）：`excamera.photo` / `excamera.video` 走的是 `camera.start` + `camera.capture` 的 DVP/SPI 采集通路，USB 摄像头上不适用；本工程 UVC 预览页直接取 MJPEG 推流帧落盘（.jpg / .mjpg）。�
+2. **桌面没有「功能测试」图标**：看开机日志有无「未找到 PROJECT 映射」——`PROJECT` 写错会静默
+   回退 PC 配置（屏幕靠型号名还能点亮，但外设与功能测试全没了）。旧命名与大小写变体已在
+   `core/platform_loader.lua` 的 PROJECT_MAP 留了别名；另请确认 `features.other_func` 与
+   `ui.show_other_func` 两处都为 true。
+3. **显示异常**：检查 LCD 接线，确认配置文件中 `direction` 旋转参数正确
+4. **触摸无响应**：检查 I2C 接线，确认 GT911 `pin_rst`/`pin_int` 引脚配置正确
+5. **WiFi 无法扫描**：Air160x 系列检查 airlink `pin_cs`/`pin_rdy` 配置，Air8000W/Air8101 检查 exnetif 配置
+6. **4G 无信号**：检查 SIM 卡是否插入、`features.net_4g` 是否设为 true、芯片是否支持 4G
+7. **存储页面卡顿**：NAND Flash 的 `io.fsstat` 耗时较长（2-8 秒），页面使用两阶段加载避免 UI 冻结
+8. **图片无法显示**：确认图片资源已正确烧录到设备
+9. **UVC 拍照 / 录像失败**（日志出现 `D/camera not support yet` / `无法启动摄像头`）：`excamera.photo` / `excamera.video` 走的是 `camera.start` + `camera.capture` 的 DVP/SPI 采集通路，USB 摄像头上不适用；本工程 UVC 预览页直接取 MJPEG 推流帧落盘（.jpg / .mjpg）。
+10. **RS485 测试不通 / 485 供电脚（如 8603 的 485_EN = GPIO64）实测低电平**：先看开机日志的
+    `POWER_ON n GPIOxx 高 回读 1`，回读为 0 或打出 `POWER_ON 引脚设置失败` 就是该脚没配成输出。
+    `power_on` 的电平直接写进 `gpio.setup` 第 2 参（0/1 都是输出、数字即初始电平，`dir`
+    只在 `level` 缺省时兜底，不要拿它表达「输入/输出」）。进 485 测试页后，驱动每次
+    start 都重申高电平（日志 `485 供电上电`）；常供电域在配置里写
+    `power_hold = true`，驱动只补高不关断（日志 `485 供电保持`，末路 stop 不拉低）。
+    仍不通则查 `power_pin` / `de_pin` 与硬件引脚表是否一致。
+11. **两路 485 交叉互接（A 接 A、B 接 B）测不出「通过」**：交叉线判定只认**分属不同串口**的两路。
+    同一 `uart_id` 上的多路共用一根 TX/RX，谁发谁都互相看得见（那是串口镜像，没过外部接线），
+    接线断了也会互相「收到」，所以同串口的一律不计通过；全部路都同串口时测试页不判定，
+    进页面会写明「板上无法自测交叉线」。要互测就得分属不同 UART——两个收发器共用一根
+    TX/RX 时对发本身就是电气冲突。本机型可自测的通道对见进页时的日志行。
+

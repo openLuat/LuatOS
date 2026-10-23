@@ -85,8 +85,11 @@ local function uart_start(self)
     local databits = p.databits or 8
     local stopbits = p.stopbits or 1
     local ok, ret = pcall(uart.setup, p.uart_id, baud, databits, stopbits, parity_to_const(p.parity))
-    if not ok then return false, "uart.setup: " .. tostring(ret) end
-    if ret ~= nil and ret ~= 0 then return false, "uart.setup: " .. tostring(ret) end
+    if not ok then return false, string.format("UART%d 打开失败: %s", p.uart_id, tostring(ret)) end
+    if ret ~= nil and ret ~= 0 then
+        return false, string.format("UART%d 打开失败(%s)，该串口可能已被其它外设占用",
+                                    p.uart_id, tostring(ret))
+    end
 
     self.baud     = baud
     self.databits = databits

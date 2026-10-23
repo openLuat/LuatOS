@@ -1,34 +1,44 @@
 --[[
 @module  rs485_test_win
-@summary RS485 多端口交叉收发测试页（端口发送按钮 + 收发与判定日志）
-@version 2.0
-@date    2026.10.23
+@summary RS485 多路收发测试页（通道按钮区 + 统一收发日志）
+@version 3.3
+@date    2026.10.24
 @author  江访
 @usage
 订阅: OPEN_RS485_TEST_WIN(id)          -- id 只是入口来源，页面列出全部 RS485 端口
-发布: OTHER_FUNC_SET(id, true)         -- 进页面把每个端口都上电并打开串口
+发布: OTHER_FUNC_SET(id, true)         -- 上电并打开串口（手动初始化的路由按钮触发）
 发布: OTHER_FUNC_GET                   -- 拉一次端口打开状态
 发布: RS485_TEST_SEND(id, data)        -- 发送原始字节串
 订阅: RS485_TEST_RESULT(id, ok, err)   -- 发送结果回执
 订阅: PERIPH_RX(id, data)              -- 驱动收到的原始字节
 订阅: OTHER_FUNC_STATUS / OTHER_FUNC_CHANGED(list) -- 端口打开状态
-订阅: OTHER_FUNC_SET_RESULT(id, ok, err)  -- 端口打开失败记进日志
+订阅: OTHER_FUNC_SET_RESULT(id, ok, err)  -- 打开结果，成功后补发排队中的发送
 
-页面按 config.peripherals 里 type = "rs485" 的条目逐个列端口，每路一个发送按钮，
-按钮文案就是「发送 + 该路测试数据」（485 1 → 发送123，485 2 → 发送456）。
-测试数据取条目的 test_data，缺省按端口序号生成 123 / 456 / 789 / 012 …。
+页面分上下两段：
+  上方  通道按钮区：每路 485 一张通道卡，卡内自上而下是「通道号 + 类型」、串口信息、
+        收发计数、发送按钮；一排放两张，有几路排几排
+  下方  统一收发日志（最新在上）+ 右上角「清空」，每路日志都带自己的通道号
 
-交叉互连测试要求两个端口同时在线，所以进页面把所有端口一起上电打开，
-不按入口行只开一路。
+每路的测试数据取 config.peripherals 条目的 test_data，缺省按通道序号生成
+123 / 456 / 789 / 012 …，各路不同，交叉互连时一眼认出是谁发的。
+按钮文案即「UARTn 发送 <该路测试数据>」。
 
-日志按时间顺序列出各端口的 TX / RX，并对每次发送做交叉判定：
-  [OK] A 端口发出的数据被 B 端口收到 → 这组交叉线通
-  [NG] 3 秒内没有任何其它端口收到 → 这组交叉线不通
-只算其它端口收到，本口回环不计通过（交叉互连测的就是跨口）。
+初始化策略：进页面只自动初始化未标 manual_init 的端口；标了 manual_init 的路
+（如挂在 UART1 上的非隔离 485）只给按钮，点它的按钮才上电打开串口并发送，
+打开成功后补发这一帧。这条约定写在 config 的 manual_init 字段说明里。
 
-接线约定：485 1A 接 485 2A，485 1B 接 485 2B，两路交叉互连后互发互收。
+日志判定（板上两路及以上、且存在跨串口的通道对时才判）：
+  [OK] A 路发出的数据被 B 路收到，且 A、B 分属不同串口 → 这组交叉线通
+  [NG] 3 秒内没有任何异串口的路收到 → 这组交叉线不通
+只算异串口收到，本口回环不计通过（交叉互连测的就是跨口）。未通过的那条会写清是
+「只收到本口回环」还是「只收到同串口镜像」还是根本没收到，并在末尾点名本机型可自测的通道对。
+**同一 uart_id 上的多路是同一根 TX/RX 的镜像**：谁发谁都互相看得见，中间没有经过
+外部接线。拿镜像判通过等于自己发自己收，接线断了也会报通过，所以同串口的一律不计。
+同串口那组在板上无法自测（收发互见，接不接线看到的都一样），进页面时的日志行会写明
+本机型哪几组能自测；只有一路、或全部路同串口的机型只记收发、不做判定。
+接线约定：两路交叉互连，A 接 A、B 接 B，互发互收。
 
-历史记录只在本页内存里，退出即清空；固定行池显示末尾若干条，
+历史记录只在本页内存里，退出即清空；固定行池显示最前面若干条，
 行数按可用高度算，保证最新一条始终可见。
 ]]
 
@@ -47,20 +57,19 @@ local SCAN_INTERVAL = 500
 local MATCH_TIMEOUT = 3000
 local MATCH_SCANS = math.ceil(MATCH_TIMEOUT / SCAN_INTERVAL)
 
-local ports = {}   -- { {id=, name=, data=, info=, btn=, ...}, ... }
+local ports = {}   -- { {id=, ch=, name=, data=, info=, manual_init=, opened=, tx_n=, rx_n=}, ... }
 local port_of = {} -- id → ports 里的那一项
--- 未判定的发送：{ {id=, data=, waited=, self_rx=bool}, ... }
+-- 未判定的发送：{ {id=, ch=, data=, waited=, self_rx=bool, mirror_rx=bool}, ... }
 -- waited 数的是扫描次数而不是毫秒，超时口径与系统时钟无关（时钟跳变不会误判）
 local pending = {}
 
-local entries = {}      -- { {ts=, dir="TX"|"RX"|"OK"|"NG", id=端口 id, text=}, ... }
-local tx_n, rx_n = 0, 0 -- 收发字节计数
-local ok_n, ng_n = 0, 0 -- 判定计数
+local entries = {} -- { {ts=, kind="TX"|"RX"|"OK"|"NG"|"INFO", ch=, text=}, ... }
+local ok_n, ng_n = 0, 0
 
 local log_labels = {} -- 固定行池，只改文字不增删控件
 local log_w = 0
-local count_label = nil
-local count_w = 0
+local log_title = nil
+local log_title_w = 0
 local match_timer = nil
 
 -- ==================== 基础工具 ====================
@@ -93,18 +102,17 @@ local function visible_text(s)
     return (tostring(s or ""):gsub("[^%g ]", "."))
 end
 
--- 载荷展示：可打印短串给原文 + HEX，否则只给 HEX
+-- 载荷展示：可打印短串给原文，否则给 HEX（日志行要短，原文优先）
 local function fmt_payload(s)
     s = s or ""
     if #s == 0 then return "(空)" end
-    local hex = to_hex(s)
     if s:match("^[%g ]+$") and #s <= 24 then
-        return string.format('"%s" = %s', s, hex)
+        return s
     end
-    return hex
+    return to_hex(s)
 end
 
--- 测试数据：条目里写了 test_data 就用它，否则按端口序号生成 123 / 456 / 789 / 012 …
+-- 测试数据：条目里写了 test_data 就用它，否则按通道序号生成 123 / 456 / 789 / 012 …
 local function default_test_data(idx)
     local d = {}
     for k = 0, 2 do
@@ -116,19 +124,23 @@ end
 -- ==================== 历史记录 ====================
 
 local function fmt_entry(e)
-    if e.dir == "OK" or e.dir == "NG" then
-        return string.format("%s [%s] %s", e.ts or "", e.dir, tostring(e.text or ""))
+    local ts = e.ts or ""
+    if e.kind == "TX" or e.kind == "RX" then
+        local verb = (e.kind == "TX") and "发送:" or "接收:"
+        return string.format("%s 通道%d %s%s", ts, e.ch or 0, verb, fmt_payload(e.text))
     end
-    return string.format("%s %s %s  %s", e.ts or "", e.dir or "", e.id or "",
-                          fmt_payload(e.text))
+    if e.kind == "OK" or e.kind == "NG" then
+        return string.format("%s [%s] %s", ts, e.kind, tostring(e.text or ""))
+    end
+    return string.format("%s %s", ts, tostring(e.text or ""))
 end
 
--- 只画可见行：最新一条贴底，省去滚动定位
+-- 只画可见行：最新一条贴顶（收发日志(最新在上)），省去滚动定位
 local function render_log()
     local n = #log_labels
     local total = #entries
     for i = 1, n do
-        local e = entries[total - n + i]
+        local e = entries[total - i + 1]
         local lab = log_labels[i]
         if lab and not lab:is_destroyed() then
             if e then
@@ -140,68 +152,101 @@ local function render_log()
     end
 end
 
-local function update_count()
-    if count_label and not count_label:is_destroyed() then
-        count_label:set_text(theme.fit_text(
-            string.format("TX %dB | RX %dB | 通过 %d | 未通过 %d", tx_n, rx_n, ok_n, ng_n),
-            count_w, theme.fs("micro")))
+-- 日志标题行带上判定计数
+local function update_log_title()
+    if log_title and not log_title:is_destroyed() then
+        log_title:set_text(theme.fit_text(
+            string.format("收发日志(最新在上) | 通过 %d | 未通过 %d", ok_n, ng_n),
+            log_title_w, theme.fs("caption")))
     end
 end
 
-local function append_entry(dir, id, text)
+local function append_entry(kind, ch, text)
     entries[#entries + 1] = {
         ts = os.date("%H:%M:%S"),
-        dir = dir,
-        id = id,
+        kind = kind,
+        ch = ch,
         text = text or "",
     }
     while #entries > MAX_KEEP do table.remove(entries, 1) end
-    if dir == "TX" then
-        tx_n = tx_n + #(text or "")
-    elseif dir == "RX" then
-        rx_n = rx_n + #(text or "")
-    end
-    update_count()
+    update_log_title()
     render_log()
 end
 
 local function clear_log()
     entries = {}
-    tx_n, rx_n = 0, 0
     ok_n, ng_n = 0, 0
     pending = {}
-    update_count()
+    update_log_title()
     render_log()
 end
 
+-- 刷新某一路的收发计数与打开状态
+local function update_stat(p)
+    if not p then return end
+    local state = p.opened and "已打开" or "未打开"
+    safe_call(p.stat_label, "set_text", theme.fit_text(
+        string.format("TX:%d RX:%d  %s", p.tx_n, p.rx_n, state), p.stat_w, theme.fs("micro")))
+end
+
 -- ==================== 交叉判定 ====================
+
+-- 收发两端是否分属不同串口（跨口链路的最低要求）
+local function is_cross_uart(from_id, to_id)
+    local a, b = port_of[from_id], port_of[to_id]
+    return a and b and a.uart_id ~= b.uart_id
+end
+
+-- 本机型第一组能自测的通道对（分属不同串口），没有则 nil
+-- 分隔符用 ASCII 的 "-"：内置字库不含箭头符号
+local function cross_pair_hint()
+    for i = 1, #ports do
+        for j = i + 1, #ports do
+            if ports[i].uart_id ~= ports[j].uart_id then
+                return string.format("通道%d-通道%d", ports[i].ch, ports[j].ch)
+            end
+        end
+    end
+    return nil
+end
+
+-- 板上没有对端、或全部路都挂在同一串口（收发互见）时没有可判定的对象
+local function judge_enabled()
+    return cross_pair_hint() ~= nil
+end
 
 -- 摘掉一条未判定的发送
 local function drop_pending(idx)
     table.remove(pending, idx)
 end
 
--- 找同内容、但由其它端口发出的未判定发送，找到即判为交叉通过
+-- 找同内容、但由异串口端口发出的未判定发送，找到即判为交叉通过
+-- 同一 uart_id 上的多路共用一根 TX/RX，收发互见不经过外部接线，一律不算交叉通过
 local function find_cross(data, from_id)
     for i = 1, #pending do
         local p = pending[i]
-        if p.data == data and p.id ~= from_id then return i end
+        if p.data == data and p.id ~= from_id and is_cross_uart(p.id, from_id) then
+            return i
+        end
     end
     return nil
 end
 
--- 标记本口回环（超时结算时用来区分「只收到自己的」和「根本没收到」）
-local function mark_self_rx(data, from_id)
+-- 标记本口回环 / 同串口镜像（超时结算时用来区分「收到了但没跨口」和「根本没收到」）
+local function mark_loopback(data, from_id)
     for i = 1, #pending do
         local p = pending[i]
-        if p.data == data and p.id == from_id then
-            p.self_rx = true
-            return
+        if p.data == data then
+            if p.id == from_id then
+                p.self_rx = true
+            elseif not is_cross_uart(p.id, from_id) then
+                p.mirror_rx = true
+            end
         end
     end
 end
 
--- 每 SCAN_INTERVAL 扫一次：超时仍未被其它端口收到的发送结算成 [NG]
+-- 每 SCAN_INTERVAL 扫一次：超时仍未被异串口端口收到的发送结算成 [NG]
 local function scan_timeout()
     for i = #pending, 1, -1 do
         local p = pending[i]
@@ -209,13 +254,22 @@ local function scan_timeout()
         if p.waited >= MATCH_SCANS then
             drop_pending(i)
             ng_n = ng_n + 1
+            local why
             if p.self_rx then
-                append_entry("NG", p.id,
-                    string.format("%s 只收到本口回环，对端未收到 \"%s\"", p.id, visible_text(p.data)))
+                why = string.format("通道%d 只收到本口回环，对端未收到 \"%s\"",
+                                    p.ch, visible_text(p.data))
+            elseif p.mirror_rx then
+                local hint = cross_pair_hint()
+                why = string.format("通道%d 只收到同串口镜像（未经过外部接线），对端未收到 \"%s\"%s",
+                                    p.ch, visible_text(p.data),
+                                    hint and ("；这组同串口无法自测，请改接 " .. hint) or "")
             else
-                append_entry("NG", p.id,
-                    string.format("%s 的 \"%s\" 对端未收到", p.id, visible_text(p.data)))
+                local hint = cross_pair_hint()
+                why = string.format("通道%d 的 \"%s\" 对端未收到%s",
+                                    p.ch, visible_text(p.data),
+                                    hint and ("；可自测的是 " .. hint) or "")
             end
+            append_entry("NG", p.ch, why)
         end
     end
 end
@@ -227,30 +281,72 @@ local function stop_match_timer()
     end
 end
 
+-- ==================== 动作 ====================
+
+-- 实际发一帧（端口必须已打开）
+local function fire_send(p, data)
+    data = tostring(data or "")
+    if #data == 0 then return end
+    sys.publish("RS485_TEST_SEND", p.id, data)
+    p.tx_n = p.tx_n + #data
+    update_stat(p)
+    append_entry("TX", p.ch, data)
+    if judge_enabled() then
+        pending[#pending + 1] = {
+            id = p.id,
+            ch = p.ch,
+            data = data,
+            waited = 0,
+            self_rx = false,
+            mirror_rx = false,
+        }
+    end
+end
+
+-- 点通道按钮：没初始化的路先初始化，打开成功后补发这一帧
+local function do_send(p)
+    if not p then return end
+    if not p.opened then
+        p.want_send = p.data
+        sys.publish("OTHER_FUNC_SET", p.id, true)
+        append_entry("INFO", p.ch, string.format("通道%d 正在打开", p.ch))
+        return
+    end
+    fire_send(p, p.data)
+end
+
 -- ==================== 事件 ====================
 
 -- 驱动收包广播（periph_rs485 的 on_receive 发布）
 local function on_rx(id, data)
-    if not port_of[id] then return end
+    local p = port_of[id]
+    if not p then return end
     if type(data) ~= "string" or #data == 0 then return end
-    append_entry("RX", id, data)
+    p.rx_n = p.rx_n + #data
+    update_stat(p)
+    append_entry("RX", p.ch, data)
 
-    -- 先找跨口匹配：交叉互连要的就是 A 发 B 收
+    if not judge_enabled() then return end
+
+    -- 先找跨串口匹配：交叉互连要的就是 A(UART1) 发、B(UART2) 收
     local i = find_cross(data, id)
     if i then
-        local p = pending[i]
+        local q = pending[i]
         drop_pending(i)
         ok_n = ok_n + 1
-        append_entry("OK", id,
-            string.format("%s 收到 %s 的 \"%s\"，交叉线通过", id, p.id, visible_text(data)))
+        append_entry("OK", p.ch,
+            string.format("通道%d 收到 通道%d 的 \"%s\"，交叉线通过",
+                          p.ch, q.ch, visible_text(data)))
         return
     end
-    mark_self_rx(data, id)
+    -- 没跨口：记成本口回环或同串口镜像，超时结算时说清「收到了但没过线」
+    mark_loopback(data, id)
 end
 
--- 发送回执；成功时本地已记过 TX，这里只处理失败与本口回环
+-- 发送回执；成功时本地已记过 TX，这里只处理失败
 local function on_send_result(id, ok, err)
-    if not port_of[id] then return end
+    local p = port_of[id]
+    if not p then return end
     if ok then return end
     -- 失败的那条发送不会再有应答，直接摘掉，免得超时再报一次未通过
     for i = #pending, 1, -1 do
@@ -260,42 +356,42 @@ local function on_send_result(id, ok, err)
         end
     end
     ng_n = ng_n + 1
-    append_entry("NG", id, string.format("%s 发送失败：%s", id, tostring(err or "未知原因")))
+    append_entry("NG", p.ch,
+        string.format("通道%d 发送失败：%s", p.ch, tostring(err or "未知原因")))
 end
 
--- 端口状态回填（打开 / 未打开 + 串口描述）
+-- 打开串口结果：成功补发排队中的那一帧，失败把原因记进日志
+local function on_set_result(id, ok, err)
+    local p = port_of[id]
+    if not p then return end
+    if not ok then
+        p.opened = false
+        p.want_send = nil
+        ng_n = ng_n + 1
+        update_stat(p)
+        append_entry("NG", p.ch,
+            string.format("通道%d 打开失败：%s", p.ch, tostring(err or "未知原因")))
+        return
+    end
+    p.opened = true
+    update_stat(p)
+    local data = p.want_send
+    p.want_send = nil
+    if data then
+        fire_send(p, data)
+    end
+end
+
+-- 端口状态回填（打开 / 未打开）
 local function on_status(list)
     if type(list) ~= "table" then return end
     for _, s in ipairs(list) do
         local p = s and port_of[s.id]
-        if p and p.info_label and not p.info_label:is_destroyed() then
-            local state = s.enabled and "已打开" or "未打开"
-            safe_call(p.info_label, "set_text",
-                theme.fit_text(state .. " | " .. p.info, p.info_w, theme.fs("micro")))
+        if p then
+            p.opened = s.enabled and true or false
+            update_stat(p)
         end
     end
-end
-
--- 端口打开失败（进页面会把各路都打开，打不开要看得见）
-local function on_set_result(id, ok, err)
-    if not port_of[id] or ok then return end
-    ng_n = ng_n + 1
-    append_entry("NG", id, string.format("%s 打开失败：%s", id, tostring(err or "未知原因")))
-end
-
--- ==================== 动作 ====================
-
--- 点某一路的发送按钮
-local function do_send(p)
-    if not p then return end
-    sys.publish("RS485_TEST_SEND", p.id, p.data)
-    append_entry("TX", p.id, p.data)
-    pending[#pending + 1] = {
-        id = p.id,
-        data = p.data,
-        waited = 0,
-        self_rx = false,
-    }
 end
 
 -- ==================== 端口清单 ====================
@@ -317,10 +413,17 @@ local function collect_ports()
                 local idx = #ports + 1
                 local item = {
                     id = p.id,
+                    ch = idx,
                     name = p.name or p.id,
                     data = tostring(p.test_data or default_test_data(idx)),
                     uart_id = p.uart_id or 0,
                     baud = p.baud or 9600,
+                    -- 手动初始化：进页面不自动上电开串口，点它的按钮才初始化
+                    manual_init = (p.manual_init == true),
+                    opened = false,
+                    want_send = nil,
+                    tx_n = 0,
+                    rx_n = 0,
                 }
                 local de = p.de_pin and ("DE:GPIO" .. tostring(p.de_pin)) or "DE:自动"
                 -- 分隔符用 ASCII 的 "|" 而不是 "·"(U+00B7)：内置字库不含 U+00B7
@@ -336,6 +439,60 @@ end
 
 -- ==================== 界面 ====================
 
+-- 单张通道卡：通道号 + 类型 / 串口信息 / 收发计数 / 发送按钮
+local function build_channel_card(parent, x, y, w, h, p)
+    local bw = 1
+    local pad_in = theme.dp(8)
+    -- 子控件坐标原点是卡片内容区（已扣掉描边），这里不再按 bw 内缩
+    local inner = w - 2 * bw - 2 * pad_in
+
+    local card = theme.card(parent, {
+        x = x, y = y, w = w, h = h,
+        border_w = bw,
+    })
+
+    local fs_name = theme.fs("body")
+    local fs_sub = theme.fs("micro")
+    local name_h = fs_name + theme.dp(4)
+    local sub_h = fs_sub + theme.dp(4)
+
+    theme.label(card, {
+        x = pad_in, y = pad_in, w = inner, h = name_h,
+        text = theme.fit_text(string.format("通道%d %s", p.ch, p.name), inner, fs_name),
+        px_size = fs_name, color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
+    })
+
+    p.info_w = inner
+    p.info_label = theme.label(card, {
+        x = pad_in, y = pad_in + name_h, w = inner, h = sub_h,
+        text = theme.fit_text(p.info, inner, fs_sub),
+        px_size = fs_sub, color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
+    })
+
+    p.stat_w = inner
+    p.stat_label = theme.label(card, {
+        x = pad_in, y = pad_in + name_h + sub_h, w = inner, h = sub_h,
+        text = "TX:0 RX:0  未打开", px_size = fs_sub,
+        color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
+    })
+
+    -- 按钮文案即「UARTn 发送 <该路测试数据>」，宽度按文字算，超宽就截断
+    local btn_text = string.format("UART%d 发送 %s", p.uart_id, p.data)
+    local fs_btn = math.max(16, theme.dp(13)) -- 与 theme.button 内部字号同口径
+    local btn_w = theme.text_width(btn_text, fs_btn) + theme.dp(28)
+    if btn_w > inner then
+        btn_w = inner
+        btn_text = theme.fit_text(btn_text, inner - theme.dp(20), fs_btn)
+    end
+
+    p.btn = theme.button(card, {
+        x = pad_in, y = h - 2 * bw - pad_in - theme.dp(34),
+        w = btn_w, h = theme.dp(34),
+        text = btn_text, size = 13,
+        on_click = function() do_send(p) end,
+    })
+end
+
 local function build_ui()
     update_screen_size()
     main_container = theme.page_bg(airui.screen, sw, sh)
@@ -343,95 +500,65 @@ local function build_ui()
     local card_w = sw - 2 * pad
     local _, th = theme.header(main_container, {
         x = pad, y = pad, w = card_w,
-        title = "RS485 收发测试",
-        sub = "485 1A-2A / 1B-2B 交叉互连，点按钮发送",
+        title = "RS485 测试",
+        sub = judge_enabled() and "A-A、B-B 交叉互接，点按钮发送" or "点按钮发送",
         on_back = function() exwin.close(window_id) end,
     })
 
     local gap = theme.dp(8)
     local y = pad + th + gap
 
-    -- 端口区：每路一行，行内左边名称与串口描述、右边发送按钮
-    local row_h = theme.dp(52)
-    local n = #ports
-    if n == 0 then
+    -- ===== 上方：通道按钮区，一排两张 =====
+    if #ports == 0 then
         theme.box(main_container, {
-            x = pad, y = y, w = card_w, h = row_h,
+            x = pad, y = y, w = card_w, h = theme.dp(52),
             color = theme.C.black, opa = 0,
         })
         theme.label(main_container, {
-            x = pad + theme.dp(12), y = y, w = card_w - theme.dp(24), h = row_h,
+            x = pad + theme.dp(12), y = y, w = card_w - theme.dp(24), h = theme.dp(52),
             text = "本机型未配置 RS485 端口", px_size = theme.fs("body"),
             color = theme.C.t2, align = airui.TEXT_ALIGN_LEFT,
         })
-        y = y + row_h + gap
+        y = y + theme.dp(52) + gap
     else
-        local bw = 1
-        local inner_w = card_w - 2 * bw - theme.dp(16)
-        local card = theme.card(main_container, {
-            x = pad, y = y, w = card_w, h = n * row_h + 2 * bw,
-            border_w = bw,
-        })
-        y = y + n * row_h + 2 * bw + gap
+        local cols = 2
+        local cell_gap = gap
+        local cell_w = math.floor((card_w - (cols - 1) * cell_gap) / cols)
+        local pad_in = theme.dp(8)
+        local cell_h = pad_in
+            + theme.fs("body") + theme.dp(4)
+            + theme.fs("micro") + theme.dp(4)
+            + theme.fs("micro") + theme.dp(4)
+            + theme.dp(6) + theme.dp(34) + pad_in
 
-        local fs_btn = math.max(16, theme.dp(13)) -- 与 theme.button 内部字号同口径
         for i, p in ipairs(ports) do
-            -- 子控件坐标原点是卡片内容区（已扣掉描边），这里不再按 bw 内缩
-            local ry = (i - 1) * row_h
-
-            local btn_text = "发送" .. p.data
-            local btn_w = theme.text_width(btn_text, fs_btn) + theme.dp(28)
-            local name_w = inner_w - btn_w - theme.dp(12)
-            if name_w < theme.dp(60) then name_w = theme.dp(60) end
-
-            local name_h = theme.fs("body") + theme.dp(4)
-            theme.label(card, {
-                x = theme.dp(8), y = ry + theme.dp(6), w = name_w, h = name_h,
-                text = p.name, px_size = theme.fs("body"),
-                color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
-            })
-            p.info_w = name_w
-            p.info_label = theme.label(card, {
-                x = theme.dp(8), y = ry + theme.dp(6) + name_h, w = name_w,
-                h = theme.fs("micro") + theme.dp(4),
-                text = p.info, px_size = theme.fs("micro"),
-                color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
-            })
-
-            p.btn = theme.button(card, {
-                x = inner_w - btn_w + theme.dp(8), y = ry + math.floor((row_h - theme.dp(34)) / 2),
-                w = btn_w, h = theme.dp(34),
-                text = btn_text, size = 13,
-                on_click = function() do_send(p) end,
-            })
-
-            if i < n then
-                theme.box(card, {
-                    x = theme.dp(8), y = ry + row_h - 1,
-                    w = inner_w, h = 1,
-                    color = theme.C.stroke, opa = 255,
-                })
-            end
+            local col = (i - 1) % cols
+            local row = math.floor((i - 1) / cols)
+            build_channel_card(main_container,
+                pad + col * (cell_w + cell_gap),
+                y + row * (cell_h + gap),
+                cell_w, cell_h, p)
         end
+        local rows = math.ceil(#ports / cols)
+        y = y + rows * (cell_h + gap)
     end
 
-    -- 清空 + 计数
-    local mode_h = theme.dp(36)
-    local small_w = theme.dp(72)
+    -- ===== 下方：收发日志（最新在上）+ 清空 =====
+    local head_h = theme.dp(36)
+    local clear_w = theme.dp(72)
+    log_title_w = card_w - clear_w - gap
+    log_title = theme.label(main_container, {
+        x = pad, y = y, w = log_title_w, h = head_h,
+        text = "收发日志(最新在上)", px_size = theme.fs("caption"),
+        color = theme.C.t2, align = airui.TEXT_ALIGN_LEFT,
+    })
     theme.ghost_button(main_container, {
-        x = pad, y = y, w = small_w, h = mode_h,
+        x = pad + card_w - clear_w, y = y, w = clear_w, h = head_h,
         text = "清空", size = 12, fg = theme.SEM.danger, border = theme.SEM.danger,
         on_click = function() clear_log() end,
     })
-    count_w = card_w - small_w - gap
-    count_label = theme.label(main_container, {
-        x = pad + small_w + gap, y = y, w = count_w, h = mode_h,
-        text = "TX 0B | RX 0B | 通过 0 | 未通过 0", px_size = theme.fs("micro"),
-        color = theme.C.t3, align = airui.TEXT_ALIGN_RIGHT,
-    })
-    y = y + mode_h + gap
+    y = y + head_h + gap
 
-    -- 收发日志：固定行池，最新贴底
     local log_h = sh - y - pad
     local line_h = theme.fs("caption") + theme.dp(4)
     if log_h < line_h then log_h = line_h end
@@ -455,7 +582,8 @@ local function build_ui()
         })
     end
 
-    update_count()
+    update_log_title()
+    for _, p in ipairs(ports) do update_stat(p) end
 end
 
 -- ==================== 窗口生命周期 ====================
@@ -469,12 +597,23 @@ local function on_create()
     sys.subscribe("OTHER_FUNC_STATUS", on_status)
     sys.subscribe("OTHER_FUNC_CHANGED", on_status)
 
-    -- 交叉互连测试要求各路同时在线：进页面把所有端口一起上电并打开串口
+    -- 只自动初始化未标 manual_init 的路；手动初始化的路由各自按钮触发
     for _, p in ipairs(ports) do
-        sys.publish("OTHER_FUNC_SET", p.id, true)
+        if not p.manual_init then
+            sys.publish("OTHER_FUNC_SET", p.id, true)
+        end
     end
     sys.publish("OTHER_FUNC_GET")
     clear_log()
+    -- 先说清本机型哪几组能自测：同串口那组收发互见，接不接线看到的都一样
+    if #ports >= 2 then
+        local hint = cross_pair_hint()
+        if hint then
+            append_entry("INFO", 0, "可自测交叉线 " .. hint .. "（A 接 A、B 接 B）")
+        else
+            append_entry("INFO", 0, "本机型 485 全在同一串口上，收发互见，板上无法自测交叉线")
+        end
+    end
     stop_match_timer()
     match_timer = sys.timerLoopStart(scan_timeout, SCAN_INTERVAL)
 end
@@ -488,7 +627,7 @@ local function on_destroy()
     sys.unsubscribe("OTHER_FUNC_CHANGED", on_status)
     if main_container then main_container:destroy(); main_container = nil end
     log_labels = {}
-    count_label = nil
+    log_title = nil
     ports = {}
     port_of = {}
     pending = {}

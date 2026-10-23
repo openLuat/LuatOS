@@ -1,12 +1,13 @@
 --[[
 @module  gt911
 @summary GT911 触摸控制器通用驱动
-@version 1.0
-@date    2026.05.22
+@version 1.1
+@date    2026.10.23
 @author  江访
 @usage
 传入底板接线参数，执行 GPIO复位 → I2C初始化 → tp.init → airui绑定
 params: { port, pin_rst, pin_int, int_type, i2c_speed, w, h, gpio_reset }
+触摸芯片只初始化一次：init 重复调用只补回 I2C 总线配置，不再碰 tp.init
 ]]
 local M = {}
 
@@ -14,9 +15,10 @@ local M = {}
 -- i2c_restore() 供外部在音频初始化后恢复触摸总线配置
 local saved_params = nil
 
--- 内核 tp 库不支持重复 init（第二次会打印 E/tp tp has been initialized!!!），
--- 试过一次失败就封枪，见 M.reinit
-local reinit_disabled = false
+-- tp.init 返回的触摸设备对象，非 nil 即已初始化成功
+-- 内核 tp 库一次上电只接受一次 tp.init（luat_lib_tp.c 的 s_init，成功即置位），
+-- 二次调用打印 E/tp tp has been initialized!!! 并返回 nil，故只认首次成功
+local tp_device = nil
 
 --- 恢复触摸 I2C 总线配置（速率 + 轮询模式）
 --- @return boolean 是否已恢复（init 未跑过返回 false）
@@ -28,29 +30,23 @@ function M.i2c_restore()
     return true
 end
 
---[[重新初始化触摸（复位 → i2c 重配 → tp.init → 重新绑定 airui）
+--[[触摸恢复：只恢复 I2C 总线配置，不重复 tp.init
 
-什么时候需要：音频/视频通路启动会重配 I2C1，如果重配发生在 tp 的读事务中途，
-GT911 可能停在半事务状态 —— 此时光 i2c.setup 把速率改回来是不够的。
-内置 DAC 机型 I2C1 上只有 GT911，复位不会伤到别的芯片。
-
-**注意（2026-10-22 真机验证）**：当前内核的 tp 库不支持重复 init，
-第二次调用会打印 `E/tp tp has been initialized!!!` 并返回失败。
-所以这里失败一次就**永久封枪**（reinit_disabled），之后只走 i2c_restore，
-避免每次会话收尾都刷一条 error；等固件侧支持 deinit/重复 init 再放开。]]
---- @return boolean 是否重新初始化成功
+音频/视频通路会用 i2c.setup 重配 I2C1（丢掉轮询模式），触摸总线配置要补回来。
+重新初始化做不到：内核 tp 库一次上电只接受一次 tp.init，再调只会得到
+E/tp tp has been initialized!!!。本接口与 i2c_restore 等价，保留原名不改调用方。]]
+--- @return boolean 是否已恢复
 function M.reinit()
-    if not saved_params or reinit_disabled then return false end
-    log.warn("gt911", "触摸重新初始化")
-    local ok, r = pcall(M.init, saved_params)
-    if ok and r then return true end
-    reinit_disabled = true
-    log.warn("gt911", "内核 tp 库不支持重复 init，后续只做 I2C 总线恢复")
-    return false
+    return M.i2c_restore()
 end
 
 function M.init(params)
-    saved_params = params
+    if params then saved_params = params end
+    -- 已初始化过：内核 tp 库只接受一次 tp.init，这里只补回 I2C 总线配置
+    if tp_device then
+        M.i2c_restore()
+        return tp_device
+    end
     -- GPIO 复位序列（部分底板需要）
     if params.gpio_reset then
         gpio.setup(params.gpio_reset, 0)
@@ -107,6 +103,9 @@ function M.init(params)
 
     local r = tp.init("gt911", tp_params)
     log.info("gt911", r and "初始化成功" or "初始化失败，PC模拟器可以忽略")
+    if not r then return false end
+    -- 成功即封口：内核 s_init 已置位，之后任何路径都不再调 tp.init
+    tp_device = r
 
     -- PC 模拟跳过绑定（用鼠标替代）
     if _G.project_config and _G.project_config.chip == "PC" then
@@ -114,9 +113,7 @@ function M.init(params)
         return r
     end
 
-    if r then
-        airui.device_bind_touch(r)
-    end
+    airui.device_bind_touch(r)
     return r
 end
 

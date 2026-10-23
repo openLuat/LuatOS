@@ -47,12 +47,14 @@
     -- ============================================================
     -- 三、GPIO 上电时序（可选，没用到则删掉整个 power_on）
     -- ============================================================
-    -- 上电时按数组顺序依次执行，每个步骤: { pin = GPIO, dir = 方向, level = 电平, delay = 延时ms }
-    --   dir:   0=输出模式, 1=输入模式
-    --   level: 输出时 0=低电平/1=高电平, 输入时 0=下拉/1=上拉
+    -- 上电时按数组顺序依次执行，每个步骤: { pin = GPIO, level = 电平, delay = 延时ms }
+    --   level: 目标电平 0=低 / 1=高。直接写进 gpio.setup 第 2 参（0/1 都是输出模式、
+    --          数字即初始电平），一步就把引脚钉到目标电平
+    --   dir:   旧字段，只在 level 缺省时兜底；不要拿它表达「输入/输出」，0/1 都会配成输出
     --   delay: 本步完成后等待的毫秒数(ms)，不填则不等待
     -- 适用场景: LCD供电使能、TP触摸I2C上拉、WiFi/4G模组复位
-    -- 注意: 由 platform_loader 在协程中异步执行，不阻塞主线程
+    -- 注意: 由 platform_loader 在协程中异步执行，不阻塞主线程；
+    --       每步独立 pcall 并打印回读电平，单条失败不会中断后面的上电步骤
 
     -- 例1: Air1602 WiFi 模组上电（高电平有效）
     -- power_on = {
@@ -85,11 +87,16 @@
     --                         故默认禁止；本板若确认 GPIO12 为独立可控的 UVC_EN 才放开
     --   de_pin        [条件] 收发方向控制引脚 GPIO（rs485 用），DE 脚未引出时写 nil
     --   power_pin     [条件] 该路供电域总使能脚 GPIO（rs485 用），同一供电域多路共用一个脚
+    --   power_hold    [可选] rs485 专用：写了 = true 表示该供电域已由 power_on 常供电
+    --                         （如 8603 的 485_EN = GPIO64），驱动只补高、不关断，
+    --                         末路 stop 也不拉低；否则关掉最后一路会把整组电掐掉
     --   uart_id       [条件] 挂载的 UART 接口号（rs485 / uart 用）
     --   baud          [条件] 波特率（rs485 / uart 用），如 9600 / 115200
     --   test_data     [可选] rs485 专用：该路收发测试页的发送内容，发送按钮文案即「发送 + 此内容」。
     --                         不写则按端口序号生成 123 / 456 / 789 / 012 …，各路不同，
     --                         便于 485 1A-2A / 1B-2B 交叉互连时一眼认出是谁发的
+    --   manual_init   [可选] rs485 专用：写了 = true 则 485 测试页进页面不自动上电开串口，
+    --                         点该路按钮才初始化；不写即进页面自动初始化
     --   databits      [可选] 数据位（uart 用），默认 8
     --   parity        [可选] 校验位（uart 用）: "N"=无校验 / "E"=偶校验 / "O"=奇校验，默认 "N"
     --   stopbits      [可选] 停止位（uart 用），默认 1
@@ -104,7 +111,7 @@
     -- 例: UVC 摄像头 ×1 + RS485 ×2（共用 UART1 与 485_EN 供电脚）+ UART ×1
     -- peripherals = {
     --     { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
-    --     { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, baud = 9600 },
+    --     { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, baud = 9600, manual_init = true },
     --     { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 },
     --     { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },
     -- },

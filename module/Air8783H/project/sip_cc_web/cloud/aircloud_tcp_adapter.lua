@@ -1,3 +1,11 @@
+--[[
+@module  aircloud_tcp_adapter
+@summary AirCloud TCP 业务适配层
+@usage
+独立环境加载上游原版 excloud，处理 TCP 半包、粘包、连接代次、回复流水号及浮点编码。
+仅用于 AirCloud，SIP 传输独立；打包必须包含原版 excloud。
+]]
+
 -- Business-only TCP compatibility. The upstream excloud file is loaded unchanged.
 -- Luatools discovers dependencies from literal require statements, not loadfile.
 -- Declare the dependency without executing a second, non-isolated instance.

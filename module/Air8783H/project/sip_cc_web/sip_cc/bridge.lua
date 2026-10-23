@@ -1,5 +1,13 @@
 --[[
 @module  bridge
+@summary SIP 与 CC 的 PCM 桥接协调器
+@usage
+协调两侧呼叫、接通、挂断和失败收尾。
+等待媒体停止及资源释放，处理恢复和冷却，避免旧会话干扰下一次呼叫。
+]]
+
+--[[
+@module  bridge
 @summary SIP 与 CC 的纯 PCM 桥接协调器
 @version 1.1
 @date    2026.09.18

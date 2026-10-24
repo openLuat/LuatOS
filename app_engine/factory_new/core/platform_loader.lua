@@ -53,7 +53,7 @@ require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART
 require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + RS485（4G 版）
 require ("eng_8602_9i_wifi")     -- Air8602 9寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + 双RS485（WiFi 版）
 require ("eng_8602_9i_4g")       -- Air8602 9寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + 双RS485（4G 版）
-require ("eng_8603w_10i_v0")     -- Air8603W 10寸 1024×600 + Airlink UART WiFi(6205) + Air1103语音(UART6) + UVC + 三路RS485 + UART2 + SD（WiFi 版）
+require ("eng_8603w_10i_v0")     -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + Air1103语音(UART6) + UVC + 三路RS485 + UART2 + SD（WiFi 版）
 require ("eng_8603m_10i_v0")     -- Air8603M1 10寸 1024×600 + Airlink UART 4G(780ER2) + Air1103语音(UART6) + UVC + 三路RS485 + UART2 + SD（4G 版）
 require ("eng_8605_10i_wifi")    -- Air8605 10寸 1024×600 + Airlink UART WiFi(6205) + Air1103语音 + SD + UVC + RS485（WiFi 版）
 require ("eng_8605_10i_4g")      -- Air8605 10寸 1024×600 + Airlink UART 4G(780ER2) + Air1103语音 + SD + UVC + RS485（4G 版）
@@ -120,7 +120,7 @@ local PROJECT_MAP = {
     ["Engine_Air8601_7inch_1024x600_010_4G_V000"]   = "eng_8601_7i_4g",
     ["Engine_Air8602_9inch_1024x600_010_WiFi_V000"] = "eng_8602_9i_wifi",
     ["Engine_Air8602_9inch_1024x600_010_4G_V000"]   = "eng_8602_9i_4g",
-    ["Engine_Air8603W_10inch_1024x600_000_WiFi_V000"] = "eng_8603w_10i_v0",
+    ["Engine_Air8603W1_10inch_1024x600_000_WiFi_V000"] = "eng_8603w_10i_v0",
     ["Engine_Air8603M1_10inch_1024x600_000_4G_V000"]  = "eng_8603m_10i_v0",
     ["Engine_Air8605_10inch_1024x600_000_WIFI_V000"] = "eng_8605_10i_wifi",
     ["Engine_Air8605_10inch_1024x600_000_4G_V000"]   = "eng_8605_10i_4g",
@@ -130,6 +130,7 @@ local PROJECT_MAP = {
     -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
     --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
     ["Engine_Air8603W_10inch_1024x600_000_V000"]   = "eng_8603w_10i_v0",
+    ["Engine_Air8603W_10inch_1024x600_000_WiFi_V000"] = "eng_8603w_10i_v0",
     ["Engine_Air8603M_10inch_1024x600_000_V000"]   = "eng_8603m_10i_v0",
     ["Engine_Air8603M1_10inch_1024x600_000_V000"]  = "eng_8603m_10i_v0",
     ["Engine_Air8605_10inch_1024x600_000_WiFi_V000"] = "eng_8605_10i_wifi",

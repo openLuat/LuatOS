@@ -48,7 +48,7 @@
 | 14 | Air1780H | 引擎主机 | 合宙引擎 AIR1780H V000 4.3寸 | 480*272 4.3寸SPI触摸屏(ST6201)；WiFi(airlink 6205)；ES8311录音播放；SD卡；NAND Flash；PWM0背光调节 | Engine_Air1780H_4inch_480x272_000_V000 | | |
 | 15 | Air1603 | 引擎主机 | 合宙引擎 AIR8607 V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；SD卡 | Engine_Air8607_10inch_1024x600_000_V000 | | |
 | 16 | Air1603 | 引擎主机 | 合宙引擎 AIR8607A V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；UVC摄像头(AirCAMERA_1032/AirUVC_1000)；无SD卡 | Engine_Air8607A_10inch_1024x600_000_V000 | | |
-| 17 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；Air1103语音(UART6)；PWM背光调节；UVC摄像头；三路RS485(非隔离×1/隔离×2)；UART2；SD卡 | Engine_Air8603W_10inch_1024x600_000_WiFi_V000 | | |
+| 17 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W1 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；Air1103语音(UART6)；PWM背光调节；UVC摄像头；三路RS485(非隔离×1/隔离×2)；UART2；SD卡 | Engine_Air8603W1_10inch_1024x600_000_WiFi_V000 | | |
 | 18 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M1 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；Air1103语音(UART6)；PWM背光调节；UVC摄像头；三路RS485(非隔离×1/隔离×2)；UART2；SD卡 | Engine_Air8603M1_10inch_1024x600_000_4G_V000 | | |
 
 ---

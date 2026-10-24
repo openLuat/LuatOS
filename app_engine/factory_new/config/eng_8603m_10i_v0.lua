@@ -10,7 +10,7 @@
 
 注意：
 1. Air8603M1 主控平台为 Air1603。本型号为 4G 版（Air780ER2 模组，UART3），同底板另有
-   WiFi 出货型号 Engine_Air8603W_10inch_1024x600_000_WiFi_V000（config/eng_8603w_10i_v0.lua），
+   WiFi 出货型号 Engine_Air8603W1_10inch_1024x600_000_WiFi_V000（config/eng_8603w_10i_v0.lua），
    两型号是同一底板网络模组切换的不同出货型号，配置只差 network / features / ui 三处，切勿混用。
    本文件与 eng_8603w_10i_v0.lua 的其余硬件部分（LCD / 触摸 / 音频 / SD / 485 / UVC / 供电）完全一致。
 2. 【音频 = Air1103 语音芯片】UART6（固定 2M 波特率），单芯片集成 MIC + 喇叭 + AEC，

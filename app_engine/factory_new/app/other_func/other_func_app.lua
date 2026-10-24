@@ -1,8 +1,8 @@
 --[[
 @module  other_func_app
 @summary 功能测试业务层：UVC / RS485 / UART 外设的开关、状态与 485 收发（config.peripherals 驱动）
-@version 1.1
-@date    2026.10.23
+@version 1.2
+@date    2026.10.24
 @author  江访
 @usage
 订阅: OTHER_FUNC_GET / OTHER_FUNC_SET(id, enabled)
@@ -10,6 +10,9 @@
 
 订阅: RS485_TEST_SEND(id, data)      -- 485 收发测试页发起发送
 发布: RS485_TEST_RESULT(id, ok, err) -- 发送结果回执（接收数据由 periph_rs485 直接广播 PERIPH_RX）
+
+订阅: RS485_DE_HOLD(ms)              -- 方向脚自检：把 DE 拉高 ms 毫秒再回接收态
+发布: RS485_DE_HOLD_RESULT(ok, used) -- 自检结果，used 为实际保持的毫秒数
 
 list 为按 config.peripherals 声明顺序排列的实例数组：
     { { id=, type=, name=, enabled=bool, info=string }, ... }
@@ -256,6 +259,29 @@ local function on_rs485_send(id, data)
 end
 
 --[[
+@function on_de_hold
+@summary 方向脚自检：把 DE 脚拉高一段时间再回接收态，供现场用万用表量
+@param ms 保持高电平的毫秒数
+
+与 on_set 同理放在 sys.taskInit 里跑：de_hold 内部要 sys.wait 撑满保持时长。
+]]
+local function on_de_hold(ms)
+    sys.taskInit(function()
+        local ok_req, mod = pcall(require, "periph_rs485")
+        if not ok_req or type(mod) ~= "table" or type(mod.de_hold) ~= "function" then
+            sys.publish("RS485_DE_HOLD_RESULT", false, "驱动不支持方向脚自检")
+            return
+        end
+        local ok, used = pcall(mod.de_hold, ms)
+        if not ok then
+            sys.publish("RS485_DE_HOLD_RESULT", false, tostring(used))
+            return
+        end
+        sys.publish("RS485_DE_HOLD_RESULT", used == true, used)
+    end)
+end
+
+--[[
 @function M.get_list
 @summary 同步取实例状态列表（供启动自检等非窗口路径使用）
 @return table
@@ -281,5 +307,6 @@ build_items()
 sys.subscribe("OTHER_FUNC_GET", on_get)
 sys.subscribe("OTHER_FUNC_SET", on_set)
 sys.subscribe("RS485_TEST_SEND", on_rs485_send)
+sys.subscribe("RS485_DE_HOLD", on_de_hold)
 
 return M

@@ -414,14 +414,16 @@ function t.test_media_transport_maps_setup_to_carrier()
 end
 
 --[[
-音频会话（平台发起的 TCP 腿）同样要被失活判定覆盖。
+本层自建链的 TCP 会话要被失活判定覆盖（`external_media` 为空的那一类）。
 
-实测见过"0 个包"挂几分钟的僵尸音频会话：平台发了音频 INVITE、本端也受理并
-回了 200 OK，但 TCP 连不上（平台的发流端口没发布），于是它既收不到数据、
-也不会自己消失 —— 判据与点播共用同一套。
+音频会话现在一律 external（判活交给外部引擎），但点播仍由本层建链；这套
+判据是共用的，这里用一个 TCP 从未连上的会话验证它仍然生效。
+
+实测见过"0 个包"挂几分钟的僵尸会话：INVITE 受理并回了 200 OK，但 TCP 连不上
+（平台发流端口没发布），既收不到数据也不会自己消失。
 ]]
-function t.test_audio_session_is_reclaimed_when_link_never_comes_up()
-    -- 平台发起、TCP 承载、从未连上的音频会话
+function t.test_own_tcp_session_is_reclaimed_when_link_never_comes_up()
+    -- TCP 承载、从未连上的自建链会话
     local sess = {
         media_tcp = true, link_up = false,
         started = true, started_ms = 1000,
@@ -429,15 +431,15 @@ function t.test_audio_session_is_reclaimed_when_link_never_comes_up()
     }
     assert(client.session_death_reason(sess, 5000) == nil, "建链等待期内不该回收")
     assert(type(client.session_death_reason(sess, 20000)) == "string",
-           "TCP 音频会话始终连不上时应判定失活(否则会一直挂在 talks() 里)")
+           "TCP 会话始终连不上时应判定失活(否则会一直挂在会话表里)")
 
-    -- UDP 承载的音频会话（设备发起那条腿）：没有可信判据，不猜
+    -- UDP 承载的自建链会话：没有可信判据，不猜
     local udp = {
         media_tcp = false, link_up = false,
         started = true, started_ms = 1000, state = "established",
     }
     assert(client.session_death_reason(udp, 99999999) == nil,
-           "UDP 音频会话不该被超时误杀")
+           "UDP 会话不该被超时误杀")
 end
 
 --[[
@@ -468,7 +470,7 @@ function t.test_external_media_session_is_not_reclaimed_by_link_guess()
 end
 
 --[[
-外部接管模式下音频媒体端口必须**轮换**。
+音频媒体端口必须**轮换**（音频媒体始终由外部引擎接管）。
 
 voip 收尾后约 100ms 内媒体端口还没真正放开（getState 已 idle 但 socket 未释放），
 若每次都用同一个固定端口，这期间它绑不上会**静默**换一个别的 —— 而 SDP 报给平台的
@@ -477,11 +479,11 @@ voip 收尾后约 100ms 内媒体端口还没真正放开（getState 已 idle �
 轮换规则是"避开上一次用的那个"，所以头两次调用必然覆盖配置端口与它的邻居；
 夹具与端到端实测见 gb28181/tests/tools/air1103_sim/README.md。
 ]]
-function t.test_audio_media_port_rotates_in_external_mode()
+function t.test_audio_media_port_rotates()
     reset()
     local base, n = 31000, 4
     assert(client.start(base_opts({
-        external_audio = true, audio_port = base, max_sessions = n,
+        audio_port = base, max_sessions = n,
     })), "start 应成功")
 
     local p1 = client.next_audio_port()

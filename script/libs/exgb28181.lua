@@ -10,13 +10,14 @@
   C 层  gb28181        —— luatos-ext-components/gb28181，负责协议编解码
                           (PS 封装 / RTP 打包 / SIP 报文解析构造 / MANSCDP XML)
   Lua 层 exgb28181.lua —— 本文件，**只做配置校验、字段改名与事件转发**
-  信令实现             —— exgb28181client.lua(注册/心跳/查询/点播会话/媒体收发)
-  音频桥               —— exgb28181audio.lua(麦克风/喇叭 ↔ 会话)
+  信令实现             —— exgb28181client.lua(注册/心跳/查询/点播会话/视频媒体)
+  音频引擎             —— exgb28181audio.lua(voip native/bridge)；
+                          exgb28181audio_raw.lua(PC/探针的裸 C stream)
 
-**本门面目前不提供点播与对讲的 API**：点播会话、媒体推流、语音对讲都在
-exgb28181client.lua 里(push_frame / sessions / start_talk / talk_push …)，
-需要这些能力时直接 require 那个模块。本文件的价值在于把"设备注册到平台"
-这件事收敛成 init/start 两步，并统一事件回调。
+**本门面目前不提供点播与对讲的 API**：点播会话、视频推流、语音对讲都在
+exgb28181client.lua 里(push_frame / sessions / start_talk …)，音频媒体由上面
+两个引擎之一接管；需要这些能力时直接 require 那个模块。本文件的价值在于把
+"设备注册到平台"这件事收敛成 init/start 两步，并统一事件回调。
 
 基本用法：
 local exgb28181 = require "exgb28181"

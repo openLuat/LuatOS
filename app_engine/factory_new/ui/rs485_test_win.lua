@@ -1,7 +1,7 @@
 --[[
 @module  rs485_test_win
 @summary RS485 多路收发测试页（通道按钮区 + 统一收发日志）
-@version 3.3
+@version 3.4
 @date    2026.10.24
 @author  江访
 @usage
@@ -10,6 +10,8 @@
 发布: OTHER_FUNC_GET                   -- 拉一次端口打开状态
 发布: RS485_TEST_SEND(id, data)        -- 发送原始字节串
 订阅: RS485_TEST_RESULT(id, ok, err)   -- 发送结果回执
+发布: RS485_DE_HOLD(ms)                -- 方向脚自检，请求把 DE 拉高 ms 毫秒再回接收态
+订阅: RS485_DE_HOLD_RESULT(ok, used)   -- 自检结果
 订阅: PERIPH_RX(id, data)              -- 驱动收到的原始字节
 订阅: OTHER_FUNC_STATUS / OTHER_FUNC_CHANGED(list) -- 端口打开状态
 订阅: OTHER_FUNC_SET_RESULT(id, ok, err)  -- 打开结果，成功后补发排队中的发送
@@ -17,7 +19,7 @@
 页面分上下两段：
   上方  通道按钮区：每路 485 一张通道卡，卡内自上而下是「通道号 + 类型」、串口信息、
         收发计数、发送按钮；一排放两张，有几路排几排
-  下方  统一收发日志（最新在上）+ 右上角「清空」，每路日志都带自己的通道号
+  下方  统一收发日志（最新在上）+ 右上角「DE 自检」「清空」，每路日志都带自己的通道号
 
 每路的测试数据取 config.peripherals 条目的 test_data，缺省按通道序号生成
 123 / 456 / 789 / 012 …，各路不同，交叉互连时一眼认出是谁发的。
@@ -37,6 +39,9 @@
 同串口那组在板上无法自测（收发互见，接不接线看到的都一样），进页面时的日志行会写明
 本机型哪几组能自测；只有一路、或全部路同串口的机型只记收发、不做判定。
 接线约定：两路交叉互连，A 接 A、B 接 B，互发互收。
+
+方向脚（DE）空闲就是低电平（接收态），只在每一帧的发送窗口里拉高几毫秒，万用表量永远是 0V。
+要确认它真会翻，点「DE 自检」把方向脚拉高 2 秒再量，量完自动回接收态。
 
 历史记录只在本页内存里，退出即清空；固定行池显示最前面若干条，
 行数按可用高度算，保证最新一条始终可见。
@@ -197,17 +202,19 @@ local function is_cross_uart(from_id, to_id)
     return a and b and a.uart_id ~= b.uart_id
 end
 
--- 本机型第一组能自测的通道对（分属不同串口），没有则 nil
--- 分隔符用 ASCII 的 "-"：内置字库不含箭头符号
+-- 本机型能自测的通道对（分属不同串口），全部列出，没有则 nil
+-- 分隔符用 ASCII 的 "-" 和 ","：内置字库不含箭头符号
 local function cross_pair_hint()
+    local out = {}
     for i = 1, #ports do
         for j = i + 1, #ports do
             if ports[i].uart_id ~= ports[j].uart_id then
-                return string.format("通道%d-通道%d", ports[i].ch, ports[j].ch)
+                out[#out + 1] = string.format("通道%d-通道%d", ports[i].ch, ports[j].ch)
             end
         end
     end
-    return nil
+    if #out == 0 then return nil end
+    return table.concat(out, ",")
 end
 
 -- 板上没有对端、或全部路都挂在同一串口（收发互见）时没有可判定的对象
@@ -315,6 +322,14 @@ local function do_send(p)
     fire_send(p, p.data)
 end
 
+-- 方向脚自检：让驱动把 DE 拉高 DE_HOLD_MS 毫秒再回接收态
+-- 发送窗口只有几毫秒，万用表量不到电平跳变；拉够两秒才能量出高电平
+local DE_HOLD_MS = 2000
+local function do_de_hold()
+    sys.publish("RS485_DE_HOLD", DE_HOLD_MS)
+    append_entry("INFO", 0, string.format("DE 自检开始 %dms 内方向脚保持高电平", DE_HOLD_MS))
+end
+
 -- ==================== 事件 ====================
 
 -- 驱动收包广播（periph_rs485 的 on_receive 发布）
@@ -391,6 +406,16 @@ local function on_status(list)
             p.opened = s.enabled and true or false
             update_stat(p)
         end
+    end
+end
+
+-- 方向脚自检结果：用 INFO 不用 NG，NG 留给交叉线判定，两者含义不同
+local function on_de_hold_result(ok, used)
+    if ok then
+        append_entry("INFO", 0,
+            string.format("DE 自检完成，保持 %s ms 后回接收态", tostring(used)))
+    else
+        append_entry("INFO", 0, "DE 自检失败：" .. tostring(used or "未知原因"))
     end
 end
 
@@ -543,14 +568,21 @@ local function build_ui()
         y = y + rows * (cell_h + gap)
     end
 
-    -- ===== 下方：收发日志（最新在上）+ 清空 =====
+    -- ===== 下方：收发日志（最新在上）+ DE 自检 + 清空 =====
     local head_h = theme.dp(36)
     local clear_w = theme.dp(72)
-    log_title_w = card_w - clear_w - gap
+    local de_w = theme.dp(96)
+    log_title_w = card_w - clear_w - de_w - 2 * gap
     log_title = theme.label(main_container, {
         x = pad, y = y, w = log_title_w, h = head_h,
         text = "收发日志(最新在上)", px_size = theme.fs("caption"),
         color = theme.C.t2, align = airui.TEXT_ALIGN_LEFT,
+    })
+    -- 方向脚自检：拉高 DE 够长一段时间，现场好用万用表量（正常发送窗口只有几毫秒，表笔看不出来）
+    theme.ghost_button(main_container, {
+        x = pad + card_w - clear_w - de_w - gap, y = y, w = de_w, h = head_h,
+        text = "DE 自检", size = 12, fg = theme.C.t2, border = theme.C.stroke,
+        on_click = function() do_de_hold() end,
     })
     theme.ghost_button(main_container, {
         x = pad + card_w - clear_w, y = y, w = clear_w, h = head_h,
@@ -596,6 +628,7 @@ local function on_create()
     sys.subscribe("OTHER_FUNC_SET_RESULT", on_set_result)
     sys.subscribe("OTHER_FUNC_STATUS", on_status)
     sys.subscribe("OTHER_FUNC_CHANGED", on_status)
+    sys.subscribe("RS485_DE_HOLD_RESULT", on_de_hold_result)
 
     -- 只自动初始化未标 manual_init 的路；手动初始化的路由各自按钮触发
     for _, p in ipairs(ports) do
@@ -625,6 +658,7 @@ local function on_destroy()
     sys.unsubscribe("OTHER_FUNC_SET_RESULT", on_set_result)
     sys.unsubscribe("OTHER_FUNC_STATUS", on_status)
     sys.unsubscribe("OTHER_FUNC_CHANGED", on_status)
+    sys.unsubscribe("RS485_DE_HOLD_RESULT", on_de_hold_result)
     if main_container then main_container:destroy(); main_container = nil end
     log_labels = {}
     log_title = nil

@@ -8,6 +8,11 @@
 #define LUAT_LOG_TAG "voip_jb"
 #include "luat_log.h"
 
+/* 启动深度之外允许的额外积压（帧）。发送端时钟略快或 TCP 批到达会让
+   pending 增长；超过 depth+8 就丢最旧，避免环形缓冲写满后覆盖槽位、
+   每拍 miss 触发 resync。 */
+#define VOIP_JB_MAX_EXTRA_PENDING 8
+
 voip_jb_t *voip_jb_create(uint16_t depth, uint16_t max_pending, uint16_t frame_samples)
 {
     if (frame_samples == 0) return NULL;
@@ -136,6 +141,22 @@ int voip_jb_push(voip_jb_t *jb, uint16_t seq, const int16_t *pcm)
     if (!jb || !pcm) return -1;
 
     uint16_t idx = jb_slot_index(jb, seq);
+
+    /* 积压超上限：丢最旧，把延迟拉回 depth；播放启动前不触发。 */
+    if (jb->started) {
+        uint16_t cap = (uint16_t)(jb->depth + VOIP_JB_MAX_EXTRA_PENDING);
+        if (cap >= jb->max_pending) cap = (uint16_t)(jb->max_pending - 1);
+        uint16_t guard = jb->max_pending;
+        while (jb->pending >= cap && guard-- > 0) {
+            uint16_t drop = jb_slot_index(jb, jb->expected_seq);
+            if (jb->slots[drop].valid && jb->slots[drop].seq == jb->expected_seq) {
+                jb->slots[drop].valid = 0;
+                jb->pending--;
+            }
+            jb->expected_seq = (uint16_t)(jb->expected_seq + 1u);
+        }
+        jb->consecutive_miss = 0;
+    }
 
     if (!jb->slots[idx].valid) {
         memcpy(jb->slots[idx].pcm, pcm, jb->frame_samples * sizeof(int16_t));

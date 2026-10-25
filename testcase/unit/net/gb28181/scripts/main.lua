@@ -10,6 +10,7 @@ local c_tests      = require("gb28181_c_test")       -- C 绑定 gb28181.*
 local sip_tests    = require("gb28181_sip_test")     -- SIP 报文层 exgb28181sip.lua
 local client_tests = require("gb28181_client_test")  -- 信令客户端 exgb28181client.lua
 local playback_tests = require("gb28181_playback_test")  -- 历史回放 exgb28181playback.lua
+local audio_tests  = require("gb28181_audio_test")    -- 音频纯函数 exgb28181audio.lua
 
 sys.taskInit(function()
     testrunner.runBatch("gb28181", {
@@ -17,6 +18,7 @@ sys.taskInit(function()
         {testTable = sip_tests,    testcase = "GB28181-SIP报文层"},
         {testTable = client_tests, testcase = "GB28181-信令客户端"},
         {testTable = playback_tests, testcase = "GB28181-历史回放"},
+        {testTable = audio_tests,  testcase = "GB28181-音频纯函数"},
         {testTable = facade_tests, testcase = "GB28181-Lua门面"}
     })
 end)

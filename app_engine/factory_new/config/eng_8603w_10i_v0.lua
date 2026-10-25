@@ -1,6 +1,6 @@
 --[[
 @module  config.eng_8603w_10i_v0
-@summary Air8603W 引擎主机 10寸1024x600 RGB屏 + Airlink UART WiFi(6205) + Air1103语音(UART6) + UVC摄像头 + 三路RS485 + UART2 + SD卡 配置文件（WiFi 版）
+@summary Air8603W1 引擎主机 10寸1024x600 RGB屏 + Airlink UART WiFi(6205) + Air1103语音(UART6) + UVC摄像头 + 三路RS485 + UART2 + SD卡 配置文件（WiFi 版）
 @version 1.0
 @date    2026.10.23
 @author  江访
@@ -9,7 +9,7 @@
 具体包含哪些参数，如何填写参考：template.lua
 
 注意：
-1. Air8603W 主控平台为 Air1603。本型号为 WiFi 版（Air6205 模组，UART3），同底板另有
+1. Air8603W1 主控平台为 Air1603。本型号为 WiFi 版（Air6205 模组，UART3），同底板另有
    4G 出货型号 Engine_Air8603M1_10inch_1024x600_000_4G_V000（config/eng_8603m_10i_v0.lua），
    两型号是同一底板网络模组切换的不同出货型号，配置只差 network / features / ui 三处，切勿混用。
 2. 【音频 = Air1103 语音芯片】UART6（固定 2M 波特率），单芯片集成 MIC + 喇叭 + AEC，
@@ -55,9 +55,9 @@
 
 return {
     -- ===== 顶层信息 =====
-    name = "Engine_Air8603W_10inch_1024x600_000_WiFi_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}_{网络}
+    name = "Engine_Air8603W1_10inch_1024x600_000_WiFi_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}_{网络}
     chip = "Air1603", -- 主控芯片平台（同 config/eng_8607a_10i_v0.lua）
-    baseboard = "合宙引擎 AIR8603W V000 10寸", -- 底板型号
+    baseboard = "合宙引擎 AIR8603W1 V000 10寸", -- 底板型号
 
     -- ===== 引脚功能复用 =====
     -- Air1603 上背光 PWM3 与触摸 I2C1 无需显式复用（与 eng_8607 系列一致，留空）

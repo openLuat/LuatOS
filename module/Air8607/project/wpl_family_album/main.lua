@@ -50,8 +50,10 @@ local function power_on()
     gpio.setup(74, 1)
     gpio.setup(73, 0)
 
-    -- GT911 触摸 I2C1（400kHz，与 8607 已跑通工程一致）
-    i2c.setup(1, i2c.FAST)
+    -- GT911 触摸 I2C1：必须走轮询模式（第三参 true），速率用默认值。
+    -- 中断模式下 TP 中断里突发读 I2C 会和嵌套中断互相干扰，表现为只在触摸时
+    -- 报 I2C 错误 / 丢点 / 完全没反应。与 factory_new/drv/tp/tp_gt911.lua 一致。
+    i2c.setup(1, 0, true)
 
     sys.wait(120)   -- 等供电稳定
 end
@@ -68,18 +70,24 @@ end
 
 -- ==================== 触摸 ====================
 local function touch_init()
-    local dev = tp.init("gt911", {
-        port = 1,             -- I2C1
-        pin_rst = 14,         -- TP_RST
-        pin_int = 51,         -- TP_INT
-        int_type = tp.FALLING,
-        w = SW,
-        h = SH,
-    })
-    if dev then
-        airui.device_bind_touch(dev)
-        log.info("main", "GT911 触摸初始化完成")
-        return true
+    -- GT911 上电余量不足时 tp.init 会软失败（只返回 nil），必须重试一次，
+    -- 否则静默变成“触摸完全失灵”。与 factory_new/ui/boot_ui.lua 一致。
+    for attempt = 1, 2 do
+        local dev = tp.init("gt911", {
+            port = 1,             -- I2C1
+            pin_rst = 14,         -- TP_RST（Air8607 = GPIO14）
+            pin_int = 51,         -- TP_INT
+            int_type = tp.FALLING,
+            w = SW,
+            h = SH,
+        })
+        if dev then
+            airui.device_bind_touch(dev)
+            log.info("main", "GT911 触摸初始化完成")
+            return true
+        end
+        log.warn("main", "GT911 初始化未成功，200ms 后重试", attempt)
+        sys.wait(200)
     end
     log.error("main", "触摸初始化失败")
     return false

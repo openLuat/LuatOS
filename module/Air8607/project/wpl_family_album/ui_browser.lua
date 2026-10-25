@@ -5,14 +5,9 @@
 @date    2026.10.22
 
 === 缩略图怎么来的 ===
-不能直接把 JPEG 塞进 206x124 的控件：LVGL 按原图尺寸解（1.84MB/张），
-4 张就把堆吃满，全屏查看的 4.19MB 立刻分配失败（就是之前那个 OOM）。
-
-所以走 thumb.lua 的离线小图：解一帧 RGB565 → 5 倍采样成 204x120 →
-写成 LVGL .bin（49KB）。目录页只是 airui.image 加载这个 .bin，解码峰值 49KB。
-
-首次浏览某张照片会花约 0.5~1s 生成（后台逐张填，卡片先出来），
-生成过的存在 SD 的 /.albumthumbs 里，以后翻页/重启都是秒开。
+直接 airui.image 显示 JPEG 原图，fit="cover" 由 LVGL 绘制时缩放。
+HW JPEG 硬解激活后单张解码缓冲 1.23MB（RGB565），airui 解码器在缓存满时
+会自动 lv_image_cache_drop 清缓存重试，4 张卡片逐张解码上屏、不写 SD。
 ]]
 local conf = require "conf"
 local theme = require "theme"

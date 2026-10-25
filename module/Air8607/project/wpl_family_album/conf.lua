@@ -7,7 +7,7 @@
 
 所有硬件参数与 module/Air8607/project/factory/config/eng_8607_10i_v0.lua 对齐：
   LCD_DISP = GPIO15   SD_EN = GPIO74   SPI1_CS = GPIO8
-  GT911: I2C1(400k)  TP_RST = GPIO14  TP_INT = GPIO51
+  GT911: I2C1(默认速率+轮询模式)  TP_RST = GPIO14  TP_INT = GPIO51
   背光: PWM3(GPIO13)
 
 改板子只需要改这一个文件，其它模块不写死引脚。
@@ -22,8 +22,8 @@ return {
     sd = {
         spi_id   = 1,
         pin_cs   = 8,
-        pin_en   = 74,            -- SD_EN，高电平使能供电
-        speed    = 20 * 1000 * 1000,
+        pin_en   = 74,            -- SD_EN，高电平使能供电（Air8607 = GPIO74）
+        speed    = 20 * 1000 * 1000,  -- Air8607 SPI1 实测 20MHz 稳定（40MHz 部分卡不稳，失败会降 10MHz 重试）
         mount    = "/sd",
         scan_max = 600,           -- 单目录最多扫描多少个条目（防止超大目录吃内存）
         page_size = 100,          -- io.lsdir 单次分页条数（库上限 100）
@@ -53,7 +53,7 @@ return {
         -- Air8607 实测：hw 解码器还要额外申请硬解上下文，内存紧张时先失败；
         -- 相册是静态照片，sw 解 1024x600 约 0.3~0.8s，更稳，所以默认 sw。
         decode    = "sw",
-        bar_hint_ms = 4000,       -- 控制条显示后自动隐藏时间
+        bar_hint_ms = 10000,      -- 控制条自动隐藏时间：连续 10 秒没有触摸屏幕才隐藏（每次触摸都重置）
         touch_debug = true,       -- 打印触摸事件（排查卡顿用，稳定后可改 false）
         -- 打印“点击小图 / 上一张 / 下一张 / 轮播 -> 照片真正画完”的用时。
         -- 打开时会用 airui.full_refresh()（内部 lv_refr_now）同步重绘，才能把

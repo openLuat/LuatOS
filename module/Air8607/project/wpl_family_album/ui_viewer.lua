@@ -122,14 +122,19 @@ local function hide_bars()
     if P.touch_debug then log.info("viewer", "bars hide @", math.floor(now_ms())) end
 end
 
-local function show_bars()
-    if not root then return end
-    apply_bars_visible(true)
+--[[重新开始“无触摸自动隐藏”倒计时（每次触摸屏幕都会重置）]]
+local function arm_bar_timer()
     cancel_bar_timer()
     bar_timer = sys.timerStart(function()
         bar_timer = nil
         hide_bars()
     end, P.bar_hint_ms)
+end
+
+local function show_bars()
+    if not root then return end
+    apply_bars_visible(true)
+    arm_bar_timer()
     if P.touch_debug then log.info("viewer", "bars show @", math.floor(now_ms())) end
 end
 
@@ -367,6 +372,8 @@ function M.on_touch(state, x, y, track_id, ts)
         -- 统一用 mcu.ticks() 折算，按下抬起同一个时间基准
         down_t = now_ms()
         down_in_bar = bars_visible and ((y or 0) < 92 or (y or 0) > 498)
+        -- 每次触摸都重置“无触摸自动隐藏”倒计时：控制条只会在 10 秒没碰屏幕才自动消失
+        if bars_visible then arm_bar_timer() end
         if t then
             log.info("tp", "DOWN", x, y, "gap", t - last_tp_t,
                 "bars", bars_visible and 1 or 0, "inbar", down_in_bar and 1 or 0)

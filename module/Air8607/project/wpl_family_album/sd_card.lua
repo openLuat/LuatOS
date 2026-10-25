@@ -30,7 +30,7 @@ local function do_mount(speed)
     spi.setup(SD.spi_id, nil, 0, 0, 8, 400000)   -- 先用保守时钟建总线
     gpio.setup(SD.pin_cs, 1)                      -- 同总线从设备初始化前必须拉高 CS
     return fatfs.mount(fatfs.SPI, SD.mount, SD.spi_id, SD.pin_cs,
-        speed, nil, 10, false)                   -- auto_format = false
+        speed, SD.pin_en, 100, false)             -- power_pin / power_on_delay / auto_format
 end
 
 --[[挂载 SD 卡（幂等）
@@ -52,15 +52,19 @@ function M.mount()
         return true
     end
 
-    -- SD 卡供电使能
+    -- SD 卡供电使能：先拉低放电再拉高，等电压稳定（GT911/卡上电余量同源问题）
     if SD.pin_en then
+        gpio.setup(SD.pin_en, 0)
+        gpio.set(SD.pin_en, 0)
+        sys.wait(50)
         gpio.setup(SD.pin_en, 1)
-        sys.wait(30)
+        gpio.set(SD.pin_en, 1)
+        sys.wait(200)
     end
 
     local ok, err = do_mount(SD.speed)
     if not ok then
-        log.warn("sd", "首次挂载失败，降速重试", tostring(err))
+        log.warn("sd", "首次挂载失败，降到 10MHz 重试", tostring(err))
         sys.wait(80)
         ok, err = do_mount(10 * 1000 * 1000)
     end

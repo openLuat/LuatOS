@@ -26,6 +26,8 @@ display.flush(1)     -- 刷新 ID 为 1 的屏
 #include "luat_display.h"
 #include "luat_display_panel_comm.h"        // 包含面板列表和查找函数
 #include "luat_display_if_comm.h"           // 包含接口函数列表
+#include "luat_display_image.h"
+#include "luat_image.h"
 
 #include "luat_mem.h"
 
@@ -923,6 +925,99 @@ static int l_display_send_seq(lua_State *L)
     return 1;
 }
 
+/*加载图片文件，返回图片对象（先加载，之后 drawImage 绘制）*/
+static int l_display_load_image(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    luat_display_image_t *img = (luat_display_image_t *)lua_newuserdata(L, sizeof(luat_display_image_t));
+    memset(img, 0, sizeof(luat_display_image_t));
+    luaL_setmetatable(L, LUAT_DISPLAY_IMAGE_MT);
+    if (luat_display_image_load_path(img, path) != 0) {
+        lua_pushnil(L);
+        lua_pushliteral(L, "image load failed");
+        return 2;
+    }
+    return 1;
+}
+
+/*从内存数据加载图片，fmt 支持 "jpg"/"png"/"webp"*/
+static int l_display_load_image_data(lua_State *L)
+{
+    size_t len = 0;
+    const char *data = luaL_checklstring(L, 1, &len);
+    const char *fmt_name = luaL_optstring(L, 2, "jpg");
+    int fmt;
+
+    if (strcmp(fmt_name, "png") == 0) {
+        fmt = LUAT_IMG_FMT_PNG;
+    } else if (strcmp(fmt_name, "webp") == 0) {
+        fmt = LUAT_IMG_FMT_WEBP;
+    } else {
+        fmt = LUAT_IMG_FMT_JPG;
+    }
+
+    {
+        luat_display_image_t *img = (luat_display_image_t *)lua_newuserdata(L, sizeof(luat_display_image_t));
+        memset(img, 0, sizeof(luat_display_image_t));
+        luaL_setmetatable(L, LUAT_DISPLAY_IMAGE_MT);
+        if (luat_display_image_load_data(img, (const uint8_t *)data, len, fmt) != 0) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "image decode failed");
+            return 2;
+        }
+    }
+    return 1;
+}
+
+/*绘制图片到 draw_buf，不自动 flush，由 display.flush() 统一刷新*/
+static int l_display_draw_image(lua_State *L)
+{
+    luat_display_image_t *img = (luat_display_image_t *)luaL_checkudata(L, 1, LUAT_DISPLAY_IMAGE_MT);
+    int x = (int)luaL_checkinteger(L, 2);
+    int y = (int)luaL_checkinteger(L, 3);
+    struct luat_display *disp = l_get_display_opt(L, 4);
+
+    if (disp == NULL || img->pixels == NULL) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    lua_pushboolean(L, luat_display_draw_image(disp, &img->surf, x, y) == 0);
+    return 1;
+}
+
+/*一次性绘制：直接给路径，内部解码后立即绘制并释放（每次调用都会重新解码）*/
+static int l_display_draw_image_file(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    int x = (int)luaL_checkinteger(L, 2);
+    int y = (int)luaL_checkinteger(L, 3);
+    struct luat_display *disp = l_get_display_opt(L, 4);
+
+    if (disp == NULL) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    lua_pushboolean(L, luat_display_draw_image_file(disp, path, x, y) == 0);
+    return 1;
+}
+
+/*释放图片对象（也可等待 GC 兜底）*/
+static int l_display_free_image(lua_State *L)
+{
+    luat_display_image_t *img = (luat_display_image_t *)luaL_checkudata(L, 1, LUAT_DISPLAY_IMAGE_MT);
+    luat_display_image_free(img);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/*图片对象 GC，释放解码像素缓冲*/
+static int l_display_image_gc(lua_State *L)
+{
+    luat_display_image_t *img = (luat_display_image_t *)luaL_checkudata(L, 1, LUAT_DISPLAY_IMAGE_MT);
+    luat_display_image_free(img);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_display[] = {
     {"init",        ROREG_FUNC(l_display_init)},
@@ -935,6 +1030,11 @@ static const rotable_Reg_t reg_display[] = {
     {"fillCircle",  ROREG_FUNC(l_display_fill_circle)},
     {"sendSeq",     ROREG_FUNC(l_display_send_seq)},
     {"setRotation", ROREG_FUNC(l_display_set_rotation)},
+    {"loadImage",       ROREG_FUNC(l_display_load_image)},
+    {"loadImageData",   ROREG_FUNC(l_display_load_image_data)},
+    {"drawImage",       ROREG_FUNC(l_display_draw_image)},
+    {"drawImageFile",   ROREG_FUNC(l_display_draw_image_file)},
+    {"freeImage",       ROREG_FUNC(l_display_free_image)},
     {"getSize",     ROREG_FUNC(l_display_get_size)},
     {"getPhySize",  ROREG_FUNC(l_display_get_phy_size)},
     {"getFbInfo",   ROREG_FUNC(l_display_get_fb)},
@@ -947,5 +1047,10 @@ static const rotable_Reg_t reg_display[] = {
 
 LUAMOD_API int luaopen_display(lua_State *L) {
     luat_newlib2(L, reg_display);
+    /* 图片 userdata 的 metatable：__gc 释放解码像素缓冲 */
+    luaL_newmetatable(L, LUAT_DISPLAY_IMAGE_MT);
+    lua_pushcfunction(L, l_display_image_gc);
+    lua_setfield(L, -2, "__gc");
+    lua_pop(L, 1);
     return 1;
 }

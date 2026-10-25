@@ -1,0 +1,6 @@
+{
+  "name": "display_image",
+  "timeout": 60,
+  "platform": ["air1601"],
+  "description": "display.loadImage/loadImageData/drawImage/freeImage: 文件与内存解码、越界裁剪、释放后再绘制拒绝"
+}

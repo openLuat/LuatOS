@@ -44,7 +44,7 @@
 
 local M = {}
 
--- exaudio 是固件扩展库，须 require 绑定（welcome_win / video_util / llm_chat 同款拿法），
+-- exaudio 是固件扩展库，须 require 绑定（video_util / llm_chat 同款拿法），
 -- 裸用全局 exaudio 在 LuatOS 里恒为 nil（会导致 available() 误判成"无音频能力"回 ERR no audio）；
 -- 其顶层引用 i2s 常量，无音频固件上 require 会报错，故 pcall 兜底置 nil
 local ok_exaudio, exaudio = pcall(require, "exaudio")

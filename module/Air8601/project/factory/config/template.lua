@@ -1,8 +1,8 @@
 --[[
 @module  config.template
 @summary 项目配置文件参数手册（可复制后修改为实际配置）
-@version 1.2
-@date    2026.06.01
+@version 1.3
+@date    2026.10.22
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -47,12 +47,14 @@
     -- ============================================================
     -- 三、GPIO 上电时序（可选，没用到则删掉整个 power_on）
     -- ============================================================
-    -- 上电时按数组顺序依次执行，每个步骤: { pin = GPIO, dir = 方向, level = 电平, delay = 延时ms }
-    --   dir:   0=输出模式, 1=输入模式
-    --   level: 输出时 0=低电平/1=高电平, 输入时 0=下拉/1=上拉
+    -- 上电时按数组顺序依次执行，每个步骤: { pin = GPIO, level = 电平, delay = 延时ms }
+    --   level: 目标电平 0=低 / 1=高。直接写进 gpio.setup 第 2 参（0/1 都是输出模式、
+    --          数字即初始电平），一步就把引脚钉到目标电平
+    --   dir:   旧字段，只在 level 缺省时兜底；不要拿它表达「输入/输出」，0/1 都会配成输出
     --   delay: 本步完成后等待的毫秒数(ms)，不填则不等待
     -- 适用场景: LCD供电使能、TP触摸I2C上拉、WiFi/4G模组复位
-    -- 注意: 由 platform_loader 在协程中异步执行，不阻塞主线程
+    -- 注意: 由 platform_loader 在协程中异步执行，不阻塞主线程；
+    --       每步独立 pcall 并打印回读电平，单条失败不会中断后面的上电步骤
 
     -- 例1: Air1602 WiFi 模组上电（高电平有效）
     -- power_on = {
@@ -68,6 +70,56 @@
     --     { pin = 17,  dir = 1, level = 1             },
     --     { pin = 16,  dir = 1, level = 1, delay = 100 }, -- 最后一步等 100ms
     -- },
+
+    -- ============================================================
+    -- 三(补)、外设清单 peripherals（可选，没用到则删掉整个 peripherals）
+    -- ============================================================
+    -- 声明式外设清单，由 drv/periph/periph_loader.lua 在可选批逐个初始化。
+    -- 未实现的 type 只登记不动作（记日志跳过），配置先行、驱动实现后补。
+    -- 数组每个元素是一个外设实例：同一 type 可写多条（多路 485、多路 UART），靠 id 区分。
+    -- 字段约定:
+    --   type          [必填] 外设类型: uvc / rs485 / spi_cam / can / onewire / i2c / uart / pwm / adc
+    --   id            [必填] 实例标识，同 type 多条时区分各路，全表唯一（如 "uvc1" / "485_1" / "uart2"）
+    --   name          [必填] UI 显示名，"功能测试"列表中展示的名称（如 "UVC摄像头" / "非隔离485"）
+    --   en_pin        [条件] 使能引脚 GPIO（uvc 等单使能外设用），运行时可开关控制
+    --   pin12_free    [可选] uvc 专用：en_pin = 12 时必须显式置 true 才允许驱动。
+    --                         GPIO12 在多数板子上是 USB VBUS（断电会连带杀掉触摸屏），
+    --                         故默认禁止；本板若确认 GPIO12 为独立可控的 UVC_EN 才放开
+    --   de_pin        [条件] 收发方向控制引脚 GPIO（rs485 用），DE 脚未引出时写 nil
+    --   power_pin     [条件] 该路供电域总使能脚 GPIO（rs485 用），同一供电域多路共用一个脚
+    --   power_hold    [可选] rs485 专用：写了 = true 表示该供电域已由 power_on 常供电
+    --                         （如 8603 的 485_EN = GPIO64），驱动只补高、不关断，
+    --                         末路 stop 也不拉低；否则关掉最后一路会把整组电掐掉
+    --   uart_id       [条件] 挂载的 UART 接口号（rs485 / uart 用）
+    --   baud          [条件] 波特率（rs485 / uart 用），如 9600 / 115200
+    --   test_data     [可选] rs485 专用：该路收发测试页的发送内容，发送按钮文案即「发送 + 此内容」。
+    --                         不写则按端口序号生成 123 / 456 / 789 / 012 …，各路不同，
+    --                         便于 485 1A-2A / 1B-2B 交叉互连时一眼认出是谁发的
+    --   manual_init   [可选] rs485 专用：写了 = true 则 485 测试页进页面不自动上电开串口，
+    --                         点该路按钮才初始化；不写即进页面自动初始化
+    --   databits      [可选] 数据位（uart 用），默认 8
+    --   parity        [可选] 校验位（uart 用）: "N"=无校验 / "E"=偶校验 / "O"=奇校验，默认 "N"
+    --   stopbits      [可选] 停止位（uart 用），默认 1
+    --   ready_delay   [可选] 上电稳定延时(ms)，loader 在 init 前等待（谁用谁等）
+    --   w / h         [可选] uvc 专用：首选 MJPEG 输出分辨率，预览页优先按它取档；
+    --                         不写则用预览页默认档 1280×720；像素数超过 max_pixels 时不生效
+    --   max_pixels    [可选] uvc 专用：源分辨率像素上限（w×h），缺省 921600（1280×720）。
+    --                         相机侧固定开销约 4.25×w×h 字节，越大留给 airui.camera 显示
+    --                         缓冲的余量越小（预览区会跟着收小），1920×1080 会挤爆内存
+    --   其余字段      透传给驱动 init(params)（en_pins / bus 等，按 type 约定）
+    --
+    -- 例: UVC 摄像头 ×1 + RS485 ×2（共用 UART1 与 485_EN 供电脚）+ UART ×1
+    -- peripherals = {
+    --     { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
+    --     { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, baud = 9600, manual_init = true },
+    --     { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 },
+    --     { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },
+    -- },
+    --
+    -- 预留 type（配置先行，驱动实现后补）:
+    --     { type = "spi_cam" },   -- SPI 摄像头（预留）
+    --     { type = "can" },       -- CAN（预留）
+    --     { type = "onewire" },   -- 1-Wire（预留）
 
     -- ============================================================
     -- 四、硬件配置（必填）
@@ -186,6 +238,7 @@
     --     bluetooth = true,    -- 启用蓝牙
     --     can = true,          -- 启用CAN总线
     --     rs485 = true,        -- 启用RS485接口
+    --     other_func = true,   -- 启用"功能测试"（peripherals 外设清单入口），通常同时设 ui.show_other_func = true
     --     usb_camera = true,   -- 启用USB摄像头，通常同时设 ui.show_camera_preview = true
     --     spi_camera = true,   -- 启用SPI摄像头，通常同时设 ui.show_camera_preview = true
     --     i2c_sensor = true,   -- 启用I2C传感器(SHT30温湿度/VOC等)，通常同时设 ui.show_sensor_panel = true
@@ -288,6 +341,7 @@
     --     show_buzzer_settings = true,     -- 设置页蜂鸣器(触摸声音)开关  ← 通常配 buzzer 时打开
     --     show_ethernet_settings = true,   -- 设置页以太网设置入口        ← 通常配 ethernet 时打开
     --     show_camera_preview = true,      -- 设置页摄像头预览入口        ← 通常配 usb_camera/spi_camera 时打开
+    --     show_other_func = true,         -- 桌面"功能测试"图标            ← 通常配 other_func 时打开，列出 peripherals 外设清单
     --     show_sensor_panel = true,        -- 设置页传感器数据面板        ← 通常配 i2c_sensor 时打开
     --     show_battery_icon = true,        -- 桌面顶栏电池图标           ← 通常配 battery 时打开
     --     show_app_factory = true,         -- 桌面"应用工厂"入口         ← 通常配 app_factory 时打开

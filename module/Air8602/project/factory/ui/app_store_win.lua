@@ -1146,18 +1146,36 @@ local function on_action_done(app_id, action, success)
     end
 end
 
+local error_box = nil
+
+local function close_error_box()
+    if error_box then
+        local box = error_box
+        error_box = nil
+        box:destroy()
+    end
+end
+
 local function on_error(error_msg)
     close_progress_dialog()
-    local msg_box = airui.msgbox({
+    close_error_box()
+    error_box = airui.msgbox({
         w = math.min(400, screen_w - 80),
         h = math.floor(screen_h * 0.28),
         style = { text_font_size = button_font_size },
         title = "错误",
         text = error_msg,
         buttons = { "确定" },
-        on_action = function(self, btn_label) self:hide() end
+        timeout = 5000,
+        on_action = function(self, btn_label)
+            if btn_label == "确定" then
+                self:hide()
+            end
+            error_box = nil
+            self:destroy()
+        end
     })
-    msg_box:show()
+    error_box:show()
 end
 
 -------------------------------------------------------------------------------
@@ -1207,6 +1225,7 @@ local function on_destroy()
     sys.unsubscribe("APP_STORE_ICON_READY", on_icon_ready)
 
     close_progress_dialog()
+    close_error_box()
     if search_keyboard then search_keyboard:destroy() end
     if main_container then main_container:destroy() end
 

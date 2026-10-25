@@ -6,12 +6,13 @@
 @author  江访
 @usage
 订阅: OPEN_SETTINGS_WIN → 打开设置主页
-发布: OPEN_IOT_WIN / OPEN_WIFI_WIN / OPEN_DISPLAY_WIN / OPEN_STORAGE_WIN /
-      OPEN_STORAGE_PRI_WIN / OPEN_FOTA_WIN / OPEN_SOUND_WIN /
-      OPEN_AUTOSTART_WIN / OPEN_ABOUT_WIN / OPEN_FACE_WIN
+发布: OPEN_IOT_WIN / OPEN_WIFI_WIN / OPEN_DISPLAY_WIN / OPEN_TIME_WIN /
+      OPEN_STORAGE_WIN / OPEN_STORAGE_PRI_WIN / OPEN_FOTA_WIN / OPEN_SOUND_WIN /
+      OPEN_AUTOSTART_WIN / OPEN_ABOUT_WIN
 ]]
 
 require "settings_display_win"
+require "settings_time_win"
 require "settings_storage_win"
 require "storage_pri_win"
 require "settings_about_win"
@@ -41,6 +42,7 @@ local ENTRY_ICONS = {
     ["OPEN_IOT_WIN"]         = "cloud",
     ["OPEN_WIFI_WIN"]        = "wifi",
     ["OPEN_DISPLAY_WIN"]     = "brightness",
+    ["OPEN_TIME_WIN"]        = "about",
     ["OPEN_THEME_WIN"]       = "theme",
     ["OPEN_STORAGE_WIN"]     = "storage",
     ["OPEN_STORAGE_PRI_WIN"] = "sort",
@@ -49,7 +51,6 @@ local ENTRY_ICONS = {
     ["OPEN_AUTOSTART_WIN"]   = "autostart",
     ["OPEN_ABOUT_WIN"]       = "about",
     ["OPEN_AIRCLOUD_WIN"]    = "cloud",
-    ["OPEN_FACE_WIN"]        = "ai_chat", -- res 无专用人脸图标，复用 AI 图标
 }
 
 local function update_screen_size()
@@ -75,8 +76,8 @@ local function collect_entries()
     add("IOT账号", "OPEN_IOT_WIN", "合宙 IoT 平台登录与设备绑定")
     if fe.wifi then add("WiFi设置", "OPEN_WIFI_WIN", "扫描、连接与已保存网络管理") end
     add("亮度和声音", "OPEN_DISPLAY_WIN", "屏幕背光与媒体音量调节")
+    add("设置当前时间", "OPEN_TIME_WIN", "手动校准系统时钟")
     add("主题风格", "OPEN_THEME_WIN", "外观配色与强调色")
-    if fe.face_recognition then add("人脸识别", "OPEN_FACE_WIN", "人脸录入与验证") end
     if ui.show_storage_settings then add("存储和内存", "OPEN_STORAGE_WIN", "文件系统容量与内存占用") end
     if fe.sd_card or fe.nand_flash then add("存储顺序", "OPEN_STORAGE_PRI_WIN", "外部应用安装位置优先级") end
     add("系统更新", "OPEN_FOTA_WIN", "检查并下载最新固件")
@@ -107,7 +108,7 @@ local function build_info_card(parent, x, y, w, h)
     for i, r in ipairs(rows) do
         theme.row(card, {
             x = pad, y = pad + theme.dp(24) + (i - 1) * row_h, w = w - 2 * pad, h = row_h,
-            text = r[1], sub = nil, right = r[2], right_w = math.floor(w * 0.52),
+            text = r[1], sub = nil, right = r[2], right_w = math.floor(w * 0.62),
             px_size = theme.fs("caption"), right_px = theme.fs("caption"),
             right_color = theme.C.t1,
         })

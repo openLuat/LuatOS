@@ -9,7 +9,7 @@
 提供亮度增减、设置、查询接口，以及媒体音量设置、查询、试听接口。
 
 媒体音量（hw.audio 存在时默认启用，无需配置开关）：
-起播方（llm_chat / factory_rec / video_util / welcome_win）每次都读
+起播方（llm_chat / factory_rec / video_util）每次都读
 project_config.hw.audio.play_vol，本模块把用户音量写回该字段，
 新起的播放即用新音量；正在播放的用 exaudio.vol 立即生效。
 
@@ -47,10 +47,20 @@ end
 local current_brightness = (bl_cfg and bl_cfg.level) or 100  -- 当前亮度值 (10-100)
 
 -- ==================== 媒体音量 ====================
--- exaudio 是固件扩展库，须 require 绑定（welcome_win / video_util / llm_chat 同款拿法），
+-- exaudio 是固件扩展库，须 require 绑定（video_util / llm_chat 同款拿法），
 -- 裸用全局 exaudio 在 LuatOS 里恒为 nil；无音频固件上取不到则为 nil，下面全部判空。
-local ok_exaudio, exaudio = pcall(require, "exaudio")
-if not ok_exaudio then exaudio = nil end
+-- 懒加载：顶层 require 会在开机关键路径提前拉入 exaudio（≈100ms），
+-- 首次真正用到时才加载（音量设置/试听/音量恢复，均在显示完成之后）
+local exaudio = nil
+local exaudio_loaded = false
+local function get_exaudio()
+    if not exaudio_loaded then
+        exaudio_loaded = true
+        local ok, m = pcall(require, "exaudio")
+        exaudio = ok and m or nil
+    end
+    return exaudio
+end
 
 -- 支持 audio 功能（hw.audio 已配置）即默认开启音量调节，不设配置开关
 local FSKV_VOLUME = "media_volume"            -- 媒体音量 fskv 持久化键
@@ -60,7 +70,8 @@ local DEFAULT_VOLUME = 70            -- 默认媒体音量 (0-100)
 local ac = cfg and cfg.hw and cfg.hw.audio
 local has_audio = ac ~= nil
 local current_volume = (ac and ac.play_vol) or DEFAULT_VOLUME
-local restored = false   -- restore 完成标志（fskv 就绪且已恢复，幂等）
+local restored_brightness = false  -- 亮度恢复完成标志（幂等）
+local restored_volume = false      -- 音量恢复完成标志（幂等）
 
 --[[
 @function save_fskv
@@ -79,6 +90,7 @@ end
 @param level 音量值 (0-100)
 ]]
 local function set_volume(level)
+    local exaudio = get_exaudio()
     level = tonumber(level) or current_volume
     if level < 0 then
         level = 0
@@ -86,7 +98,7 @@ local function set_volume(level)
         level = 100
     end
     current_volume = level
-    -- 写回配置表：llm_chat / factory_rec / video_util / welcome_win
+    -- 写回配置表：llm_chat / factory_rec / video_util
     -- 每次起播都读 ac.play_vol，新起的播放自动用上用户音量
     if ac then ac.play_vol = level end
     -- exaudio.vol 是驱动级全局增益，正在播放的音轨立即生效；
@@ -103,6 +115,7 @@ end
 @summary 播放一段试听语音（llm_chat TTS 同款 exaudio 配方，勿走旧框架 audio.tts）
 ]]
 local function play_volume_test()
+    local exaudio = get_exaudio()
     if not has_audio then
         log.warn("settings_display", "未配置 hw.audio，无法试听")
         return
@@ -200,31 +213,24 @@ end
 
 -- ==================== 初始化 ====================
 --[[
-@function restore
-@summary 从 fskv 恢复媒体音量与背光亮度，写回 hw.audio.play_vol / hw.lcd.backlight.level
-@return boolean true=fskv 就绪且已恢复，false=fskv 未就绪（后台重试）
+@function fskv_ready
+@summary fskv 挂载就绪探测（挂载是异步的，init 成功才算就绪）
+@return boolean true=就绪
 ]]
-local function restore()
-    if restored then return true end
-    -- fskv 挂载是异步的，init 成功才算就绪；
-    -- 未就绪时 fskv.get 返回 nil，与「无记录」区分不了，直接返回等重试
-    local ok_i, inited = pcall(fskv.init)
-    if not (ok_i and inited) then return false end
-    -- 媒体音量：无论是否有 fskv 记录都写回，顺带归一 play_vol 的兜底值，
-    -- 免得各起播方的 or 70 / or 100 兜底不一致
-    if has_audio then
-        local ok, val = pcall(fskv.get, FSKV_VOLUME)
-        if ok and type(val) == "number" then
-            current_volume = val
-            if current_volume < 0 then current_volume = 0 end
-            if current_volume > 100 then current_volume = 100 end
-        end
-        if ac then ac.play_vol = current_volume end
-        -- 正在播放的音轨立即对齐（未起播时是空操作）
-        if exaudio and exaudio.vol then pcall(exaudio.vol, current_volume) end
-        log.info("settings_display", "媒体音量恢复: " .. current_volume .. "%")
-    end
-    -- 背光亮度：写回 backlight.level 供 backlight_on 开机点亮取占空比
+local function fskv_ready()
+    -- 未就绪时 fskv.get 返回 nil，与「无记录」区分不了，调用方返回 false 等重试
+    local ok, inited = pcall(fskv.init)
+    return (ok and inited) and true or false
+end
+
+--[[
+@function restore_brightness
+@summary 从 fskv 恢复背光亮度，写回 hw.lcd.backlight.level（backlight_on 点亮取该值作占空比）
+@return boolean true=已恢复，false=fskv 未就绪（后台重试）
+]]
+local function restore_brightness()
+    if restored_brightness then return true end
+    if not fskv_ready() then return false end
     local ok_b, val_b = pcall(fskv.get, FSKV_BRIGHTNESS)
     if ok_b and type(val_b) == "number" then
         current_brightness = val_b
@@ -232,25 +238,64 @@ local function restore()
         if current_brightness > 100 then current_brightness = 100 end
     end
     write_back_brightness(current_brightness)
-    -- 背光已点亮时热应用新亮度；pwm.setDuty 只改已配置通道的占空比，
-    -- 未 setup 时报错空操作，不会提前点亮背光
-    if bl_cfg then
+    -- 背光已由 backlight_on 配置 PWM 时才热应用新亮度；pwm 未 setup 前
+    -- setDuty 会刷 C 层 error（值已写回配置表，点亮时自然生效，无需提前调）
+    if bl_cfg and pwm_initialized then
         pcall(pwm.setDuty, pwm_channel, current_brightness)
     end
+    restored_brightness = true
     log.info("settings_display", "背光亮度恢复: " .. current_brightness .. "%")
-    restored = true
     return true
+end
+
+--[[
+@function restore_volume
+@summary 从 fskv 恢复媒体音量，写回 hw.audio.play_vol（含 exaudio 懒加载，显示之后调用）
+@return boolean true=已恢复，false=fskv 未就绪（等后续重试）
+]]
+local function restore_volume()
+    if restored_volume then return true end
+    if not has_audio then return true end
+    if not fskv_ready() then return false end
+    -- 媒体音量：无论是否有 fskv 记录都写回，顺带归一 play_vol 的兜底值，
+    -- 免得各起播方的 or 70 / or 100 兜底不一致
+    local ok, val = pcall(fskv.get, FSKV_VOLUME)
+    if ok and type(val) == "number" then
+        current_volume = val
+        if current_volume < 0 then current_volume = 0 end
+        if current_volume > 100 then current_volume = 100 end
+    end
+    if ac then ac.play_vol = current_volume end
+    -- 正在播放的音轨立即对齐（未起播时是空操作）
+    local exaudio = get_exaudio()
+    if exaudio and exaudio.vol then pcall(exaudio.vol, current_volume) end
+    restored_volume = true
+    log.info("settings_display", "媒体音量恢复: " .. current_volume .. "%")
+    return true
+end
+
+--[[
+@function restore
+@summary 恢复背光亮度 + 媒体音量（兼容合口；开机路径分别调 restore_brightness / restore_volume）
+@return boolean true=both 就绪
+]]
+local function restore()
+    local ok_b = restore_brightness()
+    local ok_v = restore_volume()
+    return ok_b and ok_v
 end
 
 sys.subscribe("SETTINGS_APP_INIT", restore)
 
--- fskv 挂载是异步的：开机首次 restore 未就绪时后台短轮询重试，就绪即停
+-- fskv 挂载是异步的：开机首次亮度恢复未就绪时后台短轮询重试，就绪即停。
+-- 只重试亮度（点亮前关键路径）；音量由 restore_volume 在显示之后的批里补
+-- （可选批调用 + SETTINGS_APP_INIT 各一次，幂等）
 local function restore_retry_task()
     for _ = 1, 30 do
         sys.wait(100)
-        if restore() then return end
+        if restore_brightness() then return end
     end
-    log.warn("settings_display", "fskv 长时间未就绪，音量/亮度使用默认值")
+    log.warn("settings_display", "fskv 长时间未就绪，亮度使用默认值")
 end
 sys.taskInit(restore_retry_task)
 
@@ -303,7 +348,10 @@ if has_audio then
 end
 
 -- ==================== 模块导出 ====================
--- boot_ui 开机第 0 步先 fskv.init 再调 restore()，恢复音量/亮度供背光点亮与起播使用
+-- boot_ui 开机路径：fskv.init → 显示完成后 restore_brightness()（背光点亮取该值）、
+-- 可选批里 restore_volume()（音频域，含 exaudio 懒加载）；restore() 为兼容合口
 local M = {}
 M.restore = restore
+M.restore_brightness = restore_brightness
+M.restore_volume = restore_volume
 return M

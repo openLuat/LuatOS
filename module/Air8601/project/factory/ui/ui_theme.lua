@@ -462,6 +462,27 @@ function M.text_lines(text, w, px)
     return n
 end
 
+--[[按「可用宽度 x 行数」截断文本，超长补 ASCII 的 "..."。
+不用省略号 U+2026：内置 hzfont 没有这个字形，会渲染成方框。]]
+function M.fit_text(text, w, px, lines)
+    text = tostring(text or "")
+    if text == "" then return text end
+    if not w or w <= 0 then return text end
+    lines = lines or 1
+    local budget = w * lines
+    if M.text_width(text, px) <= budget then return text end
+    local keep = px * 3 + px
+    local cut = #text
+    while cut > 1 and M.text_width(string.sub(text, 1, cut), px) > budget - keep do
+        cut = cut - 1
+    end
+    while cut > 1 do
+        local b = string.byte(text, cut)
+        if b and b >= 0x80 and b < 0xC0 then cut = cut - 1 else break end
+    end
+    return string.sub(text, 1, cut) .. "..."
+end
+
 --[[图标地址解析：以 "/" 开头视为真实路径，否则按语义名查表（含旧资源回退）]]
 function M.resolve_icon(v)
     if v == nil or v == "" then return nil end
@@ -535,16 +556,9 @@ function M.iconbtn(parent, o)
         on_click = o.on_click,
     })
 
-    --[[ 内层子控件必须按**内容区**摆，不能按外框。
-    LVGL 的内容区 = 对象尺寸 - pad*2 - border*2（lv_obj_pos.c 的
-    lv_obj_get_content_width = width - space_left - space_right，
-    lv_obj_style.h 里 space = pad + border_width），子控件的坐标原点也就内移了
-    一个 (pad + border)。
-    以前这里把内层 label 的 w 直接写成按钮的外宽 w —— 带 1px 描边的按钮，
-    label 恒比父内容区宽 2px，这就是「子控件宽度超出父容器」。
-    对应用户报的那批控件：idle_win 的 2 个翻页按钮、所有页面的返回键 <
-    （它们正是仅有的、在调用处显式传了 border 的 iconbtn）。]]
-    local ox, oy = bw, bw
+    --[[ 内层子控件按**内容区**摆放：子控件坐标原点即内容区原点，内容区宽高 = 外框 - 2*bw。
+    带描边的按钮内层不得再加一次 bw，否则子控件右/下边缘越界，父容器长出滑块。]]
+    local ox, oy = 0, 0
     local iw, ih = w - 2 * bw, h - 2 * bw
     if iw < 1 then iw = 1 end
     if ih < 1 then ih = 1 end
@@ -555,22 +569,18 @@ function M.iconbtn(parent, o)
     if img then return btn end
 
     if o.text then
-        --[[ 图标缺失时的文字兜底（返回键的 "<" 走这里）。
-        关键约束：hzfont 的行高 = 字号 + 3（见 components/airui/src/font/lv_font_hzfont.c
-        的 g_airui_hzfont_extra_leading）。label 的 h 只要小于行高，LVGL 就把文字画到
-        盒子外面 —— 之前是 `h = 盒高、px_size = 0.60*盒高`，等于让行高(0.6h+3)去撞 h，
-        盒高偏小时就溢出父容器。这里改成「先把 label 盒高算成恰好一行」，再垂直居中。]]
+        --[[ 文字兜底：hzfont 行高 = 字号 + 3，label 盒高按恰好一行算并垂直居中。
+        字号与盒高都夹到内容区内，字形不越界。]]
         local s = math.min(iw, ih)
         local fs = math.floor(s * 0.52)
-        if fs < 14 then fs = 14 end
         if fs > 34 then fs = 34 end
-        local lh = fs + 3
-        if lh > ih then
-            -- 内容区太矮：退到能放下的最小字号，且盒高硬夹到 ih（宁可裁边也不溢出）
-            fs = ih - 3
-            if fs < 10 then fs = 10 end
-            lh = math.min(ih, fs + 3)
-        end
+        -- 字形宽不超内容区宽，行高(字号+3)不超内容区高
+        local max_fs = math.min(iw, ih - 3)
+        if max_fs < 1 then max_fs = 1 end
+        if fs > max_fs then fs = max_fs end
+        if fs < 10 and max_fs >= 10 then fs = 10 end
+        if fs > max_fs then fs = max_fs end
+        local lh = math.min(ih, fs + 3)
         M.label(btn, {
             x = ox, y = oy + math.max(0, math.floor((ih - lh) / 2)), w = iw, h = lh,
             text = o.text, px_size = fs,
@@ -1181,13 +1191,13 @@ function M.row(parent, o)
 
     local title_label = M.label(row, {
         x = tx, y = ty, w = txw, h = lh,
-        text = o.text or "", px_size = fs,
+        text = M.fit_text(o.text or "", txw, fs), px_size = fs,
         color = o.text_color or M.C.t1, align = airui.TEXT_ALIGN_LEFT,
     })
     if o.sub then
         M.label(row, {
             x = tx, y = ty + lh + gap, w = txw, h = lh_sub,
-            text = o.sub, px_size = fs_sub,
+            text = M.fit_text(o.sub, txw, fs_sub), px_size = fs_sub,
             color = o.sub_color or M.C.t3, align = airui.TEXT_ALIGN_LEFT,
         })
     end
@@ -1195,7 +1205,7 @@ function M.row(parent, o)
     if o.right then
         right_label = M.label(row, {
             x = w - right_w - dp(12), y = ty, w = right_w, h = lh_right,
-            text = o.right, px_size = fs_right,
+            text = M.fit_text(o.right, right_w, fs_right), px_size = fs_right,
             color = o.right_color or M.C.t2, align = airui.TEXT_ALIGN_RIGHT,
         })
     end
@@ -1701,6 +1711,24 @@ function M.header(parent, o)
     return bar, h, title_label, title_right
 end
 
+--[[登记页面根控件到 exwin
+
+登记后该页面被别的窗口盖住时根控件自动隐藏、回到它时自动显示，
+避免下层页面在整屏重画时被重复绘制。page_bg / page 建好根控件后会自动登记一次。
+
+桌面这类「被盖住也要露出左栏」的页面，建根后再登记一次即可：
+同一根控件重复登记是幂等的，只更新 keep_visible。
+
+@table o
+  keep_visible  为 true 时被盖住也保持显示
+]]
+function M.bind_root(root, o)
+    if type(exwin) == "table" and type(exwin.bind_root) == "function" then
+        return exwin.bind_root(root, o)
+    end
+    return false
+end
+
 --[[页面背景：尊重主题样式开关
 深色玻璃主题 → 底色 + 顶部微亮层；浅色主题 → 一层实底。
 所有页面请统一走这个入口，不要直接调 M.wallpaper。]]
@@ -1722,10 +1750,14 @@ function M.page_bg(parent, w, h, x, y)
             end
         end
     end
+    local base
     if M.STYLE.wallpaper then
-        return M.wallpaper(parent, w, h, x, y)
+        base = M.wallpaper(parent, w, h, x, y)
+    else
+        base = M.box(parent, { x = x, y = y, w = w, h = h, color = M.C.bg })
     end
-    return M.box(parent, { x = x, y = y, w = w, h = h, color = M.C.bg })
+    M.bind_root(base)
+    return base
 end
 
 --[[统一页面骨架：背景（壁纸/纯色）+ 页边距 + 可选标题栏，一次算清内容区
@@ -1736,6 +1768,7 @@ end
   title      给了就画标题栏；不给则只出背景与内容区
   sub/on_back/icon/right  透传给 M.header
   header_pad 标题栏与内容区之间的间距（默认 = 页边距）
+  keep_visible  为 true 时页面被盖住也保持显示（如桌面要露出左栏）
 @return ctx  { base, bar, pad, sw, sh, x, y, w, h }
               x/y/w/h 即内容区（标题栏之下、页边距之内）的像素几何，均相对 ctx.base
 @usage
@@ -1767,6 +1800,7 @@ function M.page(o)
     else
         base = M.wallpaper(p, sw, sh, bx, by)
     end
+    M.bind_root(base, { keep_visible = o.keep_visible })
 
     local ctx = {
         base = base, pad = pad, sw = sw, sh = sh,

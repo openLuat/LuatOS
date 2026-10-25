@@ -189,7 +189,7 @@ local function get_wifi_signal_level()
     return wifi_signal_level
 end
 
--- 4G移动网络信号部分
+-- 4G移动网络信号部分（仅Air8000）
 local mobile_signal_level = -1
 local sim_present = false
 local mobile_timer = nil
@@ -198,30 +198,25 @@ if has_4g then
     pcall(mobile.setAuto, 10000, 30000, 5)
 end
 
+-- 是否 airlink 4G 桥接（Air780ER2 外挂）：mobile.* 经 airlink RPC 代理查询
+local function is_airlink_4g()
+    local cfg = _G.project_config
+    if not (cfg and cfg.network) then return false end
+    for _, nc in ipairs(cfg.network) do
+        if nc.type and nc.type:find("4g_airlink", 1, true) then return true end
+    end
+    return false
+end
+
 local function update_mobile_signal()
     local old_level = mobile_signal_level
-    -- airlink 4G（Air1601/Air1602）收不到从机的 SIM_IND，SIM 状态只写在从机 devinfo 里，
-    -- 因此这里在轮询中补查一次；一旦就绪就不再重复查询
-    if not sim_present then
-        local ok, pin = pcall(mobile.simPin)
-        local ready = ok and pin or false
-        if ready then
-            sim_present = true
-            log.info("status_provider", "SIM状态", "就绪")
-        end
-    end
     if not sim_present then
         mobile_signal_level = -1
     else
         local ok, csq = pcall(mobile.csq)
-        if not ok then
-            log.warn("status_provider", "4G信号查询异常", csq)
-            csq = nil
-        end
-        -- csq 查询失败、返回 0（无信号）或 99（未知）都视为无信号
-        if csq == nil or csq == 0 or csq == 99 then
-            mobile_signal_level = -1
-        elseif csq <= 5 then
+        -- 查询失败（airlink RPC 偶发超时等）保持上次等级，避免图标抖动
+        if not (ok and type(csq) == "number") then return end
+        if csq == 99 or csq <= 5 then
             mobile_signal_level = 1
         elseif csq <= 10 then
             mobile_signal_level = 2
@@ -232,10 +227,8 @@ local function update_mobile_signal()
         else
             mobile_signal_level = 5
         end
-        log.debug("status_provider", "4G信号查询", "csq", csq or "nil", "level", mobile_signal_level)
     end
     if old_level ~= mobile_signal_level then
-        log.info("status_provider", "4G信号等级更新", old_level, "->", mobile_signal_level)
         sys.publish("STATUS_SIGNAL_UPDATED", mobile_signal_level)
     end
 end
@@ -307,6 +300,10 @@ local function init_module()
     if has_4g then
         sys.subscribe("SIM_IND", handle_sim_ind)
         if _G.project_config and _G.project_config.chip == "PC" then
+            sim_present = true
+        elseif is_airlink_4g() then
+            -- airlink 4G 桥接：SIM_IND 不经桥接转发、simPin 查询不可靠，
+            -- 乐观默认有卡，信号等级以 csq 实测为准
             sim_present = true
         else
             local ok, pin = pcall(mobile.simPin)

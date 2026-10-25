@@ -18,6 +18,7 @@ if fe.buzzer then
 end
 require "settings_about_app"    -- 关于页面信息
 require "settings_display_app"  -- 亮度与声音管理（PWM 背光 + 媒体音量）
+require "settings_time_app"     -- 系统时间校准（rtc.set 写入系统时钟）
 require "settings_storage_app"  -- 存储空间信息查询（内置Flash）
 if fe.sd_card or fe.nand_flash then
     require "storage_pri_app"       -- 外部存储初始化（仅当有SD卡/NAND Flash）

@@ -1,8 +1,8 @@
 --[[
 @module  video_picker
 @summary 视频文件选择弹窗（桌面播放器 / 全屏播放页共用）
-@version 1.0
-@date    2026.09.18
+@version 1.1
+@date    2026.10.13
 @author  江访
 
 === 为什么单独成模块 ===
@@ -32,6 +32,7 @@ video_picker.open({
     sw = screen_w, sh = screen_h,          -- 弹窗按这个尺寸定位与定大小
     avoid = { x=, y=, w=, h= },            -- 可选：避让矩形，弹窗不与其相交
     on_pick = function(path) ... end,      -- 用户选中了某个视频文件
+    on_cancel = function() ... end,        -- 可选：用户关掉弹窗且未选文件时回调
 })
 ]]
 
@@ -65,6 +66,8 @@ local overlay = nil      -- airui.win 实例
 local content_w = 0      -- 弹窗内容宽度（列表行宽按它算，不再依赖页面的 right_w）
 local cur_sw, cur_sh = 480, 854
 local cur_on_pick = nil
+local cur_on_cancel = nil   -- 关掉弹窗且未选文件时的回调（程序性关闭不触发）
+local in_programmatic_close = false  -- 程序性关闭标记：M.close/重建/宿主销毁都不触发 on_cancel
 local cur_avoid = nil     -- 避让矩形 {x,y,w,h}（屏幕坐标）
 
 --[[由当前路径反查存储设备序号（1 内置 / 2 SD卡 / 3 外置存储）
@@ -200,7 +203,9 @@ end
 
 function M.close()
     if overlay then
+        in_programmatic_close = true
         pcall(function() overlay:destroy() end)
+        in_programmatic_close = false
         overlay = nil
     end
 end
@@ -222,7 +227,7 @@ local function render(dir_path, scroll_container)
             radius = theme.R.sm, opa = 0,
             on_click = function()
                 if item.is_dir then
-                    M.open({ start_path = item.path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
+                    M.open({ start_path = item.path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick, on_cancel = cur_on_cancel })
                 elseif item.playable then
                     M.close()
                     if cur_on_pick then pcall(cur_on_pick, item.path) end
@@ -313,7 +318,10 @@ open_at = function(start_path)
             title_align = airui.TEXT_ALIGN_CENTER,
             header_height = math.floor(40 * d), content_pad = 0,
         },
-        on_close = function() overlay = nil end,
+        on_close = function()
+            overlay = nil
+            if not in_programmatic_close and cur_on_cancel then pcall(cur_on_cancel) end
+        end,
     })
 
     --[[快捷跳转行：当前所在设备用强调色点亮
@@ -340,7 +348,7 @@ open_at = function(start_path)
             pressed_bg = on and theme.C.amber_deep or nil,
             pressed_bg_opa = on and theme.OPA.rail_active or nil,
             on_click = function()
-                M.open({ start_path = q.path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
+                M.open({ start_path = q.path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick, on_cancel = cur_on_cancel })
             end,
         })
     end
@@ -364,7 +372,7 @@ open_at = function(start_path)
             fg = theme.C.cyan,
             on_click = function()
                 -- 与进入子目录同款：重建选择器，顺带刷新设备高亮
-                M.open({ start_path = parent_path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick })
+                M.open({ start_path = parent_path, sw = cur_sw, sh = cur_sh, avoid = cur_avoid, on_pick = cur_on_pick, on_cancel = cur_on_cancel })
             end,
         })
     end
@@ -394,6 +402,7 @@ function M.open(o)
     cur_sw = o.sw or screen_w or 480
     cur_sh = o.sh or screen_h or 854
     cur_on_pick = o.on_pick
+    cur_on_cancel = o.on_cancel
     cur_avoid = o.avoid
     open_at(o.start_path or "/")
 end

@@ -8,7 +8,7 @@
 === 执行流程 ===
 
 require 即执行，按以下顺序：
-  1. 编译清单：require (...) 声明所有需要打包进固件的模块（编译系统静态分析用）
+  1. 编译清单：包进永不调用的 _compile_manifest()，仅供编译系统文本扫描打包，运行时不执行
   2. 平台检测：hmeta.model() → 识别芯片型号 → 设 _G.model_str / _G.is_pc
   3. PROJECT 映射：长命名 "Engine_Air1602_5inch_720x1280_002_V000" → 短文件名 "eng_1602_5i_v2"
   4. 配置加载：require(cfg_name) → 返回配置 table → 存入 _G.project_config
@@ -25,20 +25,34 @@ require 即执行，按以下顺序：
   第二级：配置文件 require 返回非 table → PC 配置（根据 PROJECT 名推断分辨率）
   第三级：PROJECT_MAP 未命中 → PC配置
 
-- require 编译清单：头部 require (...) 不是给运行时用的，是给编译系统静态分析用的。
-  编译系统扫描这些 require 语句决定哪些 .lua 文件打包进固件。
+- require 编译清单：不是给运行时用的，是给编译系统文本扫描用的。
+  编译系统扫描这些 require 语句决定哪些 .lua 文件打包进固件；
+  包进永不调用的函数后运行时不执行，动态 require（变量名）扫不到的文件才必须登记。
 ]]
 
--- ==================== 编译清单（编译系统静态分析，运行时无害） ====================
--- 新增驱动或配置文件时在此加一行，编译系统会自动打包对应 .lua 文件
+-- ==================== 编译清单（编译系统文本扫描，运行时不执行） ====================
+-- 新增驱动或配置文件时在此加一行，编译系统会自动打包对应 .lua 文件。
+-- 包进永不调用的函数：这些 require 若在顶层执行，会在点亮屏幕前把全部配置 +
+-- 整条网络库链（≈400ms）加载进启动关键路径；函数体内的静态 require 编译系统
+-- 文本扫描同样能扫到（与 app_main / ui_main 的函数体 require 同一机制）。
 
--- 本工程仅适配 Air8601 7寸（WiFi / 4G 两个版本）
+-- 编译清单：≥800×480 分辨率的配置/驱动（编译系统静态分析）
+local function _compile_manifest()
+require ("pc_default")            -- PC 模拟器回退
+
+-- Engine 引擎主机系列
 require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + RS485（WiFi 版）
 require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + RS485（4G 版）
+
+-- EVB turnkey 开发板系列
 
 -- 驱动
 require ("lcd_display_rgb")       -- RGB display 统一驱动
 require ("tp_gt911")              -- GT911 触摸（统一）
+require ("periph_loader")         -- 外设预留框架（config.peripherals，require 无副作用）
+require ("periph_uvc")            -- UVC 摄像头外设（纯供电开关，数据流走 UVC 预览页）
+require ("periph_rs485")          -- RS485 外设（多路，DE 方向 + 供电引用计数）
+require ("periph_uart")           -- 通用串口外设（收发计数 + 环形缓冲）
 
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器
@@ -46,12 +60,12 @@ require ("net_init")
 require ("aircloud_app")          -- AirCloud 通用数据上报（能力探测型，有接口就采）
 require ("settings_report_win")   -- AirCloud 上报设置页（配 features.aircloud 使用）
 -- 应用工厂 / AI 聊天体积大，800×480 脚本区 1024KB 先不打包
+end
 
---[[boot_ui 延迟加载的聚合入口 **不登记** 在本清单（app_main / ui_main / welcome_win）：
-清单的 require 在 platform_loader 顶部立即执行，此刻 _G.project_config 尚未加载，
-app_main 的 features 门控会全部落空，且 require 缓存后不会二次执行，
-造成特性静默丢失。它们都是 boot_ui 源码内的静态 require 语句，
-编译系统文本扫描即可打包（与 features 门控里的 require "llm_chat" 同一机制）。]]
+
+--[[app_main / ui_main 等聚合入口 **不登记** 在本清单：它们由 boot_ui 源码内的
+函数体静态 require 文本扫描打包（与 features 门控里的 require "llm_chat" 同一机制）。
+清单内只放「动态 require（变量名）扫不到」的文件——各机型配置、驱动、外设框架。]]
 
 -- ==================== 1. 平台检测 ====================
 -- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()
@@ -66,9 +80,12 @@ _G.is_pc = (not ok) or (_G.model_str == "PC") or (_G.model_str == "")
 -- 短名格式: {eng|evb|cor}_{芯片简写}_{尺寸简写}_{版本简写}，目标 ≤24 字节
 -- eng = Engine 引擎主机, evb = EVB turnkey 开发板, cor = Core 核心板
 local PROJECT_MAP = {
-    -- Air8601 7寸（WiFi / 4G 两个版本）
+    -- Engine 引擎主机系列（已实现，≥800×480）
     ["Engine_Air8601_7inch_1024x600_010_WiFi_V000"] = "eng_8601_7i_wifi",
     ["Engine_Air8601_7inch_1024x600_010_4G_V000"]   = "eng_8601_7i_4g",
+    -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
+    --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
+    -- EVB turnkey 开发板系列（已实现，≥800×480）
 }
 
 -- ==================== 3. 加载项目配置 ====================
@@ -178,34 +195,56 @@ if config.pins and pins then
     log.info("platform_loader", "引脚配置完成, 数量:", #config.pins)
 end
 
--- ==================== 5.5 背光 PWM 上电占空比 0 ====================
--- PWM 背光通道上电即以占空比 0 启动，首帧上屏后由 lcd_common.backlight_on 点亮
-local bl_cfg = config.hw and config.hw.lcd and config.hw.lcd.backlight
-if pwm and bl_cfg and bl_cfg.pwm_ch then
-    pcall(pwm.setup, bl_cfg.pwm_ch, bl_cfg.pwm_freq or 1000, 0)
-    pcall(pwm.start, bl_cfg.pwm_ch)
-    log.info("platform_loader", "背光 PWM 上电占空比 0, ch=", bl_cfg.pwm_ch)
-end
-
 -- ==================== 6. GPIO 供电上电（底板决定） ====================
 -- 对应设计文档 阶段 2.2 POWER_ON：设置 GPIO 方向/电平，控制外设供电
--- power_on 格式: { pin=GPIO编号, dir=0低/1高(初始电平，随后被 level 覆盖), level=0低/1高, [delay=延时ms] }
+-- power_on 格式: { pin=GPIO编号, level=0低/1高, [delay=延时ms], [dir=兼容旧字段] }
 -- 例: Airlink WiFi 模组上电 → GPIO55 拉低 50ms → 拉高 120ms
 -- 使用 sys.taskInit 创建协程执行 sys.wait，避免阻塞主线程
+--
+-- 电平直接写进 gpio.setup 第 2 参：gpio.setup(pin, mode) 里 0/1 都是输出模式、
+-- 数字即初始电平（luat_lib_gpio.c l_gpio_setup，nil 才是输入）。不能再拿 dir 当初始电平
+-- 先配成低再靠 gpio.set 纠正 —— set 不生效时引脚就停在低电平上。dir 只在 level 缺省时兜底。
+-- 每步独立 pcall 并打印回读值：单条引脚失败不能中断后面的上电步骤，失败也必须看得见。
 --
 -- 完成标记：整个序列（含各步 delay 的电源稳定时间）跑完后置 _G.__power_on_done
 -- 并发布 POWER_ON_DONE。boot_ui 以此为门再初始化触摸 —— I2C 总线上未上电的
 -- 设备会钳住 SDA/SCL，GT911 也会因电源未稳而软失败（触摸"完全失灵"）。
 if config.power_on then
     sys.taskInit(function()
-        for _, step in ipairs(config.power_on) do
-            gpio.setup(step.pin, step.dir)
-            gpio.set(step.pin, step.level)
+        -- 背光 PWM 上电前先压灭：PWM 引脚默认高电平，上电瞬间 BL 即被拉高点亮，
+        -- 与 backlight_on 的延时表无关 → 背光提前亮。故上电序列一开始就用 0 占空比
+        -- 压住 PWM 背光通道，等 boot_ui 首帧后 backlight_on 再点亮。
+        -- 仅 PWM 背光板（backlight.pwm_ch 存在）需要；GPIO 背光板由 pin_bl 压低延后，无需此步。
+        local bl = config.hw and config.hw.lcd and config.hw.lcd.backlight
+        if bl and bl.pwm_ch then
+            pcall(pwm.setup, bl.pwm_ch, bl.pwm_freq or 1000, 0)  -- 占空比 0 = 熄灭
+            pcall(pwm.start, bl.pwm_ch)
+            log.info("platform_loader", "背光 PWM", bl.pwm_ch, "上电即压灭(占空比0)")
+        end
+        local bad = 0
+        for i, step in ipairs(config.power_on) do
+            -- level 是目标电平，缺省时按旧字段 dir 兜底
+            local level = step.level
+            if level == nil then level = step.dir end
+            if step.pin and level ~= nil then
+                -- setup 直接给目标电平，再 set 一次兜底；两边都失败才计失败
+                local ok1 = pcall(gpio.setup, step.pin, level)
+                local ok2 = pcall(gpio.set, step.pin, level)
+                if ok1 and ok2 then
+                    local ok3, rd = pcall(gpio.get, step.pin)
+                    log.info("platform_loader", "POWER_ON", i, "GPIO" .. tostring(step.pin),
+                             level == 1 and "高" or "低", ok3 and ("回读 " .. tostring(rd)) or "回读失败")
+                else
+                    bad = bad + 1
+                    log.warn("platform_loader", "POWER_ON 引脚设置失败", i,
+                             tostring(step.pin), tostring(level))
+                end
+            end
             if step.delay then
                 sys.wait(step.delay)
             end
         end
-        log.info("platform_loader", "POWER_ON 完成, 步骤数:", #config.power_on)
+        log.info("platform_loader", "POWER_ON 完成, 步骤数:", #config.power_on, "失败:", bad)
         _G.__power_on_done = true
         sys.publish("POWER_ON_DONE")
     end)

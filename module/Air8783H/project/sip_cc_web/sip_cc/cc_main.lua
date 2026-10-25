@@ -1,5 +1,13 @@
 --[[
 @module  cc_main
+@summary 蜂窝语音呼叫与 PCM 生命周期管理
+@usage
+封装 CC 初始化、拨号、接听、挂断和媒体状态。
+统一处理拨号失败与释放通知；无法确认释放时报告异常，不伪造空闲。
+]]
+
+--[[
+@module  cc_main
 @summary VoLTE 纯 PCM 通话与生命周期保护
 @version 1.1
 @date    2026.09.18

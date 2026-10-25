@@ -568,6 +568,11 @@ static int l_voip_start(lua_State *L)
     }
     lua_pop(L, 1);
 
+    /* tx_mute：只收不发（喊话/广播） */
+    lua_getfield(L, 1, "tx_mute");
+    cfg.tx_mute = lua_toboolean(L, -1) ? 1 : 0;
+    lua_pop(L, 1);
+
     /* aec_tail */
     lua_getfield(L, 1, "aec_tail");
     cfg.aec_tail_ms = (uint16_t)luaL_optinteger(L, -1, 120);

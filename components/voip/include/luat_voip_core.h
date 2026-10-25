@@ -43,9 +43,7 @@
 /* TCP 下一次 read 的块大小。与"一个包多大"无关 —— 读多了由 framer 分成帧，
    只是为了少绕几圈事件循环 */
 #define VOIP_TCP_READ_CHUNK    512
-/* 收包最多按几个"标准包"来备缓冲：**打包时长是平台定的，不是我们定的**
-   （实测 WVP/ZLM 的对讲下行 100ms 一个包 = 5 个 20ms 包）。这里留到 200ms，
-   再大的按畸形丢掉。 */
+/* 一次收包最多按几个"标准帧"备缓冲（发送端可能一个包带多帧）。 */
 #define VOIP_RX_MAX_PKTS_PER_FRAME 10
 #define VOIP_RTP_PT_PCMU        0
 #define VOIP_RTP_PT_PCMA        8
@@ -93,6 +91,10 @@ typedef struct {
     uint8_t  aec_denoise;
     uint8_t  aec_mode;
     uint8_t  aec_agc;
+    /* 只收不发：仍然收流/解码/播放，但不产生任何 RTP 上行。
+       GB28181 的"喊话/广播"是平台→设备单向，设备不应回传麦克风；
+       SDP 里对端也常声明 a=sendonly。 */
+    uint8_t  tx_mute;
     uint16_t aec_tail_ms;
     uint16_t aec_delay_samples;
 #ifdef LUAT_USE_SRTP
@@ -313,6 +315,12 @@ typedef struct {
     uint16_t rx_ts_base_seq;
     uint32_t rx_ts_ssrc;
     uint8_t  rx_ts_base_valid;
+    /* 上一包时间戳，用于识别单包 delta 异常（见 voip_handle_rtp 的重锚）。 */
+    uint32_t rx_last_ts;
+    uint8_t  rx_last_ts_valid;
+    /* 帧序号（按帧递增），重锚时从这里接续，不能用包序号。 */
+    uint16_t rx_next_frame_seq;
+    uint8_t  rx_next_frame_seq_valid;
     uint16_t rtp_packet_buf_size;
     uint8_t play_slot_count;
     uint8_t mic_write_idx;

@@ -1,5 +1,13 @@
 --[[
 @module  sip_main
+@summary SIP 呼叫接口与事件封装
+@usage
+封装 pcm_sip 的注册、拨号、接听、挂断及媒体状态查询。
+通过项目事件与 bridge、cc_main 协作，保留媒体释放屏障。
+]]
+
+--[[
+@module  sip_main
 @summary SIP 协议栈模块
 @version 1.1
 @date    2026.09.18

@@ -1,5 +1,13 @@
 --[[
 @module  sip_cc_app
+@summary SIP/CC PCM 桥接业务启动任务
+@usage
+等待网络就绪并按项目顺序初始化 CC、SIP 及桥接业务。
+由 main 加载，通话状态与释放过程交由对应模块管理。
+]]
+
+--[[
+@module  sip_cc_app
 @summary SIP/CC 音频桥接应用调度
 @version 1.0
 @date    2026.07.27

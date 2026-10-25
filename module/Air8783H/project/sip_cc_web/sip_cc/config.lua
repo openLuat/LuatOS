@@ -1,3 +1,11 @@
+--[[
+@module  config
+@summary Air8783H SIP/CC 默认业务配置
+@usage
+定义 SIP 服务器、账号、传输、编解码、目标号码及硬件配置。
+云端保存值由配置后端加载；修改网络时同时核对 netdrv_device。
+]]
+
 -- 示例配置：烧录前填写自己的 SIP 服务器、账号、密码和目标号码。
 -- SIP 支持 PCMA/PCMU/G729/G722；G.729/G.722 别名可用，ptime 固定 20。
 -- G722 使用 16 kHz 媒体 PCM，其余为 8 kHz；接通后媒体启动超时默认 3000 ms。
@@ -12,7 +20,7 @@ local config = {
     -- sip_tls = {ca_cert = io.readFile("/luadb/sip-ca.pem")}, -- sip项目通用公开 CA 证书
     -- media_encryption = "none", -- 先验收 TLS 信令；服务器启用后显式改为 "sdes" / "dtls-srtp"
     remote_sip_uri = "sip:"..hmeta.devid().."1".."@cc.luatos.com",
-    target_phone_number = "1xxxxxxxxxx",
+    target_phone_number = "15057721363",
     rtp_port = 40000,
     codec = "PCMA", -- 支持 PCMA/PCMU/G729/G722
     -- codecs = { -- 多个 codec 时，按顺序尝试

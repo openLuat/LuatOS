@@ -1,7 +1,7 @@
 --[[
 @module  config.eng_8601_7i_4g
 @summary Air8601 引擎主机 7寸1024x600 RGB屏(HX8282) + Airlink UART 4G(780ER2) + USB摄像头 + RS485 + SD卡 + 喇叭 配置文件（4G 版）
-@version 1.4
+@version 1.5
 @date    2026.10.23
 @author  江访
 @usage
@@ -53,6 +53,12 @@
     ui/uvc_preview_win.lua），数据流由该页独占走 excamera，periph_uvc 只管供电脚。
     摄像头 MJPEG 分辨率由预览页按摄像头实际支持的档位自适应选取（像素数上限 max_pixels，
     缺省 921600 = 1280×720，超了会挤爆内存导致预览无画面），条目里的 w / h 只是首选档。
+13. 【RS485】485_RE_DE = PIN8 = GPIO72，485_UART_TXD / 485_UART_RXD 都在 UART1，
+    无独立 485 供电脚（peripherals 的 rs485 条目不写 power_pin）。本板只有 1 路 485，
+    测试页只记收发、不做两路互接判定。
+    power_on 里 GPIO72 已拉高（该行注释写作「TP I2C 上拉」，与 485_RE_DE 是同一物理脚）；
+    进「485」测试页后由 periph_rs485 把 DE 置接收态再收发。
+    本路写 manual_init = true：进 485 测试页不自动上电开串口，点该路按钮才初始化。
 ]]
 
 return {
@@ -83,9 +89,13 @@ return {
     -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
     -- UVC_EN = GPIO73，上电序列已常供电，页内开关可再通断；点行进 UVC 预览页
     -- 未配 w / h 时预览页自适应取档（见文件头第 12 条）
+    -- 485_1 是本板唯一一路 485（见文件头第 13 条）
+    -- manual_init = true：485 测试页进页面不自动上电开串口，点该路按钮才初始化
     peripherals = {
         { type = "uvc", id = "uvc1", name = "UVC摄像头", en_pin = 73, ready_delay = 200,
           w = 1280, h = 720 }, -- UVC_EN，200ms 就绪
+        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 72, baud = 9600,
+          manual_init = true }, -- DE = 485_RE_DE = PIN8 = GPIO72，无独立供电脚
     },
 
     -- ===== 硬件配置 =====
@@ -157,7 +167,7 @@ return {
                             --   （与 usb_camera / rs485 同一类，见文件头第 10 条）。
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
         usb_camera = true,  -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
-        rs485 = true,       -- RS485 接口 —— 见文件头第 10 条：暂无消费方
+        rs485 = true,       -- 启用 RS485 接口（1 路，条目在 peripherals，见文件头第 13 条）
         other_func = true,  -- 启用"功能测试"（peripherals 外设清单，UVC 预览测试入口）
         usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）
         app_factory = true, -- 启用"应用工厂"内置应用

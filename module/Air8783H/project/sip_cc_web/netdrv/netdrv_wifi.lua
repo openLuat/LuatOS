@@ -1,5 +1,13 @@
 --[[
 @module  netdrv_wifi
+@summary 可选 WiFi STA 网络驱动
+@usage
+提供 WiFi 联网配置及事件处理。
+使用时需在 netdrv_device 中选择此驱动，并核对 SIP 的网络适配器配置。
+]]
+
+--[[
+@module  netdrv_wifi
 @summary “WIFI STA网卡”驱动模块
 @version 1.0
 @date    2025.07.01

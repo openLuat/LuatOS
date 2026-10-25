@@ -175,11 +175,15 @@ static int airui_jpg_scan_mem(const uint8_t *data, size_t size, airui_jpg_risk_t
                 out->reason = "zero size";
                 return 0;
             }
+#if defined(LUAT_USE_AIRUI_JPG_HW_ANY_SIZE)
+            /* 平台 HW 解码对尺寸无 16 对齐要求*/
+#else
             if ((out->width % 16) != 0 || (out->height % 16) != 0) {
                 out->risky = 1;
                 out->reason = "not 16-aligned";
                 return 0;
             }
+#endif
         }
 
         /* Fat COM / APPn — EC718HM HW often mishandles these */
@@ -425,7 +429,20 @@ static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv
                 luat_heap_free(img_info.data);
                 img_info.data = NULL;
             }
-            use_sw = 1;
+            /* 缓存满时（LV_CACHE_DEF_SIZE>0）LVGL 的解码流程是：先 open_cb 解码分配
+               输出缓冲、解码成功后才把结果入缓存（此时才触发 reserve/evict 淘汰）。
+               所以缓存里驻留的旧图会在新图解码前占住连续内存，导致解码失败、且旧图
+               也永远腾不出来。这里主动清空图片缓存释放旧图内存，再重试一次 HW 解码。 */
+            lv_image_cache_drop(NULL);
+            ret = airui_luatos_jpg_decode_mode(src, LUAT_IMG_DECODE_HW, &img_info);
+            if (ret != LUAT_IMG_OK || img_info.data == NULL || img_info.width == 0 || img_info.height == 0) {
+                LLOGW("HW failed after cache drop ret=%d, fallback to SW src=%s", ret, src);
+                if (img_info.data != NULL) {
+                    luat_heap_free(img_info.data);
+                    img_info.data = NULL;
+                }
+                use_sw = 1;
+            }
         }
     }
 

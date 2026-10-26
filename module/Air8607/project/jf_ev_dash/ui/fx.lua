@@ -24,7 +24,7 @@ airui.shape 自 2026.10.22 起支持 arc 图元（lv_draw_arc 直出），
 
 性能提醒：arc 的绘制区域是"圆心 ± r"的整个方框（内部用角度掩膜裁剪），
 一个弧的代价远大于一条直线。所以本工程只在"必须圆滑"的地方用 arc：
-速度弧（3 段渐变色）、两侧小环（电量 / 功率）、两条装饰弧，
+速度弧（整段一条）、两侧小环（电量 / 功率）、两条装饰弧，
 刻度线、折线、条形全部用 line / circle / rect 这类便宜的图元。
 
 === 约定 ===
@@ -183,7 +183,6 @@ M.int = I
     P:frame(x,y,w,h,color,width,opa,radius)        空心（圆角）矩形
     P:ellipse(cx,cy,rx,ry,color,width,opa,segs)    空心椭圆
     P:arc(cx,cy,r,a0,a1,color,width,opa,rounded)   圆弧（r 是带宽中心线半径，角度制）
-    P:arc_grad(cx,cy,r,a0,a1,segs,c1,c2,width,opa) 分段渐变圆弧
     P:poly(xs,ys,n,color,width,opa,round)          n 点折线
 ]]
 function M.pool()
@@ -359,56 +358,7 @@ function M.pool()
         return t
     end
 
-    --[[折线弧：用一串带端帽的短线段拼出弧带
-    @param number step 角度步长（度），弦长 = r*step*π/180
-    @param function color_fn 可选，function(t) → 该段颜色，t 为 0..1（逐段渐变）
-
-    为什么大弧要用折线而不是 arc 图元：
-    lv_draw_arc 的绘制区域是"圆心 ± r"的整圆方框（r=221 时 472²=22 万像素），
-    内部再用角度掩膜裁剪，**与弧的扫角无关**。放在每帧重绘的图层里，
-    5 条弧就是 110 万像素的掩膜 + 混合，真机（PSRAM 帧缓冲）直接 3fps。
-    折线的代价只与弧带实际面积成正比（带宽 22、展开 1100px ≈ 2.4 万像素），
-    步长取到弦长 < 带宽时相邻段自然重叠、接缝是亚像素级，看不出折线。
-    小半径的环（卡片里 84x84 的环）仍用 arc，那点面积无所谓，圆度更好。
-    ]]
-    function P:arc_poly(cx, cy, r, a0, a1, color, width, opa, step, color_fn)
-        local span = a1 - a0
-        if span == 0 then return end
-        local w = I(width, 8)
-        if w < 1 then w = 1 end
-        local stepv = step or 3
-        local n = math.max(1, math.ceil(math.abs(span) / stepv))
-        --[[相邻线段必须"重叠"而不是"对接"：LVGL 的线段是抗锯齿绘制的，
-        两段共端点时两侧边缘各覆盖一半，会露出一条更暗的细线（看起来像竹节）。
-        所以在内部分界处各多画 1.5px，用邻段的不透明内部盖住那条缝。
-        半透明的弧不能重叠（重叠处会被混合两次而变亮），只能保持对接。]]
-        local extra = 0
-        if (opa or 255) >= 240 then
-            extra = (1.5 / (r > 1 and r or 1)) * 57.29578   -- 1.5px 对应的角度
-        end
-        for i = 0, n - 1 do
-            local t0 = i / n
-            local t1 = (i + 1) / n
-            local b0 = a0 + span * t0 - ((i == 0) and 0 or extra)
-            local b1 = a0 + span * t1 + ((i == n - 1) and 0 or extra)
-            local x1 = cx + math.cos(math.rad(b0)) * r
-            local y1 = cy + math.sin(math.rad(b0)) * r
-            local x2 = cx + math.cos(math.rad(b1)) * r
-            local y2 = cy + math.sin(math.rad(b1)) * r
-            local t = P:line(x1, y1, x2, y2, color_fn and color_fn((t0 + t1) * 0.5) or color, w, opa, false)
-            if t then
-                t.round_start = (i == 0)
-                t.round_end = (i == n - 1)
-            end
-        end
-    end
-
-    -- 折线圆环（整圆）：给底噪光环、涟漪这类用
-    function P:ring_poly(cx, cy, r, color, width, opa, step)
-        P:arc_poly(cx, cy, r, 0, 360, color, width, opa, step or 4)
-    end
-
-    --[[圆弧（原生 arc 图元）
+    --[[圆弧（原生 arc 图元，shape 组件直出 lv_draw_arc）
     @param number r 半径，按"带宽中心线"给（内部会补半个带宽换成 LVGL 的外半径）
     @param number a0,a1 起止角度，单位度。0 度在 3 点钟方向，顺时针增大。
            允许超过 360（如 135..405），C 层会自行折算；起止相同则不画。
@@ -423,7 +373,9 @@ function M.pool()
         t.cy = math.floor(cy)
         t.r = arc_outer(r, w)
         t.start_angle = math.floor(a0)
-        t.end_angle = math.floor(a1)
+        --[[角度落进 int16_t 前先取整：起点向下取整、终点四舍五入。
+        终点若直接 floor，135.6 这种扫角会少画 0.6 度，弧头和亮点对不齐。]]
+        t.end_angle = math.floor(a1 + 0.5)
         t.color = color or 0xFFFFFF
         t.width = w
         t.opacity = I(opa, 255)
@@ -438,23 +390,6 @@ function M.pool()
         t.fill_color = t.color
         t.fill_opacity = 0
         return t
-    end
-
-    --[[分段渐变圆弧：把 a0..a1 切成 segs 段，逐段线性插值 c1 → c2
-    相邻段共用端点（并额外overlap 0.5 度），全不透明时看不出接缝。
-    段数只影响参差程度：18 段在 270 度上每段 15 度，弧长 r=210 时约 55px，
-    肉眼已看不出色阶，再细分只是白白多画几次掩膜。
-    ]]
-    function P:arc_grad(cx, cy, r, a0, a1, segs, c1, c2, width, opa)
-        segs = I(segs, 18)
-        if segs < 1 then segs = 1 end
-        local step = (a1 - a0) / segs
-        for i = 0, segs - 1 do
-            local s0 = a0 + step * i
-            local s1 = s0 + step + (i < segs - 1 and 0.5 or 0)
-            local col = M.mix(c1, c2, segs == 1 and 1 or (i / (segs - 1)))
-            P:arc(cx, cy, r, s0, s1, col, width, opa, false)
-        end
     end
 
     -- n 点折线（点数组为两个表，避免每帧建 {x=,y=} 元组）

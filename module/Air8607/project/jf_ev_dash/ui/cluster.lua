@@ -7,7 +7,8 @@
 
 === 画面构成（1024x600，零图片素材）===
   1、主表盘：外径 234，速度弧半径 210、带宽 22，扫角 135°~405°（270°），0~180 km/h
-     进度弧由 3 段渐变色弧拼成（暗→亮→红），弧头配一圈光晕 + 一颗亮点
+     进度弧是整段一条 arc 图元（单色，跟驾驶模式强调色走、进红区转红），
+     弧头配一圈光晕 + 一颗亮点
      150 以上是红区；表内两条细弧反向旋转，做出"电驱能量场"的流动感
   2、左侧两张卡：电量（SOC 环 + 续航 / 电压 / 温度）、里程（ODO / TRIP / AVG / 行程条）
   3、右侧两张卡：功率（输出/回收双向环）、电耗趋势（60 格迷你折线）
@@ -25,7 +26,7 @@
 
 === 分层与预算 ===
   静态层（外环、刻度、轨道弧、分隔线、READY 药丸）只画一次，约 50 个图元
-  动态层每帧约 25 个图元（其中 7 个 arc）：速度弧 3 段 + 红区 1 + 装饰 2 + 侧环
+  动态层每帧 3 个图元：速度弧整段 1 个 arc + 弧头光晕 2 个圆
   四张卡 10Hz 刷新（人眼对卡片跳变不敏感，对速度弧很敏感）
 ]]
 local fx = require "fx"
@@ -149,8 +150,9 @@ end
 -- ==================== 静态层 ====================
 --[[静态层只画一次（1024x600 全屏）。凡是"不随时间连续变化"的东西都放这里。
 注意：放静态层只省 Lua 侧开销，**渲染面积照旧**——只要它在表盘脏区里，
-每帧还是会跟着重画一遍。所以表盘范围内一律不用 arc 图元（整圆 bbox 太大），
-全部换成折线（arc_poly / ring_poly），代价只跟弧带面积成正比。]]
+每帧还是会跟着重画一遍。弧一律走 shape 组件的原生 arc 图元
+（0 度在 3 点钟方向、顺时针增大，起止角相差 360 度即画整圆），
+r 按带宽中心线给，fx 的 P:arc 内部补半个带宽换算成 LVGL 的外半径。]]
 local function build_static()
     local P = fx.pool()
     local cx, cy, R, Ra, Rw = D.cx, D.cy, D.R, D.Ra, D.Rw
@@ -172,14 +174,19 @@ local function build_static()
     P:dot(cx, cy, 118, 0x0B2A32, 9)
     P:dot(cx, cy, 90, 0x0B2A32, 12)
 
-    -- 速度轨道：一整条暗弧，进度弧盖在上面
-    P:arc(cx, cy, Ra, D.a0, D.a1, 0x121D29, Rw, 255)
+    --[[速度轨道：一整条暗弧，进度弧盖在上面。
+    两端圆头：平头切口带抗锯齿锯齿，放大看就是"粗糙的斜切"；
+    轨道/红区/进度弧的真端头全部圆头，端帽互相对齐才像一条完整的弧。]]
+    P:arc(cx, cy, Ra, D.a0, D.a1, 0x121D29, Rw, 255, true)
     -- 轨道内外各一条收边细弧，弧带看起来才"嵌"在表盘里
-    P:arc(cx, cy, Ra + Rw / 2 + 4, D.a0, D.a1, 0x1E2B3A, 1, 220)
-    P:arc(cx, cy, Ra - Rw / 2 - 4, D.a0, D.a1, 0x1E2B3A, 1, 160)
+    P:arc(cx, cy, Ra + Rw / 2 + 4, D.a0, D.a1, 0x1E2B3A, 1, 220, true)
+    P:arc(cx, cy, Ra - Rw / 2 - 4, D.a0, D.a1, 0x1E2B3A, 1, 160, true)
 
-    -- 红区：只跟表底 / 红区起点有关，画在进度弧之下
-    P:arc(cx, cy, Ra, ang(D.vred), ang(D.vmax), C.red, Rw, 70, false)
+    --[[红区：只跟表底 / 红区起点有关，画在进度弧之下。
+    起点也用圆头：红区起点恰好落在 360 度（3 点钟），
+    平头起始与深蓝轨道之间是一条硬直线，看起来像弧带断开；
+    圆头把这道缝包成圆角过渡，末端 405 度的圆帽也和轨道对齐。]]
+    P:arc(cx, cy, Ra, ang(D.vred), ang(D.vmax), C.red, Rw, 70, true)
 
     -- 刻度：小刻度短而暗，大刻度长而亮
     local v = 0
@@ -371,164 +378,47 @@ local function build_bars()
     M.sync_chips()
 end
 
--- ==================== 速度弧分块 ====================
---[[为什么要分块（真机 3fps 的根因）：
-LVGL 的失效是"对象级"的——`set_items` 会让整个 shape 的 bbox 失效，
-而一个 270° 的进度弧如果只用一个 shape，bbox 就是整圆 472x472（22 万像素），
-每帧都要把这块区域重画一遍：底图填充 + 轨道 + 刻度 + 数字 + 弧带，全部重来。
-PC 上感觉不到，真机（PSRAM 帧缓冲）一帧就要 300ms。
+-- ==================== 速度弧 ====================
+--[[整段一条弧：一个 shape + 一条 shape 组件的原生 arc 图元
+arc 由 lv_draw_arc 直出（角度掩膜 + 抗锯齿），圆度和两端圆头都是几何意义上的真圆，
+既没有折线逼近的"珠子"，也没有分块拼接的接缝与按块量化的色阶。
 
-所以把 270° 拆成 ARC_CHUNKS 块，每块一个独立小 shape（bbox 约 36x36 = 1.3 千像素）：
-  - 弧头扫过的块画一次就"留在屏上"，不再刷新；
-  - 每帧只重画"弧头所在的那一块"（局部弧 + 弧头光点，光点直接画在这块里）；
-  - 减速/自检回落时把高处的块清空。
-每帧真正重绘的面积从 22 万像素降到 1 千多，帧率差一个数量级。
-代价是颜色按块量化（9° 一级），在 22px 宽的弧带上看不出台阶。
+代价是明确的：`set_items` 会让整个 shape 的 bbox 失效，每帧都要把表盘这一块
+（DIAL 472x472，约 22 万像素）重画一遍 —— 底图 + 轨道 + 刻度 + 数字 + 弧带全部重来。
+本工程选择"整段"，用这部分帧率换掉分块那套接缝外扩、换色扩散预算、弧头跨块的复杂度。
+
+颜色整段同色：跟驾驶模式的强调色走，车速进红区后整段向红过渡。
+沿弧长做渐变要十几条 arc 拼色，又会回到"拼"的老路上去。
 
 ⚠️ 不要用"一个小 shape + set_pos 跟着弧头跑"来做光点：LVGL 的对象位置变更
-比重新 set_items 贵得多，实测 PC 上 26fps 直接掉到 6fps。]]
-local ARC_CHUNKS = 30
-local ARC_SPAN = (D.a1 - D.a0) / ARC_CHUNKS
+比重新 set_items 贵得多，实测 PC 上 26fps 直接掉到 6fps。亮点直接画在弧的同一个 shape 里。]]
+local ARC = fx.pool()
 
--- 角度区间 → 相对圆心的 bbox（含带宽与圆头余量）
-local function arc_chunk_bbox(r, w, a0, a1)
-    local pad = w / 2 + 3
-    local minx, miny, maxx, maxy = 1e9, 1e9, -1e9, -1e9
-    for i = 0, 8 do
-        local a = math.rad(a0 + (a1 - a0) * i / 8)
-        local x, y = math.cos(a) * r, math.sin(a) * r
-        if x < minx then minx = x end
-        if x > maxx then maxx = x end
-        if y < miny then miny = y end
-        if y > maxy then maxy = y end
-    end
-    return minx - pad, miny - pad, maxx + pad, maxy + pad
-end
-
--- 弧带颜色：暗底 → 强调色（55%）→ 红区烧红
-local function arc_color(t, acc, hot)
-    if t < 0.55 then
-        return fx.mix(fx.mix(acc, 0x000000, 0.35), acc, t / 0.55)
-    end
-    return fx.mix(acc, C.red, hot * (t - 0.55) / 0.45)
-end
-
-local CHK = fx.pool()
-
---[[画一块弧
-@param number aEnd nil = 整块；否则画到该角度（弧头那一块）
-]]
-local function chunk_paint(k, aEnd)
-    local ch = o.chunks[k]
-    local P = CHK
-    local r, w = D.Ra, D.Rw
-    local cx, cy = D.cx - ch.bx, D.cy - ch.by
-    P:reset()
-    if aEnd then
-        --[[颜色取这一块的中点：每块 9°，30 级渐变在 22px 宽的弧带上看不出台阶。
-        这里用原生 arc 而不是折线——图元虽然还是整圆 bbox，但会被这块 shape
-        的 36x36 裁剪区裁掉，实际只算 1.3 千像素，圆度和端帽都是真圆。]]
-        local total = D.a1 - D.a0
-        local t = ((ch.a0 + ch.a1) * 0.5 - D.a0) / total
-        local full = (aEnd > ch.a1)
-        -- 两端各多画 0.5°：相邻块用平头对接，靠不透明重叠盖住抗锯齿接缝
-        P:arc(cx, cy, r, ch.a0 - 0.5, aEnd,
-            arc_color(t, o.accent, o.arc_hot), w, 255, not full)
-        -- 弧头光点直接画在这块里：单独用一个 shape + set_pos 来"跟随"弧头
-        -- 会让 LVGL 每帧做一次位置变更（实测 PC 从 26fps 掉到 6fps）
-        if not full then
-            local th = (aEnd - D.a0) / total
-            local col = arc_color(th, o.accent, o.arc_hot)
-            local hx = cx + math.cos(math.rad(aEnd)) * r
-            local hy = cy + math.sin(math.rad(aEnd)) * r
-            if (o.quality or 2) >= 1 then
-                P:dot(hx, hy, 13, col, 45)
-            end
-            P:dot(hx, hy, 6, fx.shade(col, 0.7), 245)
-        end
-        ch.state = 1
-    else
-        ch.state = 0
-        ch.va = nil
-    end
-    P:finish()
-    ch.s:set_items(P.items)
-    ch.dirty = false
-    o.paint_n = (o.paint_n or 0) + 1
-end
-
---[[每帧：把速度弧推进到当前角度
-只有"弧头块"会每帧重画，其余块画一次就留在屏上。]]
+--[[每帧：把速度弧整段推进到当前角度
+@param number v 车速 km/h]]
 local function update_arc(v)
-    o.arc_hot = fx.clamp((v - D.vred) / (D.vmax - D.vred), 0, 1)
-    local total = D.a1 - D.a0
-    -- 颜色变了（切模式的强调色渐变 / 进入红区）要把已经点亮的块整体换色
-    local key = math.floor(o.accent) * 64 + math.floor(o.arc_hot * 48)
-    local repaint = (o.arc_key ~= key)
-    o.arc_key = key
-
-    if v <= 0.4 then
-        if o.arc_top > 0 then
-            for k = 1, o.arc_top do chunk_paint(k, nil) end
-            o.arc_top = 0
+    local P = ARC
+    local ox, oy = DIAL.x, DIAL.y
+    P:reset()
+    --[[车速太低就不画：起止角相同的 arc 本身不画图，
+    但 0.4 km/h 以下扫角不足 1 度，硬画只是一个圆头疙瘩。]]
+    if v > 0.4 then
+        local r, w = D.Ra, D.Rw
+        local a = ang(v)
+        local hot = fx.clamp((v - D.vred) / (D.vmax - D.vred), 0, 1)
+        local col = fx.mix(o.accent, C.red, hot)
+        -- 两端圆头：平头切口放大看是粗糙的斜切，端帽要和轨道对齐
+        P:arc(D.cx - ox, D.cy - oy, r, D.a0, a, col, w, 255, true)
+        -- 弧头亮点：和弧同一个 shape，弧头走到哪亮点跟到哪，天然同步
+        local hx = D.cx + math.cos(math.rad(a)) * r - ox
+        local hy = D.cy + math.sin(math.rad(a)) * r - oy
+        if (o.quality or 2) >= 1 then
+            P:dot(hx, hy, 13, col, 45)
         end
-        return
+        P:dot(hx, hy, 6, fx.shade(col, 0.7), 245)
     end
-
-    local a = ang(v)
-    local head = math.floor((a - D.a0) / ARC_SPAN) + 1
-    if head < 1 then head = 1 elseif head > ARC_CHUNKS then head = ARC_CHUNKS end
-
-    -- 减速 / 自检回落：把弧头以上的块清掉
-    for k = head + 1, o.arc_top do chunk_paint(k, nil) end
-    --[[弧头以下：新点亮的块画满一次就留着。
-    换色（切模式 / 进红区）时只把已点亮的块"标脏"，不一次性重画：
-    20 块挤在一帧里会把单帧撑到几十毫秒，真机上就是一次明显卡顿。
-    这里每帧最多补 2 块，整条弧的颜色是"从起点扫过去"的，观感反而更好。]]
-    if repaint then
-        for k = 1, o.arc_top do o.chunks[k].dirty = true end
-    end
-    --[[换色扩散预算：每帧最多补几块。
-    太小（2）在低帧率下单帧只补 2 块，整条弧要好几秒才换完色，
-    看起来像"两种颜色拼在一起的补丁"；太大又会让一帧产生太多失效矩形
-    （LVGL 失效列表只有 32 项，溢出会退化成整屏重绘）。
-    6 块/帧 × 1.3 千像素 = 8 千像素，单帧代价可以忽略，20 块 4 帧内换完。]]
-    local budget = 6
-    for k = 1, head - 1 do
-        local ch = o.chunks[k]
-        if (ch.state ~= 1 or ch.dirty) and budget > 0 then
-            chunk_paint(k, ch.a1 + 0.5)
-            budget = budget - 1
-        end
-    end
-    -- 弧头块：只在这块的角度明显变化 / 换色时才重画
-    local ch = o.chunks[head]
-    if ch.dirty or not ch.va or math.abs(a - ch.va) >= 0.15 then
-        ch.va = a
-        chunk_paint(head, a)
-    end
-    o.arc_top = head
-end
-
--- 建分块 shape（顺序：静态层 → 卡片 → 分块弧 → 中央文字）
-local function build_arc_shapes()
-    local r, w = D.Ra, D.Rw
-    o.chunks = {}
-    for k = 1, ARC_CHUNKS do
-        local a0 = D.a0 + ARC_SPAN * (k - 1)
-        local a1 = a0 + ARC_SPAN
-        local x0, y0, x1, y1 = arc_chunk_bbox(r, w, a0 + 0.5, a1 + 0.5)
-        local bx = math.floor(D.cx + x0)
-        local by = math.floor(D.cy + y0)
-        local bw = math.floor(x1 - x0) + 1
-        local bh = math.floor(y1 - y0) + 1
-        o.chunks[k] = {
-            s = airui.shape({ parent = o.root, x = bx, y = by, w = bw, h = bh, items = {} }),
-            bx = bx, by = by, a0 = a0, a1 = a1, state = 0,
-        }
-    end
-    o.arc_top = 0
-    o.arc_key = nil
+    o.narc = P:finish()
+    o.arc_shape:set_items(P.items)
 end
 
 -- ==================== 构建整屏 ====================
@@ -570,8 +460,10 @@ function M.build()
     o.dyn_shape = airui.shape({
         parent = o.root, x = DIAL.x, y = DIAL.y, w = DIAL.w, h = DIAL.h, items = {},
     })
-    -- 速度弧按块铺开（每帧只重画弧头那一块）+ 弧头光点
-    build_arc_shapes()
+    -- 速度弧：整段一条 arc + 弧头亮点，和杂项层同一块脏区
+    o.arc_shape = airui.shape({
+        parent = o.root, x = DIAL.x, y = DIAL.y, w = DIAL.w, h = DIAL.h, items = {},
+    })
     -- 顶栏指示灯（两个小图层，状态变化时才重画）
     o.sh_ind_l = airui.shape({
         parent = o.root, x = IND_L.x, y = IND_L.y, w = IND_L.w, h = IND_L.h, items = {},
@@ -819,7 +711,7 @@ end
 
 -- ==================== 每帧：表盘动态层 ====================
 --[[每帧的表盘刷新：
-1、速度弧走"分块"路径（只有弧头那一块 + 光点会重画）；
+1、速度弧整段一条 arc（连同弧头亮点），每帧一次 set_items；
 2、"杂项层"（装饰弧 / 涟漪）单独一个 472x472 的图层，
    q<2 且没有涟漪时整层不刷新 —— 平时零开销。]]
 local DYN = fx.pool()
@@ -850,18 +742,19 @@ local function draw_misc()
     local acc = o.accent
     P:reset()
 
-    -- 旋转装饰弧（能量场，仅 q>=2）
+    --[[旋转装饰弧（能量场，仅 q>=2）：原生 arc，起止角可以越过 360
+    （s1+72 最大到 432），C 层 airui_shape_prepare_arc_angles 会折算。]]
     if q >= 2 then
         local s1 = o.spin % 360
         local s2 = (-o.spin * 0.72) % 360
-        P:arc_poly(cx, cy, D.deco_r[1], s1, s1 + 72, acc, 3, 90, 4)
-        P:arc_poly(cx, cy, D.deco_r[2], s2, s2 + 46, C.violet, 2, 70, 4)
+        P:arc(cx, cy, D.deco_r[1], s1, s1 + 72, acc, 3, 90, true)
+        P:arc(cx, cy, D.deco_r[2], s2, s2 + 46, C.violet, 2, 70, true)
     end
 
-    -- 模式切换涟漪
+    -- 模式切换涟漪：整圆即"起止角相差 360 度"，走 arc 的整圈路径
     if o.flash then
         local r = 118 + (1 - o.flash) * 96
-        P:ring_poly(cx, cy, math.floor(r), acc, 2, math.floor(170 * o.flash), 6)
+        P:arc(cx, cy, math.floor(r), 0, 360, acc, 2, math.floor(170 * o.flash), false)
     end
 
     o.ndyn = P:finish()
@@ -1197,14 +1090,12 @@ function M.run()
             -- lvgl_fps 来自 airui 自己的统计，需要 app_main 里 airui.debug(true) 才有值
             local ad = airui.debug and airui.debug()
             local lf = (ad and ad.fps and ad.fps > 0) and tostring(ad.fps) or "-"
-            --[[lit=点亮的弧块数  paint=这 5 秒重画了多少次弧块
-            真机上 paint/5s 应该 ≈ 每秒帧数（每帧只画弧头那一块），
-            如果明显偏大，说明在频繁换色或反复跨块。]]
+            --[[arc=速度弧这一层的图元数（整段一条弧时是 0 或 3：弧 + 光晕 + 亮点）
+            items=杂项层（装饰弧 / 涟漪）的图元数，q<2 时恒为 0。]]
             log.info("ev", string.format(
-                "speed=%.0f soc=%.1f lit=%d paint=%d items=%d lua_fps=%.1f cost=%.1fms dt=%.1fms lvgl_fps=%s q=%d",
-                o.speed, o.battery, o.arc_top or 0, o.paint_n or 0,
+                "speed=%.0f soc=%.1f arc=%d items=%d lua_fps=%.1f cost=%.1fms dt=%.1fms lvgl_fps=%s q=%d",
+                o.speed, o.battery, o.narc or 0,
                 o.ndyn or 0, fps, lastCost, dtMs, lf, o.quality or 0))
-            o.paint_n = 0
         end
     end
 end

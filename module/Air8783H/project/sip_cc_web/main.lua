@@ -8,7 +8,7 @@
 
 -- Air8000w 纯 PCM CC <-> SIP 桥接应用入口。
 PROJECT = "Air8783H_Factory"
-VERSION = "001.000.001"
+VERSION = "001.000.002"
 -- Set the IoT libfota3 project key before flashing.
 PRODUCT_KEY = "uHcUqI4qv0S9W9flMZFNdjgArJoqYgIk"
 

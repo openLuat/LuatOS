@@ -84,9 +84,10 @@ socketpair核对4096B内容，模型覆盖rc0/1、17B短接纳、完成延迟、
 python3 bsp/pc/zenoh_pico/run_host.py --lua-root /path/to/lua-prefix \
   --build-dir ../pico-transport-build --sanitize
 # 终端1：本机隔离router
-/path/to/zenohd --listen tcp/127.0.0.1:17447
+/path/to/zenohd --listen tcp/127.0.0.1:17447 --no-multicast-scouting \
+  --adminspace-permissions none --cfg scouting/gossip/enabled:false --cfg plugins:{}
 # 终端2：原PC对端，使用同一前缀
-../pico-transport-build/zenoh_peer tcp/127.0.0.1:17447 test/pico-g08
+../pico-transport-build/zenoh_peer tcp/127.0.0.1:17447 test/pico-g08 --get
 # 终端3：直接公共API，不经过业务Lua适配器
 ../pico-transport-build/zenoh_host_test bsp/pc/zenoh_pico/host_get_1800.lua \
   tcp/127.0.0.1:17447 test/pico-g08

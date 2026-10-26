@@ -36,6 +36,8 @@ static atomic_flag command_gate = ATOMIC_FLAG_INIT;
 static uint32_t next_generation;
 static int adapter_index;
 static char locator[320];
+/* 首次故障冻结；清场错误不可覆盖原阶段，也不保存key或payload。 */
+static luat_zp_io_failure_t io_diagnostic;
 
 /* 只保护零等待队列接纳/关闭排空，不在门内执行SDK或网络操作。 */
 static void command_gate_enter(void) {
@@ -44,7 +46,20 @@ static void command_gate_enter(void) {
 static void command_gate_leave(void) { atomic_flag_clear(&command_gate); }
 
 int luat_zenoh_pico_adapter(void) { return adapter_index; }
-void luat_zenoh_pico_io_fail(void) { atomic_store(&io_failed, 1); }
+void luat_zenoh_pico_io_fail_at(const char *stage, int rc, size_t requested,
+                              size_t transferred, uint64_t elapsed_ms) {
+    if (atomic_load(&io_failed)) return;
+    io_diagnostic.stage = stage; io_diagnostic.rc = rc;
+    io_diagnostic.requested = requested; io_diagnostic.transferred = transferred;
+    io_diagnostic.elapsed_ms = elapsed_ms;
+    atomic_store(&io_failed, 1);
+}
+void luat_zenoh_pico_io_fail(void) { luat_zenoh_pico_io_fail_at("unspecified", -1, 0, 0, 0); }
+void luat_zenoh_pico_io_progress(int sending, size_t bytes) {
+    if (atomic_load(&io_failed)) return;
+    if (sending) io_diagnostic.total_tx += bytes;
+    else io_diagnostic.total_rx += bytes;
+}
 int luat_zenoh_pico_io_failed(void) { return atomic_load(&io_failed); }
 void luat_zenoh_pico_rng_fail(void) { atomic_store(&rng_failed, 1); }
 int luat_zenoh_pico_rng_failed(void) { return atomic_load(&rng_failed); }
@@ -56,6 +71,10 @@ static luat_zp_event_t *new_event(uint32_t gen, uint32_t id, const char *kind, i
     if (!e) { atomic_fetch_add(&dropped, 1); return NULL; }
     memset(e, 0, sizeof(*e));
     e->generation = gen; e->id = id; e->kind = kind; e->code = code;
+    if (atomic_load(&io_failed) && io_diagnostic.generation == gen) {
+        e->io_failure = io_diagnostic;
+        e->reason = "io_failure";
+    }
     return e;
 }
 static int post(luat_zp_event_t *e) {
@@ -371,6 +390,7 @@ static void worker(void *unused) {
             atomic_store(&state, LUAT_ZP_CLOSED); atomic_store(&active, 0);
             post(closed); continue;
         }
+        memset(&io_diagnostic, 0, sizeof(io_diagnostic)); io_diagnostic.generation = gen;
         z_owned_session_t session;
         subscriber_t subs[LUAT_ZP_SUB_MAX] = {0};
         queryable_t owners[LUAT_ZP_QUERY_MAX] = {0};
@@ -398,6 +418,10 @@ static void worker(void *unused) {
             for (int i = 0; i < 4 && luat_rtos_queue_recv(commands, &cmd, sizeof(cmd), 0) == 0; ++i) {
                 if (cmd->op == LUAT_ZP_GET) ZP_TEST_POINT(1, cmd->generation);
                 if (cmd->generation == gen && atomic_load(&wanted) == gen) {
+                    if (!luat_zenoh_pico_io_failed()) {
+                        io_diagnostic.command_id = cmd->id; io_diagnostic.command_op = cmd->op;
+                        io_diagnostic.command_bytes = cmd->length;
+                    }
                     if (cmd->op == LUAT_ZP_GET) execute_get(&session, cmd);
                     else {
                         int result = cmd->op <= LUAT_ZP_UNSUBSCRIBE ? execute(&session, subs, cmd) : execute_query(&session, owners, cmd);
@@ -421,17 +445,29 @@ static void worker(void *unused) {
                  !luat_zenoh_pico_rng_failed(); ++i) zp_spin_once(z_loan(session));
             if (z_session_is_closed(z_loan(session)) || luat_zenoh_pico_io_failed()) {
                 rc = -7;
-                atomic_store(&state, LUAT_ZP_FAILED); post(new_event(gen, 0, "error", rc)); break;
+                atomic_store(&state, LUAT_ZP_FAILED);
+                luat_zp_event_t *failure = new_event(gen, 0, "error", rc);
+                if (failure && !luat_zenoh_pico_io_failed()) failure->reason = "session_closed";
+                post(failure); break;
             }
             luat_rtos_task_sleep(5);
         }
         if (opened && luat_zenoh_pico_rng_failed() && atomic_load(&wanted) == gen) {
             rc = -6; atomic_store(&state, LUAT_ZP_FAILED); post(new_event(gen, 0, "error", rc));
         }
+        /* 先固定业务终态，随后SDK清场产生的IO失败只属于清场，不能冒充原因。 */
+        luat_zp_io_failure_t terminal_io = io_diagnostic;
+        int failed_before_cleanup = luat_zenoh_pico_io_failed();
         stop_commands(gen);
         clear_session(&session, subs, owners, opened);
         if (atomic_load(&state) != LUAT_ZP_FAILED) atomic_store(&state, LUAT_ZP_CLOSED);
         luat_zp_event_t *closed = new_event(gen, 0, "closed", rc);
+        if (closed) {
+            if (failed_before_cleanup) closed->io_failure = terminal_io;
+            else memset(&closed->io_failure, 0, sizeof(closed->io_failure));
+            /* 握手失败保留SDK原码，不能仅在worker的-7分支保留IO分类。 */
+            closed->reason = failed_before_cleanup ? "io_failure" : (rc == -7 ? "session_closed" : NULL);
+        }
         /* 终态回调可立即打开下一会话，投递前必须释放唯一资源槽。 */
         atomic_store(&active, 0);
         post(closed);

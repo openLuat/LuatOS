@@ -11,7 +11,7 @@
 
 核心功能：
 1、build_report_tlv()：构建 AirCloud 结构化 TLV 上报数据
-   必填字段：信号强度(782)/设备ID(798)/时间戳(1280)/CPU温度(263)
+   必填字段：信号强度(782)/模组型号(774,rtos.bsp)/设备ID(798)/时间戳(1280)/CPU温度(263)
    可选字段：温度(256)/湿度(257)/VOC(258)（传感器，失败跳过）
             纬度(513)/经度(512)（LBS基站定位，失败跳过）
 2、build_gps_tlv()：构建 GPS TLV（本工程未启用 GNSS，该函数保留但不触发）
@@ -182,6 +182,12 @@ function factory_app.build_report_tlv()
             value = csq
         })
     end
+    -- 必填：模组型号（rtos.bsp 动态读取，Air780EPM→"Air780EPM"，烧到 Air780EHM 上→"Air780EHM"）
+    table.insert(tlv_list, {
+        field_meaning = excloud.FIELD_MEANINGS.COMPONENT_MODEL,
+        data_type = excloud.DATA_TYPES.ASCII,
+        value = rtos.bsp()
+    })
     -- 必填：设备ID（IMEI）
     table.insert(tlv_list, {
         field_meaning = excloud.FIELD_MEANINGS.DEVICE_ID,

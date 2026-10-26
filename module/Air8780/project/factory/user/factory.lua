@@ -570,11 +570,18 @@ local procTable = {
                 log.info("测试完成（返工），返工标记已删除，3秒后重启进正常模式")
             else
                 -- 首次产测：型号/硬件版本已由 MODEL/HVERSION 写入 OTP1，此处校验非空
-                if next(prodmeta.get_all()) == nil then
+                local all = prodmeta.get_all()
+                if type(all) ~= "table" or next(all) == nil then
                     log.error("factory", "OTP1 为空，未写号，禁止结束首测")
                     return false
                 end
-                log.info("测试完成（首测），OTP1 写号已就绪，3秒后重启进正常模式")
+                -- 删除首测中途保护标记 model_firsttest（带读回校验，失败不重启，防重启后仍回产测）
+                local ok, err = retest.first_clear()
+                if not ok then
+                    log.error("factory", "首测标记删除失败，不重启:", err)
+                    return false
+                end
+                log.info("测试完成（首测），OTP1 写号已就绪，首测标记已删除，3秒后重启进正常模式")
             end
             if pm and pm.reboot then
                 sys.timerStart(pm.reboot, 3000)

@@ -21,21 +21,21 @@ local bsp = rtos.bsp()
 
 if bsp == "PC" then
     -- PC 模拟器网卡
-    require "netdrv.netdrv_pc"
+    require "netdrv_pc"
 elseif bsp == "Air8101" then
     -- Air8101 WiFi 模组
-    require "netdrv.netdrv_wifi"
+    require "netdrv_wifi"
 else
     -- Air8000：按版本配置分发
     local netdev = factory_config.get_netdev()
     if netdev == "wifi" then
-        require "netdrv.netdrv_wifi"
+        require "netdrv_wifi"
     elseif netdev == "eth" then
-        require "netdrv.netdrv_eth_spi"
+        require "netdrv_eth_spi"
     elseif netdev == "multiple" then
-        require "netdrv.netdrv_multiple"
+        require "netdrv_multiple"
     else
         -- 默认 4G
-        require "netdrv.netdrv_4g"
+        require "netdrv_4g"
     end
 end

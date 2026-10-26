@@ -19,7 +19,8 @@
    必填字段：信号强度(782)/设备ID(798)/时间戳(1280)/CPU温度(263)
    可选字段：温度(256)/湿度(257)/VOC(258)（传感器，失败跳过）
             纬度(513)/经度(512)（LBS基站定位，失败跳过）
-2、build_gps_tlv()：构建 GPS TLV（仅8780G），GPS失败回退LBS
+2、build_gps_tlv()：构建 GPS TLV（仅8780G，每30秒一帧），GPS失败回退LBS
+   字段：信号强度(782) + 纬度(513)/经度(512) + 定位方式 + 时间戳(1280) + CPU温度(263)
 3、handle_control_command()：处理下行控制命令（tag 19）
    - "cycle:秒数"   → 修改上报频率（最小5秒，fskv持久化，重启生效）
    - "led:blink"    → LED闪烁5秒
@@ -307,7 +308,10 @@ local function get_location()
 end
 
 --[[
-构建 GPS 上报 TLV（仅8780G）
+构建 GPS 上报 TLV（仅8780G，每30秒一帧）
+
+字段：4G信号强度 + CPU温度 + 纬度 + 经度 + 定位方式 + 时间戳
+      （信号强度/CPU温度取不到自动跳过，不影响定位上报）
 
 @return table TLV列表（可直接传给 excloud.send）
 @usage
@@ -318,6 +322,15 @@ function factory_app.build_gps_tlv()
     local tlv_list = {}
     local lat, lng, method = get_location()
     if lat and lng then
+        -- 4G信号强度（取不到跳过）
+        local csq = mobile.csq()
+        if csq then
+            table.insert(tlv_list, {
+                field_meaning = excloud.FIELD_MEANINGS.SIGNAL_STRENGTH_4G,
+                data_type = excloud.DATA_TYPES.INTEGER,
+                value = csq
+            })
+        end
         -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
         table.insert(tlv_list, {
             field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
@@ -341,6 +354,15 @@ function factory_app.build_gps_tlv()
             data_type = excloud.DATA_TYPES.INTEGER,
             value = os.time()
         })
+        -- CPU温度（取不到跳过，放末尾保持定位字段靠前）
+        local cpu_temp = get_cpu_temp()
+        if cpu_temp then
+            table.insert(tlv_list, {
+                field_meaning = excloud.FIELD_MEANINGS.ENV_TEMPERATURE,
+                data_type = excloud.DATA_TYPES.FLOAT,
+                value = cpu_temp
+            })
+        end
         log.info("factory_app", "GPS上报:", json.encode(tlv_list))
     else
         log.warn("factory_app", "GPS/LBS均无定位数据，本次不上报")

@@ -155,8 +155,8 @@ local PROFILES = {
 
         wdt = {
             impl     = "air153c",
-            feed_pin = 24,         -- 【码】config.WDT_CONFIG.FEED_PIN
-            interval = 180,        -- 【码】config.WDT_CONFIG.FEED_INTERVAL
+            feed_pin = 24,         -- 喂狗引脚（8202：AGPIO24 → NPN → WTDOG）
+            interval = 180,        -- 喂狗周期(秒)，需 >150（Air153C 超时固定 240s）
             enable   = true,
         },
 

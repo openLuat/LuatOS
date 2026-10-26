@@ -65,3 +65,35 @@ socketpair核对4096B内容，模型覆盖rc0/1、17B短接纳、完成延迟、
 部分失败不重复发送、非法返回/计数、16槽通知溢出反例、RX消费和重开迟到旧通知。
 它不产生真实目标RTOS或TCP ACK；PC完整SDK互通也不能替代191D原4096B Get验收。
 修改这三份C后，完整重编17项，再用同一二进制分别跑19 Get与2交错；不要沿用旧binary。
+
+## 有界接收进展与原1800ms场景（Unix，独立入口）
+
+`_z_read_tcp` 在一次调用中合并最多16次已有数据的正数短读，无数据立即返回已有前缀，
+不等待凑包、不扩大载荷/缓冲/查询期限。发生错误立即冻结首错；此前已确认的前缀先交SDK，
+下一次I/O直接失败。每次至多16个非阻塞API调用，不代表已验证目标RTOS最坏执行时间。
+
+独立合同沿用上节全部编译参数，将末尾 `host_transport_test.c` 改为 `host_rx_test.c`、
+输出名改为 `../pico-transport-build/rx`。运行该产物应同时看到
+`TRANSPORT_CONTRACT_DONE checks=13 failures=0`、`RX_CONTRACT_DONE checks=5 failures=0`
+及真实退出0。真实非阻塞socketpair核4096字节守恒、16次上限、空读、前缀后空读、
+前缀后错误与错误后停止；不是目标驱动的硬件验证。
+
+原Get回归使用5000ms；它不能代替4096B/1800ms原场景。先显式指定产物目录完整重编，再在三个终端按顺序运行以下独立用例（从仓库根；端口须空闲）：
+
+```sh
+python3 bsp/pc/zenoh_pico/run_host.py --lua-root /path/to/lua-prefix \
+  --build-dir ../pico-transport-build --sanitize
+# 终端1：本机隔离router
+/path/to/zenohd --listen tcp/127.0.0.1:17447
+# 终端2：原PC对端，使用同一前缀
+../pico-transport-build/zenoh_peer tcp/127.0.0.1:17447 test/pico-g08
+# 终端3：直接公共API，不经过业务Lua适配器
+../pico-transport-build/zenoh_host_test bsp/pc/zenoh_pico/host_get_1800.lua \
+  tcp/127.0.0.1:17447 test/pico-g08
+```
+
+以 `run_host.py --help` 的实际build目录为准；不要复用修改前二进制。
+两轮分别4096B PUT精确回显→4096B Query/source=lua/1800ms→两份原值回复和唯一completed，
+再核短PUT、原peer反向Query双回复/Final和关闭。通过标志
+`G08_HOST_PASS rounds=2 payload=4096 timeout_ms=1800 scope=host_not_target`，
+host/peer均应正常退出0；结束本次自有router。PC桥固定短读7B/短写17B，目标效果仍须原板验证。

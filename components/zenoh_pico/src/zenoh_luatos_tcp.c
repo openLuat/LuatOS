@@ -79,14 +79,23 @@ size_t _z_read_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
         luat_zenoh_pico_io_fail_at("rx_context", -1, n, 0, 0); return SIZE_MAX;
     }
     if (tcp_poll_notifications() != 0) return SIZE_MAX;
-    uint32_t got = 0;
-    int rc = network_rx(c->net, p, (uint32_t)n, 0, NULL, NULL, &got);
-    if (rc < 0 || got > n) {
-        luat_zenoh_pico_io_fail_at("rx_error", rc, n, got, 0); return SIZE_MAX;
+    uint32_t done = 0;
+    /* 合并已有正数短读，最多16次非阻塞调用；无数据立即还出，不等待凑满。 */
+    for (unsigned i = 0; i < 16 && done < n; ++i) {
+        uint32_t got = 0;
+        int rc = network_rx(c->net, p + done, (uint32_t)(n - done), 0, NULL, NULL, &got);
+        if (rc < 0 || got > n - done) {
+            luat_zenoh_pico_io_fail_at("rx_error", rc, n,
+                                      done + (got <= n - done ? got : 0), 0);
+            /* 先交已确认前缀；首错已冻结，下一次I/O直接失败，不丢完整前帧。 */
+            return rc < 0 && done ? done : SIZE_MAX;
+        }
+        luat_zenoh_pico_io_progress(0, got);
+        if (rc != 0 || !got) break;
+        done += got;
     }
-    luat_zenoh_pico_io_progress(0, got);
-    /* network_wait_rx(0)会永久等待；此处始终使用非阻塞实际读取。 */
-    return rc == 0 && got ? got : SIZE_MAX;
+    /* network_wait_rx(0)会永久等待；此处只返回已实际读取的前缀。 */
+    return done ? done : SIZE_MAX;
 }
 size_t _z_read_exact_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
     tcp_context_t *c = s.context;

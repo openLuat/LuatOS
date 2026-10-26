@@ -1,4 +1,4 @@
-# 家庭能源监测面板（home_energy）
+# 家庭能源监测面板（mmy_home_energy）
 
 一块挂在客厅或配电箱旁的常亮能源看板。用 Air8607 + 10 寸 1024x600 RGB 屏，
 把家庭里的**光伏、电网、储能、分路负载**四股能量的走向、大小、钱和碳，
@@ -156,7 +156,7 @@ data.today.cost, data.today.income = 1.79, 0.79
 ## 工程结构
 
 ```
-home_energy/
+mmy_home_energy/
 ├── README.md
 └── code/
     ├── main.lua                   入口（PROJECT / VERSION / sys.run）

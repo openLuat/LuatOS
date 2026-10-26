@@ -11,7 +11,7 @@
 ## 一、目录结构
 
 ```
-modbus_hmi/
+mmy_modbus_hmi/
 ├── README.md
 └── code/
     ├── main.lua                 入口：板级上电 / 显示初始化 / 触摸 / 启动应用
@@ -112,7 +112,7 @@ cmd /c build_windows_64bit_msvc_gui.bat
 
 # 2、运行本工程
 cd build\out
-.\luatos-lua.exe ..\..\..\..\module\Air8607\project\modbus_hmi\code\
+.\luatos-lua.exe ..\..\..\..\module\Air8607\project\mmy_modbus_hmi\code\
 ```
 
 ### 实机（Air8607）

@@ -98,15 +98,10 @@ local function emit(action, st, extra)
     client.emit_event("playback", action, p)
 end
 
---[[
-加载 C 模块。与其它几个模块同样的两条取用路径（真机 require、
-PC 模拟器回退全局表），失败返回 false 而不是抛错 —— 固件没开
-LUAT_USE_GB28181 时，require 本模块不该炸。
-]]
+-- 失败返回 false 而不是抛错
 local function load_deps()
     if gb == nil then
-        local ok, mod = pcall(require, "gb28181")
-        gb = ok and mod or rawget(_G, "gb28181")
+        gb = gb28181
         if gb == nil then
             return false, "C 层 gb28181 不可用(固件未开 LUAT_USE_GB28181?)"
         end

@@ -106,16 +106,8 @@ local function log_error(...)
 end
 
 --[[
-加载 C 层 gb28181 模块。加载失败时返回 nil 而非抛错。
-
-两条取用路径：
-  1、require "gb28181" —— 真机固件上的常规路径
-  2、全局表 _G.gb28181 —— PC 模拟器的回退路径。该模拟器用自定义加载器
-     接管了 require(做脚本依赖裁剪)，不解析 C 内建模块，require 必然失败，
-     但 luaL_requiref 仍会把模块挂到全局表上。
-
-注意：rotable 风格模块(luat_newlib2)的 type 是 "userdata" 而非 "table"，
-因此这里不能按 table 判断。
+加载 C 层 gb28181 模块，失败返回 nil。
+注意：rotable 风格模块(luat_newlib2)的 type 是 "userdata" 而非 "table"。
 @return table|userdata|nil C 层模块
 ]]
 local function load_core()
@@ -124,10 +116,7 @@ local function load_core()
     end
     g_core_loaded = true
 
-    local ok, mod = pcall(require, "gb28181")
-    if not ok then
-        mod = rawget(_G, "gb28181")
-    end
+    local mod = gb28181
 
     if mod == nil then
         log_warn("C 层 gb28181 模块不可用，请确认固件已开启 LUAT_USE_GB28181")

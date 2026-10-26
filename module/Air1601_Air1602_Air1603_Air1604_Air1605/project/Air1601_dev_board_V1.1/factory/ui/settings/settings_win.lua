@@ -28,6 +28,7 @@ require "settings_uvc_win"
 require "settings_gnss_win"
 require "settings_ble_win"
 require "settings_can_win"
+require "settings_channel_win"
 
 local theme = require "ui_theme"
 local titlebar = require "settings_titlebar"
@@ -65,6 +66,8 @@ local ENTRY_ICONS = {
     ["OPEN_BLE_WIN"]         = "wifi",
     -- CAN 与 RS485 同属有线现场总线，复用同一张以太网图标，不新增二进制资源
     ["OPEN_CAN_WIN"]         = "ethernet",
+    -- UART3 口复用是「一路串口多模组选路」，同样复用有线口图标
+    ["OPEN_CHANNEL_WIN"]     = "ethernet",
 }
 
 local function update_screen_size()
@@ -88,6 +91,14 @@ local function collect_entries()
     end
 
     add("IOT账号", "OPEN_IOT_WIN", "合宙 IoT 平台登录与设备绑定")
+    -- UART3 口复用：4G / WiFi / GNSS / 蓝牙 只能有一路占用这条串口。
+    -- 只要板上存在其中任一通道（network 段非空，或对应 features 打开）就显示入口。
+    -- 注意 features.wifi / net_4g 已被 settings_channel_app 按通道收口，
+    -- 通道选 gnss/ble 时两者都是 false，此时靠 network 段（以太网）兜住入口。
+    if (type(cfg.network) == "table" and #cfg.network > 0)
+        or fe.wifi or fe.net_4g or fe.gnss or fe.ble then
+        add("UART3口复用", "OPEN_CHANNEL_WIN", "4G / WiFi / GNSS / 蓝牙 四选一")
+    end
     if fe.wifi then add("WiFi设置", "OPEN_WIFI_WIN", "扫描、连接与已保存网络管理") end
     -- 背光为 GPIO 直控、不支持亮度调节，入口只保留媒体音量（hw.audio 存在时才有）
     if cfg.hw and cfg.hw.audio then add("音量调节", "OPEN_DISPLAY_WIN", "媒体音量调节") end

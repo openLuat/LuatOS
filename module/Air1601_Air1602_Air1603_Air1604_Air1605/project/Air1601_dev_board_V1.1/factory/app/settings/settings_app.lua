@@ -13,6 +13,7 @@
 local fe = (_G.project_config and _G.project_config.features) or {}
 
 require "settings_config_app"   -- fskv配置管理（设备名称、IOT账号、存储优先级读写）
+require "settings_channel_app"  -- UART3 口复用配置（4G/WiFi/GNSS/蓝牙 四选一，fskv 持久化）
 if fe.buzzer then
     require "settings_buzz_app"     -- 触摸音效管理（仅当有蜂鸣器）
 end

@@ -206,6 +206,17 @@ sys.subscribe("GNSS_OPEN_REQ", function()
             sys.publish("GNSS_OPEN_RESULT", true, nil, port_info())
             return
         end
+
+        -- UART3 口复用校验：当前通道不是「GNSS」时禁止抢这条串口。
+        -- 否则通道选 4G / WiFi 的板子进本页会把正在联网的模组直接踢下线。
+        local ch = require "settings_channel_app"
+        local ch_mode = ch.get()
+        if ch_mode ~= "gnss" then
+            sys.publish("GNSS_OPEN_RESULT", false,
+                "当前 UART3 通道为 " .. ch.label(ch_mode) .. "，请先在「设置 → UART3口复用」切到 GNSS", port_info())
+            return
+        end
+
         apply_setup()
         got_data = false
 

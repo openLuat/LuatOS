@@ -207,8 +207,11 @@ return {
     -- 网络逐项验证：当前启用 以太网 + 4G（AirLink UART3）；WiFi 与 4G 共用 UART3，二者互斥
     features = {
         ethernet = true, -- 启用 SPI 以太网（CH390H，SPI1_CS=GPIO14）
-        net_4g = true,                   -- 启用 4G（Airlink 模式，Air780EPM/Air780ER2 外挂模组 UART3）
-        -- wifi = true,                  -- × WiFi 与 4G 共用 UART3，切回 WiFi 时与下面 network/ui 两处注释互换
+        -- 4G 与 WiFi 两个业务层都编进来，是否真正启用由「UART3口复用」的运行期配置决定：
+        -- settings_channel_app.apply_to_config() 会按通道模式把它们收口成互斥状态，
+        -- 所以这里必须都写 true（否则切到另一路时对应业务层根本没被加载）。
+        net_4g = true,                   -- 4G 业务层（Airlink 模式，Air780EPM/Air780ER2 外挂模组 UART3）
+        wifi = true,                     -- WiFi 业务层（6205 外挂模组，与 4G 共用 UART3，二选一）
         sd_card = true,       -- 启用 SD/TF 卡（需配 storage.sd_card）
         speaker = true,       -- 启用喇叭（DAC 播放；Air1601 无 I2S，不能开 mic）
         ai_chat = true,       -- 启用"AI助手"内置应用（WebSocket 对话 + TTS 播报，需联网）
@@ -224,22 +227,24 @@ return {
     },
 
     -- ===== 统一网络配置（数组顺序即优先级，从高到低）=====
-    -- 当前启用 以太网 + 4G：插网线时走以太网，网线不通时自动回落 4G。
-    -- WiFi(6205) 与 4G 都占用 UART3，硬件上只能二选一，当前保持注释。
-    -- 切回 WiFi 时三处互换：features.wifi / features.net_4g、network 两条、ui 图标
+    -- WiFi(6205) 与 4G 都占用 UART3，硬件上只能二选一，但两条都保留在本表里：
+    -- 运行期由 fskv 的 uart3_mode（设置页 →「UART3口复用」）自动剔除互斥的那一条，
+    -- 不再需要改注释来切换版本。首次开机（fskv 无记录）按本表推断默认值：
+    -- 两条都在 → 默认 4G，与历史行为一致。
+    -- 选 GNSS / 蓝牙 时两条都被剔除，UART3 空出来留给对应测试页独占。
     network = {
 
-        -- SPI 以太网（CH390H，SPI1，片选 GPIO14）—— 最高优先级
+        -- SPI 以太网（CH390H，SPI1，片选 GPIO14）—— 最高优先级，不受 UART3 通道影响
         { type = "eth_spi", chip = "CH390", spi_id = 1, cs_pin = 14 },
 
-        -- Airlink UART 4G（Air780EPM/Air780ER2，占用 UART3）—— 第二优先级（以太网不通时回落）
+        -- Airlink UART 4G（Air780EPM/Air780ER2，占用 UART3）—— 通道选「4G」时生效
         { type = "4g_airlink_uart",
           uart_id = 3, baud = 2000000,
           adapter = socket.LWIP_GP_GW },   -- Air1601 外挂 4G 的网卡标识
 
-        -- Airlink UART WiFi（6205 模组，同样占用 UART3，与 4G 互斥）
-        -- { type = "wifi_airlink_uart",
-        --   uart_id = 3, baud = 2000000, irq = 13, adapter = socket.LWIP_STA },
+        -- Airlink UART WiFi（6205 模组，同样占用 UART3，与 4G 互斥）—— 通道选「WiFi」时生效
+        { type = "wifi_airlink_uart",
+          uart_id = 3, baud = 2000000, irq = 13, adapter = socket.LWIP_STA },
 
     },
 

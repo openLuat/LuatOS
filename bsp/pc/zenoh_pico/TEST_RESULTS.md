@@ -140,3 +140,28 @@ demo原样移动至 `olddemo/demo/zenoh_pico/main.lua`；桥接头原样移动�
 固定版严格C11/128和125源ASan/UBSan重新编译，两个确定性交错actual0/16.726324秒；同二进制Get19项actual0/22.922123秒、原16项actual0/14.952350秒，均host0/peer0，无sanitizer报告。竞态peer实际收到12B控制消息且正常退出；Get peer15请求/4个反向查询，旧PubSub peer28输入。14程序输入前后SHA一致。独立只读复核确认R1闭合、无新增阻塞；不代目标构建/真机/长期压力。
 
 最终host SHA256 `1a31d945a6175940ee86c7aaecf9917dd064a6b2b48a195aaa244b7b33417c19`；peer `c3dd59c396e7a97f04f5d80168c839e763cc598967a4190f37b7f0282d007249`。证据归协作项目runtime/zenohpico_dedicated_261015/evidence/get_r1_proof与get_r1_fixed；测试构建屏障默认不进入目标。SDK原文未改，未commit/push、未操作设备/生产。
+
+## 2026-10-26 有界短读候选（主机证据，待目标验证）
+
+基线PR274最终提交7676fd6已合并；本候选基于官方master09d2d43。
+两提交的Pico组件及PC专测子树相同，相关公共头变化仅未参与本编译的USB UVC宏。
+本节为作者自检，无独立审查或目标放行结论；前文历史独审不覆盖本增量。
+
+真实PC桥每次RX最多7B、TX最多17B，worker每轮执行预算有限。
+直接公共zenohpico API与原PC peer/真实zenohd1.9.0，在未改查询期限和载荷下：
+修前4096B/1800ms第一轮仅一份回复、timeout/-12，host实际1；不是此前191D的-7。
+接收函数合并最多16次已有正数短读后，两轮各两份完整4096B回复、唯一completed/0，
+后继短PUT、反向Query双回复/Final、关闭全部通过，host/peer实际0。
+早期候选的错误后前缀丢失已在作者停写自查修正；首错立即冻结，已确认前缀返回，下一I/O拒绝。
+
+最终C SHA256：`1f753055db2758d99fb9946829eee1bef5d8b8ef4a3001f3c80f48492abc7996`。
+最终128源host及125源peer严格C11/-Wall/-Wextra/-Werror、ASan/UBSan重编通过。
+同一最终host binary基础17、Get19、关闭交错2套件实际退出0，耗时16.768/24.368/1.337秒，
+host/peer全部0，stderr无sanitizer报告。独立RX测试组合原13合同+新5合同全部0；
+原TCP对新RX合同保留反例（3项失败，含新增合并/诊断要求，不能当3个目标故障）。
+直接G08最终host0/peer0，1.348秒（本机墙钟，不是目标性能保证）。
+最终host binary SHA256：`b943715010ec960b9434ba33b8e7e67d86274fef2cb6c062032ba1665ec8680d`。
+
+未验证：Air8000 BSP/完整PC xmake、LuatOS5.3运行、目标RTOS一次16调用成本、目标栈/堆/Flash、
+原191D或LAN板上的4096B Get/-7/R04生命周期和长稳。没有设备刷写或生产网络操作。
+此变更不增加认证、64KiB载荷或并发容量，也不等同业务Lua Client完整替代。

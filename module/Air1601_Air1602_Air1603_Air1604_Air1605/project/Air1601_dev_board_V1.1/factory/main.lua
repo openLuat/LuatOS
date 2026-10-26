@@ -51,9 +51,9 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "EVB_Air1601_7inch_1024x600_000_V011"       -- 默认机型：7寸 AirLCD_1070（JD9165BA）
-VERSION = "001.999.000"                               -- 固件版本号，用于 FOTA 升级比对
-PROJECT_KEY = "4AMuUDgSjjzZ3yNaQXmoYWHeUXjOYbV0"      -- 项目密钥：iot.openluat.com 项目的 FOTA/aircloud 鉴权密钥
+PROJECT = "EVB_Air1601_7inch_1024x600_000_V011"  -- 默认机型：7寸 AirLCD_1070（JD9165BA）
+VERSION = "001.999.000"                          -- 固件版本号，用于 FOTA 升级比对
+PROJECT_KEY = "4AMuUDgSjjzZ3yNaQXmoYWHeUXjOYbV0" -- 项目密钥：iot.openluat.com 项目的 FOTA/aircloud 鉴权密钥
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)

@@ -8,7 +8,8 @@
 订阅: OPEN_SETTINGS_WIN → 打开设置主页
 发布: OPEN_IOT_WIN / OPEN_WIFI_WIN / OPEN_DISPLAY_WIN / OPEN_STORAGE_WIN /
       OPEN_STORAGE_PRI_WIN / OPEN_FOTA_WIN / OPEN_SOUND_WIN /
-      OPEN_AUTOSTART_WIN / OPEN_ABOUT_WIN
+      OPEN_AUTOSTART_WIN / OPEN_RS485_WIN / OPEN_UVC_WIN / OPEN_GNSS_WIN /
+      OPEN_BLE_WIN / OPEN_CAN_WIN / OPEN_ABOUT_WIN
 ]]
 
 require "settings_display_win"
@@ -22,6 +23,11 @@ require "settings_fota_win"
 require "settings_auto_win"
 require "settings_theme_win"
 require "settings_report_win"
+require "settings_rs485_win"
+require "settings_uvc_win"
+require "settings_gnss_win"
+require "settings_ble_win"
+require "settings_can_win"
 
 local theme = require "ui_theme"
 local titlebar = require "settings_titlebar"
@@ -49,6 +55,16 @@ local ENTRY_ICONS = {
     ["OPEN_AUTOSTART_WIN"]   = "autostart",
     ["OPEN_ABOUT_WIN"]       = "about",
     ["OPEN_AIRCLOUD_WIN"]    = "cloud",
+    -- RS485 是有线串口总线，复用以太网（有线口）图标，不新增二进制资源
+    ["OPEN_RS485_WIN"]       = "ethernet",
+    -- 摄像头没有专用图标，复用 AI 助手图标（相机/识别语义最接近），不新增二进制资源
+    ["OPEN_UVC_WIN"]         = "ai_chat",
+    -- 定位没有专用图标，复用天气晴（户外/天空语义最接近），不新增二进制资源
+    ["OPEN_GNSS_WIN"]        = "weather_sunny",
+    -- 蓝牙没有专用图标，复用 WiFi（无线语义最接近），不新增二进制资源
+    ["OPEN_BLE_WIN"]         = "wifi",
+    -- CAN 与 RS485 同属有线现场总线，复用同一张以太网图标，不新增二进制资源
+    ["OPEN_CAN_WIN"]         = "ethernet",
 }
 
 local function update_screen_size()
@@ -83,6 +99,11 @@ local function collect_entries()
     -- 功能开关与 UI 入口分离：features.aircloud 控制是否上报，ui.show_aircloud 控制是否显示设置入口
     if fe.aircloud and ui.show_aircloud then add("数据上报", "OPEN_AIRCLOUD_WIN", "AirCloud 云端上报开关与周期") end
     add("后装APP自启", "OPEN_AUTOSTART_WIN", "开机自动启动指定应用")
+    if fe.rs485 then add("RS485测试", "OPEN_RS485_WIN", "UART2 半双工收发自检") end
+    if fe.uvc then add("USB摄像头", "OPEN_UVC_WIN", "UVC 摄像头画面预览") end
+    if fe.gnss then add("GNSS定位", "OPEN_GNSS_WIN", "UART3 搜星与经纬度") end
+    if fe.ble then add("蓝牙测试", "OPEN_BLE_WIN", "UART3 蓝牙连接与收发自检") end
+    add("CAN测试", "OPEN_CAN_WIN", "UART2 CAN 总线收发自检")
     add("关于设置", "OPEN_ABOUT_WIN", "设备型号、唯一ID与版本信息")
     return entries
 end
@@ -138,8 +159,16 @@ local function build_ui()
         local nav_w = math.max(theme.dp(180), math.min(theme.dp(240), math.floor(sw * 0.26)))
         local nav = theme.card(main_container, { x = pad, y = y, w = nav_w, h = body_h })
 
-        local row_h = math.max(theme.dp(42), math.floor((body_h - pad * 2) / math.max(1, #entries)))
+        -- 行高按入口数量自适应：先按可用高度均分，再夹到 [36, 56]。
+        -- 下限放到 36dp 是为了兜住「入口变多」的情况（RS485 / UVC / GNSS 逐个加进来），
+        -- 之前下限 42dp 时 13 项会算出 546dp、超出版面，最后一项（关于设置）被裁掉半截。
+        local row_h = math.max(theme.dp(36), math.floor((body_h - pad * 2) / math.max(1, #entries)))
         row_h = math.min(row_h, theme.dp(56))
+        -- 兜底：万一夹完仍超出可用高度（入口继续增加），按可用高度硬压，宁可挤也不丢项
+        local avail_h = body_h - pad * 2
+        if row_h * #entries > avail_h then
+            row_h = math.max(theme.dp(30), math.floor(avail_h / #entries))
+        end
         for i, e in ipairs(entries) do
             local event = e.event
             theme.row(nav, {

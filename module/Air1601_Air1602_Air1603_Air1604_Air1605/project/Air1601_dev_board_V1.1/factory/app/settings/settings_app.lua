@@ -23,5 +23,18 @@ if fe.sd_card or fe.nand_flash then
     require "storage_pri_app"       -- 外部存储初始化（仅当有SD卡/NAND Flash）
 end
 require "settings_memory_app"   -- 系统内存/Vm/PSRAM 信息查询
+if fe.rs485 then
+    require "settings_rs485_app"    -- RS485 收发测试（config.peripherals 声明，取用时才查驱动表）
+end
+if fe.uvc then
+    require "settings_uvc_app"      -- USB 摄像头数据流（开流/关流，画面由 UI 的 airui.camera 显示）
+end
+if fe.gnss then
+    require "settings_gnss_app"     -- GNSS 定位（exgnss + config.peripherals 的 gnss 条目）
+end
+if fe.ble then
+    require "settings_ble_app"      -- 蓝牙测试（exril_5101 + config.peripherals 的 ble 条目，用 UART3）
+end
+require "settings_can_app" -- CAN 总线测试（内置 can 库，参数取 config.can，本板 CAN2 复用 UART2）
 require "settings_auto_app" -- 后装APP开机自启管理（fskv 持久化 + 密码验证 + NES_CTRL 退出拦截）
 sys.publish("SETTINGS_APP_INIT")  -- 等待fskv就绪后再发布 SETTINGS_APP_INIT 事件，确保配置模块先行初始化

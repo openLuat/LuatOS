@@ -47,9 +47,11 @@ function M.new(backend,cloud)
     local connection_since,next_open,failed=nil,0,false
     local function sos_status()
         local st=backend.status()
+        local configured=settings.sos_configured()
         return {saved_mode=settings.saved.sos_mode,active_mode=settings.active,
-            configured=#(settings.saved.sos_numbers or {})>0,config_required=#(settings.saved.sos_numbers or {})==0,
-            implemented=true,reboot_pending=settings.pending or false,state=st.connected and "CONNECTED" or string.upper(st.state or "IDLE"),
+            configured=configured,config_required=not configured,
+            message=not configured and (settings.active=="sip_cc" and "桥接号码待配置" or "SOS号码待配置") or nil,
+            implemented=true,reboot_pending=settings.pending or false,state=st.connected and "CONNECTED" or (not configured and "CONFIG_REQUIRED" or string.upper(st.state or "IDLE")),
             index=st.index or 0,sip_state=st.sip_state,cc_state=st.cc_state,error=st.error}
     end
     local function unsupported(message) return {supported=false,error="unsupported_feature",message=message} end

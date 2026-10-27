@@ -51,12 +51,12 @@ local DEMO_INIT = {
     { status = "idle" },
 }
 
--- 供电、背光 PWM3 上电占空比 0 与 I2C 引脚配置
+-- 供电与引脚：背光 PWM 先给 0 占空比（黑屏），等 UI 搭好再点亮，避免上电花屏
 local function power_on()
     pwm.setup(cfg.HW.screen.pwm_ch, cfg.HW.screen.pwm_freq, 0)
     pwm.start(cfg.HW.screen.pwm_ch)
-    gpio.setup(cfg.HW.screen.pin_pwr, 0)     -- LCD 供电使能（低有效，先关闭）
-    gpio.setup(cfg.HW.screen.pin_rst, 1)     -- LCD 显示使能/复位脚拉高
+    gpio.setup(cfg.HW.screen.pin_pwr, 0)     -- LCD 供电使能，低有效：拉低即上电
+    gpio.setup(cfg.HW.screen.pin_rst, 1)     -- LCD 显示使能 / 复位脚，拉高释放复位
     i2c.setup(cfg.HW.screen.i2c_id, i2c.FAST)
     sys.wait(100)                            -- 等供电稳定
 end

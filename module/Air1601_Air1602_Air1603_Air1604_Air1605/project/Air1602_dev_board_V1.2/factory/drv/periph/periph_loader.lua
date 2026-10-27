@@ -9,10 +9,10 @@
 
 1. config/eng_xxx.lua 声明 peripherals 列表（声明式，未实现的 type 只登记不动作）：
    peripherals = {
-       { type = "uvc",     en_pin = 58, ready_delay = 200 },  -- UVC 摄像头
+       { type = "uvc", id = "uvc1", name = "USB摄像头", en_pin = 58, ready_delay = 200,
+         w = 960, h = 480 },  -- USB 摄像头（en_pin 可选）
        { type = "rs485",   en_pins = {14, 65, 49}, uart_id = 11 },
        { type = "spi_cam" },   -- SPI 摄像头（预留）
-       { type = "can" },       -- CAN（预留）
        { type = "onewire" },   -- 1-Wire（预留）
    }
 
@@ -35,10 +35,22 @@ local M = {}
 
 -- 外设驱动注册表：type → 初始化函数（按需 require 对应驱动，未注册=预留未实现）
 local PERIPH_REGISTRY = {
-    -- ["uvc"]     = function(params) return require("periph_uvc").init(params) end,
-    -- ["rs485"]   = function(params) return require("periph_rs485").init(params) end,
+    ["uvc"]     = function(params) return require("periph_uvc").init(params) end,
+    ["rs485"]   = function(params) return require("periph_rs485").init(params) end,
+    -- GNSS 没有开机初始化动作：UART3 与 GNSS 供电都由 exgnss 在页面打开时才动，
+    -- 开机就去开串口反而会和 4G/网络初始化抢 UART3。这里只返回 true 标记「已就绪」
+    -- （非 nil 即视为就绪），既不执行动作也不打「预留未实现」的日志。
+    -- 实际取参仍由 settings_gnss_app 从 config.peripherals 查（与 rs485 同一套路）；
+    -- 不要把 params 原样返回 —— 那会让 p.handle 指向 p 自身，留下自引用。
+    ["gnss"]    = function(params) return true end,
+    -- 蓝牙同理：exril_5101 在页面打开时才 config_uart / 切 AT 模式，
+    -- 开机就去开 UART3 会和 4G 抢串口。这里只返回 true 标记「已就绪」。
+    -- 供电脚 en_pin（BLE_EN=GPIO47）也不在此驱动：config.power_on 开机先拉低，
+    -- settings_ble_app 进页面拉高（等 boot_delay）、退出拉低，与 GNSS_EN 一致。
+    ["ble"]     = function(params) return true end,
+    -- CAN 是内置核心库，不进本框架：开机不碰总线（CAN2 复用 UART2，会和 RS485 抢串口），
+    -- 参数直接读 config.can，由 settings_can_app 在进页面时才 init。
     -- ["spi_cam"] = function(params) return require("periph_spi_cam").init(params) end,
-    -- ["can"]     = function(params) return require("periph_can").init(params) end,
     -- ["onewire"] = function(params) return require("periph_onewire").init(params) end,
 }
 

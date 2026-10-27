@@ -41,12 +41,21 @@ local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
 
 -- Air1602 开发板 V1.2
-require ("evb_1602_7i_v12")       -- Air1602 7寸 1024×600 RGB + 以太网(CH390) + WiFi(AirLink SPI2) + 4G(AirLink UART3) + SD + ES8311录音
+require ("evb_1602_7i_v12")       -- Air1602 7寸 1024×600 RGB + 以太网(CH390) + WiFi/4G/GNSS/蓝牙(UART3 复用) + SD + ES8311录音
 
 -- 驱动
 require ("lcd_display_rgb")       -- RGB display 统一驱动
 require ("tp_gt911")              -- GT911 触摸（统一）
 require ("periph_loader")         -- 外设预留框架（config.peripherals，require 无副作用）
+require ("periph_rs485")          -- RS485 驱动（periph_loader 里是动态 require，扫描不到，必须登记）
+require ("periph_uvc")            -- USB 摄像头驱动（同上，periph_loader 动态 require 扫不到）
+require ("excamera")              -- 摄像头扩展库（settings_uvc_app 里是 pcall + 字面 require，这里补登记确保打包）
+require ("exgnss")                -- GNSS 扩展库（settings_gnss_app 里字面 require，这里补登记确保打包）
+require ("exril_5101")            -- 蓝牙扩展库（settings_ble_app 里是 pcall + 字面 require，这里补登记确保打包）
+-- exril_5101 在 require 那一刻就把 UART1 按 9600 打开并挂上 AT 接收回调（库的默认槽位）。
+-- 本板蓝牙在 UART3、UART1 不接任何东西，白占一个串口没有意义 —— 开完立即释放。
+-- 真正用到时由 settings_ble_app 调 config_uart(3, 9600) 重新 setup。
+pcall(uart.close, 1)
 
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器

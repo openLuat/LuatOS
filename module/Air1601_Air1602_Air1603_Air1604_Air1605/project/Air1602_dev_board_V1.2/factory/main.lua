@@ -37,11 +37,16 @@ PROJECT：项目名，ascii string类型
 已实现的配置（修改 PROJECT 为以下任一值即可切换硬件）：
 
   Air1602 开发板 V1.2:
-  "EVB_Air1602_7inch_1024x600_000_V012"        → config/evb_1602_7i_v12.lua     7寸RGB + PWM背光 + WiFi(AirLink SPI2) + 4G(AirLink UART3) + 以太网(CH390) + SD + ES8311录音播放
+  "EVB_Air1602_7inch_1024x600_000_V012"        → config/evb_1602_7i_v12.lua     7寸RGB + PWM背光 + WiFi/4G/GNSS/蓝牙(UART3 复用) + 以太网(CH390) + SD + RS485(GPIO64/46) + USB摄像头(GPIO58) + CAN2(UART2) + ES8311录音播放
   "PC"                                         → config/pc_default.lua          PC 模拟器（不读配置文件，内联配置）
   说明：本工程只保留 7 寸真机配置与 PC 模拟器回退，其余尺寸按需新增配置文件。
 
-  说明：V1.2 底板的 WiFi 走 AirLink SPI2、4G 走 AirLink UART3，二者总线互不冲突，可同时启用；
+  说明：V1.2 底板的 4G / WiFi / GNSS / 蓝牙 四个模组全部引到 UART3，且 6205 另有 SPI2 接线，
+  由设置页「UART3口复用」四选一（fskv 持久化，缺省见 config.channel_default = "4g"）：
+    选 WiFi        → 6205 走 UART3
+    选 GNSS / 蓝牙 → 6205 自动改走 SPI2，UART3 空出来给对应测试页独占，WiFi 仍可用
+    选 4G          → 4G 占 UART3，WiFi 不建网卡（两者同为 airlink 从机，只能跑一路）
+  net_manager 按该模式自动保留对应的那条网络条目。
   网络优先级 以太网 > WiFi > 4G，网线不通时按顺序回落到 WiFi、4G。
 
 VERSION：项目版本号，ascii string类型

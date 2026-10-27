@@ -1,5 +1,7 @@
 #include "luat_base.h"
 #include "luat_display_panel_comm.h"
+
+#ifdef LUAT_USE_RGB_INF
 #include "luat_rtos.h"
 
 
@@ -293,5 +295,7 @@ struct luat_display_panel rgb_panel_nv3052c = {
     .timing = &nv3052c_timing,
     .screen_win = NULL,
 };
+
+#endif /* LUAT_USE_RGB_INF */
 
 

@@ -1,6 +1,8 @@
 #include "luat_base.h"
 #include "luat_display_panel_comm.h"
 
+#ifdef LUAT_USE_MIPI_INF
+
 
 #define LUAT_LOG_TAG "rgb_custom"
 #include "luat_log.h"
@@ -81,5 +83,7 @@ struct luat_display_panel dsi_panel_custom = {
     .timing = &dsi_timing,
     .screen_win = NULL,
 };
+
+#endif /* LUAT_USE_MIPI_INF */
 
 

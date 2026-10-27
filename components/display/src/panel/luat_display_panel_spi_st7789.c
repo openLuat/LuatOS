@@ -1,5 +1,7 @@
 #include "luat_base.h"
 #include "luat_display_panel_comm.h"
+
+#ifdef LUAT_USE_SPI_INF
 #include "luat_rtos.h"
 
 
@@ -87,6 +89,8 @@ struct luat_display_panel spi_panel_st7789 = {
     .panel_funcs = &panel_funcs_spi,
     .screen_win = &spi_screen_win,
 };
+
+#endif /* LUAT_USE_SPI_INF */
 
 
 

@@ -2,6 +2,8 @@
 #include "luat_display.h"
 #include "luat_display_if_comm.h"
 
+#ifdef LUAT_USE_RGB_INF
+
 #define LUAT_LOG_TAG "display_rgb"
 #include "luat_log.h"
 
@@ -74,6 +76,8 @@ struct luat_display_funcs rgb_funcs = {
     .pan_display = rgb_pan_display,
     .deinit = rgb_deinit,
 };
+
+#endif /* LUAT_USE_RGB_INF */
 
 
 

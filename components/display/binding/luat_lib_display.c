@@ -42,10 +42,18 @@ typedef struct {
 
 static const display_if_reg_t if_regs[] = 
 {
+#ifdef LUAT_USE_RGB_INF
     {"rgb",  &rgb_funcs},
+#endif
+#ifdef LUAT_USE_MIPI_INF
     {"dsi",  &dsi_funcs},
+#endif
+#ifdef LUAT_USE_SPI_INF
     {"spi",  &spi_funcs},
+#endif
+#ifdef LUAT_USE_LVDS_INF
     {"lvds", &lvds_funcs},
+#endif
 #ifdef LUAT_USE_LCD_SDL2
     {"sdl",  &sdl_funcs},
 #endif
@@ -209,16 +217,28 @@ static int panel_custom_cmds_setup(struct luat_display_panel *panel, lua_State *
 /*显示面板列表*/
 static const display_panel_reg_t panel_regs[] = 
 {
+#ifdef LUAT_USE_RGB_INF
     {"custom", "rgb",  &rgb_panel_custom},
+#endif
+#ifdef LUAT_USE_LVDS_INF
     {"custom", "lvds", &lvds_panel_custom},
+#endif
+#ifdef LUAT_USE_MIPI_INF
     {"custom", "dsi",  &dsi_panel_custom},
+#endif
 
+#ifdef LUAT_USE_SPI_INF
     {"st7789",  "spi",  &spi_panel_st7789},
     {"st7796",  "spi",  &spi_panel_st7796},
     {"ili9341", "spi", &spi_panel_ili9341},
+#endif
+#ifdef LUAT_USE_RGB_INF
     {"st7701s", "rgb", &rgb_panel_st7701s},
-    {"st7701s", "dsi", &dsi_panel_st7701s},
     {"nv3052c", "rgb", &rgb_panel_nv3052c},
+#endif
+#ifdef LUAT_USE_MIPI_INF
+    {"st7701s", "dsi", &dsi_panel_st7701s},
+#endif
     {"", NULL, NULL}
 };
 

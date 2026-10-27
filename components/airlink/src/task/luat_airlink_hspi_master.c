@@ -14,11 +14,6 @@
 #define LUAT_LOG_TAG "airlink.hspi"
 #include "luat_log.h"
 
-/* INT 丢失兜底: 0x06 bit0=0 但 RX_DAT_LEN 非零 → 强制读 0x10 尝试恢复。
- * 连续灌流时 0x06 INT 是"读可清"边沿, 帧流不断时恒为 0; RETRY=1 即只要 0x02
- * 非零就立即读(紧读循环), 0x02 为 0 仍走 n==0 提前返回不空读, CRC 兜底误读。 */
-#define HSPI_INT_MISS_RETRY 1
-
 static uint16_t crc16_modbus(const uint8_t *data, size_t len) {
     uint16_t crc = 0xFFFF;
     for (size_t i = 0; i < len; i++) {
@@ -248,13 +243,16 @@ int xt804_hspi_read_response(uint8_t *resp, uint16_t *resp_len,
 }
 
 /**
- * 中断驱动读取 — 严格按 HSPI 手册 10.4.3.3 流程
+ * 读取从机→主机数据 (上行) — 精简为 2 次 SPI 事务 (原 3 次)
  *
  * 流程:
- *   [事务1] 读 SPI_INT_HOST_STTS(0x06) → 确认 bit0=1
- *   [事务2] 读 RX_DAT_LEN(0x02)       → 获取数据长度
- *   [事务3] 读 DAT_PORT1(0x10)        → 读取数据
- *   [事务4] 读 SPI_INT_HOST_STTS(0x06) → 确认清除 (bit0=0)
+ *   [事务1] 读 RX_DAT_LEN(0x02) → 判定有无数据 + 帧长 (固定 1600)
+ *   [事务2] 读 DAT_PORT1(0x10)  → 读取数据 (末段读, 消耗 desc)
+ *
+ * 为何砍掉 0x06(SPI_INT_HOST_STTS): 它是"读可清"边沿, 灌流时恒 0 (边沿只在
+ * 空闲→首帧时出现一次), 不提供额外信息; 从机环空时把 RX_DAT_LEN 写回 0
+ * (wm_hspi.c SDIO_RX_IRQHandler) 作为唯一可靠的"无数据"信号, 主控据此停读。
+ * 读 0x10 后靠 CRC 区分真帧/陈旧垃圾 (环空写0正是防主控反复读陈旧帧)。
  *
  * 响应数据格式 (从机→主机):
  *   HSPI 硬件剥离 AirLink 帧头 magic(4)+len(2)+crc16(2)=8B
@@ -270,52 +268,16 @@ int xt804_hspi_read_response(uint8_t *resp, uint16_t *resp_len,
  */
 int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
                                uint16_t *cmd_id) {
-    // INT 丢失兜底: "读可清"可能吞掉 0x06 bit0, 但数据仍 pending (RX_DAT_LEN 非零)
-    static int s_int_miss_cnt = 0;
-    uint8_t sts0[2];
-    if (hspi_rd(0x06, sts0, 2) < 0) return -1;
+    // [事务1] 直接读 RX_DAT_LEN 判定有无数据 (唯一可靠的"有数据"信号, 环空=0)
+    uint8_t rxl[2];
+    if (hspi_rd(0x02, rxl, 2) < 0) return -1;
+    uint16_t n = rxl[0] | ((uint16_t)rxl[1] << 8);
+    if (n == 0 || n == 0xFFFF) return -1;  // 确实无数据
+    if (n > 1600) return -1;               // 防御: 垃圾长度写穿栈缓冲 (死机根因)
 
-    uint16_t n = 0;
-    int have_int = (sts0[0] & 0x01);
-    int recovered = 0;  // 兜底恢复标志 (0x10 读到有效帧才置位)
-
-    if (!have_int) {
-        // bit0=0: 正常无新数据, 但 RX_DAT_LEN 可能仍是未读走的数据
-        uint8_t rxl[2];
-        if (hspi_rd(0x02, rxl, 2) < 0) return -1;
-        n = rxl[0] | ((uint16_t)rxl[1] << 8);
-        if (n == 0 || n == 0xFFFF || n > 1600) {
-            s_int_miss_cnt = 0;   // 确实没数据
-            return -1;
-        }
-        if (++s_int_miss_cnt < HSPI_INT_MISS_RETRY) {
-            return -1;            // 先积累, 避免 RX_DAT_LEN 旧值误读刷屏
-        }
-        s_int_miss_cnt = 0;
-        recovered = 1;            // 尝试兜底读, 靠 CRC 区分真数据/旧值垃圾
-        // fall through: 用 RX_DAT_LEN 读 0x10
-    } else {
-        s_int_miss_cnt = 0;
-        // INT 触发, 读 RX_DAT_LEN (硬件时序窗口重试)
-        for (int _try = 0; _try < 3; _try++) {
-            uint8_t rxl[2];
-            if (hspi_rd(0x02, rxl, 2) < 0) return -1;
-            n = rxl[0] | ((uint16_t)rxl[1] << 8);
-            if (n != 0 && n != 0xFFFF) break;
-            if (_try == 0) {
-                luat_rtos_task_sleep(1);
-                continue;
-            }
-            return -1;
-        }
-    }
-
-    uint16_t data_len = n;
-    if (data_len > 1600) return -1;  // 防御: 垃圾长度写穿栈缓冲 (死机根因)
-
-    // [事务3] 读数据 (栈上数组, 4字节对齐) + CRC 校验
+    // [事务2] 读数据 (栈上数组, 4字节对齐) + CRC 校验
     // 主控用 0x10 末段读（读即消耗 desc，从机 valid 清后才写下一帧）；CRC 校验保留为防御
-    uint16_t npad = (data_len + 3) & ~3;
+    uint16_t npad = (n + 3) & ~3;
     uint8_t tx_buf[1608];
     uint8_t rx_buf[1608];
     uint8_t buf[1608];
@@ -328,28 +290,25 @@ int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
     if (xt804_hspi_spi_xfer(tx_buf, rx_buf, xfer) < 0) return -1;
     memcpy(buf, rx_buf + 1, npad);
 
-    uint16_t plen = data_len;
+    uint16_t plen = n;
     int is_fmt1 = (plen >= 4 && buf[0]==0xA1 && buf[1]==0xB1 && buf[2]==0xCA && buf[3]==0x66);
     if (is_fmt1) {
         // 格式1 (magic 开头) → 必须 CRC 通过 (防御: 单帧队列下不应失败)
         if (airlink_unpack(buf, plen) == NULL) {
-            // 兜底读到的旧值垃圾(CRC 不匹配)静默丢弃; 正常路径打印
-            if (!recovered) LLOGE("HSPI frame CRC fail len=%u — drop", plen);
+            // 环空时读到的陈旧帧/垃圾(CRC 不匹配)静默丢弃; 正常路径打印
+            LLOGE("HSPI frame CRC fail len=%u — drop", plen);
             return -1;
         }
-    } else if (recovered) {
-        // 兜底路径严格要求格式1(magic+CRC), 无 magic 视为旧值垃圾丢弃
+    } else {
+        // 无 magic = 环空时读到的陈旧帧/垃圾, 静默丢弃
         return -1;
     }
 
-    // 解析: 格式1 已校验通过, 跳过帧头; 格式2 直接 cmd_t+payload
+    // 解析: 格式1 已校验通过, 跳过完整 airlink_link_data_t 帧头 (16 字节)
     uint8_t *pdata = buf;
-    if (is_fmt1) {
-        // airlink_link_data_t 头部 16 字节
-        if (plen < 16) return -1;
-        pdata = buf + 16;  // 跳过完整帧头
-        plen = plen - 16;
-    }
+    if (plen < 16) return -1;
+    pdata = buf + 16;  // 跳过完整帧头
+    plen = plen - 16;
 
     // 现在 pdata 指向 cmd_t+payload
     // cmd_t: cmd(2 LE) + payload_len(2 LE) + payload
@@ -363,8 +322,6 @@ int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
     if (cmd_id) *cmd_id = cmd_id_val;
     *resp_len = pld_len_val;
     if (resp) memcpy(resp, pdata + 4, pld_len_val);
-    // INT miss 兜底属正常自愈, 关日志防刷屏(需诊断时放开)
-    // if (recovered) LLOGI("HSPI INT miss recovered cmd=0x%04X len=%u", cmd_id_val, pld_len_val);
     return 0;
 }
 

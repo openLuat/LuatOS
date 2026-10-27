@@ -18,7 +18,12 @@
      W5 / M5  UART1 = TTL 串口   UART2 = 隔离485
    本文件是 Air8603W1：UART1 = 隔离485、UART2 = UVC 摄像头控制串口。
    同一串口划分的 4G 出货型号见 config/eng_8603m1_10i_v0.lua，两者只差 network / features / ui 三处。
-2. 本型号无 Air1103 语音芯片（UART6 空闲），不配 hw.audio，「功能测试」里也没有「音频」组。
+2. 【音频 = 内置 DAC + 直驱 PA】本系列不出 Air1103 语音芯片版本（UART6 空闲）。
+   声音由芯片内置 DAC 播放，PA 功放使能脚直驱控制：
+   AUDIOPA_EN = GPIO73，HT6873 高电平使能（pa_on_level = 1），
+   power_on 初始拉低关断，起播时 exaudio 拉高。
+   本板无麦克风，不开录音相关功能；peripherals 不配 type="audio"（那是「录音播放」测试页），
+   故「功能测试」里没有「音频」组。播放由 ui/video_util.lua 读 hw.audio 出声。
 3. 【串口分配细则】UART2 是摄像头 / 人脸识别模组的控制串口，画面走 USB，两者互不占用。
    GPIO58 的归属见文件头第 5 条。
 4. 【RS485 供电域与方向脚】485_EN = GPIO64 是 485 功能总供电，power_on 拉高使能，之后常供电不回落；
@@ -68,7 +73,7 @@ return {
     },
 
     -- ===== GPIO 上电时序 =====
-    -- 按顺序初始化各外设供电和复位（顺序即依赖：电源轨→SD→摄像头/485方向脚→485总供电）
+    -- 按顺序初始化各外设供电和复位（顺序即依赖：电源轨→SD→功放关断→摄像头/485方向脚→485总供电）
     power_on = {
         { pin = 12, dir = 0, level = 1 },              -- 5V_EN 拉高，5V 供电
         { pin = 56, dir = 0, level = 1, delay = 100 }, -- 9V_EN 拉高，等 100ms 就绪
@@ -76,6 +81,7 @@ return {
         { pin = 52, dir = 0, level = 1 },              -- 5VOUT_EN 拉高，对外 5V 输出使能
         { pin = 72, dir = 1, level = 0 , delay = 20 }, -- 网络模组 RST 拉低 20ms
         { pin = 74, dir = 0, level = 1 },              -- SD_EN 拉高，SD 卡供电
+        { pin = 73, dir = 0, level = 0 },              -- AUDIOPA_EN 初始拉低关断功放（HT6873 高电平使能）
         { pin = 58, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高，等 200ms 摄像头就绪
         { pin = 64, dir = 0, level = 1 },              -- 485_EN 拉高，485 功能总供电
     },
@@ -131,12 +137,21 @@ return {
         wdt = {
             pin = 57,               -- PIN47 = GPIO57 → 三极管 → WTDOG
         },
-        -- 音频: 本型号无 Air1103 语音（UART6 空闲），不配 hw.audio，见文件头第 2 条
+        -- 音频: 芯片内置 DAC 播放 + HT6873 功放（AUDIOPA_EN = GPIO73 直驱，无麦克风）
+        audio = {
+            model = "dac",          -- 内置 DAC 模式
+            pa_ctrl = 73,           -- PA(功放)使能引脚 = GPIO73（AUDIOPA_EN）
+            pa_on_level = 1,        -- 高电平使能功放（HT6873）
+            dac_delay = 6,          -- DAC 启动前冗余时间（旧框架用）
+            pa_delay = 10,          -- PA 在播放开始后延迟打开的时间(ms)，透传 config_pa_power_ctrl()
+            play_vol = 70,          -- 默认播放音量(0~100)
+        },
     },
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
         wifi = true,        -- 启用 WiFi（Air6205，独占 UART3）—— 本型号固定为 WiFi 版，见文件头第 1 条
+        speaker = true,     -- 启用喇叭（内置 DAC + HT6873 功放）
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
         usb_camera = true,  -- 启用 USB 摄像头（UVC）—— 入口在「功能测试」
         rs485 = true,       -- 启用 RS485 接口

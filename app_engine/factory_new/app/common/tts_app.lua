@@ -50,6 +50,9 @@ local M = {}
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
 
+-- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
+local audio_hw = require "audio_hw"
+
 local gen = 0   -- 播放代次：stop/新 say 时 +1，旧协程据此退出
 
 --- 能力探测：C 库可能是 userdata，不能用 type(t)=="table" 前置判断
@@ -70,30 +73,13 @@ function M.available()
         and has_fn(exaudio, "setup") and has_fn(exaudio, "play_start")
 end
 
---- 与 llm_chat.tts_init 相同的 setup 参数组装（字段一一对应，勿单方面增删）
-local function tts_setup(ac)
-    local sp = { model = ac.model or "es8311", pa_ctrl = ac.pa_ctrl,
-                 pa_on_level = ac.pa_on_level or 1, dac_delay = ac.dac_delay }
-    if ac.dac_ctrl then sp.dac_ctrl = ac.dac_ctrl end
-    if ac.i2c_id then sp.i2c_id = ac.i2c_id end
-    if ac.i2s_sample then sp.i2s_sample = ac.i2s_sample end
-    if ac.bits_per_sample then sp.bits_per_sample = ac.bits_per_sample end
-    if ac.i2s_framebit then sp.i2s_framebit = ac.i2s_framebit end
-    if ac.channels then sp.channels = ac.channels end
-    if ac.pa_delay then sp.pa_delay = ac.pa_delay end
-    if ac.tx_bus_type and ac.rx_bus_type then
-        sp.tx_bus_type = ac.tx_bus_type; sp.tx_bus_id = ac.tx_bus_id or 0
-        sp.rx_bus_type = ac.rx_bus_type; sp.rx_bus_id = ac.rx_bus_id or 0
+--- 起播前保证音频通路完整：入参由 audio_hw 统一组装（必带 uart_id/audio_mode），
+--- 音量也由它按 ac.play_vol（「亮度和声音」页 set_volume 的统一写回点）套用
+local function tts_setup()
+    local ok, err = audio_hw.setup()
+    if not ok then
+        log.warn("tts_app", "exaudio.setup 异常/失败", err)
     end
-    if ac.audio_mode then sp.audio_mode = ac.audio_mode end
-    -- setup 幂等（audio_v2 下重复调用不出错），每次起播前调用保证通路完整
-    local ok, result = pcall(exaudio.setup, sp)
-    if not ok or not result then
-        log.warn("tts_app", "exaudio.setup 异常/失败", ok, result)
-    end
-    -- 音量走统一写回点 ac.play_vol（「亮度和声音」页 set_volume 写回），
-    -- 每次现读，自动跟随用户音量设置
-    pcall(exaudio.vol, ac.play_vol or 70)
 end
 
 --- 播放一段文本（仅在协程内调用）
@@ -101,9 +87,8 @@ end
 --- @param my_gen number 本次播放的代次
 --- @return boolean 是否完整播完
 local function play_blocking(text, my_gen)
-    local ac = get_audio_cfg()
-    if not ac then return false end
-    tts_setup(ac)
+    if not get_audio_cfg() then return false end
+    tts_setup()
     sys.wait(100)                       -- 等 DAC/PA 上电稳定（setup 后需要时间）
     if gen ~= my_gen then return false end
 

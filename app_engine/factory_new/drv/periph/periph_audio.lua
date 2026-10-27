@@ -38,6 +38,13 @@ handle:status()        → { enabled=bool, info=string }
   没配 hw.audio 的板子 init 直接失败，"功能测试"里也不会出现「音频」组
 - Air1103（model="air1103"）录音固定 PCM_16000（16kHz/16bit/单声道），回放走流式 PCM；
   其他 model 按 hw.audio.record_format 录成文件，amr/wav/mp3 走 exaudio 文件播放
+- exaudio.setup 入参由 app/common/audio_hw 统一组装（必带 uart_id/audio_mode）。
+  Air1103 实际接 UART6，漏传 uart_id 会被 exaudio 缺省绑到 UART1（隔离 485 那一路），
+  现象是录音采不到数据、回放也没声音
+- 录音起播后做 MIC 就绪探测（2.5s）：没采到数据直接报
+  「未收到MIC数据，请检查供电、UART和固件」，不让用户对着静音录音等满时长
+- Air1103 每次录音都复位芯片，恢复 MIC 上行前落盘的是静音，
+  下发给 exaudio 的时长补 2 秒，用户要几秒就录到几秒有效音频
 - 录音一律「函数 path 手动落盘」：字符串 path 在 exaudio 内部按 "ab" 追加写，不会创建文件
   （与 module/Air8784/project/factory/user/factory.lua 同款写法）
 - 状态经 sys.publish("AUDIO_TEST_STATE", id, state, info) 广播，
@@ -52,12 +59,20 @@ local M = {}
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
 
+-- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
+local audio_hw = require "audio_hw"
+
 -- 录音文件固定落 /ram（内存盘，掉电即失，只作当场试听）
 local REC_PATH = "/ram/audio_test"
 -- 流式回放每批字节数（Air1103 下行 320B/10ms，取 10 帧一批）
 local PLAY_CHUNK = 3200
 -- 流式回放喂数据节奏：Air1103 按 32KB/s 消费，每批等 #d/32 毫秒防溢出
 local PLAY_BYTE_PER_MS = 32
+-- MIC 上行就绪探测超时：Air1103 复位后约 1.4s 才恢复 MIC 上行，超时给足余量
+local MIC_READY_TIMEOUT_MS = 2500
+-- Air1103 录音时长补偿：芯片复位到恢复 MIC 上行之间落盘的是静音，
+-- 按参考工程 boot_ms=1500 补 2 秒，用户要几秒就录到几秒有效音频
+local AIR1103_UPSTREAM_DELAY_S = 2
 
 -- 已登记实例：id → handle
 local instances = {}
@@ -68,6 +83,8 @@ local play_owner = nil
 -- 后置定义的收尾/关闭函数，先占位让前面的回调能引用到
 local finalize_record
 local audio_teardown
+-- MIC 就绪探测定时器句柄（收尾时取消，防止残留定时器误判下一次录音）
+local mic_probe_t = nil
 
 --[[
 @function audio_cfg
@@ -128,31 +145,16 @@ local function audio_setup(h)
         return true
     end
 
-    -- 参数按配置透传：DAC 模式只需 pa_ctrl/pa_on_level/dac_delay；
-    -- ES8311 模式需 i2c_id/dac_ctrl/i2s_sample 等，可配 tx_bus_type/rx_bus_type 做播放/录音分总线；
-    -- Air1103 模式走 uart_id + audio_mode="new"
-    local sp = {
-        model = ac.model or "es8311",
-        pa_ctrl = ac.pa_ctrl,
-        pa_on_level = ac.pa_on_level or 1,
-        dac_delay = ac.dac_delay,
-    }
-    local keys = {
-        "dac_ctrl", "i2c_id", "i2s_sample", "bits_per_sample", "i2s_framebit", "channels",
-        "pa_delay", "tx_bus_type", "tx_bus_id", "rx_bus_type", "rx_bus_id",
-        "audio_mode", "uart_id",
-    }
-    for i = 1, #keys do
-        local k = keys[i]
-        if ac[k] ~= nil then sp[k] = ac[k] end
-    end
-
-    local ok, ret = pcall(exaudio.setup, sp)
-    if not ok then return false, "exaudio.setup 异常: " .. tostring(ret) end
-    if not ret then return false, "音频初始化失败" end
-    pcall(exaudio.vol, ac.play_vol or 70)
+    -- 入参由 audio_hw 统一组装（DAC 模式 pa_ctrl/pa_on_level/dac_delay、
+    -- ES8311 模式 i2c_id/dac_ctrl/i2s_sample 等与分总线 tx/rx_bus、
+    -- Air1103 模式 uart_id + audio_mode="new" + 16bit/单声道）
+    local sp = audio_hw.params()
+    local ok, err = audio_hw.setup()
+    if not ok then return false, err end
     pcall(exaudio.mic_vol, ac.mic_vol or 70)
     h.inited = true
+    -- setup 是全局一次性的（boot_ui 已收口）：日志只记本次申请的入参，
+    -- 真实通路是否通要看录音的 MIC 就绪探测结果
     log.info("periph_audio", "音频就绪", h.id, sp.model, "uart:", tostring(sp.uart_id))
     return true
 end
@@ -164,6 +166,7 @@ local function rec_data_cb(buff, len)
     if buff and len and len > 0 then
         local ok, data = pcall(buff.toStr, buff, 0, len)
         if ok and type(data) == "string" and #data > 0 then
+            h.mic_got = true
             pcall(h.rec_fp.write, h.rec_fp, data)
         end
     end
@@ -183,6 +186,10 @@ end
 @param h 实例 handle
 ]]
 finalize_record = function(h)
+    if mic_probe_t then
+        sys.timerStop(mic_probe_t)
+        mic_probe_t = nil
+    end
     if h.rec_fp then
         pcall(h.rec_fp.close, h.rec_fp)
         h.rec_fp = nil
@@ -194,11 +201,30 @@ finalize_record = function(h)
     end
     h.rec_bytes = sz
     h.rec_ready = sz > 0
-    if sz > 0 then
+    if h.mic_fail then
+        publish_state(h, "error", "录音失败：未收到MIC数据，请检查供电、UART和固件")
+    elseif sz > 0 then
         publish_state(h, "idle", string.format("录音完成 %d 秒 %d 字节，可播放", h.rec_seconds or 0, sz))
     else
         publish_state(h, "error", "录音失败：没有采到数据")
     end
+end
+
+--[[
+@function mic_probe
+@summary MIC 上行就绪探测：到点还没采到数据即判定供电/UART/固件有问题，直接收尾报错
+]]
+local function mic_probe()
+    mic_probe_t = nil
+    local h = rec_owner
+    if not h or h.mic_got then return end
+    if h.state ~= "recording" then return end
+    local ac = audio_cfg() or {}
+    h.mic_fail = true
+    log.error("periph_audio", "未收到MIC数据", h.id,
+              "model:", tostring(ac.model), "uart:", tostring(audio_hw.params().uart_id))
+    pcall(exaudio.record_stop)
+    finalize_record(h)
 end
 
 --[[
@@ -231,11 +257,17 @@ local function record_start(h, seconds)
     h.rec_path = path
     h.rec_fp = fp
     h.rec_seconds = secs
+    h.mic_got = false
+    h.mic_fail = false
     rec_owner = h
+
+    -- Air1103 每次录音都复位芯片，恢复 MIC 上行前落盘的是静音，时长补 AIR1103_UPSTREAM_DELAY_S
+    local cmd_secs = secs
+    if audio_hw.is_air1103() then cmd_secs = secs + AIR1103_UPSTREAM_DELAY_S end
 
     local ok, ret = pcall(exaudio.record_start, {
         format = fmt,
-        time = h.rec_seconds,
+        time = cmd_secs,
         path = rec_data_cb,
         cbfnc = rec_done_cb,
     })
@@ -245,6 +277,11 @@ local function record_start(h, seconds)
         rec_owner = nil
         return false, "录音启动失败: " .. tostring(ret)
     end
+    if mic_probe_t then
+        sys.timerStop(mic_probe_t)
+        mic_probe_t = nil
+    end
+    mic_probe_t = sys.timerStart(mic_probe, MIC_READY_TIMEOUT_MS)
     publish_state(h, "recording", string.format("录音中 %d 秒...", h.rec_seconds))
     log.info("periph_audio", "开始录音", h.id, "时长", h.rec_seconds, "格式", tostring(ac.record_format))
     return true
@@ -424,6 +461,8 @@ local function make_handle(params)
         rec_fp = nil,
         rec_bytes = 0,
         rec_ready = false,
+        mic_got = false,
+        mic_fail = false,
         rec_seconds = params.record_seconds or 5,
         stop_req = false,
         play_gen = 0,

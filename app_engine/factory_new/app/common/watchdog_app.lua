@@ -23,7 +23,15 @@ exair153x_wdt 内部自动喂狗任务持续运行，无法外部停止。
 Air153D 超时档位由硬件 STRAP 引脚配置，软件层不参与。
 ]]
 
-local wdt_ok, exair153x_wdt = pcall(require, "exair153x_wdt")
+--[[
+编译系统按 require "exair153x_wdt" 的字面文本决定打包范围，故这里保持字面写法；
+扩展库缺失的固件上本模块也必须能加载，所以用 pcall 兜住。]]
+local function load_exair153x_wdt()
+    return require "exair153x_wdt"
+end
+
+local wdt_ok, wdt_lib = pcall(load_exair153x_wdt)
+local exair153x_wdt = wdt_ok and wdt_lib or nil
 
 local wdt_cfg = (_G.project_config and _G.project_config.hw and _G.project_config.hw.wdt) or {}
 local WATCHDOG_PIN = wdt_cfg.pin
@@ -39,6 +47,9 @@ local watchdog_enabled = true
 ]]
 local function do_feed()
     if not watchdog_enabled then
+        return
+    end
+    if type(exair153x_wdt) ~= "table" then
         return
     end
     if exair153x_wdt.feed() then
@@ -94,15 +105,21 @@ end
 @function init_watchdog
 ]]
 local function init_watchdog()
-    if not wdt_ok then
+    if not wdt_ok or type(exair153x_wdt) ~= "table" then
         log.error("watchdog_app", "exair153x_wdt not packed in firmware, watchdog NOT fed")
+        watchdog_enabled = false
         return
     end
     if type(WATCHDOG_PIN) ~= "number" then
         log.error("watchdog_app", "config.hw.wdt.pin missing, watchdog NOT fed")
+        watchdog_enabled = false
         return
     end
-    exair153x_wdt.init({ wdt_pin = WATCHDOG_PIN })
+    if not exair153x_wdt.init({ wdt_pin = WATCHDOG_PIN }) then
+        log.error("watchdog_app", "exair153x_wdt init failed, watchdog NOT fed")
+        watchdog_enabled = false
+        return
+    end
     watchdog_enabled = true
     log.info("watchdog_app", "init done, pin:", WATCHDOG_PIN)
 end

@@ -20,11 +20,16 @@
    exaudio 走 model="air1103" + audio_mode="new" 新框架（参考 module/Air8784/project/factory）。
    AUDIOPA_EN = PIN55 = GPIO73 是 Air1103 的**供电脚**（非本地功放）：power_on 拉高常供电，
    hw.audio 不写 pa_ctrl（air1103 模式 exaudio 跳过 PA 控制）。
-   语音芯片上电到就绪需数百 ms（参考工程 boot_ms=1500），setup 时由 exaudio/air1103 库自行等就绪。
+   语音芯片上电到就绪约 1.4s（参考工程 boot_ms=1500）；录音每次都会复位芯片，
+   恢复 MIC 上行前的静音段由 periph_audio 按 2 秒补时长抵消。
    Air1103 模式录音固定 PCM_16000（16kHz/16bit/单声道），回放走流式 PCM。
-   消费方透传 uart_id 的接线点：app/common/tts_app.lua、app/factory/llm_chat.lua、
-   app/factory/factory_rec.lua、ui/video_util.lua（四处 exaudio.setup 白名单），
-   外加功能测试的 drv/periph/periph_audio.lua（第五处，「录音播放」测试页）。
+   exaudio.setup 的入参（含 uart_id/audio_mode）统一由 app/common/audio_hw.lua 组装，
+   六个消费方（tts_app / llm_chat / factory_rec / settings_display_app / video_util /
+   periph_audio）都走它，任何一处都不会再漏传 uart_id。
+   MP4 的声音走 mplayer → C 层音频框架，而 C 层没有 air1103 后端，本机型 MP4 必然无声：
+   要出声需在 MP4 同目录放同名 .pcm 伴音（16kHz/16bit/单声道），由 ui/video_util.lua
+   经 app/common/pcm_play.lua 流式喂 Air1103 补声，转法：
+   ffmpeg -i xx.mp4 -ac 1 -ar 16000 -f s16le xx.pcm
 4. 【4G_RESET 先高维持低】PIN4 = GPIO64：上电先拉高 50ms 再拉低 120ms 使能
    （与 eng_1602_10i_v10421 的 airlink 模组复位写法一致）。
 5. LCD 为 RGB 10寸 1024×600（免序列四合一），走统一 RGB 驱动 lcd_display_rgb；
@@ -38,8 +43,11 @@
    开关 features.wdt = true、喂狗脚 hw.wdt = { pin = 57 }，watchdog_app 加载后自动喂狗。
    芯片侧 WTDOG 是喂狗输入、PWR_OFF 是复位输出（接系统复位），固件不配置 PWR_OFF。
    超时档位由 STRAP 硬件配置（10分钟 / 60分钟 / 12小时 / 24小时），软件层不参与。
-9. 485：485_EN = GPIO14 是 485 收发供电（power_on 拉高常供电）。本型号 UART1 只挂隔离 485
-   这一路（DE 脚未引出，收发器自控方向），485_EN1 = PIN51 = GPIO65 空置不用。
+9. 485：485_EN = GPIO14 是 485 收发器总电源（power_on 拉高常供电）。
+   本型号 UART1 只挂隔离 485 这一路（J21，收发器 U11）：485_EN1 = PIN51 = GPIO65 是它的
+   **方向脚**（DE 与 /RE 并联，高=发 低=收），不是空置脚，必须交给 periph_rs485 翻转。
+   J20（非隔离）与 J21（隔离）共用 UART1 和 GPIO65，只能二选一，靠改板切换
+   （吹/贴 R104、R1104、R1105），软件改不了。
    features.rs485 目前在 app/ 与 ui/ 里查不到消费方，仅作能力声明。
 10. 上电供电轨：5V_EN = GPIO12、9V_EN = PIN46 = GPIO56、12V_EN = PIN72 = GPIO44、
     5VOUT_EN = PIN73 = GPIO52（对外 5V 输出使能）。
@@ -71,12 +79,12 @@ return {
     },
 
     -- ===== 外设清单（运行时可开关的控制脚，与 power_on 的开机默认供电同一物理脚）=====
-    -- UVC_EN = PIN48 = GPIO58 / 485_EN = GPIO14
+    -- UVC_EN = PIN48 = GPIO58 / 485_EN = GPIO14（总电源）/ 485_EN1 = PIN51 = GPIO65（方向脚）
     -- UART1 = 隔离485、UART2 = 人脸识别 UVC 摄像头串口、UART6 = Air1103 语音（见文件头第 2 条）
     -- 本型号不出非隔离 485（那是 8605 的 UART1），故"功能测试"里没有该项
     peripherals = {
         { type = "uvc",   id = "uvc1",   name = "UVC摄像头", en_pin = 58, ready_delay = 200 }, -- UVC_EN，200ms 就绪
-        { type = "rs485", id = "485_1",  name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, power_hold = true, baud = 9600 }, -- DE 脚未引出，供电域 485_EN
+        { type = "rs485", id = "485_1",  name = "隔离485",   uart_id = 1, de_pin = 65, power_pin = 14, power_hold = true, baud = 9600 }, -- DE = 485_EN1 = GPIO65，供电域 485_EN
         { type = "uart",  id = "uart2",  name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 }, -- 人脸识别 UVC 摄像头串口
         { type = "audio", id = "audio1", name = "录音播放",   record_seconds = 5 }, -- Air1103（UART6），走 hw.audio
     },

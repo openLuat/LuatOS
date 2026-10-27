@@ -62,6 +62,9 @@ local function get_exaudio()
     return exaudio
 end
 
+-- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
+local audio_hw = require "audio_hw"
+
 -- 支持 audio 功能（hw.audio 已配置）即默认开启音量调节，不设配置开关
 local FSKV_VOLUME = "media_volume"            -- 媒体音量 fskv 持久化键
 local FSKV_BRIGHTNESS = "display_brightness"  -- 背光亮度 fskv 持久化键
@@ -128,23 +131,12 @@ local function play_volume_test()
         log.warn("settings_display", "exaudio.play_start 不存在，无法试听")
         return
     end
-    -- exaudio.setup 幂等，每次完整组装（与 llm_chat tts_init 一致）
-    local sp = { model = ac.model or "es8311", pa_ctrl = ac.pa_ctrl,
-                 pa_on_level = ac.pa_on_level or 1, dac_delay = ac.dac_delay }
-    if ac.dac_ctrl then sp.dac_ctrl = ac.dac_ctrl end
-    if ac.i2c_id then sp.i2c_id = ac.i2c_id end
-    if ac.i2s_sample then sp.i2s_sample = ac.i2s_sample end
-    if ac.bits_per_sample then sp.bits_per_sample = ac.bits_per_sample end
-    if ac.i2s_framebit then sp.i2s_framebit = ac.i2s_framebit end
-    if ac.channels then sp.channels = ac.channels end
-    if ac.pa_delay then sp.pa_delay = ac.pa_delay end
-    if ac.tx_bus_type and ac.rx_bus_type then
-        sp.tx_bus_type = ac.tx_bus_type; sp.tx_bus_id = ac.tx_bus_id or 0
-        sp.rx_bus_type = ac.rx_bus_type; sp.rx_bus_id = ac.rx_bus_id or 0
+    -- exaudio.setup 幂等，每次完整组装（入参由 audio_hw 统一提供，含 uart_id/audio_mode）
+    local ok, err = audio_hw.setup()
+    if not ok then
+        log.warn("settings_display", "exaudio.setup 异常/失败", err)
     end
-    if ac.audio_mode then sp.audio_mode = ac.audio_mode end
-    pcall(exaudio.setup, sp)
-    if exaudio.vol then pcall(exaudio.vol, current_volume) end
+    if exaudio and exaudio.vol then pcall(exaudio.vol, current_volume) end
     pcall(exaudio.play_stop, { type = 1 })
     pcall(exaudio.play_start, { type = 1, content = "音量测试" })
 end

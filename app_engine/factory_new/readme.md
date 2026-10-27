@@ -48,16 +48,16 @@
 | 14 | Air1780H | 引擎主机 | 合宙引擎 AIR1780H V000 4.3寸 | 480*272 4.3寸SPI触摸屏(ST6201)；WiFi(airlink 6205)；ES8311录音播放；SD卡；NAND Flash；PWM0背光调节 | Engine_Air1780H_4inch_480x272_000_V000 | | |
 | 15 | Air1603 | 引擎主机 | 合宙引擎 AIR8607 V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；SD卡 | Engine_Air8607_10inch_1024x600_000_V000 | | |
 | 16 | Air1603 | 引擎主机 | 合宙引擎 AIR8607A V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；UVC摄像头(AirCAMERA_1032/AirUVC_1000)；无SD卡 | Engine_Air8607A_10inch_1024x600_000_V000 | | |
-| 17 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W1 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W1_10inch_1024x600_000_WiFi_V000 | | |
-| 18 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W2 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W2_10inch_1024x600_000_WiFi_V000 | | |
-| 19 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W3 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603W3_10inch_1024x600_000_WiFi_V000 | | |
-| 20 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W4 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603W4_10inch_1024x600_000_WiFi_V000 | | |
-| 21 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W5 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603W5_10inch_1024x600_000_WiFi_V000 | | |
-| 22 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M1 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M1_10inch_1024x600_000_4G_V000 | | |
-| 23 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M2 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M2_10inch_1024x600_000_4G_V000 | | |
-| 24 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M3 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603M3_10inch_1024x600_000_4G_V000 | | |
-| 25 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M4 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M4_10inch_1024x600_000_4G_V000 | | |
-| 26 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M5 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M5_10inch_1024x600_000_4G_V000 | | |
+| 17 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W1 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W1_10inch_1024x600_000_WiFi_V000 | | |
+| 18 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W2 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W2_10inch_1024x600_000_WiFi_V000 | | |
+| 19 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W3 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603W3_10inch_1024x600_000_WiFi_V000 | | |
+| 20 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W4 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603W4_10inch_1024x600_000_WiFi_V000 | | |
+| 21 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W5 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603W5_10inch_1024x600_000_WiFi_V000 | | |
+| 22 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M1 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M1_10inch_1024x600_000_4G_V000 | | |
+| 23 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M2 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M2_10inch_1024x600_000_4G_V000 | | |
+| 24 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M3 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603M3_10inch_1024x600_000_4G_V000 | | |
+| 25 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M4 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M4_10inch_1024x600_000_4G_V000 | | |
+| 26 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M5 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M5_10inch_1024x600_000_4G_V000 | | |
 
 ---
 
@@ -288,6 +288,8 @@ return {
 逐路列出；其余 type 一条配置一行，每条独立开关。
 `type = "audio"` 是录音播放测试点，硬件参数读 `config.hw.audio`（Air1103 走 UART6），
 没配 `hw.audio` 的机型 init 直接失败，列表里也不会出现「音频」组。
+有 `hw.audio` 却不配 `type = "audio"` 的机型（8603 十型号 / 8607 / 8607A）是只播放不录音，
+「功能测试」里同样没有「音频」组，声音走 TTS / MP4 那几条路（见 6.7）。
 已配该段的型号：eng_8605_10i_4g（非隔离 485 一路）/
 eng_8605w_10i_v0 / eng_8605m_10i_v0（隔离 485 一路 + Air1103 录音播放）/
 eng_8605b_10i_v0（双隔离 485，UART1/UART6）/ eng_8607a_10i_v0 /
@@ -304,6 +306,45 @@ eng_8603w1_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m1_10i_v0 ~ eng_8603m5_10i_v0
 | 通用串口 | `drv/periph/periph_uart.lua` | 任意 UART 接口（波特率/数据位/校验/停止位） |
 | 录音播放 | `drv/periph/periph_audio.lua` | 录音/回放（Air1103 录 PCM_16000 走流式回放） |
 | 功能测试 | `app/other_func/other_func_app.lua` | 外设实例开关与状态（订阅 OTHER_FUNC_*） |
+
+### 6.7 音频通路（`hw.audio`）
+
+全固件**只有一处**组装 `exaudio.setup` 的入参：`app/common/audio_hw.lua`。
+六个消费方 `app/common/tts_app.lua`、`app/factory/llm_chat.lua`、`app/factory/factory_rec.lua`、
+`app/settings/settings_display_app.lua`、`ui/video_util.lua`、`drv/periph/periph_audio.lua`
+一律调它，字段不再各自维护一份拷贝。这样收口的原因是 `uart_id` / `audio_mode` 只要漏传一处，
+全局音频就废掉，而且现象离原因很远：`exaudio` 内部 `uart_id` 缺省取 1，
+而 Air1103 实际挂在 UART6；`ui/boot_ui.lua` 的 `guard_audio_init` 又把 `exaudio.setup`
+收口成只执行首次、`air1103.init` 也不换串口，所以**第一次 setup 的入参决定终身**。
+
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 参数组装 | `app/common/audio_hw.lua` | `hw.audio` → `exaudio.setup` 入参（必带 `uart_id`/`audio_mode`）+ 音量套用 |
+| MP4 伴音 | `app/common/pcm_play.lua` | 同名 `.pcm` 伴音流式喂 Air1103（16kHz/16bit/单声道） |
+| TTS 播报 | `app/common/tts_app.lua` | 云端/本地文本播报（`type = 1`） |
+| 录音回放 | `drv/periph/periph_audio.lua` | 录音 + 流式回放（Air1103 录 PCM_16000） |
+
+**内置 DAC + 直驱 PA**（8603 十型号 / 8607 / 8607A，无麦克风）：声音由芯片内置 DAC 播放，
+PA 功放使能脚直驱控制，`hw.audio` 写 `model = "dac"` + `pa_ctrl` + `pa_on_level`。
+8603 / 8607 的功放是 HT6873、高电平使能：`pa_ctrl = 73`（AUDIOPA_EN）、`pa_on_level = 1`，
+`power_on` 里先拉低关断，起播时 `exaudio` 拉高，`pa_delay` 是起播后延时开 PA 的毫秒数。
+MP4 的声音由 mplayer → C 层音频框架直接出，不需要 `.pcm` 伴音。
+
+**Air1103 语音芯片**（8605W / 8605M，UART6，固定 2M 波特率）单芯片集成 MIC + 喇叭 + AEC，
+`exaudio` 走 `model = "air1103"` + `audio_mode = "new"`，只认两种起播方式：
+`type = 1`（TTS 文本）与 `type = 2`（流式 PCM），`type = 0`（文件）直接返回 `unsupported`。
+所以 MJPG 的同名 `.mp3` 伴音在 Air1103 机型上也不成立，日志会明确提示并跳过。
+
+**MP4 伴音（Air1103 机型专用）**：MP4 的声音走 mplayer → C 层音频框架，而 C 层没有 air1103 后端，
+这类机型 MP4 必然无声，属于架构限制、配置解不了。补声办法是给 MP4 配一份**同目录同名**的
+`.pcm` 伴音（16kHz/16bit/单声道小端）：画面由 mplayer 照常放，声音由 `pcm_play` 流式喂 Air1103，
+起播同刻启动即自然同步；暂停记断点续播，循环重播从头，都跟着播放器走。素材预转：
+
+```bash
+ffmpeg -i fruit.mp4 -ac 1 -ar 16000 -f s16le fruit.pcm
+```
+
+没配同名 `.pcm` 不报错、只在日志里提示 `Air1103 机型 MP4 无声：缺同名 .pcm 伴音`。
 
 ---
 
@@ -421,3 +462,20 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     芯片侧 WTDOG 是喂狗输入、PWR_OFF 是复位输出，固件不碰 PWR_OFF；1 秒内连发 3 次喂狗脉冲
     是芯片的强制复位序列，手动喂狗有 2 秒冷却，别在脚本里密集发 `WATCHDOG_FEED_REQUEST`。
 
+
+15. **「录音播放」报「录音失败：没有采到数据」/「未收到MIC数据」**：先看 `hw.audio` 的 `uart_id` 写没写对。
+    Air1103 挂在 UART6（8605W / 8605M），`exaudio` 内部缺省取 1，漏写或写错就会把语音芯片绑到
+    UART1（那是隔离 485），MIC 的上行帧一个都收不到。现在 `uart_id` / `audio_mode` 由
+    `app/common/audio_hw.lua` 统一组装，六个消费方不会再漏传；还报没数据就查硬件侧：
+    `AUDIOPA_EN = GPIO73` 有没有拉高（`power_on` 里那条；8605W / 8605M 上它是 Air1103 的**供电脚**，
+    8603 / 8607 上同名脚是本地功放使能，两种含义别混，见 6.7）、
+    UART6 的 TX/RX 有没有接反、语音芯片固件版本对不对。日志 `periph_audio 未收到MIC数据
+    audio1 model: air1103 uart: 6` 里 `uart:` 是本次申请的串口号，跟实际不符说明配置没生效。
+    另外 Air1103 每次录音都会复位芯片，约 1.4 秒后才恢复 MIC 上行，这段时间落盘是静音，
+    驱动已按 2 秒补时长抵消，录出来的就是你要的时长。
+
+16. **8605W / 8605M 播放 MP4 没有声音**：这两款是 Air1103 语音芯片，喇叭只挂在 UART6 上，
+    而 MP4 的音轨走 mplayer → C 层音频框架，C 层没有 air1103 后端，出不来声。
+    要出声就给 MP4 配一份同目录同名的 `.pcm` 伴音（见 6.7「MP4 伴音」），没配就只有画面。
+    「功能测试 → 录音播放」能录能放说明音频通路本身是好的，MP4 无声只是这一条架构限制。
+    8603 / 8607 是内置 DAC + 直驱 PA，MP4 声音直接出，没有这条限制。

@@ -36,6 +36,11 @@ MP4 的两个会话副作用（功放使能、触摸总线守护）也在这里�
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
 
+-- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
+local audio_hw = require "audio_hw"
+-- Air1103 的 MP4 同名 .pcm 伴音（流式 PCM 补声，见该模块头注释）
+local pcm_play = require "pcm_play"
+
 local M = {}
 
 --[[判断素材用哪种容器解析：优先看魔数，其次看扩展名
@@ -222,29 +227,24 @@ HZV **不走这里**：它的音轨由 videoplayer 自己调用 luat_audio_reque
 各自 setup 一次会互相打断，标志位必须跨模块共享。]]
 function M.audio_ensure()
     if not exaudio then return false end
-    local pc = _G.project_config
-    if not (pc and pc.hw and pc.hw.audio) then return false end
-    local ac = pc.hw.audio
+    local ac = audio_hw.cfg()
+    if not ac then return false end
     if _G.__hzv_audio_ready then
         pcall(exaudio.pm, exaudio.RESUME)
         --[[RESUME 后重新对齐一次当前音量：设置页「亮度和声音」会改 ac.play_vol，
         回到播放路径时对齐一次，保证桌面 HZV 音轨跟着用户音量走；
         也兜住增益状态在休眠中丢失的个别平台。]]
-        pcall(exaudio.vol, ac.play_vol or 100)
+        audio_hw.vol()
         return true
     end
-    local ok = pcall(exaudio.setup, {
-        model       = ac.model or "dac",
-        pa_ctrl     = ac.pa_ctrl,
-        pa_on_level = ac.pa_on_level or 0,
-        dac_delay   = ac.dac_delay,
-    })
+    --[[入参由 audio_hw 统一组装（必带 uart_id/audio_mode），
+    Air1103 语音芯片靠它绑到 UART6，漏传会让整机没声音。]]
+    local ok, err = audio_hw.setup()
     if ok then
-        pcall(exaudio.vol, ac.play_vol or 100)
         _G.__hzv_audio_ready = true
         return true
     end
-    log.warn("video_util", "exaudio.setup 失败，音轨与播放时钟可能不可用")
+    log.warn("video_util", "exaudio.setup 失败，音轨与播放时钟可能不可用", err)
     return false
 end
 
@@ -333,6 +333,12 @@ end
 ]]
 function M.audio_play(mp3_path, should_loop)
     if not has_audio() or not mp3_path then return false end
+    --[[Air1103 只认 TTS(type=1) 与流式 PCM(type=2)，文件播放(type=0) 直接被拒，
+    与其静默失败不如明确跳过；这类机型的 MP4 伴音走 pcm_play 的 .pcm 流式通路。]]
+    if audio_hw.is_air1103() then
+        log.warn("video_util", "Air1103 不支持 MP3 文件播放，配套音已跳过", mp3_path)
+        return false
+    end
     if not exaudio_inited then
         pcall(exaudio.pm, exaudio.RESUME)
         exaudio_inited = true
@@ -428,13 +434,17 @@ end
 paused 字段记录用户暂停状态（应用层循环续播据此跳过，见 create_player）；
 HZV/MJPG 不涉及这些副作用，create_player 仍返回裸对象。
 
+pcm_path 非 nil 时（Air1103 机型 + 同名 .pcm 伴音）声音走 exaudio 流式 PCM，
+play/pause/stop/destroy 同步驱动 pcm_play；MP4 的 mplayer 音轨在 Air1103 上出不来声
+（C 层无 air1103 后端），画面照常由 mplayer 放，伴音在本层补。
+
 **会话状态按实例归属（修「全屏↔窗口切换几次后 MP4 不显示」）**：
 功放补枪世代 gen 与触摸总线恢复定时器 settle_t 收进每个播放器自己的 sess 表，
 不再用模块级共享一份。此前 idle_win 的桌面播放器与 video_win 的全屏播放器共用
 同一份 pa_gen/settle_t，切换时上一页 destroy 的收尾会 cancel 掉下一页刚布防的
 恢复定时器、或翻错世代号作废不该作废的补枪，几次之后 mplayer 的音频/总线会话
 被搅坏、画面黑屏不更新。下沉到实例后，destroy 只收尾自己的会话，互不干扰。]]
-local function wrap_mp4_player(v)
+local function wrap_mp4_player(v, pcm_path)
     local sess = {
         gen = 0,                 -- 本实例功放补枪世代号
         settle_t = { nil, nil }, -- 本实例触摸总线延迟恢复句柄
@@ -473,6 +483,7 @@ local function wrap_mp4_player(v)
     -- （功放是全局唯一硬件资源，pa_reassert 的跨格式补枪也操控它，收尾须全局封枪）
     local function mp4_session_end()
         tp_bus_settle_cancel()
+        if pcm_path then pcm_play.stop() end
         sess.gen = sess.gen + 1
         pa_gen = pa_gen + 1          -- 作废 pa_reassert 尚未触发的跨格式补枪
         pa_set(false)
@@ -484,6 +495,8 @@ local function wrap_mp4_player(v)
 
     -- 构造即布防初始触摸总线恢复（auto_play 起播的音频初始化在解码线程里异步进行）
     tp_bus_settle()
+    -- auto_play 的画面自动开播，伴音在构造时跟上（暂停续播/循环重播走下面的 play）
+    if pcm_path then pcm_play.play(pcm_path) end
 
     return {
         paused = false,
@@ -491,6 +504,8 @@ local function wrap_mp4_player(v)
             local r = v:play(...)
             self.paused = false
             pa_set(true)            -- PA_EN 跟随播放：起播开功放
+            -- 伴音跟播放对齐：暂停续播接着断点放，循环重播/从头放由 pcm_play 自己判
+            if pcm_path then pcm_play.play(pcm_path) end
             -- 续播/循环重播会重启音频通路，再次重置总线
             tp_bus_settle()
             return r
@@ -499,6 +514,7 @@ local function wrap_mp4_player(v)
             local r = v:pause(...)
             self.paused = true
             pa_set(false)           -- PA_EN 跟随暂停：暂停关功放
+            if pcm_path then pcm_play.pause() end
             -- 暂停不会再重配音频通路，这里不碰 I2C1：i2c.setup 本身会打断 tp 的读事务，
             -- 每多一次就多一次把 GT911 读坏的窗口（收尾时统一硬恢复，见 mp4_session_end）
             return r
@@ -507,6 +523,7 @@ local function wrap_mp4_player(v)
             local r = v:stop(...)
             self.paused = true
             pa_set(false)           -- PA_EN 跟随停止：停止关功放
+            if pcm_path then pcm_play.stop() end
             -- 同上：停止后必然走 destroy → mp4_session_end，那里统一恢复
             return r
         end,
@@ -537,6 +554,7 @@ MJPG 逐帧按 interval 喂；HZV / MP4 自带帧时序（HZV 容器帧时长 / 
 function M.create_player(path, o)
     o = o or {}
     local fmt = M.guess_format(path)
+    local pcm_path = nil   -- MP4 同名 .pcm 伴音（Air1103 补声，非 nil 才走）
 
     if fmt == "mp4" then
         -- 分辨率超限拒绝起播：调用方按「无法播放」走空态 UI
@@ -546,11 +564,26 @@ function M.create_player(path, o)
             return nil
         end
         --[[停掉残留的配套/容器音频再起 mplayer：两路音频同开必打架。
-        MP4 的声音走 mplayer 自带音频通路（组件内部自行初始化），
-        不经 exaudio，也不需要 audio_ensure。]]
+        一般机型 MP4 的声音走 mplayer 自带音频通路（组件内部自行初始化），
+        不经 exaudio，也不需要 audio_ensure。
+        Air1103 例外：C 层没有 air1103 后端，mplayer 的音轨出不来声，
+        只能用同名 .pcm 伴音走 exaudio 流式 PCM 补声（见 app/common/pcm_play.lua）。]]
         M.audio_stop()
         if exaudio then pcall(exaudio.play_stop, { type = 0 }) end
         pa_set(true)
+        if pcm_play.available() then
+            pcm_path = pcm_play.find_companion(path)
+            if pcm_path then
+                --[[伴音走 exaudio，先把音频通路建起来。Air1103 是 UART 驱动，
+                不碰 mplayer 的音频请求，与 HZV 那条「不能在这里 exaudio.setup」不冲突
+                （那条针对 DAC 模式收尾的 audio_v2.shutdown）。]]
+                M.audio_ensure()
+                log.info("video_util", "MP4 走 .pcm 伴音补声", pcm_path)
+            else
+                log.warn("video_util", "Air1103 机型 MP4 无声：缺同名 .pcm 伴音", path,
+                         "转法: ffmpeg -i xx.mp4 -ac 1 -ar 16000 -f s16le xx.pcm")
+            end
+        end
     elseif fmt == "hzv" then
         --[[HZV 音轨由 videoplayer 自己调用 luat_audio_request_play_stream。
         不能在这里 exaudio.setup：DAC 模式收尾会 audio_v2.shutdown 关掉 codec 和功放，
@@ -600,10 +633,11 @@ function M.create_player(path, o)
                 M.tp_recover(300)
             end
         else
-            -- 单次播完（EOF）：关功放，再回调调用方（翻播放状态/刷控制栏）
+            -- 单次播完（EOF）：关功放、停伴音，再回调调用方（翻播放状态/刷控制栏）
             local user_complete = vcfg.on_complete
             vcfg.on_complete = function()
                 pa_set(false)
+                if pcm_path then pcm_play.stop() end
                 if user_complete then user_complete() end
                 M.tp_recover(300)
             end
@@ -629,7 +663,8 @@ function M.create_player(path, o)
     end
     if fmt == "mp4" then
         -- wrap 内部构造时已布防初始触摸总线恢复（auto_play 起播的音频初始化在解码线程里异步进行）
-        player_obj = wrap_mp4_player(v)
+        -- 伴音也在构造时起播，跟 auto_play 的画面同刻
+        player_obj = wrap_mp4_player(v, pcm_path)
         return player_obj
     end
     -- 播放器打开时音频任务可能再次把功放拉高，创建成功后再拉一次

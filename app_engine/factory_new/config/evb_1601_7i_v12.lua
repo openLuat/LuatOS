@@ -52,8 +52,6 @@ return {
         -- 4G 模组(Air780ER) 上电复位 (UART2, EN=GPIO42, RST=GPIO65)
         { pin = 42, dir = 0, level = 0, delay = 50 },   -- 拉高 EN 使能
         { pin = 65, dir = 0, level = 0, delay = 100 },  -- 拉低 RST 复位
-        { pin = 65, dir = 0, level = 1, delay = 1000 }, -- 拉高 RST 释放，等待模块启动
-
         -- 以太网 CH390 使能 (LAN_EN=GPIO52)
         { pin = 52, dir = 0, level = 1 },
     },

@@ -29,18 +29,41 @@ log.info(tag, "人脸识别demo启动")
 --   "Air1602_V12"  - Air1602 V1.2：摄像头供电 GPIO58（VC_EN）
 --   "Air8601"      - Air8601：      摄像头供电 GPIO73（UVC_EN）
 --   "Air8602"      - Air8602：      摄像头供电 GPIO73（UVC_EN）
-HARDWARE_ENV = "Air1601_V12"   -- 默认Air1601 V1.2；使用Air8601/Air1602请改为对应板型
+--   "Air8605"      - Air8605/Air8605B：三路都必须拉高，缺一路摄像头或脸模就上不了电
+--                     GPIO73（1034 模组主供电，原 AUDIOPA_EN，去 Air1103 后腾出）
+--                     GPIO58（UVC_EN，1034 的 USB/UVC 端 VBUS）
+--                     GPIO12（5V_EN，USB VBUS 总使能）
+HARDWARE_ENV = "Air8601"   -- 8605B 实测环境；Air1601/Air1602/Air8602/Air8605 请改为对应板型
 
--- 摄像头供电控制引脚（按 HARDWARE_ENV 选择），需要拉高使能
+-- 摄像头/人脸模组供电控制引脚（按 HARDWARE_ENV 选择），全部需要拉高使能；
+-- 统一写成数组，单脚板型也放 1 个元素，上电逻辑只保留一份
 local cam_power_pin_map = {
-    Air1601_V11 = 12,
-    Air1601_V12 = 58,
-    Air1602_V12 = 58,
-    Air8601     = 73,
-    Air8602     = 73,
+    Air1601_V11 = { 12 },
+    Air1601_V12 = { 58 },
+    Air1602_V12 = { 58 },
+    Air8601     = { 73 },
+    Air8602     = { 73 },
+    -- Air8605B：模组主供电 + UVC_EN + 5V_EN
+    Air8605     = { 73, 58, 12 },
 }
-local cam_power_pin = cam_power_pin_map[HARDWARE_ENV] or 58
-gpio.setup(cam_power_pin, 1, gpio.PULLUP)
+local cam_power_pins = cam_power_pin_map[HARDWARE_ENV] or { 58 }
+
+--[[
+逐个拉高摄像头/人脸模组的供电脚；
+@param table pins 供电脚数组
+@return nil
+@summary 这里只做拉高，上电稳定与 USB 枚举时间由主流程的 sys.wait(2000) 保证
+         （顶层代码不在任务上下文里，不能在这里 sys.wait）
+]]
+local function cam_power_on(pins)
+    for i = 1, #pins do
+        gpio.setup(pins[i], 1)
+        gpio.set(pins[i], 1)
+        log.info(tag, "摄像头/人脸模组供电拉高 GPIO" .. pins[i])
+    end
+end
+
+cam_power_on(cam_power_pins)
 
 -- ======== 配置参数 ========
 local cam_width = 1280       -- 摄像头采集宽度

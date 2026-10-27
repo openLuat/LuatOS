@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module  factory_config
 @summary 出厂固件版本配置模块（集中管理6个版本的差异）
 @version 1.1
@@ -10,7 +10,7 @@
 
 版本列表：
   1. "8780"  ：8780 全系（P/H/N/U），硬件I2C + 定时上报 + 串口透传（默认基准版）
-  2. "8780V" ：8780V（Air780EHV），在8780基础上 + 每10秒TTS播报"上海合宙欢迎你"
+  2. "8780V" ：8780V（Air780EHV），在8780基础上 + 开机TTS播报"欢迎你使用上海合宙七八零EHV核心板"
   3. "8780G" ：8780G（Air780EGP/EGG），在8780基础上 + 开机开GPS，每30秒上报GPS
                （GPS定位失败自动回退 LBS 基站定位）
   4. "8781"  ：8781P 成品板，GPIO 模拟软件I2C（无硬件I2C引脚引出）
@@ -65,7 +65,7 @@ factory_config.lbs_enable = {
 -- TTS 播报（仅 8780V 启用）
 factory_config.tts = {
     ["8780"]  = { enable = false },
-    ["8780V"] = { enable = true, text = "上海合宙欢迎你", interval = 10 }, -- 每10秒播报一次
+    ["8780V"] = { enable = true, text = "欢迎你使用上海合宙七八零EHV核心板", interval = 10 }, -- 开机播报一次
     ["8780G"] = { enable = false },
     ["8781"]  = { enable = false },
     ["8782"]  = { enable = false },

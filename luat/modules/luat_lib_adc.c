@@ -25,6 +25,7 @@ adc.close(adc.CH_VBAT)
 #include "luat_base.h"
 #include "luat_adc.h"
 
+LUAT_WEAK int luat_adc_block_read(int pin, uint32_t repeat) {return -1;}
 /**
 打开adc通道
 @api adc.open(id)
@@ -119,6 +120,23 @@ static int l_adc_get(lua_State *L) {
 }
 
 /**
+高速读ADC原始值
+@api adc.fast_read(id, cnt)
+@int 通道id,与具体设备有关,通常从0开始
+@int 读取次数, 默认2次
+@return boolean true成功，false失败，如果失败，不必看后续值
+@return int 原始ADC值，没有单位
+@usage
+-- 本函数要在2026.10.26增加
+ */
+static int l_adc_fast_read(lua_State *L) {
+    int val = luat_adc_block_read(luaL_checkinteger(L, 1),luaL_optinteger(L, 2, 2));
+    lua_pushboolean(L, (val >= 0)?1:0);
+    lua_pushinteger(L, val);
+    return 2;
+}
+
+/**
 关闭adc通道
 @api adc.close(id)
 @int 通道id,与具体设备有关,通常从0开始
@@ -133,6 +151,19 @@ static int l_adc_close(lua_State *L) {
     luat_adc_close(luaL_checkinteger(L, 1));
     return 0;
 }
+/**
+设置ADC的全局参数
+@api adc.config(param,value)
+@int param参数，见adc.CFG_XXX
+@int value参数值
+@return boolean true成功，false失败
+@usage
+-- 本函数要在2026.10.26增加
+ */
+static int l_adc_config(lua_State *L) {
+    lua_pushboolean(L, !luat_adc_global_config(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2)));
+    return 1;
+}
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_adc[] =
@@ -140,8 +171,14 @@ static const rotable_Reg_t reg_adc[] =
     { "open" ,           ROREG_FUNC(l_adc_open)},
 	{ "setRange" ,       ROREG_FUNC(l_adc_set_range)},
     { "read" ,           ROREG_FUNC(l_adc_read)},
+    { "fast_read",       ROREG_FUNC(l_adc_fast_read)},
     { "get" ,            ROREG_FUNC(l_adc_get)},
     { "close" ,          ROREG_FUNC(l_adc_close)},
+    { "config",          ROREG_FUNC(l_adc_config)},
+	//@const CFG_RANGE number ADC量程，等效setRange
+	{ "CFG_RANGE",      ROREG_INT(LUAT_ADC_SET_GLOBAL_RANGE)},
+    //@const CFG_CYCLE number ADC读取时循环次数，循环次数越多（不是总次数），越慢，越准，对被测对象R_src要求越低。
+    { "CFG_CYCLE",      ROREG_INT(LUAT_ADC_SET_CYCLE_CNT)},
 	//@const ADC_RANGE_3_6 number ADC分压电阻开启，范围0~3.76V
 	{ "ADC_RANGE_3_6",   ROREG_INT(1)},
 	//@const ADC_RANGE_1_8 number ADC分压电阻关闭，范围0~1.88V

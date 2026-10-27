@@ -34,6 +34,7 @@ static const tp_reg_t tp_regs[] = {
 #ifndef LUAT_USE_TP_PC
     {"gt9xx",  &tp_config_gt9xx},
     {"gt911",  &tp_config_gt9xx},
+    {"gt9147", &tp_config_gt9xx},
     {"gt1158",  &tp_config_gt9xx},
     {"gt927",  &tp_config_gt9xx},
     // 临时措施, Air780EPM仅开启gt911触摸屏
@@ -66,6 +67,7 @@ static int l_tp_handler(lua_State* L, void* ptr) {
         if (lua_isfunction(L, -1)) {
             lua_pushlightuserdata(L, luat_tp_config);
             lua_newtable(L);
+            uint8_t event_count = 0;
             for (uint8_t i=0; i<LUAT_TP_TOUCH_MAX; i++){
                 if ((TP_EVENT_TYPE_DOWN == luat_tp_data[i].event) || (TP_EVENT_TYPE_UP == luat_tp_data[i].event) || (TP_EVENT_TYPE_MOVE == luat_tp_data[i].event)){
                     lua_newtable(L);
@@ -88,7 +90,10 @@ static int l_tp_handler(lua_State* L, void* ptr) {
                     lua_pushinteger(L, luat_tp_data[i].timestamp);
                     lua_settable(L, -3);
 
-                    lua_pushinteger(L, i + 1);
+                    /* Lua receives a dense event list, not hardware ID slots.
+                     * Keep the controller identity in the track_id field.
+                     */
+                    lua_pushinteger(L, ++event_count);
                     lua_insert(L, -2);
                     lua_settable(L, -3);
                 }
@@ -120,7 +125,7 @@ int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data
 /*
 触摸初始化
 @api tp.init(tp, args)
-@string 触摸芯片型号，当前支持：<br>gt911 <br>gt9157 <br>jd9261t
+@string 触摸芯片型号，当前支持：<br>gt9xx <br>gt911 <br>gt9147 <br>gt9157 <br>jd9261t
 @table 附加参数,与具体设备有关：<br>port 驱动方式<br>port：硬件i2c端口,例如0,1,2...如果为软件i2c对象<br>pin_rst：复位引脚<br>pin_int：中断引脚<br>w:宽度(可选,默认会寻找已初始化的lcd的数据)<br>h:高度(可选,默认会寻找已初始化的lcd的数据)<br>direction:方向(可选,默认会寻找已初始化的lcd的数据)
 @function 回调函数(可选,使用lvgl时可不传入,lvgl会自动处理), 回调参数: <br>tp_device: userdata tp.init返回的触摸设备对象 <br>tp_data: table 触摸数据,内部为多个触摸点数据的表,每个表中包括参数有: event: number 触摸事件,见文档上方的触摸事件常量 x: number 触摸位置x坐标 y: number 触摸位置y坐标 timestamp: number 时间戳
 @return userdata tp_device:触摸设备对象
@@ -153,6 +158,7 @@ static int l_tp_init(lua_State* L){
     memset(luat_tp_config, 0x00, sizeof(luat_tp_config_t));
     luat_tp_config->callback = l_tp_callback;
     luat_tp_config->pin_rst = LUAT_GPIO_NONE;
+    luat_tp_config->pin_int = LUAT_GPIO_NONE;
 #ifdef LUAT_USE_LCD
     luat_lcd_conf_t *lcd_conf = luat_lcd_get_default();
     if (lcd_conf){

@@ -144,6 +144,65 @@ local function legacy_to_network()
     return nets
 end
 
+-- ==================== UART3 口复用 ====================
+
+-- fskv 键名，与 app/settings/settings_channel_app.lua 的 M.KEY 必须一致
+local UART3_MODE_KEY = "uart3_mode"
+local UART3_MODES = { ["4g"] = true, wifi = true, gnss = true, ble = true }
+
+--[[读 UART3 口复用模式：4g / wifi / gnss / ble
+
+fskv 里没有记录时（出厂首次开机）按 network 列表推断，规则与
+settings_channel_app.default_mode 保持一致：两条无线都在 → 默认 4g，与历史行为一致。
+
+这里必须推断而**不能**"读不到就不过滤"：本板 config.network 里 4G 与 WiFi 两条
+都写着（靠运行时过滤二选一），不过滤的话 exnetif 会把 4G 和 6205 同时拉起来，
+两个模组一起抢 UART3，结果是两条网都通不了。
+]]
+local function read_uart3_mode(list)
+    local ok, mode = pcall(fskv.get, UART3_MODE_KEY)
+    if ok and UART3_MODES[mode] then return mode end
+
+    local has_cell, has_wifi = false, false
+    for _, net_cfg in ipairs(list or {}) do
+        local t = net_cfg.type or ""
+        if t:find("4g", 1, true) then has_cell = true end
+        if t:find("wifi", 1, true) then has_wifi = true end
+    end
+    if has_cell then return "4g" end
+    if has_wifi then return "wifi" end
+    local fe = (_config and _config.features) or {}
+    return fe.ble and "ble" or "gnss"
+end
+
+--[[按通道模式剔除互斥的无线网络条目（不修改传入表，返回新表）
+
+本板 4G 与 WiFi(6205) 都挂在 UART3 上，底板硬件选路，同一时刻只能跑一路：
+  模式 4g   → 只留 4g_*，WiFi 条目剔除（否则 6205 会抢 UART3）
+  模式 wifi → 只留 wifi_*，4G 条目剔除
+  gnss/ble  → 两条都剔除，UART3 空出来给 GNSS / 蓝牙测试页（两页都要，串口运行期互斥）
+以太网等不占 UART3 的条目原样保留，所以「以太网兜底」在任何模式下都成立。
+]]
+local function filter_by_uart3_mode(list)
+    local mode = read_uart3_mode(list)
+
+    local keep_wifi = (mode == "wifi")
+    local keep_cell = (mode == "4g")
+    local out = {}
+    for _, net_cfg in ipairs(list) do
+        local t = net_cfg.type or ""
+        local is_wifi = t:find("wifi", 1, true) ~= nil
+        local is_cell = t:find("4g", 1, true) ~= nil
+        local drop = (is_wifi and not keep_wifi) or (is_cell and not keep_cell)
+        if drop then
+            log.info("net_manager", "UART3 口复用模式", mode, "剔除网络:", t)
+        else
+            out[#out + 1] = net_cfg
+        end
+    end
+    return out
+end
+
 -- ==================== 二、初始化入口 ====================
 
 --[[
@@ -159,6 +218,12 @@ function net_manager.init(config)
 
     -- 读取 network 配置，旧格式则兼容转换
     _network_configs = _config.network or legacy_to_network()
+
+    -- UART3 口复用：按 fskv 里保存的通道模式剔除互斥的那条无线网络。
+    -- 必须先 init fskv（幂等，下面还会再 init 一次），否则读不到保存的模式。
+    -- 只过滤本模块的内部副本，不回写 config.network（配置页要读完整列表）。
+    pcall(fskv.init)
+    _network_configs = filter_by_uart3_mode(_network_configs)
 
     log.info("net_manager", "初始化, 芯片:", _chip, "网络配置数:", #_network_configs)
     for _, net_cfg in ipairs(_network_configs) do

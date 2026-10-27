@@ -331,6 +331,46 @@ static lv_result_t airui_luatos_jpg_finish_decoded(lv_image_decoder_t *decoder, 
     return LV_RESULT_OK;
 }
 
+/* 缓存按字节记账，淘汰发生在入缓存时。新图像素缓冲要先分配出来，
+   所以缓存已满时先丢掉最老的未引用条目，再解码。无 victim 时停止，避免空转。 */
+static void airui_jpg_make_room(lv_image_decoder_dsc_t *dsc, const char *src)
+{
+    size_t max_size;
+    size_t used;
+    size_t need;
+    uint64_t need64;
+
+    if (dsc->args.no_cache || dsc->cache == NULL || !lv_image_cache_is_enabled()) {
+        return;
+    }
+    if (dsc->header.w == 0 || dsc->header.h == 0) {
+        return;
+    }
+
+    need64 = (uint64_t)dsc->header.w * (uint64_t)dsc->header.h * sizeof(luat_color_t);
+    max_size = lv_cache_get_max_size(dsc->cache, NULL);
+    if (need64 == 0 || need64 > max_size) {
+        return;
+    }
+
+    need = (size_t)need64;
+    used = lv_cache_get_size(dsc->cache, NULL);
+    if (used > max_size || need > max_size - used) {
+        LLOGI("image cache full, evict oldest before decode %ux%u src=%s",
+              (unsigned)dsc->header.w, (unsigned)dsc->header.h, src);
+    }
+    for (;;) {
+        /* used > max_size 时不能做 max_size - used，无符号会回绕。 */
+        if (used <= max_size && need <= max_size - used) {
+            break;
+        }
+        if (!lv_cache_evict_one(dsc->cache, NULL)) {
+            break;
+        }
+        used = lv_cache_get_size(dsc->cache, NULL);
+    }
+}
+
 static int airui_luatos_jpg_decode_mode(const char *path, luat_img_decode_mode_t mode, luat_img_info_t *img_info)
 {
     luat_img_conf_t img_conf;
@@ -422,6 +462,7 @@ static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv
 
     if (!use_sw) {
         LLOGI("use hardware jpeg decode: %s", src);
+        airui_jpg_make_room(dsc, src);
         ret = airui_luatos_jpg_decode_mode(src, LUAT_IMG_DECODE_HW, &img_info);
         if (ret != LUAT_IMG_OK || img_info.data == NULL || img_info.width == 0 || img_info.height == 0) {
             LLOGW("HW failed ret=%d, fallback to SW src=%s", ret, src);
@@ -429,20 +470,7 @@ static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv
                 luat_heap_free(img_info.data);
                 img_info.data = NULL;
             }
-            /* 缓存满时（LV_CACHE_DEF_SIZE>0）LVGL 的解码流程是：先 open_cb 解码分配
-               输出缓冲、解码成功后才把结果入缓存（此时才触发 reserve/evict 淘汰）。
-               所以缓存里驻留的旧图会在新图解码前占住连续内存，导致解码失败、且旧图
-               也永远腾不出来。这里主动清空图片缓存释放旧图内存，再重试一次 HW 解码。 */
-            lv_image_cache_drop(NULL);
-            ret = airui_luatos_jpg_decode_mode(src, LUAT_IMG_DECODE_HW, &img_info);
-            if (ret != LUAT_IMG_OK || img_info.data == NULL || img_info.width == 0 || img_info.height == 0) {
-                LLOGW("HW failed after cache drop ret=%d, fallback to SW src=%s", ret, src);
-                if (img_info.data != NULL) {
-                    luat_heap_free(img_info.data);
-                    img_info.data = NULL;
-                }
-                use_sw = 1;
-            }
+            use_sw = 1;
         }
     }
 

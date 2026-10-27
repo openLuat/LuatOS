@@ -41,15 +41,15 @@ VERSION：项目版本号,ascii string类型
 -- │ Air8780V     │ "8780V"      │ 基准 + 每10秒TTS播报"上海合宙欢迎你"       │
 -- │ Air8780G     │ "8780G"      │ 基准 + 每30秒GPS上报（失败回退LBS）        │
 -- └──────────────┴──────────────┴────────────────────────────────────────────┘
--- PROJECT = "Air8780V"
+PROJECT = "Air8780V"
 -- PROJECT = "Air8780P"
 -- PROJECT = "Air8780H"
 -- PROJECT = "Air8780S"
 -- PROJECT = "Air8780U"
-PROJECT = "Air8780N"
+-- PROJECT = "Air8780N"
 -- PROJECT = "Air8780G"
 
-VERSION = "001.001.002"
+VERSION = "001.001.003"
 
 -- 出厂固件版本：预置配置直接连接 AirCloud，不请求网页端配置
 -- 此KEY值仅针对合宙官方IOT平台FOTA，如需使用请替换为项目对应KEY
@@ -90,10 +90,12 @@ update.init()
 -- BOOT_MODE 控制：
 --   "normal"  → 强制正常模式（跳过检查，调试用）
 --   "factory" → 强制产测模式（跳过检查，调试用）
---   "auto"    → 按 fskv 返工标记 → OTP1 顺序分流（默认）：
---               1) fskv 有返工标记 model_retest → 产测模式（返工产测，全程不动 OTP1）
---               2) fskv 无标记且 OTP1 为空      → 产测模式（首次产测，通过后写号入 OTP1）
---               3) fskv 无标记且 OTP1 有值      → 正常模式
+--   "auto"    → 按 fskv 标记 → OTP1 顺序分流（默认）：
+--               1) fskv 有返工标记 model_retest   → 产测模式（返工产测，全程不动 OTP1）
+--               2) fskv 有首测标记 model_firsttest → 产测模式（首测中途复位后回到产测）
+--               3) 无标记且 OTP1 为空             → 产测模式（首次产测，落 model_firsttest 标记，
+--                                                   通过后写号入 OTP1，TEST_DONE 删标记）
+--               4) 无标记且 OTP1 有值             → 正常模式
 local retest = require("retest")
 local RETEST_KEY = retest.KEY
 local prodmeta = require("prodmeta")
@@ -117,16 +119,32 @@ elseif BOOT_MODE == "factory" then
     boot_to_normal = false
     boot_reason = "BOOT_MODE=factory 强制进入产测模式（调试用）"
 else
-    -- auto：先查 fskv 返工标记，再查 OTP1
+    -- auto：先查 fskv 返工标记，再查首测进行中标记，最后查 OTP1
     if fskv.get(RETEST_KEY) then
         boot_to_normal = false
         boot_reason = "fskv 命中返工标记 model_retest，进入产测模式（返工）"
-    elseif otp1_empty() then
+    elseif retest.first_is_set() then
         boot_to_normal = false
-        boot_reason = "fskv 无返工标记且 OTP1 为空，进入产测模式（首次产测）"
+        boot_reason = "fskv 命中首测标记 model_firsttest，回到产测模式（首测中途曾复位）"
+    elseif otp1_empty() then
+        -- 裸板首次产测：落 model_firsttest 保护标记（带读回校验，重试 3 次）
+        -- 之后 MODEL/HVERSION 写 OTP1，看门狗等复位类测试导致重启时，靠此标记兜回产测
+        local marked = false
+        for i = 1, 3 do
+            if retest.first_set() then marked = true break end
+            log.error("main", "首测标记写入失败，重试", i)
+        end
+        if marked then
+            log.info("main", "裸板首测，model_firsttest 已写入")
+        else
+            -- 不堵产线：放行产测，仅告警（此板中途复位会失去保护，需人工关注）
+            log.error("main", "警告：model_firsttest 写入 3 次均失败，首测中途将无复位保护")
+        end
+        boot_to_normal = false
+        boot_reason = "无 fskv 标记且 OTP1 为空，进入产测模式（首次产测）"
     else
         boot_to_normal = true
-        boot_reason = "fskv 无返工标记且 OTP1 有值，进入正常模式"
+        boot_reason = "无 fskv 标记且 OTP1 有值，进入正常模式"
     end
 end
 log.info("main", boot_reason)

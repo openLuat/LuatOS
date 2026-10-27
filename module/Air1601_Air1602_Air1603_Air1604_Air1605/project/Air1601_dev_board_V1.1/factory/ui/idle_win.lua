@@ -2280,11 +2280,21 @@ local function on_get_focus()
     end
     -- 桌面重新获得焦点 = 压在它上面的窗口都已被关闭 → 清除左栏一级菜单高亮
     set_rail_active(nil)
-    -- 失焦时释放掉的视频在这里恢复（音视频一起从头播，避免音画错位）
+    --[[失焦时释放掉的视频在这里恢复（音视频一起从头播，避免音画错位）
+
+    延后一拍再起播，不在这里同步起：从占用硬件解码器 / 大帧缓冲的页面（USB 摄像头
+    预览页）退回桌面时，那个页面要等关流回调才能真正释放 —— 关流含 sys.wait，
+    窗口销毁是同步的，做不到在 on_destroy 里当场释放完。而 close_children_of 末尾
+    结算焦点会同步走到这里，立刻起播就会和它抢解码器、撞内存峰值，实测必崩。
+    延后 800ms（最坏情况：供电 cycle 那几百毫秒 + 关流宽限）让它先让位。
+    定时器到点后再确认一次桌面仍在焦点上 —— 这 800ms 里用户可能又点进了别的页面。]]
     if VP.resume_file and not VP.obj and VP.is_playing then
         local f = VP.resume_file
         VP.resume_file = nil
-        pcall(VP.start_play, f)
+        sys.timerStart(function()
+            if not (window_id and exwin.is_active(window_id)) then return end
+            if VP.is_playing and not VP.obj then pcall(VP.start_play, f) end
+        end, 800)
     end
     update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     load_external_apps()

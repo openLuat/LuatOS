@@ -6,20 +6,23 @@
 @usage
 本模块为出厂固件的业务编排模块，版本差异由 factory_config 集中控制：
 
-版本行为（Air8000 系列）：
-- 8000  ：硬件I2C0传感器 + 180s结构化上报（4G）
-- 8000T ：8000基础上 + 每10秒TTS播报"上海合宙欢迎你"（exaudio/es8311）
-- 8000G ：8000基础上 + 开机打开内置GNSS，每30秒上报GPS（无GPS回退LBS基站定位）
-- 8000W ：WiFi 组网版本（无 mobile 库，信号/LBS 字段自动跳过）
-- 8000D ：SPI 外挂 CH390H 以太网版本
-- 8000M ：4G+WiFi+ETH 多网卡版本
+版本行为（Air8000 系列，3个型号）：
+- 8000A ：传感器+GNSS 组合版，开机打开内置GNSS，每30秒采集I2C传感器并与GPS定位
+          一起上报（无GPS回退LBS基站定位）；不再启动180秒纯结构化定时器
+- 8000D ：纯GNSS定位版（基本同Air8780G），开机打开GPS，每30秒上报定位
+          （无GPS回退LBS），不采集I2C传感器；180秒结构化定时器照常
+- 8000T ：单4G传感器传输版（同Air8780P基准版），不开GPS，I2C传感器数据
+          按180秒周期定时上报，定位走LBS
 
 核心功能：
 1、build_report_tlv()：构建 AirCloud 结构化 TLV 上报数据
    必填字段：信号强度(782，仅4G)/设备ID(798，IMEI)/模组型号/时间戳(1280)/CPU温度(263)
    可选字段：温度(256)/湿度(257)/VOC(258)（传感器，失败跳过）
             纬度(513)/经度(512)（LBS基站定位，仅4G版本，失败跳过）
-2、build_gps_tlv()：构建 GPS TLV（仅8000G），GPS失败回退LBS
+2、build_gps_tlv()：构建定位上报 TLV，GPS失败回退LBS
+   - combo=false（8000D）：经纬度+定位方式+时间戳
+   - combo=true （8000A）：在定位帧基础上追加公共字段（信号/IMEI/型号/时间戳/CPU温度）
+                            + I2C传感器温湿度/VOC，30秒一帧完成传感器+定位组合上报
 3、handle_control_command()：处理下行控制命令（tag 19）
    - "cycle:秒数"   → 修改上报频率（最小5秒，fskv持久化，重启定时器即时生效）
    - "led:blink/on/off" → LED 控制
@@ -88,6 +91,13 @@ end
 
 -- 重启周期上报定时器（cycle命令修改频率后调用）
 local function restart_report_timer()
+    -- 组合版（8000A，gps.combo=true）只走30秒定位组合帧，
+    -- 不启动180秒结构化定时器，避免与组合帧重复上报传感器数据
+    local gps_c = factory_config.get_gps()
+    if gps_c and gps_c.enable and gps_c.combo then
+        log.info("factory_app", "组合版不启动周期结构化定时器，走30秒组合帧")
+        return
+    end
     if report_timer then
         sys.timerStop(report_timer)
         report_timer = nil
@@ -107,8 +117,13 @@ factory_app.start_report_timer(uid)
 function factory_app.start_report_timer(uid)
     current_uid = uid or 1
     restart_report_timer()
-    -- 连接成功后立即触发一次结构化上报
-    sys.publish("AIRCLOUD_EVENT_" .. current_uid, "report")
+    -- 非组合版：连接成功后立即触发一次结构化上报
+    -- 组合版（8000A）restart_report_timer 内部已拦截，直接返回，
+    -- 首帧交由30秒定位组合帧承载，不在此立即上报
+    local gps_c = factory_config.get_gps()
+    if not (gps_c and gps_c.enable and gps_c.combo) then
+        sys.publish("AIRCLOUD_EVENT_" .. current_uid, "report")
+    end
     log.info("factory_app", "结构化上报定时器已启动，uid=", current_uid)
 end
 
@@ -168,17 +183,9 @@ local function get_lbs()
     return nil, nil
 end
 
---[[
-构建 AirCloud 结构化 TLV 上报数据
-
-@return table  TLV列表（可直接传给 excloud.send）
-@usage
-local tlv_list = factory_app.build_report_tlv()
-excloud.send(tlv_list, false)
-]]
-function factory_app.build_report_tlv()
-    local tlv_list = {}
-
+-- 追加公共必填字段：4G信号强度(仅4G)/IMEI(仅4G)/模组型号/时间戳
+-- 结构化帧与组合帧共用，保证两帧设备身份与时间字段一致
+local function append_common_fields(tlv_list)
     -- 4G信号强度（仅 4g/multiple 版本；WiFi/ETH 版本无此字段）
     if MOBILE_SUPPORT then
         local csq = mobile.csq()
@@ -208,7 +215,11 @@ function factory_app.build_report_tlv()
         data_type = excloud.DATA_TYPES.INTEGER,
         value = os.time()
     })
-    -- 必填：CPU温度
+end
+
+-- 追加采集字段：CPU温度（必填，取不到跳过）+ SHT30温湿度/VOC（可选，失败跳过）
+-- 结构化帧与8000A组合帧共用
+local function append_sensor_fields(tlv_list)
     local cpu_temp = get_cpu_temp()
     if cpu_temp then
         table.insert(tlv_list, {
@@ -217,7 +228,7 @@ function factory_app.build_report_tlv()
             value = cpu_temp
         })
     end
-    -- 可选：SHT30 温湿度 / VOC 空气质量（采集失败自动跳过，不影响主数据上报）
+    -- sensor_enable=false 的版本 sensor_task.get_env 直接返回 nil，自动全部跳过
     local temp, hum, voc = sensor_task.get_env()
     if temp then
         table.insert(tlv_list, {
@@ -240,6 +251,23 @@ function factory_app.build_report_tlv()
             value = voc
         })
     end
+end
+
+--[[
+构建 AirCloud 结构化 TLV 上报数据（8000D/8000T 的180秒周期帧）
+
+@return table  TLV列表（可直接传给 excloud.send）
+@usage
+local tlv_list = factory_app.build_report_tlv()
+excloud.send(tlv_list, false)
+]]
+function factory_app.build_report_tlv()
+    local tlv_list = {}
+
+    -- 公共必填：信号/IMEI/模组型号/时间戳
+    append_common_fields(tlv_list)
+    -- 采集：CPU温度 + SHT30温湿度/VOC（失败跳过）
+    append_sensor_fields(tlv_list)
     -- 可选：LBS基站经纬度（按版本开关，Air8700 仅透传不定位）
     if factory_config.get_lbs_enable() then
         local lat, lng = get_lbs()
@@ -262,14 +290,14 @@ function factory_app.build_report_tlv()
     return tlv_list
 end
 
--- ==================== GPS 上报（仅8000G，按版本启用） ====================
+-- ==================== 定位上报（8000A组合帧/8000D纯定位帧，按版本启用） ===
 
 -- 版本GPS配置
-local gps_cfg = factory_config.get_gps()      -- {enable, interval, uart, uartbaud}
+local gps_cfg = factory_config.get_gps()      -- {enable, interval, uart, uartbaud, combo}
 local exgnss = nil
 local gps_timer = nil
 
--- 懒加载 exgnss（仅8000G版本使用，避免其他版本报错）
+-- 懒加载 exgnss（仅启用GNSS的版本使用，8000T 不加载）
 local function get_exgnss()
     if not exgnss then
         local ok, m = pcall(require, "exgnss")
@@ -306,9 +334,12 @@ local function get_location()
 end
 
 --[[
-构建 GPS 上报 TLV（仅8780G）
+构建定位上报 TLV（GPS失败回退LBS），行为由 gps 配置 combo 决定：
+- combo=false（8000D）：经纬度 + 定位方式 + 时间戳（与Air8780G一致）
+- combo=true （8000A）：公共字段（信号/IMEI/型号/时间戳）+ CPU温度/I2C传感器
+                        + 经纬度 + 定位方式，30秒一帧完成传感器+定位组合上报
 
-@return table TLV列表（可直接传给 excloud.send）
+@return table TLV列表（可直接传给 excloud.send）；GPS/LBS均无定位时返回空表（本帧不上报）
 @usage
 local tlv_list = factory_app.build_gps_tlv()
 excloud.send(tlv_list, false)
@@ -316,38 +347,55 @@ excloud.send(tlv_list, false)
 function factory_app.build_gps_tlv()
     local tlv_list = {}
     local lat, lng, method = get_location()
-    if lat and lng then
-        -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
-        table.insert(tlv_list, {
-            field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-            data_type = excloud.DATA_TYPES.ASCII,
-            value = string.format("%.6f", lat)
-        })
-        table.insert(tlv_list, {
-            field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-            data_type = excloud.DATA_TYPES.ASCII,
-            value = string.format("%.6f", lng)
-        })
-        -- 定位方式：2=GPS，1=LBS（可选字段）
-        table.insert(tlv_list, {
-            field_meaning = excloud.FIELD_MEANINGS.LOCATION_METHOD,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = method or 1
-        })
-        -- 时间戳
+    -- 组合版判定（8000A）：传感器是主数据，定位是搭配
+    local is_combo = gps_cfg and gps_cfg.combo
+    -- 纯定位版（8000D）无 GPS/LBS 定位时本帧无任何有效数据，直接不上报
+    -- 组合版（8000A）即使定位失败也要发传感器数据，仅缺经纬度字段
+    if not (lat and lng) and not is_combo then
+        log.warn("factory_app", "GPS/LBS均无定位数据，本次不上报")
+        return tlv_list
+    end
+    -- 组合版（8000A）：先放公共身份字段 + CPU温度 + I2C传感器（时间戳已含在公共字段中）
+    if is_combo then
+        append_common_fields(tlv_list)
+        append_sensor_fields(tlv_list)
+        if not (lat and lng) then
+            -- 定位失败：传感器/身份字段照常上报，仅跳过经纬度与定位方式，避免传感器数据丢失
+            log.warn("factory_app", "组合帧定位失败，仅上报传感器与公共字段")
+            log.info("factory_app", "组合上报(无定位):", json.encode(tlv_list))
+            return tlv_list
+        end
+    end
+    -- 2026-10-19 改 ASCII（%.6f），绕过 FLOAT ×1000 截断
+    table.insert(tlv_list, {
+        field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
+        data_type = excloud.DATA_TYPES.ASCII,
+        value = string.format("%.6f", lat)
+    })
+    table.insert(tlv_list, {
+        field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
+        data_type = excloud.DATA_TYPES.ASCII,
+        value = string.format("%.6f", lng)
+    })
+    -- 定位方式：2=GPS，1=LBS（可选字段）
+    table.insert(tlv_list, {
+        field_meaning = excloud.FIELD_MEANINGS.LOCATION_METHOD,
+        data_type = excloud.DATA_TYPES.INTEGER,
+        value = method or 1
+    })
+    -- 纯定位版（8000D）需要单独补时间戳；组合版时间戳已在公共字段中，不再重复
+    if not is_combo then
         table.insert(tlv_list, {
             field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
             data_type = excloud.DATA_TYPES.INTEGER,
             value = os.time()
         })
-        log.info("factory_app", "GPS上报:", json.encode(tlv_list))
-    else
-        log.warn("factory_app", "GPS/LBS均无定位数据，本次不上报")
     end
+    log.info("factory_app", is_combo and "组合上报:" or "GPS上报:", json.encode(tlv_list))
     return tlv_list
 end
 
--- 启动8000G默认GPS上报（开机即启动，其他版本自动跳过）
+-- 开机启动默认定位上报（8000A组合帧/8000D纯定位帧；8000T自动跳过）
 local function start_default_gps()
     if not (gps_cfg and gps_cfg.enable) then
         log.info("factory_app", "当前版本不启动GPS上报:", factory_config.get_ver())
@@ -369,9 +417,9 @@ local function start_default_gps()
         log.error("factory_app", "exgnss模块加载失败")
         return
     end
-    -- 每30秒发布GPS上报事件
+    -- 按 interval（默认30秒）发布定位上报事件（combo 时该帧携带传感器数据）
     gps_timer = sys.timerLoopStart(sys.publish, (gps_cfg.interval or 30) * 1000, "AIRCLOUD_EVENT_" .. current_uid, "gps")
-    log.info("factory_app", "GPS上报定时器已启动，间隔", gps_cfg.interval, "秒")
+    log.info("factory_app", "定位上报定时器已启动，间隔", gps_cfg.interval, "秒，combo=", gps_cfg.combo == true)
 end
 
 -- ==================== LED 控制 ====================
@@ -422,7 +470,7 @@ function factory_app.led_ctl(action)
     return true
 end
 
--- ==================== TTS 播报（仅8000T，按版本启用） ====================
+-- ==================== TTS 播报（预留：3个型号均不启用） ====================
 
 -- 版本TTS配置（非8000T时 enable=false）
 local tts_cfg = factory_config.get_tts() or { enable = false }
@@ -599,9 +647,10 @@ end
 
 -- ==================== 版本特性启动 ====================
 -- 按 factory_config.DEVICE_VER 启用对应版本能力：
---   8000T → 开机播报一次欢迎语 + 收到服务器 tts: 命令时播报
---   8000G → 开机开内置GNSS，每30秒GPS上报（无GPS回退LBS）
---   其他版本 → 均自动跳过
+--   8000A → 开机开内置GNSS，每30秒传感器+定位组合帧（无GPS回退LBS），停180秒结构化定时器
+--   8000D → 开机开内置GNSS，每30秒纯定位帧（无GPS回退LBS），180秒结构化定时器照常
+--   8000T → 不开GNSS，180秒传感器结构化上报（定位走LBS）
+--   TTS 三个型号均不启用，start_boot_tts 内部自动跳过
 start_boot_tts()
 start_default_gps()
 

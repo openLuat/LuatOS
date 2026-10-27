@@ -14,6 +14,7 @@
 #define GT911_PRODUCT_ID_CODE       (0x00313139)  // "911" ASCII code
 #define GT927_PRODUCT_ID_CODE       (0x00373239)  // "927" ASCII code
 #define GT1158_PRODUCT_ID_CODE      (0x38353131)  // "1158" ASCII code
+#define GT9147_PRODUCT_ID_CODE      (0x37343139)  // "9147" ASCII code
 #define GT9157_PRODUCT_ID_CODE      (0x37353139)  // "9157" ASCII code
 #define GT9271_PRODUCT_ID_CODE      (0x31373239)  // "9271" ASCII code
 
@@ -225,28 +226,26 @@ int tp_gt9xx_clear_status(luat_tp_config_t* luat_tp_config){
 }
 
 static int tp_gt9xx_detect(luat_tp_config_t* luat_tp_config){
-    uint32_t product_id = 0;
-    luat_tp_config->address = GT9XX_ADDRESS0;
-    tp_i2c_read_reg16(luat_tp_config, GT9XX_PRODUCT_ID, &product_id, sizeof(product_id), 1);
-    LLOGI("TP detect read product id:0x%08X", product_id);
-    if (product_id == GT911_PRODUCT_ID_CODE || product_id == GT927_PRODUCT_ID_CODE || product_id == GT1158_PRODUCT_ID_CODE || product_id == GT9271_PRODUCT_ID_CODE){
-        // LLOGI("TP find device GT9XX ,address:0x%02X",luat_tp_config->address);
-        return 0;
-    }else{
-        luat_tp_config->address = GT9XX_ADDRESS1;
-        tp_i2c_read_reg16(luat_tp_config, GT9XX_PRODUCT_ID, &product_id, sizeof(product_id), 1);
-        LLOGI("TP detect read product id:0x%08X", product_id);
-        if (product_id == GT911_PRODUCT_ID_CODE || product_id == GT927_PRODUCT_ID_CODE || product_id == GT1158_PRODUCT_ID_CODE || product_id == GT9271_PRODUCT_ID_CODE){
-            // LLOGI("TP find device GT9XX ,address:0x%02X",luat_tp_config->address);
+    const uint8_t addresses[] = {GT9XX_ADDRESS0, GT9XX_ADDRESS1};
+    for (size_t i = 0; i < sizeof(addresses); i++) {
+        uint32_t product_id = 0;
+        luat_tp_config->address = addresses[i];
+        if (tp_i2c_read_reg16(luat_tp_config, GT9XX_PRODUCT_ID, &product_id, sizeof(product_id), 1)) {
+            continue;
+        }
+        LLOGI("TP detect address:0x%02X product id:0x%08X", addresses[i], product_id);
+        if (product_id == GT911_PRODUCT_ID_CODE || product_id == GT927_PRODUCT_ID_CODE ||
+            product_id == GT1158_PRODUCT_ID_CODE || product_id == GT9271_PRODUCT_ID_CODE ||
+            product_id == GT9147_PRODUCT_ID_CODE) {
             return 0;
-        }else{
-            return -1;
         }
     }
+    return -1;
 }
 
 
 static int luat_tp_irq_cb(int pin, void *args){
+    (void)pin;
     if (gt9xx_init_state == 0){
         return -1;
     }
@@ -265,17 +264,20 @@ static int tp_gt9xx_gpio_init(luat_tp_config_t* luat_tp_config){
         luat_gpio_mode(luat_tp_config->pin_int, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
         luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_LOW);
     }
-    // /* 0x14 */
-    // luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_HIGH);
-    /* 0x5D */
-    luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_LOW);
-
+    /* INT low selects the 7-bit address 0x5D. Keep RESET low >10ms,
+     * hold the address level >5ms after RESET rises, then release INT.
+     * GT9147 programming guide sections 4.1-4.3 require floating input
+     * and another >50ms before communicating with the controller.
+     */
     if (luat_tp_config->pin_rst != LUAT_GPIO_NONE){
+        luat_rtos_task_sleep(20);
         luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
-        luat_rtos_task_sleep(2);
-        luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
-        luat_rtos_task_sleep(55);
+        luat_rtos_task_sleep(6);
     }
+    if (luat_tp_config->pin_int != LUAT_GPIO_NONE){
+        luat_gpio_mode(luat_tp_config->pin_int, Luat_GPIO_INPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
+    }
+    luat_rtos_task_sleep(55);
 
     return 0;
 }
@@ -284,8 +286,23 @@ static int tp_gt9xx_soft_reset(luat_tp_config_t* luat_tp_config){
     return tp_i2c_write_reg16(luat_tp_config, GT9XX_COMMAND_REG, (uint8_t[]){0x02}, 1);
 }
 
+// gt9xx get tp info.
+static int16_t pre_x[GT9XX_TOUCH_NUMBER_MAX] = {-1, -1, -1, -1, -1};
+static int16_t pre_y[GT9XX_TOUCH_NUMBER_MAX] = {-1, -1, -1, -1, -1};
+static int16_t pre_w[GT9XX_TOUCH_NUMBER_MAX] = {-1, -1, -1, -1, -1};
+static uint8_t s_tp_down[GT9XX_TOUCH_NUMBER_MAX];
+static uint8_t read_buff[GT9XX_POINT_INFO_NUM * GT9XX_TOUCH_NUMBER_MAX];
+
+static void gt9xx_reset_points(void){
+    memset(pre_x, 0xFF, sizeof(pre_x));
+    memset(pre_y, 0xFF, sizeof(pre_y));
+    memset(pre_w, 0xFF, sizeof(pre_w));
+    memset(s_tp_down, 0, sizeof(s_tp_down));
+}
+
 static int tp_gt9xx_init(luat_tp_config_t* luat_tp_config){
     int ret = 0;
+    gt9xx_reset_points();
     tp_gt9xx_gpio_init(luat_tp_config);
 
     ret = tp_gt9xx_detect(luat_tp_config);
@@ -353,14 +370,18 @@ static int tp_gt9xx_init(luat_tp_config_t* luat_tp_config){
         gpio.irq_cb = luat_tp_irq_cb;
         gpio.irq_args = luat_tp_config;
         luat_gpio_setup(&gpio);
-    } else if (gt9xx_poll_timer == NULL && luat_rtos_timer_create(&gt9xx_poll_timer) == 0) {
+    } else {
+        if (gt9xx_poll_timer == NULL && luat_rtos_timer_create(&gt9xx_poll_timer)) {
+            LLOGE("create poll timer fail!");
+            return -1;
+        }
         if (luat_rtos_timer_start(gt9xx_poll_timer, GT9XX_POLL_INTERVAL_MS, 1, gt9xx_poll_timer_cb, luat_tp_config)) {
             luat_rtos_timer_delete(gt9xx_poll_timer);
             gt9xx_poll_timer = NULL;
             LLOGE("start poll timer fail!");
-        } else {
-            LLOGI("no INT pin, poll touch every %dms", GT9XX_POLL_INTERVAL_MS);
+            return -1;
         }
+        LLOGI("no INT pin, poll touch every %dms", GT9XX_POLL_INTERVAL_MS);
     }
 
     gt9xx_init_state = 1;
@@ -369,6 +390,7 @@ static int tp_gt9xx_init(luat_tp_config_t* luat_tp_config){
 
 static int tp_gt9xx_deinit(luat_tp_config_t* luat_tp_config){
     gt9xx_init_state = 0;
+    gt9xx_reset_points();
     if (gt9xx_poll_timer != NULL){
         luat_rtos_timer_stop(gt9xx_poll_timer);
         luat_rtos_timer_delete(gt9xx_poll_timer);
@@ -395,14 +417,8 @@ static void tp_gt9xx_read_done(luat_tp_config_t * luat_tp_config)
 	}
 }
 
-// gt9xx get tp info.
-static int16_t pre_x[GT9XX_TOUCH_NUMBER_MAX] = {-1, -1, -1, -1, -1};
-static int16_t pre_y[GT9XX_TOUCH_NUMBER_MAX] = {-1, -1, -1, -1, -1};
-static int16_t pre_w[GT9XX_TOUCH_NUMBER_MAX] = {-1, -1, -1, -1, -1};
-static uint8_t s_tp_down[GT9XX_TOUCH_NUMBER_MAX];
-static uint8_t read_buff[GT9XX_POINT_INFO_NUM * GT9XX_TOUCH_NUMBER_MAX];
-
 void gt9xx_touch_up(void *buf, int8_t id){
+    if (id < 0 || id >= GT9XX_TOUCH_NUMBER_MAX) return;
 	luat_tp_data_t *read_data = (luat_tp_data_t *)buf;
 
 	if(s_tp_down[id] == 1){
@@ -424,6 +440,7 @@ void gt9xx_touch_up(void *buf, int8_t id){
 }
 
 void gt9xx_touch_down(void *buf, int8_t id, int16_t x, int16_t y, int16_t w){
+    if (id < 0 || id >= GT9XX_TOUCH_NUMBER_MAX) return;
 	luat_tp_data_t *read_data = (luat_tp_data_t *)buf;
 
 	if (s_tp_down[id] == 1){
@@ -444,58 +461,39 @@ void gt9xx_touch_down(void *buf, int8_t id, int16_t x, int16_t y, int16_t w){
 	pre_w[id] = w;
 }
 
+/* Validate the complete frame before changing any live contact state. */
+static int gt9xx_validate_points(const uint8_t *data, uint8_t count){
+    uint8_t seen = 0;
+    if (count > GT9XX_TOUCH_NUMBER_MAX) return -1;
+    for (uint8_t i = 0; i < count; i++) {
+        uint8_t id = data[i * GT9XX_POINT_INFO_NUM] & 0x0F;
+        if (id >= GT9XX_TOUCH_NUMBER_MAX || (seen & (1U << id))) {
+            LLOGE("invalid or duplicate touch ID %d", id);
+            return -1;
+        }
+        seen |= 1U << id;
+    }
+    return 0;
+}
+
 void gt9xx_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
-	uint8_t *read_buf = input_buff;
-	uint8_t read_index;
-	int8_t read_id = 0;
-	int16_t input_x = 0;
-	int16_t input_y = 0;
-	int16_t input_w = 0;
-
-	static uint8_t pre_touch = 0;
-	static int8_t pre_id[GT9XX_TOUCH_NUMBER_MAX] = {0};
-
-	if (pre_touch > touch_num){                                       /* point up */
-		for (read_index = 0; read_index < pre_touch; read_index++){
-			uint8_t j;
-			for (j = 0; j < touch_num; j++){                          /* this time touch num */
-				read_id = read_buf[j * 8] & 0x0F;
-				if (read_id >= GT9XX_POINT_INFO_NUM){
-					LLOGE("%s, touch ID %d is out range!\r\n", __func__, read_id);
-					return;
-				}
-				if (pre_id[read_index] == read_id)                   /* this id is not free */
-					break;
-
-				if (j >= touch_num - 1){
-					uint8_t up_id;
-					up_id = pre_id[read_index];
-					gt9xx_touch_up(buf, up_id);
-				}
-			}
-		}
-	}
-	if (touch_num){                                                 /* point down */
-		uint8_t off_set;
-		for (read_index = 0; read_index < touch_num; read_index++){
-			off_set = read_index * 8;
-			read_id = read_buf[off_set] & 0x0F;
-			if (read_id >= GT9XX_POINT_INFO_NUM){
-				LLOGE("%s, touch ID %d is out range!\r\n", __func__, read_id);
-				return;
-			}
-			pre_id[read_index] = read_id;
-			input_x = read_buf[off_set + 1] | (read_buf[off_set + 2] << 8);	/* x */
-			input_y = read_buf[off_set + 3] | (read_buf[off_set + 4] << 8);	/* y */
-			input_w = read_buf[off_set + 5] | (read_buf[off_set + 6] << 8);	/* size */
-			gt9xx_touch_down(buf, read_id, input_x, input_y, input_w);
-		}
-	}else if (pre_touch){
-		for(read_index = 0; read_index < pre_touch; read_index++){
-			gt9xx_touch_up(buf, pre_id[read_index]);
-		}
-	}
-	pre_touch = touch_num;
+    if (gt9xx_validate_points(input_buff, touch_num)) return;
+    uint8_t active = 0;
+    luat_tp_data_t *read_data = (luat_tp_data_t *)buf;
+    for (uint8_t id = 0; id < GT9XX_TOUCH_NUMBER_MAX; id++) {
+        read_data[id].event = TP_EVENT_TYPE_NONE;
+    }
+    for (uint8_t i = 0; i < touch_num; i++) {
+        uint8_t *point = input_buff + i * GT9XX_POINT_INFO_NUM;
+        uint8_t id = point[0] & 0x0F;
+        active |= 1U << id;
+        gt9xx_touch_down(buf, id, point[1] | (point[2] << 8),
+                        point[3] | (point[4] << 8), point[5] | (point[6] << 8));
+    }
+    /* IDs can change even when the number of contacts stays the same. */
+    for (uint8_t id = 0; id < GT9XX_TOUCH_NUMBER_MAX; id++) {
+        if (s_tp_down[id] && !(active & (1U << id))) gt9xx_touch_up(buf, id);
+    }
 }
 
 static int tp_gt9xx_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
@@ -517,30 +515,27 @@ static int tp_gt9xx_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_
     // uint8_t read_num = luat_touch_info.touch_num;
     // LLOGD("tp_gt9xx_read read_num:%d",read_num);
 
-    tp_gt9xx_read_status(luat_tp_config, &point_status);
-    if (point_status == 0){           /* no data */
-        goto exit_;
+    if (tp_gt9xx_read_status(luat_tp_config, &point_status)) return -1;
+    /* Do not acknowledge a buffer that is not ready. */
+    if ((point_status & 0x80) == 0) return 0;
+    touch_num = point_status & 0x0F;
+    if (touch_num > GT9XX_TOUCH_NUMBER_MAX) {
+        tp_gt9xx_clear_status(luat_tp_config);
+        return -1;
     }
-    if ((point_status & 0x80) == 0){   /* data is not ready */
-        goto exit_;
+    if (touch_num && tp_i2c_read_reg16(luat_tp_config, GT9XX_POINT1_REG,
+            read_buff, touch_num * GT9XX_POINT_INFO_NUM, 1)) {
+        return -1;
     }
-    touch_num = point_status & 0x0F;  /* get point num */
-    if (touch_num > GT9XX_TOUCH_NUMBER_MAX) {/* point num is not correct */
-        touch_num = 0;
-        goto exit_;
+    if (gt9xx_validate_points(read_buff, touch_num)) {
+        tp_gt9xx_clear_status(luat_tp_config);
+        return -1;
     }
-    
-    // LLOGD("tp_gt9xx_read touch_num:%d",touch_num);
-
-    memset(read_buff, 0x00, sizeof(read_buff));
-    
-    if (touch_num){
-        tp_i2c_read_reg16(luat_tp_config, GT9XX_POINT1_REG, read_buff, touch_num * GT9XX_POINT_INFO_NUM, 1);
-    }
-
+    /* Preserve the legacy order: publish a valid frame before acknowledging.
+     * A failed write may already have cleared the controller buffer; dropping
+     * the frame in that case can lose the final UP event permanently.
+     */
     gt9xx_read_point(read_buff, luat_tp_data, touch_num);
-    
-exit_:
     tp_gt9xx_clear_status(luat_tp_config);
     return touch_num;
 }

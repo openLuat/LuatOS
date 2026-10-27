@@ -1,8 +1,8 @@
 --[[
 @module  exs_vl53l1x
 @summary VL53L1X 飞行时间(ToF)测距传感器扩展库
-@version 1.0
-@date    2026.07.21
+@version 1.1
+@date    2026.10.26
 @author  江访
 @usage
 本文件 是基于 ST（意法半导体） 出品的 VL53L1X ToF 激光测距传感器开发的 LuatOS 扩展库。
@@ -15,8 +15,9 @@
 5、GPIO1 中断支持（回调模式 / get_int_flag 轮询模式）
 6、串扰校准（配合白纸板校准保护玻璃串扰）
 7、三档测距模式（standard/short/long）
+8、测时预算可配置（timing budget）
 
-对外接口 8 个：
+对外接口 10 个：
 1、exs_vl53l1x.setup(config)：初始化 VL53L1X 并启动测距
 2、exs_vl53l1x.get_data()：读取一帧测距数据（阻塞等待数据就绪）
 3、exs_vl53l1x.get_int_flag()：查询 GPIO1 中断触发标志（轮询模式使用）
@@ -25,6 +26,8 @@
 6、exs_vl53l1x.wakeup()：从软件待机唤醒（重新启动测距，与 sleep 配对）
 7、exs_vl53l1x.close()：关闭传感器
 8、exs_vl53l1x.version()：获取版本号
+9、exs_vl53l1x.set_timing_budget(ms)：设置测时预算（单次测距时长）
+10、exs_vl53l1x.get_timing_budget()：读取当前测时预算
 
 
 -- 版本更新说明
@@ -43,6 +46,14 @@
             - 软件 I2C（scl+sda）：总线自动恢复
             - 硬件 I2C + scl+sda：总线自动恢复
             - 纯硬件 I2C（仅 i2c_id）：不具自动恢复能力
+
+版本号：202610261200
+1、更新时间：2026-10-26
+2、更新内容：
+            测时预算可配置，新增 set_timing_budget() / get_timing_budget()
+            setup 新增 timing_budget_ms 字段
+            补齐 RANGE_CONFIG__TIMEOUT_MACROP_A/B_HI 等寄存器命名常量，去掉裸地址写入
+            修复串扰补偿值换算用浮点除法后做位移导致的运行时报错
 ]]
 
 local exs_vl53l1x = {}
@@ -76,10 +87,20 @@ local REG_SYSTEM__INTERRUPT_CONFIG_GPIO     = 0x0046
 local REG_DSS_CONFIG__ROI_MODE_CONTROL     = 0x004F
 
 -- 时序配置区
-local REG_MM_CONFIG__TIMEOUT_MACROP_A_HI   = 0x005A
+-- MM_CONFIG__TIMEOUT_MACROP_A/B_HI：MM(模式抑制)步骤超时，不是测时预算
+local REG_MM_CONFIG__TIMEOUT_MACROP_A_HI   = 0x005A  -- 16-bit
+local REG_MM_CONFIG__TIMEOUT_MACROP_B_HI   = 0x005C  -- 16-bit
+-- RANGE_CONFIG__TIMEOUT_MACROP_A/B_HI：测时预算(timing budget)寄存器
+local REG_RANGE_CONFIG__TIMEOUT_MACROP_A_HI = 0x005E  -- 16-bit
 local REG_RANGE_CONFIG__VCSEL_PERIOD_A     = 0x0060
+local REG_RANGE_CONFIG__TIMEOUT_MACROP_B_HI = 0x0061  -- 16-bit
+local REG_RANGE_CONFIG__VCSEL_PERIOD_B     = 0x0063
 local REG_RANGE_CONFIG__SIGMA_THRESH_HI    = 0x0064
 local REG_RANGE_CONFIG__MIN_COUNT_RATE_RTN_LIMIT_MCPS_HI = 0x0066
+local REG_PHASECAL_CONFIG__TIMEOUT_MACROP  = 0x004B   -- 8-bit
+
+-- 振荡器相关
+local REG_OSC_MEASURED__FAST_OSC__FREQUENCY = 0x0006  -- 16-bit 快振荡频率(4.12 fp)
 
 -- 动态配置区
 local REG_SYSTEM__GROUPED_PARAMETER_HOLD_0 = 0x0071
@@ -224,6 +245,7 @@ local g_scl_pin   = nil
 local g_sda_pin   = nil
 local g_xshut_pin = nil
 local g_ready     = false
+local g_fast_osc  = 0   -- OSC_MEASURED__FAST_OSC__FREQUENCY，测时预算换算用
 -- 中断极性：true=ACTIVE_HIGH(0x00)，false=ACTIVE_LOW(0x10)。默认按 STANDARD 配置 = ACTIVE_LOW
 local g_int_active_high = false
 -- GPIO1 中断支持
@@ -316,6 +338,76 @@ local function rd16(reg)
     return (d:byte(1) << 8) | d:byte(2)
 end
 
+-- ==================== 测时预算换算 ====================
+-- 寄存器内超时值格式为 "LSByte * 2^MSByte + 1"（对照官方 vl53l1_api_core.c）
+
+-- 编码超时值（对照官方 VL53L1_encode_timeout）
+local function encode_timeout(timeout_mclks)
+    if timeout_mclks <= 0 then return 0 end
+    local ls_byte = timeout_mclks - 1
+    local ms_byte = 0
+    while ls_byte > 0xFF do
+        ls_byte = ls_byte >> 1
+        ms_byte = ms_byte + 1
+    end
+    return (ms_byte << 8) | ls_byte
+end
+
+-- 解码超时值（对照官方 VL53L1_decode_timeout）
+local function decode_timeout(reg_val)
+    return ((reg_val & 0xFF) << (reg_val >> 8)) + 1
+end
+
+-- 微秒换算为宏周期数（对照官方 VL53L1_calc_timeout_mclks）
+-- macro_period_us 为 12.12 定点微秒
+local function us_to_mclks(timeout_us, macro_period_us)
+    return ((timeout_us << 12) + (macro_period_us >> 1)) // macro_period_us
+end
+
+-- 宏周期数换算为微秒（对照官方 VL53L1_calc_timeout_us）
+local function mclks_to_us(timeout_mclks, macro_period_us)
+    return (timeout_mclks * macro_period_us + 0x800) >> 12
+end
+
+-- 计算宏周期，返回 12.12 定点微秒（对照官方 VL53L1_calc_macro_period_us）
+-- vcsel_period 为 RANGE_CONFIG__VCSEL_PERIOD_A/B 寄存器值
+local function calc_macro_period_us(vcsel_period)
+    local pll_period_us = (1 << 30) // g_fast_osc  -- 0.24 定点
+    local pclks = (vcsel_period + 1) << 1
+    local macro_period_us = (2304 * pll_period_us) >> 6
+    return (macro_period_us * pclks) >> 6
+end
+
+-- 应用测时预算（对照官方 VL53L1_calc_timeout_register_values）
+-- budget_ms：单次测距总时长(ms)，拆成 RANGE A/B 两段各占一半
+-- 返回 true/false
+local function apply_timing_budget(budget_ms)
+    if not budget_ms or budget_ms <= 0 then return false end
+    if g_fast_osc == 0 then
+        log.error("exs_vl53l1x", "快振荡频率未读取，无法换算测时预算")
+        return false
+    end
+
+    local half_us = (budget_ms * 1000) // 2
+
+    -- 按当前 VCSEL 周期换算，standard/short/long 三档均可正确折算
+    local vcsel_a = rd8(REG_RANGE_CONFIG__VCSEL_PERIOD_A) or 0x0B
+    local vcsel_b = rd8(REG_RANGE_CONFIG__VCSEL_PERIOD_B) or 0x09
+    local macro_a = calc_macro_period_us(vcsel_a)
+    local macro_b = calc_macro_period_us(vcsel_b)
+
+    local range_a = encode_timeout(us_to_mclks(half_us, macro_a))
+    local range_b = encode_timeout(us_to_mclks(half_us, macro_b))
+
+    wr8(REG_RANGE_CONFIG__TIMEOUT_MACROP_A_HI, (range_a >> 8) & 0xFF)
+    wr8(REG_RANGE_CONFIG__TIMEOUT_MACROP_A_HI + 1, range_a & 0xFF)
+    wr8(REG_RANGE_CONFIG__TIMEOUT_MACROP_B_HI, (range_b >> 8) & 0xFF)
+    wr8(REG_RANGE_CONFIG__TIMEOUT_MACROP_B_HI + 1, range_b & 0xFF)
+
+    log.info("exs_vl53l1x", string.format("测时预算=%dms (A=0x%04X B=0x%04X)", budget_ms, range_a, range_b))
+    return true
+end
+
 -- ==================== 内部函数 ====================
 
 -- 软复位（对照官方 vl53l1_silicon_core.c::VL53L1_soft_reset）
@@ -390,7 +482,7 @@ local function write_preset_config(mode)
     wr8(0x0047, 0x0B)  -- CAL_CONFIG__VCSEL_START
     wr8(0x0048, 0x00); wr8(0x0049, 0x00)  -- CAL_CONFIG__REPEAT_RATE
     wr8(0x004A, 0x02)  -- GLOBAL_CONFIG__VCSEL_WIDTH
-    wr8(0x004B, 0x0D)  -- PHASECAL_CONFIG__TIMEOUT_MACROP (13 macrop = 1ms)
+    wr8(REG_PHASECAL_CONFIG__TIMEOUT_MACROP, 0x0D)  -- 0x004B (13 macrop = 1ms)
     wr8(0x004C, 0x21)  -- PHASECAL_CONFIG__TARGET (4.4 fp -> 2.0625)
     wr8(0x004D, 0x00)  -- PHASECAL_CONFIG__OVERRIDE
     wr8(REG_DSS_CONFIG__ROI_MODE_CONTROL, 0x01)  -- 0x004F = 0x01 (TARGET_RATE)
@@ -438,12 +530,12 @@ local function write_preset_config(mode)
         valid_phase_high = 0x78                  -- 5.3 fp -> 15.0 -> 3m
         woi_sd0_val = 0x0B; woi_sd1_val = 0x09
     end
-    wr8(REG_MM_CONFIG__TIMEOUT_MACROP_A_HI, (mm_a >> 8) & 0xFF); wr8(0x005B, mm_a & 0xFF)
-    wr8(0x005C, (mm_b >> 8) & 0xFF); wr8(0x005D, mm_b & 0xFF)
-    wr8(0x005E, (range_a >> 8) & 0xFF); wr8(0x005F, range_a & 0xFF)
+    wr8(REG_MM_CONFIG__TIMEOUT_MACROP_A_HI, (mm_a >> 8) & 0xFF); wr8(REG_MM_CONFIG__TIMEOUT_MACROP_A_HI + 1, mm_a & 0xFF)
+    wr8(REG_MM_CONFIG__TIMEOUT_MACROP_B_HI, (mm_b >> 8) & 0xFF); wr8(REG_MM_CONFIG__TIMEOUT_MACROP_B_HI + 1, mm_b & 0xFF)
+    wr8(REG_RANGE_CONFIG__TIMEOUT_MACROP_A_HI, (range_a >> 8) & 0xFF); wr8(REG_RANGE_CONFIG__TIMEOUT_MACROP_A_HI + 1, range_a & 0xFF)
     wr8(REG_RANGE_CONFIG__VCSEL_PERIOD_A, vcsel_a)
-    wr8(0x0061, (range_b >> 8) & 0xFF); wr8(0x0062, range_b & 0xFF)
-    wr8(0x0063, vcsel_b)
+    wr8(REG_RANGE_CONFIG__TIMEOUT_MACROP_B_HI, (range_b >> 8) & 0xFF); wr8(REG_RANGE_CONFIG__TIMEOUT_MACROP_B_HI + 1, range_b & 0xFF)
+    wr8(REG_RANGE_CONFIG__VCSEL_PERIOD_B, vcsel_b)
     wr8(REG_RANGE_CONFIG__SIGMA_THRESH_HI, (sigma_thresh_val >> 8) & 0xFF); wr8(0x0065, sigma_thresh_val & 0xFF)
     wr8(REG_RANGE_CONFIG__MIN_COUNT_RATE_RTN_LIMIT_MCPS_HI, (min_rate >> 8) & 0xFF); wr8(0x0067, min_rate & 0xFF)
     wr8(0x0068, 0x08)  -- RANGE_CONFIG__VALID_PHASE_LOW (5.3 fp -> 1.0)
@@ -534,6 +626,10 @@ end
 --   xshut      硬件复位引脚（可选，不传则用软复位）
 --   range_mode 测距模式: "standard"(默认,约2.9m) / "short"(约1.36m,抗强光) / "long"(约4.6m)
 --   xtalk_offset 串扰校准偏移值，由 calibrate_xtalk() 返回（可选，传入后自动写入寄存器）
+--   timing_budget_ms 测时预算，即单次测距的时长(ms)（可选）
+--                 取值 2~1000，ST ULD 推荐档位 20/33/50/100/200/500
+--                 不传则沿用预设编码值（standard=50ms、short=31ms、long=68ms）
+--                 运行中可单独调用 exs_vl53l1x.set_timing_budget(ms) 修改
 --   int1       中断配置表（可选）：{int_gpio=GPIO端口号, cb=回调函数}
 --                 int_gpio：GPIO端口号（不是pin引脚号），如GPIO10填10
 --                 cb：数据回调(data)（可选），不传则用 get_int_flag() 轮询
@@ -577,15 +673,25 @@ function exs_vl53l1x.setup(config)
     -- 等待固件就绪
     if not wait_firmware_ready() then return false end
 
+    -- 读取快振荡频率，测时预算换算用
+    g_fast_osc = rd16(REG_OSC_MEASURED__FAST_OSC__FREQUENCY) or 0
+
     -- 写入预设模式配置（支持 range_mode="standard" 或 "long"）
     local range_mode = config.range_mode or "standard"
     write_preset_config(range_mode)
+
+    -- 应用测时预算（不传则沿用预设编码值）
+    if config.timing_budget_ms then
+        if not apply_timing_budget(config.timing_budget_ms) then
+            log.warn("exs_vl53l1x", "测时预算设置失败，沿用预设值")
+        end
+    end
 
     -- 如果传入了校准后的串扰偏移值,写入串扰补偿寄存器
     -- xtalk_offset 由 calibrate_xtalk() 返回,或从文件加载
     local xtalk_off = config.xtalk_offset
     if xtalk_off and type(xtalk_off) == "number" and xtalk_off > 0 and xtalk_off <= 65535 then
-        local plane_offset = (xtalk_off * 512 + 500) / 1000  -- 与 calibrate_xtalk 同样的转换
+        local plane_offset = (xtalk_off * 512 + 500) // 1000  -- 与 calibrate_xtalk 同样的转换
         wr8(REG_ALGO__CROSSTALK_COMPENSATION_PLANE_OFFSET_KCPS, (plane_offset >> 8) & 0xFF)
         wr8(REG_ALGO__CROSSTALK_COMPENSATION_PLANE_OFFSET_KCPS + 1, plane_offset & 0xFF)
         wr8(REG_ALGO__CROSSTALK_COMPENSATION_X_PLANE_GRADIENT_KCPS, 0x00)
@@ -694,6 +800,49 @@ function exs_vl53l1x.get_int_flag()
     local f = g_int1_flag
     if f then g_int1_flag = false end
     return f
+end
+
+-- 设置测时预算（单次测距时长）
+-- ms：2~1000，ST ULD 推荐档位 20/33/50/100/200/500
+-- 数值越大测量越稳定、功耗越高；数值越小刷新率越高
+-- 返回 true/false
+function exs_vl53l1x.set_timing_budget(ms)
+    if not g_ready then
+        log.error("exs_vl53l1x.set_timing_budget 请先 setup()")
+        return false
+    end
+    if type(ms) ~= "number" or ms < 2 or ms > 1000 then
+        log.error("exs_vl53l1x.set_timing_budget", "ms 取值范围 2~1000")
+        return false
+    end
+    -- 时序寄存器需在停止测距状态下写入
+    wr8(REG_SYSTEM__MODE_START, MODE_ABORT)
+    sys.wait(2)
+    local ok = apply_timing_budget(ms)
+    wr8(REG_SYSTEM__INTERRUPT_CLEAR, CLEAR_RANGE_INT)
+    wr8(REG_SYSTEM__MODE_START, MODE_START_STANDARD)
+    return ok
+end
+
+-- 读取当前测时预算
+-- 由 RANGE_CONFIG__TIMEOUT_MACROP_A/B 与当前 VCSEL 周期反算
+-- 返回 ms 数值，读取失败返回 nil
+function exs_vl53l1x.get_timing_budget()
+    if not g_ready then
+        log.error("exs_vl53l1x.get_timing_budget 请先 setup()")
+        return nil
+    end
+    if g_fast_osc == 0 then return nil end
+
+    local vcsel_a = rd8(REG_RANGE_CONFIG__VCSEL_PERIOD_A)
+    local raw_a   = rd16(REG_RANGE_CONFIG__TIMEOUT_MACROP_A_HI)
+    local vcsel_b = rd8(REG_RANGE_CONFIG__VCSEL_PERIOD_B)
+    local raw_b   = rd16(REG_RANGE_CONFIG__TIMEOUT_MACROP_B_HI)
+    if not vcsel_a or not raw_a or not vcsel_b or not raw_b then return nil end
+
+    local half_a = mclks_to_us(decode_timeout(raw_a), calc_macro_period_us(vcsel_a))
+    local half_b = mclks_to_us(decode_timeout(raw_b), calc_macro_period_us(vcsel_b))
+    return (half_a + half_b + 500) // 1000
 end
 
 -- 串扰校准
@@ -867,7 +1016,7 @@ function exs_vl53l1x.calibrate_xtalk(config)
 
     -- 写回串扰补偿寄存器(7.9格式: 值*1000>>9, 转化为kcps)
     -- SparkFun公式: (xtalkValue << 9) / 1000 写回, 即 xtalk_val * 512 / 1000
-    local plane_offset = (xtalk_val * 512 + 500) / 1000  -- 四舍五入
+    local plane_offset = (xtalk_val * 512 + 500) // 1000  -- 四舍五入
     local po_hi = (plane_offset >> 8) & 0xFF
     local po_lo = plane_offset & 0xFF
 
@@ -935,7 +1084,7 @@ end
 
 -- 获取版本号
 function exs_vl53l1x.version()
-    return "202607201200"
+    return "202610261200"
 end
 
 return exs_vl53l1x

@@ -197,11 +197,11 @@ function factory_app.build_report_tlv()
         data_type = excloud.DATA_TYPES.ASCII,
         value = mobile.imei()
     })
-    -- 必填：模组型号
+    -- 必填：模组型号（rtos.bsp 动态读取，Air780EHV 固件→"Air780EHV"，不再写死 Air8780）
     table.insert(tlv_list, {
         field_meaning = excloud.FIELD_MEANINGS.COMPONENT_MODEL,
         data_type = excloud.DATA_TYPES.ASCII,
-        value = "Air8780"
+        value = rtos.bsp()
     })
     -- 必填：时间戳
     table.insert(tlv_list, {

@@ -1,15 +1,15 @@
-# Air8000 系列出厂固件（Air8000Factory）
+# Air8000 系列 iRTU 正常固件
 
-> 技术底座：**标准 iRTU 固件 + 预置配置**，参考 Air8780 出厂固件架构移植到 Air8000（EC718）平台
+> 技术底座：**标准 iRTU 固件 + 预置配置**，参考 Air8780 iRTU 固件架构移植到 Air8000（EC718）平台
 >
 > 本期范围：Air8000 全系（A/W/G/T 等）+ Air8101（WiFi）+ PC 模拟器，共 6 个版本一套固件
 
 ## 一、项目简介
 
-本工程基于标准 iRTU 固件改造，作为 Air8000 系列出厂固件：
+本工程基于标准 iRTU 固件改造，作为 Air8000 系列正常固件（不含产测）：
 
 1. **不允许请求网页端配置**：`default.lua` 已移除网页拉取（原从 iot.openluat.com 拉取参数），开机直接加载预置 `irtu.cfg`，默认通道 = **AirCloud**。
-2. **产测 + 正常模式合一（V3 分流）**：`main.lua` 按 fskv 返工标记 `model_retest` → OTP1 判空 → 分流到 `factory`（产测）或 `irtu_main`（正常）。
+2. **开机直接进正常模式**：`main.lua` 不做任何产测/OTP 分流，上电即 `require "irtu_main"` 进入 iRTU 业务。
 3. **多网卡适配**：`netdrv_device.lua` 按版本把网卡分流到 `netdrv/` 下 5 个文件（4G / WiFi / SPI 外挂 CH390H 以太网 / 多网融合 / PC）；4G 走 `socket.LWIP_GP`，WiFi 走 `LWIP_STA`，以太网走 `LWIP_ETH`。
 4. **非 4G 版本无 mobile 库**：WiFi/ETH 版本调用任何 `mobile.*` 都会崩溃，全工程以 `factory_config.get_netdev()` 派生 `MOBILE_SUPPORT` 守卫；无 IMEI 的版本用 `mcu.unique_id()` 生成设备 ID 并落 fskv `dev_id`。
 5. **传感器走硬件 I2C0**：`sensor_task.lua` 读取 AirSHT30_1000（温湿度，地址 0x44）与 AirVOC_1000（TVOC，地址 0x1A），采集失败不影响主数据上报。
@@ -39,10 +39,7 @@
 ```
 factory/
 ├── user/
-│   ├── main.lua                 # 入口（V3：fskv返工标记→OTP1判空→产测/正常分流；软狗/FOTA）
-│   ├── factory.lua              # ⭐ 产测模式（USB VUART_0 响应产测指令，首测/返工区分）
-│   ├── retest.lua               # ⭐ V3 返工指令（MODEL_RETEST#CONFIRM 写fskv标记/查询/删除）
-│   ├── prodmeta.lua             # OTP 写号（PROD型号/PCB版本，air8000 zone=1/max256）
+│   ├── main.lua                 # 入口（机型切换 + 软狗/FOTA，上电直接 require "irtu_main"）
 │   ├── irtu_main.lua            # iRTU 正常模式初始化（netdrv_device→default→driver→create→watchdog）
 │   ├── netdrv_device.lua        # ⭐ 网卡分流（bsp PC/Air8101 + config netdev → netdrv/ 5 文件）
 │   ├── netdrv/
@@ -129,48 +126,21 @@ factory/
 - 驱动 `open(bus)` 同时支持 number（硬件 id 0/1）与 userdata（软 I2C 对象），便于成品板改软 I2C。
 - 每个传感器独立容错：失败不阻断上报，连续失败 10 次（MAX_FAIL）后该传感器停止重试。
 
-## 九、产测模式与产测指令
-
-裸板 OTP1 为空时开机自动进产测模式，经 **USB VUART_0** 收发，指令统一以 `#` 结尾。
-
-| 指令 | 说明 | 适配版本 |
-|---|---|---|
-| `VERSION#` | 返回工程名_版本号（Air8000Factory_001.001.000） | 全系 |
-| `IMEI#` / `IMSI#` / `ICCID#` / `CSQ#` / `MUID#` | 模组身份与信号查询 | 4G 版有效 |
-| `VBAT#` | 电池电压 | 全系 |
-| `ECNPICFG#` | eSIM 配置检测（需固件开 LUAT_USE_MOBILE_ECNPICFG） | 4G 版 |
-| `MODEL,xxx#` / `MODEL?#` | 写入/查询 OTP PROD 型号 | 全系 |
-| `HVERSION,xxx#` | 写入 OTP PCB 硬件版本 | 全系 |
-| `LED#` | LED 测试（GPIO21） | 全系 |
-| `WD_TEST#` / `WD_TEST,1#` | 停止喂狗触发硬复位 / 恢复正常喂狗 | 全系 |
-| `FLYMODE,0#` / `FLYMODE,1#` | 退出/进入飞行模式 | 4G 版 |
-| `RECORD#` / `PLAY#` | 录音 5s / 回放（exaudio） | 仅 8000T |
-| `GPSTEST#` | 内置 GNSS 串口透传测试（exgnss 串口2） | 仅 8000G |
-| `PCBA_TEST_DONE#` | PCBA 段测试完成标记 | 全系 |
-| `TEST_DONE#` | 首测：校验 OTP1 非空后重启进正常模式；返工：删 fskv 标记（不动 OTP1）后重启 | 全系 |
-| `RST#` | 软重启 | 全系 |
-| `MODEL_RETEST#CONFIRM#` | 正常/产测模式均可收：写 fskv 返工标记并重启进产测 | 全系 |
-| `MODEL_RETEST?#` | 查询返工标记状态 | 全系 |
-
-> 非 4G 版本（8000W/8000D）收到 `IMEI/IMSI/ICCID/CSQ/MUID/ECNPICFG/FLYMODE` 指令时直接返回 `ERROR,unsupported`（MOBILE_SUPPORT 守卫），不调用 mobile 库，避免崩溃。
-
-产测流程：裸板进产测 → `MODEL,xxx#` / `HVERSION,xxx#` 写号入 OTP1（air8000：zone=1，max_len=256，擦后重写，4 字节对齐补 0xFF）→ 各项测试 → `TEST_DONE#` 校验非空后重启进正常模式。返工时正常模式 USB 发 `MODEL_RETEST#CONFIRM#` 即回产测。
-
-## 十、使用说明
+## 九、使用说明
 
 1. 用 Luatools 将本工程目录 + `lib/` 扩展库一并烧录，勾选「添加默认 lib」。
 2. **切换版本**：修改 `factory_config.lua` 顶部 `DEVICE_VER`（`8000`/`8000T`/`8000G`/`8000W`/`8000D`/`8000M`），重新烧录。
 3. 量产前替换两处密钥：`irtu.cfg` 的 AuthKey（AirCloud）与 `main.lua` 的 PRODUCT_KEY（FOTA）。
 4. WiFi/ETH 版替换 netdrv 文件内测试热点为实际网络配置。
-5. 产测写号与流程见第九章；8000T 联网后周期播报，8000G 烧录后自动开 GNSS。
+5. 8000T 联网后周期播报，8000G 烧录后自动开 GNSS。
 6. 外置看门狗默认 GPIO160/180s，喂狗脚不同时改 `factory_config.lua` 的 `wdt.pin`。
 
-## 十一、相对 Air8780 出厂固件的主要移植改动
+## 十、相对 Air8780 出厂固件的主要移植改动
 
 | 文件 | 改动 |
 |---|---|
 | factory_config.lua | 版本矩阵改 6 版本（8000/T/G/W/D/M）；新增 netdev、device_type、net_pin；I2C 全改硬件 id=0；GNSS 默认 uart=2；wdt.pin=160；led=21 |
-| main.lua | PROJECT=Air8000Factory；VERSION=001.001.000；PRODUCT_KEY 改 Air8000 iotda key；prodmeta 走 air8000 分支；保留 V3 分流与软狗 |
+| main.lua | PROJECT 机型切换区（Air8000A 生效，其余注释）；VERSION=001.001.000；PRODUCT_KEY 改 Air8000 iotda key；上电直接 require "irtu_main"，保留软狗 |
 | netdrv_device.lua / netdrv/ | **新增**：bsp(PC/Air8101) + config 双维度网卡分流，5 个网卡文件 |
 | irtu_main.lua | 顶部 `require "netdrv_device"` 先建链再初始化业务；watchdog_app 照旧加载 |
 | create.lua | 全部 mobile 直调加 MOBILE_SUPPORT 守卫；新增 get_dev_id（非4G unique_id 落 fskv）；excloud device_type 改 config 取值 |
@@ -178,6 +148,5 @@ factory/
 | driver.lua | APN/simcross/LBS 等指令加守卫；rrpc 非4G 返回 unsupported/dev_id；netled 重写为注网状态/数据链路双分支；透传识别码用 get_dev_id |
 | audio_config.lua | **重写**：exaudio 新框架替旧音频 API，es8311 + I2C0 + pa162/dac164 + dac_delay 版本自适应，单播放任务队列 |
 | factory_app.lua | COMPONENT_MODEL=Air8000；exgnss setup 用 `uart` 键；信号/LBS 字段加守卫；按版本 TTS/GNSS |
-| prodmeta.lua | 新增 air8000 分支（zone=1/max256/append_only=false，擦后写补 0xFF） |
 | update.lua | FOTA script_name 改 Air8000Factory |
 | gnss.lua / sensor_task.lua / AirSHT30_1000.lua / AirVOC_1000.lua | 复核确认 API 兼容（exgnss uart 键、I2C0、地址 0x44/0x1A、CRC 校验），无改动 |

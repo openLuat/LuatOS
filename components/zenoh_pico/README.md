@@ -62,6 +62,26 @@ z.poll()                           -- VM主动派发，单次最多8个结果
 
 关闭或传输故障会取消尚未执行的队列命令。Get包含已接纳但尚未交SDK的请求，会尝试投递一次get_done(reason=closed)；其它旧命令不保证逐条取消回调。接纳检查与入队和worker停止排空共用短队列门；已经出队且遇到close的Get也尝试closed终态。结果队列溢出仍以dropped/状态报告不完整，不能承诺未派发VM时每条终态必达。应用通过终态事件/状态处理未完成命令；发布完成仍不等于对端实收。部分TCP帧写失败后立即停止该连接的后续命令与写入，清理后由应用显式重连。
 
+### 首次IO故障诊断
+
+TCP适配故障的`error`及对应`closed`事件携带`reason="io_failure"`和`io_failure`表。
+SDK已关闭但没有适配IO首错时，worker的`-7`事件标记`reason="session_closed"`。
+握手失败保留SDK原始错误码，不统一改为`-7`。`closed`保留清场前首错，正常关闭不携带历史故障。
+
+|字段|语义|
+|---|---|
+|`stage`|`tx_context/tx_error/tx_timeout/rx_context/rx_error/rx_exact_context/rx_exact_timeout`等首个失败位置|
+|`generation`|失败所属会话代次|
+|`command_id/command_op/command_bytes`|最后执行命令的上下文，握手为0；不是该命令导致故障的证明|
+|`rc`|底层API原始返回；本地截止分支为0，须同时看stage|
+|`requested/transferred`|发送为整次`_z_send_tcp`调用的请求/累计接纳字节；普通接收为该次读取范围，读满截止为整次`_z_read_exact_tcp`范围|
+|`elapsed_ms`|发送/读满截止的耗时；普通接收错误和无有效上下文分支当前未测，填0，不代表整个Get耗时为0|
+|`total_tx/total_rx`|本代网络API累计接纳/读取字节；不是对端ACK或实收证明|
+
+首错仅由单worker写入，事件保存值副本，不包含key、payload或凭据。失败后停止该连接的后续读写。
+结果队列满/分配失败仍可能丢事件，需检查`dropped/state`，本改动不保证每条终态必达。
+真实主机桥覆盖POSIX短写/半帧失败，但不模拟目标RTOS的发送确认等待；不能用主机通过排除目标超时或时序问题。
+
 ## Get与Queryable
 
 ```lua
@@ -111,7 +131,7 @@ python3 bsp/pc/zenoh_pico/run_host.py \
 默认编译库内 vendored 的 1.9.0 源码（`components/zenoh_pico/zenoh-pico`），核对 `version.txt` 并打印源码清单摘要；
 如需对照另一份 1.9.0 工作树，用 `--zenoh-root ../zenoh-pico`，此时按 Git 固定提交做来源门禁。
 
-Get完整回归使用同一命令加 `--get-tests`，选择独立peer `--get` 和 `host_get_test.lua`；默认仍原16项Pub/Sub。peer可选 `--two-rounds` 会校验 `LuatOS\0zenoh-pico\255:1/2` 两个20B值，双轮后正常退出，无需stop，独立墙钟上限240秒；默认peer保原60秒及stop合同。
+Get完整回归使用同一命令加 `--get-tests`，选择独立peer `--get` 和 `host_get_test.lua`；默认17项含原16项及握手半帧失败/首错一致性。peer可选 `--two-rounds` 会校验 `LuatOS\0zenoh-pico\255:1/2` 两个20B值，双轮后正常退出，无需stop，独立墙钟上限240秒；默认peer保原60秒及stop合同。
 
 有pkg-config时可用 `--lua-pkg lua5.3` 代替 `--lua-root`。仅编译时不传 `--router`。输出 `HOST_PASS`、`HOST_EXIT 0`、`PEER_EXIT 0`、`INTEROP_PASS` 才是完整主机通过；只看到 `BUILD_PASS` 不算互通。端口已有占用则停止，测试结束只清理自己的子进程。`--skip-build` 仅用于测试脚本修改后的已知二进制复验，会打印实际SHA；默认始终构建。
 
@@ -133,6 +153,10 @@ LUAT_USE_ZENOH_PICO=y ./build_macos.sh
 [最小demo](../../olddemo/demo/zenoh_pico/main.lua) 要求先配置网卡就绪、填写测试router和adapter，再启动 `zenoh_peer <router> test/zenohpico/manual` 作为真实回显对端。demo未烧录验证。
 
 ## 官方验收与回退
+
+Air8000专测已取得短包双向Get及4096B Pub/Sub证据；4096B Get在目标上仍有`-7`待定位。
+本次诊断改进不等于该设备根因已修复。新编号、显示裁剪与1024KiB脚本区的独立构建需求见
+[AIR8000_PROFILE_REQUEST.md](AIR8000_PROFILE_REQUEST.md)，其容量与布局尚待目标构建验证。
 
 目标构建需核开关关闭/开启、Get+Queryable完整配置、VM位宽、注册和资源增量；我们继续负责真机二进制Pub/Sub与Get发起/应答双向、断网/重新打开、队列满/GC、持续内存及实际对端序号。目标结果完成前保持Draft，不把Get裁掉以凑空间。
 

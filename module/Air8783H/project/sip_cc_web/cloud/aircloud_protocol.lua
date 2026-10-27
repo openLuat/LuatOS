@@ -117,6 +117,15 @@ function M.new(backend,cloud)
             if #queue<32 then enqueue({response({id="",cmd=""},false,{message="指令超过 1396 字节"},"command_too_large")},field==19 and 20 or 1281,seq) end
             return true
         end
+        if field==19 and raw:match("^%s*(.-)%s*$"):lower()=="version" then
+            if #queue>=32 then
+                log.warn("aircloud","VERSION_REPLY_QUEUE_FULL")
+                return true
+            end
+            queue[#queue+1]={packets={{fields={{field_meaning=1027,data_type=3,
+                value=_G.PROJECT.."_".._G.VERSION}},sequence=seq,active=false}},index=1}
+            return true
+        end
         local ok,c=pcall(json.decode,raw)
         -- Tag19 legacy commands used by the TCP platform, matching 8784.
         if field==19 and (not ok or type(c)~="table" or c.cmd==nil) then

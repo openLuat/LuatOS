@@ -71,11 +71,6 @@ function command_handlers.change_mode(msg, cmd_msg)
 
     kvstore.set_work_mode(mode)
 
-    local lowpower_app = require("lowpower_app")
-    if lowpower_app and lowpower_app.set_mode_by_device_mode then
-        lowpower_app.set_mode_by_device_mode(mode)
-    end
-
     send_reply(cmd_msg.msg_id, "change_mode", 0, "ok, mode=" .. mode)
     sys.timerStart(pm.reboot, 3000)
 end

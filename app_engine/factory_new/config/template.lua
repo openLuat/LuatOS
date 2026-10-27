@@ -219,6 +219,15 @@
         --     full_voltage = 4150,        -- [可选,默认4150] 充满判定电压 mV
         --     no_battery_threshold = 1500,-- [可选,默认1500] 无电池判定电压阈值 mV
         -- },
+
+        -- --------------------------------------------------------
+        -- 4.4 外部看门狗 wdt（条件: 仅 features 中 wdt = true 时需要）
+        -- --------------------------------------------------------
+        -- wdt = {
+        --     pin = 57,              -- [必填] 喂狗 GPIO，经三极管拉地驱动 Air153D 的 WTDOG
+        --     timeout_sec = 240,     -- [可选,默认240] 仅用于 WATCHDOG_STATUS 上报；
+        --                            --   芯片实际超时档位由 STRAP 硬件配置，软件层不参与
+        -- },
     -- },
 
     -- ============================================================
@@ -245,6 +254,7 @@
     --     nes = true,          -- 启用NES游戏实体按键，必须同时配置 nes_keys
     --     battery = true,      -- 启用电池管理(ADC检测+充电检测)，必须同时配置 hw.battery，
     --                          -- 通常同时设 ui.show_battery_icon = true
+    --     wdt = true,          -- 启用外部看门狗(Air153C/Air153D 喂狗)，必须同时配置 hw.wdt
     --     app_factory = true,  -- 启用应用工厂（录音生成APP），通常同时设 ui.show_app_factory = true
     --     ai_chat = true,      -- 启用AI聊天助手（SSE流式对话+TTS），通常同时设 ui.show_ai_chat = true
     --     cloud_disk = true,   -- 启用合宙网盘（登录IoT账号后浏览空间文件并下载），通常同时设 ui.show_cloud_disk = true

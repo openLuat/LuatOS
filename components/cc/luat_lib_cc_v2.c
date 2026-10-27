@@ -32,6 +32,12 @@
 #include "luat_mobile.h"
 #ifdef LUAT_USE_CC_PCM_BRIDGE
 #include "luat_cc_pcm_bridge.h"
+#endif
+#ifdef LUAT_USE_CC_UART_BRIDGE
+#include "luat_cc_uart_platform.h"
+#include "luat_cc_uart_bridge.h"
+#endif
+#if defined(LUAT_USE_CC_PCM_BRIDGE) || defined(LUAT_USE_CC_UART_BRIDGE)
 extern int luat_mobile_get_call_state(uint8_t sim_id);
 #endif
 #include "luat_network_adapter.h"
@@ -84,6 +90,156 @@ typedef struct
 
 static luat_cc_ctrl_t _l_cc;
 static int s_cc_initialized;
+
+/* The SDK VTS API can wait indefinitely for IMS confirmation. Keep it out
+ * of the Lua VM, audio workers and the separate CC hang-up task. One copied
+ * request is allowed in flight; no Lua values or pointers cross tasks. */
+typedef struct {
+    uint32_t id, generation;
+    uint16_t duration_ms;
+    uint8_t sim_id;
+    char digit;
+} luat_cc_dtmf_tx_request_t;
+static luat_cc_dtmf_tx_request_t s_dtmf_request;
+static luat_rtos_task_handle s_dtmf_task;
+static uint32_t s_dtmf_generation, s_dtmf_next_id;
+static int s_dtmf_busy;
+
+static int cc_dtmf_tx_pending(void)
+{
+    uint32_t mask = luat_rtos_entry_critical();
+    int busy = s_dtmf_busy;
+    luat_rtos_exit_critical(mask);
+    return busy;
+}
+
+LUAT_WEAK int luat_mobile_send_dtmf(uint8_t sim_id, char digit, uint16_t duration_ms)
+{
+    (void)sim_id; (void)digit; (void)duration_ms;
+    return -1; /* The platform must implement actual network DTMF. */
+}
+
+static void cc_dtmf_tx_cancel(void)
+{
+    uint32_t mask = luat_rtos_entry_critical();
+    ++s_dtmf_generation;
+    luat_rtos_exit_critical(mask);
+}
+
+static int cc_dtmf_tx_done(lua_State *L, void *unused)
+{
+    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    (void)unused;
+    if (lua_getglobal(L, "sys_pub") != LUA_TFUNCTION) return 0;
+    lua_pushliteral(L, "CC_DTMF_TX");
+    lua_pushinteger(L, msg->arg1);
+    lua_pushboolean(L, msg->arg2 == 0);
+    lua_pushinteger(L, msg->arg2);
+    lua_call(L, 4, 0);
+    return 0;
+}
+
+static void cc_dtmf_tx_process(const luat_cc_dtmf_tx_request_t *request)
+{
+    rtos_msg_t msg = {0};
+    uint32_t mask = luat_rtos_entry_critical();
+    int current = request->generation == s_dtmf_generation;
+    luat_rtos_exit_critical(mask);
+    msg.handler = cc_dtmf_tx_done;
+    msg.arg1 = (int)request->id;
+    msg.arg2 = current ? luat_mobile_send_dtmf(request->sim_id, request->digit,
+                                             request->duration_ms) : -3;
+    /* Release the copied request before Lua can consume its confirmation
+     * and immediately queue another key. Only the local copy is used below. */
+    mask = luat_rtos_entry_critical();
+    s_dtmf_busy = 0;
+    luat_rtos_exit_critical(mask);
+    /* A confirmation means IMS accepted/rejected the request, not that the
+     * remote IVR received it. An already submitted SDK request cannot be
+     * recalled by the public API when the call subsequently ends. */
+    if (luat_msgbus_put(&msg, 0)) LLOGW("DTMF confirmation queue full id=%u", request->id);
+}
+
+static void cc_dtmf_tx_task(void *unused)
+{
+    luat_event_t event;
+    luat_cc_dtmf_tx_request_t request;
+    uint32_t mask;
+    (void)unused;
+    for (;;) {
+        if (luat_rtos_event_recv(s_dtmf_task, 0, &event, NULL, (uint32_t)LUAT_WAIT_FOREVER)) continue;
+        mask = luat_rtos_entry_critical();
+        request = s_dtmf_request;
+        luat_rtos_exit_critical(mask);
+        cc_dtmf_tx_process(&request);
+    }
+}
+
+/**
+异步发送通话内的一个网络 DTMF 键，需要先成功 cc.init 并建立通话。
+@api cc.sendDtmf(sim_id, digit, duration_ms)
+@int sim_id SIM卡槽，EC7xx目前仅支持0
+@string digit 单个0-9、*、#、A-D；不接受电话号码、逗号或分号
+@int duration_ms 可选持续时间，100-1000毫秒，默认300
+@return boolean 是否已加入发送任务
+@return int/string 成功为请求编号，失败为原因
+@usage
+sys.subscribe("CC_DTMF_TX", function(id, ok, code)
+    -- 仅代表SDK请求确认，不代表对端IVR已处理；不同按键须另加时长及间隔。
+    log.info("dtmf_tx", id, ok, code)
+end)
+-- 等待真正接通后调用，挂断时应忽略旧请求的迟到确认。
+local ok, id = cc.sendDtmf(0, "2", 300)
+*/
+static int l_cc_send_dtmf(lua_State *L)
+{
+    lua_Integer sim_id = luaL_checkinteger(L, 1);
+    lua_Integer duration = luaL_optinteger(L, 3, 300);
+    size_t length;
+    const char *digit = luaL_checklstring(L, 2, &length);
+    const char *reason = "invalid DTMF arguments";
+    uint32_t id, mask;
+    if (sim_id != 0 || length != 1 ||
+        !((digit[0] >= '0' && digit[0] <= '9') || digit[0] == '*' || digit[0] == '#' ||
+          (digit[0] >= 'A' && digit[0] <= 'D')) || duration < 100 || duration > 1000) goto failed;
+    if (!s_cc_initialized) { reason = "cc.init required"; goto failed; }
+    mask = luat_rtos_entry_critical();
+    if (s_dtmf_busy) {
+        luat_rtos_exit_critical(mask);
+        reason = "DTMF request still pending"; goto failed;
+    }
+    s_dtmf_busy = 1;
+    luat_rtos_exit_critical(mask);
+    if (!s_dtmf_task && luat_rtos_task_create(&s_dtmf_task, 4 * 1024, 100,
+            "cc_dtmf_tx", cc_dtmf_tx_task, NULL, 0)) {
+        reason = "DTMF task creation failed"; goto reset_busy;
+    }
+    mask = luat_rtos_entry_critical();
+    /* arg1 is a signed int on supported Lua runtimes; reserve zero. */
+    if (++s_dtmf_next_id > 0x7fffffffU) s_dtmf_next_id = 1;
+    id = s_dtmf_next_id;
+    s_dtmf_request.id = id;
+    s_dtmf_request.generation = s_dtmf_generation;
+    s_dtmf_request.sim_id = (uint8_t)sim_id;
+    s_dtmf_request.digit = digit[0];
+    s_dtmf_request.duration_ms = (uint16_t)duration;
+    luat_rtos_exit_critical(mask);
+    if (luat_rtos_event_send(s_dtmf_task, 0, 0, 0, 0, 0)) {
+        reason = "DTMF task queue full"; goto reset_busy;
+    }
+    lua_pushboolean(L, 1);
+    lua_pushinteger(L, id);
+    return 2;
+reset_busy:
+    mask = luat_rtos_entry_critical();
+    s_dtmf_busy = 0;
+    luat_rtos_exit_critical(mask);
+failed:
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, reason);
+    return 2;
+}
+
 #if defined(LUAT_USE_VOIP_PLAY) && defined(LUAT_USE_CC_PCM_BRIDGE)
 int luat_voip_play_cc_snapshot(luat_voip_play_cc_media_t *media)
 {
@@ -92,10 +248,10 @@ int luat_voip_play_cc_snapshot(luat_voip_play_cc_media_t *media)
     return LUAT_VOIP_PLAY_E_CC_NOT_READY;
 }
 #endif
-#ifdef LUAT_USE_CC_PCM_BRIDGE
+#if defined(LUAT_USE_CC_PCM_BRIDGE) || defined(LUAT_USE_CC_UART_BRIDGE)
 static int l_cc_pcm_unsupported(lua_State *L) {
     lua_pushboolean(L, 0);
-    lua_pushliteral(L, "operation unavailable in CC bridge PCM mode");
+    lua_pushliteral(L, "operation unavailable in headless CC PCM mode");
     return 2;
 }
 #endif
@@ -391,6 +547,13 @@ static int l_cc_get_last_call_num(lua_State* L) {
     return 1;
 }
 
+static uint8_t cc_sim_arg(lua_State *L)
+{
+    lua_Integer sim_id = luaL_optinteger(L, 1, 0);
+    luaL_argcheck(L, sim_id >= 0 && sim_id <= UINT8_MAX, 1, "SIM index out of range");
+    return (uint8_t)sim_id;
+}
+
 /**
 拨打电话
 @api cc.dial(sim_id, number)
@@ -399,9 +562,36 @@ static int l_cc_get_last_call_num(lua_State* L) {
 @return bool 拨打电话成功与否
  */
 static int l_cc_make_call(lua_State* L) {
-    uint8_t sim_id = luaL_optinteger(L, 1, 0);
+    uint8_t sim_id = cc_sim_arg(L);
     size_t len = 0;
 	const char* number = luaL_checklstring(L, 2, &len);
+    luaL_argcheck(L, len > 0 && len <= UINT8_MAX, 2, "phone number length out of range");
+    /* A blocked SDK query must not later send an old key into a new call. */
+    if (cc_dtmf_tx_pending()) {
+        lua_pushboolean(L, 0);
+        lua_pushliteral(L, "DTMF request still pending");
+        return 2;
+    }
+    cc_dtmf_tx_cancel();
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) {
+        int ret, started = 0;
+        if (!luat_cc_uart_active() || luat_mobile_get_call_state(sim_id) != -1) {
+            lua_pushboolean(L, 0);
+            lua_pushliteral(L, "UART session required and cellular call must be idle");
+            return 2;
+        }
+        ret = luat_cc_uart_platform_begin();
+        if (!ret) {
+            started = 1;
+            ret = luat_mobile_make_call(sim_id, (char *)number, (uint8_t)len);
+        }
+        if (ret && started) luat_cc_uart_platform_stop();
+        lua_pushboolean(L, !ret);
+        if (ret) { lua_pushinteger(L, ret); return 2; }
+        return 1;
+    }
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) {
         if (luat_mobile_get_call_state(sim_id) != -1) {
@@ -411,7 +601,7 @@ static int l_cc_make_call(lua_State* L) {
         }
         int ret = luat_cc_pcm_dial_begin();
         if (!ret) {
-            ret = luat_mobile_make_call(sim_id, (char *)number, len);
+            ret = luat_mobile_make_call(sim_id, (char *)number, (uint8_t)len);
             if (ret) luat_cc_pcm_stop(); /* 仅停止本次新取得所有权的请求。 */
         }
         lua_pushboolean(L, !ret);
@@ -419,7 +609,7 @@ static int l_cc_make_call(lua_State* L) {
         return 1;
     }
 #endif
-    lua_pushboolean(L, !luat_mobile_make_call(sim_id, (char*)number, len));
+    lua_pushboolean(L, !luat_mobile_make_call(sim_id, (char*)number, (uint8_t)len));
     return 1;
 }
 
@@ -429,7 +619,16 @@ static int l_cc_make_call(lua_State* L) {
 @number sim_id
  */
 static int l_cc_hangup_call(lua_State* L) {
-    uint8_t sim_id = luaL_optinteger(L, 1, 0);
+    uint8_t sim_id = cc_sim_arg(L);
+    cc_dtmf_tx_cancel();
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) {
+        luat_cc_uart_local_stop();
+        luat_cc_uart_platform_stop();
+        luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_HANGUP, sim_id, 0, 0, 0);
+        return 0;
+    }
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) {
         luat_cc_pcm_stop();
@@ -448,7 +647,29 @@ static int l_cc_hangup_call(lua_State* L) {
 @return bool 接听电话成功与否
  */
 static int l_cc_answer_call(lua_State* L) {
-    uint8_t sim_id = luaL_optinteger(L, 1, 0);
+    uint8_t sim_id = cc_sim_arg(L);
+    if (cc_dtmf_tx_pending()) {
+        lua_pushboolean(L, 0);
+        lua_pushliteral(L, "DTMF request still pending");
+        return 2;
+    }
+    cc_dtmf_tx_cancel();
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) {
+        int state = luat_mobile_get_call_state(sim_id), ret;
+        if (!luat_cc_uart_active()) { lua_pushboolean(L, 0); return 1; }
+        if (state == 0) { lua_pushboolean(L, 1); return 1; }
+        if (state != 4 && state != 5) { lua_pushboolean(L, 0); return 1; }
+        ret = luat_cc_uart_platform_begin();
+        if (ret == 1) { lua_pushboolean(L, 1); return 1; }
+        if (!ret) {
+            ret = luat_mobile_answer_call(sim_id);
+            if (ret) luat_cc_uart_platform_stop();
+        }
+        lua_pushboolean(L, !ret);
+        return 1;
+    }
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) {
         /* EC7xx IMI 通话状态：ACTIVE=0，INCOMING=4，WAITING=5。 */
@@ -473,7 +694,7 @@ static int l_cc_answer_call(lua_State* L) {
 初始化电话功能
 @api cc.init(multimedia_id, audio_mode)
 @number multimedia_id 多媒体id
-@number audio_mode 默认0使用原音频后端；cc.AUDIO_MODE_BRIDGE_PCM使用纯PCM桥接
+@number audio_mode 默认0原音频；cc.AUDIO_MODE_BRIDGE_PCM为SIP纯PCM；cc.AUDIO_MODE_UART_PCM为UART纯PCM
 @return bool 成功与否；首次成功初始化后后端固定至重启，同模式重复初始化幂等
 @return string 失败原因（仅失败时返回）
  */
@@ -481,22 +702,58 @@ static int l_cc_speech_init(lua_State* L) {
     int mode = luaL_optinteger(L, 2, 0);
     int multimedia_id = luaL_optinteger(L, 1, 0);
     const char *reason = "CC initialization failed";
+    int selected_mode = 0;
 #ifdef LUAT_USE_CC_PCM_BRIDGE
-    if (mode != 0 && mode != LUAT_CC_AUDIO_MODE_BRIDGE_PCM) {
+    if (luat_cc_pcm_selected()) selected_mode = LUAT_CC_AUDIO_MODE_BRIDGE_PCM;
+#endif
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) selected_mode = LUAT_CC_AUDIO_MODE_UART_PCM;
+#endif
+    if (mode != 0
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+        && mode != LUAT_CC_AUDIO_MODE_BRIDGE_PCM
+#endif
+#ifdef LUAT_USE_CC_UART_BRIDGE
+        && mode != LUAT_CC_AUDIO_MODE_UART_PCM
+#endif
+    ) {
         reason = "unknown CC audio mode"; goto failed;
     }
     if (s_cc_initialized) {
-        if (mode != (luat_cc_pcm_selected() ? LUAT_CC_AUDIO_MODE_BRIDGE_PCM : 0)) {
+        if (mode != selected_mode) {
             reason = "CC backend is fixed after initialization; reboot to change it"; goto failed;
         }
         lua_pushboolean(L, 1); return 1;
     }
-    if (mode == LUAT_CC_AUDIO_MODE_BRIDGE_PCM) {
+#if defined(LUAT_USE_CC_PCM_BRIDGE) || defined(LUAT_USE_CC_UART_BRIDGE)
+    if (mode != 0) {
         int call_state = luat_mobile_get_call_state(0);
         if (call_state >= 0) {
             reason = "CC backend can only be selected while idle"; goto failed;
         }
     }
+#endif
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (mode == LUAT_CC_AUDIO_MODE_UART_PCM) {
+        if (!luat_cc_uart_setup_done()) {
+            reason = "ccuart.setup must succeed before cc.init UART mode"; goto failed;
+        }
+        if (_l_cc.is_audio_start || _l_cc.is_play_extern_source || _l_cc.record_on_off
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+            || luat_cc_bridge_is_busy()
+#endif
+        ) { reason = "legacy CC audio is still active"; goto failed; }
+        if (!_l_cc.task_handle && luat_rtos_task_create(&_l_cc.task_handle, 4*1024,
+                100, "volte", _l_cc_volte_task, NULL, 0)) goto failed;
+        if (luat_cc_uart_platform_init()) {
+            reason = "UART PCM HAL or upload adapter unavailable"; goto failed;
+        }
+        _l_cc.multimedia_id = multimedia_id;
+        s_cc_initialized = 1;
+        lua_pushboolean(L, 1); return 1;
+    }
+#endif
+#ifdef LUAT_USE_CC_PCM_BRIDGE
     if (mode == LUAT_CC_AUDIO_MODE_BRIDGE_PCM) {
         if (_l_cc.is_audio_start || _l_cc.is_play_extern_source || _l_cc.record_on_off
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
@@ -513,9 +770,6 @@ static int l_cc_speech_init(lua_State* L) {
         s_cc_initialized = 1;
         lua_pushboolean(L, 1); return 1;
     }
-#else
-    if (mode != 0) { reason = "firmware has no CC PCM backend"; goto failed; }
-    if (s_cc_initialized) { lua_pushboolean(L, 1); return 1; }
 #endif
     _l_cc.multimedia_id = multimedia_id;
     if (!_l_cc.record_save_fifo) _l_cc.record_save_fifo = luat_fifo_create(13);
@@ -548,6 +802,9 @@ failed:
  */
 static int l_cc_set_bridge(lua_State* L) {
     luaL_checktype(L, 1, LUA_TBOOLEAN);
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) return l_cc_pcm_unsupported(L);
+#endif
     lua_pushboolean(L, luat_cc_bridge_set_enabled(lua_toboolean(L, 1)) == 0);
     return 1;
 }
@@ -561,6 +818,9 @@ static int l_cc_set_bridge(lua_State* L) {
  */
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
 static int l_cc_bridge_tone(lua_State* L) {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) return l_cc_pcm_unsupported(L);
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) { lua_pushboolean(L, !luat_cc_pcm_tone(lua_toboolean(L, 1))); return 1; }
 #endif
@@ -608,6 +868,9 @@ end)
 cc.record(true, buff1, buff2, buff3, buff4)
 */
 static int l_cc_record_call(lua_State* L) {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) return l_cc_pcm_unsupported(L);
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) { return l_cc_pcm_unsupported(L); }
 #endif
@@ -637,6 +900,9 @@ static int l_cc_record_call(lua_State* L) {
 @return int 1为低音质(8K)，2为高音质(16k)，0没有在通话,其他值为具体的音频采样率
  */
 static int l_cc_get_quality(lua_State* L) {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) { lua_pushinteger(L, luat_cc_uart_platform_rate() / 8000); return 1; }
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) { uint32_t rate = luat_cc_pcm_rate(); lua_pushinteger(L, rate / 8000); return 1; }
 #endif
@@ -672,6 +938,9 @@ cc.on("record", function(type, buff_point)
 end)
 */
 static int l_cc_on(lua_State *L) {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) return l_cc_pcm_unsupported(L);
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) { return l_cc_pcm_unsupported(L); }
 #endif
@@ -705,6 +974,9 @@ static int l_cc_on(lua_State *L) {
 cc.extern_source({"/test_16k.mp3"})
 */
 static int l_cc_extern_source(lua_State *L) {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) return l_cc_pcm_unsupported(L);
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) { return l_cc_pcm_unsupported(L); }
 #endif
@@ -830,6 +1102,9 @@ DONE:
 local result, write_len, free_len = cc.input(true, data, is_end)
 */
 static int l_cc_input(lua_State *L) {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) return l_cc_pcm_unsupported(L);
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) { return l_cc_pcm_unsupported(L); }
 #endif
@@ -890,12 +1165,16 @@ DONE:
 #include "rotable2.h"
 static const rotable_Reg_t reg_cc[] =
 {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    { "AUDIO_MODE_UART_PCM", ROREG_INT(LUAT_CC_AUDIO_MODE_UART_PCM)},
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     { "AUDIO_MODE_BRIDGE_PCM", ROREG_INT(LUAT_CC_AUDIO_MODE_BRIDGE_PCM)},
     { "bridgePcmStats", ROREG_FUNC(luat_cc_pcm_stats)},
 #endif
     { "init" ,      ROREG_FUNC(l_cc_speech_init)},
     { "dial" ,      ROREG_FUNC(l_cc_make_call)},
+    { "sendDtmf",   ROREG_FUNC(l_cc_send_dtmf)},
     { "accept" ,    ROREG_FUNC(l_cc_answer_call)},
     { "hangUp" ,    ROREG_FUNC(l_cc_hangup_call)},
     { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
@@ -944,6 +1223,9 @@ luat_fifo_t *luat_cc_get_play_fifo(void)
 
 void luat_cc_start_upload(void)
 {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) return;
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) return;
 #endif
@@ -959,6 +1241,9 @@ void luat_cc_start_upload(void)
 
 void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, uint32_t play_block_cnt, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t record_callback_cnt_level, uint8_t need_upload, uint8_t true_start)
 {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) return;
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) return;
 #endif
@@ -1081,6 +1366,9 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
 
 void luat_cc_play_tone(uint32_t param)
 {
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) return;
+#endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) return;
 #endif

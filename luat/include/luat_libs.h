@@ -181,6 +181,10 @@ LUAMOD_API int luaopen_xxtea( lua_State *L );
 // 电话功能
 LUAMOD_API int luaopen_cc( lua_State *L );
 
+#ifdef LUAT_USE_CC_UART_BRIDGE
+LUAMOD_API int luaopen_ccuart(lua_State *L);
+#endif
+
 // WLAN 裸数据收发
 LUAMOD_API int luaopen_wlan_raw(lua_State *L);
 

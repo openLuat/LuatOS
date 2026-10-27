@@ -1,5 +1,5 @@
 #include "luat_base.h"
-#ifdef LUAT_USE_CC_PCM_BRIDGE
+#if defined(LUAT_USE_CC_PCM_BRIDGE) || defined(LUAT_USE_CC_UART_BRIDGE)
 #include "luat_cc_pcm_upload.h"
 #include "FreeRTOS.h"
 #include "task.h"

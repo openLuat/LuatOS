@@ -2,6 +2,8 @@
 #include "luat_display.h"
 #include "luat_display_if_comm.h"
 
+#ifdef LUAT_USE_LVDS_INF
+
 #define LUAT_LOG_TAG "display_lvds"
 #include "luat_log.h"
 
@@ -64,3 +66,5 @@ struct luat_display_funcs lvds_funcs = {
     .pan_display = lvds_pan_display,
     .deinit = lvds_deinit,
 };
+
+#endif /* LUAT_USE_LVDS_INF */

@@ -1,0 +1,168 @@
+--[[
+@module  config.eng_8603w3_10i_v0
+@summary Air8603W3 引擎主机 10寸1024x600 RGB屏 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + 隔离RS485(UART2) + SD卡 配置文件（WiFi 版）
+@version 1.0
+@date    2026.10.26
+@author  江访
+@usage
+所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
+具体包含哪些参数，如何填写参考：template.lua
+
+注意：
+1. 【Air8603 系列十型号】同一块底板、同一套供电与屏，只按 UART1 / UART2 的用途分十型号
+   （W = WiFi 版，M = 4G 版，各五档），出货型号即配置型号，切勿混用：
+     W1 / M1  UART1 = 隔离485    UART2 = UVC 摄像头控制串口
+     W2 / M2  UART1 = 非隔离485  UART2 = UVC 摄像头控制串口
+     W3 / M3  UART1 = 隔离485    UART2 = 隔离485
+     W4 / M4  UART1 = 非隔离485  UART2 = 隔离485
+     W5 / M5  UART1 = TTL 串口   UART2 = 隔离485
+   本文件是 Air8603W3：UART1 = 隔离485、UART2 = 隔离485。
+   同一串口划分的 4G 出货型号见 config/eng_8603m3_10i_v0.lua，两者只差 network / features / ui 三处。
+2. 本型号无 Air1103 语音芯片（UART6 空闲），不配 hw.audio，「功能测试」里也没有「音频」组。
+3. 【串口分配细则】UART1 与 UART2 是两个独立对外接口，可以同时打开。
+   GPIO58 的归属见文件头第 5 条。
+4. 【RS485 供电域与方向脚】485_EN = GPIO64 是 485 功能总供电，power_on 拉高使能，之后常供电不回落；
+   故各路都写 power_hold = true，驱动只补高不关断（末路 stop 不拉低），
+   否则关掉最后一路会把整组 485 的电一起掐掉。
+   DE 空闲停在低电平（接收态），发送窗口内才拉高，由 periph_rs485 统一驱动。
+   非隔离 485 的 DE = 485_EN1 = PIN51 = GPIO65；隔离 485（UART2）的 DE = 485_EN2 = PIN48 = GPIO58；
+   隔离 485（UART1）的 DE 未引出，写 de_pin = nil，收发器自动方向。
+   本型号 UART1 是隔离 485（DE 未引出），GPIO65 不做方向脚，power_on 不动它。
+5. 【GPIO58 = 485_EN2】PIN48 = GPIO58 是 UART2 那路隔离 485 的 DE（485_EN2）。
+   本型号不带 UVC，该脚只做方向控制：power_on 拉低停在接收态，periph_rs485 在每帧发送窗口里拉高。
+   若与带 UVC 的型号混刷，同一脚会变成 UVC_EN，务必按出货型号取配置。
+6. LCD 为 RGB 10寸 1024×600（免序列四合一，无 SPI 初始化引脚），走统一 RGB 驱动
+   lcd_display_rgb；LCD_DISP = PIN80 = GPIO15 作 pin_rst；时序用 1024×600 生态实测组
+   hbp=140 hspw=20 hfp=160 vbp=20 vspw=3 vfp=12 @50MHz；背光 PWM3 调光。
+7. 触摸 GT911 走 I2C1：TP_RST = PIN8 = GPIO72，TP_INT = PIN36 = GPIO51。
+   TP_RST 的复位脉冲在 power_on 里做（先拉低 20ms 再拉高 60ms），INT 上拉锁 0x14 干净启动。
+8. SD 卡走 SPI1 总线，SPI_CS0 = PIN38 = GPIO8，SD_EN = PIN9 = GPIO74。
+   本板无 NAND Flash，不配 storage.nand_flash、不开 features.nand_flash。
+9. 【看门狗 153D】PIN47 = GPIO57 是喂狗信号输出，经三极管拉地驱动 Air153D 的 WTDOG。
+   开关 features.wdt = true、喂狗脚 hw.wdt = { pin = 57 }，watchdog_app 加载后自动喂狗。
+   芯片侧 WTDOG 是喂狗输入、PWR_OFF 是复位输出（接系统复位），固件不配置 PWR_OFF。
+   超时档位由 STRAP 硬件配置（10分钟 / 60分钟 / 12小时 / 24小时），软件层不参与。
+   芯片侧 WTDOG 是喂狗输入、PWR_OFF 是复位输出（接系统复位），固件不配置 PWR_OFF。
+   超时档位由 STRAP 硬件配置（10分钟 / 60分钟 / 12小时 / 24小时），软件层不参与。
+10. 上电供电轨：5V_EN = GPIO12、9V_EN = PIN46 = GPIO56、12V_EN = PIN72 = GPIO44、
+   5VOUT_EN = PIN73 = GPIO52（对外 5V 输出使能）。
+   5V_EN 与 usb_hid_app 的 VBUS_GPIO=12 是同一物理脚（USB 供电使能），本型号不开 usb_hid
+   （features.usb_hid 不写），故不会被该应用上下电；若后续开启 usb_hid，需先核实 5V 轨
+   是否还给非 USB 负载供电。
+]]
+
+return {
+    -- ===== 顶层信息 =====
+    name = "Engine_Air8603W3_10inch_1024x600_000_WiFi_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}_{网络}
+    chip = "Air1603", -- 主控芯片平台（同 config/eng_8607a_10i_v0.lua）
+    baseboard = "合宙引擎 AIR8603W3 V000 10寸", -- 底板型号
+
+    -- ===== 引脚功能复用 =====
+    -- Air1603 上背光 PWM3 与触摸 I2C1 无需显式复用（与 eng_8607 系列一致，留空）
+    pins = {
+        -- { pin = 55, func = "PWM3" },     -- 背光 PWM3
+        -- { pin = 33, func = "I2C1_CLK" }, -- I2C1 时钟线（GT911 SCL）
+        -- { pin = 32, func = "I2C1_SDA" }, -- I2C1 数据线（GT911 SDA）
+    },
+
+    -- ===== GPIO 上电时序 =====
+    -- 按顺序初始化各外设供电和复位（顺序即依赖：电源轨→SD→摄像头/485方向脚→485总供电）
+    power_on = {
+        { pin = 12, dir = 0, level = 1 },              -- 5V_EN 拉高，5V 供电
+        { pin = 56, dir = 0, level = 1, delay = 100 }, -- 9V_EN 拉高，等 100ms 就绪
+        { pin = 44, dir = 0, level = 1 },              -- 12V_EN 拉高，12V 供电
+        { pin = 52, dir = 0, level = 1 },              -- 5VOUT_EN 拉高，对外 5V 输出使能
+        { pin = 72, dir = 1, level = 0 , delay = 20 }, -- 网络模组 RST 拉低 20ms
+        { pin = 74, dir = 0, level = 1 },              -- SD_EN 拉高，SD 卡供电
+        { pin = 58, dir = 0, level = 0 },              -- 485_EN2 = UART2 隔离485 的 DE，空闲停在接收态
+        { pin = 64, dir = 0, level = 1 },              -- 485_EN 拉高，485 功能总供电
+    },
+
+    -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
+    -- DE 空闲低电平（接收态），发送窗口内由 periph_rs485 拉高，见文件头第 4 条
+    peripherals = {
+        { type = "rs485", id = "485_1", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 64, power_hold = true, baud = 9600 }, -- DE 脚未引出，供电域 485_EN
+        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 2, de_pin = 58, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN2 = GPIO58，供电域 485_EN
+    },
+
+    -- ===== 硬件配置 =====
+    hw = {
+        -- 屏幕: RGB 10寸 1024×600（免序列四合一，无需 SPI 初始化引脚）；背光 PWM3 调光
+        lcd = {
+            model = "lcd_display_rgb", -- 本工程统一 RGB 驱动（内部走 display.init）
+            params = {
+                interface = "rgb",     -- RGB 接口
+                pin_rst = 15,          -- LCD_DISP = PIN80 = GPIO15（显示使能）
+                w = 1024,              -- 水平分辨率
+                h = 600,               -- 竖直分辨率
+                -- RGB 时序参数（1024×600 生态实测组，与同族 HX8282 板一致）
+                hbp = 140,
+                hspw = 20,
+                hfp = 160,
+                vbp = 20,
+                vspw = 3,
+                vfp = 12,
+                bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
+            },
+            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
+            screen_size = 10.0,               -- 10寸屏
+            font = { size = 20 },             -- 高分屏用 20 号字
+            backlight = {
+                pwm_ch = 3,                   -- PWM3 背光调光
+                pwm_freq = 1000,              -- 1kHz
+            },
+        },
+        -- 触摸: GT911 I2C 端口1
+        tp = {
+            model = "tp_gt911",
+            params = {
+                port = 1,              -- I2C 端口 1
+                pin_rst = 14,          -- TP_RST = PIN44 = GPIO14
+                pin_int = 51,          -- TP_INT = WAKEUP = GPIO51
+                int_type = tp.FALLING, -- 下降沿触发（大屏推荐）
+                w = 1024,              -- 触摸面板宽度
+                h = 600,               -- 触摸面板高度
+            },
+        },
+        -- 看门狗: Air153D 外置硬件看门狗，GPIO57 经三极管拉地喂狗（见文件头第 9 条）
+        wdt = {
+            pin = 57,               -- PIN47 = GPIO57 → 三极管 → WTDOG
+        },
+        -- 音频: 本型号无 Air1103 语音（UART6 空闲），不配 hw.audio，见文件头第 2 条
+    },
+
+    -- ===== 功能开关（只写 = true 的项）=====
+    features = {
+        wifi = true,        -- 启用 WiFi（Air6205，独占 UART3）—— 本型号固定为 WiFi 版，见文件头第 1 条
+        sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
+        rs485 = true,       -- 启用 RS485 接口
+        other_func = true,  -- 启用"功能测试"（peripherals 外设清单）
+        wdt = true,         -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+    },
+
+    -- ===== 统一网络配置（优先级从高到低）=====
+    -- 本型号为 WiFi 版：Airlink UART WiFi（6205）独占 UART3
+    -- 同一串口划分的 4G 出货型号见 config/eng_8603m3_10i_v0.lua
+    network = {
+        { type = "wifi_airlink_uart",
+          uart_id = 3,
+          baud = 2000000 },
+    },
+
+    -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====
+    storage = {
+        sd_card = {
+            spi_id = 1,               -- SPI1 总线
+            pin_cs = 8,               -- SPI_CS0 = PIN38 = GPIO8 片选
+            speed = 20 * 1000 * 1000, -- SD 卡 SPI 时钟 20MHz
+        },
+    },
+
+    -- ===== UI 显示控制（只写 = true 的项）=====
+    ui = {
+        show_wifi_icon = true,         -- 桌面顶栏 WiFi 图标
+        show_brightness_slider = true, -- 设置页亮度滑块
+        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
+    },
+}

@@ -75,16 +75,86 @@
     -- 声明式外设清单，由 drv/periph/periph_loader.lua 在可选批逐个初始化。
     -- 未实现的 type 只登记不动作（记日志跳过），配置先行、驱动实现后补。
     -- 字段约定:
-    --   type          [必填] 外设类型: uvc / rs485 / spi_cam / can / onewire / i2c / uart / pwm / adc
+    --   type          [必填] 外设类型: uvc / rs485 / gnss / ble / spi_cam / onewire / i2c / uart / pwm / adc
     --   ready_delay   [可选] 上电稳定延时(ms)，loader 在 init 前等待（谁用谁等）
     --   其余字段      透传给驱动 init(params)（en_pin / en_pins / uart_id / bus 等，按 type 约定）
     -- peripherals = {
-    --     { type = "uvc",     en_pin = 58, ready_delay = 200 },   -- UVC 摄像头，200ms 就绪
-    --     { type = "rs485",   en_pins = {14, 65, 49}, uart_id = 11 },
+    --     -- USB 摄像头（UVC）：w / h 首选 MJPEG 分辨率，max_pixels 源分辨率像素上限
+    --     --     不写 w/h 则用默认档 1280×720；该档像素数超过 max_pixels 时作废、退回默认档
+    --     --     相机侧固定开销约 4.25×w×h 字节，越大留给显示缓冲的余量越小（预览区会收小）
+    --     --     取档顺序：w/h 命中 → 像素数不超过 max_pixels 的最大档 → 最小档
+    --     --   rotation [可选] uvc 专用：画面顺时针旋转，仅 0 / 90 / 180 / 270（默认 0）。
+    --     --     摄像头物理摆正后画面还歪着就用它纠正；预览区按旋转后的宽高比算
+    --     --   供电由底板常供时不写 en_pin，驱动全程不动 GPIO
+    --     --   供电可控时写 en_pin + ready_delay（上电后稳定等待）
+    --     --     该脚还带别路 5V 负载 → power_hold = true（退出页面只置标志不拉低）
+    --     --     power_cycle 不要开：重新枚举的时机由代码控制，必须在 excamera.preview
+    --     --       注册完回调之后掉电上电。开它会在注册前就触发枚举，EV_CONNECT 永远收不到
+    --     --   en_pin = 12 必须同时写 pin12_free = true：GPIO12 是 V1.1 底板的共用 5V 轨，
+    --     --     只有确认它与 RS485 方向脚不同时使用才放行（V1.2 底板不用这个脚）
+    --     --   V1.2 底板：USB 5V 跟总供电 GPIO58 同一路，按可控脚写 58 + power_hold
+    --     { type = "uvc", id = "uvc1", name = "USB摄像头",
+    --       en_pin = 58, ready_delay = 200, power_hold = true,
+    --       w = 960, h = 480, rotation = 90 },
+    --     -- RS485：uart_id 串口号 / de_pin 方向脚(DE，高=发送、低=接收) / test_data 测试页固定发送内容
+    --     --   power_pin + power_hold：收发器使能脚（V1.2 是 GPIO46，高有效），退出时不断电
+    --     { type = "rs485", id = "rs485_1", name = "RS485", uart_id = 2, de_pin = 64,
+    --       power_pin = 46, power_hold = true,
+    --       baud = 9600, databits = 8, stopbits = 1, parity = "N", test_data = "RS485 test" },
+    --     -- GNSS：uart_id 串口号 / baud 波特率 / gnssmode 1=卫星全定位 2=单北斗 / hz 输出频率
+    --     --   en_pin：模组供电使能脚，透传给 exgnss 的 gnss_volgpio（打开定位拉高、
+    --     --     关闭定位拉低）；模块常供电（VBAT 直供）的底板**不要写**，
+    --     --     此时 exgnss 走 pm.power(pm.GPS) 兜底（V1.2 / V1.1 底板都是这种）
+    --     --   与 WiFi / 4G 共用同一条 UART 时，由底板硬件切换，软件不做仲裁
+    --     --   agps_enable：AGPS 加速（下星历 + 基站定位）。开 true 会 require("lbsLoc2")，
+    --     --   而 lbsLoc2 加载时要读 4G 的 IMEI，故需 4G 在位；4G 与 GNSS 共用串口的板子
+    --     --   先解决硬件互斥再开，否则 4G 不在位会崩（详见 evb_1602 注释）
+    --     --   debug：打印每条 NMEA 原始报文，排障时临时改 true
+    --     { type = "gnss", id = "gnss_1", name = "GNSS", uart_id = 3, baud = 115200,
+    --       -- en_pin = 21,  -- 仅当底板有供电使能脚时写，常供电板删掉这行
+    --       gnssmode = 1, agps_enable = false, hz = 1, debug = false },
+    --     -- 蓝牙（BLE）：uart_id 串口号 / baud 波特率 / dev_name 手机搜到的广播名 / test_data 测试页固定发送内容
+    --     --   驱动是扩展库 exril_5101（Air5101S 等串口 BLE 模块）
+    --     --   与 4G / WiFi / GNSS 共用同一条 UART 时，蓝牙测试页进页面会先 uart.close 把口抢过来
+    --     --     再按本表的 baud 重开；退出页面释放，但不会把口还给 4G（要继续联网请重启）
+    --     --   test_data 走 AT 模式发送，单包上限 80 字节（页面按 60 字节截断）
+    --     --   en_pin：模组供电使能脚（如 BLE_EN），power_on 里先拉低，进蓝牙页拉高、
+    --     --     退出拉低；模组 VBAT 直供（常供电）的板子不要写，全程不动 GPIO
+    --     --   boot_delay：拉高后等模块启动的毫秒数（缺省 800），退出即断电的板子必须留够
+    --     { type = "ble", id = "ble_1", name = "蓝牙", uart_id = 3, baud = 9600,
+    --       en_pin = 47, boot_delay = 800,
+    --       dev_name = "Air1602_Test", mtu_len = 247, test_data = "BLE test" },
     --     { type = "spi_cam" },   -- SPI 摄像头（预留）
-    --     { type = "can" },       -- CAN（预留）
     --     { type = "onewire" },   -- 1-Wire（预留）
     -- },
+
+    -- ============================================================
+    -- 三(补2)、CAN 测试参数（内置核心库，不进 peripherals，不需要 features 开关）
+    -- ============================================================
+    -- can 是核心库：固件带 CAN 时全局就有 can，设置页入口常驻，进页面才 init。
+    --   can_id：**本版固件 1-based**，1 = CAN1（复用 UART1）、2 = CAN2（复用 UART2）
+    --   uart_id：该路 CAN 复用的串口，进测试页前先 uart.close 抢口（与 RS485 同口时必填）
+    --   mode：进页面初始模式 normal 正常 / test 自收自发 / listen 只听，页面按钮可切换
+    --   bitrate + pts/pbs1/pbs2/sjw：实际速率 = 基础时钟 / 分频 / (1+PTS+PBS1+PBS2)，
+    --     125K/250K/500K/1M 这一族共用 6,6,4,2
+    --   tx_id + ext：测试页发送帧 ID 与帧格式（true=扩展帧29bit / false=标准帧11bit）
+    --   need_ack：需要应答，正常模式接对端时留 true
+    --   test_data：测试页固定发送内容，单帧最多 8 字节（超了截断）
+    --   **不要调 can.node / can.filter**：本版固件非 FIFO 过滤有 bug，调了收不到帧
+    -- can = {
+    --     id = "can_1", name = "CAN", can_id = 2, uart_id = 2, mode = "normal",
+    --     bitrate = 1000000, pts = 6, pbs1 = 6, pbs2 = 4, sjw = 2,
+    --     tx_id = 0x12345677, ext = true, need_ack = true,
+    --     cache = 128, test_data = "CAN test",
+    -- },
+
+    -- ============================================================
+    -- 三(补3)、UART3 口复用缺省通道 channel_default（可选）
+    -- ============================================================
+    -- fskv 里没有 uart3_mode 记录时（出厂首次开机）用这个值，可选 "4g" / "wifi" / "gnss" / "ble"。
+    -- 不写则按 network 表推断（4G 与 WiFi 两条都在 → 默认 4g）。
+    -- 本板四个模组都复用 UART3，缺省 4G：evb_1602_7i_v12.lua 里写 "4g"。
+    -- channel_default = "4g",
 
     -- ============================================================
     -- 四、硬件配置（必填）

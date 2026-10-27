@@ -2,6 +2,8 @@
 #include "luat_display.h"
 #include "luat_display_if_comm.h"
 
+#ifdef LUAT_USE_MIPI_INF
+
 
 #define LUAT_LOG_TAG "display_dsi"
 #include "luat_log.h"
@@ -75,5 +77,7 @@ struct luat_display_funcs dsi_funcs = {
     .pan_display = dsi_pan_display,
     .deinit = dsi_deinit,
 };
+
+#endif /* LUAT_USE_MIPI_INF */
 
 

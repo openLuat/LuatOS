@@ -1,6 +1,8 @@
 #include "luat_base.h"
 #include "luat_display_panel_comm.h"
 
+#ifdef LUAT_USE_MIPI_INF
+
 
 #define LUAT_LOG_TAG "st7701s"
 #include "luat_log.h"
@@ -86,5 +88,7 @@ struct luat_display_panel dsi_panel_st7701s = {
     .timing = &st7701s_timing,
     .screen_win = NULL,
 };
+
+#endif /* LUAT_USE_MIPI_INF */
 
 

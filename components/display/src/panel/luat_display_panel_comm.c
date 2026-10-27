@@ -8,13 +8,19 @@
 
 /*支持的显示面板列表*/
 static struct luat_display_panel *panels[] = {
+#ifdef LUAT_USE_RGB_INF
     &rgb_panel_custom,
     &rgb_panel_st7701s,
     &rgb_panel_nv3052c,
+#endif
+#ifdef LUAT_USE_MIPI_INF
     &dsi_panel_st7701s,
+#endif
+#ifdef LUAT_USE_SPI_INF
     &spi_panel_st7789,
     &spi_panel_st7796,
     &spi_panel_ili9341,
+#endif
 };
 
 /*按照连接器类型查找显示面板*/
@@ -44,12 +50,18 @@ int luat_display_send_sequence(struct luat_display_panel *panel, const void *dat
     }
 
     switch (panel->connector_type) {
+#ifdef LUAT_USE_RGB_INF
     case LUAT_DISPLAY_CONNECTOR_RGB:
         return rgb_spi_panel_send_sequence(panel, data, len);
+#endif
+#ifdef LUAT_USE_SPI_INF
     case LUAT_DISPLAY_CONNECTOR_DBI:
         return spilcd_panel_send_sequence(panel, data, len);
+#endif
+#ifdef LUAT_USE_MIPI_INF
     case LUAT_DISPLAY_CONNECTOR_MIPI:
         return dsi_panel_send_sequence(panel, data, len);
+#endif
     default:
         return 0;
     }

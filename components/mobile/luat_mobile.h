@@ -1061,6 +1061,15 @@ void luat_mobile_hangup_call(uint8_t sim_id);
  */
 int luat_mobile_answer_call(uint8_t sim_id);
 /**
+ * @brief 在唯一已接通的电话中提交一个 DTMF 键。
+ * @param sim_id SIM 卡槽，目前 EC7xx 仅支持 0
+ * @param digit 单个 0-9、*、#、A-D 按键
+ * @param duration_ms 持续时间，100-1000 毫秒
+ * @return 0 为 IMS 接受请求，其他为错误；不代表远端 IVR 已处理。
+ * @note 同步等待 SDK 确认，只能在独立任务调用；禁止 Lua、音频或 CMS 回调直接调用。
+ */
+int luat_mobile_send_dtmf(uint8_t sim_id, char digit, uint16_t duration_ms);
+/**
  * @brief 初始化电话功能
  * @param multimedia_id multimedia_id 多媒体通道，目前只有0
  * @param callback 下行通话数据回调函数

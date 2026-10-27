@@ -196,7 +196,7 @@ void luat_display_sdl2_pump_events(luat_display_sdl2_ctx_t *ctx)
 
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
-            SDL_Quit();
+            /* 同上：事件循环内 SDL_Quit 会在 WIN_QuitKeyboard 里崩溃。 */
             exit(0);
         }
         if (e.type == SDL_WINDOWEVENT && e.window.windowID == my_id) {

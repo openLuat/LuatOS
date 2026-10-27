@@ -566,8 +566,8 @@ static int sdl_input_pump_events_passive_msg_handler(lua_State *L, void *ptr)
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             LLOGI("SDL_QUIT received during sleep, shutting down");
+            SDL_StopTextInput();
             airui_deinit(ctx);
-            SDL_Quit();
             exit(0);
         }
 
@@ -670,10 +670,10 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev
                 has_event = true;
             }
         } else if (event.type == SDL_QUIT) {
-            // 窗口关闭时 SDL 会发出 SDL_QUIT，优雅清理并退出程序
+            /* 不要在 PollEvent 里面 SDL_Quit。Windows 会在拆 IME 时访问已释放的键盘状态。 */
             LLOGI("SDL_QUIT received, shutting down");
+            SDL_StopTextInput();
             airui_deinit(ctx);
-            SDL_Quit();
             exit(0);
         } else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) {
             sdl_process_keyboard_event(&event, ctx, true);

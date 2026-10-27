@@ -87,7 +87,6 @@ M.C = {
     white      = 0xFFFFFF,
     -- 状态：空闲
     slate      = 0x647B96,
-    slate_soft = 0x18273A,
     slate_deep = 0x9DB3CB,
     -- 状态：充电中（科技青）
     cyan       = 0x2FD8F5,
@@ -99,7 +98,6 @@ M.C = {
     lime_deep  = 0x86F7BE,
     -- 强调 / 告警
     amber      = 0xFFB020,
-    danger     = 0xFF6B5B,
 }
 
 -- 每个桩位默认车位编号（A-01 ~ A-10）

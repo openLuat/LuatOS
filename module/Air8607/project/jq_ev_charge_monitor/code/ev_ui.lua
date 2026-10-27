@@ -86,11 +86,11 @@ local function rect_item(it, x, y, w, h, radius, color, filled, opacity)
     return it
 end
 
--- 状态皮肤
+-- 状态皮肤：main 用于状态竖条/圆点，deep 用于文字与描边，text 是状态名
 local SKIN = {
-    idle     = { main = C.slate, soft = C.slate_soft, deep = C.slate_deep, text = "空闲" },
-    charging = { main = C.cyan,  soft = C.cyan_soft,  deep = C.cyan_deep,  text = "充电中" },
-    done     = { main = C.lime,  soft = C.lime_soft,  deep = C.lime_deep,  text = "已完成" },
+    idle     = { main = C.slate, deep = C.slate_deep, text = "空闲" },
+    charging = { main = C.cyan,  deep = C.cyan_deep,  text = "充电中" },
+    done     = { main = C.lime,  deep = C.lime_deep,  text = "已完成" },
 }
 
 -- ==================== 背景 ====================
@@ -318,7 +318,6 @@ local function build_manual_panel(parent)
         border_color = C.line2, border_width = 1,
         on_click = function() M.open_edit() end,
     })
-    R.inputBox = ib
     R.inputText = label(ib, 12, 15, 266, 24, "点击输入播报内容…", 16, C.text3)
 
     airui.button({
@@ -511,6 +510,12 @@ function M.build()
 end
 
 -- ==================== 单卡刷新 ====================
+-- 充电态里变化最快的两个数，单卡刷新与整屏刷新共用同一份格式
+local function update_charging_text(r, p)
+    r.lbSoc:set_text(string.format("%d%%", math.floor(p.soc + 0.5)))
+    r.lbFoot:set_text(string.format("%.1fkWh · %s", p.kwh, fmt_dur(mgr.charge_seconds(p.id))))
+end
+
 function M.refresh_card(p)
     local r = R.cards[p.id]
     if not r then return end
@@ -520,7 +525,6 @@ function M.refresh_card(p)
     r.dot:set_color(sk.main, 255)
     r.lbState:set_text(sk.text)
     r.lbState:set_color(sk.deep)
-    r.lbNo:set_color(C.text)
 
     if p.status == "idle" then
         r.lbSoc:set_text("0%")
@@ -531,12 +535,11 @@ function M.refresh_card(p)
         r.lbFoot:set_color(C.text3)
 
     elseif p.status == "charging" then
-        r.lbSoc:set_text(string.format("%d%%", math.floor(p.soc + 0.5)))
         r.lbSoc:set_color(C.cyan_deep)
         r.lbInfo:set_text(string.format("%.1f kW", p.kw))
         r.lbInfo:set_color(C.cyan_deep)
-        r.lbFoot:set_text(string.format("已充 %.1f kWh", p.kwh))
         r.lbFoot:set_color(C.text3)
+        update_charging_text(r, p)
 
     else    -- done
         r.lbSoc:set_text(string.format("%d%%", math.floor(p.soc + 0.5)))
@@ -581,8 +584,7 @@ function M.refresh()
             if p.status == "done" then
                 r.lbInfo:set_text("等待 " .. fmt_dur(mgr.stay_seconds(p.id)))
             elseif p.status == "charging" then
-                r.lbSoc:set_text(string.format("%d%%", math.floor(p.soc + 0.5)))
-                r.lbFoot:set_text(string.format("已充 %.1f kWh", p.kwh))
+                update_charging_text(r, p)
                 update_battery(r, p)
             end
         end

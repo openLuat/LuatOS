@@ -327,15 +327,6 @@ function M.counts()
     return idle, charging, done
 end
 
---[[全站平均功率 kW（顶栏用）]]
-function M.total_kw()
-    local kw = 0
-    for _, p in ipairs(M.piles) do
-        if p.status == "charging" then kw = kw + p.kw end
-    end
-    return kw
-end
-
 -- ==================== 主循环 ====================
 --[[推进演示数据 + 定时播报检查（由 main 定时调用）
 @param number dt_s 距上次调用经过的秒数

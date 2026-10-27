@@ -89,7 +89,7 @@ static int l_adc_read(lua_State *L) {
         return 2;
     }
     else {
-        lua_pushinteger(L, 0xFF);
+        lua_pushinteger(L, -1);
         return 1;
     }
 }

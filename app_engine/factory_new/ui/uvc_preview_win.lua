@@ -1,8 +1,8 @@
 --[[
 @module  uvc_preview_win
 @summary UVC 摄像头预览页（预览 / 拍照 / 录像，TabOS 深色玻璃态）
-@version 1.3
-@date    2026.10.23
+@version 1.4
+@date    2026.10.26
 @author  江访
 @usage
 订阅: OPEN_UVC_PREVIEW_WIN(id)
@@ -15,7 +15,7 @@ excamera.open / preview / close 内部都有 sys.wait，只能在协程里调用
 数据流由本页独占：外设开关（periph_uvc）只管供电脚，不再 camera.init，
 避免与 excamera.open 里的 camera.init 二次初始化打架。
 
-导航：标题栏「返回」回到功能测试页；底部「退出」直接回桌面（exwin.return_idle）。
+导航：标题栏「返回」回到功能测试页；底部「退出」经命令协程收尾后回桌面（exwin.return_idle）。
 
 分辨率与内存（取档做法参考 module/Air8601/project/DEPOSIT_CABINET 的 face_preview）：
 1. 开流分辨率默认 1280×720（AirCAMERA_1032 的常用档），先枚举它真正支持的 MJPEG 档位，
@@ -47,6 +47,10 @@ excamera.open / preview / close 内部都有 sys.wait，只能在协程里调用
 6. 停数据流与销毁组件的顺序不可颠倒：先 excamera.close（前面留 CLOSE_GRACE 让在途帧
    回调跑完）再动 airui.camera 组件；反序会让固件解码线程往已释放的组件里画，
    触发非对齐访问死机。关窗时根控件先 set_hidden 立刻撤画面，销毁交回命令协程收尾。
+7. 「退出」不直接 exwin.return_idle：桌面 MP4 播放器获得焦点即起播，早于收尾会和
+   未关的相机抢内存。退出发 UVC_CMD("quit")，命令协程跑完 do_teardown（停流、
+   销毁组件、断电）后才 exwin.return_idle。收尾命令带界面代数，上一代的 quit
+   不拆新页面，只补关它的数据流。
 ]]
 
 local theme = require "ui_theme"
@@ -112,9 +116,11 @@ local cmd_running = false       -- 命令协程存活标志
 local cmd_started = false       -- 命令协程只启动一次，重复进页不产生第二个协程
 local rec_timer = nil           -- 录像倒计时定时器
 local closing = false           -- excamera.close 是否在进行（开流前要等它收尾）
+local stream_open = false       -- excamera 数据流是否开着（重复进页时先把上代残留流关掉）
 local window_open = false       -- 页面是否在前台
 local ui_gen = 0                -- 界面代数：关窗的收尾只能动同代界面
 local stale_ui = nil            -- 停流期间来不及销毁的上代界面，交回命令协程销毁
+local quit_to_idle = false      -- 「退出」请求：收尾跑完后才回桌面
 
 local periph_id = nil           -- config.peripherals 里的 UVC 实例 id
 local save_base = "/ram/photo/" -- 落盘目录（见 save_dir）
@@ -457,6 +463,7 @@ local function close_stream()
         pcall(excamera.close)
         sys.wait(100)
     end
+    stream_open = false
     widget_registered = false
     closing = false
 end
@@ -473,12 +480,15 @@ local function open_stream()
     if not cam_ready() then return false, "相机能力不可用" end
     wait_closing()
     if not excamera.open(cam_param()) then
+        stream_open = false
         return false, "摄像头打开失败"
     end
     if not excamera.preview(preview_callback) then
         pcall(excamera.close)
+        stream_open = false
         return false, "预览启动失败"
     end
+    stream_open = true
     return true
 end
 
@@ -741,6 +751,14 @@ local function do_teardown(gen)
     if gen == ui_gen then destroy_ui() end
 end
 
+-- 请求收尾：go_idle 为真时，收尾跑完后再回桌面（回桌面的动作在 cmd_loop 的 quit 分支）
+local function request_quit(go_idle)
+    if quit_requested then return end
+    quit_requested = true
+    if go_idle then quit_to_idle = true end
+    sys.publish("UVC_CMD", "quit", ui_gen)
+end
+
 -- ==================== 命令协程 ====================
 
 local function cmd_loop()
@@ -751,6 +769,9 @@ local function cmd_loop()
         if cmd_running and cmd then
             if cmd == "start" then
                 wait_closing()          -- 上一轮停流收尾完，才动它的界面与数据流
+                if stream_open then     -- 上代收尾没跑到（quit 期间已重新进页），这里补关
+                    close_stream()
+                end
                 flush_stale_ui()
                 local ok, err = open_stream()
                 if not ok then update_status(tostring(err)) end
@@ -765,11 +786,19 @@ local function cmd_loop()
             elseif cmd == "duration" then
                 do_duration()
             elseif cmd == "quit" then
-                do_teardown(arg)
-                -- 期间若已重新进本页，界面代数变了，协程留给新页面继续用
-                if arg == ui_gen then
+                -- 期间若已重新进本页，界面代数变了，这条 quit 属于上一代，只补关它的数据流
+                if arg ~= ui_gen then
+                    if stream_open then close_stream() end
+                else
+                    do_teardown(arg)
                     window_open = false
                     cmd_running = false
+                    -- 收尾跑完（流已停、组件已销毁、供电已断）才回桌面：
+                    -- 桌面 MP4 播放器在获得焦点时立刻起播，早于收尾会和相机抢内存
+                    if quit_to_idle then
+                        quit_to_idle = false
+                        pcall(exwin.return_idle)
+                    end
                 end
             end
         end
@@ -845,7 +874,7 @@ local function build_ui()
         x = pad + 4 * (bw + gap), y = cy, w = bw, h = ctrl_h,
         text = "退出", bg = theme.C.rose, bg_opa = theme.OPA.fill,
         border = theme.C.rose, fg = theme.C.rose_light,
-        on_click = function() exwin.return_idle() end,
+        on_click = function() request_quit(true) end,
     })
 end
 
@@ -855,6 +884,7 @@ local function on_create()
     ui_gen = ui_gen + 1
     window_open = true
     quit_requested = false
+    quit_to_idle = false
     busy = false
     snap_pending = false
     rec_file = nil
@@ -903,12 +933,11 @@ end
 local function on_destroy()
     -- excamera.close 含 sys.wait，不能在销毁回调里直接调，交回命令协程收尾；
     -- 根控件先隐藏，画面立刻撤掉，控件销毁留在停流之后（顺序见 close_stream）
-    quit_requested = true
     stop_rec_timer()
     if main_container and not main_container:is_destroyed() then
         pcall(main_container.set_hidden, main_container, true)
     end
-    sys.publish("UVC_CMD", "quit", ui_gen)
+    request_quit(false)
 end
 
 local function on_get_focus() end

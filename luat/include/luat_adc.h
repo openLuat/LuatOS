@@ -25,6 +25,7 @@ typedef enum
 typedef enum LUAT_ADC_CTRL_CMD
 {
 	LUAT_ADC_SET_GLOBAL_RANGE,/**< 量程 */
+	LUAT_ADC_SET_CYCLE_CNT,
 }LUAT_ADC_CTRL_CMD_E;
 
 /// @brief ADC量程
@@ -63,6 +64,7 @@ typedef union luat_adc_ctrl_param
 {	
 	LUAT_ADC_RANGE_E range;/**< adc量程*/
 	void *userdata;/**< 预留 */
+	uint32_t cycle_cnt;
 } luat_adc_ctrl_param_t;
 
 /**
@@ -133,5 +135,8 @@ int luat_adc_read_fast(int id, int* val, int* val2);
  * @return 0 成功, 其他值为失败
  */
 int luat_adc_close_and_enable_lowpower(int id);
+
+void luat_adc_task_lock(uint8_t on_off);
+int luat_adc_block_read(int pin, uint32_t repeat);
 /** @}*/
 #endif

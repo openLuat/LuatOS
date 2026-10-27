@@ -4,6 +4,18 @@
 #include "luat_base.h"
 #include "luat_gpio.h"
 
+/*显示接口/面板编译裁剪开关
+  BSP 按实际硬件声明 LUAT_USE_RGB_INF / LUAT_USE_LVDS_INF / LUAT_USE_MIPI_INF / LUAT_USE_SPI_INF，
+  未声明的接口，其 interface 驱动与 panel 驱动均不参与编译。
+  若一个都没有声明，则保持旧行为：全部编译（兼容未显式配置的平台）。*/
+#if !defined(LUAT_USE_RGB_INF) && !defined(LUAT_USE_LVDS_INF) && \
+    !defined(LUAT_USE_MIPI_INF) && !defined(LUAT_USE_SPI_INF)
+#define LUAT_USE_RGB_INF  1
+#define LUAT_USE_LVDS_INF 1
+#define LUAT_USE_MIPI_INF 1
+#define LUAT_USE_SPI_INF  1
+#endif
+
 
 
 #define LUAT_DISPLAY_COMPONENT_COUNT (5)    //最大支持5个显示组件

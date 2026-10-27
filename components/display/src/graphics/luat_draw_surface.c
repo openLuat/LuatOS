@@ -67,8 +67,6 @@ static int check_clipwindow(SURFACE* dsrf,int* dx, int* dy,int* sx,int* sy,int* 
 }
 
 
-#ifdef LUAT_BSP_PC
-
 /***********************************************
 *函数名称：blit_copy
 *功    能：图形块拷贝
@@ -82,7 +80,7 @@ static int check_clipwindow(SURFACE* dsrf,int* dx, int* dy,int* sx,int* sy,int* 
 *         -1：失败
 *备    注：
 ************************************************/
-int blit_copy(void* dest,void* src,uint32_t destpitch,uint32_t srcpitch,uint32_t bytewidth,uint32_t h)
+LUAT_WEAK int blit_copy(void* dest,void* src,uint32_t destpitch,uint32_t srcpitch,uint32_t bytewidth,uint32_t h)
 {
     uint32_t srcoffset;
     uint32_t destoffset;
@@ -113,7 +111,7 @@ int blit_copy(void* dest,void* src,uint32_t destpitch,uint32_t srcpitch,uint32_t
 *         -1：失败
 *备    注：
 ************************************************/
-int blit32to16( uint8_t* dest, SURFACE* dsrf, uint8_t* src, SURFACE* ssrf, int w, int h )
+LUAT_WEAK int blit32to16( uint8_t* dest, SURFACE* dsrf, uint8_t* src, SURFACE* ssrf, int w, int h )
 {
     int x, y;
     uint8_t r, g, b, a;
@@ -206,9 +204,6 @@ int blit32to16( uint8_t* dest, SURFACE* dsrf, uint8_t* src, SURFACE* ssrf, int w
         return -1;
     }
 }
-
-#endif
-
 
 /***********************************************
 *函数名称：luat_draw_set_display_target

@@ -2,6 +2,8 @@
 #include "luat_display.h"
 #include "luat_display_if_comm.h"
 
+#ifdef LUAT_USE_SPI_INF
+
 #define LUAT_LOG_TAG "display_spi"
 #include "luat_log.h"
 
@@ -64,5 +66,7 @@ struct luat_display_funcs spi_funcs = {
     .pan_display = spilcd_pan_display,
     .deinit = spilcd_deinit,
 };
+
+#endif /* LUAT_USE_SPI_INF */
 
 

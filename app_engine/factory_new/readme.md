@@ -48,8 +48,16 @@
 | 14 | Air1780H | 引擎主机 | 合宙引擎 AIR1780H V000 4.3寸 | 480*272 4.3寸SPI触摸屏(ST6201)；WiFi(airlink 6205)；ES8311录音播放；SD卡；NAND Flash；PWM0背光调节 | Engine_Air1780H_4inch_480x272_000_V000 | | |
 | 15 | Air1603 | 引擎主机 | 合宙引擎 AIR8607 V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；SD卡 | Engine_Air8607_10inch_1024x600_000_V000 | | |
 | 16 | Air1603 | 引擎主机 | 合宙引擎 AIR8607A V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；UVC摄像头(AirCAMERA_1032/AirUVC_1000)；无SD卡 | Engine_Air8607A_10inch_1024x600_000_V000 | | |
-| 17 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W1 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；Air1103语音(UART6)；PWM背光调节；UVC摄像头；三路RS485(非隔离×1/隔离×2)；UART2；SD卡 | Engine_Air8603W1_10inch_1024x600_000_WiFi_V000 | | |
-| 18 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M1 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；Air1103语音(UART6)；PWM背光调节；UVC摄像头；三路RS485(非隔离×1/隔离×2)；UART2；SD卡 | Engine_Air8603M1_10inch_1024x600_000_4G_V000 | | |
+| 17 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W1 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W1_10inch_1024x600_000_WiFi_V000 | | |
+| 18 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W2 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W2_10inch_1024x600_000_WiFi_V000 | | |
+| 19 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W3 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603W3_10inch_1024x600_000_WiFi_V000 | | |
+| 20 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W4 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603W4_10inch_1024x600_000_WiFi_V000 | | |
+| 21 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W5 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603W5_10inch_1024x600_000_WiFi_V000 | | |
+| 22 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M1 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M1_10inch_1024x600_000_4G_V000 | | |
+| 23 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M2 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M2_10inch_1024x600_000_4G_V000 | | |
+| 24 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M3 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603M3_10inch_1024x600_000_4G_V000 | | |
+| 25 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M4 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M4_10inch_1024x600_000_4G_V000 | | |
+| 26 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M5 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M5_10inch_1024x600_000_4G_V000 | | |
 
 ---
 
@@ -144,6 +152,7 @@ return {
     hw = {
         lcd = { model = "lcd_display_rgb", params = {...}, ... },
         tp  = { model = "tp_gt911",        params = {...} },
+        wdt = { pin = 57 },   -- 外部看门狗喂狗脚（开关在 features.wdt）
     },
 
     -- 功能开关（true=启用, false=禁用）
@@ -233,6 +242,7 @@ return {
 | NTP 校时 | `app/ntp/ntp_app.lua` | 联网后自动向 ntp.aliyun.com 校时 |
 | FOTA 升级 | `app/fota_app.lua` | 定时检查云端固件更新 |
 | IOT 账号 | `app/settings/settings_iot_app.lua` | 合宙 IoT 平台登录/登出 |
+| 外部看门狗 | `app/common/watchdog_app.lua` | Air153D 自动喂狗 + `WATCHDOG_*` 状态消息（`features.wdt` 开关 + `hw.wdt` 配脚） |
 
 ### 6.4 设置与配置
 
@@ -265,9 +275,10 @@ return {
 | WiFi 详情 | `ui/wifi/wifi_detail_win.lua` | SSID/IP/MAC/信号/断开 |
 | WiFi 连接 | `ui/wifi/wifi_connect_win.lua` | 密码输入/高级配置 |
 | 应用市场 | `ui/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
-| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 外设分组开关与状态；485 不管几路只出一行「RS485 测试」 |
+| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 / 音频 外设分组开关与状态；485 不管几路只出一行「RS485 测试」 |
 | UVC 预览 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本固件无 MP4 封装)（点功能测试页的 UVC 行进入） |
 | 485 测试 | `ui/rs485_test_win.lua` | 多路通道卡 + 统一收发日志 + 交叉线判定（点功能测试页的「RS485 测试」行进入） |
+| 录音播放 | `ui/audio_test_win.lua` | 录音时长选择 + 录音/播放/停止 + 测试日志（点功能测试页的音频行进入） |
 
 ### 6.6 外设接口
 
@@ -275,11 +286,15 @@ return {
 开关由 `features.other_func` + `ui.show_other_func` 控制（桌面图标显示，两处都要 true）。
 列表里 `type = "rs485"` 的多条配置**合并成一行**「RS485 测试」，几路全在同一个收发测试页
 逐路列出；其余 type 一条配置一行，每条独立开关。
-已配该段的型号：eng_8605_10i_wifi / eng_8605_10i_4g / eng_8605b_10i_v0 / eng_8607a_10i_v0 /
+`type = "audio"` 是录音播放测试点，硬件参数读 `config.hw.audio`（Air1103 走 UART6），
+没配 `hw.audio` 的机型 init 直接失败，列表里也不会出现「音频」组。
+已配该段的型号：eng_8605_10i_4g（非隔离 485 一路）/
+eng_8605w_10i_v0 / eng_8605m_10i_v0（隔离 485 一路 + Air1103 录音播放）/
+eng_8605b_10i_v0（双隔离 485，UART1/UART6）/ eng_8607a_10i_v0 /
 eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，见配置文件头第 12 条）/
 eng_8602_9i_wifi / eng_8602_9i_4g（双路 485，无独立供电脚）/
-eng_8603w_10i_v0 / eng_8603m_10i_v0（三路 485 + UART2，其中 485_3 与 uart2 共用物理 UART2
-不可同时开、UVC_EN 与 485_3 的 DE 共用 GPIO58，见配置文件头第 7、8 条）。
+eng_8603w1_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m1_10i_v0 ~ eng_8603m5_10i_v0
+（Air8603 十型号，UART1 / UART2 按出货型号分档，见配置文件头第 1 条）。
 
 | 模块 | 文件 | 职责 |
 |------|------|------|
@@ -287,6 +302,7 @@ eng_8603w_10i_v0 / eng_8603m_10i_v0（三路 485 + UART2，其中 485_3 与 uart
 | UVC 摄像头 | `drv/periph/periph_uvc.lua` | 纯供电开关（数据流由 UVC 预览页独占） |
 | RS485 | `drv/periph/periph_rs485.lua` | 多路 DE 方向控制 + 供电脚引用计数 |
 | 通用串口 | `drv/periph/periph_uart.lua` | 任意 UART 接口（波特率/数据位/校验/停止位） |
+| 录音播放 | `drv/periph/periph_audio.lua` | 录音/回放（Air1103 录 PCM_16000 走流式回放） |
 | 功能测试 | `app/other_func/other_func_app.lua` | 外设实例开关与状态（订阅 OTHER_FUNC_*） |
 
 ---
@@ -386,8 +402,8 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     本路 `de_pin` 没配却在同一串口上配了别的 DE 脚时，发送翻的是兄弟路的 DE，本路的收发器
     仍停在接收态发不出去，日志会打 `本路缺 de_pin，发送时翻的是同串口其它路的 DE`，
     这种路必须补上真实 DE 脚。
-    另外注意 8603W / 8603M1 的 `485_EN2 = GPIO58` 与 `UVC_EN` 同脚：UVC 那一路开着时
-    GPIO58 被拉高，485_3 的收发器就停在发送态收不到数据；测 485_3 前先把 UVC 关掉。
+    另外注意 8603W3/W4/W5 与 8603M3/M4/M5 的 `485_EN2 = GPIO58` 是 UART2 那路 485 的 DE，
+    而带 UVC 的 W1/W2/M1/M2 同一脚是 `UVC_EN`：混刷配置会把方向脚当供电脚用，务必按出货型号取配置。
 13. **万用表量 DE（方向脚）一直 0V、以为方向脚没驱动**：这是对的，别按它判断。485 是半双工，
     空闲时方向脚必须停在接收态（**低电平**），只有每一帧的发送窗口里才拉高；9600 波特率发
     3 字节，那个窗口只有 6~8 毫秒，万用表积分下来永远读 0V。软件这边已经把时序算好了：
@@ -395,4 +411,13 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     要确认方向脚真的会翻，进 485 测试页点右上角「**DE 自检**」，驱动把全部已登记的 DE 脚拉高
     2 秒再回接收态，这段时间量得到高电平（日志 `DE 自检拉高` / `DE 自检回接收态`）。
     自检量到的还是 0V，才是方向脚真没驱动，回头查 `de_pin` 配置。
+
+14. **设备用一段时间自己重启 / 断电**：先看是不是外置看门狗复位。8603 与 8605 系列板上都挂了
+    Air153D，喂狗脚都是 `PIN47 = GPIO57`。配置里开 `features.wdt = true` + `hw.wdt = { pin = 57 }`，
+    `app/common/watchdog_app.lua` 就会自动喂狗（默认 180 秒一次）；不想喂狗就去掉 `features.wdt`，
+    这个模块根本不加载。启动日志里有 `watchdog_app init done, pin: 57` 说明喂狗已接管；
+    出现 `exair153x_wdt not packed in firmware` 或 `config.hw.wdt.pin missing` 就是没在喂，
+    会在 STRAP 设定的超时档（10分钟 / 60分钟 / 12小时 / 24小时）到点后被芯片拉 PWR_OFF 复位。
+    芯片侧 WTDOG 是喂狗输入、PWR_OFF 是复位输出，固件不碰 PWR_OFF；1 秒内连发 3 次喂狗脉冲
+    是芯片的强制复位序列，手动喂狗有 2 秒冷却，别在脚本里密集发 `WATCHDOG_FEED_REQUEST`。
 

@@ -30,9 +30,10 @@ boot_ui 在 logo 展示期间分批调用本模块的两个函数：
    10. llm_chat       → AI 助手（features.ai_chat）
    11. cloud_disk_app → 合宙网盘（features.cloud_disk）
    12. tts_app        → TTS 播报（hw.audio）
-   13. aircloud_app   → AirCloud 数据上报（features.aircloud）
-   14. file_transfer_app → hzadb 文件传输（features.file_transfer）
-   15. periph_loader  → 外设预留框架（config.peripherals，未实现 type 记日志跳过）
+   13. watchdog_app   → 外部看门狗（features.wdt，Air153D 自动喂狗 + 消息桥接）
+   14. aircloud_app   → AirCloud 数据上报（features.aircloud）
+   15. file_transfer_app → hzadb 文件传输（features.file_transfer）
+   16. periph_loader  → 外设预留框架（config.peripherals，未实现 type 记日志跳过）
 
 === 关键约束 ===
 
@@ -129,6 +130,11 @@ function M.optional()
     -- TTS 播报服务（云端 tts 下行命令/本地共用播放路径）；仅 hw.audio 配置存在的板子加载
     if cfg.hw and cfg.hw.audio then
         require "tts_app"
+    end
+
+    -- 外部看门狗（Air153D 喂狗 + WATCHDOG_* 状态消息）；开关 features.wdt，喂狗脚见 hw.wdt
+    if feat.wdt then
+        require "watchdog_app"
     end
 
     -- AirCloud 数据上报（能力探测：有接口就采，没有就跳过，不绑定型号）

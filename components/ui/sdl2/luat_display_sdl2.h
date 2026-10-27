@@ -3,8 +3,16 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "SDL2/SDL.h"
 
-typedef struct luat_display_sdl2_ctx luat_display_sdl2_ctx_t;
+typedef struct luat_display_sdl2_ctx {
+    SDL_Window   *window;
+    SDL_Renderer *renderer;
+    SDL_Texture  *texture;
+    uint32_t      width;
+    uint32_t      height;
+    uint8_t       exit_requested;
+} luat_display_sdl2_ctx_t;
 
 luat_display_sdl2_ctx_t* luat_display_sdl2_create(const char *title, uint32_t width, uint32_t height);
 void luat_display_sdl2_destroy(luat_display_sdl2_ctx_t *ctx);

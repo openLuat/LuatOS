@@ -31,6 +31,7 @@
 --   "8601_DEV_BOARD"  - 8601开发板：SD_EN = GPIO65，需置高使能供电
 --   "8602_DEV_BOARD"  - 8602开发板：SD_EN = GPIO74，需置高使能供电
 --   "8607_DEV_BOARD"  - 8607开发板：SD_EN = GPIO74，需置高使能供电（SPI1, CS=GPIO8）
+--   "8605_DEV_BOARD"  - 8605开发板：SD_EN = GPIO74，需置高使能供电（SPI1, CS=GPIO8）
 -- 详细说明请参考本目录下的readme.md文件
 HARDWARE_ENV = "CORE_BOARD"  -- 核心板直连(默认)
 
@@ -38,11 +39,11 @@ local function tfcard_main_task()
     -- ##########  SD 卡供电使能（按 HARDWARE_ENV 选择） ##########
     -- 核心板直连：SD 卡供电直连 VCC，无需置高 SD_EN
     -- 8601 开发板：SD_EN = GPIO65，置高使能供电
-    -- 8602 开发板：SD_EN = GPIO74，置高使能供电
+    -- 8602 / 8607 / 8605 开发板：SD_EN = GPIO74，置高使能供电（8605 走 SPI1，CS=GPIO8）
     local pin_sd_en
     if HARDWARE_ENV == "8601_DEV_BOARD" then
         pin_sd_en = 65
-    elseif HARDWARE_ENV == "8602_DEV_BOARD" or HARDWARE_ENV == "8607_DEV_BOARD" then
+    elseif HARDWARE_ENV == "8602_DEV_BOARD" or HARDWARE_ENV == "8607_DEV_BOARD" or HARDWARE_ENV == "8605_DEV_BOARD" then
         pin_sd_en = 74
     else  -- "CORE_BOARD" 核心板直连（默认）
         pin_sd_en = nil

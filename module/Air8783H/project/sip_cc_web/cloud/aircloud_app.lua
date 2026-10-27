@@ -1,3 +1,11 @@
+--[[
+@module  aircloud_app
+@summary PCM 桥接项目的云端业务接入
+@usage
+在 SIP/CC 模块加载后汇总状态，向云端协议提供空闲判断。
+空闲检查涵盖桥接清理、恢复、冷却及双方媒体释放，并用于配置重启和升级确认。
+]]
+
 -- Loaded after the original PCM modules; never changes their initialization order.
 local settings=require "aircloud_settings"
 local sip=require "sip_main"
@@ -23,6 +31,7 @@ local function idle()
     if not cell.is_media_idle() then return false,"cc_media_busy" end
     return true
 end
+require("update").init({idle=idle})
 local aircloud_protocol = require "aircloud_protocol"
 local excloud = require "aircloud_tcp_adapter"
 local protocol=aircloud_protocol.new({status=status,idle=idle},excloud)

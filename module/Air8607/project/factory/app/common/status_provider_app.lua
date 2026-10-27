@@ -198,23 +198,24 @@ if has_4g then
     pcall(mobile.setAuto, 10000, 30000, 5)
 end
 
-local function update_mobile_signal()
-    -- airlink 4G（如 Air1601）不支持 CSQ 查询，跳过
-    if _G.project_config and (_G.project_config.chip == "Air1601" or _G.project_config.chip == "Air1602") then
-        if _G.project_config.network then
-            for _, nc in ipairs(_G.project_config.network) do
-                if nc.type and nc.type:find("4g_airlink", 1, true) then
-                    return
-                end
-            end
-        end
+-- 是否 airlink 4G 桥接（Air780ER2 外挂）：mobile.* 经 airlink RPC 代理查询
+local function is_airlink_4g()
+    local cfg = _G.project_config
+    if not (cfg and cfg.network) then return false end
+    for _, nc in ipairs(cfg.network) do
+        if nc.type and nc.type:find("4g_airlink", 1, true) then return true end
     end
+    return false
+end
+
+local function update_mobile_signal()
     local old_level = mobile_signal_level
     if not sim_present then
         mobile_signal_level = -1
     else
         local ok, csq = pcall(mobile.csq)
-        if not ok then csq = 99 end
+        -- 查询失败（airlink RPC 偶发超时等）保持上次等级，避免图标抖动
+        if not (ok and type(csq) == "number") then return end
         if csq == 99 or csq <= 5 then
             mobile_signal_level = 1
         elseif csq <= 10 then
@@ -299,6 +300,10 @@ local function init_module()
     if has_4g then
         sys.subscribe("SIM_IND", handle_sim_ind)
         if _G.project_config and _G.project_config.chip == "PC" then
+            sim_present = true
+        elseif is_airlink_4g() then
+            -- airlink 4G 桥接：SIM_IND 不经桥接转发、simPin 查询不可靠，
+            -- 乐观默认有卡，信号等级以 csq 实测为准
             sim_present = true
         else
             local ok, pin = pcall(mobile.simPin)

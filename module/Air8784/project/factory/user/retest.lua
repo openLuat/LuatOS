@@ -43,6 +43,42 @@ function retest.clear_rework()
     return v == nil or v == false
 end
 
+-- 首测中途复位保护标记(V3 新增)：裸板首次产测进入时写入，TEST_DONE# 正常结束时删除。
+-- 解决"写号在复位类测试(看门狗)之前，重启后误入正常模式"的问题。
+local KEY_FIRST = "model_firsttest"
+
+-- 是否处于首测保护中(首测中途复位后据此回到产测模式)
+function retest.is_firsttest()
+    local v = fskv.get(KEY_FIRST)
+    return v == true or v == 1
+end
+
+-- 写入首测保护标记(同步重试 3 次；失败仅告警，不堵产线)。
+-- 注意：本函数在 main.lua 顶层 decide_mode 调用，此时调度器尚未启动，禁止 sys.wait。
+function retest.set_firsttest()
+    for i = 1, 3 do
+        if retest.is_firsttest() then return true end
+        fskv.set(KEY_FIRST, 1)
+        if retest.is_firsttest() then
+            log.info("retest", "首测保护标记已写入")
+            return true
+        end
+    end
+    log.warn("retest", "首测保护标记写入失败，仅告警不堵产线")
+    return false
+end
+
+-- 删除首测保护标记(首测 TEST_DONE# 正常结束时调用)
+function retest.clear_firsttest()
+    if type(fskv.del) == "function" then
+        fskv.del(KEY_FIRST)
+    else
+        fskv.set(KEY_FIRST, nil)
+    end
+    local v = fskv.get(KEY_FIRST)
+    return v == nil or v == false
+end
+
 -- 执行一条已识别的 MODEL_RETEST 指令，返回回包(不含末尾 #)
 function retest.apply(kind)
     if kind == "confirm" then

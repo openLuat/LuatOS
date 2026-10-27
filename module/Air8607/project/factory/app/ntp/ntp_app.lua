@@ -64,10 +64,24 @@ end
 NTP同步主逻辑
 ]]
 local function ntp_sync_task()
-    -- Air1601/Air1602/Air1780需要显式设置默认网卡为STA
-    local chip = (_G.project_config and _G.project_config.chip) or ""
-    if chip:find("Air1601") or chip:find("Air1602") or chip:find("Air1780") then
-        socket.dft(socket.LWIP_STA)
+    -- Air1601/Air1602/Air1780需要显式设置默认网卡为STA。
+    -- 先校验 STA 网卡有效再切：4G 桥接型号（如 8605 4G）没有 STA 网卡，
+    -- 盲切会把默认网卡切到无效的 STA(2)，NTP/天气/FOTA 全部报 adapter index invalid
+    -- 外挂 airlink WiFi 的新型号主控名不在上述三者里（如 Air1603 的 8603W），
+    -- 补按 network 配置判定：只认 airlink 外挂 WiFi，原生 WiFi(Air8101/Air8000) 不切
+    local cfg = _G.project_config or {}
+    local chip = cfg.chip or ""
+    local has_airlink_wifi = false
+    for _, n in ipairs(cfg.network or {}) do
+        if n.type == "wifi_airlink_uart" or n.type == "wifi_airlink_spi" then
+            has_airlink_wifi = true
+            break
+        end
+    end
+    if chip:find("Air1601") or chip:find("Air1602") or chip:find("Air1780") or has_airlink_wifi then
+        if socket.adapter(socket.LWIP_STA) then
+            socket.dft(socket.LWIP_STA)
+        end
     end
 
     -- 等待默认网卡就绪（IP_READY事件）

@@ -30,6 +30,7 @@ MP4 的两个会话副作用（功放使能、触摸总线守护）也在这里�
 @api video_util.create_player(path, o)          按格式创建**嵌入式**播放器（airui.video，
                                                 HZV/MJPG/MP4 统一；o.on_complete=单次播完回调）
 @api video_util.tp_bus_restore()                恢复触摸 I2C 总线配置（音频通路会重置总线）
+@api video_util.tp_recover(delay_ms)            延迟一发的触摸总线恢复（可取消，默认 300ms）
 ]]
 
 local ok_exaudio, exaudio = pcall(require, "exaudio")
@@ -258,12 +259,12 @@ function M.tp_bus_restore()
     return false
 end
 
---[[触摸硬恢复：i2c.setup 之上再补一层 —— 重新初始化 GT911（复位 + tp.init + 重新绑定）
+--[[触摸总线恢复：延迟一发（默认 300ms），避开 mplayer / 音频收尾那一刻抢总线
 
-为什么光 i2c.setup 不够：音频通路重配 I2C1 若正好落在 tp 的读事务中间，
-GT911 会停在半事务状态，之后所有读都不应答 —— 速率改回来也没用，
-现象就是「屏幕亮、日志正常、整块屏点不动」。
-延时执行（默认 300ms）是为了避开 mplayer / 音频收尾那一刻，别在同一时刻抢总线。
+音频通路重配 I2C1 若正好落在 tp 的读事务中间，GT911 可能停在半事务状态，
+之后所有读都不应答 —— 现象就是「屏幕亮、日志正常、整块屏点不动」。
+补救只有恢复 I2C 总线配置这一步：内核 tp 库一次上电只接受一次 tp.init
+（tp_gt911.init 已封口，重复调用只补总线），真正的重新初始化做不到。
 
 @param number delay_ms 延迟毫秒数，缺省 300
 @return boolean 是否排上了（没有可用的触摸驱动时返回 false）
@@ -277,12 +278,7 @@ function M.tp_recover(delay_ms)
     end
     tp_recover_t = sys.timerStart(function()
         tp_recover_t = nil
-        local ok, r = pcall(_G.tp_drv.reinit)
-        if ok and r then
-            log.info("video_util", "触摸重新初始化完成")
-        end
-        -- 失败不打日志：tp_gt911.reinit 内部已把「内核不支持重复 init」记过一次，
-        -- 每次会话收尾再刷一条 error 纯属噪音；此时 i2c_restore 那一步仍然生效
+        pcall(_G.tp_drv.reinit)   -- 内部只做 i2c_restore，失败也不打日志
     end, delay_ms or 300)
     return true
 end
@@ -482,7 +478,7 @@ local function wrap_mp4_player(v)
         pa_set(false)
         M.tp_bus_restore()
         --[[会话收尾是触摸最容易被搞坏的时机（mplayer 释放音频通路会重配一次 I2C1）：
-        先 i2c.setup 把速率改回来，再延时重新初始化 GT911 兜底。]]
+        先立即补一次 I2C 总线配置，再延时补一次兜底。]]
         M.tp_recover(300)
     end
 
@@ -613,7 +609,7 @@ function M.create_player(path, o)
             end
         end
     elseif vcfg.on_complete then
-        --[[HZV/MJPG 单次播完：组件回调用户回调后，同样补一次触摸硬恢复。
+        --[[HZV/MJPG 单次播完：组件回调用户回调后，同样补一次触摸总线恢复。
         循环模式下组件内部自己重播、不停音频通路，不会触发这里。]]
         local user_complete = vcfg.on_complete
         vcfg.on_complete = function()

@@ -17,7 +17,7 @@ require 即执行，以下按顺序发生：
      _G.lcd_drv.airui_core_init()  → M.airui_core_init(cfg)   [字体加载等核心初始化]
      _G.lcd_drv.init()             → hw_init + airui_init + airui_core_init  [一步到位（兼容）]
      _G.lcd_drv.backlight_on()     → M.backlight_on(cfg)      [背光开启]
-     _G.tp_drv.init()              → tp_model.init(params)    [触摸芯片初始化]
+     _G.tp_drv.init()              → tp_model.init(params)    [触摸芯片初始化，仅首次生效]
 
 === 关键设计决策 ===
 
@@ -238,9 +238,10 @@ do
             if tp_model.i2c_restore then return tp_model.i2c_restore() end
             return false
         end,
-        --[[触摸硬恢复：重新初始化（复位 + tp.init + 重新绑定 airui）
-        音频/视频通路若在 tp 的读事务中途重配 I2C1，GT911 会停在半事务状态不再应答，
-        此时只有重新 init 才能救回来（调用方见 ui/video_util.lua 的 tp_recover）]]
+        --[[触摸恢复：只补回 I2C 总线配置，不重复 tp.init
+        音频/视频通路会用 i2c.setup 重配 I2C1（丢掉轮询模式），触摸总线要补回来。
+        真正的重新初始化做不到：内核 tp 库一次上电只接受一次 tp.init
+        （调用方见 ui/video_util.lua 的 tp_recover）]]
         reinit = function()
             if tp_model.reinit then return tp_model.reinit() end
             return false

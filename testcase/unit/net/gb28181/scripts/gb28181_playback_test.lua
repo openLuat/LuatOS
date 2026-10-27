@@ -20,8 +20,7 @@
 local client   = require("exgb28181client")
 local playback = require("exgb28181playback")
 
-local ok_gb, mod_gb = pcall(require, "gb28181")
-local gb = ok_gb and mod_gb or rawget(_G, "gb28181")
+local gb = gb28181
 
 local t = {}
 

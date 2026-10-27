@@ -13,7 +13,7 @@ idle_win（桌面播放器）与 video_win（全屏播放页）都要读素材�
 也就是说，帧尺寸读错**不会**把画面拉伸，只会让控件溢出容器、把画面切掉一块 ——
 同一份口径必须只有一处实现，否则两个页面的裁切行为会不一致。
 
-（welcome_win 里还有一份历史副本。开机路径没跟着迁移，改这里时别以为全工程都干净了。）
+（welcome_win 里的历史副本已随 welcome 页面删除，全工程只剩这一处实现。）
 
 === MP4 / HZV / MJPG 统一走 airui.video（2026-10-09 起）===
 airui.video 已支持 HZV 与 MP4：MJPG / HZV 走 videoplayer 后端（控件内拉 RGB565 帧），
@@ -30,6 +30,7 @@ MP4 的两个会话副作用（功放使能、触摸总线守护）也在这里�
 @api video_util.create_player(path, o)          按格式创建**嵌入式**播放器（airui.video，
                                                 HZV/MJPG/MP4 统一；o.on_complete=单次播完回调）
 @api video_util.tp_bus_restore()                恢复触摸 I2C 总线配置（音频通路会重置总线）
+@api video_util.tp_recover(delay_ms)            延迟一发的触摸总线恢复（可取消，默认 300ms）
 ]]
 
 local ok_exaudio, exaudio = pcall(require, "exaudio")
@@ -258,12 +259,12 @@ function M.tp_bus_restore()
     return false
 end
 
---[[触摸硬恢复：i2c.setup 之上再补一层 —— 重新初始化 GT911（复位 + tp.init + 重新绑定）
+--[[触摸总线恢复：延迟一发（默认 300ms），避开 mplayer / 音频收尾那一刻抢总线
 
-为什么光 i2c.setup 不够：音频通路重配 I2C1 若正好落在 tp 的读事务中间，
-GT911 会停在半事务状态，之后所有读都不应答 —— 速率改回来也没用，
-现象就是「屏幕亮、日志正常、整块屏点不动」。
-延时执行（默认 300ms）是为了避开 mplayer / 音频收尾那一刻，别在同一时刻抢总线。
+音频通路重配 I2C1 若正好落在 tp 的读事务中间，GT911 可能停在半事务状态，
+之后所有读都不应答 —— 现象就是「屏幕亮、日志正常、整块屏点不动」。
+补救只有恢复 I2C 总线配置这一步：内核 tp 库一次上电只接受一次 tp.init
+（tp_gt911.init 已封口，重复调用只补总线），真正的重新初始化做不到。
 
 @param number delay_ms 延迟毫秒数，缺省 300
 @return boolean 是否排上了（没有可用的触摸驱动时返回 false）
@@ -277,14 +278,20 @@ function M.tp_recover(delay_ms)
     end
     tp_recover_t = sys.timerStart(function()
         tp_recover_t = nil
-        local ok, r = pcall(_G.tp_drv.reinit)
-        if ok and r then
-            log.info("video_util", "触摸重新初始化完成")
-        else
-            log.error("video_util", "触摸重新初始化失败", tostring(r))
-        end
+        pcall(_G.tp_drv.reinit)   -- 内部只做 i2c_restore，失败也不打日志
     end, delay_ms or 300)
     return true
+end
+
+--[[触摸总线恢复：立即一次 + 400/1500ms 各补一发（发射即忘，只给非 MP4 路径用）
+
+HZV/MJPG 的音轨由 videoplayer 自己发起音频请求，起播同样可能重配 codec 总线；
+MP4 会话有自己**可取消**的一份（收进实例的 sess 表），不要混用。]]
+local function tp_bus_settle_once()
+    M.tp_bus_restore()
+    for _, delay_ms in ipairs({ 400, 1500 }) do
+        sys.timerStart(function() M.tp_bus_restore() end, delay_ms)
+    end
 end
 
 -- ==================== 配套音频（同名 MP3） ====================
@@ -317,17 +324,6 @@ function M.find_companion_mp3(mjpg_path)
     return nil
 end
 
--- PA 功放使能/关闭（引脚与电平读板级 hw.audio；出声开、暂停/停止/播完/销毁关）
-local function pa_set(on)
-    local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
-    if not (ac and ac.pa_ctrl) then return end
-    if on then
-        pcall(gpio.setup, ac.pa_ctrl, ac.pa_on_level or 0)
-    else
-        pcall(gpio.setup, ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
-    end
-end
-
 --[[开始播放一路配套音频
 
 @param mp3_path string 音频文件路径
@@ -352,16 +348,12 @@ function M.audio_play(mp3_path, should_loop)
                         play_loop(path)
                     else
                         audio_playing = false
-                        pa_set(false)   -- 配套音频播完关功放（PA 跟随出声状态）
                     end
                 end
             end
         })
     end
     audio_playing = play_loop(mp3_path)
-    if audio_playing then
-        pa_set(true)   -- 配套音频出声开功放
-    end
     log.info("video_util", "companion audio start", mp3_path, "ok=", audio_playing)
     return audio_playing
 end
@@ -373,7 +365,6 @@ function M.audio_stop()
         pcall(exaudio.play_stop, { type = 0 })
         audio_mp3 = nil
         audio_playing = false
-        pa_set(false)   -- 配套音频停止关功放
     end
 end
 
@@ -383,7 +374,6 @@ function M.audio_toggle(should_loop)
     if audio_playing then
         pcall(exaudio.play_stop, { type = 0 })
         audio_playing = false
-        pa_set(false)   -- 暂停配套音频关功放
     else
         M.audio_play(audio_mp3, should_loop)
     end
@@ -400,11 +390,6 @@ end
 （500ms 守护泵会在整个会话期无条件 i2c.setup，一直刷 i2c change_br 日志）。
 组件内部循环重播走不到包装层 play，故 MP4 的 loop 改为应用层续播
 （EOF 回调里 play() 从头重播，见 create_player），每轮重播都精确恢复一次。
-
-恢复定时器必须**按播放器实例**归属（见 wrap_mp4_player 的 sess）：桌面播放器与
-全屏播放页各有一份，谁收尾只停谁的；共用一份时切换页面会互相 cancel，
-最终把触摸总线留在音频通路改过的配置上（整屏无响应）。
-HZV/MJPG 没有会话对象，起播后用 tp_bus_settle_once 打两发即止（发射即忘）。
 exaudio 路径的 I2C 守护在 boot_ui.guard_audio_init（setup 仅首次 + 入口恢复）。
 
 MP4 源分辨率上限 480×320：mplayer 的 RGB 帧缓冲是静态数组，超限直接溢出，
@@ -412,7 +397,18 @@ MP4 源分辨率上限 480×320：mplayer 的 RGB 帧缓冲是静态数组，超
 local MP4_MAX_W = 480
 local MP4_MAX_H = 320
 
--- 功放补枪的世代号：会话收尾后作废尚未触发的补枪
+-- PA 功放使能/关闭（引脚与电平读板级 hw.audio）
+local function pa_set(on)
+    local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
+    if not (ac and ac.pa_ctrl) then return end
+    if on then
+        pcall(gpio.setup, ac.pa_ctrl, ac.pa_on_level or 0)
+    else
+        pcall(gpio.setup, ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
+    end
+end
+
+-- 跨格式功放补枪的世代号（HZV/MJPG 路径用，与任一 MP4 会话无关）
 local pa_gen = 0
 
 -- MP4 销毁会把功放拉高；HZV 的 exaudio.setup 收尾也会 shutdown 关掉功放。
@@ -426,33 +422,21 @@ local function pa_reassert()
     end, 200)
 end
 
---[[触摸总线恢复：立即一次 + 400/1500ms 各补一发（发射即忘，只给非 MP4 路径用）
-
-HZV/MJPG 的音轨由 videoplayer 自己发起音频请求，起播同样可能重配 codec 总线；
-这两发补枪覆盖音频通路的异步初始化（解码线程里才起音频，实测会把 Lua 调度卡住约 1s）。
-MP4 会话有自己**可取消**的一份（收进实例的 sess 表，见 wrap_mp4_player），不要混用。]]
-local function tp_bus_settle_once()
-    M.tp_bus_restore()
-    for _, delay_ms in ipairs({ 400, 1500 }) do
-        sys.timerStart(function() M.tp_bus_restore() end, delay_ms)
-    end
-end
-
 --[[包装 MP4 播放器：音频通路启动相关的事件点恢复触摸总线，destroy 时统一收尾
 
 接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
 paused 字段记录用户暂停状态（应用层循环续播据此跳过，见 create_player）；
-HZV/MJPG 不涉及这些副作用，create_player 返回只管功放的轻包装（wrap_basic_player）。
+HZV/MJPG 不涉及这些副作用，create_player 仍返回裸对象。
 
-**会话状态按实例归属（修「全屏↔窗口切换几次后 MP4 不显示 / 回到桌面点不动」）**：
-触摸总线恢复定时器 settle_t 收进每个播放器自己的 sess 表，不再用模块级共享一份。
-此前 idle_win 的桌面播放器与 video_win 的全屏播放器共用同一份 —— 切换页面时
-上一页 destroy 的收尾会 cancel 掉下一页刚布防的恢复定时器，几次之后 mplayer 的
-音频/总线会话被搅坏：GT911 停留在音频通路改过的总线配置上（整屏触摸无响应），
-画面黑屏不更新。下沉到实例后，destroy 只收尾自己的会话，互不干扰。
-功放补枪世代 pa_gen 仍是全局唯一（功放是全局硬件，pa_reassert 也在操控它）。]]
+**会话状态按实例归属（修「全屏↔窗口切换几次后 MP4 不显示」）**：
+功放补枪世代 gen 与触摸总线恢复定时器 settle_t 收进每个播放器自己的 sess 表，
+不再用模块级共享一份。此前 idle_win 的桌面播放器与 video_win 的全屏播放器共用
+同一份 pa_gen/settle_t，切换时上一页 destroy 的收尾会 cancel 掉下一页刚布防的
+恢复定时器、或翻错世代号作废不该作废的补枪，几次之后 mplayer 的音频/总线会话
+被搅坏、画面黑屏不更新。下沉到实例后，destroy 只收尾自己的会话，互不干扰。]]
 local function wrap_mp4_player(v)
     local sess = {
+        gen = 0,                 -- 本实例功放补枪世代号
         settle_t = { nil, nil }, -- 本实例触摸总线延迟恢复句柄
     }
 
@@ -467,7 +451,7 @@ local function wrap_mp4_player(v)
             end
             --[[回调里先把句柄置空：sys.timerStart 的是一次性定时器，触发后 id 即失效，
             不清空的话下一次 tp_bus_settle 会拿失效 id 去 sys.timerStop，
-            日志里就是那两行 "luat_timer_get ... no find!!!"（噪音，且没必要）]]
+            日志里就是 "luat_timer_get ... no find!!!"（噪音，且没必要）]]
             sess.settle_t[i] = sys.timerStart(function()
                 sess.settle_t[i] = nil
                 M.tp_bus_restore()
@@ -486,14 +470,15 @@ local function wrap_mp4_player(v)
     end
 
     -- 本实例会话收尾：只停自己的定时器；作废补枪要连全局功放世代一起翻
-    local function session_end()
+    -- （功放是全局唯一硬件资源，pa_reassert 的跨格式补枪也操控它，收尾须全局封枪）
+    local function mp4_session_end()
         tp_bus_settle_cancel()
-        pa_gen = pa_gen + 1   -- 作废尚未触发的 pa_reassert 补枪，防止收尾后功放被重新打开
+        sess.gen = sess.gen + 1
+        pa_gen = pa_gen + 1          -- 作废 pa_reassert 尚未触发的跨格式补枪
         pa_set(false)
         M.tp_bus_restore()
         --[[会话收尾是触摸最容易被搞坏的时机（mplayer 释放音频通路会重配一次 I2C1）：
-        先 i2c.setup 把速率改回来，再延时重新初始化 GT911 兜底。
-        客户现场「视频播完/退出后整块屏点不动」就是这一步缺了硬恢复。]]
+        先立即补一次 I2C 总线配置，再延时补一次兜底。]]
         M.tp_recover(300)
     end
 
@@ -505,7 +490,7 @@ local function wrap_mp4_player(v)
         play = function(self, ...)
             local r = v:play(...)
             self.paused = false
-            pa_set(true)             -- PA_EN 跟随播放：起播开功放
+            pa_set(true)            -- PA_EN 跟随播放：起播开功放
             -- 续播/循环重播会重启音频通路，再次重置总线
             tp_bus_settle()
             return r
@@ -513,49 +498,21 @@ local function wrap_mp4_player(v)
         pause = function(self, ...)
             local r = v:pause(...)
             self.paused = true
-            pa_set(false)            -- PA_EN 跟随暂停：暂停关功放
+            pa_set(false)           -- PA_EN 跟随暂停：暂停关功放
             -- 暂停不会再重配音频通路，这里不碰 I2C1：i2c.setup 本身会打断 tp 的读事务，
-            -- 每多一次就多一次把 GT911 读坏的窗口（收尾时统一硬恢复，见 session_end）
+            -- 每多一次就多一次把 GT911 读坏的窗口（收尾时统一硬恢复，见 mp4_session_end）
             return r
         end,
         stop = function(self, ...)
             local r = v:stop(...)
             self.paused = true
-            pa_set(false)            -- PA_EN 跟随停止：停止关功放
-            -- 同上：停止后必然走 destroy → session_end，那里统一恢复
+            pa_set(false)           -- PA_EN 跟随停止：停止关功放
+            -- 同上：停止后必然走 destroy → mp4_session_end，那里统一恢复
             return r
         end,
         destroy = function(_)
             pcall(function() v:destroy() end)
-            session_end()
-        end,
-    }
-end
-
---[[包装 HZV/MJPG 播放器：PA 跟随播放状态（起播开、暂停/停止/销毁关）
-
-接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
-这两类没有 mplayer 的总线副作用，无需会话定时器，只管功放。]]
-local function wrap_basic_player(v)
-    return {
-        play = function(self, ...)
-            local r = v:play(...)
-            pa_set(true)             -- PA_EN 跟随播放：起播开功放
-            return r
-        end,
-        pause = function(self, ...)
-            local r = v:pause(...)
-            pa_set(false)            -- PA_EN 跟随暂停：暂停关功放
-            return r
-        end,
-        stop = function(self, ...)
-            local r = v:stop(...)
-            pa_set(false)            -- PA_EN 跟随停止：停止关功放
-            return r
-        end,
-        destroy = function(_)
-            pcall(function() v:destroy() end)
-            pa_set(false)            -- PA_EN 跟随销毁：销毁关功放
+            mp4_session_end()
         end,
     }
 end
@@ -643,7 +600,7 @@ function M.create_player(path, o)
                 M.tp_recover(300)
             end
         else
-            -- 单次播完（EOF）：先关功放，再回调调用方（翻播放状态 / 刷控制栏）
+            -- 单次播完（EOF）：关功放，再回调调用方（翻播放状态/刷控制栏）
             local user_complete = vcfg.on_complete
             vcfg.on_complete = function()
                 pa_set(false)
@@ -652,11 +609,10 @@ function M.create_player(path, o)
             end
         end
     elseif vcfg.on_complete then
-        --[[HZV/MJPG 单次播完：先关功放（PA 跟随出声状态），再回调调用方，
-        最后补一次触摸硬恢复。循环模式下组件内部自己重播、不停音频通路，不会触发这里。]]
+        --[[HZV/MJPG 单次播完：组件回调用户回调后，同样补一次触摸总线恢复。
+        循环模式下组件内部自己重播、不停音频通路，不会触发这里。]]
         local user_complete = vcfg.on_complete
         vcfg.on_complete = function()
-            pa_set(false)
             user_complete()
             M.tp_recover(300)
         end
@@ -664,9 +620,11 @@ function M.create_player(path, o)
 
     local ok, v = pcall(airui.video, vcfg)
     if not ok or not v then
-        -- 起播失败收尾：此时还没 wrap，没有实例定时器，直接关功放 + 恢复触摸总线
-        pa_set(false)
-        M.tp_bus_restore()
+        if fmt == "mp4" then
+            -- 起播失败收尾：此时未 wrap，无实例定时器，直接关功放 + 恢复触摸总线
+            pa_set(false)
+            M.tp_bus_restore()
+        end
         return nil
     end
     if fmt == "mp4" then
@@ -677,10 +635,9 @@ function M.create_player(path, o)
     -- 播放器打开时音频任务可能再次把功放拉高，创建成功后再拉一次
     pa_set(true)
     --[[HZV/MJPG 的音轨由 videoplayer 自己发起音频请求，起播同样会重配 codec 总线；
-    这里补两发延迟恢复（发射即忘，这类播放器没有可收尾的会话对象）。
-    与桌面/全屏切换时序无关，因此不存在 MP4 那种「被对端 cancel」的问题。]]
+    这里补两发延迟恢复（发射即忘，这类播放器没有可收尾的会话对象）。]]
     tp_bus_settle_once()
-    return wrap_basic_player(v)
+    return v
 end
 
 return M

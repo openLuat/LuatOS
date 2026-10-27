@@ -44,7 +44,7 @@
 
 local M = {}
 
--- exaudio 是固件扩展库，须 require 绑定（welcome_win / video_util / llm_chat 同款拿法），
+-- exaudio 是固件扩展库，须 require 绑定（video_util / llm_chat 同款拿法），
 -- 裸用全局 exaudio 在 LuatOS 里恒为 nil（会导致 available() 误判成"无音频能力"回 ERR no audio）；
 -- 其顶层引用 i2s 常量，无音频固件上 require 会报错，故 pcall 兜底置 nil
 local ok_exaudio, exaudio = pcall(require, "exaudio")
@@ -63,14 +63,6 @@ end
 --- 读音频硬件配置（hw.audio 不存在 = 本板无播报能力）
 local function get_audio_cfg()
     return _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
-end
-
---- PA 功放关闭（跟随播放状态：播完/停止/失败收尾用）
-local function pa_off()
-    local ac = get_audio_cfg()
-    if ac and ac.pa_ctrl then
-        gpio.setup(ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
-    end
 end
 
 function M.available()
@@ -125,7 +117,6 @@ local function play_blocking(text, my_gen)
     })
     if not ok then
         log.warn("tts_app", "exaudio.play_start 失败")
-        pa_off()
         return false
     end
     sys.publish("TTS_PLAY_BEGIN", text)
@@ -138,10 +129,6 @@ local function play_blocking(text, my_gen)
     if not done and gen == my_gen then
         -- 自身超时未播完：补一次干净停止（TTS 只需 play_stop，勿 pm(SHUTDOWN)）
         pcall(exaudio.play_stop, { type = 1 })
-    end
-    -- 播完/超时收尾关 PA；被打断时不关（新播报会重开，收尾归新播报）
-    if gen == my_gen then
-        pa_off()
     end
     return done
 end
@@ -171,7 +158,6 @@ function M.stop()
     gen = gen + 1
     sys.publish("TTS_INTERRUPTED")
     pcall(exaudio.play_stop, { type = 1 })
-    pa_off()
     sys.publish("TTS_PLAY_END", false)
 end
 

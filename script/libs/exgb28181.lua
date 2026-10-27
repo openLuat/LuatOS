@@ -10,13 +10,14 @@
   C 层  gb28181        —— luatos-ext-components/gb28181，负责协议编解码
                           (PS 封装 / RTP 打包 / SIP 报文解析构造 / MANSCDP XML)
   Lua 层 exgb28181.lua —— 本文件，**只做配置校验、字段改名与事件转发**
-  信令实现             —— exgb28181client.lua(注册/心跳/查询/点播会话/媒体收发)
-  音频桥               —— exgb28181audio.lua(麦克风/喇叭 ↔ 会话)
+  信令实现             —— exgb28181client.lua(注册/心跳/查询/点播会话/视频媒体)
+  音频引擎             —— exgb28181audio.lua(voip native/bridge)；
+                          exgb28181audio_raw.lua(PC/探针的裸 C stream)
 
-**本门面目前不提供点播与对讲的 API**：点播会话、媒体推流、语音对讲都在
-exgb28181client.lua 里(push_frame / sessions / start_talk / talk_push …)，
-需要这些能力时直接 require 那个模块。本文件的价值在于把"设备注册到平台"
-这件事收敛成 init/start 两步，并统一事件回调。
+**本门面目前不提供点播与对讲的 API**：点播会话、视频推流、语音对讲都在
+exgb28181client.lua 里(push_frame / sessions / start_talk …)，音频媒体由上面
+两个引擎之一接管；需要这些能力时直接 require 那个模块。本文件的价值在于把
+"设备注册到平台"这件事收敛成 init/start 两步，并统一事件回调。
 
 基本用法：
 local exgb28181 = require "exgb28181"
@@ -105,16 +106,8 @@ local function log_error(...)
 end
 
 --[[
-加载 C 层 gb28181 模块。加载失败时返回 nil 而非抛错。
-
-两条取用路径：
-  1、require "gb28181" —— 真机固件上的常规路径
-  2、全局表 _G.gb28181 —— PC 模拟器的回退路径。该模拟器用自定义加载器
-     接管了 require(做脚本依赖裁剪)，不解析 C 内建模块，require 必然失败，
-     但 luaL_requiref 仍会把模块挂到全局表上。
-
-注意：rotable 风格模块(luat_newlib2)的 type 是 "userdata" 而非 "table"，
-因此这里不能按 table 判断。
+加载 C 层 gb28181 模块，失败返回 nil。
+注意：rotable 风格模块(luat_newlib2)的 type 是 "userdata" 而非 "table"。
 @return table|userdata|nil C 层模块
 ]]
 local function load_core()
@@ -123,10 +116,7 @@ local function load_core()
     end
     g_core_loaded = true
 
-    local ok, mod = pcall(require, "gb28181")
-    if not ok then
-        mod = rawget(_G, "gb28181")
-    end
+    local mod = gb28181
 
     if mod == nil then
         log_warn("C 层 gb28181 模块不可用，请确认固件已开启 LUAT_USE_GB28181")

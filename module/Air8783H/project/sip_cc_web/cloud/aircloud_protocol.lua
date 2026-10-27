@@ -1,3 +1,11 @@
+--[[
+@module  aircloud_protocol
+@summary AirCloud JSON 指令与回执协议
+@usage
+处理状态查询、配置保存、升级检查、请求去重及分片回执。
+管理 TCP 连接和鉴权重试；配置重启需等待回执提交及设备空闲。
+]]
+
 -- AirCloud v1 envelope compatible with SOS 028; hardware is supplied by backend.
 local M={}
 local settings=require "aircloud_settings"
@@ -102,13 +110,32 @@ function M.new(backend,cloud)
     local function response(c,ok,result,err)
         local r=base("response");r.id=c.id;r.cmd=c.cmd;r.ok=ok;r.result=result;r.error=err;return r
     end
+    local legacy_ota_serial=0
     function api.receive(raw,field,seq)
         if type(raw)~="string" then return false end
         if #raw>1396 then
             if #queue<32 then enqueue({response({id="",cmd=""},false,{message="指令超过 1396 字节"},"command_too_large")},field==19 and 20 or 1281,seq) end
             return true
         end
+        if field==19 and raw:match("^%s*(.-)%s*$"):lower()=="version" then
+            if #queue>=32 then
+                log.warn("aircloud","VERSION_REPLY_QUEUE_FULL")
+                return true
+            end
+            queue[#queue+1]={packets={{fields={{field_meaning=1027,data_type=3,
+                value=_G.PROJECT.."_".._G.VERSION}},sequence=seq,active=false}},index=1}
+            return true
+        end
         local ok,c=pcall(json.decode,raw)
+        -- Tag19 legacy commands used by the TCP platform, matching 8784.
+        if field==19 and (not ok or type(c)~="table" or c.cmd==nil) then
+            local op=ok and type(c)=="table" and (c.op or c.type or c.command)
+                or raw:match("^%s*(.-)%s*$"):lower()
+            if op=="fota" or op=="update" then
+                legacy_ota_serial=legacy_ota_serial+1
+                c={id="legacy-ota-"..legacy_ota_serial,cmd=op};ok=true
+            end
+        end
         if not ok or type(c)~="table" or c.cmd==nil then return false end
         local route=field==19 and 20 or 1281
         if type(c.id)~="string" or #c.id<1 or #c.id>64 or c.id:find("[%c]") or type(c.cmd)~="string" then
@@ -123,6 +150,9 @@ function M.new(backend,cloud)
                 local r=sos.copy(stamp);r.id=c.id;r.cmd=c.cmd;r.section=name;r.result=section(name)
                 r.ok=r.result.supported~=false;r.error=not r.ok and "unsupported_feature" or nil;group[#group+1]=r
             end
+        elseif c.cmd=="update" or c.cmd=="fota" then
+            local accepted,err=require("update").check_update()
+            group={response(c,accepted,{stage="check_requested"},err)}
         elseif c.cmd=="get_sip_status" then
             local st=current_status();st.sos_status=sos_status();st.capabilities=settings.capabilities()
             group={response(c,true,st)}

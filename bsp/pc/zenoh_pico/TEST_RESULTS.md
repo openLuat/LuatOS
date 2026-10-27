@@ -1,6 +1,58 @@
 # 测试证据与未验证项
 
-## 当前验收状态（2026-10-20）
+## 发送接纳及通知消费增量（2026-10-23）
+
+基于本PR首个提交 `2352d06105a1d1e9a2ce6ec448f5e2aa36102885`，SDK仍为固定1.9.0，
+公开源码摘要仍为 `89db1a9137b198b2c0e4aeee3508de36f1f1694cae6498585b08211bfade310d`。
+修正了可复现的Pico适配合同问题：原发送以阻塞 `network_tx` 等完成且拒绝合法非阻塞rc1；
+现按SDK写入接纳语义使用timeout0、rc0/1及实际sent，保持100ms总接纳截止、部分失败后停止写入。
+非阻塞路径配套消费专用worker通知，每次最多16条/零等待；不按迟到旧通知关闭新socket。
+
+反例分层保留：初版11项功能测试在未修TCP上6项失败，不代表6个目标bug；
+随后加入16槽FIFO暴露未消费通知时的真实溢出。修前13项运行退出1（汇总18个失败包含连带清理断言，
+不是18个用例），最终相同合同夹具编译/运行均0、13项通过、stderr空。真实socketpair写端非阻塞，
+外层15秒截止，验证4096B精确内容与失败后无重复前缀。队列和完成延迟是API合同模型，不是目标RTOS/ACK。
+
+| 最终源码回归 | 实际结果 |
+| --- | --- |
+| 独立发送/通知合同 | 13项；严格C11、ASan/UBSan编译0、运行0，邮箱清空/溢出0 |
+| 完整SDK基础互通 | 17项；重新128/125源编译，host/peer/runner0；30.683秒含编译 |
+| 同binary双向Get及生命周期 | 19项；host/peer/runner0；25.632秒；peer15请求/4反向查询 |
+| 同binary关闭/接纳交错 | 2项；host/peer/runner0；1.189秒；调度屏障及真实socket |
+
+共51项主机检查，四组stderr均空，无ASan/UBSan报告。最终host SHA256
+`931f253a6c3268f74732122bddcb2b944bb993bd16cdd67e39ba77cb7ac04dcc`，peer
+`961ee0c12d3af816773abe1bef706e299fa87dfe84497d9d350fe7ae31097bb9`。
+独立代码复核先指出通知积压阻断，补齐有界消费和反例后GO。
+
+**191D的4096B Get `-7`仍开放。** 本轮未构建/刷写目标SoC，也未取得目标首错或原场景修后证据。
+需要核对TEMP目标API/源码映射、实际RTOS零等待合同、目标BSP编译/map/资源，再在191D完成原4096PUT回显→
+同4096Query（source=lua/1800ms）→双原payload回复及Final的双轮与后续活性。
+结果队列满时Get终态/VM槽回收、长期稳定性、至少1024KiB裁显示新号亦未关闭。
+这次没有调大超时/缓存、修改SDK/共享network或默认装配；此前历史结果不可冒充目标通过。
+复现见[README](README.md)。
+
+## 当前增量验收（2026-10-22）
+
+基于官方 master `8f98b4ff94650f3d2dbfc3a5981fa4c928cfe696`，使用当前仓库内置 SDK 源码和官方已迁移的 `bsp/pc/zenoh_pico` 目录，不恢复旧测试路径。环境 macOS 26.5 arm64、Lua 5.5.1、zenohd 1.9.0；严格 C11 检查、128/125 源 ASan/UBSan 重编，隔离 loopback 真实 socket 短读/短写。公开源码摘要 `89db1a9137b198b2c0e4aeee3508de36f1f1694cae6498585b08211bfade310d`。
+
+发现并修复两个可复现缺口：
+
+- 默认 PC peer 编译缺 `system/common/system_error.h` 和 `utils/mutex.h`，真实构建退出 1；补齐固定 SDK 1.9.0 的原文头后重编成功，仅供 PC Unix peer。
+- 握手半帧写失败时 SDK 返回 `-100`，旧关闭分类仅处理 `-7`，导致 error 有 `io_failure` 而 closed 丢失该分类。新真实 socket 反例修复前 host/runner 退出 1（closed lost first IO failure reason），修复后保留 SDK 原码并保持 error/closed 首错快照一致。
+
+| 同一重编二进制的回归 | 实际结果 |
+| --- | --- |
+| 基础及首错诊断 | 17 项；host/peer/runner 均 0；握手首错、部分帧后停止写、重开后无旧诊断、分配回基线 |
+| Get/Queryable 生命周期 | 19 项；host/peer/runner 均 0；peer 15 请求、4 反向查询 |
+| 关闭与接纳交错 | 2 项；host/peer/runner 均 0；真实 worker 调度屏障与 socket |
+
+共 **38 项**；三组 stderr 均空，无 ASan/UBSan 报告。host SHA256 `9aa2b7c874650c97ac3b76911da5baf25462a5ad61a85a6aaa82e15a86f2e12b`；peer SHA256 `e1a15af94fb3bceda84dd225361b323d383b8d60764ab90e5b695020627b797e`。
+
+专用 Air8000 V2055/113/64 位历史实测已通过短包双向 Get 和 4096B Pub/Sub；4096B Query 仍出现 `-7`、对端未见请求。本轮未编译或刷写目标 SoC，**不能将主机通过当作该真机缺陷关闭**。当前修复提供首次失败层证据，不放宽超时、缓存或载荷上限。目标 BSP 构建、原失败组合、长期稳定性和 1024KiB 新配置仍待分别验收，详见 [配置及验收请求](../../../components/zenoh_pico/AIR8000_PROFILE_REQUEST.md)。下列内容是历史证据，不覆盖本节边界。
+
+
+## 历史验收状态（2026-10-20）
 
 Get/Queryable、owned query、local cancel及两处关闭/接纳竞态修复已重新从固定PR基线构建验证。严格C11检查和128/125源ASan/UBSan重建通过；真实Lua5.5.1、zenohd1.9.0及固定SDK e83d39b4415f6897e8d6c3b3b651ca88a05f4a17，隔离loopback端点。
 
@@ -88,3 +140,28 @@ demo原样移动至 `olddemo/demo/zenoh_pico/main.lua`；桥接头原样移动�
 固定版严格C11/128和125源ASan/UBSan重新编译，两个确定性交错actual0/16.726324秒；同二进制Get19项actual0/22.922123秒、原16项actual0/14.952350秒，均host0/peer0，无sanitizer报告。竞态peer实际收到12B控制消息且正常退出；Get peer15请求/4个反向查询，旧PubSub peer28输入。14程序输入前后SHA一致。独立只读复核确认R1闭合、无新增阻塞；不代目标构建/真机/长期压力。
 
 最终host SHA256 `1a31d945a6175940ee86c7aaecf9917dd064a6b2b48a195aaa244b7b33417c19`；peer `c3dd59c396e7a97f04f5d80168c839e763cc598967a4190f37b7f0282d007249`。证据归协作项目runtime/zenohpico_dedicated_261015/evidence/get_r1_proof与get_r1_fixed；测试构建屏障默认不进入目标。SDK原文未改，未commit/push、未操作设备/生产。
+
+## 2026-10-26 有界短读候选（主机证据，待目标验证）
+
+基线PR274最终提交7676fd6已合并；本候选基于官方master09d2d43。
+两提交的Pico组件及PC专测子树相同，相关公共头变化仅未参与本编译的USB UVC宏。
+本节为作者自检，无独立审查或目标放行结论；前文历史独审不覆盖本增量。
+
+真实PC桥每次RX最多7B、TX最多17B，worker每轮执行预算有限。
+直接公共zenohpico API与原PC peer/真实zenohd1.9.0，在未改查询期限和载荷下：
+修前4096B/1800ms第一轮仅一份回复、timeout/-12，host实际1；不是此前191D的-7。
+接收函数合并最多16次已有正数短读后，两轮各两份完整4096B回复、唯一completed/0，
+后继短PUT、反向Query双回复/Final、关闭全部通过，host/peer实际0。
+早期候选的错误后前缀丢失已在作者停写自查修正；首错立即冻结，已确认前缀返回，下一I/O拒绝。
+
+最终C SHA256：`1f753055db2758d99fb9946829eee1bef5d8b8ef4a3001f3c80f48492abc7996`。
+最终128源host及125源peer严格C11/-Wall/-Wextra/-Werror、ASan/UBSan重编通过。
+同一最终host binary基础17、Get19、关闭交错2套件实际退出0，耗时16.768/24.368/1.337秒，
+host/peer全部0，stderr无sanitizer报告。独立RX测试组合原13合同+新5合同全部0；
+原TCP对新RX合同保留反例（3项失败，含新增合并/诊断要求，不能当3个目标故障）。
+直接G08最终host0/peer0，1.348秒（本机墙钟，不是目标性能保证）。
+最终host binary SHA256：`b943715010ec960b9434ba33b8e7e67d86274fef2cb6c062032ba1665ec8680d`。
+
+未验证：Air8000 BSP/完整PC xmake、LuatOS5.3运行、目标RTOS一次16调用成本、目标栈/堆/Flash、
+原191D或LAN板上的4096B Get/-7/R04生命周期和长稳。没有设备刷写或生产网络操作。
+此变更不增加认证、64KiB载荷或并发容量，也不等同业务Lua Client完整替代。

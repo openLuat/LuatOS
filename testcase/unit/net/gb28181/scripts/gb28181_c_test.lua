@@ -15,18 +15,13 @@ SIP 报文构造/切包与摘要鉴权已迁到 Lua(exgb28181sip + 生态 exsipp
 注意 testrunner 用 pairs() 遍历用例，执行顺序不确定，每个用例自备状态。
 ]]
 
--- 取 C 模块：真机走 require，PC 模拟器需回退全局表。
--- 该模拟器用自定义加载器接管了 require(做脚本依赖裁剪)，不解析 C 内建模块，
--- require "gb28181" / "voip" 在这里都会失败，但模块仍在全局表上。
--- exgb28181.lua 的 load_core() 用的是同一套回退逻辑。
-local ok, mod = pcall(require, "gb28181")
-local gb = ok and mod or rawget(_G, "gb28181")
+local gb = gb28181
 
 local t = {}
 
 --[[ C 绑定必须存在且是 rotable 风格模块(userdata) ]]
 function t.test_c_module_available()
-    assert(gb ~= nil, "require gb28181 失败")
+    assert(gb ~= nil, "C 层 gb28181 不可用")
 end
 
 --[[ 目录应答：单通道，含全部必选字段 ]]

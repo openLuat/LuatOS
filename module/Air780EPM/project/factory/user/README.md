@@ -13,7 +13,7 @@
 1. **不请求网页端配置**：`default.lua` 开机直接加载预置 `irtu.cfg`，默认通道 = **AirCloud**。
 2. **传感器走硬件 I2C1**：`sensor_task.lua` 读取 SHT30（温湿度，地址 0x44）与 VOC（TVOC，地址 0x1A），采集失败不影响主数据上报。
 3. **LBS 基站定位**：无 GNSS，定位走基站，经纬度作为可选字段上报。
-4. **结构化 TLV 上报**：`factory_app.lua` 构建 AirCloud 结构化 TLV 数据，默认每 **180 秒**上报一次。
+4. **结构化 TLV 上报**：`factory_app.lua` 构建 AirCloud 结构化 TLV 数据，默认每 **180 秒**上报一次，含模组型号（`rtos.bsp()` 动态读取）。
 5. **串口透传 + 下行控制**：UART1（115200）透传；支持 `cycle:秒数` / `led:blink|on|off`，保留 iRTU 原有 rrpc 指令。
 6. **仅内核软狗**：使用 main.lua 中的 LuatOS 软狗 `wdt`（9s 超时 / 3s 喂狗）。**无外置看门狗、无音频 codec、无 GNSS**。
 
@@ -75,6 +75,7 @@ factory/
 | tag | 含义 | 类型 | 是否必填 | 来源 |
 |---|---|---|---|---|
 | 782 | 4G 信号强度 | INTEGER | 必填 | mobile.csq() |
+| 774 | 模组型号 | ASCII | 必填 | rtos.bsp()，如 `Air780EPM` / `Air780EHM` |
 | 798 | 设备ID（IMEI） | ASCII | 必填 | mobile.imei() |
 | 1280 | 时间戳 | INTEGER | 必填 | os.time() |
 | 263 | CPU 温度 | FLOAT | 必填 | adc.CH_CPU |
@@ -108,7 +109,7 @@ factory/
 
 1. 用 Luatools 将本工程 `user/` 目录 + `lib/` 扩展库一并烧录到 Air780EPM，**务必勾选「添加默认 lib」**（libfota3 等公共库由默认库提供）。
 2. 修改 `irtu.cfg` 中的 AuthKey 为实际 AirCloud 项目密钥。
-3. 开机即进入正常 AirCloud 上报模式，每 180s 结构化上报一次（含信号/IMEI/CPU温度/温湿度/VOC/LBS 经纬度），UART1 透传。
+3. 开机即进入正常 AirCloud 上报模式，每 180s 结构化上报一次（含信号/模组型号/IMEI/CPU温度/温湿度/VOC/LBS 经纬度），UART1 透传。
 4. FOTA：`PROJECT = "Air780EPMFactory"`、`VERSION`、`PRODUCT_KEY` 决定升级目标，改名/换项目时需同步（见 main.lua、update.lua）。
 
 ## 九、官方支持渠道

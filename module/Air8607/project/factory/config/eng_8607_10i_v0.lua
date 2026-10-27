@@ -21,7 +21,7 @@
 7. 音频使用芯片内置 DAC 播放，PA 功放 HT6873，AUDIOPA_EN = GPIO73，
    高电平使能（pa_on_level = 1，power_on 初始拉低关断，起播时 exaudio 拉高）。
    本板无麦克风，不开启录音相关功能。
-   hw.audio 字段消费方：app/common/tts_app.lua、ui/welcome_win.lua、ui/video_util.lua。
+   hw.audio 字段消费方：app/common/tts_app.lua、ui/video_util.lua。
 ]]
 
 return {

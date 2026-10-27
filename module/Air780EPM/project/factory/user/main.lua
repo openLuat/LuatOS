@@ -24,7 +24,15 @@ VERSION：项目版本号,ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级,根据自己项目的需求,自定义格式即可
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "Air780EPMFactory"
+-- 同一套固件适配多个型号，按实际型号启用对应的 PROJECT（取消该行注释，并注释掉其它行）：
+-- PROJECT = "Air780EPM"
+-- PROJECT = "Air780EHM"
+-- PROJECT = "Air700ECP"
+PROJECT = "Air700ECH"
+-- PROJECT = "Air780EHU"
+-- PROJECT = "Air780EHN"
+
+-- PROJECT = "Air780EX2"
 VERSION = "001.001.000"
 
 -- 出厂固件版本：预置配置直接连接 AirCloud，不请求网页端配置

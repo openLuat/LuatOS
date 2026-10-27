@@ -5,7 +5,7 @@
 
 ## 一、项目简介
 
-1. **产测 + 业务合一**：开机按 `fskv` 返工标记 → OTP1（型号/硬件版本/IMEI）分流。无返工标记且 OTP1 为空 → 进产测模式（首次产测）；OTP1 有值 → 进业务模式；有返工标记 → 进返工产测。产测完成后写标记重启，进业务模式。
+1. **产测 + 业务合一**：开机按 `fskv` 返工标记 → `fskv` 首测保护标记 `model_firsttest` → OTP1（型号/硬件版本/IMEI）三级分流。裸板（无标记且 OTP1 为空）自动进产测并写 `model_firsttest`；首测中途看门狗 / `RST#` / 掉电复位后凭该标记仍回产测，避免写号后误入业务模式；`TEST_DONE#` 写 OTP1（PROD/PCB/IMEI）并删 `model_firsttest` 后重启进业务模式；有返工标记 → 进返工产测。产测完成后重启，进业务模式。
 2. **一个设备只保存一个当前任务**。任务类型分为 `pair`、`round`、`phone`；运行分支分为 `single`（单 SIP）和 `phone`（SIP_CC），同一时间只加载一套通话与音频模块。
 3. **业务参数来自网页**：不再使用本地产测预设参数，改为由 AirCloud 网页下发任务配置，设备持久保存后按任务执行。
 4. **AirCloud 收发**：Tag19 接收 JSON 命令，Tag20 上报任务状态快照。
@@ -22,7 +22,7 @@
 | 业务 · SIP_CC | 无返工标记 且 OTP1 有值 + 运行模式 `phone` | `task/task_main` → `cc/` | SIP↔手机(VoLTE) 桥接（phone） |
 | 调试 BOOT_MODE | `main.lua` 顶部常量 | — | `auto`(默认)/`normal`(强制业务)/`factory`(强制产测) |
 
-- 分流顺序（`main.lua` `decide_mode`）：`fskv` 返工标记 → OTP1（型号/硬件版本/IMEI）；返工标记优先，其次按 OTP1 是否有值决定产测或业务。
+- 分流顺序（`main.lua` `decide_mode`）：`fskv` 返工标记 → `fskv` 首测保护标记 `model_firsttest` → OTP1（型号/硬件版本/IMEI）。返工标记优先；其次首测保护标记（首测中途复位后回到产测）；最后按 OTP1 是否有值决定产测或业务。裸板（无标记且 OTP1 为空）进产测前自动写 `model_firsttest`。
 - 业务分支由 `task/task_runtime.lua` 读 `fskv["sip_task_v1"]` 的 `runtime_mode` 决定，缺省为 `phone`。正常模式仅注册 `MODEL_RETEST` 一条产测指令（返工用）。
 - 运行模式切换（网页 `set_mode`）需固件具备 `cc.setBridge` 和 `rtos.reboot`，否则只提供 `phone` 模式。
 
@@ -291,9 +291,9 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 | 无返工标记 且 OTP1 为空（PROD 未写） | 进入产测模式（首次产测），`require "factory"` |
 | 无返工标记 且 OTP1 有值 | 进入业务模式，`require "task_main"`；仅注册 `MODEL_RETEST` 一条产测指令 |
 
-> 分流顺序：返工标记优先，其次按 OTP1（型号/硬件版本/IMEI）是否有值决定产测或业务。
-> 首次产测完成：`TEST_DONE#` 写 OTP1（型号/硬件版本/IMEI）并重启进业务模式。
-> 返工产测完成：`TEST_DONE#` 仅清返工标记（不动 OTP1）并重启进业务模式。
+> 分流顺序：返工标记优先，其次首测保护标记 `model_firsttest`（首测中途复位后回到产测），最后按 OTP1 是否有值决定产测或业务。
+> 首次产测完成：`TEST_DONE#` 写 OTP1（PROD/PCB/IMEI）并删除 `model_firsttest` 后重启进业务模式；未写号（PROD 为空）禁止结束。
+> 返工产测完成：`TEST_DONE#` 仅清返工标记（不动 OTP1、不动 `model_firsttest`）并重启进业务模式。
 > 已在业务模式需要返工：发 `MODEL_RETEST#CONFIRM` 写返工标记并重启进返工产测（无需重烧）；或重烧并勾「清除 KV」。
 
 ### 2. 管脚定义（板子统一）
@@ -315,7 +315,7 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 
 | 指令 | 功能 | 返回值 |
 |------|------|--------|
-| `VERSION#` | 固件版本 | `Air8784_Factory_001.000.005#` |
+| `VERSION#` | 固件版本 | `Air8784_Factory_001.000.006#` |
 | `IMEI#` | IMEI | 15 位# / ERROR# |
 | `IMSI#` | SIM IMSI | IMSI# / ERROR# |
 | `ICCID#` | SIM ICCID | ICCID# / ERROR# |
@@ -351,7 +351,7 @@ SIP 来电使用最新保存的 phone 任务号码；缺少可用 phone 任务�
 | 指令 | 功能 | 返回值 |
 |------|------|--------|
 | `RST#` | 单独重启（不改产测/返工状态，重启后还进产测） | OK#（回 OK 后 500ms 重启） |
-| `TEST_DONE#` | 测试完成：首次产测写 OTP1（PROD/PCB/IMEI），返工产测仅清返工标记；3s 重启进业务模式 | OK# |
+| `TEST_DONE#` | 测试完成：首次产测校验 OTP1 非空（未写号禁止结束）→ 写 OTP1（PROD/PCB/IMEI）→ 删除 `model_firsttest`；返工产测仅清返工标记；3s 重启进业务模式 | OK# |
 | `PCBA_TEST_DONE#` | 测试完成关机（不写 fskv，`pm.shutdown`） | OK#（回 OK 后 3s 关机） |
 
 #### 返工指令（MODEL_RETEST，产测/正常模式共用）
@@ -498,12 +498,18 @@ TEST_DONE#               3 秒后自动重启进业务模式
 
 | 版本 | 状态 | 说明 |
 |------|------|------|
-| v001.000.005 | 当前版本 | 见下 |
+| v001.000.006 | 当前版本 | 见下 |
+| v001.000.005 |         | 见下 |
 | v001.000.004 |         | 见下 |
 | v001.000.003 |         | 见下 |
 | v001.000.002 | 初始版本 | 初始发布 |
 
-### v001.000.005（当前版本）
+### v001.000.006（当前版本）
+
+1. **新增首测保护标记 `model_firsttest`**：裸板（OTP1 为空）进入产测前自动写入并读回校验（失败重试 3 次，仍失败仅告警不堵产线）；首测中途看门狗 / `RST#` / 掉电复位后凭该标记仍回产测，`TEST_DONE#` 正常结束并写号后删除。修复"写号在复位类测试（看门狗）之前，重启后误入正常模式"的问题。
+2. **启动分流**：`fskv` 返工标记 → `fskv` 首测保护标记 → OTP1（型号/硬件版本/IMEI）。标记的写入/删除全部由固件内部完成，产测工具零改动。
+
+### v001.000.005
 
 1. **返工（retest）机制**：一套固件同时含产测与正式逻辑，启动按 `fskv` 返工标记 → OTP1（型号/硬件版本/IMEI）分流；正常模式经 `MODEL_RETEST#CONFIRM` 写返工标记并重启进返工产测，全程不动 OTP1，无需重烧。
 2. **新增 `retest.lua`**：返工标记读写 + `MODEL_RETEST#CONFIRM` / `MODEL_RETEST?` 指令（产测与正常模式共用 USB VUART_0）。

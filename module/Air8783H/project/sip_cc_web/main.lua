@@ -1,6 +1,16 @@
+--[[
+@module  main
+@summary Air8783H SIP/CC PCM 桥接主入口
+@usage
+定义 PROJECT、VERSION 和远程升级 PRODUCT_KEY。
+加载持久化配置、外部看门狗、网络、SIP/CC 桥接及云端业务，最后运行系统调度。
+]]
+
 -- Air8000w 纯 PCM CC <-> SIP 桥接应用入口。
-PROJECT = "SIP_CC_BRIDGE_PCM"
-VERSION = "1.1.18"
+PROJECT = "Air8783H_Factory"
+VERSION = "001.000.002"
+-- Set the IoT libfota3 project key before flashing.
+PRODUCT_KEY = "uHcUqI4qv0S9W9flMZFNdjgArJoqYgIk"
 
 sys = require "sys"
 sysplus = require "sysplus"

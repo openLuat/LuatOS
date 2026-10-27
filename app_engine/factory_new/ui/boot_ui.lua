@@ -237,7 +237,9 @@ local function boot_task()
         end
     end
 
-    -- 8. 触摸初始化：失败 200ms 后重试一次（GT911 电源刚稳仍可能需要余量）
+    -- 8. 触摸初始化：失败 200ms 后重试一次（GT911 电源刚稳仍可能需要余量）。
+    --    tp_gt911.init 成功即封口（内核 tp 库一次上电只接受一次 tp.init），
+    --    所以这里的重试只会在首次真的失败时发生，不会造成重复初始化
     local ok2, r = pcall(tp_drv.init)
     if not (ok2 and r) then
         log.warn("boot_ui", "tp 初始化未成功，200ms 后重试", ok2 and r or r)

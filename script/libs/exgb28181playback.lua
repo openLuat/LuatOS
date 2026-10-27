@@ -5,7 +5,7 @@
 @date    2026.09.17
 
 平台点"历史回放"时，INVITE 的 SDP 给的是**时间段**（t= 起止 Unix 秒）而不是
-文件名 —— 实测 WVP-Pro 的 `playbackStreamCmd` 里 `u=` 填的是
+文件名 —— 实测平台的 `playbackStreamCmd` 里 `u=` 填的是
 `<通道编码>:0`，**不是录像 ID**。所以"该播哪一段"只能设备自己按时间对。
 
 本模块就是这一步：时间段 → 录像文件 → 按时间轴喂帧。
@@ -98,21 +98,16 @@ local function emit(action, st, extra)
     client.emit_event("playback", action, p)
 end
 
---[[
-加载 C 模块。与其它几个模块同样的两条取用路径（真机 require、
-PC 模拟器回退全局表），失败返回 false 而不是抛错 —— 固件没开
-LUAT_USE_GB28181 时，require 本模块不该炸。
-]]
+-- 失败返回 false 而不是抛错
 local function load_deps()
     if gb == nil then
-        local ok, mod = pcall(require, "gb28181")
-        gb = ok and mod or rawget(_G, "gb28181")
+        gb = gb28181
         if gb == nil then
             return false, "C 层 gb28181 不可用(固件未开 LUAT_USE_GB28181?)"
         end
     end
     if type(gb.record_open) ~= "function" then
-        return false, "C 层没有 record_open(固件版本太旧?)"
+        return false, "C 层没有 record_open(固件未开 LUAT_USE_GB28181_RECORD，或是旧固件)"
     end
     if client == nil then
         local ok, mod = pcall(require, "exgb28181client")
@@ -560,7 +555,7 @@ end
 @param sess    会话
 @param seconds 偏移秒数（**相对回放起点**，>=0）
 
-为什么是相对而不是绝对：实测 WVP 的 `playSeekCmd` 发的是
+为什么是相对而不是绝对：实测平台的 `playSeekCmd` 发的是
 `Range: npt=<秒>-`，而 npt(normal play time) 在 RTSP 里对一段"存储的节目"
 就是相对节目开头的偏移；同一平台恢复播放时发的 `Range: npt=now-` 是同一套
 语义（now = 当前位置，不可能是绝对时刻）。所以这里的秒数相对 t_start。

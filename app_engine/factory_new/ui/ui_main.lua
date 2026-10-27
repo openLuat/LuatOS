@@ -64,6 +64,12 @@ function M.optional()
     if _feat.file_transfer then
         require "file_transfer_win" -- 文件传输窗口（订阅 OPEN_FILE_TRANSFER_WIN）
     end
+
+    if _feat.other_func then
+        require "other_func_win"    -- 功能测试窗口（订阅 OPEN_OTHER_FUNC_WIN）
+        require "uvc_preview_win"   -- UVC 预览页（订阅 OPEN_UVC_PREVIEW_WIN）
+        require "rs485_test_win"    -- RS485 收发测试页（订阅 OPEN_RS485_TEST_WIN）
+    end
 end
 
 return M

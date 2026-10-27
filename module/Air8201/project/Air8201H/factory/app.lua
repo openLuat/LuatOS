@@ -1,12 +1,14 @@
 --[[
 @module  app
-@summary 应用主逻辑模块（支持服务端动态配置）
-@version 3.2
-@date    2026.07.17
+@summary 应用主逻辑模块（GNSS 开机常开 + 每30秒上报）
+@version 4.0
+@date    2026.10.23
 @usage
-1. 初始化设备硬件和各功能模块
-2. 获取工作模式：旧设备若存储为未激活(-1)，强制转为寻宠模式(2)（绑定流程已废弃）
-3. 统一进入已激活模式（active_mode：GNSS 三态策略主循环）
+1. 初始化设备硬件和各功能模块（电池/充电/gsensor/远程/低功耗）
+2. 开机即打开 GNSS（永久常开），旧设备未激活(-1)强制转为寻宠模式(2)
+3. 每 30 秒上报一帧：GNSS 优先（定位方式2），无 fix 回退 LBS 基站定位（定位方式1）
+   字段对齐 8780G：信号强度(782)/纬度(513 ASCII %.6f)/经度(512 ASCII %.6f)/
+                 定位方式(LOCATION_METHOD INTEGER)/时间戳(1280)/CPU温度(263 FLOAT)
 4. 配置由 main.lua 在启动前通过 config.load_from_server() 加载
 ]]
 
@@ -20,7 +22,12 @@ local location = require("location")
 local gsensor = require("gsensor")
 local remote = require("remote")
 local battery = require("battery")
-local lowpower_app = require("lowpower_app")
+local create = require("create")
+local exgnss = require("exgnss")
+local excloud = require("excloud")
+
+-- 上报周期（秒）
+local REPORT_INTERVAL = 30
 
 -- 初始化所有功能模块
 local function init_all_modules()
@@ -34,28 +41,126 @@ local function init_all_modules()
     local work_mode = kvstore.get_work_mode()
     log.info("app", "当前工作模式:", work_mode)
 
-    -- 传感器/定位先初始化
+    -- 传感器/定位先初始化（location.init 内部按 config.BOARD.gnss 完成 exgnss.setup）
     location.init()
     gsensor.init()
 
-    -- 初始化充电管理（YHM2712A，config.CHARGE_CONFIG 控制是否启用）
-    local charge = require("charge")
-    if charge and charge.init then charge.init() end
+    -- 充电管理初始化（YHM2712A；charge.init 内部按 CHARGE_CONFIG.ENABLE/CMD_PIN 守卫，
+    -- 8201G 无 CMD 自动跳过，8202/8201H 生效）
+    require("charge").init()
 
-    -- 初始化硬件看门狗（Air153C，config.WDT_CONFIG 控制是否启用）
-    local air153c_wdt = require("air153c_wdt")
-    if air153c_wdt and air153c_wdt.init then air153c_wdt.init() end
+    -- LED 状态机（8202 由 active_mode 初始化，该模块已删，此处直接启动）
+    require("tools").init_led()
 
     -- 远程控制按需初始化（收到云平台指令时才生效）
     remote.init()
-    lowpower_app.init()
-
-    -- 工业模组出厂固件规划：独立的 180s 周期上报任务
-    -- （与现有业务互不干扰，只走 AirCloud TLV 通道；周期可由下行 cycle:N 修改）
-    local factory_report = require("factory_report")
-    factory_report.start()
 
     log.info("app", "所有功能模块初始化完成")
+end
+
+-- 获取CPU温度（单位：摄氏度）
+local function get_cpu_temp()
+    adc.open(adc.CH_CPU)
+    local raw = adc.get(adc.CH_CPU)
+    adc.close(adc.CH_CPU)
+    if raw and raw > 0 then
+        return raw / 1000
+    end
+    return nil
+end
+
+-- 获取当前定位：GNSS 优先（2），无 fix 回退 LBS 基站定位（1）
+-- @return number|nil 纬度
+-- @return number|nil 经度
+-- @return number|nil 定位方式 2=GPS 1=LBS
+local function get_location()
+    -- 1. GNSS 已定位
+    if exgnss.is_fix() then
+        local rmc = exgnss.rmc(2)
+        if rmc and rmc.valid and rmc.lat and rmc.lng then
+            log.info("app", string.format("GNSS定位: lat=%.6f lng=%.6f", rmc.lat, rmc.lng))
+            return rmc.lat, rmc.lng, 2
+        end
+    end
+    -- 2. 回退 LBS 基站定位（location 内部按免费/付费配置处理，含缓存）
+    local loc = location.get_lbs_location()
+    if loc and loc.lat and loc.lng then
+        return loc.lat, loc.lng, 1
+    end
+    return nil, nil, nil
+end
+
+-- 设备唯一标识（官方口径，用于 1293 CUSTOM_DEVICE_ID）：
+-- hmeta.devid() 在 4G 模组返回 IMEI；取不到逐级回退，避免上报空值
+local function get_device_uid()
+    if hmeta and hmeta.devid then
+        local ok, v = pcall(hmeta.devid)
+        if ok and type(v) == "string" and #v > 0 then return v end
+    end
+    local imei = mobile.imei()
+    if imei and #imei > 0 then return imei end
+    return "unknown"
+end
+
+-- 构建一帧定位上报 TLV（无定位返回空表，本次不发）
+local function build_report_tlv()
+    local tlv = {}
+    local FM = excloud.FIELD_MEANINGS
+    local DT = excloud.DATA_TYPES
+
+    local lat, lng, method = get_location()
+    if not (lat and lng) then
+        log.warn("app", "GNSS/LBS 均无定位数据，本次不上报")
+        return tlv
+    end
+
+    -- 必填：设备唯一标识（1293，4G 模组即 IMEI）、项目名称（1294）
+    -- 默认 lib 的 excloud 无这两个常量，按官方字段号直接传数字
+    table.insert(tlv, { field_meaning = 1293, data_type = DT.ASCII, value = get_device_uid() })
+    table.insert(tlv, { field_meaning = 1294, data_type = DT.ASCII, value = PROJECT or "unknown" })
+    -- 元器件型号（774）：取 OTP 的 PROD，缺库/未写/读异常兜底 Air8201（对齐 8203 写法）
+    local product_model = "Air8201"
+    local ok_pm, pm = pcall(require, "prodmeta")
+    if ok_pm then
+        local okg, p = pcall(pm.get, "PROD")
+        if okg and p and #tostring(p) > 0 then product_model = tostring(p) end
+    end
+    table.insert(tlv, { field_meaning = FM.COMPONENT_MODEL, data_type = DT.ASCII, value = product_model })
+    -- 4G信号强度
+    local csq = mobile.csq()
+    if csq then
+        table.insert(tlv, { field_meaning = FM.SIGNAL_STRENGTH_4G, data_type = DT.INTEGER, value = csq })
+    end
+    -- 经纬度发 ASCII %.6f，绕过 FLOAT ×1000 截断
+    table.insert(tlv, { field_meaning = FM.GNSS_LATITUDE, data_type = DT.ASCII, value = string.format("%.6f", lat) })
+    table.insert(tlv, { field_meaning = FM.GNSS_LONGITUDE, data_type = DT.ASCII, value = string.format("%.6f", lng) })
+    -- 定位方式 2=GPS 1=LBS
+    table.insert(tlv, { field_meaning = FM.LOCATION_METHOD, data_type = DT.INTEGER, value = method or 1 })
+    -- 时间戳
+    table.insert(tlv, { field_meaning = FM.TIMESTAMP, data_type = DT.INTEGER, value = os.time() })
+    -- CPU温度
+    local cpu_temp = get_cpu_temp()
+    if cpu_temp then
+        table.insert(tlv, { field_meaning = FM.ENV_TEMPERATURE, data_type = DT.FLOAT, value = cpu_temp })
+    end
+    return tlv
+end
+
+-- 30 秒周期上报任务：等云连接建立后开始，每 30 秒发一帧
+local function report_task()
+    log.info("app", "等待 AirCloud 连接建立")
+    while not create.is_connected() do
+        sys.waitUntil("CLOUD_CONNECTED", 1000)
+    end
+    log.info("app", "AirCloud 已连接，启动 30s 周期上报")
+    while true do
+        local tlv = build_report_tlv()
+        if #tlv > 0 then
+            create.send_aircloud(tlv)
+            log.info("app", "定位数据已通过 AirCloud TLV 发送")
+        end
+        sys.wait(REPORT_INTERVAL * 1000)
+    end
 end
 
 -- 应用主任务
@@ -103,27 +208,20 @@ local function app_task()
     -- 初始化所有模块
     init_all_modules()
 
-    -- 获取工作模式
+    -- 获取工作模式：未激活(-1)强制转为寻宠模式(2)
     local work_mode = kvstore.get_work_mode()
-    log.info("app", "当前工作模式:", work_mode)
-
-    -- ============================================
-    -- 未激活绑定窗口已废弃（unactive_mode.lua 已删除）。
-    -- 默认开机即进入寻宠模式(GPS定位，mode=2)；
-    -- 若旧版本设备存储的为未激活(-1，如云命令 change_mode 误设)，强制转为寻宠模式(2)
-    -- ============================================
     if work_mode == config.DEVICE_MODE.UNACTIVATED then
         log.info("app", "未激活模式已禁用，强制进入寻宠模式(GPS定位)")
         kvstore.set_work_mode(config.DEVICE_MODE.FIND)
         work_mode = config.DEVICE_MODE.FIND
     end
+    log.info("app", "当前工作模式:", work_mode)
 
-    -- 统一进入已激活模式（active_mode：GNSS 三态策略主循环）
-    -- 004.000.037 起 require 不再自动启动（create.lua 惰性加载查询 1290 时不应拉起主循环），
-    -- 改为显式调用 active_mode.start()
-    log.info("app", "进入已激活模式, work_mode:", work_mode)
-    local am = require("active_mode")
-    am.start()
+    -- GNSS 永久常开（location.init 已完成 setup，此处直接 open）
+    location.start_find_gps()
+
+    -- 启动 30s 周期上报（本款直接供电，不判电量、不切低功耗）
+    sys.taskInit(report_task)
 end
 
 -- 启动应用

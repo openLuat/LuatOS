@@ -209,6 +209,8 @@ local has_ai_chat = _G.project_config and _G.project_config.features and _G.proj
 -- 网盘与「应用工厂 / AI 助手」同属可裁剪的大型内置应用：只渲染入口，窗口由 ui_main 按同一开关加载
 local has_cloud_disk = _G.project_config and _G.project_config.features and _G.project_config.features.cloud_disk
     and _G.project_config.ui and _G.project_config.ui.show_cloud_disk
+local has_other_func = _G.project_config and _G.project_config.features and _G.project_config.features.other_func
+    and _G.project_config.ui and _G.project_config.ui.show_other_func
 
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
@@ -228,6 +230,9 @@ if has_ai_chat then
 end
 if has_cloud_disk then
     table.insert(builtin_apps, { name = "合宙网盘", win = "CLOUD_DISK", icon = "cloud_disk", dock = true })
+end
+if has_other_func then
+    table.insert(builtin_apps, { name = "功能测试", win = "OTHER_FUNC", icon = "other_func", dock = true })
 end
 
 -- 前向声明（网格点击依赖上下文菜单，后者定义在后面）
@@ -1177,9 +1182,14 @@ local function build_rail(parent)
 
     -- 内置应用快捷入口（替代原导航项）
     local iw = math.floor(rail_w * 0.80)
-    local ih = clamp(math.floor(screen_h * 0.087), 46, 56)   -- 设计稿 52
     local gap = math.floor(6 * density_scale_val)            -- 设计稿 6
-    local y = pad + bs + pad
+    --[[项高按数量自适应：内置应用项 + 底部「桌面」项都要落在栏内。
+    溢出的控件会顶出父容器，而 LVGL 容器天生带 SCROLLABLE，一溢出整条左栏就会长出滑动条。]]
+    local ih = clamp(math.floor(screen_h * 0.087), 46, 56)   -- 设计稿 52
+    local top = pad + bs + pad
+    local fit_h = math.floor((screen_h - pad - top - #builtin_apps * gap) / (#builtin_apps + 1))
+    if fit_h < ih then ih = clamp(fit_h, 32, 56) end
+    local y = top
 
     for _, b in ipairs(builtin_apps) do
         local item = theme.card(rail, {
@@ -1222,9 +1232,7 @@ local function build_rail(parent)
     --[[底部「桌面」入口（设计稿里这个位置是用户头像，换成导航项更实用）：
     它不发布 OPEN_xxx_WIN，只负责把当前一级菜单的整棵子树清掉、回桌面态。
 
-    固定在栏底，与内置应用之间留出空白做视觉分隔。放不下就跳过 —— 内置应用数量由
-    配置驱动（最多 6 个），溢出的控件会顶出父容器，而 LVGL 容器天生带 SCROLLABLE，
-    一溢出整条左栏就会长出滑动条。]]
+    固定在栏底，与内置应用之间留出空白做视觉分隔。放不下就跳过。]]
     local home_y = screen_h - pad - ih
     if y <= home_y then
         local item = theme.card(rail, {
@@ -2120,6 +2128,8 @@ local function on_create()
     VP.resume_file = nil
 
     main_container = theme.page_bg(airui.screen, screen_w, screen_h)
+    -- 桌面带左栏时被别的页面盖住也要露出左栏
+    theme.bind_root(main_container, { keep_visible = use_rail })
 
     build_rail(main_container)
     build_status_bar(main_container)

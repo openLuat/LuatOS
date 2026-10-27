@@ -352,8 +352,8 @@
     → 检测脚读不到时会长期停在 SIM1，表现为"插卡不识别"。改为 boot_default = 0(SIM0)。
   · SIM：新增「2s 延迟复检 + 自动纠正卡槽」，避免开机早期读数失败导致长期用错卡槽。
 ]]
-PROJECT = "Air8202"
-VERSION = "004.000.066"
+PROJECT = "Air8202G"
+VERSION = "004.000.068"
 FOTA_MODE = 3  -- 3=libfota3(默认,只能合宙人员根据客户提供的IMEI升级,客户无法自行操作), 2=libfota2(IoT平台,客户自行管理)
 
 -- ====== 项目密钥（FOTA升级使用，libfota3 和 libfota2 统一从此读取） ======
@@ -406,11 +406,7 @@ local sim_slot = require("sim_slot")
 sim_slot.init()
 -- ======================================================================
 
--- ====== FOTA 升级：开机即执行（与工作模式无关），之后每8小时自动检测一次 ======
--- update.init() 内部为异步后台执行，不阻塞开机流程
-local update = require("update")
-update.init()
--- ============================================================
+-- FOTA 升级（update.init）仅正常模式启动，见文末启动分流；产测模式不联网
 
 -- 正常启动流程：加载本地配置 → 启动云连接 → 启动 app → 后台异步获取最新配置
 local function start_app()
@@ -467,12 +463,121 @@ local function start_app()
     boot_lbs_report.start()
 end
 
--- ========== 启动（产测已整体移除） ==========
--- 历史版本的 BOOT_MODE(0/1/2) 与产测分支已按产品决策删除：
--- 本套软件不需要产测功能，启动链固定为唯一路径，避免"未完成产测则进产测"导致
--- 识别失败板型进入错误流程。
-log.info("main", "启动应用（板型:", tostring(board.id), "）")
-sys.taskInit(start_app)
+-- ========== 启动分流（V3：fskv 返工标记 + 首测中途保护标记 + OTP1 判空） ==========
+-- BOOT_MODE 调试开关：
+--   "auto"   按 fskv/OTP1 自动分流（量产默认）：
+--            1) fskv 有返工标记 model_retest    → 产测（返工，不动 OTP1）
+--            2) fskv 有首测标记 model_firsttest → 产测（首测中途复位后回到产测）
+--            3) 无标记且 OTP1 空 → 产测（首测，落 model_firsttest，TEST_DONE 通过删标记）
+--            4) 无标记且 OTP1 有值 → 正常模式
+--   "normal" 强制正常模式（调试业务用）
+--   "factory" 强制产测模式（调试产测用）
+local BOOT_MODE = "auto"
+local retest = require("retest")
+local RETEST_KEY = retest.KEY
+
+-- OTP zone1 是否为空（未产测）。OTP 读取失败 / 非 table 一律按未产测处理
+local function otp1_empty()
+    local ok, prodmeta = pcall(require, "prodmeta")
+    if not ok then
+        log.warn("main", "prodmeta 加载失败，按未产测处理")
+        return true
+    end
+    local ok2, all = pcall(prodmeta.get_all)
+    if not ok2 or type(all) ~= "table" then
+        log.warn("main", "OTP1 读取失败，按未产测处理")
+        return true
+    end
+    return next(all) == nil
+end
+
+-- 产测模式
+local function enter_factory(reason)
+    log.info("main", "进入产测模式，原因:", reason)
+    require("factory")
+end
+
+-- 正常模式返工入口：监听 USB 虚拟串口 VUART_0 的 MODEL_RETEST 指令。
+-- MODEL_RETEST#CONFIRM → retest 写 fskv 标记并重启进产测；MODEL_RETEST?# → HAS/NONE。
+-- 正常业务不使用 VUART_0，独立监听不影响其它功能。
+local function start_retest_listener()
+    sys.taskInit(function()
+        local retest = require("retest")
+        uart.setup(uart.VUART_0, 115200)
+        local cache = ""
+        uart.on(uart.VUART_0, "receive", function(id, len)
+            while true do
+                local data = uart.read(uart.VUART_0, 512)
+                if not data or #data == 0 then break end
+                cache = cache .. data
+                -- 切帧：优先按换行符切（SSCOM 等串口助手默认发送区带 \r\n），
+                -- 无换行时兼容以 # 收尾的整帧。不能按内部 # 切：命令本身含 #（MODEL_RETEST#CONFIRM）
+                while true do
+                    local s, e = cache:find("[\r\n]+")
+                    local frame
+                    if s then
+                        frame = cache:sub(1, s - 1)
+                        -- 帧尾可能有多个连续换行，一并丢弃后取剩余内容（避免残留换行重复切空帧）
+                        local tail = select(2, cache:find("^[\r\n]+", s))
+                        cache = cache:sub(tail + 1)
+                    else
+                        -- 无换行：仅当缓存以 # 结尾才视为一帧
+                        if cache:sub(-1) ~= "#" then break end
+                        frame = cache
+                        cache = ""
+                    end
+                    local reply, handled = retest.on_data(frame)
+                    if handled and reply then
+                        uart.write(uart.VUART_0, reply .. "#\r\n")
+                    end
+                end
+                -- 超长垃圾数据且无帧结束符，丢弃防止内存膨胀
+                if #cache > 256 then cache = "" end
+            end
+        end)
+        log.info("main", "正常模式返工入口已监听 VUART_0（MODEL_RETEST#CONFIRM）")
+    end)
+end
+
+-- 正常模式
+local function enter_normal(reason)
+    log.info("main", "进入正常模式（板型:", tostring(board.id), "），原因:", reason)
+    -- FOTA 升级：仅正常模式开机执行，之后每8小时自动检测一次，异步后台不阻塞开机
+    local update = require("update")
+    update.init()
+    start_retest_listener()
+    sys.taskInit(start_app)
+end
+
+if BOOT_MODE == "factory" then
+    enter_factory("BOOT_MODE 强制产测")
+elseif BOOT_MODE == "normal" then
+    enter_normal("BOOT_MODE 强制正常")
+else
+    -- auto：先查 fskv 返工标记，再查首测进行中标记，最后查 OTP1
+    if fskv.get(RETEST_KEY) then
+        enter_factory("fskv 存在返工标记 model_retest")
+    elseif retest.first_is_set() then
+        enter_factory("fskv 存在首测标记 model_firsttest（首测中途曾复位）")
+    elseif otp1_empty() then
+        -- 裸板首次产测：落 model_firsttest 保护标记（带读回校验，重试 3 次）
+        -- MODEL/HVERSION 写 OTP1 后，看门狗等复位类测试导致重启时，靠此标记兜回产测
+        local marked = false
+        for i = 1, 3 do
+            if retest.first_set() then marked = true break end
+            log.error("main", "首测标记写入失败，重试", i)
+        end
+        if marked then
+            log.info("main", "裸板首测，model_firsttest 已写入")
+        else
+            -- 不堵产线：放行产测，仅告警（此板中途复位会失去保护，需人工关注）
+            log.error("main", "警告：model_firsttest 写入 3 次均失败，首测中途将无复位保护")
+        end
+        enter_factory("OTP1 为空（首次产测）")
+    else
+        enter_normal("OTP1 已写号")
+    end
+end
 
 -- 用户代码已结束---------------------------------------------
 sys.run()

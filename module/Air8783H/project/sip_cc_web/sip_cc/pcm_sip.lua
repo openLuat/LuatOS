@@ -1,3 +1,11 @@
+--[[
+@module  pcm_sip
+@summary SIP 信令与 VoIP PCM 媒体实现
+@usage
+实现 SIP 注册、呼叫信令及 PCM 媒体接管，为 sip_main 提供接口。
+跟踪媒体启动和停止状态，不作为本地扬声器播放模块使用。
+]]
+
 -- 仅用于本 demo：SIP 信令 + VoIP PCM 桥接，无本地音频后端。
 local pcm_sip = {}
 local proto = require "exsipproto"

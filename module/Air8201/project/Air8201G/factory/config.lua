@@ -116,19 +116,6 @@ config.CHARGE_CONFIG = {
 --    「插上 USB 反而关掉 USB」→ 调试口不可用。此时把本项置 false 即可关闭本功能。
 config.USB_POWER_FOLLOW_CHARGE = true
 
--- 看门狗配置（Air153C 硬件看门狗）
--- 硬件接线：AGPIO24 → NPN → WTDOG（见 exair153x_wdt 库注释）
--- 默认开启：喂狗 GPIO24，周期 180 秒（Air153C 超时固定 240s，喂狗周期需显著小于该值）
-config.WDT_CONFIG = {
-    ENABLE = BP.wdt.enable == true,          -- 是否启用看门狗（由板级能力决定）
-    -- ⚠️ 上面那句「AGPIO24 → NPN → WTDOG」描述的是 **8202 的接线**，**不可外推到 8201G**：
-    --    2026-09-18 用户确认 —— **8201G 无外接看门狗（无 Air153C），
-    --    GPIO24 是 G-Sensor 供电，接 V_BCKP**（`gsensor.power_pin = 24` 正确）。
-    --    曾据本行注释误判 8201G 的 24 脚角色（看门狗喂狗脚），故在此显式标注以免再犯。
-    FEED_PIN = BP.wdt.feed_pin,              -- 喂狗引脚（AGPIO24 → NPN → WTDOG）
-    FEED_INTERVAL = BP.wdt.interval or 180,  -- 喂狗间隔(秒)，Air153C 超时 240s，建议 180s
-}
-
 -- 硬件引脚定义（板级派生；其余引脚配置由 profile/各驱动内部管理）
 -- 字段名沿用历史，语义为：GREEN_LED=网络/状态指示灯，YELLOW_LED=充电指示灯
 -- （Air8201G/H 上两路为红灯 GPIO12 / 蓝灯 GPIO1，颜色不同但状态机逻辑一致）
@@ -224,28 +211,6 @@ function config.load_from_server(gnss_cfg, project_key)
             " cmd_pin=" .. tostring(config.CHARGE_CONFIG.CMD_PIN),
             " v_battery=" .. tostring(config.CHARGE_CONFIG.FLOAT_VOLTAGE_MV),
             " cap_battery=" .. tostring(config.CHARGE_CONFIG.CAP_BATTERY_MAH))
-    end
-
-    -- 4. wdt → 看门狗配置（Air153C）
-    if gnss_cfg.wdt then
-        local wdt = gnss_cfg.wdt
-        config.WDT_CONFIG = config.WDT_CONFIG or {}
-        -- 板级能力/引脚红线：无硬件看门狗的板型（8201G/H）不得被服务端"开启"；喂狗引脚一律取自 profile
-        if wdt.on ~= nil and BP.wdt.feed_pin then
-            config.WDT_CONFIG.ENABLE = wdt.on == 1
-        elseif wdt.on ~= nil then
-            log.warn("config", "本板无硬件看门狗，忽略服务端 wdt.on=", wdt.on)
-        end
-        if wdt.feed_pin then
-            log.warn("config", "忽略服务端下发的 wdt.feed_pin（板级引脚由 board.profile 固定为",
-                tostring(BP.wdt.feed_pin), "）")
-        end
-        if wdt.feed_interval and tonumber(wdt.feed_interval) then
-            config.WDT_CONFIG.FEED_INTERVAL = tonumber(wdt.feed_interval)
-        end
-        log.info("config", "看门狗配置: enable=" .. tostring(config.WDT_CONFIG.ENABLE),
-            " feed_pin=" .. tostring(config.WDT_CONFIG.FEED_PIN),
-            " interval=" .. tostring(config.WDT_CONFIG.FEED_INTERVAL))
     end
 
     -- 5. alarm → 报警阈值（仅保留已生效的字段）

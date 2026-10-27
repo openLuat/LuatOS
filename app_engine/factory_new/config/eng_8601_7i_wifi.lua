@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8601_7i_wifi
 @summary Air8601 引擎主机 7寸1024x600 RGB屏(HX8282) + Airlink UART WiFi(6205) + USB摄像头 + RS485 + SD卡 + 喇叭 配置文件（WiFi 版）
-@version 1.3
-@date    2026.10.14
+@version 1.5
+@date    2026.10.23
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -30,8 +30,9 @@
    本配置是 PWM3 调光。上板前请再核对一次。
 9. 本配置由 factory 工程同名配置（factory/config/eng_8601_7i_v0.lua）移植，硬件参数一致；
    差异只在驱动模型（本工程走 lcd_display_rgb）与 UI 段（桌面入口开关）。
-10. features.usb_camera / rs485 与 ui.show_camera_preview 目前在 app/ 与 ui/ 里查不到消费方
-    （与 factory 工程一致），写了不报错也不生效，此处保留仅作能力声明。
+10. features.usb_camera / rs485 与 ui.show_camera_preview 在 app/ 与 ui/ 里没有直接消费方，
+    写了不报错也不生效，保留仅作能力声明。UVC 的实际开关与测试走 config.peripherals
+    （见第 12 条）；RS485 同理，配了 peripherals 里的 rs485 条目才会出现在功能测试页。
 11. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO74（AUDIOPA_EN），
     **低电平有效**（pa_on_level = 0 → 播放时 exaudio 把 GPIO74 拉低使能，空闲/关机拉高）。
     录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
@@ -46,6 +47,18 @@
         model / pa_ctrl / pa_on_level / dac_delay / play_vol
     注意 dac_delay 只在旧音频框架 audio_setup() 里被消费；新框架 audio_v2 的 DAC 通路
     实际只把 pa_delay 透传给 audio_v2.config_pa_power_ctrl()，dac_delay 不起作用（保留仅为兼容）。
+12. 【UVC 测试】UVC_EN = GPIO73（power_on 里已拉高常供电），测试入口三件套缺一不可：
+    config.peripherals 加 uvc 条目 + features.other_func = true + ui.show_other_func = true。
+    桌面「功能测试」→ UVC 摄像头行（可通断电）→ 点行进 UVC 预览页（预览 / 拍照 / 录像，
+    ui/uvc_preview_win.lua），数据流由该页独占走 excamera，periph_uvc 只管供电脚。
+    摄像头 MJPEG 分辨率由预览页按摄像头实际支持的档位自适应选取（像素数上限 max_pixels，
+    缺省 921600 = 1280×720，超了会挤爆内存导致预览无画面），条目里的 w / h 只是首选档。
+13. 【RS485】485_RE_DE = PIN8 = GPIO72，485_UART_TXD / 485_UART_RXD 都在 UART1，
+    无独立 485 供电脚（peripherals 的 rs485 条目不写 power_pin）。本板只有 1 路 485，
+    测试页只记收发、不做两路互接判定。
+    power_on 里 GPIO72 已拉高（该行注释写作「TP I2C 上拉」，与 485_RE_DE 是同一物理脚）；
+    进「485」测试页后由 periph_rs485 把 DE 置接收态再收发。
+    本路写 manual_init = true：进 485 测试页不自动上电开串口，点该路按钮才初始化。
 ]]
 
 return {
@@ -66,10 +79,23 @@ return {
     power_on = {
         { pin = 65, dir = 1, level = 1, delay = 100 }, -- SD_EN 拉高，等 100ms 就绪
         { pin = 57, dir = 1, level = 0, delay = 100 }, -- WIFI_EN 拉高使能 WiFi 模组供电，等 100ms 就绪
+        -- UVC_EN：上电常供电，功能测试页开关可再通断（见文件头第 12 条）
         { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
         { pin = 64, dir = 1, level = 0, delay = 50 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
         { pin = 15, dir = 0, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
         { pin = 72, dir = 0, level = 1 },              -- TP I2C 上拉（485_RE_DE 拉高，同时 TP I2C 就绪）
+    },
+
+    -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
+    -- UVC_EN = GPIO73，上电序列已常供电，页内开关可再通断；点行进 UVC 预览页
+    -- 未配 w / h 时预览页自适应取档（见文件头第 12 条）
+    -- 485_1 是本板唯一一路 485（见文件头第 13 条）
+    -- manual_init = true：485 测试页进页面不自动上电开串口，点该路按钮才初始化
+    peripherals = {
+        { type = "uvc", id = "uvc1", name = "UVC摄像头", en_pin = 73, ready_delay = 200,
+          w = 1280, h = 720 }, -- UVC_EN，200ms 就绪
+        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 72, baud = 9600,
+          manual_init = true }, -- DE = 485_RE_DE = PIN8 = GPIO72，无独立供电脚
     },
 
     -- ===== 硬件配置 =====
@@ -141,7 +167,8 @@ return {
                             --   （与 usb_camera / rs485 同一类，见文件头第 10 条）。
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
         usb_camera = true,  -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
-        rs485 = true,       -- RS485 接口 —— 见文件头第 10 条：暂无消费方
+        rs485 = true,       -- 启用 RS485 接口（1 路，条目在 peripherals，见文件头第 13 条）
+        other_func = true,  -- 启用"功能测试"（peripherals 外设清单，UVC 预览测试入口）
         usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）
         app_factory = true, -- 启用"应用工厂"内置应用
         ai_chat = true,     -- 启用"AI聊天助手"内置应用
@@ -183,6 +210,7 @@ return {
         show_brightness_slider = true, -- 设置页亮度滑块
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
         show_camera_preview = true,    -- 设置页摄像头预览入口 ← 见文件头第 10 条
+        show_other_func = true,        -- 桌面"功能测试"图标 ← 配 other_func 时打开（UVC 测试入口）
         show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
         show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
         show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开

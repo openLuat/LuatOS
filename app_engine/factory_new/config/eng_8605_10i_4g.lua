@@ -54,18 +54,23 @@ return {
     -- ===== GPIO 上电时序 =====
     -- 按顺序初始化各外设供电和复位（顺序即依赖：电源轨→SD→4G复位→UVC→LCD→485）
     power_on = {
-        { pin = 72, dir = 0, level = 0},  -- TP_RST 拉低 20ms，干净复位触摸芯片
-        { pin = 72, dir = 0, level = 1 },  -- 释放复位：INT 上拉锁 0x14 干净启动，INT 输出可恢复
+        { pin = 44, dir = 0, level = 1 }, -- 12V_EN 拉高，12V 供电
         { pin = 12, dir = 0, level = 1 }, -- 5V_EN 拉高，5V 供电
-        { pin = 73, dir = 0, level = 1 }, -- AUDIOPA_EN = Air1103 供电脚，拉高常供电（见文件头第 2 条）
-        { pin = 56, dir = 0, level = 1 }, -- 9V_EN 拉高，等 100ms 就绪
-        -- { pin = 44, dir = 0, level = 1 }, -- 12V_EN 拉高（4G 版专有，见文件头第 9 条）
+        { pin = 56, dir = 0, level = 1 }, -- 9V_EN 拉高，9V 供电
+        { pin = 73, dir = 0, level = 1 }, -- AUDIOPA_EN = Air1103 供电，拉高常供电（见文件头第 2 条）
         { pin = 74, dir = 0, level = 1 }, -- SD_EN 拉高，SD 卡供电
-        { pin = 64, dir = 1, level = 0 }, -- 4G_RESET 维持低 120ms 使能
-        { pin = 58, dir = 0, level = 1 }, -- UVC_EN 拉高，等 200ms 摄像头就绪
-        { pin = 15, dir = 0, level = 1 }, -- LCD_DISP 拉高使能 LCD 显示
+        { pin = 64, dir = 0, level = 1 },  -- WiFi_RESET = 4G_RESET 拉高 50ms（见上方【共用复位】，不是 485_EN）
+        { pin = 58, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高，等 200ms 摄像头就绪
         { pin = 14, dir = 0, level = 1 }, -- 485_EN 拉高使能 485 收发（见文件头第 8 条）
-        { pin = 65, dir = 0, level = 1 }, -- 485_EN1 拉高使能 485 收发（见文件头第 8 条）
+    },
+
+    -- ===== 外设清单（运行时可开关的控制脚，与 power_on 的开机默认供电同一物理脚）=====
+    -- UVC_EN = PIN48 = GPIO58 / 485_EN = GPIO14 / 485_EN1 = PIN51 = GPIO65
+    peripherals = {
+        { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 }, -- UVC_EN，200ms 就绪
+        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, power_hold = true, baud = 9600, manual_init = true }, -- DE = 485_EN1，供电域 485_EN
+        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, power_hold = true, baud = 9600 }, -- DE 脚未引出，供电域 485_EN
+        { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },
     },
 
     -- ===== 硬件配置 =====
@@ -128,6 +133,7 @@ return {
         sd_card = true,       -- 启用 SD 卡（SPI1，CS=GPIO8）
         usb_camera = true,    -- USB 摄像头（UVC）—— 暂无消费方，仅作能力声明
         rs485 = true,         -- RS485 接口 —— 暂无消费方，仅作能力声明
+        other_func = true,    -- 启用"功能测试"（peripherals 外设清单）
         usb_hid = true,       -- USB 键盘鼠标（5V_EN=GPIO12 即 VBUS 供电，见文件头第 9 条）
         app_factory = true,   -- 启用"应用工厂"内置应用
         ai_chat = true,       -- 启用"AI聊天助手"内置应用
@@ -170,6 +176,7 @@ return {
         show_brightness_slider = true, -- 设置页亮度滑块
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
         show_camera_preview = true,    -- 设置页摄像头预览入口（暂无消费方，仅作能力声明）
+        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
         show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
         show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
         show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开

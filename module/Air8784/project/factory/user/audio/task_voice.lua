@@ -1,3 +1,15 @@
+--[[
+@module  task_voice
+@summary 任务/配置提示 TTS 播报（运行时合成，不依赖预录 PCM 文件）
+@version 1.0
+@date    2026.10.27
+@author  王世豪
+@usage
+提供 start()/start_text()/cancel()/is_playing() 等接口：
+- 任务保存成功（"任务已生效"）或仅接听模式（"仅接听模式已生效"）时播报
+- 文案与音量见 task_voice_config.lua
+- 需固件具备 tts_pcm 能力；播放前检查 Air1103 与音频占用
+]]
 -- Task/configuration announcements: runtime TTS, no prerecorded PCM files.
 local M={}
 local cfg=require "task_voice_config"

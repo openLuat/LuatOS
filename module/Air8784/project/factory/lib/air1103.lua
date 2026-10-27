@@ -2,7 +2,7 @@
     @module  air1103
     @summary 合宙 Air1103 语音芯片 PCM+PCM 串口协议驱动（exaudio 内部驱动）
     @remark 内部模块：仅供 exaudio 扩展库调用，业务代码请勿直接 require；使用 Air1103 请走 exaudio.setup({model="air1103"})。
-    @version 1.5
+    @version 1.6
     @date    2026.10.16
     @author  拓毅恒
     @usage

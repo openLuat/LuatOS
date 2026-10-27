@@ -1,3 +1,15 @@
+--[[
+@module  task_cloud
+@summary AirCloud 统一收发入口（TCP 云通道 + 旧文本协议 + 远程 TTS + FOTA 触发）
+@version 1.0
+@date    2026.10.27
+@author  王世豪
+@usage
+- start(adapter) 启动云通道：对接 task_engine、aircloud_protocol、aircloud_settings
+- 保留旧文本协议：version 查询（Tag1027 回包）、update/fota 触发升级
+- play_tts 经 business_voice 通过 Air1103 本地 TTS 播报
+- 运行模式切换(set_mode)/传输切换(set_transport) 由此入口处理
+]]
 -- Unified AirCloud transport with the original task/text protocol retained.
 local M={}
 function M.start(adapter)

@@ -1,3 +1,14 @@
+--[[
+@module  aircloud_tcp_adapter
+@summary AirCloud TCP 适配层（封装上游 excloud，业务侧重连/退避/关机门控）
+@version 1.0
+@date    2026.10.27
+@author  王世豪
+@usage
+- new(path) 创建 TCP 适配实例，按 16 字节帧头 + body 解析（body ≤ 1400）
+- 接管重连/退避/关机门控，屏蔽原库 IP_READY 钩子
+- 依赖上游原版 excloud.lua（以 if false then require "excloud" end 声明，供 Luatools 发现）
+]]
 -- Business-only TCP compatibility. The upstream excloud file is loaded unchanged.
 -- Luatools discovers dependencies from literal require statements, not loadfile.
 -- Declare the dependency without executing a second, non-isolated instance.

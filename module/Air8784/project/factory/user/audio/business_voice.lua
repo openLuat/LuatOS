@@ -1,3 +1,17 @@
+--[[
+@module  business_voice
+@summary AirCloud 远程/配置播报（TTS），与 task_voice 共享音频所有权
+@version 1.0
+@date    2026.10.27
+@author  王世豪
+@usage
+提供 supported()/valid_text()/remote()/changed()/idle() 等接口：
+- supported() 判断固件是否具备 audio_v2.tts_pcm_start/read/stop 能力
+- remote(text) 云端 play_tts 下发文本，经 task_voice 走 Air1103 本地 TTS 播报
+- changed() 配置保存成功后的播报（如"任务已生效"）
+- idle() 当前无播报，供云端判断音频是否空闲
+通话优先：通话或播报占用时返回 audio_busy。
+]]
 -- Remote/configuration speech shares task_voice ownership with call preemption.
 local M={}
 function M.supported()

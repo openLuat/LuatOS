@@ -1,3 +1,15 @@
+--[[
+@module  aircloud_protocol
+@summary AirCloud v1 上报/下发协议封装（兼容 SOS 028 后台）
+@version 1.0
+@date    2026.10.27
+@author  王世豪
+@usage
+- packets() 组装上报字段，大负载自动分片（fragment）
+- new(backend,cloud) 创建协议对象，处理 get/set/sos/tts 等命令
+- 上报使用 device_id=hmeta.devid()，携带 project/project_version
+硬件能力由后端(backend)提供；本模块只做协议编解码。
+]]
 -- AirCloud v1 envelope compatible with SOS 028; hardware is supplied by backend.
 local M={}
 local settings=require "aircloud_settings"

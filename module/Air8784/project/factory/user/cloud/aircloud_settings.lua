@@ -1,3 +1,16 @@
+--[[
+@module  aircloud_settings
+@summary AirCloud 配置后端（复用 8786 线字段名，持久化到 fskv）
+@version 1.0
+@date    2026.10.27
+@author  王世豪
+@usage
+- init(platform,flat) 载入/迁移配置，保存到 fskv["sip_task_v1"]（8784）
+- update(p) 云端 set_config 下发校验与落盘
+- legacy_write(record) 任务保存走 legacy 通道写入
+- answer_settings()/public()/capabilities() 供业务与协议层读取
+单 SIP 分支默认不自动接听（除非云端显式下发 auto_answer）。
+]]
 -- AirCloud configuration backend using the shared 8786 wire field names.
 local M = {}
 local sos = require "sos_config"
@@ -73,6 +86,11 @@ function M.init(platform,flat)
         cfg.sip.auto_answer=cfg.sos_mode=="sip_cc" and flat.auto_answer_sip~=false or false
     end
     if cfg.sip.delay_auto_answer==nil then cfg.sip.delay_auto_answer=0 end
+    -- 单 SIP 分支默认不自动接听：历史记录若从 phone(sip_cc) 模式遗留 auto_answer=true，
+    -- 只要云端从未显式下发过 auto_answer，这里强制关闭，避免单 SIP 来电被自动接听。
+    if cfg.sos_mode=="sip" and not M.record.auto_answer_explicit then
+        cfg.sip.auto_answer=false
+    end
     M.saved=cfg;M.boot=copy(cfg);M.applied=copy(cfg)
     for k,v in pairs(cfg.sip) do flat[k]=v end
     if cfg.sos_mode=="sip_cc" and cfg.sos_sip_cc_peers[1] then
@@ -122,6 +140,10 @@ function M.legacy_write(record)
     local next_record=copy(record)
     next_record.unified=M.from_legacy(record,M.saved)
     next_record.unified_version=1;next_record.migration_warning=M.migration_warning
+    -- 单 SIP 分支默认不自动接听：任务保存走 legacy 通道时同样按模式纠正
+    if next_record.unified and next_record.unified.sos_mode=="sip" and not next_record.auto_answer_explicit then
+        next_record.unified.sip.auto_answer=false
+    end
     if M.on_persisted then next_record.announcement_pending=false end
     if not M.persist(next_record) then return false end
     -- The task engine must retain the same authoritative payload.
@@ -198,7 +220,14 @@ function M.update(p)
     local cfg=copy(M.saved)
     if normalized then for k,v in pairs(normalized) do cfg[k]=v end end
     for _,section in ipairs({"sip","audio"}) do for k,v in pairs(p[section] or {}) do cfg[section][k]=v end end
+    -- 单 SIP 分支默认不自动接听：本次未显式下发 auto_answer、且历史从未显式设置过时，
+    -- 单 SIP 取 false、CC 取 true，防止 phone 模式遗留的 true 泄漏到单 SIP。
+    local explicit_answer=type(p.sip)=="table" and p.sip.auto_answer~=nil
+    if M.platform=="8784" and not explicit_answer and not M.record.auto_answer_explicit then
+        cfg.sip.auto_answer=(mode=="sip_cc")
+    end
     local next_record=copy(M.record);next_record.unified=cfg;next_record.unified_version=1
+    if explicit_answer then next_record.auto_answer_explicit=true end
     revision_seq=revision_seq+1
     next_record.revision=string.format("%08x-0000-0000-0000-%012x",os.time(),revision_seq)
     next_record.last_req=nil

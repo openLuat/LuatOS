@@ -1,3 +1,15 @@
+--[[
+@module  call_voice
+@summary 通话状态本地播报（Air1103 原生 PCM TTS，与 8786 相同）
+@version 1.0
+@date    2026.10.27
+@author  王世豪
+@usage
+提供 prepare()/speak()/cancel()/is_busy()/bridge_state() 等接口：
+- 来电/拨号/挂断等状态经 Air1103 本地 TTS 播报（"收到来电"/"正在拨号"/"已挂断"等）
+- speak() 为阻塞式，等 TTS 结束或被取消后才返回
+- 取消时保留占用，直到原生 TTS worker 真正释放
+]]
 -- Local call announcements on Air1103, using the same native PCM TTS as 8786.
 -- Cancellation retains ownership until the native worker actually releases it.
 local M={}

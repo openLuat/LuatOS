@@ -1,3 +1,15 @@
+--[[
+@module  sos_config
+@summary SOS 模式与号码的纯校验（无硬件/存储副作用）
+@version 1.0
+@date    2026.10.27
+@author  王世豪
+@usage
+- fields 定义 SOS 相关字段
+- normalize(p) 校验并规范化 sos_mode（sip / sip_cc / cc / sip_grade）与号码列表
+- copy(v) 深拷贝；empty() 返回空结构
+不读写硬件与外设，仅供 aircloud_settings/protocol 复用。
+]]
 -- Pure SOS wire validation. No hardware or storage side effects.
 local M = {}
 M.fields={"sos_mode","sos_sip_numbers","sos_sip_cc_numbers","sos_sip_cc_peers","sos_sip_cc_map","sos_cc_numbers","sos_numbers"}

@@ -37,7 +37,7 @@ local CFG = {
     retry          = 2,            -- 超时重试次数
     timeout        = 1000,         -- 请求超时 ms
     concat_timeout = 50,           -- 字节拼接超时 ms
-    debug          = true,         -- 排障：打印收发原始报文（hex），定位后可关
+    debug          = false,        -- 默认关闭；可用远程命令 {"type":"debug","val":1} 临时打开
 }
 
 -- 读取区间（与直连真表验证通过的 meter_ui_sim.js 完全同口径）
@@ -114,6 +114,31 @@ local function regs_hex(d, start, count)
     return table.concat(t, " ")
 end
 
+-- 原始帧转十六进制文本（exmodbus 的 raw_response 可能是字节表或字符串）
+local function frame_hex(f)
+    if type(f) == "string" and #f > 0 then return f:toHex() end
+    if type(f) == "table" then
+        local t = {}
+        for i = 1, #f do t[#t + 1] = string.format("%02X", f[i] % 0x100) end
+        if #t > 0 then return table.concat(t, " ") end
+    end
+    return "无响应数据"
+end
+
+-- 自己算一份发送帧用于打印（exmodbus 不回传请求帧）
+local function tx_hex(slave, func, start, count)
+    local body = string.char(slave, func, (start >> 8) & 0xFF, start & 0xFF,
+        (count >> 8) & 0xFF, count & 0xFF)
+    local crc = 0xFFFF
+    for i = 1, #body do
+        crc = crc ~ body:byte(i)
+        for _ = 1, 8 do
+            if crc & 1 == 1 then crc = (crc >> 1) ~ 0xA001 else crc = crc >> 1 end
+        end
+    end
+    return (body .. string.char(crc & 0xFF, (crc >> 8) & 0xFF)):toHex()
+end
+
 local function is_all_zero(d, start, count)
     for i = 0, count - 1 do
         if (d[start + i] or 0) ~= 0 then return false end
@@ -143,6 +168,8 @@ local function read_block(start, count, tag)
                 d[addr] = v or 0
             end
             if CFG.debug then
+                log.info("meter", "TX", tx_hex(CFG.slave_id, 0x03, start, count))
+                log.info("meter", "RX", frame_hex(ret.raw_response))
                 log.info("meter", string.format("[读 0x%04X+%d]", start, count),
                     tag or "", regs_hex(d, start, count))
                 if is_all_zero(d, start, count) then
@@ -181,13 +208,17 @@ end
 -- ==================== 轮询任务 ====================
 local function poll_once()
     if not master then return false end
-    load_cfg() -- 读不到也照常采集，parse() 内部按 1 倍处理
-    local raw = {}
+    M.bus_lock() -- 采集与继电器控制共用一条 485，必须串行
+    load_cfg()   -- 读不到也照常采集，parse() 内部按 1 倍处理
+    local raw, ok = {}, true
     for _, blk in ipairs(BLOCKS) do
         local d = read_block(blk.start, blk.count, "数据")
-        if not d then return false end
+        if not d then ok = false break end
         for k, v in pairs(d) do raw[k] = v end
     end
+    M.bus_unlock()
+    if not ok then return false end
+
     last = parse(raw)
     last.online = true
     last.ts = os.time()
@@ -224,7 +255,8 @@ function M.start()
     hw.init()                 -- 板级：3.3V 电平、485 供电、LED、按键、看门狗、ADC（幂等）
     hw.rs485_power(true)      -- 重复拉高无副作用，确保 UART 打开前 485 芯片已上电
     -- 注意：RS485 EN(GPIO23→DE/RE) 由 UART2 硬件自动换向控制，不要在这里拉高
-    exmodbus.debug(CFG.debug) -- 排障：打印收发原始报文（须在 create 之前调用）
+    -- 说明：exmodbus 自带的 debug 开关在 create 时被一次性捕获，运行期改不了；
+    -- 这里用我们自己的 CFG.debug 打印 TX/RX 原始帧，可远程开关（M.set_debug）
     if not master then
         master = exmodbus.create({
             mode               = exmodbus.RTU_MASTER,
@@ -250,6 +282,31 @@ function M.start()
         log.info("meter", "采集任务已启动", "从站", CFG.slave_id, "串口", CFG.port, CFG.baud)
     end
 end
+
+-- ==================== 485 总线互斥 ====================
+-- 采集与控制共用同一个 exmodbus 主站实例，事务必须串行，
+-- 否则继电器的 0x05/0x0F 指令会和采集帧互相打断，出现 CRC 错/超时。
+local bus_busy = false
+function M.bus_lock()
+    -- 带超时：万一持有方异常退出，最多等 5s 后强制接管，避免整条总线卡死
+    local waited = 0
+    while bus_busy and waited < 5000 do
+        sys.wait(10)
+        waited = waited + 10
+    end
+    bus_busy = true
+end
+function M.bus_unlock() bus_busy = false end
+function M.get_master() return master end
+
+-- 远程开关调试打印（TX/RX 原始帧 + 每块寄存器值）
+function M.set_debug(on)
+    CFG.debug = (on == true or on == 1)
+    log.info("meter", "调试打印", CFG.debug and "开启" or "关闭")
+    return CFG.debug
+end
+
+function M.get_debug() return CFG.debug end
 
 function M.stop() running = false end
 

@@ -23,6 +23,7 @@ board_hw.init()
 
 require "netdrv_device" -- 网络
 require "meter_app"     -- 485 电表采集
+require "ctrl_app"      -- 开关控制（电表继电器 0x05/0x0F + DI 反馈）
 require "alarm_app"     -- 越限报警（订阅 METER_DATA，阈值可远程配）
 require "aircloud_app"  -- AirCloud 上报
 

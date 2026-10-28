@@ -137,6 +137,13 @@ end
 function M.get_cfg() return cfg end
 
 -- 增量更新配置，返回 JSON 应答字符串
+-- 数值转 JSON 文本：本固件 sprintf 的 %g 对 0 会输出 0.000000e-308，统一改定点格式
+local function jnum(v)
+    v = tonumber(v) or 0
+    if v % 1 == 0 then return string.format("%.0f", v) end
+    return (string.format("%.3f", v):gsub("0+$", ""):gsub("%.$", ""))
+end
+
 function M.set(t)
     if type(t) ~= "table" then return '{"code":1,"type":"alarm","value":"bad param"}' end
     local updated = {}
@@ -154,15 +161,17 @@ function M.set(t)
     -- 配置变化后强制重新评估，避免沿用旧的回差状态
     for k in pairs(active) do active[k] = false end
     state.bitmap, state.text = 0, ""
-    return string.format('{"code":0,"type":"alarm","enable":%d,"hi_u":%g,"lo_u":%g,"hi_i":%g,'
-        .. '"hi_p":%g,"hi_f":%g,"lo_f":%g,"hys":%g,"state":%d}',
-        cfg.enable, cfg.hi_u, cfg.lo_u, cfg.hi_i, cfg.hi_p, cfg.hi_f, cfg.lo_f, cfg.hys, state.bitmap)
+    return string.format('{"code":0,"type":"alarm","enable":%d,"hi_u":%s,"lo_u":%s,"hi_i":%s,'
+        .. '"hi_p":%s,"hi_f":%s,"lo_f":%s,"hys":%s,"state":%d}',
+        cfg.enable, jnum(cfg.hi_u), jnum(cfg.lo_u), jnum(cfg.hi_i),
+        jnum(cfg.hi_p), jnum(cfg.hi_f), jnum(cfg.lo_f), jnum(cfg.hys), state.bitmap)
 end
 
 function M.get_json()
-    return string.format('{"code":0,"type":"alarm_get","enable":%d,"hi_u":%g,"lo_u":%g,"hi_i":%g,'
-        .. '"hi_p":%g,"hi_f":%g,"lo_f":%g,"hys":%g,"state":%d,"text":"%s"}',
-        cfg.enable, cfg.hi_u, cfg.lo_u, cfg.hi_i, cfg.hi_p, cfg.hi_f, cfg.lo_f, cfg.hys,
+    return string.format('{"code":0,"type":"alarm_get","enable":%d,"hi_u":%s,"lo_u":%s,"hi_i":%s,'
+        .. '"hi_p":%s,"hi_f":%s,"lo_f":%s,"hys":%s,"state":%d,"text":"%s"}',
+        cfg.enable, jnum(cfg.hi_u), jnum(cfg.lo_u), jnum(cfg.hi_i),
+        jnum(cfg.hi_p), jnum(cfg.hi_f), jnum(cfg.lo_f), jnum(cfg.hys),
         state.bitmap, state.text or "")
 end
 

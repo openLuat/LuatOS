@@ -30,6 +30,19 @@ LUAT_WEAK int rgb_inf_init(struct luat_display *disp)
     return -1;
 }
 
+/*使能接口输出：面板初始化完成后调用，启动视频/时序输出
+  未实现的平台保持空操作，视频仍由 inf_init 自己打开*/
+LUAT_WEAK int rgb_inf_enable(struct luat_display *disp)
+{
+    return 0;
+}
+
+/*关闭接口输出*/
+LUAT_WEAK int rgb_inf_disable(struct luat_display *disp)
+{
+    return 0;
+}
+
 /*设置显示层*/
 LUAT_WEAK int rgb_set_layer(struct luat_display_layer_data *layer_data)
 {
@@ -70,6 +83,8 @@ struct luat_display_funcs rgb_funcs = {
     .name = "rgb",
     .fb_probe = rgb_fb_probe,
     .inf_init = rgb_inf_init,
+    .inf_enable = rgb_inf_enable,
+    .inf_disable = rgb_inf_disable,
     .fb_flush = rgb_fb_flush,
     .set_layer = rgb_set_layer,
     .wait_vsync = rgb_wait_vsync,

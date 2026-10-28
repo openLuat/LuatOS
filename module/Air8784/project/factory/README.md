@@ -11,6 +11,8 @@
 4. **AirCloud 收发**：TCP 长连接上报状态快照；下发的 JSON 命令经 `cloud/` 解析；兼容旧文本短命令（`version` / `update`）经 Tag19 下发、`version` 经 Tag1027 回包。
 5. **FOTA**：libfota3，开机检测 + 每 8 小时自动检测 + 网页「固件更新」一键升级（或云端 `update` 命令触发）；升级包由合宙按设备标识提供。
 
+![Air8784 整机外观：主控板 + SIP 通话终端（SOS 紧急求助键 / 左侧红键）](https://docs.openluat.com/air8784/product/images/air8784_hardware.png)
+
 
 ## 二、启动模式
 
@@ -31,53 +33,54 @@
 ## 三、目录结构
 
 ```
-new_web/
+factory/
 ├── README.md
-├── main.lua                   # 入口：按 fskv 返工标记 → 首测保护标记 → OTP1 分流 产测/业务；FOTA 启动；全局定义
-├── factory/                   # 产测 + 返工
-│   ├── factory.lua            #   产测模式（含返工产测）
-│   └── retest.lua             #   返工标记 + MODEL_RETEST 指令 + 首测保护标记（产测与正常模式共用 USB VUART_0）
-├── cloud/                     # AirCloud TCP 云通道（IoT 平台后台）
-│   ├── aircloud_tcp_adapter.lua   #   TCP 适配层（封装上游 excloud，业务侧重连/退避/关机门控）
-│   ├── aircloud_protocol.lua      #   v1 上报/下发协议封装（分片、字段、SOS 状态）
-│   ├── aircloud_settings.lua      #   配置后端（sos_mode/号码归一化，持久化到 fskv）
-│   ├── sos_config.lua             #   SOS 号码/模式纯校验，无硬件与存储副作用
-│   └── task_cloud.lua             #   统一收发入口（保留旧文本协议、远程 TTS、FOTA 触发）
-├── audio/                     # 提示音与 TTS 播报
-│   ├── business_voice.lua     #   TTS 播报引擎（远程 play_tts / 配置变更 / 开机完成 / 就绪提示）
-│   ├── call_voice.lua         #   通话相关播报
-│   ├── task_voice.lua         #   SOS 通话提示音（替代原 .pcm）
-│   └── task_voice_config.lua  #   提示音配置
-├── task/                      # 共用：网页 SOS 配置 / 云端 / 按键 / 语音 / 共用配置
-│   ├── task_main.lua          #   业务入口（按运行模式加载分支）
-│   ├── task_runtime.lua       #   运行模式选择
-│   ├── task_engine.lua        #   SOS 通话校验 / 状态机 / 顺序拨打
-│   ├── task_adapter.lua       #   分支适配 / 跨模式重启 / 主灯
-│   ├── task_keys.lua          #   按键（SOS / UP）
-│   └── sip_config.lua         #   共用 SIP + 硬件配置
-├── single/                    # 单 SIP 分支
-│   ├── single_app.lua         #   业务状态机（注册/拨号/接听/挂断）
-│   ├── single_audio.lua       #   Air1103 音频（PCM 上下行）
-│   ├── single_config.lua      #   单 SIP 配置（复用 sip_config 账号）
-│   └── incoming_answer.lua    #   来电接听策略
-├── cc/                        # SIP_CC 桥接分支
-│   ├── cc_app.lua             #   启动流程（音频→SIP→VoLTE→心跳）
-│   ├── cc_sip.lua             #   SIP 半边状态机
-│   ├── cc_main.lua            #   蜂窝(VoLTE) 半边状态机
-│   ├── cc_bridge.lua          #   两侧桥接协调器（引用 incoming_answer）
-│   ├── cc_phone_route.lua     #   SIP 来电转拨号码读取
-│   ├── cc_incoming_round.lua  #   SIP 来电手机顺序轮拨
-│   └── cc_audio.lua           #   CC 分支本地音频初始化
-├── netdrv/
-│   └── netdrv_4g.lua          # 4G 网卡
-├── ota/
-│   └── update.lua             # FOTA 封装（libfota3）
-├── lib/                       # 内置扩展库（不再依赖外部 script/libs）
-│   ├── air1103.lua            #   Air1103 语音芯片驱动
-│   ├── exaudio.lua            #   音频/录音/播放/桥接
-│   └── httpplus.lua           #   HTTP 辅助
-└── certs/
-    └── sip-ca.pem             # SIP over TLS 的 CA 证书（烧录到 /luadb/sip-ca.pem）
+├── user/
+│   ├── main.lua                       # 入口：按 fskv 返工标记 → 首测保护标记 → OTP1 分流 产测/业务；FOTA 启动；全局定义
+│   ├── factory/                       # 产测 + 返工
+│   │   ├── factory.lua                #   产测模式（含返工产测）
+│   │   └── retest.lua                 #   返工标记 + MODEL_RETEST 指令 + 首测保护标记（产测与正常模式共用 USB VUART_0）
+│   ├── cloud/                         # AirCloud TCP 云通道（IoT 平台后台）
+│   │   ├── aircloud_tcp_adapter.lua   #   TCP 适配层（封装上游 excloud，业务侧重连/退避/关机门控）
+│   │   ├── aircloud_protocol.lua      #   v1 上报/下发协议封装（分片、字段、SOS 状态）
+│   │   ├── aircloud_settings.lua      #   配置后端（sos_mode/号码归一化，持久化到 fskv）
+│   │   ├── sos_config.lua             #   SOS 号码/模式纯校验，无硬件与存储副作用
+│   │   └── task_cloud.lua             #   统一收发入口（保留旧文本协议、远程 TTS、FOTA 触发）
+│   ├── audio/                         # 提示音与 TTS 播报
+│   │   ├── business_voice.lua         #   TTS 播报引擎（远程 play_tts / 配置变更 / 开机完成 / 就绪提示）
+│   │   ├── call_voice.lua             #   通话相关播报
+│   │   ├── task_voice.lua             #   SOS 通话提示音（替代原 .pcm）
+│   │   └── task_voice_config.lua      #   提示音配置
+│   ├── task/                          # 共用：网页 SOS 配置 / 云端 / 按键 / 语音 / 共用配置
+│   │   ├── task_main.lua              #   业务入口（按运行模式加载分支）
+│   │   ├── task_runtime.lua           #   运行模式选择
+│   │   ├── task_engine.lua            #   SOS 通话校验 / 状态机 / 顺序拨打
+│   │   ├── task_adapter.lua           #   分支适配 / 跨模式重启 / 主灯
+│   │   ├── task_keys.lua              #   按键（SOS / UP）
+│   │   └── sip_config.lua             #   共用 SIP + 硬件配置
+│   ├── single/                        # 单 SIP 分支
+│   │   ├── single_app.lua             #   业务状态机（注册/拨号/接听/挂断）
+│   │   ├── single_audio.lua           #   Air1103 音频（PCM 上下行）
+│   │   ├── single_config.lua          #   单 SIP 配置（复用 sip_config 账号）
+│   │   └── incoming_answer.lua        #   来电接听策略
+│   ├── cc/                            # SIP_CC 桥接分支
+│   │   ├── cc_app.lua                 #   启动流程（音频→SIP→VoLTE→心跳）
+│   │   ├── cc_sip.lua                 #   SIP 半边状态机
+│   │   ├── cc_main.lua                #   蜂窝(VoLTE) 半边状态机
+│   │   ├── cc_bridge.lua              #   两侧桥接协调器（引用 incoming_answer）
+│   │   ├── cc_phone_route.lua         #   SIP 来电转拨号码读取
+│   │   ├── cc_incoming_round.lua      #   SIP 来电手机顺序轮拨
+│   │   └── cc_audio.lua               #   CC 分支本地音频初始化
+│   ├── netdrv/
+│   │   └── netdrv_4g.lua              # 4G 网卡
+│   ├── ota/
+│   │   └── update.lua                 # FOTA 封装（libfota3）
+│   └── certs/
+│       └── sip-ca.pem                 # SIP over TLS 的 CA 证书（烧录到 /luadb/sip-ca.pem）
+└── lib/                               # 内置扩展库（air1103 / exaudio / httpplus；exsip / excloud 仍取自 script/libs）
+    ├── air1103.lua                    #   Air1103 语音芯片驱动
+    ├── exaudio.lua                    #   音频/录音/播放/桥接
+    └── httpplus.lua                   #   HTTP 辅助
 ```
 
 > 子目录仅为组织层级：LuatOS `require` 按**文件名**解析，文件名在工程内必须全局唯一；电脑端子目录不保留到设备，烧录时按文件原名落入 `/luadb/`。
@@ -128,6 +131,8 @@ new_web/
 - 服务器默认 `cc.luatos.com:8910`（密码 `123456`），以 `task/sip_config.lua` 实际配置为准。
 - 手机呼入时设备呼叫的 SIP 对端由 `sip_config.remote_sip_uri` 决定（默认 `sip:IMEI+1@cc.luatos.com`）；修改账号约定后需一并核对。
 
+![SIP 账号映射：设备用 IMEI+0，对端软终端用 IMEI+1](https://docs.openluat.com/air8784/product/images/img_06.png)
+
 ### 6.2 配置手机或电脑 SIP 软终端
 
 | 参数 | 填写内容 |
@@ -141,6 +146,10 @@ new_web/
 
 不同软终端字段名称略有差异；MicroSIP 可在代理服务器字段填 `cc.luatos.com:8910`。软终端注册成功后，呼叫“设备 IMEI 后追加 0”即可呼叫该设备。软终端账号不作为 AirCloud 设备参与模式准备。
 
+![MicroSIP 拨号盘与「编辑账户」页：服务器 cc.luatos.com:8910、用户名 IMEI+1、传输 UDP](https://docs.openluat.com/air8784/product/images/img_07.png)
+
+![Linphone 拨号 / 通话界面](https://docs.openluat.com/air8784/product/images/img_10.png)
+
 
 ## 七、按键
 
@@ -152,6 +161,8 @@ new_web/
 
 - 按下即发事件：SOS → `SIP_TASK_PRIMARY`；UP 长按 → `SIP_TASK_STOP`。
 - 按键会取消正在播放的 SOS 通话提示音。
+
+![合宙 SIP 通话终端的两个按键：① 紧急求助 SOS＝SOS 键，② 左侧红键＝UP 键](https://docs.openluat.com/air8784/product/images/img_02.png)
 
 
 ## 八、SOS 通话提示音与提示条件（TTS）
@@ -198,7 +209,7 @@ new_web/
 
 现在**无需在平台手动下发指令**，可直接在网页操作：
 
-入口：`https://iot.luatos.com/ai_app/luatos/8786_SIP/index.html` → 设备管理 → 选择项目（如 `8784_SIP`）→ 点目标设备卡片头部的「固件」→ 打开固件更新弹窗。
+入口：`https://iot.luatos.com/ai_app/luatos/8786_SIP/index.html` → 设备管理 → 选择项目（如 `8784_SIP`）→ 点目标设备卡片头部的「版本」→ 打开固件更新弹窗。
 
 - **重新读取版本**：页面经 Tag1027 读取设备当前版本（如 `Air8784_Factory_001.000.007`）。
 - **开始更新**：页面经 Tag19 / Tag1281 下发升级指令，设备触发一次 FOTA 检查（libfota3），完成后自动重启并重新联网。
@@ -224,6 +235,8 @@ new_web/
 
 后台地址：**`https://iot.luatos.com/ai_app/luatos/8786_SIP/index.html`**（SIP 话机管理 · 设备管理 / 分组管理）。需使用合宙 IoT 账号登录后读取和操作账号下的设备。以下操作名称与流程按当前公开网页代码（构建 `20261026-04`）整理；左侧导航只有「设备管理」与「分组管理」两个视图。
 
+![登录控制台 · Air8784（8786_SIP）：使用合宙 IoT 账号登录](https://docs.openluat.com/air8784/product/images/sip_console/01_login.png)
+
 > 与旧版的重要区别：旧版是「创建任务（双设备互通 / 多设备轮拨 / 设备与手机）→ 检查并下发 → 按 SOS 执行 → UP 停止」的任务式流程；**新版改为以单台设备为中心**——每台设备在「设备设置」里独立配置 SIP 与 SOS 通道，点「保存并启用」即立即下发，不再有「保存任务 / 检查并下发 / 停止通话」这类集中按钮。停止设备通话仍由设备 UP 键完成（固件行为）；网页侧只对「网页拨号」软电话提供「挂断」。
 
 ### 10.1 登录并查看设备
@@ -235,9 +248,13 @@ new_web/
 
 选择设备时页面可能先显示平台保存的最近快照；需要实时状态时点卡片上的 **「刷新状态」**：页面经云通道下发 `get_status`，设备回传 `sip / battery / location / audio` 共 4 段 JSON，卡片据此更新 SIP 参数、电量、定位与音频就绪。**AirCloud 在线和 SIP 注册成功是两个独立条件**。
 
+![登录后的工作台首页：左侧导航（设备管理 / 分组管理）+ 设备卡片列表](https://docs.openluat.com/air8784/product/images/sip_console/02_console_home.png)
+
 ### 10.2 设备设置
 
 点卡片「设备设置」打开弹窗，分五块，**每一栏独立提交，提交后立即下发到设备**（不再有「检查并下发」）。
+
+![设备设置面板：SIP 设置 + SOS 设置（四通道）](https://docs.openluat.com/air8784/product/images/sip_console/03_device_settings.png)
 
 **SIP 设置**：服务器地址 / 端口 / 域（可留空）/ 传输协议（UDP / TCP / TLS）/ 账号 / 密码 / 自动接听（勾选后响铃到设定秒数自动接听，延时 0~20 秒）。点「提交 SIP 设置」下发 `set_config`，设备按新参数重注册；密码仅本次提交使用，不写入浏览器存储、也不回填。点卡片「刷新状态」可让设备回传当前 SIP 参数与自动接听设置，页面自动回填供核对。
 
@@ -252,11 +269,21 @@ new_web/
 
 > `分组管理` 通道：把设备归属到某分组（在「分组管理」页维护，数字越小等级越高）。低级分组的 SOS 优先拨打上一级分组的 SIP 账号，每个连拨 3 次、隔 1 分钟一次，不通则逐级向上。当前**只保存配置，设备端按等级拨打的调度尚未实现**（页面会显式提示）。
 
+![SOS 设置：SIP_CC 子标签（四通道互斥，卡片显示当前生效通道）](https://docs.openluat.com/air8784/product/images/sip_console/04_sos_sipcc.png)
+
+![SOS 设置：CC 子标签（直接用工信手机卡拨打）](https://docs.openluat.com/air8784/product/images/sip_console/05_sos_cc.png)
+
 **音量调节**：喇叭音量 `volume` 0~31（默认 28）、麦克音量 `mic_gain` 1~8（默认 2），拖动进度条后「提交音量设置」即下发。
+
+![音量调节：喇叭音量 0~31 / 麦克音量 1~8 滑条](https://docs.openluat.com/air8784/product/images/sip_console/06_volume.png)
 
 **TTS 下发**：输入要播报的内容，点「提交 TTS 内容」由设备本地语音合成播放；中文会自动转成 JSON Unicode 转义再下发，中文请控制在 190 字以内。
 
+![TTS 下发：输入播报内容后提交，由设备本地语音合成](https://docs.openluat.com/air8784/product/images/sip_console/07_tts.png)
+
 **设备上报记录（诊断）**：点「读取最近上报」看设备最近一次 `get_status` 回执原文（标 `report_id` 与「分段 x/4 段」），用于核对 `cmd`、字段名与 Tag；点「查看最近下发」核对网页到底发了几次、平台每次返回什么（下发固定走 TCP）。
+
+![设备上报记录（诊断）：最近一次上报原文 + 最近下发记录](https://docs.openluat.com/air8784/product/images/sip_console/08_diagnostic.png)
 
 ### 10.3 查看定位
 
@@ -266,17 +293,25 @@ new_web/
 
 点卡片「通话记录」打开弹窗：按**日期 / 快捷时间范围 / SIP 账号 / 接通情况**筛选后点「查询」，表格列：开始时间 / 方向 / 主叫 / 被叫 / 客户名 / 状态 / 时长 / 录音，支持分页。
 
+![通话记录：日期 / SIP 账号 / 接通情况筛选 + 查询](https://docs.openluat.com/air8784/product/images/sip_console/10_call_records.png)
+
 ### 10.5 网页拨号（软电话）
 
 在「设备管理」卡片或「分组管理」右键菜单点「拨号」，打开软电话弹窗：输入**要拨打的 SIP 号码**点「呼叫」，由浏览器内 JsSIP 经 WebSocket 发起（需授权麦克风，SIP 服务器需支持 WS/WSS）；设备端通常由「自动接听」接起，点「挂断」结束。拨号所用的**超级管理员 SIP 账号**仅在「超级管理员账号」弹窗里配置、只存本机浏览器、不上报平台。
+
+![网页拨号账号配置：超级管理员 SIP 账号（仅本机保存）](https://docs.openluat.com/air8784/product/images/sip_console/13_dial.png)
 
 ### 10.6 分组管理
 
 点左侧「分组管理」进入：以一级 / 二级 / 三级…树形列出分组与组内设备（默认折叠），点「新建一级分组」或分组编辑弹窗（名称 / 等级 1~6 / 上级分组 / 分组 SIP 账号，逗号分隔）维护分组；右键设备（或行尾 ⋯）可「拨号 / 查看定位 / 分组移动」。「超级管理员账号」按钮用于配置网页拨号账号。
 
+![分组管理：分组树 + 新建一级分组 + 超级管理员账号](https://docs.openluat.com/air8784/product/images/sip_console/11_groups.png)
+
 ### 10.7 固件更新（FOTA）
 
-点卡片头部的「固件」打开弹窗：显示当前设备版本（点「重新读取版本」经 Tag19 读取），点「开始更新」经 Tag19 / Tag1281 下发升级。**升级期间一定不能断电**；升级完成后设备自动重启，重启期间短暂离线属正常。
+点卡片头部的「版本」打开弹窗：显示当前设备版本（点「重新读取版本」经 Tag1027 读取），点「开始更新」经 Tag19 / Tag1281 下发升级。**升级期间一定不能断电**；升级完成后设备自动重启，重启期间短暂离线属正常。
+
+![固件更新面板：当前版本 + 重新读取版本 / 开始更新](https://docs.openluat.com/air8784/product/images/sip_console/14_firmware_update.png)
 
 ## 十一、产测指令
 
@@ -408,12 +443,34 @@ TEST_DONE#               3 秒后自动重启进业务模式
 
 ## 十二、FOTA
 
-- 使用 libfota3；升级固件由合宙按项目/设备标识提供。
-- `main.lua` 开机即 `update.init()`：首次烧录检测一次，之后每 8 小时自动检测。
-- **网页直接升级**：无需平台手动下发指令。打开 `https://iot.luatos.com/ai_app/luatos/8786_SIP/index.html` → 设备管理 → 选择项目（如 `8784_SIP`）→ 点目标设备卡片头部的「固件」→「重新读取版本」（经 Tag1027 读取当前版本）/「开始更新」（经 Tag19 / Tag1281 下发升级指令，详见 9.3）。
-- 兼容手动下发 `update` / `fota` 命令触发一次检测。
-- 升级期间保持供电与网络稳定，切勿断电；完成后设备自动重启并重新联网。
-- 不要仅凭某一个失败返回码判断“没有新版本”，应结合完整升级日志区分无需升级、网络异常及升级失败。升级文件、平台侧配置需与实际项目匹配。
+升级基于 libfota3，固件包由合宙按项目 / 设备标识提供；`main.lua` 开机即 `update.init()`，首次烧录检测一次，之后每 8 小时自动检测（与工作模式无关，产测模式下同样检测）。除自动检测外，手动升级有下面两种方式。
+
+### 12.1 方式一：网页一键升级（推荐）
+
+1. 打开 `https://iot.luatos.com/ai_app/luatos/8786_SIP/index.html` → **设备管理** → 选择项目（如 `8784_SIP`）。
+2. 点目标设备卡片头部的 **版本**，打开「固件更新」面板（面板显示当前设备版本与 Tag1027 上报时间）。
+3. 点 **重新读取版本**，页面经 Tag1027 读取设备当前脚本版本（如 `Air8784_Factory_001.000.007`）。
+4. 点 **开始更新**，页面经 Tag19 / Tag1281 下发升级指令；设备触发一次 FOTA 检查（libfota3），完成后自动重启并重新联网。
+
+![固件更新面板：当前版本 + 重新读取版本 / 开始更新](https://docs.openluat.com/air8784/product/images/sip_console/14_firmware_update.png)
+
+### 12.2 方式二：AirCloud 手动下发 `fota`
+
+控制台入口不可用、或需要脱离控制台单独触发时，在合宙 IoT 平台顶部菜单 **基础能力 → AirCloud → AirCloud 上报记录** 找到目标设备点「下发」：
+
+![AirCloud 上报记录：基础能力 → AirCloud → AirCloud 上报记录](https://docs.openluat.com/air8784/product/images/aircloud_upgrade_menu.png)
+
+消息下发工具里：接收设备号填目标设备，命令类型选 **控制命令 (Tag19)**，数据类型选 **ASCII 字符**，消息内容填 `fota`（或 `update`），点 **下发**：
+
+![消息下发工具：控制命令 Tag19 + ASCII 字符 + 消息内容 fota](https://docs.openluat.com/air8784/product/images/aircloud_upgrade_send.png)
+
+设备同时兼容 JSON 形式（`{"op":"update"}` / `{"type":"update"}` / `{"command":"update"}`），效果与文本命令一致，均只触发一次升级检查。
+
+### 12.3 注意事项
+
+- 升级期间保持供电与网络稳定，**切勿断电**；升级完成后设备自动重启，重启期间短暂离线属正常。
+- 不要仅凭某一个失败返回码判断“没有新版本”，应结合完整升级日志区分无需升级、网络异常及升级失败；升级文件与平台侧配置需与实际项目匹配。
+- 升级包由合宙按项目 / 设备标识提供，客户端无法自行指定版本或上传固件。
 
 
 ## 十三、其他参数说明
@@ -463,7 +520,7 @@ TEST_DONE#               3 秒后自动重启进业务模式
 
 ## 十五、使用说明
 
-1. Luatools 烧录工程目录（`new_web/`）+ 设备所需底层固件（core = Air780EHM）。本工程已内置 `lib/`（air1103 / exaudio / httpplus）与 `certs/`，不再依赖外部 `script/libs`；但**仍需确认 Luatools 下载列表包含上游原版 `excloud.lua`**（被 `aircloud_tcp_adapter.lua` 以 `if false then require "excloud" end` 声明依赖，Luatools 据此发现，运行时由适配层加载）。
+1. Luatools 烧录工程目录（本目录 `factory/`）+ 设备所需底层固件（core = Air780EHM）。本工程已内置 `lib/`（air1103 / exaudio / httpplus）与 `certs/`；`exsip` / `excloud` 仍需从仓库共享库 `script/libs` 加入 Luatools 下载列表（`excloud.lua` 由 `aircloud_tcp_adapter.lua` 以 `if false then require "excloud" end` 声明依赖，Luatools 据此发现，运行时由适配层加载）。
 2. 添加根目录 `main.lua` 与所有功能子目录中的脚本；不要只添加根目录文件，避免漏烧依赖；同名库不要重复添加。子目录仅电脑端分类，设备按文件原名加载。
 3. **证书**：`certs/sip-ca.pem` 需加入烧录文件并映射到设备 `/luadb/sip-ca.pem`（SIP over TLS 开启时读取；不开启可不烧）。
 4. **产测→业务**：上位机发 `TEST_DONE#` → 重启进业务模式，无需重烧。
@@ -486,10 +543,12 @@ TEST_DONE#               3 秒后自动重启进业务模式
 
 **方式一：网页设置（推荐）**
 
-1. 将 CA 证书烧录到设备 `/luadb/sip-ca.pem`（对应 `sip_config` 的 `sip_tls_ca_path`，即 `new_web/certs/sip-ca.pem`）。注意：当前网页不提供证书上传，仍需通过烧录或文件推送写入设备。
+1. 将 CA 证书烧录到设备 `/luadb/sip-ca.pem`（对应 `sip_config` 的 `sip_tls_ca_path`，即工程内 `certs/sip-ca.pem`）。注意：当前网页不提供证书上传，仍需通过烧录或文件推送写入设备。
 2. 进入「设备设置 → SIP 设置」，将「传输协议」下拉从 UDP 改为 TLS（需要 TCP 也可选 TCP）。
-3. 点击「保存并启用」，网页以 `set_sip` 下发 `sip_transport=tls`（SIP 服务器 / 端口 / 账号等一并下发）；设备回执确认形如「设备已确认保存：<server>:<port>（TLS）」。切回 UDP/TCP 同理，改下拉后重新保存即可。
+3. 点击「提交 SIP 设置」，网页以 `set_config` 下发 `sip_transport=tls`（SIP 服务器 / 端口 / 账号等一并下发）；设备回执确认形如「设备已确认保存：<server>:<port>（TLS）」。切回 UDP/TCP 同理，改下拉后重新提交即可。
 4. 非标准端口：在 SIP 设置里把「端口」一并改为对应值（TLS 默认 5061，UDP/TCP 默认 8910）。
+
+![SIP 设置：传输协议下拉选择 TLS 后提交](https://docs.openluat.com/air8784/product/images/sip_console/15_sip_tls.png)
 
 **方式二：改固件配置文件**
 
@@ -498,6 +557,8 @@ TEST_DONE#               3 秒后自动重启进业务模式
 **方式三：AirCloud 控制台云端下发**
 
 经 AirCloud 控制台云端下发 `set_transport` 切换（命令类型选控制命令，消息内容填 `{"op":"set_transport","sip_transport":"tls"}`；切回 UDP 则填 `{"op":"set_transport","sip_transport":"udp"}`）；切换后设备约 1 秒重启生效并持久化（`task_cloud.lua` 的 `switch_transport` 默认端口：udp/tcp=8910、tls=5061）。
+
+![消息下发工具：控制命令 Tag19 + 消息内容 {"op":"set_transport","sip_transport":"tls"}](https://docs.openluat.com/air8784/product/images/aircloud_tls_send.png)
 
 ### 16.2 注意事项
 

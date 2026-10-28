@@ -16,7 +16,9 @@
 #define LUAT_USE_SPI_INF  1
 #endif
 
-
+/*显示图层定义*/
+#define LUAT_DISPLAY_LAYER_UI    (0x00)
+#define LUAT_DISPLAY_LAYER_VIDEO (0x01)
 
 #define LUAT_DISPLAY_COMPONENT_COUNT (5)    //最大支持5个显示组件
 
@@ -38,7 +40,8 @@ enum disp_format {
     LUAT_DISPLAY_FORMAT_RGB565 = 4,
     LUAT_DISPLAY_FORMAT_BGR565 = 5,
     LUAT_DISPLAY_FORMAT_RGB888 = 6,
-    LUAT_DISPLAY_FORMAT_CUSTOM = 7,
+    LUAT_DISPLAY_FORMAT_YUV420 = 7,
+    LUAT_DISPLAY_FORMAT_CUSTOM = 8,
 };
 
 enum display_ctrl_cmd {
@@ -220,13 +223,16 @@ struct luat_display_layer_data {
 
     /*位置和尺寸*/
     struct luat_display_area area;
-
     /*显示缓冲区*/
     void *buffer;
-
     /*显示格式*/
     enum disp_format format;
-
+    /*行步长*/
+    uint32_t stride;
+    /*缩放区域*/
+    struct luat_display_rect scale;
+    /*裁剪区域*/
+    struct luat_display_rect crop;
 };
 
 /*显示时序参数*/
@@ -308,6 +314,12 @@ struct luat_display_funcs {
 
     /*初始化接口，在这里设置接口参数、设置timing参数*/
     int (*inf_init)(struct luat_display *disp);
+
+    /*使能接口输出：面板初始化完成后调用*/
+    int (*inf_enable)(struct luat_display *disp);
+
+    /*关闭接口输出：休眠/关闭显示时调用*/
+    int (*inf_disable)(struct luat_display *disp);
 
     /*刷新显示缓冲区*/
     int (*fb_flush)(struct luat_display *disp, struct luat_display_rect *rect, const void *data, enum disp_rotate rotation);

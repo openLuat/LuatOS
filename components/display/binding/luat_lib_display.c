@@ -225,8 +225,8 @@ static const display_panel_reg_t panel_regs[] =
 #endif
 #ifdef LUAT_USE_MIPI_INF
     {"custom", "dsi",  &dsi_panel_custom},
+    {"ili9881c","dsi",  &dsi_panel_ili9881c},
 #endif
-
 #ifdef LUAT_USE_SPI_INF
     {"st7789",  "spi",  &spi_panel_st7789},
     {"st7796",  "spi",  &spi_panel_st7796},

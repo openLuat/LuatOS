@@ -15,6 +15,7 @@ extern struct luat_display_panel rgb_panel_nv3052c;
 /*DSI面板列表*/
 extern struct luat_display_panel dsi_panel_st7701s;
 extern struct luat_display_panel dsi_panel_custom;
+extern struct luat_display_panel dsi_panel_ili9881c;
 
 /*LVDS面板列表*/
 extern struct luat_display_panel lvds_panel_custom;

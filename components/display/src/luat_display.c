@@ -11,6 +11,9 @@
 /*显示组件*/
 static struct luat_display *display_component[LUAT_DISPLAY_COMPONENT_COUNT] = { NULL };
 
+static int luat_display_if_enable(struct luat_display *disp);
+static int luat_display_if_disable(struct luat_display *disp);
+
 
 /*获取默认显示组件*/
 struct luat_display* luat_display_get_default(void) 
@@ -87,6 +90,9 @@ int luat_display_destroy(struct luat_display *disp)
     /*先从管理数组中移除，防止后续操作访问到半销毁状态*/
     luat_display_unregister(disp);
 
+    /*先停止接口输出，再做接口反初始化*/
+    luat_display_if_disable(disp);
+
     /*调用接口层的反初始化*/
     if (disp->display_funcs != NULL && disp->display_funcs->deinit != NULL) {
         disp->display_funcs->deinit(disp);
@@ -155,10 +161,10 @@ int luat_display_layer_setup(struct luat_display *disp)
     struct luat_display_panel *panel = disp->panel;
     struct luat_display_layer_data ui_layer = {0};
 
-    ui_layer.enable = 1;
-    ui_layer.layer_id = 0;  //UI层ID
-    ui_layer.area_id = 0;
-    ui_layer.alpha = 0xFF;
+    ui_layer.enable   = 1;
+    ui_layer.layer_id = LUAT_DISPLAY_LAYER_UI;  //UI层ID
+    ui_layer.area_id  = 0;
+    ui_layer.alpha    = 0xFF;
 
     /*设置默认层的区域*/
     ui_layer.area.x1 = panel->screen_win->x;
@@ -166,10 +172,22 @@ int luat_display_layer_setup(struct luat_display *disp)
     ui_layer.area.x2 = panel->screen_win->x + panel->screen_win->w;
     ui_layer.area.y2 = panel->screen_win->y + panel->screen_win->h;
 
+    /*缩放区域*/
+    ui_layer.scale.x = 0;
+    ui_layer.scale.y = 0;
+    ui_layer.scale.w = panel->screen_win->w;
+    ui_layer.scale.h = panel->screen_win->h;
+
+    /*裁剪区域*/
+    ui_layer.crop.x = 0;
+    ui_layer.crop.y = 0;
+    ui_layer.crop.w = panel->screen_win->w;
+    ui_layer.crop.h = panel->screen_win->h;
+
     /*默认显示层应指向 LCDC 显存（fb_start）；SDL/软件渲染无 fb_start 时才回退到 draw_buf*/
     ui_layer.buffer = fb_info->fb_start ? fb_info->fb_start : fb_info->draw_buf.buffer;
     ui_layer.format = fb_info->format;
-
+    ui_layer.stride = fb_info->stride;
 
     ret = disp->display_funcs->set_layer(&ui_layer);
     if (ret != 0) {
@@ -178,6 +196,28 @@ int luat_display_layer_setup(struct luat_display *disp)
     }
 
     return 0;
+}
+
+/*使能接口输出，实现方需保证幂等*/
+static int luat_display_if_enable(struct luat_display *disp)
+{
+    if (disp == NULL || disp->display_funcs == NULL ||
+        disp->display_funcs->inf_enable == NULL) {
+        return 0;
+    }
+
+    return disp->display_funcs->inf_enable(disp);
+}
+
+/*关闭接口输出，实现方需保证幂等*/
+static int luat_display_if_disable(struct luat_display *disp)
+{
+    if (disp == NULL || disp->display_funcs == NULL ||
+        disp->display_funcs->inf_disable == NULL) {
+        return 0;
+    }
+
+    return disp->display_funcs->inf_disable(disp);
 }
 
 /*初始化显示*/
@@ -195,12 +235,6 @@ int luat_display_init(struct luat_display *disp)
     /*创建FB信息*/
     disp->fb_info = luat_heap_zalloc(sizeof(struct luat_display_fb_info));
 
-    /*初始化面板*/
-    ret = disp->panel->panel_funcs->panel_init(disp->panel);
-    if (ret) {
-        LLOGW("panel_init failed, ret = %d", ret);
-    }
-    
     /*根据面板信息探测FB信息*/
     ret = disp->display_funcs->fb_probe(disp->panel, disp->fb_info);
 
@@ -213,6 +247,19 @@ int luat_display_init(struct luat_display *disp)
     ret = disp->display_funcs->inf_init(disp);
     if (ret) {
         LLOGE("inf_init failed, ret = %d", ret);
+        return ret;
+    }
+
+    /*初始化面板*/
+    ret = disp->panel->panel_funcs->panel_init(disp->panel);
+    if (ret) {
+        LLOGW("panel_init failed, ret = %d", ret);
+    }
+
+    /*面板初始化完成后才启动接口输出（DSI 需要先下发面板命令，再开视频流）*/
+    ret = luat_display_if_enable(disp);
+    if (ret) {
+        LLOGE("inf_enable failed, ret = %d", ret);
         return ret;
     }
 
@@ -266,6 +313,8 @@ int luat_display_on(struct luat_display *disp)
         return -1;
     }
 
+    luat_display_if_enable(disp);
+
     luat_display_power_on(disp);
 
     if (disp->panel->panel_funcs != NULL &&
@@ -282,6 +331,8 @@ int luat_display_off(struct luat_display *disp)
     if (disp == NULL || disp->panel == NULL) {
         return -1;
     }
+
+    luat_display_if_disable(disp);
 
     luat_display_power_off(disp);
 
@@ -343,6 +394,7 @@ int luat_display_close(struct luat_display_panel *panel)
 /*显示休眠：
  * 1) 关闭背光，避免睡眠瞬间亮屏残留
  * 2) 下发 SLPIN(0x10) 让屏控制器进入低功耗
+ * 3) 面板已休眠后再停止接口输出（视频/时序）
  * 注意：只关背光/下命令，不断开电源(那属于 power_off)*/
 int luat_display_sleep(struct luat_display *disp) 
 {
@@ -360,18 +412,23 @@ int luat_display_sleep(struct luat_display *disp)
         disp->panel->panel_funcs->panel_ctrl(disp->panel, LUAT_DISPLAY_POWER_SLEEP, NULL);
     }
 
+    luat_display_if_disable(disp);
+
     return 0;
 }
 
 /*显示唤醒：
- * 1) 下发 SLPOUT(0x11) 唤醒屏控制器
- * 2) 恢复背光*/
+ * 1) 恢复接口输出，DSI 掉电后无法下发面板命令
+ * 2) 下发 SLPOUT(0x11) 唤醒屏控制器
+ * 3) 恢复背光*/
 int luat_display_wakeup(struct luat_display *disp) 
 {
     if (disp == NULL || disp->panel == NULL || disp->panel->pin == NULL) {
         return -1;
     }
     struct panel_pin_device *pin = disp->panel->pin;
+
+    luat_display_if_enable(disp);
 
     if (disp->panel->panel_funcs != NULL &&
         disp->panel->panel_funcs->panel_ctrl != NULL) {

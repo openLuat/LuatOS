@@ -29,6 +29,7 @@ static SDL_Renderer *s_renderer = NULL;
 static SDL_Texture *s_texture = NULL;
 static int s_native_w = 0;
 static int s_native_h = 0;
+static SDL_threadID s_video_thread = 0;
 
 static SDL_mutex *s_shot_mu = NULL;
 static SDL_cond *s_shot_cv = NULL;
@@ -260,6 +261,10 @@ int luat_pcsim_host_bind(void *sdl_window, void *sdl_renderer, void *sdl_texture
     s_texture = (SDL_Texture *)sdl_texture;
     s_native_w = native_w;
     s_native_h = native_h;
+    s_video_thread = SDL_ThreadID();
+    s_frame_len = 0;
+    s_frame_seq = 0;
+    s_frame_last_ticks = 0;
     if (s_shot_mu == NULL) {
         s_shot_mu = SDL_CreateMutex();
         s_shot_cv = SDL_CreateCond();
@@ -283,6 +288,7 @@ void luat_pcsim_host_unbind(void)
     s_texture = NULL;
     s_native_w = 0;
     s_native_h = 0;
+    s_video_thread = 0;
     s_synth_buttons = 0;
 }
 
@@ -747,7 +753,8 @@ static void capture_rgb565_on_video_thread(void)
     }
     SDL_RenderClear(s_renderer);
     SDL_RenderCopy(s_renderer, s_texture, NULL, NULL);
-    if (SDL_RenderReadPixels(s_renderer, NULL, SDL_PIXELFORMAT_ARGB8888, raw, width * 4) != 0) {
+    SDL_Rect area = {0, 0, width, height};
+    if (SDL_RenderReadPixels(s_renderer, &area, SDL_PIXELFORMAT_ARGB8888, raw, width * 4) != 0) {
         free(raw);
         SDL_RenderPresent(s_renderer);
         return;
@@ -802,6 +809,17 @@ void luat_pcsim_host_poll(void)
     SDL_UnlockMutex(s_shot_mu);
 }
 
+/* Called with s_shot_mu held. SDL operations stay on the display's owner
+   thread; external readers continue to consume frames produced by poll(). */
+static void refresh_frame_on_video_thread(void)
+{
+    if (s_video_thread != 0 && SDL_ThreadID() == s_video_thread) {
+        capture_rgb565_on_video_thread();
+        s_frame_last_ticks = SDL_GetTicks();
+        if (s_frame_len > 0) SDL_CondSignal(s_shot_cv);
+    }
+}
+
 int luat_pcsim_host_copy_frame(uint32_t min_seq, uint8_t *out, size_t cap, uint32_t *seq, int *w, int *h, uint8_t *format, uint16_t *stride)
 {
     if (out == NULL || seq == NULL || w == NULL || h == NULL || format == NULL || stride == NULL) {
@@ -811,6 +829,7 @@ int luat_pcsim_host_copy_frame(uint32_t min_seq, uint8_t *out, size_t cap, uint3
         return -1;
     }
     SDL_LockMutex(s_shot_mu);
+    refresh_frame_on_video_thread();
     if (s_frame_rgb565 == NULL || s_frame_len == 0 || s_frame_seq <= min_seq) {
         SDL_UnlockMutex(s_shot_mu);
         return 1;
@@ -850,6 +869,7 @@ int luat_pcsim_host_screenshot_png(uint8_t **out_png, size_t *out_len, int *out_
     }
 
     SDL_LockMutex(s_shot_mu);
+    refresh_frame_on_video_thread();
     if (s_frame_rgb565 == NULL || s_frame_len == 0) {
         memset(&wake, 0, sizeof(wake));
         wake.type = SDL_USEREVENT;

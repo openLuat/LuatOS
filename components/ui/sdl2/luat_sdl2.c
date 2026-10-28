@@ -567,10 +567,10 @@ int luat_sdl2_is_exit_requested(void) {
     return sdl2_exit_requested;
 }
 
-// BMP 截图: 从 SDL2 renderer 读取当前屏幕内容 → 写入 24-bit BMP 文件
+// BMP 截图: 读取统一显示帧（兼容 LCD 和 AirUI）并写入 24-bit BMP
 int luat_sdl2_screenshot_bmp(const char* path) {
-    if (!renderer || !framebuffer) {
-        LLOGE("screenshot: renderer/framebuffer not initialized");
+    if (path == NULL || !luat_pcsim_host_ready()) {
+        LLOGE("screenshot: no display bound");
         return -1;
     }
 
@@ -616,28 +616,24 @@ int luat_sdl2_screenshot_bmp(const char* path) {
     filepath[sizeof(filepath) - 1] = '\0';
     #endif
 
-    int width = (int)sdl_conf.width;
-    int height = (int)sdl_conf.height;
+    int width = luat_pcsim_host_native_width();
+    int height = luat_pcsim_host_native_height();
     int row_size = width * 3;
     int pad_size = (4 - (row_size % 4)) % 4;
-
-    // 先渲染 framebuffer 到 renderer (不 Present, 避免清空 back-buffer)
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, framebuffer, NULL, NULL);
-
-    // 使用 SDL_RenderReadPixels 读取渲染输出 (ARGB8888 → 最通用的格式)
-    size_t raw_size = (size_t)width * height * 4;
+    uint32_t seq;
+    uint8_t format;
+    uint16_t stride;
+    size_t raw_size = (size_t)width * height * 2;
     uint8_t *raw = (uint8_t*)malloc(raw_size);
     if (!raw) {
         LLOGE("screenshot: malloc failed");
         return -1;
     }
 
-    if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, raw, width * 4) != 0) {
-        LLOGE("screenshot: SDL_RenderReadPixels failed: %s", SDL_GetError());
+    if (luat_pcsim_host_copy_frame(0, raw, raw_size, &seq, &width, &height, &format, &stride) != 0 ||
+        format != 1 || stride != width * 2) {
+        LLOGE("screenshot: no current RGB565 display frame");
         free(raw);
-        // 恢复显示
-        SDL_RenderPresent(renderer);
         return -1;
     }
 
@@ -645,7 +641,6 @@ int luat_sdl2_screenshot_bmp(const char* path) {
     if (!fp) {
         LLOGE("screenshot: cannot open file: %s (resolved: %s)", path, filepath);
         free(raw);
-        SDL_RenderPresent(renderer);
         return -1;
     }
 
@@ -670,14 +665,19 @@ int luat_sdl2_screenshot_bmp(const char* path) {
     fwrite(dib, 1, 40, fp);
 
     // BMP: bottom-to-top rows, BGR byte order
-    // RenderReadPixels: top-to-bottom, ARGB byte order (A,R,G,B per pixel)
+    // Unified display frames: top-to-bottom, little-endian RGB565.
     uint8_t pad[3] = {0, 0, 0};
     for (int y = height - 1; y >= 0; y--) {
-        uint8_t *src_row = raw + (size_t)y * width * 4;
+        uint8_t *src_row = raw + (size_t)y * stride;
         for (int x = 0; x < width; x++) {
-            uint8_t *p = src_row + x * 4;
-            // ARGB8888 on LE: p[0]=B, p[1]=G, p[2]=R, p[3]=A → BMP BGR
-            uint8_t bgr[3] = { p[0], p[1], p[2] };  // B, G, R
+            uint8_t *p = src_row + x * 2;
+            uint16_t pixel = (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
+            uint8_t r = (uint8_t)((pixel >> 11) & 31);
+            uint8_t g = (uint8_t)((pixel >> 5) & 63);
+            uint8_t b = (uint8_t)(pixel & 31);
+            uint8_t bgr[3] = {(uint8_t)((b << 3) | (b >> 2)),
+                              (uint8_t)((g << 2) | (g >> 4)),
+                              (uint8_t)((r << 3) | (r >> 2))};
             fwrite(bgr, 1, 3, fp);
         }
         if (pad_size) fwrite(pad, 1, pad_size, fp);
@@ -685,9 +685,6 @@ int luat_sdl2_screenshot_bmp(const char* path) {
 
     free(raw);
     fclose(fp);
-
-    // 恢复显示 (重新 Present 当前帧)
-    SDL_RenderPresent(renderer);
 
     LLOGD("screenshot saved: %s (%dx%d, %u bytes)", path, width, height, file_size);
     return 0;

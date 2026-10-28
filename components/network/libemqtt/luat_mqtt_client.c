@@ -64,6 +64,9 @@ static void mqtt_keepalive_on_sent(luat_mqtt_ctrl_t *mqtt_ctrl, const void *buf,
 	if (mqtt_ctrl->keepalive_mode != 1 || mqtt_ctrl->mqtt_state != MQTT_STATE_READY || mqtt_ctrl->ping_timer == NULL) {
 		return;
 	}
+	if (mqtt_ctrl->ping_cb_busy) {
+		return;
+	}
 	if (count == 0 || (((const uint8_t *)buf)[0] & 0xF0) == MQTT_MSG_PINGREQ) {
 		return;
 	}
@@ -73,7 +76,9 @@ static void mqtt_keepalive_on_sent(luat_mqtt_ctrl_t *mqtt_ctrl, const void *buf,
 
 static LUAT_RT_RET_TYPE ping_timer_callback(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
+	mqtt_ctrl->ping_cb_busy = 1;
     l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_TIMER_PING, 0);
+	mqtt_ctrl->ping_cb_busy = 0;
 }
 
 static LUAT_RT_RET_TYPE reconnect_timer_cb(LUAT_RT_CB_PARAM){

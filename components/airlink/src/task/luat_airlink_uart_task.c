@@ -410,6 +410,18 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
 
     while(g_airlink_uart.uart_running)
     {
+        // 暂停检查
+        if (g_airlink_pause) {
+            if (g_airlink_pause_mutex) {
+                luat_rtos_mutex_lock(g_airlink_pause_mutex, LUAT_WAIT_FOREVER);
+                luat_rtos_mutex_unlock(g_airlink_pause_mutex);
+            } else {
+                while (g_airlink_pause) {
+                    luat_rtos_task_sleep(1000);
+                }
+            }
+        }
+
         ret = luat_rtos_queue_recv(g_airlink_uart.tx_evt_queue, &event, sizeof(luat_event_t), AIRLINK_MODE_WAIT_TIMEOUT);//在evt_queue队列中复制数据到指定缓冲区event，阻塞等待60s
         if (ret == 0) {
             record_statistic(event);

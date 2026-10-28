@@ -20,7 +20,16 @@
   {"type":"alarm_get"}       查询当前阈值与报警状态
 
 上报字段补充：1313 报警位图（bit0 电压/bit1 电流/bit2 功率/bit3 频率），
-              1314 报警描述（ASCII，如 "OV,OC"）
+              1314 报警描述（ASCII，如 "OV,OC"），
+              1320/1321 DI1/DI2 反馈，1322 平台目标位图，1323 限制位图，
+              1324 故障位图，1325 继电器输出位图
+
+开关控制命令（tag19，JSON）：
+  {"type":"sw","ch":1,"act":1}     ch: 0=全部 1/2=单路；act: 1=合闸 0=跳闸（脉冲 2s）
+  {"type":"sw_get"}                查询开关状态
+  {"type":"lock","all":1}          总限制 开/关
+  {"type":"lock","ch":1,"val":1}   单路限制（总限制开启时无效）
+文本命令：sw:on / sw:off / sw1:on / sw2:off / lock:on / lock:off
 
 Web 端配套：web/index.html（实时/历史数据查看 + 命令下发）。
 
@@ -39,6 +48,7 @@ TLV 字段（电表数据用自定义段 1300~1311，FLOAT = 值×1000 定点编
 local excloud   = require "excloud"
 local meter_app = require "meter_app"
 local alarm_app = require "alarm_app"
+local ctrl_app  = require "ctrl_app"
 
 -- ==================== 电表 TLV 字段定义 ====================
 local METER_TAGS = {
@@ -88,13 +98,21 @@ local function build_meter_tlv()
     add_ascii(list, 1294, tostring(PROJECT or ""))
     -- 时间戳
     add_int(list, excloud.FIELD_MEANINGS.TIMESTAMP, os.time())
-    -- 板级：供电电压（ADC2，最大 36V，mV → V；tag 1312 与 web/index.html 对齐）
-    local hwd = meter_app.get_hw_data and meter_app.get_hw_data()
-    if hwd and hwd.vbat and hwd.vbat > 0 then add_float(list, 1312, hwd.vbat / 1000) end
+    -- 注意：1312 供电电压是主控自身电源，与配电无关，不再上报（Web 也不再显示）
     -- 越限报警：1313 位图（bit0 电压 / bit1 电流 / bit2 功率 / bit3 频率），1314 描述
     local al = alarm_app.get()
     add_int(list, 1313, al.bitmap or 0)
     if al.text and al.text ~= "" then add_ascii(list, 1314, al.text) end
+    -- 开关控制：1320/1321 DI 反馈，1322 平台目标，1323 限制，1324 故障，1325 继电器输出
+    local c = ctrl_app.get()
+    add_int(list, 1320, c.di1)
+    add_int(list, 1321, c.di2)
+    add_int(list, 1322, c.target)
+    add_int(list, 1323, c.lock)
+    add_int(list, 1324, c.fault)
+    add_int(list, 1325, c.relay)
+    add_int(list, 1326, c.di_raw) -- DI 原始位图（bit0..3），排查 DI 接线/映射用
+    add_int(list, 1327, meter_app.get_debug() and 1 or 0) -- 串口调试打印状态
 
     -- 电表数据（离线时只报基础字段，便于 Web 端看设备在线状态）
     if d and d.online then
@@ -157,12 +175,45 @@ local function handle_json_command(data)
         return alarm_app.set(j)         -- 增量更新报警阈值，字段见 alarm_app
     elseif cmd == "alarm_get" then
         return alarm_app.get_json()     -- 查询当前阈值与报警状态
+    elseif cmd == "sw" then
+        return ctrl_app.switch(tonumber(j.ch) or 0, tonumber(j.act) or 0)
+    elseif cmd == "sw_get" then
+        return ctrl_app.get_json()
+    elseif cmd == "lock" then
+        return ctrl_app.set_lock(tonumber(j.all), tonumber(j.ch), tonumber(j.val))
+    elseif cmd == "log_get" then
+        return ctrl_app.get_log_json(tonumber(j.n) or 20) -- 控制事件日志（JSON 数组）
+    elseif cmd == "debug" then
+        local v = meter_app.set_debug(tonumber(j.val) == 1) -- 远程开关串口调试打印
+        return string.format('{"code":0,"type":"debug","val":%d}', v and 1 or 0)
     end
     return string.format('{"code":1,"type":"%s","value":"unknown cmd"}', tostring(cmd))
 end
 
 -- 文本命令：cycle:120 / report:now
 local function handle_text_command(data)
+    -- 开关：sw:on / sw:off / sw1:on / sw2:off
+    local sw_ch, sw_act = string.match(data, "^sw(%d*):%s*(%a+)$")
+    if sw_ch then
+        local ch = (sw_ch == "") and 0 or tonumber(sw_ch)
+        return ctrl_app.switch(ch or 0, (sw_act == "on") and 1 or 0)
+    end
+    -- 限制：lock:on / lock:off
+    local lk = string.match(data, "^lock:%s*(%a+)$")
+    if lk then return ctrl_app.set_lock((lk == "on") and 1 or 0) end
+
+    -- 调试打印：debug:on / debug:off
+    local dbg = string.match(data, "^debug:%s*(%a+)$")
+    if dbg then
+        local v = meter_app.set_debug(dbg == "on")
+        return string.format('{"code":0,"type":"debug","val":%d}', v and 1 or 0)
+    end
+
+    -- 控制日志：log / log:20
+    if string.match(data, "^log:?%s*(%d*)$") then
+        return ctrl_app.get_log_json(tonumber(string.match(data, "(%d+)$")) or 20)
+    end
+
     local sw = string.match(data, "^alarm:%s*(%a+)$")
     if sw then
         if sw == "on" then return alarm_app.enable(true) end
@@ -184,6 +235,33 @@ local function handle_text_command(data)
     end
     return string.format("unknown cmd:%s", data)
 end
+
+-- ==================== 变化触发上报 ====================
+-- 开关状态（DI/目标/限制/故障）变化时立即上报一次，无变化不额外上报；
+-- 3 秒节流，避免刚上电连续多次抖动刷云端。
+local last_ctrl_sig, last_push_ms = nil, 0
+
+local function now_ms()
+    if mcu and mcu.ticks and mcu.hz then
+        local hz = mcu.hz()
+        if hz and hz > 0 then return math.floor(mcu.ticks() * 1000 / hz) end
+    end
+    return 0
+end
+
+sys.subscribe("CTRL_STATE", function(s)
+    if type(s) ~= "table" then return end
+    local sig = string.format("%d,%d,%d,%d,%d", s.di1, s.di2, s.target, s.lock, s.fault)
+    if sig == last_ctrl_sig then return end -- 无变化不上报
+    local t = now_ms()
+    if t ~= 0 and t - last_push_ms < 3000 then -- 节流
+        last_ctrl_sig = sig
+        return
+    end
+    last_ctrl_sig, last_push_ms = sig, t
+    log.info("cloud", "开关状态变化，立即上报", sig)
+    sys.publish("REPORT_NOW")
+end)
 
 -- ==================== excloud 事件 ====================
 local function on_excloud_event(event, data)

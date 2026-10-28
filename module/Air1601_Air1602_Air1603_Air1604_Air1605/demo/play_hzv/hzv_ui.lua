@@ -236,7 +236,7 @@ local function update_status()
     end
 
     if not hzv_player.current() then
-        set_status_text("未播放 · 点左侧文件开始播放")
+        set_status_text("未播放，点左侧文件开始播放")
         return
     end
 
@@ -556,7 +556,7 @@ function M.select(index)
     -- 重置 fps 采样基准，避免换片后拿旧帧数算出跳变的帧率
     ui.last_frames = nil
     ui.last_tick = nil
-    ui.status:set_text(f.name .. " · 播放中")
+    ui.status:set_text(f.name .. " 播放中")
 end
 
 --[[

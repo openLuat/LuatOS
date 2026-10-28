@@ -167,14 +167,14 @@ function net_manager.init(config)
     pcall(fskv.init)
 
     -- 开机时初始化所有网络（以太网 + 4G + airlink WiFi 硬件）
-    -- airlink WiFi 用占位 SSID 完成 6205 WLAN 初始化，后续扫描/连接无需再 init
+    -- airlink WiFi 用默认账号完成 6205 WLAN 初始化，后续扫描/连接无需再 init
     local priority = net_manager.build_initial_priority()
     local airlink_cfg = net_manager.get_wifi_hw_config()
     if airlink_cfg then
         -- 开机初始化 airlink WiFi 前，从 fskv 读取已保存 WiFi
-        -- 有则优先使用已保存的第一个 WiFi，避免用固定 "luatos" 占位后再切换连接
-        local init_ssid = "luatos"
-        local init_password = ""
+        -- 有则优先使用已保存的第一个 WiFi，避免用默认账号连接后再切换连接
+        local init_ssid = "HJ"
+        local init_password = "HJ@88888"
         local init_bssid = nil
         local ok_saved, saved_list = pcall(fskv.get, "wifi_saved_list")
         if ok_saved and type(saved_list) == "table" and #saved_list > 0
@@ -185,8 +185,8 @@ function net_manager.init(config)
             init_bssid = saved.bssid
             log.info("net_manager", "开机使用已保存WiFi:", init_ssid)
         end
-        if init_ssid == "luatos" then
-            log.info("net_manager", "无已保存WiFi，使用默认占位: luatos")
+        if init_ssid == "HJ" then
+            log.info("net_manager", "无已保存WiFi，使用默认账号: HJ")
         end
         local atype = (airlink_cfg.type == "wifi_airlink_uart")
             and airlink.MODE_UART

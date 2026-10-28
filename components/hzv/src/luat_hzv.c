@@ -39,6 +39,22 @@ struct luat_hzv_reader {
     uint32_t packets_seen;
     uint8_t *payload;
     size_t payload_capacity;
+    char *path;
+};
+
+struct luat_hzv_audio_cursor {
+    void *fp;
+    uint32_t flags;
+    uint32_t packet_count;
+    uint64_t packet_data_offset;
+    uint64_t packet_end_offset;
+    uint64_t offset;
+    uint32_t seen;
+    uint8_t *carry;
+    size_t carry_cap;
+    size_t carry_len;
+    size_t carry_pos;
+    uint8_t eof;
 };
 
 static uint16_t hz_le16(const uint8_t *p)
@@ -267,6 +283,15 @@ luat_hzv_reader_t *luat_hzv_open(const char *path)
     }
     memset(reader, 0, sizeof(*reader));
     reader->fp = fp;
+    {
+        size_t path_len = strlen(path);
+        reader->path = (char *)HZ_MALLOC(path_len + 1u);
+        if (reader->path == NULL) {
+            luat_hzv_close(reader);
+            return NULL;
+        }
+        memcpy(reader->path, path, path_len + 1u);
+    }
     reader->file_size = (uint64_t)file_size;
     reader->packet_data_offset = hz_le64(header + 32);
     index_offset = hz_le64(header + 40);
@@ -319,6 +344,9 @@ void luat_hzv_close(luat_hzv_reader_t *reader)
     }
     if (reader->payload != NULL) {
         HZ_FREE(reader->payload);
+    }
+    if (reader->path != NULL) {
+        HZ_FREE(reader->path);
     }
     HZ_FREE(reader);
 }
@@ -492,4 +520,187 @@ int luat_hzv_extract_audio(luat_hzv_reader_t *reader, uint8_t **data, size_t *si
 void luat_hzv_free_buffer(void *data)
 {
     if (data != NULL) HZ_FREE(data);
+}
+
+static int hzv_audio_seek(luat_hzv_audio_cursor_t *cursor, uint64_t offset)
+{
+    if (cursor == NULL || cursor->fp == NULL || offset > (uint64_t)LONG_MAX) {
+        return LUAT_HZV_ERR_IO;
+    }
+    return HZ_FSEEK(cursor->fp, (long)offset, SEEK_SET) == 0 ? LUAT_HZV_OK : LUAT_HZV_ERR_IO;
+}
+
+static int hzv_audio_reserve(luat_hzv_audio_cursor_t *cursor, size_t payload)
+{
+    uint8_t *next;
+
+    if (payload <= cursor->carry_cap) {
+        return LUAT_HZV_OK;
+    }
+    if (payload == 0u || payload > HZV_MAX_PACKET_SIZE) {
+        return LUAT_HZV_ERR_FORMAT;
+    }
+    next = (uint8_t *)HZ_MALLOC(payload);
+    if (next == NULL) {
+        return LUAT_HZV_ERR_NOMEM;
+    }
+    HZ_FREE(cursor->carry);
+    cursor->carry = next;
+    cursor->carry_cap = payload;
+    return LUAT_HZV_OK;
+}
+
+luat_hzv_audio_cursor_t *luat_hzv_audio_open(const luat_hzv_reader_t *reader)
+{
+    luat_hzv_audio_cursor_t *cursor;
+    void *fp;
+
+    if (reader == NULL || reader->path == NULL || reader->info.audio_codec == LUAT_HZV_AUDIO_NONE) {
+        return NULL;
+    }
+    fp = HZ_FOPEN(reader->path, "rb");
+    if (fp == NULL) {
+        return NULL;
+    }
+    cursor = (luat_hzv_audio_cursor_t *)HZ_MALLOC(sizeof(*cursor));
+    if (cursor == NULL) {
+        HZ_FCLOSE(fp);
+        return NULL;
+    }
+    memset(cursor, 0, sizeof(*cursor));
+    cursor->fp = fp;
+    cursor->flags = reader->info.flags;
+    cursor->packet_count = reader->info.packet_count;
+    cursor->packet_data_offset = reader->packet_data_offset;
+    cursor->packet_end_offset = reader->packet_end_offset;
+    cursor->offset = reader->packet_data_offset;
+    return cursor;
+}
+
+void luat_hzv_audio_close(luat_hzv_audio_cursor_t *cursor)
+{
+    if (cursor == NULL) {
+        return;
+    }
+    if (cursor->fp != NULL) {
+        HZ_FCLOSE(cursor->fp);
+    }
+    if (cursor->carry != NULL) {
+        HZ_FREE(cursor->carry);
+    }
+    HZ_FREE(cursor);
+}
+
+int luat_hzv_audio_rewind(luat_hzv_audio_cursor_t *cursor)
+{
+    if (cursor == NULL) {
+        return LUAT_HZV_ERR_PARAM;
+    }
+    cursor->offset = cursor->packet_data_offset;
+    cursor->seen = 0;
+    cursor->carry_len = 0;
+    cursor->carry_pos = 0;
+    cursor->eof = 0;
+    return hzv_audio_seek(cursor, cursor->packet_data_offset);
+}
+
+int luat_hzv_audio_read(luat_hzv_audio_cursor_t *cursor, uint8_t *dst, size_t max_bytes, size_t *out_size)
+{
+    size_t written = 0;
+
+    if (cursor == NULL || dst == NULL || out_size == NULL) {
+        return LUAT_HZV_ERR_PARAM;
+    }
+    *out_size = 0;
+    if (max_bytes == 0u) {
+        return cursor->eof ? LUAT_HZV_EOF : LUAT_HZV_OK;
+    }
+    if (cursor->eof && cursor->carry_pos >= cursor->carry_len) {
+        return LUAT_HZV_EOF;
+    }
+
+    while (written < max_bytes) {
+        uint8_t header[HZV_PACKET_HEADER_SIZE];
+        uint32_t payload_size;
+        uint32_t payload_crc;
+        uint64_t next_offset;
+        size_t room;
+        int ret;
+
+        if (cursor->carry_pos < cursor->carry_len) {
+            size_t have = cursor->carry_len - cursor->carry_pos;
+            size_t n = have < (max_bytes - written) ? have : (max_bytes - written);
+            memcpy(dst + written, cursor->carry + cursor->carry_pos, n);
+            cursor->carry_pos += n;
+            written += n;
+            if (cursor->carry_pos >= cursor->carry_len) {
+                cursor->carry_pos = 0;
+                cursor->carry_len = 0;
+            }
+            continue;
+        }
+        if (cursor->offset >= cursor->packet_end_offset || cursor->seen >= cursor->packet_count) {
+            cursor->eof = 1;
+            *out_size = written;
+            return LUAT_HZV_EOF;
+        }
+        if (cursor->offset + HZV_PACKET_HEADER_SIZE > cursor->packet_end_offset ||
+            hzv_audio_seek(cursor, cursor->offset) != LUAT_HZV_OK ||
+            hz_read_exact(cursor->fp, header, sizeof(header)) != LUAT_HZV_OK) {
+            *out_size = written;
+            return LUAT_HZV_ERR_IO;
+        }
+        if (memcmp(header, "HZPK", 4) != 0 || hz_le16(header + 4) != HZV_PACKET_HEADER_SIZE) {
+            *out_size = written;
+            return LUAT_HZV_ERR_FORMAT;
+        }
+        payload_size = hz_le32(header + 20);
+        payload_crc = hz_le32(header + 24);
+        next_offset = cursor->offset + HZV_PACKET_HEADER_SIZE +
+                      (((uint64_t)payload_size + 3u) & ~(uint64_t)3u);
+        if (payload_size == 0u || payload_size > HZV_MAX_PACKET_SIZE ||
+            next_offset > cursor->packet_end_offset || next_offset <= cursor->offset) {
+            *out_size = written;
+            return LUAT_HZV_ERR_FORMAT;
+        }
+        if (header[6] != LUAT_HZV_STREAM_AUDIO) {
+            cursor->offset = next_offset;
+            cursor->seen++;
+            continue;
+        }
+        room = max_bytes - written;
+        if ((size_t)payload_size <= room) {
+            if (hz_read_exact(cursor->fp, dst + written, payload_size) != LUAT_HZV_OK) {
+                *out_size = written;
+                return LUAT_HZV_ERR_IO;
+            }
+            if ((cursor->flags & LUAT_HZV_FLAG_PACKET_CRC32) != 0u &&
+                hz_crc32(dst + written, payload_size) != payload_crc) {
+                *out_size = written;
+                return LUAT_HZV_ERR_CRC;
+            }
+            written += payload_size;
+        } else {
+            ret = hzv_audio_reserve(cursor, payload_size);
+            if (ret != LUAT_HZV_OK) {
+                *out_size = written;
+                return ret;
+            }
+            if (hz_read_exact(cursor->fp, cursor->carry, payload_size) != LUAT_HZV_OK) {
+                *out_size = written;
+                return LUAT_HZV_ERR_IO;
+            }
+            if ((cursor->flags & LUAT_HZV_FLAG_PACKET_CRC32) != 0u &&
+                hz_crc32(cursor->carry, payload_size) != payload_crc) {
+                *out_size = written;
+                return LUAT_HZV_ERR_CRC;
+            }
+            cursor->carry_len = payload_size;
+            cursor->carry_pos = 0;
+        }
+        cursor->offset = next_offset;
+        cursor->seen++;
+    }
+    *out_size = written;
+    return LUAT_HZV_OK;
 }

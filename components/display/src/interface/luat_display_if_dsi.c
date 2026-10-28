@@ -32,6 +32,18 @@ LUAT_WEAK int dsi_inf_init(struct luat_display *disp)
     return -1;
 }
 
+/*使能接口输出：面板初始化完成后调用，启动视频/时序输出*/
+LUAT_WEAK int dsi_inf_enable(struct luat_display *disp)
+{
+    return -1;
+}
+
+/*关闭接口输出*/
+LUAT_WEAK int dsi_inf_disable(struct luat_display *disp)
+{
+    return 0;
+}
+
 /*设置显示层*/
 LUAT_WEAK int dsi_set_layer(struct luat_display_layer_data *layer_data)
 {
@@ -71,6 +83,8 @@ struct luat_display_funcs dsi_funcs = {
     .name = "dsi",
     .fb_probe = dsi_fb_probe,
     .inf_init = dsi_inf_init,
+    .inf_enable = dsi_inf_enable,
+    .inf_disable = dsi_inf_disable,
     .fb_flush = dsi_fb_flush,
     .set_layer = dsi_set_layer,
     .wait_vsync = dsi_wait_vsync,

@@ -58,6 +58,19 @@ int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ptr, int arg1, int arg2) {
 	return 0;
 }
 
+// keepalive_mode == 1: 每发一个控制报文就重新计时, 空闲满 0.75*keepalive 才发 PINGREQ
+// PINGREQ 自身跳过, 它可能就在心跳定时器的回调上下文里发送
+static void mqtt_keepalive_on_sent(luat_mqtt_ctrl_t *mqtt_ctrl, const void *buf, unsigned int count) {
+	if (mqtt_ctrl->keepalive_mode != 1 || mqtt_ctrl->mqtt_state != MQTT_STATE_READY || mqtt_ctrl->ping_timer == NULL) {
+		return;
+	}
+	if (count == 0 || (((const uint8_t *)buf)[0] & 0xF0) == MQTT_MSG_PINGREQ) {
+		return;
+	}
+	luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
+	luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive * 1000 * 3 / 4, 1);
+}
+
 static LUAT_RT_RET_TYPE ping_timer_callback(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
     l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_TIMER_PING, 0);
@@ -666,6 +679,7 @@ static int luat_mqtt_ws_send_packet(void* socket_info, const void* buf, unsigned
     pkg.payload = (const char*)buf;
     int ret = luat_websocket_send_frame(&mqtt_ctrl->ws_ctrl, &pkg);
     if (ret < 0) return 0;
+    mqtt_keepalive_on_sent(mqtt_ctrl, buf, count);
     return count;
 }
 
@@ -686,6 +700,7 @@ int luat_mqtt_send_packet(void* socket_info, const void* buf, unsigned int count
 		luat_mqtt_close_socket(mqtt_ctrl);
 		return 0;
 	}
+	mqtt_keepalive_on_sent(mqtt_ctrl, buf, count);
 	return count;
 }
 

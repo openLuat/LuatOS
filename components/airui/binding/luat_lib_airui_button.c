@@ -34,8 +34,10 @@
  * @string config.font 字体类型，当前支持 "hzfont"，不传时使用默认字体
  * @int config.font_size 字号，仅对 hzfont 生效
  * @table config.style 样式表，可选
- * @int config.style.bg_color 默认态背景色（0xRRGGBB）
+ * @int config.style.bg_color 默认态背景色（0xRRGGBB），同时作为渐变起点色
  * @int config.style.bg_opa 默认态背景透明度（0-255）
+ * @int config.style.bg_grad_color 默认态渐变终点色（0xRRGGBB）
+ * @string config.style.bg_grad_dir 渐变方向："none" 纯色、"ver" 上到下、"hor" 左到右；也可传 0/1/2。只给 bg_grad_color 时默认 "ver"
  * @int config.style.border_color 默认态边框颜色（0xRRGGBB）
  * @int config.style.border_width 默认态边框宽度
  * @int config.style.radius 圆角半径

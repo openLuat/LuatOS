@@ -9,6 +9,7 @@
 #include "lua.h"
 #include "lauxlib.h"
 #include "lvgl9/src/widgets/win/lv_win.h"
+#include <string.h>
 
 /**
  * 从配置表读取整数字段
@@ -326,5 +327,42 @@ const char *airui_marshal_table_string_at(void *L, int idx, const char *key, int
 
     lua_pop(L_state, 2);
     return value;
+}
+
+bool airui_marshal_grad_dir(void *L, int idx, const char *key, lv_grad_dir_t *out)
+{
+    lua_State *L_state;
+    bool ok = false;
+
+    if (L == NULL || key == NULL || out == NULL) {
+        return false;
+    }
+
+    L_state = (lua_State *)L;
+    lua_getfield(L_state, idx, key);
+    if (lua_type(L_state, -1) == LUA_TSTRING) {
+        const char *dir = lua_tostring(L_state, -1);
+        if (dir != NULL && strcmp(dir, "ver") == 0) {
+            *out = LV_GRAD_DIR_VER;
+            ok = true;
+        }
+        else if (dir != NULL && strcmp(dir, "hor") == 0) {
+            *out = LV_GRAD_DIR_HOR;
+            ok = true;
+        }
+        else if (dir != NULL && strcmp(dir, "none") == 0) {
+            *out = LV_GRAD_DIR_NONE;
+            ok = true;
+        }
+    }
+    else if (lua_type(L_state, -1) == LUA_TNUMBER) {
+        int dir = (int)lua_tointeger(L_state, -1);
+        if (dir == (int)LV_GRAD_DIR_NONE || dir == (int)LV_GRAD_DIR_VER || dir == (int)LV_GRAD_DIR_HOR) {
+            *out = (lv_grad_dir_t)dir;
+            ok = true;
+        }
+    }
+    lua_pop(L_state, 1);
+    return ok;
 }
 

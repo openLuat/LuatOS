@@ -1247,6 +1247,12 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     airui_keyboard_set_bg_color(keyboard, bg_color);
     airui_keyboard_apply_font(keyboard, data);
 
+    lua_getfield(L_state, idx, "style");
+    if (lua_type(L_state, -1) == LUA_TTABLE) {
+        airui_keyboard_set_style(keyboard, L_state, lua_gettop(L_state));
+    }
+    lua_pop(L_state, 1);
+
     // 如果配置了输入预览框，则初始化
     if (preview_enabled) {
         airui_keyboard_preview_init(keyboard, data);
@@ -1484,6 +1490,127 @@ int airui_keyboard_set_layout(lv_obj_t *keyboard, const char *layout)
     if (meta != NULL && meta->user_data != NULL) {
         airui_keyboard_apply_font(keyboard, (airui_keyboard_data_t *)meta->user_data);
     }
+    return AIRUI_OK;
+}
+
+static void airui_keyboard_apply_key_fill(lv_obj_t *keyboard, lv_style_selector_t sel,
+    bool has_bg, int bg, bool has_opa, int opa,
+    bool has_grad_color, int grad_color, bool has_grad_dir, lv_grad_dir_t grad_dir)
+{
+    if (has_bg) {
+        lv_obj_set_style_bg_color(keyboard, lv_color_hex((uint32_t)bg), sel);
+    }
+    if (has_opa) {
+        lv_obj_set_style_bg_opa(keyboard, airui_marshal_opacity(opa), sel);
+    }
+    if (has_grad_color) {
+        lv_obj_set_style_bg_grad_color(keyboard, lv_color_hex((uint32_t)grad_color), sel);
+    }
+    if (has_grad_dir) {
+        lv_obj_set_style_bg_grad_dir(keyboard, grad_dir, sel);
+    }
+}
+
+/**
+ * 设置键盘按键样式。字段与 airui.button 的 style 一致，另加渐变填充。
+ * 样式写在 LV_PART_ITEMS 上，全部按键共用。锁定键同步默认填充，避免主题灰色盖住渐变。
+ */
+int airui_keyboard_set_style(lv_obj_t *keyboard, void *L, int idx)
+{
+    lua_State *L_state;
+    lv_style_selector_t key_def;
+    lv_style_selector_t key_checked;
+    lv_style_selector_t key_pressed;
+    lv_style_selector_t key_focus;
+    int value = 0;
+    bool has_bg;
+    bool has_opa;
+    bool has_grad_color;
+    bool has_grad_dir;
+    int bg = 0;
+    int opa = 0;
+    int grad_color = 0;
+    lv_grad_dir_t grad_dir = LV_GRAD_DIR_NONE;
+
+    if (keyboard == NULL || L == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    L_state = (lua_State *)L;
+    idx = lua_absindex(L_state, idx);
+    if (!lua_istable(L_state, idx)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    key_def = (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT;
+    key_checked = (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_CHECKED;
+    key_pressed = (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_PRESSED;
+    key_focus = (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_FOCUS_KEY;
+
+    has_bg = airui_marshal_integer_opt(L_state, idx, "bg_color", &bg);
+    has_opa = airui_marshal_integer_opt(L_state, idx, "bg_opa", &opa);
+    has_grad_color = airui_marshal_integer_opt(L_state, idx, "bg_grad_color", &grad_color);
+    has_grad_dir = airui_marshal_grad_dir(L_state, idx, "bg_grad_dir", &grad_dir);
+
+    /* 只给了终点色时默认从上到下，否则渐变方向仍是 NONE，填充看起来没有变化。 */
+    if (has_grad_color && !has_grad_dir) {
+        grad_dir = LV_GRAD_DIR_VER;
+        has_grad_dir = true;
+    }
+
+    airui_keyboard_apply_key_fill(keyboard, key_def,
+        has_bg, bg, has_opa, opa, has_grad_color, grad_color, has_grad_dir, grad_dir);
+    if (has_bg || has_opa || has_grad_color || has_grad_dir) {
+        if (!has_bg && has_grad_dir && grad_dir != LV_GRAD_DIR_NONE) {
+            lv_color_t start = lv_obj_get_style_bg_color(keyboard, LV_PART_ITEMS);
+            lv_obj_set_style_bg_color(keyboard, start, key_checked);
+        }
+        airui_keyboard_apply_key_fill(keyboard, key_checked,
+            has_bg, bg, has_opa, opa, has_grad_color, grad_color, has_grad_dir, grad_dir);
+    }
+
+    if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
+        lv_obj_set_style_border_color(keyboard, lv_color_hex((uint32_t)value), key_def);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "border_width", &value)) {
+        int width = value < 0 ? 0 : value;
+        lv_obj_set_style_border_width(keyboard, width, key_def);
+        if (width > 0) {
+            lv_obj_set_style_border_opa(keyboard, LV_OPA_COVER, key_def);
+            lv_obj_set_style_border_side(keyboard, LV_BORDER_SIDE_FULL, key_def);
+        }
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
+        lv_obj_set_style_radius(keyboard, value < 0 ? 0 : value, key_def);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pad", &value)) {
+        lv_obj_set_style_pad_all(keyboard, value < 0 ? 0 : value, key_def);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "text_color", &value)) {
+        lv_obj_set_style_text_color(keyboard, lv_color_hex((uint32_t)value), key_def);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pressed_bg_color", &value)) {
+        lv_obj_set_style_bg_color(keyboard, lv_color_hex((uint32_t)value), key_pressed);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pressed_bg_opa", &value)) {
+        lv_obj_set_style_bg_opa(keyboard, airui_marshal_opacity(value), key_pressed);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pressed_bg_color", &value) ||
+        airui_marshal_integer_opt(L_state, idx, "pressed_bg_opa", &value)) {
+        /* 主题按下态会用 recolor 压暗，并继承默认渐变。指定按下填充时改成纯色。 */
+        lv_obj_set_style_recolor_opa(keyboard, LV_OPA_TRANSP, key_pressed);
+        lv_obj_set_style_bg_grad_dir(keyboard, LV_GRAD_DIR_NONE, key_pressed);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pressed_text_color", &value)) {
+        lv_obj_set_style_text_color(keyboard, lv_color_hex((uint32_t)value), key_pressed);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "focus_outline_color", &value)) {
+        lv_obj_set_style_outline_color(keyboard, lv_color_hex((uint32_t)value), key_focus);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "focus_outline_width", &value)) {
+        lv_obj_set_style_outline_width(keyboard, value < 0 ? 0 : value, key_focus);
+    }
+
     return AIRUI_OK;
 }
 

@@ -67,6 +67,10 @@ extern int airui_label_create(lua_State *L);
 extern void airui_register_image_meta(lua_State *L);
 extern int airui_image_create(lua_State *L);
 
+// Map 模块声明
+extern void airui_register_map_meta(lua_State *L);
+extern int airui_map_create(lua_State *L);
+
 // Container 模块声明
 extern void airui_register_container_meta(lua_State *L);
 extern int airui_container_create(lua_State *L);
@@ -185,6 +189,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"button", ROREG_FUNC(airui_button_create)},
     {"label", ROREG_FUNC(airui_label_create)},
     {"image", ROREG_FUNC(airui_image_create)},
+    {"map", ROREG_FUNC(airui_map_create)},
     {"container", ROREG_FUNC(airui_container_create)},
     {"bar", ROREG_FUNC(airui_bar_create)},
     {"table", ROREG_FUNC(airui_table_create)},
@@ -283,6 +288,7 @@ LUAMOD_API int luaopen_airui(lua_State *L) {
     airui_register_button_meta(L);
     airui_register_label_meta(L);
     airui_register_image_meta(L);
+    airui_register_map_meta(L);
     airui_register_container_meta(L);
     airui_register_bar_meta(L);
     airui_register_table_meta(L);

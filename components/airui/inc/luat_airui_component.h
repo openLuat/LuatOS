@@ -25,6 +25,7 @@ typedef struct airui_component_ref airui_component_ref_t;
 #define AIRUI_BUTTON_MT "airui.button"
 #define AIRUI_LABEL_MT "airui.label"
 #define AIRUI_IMAGE_MT "airui.image"
+#define AIRUI_MAP_MT "airui.map"
 #define AIRUI_WIN_MT "airui.win"
 #define AIRUI_DROPDOWN_MT "airui.dropdown"
 #define AIRUI_SWITCH_MT "airui.switch"
@@ -74,7 +75,8 @@ typedef enum {
     AIRUI_COMPONENT_NES,
     AIRUI_COMPONENT_GBC,
     AIRUI_COMPONENT_CAMERA,
-    AIRUI_COMPONENT_SLIDER
+    AIRUI_COMPONENT_SLIDER,
+    AIRUI_COMPONENT_MAP
 } airui_component_type_t;
 
 /** Video 格式 */

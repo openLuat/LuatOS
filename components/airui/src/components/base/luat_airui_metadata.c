@@ -23,6 +23,8 @@ static const char *airui_component_type_name(uint8_t component_type)
             return "label";
         case AIRUI_COMPONENT_IMAGE:
             return "image";
+        case AIRUI_COMPONENT_MAP:
+            return "map";
         case AIRUI_COMPONENT_WIN:
             return "win";
         case AIRUI_COMPONENT_DROPDOWN:

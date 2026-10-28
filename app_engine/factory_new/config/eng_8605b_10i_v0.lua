@@ -40,8 +40,8 @@
    features.rs485 目前在 app/ 与 ui/ 里查不到消费方，仅作能力声明。
 9. 上电供电轨：5V_EN = GPIO12、9V_EN = PIN46 = GPIO56、12V_EN = PIN72 = GPIO44、
    5VOUT_EN = PIN73 = GPIO52（对外 5V 输出使能）。
-   5V_EN 与 usb_hid_app 的 VBUS_GPIO=12 是同一物理脚（USB 供电使能），开启 usb_hid 时
-   由该应用按需上下电；若 5V 轨还给非 USB 负载供电，需改 usb_hid_app 的硬编码。
+   5V_EN = GPIO12 由 power_on 拉高常供电。usb_hid_app 的 VBUS_GPIO=12 也是这个脚，
+   同开时会给 UVC 摄像头断电，故带 UVC 的型号不开 features.usb_hid。
 ]]
 
 return {
@@ -61,7 +61,7 @@ return {
         { pin = 12, dir = 0, level = 1 }, -- 5V_EN 拉高，5V 供电
         { pin = 56, dir = 0, level = 1 }, -- 9V_EN 拉高，9V 供电
         { pin = 74, dir = 0, level = 1 }, -- SD_EN 拉高，SD 卡供电
-        { pin = 64, dir = 0, level = 1 },  -- 4G_RESET 拉高 50ms（见文件头第 3 条，不是 485_EN）
+        { pin = 64, dir = 1, level = 0 },  -- 4G_RESET 拉高 50ms（见文件头第 3 条，不是 485_EN）
         { pin = 58, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高，等 200ms 摄像头就绪
         { pin = 14, dir = 0, level = 1 }, -- 485_EN 拉高使能 485 收发（见文件头第 8 条）
     },
@@ -132,7 +132,7 @@ return {
         usb_camera = true,    -- USB 摄像头（UVC）—— 暂无消费方，仅作能力声明
         rs485 = true,         -- RS485 接口 —— 暂无消费方，仅作能力声明
         other_func = true,    -- 启用"功能测试"（peripherals 外设清单）
-        usb_hid = true,       -- USB 键盘鼠标（5V_EN=GPIO12 即 VBUS 供电，见文件头第 9 条）
+        -- usb_hid 不开：USB 键鼠与 UVC 摄像头共用 USB Host 与供电，带 UVC 的型号不启用
         app_factory = true,   -- 启用"应用工厂"内置应用
         ai_chat = true,       -- 启用"AI聊天助手"内置应用
         cloud_disk = true,    -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）

@@ -39,9 +39,8 @@ excamera.open / preview / close 内部都有 sys.wait，只能在协程里调用
    到 rec_max_bytes 上限自动停帧，状态行会标注。
 3. 录像按时长档（5/10/30 秒）录制，倒计时结束自动停止。
 4. 落盘目录按实际写探针选（写内容 + 读回比对，只建空文件不算）：SD 卡可写就写
-   /sd/photo/，写探针失败按 SD_SPEEDS 逐档降速重挂再试，全都不行才退回 /ram/photo/
-   （掉电即失、上限更小）。文件名按时间 + 序号生成，不覆盖旧文件。
-   SD 写探测与降速兜底做法参考桌面 demo main.lua（Air8601 上实测拍照可落 SD 卡）。
+   /sd/photo/，写不了才退回 /ram/photo/（掉电即失、上限更小）。文件名按时间 + 序号
+   生成，不覆盖旧文件。SD 卡文件系统由平台挂载，本页不卸载重挂、不重复初始化 SD 卡。
 5. excamera.open 里的 fps 会调 camera.config(0, CONF_UVC_FPS, …)，
    本固件未实现该配置项，每次开流会打一条 D/camera not support yet，属正常噪声。
 6. 停数据流与销毁组件的顺序不可颠倒：先 excamera.close（前面留 CLOSE_GRACE 让在途帧
@@ -172,9 +171,6 @@ end
 
 -- ==================== 落盘（SD 卡 / 内存盘） ====================
 
--- SD 卡 SPI 时钟档位，从高到低（低档位兜底做法参考桌面 demo main.lua 的 sd_mount）
-local SD_SPEEDS = { 20 * 1000 * 1000, 10 * 1000 * 1000, 4 * 1000 * 1000 }
-
 -- 拼路径：base 下挂子项，base 自带尾斜杠时不重复加
 local function join(base, name)
     if base:sub(-1) == "/" then return base .. name end
@@ -202,20 +198,6 @@ local function dir_writable(base)
     return data == "uvc_probe"
 end
 
--- SD 卡降速重挂：把 SPI 时钟降到第 speed_idx 档再挂一次
-local function sd_remount(sd, speed_idx)
-    if not (fatfs and sd and sd.spi_id and sd.pin_cs) then return false end
-    local speed = SD_SPEEDS[speed_idx]
-    if not speed then return false end
-    pcall(fatfs.unmount, "/sd/")
-    pcall(spi.setup, sd.spi_id, nil, 0, 0, 8, 400 * 1000)
-    gpio.setup(sd.pin_cs, 1)
-    local ok, res, err = pcall(fatfs.mount, fatfs.SPI, "/sd/", sd.spi_id, sd.pin_cs, speed)
-    log.info("uvc_preview_win", "SD 降速重挂", math.floor(speed / 1000000) .. "MHz",
-        ok and res or false, err)
-    return ok and res and true or false
-end
-
 -- 落盘目录：base 下的 photo 子目录，目录不存在就建
 local function photo_dir_of(base)
     local dir = join(base, "photo")
@@ -229,30 +211,14 @@ end
 
 --[[
 落盘目录：SD 卡可写就写卡下的 photo 子目录，写不了才退回内存盘 /ram（掉电即失）。
-SD 走 config.storage.sd_card 的 SPI 参数，写探针失败时按 SD_SPEEDS 降速重挂再试，
-全部失败才放弃 SD。]]
+SD 卡文件系统由平台挂载，本页只做写探针判定落盘位置，不重复初始化 SD 卡。]]
 local function save_dir()
     local cfg = _G.project_config or {}
     local f = cfg.features or {}
-    local sd = (cfg.storage and cfg.storage.sd_card) or nil
 
     if f.sd_card and dir_writable("/sd/") then
         return photo_dir_of("/sd/")
     end
-    if f.sd_card then
-        log.warn("uvc_preview_win", "SD 卡写探测未通过")
-    end
-
-    -- 没挂上就挂上，挂上写不了就按 SD_SPEEDS 逐档降速重挂再试
-    if f.sd_card and sd then
-        for i = 1, #SD_SPEEDS do
-            if not sd_remount(sd, i) then break end
-            if dir_writable("/sd/") then
-                return photo_dir_of("/sd/")
-            end
-        end
-    end
-
     if f.sd_card then
         log.warn("uvc_preview_win", "SD 卡不可写，照片改存 /ram（掉电即失）")
     end

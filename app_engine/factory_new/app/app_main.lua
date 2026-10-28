@@ -26,7 +26,7 @@ boot_ui 在 logo 展示期间分批调用本模块的两个函数：
     7. ntp_app        → NTP 时间同步（订阅 IP_READY）
     （1~4、7 为网络族，has_net 门控：无网络板不加载，见下方 optional() 内注释）
     8. factory_app    → 应用工厂（features.app_factory，级联 factory_rec）
-    9. usb_hid_app    → USB HID 键鼠（features.usb_hid）
+    9. usb_hid_app    → USB HID 键鼠（features.usb_hid，带 UVC 摄像头时跳过）
    10. llm_chat       → AI 助手（features.ai_chat）
    11. cloud_disk_app → 合宙网盘（features.cloud_disk）
    12. tts_app        → TTS 播报（hw.audio）
@@ -45,6 +45,16 @@ boot_ui 在 logo 展示期间分批调用本模块的两个函数：
 ]]
 
 local M = {}
+
+-- 有 UVC 摄像头外设时返回 true（config.peripherals 里 type="uvc" 的条目）
+local function has_uvc_periph(cfg)
+    local list = cfg.peripherals
+    if type(list) ~= "table" then return false end
+    for _, p in ipairs(list) do
+        if p and p.type == "uvc" then return true end
+    end
+    return false
+end
 
 -- ==================== 核心批：进桌面前必须完成 ====================
 function M.core()
@@ -112,9 +122,13 @@ function M.optional()
         require "factory_app"
     end
 
-    -- USB HID 键盘鼠标管理
+    -- USB HID 键盘鼠标管理（带 UVC 摄像头时跳过，两者共用 USB Host 与供电轨）
     if feat.usb_hid then
-        require "usb_hid_app"
+        if has_uvc_periph(cfg) then
+            log.warn("app_main", "带 UVC 摄像头，跳过 usb_hid_app（USB 键鼠与 UVC 冲突）")
+        else
+            require "usb_hid_app"
+        end
     end
 
     -- AI 助手（WebSocket 会话 + STT/TTS，订阅 AI_CHAT_*）

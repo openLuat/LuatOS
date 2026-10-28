@@ -37,7 +37,10 @@
 #include "luat_cc_uart_platform.h"
 #include "luat_cc_uart_bridge.h"
 #endif
-#if defined(LUAT_USE_CC_PCM_BRIDGE) || defined(LUAT_USE_CC_UART_BRIDGE)
+#if defined(LUAT_USE_CC_DTMF_RX) && !defined(LUAT_USE_CC_UART_BRIDGE)
+#include "luat_cc_uart_platform.h"
+#endif
+#if defined(LUAT_USE_CC_PCM_BRIDGE) || defined(LUAT_USE_CC_UART_BRIDGE) || defined(LUAT_USE_CC_DTMF_RX)
 extern int luat_mobile_get_call_state(uint8_t sim_id);
 #endif
 #include "luat_network_adapter.h"
@@ -50,6 +53,9 @@ extern int luat_mobile_get_call_state(uint8_t sim_id);
 enum{
 	CC_EVENT_HANGUP,
 	CC_EVENT_CALL_READY,
+#ifdef LUAT_USE_CC_DTMF_RX
+    CC_EVENT_DTMF_RX_WAKE,
+#endif
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
 	CC_EVENT_BRIDGE_SOURCE_START,
 #endif
@@ -90,6 +96,212 @@ typedef struct
 
 static luat_cc_ctrl_t _l_cc;
 static int s_cc_initialized;
+
+#ifdef LUAT_USE_CC_DTMF_RX
+/* The observer shares no audio buffers with the codec or UART bridge.
+ * Its session lock serializes Lua, the CC task and native disconnects. */
+static luat_rtos_mutex_t s_dtmf_rx_lock;
+static uint32_t s_dtmf_rx_enabled, s_dtmf_rx_generation, s_dtmf_rx_session;
+static int s_dtmf_rx_ready;
+typedef struct {
+    uint32_t session;
+    char digit;
+    uint8_t ended;
+    luat_cc_uart_dtmf_end_t end;
+} luat_cc_dtmf_rx_notice_t;
+
+static void cc_dtmf_rx_stop(void)
+{
+    if (!s_dtmf_rx_lock) return;
+    luat_rtos_mutex_lock(s_dtmf_rx_lock, LUAT_WAIT_FOREVER);
+    if (s_dtmf_rx_session) luat_cc_uart_platform_rx_stop(s_dtmf_rx_session);
+    s_dtmf_rx_session = 0;
+    s_dtmf_rx_ready = 0;
+    luat_rtos_mutex_unlock(s_dtmf_rx_lock);
+}
+
+void luat_cc_dtmf_rx_mobile_event(uint8_t index, uint8_t status)
+{
+    (void)index;
+    if (status == LUAT_MOBILE_CC_READY || status == LUAT_MOBILE_CC_DISCONNECTED ||
+        status == LUAT_MOBILE_CC_HANGUP_CALL_DONE || status == LUAT_MOBILE_CC_MAKE_CALL_FAILED)
+        cc_dtmf_rx_stop();
+}
+
+static int cc_dtmf_rx_begin(int outgoing)
+{
+    if (!__atomic_load_n(&s_dtmf_rx_enabled, __ATOMIC_ACQUIRE)) return 0;
+    luat_rtos_mutex_lock(s_dtmf_rx_lock, LUAT_WAIT_FOREVER);
+    if (s_dtmf_rx_session) {
+        luat_rtos_mutex_unlock(s_dtmf_rx_lock);
+        return -1;
+    }
+    if (++s_dtmf_rx_generation > 0x7fffffffU) s_dtmf_rx_generation = 1;
+    s_dtmf_rx_session = s_dtmf_rx_generation;
+    s_dtmf_rx_ready = 0;
+    if (outgoing) luat_cc_uart_platform_rx_begin_outgoing(s_dtmf_rx_session);
+    else luat_cc_uart_platform_rx_begin(s_dtmf_rx_session);
+    luat_rtos_mutex_unlock(s_dtmf_rx_lock);
+    return 0;
+}
+
+static void cc_dtmf_rx_audio(int ready)
+{
+    if (!__atomic_load_n(&s_dtmf_rx_enabled, __ATOMIC_ACQUIRE)) return;
+    luat_rtos_mutex_lock(s_dtmf_rx_lock, LUAT_WAIT_FOREVER);
+    if (s_dtmf_rx_session && s_dtmf_rx_ready != (ready != 0)) {
+        s_dtmf_rx_ready = ready != 0;
+        luat_cc_uart_platform_rx_enable(s_dtmf_rx_session, s_dtmf_rx_ready);
+    }
+    luat_rtos_mutex_unlock(s_dtmf_rx_lock);
+}
+
+static void cc_dtmf_rx_duration(lua_State *L, const char *key, uint64_t value)
+{
+    if (value <= (uint64_t)LUA_MAXINTEGER) lua_pushinteger(L, (lua_Integer)value);
+    else {
+        char text[21];
+        snprintf(text, sizeof(text), "%llu", (unsigned long long)value);
+        lua_pushstring(L, text);
+    }
+    lua_setfield(L, -2, key);
+}
+
+/*
+@sys_pub cc
+普通 codec 通话收到网络按键，或收到有效结束包后的网络事件持续时间
+CC_DTMF_RX
+@usage
+sys.subscribe("CC_DTMF_RX", function(e)
+    -- e.event: dtmf / dtmf_end; e.digit: 按键; e.session: 当前接收会话
+    -- dtmf_end 另有 duration_ms、duration_ticks、clock_hz、complete
+    log.info("dtmf_rx", e.event, e.digit, e.duration_ms, e.complete)
+end)
+*/
+static int cc_dtmf_rx_notify(lua_State *L, void *unused)
+{
+    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    luat_cc_dtmf_rx_notice_t value = *(luat_cc_dtmf_rx_notice_t *)msg->ptr;
+    int current;
+    (void)unused;
+    luat_heap_free(msg->ptr);
+    luat_rtos_mutex_lock(s_dtmf_rx_lock, LUAT_WAIT_FOREVER);
+    current = __atomic_load_n(&s_dtmf_rx_enabled, __ATOMIC_ACQUIRE) &&
+              s_dtmf_rx_ready && value.session == s_dtmf_rx_session;
+    luat_rtos_mutex_unlock(s_dtmf_rx_lock);
+    if (!current || lua_getglobal(L, "sys_pub") != LUA_TFUNCTION) return 0;
+    lua_pushliteral(L, "CC_DTMF_RX");
+    lua_newtable(L);
+    lua_pushstring(L, value.ended ? "dtmf_end" : "dtmf"); lua_setfield(L, -2, "event");
+    lua_pushlstring(L, &value.digit, 1); lua_setfield(L, -2, "digit");
+    lua_pushinteger(L, value.session); lua_setfield(L, -2, "session");
+    if (value.ended) {
+        cc_dtmf_rx_duration(L, "duration_ticks", value.end.duration_ticks);
+        cc_dtmf_rx_duration(L, "duration_ms", value.end.duration_ms);
+        lua_pushinteger(L, value.end.clock_hz); lua_setfield(L, -2, "clock_hz");
+        lua_pushboolean(L, value.end.complete); lua_setfield(L, -2, "complete");
+    }
+    lua_call(L, 2, 0);
+    return 0;
+}
+
+static void cc_dtmf_rx_queue(char digit, const luat_cc_uart_dtmf_end_t *end)
+{
+    rtos_msg_t msg = {0};
+    luat_cc_dtmf_rx_notice_t *value = luat_heap_malloc(sizeof(*value));
+    if (!value) { LLOGW("DTMF receive notification allocation failed"); return; }
+    memset(value, 0, sizeof(*value));
+    value->session = s_dtmf_rx_session;
+    value->digit = digit;
+    if (end) { value->ended = 1; value->end = *end; }
+    msg.handler = cc_dtmf_rx_notify;
+    msg.ptr = value;
+    if (luat_msgbus_put(&msg, 0)) {
+        luat_heap_free(value);
+        LLOGW("DTMF receive notification queue full");
+    }
+}
+
+static void cc_dtmf_rx_poll(void)
+{
+    char digit;
+    luat_cc_uart_dtmf_end_t end;
+    if (!__atomic_load_n(&s_dtmf_rx_enabled, __ATOMIC_ACQUIRE)) return;
+    luat_rtos_mutex_lock(s_dtmf_rx_lock, LUAT_WAIT_FOREVER);
+    if (s_dtmf_rx_ready && s_dtmf_rx_session) {
+        while (luat_cc_uart_platform_rx_poll(s_dtmf_rx_session, &digit)) cc_dtmf_rx_queue(digit, NULL);
+        while (luat_cc_uart_platform_rx_poll_end(s_dtmf_rx_session, &end)) cc_dtmf_rx_queue(end.digit, &end);
+    }
+    luat_rtos_mutex_unlock(s_dtmf_rx_lock);
+}
+
+/**
+启用普通 codec 通话的网络 DTMF 接收；必须在 cc.init 后、拨号/接听前启用。
+关闭接收立即丢弃旧事件；开启状态跨通话保留，每通使用独立 session。
+@api cc.dtmfRx(enabled)
+@boolean enabled 是否启用
+@return boolean 成功与否
+@return string 失败原因（失败时）
+@usage
+sys.subscribe("CC_DTMF_RX", function(e)
+    log.info("dtmf_rx", e.event, e.digit, e.duration_ms, e.complete)
+end)
+assert(cc.init(0))
+assert(cc.dtmfRx(true))
+*/
+static int l_cc_dtmf_rx(lua_State *L)
+{
+    const char *reason = "DTMF receive initialization failed";
+    int enabled;
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    enabled = lua_toboolean(L, 1);
+    if (!s_cc_initialized) { reason = "cc.init required"; goto failed; }
+#ifdef LUAT_USE_CC_UART_BRIDGE
+    if (luat_cc_uart_selected()) { reason = "normal codec CC required"; goto failed; }
+#endif
+#ifdef LUAT_USE_CC_PCM_BRIDGE
+    if (luat_cc_pcm_selected()) { reason = "normal codec CC required"; goto failed; }
+#endif
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+    if (luat_cc_bridge_mode_on()) { reason = "normal codec CC required"; goto failed; }
+#endif
+    if (enabled && !__atomic_load_n(&s_dtmf_rx_enabled, __ATOMIC_ACQUIRE)) {
+        if (luat_mobile_get_call_state(0) != -1) { reason = "enable DTMF receive before calling"; goto failed; }
+        if (!s_dtmf_rx_lock && luat_rtos_mutex_create(&s_dtmf_rx_lock)) goto failed;
+        if (luat_cc_uart_platform_rx_codec_setup()) goto failed;
+        __atomic_store_n(&s_dtmf_rx_enabled, 1, __ATOMIC_RELEASE);
+        luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_DTMF_RX_WAKE, 0, 0, 0, 0);
+    } else if (!enabled) {
+        __atomic_store_n(&s_dtmf_rx_enabled, 0, __ATOMIC_RELEASE);
+        cc_dtmf_rx_stop();
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+failed:
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, reason);
+    return 2;
+}
+
+/**
+获取普通 codec 网络 DTMF 接收状态；不返回号码、地址或 SIP 文本。
+@api cc.dtmfRxStats()
+@return table 接收、协商及计数状态
+*/
+static int l_cc_dtmf_rx_stats(lua_State *L)
+{
+    luat_cc_uart_network_dtmf_diag_t d;
+    luat_cc_uart_platform_rx_stats(&d);
+    lua_newtable(L);
+#define CC_RX_STAT(name) lua_pushinteger(L, d.name); lua_setfield(L, -2, #name)
+    CC_RX_STAT(supported); CC_RX_STAT(active); CC_RX_STAT(enabled); CC_RX_STAT(mapped);
+    CC_RX_STAT(generation); CC_RX_STAT(payload_type); CC_RX_STAT(clock_hz);
+    CC_RX_STAT(sip_messages); CC_RX_STAT(sip_errors); CC_RX_STAT(rtp_packets);
+    CC_RX_STAT(events); CC_RX_STAT(delivered); CC_RX_STAT(dropped);
+#undef CC_RX_STAT
+    return 1;
+}
+#endif
 
 /* The SDK VTS API can wait indefinitely for IMS confirmation. Keep it out
  * of the Lua VM, audio workers and the separate CC hang-up task. One copied
@@ -517,7 +729,13 @@ static void _l_cc_volte_task(void *param){
 	luat_event_t event;
     int ret = - 1;
 	while (1){
+#ifdef LUAT_USE_CC_DTMF_RX
+        uint32_t timeout = __atomic_load_n(&s_dtmf_rx_enabled, __ATOMIC_ACQUIRE) ? 20 : LUAT_WAIT_FOREVER;
+        ret = luat_rtos_event_recv(_l_cc.task_handle, 0, &event, NULL, timeout);
+        if (ret) { cc_dtmf_rx_poll(); continue; }
+#else
 		luat_rtos_event_recv(_l_cc.task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
+#endif
 		switch(event.id)
 		{
 		case CC_EVENT_HANGUP:
@@ -532,6 +750,9 @@ static void _l_cc_volte_task(void *param){
             break;
 #endif
         }
+#ifdef LUAT_USE_CC_DTMF_RX
+        cc_dtmf_rx_poll();
+#endif
 	}
 }
 
@@ -609,7 +830,16 @@ static int l_cc_make_call(lua_State* L) {
         return 1;
     }
 #endif
+#ifdef LUAT_USE_CC_DTMF_RX
+    if (cc_dtmf_rx_begin(1)) {
+        lua_pushboolean(L, 0); lua_pushliteral(L, "DTMF receive call already active"); return 2;
+    }
+    int result = luat_mobile_make_call(sim_id, (char*)number, (uint8_t)len);
+    if (result) cc_dtmf_rx_stop();
+    lua_pushboolean(L, !result);
+#else
     lua_pushboolean(L, !luat_mobile_make_call(sim_id, (char*)number, (uint8_t)len));
+#endif
     return 1;
 }
 
@@ -621,6 +851,9 @@ static int l_cc_make_call(lua_State* L) {
 static int l_cc_hangup_call(lua_State* L) {
     uint8_t sim_id = cc_sim_arg(L);
     cc_dtmf_tx_cancel();
+#ifdef LUAT_USE_CC_DTMF_RX
+    cc_dtmf_rx_stop();
+#endif
 #ifdef LUAT_USE_CC_UART_BRIDGE
     if (luat_cc_uart_selected()) {
         luat_cc_uart_local_stop();
@@ -686,7 +919,16 @@ static int l_cc_answer_call(lua_State* L) {
         return 1;
     }
 #endif
+#ifdef LUAT_USE_CC_DTMF_RX
+    if (cc_dtmf_rx_begin(0)) {
+        lua_pushboolean(L, 0); lua_pushliteral(L, "DTMF receive call already active"); return 2;
+    }
+    int result = luat_mobile_answer_call(sim_id);
+    if (result) cc_dtmf_rx_stop();
+    lua_pushboolean(L, !result);
+#else
     lua_pushboolean(L, !luat_mobile_answer_call(sim_id));
+#endif
     return 1;
 }
 
@@ -1175,6 +1417,11 @@ static const rotable_Reg_t reg_cc[] =
     { "init" ,      ROREG_FUNC(l_cc_speech_init)},
     { "dial" ,      ROREG_FUNC(l_cc_make_call)},
     { "sendDtmf",   ROREG_FUNC(l_cc_send_dtmf)},
+#ifdef LUAT_USE_CC_DTMF_RX
+    { "dtmfRx",     ROREG_FUNC(l_cc_dtmf_rx)},
+    { "dtmfRxStats", ROREG_FUNC(l_cc_dtmf_rx_stats)},
+    { "DTMF_RX_VERSION", ROREG_INT(1)},
+#endif
     { "accept" ,    ROREG_FUNC(l_cc_answer_call)},
     { "hangUp" ,    ROREG_FUNC(l_cc_hangup_call)},
     { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
@@ -1237,6 +1484,13 @@ void luat_cc_start_upload(void)
 #endif
     _l_cc.upload_enable = 1;
     luat_audio_request_record_pause(&_l_cc.cc_request, 0);
+#ifdef LUAT_USE_CC_DTMF_RX
+    /* SPEECH_START can follow early downlink without a second start_audio.
+     * Publish the transition to real two-way media on this path as well. */
+    _l_cc.is_true_start = 1;
+    cc_dtmf_rx_audio(1);
+    _l_cc_notify_audio_start();
+#endif
 }
 
 void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, uint32_t play_block_cnt, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t record_callback_cnt_level, uint8_t need_upload, uint8_t true_start)
@@ -1246,6 +1500,9 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
 #endif
 #ifdef LUAT_USE_CC_PCM_BRIDGE
     if (luat_cc_pcm_selected()) return;
+#endif
+#ifdef LUAT_USE_CC_DTMF_RX
+    cc_dtmf_rx_audio(true_start && need_upload);
 #endif
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
     cc_audio_update_begin();
@@ -1381,6 +1638,9 @@ void luat_cc_play_tone(uint32_t param)
     switch (param)
     {
     case LUAT_MOBILE_CC_PLAY_STOP:
+#ifdef LUAT_USE_CC_DTMF_RX
+        cc_dtmf_rx_audio(0);
+#endif
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
         if (bridge_mode) {
             s_cc_audio_stopping = 1;

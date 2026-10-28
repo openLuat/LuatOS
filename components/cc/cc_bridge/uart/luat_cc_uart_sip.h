@@ -1,4 +1,4 @@
-/* Passive, bounded SIP/SDP observer for one incoming UART-bridge call. */
+/* Passive, bounded SIP/SDP observer for one incoming or outgoing call. */
 #ifndef LUAT_CC_UART_SIP_H
 #define LUAT_CC_UART_SIP_H
 #include <stddef.h>
@@ -59,6 +59,7 @@ typedef struct {
     uint32_t candidate_ms, cseq, generation, last_cseq[2];
     int dialog_fd;
     uint8_t candidate, bound, valid, offer_tx, method, answered, retired;
+    uint8_t outgoing, outgoing_pending;
     char call_id[LUAT_CC_UART_SIP_ID_MAX];
     char retired_id[LUAT_CC_UART_SIP_ID_MAX];
     char remote_tag[LUAT_CC_UART_SIP_TAG_MAX], local_tag[LUAT_CC_UART_SIP_TAG_MAX];
@@ -68,7 +69,9 @@ typedef struct {
 /** Owner must serialize ALL APIs using one mutex, outside ISR/critical sections.
  * Feed only bytes actually sent/received, never MSG_PEEK. These functions do not
  * call sockets, retain input pointers, block, modify network data, or log SIP.
- * Only an incoming INVITE observed before begin may bind this single call.
+ * begin binds an incoming INVITE already observed before accepting a call.
+ * begin_outgoing reserves a session before dialing and binds only a subsequent
+ * local initial INVITE within FRESH_MS. Neither direction guesses a dialog.
  * SIP is plaintext TCP/UDP, one RTP/AVP audio section, numeric IPv4/IPv6 only.
  * Unsupported or ambiguous negotiation disables this observer, not the call. */
 void luat_cc_uart_sip_init(luat_cc_uart_sip_t *ctx, luat_cc_uart_sip_addr_parse_fn parse_address);
@@ -76,6 +79,7 @@ void luat_cc_uart_sip_stream(luat_cc_uart_sip_t *ctx, int fd, int tx, int is_tcp
                              const void *data, size_t length, uint32_t now_ms);
 void luat_cc_uart_sip_close(luat_cc_uart_sip_t *ctx, int fd);
 int luat_cc_uart_sip_begin(luat_cc_uart_sip_t *ctx, uint64_t session, uint32_t now_ms);
+int luat_cc_uart_sip_begin_outgoing(luat_cc_uart_sip_t *ctx, uint64_t session, uint32_t now_ms);
 void luat_cc_uart_sip_finish(luat_cc_uart_sip_t *ctx, uint64_t session);
 int luat_cc_uart_sip_mapping(const luat_cc_uart_sip_t *ctx, uint64_t session,
                             luat_cc_uart_sip_mapping_t *out);

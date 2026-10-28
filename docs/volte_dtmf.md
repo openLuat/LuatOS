@@ -16,7 +16,7 @@
 
 ## 接收路径
 
-当前接收挂在 `LUAT_USE_CC_UART_BRIDGE` 后端，仅角色 A 启用；与双板分机业务共用当前会话和媒体门禁。
+接收有两个独立入口，共用 SIP/SDP 和 RFC4733 解析器：`LUAT_USE_CC_UART_BRIDGE` 用于原双板分机业务的 A 侧；`LUAT_USE_CC_DTMF_RX` 用于普通 codec 单模组通话。普通模式保留 ES8311 麦克风和扬声器通路，不初始化 UART 桥接、媒体上传或存储组件。两种入口不能同时占用同一个接收器。
 
 主要源码：
 
@@ -47,7 +47,31 @@ end)
 
 识别须保持启用直至结束包。原分机业务仍可收到早期 `dtmf` 就立即拨号并关闭识别；这种用法不等待 `dtmf_end`，也不会因新增结束通知重复拨号。使用时长接口须配套包含该能力的新固件，并保持接收启用至结束通知。
 
-接收当前依赖 `ccuart` 的平台、上传、媒体和存储组件。即使无 SD 运行模式不录音，桥接绑定仍引用这些函数，因此构建仍需保留必要源码依赖。Codec、SIP PCM 和 UART PCM 后端选择互斥。
+UART 桥接接收依赖 `ccuart` 的平台、上传、媒体和存储组件。即使无 SD 运行模式不录音，桥接绑定仍引用这些函数，因此该模式构建仍需保留必要源码依赖。Codec、SIP PCM 和 UART PCM 音频后端选择互斥。
+
+### 普通 codec 通话接收
+
+固件开启 `LUAT_USE_CC_DTMF_RX`，同时编译共享 SIP/SDP、RFC4733 解析器和 EC7xx 接收适配，并保留相应 socket linker wrappers。只使用普通通话时无需开启 `LUAT_USE_CC_UART_BRIDGE`。在普通 `cc.init(0)` 后，等待 `CC_IND("READY")` 再开启接收，随后才拨号或接听，以便 SDK 能确认当前呼叫空闲：
+
+```lua
+sys.subscribe("CC_DTMF_RX", function(e)
+    if e.event == "dtmf" then
+        log.info("key", e.digit, e.session)
+    elseif e.event == "dtmf_end" then
+        log.info("key_end", e.digit, e.duration_ms, e.complete)
+    end
+end)
+sys.subscribe("CC_IND", function(status)
+    if status == "READY" then assert(cc.dtmfRx(true)) end
+end)
+assert(cc.init(0))
+```
+
+随后通过 `cc.dial` 或 `cc.accept` 建立通话，每通分配独立接收 session。真实双向媒体开始后启用按键交付，早期彩铃不启用；挂断、外呼失败及本地停止会清空会话并丢弃已排队的旧通知。开启状态跨通话保留；`cc.dtmfRx(false)` 可关闭接收。不要在通话中首次开启接收。
+
+`CC_DTMF_RX` 的参数是一个 table，包含 `event`、`digit`、`session`；`dtmf_end` 另含 `duration_ticks`、`duration_ms`、`clock_hz`、`complete`，精度规则与桥接接口相同。`cc.dtmfRxStats()` 提供协商及接收计数，不包含手机号、地址或 SIP 文本。新固件使用 `cc.DTMF_RX_VERSION == 1` 标示该接口。
+
+普通模式支持手机呼入，以及在 `cc.dial` 前预留会话后绑定本地主动发出的初始 INVITE；两方向都校验 Call-ID、标签、信令 socket 和协商媒体端点。示例为 `module/Air8000/demo/cc_dtmf_duplex/`。普通 codec 收发组合及新增呼出接收路径仍需配套新固件真机验收，不能沿用原双模组实测结论。
 
 ## 发送路径与接口
 

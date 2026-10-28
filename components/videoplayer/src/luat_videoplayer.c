@@ -42,6 +42,7 @@
 #include "luat_audio_data_codec.h"
 #include "luat_audio_channel.h"
 #include "luat_mcu.h"
+#include "luat_rtos.h"
 #endif
 
 /* Read buffer size for scanning MJPG stream */
@@ -65,10 +66,12 @@ static int g_vp_debug = 0;
 #define LUAT_LOG_TAG "videoplayer"
 #include "luat_log.h"
 #define VP_LOGD(...) do { if (g_vp_debug) LLOGD(__VA_ARGS__); } while(0)
+#define VP_LOGI(...) LLOGI(__VA_ARGS__)
 #define VP_LOGW(...) LLOGW(__VA_ARGS__)
 #else
 #include <stdio.h>
 #define VP_LOGD(...) do { if (g_vp_debug) { printf("[VP] "); printf(__VA_ARGS__); printf("\n"); } } while(0)
+#define VP_LOGI(...) do { printf("[VP] "); printf(__VA_ARGS__); printf("\n"); } while(0)
 #define VP_LOGW(...) do { printf("[VP WARN] "); printf(__VA_ARGS__); printf("\n"); } while(0)
 #endif
 
@@ -90,13 +93,16 @@ struct luat_vp_ctx {
 #ifdef LUAT_USE_HZV
     luat_hzv_reader_t *hzv;         /* HZV demuxer */
     uint32_t hzv_timescale;
-#ifdef LUAT_USE_AUDIO_V2
-    uint8_t *hzv_audio_data;
-    size_t hzv_audio_size;
+    /* 音频游标单独持有文件句柄。FatFs 不能重入，只有视频线程读它。 */
+    luat_hzv_audio_cursor_t *hzv_audio;
+    uint8_t *hzv_audio_ring;
+    volatile uint32_t hzv_audio_head;
+    volatile uint32_t hzv_audio_tail;
+    volatile uint8_t hzv_audio_eof;
+    luat_rtos_mutex_t hzv_audio_lock;
     uint32_t hzv_audio_rate;
     uint8_t hzv_audio_channels;
     uint8_t hzv_audio_bits;
-    size_t hzv_audio_feed_offset;
     luat_audio_request_block_t hzv_audio_request;
     volatile uint8_t hzv_audio_started;
     volatile uint8_t hzv_audio_driver_started;
@@ -108,10 +114,107 @@ struct luat_vp_ctx {
     uint32_t hzv_clock_block_ms;
     uint8_t hzv_clock_anchor_valid;
 #endif
-#endif
 };
 
 #if defined(LUAT_USE_HZV) && defined(LUAT_USE_AUDIO_V2)
+/* 32KB 环形窗 */
+#define HZV_AUDIO_RING (32u * 1024u)
+
+static size_t hzv_ring_used(const luat_vp_ctx_t *ctx)
+{
+    return (size_t)(ctx->hzv_audio_head - ctx->hzv_audio_tail);
+}
+
+static void hzv_ring_write(luat_vp_ctx_t *ctx, const uint8_t *src, size_t n)
+{
+    size_t pos = (size_t)(ctx->hzv_audio_head & (HZV_AUDIO_RING - 1u));
+    size_t first = HZV_AUDIO_RING - pos;
+
+    if (first > n) {
+        first = n;
+    }
+    memcpy(ctx->hzv_audio_ring + pos, src, first);
+    if (n > first) {
+        memcpy(ctx->hzv_audio_ring, src + first, n - first);
+    }
+    ctx->hzv_audio_head += (uint32_t)n;
+}
+
+static size_t hzv_ring_read(luat_vp_ctx_t *ctx, uint8_t *dst, size_t n)
+{
+    size_t used = hzv_ring_used(ctx);
+    size_t pos;
+    size_t first;
+
+    if (n > used) {
+        n = used;
+    }
+    pos = (size_t)(ctx->hzv_audio_tail & (HZV_AUDIO_RING - 1u));
+    first = HZV_AUDIO_RING - pos;
+    if (first > n) {
+        first = n;
+    }
+    memcpy(dst, ctx->hzv_audio_ring + pos, first);
+    if (n > first) {
+        memcpy(dst + first, ctx->hzv_audio_ring, n - first);
+    }
+    ctx->hzv_audio_tail += (uint32_t)n;
+    return n;
+}
+
+/* 只在视频线程调用。音频任务不能碰 FatFs。 */
+static void hzv_audio_pump(luat_vp_ctx_t *ctx)
+{
+    uint8_t buf[2048];
+
+    if (ctx == NULL || ctx->hzv_audio == NULL || ctx->hzv_audio_ring == NULL ||
+        ctx->hzv_audio_lock == NULL || ctx->hzv_audio_eof) {
+        return;
+    }
+    for (;;) {
+        size_t used;
+        size_t space;
+        size_t want;
+        size_t n = 0;
+        int ret;
+
+        if (luat_rtos_mutex_lock(ctx->hzv_audio_lock, LUAT_WAIT_FOREVER) != 0) {
+            return;
+        }
+        used = hzv_ring_used(ctx);
+        luat_rtos_mutex_unlock(ctx->hzv_audio_lock);
+        if (used >= HZV_AUDIO_RING) {
+            return;
+        }
+        space = HZV_AUDIO_RING - used;
+        want = space < sizeof(buf) ? space : sizeof(buf);
+        ret = luat_hzv_audio_read(ctx->hzv_audio, buf, want, &n);
+        if (n > 0u) {
+            if (luat_rtos_mutex_lock(ctx->hzv_audio_lock, LUAT_WAIT_FOREVER) != 0) {
+                return;
+            }
+            hzv_ring_write(ctx, buf, n);
+            if (ret != LUAT_HZV_OK) {
+                ctx->hzv_audio_eof = 1;
+            }
+            luat_rtos_mutex_unlock(ctx->hzv_audio_lock);
+        } else if (ret == LUAT_HZV_EOF || ret != LUAT_HZV_OK) {
+            if (ret != LUAT_HZV_OK && ret != LUAT_HZV_EOF) {
+                VP_LOGW("HZV audio read failed: %d", ret);
+            }
+            if (luat_rtos_mutex_lock(ctx->hzv_audio_lock, LUAT_WAIT_FOREVER) != 0) {
+                return;
+            }
+            ctx->hzv_audio_eof = 1;
+            luat_rtos_mutex_unlock(ctx->hzv_audio_lock);
+            return;
+        }
+        if (n == 0u || ret != LUAT_HZV_OK) {
+            return;
+        }
+    }
+}
+
 static void hzv_audio_callback(uint32_t event, uint8_t *data, uint32_t len,
                                luat_audio_request_block_t *request_block)
 {
@@ -120,15 +223,28 @@ static void hzv_audio_callback(uint32_t event, uint8_t *data, uint32_t len,
     (void)len;
     if (ctx == NULL) return;
     if (event == LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA && request_block->org_input_data_fifo) {
+        uint8_t buf[512];
         uint32_t free_space = luat_fifo_check_free_space(request_block->org_input_data_fifo);
-        size_t remain = ctx->hzv_audio_size - ctx->hzv_audio_feed_offset;
-        uint32_t feed_len = remain < free_space ? (uint32_t)remain : free_space;
-        if (feed_len) {
-            luat_fifo_write(request_block->org_input_data_fifo,
-                ctx->hzv_audio_data + ctx->hzv_audio_feed_offset, feed_len);
-            ctx->hzv_audio_feed_offset += feed_len;
+        uint8_t input_end = 0;
+        while (free_space > 0u) {
+            size_t n = 0;
+            size_t want = free_space < sizeof(buf) ? free_space : sizeof(buf);
+            if (ctx->hzv_audio_lock == NULL ||
+                luat_rtos_mutex_lock(ctx->hzv_audio_lock, LUAT_WAIT_FOREVER) != 0) {
+                break;
+            }
+            n = hzv_ring_read(ctx, buf, want);
+            if (n == 0u && ctx->hzv_audio_eof) {
+                input_end = 1;
+            }
+            luat_rtos_mutex_unlock(ctx->hzv_audio_lock);
+            if (n == 0u) {
+                break;
+            }
+            luat_fifo_write(request_block->org_input_data_fifo, buf, (uint32_t)n);
+            free_space -= (uint32_t)n;
         }
-        if (ctx->hzv_audio_feed_offset >= ctx->hzv_audio_size) {
+        if (input_end) {
             request_block->is_input_end = 1;
         }
     } else if (event == LUAT_AUDIO_REQUEST_EVENT_DRIVER_START) {
@@ -137,6 +253,28 @@ static void hzv_audio_callback(uint32_t event, uint8_t *data, uint32_t len,
         ctx->hzv_audio_done = 1;
         ctx->hzv_audio_started = 0;
     }
+}
+
+static void hzv_audio_release(luat_vp_ctx_t *ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+    if (ctx->hzv_audio_ring != NULL) {
+        VP_FREE(ctx->hzv_audio_ring);
+        ctx->hzv_audio_ring = NULL;
+    }
+    if (ctx->hzv_audio_lock != NULL) {
+        luat_rtos_mutex_delete(ctx->hzv_audio_lock);
+        ctx->hzv_audio_lock = NULL;
+    }
+    if (ctx->hzv_audio != NULL) {
+        luat_hzv_audio_close(ctx->hzv_audio);
+        ctx->hzv_audio = NULL;
+    }
+    ctx->hzv_audio_head = 0;
+    ctx->hzv_audio_tail = 0;
+    ctx->hzv_audio_eof = 0;
 }
 #endif
 
@@ -338,20 +476,34 @@ luat_vp_ctx_t* luat_videoplayer_open(const char *path) {
         ctx->height = info->video_height;
         ctx->hzv_timescale = info->timescale;
         ctx->hzv = reader;
-#ifdef LUAT_USE_AUDIO_V2
         if (info->audio_codec == LUAT_HZV_AUDIO_MP3) {
             ctx->hzv_audio_rate = info->audio_sample_rate;
             ctx->hzv_audio_channels = (uint8_t)info->audio_channels;
             ctx->hzv_audio_bits = (uint8_t)info->audio_bits;
-            int audio_ret = luat_hzv_extract_audio(reader, &ctx->hzv_audio_data, &ctx->hzv_audio_size);
-            if (audio_ret != LUAT_HZV_OK) {
-                VP_LOGW("HZV audio extract failed: %d", audio_ret);
+            ctx->hzv_audio = luat_hzv_audio_open(reader);
+            if (ctx->hzv_audio == NULL) {
+                VP_LOGW("HZV audio cursor open failed");
+            } else if (luat_rtos_mutex_create(&ctx->hzv_audio_lock) != 0) {
+                VP_LOGW("HZV audio lock failed");
+                luat_hzv_audio_close(ctx->hzv_audio);
+                ctx->hzv_audio = NULL;
             } else {
-                VP_LOGD("HZV audio extracted: %u bytes", (unsigned)ctx->hzv_audio_size);
+                ctx->hzv_audio_ring = (uint8_t *)VP_MALLOC(HZV_AUDIO_RING);
+                if (ctx->hzv_audio_ring == NULL) {
+                    VP_LOGW("HZV audio window alloc failed");
+                    luat_rtos_mutex_delete(ctx->hzv_audio_lock);
+                    ctx->hzv_audio_lock = NULL;
+                    luat_hzv_audio_close(ctx->hzv_audio);
+                    ctx->hzv_audio = NULL;
+                } else {
+                    hzv_audio_pump(ctx);
+                    VP_LOGI("HZV audio prefetch %u bytes",
+                            (unsigned)(ctx->hzv_audio_head - ctx->hzv_audio_tail));
+                }
             }
         }
-#endif
         if (init_decoder(ctx) != LUAT_VP_OK) {
+            hzv_audio_release(ctx);
             luat_hzv_close(reader);
             VP_FREE(ctx);
             return NULL;
@@ -416,13 +568,7 @@ void luat_videoplayer_close(luat_vp_ctx_t *ctx) {
         luat_hzv_close(ctx->hzv);
         ctx->hzv = NULL;
     }
-#ifdef LUAT_USE_AUDIO_V2
-    if (ctx->hzv_audio_data) {
-        luat_hzv_free_buffer(ctx->hzv_audio_data);
-        ctx->hzv_audio_data = NULL;
-        ctx->hzv_audio_size = 0;
-    }
-#endif
+    hzv_audio_release(ctx);
 #endif
 
     if (ctx->decoder_ops && ctx->decoder_ctx) {
@@ -458,6 +604,7 @@ int luat_videoplayer_read_frame(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame) {
         int ret;
 
         if (ctx->eof) return LUAT_VP_ERR_EOF;
+        hzv_audio_pump(ctx);
         ret = luat_hzv_read_video(ctx->hzv, &packet);
         if (ret == LUAT_HZV_EOF) {
             ctx->eof = 1;
@@ -537,6 +684,7 @@ int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, u
 
         if (ctx->eof) return LUAT_VP_ERR_EOF;
         if (out_buf_size < required) return LUAT_VP_ERR_PARAM;
+        hzv_audio_pump(ctx);
         ret = luat_hzv_read_video(ctx->hzv, &packet);
         if (ret == LUAT_HZV_EOF) {
             ctx->eof = 1;
@@ -695,13 +843,23 @@ int luat_videoplayer_play(luat_vp_ctx_t *ctx)
 {
     if (ctx == NULL) return LUAT_VP_ERR_PARAM;
 #if defined(LUAT_USE_HZV) && defined(LUAT_USE_AUDIO_V2)
-    if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv_audio_data && ctx->hzv_audio_size) {
+    if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv_audio_ring != NULL) {
         luat_audio_common_param_t common_param;
         const luat_audio_data_codec_opts_t *codec;
+        size_t queued;
         int ret;
         if (ctx->hzv_audio_started) {
             return luat_audio_channel_play(ctx->hzv_audio_request.data_channel, 1) == 0 ?
                 LUAT_VP_OK : LUAT_VP_ERR_IO;
+        }
+        hzv_audio_pump(ctx);
+        if (luat_rtos_mutex_lock(ctx->hzv_audio_lock, LUAT_WAIT_FOREVER) != 0) {
+            return LUAT_VP_ERR_IO;
+        }
+        queued = hzv_ring_used(ctx);
+        luat_rtos_mutex_unlock(ctx->hzv_audio_lock);
+        if (queued == 0u && ctx->hzv_audio_eof) {
+            return LUAT_VP_OK;
         }
         memset(&ctx->hzv_audio_request, 0, sizeof(ctx->hzv_audio_request));
         luat_audio_request_init(&ctx->hzv_audio_request);
@@ -714,7 +872,6 @@ int luat_videoplayer_play(luat_vp_ctx_t *ctx)
         if (codec == NULL) return LUAT_VP_ERR_NOIMPL;
         ctx->hzv_audio_done = 0;
         ctx->hzv_audio_driver_started = 0;
-        ctx->hzv_audio_feed_offset = 0;
         ctx->hzv_clock_anchor_valid = 0;
         ctx->hzv_audio_started = 1;
         ret = luat_audio_request_play_stream(&ctx->hzv_audio_request, NULL, codec,
@@ -771,17 +928,26 @@ int luat_videoplayer_rewind(luat_vp_ctx_t *ctx)
         if (luat_hzv_rewind(ctx->hzv) != LUAT_HZV_OK) {
             return LUAT_VP_ERR_IO;
         }
-#if defined(LUAT_USE_AUDIO_V2)
-        if (ctx->hzv_audio_data != NULL && ctx->hzv_audio_size > 0) {
+        if (ctx->hzv_audio != NULL) {
             int ret;
-            /* 停掉当前 DAC，再用同一份内存音频从头播。不重新抽包。 */
+            /* 先停 DAC，回调退出后再把游标和环形窗拨回开头。 */
             luat_videoplayer_stop(ctx);
+            ret = luat_hzv_audio_rewind(ctx->hzv_audio);
+            if (ret != LUAT_HZV_OK) {
+                return LUAT_VP_ERR_IO;
+            }
+            if (luat_rtos_mutex_lock(ctx->hzv_audio_lock, LUAT_WAIT_FOREVER) != 0) {
+                return LUAT_VP_ERR_IO;
+            }
+            ctx->hzv_audio_head = 0;
+            ctx->hzv_audio_tail = 0;
+            ctx->hzv_audio_eof = 0;
+            luat_rtos_mutex_unlock(ctx->hzv_audio_lock);
             ret = luat_videoplayer_play(ctx);
             if (ret != LUAT_VP_OK) {
                 return ret;
             }
         }
-#endif
         return LUAT_VP_OK;
     }
 #endif
@@ -857,6 +1023,9 @@ int luat_videoplayer_get_av_clock(luat_vp_ctx_t *ctx, luat_vp_av_clock_t *clock)
     if (ctx == NULL || clock == NULL) return LUAT_VP_ERR_PARAM;
     memset(clock, 0, sizeof(*clock));
 #if defined(LUAT_USE_HZV) && defined(LUAT_USE_AUDIO_V2)
+    if (ctx->format == LUAT_VP_FMT_HZV) {
+        hzv_audio_pump(ctx);
+    }
     if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv_audio_started) {
         luat_audio_play_clock_t audio_clock;
         if (luat_audio_request_get_play_clock(&ctx->hzv_audio_request, &audio_clock) == 0) {

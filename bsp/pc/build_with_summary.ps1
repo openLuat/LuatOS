@@ -11,6 +11,9 @@ param(
     [ValidateSet("y", "n")]
     [string]$Mgba = "n",
 
+    [ValidateSet("y", "n")]
+    [string]$Mp4player = "n",
+
     [ValidateSet("summary", "full")]
     [string]$Mode = $(if ($env:LUAT_BUILD_MODE) { $env:LUAT_BUILD_MODE } else { "summary" }),
 
@@ -248,7 +251,7 @@ function Invoke-XmakeStep {
 
 Push-Location $PSScriptRoot
 try {
-    Write-Section "mode=$Mode clean=$($Clean.IsPresent) arch=$Arch vm64=$Vm64 gui=$Gui mgba=$Mgba"
+    Write-Section "mode=$Mode clean=$($Clean.IsPresent) arch=$Arch vm64=$Vm64 gui=$Gui mgba=$Mgba mp4player=$Mp4player"
     Write-Section "full log: $logPath"
 
     $env:VM_64bit = $Vm64
@@ -258,6 +261,12 @@ try {
     }
     else {
         Remove-Item Env:LUAT_USE_MGBA -ErrorAction SilentlyContinue
+    }
+    if ($Mp4player -eq "y") {
+        $env:LUAT_USE_MP4PLAYER = "y"
+    }
+    else {
+        Remove-Item Env:LUAT_USE_MP4PLAYER -ErrorAction SilentlyContinue
     }
 
     Invoke-XmakeStep -Step "theme" -Arguments @("g", "--theme=plain")

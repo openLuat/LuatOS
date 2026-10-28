@@ -114,6 +114,14 @@ static void disp_output(int width, int height, unsigned char **yuv, int *linesiz
 
     YUV_RGB_565(g_video_layer.buffer, width, height, &p);
 
+    /* 真机靠 LCDC 扫描这块缓冲。PC 的 refresh_layer 非空时只标记需要贴图。 */
+    {
+        struct luat_display *display = luat_display_get_default();
+        if (display != NULL && display->display_funcs != NULL &&
+            display->display_funcs->refresh_layer != NULL) {
+            display->display_funcs->refresh_layer(&g_video_layer);
+        }
+    }
 }
 
 /* MP4 解码线程入口*/

@@ -10,7 +10,7 @@
 固件缺少路由选择时仅提供phone模式，避免把CC音频错误接到单SIP。
 ]]
 assert(fskv and fskv.init(), "fskv unavailable")
-local saved = fskv.get("sip_task_v1")
+local saved = require("aircloud_settings").record
 if type(saved) ~= "table" then saved = {revision="0", boot_count=0} end
 if saved.runtime_mode ~= "single" and saved.runtime_mode ~= "phone" then
     saved.runtime_mode = saved.task and saved.task.mode ~= "phone" and "single" or "phone"

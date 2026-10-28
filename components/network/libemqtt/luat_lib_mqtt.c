@@ -590,11 +590,14 @@ static int l_mqtt_auth(lua_State *L) {
 
 /*
 mqtt心跳设置
-@api mqttc:keepalive(time)
-@int 可选 单位s 默认240s. 最先15,最高600
+@api mqttc:keepalive(time, mode)
+@int 可选 单位s 默认240s. 最低15,最高600
+@int 可选 心跳模式, 默认0. 0=固定周期发送PINGREQ; 1=发送任意报文后重新计时, 空闲满0.75倍keepalive才发PINGREQ
 @return nil 无返回值
-@usage 
+@usage
 mqttc:keepalive(30)
+-- 低功耗长连接: 有业务上报时自动推迟心跳, 减少唤醒次数
+mqttc:keepalive(600, 1)
 */
 static int l_mqtt_keepalive(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
@@ -604,6 +607,9 @@ static int l_mqtt_keepalive(lua_State *L) {
 	if (timeout > 600)
 		timeout = 600;
 	mqtt_ctrl->keepalive = timeout;
+	if (lua_isinteger(L, 3)) {
+		mqtt_ctrl->keepalive_mode = lua_tointeger(L, 3) == 1 ? 1 : 0;
+	}
 	return 0;
 }
 

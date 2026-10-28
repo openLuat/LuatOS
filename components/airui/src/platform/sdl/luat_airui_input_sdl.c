@@ -9,6 +9,7 @@
 #if defined(LUAT_USE_AIRUI_SDL2)
 
 #include "luat_airui.h"
+#include "luat_airui_display_sdl_priv.h"
 #include "luat_airui_component.h"
 #include "luat_airui_conf.h"
 #include "luat_lcd.h"
@@ -56,23 +57,6 @@ static bool g_keypad_enabled = false; // 按键是否启用
 
 static luat_rtos_timer_t g_sdl_sleep_pump_timer = NULL; // SDL 休眠泵定时器
 static bool g_sdl_sleep_pump_posted = false; // SDL 休眠泵是否已投递
-
-/** SDL 输入驱动私有数据 */
-typedef struct {
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
-    uint16_t width;
-    uint16_t height;
-    lv_color_format_t color_format;
-    uint8_t reuse_lcd;
-    luat_lcd_conf_t *lcd_conf;
-    uint8_t *rotation_buf;
-    uint32_t rotation_buf_size;
-    int last_window_w;
-    int last_window_h;
-    uint8_t adjusting_window_size;
-} airui_sdl_display_data_t;
 
 static bool sdl_input_use_upright_preview(void)
 {
@@ -501,7 +485,7 @@ static void sdl_process_keyboard_event(const SDL_Event *event, airui_ctx_t *ctx,
  * @param window SDL 窗口
  */
 static void sdl_process_window_event_passive(airui_ctx_t *ctx, const SDL_Event *event,
-                                             airui_sdl_display_data_t *display_data, SDL_Window *window)
+                                             sdl_display_data_t *display_data, SDL_Window *window)
 {
 #if !defined(_WIN32)
     if (event == NULL || display_data == NULL || window == NULL || event->type != SDL_WINDOWEVENT) {
@@ -562,7 +546,7 @@ static int sdl_input_pump_events_passive_msg_handler(lua_State *L, void *ptr)
 {
     (void)L;
     airui_ctx_t *ctx = (airui_ctx_t *)ptr;
-    airui_sdl_display_data_t *display_data = ctx ? (airui_sdl_display_data_t *)ctx->platform_data : NULL;
+    sdl_display_data_t *display_data = ctx ? (sdl_display_data_t *)ctx->platform_data : NULL;
     SDL_Window *window = NULL;
     SDL_Event event;
 
@@ -582,8 +566,8 @@ static int sdl_input_pump_events_passive_msg_handler(lua_State *L, void *ptr)
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             LLOGI("SDL_QUIT received during sleep, shutting down");
+            SDL_StopTextInput();
             airui_deinit(ctx);
-            SDL_Quit();
             exit(0);
         }
 
@@ -634,10 +618,8 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev
         return false;
     }
     
-    // platform_data 被显示驱动使用，存储的是 sdl_display_data_t
-    // 我们需要通过它来访问 SDL 窗口
-    // 注意：这里需要与 luat_airui_display_sdl.c 中的结构体定义保持一致
-    airui_sdl_display_data_t *display_data = (airui_sdl_display_data_t *)ctx->platform_data;
+    /* platform_data 是显示驱动的 sdl_display_data_t，定义在 luat_airui_display_sdl_priv.h。 */
+    sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
     SDL_Window *window = display_data->window;
     if (window == NULL && display_data->reuse_lcd) {
         window = (SDL_Window *)luat_sdl2_get_window();
@@ -688,10 +670,10 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev
                 has_event = true;
             }
         } else if (event.type == SDL_QUIT) {
-            // 窗口关闭时 SDL 会发出 SDL_QUIT，优雅清理并退出程序
+            /* 不要在 PollEvent 里面 SDL_Quit。Windows 会在拆 IME 时访问已释放的键盘状态。 */
             LLOGI("SDL_QUIT received, shutting down");
+            SDL_StopTextInput();
             airui_deinit(ctx);
-            SDL_Quit();
             exit(0);
         } else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) {
             sdl_process_keyboard_event(&event, ctx, true);
@@ -888,24 +870,6 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
         return;
     }
 
-    // 复制 SDL 显示私有数据类型定义（与 display 驱动同步）
-    typedef struct {
-        SDL_Window *window;
-        SDL_Renderer *renderer;
-        SDL_Texture *texture;
-        uint16_t width;
-        uint16_t height;
-        lv_color_format_t color_format;
-        uint8_t reuse_lcd;
-        luat_lcd_conf_t *lcd_conf;
-        uint8_t *rotation_buf;
-        uint32_t rotation_buf_size;
-        int last_window_w;
-        int last_window_h;
-        uint8_t adjusting_window_size;
-    } sdl_display_data_t;
-
-    // 获取 display_data 指针并判空
     sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
     if (display_data == NULL) {
         return;

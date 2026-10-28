@@ -9,8 +9,10 @@
 #if defined(LUAT_USE_AIRUI_SDL2)
 
 #include "luat_airui.h"
+#include "luat_airui_display_sdl_priv.h"
 #include "luat_airui_conf.h"
 #include "luat_lcd.h"
+#include "luat_display.h"
 #include "luat_sdl2.h"
 #include "luat_pcsim_host.h"
 #include "lvgl9/src/draw/lv_draw_buf.h"
@@ -30,32 +32,10 @@
 // 屏幕适配比例, 当画面超过屏幕长宽时，缩放到屏幕长宽的90%以内
 #define AIRUI_SDL_SCREEN_FIT_PERCENT 90
 
-/** SDL 显示驱动私有数据 */
-typedef struct {
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
-    uint16_t width;
-    uint16_t height;
-    lv_color_format_t color_format;
-    uint8_t reuse_lcd;
-    luat_lcd_conf_t *lcd_conf;
-    uint8_t *rotation_buf;
-    uint32_t rotation_buf_size;
-    int last_window_w;
-    int last_window_h;
-    uint8_t adjusting_window_size;
-#if defined(_WIN32)
-    HWND hwnd;
-    WNDPROC prev_wndproc;
-    int frame_w;
-    int frame_h;
-#endif
-} sdl_display_data_t;
-
 static void sdl_display_present_current_frame(sdl_display_data_t *data);
 static void sdl_display_blackout(sdl_display_data_t *data);
 static void sdl_display_deinit(airui_ctx_t *ctx);
+static void sdl_display_overlay_timer_cb(lv_timer_t *timer);
 
 static bool sdl_display_use_upright_preview(void)
 {
@@ -385,7 +365,7 @@ static void sdl_display_get_preview_size(airui_ctx_t *ctx, uint16_t native_w, ui
 
 static int sdl_display_ensure_preview_target(airui_ctx_t *ctx, sdl_display_data_t *data)
 {
-    if (ctx == NULL || data == NULL || data->reuse_lcd) {
+    if (ctx == NULL || data == NULL || data->reuse_lcd || data->reuse_display) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
@@ -501,6 +481,34 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
         LLOGI("reuse lcd sdl2 window for airui");
         return AIRUI_OK;
     }
+
+    /* 真机是先 display.init 再让 AirUI 挂上去。PC 上同样复用这块 SDL 屏，不再另开窗口。 */
+    {
+        struct luat_display *disp = luat_display_get_default();
+        void *window = luat_display_sdl_get_window(disp);
+        if (disp != NULL && disp->display_funcs != NULL && disp->display_funcs->name != NULL &&
+            strcmp(disp->display_funcs->name, "sdl") == 0 && window != NULL) {
+            if (fmt != LV_COLOR_FORMAT_RGB565) {
+                LLOGE("reuse display sdl requires RGB565, fmt=%d", (int)fmt);
+                free(data);
+                return AIRUI_ERR_INVALID_PARAM;
+            }
+            data->reuse_display = 1;
+            data->display_conf = disp;
+            data->window = (SDL_Window *)window;
+            data->renderer = (SDL_Renderer *)luat_display_sdl_get_renderer(disp);
+            data->texture = (SDL_Texture *)luat_display_sdl_get_texture(disp);
+            ctx->platform_data = data;
+            if (luat_pcsim_host_bind(data->window, data->renderer, data->texture, w, h) != 0) {
+                free(data);
+                ctx->platform_data = NULL;
+                return AIRUI_ERR_INIT_FAILED;
+            }
+            data->overlay_timer = lv_timer_create(sdl_display_overlay_timer_cb, 16, NULL);
+            LLOGI("reuse display sdl window for airui");
+            return AIRUI_OK;
+        }
+    }
     
     uint16_t preview_w = w;
     uint16_t preview_h = h;
@@ -585,6 +593,13 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
     return AIRUI_OK;
 }
 
+/* 界面没有脏区时 LVGL 不会调用 flush。这个定时器跟刷新周期走，只在有新视频帧时贴图。 */
+static void sdl_display_overlay_timer_cb(lv_timer_t *timer)
+{
+    (void)timer;
+    luat_display_sdl_present_overlay();
+}
+
 /**
  * SDL2 显示驱动 flush
  * @param ctx 上下文指针
@@ -600,6 +615,53 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
     sdl_display_data_t *data = (sdl_display_data_t *)ctx->platform_data;
     
     if (px_map == NULL) {
+        return;
+    }
+
+    if (data->reuse_display && data->display_conf != NULL) {
+        lv_display_rotation_t rotation = lv_display_get_rotation(ctx->display);
+        const uint8_t *draw_px = px_map;
+        lv_area_t draw_area = *area;
+        uint32_t area_w;
+        uint32_t area_h;
+        uint32_t stride;
+
+        if (data->color_format != LV_COLOR_FORMAT_RGB565) {
+            lv_display_flush_ready(ctx->display);
+            return;
+        }
+        if (rotation != LV_DISPLAY_ROTATION_0) {
+            lv_color_format_t cf = LV_COLOR_FORMAT_RGB565;
+            uint32_t src_w = (uint32_t)lv_area_get_width(area);
+            uint32_t src_h = (uint32_t)lv_area_get_height(area);
+            uint32_t src_stride = lv_draw_buf_width_to_stride(src_w, cf);
+            uint32_t dest_w;
+            uint32_t dest_h;
+            uint32_t dest_stride;
+            uint8_t *rotate_buf;
+
+            lv_display_rotate_area(ctx->display, &draw_area);
+            dest_w = (uint32_t)lv_area_get_width(&draw_area);
+            dest_h = (uint32_t)lv_area_get_height(&draw_area);
+            dest_stride = dest_w * 2U;
+            rotate_buf = sdl_display_get_rotation_buf(data, dest_stride * dest_h);
+            if (rotate_buf == NULL) {
+                lv_display_flush_ready(ctx->display);
+                return;
+            }
+            lv_draw_sw_rotate(px_map, rotate_buf, (int32_t)src_w, (int32_t)src_h,
+                              (int32_t)src_stride, (int32_t)dest_stride, rotation, cf);
+            draw_px = rotate_buf;
+        }
+        area_w = (uint32_t)lv_area_get_width(&draw_area);
+        area_h = (uint32_t)lv_area_get_height(&draw_area);
+        stride = (rotation == LV_DISPLAY_ROTATION_0)
+                     ? lv_draw_buf_width_to_stride(area_w, LV_COLOR_FORMAT_RGB565)
+                     : area_w * 2U;
+        luat_display_sdl_blit(data->display_conf, draw_area.x1, draw_area.y1,
+                              (int32_t)area_w, (int32_t)area_h, draw_px, stride,
+                              lv_display_flush_is_last(ctx->display) ? 1 : 0);
+        lv_display_flush_ready(ctx->display);
         return;
     }
 
@@ -796,6 +858,21 @@ static void sdl_display_deinit(airui_ctx_t *ctx)
     
     sdl_display_data_t *data = (sdl_display_data_t *)ctx->platform_data;
     luat_pcsim_host_unbind();
+
+    if (data->reuse_display) {
+        if (data->overlay_timer != NULL) {
+            lv_timer_delete(data->overlay_timer);
+            data->overlay_timer = NULL;
+        }
+        if (data->rotation_buf != NULL) {
+            free(data->rotation_buf);
+            data->rotation_buf = NULL;
+            data->rotation_buf_size = 0;
+        }
+        free(data);
+        ctx->platform_data = NULL;
+        return;
+    }
 
     if (data->reuse_lcd) {
         luat_sdl2_set_upright_preview(0, 0, 0, 0);

@@ -62,4 +62,6 @@ config.keys = {
     debounce_ms = 150,
 }
 
+local saved=require("aircloud_settings").saved
+if saved and saved.audio then for k,v in pairs(saved.audio) do config.audio[k]=v end end
 return config

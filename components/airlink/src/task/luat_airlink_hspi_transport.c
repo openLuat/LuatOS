@@ -20,6 +20,7 @@
 #include "luat_mcu.h"
 
 extern airlink_statistic_t g_airlink_statistic;
+extern uint32_t g_airlink_pause;
 #include "luat_gpio.h"
 /* FreeRTOS — 用于 vTaskNotifyGiveFromISR / ulTaskNotifyTake / xTaskGetCurrentTaskHandle */
 #include "FreeRTOS.h"
@@ -104,6 +105,18 @@ static int hspi_int_irq_cb(int pin, void* args) {
     return 0;
 }
 
+// PIT 1ms 周期定时器: 兜底唤醒传输任务轮询 (不依赖 FreeRTOS tick)。
+// 根因: configTICK_RATE_HZ=50 时 pdMS_TO_TICKS(1)=(1*50)/1000=0 退化成忙等;
+//       soc_timer(PIT) 由 luat_rtos_timer_start 驱动, 1ms 精度与 tick 无关。
+static luat_rtos_timer_t g_hspi_pit_timer = NULL;
+static void hspi_pit_timer_cb(void *param) {
+    (void)param;
+    // timer_start_ms 走任务上下文回调 (timer_task 分发), 故用 xTaskNotifyGive 而非 FromISR
+    if (g_hspi_task_handle != NULL) {
+        xTaskNotifyGive(g_hspi_task_handle);
+    }
+}
+
 static void hspi_int_gpio_init(void) {
     if (g_airlink_spi_conf.irq_pin == 0) {
         LLOGW("HSPI INT pin not configured, skip INT GPIO init (polling mode)");
@@ -136,6 +149,12 @@ static int      s_spi_id = HSPI_DEFAULT_SPI_ID;
 static int      s_cs_pin = HSPI_DEFAULT_CS_PIN;
 static uint32_t s_speed  = HSPI_DEFAULT_SPEED;
 
+/* 轮询直读 SPI (SDK luat_spi_ccm42xx.c), 跳过 DMA+信号量路径。
+ * 根因: luat_spi_transfer 对大帧(len>=speed>>20≈9B@10MHz)走 spi_master_transfer
+ *       (256B×N DMA 分包 + 每包中断/缓存失效 + 末尾信号量往返), 每帧实测 2ms,
+ *       而 1604B@10MHz 理论仅 1.28ms → 每帧 ~0.7ms 纯开销。轮询路径无此开销。 */
+extern void luat_spi_fast_transfer(int spi_id, const void* send_buf, void* recv_buf, size_t recv_length);
+
 int xt804_hspi_spi_xfer(const uint8_t *tx, uint8_t *rx, uint16_t len) {
     if (!g_spi_inited) {
         // SPI id/CS/速度由 airlink.config() 配置 (g_airlink_spi_conf), 未配置时用默认值
@@ -163,15 +182,14 @@ int xt804_hspi_spi_xfer(const uint8_t *tx, uint8_t *rx, uint16_t len) {
     }
     // CS 低 → 传输 → CS 高（确保 XT804 检测到 CS 上升沿）
     luat_gpio_set(s_cs_pin, 0);
-    int ret = luat_spi_transfer(s_spi_id, (const char*)tx, len, (char*)rx, len);
+    luat_spi_fast_transfer(s_spi_id, tx, rx, len);   // 轮询直读, 无 DMA/信号量开销
     luat_gpio_set(s_cs_pin, 1);
-    return ret;
+    return len;
 }
 
 // ==================== 传输任务 ====================
 
-#define HSPI_CYCLE_MS       20      // 等命令超时：空载时休眠时长
-#define HSPI_OFFLINE_CNT    1500    // 1500×~20ms=30s 无数据才判离线（原60仅1.2s，易误判）
+#define HSPI_OFFLINE_CNT    30000   // 30000×~1ms=30s 无数据才判离线（PIT 1ms 兜底周期；原 1500×20ms）
 #define HSPI_ERR_THRESHOLD  10      // 连续 10 次校验错误触发复位
 #define HSPI_HEARTBEAT_MS   2000    // 空闲心跳: 每 2s 主动发 devinfo(0x10), 激活从机+保 ready() (与 UART 对齐)
 
@@ -241,7 +259,8 @@ static int hspi_handle_interrupt(void) {
 }
 
 // 读数据时周期性冲发积压的 ACK，避免 ACK 憋到数据流停顿才发导致 RTT 过高
-#define HSPI_ACK_FLUSH_BATCH 8
+// 8→1: 下载 373帧/s 下 8 帧≈21ms，ACK 被白白攒批 ~21ms，直接推高 RTT；改每帧 flush 砍掉 ~18ms
+#define HSPI_ACK_FLUSH_BATCH 1
 
 static void hspi_flush_ip_pkg(void) {
     airlink_queue_item_t item = {0};
@@ -283,6 +302,13 @@ static void hspi_transport_task(void *param) {
     g_hspi_task_handle = xTaskGetCurrentTaskHandle();
     g_running = 1;
 
+    // 创建 1ms 周期 PIT 定时器: 兜底唤醒传输任务轮询 (见 hspi_pit_timer_cb)
+    if (luat_rtos_timer_create(&g_hspi_pit_timer) == 0) {
+        luat_rtos_timer_start(g_hspi_pit_timer, 1, 1, hspi_pit_timer_cb, NULL);
+    } else {
+        LLOGW("HSPI PIT timer create failed, fallback to blocking wait");
+    }
+
     // 创建独立 FOTA 任务 (FOTA 期间不阻塞本传输任务收发)
     luat_airlink_hspi_fota_task_create();
 
@@ -311,6 +337,18 @@ static void hspi_transport_task(void *param) {
     uint64_t last_hb_ms = 0;
 
     while (g_running) {
+        // 暂停检查
+        if (g_airlink_pause) {
+            if (g_airlink_pause_mutex) {
+                luat_rtos_mutex_lock(g_airlink_pause_mutex, LUAT_WAIT_FOREVER);
+                luat_rtos_mutex_unlock(g_airlink_pause_mutex);
+            } else {
+                while (g_airlink_pause) {
+                    luat_rtos_task_sleep(1000);
+                }
+            }
+        }
+
         // 空闲心跳发送 (每 2s): 激活从机 + 刷新 ready() 时间戳
         if (luat_mcu_tick64_ms() - last_hb_ms >= HSPI_HEARTBEAT_MS) {
             last_hb_ms = luat_mcu_tick64_ms();
@@ -371,13 +409,14 @@ static void hspi_transport_task(void *param) {
                 }
             }
             if (!g_peer_online) {
-                ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
+                // 离线: 靠 PIT 1ms / INT notify 唤醒后继续嗅探 (彻底不依赖 tick)
+                ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
                 continue;
             }
             // online了, 继续执行 Phase 2
         }
 
-        // ===== Phase 2: 等命令 (定向通知 + 超时) =====
+        // ===== Phase 2: 等命令 (INT 中断 + PIT 1ms 定时器, 均 notify 唤醒) =====
         int has_cmd = -1;
         airlink_queue_item_t item = {0};
 
@@ -385,50 +424,27 @@ static void hspi_transport_task(void *param) {
         if (luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_CMD, &item, 0) == 0) {
             has_cmd = 0;
         } else {
-            // 进入循环前先非阻塞消费可能积压的通知
-            if (ulTaskNotifyTake(pdTRUE, 0) > 0) {
-                if (hspi_handle_interrupt())
-                    g_idle_cnt = 0;
-                continue;
-            }
-            // 循环等通知 (INT 来了立即跳出)
-            uint32_t elapsed = 0;
-            while (elapsed < HSPI_CYCLE_MS) {
-                uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1));
-                if (notified > 0) {
-                    // INT 来了 — 在读数据前先看看有没有命令要发
-                    // 但要记得: INT 可能意味着新数据, 需要先读后写
-                    if (hspi_handle_interrupt())
-                        g_idle_cnt = 0;
-                    // 读完数据后继续检查命令, 不 break
-                    // 但重新检查 CMD 队列
-                    if (luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_CMD, &item, 0) == 0) {
-                        has_cmd = 0;
-                        break;
-                    }
-                    // 没有命令, 继续等周期结束
-                    continue;
-                }
-                elapsed += 1;
-                // INT 通知在连续灌流时不可靠(0x06 读可清边沿)，超时后主动轮询，避免空等
-                if (hspi_handle_interrupt()) {
-                    g_idle_cnt = 0;
-                    // 不 break, 继续 while 轮询下一帧, 变紧读循环
-                }
-                // 超时: 检查 IPPKG 队列
-                if (luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0) == 0) {
-                    has_cmd = 0;
-                    break;
-                }
-            }
-        }
-        // Phase 2 未取到命令 → 先非阻塞检查从机是否有自主上行数据
-        // 从机(103)可能自主上报 WiFi 状态等通知, 此时不应判离线
-        if (has_cmd != 0) {
+            // 无限等待: INT 中断(从机有数据→边沿→ISR notify) 或 PIT 1ms 定时器(兜底轮询) 任一唤醒。
+            // portMAX_DELAY 不进延时列表, 唤醒完全靠 notify, 与 configTICK_RATE_HZ 无关
+            // (tick=50 下 pdMS_TO_TICKS(1)=0 会退化成忙等饿死 lwip, 故不再用 tick 超时)。
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+            // 唤醒后优先读数据: INT 边沿意味着从机有数据, 也可能只是 PIT 兜底轮询
             if (hspi_handle_interrupt()) {
                 g_idle_cnt = 0;
-                continue;  // 有线数据, 回到 Phase 1 处理
+                continue;  // 读到数据, 回 Phase 1 连续读
             }
+
+            // 没数据 → 查命令队列
+            if (luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_CMD, &item, 0) == 0) {
+                has_cmd = 0;
+            } else if (luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0) == 0) {
+                has_cmd = 0;
+            }
+            // has_cmd 仍 -1: 无数据无命令 → 走下方离线计数
+        }
+        // Phase 2 未取到命令 → 无数据无命令 (从机自主上行已在唤醒后读过), 累计离线计数
+        if (has_cmd != 0) {
             g_airlink_statistic.event_timeout.total++;
             if (g_peer_online && ++g_idle_cnt >= HSPI_OFFLINE_CNT) {
                 g_peer_online = 0;
@@ -480,6 +496,12 @@ static void hspi_transport_task(void *param) {
 
     LLOGI("HSPI master transport stopped");
     g_running = 0;
+    // 清理 PIT 兜底定时器
+    if (g_hspi_pit_timer) {
+        luat_rtos_timer_stop(g_hspi_pit_timer);
+        luat_rtos_timer_delete(g_hspi_pit_timer);
+        g_hspi_pit_timer = NULL;
+    }
     g_hspi_task_handle = NULL;
     luat_rtos_task_delete(NULL);
 }
@@ -492,8 +514,9 @@ int luat_airlink_start_hspi_master(void) {
         return -1;
     }
     g_running = 1;
-    // 优先级提到 lwip(110) 之上，让读帧即时执行，避免下载时被 lwip 抢占拖慢
-    int ret = luat_rtos_task_create(&g_task_hdl, 8 * 1024, 120,
+    // 优先级 50（低于 lwip 110）：transport 任务唤醒后快速读帧即再次阻塞(notify 唤醒)，
+    // 不长时间占 CPU；TO() 宏修复后队列检查非阻塞，读帧不被 lwip 抢占拖慢(实测 935KB/s)。
+    int ret = luat_rtos_task_create(&g_task_hdl, 8 * 1024, 50,
                                     "hspi", hspi_transport_task, NULL, 0);
     if (ret != 0) {
         LLOGE("HSPI master task create failed %d", ret);

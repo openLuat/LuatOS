@@ -20,7 +20,7 @@
 #endif
 #include "luat_mcu.h"
 #if defined(LUAT_USE_CC_VOIP_BRIDGE) && defined(LUAT_USE_AUDIO_V2)
-#include "../../cc/luat_cc_bridge.h"
+#include "../../cc/cc_bridge/luat_cc_bridge.h"
 #endif
 #ifdef LUAT_USE_VOIP_AUDIO_PORT
 #include "luat_voip_audio_port.h"

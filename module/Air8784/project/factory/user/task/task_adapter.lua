@@ -13,6 +13,7 @@
 local runtime = require "task_runtime"
 local exsip = require "exsip"
 local voice = require "task_voice"
+local call_voice = require "call_voice"
 local air1103 = require "air1103"
 local cc_sip, cc_app
 local state, failed, pending = "INIT", false, false
@@ -47,7 +48,7 @@ local function calls_idle()
     return cc_sip.get_state() == "sip_idle" and cc_app.get_state() == "cc_idle"
 end
 function adapter.idle()
-    return not pending and not voice.is_playing() and calls_idle() and not exsip.is_voip_running()
+    return not pending and not voice.is_playing() and not call_voice.is_busy() and calls_idle() and not exsip.is_voip_running()
 end
 function adapter.ready()
     if not adapter.idle() then return false end
@@ -68,11 +69,11 @@ function adapter.incoming() return runtime.active == "single" and state == "INCO
 function adapter.accept()
     if not pending then sys.publish("SIP_APP_MAIN_ACCEPT_REQ") end
 end
-function adapter.dial(number)
+function adapter.dial(number,mode,account_targets)
     if not adapter.ready() then return false end
     failed = false
     if runtime.active == "single" then
-        sys.publish("SIP_APP_MAIN_DIAL_REQ", "cloud-task", (#number == 16 and number or number .. "0"))
+        sys.publish("SIP_APP_MAIN_DIAL_REQ", "cloud-task", (account_targets and number or (#number == 16 and number or number .. "0")))
     else
         sys.publish("SIP_MESSAGE", json.encode({cmd="dial", number=number}))
     end
@@ -83,21 +84,29 @@ function adapter.hangup()
     else sys.publish("SIP_MESSAGE", json.encode({cmd="hangup"})) end
 end
 function adapter.reboot_pending() return pending end
-local function restart_when_idle()
-    if calls_idle() and not exsip.is_voip_running() then
-        log.info("task_runtime", "reboot to apply saved mode")
-        rtos.reboot()
-    else
-        log.info("task_runtime", "waiting for idle before reboot")
-        sys.timerStart(restart_when_idle, 1000)
-    end
+function adapter.safe_idle()
+    return calls_idle() and not voice.is_playing() and not call_voice.is_busy() and not exsip.is_voip_busy() and not air1103.is_running()
 end
 function adapter.mode_changed(next_mode)
-    if next_mode ~= runtime.active and runtime.switchable and not pending then
-        pending = true
-        log.info("task_runtime", "saved mode; reboot pending", next_mode)
-        sys.timerStart(restart_when_idle, 3000)
+    local settings=require "aircloud_settings"
+    settings.pending=next_mode~=runtime.active or not settings.same_connection(settings.saved.sip,settings.boot.sip)
+        or not settings.same(settings.saved.audio,settings.boot.audio)
+        or not settings.same(settings.saved.sos_sip_cc_peers,settings.boot.sos_sip_cc_peers)
+    pending=settings.pending
+    if not pending then settings.applied=require("sos_config").copy(settings.saved) end
+end
+function adapter.call_status()
+    local h=adapter.health()
+    return {registered=h.sip_registered,connected=adapter.connected(),state=state,
+        sip_state=runtime.active=="single" and state or cc_sip.get_state(),
+        cc_state=runtime.active=="single" and "disabled" or cc_app.get_state()}
+end
+function adapter.audio_status()
+    if runtime.active=="single" then
+        local audio = require "single_audio"
+        return audio.audio_status()
     end
+    return {supported=false,error="unsupported_feature"}
 end
 function adapter.health()
     local registered, audio_ready
@@ -112,7 +121,7 @@ function adapter.health()
     return {sip_registered=registered, audio_ready=audio_ready, call_idle=calls_idle() and not exsip.is_voip_running()}
 end
 local function announcement_ready()
-    if pending or not calls_idle() or exsip.is_voip_running() then return false end
+    if pending or call_voice.is_busy() or not calls_idle() or exsip.is_voip_running() then return false end
     local h=adapter.health()
     return h.sip_registered and h.audio_ready and h.call_idle
 end
@@ -126,7 +135,33 @@ local function restore_volume()
         local cc_bridge = require "cc_bridge"
         level=cc_bridge.get_state().local_audio and cfg.air1103_volume or 0
     end
-    air1103.set_volume(math.max(0,math.min(31,level or 0)))
+    require("exaudio").vol(math.ceil(math.max(0,math.min(31,level or 0))*100/31))
+end
+adapter.restore_volume=restore_volume
+-- Registration is independent of local audio recovery and cellular voice readiness.
+function adapter.speech_status()
+    if runtime.active=="single" then
+        local app=require "single_app"
+        local registered,_,epoch=app.status()
+        return registered,epoch
+    end
+    return cc_sip.is_registered()
+end
+function adapter.voice_busy_reason()
+    if runtime.active~="single" and cc_app.get_state()~="cc_idle" then return cc_app.get_state() end
+    if not calls_idle() then return "call_active" end
+    if call_voice.is_busy() or voice.is_playing() then return "announcement_playing" end
+    if exsip.is_voip_busy() then return "media_releasing" end
+    if not adapter.voice_ready() then return "audio_not_ready" end
+end
+function adapter.voice_call_idle()
+    return calls_idle() and not call_voice.is_busy() and not exsip.is_voip_busy()
+end
+function adapter.voice_ready()
+    if not adapter.voice_call_idle() then return false end
+    if runtime.active=="single" and (state=="AUDIO_RECOVERING" or state=="AUDIO_ERROR") then return false end
+    if runtime.active=="single" then return require("single_audio").is_ready() end
+    return require("cc_audio").is_ready()
 end
 function adapter.cancel_announcement() voice.cancel("call or new command") end
 function adapter.announcement_available() return not air1103.is_running() end

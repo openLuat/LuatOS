@@ -110,8 +110,8 @@ static int dac_sound_apply_format(void)
     if (dac_ctrl.i2s_opened &&
         dac_ctrl.applied_rate == dac_ctrl.sample_rate &&
         dac_ctrl.applied_channels == dac_ctrl.channels) {
-        /* Same format: never re-setup, it would clear the queued audio. */
-        luat_i2s_resume(DAC_PC_I2S_ID);
+        /* 格式没变就不要 setup。setup 会关掉设备并清掉队列。
+           恢复播放放到 dac_sound_start 里，先写入一段 PCM 再 resume。 */
         return 0;
     }
 
@@ -179,6 +179,14 @@ int dac_sound_start(int stream)
     }
 
     dac_ctrl.event_callback(SOUND_TX_START, dac_tx_fifo, dac_ctrl.user_data);
+
+    /* SDL 设备欠载后，对仍处于播放状态的设备再排队不会重新出声。
+       先在暂停状态下写入一段 PCM，再恢复播放。 */
+    memset(dac_tx_fifo, 0, SOUND_TX_FIFO_PERIOD_SIZE);
+    dac_ctrl.event_callback(SOUND_TX_PERIOD, dac_tx_fifo, dac_ctrl.user_data);
+    luat_i2s_send(DAC_PC_I2S_ID, dac_tx_fifo, SOUND_TX_FIFO_PERIOD_SIZE);
+    luat_i2s_resume(DAC_PC_I2S_ID);
+    
     dac_playing = 1;
 
     if (dac_pump_task == NULL) {
@@ -218,6 +226,11 @@ int dac_sound_stop(int stream)
 
     if (dac_ctrl.event_callback) {
         dac_ctrl.event_callback(SOUND_TX_STOP, dac_tx_fifo, dac_ctrl.user_data);
+    }
+
+    /* 暂停设备，避免队列放空后停在欠载状态。下次 start 会先写入 PCM 再恢复。 */
+    if (dac_ctrl.i2s_opened) {
+        luat_i2s_pause(DAC_PC_I2S_ID);
     }
 
     return 0;

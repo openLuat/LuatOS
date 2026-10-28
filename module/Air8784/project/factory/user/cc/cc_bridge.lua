@@ -27,6 +27,9 @@ set_auto_mobile_incoming()/set_auto_answer_mobile_incoming()/get_state() 接口�
 ]]
 
 local config = require "sip_config"
+local settings = require "aircloud_settings"
+local answer_policy = require "incoming_answer"
+local answer = answer_policy.new()
 local phone_route = require "cc_phone_route"
 
 local exaudio
@@ -78,6 +81,7 @@ end
 
 local function apply_audio()
     if not exaudio then return end
+    if require("call_voice").is_busy() then return end
     if g_local_audio then
         if exaudio.vol then
             exaudio.vol(35)
@@ -109,6 +113,7 @@ end
 local incoming_round
 
 local function reset_call()
+    answer.cancel()
     if incoming_round then incoming_round.cancel() end
     g_call_direction = nil
     g_call_start_time = nil
@@ -334,7 +339,6 @@ end
 local function round_release()
     stop_outgoing_early_timeout(); stop_pending_early_fail()
     set_cc_bridge_tone(false)
-    g_cc_state = STATE_CC_DISCONNECTING
     sys.publish("CC_HANGUP_REQ", true)
 end
 local function round_finish(reason)
@@ -384,7 +388,8 @@ local function on_sip_incoming(from, uri, to)
     end
     g_sip_state = STATE_SIP_INCOMING
     g_call_direction = "outgoing"
-    if config.auto_answer_sip then
+    answer.start(settings.answer_settings(), function()
+        if g_sip_state~=STATE_SIP_INCOMING then return end
         local ready, code, reason = can_start_mobile_leg_from_sip()
         if not ready then
             logw("CC 不可用，结束 SIP 来电", code, reason)
@@ -394,10 +399,11 @@ local function on_sip_incoming(from, uri, to)
         end
         logi("启动 SIP 183 早期媒体")
         sys.publish("SIP_PROGRESS_REQ")
-    end
+    end)
 end
 
 local function on_sip_progressing()
+    answer.cancel()
     if incoming_round.active() then return end
     g_sip_state = STATE_SIP_PROGRESSING
     if g_call_direction == "outgoing" then
@@ -420,6 +426,7 @@ local function on_sip_progressing()
 end
 
 local function on_sip_connected()
+    answer.cancel()
     logi("SIP 已连接")
     g_sip_state = STATE_SIP_CONNECTED
     if g_call_direction == "incoming" and g_cc_state == STATE_CC_RINGING then
@@ -441,7 +448,6 @@ local function on_sip_disconnected(reason)
         if g_cc_state ~= STATE_CC_DISCONNECTING then
             logi("同步挂断 CC")
             sys.publish("CC_HANGUP_REQ")
-            g_cc_state = STATE_CC_DISCONNECTING
         end
     end
     reset_call()
@@ -457,7 +463,6 @@ local function on_sip_failed(reason)
         if g_cc_state ~= STATE_CC_DISCONNECTING then
             logi("同步挂断 CC")
             sys.publish("CC_HANGUP_REQ")
-            g_cc_state = STATE_CC_DISCONNECTING
         end
     end
     reset_call()
@@ -542,6 +547,8 @@ local function on_cc_connected(reason)
 end
 
 local function on_cc_disconnected(reason)
+    g_cc_state = STATE_CC_IDLE
+    set_cc_bridge_tone(false)
     if incoming_round.disconnected(reason) then return end
     logi("CC 断开", reason or "")
     stop_outgoing_early_timeout()
@@ -556,10 +563,12 @@ local function on_cc_disconnected(reason)
 end
 
 local function on_cc_failed(reason)
+    local cc_main=require "cc_main"
+    g_cc_state=cc_main.get_state()
+    set_cc_bridge_tone(false)
     if incoming_round.failed() then return end
     log.warn("cc_bridge", "CC 失败", reason or "")
     stop_outgoing_early_timeout()
-    g_cc_state = STATE_CC_IDLE
     set_cc_bridge_tone(false)
     if g_call_direction == "outgoing" and sip_is_early_stage() then
         schedule_sip_early_fail(480, "Temporarily Unavailable")
@@ -570,11 +579,20 @@ local function on_cc_failed(reason)
 end
 
 sys.subscribe("CC_READY", on_cc_ready)
+sys.subscribe("CC_STATE_CHANGED",function(state)g_cc_state=state end)
 sys.subscribe("CC_MAKE_CALL_OK", on_cc_make_call_ok)
 sys.subscribe("CC_INCOMING", on_cc_incoming)
 sys.subscribe("CC_CONNECTED", on_cc_connected)
 sys.subscribe("CC_DISCONNECTED", on_cc_disconnected)
 sys.subscribe("CC_FAILED", on_cc_failed)
+sys.subscribe("CC_RELEASE_FAILED",function(reason)
+    g_cc_state="cc_release_error"
+    set_cc_bridge_tone(false)
+    if not incoming_round.release_failed(reason) then
+        fail_sip_early(480,"CC Release Timeout")
+        reset_call()
+    end
+end)
 
 -- ==================== SIP MESSAGE 备用控制通道 ====================
 
@@ -614,6 +632,7 @@ local function handle_sip_message(body)
         sys.publish("CC_HANGUP_REQ")
         reset_call()
     elseif command == "answer" then
+        answer.cancel()
         logi("MESSAGE 接听")
         sys.publish("SIP_ACCEPT_REQ")
         sys.publish("CC_ACCEPT_REQ")

@@ -37,6 +37,7 @@ local STATE_DISCONNECTING = "sip_disconnecting"
 
 local g_state = STATE_IDLE
 local g_registered = false
+local registration_epoch=0
 
 local function logi(...)
     log.info("cc_sip", ...)
@@ -47,6 +48,8 @@ local function set_state(new_state)
     if g_state ~= new_state then
         logi("状态切换", g_state, "->", new_state)
         g_state = new_state
+        local voice = require "call_voice"
+        voice.bridge_state("sip",new_state)
     end
 end
 
@@ -143,6 +146,7 @@ local function on_sip_event(event, action, data)
 
     if event == "register" then
         if action == "ok" then
+            if not g_registered then registration_epoch=registration_epoch+1 end
             g_registered = true
             logi("SIP 注册成功")
         elseif action == "challenge" then
@@ -241,7 +245,8 @@ function cc_sip.init()
     local init_tbl = {
         sip_server_addr = config.sip_server_addr,
         sip_server_port = config.sip_server_port,
-        sip_domain = config.sip_domain,
+        -- The shared Web form allows an empty domain: use the registrar host.
+        sip_domain = (config.sip_domain and config.sip_domain ~= "") and config.sip_domain or config.sip_server_addr,
         sip_username = config.sip_username,
         sip_password = config.sip_password,
         sip_transport = config.sip_transport,
@@ -317,7 +322,7 @@ function cc_sip.get_state()
 end
 
 function cc_sip.is_registered()
-    return g_registered
+    return g_registered, registration_epoch
 end
 
 return cc_sip

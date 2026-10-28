@@ -26,13 +26,14 @@ boot_ui 在 logo 展示期间分批调用本模块的两个函数：
     7. ntp_app        → NTP 时间同步（订阅 IP_READY）
     （1~4、7 为网络族，has_net 门控：无网络板不加载，见下方 optional() 内注释）
     8. factory_app    → 应用工厂（features.app_factory，级联 factory_rec）
-    9. usb_hid_app    → USB HID 键鼠（features.usb_hid）
+    9. usb_hid_app    → USB HID 键鼠（features.usb_hid，带 UVC 摄像头时跳过）
    10. llm_chat       → AI 助手（features.ai_chat）
    11. cloud_disk_app → 合宙网盘（features.cloud_disk）
    12. tts_app        → TTS 播报（hw.audio）
-   13. aircloud_app   → AirCloud 数据上报（features.aircloud）
-   14. file_transfer_app → hzadb 文件传输（features.file_transfer）
-   15. periph_loader  → 外设预留框架（config.peripherals，未实现 type 记日志跳过）
+   13. watchdog_app   → 外部看门狗（features.wdt，Air153D 自动喂狗 + 消息桥接）
+   14. aircloud_app   → AirCloud 数据上报（features.aircloud）
+   15. file_transfer_app → hzadb 文件传输（features.file_transfer）
+   16. periph_loader  → 外设预留框架（config.peripherals，未实现 type 记日志跳过）
 
 === 关键约束 ===
 
@@ -44,6 +45,16 @@ boot_ui 在 logo 展示期间分批调用本模块的两个函数：
 ]]
 
 local M = {}
+
+-- 有 UVC 摄像头外设时返回 true（config.peripherals 里 type="uvc" 的条目）
+local function has_uvc_periph(cfg)
+    local list = cfg.peripherals
+    if type(list) ~= "table" then return false end
+    for _, p in ipairs(list) do
+        if p and p.type == "uvc" then return true end
+    end
+    return false
+end
 
 -- ==================== 核心批：进桌面前必须完成 ====================
 function M.core()
@@ -111,9 +122,13 @@ function M.optional()
         require "factory_app"
     end
 
-    -- USB HID 键盘鼠标管理
+    -- USB HID 键盘鼠标管理（带 UVC 摄像头时跳过，两者共用 USB Host 与供电轨）
     if feat.usb_hid then
-        require "usb_hid_app"
+        if has_uvc_periph(cfg) then
+            log.warn("app_main", "带 UVC 摄像头，跳过 usb_hid_app（USB 键鼠与 UVC 冲突）")
+        else
+            require "usb_hid_app"
+        end
     end
 
     -- AI 助手（WebSocket 会话 + STT/TTS，订阅 AI_CHAT_*）
@@ -129,6 +144,11 @@ function M.optional()
     -- TTS 播报服务（云端 tts 下行命令/本地共用播放路径）；仅 hw.audio 配置存在的板子加载
     if cfg.hw and cfg.hw.audio then
         require "tts_app"
+    end
+
+    -- 外部看门狗（Air153D 喂狗 + WATCHDOG_* 状态消息）；开关 features.wdt，喂狗脚见 hw.wdt
+    if feat.wdt then
+        require "watchdog_app"
     end
 
     -- AirCloud 数据上报（能力探测：有接口就采，没有就跳过，不绑定型号）

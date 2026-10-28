@@ -80,6 +80,7 @@ function cc_audio.init()
         exaudio.vol(0)
     end
     initialized = true
+    require("call_voice").log_support()
     return true
 end
 

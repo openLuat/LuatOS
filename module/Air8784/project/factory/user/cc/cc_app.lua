@@ -6,8 +6,8 @@
 @author  蒋骞
 @usage
 本文件为项目启动流程模块，核心业务逻辑为：
-1、等待网络就绪(最长 10 秒)，打印当前默认网卡和启动信息；
-2、调用 cc_audio.init() 初始化音频设备(Air1103 模式，拉起 audio_v2 新框架)；
+1、调用 cc_audio.init() 初始化本机音频，允许离线播报开机完成；
+2、等待网络就绪(最长 10 秒)，打印当前默认网卡和启动信息；
 3、调用 cc_sip.init() 初始化 SIP，必须在 CC/SIP 音频启动前完成
    (exsip.init 里 cc_sip_bridge = true 会同步选择 CC 桥接路由)；
 4、调用 cc_main.init() 初始化 VoLTE(cc.init(0))；
@@ -35,10 +35,6 @@ local function on_heartbeat()
 end
 
 local function cc_app_task()
-    -- 1. 等待网络就绪
-    sys.waitUntil("IP_READY", 10000)
-    log.info(PROJECT, "网络等待结束", "adapter=" .. tostring(socket.dft()))
-
     log.info(PROJECT, string.rep("=", 50))
     log.info(PROJECT, "8784 + Air1103 SIP-CC 桥接 Demo 启动中...")
     log.info(PROJECT, string.rep("=", 50))
@@ -47,6 +43,10 @@ local function cc_app_task()
     if not cc_audio.init() then
         log.error(PROJECT, "音频初始化失败, 继续尝试启动 SIP/CC")
     end
+
+    -- 本机开机提示不依赖联网，先初始化音频，再等待 SIP 网络。
+    if not socket.adapter(socket.LWIP_GP) then sys.waitUntil("IP_READY", 10000) end
+    log.info(PROJECT, "网络等待结束", "adapter=" .. tostring(socket.dft()))
 
     -- 3. 初始化 SIP(必须在 CC/SIP 音频启动前完成 cc_sip_bridge 配置)
     if not cc_sip.init() then

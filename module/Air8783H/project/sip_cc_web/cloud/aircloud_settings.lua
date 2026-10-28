@@ -145,6 +145,17 @@ function M.public()
     if M.platform~="8784" or out.sos_mode~="sip" then out.audio={supported=false,error="unsupported_feature"} end
     out.capabilities=M.capabilities();return out
 end
+-- Configuration readiness is separate from SIP registration readiness.
+function M.sos_configured()
+    local cfg=sos.normalize(sos.public(M.saved))
+    if not cfg then return false end
+    if cfg.sos_mode=="sip" then return M.switchable==true end
+    if cfg.sos_mode~="sip_cc" or #cfg.sos_sip_cc_numbers>(M.platform=="8784" and 3 or 1) then return false end
+    for _,peer in ipairs(cfg.sos_sip_cc_peers) do
+        if peer~=cfg.sos_sip_cc_peers[1] then return false end
+    end
+    return true
+end
 local revision_seq=0
 function M.update(p)
     if type(p)~="table" or next(p)==nil then return false,"empty_config" end
@@ -156,7 +167,8 @@ function M.update(p)
     end
     local mode=normalized and normalized.sos_mode or M.saved.sos_mode
     local unsupported={}
-    if mode~="sip_cc" and not (mode=="sip" and M.switchable) then unsupported[#unsupported+1]="sos_mode" end
+    -- A SIP-only save must not validate an unconfigured or legacy SOS record.
+    if normalized and mode~="sip_cc" and not (mode=="sip" and M.switchable) then unsupported[#unsupported+1]="sos_mode" end
     if normalized and mode=="sip_cc" then
         local ns,ps=normalized.sos_sip_cc_numbers,normalized.sos_sip_cc_peers
         if #ns>(M.platform=="8784" and 3 or 1) then unsupported[#unsupported+1]="sos_sip_cc_numbers" end
@@ -208,7 +220,8 @@ function M.update(p)
     if M.platform~="8784" and same(connection(cfg.sip),connection(M.boot.sip)) and same(cfg.sos_sip_cc_peers,M.boot.sos_sip_cc_peers) then
         M.flat.target_phone_number=cfg.sos_sip_cc_numbers[1]
     end
-    M.configuration_changed=mode~=M.active or not same(connection(cfg.sip),connection(M.boot.sip)) or not same(cfg.audio,M.boot.audio)
+    local mode_changed=(mode=="sip_cc" or (mode=="sip" and M.switchable)) and mode~=M.active
+    M.configuration_changed=mode_changed or not same(connection(cfg.sip),connection(M.boot.sip)) or not same(cfg.audio,M.boot.audio)
         or not same(cfg.sos_sip_cc_peers,M.boot.sos_sip_cc_peers)
     -- Latch only after successful persistence. Later number/preferences saves cannot cancel it.
     for k in pairs(p.sip or {}) do

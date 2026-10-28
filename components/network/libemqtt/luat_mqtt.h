@@ -55,6 +55,7 @@ typedef struct{
 	int8_t error_state;    		/**< mqtt 错误状态*/
 	uint16_t remote_port; 		/**< 远程端口号*/
 	uint32_t keepalive;   		/**< 心跳时长 单位s*/
+	uint8_t keepalive_mode;		/**< 心跳模式 0:固定周期(默认) 1:发送报文后重新计时*/
 	uint8_t adapter_index; 		/**< 适配器索引号, 似乎并没有什么用*/
 	LUAT_MQTT_STATE_E mqtt_state;    		/**< mqtt状态*/
 	uint8_t reconnect;    		/**< mqtt是否重连*/

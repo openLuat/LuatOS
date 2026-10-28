@@ -24,6 +24,8 @@ function M.new(opts)
     local boot, seq = tostring(record.boot_count), 0
     local running, index, phase, elapsed, closing_elapsed = false, 0, "ready", 0, 0
     local connected, advance = false, false
+    local active_task
+    local copy=require("sos_config").copy
     local announce_wait=0
     local last_req, last_result = "", "ok"
     local function state()
@@ -55,11 +57,17 @@ function M.new(opts)
         local n=#t.targets;if n<1 or n>(t.mode=="pair" and 1 or 3) then return false end
         local seen={}
         for _,v in ipairs(t.targets) do
+            if t.account_targets then
+                if type(v)~="string" or #v==0 or #v>64 or seen[v] then return false end
+                if t.mode=="phone" then if #v>32 or not v:match("^%+?%d+$") then return false end
+                elseif not v:match("^[%w%+%*#_.%-]+$") then return false end
+            else
             if type(v)~="string" or not v:match("^%d+$") or seen[v] then return false end
             if t.mode=="phone" then if #v~=11 or v:sub(1,1)~="1" then return false end
             elseif t.mode~="phone" and v==opts.imei.."1" then
                 -- Explicit local peer SIP account; never call this device account itself.
             elseif #v~=15 or v==opts.imei then return false end
+            end
             seen[v]=true
         end
         return true
@@ -71,7 +79,7 @@ function M.new(opts)
     local function dial()
         if not a.ready() then running=false;phase="ended";emit();return end
         phase="dialing";elapsed=0;connected=false
-        if not a.dial(record.task.targets[index],record.task.mode) then stop(true) else emit() end
+        if not a.dial(active_task.targets[index],active_task.mode,active_task.account_targets) then stop(true) else emit() end
     end
     local api={}
     function api.command(c)
@@ -89,6 +97,7 @@ function M.new(opts)
         if running or not a.idle() then return emit(c.req,"busy") end
         if c.expected~=record.revision or type(c.revision)~="string" or #c.revision~=36 or c.revision==record.revision then return emit(c.req,"conflict") end
         if c.op=="put" then
+            if c.task and c.task.account_targets then return emit(c.req,"invalid") end
             if not valid(c.task) then return emit(c.req,"invalid") end
             if not supported(c.task.mode) then return emit(c.req,"unsupported") end
             if record.task and record.task.mode~=c.task.mode and not a.mode_switch then return emit(c.req,"conflict") end
@@ -99,7 +108,8 @@ function M.new(opts)
             local task_mode = record.task and (record.task.mode=="phone" and "phone" or "single")
             if task_mode and task_mode~=c.runtime_mode then return emit(c.req,"task_conflict") end
         end
-        local next_record={revision=c.revision,boot_count=record.boot_count,last_req=c.req,runtime_mode=record.runtime_mode}
+        local next_record=copy(record)
+        next_record.revision=c.revision;next_record.last_req=c.req;next_record.task=nil
         if c.op=="set_mode" then
             next_record.runtime_mode=c.runtime_mode
             next_record.task=record.task
@@ -118,7 +128,7 @@ function M.new(opts)
         if a.cancel_announcement then a.cancel_announcement() end
         if a.incoming and a.incoming() then if a.accept then a.accept() end return end
         if running or not record.task or not valid(record.task) or not supported(record.task.mode) or not a.idle() or not a.ready() then return false end
-        running=true;index=1;advance=false;dial();return true
+        active_task=copy(record.task);running=true;index=1;advance=false;dial();return true
     end
     function api.stop() if running or not a.idle() then running=true;stop(false) end end
     function api.tick(ms)
@@ -147,7 +157,7 @@ function M.new(opts)
         if phase=="stopping" then
             closing_elapsed=closing_elapsed+ms
             if a.idle() then
-                if advance and record.task and index<#record.task.targets then index=index+1;advance=false;phase="waiting-ready";elapsed=0
+                if advance and active_task and index<#active_task.targets then index=index+1;advance=false;phase="waiting-ready";elapsed=0
                 else running=false;phase="ended";emit() end
             elseif closing_elapsed>=10000 then
                 -- Do not overlap calls if the previous call never became idle.
@@ -168,9 +178,11 @@ function M.new(opts)
         if connected then stop(false);return end
         elapsed=elapsed+ms
         if a.failed and a.failed() then stop(true)
-        elseif elapsed>=record.task.wait*1000 then stop(true) end
+        elseif elapsed>=active_task.wait*1000 then stop(true) end
     end
     function api.snapshot() return emit() end
+    function api.peek() return snapshot() end
+    function api.adopt(value) record=copy(value) end
     return api
 end
 return M

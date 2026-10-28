@@ -14,8 +14,14 @@ function M.new(opts)
     local api = {}
     local phase, targets, index = "idle", {}, 0
     local dial_timer, release_timer, settle_timer
+    local epoch=0
+    local function arm(fn,ms)
+        local token=epoch
+        return sys.timerStart(function()if token==epoch then fn() end end,ms)
+    end
     local function stop_timer(timer) if timer then sys.timerStop(timer) end end
     local function clear_timers()
+        epoch=epoch+1
         stop_timer(dial_timer); stop_timer(release_timer); stop_timer(settle_timer)
         dial_timer, release_timer, settle_timer = nil, nil, nil
     end
@@ -32,7 +38,7 @@ function M.new(opts)
     local function release_current()
         if phase ~= "dialing" then return end
         clear_timers(); phase = "releasing"
-        release_timer = sys.timerStart(release_timeout, 10000)
+        release_timer = arm(release_timeout, 10000)
         opts.release()
     end
     local function dial_timeout()
@@ -40,8 +46,9 @@ function M.new(opts)
         release_current()
     end
     local function dial_current()
+        epoch=epoch+1
         phase = "dialing"
-        dial_timer = sys.timerStart(dial_timeout, 30000)
+        dial_timer = arm(dial_timeout, 30000)
         opts.dial(targets[index], index, #targets)
     end
     local function released()
@@ -68,13 +75,17 @@ function M.new(opts)
         return phase == "releasing"
     end
     function api.disconnected(reason)
-        if phase == "dialing" then release_current() end
+        if phase == "dialing" then clear_timers();phase="releasing" end
         if phase ~= "releasing" then return false end
-        if reason ~= "hangup_done" and not settle_timer then return true end
+        if settle_timer then return true end
         -- Coalesce DISCONNECTED and HANGUP_CALL_DONE before the next dial.
         stop_timer(settle_timer)
-        settle_timer = sys.timerStart(released, 500)
+        settle_timer = arm(released, 500)
         return true
+    end
+    function api.release_failed(reason)
+        if phase~="releasing" then return false end
+        finish(reason or "CC Release Timeout");return true
     end
     return api
 end

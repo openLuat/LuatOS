@@ -87,16 +87,7 @@ end
 -- 云端/运行时覆盖入口：AirCloud 下发的 sip_transport / sip_server_port 由此生效
 -- 覆盖会持久化到 fskv，重启后由上方 do 块自动回载，无需重复下发。
 function config.apply(overrides)
-    if type(overrides) ~= "table" then return end
-    local changed = false
-    if overrides.sip_transport then config.sip_transport = overrides.sip_transport; changed = true end
-    if overrides.sip_server_port then config.sip_server_port = overrides.sip_server_port; changed = true end
-    if changed and fskv and type(fskv.set) == "function" then
-        fskv.set("sip_transport_cfg", {
-            sip_transport = config.sip_transport,
-            sip_server_port = config.sip_server_port,
-        })
-    end
+    return require("aircloud_settings").update({sip=overrides})
 end
 
 return config

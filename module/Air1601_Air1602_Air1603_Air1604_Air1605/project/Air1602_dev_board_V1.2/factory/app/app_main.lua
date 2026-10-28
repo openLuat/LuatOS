@@ -64,6 +64,12 @@ function M.optional()
     local cfg = _G.project_config or {}
     local feat = cfg.features or {}
 
+    -- UART3 口复用：按 fskv 保存的通道模式（4g/wifi/gnss/ble）收口
+    -- features.wifi / features.net_4g。必须放在 has_net 判定与所有业务层门控之前，
+    -- 这样「网络栈加载、网卡初始化、设置页入口」看到的是同一份结果。
+    -- 模块内部幂等；core() 里也会再调一次，用于 optional 被跳过的场景。
+    pcall(function() require("settings_channel_app").apply_to_config(cfg) end)
+
     -- 网络族：无网络板（features 无 wifi/net_4g/ethernet 且未配 network 段，如 8607）
     -- 不加载网络栈（net_manager 会拖出 exnetif/httpplus 等整条库链）
     local has_net = (type(cfg.network) == "table" and #cfg.network > 0)

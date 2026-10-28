@@ -8,15 +8,6 @@
 #define LUAT_LOG_TAG "display_sdl2"
 #include "luat_log.h"
 
-struct luat_display_sdl2_ctx {
-    SDL_Window   *window;
-    SDL_Renderer *renderer;
-    SDL_Texture  *texture;
-    uint32_t      width;
-    uint32_t      height;
-    uint8_t       exit_requested;
-};
-
 static uint8_t sdl_video_inited = 0;
 
 static int luat_display_sdl2_init_video(void)
@@ -199,11 +190,13 @@ void luat_display_sdl2_pump_events(luat_display_sdl2_ctx_t *ctx)
     }
 
     SDL_Event e;
+    SDL_Event kept[64];
+    int kept_n = 0;
     Uint32 my_id = SDL_GetWindowID(ctx->window);
 
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
-            SDL_Quit();
+            /* 同上：事件循环内 SDL_Quit 会在 WIN_QuitKeyboard 里崩溃。 */
             exit(0);
         }
         if (e.type == SDL_WINDOWEVENT && e.window.windowID == my_id) {
@@ -211,7 +204,15 @@ void luat_display_sdl2_pump_events(luat_display_sdl2_ctx_t *ctx)
                 e.window.event == SDL_WINDOWEVENT_RESIZED) {
                 luat_display_sdl2_present(ctx);
             }
+            continue;
         }
+        /* 鼠标和键盘留给 AirUI。PollEvent 会把它们取出，处理完窗口事件再放回。 */
+        if (kept_n < (int)(sizeof(kept) / sizeof(kept[0]))) {
+            kept[kept_n++] = e;
+        }
+    }
+    for (int i = 0; i < kept_n; i++) {
+        SDL_PushEvent(&kept[i]);
     }
 }
 

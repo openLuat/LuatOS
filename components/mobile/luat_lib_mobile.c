@@ -418,7 +418,7 @@ static int l_mobile_muid(lua_State* L) {
     // size_t len = 0;
     // size_t wlen = 0;
     int ret = 0;
-    LLOGI("l_mobile_muid called");
+    // LLOGI("l_mobile_muid called");
 #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
     if (lua_isyieldable(L)) {
         ret = luat_airlink_drv_rpc_mobile_global_status_yield(
@@ -431,7 +431,7 @@ static int l_mobile_muid(lua_State* L) {
     }
 #endif
     ret = luat_mobile_get_muid(buff, sizeof(buff));
-    LLOGI("l_mobile_muid ret=%d", ret);
+    // LLOGI("l_mobile_muid ret=%d", ret);
     if (lua_isstring(L, 1)) {
         // const char* wbuff = luaL_checklstring(L, 1, &wlen);
         // if (wlen >= 15) {

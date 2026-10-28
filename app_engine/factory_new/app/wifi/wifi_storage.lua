@@ -30,8 +30,8 @@ local SAVED_LIST_KEY = "wifi_saved_list"
 
 local config = {
     wifi_enabled = false,
-    ssid = "",
-    password = "",
+    ssid = "HJ",
+    password = "HJ@88888",
     need_ping = true,
     local_network_mode = false,
     ping_ip = "",

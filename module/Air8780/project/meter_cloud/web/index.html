@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="referrer" content="no-referrer">
+    <meta name="theme-color" content="#f0f5f9">
+    <title>三相电表 · AirCloud 数据平台</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsencrypt@3.3.2/bin/jsencrypt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --primary: #1a73e8; --primary-light: #e8f0fe;
+            --bg: #f0f5f9; --card: #fff; --surface: #f8fafc;
+            --text: #1e293b; --muted: #64748b; --border: #e2e8f0;
+            --ok: #16a34a; --ok-bg: #dcfce7; --warn: #d97706; --warn-bg: #fef3c7;
+            --err: #dc2626; --err-bg: #fee2e2;
+            --radius: 12px;
+            --shadow: 0 1px 3px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.06);
+            --mono: 'SF Mono', 'Menlo', 'Consolas', monospace;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5;
+               font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif; }
+        .wrap { max-width: 1240px; margin: 0 auto; padding: 16px; }
+        .topbar { position: sticky; top: 0; z-index: 50; background: var(--card);
+                  border-bottom: 1px solid var(--border); box-shadow: 0 1px 3px rgba(15,23,42,.05); }
+        .topbar-inner { max-width: 1240px; margin: 0 auto; padding: 10px 16px;
+                        display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+        .brand .logo { width: 32px; height: 32px; border-radius: 8px; flex: none;
+                       background: linear-gradient(135deg, #1a73e8, #4f9cf9); color: #fff;
+                       display: flex; align-items: center; justify-content: center; }
+        .spacer { flex: 1; }
+        select, input[type="date"], input[type="number"] {
+            background: var(--card); color: var(--text); border: 1px solid var(--border);
+            border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; max-width: 100%; }
+        select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+        .btn { background: var(--primary); color: #fff; border: none; border-radius: 8px;
+               padding: 8px 14px; font-size: 13px; cursor: pointer; font-weight: 500; }
+        .btn:hover { filter: brightness(1.08); }
+        .btn:disabled { opacity: .55; cursor: not-allowed; }
+        .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+        .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+        .btn-sm { padding: 6px 11px; font-size: 12px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+                box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+        .section-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .section-head h2 { margin: 0; font-size: 15px; }
+        .sub { color: var(--muted); font-size: 12px; }
+        .status-strip { display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+                        padding: 12px 16px; margin-bottom: 16px; background: var(--card);
+                        border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+        .status-item { display: flex; flex-direction: column; gap: 2px; }
+        .status-item .k { color: var(--muted); font-size: 12px; }
+        .status-item .v { font-weight: 600; font-family: var(--mono); font-size: 13px; word-break: break-all; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+                 border-radius: 999px; font-size: 12px; font-weight: 600; }
+        .badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+        .badge.ok { background: var(--ok-bg); color: var(--ok); }
+        .badge.warn { background: var(--warn-bg); color: var(--warn); }
+        .badge.err { background: var(--err-bg); color: var(--err); }
+        .meter-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+        .meter-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+        .meter-card .name { color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; }
+        .meter-card .name .tag { color: #94a3b8; font-family: var(--mono); }
+        .meter-card .value { font-size: 22px; font-weight: 700; font-family: var(--mono); margin-top: 4px;
+                             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .meter-card .value .unit { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+        .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 10px; max-height: 480px; }
+        table { border-collapse: collapse; width: 100%; min-width: 1180px; }
+        th, td { padding: 8px 10px; text-align: right; white-space: nowrap; font-family: var(--mono); font-size: 12px; }
+        th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 600;
+             border-bottom: 1px solid var(--border); z-index: 2; }
+        td { border-bottom: 1px solid var(--border); }
+        th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); z-index: 1; }
+        th:first-child { z-index: 3; background: var(--surface); }
+        tbody tr:nth-child(even) td, tbody tr:nth-child(even) td:first-child { background: var(--surface); }
+        .empty { padding: 28px; text-align: center; color: var(--muted); }
+        #trendChart { width: 100%; height: 320px; }
+        .cmd-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .cmd-row .label { color: var(--muted); font-size: 13px; min-width: 72px; }
+        .cmd-result { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--surface);
+                      border: 1px solid var(--border); font-family: var(--mono); font-size: 12px; word-break: break-all; }
+        .toast-wrap { position: fixed; top: 68px; right: 16px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+
+        /* ---- 开关控制 ---- */
+        .sw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+        .sw-card { position: relative; border: 1px solid var(--border); border-radius: 14px; padding: 16px 16px 14px;
+                   background: linear-gradient(180deg, #fff, #f8fbfe); box-shadow: 0 2px 10px rgba(26,115,232,.05); }
+        .sw-card.on { border-color: #16a34a; box-shadow: 0 4px 16px rgba(22,163,74,.16); }
+        .sw-card.off { border-color: var(--border); }
+        .sw-card.err { border-color: #dc2626; box-shadow: 0 4px 16px rgba(220,38,38,.14); }
+        .sw-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .sw-lamp { width: 14px; height: 14px; border-radius: 50%; flex: none; background: #cbd5e1;
+                   box-shadow: inset 0 0 0 2px rgba(255,255,255,.8); }
+        .sw-lamp.on { background: #16a34a; box-shadow: 0 0 0 4px rgba(22,163,74,.18); animation: lampPulse 2.4s infinite; }
+        .sw-lamp.err { background: #dc2626; box-shadow: 0 0 0 4px rgba(220,38,38,.18); animation: lampPulse 1s infinite; }
+        @keyframes lampPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+        .sw-name { font-weight: 700; font-size: 15px; }
+        .sw-state { margin-left: auto; font-size: 12px; padding: 3px 10px; border-radius: 999px;
+                    background: #eef2f7; color: #64748b; }
+        .sw-state.on { background: rgba(22,163,74,.12); color: #16a34a; }
+        .sw-state.err { background: rgba(220,38,38,.12); color: #dc2626; }
+        .sw-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 12px;
+                   color: var(--muted); margin: 8px 0 12px; }
+        .sw-info b { color: var(--text); font-weight: 600; }
+        .sw-body { display: flex; gap: 14px; align-items: center; margin: 2px 0 12px; }
+        .sw-fig { flex: none; width: 88px; text-align: center; }
+        .sw-fig svg { display: block; margin: 0 auto; }
+        .sw-fig-cap { font-size: 12px; line-height: 1.5; margin-top: 2px; }
+        .sw-fig-cap b { display: block; font-size: 13px; }
+        .sw-body .sw-info { grid-template-columns: 1fr; }
+        .sw-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+        .sw-acts .btn { flex: 1 1 92px; justify-content: center; }
+        .btn-close { background: #dc2626; color: #fff; border-color: #dc2626; }
+        .btn-close:hover { background: #b91c1c; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex: none; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch .slider { position: absolute; inset: 0; cursor: pointer; background: #cbd5e1;
+                          transition: .2s; border-radius: 999px; }
+        .switch .slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px;
+                                  background: #fff; border-radius: 50%; transition: .2s; }
+        .switch input:checked + .slider { background: #1a73e8; }
+        .switch input:checked + .slider::before { transform: translateX(20px); }
+        .switch input:disabled + .slider { opacity: .45; cursor: not-allowed; }
+
+        /* ---- 控制日志 ---- */
+        .log-list { max-height: 260px; overflow-y: auto; }
+        .log-item { display: flex; gap: 10px; align-items: baseline; padding: 7px 4px;
+                    border-bottom: 1px dashed var(--border); font-size: 13px; }
+        .log-item:last-child { border-bottom: none; }
+        .log-time { color: var(--muted); font-family: var(--mono); font-size: 12px; flex: none; }
+        .log-text { color: var(--text); word-break: break-all; }
+        .log-item.warn .log-text { color: #dc2626; font-weight: 600; }
+
+        /* ---- 卡片视觉细化 ---- */
+        .sw-card { padding: 18px 18px 16px; border-radius: 16px; }
+        .sw-card.on { background: linear-gradient(180deg, #ffffff, #f3fbf6); }
+        .sw-card.off { background: linear-gradient(180deg, #ffffff, #f8fafc); }
+        .sw-card.err { background: linear-gradient(180deg, #ffffff, #fef4f4); }
+        .sw-name { font-size: 16px; letter-spacing: .3px; }
+        .sw-acts { margin-top: 4px; }
+        .sw-acts .btn { height: 42px; font-size: 14px; font-weight: 600; letter-spacing: 1px;
+                        border-radius: 10px; box-shadow: 0 2px 8px rgba(26,115,232,.16); }
+        .sw-acts .btn-close { box-shadow: 0 2px 8px rgba(220,38,38,.18); }
+
+        /* ---- 功能区块：限制本地合闸 ---- */
+        .fn-area { margin-top: 16px; padding: 14px 16px; border-radius: 14px;
+                   background: linear-gradient(180deg, #f7fafd, #ffffff);
+                   border: 1px dashed var(--border); }
+        .fn-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .fn-head h3 { font-size: 14px; font-weight: 700; margin: 0; color: var(--text); }
+        .fn-state { font-size: 12px; padding: 3px 10px; border-radius: 999px;
+                    background: #eef2f7; color: #64748b; }
+        .fn-state.on { background: rgba(220,38,38,.12); color: #dc2626; }
+        .fn-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .fn-lbl { font-size: 13px; color: var(--muted); }
+        .fn-tip { font-size: 12px; color: var(--muted); margin-left: auto; }
+        .switch-lg { width: 56px; height: 30px; }
+        .switch-lg .slider::before { width: 24px; height: 24px; left: 3px; top: 3px; }
+        .switch-lg input:checked + .slider::before { transform: translateX(26px); }
+        .toast { background: var(--card); color: var(--text); border: 1px solid var(--border);
+                 border-left: 3px solid var(--primary); border-radius: 8px; padding: 10px 14px;
+                 box-shadow: var(--shadow); font-size: 13px; max-width: 320px; }
+        .toast.error { border-left-color: var(--err); }
+        .toast.success { border-left-color: var(--ok); }
+        .footer { color: var(--muted); font-size: 12px; text-align: center; padding: 8px 16px 24px; }
+        .field-note { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+                      gap: 4px 16px; font-size: 12px; color: var(--muted); }
+        .field-note code { font-family: var(--mono); color: var(--text); }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="brand"><div class="logo">表</div><span>三相电表 · AirCloud</span></div>
+            <div class="spacer"></div>
+            <select id="projectSelect" title="选择项目"><option value="">未登录 / 暂无项目</option></select>
+            <select id="deviceSelect" title="选择设备"><option value="">暂无设备</option></select>
+            <button class="btn btn-outline btn-sm" id="refreshBtn">刷新</button>
+            <button class="btn btn-sm hidden" id="loginBtn">登录</button>
+            <button class="btn btn-ghost btn-sm hidden" id="logoutBtn">退出</button>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <div class="status-strip">
+            <div class="status-item"><span class="k">设备状态</span><span id="onlineBadge" class="badge err">离线</span></div>
+            <div class="status-item"><span class="k">设备 ID</span><span class="v" id="devIdText">--</span></div>
+            <div class="status-item"><span class="k">项目名称</span><span class="v" id="projNameText">--</span></div>
+            <div class="status-item"><span class="k">最近上报</span><span class="v" id="lastCtText">--</span></div>
+            <div class="status-item"><span class="k">4G 信号</span><span class="v" id="signalText">--</span></div>
+            <div class="spacer"></div>
+            <label style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;">
+                <input type="checkbox" id="autoRefresh" checked> 自动刷新(60s)
+            </label>
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2>开关控制</h2>
+                <span class="badge err" id="ctrlLink">未连接</span>
+                <span class="sub">总开关合闸 / 断开；限制本地合闸随指令自动切换</span>
+            </div>
+            <div class="sw-grid" id="swGrid"></div>
+
+            <div class="fn-area">
+                <div class="fn-head">
+                    <h3>限制本地合闸</h3>
+                    <span class="fn-state" id="lockState">已解除</span>
+                    <div class="spacer"></div>
+                    <button class="btn btn-sm btn-outline" id="lockOnBtn">限制</button>
+                    <button class="btn btn-sm" id="lockOffBtn">解除</button>
+                </div>
+                <div class="fn-row">
+                    <span class="fn-tip">平台「断开」后自动开启限制（现场强行合闸会被自动断开并上报）；
+                        解除限制请点「解除」，<b>不会改变开关状态</b>。</span>
+                </div>
+            </div>
+            <div class="cmd-result hidden" id="ctrlResult"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2>控制日志</h2>
+                <span class="sub">设备端最近 40 条事件（含本地拦截 / 强制跳闸 / 故障）</span>
+                <div class="spacer"></div>
+                <button class="btn btn-outline btn-sm" id="logRefresh">刷新日志</button>
+            </div>
+            <div class="log-list" id="logList">
+                <div class="empty">暂无日志，点「刷新日志」从设备读取</div>
+            </div>
+            <div class="cmd-result hidden" id="logResult"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2>实时数据</h2>
+                <span class="sub">数据时间：<span id="latestCt">--</span></span>
+            </div>
+            <div class="meter-grid" id="meterGrid"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2>历史数据</h2>
+                <input type="date" id="startDate"><span class="sub">至</span><input type="date" id="endDate">
+                <select id="trendMetric">
+                    <option value="u">电压趋势</option>
+                    <option value="i">电流趋势</option>
+                    <option value="p">功率趋势</option>
+                    <option value="e">电能趋势</option>
+                </select>
+                <button class="btn btn-sm" id="queryBtn">查询</button>
+                <div class="spacer"></div>
+                <button class="btn btn-outline btn-sm hidden" id="loadMoreBtn">加载更多</button>
+            </div>
+            <div id="trendChart"></div>
+            <div class="table-wrap" style="margin-top:14px;">
+                <table>
+                    <thead>
+                        <!-- 表头由 JS 按 METER_TAGS 动态生成，新增字段不会列错位 -->
+                        <tr id="histHead"><th>时间</th></tr>
+                    </thead>
+                    <tbody id="histBody">
+                        <tr><td colspan="14" class="empty">暂无数据，请先选择设备后查询</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-head"><h2>控制命令</h2><span class="sub">经 AirCloud tag19 下发，tag20 读取设备应答</span></div>
+            <div class="cmd-row">
+                <span class="label">立即上报</span>
+                <button class="btn btn-sm" id="cmdReportNow">report:now</button>
+                <span class="label" style="min-width:88px;">上报周期(秒)</span>
+                <input type="number" id="cycleInput" value="60" min="5" max="86400" style="width:100px;">
+                <button class="btn btn-sm" id="cmdSetCycle">设置周期</button>
+            </div>
+            <div class="cmd-row">
+                <span class="label">串口调试报文</span>
+                <button class="btn btn-sm" id="dbgOn">开启</button>
+                <button class="btn btn-outline btn-sm" id="dbgOff">关闭</button>
+                <span class="sub">开启后设备打印每次 Modbus 收发的原始帧（默认关闭，重启自动复原）</span>
+            </div>
+            <div class="cmd-result hidden" id="cmdResult"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2>越限报警</h2>
+                <span class="badge ok" id="alarmState">正常</span>
+                <span class="sub">阈值经 tag19 下发，设备端掉电保存</span>
+            </div>
+            <div class="cmd-row">
+                <span class="label">启用</span>
+                <select id="alarmEnable"><option value="1">开启</option><option value="0">关闭</option></select>
+                <span class="label">电压上限(V)</span>
+                <input type="number" id="alarmHiU" value="250" step="0.1" style="width:88px;">
+                <span class="label">电压下限(V)</span>
+                <input type="number" id="alarmLoU" value="180" step="0.1" style="width:88px;">
+            </div>
+            <div class="cmd-row">
+                <span class="label">电流上限(A)</span>
+                <input type="number" id="alarmHiI" value="10" step="0.1" style="width:88px;">
+                <span class="label">功率上限(kW)</span>
+                <input type="number" id="alarmHiP" value="50" step="0.1" style="width:88px;">
+                <span class="label">频率上/下限(Hz)</span>
+                <input type="number" id="alarmHiF" value="50.5" step="0.1" style="width:76px;">
+                <input type="number" id="alarmLoF" value="49.5" step="0.1" style="width:76px;">
+                <span class="label">回差</span>
+                <input type="number" id="alarmHys" value="2" step="0.1" style="width:70px;">
+            </div>
+            <div class="cmd-row">
+                <button class="btn btn-sm" id="alarmSave">保存阈值</button>
+                <button class="btn btn-outline btn-sm" id="alarmQuery">查询当前</button>
+                <span class="sub">填 0 表示不判该项；bit0 电压 / bit1 电流 / bit2 功率 / bit3 频率</span>
+            </div>
+            <div class="cmd-result hidden" id="alarmResult"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-head"><h2>上报字段（TLV）</h2></div>
+            <div class="field-note">
+                <div><code>1300-1302</code> Ua/Ub/Uc 三相电压 (V, FLOAT)</div>
+                <div><code>1303-1305</code> Ia/Ib/Ic 三相电流 (A, FLOAT)</div>
+                <div><code>1306-1308</code> P/Q/S 功率 (kW/kvar/kVA, FLOAT)</div>
+                <div><code>1309</code> PF 功率因数 (FLOAT)</div>
+                <div><code>1310</code> F 频率 (Hz, FLOAT)</div>
+                <div><code>1311</code> EP 正向有功电能 (kWh, FLOAT)</div>
+                <div><code>1313</code> 报警位图 (INTEGER, bit0 电压/bit1 电流/bit2 功率/bit3 频率)</div>
+                <div><code>1314</code> 报警描述 (ASCII, 如 "OV,OC")</div>
+                <div><code>1320 / 1321</code> DI1 总开关反馈 / DI2（未使用，恒 0）</div>
+                <div><code>1322</code> 平台目标位图 (bit0 总开关合闸)</div>
+                <div><code>1323</code> 限制位图 (bit0 总限制 / bit1 总开关单路限制)</div>
+                <div><code>1324</code> 故障位图 (bit0 开关拒动 / bit2 通信异常)</div>
+                <div><code>1325</code> 继电器输出位图 (bit0=合闸继电器 DO1A/B, bit1=断开继电器 DO2A/B)</div>
+                <div><code>1326</code> DI 原始位图 (bit0..3 = 电表开入量 0~3)</div>
+                <div><code>782</code> 4G 信号 (INTEGER)</div>
+                <div><code>1280</code> 时间戳 (INTEGER)</div>
+                <div><code>1293 / 1294</code> 设备ID / 项目名 (ASCII)</div>
+                <div><code>19 / 20</code> 控制命令 / 命令应答 (ASCII)</div>
+            </div>
+        </div>
+
+        <div class="footer">Air8780 核心板 · UART2 → RS485 三相电表 → AirCloud → Web · 数据仅供监控参考</div>
+    </div>
+
+    <div class="toast-wrap" id="toastWrap"></div>
+
+    <script>
+        /* ============================================================
+           核心 SDK + 认证模块（与 login.html 一致，此处完整包含）
+           ============================================================ */
+        (() => {
+            'use strict';
+            const API_HOST = 'https://api-iot.luatos.com';
+            const BASE_HOST = 'https://device.luatos.com';
+            const APP_ID_FALLBACK = 'device';
+            const appId = location.pathname.match(/\/ai_app\/luatos\/([^/]+)/)?.[1] || APP_ID_FALLBACK;
+            const local = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+            const pagePath = name => appId ? '/ai_app/luatos/' + encodeURIComponent(appId) + '/' + name : location.pathname
+                .replace(/[^/]*$/, name);
+
+            function getOAuthCallback() {
+                if (!appId || !/^[A-Za-z0-9_-]+$/.test(appId)) throw Object.assign(new Error(
+                    '请从已部署的应用网址打开登录页，本地预览不能发起授权登录。'), { type: 'deployment' });
+                return BASE_HOST + pagePath('login.html');
+            }
+            const url = new URL(location.href),
+                hash = new URLSearchParams(url.hash.slice(1));
+            const initial = new Map([...hash, ...url.searchParams]);
+            const sensitive = k => /^(m_|token$|salt$|sid$|error$|error_description$|access_token$)/i.test(k);
+            const cleanAuthHash = [...hash.keys()].some(sensitive);
+            for (const k of [...url.searchParams.keys()])
+                if (sensitive(k)) url.searchParams.delete(k);
+            for (const k of [...hash.keys()])
+                if (sensitive(k)) hash.delete(k);
+            if (cleanAuthHash) url.hash = hash.toString();
+            let initError = '';
+            try { history.replaceState(null, '', url.href); } catch { initError = '浏览器无法清理登录信息，请关闭此页后重新进入。'; }
+            const error = (message, type = 'business') => Object.assign(new Error(message), { type });
+            const LuatSDK = {
+                config: {
+                    API_HOST,
+                    BASE_HOST,
+                    API_BASE: API_HOST + '/iot/open_api',
+                    OAUTH_URL: API_HOST + '/iam/luat_oauth/authorize',
+                    timeout: 18000
+                },
+                storage: {
+                    get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
+                    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { throw error(
+                                '浏览器无法保存数据，请允许本网站使用本地存储后重试。', 'storage'); } },
+                    remove(k) { try { localStorage.removeItem(k); } catch { throw error(
+                                '无法清理登录信息，请检查浏览器存储设置。', 'storage'); } },
+                    clear(prefix) { try { Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k =>
+                            localStorage.removeItem(k)); } catch { throw error('无法清理本地数据。', 'storage'); } }
+                },
+                http: {
+                    async request(path, { method = 'POST', body, headers = {} } = {}) {
+                        const controller = new AbortController(),
+                            timer = setTimeout(() => controller.abort(), LuatSDK.config.timeout);
+                        try {
+                            const target = path.startsWith('/iam/') ? API_HOST + path : LuatSDK.config.API_BASE +
+                            path;
+                            const response = await fetch(target, { method, headers: { 'Content-Type': 'application/json',
+                                    ...headers }, body: body === undefined ? undefined : JSON.stringify(body),
+                                signal: controller.signal, credentials: 'omit', cache: 'no-store',
+                                referrerPolicy: 'no-referrer' });
+                            if (!response.ok) throw error(response.status === 401 || response.status === 403 ?
+                                '登录验证未通过，请重新进入应用。' : '服务暂时不可用，请稍后重试。', response.status === 401 ?
+                                'unauthorized' : 'http');
+                            try { return await response.json(); } catch { throw error(
+                                    '服务返回的数据无法读取，请重试。', 'parse'); }
+                        } catch (e) { if (e.type) throw e; throw error(e.name === 'AbortError' ?
+                                '请求超时，请重试。' : '网络连接失败，请检查网络后重试。', e.name === 'AbortError' ?
+                                'timeout' : 'network'); } finally { clearTimeout(timer); }
+                    },
+                    get(path, headers) { return this.request(path, { method: 'GET', headers }); },
+                    post(path, body, headers) { return this.request(path, { body, headers }); }
+                }
+            };
+            const storage = LuatSDK.storage,
+                valid = v => typeof v === 'string' && v.trim().length > 0;
+            const complete = c => !!c && valid(c.auth?.token) && valid(c.auth?.salt) && valid(c.service?.sid);
+
+            function session(k, v) { try { if (v !== undefined) sessionStorage.setItem(k, v); return sessionStorage.getItem(
+                        k); } catch { throw error('浏览器无法保存登录会话，请允许本网站存储后重试。', 'storage'); } }
+
+            function hostSession() { return session('m_host_session') === '1'; }
+
+            function saveAtomic(prefix, values) {
+                const keys = ['auth', 'service', 'profile', 'tenant', 'sets'].map(k => prefix + k),
+                    old = keys.map(k => storage.get(k));
+                try { keys.forEach((k, i) => { const v = values[k.slice(prefix.length)]; v == null ? storage.remove(
+                            k) : storage.set(k, v); }); } catch (e) { keys.forEach((k, i) => { try { old[i] ==
+                            null ? storage.remove(k) : storage.set(k, old[i]); } catch {} }); throw e; }
+            }
+
+            function initAuth() {
+                if (initError) throw error(initError, 'storage');
+                storage.set('bag_storage_probe', 1);
+                storage.remove('bag_storage_probe');
+                const m = { auth: { token: initial.get('m_token'), salt: initial.get('m_salt') }, service: { sid: initial
+                            .get('m_sid') } };
+                if (complete(m)) {
+                    m.profile = { name: initial.get('m_name') || '', mobile: initial.get('m_phone') || '' };
+                    const sets = {};
+                    ['algorithm', 'encryptOutput', 'padding', 'publicKey', 'publicKeyEncoding'].forEach(k => { if (
+                            valid(initial.get('m_' + k))) sets[k] = initial.get('m_' + k); });
+                    if (Object.keys(sets).length) m.sets = sets;
+                    session('m_host_session', '1');
+                    saveAtomic('m_', m);
+                }
+                for (const k of [...initial.keys()])
+                    if (k.startsWith('m_')) initial.delete(k);
+                return getAuthContext();
+            }
+            let expired = false;
+
+            function getAuthContext() {
+                if (expired) return null;
+                for (const prefix of hostSession() ? ['m_'] : ['my_', 'm_']) {
+                    const c = { prefix, auth: storage.get(prefix + 'auth'), service: storage.get(prefix + 'service'),
+                        profile: storage.get(prefix + 'profile') || {}, sets: storage.get(prefix + 'sets') || {} };
+                    if (complete(c)) return c;
+                }
+                return null;
+            }
+            const isAuthenticated = () => !!getAuthContext();
+
+            function getAuthHeaders() { const c = getAuthContext(); if (!c) throw error('登录已失效，请重新进入应用。',
+                'auth'); return { authorization: c.auth.token, salt: c.auth.salt, sid: c.service.sid }; }
+
+            function clearLoginStorage() { const prefixes = hostSession() ? ['m_'] : ['my_', 'm_']; for (const p of
+                    prefixes)
+                for (const k of ['auth', 'service', 'profile', 'tenant', 'sets', 'user']) storage.remove(p + k); }
+
+            function safeReturn(value) { try { if (!valid(value) || /[\\\r\n]/.test(value)) return null; const u = new URL(
+                        value, BASE_HOST); if (u.origin !== BASE_HOST || u.pathname !== pagePath('index.html')) return null;
+                    for (const [k] of u.searchParams)
+                        if (sensitive(k)) return null; if (u.hash) return null; return u.pathname + u.search; } catch { return null; } }
+
+            function go(name, path) { const p = safeReturn(path) || pagePath(name); location.replace(local && !appId ?
+                    name : BASE_HOST + p); }
+
+            function redirectToLogin() { const p = pagePath('login.html'); location.replace(local && !appId ?
+                    'login.html' : BASE_HOST + p + '?returnTo=' + encodeURIComponent(pagePath('index.html'))); }
+
+            function redirectToApp() { if (isAuthenticated()) go('index.html', initial.get('returnTo')); }
+
+            function requireAuth() { if (isAuthenticated()) return true; redirectToLogin(); return false; }
+
+            function handleLoginExpired() { if (expired) return; expired = true; window.dispatchEvent(new Event(
+                    'bag-auth-expired')); clearLoginStorage(); redirectToLogin(); }
+
+            function friendly(value) { let s = typeof value === 'string' ? value : ''; const c = getAuthContext(); if (c) [c
+                    .auth.token, c.auth.salt, c.service.sid
+                ].forEach(v => { s = s.split(v).join(''); }); return s && s.length < 200 && !/(token|salt|sid|my_|m_|https?:|Exception|stack|SQL)/i
+                    .test(s) ? s : '操作未完成，请稍后重试。'; }
+
+            async function request(path, body = {}, signed = false) {
+                const headers = getAuthHeaders();
+                if (signed) {
+                    const sets = getAuthContext().sets;
+                    if (!appId) throw error('当前部署地址尚不支持资料保存，请联系管理员。');
+                    if (!sets.publicKey || typeof JSEncrypt === 'undefined') throw error(
+                        '当前登录暂不支持云端资料，请重新登录后重试。');
+                    const rsa = new JSEncrypt();
+                    rsa.setPublicKey(sets.publicKey.includes('BEGIN') ? sets.publicKey :
+                        '-----BEGIN PUBLIC KEY-----\n' + sets.publicKey + '\n-----END PUBLIC KEY-----');
+                    const key = rsa.encrypt(Date.now() + ',' + appId);
+                    if (!key) throw error('云端资料验证失败，请重新登录后重试。');
+                    headers['X-Key-Open-Api'] = key;
+                }
+                let response;
+                try { response = await LuatSDK.http.post(path, body, headers); } catch (e) { if (e.type ===
+                        'unauthorized') handleLoginExpired(); throw e; }
+                if (!response || typeof response.code !== 'number') throw error('服务返回的数据不完整，请重试。');
+                if ([102, 103, 105].includes(response.code)) { handleLoginExpired(); throw error(
+                        '登录已失效，请重新进入应用。', 'auth'); }
+                if (response.code !== 0) throw error(friendly(response.value));
+                return response;
+            }
+            const maskPhone = p => String(p || '').replace(/^(\d{3})\d+(\d{4})$/, '$1****$2');
+            window.BagCore = { LuatSDK, storage, appId, initial, initAuth, getAuthContext, getAuthHeaders,
+                isAuthenticated, requireAuth, clearLoginStorage, redirectToLogin, redirectToApp,
+                handleLoginExpired, hostSession, saveAtomic, complete, request, maskPhone, pagePath,
+                getOAuthCallback, BASE_HOST, API_HOST, friendly };
+        })();
+    </script>
+    <script>
+        /* ============================================================
+           电表 Web 查看页：实时 / 历史 / 控制命令
+           接口口径（与 factory web 一致）：
+             /list_my_projects、/list_my_devices
+             /aircloud/list_by_tags  {client_id, tags[], page, size, filter:{start,end}}
+               行数据 r['val_'+tag]，时间 r.ct，总数 res.total
+             /aircloud/send_cmd      {client_id, tag:19, value, protocol:0}
+           接口限频红线：同设备 ≥3s、跨设备 ≥150ms（pacedApi 统一节流）
+           ============================================================ */
+        const $ = id => document.getElementById(id);
+        const escHtml = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+            c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const delay = ms => new Promise(r => setTimeout(r, ms));
+
+        function toast(msg, type) {
+            const wrap = $('toastWrap');
+            const el = document.createElement('div');
+            el.className = 'toast' + (type ? ' ' + type : '');
+            el.textContent = msg;
+            wrap.appendChild(el);
+            setTimeout(() => el.remove(), 4000);
+        }
+
+        const api = async (path, body) => (await BagCore.request(path, body, false)).value;
+        function rowsOf(v) {
+            if (Array.isArray(v)) return v;
+            if (v && typeof v === 'object' && Array.isArray(v.records)) return v.records;
+            return [];
+        }
+
+        // list_by_tags 查多个 tag 会返回「每个 tag 一行」，同一上报时刻必须合并，
+        // 否则只取 rows[0] 会缺字段（如缺 val_1320 就把 DI 误显示成 0）
+        function mergeRows(rows) {
+            const map = new Map(), order = [];
+            rows.forEach(r => {
+                const key = String(r.ct || '');
+                if (!map.has(key)) { map.set(key, { ct: key }); order.push(key); }
+                const dst = map.get(key);
+                Object.keys(r).forEach(k => {
+                    if (k.indexOf('val_') === 0 && r[k] !== undefined && r[k] !== null && r[k] !== '')
+                        dst[k] = r[k];
+                });
+            });
+            return order.map(k => map.get(k))
+                .sort((a, b) => String(b.ct).localeCompare(String(a.ct))); // 新的在前
+        }
+
+        // ---- 请求节流：全局 ≥150ms，同设备 ≥3s ----
+        const _callAt = {};
+        let _lastGlobal = 0;
+        const GLOBAL_GAP = 150, DEVICE_GAP = 3000;
+        async function pacedApi(path, body) {
+            const key = (body && body.client_id) ? body.client_id : '*';
+            for (;;) {
+                const now = Date.now();
+                const wait = Math.max(_lastGlobal + GLOBAL_GAP - now,
+                    (key === '*' ? 0 : (_callAt[key] || 0) + DEVICE_GAP - now));
+                if (wait <= 0) break;
+                await delay(Math.min(wait, 3200));
+            }
+            _lastGlobal = Date.now();
+            if (key !== '*') _callAt[key] = _lastGlobal;
+            return api(path, body);
+        }
+
+        // ---- 电表 TLV 字段（与 aircloud_app.lua 的 METER_TAGS 对齐） ----
+        const METER_TAGS = [
+            { tag: 1300, key: 'ua', name: 'A相电压', unit: 'V',   dec: 1, group: 'u' },
+            { tag: 1301, key: 'ub', name: 'B相电压', unit: 'V',   dec: 1, group: 'u' },
+            { tag: 1302, key: 'uc', name: 'C相电压', unit: 'V',   dec: 1, group: 'u' },
+            { tag: 1303, key: 'ia', name: 'A相电流', unit: 'A',   dec: 3, group: 'i' },
+            { tag: 1304, key: 'ib', name: 'B相电流', unit: 'A',   dec: 3, group: 'i' },
+            { tag: 1305, key: 'ic', name: 'C相电流', unit: 'A',   dec: 3, group: 'i' },
+            { tag: 1306, key: 'p',  name: '有功功率', unit: 'kW',  dec: 3, group: 'p' },
+            { tag: 1307, key: 'q',  name: '无功功率', unit: 'kvar', dec: 3, group: 'p' },
+            { tag: 1308, key: 's',  name: '视在功率', unit: 'kVA', dec: 3, group: 'p' },
+            { tag: 1309, key: 'pf', name: '功率因数', unit: '',   dec: 3, group: 'x' },
+            { tag: 1310, key: 'f',  name: '频率',    unit: 'Hz',  dec: 2, group: 'x' },
+            { tag: 1311, key: 'ep', name: '正向有功电能', unit: 'kWh', dec: 2, group: 'e' },
+        ];
+        const TAG_SIGNAL = 782, TAG_CMD_RESP = 20;
+        // 开关控制字段：1320/1321 DI，1322 目标，1323 限制，1324 故障，1325 继电器输出
+        const CTRL_TAGS = [1320, 1321, 1322, 1323, 1324, 1325, 1326, 1313, 1314];
+        const allTags = () => [TAG_SIGNAL, ...METER_TAGS.map(t => t.tag), ...CTRL_TAGS];
+
+        // 历史表头按 METER_TAGS 生成（字段增减无需改 HTML）
+        $('histHead').innerHTML = '<th>时间</th>' + METER_TAGS.map(d =>
+            '<th>' + escHtml(d.name) + (d.unit ? '(' + escHtml(d.unit) + ')' : '') + '</th>').join('');
+
+        const S = {
+            projects: [], devices: [],
+            projectKey: '', projectName: '',
+            deviceId: '', deviceName: '',
+            latestCt: '', latest: null,
+            history: [], page: 1, total: 0, loading: false, histSeq: 0
+        };
+        const PAGE_SIZE = 20;
+
+        // ---- 数值格式化 ----
+        function fmtNum(v, dec) {
+            const n = Number(v);
+            return Number.isFinite(n) ? n.toFixed(dec) : '--';
+        }
+        function cellOf(row, def) {
+            const v = row ? row['t' + def.tag] : undefined;
+            return (v === undefined || v === null || v === '') ? '--' : fmtNum(v, def.dec);
+        }
+
+        // ---- 项目 / 设备 ----
+        function renderProjectOptions() {
+            const sel = $('projectSelect');
+            if (!S.projects.length) {
+                sel.innerHTML = '<option value="">暂无项目</option>';
+                return;
+            }
+            sel.innerHTML = S.projects.map(p =>
+                '<option value="' + escHtml(p.project_key) + '">' +
+                escHtml(p.name || p.project_key || '未命名项目') + '</option>').join('');
+            if (S.projectKey) sel.value = S.projectKey;
+        }
+
+        function renderDeviceOptions() {
+            const sel = $('deviceSelect');
+            if (!S.devices.length) {
+                sel.innerHTML = '<option value="">暂无设备</option>';
+                return;
+            }
+            sel.innerHTML = S.devices.map(d =>
+                '<option value="' + escHtml(d.deviceid) + '">' +
+                escHtml(d.name || d.deviceid) + '</option>').join('');
+            if (S.deviceId) sel.value = S.deviceId;
+        }
+
+        async function loadProjects() {
+            try {
+                const data = await api('/list_my_projects', {});
+                S.projects = Array.isArray(data) ? data : rowsOf(data);
+            } catch (e) {
+                S.projects = [];
+                toast('项目加载失败：' + e.message, 'error');
+            }
+            renderProjectOptions();
+            const proj = S.projects.find(p => p.project_key === S.projectKey) || S.projects[0];
+            if (proj) await switchProject(proj.project_key);
+        }
+
+        async function switchProject(key) {
+            if (!key) return;
+            S.projectKey = key;
+            const proj = S.projects.find(p => p.project_key === key);
+            S.projectName = proj ? (proj.name || proj.project_key || '未命名项目') : key;
+            $('projNameText').textContent = S.projectName;
+            try {
+                const devData = await api('/list_my_devices', { project: key, page: 1, size: 200 });
+                S.devices = rowsOf(devData).filter(d => d && typeof d.deviceid === 'string');
+            } catch (e) {
+                S.devices = [];
+                toast('设备列表加载失败：' + e.message, 'error');
+            }
+            renderDeviceOptions();
+            if (S.devices.length) await selectDevice(S.devices[0].deviceid);
+            else { S.deviceId = ''; renderLatest(); }
+        }
+
+        async function selectDevice(deviceId) {
+            S.deviceId = deviceId || '';
+            const d = S.devices.find(x => x.deviceid === S.deviceId);
+            S.deviceName = d ? (d.name || d.deviceid) : S.deviceId;
+            $('devIdText').textContent = S.deviceId || '--';
+            S.history = []; S.page = 1; S.total = 0;
+            renderHistory();
+            if (S.deviceId) {
+                await loadLatest();
+                await loadHistory(1);
+            }
+        }
+
+        // ---- 实时数据 ----
+        async function loadLatest() {
+            if (!S.deviceId) return;
+            try {
+                const res = await pacedApi('/aircloud/list_by_tags', {
+                    client_id: S.deviceId, tags: allTags(), page: 1, size: 40
+                });
+                const merged = mergeRows(rowsOf(res)); // 多 tag 多行 → 按时刻合并
+                S.latest = merged.length ? merged[0] : null;
+                S.latestCt = S.latest && S.latest.ct ? String(S.latest.ct) : '';
+            } catch (e) {
+                if (e.type === 'auth' || e.type === 'unauthorized') return;
+                toast('实时数据刷新失败：' + e.message, 'error');
+                return;
+            }
+            renderLatest();
+        }
+
+        function renderLatest() {
+            const row = S.latest;
+            $('latestCt').textContent = S.latestCt || '--';
+            $('lastCtText').textContent = S.latestCt || '--';
+            const sig = row ? row['val_' + TAG_SIGNAL] : undefined;
+            $('signalText').textContent = (sig === undefined || sig === null) ? '--' : String(sig);
+
+            // 报警状态：1313 位图 / 1314 描述
+            renderAlarmState(row ? row['val_1313'] : undefined, row ? row['val_1314'] : '');
+            // 开关控制状态
+            renderCtrl(row);
+
+            // 在线状态：最近上报 3 分钟内算在线，30 分钟内算陈旧
+            const badge = $('onlineBadge');
+            let cls = 'err', txt = '离线';
+            if (S.latestCt) {
+                const t = Date.parse(S.latestCt.replace(/-/g, '/'));
+                const age = Number.isFinite(t) ? (Date.now() - t) : Infinity;
+                if (age <= 3 * 60000) { cls = 'ok'; txt = '在线'; }
+                else if (age <= 30 * 60000) { cls = 'warn'; txt = '数据陈旧'; }
+            }
+            badge.className = 'badge ' + cls;
+            badge.textContent = txt;
+
+            $('meterGrid').innerHTML = METER_TAGS.map(def => {
+                const v = row ? row['val_' + def.tag] : undefined;
+                const val = (v === undefined || v === null || v === '') ? '--' : fmtNum(v, def.dec);
+                return '<div class="meter-card"><div class="name"><span>' + escHtml(def.name) +
+                    '</span><span class="tag">' + def.tag + '</span></div>' +
+                    '<div class="value">' + escHtml(val) +
+                    (def.unit ? '<span class="unit">' + escHtml(def.unit) + '</span>' : '') +
+                    '</div></div>';
+            }).join('');
+        }
+
+        // ---- 历史数据 ----
+        function fmtDate(d) {
+            const p = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+        }
+        function setDefaultDates() {
+            const end = new Date();
+            const start = new Date(end.getTime() - 86400000);
+            $('startDate').value = fmtDate(start);
+            $('endDate').value = fmtDate(end);
+        }
+
+        async function loadHistory(page) {
+            if (!S.deviceId) return;
+            const seq = ++S.histSeq;
+            S.loading = true;
+            const sd = $('startDate').value || fmtDate(new Date());
+            const ed = $('endDate').value || sd;
+            const filter = { start: sd + ' 00:00:00', end: ed + ' 23:59:59' };
+            try {
+                const res = await pacedApi('/aircloud/list_by_tags', {
+                    client_id: S.deviceId, tags: allTags(), page: page, size: PAGE_SIZE, filter: filter
+                });
+                if (seq !== S.histSeq) return;
+                const rows = rowsOf(res);
+                S.total = Number(res && res.total) || rows.length;
+                S.page = page;
+                // 同一上报时刻的多行合并为一行
+                const merged = {}, order = [];
+                rows.forEach(r => {
+                    const key = r.ct || '';
+                    if (!merged[key]) { merged[key] = { ct: key }; order.push(key); }
+                    allTags().forEach(t => {
+                        const v = r['val_' + t];
+                        if (v !== undefined && v !== null) merged[key]['t' + t] = v;
+                    });
+                });
+                const pageRows = order.map(k => merged[k]);
+                S.history = page > 1 ? S.history.concat(pageRows) : pageRows;
+                renderHistory();
+                renderChart();
+                $('loadMoreBtn').classList.toggle('hidden', S.history.length >= S.total);
+            } catch (e) {
+                if (seq === S.histSeq && e.type !== 'auth' && e.type !== 'unauthorized')
+                    toast('历史数据加载失败：' + e.message, 'error');
+            } finally {
+                if (seq === S.histSeq) S.loading = false;
+            }
+        }
+
+        function renderHistory() {
+            const body = $('histBody');
+            if (!S.history.length) {
+                body.innerHTML = '<tr><td colspan="' + (METER_TAGS.length + 1) +
+                    '" class="empty">所选时间范围内暂无数据</td></tr>';
+                return;
+            }
+            body.innerHTML = S.history.map(r =>
+                '<tr><td>' + escHtml(r.ct || '--') + '</td>' +
+                METER_TAGS.map(def => '<td>' + escHtml(cellOf(r, def)) + '</td>').join('') +
+                '</tr>').join('');
+        }
+
+        // ---- 趋势图 ----
+        let chart = null;
+        function renderChart() {
+            if (typeof echarts === 'undefined') return;
+            const el = $('trendChart');
+            if (!el) return;
+            if (!chart) chart = echarts.init(el);
+            const group = $('trendMetric').value;
+            const defs = METER_TAGS.filter(t => t.group === group);
+            const rows = S.history.slice().sort((a, b) => String(a.ct).localeCompare(String(b.ct)));
+            chart.setOption({
+                color: ['#1a73e8', '#16a34a', '#d97706'],
+                tooltip: { trigger: 'axis' },
+                legend: { data: defs.map(d => d.name), top: 0 },
+                grid: { left: 48, right: 16, top: 34, bottom: 30 },
+                xAxis: { type: 'category', data: rows.map(r => r.ct || ''), boundaryGap: false,
+                         axisLabel: { fontSize: 10 } },
+                yAxis: { type: 'value', scale: true, axisLabel: { fontSize: 10 } },
+                series: defs.map(d => ({
+                    name: d.name, type: 'line', smooth: true, showSymbol: false,
+                    data: rows.map(r => {
+                        const v = r['t' + d.tag];
+                        return (v === undefined || v === null) ? null : Number(v);
+                    })
+                }))
+            }, true);
+        }
+
+        // ---- 控制命令（tag19 下发，tag20 应答） ----
+        async function sendCmdEcho(value, label, boxId) {
+            if (!S.deviceId) return toast('请先选择设备', 'error');
+            const box = $(boxId || 'cmdResult');
+            box.classList.remove('hidden');
+            box.textContent = '命令已发送：' + label + '（等待设备应答...）';
+            try {
+                await pacedApi('/aircloud/send_cmd', {
+                    client_id: S.deviceId, tag: 19, value: value, protocol: 0
+                });
+            } catch (e) {
+                box.textContent = '命令下发失败：' + e.message;
+                return '';
+            }
+            await delay(1200);
+            let resp = '';
+            try {
+                // 一次请求同时取「命令应答」+「最新数据」，省掉一次接口往返（同设备限频 ≥3s）
+                const res = await pacedApi('/aircloud/list_by_tags', {
+                    client_id: S.deviceId, tags: [TAG_CMD_RESP, ...allTags()], page: 1, size: 40
+                });
+                const row = mergeRows(rowsOf(res))[0];
+                resp = row && row.val_20 != null ? String(row.val_20) : '';
+                box.textContent = resp ? ('设备应答：' + resp) : '暂无应答（设备可能离线，请稍后重试）';
+                if (row) {
+                    S.latest = row;
+                    S.latestCt = row.ct ? String(row.ct) : S.latestCt;
+                    renderLatest();
+                }
+            } catch (e) {
+                box.textContent = '应答读取失败：' + e.message;
+            }
+            return resp;
+        }
+
+        // ---- 越限报警配置 ----
+        const ALARM_FIELDS = [
+            ['alarmEnable', 'enable'], ['alarmHiU', 'hi_u'], ['alarmLoU', 'lo_u'],
+            ['alarmHiI', 'hi_i'], ['alarmHiP', 'hi_p'],
+            ['alarmHiF', 'hi_f'], ['alarmLoF', 'lo_f'], ['alarmHys', 'hys']
+        ];
+        const ALARM_NAMES = ['电压越限', '电流越限', '功率越限', '频率越限'];
+
+        function parseJsonSafe(s) {
+            if (!s) return null;
+            const str = String(s);
+            // 兼容对象（{...}）与数组（[...]）两种应答
+            const cands = [str.indexOf('{'), str.indexOf('[')].filter(n => n >= 0);
+            if (!cands.length) return null;
+            const i = Math.min.apply(null, cands);
+            try { return JSON.parse(str.slice(i)); } catch { return null; }
+        }
+
+        function fillAlarmForm(j) {
+            if (!j) return;
+            ALARM_FIELDS.forEach(([el, key]) => {
+                const node = $(el);
+                if (node && j[key] !== undefined && j[key] !== null) node.value = j[key];
+            });
+        }
+
+        function renderAlarmState(bitmap, text) {
+            const el = $('alarmState');
+            if (!el) return;
+            const b = Number(bitmap) || 0;
+            if (!b) { el.className = 'badge ok'; el.textContent = '正常'; return; }
+            const items = ALARM_NAMES.filter((_, i) => b & (1 << i));
+            el.className = 'badge err';
+            el.textContent = '报警：' + (items.length ? items.join(' / ') : (text || b));
+        }
+
+        async function alarmSave() {
+            const obj = { type: 'alarm' };
+            ALARM_FIELDS.forEach(([el, key]) => {
+                const v = Number($(el).value);
+                obj[key] = Number.isFinite(v) ? v : 0;
+            });
+            const j = parseJsonSafe(await sendCmdEcho(JSON.stringify(obj), '设置报警阈值', 'alarmResult'));
+            if (j && j.code === 0) { fillAlarmForm(j); toast('报警阈值已下发'); }
+            else if (j) toast('下发失败：' + (j.value || '设备拒绝'), 'error');
+        }
+
+        async function alarmQuery() {
+            const j = parseJsonSafe(await sendCmdEcho('{"type":"alarm_get"}', '查询报警配置', 'alarmResult'));
+            if (j) { fillAlarmForm(j); renderAlarmState(j.state, j.text); }
+        }
+
+        // ---- 开关控制（tag1320~1326） ----
+        const SW_NAMES = ['总开关'];
+        // 乐观更新：指令下发后先本地改状态，直到拿到"指令之后的上报"才释放
+        let ctrlOpt = null;
+        let lastDi = null; // 上次有效的 DI1 反馈，字段缺失时沿用
+
+        function ctrlState(row) {
+            // 保留"字段缺失"与"值为 0"的区别：缺失时不能当成 0（否则 DI 会误显示为断开）
+            const n = t => {
+                const v = row ? row['val_' + t] : undefined;
+                return (v === undefined || v === null || v === '') ? undefined : Number(v);
+            };
+            const v0 = t => { const x = n(t); return x === undefined ? 0 : x; };
+            return {
+                has: !!row,
+                di: [n(1320), n(1321)],
+                target: v0(1322), lock: v0(1323), fault: v0(1324), relay: v0(1325),
+                di_raw: v0(1326),
+            };
+        }
+
+        // 刀闸图示：合闸=红色闭合，跳闸=深灰断开（跟随 DI 实际反馈）
+        function swSvg(closed) {
+            const c = closed ? '#dc2626' : '#334155';
+            const blade = closed
+                ? '<line x1="40" y1="42" x2="40" y2="78" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round"/>'
+                : '<line x1="40" y1="42" x2="62" y2="73" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round"/>';
+            return '<svg viewBox="0 0 80 122" width="76" height="116" aria-hidden="true">' +
+                '<line x1="40" y1="4" x2="40" y2="42" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round"/>' +
+                '<circle cx="40" cy="42" r="5" fill="#fff" stroke="' + c + '" stroke-width="3"/>' +
+                blade +
+                '<circle cx="40" cy="78" r="5" fill="#fff" stroke="' + c + '" stroke-width="3"/>' +
+                '<line x1="40" y1="78" x2="40" y2="118" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round"/>' +
+                '</svg>';
+        }
+
+        function renderCtrl(row) {
+            const s = ctrlState(row);
+            if (ctrlOpt) {
+                const rowTs = row && row.ct ? Date.parse(String(row.ct).replace(/-/g, '/')) : 0;
+                // 设备动作需 2s 脉冲 + 1.2s 校验，故要求上报时间至少晚于指令 3s，
+                // 才算"指令之后的真实上报"，否则继续用乐观值（避免回落到旧数据）
+                const stale = !rowTs || rowTs < ctrlOpt.at + 3000;
+                if (Date.now() - ctrlOpt.at > 60000) {
+                    ctrlOpt = null; // 兜底：1 分钟没等到更新就放弃乐观值
+                } else if (stale) {
+                    if (ctrlOpt.target !== undefined) s.target = ctrlOpt.target;
+                    if (ctrlOpt.lock !== undefined) s.lock = ctrlOpt.lock;
+                } else {
+                    ctrlOpt = null; // 已拿到指令之后的真实上报
+                }
+            }
+            const link = $('ctrlLink');
+            if (!s.has) { link.className = 'badge err'; link.textContent = '无数据'; }
+            else if (s.fault & 4) { link.className = 'badge err'; link.textContent = '通信异常'; }
+            else if (s.fault) { link.className = 'badge warn'; link.textContent = '开关故障'; }
+            else { link.className = 'badge ok'; link.textContent = '运行中'; }
+
+            if (!s.has) {
+                $('swGrid').innerHTML = '<div class="empty">暂无开关数据（设备未上报 1320~1326）</div>';
+                return;
+            }
+            // 只有 1 路总开关：继电器1(DO1A/DO1B)=合闸，继电器2(DO2A/DO2B)=断开
+            const ch = 1, bit = 1;
+            // DI 以实际反馈为准；本轮字段缺失时沿用上次有效值，避免图示来回跳
+            if (s.di[0] !== undefined) lastDi = s.di[0];
+            const di = lastDi === 1;
+            const fault = !!(s.fault & bit);
+            const target = !!(s.target & bit);
+            // 限制本地合闸（单通道，总限制与单路限制合并显示）
+            const locked = !!(s.lock & 1) || !!(s.lock & (1 << ch));
+            const ls = $('lockState');
+            if (ls) {
+                ls.textContent = locked ? '已限制' : '已解除';
+                ls.className = 'fn-state' + (locked ? ' on' : '');
+            }
+            const relayOn = s.relay & 1;
+            const relayOff = (s.relay >> 1) & 1;
+            const cls = fault ? 'err' : (di ? 'on' : 'off');
+            const txt = fault ? '故障' : (di ? '合闸' : '断开');
+            $('swGrid').innerHTML = '<div class="sw-card ' + cls + '">' +
+                '<div class="sw-head">' +
+                '<span class="sw-lamp ' + (fault ? 'err' : (di ? 'on' : '')) + '"></span>' +
+                '<span class="sw-name">总开关 · DO1</span>' +
+                '<span class="sw-state ' + (fault ? 'err' : (di ? 'on' : '')) + '">' + txt + '</span>' +
+                '</div>' +
+                '<div class="sw-body">' +
+                '<div class="sw-fig">' + swSvg(di) +
+                '<div class="sw-fig-cap" style="color:' + (di ? '#dc2626' : '#334155') + '">' +
+                (di ? '开关已合闸' : '开关已断开') +
+                '<b>DI1=' + (di ? '1' : '0') + '</b></div>' +
+                '</div>' +
+                '<div class="sw-info">' +
+                '<span>反馈 DI1：<b>' + (di ? '1（合闸）' : '0（断开）') + '</b></span>' +
+                '<span>平台目标：<b>' + (target ? '合闸' : '断开') + '</b></span>' +
+                '<span>合闸继电器 DO1A/B：<b>' + (relayOn ? 'ON' : 'OFF') + '</b></span>' +
+                '<span>断开继电器 DO2A/B：<b>' + (relayOff ? 'ON' : 'OFF') + '</b></span>' +
+                '<span>DI 原始位：<b>0b' + (s.di_raw & 15).toString(2).padStart(4, '0') + '</b></span>' +
+                '</div></div>' +
+                '<div class="sw-acts">' +
+                '<button class="btn" data-sw="on" data-ch="' + ch + '">合闸</button>' +
+                '<button class="btn btn-close" data-sw="off" data-ch="' + ch + '">断开</button>' +
+                '</div>' +
+                '</div>';
+        }
+
+        async function ctrlSend(obj, label) {
+            // 乐观更新：先本地改「平台目标/限制」，UI 立即响应，不等云端回读
+            const s = ctrlState(S.latest);
+            if (obj.type === 'sw') {
+                let tgt = s.target, lk = s.lock;
+                const list = obj.ch === 0 ? [1, 2] : [obj.ch];
+                list.forEach(ch => {
+                    if (obj.act) {                       // 合闸：只改目标，不动限制状态
+                        tgt = tgt | (1 << (ch - 1));
+                    } else {                             // 断开：目标清零 + 自动加限制
+                        tgt = tgt & ~(1 << (ch - 1));
+                        lk = lk | (1 << ch);
+                    }
+                });
+                ctrlOpt = { target: tgt, lock: lk, at: Date.now() };
+                renderCtrl(S.latest);
+            } else if (obj.type === 'lock') {
+                let lk = s.lock;
+                if (obj.all !== undefined) lk = obj.all ? (lk | 1) : (lk & ~1);
+                if (obj.ch !== undefined) lk = obj.val ? (lk | (1 << obj.ch)) : (lk & ~(1 << obj.ch));
+                ctrlOpt = { lock: lk, at: Date.now() };
+                renderCtrl(S.latest);
+            }
+
+            const j = parseJsonSafe(await sendCmdEcho(JSON.stringify(obj), label, 'ctrlResult'));
+            if (j && j.code !== 0) toast('操作被拒绝：' + (j.value || '设备未接受'), 'error');
+            fetchCtrlLog(true); // 操作后顺带刷新日志
+            // 设备侧动作 2s + 校验 1.2s 后才上报；补刷两次，乐观值由上报表的时间戳自动释放
+            setTimeout(() => loadLatest(), 3500);
+            setTimeout(() => loadLatest(), 7000);
+            return j;
+        }
+
+        // ---- 控制日志 ----
+        function fmtLogTime(ts) {
+            const n = Number(ts) || 0;
+            if (n < 1600000000) return 'T+' + n + 's'; // 设备未对时，显示相对秒
+            const d = new Date(n * 1000), p = x => String(x).padStart(2, '0');
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
+                p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        }
+
+        // 设备日志为 ASCII（云端 ASCII 字段塞不下中文，会乱码），这里翻译成中文展示
+        function trLog(s) {
+            const t = String(s || '');
+            if (/[^\x00-\x7F]/.test(t)) return t; // 已是中文（老固件）原样显示
+            return t
+                .replace(/^CMD DO(\d) (CLOSE|OPEN)$/, (m, c, a) =>
+                    '平台指令 总开关 ' + (a === 'CLOSE' ? '合闸' : '断开'))
+                .replace(/^DO(\d) (CLOSE|OPEN) OK$/, (m, c, a) =>
+                    '总开关 ' + (a === 'CLOSE' ? '合闸' : '断开') + ' 完成')
+                .replace(/^DO(\d) (CLOSE|OPEN) FAIL DI=(\d)$/, (m, c, a, d) =>
+                    '总开关 ' + (a === 'CLOSE' ? '合闸' : '断开') + ' 未到位（DI=' + d + '）')
+                .replace(/^CORRECT DO(\d) (CLOSE|OPEN) DI=(\d)$/, (m, c, a, d) =>
+                    (a === 'CLOSE' ? '本地断开被纠正 → 强制合闸' : '本地合闸被拦截 → 强制断开') +
+                    '（DI=' + d + '）')
+                .replace(/^GUARD ON DO\d$/, () => '进入监守模式（每 2s 持续纠偏）')
+                .replace(/^GUARD OFF DO\d$/, () => '状态已恢复，退出监守模式')
+                .replace(/^LOCK ALL (ON|OFF)$/, (m, v) => '总限制 ' + (v === 'ON' ? '开启' : '解除'))
+                .replace(/^LOCK DO(\d) (ON|OFF)$/, (m, c, v) =>
+                    '操作DO' + c + ' 单路限制 ' + (v === 'ON' ? '开启' : '解除'))
+                .replace(/^AUTOLOCK DO\d$/, () => '自动开启 限制本地合闸（平台断开后）')
+                .replace(/^AUTOUNLOCK DO\d$/, () => '自动解除 限制本地合闸（平台合闸后）');
+        }
+
+        async function fetchCtrlLog(quiet) {
+            const box = $('logList');
+            const arr = parseJsonSafe(
+                await sendCmdEcho('{"type":"log_get","n":40}', '读取控制日志', 'logResult'));
+            $('logResult').classList.add('hidden'); // 原始 JSON 不展示，只看列表
+            if (!Array.isArray(arr)) {
+                if (!quiet) box.innerHTML = '<div class="empty">设备未返回日志（可能离线或固件未升级）</div>';
+                return;
+            }
+            if (!arr.length) { box.innerHTML = '<div class="empty">暂无事件</div>'; return; }
+            box.innerHTML = arr.map(e => {
+                const txt = trLog(e.s !== undefined ? e.s : (e.text || ''));
+                const bad = /失败|未到位|拦截|异常/.test(txt);
+                return '<div class="log-item' + (bad ? ' warn' : '') + '">' +
+                    '<span class="log-time">' + escHtml(fmtLogTime(e.t !== undefined ? e.t : e.ts)) + '</span>' +
+                    '<span class="log-text">' + escHtml(txt) + '</span></div>';
+            }).join('');
+        }
+
+        // ---- 登录状态 ----
+        function updateAuthUI() {
+            const authed = BagCore.isAuthenticated();
+            $('loginBtn').classList.toggle('hidden', authed);
+            $('logoutBtn').classList.toggle('hidden', !authed);
+            if (!authed) {
+                $('projectSelect').innerHTML = '<option value="">未登录</option>';
+                $('deviceSelect').innerHTML = '<option value="">暂无设备</option>';
+            }
+        }
+
+        // ---- 事件绑定 ----
+        function bindEvents() {
+            $('loginBtn').addEventListener('click', () => BagCore.requireAuth());
+            $('logoutBtn').addEventListener('click', () => {
+                BagCore.clearLoginStorage();
+                try { sessionStorage.removeItem('m_host_session'); } catch (e) {}
+                location.reload();
+            });
+            $('projectSelect').addEventListener('change', e => switchProject(e.target.value));
+            $('deviceSelect').addEventListener('change', e => selectDevice(e.target.value));
+            $('refreshBtn').addEventListener('click', () => { loadLatest(); toast('已刷新实时数据'); });
+            $('queryBtn').addEventListener('click', () => loadHistory(1));
+            $('loadMoreBtn').addEventListener('click', () => {
+                if (!S.loading && S.history.length < S.total) loadHistory(S.page + 1);
+            });
+            $('trendMetric').addEventListener('change', renderChart);
+            $('cmdReportNow').addEventListener('click', () => sendCmdEcho('report:now', 'report:now'));
+            $('cmdSetCycle').addEventListener('click', () => {
+                const n = Number($('cycleInput').value);
+                if (!Number.isInteger(n) || n < 5 || n > 86400)
+                    return toast('上报周期需为 5~86400 的整数秒', 'error');
+                sendCmdEcho('cycle:' + n, 'cycle:' + n);
+            });
+            $('alarmSave').addEventListener('click', alarmSave);
+            $('alarmQuery').addEventListener('click', alarmQuery);
+
+            // 串口调试报文（远程开关）
+            $('dbgOn').addEventListener('click', () =>
+                sendCmdEcho('{"type":"debug","val":1}', '开启串口调试报文', 'cmdResult'));
+            $('dbgOff').addEventListener('click', () =>
+                sendCmdEcho('{"type":"debug","val":0}', '关闭串口调试报文', 'cmdResult'));
+
+            // 开关控制（单通道总开关，控制按钮只在卡片内）
+            $('swGrid').addEventListener('click', e => {
+                const btn = e.target.closest('button[data-sw]');
+                if (!btn) return;
+                const ch = Number(btn.dataset.ch);
+                const act = btn.dataset.sw === 'on' ? 1 : 0;
+                ctrlSend({ type: 'sw', ch, act }, act ? '合闸' : '断开');
+            });
+            // 限制本地合闸：断开后自动加限，解除必须显式点按钮（不改变开关状态）
+            $('lockOnBtn').addEventListener('click', () =>
+                ctrlSend({ type: 'lock', all: 0, ch: 1, val: 1 }, '开启 限制本地合闸'));
+            $('lockOffBtn').addEventListener('click', () =>
+                ctrlSend({ type: 'lock', all: 0, ch: 1, val: 0 }, '解除 限制本地合闸'));
+            $('logRefresh').addEventListener('click', () => fetchCtrlLog(false));
+            window.addEventListener('resize', () => { if (chart) chart.resize(); });
+        }
+
+        // ---- 自动刷新 ----
+        function startAutoRefresh() {
+            setInterval(() => {
+                if (!$('autoRefresh').checked) return;
+                if (!BagCore.isAuthenticated() || !S.deviceId) return;
+                loadLatest();
+            }, 60000);
+        }
+
+        // ---- 启动 ----
+        async function init() {
+            setDefaultDates();
+            bindEvents();
+            renderLatest();
+            renderHistory();
+            try { BagCore.initAuth(); } catch (e) { console.warn('[auth]', e); }
+            updateAuthUI();
+            if (BagCore.isAuthenticated()) {
+                await loadProjects();
+            }
+            startAutoRefresh();
+        }
+        init();
+    </script>
+</body>
+</html>

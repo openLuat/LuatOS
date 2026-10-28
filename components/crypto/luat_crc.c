@@ -233,6 +233,29 @@ uint32_t luat_crc32(const void *data, uint32_t len, uint32_t start, uint32_t pol
 #define __USER_FUNC_IN_RAM__ 
 #endif
 
+#ifdef LUAT_USE_AIRLINK
+// 表放 RAM 提速
+static uint16_t modbus_table[256];
+static uint8_t modbus_table_ready = 0;
+
+static void modbus_table_init(void)
+{
+	uint16_t i;
+	for (i = 0; i < 256; i++) {
+		uint16_t crc = i;
+		uint8_t j;
+		for (j = 0; j < 8; j++) {
+			if (crc & 1) {
+				crc = (crc >> 1) ^ 0xA001;
+			} else {
+				crc >>= 1;
+			}
+		}
+		modbus_table[i] = crc;
+	}
+	modbus_table_ready = 1;
+}
+#else
 static uint16_t modbus_table[256] = {
 	0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
 	0xC601, 0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481, 0x0440,
@@ -266,11 +289,16 @@ static uint16_t modbus_table[256] = {
 	0x4E00, 0x8EC1, 0x8F81, 0x4F40, 0x8D01, 0x4DC0, 0x4C80, 0x8C41,
 	0x4400, 0x84C1, 0x8581, 0x4540, 0x8701, 0x47C0, 0x4680, 0x8641,
 	0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040 };
+#endif
 
 __USER_FUNC_IN_RAM__ uint16_t luat_crc16_modbus( const uint8_t *buf, uint32_t len)
 {
 	uint8_t xor = 0;
 	uint16_t crc = 0xFFFF;
+
+#ifdef LUAT_USE_AIRLINK
+	if (!modbus_table_ready) modbus_table_init();
+#endif
 
 	while( len-- )
 	{

@@ -15,6 +15,10 @@ PROJECT/VERSION/PRODUCT_KEY/FOTA 由 factory/main.lua 统一管理（libfota3）
 sys = require "sys"
 sysplus = require "sysplus"
 require "netdrv_4g"
+-- Keep module imports separate for Luatools dependency scanning.
+local aircloud_settings = require "aircloud_settings"
+local sip_config = require "sip_config"
+aircloud_settings.init("8784", sip_config)
 local mode = require "task_runtime"
 if mode.active == "single" then
     require "single_app"

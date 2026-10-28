@@ -11,9 +11,17 @@ SIP呼入使用targets()获取本次轮拨号码快照；按键由任务引擎�
 ]]
 local M = {}
 function M.valid(number)
-    return type(number) == "string" and #number == 11 and number:match("^1%d+$") ~= nil
+    return type(number) == "string" and #number > 0 and #number <= 32 and number:match("^%+?%d+$") ~= nil
 end
 function M.targets()
+    local settings=require "aircloud_settings"
+    if settings.pending then
+        local boot=settings.applied
+        if boot.sos_mode=="sip_cc" and #boot.sos_sip_cc_numbers>0 then
+            return require("sos_config").copy(boot.sos_sip_cc_numbers)
+        end
+        return nil
+    end
     local saved = fskv.get("sip_task_v1")
     if type(saved) ~= "table" or type(saved.task) ~= "table" then return nil end
     local task = saved.task

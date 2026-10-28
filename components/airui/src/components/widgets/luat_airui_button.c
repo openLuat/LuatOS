@@ -278,8 +278,10 @@ int airui_button_set_on_long_press(lv_obj_t *btn, int callback_ref)
 /**
  * 设置 Button 样式
  * 可设置的参数包括：
- *   - bg_color: 背景色，格式 0xRRGGBB
+ *   - bg_color: 背景色，格式 0xRRGGBB，同时作为渐变起点色
  *   - bg_opa: 背景透明度，范围 0~255
+ *   - bg_grad_color: 渐变终点色，格式 0xRRGGBB
+ *   - bg_grad_dir: 渐变方向，"none"/"ver"/"hor" 或 0/1/2。只给终点色时默认从上到下
  *   - border_color: 边框颜色，格式 0xRRGGBB
  *   - border_width: 边框宽度，单位像素
  *   - radius: 圆角半径
@@ -310,14 +312,36 @@ int airui_button_set_style(lv_obj_t *btn, void *L, int idx)
     }
 
     int value = 0;
+    int grad_color = 0;
+    bool has_grad_color = false;
+    bool has_grad_dir = false;
+    lv_grad_dir_t grad_dir = LV_GRAD_DIR_NONE;
+    lv_style_selector_t main_def = (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT;
 
     if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
-        lv_obj_set_style_bg_color(btn, lv_color_hex((uint32_t)value),
-            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(btn, lv_color_hex((uint32_t)value), main_def);
     }
     if (airui_marshal_integer_opt(L_state, idx, "bg_opa", &value)) {
-        lv_obj_set_style_bg_opa(btn, airui_marshal_opacity(value),
-            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(btn, airui_marshal_opacity(value), main_def);
+    }
+    has_grad_color = airui_marshal_integer_opt(L_state, idx, "bg_grad_color", &grad_color);
+    has_grad_dir = airui_marshal_grad_dir(L_state, idx, "bg_grad_dir", &grad_dir);
+    if (has_grad_color && !has_grad_dir) {
+        grad_dir = LV_GRAD_DIR_VER;
+        has_grad_dir = true;
+    }
+    if (has_grad_color) {
+        lv_obj_set_style_bg_grad_color(btn, lv_color_hex((uint32_t)grad_color), main_def);
+    }
+    if (has_grad_dir) {
+        lv_obj_set_style_bg_grad_dir(btn, grad_dir, main_def);
+        if (grad_dir != LV_GRAD_DIR_NONE) {
+            /* 按下和禁用沿用各自的纯色，不继承默认态渐变。 */
+            lv_obj_set_style_bg_grad_dir(btn, LV_GRAD_DIR_NONE,
+                (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
+            lv_obj_set_style_bg_grad_dir(btn, LV_GRAD_DIR_NONE,
+                (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
+        }
     }
     if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
         lv_obj_set_style_border_color(btn, lv_color_hex((uint32_t)value),

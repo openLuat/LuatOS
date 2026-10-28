@@ -25,6 +25,7 @@ typedef struct airui_component_ref airui_component_ref_t;
 #define AIRUI_BUTTON_MT "airui.button"
 #define AIRUI_LABEL_MT "airui.label"
 #define AIRUI_IMAGE_MT "airui.image"
+#define AIRUI_MAP_MT "airui.map"
 #define AIRUI_WIN_MT "airui.win"
 #define AIRUI_DROPDOWN_MT "airui.dropdown"
 #define AIRUI_SWITCH_MT "airui.switch"
@@ -74,7 +75,8 @@ typedef enum {
     AIRUI_COMPONENT_NES,
     AIRUI_COMPONENT_GBC,
     AIRUI_COMPONENT_CAMERA,
-    AIRUI_COMPONENT_SLIDER
+    AIRUI_COMPONENT_SLIDER,
+    AIRUI_COMPONENT_MAP
 } airui_component_type_t;
 
 /** Video 格式 */
@@ -421,6 +423,16 @@ bool airui_marshal_color(void *L, int idx, const char *key, lv_color_t *out);
 bool airui_marshal_integer_opt(void *L, int idx, const char *key, int *out);
 
 /**
+ * 从配置表读取渐变方向
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param out 方向输出，接受 "none"/"ver"/"hor" 或 0/1/2
+ * @return true 成功读取，false 未指定或取值无效
+ */
+bool airui_marshal_grad_dir(void *L, int idx, const char *key, lv_grad_dir_t *out);
+
+/**
  * 规范化透明度到 LVGL 可用范围
  * @param opacity 输入透明度
  * @return 归一化后的透明度
@@ -647,6 +659,7 @@ int airui_keyboard_hide(lv_obj_t *keyboard); //隐藏键盘
 int airui_keyboard_set_on_commit(lv_obj_t *keyboard, int callback_ref); //设置提交回调
 int airui_keyboard_set_layout(lv_obj_t *keyboard, const char *layout); //设置键盘布局
 int airui_keyboard_set_bg_color(lv_obj_t *keyboard, lv_color_t color); //设置键盘背景颜色
+int airui_keyboard_set_style(lv_obj_t *keyboard, void *L, int idx); //按样式表设置按键样式
 int airui_keyboard_set_system_preedit_state(lv_obj_t *keyboard, bool active, int32_t pos, int32_t len);
 void airui_keyboard_detach_auto_hide_target(lv_obj_t *keyboard, airui_keyboard_data_t *data);
 

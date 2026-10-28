@@ -116,7 +116,7 @@ end
 
 -- STA 状态（L2 关联层）：仅更新 wifi_state 和发布 UI 事件。
 -- exnetif 负责网卡切换逻辑，wifi_app 只负责 UI 状态同步。
--- 开机时 net_manager.init() 用已保存WiFi（无则用 "luatos" 占位）初始化 airlink 硬件，
+-- 开机时 net_manager.init() 用已保存WiFi（无则用默认账号）初始化 airlink 硬件，
 -- 该 placeholder 的 CONNECTED/DISCONNECTED 事件不发布给 UI（wifi_enabled=false 时抑制），
 -- 但内部 wifi_state 仍更新以保持与实际硬件状态一致。
 local function on_sta_event(evt, data)
@@ -332,7 +332,7 @@ end
 
 -- WIFI_SCAN_REQ
 -- Airlink WiFi（Air1601/1602 外挂 6205）：wlan.scan() 通过 airlink 0x205 发给 6205。
--- 开机时 net_manager.init() 已完成 airlink 硬件初始化（有已保存WiFi则直连，否则 wlan.connect("luatos")），
+-- 开机时 net_manager.init() 已完成 airlink 硬件初始化（有已保存WiFi则直连，否则用默认账号），
 -- 扫描前只需给 6205 足够的处理时间即可，和 demo 里 sys.wait(5000) 后 scan 一致。
 -- 原生 WiFi（Air8101/Air8000）：wlan.scan() 直接操作片上 WiFi，无需等待。
 local function on_scan_req()

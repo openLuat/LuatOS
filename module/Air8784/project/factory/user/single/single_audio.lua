@@ -19,6 +19,7 @@ local initialized, ready, running = false, false, false
 local recording, generation = false, 0
 local mic_recovering, mic_recovery_attempted = false, false
 local recover_s, recover_us = 0, 0
+local applied_volume, applied_mic_gain
 local down, up
 local queue, uplink = {}, ""
 local capture_timer, play_timer, health_timer
@@ -37,7 +38,9 @@ end
 
 local function set_volume()
     local level = math.max(0, math.min(31, math.floor(tonumber(cfg.volume) or 31)))
-    return exaudio.vol(math.ceil(level * 100 / 31))
+    local ok = exaudio.vol(math.ceil(level * 100 / 31))
+    if ok then applied_volume=level end
+    return ok
 end
 
 local function stop_record()
@@ -93,6 +96,7 @@ end
 
 -- 与参考 demo 一样使用 exaudio.setup；在任务内等待真实 MIC 数据就绪。
 function M.init()
+    if require("call_voice").is_busy() then return false end
     if M.is_ready() then return true end
     if running then return false end
     local ok, err = M.check_firmware()
@@ -106,6 +110,7 @@ function M.init()
             return false
         end
         down, up = new_down, new_up
+        applied_mic_gain=gain
     end
     if recording then stop_record() end
     initialized, ready = false, false
@@ -135,6 +140,8 @@ function M.init()
         return false
     end
     initialized = true
+    require("call_voice").log_support()
+    log.info("single_audio","LOCAL_SPEAKER_VOLUME",applied_volume)
     return true
 end
 
@@ -156,9 +163,13 @@ local function capture_tick()
 end
 
 function M.start(session)
+    if require("call_voice").is_busy() then return false end
     if not M.is_ready() then return false end
     if session and tonumber(session.sample_rate or 8000) ~= 8000 then return false end
     if running then return true end
+    -- exsip starts media BEFORE publishing call/connected. Release local ring
+    -- here, retaining MIC; stopping it only in connected is too late.
+    exaudio.stop_ringback(true,true)
     clear_pcm()
     if not set_volume() or not exaudio.play_start({type=2}) then return false end
     running = true
@@ -251,7 +262,7 @@ function M.play_ringback(callback) return exaudio.play_ringback(callback) end
 function M.play_hangup(callback) return exaudio.play_hangup(callback) end
 -- 循环振铃(未接通前一直响)与停止
 function M.play_ringback_loop() return exaudio.play_ringback_loop() end
-function M.stop_ringback(skip_reset) return exaudio.stop_ringback(skip_reset) end
+function M.stop_ringback(skip_reset,keep_rx) return exaudio.stop_ringback(skip_reset,keep_rx) end
 
 function M.is_ready()
     if ready and elapsed_ms(mic_s, mic_us) >= cfg.mic_timeout_ms then ready = false end
@@ -260,6 +271,13 @@ end
 
 function M.is_running()
     return running
+end
+
+function M.audio_status()
+    local settings = require "aircloud_settings"
+    local saved = settings.saved.audio
+    return {applied_volume=applied_volume,volume_pending=applied_volume~=saved.volume,
+        applied_mic_gain=applied_mic_gain,mic_gain_pending=applied_mic_gain~=saved.mic_gain}
 end
 
 return M

@@ -70,6 +70,7 @@ typedef struct {
 } luat_hzv_packet_t;
 
 typedef struct luat_hzv_reader luat_hzv_reader_t;
+typedef struct luat_hzv_audio_cursor luat_hzv_audio_cursor_t;
 
 /** Open and validate an HZV v1 file. */
 luat_hzv_reader_t *luat_hzv_open(const char *path);
@@ -101,6 +102,25 @@ int luat_hzv_extract_audio(luat_hzv_reader_t *reader, uint8_t **data, size_t *si
 
 /** Free a buffer returned by luat_hzv_extract_audio(). */
 void luat_hzv_free_buffer(void *data);
+
+/**
+ * Open an audio cursor on its own file handle.
+ * Video iteration on reader is left where it is.
+ */
+luat_hzv_audio_cursor_t *luat_hzv_audio_open(const luat_hzv_reader_t *reader);
+
+/** Close an audio cursor and its file handle. */
+void luat_hzv_audio_close(luat_hzv_audio_cursor_t *cursor);
+
+/** Move the audio cursor back to the first packet. */
+int luat_hzv_audio_rewind(luat_hzv_audio_cursor_t *cursor);
+
+/**
+ * Copy the next audio payload bytes into dst, skipping video packets.
+ * out_size is the number of bytes written. LUAT_HZV_EOF means this read
+ * consumed the tail; out_size may still be non-zero.
+ */
+int luat_hzv_audio_read(luat_hzv_audio_cursor_t *cursor, uint8_t *dst, size_t max_bytes, size_t *out_size);
 
 #ifdef __cplusplus
 }

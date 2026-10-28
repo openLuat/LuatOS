@@ -213,8 +213,8 @@ void luat_airlink_peer_caps_update(uint8_t caps) {
     static uint8_t peer_caps_logged = 0;
     g_airlink_peer_caps = caps;
     if (!peer_caps_logged || luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp > 2500) {
-        LLOGI("peer caps: rpc=%u frag=%u (raw=0x%02X)",
-              (caps & AIRLINK_CAP_RPC) ? 1 : 0, (caps & AIRLINK_CAP_FRAG) ? 1 : 0, caps);
+        // LLOGI("peer caps: rpc=%u frag=%u (raw=0x%02X)",
+        //       (caps & AIRLINK_CAP_RPC) ? 1 : 0, (caps & AIRLINK_CAP_FRAG) ? 1 : 0, caps);
         peer_caps_logged = 1;
         // 对端重连后重新发送本端设备信息，确保对端能拿到最新状态
         luat_airlink_self_dev_info_notify();

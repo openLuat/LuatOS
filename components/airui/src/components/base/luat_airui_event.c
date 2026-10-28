@@ -34,6 +34,8 @@ static const char *airui_component_get_mt_name(uint8_t component_type)
             return AIRUI_LABEL_MT;
         case AIRUI_COMPONENT_IMAGE:
             return AIRUI_IMAGE_MT;
+        case AIRUI_COMPONENT_MAP:
+            return AIRUI_MAP_MT;
         case AIRUI_COMPONENT_WIN:
             return AIRUI_WIN_MT;
         case AIRUI_COMPONENT_DROPDOWN:

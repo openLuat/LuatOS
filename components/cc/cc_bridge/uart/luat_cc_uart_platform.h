@@ -26,7 +26,9 @@ typedef struct {
     uint32_t hal_max_peak;
     uint32_t hal_mean_square;
 } luat_cc_uart_source_diag_t;
+#endif
 
+#if defined(LUAT_USE_CC_UART_BRIDGE) || defined(LUAT_USE_CC_DTMF_RX)
 /** Passive negotiated telephone-event reception; no SIP text or addresses. */
 typedef struct {
     uint32_t supported, active, enabled, mapped, network_mode;
@@ -36,14 +38,24 @@ typedef struct {
 } luat_cc_uart_network_dtmf_diag_t;
 
 int luat_cc_uart_platform_rx_setup(char role);
+/** Claim the passive observer for normal codec CC, without UART/audio setup. */
+int luat_cc_uart_platform_rx_codec_setup(void);
 void luat_cc_uart_platform_rx_begin(uint64_t session);
+void luat_cc_uart_platform_rx_begin_outgoing(uint64_t session);
 void luat_cc_uart_platform_rx_stop(uint64_t session);
 void luat_cc_uart_platform_rx_enable(uint64_t session, int enabled);
 int luat_cc_uart_platform_rx_poll(uint64_t session, char *digit);
 int luat_cc_uart_platform_rx_poll_end(uint64_t session, luat_cc_uart_dtmf_end_t *event);
 int luat_cc_uart_platform_rx_network_mode(void);
 int luat_cc_uart_platform_rx_stats(luat_cc_uart_network_dtmf_diag_t *diag);
+#endif
 
+#ifdef LUAT_USE_CC_DTMF_RX
+/** Retire normal-codec receive events before forwarding a modem CC status. */
+void luat_cc_dtmf_rx_mobile_event(uint8_t index, uint8_t status);
+#endif
+
+#ifdef LUAT_USE_CC_UART_BRIDGE
 /** Copy a consistent source snapshot. Returns -1 for a NULL destination. */
 int luat_cc_uart_platform_source_diag(luat_cc_uart_source_diag_t *diag);
 /** Select the permanent headless UART PCM owner while CC is idle. */

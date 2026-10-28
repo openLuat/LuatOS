@@ -229,12 +229,13 @@ static void error(luat_cc_uart_sip_t *c) { c->diag.errors++; invalidate(c); }
 static void retire(luat_cc_uart_sip_t *c) {
     if (c->call_id[0]) { memcpy(c->retired_id,c->call_id,sizeof(c->retired_id)); c->retired = 1; }
     c->candidate = c->bound = c->valid = c->answered = 0; c->session = 0; c->call_id[0] = 0;
+    c->outgoing = c->outgoing_pending = 0;
     c->remote_tag[0] = c->local_tag[0] = 0;
 }
 static int match_tags(luat_cc_uart_sip_t *c, const message_t *m, int request_tx) {
     const char *remote = request_tx ? m->to : m->from;
     const char *local = request_tx ? m->from : m->to;
-    if (!remote[0] || strcmp(remote,c->remote_tag)) return 0;
+    if (!remote[0] || (c->remote_tag[0] && strcmp(remote,c->remote_tag))) return 0;
     if (c->local_tag[0] && strcmp(local,c->local_tag)) return 0;
     return 1;
 }
@@ -266,29 +267,54 @@ static void process_message(luat_cc_uart_sip_t *c, int fd, int tx, const char *p
     same = c->call_id[0] && !strcmp(m->id,c->call_id);
     if (c->bound && (!same || fd != c->dialog_fd)) return;
     if (!same) {
-        if (m->response || tx || m->method != M_INVITE || !m->from[0] || m->to[0] || !m->sdp) return;
+        if (m->response || m->method != M_INVITE || !m->from[0] || m->to[0] || !m->sdp) return;
         if (c->retired && !strcmp(m->id,c->retired_id)) return;
+        if (c->outgoing_pending) {
+            if (!tx) return;
+            if ((uint32_t)(now-c->candidate_ms) > LUAT_CC_UART_SIP_FRESH_MS) { retire(c); return; }
+        } else if (tx) return;
         if (c->candidate && (uint32_t)(now-c->candidate_ms) <= LUAT_CC_UART_SIP_FRESH_MS) {
             c->candidate = 2; error(c); return;
         }
         if (!parse_sdp(c,m->body,sdp)) { c->diag.unsupported++; error(c); return; }
-        memcpy(c->call_id,m->id,sizeof(c->call_id)); memcpy(c->remote_tag,m->from,sizeof(c->remote_tag)); c->local_tag[0] = 0;
+        memcpy(c->call_id,m->id,sizeof(c->call_id));
+        c->remote_tag[0] = c->local_tag[0] = 0;
+        memcpy(tx ? c->local_tag : c->remote_tag,m->from,sizeof(c->remote_tag));
         c->candidate = 1; c->candidate_ms = now; c->dialog_fd = fd; c->offer = *sdp;
-        c->last_cseq[0] = m->cseq; c->last_cseq[1] = 0;
-        c->offer_tx = 0; c->method = M_INVITE; c->cseq = m->cseq; c->valid = c->answered = 0; return;
+        c->last_cseq[!tx] = 0; c->last_cseq[tx] = m->cseq;
+        c->offer_tx = (uint8_t)tx; c->method = M_INVITE; c->cseq = m->cseq; c->valid = c->answered = 0;
+        if (c->outgoing_pending) { c->outgoing_pending = 0; c->bound = 1; c->diag.bindings++; }
+        return;
     }
     if (fd != c->dialog_fd || c->candidate == 2) return;
+    /* An authenticated retry of the initial outgoing INVITE keeps its
+     * Call-ID/local tag, raises CSeq and still has no remote To tag. */
+    if (c->outgoing && !c->remote_tag[0] && !m->response && tx &&
+        m->method == M_INVITE && !m->to[0] && !strcmp(m->from,c->local_tag)) {
+        if (m->cseq <= c->last_cseq[1] || !m->sdp) return;
+        if (!parse_sdp(c,m->body,sdp)) { c->diag.unsupported++; error(c); return; }
+        c->offer = *sdp; c->offer_tx = 1; c->cseq = m->cseq; c->method = M_INVITE;
+        c->last_cseq[1] = m->cseq; invalidate(c); return;
+    }
+    if (c->outgoing && !m->response && tx && m->method == M_CANCEL &&
+        c->method == M_INVITE && m->cseq == c->cseq && !m->to[0] &&
+        !strcmp(m->from,c->local_tag)) { retire(c); return; }
     if (!match_tags(c,m,m->response ? c->offer_tx : tx)) return;
     if (!m->response && (m->method == M_BYE || m->method == M_CANCEL)) { retire(c); return; }
     if (m->response) {
         if (tx == c->offer_tx || m->method != c->method || m->cseq != c->cseq) return;
         if (m->status >= 300) { invalidate(c); return; }
         if (m->status < 180 || m->status >= 300 || !m->sdp || !m->body.n) return;
+        if (!m->from[0] || !m->to[0]) { error(c); return; }
         if (!parse_sdp(c,m->body,sdp) || !commit(c,sdp)) { c->diag.unsupported++; error(c); return; }
         if (!c->local_tag[0]) {
             const char *local = c->offer_tx ? m->from : m->to;
             if (!local[0]) { error(c); return; }
             memcpy(c->local_tag,local,strlen(local)+1);
+        }
+        if (!c->remote_tag[0]) {
+            const char *remote = c->offer_tx ? m->to : m->from;
+            memcpy(c->remote_tag,remote,strlen(remote)+1);
         }
     } else if ((m->method == M_INVITE || m->method == M_UPDATE) && m->sdp) {
         if (m->cseq <= c->last_cseq[tx]) return; /* per-direction request ordering/retransmission */
@@ -352,12 +378,20 @@ void luat_cc_uart_sip_close(luat_cc_uart_sip_t *c, int fd) {
 }
 int luat_cc_uart_sip_begin(luat_cc_uart_sip_t *c, uint64_t session, uint32_t now) {
     if (!c || !session) return 0;
+    if (c->outgoing) return 0;
     if (c->bound) return c->session == session;
     if (c->candidate != 1 || (uint32_t)(now-c->candidate_ms) > LUAT_CC_UART_SIP_FRESH_MS) return 0;
     c->session = session; c->bound = 1; c->diag.bindings++; return 1;
 }
+int luat_cc_uart_sip_begin_outgoing(luat_cc_uart_sip_t *c, uint64_t session, uint32_t now) {
+    if (!c || !session) return 0;
+    if (c->session) return c->outgoing && c->session == session;
+    retire(c);
+    c->session = session; c->outgoing = c->outgoing_pending = 1; c->candidate_ms = now;
+    return 1;
+}
 void luat_cc_uart_sip_finish(luat_cc_uart_sip_t *c, uint64_t session) {
-    if (c && c->bound && c->session == session) retire(c);
+    if (c && (c->bound || c->outgoing_pending) && c->session == session) retire(c);
 }
 int luat_cc_uart_sip_mapping(const luat_cc_uart_sip_t *c, uint64_t session, luat_cc_uart_sip_mapping_t *out) {
     if (!c || !out || !session || !c->bound || c->session != session || !c->valid) return 0;

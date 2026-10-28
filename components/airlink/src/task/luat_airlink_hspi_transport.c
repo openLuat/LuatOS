@@ -20,6 +20,7 @@
 #include "luat_mcu.h"
 
 extern airlink_statistic_t g_airlink_statistic;
+extern uint32_t g_airlink_pause;
 #include "luat_gpio.h"
 /* FreeRTOS — 用于 vTaskNotifyGiveFromISR / ulTaskNotifyTake / xTaskGetCurrentTaskHandle */
 #include "FreeRTOS.h"
@@ -336,6 +337,18 @@ static void hspi_transport_task(void *param) {
     uint64_t last_hb_ms = 0;
 
     while (g_running) {
+        // 暂停检查
+        if (g_airlink_pause) {
+            if (g_airlink_pause_mutex) {
+                luat_rtos_mutex_lock(g_airlink_pause_mutex, LUAT_WAIT_FOREVER);
+                luat_rtos_mutex_unlock(g_airlink_pause_mutex);
+            } else {
+                while (g_airlink_pause) {
+                    luat_rtos_task_sleep(1000);
+                }
+            }
+        }
+
         // 空闲心跳发送 (每 2s): 激活从机 + 刷新 ready() 时间戳
         if (luat_mcu_tick64_ms() - last_hb_ms >= HSPI_HEARTBEAT_MS) {
             last_hb_ms = luat_mcu_tick64_ms();

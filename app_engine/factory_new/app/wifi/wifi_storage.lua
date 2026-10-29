@@ -169,10 +169,11 @@ end
 
 --[[
 @function mark_connected
-@summary 标记网络连接成功，更新BSSID和连接状态
+@summary 标记网络连接成功，更新BSSID和连接状态并把条目移到列表首位
 @param string ssid - WiFi SSID
 @param string bssid - 连接成功的BSSID（可选）
 @return number - 更新的条目数量
+@note 连接成功的条目排到 saved_list 最前，供自动连接按「最近一次连接成功」取值
 ]]
 local function mark_connected(ssid, bssid)
     if not ssid or ssid == "" then return 0 end
@@ -182,14 +183,20 @@ local function mark_connected(ssid, bssid)
         norm_bssid = bssid:lower():gsub("[^0-9a-f]", "")
         if #norm_bssid < 12 then norm_bssid = nil end
     end
+    local hit = nil
     for i, entry in ipairs(saved_list) do
         if entry.ssid == ssid then
-            saved_list[i].last_connect_ok = true
+            entry.last_connect_ok = true
             if bssid and norm_bssid then
-                saved_list[i].bssid = bssid
+                entry.bssid = bssid
             end
+            if not hit then hit = i end
             count = count + 1
         end
+    end
+    if hit then
+        local entry = table.remove(saved_list, hit)
+        table.insert(saved_list, 1, entry)
     end
     if count > 0 then
         save_saved_list()

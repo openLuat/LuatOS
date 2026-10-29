@@ -1,7 +1,7 @@
 --[[
 @module  net_manager
 @summary 统一网络管理器：读取 project_config 驱动所有网络接口的初始化
-@version 1.5
+@version 1.6
 @date    2026.10.29
 @author  江访
 @usage
@@ -249,23 +249,25 @@ local function build_eth_param(net_cfg)
     return param
 end
 
+-- 自动连接兜底账号：无已保存成功网络时使用
+net_manager.DEFAULT_WIFI_SSID = "HJ"
+net_manager.DEFAULT_WIFI_PASSWORD = "HJ@88888"
+
 --[[
-读取 WiFi 连接凭证，已保存网络优先
-@return string ssid, string password, string bssid
+读取 WiFi 自动连接凭证
+已保存列表里最近一次连接成功的网络优先，无则回落默认账号
+@return string ssid, string password, string bssid, string source  source: "saved" / "default"
 ]]
-local function pick_wifi_credential()
-    local ssid = "HJ"
-    local password = "HJ@88888"
-    local bssid = nil
+function net_manager.pick_wifi_credential()
     local ok_saved, saved_list = pcall(fskv.get, "wifi_saved_list")
-    if ok_saved and type(saved_list) == "table" and #saved_list > 0
-        and saved_list[1].ssid and saved_list[1].ssid ~= "" then
-        local saved = saved_list[1]
-        ssid = saved.ssid
-        password = saved.password or ""
-        bssid = saved.bssid
+    if ok_saved and type(saved_list) == "table" then
+        for _, entry in ipairs(saved_list) do
+            if entry.last_connect_ok == true and entry.ssid and entry.ssid ~= "" then
+                return entry.ssid, entry.password or "", entry.bssid, "saved"
+            end
+        end
     end
-    return ssid, password, bssid
+    return net_manager.DEFAULT_WIFI_SSID, net_manager.DEFAULT_WIFI_PASSWORD, nil, "default"
 end
 
 --[[
@@ -338,7 +340,7 @@ local function wifi_native_link_ctrl(enable)
         log.info("net_manager", "WiFi链路: 关闭")
         return true
     end
-    local ssid, password, bssid = pick_wifi_credential()
+    local ssid, password, bssid = net_manager.pick_wifi_credential()
     if not ssid or ssid == "" then
         log.warn("net_manager", "无WiFi凭证，跳过连接")
         return false
@@ -423,21 +425,22 @@ function net_manager.init(config)
     -- wifi_storage 也会调 fskv.init()，重复调用是安全的
     pcall(fskv.init)
 
-    -- 开机时初始化所有网络（以太网 + 4G + airlink WiFi 硬件）
-    -- WiFi 是否发起连接由 wifi_app_config.wifi_enabled 决定
-    -- 关闭时只构建占位 WiFi 条目完成 6205 WLAN 硬件初始化（airlink.ready() 与扫描依赖它），不带凭证
-    local airlink_cfg = net_manager.get_wifi_hw_config()
+    -- 开机时初始化所有网络（以太网 + 4G + WiFi）
+    -- WiFi 自动连接取最近一次连接成功的网络，无则回落默认账号
+    -- airlink WiFi 关闭时只构建占位条目完成 6205 WLAN 硬件初始化（airlink.ready() 与扫描依赖它），不带凭证
+    local wifi_cfg = net_manager.get_network_config("wifi")
     local wifi_entry = nil
     local wifi_ready = false
-    if airlink_cfg then
-        wifi_ready = is_net_enabled(airlink_cfg.type)
+    local init_source = nil
+    if wifi_cfg then
+        wifi_ready = is_net_enabled(wifi_cfg.type)
     end
-    if airlink_cfg and wifi_ready then
+    if wifi_cfg and wifi_ready then
         local init_ssid = nil
         local init_password = nil
         local init_bssid = nil
-        init_ssid, init_password, init_bssid = pick_wifi_credential()
-        log.info("net_manager", "开机使用WiFi:", init_ssid)
+        init_ssid, init_password, init_bssid, init_source = net_manager.pick_wifi_credential()
+        log.info("net_manager", "开机使用WiFi:", init_ssid, "来源:", init_source)
         wifi_entry = net_manager.build_wifi_entry(init_ssid, init_password, init_bssid)
         -- 记录开机已传递的 WiFi 凭证，用于 wifi_app_real 判断是否需重复 apply_wifi
         _boot_wifi_credential = {
@@ -445,7 +448,7 @@ function net_manager.init(config)
             password = init_password,
             bssid = init_bssid,
         }
-    elseif airlink_cfg then
+    elseif wifi_cfg then
         log.info("net_manager", "WiFi 网络开关关闭，跳过 WiFi 初始化")
     end
     local priority = net_manager.build_priority_in_order(wifi_entry)
@@ -460,6 +463,14 @@ function net_manager.init(config)
     end
 
     _initialized = true
+end
+
+--[[
+开机网络初始化是否完成
+@return boolean 完成返回true
+]]
+function net_manager.is_boot_ready()
+    return _initialized == true
 end
 
 -- ==================== 四、配置读取 ====================
@@ -496,6 +507,16 @@ function net_manager.get_wifi_hw_config(type_suffix)
         end
     end
     return nil
+end
+
+--[[
+查询 WiFi 网络开关是否开启
+@return boolean 开启返回true
+]]
+function net_manager.is_wifi_enabled()
+    local wifi_cfg = net_manager.get_network_config("wifi")
+    if not wifi_cfg then return false end
+    return is_net_enabled(wifi_cfg.type)
 end
 
 --[[
@@ -601,7 +622,7 @@ end
 --[[
 构建单条 WiFi 条目（带 ssid/password，或仅用于硬件初始化的空 WiFi 条目）
 由 wifi_app_real 在连接/扫描时调用
-@param ssid string  可选，SSID；为空时仅构建硬件初始化条目（用于扫描）
+@param ssid string  可选，SSID；airlink 为空时构建占位条目初始化 WLAN 硬件，原生 WiFi 为空时返回 nil
 @param password string  可选
 @param bssid string  可选
 @param adv_cfg table  可选，高级配置
@@ -650,7 +671,11 @@ function net_manager.build_wifi_entry(ssid, password, bssid, adv_cfg)
         return entry
     end
 
-    -- 原生 WiFi
+    -- 原生 WiFi：无 SSID 时不构建条目，由 wifi_app_real 带参数调用
+    if not ssid or ssid == "" then
+        return nil
+    end
+
     local entry = {
         WIFI = {
             ssid = ssid,

@@ -63,7 +63,7 @@ require ("eng_8603m2_10i_v0")      -- Air8603M2 10寸 1024×600 + Airlink UART 4
 require ("eng_8603m3_10i_v0")      -- Air8603M3 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
 require ("eng_8603m4_10i_v0")      -- Air8603M4 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
 require ("eng_8603m5_10i_v0")      -- Air8603M5 10寸 1024×600 + Airlink UART 4G(780ER2) + TTL串口(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
-require ("eng_8605_10i_4g")      -- Air8605 10寸 1024×600 + Airlink UART 4G(780ER2) + SD + UVC + 非隔离RS485（4G 版，无 Air1103）
+require ("eng_8605_10i_v0")      -- Air8605 10寸 1024×600 + Airlink SPI WiFi(6205) + Airlink UART 4G(780ER2) + SD + UVC + 非隔离RS485（双网，4G 优先，无 Air1103）
 require ("eng_8605w_10i_v0")    -- Air8605W 10寸 1024×600 + Airlink SPI WiFi(6205) + Air1103语音(UART6) + NAND + UVC + 隔离RS485（WiFi 版）
 require ("eng_8605m_10i_v0")    -- Air8605M 10寸 1024×600 + Airlink UART 4G(780ER2) + Air1103语音(UART6) + NAND + UVC + 隔离RS485（4G 版）
 require ("eng_8605b_10i_v0")    -- Air8605B 10寸 1024×600 + Airlink UART 4G(780ER2) + NAND + UVC + 双隔离RS485(UART1/UART6)（4G 版）
@@ -140,7 +140,7 @@ local PROJECT_MAP = {
     ["Engine_Air8603M3_10inch_1024x600_000_4G_V000"]   = "eng_8603m3_10i_v0",
     ["Engine_Air8603M4_10inch_1024x600_000_4G_V000"]   = "eng_8603m4_10i_v0",
     ["Engine_Air8603M5_10inch_1024x600_000_4G_V000"]   = "eng_8603m5_10i_v0",
-    ["Engine_Air8605_10inch_1024x600_000_4G_V000"]   = "eng_8605_10i_4g",
+    ["Engine_Air8605_10inch_1024x600_000_V000"]   = "eng_8605_10i_v0",
     ["Engine_Air8605W_10inch_1024x600_000_WiFi_V000"] = "eng_8605w_10i_v0",
     ["Engine_Air8605M_10inch_1024x600_000_4G_V000"]  = "eng_8605m_10i_v0",
     ["Engine_Air8605B_10inch_1024x600_000_4G_V000"]  = "eng_8605b_10i_v0",
@@ -148,7 +148,8 @@ local PROJECT_MAP = {
     ["Engine_Air8607A_10inch_1024x600_000_V000"]  = "eng_8607a_10i_v0",
     -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
     --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
-    -- 8605 系列的旧名指向各自的后继型号：8605 WiFi 版已并入 8605W，8605B 由双网改 4G 单网
+    -- 8605 系列的旧名指向各自的后继型号：8605 由 4G 单网改 WiFi+4G 双网，
+    -- 8605 WiFi 版已并入 8605W，8605B 由双网改 4G 单网
     -- 8603 系列旧名：改名前只有全功能版 W1 / M1，统一落到同串口划分的 W1 / M1
     ["Engine_Air8603W_10inch_1024x600_000_V000"]      = "eng_8603w1_10i_v0",
     ["Engine_Air8603W_10inch_1024x600_000_WiFi_V000"] = "eng_8603w1_10i_v0",
@@ -156,6 +157,7 @@ local PROJECT_MAP = {
     ["Engine_Air8603M1_10inch_1024x600_000_V000"]     = "eng_8603m1_10i_v0",
     ["Engine_Air8605_10inch_1024x600_000_WiFi_V000"] = "eng_8605w_10i_v0",
     ["Engine_Air8605_10inch_1024x600_000_WIFI_V000"] = "eng_8605w_10i_v0",
+    ["Engine_Air8605_10inch_1024x600_000_4G_V000"]  = "eng_8605_10i_v0",
     ["Engine_Air8605B_10inch_1024x600_000_V000"]     = "eng_8605b_10i_v0",
     -- EVB turnkey 开发板系列（已实现，≥800×480）
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",

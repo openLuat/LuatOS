@@ -12,7 +12,9 @@
 发布: RS485_TEST_RESULT(id, ok, err) -- 发送结果回执（接收数据由 periph_rs485 直接广播 PERIPH_RX）
 
 订阅: RS485_DE_HOLD(ms)              -- 方向脚自检：把 DE 拉高 ms 毫秒再回接收态
-发布: RS485_DE_HOLD_RESULT(ok, used) -- 自检结果，used 为实际保持的毫秒数
+发布: RS485_DE_HOLD_RESULT(ok, used, pins, bad)
+                                     -- 自检结果，used 为实际保持的毫秒数，
+                                     -- pins 为拉高的方向脚，bad 为拉高期间回读不是高电平的脚
 
 订阅: AUDIO_REC_START(id, seconds)   -- 录音播放测试页发起录音
 订阅: AUDIO_REC_STOP(id)             -- 提前结束录音
@@ -281,12 +283,16 @@ local function on_de_hold(ms)
             sys.publish("RS485_DE_HOLD_RESULT", false, "驱动不支持方向脚自检")
             return
         end
-        local ok, used = pcall(mod.de_hold, ms)
+        local ok, hold_ok, hold_ms, hold_pins, hold_bad = pcall(mod.de_hold, ms)
         if not ok then
-            sys.publish("RS485_DE_HOLD_RESULT", false, tostring(used))
+            sys.publish("RS485_DE_HOLD_RESULT", false, tostring(hold_ok))
             return
         end
-        sys.publish("RS485_DE_HOLD_RESULT", used == true, used)
+        if not hold_ok then
+            sys.publish("RS485_DE_HOLD_RESULT", false, "没有登记到 DE 方向脚")
+            return
+        end
+        sys.publish("RS485_DE_HOLD_RESULT", true, hold_ms, hold_pins, hold_bad)
     end)
 end
 

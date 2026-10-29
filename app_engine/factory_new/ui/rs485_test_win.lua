@@ -11,7 +11,7 @@
 发布: RS485_TEST_SEND(id, data)        -- 发送原始字节串
 订阅: RS485_TEST_RESULT(id, ok, err)   -- 发送结果回执
 发布: RS485_DE_HOLD(ms)                -- 方向脚自检，请求把 DE 拉高 ms 毫秒再回接收态
-订阅: RS485_DE_HOLD_RESULT(ok, used)   -- 自检结果
+订阅: RS485_DE_HOLD_RESULT(ok, used, pins, bad) -- 自检结果：实际保持毫秒 / 拉高的脚 / 回读不到位的脚
 订阅: PERIPH_RX(id, data)              -- 驱动收到的原始字节
 订阅: OTHER_FUNC_STATUS / OTHER_FUNC_CHANGED(list) -- 端口打开状态
 订阅: OTHER_FUNC_SET_RESULT(id, ok, err)  -- 打开结果，成功后补发排队中的发送
@@ -327,7 +327,7 @@ end
 local DE_HOLD_MS = 2000
 local function do_de_hold()
     sys.publish("RS485_DE_HOLD", DE_HOLD_MS)
-    append_entry("INFO", 0, string.format("DE 自检开始 %dms 内方向脚保持高电平", DE_HOLD_MS))
+    append_entry("INFO", 0, string.format("DE 自检：方向脚拉高 %dms，量到高电平即正常", DE_HOLD_MS))
 end
 
 -- ==================== 事件 ====================
@@ -410,13 +410,19 @@ local function on_status(list)
 end
 
 -- 方向脚自检结果：用 INFO 不用 NG，NG 留给交叉线判定，两者含义不同
-local function on_de_hold_result(ok, used)
-    if ok then
-        append_entry("INFO", 0,
-            string.format("DE 自检完成，保持 %s ms 后回接收态", tostring(used)))
-    else
+local function on_de_hold_result(ok, used, pins, bad)
+    if not ok then
         append_entry("INFO", 0, "DE 自检失败：" .. tostring(used or "未知原因"))
+        return
     end
+    local pin_text = (pins and pins ~= "") and pins or "DE 脚"
+    if bad and bad ~= "" then
+        append_entry("INFO", 0, string.format("DE 自检不通过：%s 回读不是高电平，查 de_pin 配置",
+            tostring(bad)))
+        return
+    end
+    append_entry("INFO", 0, string.format("DE 自检通过：%s 拉高 %s ms 回读高电平，已回接收态",
+        pin_text, tostring(used)))
 end
 
 -- ==================== 端口清单 ====================

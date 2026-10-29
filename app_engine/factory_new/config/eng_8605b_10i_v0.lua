@@ -35,8 +35,8 @@
    （DE 与 /RE 并联，高=发 低=收），必须交给 periph_rs485 翻转。
    J20（非隔离）与 J21（隔离）共用 UART1 和 GPIO65，只能二选一，靠改板切换
    （吹/贴 R104、R1104、R1105），软件改不了。
-   UART6 那路隔离 485（J22，收发器 U12）的方向脚是 485_EN2，本型号按 GPIO49 配；
-   参考工程 8605B_485 的 port_j22.lua 里 dir_pin 写的是 46，两者不一致，须照原理图确认后再定。
+   UART6 那路隔离 485（J22，收发器 U12）的方向脚是 485_EN2 = GPIO46
+   （DE 与 /RE 并联，高=发 低=收），同样交给 periph_rs485 翻转。
    features.rs485 目前在 app/ 与 ui/ 里查不到消费方，仅作能力声明。
 9. 上电供电轨：5V_EN = GPIO12、9V_EN = PIN46 = GPIO56、12V_EN = PIN72 = GPIO44、
    5VOUT_EN = PIN73 = GPIO52（对外 5V 输出使能）。
@@ -68,12 +68,13 @@ return {
 
     -- ===== 外设清单（运行时可开关的控制脚，与 power_on 的开机默认供电同一物理脚）=====
     -- UVC_EN = PIN48 = GPIO58 / 485_EN = GPIO14（总电源）/ 485_EN1 = PIN51 = GPIO65（1路方向）
+    -- 485_EN2 = GPIO46（UART6 那路隔离 485 的方向脚）
     -- UART1 = 隔离485、UART2 = 人脸识别 UVC 摄像头串口、UART6 = 隔离485 第二路（见文件头第 2 条）
     -- 本型号不出非隔离 485（那是 8605 的 UART1），故"功能测试"里没有该项
     peripherals = {
         { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 }, -- UVC_EN，200ms 就绪
         { type = "rs485", id = "485_1", name = "隔离485",   uart_id = 1, de_pin = 65, power_pin = 14, power_hold = true, baud = 9600 }, -- DE = 485_EN1 = GPIO65，供电域 485_EN
-        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 6, de_pin = 49, power_pin = 14, power_hold = true, baud = 9600 }, -- DE = 485_EN2 = GPIO49（参考工程写 46，待确认，见文件头第 8 条）
+        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 6, de_pin = 46, power_pin = 14, power_hold = true, baud = 9600 }, -- DE = 485_EN2 = GPIO46，供电域 485_EN
         { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 }, -- 人脸识别 UVC 摄像头串口
     },
 

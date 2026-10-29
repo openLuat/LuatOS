@@ -30,8 +30,8 @@
    故各路都写 power_hold = true，驱动只补高不关断（末路 stop 不拉低），
    否则关掉最后一路会把整组 485 的电一起掐掉。
    DE 空闲停在低电平（接收态），发送窗口内才拉高，由 periph_rs485 统一驱动。
-   非隔离 485 的 DE = 485_EN1 = PIN51 = GPIO65；隔离 485（UART2）的 DE = 485_EN2 = PIN48 = GPIO58；
-   隔离 485（UART1）的 DE 未引出，写 de_pin = nil，收发器自动方向。
+   UART1 那路 485 的 DE = 485_EN1 = PIN51 = GPIO65（隔离与非隔离共用）；
+   隔离 485（UART2）的 DE = 485_EN2 = PIN48 = GPIO58。
    本型号 UART1 是 TTL 串口，GPIO65 不做方向脚，power_on 不动它。
 5. 【GPIO58 = 485_EN2】PIN48 = GPIO58 是 UART2 那路隔离 485 的 DE（485_EN2）。
    本型号不带 UVC，该脚只做方向控制：power_on 拉低停在接收态，periph_rs485 在每帧发送窗口里拉高。
@@ -56,7 +56,7 @@
    是否还给非 USB 负载供电。
 11. 【4G 版不切 STA 网卡】app/ntp/ntp_app.lua 只对 Air1601/1602/1780 且存在 WiFi 网络配置时
    才 socket.dft(socket.LWIP_STA)。本型号 network 只有 4g_airlink_uart，不会触发切换 ——
-   与 eng_8605_10i_4g 的教训一致：4G 桥接型号没有 STA 网卡，盲切会把默认网卡切到无效的
+   与 eng_8605m_10i_v0 的教训一致：4G 桥接型号没有 STA 网卡，盲切会把默认网卡切到无效的
    STA(2)，NTP/天气/FOTA 全部报 adapter index invalid。
 ]]
 

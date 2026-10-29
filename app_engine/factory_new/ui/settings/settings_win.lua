@@ -6,7 +6,7 @@
 @author  江访
 @usage
 订阅: OPEN_SETTINGS_WIN → 打开设置主页
-发布: OPEN_IOT_WIN / OPEN_WIFI_WIN / OPEN_DISPLAY_WIN / OPEN_TIME_WIN /
+发布: OPEN_IOT_WIN / OPEN_NET_WIN / OPEN_DISPLAY_WIN / OPEN_TIME_WIN /
       OPEN_STORAGE_WIN / OPEN_STORAGE_PRI_WIN / OPEN_FOTA_WIN / OPEN_SOUND_WIN /
       OPEN_AUTOSTART_WIN / OPEN_ABOUT_WIN
 ]]
@@ -18,6 +18,8 @@ require "storage_pri_win"
 require "settings_about_win"
 require "settings_sound_win"
 require "wifi_list_win"
+require "net_settings_win"
+require "net_detail_win"
 require "settings_iot_win"
 require "settings_fota_win"
 require "settings_auto_win"
@@ -40,7 +42,7 @@ local bar_h = 56
 -- 设置项定义（icon 为语义图标名，缺失时仅显示文字）
 local ENTRY_ICONS = {
     ["OPEN_IOT_WIN"]         = "cloud",
-    ["OPEN_WIFI_WIN"]        = "wifi",
+    ["OPEN_NET_WIN"]         = "wifi",
     ["OPEN_DISPLAY_WIN"]     = "brightness",
     ["OPEN_TIME_WIN"]        = "about",
     ["OPEN_THEME_WIN"]       = "theme",
@@ -74,7 +76,11 @@ local function collect_entries()
     end
 
     add("IOT账号", "OPEN_IOT_WIN", "合宙 IoT 平台登录与设备绑定")
-    if fe.wifi then add("WiFi设置", "OPEN_WIFI_WIN", "扫描、连接与已保存网络管理") end
+    local nets = cfg.network
+    if fe.wifi or fe.net_4g or fe.ethernet
+        or (type(nets) == "table" and #nets > 0) then
+        add("网络设置", "OPEN_NET_WIN", "网络开关、连接状态与 WiFi 管理")
+    end
     add("亮度和声音", "OPEN_DISPLAY_WIN", "屏幕背光与媒体音量调节")
     add("设置当前时间", "OPEN_TIME_WIN", "手动校准系统时钟")
     add("主题风格", "OPEN_THEME_WIN", "外观配色与强调色")

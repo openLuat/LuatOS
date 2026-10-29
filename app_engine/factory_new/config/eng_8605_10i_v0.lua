@@ -1,7 +1,7 @@
 --[[
-@module  config.eng_8605_10i_4g
-@summary Air8605 引擎主机 10寸1024x600 RGB屏 + Airlink UART 4G(780ER2) + USB摄像头 + 非隔离RS485 + SD卡 配置文件（4G 版）
-@version 1.1
+@module  config.eng_8605_10i_v0
+@summary Air8605 引擎主机 10寸1024x600 RGB屏 + Airlink SPI WiFi(6205) + Airlink UART 4G(780ER2) + USB摄像头 + 非隔离RS485 + SD卡 配置文件（WiFi + 4G 双网，4G 优先）
+@version 1.2
 @date    2026.10.26
 @author  江访
 @usage
@@ -9,13 +9,15 @@
 具体包含哪些参数，如何填写参考：template.lua
 
 注意：
-1. Air8605 基于 Air1601 主控模组；本型号为 4G 版（Air780ER2 模组，UART3）。
-   WiFi 出货型号已并入 8605W（config/eng_8605w_10i_v0.lua，主控 Air1602），本型号只出 4G 版。
-2. 【串口分配】UART1 = 非隔离485、UART2 = 人脸识别 UVC 摄像头串口、UART3 = 4G（Air780ER2）。
+1. Air8605 基于 Air1601 主控模组；本型号 WiFi + 4G 双网：WiFi = Air6205（SPI2），4G = Air780ER2（UART3）。
+   同底板单网出货型号：只出 4G 的 eng_8605m_10i_v0 / eng_8605b_10i_v0，
+   只出 WiFi 的 eng_8605w_10i_v0（主控 Air1602）。
+2. 【串口/SPI 分配】UART1 = 非隔离485、UART2 = 人脸识别 UVC 摄像头串口、UART3 = 4G（Air780ER2）。
+   WiFi 走 SPI2（CS = GPIO4，AirLink_RDY = GPIO42），与 UART3 互不占用，可同时开。
    UART1 被非隔离 485 占用，本型号无 Air1103 语音（hw.audio 不配），"功能测试"里也没有
    「录音播放」项 —— 那是 8605W/8605M 的 UART6 接 Air1103 才有的（见 eng_8605w_10i_v0.lua）。
-3. 【4G_RESET 先高维持低】PIN4 = GPIO64：上电先拉高 50ms 再拉低 120ms 使能
-   （与 eng_1602_10i_v10421 的 airlink 模组复位写法一致）。
+3. 【4G/WiFi 复位共用】PIN4 = GPIO64 同时接 4G（Air780ER2）与 WiFi（Air6205）的复位脚，
+   power_on 写低电平使能（与 eng_1602_10i_v10421 的 airlink 模组复位写法一致）。
 4. LCD 为 RGB 10寸 1024×600（免序列四合一），走统一 RGB 驱动 lcd_display_rgb；
    LCD_DISP = PIN80 = GPIO15 作 pin_rst；时序用 1024×600 生态实测组
    hbp=140 hspw=20 hfp=160 vbp=20 vspw=3 vfp=12 @50MHz；背光 PWM3 调光。
@@ -40,8 +42,8 @@
 
 return {
     -- ===== 顶层信息 =====
-    name = "Engine_Air8605_10inch_1024x600_000_4G_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}_{网络}
-    chip = "Air1601", -- 主控芯片（RGB 屏 + Airlink UART 外挂 WiFi/4G）
+    name = "Engine_Air8605_10inch_1024x600_000_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{版本}_{网络}（双网不带网络后缀）
+    chip = "Air1601", -- 主控芯片（RGB 屏 + Airlink 外挂 WiFi(SPI2)/4G(UART3)）
     baseboard = "合宙引擎 AIR8605 V000 10寸", -- 底板型号
 
     -- ===== 引脚功能复用 =====
@@ -52,13 +54,13 @@ return {
     },
 
     -- ===== GPIO 上电时序 =====
-    -- 按顺序初始化各外设供电和复位（顺序即依赖：电源轨→SD→4G复位→UVC→485）
+    -- 按顺序初始化各外设供电和复位（顺序即依赖：电源轨→SD→模组复位→UVC→485）
     power_on = {
         { pin = 44, dir = 0, level = 1 }, -- 12V_EN 拉高，12V 供电
         { pin = 12, dir = 0, level = 1 }, -- 5V_EN 拉高，5V 供电
         { pin = 56, dir = 0, level = 1 }, -- 9V_EN 拉高，9V 供电
         { pin = 74, dir = 0, level = 1 }, -- SD_EN 拉高，SD 卡供电
-        { pin = 64, dir = 1, level = 0 },  -- WiFi_RESET = 4G_RESET 拉高 50ms（见上方【共用复位】，不是 485_EN）
+        { pin = 64, dir = 1, level = 0 },  -- 4G/WiFi 共用复位，拉低使能（见文件头第 3 条，不是 485_EN）
         { pin = 58, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高，等 200ms 摄像头就绪
         { pin = 14, dir = 0, level = 1 }, -- 485_EN 拉高使能 485 收发（见文件头第 8 条）
     },
@@ -121,7 +123,8 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        net_4g = true,        -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版
+        wifi = true,          -- 启用 WiFi（Air6205，SPI2）
+        net_4g = true,        -- 启用 4G（Air780ER2，独占 UART3）
         sd_card = true,       -- 启用 SD 卡（SPI1，CS=GPIO8）
         usb_camera = true,    -- USB 摄像头（UVC）—— 暂无消费方，仅作能力声明
         rs485 = true,         -- RS485 接口 —— 暂无消费方，仅作能力声明
@@ -143,8 +146,9 @@ return {
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
-    -- 本型号为 4G 版：Airlink UART 4G（Air780ER2）独占 UART3
-    -- WiFi 出货型号见 config/eng_8605w_10i_v0.lua（8605W，主控 Air1602）
+    -- 本型号双网，4G 在前优先、WiFi 兜底。4G = Airlink UART（Air780ER2，UART3）、
+    -- WiFi = Airlink SPI（Air6205，SPI2）。
+    -- 注：优先级按 config.network 声明顺序生效，WiFi 条目落在其声明位置。
     network = {
         {
             type = "4g_airlink_uart",
@@ -152,6 +156,13 @@ return {
             baud = 2000000,
             adapter = socket.LWIP_GP_GW
         },                               -- Air1601 外挂 4G 的网卡标识
+        {
+            type = "wifi_airlink_spi",
+            spi_id = 2,          -- SPI2
+            cs_pin = 4,          -- CS = GPIO4
+            rdy_pin = 42,        -- AirLink_RDY = GPIO42
+            speed = 8 * 1000000, -- 8MHz
+        },
     },
 
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====
@@ -165,6 +176,7 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
+        show_wifi_icon = true,         -- 桌面顶栏 WiFi 图标
         show_4g_icon = true,           -- 桌面顶栏 4G 图标
         show_brightness_slider = true, -- 设置页亮度滑块
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开

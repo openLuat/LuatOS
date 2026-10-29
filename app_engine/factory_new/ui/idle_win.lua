@@ -35,6 +35,7 @@ theme.label 内部有一行 `if fs < 16 then fs = 16 end`，而 density_scale �
 ]]
 
 local exnetif = require "exnetif"
+local net_manager = require "net_manager"
 local theme = require "ui_theme"
 -- 播放器两块共用的底层：素材工具（帧尺寸口径 / 音轨初始化）与文件选择弹窗。
 -- 全屏播放页（ui/video_win.lua）用的是同一套，改口径只改模块。
@@ -82,6 +83,7 @@ local pager_prev_btn, pager_next_btn = nil, nil
 -- 关键控件
 local status_time_label, big_time_label, date_label, greet_label
 local wifi_icon, mobile_icon, ethernet_icon
+local wifi_icon_box, mobile_icon_box, ethernet_icon_box
 local battery_bar, battery_label, battery_container
 local grid_container, page_idx_label
 
@@ -1114,6 +1116,31 @@ local function update_ethernet_icon(state)
     else ethernet_icon:set_src("/luadb/ethernet_fault.png") end
 end
 
+--[[
+按网络开关显隐顶栏网络图标
+airui.image 没有 hide/open/set_hidden，显隐只能作用在外层透明容器上
+]]
+local function apply_net_icons()
+    local list = net_manager.list_networks()
+    if not list or #list == 0 then return end
+    local group_on = { wifi = false, eth = false, ["4g"] = false }
+    for _, item in ipairs(list) do
+        if item.enabled then group_on[item.group] = true end
+    end
+    if wifi_icon_box then wifi_icon_box:set_hidden(not group_on.wifi) end
+    if mobile_icon_box then mobile_icon_box:set_hidden(not group_on["4g"]) end
+    if ethernet_icon_box then ethernet_icon_box:set_hidden(not group_on.eth) end
+end
+
+--[[
+创建顶栏网络图标：外层透明容器承载显隐，内层 image 承载 set_src
+]]
+local function make_net_icon(parent, src, x, y, size)
+    local box = theme.box(parent, { x = x, y = y, w = size, h = size })
+    local img = theme.image(box, { src = src, x = 0, y = 0, w = size, h = size })
+    return box, img
+end
+
 -- ==================== 电池充电动画 ====================
 
 local charge_anim_timer = nil
@@ -1336,24 +1363,18 @@ local function build_status_bar(parent)
 
     if has_eth then
         rx = rx - isz - gap
-        ethernet_icon = theme.image(parent, {
-            src = "/luadb/ethernet_link_down.png", x = bar_x + rx,
-            y = pad + icon_y, w = isz, h = isz,
-        })
+        ethernet_icon_box, ethernet_icon = make_net_icon(parent,
+            "/luadb/ethernet_link_down.png", bar_x + rx, pad + icon_y, isz)
     end
     if has_4g then
         rx = rx - isz - gap
-        mobile_icon = theme.image(parent, {
-            src = "/luadb/4Gxinhao6.png", x = bar_x + rx,
-            y = pad + icon_y, w = isz, h = isz,
-        })
+        mobile_icon_box, mobile_icon = make_net_icon(parent,
+            "/luadb/4Gxinhao6.png", bar_x + rx, pad + icon_y, isz)
     end
     if has_wifi then
         rx = rx - isz - gap
-        wifi_icon = theme.image(parent, {
-            src = "/luadb/wifixinhao0.png", x = bar_x + rx,
-            y = pad + icon_y, w = isz, h = isz,
-        })
+        wifi_icon_box, wifi_icon = make_net_icon(parent,
+            "/luadb/wifixinhao0.png", bar_x + rx, pad + icon_y, isz)
     end
 end
 
@@ -2148,6 +2169,10 @@ local function on_create()
     update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     update_wifi_icon(status_cache.wifi_level)
     update_mobile_icon(status_cache.mobile_level)
+    -- exwin 用 pcall 执行 on_create，这里报错会被吞掉并连带跳过后面的事件订阅，单独兜住
+    if not pcall(apply_net_icons) then
+        log.error("idle_win", "网络图标显隐刷新失败")
+    end
 
     timer_handler = sys.timerLoopStart(function()
         update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
@@ -2165,6 +2190,7 @@ local function on_create()
     sys.subscribe("VIDEO_FILE_CHANGED", on_video_file_changed)
     sys.subscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
     sys.subscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
+    sys.subscribe("NET_CONFIG_CHANGED", apply_net_icons)
 
     if has_eth then
         sys.subscribe("EXLIB_NETDRV_NETWORK_STATUS", on_netdrv_status)
@@ -2207,6 +2233,7 @@ local function on_destroy()
     sys.unsubscribe("VIDEO_FILE_CHANGED", on_video_file_changed)
     sys.unsubscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
     sys.unsubscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
+    sys.unsubscribe("NET_CONFIG_CHANGED", apply_net_icons)
     if has_eth then
         sys.unsubscribe("EXLIB_NETDRV_NETWORK_STATUS", on_netdrv_status)
         sys.unsubscribe("IP_READY", on_ip_ready)
@@ -2217,6 +2244,7 @@ local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     status_time_label = nil; big_time_label = nil; date_label = nil; greet_label = nil
     wifi_icon = nil; mobile_icon = nil; ethernet_icon = nil
+    wifi_icon_box = nil; mobile_icon_box = nil; ethernet_icon_box = nil
     battery_bar = nil; battery_label = nil; battery_container = nil
     grid_container = nil; page_idx_label = nil
     apps_card = nil

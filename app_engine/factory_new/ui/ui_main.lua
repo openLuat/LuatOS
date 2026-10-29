@@ -47,6 +47,7 @@ function M.core()
     require "idle_win"          -- 桌面/待机页
     require "video_win"         -- 全屏播放页（布局驱动：有播放器区域就有入口按钮，无门控）
     require "wifi_list_win"     -- WiFi 列表页（级联 wifi_connect_win / wifi_detail_win）
+    require "net_settings_win"  -- 网络设置页（级联 net_detail_win）
     require "settings_win"      -- 设置主页（级联全部设置子页）
     require "settings_auto_win" -- 后装APP自启动设置页
     require "settings_theme_win"-- 主题风格选择页

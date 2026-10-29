@@ -298,10 +298,7 @@ local function on_enable_req(data)
 
     if not enabled then
         log.info("wifi_app", "关闭WiFi")
-        exnetif.close(nil, socket.LWIP_STA)
-        sys.taskInit(function()
-            net_manager.apply(net_manager.build_no_wifi_priority())
-        end)
+        net_manager.on_wifi_disabled()
         wifi_state.connected = false
         wifi_state.ready = false
         wifi_state.current_ssid = ""
@@ -391,10 +388,7 @@ end
 local function on_disconnect_req()
     log.info("wifi_app", "断开请求")
     user_disconnect = true
-    exnetif.close(nil, socket.LWIP_STA)
-    sys.taskInit(function()
-        net_manager.apply(net_manager.build_no_wifi_priority())
-    end)
+    net_manager.on_wifi_disabled()
     wifi_state.connected = false
     wifi_state.ready = false
     wifi_state.current_ssid = ""

@@ -1,8 +1,8 @@
 --[[
 @module  wifi_list_win
 @summary WiFi列表窗口（UI层，事件驱动）- 自适应分辨率
-@version 1.1
-@date    2026.04.16
+@version 1.2
+@date    2026.10.29
 @author  江访
 
 消息协议（订阅/发布）:
@@ -55,9 +55,6 @@ local saved_list_container = nil
 local wifi_items = {}
 local llc = nil
 local connecting_container = nil
-local wifi_switch = nil
-local switch_container = nil
-local programmatic_switch = false
 
 local saved_network_list = {}
 local saved_network_items = {}
@@ -285,23 +282,13 @@ local function update_wifi_list(scan_results)
     end
 end
 
-local function on_wifi_toggle(checked)
-    if programmatic_switch then return end
-    sys.publish("WIFI_ENABLE_REQ", {enabled = checked})
-    if checked then
-        sys.publish("WIFI_SCAN_REQ")
-    else
-        update_wifi_list({})
-    end
-end
-
 local function build_ui()
     update_screen_size()
     main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
 
     -- 玻璃标题栏（返回按钮随图标资源缺失自动退化为 "<"）
-    local _, th = titlebar.create(main_container, "WiFi 网络配置", SCREEN_W,
-        function() exwin.close(window_id) end, "开关 / 已保存网络 / 附近热点")
+    local _, th = titlebar.create(main_container, "WiFi 连接", SCREEN_W,
+        function() exwin.close(window_id) end, "已保存网络 / 附近热点")
     TITLE_H = th
 
     local scr = theme.box(main_container, {
@@ -311,40 +298,10 @@ local function build_ui()
         scrollable = true,
     })
 
-    -- WiFi开关卡片（玻璃卡）
     local card_w = SCREEN_W - 2 * MARGIN
-    local ch = theme.dp(54)
-    local wec = theme.card(scr, {
-        x = MARGIN, y = theme.dp(10), w = card_w, h = ch,
-    })
-    local fs = theme.dp(theme.F.body) + 8
-    theme.label(wec, {
-        text = "WiFi",
-        x = theme.dp(14), y = math.floor((ch - fs) / 2), w = theme.dp(140), h = fs,
-        size = theme.F.body, color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
-    })
-    switch_container = theme.box(wec, {
-        x = card_w - theme.dp(14) - theme.dp(70), y = math.floor((ch - theme.dp(29)) / 2),
-        w = theme.dp(70), h = theme.dp(29),
-        color = theme.C.black, opa = 0,
-    })
-    switch_container:hide()
-    --[[开关改走 theme.switch：airui.switch 的选中色在 luat_airui_switch.c 里被硬编码成
-    0x1A73E8 蓝（style 只接受 "danger"/"success" 字符串），在琥珀/青/紫/绿四套主题里都是异色；
-    theme.switch 的轨道与滑块全部取主题令牌，换肤自动跟随。]]
-    wifi_switch = theme.switch({
-        parent = switch_container,
-        x = 0, y = 0,
-        w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
-        checked = false,
-        color = theme.C.primary,
-        on_change = function(self)
-            sys.taskInit(function() on_wifi_toggle(self:get_state()) end)
-        end
-    })
 
     -- 已保存wifi
-    local sty = theme.dp(10) + ch + theme.dp(14)
+    local sty = theme.dp(10)
     theme.section(scr, {
         text = "已保存wifi",
         x = MARGIN + theme.dp(4), y = sty, w = theme.dp(160), h = theme.dp(18),
@@ -377,7 +334,7 @@ local function build_ui()
             if wifi_config and wifi_config.wifi_enabled then
                 sys.publish("WIFI_SCAN_REQ")
             else
-                airui.msgbox({ text = "请先开启WiFi", buttons = { "确定" }, on_action = function(s) s:hide() end }):show()
+                airui.msgbox({ text = "WiFi 未开启，请到网络设置中开启", buttons = { "确定" }, on_action = function(s) s:hide() end }):show()
             end
         end
     })
@@ -469,15 +426,8 @@ local function on_saved_list_rsp(data)
 end
 
 local function on_config_rsp(data)
-    local old_enabled = wifi_config and wifi_config.wifi_enabled
     wifi_config = data.config
     log.info("wifi_list", "配置加载完成, enabled:", wifi_config.wifi_enabled)
-    if wifi_switch and (old_enabled == nil or old_enabled ~= wifi_config.wifi_enabled) then
-        programmatic_switch = true
-        wifi_switch:set_state(wifi_config.wifi_enabled)
-        programmatic_switch = false
-    end
-    if switch_container then switch_container:open() end
     if wifi_status then on_status_update(wifi_status) end
     update_saved_list()
     -- 不在此处自动触发扫描：扫描由用户开关WiFi或点击"刷新"触发
@@ -518,8 +468,6 @@ local function on_destroy()
     wifi_items = {}
     llc = nil
     connecting_container = nil
-    wifi_switch = nil
-    switch_container = nil
     wifi_config = nil
     wifi_status = nil
     window_id = nil

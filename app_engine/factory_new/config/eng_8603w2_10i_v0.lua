@@ -30,8 +30,8 @@
    故各路都写 power_hold = true，驱动只补高不关断（末路 stop 不拉低），
    否则关掉最后一路会把整组 485 的电一起掐掉。
    DE 空闲停在低电平（接收态），发送窗口内才拉高，由 periph_rs485 统一驱动。
-   非隔离 485 的 DE = 485_EN1 = PIN51 = GPIO65；隔离 485（UART2）的 DE = 485_EN2 = PIN48 = GPIO58；
-   隔离 485（UART1）的 DE 未引出，写 de_pin = nil，收发器自动方向。
+   UART1 那路 485 的 DE = 485_EN1 = PIN51 = GPIO65（隔离与非隔离共用）；
+   隔离 485（UART2）的 DE = 485_EN2 = PIN48 = GPIO58。
    本型号 UART1 是非隔离 485，power_on 把 485_EN1 拉低停在接收态。
 5. 【UVC 摄像头】UVC_EN = PIN48 = GPIO58 是摄像头供电开启信号，power_on 拉高后 200ms 就绪。
    摄像头画面走 USB 数据流，UART2 是这颗摄像头 / 人脸识别模组的控制串口，两者互不占用。

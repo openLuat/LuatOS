@@ -30,9 +30,9 @@
    故各路都写 power_hold = true，驱动只补高不关断（末路 stop 不拉低），
    否则关掉最后一路会把整组 485 的电一起掐掉。
    DE 空闲停在低电平（接收态），发送窗口内才拉高，由 periph_rs485 统一驱动。
-   非隔离 485 的 DE = 485_EN1 = PIN51 = GPIO65；隔离 485（UART2）的 DE = 485_EN2 = PIN48 = GPIO58；
-   隔离 485（UART1）的 DE 未引出，写 de_pin = nil，收发器自动方向。
-   本型号 UART1 是隔离 485（DE 未引出），GPIO65 不做方向脚，power_on 不动它。
+   UART1 那路 485 的 DE = 485_EN1 = PIN51 = GPIO65（隔离与非隔离共用）；
+   隔离 485（UART2）的 DE = 485_EN2 = PIN48 = GPIO58。
+   本型号 UART1 是隔离 485，power_on 把 485_EN1 拉低停在接收态。
 5. 【GPIO58 = 485_EN2】PIN48 = GPIO58 是 UART2 那路隔离 485 的 DE（485_EN2）。
    本型号不带 UVC，该脚只做方向控制：power_on 拉低停在接收态，periph_rs485 在每帧发送窗口里拉高。
    若与带 UVC 的型号混刷，同一脚会变成 UVC_EN，务必按出货型号取配置。
@@ -56,7 +56,7 @@
    是否还给非 USB 负载供电。
 11. 【4G 版不切 STA 网卡】app/ntp/ntp_app.lua 只对 Air1601/1602/1780 且存在 WiFi 网络配置时
    才 socket.dft(socket.LWIP_STA)。本型号 network 只有 4g_airlink_uart，不会触发切换 ——
-   与 eng_8605_10i_4g 的教训一致：4G 桥接型号没有 STA 网卡，盲切会把默认网卡切到无效的
+   与 eng_8605m_10i_v0 的教训一致：4G 桥接型号没有 STA 网卡，盲切会把默认网卡切到无效的
    STA(2)，NTP/天气/FOTA 全部报 adapter index invalid。
 ]]
 
@@ -86,12 +86,13 @@ return {
         { pin = 73, dir = 0, level = 0 },              -- AUDIOPA_EN 初始拉低关断功放（HT6873 高电平使能）
         { pin = 58, dir = 0, level = 0 },              -- 485_EN2 = UART2 隔离485 的 DE，空闲停在接收态
         { pin = 64, dir = 0, level = 1 },              -- 485_EN 拉高，485 功能总供电
+        { pin = 65, dir = 0, level = 0 },              -- 485_EN1 = 隔离485 的 DE，空闲停在接收态
     },
 
     -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
     -- DE 空闲低电平（接收态），发送窗口内由 periph_rs485 拉高，见文件头第 4 条
     peripherals = {
-        { type = "rs485", id = "485_1", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 64, power_hold = true, baud = 9600 }, -- DE 脚未引出，供电域 485_EN
+        { type = "rs485", id = "485_1", name = "隔离485",   uart_id = 1, de_pin = 65, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN1 = GPIO65，供电域 485_EN
         { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 2, de_pin = 58, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN2 = GPIO58，供电域 485_EN
     },
 

@@ -57,9 +57,9 @@ typedef struct {
     luat_cc_uart_sip_sdp_t offer;
     uint64_t session;
     uint32_t candidate_ms, cseq, generation, last_cseq[2];
-    int dialog_fd;
+    int dialog_fd[2]; /* receive/transmit; UDP may use separate SDK sockets */
     uint8_t candidate, bound, valid, offer_tx, method, answered, retired;
-    uint8_t outgoing, outgoing_pending;
+    uint8_t outgoing, outgoing_pending, incoming_pending, dialog_is_tcp;
     char call_id[LUAT_CC_UART_SIP_ID_MAX];
     char retired_id[LUAT_CC_UART_SIP_ID_MAX];
     char remote_tag[LUAT_CC_UART_SIP_TAG_MAX], local_tag[LUAT_CC_UART_SIP_TAG_MAX];
@@ -69,7 +69,10 @@ typedef struct {
 /** Owner must serialize ALL APIs using one mutex, outside ISR/critical sections.
  * Feed only bytes actually sent/received, never MSG_PEEK. These functions do not
  * call sockets, retain input pointers, block, modify network data, or log SIP.
- * begin binds an incoming INVITE already observed before accepting a call.
+ * begin binds an already observed incoming INVITE, or reserves this session
+ * for an initial incoming INVITE observed within FRESH_MS after accepting.
+ * A successful begin accepts the reservation; mapping still requires SDP.
+ * Repeating begin for the same session does not extend the waiting window.
  * begin_outgoing reserves a session before dialing and binds only a subsequent
  * local initial INVITE within FRESH_MS. Neither direction guesses a dialog.
  * SIP is plaintext TCP/UDP, one RTP/AVP audio section, numeric IPv4/IPv6 only.

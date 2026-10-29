@@ -229,7 +229,9 @@ static void error(luat_cc_uart_sip_t *c) { c->diag.errors++; invalidate(c); }
 static void retire(luat_cc_uart_sip_t *c) {
     if (c->call_id[0]) { memcpy(c->retired_id,c->call_id,sizeof(c->retired_id)); c->retired = 1; }
     c->candidate = c->bound = c->valid = c->answered = 0; c->session = 0; c->call_id[0] = 0;
-    c->outgoing = c->outgoing_pending = 0;
+    c->outgoing = c->outgoing_pending = c->incoming_pending = 0;
+    c->dialog_fd[0] = c->dialog_fd[1] = -1;
+    c->dialog_is_tcp = 0;
     c->remote_tag[0] = c->local_tag[0] = 0;
 }
 static int match_tags(luat_cc_uart_sip_t *c, const message_t *m, int request_tx) {
@@ -260,17 +262,17 @@ static int commit(luat_cc_uart_sip_t *c, const luat_cc_uart_sip_sdp_t *answer) {
     }
     c->map = next; c->valid = c->answered = 1; return 1;
 }
-static void process_message(luat_cc_uart_sip_t *c, int fd, int tx, const char *p, size_t n, size_t end, uint32_t now) {
+static void process_message(luat_cc_uart_sip_t *c, int fd, int tx, int is_tcp, const char *p, size_t n, size_t end, uint32_t now) {
     message_t *m = &c->scratch.message; luat_cc_uart_sip_sdp_t *sdp = &c->scratch.sdp; int same;
     c->diag.messages++;
     if (!parse_message(p,n,end,m)) { error(c); return; }
     same = c->call_id[0] && !strcmp(m->id,c->call_id);
-    if (c->bound && (!same || fd != c->dialog_fd)) return;
+    if (c->bound && !same) return;
     if (!same) {
         if (m->response || m->method != M_INVITE || !m->from[0] || m->to[0] || !m->sdp) return;
         if (c->retired && !strcmp(m->id,c->retired_id)) return;
-        if (c->outgoing_pending) {
-            if (!tx) return;
+        if (c->outgoing_pending || c->incoming_pending) {
+            if (tx != (c->outgoing_pending != 0)) return;
             if ((uint32_t)(now-c->candidate_ms) > LUAT_CC_UART_SIP_FRESH_MS) { retire(c); return; }
         } else if (tx) return;
         if (c->candidate && (uint32_t)(now-c->candidate_ms) <= LUAT_CC_UART_SIP_FRESH_MS) {
@@ -280,13 +282,23 @@ static void process_message(luat_cc_uart_sip_t *c, int fd, int tx, const char *p
         memcpy(c->call_id,m->id,sizeof(c->call_id));
         c->remote_tag[0] = c->local_tag[0] = 0;
         memcpy(tx ? c->local_tag : c->remote_tag,m->from,sizeof(c->remote_tag));
-        c->candidate = 1; c->candidate_ms = now; c->dialog_fd = fd; c->offer = *sdp;
+        c->candidate = 1; c->candidate_ms = now; c->offer = *sdp;
+        c->dialog_is_tcp = is_tcp != 0;
+        c->dialog_fd[tx] = fd;
+        c->dialog_fd[!tx] = is_tcp ? fd : -1;
         c->last_cseq[!tx] = 0; c->last_cseq[tx] = m->cseq;
         c->offer_tx = (uint8_t)tx; c->method = M_INVITE; c->cseq = m->cseq; c->valid = c->answered = 0;
-        if (c->outgoing_pending) { c->outgoing_pending = 0; c->bound = 1; c->diag.bindings++; }
+        if (c->outgoing_pending || c->incoming_pending) {
+            c->outgoing_pending = c->incoming_pending = 0;
+            c->bound = 1; c->diag.bindings++;
+        }
         return;
     }
-    if (fd != c->dialog_fd || c->candidate == 2) return;
+    if (c->candidate == 2 || c->dialog_is_tcp != (is_tcp != 0) ||
+        (c->dialog_fd[tx] >= 0 && fd != c->dialog_fd[tx])) return;
+    /* A UDP answer may use the SDK's other socket. Only a validated answer
+     * can claim that direction; requests and provisional empty replies cannot. */
+    if (c->dialog_fd[tx] < 0 && (!m->response || tx == c->offer_tx)) return;
     /* An authenticated retry of the initial outgoing INVITE keeps its
      * Call-ID/local tag, raises CSeq and still has no remote To tag. */
     if (c->outgoing && !c->remote_tag[0] && !m->response && tx &&
@@ -307,6 +319,7 @@ static void process_message(luat_cc_uart_sip_t *c, int fd, int tx, const char *p
         if (m->status < 180 || m->status >= 300 || !m->sdp || !m->body.n) return;
         if (!m->from[0] || !m->to[0]) { error(c); return; }
         if (!parse_sdp(c,m->body,sdp) || !commit(c,sdp)) { c->diag.unsupported++; error(c); return; }
+        c->dialog_fd[tx] = fd;
         if (!c->local_tag[0]) {
             const char *local = c->offer_tx ? m->from : m->to;
             if (!local[0]) { error(c); return; }
@@ -324,12 +337,15 @@ static void process_message(luat_cc_uart_sip_t *c, int fd, int tx, const char *p
         invalidate(c); /* Accept packets only for a completed new negotiation. */
     }
 }
-static void message(luat_cc_uart_sip_t *c, int fd, int tx, const char *p, size_t n, size_t end, uint32_t now) {
-    process_message(c,fd,tx,p,n,end,now);
+static void message(luat_cc_uart_sip_t *c, int fd, int tx, int is_tcp, const char *p, size_t n, size_t end, uint32_t now) {
+    process_message(c,fd,tx,is_tcp,p,n,end,now);
     c->scratch.message.body.p = NULL; c->scratch.message.body.n = 0;
 }
 void luat_cc_uart_sip_init(luat_cc_uart_sip_t *c, luat_cc_uart_sip_addr_parse_fn parse_address) {
-    if (c) { memset(c,0,sizeof(*c)); c->parse_address = parse_address; }
+    if (c) {
+        memset(c,0,sizeof(*c)); c->parse_address = parse_address;
+        c->dialog_fd[0] = c->dialog_fd[1] = -1;
+    }
 }
 static void poison(luat_cc_uart_sip_t *c, luat_cc_uart_sip_stream_t *s, int tx, int oversized) {
     s->used[tx] = 0; s->poisoned[tx] = 1;
@@ -343,24 +359,26 @@ static int drain(luat_cc_uart_sip_t *c, luat_cc_uart_sip_stream_t *s, int tx, ui
     if (!frame_size(bytes,end,&total)) { poison(c,s,tx,0); return -1; }
     if (total > LUAT_CC_UART_SIP_MESSAGE_MAX) { poison(c,s,tx,1); return -1; }
     if (used < total) return 0;
-    message(c,s->fd,tx,bytes,total,end,now);
+    message(c,s->fd,tx,1,bytes,total,end,now);
     memmove(bytes,bytes+total,used-total); s->used[tx] = (uint16_t)(used-total); return 1;
 }
 void luat_cc_uart_sip_stream(luat_cc_uart_sip_t *c, int fd, int tx, int is_tcp, const void *data, size_t length, uint32_t now) {
     unsigned i; luat_cc_uart_sip_stream_t *s = NULL; const char *bytes = (const char *)data;
     if (!c || !data || !length || fd < 0 || (tx != 0 && tx != 1)) return;
-    for (i=0;i<2;i++) if (c->streams[i].occupied && c->streams[i].fd == fd) { s = &c->streams[i]; break; }
-    if (!s) for (i=0;i<2;i++) if (!c->streams[i].occupied) {
-        s = &c->streams[i]; memset(s,0,sizeof(*s)); s->occupied = 1; s->fd = fd; break;
-    }
-    if (!s) { c->diag.slots_full++; error(c); return; }
+    /* Complete UDP datagrams need no stream reassembly slot. Registration
+     * and subscription sockets must not occupy the bounded TCP buffers. */
     if (!is_tcp) {
         size_t end,total;
         if (length > LUAT_CC_UART_SIP_MESSAGE_MAX) { c->diag.oversize++; error(c); return; }
         end = header_end(bytes,length);
         if (!end || !frame_size(bytes,end,&total) || total != length) { error(c); return; }
-        message(c,fd,tx,bytes,length,end,now); return;
+        message(c,fd,tx,0,bytes,length,end,now); return;
     }
+    for (i=0;i<2;i++) if (c->streams[i].occupied && c->streams[i].fd == fd) { s = &c->streams[i]; break; }
+    if (!s) for (i=0;i<2;i++) if (!c->streams[i].occupied) {
+        s = &c->streams[i]; memset(s,0,sizeof(*s)); s->occupied = 1; s->fd = fd; break;
+    }
+    if (!s) { c->diag.slots_full++; error(c); return; }
     if (s->poisoned[tx]) return;
     while (length) {
         size_t available = LUAT_CC_UART_SIP_MESSAGE_MAX-s->used[tx], take = length < available ? length : available;
@@ -374,12 +392,23 @@ void luat_cc_uart_sip_stream(luat_cc_uart_sip_t *c, int fd, int tx, int is_tcp, 
 void luat_cc_uart_sip_close(luat_cc_uart_sip_t *c, int fd) {
     unsigned i; if (!c) return;
     for (i=0;i<2;i++) if (c->streams[i].occupied && c->streams[i].fd == fd) memset(&c->streams[i],0,sizeof(c->streams[i]));
-    if (c->call_id[0] && c->dialog_fd == fd) retire(c);
+    if (c->call_id[0] && (c->dialog_fd[0] == fd || c->dialog_fd[1] == fd)) retire(c);
 }
 int luat_cc_uart_sip_begin(luat_cc_uart_sip_t *c, uint64_t session, uint32_t now) {
     if (!c || !session) return 0;
     if (c->outgoing) return 0;
     if (c->bound) return c->session == session;
+    if (c->incoming_pending) {
+        return c->session == session &&
+               (uint32_t)(now-c->candidate_ms) <= LUAT_CC_UART_SIP_FRESH_MS;
+    }
+    if (!c->candidate) {
+        /* CC notification can precede the observer's complete INVITE.
+         * Keep one bounded reservation rather than losing this call's RX. */
+        c->session = session; c->incoming_pending = 1; c->candidate_ms = now;
+        return 1;
+    }
+    /* Do not turn ambiguous or stale candidates into a different call. */
     if (c->candidate != 1 || (uint32_t)(now-c->candidate_ms) > LUAT_CC_UART_SIP_FRESH_MS) return 0;
     c->session = session; c->bound = 1; c->diag.bindings++; return 1;
 }
@@ -391,7 +420,7 @@ int luat_cc_uart_sip_begin_outgoing(luat_cc_uart_sip_t *c, uint64_t session, uin
     return 1;
 }
 void luat_cc_uart_sip_finish(luat_cc_uart_sip_t *c, uint64_t session) {
-    if (c && (c->bound || c->outgoing_pending) && c->session == session) retire(c);
+    if (c && (c->bound || c->outgoing_pending || c->incoming_pending) && c->session == session) retire(c);
 }
 int luat_cc_uart_sip_mapping(const luat_cc_uart_sip_t *c, uint64_t session, luat_cc_uart_sip_mapping_t *out) {
     if (!c || !out || !session || !c->bound || c->session != session || !c->valid) return 0;

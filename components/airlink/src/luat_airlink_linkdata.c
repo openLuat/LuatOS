@@ -5,6 +5,7 @@ airlink数据打包解包,数据链路层
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_airlink.h"
+#include "luat_airlink_arq.h"
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_crypto.h"
@@ -71,7 +72,7 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
     return NULL;
 }
 
-__AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, uint8_t *dst)
+__AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack_ex(uint8_t *buff, size_t len, uint8_t *dst, uint32_t pkgid, uint8_t arq, uint8_t seqv)
 {
     luat_airlink_link_data_cb link_data_cb = NULL;
     // 先写入magic
@@ -81,21 +82,24 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, u
     dst[2] = 0xCA;
     dst[3] = 0x66;
 
-    // 写入长度和crc16
+    // 写入长度和pkgid
     memset(&data->flags, 0, sizeof(data->flags));
     data->len = len;
-    data->pkgid = next_pkg_id++;
-    memset(&data->flags, 0, sizeof(data->flags));
-
-    // rpc/frag 能力位已迁到 devinfo.caps (随 cmd 0x10 心跳下发), 不再每帧写包头标志
-
+    data->pkgid = pkgid;
 
     memcpy(data->data, buff, len);
     link_data_cb = luat_airlink_mode_link_data_cb_get();
     if (link_data_cb) {
         link_data_cb(data);
     }
-    
-    // data->crc16 = luat_crc16(&data->pkgid, len + 8, 0xFFFF, 0x1021, 0);
+    // ARQ 标志须写在 link_data_cb 之后 (cb 会 memset flags), 且须参与下方 CRC
+    if (arq || seqv) {
+        data->flags.reserved |= AIRLINK_FL_PACK(arq, seqv, 0);
+    }
     data->crc16 = luat_crc16_modbus(&data->pkgid, len + 8);
+}
+
+__AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, uint8_t *dst)
+{
+    luat_airlink_data_pack_ex(buff, len, dst, next_pkg_id++, 0, 0);
 }

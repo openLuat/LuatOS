@@ -68,6 +68,14 @@ typedef struct airlink_statistic_part {
     uint64_t drop;
 }airlink_statistic_part_t;
 
+typedef struct airlink_statistic_arq {
+    uint64_t tx_retx;         // RTO 重传次数
+    uint64_t arq_giveup;      // 真丢命令数
+    uint64_t arq_nego_timeout; // 协商超时退化回 LEGACY 次数
+    uint64_t rx_dup;          // 重复帧(反向 ack 丢失)
+    uint64_t rx_adopt;        // 会话重开(不代表丢数据)
+} airlink_statistic_arq_t;
+
 typedef struct airlink_statistic {
     // 传输统计信息
     airlink_statistic_part_t rx_pkg;
@@ -84,6 +92,9 @@ typedef struct airlink_statistic {
     airlink_statistic_part_t event_timeout;
     airlink_statistic_part_t event_rdy_irq;
     airlink_statistic_part_t event_new_data;
+
+    // 链路层 ARQ
+    airlink_statistic_arq_t arq;
 }airlink_statistic_t;
 
 int luat_airlink_init(void);
@@ -91,6 +102,8 @@ int luat_airlink_start(int id);
 int luat_airlink_stop(int id);
 
 void luat_airlink_data_pack(uint8_t* buff, size_t len, uint8_t* dst);
+// ARQ 打包: 指定 pkgid 与 reserved 的 arq/seqv 位 (须在 link_data_cb 之后写标志位)
+void luat_airlink_data_pack_ex(uint8_t* buff, size_t len, uint8_t* dst, uint32_t pkgid, uint8_t arq, uint8_t seqv);
 airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff, size_t len);
 
 void luat_airlink_task_start(void);
@@ -214,6 +227,7 @@ int luat_airlink_current_mode_get(void);
 void luat_airlink_peer_caps_update(uint8_t caps);
 int luat_airlink_peer_rpc_supported(void);
 int luat_airlink_peer_frag_supported(void);
+int luat_airlink_peer_arq_supported(void);
 uint16_t luat_airlink_transport_max_data_len(uint8_t mode);
 int luat_airlink_cmd_exec_fragment(luat_airlink_cmd_t* cmd, void* userdata);
 

@@ -2,6 +2,7 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_airlink.h"
+#include "luat_airlink_arq.h"
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_crypto.h"
@@ -212,6 +213,7 @@ static uint8_t g_airlink_peer_caps;
 void luat_airlink_peer_caps_update(uint8_t caps) {
     static uint8_t peer_caps_logged = 0;
     g_airlink_peer_caps = caps;
+    luat_airlink_arq_on_peer_caps(caps); // ARQ 协商
     if (!peer_caps_logged || luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp > 2500) {
         // LLOGI("peer caps: rpc=%u frag=%u (raw=0x%02X)",
         //       (caps & AIRLINK_CAP_RPC) ? 1 : 0, (caps & AIRLINK_CAP_FRAG) ? 1 : 0, caps);
@@ -227,6 +229,10 @@ int luat_airlink_peer_rpc_supported(void) {
 
 int luat_airlink_peer_frag_supported(void) {
     return (g_airlink_peer_caps & AIRLINK_CAP_FRAG) ? 1 : 0;
+}
+
+int luat_airlink_peer_arq_supported(void) {
+    return (g_airlink_peer_caps & AIRLINK_CAP_ARQ) ? 1 : 0;
 }
 
 // SPI/UART 统一分片阈值: TEST_BUFF_SIZE(1600) - sizeof(airlink_link_data_t)(16) - sizeof(luat_airlink_cmd_t)(4)

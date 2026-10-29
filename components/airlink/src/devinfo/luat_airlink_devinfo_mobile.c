@@ -157,6 +157,7 @@ void luat_airlink_devinfo_init(AIRLINK_DEV_INFO_UPDATE_CB cb) {
 #ifdef LUAT_USE_AIRLINK_RPC
     devinfo->caps = AIRLINK_CAP_RPC;   // 从机支持 RPC
 #endif
+    devinfo->caps |= AIRLINK_CAP_ARQ;   // 链路层 ARQ
     uint32_t fw_version = 3;
     memcpy(devinfo->cat1.version, &fw_version, sizeof(uint32_t));   // 版本
     luat_mobile_get_imei(0, (char*)devinfo->cat1.imei, 16);         // IMEI

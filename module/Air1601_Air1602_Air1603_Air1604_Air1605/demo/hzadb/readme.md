@@ -1,6 +1,6 @@
 ## 功能模块介绍
 
-本 demo 演示在 Air1601/Air1602 上使用合宙 adb（**hzadb**，日志口用户指令协议 v2）的完整流程。
+本 demo 演示在 Air1601/Air1602/Air1603 上使用合宙 adb（**hzadb**，日志口用户指令协议 v2）的完整流程。
 hzadb 把**日志口复用成命令通道**，不需要额外占用一路 UART，上位机就能读写设备文件、
 枚举挂载点、查询分区空间、文件指纹、内存和网络状态。
 
@@ -18,8 +18,7 @@ hzadb 库只实现协议栈本身（帧解析、序号、去重、分片、鉴�
 完全由应用脚本决定，这也正是本 demo 要演示的重点。
 
 > **产品支持（重要）**：hzadb 依赖固件的 `log.set_usercmd_cb` / `log.usercmd_write`，
-> 需要固件打开宏 `LUAT_USE_LOG_USER_CMD`；截至 2026-09-22 **仅 Air1601/Air1602 提供该能力**。
-> 在 Air1603/Air1604/Air1605 等其它型号上，`hzadb.start()` 返回 `false` 并打印一条 warn，
+> 需要固件打开宏 `LUAT_USE_LOG_USER_CMD`；截至 2026-09-22 **仅 Air1601/Air1602/Air1603 提供该能力**。
 > 日志口收不到协议帧，上位机表现为握手超时。详见 https://docs.openluat.com/osapi/ext/hzadb/
 
 项目分为以下核心模块：
@@ -57,7 +56,7 @@ hzadb 库只实现协议栈本身（帧解析、序号、去重、分片、鉴�
 1、`hzadb_app.start()`：安装指令集并启动协议栈
    - 返回 `true`：日志口已被 hzadb 接管，上位机可以连接
    - 返回 `false`：两种情况，看紧挨着的日志就能区分
-     - `固件 usercmd 通道 不可用`：固件未开启 `LUAT_USE_LOG_USER_CMD`（或不是 Air1601/Air1602）
+     - `固件 usercmd 通道 不可用`：固件未开启 `LUAT_USE_LOG_USER_CMD`（或不是 Air1601/Air1602/Air1603）
      - `鉴权开启失败`：配了 `AUTH_TOKEN` 但 `set_auth` 报错（长度不对 / 固件缺 crypto），
        此时**主动放弃启动**，宁可不可用也不让日志口在没有鉴权的状态下对外开放
 
@@ -160,7 +159,7 @@ hzadb 库只实现协议栈本身（帧解析、序号、去重、分片、鉴�
 
 ## 演示硬件环境
 
-1、Air1601 或 Air1602 开发板一块（**必须**是这两个型号，其它型号固件没有 usercmd 通道）：
+1、Air1601 或 Air1602 开发板一块：
 
 - 板载 USB 转串口，或 TYPE-C USB 数据线一根，接开发板 USB1 口（串口下载/调试）
 
@@ -175,7 +174,7 @@ hzadb 库只实现协议栈本身（帧解析、序号、去重、分片、鉴�
 
 1、Luatools 下载调试工具：https://docs.openluat.com/air1601/luatos/common/download/
 
-2、固件版本：Air1601/Air1602 对应的最新固件（其它型号不支持本 demo）。
+2、固件版本：Air1601/Air1602/Air1603 对应的最新固件（其它型号不支持本 demo）。
 
 3、固件需启用以下宏：
 
@@ -201,7 +200,9 @@ I/user.hzadb_app 固件 usercmd 通道 可用
 ## 演示核心步骤
 
 1、用 Luatools **选择整个 `hzadb` 目录**烧录脚本，并勾选「添加默认lib」
-   （`hzadb.lua` 在 `script/libs/`，不勾选会 `require` 失败）；固件按板型选 Air1601/Air1602 对应版本。
+   （`hzadb.lua` 在 `script/libs/`，不勾选会 `require` 失败）；固件按板型选 Air1601/Air1602/Air1603 对应版本。
+
+   ![](https://docs.openluat.com/air8605\images\Air8605-luatools.png)
 
 2、烧录成功后代码自动运行，串口日志关键内容（节选）：
 
@@ -223,6 +224,10 @@ I/user.hzadb_app 固件 usercmd 通道 可用
 **方式一：Luatools 图形界面（最省事）**
 
 用 Luatools 打开串口后，进入「设备文件管理」界面，可以直接浏览、上传、下载设备文件。
+
+![](https://docs.openluat.com/air8605\images\luatools-tools.png)
+
+![](https://docs.openluat.com/air8605\images\hzadb-tool.png)
 
 **方式二：命令行脚本（能看到每一步的返回值和吞吐）**
 
@@ -281,7 +286,7 @@ python demo_hzadb.py --port COM6
 
 - 先看设备端日志有没有 `hzadb 服务就绪：日志口已被接管`；
 - 没有这一行、只有 `hzadb 未启动`，说明固件没开 `LUAT_USE_LOG_USER_CMD`，
-  换 Air1601/Air1602 对应固件（其它型号目前不提供该能力）；
+  换 Air1601/Air1602/Air1603 对应固件（其它型号目前不提供该能力）；
 - 有这一行但上位机仍超时，先确认串口号选对、`--baud` 与固件日志口速率一致，
   并关掉 Luatools 等占用同一串口的工具。
 

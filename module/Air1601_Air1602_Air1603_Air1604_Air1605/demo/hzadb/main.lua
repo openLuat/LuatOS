@@ -22,8 +22,7 @@
 
 固件要求（重要）：
 - hzadb 依赖固件的 log.set_usercmd_cb / log.usercmd_write，需要固件打开
-  LUAT_USE_LOG_USER_CMD；截至 2026-09-22 只有 Air1601/Air1602 固件提供该能力；
-- 在 Air1603/Air1604/Air1605 等其它型号上，hzadb.start() 返回 false，
+  LUAT_USE_LOG_USER_CMD；截至 2026-09-22 只有 Air1601/Air1602/Air1603 固件提供该能力；
   本 demo 只打一条 warn、心跳照跑，不会阻塞启动，便于同一份脚本跨型号试跑；
 - 开了 AUTH_TOKEN 但固件缺 crypto 时，鉴权配置失败会直接放弃启动（不会裸奔），
   同样返回 false，日志里有明确的 error 行。

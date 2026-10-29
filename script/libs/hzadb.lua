@@ -9,6 +9,7 @@ open/read/write/close 文件模型、可选 HMAC 挑战应答鉴权、挂载点�
 
 依赖:
 - log.usercmd_write / log.set_usercmd_cb (固件需打开 LUAT_USE_LOG_USER_CMD)
+- sys (deferred=true 时使用固定任务执行文件 I/O)
 - crypto.md_file (file_sha1 指令, fs() 安装时按需检测)
 - rtos.meminfo (meminfo 指令)
 - netdrv / socket (netstat 指令, 按适配器探测)
@@ -35,17 +36,20 @@ open/read/write/close 文件模型、可选 HMAC 挑战应答鉴权、挂载点�
 local hzadb = {}
 
 --- 库版本号, 年月日时分, 与协议版本(PROTO_VERSION)无关
-hzadb.VERSION = "202609221555"
+hzadb.VERSION = "202610291800"
 
 local PROTO_VERSION = 0x01
 -- 单帧数据区上限, 必须与固件 am_log.c 的 rx 缓冲配套:
 -- 厂商新固件 rx_cache1[1064] -> 反转义后 24B帧头+payload, 应用头10B(5固定+fd1+offset4),
 -- 数据区 chunk=1024 时 24+10+1024=1058<=1064 (转义流缓冲 2128B 装得下最坏 2122B)
 local MAX_CHUNK = 1024
+-- EC718 USB 应答预算为 4112B；固定头5B + READ头7B + 4096B = 4108B。
+local MAX_READ = 4096
 
 -- 协议版本号, 见 PROTOCOL.md §1, 当前 0x01
 hzadb.PROTO_VERSION = PROTO_VERSION
 hzadb.MAX_CHUNK = MAX_CHUNK
+hzadb.MAX_READ = MAX_READ
 
 -- 子指令号 -> 处理函数名 (0=HELLO 与 11=AUTH 为协议栈内建, 不在此表)
 local SUB_NAMES = {
@@ -115,13 +119,17 @@ end
 
 --- 注册业务处理函数
 -- @string name 操作名: open/close/write/read/lsdir/mkdir/rmdir/remove/stat/exists/lsmount/fsstat/file_sha1/meminfo/netstat
+-- 也可传入 0x40..0x7F 数字子指令，供自定义业务与标准文件管理共用同一接收入口。
 -- @function fn 处理函数, 签名 fn(body) -> errno, resp_body, resp_flags(可选)
 -- @return table 返回 hzadb 自身, 便于链式调用
 -- @usage
--- hzadb.reg_op("custom", function(body)
+-- hzadb.reg_op(0x40, function(body)
 --     return hzadb.E_OK, "hello"
 -- end)
 function hzadb.reg_op(name, fn)
+    if type(name) == "number" and (name < 0x40 or name > 0x7F or name % 1 ~= 0) then
+        error("hzadb.reg_op: numeric subcmd must be 0x40..0x7F")
+    end
     ops[name] = fn
     return hzadb
 end
@@ -133,8 +141,18 @@ local function dispatch(seq, subcmd, flags, body)
         local nonce, propose = string.unpack("<I4I2", body)
         last_ctrl_seq = nil
         last_ctrl_resp = nil
-        last_nonce = nonce
+        last_nonce = nil
         authed = false
+        -- 新 HELLO 开始新会话。断线时主机可能来不及 CLOSE，先关闭遗留句柄，
+        -- 避免四次中断后耗尽 MAXFD；关闭/落盘失败必须返回错误，不能伪装成功。
+        if hzadb.fs_close_all then
+            local closed = hzadb.fs_close_all()
+            if not closed then
+                log.usercmd_write(pack_hdr(0, 0x01, seq) .. string.char(hzadb.E_IO))
+                return
+            end
+        end
+        last_nonce = nonce
         local chunk = propose
         if chunk > MAX_CHUNK then chunk = MAX_CHUNK end
         local caps = 0
@@ -172,7 +190,7 @@ local function dispatch(seq, subcmd, flags, body)
         end
     else
         local name = SUB_NAMES[subcmd]
-        local fn = name and ops[name]
+        local fn = ops[subcmd] or (name and ops[name])
         errno, resp_body, resp_flags = hzadb.E_NOSYS, "", 0
         if fn then
             local ok, e, b, fl = pcall(fn, body)
@@ -199,16 +217,38 @@ local function dispatch(seq, subcmd, flags, body)
     end
 end
 
+local DISPATCH_TASK = "hzadb_dispatch"
+local DISPATCH_QUEUE_LIMIT = 8
+local dispatch_task_started = false
+local dispatch_queued = 0
+
 --- 启动协议栈(注册 log.set_usercmd_cb)
+-- @table opts 可选; deferred=true 时在固定任务中处理指令, 日志回调只解析和入队
+-- 延迟队列最多保留 8 条等待指令; 队满不回应, host 按原序号超时重传
 -- @return boolean true=已接管; false=固件没开 LUAT_USE_LOG_USER_CMD, 功能不可用(脚本可继续跑, 只是收不到指令)
 -- @usage
 -- if not hzadb.start() then
 --     log.warn("hzadb", "firmware without LUAT_USE_LOG_USER_CMD")
 -- end
-function hzadb.start()
+function hzadb.start(opts)
     if type(log.set_usercmd_cb) ~= "function" then
         log.warn("hzadb", "固件未开启 LUAT_USE_LOG_USER_CMD, 日志口用户指令不可用")
         return false
+    end
+    local deferred = opts and opts.deferred == true
+    local task_sys = deferred and (sys or require("sys")) or nil
+    if deferred and not dispatch_task_started then
+        task_sys.taskInitEx(function()
+            while true do
+                local msg = task_sys.waitMsg(DISPATCH_TASK, "frame")
+                if msg then
+                    dispatch_queued = dispatch_queued - 1
+                    local frame = msg[2]
+                    dispatch(frame.seq, frame.subcmd, frame.flags, frame.body)
+                end
+            end
+        end, DISPATCH_TASK)
+        dispatch_task_started = true
     end
     log.set_usercmd_cb(function(cmd, data)
         -- cmd 为 A5 帧 address 字段(恒为0, 不使用); data 为 payload(无 MAGIC)
@@ -217,7 +257,15 @@ function hzadb.start()
         local subcmd = data:byte(2)
         local flags = data:byte(3)
         local seq = string.unpack("<I2", data, 4)
-        dispatch(seq, subcmd, flags, data:sub(6))
+        local body = data:sub(6)
+        if deferred then
+            if dispatch_queued >= DISPATCH_QUEUE_LIMIT then return end
+            if task_sys.sendMsg(DISPATCH_TASK, "frame", {seq=seq, subcmd=subcmd, flags=flags, body=body}) then
+                dispatch_queued = dispatch_queued + 1
+            end
+        else
+            dispatch(seq, subcmd, flags, body)
+        end
     end)
     return true
 end
@@ -246,14 +294,64 @@ local function is_read_denied(path)
     return false
 end
 
+local fs_fds = {}
+local MAXFD = 4
+
+local function close_fd(fd)
+    local slot = fs_fds[fd]
+    fs_fds[fd] = nil
+    local seek_ok, size = pcall(slot.f.seek, slot.f, "end")
+    local close_ok, closed = pcall(slot.f.close, slot.f)
+    if not seek_ok or type(size) ~= "number" or size < 0 then
+        return false, 0, "seek_failed"
+    end
+    if not close_ok or not closed then
+        return false, 0, "close_failed"
+    end
+    return true, size
+end
+
+--- 返回 hzadb 当前持有的文件句柄数
+function hzadb.fs_open_count()
+    local count = 0
+    for i = 1, MAXFD do
+        if fs_fds[i] then count = count + 1 end
+    end
+    return count
+end
+
+--- 关闭全部 hzadb 文件; 无论成功与否均释放所有槽位
+-- @return boolean 全部关闭成功
+-- @return table 错误数组, 每项为 {fd, path, error="seek_failed"|"close_failed"}
+function hzadb.fs_close_all()
+    local errors = {}
+    for i = 1, MAXFD do
+        local slot = fs_fds[i]
+        if slot then
+            local ok, _, err = close_fd(i)
+            if not ok then errors[#errors + 1] = {fd=i, path=slot.path, error=err} end
+        end
+    end
+    return #errors == 0, errors
+end
+
 --- 一键安装标准文件系统操作集(io/os 实现)
 -- 含 open/close/write/read/lsdir/mkdir/rmdir/remove/stat/exists/lsmount/fsstat/file_sha1 共 13 个指令
 -- 默认拦截对 /luadb 的读文件请求(见 READ_DENY_PREFIXES), lsdir/stat/exists/写操作不拦截
 -- 设备端可同时打开最多 4 个文件句柄
+-- @table opts 可选; path_guard(path, write) 返回 true 才允许访问, 抛错按拒绝处理
+-- guard 在路径检查之后、文件访问之前调用, 已打开句柄的 READ/WRITE 也会重新检查
+-- CLOSE/fs_close_all 始终允许, 便于冻结写入后关闭并校验文件
 -- @return table 返回 hzadb 自身, 便于链式调用
-function hzadb.fs()
-    local fds = {}
-    local MAXFD = 4
+function hzadb.fs(opts)
+    local fds = fs_fds
+    local guard = opts and opts.path_guard
+
+    local function allowed(path, write)
+        if not guard then return true end
+        local ok, permit = pcall(guard, path, write)
+        return ok and permit == true
+    end
 
     local function alloc_fd(f, path)
         for i = 1, MAXFD do
@@ -279,6 +377,9 @@ function hzadb.fs()
         if not mode_s then
             return hzadb.E_BADREQ, ""
         end
+        if not allowed(path, mode ~= 0) then
+            return hzadb.E_DENIED, ""
+        end
         local f = io.open(path, mode_s)
         if not f then
             return hzadb.E_NOENT, ""
@@ -297,9 +398,7 @@ function hzadb.fs()
         if not slot then
             return hzadb.E_BADFD, string.pack("<I4", 0)
         end
-        fds[fd] = nil
-        local size = slot.f:seek("end") or 0
-        local ok = pcall(function() slot.f:close() end)
+        local ok, size = close_fd(fd)
         if not ok then
             return hzadb.E_IO, string.pack("<I4", 0)
         end
@@ -322,17 +421,20 @@ function hzadb.fs()
         if not slot then
             return hzadb.E_BADFD, ack
         end
+        if not allowed(slot.path, true) then
+            return hzadb.E_DENIED, ack
+        end
         local f = slot.f
         local data = body:sub(6) -- fd(1)+offset(4) 之后, 数据从第6字节开始
         local size = f:seek("end")
-        if not size then
+        if type(size) ~= "number" or size < 0 then
             return hzadb.E_IO, ack
         end
         if offset > size then
             if offset - size > PAD_LIMIT then
                 return hzadb.E_BADREQ, ack
             end
-            f:seek("set", size)
+            if f:seek("set", size) ~= size then return hzadb.E_IO, ack end
             local pad = offset - size
             while pad > 0 do
                 local n = pad < 256 and pad or 256
@@ -342,7 +444,10 @@ function hzadb.fs()
                 pad = pad - n
             end
         end
-        if not f:seek("set", offset) or not f:write(data) then
+        if f:seek("set", offset) ~= offset or not f:write(data) then
+            return hzadb.E_IO, ack
+        end
+        if f:seek("cur", 0) ~= offset + #data then
             return hzadb.E_IO, ack
         end
         -- 落盘校验: 部分 FS 对越界写会静默丢弃(seek 不生效), 必须回读大小确认
@@ -354,18 +459,20 @@ function hzadb.fs()
     end)
 
     hzadb.reg_op("read", function(body)
+        if #body < 7 then return hzadb.E_BADREQ, "" end
         local fd = string.byte(body, 1)
         local offset, len = string.unpack("<I4I2", body, 2)
+        if len > MAX_READ then return hzadb.E_BADREQ, "" end
         local slot = fds[fd]
         if not slot then
             return hzadb.E_BADFD, ""
         end
         -- 读拦截兜底: 以写模式打开的 fd 也可能对被保护路径发起 read, 一律拒绝
-        if is_read_denied(slot.path) then
+        if is_read_denied(slot.path) or not allowed(slot.path, false) then
             return hzadb.E_DENIED, ""
         end
         local f = slot.f
-        f:seek("set", offset)
+        if f:seek("set", offset) ~= offset then return hzadb.E_IO, "" end
         local data = f:read(len) or ""
         return hzadb.E_OK, string.char(fd) .. string.pack("<I4I2", offset, #data) .. data
     end)
@@ -379,6 +486,9 @@ function hzadb.fs()
         local offset, count = string.unpack("<I4I2", body, 2 + plen)
         if not check_path(path) then
             return hzadb.E_TOOLONG, string.pack("<I4I2", 0, 0)
+        end
+        if not allowed(path, false) then
+            return hzadb.E_DENIED, string.pack("<I4I2", 0, 0)
         end
         if count > 100 then count = 100 end -- io.lsdir 单次上限
         local ok, list = io.lsdir(path, count, offset)
@@ -409,6 +519,7 @@ function hzadb.fs()
         if not check_path(body) then
             return hzadb.E_TOOLONG, ""
         end
+        if not allowed(body, true) then return hzadb.E_DENIED, "" end
         if io.mkdir(body) then
             return hzadb.E_OK, ""
         end
@@ -419,6 +530,7 @@ function hzadb.fs()
         if not check_path(body) then
             return hzadb.E_TOOLONG, ""
         end
+        if not allowed(body, true) then return hzadb.E_DENIED, "" end
         if io.rmdir(body) then
             return hzadb.E_OK, ""
         end
@@ -429,6 +541,7 @@ function hzadb.fs()
         if not check_path(body) then
             return hzadb.E_TOOLONG, ""
         end
+        if not allowed(body, true) then return hzadb.E_DENIED, "" end
         if os.remove(body) then
             return hzadb.E_OK, ""
         end
@@ -439,6 +552,7 @@ function hzadb.fs()
         if not check_path(body) then
             return hzadb.E_TOOLONG, ""
         end
+        if not allowed(body, false) then return hzadb.E_DENIED, "" end
         if io.exists(body) then
             return hzadb.E_OK, string.char(0) .. string.pack("<I4", io.fileSize(body) or 0)
         end
@@ -452,6 +566,7 @@ function hzadb.fs()
         if not check_path(body) then
             return hzadb.E_TOOLONG, ""
         end
+        if not allowed(body, false) then return hzadb.E_DENIED, "" end
         local ex = io.exists(body) or io.dexist(body)
         return hzadb.E_OK, string.char(ex and 1 or 0)
     end)
@@ -467,11 +582,13 @@ function hzadb.fs()
         local parts, total = {}, 0
         for _, e in ipairs(list) do
             local path = e.path or ""
-            local fst = e.fs or ""
-            local eb = string.char(#path) .. path .. string.char(#fst) .. fst
-            if total + #eb > 470 then break end -- 上行单帧预算, 与 LSDIR 一致
-            parts[#parts + 1] = eb
-            total = total + #eb
+            if allowed(path, false) then
+                local fst = e.fs or ""
+                local eb = string.char(#path) .. path .. string.char(#fst) .. fst
+                if total + #eb > 470 then break end -- 上行单帧预算, 与 LSDIR 一致
+                parts[#parts + 1] = eb
+                total = total + #eb
+            end
         end
         return hzadb.E_OK, string.pack("<I2", total) .. table.concat(parts)
     end)
@@ -480,6 +597,7 @@ function hzadb.fs()
         if not check_path(body) then
             return hzadb.E_TOOLONG, ""
         end
+        if not allowed(body, false) then return hzadb.E_DENIED, "" end
         if io.fsstat == nil then
             return hzadb.E_NOSYS, ""
         end
@@ -499,7 +617,7 @@ function hzadb.fs()
             return hzadb.E_TOOLONG, ""
         end
         -- 读拦截: 指纹属于对文件的读访问, 与 read 同一策略
-        if is_read_denied(path) then
+        if is_read_denied(path) or not allowed(path, false) then
             return hzadb.E_DENIED, ""
         end
         if crypto == nil or crypto.md_file == nil then

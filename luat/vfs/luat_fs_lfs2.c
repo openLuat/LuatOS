@@ -3,6 +3,7 @@
 #include "luat_fs.h"
 #include "luat_spi.h"
 #include "luat_mem.h"
+#include <errno.h>
 
 #define LUAT_LOG_TAG "vfs.lfs2"
 #include "luat_log.h"
@@ -74,6 +75,25 @@ int luat_vfs_lfs2_getc(void* userdata, FILE* stream) {
 int luat_vfs_lfs2_fseek(void* userdata, FILE* stream, long int offset, int origin) {
     lfs_t* fs = (lfs_t*)userdata;
     lfs_file_t* file = (lfs_file_t*)stream;
+    if (origin == SEEK_END) {
+        /* Include pending writes before the SDK seek implementation flushes them. */
+        lfs_soff_t size = lfs_file_size(fs, file);
+        if (size < 0) {
+            errno = EIO;
+            return -1;
+        }
+        int64_t limit = fs->file_max;
+        if (limit > LFS_FILE_MAX) limit = LFS_FILE_MAX;
+        int64_t delta = (int64_t)offset;
+        if (delta < -(int64_t)size || delta > limit - (int64_t)size) {
+            errno = EINVAL;
+            return -1;
+        }
+        lfs_soff_t target = (lfs_soff_t)((int64_t)size + delta);
+        int ret = lfs_file_seek(fs, file, target, LFS_SEEK_SET);
+        if (ret < 0) errno = EIO;
+        return ret < 0 ? -1 : 0;
+    }
     int ret = lfs_file_seek(fs, file, offset, origin);
     return ret < 0 ? -1 : 0;
 }
@@ -88,10 +108,20 @@ int luat_vfs_lfs2_ftell(void* userdata, FILE* stream) {
 int luat_vfs_lfs2_fclose(void* userdata, FILE* stream) {
     lfs_t* fs = (lfs_t*)userdata;
     lfs_file_t* file = (lfs_file_t*)stream;
-    lfs_file_close(fs, file);
+    if (file == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+    int prior_error = 0;
+#ifndef LFS_READONLY
+    prior_error = (file->flags & LFS_F_ERRED) ? LFS_ERR_IO : 0;
+#endif
+    int ret = lfs_file_close(fs, file);
     if (file != NULL)
         luat_heap_free(file);
-    return 0;
+    if (ret == 0) ret = prior_error;
+    if (ret < 0) errno = EIO;
+    return ret;
 }
 
 int luat_vfs_lfs2_feof(void* userdata, FILE* stream) {
@@ -127,8 +157,14 @@ size_t luat_vfs_lfs2_fwrite(void* userdata, const void *ptr, size_t size, size_t
 int luat_vfs_lfs2_fflush(void* userdata, FILE *stream) {
     lfs_t* fs = (lfs_t*)userdata;
     lfs_file_t* file = (lfs_file_t*)stream;
-    int ret = lfs_file_sync(fs, file);
-    return ret < 0 ? 0 : ret;
+    int ret;
+#ifndef LFS_READONLY
+    if (file->flags & LFS_F_ERRED) ret = LFS_ERR_IO;
+    else
+#endif
+    ret = lfs_file_sync(fs, file);
+    if (ret < 0) errno = EIO;
+    return ret;
 }
 
 int luat_vfs_lfs2_remove(void* userdata, const char *filename) {
@@ -303,7 +339,12 @@ int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* 
             if (info.type == 2 && (memcmp(info.name, ".", 2) ==0 ||memcmp(info.name, "..", 3)==0))
                 continue;
             ents[num].d_type = info.type - 1; // lfs file =1, dir=2
-            strcpy(ents[num].d_name, info.name);
+            /* littlefs allows 255 name bytes plus NUL, but the public VFS ABI
+             * has d_name[255]. Keep the ABI: expose at most 254 name bytes and
+             * terminate within d_name instead of overwriting the next d_size.
+             */
+            strncpy(ents[num].d_name, info.name, sizeof(ents[num].d_name) - 1);
+            ents[num].d_name[sizeof(ents[num].d_name) - 1] = '\0';
             num++;
         }
         lfs_dir_close(fs, dir);

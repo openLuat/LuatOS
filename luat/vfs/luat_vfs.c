@@ -109,7 +109,10 @@ luat_vfs_mount_t * getmount(const char* filename) {
     for (int j = LUAT_VFS_FILESYSTEM_MOUNT_MAX - 1; j >= 0; j--) {
         if (vfs.mounted[j].ok == 0)
             continue;
-        if (strncmp(vfs.mounted[j].prefix, filename, strlen(vfs.mounted[j].prefix)) == 0) {
+        size_t prefix_len = strlen(vfs.mounted[j].prefix);
+        if (strncmp(vfs.mounted[j].prefix, filename, prefix_len) == 0
+            && (prefix_len == 0 || vfs.mounted[j].prefix[prefix_len - 1] == '/'
+                || filename[prefix_len] == '\0' || filename[prefix_len] == '/')) {
             return &vfs.mounted[j];
         }
     }

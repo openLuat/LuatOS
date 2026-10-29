@@ -3,7 +3,7 @@
 @summary AIRUI 离线 XYZ 瓦片地图组件
 @version 0.1.0
 @date    2026.10.28
-@tag     LUAT_USE_AIRUI
+@tag     LUAT_USE_AIRUI, LUAT_USE_AIRUI_MAP
 */
 
 #include "luat_base.h"
@@ -14,6 +14,8 @@
 #include <limits.h>
 #include <math.h>
 #include <stdint.h>
+
+#ifdef LUAT_USE_AIRUI_MAP
 
 static lv_obj_t *map_check(lua_State *L)
 {
@@ -475,3 +477,18 @@ void airui_register_map_meta(lua_State *L)
     lua_setfield(L, -2, "__index");
     lua_pop(L, 1);
 }
+
+#else  /* LUAT_USE_AIRUI_MAP */
+
+void airui_register_map_meta(lua_State *L)
+{
+    (void)L;
+}
+
+int airui_map_create(lua_State *L)
+{
+    lua_pushnil(L);
+    return 1;
+}
+
+#endif /* LUAT_USE_AIRUI_MAP */

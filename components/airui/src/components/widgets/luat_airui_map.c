@@ -19,6 +19,8 @@
 #define LUAT_LOG_TAG "airui.map"
 #include "luat_log.h"
 
+#ifdef LUAT_USE_AIRUI_MAP
+
 #define MAP_PATH_MAX 256
 #define MAP_MAX_TILES 128
 #define MAP_TIMER_MS 30
@@ -1054,3 +1056,5 @@ lv_obj_t *airui_map_create_from_config(void *vm, int idx)
     map_changed(d);
     return obj;
 }
+
+#endif /* LUAT_USE_AIRUI_MAP */

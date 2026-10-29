@@ -31,9 +31,11 @@
    共用 SPI2，CS 不同）；WiFi_RDY = PIN67 = GPIO42。
 7. 【看门狗 153D】WG_OUT = PIN47 = GPIO57 是看门狗芯片的复位输出（接系统复位），
    本工程无喂狗/监听消费方，固件不配置该脚；若量产固件被看门狗复位，需补喂狗逻辑。
-8. 485_EN = GPIO14 / 485_EN1 = PIN51 = GPIO65 / 485_EN2 = PIN65 = GPIO49：
-   power_on 拉高使能 485 收发供电。features.rs485 目前在 app/ 与 ui/ 里查不到消费方，
-   仅作能力声明。
+8. 485_EN = GPIO14 是 485 收发器总电源（power_on 拉高常供电）。
+   485_EN1 = PIN51 = GPIO65 是 UART1 那路隔离 485 的方向脚，
+   485_EN2 = GPIO46 是 UART6 那路隔离 485 的方向脚（DE 与 /RE 并联，高=发 低=收），
+   两个方向脚都交给 periph_rs485 翻转，空闲停在接收态。
+   features.rs485 目前在 app/ 与 ui/ 里查不到消费方，仅作能力声明。
 9. 上电供电轨：5V_EN = GPIO12、9V_EN = PIN46 = GPIO56、12V_EN = PIN72 = GPIO44、
    5VOUT_EN = PIN73 = GPIO52（对外 5V 输出使能）。
    5V_EN 与 usb_hid_app 的 VBUS_GPIO=12 是同一物理脚（USB 供电使能），开启 usb_hid 时
@@ -65,12 +67,12 @@ return {
     },
 
     -- ===== 外设清单（运行时可开关的控制脚，与 power_on 的开机默认供电同一物理脚）=====
-    -- UVC_EN = PIN48 = GPIO58 / 485_EN = GPIO14 / 485_EN1 = PIN51 = GPIO65 / 485_EN2 = PIN65 = GPIO49
+    -- UVC_EN = PIN48 = GPIO58 / 485_EN = GPIO14 / 485_EN1 = PIN51 = GPIO65 / 485_EN2 = GPIO46
     peripherals = {
         { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 }, -- UVC_EN，200ms 就绪
         { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, power_hold = true, baud = 9600, manual_init = true }, -- DE = 485_EN1，供电域 485_EN
         { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, power_hold = true, baud = 9600 }, -- DE 脚未引出，供电域 485_EN
-        { type = "rs485", id = "485_3", name = "隔离485",   uart_id = 6, de_pin = 49, power_pin = 14, power_hold = true, baud = 9600 }, -- DE = 485_EN2，供电域 485_EN
+        { type = "rs485", id = "485_3", name = "隔离485",   uart_id = 6, de_pin = 46, power_pin = 14, power_hold = true, baud = 9600 }, -- DE = 485_EN2 = GPIO46，供电域 485_EN
         { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },
     },
 

@@ -30,9 +30,11 @@
    共用 SPI2，CS 不同）；WiFi_RDY = PIN67 = GPIO42。
 7. 【看门狗 153D】WG_OUT = PIN47 = GPIO57 是看门狗芯片的复位输出（接系统复位），
    本工程无喂狗/监听消费方，固件不配置该脚；若量产固件被看门狗复位，需补喂狗逻辑。
-8. 485_EN = GPIO14 / 485_EN1 = PIN51 = GPIO65 / 485_EN2 = PIN65 = GPIO49：
-   power_on 拉高使能 485 收发供电。features.rs485 目前在 app/ 与 ui/ 里查不到消费方，
-   仅作能力声明。
+8. 485_EN = GPIO14 是 485 收发器总电源（power_on 拉高常供电）。
+   485_EN1 = PIN51 = GPIO65 是 UART1 那路隔离 485 的方向脚，
+   485_EN2 = GPIO46 是 UART6 那路隔离 485 的方向脚（DE 与 /RE 并联，高=发 低=收），
+   两个方向脚都交给 periph_rs485 翻转，空闲停在接收态。
+   features.rs485 目前在 app/ 与 ui/ 里查不到消费方，仅作能力声明。
 9. 上电供电轨：5V_EN = GPIO12、9V_EN = PIN46 = GPIO56、12V_EN = PIN72 = GPIO44、
    5VOUT_EN = PIN73 = GPIO52（对外 5V 输出使能）。
    5V_EN 与 usb_hid_app 的 VBUS_GPIO=12 是同一物理脚（USB 供电使能）。5V 轨同时给
@@ -65,9 +67,9 @@ return {
         { pin = 64, dir = 0, level = 1 }, -- WiFi_RESET = 4G_RESET 先拉高 50ms（见文件头第 3 条）
         { pin = 64, dir = 0, level = 0 }, -- 维持低 120ms，WiFi/4G 模组复位释放
         { pin = 58, dir = 0, level = 1, }, -- UVC_EN 拉高，等 200ms 摄像头就绪
-        { pin = 14, dir = 0, level = 1 }, -- 485_EN 拉高使能 485 收发（见文件头第 8 条）
-        { pin = 65, dir = 0, level = 1 }, -- 485_EN1 拉高使能 485 收发（见文件头第 8 条）
-        { pin = 49, dir = 0, level = 1 }, -- 485_EN2 拉高使能 485 收发（见文件头第 8 条）
+        { pin = 14, dir = 0, level = 1 }, -- 485_EN = 485 收发器总电源，拉高常供电（见文件头第 8 条）
+        { pin = 65, dir = 0, level = 0 }, -- 485_EN1 = UART1 那路 485 的方向脚，空闲置低停在接收态（见文件头第 8 条）
+        { pin = 46, dir = 0, level = 0 }, -- 485_EN2 = UART6 那路 485 的方向脚，空闲置低停在接收态（见文件头第 8 条）
     },
 
     -- ===== 硬件配置 =====

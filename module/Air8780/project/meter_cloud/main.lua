@@ -18,6 +18,7 @@
     GPIO25 485 芯片供电（上电拉高）、GPIO23 RS485 EN/方向脚（交 uart 硬件换向）
     GPIO22 运放电源（默认关）、GPIO24 可控电源输出（默认关）
     GPIO27 NET LED、GPIO30 Reload 键、GPIO28 硬件看门狗（可选）
+    SIM 卡槽固定卡槽1(SIM0)；卡槽2 复用 GPIO4/5/6，暂不启用
     ADC2 供电电压 / ADC0 模拟量1 / ADC1 模拟量2
 
 需要在 iot.openluat.com 创建项目获取 PROJECT_KEY 后填入下方。

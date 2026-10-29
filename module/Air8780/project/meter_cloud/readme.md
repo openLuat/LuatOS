@@ -34,6 +34,7 @@ meter_cloud/
 | 资源 | 处理 | 说明 |
 |------|------|------|
 | `pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)` | 自动调用 | 所有 GPIO 高电平输出 3.3V，必须先于 UART/GPIO 初始化 |
+| SIM 卡槽 `mobile.simid(0)` | 开机定死卡槽1 | 必须早于联网，见 `board_hw.sim_select`；卡槽2 复用 GPIO4/5/6，本项目暂不启用 |
 | GPIO25 485 芯片可控电源 | 上电拉高 | 不拉高 485 芯片不上电，通信必失败 |
 | GPIO23 RS485 EN / 方向脚 | 交 `uart.setup` 硬件换向 | 收发器 DE+RE；手动拉高会把总线钉在发送态、收不到应答 |
 | GPIO22 运放电源 | 默认关 | 做模拟量检测时调 `board_hw.opamp_power(true)` |
@@ -45,6 +46,27 @@ meter_cloud/
 
 - 串口2 为硬件自动换向 RS485，**无需方向脚**（`CFG.dir_gpio` 保持 `nil`）；
 - 外接带方向脚的 485 模块时，在 `CFG.dir_gpio` 填 GPIO 号。
+
+### SIM 卡槽与 GPIO 复用
+
+Air780EPM 是双卡单待，两个卡槽的实现完全不同（依据 Air780EPM 硬件手册 SIM 章节）：
+
+| | 卡槽1 (SIM0) | 卡槽2 (SIM1) |
+|---|---|---|
+| 电路 | 模组专用 SIM 电路 | GPIO4/5/6 模拟的 USIM2 |
+| 占用 GPIO | 不占 | GPIO4 / GPIO5 / GPIO6，另有 USIM2_CLK 上拉脚 |
+| 与其它功能互斥 | 无 | GPIO4/5/6 分别复用 CAM_BCLK / CAM_CS / CAM_RX0，用了 SIM2 就不能用摄像头 |
+| 支持的卡电平 | 1.8V / 2.8V 都支持 | 只支持与模组 IO 电平一致的卡（本项目 `ioVol=3.3V`，故只能用 2.8/3.3V 卡） |
+| 切换 API | `mobile.simid(0)` | 必须 `mobile.simid(1)`，否则模组不会初始化 SIM2 |
+
+本项目**固定使用卡槽1**，`board_hw.sim_select()` 在联网之前调 `mobile.simid(0)` 显式定死。
+
+要启用卡槽2，前置条件如下（本项目暂不启用，代码留在 `board_hw.lua` 注释里）：
+
+1. USIM2 复用 GPIO4/5/6，同板不能再用摄像头 —— 本项目未用摄像头，不冲突；
+2. `USIM2_CLK` 空闲时保持不了高电平、不符合 SIM 卡时序规范，需要一个**常输出高**的 AGPIO 做上拉。官方惯例选 GPIO23(PIN99，又称 Vref)：`gpio.setup(23, 1)`。而 GPIO23 在本板是 RS485 收发器的方向脚，按惯例就会抢脚；换成其它 AGPIO 即可绕开（手册原话是「任意一个 AGPIO 都可以作为该上拉电平使用」）；
+3. 卡槽2 只认与模组 IO 电平一致的卡，本项目 `ioVol` 设 3.3V，只能用 2.8/3.3V 的卡；
+4. `mobile.simid(2)` 自适应模式会额外占 GPIO4/5/6/23 四个 IO，且官方 FAQ 明确建议双卡场景改用 `mobile.simid(0)` / `mobile.simid(1)` 固定卡槽，不要用自适应。
 
 ## 参数配置
 

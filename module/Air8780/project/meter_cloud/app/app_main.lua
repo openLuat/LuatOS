@@ -9,9 +9,10 @@
 0. board_hw：板级资源 —— 必须最先执行，pm.ioVol(AIR780EPM, 3.3V) 要在
              任何 UART/GPIO 初始化之前生效，否则先初始化的脚副电平会停在默认值
    ① 所有 GPIO 高电平 3.3V
-   ② RS485 芯片供电 GPIO25 拉高；GPIO23（EN/方向脚）交 uart.setup 硬件换向，勿手动拉高
-   ③ 运放电源 GPIO22 默认关（真正做模拟量检测时调 board_hw.opamp_power(true)）
-   ④ NET LED GPIO27、Reload 键 GPIO30（输入上拉）、看门狗 GPIO28、ADC 0/1/2
+   ② SIM 卡槽定死为卡槽1(SIM0)，必须早于联网，见 board_hw.sim_select
+   ③ RS485 芯片供电 GPIO25 拉高；GPIO23（EN/方向脚）交 uart.setup 硬件换向，勿手动拉高
+   ④ 运放电源 GPIO22 默认关（真正做模拟量检测时调 board_hw.opamp_power(true)）
+   ⑤ NET LED GPIO27、Reload 键 GPIO30（输入上拉）、看门狗 GPIO28、ADC 0/1/2
 1. netdrv_device：网络适配层（4G / PC 模拟器）
 2. meter_app：RS485 Modbus-RTU 电表采集（串口2，硬件自动换向）
 3. aircloud_app：AirCloud 上报

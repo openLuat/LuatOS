@@ -24,6 +24,7 @@ AirCloud excloud 协议通信模块，负责设备与云端的数据交互。
 - ENV_TEMPERATURE: CPU温度（ADC读取）
 - GNSS_LATITUDE: 纬度（LBS基站定位）
 - GNSS_LONGITUDE: 经度（LBS基站定位）
+- LOCATION_METHOD: 定位方式标识（1=LBS基站定位，2=GNSS），与经纬度同批发出
 
 下行命令（CONTROL_COMMAND tag 19，ASCII类型）：
 - "cycle:秒数" → 设置上报频率（最小5秒）
@@ -165,21 +166,35 @@ end
 @function get_lbs_info
 @return number|nil 纬度（latitude），失败返回nil
 @return number|nil 经度（longitude），失败返回nil
-@return table|nil  基站信息（含 lac, cid, rssi 等）
+@return table|nil  服务器时间（reqTime 为真时才有）
 ]]
 local function get_lbs_info()
     -- 使用 lbsLoc2 免费单基站定位获取经纬度
-    -- 步骤1：请求基站扫描
-    mobile.reqCellInfo(15)
-    -- 步骤2：等待基站信息更新
-    local result = sys.waitUntil("CELL_INFO_UPDATE", 3000)
-    if not result then
-        log.warn("lbs", "基站信息扫描超时")
-        return nil, nil, nil
+    -- 步骤1：等待网络就绪
+    local wait_net = 0
+    while not socket.adapter(socket.dft()) do
+        if wait_net >= 30000 then
+            log.warn("lbs", "等待网络就绪超时，跳过LBS")
+            return nil, nil, nil
+        end
+        sys.waitUntil("IP_READY", 1000)
+        wait_net = wait_net + 1000
+    end
+
+    -- 步骤2：无服务小区时扫描基站信息，扫描失败不放弃本次定位
+    local cell = mobile.scell()
+    if not (cell and cell.mcc) then
+        local cellinfo = mobile.getCellInfo()
+        if not cellinfo or #cellinfo == 0 then
+            mobile.reqCellInfo(15)
+            if not sys.waitUntil("CELL_INFO_UPDATE", 5000) then
+                log.warn("lbs", "基站信息扫描超时")
+            end
+        end
+        cell = mobile.scell()
     end
 
     -- 步骤3：打印当前服务小区信息
-    local cell = mobile.scell()
     if cell then
         log.info("lbs", "mcc=" .. tostring(cell.mcc), "mnc=" .. tostring(cell.mnc),
                  "tac=" .. tostring(cell.tac), "eci=" .. tostring(cell.eci))
@@ -356,7 +371,15 @@ function excloud_task_func()
                     data_type = excloud.DATA_TYPES.ASCII,
                     value = string.format("%.6f", lng)
                 })
-                log.info("aircloud", string.format("LBS: lat=%.6f lng=%.6f", lat, lng))
+                -- 定位方式：1=LBS，2=GNSS
+                table.insert(tlv_list, {
+                    field_meaning = excloud.FIELD_MEANINGS.LOCATION_METHOD,
+                    data_type = excloud.DATA_TYPES.INTEGER,
+                    value = 1
+                })
+                log.info("aircloud", string.format("[定位方式=LBS(1)] lat=%.6f lng=%.6f", lat, lng))
+            else
+                log.warn("aircloud", "LBS无定位，本次不上报位置字段")
             end
 
             -- 打印完整TLV列表

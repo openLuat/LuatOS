@@ -964,18 +964,25 @@
             };
         }
 
-        // 刀闸图示：合闸=红色闭合，跳闸=深灰断开（跟随 DI 实际反馈）
+        // 刀闸图示：刀臂以「下方触点」为转轴（符合实际刀闸结构）
+        // 合闸=红色刀臂向上贴合上触点；断开=深灰刀臂向右上抬起，与上触点留缺口
         function swSvg(closed) {
             const c = closed ? '#dc2626' : '#334155';
+            const line = (x1, y1, x2, y2) =>
+                '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 +
+                '" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round"/>';
+            const dot = (cy) => '<circle cx="40" cy="' + cy + '" r="5" fill="#fff" stroke="' + c +
+                '" stroke-width="3"/>';
+            // 刀臂：转轴在下方触点 (40,80)
             const blade = closed
-                ? '<line x1="40" y1="42" x2="40" y2="78" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round"/>'
-                : '<line x1="40" y1="42" x2="62" y2="73" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round"/>';
+                ? line(40, 80, 40, 47)   // 竖直向上，闭合到上触点（贴合触点边缘）
+                : line(40, 80, 63, 53);  // 向右上抬起约 35°，与上触点留缺口
             return '<svg viewBox="0 0 80 122" width="76" height="116" aria-hidden="true">' +
-                '<line x1="40" y1="4" x2="40" y2="42" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round"/>' +
-                '<circle cx="40" cy="42" r="5" fill="#fff" stroke="' + c + '" stroke-width="3"/>' +
+                line(40, 4, 40, 42) +   // 上引线
+                dot(42) +               // 上静触点
                 blade +
-                '<circle cx="40" cy="78" r="5" fill="#fff" stroke="' + c + '" stroke-width="3"/>' +
-                '<line x1="40" y1="78" x2="40" y2="118" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round"/>' +
+                dot(80) +               // 下触点（转轴）
+                line(40, 80, 40, 118) + // 下引线
                 '</svg>';
         }
 

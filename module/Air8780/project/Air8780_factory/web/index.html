@@ -901,6 +901,15 @@
                                     </div>
                                 </div>
                                 <div class="set-row">
+                                    <div class="s-info"><div class="s-name">设备坐标系</div><div class="s-desc">上报经纬度的坐标系。WGS-84 会纠偏后上腾讯地图，GCJ-02 原样上图；落点整体偏移约 300~600 米时切换此项</div></div>
+                                    <div class="s-ctrl">
+                                        <select id="setCoordSrc">
+                                            <option value="wgs84">WGS-84（纠偏）</option>
+                                            <option value="gcj02">GCJ-02（不纠偏）</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="set-row">
                                     <div class="s-info"><div class="s-name">路况叠加</div><div class="s-desc">在底图上叠加实时路况</div></div>
                                     <div class="s-ctrl">
                                         <label class="switch"><input type="checkbox" id="setTraffic"><span class="track"></span><span class="thumb"></span></label>
@@ -1093,7 +1102,7 @@
                     </div>
                     <div class="table-scroll">
                         <table class="tbl" id="historyTable">
-                            <thead><tr><th>时间</th><th>温度</th><th>湿度</th><th>CPU</th><th>VOC</th><th>信号</th><th>开机</th><th>内存</th><th>经度</th><th>纬度</th></tr></thead>
+                            <thead><tr><th>时间</th><th>温度</th><th>湿度</th><th>CPU</th><th>VOC</th><th>信号</th><th>开机</th><th>内存</th><th>经度(GCJ02)</th><th>纬度(GCJ02)</th></tr></thead>
                             <tbody id="historyBody"></tbody>
                         </table>
                     </div>
@@ -1450,12 +1459,20 @@
             return lat !== null && lng !== null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 &&
                 !(lat === 0 && lng === 0) ? { lat: lat, lng: lng } : null;
         }
-        // tag 坐标值还原为度：微度（度×1e6，INTEGER 上报）除以 1e6，旧数据为度直接返回
+        // 上报坐标值还原为度：微度（度×1e6）除以 1e6，十进制度直接返回
         function tagCoord(v) {
             const n = num(v);
             return (n !== null && Math.abs(n) > 180) ? n / 1e6 : n;
         }
-        // WGS84 → GCJ02（设备 tag 上报的经纬度为 WGS84，腾讯地图为 GCJ02）
+        // 上报原始值还原为度并校验：同一行两值须同为度或同为微度，混用视为脏数据
+        function normCoord(latVal, lngVal) {
+            const lat = num(latVal), lng = num(lngVal);
+            if (lat === null || lng === null) return null;
+            const micro = Math.abs(lat) > 180;
+            if (micro !== (Math.abs(lng) > 180)) return null;
+            return coordinate({ lat: micro ? lat / 1e6 : lat, lng: micro ? lng / 1e6 : lng });
+        }
+        // WGS84 → GCJ02（腾讯地图为 GCJ02）
         (function () {
             const PI = Math.PI, A = 6378245.0, EE = 0.00669342162296594323;
             function outOfChina(lat, lng) { return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271; }
@@ -1485,6 +1502,20 @@
                 return { lat: lat + dLat, lng: lng + dLng };
             };
         })();
+        // 度坐标 → 腾讯地图落点：GNSS 一律纠偏，LBS 与缺失按设备坐标系设置
+        function toMapPos(p, method) {
+            if (!p) return null;
+            const g = (Number(method) === 2 || SETTINGS.coordSrc === 'wgs84')
+                ? wgs84ToGcj02(p.lat, p.lng) : p;
+            return { lat: g.lat, lng: g.lng };
+        }
+        // 切换设备坐标系后重算已缓存落点
+        function reprojectFleet() {
+            Object.keys(S.fleet).forEach(id => {
+                const e = S.fleet[id];
+                if (e && e.rawPos) e.pos = toMapPos(e.rawPos, e.rawMethod);
+            });
+        }
 
         // ---- 设置持久化 ----
         const SETTINGS_KEY = 'ops_settings_v1';
@@ -1497,6 +1528,7 @@
             traffic: false,
             mapZoom: 5,
             autoFit: true,
+            coordSrc: 'wgs84',        // 设备上报坐标系：wgs84 纠偏后上图 | gcj02 原样上图
             onlineMin: 10,            // 分钟：该时间内算在线
             lostHours: 24,            // 小时：超过算失联
             tempMax: 45,
@@ -1513,8 +1545,9 @@
             signal: { tag: 782, name: '信号', unit: 'dBm', note: '4G 信号质量' },
             sigRaw: { tag: 1295, name: '信号原始值', unit: '', note: 'csq+100，备用' },
             battery: { tag: 771, name: '电量', unit: '%', note: '电池电量' },
-            lng: { tag: 512, name: '经度', unit: '°', note: 'WGS84，微度即度×1e6' },
-            lat: { tag: 513, name: '纬度', unit: '°', note: 'WGS84，微度即度×1e6' },
+            lng: { tag: 512, name: '经度', unit: '°', note: '上报原始值（度或微度），纠偏由定位方式 519 与地图设置决定' },
+            lat: { tag: 513, name: '纬度', unit: '°', note: '上报原始值（度或微度），纠偏由定位方式 519 与地图设置决定' },
+            locMethod: { tag: 519, name: '定位方式', unit: '', note: '1=LBS基站，2=GNSS；GNSS 一律按 WGS-84 纠偏' },
             boot: { tag: 777, name: '开机次数', unit: '次', note: '累计重启' },
             mem: { tag: 1034, name: '内存', unit: 'B', note: '可用内存' },
             fw: { tag: 1027, name: '固件版本', unit: '', note: '版本号' }
@@ -1705,7 +1738,7 @@
         }
 
         // ---- 状态同步队列（每设备一次 list_by_tags，位置缺失再补 latest_location）----
-        const STATUS_TAG_KEYS = ['temp', 'humi', 'cpu', 'voc', 'signal', 'sigRaw', 'battery', 'lng', 'lat', 'boot', 'mem', 'fw'];
+        const STATUS_TAG_KEYS = ['temp', 'humi', 'cpu', 'voc', 'signal', 'sigRaw', 'battery', 'lng', 'lat', 'locMethod', 'boot', 'mem', 'fw'];
         function statusTagList() {
             const list = STATUS_TAG_KEYS.map(k => TAGMAP[k] && TAGMAP[k].tag).filter(t => typeof t === 'number');
             return [...new Set(list)];
@@ -1758,10 +1791,11 @@
                     if (v !== undefined && v !== null) entry.tags[t] = v;
                 });
                 entry.lastSeen = row.ct || entry.lastSeen;
-                const raw = coordinate({ lat: tagCoord(tagValue(entry, 'lat')), lng: tagCoord(tagValue(entry, 'lng')) });
+                const raw = normCoord(tagValue(entry, 'lat'), tagValue(entry, 'lng'));
                 if (raw) {
-                    const gcj = wgs84ToGcj02(raw.lat, raw.lng);
-                    entry.pos = { lat: gcj.lat, lng: gcj.lng };
+                    entry.rawPos = raw;
+                    entry.rawMethod = tagValue(entry, 'locMethod');
+                    entry.pos = toMapPos(raw, entry.rawMethod);
                     if (!entry.address) entry.address = 'LBS / GPS 定位';
                 }
             }
@@ -1769,9 +1803,11 @@
             if (!entry.pos && SETTINGS.deepScan) {
                 try {
                     const loc = await pacedApi('/aircloud/latest_location', { client_id: id });
-                    const p = coordinate(loc);
-                    if (p) {
-                        entry.pos = p;
+                    const raw = normCoord(loc && loc.lat, loc && loc.lng);
+                    if (raw) {
+                        entry.rawPos = raw;
+                        entry.rawMethod = null;
+                        entry.pos = toMapPos(raw, null);
                         entry.address = (loc && loc.address) || entry.address || '';
                         if (loc && loc.time && !entry.lastSeen) entry.lastSeen = loc.time;
                     }
@@ -1783,14 +1819,13 @@
         // ---- 单设备刷新（详情抽屉 / 卡片按钮）----
         async function refreshOneDevice(id) {
             const entry = fleetEntry(id);
+            // 平台定位接口：取地址，并作为 tag 缺失时的位置兜底
+            let locRaw = null;
             try {
                 const loc = await pacedApi('/aircloud/latest_location', { client_id: id });
-                const p = coordinate(loc);
-                if (p) {
-                    entry.pos = p;
-                    if (loc && loc.address) entry.address = loc.address;
-                    if (loc && loc.time) entry.lastSeen = loc.time;
-                }
+                locRaw = normCoord(loc && loc.lat, loc && loc.lng);
+                if (loc && loc.address) entry.address = loc.address;
+                if (loc && loc.time) entry.lastSeen = loc.time;
             } catch (e) { /* 1601 等不上报定位的设备会走到这里 */ }
             const tags = statusTagList();
             try {
@@ -1804,13 +1839,16 @@
                         if (v !== undefined && v !== null) entry.tags[t] = v;
                     });
                     entry.lastSeen = row.ct || entry.lastSeen;
-                    const raw = coordinate({ lat: tagCoord(tagValue(entry, 'lat')), lng: tagCoord(tagValue(entry, 'lng')) });
-                    if (raw && !entry.pos) {
-                        const gcj = wgs84ToGcj02(raw.lat, raw.lng);
-                        entry.pos = { lat: gcj.lat, lng: gcj.lng };
-                    }
                 }
             } catch (e) { /* 忽略 */ }
+            // 两个来源统一过 toMapPos，避免落点坐标系不一致
+            const tagRaw = normCoord(tagValue(entry, 'lat'), tagValue(entry, 'lng'));
+            const raw = tagRaw || locRaw;
+            if (raw) {
+                entry.rawPos = raw;
+                entry.rawMethod = tagRaw ? tagValue(entry, 'locMethod') : null;
+                entry.pos = toMapPos(raw, entry.rawMethod);
+            }
             entry.updatedAt = Date.now();
             return entry;
         }
@@ -1873,7 +1911,7 @@
                 const warn = (i % 7 === 2);
                 const lat = hub.lat + (rnd() - 0.5) * 0.42;
                 const lng = hub.lng + (rnd() - 0.5) * 0.52;
-                const gcj = wgs84ToGcj02(lat, lng);
+                const gcj = toMapPos({ lat: lat, lng: lng }, 1);
                 fleet[id] = {
                     lastSeen: fmtDateTime(new Date(now - ageMin * 60000)),
                     tags: {
@@ -1885,8 +1923,11 @@
                         [TAGMAP.battery.tag]: Math.round(warn ? 5 + rnd() * 12 : 35 + rnd() * 62),
                         [TAGMAP.boot.tag]: 3 + Math.floor(rnd() * 40),
                         [TAGMAP.mem.tag]: Math.round(24 * 1024 * (1 + rnd() * 3)),
-                        [TAGMAP.fw.tag]: kind.fw
+                        [TAGMAP.fw.tag]: kind.fw,
+                        [TAGMAP.locMethod.tag]: 1
                     },
+                    rawPos: { lat: lat, lng: lng },
+                    rawMethod: 1,
                     pos: { lat: gcj.lat, lng: gcj.lng },
                     address: hub.name + '市 · 演示定位点 ' + (i + 1),
                     updatedAt: now
@@ -2521,6 +2562,7 @@
             $('setTheme').value = SETTINGS.theme;
             $('setCompact').checked = !!SETTINGS.compact;
             $('setMapLayer').value = SETTINGS.mapLayer;
+            $('setCoordSrc').value = SETTINGS.coordSrc || 'wgs84';
             $('setTraffic').checked = !!SETTINGS.traffic;
             $('setMapZoom').value = SETTINGS.mapZoom;
             $('setAutoFit').checked = !!SETTINGS.autoFit;
@@ -2584,7 +2626,7 @@
         };
         const TAG19_TAG_LABELS = {
             20: '设备回复', 256: '温度', 257: '湿度', 258: 'VOC', 263: 'CPU温度',
-            268: '继电器状态', 512: '经度', 513: '纬度', 771: '电池电量', 777: '开机次数',
+            268: '继电器状态', 512: '经度(原始)', 513: '纬度(原始)', 771: '电池电量', 777: '开机次数',
             782: '信号', 783: 'ICCID', 797: '录音数量', 798: '设备号', 799: '电池电压',
             1027: '固件版本', 1034: '内存', 1280: '时间戳', 1295: '信号原始'
         };
@@ -2771,14 +2813,15 @@
             ].map(m => '<div class="sensor-item"><div class="label">' + m[0] + '</div><div class="value">' +
                 escHtml(m[1]) + (m[2] ? '<span> ' + m[2] + '</span>' : '') + '</div></div>').join('');
             $('drawerAddress').innerHTML = escHtml(e.address || '暂无位置信息') +
-                (e.pos ? '<br><span class="mono">GCJ02 ' + e.pos.lat.toFixed(5) + ', ' + e.pos.lng.toFixed(5) + '</span>' : '') +
+                (e.pos ? '<br><span class="mono">地图 GCJ02 ' + e.pos.lat.toFixed(5) + ', ' + e.pos.lng.toFixed(5) + '</span>' : '') +
+                (e.rawPos ? '<br><span class="mono">上报原值 ' + e.rawPos.lat.toFixed(5) + ', ' + e.rawPos.lng.toFixed(5) + '</span>' : '') +
                 (reasons.length ? '<br><span style="color:var(--brand-state-error);">⚠ ' + escHtml(reasons.join('；')) + '</span>' : '');
             $('drawerMapJump').disabled = !e.pos;
         }
 
         // ---- 历史数据 ----
         function historyTagList() {
-            return [...new Set(['temp', 'humi', 'cpu', 'voc', 'signal', 'lng', 'lat', 'boot', 'mem', 'sigRaw', 'fw']
+            return [...new Set(['temp', 'humi', 'cpu', 'voc', 'signal', 'lng', 'lat', 'locMethod', 'boot', 'mem', 'sigRaw', 'fw']
                 .map(k => TAGMAP[k] && TAGMAP[k].tag).filter(t => typeof t === 'number'))];
         }
         function getTimeRange() {
@@ -2888,10 +2931,9 @@
             }
             body.innerHTML = S.history.map(r => {
                 let lng = '--', lat = '--';
-                const raw = coordinate({ lat: tagCoord(histVal(r, 'lat')), lng: tagCoord(histVal(r, 'lng')) });
-                if (raw) {
-                    const gcj = wgs84ToGcj02(raw.lat, raw.lng);
-                    lng = gcj.lng.toFixed(6); lat = gcj.lat.toFixed(6);
+                const p = toMapPos(normCoord(histVal(r, 'lat'), histVal(r, 'lng')), histVal(r, 'locMethod'));
+                if (p) {
+                    lng = p.lng.toFixed(6); lat = p.lat.toFixed(6);
                 }
                 const sig = histVal(r, 'signal') ?? (histVal(r, 'sigRaw') !== undefined ? (Number(histVal(r, 'sigRaw')) - 100) : undefined);
                 return '<tr><td>' + escHtml(r.ct || '--') + '</td><td>' + escHtml(histVal(r, 'temp') ?? '--') +
@@ -2966,11 +3008,10 @@
         function renderTrackPane() {
             const points = [];
             S.history.forEach(r => {
-                const raw = coordinate({ lat: tagCoord(histVal(r, 'lat')), lng: tagCoord(histVal(r, 'lng')) });
-                if (raw) {
-                    const gcj = wgs84ToGcj02(raw.lat, raw.lng);
+                const p = toMapPos(normCoord(histVal(r, 'lat'), histVal(r, 'lng')), histVal(r, 'locMethod'));
+                if (p) {
                     points.push({
-                        pos: { lat: gcj.lat, lng: gcj.lng }, time: r.ct,
+                        pos: p, time: r.ct,
                         temp: histVal(r, 'temp'), humi: histVal(r, 'humi'),
                         cpu: histVal(r, 'cpu'), voc: histVal(r, 'voc'), signal: histVal(r, 'signal')
                     });
@@ -3488,6 +3529,12 @@
                 saveSettings();
                 ['overview', 'main'].forEach(n => MapMan.setLayer(n, SETTINGS.mapLayer));
                 syncLayerSegs();
+            });
+            $('setCoordSrc').addEventListener('change', e => {
+                SETTINGS.coordSrc = e.target.value;
+                reprojectFleet();
+                saveSettings('坐标系已切换');
+                if (S.history.length) { renderHistory(); renderTrackPane(); }
             });
             $('setTraffic').addEventListener('change', e => {
                 SETTINGS.traffic = e.target.checked;

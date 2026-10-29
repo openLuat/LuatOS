@@ -17,12 +17,20 @@
   GPIO28       硬件看门狗（exair153x_wdt 扩展库）      → init{wdt_pin=28, auto_feed_period_s=150}
   GPIO24       可控电源输出                           → 默认关，按需开
   GPIO20/21    输入 1 / 输入 2（干接点/电平输入）
+  SIM 卡槽     固定卡槽1(SIM0)，开机定死不切换      → 见 SIM_ID / M.sim_select
   ADC2         供电电压 = ADC电压 × 1033000 / 33000（最大 36V）
   ADC0         模拟量输入1 电压 = ADC电压 × 103300 / 3300（最大 36V）
   ADC1         模拟量输入2 电流 = ADC电压 / 51
 
 注意：pm.ioVol(IOVOL_ALL_GPIO, 3300) 必须在所有 UART/GPIO 初始化之前调用，
       否则先初始化的引脚副输出电平会停在默认值。
+
+注意：GPIO23 在本板上是 RS485 收发器的方向脚（DE/RE）。卡槽2(SIM2) 的数字信号由 GPIO
+      模拟，USIM2_RST/CLK/DAT 复用 GPIO4/5/6（与 CAM_BCLK/CAM_CS/CAM_RX0 互斥，本项目
+      没用摄像头，故不冲突）；USIM2_CLK 还需要一个常输出高的 AGPIO 做上拉，官方惯例选
+      GPIO23(PIN99)——按惯例就会跟 RS485 抢脚，但换成其它 AGPIO 可绕开。
+      本项目固定只用卡槽1(SIM0)：走模组专用 SIM 电路，不占任何 GPIO，1.8V/2.8V 卡通吃。
+      卡槽2 已引出但暂不启用；mobile.simid(2) 自适应模式同样占 GPIO4/5/6/23，本板禁用。
 ]]
 
 local M = {}
@@ -50,6 +58,15 @@ local ADC = {
     AIN2   = 1, -- 模拟量输入2（电流，ADC电压/51）
 }
 M.ADC = ADC
+
+-- ==================== SIM 卡槽 ====================
+-- Air780EPM 是双卡单待，两个卡槽的实现完全不同：
+--   SIM0 = 卡槽1，模组专用 SIM 电路，不占任何 GPIO，1.8V/2.8V 电平的卡都能用；
+--   SIM1 = 卡槽2，GPIO4/5/6 模拟的 USIM2（与摄像头脚互斥），还要一个常输出高的 AGPIO
+--          做 USIM2_CLK 上拉（官方惯例选 GPIO23），且只认与模组 IO 电平一致的卡。
+-- 本项目固定卡槽1，卡槽2 暂不启用。
+-- 取值：0=卡槽1(SIM0)，1=卡槽2(SIM1)，2=自适应（本板禁用，占 GPIO4/5/6/23）
+local SIM_ID = 0
 
 -- ==================== 可调参数 ====================
 local CFG = {
@@ -81,6 +98,27 @@ function M.io_voltage()
     log.warn("hw", "本固件不支持 pm.ioVol，GPIO 电平沿用默认值")
     return false
 end
+
+-- 固定使用 SIM_ID 指定的卡槽，必须在联网之前调用；
+-- 只传卡槽编号，不传 priority：priority 仅自适应模式（SIM_ID=2）下有效，本板禁用自适应；
+function M.sim_select()
+    if not mobile or not mobile.simid then
+        log.warn("hw", "本固件不支持 mobile.simid，SIM 卡槽沿用固件默认")
+        return false
+    end
+    mobile.simid(SIM_ID)
+    -- 切卡需要进出飞行模式，不会立刻完成，此处不回读，避免读到尚未切换的卡槽
+    log.info("hw", "SIM 卡槽已固定", SIM_ID, "0=卡槽1(SIM0) 1=卡槽2(SIM1)")
+    return true
+end
+
+-- 启用卡槽2（改 SIM_ID=1）的前置条件，本板暂不启用：
+--   1. USIM2 复用 GPIO4/5/6，同板不能再用摄像头（本项目未用，不冲突）
+--   2. USIM2_CLK 需要一个常输出高的 AGPIO 做上拉；官方惯例用 GPIO23，而本板 GPIO23 是
+--      RS485 方向脚，改用其它 AGPIO 即可绕开，例如 gpio.setup(其它AGPIO, 1)
+--   3. 必须调 mobile.simid(1) 切换，否则模组不会初始化 SIM2
+--   4. SIM2 只认与模组 IO 电平一致的卡：本项目 ioVol=3.3V，故 SIM2 只支持 2.8/3.3V 的卡
+--   5. 自适应模式（SIM_ID=2）额外占 GPIO4/5/6/23，且官方 FAQ 明确建议改用固定卡槽
 
 function M.rs485_power(on) pin_set(PIN.RS485_PWR, on and 1 or 0) end -- 485 芯片供电
 -- RS485 EN（接 DE/RE）：归 UART2 的硬件自动换向控制，软件不要把它当普通 GPIO 拉高，
@@ -209,14 +247,15 @@ function M.init()
     inited = true
 
     local io3v3 = M.io_voltage()          -- ① 先定电平，再碰任何外设
-    pin_set(PIN.RS485_PWR, 1)             -- ② 485 芯片上电
-    -- ③ RS485 EN(GPIO23→DE/RE) 不能 gpio.setup：
+    M.sim_select()                        -- ② SIM 卡槽定死，必须早于联网
+    pin_set(PIN.RS485_PWR, 1)             -- ③ 485 芯片上电
+    -- ④ RS485 EN(GPIO23→DE/RE) 不能 gpio.setup：
     --    该脚由 UART2 的硬件自动换向驱动，抢成 GPIO 输出高会把收发器钉在发送态
-    pin_set(PIN.OPAMP_PWR, 0)             -- ④ 运放默认关（省电），用 opamp_power(true) 打开
-    pin_set(PIN.PWR_OUT, 0)               -- ⑤ 可控电源输出默认关
-    pin_set(PIN.NET_LED, 0)               -- ⑥ 网络灯先灭，由 led_task 接管闪烁
-    pin_set(PIN.RELOAD_KEY, 0, gpio.PULLUP) -- ⑦ Reload 按键：输入 + 内部上拉，按下接 GND
-    pin_set(PIN.IN1, 0, gpio.PULLUP)      -- ⑧ 输入口：输入 + 上拉，悬空读 1
+    pin_set(PIN.OPAMP_PWR, 0)             -- ⑤ 运放默认关（省电），用 opamp_power(true) 打开
+    pin_set(PIN.PWR_OUT, 0)               -- ⑥ 可控电源输出默认关
+    pin_set(PIN.NET_LED, 0)               -- ⑦ 网络灯先灭，由 led_task 接管闪烁
+    pin_set(PIN.RELOAD_KEY, 0, gpio.PULLUP) -- ⑧ Reload 按键：输入 + 内部上拉，按下接 GND
+    pin_set(PIN.IN1, 0, gpio.PULLUP)      -- ⑨ 输入口：输入 + 上拉，悬空读 1
     pin_set(PIN.IN2, 0, gpio.PULLUP)
 
     sys.taskInit(led_task)

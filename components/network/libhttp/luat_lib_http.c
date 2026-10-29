@@ -69,7 +69,7 @@ uint32_t luat_http_utest_retry_delivered_count(void) {
 /* 终态消息已经脱离 ctrl, 队列满时留在这里由定时器非阻塞重试。 */
 static LUAT_RT_RET_TYPE http_retry_timer_cb(LUAT_RT_CB_PARAM) {
 	(void)param;
-	luat_rtos_mutex_lock(http_pending_mutex, 0);
+	if (luat_rtos_mutex_lock(http_pending_mutex, 0) != 0) return LUAT_RT_RET;
 	while (http_pending_head) {
 		luat_http_msg_t *msg = http_pending_head;
 		luat_http_msg_t *next = msg->next;
@@ -357,7 +357,7 @@ static int l_http_request(lua_State *L) {
 	if (lua_isstring(L, 4)) {
 		const char *body = luaL_checklstring(L, 4, &(http_ctrl->req_body_len));
 		http_ctrl->req_body = luat_heap_malloc((http_ctrl->req_body_len) + 1);
-		// TODO 检测req_body是否为NULL 
+		if (http_ctrl->req_body == NULL) goto error;
 		memset(http_ctrl->req_body, 0, (http_ctrl->req_body_len) + 1);
 		memcpy(http_ctrl->req_body, body, (http_ctrl->req_body_len));
 		snprintf_(body_len, 16,"%d",(http_ctrl->req_body_len));
@@ -385,14 +385,15 @@ static int l_http_request(lua_State *L) {
 		if (lua_isstring(L, 9)){
 			client_password = luaL_checklstring(L, 9, &client_password_len);
 		}
-		network_init_tls(http_ctrl->netc, (server_cert || client_cert)?2:0);
+		if (network_init_tls(http_ctrl->netc, (server_cert || client_cert)?2:0) != 0) goto error;
 		if (server_cert){
-			network_set_server_cert(http_ctrl->netc, (const unsigned char *)server_cert, server_cert_len+1);
+			if (network_set_server_cert(http_ctrl->netc, (const unsigned char *)server_cert, server_cert_len+1) != 0) goto error;
 		}
 		if (client_cert){
-			network_set_client_cert(http_ctrl->netc, (const unsigned char *)client_cert, client_cert_len+1,
+			if (!client_key) goto error;
+			if (network_set_client_cert(http_ctrl->netc, (const unsigned char *)client_cert, client_cert_len+1,
 					(const unsigned char *)client_key, client_key_len+1,
-					(const unsigned char *)client_password, client_password_len+1);
+					(const unsigned char *)client_password, client_password ? client_password_len+1 : 0) != 0) goto error;
 		}
 	}else{
 		network_deinit_tls(http_ctrl->netc);
@@ -575,7 +576,10 @@ int luat_http_client_onevent(luat_http_msg_t *msg) {
 	if (put_result != 0) {
 		if (msg->event != HTTP_CALLBACK && http_pending_mutex && http_retry_timer) {
 			// 终态不能丢弃; timer 自己重试入队, 不阻塞网络回调线程
-			luat_rtos_mutex_lock(http_pending_mutex, 0);
+			if (luat_rtos_mutex_lock(http_pending_mutex, LUAT_WAIT_FOREVER) != 0) {
+				luat_http_msg_free(msg);
+				return -1;
+			}
 			if (http_pending_head == NULL && luat_start_rtos_timer(http_retry_timer, 100, 1) != 0) {
 				luat_rtos_mutex_unlock(http_pending_mutex);
 				luat_http_msg_free(msg);

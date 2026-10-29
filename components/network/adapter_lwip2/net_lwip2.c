@@ -15,7 +15,9 @@
 #include "lwip/ip6.h"
 #endif
 #include "net_lwip2.h"
+#ifdef LUAT_USE_NETDRV_DNS_CLIENT
 #include "net_lwip2_dns.h"
+#endif
 #include "luat_crypto.h"
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
@@ -90,9 +92,10 @@ static net_lwip2_ctrl_struct prvlwip;
 static void net_lwip2_check_network_ready(uint8_t adapter_index);
 static void net_lwip2_task(void *param);
 static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id);
-static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
+static int platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
+static int net_lwip2_event_init(void);
 static ip_addr_t *net_lwip2_get_ip6(uint8_t adapter_index);
-static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
+static void net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 #ifdef LUAT_USE_NETDRV_DNS_CLIENT
 /* ---- 新 DNS 客户端适配层 ---- */
 static luat_netdrv_dns_ctx_t net_lwip2_dns_ctx;
@@ -161,6 +164,7 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
 		return; // 超范围了
 	}
+	if (net_lwip2_event_init() != 0) return;
 	if (0 == prvlwip_inited) {
 		prvlwip_inited = 1;
 		net_lwip2_init(adapter_index);
@@ -475,13 +479,13 @@ SOCEKT_ERROR:
 	return ERR_OK;
 }
 
-static err_t net_lwip2_tcp_err_cb(void *arg, err_t err)
+static void net_lwip2_tcp_err_cb(void *arg, err_t err)
 {
 	int socket_id = ((uint32_t)arg) & 0x0000ffff;
 	uint8_t adapter_index = ((uint32_t)arg) >> 16;
 	// 边界检查，防止非法索引导致越界访问
 	if (socket_id < 0 || socket_id >= MAX_SOCK_NUM || adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
-		return 0;
+		return;
 	}
 
 	// 使用互斥锁保护socket内部状态
@@ -501,7 +505,6 @@ static err_t net_lwip2_tcp_err_cb(void *arg, err_t err)
 		NET_DBG("adapter %d socket %d not closing, but error %d", adapter_index, socket_id, err);
 		net_lwip2_tcp_error(adapter_index, socket_id);
 	}
-	return 0;
 }
 
 static err_t net_lwip2_tcp_fast_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err)
@@ -539,7 +542,7 @@ static err_t net_lwip2_tcp_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t er
 	return ERR_OK;
 }
 
-static err_t net_lwip2_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p,
+static void net_lwip2_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     const ip_addr_t *addr, u16_t port)
 {
 	int socket_id = ((uint32_t)arg) & 0x0000ffff;
@@ -566,7 +569,6 @@ static err_t net_lwip2_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 		}
 		pbuf_free(p);
 	}
-	return ERR_OK;
 }
 
 #ifndef LUAT_USE_NETDRV_DNS_CLIENT
@@ -601,7 +603,7 @@ static int32_t net_lwip2_dns_check_result(void *data, void *param)
 }
 #endif /* !LUAT_USE_NETDRV_DNS_CLIENT : 仅旧 dns_run 需要 */
 
-static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
+static void net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
 {
 	uint8_t adapter_index = (uint32_t)arg;
 	/*
@@ -611,7 +613,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	 */
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY || prvlwip.lwip_netif[adapter_index] == NULL) {
 		if (p) pbuf_free(p);
-		return ERR_OK;
+		return;
 	}
 #ifdef LUAT_USE_NETDRV_DNS_CLIENT
 	/*
@@ -633,11 +635,11 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 		p = NULL;
 		if (dbuf)
 		{
-			platform_send_event(NULL, EV_LWIP_DNS_RX, (uint32_t)(uintptr_t)dbuf, plen,
-					adapter_index);
+			if (platform_send_event(NULL, EV_LWIP_DNS_RX, (uint32_t)(uintptr_t)dbuf, plen,
+					adapter_index) != 0) luat_heap_free(dbuf);
 		}
 	}
-	return ERR_OK;
+	return;
 #else
 	Buffer_Struct msg_buf = {0};
 	Buffer_Struct tx_msg_buf = {0,0,0};
@@ -685,7 +687,6 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	{
 		platform_stop_timer(prvlwip.dns_timer[adapter_index]);
 	}
-	return ERR_OK;
 #endif
 }
 
@@ -846,7 +847,7 @@ int netdrv_dns_ctrl(net_lwip2_dns_ctl_t *ctl, uint32_t timeout_ms)
 	/* 周期是标量, 由 tcpip 线程维护, 这里读的是稳定值(见其声明的注释) */
 	ctl->timer_period_ms = net_lwip2_dns_timer_period;
 	ctl->done = 0;
-	platform_send_event(NULL, EV_LWIP_DNS_CFG, (uint32_t)(uintptr_t)ctl, 0, 0);
+	if (platform_send_event(NULL, EV_LWIP_DNS_CFG, (uint32_t)(uintptr_t)ctl, 0, 0) != 0) return -1;
 	/*
 	 * 轮询等待 tcpip 线程置位. 这里刻意不加锁: 加锁会在 tcpip 线程里引入
 	 * 优先级反转/死锁风险, 而本仓库现状也没有这个先例.
@@ -1408,18 +1409,85 @@ static void net_lwip2_task(void *param)
 
 #ifdef LUAT_LWIP_USE_EVENT
 extern int luat_lwip_event_send(uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
-static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
+static int net_lwip2_event_init(void) { return 0; }
+static int platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
 {
-	luat_lwip_event_send(id, param1, param2, param3);
+	return luat_lwip_event_send(id, param1, param2, param3);
 }
 void luat_lwip_event_run(void *p)
 {
 	net_lwip2_task(p);
 }
 #else
-static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
+#if !NO_SYS
+/* Only this relay may wait for tcpip mailbox space. Producers can hold socket
+ * locks or run in the timer/tcpip task. Keep every event in FIFO order, including
+ * events arriving while the mailbox is full. The event is first so the existing
+ * tcpip consumer can free the allocation after taking ownership. */
+typedef struct net_lwip2_pending_event {
+	OS_EVENT event;
+	struct net_lwip2_pending_event *next;
+} net_lwip2_pending_event_t;
+static net_lwip2_pending_event_t *net_lwip2_event_head;
+static net_lwip2_pending_event_t *net_lwip2_event_tail;
+static luat_rtos_semaphore_t net_lwip2_event_signal;
+static luat_rtos_task_handle net_lwip2_event_task;
+
+static void net_lwip2_event_relay(void *param)
 {
+	(void)param;
+	for (;;) {
+		luat_rtos_semaphore_take(net_lwip2_event_signal, LUAT_WAIT_FOREVER);
+		for (;;) {
+			SYS_ARCH_DECL_PROTECT(level);
+			SYS_ARCH_PROTECT(level);
+			net_lwip2_pending_event_t *pending = net_lwip2_event_head;
+			if (pending) {
+				net_lwip2_event_head = pending->next;
+				if (!net_lwip2_event_head) net_lwip2_event_tail = NULL;
+			}
+			SYS_ARCH_UNPROTECT(level);
+			if (!pending) break;
+			/* Allocation of lwIP's callback message can also fail. Retain both
+			 * the event and its payload until ownership actually transfers. */
+			while (tcpip_callback(net_lwip2_task, pending) != ERR_OK) {
+				luat_rtos_task_sleep(10);
+			}
+		}
+	}
+}
+
+/* Called from the same serialized setup paths as adapter/netif registration. */
+static int net_lwip2_event_init(void)
+{
+	if (net_lwip2_event_task) return 0;
+	if (luat_rtos_semaphore_create(&net_lwip2_event_signal, 0) != 0) return -1;
+	if (luat_rtos_task_create(&net_lwip2_event_task, 2048, 10, "lwip_event",
+			net_lwip2_event_relay, NULL, 0) != 0) {
+		luat_rtos_semaphore_delete(net_lwip2_event_signal);
+		net_lwip2_event_signal = NULL;
+		return -1;
+	}
+	return 0;
+}
+#else
+static int net_lwip2_event_init(void) { return 0; }
+#endif
+
+/* Failure leaves payload ownership with the caller. Success transfers it. */
+static int platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
+{
+	#if NO_SYS
 	OS_EVENT *event = luat_heap_zalloc(sizeof(OS_EVENT));
+	#else
+	if (!net_lwip2_event_task) return -1;
+	net_lwip2_pending_event_t *pending = luat_heap_zalloc(sizeof(*pending));
+	OS_EVENT *event = pending ? &pending->event : NULL;
+	#endif
+	if (event == NULL) {
+		LLOGE("cannot allocate lwIP event %d", id);
+		return -1;
+	}
 	event->ID = id;
 	event->Param1 = param1;
 	event->Param2 = param2;
@@ -1427,12 +1495,17 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 	#if NO_SYS
 	net_lwip2_task(event);
 	#else
-	int ret = tcpip_callback(net_lwip2_task, event);
-	if (ret) {
-		LLOGE("tcpip_callback fail %d event %d", ret, id);
-		luat_heap_free(event);
-	}
+	SYS_ARCH_DECL_PROTECT(level);
+	SYS_ARCH_PROTECT(level);
+	int wake = net_lwip2_event_head == NULL;
+	if (net_lwip2_event_tail) net_lwip2_event_tail->next = pending;
+	else net_lwip2_event_head = pending;
+	net_lwip2_event_tail = pending;
+	SYS_ARCH_UNPROTECT(level);
+	/* A full binary semaphore already carries the required wakeup. */
+	if (wake) luat_rtos_semaphore_release(net_lwip2_event_signal);
 	#endif
+	return 0;
 }
 #endif
 
@@ -1576,29 +1649,8 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 	if (prvlwip.socket[socket_id].is_tcp)
 	{
 		prvlwip.socket[socket_id].pcb.tcp = NET_LWIP2_TCP_NEW();
-		if (!prvlwip.socket[socket_id].pcb.tcp)
-		{
-			NET_DBG("try to abort fin wait 1 tcp");
-			struct tcp_pcb *pcb, *dpcb;
-			uint32_t low_time = (uint32_t)(luat_mcu_tick64_ms() / 1000);
-			dpcb = NULL;
-			for (pcb = tcp_active_pcbs; pcb != NULL; pcb = pcb->next)
-			{
-				if (FIN_WAIT_1 == pcb->state)
-				{
-					if (((uint32_t)pcb->callback_arg) < low_time)
-					{
-						dpcb = pcb;
-						low_time = (uint32_t)pcb->callback_arg;
-					}
-				}
-			}
-			if (dpcb)
-			{
-				tcp_abort(dpcb);
-			}
-			prvlwip.socket[socket_id].pcb.tcp = NET_LWIP2_TCP_NEW();
-		}
+		/* Native BSD/control sockets may share lwIP. Its global PCB list and
+		 * callback_arg fields belong to their owners, not to this adapter. */
 		if (prvlwip.socket[socket_id].pcb.tcp)
 		{
 			// prvlwip.socket[socket_id].pcb.tcp->sockid = socket_id;
@@ -1713,7 +1765,11 @@ static int net_lwip2_create_socket(uint8_t is_tcp, uint64_t *tag, void *param, u
 		// 	net_lwip2_create_socket_now(index, socket_id);
 		// 	return socket_id;
 		// }
-		platform_send_event(NULL, EV_LWIP_SOCKET_CREATE, socket_id, 0, user_data);
+		if (platform_send_event(NULL, EV_LWIP_SOCKET_CREATE, socket_id, 0, user_data) != 0) {
+			prvlwip.socket[socket_id].in_use = 0;
+			prvlwip.socket[socket_id].param = NULL;
+			return -1;
+		}
 	}
 	else
 	{
@@ -1732,8 +1788,7 @@ static int net_lwip2_socket_connect(int socket_id, uint64_t tag,  uint16_t local
 	if (result) return result;
 	prvlwip.socket[socket_id].local_port = local_port;
 	prvlwip.socket[socket_id].remote_port = remote_port;
-	platform_send_event(NULL, EV_LWIP_SOCKET_CONNECT, socket_id, remote_ip, user_data);
-	return 0;
+	return platform_send_event(NULL, EV_LWIP_SOCKET_CONNECT, socket_id, remote_ip, user_data);
 }
 //作为server绑定一个port，开始监听
 static int net_lwip2_socket_listen(int socket_id, uint64_t tag,  uint16_t local_port, void *user_data)
@@ -1743,8 +1798,7 @@ static int net_lwip2_socket_listen(int socket_id, uint64_t tag,  uint16_t local_
 	uint8_t adapter_index = (uint32_t)user_data;
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	prvlwip.socket[socket_id].local_port = local_port;
-	platform_send_event(NULL, EV_LWIP_SOCKET_LISTEN, socket_id, local_port, user_data);
-	return 0;
+	return platform_send_event(NULL, EV_LWIP_SOCKET_LISTEN, socket_id, local_port, user_data);
 }
 //作为server接受一个client
 static int net_lwip2_socket_accept(int srv_socket_id, uint64_t srv_tag,  luat_ip_addr_t *remote_ip, uint16_t *remote_port, void *user_data)
@@ -1819,7 +1873,10 @@ static int net_lwip2_socket_disconnect(int socket_id, uint64_t tag,  void *user_
 	uint8_t adapter_index = (uint32_t)user_data;
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	prvlwip.socket[socket_id].state = 1;
-	platform_send_event(NULL, EV_LWIP_SOCKET_CLOSE, socket_id, 1, user_data);
+	if (platform_send_event(NULL, EV_LWIP_SOCKET_CLOSE, socket_id, 1, user_data) != 0) {
+		prvlwip.socket[socket_id].state = 0;
+		return -1;
+	}
 	return 0;
 }
 
@@ -1831,7 +1888,10 @@ static int net_lwip2_socket_force_close(int socket_id, void *user_data)
 	if (prvlwip.socket[socket_id].in_use && !prvlwip.socket[socket_id].state)
 	{
 		prvlwip.socket[socket_id].state = 1;
-		platform_send_event(NULL, EV_LWIP_SOCKET_CLOSE, socket_id, 0, user_data);
+		if (platform_send_event(NULL, EV_LWIP_SOCKET_CLOSE, socket_id, 0, user_data) != 0) {
+			prvlwip.socket[socket_id].state = 0;
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -1847,8 +1907,7 @@ static int net_lwip2_socket_close(int socket_id, uint64_t tag,  void *user_data)
 		return -1;
 	}
 	if (!prvlwip.socket[socket_id].in_use) return 0;
-	net_lwip2_socket_force_close(socket_id, user_data);
-	return 0;
+	return net_lwip2_socket_force_close(socket_id, user_data);
 
 }
 
@@ -1856,14 +1915,15 @@ static uint32_t net_lwip2_socket_read_data(int socket_id, uint8_t *buf, uint32_t
 {
 	uint32_t dummy_len;
 	dummy_len = ((p->len - p->read_pos) > (len - *read_len))?(len - *read_len):(p->len - p->read_pos);
+	/* Do not consume the final bytes unless the receive-window credit has a
+	 * durable owner. On allocation failure leave the cache intact for retry. */
+	if (prvlwip.socket[socket_id].is_tcp && p->read_pos + dummy_len >= p->len) {
+		if (platform_send_event(NULL, EV_LWIP_SOCKET_RX_DONE, socket_id, p->len, 0) != 0) return 0;
+	}
 	memcpy(buf, p->data + p->read_pos, dummy_len);
 	p->read_pos += dummy_len;
 	if (p->read_pos >= p->len)
 	{
-		if (prvlwip.socket[socket_id].is_tcp)
-		{
-			platform_send_event(NULL, EV_LWIP_SOCKET_RX_DONE, socket_id, p->len, 0);
-		}
 		llist_del(&p->node);
 		luat_heap_free(p->data);
 		luat_heap_free(p);
@@ -1893,7 +1953,12 @@ static int net_lwip2_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, 
 		{
 			while((read_len < len) && p)
 			{
-				prvlwip.socket[socket_id].rx_wait_size -= net_lwip2_socket_read_data(socket_id, buf + read_len, &read_len, len, p);
+				dummy_len = net_lwip2_socket_read_data(socket_id, buf + read_len, &read_len, len, p);
+				if (!dummy_len) {
+					SOCKET_UNLOCK(socket_id);
+					return read_len ? (int)read_len : -1;
+				}
+				prvlwip.socket[socket_id].rx_wait_size -= dummy_len;
 				p = (socket_data_t *)llist_traversal(&prvlwip.socket[socket_id].rx_head, net_lwip2_next_data_cache, &prvlwip.socket[socket_id]);
 			}
 		}
@@ -2060,8 +2125,12 @@ static int net_lwip2_dns(const char *domain_name, uint32_t len, void *param, voi
 	uint8_t adapter_index = (uint32_t)user_data;
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	char *prv_domain_name = (char *)zalloc(len + 1);
+	if (!prv_domain_name) return -1;
 	memcpy(prv_domain_name, domain_name, len);
-	platform_send_event(NULL, EV_LWIP_SOCKET_DNS, prv_domain_name, param, user_data);
+	if (platform_send_event(NULL, EV_LWIP_SOCKET_DNS, prv_domain_name, param, user_data) != 0) {
+		luat_heap_free(prv_domain_name);
+		return -1;
+	}
 	return 0;
 }
 
@@ -2072,9 +2141,13 @@ static int net_lwip2_dns_ipv6(const char *domain_name, uint32_t len, void *param
 	uint8_t adapter_index = (uint32_t)user_data;
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	char *prv_domain_name = (char *)zalloc(len + 1);
+	if (!prv_domain_name) return -1;
 	memcpy(prv_domain_name, domain_name, len);
 	// platform_send_event(prvlwip.task_handle, (prvlwip.ec618_ipv6.type != IPADDR_TYPE_V6)?EV_LWIP_SOCKET_DNS:EV_LWIP_SOCKET_DNS_IPV6, prv_domain_name, param, user_data);
-	platform_send_event(NULL, EV_LWIP_SOCKET_DNS_IPV6, prv_domain_name, param, user_data);
+	if (platform_send_event(NULL, EV_LWIP_SOCKET_DNS_IPV6, prv_domain_name, param, user_data) != 0) {
+		luat_heap_free(prv_domain_name);
+		return -1;
+	}
 	return 0;
 }
 
@@ -2134,7 +2207,10 @@ static int net_lwip2_set_static_ip(luat_ip_addr_t *ip, luat_ip_addr_t *submask, 
 	if (ipv6) {
 		memcpy(&p_ip[3], ipv6, sizeof(luat_ip_addr_t));
 	}
-	platform_send_event(prvlwip.task_handle, EV_LWIP_NETIF_SET_IP, p_ip, ipv6 != NULL, user_data);
+	if (platform_send_event(prvlwip.task_handle, EV_LWIP_NETIF_SET_IP, p_ip, ipv6 != NULL, user_data) != 0) {
+		luat_heap_free(p_ip);
+		return -1;
+	}
 	return 0;
 }
 
@@ -2158,22 +2234,14 @@ static void net_lwip2_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *
 int net_lwip2_getsockopt2(int socket_id, uint64_t tag,  int level, int optname, void *optval, uint32_t *optlen, void *user_data) {
 	int result = net_lwip2_check_socket(user_data, socket_id, tag);
 	if (result) return result;
-	#if LWIP_SOCKET
-	return lwip_getsockopt(socket_id, level, optname, optval, optlen);
-	#else
-	return 0;
-	#endif
+	/* Raw-PCB slot IDs are not BSD descriptors, even when LWIP_SOCKET is on. */
+	return -1;
 }
 
 int net_lwip2_setsockopt2(int socket_id, uint64_t tag,  int level, int optname, const void *optval, uint32_t optlen, void *user_data) {
 	int result = net_lwip2_check_socket(user_data, socket_id, tag);
 	if (result) return result;
-	#if LWIP_SOCKET
-	// return lwip_setsockopt(socket_id, level, optname, optval, optlen);
-	return 0;
-	#else
-	return 0;
-	#endif
+	return -1; /* No PCB option mapping is implemented here. */
 }
 
 static const network_adapter_info prv_net_lwip2_adapter =
@@ -2217,6 +2285,10 @@ void net_lwip2_register_adapter(uint8_t adapter_index)
 	}
 	if ( (1 << adapter_index) & register_statue) {
 		return; // 注册过了
+	}
+	if (net_lwip2_event_init() != 0) {
+		LLOGE("cannot initialize lwIP event relay");
+		return;
 	}
 	network_register_adapter(adapter_index, &prv_net_lwip2_adapter, adapter_index);
 
@@ -2507,8 +2579,11 @@ int net_lwip2_set_static_ip6_info(uint8_t adapter_index, luat_ip_addr_t *ipv6, u
 	}
 	memcpy(&p_ip[3], ipv6, sizeof(luat_ip_addr_t));
 	// 前缀打包进 Param2 高 24 位, 由 tcpip 线程在 apply_set 内统一写 ip6_prefix, 此处不预写
-	platform_send_event(prvlwip.task_handle, EV_LWIP_NETIF_SET_IP, p_ip,
-		1 | ((uint32_t)prefix_len << 8), adapter_index);
+	if (platform_send_event(prvlwip.task_handle, EV_LWIP_NETIF_SET_IP, p_ip,
+		1 | ((uint32_t)prefix_len << 8), adapter_index) != 0) {
+		luat_heap_free(p_ip);
+		return -1;
+	}
 	return 0;
 }
 

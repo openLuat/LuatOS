@@ -1261,8 +1261,8 @@ int luat_http_client_ssl_config(luat_http_ctrl_t* http_ctrl, int mode, const cha
 		return -ERROR_PARAM_INVALID;
 	}
 	int result;
-	// network_init_tls(http_ctrl->netc, (server_cert || client_cert)?2:0);
-	network_init_tls(http_ctrl->netc, 0);
+	result = network_init_tls(http_ctrl->netc, mode);
+	if (result) return -ERROR_OPERATION_FAILED;
 	if (server_cert){
 		result = network_set_server_cert(http_ctrl->netc, (const unsigned char *)server_cert, server_cert_len);
 		if (result)

@@ -140,13 +140,16 @@ local bssid = string.fromHex("00182946365f")
 wlan.connect("myap", "12345678", 1, bssid)
 */
 static int l_wlan_connect(lua_State* L){
-    const char* ssid = luaL_optstring(L, 1, "");
-    const char* password = luaL_optstring(L, 2, "");
+    size_t ssid_len = 0, password_len = 0;
+    const char* ssid = luaL_optlstring(L, 1, "", &ssid_len);
+    const char* password = luaL_optlstring(L, 2, "", &password_len);
     size_t len = 0;
     luat_wlan_conninfo_t info = {0};
+    luaL_argcheck(L, ssid_len <= 32 && memchr(ssid, '\0', ssid_len) == NULL, 1, "SSID must be at most 32 bytes without NUL");
+    luaL_argcheck(L, password_len < sizeof(info.password) && memchr(password, '\0', password_len) == NULL, 2, "password must be at most 63 bytes without NUL");
     info.auto_reconnection = luaL_optinteger(L, 3, 1);
-    memcpy(info.ssid, ssid, strlen(ssid));
-    memcpy(info.password, password, strlen(password));
+    memcpy(info.ssid, ssid, ssid_len);
+    memcpy(info.password, password, password_len);
     const char* bssid = luaL_optlstring(L, 4, "", &len);
     if (len == 6) {
         memcpy(info.bssid, bssid, 6);
@@ -458,7 +461,7 @@ static int l_wlan_ap_start(lua_State *L) {
         return 0;
     }
     if (password_len > 63) {
-        LLOGE("password too long [%s]", password);
+        LLOGE("password too long (%u bytes)", (unsigned)password_len);
         return 0;
     }
 

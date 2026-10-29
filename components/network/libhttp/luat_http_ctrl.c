@@ -54,10 +54,10 @@ uint32_t luat_http_idg_register(luat_http_ctrl_t *http_ctrl) {
         return 0;
     }
     if (idg_mutex == NULL) {
-        luat_rtos_mutex_create(&idg_mutex);
+        if (luat_rtos_mutex_create(&idg_mutex) != 0) return 0;
     }
     // 分配一个idg
-    luat_rtos_mutex_lock(idg_mutex, 0);
+    if (luat_rtos_mutex_lock(idg_mutex, LUAT_WAIT_FOREVER) != 0) return 0;
     uint32_t idg = idg_counter++;
     // idg不能为0，0表示无效, 不能与未释放的idg重复
     while (1) {
@@ -103,13 +103,14 @@ luat_http_ctrl_t* luat_http_idg_get(uint32_t idg) {
     if (idg == 0) {
         return NULL;
     }
-    luat_rtos_mutex_lock(idg_mutex, 0);
+    if (luat_rtos_mutex_lock(idg_mutex, LUAT_WAIT_FOREVER) != 0) return NULL;
     // 查找idg对应的http_ctrl
     luat_http_idg_entry_t *entry = idg_head;
     while (entry) {
         if (entry->idg == idg) {
+            luat_http_ctrl_t *http_ctrl = entry->http_ctrl;
             luat_rtos_mutex_unlock(idg_mutex);
-            return entry->http_ctrl;
+            return http_ctrl;
         }
         entry = entry->next;
     }
@@ -122,7 +123,7 @@ int luat_http_idg_unreg(uint32_t idg) {
         return -1;
     }
     // LLOGD("unreg idg %d", idg);
-    luat_rtos_mutex_lock(idg_mutex, 0);
+    if (luat_rtos_mutex_lock(idg_mutex, LUAT_WAIT_FOREVER) != 0) return -1;
     // 查找idg对应的http_ctrl
     luat_http_idg_entry_t *entry = idg_head;
     luat_http_idg_entry_t *prev = NULL;
@@ -149,7 +150,7 @@ luat_http_ctrl_t* luat_http_idg_claim(uint32_t idg) {
         return NULL;
     }
     // 一次临界区内完成 get+unreg, 防止两侧同时 close 造成重复释放
-    luat_rtos_mutex_lock(idg_mutex, 0);
+    if (luat_rtos_mutex_lock(idg_mutex, LUAT_WAIT_FOREVER) != 0) return NULL;
     luat_http_idg_entry_t *entry = idg_head;
     luat_http_idg_entry_t *prev = NULL;
     while (entry) {

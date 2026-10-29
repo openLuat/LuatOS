@@ -691,8 +691,9 @@ operation_failed:
 	if (ftp_state == FTP_SUCCESS_NO_DATE) ftp_state = FTP_SUCCESS_DATE;
 	l_ftp_cb(ftp_state);
 	luat_ftp_release();
-	luat_rtos_task_delete(g_s_ftp.task_handle);
+    luat_rtos_task_handle completed_task = g_s_ftp.task_handle;
     g_s_ftp.task_handle = NULL;
+	luat_rtos_task_delete(completed_task);
 	return;
 wait_event_and_out:
 	while(1)
@@ -700,11 +701,12 @@ wait_event_and_out:
 		luat_rtos_event_recv(g_s_ftp.task_handle, 0, &task_event, NULL, LUAT_WAIT_FOREVER);
 		if (task_event.ID >= FTP_EVENT_LOGIN && task_event.ID <= FTP_EVENT_CLOSE)
 		{
-			luat_ftp_release();
 			ftp_state = FTP_ERROR;
 			l_ftp_cb(ftp_state);
-			luat_rtos_task_delete(g_s_ftp.task_handle);
+            luat_ftp_release();
+            luat_rtos_task_handle failed_task = g_s_ftp.task_handle;
             g_s_ftp.task_handle = NULL;
+			luat_rtos_task_delete(failed_task);
 			return;
 		}
 	}

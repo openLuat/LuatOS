@@ -46,8 +46,7 @@ struct luat_mbedtls_rng
 static int luat_mbedtls_rng_entropy( void *p, unsigned char *out, size_t len )
 {
     (void)p;
-    luat_crypto_trng( (char*)out, len );
-    return 0;
+    return luat_crypto_trng( (char*)out, len );
 }
 #endif /* LUAT_MBEDTLS_RNG_USE_DRBG */
 
@@ -88,8 +87,7 @@ int luat_mbedtls_rng_random( void *p_rng, unsigned char *output, size_t output_l
         return 0;
     /* reseed 失败等异常情况回落裸 TRNG */
 #endif
-    luat_crypto_trng( (char*)output, output_len );
-    return 0;
+    return luat_crypto_trng( (char*)output, output_len );
 }
 
 void luat_mbedtls_rng_free( luat_mbedtls_rng_t *rng )

@@ -726,7 +726,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 		{
 			mbedtls_ssl_free(ctrl->ssl);
 			memset(ctrl->ssl, 0, sizeof(mbedtls_ssl_context));
-			mbedtls_ssl_setup(ctrl->ssl, ctrl->config);
+			if (mbedtls_ssl_setup(ctrl->ssl, ctrl->config) != 0) return -1;
 			// ctrl->ssl->f_set_timer = tls_settimer;
 			// ctrl->ssl->f_get_timer = tls_gettimer;
 			// ctrl->ssl->p_timer = ctrl;
@@ -740,7 +740,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 			if (ctrl->domain_name_len > 0 && ctrl->domain_name_len < 256) {
 				char host[257] = {0};
 				memcpy(host, ctrl->domain_name, ctrl->domain_name_len);
-				mbedtls_ssl_set_hostname(ctrl->ssl, host);
+				if (mbedtls_ssl_set_hostname(ctrl->ssl, host) != 0) return -1;
 				//LLOGD("CALL mbedtls_ssl_set_hostname(%s)", host);
 			}
 			else {
@@ -1996,13 +1996,27 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 {
 	if (!ctrl) return -1;
 #ifdef LUAT_USE_TLS
+	if (verify_mode < MBEDTLS_SSL_VERIFY_NONE || verify_mode > MBEDTLS_SSL_VERIFY_REQUIRED) return -1;
+#if !defined(MBEDTLS_SSL_PROTO_DTLS)
+	if (!ctrl->is_tcp) return -1;
+#endif
 	ctrl->tls_mode = 1;
 	if (!ctrl->ssl)
 	{
 		ctrl->ssl = zalloc(sizeof(mbedtls_ssl_context));
 		ctrl->ca_cert = zalloc(sizeof(mbedtls_x509_crt));
 		ctrl->config = zalloc(sizeof(mbedtls_ssl_config));
-		mbedtls_ssl_config_defaults( ctrl->config, MBEDTLS_SSL_IS_CLIENT, ctrl->is_tcp?MBEDTLS_SSL_TRANSPORT_STREAM:MBEDTLS_SSL_TRANSPORT_DATAGRAM, MBEDTLS_SSL_PRESET_DEFAULT);
+		if (!ctrl->ssl || !ctrl->ca_cert || !ctrl->config) {
+			network_deinit_tls(ctrl);
+			return -1;
+		}
+		mbedtls_ssl_init(ctrl->ssl);
+		mbedtls_x509_crt_init(ctrl->ca_cert);
+		mbedtls_ssl_config_init(ctrl->config);
+		if (mbedtls_ssl_config_defaults(ctrl->config, MBEDTLS_SSL_IS_CLIENT, ctrl->is_tcp?MBEDTLS_SSL_TRANSPORT_STREAM:MBEDTLS_SSL_TRANSPORT_DATAGRAM, MBEDTLS_SSL_PRESET_DEFAULT) != 0) {
+			network_deinit_tls(ctrl);
+			return -1;
+		}
 		#if defined(MBEDTLS_SSL_PROTO_DTLS)
 		// TCP(TLS) 时走默认版本协商逻辑
 		if (!ctrl->is_tcp)
@@ -2068,7 +2082,12 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		#endif
 	    ctrl->tls_long_timer = platform_create_timer(tls_longtimeout, ctrl, NULL);
 	    ctrl->tls_short_timer = platform_create_timer(tls_shorttimeout, ctrl, NULL);
+		if (!ctrl->tls_long_timer || !ctrl->tls_short_timer) {
+			network_deinit_tls(ctrl);
+			return -1;
+		}
 	}
+	mbedtls_ssl_conf_authmode(ctrl->config, verify_mode);
 	ctrl->tls_timer_state = -1;
 	return 0;
 #else

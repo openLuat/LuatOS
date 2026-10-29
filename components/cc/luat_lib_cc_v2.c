@@ -303,6 +303,7 @@ static int l_cc_dtmf_rx_stats(lua_State *L)
 }
 #endif
 
+#ifdef LUAT_USE_CC_DTMF_TX
 /* The SDK VTS API can wait indefinitely for IMS confirmation. Keep it out
  * of the Lua VM, audio workers and the separate CC hang-up task. One copied
  * request is allowed in flight; no Lua values or pointers cross tasks. */
@@ -451,6 +452,7 @@ failed:
     lua_pushstring(L, reason);
     return 2;
 }
+#endif
 
 #if defined(LUAT_USE_VOIP_PLAY) && defined(LUAT_USE_CC_PCM_BRIDGE)
 int luat_voip_play_cc_snapshot(luat_voip_play_cc_media_t *media)
@@ -787,6 +789,7 @@ static int l_cc_make_call(lua_State* L) {
     size_t len = 0;
 	const char* number = luaL_checklstring(L, 2, &len);
     luaL_argcheck(L, len > 0 && len <= UINT8_MAX, 2, "phone number length out of range");
+#ifdef LUAT_USE_CC_DTMF_TX
     /* A blocked SDK query must not later send an old key into a new call. */
     if (cc_dtmf_tx_pending()) {
         lua_pushboolean(L, 0);
@@ -794,6 +797,7 @@ static int l_cc_make_call(lua_State* L) {
         return 2;
     }
     cc_dtmf_tx_cancel();
+#endif
 #ifdef LUAT_USE_CC_UART_BRIDGE
     if (luat_cc_uart_selected()) {
         int ret, started = 0;
@@ -850,7 +854,9 @@ static int l_cc_make_call(lua_State* L) {
  */
 static int l_cc_hangup_call(lua_State* L) {
     uint8_t sim_id = cc_sim_arg(L);
+#ifdef LUAT_USE_CC_DTMF_TX
     cc_dtmf_tx_cancel();
+#endif
 #ifdef LUAT_USE_CC_DTMF_RX
     cc_dtmf_rx_stop();
 #endif
@@ -881,12 +887,14 @@ static int l_cc_hangup_call(lua_State* L) {
  */
 static int l_cc_answer_call(lua_State* L) {
     uint8_t sim_id = cc_sim_arg(L);
+#ifdef LUAT_USE_CC_DTMF_TX
     if (cc_dtmf_tx_pending()) {
         lua_pushboolean(L, 0);
         lua_pushliteral(L, "DTMF request still pending");
         return 2;
     }
     cc_dtmf_tx_cancel();
+#endif
 #ifdef LUAT_USE_CC_UART_BRIDGE
     if (luat_cc_uart_selected()) {
         int state = luat_mobile_get_call_state(sim_id), ret;
@@ -1416,7 +1424,9 @@ static const rotable_Reg_t reg_cc[] =
 #endif
     { "init" ,      ROREG_FUNC(l_cc_speech_init)},
     { "dial" ,      ROREG_FUNC(l_cc_make_call)},
+#ifdef LUAT_USE_CC_DTMF_TX
     { "sendDtmf",   ROREG_FUNC(l_cc_send_dtmf)},
+#endif
 #ifdef LUAT_USE_CC_DTMF_RX
     { "dtmfRx",     ROREG_FUNC(l_cc_dtmf_rx)},
     { "dtmfRxStats", ROREG_FUNC(l_cc_dtmf_rx_stats)},

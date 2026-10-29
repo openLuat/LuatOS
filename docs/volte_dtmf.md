@@ -2,6 +2,14 @@
 
 此文档整理接收 VoLTE RTP telephone-event 并识别按键、上报事件持续时间，以及模组主动发送网络 DTMF。按键接收和主动发送已由用户实测；新增时长上报已完成主机回归，仍需真机验证。LuatOS 通用代码与 `../luatos-soc-2024` 的 EC7xx 平台适配需要配套使用。
 
+## 固件范围与编译开关
+
+EC7xx LuatOS 固件仅在 **EC718HM 的 13、113、22、122 号**配置中启用本功能：`LUAT_USE_CC_DTMF_TX` 控制发送接口、发送任务和平台发送实现；`LUAT_USE_CC_DTMF_RX` 控制普通通话接收接口、接收任务处理和网络观察入口。其他固件不注册 `cc.sendDtmf`、`cc.dtmfRx`、`cc.dtmfRxStats` 或 `cc.DTMF_RX_VERSION`。
+
+113 是 13 的 64 位 Lua 版本，122 是 22 的 64 位 Lua 版本；112 是大脚本区配置，不在此范围。Air780EHM/EGH/EHV 与 Air8000 使用的 EC718HM 配置遵循同一规则。
+
+SoC 的 `luat_conf_bsp.h` 在最终配置阶段清除范围外的两个开关。`LUAT_USE_CC_UART_BRIDGE` 本身也带网络 DTMF 接收，因此在范围外显式开启它会报编译错误。本限制针对 VoLTE 网络按键收发，不改变通用音频 DTMF 编解码或 SIP 自身的按键功能。
+
 ## 当前能力与验收
 
 | 方向 | 当前实现 | 验收记录 |

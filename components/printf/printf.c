@@ -96,6 +96,11 @@
 #define PRINTF_SUPPORT_PTRDIFF_T
 #endif
 
+// Exact binary64 -> decimal conversion switch (PRINTF_SUPPORT_DTOA) and the
+// per-call big-integer context.  Included after the config macros above and
+// after any PRINTF_INCLUDE_CONFIG_H header.
+#include "printf_dtoa.h"
+
 ///////////////////////////////////////////////////////////////////////////////
 
 // internal flag definitions
@@ -224,6 +229,218 @@ static size_t _out_rev(out_fct_type out, char* buffer, size_t idx, size_t maxlen
 }
 
 
+#if defined(PRINTF_SUPPORT_DTOA) && defined(PRINTF_SUPPORT_FLOAT)
+
+// Upper bound for the exact path.  Lua's MAX_ITEM is 428, so %.400f of a
+// value <= 1e9 (411 chars) is the largest spec that can still fit; beyond
+// this the caller falls back to the approximate path.
+#define PRINTF_DTOA_MAX_PREC 400U
+#define PRINTF_DTOA_NUMBUF   (PRINTF_DTOA_MAX_PREC + 32U)
+
+static char* _dtoa_utoa(char* p, unsigned int v, unsigned int min_digits)
+{
+  char tmp[12];
+  unsigned int n = 0U;
+
+  do {
+    tmp[n++] = (char)('0' + (v % 10U));
+    v /= 10U;
+  } while (v != 0U);
+  while (n < min_digits) {
+    tmp[n++] = '0';
+  }
+  while (n) {
+    *p++ = tmp[--n];
+  }
+  return p;
+}
+
+// Exact binary64 conversion, shared by %f (mode 0), %e (mode 1) and %g
+// (mode 2).  Returns (size_t)-1 when the caller should fall back to the
+// approximate path (scratch pool too small, or an oversized precision).
+static size_t _dtoa_format(out_fct_type out, char* buffer, size_t idx, size_t maxlen,
+                           double value, unsigned int prec, unsigned int width,
+                           unsigned int flags, int mode)
+{
+  char num[PRINTF_DTOA_NUMBUF];
+  char* q = num;
+  char* digits;
+  char* rve;
+  char sign_char;
+  int sign = 0;
+  int decpt = 0;
+  int exp10;
+  int use_exp;
+  int g_mode = (mode == 2);
+  unsigned int p;
+  size_t ndig, len, i;
+  printf_dtoa_ctx ctx;
+
+  // special values
+  if (value != value) {
+    return _out_rev(out, buffer, idx, maxlen, "nan", 3, width, flags);
+  }
+  if (value < -DBL_MAX) {
+    return _out_rev(out, buffer, idx, maxlen, "fni-", 4, width, flags);
+  }
+  if (value > DBL_MAX) {
+    return _out_rev(out, buffer, idx, maxlen, (flags & FLAGS_PLUS) ? "fni+" : "fni",
+                    (flags & FLAGS_PLUS) ? 4U : 3U, width, flags);
+  }
+
+  if (!(flags & FLAGS_PRECISION)) {
+    prec = PRINTF_DEFAULT_FLOAT_PRECISION;
+  }
+  if (g_mode && (prec == 0U)) {
+    prec = 1U;  // C: a precision of 0 is taken as 1 for %g
+  }
+  if (prec > PRINTF_DTOA_MAX_PREC) {
+    return (size_t)-1;
+  }
+
+  printf_dtoa_ctx_init(&ctx);
+  if (mode == 0) {
+    digits = printf_dtoa(&ctx, value, 3, (int)prec, &decpt, &sign, &rve);
+  }
+  else if (mode == 1) {
+    digits = printf_dtoa(&ctx, value, 2, (int)prec + 1, &decpt, &sign, &rve);
+  }
+  else {
+    digits = printf_dtoa(&ctx, value, 2, (int)prec, &decpt, &sign, &rve);
+  }
+  if (digits == NULL) {
+    return (size_t)-1;
+  }
+  ndig = (size_t)(rve - digits);
+
+  sign_char = sign ? '-' : ((flags & FLAGS_PLUS) ? '+' : ((flags & FLAGS_SPACE) ? ' ' : '\0'));
+  if (sign_char != '\0') {
+    *q++ = sign_char;
+  }
+
+  if (g_mode) {
+    int x = decpt - 1;
+    use_exp = (x < -4) || (x >= (int)prec);
+    if (use_exp) {
+      p = prec - 1U;
+    }
+    else {
+      p = (unsigned int)((int)prec - 1 - x);  // x is in [-4, prec)
+    }
+  }
+  else {
+    use_exp = (mode == 1);
+    p = prec;
+  }
+
+  if (use_exp) {
+    exp10 = decpt - 1;
+    *q++ = (ndig > 0U) ? digits[0] : '0';
+    if ((p > 0U) || (flags & FLAGS_HASH)) {
+      *q++ = '.';
+      for (i = 0U; i < p; i++) {
+        *q++ = ((1U + i) < ndig) ? digits[1U + i] : '0';
+      }
+    }
+    *q++ = (flags & FLAGS_UPPERCASE) ? 'E' : 'e';
+    if (exp10 < 0) {
+      *q++ = '-';
+      exp10 = -exp10;
+    }
+    else {
+      *q++ = '+';
+    }
+    q = _dtoa_utoa(q, (unsigned int)exp10, 2U);
+  }
+  else {
+    if (decpt > 0) {
+      for (i = 0U; i < (size_t)decpt; i++) {
+        *q++ = (i < ndig) ? digits[i] : '0';
+      }
+    }
+    else {
+      *q++ = '0';
+    }
+    if ((p > 0U) || (flags & FLAGS_HASH)) {
+      *q++ = '.';
+      for (i = 0U; i < p; i++) {
+        int pos = decpt + (int)i;
+        *q++ = ((pos >= 0) && ((size_t)pos < ndig)) ? digits[pos] : '0';
+      }
+    }
+  }
+
+  len = (size_t)(q - num);
+
+  if (g_mode && !(flags & FLAGS_HASH)) {
+    // %g strips trailing zeros in the fractional part; never touch the
+    // exponent digits that follow it
+    char* dot = (char*)memchr(num, '.', len);
+    if (dot != NULL) {
+      char* exp_ptr = (char*)memchr(num, 'e', len);
+      if (exp_ptr == NULL) {
+        exp_ptr = (char*)memchr(num, 'E', len);
+      }
+      size_t frac_end = (exp_ptr != NULL) ? (size_t)(exp_ptr - num) : len;
+      size_t keep = frac_end;
+      while ((keep > (size_t)(dot - num) + 1U) && (num[keep - 1U] == '0')) {
+        keep--;
+      }
+      if ((keep > 0U) && (num[keep - 1U] == '.')) {
+        keep--;
+      }
+      if (exp_ptr != NULL) {
+        memmove(num + keep, exp_ptr, len - frac_end);
+        len = keep + (len - frac_end);
+      }
+      else {
+        len = keep;
+      }
+    }
+  }
+
+  {
+    unsigned int pad = (width > len) ? (width - (unsigned int)len) : 0U;
+
+    if (flags & FLAGS_LEFT) {
+      for (i = 0U; i < len; i++) {
+        out(num[i], buffer, idx++, maxlen);
+      }
+      while (pad > 0U) {
+        pad--;
+        out(' ', buffer, idx++, maxlen);
+      }
+    }
+    else if (flags & FLAGS_ZEROPAD) {
+      size_t s = (sign_char != '\0') ? 1U : 0U;
+      for (i = 0U; i < s; i++) {
+        out(num[i], buffer, idx++, maxlen);
+      }
+      while (pad > 0U) {
+        pad--;
+        out('0', buffer, idx++, maxlen);
+      }
+      for (i = s; i < len; i++) {
+        out(num[i], buffer, idx++, maxlen);
+      }
+    }
+    else {
+      while (pad > 0U) {
+        pad--;
+        out(' ', buffer, idx++, maxlen);
+      }
+      for (i = 0U; i < len; i++) {
+        out(num[i], buffer, idx++, maxlen);
+      }
+    }
+  }
+
+  return idx;
+}
+
+#endif  // PRINTF_SUPPORT_DTOA && PRINTF_SUPPORT_FLOAT
+
+
 // internal itoa format
 static size_t _ntoa_format(out_fct_type out, char* buffer, size_t idx, size_t maxlen, char* buf, size_t len, bool negative, unsigned int base, unsigned int prec, unsigned int width, unsigned int flags)
 {
@@ -346,6 +563,16 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
   // powers of 10
   static const double pow10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000 };
 
+#if defined(PRINTF_SUPPORT_DTOA)
+  // exact conversion for %f (large values fall through to _etoa below)
+  if ((value <= PRINTF_MAX_FLOAT) && (value >= -PRINTF_MAX_FLOAT)) {
+    const size_t exact = _dtoa_format(out, buffer, idx, maxlen, value, prec, width, flags, 0);
+    if (exact != (size_t)-1) {
+      return exact;
+    }
+  }
+#endif
+
   // test for special values
   if (value != value)
     return _out_rev(out, buffer, idx, maxlen, "nan", 3, width, flags);
@@ -467,6 +694,17 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
 // internal ftoa variant for exponential floating-point type, contributed by Martijn Jasperse <m.jasperse@gmail.com>
 static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, double value, unsigned int prec, unsigned int width, unsigned int flags)
 {
+#if defined(PRINTF_SUPPORT_DTOA)
+  // exact conversion for %e and %g
+  {
+    const size_t exact = _dtoa_format(out, buffer, idx, maxlen, value, prec, width, flags,
+                                      (flags & FLAGS_ADAPT_EXP) ? 2 : 1);
+    if (exact != (size_t)-1) {
+      return exact;
+    }
+  }
+#endif
+
   // check for NaN and special values
   if ((value != value) || (value > DBL_MAX) || (value < -DBL_MAX)) {
     return _ftoa(out, buffer, idx, maxlen, value, prec, width, flags);
@@ -483,6 +721,12 @@ static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
     prec = PRINTF_DEFAULT_FLOAT_PRECISION;
   }
 
+  // C99 %g prints zero without an exponent and without trailing zeros
+  if ((flags & FLAGS_ADAPT_EXP) && (value == 0.0)) {
+    return _ftoa(out, buffer, idx, maxlen, value, 0, width,
+                 (flags | FLAGS_PRECISION) & ~FLAGS_ADAPT_EXP);
+  }
+
   // determine the decimal exponent
   // based on the algorithm by David Gay (https://www.ampl.com/netlib/fp/dtoa.c)
   union {
@@ -490,22 +734,62 @@ static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
     double   F;
   } conv;
 
+  int expval;
   conv.F = value;
-  int exp2 = (int)((conv.U >> 52U) & 0x07FFU) - 1023;           // effectively log2
-  conv.U = (conv.U & ((1ULL << 52U) - 1U)) | (1023ULL << 52U);  // drop the exponent so conv.F is now in [1,2)
-  // now approximate log10 from the log2 integer part and an expansion of ln around 1.5
-  int expval = (int)(0.1760912590558 + exp2 * 0.301029995663981 + (conv.F - 1.5) * 0.289529654602168);
-  // now we want to compute 10^expval but we want to be sure it won't overflow
-  exp2 = (int)(expval * 3.321928094887362 + 0.5);
-  const double z  = expval * 2.302585092994046 - exp2 * 0.6931471805599453;
-  const double z2 = z * z;
-  conv.U = (uint64_t)(exp2 + 1023) << 52U;
-  // compute exp(z) using continued fractions, see https://en.wikipedia.org/wiki/Exponential_function#Continued_fractions_for_ex
-  conv.F *= 1 + 2 * z / (2 - z + (z2 / (6 + (z2 / (10 + z2 / 14)))));
-  // correct for rounding errors
-  if (value < conv.F) {
-    expval--;
-    conv.F /= 10;
+  if (value == 0.0) {
+    // keep _ftoa's zero mantissa; the exponent stays e+00
+    expval = 0;
+    conv.F = 1.0;
+  }
+  else {
+    uint32_t biased_exp = (uint32_t)((conv.U >> 52U) & 0x07FFU);
+    int decimal_shift = 0;
+    int exp2;
+    int guard;
+
+    if (biased_exp == 0U) {
+      // subnormal: scale by 1e17, which is exactly representable, so the value
+      // becomes normal and the decimal exponent only shifts by 17
+      value *= 1e17;
+      conv.F = value;
+      decimal_shift = 17;
+    }
+    exp2 = (int)((conv.U >> 52U) & 0x07FFU) - 1023;  // effectively log2
+    conv.U = (conv.U & ((1ULL << 52U) - 1U)) | (1023ULL << 52U);  // drop the exponent so conv.F is now in [1,2)
+    // now approximate log10 from the log2 integer part and an expansion of ln around 1.5
+    expval = (int)(0.1760912590558 + exp2 * 0.301029995663981 + (conv.F - 1.5) * 0.289529654602168);
+    // compute 10^expval by squaring; relative error ~1e-15 and no table needed,
+    // accurate enough for the normalisation below to be reliable
+    {
+      double p = 1.0;
+      double base = (expval < 0) ? 0.1 : 10.0;
+      unsigned int n = (expval < 0) ? (unsigned int)(0 - expval) : (unsigned int)expval;
+      while (n) {
+        if (n & 1U) {
+          p *= base;
+        }
+        base *= base;
+        n >>= 1;
+      }
+      conv.F = p;
+    }
+    // normalise so that value/conv.F lands in [1, 10); this also fixes the
+    // off-by-one cases such as 1e300 printing as 10.000000e+299
+    for (guard = 0; (guard < 400) && (conv.F > 0.0); ++guard) {
+      const double ratio = value / conv.F;
+      if (ratio >= 10.0) {
+        conv.F *= 10.0;
+        expval++;
+      }
+      else if (ratio < 1.0) {
+        conv.F /= 10.0;
+        expval--;
+      }
+      else {
+        break;
+      }
+    }
+    expval -= decimal_shift;
   }
 
   // the exponent format is "%+03d" and largest value is "307", so set aside 4-5 characters
@@ -531,6 +815,21 @@ static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
       if ((prec > 0) && (flags & FLAGS_PRECISION)) {
         --prec;
       }
+    }
+  }
+
+  // if the mantissa rounds up to 10 at the requested precision, carry into the
+  // exponent (e.g. 1e300 must print as 1.000000e+300, not 10.000000e+299)
+  if (minwidth) {
+    unsigned int digits = (prec > 9U) ? 9U : prec;  // _ftoa caps at 9 decimals
+    double half = 0.5;
+    while (digits--) {
+      half /= 10.0;
+    }
+    if ((value / conv.F) >= (10.0 - half)) {
+      conv.F *= 10.0;
+      expval++;
+      minwidth = ((expval < 100) && (expval > -100)) ? 4U : 5U;
     }
   }
 

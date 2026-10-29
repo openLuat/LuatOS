@@ -21,6 +21,10 @@
 #ifndef LUAT_CONF_CUSTOM_SPRINTF
     #include "printf.h"
     #define l_sprintf snprintf_
+    // 内置printf没有%a/%A, 留空让lstrlib.c使用自带的十六进制浮点实现
+    #ifndef LUAT_CONF_PRINTF_NO_STRX
+        #define LUAT_CONF_PRINTF_NO_STRX
+    #endif
 #endif
 
 // 是否使用静态LuaState状态

@@ -1,8 +1,8 @@
 --[[
 @module  video_util
-@summary 媒体素材工具（容器格式嗅探 / 帧尺寸读取 / HZV 音轨初始化 / 播放器创建）—— 播放类页面共用
-@version 1.9
-@date    2026.10.20
+@summary 媒体素材工具（容器格式嗅探 / 帧尺寸读取 / 分辨率上限 / HZV 音轨初始化 / 播放器创建）—— 播放类页面共用
+@version 2.1
+@date    2026.10.29
 @author  江访
 
 === 为什么单独成模块 ===
@@ -25,10 +25,14 @@ MP4 的两个会话副作用（功放使能、触摸总线守护）也在这里�
 @api video_util.guess_format(path)              容器格式："hzv" | "mjpg" | "mp4"
 @api video_util.read_dimensions(path)           w, h；读不到返回 nil
 @api video_util.frame_size(path, def_w, def_h)  w, h；读不到时用调用方给的兜底值
+@api video_util.max_frame_size(fmt)             该格式的源分辨率上限 w, h
+@api video_util.check_frame(path)               ok, w, h, fmt, reason；超上限时 ok=false 且 reason 说明原因
 @api video_util.audio_ensure()                  幂等初始化配套音频框架（MJPG 的同名 MP3 用，
                                                 HZV 不走 exaudio），返回是否可用
 @api video_util.create_player(path, o)          按格式创建**嵌入式**播放器（airui.video，
                                                 HZV/MJPG/MP4 统一；o.on_complete=单次播完回调）
+                                                创建失败按「硬解→软解→建好再起播」降级重试，
+                                                全部失败返回 nil 并逐档打日志（含堆剩余）
 @api video_util.tp_bus_restore()                恢复触摸 I2C 总线配置（音频通路会重置总线）
 @api video_util.tp_recover(delay_ms)            延迟一发的触摸总线恢复（可取消，默认 300ms）
 ]]
@@ -211,6 +215,54 @@ function M.frame_size(path, def_w, def_h)
     local w, h = M.read_dimensions(path)
     if w and h then return w, h end
     return def_w, def_h
+end
+
+-- ==================== 素材分辨率上限 ====================
+--[[各格式的源分辨率上限（含）：超出拒绝起播，调用方按「无法播放」走提示 / 空态
+
+mp4      : mplayer 后端（闭源 mp4_decode 解码器 + RGB565 视频层缓冲），480×320 以上解不稳
+hzv/mjpg : videoplayer 后端（tjpgd 软解或平台硬解，控件内双帧缓冲），支持到 1024×600
+
+上限**按格式分档**，不能一刀切：MP4 与 HZV 走的是两套解码器、两套帧缓冲，
+MP4 那 480×320 的天花板不该把 HZV 一起限死（1024×600 的 HZV 是合法素材，
+在 1024×600 屏上能整屏播）。
+
+只拦「读到了尺寸且超限」的确定情况：尺寸读不出来时交回解码器去试，
+不要因为容器头解析失败就误杀一个好素材。]]
+local FRAME_MAX = {
+    mp4  = { w = 480, h = 320 },
+    hzv  = { w = 1024, h = 600 },
+    mjpg = { w = 1024, h = 600 },
+}
+
+--[[取某格式的源分辨率上限
+@param fmt string 容器格式（guess_format 的返回值）
+@return number max_w, number max_h（未知格式返回 0,0 表示不设限）]]
+function M.max_frame_size(fmt)
+    local lim = FRAME_MAX[fmt]
+    if not lim then return 0, 0 end
+    return lim.w, lim.h
+end
+
+--[[按格式上限校验素材（三种格式同一套口径，两个播放页面都只调这一个）
+
+@param path string 素材路径
+@return boolean  ok     是否可播
+@return number   w       帧宽（读不到时 nil）
+@return number   h       帧高（读不到时 nil）
+@return string   fmt     容器格式
+@return string   reason  不可播原因（可播时 nil），可直接给用户看
+]]
+function M.check_frame(path)
+    local fmt = M.guess_format(path)
+    local w, h = M.read_dimensions(path)
+    local max_w, max_h = M.max_frame_size(fmt)
+    if w and h and max_w > 0 and (w > max_w or h > max_h) then
+        return false, w, h, fmt, string.format(
+            "%s 素材 %d×%d 超过该格式上限 %d×%d，无法播放",
+            string.upper(fmt), w, h, max_w, max_h)
+    end
+    return true, w, h, fmt, nil
 end
 
 --[[配套音频框架初始化（幂等，MJPG 的同名 MP3 用）
@@ -398,10 +450,8 @@ end
 （EOF 回调里 play() 从头重播，见 create_player），每轮重播都精确恢复一次。
 exaudio 路径的 I2C 守护在 boot_ui.guard_audio_init（setup 仅首次 + 入口恢复）。
 
-MP4 源分辨率上限 480×320：mplayer 的 RGB 帧缓冲是静态数组，超限直接溢出，
-起播前用纯 Lua 盒解析读宽高拦截。HZV/MJPG 无此上限（HZV 支持更大分辨率）。]]
-local MP4_MAX_W = 480
-local MP4_MAX_H = 320
+MP4 源分辨率上限 480×320（HZV/MJPG 到 1024×600）：按格式分档，见文件上方
+FRAME_MAX 与 check_frame —— 起播前用纯 Lua 盒解析读宽高拦截，超限直接不起播。]]
 
 -- PA 功放使能/关闭（引脚与电平读板级 hw.audio）
 local function pa_set(on)
@@ -535,6 +585,70 @@ local function wrap_mp4_player(v, pcm_path)
 end
 
 -- ==================== 播放器创建 ====================
+--[[堆剩余快照（只在创建失败时调用）
+
+1024×600 的 HZV 要两块 RGB565 帧缓冲（约 2.4MB），起播时还要一块解码输出（约 1.2MB），
+建不出来多半是内存不够，把剩余量一起打出来才好判断。]]
+local function mem_snapshot()
+    if not rtos or not rtos.meminfo then return "" end
+    local out = {}
+    for _, pool in ipairs({ "sys", "psram" }) do
+        local ok, total, used = pcall(rtos.meminfo, pool)
+        if ok and type(total) == "number" and type(used) == "number" and total > used then
+            out[#out + 1] = string.format("%s余%dKB", pool, math.floor((total - used) / 1024))
+        end
+    end
+    return table.concat(out, " ")
+end
+
+--[[最大连续块实测（只在创建失败时调用）
+
+rtos.meminfo 报的是池子「总量-已用」，报不出「最大连续块」：碎片化时总量还很富余，
+1MB 级的整块照样要不出来。帧缓冲走 luat_heap_memalign / luat_heap_malloc，跟
+zbuff 取的是同一批堆（都落到 luat_heap_opt_malloc），所以用 zbuff 二分实测，
+直接跟素材需要的「单块 = 宽×高×2」对账。]]
+local function alloc_probe()
+    if not zbuff or type(zbuff.create) ~= "function" then return "无zbuff" end
+
+    -- 每测一档就地释放：zbuff 是 userdata，要两遍 GC 才回收，不收干净会把下一档搅小
+    local function try(n)
+        local ok, buf = pcall(zbuff.create, n)
+        local got = ok and (buf ~= nil)
+        buf = nil
+        collectgarbage()
+        collectgarbage()
+        return got
+    end
+
+    collectgarbage()
+    collectgarbage()
+    local step = 64 * 1024
+    local lo, hi, best = step, 4 * 1024 * 1024, 0
+    while lo <= hi do
+        local mid = math.floor((lo + hi) / 2 / step) * step
+        if mid < step then break end
+        if try(mid) then
+            best = mid
+            lo = mid + step
+        else
+            hi = mid - step
+        end
+    end
+    return string.format("最大连续块%dKB", math.floor(best / 1024))
+end
+
+--[[起播并确认真的起来了
+
+airui.video:play() 既不报错也不返回值（C 端把错误吞了），是否起来只能问
+get_stats().playing —— 组件只在底层起播成功时才置 true。
+老固件没有 get_stats，无从校验，按起来了算。]]
+local function start_player(v)
+    pcall(function() v:play() end)
+    if type(v.get_stats) ~= "function" then return true end
+    local ok, st = pcall(function() return v:get_stats() end)
+    return ok and type(st) == "table" and st.playing == true
+end
+
 --[[按素材格式创建**嵌入式**播放器（唯一入口）
 
 HZV / MJPG / MP4 都走 airui.video（父容器内的控件，随 UI 层级显示/隐藏）：
@@ -550,19 +664,22 @@ MJPG 逐帧按 interval 喂；HZV / MP4 自带帧时序（HZV 容器帧时长 / 
   @boolean  o.loop     是否循环
   @function o.on_complete 单次播完（loop=false 读到 EOF）回调
 @return userdata|nil 播放器对象（:play/:pause/:stop/:destroy），失败 nil
+                      （素材超过该格式分辨率上限、或播放器创建失败时）
 ]]
 function M.create_player(path, o)
     o = o or {}
-    local fmt = M.guess_format(path)
     local pcm_path = nil   -- MP4 同名 .pcm 伴音（Air1103 补声，非 nil 才走）
 
+    --[[分辨率超限拒绝起播：调用方按「无法播放」走提示 / 空态。
+    三种格式各有各的上限（见 FRAME_MAX），校验收口在 check_frame ——
+    页面要提前知道「能不能播 / 为什么不能播」，也调它，不要各写一套判断。]]
+    local size_ok, _w, _h, fmt, reason = M.check_frame(path)
+    if not size_ok then
+        log.warn("video_util", reason or "素材超过格式上限，拒绝起播", path)
+        return nil
+    end
+
     if fmt == "mp4" then
-        -- 分辨率超限拒绝起播：调用方按「无法播放」走空态 UI
-        local w, h = M.read_dimensions(path)
-        if w and h and (w > MP4_MAX_W or h > MP4_MAX_H) then
-            log.warn("video_util", "MP4 超 480×320 上限，拒绝起播", w, h, path)
-            return nil
-        end
         --[[停掉残留的配套/容器音频再起 mplayer：两路音频同开必打架。
         一般机型 MP4 的声音走 mplayer 自带音频通路（组件内部自行初始化），
         不经 exaudio，也不需要 audio_ensure。
@@ -652,8 +769,63 @@ function M.create_player(path, o)
         end
     end
 
-    local ok, v = pcall(airui.video, vcfg)
-    if not ok or not v then
+    --[[创建失败逐档降级重试
+
+    C 端这条路全程静默：airui.video 建不出来只返回 nil（不抛错），videoplayer 的
+    硬解回退、HZV 起播时音轨请求被拒也都不打日志。分档试，每档失败都记一行原因：
+      1) 硬解 → 2) 软解（tjpgd 对大分辨率更宽容）
+      3) 创建时不起播、建好后单独起播 —— auto_play 路径上「起播被拒」会把整个控件
+         拖没（组件建不出来），跟「建不出来」混在一起分不清；分开后靠
+         get_stats().playing 就能确认起播到底成没成。
+    任一档成功即返回，全部失败才返回 nil。]]
+    local attempts = {
+        { decode_mode = "hw", auto_play = true },
+        { decode_mode = "sw", auto_play = true },
+        { decode_mode = "hw", auto_play = false },
+        { decode_mode = "sw", auto_play = false },
+    }
+    if fmt == "mp4" then
+        -- MP4 走 mplayer 后端，没有硬解/软解之分，起播语义也归包装层管
+        attempts = { { decode_mode = "hw", auto_play = true } }
+    end
+
+    -- 起播前先收干净垃圾：大分辨率要整块分配帧缓冲，Lua 侧能挤出来的都挤出来。
+    -- 收两遍，userdata（上一个播放器的 zbuff / 临时对象）第二遍才回收
+    collectgarbage()
+    collectgarbage()
+
+    local v = nil
+    for i = 1, #attempts do
+        local a = attempts[i]
+        vcfg.decode_mode = a.decode_mode
+        vcfg.auto_play = a.auto_play
+        local ok, obj = pcall(airui.video, vcfg)
+        if not ok then
+            log.warn("video_util", "airui.video 报错", path, "decode=", a.decode_mode,
+                     tostring(obj), mem_snapshot())
+        elseif obj then
+            if a.auto_play or start_player(obj) then
+                v = obj
+                break
+            end
+            log.warn("video_util", "起播被拒", path, "decode=", a.decode_mode, mem_snapshot())
+            pcall(function() obj:stop() end)
+            pcall(function() obj:destroy() end)
+        else
+            log.warn("video_util", "airui.video 返回 nil", path, "fmt=", fmt,
+                     "decode=", a.decode_mode, mem_snapshot())
+        end
+    end
+    if not v then
+        --[[放弃时把账算全：堆剩余 / 最大连续块 / 该素材单块需要多少。
+        1024×600 单块是 1.23MB，起播峰值要 3 块（两块持久帧缓冲 + 一块解码输出），
+        最大连续块够不上就是内存不够，够得上就往别处找原因。]]
+        local need_kb = 0
+        if type(_w) == "number" and type(_h) == "number" then
+            need_kb = math.floor(_w * _h * 2 / 1024)
+        end
+        log.warn("video_util", "播放器创建放弃", path, "mem=", mem_snapshot(),
+                 "单块需", need_kb .. "KB", alloc_probe())
         if fmt == "mp4" then
             -- 起播失败收尾：此时未 wrap，无实例定时器，直接关功放 + 恢复触摸总线
             pa_set(false)

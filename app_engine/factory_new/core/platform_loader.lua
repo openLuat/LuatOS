@@ -49,8 +49,8 @@ require ("eng_1602_7i_v4")        -- Air1602 7寸 1024×600 + NAND + NES + 电�
 require ("eng_1602_9i_v09421")    -- Air1602 9寸 1024×600 + NAND + NES + 电池
 require ("eng_1602_10i_v0")       -- Air1602 10寸 1024×600
 require ("eng_1602_10i_v10421")   -- Air1602 10寸 1024×600 + NAND + NES + 电池
-require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + RS485（WiFi 版）
-require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + RS485（4G 版）
+require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + 人脸识别摄像头 + RS485（WiFi 版）
+require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + 人脸识别摄像头 + RS485（4G 版）
 require ("eng_8602_9i_wifi")     -- Air8602 9寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + 双RS485（WiFi 版）
 require ("eng_8602_9i_4g")       -- Air8602 9寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + 双RS485（4G 版）
 require ("eng_8603w1_10i_v0")      -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）

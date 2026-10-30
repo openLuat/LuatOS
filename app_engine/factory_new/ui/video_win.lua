@@ -1,8 +1,8 @@
 --[[
 @module  video_win
 @summary 全屏播放页 —— 竖屏面板自动旋转成横屏，任意尺寸素材居中播放
-@version 1.4
-@date    2026.10.13
+@version 1.5
+@date    2026.10.29
 @author  江访
 
 === 消息协议（订阅/发布）===
@@ -258,15 +258,20 @@ local function rebuild_video()
     is_playing = (video_obj ~= nil)
 
     if not video_obj then
+        --[[放不出来时说清原因：三种格式各有分辨率上限（MP4 480×320、HZV/MJPG 1024×600，
+        见 video_util.FRAME_MAX），被上限挡住的素材与「解码失败」的素材给人的感觉完全不同。
+        这里再问一次 check_frame（纯 Lua 读容器头，很轻）拿 reason，不要只说「无法播放」。]]
+        local ok, vw, vh, _fmt, reason = video_util.check_frame(current_file)
+        local hint = (not ok and reason) or "无法播放该文件"
         local d = geo.density
         empty_label = theme.label(stage, {
             x = 0, y = math.floor(H / 2) - math.floor(20 * d),
             w = W, h = math.floor(34 * d),
-            text = "无法播放该文件",
-            px_size = math.floor(18 * d),
+            text = hint,
+            px_size = math.floor(16 * d),
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
-        log.warn("video_win", "video create failed", current_file)
+        log.warn("video_win", "video create failed", current_file, hint, vw, vh)
     end
 end
 

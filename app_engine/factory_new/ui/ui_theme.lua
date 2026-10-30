@@ -1256,27 +1256,38 @@ function M.pills(parent, o)
     local gap = o.gap or 8
     local n = math.max(1, #items)
     local total = o.w or 400
-    local pw = math.floor((total - (n - 1) * gap) / n)
+    -- 胶囊带四周留 2 像素余量：airui.container 探出内容区 1 像素就画滚动条（airui.md 4.2.13）
+    local m = 2
+    local pw = math.floor((total - (n - 1) * gap - 2 * m) / n)
     local h = o.h or 38
+    local fs = math.max(M.FONT_MIN, dp(o.size or M.F.body))
     local widgets = {}
     for i, it in ipairs(items) do
         local on = (i == (o.active or 0))
+        --[[bw 必须显式传：M.card 的描边规则是「没给 border_w 就照 o.border 之外
+        默认 1px」，未选中胶囊传 border = nil 也会拿到 1px 描边，内容区随之每侧
+        缩窄 1 像素 —— 于是「两个胶囊都出滚动条」。选中态才画 1px 描边。]]
+        local bw = on and 1 or 0
         local p = M.card(parent, {
-            x = (o.x or 0) + (i - 1) * (pw + gap), y = o.y, w = pw, h = h,
+            x = (o.x or 0) + m + (i - 1) * (pw + gap), y = o.y, w = pw, h = h,
             radius = M.R.md,
             color = on and (it.color or M.C.amber) or M.C.surface,
             opa = on and 48 or M.OPA.fill,
-            border = on and (it.color or M.C.amber) or nil, border_w = on and 1 or 0,
+            border = on and (it.color or M.C.amber) or nil, border_w = bw,
             on_click = it.on_click,
         })
-        --[[文字盒高取「字号 + 3」并垂直居中
+        --[[文字盒高取「字号 + 3」并垂直居中，宽高按胶囊的**内容区**取
 
         AirUI 的 label 只支持水平对齐（C 端只设 text_align），没有垂直居中：
         盒高大于行高时文字会贴在盒顶。原来这里直接把 h 传成胶囊高度，文字整体偏上
-        （越高越明显）。按 M.row 的口径收成「字号 + 3」+ 居中偏移。]]
-        local fs = math.max(M.FONT_MIN, dp(o.size or M.F.body))
+        （越高越明显）。按 M.row 的口径收成「字号 + 3」+ 居中偏移。
+        子控件 x/y 的原点是内容区左上角（= 外框 − 描边），盒宽要按 pw - 2×描边取再留
+        2 像素余量；原来直接给整块外框的 pw，选中态右缘探出内容区 2 像素，胶囊上会
+        凭空画出滚动条。]]
+        local lh = fs + 3
+        local ly = m + math.floor(math.max(0, h - 2 * bw - 2 * m - lh) / 2)
         M.label(p, {
-            x = 0, y = math.floor((h - (fs + 3)) / 2), w = pw, h = fs + 3,
+            x = m, y = ly, w = pw - 2 * bw - 2 * m, h = lh,
             text = it.text or "",
             px_size = fs,
             color = on and (it.text_color or M.C.amber_light) or M.C.t2,

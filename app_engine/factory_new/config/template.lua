@@ -108,11 +108,27 @@
     --   max_pixels    [可选] uvc 专用：源分辨率像素上限（w×h），缺省 921600（1280×720）。
     --                         相机侧固定开销约 4.25×w×h 字节，越大留给 airui.camera 显示
     --                         缓冲的余量越小（预览区会跟着收小），1920×1080 会挤爆内存
+    --   title         [可选] 功能测试页里该 type 分组标题，不写按 type 默认（uvc 默认「UVC 摄像头」）。
+    --                         摄像头是人脸识别模组时可写 "摄像头"，避免分组标题与行名打架
+    --   face          [可选] uvc 专用：摄像头带人脸识别模组（AirCAMERA_1034）时填，
+    --                         填了才在摄像头测试页多出「人脸识别」页签（录入/验证/删除全部/版本）。
+    --                         不填的型号测试页与原来完全一致。子表字段：
+    --                           uart_id          人脸模组串口号（模组走 UART 协议，115200/8N1 由
+    --                                            exfacecam 库内固定，这里只给串口号）
+    --                           rst_pin          [可选] 模组复位脚，没有就留空
+    --                           register_timeout [可选] 录入超时(秒)，默认 15
+    --                           verify_timeout   [可选] 验证超时(秒)，默认 15
+    --                         注意：供电脚与 UVC 共用 en_pin，测试页不会断电重试（断电会
+    --                         同时杀掉画面与人脸模组）
     --   其余字段      透传给驱动 init(params)（en_pins / bus 等，按 type 约定）
     --
     -- 例: UVC 摄像头 ×1 + RS485 ×2（共用 UART1 与 485_EN 供电脚）+ UART ×1 + 录音播放 ×1
     -- peripherals = {
     --     { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
+    --     -- 人脸识别摄像头（UVC 出图 + UART2 人脸协议）写法：
+    --     -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
+    --     --   en_pin = 73, ready_delay = 200, w = 1280, h = 720,
+    --     --   face = { uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15 } },
     --     { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, baud = 9600, manual_init = true },
     --     { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 },
     --     { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },

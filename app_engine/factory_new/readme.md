@@ -169,6 +169,10 @@ return {
     -- 开关入口在桌面「功能测试」，需 features.other_func + ui.show_other_func 同时为 true
     peripherals = {
         { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
+        -- 摄像头是人脸识别模组（AirCAMERA_1034）时把上一条换成下面这条（见 6.6）：
+        -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
+        --   en_pin = 73, ready_delay = 200,
+        --   face = { uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15 } },
         { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65,
           power_pin = 14, baud = 9600 },
         { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil,
@@ -275,8 +279,8 @@ return {
 | WiFi 详情 | `ui/wifi/wifi_detail_win.lua` | SSID/IP/MAC/信号/断开 |
 | WiFi 连接 | `ui/wifi/wifi_connect_win.lua` | 密码输入/高级配置 |
 | 应用市场 | `ui/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
-| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 / 音频 外设分组开关与状态；485 不管几路只出一行「RS485 测试」 |
-| UVC 预览 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本固件无 MP4 封装)（点功能测试页的 UVC 行进入） |
+| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 / 音频 外设分组开关与状态；485 不管几路只出一行「RS485 测试」；分组标题可用配置条目的 `title` 覆盖 |
+| 摄像头测试 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本固件无 MP4 封装)；摄像头是人脸识别模组时多一个「人脸识别」页签（录入 / 验证 / 清空 / 版本）（点功能测试页的摄像头行进入） |
 | 485 测试 | `ui/rs485_test_win.lua` | 多路通道卡 + 统一收发日志 + 交叉线判定（点功能测试页的「RS485 测试」行进入） |
 | 录音播放 | `ui/audio_test_win.lua` | 录音时长选择 + 录音/播放/停止 + 测试日志（点功能测试页的音频行进入） |
 
@@ -290,10 +294,13 @@ return {
 没配 `hw.audio` 的机型 init 直接失败，列表里也不会出现「音频」组。
 有 `hw.audio` 却不配 `type = "audio"` 的机型（8603 十型号 / 8607 / 8607A）是只播放不录音，
 「功能测试」里同样没有「音频」组，声音走 TTS / MP4 那几条路（见 6.7）。
+`type = "uvc"` 条目带 `face` 子表表示这颗摄像头是人脸识别模组（AirCAMERA_1034）：USB 出 UVC 画面，
+UART 走人脸协议（录入 / 验证 / 删除全部 / 版本），两条通路共用 `en_pin` 供电，断电一起掉。
+带了才会在摄像头测试页多出「人脸识别」页签，不带的型号页面与原来完全一致。
 已配该段的型号：eng_8605_10i_v0（非隔离 485 一路）/
 eng_8605w_10i_v0 / eng_8605m_10i_v0（隔离 485 一路 + Air1103 录音播放）/
 eng_8605b_10i_v0（双隔离 485，UART1/UART6）/ eng_8607a_10i_v0 /
-eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，见配置文件头第 12 条）/
+eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，摄像头是人脸识别模组，见配置文件头第 12、14 条）/
 eng_8602_9i_wifi / eng_8602_9i_4g（双路 485，无独立供电脚）/
 eng_8603w1_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m1_10i_v0 ~ eng_8603m5_10i_v0
 （Air8603 十型号，UART1 / UART2 按出货型号分档，见配置文件头第 1 条）。
@@ -301,7 +308,8 @@ eng_8603w1_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m1_10i_v0 ~ eng_8603m5_10i_v0
 | 模块 | 文件 | 职责 |
 |------|------|------|
 | 外设框架 | `drv/periph/periph_loader.lua` | 按 config.peripherals 逐条初始化，未实现 type 记日志跳过 |
-| UVC 摄像头 | `drv/periph/periph_uvc.lua` | 纯供电开关（数据流由 UVC 预览页独占） |
+| UVC 摄像头 | `drv/periph/periph_uvc.lua` | 纯供电开关（数据流由摄像头测试页独占） |
+| 人脸识别 | `script/libs/exfacecam.lua`（共享扩展库） | AirCAMERA_1034 人脸协议（UART 115200/8N1）：录入 / 验证 / 用户管理 |
 | RS485 | `drv/periph/periph_rs485.lua` | 多路 DE 方向控制 + 供电脚引用计数 |
 | 通用串口 | `drv/periph/periph_uart.lua` | 任意 UART 接口（波特率/数据位/校验/停止位） |
 | 录音播放 | `drv/periph/periph_audio.lua` | 录音/回放（Air1103 录 PCM_16000 走流式回放） |
@@ -483,3 +491,12 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     要出声就给 MP4 配一份同目录同名的 `.pcm` 伴音（见 6.7「MP4 伴音」），没配就只有画面。
     「功能测试 → 录音播放」能录能放说明音频通路本身是好的，MP4 无声只是这一条架构限制。
     8603 / 8607 是内置 DAC + 直驱 PA，MP4 声音直接出，没有这条限制。
+
+17. **人脸识别摄像头测不出 / 录入一直「未检测到人脸」**：先分清是串口链路还是识别问题。
+    点「版本」读得到模组固件版本，说明 UART2 链路与协议是通的；读不到先查接线
+    （Air1601 UART2 TX/RX → 模组 RX/TX，115200/8N1，波特率在 `exfacecam` 库里写死）
+    与摄像头条目里 `face` 子表的 `uart_id`。识别阶段页面按模组回调给引导文案
+    （请正对摄像头 / 请抬头 / 请靠近一些…），一直卡在「未检测到人脸」多半是补光或角度问题。
+    录入 / 验证期间本页会**停掉 UVC 推流**（不停会让识别超时），画面停在最后一帧属正常，
+    动作结束自动恢复。供电与出图共用 `UVC_EN = GPIO73`，功能测试页把摄像头断电会连带杀掉
+    人脸模组，测试页不做断电重试。

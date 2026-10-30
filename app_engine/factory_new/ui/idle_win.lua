@@ -1,8 +1,8 @@
 --[[
 @module  idle_win
 @summary 桌面首页（TabOS 深色玻璃态）——状态栏 + 时钟卡 + 应用网格 + 底部 Dock
-@version 2.4
-@date    2026.09.23
+@version 2.5
+@date    2026.10.29
 @author  江访
 
 消息协议（订阅/发布）:
@@ -26,6 +26,16 @@
   天气玻璃卡：左侧「天气图标 + 温度 + （地点|状况）单串」，右侧 3 天预报等宽三列
   中部应用网格玻璃卡（含分页器）+ 底部玻璃 Dock
   竖屏播放器布局（配置项 ui.show_video_area）：状态栏 → 时钟 → 播放器（画面 + 独立控制栏）→ 已安装应用 → Dock
+
+=== 播放器素材闸口（起播前必读）===
+VP.start_play 是桌面播放器唯一入口，起播前有两道判断：
+  1) 拦：超过该格式分辨率上限的真解不出来 —— MP4 480×320、HZV/MJPG 1024×600
+     （video_util.check_frame），任何路径都不起播，画面区给原因文案；
+  2) 提：放不下画面区的照常播（裁着看）—— airui 播放器不支持缩放，控件被撑回
+     素材原生尺寸、越出画面区，由舞台层 VP.stage 裁掉一圈。用户主动选文件时
+     提一次「建议全屏播放」（VP.ask_fullscreen，另有「窗口播放」选项），
+     开机起播与全屏返回不弹窗。
+放得下的素材按帧原生尺寸居中摆放，不缩放、不裁剪。
 
 === 排版注意（改天气卡前必读）===
 theme.label 内部有一行 `if fs < 16 then fs = 16 end`，而 density_scale 在
@@ -1853,20 +1863,103 @@ local function media_frame_size(path)
     return video_util.frame_size(path, 480, VP.portrait and VP.BASE_H or 270)
 end
 
+--[[素材是否放得进桌面画面区（只作「要不要提示全屏」的判据，不拦起播）
+
+放不下的素材在窗口里只能**裁着播**：airui 播放器不支持缩放，控件被撑回素材原生尺寸、
+越出画面区，由舞台层（VP.stage）裁掉一圈。裁着播是原有行为、不算坏，
+但看不全，所以用户主动选文件时提一次「建议全屏播放」（VP.ask_fullscreen）。
+
+FIT_SLOP 是布局取整余量：1024×600 横屏的画面区实算 479×528，而 MP4 的标准素材就是
+480×320 —— 1~2px 的差距肉眼看不出来，不该提示「放不下」。]]
+VP.FIT_SLOP = 8
+function VP.fits(vw, vh)
+    if not vw or not vh then return true end    -- 读不到尺寸：不预判
+    return (vw <= VP.w + VP.FIT_SLOP) and (vh <= VP.frame_h + VP.FIT_SLOP)
+end
+
+--- 清掉画面区里的空态提示（起播成功后调用）
+function VP.clear_empty()
+    if not VP.empty_labels then return end
+    for i = 1, #VP.empty_labels do
+        pcall(function() VP.empty_labels[i]:destroy() end)
+    end
+    VP.empty_labels = nil
+end
+
+--[[画面区空态：没有视频在播时的提示（三角 + 文案，居中）
+
+触发点：画面区建好后没有素材、起播被拒（超过该格式分辨率上限）、播放器创建失败。
+文案可传，缺省是设计稿那句「点击选择视频文件」。
+原先它是 build_video_area 里的内嵌函数，「起播被拒」那条路够不着 ——
+提到 VP 上让两处共用（本文件顶层 local 名额已满，见 VP 定义处注释）。]]
+function VP.show_empty(text)
+    if not VP.stage then return end
+    VP.clear_empty()
+    VP.empty_labels = {}
+    local d = density_scale_val
+    local function add_label(y, h, str, px)
+        VP.empty_labels[#VP.empty_labels + 1] = theme.label(VP.stage, {
+            x = 0, y = y, w = VP.w, h = h,
+            text = str, px_size = px,
+            color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
+        })
+    end
+    add_label(math.floor(VP.frame_h / 2) - math.floor(26 * d), math.floor(34 * d),
+              ">", math.floor(32 * d))
+    add_label(math.floor(VP.frame_h / 2) + math.floor(10 * d), math.floor(22 * d),
+              text or "点击选择视频文件", math.floor(13 * d))
+end
+
+--[[放不下的素材：提示全屏播放（只在用户主动选文件时弹）
+
+全屏播放页整屏居中，1024×600 的素材能完整显示；窗口里只能裁着看。
+两个按钮都是「真动作」，没有「取消」：「窗口播放」就是照常在桌面里播（裁着看），
+所以点错了也不会白选一次文件。「全屏播放」确认后才动播放状态（VP.stop / current_file /
+resume_file），保证另一个选项不受影响。]]
+function VP.ask_fullscreen(path, vw, vh)
+    local name = path:match("([^/]+)$") or path
+    action_confirm_box = show_info_box("全屏播放", string.format(
+        "%s（%d×%d）超出桌面播放器画面区（%d×%d），建议全屏播放；也可留在窗口里裁着看。",
+        name, vw or 0, vh or 0, VP.w, VP.frame_h),
+        { "全屏播放", "窗口播放" },
+        function(self, btn_label)
+            self:destroy()
+            action_confirm_box = nil
+            if btn_label == "全屏播放" then
+                -- 进全屏前释放桌面的解码资源（硬解链路是单实例），退出后按 resume_file 收尾
+                VP.stop()
+                VP.current_file = path
+                VP.resume_file = path
+                VP.is_playing = true
+                VP.open_fullscreen()
+            else
+                VP.play_window(path)
+            end
+        end)
+end
+
+--- 单按钮提示框（只告知，不做选择）：起播被拒时用，例如「无法播放」
+function VP.alert(title, text)
+    action_confirm_box = show_info_box(title, text, { "知道了" }, function(self)
+        self:destroy()
+        action_confirm_box = nil
+    end)
+end
+
 --[[在舞台层里创建视频对象（HZV/MJPG/MP4 统一走 airui.video）
 
-两个创建点（VP.start_play / build_video_area）共用一份几何与格式分派：
-格式差异统一走 video_util.create_player，本函数只负责把素材帧尺寸折算成
-画面矩形。挂 VP 表而不是文件级 local：本文件顶层局部变量名额已顶到上限
-（见 VP 定义处注释）。
+唯一的创建点是 VP.play_window：格式差异统一走 video_util.create_player，
+本函数只负责把素材帧尺寸折算成画面矩形。挂 VP 表而不是文件级 local：
+本文件顶层局部变量名额已顶到上限（见 VP 定义处注释）。
 
 @param file_path string 素材路径
 @param parent    舞台层（缺省 VP.stage）
 @return 播放器对象或 nil（空态 UI 由调用方处理）]]
 function VP.create_video(file_path, parent)
-    -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
+    --[[从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误。
+    这里**不做缩放**：素材帧尺寸直接当控件尺寸，居中摆放（放不下时上下/左右等量越出），
+    越出部分由舞台层（VP.stage）裁掉一圈 —— airui 播放器不支持缩放，裁是唯一选项。]]
     local vw, vh = media_frame_size(file_path)
-    if vh > VP.frame_h then vh = VP.frame_h end
     local vx_off = math.floor((VP.w - vw) / 2)
     local vy_off = math.floor((VP.frame_h - vh) / 2)
 
@@ -1886,8 +1979,49 @@ function VP.create_video(file_path, parent)
     })
 end
 
-function VP.start_play(file_path)
-    log.info("idle_win", "video_start_play", file_path)
+--[[起播素材（桌面播放器的唯一入口）
+
+两件事，顺序不能换：
+  1) 拦：超过该格式分辨率上限的素材**真解不出来**，任何路径都不起播
+     （video_util.check_frame，MP4 480×320、HZV/MJPG 1024×600）；
+  2) 提：放不下画面区的素材照样播（裁着看），但用户主动选文件时提一次
+     「建议全屏播放」（VP.ask_fullscreen）。
+
+ask = true 表示「用户刚选的文件」：(1) 超上限时弹 VP.alert 且**不动现有播放**，
+(2) 放不下画面区时弹 VP.ask_fullscreen；ask 不传（开机起播 / 全屏返回的恢复起播）不弹窗。
+
+@param file_path string 素材路径
+@param ask       boolean 用户主动选文件时传 true
+]]
+function VP.start_play(file_path, ask)
+    log.info("idle_win", "video_start_play", file_path, "ask=", ask and 1 or 0)
+
+    -- 格式分辨率上限：超出的是真解不出来，不是「显示得下不下」的问题
+    local ok, vw, vh, _fmt, reason = video_util.check_frame(file_path)
+    if not ok then
+        if ask then
+            VP.alert("无法播放", reason or "无法播放该文件")
+            return                      -- 不动现有播放
+        end
+        VP.stop()
+        VP.current_file = file_path
+        VP.show_empty(reason or "无法播放该文件")
+        VP.is_playing = false
+        sync_ctrl()
+        return
+    end
+
+    -- 画面区放不下：照常播（舞台层裁切），用户主动选的提示一次全屏
+    if ask and not VP.fits(vw, vh) then
+        VP.ask_fullscreen(file_path, vw, vh)
+        return
+    end
+
+    VP.play_window(file_path)
+end
+
+---真正起播：在桌面画面区里播，素材居中摆放、超出部分由舞台层裁掉
+function VP.play_window(file_path)
     VP.stop()
 
     VP.current_file = file_path
@@ -1904,6 +2038,11 @@ function VP.start_play(file_path)
     VP.obj = VP.create_video(file_path, VP.stage or video_card)
 
     VP.is_playing = (VP.obj ~= nil)
+    if VP.is_playing then
+        VP.clear_empty()                -- 起播成功，清掉空态提示
+    else
+        VP.show_empty("无法播放该文件")
+    end
     -- 控制栏只喂状态：文案（暂停/播放）与底色（绿/中性）由 video_bar 一起刷
     sync_ctrl()
     VP.show_ctrl()
@@ -1977,7 +2116,8 @@ function VP.open_picker(start_path)
         start_path = start,
         sw = screen_w, sh = screen_h,
         avoid = avoid,
-        on_pick = function(path) VP.start_play(path) end,
+        -- 用户主动选的文件：超格式上限弹「无法播放」、放不下画面区弹「建议全屏播放」，故传 ask
+        on_pick = function(path) VP.start_play(path, true) end,
     })
 end
 
@@ -2086,26 +2226,10 @@ local function build_video_area(parent)
         parent = video_card, x = 0, y = 0, w = VP.w, h = VP.frame_h,
     })
 
-    -- 无视频：按设计稿显示空态（三角 + 文案，居中）
-    local function show_empty_state()
-        theme.label(VP.stage, {
-            x = 0, y = math.floor(VP.frame_h / 2) - math.floor(26 * density_scale_val),
-            w = VP.w, h = math.floor(34 * density_scale_val),
-            text = ">", px_size = math.floor(32 * density_scale_val),
-            color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-        })
-        theme.label(VP.stage, {
-            x = 0, y = math.floor(VP.frame_h / 2) + math.floor(10 * density_scale_val),
-            w = VP.w, h = math.floor(22 * density_scale_val),
-            text = "点击选择视频文件", px_size = math.floor(13 * density_scale_val),
-            color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-        })
-    end
-
-    -- 几何折算与格式分派见 VP.create_video
-    VP.obj = VP.create_video(VP.current_file, VP.stage)
-    VP.is_playing = (VP.obj ~= nil)
-    if not VP.is_playing then show_empty_state() end
+    --[[起播（含空态兜底）统一走 VP.start_play：起播被拒（超过该格式分辨率上限 /
+    超出画面区）会在画面区里给出原因文案，不弹窗打断开机。
+    空态 UI 见 VP.show_empty（原先这里是内嵌的 show_empty_state，起播被拒那条路够不着）。]]
+    VP.start_play(VP.current_file)
 
     --[[控制栏（视频卡片底部，半透明深底）
 

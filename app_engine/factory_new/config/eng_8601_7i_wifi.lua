@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8601_7i_wifi
-@summary Air8601 引擎主机 7寸1024x600 RGB屏(HX8282) + Airlink UART WiFi(6205) + USB摄像头 + RS485 + SD卡 + 喇叭 配置文件（WiFi 版）
-@version 1.5
-@date    2026.10.23
+@summary Air8601 引擎主机 7寸1024x600 RGB屏(HX8282) + Airlink UART WiFi(6205) + 人脸识别摄像头 + RS485 + SD卡 + 喇叭 配置文件（WiFi 版）
+@version 1.6
+@date    2026.10.30
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -49,8 +49,8 @@
     实际只把 pa_delay 透传给 audio_v2.config_pa_power_ctrl()，dac_delay 不起作用（保留仅为兼容）。
 12. 【UVC 测试】UVC_EN = GPIO73（power_on 里已拉高常供电），测试入口三件套缺一不可：
     config.peripherals 加 uvc 条目 + features.other_func = true + ui.show_other_func = true。
-    桌面「功能测试」→ UVC 摄像头行（可通断电）→ 点行进 UVC 预览页（预览 / 拍照 / 录像，
-    ui/uvc_preview_win.lua），数据流由该页独占走 excamera，periph_uvc 只管供电脚。
+    桌面「功能测试」→ 摄像头行（可通断电）→ 点行进摄像头测试页（ui/uvc_preview_win.lua），
+    数据流由该页独占走 excamera，periph_uvc 只管供电脚。
     摄像头 MJPEG 分辨率由预览页按摄像头实际支持的档位自适应选取（像素数上限 max_pixels，
     缺省 921600 = 1280×720，超了会挤爆内存导致预览无画面），条目里的 w / h 只是首选档。
 13. 【RS485】485_RE_DE = PIN8 = GPIO72，485_UART_TXD / 485_UART_RXD 都在 UART1，
@@ -59,6 +59,13 @@
     power_on 里 GPIO72 已拉高（该行注释写作「TP I2C 上拉」，与 485_RE_DE 是同一物理脚）；
     进「485」测试页后由 periph_rs485 把 DE 置接收态再收发。
     本路写 manual_init = true：进 485 测试页不自动上电开串口，点该路按钮才初始化。
+14. 【人脸识别摄像头】本板摄像头是 AirCAMERA_1034 人脸识别模组，不是纯 UVC 摄像头：
+    同一颗模组出两条通路 —— USB 走 UVC 出 MJPEG 画面，UART2 走协议做人脸录入 / 验证 / 用户管理。
+    供电共用 UVC_EN = GPIO73，断电会同时杀掉画面与人脸识别，测试页不做断电重试。
+    人脸模组接线：Air1601 UART2 TX/RX → 模组 RX/TX，115200/8N1（exfacecam 库内固定波特率），
+    无独立复位脚（face.rst_pin 不填）。UART2 在本板不与别的外设共用（485 是 UART1，Airlink 是 UART3）。
+    摄像头条目带 face 子表即在测试页多出「人脸识别」页签（录入 / 验证 / 删除全部 / 版本）；
+    不写 face 子表的型号测试页与原来完全一致，只有「UVC 测试」。
 ]]
 
 return {
@@ -80,20 +87,30 @@ return {
         { pin = 65, dir = 1, level = 1, delay = 100 }, -- SD_EN 拉高，等 100ms 就绪
         { pin = 57, dir = 1, level = 0, delay = 100 }, -- WIFI_EN 拉高使能 WiFi 模组供电，等 100ms 就绪
         -- UVC_EN：上电常供电，功能测试页开关可再通断（见文件头第 12 条）
-        { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能 USB 摄像头供电，等 200ms 就绪
+        -- 该脚同时供 UVC 出图与人脸识别模组（见文件头第 14 条），断电两者一起掉
+        { pin = 73, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高使能摄像头供电，等 200ms 就绪
         { pin = 64, dir = 1, level = 0, delay = 50 },  -- RESET_4G 拉高释放 4G 复位，等 50ms
         { pin = 15, dir = 0, level = 1 },              -- LCD_DISP 拉高使能 LCD 显示
         { pin = 72, dir = 0, level = 1 },              -- TP I2C 上拉（485_RE_DE 拉高，同时 TP I2C 就绪）
     },
 
     -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
-    -- UVC_EN = GPIO73，上电序列已常供电，页内开关可再通断；点行进 UVC 预览页
+    -- 摄像头是 AirCAMERA_1034 人脸识别模组（UVC 出图 + UART2 人脸协议，见文件头第 14 条）
+    -- UVC_EN = GPIO73，上电序列已常供电，页内开关可再通断；点行进摄像头测试页
     -- 未配 w / h 时预览页自适应取档（见文件头第 12 条）
+    -- face 子表只声明人脸模组的串口与超时，带它才在测试页出「人脸识别」页签
     -- 485_1 是本板唯一一路 485（见文件头第 13 条）
     -- manual_init = true：485 测试页进页面不自动上电开串口，点该路按钮才初始化
     peripherals = {
-        { type = "uvc", id = "uvc1", name = "UVC摄像头", en_pin = 73, ready_delay = 200,
-          w = 1280, h = 720 }, -- UVC_EN，200ms 就绪
+        { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
+          en_pin = 73, ready_delay = 200,
+          w = 1280, h = 720, -- UVC_EN，200ms 就绪；首选出图档（实测按摄像头支持档自适应）
+          face = {
+              uart_id = 2,        -- 人脸模组串口 = UART2（115200/8N1，库内固定）
+              rst_pin = nil,      -- 无独立复位脚，留空
+              register_timeout = 15, -- 录入超时（秒）
+              verify_timeout = 15,   -- 验证超时（秒）
+          } },
         { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 72, baud = 9600,
           manual_init = true }, -- DE = 485_RE_DE = PIN8 = GPIO72，无独立供电脚
     },

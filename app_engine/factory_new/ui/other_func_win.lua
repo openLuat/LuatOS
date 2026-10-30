@@ -1,8 +1,8 @@
 --[[
 @module  other_func_win
 @summary 功能测试页面（TabOS 深色玻璃态）——UVC / RS485 / 串口 / 录音播放 外设开关、状态与测试入口
-@version 1.3
-@date    2026.10.26
+@version 1.4
+@date    2026.10.30
 @author  江访
 @usage
 订阅: OPEN_OTHER_FUNC_WIN
@@ -12,6 +12,8 @@
 页面按 UVC / RS485 / 串口 / 音频 四组展示实例，组内保持 config.peripherals 声明顺序。
 RS485 不管配了几路，列表里只出一行「RS485 测试」（见 MERGE_TITLE），几路全进同一个
 收发测试页逐路列出；其余 type 一条配置一行，每条独立开关，下方显示驱动上报的状态描述。
+分组标题默认取 TYPE_TITLE，配置条目写了 title 时用条目自己的（摄像头是人脸识别模组
+的板子写 "摄像头"，避免「UVC 摄像头」分组配「人脸识别摄像头」行名打架）。
 
 行可点：UVC 行进预览页（预览/拍照/录像），RS485 行进收发测试页（发送 + 收发历史），
 音频行进录音播放测试页（录音/停止/播放），开窗事件见 TYPE_PAGE；没有测试页的 type 行不可点。
@@ -94,7 +96,7 @@ local function collect_instances()
                     seen[p.id] = true
                     local g = by_type[t]
                     if not g then
-                        g = { type = t, title = TYPE_TITLE[t], items = {} }
+                        g = { type = t, title = p.title or TYPE_TITLE[t], items = {} }
                         by_type[t] = g
                         groups[#groups + 1] = g
                     end

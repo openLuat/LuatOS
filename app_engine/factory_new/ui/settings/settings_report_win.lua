@@ -211,13 +211,13 @@ local function build_ui()
         text = "采集字段（有接口才上报）", px_size = theme.fs("micro"), color = theme.C.t3 })
 
     local field_names = {
-        "· 设备ID / 固件版本",
-        "· 4G 信号强度 / 网络类型 / SIM卡",
-        "· CPU 温度（ADC）",
-        "· 经纬度（LBS 基站定位）",
-        "· 电池电量 / 电压",
-        "· 开机原因 / 次数 / 内存占用",
-        "· WiFi 信号强度",
+        "- 设备ID / 固件版本",
+        "- 4G 信号强度 / 网络类型 / SIM卡",
+        "- CPU 温度（ADC）",
+        "- 经纬度（LBS 基站定位）",
+        "- 电池电量 / 电压",
+        "- 开机原因 / 次数 / 内存占用",
+        "- WiFi 信号强度",
     }
     local fy = theme.dp(10) + theme.dp(24)
     for _, name in ipairs(field_names) do

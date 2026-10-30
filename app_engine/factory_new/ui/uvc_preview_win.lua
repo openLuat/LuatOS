@@ -58,8 +58,11 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
    不拆新页面，只补关它的数据流。
 
 人脸识别边界：
-1. 供电共用：UVC_EN 一根脚同时供出图与人脸模组，断电两者一起掉。所以本页不像
-   face_preview 那样做「连不上就断电重枚举」—— 那会把正在跑的人脸模组一起杀掉。
+1. 供电共用：UVC_EN 一根脚同时供出图与人脸模组，断电两者一起掉。「连不上就断电
+   重枚举」不能当常规手段（会把正在跑的人脸模组一起杀掉）；反过来，录入 / 验证前
+   必须断电重枚举一次 —— 停掉 MJPEG 推流后模组仍停在出图模式，此时发录入指令它不
+   回包（现场日志 cmd timeout 0x1D），取版本这类纯协议指令却正常。断电重枚举让它
+   回人脸采集模式，串口随之重开一遍（见 face_reenumerate）。
 2. 人脸指令是串行的：exfacecam 内部是单例状态（回包表 / 状态回调共享），并发跑
    register 与 verify 会互相抢回包。本页所有人脸动作都进同一个命令协程，天然串行，
    另设 face_busy 挡掉重复点击。
@@ -203,6 +206,7 @@ local status_w = 0
 
 -- 人脸识别运行期状态（约束见文件头「人脸识别边界」）
 local face_cfg = nil        -- config.peripherals 条目里的 face 子表，nil 表示本板没有人脸模组
+local face_pwr = nil        -- 摄像头供电脚（条目的 en_pin），录入前断电重枚举用，nil 表示不可控
 local face_on = false       -- exfacecam 串口是否已打开
 local face_busy = false     -- 录入 / 验证 / 清空 / 读版本进行中，挡重复点击
 local face_seq = 0          -- 录入名序号，保证每次录入的用户名不重复
@@ -728,11 +732,14 @@ end
 -- ==================== 人脸识别 ====================
 
 -- 错误码转中文说明，对不上就退回「错误码 N」
+-- exfacecam.send_cmd 超时返回的第二值是字符串 "timeout" 而不是 MR_* 数字，
+-- register/verify 会把它原样当错误码抛回来，这里要单列一条
 local function face_err_text(code)
-    if type(code) == "number" and FACE_ERR_TEXT[code] then
-        return FACE_ERR_TEXT[code]
+    if type(code) == "number" then
+        return FACE_ERR_TEXT[code] or ("错误码 " .. tostring(code))
     end
-    return "错误码 " .. tostring(code)
+    if code == "timeout" then return "模组无应答（超时）" end
+    return "错误 " .. tostring(code)
 end
 
 --[[
@@ -786,35 +793,63 @@ local function face_close()
 end
 
 --[[
-人脸动作前置：忙检查 + 停推流 + 开串口。
-录入/验证会占满 CPU，与 MJPEG 收流叠加时识别超时，所以动作前停流（见文件头
-「人脸识别边界」第 4 条），airui.camera 停流后继续显示最后一帧，不黑屏。
-失败时自己给提示并复位 face_busy；成功返回 true，由调用方跑动作再调 face_end 收尾。
-@param tip 动作中的提示语
+模组就绪自检：问一次固件版本当作真实往返。
+
+两个理由，缺一不可：
+1. exfacecam.open 的探测有空子 —— 第一条 GETSTATUS 收不到回包时，它会转去等
+   NID_READY，等到就直接返回 true，**不再复探**。模组掉电重启时刚好落进这个窗口：
+   open 说成功，紧接着的录入却失败。
+2. AirCAMERA_1034 是 USB 供电（参考工程 face_preview「停止预览」一节：断电会杀掉
+   UART2 人脸识别），excamera.close 动过 USB 通路之后模组需要时间重新就绪。
+   参考工程 face_manager 在 register 前连做几条查询并重试，理由写的是「模组刚复位时
+   可能未就绪」。
+
+所以这里做成「问到版本号才算就绪」，问不到就重试，把重启窗口吃掉。
 @return boolean
 ]]
-local function face_begin(tip)
-    if face_busy then return false end
-    if not exfacecam then
-        update_status("本固件不含 exfacecam 库，人脸识别不可用")
-        return false
+local function face_ready()
+    for i = 1, 5 do
+        local ok, res, ver = pcall(exfacecam.get_version)
+        if ok and res then
+            log.info("uvc_preview_win", "人脸模组就绪", tostring(ver))
+            return true
+        end
+        log.warn("uvc_preview_win", "人脸模组未就绪 第 " .. i .. " 次", tostring(res))
+        sys.wait(1000)
     end
-    face_busy = true
-    update_status(tip)
-    close_stream()
-    stop_widget()
-    if not face_open(tip) then
-        face_busy = false
-        return false
-    end
-    return true
+    return false
 end
 
 --[[
-人脸动作收尾：复位忙标志 + 重开数据流，最后落状态行。
+断电重枚举摄像头，再按复位后的模组重开人脸串口。
+
+理由见文件头「人脸识别边界」第 1 条：模组出完 MJPEG 停流后停在出图模式，录入指令
+不回包；断电重新枚举才回到人脸采集模式。断电连人脸模组一起杀掉（同一根供电脚），
+所以重枚举后必须重开串口 —— 旧回包表 / 接收回调随模组作废，留着会把上一轮残留字节
+喂给新回包。供电脚不可控时只重开串口，并在日志里点明跳过了这一步。
+@param tip 重开失败时的提示语
+]]
+local function face_reenumerate(tip)
+    if face_pwr then
+        log.info("uvc_preview_win", "断电重枚举摄像头", "GPIO" .. tostring(face_pwr))
+        pcall(gpio.setup, face_pwr, 0)
+        pcall(gpio.set, face_pwr, 0)
+        sys.wait(400)               -- 断电保持
+        pcall(gpio.setup, face_pwr, 1, gpio.PULLUP)
+        pcall(gpio.set, face_pwr, 1)
+        sys.wait(500)               -- 上电后等模组重新枚举
+    else
+        log.warn("uvc_preview_win", "本板未配摄像头供电脚，跳过断电重枚举，录入可能失败")
+    end
+    face_close()
+    face_open(tip)
+end
+
+--[[人脸动作收尾：复位忙标志 + 重开数据流，最后落状态行。
 重开失败只在提示尾部带一句，不覆盖动作结果。
 @param msg 动作结果提示
-]]
+注意：必须定义在 face_begin 之前 —— face_begin 的失败分支要调它，
+Lua 里后定义的 local 在前面的闭包里是捕获不到的（取到的是全局 nil）。]]
 local function face_end(msg)
     face_busy = false
     if not quit_requested then
@@ -828,9 +863,51 @@ local function face_end(msg)
     update_status(tostring(msg))
 end
 
+--[[
+人脸动作前置：忙检查 + 开串口 + 停推流 + 确认模组就绪。
+
+录入 / 验证要动模组的采集传感器，先断电重枚举（cycle 传 true）；取版本 / 清空是纯
+串口指令，走轻路径，不折腾摄像头。轻路径先开串口再停流，「模组压根没接上」与
+「停流把模组弄掉了」各给一条提示；重枚举路径反正要重开串口，不必先开这一次。
+
+录入/验证会占满 CPU，与 MJPEG 收流叠加时识别超时，所以动作前停流（见文件头
+「人脸识别边界」第 4 条），airui.camera 停流后继续显示最后一帧，不黑屏。
+失败时自己给提示并复位 face_busy；成功返回 true，由调用方跑动作再调 face_end 收尾。
+@param tip 动作中的提示语
+@param cycle boolean true = 先断电重枚举摄像头
+@return boolean
+]]
+local function face_begin(tip, cycle)
+    if face_busy then return false end
+    if not exfacecam then
+        update_status("本固件不含 exfacecam 库，人脸识别不可用")
+        return false
+    end
+    face_busy = true
+    update_status(tip)
+    if not cycle and not face_open(tip) then
+        face_busy = false
+        return false
+    end
+    close_stream()
+    stop_widget()
+    if cycle then
+        face_reenumerate(tip)
+        if not face_on then
+            face_busy = false
+            return false
+        end
+    end
+    if not face_ready() then
+        face_end("人脸模组未就绪，请重试")
+        return false
+    end
+    return true
+end
+
 -- 录入一张人脸：用户名按录入次数递增，现场连录多人时名字不重复
 local function do_face_register()
-    if not face_begin("录入中，请正对摄像头...") then return end
+    if not face_begin("录入中，请正对摄像头...", true) then return end
     face_seq = face_seq + 1
     local name = "user" .. tostring(face_seq)
     local ok, res, extra = pcall(exfacecam.register, {
@@ -848,12 +925,14 @@ local function do_face_register()
     else
         msg = "录入失败：" .. face_err_text(extra)
     end
+    -- 原始返回值落日志：界面文案做了翻译，现场排障要按原始码比对 exfacecam.MR_*
+    log.warn("uvc_preview_win", "人脸录入 返回", tostring(ok), tostring(res), tostring(extra))
     face_end(msg)
 end
 
 -- 验证一张人脸：通过则报出命中的用户
 local function do_face_verify()
-    if not face_begin("验证中，请正对摄像头...") then return end
+    if not face_begin("验证中，请正对摄像头...", true) then return end
     local ok, res, extra = pcall(exfacecam.verify, {
         timeout = (face_cfg and face_cfg.verify_timeout) or 15,
         on_state = on_face_state,
@@ -869,6 +948,7 @@ local function do_face_verify()
     else
         msg = "验证失败：" .. face_err_text(extra)
     end
+    log.warn("uvc_preview_win", "人脸验证 返回", tostring(ok), tostring(res), tostring(extra))
     face_end(msg)
 end
 
@@ -1233,6 +1313,12 @@ local function on_create()
     -- 条目带 face 子表才有人脸页签（见文件头【人脸识别】）；串口按需开，见 face_open
     local face = entry and entry.face
     face_cfg = (type(face) == "table") and face or nil
+    -- 供电脚取条目的 en_pin。GPIO12 在多数机型是 VBUS 与 5V_EN 共轨，未声明
+    -- pin12_free 就不碰（同 periph_uvc 的 check_en_pin），此时跳过断电重枚举
+    face_pwr = nil
+    if entry and entry.en_pin and not (entry.en_pin == 12 and not entry.pin12_free) then
+        face_pwr = entry.en_pin
+    end
     if entry then
         if not periph_id then periph_id = entry.id end
         if entry.max_pixels and entry.max_pixels > 0 then

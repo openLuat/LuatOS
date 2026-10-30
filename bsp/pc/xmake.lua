@@ -1405,6 +1405,8 @@ target("luatos-lua")
         add_includedirs(mp4player_src .. "/video_decode")
         add_includedirs(mp4player_src .. "/video_decode/avcodec")
         add_includedirs(mp4player_src .. "/video_decode/avcodec/h264")
+        -- h264bsd_adapter.c 默认启用，头文件与实现在 avcodec/h264b/
+        add_includedirs(mp4player_src .. "/video_decode/avcodec/h264b")
         -- mp4_decode.c 的 mplayer 胶水层引用 components/mplayer 的上下文结构体
         add_includedirs(luatos.."components/mplayer/inc")
         add_includedirs(luatos.."components/display/inc")
@@ -1422,6 +1424,7 @@ target("luatos-lua")
 
         -- 解码器适配层（video_decode/avcodec/ 下的 *_adapter.c）
         add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/*.c")
+        add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/h264b/*.c")
         -- mjpeg_adapter.c 关闭jpeg解码器
         remove_files(mp4player_src .. "/video_decode/avcodec/mjpeg_adapter.c")
 

@@ -105,6 +105,178 @@ Luatools 脚本项目需加入本目录 **12 个 Lua 文件**（包括新增 `si
 
 软电话直接拨 `10086` 时，需要 SIP 服务器将该号码路由到模组 SIP 账号；demo 仍使用固定 `target_phone_number`，未增加任意被叫号码的路由。
 
+## DTMF 接口快速接入
+
+本节面向希望把 DTMF 能力接入自己应用的客户，按“准备通话 → 开启接收 → 发送单键 → 处理结果”说明用法。使用本 demo 时，这些步骤已由 `cc_main.lua`、`pcm_sip.lua` 和 `dtmf_bridge.lua` 完成，按前面的配置即可运行三种场景。
+
+下面是接入片段，需要放入已有的 CC/SIP 通话工程：网络、SIP 注册、拨号/接听和挂断仍由原通话流程管理。同一侧的示例放在同一 Lua 模块内，共享发送请求变量；单键示例不包含多键队列。若扩展本 demo，将业务逻辑合入现有处理函数，避免重复初始化或重复转发。
+
+### CC 侧：向手机/运营商发键，接收手机按键
+
+| 客户要做的事 | 使用接口 | 接口负责什么 |
+| --- | --- | --- |
+| 准备 CC 音频模式 | `cc.init(0, cc.AUDIO_MODE_BRIDGE_PCM)` | 本 demo 使用内部 PCM 桥接；已有普通 codec 工程沿用其 `cc.init(0)` 和音频配置，不要重复初始化 |
+| 开启/关闭网络收键 | `cc.dtmfRx(true / false)` | 成功初始化后、拨号或接听前开启；`false` 关闭并丢弃待交付的接收事件，不挂断电话 |
+| 获得对端按键 | `sys.subscribe("CC_DTMF_RX", callback)` | C 层解析后把按键交给 Lua，应用无需自行解析 RTP |
+| 向 CC 对端发送一个键 | `cc.sendDtmf(0, digit, duration_ms)` | 异步发送一个网络 DTMF 键，不负责拨号或建立通话 |
+| 获得发送结果 | `sys.subscribe("CC_DTMF_TX", callback)` | 按请求编号返回 SDK 受理结果，供应用更新状态、调度下一键 |
+| 排查收键状态 | `cc.dtmfRxStats()` | 查看支持、启用、协商和接收计数；它不是取出按键的接口 |
+
+**先注册事件并开启接收。** 以下示例使用 PCM 桥接模式；初始化和 `cc.dtmfRx(true)` 只需在启动阶段执行一次。之后遵循原 CC 就绪流程拨号或接听，不要在通话中才首次开启收键。
+
+```lua
+local pending_cc_id
+
+sys.subscribe("CC_DTMF_RX", function(e)
+    if e.event ~= "dtmf" then return end -- dtmf_end 是同一键的结束信息
+    if e.pcm_session then
+        local pcm = cc.bridgePcmStats()
+        if not pcm or pcm.session ~= e.pcm_session or
+            pcm.active ~= 1 or pcm.media_ready ~= 1 then return end
+    end
+    log.info("app_dtmf", "CC 收到按键", e.digit)
+    -- 在这里收集分机号、处理菜单输入，或交给已有桥接队列。
+end)
+
+sys.subscribe("CC_DTMF_TX", function(id, ok, code)
+    if id ~= pending_cc_id then return end
+    pending_cc_id = nil
+    log.info("app_dtmf", "CC 发送结果", id, ok, code)
+end)
+
+assert(cc and cc.DTMF_RX_PCM_VERSION == 1, "固件缺少 PCM DTMF 接收能力")
+assert(cc.init(0, cc.AUDIO_MODE_BRIDGE_PCM))
+local rx_ok, rx_reason = cc.dtmfRx(true)
+assert(rx_ok, rx_reason)
+```
+
+**通话真正接通后发送。** 将下面代码放到“当前 CC 通话已接通、PCM 已就绪，并且没有上一键等待确认”的业务分支。SIP/CC 桥接时还要等另一侧接通；对接 IVR 时等其开放输入。拨号接口返回成功或正在振铃，都不能作为发键时机。
+
+```lua
+local ok, id_or_reason = cc.sendDtmf(0, "2", 300)
+if ok then
+    pending_cc_id = id_or_reason
+    log.info("app_dtmf", "CC 按键已入队", pending_cc_id)
+else
+    log.warn("app_dtmf", "CC 按键未受理", id_or_reason)
+end
+```
+
+调用参数和结果：
+
+- `sim_id` 当前填 `0`；`digit` 只能是单个 `0–9`、`*`、`#`、大写 `A–D`，不能把 `"123#"`、电话号码或带逗号的后拨串一次传入。
+- `duration_ms` 是整数 `100–1000` 毫秒，省略时为 `300`。持续时间只影响本次发键，不会自动设置多个键之间的间隔。
+- 返回 `true, id` 表示成功加入发送任务；返回 `false, reason` 表示未受理，例如上一键尚在处理。受理后通过 `CC_DTMF_TX(id, ok, code)` 判断 SDK 结果，`ok=true` 时 `code=0`。
+- SDK 确认不保证按键时长已经全部走完，也不保证远端菜单已响应。连续发送需要同时等待确认、单键时长和键间隔；本 demo 已在 `dtmf_bridge.lua` 中处理。
+
+接收事件 `e` 的字段：
+
+| 字段 | 客户如何使用 |
+| --- | --- |
+| `event`、`digit` | `event="dtmf"` 时处理一次新按键；`event="dtmf_end"` 时只处理结束信息，不能再次转发这个键 |
+| `session` | DTMF 接收会话标识，不是 PCM 会话编号 |
+| `pcm_session` | 仅 PCM 模式提供；与当前 `cc.bridgePcmStats().session` 比较，避免处理旧通话事件 |
+| `duration_ms`、`duration_ticks`、`clock_hz`、`complete` | 仅 `dtmf_end` 提供；用于观察按键时长及结束是否完整，普通 `dtmf` 事件没有这些字段 |
+
+不再需要接收时调用 `cc.dtmfRx(false)`；正常挂断无需每通重新开关接收，启用状态会跨通话保留。挂断或媒体中断时，业务应清空 `pending_cc_id` 和待发队列，忽略迟到结果。排查收不到键时，可查看 `cc.dtmfRxStats()` 的 `supported`、`enabled`、`mapped`、`rtp_packets`、`events`、`delivered` 等字段，并结合本次通话的计数变化定位。
+
+### VoIP 侧：发送和接收 RFC2833/RFC4733 按键
+
+VoIP 的 DTMF 基于已建立的 RTP 媒体会话。它不负责 SIP 注册或拨号；先由 SIP 客户端完成 SDP 协商，把 `telephone-event/8000` 参数交给 `voip.start()`。仅注册回调或仅有语音通路，并不代表 DTMF 参数已配置。
+
+| 客户要做的事 | 使用接口 | 接口负责什么 |
+| --- | --- | --- |
+| 启动带 DTMF 的媒体 | `voip.start(options)` | 在已有音频参数中加入协商得到的 DTMF 参数，启用 RTP 按键收发 |
+| 接收按键和发送结果 | `voip.on("dtmf", callback)` | 统一回调 `rx`、`rx_end`、`tx_done`、`tx_failed` |
+| 获取当前媒体会话 | `voip.getSession()` | 媒体运行时返回会话编号，否则返回 `nil`；发键前获取当前值 |
+| 向 SIP/RTP 对端发送一个键 | `voip.sendDtmf(digit, duration_ms, session)` | 按当前会话及协商结果异步发送一个 RFC4733 按键，保持语音运行 |
+
+**先注册回调。** `voip.on("dtmf", ...)` 每种事件只保留一个回调，再次调用会替换原回调。本 demo 已在 `pcm_sip.lua` 注册，应把业务处理合入现有回调或使用其上层 `SIP_DTMF` 事件；下面代码供自行集成 VoIP 的应用使用。
+
+```lua
+local pending_voip
+
+voip.on("dtmf", function(e)
+    if e.session ~= voip.getSession() then return end
+    if e.event == "rx" then
+        log.info("app_dtmf", "VoIP 收到按键", e.digit)
+        -- 在这里处理一次业务输入，或交给已有桥接队列。
+    elseif e.event == "rx_end" then
+        log.info("app_dtmf", "VoIP 按键结束", e.digit, e.duration_ms, e.complete)
+    elseif e.event == "tx_done" or e.event == "tx_failed" then
+        if not pending_voip or e.id ~= pending_voip.id or
+            e.session ~= pending_voip.session then return end
+        pending_voip = nil
+        log.info("app_dtmf", "VoIP 发送结果", e.event, e.id, e.digit)
+    end
+end)
+```
+
+**在已有媒体启动参数中加入协商结果。** 下面的 `options` 是应用原有的 `voip.start()` 参数表，已包含远端 IP/端口、本地 RTP 端口、codec、`ptime=20` 等音频配置；`negotiated` 是本次 SIP/SDP 协商结果。PCM 音频模式也应由原媒体流程准备好。本 demo 的 `pcm_sip.lua` 已完成这些步骤。
+
+```lua
+local function start_voip_with_dtmf(options, negotiated)
+    options.dtmf_rx_payload_type = negotiated.dtmf_rx_payload_type
+    options.dtmf_tx_payload_type = negotiated.dtmf_tx_payload_type
+    options.dtmf_clock_rate = negotiated.dtmf_clock_rate
+    options.dtmf_events = negotiated.dtmf_events
+    return voip.start(options)
+end
+-- 在原媒体启动位置调用 start_voip_with_dtmf(原媒体参数表, 当前协商结果)，
+-- 检查返回值，并等待媒体进入 started、voip.getSession() 返回有效编号。
+```
+
+| DTMF 启动参数 | 含义与要求 |
+| --- | --- |
+| `dtmf_rx_payload_type` | 本端接收的 telephone-event PT，取当前协商结果，范围 `96–127` |
+| `dtmf_tx_payload_type` | 本端发送的 telephone-event PT，取当前协商结果，范围 `96–127`；不应假定必然与接收 PT 相同 |
+| `dtmf_clock_rate` | 当前实现要求 `8000` Hz；即使语音使用 G.722，也不能直接填语音采样率 |
+| `dtmf_events` | 协商允许的事件位掩码，非零整数 `1–65535`；位 0–15 对应 `0–9`、`*`、`#`、`A–D`，全部允许时为 `0xFFFF` |
+
+启用 RFC4733 时必须同时提供有效的收、发 PT、时钟和事件掩码；当前接口不支持只填其中一个 PT。没有协商成功时，不要手工写死 `101` 冒充协商结果。两个 PT 都不配置或都为 `0` 时不启用这条 RTP DTMF 通路。
+
+**通话和媒体就绪后发送一个键。** 以下代码放在已有业务的发键动作中执行，不要刚提交 `voip.start()` 就立即发键；也不要使用上一通保存的会话编号。
+
+```lua
+local session = voip.getSession()
+if not session then
+    log.warn("app_dtmf", "VoIP 媒体尚未运行")
+else
+    local ok, id_or_reason = voip.sendDtmf("2", 300, session)
+    if ok then
+        pending_voip = {id = id_or_reason, session = session}
+        log.info("app_dtmf", "VoIP 按键已受理", id_or_reason)
+    else
+        log.warn("app_dtmf", "VoIP 按键未受理", id_or_reason)
+    end
+end
+```
+
+`digit` 同样只能是单个 `0–9`、`*`、`#`、大写 `A–D`。`duration_ms` 为整数 `100–1000` 毫秒，接口默认 `160`；本 demo 显式使用配置时长，当前为 `300`。第三个参数 `session` 必填。返回 `true, id` 后等待同一 `session`、同一 `id` 的结果；同一时刻只允许一个待完成的 RFC4733 发键请求。
+
+| 回调 `e.event` | 客户如何处理 |
+| --- | --- |
+| `rx` | 收到一个新按键，处理 `e.digit` 一次；此时 `duration_ms=0`，不是“没有收到按键” |
+| `rx_end` | 同一接收键的结束信息，含 `duration_ms`、`complete`；不再触发第二次业务输入 |
+| `tx_done` | 对应请求的本地网络发送完成；远端 IVR 是否响应仍需接收端确认 |
+| `tx_failed` | 对应请求发送失败，停止或按业务策略处理队列，避免盲目重发造成重复键 |
+
+这些 VoIP 回调均带 `digit`、`session`、`id`、`method`、`duration_ms`、`complete`。其中 `rx/rx_end` 的 `id` 标识接收事件，`tx_done/tx_failed` 的 `id` 对应 `voip.sendDtmf()` 返回的请求号，不要混用。
+
+未受理时常见原因：`stale_media_session` 表示媒体已变化或不再运行；`dtmf_not_negotiated` 需检查协商参数、允许事件集及是否只收不发；`invalid_dtmf` 检查单键、时长和会话参数；`dtmf_busy` 表示上一键尚未完成。挂断、`voip.stop()` 或媒体重建后，应用清空 `pending_voip` 和待发队列，再次发键时重新获取会话编号，不要一直等待旧会话的完成通知。
+
+### 把两侧接口用于 SIP/CC 桥接
+
+| 业务需求 | 应用如何组合接口 |
+| --- | --- |
+| 接通后自动选菜单 | 两侧接通且媒体就绪 → 按 IVR 输入窗口延时 → `cc.sendDtmf()` → 等待 `CC_DTMF_TX` |
+| 软电话按键发给手机/运营商 | 收到 VoIP `rx` 或 SIP INFO 按键 → 当前通话的 CC 发送队列 → `cc.sendDtmf()` |
+| 手机输入分机给 SIP/IVR | 收到 `CC_DTMF_RX` 的 `dtmf` → 当前通话的 SIP 发送队列 → `voip.sendDtmf()` 或 SIP INFO |
+
+SIP INFO 是另一种 SIP 发键方式，由 Lua 公共库 `exsipclient.dtmf(digits, duration_ms, interval_ms, call_id, request_id)` 处理，不通过 `voip.sendDtmf()`；INFO 收键也不会进入原生 `voip.on("dtmf")`。本 demo 已在 `pcm_sip.lua`、`sip_main.lua` 将 INFO 与 RFC4733 收键统一为 `SIP_DTMF` 事件，并由 `dtmf_mode` 选择向 SIP 发送的方式，业务可复用这条统一处理链。
+
+连续输入 `123#` 时，按 `1`、`2`、`3`、`#` 逐键排队，不要直接循环无间隔调用底层单键接口，也不要在接收回调中阻塞等待发送结果。本 demo 的队列已经处理单键时长、间隔、请求匹配、超时和挂断取消；修改业务时保持这些处理，再用后面的三种场景进行验收。
+
 ## 转发与生命周期
 
 - 只在两侧接通、媒体就绪且属于当前通话时收取业务按键；早期媒体、振铃和挂断期间不转发。

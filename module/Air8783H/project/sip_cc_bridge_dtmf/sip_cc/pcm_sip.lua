@@ -13,6 +13,7 @@ local g_media
 local g_media_pending
 local g_current_adapter
 local g_ip_event_subscribed = false
+local g_dtmf_request = 0
 local default_config = {
     sip_transport = "tcp", sip_server_port = 5060, rtp_port = 40000,
     expires = 600, codecs = {"PCMU", "PCMA"}, ptime = 20,
@@ -128,6 +129,10 @@ local function start_voip_engine(session)
         jitter_depth = 3, multimedia_id = 0,
         stats_interval = 5000,
         adapter = g_current_adapter, aec = false,
+        dtmf_rx_payload_type = session.dtmf_rx_payload_type,
+        dtmf_tx_payload_type = session.dtmf_tx_payload_type,
+        dtmf_clock_rate = session.dtmf_clock_rate,
+        dtmf_events = session.dtmf_events,
     })
     if ok then
         log_info("PCM media start queued", session.remote_ip, session.remote_port,
@@ -163,7 +168,10 @@ local function same_session(a, b)
     return a and b and a.call_id == b.call_id and a.remote_ip == b.remote_ip and
         a.remote_port == b.remote_port and a.local_rtp_port == b.local_rtp_port and
         a.codec == b.codec and a.ptime == b.ptime and a.remote_direction == b.remote_direction and
-        a.encryption == b.encryption and a.security == b.security
+        a.encryption == b.encryption and a.security == b.security and
+        a.dtmf_rx_payload_type == b.dtmf_rx_payload_type and
+        a.dtmf_tx_payload_type == b.dtmf_tx_payload_type and
+        a.dtmf_clock_rate == b.dtmf_clock_rate and a.dtmf_events == b.dtmf_events
 end
 
 start_pending_media = function()
@@ -275,6 +283,10 @@ local function sip_event_handler(event, action, payload)
             stop_voip_engine(call)
             emit_callback("media", "stop", with_identity(payload, call))
         end
+    elseif event == "dtmf" then
+        if not payload.call_id then return end
+        local call = event_call(payload)
+        if call and not call.terminating then emit_callback("dtmf", action, with_identity(payload, call)) end
     elseif event == "lifecycle" then
         local call = g_call
         if action == "offline" or action == "stopped" then
@@ -327,6 +339,7 @@ local function setup_voip_callbacks()
             if media and media.state == "starting" and media.call == g_call and
                 not media.call.terminating and actual == "running" then
                 media.state = "running"
+                media.native_session = voip.getSession()
                 media_state("started", media.call)
                 emit_callback("media", "ready", with_identity(media.session, media.call))
             end
@@ -346,6 +359,14 @@ local function setup_voip_callbacks()
     voip.on("error", function(err)
         native_media_error("voip_error", err)
         emit_callback("voip", "error", err)
+    end)
+    voip.on("dtmf", function(data)
+        local media = g_media
+        if type(data) ~= "table" or not media or media.state ~= "running" or
+            media.call ~= g_call or g_call.terminating or data.session ~= media.native_session then return end
+        local payload = with_identity(data, g_call)
+        payload.method = "RFC4733"
+        emit_callback("dtmf", data.event, payload)
     end)
     voip.on("stats", function(stats)
         log_info("RTP stats", "tx_packets", stats.tx_packets, "rx_packets", stats.rx_packets,
@@ -397,6 +418,13 @@ function pcm_sip.init(config)
         return false, "sip_credentials_required"
     end
     if config.ptime ~= nil and config.ptime ~= 20 then return false, "bridge_requires_20ms" end
+    if not voip or type(voip.sendDtmf) ~= "function" or type(voip.getSession) ~= "function" then
+        return false, "firmware_missing_voip_dtmf"
+    end
+    local dtmf_mode = config.dtmf_mode or "auto"
+    if dtmf_mode ~= "auto" and dtmf_mode ~= "info" and dtmf_mode ~= "rfc4733" then
+        return false, "invalid_dtmf_mode"
+    end
     local codecs = config.codecs or default_config.codecs
     if type(codecs) ~= "table" or #codecs == 0 then return false, "codec_list_required" end
     local normalized_codecs = {}
@@ -477,6 +505,7 @@ function pcm_sip.start()
         call_timeout = g_config.call_timeout,
         debug_sip_response = g_config.debug_sip_response,
         early_media = true,
+        dtmf_rtp = true,
         early_media_response = 183,
         event_callback = sip_event_handler
     })
@@ -563,6 +592,21 @@ end
 
 function pcm_sip.is_media_idle()
     return g_media == nil and g_media_pending == nil and native_state() == "idle"
+end
+
+-- auto 优先使用协商成功的 RTP telephone-event；否则发送 SIP INFO。
+function pcm_sip.send_dtmf(digit, duration_ms, call_id, generation)
+    if not pcm_sip.is_media_ready(call_id, generation) then return false, "media_not_ready" end
+    local mode = g_config.dtmf_mode or "auto"
+    local rtp = g_media.session.dtmf_tx_payload_type ~= nil
+    if mode == "rfc4733" or (mode == "auto" and rtp) then
+        if not rtp then return false, "telephone_event_not_negotiated" end
+        local ok, id = voip.sendDtmf(digit, duration_ms, g_media.native_session)
+        return ok, id, "RFC4733"
+    end
+    g_dtmf_request = g_dtmf_request + 1
+    sipclient.dtmf(digit, duration_ms, 100, call_id, g_dtmf_request)
+    return true, g_dtmf_request, "INFO"
 end
 
 function pcm_sip.on(callback)

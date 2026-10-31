@@ -24,7 +24,7 @@ SoC 的 `luat_conf_bsp.h` 在最终配置阶段清除范围外的两个开关。
 
 ## 接收路径
 
-接收有两个独立入口，共用 SIP/SDP 和 RFC4733 解析器：`LUAT_USE_CC_UART_BRIDGE` 用于原双板分机业务的 A 侧；`LUAT_USE_CC_DTMF_RX` 用于普通 codec 单模组通话。普通模式保留 ES8311 麦克风和扬声器通路，不初始化 UART 桥接、媒体上传或存储组件。两种入口不能同时占用同一个接收器。
+接收有两个独立入口，共用 SIP/SDP 和 RFC4733 解析器：`LUAT_USE_CC_UART_BRIDGE` 用于原双板分机业务的 A 侧；`LUAT_USE_CC_DTMF_RX` 用于普通 codec 或 SIP PCM 桥接通话。普通模式保留 ES8311 麦克风和扬声器通路，不初始化 UART 桥接、媒体上传或存储组件。两种入口不能同时占用同一个接收器。
 
 主要源码：
 
@@ -80,6 +80,24 @@ assert(cc.init(0))
 `CC_DTMF_RX` 的参数是一个 table，包含 `event`、`digit`、`session`；`dtmf_end` 另含 `duration_ticks`、`duration_ms`、`clock_hz`、`complete`，精度规则与桥接接口相同。`cc.dtmfRxStats()` 提供协商及接收计数，不包含手机号、地址或 SIP 文本。新固件使用 `cc.DTMF_RX_VERSION == 1` 标示该接口。
 
 普通模式支持手机呼入，以及在 `cc.dial` 前预留会话后绑定本地主动发出的初始 INVITE；两方向都校验 Call-ID、标签、信令 socket 和协商媒体端点。示例为 `module/Air8000/demo/cc_dtmf_duplex/`。普通 codec 收发组合及新增呼出接收路径仍需配套新固件真机验收，不能沿用原双模组实测结论。
+
+### SIP PCM 桥接接收
+
+配套新固件提供 `cc.DTMF_RX_PCM_VERSION == 1`。在
+`cc.init(0, cc.AUDIO_MODE_BRIDGE_PCM)` 后、CC READY 且尚未拨号或接听时调用
+`cc.dtmfRx(true)`，继续订阅相同的 `CC_DTMF_RX`。PCM 事件额外包含
+`pcm_session`，对应 `cc.bridgePcmStats().session`；原 `session` 是独立接收代次，
+两者不能混用。逐位转发用 `event == "dtmf"`，不要再把 `dtmf_end` 作为第二次按键转发。
+
+接收器在 `cc.dial/cc.accept` 调用 SDK 前绑定会话。CC 真正接通、PCM 媒体就绪且
+上传 SDK epoch 匹配后才允许交付；不要求 SIP 已建立，因此应用也可自行实现分机收集。
+PCM 媒体暂停、阶段变化、失败和停止会关闭门禁并丢弃旧队列；Lua 回调执行前再次检查
+原生会话和媒体阶段，避免把旧按键发进下一通。应用仍应检查当前桥接是否接通以及
+`pcm_session` 是否匹配，再向当前 SIP 对话发送按键。
+
+此模式沿用明文 IMS SIP/SDP 与 RTP telephone-event 网络观察器，不做 PCM 音调识别；
+不支持的协商或不可观察的加密信令不能凭桥接有声音就认定按键可收。
+本次扩展需配套 `luatos-soc-2024` 的 PCM 状态快照实现，真机双向按键仍须验收。
 
 ## 发送路径与接口
 

@@ -18,6 +18,10 @@ int luat_cc_pcm_stop(void);
 int luat_cc_pcm_tone(int on);
 uint32_t luat_cc_pcm_rate(void);
 uint32_t luat_cc_pcm_session(void);
+#ifdef LUAT_USE_CC_DTMF_RX
+/* IRQ-only snapshot: -1 stopped/faulted, 0 waiting, 1 connected media ready. */
+int luat_cc_pcm_dtmf_state(uint32_t *session, uint32_t *phase);
+#endif
 /* 查询当前或最近已停止的 SIP generation；存在匹配快照时返回 0。 */
 int luat_cc_pcm_get_rx_lost(uint32_t sip_generation, uint32_t *lost);
 #ifdef LUAT_USE_VOIP_PLAY

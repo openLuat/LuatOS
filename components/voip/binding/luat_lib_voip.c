@@ -431,6 +431,9 @@ voip.start({
     aec_agc = false,
     aec_delay_samples = 160,
     aec_tail = 120,
+    -- 可选：必须使用SDP协商结果；不填时禁用RTP DTMF。
+    -- dtmf_rx_payload_type = 101, dtmf_tx_payload_type = 101,
+    -- dtmf_clock_rate = 8000, dtmf_events = 65535,
 })
 @usage
 -- TCP 承载（RTP over TCP，RFC 4571 定界）。tcp_passive 时本端监听、remote_* 不填：
@@ -573,6 +576,28 @@ static int l_voip_start(lua_State *L)
     cfg.tx_mute = lua_toboolean(L, -1) ? 1 : 0;
     lua_pop(L, 1);
 
+    /* Negotiated RFC4733 fields are checked before narrowing to integer widths. */
+    const char *dtmf_keys[] = {"dtmf_rx_payload_type", "dtmf_tx_payload_type",
+        "dtmf_clock_rate", "dtmf_events"};
+    uint32_t dtmf_values[4] = {0, 0, 8000, 65535};
+    for (unsigned i = 0; i < 4; i++) {
+        lua_getfield(L, 1, dtmf_keys[i]);
+        if (!lua_isnil(L, -1)) {
+            int valid;
+            lua_Integer value = lua_tointegerx(L, -1, &valid);
+            if (!valid || value < 0 || value > (i < 2 ? 127 : i == 2 ? 8000 : 65535)) {
+                lua_pop(L, 1); lua_pushboolean(L, 0);
+                lua_pushliteral(L, "invalid_dtmf_negotiation"); return 2;
+            }
+            dtmf_values[i] = (uint32_t)value;
+        }
+        lua_pop(L, 1);
+    }
+    cfg.dtmf_rx_payload_type = (uint8_t)dtmf_values[0];
+    cfg.dtmf_tx_payload_type = (uint8_t)dtmf_values[1];
+    cfg.dtmf_clock_rate = dtmf_values[2];
+    cfg.dtmf_events = (uint16_t)dtmf_values[3];
+
     /* aec_tail */
     lua_getfield(L, 1, "aec_tail");
     cfg.aec_tail_ms = (uint16_t)luaL_optinteger(L, -1, 120);
@@ -627,6 +652,51 @@ static int l_voip_start(lua_State *L)
 }
 
 /*
+获取当前运行媒体的会话编号，用于防止旧按键进入下一通电话。
+@api voip.getSession()
+@return int/nil 运行中的媒体会话，否则nil
+*/
+static int l_voip_get_session(lua_State *L)
+{
+    uint32_t session = voip_get_session();
+    if (session) lua_pushinteger(L, session); else lua_pushnil(L);
+    return 1;
+}
+
+/*
+异步发送一个已协商的RFC4733网络按键，保持音频运行。
+@api voip.sendDtmf(digit, duration_ms, expected_session)
+@string digit 单个0-9、*、#、A-D
+@int duration_ms 100-1000毫秒，默认160
+@int expected_session voip.getSession()返回的当前媒体会话
+@return boolean 是否受理
+@return int/string 成功为请求编号，失败为原因
+@usage
+-- voip.on("dtmf", function(e) ... end) 接收事件表：
+-- event=rx/rx_end/tx_done/tx_failed，digit、session、id、duration_ms、complete。
+-- rx每键只产生一次；rx_end包含结束包持续时间，不应再次转发同一按键。
+-- tx_done只表示本地网络发送完成，不代表远端IVR已处理。
+local ok, id = voip.sendDtmf("2", 160, voip.getSession())
+*/
+static int l_voip_send_dtmf(lua_State *L)
+{
+    size_t length;
+    const char *digit = luaL_checklstring(L, 1, &length);
+    lua_Integer duration = luaL_optinteger(L, 2, 160);
+    lua_Integer session = luaL_checkinteger(L, 3);
+    uint32_t id;
+    int ret;
+    const char *errors[] = {"ok", "stale_media_session", "dtmf_not_negotiated",
+        "invalid_dtmf", "dtmf_busy", "dtmf_queue_failed"};
+    if (length != 1 || duration < 100 || duration > 1000 ||
+        session <= 0 || (uint64_t)session > UINT32_MAX) ret = -3;
+    else ret = voip_send_dtmf(digit[0], (uint16_t)duration, (uint32_t)session, &id);
+    lua_pushboolean(L, ret == 0);
+    if (ret == 0) lua_pushinteger(L, id); else lua_pushstring(L, errors[-ret]);
+    return 2;
+}
+
+/*
 停止voip语音通话
 @api voip.stop()
 @return boolean 成功返回 true
@@ -644,7 +714,7 @@ static int l_voip_stop(lua_State *L)
 /*
 注册voip回调函数
 @api voip.on(event, callback)
-@string event 事件名: "state", "stats", "error", "record", "play"；play回调为(event, info)，事件为started/done/stopped/error
+@string event 事件名: "state", "stats", "error", "record", "play", "dtmf"；play回调为(event, info)，事件为started/done/stopped/error
 @function callback 回调函数
 @return nil
 @usage
@@ -674,6 +744,8 @@ static int l_voip_on(lua_State *L)
         ref_ptr = &ctx->cb_state_ref;
     } else if (strcmp(event, "stats") == 0) {
         ref_ptr = &ctx->cb_stats_ref;
+    } else if (strcmp(event, "dtmf") == 0) {
+        ref_ptr = &ctx->cb_dtmf_ref;
     } else if (strcmp(event, "error") == 0) {
         ref_ptr = &ctx->cb_error_ref;
 #ifdef LUAT_USE_VOIP_PLAY
@@ -1021,6 +1093,9 @@ static const rotable_Reg_t reg_voip[] =
     { "stats",      ROREG_FUNC(l_voip_stats)},
     { "isRunning",  ROREG_FUNC(l_voip_is_running)},
     { "getState",   ROREG_FUNC(l_voip_get_state)},
+    { "getSession", ROREG_FUNC(l_voip_get_session)},
+    { "sendDtmf", ROREG_FUNC(l_voip_send_dtmf)},
+    { "DTMF_VERSION", ROREG_INT(1)},
 #ifdef LUAT_USE_SRTP
     { "securityIdentity", ROREG_FUNC(l_voip_security_identity)},
     { "securityCreate", ROREG_FUNC(l_voip_security_create)},

@@ -13,7 +13,7 @@ local cc_main = require "cc_main"
 local pcm_sip = require "pcm_sip"
 local bridge = {}
 
--- 本 demo 只自动发送数字 2，不接收/转发软电话的按键。
+-- 自动发键验收可单独开启；日常桥接通过 dtmf_bridge 转发实时按键。
 local DTMF_DIGIT = "2"
 local DTMF_DELAY_MS = config.dtmf_delay_ms or 2000
 local DTMF_DURATION_MS = config.dtmf_duration_ms or 300
@@ -44,7 +44,7 @@ end
 
 -- 事件用于确认接通；发键前再查当前会话及原生媒体，避免使用过期的就绪状态。
 local function dtmf_media_ready(call)
-    if current ~= call or call.ending or call.direction ~= "outgoing" or
+    if current ~= call or call.ending or
         call.sip_state ~= "sip_connected" or call.cc_state ~= "cc_connected" or
         not cc_main.is_media_ready(call.pcm_session) or
         not pcm_sip.is_media_ready(call.call_id, call.sip_generation) then return false end
@@ -52,6 +52,8 @@ local function dtmf_media_ready(call)
     return stats and stats.selected == true and stats.session == call.pcm_session and
         stats.active == 1 and stats.media_ready == 1 and stats.fault == 0 and stats.sdk_fault == 0
 end
+
+local dtmf_relay = require("dtmf_bridge").new(function() return current end, dtmf_media_ready)
 
 local function cancel_auto_dtmf(call, reason)
     if call.dtmf_state ~= "waiting" and call.dtmf_state ~= "pending" then return end
@@ -87,7 +89,7 @@ local function poll_auto_dtmf(call, now)
 end
 
 local function schedule_auto_dtmf(call)
-    if call.direction ~= "outgoing" or call.dtmf_state or
+    if config.auto_dtmf ~= true or call.direction ~= "outgoing" or call.dtmf_state or
         call.sip_state ~= "sip_connected" or call.cc_state ~= "cc_connected" then return end
     call.dtmf_state, call.dtmf_due = "waiting", now_ms() + DTMF_DELAY_MS
     log.info("bridge_dtmf", "AUTO_DTMF_WAIT", "owner", call.owner, "digit", DTMF_DIGIT,
@@ -102,7 +104,7 @@ sys.subscribe("CC_DTMF_TX", function(id, ok, code)
     call.dtmf_state = ok and "sdk_accepted" or "failed"
     if ok then
         log.info("bridge_dtmf", "DTMF_SDK_ACCEPTED", "owner", call.owner, "digit", DTMF_DIGIT,
-            "request", id, "code", code, "仅 SDK 确认，请在软电话收听菜单是否切换")
+            "request", id, "code", code, "已发送完成，请在SIP软电话收听菜单是否真实切换")
     else
         log.error("bridge_dtmf", "DTMF_SDK_REJECTED", "owner", call.owner, "request", id, "code", code)
     end
@@ -183,6 +185,7 @@ end
 local function begin_cleanup(call)
     if call.ending then return end
     call.ending = true
+    dtmf_relay.cancel(call, "call_ended")
     cancel_auto_dtmf(call, "call_ended")
     if current == call then current = nil end
     if pending == call then pending = nil end
@@ -260,6 +263,11 @@ local function start_pending(call)
             sip_request("SIP_PROGRESS_REQ", call)
         end
     elseif config.auto_handle_mobile_incoming then
+        if type(config.remote_sip_uri) ~= "string" or config.remote_sip_uri == "" then
+            log.error("bridge", "请配置 remote_sip_uri 为 SIP/IVR 目标")
+            begin_cleanup(call)
+            return
+        end
         call.sip_done = false
         call.sip_state = "sip_dialing"
         logi("呼入场景：拨打 SIP", call.owner)
@@ -510,8 +518,24 @@ sys.subscribe("SIP_PROGRESSING", on_sip_progressing)
 sys.subscribe("SIP_CONNECTED", on_sip_connected)
 sys.subscribe("SIP_DISCONNECTED", on_sip_ended)
 sys.subscribe("SIP_FAILED", on_sip_ended)
+sys.subscribe("SIP_DTMF", function(action, data)
+    local call = find_sip(data.call_id, data.sip_generation, data.owner_token)
+    if not call or call ~= current or call.ending then return end
+    if action == "rx" then
+        dtmf_relay.enqueue(call, "SIP_TO_CC", data.digit, data.duration or data.duration_ms)
+    else
+        dtmf_relay.sip_result(call, action, data)
+    end
+end)
+sys.subscribe("CC_DTMF_RX", function(data)
+    local call = current
+    if type(data) ~= "table" or not call or call.ending or data.event ~= "dtmf" or
+        data.pcm_session == nil or data.pcm_session ~= call.pcm_session then return end
+    dtmf_relay.enqueue(call, "CC_TO_SIP", data.digit)
+end)
 sys.subscribe("SIP_MEDIA_STATE", function(state, call_id, generation, owner)
     local call = find_sip(call_id, generation, owner)
+    if call and state ~= "started" then dtmf_relay.cancel(call, "sip_media_" .. tostring(state)) end
     if call and call == current and call.dtmf_state == "waiting" and state ~= "started" then
         cancel_auto_dtmf(call, "sip_media_" .. tostring(state))
     end
@@ -519,6 +543,7 @@ sys.subscribe("SIP_MEDIA_STATE", function(state, call_id, generation, owner)
 end)
 sys.subscribe("CC_MEDIA_STOP", function(generation, owner, session)
     local call = find_cc(generation, owner)
+    if call and call.pcm_session == session then dtmf_relay.cancel(call, "cc_media_stopped") end
     if call and call == current and call.pcm_session == session and call.dtmf_state == "waiting" then
         cancel_auto_dtmf(call, "cc_media_stopped")
     end
@@ -550,5 +575,5 @@ function bridge.get_state()
     }
 end
 
-logi("SIP/CC 自动 DTMF 测试已加载", "target", config.target_phone_number, "digit", DTMF_DIGIT)
+logi("SIP/CC 双向 DTMF 桥接已加载", "target", config.target_phone_number, "auto_dtmf", config.auto_dtmf == true)
 return bridge

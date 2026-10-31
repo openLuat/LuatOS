@@ -18,6 +18,7 @@
 #include "luat_base.h"
 #include "luat_rtos.h"
 #include "luat_voip_jitterbuf.h"
+#include "luat_voip_dtmf.h"
 #include "luat_voip_tcp_framer.h"
 #include "luat_audio_data_codec.h"
 #ifdef LUAT_USE_VOIP_BRIDGE
@@ -95,6 +96,10 @@ typedef struct {
        GB28181 的"喊话/广播"是平台→设备单向，设备不应回传麦克风；
        SDP 里对端也常声明 a=sendonly。 */
     uint8_t  tx_mute;
+    uint8_t dtmf_rx_payload_type; /* 0 disables; negotiated dynamic PT 96..127. */
+    uint8_t dtmf_tx_payload_type;
+    uint32_t dtmf_clock_rate; /* Currently 8000 Hz. */
+    uint16_t dtmf_events; /* Negotiated event bit mask, 0..15. */
     uint16_t aec_tail_ms;
     uint16_t aec_delay_samples;
 #ifdef LUAT_USE_SRTP
@@ -168,6 +173,8 @@ enum {
     VOIP_EVENT_RX_DATA,     /* UDP 收到数据 */
     VOIP_EVENT_MIC_DATA,    /* I2S 采集到数据 */
     VOIP_EVENT_SPK_DONE,    /* DAC 播放完成一帧 */
+    VOIP_EVENT_DTMF_SEND,
+    VOIP_EVENT_DTMF_TICK,
     VOIP_EVENT_STATS_TICK,  /* 统计输出定时器 */
 #ifdef LUAT_USE_VOIP_PLAY
     VOIP_EVENT_PLAY_STATE, /* Producer readiness or cancellation changed. */
@@ -258,6 +265,13 @@ typedef struct {
     /* RTOS */
     luat_rtos_task_handle task_handle;
     luat_rtos_timer_t stats_timer;
+    luat_rtos_timer_t dtmf_timer;
+    volatile uint32_t dtmf_busy_session;
+    volatile uint32_t dtmf_next_id;
+    volatile uint32_t dtmf_wake;
+    uint32_t dtmf_request_id;
+    voip_dtmf_rx_t dtmf_rx;
+    voip_dtmf_tx_t dtmf_tx;
 #ifdef LUAT_USE_VOIP_PLAY
     luat_rtos_timer_t play_tx_timer;
     volatile uint32_t play_tx_id;
@@ -394,6 +408,7 @@ typedef struct {
     /* Lua 回调引用 */
     int cb_state_ref;   /* 状态回调在 LUA_REGISTRYINDEX 中的引用 */
     int cb_stats_ref;   /* 统计回调在 LUA_REGISTRYINDEX 中的引用 */
+    int cb_dtmf_ref;
     int cb_error_ref;   /* 错误回调在 LUA_REGISTRYINDEX 中的引用 */
 #ifdef LUAT_USE_VOIP_RECORD
     int cb_record_ref;  /* 录音回调在 LUA_REGISTRYINDEX 中的引用 */
@@ -429,6 +444,12 @@ int voip_start(const voip_config_t *config);
  * @return 0 成功
  */
 int voip_stop(void);
+/** Running media epoch; zero while stopped or stopping. */
+uint32_t voip_get_session(void);
+/** Queue one negotiated RTP event in the expected media epoch. Returns 0
+ * or -1 stale/stopped, -2 not negotiated, -3 invalid, -4 busy, -5 queue failure. */
+int voip_send_dtmf(char digit, uint16_t duration_ms, uint32_t expected_session,
+                   uint32_t *request_id);
 
 /**
  * 获取当前状态

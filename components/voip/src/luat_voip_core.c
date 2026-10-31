@@ -153,6 +153,117 @@ static void voip_record_notify(voip_record_event_t event)
 }
 #endif
 
+/* DTMF callbacks carry an immutable media epoch, independent of the legacy
+ * state callback ABI. Free snapshots before invoking application Lua. */
+typedef struct {
+    uint32_t session, id;
+    uint64_t duration_ms;
+    uint8_t event, complete;
+    char digit;
+} voip_dtmf_notice_t;
+
+static int voip_dtmf_lua_handler(lua_State *L, void *unused)
+{
+    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    voip_dtmf_notice_t value = *(voip_dtmf_notice_t *)msg->ptr;
+    const char *names[] = {"rx", "rx_end", "tx_done", "tx_failed"};
+    voip_ctx_t *ctx = &g_voip_ctx;
+    (void)unused;
+    luat_heap_free(msg->ptr);
+    lua_pop(L, 1);
+    if (value.session != voip_get_session() || !ctx->cb_dtmf_ref) return 0;
+    lua_rawgeti(L, LUA_REGISTRYINDEX, ctx->cb_dtmf_ref);
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return 0; }
+    lua_newtable(L);
+    lua_pushstring(L, names[value.event]); lua_setfield(L, -2, "event");
+    lua_pushliteral(L, "rfc4733"); lua_setfield(L, -2, "method");
+    lua_pushlstring(L, &value.digit, 1); lua_setfield(L, -2, "digit");
+    lua_pushinteger(L, value.session); lua_setfield(L, -2, "session");
+    lua_pushinteger(L, value.id); lua_setfield(L, -2, "id");
+    lua_pushinteger(L, (lua_Integer)value.duration_ms); lua_setfield(L, -2, "duration_ms");
+    lua_pushboolean(L, value.complete); lua_setfield(L, -2, "complete");
+    lua_call(L, 1, 0);
+    return 0;
+}
+
+static void voip_dtmf_notify(voip_ctx_t *ctx, uint8_t event, char digit,
+                             uint64_t duration_ms, int complete, uint32_t id)
+{
+    rtos_msg_t msg = {0};
+    voip_dtmf_notice_t *value = luat_heap_malloc(sizeof(*value));
+    if (!value) { voip_event_count_failure(&ctx->event_send_failures); return; }
+    memset(value, 0, sizeof(*value));
+    value->session = ctx->audio_session;
+    value->event = event; value->digit = digit; value->duration_ms = duration_ms;
+    value->complete = complete != 0; value->id = id;
+    msg.handler = voip_dtmf_lua_handler; msg.ptr = value;
+    if (luat_msgbus_put(&msg, 0)) {
+        luat_heap_free(value);
+        voip_event_count_failure(&ctx->event_send_failures);
+    }
+}
+
+static LUAT_RT_RET_TYPE voip_dtmf_timer_cb(LUAT_RT_CB_PARAM)
+{
+    uint32_t session = (uint32_t)(uintptr_t)param;
+    voip_ctx_t *ctx = &g_voip_ctx;
+    if (session != voip_get_session() ||
+        voip_event_load(&ctx->dtmf_busy_session) != session) return;
+    if (voip_event_claim(&ctx->dtmf_wake, session) &&
+        luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_DTMF_TICK, 0, 0, session, 0)) {
+        voip_event_send_failed(&ctx->dtmf_wake, session);
+        voip_event_count_failure(&ctx->event_send_failures);
+    }
+}
+
+static void voip_dtmf_finish(voip_ctx_t *ctx, int ok)
+{
+    static const char digits[] = "0123456789*#ABCD";
+    if (ctx->dtmf_timer) luat_rtos_timer_stop(ctx->dtmf_timer);
+    voip_dtmf_notify(ctx, ok ? 2 : 3, digits[ctx->dtmf_tx.event],
+        ctx->dtmf_tx.duration_ms, ok, ctx->dtmf_request_id);
+    ctx->dtmf_request_id = 0;
+    voip_event_cas(&ctx->dtmf_busy_session, ctx->audio_session, 0);
+}
+
+/* The media worker is the sole owner of RTP sequence numbers and socket TX.
+ * Audio remains running. An event has a fixed timestamp and three E packets. */
+static void voip_dtmf_poll(voip_ctx_t *ctx)
+{
+    uint8_t packet[128];
+    uint8_t *rtp = packet + 2;
+    size_t length = 16;
+    uint32_t sent = 0;
+    int result, ret;
+    if (!ctx->dtmf_request_id || ctx->stop_requested || ctx->state != VOIP_STATE_RUNNING) return;
+    result = voip_dtmf_tx_packet(&ctx->dtmf_tx, ctx->config.dtmf_tx_payload_type,
+        ctx->rtp_tx.seq, ctx->rtp_tx.ssrc, luat_mcu_tick64_ms(), rtp);
+    if (!result) return;
+    ctx->rtp_tx.seq++;
+#ifdef LUAT_USE_SRTP
+    if (ctx->config.security && luat_voip_security_protect(ctx->config.security,
+        rtp, &length, sizeof(packet) - 2) < 0) {
+        voip_stats_add(&ctx->stats.tx_errors, 1);
+        voip_dtmf_finish(ctx, 0);
+        return;
+    }
+#endif
+    if (ctx->config.transport != VOIP_TRANSPORT_UDP) {
+        voip_tcp_prefix_write(packet, (uint16_t)length);
+        rtp = packet; length += 2;
+    }
+    ret = network_tx((network_ctrl_t *)ctx->netc, rtp, (uint32_t)length,
+        0, NULL, 0, &sent, 0);
+    if (ret < 0 || sent != length) {
+        voip_stats_add(&ctx->stats.tx_errors, 1);
+        voip_dtmf_finish(ctx, 0);
+        return;
+    }
+    voip_stats_add(&ctx->stats.tx_packets, 1);
+    voip_stats_add(&ctx->stats.tx_bytes, (uint32_t)length);
+    if (result == 2) voip_dtmf_finish(ctx, 1);
+}
+
 /* ======================== 定时器回调 ======================== */
 
 static LUAT_RT_RET_TYPE voip_stats_timer_cb(LUAT_RT_CB_PARAM)
@@ -968,7 +1079,15 @@ static int voip_g729_rx_prepare(voip_ctx_t *ctx, const voip_rtp_parsed_t *parsed
     if (ctx->bridge_rx_ssrc != parsed->ssrc) return voip_g729_rx_restart(ctx, parsed->ssrc);
     if (!ctx->stats.last_rx_seq_valid) return 1;
 
-    uint16_t distance = (uint16_t)(parsed->sequence - ctx->stats.last_rx_seq);
+    uint16_t audio_sequence = parsed->sequence;
+    if (ctx->config.dtmf_rx_payload_type && ctx->rx_ts_base_valid &&
+        ctx->rx_ts_ssrc == parsed->ssrc) {
+        /* Telephone events consume RTP sequence numbers without adding audio
+         * frames. Compare the same timestamp-derived sequence delivered below. */
+        audio_sequence = (uint16_t)(ctx->rx_ts_base_seq +
+            (uint32_t)(parsed->timestamp - ctx->rx_ts_base) / ctx->frame_samples);
+    }
+    uint16_t distance = (uint16_t)(audio_sequence - ctx->stats.last_rx_seq);
     if (!distance || distance >= 0x8000U) {
         voip_stats_add(&ctx->stats.rx_out_of_order, 1);
         voip_stats_add(&ctx->stats.rx_decode_dropped, 1);
@@ -1044,6 +1163,17 @@ static void voip_handle_rtp(voip_ctx_t *ctx, const uint8_t *pkt, uint16_t len)
     if (ret < 0) {
         ctx->stats.rx_parse_fail++;
         LLOGE("rtp parse failed: %d", ret);
+        return;
+    }
+
+    if (ctx->config.dtmf_rx_payload_type &&
+        parsed.payload_type == ctx->config.dtmf_rx_payload_type) {
+        voip_dtmf_end_t end;
+        char digit = voip_dtmf_rx_feed(&ctx->dtmf_rx, pkt, len);
+        if (digit) voip_dtmf_notify(ctx, 0, digit, 0, 0, ctx->dtmf_rx.event_serial);
+        if (voip_dtmf_rx_take_end(&ctx->dtmf_rx, &end))
+            voip_dtmf_notify(ctx, 1, end.digit, end.duration_ms, end.complete,
+                ctx->dtmf_rx.event_serial);
         return;
     }
 
@@ -1168,6 +1298,24 @@ static void voip_tcp_on_frame(void *user, const uint8_t *data, uint16_t len)
     voip_handle_rtp(ctx, data, len);
 }
 
+/* Network adapters need not filter incoming UDP by the connected peer.
+ * Only the negotiated media endpoint may supply actionable event packets. */
+static int voip_dtmf_peer_matches(network_ctrl_t *netc, luat_ip_addr_t *ip, uint16_t port)
+{
+    if (port != netc->remote_port) return 0;
+#ifdef LUAT_USE_LWIP
+#if LWIP_IPV6 && !defined(ENABLE_PSIF)
+    return ip_addr_cmp_zoneless(ip, &netc->remote_ip);
+#else
+    return ip_addr_cmp(ip, &netc->remote_ip);
+#endif
+#else
+    if (ip->is_ipv6 != netc->remote_ip.is_ipv6) return 0;
+    return ip->is_ipv6 ? !memcmp(ip->ipv6_u8_addr, netc->remote_ip.ipv6_u8_addr, 16) :
+        ip->ipv4 == netc->remote_ip.ipv4;
+#endif
+}
+
 static int voip_do_rx(voip_ctx_t *ctx)
 {
     if (!ctx->netc) return 0;
@@ -1226,6 +1374,9 @@ static int voip_do_rx(voip_ctx_t *ctx)
         }
 #endif
 
+        if (rd >= 2 && ctx->config.dtmf_rx_payload_type &&
+            (ctx->udp_rx_buf[1] & 127U) == ctx->config.dtmf_rx_payload_type &&
+            !voip_dtmf_peer_matches(netc, &remote_ip, remote_port)) continue;
         voip_handle_rtp(ctx, ctx->udp_rx_buf, (uint16_t)rd);
     }
     return processed == batch_limit && !ctx->stop_requested;
@@ -1519,6 +1670,10 @@ static void voip_free_buffers(voip_ctx_t *ctx)
 }
 static void voip_cleanup(voip_ctx_t *ctx)
 {
+    if (ctx->dtmf_timer) luat_rtos_timer_stop(ctx->dtmf_timer);
+    ctx->dtmf_request_id = 0;
+    voip_event_cas(&ctx->dtmf_busy_session, ctx->audio_session, 0);
+    voip_dtmf_rx_reset(&ctx->dtmf_rx);
 #ifdef LUAT_USE_VOIP_BRIDGE
     voip_event_cas(&ctx->bridge_speech_muted, voip_event_load(&ctx->bridge_speech_muted), 0);
 #endif
@@ -1577,6 +1732,10 @@ static void voip_cleanup(voip_ctx_t *ctx)
 
 static void voip_reset_session_state(voip_ctx_t *ctx)
 {
+    voip_dtmf_rx_init(&ctx->dtmf_rx, ctx->config.dtmf_rx_payload_type,
+        ctx->config.dtmf_clock_rate, ctx->config.dtmf_events);
+    ctx->dtmf_request_id = 0;
+    voip_event_reset(&ctx->dtmf_wake, ctx->audio_session);
 #ifdef LUAT_USE_VOIP_BRIDGE
     voip_event_cas(&ctx->bridge_speech_muted, voip_event_load(&ctx->bridge_speech_muted), 0);
 #ifdef _MSC_VER
@@ -2023,6 +2182,23 @@ static void voip_task_entry(void *param)
 #endif
         if (event.id != VOIP_EVENT_MIC_DATA && event.param3 != ctx->audio_session) continue;
         switch (event.id) {
+        case VOIP_EVENT_DTMF_SEND:
+            if (ctx->state != VOIP_STATE_RUNNING ||
+                voip_event_load(&ctx->dtmf_busy_session) != ctx->audio_session) break;
+            ctx->dtmf_request_id = event.param2;
+            voip_dtmf_tx_init(&ctx->dtmf_tx, (char)(event.param1 & 255U),
+                (uint16_t)(event.param1 >> 8), ctx->rtp_tx.timestamp, luat_mcu_tick64_ms());
+            if ((!ctx->dtmf_timer && luat_rtos_timer_create(&ctx->dtmf_timer)) ||
+                luat_rtos_timer_start(ctx->dtmf_timer, 20, 1, voip_dtmf_timer_cb,
+                    (void *)(uintptr_t)ctx->audio_session)) {
+                voip_dtmf_finish(ctx, 0);
+            } else voip_dtmf_poll(ctx);
+            break;
+        case VOIP_EVENT_DTMF_TICK:
+            /* Coalesce timer wakes; the absolute TX deadline prevents bursts. */
+            voip_event_reset(&ctx->dtmf_wake, ctx->audio_session);
+            voip_dtmf_poll(ctx);
+            break;
 #ifdef LUAT_USE_VOIP_PLAY
         case VOIP_EVENT_PLAY_STATE:
             break;
@@ -2288,6 +2464,10 @@ int voip_start(const voip_config_t *config)
     if (!config) {
         return -3;
     }
+    if ((config->dtmf_rx_payload_type || config->dtmf_tx_payload_type) &&
+        (config->dtmf_rx_payload_type < 96 || config->dtmf_rx_payload_type > 127 ||
+         config->dtmf_tx_payload_type < 96 || config->dtmf_tx_payload_type > 127 ||
+         config->dtmf_clock_rate != 8000 || !config->dtmf_events)) return -3;
     if (config->transport > VOIP_TRANSPORT_TCP_PASSIVE) {
         LLOGE("unknown transport: %u", config->transport);
         return -3;
@@ -2339,6 +2519,42 @@ int voip_start(const voip_config_t *config)
         return -2;
     }
 
+    return 0;
+}
+
+uint32_t voip_get_session(void)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    uint32_t session = voip_event_load(&ctx->audio_session);
+    return ctx->state == VOIP_STATE_RUNNING && !ctx->stop_requested &&
+        session == voip_event_load(&ctx->audio_session) ? session : 0;
+}
+
+int voip_send_dtmf(char digit, uint16_t duration_ms, uint32_t expected_session,
+                   uint32_t *request_id)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    uint32_t previous, id;
+    int event = voip_dtmf_digit_event(digit);
+    if (event < 0 || duration_ms < 100 || duration_ms > 1000 || !request_id) return -3;
+    if (!expected_session || expected_session != voip_get_session()) return -1;
+    if (!ctx->config.dtmf_tx_payload_type || ctx->config.tx_mute ||
+        !(ctx->config.dtmf_events & (1U << event))) return -2;
+    if (voip_event_cas(&ctx->dtmf_busy_session, 0, expected_session)) return -4;
+    if (expected_session != voip_get_session()) {
+        voip_event_cas(&ctx->dtmf_busy_session, expected_session, 0);
+        return -1;
+    }
+    do {
+        previous = voip_event_load(&ctx->dtmf_next_id);
+        id = (previous % 0x7fffffffU) + 1;
+    } while (voip_event_cas(&ctx->dtmf_next_id, previous, id) != previous);
+    if (luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_DTMF_SEND,
+        (uint32_t)(uint8_t)digit | ((uint32_t)duration_ms << 8), id, expected_session, 0)) {
+        voip_event_cas(&ctx->dtmf_busy_session, expected_session, 0);
+        return -5;
+    }
+    *request_id = id;
     return 0;
 }
 

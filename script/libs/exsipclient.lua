@@ -418,6 +418,8 @@ local function build_dialog_sdp(state, dialog)
             local_rtp_port = dialog.local_rtp_port,
             codecs = state.media.codecs,
             ptime = state.media.ptime,
+            dtmf = state.media.dtmf,
+            remote_sdp = dialog.remote_sdp,
             sdp_version = dialog.sdp_version or 0,
             security_info = dialog.security_info
         }
@@ -778,6 +780,7 @@ local function sip_task(opts)
             local_rtp_port = tonumber(opts.rtp_port) or 40000,
             codecs = normalize_codec_list(opts.codecs or {"PCMU", "PCMA"}),
             ptime = tonumber(opts.ptime) or 20,
+            dtmf = opts.dtmf_rtp == true,
             active = false,
             session = nil
         },
@@ -856,6 +859,9 @@ local function sip_task(opts)
                    tonumber(current.ptime or 0) == tonumber(next_session.ptime or 0) and
                    tonumber(current.local_rtp_port or 0) == tonumber(next_session.local_rtp_port or 0) and
                    tostring(current.remote_direction or "") == tostring(next_session.remote_direction or "") and
+                   current.dtmf_rx_payload_type == next_session.dtmf_rx_payload_type and
+                   current.dtmf_tx_payload_type == next_session.dtmf_tx_payload_type and
+                   current.dtmf_events == next_session.dtmf_events and
                    current.security == next_session.security
     end
 
@@ -986,6 +992,7 @@ local function sip_task(opts)
             remote_ip = inv.remote_ip,
             local_rtp_port = allocate_rtp_port(),
             invite_cseq = cseq_number(inv.headers["cseq"]) or 1,
+            remote_cseq = cseq_number(inv.headers["cseq"]) or 1,
             established = false,
             final_response_sent = false,
             early_media_sent = false,
@@ -1613,6 +1620,8 @@ local function sip_task(opts)
         state.dtmf_sequence = nil
         if sequence then
             emit_dtmf("failed", {
+                call_id = sequence.call_id,
+                request_id = sequence.request_id,
                 digits = sequence.digits,
                 digit = tx and tx.digit or nil,
                 index = sequence.index,
@@ -1629,7 +1638,8 @@ local function sip_task(opts)
         state.dtmf_queue = {}
         state.dtmf_sequence = nil
         if sequence then
-            emit_dtmf("completed", { digits = sequence.digits, code = sequence.last_code or 200 })
+            emit_dtmf("completed", { call_id = sequence.call_id, request_id = sequence.request_id,
+                digits = sequence.digits, code = sequence.last_code or 200 })
         end
     end
 
@@ -1667,7 +1677,8 @@ local function sip_task(opts)
         if not sequence then
             return
         end
-        if not state.online or not state.netc or not dialog or not dialog.established or dialog.terminating then
+        if not state.online or not state.netc or not dialog or not dialog.established or dialog.terminating or
+            dialog.call_id ~= sequence.call_id then
             fail_dtmf("dialog_not_established")
             return
         end
@@ -1693,18 +1704,19 @@ local function sip_task(opts)
     end
 
     -- 发送一串 dialog 内 DTMF。接口调用在 SIP task 中串行执行。
-    local function start_dtmf(digits, duration, interval)
+    local function start_dtmf(digits, duration, interval, request_id)
+        local call_id = state.dialog and state.dialog.call_id
         digits = type(digits) == "string" and digits:upper() or ""
         if #digits == 0 or #digits > 32 or not digits:match("^[0-9A-D%*#]+$") then
-            emit_dtmf("failed", { digits = digits, reason = "invalid_digits" })
+            emit_dtmf("failed", { call_id = call_id, request_id = request_id, digits = digits, reason = "invalid_digits" })
             return
         end
         if state.dtmf_tx or state.dtmf_sequence then
-            emit_dtmf("failed", { digits = digits, reason = "busy" })
+            emit_dtmf("failed", { call_id = call_id, request_id = request_id, digits = digits, reason = "busy" })
             return
         end
-        if not state.online or not state.netc or not state.dialog or not state.dialog.established then
-            emit_dtmf("failed", { digits = digits, reason = "dialog_not_established" })
+        if not state.online or not state.netc or not state.dialog or not state.dialog.established or state.dialog.terminating then
+            emit_dtmf("failed", { call_id = call_id, request_id = request_id, digits = digits, reason = "dialog_not_established" })
             return
         end
         duration = tonumber(duration) or 160
@@ -1718,12 +1730,14 @@ local function sip_task(opts)
             state.dtmf_queue[#state.dtmf_queue + 1] = digits:sub(i, i)
         end
         state.dtmf_sequence = {
+            call_id = call_id,
+            request_id = request_id,
             digits = digits,
             duration = duration,
             interval = interval,
             index = 0
         }
-        emit_dtmf("queued", { digits = digits, duration = duration, interval = interval })
+        emit_dtmf("queued", { call_id = call_id, request_id = request_id, digits = digits, duration = duration, interval = interval })
         send_next_dtmf()
     end
 
@@ -1804,7 +1818,7 @@ local function sip_task(opts)
             elseif action == "message" and type(arg) == "table" then
                 start_send_message(arg.target, arg.text)
             elseif action == "dtmf" and type(arg) == "table" then
-                start_dtmf(arg.digits, arg.duration, arg.interval)
+                start_dtmf(arg.digits, arg.duration, arg.interval, arg.request_id)
             end
         end
     end
@@ -1977,10 +1991,15 @@ local function sip_task(opts)
                     local req_to_tag = header_tag_value(req_headers["to"])
                     -- 已建立的呼入/呼出对话均可接收 re-INVITE，不改变最初的通话方向。
                     if dialog.established and not dialog.terminating and dialog_to_tag and req_to_tag == dialog_to_tag then
+                        if dialog.remote_cseq and invite_cseq <= dialog.remote_cseq then
+                            net_send_on(netc, build_response(state, resp_headers, 500, "Server Internal Error", nil, ""))
+                            return
+                        end
                         if response and response.waiting_ack then
                             net_send_on(netc, build_response(state, resp_headers, 491, "Request Pending", nil, ""))
                             return
                         end
+                        dialog.remote_cseq = invite_cseq
                         log.info("sip", "accept re-INVITE", "direction", dialog.direction,
                             "call-id", dialog.call_id, "cseq", invite_cseq)
                         local pending = {
@@ -2155,6 +2174,60 @@ local function sip_task(opts)
                 log.info("sip", "message rx", #(body or ""))
             end
 
+            local function handle_info_request(headers, body)
+                local dialog = state.dialog
+                local local_to, remote_from = incoming_dialog_headers(dialog)
+                local local_tag, remote_tag = header_tag_value(local_to), header_tag_value(remote_from)
+                if not dialog or not dialog.established or dialog.terminating or
+                    dialog.call_id ~= headers["call-id"] or not local_tag or not remote_tag or
+                    header_tag_value(headers["to"]) ~= local_tag or header_tag_value(headers["from"]) ~= remote_tag then
+                    net_send_on(netc, build_response(state, headers, 481, "Call/Transaction Does Not Exist", nil, ""))
+                    return
+                end
+                local seq = (headers["cseq"] or ""):match("^(%d+)%s+INFO%s*$")
+                seq = tonumber(seq)
+                if not seq or seq >= 2147483648 then
+                    net_send_on(netc, build_response(state, headers, 400, "Bad Request", nil, ""))
+                    return
+                end
+                -- 按 dialog/CSeq 去重，缓存最近 32 个最终应答；更旧请求被序号高水位拒绝。
+                -- 缓存只存应答状态，重传响应仍回抄本次 Via，绝不再次发布按键。
+                local cache = dialog.dtmf_rx_responses or {}
+                local old = cache[seq]
+                if old then
+                    net_send_on(netc, build_response(state, headers, old.code, old.reason, old.extra, ""))
+                    return
+                end
+                if dialog.remote_cseq and seq <= dialog.remote_cseq then
+                    net_send_on(netc, build_response(state, headers, 500, "Server Internal Error", nil, ""))
+                    return
+                end
+                dialog.remote_cseq = seq
+                local content_type = (headers["content-type"] or ""):match("^%s*([^;]+)") or ""
+                content_type = content_type:gsub("%s+$", ""):lower()
+                local code, reason, extra, tone = 200, "OK"
+                if content_type ~= "application/dtmf-relay" then
+                    code, reason, extra = 415, "Unsupported Media Type", {{"Accept", "application/dtmf-relay"}}
+                else
+                    tone = proto.parse_dtmf_relay_body(body)
+                    local length = headers["content-length"]
+                    if not tone or (length and (not length:match("^%d+%s*$") or tonumber(length) ~= #body)) then
+                        code, reason, tone = 400, "Bad Request", nil
+                    end
+                end
+                local order = dialog.dtmf_rx_order or {}
+                dialog.dtmf_rx_responses, dialog.dtmf_rx_order = cache, order
+                cache[seq] = {code = code, reason = reason, extra = extra}
+                order[#order + 1] = seq
+                if #order > 32 then cache[table.remove(order, 1)] = nil end
+                -- 先记账再应答：net_send_on 可能让出，避免重入重复转发。
+                net_send_on(netc, build_response(state, headers, code, reason, extra, ""))
+                if tone and state.dialog == dialog and not dialog.terminating then
+                    emit_dtmf("rx", {digit = tone.digit, digits = tone.digit, duration = tone.duration,
+                        call_id = dialog.call_id, cseq = seq, method = "INFO"})
+                end
+            end
+
             local function handle_closing_request(dialog, method, headers)
                 local response = dialog.invite_response
                 local seq = cseq_number(headers["cseq"])
@@ -2212,11 +2285,13 @@ local function sip_task(opts)
                     handle_cancel_request(req_headers)
                 elseif method == "MESSAGE" then
                     handle_message_request(req_headers, body)
+                elseif method == "INFO" then
+                    handle_info_request(req_headers, body)
                 elseif method == "OPTIONS" then
                     -- 回应服务端发来的 OPTIONS 探活，避免被标记为不可达。
                     net_send_on(netc, build_response(state, req_headers, 200, "OK", {
                         {"Allow", "INVITE, ACK, CANCEL, BYE, OPTIONS, MESSAGE, INFO"},
-                        {"Accept", "application/sdp"}
+                        {"Accept", "application/sdp, application/dtmf-relay"}
                     }, ""))
                 else
                     net_send_on(netc, build_response(state, req_headers, 501, "Not Implemented", nil, ""))
@@ -2560,6 +2635,8 @@ local function sip_task(opts)
                     local sequence = state.dtmf_sequence
                     if sequence then sequence.last_code = code end
                     emit_dtmf("sent", {
+                        call_id = tx.call_id,
+                        request_id = sequence and sequence.request_id,
                         digits = sequence and sequence.digits or "",
                         digit = tx.digit,
                         index = sequence and sequence.index or 0,
@@ -2873,6 +2950,7 @@ end
 @api exsipclient.start(opts)
 @table opts SIP 启动参数表，至少需要 sip_server_addr、sip_server_port、sip_domain、sip_username、sip_transport
 @boolean opts.early_media 是否允许 progress() 发送来电早期媒体响应，默认 true
+@boolean opts.dtmf_rtp 是否协商 RFC2833/RFC4733 telephone-event，默认 false；媒体实现需支持协商参数
 @number opts.early_media_response 默认 183（带 SDP 并通知启动媒体）；180 仅发送振铃响应
 @number opts.register_response_timeout REGISTER 每次发送后等待最终响应的时间，默认 10000 ms，最小 1000 ms
 @number opts.register_max_attempts 每个 REGISTER 事务最多发送次数（含首次），默认 3，最小 1
@@ -2896,12 +2974,14 @@ exsipclient.start({
     call_timeout = 30,
     debug_sip_response = false,
     event_callback = function(event, action, payload)
-        -- event 可取 lifecycle、register、call、media、message、error
+        -- event 可取 lifecycle、register、call、media、message、dtmf、error
         -- lifecycle: online、offline、stopped
         -- register: ok、challenge、failed
         -- call: incoming、established、ended、failed、dial_rejected、auth_retry
         -- media: offer、ready、stop
         -- message: rx、sent、auth_retry、failed
+        -- dtmf: rx（INFO收键）、queued、sent、completed、failed；所有事件包含 call_id
+        -- dtmf/rx: digit、digits、duration(ms)、cseq、method="INFO"；发送事件回传 request_id
         -- error: net、rx_failed
     end
 })
@@ -3149,14 +3229,18 @@ end
 --[[
 发送一串 SIP INFO DTMF。命令会投递到 SIP task 中，在当前已建立 dialog
 内逐位发送；每一位必须收到 2xx 后才会发送下一位。
-@api exsipclient.dtmf(digits[, duration_ms[, interval_ms] ])
+@api exsipclient.dtmf(digits, duration_ms, interval_ms, call_id, request_id)
 @string digits DTMF 字符串
 @number duration_ms 单位毫秒，默认 160
 @number interval_ms 位间隔，单位毫秒，默认 100
+@string call_id 可选，仅发送到指定通话，忽略旧通话的迟到命令
+@number request_id 可选，调用方请求标识，原样回传到发送进度及结果事件
 ]]
-function M.dtmf(digits, duration_ms, interval_ms)
+function M.dtmf(digits, duration_ms, interval_ms, call_id, request_id)
     sys.publish(TOPIC_CMD, "dtmf", {
         digits = digits,
+        call_id = call_id,
+        request_id = request_id,
         duration = duration_ms,
         interval = interval_ms
     })

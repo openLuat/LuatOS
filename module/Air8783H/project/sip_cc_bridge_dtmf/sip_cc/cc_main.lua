@@ -491,6 +491,9 @@ function cc_main.init()
     local valid, field = valid_stats(read_stats())
     if not valid then return false, "firmware_missing_pcm_stats:" .. field end
     if type(cc.bridgeAudioStop) ~= "function" then return false, "firmware_missing_bridge_audio_stop" end
+    if type(cc.dtmfRx) ~= "function" or not cc.DTMF_RX_PCM_VERSION then
+        return false, "firmware_missing_pcm_dtmf_rx"
+    end
     local ok, reason = cc.init(0, cc.AUDIO_MODE_BRIDGE_PCM)
     if not ok then
         g_ready = false
@@ -503,6 +506,8 @@ function cc_main.init()
         g_ready = false
         return false, "firmware_invalid_pcm_stats:" .. (field or "selected")
     end
+    local rx_ok, rx_reason = cc.dtmfRx(true)
+    if not rx_ok then return false, rx_reason or "cc_dtmf_rx_failed" end
     monitor_settings()
     g_initialized = true
     g_ready = true

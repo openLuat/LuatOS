@@ -225,6 +225,8 @@ local function on_sip_event(event, action, data)
                 fail_call(data.reason or "media_start_failed", true)
             end
         end
+    elseif event == "dtmf" then
+        if data and data.call_id and match_event(data) then sys.publish("SIP_DTMF", action, data) end
     elseif event == "lifecycle" then
         if action == "stopped" or action == "offline" then
             g_registered = false
@@ -250,6 +252,7 @@ function sip_main.init()
         codecs = config.codecs or {config.codec},
         ptime = config.ptime,
         adapter = config.adapter,
+        dtmf_mode = config.dtmf_mode or "auto",
         debug_sip_response = true,
     })
     if not sip_ok then

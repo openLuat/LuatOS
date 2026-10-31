@@ -1,6 +1,6 @@
--- SIP -> CC 桥接期间自动发送网络 DTMF，使用模组内部 PCM，无需本地 Codec。
+-- SIP <-> CC 双向 DTMF（INFO / RFC4733），使用内部 PCM，无需本地 Codec。
 PROJECT = "SIP_CC_BRIDGE_DTMF"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 log.info("main", PROJECT, VERSION)
 assert(cc and type(cc.sendDtmf) == "function", "firmware missing cc.sendDtmf")

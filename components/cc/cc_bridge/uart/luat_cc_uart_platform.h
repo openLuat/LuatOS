@@ -38,7 +38,7 @@ typedef struct {
 } luat_cc_uart_network_dtmf_diag_t;
 
 int luat_cc_uart_platform_rx_setup(char role);
-/** Claim the passive observer for normal codec CC, without UART/audio setup. */
+/** Claim for cc.dtmfRx (codec or SIP PCM), without UART/audio setup. */
 int luat_cc_uart_platform_rx_codec_setup(void);
 void luat_cc_uart_platform_rx_begin(uint64_t session);
 void luat_cc_uart_platform_rx_begin_outgoing(uint64_t session);
@@ -51,7 +51,7 @@ int luat_cc_uart_platform_rx_stats(luat_cc_uart_network_dtmf_diag_t *diag);
 #endif
 
 #ifdef LUAT_USE_CC_DTMF_RX
-/** Retire normal-codec receive events before forwarding a modem CC status. */
+/** Retire cc.dtmfRx events before forwarding a modem CC status. */
 void luat_cc_dtmf_rx_mobile_event(uint8_t index, uint8_t status);
 #endif
 

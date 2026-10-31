@@ -372,6 +372,31 @@ function M.build_dtmf_relay_body(digit, duration)
 end
 
 --[[
+解析单个 application/dtmf-relay 按键。拒绝多键、重复字段和越界时长。
+@api exsipproto.parse_dtmf_relay_body(body)
+@string body SIP INFO 消息体
+@return table {digit, duration}，失败返回 nil；Duration 可省略，默认 160 ms
+]]
+function M.parse_dtmf_relay_body(body)
+    if type(body) ~= "string" or #body == 0 or #body > 256 then return nil end
+    local fields = {}
+    for line in body:gmatch("[^\r\n]+") do
+        if not line:match("^%s*$") then
+            local name, value = line:match("^%s*([%a]+)%s*=%s*(.-)%s*$")
+            name = name and name:lower()
+            if not name or (name ~= "signal" and name ~= "duration") or fields[name] then return nil end
+            fields[name] = value
+        end
+    end
+    local digit = fields.signal and fields.signal:upper()
+    if not digit or not digit:match("^[0-9A-D%*#]$") then return nil end
+    if fields.duration and not fields.duration:match("^%d+$") then return nil end
+    local duration = fields.duration and tonumber(fields.duration) or 160
+    if not duration or duration < 40 or duration > 5000 then return nil end
+    return {digit = digit, duration = duration}
+end
+
+--[[
 构造 Authorization 或 Proxy-Authorization 头。
 @api exsipproto.build_auth_header(auth)
 @table auth Digest 参数表，通常由 digest_auth 返回
@@ -688,6 +713,36 @@ function M.codec_payload_type(codec)
     return RTP_CODEC_PT[key]
 end
 
+-- RFC 4733 事件集只支持 DTMF 0..15；未带 fmtp 时按 RFC 2833 默认 0..15。
+local function dtmf_event_mask(value)
+    if value == nil then return 65535 end
+    local mask = 0
+    for item in (value .. ","):gmatch("(.-),") do
+        item = item:match("^%s*(.-)%s*$")
+        local first, last = item:match("^(%d+)%-(%d+)$")
+        if not first then first, last = item:match("^(%d+)$"), item:match("^(%d+)$") end
+        first, last = tonumber(first), tonumber(last)
+        if not first or first > last or last > 255 then return 0 end
+        for event = first, math.min(last, 15) do mask = mask | (1 << event) end
+    end
+    return mask
+end
+
+local function dtmf_event_list(mask)
+    local events = {}
+    for event = 0, 15 do
+        if (mask & (1 << event)) ~= 0 then events[#events + 1] = tostring(event) end
+    end
+    return table.concat(events, ",")
+end
+
+-- 首版使用 8000 Hz telephone-event，独立于音频 PCM 采样率（包含 G.722）。
+local function select_dtmf(sdp)
+    for _, event in ipairs(sdp and sdp.telephone_events or {}) do
+        if event.clock_rate == 8000 and event.events ~= 0 then return event end
+    end
+end
+
 --[[
 根据本地和远端 SDP 信息整理媒体会话参数，普通 SIP 通话和 CC<->SIP 桥接共用。
 当前 SIP 侧支持 G.711 PCMU/PCMA、G.729A 与 G.722；sample_rate（G722 为 16000，其余 8000）、channels=1、bits=16 描述媒体引擎编解码前后的 PCM 格式，
@@ -709,6 +764,9 @@ function M.build_media_session(params)
         return nil, "invalid_remote_port"
     end
 
+    local local_sdp = params.local_sdp and M.parse_sdp(params.local_sdp)
+    local local_dtmf, remote_dtmf = select_dtmf(local_sdp), select_dtmf(remote_sdp)
+    local dtmf_events = local_dtmf and remote_dtmf and (local_dtmf.events & remote_dtmf.events) or 0
     return {
         call_id = params.call_id,
         remote_ip = params.remote_ip or remote_sdp.conn_ip,
@@ -719,6 +777,10 @@ function M.build_media_session(params)
         local_codecs = params.local_codecs,
         codec = selected_codec,
         payload_type = M.codec_payload_type(selected_codec),
+        dtmf_rx_payload_type = dtmf_events ~= 0 and local_dtmf.payload_type or nil,
+        dtmf_tx_payload_type = dtmf_events ~= 0 and remote_dtmf.payload_type or nil,
+        dtmf_clock_rate = dtmf_events ~= 0 and 8000 or nil,
+        dtmf_events = dtmf_events,
         sample_rate = selected_codec == "G722" and 16000 or 8000,
         channels = 1,
         bits = 16,
@@ -757,6 +819,14 @@ function M.build_sdp(state, direction)
         payloads = { 0, 8 }
     end
 
+    -- 显式启用才添加；对远端 offer 的 answer 仅回送已提供的 telephone-event。
+    local dtmf
+    if media.dtmf == true then
+        dtmf = media.remote_sdp and select_dtmf(media.remote_sdp) or nil
+        if not media.remote_sdp then dtmf = {payload_type = 101, clock_rate = 8000, events = 65535} end
+        if dtmf then payloads[#payloads + 1] = dtmf.payload_type end
+    end
+
     local sdp = {}
     sdp[#sdp + 1] = "v=0\r\n"
     sdp[#sdp + 1] = string.format("o=luatos 0 %d IN IP4 %s\r\n", media.sdp_version or 0, ip)
@@ -789,6 +859,10 @@ function M.build_sdp(state, direction)
             sdp[#sdp + 1] = "a=rtpmap:9 G722/8000\r\n"
         end
     end
+    if dtmf then
+        sdp[#sdp + 1] = string.format("a=rtpmap:%d telephone-event/8000\r\n", dtmf.payload_type)
+        sdp[#sdp + 1] = string.format("a=fmtp:%d %s\r\n", dtmf.payload_type, dtmf_event_list(dtmf.events))
+    end
     sdp[#sdp + 1] = string.format("a=ptime:%d\r\n", ptime)
     sdp[#sdp + 1] = string.format("a=%s\r\n", direction or "sendrecv")
     return table.concat(sdp)
@@ -810,7 +884,9 @@ function M.parse_sdp(sdp)
         direction = "sendrecv",
         ptime = nil,
         crypto = {},
+        telephone_events = {},
     }
+    local event_maps, event_fmtp = {}, {}
     local scope, selected = "session", false
     for line in sdp:gmatch("([^\r\n]+)") do
         if line:match("^m=") then
@@ -850,6 +926,14 @@ function M.parse_sdp(sdp)
                 out.codecs[#out.codecs + 1] = c
             end
         end
+        if scope == "audio" then
+            local pt, name, rate = line:match("^a=rtpmap:(%d+)%s+([^/]+)/(%d+)%s*$")
+            if pt and name:lower() == "telephone-event" then
+                event_maps[tonumber(pt)] = tonumber(rate)
+            end
+            local fmtp_pt, fmtp = line:match("^a=fmtp:(%d+)%s+(.+)$")
+            if fmtp_pt then event_fmtp[tonumber(fmtp_pt)] = fmtp end
+        end
 
         local ptime = line:match("^a=ptime:(%d+)")
         if ptime then
@@ -869,6 +953,13 @@ function M.parse_sdp(sdp)
     end
 
     out.codecs = M.normalize_codec_list(out.codecs)
+    for _, pt in ipairs(out.payloads) do
+        if pt >= 96 and pt <= 127 and event_maps[pt] then
+            out.telephone_events[#out.telephone_events + 1] = {
+                payload_type = pt, clock_rate = event_maps[pt], events = dtmf_event_mask(event_fmtp[pt])
+            }
+        end
+    end
 
     return out
 end

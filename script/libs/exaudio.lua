@@ -1,8 +1,8 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.11
-@date    2026.10.16
+@version 3.12
+@date    2026.10.31
 @author  拓毅恒
 @description
 本库负责音频硬件初始化、播放、录音和电源控制，可配合 exsip 使用普通 SIP 通话或 CC<->SIP 语音流桥接。
@@ -13,6 +13,12 @@ SIP 对端语音经固件桥接送入 CC 上行；需要固件同时具备 CC、
 并非 CC<->SIP 桥接开关；不要在 CC<->SIP 桥接通话中额外启动该本地 speech 请求。
 CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬件参数仍按实际板型调用 setup() 配置。
 @updates
+    v3.12 2026.10.31
+        1. setup 新增可选字段 i2c_shared / codec_init_on_play / i2c_speed，面向 I2C 与其它外设共用的板型；
+           三个字段全部不设置时行为与旧版完全一致。
+        2. 新增 exaudio.bus_policy() 返回策略实际生效值。旧版 exaudio 对未知字段静默忽略，
+           调用方在 setup 后对账即可判断新语义是否真正生效。
+        3. play_start 去掉重复的 exaudio.pm(exaudio.RESUME)：原先每次起播会整套配置 ES8311 两遍。
     v3.11 2026.10.16
         1. Air1103 TTS 起播先持续发送 200ms 静音，再读取语音 PCM，预留首次/空闲后的播放通路启动时间。
     v3.10 2026.10.13
@@ -122,6 +128,13 @@ CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬
 @usage
 
 -- 版本更新说明
+-- 版本号：202610310000
+-- 1、更新时间：2026-10-31 00:00
+--    setup 新增可选字段 i2c_shared / codec_init_on_play / i2c_speed，面向 I2C 与其它外设共用的板型；
+--    三个字段全部不设置时行为与旧版完全一致。
+-- 2、新增 exaudio.bus_policy() 返回策略实际生效值。旧版 exaudio 对未知字段静默忽略，
+--    调用方在 setup 后对账即可判断新语义是否真正生效。
+-- 3、play_start 去掉重复的 exaudio.pm(exaudio.RESUME)：原先每次起播会整套配置 ES8311 两遍。
 -- 版本号：202609211833
 -- 1、更新时间：2026-09-21 18:33
 --    新增Air1103循环振铃接口 exaudio.play_ringback_loop() 与停止接口 exaudio.stop_ringback([skip_reset])。
@@ -338,6 +351,13 @@ local audio_setup_param = {
     dac_chl = 0,              -- DAC通道选择: 0=AUD_LN, 1=AUD_LP, 2=双通道
 
     codec_voltage = 1,        -- ES8311编解码器电平: 1=3.3V(默认), 0=1.8V(Air8201H等特殊板型)
+
+    -- I2C总线与codec策略（可选，不设置即保持旧行为）
+    i2c_speed = nil,          -- I2C速率，不传用平台默认(audio旧框架默认i2c.FAST)
+    i2c_shared = nil,         -- I2C与其它外设共享: true=音频只访问不拥有，停播只控PA不关I2C
+                              -- nil时air1602按历史行为视同true，其余模组按false
+    codec_init_on_play = nil, -- nil/true=每次起播整套配置ES8311(旧行为)
+                              -- false=ES8311只在setup配置一次，播放与唤醒路径不写ES8311寄存器
 }
 
 local audio_play_param = {
@@ -399,6 +419,47 @@ local function check_param(param, expected_type, name)
         log.error(string.format("参数错误: %s 应为 %s 类型", name, expected_type))
         return false
     end
+    return true
+end
+
+-- ==================== 总线与 codec 策略（可选字段，不设置即旧行为） ====================
+-- i2c_shared：true =这条 I2C 与其它外设共享，音频只许访问、不许拥有。
+-- 未显式设置时 air1602 保持历史行为（I2C1 与触摸共用），其余模组保持旧行为。
+local function policy_i2c_shared()
+    if audio_setup_param.i2c_shared ~= nil then
+        return audio_setup_param.i2c_shared
+    end
+    return MODULE_TYPE == "air1602"
+end
+
+-- codec_init_on_play：true =每次起播整套初始化 ES8311（旧行为）；
+-- false =ES8311 只在 setup 初始化一次，播放与唤醒路径不写 ES8311 寄存器
+local function policy_codec_init_on_play()
+    return audio_setup_param.codec_init_on_play ~= false
+end
+
+-- 加载 ES8311 驱动（仅 es8311 型号），已加载直接返回
+local function load_es8311_drv()
+    if audio_v2_es8311_drv or audio_setup_param.model ~= "es8311" then
+        return audio_v2_es8311_drv
+    end
+    local ok
+    ok, audio_v2_es8311_drv = pcall(require, "es8311")
+    if not ok then audio_v2_es8311_drv = nil end
+    return audio_v2_es8311_drv
+end
+
+-- ES8311 全套配置：复位 + 寄存器初始化 + 恢复音量/静音
+local function es8311_codec_init(i2c_id)
+    local drv = load_es8311_drv()
+    if not drv then return false end
+    -- codec_voltage=0时按1.8V电平初始化(0x01)，否则默认3.3V(0x00)
+    local voltage = audio_setup_param.codec_voltage == 0 and 0x01 or 0x00
+    if not drv.init(i2c_id, voltage) then return false end
+    drv.resume(i2c_id)
+    drv.set_mute(i2c_id, false)
+    drv.set_voice_vol(i2c_id, voice_vol)
+    drv.set_mic_vol(i2c_id, mic_vol)
     return true
 end
 
@@ -513,10 +574,13 @@ local function audio_v2_callback(request_index, event, param)
     elseif event == audio_v2.REQUEST_DRIVER_START then
         -- ES8311 每次启动请求时恢复 DAC、音量和 PA。
         if audio_setup_param.model == "es8311" and audio_v2_es8311_drv then
-            audio_v2_es8311_drv.resume(audio_setup_param.i2c_id)
-            audio_v2_es8311_drv.set_mute(audio_setup_param.i2c_id, false)
-            audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, voice_vol)
-            audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id, mic_vol)
+            -- codec_init_on_play=false：ES8311 只在 setup 配置一次，这里只恢复 PA
+            if policy_codec_init_on_play() then
+                audio_v2_es8311_drv.resume(audio_setup_param.i2c_id)
+                audio_v2_es8311_drv.set_mute(audio_setup_param.i2c_id, false)
+                audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, voice_vol)
+                audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id, mic_vol)
+            end
             if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
                 gpio.setup(audio_setup_param.pa_ctrl, audio_setup_param.pa_on_level)
             end
@@ -925,7 +989,7 @@ local function audio_v2_setup()
         log.info("exaudio.setup", "audio_v2 ES8311模式初始化")
 
         -- I2C配置
-        if not i2c.setup(audio_setup_param.i2c_id) then
+        if not i2c.setup(audio_setup_param.i2c_id, audio_setup_param.i2c_speed or 0) then
             log.error("I2C初始化失败")
             return false
         end
@@ -939,6 +1003,16 @@ local function audio_v2_setup()
             gpio.set(audio_setup_param.dac_ctrl, 1)
             sys.wait(100)
             log.info("exaudio.setup", "ES8311已重启", "dac_ctrl:", audio_setup_param.dac_ctrl)
+        end
+
+        -- codec_init_on_play=false：ES8311 只在这里配置一次，播放与唤醒路径不再写 ES8311 寄存器
+        -- 失败不打断 setup：播放走内置 DAC 时本就不需要 codec，为一次 ID 读失败废掉整个音频不划算
+        if not policy_codec_init_on_play() then
+            if not es8311_codec_init(audio_setup_param.i2c_id or 0) then
+                log.error("exaudio.setup", "ES8311初始化失败，录音不可用，播放不受影响")
+            else
+                log.info("exaudio.setup", "ES8311已配置一次，播放路径不再碰I2C")
+            end
         end
     elseif audio_setup_param.model == "air1103" then
         -- Air1103外置语音芯片模式(780EHM等无本地音频硬件): 只初始化新音频框架,
@@ -1122,7 +1196,7 @@ local function audio_setup()
         log.info("exaudio.setup", "使用ES8311 I2S模式初始化")
         
         -- I2C配置
-        if not i2c.setup(audio_setup_param.i2c_id, i2c.FAST) then
+        if not i2c.setup(audio_setup_param.i2c_id, audio_setup_param.i2c_speed or i2c.FAST) then
             log.error("I2C初始化失败")
             return false
         end
@@ -1638,6 +1712,9 @@ function exaudio.setup(audioConfigs)
         {name = "rx_bus_type", type = "number"},      -- 接收总线类型(默认驱动切换)
         {name = "rx_bus_id", type = "number"},        -- 接收总线ID
         {name = "codec_voltage", type = "number"},    -- ES8311电平: 1=3.3V(默认), 0=1.8V(Air8201H等特殊板型)
+        {name = "i2c_speed", type = "number"},        -- I2C速率，不传用平台默认(audio旧框架默认i2c.FAST)
+        {name = "i2c_shared", type = "boolean"},      -- 总线共享: 音频只访问不拥有，停播只控PA不关I2C
+        {name = "codec_init_on_play", type = "boolean"}, -- false=ES8311只在setup配置一次，播放路径不碰I2C
     }
 
     -- 校验默认驱动切换参数：tx/rx总线类型必须成对出现
@@ -1749,9 +1826,6 @@ function exaudio.play_start(playConfigs)
 
         -- 设置默认优先级
         playConfigs.priority = playConfigs.priority or 0
-        
-        -- 恢复RESUME工作模式
-        exaudio.pm(exaudio.RESUME)
 
         -- audio_v2播放
         local play_type = playConfigs.type
@@ -2751,32 +2825,27 @@ function exaudio.pm(pm_mode)
             es8311_ok, es8311_drv = pcall(require, "es8311")
         end
         if pm_mode == exaudio.SHUTDOWN then
-            -- 1602开发板I2C1同时被audio(ES8311)与LCD触摸共用：
-            -- audio_v2.shutdown(driver_power_off, codec_power_off, pa_power_off) 的
-            -- driver_power_off=true 会停驱动并 deactivate，副作用是关闭其管理的 I2C1，导致 LCD 触摸失效。
-            -- 故 1602 下电时保留 audio 驱动(driver_power_off=false)，I2C 保持打开供触摸使用；
-            -- 非 1602 保持原逻辑彻底下电(driver_power_off=true)。
-            if get_module_type() == "air1602" then
+            -- i2c_shared：I2C 与其它外设（如触摸）共用时，audio_v2.shutdown(driver_power_off, ...)
+            -- 的 driver_power_off=true 会停驱动并 deactivate，副作用是关闭其管理的 I2C，
+            -- 同总线外设随之失效。故共享时只关 PA、保留驱动与 CODEC，总线生命周期交由共用方管理。
+            -- 未显式设置时 air1602 按历史行为视同共享。
+            if policy_i2c_shared() then
                 audio_v2.shutdown(false, false, true)
-            else
-                -- SHUTDOWN：下电ES8311，关闭PA，保持驱动和CODEC以备快速恢复
-                if es8311_ok and es8311_drv then
-                    es8311_drv.power_down(audio_setup_param.i2c_id or 0)
-                end
-
-                audio_v2.shutdown(true, false, true)
+                return true
             end
+
+            -- SHUTDOWN：下电ES8311，关闭PA，保持驱动和CODEC以备快速恢复
+            if es8311_ok and es8311_drv then
+                es8311_drv.power_down(audio_setup_param.i2c_id or 0)
+            end
+
+            audio_v2.shutdown(true, false, true)
             return true
         elseif pm_mode == exaudio.RESUME then
             -- RESUME：恢复ES8311，确保所有模块处于工作状态
-            if es8311_ok and es8311_drv then
-                -- codec_voltage=0时按1.8V电平初始化(0x01)，否则默认3.3V(0x00)
-                local voltage = audio_setup_param.codec_voltage == 0 and 0x01 or 0x00
-                es8311_drv.init(audio_setup_param.i2c_id or 0, voltage)
-                es8311_drv.resume(audio_setup_param.i2c_id or 0)
-                es8311_drv.set_mute(audio_setup_param.i2c_id or 0, false)
-                es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, voice_vol)
-                es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, mic_vol)
+            -- codec_init_on_play=false 时 ES8311 只在 setup 配置一次，这里不写 ES8311 寄存器
+            if es8311_ok and es8311_drv and policy_codec_init_on_play() then
+                es8311_codec_init(audio_setup_param.i2c_id or 0)
             elseif audio_setup_param.model == "dac" and MODULE_TYPE == "air8101" then
                 -- Air8101唤醒后重新应用麦克风增益
                 apply_dac_mic_gain()
@@ -2988,7 +3057,27 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202610160000"
+    return "202610310000"
+end
+
+--[[
+查询 I2C 总线与 codec 策略的实际生效值
+
+setup 的 i2c_shared / codec_init_on_play / i2c_speed 是可选字段，旧版 exaudio
+会静默忽略它们而不报错。调用方在 setup 后用本接口对账，即可判断新语义是否真的生效。
+@usage
+local p = exaudio.bus_policy()
+if not p or p.i2c_shared ~= true then
+    log.warn("exaudio", "总线共享语义未生效，检查 exaudio 版本")
+end
+]]
+function exaudio.bus_policy()
+    return {
+        i2c_shared = policy_i2c_shared(),
+        codec_init_on_play = policy_codec_init_on_play(),
+        i2c_speed = audio_setup_param.i2c_speed,
+        version = exaudio.version(),
+    }
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

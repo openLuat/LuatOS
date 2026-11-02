@@ -119,8 +119,6 @@ return {
             -- font = { size = 20 },             -- 高分屏用 20 号字
             font = {
                 size = 20,               -- 高分屏用 20 号字
-                path = "/luadb/NotoSansSC-6_subset.ttf",  -- 外部 ttf 字体（Air8101 从文件系统加载）
-                global = true,           -- 注册为全局字体
             },
             backlight = {
                 pwm_ch = 3,                   -- PWM3 背光调光

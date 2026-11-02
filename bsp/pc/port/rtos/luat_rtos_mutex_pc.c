@@ -7,15 +7,6 @@
 #define LUAT_LOG_TAG "rtos.mutex"
 #include "luat_log.h"
 
-#ifndef LUAT_MUTEX_DEBUG
-#define LUAT_MUTEX_DEBUG 0
-#endif
-
-#if LUAT_MUTEX_DEBUG == 0
-#undef LLOGD
-#define LLOGD(...)
-#endif
-
 typedef struct pc_mutex
 {
     pthread_mutex_t m;
@@ -38,58 +29,40 @@ static int pc_mutex_init(pc_mutex_t *pm) {
 }
 
 
-/* -----------------------------------信号量模拟互斥锁，可以在中断中unlock-------------------------------*/
+/*
+ * luat_mutex_* 按真机约定用信号量模拟，对象就是 pc_sem_t，初值 1。
+ * lock 是 take，unlock 是 give。同线程第二次 lock 会堵住，
+ * 直到别的线程 luat_rtos_semaphore_release。
+ * 下面的 luat_rtos_mutex_* 仍是递归 pthread 互斥锁，两者不能混用。
+ */
 void *luat_mutex_create(void) {
-    pc_mutex_t* m = luat_heap_malloc(sizeof(pc_mutex_t));
-    if (m == NULL) {
-        LLOGE("mutex 分配内存失败");
+    luat_rtos_semaphore_t sem = NULL;
+    if (luat_rtos_semaphore_create(&sem, 1) != 0) {
+        LLOGE("mutex 分配失败");
         return NULL;
     }
-    memset(m, 0, sizeof(pc_mutex_t));
-    int ret = pc_mutex_init(m);
-    if (ret) {
-        LLOGE("mutex 初始化失败 %d", ret);
-        luat_heap_free(m);
-        return NULL;
-    }
-    return m;
+    return sem;
 }
 
 LUAT_RET luat_mutex_lock(void *mutex) {
     if (mutex == NULL) {
         return -1;
     }
-    pc_mutex_t* m = (pc_mutex_t*)mutex;
-    LLOGD("mutex lock1 %p %d", m, m->lock);
-    pthread_mutex_lock(&m->m);
-    m->lock ++;
-    LLOGD("mutex lock2 %p %d", m, m->lock);
-    return 0;
+    return luat_rtos_semaphore_take((luat_rtos_semaphore_t)mutex, LUAT_WAIT_FOREVER);
 }
 
 LUAT_RET luat_mutex_unlock(void *mutex) {
-    if (mutex == NULL)
+    if (mutex == NULL) {
         return -1;
-    pc_mutex_t* m = (pc_mutex_t*)mutex;
-    LLOGD("mutex unlock1 %p %d", m, m->lock);
-    /* 先在锁内递减再 unlock, 否则 lock-- 与其他线程的 lock++ 形成 data race.
-     * lock == 0 的判断也必须在锁内, 否则其他线程可能正在持锁并已让 lock 变非零. */
-    if (m->lock == 0) {
-        return -2;
     }
-    m->lock --;
-    pthread_mutex_unlock(&m->m);
-    LLOGD("mutex unlock2 %p %d", m, m->lock);
-    return 0;
+    return luat_rtos_semaphore_release((luat_rtos_semaphore_t)mutex);
 }
 
 void luat_mutex_release(void *mutex) {
-    if (mutex == NULL)
+    if (mutex == NULL) {
         return;
-    pc_mutex_t* m = (pc_mutex_t*)mutex;
-    LLOGD("mutex release %p %d", m, m->lock);
-    pthread_mutex_destroy(&m->m);
-    luat_heap_free(m);
+    }
+    luat_rtos_semaphore_delete((luat_rtos_semaphore_t)mutex);
 }
 
 int luat_rtos_mutex_create(luat_rtos_mutex_t *mutex_handle) {
@@ -152,7 +125,7 @@ int luat_rtos_mutex_unlock(luat_rtos_mutex_t mutex_handle) {
     if (m->lock == 0) {
         return -2;
     }
-    /* 与 luat_mutex_unlock 同样, 在锁释放前递减计数. */
+    /* 在真正 unlock 前递减。lock 计数和 pthread 互斥锁必须一起改。 */
     m->lock--;
     pthread_mutex_unlock(&m->m);
     return 0;

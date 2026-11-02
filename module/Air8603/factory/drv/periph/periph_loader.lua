@@ -1,0 +1,95 @@
+--[[
+@module  periph_loader
+@summary 外设预留框架：按 config.peripherals 声明式列表初始化外设（未实现 type 记日志跳过）
+@version 1.0
+@date    2026.10.16
+@author  江访
+
+=== 使用方式 ===
+
+1. config/eng_xxx.lua 声明 peripherals 列表（声明式，未实现的 type 只登记不动作）：
+   peripherals = {
+       { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
+       { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65,  power_pin = 14, baud = 9600 },
+       { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 },
+       { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },
+       { type = "audio", id = "audio1", name = "录音播放", record_seconds = 5 }, -- Air1103 语音，硬件走 hw.audio
+       { type = "spi_cam" },   -- SPI 摄像头（预留）
+       { type = "can" },       -- CAN（预留）
+       { type = "onewire" },   -- 1-Wire（预留）
+   }
+
+2. 实现驱动：新建 drv/periph/periph_<type>.lua，导出 init(params) → handle|false
+
+3. 在 PERIPH_REGISTRY 注册一行：
+   ["uvc"] = function(params) return require("periph_uvc").init(params) end,
+   注意：驱动是动态 require（闭包内），编译系统文本扫描不到，
+   实现后需把 periph_<type> 登记进 platform_loader 编译清单
+
+=== 约定 ===
+
+- 稳定延时写条目里（ready_delay，ms），loader 在 init 前等待（谁用谁等）
+- 未注册的 type 记日志跳过：配置先行、实现后补，互不阻塞
+- 事件命名沿用工程约定：<TYPE>_READY / <TYPE>_<ACTION>_REQ / <TYPE>_<ACTION>_RSP
+- 由 app_main.optional 调用 init_all，处于协程环境，可安全 sys.wait
+- M.stop_all() 关闭 init_all 登记的全部 handle，供退出/重置调用
+]]
+
+local M = {}
+
+-- 外设驱动注册表：type → 初始化函数（按需 require 对应驱动，未注册=预留未实现）
+local PERIPH_REGISTRY = {
+    ["uvc"]     = function(params) return require("periph_uvc").init(params) end,
+    ["rs485"]   = function(params) return require("periph_rs485").init(params) end,
+    ["uart"]    = function(params) return require("periph_uart").init(params) end,
+    ["audio"]   = function(params) return require("periph_audio").init(params) end,
+    -- ["spi_cam"] = function(params) return require("periph_spi_cam").init(params) end,
+    -- ["can"]     = function(params) return require("periph_can").init(params) end,
+    -- ["onewire"] = function(params) return require("periph_onewire").init(params) end,
+}
+
+-- 已初始化实例的 handle 列表，stop_all 按登记顺序逐个关闭
+local active_handles = {}
+
+--[[
+按 config.peripherals 逐个初始化外设
+@param table peripherals  config.peripherals 配置列表（可为 nil）
+]]
+function M.init_all(peripherals)
+    if type(peripherals) ~= "table" then return end
+    for i, p in ipairs(peripherals) do
+        local ptype = p and p.type
+        local factory = ptype and PERIPH_REGISTRY[ptype]
+        if factory then
+            if p.ready_delay and p.ready_delay > 0 then
+                sys.wait(p.ready_delay)
+            end
+            local ok, handle = pcall(factory, p)
+            if ok and handle then
+                p.handle = handle
+                active_handles[#active_handles + 1] = handle
+                log.info("periph_loader", "外设就绪", ptype)
+            else
+                log.warn("periph_loader", "外设初始化失败", ptype, handle)
+            end
+        else
+            log.info("periph_loader", "外设预留未实现，跳过", ptype or ("#" .. i))
+        end
+    end
+end
+
+--[[
+关闭全部已初始化外设（供退出/重置用）
+]]
+function M.stop_all()
+    for i = #active_handles, 1, -1 do
+        local h = active_handles[i]
+        active_handles[i] = nil
+        if type(h) == "table" and type(h.stop) == "function" then
+            pcall(h.stop, h)
+        end
+    end
+    log.info("periph_loader", "外设已全部关闭")
+end
+
+return M

@@ -4,36 +4,31 @@
 @version 1.0
 @date    2026.10.21
 @usage
-本文件为 Air8607 10寸 RGB 接口屏（1024x600，免初始化 IC，无寄存器序列）的
-显示IC初始化扩展库，参考 script/libs/display/exd_hx8282_rgb.lua 裁剪适配。
+Air8607 10寸 RGB 接口屏（1024x600，免初始化 IC，无寄存器序列）显示初始化扩展库。
 核心逻辑：复位 + RGB 时序配置 + 帧缓冲分配。
 双后端自动适配：优先 display 核心库，固件不支持时降级 lcd 核心库。
 
-对外接口 3 个：
-1、exd_air8607_rgb.setup(params)：显示初始化，返回 ok, info
-2、exd_air8607_rgb.info()：查询屏幕信息
-3、exd_air8607_rgb.version()：扩展库版本号
-
-注意：本扩展库只负责显示 IC 初始化，不操作供电/背光引脚，不负责触摸初始化。
+对外接口：
+1、exd_air8607_rgb.setup(params) 显示初始化，返回 ok, info
+2、exd_air8607_rgb.info() 查询屏幕信息
+3、exd_air8607_rgb.version() 扩展库版本号
 ]]
 local M = {}
 
 local VERSION = "202610211000"
 
--- 显示 IC 固有参数（10寸 1024x600 RGB 免序列面板）
 local ic_info = {
     ic = "RGB-1024x600-10i",
-    core_model = { display = nil, lcd = nil },  -- 无内置型号，走 custom 免序列路径
+    core_model = { display = nil, lcd = nil },
     w = 1024, h = 600,
     hbp = 140, hspw = 20, hfp = 160, vbp = 20, vspw = 3, vfp = 12,
     bus_speed = 50000000,
-    spi_init = false,  -- 免序列：无 SPI 寄存器初始化
+    spi_init = false,
 }
 
--- 板级默认参数（Air8607 10寸工程 config/eng_8607_10i_v0.lua 一致）
 M.defaults = {
-    pin_rst = 15,        -- LCD 复位脚
-    screen_size = 10.0,  -- 物理尺寸 10 英寸
+    pin_rst = 15,
+    screen_size = 10.0,
     rotation = 0,
 }
 
@@ -66,7 +61,7 @@ local function do_init(params)
     end
     if backend == "display" then
         local cfg = {
-            id = 0,                       -- airui 固定挂 display id 0
+            id = 0,
             interface = "rgb",
             w = params.w, h = params.h,
             hbp = params.hbp, hspw = params.hspw, hfp = params.hfp,
@@ -115,11 +110,6 @@ local function resolve_params(opts)
     return p
 end
 
---[[
-显示初始化
-@param table|nil params 可覆盖 pin_rst/screen_size/rotation/bus_speed 等
-@return boolean ok, table|string info 成功返回 {backend,w,h,...}，失败返回错误描述
-]]
 function M.setup(params)
     if state.inited then
         log.warn("exd_air8607_rgb", "重复初始化，直接返回已缓存状态")

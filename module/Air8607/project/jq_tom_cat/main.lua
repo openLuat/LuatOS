@@ -3,7 +3,7 @@
 @summary 汤姆猫 TOM CAT - Air8607 10 寸屏触摸互动 UI（零图片 / 零音频素材）
 @version 1.1
 @date    2026.10.25
-@author  江访
+@author  蒋骞
 @board   Air8607 + 10 寸 RGB 屏 1024x600（免序列）+ GT911 电容触摸 + 板载 DAC/HT6873 功放
 @usage
 本文件只做加载：

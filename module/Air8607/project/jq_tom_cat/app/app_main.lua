@@ -3,7 +3,7 @@
 @summary 汤姆猫 - 应用主入口（硬件初始化 + 启动编排）
 @version 1.0
 @date    2026.10.25
-@author  江访
+@author  蒋骞
 
 === 启动顺序（顺序本身是需求） ===
 1、power_on()      背光 PWM3 占空比先归零 / LCD 供电 / 复位脚 / I2C1 400kHz

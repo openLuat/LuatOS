@@ -3,7 +3,7 @@
 @summary 汤姆猫 TOM CAT - 设计令牌（配色 / 布局 / 字号 / 帧率预算 / 音色参数）
 @version 1.0
 @date    2026.10.25
-@author  江访
+@author  蒋骞
 
 === 设计取向 ===
 卡通插画风，不用任何图片素材：猫的每一根线条都由 airui.shape 的

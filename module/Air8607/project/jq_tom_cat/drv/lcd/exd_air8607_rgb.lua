@@ -3,7 +3,7 @@
 @summary Air8607 10寸 RGB 屏显示IC初始化扩展库（1024x600 免序列）
 @version 1.0
 @date    2026.10.21
-@author  江访
+@author  蒋骞
 @usage
 本文件为 Air8607 10寸 RGB 接口屏（1024x600，免初始化 IC，无寄存器序列）的
 显示IC初始化扩展库，参考 script/libs/display/exd_hx8282_rgb.lua 裁剪适配。

@@ -2,7 +2,7 @@
 @module  aircloud_app
 @summary AirCloud 云平台应用模块
 @version 1.2.0
-@date    2026.09.20
+@date    2026.10.29
 @author  江访
 @usage
 AirCloud excloud 协议通信模块，负责设备与云端的数据交互。

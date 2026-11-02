@@ -1453,6 +1453,27 @@
             return String(t).slice(0, 10);
         }
 
+        // ---- 轨迹工具 ----
+        // 轨迹断线阈值：相邻定位点时间差超过该值即分段
+        const TRACK_GAP_MS = 30 * 60 * 1000;
+        // 定位点按时间间隔拆成多段轨迹，单点段只保留标记不画线
+        function trackSegments(points, gapMs) {
+            const gap = gapMs || TRACK_GAP_MS;
+            const segs = [];
+            let cur = null, prevEnd = NaN;
+            (points || []).forEach(p => {
+                const ms = timeMs(p && p.time);
+                const endMs = (p && isFinite(p.endMs)) ? p.endMs : ms;
+                if (!cur || (isFinite(ms) && isFinite(prevEnd) && ms - prevEnd > gap)) {
+                    cur = [];
+                    segs.push(cur);
+                }
+                cur.push(p);
+                if (isFinite(endMs)) prevEnd = endMs;
+            });
+            return segs;
+        }
+
         // ---- 坐标工具 ----
         function coordinate(p) {
             const lat = num(p && p.lat), lng = num(p && p.lng);
@@ -1632,7 +1653,7 @@
             currentDeviceId: null, currentPos: null,
             loggedIn: false, demo: false,
             syncing: false, syncDone: 0, syncTotal: 0, lastSyncAt: null,
-            history: [], historyPage: 1, historyTotal: 0, historyDays: 1,
+            history: [], historyPage: 1, historyTotal: 0, historyLoadedRows: 0, historyDays: 1,
             historyDeviceId: null, historyLoadingFor: null, histSeq: 0,
             detail: { name: '', tags: {}, tagTime: '', latest: null }
         };
@@ -2156,12 +2177,13 @@
                 if (inst.hover) { try { inst.hover.setMap(null); } catch (e) {} inst.hover = null; }
                 if (inst.markers) { try { inst.markers.setMap(null); } catch (e) {} inst.markers = null; }
                 if (!points || points.length < 1) return;
-                const latlngs = points.map(p => new TMap.LatLng(p.pos.lat, p.pos.lng));
-                if (latlngs.length > 1) {
+                const paths = trackSegments(points).filter(s => s.length > 1)
+                    .map(s => s.map(p => new TMap.LatLng(p.pos.lat, p.pos.lng)));
+                if (paths.length) {
                     inst.track = new TMap.MultiPolyline({
                         map: inst.map,
                         styles: { path: new TMap.PolylineStyle({ color: SETTINGS.accent, width: 5, borderWidth: 1, borderColor: 'rgba(0,0,0,0.25)', lineCap: 'round', lineJoin: 'round' }) },
-                        geometries: [{ id: 'path', paths: [latlngs], styleId: 'path' }]
+                        geometries: [{ id: 'path', paths: paths, styleId: 'path' }]
                     });
                 }
                 const dot = c => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
@@ -2173,9 +2195,16 @@
                         end: new TMap.MarkerStyle({ width: 18, height: 18, anchor: { x: 9, y: 9 }, src: dot('#ef4444') })
                     },
                     geometries: [
-                        { id: 'trkStart', styleId: 'start', position: latlngs[0], properties: { label: '起点', time: points[0].time } },
-                        { id: 'trkEnd', styleId: 'end', position: latlngs[latlngs.length - 1], properties: { label: '终点', time: points[points.length - 1].time } }
-                    ]
+                        {
+                            id: 'trkStart', styleId: 'start',
+                            position: new TMap.LatLng(points[0].pos.lat, points[0].pos.lng),
+                            properties: { label: '起点', time: points[0].time }
+                        }
+                    ].concat(points.length > 1 ? [{
+                        id: 'trkEnd', styleId: 'end',
+                        position: new TMap.LatLng(points[points.length - 1].pos.lat, points[points.length - 1].pos.lng),
+                        properties: { label: '终点', time: points[points.length - 1].time }
+                    }] : [])
                 });
                 // 采样悬停点
                 const step = Math.max(1, Math.floor(points.length / 24));
@@ -2211,7 +2240,7 @@
                     avoidInfoOverlay(inst, hoverInfo, { x: 0, y: -14 });
                 });
                 inst.hover.on('mouseout', () => { if (hoverInfo) { hoverInfo.close(); hoverInfo = null; } });
-                this.fit(name, points.map(p => ({ pos: p.pos })));
+                if (SETTINGS.autoFit !== false) this.fit(name, points.map(p => ({ pos: p.pos })));
             }
         };
 
@@ -2761,7 +2790,7 @@
         // 换设备后清空历史（表格/曲线/轨迹），并作废在途请求，防止旧数据串台
         function resetHistory() {
             S.histSeq++;
-            S.history = []; S.historyTotal = 0; S.historyPage = 1;
+            S.history = []; S.historyTotal = 0; S.historyLoadedRows = 0; S.historyPage = 1;
             S.historyDeviceId = null; S.historyLoadingFor = null;
             renderHistory();
             renderHistoryCharts();
@@ -2824,12 +2853,17 @@
             return [...new Set(['temp', 'humi', 'cpu', 'voc', 'signal', 'lng', 'lat', 'locMethod', 'boot', 'mem', 'sigRaw', 'fw']
                 .map(k => TAGMAP[k] && TAGMAP[k].tag).filter(t => typeof t === 'number'))];
         }
+        // 自然日范围：今日=1天，近N天=含当天共N天
+        function dayRange(days) {
+            const n = Math.max(1, Number(days) || 1);
+            const end = new Date();
+            const start = new Date(end.getTime() - (n - 1) * 86400000);
+            return { start: fmtDate(start), end: fmtDate(end) };
+        }
         function getTimeRange() {
             const activeBtn = document.querySelector('#timeRange .chip.active');
             if (activeBtn && Number(activeBtn.dataset.days) > 0) {
-                const end = new Date();
-                const start = new Date(end.getTime() - Number(activeBtn.dataset.days) * 86400000);
-                return { start: fmtDate(start), end: fmtDate(end) };
+                return dayRange(activeBtn.dataset.days);
             }
             const sd = $('startDate').value, ed = $('endDate').value;
             if (sd && ed) return { start: sd, end: ed };
@@ -2837,10 +2871,9 @@
             return { start: fmtDate(end2), end: fmtDate(end2) };
         }
         function setTimeRangeUI() {
-            const end = new Date();
-            const start = new Date(end.getTime() - (S.historyDays || 1) * 86400000);
-            $('startDate').value = fmtDate(start);
-            $('endDate').value = fmtDate(end);
+            const r = dayRange(S.historyDays);
+            $('startDate').value = r.start;
+            $('endDate').value = r.end;
         }
 
         async function loadHistory(imei, page = 1, size = 50) {
@@ -2857,6 +2890,7 @@
                 const rows = rowsOf(res);
                 S.historyTotal = Number(res && res.total) || rows.length;
                 S.historyPage = page;
+                S.historyLoadedRows = (page > 1 ? (S.historyLoadedRows || 0) : 0) + rows.length;
                 const merged = {}, order = [];
                 rows.forEach(r => {
                     const key = r.ct || '';
@@ -2898,15 +2932,20 @@
             const base = e && e.tags ? e.tags : {};
             const startMs = timeMs(tr.start + ' 00:00:00'), endMs = timeMs(tr.end + ' 23:59:59');
             const stepMs = Math.max(1800000, Math.floor((endMs - startMs) / 60));
-            const lat0 = tagCoord(base[TAGMAP.lat.tag]) || 31.23, lng0 = tagCoord(base[TAGMAP.lng.tag]) || 121.47;
+            const raw0 = (e && e.rawPos) || {};
+            const lat0 = num(raw0.lat) ?? tagCoord(base[TAGMAP.lat.tag]) ?? 31.23;
+            const lng0 = num(raw0.lng) ?? tagCoord(base[TAGMAP.lng.tag]) ?? 121.47;
             for (let t = startMs; t <= endMs; t += stepMs) {
+                const d = new Date(t);
+                if (d.getHours() === 13) continue;   // 演示数据：每日 13 点段无上报
                 rows.push({
-                    ct: fmtDateTime(new Date(t)),
+                    ct: fmtDateTime(d),
                     ['val_' + TAGMAP.temp.tag]: Math.round((20 + rnd() * 12) * 10) / 10,
                     ['val_' + TAGMAP.humi.tag]: Math.round((40 + rnd() * 40) * 10) / 10,
                     ['val_' + TAGMAP.cpu.tag]: Math.round((30 + rnd() * 18) * 10) / 10,
                     ['val_' + TAGMAP.voc.tag]: Math.round(80 + rnd() * 500),
                     ['val_' + TAGMAP.signal.tag]: Math.round(-100 + rnd() * 40),
+                    ['val_' + TAGMAP.locMethod.tag]: 1,
                     ['val_' + TAGMAP.lat.tag]: Math.round((lat0 + (rnd() - 0.5) * 0.02) * 1e6),
                     ['val_' + TAGMAP.lng.tag]: Math.round((lng0 + (rnd() - 0.5) * 0.02) * 1e6)
                 });
@@ -2918,6 +2957,16 @@
         function histVal(r, key) {
             const def = TAGMAP[key];
             return def ? r['t' + def.tag] : undefined;
+        }
+        // 历史行按时间升序排列
+        function historyAsc() {
+            return S.history.slice().sort((a, b) => (timeMs(a.ct) || 0) - (timeMs(b.ct) || 0));
+        }
+        // 历史加载进度文本，未取完时附截断提示
+        function historyLoadText() {
+            const loaded = S.historyLoadedRows || S.history.length;
+            const total = S.historyTotal || loaded;
+            return '已加载 ' + loaded + ' / 共 ' + total + ' 条' + (loaded < total ? '（还有更多，点「加载更多」）' : '');
         }
 
         function renderHistory() {
@@ -2942,7 +2991,7 @@
                     '</td><td>' + escHtml(histVal(r, 'boot') ?? '--') + '</td><td>' + escHtml(histVal(r, 'mem') ?? '--') +
                     '</td><td>' + escHtml(lng) + '</td><td>' + escHtml(lat) + '</td></tr>';
             }).join('');
-            $('historySummary').textContent = '共 ' + S.historyTotal + ' 条 · ' + S.history.length + ' 行';
+            $('historySummary').textContent = historyLoadText() + ' · ' + S.history.length + ' 行';
         }
 
         function renderHistoryCharts() {
@@ -2956,8 +3005,9 @@
                 clearOne('chartTempHumi'); clearOne('chartCpuVoc');   // 清掉上一台设备的旧曲线
                 return;
             }
-            const times = S.history.map(r => r.ct ? r.ct.slice(5, 16) : '');
-            const series = key => S.history.map(r => {
+            const rows = historyAsc();
+            const times = rows.map(r => r.ct ? r.ct.slice(5, 16) : '');
+            const series = key => rows.map(r => {
                 const v = histVal(r, key);
                 return v === undefined ? null : Number(v);
             });
@@ -3005,26 +3055,41 @@
             mk('chartCpuVoc', ['CPU°C', 'VOC'], [series('cpu'), series('voc')], ['#fbbf24', '#f87171']);
         }
 
-        function renderTrackPane() {
+        // 历史行转轨迹定位点：按时间升序，连续同点合并并保留末次上报时间
+        function trackPoints(rows) {
             const points = [];
-            S.history.forEach(r => {
+            (rows || []).forEach(r => {
                 const p = toMapPos(normCoord(histVal(r, 'lat'), histVal(r, 'lng')), histVal(r, 'locMethod'));
-                if (p) {
-                    points.push({
-                        pos: p, time: r.ct,
-                        temp: histVal(r, 'temp'), humi: histVal(r, 'humi'),
-                        cpu: histVal(r, 'cpu'), voc: histVal(r, 'voc'), signal: histVal(r, 'signal')
-                    });
+                if (!p) return;
+                const ms = timeMs(r.ct);
+                const prev = points[points.length - 1];
+                if (prev && prev.pos.lat === p.lat && prev.pos.lng === p.lng) {
+                    if (isFinite(ms)) prev.endMs = ms;
+                    return;
                 }
+                const sig = histVal(r, 'signal') ?? (histVal(r, 'sigRaw') !== undefined ? (Number(histVal(r, 'sigRaw')) - 100) : undefined);
+                points.push({
+                    pos: p, time: r.ct, endMs: ms,
+                    temp: histVal(r, 'temp'), humi: histVal(r, 'humi'),
+                    cpu: histVal(r, 'cpu'), voc: histVal(r, 'voc'), signal: sig
+                });
             });
+            return points;
+        }
+
+        function renderTrackPane() {
+            const points = trackPoints(historyAsc());
             const sum = $('trackSummary');
             if (!points.length) {
                 if (sum) sum.textContent = '所选时间范围内没有位置数据';
                 MapMan.clearTrack('track');
                 return;
             }
-            if (sum) sum.textContent = '共 ' + points.length + ' 个定位点 · ' +
-                (points[0].time || '') + ' ~ ' + (points[points.length - 1].time || '');
+            const segs = trackSegments(points);
+            if (sum) {
+                sum.textContent = historyLoadText() + ' · 定位点 ' + points.length + ' 个 · 轨迹 ' +
+                    segs.length + ' 段 · ' + (points[0].time || '') + ' ~ ' + (points[points.length - 1].time || '');
+            }
             MapMan.renderTrack('track', points);
         }
 

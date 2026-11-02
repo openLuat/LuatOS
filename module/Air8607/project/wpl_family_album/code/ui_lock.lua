@@ -34,6 +34,7 @@ local mode = "unlock"
 local entered = ""
 local tmp_pwd = nil
 local msgTimer = nil
+local submitTimer = nil
 
 -- ==================== 文案 ====================
 local HINT = {
@@ -125,7 +126,8 @@ local function on_digit(d)
     refresh_dots()
     if #entered == NDIGIT then
         -- 让最后一个圆点先画出来，再去校验
-        sys.timerStart(submit, 120)
+        if submitTimer then sys.timerStop(submitTimer) end
+        submitTimer = sys.timerStart(submit, 120)
     end
 end
 
@@ -229,6 +231,10 @@ function M.build(app, m)
 end
 
 function M.destroy()
+    if submitTimer then
+        sys.timerStop(submitTimer)
+        submitTimer = nil
+    end
     if msgTimer then
         sys.timerStop(msgTimer)
         msgTimer = nil

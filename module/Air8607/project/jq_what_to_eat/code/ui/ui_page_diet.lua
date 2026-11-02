@@ -94,31 +94,41 @@ function M.build(box, c)
     log.info("page.diet", "构建完成", D.text_w("香煎鸡胸西蓝花", T.f.big), "px")
 end
 
+local function spin_body()
+    local t0 = D.now_ms()
+    local n = #F.diet
+    local idx = math.random(1, n)
+    wheel:reset_hits()
+    wheel:set_button("转动中", true)
+    wheel:spin_to(1, idx, { duration = T.spin.single_ms, turns = T.spin.single_turns })
+
+    local d = F.diet[idx]
+    wheel:mark_hit(1, idx)
+    lb_idx:set_text(string.format("#%02d", idx))
+    lb_name:set_text(d.name)
+    set_tip(d.tip)
+    -- 小贴士按菜序号取模固定搭配，同一道菜每次都是同一条
+    lb_note:set_text(F.slim_tips[(idx - 1) % #F.slim_tips + 1])
+    wheel:set_button("再转一次", false)
+    log.info("page.diet", "落点", idx, d.name, "耗时", D.now_ms() - t0, "ms")
+end
+
+-- 转盘任务：正常结束与异常结束都复位 busy，避免一次异常锁死页签
+local function spin_task()
+    local ok, err = pcall(spin_body)
+    busy = false
+    if ctx and ctx.set_busy then ctx.set_busy(false) end
+    if not ok then
+        log.error("page.diet", "转盘异常", tostring(err))
+        if wheel then pcall(wheel.set_button, wheel, "开饭", false) end
+    end
+end
+
 function M.start()
     if busy or not wheel then return end
     busy = true
     if ctx and ctx.set_busy then ctx.set_busy(true) end
-    sys.taskInit(function()
-        local t0 = D.now_ms()
-        local n = #F.diet
-        local idx = math.random(1, n)
-        wheel:reset_hits()
-        wheel:set_button("转动中", true)
-        wheel:spin_to(1, idx, { duration = T.spin.single_ms, turns = T.spin.single_turns })
-
-        local d = F.diet[idx]
-        wheel:mark_hit(1, idx)
-        lb_idx:set_text(string.format("#%02d", idx))
-        lb_name:set_text(d.name)
-        set_tip(d.tip)
-        -- 小贴士按菜序号取模固定搭配，同一道菜每次都是同一条
-        lb_note:set_text(F.slim_tips[(idx - 1) % #F.slim_tips + 1])
-        wheel:set_button("再转一次", false)
-
-        busy = false
-        if ctx and ctx.set_busy then ctx.set_busy(false) end
-        log.info("page.diet", "落点", idx, d.name, "耗时", D.now_ms() - t0, "ms")
-    end)
+    sys.taskInit(spin_task)
 end
 
 return M

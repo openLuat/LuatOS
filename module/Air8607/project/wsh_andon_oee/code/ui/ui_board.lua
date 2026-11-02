@@ -25,6 +25,7 @@ local C = theme.C
 local SW, SH = conf.W, conf.H
 
 local root, overlay, ov_title, ov_hint
+local visible = true
 local sel_idx = 0
 
 local COL_W, CARD_W, CARD_H, ROW_H = 166, 158, 174, 182
@@ -251,6 +252,8 @@ function M.close_panel()
 end
 
 function M.refresh()
+    if not visible or not root then return end
+
     -- 时间
     local t = rtc_util.now()
     if t then
@@ -395,16 +398,19 @@ function M.build(parent)
     build_footer(root)
     build_overlay(root)
 
+    visible = true
     M.refresh()
     return root
 end
 
 function M.show()
+    visible = true
     if root then root:set_hidden(false) end
     M.refresh()
 end
 
 function M.hide()
+    visible = false
     if root then root:set_hidden(true) end
 end
 

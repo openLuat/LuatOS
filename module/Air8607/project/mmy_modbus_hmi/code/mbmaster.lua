@@ -220,11 +220,27 @@ local function tcp_tx(slave, pdu, qty)
 end
 
 -- ==================== 统一事务入口 ====================
-local function transact(slave, pdu, qty)
+-- 事务互斥：轮询任务与页面操作共用 rx_buf / last_tx / last_rx，同一时刻只允许一个事务
+local txn_busy = false
+
+local function txn_body(slave, pdu, qty)
     if transport == "sim" then return sim_tx(slave, pdu, qty) end
     if transport == "rtu" then return rtu_tx(slave, pdu, qty) end
     if transport == "tcp" then return tcp_tx(slave, pdu, qty) end
     return nil, "未知传输方式 " .. tostring(transport)
+end
+
+local function transact(slave, pdu, qty)
+    if txn_busy then
+        local _, ismain = coroutine.running()
+        if ismain then return nil, "busy" end
+        while txn_busy do sys.wait(2) end
+    end
+    txn_busy = true
+    local ok, res, err = pcall(txn_body, slave, pdu, qty)
+    txn_busy = false
+    if not ok then return nil, "内部错误" end
+    return res, err
 end
 
 local function book_fail(err, res)

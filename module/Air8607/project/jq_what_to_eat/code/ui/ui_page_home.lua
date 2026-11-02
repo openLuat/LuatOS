@@ -130,44 +130,55 @@ end
 
 -- ==================== 开一轮 ====================
 
+local function spin_body()
+    local t0 = D.now_ms()
+    -- 先定好 5 道（荤 2 / 素 2 / 汤 1，各类内部不重复），再让光带依次停到它们身上
+    local meat = D.sample(#F.meat, 2)
+    local veg = D.sample(#F.veg, 2)
+    local soup = D.sample(#F.soup, 1)
+    local plan = {
+        { ring = 1, sector = meat[1], pick = F.meat[meat[1]] },
+        { ring = 2, sector = veg[1], pick = F.veg[veg[1]] },
+        { ring = 1, sector = meat[2], pick = F.meat[meat[2]] },
+        { ring = 2, sector = veg[2], pick = F.veg[veg[2]] },
+        { ring = 3, sector = soup[1], pick = F.soup[soup[1]] },
+    }
+
+    clear_slots()
+    wheel:reset_hits()
+    wheel:set_button("配餐中", true)
+
+    for i = 1, #plan do
+        local step = plan[i]
+        wheel:spin_to(step.ring, step.sector, { duration = T.spin.home_ms, turns = T.spin.home_turns })
+        wheel:mark_hit(step.ring, step.sector)
+        fill_slot(i, step.pick.name, step.pick.tip)
+        lb_prog:set_text(string.format("%d/5", i))
+        if i == 1 then show_detail(1) end
+        if i < #plan then sys.wait(T.spin.home_hold) end
+        log.info("page.home", "第", i, "道", SLOTS[i].cat, step.pick.name)
+    end
+
+    wheel:set_button("再配一次", false)
+    log.info("page.home", "配餐完成，5 道菜，耗时", D.now_ms() - t0, "ms")
+end
+
+-- 配餐任务：正常结束与异常结束都复位 busy，避免一次异常锁死页签
+local function spin_task()
+    local ok, err = pcall(spin_body)
+    busy = false
+    if ctx and ctx.set_busy then ctx.set_busy(false) end
+    if not ok then
+        log.error("page.home", "配餐异常", tostring(err))
+        if wheel then pcall(wheel.set_button, wheel, "开始配餐", false) end
+    end
+end
+
 function M.start()
     if busy or not wheel then return end
     busy = true
     if ctx and ctx.set_busy then ctx.set_busy(true) end
-    sys.taskInit(function()
-        local t0 = D.now_ms()
-        -- 先定好 5 道（荤 2 / 素 2 / 汤 1，各类内部不重复），再让光带依次停到它们身上
-        local meat = D.sample(#F.meat, 2)
-        local veg = D.sample(#F.veg, 2)
-        local soup = D.sample(#F.soup, 1)
-        local plan = {
-            { ring = 1, sector = meat[1], pick = F.meat[meat[1]] },
-            { ring = 2, sector = veg[1], pick = F.veg[veg[1]] },
-            { ring = 1, sector = meat[2], pick = F.meat[meat[2]] },
-            { ring = 2, sector = veg[2], pick = F.veg[veg[2]] },
-            { ring = 3, sector = soup[1], pick = F.soup[soup[1]] },
-        }
-
-        clear_slots()
-        wheel:reset_hits()
-        wheel:set_button("配餐中", true)
-
-        for i = 1, #plan do
-            local step = plan[i]
-            wheel:spin_to(step.ring, step.sector, { duration = T.spin.home_ms, turns = T.spin.home_turns })
-            wheel:mark_hit(step.ring, step.sector)
-            fill_slot(i, step.pick.name, step.pick.tip)
-            lb_prog:set_text(string.format("%d/5", i))
-            if i == 1 then show_detail(1) end
-            if i < #plan then sys.wait(T.spin.home_hold) end
-            log.info("page.home", "第", i, "道", SLOTS[i].cat, step.pick.name)
-        end
-
-        wheel:set_button("再配一次", false)
-        busy = false
-        if ctx and ctx.set_busy then ctx.set_busy(false) end
-        log.info("page.home", "配餐完成，5 道菜，耗时", D.now_ms() - t0, "ms")
-    end)
+    sys.taskInit(spin_task)
 end
 
 return M

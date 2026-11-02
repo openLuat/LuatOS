@@ -574,6 +574,13 @@ function M.destroy()
         pcall(function() root:destroy() end)
         root = nil
     end
+    timeLabel, dateLabel, alarmDot, alarmText = nil, nil, nil, nil
+    nutIconShape, nutName, nutTempLabel, nutHoursLabel = nil, nil, nil, nil
+    progPct, progTime = nil, nil
+    tempValue, tempTargetLabel, tempPill, tempPillText, tempWave, tempSub = nil, nil, nil, nil, nil, nil
+    phValue, phPill, turbValue, turbPill = nil, nil, nil, nil
+    co2Value, co2Pill, co2Spark = nil, nil, nil
+    batchEnv = nil
     app_ref = nil
 end
 

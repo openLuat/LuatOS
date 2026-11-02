@@ -67,10 +67,19 @@ function M.show(page)
     if not PAGES[page] then return end
     destroy_all()
     state = page
+    local ok, err
     if page == "device" then
-        PAGES[page].build(M, cur_dev)
+        ok, err = pcall(PAGES[page].build, M, cur_dev)
     else
-        PAGES[page].build(M)
+        ok, err = pcall(PAGES[page].build, M)
+    end
+    if not ok then
+        log.error("app", "页面构建失败", page, tostring(err))
+        if page ~= "dashboard" then
+            M.show("dashboard")
+        else
+            M.toast("界面构建失败")
+        end
     end
 end
 

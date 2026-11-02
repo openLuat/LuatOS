@@ -28,6 +28,7 @@ local brightLabel = nil
 local brightSlider = nil
 local curBright = 100
 local dirty = false            -- 是否改过亮度（避免刚进设置页就写盘）
+local saveTimer = nil          -- 亮度落盘延时定时器
 
 local SD_MOUNT = conf.sd.mount
 local BAR_W = 620
@@ -112,12 +113,30 @@ local function clear_cache()
 end
 
 -- ==================== 亮度 ====================
+-- 亮度落盘：改动后延时提交，连续调节合并成一次写盘
+local function save_bright()
+    if not dirty then return end
+    settings.set_brightness(curBright)
+    dirty = false
+end
+
+local function on_save_timeout()
+    saveTimer = nil
+    save_bright()
+end
+
+local function commit_bright()
+    dirty = true
+    if saveTimer then sys.timerStop(saveTimer) end
+    saveTimer = sys.timerStart(on_save_timeout, 800)
+end
+
 local function bright_step(delta)
     local v = curBright + delta
     if v < 10 then v = 10 end
     if v > 100 then v = 100 end
     curBright = v
-    dirty = true
+    commit_bright()
     if brightSlider then brightSlider:set_value(v, true) end
     settings.apply_brightness(v)
     if brightLabel then brightLabel:set_text(v .. "%") end
@@ -178,11 +197,11 @@ function M.build(app)
                 radius = 12,
             },
             on_change = function()
-                -- 拖动时实时预览，不写盘；离开页面时统一持久化
+                -- 拖动时实时预览，写盘延时提交
                 if not brightSlider then return end
                 local v = brightSlider:get_value()
                 curBright = v
-                dirty = true
+                commit_bright()
                 settings.apply_brightness(v)
                 if brightLabel then brightLabel:set_text(v .. "%") end
             end,
@@ -210,11 +229,12 @@ end
 
 -- ==================== 对外 ====================
 function M.destroy()
-    -- 离开页面时把亮度落盘（拖动能实时预览，但写盘只在这时做一次）
-    if dirty then
-        settings.set_brightness(curBright)
-        dirty = false
+    if saveTimer then
+        sys.timerStop(saveTimer)
+        saveTimer = nil
     end
+    -- 调节动作已经延时落盘，这里只补交还没提交的改动
+    save_bright()
     if root then
         pcall(function() root:destroy() end)
         root = nil

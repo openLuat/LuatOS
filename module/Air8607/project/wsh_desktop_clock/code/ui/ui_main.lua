@@ -14,6 +14,9 @@ local ui_settings = require "ui_settings"
 
 local M = {}
 
+-- 当前显示页，隐藏页不参与刷新
+local cur_page = "clock"
+
 -- 搭界面：两个页面 + 互相切换的回调
 function M.build(parent)
     ui_clock.build(parent)
@@ -22,18 +25,23 @@ function M.build(parent)
     ui_clock.on_settings = function()
         ui_clock.hide()
         ui_settings.show()
+        cur_page = "settings"
     end
     ui_settings.on_back = function()
         ui_settings.hide()
         ui_clock.show()
+        cur_page = "clock"
     end
 
+    cur_page = "clock"
     ui_clock.show()
 end
 
--- 每秒刷新时钟
+-- 每秒刷新时钟，只刷当前显示页
 function M.refresh()
-    ui_clock.refresh()
+    if cur_page == "clock" then
+        ui_clock.refresh()
+    end
 end
 
 return M

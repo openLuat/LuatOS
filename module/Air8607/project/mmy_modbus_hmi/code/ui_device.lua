@@ -106,7 +106,7 @@ local function build_table()
         if pt.rw then
             if pt.dtype == "bool" then
                 act = theme.button(card, COL[7], y - 2, 72, 22, "切换", 12, C.panel2, C.cyan, function()
-                    theme.defer(function()
+                    theme.async(function()
                         local v = mbdev.get(pt.key) or 0
                         if app_ref then app_ref.write(pt.key, (v ~= 0) and 0 or 1) end
                         M.refresh()
@@ -115,7 +115,7 @@ local function build_table()
             else
                 local st = step_of(pt)
                 theme.button(card, COL[7], y - 2, 34, 22, "-", 14, C.panel2, C.ink2, function()
-                    theme.defer(function()
+                    theme.async(function()
                         local v = (mbdev.get(pt.key) or 0) - st
                         if pt.min and v < pt.min then v = pt.min end
                         if app_ref then app_ref.write(pt.key, v) end
@@ -123,7 +123,7 @@ local function build_table()
                     end)
                 end, 6)
                 theme.button(card, COL[7] + 38, y - 2, 34, 22, "+", 14, C.panel2, C.ink2, function()
-                    theme.defer(function()
+                    theme.async(function()
                         local v = (mbdev.get(pt.key) or 0) + st
                         if pt.max and v > pt.max then v = pt.max end
                         if app_ref then app_ref.write(pt.key, v) end
@@ -175,7 +175,7 @@ local function build_info()
     end, 9)
 
     resetBtn = theme.button(c, 16, 348, 232, 38, "数字量输出全复位", 15, C.panel2, C.red, function()
-        theme.defer(function()
+        theme.async(function()
             local n = 0
             for _, pt in ipairs(dev.points) do
                 if pt.rw and pt.dtype == "bool" then
@@ -279,6 +279,7 @@ function M.destroy()
         root = nil
     end
     app_ref = nil
+    dev = nil
     rows, pollRows, infoLabels, statLabels = {}, {}, {}, {}
     titleLabel, modelLabel, statusPill, statusPillText = nil, nil, nil, nil
     offlineBtn, anomalyBtn, resetBtn = nil, nil, nil

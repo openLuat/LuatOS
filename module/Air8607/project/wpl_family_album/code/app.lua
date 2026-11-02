@@ -61,6 +61,15 @@ function M.toast(msg)
     log.info("app", msg)
 end
 
+-- 页面构建失败时不能留下半成品页面，记录错误并交回调用方退回可用页面
+local function build_page(fn, ...)
+    local ok, err = pcall(fn, ...)
+    if not ok then
+        log.error("app", "页面构建失败", tostring(err))
+    end
+    return ok
+end
+
 -- ==================== 锁屏 ====================
 --[[显示锁屏/改密码页
 mode: "unlock" 解锁 | "old"/"new"/"confirm" 改密码流程
@@ -73,7 +82,9 @@ function M.show_lock(mode)
     ui_settings.destroy()
 
     state = "lock"
-    ui_lock.build(M, mode or "unlock")
+    if not build_page(ui_lock.build, M, mode or "unlock") then
+        M.toast("界面构建失败")
+    end
 end
 
 --[[解锁成功]]
@@ -137,7 +148,9 @@ function M.show_home()
     ui_settings.destroy()
 
     state = "home"
-    ui_home.build(M)
+    if not build_page(ui_home.build, M) then
+        M.toast("界面构建失败")
+    end
     refresh_home_sd()
 
     -- 异步挂载，避免首页出现前卡住
@@ -159,7 +172,9 @@ function M.open_settings()
     ui_settings.destroy()
 
     state = "settings"
-    ui_settings.build(M)
+    if not build_page(ui_settings.build, M) then
+        M.show_home()
+    end
 end
 
 function M.close_settings()
@@ -177,7 +192,9 @@ function M.open_dir(path)
     ui_settings.destroy()
 
     state = "browser"
-    ui_browser.build(M, last_dir)
+    if not build_page(ui_browser.build, M, last_dir) then
+        M.show_home()
+    end
 end
 
 function M.open_album()
@@ -232,13 +249,15 @@ function M.open_photo(photos, index)
 
     local dir_before = last_dir
     state = "viewer"
-    ui_viewer.build(M, photos, index or 1)
+    build_page(ui_viewer.build, M, photos, index or 1)
 
-    -- build 失败（列表为空）时会保持 nil，回退到目录页
+    -- build 失败（列表为空或抛错）时回退到目录页
     if not ui_viewer.active() then
         state = "browser"
         last_dir = dir_before
-        ui_browser.build(M, last_dir)
+        if not build_page(ui_browser.build, M, last_dir) then
+            M.show_home()
+        end
     end
 end
 
@@ -248,7 +267,9 @@ function M.close_viewer()
     state = "browser"
     -- 目录页一直保留着，直接显示即可（不重建，页码不丢）
     if not ui_browser.dir() then
-        ui_browser.build(M, last_dir)
+        if not build_page(ui_browser.build, M, last_dir) then
+            M.show_home()
+        end
     end
 end
 

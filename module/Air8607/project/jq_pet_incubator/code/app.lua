@@ -12,6 +12,7 @@ local store = require "store"
 local alarm = require "alarm"
 local ui_home = require "ui_home"
 local ui_detail = require "ui_detail"
+local ui_dialog = require "ui_dialog"
 
 local M = {}
 local C = theme.C
@@ -49,12 +50,24 @@ end
 --------------------------------------------------------------------
 -- 路由
 --------------------------------------------------------------------
+-- 页面构建失败时不能留下半成品页面，记录错误后由调用方退回可用页面
+local function build_page(fn, ...)
+    local ok, err = pcall(fn, ...)
+    if not ok then
+        log.error("app", "页面构建失败", tostring(err))
+    end
+    return ok
+end
+
 function M.show_home()
+    ui_dialog.close()
     ui_detail.destroy()
     ui_home.destroy()
     state = "home"
     cur_id = nil
-    ui_home.build(M)
+    if not build_page(ui_home.build, M) then
+        M.toast("界面构建失败")
+    end
 end
 
 function M.open_detail(id)
@@ -63,15 +76,20 @@ function M.open_detail(id)
         M.toast("设备不存在")
         return
     end
+    ui_dialog.close()
     ui_home.destroy()
     ui_detail.destroy()
     cur_id = id
     state = "detail"
-    ui_detail.build(M, id)
+    if not build_page(ui_detail.build, M, id) then
+        state = "home"
+        M.show_home()
+    end
 end
 
 function M.close_detail()
     if state ~= "detail" then return end
+    ui_dialog.close()
     ui_detail.destroy()
     M.show_home()
 end
@@ -79,7 +97,9 @@ end
 -- 房间/设备列表变化后重建主页
 function M.reload_home()
     if state ~= "home" then return end
-    ui_home.build(M)
+    if not build_page(ui_home.build, M) then
+        M.toast("界面构建失败")
+    end
 end
 
 function M.state() return state end

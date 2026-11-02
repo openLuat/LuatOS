@@ -117,6 +117,7 @@ local function update_events(now)
 end
 
 function M.refresh()
+    if not root then return end
     local t = rtc_util.now()
     if not t then return end
 

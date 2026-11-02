@@ -366,6 +366,8 @@ function M.destroy()
         pcall(function() root:destroy() end)
         root = nil
     end
+    app_ref = nil
+    dev_id = nil
 end
 
 return M

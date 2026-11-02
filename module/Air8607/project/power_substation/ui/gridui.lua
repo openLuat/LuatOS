@@ -458,7 +458,7 @@ CARD_FN = {
 
 -- ==================== 文本同步 ====================
 local function sync_texts()
-    local d = o.d
+    local d, L = o.d, o.lb
     upd("online", L.online, "遥测在线 256/256")
     -- 主变运行
     upd("p", L.p, fmt3(d.p) .. " kW")
@@ -507,6 +507,7 @@ local function sync_texts()
 end
 
 local function sync_clock()
+    local L = o.lb
     local t = os.date("*t")
     upd("clock", L.clock, string.format("%02d:%02d", t.hour, t.min))
     upd("date", L.date, os.date("%Y-%m-%d %a %H:%M:%S"))
@@ -524,8 +525,8 @@ end
 function M.build()
     o = {
         t = 0,
-        d = {}, txt = {},
-        feed_on = {}, fi = 0,
+        d = {}, txt = {}, lb = {},
+        feed_on = {}, fi = 0, card_i = 0,
         alarm_idx = 0, notice_idx = 1, pending = 5,
     }
     for i = 1, #SD.feeders do o.feed_on[i] = true end
@@ -588,5 +589,231 @@ function M.build()
         })
     end
 
--- @@PART3C@@
+    -- 图例文字
+    local leg_txt = { "预警", "异常", "提示" }
+    for i = 1, 3 do
+        lbl(o.root, 638 + (i - 1) * 40, 76, 26, 12, leg_txt[i], T.f.tiny, C.dim2, LB)
+    end
+
+    -- ==================== 文本 ====================
+    local L = o.lb
+
+    -- 顶栏
+    lbl(o.root, 36, 6, 340, 24, "智慧配电房运维监测", T.f.title, C.txt, LB)
+    lbl(o.root, 36, 30, 340, 12, "SMART SUBSTATION O&M TERMINAL", T.f.tiny, C.dim2, LB)
+    lbl(o.root, 392, 10, 190, 16, "110kV 城南变电站", T.f.body, C.txt, LB)
+    L.date  = lbl(o.root, 392, 30, 190, 12, "", T.f.small, C.dim, LB)
+    lbl(o.root, 628, 18, 46, 12, "工况", T.f.mini, C.dim2, LB)
+    lbl(o.root, 628, 32, 46, 12, "正常", T.f.small, C.green, LB)
+    L.online = lbl(o.root, 692, 20, 148, 16, "", T.f.small, C.green, LB)
+    L.clock  = lbl(o.root, 856, 10, 136, 32, "--:--", T.f.hero, C.txt, RA)
+
+    -- 主变运行
+    lbl(o.root, LY.kpi.x + 26, LY.kpi.y + 12, 150, 18, "主变运行", T.f.mid, C.txt, LB)
+    lbl(o.root, LY.kpi.x + 26, LY.kpi.y + 30, 150, 12, "TRANSFORMER", T.f.tiny, C.dim2, LB)
+    L.occ = lbl(o.root, LY.kpi.x + 34, LY.kpi.y + 106, 64, 26, "", T.f.title, C.accent, CA)
+    lbl(o.root, LY.kpi.x + 26, LY.kpi.y + 132, 80, 12, "平均负载率", T.f.mini, C.dim2, CA)
+    lbl(o.root, LY.kpi.x + 118, LY.kpi.y + 42, 100, 12, "有功功率", T.f.mini, C.dim, LB)
+    L.p = lbl(o.root, LY.kpi.x + 118, LY.kpi.y + 54, 100, 20, "", T.f.big, C.txt, LB)
+    local kname = { "1#主变负载", "2#主变负载", "上层油温", "绕组温度" }
+    for i = 1, 4 do
+        local y = LY.kpi.y + 88 + (i - 1) * 26
+        lbl(o.root, LY.kpi.x + 118, y, 58, 12, kname[i], T.f.mini, C.dim, LB)
+        L["v" .. i] = lbl(o.root, LY.kpi.x + 176, y - 2, 42, 16, "", T.f.small, C.txt, RA)
+    end
+    lbl(o.root, LY.kpi.x + 110, LY.kpi.y + 192, 58, 12, "功率因数", T.f.mini, C.dim, LB)
+    L.target = lbl(o.root, LY.kpi.x + 176, LY.kpi.y + 190, 42, 16, "", T.f.small, C.teal, RA)
+
+    -- 电量与需量
+    lbl(o.root, LY.energy.x + 26, LY.energy.y + 12, 110, 18, "电量与需量", T.f.mid, C.txt, LB)
+    lbl(o.root, LY.energy.x + 26, LY.energy.y + 30, 110, 12, "ENERGY", T.f.tiny, C.dim2, LB)
+    L.energy = lbl(o.root, LY.energy.x + 112, LY.energy.y + 12, 104, 20, "", T.f.big, C.txt, RA)
+    lbl(o.root, LY.energy.x + 16, LY.energy.y + 44, 100, 12, "分时占比", T.f.mini, C.dim2, LB)
+    local ename = { "峰", "谷", "平" }
+    for i = 1, 3 do
+        local y = LY.energy.y + 64 + (i - 1) * 40
+        lbl(o.root, LY.energy.x + 16, y, 28, 14, ename[i], T.f.small, C.dim, LB)
+        L["e" .. i] = lbl(o.root, LY.energy.x + 170, y - 2, 42, 16, "", T.f.small, C.txt, RA)
+    end
+    L.month = lbl(o.root, LY.energy.x + 16, LY.energy.y + 186, 126, 14, "", T.f.small, C.dim, LB)
+    L.yoy   = lbl(o.root, LY.energy.x + 144, LY.energy.y + 186, 68, 14, "", T.f.small, C.green, RA)
+
+    -- 电气主接线
+    lbl(o.root, LY.map.x + 26, LY.map.y + 12, 180, 18, "电气主接线", T.f.mid, C.txt, LB)
+    lbl(o.root, LY.map.x + 26, LY.map.y + 30, 180, 12, "SINGLE LINE DIAGRAM", T.f.tiny, C.dim2, LB)
+    -- 图内文字（绝对坐标 = map.x+16 + 图元 x，map.y+44 + 图元 y）
+    lbl(o.root, 372, 118, 76, 12, "1#电源", T.f.tiny, C.dim2, CA)
+    lbl(o.root, 576, 118, 76, 12, "2#电源", T.f.tiny, C.dim2, CA)
+    lbl(o.root, 292, 148, 58, 12, "35kV", T.f.tiny, C.dim2, LB)
+    lbl(o.root, 424, 188, 56, 12, "1#主变", T.f.mini, C.dim, LB)
+    lbl(o.root, 628, 188, 56, 12, "2#主变", T.f.mini, C.dim, LB)
+    lbl(o.root, 292, 232, 58, 12, "10kV I 段", T.f.tiny, C.dim2, LB)
+    lbl(o.root, 672, 232, 60, 12, "10kV II 段", T.f.tiny, C.dim2, RA)
+    lbl(o.root, 492, 248, 44, 12, "分段", T.f.tiny, C.dim2, CA)
+    for _, f in ipairs(SD.feeders) do
+        lbl(o.root, LY.map.x + 16 + f.x - 26, LY.map.y + 44 + SD.feed_box.y + 8,
+            52, 12, f.name, T.f.mini, C.dim, CA)
+    end
+
+    -- 开关状态
+    lbl(o.root, LY.card1.x + 14, LY.card1.y + 10, 124, 14, "开关状态", T.f.body, C.txt, LB)
+    local c1n = { "断路器", "刀闸", "接地开关" }
+    local c1k = { "sw", "kn", "gd" }
+    for i = 1, 3 do
+        local y = LY.card1.y + 30 + (i - 1) * 18
+        lbl(o.root, LY.card1.x + 14, y, 50, 12, c1n[i], T.f.mini, C.dim, LB)
+        L[c1k[i]] = lbl(o.root, LY.card1.x + 66, y - 2, 42, 16, "", T.f.small, C.txt, RA)
+    end
+    lbl(o.root, LY.card1.x + 14, LY.card1.y + 80, 80, 12, "遥控投入率", T.f.mini, C.dim, LB)
+
+    -- 环境安防
+    lbl(o.root, LY.card2.x + 14, LY.card2.y + 10, 124, 14, "环境安防", T.f.body, C.txt, LB)
+    local c2n = { "SF6 气体", "温度", "湿度", "水浸" }
+    local c2k = { "sf6", "temp", "hum", "water" }
+    for i = 1, 4 do
+        local y = LY.card2.y + 28 + (i - 1) * 16
+        lbl(o.root, LY.card2.x + 14, y, 50, 12, c2n[i], T.f.mini, C.dim, LB)
+        L[c2k[i]] = lbl(o.root, LY.card2.x + 66, y - 2, 42, 16, "", T.f.small, C.txt, RA)
+    end
+    lbl(o.root, LY.card2.x + 14, LY.card2.y + 92, 80, 12, "环境湿度", T.f.mini, C.dim, LB)
+
+    -- 操作巡检
+    lbl(o.root, LY.card3.x + 14, LY.card3.y + 10, 124, 14, "操作巡检", T.f.body, C.txt, LB)
+    local c3n = { "待办操作", "操作票", "巡检进度" }
+    local c3k = { "todo", "tk", "pt" }
+    for i = 1, 3 do
+        local y = LY.card3.y + 30 + (i - 1) * 18
+        lbl(o.root, LY.card3.x + 14, y, 50, 12, c3n[i], T.f.mini, C.dim, LB)
+        L[c3k[i]] = lbl(o.root, LY.card3.x + 66, y - 2, 42, 16, "", T.f.small, C.txt, RA)
+    end
+    lbl(o.root, LY.card3.x + 14, LY.card3.y + 84, 80, 12, "巡检完成率", T.f.mini, C.dim, LB)
+
+    -- 实时告警
+    lbl(o.root, LY.alarm.x + 26, LY.alarm.y + 12, 100, 18, "实时告警", T.f.mid, C.txt, LB)
+    lbl(o.root, LY.alarm.x + 26, LY.alarm.y + 30, 100, 12, "ALARM", T.f.tiny, C.dim2, LB)
+    L.al_cnt = lbl(o.root, LY.alarm.x + 126, LY.alarm.y + 12, 90, 16, "", T.f.small, C.red, RA)
+    for i = 1, 5 do
+        local y = LY.alarm.y + 50 + (i - 1) * 32
+        L["t" .. i] = lbl(o.root, LY.alarm.x + 24, y, 34, 12, "", T.f.tiny, C.dim2, LB)
+        L["p" .. i] = lbl(o.root, LY.alarm.x + 62, y, 72, 12, "", T.f.mini, C.dim, LB)
+        L["x" .. i] = lbl(o.root, LY.alarm.x + 24, y + 13, 192, 12, "", T.f.mini, C.txt, LB)
+    end
+
+    -- 运行工况
+    lbl(o.root, LY.secu.x + 26, LY.secu.y + 12, 110, 18, "运行工况", T.f.mid, C.txt, LB)
+    lbl(o.root, LY.secu.x + 26, LY.secu.y + 30, 110, 12, "OPERATION", T.f.tiny, C.dim2, LB)
+    lbl(o.root, LY.secu.x + 16, LY.secu.y + 52, 76, 14, "遥测合格率", T.f.mini, C.dim, LB)
+    L.pass_rate = lbl(o.root, LY.secu.x + 140, LY.secu.y + 48, 76, 20, "", T.f.big, C.green, RA)
+    local sname = { "母线电压", "系统频率", "直流电压", "功率因数" }
+    for i = 1, 4 do
+        local y = LY.secu.y + 96 + (i - 1) * 24
+        lbl(o.root, LY.secu.x + 30, y, 80, 14, sname[i], T.f.mini, C.dim, LB)
+        L["s" .. i] = lbl(o.root, LY.secu.x + 130, y - 2, 86, 16, "", T.f.small, C.txt, RA)
+    end
+    L.pass = lbl(o.root, LY.secu.x + 16, LY.secu.y + 190, 200, 14, "", T.f.small, C.dim, LB)
+
+    -- 底栏
+    L.notice = lbl(o.root, 36, LY.bottom_y + 10, 700, 20, "", T.f.body, C.dim, LB)
+    lbl(o.root, 744, LY.bottom_y + 13, 248, 14, "数据每 2 秒刷新 / 256 台设备在线",
+        T.f.tiny, C.dim2, RA)
+
+    -- 首屏铺一次
+    draw_kpi()
+    draw_energy()
+    draw_alarm()
+    draw_secu()
+    draw_c1()
+    draw_c2()
+    draw_c3()
+    for i = 1, #SD.pins do draw_pin(i) end
+    for i = 1, #SD.feeders do draw_fdot(i) end
+    draw_flow()
+    set_hl(1)
+    sync_texts()
+    sync_clock()
+    log.info("gridui", "界面构建完成")
+end
+
+-- ==================== 主循环 ====================
+function M.run()
+    init_time_base()
+
+    local t = 0
+    local prev = read_tick()
+    local cardT, textT, clockT, noticeT, hlT = 0, 0, 0, 0, 0
+    local avgN = (HAS_T2 or HZ >= 200) and 4 or 8
+    local accMs, accN = 0, 0
+    local dtMs = T.perf.frame_ms
+
+    while true do
+        sys.wait(T.perf.frame_ms)
+
+        local now = read_tick()
+        if now and prev then
+            local rawMs = tick_ms(tick_delta(now, prev))
+            prev = now
+            if rawMs > 250 then rawMs = 250 end
+            if rawMs < 0 then rawMs = 0 end
+            accMs = accMs + rawMs
+            accN = accN + 1
+            if accN >= avgN then
+                dtMs = accMs / accN
+                accMs, accN = 0, 0
+            end
+        end
+        local dt = dtMs / 1000
+        if dt > 0.2 then dt = 0.2 elseif dt < 0.004 then dt = 0.004 end
+
+        t = t + dt
+        o.t = t
+        step_data(t)
+
+        -- 每帧：2 个告警脉冲 + 1 条潮流小条 + 6 个馈线状态点
+        for i = 1, #SD.pins do draw_pin(i) end
+        draw_flow()
+        for i = 1, #SD.feeders do draw_fdot(i) end
+
+        -- 卡片轮转：一次只重画一张
+        cardT = cardT + dt
+        if cardT >= T.perf.card_ms / 1000 then
+            cardT = 0
+            o.card_i = o.card_i % #CARD_FN + 1
+            local ok, err = pcall(CARD_FN[o.card_i])
+            if not ok then log.error("gridui", "卡片刷新异常", err) end
+        end
+
+        -- 文本：值变了才写
+        textT = textT + dt
+        if textT >= T.perf.text_ms / 1000 then
+            textT = 0
+            local ok, err = pcall(sync_texts)
+            if not ok then log.error("gridui", "文本刷新异常", err) end
+        end
+
+        -- 时钟
+        clockT = clockT + dt
+        if clockT >= T.perf.hz_ms / 1000 then
+            clockT = 0
+            sync_clock()
+        end
+
+        -- 通知与告警滚动
+        noticeT = noticeT + dt
+        if noticeT >= T.perf.notice_ms / 1000 then
+            noticeT = 0
+            rotate_notice()
+            rotate_alarm()
+            draw_alarm()
+        end
+
+        -- 馈线巡览高亮
+        hlT = hlT + dt
+        if hlT >= T.perf.hl_ms / 1000 then
+            hlT = 0
+            o.fi = o.fi % #SD.feeders + 1
+            set_hl(o.fi)
+        end
+    end
+end
+
 return M

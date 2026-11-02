@@ -15,6 +15,19 @@ local SZ = theme.SZ
 local pages = {}
 local cur, cur_name, root = nil, nil, nil
 local toast_obj = nil
+local toast_timer = nil
+
+-- 收掉提示条及其定时器，页面切换后旧定时器不能再动已销毁的组件
+local function clear_toast()
+    if toast_timer then
+        sys.timerStop(toast_timer)
+        toast_timer = nil
+    end
+    if toast_obj then
+        pcall(function() toast_obj:destroy() end)
+        toast_obj = nil
+    end
+end
 
 -- ===================== 页面注册与切换 =====================
 function M.register(name, builder)
@@ -31,6 +44,7 @@ function M.go(name, arg)
     local old = cur
     cur, cur_name = nil, name
     if old and old.destroy then pcall(old.destroy) end
+    clear_toast()
     if root then
         pcall(function() root:destroy() end)
         root = nil
@@ -41,6 +55,7 @@ function M.go(name, arg)
         -- 构建失败绝不能留下"没人管"的半成品页面：清掉重画错误页，
         -- 否则旧页残留的动画/定时器会持续访问已销毁的组件
         log.error("app", "页面构建失败", name, page)
+        clear_toast()
         pcall(function() root:destroy() end)
         root = theme.backdrop(nil)
         page = M.error_page(root, name, tostring(page))
@@ -68,10 +83,7 @@ function M.root() return root end
 -- ===================== 轻提示 =====================
 function M.toast(text, color)
     if not root then return end
-    if toast_obj then
-        pcall(function() toast_obj:destroy() end)
-        toast_obj = nil
-    end
+    clear_toast()
     local w, h = 380, 44
     local x, y = math.floor((conf.W - w) / 2), 64
     local box = theme.card(root, x, y, w, h, {
@@ -80,7 +92,8 @@ function M.toast(text, color)
     theme.label(box, 16, 0, w - 32, h, text, SZ.s, color or C.ink, airui.TEXT_ALIGN_CENTER)
     toast_obj = box
     local ref = box
-    sys.timerStart(function()
+    toast_timer = sys.timerStart(function()
+        toast_timer = nil
         if ref then pcall(function() ref:destroy() end) end
         if toast_obj == ref then toast_obj = nil end
     end, 2600)

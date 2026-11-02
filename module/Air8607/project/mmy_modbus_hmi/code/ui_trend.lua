@@ -449,6 +449,7 @@ function M.destroy()
     tipDots, tipRows, sids, ranges = {}, {}, {}, {}
     chartObj, cursorShape, tipBox, tipTime = nil, nil, nil, nil
     headerRight, statusLabel = nil, nil
+    cursor = nil
 end
 
 return M

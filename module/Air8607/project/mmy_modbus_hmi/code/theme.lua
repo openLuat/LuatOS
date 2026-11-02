@@ -172,6 +172,16 @@ function M.defer(fn, ms)
     end, ms or 20)
 end
 
+-- 在协程中执行操作，可安全调用 sys.wait / sys.waitUntil
+function M.async(fn)
+    sys.taskInit(function()
+        local ok, err = pcall(fn)
+        if not ok then
+            log.error("ui", "async error", tostring(err))
+        end
+    end)
+end
+
 function M.shape(config)
     local items = config and config.items
     if items then

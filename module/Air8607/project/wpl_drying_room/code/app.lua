@@ -44,12 +44,23 @@ function M.toast(msg)
 end
 
 -- ==================== 页面路由 ====================
+-- 页面构建失败时不能留下半成品页面，记录错误后退回看板
+local function build_page(fn, ...)
+    local ok, err = pcall(fn, ...)
+    if not ok then
+        log.error("app", "页面构建失败", tostring(err))
+    end
+    return ok
+end
+
 function M.show_dashboard()
     ui_settings.destroy()
     ui_metric.destroy()
     ui_dashboard.destroy()
     state = "dashboard"
-    ui_dashboard.build(M)
+    if not build_page(ui_dashboard.build, M) then
+        M.toast("界面构建失败")
+    end
 end
 
 function M.open_metric(key)
@@ -57,7 +68,9 @@ function M.open_metric(key)
     ui_dashboard.destroy()
     ui_metric.destroy()
     state = "metric"
-    ui_metric.build(M, key)
+    if not build_page(ui_metric.build, M, key) then
+        M.show_dashboard()
+    end
 end
 
 function M.close_metric()
@@ -70,7 +83,9 @@ function M.open_settings()
     ui_dashboard.destroy()
     ui_settings.destroy()
     state = "settings"
-    ui_settings.build(M)
+    if not build_page(ui_settings.build, M) then
+        M.show_dashboard()
+    end
 end
 
 function M.close_settings()

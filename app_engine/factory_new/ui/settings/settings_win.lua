@@ -99,7 +99,7 @@ local function build_info_card(parent, x, y, w, h)
     local card = theme.card(parent, { x = x, y = y, w = w, h = h })
 
     theme.section(card, { x = pad, y = pad, w = w - 2 * pad,
-        text = "设备信息", px_size = theme.fs("micro"), color = theme.C.t3 })
+        text = "设备信息", px_size = theme.fs("label"), color = theme.C.t2 })
 
     local cfg = _G.project_config or {}
     local rows = {

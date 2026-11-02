@@ -325,7 +325,7 @@ eng_8603w1_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m1_10i_v0 ~ eng_8603m5_10i_v0
 `app/settings/settings_display_app.lua`、`ui/video_util.lua`、`drv/periph/periph_audio.lua`
 一律调它，字段不再各自维护一份拷贝。这样收口的原因是 `uart_id` / `audio_mode` 只要漏传一处，
 全局音频就废掉，而且现象离原因很远：`exaudio` 内部 `uart_id` 缺省取 1，
-而 Air1103 实际挂在 UART6；`ui/boot_ui.lua` 的 `guard_audio_init` 又把 `exaudio.setup`
+而 Air1103 实际挂在 UART6；`app/common/audio_hw.lua` 又把 `exaudio.setup`
 收口成只执行首次、`air1103.init` 也不换串口，所以**第一次 setup 的入参决定终身**。
 
 | 模块 | 文件 | 职责 |

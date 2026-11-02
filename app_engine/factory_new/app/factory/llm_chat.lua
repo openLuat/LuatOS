@@ -134,7 +134,7 @@ tts_play_text = function(text)
         -- 所以等这一次请求真正收尾（或最多 3s）后，必须把音量还回去。
         if not done and not tts_playing then
             log.info("llm_chat", "TTS 被中断，静音等待播放结束")
-            pcall(exaudio.vol, 0)  -- 静音（不走 I2C，立即生效）
+            pcall(exaudio.vol, 0)  -- 静音（soft_volume 立即生效；es8311 板上另写一次 ES8311 寄存器，即一次 I2C）
             local tw = 0
             while not done and tw < 3000 do sys.wait(100); tw = tw + 100 end
             local ac2 = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio

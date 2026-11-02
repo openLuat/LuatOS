@@ -14,8 +14,8 @@
 2. **uart_id 与 audio_mode 必传**：exaudio 内部 uart_id 缺省取 1，
    而 Air1103（model="air1103"）实际接在 UART6（Air8605W / Air8605M），
    漏传会把语音芯片绑到 UART1（那一路是隔离 RS485），
-   录音采不到数据、播放也没声音。boot_ui.guard_audio_init 把 exaudio.setup
-   收口成只执行首次，air1103.init 也不换串口，
+   录音采不到数据、播放也没声音。本模块把 exaudio.setup 收口成只执行首次，
+   air1103.init 也不换串口，
    所以第一次 setup 的入参决定全局，任何一处漏传后续全部补不回来。
 
 3. air1103 模式补 bits_per_sample=16、channels=1（芯片固定 16kHz/16bit/单声道，
@@ -25,7 +25,13 @@
    必须两侧一起配，只配一侧底层会得到半截驱动）。
 
 5. setup 成功后立即套用 ac.play_vol（「亮度和声音」页 set_volume 的统一写回点）；
-   boot_ui 把 setup 记忆化后，重复调用仍会重新套音量。
+   setup 幂等记账后，重复调用仍会重新套音量。
+
+6. es8311 板的 I2C1 与触摸共用，故 hw.audio 另有 i2c_shared / codec_init_on_play /
+   i2c_speed 三个可选键（只对 model="es8311" 板生效，不填即 exaudio 旧行为）。
+   exaudio 对未知表字段是静默忽略的，只传不验会退回「每次播放重配 I2C、触摸随之
+   失灵」的旧行为且一个字节都不报错，所以 setup 成功后必须读 exaudio.bus_policy()
+   对账，对不上就告警（见 check_bus_policy）。
 
 === 对外接口 ===
 
@@ -65,7 +71,11 @@ local PASSTHROUGH_KEYS = {
     "dac_ctrl", "i2c_id", "i2s_sample", "bits_per_sample", "i2s_framebit", "channels",
     "pa_delay", "tx_bus_type", "tx_bus_id", "rx_bus_type", "rx_bus_id",
     "audio_mode", "uart_id",
+    "i2c_shared", "codec_init_on_play", "i2c_speed",
 }
+
+-- 需要向 exaudio.bus_policy() 对账的新语义键，只核对实际传入的字段（见 check_bus_policy）
+local BUS_POLICY_KEYS = { "i2c_shared", "codec_init_on_play", "i2c_speed" }
 
 --[[
 @function cfg
@@ -133,9 +143,48 @@ function M.vol()
     return true
 end
 
+-- 新语义字段的生效对账：setup 成功后读 exaudio.bus_policy() 与实际传入的字段核对。
+-- 旧版 exaudio 对未知表字段静默忽略，只传不验会退回「每次播放重配 I2C」的旧行为且
+-- 不报任何错。对不上只告警不补救：那层「播完恢复触摸总线」的补救本身就是 i2c.setup，
+-- 是把一次冲突放大成整个会话冲突的元凶，删掉就不该再长回来。
+-- 没请求新语义时不告警，保持旧行为
+local function check_bus_policy(ex, sp)
+    local asked = false
+    for i = 1, #BUS_POLICY_KEYS do
+        if sp[BUS_POLICY_KEYS[i]] ~= nil then asked = true end
+    end
+    if not asked then return end
+
+    local pol = nil
+    if type(ex.bus_policy) == "function" then
+        local ok, r = pcall(ex.bus_policy)
+        if ok and type(r) == "table" then pol = r end
+    end
+
+    local bad = nil
+    if not pol then
+        bad = "库无 bus_policy"
+    else
+        for i = 1, #BUS_POLICY_KEYS do
+            local k = BUS_POLICY_KEYS[i]
+            if sp[k] ~= nil and pol[k] ~= sp[k] then
+                bad = k .. "=" .. tostring(pol[k]) .. "，期望 " .. tostring(sp[k])
+                break
+            end
+        end
+    end
+    if not bad then return end
+
+    log.warn("audio_hw", "exaudio 新语义未生效:", bad, "，需同步升级 exaudio 后触摸才不被音频打断")
+end
+
+-- exaudio.setup 幂等记账：只执行首次。重复初始化会反复 i2c.setup 并整套重配 ES8311，
+-- 是触摸失灵的直接原因，所以五个消费方都调用本模块也只有第一次真正下到 exaudio
+local setup_done = false
+
 --[[
 @function setup
-@summary 初始化音频：组装入参 → exaudio.setup → 套用音量
+@summary 初始化音频：组装入参 → exaudio.setup（仅首次） → 套用音量
 @param extra table|nil 同名字段覆盖
 @return boolean, string|nil
 ]]
@@ -145,9 +194,14 @@ function M.setup(extra)
     local ex = get_exaudio()
     if not ex or not ex.setup then return false, "缺少 exaudio 扩展库" end
     local sp = M.params(extra)
-    local ok, ret = pcall(ex.setup, sp)
-    if not ok then return false, "exaudio.setup 异常: " .. tostring(ret) end
-    if not ret then return false, "音频初始化失败" end
+    if not setup_done then
+        local ok, ret = pcall(ex.setup, sp)
+        if not ok then return false, "exaudio.setup 异常: " .. tostring(ret) end
+        if not ret then return false, "音频初始化失败" end
+        setup_done = true
+        check_bus_policy(ex, sp)
+    end
+    -- 重复调用只重新套音量（「亮度和声音」页 set_volume 的统一写回点）
     M.vol()
     return true
 end

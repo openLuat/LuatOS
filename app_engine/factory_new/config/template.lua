@@ -287,6 +287,14 @@
         --     rx_bus_type = 3,
         --     rx_bus_id = 0,
 
+        --     -- I2C 共用语义（只对 model = "es8311" 生效，不填即旧行为）
+        --     i2c_shared = true,     -- [可选,默认false] 这条 I2C 与触摸等外设共用:
+        --                            --   音频只许访问、不许拥有（不重配总线、不关闭总线）
+        --     codec_init_on_play = false, -- [可选,默认true] ES8311 只在 setup 初始化一次:
+        --                            --   播放/音量路径不再碰 codec 的 I2C；
+        --                            --   默认 true=旧行为（每次起播整套重初始化 codec）
+        --     i2c_speed = 400000,    -- [可选] setup 时的 I2C 速率，不传用平台默认
+
         --     -- Air1103 专用（model = "air1103"）
         --     uart_id = 6,           -- [必填] Air1103 挂载的 UART 号（固定 2M 波特率）。
         --                            --   ★ 必须写：exaudio 内部缺省取 1，漏写会把语音芯片

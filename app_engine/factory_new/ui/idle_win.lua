@@ -38,10 +38,10 @@ VP.start_play 是桌面播放器唯一入口，起播前有两道判断：
 放得下的素材按帧原生尺寸居中摆放，不缩放、不裁剪。
 
 === 排版注意（改天气卡前必读）===
-theme.label 内部有一行 `if fs < 16 then fs = 16 end`，而 density_scale 在
-10.1" 1024x600 上算得 0.64 → 被 max(1.0, ...) 抬回 1.0，因此 theme.F.tiny/small/body
-这三个令牌在本工程实机上全部退化为 16px（仅 h2=17 略大）。
-=> 想要可靠的字号层级必须走 px_size；且行高 h 必须 >= 字号，否则字被裁切。
+theme.label 内部有一行 `if fs < theme.FONT_MIN then fs = theme.FONT_MIN end`，
+而 density_scale 在 10.1" 1024x600 上算得 0.64 → 被 max(1.0, ...) 抬回 1.0，
+因此 theme.F.tiny/small/body 这三个令牌在本工程实机上全部退化为 15~19px。
+=> 想要可靠的字号层级必须走 px_size；且行高 h 必须 >= 字号 + 3，否则字被裁切。
 ]]
 
 local exnetif = require "exnetif"
@@ -599,7 +599,7 @@ local function render_grid_page()
         local tile = theme.tile(grid_container, {
             x = x, y = y, w = tile_w, h = tile_h,
             icon = app.icon, icon_size = tile_icon, text = app.name, opa = 6,
-            px_size = clamp(math.floor(screen_h * 0.02), 11, 14), text_color = theme.C.t2,
+            px_size = clamp(math.floor(screen_h * 0.02), theme.FONT_MIN, 18), text_color = theme.C.t2,
             on_click = function() tile_bind_click(app) end,
             on_long_press = long_handler,
         })
@@ -1253,8 +1253,8 @@ local function build_rail(parent)
         theme.image(item, { icon = b.icon, placeholder = true, x = math.floor((iw - isz) / 2),
             y = math.floor(ih * 0.18), w = isz, h = isz })
         theme.label(item, {
-            x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = math.floor(ih * 0.38),
-            text = b.name, px_size = clamp(math.floor(screen_h * 0.018), 10, 13),
+            x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = ih - math.floor(ih * 0.56),
+            text = b.name, px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 16),
             --[[左栏标签读 t2 而不是 t3
 
             左栏底色是「rail_bg 叠在主题 bg 上」的合成色，比纯 bg 亮一档；
@@ -1294,8 +1294,8 @@ local function build_rail(parent)
         theme.image(item, { icon = "desktop", placeholder = true, x = math.floor((iw - isz) / 2),
             y = math.floor(ih * 0.18), w = isz, h = isz })
         theme.label(item, {
-            x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = math.floor(ih * 0.38),
-            text = "桌面", px_size = clamp(math.floor(screen_h * 0.018), 10, 13),
+            x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = ih - math.floor(ih * 0.56),
+            text = "桌面", px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 16),
             color = theme.C.t2, align = airui.TEXT_ALIGN_CENTER,
         })
     else
@@ -1329,7 +1329,7 @@ local function build_status_bar(parent)
     local isz = math.floor(status_h * 0.62)
     local icon_y = math.floor((status_h - isz) / 2)
     local gap = clamp(math.floor(8 * density_scale_val), 6, 12)
-    local fs = clamp(math.floor(screen_h * 0.0217), 13, 16)   -- 设计稿问候语/时间 13px
+    local fs = clamp(math.floor(screen_h * 0.0217), theme.FONT_MIN, 18)   -- 问候语 / 时间
     local text_h = fs + 4
     local text_y = pad + math.floor((status_h - text_h) / 2)
 
@@ -1353,7 +1353,7 @@ local function build_status_bar(parent)
 
     if has_battery then
         local bw = math.floor(54 * density_scale_val)
-        local bh = math.floor(status_h * 0.58)
+        local bh = math.max(math.floor(status_h * 0.58), theme.fs("caption") + 3)
         rx = rx - bw - gap
         battery_container = theme.box(parent, {
             x = bar_x + rx, y = pad + math.floor((status_h - bh) / 2), w = bw, h = bh,
@@ -1400,7 +1400,7 @@ local function build_clock_card(parent)
     -- 内部度量：全部由卡片高度推导，保证「英雄字 + 日期」与右侧二维码都不被裁切
     local pad_in = clamp(math.floor(clock_h * 0.11), 10, 24)
     local hero = clamp(math.floor(clock_h * 0.50), 40, 64)
-    local fs_date = clamp(math.floor(clock_h * 0.128), 13, 16)
+    local fs_date = clamp(math.floor(clock_h * 0.128), theme.FONT_MIN, 18)
     local date_h = fs_date + 4
     local gap = math.floor(4 * density_scale_val)
     local date_y = pad_in + hero + gap
@@ -1417,7 +1417,8 @@ local function build_clock_card(parent)
 
     -- 右侧资料中心（文字 + 二维码），整体在卡片内垂直居中
     local qs = clamp(math.floor(clock_h * 0.62), 40, 80)
-    local qlabel_h = clamp(math.floor(clock_h * 0.11), 12, 16)
+    local fs_qr = clamp(math.floor(clock_h * 0.11), theme.FONT_MIN, 18)
+    local qlabel_h = fs_qr + 3
     local qlabel_w = qs + math.floor(16 * density_scale_val)
     local qr_gap = math.floor(3 * density_scale_val)
     local total_qr_h = qlabel_h + qr_gap + qs
@@ -1427,7 +1428,7 @@ local function build_clock_card(parent)
 
     theme.label(card, {
         x = qx-10, y = qr_y_start, w = qlabel_w, h = qlabel_h,
-        text = "资料中心", px_size = qlabel_h - 1, color = theme.C.t3,
+        text = "资料中心", px_size = fs_qr, color = theme.C.t3,
         align = airui.TEXT_ALIGN_CENTER,
     })
     airui.qrcode({
@@ -1451,7 +1452,7 @@ local function build_apps_card(parent)
     apps_head_label = theme.section(apps_card, {
         x = apps_pad_y + 4, y = math.floor(apps_pad_y * 0.6),
         w = math.floor(aw * 0.45), h = apps_head_h,
-        text = "已安装应用 | " .. tostring(#all_apps), px_size = clamp(math.floor(screen_h * 0.02), 12, 16),
+        text = "已安装应用 | " .. tostring(#all_apps), px_size = clamp(math.floor(screen_h * 0.02), theme.FONT_MIN, 18),
         color = theme.C.t3,
     })
 
@@ -1482,7 +1483,7 @@ local function build_apps_card(parent)
     page_idx_label = theme.label(apps_card, {
         x = pager_x - pw * 2 - pager_gap - math.floor(36 * density_scale_val), y = pager_y,
         w = math.floor(36 * density_scale_val), h = apps_head_h,
-        text = "1/1", px_size = clamp(math.floor(screen_h * 0.018), 11, 14), color = theme.C.t2,
+        text = "1/1", px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 16), color = theme.C.t2,
         align = airui.TEXT_ALIGN_CENTER,
     })
 
@@ -1668,20 +1669,20 @@ local function build_weather_card(parent)
 
     -- ========== 内部度量：全部由卡片高度推导，保证文字不被裁切 ==========
     -- 字号走 px_size 显式给像素值（绕开 theme 的 16px 字号下限歧义），
-    -- 行高统一取「字号 + 2」，修掉旧版「11~14px 行高装 16px 文字」的裁字问题。
+    -- 行高统一取「字号 + 3」（hzfont 行高 = 字号 + 3）。
     local pad_in = clamp(math.floor(weather_h * 0.15), 8, 12)
     local content_h = weather_h - 2 * pad_in
     local line_gap = clamp(math.floor(weather_h * 0.04), 2, 4)
-    local fs_info = clamp(math.floor(content_h * 0.26), 12, 18)             -- 地点|状况（设计稿 12px）
-    local fs_fc = math.min(clamp(math.floor(content_h * 0.26), 12, 16), fs_info)  -- 预报（次级，设计稿 11~12px）
-    local fs_temp = clamp(math.floor(content_h * 0.60), 20, 34)             -- 当前温度（英雄字，设计稿 30px）
+    local fs_info = clamp(math.floor(content_h * 0.26), theme.FONT_MIN, 18)             -- 地点|状况
+    local fs_fc = math.min(clamp(math.floor(content_h * 0.26), theme.FONT_MIN, 16), fs_info)  -- 预报（次级）
+    local fs_temp = clamp(math.floor(content_h * 0.60), 20, 34)             -- 当前温度（英雄字）
     -- 必要时压缩温度字号，确保「温度 + 地点|状况」两行加间距不超出内容高度
-    local max_temp_fs = content_h - fs_info - line_gap - 4
+    local max_temp_fs = content_h - fs_info - line_gap - 6
     if fs_temp > max_temp_fs then fs_temp = math.max(16, max_temp_fs) end
 
-    local temp_h = fs_temp + 2
-    local info_h = fs_info + 2
-    local fc_h = fs_fc + 2
+    local temp_h = fs_temp + 3
+    local info_h = fs_info + 3
+    local fc_h = fs_fc + 3
 
     -- ========== 左侧：天气图标 + 温度 + 地点|状况 ==========
     local icon_sz = clamp(math.floor(content_h * 0.85), 24, 40)
@@ -1904,10 +1905,10 @@ function VP.show_empty(text)
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
     end
-    add_label(math.floor(VP.frame_h / 2) - math.floor(26 * d), math.floor(34 * d),
+    add_label(math.floor(VP.frame_h / 2) - math.floor(26 * d), math.max(35, math.floor(34 * d)),
               ">", math.floor(32 * d))
     add_label(math.floor(VP.frame_h / 2) + math.floor(10 * d), math.floor(22 * d),
-              text or "点击选择视频文件", math.floor(13 * d))
+              text or "点击选择视频文件", math.max(theme.FONT_MIN, math.floor(13 * d)))
 end
 
 --[[放不下的素材：提示全屏播放（只在用户主动选文件时弹）

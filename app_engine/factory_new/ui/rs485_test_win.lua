@@ -509,7 +509,7 @@ local function build_channel_card(parent, x, y, w, h, p)
 
     -- 按钮文案即「UARTn 发送 <该路测试数据>」，宽度按文字算，超宽就截断
     local btn_text = string.format("UART%d 发送 %s", p.uart_id, p.data)
-    local fs_btn = math.max(16, theme.dp(13)) -- 与 theme.button 内部字号同口径
+    local fs_btn = theme.fs("caption") -- 与 theme.button 内部字号同口径
     local btn_w = theme.text_width(btn_text, fs_btn) + theme.dp(28)
     if btn_w > inner then
         btn_w = inner

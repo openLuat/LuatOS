@@ -80,6 +80,8 @@ return {
         audio = {
             model = "es8311",            -- 音频编解码: ES8311（录音经 I2S2）
             i2c_id = 1,                  -- I2C1 控制总线（与触摸共用）
+            i2c_shared = true,           -- I2C1 与触摸共用，音频不许重配/关闭总线
+            codec_init_on_play = false,  -- ES8311 只在 setup 初始化一次
             -- 默认驱动切换：播放用内置 DAC0，录音用 I2S2（Air1602 引擎板）
             -- 数值对应 audio_v2.DRIVER_TYPE_*（NONE=0/I2S=1/DAC=2/ADC=3），
             -- 用字面量避免依赖 audio_v2 全局表（8000 等旧框架固件可能无此表）

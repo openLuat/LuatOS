@@ -115,7 +115,7 @@ local function build_ui()
     local card1 = theme.card(main_container, { x = pad, y = y, w = card_w, h = card1_h })
 
     theme.section(card1, { x = pad, y = theme.dp(10), w = card_w - 2 * pad,
-        text = "上报控制", px_size = theme.fs("micro"), color = theme.C.t3 })
+        text = "上报控制", px_size = theme.fs("label"), color = theme.C.t2 })
 
     -- 开关行
     local row_y = theme.dp(34)
@@ -178,7 +178,7 @@ local function build_ui()
     local card2 = theme.card(main_container, { x = pad, y = y, w = card_w, h = card2_h })
 
     theme.section(card2, { x = pad, y = theme.dp(10), w = card_w - 2 * pad,
-        text = "运行状态", px_size = theme.fs("micro"), color = theme.C.t3 })
+        text = "运行状态", px_size = theme.fs("label"), color = theme.C.t2 })
 
     local ry = theme.dp(10) + theme.dp(24)
     local function add_kv(label, key, value)
@@ -208,7 +208,7 @@ local function build_ui()
     local card3 = theme.card(main_container, { x = pad, y = y, w = card_w, h = card3_h })
 
     theme.section(card3, { x = pad, y = theme.dp(10), w = card_w - 2 * pad,
-        text = "采集字段（有接口才上报）", px_size = theme.fs("micro"), color = theme.C.t3 })
+        text = "采集字段（有接口才上报）", px_size = theme.fs("label"), color = theme.C.t2 })
 
     local field_names = {
         "- 设备ID / 固件版本",

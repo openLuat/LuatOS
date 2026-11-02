@@ -156,13 +156,13 @@ local function calc_layout()
     sort_height = math.max(26, sort_height)
     pagination_bar_height = math.max(28, math.min(60, pagination_bar_height))
 
-    -- 字体大小（全部 ≥ 14）
+    -- 字体大小：按屏宽高缩放，下限 theme.FONT_MIN
     local bf = math.floor(screen_h / 40 * _G.density_scale)
-    bf = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(24 * _G.density_scale), bf))
-    title_font_size = math.max(math.floor(16 * _G.density_scale), math.min(math.floor(26 * _G.density_scale), bf))
-    description_font_size = math.max(math.floor(14 * _G.density_scale),
+    bf = math.max(theme.FONT_MIN, math.min(math.floor(24 * _G.density_scale), bf))
+    title_font_size = math.max(theme.FS.caption, math.min(math.floor(26 * _G.density_scale), bf))
+    description_font_size = math.max(theme.FONT_MIN,
         math.min(math.floor(22 * _G.density_scale), bf - math.floor(2 * _G.density_scale)))
-    button_font_size = math.max(math.floor(14 * _G.density_scale),
+    button_font_size = math.max(theme.FONT_MIN,
         math.min(math.floor(20 * _G.density_scale), bf - math.floor(2 * _G.density_scale)))
     info_font_size = button_font_size
 
@@ -674,7 +674,7 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
         w = pvw,
         h = pnbh,
         text = "上一页",
-        font_size = math.max(math.floor(14 * _G.density_scale), button_font_size - math.floor(4 * _G.density_scale)),
+        font_size = math.max(theme.FONT_MIN, button_font_size - math.floor(4 * _G.density_scale)),
         style = { bg_color = CLR.primary, pressed_bg_color = CLR.primary_deep, text_color = CLR.white, radius = pnr, border_width = 0 },
         on_click = function()
             if current_page > 1 then
@@ -691,7 +691,7 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
         w = nxw,
         h = pnbh,
         text = "下一页",
-        font_size = math.max(math.floor(14 * _G.density_scale), button_font_size - math.floor(4 * _G.density_scale)),
+        font_size = math.max(theme.FONT_MIN, button_font_size - math.floor(4 * _G.density_scale)),
         style = { bg_color = CLR.primary, pressed_bg_color = CLR.primary_deep, text_color = CLR.white, radius = pnr, border_width = 0 },
         on_click = function()
             if has_more then
@@ -830,7 +830,7 @@ local function render_apps(apps, has_more_pages)
         -- 应用描述（动态行数）
         if max_description_lines > 0 then
             local dsy = ioy + info_font_size + 8
-            local dh = description_font_size * max_description_lines + (max_description_lines > 1 and 2 or 0)
+            local dh = description_font_size * max_description_lines + (max_description_lines > 0 and 8 or 0)
             airui.label({
                 parent = card,
                 x = 12,

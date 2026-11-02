@@ -41,8 +41,8 @@ local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
 
 -- Engine 引擎主机系列
-require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + RS485（WiFi 版）
-require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + RS485（4G 版）
+require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + 人脸识别摄像头 + RS485（WiFi 版）
+require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + 人脸识别摄像头 + RS485（4G 版）
 
 -- EVB turnkey 开发板系列
 

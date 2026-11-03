@@ -304,9 +304,24 @@ static int l_onewire_create(lua_State *L)
 	} else {
 		lua_pushboolean(L, 0);
 	}
-	return 0;
+	return 1;
 }
 
+/*
+释放一条虚拟单总线
+@api onewire.destroy(id)
+@int id onewire.create返回的虚拟总线编号
+@return nil
+@usage
+*/
+static int l_onewire_destroy(lua_State *L)
+{
+	int id = luaL_checkinteger(L, 1);
+	if (id & LUAT_ONEWIRE_VIRTUAL_MASK) {
+		luat_onewire_destroy_virtual(id);
+	}
+	return 0;
+}
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_onewire[] =
@@ -320,6 +335,7 @@ static const rotable_Reg_t reg_onewire[] =
 		{"rx", ROREG_FUNC(l_onewire_rx)},
 		{"debug", ROREG_FUNC(l_onewire_debug)},
 		{"deinit", ROREG_FUNC(l_onewire_deinit)},
+		{"destroy", ROREG_FUNC(l_onewire_destroy)},
         {NULL, ROREG_INT(0)}
     };
 

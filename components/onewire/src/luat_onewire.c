@@ -424,3 +424,5 @@ int luat_onewire_dht(luat_onewire_ctx_t* ctx, int32_t* temp, int32_t* hm, int ch
 LUAT_WEAK int luat_onewire_create_virtual(int hwtimer_id, int gpio) {
     return -1;
 }
+
+LUAT_WEAK void luat_onewire_destroy_virtual(int id) {;}

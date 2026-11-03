@@ -1,6 +1,7 @@
 #ifndef LUAT_ONEWIRE_H
 #define LUAT_ONEWIRE_H
-
+#include "luat_base.h"
+#define LUAT_ONEWIRE_VIRTUAL_MASK	(0x80)
 typedef struct
 {
 	uint32_t reset_keep_low_time;//reset低电平时间
@@ -124,4 +125,11 @@ int luat_onewire_read_byte_with_cmd(int id, const uint8_t cmd, uint8_t *data, ui
  * @return >0 成功返回虚拟总线ID，其他失败 
  */
 int luat_onewire_create_virtual(int hwtimer_id, int gpio);
+
+/**
+ * @brief 释放一条虚拟单总线
+ * 
+ * @param id 虚拟单总线id
+ */
+void luat_onewire_destroy_virtual(int id);
 #endif

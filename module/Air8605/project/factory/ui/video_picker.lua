@@ -217,7 +217,7 @@ local function render(dir_path, scroll_container)
     if not scroll_container then return end
     local items, raw_n = M.list_items(dir_path)
     local d = _G.density_scale or 1.0
-    local row_h = math.floor(32 * d)
+    local row_h = math.floor(38 * d)   -- 文件名最多两行，行高 = 2 x(字号 + 3) + 2 间距
     local px = math.floor(8 * d)
     local list_w = content_w
     local y = 0
@@ -237,14 +237,14 @@ local function render(dir_path, scroll_container)
         -- 目录琥珀、视频青色、非视频灰色
         theme.label(row, {
             x = px, y = 0, w = math.floor(18 * d), h = row_h,
-            text = ">", px_size = math.floor(13 * d),
+            text = ">", px_size = theme.fs("micro"),
             color = item.is_dir and theme.C.amber or (item.playable and theme.C.cyan or theme.C.t3),
             align = airui.TEXT_ALIGN_CENTER,
         })
         theme.label(row, {
             x = px + math.floor(20 * d), y = 0,
             w = list_w - 2 * px - math.floor(24 * d), h = row_h,
-            text = item.name, px_size = math.floor(12 * d),
+            text = item.name, px_size = theme.fs("micro"),
             color = item.playable and theme.C.t1 or theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
         })
         y = y + row_h + math.floor(2 * d)
@@ -254,7 +254,7 @@ local function render(dir_path, scroll_container)
             x = 0, y = math.floor(20 * d), w = list_w, h = row_h,
             text = (raw_n and raw_n > 0) and ("无视频文件（目录共 " .. raw_n .. " 项）")
                 or "目录为空或读取失败",
-            px_size = math.floor(12 * d),
+            px_size = theme.fs("micro"),
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
     end

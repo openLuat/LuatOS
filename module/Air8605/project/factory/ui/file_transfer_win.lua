@@ -200,14 +200,15 @@ end
 
 -- 右侧小按钮：统一宽度 BTN_W、统一横坐标 BTN_X（全局所有小按钮共用，含"添加/清空/关闭/设置/移除"）
 local function mk_side_button(parent, text, on_click)
-    local btn_h = math.floor(row_h * 0.7)
+    local fs_px = theme.fs("label")
+    -- 按钮高 = 行高七成，夹在「文字行高」与「行高」之间
+    local btn_h = math.min(row_h, math.max(fs_px + 3, math.floor(row_h * 0.7)))
     local btn = theme.box(parent, {
         x = btn_x, y = math.floor((row_h - btn_h) / 2),
         w = btn_w, h = btn_h,
         color = CLR.primary, opa = theme.OPA.fill_hi, radius = theme.r("xs"),
         on_click = on_click,
     })
-    local fs_px = theme.fs("label")
     theme.label(btn, {
         x = 0, y = math.floor((btn_h - (fs_px + 3)) / 2),
         w = btn_w, h = fs_px + 3,
@@ -769,7 +770,7 @@ view.show_auth_dialog = function()
     airui.label({
         parent = auth_dialog,
         x = pad, y = math.floor(30 * density),
-        w = dialog_w - pad * 2, h = math.floor(18 * density),
+        w = dialog_w - pad * 2, h = math.floor(20 * density),
         text = st.auth_on and "当前: 已开启" or "当前: 未开启",
         font_size = theme.fs("caption"),
         color = CLR.t2, align = airui.TEXT_ALIGN_LEFT,
@@ -790,7 +791,7 @@ view.show_auth_dialog = function()
     auth_hint = airui.label({
         parent = auth_dialog,
         x = pad, y = math.floor(96 * density),
-        w = dialog_w - pad * 2, h = math.floor(18 * density),
+        w = dialog_w - pad * 2, h = math.floor(20 * density),
         text = "开启后上位机须输入同款token", font_size = theme.fs("caption"),
         color = CLR.t3, align = airui.TEXT_ALIGN_LEFT,
     })

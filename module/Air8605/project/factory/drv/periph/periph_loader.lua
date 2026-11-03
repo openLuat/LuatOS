@@ -13,6 +13,7 @@
        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65,  power_pin = 14, baud = 9600 },
        { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 },
        { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },
+       { type = "audio", id = "audio1", name = "录音播放", record_seconds = 5 }, -- Air1103 语音，硬件走 hw.audio
        { type = "spi_cam" },   -- SPI 摄像头（预留）
        { type = "can" },       -- CAN（预留）
        { type = "onewire" },   -- 1-Wire（预留）
@@ -41,6 +42,7 @@ local PERIPH_REGISTRY = {
     ["uvc"]     = function(params) return require("periph_uvc").init(params) end,
     ["rs485"]   = function(params) return require("periph_rs485").init(params) end,
     ["uart"]    = function(params) return require("periph_uart").init(params) end,
+    ["audio"]   = function(params) return require("periph_audio").init(params) end,
     -- ["spi_cam"] = function(params) return require("periph_spi_cam").init(params) end,
     -- ["can"]     = function(params) return require("periph_can").init(params) end,
     -- ["onewire"] = function(params) return require("periph_onewire").init(params) end,

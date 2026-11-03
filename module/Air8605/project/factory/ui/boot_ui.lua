@@ -20,7 +20,7 @@ require "boot_ui" 即启动 boot_task 协程（main.lua 阶段4）：
   —— 显示完成，以下全部在 logo 展示期间进行 ——
 
   6. exwin/exapp 加载（窗口管理 + 应用沙箱；exapp 会扫描各存储应用列表）
-  7. 等 POWER_ON_DONE → tp_drv.init()（失败 200ms 重试一次）→ guard_audio_init
+  7. 等 POWER_ON_DONE → tp_drv.init()（失败 200ms 重试一次）
   8. 启动可选批 optional_task（音量恢复/网络/音频/SD/NES/UVC/HID 等，独立协程并行）
   9. lcd_drv.airui_core_init()  → 字体加载等核心初始化（读字库建 cache，最重的一步）
  10. 分批 require app_main.core() / ui_main.core() → 桌面与核心设置窗口（批间 sys.wait(0)）
@@ -53,10 +53,7 @@ require "boot_ui" 即启动 boot_task 协程（main.lua 阶段4）：
    GT911 电源未稳时 tp.init 会软失败（只 log 一行），静默变成"触摸完全失灵"。
    门内 1s 兜底超时防 power_on 异常时永久卡在 logo；GT911 自身上电余量由失败重试兜底
 
-7. 音频 I2C 守护必须挂在所有业务模块（含可选批）加载之前：exaudio.setup 会
-   i2c.setup 重置触摸总线（丢轮询设置），guard 包住 setup/播录入口后触摸总线才安全
-
-8. 启动顺序原则：点亮前的关键路径只保留「引脚 / 上电 / fskv / display+logo+背光」，
+7. 启动顺序原则：点亮前的关键路径只保留「引脚 / 上电 / fskv / display+logo+背光」，
    其余一切（exwin/exapp、音频、网络、字体、各业务模块）全部在显示完成之后进行
 ]]
 
@@ -73,64 +70,6 @@ local BOOT_BACKLIGHT_DELAY_BY_SIZE = {
 
 local bg_shape
 local logo_img
-
---[[音频 I2C 守护（触摸总线兜底）：
-1) exaudio.setup 记忆化，只执行首次 —— audio_setup 每次都会 i2c.setup(codec总线)，
-   把触摸总线重置回中断模式（丢轮询设置），TTS/试听/录音的重复 setup 全部挡住；
-   首次成功后恢复一次触摸总线配置，失败不记账（下次可重试）。
-2) play_start/play_stop/record_start/pm 入口包一层，调用后立即恢复 ——
-   旧版 exaudio 的 pm(SHUTDOWN) 会关闭 I2C1（v3.3 已修），mp4 起播前的
-   play_stop 也走这条路，兜住固件内旧版 exaudio。
-exaudio 若是固件 rotable（不可写表），包不上则 log.warn 提示、行为不劣化。]]
-local function guard_audio_init()
-    local ok, exaudio = pcall(require, "exaudio")
-    if not (ok and exaudio) then return end
-    local t = type(exaudio)
-    if t ~= "table" and t ~= "userdata" then return end
-
-    local function restore()
-        if _G.tp_drv and _G.tp_drv.i2c_restore then
-            pcall(_G.tp_drv.i2c_restore)
-        end
-    end
-
-    -- setup 仅首次执行，成功后恢复一次触摸总线配置
-    local raw_setup = exaudio.setup
-    if type(raw_setup) == "function" then
-        local setup_done = false
-        local ok1 = pcall(function()
-            exaudio.setup = function(cfg)
-                if setup_done then return true end
-                local r = raw_setup(cfg)
-                if r then
-                    setup_done = true
-                    restore()
-                    log.info("boot_ui", "音频初始化完成，触摸 I2C 配置已定型")
-                end
-                return r
-            end
-        end)
-        if ok1 then log.info("boot_ui", "exaudio.setup 已收口：仅首次初始化") end
-    end
-
-    -- 音频播录/电源入口调用后恢复触摸总线配置
-    local wrapped = 0
-    for _, fname in ipairs({ "play_start", "play_stop", "record_start", "pm" }) do
-        local raw = exaudio[fname]
-        if type(raw) == "function" then
-            local raw_fn = raw
-            local ok2 = pcall(function()
-                exaudio[fname] = function(...)
-                    local r = raw_fn(...)
-                    restore()
-                    return r
-                end
-            end)
-            if ok2 then wrapped = wrapped + 1 end
-        end
-    end
-    log.info("boot_ui", "exaudio 音频入口守护已挂", wrapped, "个入口")
-end
 
 -- 画开机 logo：黑色全屏背景 + logo 图居中（裸 airui 形状，零字体/主题依赖）
 local function logo_show()
@@ -247,19 +186,16 @@ local function boot_task()
         pcall(tp_drv.init)
     end
 
-    -- 9. 音频 I2C 守护：必须先于所有业务模块（含可选批）加载
-    pcall(guard_audio_init)
-
-    -- 10. 可选批独立协程并行加载（音量恢复/网络/音频/SD/NES/UVC/HID，不阻塞进桌面）
+    -- 9. 可选批独立协程并行加载（音量恢复/网络/音频/SD/NES/UVC/HID，不阻塞进桌面）
     sys.taskInit(optional_task)
 
-    -- 11. 字体加载等核心初始化（读字库建 cache，初始化中最重的一步，与可选批并行消化）
+    -- 10. 字体加载等核心初始化（读字库建 cache，初始化中最重的一步，与可选批并行消化）
     ok, err = pcall(lcd_drv.airui_core_init)
     if not ok then
         log.error("boot_ui", "airui_core_init 失败", err)
     end
 
-    -- 12. 核心批：桌面 + 核心设置窗口（批间让出循环保证 logo 刷新不卡）
+    -- 11. 核心批：桌面 + 核心设置窗口（批间让出循环保证 logo 刷新不卡）
     ok, err = pcall(function() require("app_main").core() end)
     if not ok then
         log.error("boot_ui", "核心业务批加载失败", err)
@@ -270,10 +206,10 @@ local function boot_task()
         log.error("boot_ui", "核心窗口批加载失败", err)
     end
 
-    -- 13. 主题恢复（核心批已跑完、无页面构建，直接改令牌即可）
+    -- 12. 主题恢复（核心批已跑完、无页面构建，直接改令牌即可）
     pcall(function() require("ui_theme").restore() end)
 
-    -- 14. 核心批就绪，直接进桌面；销毁 logo 形状（FB 保留 logo 帧直到桌面首帧覆盖）
+    -- 13. 核心批就绪，直接进桌面；销毁 logo 形状（FB 保留 logo 帧直到桌面首帧覆盖）
     sys.publish("OPEN_IDLE_WIN")
     logo_hide()
     log.info("boot_ui", "核心批就绪，进入桌面")

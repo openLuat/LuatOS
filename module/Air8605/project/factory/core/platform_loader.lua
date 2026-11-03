@@ -41,11 +41,47 @@ local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
 
 -- Engine 引擎主机系列
-require ("eng_8605_10i_wifi")    -- Air8605 10寸 1024×600 + Airlink UART WiFi(6205) + Air1103语音 + SD + UVC + RS485（WiFi 版）
-require ("eng_8605_10i_4g")      -- Air8605 10寸 1024×600 + Airlink UART 4G(780ER2) + Air1103语音 + SD + UVC + RS485（4G 版）
-require ("eng_8605b_10i_v0")     -- Air8605B 10寸 1024×600 + WiFi(SPI2)/4G(UART3)双网 + Air1103语音(UART6) + NAND + 双RS485
+require ("eng_1602_5i_v2")        -- Air1602 5寸 720×1280 NV3052C
+require ("eng_1602_5i_v3")        -- Air1602 5寸 720×1280 NV3052C + NAND
+require ("eng_1602_5i_v5")        -- Air1602 5寸 480×854 ST7701S + NAND
+require ("eng_1602_7i_v0")        -- Air1602 7寸 1024×600
+require ("eng_1602_7i_v4")        -- Air1602 7寸 1024×600 + NAND + NES + 电池
+require ("eng_1602_9i_v09421")    -- Air1602 9寸 1024×600 + NAND + NES + 电池
+require ("eng_1602_10i_v0")       -- Air1602 10寸 1024×600
+require ("eng_1602_10i_v10421")   -- Air1602 10寸 1024×600 + NAND + NES + 电池
+require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + 人脸识别摄像头 + RS485（WiFi 版）
+require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + 人脸识别摄像头 + RS485（4G 版）
+require ("eng_8602_9i_wifi")     -- Air8602 9寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + 双RS485（WiFi 版）
+require ("eng_8602_9i_4g")       -- Air8602 9寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + 双RS485（4G 版）
+require ("eng_8603w1_10i_v0")      -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w2_10i_v0")      -- Air8603W2 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w3_10i_v0")      -- Air8603W3 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w4_10i_v0")      -- Air8603W4 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w5_10i_v0")      -- Air8603W5 10寸 1024×600 + Airlink UART WiFi(6205) + TTL串口(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603m1_10i_v0")      -- Air8603M1 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m2_10i_v0")      -- Air8603M2 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m3_10i_v0")      -- Air8603M3 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m4_10i_v0")      -- Air8603M4 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m5_10i_v0")      -- Air8603M5 10寸 1024×600 + Airlink UART 4G(780ER2) + TTL串口(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
+require ("eng_8605_10i_v0")      -- Air8605 10寸 1024×600 + Airlink UART 4G(780ER2) + SD + UVC + 非隔离RS485（4G 版，无 Air1103）
+require ("eng_8605w_10i_v0")    -- Air8605W 10寸 1024×600 + Airlink SPI WiFi(6205) + Air1103语音(UART6) + NAND + UVC + 隔离RS485（WiFi 版）
+require ("eng_8605m_10i_v0")    -- Air8605M 10寸 1024×600 + Airlink UART 4G(780ER2) + Air1103语音(UART6) + NAND + UVC + 隔离RS485（4G 版）
+require ("eng_8605b_10i_v0")    -- Air8605B 10寸 1024×600 + Airlink UART 4G(780ER2) + NAND + UVC + 双隔离RS485(UART1/UART6)（4G 版）
+require ("eng_8607_10i_v0")      -- Air8607 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
+require ("eng_8607a_10i_v0")     -- Air8607A 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + UVC，无 SD（无网络）
+require ("eng_1603w_9i_v0")      -- Air8607W 9寸 1024×600 + Airlink SPI WiFi(Air601S,SPI5) + 非隔离RS485(UART1) + 人脸识别摄像头(UART2) + 喇叭(内置DAC) + SD + USB HID/UVC 二选一（WiFi 版）
 
 -- EVB turnkey 开发板系列
+require ("evb_8101_5i_v0")        -- Air8101 5寸 800×480 H050IWV
+require ("evb_8101_7i_v0")        -- Air8101 7寸 1024×600 HX8282
+require ("evb_8101_9i_v0")        -- Air8101 9寸 1024×600 HX8282
+require ("evb_8101_10i_v0")       -- Air8101 10寸 1024×600 HX8282 + 应用工厂
+require ("evb_8101b_5i_v1")       -- Air8101B 5寸 480×854 ST7701S
+require ("evb_8101b_5i_v2")       -- Air8101B 5寸 480×854 GC9503
+require ("evb_1601_5i_v11")       -- Air1601 5寸 800×480
+require ("evb_1601_7i_v11")       -- Air1601 7寸 1024×600
+require ("evb_1601_7i_v12")       -- Air1601 7寸 1024×600 + 4G + 以太网 + 应用工厂
+require ("evb_1601_10i_v11")      -- Air1601 10寸 1024×600
 
 -- 驱动
 require ("lcd_display_rgb")       -- RGB display 统一驱动
@@ -54,12 +90,15 @@ require ("periph_loader")         -- 外设预留框架（config.peripherals，r
 require ("periph_uvc")            -- UVC 摄像头外设（纯供电开关，数据流走 UVC 预览页）
 require ("periph_rs485")          -- RS485 外设（多路，DE 方向 + 供电引用计数）
 require ("periph_uart")           -- 通用串口外设（收发计数 + 环形缓冲）
+require ("periph_audio")          -- 录音播放外设（Air1103 等语音芯片，config.hw.audio + type=audio）
+require ("usb_mode")              -- USB 外设模式（UVC 摄像头 / USB 键鼠二选一，fskv 持久化）
 
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器
 require ("net_init")
 require ("aircloud_app")          -- AirCloud 通用数据上报（能力探测型，有接口就采）
 require ("settings_report_win")   -- AirCloud 上报设置页（配 features.aircloud 使用）
+require ("settings_usb_win")      -- 外设模式设置页（UVC 摄像头 / USB 键鼠二选一，配 features.usb_hid 使用）
 -- 应用工厂 / AI 聊天体积大，800×480 脚本区 1024KB 先不打包
 end
 
@@ -82,13 +121,58 @@ _G.is_pc = (not ok) or (_G.model_str == "PC") or (_G.model_str == "")
 -- eng = Engine 引擎主机, evb = EVB turnkey 开发板, cor = Core 核心板
 local PROJECT_MAP = {
     -- Engine 引擎主机系列（已实现，≥800×480）
-    ["Engine_Air8605_10inch_1024x600_000_WIFI_V000"] = "eng_8605_10i_wifi",
-    ["Engine_Air8605_10inch_1024x600_000_4G_V000"]   = "eng_8605_10i_4g",
-    ["Engine_Air8605B_10inch_1024x600_000_V000"]     = "eng_8605b_10i_v0",
+    ["Engine_Air1602_5inch_720x1280_002_V000"]     = "eng_1602_5i_v2",
+    ["Engine_Air1602_7inch_1024x600_000_V000"]     = "eng_1602_7i_v0",
+    ["Engine_Air1602_10inch1_1024x600_001_V000"]   = "eng_1602_10i_v0",
+    ["Engine_Air1602_5inch_720x1280_003_V000"]     = "eng_1602_5i_v3",
+    ["Engine_Air1602_5inch_480x854_005_V000"]      = "eng_1602_5i_v5",
+    ["Engine_Air1602_7inch_1024x600_004_V000"]     = "eng_1602_7i_v4",
+    ["Engine_Air1602_AirLCD_1090_09421_V000"]     = "eng_1602_9i_v09421",
+    ["Engine_Air1602_AirLCD_1100_10421_V000"]     = "eng_1602_10i_v10421",
+    ["Engine_Air8601_7inch_1024x600_010_WiFi_V000"] = "eng_8601_7i_wifi",
+    ["Engine_Air8601_7inch_1024x600_010_4G_V000"]   = "eng_8601_7i_4g",
+    ["Engine_Air8602_9inch_1024x600_010_WiFi_V000"] = "eng_8602_9i_wifi",
+    ["Engine_Air8602_9inch_1024x600_010_4G_V000"]   = "eng_8602_9i_4g",
+    ["Engine_Air8603W1_10inch_1024x600_000_WiFi_V000"] = "eng_8603w1_10i_v0",
+    ["Engine_Air8603W2_10inch_1024x600_000_WiFi_V000"] = "eng_8603w2_10i_v0",
+    ["Engine_Air8603W3_10inch_1024x600_000_WiFi_V000"] = "eng_8603w3_10i_v0",
+    ["Engine_Air8603W4_10inch_1024x600_000_WiFi_V000"] = "eng_8603w4_10i_v0",
+    ["Engine_Air8603W5_10inch_1024x600_000_WiFi_V000"] = "eng_8603w5_10i_v0",
+    ["Engine_Air8603M1_10inch_1024x600_000_4G_V000"]   = "eng_8603m1_10i_v0",
+    ["Engine_Air8603M2_10inch_1024x600_000_4G_V000"]   = "eng_8603m2_10i_v0",
+    ["Engine_Air8603M3_10inch_1024x600_000_4G_V000"]   = "eng_8603m3_10i_v0",
+    ["Engine_Air8603M4_10inch_1024x600_000_4G_V000"]   = "eng_8603m4_10i_v0",
+    ["Engine_Air8603M5_10inch_1024x600_000_4G_V000"]   = "eng_8603m5_10i_v0",
+    ["Engine_Air8605_10inch_1024x600_000_4G_V000"]  = "eng_8605_10i_v0",
+    ["Engine_Air8605W_10inch_1024x600_000_WiFi_V000"] = "eng_8605w_10i_v0",
+    ["Engine_Air8605M_10inch_1024x600_000_4G_V000"]  = "eng_8605m_10i_v0",
+    ["Engine_Air8605B_10inch_1024x600_000_4G_V000"]  = "eng_8605b_10i_v0",
+    ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
+    ["Engine_Air8607A_10inch_1024x600_000_V000"]  = "eng_8607a_10i_v0",
+    ["Engine_Air8607W_9inch_1024x600_000_V000"]   = "eng_1603w_9i_v0",
     -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
     --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
-    ["Engine_Air8605_10inch_1024x600_000_WiFi_V000"] = "eng_8605_10i_wifi",
+    -- 8605 系列的旧名指向各自的后继型号：8605 由 WiFi+4G 双网改回 4G 单网并补 _4G 后缀，
+    -- 8605 WiFi 版已并入 8605W，8605B 由双网改 4G 单网
+    -- 8603 系列旧名：改名前只有全功能版 W1 / M1，统一落到同串口划分的 W1 / M1
+    ["Engine_Air8603W_10inch_1024x600_000_V000"]      = "eng_8603w1_10i_v0",
+    ["Engine_Air8603W_10inch_1024x600_000_WiFi_V000"] = "eng_8603w1_10i_v0",
+    ["Engine_Air8603M_10inch_1024x600_000_V000"]      = "eng_8603m1_10i_v0",
+    ["Engine_Air8603M1_10inch_1024x600_000_V000"]     = "eng_8603m1_10i_v0",
+    ["Engine_Air8605_10inch_1024x600_000_V000"]      = "eng_8605_10i_v0",
+    ["Engine_Air8605_10inch_1024x600_000_WiFi_V000"] = "eng_8605w_10i_v0",
+    ["Engine_Air8605_10inch_1024x600_000_WIFI_V000"] = "eng_8605w_10i_v0",
+    ["Engine_Air8605B_10inch_1024x600_000_V000"]     = "eng_8605b_10i_v0",
     -- EVB turnkey 开发板系列（已实现，≥800×480）
+    ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
+    ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",
+    ["EVB_Air8101_AirLCD_1100_000_V020"]            = "evb_8101_10i_v0",
+    ["EVB_Air8101_AirLCD_1070_000_V020"]            = "evb_8101_7i_v0",
+    ["EVB_Air8101B_5inch_480x854_000_V020"]        = "evb_8101b_5i_v2",
+    ["EVB_Air1601_10inch1_1024x600_000_V011"]   = "evb_1601_10i_v11",
+    ["EVB_Air1601_7inch_1024x600_000_V011"]     = "evb_1601_7i_v11",
+    ["EVB_Air1601_7inch_1024x600_000_V012"]     = "evb_1601_7i_v12",
+    ["EVB_Air1601_5inch_800x480_000_V011"]      = "evb_1601_5i_v11",
 }
 
 -- ==================== 3. 加载项目配置 ====================

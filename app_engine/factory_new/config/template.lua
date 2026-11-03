@@ -303,6 +303,18 @@
         --                            --   录音固定 PCM_16000(16kHz/16bit/单声道)；
         --                            --   MP4 的声音要用同名 .pcm 伴音补，转法见 readme
         -- },
+
+        -- --------------------------------------------------------
+        -- 4.6 USB 控制 usb（条件: 仅 features 中 usb_hid = true 时需要）
+        -- --------------------------------------------------------
+        -- usb = {
+        --     vbus_gpio = 12,        -- [可选] USB VBUS 供电控制 GPIO，只拉高不拉低:
+        --                            --   整段不写         = 12（与 8605/8601 一致）
+        --                            --   写 false         = 本板无 VBUS 控制脚，VBUS 由
+        --                            --                      硬件常供电，任何路径都不驱动该脚
+        --                            --   ★ 该脚与别的功能共用时必须写 false，否则 usb_hid_app
+        --                            --     上电会抢脚（例: 8607W 的 GPIO12 是 Airlink RDY）
+        -- },
     -- },
 
     -- ============================================================
@@ -324,6 +336,9 @@
     --     rs485 = true,        -- 启用RS485接口
     --     other_func = true,   -- 启用"功能测试"（peripherals 外设清单入口），通常同时设 ui.show_other_func = true
     --     usb_camera = true,   -- 启用USB摄像头，通常同时设 ui.show_camera_preview = true
+    --     usb_hid = true,      -- 启用USB HID 键盘鼠标；带 UVC 摄像头的机型两者二选一（共用
+    --                          --   USB Host 与供电轨）：开关写 fskv、入口「设置 → 外设模式」、
+    --                          --   默认 UVC、切换后重启生效；VBUS 控制脚见 hw.usb.vbus_gpio
     --     spi_camera = true,   -- 启用SPI摄像头，通常同时设 ui.show_camera_preview = true
     --     i2c_sensor = true,   -- 启用I2C传感器(SHT30温湿度/VOC等)，通常同时设 ui.show_sensor_panel = true
     --     nes = true,          -- 启用NES游戏实体按键，必须同时配置 nes_keys

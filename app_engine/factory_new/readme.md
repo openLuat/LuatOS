@@ -58,6 +58,7 @@
 | 24 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M3 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603M3_10inch_1024x600_000_4G_V000 | | |
 | 25 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M4 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M4_10inch_1024x600_000_4G_V000 | | |
 | 26 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M5 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M5_10inch_1024x600_000_4G_V000 | | |
+| 27 | Air1603 | 引擎主机 | Air8603W | 1024*600 9寸RGB触摸屏(HX8282)；WiFi(Airlink 601S, SPI5)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2)；SD卡；USB HID/UVC 二选一 | Engine_Air8607W_9inch_1024x600_000_V000 | | |
 
 ---
 
@@ -306,7 +307,9 @@ eng_8605b_10i_v0（双隔离 485，UART1/UART6）/ eng_8607a_10i_v0 /
 eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，摄像头是人脸识别模组，见配置文件头第 12、14 条）/
 eng_8602_9i_wifi / eng_8602_9i_4g（双路 485，无独立供电脚）/
 eng_8603w1_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m1_10i_v0 ~ eng_8603m5_10i_v0
-（Air8603 十型号，UART1 / UART2 按出货型号分档，见配置文件头第 1 条）。
+（Air8603 十型号，UART1 / UART2 按出货型号分档，见配置文件头第 1 条）/
+eng_1603w_9i_v0（Air8607W 9寸：UART1 = 非隔离 485、UART2 = 人脸识别摄像头控制串口、
+UART13 通用串口；USB HID 与 UVC 二选一，见 6.8）。
 
 | 模块 | 文件 | 职责 |
 |------|------|------|
@@ -335,7 +338,7 @@ eng_8603w1_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m1_10i_v0 ~ eng_8603m5_10i_v0
 | TTS 播报 | `app/common/tts_app.lua` | 云端/本地文本播报（`type = 1`） |
 | 录音回放 | `drv/periph/periph_audio.lua` | 录音 + 流式回放（Air1103 录 PCM_16000） |
 
-**内置 DAC + 直驱 PA**（8603 十型号 / 8607 / 8607A，无麦克风）：声音由芯片内置 DAC 播放，
+**内置 DAC + 直驱 PA**（8603 十型号 / 8607 / 8607A / eng_1603w_9i_v0，无麦克风）：声音由芯片内置 DAC 播放，
 PA 功放使能脚直驱控制，`hw.audio` 写 `model = "dac"` + `pa_ctrl` + `pa_on_level`。
 8603 / 8607 的功放是 HT6873、高电平使能：`pa_ctrl = 73`（AUDIOPA_EN）、`pa_on_level = 1`，
 `power_on` 里先拉低关断，起播时 `exaudio` 拉高，`pa_delay` 是起播后延时开 PA 的毫秒数。
@@ -356,6 +359,23 @@ ffmpeg -i fruit.mp4 -ac 1 -ar 16000 -f s16le fruit.pcm
 ```
 
 没配同名 `.pcm` 不报错、只在日志里提示 `Air1103 机型 MP4 无声：缺同名 .pcm 伴音`。
+
+### 6.8 USB HID 与 UVC 二选一
+
+USB 键鼠与 UVC 摄像头共用同一个 USB Host 与同一条供电轨，同一时刻只能有一方占用，
+所以两者做成**互斥开关**：模式写 fskv（键 `usb_mode_config`，值 `"uvc"` / `"hid"`），
+出厂默认 `"uvc"`（摄像头）。切换入口在「设置 → 外设模式」，交互与网络设置页同款
+（逐条开关 + 互斥预演 + 「确定并重启」弹窗），写完 fskv 重启生效。
+
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 模式存取 | `app/usb_hid/usb_mode.lua` | fskv 读写 + 互斥预演 + 开机按模式上电/断电 UVC + 过滤 uvc 条目 |
+| 切换页面 | `ui/settings/settings_usb_win.lua` | 「外设模式」设置页（两行开关 + 互斥确认 + 重启生效弹窗） |
+| USB 键鼠 | `app/usb_hid/usb_hid_app.lua` | USB Host + Input 事件；VBUS 脚由 `hw.usb.vbus_gpio` 决定 |
+
+`hw.usb.vbus_gpio` 是 usb_hid_app 驱动的 USB 供电脚，缺省 `12`（8605 系列的 VBUS 与 5V_EN 同脚）。
+本板若把 GPIO12 拿去做别的信号（如 eng_1603w_9i_v0 的 Airlink RDY），必须写 `vbus_gpio = false`
+关掉这条驱动，否则会与该信号抢脚。
 
 ---
 

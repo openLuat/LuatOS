@@ -69,6 +69,7 @@ require ("eng_8605m_10i_v0")    -- Air8605M 10寸 1024×600 + Airlink UART 4G(78
 require ("eng_8605b_10i_v0")    -- Air8605B 10寸 1024×600 + Airlink UART 4G(780ER2) + NAND + UVC + 双隔离RS485(UART1/UART6)（4G 版）
 require ("eng_8607_10i_v0")      -- Air8607 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
 require ("eng_8607a_10i_v0")     -- Air8607A 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + UVC，无 SD（无网络）
+require ("eng_1603w_9i_v0")      -- Air8607W 9寸 1024×600 + Airlink SPI WiFi(Air601S,SPI5) + 非隔离RS485(UART1) + 人脸识别摄像头(UART2) + 喇叭(内置DAC) + SD + USB HID/UVC 二选一（WiFi 版）
 
 -- EVB turnkey 开发板系列
 require ("evb_8101_5i_v0")        -- Air8101 5寸 800×480 H050IWV
@@ -90,12 +91,14 @@ require ("periph_uvc")            -- UVC 摄像头外设（纯供电开关，数
 require ("periph_rs485")          -- RS485 外设（多路，DE 方向 + 供电引用计数）
 require ("periph_uart")           -- 通用串口外设（收发计数 + 环形缓冲）
 require ("periph_audio")          -- 录音播放外设（Air1103 等语音芯片，config.hw.audio + type=audio）
+require ("usb_mode")              -- USB 外设模式（UVC 摄像头 / USB 键鼠二选一，fskv 持久化）
 
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器
 require ("net_init")
 require ("aircloud_app")          -- AirCloud 通用数据上报（能力探测型，有接口就采）
 require ("settings_report_win")   -- AirCloud 上报设置页（配 features.aircloud 使用）
+require ("settings_usb_win")      -- 外设模式设置页（UVC 摄像头 / USB 键鼠二选一，配 features.usb_hid 使用）
 -- 应用工厂 / AI 聊天体积大，800×480 脚本区 1024KB 先不打包
 end
 
@@ -146,6 +149,7 @@ local PROJECT_MAP = {
     ["Engine_Air8605B_10inch_1024x600_000_4G_V000"]  = "eng_8605b_10i_v0",
     ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
     ["Engine_Air8607A_10inch_1024x600_000_V000"]  = "eng_8607a_10i_v0",
+    ["Engine_Air8607W_9inch_1024x600_000_V000"]   = "eng_1603w_9i_v0",
     -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
     --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
     -- 8605 系列的旧名指向各自的后继型号：8605 由 WiFi+4G 双网改回 4G 单网并补 _4G 后缀，

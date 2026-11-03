@@ -1,7 +1,7 @@
 --[[
 @module  uvc_preview_win
 @summary 摄像头测试页（UVC 预览 / 拍照 / 录像 + 人脸识别录入 / 验证 / 删除全部，TabOS 深色玻璃态）
-@version 1.6
+@version 1.7
 @date    2026.11.02
 @author  江访
 @usage
@@ -34,7 +34,8 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
 2. airui.camera 的两块显示缓冲按预览区大小分配（视口 w×h×2 字节 × 2 块，与 fit 无关），
    预览区因此按剩余内存收口（见 preview_size），与源分辨率同比、居中于黑底框内。
    这两块走 luat_heap_malloc，恒定落在 sys/SRAM 池，把 psram 一起算进来会高估，
-   故预算只认 rtos.meminfo("sys")，再用 zbuff.HEAP_SRAM 真分两块探一次（见 probe_fb_ok）。
+   故预算只认 rtos.meminfo("sys")，余量紧张时再用 zbuff.HEAP_SRAM 真分两块探一次
+   （见 probe_fb_ok；余量宽裕就跳过，那两次大 zbuff 各触发一次强制 GC）。
    源分辨率越大，相机侧吃掉的越多，预览区就越小——这是源分辨率与预览面积的直接取舍。
 3. airui.camera 组件必须在建界面时建好、register + start，且早于 excamera.open 开流。
    组件建晚了（例如等 USB connected 再建）时，固件解码出的预览帧找不到接收方，
@@ -60,6 +61,12 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
 7. 离开页面一律发 UVC_CMD("quit") 进命令协程收尾，不在点击 / 销毁回调里同步收：
    excamera.close 含 sys.wait，且桌面 MP4 播放器获得焦点即起播，早于收尾会和
    未关的相机抢内存。收尾命令带界面代数，上一代的 quit 不拆新页面，只补关它的数据流。
+8. 起流到出画面要好几秒，大头在固件 USB/UVC 收流侧（C 源码不在本仓库）：实测
+   「推流已启动 → _camera_decode_jpg_prepare」空 6.8 秒，且 1280×720 与 640×360
+   一样慢，与数据量无关。Lua 侧只把「点击 → 推流已启动」压到最短，并打三条耗时
+   （开流就绪 / USB 连接 / 首个原始帧）加一条 5 秒汇总，把延迟切成「USB 枚举」
+   与「收流 → 首帧」两段（见「起流耗时打点」）。首个原始帧迟迟不到是收流慢，
+   原始帧早到而画面没出是解码侧慢。
 
 人脸识别边界：
 1. 供电共用：UVC_EN 一根脚同时供出图与人脸模组，断电两者一起掉。「连不上就断电
@@ -357,6 +364,35 @@ local function cam_ready()
     return excamera ~= nil and camera ~= nil and camera.USB ~= nil
 end
 
+-- ==================== 起流耗时打点 ====================
+
+-- tick 按 mcu.hz() 折算成毫秒：Air1603 约 20ms/tick，PC 模拟器 1ms/tick
+local TICKS_PER_MS = 1
+do
+    local hz = mcu and mcu.hz and mcu.hz()
+    if type(hz) == "number" and hz > 1 then TICKS_PER_MS = hz / 1000 end
+end
+
+local function now_ms()
+    local t = mcu and mcu.ticks and mcu.ticks()
+    if type(t) ~= "number" then return 0 end
+    return math.floor(t / TICKS_PER_MS)
+end
+
+local t_enter   = 0    -- 进页面时刻
+local t_frame1  = 0    -- 首个原始帧时刻，0 表示还没到
+local frame_cnt = 0    -- 原始帧计数
+local probe_timer = nil
+
+-- 首帧后 5 秒打一条汇总：原始帧一直在流而画面没出，就卡在固件解码侧
+local function log_stream_summary()
+    probe_timer = nil
+    local dt = -1
+    if t_frame1 > 0 then dt = t_frame1 - t_enter end
+    log.info("uvc_preview_win", "起流汇总", "进页面→首个原始帧", dt, "ms",
+        "5秒内原始帧", frame_cnt, "帧")
+end
+
 -- ==================== UVC 档位自适应 ====================
 
 --[[
@@ -467,12 +503,17 @@ local function preview_size(avail_w, avail_h)
     local min_w, min_h = theme.dp(80), theme.dp(60)
     if w < min_w then w = min_w end
     if h < min_h then h = min_h end
-    -- 估算只是上限，真分得下才算数，分不下就继续收口
-    for _ = 1, FB_PROBE_MAX do
-        if probe_fb_ok(w, h) then break end
-        log.warn("uvc_preview_win", "显示缓冲分不下，收口", w, "x", h)
-        w, h = math.floor(w * FB_SHRINK), math.floor(h * FB_SHRINK)
-        if w < min_w or h < min_h then break end
+    -- 估算只是上限，真分得下才算数，分不下就继续收口。余量明显宽裕时跳过探针：
+    -- 每次要真分两块大 zbuff，各触发一次强制 GC，白等上百毫秒
+    if free and (free - sensor_cost()) >= budget * 4 then
+        log.info("uvc_preview_win", "内存余量宽裕，跳过显示缓冲探针")
+    else
+        for _ = 1, FB_PROBE_MAX do
+            if probe_fb_ok(w, h) then break end
+            log.warn("uvc_preview_win", "显示缓冲分不下，收口", w, "x", h)
+            w, h = math.floor(w * FB_SHRINK), math.floor(h * FB_SHRINK)
+            if w < min_w or h < min_h then break end
+        end
     end
     log.info("uvc_preview_win", "预览区", w, "x", h, "显示缓冲", (w * h * 4), "字节")
     return w, h
@@ -500,6 +541,13 @@ end
 -- 收到一帧：拍照按需存单帧，录像抽帧追加进同一个文件
 local function on_frame(buff, len)
     if not buff or not len or len <= 0 then return end
+
+    frame_cnt = frame_cnt + 1
+    if t_frame1 == 0 then
+        t_frame1 = now_ms()
+        log.info("uvc_preview_win", "起流打点", "首个原始帧", t_frame1 - t_enter, "ms")
+        probe_timer = sys.timerStart(log_stream_summary, 5000)
+    end
 
     if snap_pending then
         snap_pending = false
@@ -572,6 +620,7 @@ local function open_stream()
         return false, "预览启动失败"
     end
     stream_open = true
+    log.info("uvc_preview_win", "起流打点", "开流就绪", now_ms() - t_enter, "ms")
     return true
 end
 
@@ -625,6 +674,7 @@ end
 -- USB 连接事件（协程内执行）：分辨率不一致就按实际档位重开一次；组件建于建界面时，这里只管数据流
 local function on_connected(mode)
     if not window_open then return end
+    log.info("uvc_preview_win", "起流打点", "USB 连接", now_ms() - t_enter, "ms")
     if mode and (mode.w ~= SENSOR_W or mode.h ~= SENSOR_H) then
         log.info("uvc_preview_win", "改用摄像头实际支持的分辨率", mode.w, "x", mode.h)
         SENSOR_W, SENSOR_H = mode.w, mode.h
@@ -1376,6 +1426,12 @@ local function on_create()
     if periph_id then
         sys.publish("OTHER_FUNC_SET", periph_id, true)
     end
+    -- VBUS 提前通电，让摄像头在 excamera 那 500ms 等待里就绪。
+    -- 只提前供电、不提前 usb.mode：枚举由 usb.mode 触发，提前会赶在 excamera
+    -- 注册 usb_raw 回调之前抛出 EV_CONNECT，页面就永远等不到连接
+    if pm and pm.power and pm.USB then
+        pcall(pm.power, pm.USB, true)
+    end
     sys.publish("UVC_CMD", "start")
     update_status("等待摄像头连接...")
 end
@@ -1384,6 +1440,10 @@ local function on_destroy()
     -- excamera.close 含 sys.wait，不能在销毁回调里直接调，交回命令协程收尾；
     -- 根控件先隐藏，画面立刻撤掉，控件销毁留在停流之后（顺序见 close_stream）
     stop_rec_timer()
+    if probe_timer then
+        sys.timerStop(probe_timer)
+        probe_timer = nil
+    end
     sys.unsubscribe("FACE_STATE_TEXT", on_face_state_text)
     if main_container and not main_container:is_destroyed() then
         pcall(main_container.set_hidden, main_container, true)
@@ -1396,6 +1456,13 @@ local function on_lose_focus() end
 
 local function open_handler(id)
     if id then periph_id = id end
+    -- 起流耗时从点击这一刻起算
+    t_enter = now_ms()
+    t_frame1, frame_cnt = 0, 0
+    if probe_timer then
+        sys.timerStop(probe_timer)
+        probe_timer = nil
+    end
     window_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,

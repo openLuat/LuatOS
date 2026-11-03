@@ -52,7 +52,22 @@ VERSION：项目版本号，ascii string类型
 -- main.lua - 程序入口文件
 PROJECT = "Engine_Air8605_10inch_1024x600_000_4G_V000" -- 项目名，用于 FOTA 云端鉴权
 VERSION = "001.999.006"                                 -- 固件版本号，用于 FOTA 升级比对
-PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"        -- 项目密钥，FOTA 云端鉴权
+--[[
+PROJECT_KEY：项目密钥，FOTA 云端鉴权。
+Air8605 出厂固件分四个型号，云端按机型区分，密钥不同，故按 PROJECT 里的型号段取：
+  Engine_Air8605_10inch_1024x600_000_4G_V000    → Air8605 密钥（4G 版，无 Air1103）
+  Engine_Air8605W_10inch_1024x600_000_WiFi_V000 → Air8605W 密钥（WiFi 版）
+  Engine_Air8605M_10inch_1024x600_000_4G_V000   → Air8605M 密钥（4G 版）
+  Engine_Air8605B_10inch_1024x600_000_4G_V000   → Air8605B 密钥（4G 版，双 RS485）
+]]
+local PROJECT_KEY_BY_MODEL = {
+    [""] = "pWQErHii6EahuQdWemb1ULgFeIgTravs",
+    W = "dHKZa3072gCwt7Qa6wpxURpp1pwncHqg",
+    M = "BPj3QcPjtS4yxbxYGQOp834YGBItCtik",
+    B = "ASA7KLj8VqD29G254ewdDasVTb0sS904",
+}
+local project_model = PROJECT:match("Air8605([WMB]?)_")
+PROJECT_KEY = project_model and PROJECT_KEY_BY_MODEL[project_model]
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)

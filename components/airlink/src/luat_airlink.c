@@ -232,7 +232,7 @@ int luat_airlink_peer_frag_supported(void) {
 }
 
 int luat_airlink_peer_arq_supported(void) {
-    return (g_airlink_peer_caps & AIRLINK_CAP_ARQ) ? 1 : 0;
+    return luat_airlink_arq_state() == ARQ_STATE_ARQ;
 }
 
 // SPI/UART 统一分片阈值: TEST_BUFF_SIZE(1600) - sizeof(airlink_link_data_t)(16) - sizeof(luat_airlink_cmd_t)(4)

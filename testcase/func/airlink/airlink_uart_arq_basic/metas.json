@@ -1,0 +1,1 @@
+{"name":"airlink_uart_arq_basic","platform":["pc"],"description":"Production ARQ state machine: handshake, legacy collision, admission retry, duplicate/reorder, wrap, retained pending and reboot session"}

@@ -94,7 +94,7 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack_ex(uint8_t *buff, size_t len
     }
     // ARQ 标志须写在 link_data_cb 之后 (cb 会 memset flags), 且须参与下方 CRC
     if (arq || seqv) {
-        data->flags.reserved |= AIRLINK_FL_PACK(arq, seqv, 0);
+        data->flags.reserved |= AIRLINK_FL_PACK(arq, seqv, 0) | ((uint32_t)luat_airlink_arq_tag() << 8);
     }
     data->crc16 = luat_crc16_modbus(&data->pkgid, len + 8);
 }

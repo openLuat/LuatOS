@@ -109,6 +109,8 @@ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff, size_t len);
 void luat_airlink_task_start(void);
 void luat_airlink_print_buff(const char* tag, uint8_t* buff, size_t len);
 void luat_airlink_on_data_recv(uint8_t *data, size_t len);
+// 0 means the command was accepted; failures must not advance a reliable ACK.
+int luat_airlink_on_data_accept(uint8_t *data, size_t len);
 
 int airlink_wait_for_slave_reply(size_t timeout_ms);
 void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rxbuff);

@@ -1426,12 +1426,13 @@ local function on_create()
     if periph_id then
         sys.publish("OTHER_FUNC_SET", periph_id, true)
     end
-    -- VBUS 提前通电，让摄像头在 excamera 那 500ms 等待里就绪。
-    -- 只提前供电、不提前 usb.mode：枚举由 usb.mode 触发，提前会赶在 excamera
-    -- 注册 usb_raw 回调之前抛出 EV_CONNECT，页面就永远等不到连接
-    if pm and pm.power and pm.USB then
-        pcall(pm.power, pm.USB, true)
-    end
+    -- 这里不再提前 pm.power(pm.USB, true)。
+    -- 枚举依赖的是"上电沿"：示例能出画面是因为 VBUS 在 excamera.preview 内部
+    -- usb.mode(0, usb.HOST) 之后才第一次打开，模组上电时主机侧已就绪。
+    -- 提前供电会让模组在 USB 还是非 Host 状态时就完成上电，之后 excamera 里
+    -- 再调一次 pm.power(pm.USB, true) 是幂等的（无新上电沿）=> 永不枚举
+    -- （实测：两次进页面 190s+ 0 条 USB 事件，GPIO73 断电重上电也救不回）。
+    -- 上电统一交给 excamera.preview 内的 usb.mode -> pm.power(pm.USB, true)。
     sys.publish("UVC_CMD", "start")
     update_status("等待摄像头连接...")
 end

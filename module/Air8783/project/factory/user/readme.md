@@ -38,7 +38,7 @@
 
 3、短信上行：设备通过sms_bridge.send_sms发送短信，SMSC接受后触发SMS_SENT事件，桥接功能模块将该发送结果转换为TLV报文上传云平台，例如：
 
-``` lua
+```lua
 field=29 SMS_SEND_RSP
 field=1039 SMS_SEQ
 field=1040 SMS_CALLEE
@@ -53,7 +53,6 @@ field=1047 SMS_MSG_REF
 
 6、运维日志：excloud库将运行日志写进本地缓冲，首次上传（默认60秒）后每30分钟上传一次云平台；
 
-
 ## 演示硬件环境
 
 1、Air8783开发板一块 + 可上网的sim卡一张 ：
@@ -64,7 +63,7 @@ field=1047 SMS_MSG_REF
 
 - Air8783开发板通过USB-A 口接到电脑USB口供电；
 
-![](https://docs.openluat.com/air8000/luatos/app/image/8783短信.jpg)
+<img title="" src="https://docs.openluat.com/air8783/image/8783短信.png" alt="" data-align="inline" style="zoom:25%;">
 
 ## 演示软件环境
 
@@ -74,7 +73,6 @@ field=1047 SMS_MSG_REF
 
 3、云平台测试环境：[AirCloud云平台](https://iot.luatos.com/)，需要在合宙iot平台创建项目并归属到对应项目下
 
-
 ## 演示核心步骤
 
 1、搭建好硬件环境，插好sim卡后连接电脑；
@@ -83,7 +81,7 @@ field=1047 SMS_MSG_REF
 
 3、烧录成功后，自动开机运行，连接云平台成功后，串口会出现类似日志：
 
-``` lua
+```lua
 [2026-08-07 11:08:49.597][000000008.646] D/sms pdu len 19
 [2026-08-07 11:08:49.952][000000009.005] I/user.httpplus 服务器已完成响应
 [2026-08-07 11:08:49.956][000000009.008] I/user.[excloud]getip响应 HTTP: 200 Body: 
@@ -216,6 +214,3 @@ field=1047 SMS_MSG_REF
 
 4、Aircloud平台可以看到如下报文上报
 ![](https://docs.openluat.com/air8000/luatos/app/image/8783短信aircloud.jpg)
-
-
-

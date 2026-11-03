@@ -881,6 +881,10 @@ int luat_videoplayer_play(luat_vp_ctx_t *ctx)
             VP_LOGW("HZV audio start failed: %d", ret);
             return LUAT_VP_ERR_DECODE;
         }
+        /* 停止后 user_play_stop 可能仍为 1。新建请求不会走暂停恢复那条路径，这里显式打开出声。 */
+        if (ctx->hzv_audio_request.data_channel != NULL) {
+            luat_audio_channel_play(ctx->hzv_audio_request.data_channel, 1);
+        }
     }
 #endif
     return LUAT_VP_OK;
@@ -909,11 +913,23 @@ int luat_videoplayer_stop(luat_vp_ctx_t *ctx)
     if (ctx == NULL) return LUAT_VP_ERR_PARAM;
 #if defined(LUAT_USE_HZV) && defined(LUAT_USE_AUDIO_V2)
     if (ctx->format == LUAT_VP_FMT_HZV && ctx->hzv_audio_started) {
+        luat_audio_driver_ctrl_t *ctrl = NULL;
+        if (ctx->hzv_audio_request.data_channel != NULL) {
+            ctrl = ctx->hzv_audio_request.data_channel->driver_ctrl;
+        }
         luat_audio_request_cancel_immediate(&ctx->hzv_audio_request);
         ctx->hzv_audio_started = 0;
         ctx->hzv_audio_driver_started = 0;
         ctx->hzv_audio_done = 1;
         ctx->hzv_clock_anchor_valid = 0;
+        /*
+         * 取消请求只清 audio_output_enable，驱动仍是 RUNNING，
+         * 输出缓冲已经被填成静音，下次 start 不会重新打开设备。
+         * 停回 ACTIVE 后，下次 play 会重新 start。
+         */
+        if (ctrl != NULL) {
+            luat_audio_driver_stop(ctrl);
+        }
     }
 #endif
     return LUAT_VP_OK;

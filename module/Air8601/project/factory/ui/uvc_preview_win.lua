@@ -24,8 +24,9 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
 不带的型号页面与原来完全一致，只有「UVC 测试」。见下方「人脸识别边界」。
 
 分辨率与内存（取档做法参考 module/Air8601/project/DEPOSIT_CABINET 的 face_preview）：
-1. 开流分辨率默认 1280×720（USB 摄像头常用档），先枚举它真正支持的 MJPEG 档位，
-   首选 config.peripherals 条目里的 w / h，其次取像素数不超过 MAX_PIXELS 的最大档；
+1. 开流分辨率默认 800×480（AirCAMERA_1034 上报的最大档，它没有 1280×720 这一档），
+   先枚举它真正支持的 MJPEG 档位，首选 config.peripherals 条目里的 w / h，
+   其次取像素数不超过 MAX_PIXELS 的最大档；
    申请档位与实际支持档位不一致时按实际档位重开一次数据流，保证 excamera 的双帧缓冲
    与固件解码缓冲都按真实尺寸分配。
 2. airui.camera 的两块显示缓冲按预览区大小分配（视口 w×h×2 字节 × 2 块，与 fit 无关），
@@ -112,8 +113,9 @@ local pad = 15
 
 -- 源分辨率：开流前按它申请帧缓冲，连上后由 pick_uvc_mode 校正为实际支持档。
 -- 相机侧固定开销约 4.25×w×h 字节（双帧缓冲 w×h + 解码输入 w×h/4 + 解码输出 w×h×2），
--- 1280×720 约 3.8MB，这一项直接决定还剩多少内存给 airui.camera 的显示缓冲
-local SENSOR_W, SENSOR_H = 1280, 720
+-- 800×480 约 1.6MB（1280×720 要 3.8MB），这一项直接决定还剩多少内存给 airui.camera 的显示缓冲。
+-- 初值必须是本模组真实支持的档位（见 config 条目注释），否则开流失败还要关流重开
+local SENSOR_W, SENSOR_H = 800, 480
 
 -- 源分辨率像素上限：像素数更大的 MJPEG 档位不取（1920×1080 时相机侧要吃掉 8.8MB）
 local MAX_PIXELS = 1280 * 720

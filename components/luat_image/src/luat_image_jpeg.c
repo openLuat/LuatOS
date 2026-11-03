@@ -44,7 +44,7 @@ static int jpeg_read_file_to_buf(const char *path, jpeg_input_t *input) {
     if (buf == NULL) {
         LLOGE("oom: jpeg file buf %ld bytes", fsize);
         luat_fs_fclose(fd);
-        return LUAT_IMG_ERR;
+        return LUAT_IMG_ERR_NOMEM;
     }
 
     if (luat_fs_fread(buf, 1, (size_t)fsize, fd) != (size_t)fsize) {

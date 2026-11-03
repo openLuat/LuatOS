@@ -1,7 +1,8 @@
 /**
  * @file luat_airui_jpg_decoder_luatos.c
  * @summary LuatOS platform JPG decoder
- * @responsible Prefer HW decode when safe; risk-skip or fail → SW (tjpgd) / let hzjpeg claim
+ * @responsible Prefer HW decode when safe. Risky or undecodable JPEG falls back to SW.
+ *             HW out-of-memory reclaims the image cache and retries HW, and does not fall back to SW.
  */
 
 #include "luat_conf_bsp.h"
@@ -19,6 +20,8 @@
 #include "lvgl9/src/draw/lv_draw_buf.h"
 #include "lvgl9/src/draw/lv_image_decoder_private.h"
 #include "lvgl9/src/misc/cache/instance/lv_image_cache.h"
+#include "lvgl9/src/misc/cache/lv_cache_entry.h"
+#include "lvgl9/src/misc/lv_iter.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "airui.jpg"
@@ -384,6 +387,113 @@ static int airui_luatos_jpg_decode_mode(const char *path, luat_img_decode_mode_t
     return luat_image_decode(&img_conf, NULL, 0, img_info);
 }
 
+/* 硬解一次。成功返回 LUAT_IMG_OK 且 img_info->data 有效。
+   堆空间不够返回 LUAT_IMG_ERR_NOMEM。图片本身硬解不了返回 LUAT_IMG_ERR。 */
+static int airui_jpg_hw_decode_once(const char *src, luat_img_info_t *img_info)
+{
+    int ret;
+
+    ret = airui_luatos_jpg_decode_mode(src, LUAT_IMG_DECODE_HW, img_info);
+    if (ret == LUAT_IMG_OK && img_info->data != NULL && img_info->width != 0 && img_info->height != 0) {
+        return LUAT_IMG_OK;
+    }
+    if (img_info->data != NULL) {
+        luat_heap_free(img_info->data);
+        img_info->data = NULL;
+    }
+    if (ret == LUAT_IMG_ERR_NOMEM) {
+        return LUAT_IMG_ERR_NOMEM;
+    }
+    return LUAT_IMG_ERR;
+}
+
+/* 引用计数大于 0 的条目正在被本次绘制使用。只从缓存摘掉，像素等绘制结束再释放。 */
+static void airui_jpg_unlink_referenced(lv_cache_t *cache)
+{
+    const void *stuck = NULL;
+    int guard = 0;
+
+    if (cache == NULL) {
+        return;
+    }
+
+    while (guard++ < 64) {
+        uint32_t elem_size = lv_cache_entry_get_size(sizeof(lv_image_cache_data_t));
+        void *elem = luat_heap_malloc(elem_size);
+        lv_iter_t *iter;
+        lv_image_cache_data_t *data;
+        const void *src;
+
+        if (elem == NULL) {
+            return;
+        }
+        iter = lv_image_cache_iter_create();
+        if (iter == NULL || lv_iter_next(iter, elem) != LV_RESULT_OK) {
+            if (iter != NULL) {
+                lv_iter_destroy(iter);
+            }
+            luat_heap_free(elem);
+            return;
+        }
+        data = (lv_image_cache_data_t *)elem;
+        src = data->src;
+        lv_iter_destroy(iter);
+        luat_heap_free(elem);
+        if (src == NULL || src == stuck) {
+            return;
+        }
+        stuck = src;
+        lv_image_cache_drop(src);
+    }
+}
+
+/* 内存不够时先丢掉最老的、没人引用的条目并重试硬解。
+   这类条目都丢完仍失败，再把仍被引用的条目从缓存摘掉并重试一次。
+   还失败就返回内存不足，不转软解。 */
+static int airui_jpg_hw_decode_reclaim(lv_image_decoder_dsc_t *dsc, const char *src, luat_img_info_t *img_info)
+{
+    int ret;
+    int guard = 0;
+
+    airui_jpg_make_room(dsc, src);
+    LLOGI("use hardware jpeg decode: %s", src);
+    ret = airui_jpg_hw_decode_once(src, img_info);
+    if (ret != LUAT_IMG_ERR_NOMEM) {
+        return ret;
+    }
+
+    if (dsc->args.no_cache || dsc->cache == NULL || !lv_image_cache_is_enabled()) {
+        LLOGE("jpeg hw out of memory src=%s", src);
+        return LUAT_IMG_ERR_NOMEM;
+    }
+
+    while (guard++ < 64) {
+        size_t used = lv_cache_get_size(dsc->cache, NULL);
+
+        if (!lv_cache_evict_one(dsc->cache, NULL)) {
+            break;
+        }
+        if (lv_cache_get_size(dsc->cache, NULL) >= used) {
+            break;
+        }
+        LLOGI("jpeg oom, evict oldest and retry src=%s", src);
+        ret = airui_jpg_hw_decode_once(src, img_info);
+        if (ret != LUAT_IMG_ERR_NOMEM) {
+            return ret;
+        }
+    }
+
+    LLOGI("jpeg oom, unlink referenced cache and retry src=%s", src);
+    airui_jpg_unlink_referenced(dsc->cache);
+    ret = airui_jpg_hw_decode_once(src, img_info);
+    if (ret != LUAT_IMG_ERR_NOMEM) {
+        return ret;
+    }
+
+    LLOGE("jpeg hw out of memory src=%s", src);
+    return LUAT_IMG_ERR_NOMEM;
+}
+
 static lv_result_t airui_luatos_jpg_decoder_info(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc,
                                                   lv_image_header_t *header)
 {
@@ -461,15 +571,12 @@ static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv
     memset(&img_info, 0, sizeof(img_info));
 
     if (!use_sw) {
-        LLOGI("use hardware jpeg decode: %s", src);
-        airui_jpg_make_room(dsc, src);
-        ret = airui_luatos_jpg_decode_mode(src, LUAT_IMG_DECODE_HW, &img_info);
-        if (ret != LUAT_IMG_OK || img_info.data == NULL || img_info.width == 0 || img_info.height == 0) {
+        ret = airui_jpg_hw_decode_reclaim(dsc, src, &img_info);
+        if (ret == LUAT_IMG_ERR_NOMEM) {
+            return LV_RESULT_INVALID;
+        }
+        if (ret != LUAT_IMG_OK) {
             LLOGW("HW failed ret=%d, fallback to SW src=%s", ret, src);
-            if (img_info.data != NULL) {
-                luat_heap_free(img_info.data);
-                img_info.data = NULL;
-            }
             use_sw = 1;
         }
     }

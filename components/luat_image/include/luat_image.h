@@ -10,6 +10,8 @@ extern "C" {
 
 #define LUAT_IMG_OK             0
 #define LUAT_IMG_ERR            (-1)
+/* 堆上没有连续空间。调用方应腾缓存后重试，不要当成“这张图硬解不了”。 */
+#define LUAT_IMG_ERR_NOMEM      (-2)
 
 typedef enum {
     LUAT_IMG_FMT_JPG  = 0,

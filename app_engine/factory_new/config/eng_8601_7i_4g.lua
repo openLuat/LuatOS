@@ -103,17 +103,37 @@ return {
     -- 485_1 是本板唯一一路 485（见文件头第 13 条）
     -- manual_init = true：485 测试页进页面不自动上电开串口，点该路按钮才初始化
     peripherals = {
-        { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
-          en_pin = 73, ready_delay = 200,
-          w = 1280, h = 720, -- UVC_EN，200ms 就绪；首选出图档（实测按摄像头支持档自适应）
-          face = {
-              uart_id = 2,        -- 人脸模组串口 = UART2（115200/8N1，库内固定）
-              rst_pin = nil,      -- 无独立复位脚，留空
-              register_timeout = 15, -- 录入超时（秒）
-              verify_timeout = 15,   -- 验证超时（秒）
-          } },
-        { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 72, baud = 9600,
-          manual_init = true }, -- DE = 485_RE_DE = PIN8 = GPIO72，无独立供电脚
+        {
+            type = "uvc",
+            id = "uvc1",
+            name = "人脸识别摄像头",
+            title = "摄像头",
+            en_pin = 73,
+            ready_delay = 200,
+            -- 首选出图档必须落在摄像头真实支持的档位里：本模组只报
+            -- 960x480 / 864x480 / 800x480 / 480x320 / 320x240，没有 1280x720。
+            -- 写 1280x720 时 excamera 匹配不上会按默认 format0/frame0(raw 0x0) 起流，
+            -- 必然失败，预览页再退回"改用实际支持分辨率"关流重开，首帧从 ~1.4s 拖到 ~11s
+            -- （实测日志：11.63s 用 1280x720 起流失败 → 20.6s 才重新枚举成功出图）。
+            -- 800x480 是其中像素数最大且匹配得上的档，故作为首选。
+            w = 800,
+            h = 480,                   -- UVC_EN，200ms 就绪；首选出图档（实测档位见上）
+            face = {
+                uart_id = 2,           -- 人脸模组串口 = UART2（115200/8N1，库内固定）
+                rst_pin = nil,         -- 无独立复位脚，留空
+                register_timeout = 15, -- 录入超时（秒）
+                verify_timeout = 15,   -- 验证超时（秒）
+            }
+        },
+        {
+            type = "rs485",
+            id = "485_1",
+            name = "非隔离485",
+            uart_id = 1,
+            de_pin = 72,
+            baud = 9600,
+            manual_init = true
+        }, -- DE = 485_RE_DE = PIN8 = GPIO72，无独立供电脚
     },
 
     -- ===== 硬件配置 =====
@@ -159,40 +179,40 @@ return {
         -- 音频: 内置 DAC 播放 + 线路输入录音（非 ES8311 外挂芯片）
         -- PA(功放) 使能 = GPIO74（AUDIOPA_EN），低电平有效
         audio = {
-            model = "dac",          -- 内置 DAC 模式（Air1601 芯片自带 DAC，无 I2S 外挂 codec）
-            pa_ctrl = 74,           -- PA(功放)使能引脚 = GPIO74（AUDIOPA_EN）
-            pa_on_level = 0,        -- 低电平使能功放（与本文件 power_on 里 GPIO74 初始给高电平互为配合）
-            dac_delay = 6,          -- DAC 启动前冗余时间（旧框架用；新框架 audio_v2 不消费，见文件头第 11 条）
-            pa_delay = 10,          -- PA 在播放开始后延迟打开的时间(ms)，透传给 config_pa_power_ctrl()
-                                    --   不填时 exaudio 内部按 200ms 兜底；对齐同板可用的
-                                    --   Air8601_deposit_cabinet 工程（user/audio_tts.lua）取 10
-            play_vol = 70,          -- 默认播放音量(0~100)，llm_chat / video_util / factory_rec
-                                    --   统一读 ac.play_vol or 70，这里显式写死便于各页面一致
-            mic_vol = 70,           -- 默认录音音量(0~100)（AI 助手语音输入 / 应用工厂录音共用）
+            model = "dac",   -- 内置 DAC 模式（Air1601 芯片自带 DAC，无 I2S 外挂 codec）
+            pa_ctrl = 74,    -- PA(功放)使能引脚 = GPIO74（AUDIOPA_EN）
+            pa_on_level = 0, -- 低电平使能功放（与本文件 power_on 里 GPIO74 初始给高电平互为配合）
+            dac_delay = 6,   -- DAC 启动前冗余时间（旧框架用；新框架 audio_v2 不消费，见文件头第 11 条）
+            pa_delay = 10,   -- PA 在播放开始后延迟打开的时间(ms)，透传给 config_pa_power_ctrl()
+            --   不填时 exaudio 内部按 200ms 兜底；对齐同板可用的
+            --   Air8601_deposit_cabinet 工程（user/audio_tts.lua）取 10
+            play_vol = 70,            -- 默认播放音量(0~100)，llm_chat / video_util / factory_rec
+            --   统一读 ac.play_vol or 70，这里显式写死便于各页面一致
+            mic_vol = 70,             -- 默认录音音量(0~100)（AI 助手语音输入 / 应用工厂录音共用）
             record_format = "AMR_NB", -- 录音格式（AMR 体积小，上传 ASR 省内存；与 1601/1602/8101 一致）
-            max_record_time = 30,   -- 最长录音时长(秒)，到时自动停止（AI 语音输入 / 应用工厂共用）
+            max_record_time = 30,     -- 最长录音时长(秒)，到时自动停止（AI 语音输入 / 应用工厂共用）
         },
     },
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        net_4g = true,      -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 6 条
-        speaker = true,     -- 启用喇叭（DAC 接功放）
-        mic = true,         -- 启用麦克风（板载 LINE_IN → 内置 ADC 录音）
-                            --   与 speaker 成对声明：同族已启 AI 助手/应用工厂的板型
-                            --   （evb_1601_7i_v12 / evb_8101_10i_v0 / eng_1602_5i_v5 …）都写了这一项，
-                            --   本板原缺失。当前 app/ 与 ui/ 里查不到消费方，属"能力声明"性质
-                            --   （与 usb_camera / rs485 同一类，见文件头第 10 条）。
-        sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
-        usb_camera = true,  -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
-        rs485 = true,       -- 启用 RS485 接口（1 路，条目在 peripherals，见文件头第 13 条）
-        other_func = true,  -- 启用"功能测试"（peripherals 外设清单，UVC 预览测试入口）
+        net_4g = true,  -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 6 条
+        speaker = true, -- 启用喇叭（DAC 接功放）
+        mic = true,     -- 启用麦克风（板载 LINE_IN → 内置 ADC 录音）
+        --   与 speaker 成对声明：同族已启 AI 助手/应用工厂的板型
+        --   （evb_1601_7i_v12 / evb_8101_10i_v0 / eng_1602_5i_v5 …）都写了这一项，
+        --   本板原缺失。当前 app/ 与 ui/ 里查不到消费方，属"能力声明"性质
+        --   （与 usb_camera / rs485 同一类，见文件头第 10 条）。
+        sd_card = true,       -- 启用 SD 卡（SPI1，CS=GPIO8）
+        usb_camera = true,    -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
+        rs485 = true,         -- 启用 RS485 接口（1 路，条目在 peripherals，见文件头第 13 条）
+        other_func = true,    -- 启用"功能测试"（peripherals 外设清单，UVC 预览测试入口）
         -- usb_hid 不开：USB 键鼠与 UVC 摄像头共用 USB Host 与供电，带 UVC 的型号不启用
-        app_factory = true, -- 启用"应用工厂"内置应用
-        ai_chat = true,     -- 启用"AI聊天助手"内置应用
-        cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        app_factory = true,   -- 启用"应用工厂"内置应用
+        ai_chat = true,       -- 启用"AI聊天助手"内置应用
+        cloud_disk = true,    -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
         file_transfer = true, -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
-        aircloud = true,    -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
+        aircloud = true,      -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
     },
 
     -- ===== AirCloud 数据上报参数 =====
@@ -200,17 +220,20 @@ return {
     -- 上报字段由运行时能力探测决定（mobile.csq / adc.CH_CPU / LBS 定位 / 电池 …）
     -- 采不到的一律跳过，不影响其他字段
     aircloud = {
-        report_cycle = 180,  -- 默认上报周期（秒），云端可下发 "cycle:秒数" 改写并存 fskv
-        min_cycle    = 5,    -- 允许的最小周期（秒），防止云端下发过密把流量打爆
+        report_cycle = 180, -- 默认上报周期（秒），云端可下发 "cycle:秒数" 改写并存 fskv
+        min_cycle    = 5,   -- 允许的最小周期（秒），防止云端下发过密把流量打爆
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
     -- 本型号为 4G 版：Airlink UART 4G（Air780ER2）独占 UART3，见文件头第 6 条
     -- WiFi 版见 config/eng_8601_7i_wifi.lua（同一底板电阻切换的另一出货型号）
     network = {
-        { type = "4g_airlink_uart",
-          uart_id = 3, baud = 2000000,
-          adapter = socket.LWIP_GP_GW },   -- Air1601 外挂 4G 的网卡标识
+        {
+            type = "4g_airlink_uart",
+            uart_id = 3,
+            baud = 2000000,
+            adapter = socket.LWIP_GP_GW
+        }, -- Air1601 外挂 4G 的网卡标识
     },
 
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====

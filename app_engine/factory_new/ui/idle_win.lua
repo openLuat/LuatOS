@@ -2022,14 +2022,27 @@ function VP.start_play(file_path, ask)
 end
 
 ---真正起播：在桌面画面区里播，素材居中摆放、超出部分由舞台层裁掉
+---这里只做「停旧 + 排队」，真正建播放器在 VP.create_now：停掉的那一路 mplayer
+---音频会话要 400~530ms 才释放完，建新会话必须让过这段窗口（收口在 video_util）
 function VP.play_window(file_path)
     VP.stop()
 
     VP.current_file = file_path
 
+    if not VP.card_ref then
+        log.warn("idle_win", "video_start_play: no video card ref")
+        return
+    end
+
+    video_util.after_release(function() VP.create_now(file_path) end)
+end
+
+---建播放器本体（由 VP.play_window 在释放窗口结束后调用，也可能是延后一轮才到这里）
+function VP.create_now(file_path)
+    -- 延后期间桌面可能已被销毁（on_destroy 清掉 card_ref / stage），到这里再判一次
     local video_card = VP.card_ref
     if not video_card then
-        log.warn("idle_win", "video_start_play: no video card ref")
+        log.warn("idle_win", "video create: no video card ref")
         return
     end
 
@@ -2346,6 +2359,8 @@ local function on_destroy()
         VP.obj = nil
     end
     video_util.audio_stop()
+    -- 定时器可能晚于 on_destroy 触发，队列里的建播放器动作必须先丢掉
+    video_util.cancel_pending()
     sys.unsubscribe("STATUS_TIME_UPDATED", update_time_date)
     if has_4g then sys.unsubscribe("STATUS_SIGNAL_UPDATED", update_mobile_icon) end
     if has_wifi then sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", update_wifi_icon) end
@@ -2480,6 +2495,9 @@ local function on_lose_focus()
         VP.obj = nil
     end
     video_util.audio_stop()
+    -- 失焦后桌面不在前台，队列里排着的建播放器动作直接丢掉；
+    -- 释放窗口本身保留（这次销毁照样要等它释放完，回桌面时才不会抢）
+    video_util.cancel_pending()
 end
 
 local function open_handler()

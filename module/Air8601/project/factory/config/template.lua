@@ -104,7 +104,9 @@
     --                         实际下发时长还会按 hw.audio.max_record_time 钳一刀
     --   ready_delay   [可选] 上电稳定延时(ms)，loader 在 init 前等待（谁用谁等）
     --   w / h         [可选] uvc 专用：首选 MJPEG 输出分辨率，预览页优先按它取档；
-    --                         不写则用预览页默认档 1280×720；像素数超过 max_pixels 时不生效
+    --                         不写则用预览页默认档 800×480；像素数超过 max_pixels 时不生效
+    --                         必须写摄像头上报的档位：写它不支持的档会按默认 format0/frame0
+    --                         起流失败，预览页再关流重开，首帧从 ~1.4s 拖到十几秒
     --   max_pixels    [可选] uvc 专用：源分辨率像素上限（w×h），缺省 921600（1280×720）。
     --                         相机侧固定开销约 4.25×w×h 字节，越大留给 airui.camera 显示
     --                         缓冲的余量越小（预览区会跟着收小），1920×1080 会挤爆内存
@@ -127,7 +129,7 @@
     --     { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
     --     -- 人脸识别摄像头（UVC 出图 + UART2 人脸协议）写法：
     --     -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
-    --     --   en_pin = 73, ready_delay = 200, w = 1280, h = 720,
+    --     --   en_pin = 73, ready_delay = 200, w = 800, h = 480,
     --     --   face = { uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15 } },
     --     { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, baud = 9600, manual_init = true },
     --     { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 },

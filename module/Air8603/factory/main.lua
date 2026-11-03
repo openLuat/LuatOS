@@ -57,7 +57,26 @@ VERSION：项目版本号，ascii string类型
 -- main.lua - 程序入口文件
 PROJECT = "Engine_Air8603W1_10inch_1024x600_000_WiFi_V000"  -- 项目名，用于 FOTA 云端鉴权
 VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
-PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
+--[[
+PROJECT_KEY：项目密钥，FOTA 云端鉴权。
+Air8603 出厂固件共 10 个型号（W1~W5 为 WiFi 版，M1~M5 为 4G 版），
+云端按型号区分机型，密钥各不相同，故按 PROJECT 里的型号段取：
+  Engine_Air8603W1_10inch_1024x600_000_WiFi_V000 → W1 密钥（W2~W5 / M1~M5 同理）
+]]
+local PROJECT_KEY_BY_MODEL = {
+    W1 = "a33L6AaFWOA9eTBNlrtDA8DAVP80jtTv",
+    W2 = "d0GDnMxsl684DV1zb5S5pNIp9hMACZSh",
+    W3 = "cMrPupbJxW2KtlNlnVq1byZ2TiuhRA5c",
+    W4 = "ZrL3gmGXxmdGa1rslguDLqpJHA9xeq87",
+    W5 = "rqM1KsQFmm86bddg5RYuoicG3GtrItFY",
+    M1 = "AttOJwZ7W9psb6nvpbox85YVjzDtFKeo",
+    M2 = "pxx9lrEiEzSxujTmnvwBzylLhhpf3c46",
+    M3 = "B7QKbT00oMoTfCeXs6AIstFy7xisFAWK",
+    M4 = "FmuUbf2avhYHA6ORUZSP271C2ObVQdQ1",
+    M5 = "GI2RG4KxHCIaKj0o5mAz2H0NSXcBid6G",
+}
+local project_model = PROJECT:match("Air8603([WM]%d)")
+PROJECT_KEY = project_model and PROJECT_KEY_BY_MODEL[project_model]
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)

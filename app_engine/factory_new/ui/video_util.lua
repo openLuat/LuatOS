@@ -422,11 +422,56 @@ local function pa_reassert()
     end, 200)
 end
 
+-- ==================== 播放器会话释放窗口 ====================
+--[[stop/destroy 到下一次 create 必须留出释放时间
+
+mplayer 的音频会话从 stop() 到 C 侧打出 `dac_sound audio v2 request end` 实测要
+400~530ms。这段窗口里再起一路新会话去 luat_audio_request_play_stream，会跟还没
+释放完的旧会话抢：轻则新会话的 DAC 驱动起不来（`Movie audio` 打印了却没有
+`dac_sound audio v2 driver started`），重则新会话阻塞在音频请求上、解码线程一帧
+不出，连带触摸 I2C 事务被拖死。真机 100% 复现（2026.11.03：桌面↔文件管理来回、
+中间切两次循环，第 5 路音频断在半路、第 6 路卡死）。
+
+页面的「停旧 → 建新」都在同一次回调里做，中间让不出时间，所以收口到这里：
+stop/destroy 打开释放窗口，窗口没关就把建播放器的动作延后到窗口结束再做。
+延后用定时器而不是 sys.wait —— 起播发生在点击 / 焦点回调里，不在协程上下文。]]
+local RELEASE_MS = 700          -- 释放窗口长度（实测 400~530ms，留余量）
+local release_timer = nil       -- 非 nil = 释放窗口未关
+local pending_create = nil      -- 窗口结束后要执行的建播放器动作
+
+-- 打开（或顺延）释放窗口：每停一路就从头计时
+local function mark_release()
+    if release_timer then sys.timerStop(release_timer) end
+    release_timer = sys.timerStart(function()
+        release_timer = nil
+        local fn = pending_create
+        pending_create = nil
+        if fn then fn() end
+    end, RELEASE_MS)
+end
+
+---释放窗口内延后执行 fn，窗口已关则立即执行
+---连点 / 连切只保留最后一次动作，不会排队建出多个播放器
+function M.after_release(fn)
+    if not release_timer then
+        fn()
+        return
+    end
+    log.info("video_util", "释放窗口未关，起播延后", RELEASE_MS .. "ms")
+    pending_create = fn
+end
+
+---丢掉待执行的建播放器动作（页面失焦 / 销毁时调用）
+---只丢动作、不关窗口：这一次销毁照样需要完整的释放时间
+function M.cancel_pending()
+    pending_create = nil
+end
+
 --[[包装 MP4 播放器：功放跟随播放状态开关，destroy 时统一收尾
 
 接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
 paused 字段记录用户暂停状态（应用层循环续播据此跳过，见 create_player）；
-HZV/MJPG 不走这套会话收尾，create_player 仍返回裸对象。
+HZV/MJPG 没有这套 PA / 伴音副作用，由 wrap_release 只补释放窗口（见下）。
 
 pcm_path 非 nil 时（Air1103 机型 + 同名 .pcm 伴音）声音走 exaudio 流式 PCM，
 play/pause/stop/destroy 同步驱动 pcm_play；MP4 的 mplayer 音轨在 Air1103 上出不来声
@@ -470,11 +515,34 @@ local function wrap_mp4_player(v, pcm_path)
             self.paused = true
             pa_set(false)           -- PA_EN 跟随停止：停止关功放
             if pcm_path then pcm_play.stop() end
+            mark_release()          -- 音频会话开始释放，下一路要等
             return r
         end,
         destroy = function(_)
             pcall(function() v:destroy() end)
             mp4_session_end()
+            mark_release()
+        end,
+    }
+end
+
+--[[给裸 airui.video 补一层会话收尾：stop/destroy 顺带打开释放窗口
+
+HZV/MJPG 没有 MP4 那套 PA / 伴音副作用，所以不走 wrap_mp4_player；但 HZV 的
+videoplayer 与 MP4 的 mplayer 音轨都从 luat_audio_request_play_stream 走，
+「停旧 → 建新」同样要留释放窗口。接口面与裸对象一致（:play/:pause/:stop/:destroy）。]]
+local function wrap_release(v)
+    return {
+        play = function(self, ...) return v:play(...) end,
+        pause = function(self, ...) return v:pause(...) end,
+        stop = function(self, ...)
+            local r = v:stop(...)
+            mark_release()
+            return r
+        end,
+        destroy = function(_)
+            pcall(function() v:destroy() end)
+            mark_release()
         end,
     }
 end
@@ -695,6 +763,7 @@ function M.create_player(path, o)
             log.warn("video_util", "起播被拒", path, "decode=", a.decode_mode, mem_snapshot())
             pcall(function() obj:stop() end)
             pcall(function() obj:destroy() end)
+            mark_release()   -- 半路起播也可能占住音频请求，一并留释放窗口
         else
             log.warn("video_util", "airui.video 返回 nil", path, "fmt=", fmt,
                      "decode=", a.decode_mode, mem_snapshot())
@@ -714,6 +783,7 @@ function M.create_player(path, o)
             -- 起播失败收尾：此时未 wrap，直接关功放
             pa_set(false)
         end
+        mark_release()   -- 各档都试过，残留的音频请求同样要留出释放时间
         return nil
     end
     if fmt == "mp4" then
@@ -723,7 +793,7 @@ function M.create_player(path, o)
     end
     -- 播放器打开时音频任务可能再次把功放拉高，创建成功后再拉一次
     pa_set(true)
-    return v
+    return wrap_release(v)
 end
 
 return M

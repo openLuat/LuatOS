@@ -51,7 +51,20 @@ VERSION：项目版本号，ascii string类型
 -- main.lua - 程序入口文件
 PROJECT = "Engine_Air8602_9inch_1024x600_010_WiFi_V000"
 VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
-PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
+--[[
+PROJECT_KEY：项目密钥，FOTA 云端鉴权。
+Air8602 出厂固件分 4G / WiFi 两个版本（同一底板，仅 Airlink 模组由电阻切换），
+两版在云端是两个机型，密钥不同，故按 PROJECT 里的型号段取对应密钥：
+  Engine_Air8602_9inch_1024x600_010_4G_V000   → 4G 版密钥
+  Engine_Air8602_9inch_1024x600_010_WiFi_V000 → WiFi 版密钥]]
+local PROJECT_KEY_4G = "8dVr2ARIHdWgDGej0TLHqv3M2wMwXZmO"
+local PROJECT_KEY_WIFI = "hhhv6yuQw6cDzN6fqPT0n7Qnlca420WV"
+local net_variant = PROJECT:match("_(4G|WiFi)_")
+if net_variant == "4G" then
+    PROJECT_KEY = PROJECT_KEY_4G
+elseif net_variant == "WiFi" then
+    PROJECT_KEY = PROJECT_KEY_WIFI
+end
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)

@@ -51,7 +51,20 @@ VERSION：项目版本号，ascii string类型
 -- main.lua - 程序入口文件
 PROJECT = "Engine_Air8607_10inch_1024x600_000_V000"
 VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
-PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
+--[[
+PROJECT_KEY：项目密钥，FOTA 云端鉴权。
+Air8607 出厂固件分两个型号，云端按机型区分，密钥不同，故按 PROJECT 里的型号段取：
+  Engine_Air8607_10inch_1024x600_000_V000   → Air8607 密钥
+  Engine_Air8607A_10inch_1024x600_000_V000  → Air8607A 密钥
+]]
+local PROJECT_KEY_AIR8607 = "sZp7U2PwvZh4b2k6USXpNBZSTZoKPO2F"
+local PROJECT_KEY_AIR8607A = "ZgfNI8HIQw7dfsDHxqFSUzWaAiKt1uWF"
+local air8607_variant = PROJECT:match("Air8607(A?)_")
+if air8607_variant == "A" then
+    PROJECT_KEY = PROJECT_KEY_AIR8607A
+elseif air8607_variant == "" then
+    PROJECT_KEY = PROJECT_KEY_AIR8607
+end
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)

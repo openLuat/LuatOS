@@ -878,7 +878,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
 {
   unsigned int flags, width, precision, n;
   size_t idx = 0U;
-#ifdef __PRINT_ALIGNED_32BIT__
+#if defined(__PRINT_ALIGNED_32BIT__) && !defined(__BK72XX__)
   volatile uint32_t *ap_addr;
   volatile uint32_t ap_value;
   uint32_t d1,d2;
@@ -1030,7 +1030,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
           if (flags & FLAGS_LONG_LONG) {
 #if defined(PRINTF_SUPPORT_LONG_LONG)
 
-#ifdef __PRINT_ALIGNED_32BIT__
+#if defined(__PRINT_ALIGNED_32BIT__) && !defined(__BK72XX__)
             ap_addr = (uint32_t *)&va;
             ap_value = (*ap_addr);
             if (!(ap_value & 0x07))
@@ -1060,7 +1060,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
           // unsigned
           if (flags & FLAGS_LONG_LONG) {
 #if defined(PRINTF_SUPPORT_LONG_LONG)
-#ifdef __PRINT_ALIGNED_32BIT__
+#if defined(__PRINT_ALIGNED_32BIT__) && !defined(__BK72XX__)
             ap_addr = (uint32_t *)&va;
             ap_value = (*ap_addr);
             if (!(ap_value & 0x07))
@@ -1092,7 +1092,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
       case 'f' :
       case 'F' :
         if (*format == 'F') flags |= FLAGS_UPPERCASE;
-#ifdef __PRINT_ALIGNED_32BIT__
+#if defined(__PRINT_ALIGNED_32BIT__) && !defined(__BK72XX__)
         ap_addr = (uint32_t *)&va;
         ap_value = (*ap_addr);
         if (!(ap_value & 0x07))
@@ -1117,7 +1117,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
       case 'G':
         if ((*format == 'g')||(*format == 'G')) flags |= FLAGS_ADAPT_EXP;
         if ((*format == 'E')||(*format == 'G')) flags |= FLAGS_UPPERCASE;
-#ifdef __PRINT_ALIGNED_32BIT__
+#if defined(__PRINT_ALIGNED_32BIT__) && !defined(__BK72XX__)
         ap_addr = (uint32_t *)&va;
         ap_value = (*ap_addr);
         if (!(ap_value & 0x07))

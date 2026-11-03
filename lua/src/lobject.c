@@ -403,7 +403,7 @@ static void pushstr (lua_State *L, const char *str, size_t l) {
 */
 const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
   int n = 0;
-#ifdef __PRINT_ALIGNED_32BIT__
+#if defined(__PRINT_ALIGNED_32BIT__) && !defined(__BK72XX__)
   volatile uint32_t *ap_addr;
   volatile uint32_t ap_value;
   uint32_t d1,d2;
@@ -459,7 +459,7 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
         goto top2str;
       }
       case 'f': {  /* a 'lua_Number' */
-#ifdef __PRINT_ALIGNED_32BIT__
+#if defined(__PRINT_ALIGNED_32BIT__) && !defined(__BK72XX__)
         // 针对EC618的va_arg取double出错的临时解决方案
         // 直接调用 va_arg(argp, double) 会返回0
         // 可能与某个gcc参数有关

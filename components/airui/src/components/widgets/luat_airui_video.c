@@ -485,12 +485,14 @@ static void airui_video_close_backend(airui_video_data_t *data)
     data->backend_ctx = NULL;
 }
 
+/* 只留一块帧缓冲。解码返回时这一帧已经写完，再由 LVGL 拷进绘制缓冲，
+   面板防撕裂靠 LCDC 自己的双缓冲。 */
 static uint8_t *airui_video_get_next_framebuffer(airui_video_data_t *data)
 {
     if (data == NULL) {
         return NULL;
     }
-    return data->framebuffers[(data->framebuffer_index + 1u) & 0x1u];
+    return data->framebuffers[0];
 }
 
 static void airui_video_stats_reset_window(airui_video_data_t *data)
@@ -530,7 +532,6 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
     size_t framebuffer_size;
     size_t allocation_size;
     uint8_t *new_buf0;
-    uint8_t *new_buf1;
 
     if (video == NULL || data == NULL || width == 0 || height == 0) {
         return AIRUI_ERR_INVALID_PARAM;
@@ -545,17 +546,13 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    /* 帧尺寸变化时重建持久 framebuffer，LVGL 始终持有这一份稳定内存。
+    /* 帧尺寸变化时重建这一块 framebuffer。
        用 32 字节 Cache line 对齐并补齐分配尺寸：既满足硬解 imagedecoder 的
        8 字节要求，也避免 DMA/LCDC 共享缓冲与相邻堆对象共用 Cache line。 */
-    if (data->framebuffers[0] == NULL || data->framebuffers[1] == NULL || data->framebuffer_size != framebuffer_size) {
+    if (data->framebuffers[0] == NULL || data->framebuffers[1] != NULL ||
+        data->framebuffer_size != framebuffer_size) {
         new_buf0 = (uint8_t *)luat_heap_memalign(32, allocation_size);
         if (new_buf0 == NULL) {
-            return AIRUI_ERR_NO_MEM;
-        }
-        new_buf1 = (uint8_t *)luat_heap_memalign(32, allocation_size);
-        if (new_buf1 == NULL) {
-            luat_heap_free(new_buf0);
             return AIRUI_ERR_NO_MEM;
         }
         if (data->framebuffers[0] != NULL) {
@@ -563,9 +560,9 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
         }
         if (data->framebuffers[1] != NULL) {
             luat_heap_free(data->framebuffers[1]);
+            data->framebuffers[1] = NULL;
         }
         data->framebuffers[0] = new_buf0;
-        data->framebuffers[1] = new_buf1;
         data->framebuffer_size = framebuffer_size;
         data->framebuffer_index = 0;
     }
@@ -644,7 +641,7 @@ static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, 
         memcpy(target_buf, frame->data, data->framebuffer_size);
     }
 
-    data->framebuffer_index = (uint8_t)((data->framebuffer_index + 1u) & 0x1u);
+    data->framebuffer_index = 0;
     if (data->direct_render) {
         lv_area_t area;
         const airui_display_ops_t *display_ops = data->ctx->ops->display_ops;

@@ -116,4 +116,12 @@ int luat_onewire_read_byte(int id, uint8_t *data, uint32_t len, uint8_t is_msb, 
  */
 int luat_onewire_read_byte_with_cmd(int id, const uint8_t cmd, uint8_t *data, uint32_t len, uint8_t is_msb, uint8_t need_reset, uint8_t check_ack);
 
+/**
+ * @brief 通过硬件定时器和gpio创建一条虚拟单总线
+ * 
+ * @param hwtimer_id 硬件定时器
+ * @param gpio gpio编号
+ * @return >0 成功返回虚拟总线ID，其他失败 
+ */
+int luat_onewire_create_virtual(int hwtimer_id, int gpio);
 #endif

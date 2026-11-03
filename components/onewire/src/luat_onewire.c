@@ -1,10 +1,10 @@
-#if 0
+
 #include "luat_base.h"
 #include "luat_onewire.h"
 #include "luat_gpio.h"
 #include "luat_rtos.h"
 #include "luat_timer.h"
-
+#if 0
 #define LUAT_LOG_TAG "onewire"
 #include "luat_log.h"
 
@@ -421,3 +421,6 @@ int luat_onewire_dht(luat_onewire_ctx_t* ctx, int32_t* temp, int32_t* hm, int ch
 }
 
 #endif
+LUAT_WEAK int luat_onewire_create_virtual(int hwtimer_id, int gpio) {
+    return -1;
+}

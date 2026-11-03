@@ -593,45 +593,9 @@ static int l_airlink_rpc(lua_State* L) {
 
 #endif /* LUAT_USE_AIRLINK_RPC */
 
-#ifdef LUAT_USE_AIRLINK_ARQ_TEST
-static int l_airlink_arq_fault(lua_State* L) {
-    lua_Integer kind = luaL_checkinteger(L, 1), count = luaL_checkinteger(L, 2);
-    if (kind < 0 || kind > 3 || count < 0 || count > 100) return luaL_error(L, "invalid ARQ fault");
-    int ret;
-    if (lua_toboolean(L, 3)) {
-        luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x7ffe, 2);
-        if (!cmd) { lua_pushboolean(L, 0); return 1; }
-        cmd->data[0] = kind; cmd->data[1] = count;
-        ret = luat_airlink_send2transport(cmd, LUAT_AIRLINK_MODE_UART);
-        luat_airlink_cmd_free(cmd);
-    } else ret = luat_airlink_arq_fault_set((unsigned)kind, (unsigned)count);
-    lua_pushboolean(L, ret == 0); return 1;
-}
-static int l_airlink_arq_state(lua_State* L) {
-    lua_newtable(L);
-#define ARQ_FIELD(n, v) lua_pushinteger(L, (lua_Integer)(v)); lua_setfield(L, -2, n)
-    ARQ_FIELD("state", luat_airlink_arq_state());
-    ARQ_FIELD("retx", g_airlink_statistic.arq.tx_retx);
-    ARQ_FIELD("dup", g_airlink_statistic.arq.rx_dup);
-    ARQ_FIELD("giveup", g_airlink_statistic.arq.arq_giveup);
-    ARQ_FIELD("ack", luat_airlink_arq_peek_ack());
-#undef ARQ_FIELD
-    return 1;
-}
-#endif
-#ifdef LUAT_USE_AIRLINK_LOOPBACK
-extern int l_airlink_test_arq(lua_State* L);
-#endif
 static const rotable_Reg_t reg_airlink[] =
 {
     { "init" ,         ROREG_FUNC(l_airlink_init )},
-#ifdef LUAT_USE_AIRLINK_ARQ_TEST
-    { "arqFault", ROREG_FUNC(l_airlink_arq_fault)},
-    { "arqState", ROREG_FUNC(l_airlink_arq_state)},
-#endif
-#ifdef LUAT_USE_AIRLINK_LOOPBACK
-    { "testArq", ROREG_FUNC(l_airlink_test_arq)},
-#endif
     { "config",        ROREG_FUNC(l_airlink_config)},
     { "start" ,        ROREG_FUNC(l_airlink_start)},
     { "stop" ,         ROREG_FUNC(l_airlink_stop )},

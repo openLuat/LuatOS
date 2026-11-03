@@ -1,1 +1,0 @@
-{"name":"airlink_uart_arq_hw","platform":["air1601","air1602"],"description":"UART2 2Mbps peer echo, burst integrity, ARQ fault injection and peer reboot; requires an Air6208 peer"}

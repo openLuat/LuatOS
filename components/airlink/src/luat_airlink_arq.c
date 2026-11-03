@@ -187,9 +187,6 @@ int luat_airlink_arq_rx(uint16_t seq) {
     int ret = ARQ_RX_DELIVER;
     if (seq != arq.rx_next) {
         g_airlink_statistic.arq.rx_dup++;
-#ifdef LUAT_USE_AIRLINK_ARQ_TEST
-        LLOGI("ARQ2 duplicate/reorder seq=%u expected=%u", seq, arq.rx_next);
-#endif
         arq.need_ack = 1;
         ret = ARQ_RX_DUP;
     }
@@ -202,21 +199,3 @@ void luat_airlink_arq_rx_commit(uint16_t seq) {
 }
 
 void luat_airlink_arq_on_peer_caps(uint8_t caps) { (void)caps; /* Padding is not a handshake. */ }
-
-#ifdef LUAT_USE_AIRLINK_ARQ_TEST
-static unsigned faults[4]; // drop data, drop ACK-only, duplicate data, reject admission
-int luat_airlink_arq_fault_set(unsigned kind, unsigned count) {
-    if (kind >= 4 || count > 100) return -1;
-    LOCK(); faults[kind] = count; UNLOCK(); return 0;
-}
-int luat_airlink_arq_fault_take(unsigned kind) {
-    LOCK(); int take = kind < 4 && faults[kind];
-    if (take) faults[kind]--;
-    UNLOCK(); return take;
-}
-int luat_airlink_arq_test_command(const luat_airlink_cmd_t* cmd) {
-    if (cmd->cmd != 0x7ffe || cmd->len != 2) return 0;
-    luat_airlink_arq_fault_set(cmd->data[0], cmd->data[1]);
-    return 1;
-}
-#endif

@@ -80,11 +80,6 @@ uint16_t luat_airlink_arq_tag(void);
 int luat_airlink_arq_frame_valid(const airlink_link_data_t* frame);
 int luat_airlink_arq_allow_legacy(const airlink_link_data_t* frame);
 int luat_airlink_arq_command_valid(airlink_link_data_t* frame);
-#ifdef LUAT_USE_AIRLINK_ARQ_TEST
-int luat_airlink_arq_fault_set(unsigned kind, unsigned count);
-int luat_airlink_arq_fault_take(unsigned kind);
-int luat_airlink_arq_test_command(const luat_airlink_cmd_t* cmd);
-#endif
 
 // 协商 (收到对端 caps 时调用)
 void luat_airlink_arq_on_peer_caps(uint8_t caps);

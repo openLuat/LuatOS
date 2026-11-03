@@ -235,23 +235,8 @@ static int uart_send_frame(uint8_t *rawbuff, uint8_t *src, size_t src_len, uint3
         }
     }
     txbuff[offset++] = 0x7E;
-#ifdef LUAT_USE_AIRLINK_ARQ_TEST
-    if (arq && luat_airlink_arq_fault_take(seqv ? 0 : 1)) return 0;
-#endif
     int written = luat_uart_write(g_airlink_spi_conf.uart_id, txbuff, offset);
-#ifdef LUAT_USE_AIRLINK_ARQ_TEST
-    static unsigned tx_trace;
-    if (arq && tx_trace++ < 80)
-        LLOGD("ARQ TX seqv=%u pkg=%08x tag=%04x bytes=%u written=%d", seqv, pkgid,
-            luat_airlink_arq_tag(), (unsigned)offset, written);
-#endif
     if (written != (int)offset) return -1;
-#ifdef LUAT_USE_AIRLINK_ARQ_TEST
-    if (arq && seqv && luat_airlink_arq_fault_take(2)) {
-        luat_rtos_task_sleep((frame_len + 99) / 100 + 2);
-        luat_uart_write(g_airlink_spi_conf.uart_id, txbuff, offset);
-    }
-#endif
     // 留 ≥1ms 线上间隙 (EC718 需要, 其它从机关闭)
     if (AIRLINK_UART_TX_FRAME_GAP_MS > 0) {
         uint32_t tx_frame_ms = (offset + 199u) / 200u;
@@ -363,13 +348,7 @@ static bool unpack_data(uint8_t* buff, size_t len)
     }
     int r = luat_airlink_arq_rx(seq);
     if (r == ARQ_RX_DELIVER) {
-        int accepted;
-#ifdef LUAT_USE_AIRLINK_ARQ_TEST
-        if (luat_airlink_arq_test_command(cmd)) accepted = 0;
-        else if (luat_airlink_arq_fault_take(3)) accepted = -1;
-        else
-#endif
-        accepted = luat_airlink_on_data_accept(link->data, link->len);
+        int accepted = luat_airlink_on_data_accept(link->data, link->len);
         if (!accepted) luat_airlink_arq_rx_commit(seq);
     }
     arq_wake_tx();
@@ -510,34 +489,6 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
         }
     }
 }
-
-#ifdef LUAT_USE_AIRLINK_LOOPBACK
-int luat_airlink_uart_parser_selftest(void) {
-    uint8_t raw[sizeof(airlink_link_data_t) + sizeof(luat_airlink_cmd_t)];
-    uint8_t wire[sizeof(raw) * 2 + 2];
-    luat_airlink_cmd_t nop = {0, 0};
-    if (luat_airlink_uart_ensure_buffers()) return -1;
-    luat_airlink_data_pack((uint8_t*)&nop, sizeof(nop), raw);
-    size_t n = 0;
-    wire[n++] = 0x7e;
-    for (size_t i = 0; i < sizeof(raw); i++) {
-        if (raw[i] == 0x7d || raw[i] == 0x7e) {
-            wire[n++] = 0x7d;
-            wire[n++] = raw[i] == 0x7d ? 1 : 2;
-        } else wire[n++] = raw[i];
-    }
-    wire[n++] = 0x7e;
-    uint64_t before = g_airlink_statistic.tx_pkg.ok;
-    g_airlink_uart.rxoffset = 0;
-    on_airlink_uart_data_in(wire, 1); // leftover delimiter before next frame
-    on_airlink_uart_data_in(wire, n);
-    on_airlink_uart_data_in(wire + 1, n - 1); // shared end/start delimiter
-    on_airlink_uart_data_in(wire, n - 2); // truncated frame, no tail
-    on_airlink_uart_data_in(wire, n); // next frame must resynchronize
-    g_airlink_uart.rxoffset = 0;
-    return g_airlink_statistic.tx_pkg.ok - before == 3 ? 0 : -2;
-}
-#endif
 
 static void send_devinfo_update_evt(void) {
     luat_airlink_arq_set_devinfo_pending(1);

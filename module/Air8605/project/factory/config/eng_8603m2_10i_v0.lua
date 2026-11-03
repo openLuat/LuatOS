@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8603m2_10i_v0
 @summary Air8603M2 引擎主机 10寸1024x600 RGB屏 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + UVC摄像头(UART2控制串口) + SD卡 配置文件（4G 版）
-@version 1.0
-@date    2026.10.26
+@version 1.1
+@date    2026.11.03
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -93,10 +93,29 @@ return {
 
     -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
     -- DE 空闲低电平（接收态），发送窗口内由 periph_rs485 拉高，见文件头第 4 条
+    -- 摄像头是 AirCAMERA_1034 人脸识别模组（UVC 出图 + UART2 人脸协议）
+    -- face 子表只声明人脸模组的串口与超时，带它才在测试页出「人脸识别」页签
+    -- UART2 由 face.uart_id 独占，不再登记 uart 条目（否则 periph_uart 会与 exfacecam 抢串口）
     peripherals = {
-        { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 }, -- UVC_EN = GPIO58，200ms 就绪
+        {
+            type = "uvc",
+            id = "uvc1",
+            name = "人脸识别摄像头",
+            title = "摄像头",
+            en_pin = 58,
+            ready_delay = 200,
+            -- AirCAMERA_1034 实测档位：960x480 / 864x480 / 800x480 / 480x320 / 320x240
+            -- 写不在表里的档（如 1280x720）会起流失败、关流重开，首帧拖到 ~11s
+            w = 800,
+            h = 480,
+            face = {
+                uart_id = 2,           -- 人脸模组串口 = UART2（115200/8N1，库内固定）
+                rst_pin = nil,         -- 无独立复位脚，留空
+                register_timeout = 15, -- 录入超时（秒）
+                verify_timeout = 15,   -- 验证超时（秒）
+            }
+        },
         { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN1 = GPIO65，供电域 485_EN
-        { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 }, -- 人脸识别 UVC 摄像头控制串口
     },
 
     -- ===== 硬件配置 =====

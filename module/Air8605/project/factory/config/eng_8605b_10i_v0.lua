@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8605b_10i_v0
 @summary Air8605B 引擎主机 10寸1024x600 RGB屏 + 4G(UART3/780ER2) + NAND + USB摄像头 + 双隔离RS485(UART1/UART6) + SD卡 配置文件（4G 版）
-@version 1.1
-@date    2026.10.26
+@version 1.2
+@date    2026.11.03
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -71,11 +71,30 @@ return {
     -- 485_EN2 = GPIO46（UART6 那路隔离 485 的方向脚）
     -- UART1 = 隔离485、UART2 = 人脸识别 UVC 摄像头串口、UART6 = 隔离485 第二路（见文件头第 2 条）
     -- 本型号不出非隔离 485（那是 8605 的 UART1），故"功能测试"里没有该项
+    -- 摄像头是 AirCAMERA_1034 人脸识别模组（UVC 出图 + UART2 人脸协议）
+    -- face 子表只声明人脸模组的串口与超时，带它才在测试页出「人脸识别」页签
+    -- UART2 由 face.uart_id 独占，不再登记 uart 条目（否则 periph_uart 会与 exfacecam 抢串口）
     peripherals = {
-        { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 }, -- UVC_EN，200ms 就绪
+        {
+            type = "uvc",
+            id = "uvc1",
+            name = "人脸识别摄像头",
+            title = "摄像头",
+            en_pin = 58,
+            ready_delay = 200,
+            -- AirCAMERA_1034 实测档位：960x480 / 864x480 / 800x480 / 480x320 / 320x240
+            -- 写不在表里的档（如 1280x720）会起流失败、关流重开，首帧拖到 ~11s
+            w = 800,
+            h = 480,
+            face = {
+                uart_id = 2,           -- 人脸模组串口 = UART2（115200/8N1，库内固定）
+                rst_pin = nil,         -- 无独立复位脚，留空
+                register_timeout = 15, -- 录入超时（秒）
+                verify_timeout = 15,   -- 验证超时（秒）
+            }
+        },
         { type = "rs485", id = "485_1", name = "隔离485",   uart_id = 1, de_pin = 65, power_pin = 14, power_hold = true, baud = 9600 }, -- DE = 485_EN1 = GPIO65，供电域 485_EN
         { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 6, de_pin = 46, power_pin = 14, power_hold = true, baud = 9600 }, -- DE = 485_EN2 = GPIO46，供电域 485_EN
-        { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 }, -- 人脸识别 UVC 摄像头串口
     },
 
     -- ===== 硬件配置 =====

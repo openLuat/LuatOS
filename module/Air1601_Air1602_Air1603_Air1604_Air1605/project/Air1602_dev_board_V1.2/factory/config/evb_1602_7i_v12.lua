@@ -188,11 +188,13 @@ return {
     -- ===== GPIO 上电时序 =====
     -- 按顺序初始化各外设供电和复位
     power_on = {
-        -- 自定义 I/O：GPIO72 开机即配置为推挽输出并拉低（dir=0 输出 / level=0 低电平）
-        --   本板该脚不接板载器件（V1.2 上 TP_RST 是 GPIO3），作为可自由使用的一般 GPIO；
-        --   放在序列第一条，使上电瞬间就定死低电平，不让它悬空/默认高电平干扰外部电路。
-        --   取用约定：需要时按 GPIO 直接读写即可，不要在此重复 setup（会覆盖本步方向）。
-        { pin = 72, dir = 0, level = 0 },
+        -- GPIO72 是 Air1602_V1.2 开发板上 RESET_GNSS 的控制管脚，
+        -- GPIO74 是 Air1602_V1.2 开发板上 RESET_BLE 的控制管脚。
+        -- 这两个管脚需要在 display 初始化屏幕之前就通过 gpio.setup 配置为低电平输出，
+        -- 于是在此处（上电序列最前两项）先行配置：dir=0 输出 / level=0 低电平。
+        -- 取用约定：需要时按 GPIO 直接读写即可，不要在此重复 setup（会覆盖本步方向）。
+        { pin = 72, dir = 0, level = 0 },   -- RESET_GNSS
+        { pin = 74, dir = 0, level = 0 },   -- RESET_BLE
 
         -- 总供电 (高电平有效)
         { pin = 58, dir = 0, level = 1 },

@@ -502,6 +502,15 @@ int luat_airlink_queue_send(int tp, airlink_queue_item_t *item)
     return ret;
 }
 
+// 提交命令到本地 CMD 队列: 队列拒绝时命令仍由生产者持有, 此处释放并原样返回错误码; 成功后由消费者释放。
+int luat_airlink_cmd_submit(airlink_queue_item_t* item) {
+    int rc = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, item);
+    if (rc != 0) {
+        luat_airlink_cmd_free(item->cmd);
+    }
+    return rc;
+}
+
 int luat_airlink_queue_get_cnt(int tp)
 {
     size_t len = 0;

@@ -12,15 +12,6 @@
 #undef LLOGD
 #define LLOGD(...)
 
-// 本地队列拒绝时命令仍由生产者持有；成功后由消费者释放。
-static int luat_airlink_drv_gpio_submit(airlink_queue_item_t* item) {
-    int rc = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, item);
-    if (rc != 0) {
-        luat_airlink_cmd_free(item->cmd);
-    }
-    return rc;
-}
-
 int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio) {
     // --- raw byte path ---
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
@@ -34,7 +25,7 @@ int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio) {
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     memcpy(cmd->data + 8, gpio, sizeof(luat_gpio_t));
     item.cmd = cmd;
-    return luat_airlink_drv_gpio_submit(&item);
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_gpio_open(luat_gpio_cfg_t* gpio) {
@@ -62,7 +53,7 @@ int luat_airlink_drv_gpio_set(int pin, int level) {
     data[0] = (uint8_t)pin;
     data[1] = (uint8_t)level;
     item.cmd = cmd;
-    return luat_airlink_drv_gpio_submit(&item);
+    return luat_airlink_cmd_submit(&item);
 }
 
 luat_rtos_semaphore_t g_drv_gpio_sem;
@@ -105,7 +96,7 @@ int luat_airlink_drv_gpio_get(int pin, int* val) {
     uint8_t* data = cmd->data + 8;
     data[0] = (uint8_t)pin;
     item.cmd = cmd;
-    if (luat_airlink_drv_gpio_submit(&item) != 0) {
+    if (luat_airlink_cmd_submit(&item) != 0) {
         LLOGW("gpio.get 入队失败 pin %d", pin);
         *val = 0;
         return 0;
@@ -143,7 +134,7 @@ int luat_airlink_drv_gpio_driver_yhm27xx(uint32_t Pin, uint8_t ChipID, uint8_t R
     data[4] = *Data;
 
     item.cmd = cmd;
-    return luat_airlink_drv_gpio_submit(&item);
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_gpio_driver_yhm27xx_reqinfo(uint8_t Pin, uint8_t ChipID)
@@ -162,6 +153,6 @@ int luat_airlink_drv_gpio_driver_yhm27xx_reqinfo(uint8_t Pin, uint8_t ChipID)
     data[1] = ChipID;
 
     item.cmd = cmd;
-    return luat_airlink_drv_gpio_submit(&item);
+    return luat_airlink_cmd_submit(&item);
 }
 

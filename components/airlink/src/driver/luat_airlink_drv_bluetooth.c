@@ -25,6 +25,15 @@
 
 /* ---------- raw byte path helper ---------- */
 
+// 本地队列拒绝时命令仍由生产者持有；成功后由消费者释放。
+static int luat_airlink_drv_ble_submit(airlink_queue_item_t* item) {
+    int rc = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, item);
+    if (rc != 0) {
+        luat_airlink_cmd_free(item->cmd);
+    }
+    return rc;
+}
+
 static int ble_raw_send(uint16_t cmd_id, const void* data, uint16_t data_len) {
     size_t payload = sizeof(luat_drv_ble_msg_t) + data_len;
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, payload);
@@ -39,8 +48,7 @@ static int ble_raw_send(uint16_t cmd_id, const void* data, uint16_t data_len) {
         .len = (uint32_t)(sizeof(luat_airlink_cmd_t) + payload),
         .cmd = cmd,
     };
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_drv_ble_submit(&item);
 }
 
 /* ---------- API: uuid swap (local utility, no RPC) ---------- */
@@ -142,8 +150,7 @@ int luat_airlink_drv_ble_create_gatt(luat_ble_t* luat_ble, luat_ble_gatt_service
         .len = (uint32_t)(sizeof(luat_airlink_cmd_t) + total_len),
         .cmd = cmd,
     };
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_drv_ble_submit(&item);
 }
 
 int luat_airlink_drv_ble_read_response_value(luat_ble_t* luat_ble, uint8_t conn_idx,

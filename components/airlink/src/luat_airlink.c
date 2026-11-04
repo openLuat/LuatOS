@@ -207,30 +207,6 @@ luat_airlink_spi_conf_t g_airlink_spi_conf;
 airlink_statistic_t g_airlink_statistic;
 uint64_t g_airlink_last_cmd_timestamp;
 
-// 对端能力位 (由 devinfo handler 收到 cmd 0x10 时调用 luat_airlink_peer_caps_update 更新)
-static uint8_t g_airlink_peer_caps;
-
-void luat_airlink_peer_caps_update(uint8_t caps) {
-    static uint8_t peer_caps_logged = 0;
-    g_airlink_peer_caps = caps;
-    luat_airlink_arq_on_peer_caps(caps); // ARQ 协商
-    if (!peer_caps_logged || luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp > 2500) {
-        // LLOGI("peer caps: rpc=%u frag=%u (raw=0x%02X)",
-        //       (caps & AIRLINK_CAP_RPC) ? 1 : 0, (caps & AIRLINK_CAP_FRAG) ? 1 : 0, caps);
-        peer_caps_logged = 1;
-        // 对端重连后重新发送本端设备信息，确保对端能拿到最新状态
-        luat_airlink_self_dev_info_notify();
-    }
-}
-
-int luat_airlink_peer_rpc_supported(void) {
-    return (g_airlink_peer_caps & AIRLINK_CAP_RPC) ? 1 : 0;
-}
-
-int luat_airlink_peer_frag_supported(void) {
-    return (g_airlink_peer_caps & AIRLINK_CAP_FRAG) ? 1 : 0;
-}
-
 int luat_airlink_peer_arq_supported(void) {
     return luat_airlink_arq_state() == ARQ_STATE_ARQ;
 }
@@ -242,8 +218,9 @@ uint16_t luat_airlink_transport_max_data_len(uint8_t mode) {
     switch (mode) {
         case LUAT_AIRLINK_MODE_SPI_SLAVE:
         case LUAT_AIRLINK_MODE_SPI_MASTER:
-        case LUAT_AIRLINK_MODE_UART:
             return AIRLINK_FRAG_MAX_DATA_LEN;
+        case LUAT_AIRLINK_MODE_UART:
+            return AIRLINK_ARQ_MAX_DATA; // Reserve envelope space even before negotiation.
         case LUAT_AIRLINK_MODE_LOOPBACK:
             return 0xFFFF;
         case LUAT_AIRLINK_MODE_HSPI_MASTER:
@@ -313,6 +290,7 @@ uint64_t g_airlink_wifi_boot_time;
 
 int luat_airlink_init(void)
 {
+    luat_airlink_flags_init();
 #ifdef LUAT_USE_AIRLINK_RPC
     extern void luat_airlink_rpc_stats_init(void);
     luat_airlink_rpc_stats_init();
@@ -562,6 +540,11 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     int ret = 0;
     g_airlink_statistic.tx_ip.total ++;
     g_airlink_statistic.tx_bytes.total += len;
+    if (luat_airlink_current_mode_get() == LUAT_AIRLINK_MODE_UART && len >= AIRLINK_ARQ_MAX_DATA) {
+        g_airlink_statistic.tx_ip.drop++;
+        g_airlink_statistic.tx_bytes.drop += len;
+        return -5; // Reserve the envelope plus the one-byte adapter id before queueing.
+    }
     if (len < 8)
     {
         LLOGE("数据包太小了, 抛弃掉");

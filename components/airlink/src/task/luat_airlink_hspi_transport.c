@@ -295,8 +295,7 @@ static void hspi_transport_task(void *param) {
 
     // 设置当前模式，使命令能路由到 HSPI 队列
     luat_airlink_current_mode_set(LUAT_AIRLINK_MODE_HSPI_MASTER);
-    // 对端能力(rpc/frag)改由收到从机 devinfo(cmd 0x10) 后经 luat_airlink_peer_caps_update 更新,
-    // 不再在此硬编码
+    // Peer capabilities come from validated HSPI link-header flags.
 
     // 记录任务句柄供 ISR 定向通知
     g_hspi_task_handle = xTaskGetCurrentTaskHandle();

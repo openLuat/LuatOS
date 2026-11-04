@@ -48,15 +48,16 @@ typedef struct airlink_flags {
     uint32_t queue_ip: 1; // 用于ip包的队列是否还有数据
     uint32_t irq_ready: 1; // 是否切换到IRQ模式
     uint32_t irq_pin: 4;   // 中断管脚号, 这是传给SLAVE的, 从 GPIO12(GPIO140)开始算
-    // rpc/frag 能力位已迁到 devinfo.caps (见 luat_airlink_devinfo.h), 不再占用包头标志位
-    uint32_t reserved: 24; // 保留位, 用于扩展
+    uint32_t rpc_supported: 1; // bit8: historical nanopb RPC capability
+    uint32_t frag_supported: 1; // bit9: historical cmd 0x32 reassembly capability
+    uint32_t reserved: 22;
 }airlink_flags_t;
 
 typedef struct airlink_link_data {
     uint8_t magic[4];
     uint16_t len;
     uint16_t crc16;
-    uint32_t pkgid; // 包序号,为了重传
+    uint32_t pkgid; // Incrementing link-frame number; ARQ sequence is in cmd 0x33.
     airlink_flags_t flags; // 包头标志,首先是为了支持流量控制
     uint8_t data[0];
 }airlink_link_data_t;
@@ -102,9 +103,9 @@ int luat_airlink_start(int id);
 int luat_airlink_stop(int id);
 
 void luat_airlink_data_pack(uint8_t* buff, size_t len, uint8_t* dst);
-// ARQ 打包: 指定 pkgid 与 reserved 的 arq/seqv 位 (须在 link_data_cb 之后写标志位)
-void luat_airlink_data_pack_ex(uint8_t* buff, size_t len, uint8_t* dst, uint32_t pkgid, uint8_t arq, uint8_t seqv);
 airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff, size_t len);
+// UART defers capability observations until its envelope/session is validated.
+airlink_link_data_t* luat_airlink_data_unpack_uart(uint8_t *buff, size_t len);
 
 void luat_airlink_task_start(void);
 void luat_airlink_print_buff(const char* tag, uint8_t* buff, size_t len);
@@ -223,10 +224,13 @@ uint32_t luat_airlink_sversion(void);
 void luat_airlink_current_mode_set(int mode);
 int luat_airlink_current_mode_get(void);
 
-// 对端能力追踪: 收到对端 devinfo (cmd 0x10) 时调用 luat_airlink_peer_caps_update
-// 更新对端的能力位 (rpc/frag, 见 luat_airlink_devinfo.h 的 AIRLINK_CAP_*).
-// 上层调用 luat_airlink_peer_rpc_supported() 查询对端是否支持 nanopb RPC.
-void luat_airlink_peer_caps_update(uint8_t caps);
+// V2054 capabilities are snapshots of validated link-header flags only.
+void luat_airlink_flags_init(void);
+void luat_airlink_flags_fill(airlink_flags_t* flags);
+uint32_t luat_airlink_next_frame_id(void);
+void luat_airlink_peer_flags_reset(void);
+void luat_airlink_peer_flags_update(const airlink_flags_t* flags);
+void luat_airlink_peer_frame_update(const airlink_link_data_t* frame);
 int luat_airlink_peer_rpc_supported(void);
 int luat_airlink_peer_frag_supported(void);
 int luat_airlink_peer_arq_supported(void);

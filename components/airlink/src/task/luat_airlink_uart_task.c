@@ -191,27 +191,21 @@ static void arq_wake_tx(void) {
 
 // 帧能否编码 (进 pending 前预检, 编码失败不占用 pending)
 static int uart_frame_encodable(airlink_queue_item_t* item) {
-    if (item->cmd == NULL || item->len == 0) return 1;
-    size_t raw = item->len + sizeof(airlink_link_data_t);
+    if (!item->cmd || item->len != sizeof(luat_airlink_cmd_t) + item->cmd->len ||
+        item->cmd->len > AIRLINK_ARQ_MAX_DATA || item->cmd->cmd == AIRLINK_CMD_ARQ || item->cmd->cmd == 0x10) return 0;
+    size_t raw = item->len + sizeof(airlink_link_data_t) + sizeof(luat_airlink_cmd_t) + AIRLINK_ARQ_META_SIZE;
     if (raw > AIRLINK_UART_RAW_FRAME_MAX) return 0;
     if (raw * 2 + 2 > UART_BUFF_SIZE) return 0;
     return 1;
 }
 
 // 打包 + 转义 + 写串口 (统一发送入口)
-static int uart_send_frame(uint8_t *rawbuff, uint8_t *src, size_t src_len, uint32_t pkgid, uint8_t arq, uint8_t seqv) {
+static int uart_send_frame(uint8_t *rawbuff, size_t frame_len) {
     uint8_t *txbuff = g_airlink_uart.s_txbuff;
-    size_t frame_len = src_len + sizeof(airlink_link_data_t);
-    if (frame_len > AIRLINK_UART_RAW_FRAME_MAX) {
-        LLOGE("uart tx: frame too large src=%u raw=%u limit=%u — dropping",
-              (unsigned)src_len, (unsigned)frame_len, (unsigned)AIRLINK_UART_RAW_FRAME_MAX);
+    if (!frame_len || frame_len > AIRLINK_UART_RAW_FRAME_MAX) {
+        LLOGE("uart tx: invalid raw frame size %u", (unsigned)frame_len);
         g_airlink_statistic.tx_pkg.drop++;
         return -1;
-    }
-    if (arq || seqv) {
-        luat_airlink_data_pack_ex(src, src_len, rawbuff, pkgid, arq, seqv);
-    } else {
-        luat_airlink_data_pack(src, src_len, rawbuff);
     }
     if ((frame_len * 2 + 2) > UART_BUFF_SIZE) {
         LLOGE("uart tx: escaped frame too large raw=%u worst=%u limit=%u — dropping",
@@ -250,19 +244,25 @@ static int uart_send_frame(uint8_t *rawbuff, uint8_t *src, size_t src_len, uint3
 
 // 四个发送函数 (照 §3.2 表)
 static int uart_send_data(luat_airlink_cmd_t* cmd, uint16_t seq, uint16_t ack, uint8_t *rawbuff) {
-    return uart_send_frame(rawbuff, (uint8_t*)cmd, cmd->len + sizeof(luat_airlink_cmd_t), AIRLINK_PKGID(ack, seq), 1, 1);
+    (void)ack;
+    size_t n = luat_airlink_arq_pack(rawbuff, AIRLINK_UART_RAW_FRAME_MAX, cmd, seq);
+    return uart_send_frame(rawbuff, n);
 }
 static int uart_send_devinfo(uint16_t ack, uint8_t *rawbuff) {
     (void)ack;
     size_t len = luat_airlink_arq_devinfo(basic_info, luat_airlink_self_dev_info_ptr());
-    return uart_send_frame(rawbuff, basic_info, len, 0, 0, 0);
+    luat_airlink_data_pack(basic_info, len, rawbuff);
+    return uart_send_frame(rawbuff, len + sizeof(airlink_link_data_t));
 }
 static int uart_send_ack_only(uint16_t ack, uint8_t *rawbuff) {
-    static const luat_airlink_cmd_t ack_cmd = {0, 0}; // cmd=0,len=0, 4字节
-    return uart_send_frame(rawbuff, (uint8_t*)&ack_cmd, sizeof(ack_cmd), AIRLINK_PKGID(ack, 0), 1, 0);
+    (void)ack;
+    size_t n = luat_airlink_arq_pack(rawbuff, AIRLINK_UART_RAW_FRAME_MAX, NULL, 0);
+    return uart_send_frame(rawbuff, n);
 }
 static int uart_send_legacy(airlink_queue_item_t* item, uint8_t *rawbuff) {
-    return uart_send_frame(rawbuff, (uint8_t*)item->cmd, item->len, 0, 0, 0);
+    if (!uart_frame_encodable(item)) return -1;
+    luat_airlink_data_pack((uint8_t*)item->cmd, item->len, rawbuff);
+    return uart_send_frame(rawbuff, item->len + sizeof(airlink_link_data_t));
 }
 
 static bool unpack_data(uint8_t* buff, size_t len)
@@ -305,7 +305,7 @@ static bool unpack_data(uint8_t* buff, size_t len)
         return false; // 解包后的数据太短, 无法解析
     }
     airlink_link_data_t *link = NULL;
-    link = luat_airlink_data_unpack(unpacked_data, unpacked_len);
+    link = luat_airlink_data_unpack_uart(unpacked_data, unpacked_len);
     if (link == NULL) {
         g_airlink_statistic.tx_pkg.err++;
         g_airlink_statistic.tx_pkg.total++;
@@ -322,35 +322,7 @@ static bool unpack_data(uint8_t* buff, size_t len)
     // CRC 通过的任意帧都刷新时间戳 (含重复帧/ACK)
     g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
 
-    if (!luat_airlink_arq_command_valid(link)) return false;
-    luat_airlink_cmd_t* cmd = (void*)link->data;
-    if (cmd->cmd == 0x10) {
-        luat_airlink_arq_peer_info(cmd);
-        luat_airlink_on_data_accept(link->data, link->len);
-        arq_wake_tx();
-        return true;
-    }
-    // Old firmware used these flag bits for RPC/FRAG, not sequence/ACK.
-    if (!luat_airlink_arq_frame_valid(link)) {
-        if (luat_airlink_arq_allow_legacy(link))
-            luat_airlink_on_data_accept(link->data, link->len);
-        return true;
-    }
-    uint16_t seq = AIRLINK_PKGID_SEQ(link->pkgid);
-    uint16_t ack = AIRLINK_PKGID_ACK(link->pkgid);
-    if (AIRLINK_FL_ARQ(link->flags)) luat_airlink_arq_put_peer(ack);
-    luat_airlink_arq_set_peer_mem_high(link->flags.mem_is_high);
-
-    if (!AIRLINK_FL_SEQV(link->flags)) { // 心跳/ACK空帧/legacy
-        // Only ACK-only cmd=0 may omit a sequence in an ARQ2 session.
-        if (AIRLINK_FL_ARQ(link->flags)) arq_wake_tx();
-        return true;
-    }
-    int r = luat_airlink_arq_rx(seq);
-    if (r == ARQ_RX_DELIVER) {
-        int accepted = luat_airlink_on_data_accept(link->data, link->len);
-        if (!accepted) luat_airlink_arq_rx_commit(seq);
-    }
+    luat_airlink_arq_receive(link);
     arq_wake_tx();
     return true;
 }
@@ -579,7 +551,11 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
                 g_airlink_statistic.tx_pkg.drop++;
                 continue;
             }
-            luat_airlink_arq_pending_set(item.cmd, now);
+            if (luat_airlink_arq_pending_set(item.cmd, now)) {
+                luat_airlink_cmd_free(item.cmd);
+                g_airlink_statistic.tx_pkg.drop++;
+                continue;
+            }
             uart_send_data(item.cmd, luat_airlink_arq_pending_seq(), luat_airlink_arq_peek_ack(), pbuff);
             need_ack = 0;
             continue;

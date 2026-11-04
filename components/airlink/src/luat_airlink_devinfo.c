@@ -65,6 +65,7 @@ static void airlink_link_down(void) {
 void luat_airlink_check_link_timeout(void) {
     // ARQ force_down 优先: 连续 giveup 判链路死, 不等时间戳超时(对端心跳会一直刷新)
     if (luat_airlink_arq_consume_force_down()) {
+        luat_airlink_peer_flags_reset();
         LLOGI("airlink arq force down");
         airlink_link_down();
         return;
@@ -76,6 +77,6 @@ void luat_airlink_check_link_timeout(void) {
 
     LLOGI("airlink link timeout %llums, tp=%d, set link down",
           luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp, g_airlink_ext_dev_info.tp);
+    luat_airlink_peer_flags_reset();
     airlink_link_down();
 }
-

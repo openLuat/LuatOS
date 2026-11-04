@@ -6,6 +6,7 @@
 
 #include "luat_base.h"
 #include "luat_airlink.h"
+#include "luat_airlink_hspi_master.h"
 #include "luat_rtos.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
@@ -13,16 +14,6 @@
 
 #define LUAT_LOG_TAG "airlink.hspi"
 #include "luat_log.h"
-
-static uint16_t crc16_modbus(const uint8_t *data, size_t len) {
-    uint16_t crc = 0xFFFF;
-    for (size_t i = 0; i < len; i++) {
-        crc ^= data[i];
-        for (int j = 0; j < 8; j++)
-            crc = (crc >> 1) ^ ((crc & 1) ? 0xA001 : 0);
-    }
-    return crc;
-}
 
 static void hspi_pack(const uint8_t *payload, uint16_t plen,
                        uint8_t *out, uint16_t *out_len) {
@@ -41,38 +32,24 @@ static void hspi_pack(const uint8_t *payload, uint16_t plen,
 }
 
 static int airlink_pack(uint16_t cmd_id, const uint8_t *payload, uint16_t payload_len,
-                         uint8_t *out, uint16_t *out_len) {
+                          uint8_t *out, uint16_t *out_len) {
+    if (payload_len > 1580) return -1;
     uint16_t cmd_total = 4 + payload_len;
     uint16_t link_total = 16 + cmd_total;
     if (*out_len < link_total) return -1;
-    uint8_t *p = out;
-    p[0]=0xA1; p[1]=0xB1; p[2]=0xCA; p[3]=0x66;
-    p[4]=cmd_total & 0xFF; p[5]=(cmd_total>>8)&0xFF;
-    p[6]=0; p[7]=0;
-    memset(p+8, 0, 8);
-    p[16]=cmd_id & 0xFF; p[17]=(cmd_id>>8)&0xFF;
-    p[18]=payload_len & 0xFF; p[19]=(payload_len>>8)&0xFF;
-    if (payload && payload_len) memcpy(p+20, payload, payload_len);
-    uint16_t crc = crc16_modbus(p+8, cmd_total+8);
-    p[6] = crc & 0xFF; p[7] = (crc >> 8) & 0xFF;
+    if (payload_len && !payload) return -1;
+    uint8_t *p = out + sizeof(airlink_link_data_t);
+    p[0]=cmd_id & 0xFF; p[1]=(cmd_id>>8)&0xFF;
+    p[2]=payload_len & 0xFF; p[3]=(payload_len>>8)&0xFF;
+    if (payload_len) memcpy(p+4, payload, payload_len);
+    // Same incremental pkgid, real capability flags and CRC as UART/SPI.
+    luat_airlink_data_pack(p, cmd_total, out);
     *out_len = link_total;
     return 0;
 }
 
 static airlink_link_data_t* airlink_unpack(const uint8_t *data, size_t len) {
-    for (size_t i = 0; i + 12 <= len; i++) {
-        if (data[i]==0xA1 && data[i+1]==0xB1 && data[i+2]==0xCA && data[i+3]==0x66) {
-            // 对齐保护：link_data_t 含 uint32_t，要求 4 字节对齐
-            if (i & 3) continue;
-            airlink_link_data_t *link = (airlink_link_data_t*)(data + i);
-            // 防御：link->len 由对端控制，校验不超过剩余缓冲区
-            size_t remain = len - i - 8;
-            uint16_t crc_len = (link->len + 8 > remain) ? (uint16_t)remain : link->len + 8;
-            uint16_t crc = crc16_modbus(data + i + 8, crc_len);
-            if (crc == link->crc16) return link;
-        }
-    }
-    return NULL;
+    return luat_airlink_data_unpack((uint8_t*)data, len);
 }
 
 extern int xt804_hspi_spi_xfer(const uint8_t *tx, uint8_t *rx, uint16_t len);
@@ -187,57 +164,16 @@ int xt804_hspi_check_status(int *data_rdy, int *cmd_rdy) {
     return 0;
 }
 
-/* ⚠ 潜伏路径: 数据端口用 0x00 (非末段) 读, 与主路径 read_data_intr 的 0x10 (末段, 消耗 desc) 语义不同。
- * 0x00 不触发 desc 释放 → 从机单帧队列 (tls_hspi_tx_data 写后等读走) 永远等不到 → 50ms 超时。
- * 当前 transport 传 resp=NULL (fire-and-forget) 不触发; 带 resp 调用前需先对齐两路径语义。 */
+// Blocking response reads use the same validated frame path and capability
+// extraction as asynchronous reads; there is no stripped-header shortcut.
 int xt804_hspi_read_response(uint8_t *resp, uint16_t *resp_len,
-                              uint16_t *cmd_id, uint32_t timeout_ms) {
+                               uint16_t *cmd_id, uint32_t timeout_ms) {
+    if (!resp_len) return -1;
     uint64_t deadline = luat_mcu_tick64_ms() + timeout_ms;
     while (luat_mcu_tick64_ms() < deadline) {
-        uint8_t rxl[2];
-        if (hspi_rd(0x02, rxl, 2) < 0) {
-            luat_rtos_task_sleep(1);
-            continue;
-        }
-        uint16_t n = rxl[0] | ((uint16_t)rxl[1] << 8);
-        if (n == 0 || n == 0xFFFF) {
-            luat_rtos_task_sleep(5);
-            continue;
-        }
-        if (n > 1600) n = 1600;
-        // rd02 返回的是完整帧长（含 airlink header）。
-        // rd02 返回完整帧长。HW 剥离了 8 字节 airlink header（magic+len+crc），
-        // 剩余 pkgid(4)+flags(4)+cmd_t+payload 在数据端口中。
-        uint16_t data_len = (n > 8) ? (n - 8) : 0;
-        if (data_len < 4 + 4 + 4) continue;  // pkgid+flags+空cmd_t
-        uint16_t npad = (data_len + 3) & ~3;
-        uint8_t *buf = malloc(npad + 4);
-        if (!buf) return -1;
-        // 数据端口读地址 0x00，要求 32*n bits 对齐
-        // hspi_rd 对 addr<0x10 不做对齐，手动构造对齐传输
-        uint16_t xfer_sz = npad + 1;
-        while (xfer_sz & 3) xfer_sz++;
-        uint8_t *_tx = malloc(xfer_sz + 4);
-        uint8_t *_rx = malloc(xfer_sz + 4);
-        if (!_tx || !_rx) { free(_tx); free(_rx); free(buf); return -1; }
-        _tx[0] = 0x00;
-        memset(_tx + 1, 0xFF, xfer_sz - 1);
-        if (xt804_hspi_spi_xfer(_tx, _rx, xfer_sz) < 0) { free(_tx); free(_rx); free(buf); return -1; }
-        memcpy(buf, _rx + 1, npad);
-        free(_tx); free(_rx);
-        // 跳过 pkgid(4)+flags(4)，后续是 luat_airlink_cmd_t + payload
-        uint16_t remain_payload = data_len - 8;
-        memmove(buf, buf + 8, remain_payload);
-        luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)buf;
-        if (resp && resp_len && *resp_len >= cmd->len && remain_payload >= (int)sizeof(luat_airlink_cmd_t) + cmd->len) {
-            *resp_len = cmd->len;
-            memcpy(resp, cmd->data, cmd->len);
-            if (cmd_id) *cmd_id = cmd->cmd;
-            free(buf);
-            { uint8_t clr[2]; hspi_rd(0x06, clr, 2); }
-            return 0;
-        }
-        free(buf);
+        uint16_t len = *resp_len;
+        if (xt804_hspi_read_data_intr(resp, &len, cmd_id) == 0) { *resp_len = len; return 0; }
+        luat_rtos_task_sleep(2);
     }
     return -1;
 }
@@ -255,9 +191,9 @@ int xt804_hspi_read_response(uint8_t *resp, uint16_t *resp_len,
  * 读 0x10 后靠 CRC 区分真帧/陈旧垃圾 (环空写0正是防主控反复读陈旧帧)。
  *
  * 响应数据格式 (从机→主机):
- *   HSPI 硬件剥离 AirLink 帧头 magic(4)+len(2)+crc16(2)=8B
- *   数据端口剩余: pkgid(4)+flags(4)+cmd_t(4)+payload
- *   再跳过 pkgid+flags(8B) 后得到 cmd_t
+ *   数据端口返回完整 AirLink 帧头 magic(4)+len(2)+crc16(2)+pkgid(4)+flags(4)
+ *   先用公共解包函数校验长度/CRC 并更新真实 flags，再读取 cmd_t+payload
+ *   不接受剥离帧头的格式，避免绕过校验或猜测对端能力
  *
  * 所有缓冲区用栈上数组 (任务栈 8KB, 最大帧 1600B 足够)
  *
@@ -291,10 +227,12 @@ int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
     memcpy(buf, rx_buf + 1, npad);
 
     uint16_t plen = n;
+    airlink_link_data_t* link = NULL;
     int is_fmt1 = (plen >= 4 && buf[0]==0xA1 && buf[1]==0xB1 && buf[2]==0xCA && buf[3]==0x66);
     if (is_fmt1) {
         // 格式1 (magic 开头) → 必须 CRC 通过 (防御: 单帧队列下不应失败)
-        if (airlink_unpack(buf, plen) == NULL) {
+        link = airlink_unpack(buf, plen);
+        if (link == NULL) {
             // 环空时读到的陈旧帧/垃圾(CRC 不匹配)静默丢弃; 正常路径打印
             LLOGE("HSPI frame CRC fail len=%u — drop", plen);
             return -1;
@@ -305,10 +243,8 @@ int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
     }
 
     // 解析: 格式1 已校验通过, 跳过完整 airlink_link_data_t 帧头 (16 字节)
-    uint8_t *pdata = buf;
-    if (plen < 16) return -1;
-    pdata = buf + 16;  // 跳过完整帧头
-    plen = plen - 16;
+    uint8_t *pdata = link->data;
+    plen = link->len;
 
     // 现在 pdata 指向 cmd_t+payload
     // cmd_t: cmd(2 LE) + payload_len(2 LE) + payload

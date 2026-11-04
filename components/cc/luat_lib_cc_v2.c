@@ -521,6 +521,22 @@ static int l_cc_pcm_unsupported(lua_State *L) {
     return 2;
 }
 #endif
+
+/* static_play_buff 归 modem 所有。在 audio_v2 分离请求之前先停止 DMA，
+ * 否则空闲回调可能向仅有三个数据块的 modem 缓冲区填入四个数据块。
+ * 当停止操作先于已入队的启动操作执行时，DRIVER_START 也使用此处理。
+ * 该函数不依赖 CC/SIP 桥接；非桥接的 cc.extern_source 路径同样必须调用。 */
+static void _l_cc_stop_voice_driver(luat_audio_request_block_t *request)
+{
+    if (request->data_channel && request->static_play_buff) {
+        luat_audio_driver_ctrl_t *ctrl = request->data_channel->driver_ctrl;
+        if (ctrl && ctrl->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER &&
+            ctrl->play_buff == request->static_play_buff) {
+            luat_audio_driver_deactivate(ctrl);
+        }
+    }
+}
+
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
 static luat_rtos_mutex_t s_cc_driver_lock;
 static volatile uint8_t s_cc_audio_stopping;
@@ -551,20 +567,6 @@ static uint32_t cc_audio_update_pending(void)
 #else
     return __sync_add_and_fetch(&s_cc_audio_updating, 0);
 #endif
-}
-
-/* static_play_buff 归 modem 所有。在 audio_v2 分离请求之前先停止 DMA，
- * 否则空闲回调可能向仅有三个数据块的 modem 缓冲区填入四个数据块。
- * 当停止操作先于已入队的启动操作执行时，DRIVER_START 也使用此处理。 */
-static void _l_cc_stop_voice_driver(luat_audio_request_block_t *request)
-{
-    if (request->data_channel && request->static_play_buff) {
-        luat_audio_driver_ctrl_t *ctrl = request->data_channel->driver_ctrl;
-        if (ctrl && ctrl->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER &&
-            ctrl->play_buff == request->static_play_buff) {
-            luat_audio_driver_deactivate(ctrl);
-        }
-    }
 }
 
 /* 仅在桥接源完成异步销毁后调用。
@@ -1756,6 +1758,11 @@ void luat_cc_play_tone(uint32_t param)
             } else
 #endif
             {
+                /* 先停 I2S DMA，再拆请求：否则 TX 完成中断会在
+                 * current_request_block 已为 NULL 时走 CHECK_FILL_BLANK，
+                 * 向 modem 的 3 块静态缓冲区填入 4 块静音，越界写坏
+                 * halPlayPcmBuf 尾部的 magic word。 */
+                _l_cc_stop_voice_driver(&_l_cc.cc_request);
                 luat_audio_request_cancel_immediate(&_l_cc.cc_request);
             }
         }

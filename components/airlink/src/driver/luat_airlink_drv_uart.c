@@ -36,15 +36,6 @@
 
 int l_uart_handler(lua_State *L, void* ptr);
 
-// 本地队列拒绝时命令仍由生产者持有；成功后由消费者释放。
-static int luat_airlink_drv_uart_submit(airlink_queue_item_t* item) {
-    int rc = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, item);
-    if (rc != 0) {
-        luat_airlink_cmd_free(item->cmd);
-    }
-    return rc;
-}
-
 // 接收缓存与互斥锁。close() 释放时需要引用，故定义在文件顶部。
 typedef struct drv_uart_buff {
     size_t remain;
@@ -70,7 +61,7 @@ int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     memcpy(cmd->data + 8, conf, sizeof(luat_uart_t));
     item.cmd = cmd;
-    return luat_airlink_drv_uart_submit(&item);
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
@@ -119,7 +110,7 @@ int luat_airlink_drv_uart_close(int uart_id) {
     uint8_t tmp = (uint8_t)uart_id;
     memcpy(cmd->data + 8, &tmp, 1);
     item.cmd = cmd;
-    int rc = luat_airlink_drv_uart_submit(&item);
+    int rc = luat_airlink_cmd_submit(&item);
 
     // 释放接收缓存与互斥锁，避免反复 open/close 累积泄漏。
     // 约定：close 由应用层在无并发读写时调用，此处先原子摘除指针再释放。

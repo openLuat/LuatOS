@@ -15,21 +15,33 @@ airlink数据打包解包,数据链路层
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
-static uint32_t next_pkg_id;
+typedef char airlink_wire_header_must_be_16_bytes[(sizeof(airlink_link_data_t) == 16) ? 1 : -1];
 
-__AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff, size_t len)
+void luat_airlink_flags_fill(airlink_flags_t* flags) {
+    flags->rpc_supported = 0;
+    flags->frag_supported = 0;
+#ifdef LUAT_USE_AIRLINK_RPC
+    flags->rpc_supported = 1;
+#ifndef LUAT_AIRLINK_NO_FRAGMENT
+    flags->frag_supported = 1;
+#endif
+#endif
+    flags->reserved = 0;
+}
+
+__AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack_uart(uint8_t *buff, size_t len)
 {
     size_t tlen = 0;
     uint16_t crc16 = 0;
     uint16_t crc16_data = 0;
-    if (len < 12)
+    if (len < sizeof(airlink_link_data_t))
     {
         LLOGD("数据长度异常 %d", len);
         return NULL;
     }
     airlink_link_data_t *link = NULL;
 
-    for (size_t i = 0; i < len - 12; i++)
+    for (size_t i = 0; i + sizeof(airlink_link_data_t) <= len; i++)
     {
         // magic = 0xA1B1CA66
         if (buff[i] == 0xA1 && buff[i + 1] == 0xB1 && buff[i + 2] == 0xCA && buff[i + 3] == 0x66)
@@ -44,7 +56,6 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
                 crc16_data = luat_crc16_modbus(&buff[i + 4 + 4], tlen + 8);
                 if (crc16_data == crc16)
                 {
-                    // 能力协商已迁到 devinfo.caps (在 cmd 0x10 handler 里提取), 此处不再每帧回读 flags
                     return link;
                 }
                 else
@@ -71,31 +82,33 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
     return NULL;
 }
 
+__AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff, size_t len) {
+    airlink_link_data_t* frame = luat_airlink_data_unpack_uart(buff, len);
+    if (frame) luat_airlink_peer_frame_update(frame);
+    return frame;
+}
+
 __AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, uint8_t *dst)
 {
     luat_airlink_link_data_cb link_data_cb = NULL;
     // 先写入magic
-    airlink_link_data_t* data = dst;
+    airlink_link_data_t* data = (void*)dst;
     dst[0] = 0xA1;
     dst[1] = 0xB1;
     dst[2] = 0xCA;
     dst[3] = 0x66;
 
-    // 写入长度和crc16
+    // 写入长度和pkgid
     memset(&data->flags, 0, sizeof(data->flags));
     data->len = len;
-    data->pkgid = next_pkg_id++;
-    memset(&data->flags, 0, sizeof(data->flags));
+    data->pkgid = luat_airlink_next_frame_id();
 
-    // rpc/frag 能力位已迁到 devinfo.caps (随 cmd 0x10 心跳下发), 不再每帧写包头标志
-
-
-    memcpy(data->data, buff, len);
+    if (data->data != buff) memmove(data->data, buff, len);
     link_data_cb = luat_airlink_mode_link_data_cb_get();
     if (link_data_cb) {
         link_data_cb(data);
     }
-    
-    // data->crc16 = luat_crc16(&data->pkgid, len + 8, 0xFFFF, 0x1021, 0);
-    data->crc16 = luat_crc16_modbus(&data->pkgid, len + 8);
+    // Write capabilities after callbacks, which may clear the flags word.
+    luat_airlink_flags_fill(&data->flags);
+    data->crc16 = luat_crc16_modbus((const uint8_t*)&data->pkgid, len + 8);
 }

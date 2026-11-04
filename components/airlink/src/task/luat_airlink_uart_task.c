@@ -3,6 +3,7 @@
 #include "luat_spi.h"
 #include "luat_airlink.h"
 #include "luat_airlink_devinfo.h"
+#include "luat_airlink_arq.h"
 
 #include "luat_rtos.h"
 #include "luat_debug.h"
@@ -131,20 +132,6 @@ alloc_failed:
     return -1;
 }
 
-static int airlink_uart_pack_frame_or_log(uint8_t *dst, size_t dst_size, uint8_t *src, size_t src_len, size_t *packed_len, const char *tag)
-{
-    size_t frame_len = src_len + sizeof(airlink_link_data_t);
-    if (frame_len > dst_size) {
-        LLOGE("%s frame too large src=%u raw=%u limit=%u — dropping (frag may not cover this path)",
-              tag, (unsigned)src_len, (unsigned)frame_len, (unsigned)dst_size);
-        g_airlink_statistic.tx_pkg.drop++;
-        return -1;
-    }
-    luat_airlink_data_pack(src, src_len, dst);
-    *packed_len = frame_len;
-    return 0;
-}
-
 __USER_FUNC_IN_RAM__ static void on_newdata_notify(void)
 {
     luat_event_t evt = {.id = 3};
@@ -196,6 +183,88 @@ __USER_FUNC_IN_RAM__ static int on_link_data_notify(airlink_link_data_t* link) {
     return 0;
 }
 
+// ARQ 帧到达唤醒 TX 任务 (ack / need_ack / pending 处理)
+static void arq_wake_tx(void) {
+    luat_event_t evt = {.id = 4};
+    luat_rtos_queue_send(g_airlink_uart.tx_evt_queue, &evt, sizeof(evt), 0);
+}
+
+// 帧能否编码 (进 pending 前预检, 编码失败不占用 pending)
+static int uart_frame_encodable(airlink_queue_item_t* item) {
+    if (!item->cmd || item->len != sizeof(luat_airlink_cmd_t) + item->cmd->len ||
+        item->cmd->len > AIRLINK_ARQ_MAX_DATA || item->cmd->cmd == AIRLINK_CMD_ARQ || item->cmd->cmd == 0x10) return 0;
+    size_t raw = item->len + sizeof(airlink_link_data_t) + sizeof(luat_airlink_cmd_t) + AIRLINK_ARQ_META_SIZE;
+    if (raw > AIRLINK_UART_RAW_FRAME_MAX) return 0;
+    if (raw * 2 + 2 > UART_BUFF_SIZE) return 0;
+    return 1;
+}
+
+// 打包 + 转义 + 写串口 (统一发送入口)
+static int uart_send_frame(uint8_t *rawbuff, size_t frame_len) {
+    uint8_t *txbuff = g_airlink_uart.s_txbuff;
+    if (!frame_len || frame_len > AIRLINK_UART_RAW_FRAME_MAX) {
+        LLOGE("uart tx: invalid raw frame size %u", (unsigned)frame_len);
+        g_airlink_statistic.tx_pkg.drop++;
+        return -1;
+    }
+    if ((frame_len * 2 + 2) > UART_BUFF_SIZE) {
+        LLOGE("uart tx: escaped frame too large raw=%u worst=%u limit=%u — dropping",
+              (unsigned)frame_len, (unsigned)(frame_len * 2 + 2), (unsigned)UART_BUFF_SIZE);
+        g_airlink_statistic.tx_pkg.drop++;
+        return -1;
+    }
+    // 0x7E 开始, 0x7D 结束, 遇到 0x7E/0x7D 要转义
+    txbuff[0] = 0x7E;
+    size_t offset = 1;
+    uint8_t *ptr = rawbuff;
+    for (size_t i = 0; i < frame_len; i++) {
+        if (ptr[i] == 0x7E) {
+            txbuff[offset++] = 0x7D;
+            txbuff[offset++] = 0x02;
+        } else if (ptr[i] == 0x7D) {
+            txbuff[offset++] = 0x7D;
+            txbuff[offset++] = 0x01;
+        } else {
+            txbuff[offset++] = ptr[i];
+        }
+    }
+    txbuff[offset++] = 0x7E;
+    int written = luat_uart_write(g_airlink_spi_conf.uart_id, txbuff, offset);
+    if (written != (int)offset) return -1;
+    // 留 ≥1ms 线上间隙 (EC718 需要, 其它从机关闭)
+    if (AIRLINK_UART_TX_FRAME_GAP_MS > 0) {
+        uint32_t tx_frame_ms = (offset + 199u) / 200u;
+        luat_rtos_task_sleep(tx_frame_ms + AIRLINK_UART_TX_FRAME_GAP_MS);
+    }
+    if (offset > 1600) {
+        LLOGW("uart tx large frame %u bytes", (unsigned)offset);
+    }
+    return 0;
+}
+
+// 四个发送函数 (照 §3.2 表)
+static int uart_send_data(luat_airlink_cmd_t* cmd, uint16_t seq, uint16_t ack, uint8_t *rawbuff) {
+    (void)ack;
+    size_t n = luat_airlink_arq_pack(rawbuff, AIRLINK_UART_RAW_FRAME_MAX, cmd, seq);
+    return uart_send_frame(rawbuff, n);
+}
+static int uart_send_devinfo(uint16_t ack, uint8_t *rawbuff) {
+    (void)ack;
+    size_t len = luat_airlink_arq_devinfo(basic_info, luat_airlink_self_dev_info_ptr());
+    luat_airlink_data_pack(basic_info, len, rawbuff);
+    return uart_send_frame(rawbuff, len + sizeof(airlink_link_data_t));
+}
+static int uart_send_ack_only(uint16_t ack, uint8_t *rawbuff) {
+    (void)ack;
+    size_t n = luat_airlink_arq_pack(rawbuff, AIRLINK_UART_RAW_FRAME_MAX, NULL, 0);
+    return uart_send_frame(rawbuff, n);
+}
+static int uart_send_legacy(airlink_queue_item_t* item, uint8_t *rawbuff) {
+    if (!uart_frame_encodable(item)) return -1;
+    luat_airlink_data_pack((uint8_t*)item->cmd, item->len, rawbuff);
+    return uart_send_frame(rawbuff, item->len + sizeof(airlink_link_data_t));
+}
+
 static bool unpack_data(uint8_t* buff, size_t len)
 {
     // LLOGD("unpack_data: src len = %d", len);
@@ -219,9 +288,9 @@ static bool unpack_data(uint8_t* buff, size_t len)
                     unpacked_data[unpacked_len++] = 0x7E; // 转义为0x7E
                 } else if (buff[i + 1] == 0x01) {
                     unpacked_data[unpacked_len++] = 0x7D; // 转义为0x7D
-                }
+                } else return false;
                 i++; // 跳过下一个字节
-            }
+            } else return false;
         } else {
             if (unpacked_len >= UART_ESC_FRAME_MAX) {
                 LLOGW("unpack: overflow raw=%u limit=%u esc_len=%u — frame truncated",
@@ -236,7 +305,7 @@ static bool unpack_data(uint8_t* buff, size_t len)
         return false; // 解包后的数据太短, 无法解析
     }
     airlink_link_data_t *link = NULL;
-    link = luat_airlink_data_unpack(unpacked_data, unpacked_len);
+    link = luat_airlink_data_unpack_uart(unpacked_data, unpacked_len);
     if (link == NULL) {
         g_airlink_statistic.tx_pkg.err++;
         g_airlink_statistic.tx_pkg.total++;
@@ -250,9 +319,11 @@ static bool unpack_data(uint8_t* buff, size_t len)
         // LLOGD("luat_airlink_current_mode_get is UNKNOW, set to UART");
         luat_airlink_current_mode_set(LUAT_AIRLINK_MODE_UART);
     }
-    // 更新最后通讯时间戳，用于airlink.ready()判断
+    // CRC 通过的任意帧都刷新时间戳 (含重复帧/ACK)
     g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
-    luat_airlink_on_data_recv(link->data, link->len);
+
+    luat_airlink_arq_receive(link);
+    arq_wake_tx();
     return true;
 }
 
@@ -279,7 +350,7 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
             g_airlink_uart.rxoffset = 0;
         }
     }
-    if (g_airlink_uart.rxoffset > 0 && g_airlink_last_cmd_timestamp > 0) {
+    if (g_airlink_uart.rxoffset > 1 && g_airlink_last_cmd_timestamp > 0) {
         uint64_t _now = luat_mcu_tick64_ms();
         if (_now - g_airlink_last_cmd_timestamp > AIRLINK_UART_RX_RESYNC_MS) {
             // [修改] 长度感知看门狗: 500ms 未解出帧时, 先判 rxbuf 首部是否为合法帧头
@@ -334,7 +405,7 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
             return;
         }
         // 找到包头, 移动数据到前面
-        if (offset > 1) {
+        if (offset > 0) {
             memmove(rxbuff, rxbuff + offset, g_airlink_uart.rxoffset - offset);
             g_airlink_uart.rxoffset -= offset;
         }
@@ -377,12 +448,12 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
                 }
             }
             // 移动剩余数据到前面
-            memmove(rxbuff, rxbuff + end_offset + 1, g_airlink_uart.rxoffset - end_offset - 1);
-            // [修复] 原 rxoffset -= (end_offset+1-offset) 在 offset>0(帧界错位后扫描到假头)时
-            // 少减了 offset 个字节: memmove 实际丢弃 [0..end_offset], 记账却只减 [offset..end_offset],
-            // 导致 rxoffset 虚高 offset 字节、下一轮读到垃圾尾。成功路径 offset 恒应为 0,
-            // 此处丢弃的是 [0..end_offset] 共 end_offset+1 字节, 与失败路径(丢 [0..end_offset-1])语义一致。
-            g_airlink_uart.rxoffset -= (end_offset + 1);
+            memmove(rxbuff, rxbuff + end_offset, g_airlink_uart.rxoffset - end_offset);
+            // Discard exactly the prefix moved above, including any skipped
+            // garbage before the frame. A lone retained delimiter is idle.
+            // Keep the delimiter as a possible next start, including empty
+            // delimiter pairs. This recovers when a frame tail was lost.
+            g_airlink_uart.rxoffset -= end_offset;
             offset = 0;
         } else {
             // 没有找到包头, 移动一个字节
@@ -392,8 +463,9 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
 }
 
 static void send_devinfo_update_evt(void) {
-    airlink_queue_item_t item = {0};
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item); 
+    luat_airlink_arq_set_devinfo_pending(1);
+    luat_event_t evt = {.id = 3};
+    luat_rtos_queue_send(g_airlink_uart.tx_evt_queue, &evt, sizeof(evt), 0);
 }
 
 __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
@@ -401,12 +473,8 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
     int ret;
     luat_event_t event = {0};
     airlink_queue_item_t item = {0};
-    uint8_t* ptr = NULL;
-    size_t offset = 0;
-    int uart_id;
     uint8_t *pbuff = luat_heap_malloc(AIRLINK_UART_RAW_FRAME_MAX);
     event.id = 0;
-    uint64_t last_heartbeat_ms = 0;
 
     while(g_airlink_uart.uart_running)
     {
@@ -422,99 +490,97 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             }
         }
 
-        ret = luat_rtos_queue_recv(g_airlink_uart.tx_evt_queue, &event, sizeof(luat_event_t), AIRLINK_MODE_WAIT_TIMEOUT);//在evt_queue队列中复制数据到指定缓冲区event，阻塞等待60s
-        if (ret == 0) {
-            record_statistic(event);
-        }
+        uint64_t now = luat_mcu_tick64_ms();
+
         #ifdef LUAT_CONF_AIRLINK_MODE_WAIT
         if (luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_UNKNOW && luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_UART) {
             luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);
-            break; // 如果当前模式已经确定了, 并且不是UART模式, 那么就退出这个任务
+            break; // 模式已确定且非 UART, 退出任务
         }
-        if (ret < 0) {
-            // 空闲超时: 发送心跳帧（间隔 2s），保持对端 g_airlink_last_cmd_timestamp 刷新
-            if (luat_mcu_tick64_ms() - last_heartbeat_ms > 2000) {
-                last_heartbeat_ms = luat_mcu_tick64_ms();
-                send_devinfo_update_evt();
+        #endif
+
+        // 放弃检查 (每轮最前, 否则反向流量把放弃饿死)
+        luat_airlink_arq_pending_try_ack(); // 每轮查 ack, 否则 need_ack 恒 1 时 pending 永不被释放
+        luat_airlink_arq_check_giveup(now);
+
+        int need_ack = luat_airlink_arq_take_need_ack(); // 有清除语义, 每轮一次
+
+        // devinfo 心跳定时 (2s)
+        if (now - luat_airlink_arq_last_devinfo_ms() >= 2000) {
+            luat_airlink_arq_set_devinfo_pending(1);
+            luat_airlink_arq_set_last_devinfo_ms(now);
+        }
+
+        // A. 有未确认帧: 不发新数据
+        if (luat_airlink_arq_pending_active()) {
+            if (luat_airlink_arq_devinfo_pending()) {
+                uart_send_devinfo(luat_airlink_arq_peek_ack(), pbuff);
+                luat_airlink_arq_set_devinfo_pending(0);
+                continue;
+            }
+            if (now - luat_airlink_arq_pending_sent_ms() >= ARQ_RTO_MS) {
+                uart_send_data(luat_airlink_arq_pending_cmd(), luat_airlink_arq_pending_seq(), luat_airlink_arq_peek_ack(), pbuff);
+                luat_airlink_arq_pending_retransmit(luat_mcu_tick64_ms());
+                continue;
+            }
+            if (need_ack) {
+                uart_send_ack_only(luat_airlink_arq_peek_ack(), pbuff);
+                continue;
+            }
+            // 睡到 RTO 或事件
+            uint64_t remain = luat_airlink_arq_pending_sent_ms() + ARQ_RTO_MS;
+            uint32_t timeout = (remain > now) ? (uint32_t)(remain - now) : 1;
+            ret = luat_rtos_queue_recv(g_airlink_uart.tx_evt_queue, &event, sizeof(luat_event_t), timeout);
+            if (ret == 0) {
+                record_statistic(event);
             }
             continue;
         }
-        #else
-        if (ret != 0) {
-            // 空闲超时: 发送心跳帧（间隔 2s），保持对端 g_airlink_last_cmd_timestamp 刷新
-            if (luat_mcu_tick64_ms() - last_heartbeat_ms > 2000) {
-                last_heartbeat_ms = luat_mcu_tick64_ms();
-                send_devinfo_update_evt();
-            }
+
+        // B. 无未确认帧: 优先发能捎带 ack 的帧
+        if (luat_airlink_arq_devinfo_pending()) {
+            uart_send_devinfo(luat_airlink_arq_peek_ack(), pbuff);
+            luat_airlink_arq_set_devinfo_pending(0);
+            need_ack = 0;
+            continue;
         }
-        #endif
-        while (1) {
-            uart_id = g_airlink_spi_conf.uart_id;
-            // 有数据, 要处理了
-            item.len = 0;
-            item.cmd = NULL;
-            ret = luat_airlink_cmd_recv_for_mode(LUAT_AIRLINK_MODE_UART, &item);//从（发送）队列里取出数据存在item中
-            if (ret != 0) {
-                break; // 没有数据了, 退出循环
-            }
-            size_t packed_len = 0;
-            uint8_t *txbuff = g_airlink_uart.s_txbuff;
-            if (item.len == 0 || item.cmd == NULL) {
-                memcpy(basic_info + sizeof(luat_airlink_cmd_t), luat_airlink_self_dev_info_ptr(), sizeof(luat_airlink_dev_info_t));
-                if (airlink_uart_pack_frame_or_log(pbuff, AIRLINK_UART_RAW_FRAME_MAX, basic_info, 128, &packed_len, "uart basic info") != 0) {
-                    continue;
-                }
-                if (g_airlink_debug) {
-                    LLOGD("send basic info %d", sizeof(basic_info));
-                }
-            } else {
-                if (airlink_uart_pack_frame_or_log(pbuff, AIRLINK_UART_RAW_FRAME_MAX, (uint8_t*)item.cmd, item.len, &packed_len, "uart tx") != 0) {
-                    luat_airlink_cmd_free(item.cmd);
-                    continue;
-                }
+        if (luat_airlink_arq_state() == ARQ_STATE_ARQ && !luat_airlink_arq_peer_mem_high()
+            && luat_airlink_cmd_recv_for_mode(LUAT_AIRLINK_MODE_UART, &item) == 0) {
+            if (!uart_frame_encodable(&item)) {
                 luat_airlink_cmd_free(item.cmd);
-            }
-            if ((packed_len * 2 + 2) > UART_BUFF_SIZE) {
-                LLOGE("uart tx: escaped frame too large raw=%u worst=%u limit=%u — dropping (consider enabling frag)",
-                      (unsigned)packed_len, (unsigned)(packed_len * 2 + 2), (unsigned)UART_BUFF_SIZE);
                 g_airlink_statistic.tx_pkg.drop++;
                 continue;
             }
-            // 0x7E 开始, 0x7D 结束, 遇到 0x7E/0x7D 要转义
-            txbuff[0] = 0x7E;
-            offset = 1;
-            ptr = (uint8_t*)pbuff;
-            for (size_t i = 0; i < packed_len; i++)
-            {
-                if (ptr[i] == 0x7E) {
-                    txbuff[offset++] = 0x7D;
-                    txbuff[offset++] = 0x02;
-                }
-                else if (ptr[i] == 0x7D) {
-                    txbuff[offset++] = 0x7D;
-                    txbuff[offset++] = 0x01;
-                }
-                else
-                {
-                    txbuff[offset++] = ptr[i];
-                }
+            if (luat_airlink_arq_pending_set(item.cmd, now)) {
+                luat_airlink_cmd_free(item.cmd);
+                g_airlink_statistic.tx_pkg.drop++;
+                continue;
             }
-            txbuff[offset++] = 0x7E;
-            luat_uart_write(uart_id, txbuff, offset);
-            // LLOGD("发送数据长度:%d", offset);
-            // 留 ≥1ms 线上间隙, 防止主机 RX 溢出(睡眠与 DMA 传输重叠, 按帧长自适应)
-            if (AIRLINK_UART_TX_FRAME_GAP_MS > 0) {
-                uint32_t tx_frame_ms = (offset + 199u) / 200u; // 帧传输耗时(ms) @2Mbps 8N1
-                luat_rtos_task_sleep(tx_frame_ms + AIRLINK_UART_TX_FRAME_GAP_MS);
-            }
-            if (offset > 1600) {
-                LLOGW("uart tx large frame %u bytes", (unsigned)offset);
-            }
+            uart_send_data(item.cmd, luat_airlink_arq_pending_seq(), luat_airlink_arq_peek_ack(), pbuff);
+            need_ack = 0;
+            continue;
+        }
+        if (need_ack) {
+            uart_send_ack_only(luat_airlink_arq_peek_ack(), pbuff);
+            continue;
+        }
+
+        // C. 无待发内容
+        if (luat_airlink_arq_state() == ARQ_STATE_LEGACY
+            && luat_airlink_cmd_recv_for_mode(LUAT_AIRLINK_MODE_UART, &item) == 0) {
+            uart_send_legacy(&item, pbuff);
+            luat_airlink_cmd_free(item.cmd);
+            continue;
+        }
+        ret = luat_rtos_queue_recv(g_airlink_uart.tx_evt_queue, &event, sizeof(luat_event_t), AIRLINK_MODE_WAIT_TIMEOUT);
+        if (ret == 0) {
+            record_statistic(event);
         }
     }
     luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);
     LLOGI("uart_transfer_task exit");
     luat_heap_free(pbuff);
+    luat_airlink_arq_stop(); // TX has released its last borrowed pending pointer.
     g_airlink_uart.transfer_task = NULL;
     luat_rtos_task_delete(NULL); // 删除当前任务
 }
@@ -579,6 +645,7 @@ int luat_airlink_start_uart(void)
     if (luat_airlink_uart_ensure_buffers() != 0) {
         return -1;
     }
+    luat_airlink_arq_init();
     g_airlink_uart.uart_running = 1;
 #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE) || defined(LUAT_USE_AIRLINK_EXEC_WLAN)
     device_info_update_cb = send_devinfo_update_evt;
@@ -733,4 +800,3 @@ static void luat_airlink_uart_fota_task_create(void) {
         LLOGW("创建uart_fota_task ret:%d", ret);
     }
 }
-

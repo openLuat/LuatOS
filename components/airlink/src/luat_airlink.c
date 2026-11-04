@@ -26,6 +26,11 @@
 #define AIRLINK_QUEUE_SIZE (2*1024)
 #endif
 
+// BSP override: entry count for each transport's CMD and IP queue, not bytes.
+#ifndef LUAT_AIRLINK_QUEUE_SIZE
+#define LUAT_AIRLINK_QUEUE_SIZE AIRLINK_QUEUE_SIZE
+#endif
+
 luat_rtos_queue_t airlink_cmd_queue;
 luat_rtos_queue_t airlink_ippkg_queue;
 
@@ -309,10 +314,10 @@ int luat_airlink_start(int id)
     }
     // 在 slot 中创建独立的队列 (multi-transport 支持)
     if (g_transport_slots[id].cmd_queue == NULL) {
-        luat_rtos_queue_create(&g_transport_slots[id].cmd_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
+        luat_rtos_queue_create(&g_transport_slots[id].cmd_queue, LUAT_AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
     }
     if (g_transport_slots[id].ippkg_queue == NULL) {
-        luat_rtos_queue_create(&g_transport_slots[id].ippkg_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
+        luat_rtos_queue_create(&g_transport_slots[id].ippkg_queue, LUAT_AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
     }
     // 向后兼容: 若全局队列还未初始化, 指向第一个启动的 mode 的 slot 队列
     if (airlink_cmd_queue == NULL) {

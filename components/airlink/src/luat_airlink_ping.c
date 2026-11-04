@@ -93,6 +93,9 @@ int luat_airlink_ping_raw(uint8_t mode, uint64_t pkgid,
         luat_heap_free(ctx);
         return -2;
     }
+    // EC7xx/CCM historically create a signaled binary semaphore for count 0.
+    // Drain it before registering/sending so a real reply cannot be consumed.
+    luat_rtos_semaphore_take(ctx->sem, 0);
     ctx->refcnt = 1;  // waiter 引用
 
     luat_airlink_result_reg_t reg = {0};

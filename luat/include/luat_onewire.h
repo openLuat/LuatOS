@@ -2,6 +2,11 @@
 #define LUAT_ONEWIRE_H
 #include "luat_base.h"
 #define LUAT_ONEWIRE_VIRTUAL_MASK	(0x80)
+
+enum {
+	LUAT_ONEWIRE_EVENT_OP_DONE,
+};
+
 typedef struct
 {
 	uint32_t reset_keep_low_time;//reset低电平时间

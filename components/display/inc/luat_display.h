@@ -327,6 +327,10 @@ struct luat_display_funcs {
     /*设置显示层*/
     int (*set_layer)(struct luat_display_layer_data *layer_data);
 
+    /*层像素已更新，需要再送显一次。真机 LCDC 扫描同一块缓冲，此回调保持 NULL。
+      PC 的 SDL 接口用它把视频层贴回窗口，调用方可能在解码线程，实现里不要直接画。*/
+    int (*refresh_layer)(struct luat_display_layer_data *layer_data);
+
     /*垂直同步*/
     int (*wait_vsync)(struct luat_display *disp);
 

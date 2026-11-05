@@ -40,6 +40,8 @@ handle:status()  → { enabled=bool, info=string }
 - 所有 gpio.* 调用 pcall 包裹，失败返回 false + 错误串
 ]]
 
+local airlink_pin = require "airlink_pin"
+
 local M = {}
 
 -- 已登记实例：id → handle
@@ -53,11 +55,10 @@ local function wait_ms(ms)
     pcall(sys.wait, ms)
 end
 
--- 设置 GPIO 电平
+-- 设置 GPIO 电平（WiFi 侧脚等 airlink 链路就绪后下发）
 local function pin_set(pin, level)
     if not pin then return end
-    pcall(gpio.setup, pin, level)
-    pcall(gpio.set, pin, level)
+    airlink_pin.set(pin, level)
 end
 
 -- 校验使能脚是否允许驱动；pin12_free 未声明时 GPIO12 一律拒绝

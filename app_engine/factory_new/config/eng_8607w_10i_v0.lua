@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8607w_10i_v0
 @summary Air8607W 引擎主机 10寸1024x600 RGB屏(HX8282) + Airlink SPI WiFi(Air601S) + 非隔离RS485(UART1) + 人脸识别摄像头(UART2) + SD卡 + 内置DAC喇叭 + USB HID/UVC 二选一 配置文件（WiFi 版）
-@version 1.0
-@date    2026.11.03
+@version 1.1
+@date    2026.11.05
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -19,14 +19,19 @@
    若实测这三路确实在 Air601S 芯片内部、并非主控可直驱的 GPIO，则 en_pin / power_pin 须改走
    Airlink 的 GPIO 指令（airlink 0x300 gpio_setup / 0x301 gpio_set）下发，uart_id 须改走 Airlink
    的 UART 通道；届时本文件只改这三个编号与取值，其余结构不变。
+   无论走哪条路，GPIO ≥100 的脚都要等 airlink 链路就绪（airlink.ready()）之后才能驱动，
+   由 airlink_pin 统一门控：power_on / usb_mode / periph_uvc / periph_rs485 都走它。
 2. 【USB HID 与 UVC 二选一】两者共用 USB Host 与供电轨，互斥，模式写 fskv（键 usb_mode_config），
    默认 UVC 摄像头。切换入口在「设置 → 外设模式」，切换后重启生效（交互与网络设置页同款）。
    模式判定集中在 usb_mode 模块：HID 模式下不启动 usb_hid_app、UVC 使能脚拉低、
    外设清单里的 uvc 条目不登记（功能测试页也就没有摄像头行）。
-3. 【GPIO12 是 Airlink RDY，不是 USB VBUS】Airlink SPI 的就绪脚 RDY = GPIO12。
-   usb_hid_app 原本硬编码 VBUS_GPIO = 12（8605 系列是 USB 供电脚），在本板会与 Airlink RDY
+3. 【GPIO12 是 Airlink WIFI_IRQ，不是 USB VBUS】Airlink SPI 的中断脚 IRQ = GPIO12，
+   由 net_manager 在 exnetif 初始化前用 airlink.config(airlink.CONF_SPI_IRQ, 12) 配置。
+   usb_hid_app 原本硬编码 VBUS_GPIO = 12（8605 系列是 USB 供电脚），在本板会与 WIFI_IRQ
    抢同一个脚，故 hw.usb.vbus_gpio 写 false 关掉该脚的驱动，VBUS 交由硬件常供电。
-4. 【Airlink SPI WiFi】Air601S 走 SPI5：CS = GPIO56、RDY = GPIO12，SPI 时钟 25MHz。
+4. 【Airlink SPI WiFi】Air601S 走 SPI5 + HSPI 主机模式（airlink.MODE_HSPI_MASTER）：
+   SPI_ID = 5、CS = GPIO56、IRQ = GPIO12，SPI 时钟先用 4MHz 验证（network 段 speed）。
+   RDY 脚本型号不接，不写 rdy_pin；airlink.init() / airlink.start() 由 exnetif 统一执行。
    Airlink-UART 通路（UART3）本型号不开。
 5. 【SD 卡】SPI1 总线，SPI_CS0 = GPIO8，SD_EN = GPIO74，SPI 时钟 20MHz。
    共享 SPI 总线的片选脚（SPI5 的 GPIO56、SPI1 的 GPIO8）在 power_on 里最先拉高，
@@ -53,10 +58,14 @@
     同一颗模组出两条通路 —— USB 走 UVC 出 MJPEG 画面，UART2 走协议做人脸录入 / 验证 / 用户管理。
     供电 = W_GPIO4 = GPIO132，上电稳定延时 200ms；模组无独立复位脚（face.rst_pin 不填），
     录入 / 验证超时均 15 秒。
-    ★ 首选出图档写 960×480 而不是规格表的 1280×720：同款模组在 eng_8601_7i_wifi.lua 上
+    ★ 首选出图档写 800×480 而不是规格表的 1280×720：同款模组在 eng_8601_7i_wifi.lua 上
     实测只报 960x480 / 864x480 / 800x480 / 480x320 / 320x240，没有 1280x720；写 1280x720 会
     匹配失败、按默认 format0/frame0 起流失败，预览页再关流重开，首帧从 ~1.4s 拖到 ~11s。
-    max_pixels 保持缺省 921600（= 1280×720），若后续模组固件支持更大档位，只需改 w / h。
+    max_pixels 一并收到 800×480，比它大的档一律不取，相机侧的帧缓冲 / 解码缓冲跟着省下来。
+    ★ 画面旋转按页签区分：UVC 页签不转（rotation = 0），人脸页签转 270 度
+    （face.rotation = 270，等于逆时针 90 度；实机画面比顺时针 90 度上下颠倒，改这里）。
+    airui.camera 只吃顺时针 0/90/180/270，逆时针 90 度写 270；
+    切页签只改 airui.camera 的 rotation，不重建预览组件（停流重建会打断人脸录入）。
 12. 【UVC 测试入口】config.peripherals 加 uvc 条目 + features.other_func = true +
     ui.show_other_func = true 三件套齐了才有「功能测试 → 摄像头」行；
     数据流由 ui/uvc_preview_win.lua 走 excamera 独占管理，periph_uvc 只管供电脚。
@@ -85,7 +94,7 @@ return {
         { pin = 8,  dir = 0, level = 1 }, -- SD SPI1 CS 空闲拉高（共享总线先拉片选）
         { pin = 72, dir = 0, level = 1 }, -- WIFI 供电开启
         { pin = 74, dir = 0, level = 1 }, -- SD 卡供电开启
-        { pin = 132, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高，等 200ms 摄像头就绪
+        { pin = 132, dir = 0, level = 1, delay = 200 }, -- UVC_EN 拉高，等 200ms 摄像头就绪（WiFi 侧脚，airlink 就绪后补发）
         { pin = 73, dir = 0, level = 0 }, -- AUDIOPA_EN 初始拉低关断功放（高电平使能，起播时拉高）
     },
 
@@ -101,13 +110,16 @@ return {
             title = "摄像头",
             en_pin = 132,        -- UVC_EN = W_GPIO4 = GPIO132（推算值，见文件头第 1 条）
             ready_delay = 200,   -- 上电稳定延时 200ms
-            w = 960,             -- 首选出图档（实测档位见文件头第 11 条）
+            w = 800,             -- 首选出图档（实测档位见文件头第 11 条）
             h = 480,
+            max_pixels = 800 * 480, -- 像素上限按首选档收口，再大的档不取
+            rotation = 0,        -- UVC 页签不转（airui.camera 只吃顺时针，见文件头第 11 条）
             face = {
                 uart_id = 2,         -- 人脸模组串口 = UART2（115200/8N1，库内固定）
                 rst_pin = nil,       -- 无独立复位脚，留空
                 register_timeout = 15, -- 录入超时（秒）
                 verify_timeout = 15,   -- 验证超时（秒）
+                rotation = 270,      -- 人脸页签画面转 270 度（= 逆时针 90 度，见文件头第 11 条）
             },
         },
         {
@@ -219,10 +231,11 @@ return {
     network = {
         {
             type = "wifi_airlink_spi",
-            spi_id = 5,             -- SPI5 总线
-            cs_pin = 56,            -- SPI5 CS = GPIO56
-            rdy_pin = 12,           -- WIFI_RDY = GPIO12（见文件头第 3 条）
-            speed = 25 * 1000000,   -- Airlink SPI 时钟 25MHz
+            airlink_mode = "hspi_master", -- airlink.MODE_HSPI_MASTER（XT804 HSPI 主机）
+            spi_id = 5,                   -- SPI5 总线
+            cs_pin = 56,                  -- SPI5 CS = GPIO56
+            irq_pin = 12,                 -- WIFI_IRQ = GPIO12（见文件头第 3 条）
+            speed = 4 * 1000000,          -- Airlink SPI 时钟 4MHz（先低速验证）
         },
     },
 

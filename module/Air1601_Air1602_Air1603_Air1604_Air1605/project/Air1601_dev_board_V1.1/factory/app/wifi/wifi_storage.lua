@@ -27,11 +27,18 @@
 
 local CONFIG_KEY = "wifi_app_config"
 local SAVED_LIST_KEY = "wifi_saved_list"
+-- 出厂预置热点的「补种」标记：只在首次开机往已保存网络里补一次。
+-- 写入后即使用户在页面上把该热点删掉也不会再补回来（否则重启又冒出来）。
+local SEEDED_KEY = "wifi_default_seeded"
+
+-- 出厂预置热点（config.wifi_default）：fskv 里没有 WiFi 凭证时的默认值。
+-- 取值时机在 wifi_app_real require 本模块时，project_config 早已就绪。
+local _preset = (_G.project_config and _G.project_config.wifi_default) or {}
 
 local config = {
-    wifi_enabled = false,
-    ssid = "",
-    password = "",
+    wifi_enabled = _preset.enabled == true,
+    ssid = _preset.ssid or "",
+    password = _preset.password or "",
     need_ping = true,
     local_network_mode = false,
     ping_ip = "",
@@ -72,6 +79,20 @@ local function load_from_fskv()
     else
         log.info("wifi_storage", "配置加载失败，使用默认配置")
     end
+    -- fskv 有记录但没有凭证（曾打开过 WiFi 却从未连上任何热点）：用出厂预置热点兜底，
+    -- 否则用户再打开开关时没有任何可自动连接的目标，又得手动输一次密码。
+    if (config.ssid == nil or config.ssid == "") and _preset.ssid and _preset.ssid ~= "" then
+        config.ssid = _preset.ssid
+        config.password = _preset.password or ""
+        log.info("wifi_storage", "无已保存凭证，使用出厂预置热点:", config.ssid)
+    end
+    -- override = true：无视 fskv 里已有的凭证，强制用预置热点（出厂定版 / 调试指定网络用）。
+    -- 默认 false —— 否则用户在 WiFi 页面改连别的热点，重启后又被拉回预置，等于改不动。
+    if _preset.override and _preset.ssid and _preset.ssid ~= "" then
+        config.ssid = _preset.ssid
+        config.password = _preset.password or ""
+        log.info("wifi_storage", "override 生效，强制使用预置热点:", config.ssid)
+    end
 end
 
 --[[
@@ -90,6 +111,31 @@ local function save_saved_list()
 end
 
 --[[
+@function seed_preset_network
+@summary 首次开机把 config.wifi_default 预置热点补进已保存网络列表
+@note  只补一次（SEEDED_KEY 标记），用户之后手动删除不会在重启后复活；
+       补种后 net_manager 开机可直接用该凭证连接，UI「已保存网络」里也能看到条目。
+]]
+local function seed_preset_network()
+    if not _preset.ssid or _preset.ssid == "" then return end
+    if fskv.get(SEEDED_KEY) then return end
+    local exists = false
+    for _, entry in ipairs(saved_list) do
+        if entry.ssid == _preset.ssid then exists = true; break end
+    end
+    if not exists then
+        table.insert(saved_list, {
+            ssid = _preset.ssid,
+            password = _preset.password or "",
+            last_connect_ok = nil,   -- 未验证，连接成功后由 MARK_CONNECTED 置 true
+        })
+    end
+    save_saved_list()
+    fskv.set(SEEDED_KEY, true)
+    log.info("wifi_storage", "出厂预置热点已补入已保存列表:", _preset.ssid)
+end
+
+--[[
 @function load_saved_list
 @summary 从 fskv 加载已保存网络列表
 ]]
@@ -102,6 +148,7 @@ local function load_saved_list()
         saved_list = {}
         log.info("wifi_storage", "已保存网络列表为空，使用默认值")
     end
+    seed_preset_network()
 end
 
 --[[

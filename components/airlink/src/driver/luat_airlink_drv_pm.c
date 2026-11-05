@@ -11,7 +11,7 @@
 #include "luat_log.h"
 
 #undef LLOGD
-#define LLOGD(...) 
+#define LLOGD(...)
 
 int luat_airlink_drv_pm_request(int mode) {
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
@@ -26,8 +26,7 @@ int luat_airlink_drv_pm_request(int mode) {
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     memcpy(cmd->data + 8, &tmp, sizeof(uint8_t));
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_pm_power_ctrl(int id, uint8_t val) {
@@ -43,8 +42,7 @@ int luat_airlink_drv_pm_power_ctrl(int id, uint8_t val) {
     memcpy(cmd->data + 8, &id, 4);
     memcpy(cmd->data + 8 + 4, &val, 1);
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_pm_wakeup_pin(int pin, int val) {
@@ -61,6 +59,5 @@ int luat_airlink_drv_pm_wakeup_pin(int pin, int val) {
     memcpy(cmd->data + 8, &pin, 4);
     memcpy(cmd->data + 8 + 4, &val, 1);
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }

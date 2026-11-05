@@ -10,7 +10,7 @@
 #include "luat_log.h"
 
 #undef LLOGD
-#define LLOGD(...) 
+#define LLOGD(...)
 
 int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio) {
     // --- raw byte path ---
@@ -25,8 +25,7 @@ int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio) {
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     memcpy(cmd->data + 8, gpio, sizeof(luat_gpio_t));
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_gpio_open(luat_gpio_cfg_t* gpio) {
@@ -54,8 +53,7 @@ int luat_airlink_drv_gpio_set(int pin, int level) {
     data[0] = (uint8_t)pin;
     data[1] = (uint8_t)level;
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 luat_rtos_semaphore_t g_drv_gpio_sem;
@@ -98,7 +96,11 @@ int luat_airlink_drv_gpio_get(int pin, int* val) {
     uint8_t* data = cmd->data + 8;
     data[0] = (uint8_t)pin;
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    if (luat_airlink_cmd_submit(&item) != 0) {
+        LLOGW("gpio.get 入队失败 pin %d", pin);
+        *val = 0;
+        return 0;
+    }
     // LLOGI("g_drv_gpio_sem take");
     ret = luat_rtos_semaphore_take(g_drv_gpio_sem, 100);
     // LLOGI("g_drv_gpio_sem take %d", ret);
@@ -132,8 +134,7 @@ int luat_airlink_drv_gpio_driver_yhm27xx(uint32_t Pin, uint8_t ChipID, uint8_t R
     data[4] = *Data;
 
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_gpio_driver_yhm27xx_reqinfo(uint8_t Pin, uint8_t ChipID)
@@ -152,7 +153,6 @@ int luat_airlink_drv_gpio_driver_yhm27xx_reqinfo(uint8_t Pin, uint8_t ChipID)
     data[1] = ChipID;
 
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 

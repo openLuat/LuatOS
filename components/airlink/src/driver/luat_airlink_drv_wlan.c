@@ -33,8 +33,7 @@ int luat_airlink_drv_wlan_init(luat_wlan_config_t* args) {
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_wlan_ap_start(luat_wlan_apinfo_t* info) {
@@ -49,8 +48,7 @@ int luat_airlink_drv_wlan_ap_start(luat_wlan_apinfo_t* info) {
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     memcpy(cmd->data + 8, info, sizeof(luat_wlan_apinfo_t));
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 };
 
 
@@ -65,8 +63,7 @@ int luat_airlink_drv_wlan_ap_stop(void) {
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_wlan_connect(luat_wlan_conninfo_t* info) {
@@ -81,8 +78,7 @@ int luat_airlink_drv_wlan_connect(luat_wlan_conninfo_t* info) {
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     memcpy(cmd->data + 8, info, sizeof(luat_wlan_conninfo_t));
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_wlan_disconnect(void) {
@@ -96,8 +92,7 @@ int luat_airlink_drv_wlan_disconnect(void) {
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_wlan_scan(void) {
@@ -111,8 +106,7 @@ int luat_airlink_drv_wlan_scan(void) {
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 uint8_t drv_scan_result_size = 0;
@@ -154,8 +148,7 @@ int luat_airlink_drv_wlan_set_mac(int id, const char* mac)
     memcpy(cmd->data + 8, &c_id, 1);
     memcpy(cmd->data + 9, mac, 6);
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_wlan_get_ip(int type, char* data);
@@ -181,8 +174,7 @@ int luat_airlink_drv_wlan_set_ps(int mode)
     memcpy(cmd->data + 8, &c_mode, 1);
 
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_wlan_get_ps(void);
@@ -255,7 +247,7 @@ int luat_airlink_drv_wlan_scan_result_cb(void) {
         item.cmd->cmd = 0x206;
         item.cmd->len = 1 + MAX_SCAN_RESULT_BUFF_SIZE;
         item.cmd->data[0] = (uint8_t)luat_wlan_scan_get_result(scan_result, MAX_SCAN_RESULT_SIZE);
-        luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+        return luat_airlink_cmd_submit(&item);
     }
 
     return 0;

@@ -6,6 +6,9 @@
 #include "luat_rtos.h"
 #include "luat_mcu.h"
 #include "luat_malloc.h"
+#ifdef _MSC_VER
+#include <windows.h>
+#endif
 
 #define LUAT_LOG_TAG "airlink.ping"
 #include "luat_log.h"
@@ -18,14 +21,17 @@ typedef struct {
     uint16_t echo_len;
     int ret_code;
     volatile uint8_t timed_out;
-    volatile uint8_t refcnt;    // 引用计数: waiter(1) + slot/callback(1), 归零时销毁
+    volatile long refcnt;       // Atomic waiter + callback ownership.
 } ping_sync_ctx_t;
 
 // 统一释放 ctx 引用。最后一个释放者负责 delete sem + free ctx。
 static void ping_sync_ctx_release(ping_sync_ctx_t* ctx) {
-    if (ctx->refcnt == 0) return;
-    ctx->refcnt--;
-    if (ctx->refcnt == 0) {
+#ifdef _MSC_VER
+    long refs = InterlockedDecrement(&ctx->refcnt);
+#else
+    long refs = __sync_sub_and_fetch(&ctx->refcnt, 1);
+#endif
+    if (refs == 0) {
         luat_rtos_semaphore_delete(ctx->sem);
         luat_heap_free(ctx);
     }
@@ -87,6 +93,9 @@ int luat_airlink_ping_raw(uint8_t mode, uint64_t pkgid,
         luat_heap_free(ctx);
         return -2;
     }
+    // EC7xx/CCM historically create a signaled binary semaphore for count 0.
+    // Drain it before registering/sending so a real reply cannot be consumed.
+    luat_rtos_semaphore_take(ctx->sem, 0);
     ctx->refcnt = 1;  // waiter 引用
 
     luat_airlink_result_reg_t reg = {0};
@@ -142,7 +151,9 @@ int luat_airlink_ping_raw(uint8_t mode, uint64_t pkgid,
             ping_sync_ctx_release(ctx);  // waiter
         } else {
             // slot 已被 dispatch 取走，callback 持有引用
-            ctx->timed_out = 1;
+            // Dispatch owns the slot: keep the caller's echo buffer alive until
+            // its copy finishes, even when the semaphore timeout raced with it.
+            luat_rtos_semaphore_take(ctx->sem, LUAT_WAIT_FOREVER);
             ping_sync_ctx_release(ctx);  // waiter 引用，callback 后续释放剩下那份
         }
         return -1; // timeout

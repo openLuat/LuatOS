@@ -21,6 +21,7 @@
 #include "luat_rtos.h"
 #include "luat_mcu.h"
 #include "luat_airlink.h"
+#include "luat_airlink_arq.h"
 #include "luat_airlink_fota.h"
 #include "luat_airlink_ping.h"
 #include "luat_zbuff.h"
@@ -161,6 +162,9 @@ static int l_airlink_statistics(lua_State *L) {
         print_stat("Task新数据事件", &tmp.event_new_data, 0);
         // print_stat("Task从机通知事件", &tmp.event_rdy_irq, 0);
     }
+    LLOGD("统计信息 arq: state=%d retx=%lld giveup=%lld adopt=%lld nego=%lld dup=%lld",
+          luat_airlink_arq_state(), tmp.arq.tx_retx, tmp.arq.arq_giveup, tmp.arq.rx_adopt,
+          tmp.arq.arq_nego_timeout, tmp.arq.rx_dup);
     return 0;
 }
 

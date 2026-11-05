@@ -23,7 +23,10 @@
 #include "luat_log.h"
 
 __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
-    luat_airlink_dev_info_t* dev = cmd->data;
+    if (!cmd->len) return -1;
+    luat_airlink_dev_info_t snapshot = {0};
+    memcpy(&snapshot, cmd->data, cmd->len < sizeof(snapshot) ? cmd->len : sizeof(snapshot));
+    luat_airlink_dev_info_t* dev = &snapshot;
     luat_netdrv_t* drv = NULL;
     char buff[32] = {0};
     uint32_t version = 0;
@@ -38,11 +41,7 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
     else {
         // wifi固件比4G固件更新的, 那就抛弃掉后面的数据
     }
-    memcpy(&g_airlink_ext_dev_info, dev, len);
-    // 从对端 devinfo 提取能力位 (rpc/frag), 更新对端能力状态
-    if (len >= 2) {
-        luat_airlink_peer_caps_update(dev->caps);
-    }
+    g_airlink_ext_dev_info = snapshot;
     #ifdef LUAT_USE_DRV_WLAN
     if (dev->tp == 1) {
         // WIFI设备

@@ -188,6 +188,14 @@ return {
     -- ===== GPIO 上电时序 =====
     -- 按顺序初始化各外设供电和复位
     power_on = {
+        -- GPIO72 是 Air1602_V1.2 开发板上 RESET_GNSS 的控制管脚，
+        -- GPIO74 是 Air1602_V1.2 开发板上 RESET_BLE 的控制管脚。
+        -- 这两个管脚需要在 display 初始化屏幕之前就通过 gpio.setup 配置为低电平输出，
+        -- 于是在此处（上电序列最前两项）先行配置：dir=0 输出 / level=0 低电平。
+        -- 取用约定：需要时按 GPIO 直接读写即可，不要在此重复 setup（会覆盖本步方向）。
+        { pin = 72, dir = 0, level = 0 },   -- RESET_GNSS
+        { pin = 74, dir = 0, level = 0 },   -- RESET_BLE
+
         -- 总供电 (高电平有效)
         { pin = 58, dir = 0, level = 1 },
         -- SD 卡使能 (SD_EN=GPIO56)
@@ -367,6 +375,25 @@ return {
             baud = 2 * 1000 * 1000, -- 2Mbps
             adapter = socket.LWIP_GP_GW,
         },
+    },
+
+    -- ===== WiFi 预置热点（出厂默认凭证）=====
+    -- 作用：fskv 里没有已保存 WiFi 凭证时（出厂首次开机 / 清空 fskv 后），
+    --   直接采用本表的 SSID + 密码 —— 用户在 WiFi 页面打开开关即自动连接，
+    --   不用再手动点热点、输密码；连接成功后会记入「已保存网络」列表。
+    -- 与 fskv 的关系：只在缺凭证时兜底，用户在页面上改连别的热点会覆盖，不回流本预置。
+    -- enabled：出厂首次开机是否直接把 WiFi 开关打开（true=开机即连，false=等用户手动开）。
+    -- 注意：本预置要生效，UART3 通道不能是 4G（4G 通道下 features.wifi 会被
+    --   settings_channel_app 收口关闭，WiFi 业务层压根不加载）——需在设置页把
+    --   「UART3口复用」切成 WiFi（或 GNSS/蓝牙，此时 6205 走 SPI2）。
+    wifi_default = {
+        enabled = true,        -- 出厂开机是否直接打开 WiFi 开关
+        ssid = "HJ",
+        password = "HJ@88888",
+        -- override = true：无视 fskv 里已保存的其它凭证，强制连本热点
+        --   （出厂定版 / 调试指定网络用；默认 false，避免用户在页面上改连别的
+        --    热点后重启又被拉回来）
+        override = false,
     },
 
     -- ===== UI 显示控制（只写 = true 的项）=====

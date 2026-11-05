@@ -34,7 +34,7 @@ local function judge_device()
         model_name = "Air700ECH"
         chip_name = "EC718HM"
     elseif device_name == "Air8101" then
-        model_name = {"Air8101", "D602"}
+        model_name = {"Air8101", "Air8101B", "D602"}
         chip_name = "BK7258"
     elseif device_name == "EC618" then
         model_name = "Air780E"

@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_airlink.h"
 #include "luat_airlink_devinfo.h"
+#include "luat_airlink_arq.h"
 #include "luat_mcu.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_event.h"
@@ -39,13 +40,7 @@ uint64_t luat_airlink_self_dev_info_get_mtime(void) {
     return g_airlink_self_dev_info_mtime;
 }
 
-// 由传输层周期性调用，检测从机是否超时断开
-void luat_airlink_check_link_timeout(void) {
-    if (g_airlink_last_cmd_timestamp == 0)
-        return;
-    if (luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp < g_airlink_link_timeout_ms)
-        return;
-
+static void airlink_link_down(void) {
     uint8_t tp = g_airlink_ext_dev_info.tp;
     luat_netdrv_t* drv = NULL;
 
@@ -62,9 +57,26 @@ void luat_airlink_check_link_timeout(void) {
     }
 
     if (drv && drv->netif && netif_is_link_up(drv->netif)) {
-        LLOGI("airlink link timeout %llums, tp=%d, set link down",
-              luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp, tp);
         luat_netdrv_set_link_updown(drv, 0);
     }
 }
 
+// 由传输层周期性调用，检测从机是否超时断开
+void luat_airlink_check_link_timeout(void) {
+    // ARQ force_down 优先: 连续 giveup 判链路死, 不等时间戳超时(对端心跳会一直刷新)
+    if (luat_airlink_arq_consume_force_down()) {
+        luat_airlink_peer_flags_reset();
+        LLOGI("airlink arq force down");
+        airlink_link_down();
+        return;
+    }
+    if (g_airlink_last_cmd_timestamp == 0)
+        return;
+    if (luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp < g_airlink_link_timeout_ms)
+        return;
+
+    LLOGI("airlink link timeout %llums, tp=%d, set link down",
+          luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp, g_airlink_ext_dev_info.tp);
+    luat_airlink_peer_flags_reset();
+    airlink_link_down();
+}

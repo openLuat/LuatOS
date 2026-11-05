@@ -2,6 +2,7 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_airlink.h"
+#include "luat_airlink_arq.h"
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_crypto.h"
@@ -23,6 +24,11 @@
 #else
 #define AIRLINK_MEM_TYPE LUAT_HEAP_SRAM
 #define AIRLINK_QUEUE_SIZE (2*1024)
+#endif
+
+// BSP override: entry count for each transport's CMD and IP queue, not bytes.
+#ifndef LUAT_AIRLINK_QUEUE_SIZE
+#define LUAT_AIRLINK_QUEUE_SIZE AIRLINK_QUEUE_SIZE
 #endif
 
 luat_rtos_queue_t airlink_cmd_queue;
@@ -206,27 +212,8 @@ luat_airlink_spi_conf_t g_airlink_spi_conf;
 airlink_statistic_t g_airlink_statistic;
 uint64_t g_airlink_last_cmd_timestamp;
 
-// 对端能力位 (由 devinfo handler 收到 cmd 0x10 时调用 luat_airlink_peer_caps_update 更新)
-static uint8_t g_airlink_peer_caps;
-
-void luat_airlink_peer_caps_update(uint8_t caps) {
-    static uint8_t peer_caps_logged = 0;
-    g_airlink_peer_caps = caps;
-    if (!peer_caps_logged || luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp > 2500) {
-        // LLOGI("peer caps: rpc=%u frag=%u (raw=0x%02X)",
-        //       (caps & AIRLINK_CAP_RPC) ? 1 : 0, (caps & AIRLINK_CAP_FRAG) ? 1 : 0, caps);
-        peer_caps_logged = 1;
-        // 对端重连后重新发送本端设备信息，确保对端能拿到最新状态
-        luat_airlink_self_dev_info_notify();
-    }
-}
-
-int luat_airlink_peer_rpc_supported(void) {
-    return (g_airlink_peer_caps & AIRLINK_CAP_RPC) ? 1 : 0;
-}
-
-int luat_airlink_peer_frag_supported(void) {
-    return (g_airlink_peer_caps & AIRLINK_CAP_FRAG) ? 1 : 0;
+int luat_airlink_peer_arq_supported(void) {
+    return luat_airlink_arq_state() == ARQ_STATE_ARQ;
 }
 
 // SPI/UART 统一分片阈值: TEST_BUFF_SIZE(1600) - sizeof(airlink_link_data_t)(16) - sizeof(luat_airlink_cmd_t)(4)
@@ -236,8 +223,9 @@ uint16_t luat_airlink_transport_max_data_len(uint8_t mode) {
     switch (mode) {
         case LUAT_AIRLINK_MODE_SPI_SLAVE:
         case LUAT_AIRLINK_MODE_SPI_MASTER:
-        case LUAT_AIRLINK_MODE_UART:
             return AIRLINK_FRAG_MAX_DATA_LEN;
+        case LUAT_AIRLINK_MODE_UART:
+            return AIRLINK_ARQ_MAX_DATA; // Reserve envelope space even before negotiation.
         case LUAT_AIRLINK_MODE_LOOPBACK:
             return 0xFFFF;
         case LUAT_AIRLINK_MODE_HSPI_MASTER:
@@ -307,6 +295,7 @@ uint64_t g_airlink_wifi_boot_time;
 
 int luat_airlink_init(void)
 {
+    luat_airlink_flags_init();
 #ifdef LUAT_USE_AIRLINK_RPC
     extern void luat_airlink_rpc_stats_init(void);
     luat_airlink_rpc_stats_init();
@@ -325,10 +314,10 @@ int luat_airlink_start(int id)
     }
     // 在 slot 中创建独立的队列 (multi-transport 支持)
     if (g_transport_slots[id].cmd_queue == NULL) {
-        luat_rtos_queue_create(&g_transport_slots[id].cmd_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
+        luat_rtos_queue_create(&g_transport_slots[id].cmd_queue, LUAT_AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
     }
     if (g_transport_slots[id].ippkg_queue == NULL) {
-        luat_rtos_queue_create(&g_transport_slots[id].ippkg_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
+        luat_rtos_queue_create(&g_transport_slots[id].ippkg_queue, LUAT_AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
     }
     // 向后兼容: 若全局队列还未初始化, 指向第一个启动的 mode 的 slot 队列
     if (airlink_cmd_queue == NULL) {
@@ -502,6 +491,15 @@ int luat_airlink_queue_send(int tp, airlink_queue_item_t *item)
     return ret;
 }
 
+// 提交命令到本地 CMD 队列: 队列拒绝时命令仍由生产者持有, 此处释放并原样返回错误码; 成功后由消费者释放。
+int luat_airlink_cmd_submit(airlink_queue_item_t* item) {
+    int rc = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, item);
+    if (rc != 0) {
+        luat_airlink_cmd_free(item->cmd);
+    }
+    return rc;
+}
+
 int luat_airlink_queue_get_cnt(int tp)
 {
     size_t len = 0;
@@ -556,6 +554,11 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     int ret = 0;
     g_airlink_statistic.tx_ip.total ++;
     g_airlink_statistic.tx_bytes.total += len;
+    if (luat_airlink_current_mode_get() == LUAT_AIRLINK_MODE_UART && len >= AIRLINK_ARQ_MAX_DATA) {
+        g_airlink_statistic.tx_ip.drop++;
+        g_airlink_statistic.tx_bytes.drop += len;
+        return -5; // Reserve the envelope plus the one-byte adapter id before queueing.
+    }
     if (len < 8)
     {
         LLOGE("数据包太小了, 抛弃掉");

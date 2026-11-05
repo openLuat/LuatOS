@@ -61,8 +61,7 @@ int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     memcpy(cmd->data + 8, conf, sizeof(luat_uart_t));
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
@@ -84,7 +83,10 @@ int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
             memcpy(cmd->data + 9,  segment_data, chunk);
             airlink_queue_item_t item = {.len = sizeof(luat_airlink_cmd_t) + chunk + 9, .cmd = cmd};
             int ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-            if (ret != 0) return (int)sent_total;
+            if (ret != 0) {
+                luat_airlink_cmd_free(cmd);
+                return (int)sent_total;
+            }
             sent_total    += chunk;
             segment_data  += chunk;
             remaining     -= chunk;
@@ -108,7 +110,7 @@ int luat_airlink_drv_uart_close(int uart_id) {
     uint8_t tmp = (uint8_t)uart_id;
     memcpy(cmd->data + 8, &tmp, 1);
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    int rc = luat_airlink_cmd_submit(&item);
 
     // 释放接收缓存与互斥锁，避免反复 open/close 累积泄漏。
     // 约定：close 由应用层在无并发读写时调用，此处先原子摘除指针再释放。
@@ -119,7 +121,7 @@ int luat_airlink_drv_uart_close(int uart_id) {
             luat_heap_free(buff);
         }
     }
-    return 0;
+    return rc;
 }
 
 // 缓存和锁完全初始化后再原子发布；并发创建的败者释放自己的私有副本。

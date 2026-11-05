@@ -39,8 +39,7 @@ static int ble_raw_send(uint16_t cmd_id, const void* data, uint16_t data_len) {
         .len = (uint32_t)(sizeof(luat_airlink_cmd_t) + payload),
         .cmd = cmd,
     };
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 /* ---------- API: uuid swap (local utility, no RPC) ---------- */
@@ -142,8 +141,7 @@ int luat_airlink_drv_ble_create_gatt(luat_ble_t* luat_ble, luat_ble_gatt_service
         .len = (uint32_t)(sizeof(luat_airlink_cmd_t) + total_len),
         .cmd = cmd,
     };
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    return luat_airlink_cmd_submit(&item);
 }
 
 int luat_airlink_drv_ble_read_response_value(luat_ble_t* luat_ble, uint8_t conn_idx,

@@ -248,6 +248,24 @@ return {
 
     },
 
+    -- ===== WiFi 预置热点（出厂默认凭证）=====
+    -- 作用：fskv 里没有已保存 WiFi 凭证时（出厂首次开机 / 清空 fskv 后），
+    --   直接采用本表的 SSID + 密码 —— 用户在 WiFi 页面打开开关即自动连接，
+    --   不用再手动点热点、输密码；连接成功后会记入「已保存网络」列表。
+    -- 与 fskv 的关系：只在缺凭证时兜底，用户在页面上改连别的热点会覆盖，不回流本预置。
+    -- enabled：出厂首次开机是否直接把 WiFi 开关打开（true=开机即连，false=等用户手动开）。
+    -- override：true 时无视 fskv 里已有的其它凭证，强制连本热点（出厂定版 / 调试指定
+    --   网络用）；默认 false，否则用户在页面上改连别的热点后重启又被拉回来。
+    -- 注意：本预置要生效，UART3 通道不能是 4G（WiFi 与 4G 共用 UART3，4G 通道下
+    --   features.wifi 会被 settings_channel_app 收口关闭，WiFi 业务层压根不加载）——
+    --   需在设置页把「UART3口复用」切成 WiFi（或 GNSS/蓝牙，此时 6205 走 SPI2）。
+    wifi_default = {
+        enabled = true,        -- 出厂开机是否直接打开 WiFi 开关
+        ssid = "HJ",
+        password = "HJ@88888",
+        override = false,
+    },
+
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
         show_4g_icon = true,          -- 桌面顶栏 4G 信号图标（features.net_4g 开启时才有数据）

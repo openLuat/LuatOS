@@ -7,16 +7,18 @@
 
 === 设计要点 ===
 
-1. Air1103（model="air1103"）只有 UART 一条音频通路，exaudio 只认两种起播方式：
-   type=1（TTS 文本）与 type=2（流式 PCM），type=0（文件）直接 "unsupported"。
-   MP4 的音轨走 mplayer → C 层音频框架，而 C 层没有 air1103 后端，
-   所以 Air1103 机型上 MP4 必然无声 —— 这条是架构性的，不是配置能解的。
+1. Air1103（model="air1103"）的下行只认两种起播方式：type=1（TTS 文本）与
+   type=2（流式 PCM），type=0（文件）直接 "unsupported"。
+   MP4 的音轨由 mplayer 解到 C 层音频框架（dac_sound → 内置 DAC），
+   在 Air1103 机型上实测不出声，所以补一份 .pcm 伴音兜底：
+   画面由 mplayer 照常放，声音由本模块流式播。
 
-2. 补声方案：MP4 旁边放一份同名 .pcm 伴音（16kHz/16bit/单声道小端），
-   画面由 mplayer 照常放，声音由本模块流式喂 Air1103，两边都是实时速度，
-   起播同刻启动即自然同步。
+   伴音本身也经 app/common/audio_route.lua 走同一套播放通路：
+   分路板（hw.audio.play_model="dac"）出内置 DAC，与 mplayer 音轨同一路；
+   非分路板仍出 Air1103 下行。分路板上若某支素材的 mplayer 音轨也出了声，
+   会与伴音叠成双声，删掉同名 .pcm 即可。
 
-   素材预转（素材目录下执行，fruit.mp4 → fruit.pcm）：
+2. 补声素材（16kHz/16bit/单声道小端）预转（素材目录下执行，fruit.mp4 → fruit.pcm）：
        ffmpeg -i fruit.mp4 -ac 1 -ar 16000 -f s16le fruit.pcm
 
 3. 暂停/续播：LuatOS 的文件句柄在协程间可以一直持有，断点就记在**没关掉的句柄**上，
@@ -44,6 +46,9 @@ if not ok_exaudio then exaudio = nil end
 -- exaudio.setup 入参统一组装（判 Air1103 要读 hw.audio.model）
 local audio_hw = require "audio_hw"
 
+-- 录音/播放分路：伴音跟着主播放通路走（分路板出内置 DAC，其余出 Air1103 下行）
+local audio_route = require "audio_route"
+
 -- 每批字节数（Air1103 下行 320B/10ms，取 10 帧一批）
 local CHUNK = 3200
 -- 喂数节奏：Air1103 按 32KB/s 消费，每批等 #d/32 毫秒防溢出
@@ -60,7 +65,7 @@ local st = {
 
 --[[
 @function available
-@summary 是否走 Air1103 流式 PCM 通路（非 Air1103 机型仍由 mplayer 自带音频出声）
+@summary 是否启用 .pcm 伴音补声（非 Air1103 机型仍由 mplayer 自带音频出声）
 @return boolean
 ]]
 function M.available()
@@ -152,7 +157,7 @@ function M.play(path)
     st.gen = st.gen + 1
     local gen = st.gen
     pcall(exaudio.play_stop, { type = 2 })
-    local ok, ret = pcall(exaudio.play_start, {
+    local ok, ret = audio_route.play_start({
         type = 2,
         cbfnc = function(event)
             if event == exaudio.PLAY_DONE and gen == st.gen then st.active = false end

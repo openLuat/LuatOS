@@ -17,6 +17,9 @@
         print(e["name"], e["type"], e["size"])
     print(dev.lsmount())              # [{'path': '/', 'fs': 'soc'}, ...]
     print(dev.fsstat("/"))            # {'total':.., 'used':.., 'block_size':.., 'fs':..}
+    print(dev.custom(b"ping"))        # CUSTOM(0x40) 自定义请求 -> 设备 on_custom 回调的返回
+    # 设备经 hzadb.custom_send() 主动推送的事件, 由构造参数 custom_handler(bytes) 接收:
+    #   dev = UserCmd("COM6", custom_handler=lambda data: print("event", data))
 """
 import hashlib
 import hmac
@@ -47,9 +50,11 @@ SUB_EXISTS = 10
 SUB_AUTH = 11
 SUB_LSMOUNT = 12
 SUB_FSSTAT = 13
+SUB_CUSTOM = 0x40
 
 FLAG_ERR = 0x01
 FLAG_MORE = 0x02
+FLAG_EVT = 0x04    # 设备主动上报的事件帧(仅 CUSTOM, seq=0); 请求/应答帧该位恒 0
 
 # HELLO 回应 caps 位
 CAP_AUTH_REQUIRED = 0x0001
@@ -193,7 +198,7 @@ class UserCmd:
                  wire_budget: int = 508,
                  control_timeout: float = 1.0, control_retries: int = 5,
                  data_timeout: float = 0.2, data_retries: int = 10,
-                 tx_pace: tuple = (32, 0.0002), log_handler=None):
+                 tx_pace: tuple = (32, 0.0002), log_handler=None, custom_handler=None):
         self.ser = serial.Serial(port, baud, timeout=0.05)
         # 运行模式要求 DTR/RTS 均为低, 否则打开端口会复位设备
         self.ser.dtr = False
@@ -223,6 +228,8 @@ class UserCmd:
         self.data_timeout = data_timeout
         self.data_retries = data_retries
         self.log_handler = log_handler      # 可选: fn(bytes) 处理普通日志帧
+        # 可选: fn(bytes) 处理 CUSTOM(0x40) 事件帧(设备 hzadb.custom_send 主动推送, flags.EVT=1)
+        self.custom_handler = custom_handler
         self.chunk = 90                     # hello 协商后更新
         self.caps = 0                       # hello 协商后更新 (bit0=需要鉴权)
         self._nonce = None                  # 最近一次 hello 的挑战 nonce
@@ -281,6 +288,14 @@ class UserCmd:
                 if cmd == SOC_CMD_USER_CMD and len(payload) >= 5 \
                         and payload[0] == UC_VERSION:
                     ver, _sub, flags, seq, body = parse_payload(payload)
+                    if _sub == SUB_CUSTOM and flags & FLAG_EVT:
+                        # 设备主动推送的 CUSTOM 事件帧: 不参与应答匹配, 交 custom_handler
+                        if self.custom_handler:
+                            try:
+                                self.custom_handler(body)
+                            except Exception:
+                                pass
+                        continue
                     errno = body[0] if (flags & FLAG_ERR and len(body) > 0) else 0
                     item = (errno, flags, body)
                     with self._cond:
@@ -491,6 +506,18 @@ class UserCmd:
         tl = body[12]
         fst = body[13:13 + tl].decode("utf-8", "ignore")
         return {"total": total, "used": used, "block_size": bs, "fs": fst}
+
+    def custom(self, data: bytes) -> bytes:
+        """CUSTOM(0x40) 自定义请求: 返回设备端 hzadb.on_custom 回调的回应体。
+        设备未注册回调抛 UserCmdError(E_NOSYS); 设备主动推送(hzadb.custom_send)
+        走构造参数 custom_handler, 不经本方法"""
+        data = bytes(data)
+        if len(data) > 1035:
+            # 下行 payload ≤ 1040B(5B固定头+body), 与 WRITE_DATA 同一预算(rx_cache1[1064])
+            raise ValueError("custom data too long (>1035)")
+        errno, flags, body = self._control(SUB_CUSTOM, data)
+        self._check(errno, flags, body, "custom")
+        return body
 
     # ---------- 数据类(滑动窗口) ----------
     def _build_write_frame(self, fd: int, offset: int, frag: bytes, seq: int = 0) -> bytes:

@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 0 | version | u8 | 协议版本，当前 `0x01` |
 | 1 | subcmd | u8 | 子指令号，见 §3 |
-| 2 | flags | u8 | bit0=ERR（回应为错误），bit1=MORE（LSDIR 还有后续页），bit2..7 保留，置 0 |
+| 2 | flags | u8 | bit0=ERR（回应为错误），bit1=MORE（LSDIR 还有后续页），bit2=EVT（设备主动上报的事件帧，仅 CUSTOM 使用，请求/应答帧恒 0），bit3..7 保留，置 0 |
 | 3..4 | seq | u16 | 命令序号，host 每请求递增（允许回绕） |
 | 5.. | body | u8[n] | 子指令特定字段 |
 
@@ -78,6 +78,7 @@ SOC 帧头为设备端 `soc_cmd_head_t`（`ms:u64 + address:u32 + len:u32 + cmd:
 | 14 | FILE_SHA1 | 控制 | path | u8 errno + 40B ASCII hex（sha1，固件 crypto.md_file 计算） |
 | 15 | MEMINFO | 控制 | （空） | u8 errno + 9×u32 LE：sys total/used/max、lua total/used/max、psram total/used/max（不可用填 0） |
 | 16 | NETSTAT | 控制 | （空） | u8 errno + u8 count，每适配器：u8 id + u8 flags(bit0=link, bit1=ready, bit2=napt) + u32 ipv4 LE |
+| 64(0x40) | CUSTOM | 控制 | 自定义数据（≤1035B） | u8 errno + 自定义数据（≤4096B） |
 
 > 通用库版本：14/15/16 由 `script/libs/hzadb.lua` 提供 —— `hzadb.fs()` 安装 FILE_SHA1、
 > `hzadb.mem()` 安装 MEMINFO、`hzadb.netdrv()` 安装 NETSTAT；demo 位于 olddemo/demo/hzadb，
@@ -85,6 +86,13 @@ SOC 帧头为设备端 `soc_cmd_head_t`（`ms:u64 + address:u32 + len:u32 + cmd:
 
 - mode：0=读，1=写（覆盖），2=追加，3=读写不截断（随机写场景，追加写建议用 3 并按 stat 的 size 定位偏移）
 - fd：设备分配的小整数句柄（1..4），OPEN 失败 fd 置 0
+- CUSTOM（0x40，协议栈内建，独占该子指令号）：设备端 `hzadb.on_custom(fn)` 注册接收回调，
+  回调返回字符串即作为回应体（errno=0），返回 `errno, body` 报错，未注册回 errno=8；
+  属控制类，重传不重复执行回调。设备也可经 `hzadb.custom_send(data)` **主动**发事件帧到 host：
+  subcmd=0x40、flags.EVT=1、seq=0，host 无需回应（事件帧不保证送达，无重传）；
+  host 按 EVT 位区分事件与应答（应答帧 EVT 恒 0、回显请求 seq）。
+  脚本 `reg_op` 的自定义号段为 0x41..0x7F（0x40 已独占，reg_op 会拒绝）。
+  CUSTOM 与其它业务指令一样受 AUTH 门控：未鉴权时回 errno=2
 - HELLO 回应 `caps`（u16, LE）：bit0=设备已配置鉴权 token（AUTH 必选），bit1..15 保留置 0。
   设备回应不足 9 字节（旧固件）时 host 视 caps=0，即设备不支持 AUTH。
   HELLO 同时重置设备的鉴权状态（authed=false）并记录 nonce 作为 AUTH 挑战

@@ -116,9 +116,8 @@ static int sdl_inf_init(struct luat_display *disp)
     return 0;
 }
 
-/* 视频层。layer_id 0 是 UI 层，不叠到画面上。解码线程只把 s_video_dirty 置 1。 */
+/* 视频层。layer_id 0 是 UI 层，不叠到画面上。 */
 static struct luat_display_layer_data s_video_layer;
-static volatile int s_video_dirty;
 
 static struct sdl_disp_userdata *sdl_ud(struct luat_display *disp)
 {
@@ -232,12 +231,10 @@ static int sdl_set_layer(struct luat_display_layer_data *layer_data)
             luat_display_sdl2_flush(ud->ctx);
         }
         memset(&s_video_layer, 0, sizeof(s_video_layer));
-        s_video_dirty = 0;
         return 0;
     }
 
     s_video_layer = *layer_data;
-    s_video_dirty = 0;
     if (ud != NULL && ud->ctx != NULL) {
         blit_video(disp, ud);
         luat_display_sdl2_flush(ud->ctx);
@@ -245,22 +242,13 @@ static int sdl_set_layer(struct luat_display_layer_data *layer_data)
     return 0;
 }
 
-/*解码线程调用。只做标记，真正贴图在主线程。*/
-static int sdl_refresh_layer(struct luat_display_layer_data *layer_data)
-{
-    (void)layer_data;
-    if (s_video_layer.enable) {
-        s_video_dirty = 1;
-    }
-    return 0;
-}
-
+/*解码线程写完整帧后由主线程贴图: 层一启用就每帧重贴，不再依赖脏标记。*/
 void luat_display_sdl_present_overlay(void)
 {
     struct luat_display *disp;
     struct sdl_disp_userdata *ud;
 
-    if (!s_video_dirty || !s_video_layer.enable) {
+    if (!s_video_layer.enable) {
         return;
     }
     disp = luat_display_get_default();
@@ -270,7 +258,6 @@ void luat_display_sdl_present_overlay(void)
     }
     blit_video(disp, ud);
     luat_display_sdl2_flush(ud->ctx);
-    s_video_dirty = 0;
 }
 
 static void *sdl_native(struct luat_display *disp, int which)
@@ -323,7 +310,6 @@ int luat_display_sdl_blit(struct luat_display *disp, int32_t x, int32_t y, int32
     if (present) {
         if (s_video_layer.enable) {
             blit_video(disp, ud);
-            s_video_dirty = 0;
         }
         luat_display_sdl2_flush(ud->ctx);
     }
@@ -373,7 +359,6 @@ struct luat_display_funcs sdl_funcs = {
     .inf_init = sdl_inf_init,
     .fb_flush = sdl_fb_flush,
     .set_layer = sdl_set_layer,
-    .refresh_layer = sdl_refresh_layer,
     .wait_vsync = sdl_wait_vsync,
     .pan_display = sdl_pan_display,
     .deinit = sdl_deinit,

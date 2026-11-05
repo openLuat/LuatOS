@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8605w_10i_v0
 @summary Air8605W 引擎主机 10寸1024x600 RGB屏 + WiFi(SPI2/6205) + Air1103语音(UART6) + NAND + USB摄像头 + 隔离RS485 + SD卡 配置文件（WiFi 版）
-@version 1.1
-@date    2026.11.03
+@version 1.2
+@date    2026.11.04
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -16,20 +16,23 @@
 2. 【串口分配】UART1 = 隔离485、UART2 = 人脸识别 UVC 摄像头串口、UART6 = Air1103 语音。
    「功能测试」里只有隔离 485，没有非隔离 485（那是 8605 的 UART1），
    但多一个「录音播放」项（Air1103，见下条）。
-3. 【音频 = Air1103 语音芯片】UART6（固定 2M 波特率），单芯片集成 MIC + 喇叭 + AEC，
-   exaudio 走 model="air1103" + audio_mode="new" 新框架（参考 module/Air8784/project/factory）。
-   AUDIOPA_EN = PIN55 = GPIO73 是 Air1103 的**供电脚**（非本地功放）：power_on 拉高常供电，
-   hw.audio 不写 pa_ctrl（air1103 模式 exaudio 跳过 PA 控制）。
+3. 【音频 = Air1103 录音 + 内置 DAC 播放】Air1103 挂 UART6（固定 2M 波特率），单芯片集成
+   MIC + 喇叭 + AEC，**只用来录音**（exaudio 走 model="air1103" + audio_mode="new" 新框架，
+   参考 module/Air8784/project/factory）；播放（TTS / 录音回放 / MP4 音轨）一律走芯片
+   内置 DAC，由 hw.audio.play_model = "dac" 声明。
+   录音与播放对 exaudio 的 model 要求互斥，通路切换由 app/common/audio_route.lua 按需
+   重跑 exaudio.setup 完成：录音前切 model="air1103"，播放前切 model="dac"。
+   AUDIOPA_EN = PIN55 = GPIO73：power_on 拉高常供电，hw.audio 不写 pa_ctrl
+   （写上后 audio_v2 会在播完把它拉低，若该脚兼作 Air1103 供电，语音芯片会跟着掉电）。
    语音芯片上电到就绪约 1.4s（参考工程 boot_ms=1500）；录音每次都会复位芯片，
    恢复 MIC 上行前的静音段由 periph_audio 按 2 秒补时长抵消。
-   Air1103 模式录音固定 PCM_16000（16kHz/16bit/单声道），回放走流式 PCM。
+   Air1103 模式录音固定 PCM_16000（16kHz/16bit/单声道）。
    exaudio.setup 的入参（含 uart_id/audio_mode）统一由 app/common/audio_hw.lua 组装，
    六个消费方（tts_app / llm_chat / factory_rec / settings_display_app / video_util /
    periph_audio）都走它，任何一处都不会再漏传 uart_id。
-   MP4 的声音走 mplayer → C 层音频框架，而 C 层没有 air1103 后端，本机型 MP4 必然无声：
-   要出声需在 MP4 同目录放同名 .pcm 伴音（16kHz/16bit/单声道），由 ui/video_util.lua
-   经 app/common/pcm_play.lua 流式喂 Air1103 补声，转法：
-   ffmpeg -i xx.mp4 -ac 1 -ar 16000 -f s16le xx.pcm
+   MP4 的声音走 mplayer → C 层音频框架 → 内置 DAC；若某支素材实测无声，可在 MP4 同目录
+   放同名 .pcm 伴音（16kHz/16bit/单声道）由 ui/video_util.lua 经 app/common/pcm_play.lua
+   补声，转法：ffmpeg -i xx.mp4 -ac 1 -ar 16000 -f s16le xx.pcm
 4. 【WiFi_RESET 先高维持低】PIN4 = GPIO64：上电先拉高 50ms 再拉低 120ms 使能
    （与 eng_1602_10i_v10421 的 airlink 模组复位写法一致）。
 5. LCD 为 RGB 10寸 1024×600（免序列四合一），走统一 RGB 驱动 lcd_display_rgb；
@@ -98,6 +101,8 @@ return {
             -- 写不在表里的档（如 1280x720）会起流失败、关流重开，首帧拖到 ~11s
             w = 800,
             h = 480,
+            -- 画面逆时针 90 度显示（airui.camera 只吃顺时针，270 = 逆时针 90）
+            rotation = 270,
             face = {
                 uart_id = 2,           -- 人脸模组串口 = UART2（115200/8N1，库内固定）
                 rst_pin = nil,         -- 无独立复位脚，留空
@@ -152,10 +157,11 @@ return {
         wdt = {
             pin = 57,               -- PIN47 = GPIO57 → 三极管 → WTDOG
         },
-        -- 音频: Air1103 外置语音芯片（UART6，内置 MIC/喇叭/AEC），见文件头第 3 条
+        -- 音频: Air1103 录音（UART6，内置 MIC）+ 内置 DAC 播放，见文件头第 3 条
         -- 供电脚 AUDIOPA_EN = GPIO73 已在 power_on 拉高常供电，此处不写 pa_ctrl
         audio = {
-            model = "air1103",        -- Air1103 语音芯片（exaudio 新框架 UART 驱动）
+            model = "air1103",        -- 录音通路：Air1103 语音芯片（exaudio 新框架 UART 驱动）
+            play_model = "dac",       -- 播放通路：芯片内置 DAC（TTS / 录音回放 / MP4 音轨）
             uart_id = 6,              -- Air1103 接 UART6（固定 2M 波特率）
             audio_mode = "new",       -- 拉起 audio_v2 新框架（air1103 模式必须）
             play_vol = 70,            -- 默认播放音量(0~100)，llm_chat / video_util / factory_rec 统一读

@@ -58,7 +58,7 @@
 | 24 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M3 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603M3_10inch_1024x600_000_4G_V000 | | |
 | 25 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M4 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M4_10inch_1024x600_000_4G_V000 | | |
 | 26 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M5 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M5_10inch_1024x600_000_4G_V000 | | |
-| 27 | Air1603 | 引擎主机 | Air8603W | 1024*600 9寸RGB触摸屏(HX8282)；WiFi(Airlink 601S, SPI5)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2)；SD卡；USB HID/UVC 二选一 | Engine_Air8607W_9inch_1024x600_000_V000 | | |
+| 27 | Air1603 | 引擎主机 | Air8603W | 1024*600 10寸RGB触摸屏(HX8282)；WiFi(Airlink 601S, SPI5)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2)；SD卡；USB HID/UVC 二选一 | Engine_Air8607W_10inch_1024x600_000_V000 | | |
 
 ---
 
@@ -170,9 +170,10 @@ return {
     -- 开关入口在桌面「功能测试」，需 features.other_func + ui.show_other_func 同时为 true
     peripherals = {
         { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
+        -- rotation 是画面旋转角，顺时针 0 / 90 / 180 / 270，不写不转；逆时针 90 度写 270
         -- 摄像头是人脸识别模组（AirCAMERA_1034）时把上一条换成下面这条（见 6.6）：
         -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
-        --   en_pin = 73, ready_delay = 200,
+        --   en_pin = 73, ready_delay = 200, rotation = 270,
         --   face = { uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15 } },
         { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65,
           power_pin = 14, baud = 9600 },
@@ -293,7 +294,7 @@ return {
 逐路列出；其余 type 一条配置一行，每条独立开关。
 `type = "audio"` 是录音播放测试点，硬件参数读 `config.hw.audio`（Air1103 走 UART6），
 没配 `hw.audio` 的机型 init 直接失败，列表里也不会出现「音频」组。
-有 `hw.audio` 却不配 `type = "audio"` 的机型（8603 十型号 / 8607 / 8607A）是只播放不录音，
+有 `hw.audio` 却不配 `type = "audio"` 的机型（8603 除 M1/W1 的八型号 / 8607 / 8607A）是只播放不录音，
 「功能测试」里同样没有「音频」组，声音走 TTS / MP4 那几条路（见 6.7）。
 `type = "uvc"` 条目带 `face` 子表表示这颗摄像头是人脸识别模组（AirCAMERA_1034）：USB 出 UVC 画面，
 UART 走人脸协议（录入 / 验证 / 删除全部 / 版本），两条通路共用 `en_pin` 供电，断电一起掉。
@@ -301,14 +302,17 @@ UART 走人脸协议（录入 / 验证 / 删除全部 / 版本），两条通路
 录入 / 验证前页面会把条目的 `en_pin` 断电重枚举一次（模组出完图停流后停在出图模式，
 录入指令不回包，见 `ui/uvc_preview_win.lua` 文件头「人脸识别边界」第 1 条），
 所以这颗摄像头的 `en_pin` 必须是可拉低的独立供电脚。
+`type = "uvc"` 条目的 `rotation` 是画面旋转角（顺时针 0 / 90 / 180 / 270，逆时针 90 度写 270），
+按模组实际安装方向填，不写不转。旋转在缩放前对帧生效，转 90 / 270 时帧的宽高互换，
+预览区与取档都跟着按旋转后的宽高比算（见 `ui/uvc_preview_win.lua` 的 `disp_dims`）。
 已配该段的型号：eng_8605_10i_v0（非隔离 485 一路）/
 eng_8605w_10i_v0 / eng_8605m_10i_v0（隔离 485 一路 + Air1103 录音播放）/
 eng_8605b_10i_v0（双隔离 485，UART1/UART6）/ eng_8607a_10i_v0 /
 eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，摄像头是人脸识别模组，见配置文件头第 12、14 条）/
 eng_8602_9i_wifi / eng_8602_9i_4g（双路 485，无独立供电脚）/
 eng_8603w1_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m1_10i_v0 ~ eng_8603m5_10i_v0
-（Air8603 十型号，UART1 / UART2 按出货型号分档，见配置文件头第 1 条）/
-eng_1603w_9i_v0（Air8607W 9寸：UART1 = 非隔离 485、UART2 = 人脸识别摄像头控制串口、
+（Air8603 十型号，UART1 / UART2 按出货型号分档，见配置文件头第 1 条；M1 / W1 另带 Air1103 录音播放）/
+eng_8607w_10i_v0（Air8607W 10寸：UART1 = 非隔离 485、UART2 = 人脸识别摄像头控制串口、
 UART13 通用串口；USB HID 与 UVC 二选一，见 6.8）。
 
 | 模块 | 文件 | 职责 |
@@ -331,34 +335,52 @@ UART13 通用串口；USB HID 与 UVC 二选一，见 6.8）。
 而 Air1103 实际挂在 UART6；`app/common/audio_hw.lua` 又把 `exaudio.setup`
 收口成只执行首次、`air1103.init` 也不换串口，所以**第一次 setup 的入参决定终身**。
 
+`hw.audio.play_model` 决定**播放**走哪条通路，只对 `model = "air1103"` 的板子有意义：
+录音固定走 Air1103，播放默认走芯片内置 DAC（不写就是 `"dac"`），显式写 `"air1103"` 退回单通路。
+两条通路对 `exaudio.model` 的要求互斥，`audio_route` 在录音前 / 播放前各重跑一次
+`exaudio.setup` 切过去；其它 `model`（es8311 / dac / 无音频）下 `enabled()` 恒为假，
+调用形态与没有该模块时完全一致，其它型号一个字节都不用动。
+
+音量与静音开关经全局消息 **`AUDIO_CFG_SYNC(level, mute)`**（`level` 0-100，`mute` = true 静音）
+同步，任何一处改动都收敛到 `audio_route.apply` 这一个生效点：它同时下发 `exaudio.vol`
+与 `audio_v2.soft_volume`。两者缺一不可——Air1103 机型上 `exaudio.vol` 只写语音芯片的音量寄存器，
+够不着内置 DAC 的数字增益，MP4 音轨的音量只能靠 `soft_volume` 控；反之一样。
+其它模块也可 `sys.publish(AUDIO_CFG_SYNC, vol, mute)` 驱动同一套生效逻辑。
+
 | 模块 | 文件 | 职责 |
 |------|------|------|
 | 参数组装 | `app/common/audio_hw.lua` | `hw.audio` → `exaudio.setup` 入参（必带 `uart_id`/`audio_mode`）+ 音量套用 |
-| MP4 伴音 | `app/common/pcm_play.lua` | 同名 `.pcm` 伴音流式喂 Air1103（16kHz/16bit/单声道） |
+| 录音/播放分路 | `app/common/audio_route.lua` | Air1103 机型录音走语音芯片、播放走内置 DAC，按需重跑 `exaudio.setup`；`AUDIO_CFG_SYNC` 的生效点 |
+| MP4 伴音 | `app/common/pcm_play.lua` | 同名 `.pcm` 伴音流式播（16kHz/16bit/单声道），跟着主播放通路走 |
 | TTS 播报 | `app/common/tts_app.lua` | 云端/本地文本播报（`type = 1`） |
 | 录音回放 | `drv/periph/periph_audio.lua` | 录音 + 流式回放（Air1103 录 PCM_16000） |
 
-**内置 DAC + 直驱 PA**（8603 十型号 / 8607 / 8607A / eng_1603w_9i_v0，无麦克风）：声音由芯片内置 DAC 播放，
-PA 功放使能脚直驱控制，`hw.audio` 写 `model = "dac"` + `pa_ctrl` + `pa_on_level`。
+**内置 DAC + 直驱 PA**（8603 除 M1/W1 的八型号 / 8607 / 8607A / eng_8607w_10i_v0，无麦克风）：
+声音由芯片内置 DAC 播放，PA 功放使能脚直驱控制，`hw.audio` 写 `model = "dac"` + `pa_ctrl` + `pa_on_level`。
 8603 / 8607 的功放是 HT6873、高电平使能：`pa_ctrl = 73`（AUDIOPA_EN）、`pa_on_level = 1`，
-`power_on` 里先拉低关断，起播时 `exaudio` 拉高，`pa_delay` 是起播后延时开 PA 的毫秒数。
+`power_on` 里先拉低关断，起播时拉高，`pa_delay` 是起播后延时开 PA 的毫秒数。
 MP4 的声音由 mplayer → C 层音频框架直接出，不需要 `.pcm` 伴音。
 
-**Air1103 语音芯片**（8605W / 8605M，UART6，固定 2M 波特率）单芯片集成 MIC + 喇叭 + AEC，
-`exaudio` 走 `model = "air1103"` + `audio_mode = "new"`，只认两种起播方式：
+**Air1103 语音芯片**（8605W / 8605M / 8603M1 / 8603W1，UART6，固定 2M 波特率）单芯片集成
+MIC + 喇叭 + AEC，`exaudio` 走 `model = "air1103"` + `audio_mode = "new"`，只认两种起播方式：
 `type = 1`（TTS 文本）与 `type = 2`（流式 PCM），`type = 0`（文件）直接返回 `unsupported`。
-所以 MJPG 的同名 `.mp3` 伴音在 Air1103 机型上也不成立，日志会明确提示并跳过。
+这几个型号「既接了 Air1103 也支持内置 DAC」，因此走分路：录音出 Air1103、播放出内置 DAC
+（`model = "air1103"` + `play_model = "dac"`），`type = 0` 在 DAC 通路上是合法的。
+只有显式写 `play_model = "air1103"` 退回单通路时，MJPG 的同名 `.mp3` 伴音才不成立，
+日志会明确提示并跳过。
 
-**MP4 伴音（Air1103 机型专用）**：MP4 的声音走 mplayer → C 层音频框架，而 C 层没有 air1103 后端，
-这类机型 MP4 必然无声，属于架构限制、配置解不了。补声办法是给 MP4 配一份**同目录同名**的
-`.pcm` 伴音（16kHz/16bit/单声道小端）：画面由 mplayer 照常放，声音由 `pcm_play` 流式喂 Air1103，
+**MP4 伴音（兜底）**：MP4 的声音走 mplayer → C 层音频框架 → 芯片内置 DAC，与 `play_model = "dac"`
+的播放通路同一路。个别素材实测不出声时，给它配一份**同目录同名**的 `.pcm` 伴音兜底
+（16kHz/16bit/单声道小端）：画面由 mplayer 照常放，声音由 `pcm_play` 流式播，
 起播同刻启动即自然同步；暂停记断点续播，循环重播从头，都跟着播放器走。素材预转：
 
 ```bash
 ffmpeg -i fruit.mp4 -ac 1 -ar 16000 -f s16le fruit.pcm
 ```
 
-没配同名 `.pcm` 不报错、只在日志里提示 `Air1103 机型 MP4 无声：缺同名 .pcm 伴音`。
+没配同名 `.pcm` 不报错；分路板只在日志里记「MP4 音轨走内置 DAC」，
+仍留在 Air1103 单通路的机型才提示缺伴音。伴音只在文件存在时启用，
+若某支素材的 mplayer 音轨本来就有声，两者会叠成双声，删掉同名 `.pcm` 即可。
 
 ### 6.8 USB HID 与 UVC 二选一
 
@@ -374,7 +396,7 @@ USB 键鼠与 UVC 摄像头共用同一个 USB Host 与同一条供电轨，同�
 | USB 键鼠 | `app/usb_hid/usb_hid_app.lua` | USB Host + Input 事件；VBUS 脚由 `hw.usb.vbus_gpio` 决定 |
 
 `hw.usb.vbus_gpio` 是 usb_hid_app 驱动的 USB 供电脚，缺省 `12`（8605 系列的 VBUS 与 5V_EN 同脚）。
-本板若把 GPIO12 拿去做别的信号（如 eng_1603w_9i_v0 的 Airlink RDY），必须写 `vbus_gpio = false`
+本板若把 GPIO12 拿去做别的信号（如 eng_8607w_10i_v0 的 Airlink RDY），必须写 `vbus_gpio = false`
 关掉这条驱动，否则会与该信号抢脚。
 
 ---
@@ -499,21 +521,24 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
 
 
 15. **「录音播放」报「录音失败：没有采到数据」/「未收到MIC数据」**：先看 `hw.audio` 的 `uart_id` 写没写对。
-    Air1103 挂在 UART6（8605W / 8605M），`exaudio` 内部缺省取 1，漏写或写错就会把语音芯片绑到
+    Air1103 挂在 UART6（8605W / 8605M / 8603M1 / 8603W1），`exaudio` 内部缺省取 1，漏写或写错就会把语音芯片绑到
     UART1（那是隔离 485），MIC 的上行帧一个都收不到。现在 `uart_id` / `audio_mode` 由
     `app/common/audio_hw.lua` 统一组装，六个消费方不会再漏传；还报没数据就查硬件侧：
-    `AUDIOPA_EN = GPIO73` 有没有拉高（`power_on` 里那条；8605W / 8605M 上它是 Air1103 的**供电脚**，
-    8603 / 8607 上同名脚是本地功放使能，两种含义别混，见 6.7）、
+    `AUDIOPA_EN = GPIO73` 有没有拉高（8605W / 8605M 上它是 Air1103 的**供电脚**，`power_on` 拉高常供电、
+    `hw.audio` 故意不写 `pa_ctrl`；8603（含 M1/W1）/ 8607 上同名脚是本地功放使能，`hw.audio` 照常写
+    `pa_ctrl`，两种含义别混，见 6.7）、
     UART6 的 TX/RX 有没有接反、语音芯片固件版本对不对。日志 `periph_audio 未收到MIC数据
     audio1 model: air1103 uart: 6` 里 `uart:` 是本次申请的串口号，跟实际不符说明配置没生效。
     另外 Air1103 每次录音都会复位芯片，约 1.4 秒后才恢复 MIC 上行，这段时间落盘是静音，
     驱动已按 2 秒补时长抵消，录出来的就是你要的时长。
 
-16. **8605W / 8605M 播放 MP4 没有声音**：这两款是 Air1103 语音芯片，喇叭只挂在 UART6 上，
-    而 MP4 的音轨走 mplayer → C 层音频框架，C 层没有 air1103 后端，出不来声。
-    要出声就给 MP4 配一份同目录同名的 `.pcm` 伴音（见 6.7「MP4 伴音」），没配就只有画面。
-    「功能测试 → 录音播放」能录能放说明音频通路本身是好的，MP4 无声只是这一条架构限制。
-    8603 / 8607 是内置 DAC + 直驱 PA，MP4 声音直接出，没有这条限制。
+16. **播放 MP4 没有声音**：这几款（8605W / 8605M / 8603M1 / 8603W1）是 Air1103 录音 + 内置 DAC 播放，
+    MP4 的音轨走 mplayer → C 层音频框架 → 内置 DAC，与 TTS / 录音回放共用一路。
+    先看「设置 → 亮度和声音」的音量：DAC 那一路的音量靠 `audio_v2.soft_volume` 控，
+    `AUDIO_CFG_SYNC` 会把它和 `exaudio.vol` 一起下发，任何一处没跟上都会表现为没声或音量不变。
+    素材本身没声就给 MP4 配一份同目录同名的 `.pcm` 伴音兜底（见 6.7「MP4 伴音」）。
+    录音与播放是两套通路，「功能测试 → 录音播放」录得到但 MP4 没声，问题在 DAC 侧而不是语音芯片侧。
+    8603 其余八型号 / 8607 是内置 DAC + 直驱 PA，MP4 声音直接出。
 
 17. **人脸识别摄像头测不出 / 录入一直「未检测到人脸」**：先分清是串口链路还是识别问题。
     点「版本」读得到模组固件版本，说明 UART2 链路与协议是通的；读不到先查接线

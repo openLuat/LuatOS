@@ -1,6 +1,6 @@
 --[[
-@module  config.eng_1603w_9i_v0
-@summary Air8607W 引擎主机 9寸1024x600 RGB屏(HX8282) + Airlink SPI WiFi(Air601S) + 非隔离RS485(UART1) + 人脸识别摄像头(UART2) + SD卡 + 内置DAC喇叭 + USB HID/UVC 二选一 配置文件（WiFi 版）
+@module  config.eng_8607w_10i_v0
+@summary Air8607W 引擎主机 10寸1024x600 RGB屏(HX8282) + Airlink SPI WiFi(Air601S) + 非隔离RS485(UART1) + 人脸识别摄像头(UART2) + SD卡 + 内置DAC喇叭 + USB HID/UVC 二选一 配置文件（WiFi 版）
 @version 1.0
 @date    2026.11.03
 @author  江访
@@ -31,7 +31,7 @@
 5. 【SD 卡】SPI1 总线，SPI_CS0 = GPIO8，SD_EN = GPIO74，SPI 时钟 20MHz。
    共享 SPI 总线的片选脚（SPI5 的 GPIO56、SPI1 的 GPIO8）在 power_on 里最先拉高，
    免得上电瞬间从设备被误选中把总线拉挂。
-6. 【LCD】HX8282 RGB 9寸 1024×600（免序列四合一，无 SPI 初始化引脚），走统一 RGB 驱动
+6. 【LCD】HX8282 RGB 10寸 1024×600（免序列四合一，无 SPI 初始化引脚），走统一 RGB 驱动
    lcd_display_rgb；LCD_DISP = GPIO15 作 pin_rst；时序用 1024×600 生态实测组
    hbp=140 hspw=20 hfp=160 vbp=20 vspw=3 vfp=12 @50MHz。
    背光 PWM3 调光，频率 10kHz，开机亮度 100；默认字号 20。
@@ -70,7 +70,7 @@
 
 return {
     -- ===== 顶层信息 =====
-    name = "Engine_Air8607W_9inch_1024x600_000_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{硬件类型}_{硬件版本}
+    name = "Engine_Air8607W_10inch_1024x600_000_V000", -- 项目命名: {类型}_{芯片}_{尺寸}_{分辨率}_{硬件类型}_{硬件版本}
     chip = "Air1603", -- 主控芯片平台
     baseboard = "Air8603W", -- 底板型号
 
@@ -136,7 +136,7 @@ return {
 
     -- ===== 硬件配置 =====
     hw = {
-        -- 屏幕: HX8282 RGB 9寸 1024×600（免序列四合一，无需 SPI 初始化引脚）；背光 PWM3 调光
+        -- 屏幕: HX8282 RGB 10寸 1024×600（免序列四合一，无需 SPI 初始化引脚）；背光 PWM3 调光
         lcd = {
             model = "lcd_display_rgb", -- 本工程统一 RGB 驱动（内部走 display.init）
             params = {
@@ -154,7 +154,7 @@ return {
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
             need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
-            screen_size = 9.0,                -- 9寸屏
+            screen_size = 10.0,                -- 10寸屏
             font = {
                 size = 20,               -- 高分屏用 20 号字
             },

@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8603m1_10i_v0
-@summary Air8603M1 引擎主机 10寸1024x600 RGB屏 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + UVC摄像头(UART2控制串口) + SD卡 配置文件（4G 版）
-@version 1.1
-@date    2026.11.03
+@summary Air8603M1 引擎主机 10寸1024x600 RGB屏 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + UVC摄像头(UART2控制串口) + Air1103语音(UART6) + SD卡 配置文件（4G 版）
+@version 1.3
+@date    2026.11.04
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -18,12 +18,20 @@
      W5 / M5  UART1 = TTL 串口   UART2 = 隔离485
    本文件是 Air8603M1：UART1 = 隔离485、UART2 = UVC 摄像头控制串口。
    同一串口划分的 WiFi 出货型号见 config/eng_8603w1_10i_v0.lua，两者只差 network / features / ui 三处。
-2. 【音频 = 内置 DAC + 直驱 PA】本系列不出 Air1103 语音芯片版本（UART6 空闲）。
-   声音由芯片内置 DAC 播放，PA 功放使能脚直驱控制：
-   AUDIOPA_EN = GPIO73，HT6873 高电平使能（pa_on_level = 1），
-   power_on 初始拉低关断，起播时 exaudio 拉高。
-   本板无麦克风，不开录音相关功能；peripherals 不配 type="audio"（那是「录音播放」测试页），
-   故「功能测试」里没有「音频」组。播放由 ui/video_util.lua 读 hw.audio 出声。
+2. 【音频 = Air1103 录音 + 内置 DAC 播放】本板既接了 Air1103 语音芯片（UART6，内置
+   MIC + 喇叭 + AEC，参考 module/Air8784/project/factory）也支持芯片内置 DAC：
+   录音走 Air1103，播放（TTS / 录音回放 / MP4 音轨）走内置 DAC，由
+   hw.audio.model = "air1103" + play_model = "dac" 声明。
+   两者对 exaudio 的 model 要求互斥，通路切换由 app/common/audio_route.lua 按需
+   重跑 exaudio.setup 完成：录音前切 model="air1103"，播放前切 model="dac"。
+   PA 功放使能脚 AUDIOPA_EN = GPIO73，HT6873 高电平使能（pa_on_level = 1），
+   power_on 初始拉低关断，起播时 audio_v2 拉高、播完回落。
+   Air1103 录音固定 PCM_16000（16kHz/16bit/单声道）；peripherals 的 type="audio"
+   是「录音播放」测试页（走 hw.audio，不占 uart_id）。播放由 ui/video_util.lua 出声。
+   exaudio.setup 的入参统一由 app/common/audio_hw.lua 组装，各消费方都走它。
+   MP4 的声音走 mplayer → C 层音频框架 → 内置 DAC；若某支素材实测无声，可在 MP4 同目录
+   放同名 .pcm 伴音（16kHz/16bit/单声道）由 ui/video_util.lua 经 app/common/pcm_play.lua
+   补声，转法：ffmpeg -i xx.mp4 -ac 1 -ar 16000 -f s16le xx.pcm
 3. 【串口分配细则】UART2 是摄像头 / 人脸识别模组的控制串口，画面走 USB，两者互不占用。
    GPIO58 的归属见文件头第 5 条。
 4. 【RS485 供电域与方向脚】485_EN = GPIO64 是 485 功能总供电，power_on 拉高使能，之后常供电不回落；
@@ -107,6 +115,8 @@ return {
             -- 写不在表里的档（如 1280x720）会起流失败、关流重开，首帧拖到 ~11s
             w = 800,
             h = 480,
+            -- 画面逆时针 90 度显示（airui.camera 只吃顺时针，270 = 逆时针 90）
+            rotation = 270,
             face = {
                 uart_id = 2,           -- 人脸模组串口 = UART2（115200/8N1，库内固定）
                 rst_pin = nil,         -- 无独立复位脚，留空
@@ -115,6 +125,7 @@ return {
             }
         },
         { type = "rs485", id = "485_1", name = "隔离485",   uart_id = 1, de_pin = 65, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN1 = GPIO65，供电域 485_EN
+        { type = "audio", id = "audio1", name = "录音播放",   record_seconds = 5 }, -- Air1103（UART6），走 hw.audio
     },
 
     -- ===== 硬件配置 =====
@@ -160,21 +171,28 @@ return {
         wdt = {
             pin = 57,               -- PIN47 = GPIO57 → 三极管 → WTDOG
         },
-        -- 音频: 芯片内置 DAC 播放 + HT6873 功放（AUDIOPA_EN = GPIO73 直驱，无麦克风）
+        -- 音频: Air1103 录音（UART6，内置 MIC）+ 内置 DAC 播放 + HT6873 功放，见文件头第 2 条
         audio = {
-            model = "dac",          -- 内置 DAC 模式
+            model = "air1103",      -- 录音通路：Air1103 语音芯片（exaudio 新框架 UART 驱动）
+            play_model = "dac",     -- 播放通路：芯片内置 DAC（TTS / 录音回放 / MP4 音轨）
+            uart_id = 6,            -- Air1103 接 UART6（固定 2M 波特率；本板 UART1/2/3 已占用）
+            audio_mode = "new",     -- 拉起 audio_v2 新框架（air1103 模式必须）
             pa_ctrl = 73,           -- PA(功放)使能引脚 = GPIO73（AUDIOPA_EN）
             pa_on_level = 1,        -- 高电平使能功放（HT6873）
             dac_delay = 6,          -- DAC 启动前冗余时间（旧框架用）
             pa_delay = 10,          -- PA 在播放开始后延迟打开的时间(ms)，透传 config_pa_power_ctrl()
             play_vol = 70,          -- 默认播放音量(0~100)
+            mic_vol = 70,           -- 默认录音音量(0~100)
+            record_format = "PCM_16000", -- Air1103 仅支持 PCM_16000（16kHz/16bit/单声道）
+            max_record_time = 30,   -- 最长录音时长(秒)，到时自动停止
         },
     },
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
         net_4g = true,      -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 1 条
-        speaker = true,     -- 启用喇叭（内置 DAC + HT6873 功放）
+        speaker = true,     -- 启用喇叭（Air1103 内置功放 + 内置 DAC / HT6873 功放）
+        mic = true,         -- 启用麦克风（Air1103 内置 MIC）
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
         usb_camera = true,  -- 启用 USB 摄像头（UVC）—— 入口在「功能测试」
         rs485 = true,       -- 启用 RS485 接口

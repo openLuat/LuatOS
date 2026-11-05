@@ -1,8 +1,8 @@
 --[[
 @module  uvc_preview_win
 @summary 摄像头测试页（UVC 预览 / 拍照 / 录像 + 人脸识别录入 / 验证 / 删除全部，TabOS 深色玻璃态）
-@version 1.7
-@date    2026.11.02
+@version 1.8
+@date    2026.11.04
 @author  江访
 @usage
 订阅: OPEN_UVC_PREVIEW_WIN(id)
@@ -33,6 +33,8 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
    保证 excamera 的双帧缓冲与固件解码缓冲都按真实尺寸分配。
 2. airui.camera 的两块显示缓冲按预览区大小分配（视口 w×h×2 字节 × 2 块，与 fit 无关），
    预览区因此按剩余内存收口（见 preview_size），与源分辨率同比、居中于黑底框内。
+   画面旋转（uvc 条目的 rotation，顺时针 0/90/180/270）在缩放前对帧生效，转 90/270
+   时帧的宽高互换，取档与预览区都按旋转后的宽高比来（见 disp_dims）。
    这两块走 luat_heap_malloc，恒定落在 sys/SRAM 池，把 psram 一起算进来会高估，
    故预算只认 rtos.meminfo("sys")，余量紧张时再用 zbuff.HEAP_SRAM 真分两块探一次
    （见 probe_fb_ok；余量宽裕就跳过，那两次大 zbuff 各触发一次强制 GC）。
@@ -143,6 +145,10 @@ local CLOSE_GRACE = 300
 
 -- config.peripherals 条目里的首选分辨率（不写则用上面的默认档）
 local PREF_W, PREF_H = nil, nil
+
+-- 画面旋转角，取 uvc 条目的 rotation：顺时针 0/90/180/270（airui.camera 只吃顺时针，
+-- 逆时针 90 度写 270）。不写不转
+local cam_rotation = 0
 
 -- 画面适配模式（airui.camera 的 set_fit 取值），按此顺序循环
 local FIT_ORDER = { "contain", "cover", "center", "stretch" }
@@ -396,6 +402,14 @@ end
 -- ==================== UVC 档位自适应 ====================
 
 --[[
+旋转在缩放前对帧生效（airui.camera 的 rotation），转 90/270 时帧的宽高互换。
+取档与预览区都按旋转后的宽高比算，否则视口和画面对不上（适应留黑边、铺满裁画面）。]]
+local function disp_dims(w, h)
+    if cam_rotation == 90 or cam_rotation == 270 then return h, w end
+    return w, h
+end
+
+--[[
 枚举摄像头真正支持的 MJPEG 档位，选一档回来：
 首选 config 指定的 w/h，其次取能盖住预览组件、像素数不超过 MAX_PIXELS 的最小档，
 再退预算内最大档，都没有就取最小档。
@@ -421,7 +435,9 @@ local function pick_uvc_mode(app_id)
                     if PREF_W == w and PREF_H == h then exact = m end
                     if m.px <= MAX_PIXELS then
                         if not best or m.px > best.px then best = m end
-                        if widget_w > 0 and w >= widget_w and h >= widget_h
+                        -- 能不能盖住预览区，按旋转后的宽高比算（见 disp_dims）
+                        local cw, ch = disp_dims(w, h)
+                        if widget_w > 0 and cw >= widget_w and ch >= widget_h
                             and (not cover or m.px < cover.px) then
                             cover = m
                         end
@@ -476,10 +492,11 @@ local function probe_fb_ok(w, h)
     return true
 end
 
--- 预览区尺寸：与源分辨率同比缩进黑底框，再按显示缓冲预算收口
+-- 预览区尺寸：与旋转后的源分辨率同比缩进黑底框，再按显示缓冲预算收口
 local function preview_size(avail_w, avail_h)
-    local src_w = SENSOR_W > 0 and SENSOR_W or 16
-    local src_h = SENSOR_H > 0 and SENSOR_H or 9
+    -- 视口按旋转后的源宽高比算（见 disp_dims）
+    local src_w, src_h = disp_dims(SENSOR_W > 0 and SENSOR_W or 16,
+                                   SENSOR_H > 0 and SENSOR_H or 9)
     local w, h = math.floor(avail_w), math.floor(avail_h)
     local scale = math.min(w / src_w, h / src_h)
     w, h = math.floor(src_w * scale), math.floor(src_h * scale)
@@ -651,7 +668,7 @@ local function create_widget()
     local okw, wdg = pcall(airui.camera, {
         parent = main_container,
         x = x, y = y, w = w, h = h,
-        fit = fit_mode, auto_start = false,
+        fit = fit_mode, rotation = cam_rotation, auto_start = false,
     })
     cam_widget = okw and wdg or nil
     widget_registered = false
@@ -660,7 +677,12 @@ local function create_widget()
         update_status("本固件不含 airui.camera 组件，无法显示画面")
         return false
     end
-    log.info("uvc_preview_win", "预览组件", w, "x", h, "源", SENSOR_W, "x", SENSOR_H)
+    -- 旋转两个入口都试：建参数 rotation 是文档写法，set_rotation 兜老固件不认建参数的情况
+    if cam_rotation ~= 0 and type(cam_widget.set_rotation) == "function" then
+        pcall(cam_widget.set_rotation, cam_widget, cam_rotation)
+    end
+    log.info("uvc_preview_win", "预览组件", w, "x", h, "源", SENSOR_W, "x", SENSOR_H,
+        "旋转", cam_rotation)
     widget_w, widget_h = w, h
     return true
 end
@@ -690,7 +712,8 @@ local function on_connected(mode)
     -- 预览行只归 UVC 页签：人脸页签的状态行留给录入/验证结果，不被重连事件盖掉
     if face_tab == TAB_UVC then
         update_status("预览中 " .. SENSOR_W .. "x" .. SENSOR_H ..
-                      " | 适配 " .. (FIT_TITLE[fit_mode] or fit_mode))
+                      " | 适配 " .. (FIT_TITLE[fit_mode] or fit_mode) ..
+                      (cam_rotation > 0 and (" | 旋转" .. cam_rotation) or ""))
     end
 end
 
@@ -1394,6 +1417,9 @@ local function on_create()
     end
     if entry then
         if not periph_id then periph_id = entry.id end
+        -- 画面旋转角只认 0/90/180/270，其余按不转处理（同 airui.camera 的约定）
+        local r = entry.rotation
+        cam_rotation = (r == 90 or r == 180 or r == 270) and r or 0
         if entry.max_pixels and entry.max_pixels > 0 then
             MAX_PIXELS = entry.max_pixels
         end

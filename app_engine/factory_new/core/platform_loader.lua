@@ -53,12 +53,12 @@ require ("eng_8601_7i_wifi")     -- Air8601 7寸 1024×600 HX8282 + Airlink UART
 require ("eng_8601_7i_4g")       -- Air8601 7寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + 人脸识别摄像头 + RS485（4G 版）
 require ("eng_8602_9i_wifi")     -- Air8602 9寸 1024×600 HX8282 + Airlink UART WiFi(6205) + SD + UVC + 双RS485（WiFi 版）
 require ("eng_8602_9i_4g")       -- Air8602 9寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + 双RS485（4G 版）
-require ("eng_8603w1_10i_v0")      -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w1_10i_v0")      -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC(UART2控制串口) + Air1103语音(UART6) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603w2_10i_v0")      -- Air8603W2 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603w3_10i_v0")      -- Air8603W3 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603w4_10i_v0")      -- Air8603W4 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603w5_10i_v0")      -- Air8603W5 10寸 1024×600 + Airlink UART WiFi(6205) + TTL串口(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
-require ("eng_8603m1_10i_v0")      -- Air8603M1 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m1_10i_v0")      -- Air8603M1 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + UVC(UART2控制串口) + Air1103语音(UART6) + 喇叭(HT6873) + SD（4G）
 require ("eng_8603m2_10i_v0")      -- Air8603M2 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（4G）
 require ("eng_8603m3_10i_v0")      -- Air8603M3 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
 require ("eng_8603m4_10i_v0")      -- Air8603M4 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
@@ -69,7 +69,7 @@ require ("eng_8605m_10i_v0")    -- Air8605M 10寸 1024×600 + Airlink UART 4G(78
 require ("eng_8605b_10i_v0")    -- Air8605B 10寸 1024×600 + Airlink UART 4G(780ER2) + NAND + UVC + 双隔离RS485(UART1/UART6)（4G 版）
 require ("eng_8607_10i_v0")      -- Air8607 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
 require ("eng_8607a_10i_v0")     -- Air8607A 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + UVC，无 SD（无网络）
-require ("eng_1603w_9i_v0")      -- Air8607W 9寸 1024×600 + Airlink SPI WiFi(Air601S,SPI5) + 非隔离RS485(UART1) + 人脸识别摄像头(UART2) + 喇叭(内置DAC) + SD + USB HID/UVC 二选一（WiFi 版）
+require ("eng_8607w_10i_v0")      -- Air8607W 10寸 1024×600 + Airlink SPI WiFi(Air601S,SPI5) + 非隔离RS485(UART1) + 人脸识别摄像头(UART2) + 喇叭(内置DAC) + SD + USB HID/UVC 二选一（WiFi 版）
 
 -- EVB turnkey 开发板系列
 require ("evb_8101_5i_v0")        -- Air8101 5寸 800×480 H050IWV
@@ -149,7 +149,7 @@ local PROJECT_MAP = {
     ["Engine_Air8605B_10inch_1024x600_000_4G_V000"]  = "eng_8605b_10i_v0",
     ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
     ["Engine_Air8607A_10inch_1024x600_000_V000"]  = "eng_8607a_10i_v0",
-    ["Engine_Air8607W_9inch_1024x600_000_V000"]   = "eng_1603w_9i_v0",
+    ["Engine_Air8607W_10inch_1024x600_000_V000"]   = "eng_8607w_10i_v0",
     -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
     --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
     -- 8605 系列的旧名指向各自的后继型号：8605 由 WiFi+4G 双网改回 4G 单网并补 _4G 后缀，

@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8603w2_10i_v0
 @summary Air8603W2 引擎主机 10寸1024x600 RGB屏 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + UVC摄像头(UART2控制串口) + SD卡 配置文件（WiFi 版）
-@version 1.1
-@date    2026.11.03
+@version 1.2
+@date    2026.11.04
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -104,6 +104,8 @@ return {
             -- 写不在表里的档（如 1280x720）会起流失败、关流重开，首帧拖到 ~11s
             w = 800,
             h = 480,
+            -- 画面逆时针 90 度显示（airui.camera 只吃顺时针，270 = 逆时针 90）
+            rotation = 270,
             face = {
                 uart_id = 2,           -- 人脸模组串口 = UART2（115200/8N1，库内固定）
                 rst_pin = nil,         -- 无独立复位脚，留空

@@ -62,6 +62,8 @@
 local exaudio = require "exaudio"
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
+-- 录音/播放分路：Air1103 机型录音走语音芯片、播放走内置 DAC（其余机型原样转发 exaudio）
+local audio_route = require "audio_route"
 
 -- ==================== 常量 ====================
 
@@ -424,7 +426,7 @@ local function rec_start()
         end
         cur_path = rec_path
         rec_fp = fp
-        local ok = exaudio.record_start({
+        local ok = audio_route.record_start({
             format = rec_exformat(),
             time = 0,          -- 0 = 无限录音，由本模块计时器控制最长时长
             path = rec_data_cb,
@@ -457,7 +459,7 @@ local function rec_start()
     end
     -- 新录音用新文件名，天然避免文件冲突
     cur_path = next_rec_path()
-    local ok = exaudio.record_start({
+    local ok = audio_route.record_start({
         format = rec_exformat(),
         time = max_time,
         path = cur_path,

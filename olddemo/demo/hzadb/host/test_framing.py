@@ -15,8 +15,10 @@ from luat_usercmd import (
     E_DENIED,
     E_IO,
     FLAG_ERR,
+    FLAG_EVT,
     SOC_CMD_USER_CMD,
     SUB_CLOSE,
+    SUB_CUSTOM,
     SUB_OPEN,
     SUB_READ,
     SUB_STAT,
@@ -184,7 +186,86 @@ def test_reader_frame_classification(monkeypatch):
         dev._t.join(timeout=2.0)
 
 
-def test_write_ack_offset_parse():
+def test_custom_request_response(monkeypatch):
+    """custom(): 发 subcmd=0x40 控制帧, 按 seq 匹配回应并返回回应 body"""
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE")
+    try:
+        written = bytearray()
+        orig_write = dev.ser.write
+        dev.ser.write = lambda data: (written.extend(data), orig_write(data))[1]
+        result = []
+        t = threading.Thread(target=lambda: result.append(dev.custom(b"ping")), daemon=True)
+        t.start()
+        # 等请求帧发完(tx_pace 分 32B 块), 用 FrameParser 解出 seq
+        parser, frames, fed = FrameParser(), [], 0
+
+        def _got_request():
+            nonlocal fed
+            if fed < len(written):
+                parser.feed(bytes(written[fed:]))
+                fed = len(written)
+            frames.extend(parser.poll())
+            return frames
+
+        assert _wait_until(_got_request), "custom 请求帧未发出"
+        cmd, _addr, payload = frames[0]
+        _ver, subcmd, flags, seq, body = parse_payload(payload)
+        assert (cmd, subcmd, flags, body) == (SOC_CMD_USER_CMD, SUB_CUSTOM, 0, b"ping")
+        # 模拟设备 on_custom 回调返回 "pong"
+        dev.ser.feed(build_frame(SOC_CMD_USER_CMD, 0, pack_payload(SUB_CUSTOM, 0, seq, b"pong")))
+        t.join(timeout=2.0)
+        assert result == [b"pong"]
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+def test_custom_event_routing(monkeypatch):
+    """CUSTOM 事件帧(flags.EVT=1, seq=0)进 custom_handler, 不匹配任何 waiter;
+    普通 CUSTOM 应答(EVT=0)仍按 seq 匹配, 不进 custom_handler"""
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    events = []
+    dev = UserCmd("COM_FAKE", custom_handler=events.append)
+    try:
+        # seq=0 上挂 waiter: 证明同 seq 的 EVT 帧也不会被误当应答
+        w = dev._register(0)
+        dev.ser.feed(build_frame(SOC_CMD_USER_CMD, 0,
+                                 pack_payload(SUB_CUSTOM, FLAG_EVT, 0, b"evt1")))
+        assert _wait_until(lambda: events == [b"evt1"]), "EVT 帧未进 custom_handler"
+        assert not w[0].is_set(), "EVT 帧误唤醒 waiter"
+        dev._unregister(0)
+
+        # 普通 CUSTOM 应答(EVT=0): 唤醒 waiter, 不进 custom_handler
+        seq = 0x4242
+        w2 = dev._register(seq)
+        dev.ser.feed(build_frame(SOC_CMD_USER_CMD, 0,
+                                 pack_payload(SUB_CUSTOM, 0, seq, b"resp")))
+        assert w2[0].wait(2.0), "CUSTOM 应答未唤醒 waiter"
+        assert w2[1] == (0, 0, b"resp")
+        dev._unregister(seq)
+        assert events == [b"evt1"], "CUSTOM 应答误入 custom_handler"
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+def test_custom_rejects_oversize(monkeypatch):
+    """custom() 请求体超 1035B(下行 payload 预算)直接 ValueError; 边界 1035B 放行"""
+    monkeypatch.setattr(luat_usercmd.serial, "Serial", _FakeSerial)
+    dev = UserCmd("COM_FAKE", control_timeout=0.05, control_retries=1)
+    try:
+        with pytest.raises(ValueError):
+            dev.custom(b"x" * 1036)
+        # 边界值放行: 对端不应答按超时抛 UserCmdError(证明帧已发出, 非参数拒绝)
+        with pytest.raises(UserCmdError):
+            dev.custom(b"x" * 1035)
+    finally:
+        dev._alive = False
+        dev._t.join(timeout=2.0)
+
+
+
     """WRITE_DATA 成功回应 body = u8 fd + u32 offset; 截断的 body 返回 None"""
     assert write_ack_offset(bytes([1]) + struct.pack("<I", 476)) == 476
     assert write_ack_offset(bytes([1]) + struct.pack("<I", 0)) == 0

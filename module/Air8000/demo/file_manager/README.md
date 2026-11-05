@@ -35,15 +35,16 @@ assert(hzadb.start({deferred = true}))
 
 原有业务可以继续运行，文件服务不要求进入资源维护模式。业务与电脑同时访问同一个文件时，由业务决定何时允许修改；可通过 `hzadb.fs({path_guard = function(path, write) ... end})` 限制特定目录，未安装守卫时不额外限制普通目录。
 
-`log.set_usercmd_cb()` 是单一回调入口。启动 hzadb 后，不要再用另一个回调覆盖它；自定义数据可以注册独立子指令，与标准文件指令共用同一个通道：
+`log.set_usercmd_cb()` 是单一回调入口。启动 hzadb 后，不要再用另一个回调覆盖它；自定义数据走协议栈内建的 CUSTOM(0x40) 通道，与标准文件指令共用同一个通道：
 
 ```lua
-hzadb.reg_op(0x40, function(body)
-    return hzadb.E_OK, body -- 二进制回显；电脑端仍须使用 usercmd 帧格式。
+hzadb.on_custom(function(data)
+    return data -- 二进制回显；电脑端仍须使用 usercmd 帧格式。返回 errno, body 可报错。
 end)
+hzadb.custom_send("event") -- 设备主动推送：对端按 subcmd=0x40 + flags.EVT 事件帧接收
 ```
 
-标准文件指令号保持不变，自定义号段为 `0x40..0x7F`。HELLO 开始新会话时会关闭上次连接遗留的文件句柄；关闭或落盘失败会报告错误。文件读片长最多4096字节，写片长通过握手协商，EC718上限为1024字节。
+标准文件指令号保持不变；CUSTOM(0x40) 为协议栈内建并独占，`hzadb.reg_op` 的自定义号段为 `0x41..0x7F`。HELLO 开始新会话时会关闭上次连接遗留的文件句柄；关闭或落盘失败会报告错误。文件读片长最多4096字节，写片长通过握手协商，EC718上限为1024字节。
 
 ## 当前实现边界
 

@@ -5,7 +5,8 @@
 通过日志口扩展用户指令, 无需额外 UART 即可收发文件、查询设备状态。
 协议具备: 版本号、命令序号、滑动窗口 + 逐片确认 + 自动重传、分片大小协商、
 open/read/write/close 文件模型、可选 HMAC 挑战应答鉴权、挂载点枚举(LSMOUNT)、
-文件系统空间查询(FSSTAT)、文件指纹(FILE_SHA1)、内存状态(MEMINFO)、网络状态(NETSTAT)。
+文件系统空间查询(FSSTAT)、文件指纹(FILE_SHA1)、内存状态(MEMINFO)、网络状态(NETSTAT)、
+内建自定义数据通道(CUSTOM, 0x40)。
 
 依赖:
 - log.usercmd_write / log.set_usercmd_cb (固件需打开 LUAT_USE_LOG_USER_CMD)
@@ -26,6 +27,12 @@ open/read/write/close 文件模型、可选 HMAC 挑战应答鉴权、挂载点�
     hzadb.start()       -- 接管日志口, 返回 false 表示固件未开启 LUAT_USE_LOG_USER_CMD
     hzadb.version()     -- 库版本号, 年月日时分, 例如 "202609221555"
 
+CUSTOM(0x40) 内建自定义数据通道, 不改本文件即可扩展自定义功能:
+    hzadb.on_custom(function(data)      -- 对端发来 0x40 时收到 data
+        return "reply:" .. data         -- 返回字符串即作为回应; 返回 errno, body 可报错
+    end)
+    hzadb.custom_send("event data")     -- 设备主动向对端推送(flags.EVT 事件帧)
+
 处理函数约定: fn(body) -> errno, resp_body, resp_flags(可选)
   body       请求体(不含5字节固定头)
   errno      0=成功, 非0=错误(库自动置 flags.ERR)
@@ -36,7 +43,7 @@ open/read/write/close 文件模型、可选 HMAC 挑战应答鉴权、挂载点�
 local hzadb = {}
 
 --- 库版本号, 年月日时分, 与协议版本(PROTO_VERSION)无关
-hzadb.VERSION = "202610291800"
+hzadb.VERSION = "202611051135"
 
 local PROTO_VERSION = 0x01
 -- 单帧数据区上限, 必须与固件 am_log.c 的 rx 缓冲配套:
@@ -51,7 +58,13 @@ hzadb.PROTO_VERSION = PROTO_VERSION
 hzadb.MAX_CHUNK = MAX_CHUNK
 hzadb.MAX_READ = MAX_READ
 
--- 子指令号 -> 处理函数名 (0=HELLO 与 11=AUTH 为协议栈内建, 不在此表)
+-- CUSTOM 子指令号, 协议栈内建(不经 reg_op), 独占 0x40; reg_op 自定义号段为 0x41..0x7F
+local SUB_CUSTOM = 0x40
+hzadb.SUB_CUSTOM = SUB_CUSTOM
+-- flags bit2=EVT: 设备主动上报的事件帧标识(仅 CUSTOM, seq=0); 请求/应答帧该位恒 0
+local FLAG_EVT = 0x04
+
+-- 子指令号 -> 处理函数名 (0=HELLO、11=AUTH 与 0x40=CUSTOM 为协议栈内建, 不在此表)
 local SUB_NAMES = {
     [1] = "open",
     [2] = "close",
@@ -119,19 +132,65 @@ end
 
 --- 注册业务处理函数
 -- @string name 操作名: open/close/write/read/lsdir/mkdir/rmdir/remove/stat/exists/lsmount/fsstat/file_sha1/meminfo/netstat
--- 也可传入 0x40..0x7F 数字子指令，供自定义业务与标准文件管理共用同一接收入口。
+-- 也可传入 0x41..0x7F 数字子指令，供自定义业务与标准文件管理共用同一接收入口。
+-- (0x40 为协议栈内建 CUSTOM，独占，请用 hzadb.on_custom / hzadb.custom_send)
 -- @function fn 处理函数, 签名 fn(body) -> errno, resp_body, resp_flags(可选)
 -- @return table 返回 hzadb 自身, 便于链式调用
 -- @usage
--- hzadb.reg_op(0x40, function(body)
+-- hzadb.reg_op(0x41, function(body)
 --     return hzadb.E_OK, "hello"
 -- end)
 function hzadb.reg_op(name, fn)
-    if type(name) == "number" and (name < 0x40 or name > 0x7F or name % 1 ~= 0) then
-        error("hzadb.reg_op: numeric subcmd must be 0x40..0x7F")
+    if type(name) == "number" and (name < 0x41 or name > 0x7F or name % 1 ~= 0) then
+        error("hzadb.reg_op: numeric subcmd must be 0x41..0x7F (0x40 is builtin CUSTOM)")
     end
     ops[name] = fn
     return hzadb
+end
+
+-- CUSTOM(0x40) 接收回调, 由 hzadb.on_custom 注册
+local custom_fn = nil
+
+--- 注册 CUSTOM(0x40) 接收回调, 协议栈内建通道, 与 reg_op 号段互不占用
+-- 对端发来 0x40 时回调收到请求 body; 回调返回值决定回应:
+--   返回 string   -> 作为回应体(errno=0)
+--   返回 nil      -> 回应空 body(errno=0)
+--   返回 errno, body -> 报错回应(errno 非0, 库自动置 flags.ERR 并前置 errno 字节)
+--   抛错          -> E_IO
+-- 回应体上限 4096 字节(与 read 同预算), 超长回 E_IO; 回调属控制类, 重传不重复执行
+-- @function|nil fn 回调, 传 nil 注销(注销后对端请求回 E_NOSYS)
+-- @return table 返回 hzadb 自身, 便于链式调用
+-- @usage
+-- hzadb.on_custom(function(data)
+--     log.info("hzadb", "custom recv", #data)
+--     return "pong"
+-- end)
+function hzadb.on_custom(fn)
+    if fn ~= nil and type(fn) ~= "function" then
+        error("hzadb.on_custom: fn must be a function or nil")
+    end
+    custom_fn = fn
+    return hzadb
+end
+
+--- CUSTOM(0x40) 设备主动推送: 以 flags.EVT 事件帧(seq=0)发数据到对端, 无需对端回应
+-- 对端按 subcmd=0x40 + flags.EVT 识别为事件而非应答; 事件帧不保证送达(无重传)
+-- @string data 事件数据, 长度 <= 4096(与 read 回应同预算)
+-- @return boolean true=已发出; false=固件未开 LUAT_USE_LOG_USER_CMD, 通道不可用
+-- @usage
+-- hzadb.custom_send(string.pack("<I4", sensor_value))
+function hzadb.custom_send(data)
+    if type(data) ~= "string" then
+        error("hzadb.custom_send: data must be a string")
+    end
+    if #data > MAX_READ then
+        error("hzadb.custom_send: data too long (>" .. MAX_READ .. ")")
+    end
+    if type(log.usercmd_write) ~= "function" then
+        return false
+    end
+    log.usercmd_write(pack_hdr(SUB_CUSTOM, FLAG_EVT, 0) .. data)
+    return true
 end
 
 local function dispatch(seq, subcmd, flags, body)
@@ -186,6 +245,26 @@ local function dispatch(seq, subcmd, flags, body)
                 errno, resp_body = hzadb.E_OK, string.char(1)
             else
                 errno, resp_body = hzadb.E_DENIED, ""
+            end
+        end
+    elseif subcmd == SUB_CUSTOM then
+        -- CUSTOM: 内建自定义数据通道, 回调由 hzadb.on_custom 注册, 不经 ops 表
+        resp_flags = 0
+        if custom_fn == nil then
+            errno, resp_body = hzadb.E_NOSYS, ""
+        else
+            local ok, a, b = pcall(custom_fn, body)
+            if not ok then
+                errno, resp_body = hzadb.E_IO, ""
+            elseif type(a) == "number" then
+                errno, resp_body = a, type(b) == "string" and b or ""
+            else
+                errno, resp_body = hzadb.E_OK, type(a) == "string" and a or ""
+            end
+            if errno == 0 and #resp_body > MAX_READ then
+                -- 上行预算与 read 一致, 超长宁可显式报错也不静默截断
+                log.warn("hzadb", "custom resp too long", #resp_body)
+                errno, resp_body = hzadb.E_IO, ""
             end
         end
     else

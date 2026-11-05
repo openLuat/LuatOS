@@ -39,6 +39,7 @@ typedef struct
 	uint8_t type; //0 timing_us, 1 timing_tick
 }onewire_timing_t;
 
+typedef void (*luat_onewire_callback_t)(int id, uint32_t event, void *user_data, uint64_t device_id);
 /**
  * @brief 单总线初始化
  * @param id 总线ID，如果只有1条，随便写
@@ -132,4 +133,6 @@ int luat_onewire_create_virtual(int hwtimer_id, int gpio);
  * @param id 虚拟单总线id
  */
 void luat_onewire_destroy_virtual(int id);
+
+void luat_onewire_set_callback(int id, luat_onewire_callback_t callback, void *user_data);
 #endif

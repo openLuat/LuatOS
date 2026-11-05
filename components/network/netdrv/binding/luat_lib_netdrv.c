@@ -794,6 +794,50 @@ static int l_netdrv_napt(lua_State *L) {
 }
 
 /*
+配置网络设备功能
+@api netdrv.config(name, adapters)
+@string 配置项, 当前支持 "rndis"
+@table 出口网卡列表, 每次传一个网卡常量 socket.LWIP_STA、socket.LWIP_ETH 或 socket.LWIP_GP; 空表关闭 NAPT
+@return boolean 成功返回 true, 参数非法返回 false, 网卡不存在或未就绪时与 netdrv.napt 一样返回 nil
+@usage
+-- Air8000: 先启用 RNDIS NAT 模式, 初始化出口网卡并等待其 IP_READY
+-- 本接口复用 netdrv.napt, 设置的是同一个全局 NAPT 网关, 也影响其他 LAN
+netdrv.config("rndis", {socket.LWIP_STA}) -- 等同于 netdrv.napt(socket.LWIP_STA)
+netdrv.config("rndis", {socket.LWIP_ETH}) -- 等同于 netdrv.napt(socket.LWIP_ETH)
+netdrv.config("rndis", {socket.LWIP_GP})  -- 等同于 netdrv.napt(socket.LWIP_GP)
+netdrv.config("rndis", {})              -- 等同于 netdrv.napt(-1), 清除映射表
+-- 网卡常量不要写成字符串, 即传 socket.LWIP_STA, 而非 "socket.LWIP_STA"
+*/
+static int l_netdrv_config(lua_State *L) {
+    const char *name = luaL_checkstring(L, 1);
+    lua_Integer id = -1;
+    if (strcmp(name, "rndis") || !lua_istable(L, 2)) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    lua_pushnil(L);
+    while (lua_next(L, 2)) {
+        /* NAPT has one shared gateway. Accept {} or {adapter_id}; validate
+         * every key so sparse/named/multi-WAN tables leave it unchanged.
+         */
+        if (!lua_isinteger(L, -2) || lua_tointeger(L, -2) != 1 || !lua_isinteger(L, -1)) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        id = lua_tointeger(L, -1);
+        if (id != NW_ADAPTER_INDEX_LWIP_WIFI_STA && id != NW_ADAPTER_INDEX_LWIP_ETH &&
+            id != NW_ADAPTER_INDEX_LWIP_GPRS) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        lua_pop(L, 1);
+    }
+    lua_settop(L, 0);
+    lua_pushinteger(L, id);
+    return l_netdrv_napt(L);
+}
+
+/*
 获取netdrv的物理连接状态
 @api netdrv.link(id)
 @int netdrv的id, 例如 socket.LWIP_ETH
@@ -1126,6 +1170,7 @@ static const rotable_Reg_t reg_netdrv[] =
     { "mac",            ROREG_FUNC(l_netdrv_mac)},
     { "ipv4",           ROREG_FUNC(l_netdrv_ipv4)},
     { "napt",           ROREG_FUNC(l_netdrv_napt)},
+    { "config",         ROREG_FUNC(l_netdrv_config)},
     { "link",           ROREG_FUNC(l_netdrv_link)},
     { "ready",          ROREG_FUNC(l_netdrv_ready)},
 

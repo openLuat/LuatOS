@@ -1,8 +1,8 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.12
-@date    2026.10.31
+@version 3.13
+@date    2026.11.05
 @author  拓毅恒
 @description
 本库负责音频硬件初始化、播放、录音和电源控制，可配合 exsip 使用普通 SIP 通话或 CC<->SIP 语音流桥接。
@@ -13,6 +13,10 @@ SIP 对端语音经固件桥接送入 CC 上行；需要固件同时具备 CC、
 并非 CC<->SIP 桥接开关；不要在 CC<->SIP 桥接通话中额外启动该本地 speech 请求。
 CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬件参数仍按实际板型调用 setup() 配置。
 @updates
+    v3.13 2026.11.05
+        1. audio_mode="auto" 改为按固件实际能力选框架：固件带 audio_v2 核心库时优先用 audio_v2 初始化，
+           没有 audio_v2 才用旧 audio 框架；不再受模组型号偏好影响。不传 audio_mode 时行为不变。
+        2. auto 模式对 tm8211 保留旧框架：audio_v2 未实现该 model，误选新框架会导致 setup 直接失败。
     v3.12 2026.10.31
         1. setup 新增可选字段 i2c_shared / codec_init_on_play / i2c_speed，面向 I2C 与其它外设共用的板型；
            三个字段全部不设置时行为与旧版完全一致。
@@ -128,6 +132,12 @@ CC 与 SIP 两侧的拨号、接听、挂断联动由业务层控制，音频硬
 @usage
 
 -- 版本更新说明
+-- 版本号：202611051730
+-- 1、更新时间：2026-11-05 17:30
+--    初始化逻辑调整：外置传参 audio_mode="auto" 时先判断固件是否编入 audio_v2 核心库，
+--    支持 audio_v2 就优先用 audio_v2 初始化，不支持时才用旧 audio 框架（不再看模组型号偏好）。
+--    tm8211 仍走旧框架：audio_v2 只实现了 es8311/dac/air1103，误选新框架会让 setup 直接失败。
+--    不传 audio_mode（nil）时行为与旧版一致，仍按模组偏好+固件能力选择。
 -- 版本号：202610310000
 -- 1、更新时间：2026-10-31 00:00
 --    setup 新增可选字段 i2c_shared / codec_init_on_play / i2c_speed，面向 I2C 与其它外设共用的板型；
@@ -1576,7 +1586,10 @@ local function air1103_record_stop()
 end
 
 -- 初始化
--- audioConfigs.audio_mode="new"/"old" 选择本地音频框架，与 exsip.init 的 audio_mode（VoIP 路由）不同。
+-- audioConfigs.audio_mode 选择本地音频框架，与 exsip.init 的 audio_mode（VoIP 路由）不同：
+--   "auto" 跟随固件能力：编入了 audio_v2 核心库就优先用 audio_v2，没有才用旧 audio 框架；
+--   "new"  强制新框架；"old" 强制旧框架（8101、160X 等型号限制见下方实现）；
+--   不传(nil) 按模组默认偏好 + 固件实际提供的库选择。
 -- CC<->SIP 桥接由 exsip.init({cc_sip_bridge=true, ...}) 选择；本接口仍按板型配置音频硬件，
 -- 不负责开启桥接或建立 CC/SIP 呼叫。i2s_sample、bits_per_sample、channels 是硬件配置，
 -- 不改变 SIP 的 SDP 编解码协商，也不改变 sip_voip_start() 使用的 8 kHz/16 bit/单声道 PCM 格式。
@@ -1586,8 +1599,10 @@ function exaudio.setup(audioConfigs)
         return false
     end
 
-    -- audio_mode参数处理。显式选择必须以对应Lua库实际存在为前提；
-    -- auto/nil沿用基于模组偏好和固件能力计算出的默认值。
+    -- audio_mode参数处理。显式选择必须以对应Lua库实际存在为前提：
+    --   "new"  强制新框架；"old"  强制旧框架；
+    --   "auto" 只看固件实际编入了哪个核心库——有audio_v2就用audio_v2，没有才用旧audio；
+    --   nil    沿用基于模组偏好和固件能力计算出的默认值。
     if audioConfigs.audio_mode == "new" then
         if not AUDIO_V2_AVAILABLE then
             log.error("audio_mode=new，但固件未启用audio_v2库")
@@ -1607,6 +1622,29 @@ function exaudio.setup(audioConfigs)
             USE_AUDIO_V2 = false
             log.info("exaudio.setup", "audio_mode=old，切换到旧音频框架")
         end
+    elseif audioConfigs.audio_mode == "auto" then
+        -- auto：先看固件有没有编入audio_v2核心库，有就用audio_v2，没有才退回旧audio。
+        -- 这里刻意不看模组型号偏好：auto的语义是"跟随固件能力"。
+        -- 例外：tm8211只有旧框架支持（audio_v2只实现es8311/dac/air1103），
+        -- 固件同时带两个库时若选新框架，audio_v2_setup会因不支持的model直接失败。
+        local auto_model = audioConfigs.model or audio_setup_param.model
+        if AUDIO_V2_AVAILABLE and auto_model ~= "tm8211" then
+            USE_AUDIO_V2 = true
+            log.info("exaudio.setup", "audio_mode=auto，固件支持audio_v2，使用新音频框架")
+        elseif AUDIO_LEGACY_AVAILABLE then
+            USE_AUDIO_V2 = false
+            if AUDIO_V2_AVAILABLE then
+                log.warn("exaudio.setup", "audio_mode=auto，model=" .. tostring(auto_model) ..
+                    " 不支持audio_v2，改用旧音频框架")
+            else
+                log.info("exaudio.setup", "audio_mode=auto，固件不支持audio_v2，使用旧音频框架")
+            end
+        else
+            log.error("audio_mode=auto，但固件既未启用audio_v2库也未启用audio库")
+            return false
+        end
+    elseif audioConfigs.audio_mode ~= nil then
+        log.warn("exaudio.setup", "未知audio_mode:", audioConfigs.audio_mode, "，按默认策略选择音频框架")
     end
 
     log.info("exaudio.setup", "当前使用" .. (USE_AUDIO_V2 and "新" or "旧") .. "音频框架")
@@ -3057,7 +3095,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202610310000"
+    return "202611051730"
 end
 
 --[[

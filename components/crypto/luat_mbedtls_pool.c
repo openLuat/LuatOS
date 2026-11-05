@@ -39,8 +39,22 @@
 #endif
 
 #define LUAT_MB_POOL_BLOCK   176u   /* 44 limbs, 覆盖 P-521 乘积(34 limb=136B) */
-#define LUAT_MB_POOL_COUNT   128u   /* 128 * 176B = 22KB, 首次使用时从 PSRAM 分配 */
+#define LUAT_MB_POOL_COUNT   128u   /* 128 * 176B = 22KB, 首次使用时分配 */
 #define LUAT_MB_POOL_WORDS   ( LUAT_MB_POOL_COUNT / 32u )
+
+/*
+ * 池和"大块回落"使用的堆类型.
+ *
+ * 必须用 LUAT_HEAP_AUTO, 不能用 LUAT_HEAP_PSRAM:
+ * interface/src/luat_mem_ec7xx.c 在"没有 PSRAM"的编译配置下(例如 EC716E,
+ * mem_map 里 PSRAM_EXIST==0), luat_heap_opt_malloc/zalloc 只认
+ * LUAT_HEAP_AUTO 和 LUAT_HEAP_SRAM, 其他 type 一律 return NULL.
+ * 用 LUAT_HEAP_PSRAM 会让所有 >176B 的 mbedtls 分配(CTR_DRBG 的 384B
+ * seed 缓冲、SSL 的 16KB 收发缓冲等)直接拿到 NULL, 进而踩到
+ * ctr_drbg.c 里 memset(seed,...) 的空指针 → HardFault.
+ * LUAT_HEAP_AUTO 在有 PSRAM 的平台会优先吃 PSRAM, 没有时回落系统堆.
+ */
+#define LUAT_MB_POOL_HEAP    LUAT_HEAP_AUTO
 
 /* 池内存整体结构: 块数组(保证 8 字节对齐) + 分配位图, 一次 calloc 完成 */
 typedef struct
@@ -94,7 +108,7 @@ int luat_mbedtls_pool_init( void )
         return( -1 );
 
     mem = (luat_mb_pool_mem_t *) luat_heap_opt_calloc(
-              LUAT_HEAP_PSRAM, 1, sizeof( luat_mb_pool_mem_t ) );
+              LUAT_MB_POOL_HEAP, 1, sizeof( luat_mb_pool_mem_t ) );
     if( mem == NULL )
     {
         s_pool_off = 1;                        /* PSRAM 不可用, 永久回落系统堆 */
@@ -107,7 +121,7 @@ int luat_mbedtls_pool_init( void )
     luat_mb_pool_exit( st );
 
     if( s_pool != mem )                        /* 并发初始化: 释放自己的副本 */
-        luat_heap_opt_free(LUAT_HEAP_PSRAM, mem );
+        luat_heap_opt_free(LUAT_MB_POOL_HEAP, mem );
 
     return( 0 );
 }
@@ -122,10 +136,10 @@ void *luat_mbedtls_pool_calloc( size_t n, size_t size )
         return( NULL );                     /* 乘法溢出 */
     total = n * size;
     if( total == 0 || total > LUAT_MB_POOL_BLOCK )
-        return( luat_heap_opt_calloc(LUAT_HEAP_PSRAM, n, size ) );        /* 大块直接走系统堆 */
+        return( luat_heap_opt_calloc(LUAT_MB_POOL_HEAP, n, size ) );        /* 大块直接走系统堆 */
 
     if( s_pool == NULL && luat_mbedtls_pool_init() != 0 )
-        return( luat_heap_opt_calloc(LUAT_HEAP_PSRAM, n, size ) );        /* 池不可用回落 */
+        return( luat_heap_opt_calloc(LUAT_MB_POOL_HEAP, n, size ) );        /* 池不可用回落 */
 
     st = luat_mb_pool_enter();
     for( w = 0; w < LUAT_MB_POOL_WORDS; w++ )
@@ -142,7 +156,7 @@ void *luat_mbedtls_pool_calloc( size_t n, size_t size )
     }
     luat_mb_pool_exit( st );
 
-    return( luat_heap_opt_calloc(LUAT_HEAP_PSRAM, n, size ) );            /* 池耗尽回落系统堆 */
+    return( luat_heap_opt_calloc(LUAT_MB_POOL_HEAP, n, size ) );            /* 池耗尽回落系统堆 */
 }
 
 void luat_mbedtls_pool_free( void *ptr )
@@ -157,7 +171,7 @@ void luat_mbedtls_pool_free( void *ptr )
     if( s_pool == NULL )
     {
         /* 池从未建立: 池内不可能有指针, 直接回落系统堆 */
-        luat_heap_opt_free(LUAT_HEAP_PSRAM, ptr );
+        luat_heap_opt_free(LUAT_MB_POOL_HEAP, ptr );
         return;
     }
 
@@ -171,5 +185,5 @@ void luat_mbedtls_pool_free( void *ptr )
         luat_mb_pool_exit( st );
         return;
     }
-    luat_heap_opt_free(LUAT_HEAP_PSRAM, ptr );
+    luat_heap_opt_free(LUAT_MB_POOL_HEAP, ptr );
 }

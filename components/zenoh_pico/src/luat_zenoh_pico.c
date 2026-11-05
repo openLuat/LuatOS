@@ -39,11 +39,20 @@ static char locator[320];
 /* 首次故障冻结；清场错误不可覆盖原阶段，也不保存key或payload。 */
 static luat_zp_io_failure_t io_diagnostic;
 
-/* 只保护零等待队列接纳/关闭排空，不在门内执行SDK或网络操作。 */
+/* 保护接纳、关闭与状态发布；不在门内执行SDK或网络操作。 */
 static void command_gate_enter(void) {
     while (atomic_flag_test_and_set(&command_gate)) luat_rtos_task_sleep(1);
 }
 static void command_gate_leave(void) { atomic_flag_clear(&command_gate); }
+
+/* 与close共用短门：close返回后，本代工作任务不可再覆盖CLOSING。 */
+static int publish_state(uint32_t generation, unsigned next) {
+    command_gate_enter();
+    int accepted = atomic_load(&wanted) == generation;
+    if (accepted) atomic_store(&state, next);
+    command_gate_leave();
+    return accepted;
+}
 
 int luat_zenoh_pico_adapter(void) { return adapter_index; }
 void luat_zenoh_pico_io_fail_at(const char *stage, int rc, size_t requested,
@@ -404,14 +413,14 @@ static void worker(void *unused) {
             else z_drop(z_move(config));
             opened = rc == 0;
         }
+        ZP_TEST_POINT(3, gen);
         if (opened && !luat_zenoh_pico_rng_failed()) {
-            atomic_store(&state, LUAT_ZP_ONLINE);
-            post(new_event(gen, 0, "opened", 0));
+            if (publish_state(gen, LUAT_ZP_ONLINE)) post(new_event(gen, 0, "opened", 0));
         } else {
             if (rc == 0) rc = -6;
-            atomic_store(&state, LUAT_ZP_FAILED);
-            post(new_event(gen, 0, "error", rc));
+            if (publish_state(gen, LUAT_ZP_FAILED)) post(new_event(gen, 0, "error", rc));
         }
+        ZP_TEST_POINT(4, gen);
         while (opened && atomic_load(&wanted) == gen && !luat_zenoh_pico_rng_failed()) {
             command_t *cmd = NULL;
             /* 固定预算，不能依赖executor返回值或无限清空持续就绪队列。 */
@@ -445,15 +454,18 @@ static void worker(void *unused) {
                  !luat_zenoh_pico_rng_failed(); ++i) zp_spin_once(z_loan(session));
             if (z_session_is_closed(z_loan(session)) || luat_zenoh_pico_io_failed()) {
                 rc = -7;
-                atomic_store(&state, LUAT_ZP_FAILED);
-                luat_zp_event_t *failure = new_event(gen, 0, "error", rc);
-                if (failure && !luat_zenoh_pico_io_failed()) failure->reason = "session_closed";
-                post(failure); break;
+                if (publish_state(gen, LUAT_ZP_FAILED)) {
+                    luat_zp_event_t *failure = new_event(gen, 0, "error", rc);
+                    if (failure && !luat_zenoh_pico_io_failed()) failure->reason = "session_closed";
+                    post(failure);
+                }
+                break;
             }
             luat_rtos_task_sleep(5);
         }
         if (opened && luat_zenoh_pico_rng_failed() && atomic_load(&wanted) == gen) {
-            rc = -6; atomic_store(&state, LUAT_ZP_FAILED); post(new_event(gen, 0, "error", rc));
+            rc = -6;
+            if (publish_state(gen, LUAT_ZP_FAILED)) post(new_event(gen, 0, "error", rc));
         }
         /* 先固定业务终态，随后SDK清场产生的IO失败只属于清场，不能冒充原因。 */
         luat_zp_io_failure_t terminal_io = io_diagnostic;
@@ -524,7 +536,12 @@ int luat_zenoh_pico_command_ex(uint32_t gen, int op, uint32_t id, const char *ke
     return 0;
 }
 void luat_zenoh_pico_close(uint32_t gen) {
-    if (gen && atomic_compare_exchange_strong(&wanted, &gen, 0)) atomic_store(&state, LUAT_ZP_CLOSING);
+    command_gate_enter();
+    if (gen && atomic_load(&wanted) == gen) {
+        atomic_store(&wanted, 0);
+        atomic_store(&state, LUAT_ZP_CLOSING);
+    }
+    command_gate_leave();
 }
 int luat_zenoh_pico_state(uint32_t gen) {
     if (atomic_load(&active) != gen) return LUAT_ZP_CLOSED;

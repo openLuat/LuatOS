@@ -12,8 +12,14 @@ typedef struct { network_ctrl_t *net; uint32_t timeout; } tcp_context_t;
 /* 此任务仅归Pico网络使用；状态机已处理通知，这里只消费固定预算的值副本。 */
 static int tcp_poll_notifications(void) {
     luat_event_t event;
+    luat_rtos_task_handle task = luat_rtos_get_current_handle();
+    if (!task) {
+        luat_zenoh_pico_io_fail_at("event_task", -1, 0, 0, 0);
+        return -1;
+    }
     for (unsigned i = 0; i < 16; ++i) {
-        if (luat_rtos_event_recv(luat_rtos_get_current_handle(), 0, &event, NULL, LUAT_NO_WAIT) != 0) break;
+        /* EC7xx事件入口的0可能代表永久等待；用有限1ms轮询，空队列立即还出。 */
+        if (luat_rtos_event_recv(task, 0, &event, NULL, 1) != 0) break;
         switch (event.id) {
         case EV_NW_RESULT_LINK: case EV_NW_RESULT_CONNECT: case EV_NW_RESULT_TX:
         case EV_NW_RESULT_CLOSE: case EV_NW_RESULT_EVENT:

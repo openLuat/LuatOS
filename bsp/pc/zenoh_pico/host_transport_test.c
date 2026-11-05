@@ -28,6 +28,8 @@ static luat_zp_io_failure_t diagnostic;
 static uint64_t accepted;
 static luat_event_t notices[16];
 static unsigned notice_head, notice_count, notice_peak, notice_overflows, notice_reads;
+static unsigned notice_refill;
+static int missing_task;
 static int notice(uint32_t id, uint32_t value) {
     if (notice_count == 16) { ++notice_overflows; return -1; }
     luat_event_t e = {0}; e.id = id; e.param1 = value;
@@ -38,10 +40,17 @@ static int notice(uint32_t id, uint32_t value) {
 int luat_rtos_event_recv(luat_rtos_task_handle task, uint32_t id, luat_event_t *out,
                          luat_rtos_event_wait_callback_t *callback, uint32_t timeout) {
     (void)callback;
-    if (!task || id || timeout != LUAT_NO_WAIT || !out) return -1;
+    /* 目标EC7xx空邮箱的0会无界等待。主机明确失败，不能用空队列返回掩盖它。 */
+    if (!timeout || timeout == LUAT_WAIT_FOREVER) {
+        fputs("UNBOUNDED_EVENT_WAIT_REQUEST\n", stderr); exit(86);
+    }
+    if (!task || id || timeout != 1 || !out) return -1;
     if (!notice_count) return -1;
     *out = notices[notice_head]; notice_head = (notice_head + 1) % 16;
-    --notice_count; ++notice_reads; return 0;
+    --notice_count; ++notice_reads;
+    /* 消费期间再到达一个事件，以16槽输入验证17条累计通知预算。 */
+    if (notice_refill) { --notice_refill; notice(EV_NW_RESULT_EVENT, 0); }
+    return 0;
 }
 
 uint64_t luat_mcu_tick64_ms(void) {
@@ -52,7 +61,7 @@ void luat_rtos_task_sleep(uint32_t ms) {
     struct timespec t = {ms / 1000, (long)(ms % 1000) * 1000000};
     while (nanosleep(&t, &t) && errno == EINTR) {}
 }
-luat_rtos_task_handle luat_rtos_get_current_handle(void) { return (void *)(uintptr_t)1; }
+luat_rtos_task_handle luat_rtos_get_current_handle(void) { return missing_task ? NULL : (void *)(uintptr_t)1; }
 int luat_zenoh_pico_adapter(void) { return 0; }
 int luat_zenoh_pico_rng_failed(void) { return 0; }
 int luat_zenoh_pico_io_failed(void) { return failed; }
@@ -186,16 +195,30 @@ static int expect_unknown_event(_z_sys_net_socket_t s) {
     return 0;
 }
 static int expect_receive_events(_z_sys_net_socket_t s) {
-    for (unsigned i = 0; i < 16; ++i) CHECK(notice(EV_NW_RESULT_EVENT, 0) == 0);
+    const unsigned counts[] = {0, 1, 15, 16, 17};
     uint8_t byte;
-    CHECK(_z_read_tcp(s, &byte, 1) == SIZE_MAX);
-    CHECK(!failed && notice_count == 0);
+    for (unsigned c = 0; c < sizeof(counts) / sizeof(counts[0]); ++c) {
+        unsigned count = counts[c], before = notice_reads;
+        for (unsigned i = 0; i < count && i < 16; ++i) CHECK(notice(EV_NW_RESULT_EVENT, 0) == 0);
+        notice_refill = count > 16;
+        CHECK(_z_read_tcp(s, &byte, 1) == SIZE_MAX);
+        CHECK(!failed && notice_reads - before == (count < 16 ? count : 16));
+        CHECK(notice_count == (count > 16 ? 1u : 0u));
+        CHECK(_z_read_tcp(s, &byte, 1) == SIZE_MAX);
+        CHECK(!failed && notice_count == 0 && notice_reads - before == count);
+    }
     return 0;
 }
 static int expect_empty(_z_sys_net_socket_t s) {
     CHECK(_z_send_tcp(s, payload, 0) == 0 && calls == 0 && !failed); return 0;
 }
 int main(void) {
+    _z_sys_net_socket_t no_task = {0}; _z_sys_net_endpoint_t endpoint = {0};
+    missing_task = 1;
+    CHECK(_z_open_tcp(&no_task, endpoint, 100) != 0 && !no_task.context);
+    CHECK(failed && !strcmp(diagnostic.stage, "event_task"));
+    missing_task = 0;
+    puts("CONTRACT_PASS missing_task_rejected");
     for (size_t i = 0; i < sizeof(payload); ++i) payload[i] = (uint8_t)(i * 17 + i / 256);
     struct { const char *name; int mode; int (*test)(_z_sys_net_socket_t); } cases[] = {
         {"partial_rc0_4096", SHORT_ZERO, expect_success},

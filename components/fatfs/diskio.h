@@ -34,6 +34,8 @@ typedef struct block_disk_opts {
 	DRESULT (*read) (void* userdata, BYTE* buff, LBA_t sector, UINT count);
 	DRESULT (*write) (void* userdata, const BYTE* buff, LBA_t sector, UINT count);
 	DRESULT (*ioctl) (void* userdata, BYTE cmd, void* buff);
+	/* 后端自定义清理, 负责释放 userdata 及其内部资源; 为 NULL 时 diskio_close 仅 free userdata */
+	void (*close) (void* userdata);
 }block_disk_opts_t;
 
 typedef struct block_disk {
@@ -43,6 +45,15 @@ typedef struct block_disk {
 
 DRESULT diskio_open(BYTE pdrv, block_disk_t * disk);
 DRESULT diskio_close(BYTE pdrv);
+
+/* 分配一个空闲的逻辑盘符, 返回值 0..FF_VOLUMES-1, 无空闲返回 -1 */
+int diskio_alloc_pdrv(void);
+/* 绑定/解绑 pdrv 与 FATFS 对象, 供 VFS 粘合层按 userdata 反查卷号 */
+void diskio_bind_fs(BYTE pdrv, void* fs);
+void diskio_unbind_fs(BYTE pdrv);
+int diskio_pdrv_of_fs(void* fs);
+/* 设置某个盘的电源控制脚与复位延时, pin 为 0xff 表示无电源脚 */
+void diskio_set_power(BYTE pdrv, BYTE pin, WORD delay);
 
 /*---------------------------------------*/
 /* Prototypes for disk control functions */

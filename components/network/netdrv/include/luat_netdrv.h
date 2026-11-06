@@ -49,6 +49,7 @@ enum {
 enum {
     LUAT_NETDRV_CTRL_RESET,
     LUAT_NETDRV_CTRL_UPDOWN,
+    LUAT_NETDRV_CTRL_RNDIS_NAPT = 0x20,
 };
 
 typedef struct luat_netdrv_ip_conf

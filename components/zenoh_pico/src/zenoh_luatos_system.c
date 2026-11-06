@@ -12,7 +12,7 @@
 
 void *z_malloc(size_t size) { return luat_heap_malloc(size); }
 void *z_realloc(void *p, size_t size) { return luat_heap_realloc(p, size); }
-void z_free(void *p) { luat_heap_free(p); }
+void z_free(void *p) { if (p) luat_heap_free(p); }
 /* RNG没有错误返回通道，失败置故障标记，所属任务关闭会话。 */
 void z_random_fill(void *p, size_t n) {
     if (luat_crypto_trng(p, n) != 0) { memset(p, 0, n); luat_zenoh_pico_rng_fail(); }

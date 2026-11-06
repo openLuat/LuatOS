@@ -396,7 +396,7 @@ static void worker(void *unused) {
         if (atomic_load(&wanted) != gen) {
             stop_commands(gen);
             luat_zp_event_t *closed = new_event(gen, 0, "closed", 0);
-            atomic_store(&state, LUAT_ZP_CLOSED); atomic_store(&active, 0);
+            atomic_store(&active, 0);
             post(closed); continue;
         }
         memset(&io_diagnostic, 0, sizeof(io_diagnostic)); io_diagnostic.generation = gen;
@@ -472,7 +472,6 @@ static void worker(void *unused) {
         int failed_before_cleanup = luat_zenoh_pico_io_failed();
         stop_commands(gen);
         clear_session(&session, subs, owners, opened);
-        if (atomic_load(&state) != LUAT_ZP_FAILED) atomic_store(&state, LUAT_ZP_CLOSED);
         luat_zp_event_t *closed = new_event(gen, 0, "closed", rc);
         if (closed) {
             if (failed_before_cleanup) closed->io_failure = terminal_io;
@@ -480,7 +479,8 @@ static void worker(void *unused) {
             /* 握手失败保留SDK原码，不能仅在worker的-7分支保留IO分类。 */
             closed->reason = failed_before_cleanup ? "io_failure" : (rc == -7 ? "session_closed" : NULL);
         }
-        /* 终态回调可立即打开下一会话，投递前必须释放唯一资源槽。 */
+        /* active归零同时发布CLOSED与可重开，事件准备期间仍保持清理态。 */
+        ZP_TEST_POINT(5, gen);
         atomic_store(&active, 0);
         post(closed);
     }
@@ -544,6 +544,6 @@ void luat_zenoh_pico_close(uint32_t gen) {
     command_gate_leave();
 }
 int luat_zenoh_pico_state(uint32_t gen) {
-    if (atomic_load(&active) != gen) return LUAT_ZP_CLOSED;
+    if (!gen || atomic_load(&active) != gen) return LUAT_ZP_CLOSED;
     return atomic_load(&state);
 }

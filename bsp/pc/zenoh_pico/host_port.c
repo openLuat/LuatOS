@@ -273,7 +273,7 @@ static void *race_disconnect(void *unused) {
     return NULL;
 }
 int host_race_arm(int point) {
-    if (point != 1 && point != 2 && point != 3) return -1;
+    if (point != 1 && point != 2 && point != 3 && point != 5) return -1;
     pthread_mutex_lock(&race_lock);
     if (race_point || race_thread_live) { pthread_mutex_unlock(&race_lock); return -1; }
     race_point = point; race_arrived = race_released = race_closed = 0;

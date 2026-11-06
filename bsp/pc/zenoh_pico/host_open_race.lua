@@ -18,6 +18,13 @@ local function finish(h)
     host_pump(100)
 end
 -- 先建立长期保留的worker/队列，之后只比较可回收模块分配。
+local releasing = ordinary()
+assert(host_race_arm(5))
+assert(z.close(releasing))
+wait(host_race_arrived)
+assert(z.state(releasing) == CLOSING, 'CLOSED published before slot release')
+host_race_release()
+wait(function() return z.state(releasing) == z.CLOSED end)
 finish(ordinary())
 local baseline = host_allocations()
 local old

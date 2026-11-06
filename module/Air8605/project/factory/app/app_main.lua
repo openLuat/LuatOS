@@ -165,6 +165,8 @@ function M.optional()
     -- 必须在 init_all 之后加载：此时外设 handle 已登记，直接挂接，不会重复登记
     if feat.other_func then
         require "other_func_app"
+        -- SIP 通话业务层改为懒加载：仅在打开 SIP 页时由 sip_test_win 动态 require，
+        -- 退出时释放音频资源，避免 SIP 模块常驻内存与通用录音(UART6)抢实时资源导致爆音。
     end
 end
 

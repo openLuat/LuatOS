@@ -1,8 +1,8 @@
 --[[
 @module  uvc_preview_win
 @summary 摄像头测试页（UVC 预览 / 拍照 / 录像 + 人脸识别录入 / 验证 / 删除全部，TabOS 深色玻璃态）
-@version 1.7
-@date    2026.11.02
+@version 1.8
+@date    2026.11.05
 @author  江访
 @usage
 订阅: OPEN_UVC_PREVIEW_WIN(id)
@@ -70,18 +70,23 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
 
 人脸识别边界：
 1. 供电共用：UVC_EN 一根脚同时供出图与人脸模组，断电两者一起掉。「连不上就断电
-   重枚举」不能当常规手段（会把正在跑的人脸模组一起杀掉）；反过来，录入 / 验证前
-   必须断电重枚举一次 —— 停掉 MJPEG 推流后模组仍停在出图模式，此时发录入指令它不
-   回包（现场日志 cmd timeout 0x1D），取版本这类纯协议指令却正常。断电重枚举让它
-   回人脸采集模式，串口随之重开一遍（见 face_reenumerate）。
+   重枚举」不能当常规手段（会把正在跑的人脸模组一起杀掉）。录入 / 验证前确实要让
+   传感器从出图模式切回人脸采集模式 —— 停掉 MJPEG 推流后模组仍停在出图模式，此时发
+   录入指令它不回包（现场日志 cmd timeout 0x1D），取版本这类纯协议指令却正常。
+   但切换手段用 MID_RESET 软复位即可（见 face_reset_sensor，对齐 Air8601），不必断电：
+   断电会连人脸模组一起杀掉、再走 USB 重枚举，窗口长且易落进「模组尚未就绪」空窗导致
+   录入超时。只有软复位不被响应时才退回 GPIO 断电重枚举兜底（见 face_reenumerate）。
 2. 人脸指令是串行的：exfacecam 内部是单例状态（回包表 / 状态回调共享），并发跑
    register 与 verify 会互相抢回包。本页所有人脸动作都进同一个命令协程，天然串行，
    另设 face_busy 挡掉重复点击。
 3. 人脸状态回调在 UART 收包上下文里跑，只能发消息不能碰控件（参考工程实测在回调里
    做界面会叠加崩溃）。这里回调只做 500ms 限流 + sys.publish，界面更新交给订阅侧。
-4. 长动作期间停推流：录入 / 验证会占满 CPU，与 MJPEG 收流叠加时识别会超时
-   （参考工程 face_preview 的实测结论）。动作前 close_stream + stop_widget（airui.camera
-   停流后继续显示最后一帧，不黑屏），动作结束 open_stream 重开。
+4. 录入 / 验证与预览并行（对齐 Air8601 face_preview v3.5）：由 face 子表的 mode 字段决定
+   - serial      ：动作前 close_stream 停推流（画面冻结、显示最后一帧），动作后 open_stream 重开
+   - auto（默认）：预览不停流，先把 UVC 降到 busy_fps(默认3) 让出 CPU，确认画面有新帧后直接
+                   识别；并行识别失败 / 无新帧 / 流未开时，自动降级 serial 重试一次
+   - concurrent  ：一律并行，失败不降级
+   纯串口动作（清空 / 版本）不停流也不复位传感器，直接发指令。
 ]]
 
 local theme = require "ui_theme"
@@ -126,13 +131,17 @@ local pad = 15
 -- 这一项直接决定还剩多少内存给 airui.camera 的显示缓冲，故初值取预览区够用的小档
 local SENSOR_W, SENSOR_H = 640, 360
 
+-- 预览旋转角度：传感器出横画幅，竖屏机型顺时针转 90° 得到竖画面
+-- （参考 face_camera_test：airui.camera rotation=90 + camera.config CONF_PREVIEW_ROTATE）
+local PREVIEW_ROTATION = 90
+
 -- 源分辨率像素上限：像素数更大的 MJPEG 档位不取（1920×1080 时相机侧要吃掉 8.8MB）
 local MAX_PIXELS = 1280 * 720
 
 -- airui.camera 双显示缓冲预算上限（2 块 × 视口 w×h×2 字节）。
--- 1280×720 实测预览区 894×421 时单块 752KB 分配失败，故上限压到 512KB；
--- 实际预算还要按开流后的剩余内存再收一次（见 preview_size）
-local PREVIEW_FB_BUDGET = 512 * 1024
+-- 只是上限：实际先按开流后剩余内存（动态预算）收，再由 probe_fb_ok 真分两块兜底，
+-- 分不下会自动收口，不会崩。竖屏 cover 铺满时组件接近满框，需要更宽松的上限。
+local PREVIEW_FB_BUDGET = 900 * 1024
 
 -- 显示缓冲探针的收口次数与每次收口比例（见 probe_fb_ok）
 local FB_PROBE_MAX = 3
@@ -184,7 +193,7 @@ local FACE_STATE_MIN_GAP = 500
 local cam_widget = nil          -- airui.camera 控件
 local widget_registered = false -- 是否已挂到解码通道
 local widget_w, widget_h = 0, 0 -- 预览组件尺寸，取档时挑够盖住它的最小档
-local fit_mode = "contain"
+local fit_mode = "cover"
 local rec_ms = 10000
 local busy = false              -- 拍照/录像互斥
 local cmd_running = false       -- 命令协程存活标志
@@ -227,6 +236,9 @@ local face_busy = false     -- 录入 / 验证 / 清空 / 读版本进行中，�
 local face_seq = 0          -- 录入名序号，保证每次录入的用户名不重复
 local face_tab = TAB_UVC    -- 当前页签
 local face_last_state = 0   -- 最近一次状态提示时刻(ms)，做人脸引导文案限流
+local face_mode = "auto"    -- 录入/验证与预览的并行模式：serial / auto / concurrent
+local face_busy_fps = 3     -- 并行识别时的 UVC 帧率（降帧让出 CPU）
+local face_live_timeout = 3000 -- 并行前等待画面新帧的超时(ms)，超时降级串行
 
 -- 页签行与控制栏各摆两份，靠 set_hidden 切换（重建控件只能在界面线程，见 create_widget）
 local tab_uvc_row = nil     -- 页签行（UVC 高亮）
@@ -476,13 +488,25 @@ local function probe_fb_ok(w, h)
     return true
 end
 
--- 预览区尺寸：与源分辨率同比缩进黑底框，再按显示缓冲预算收口
+-- 预览区尺寸，再按显示缓冲预算收口。
+-- cover：组件按预览框比例铺满（宽度吃满），让组件内部 cover 裁掉细长画面的上下，
+--        避免竖画面缩进偏方正的框时左右留大黑边；
+-- 其它（contain/center/stretch）：组件仍与旋转后的源画面同比缩进框内。
 local function preview_size(avail_w, avail_h)
-    local src_w = SENSOR_W > 0 and SENSOR_W or 16
-    local src_h = SENSOR_H > 0 and SENSOR_H or 9
-    local w, h = math.floor(avail_w), math.floor(avail_h)
-    local scale = math.min(w / src_w, h / src_h)
-    w, h = math.floor(src_w * scale), math.floor(src_h * scale)
+    local w, h
+    if fit_mode == "cover" then
+        w, h = math.floor(avail_w), math.floor(avail_h)
+    else
+        local src_w = SENSOR_W > 0 and SENSOR_W or 16
+        local src_h = SENSOR_H > 0 and SENSOR_H or 9
+        -- 旋转 90/270 后画面宽高互换，按竖画幅做同比缩进
+        if PREVIEW_ROTATION == 90 or PREVIEW_ROTATION == 270 then
+            src_w, src_h = src_h, src_w
+        end
+        w, h = math.floor(avail_w), math.floor(avail_h)
+        local scale = math.min(w / src_w, h / src_h)
+        w, h = math.floor(src_w * scale), math.floor(src_h * scale)
+    end
     -- 双显示缓冲 = 2 块 × w×h×2 字节。预算上限是 PREVIEW_FB_BUDGET，
     -- 这里测到的是开流前的剩余，还要先把相机侧那 4.25×w×h 扣掉，剩下的才是显示缓冲能用的
     local budget = PREVIEW_FB_BUDGET
@@ -651,8 +675,21 @@ local function create_widget()
     local okw, wdg = pcall(airui.camera, {
         parent = main_container,
         x = x, y = y, w = w, h = h,
-        fit = fit_mode, auto_start = false,
+        fit = fit_mode, rotation = PREVIEW_ROTATION, auto_start = false,
     })
+    -- 兼容旧组件：创建后再显式下一次旋转，并让相机解码侧按预览旋转
+    if okw and wdg then
+        if type(wdg.set_rotation) == "function" then
+            pcall(wdg.set_rotation, wdg, PREVIEW_ROTATION)
+        end
+        if camera and camera.CONF_PREVIEW_ROTATE then
+            local rot = (PREVIEW_ROTATION == 90 and camera.ROTATE_90)
+                or (PREVIEW_ROTATION == 180 and camera.ROTATE_180)
+                or (PREVIEW_ROTATION == 270 and camera.ROTATE_270)
+                or camera.ROTATE_90
+            pcall(camera.config, 0, camera.CONF_PREVIEW_ROTATE, rot)
+        end
+    end
     cam_widget = okw and wdg or nil
     widget_registered = false
     if not cam_widget then
@@ -878,11 +915,35 @@ local function face_open(tip)
     return true
 end
 
+local face_reenumerate  -- 前向声明：face_reset_sensor 兜底要调它（定义在下方）
+
 -- 关人脸模组串口（相机不在它手上：没传 id 就没做过 camera.init）
 local function face_close()
     if not face_on then return end
     face_on = false
     if exfacecam then pcall(exfacecam.close) end
+end
+
+--[[
+让模组传感器从 UVC 出图模式切回人脸采集模式。
+
+这是录入超时的根因修复（对齐 Air8601 face_manager / ecface 的做法）：停掉 MJPEG 推流后
+模组仍停在出图模式，此时直接发录入指令它不回包（cmd timeout 0x1D）。Air8601 的实测
+结论是发 MID_RESET 软复位即可切回，**不必 GPIO 断电重枚举** —— 断电会连人脸模组一起
+杀掉、再走 USB 重新枚举，窗口长且容易落进「模组还没就绪」的空窗，正是录入超时的来源。
+
+软复位失败（个别模组不响应 MID_RESET）才退回 GPIO 断电重枚举兜底。
+@return boolean true = 传感器已回到人脸采集模式
+]]
+local function face_reset_sensor()
+    local ok, res = pcall(exfacecam.reset)
+    if ok and res then
+        sys.wait(500)   -- 等模组复位完成、传感器切回人脸模式（同 Air8601 reset_module）
+        return true
+    end
+    log.warn("uvc_preview_win", "软复位模组失败，退回断电重枚举兜底", tostring(res))
+    face_reenumerate()
+    return face_on
 end
 
 --[[
@@ -914,15 +975,15 @@ local function face_ready()
 end
 
 --[[
-断电重枚举摄像头，再按复位后的模组重开人脸串口。
+断电重枚举摄像头，再按复位后的模组重开人脸串口（软复位失败时的兜底手段）。
 
-理由见文件头「人脸识别边界」第 1 条：模组出完 MJPEG 停流后停在出图模式，录入指令
-不回包；断电重新枚举才回到人脸采集模式。断电连人脸模组一起杀掉（同一根供电脚），
-所以重枚举后必须重开串口 —— 旧回包表 / 接收回调随模组作废，留着会把上一轮残留字节
-喂给新回包。供电脚不可控时只重开串口，并在日志里点明跳过了这一步。
+正常路径不再走这里：见 face_reset_sensor，停流后发 MID_RESET 软复位就能让传感器回到
+人脸采集模式，不必断电。只有个别模组不响应软复位时才兜底断电重枚举。断电会连人脸模组
+一起杀掉（同一根供电脚），所以重枚举后必须重开串口 —— 旧回包表 / 接收回调随模组作废，
+留着会把上一轮残留字节喂给新回包。供电脚不可控时只重开串口，并在日志里点明跳过了这一步。
 @param tip 重开失败时的提示语
 ]]
-local function face_reenumerate(tip)
+face_reenumerate = function(tip)
     if face_pwr then
         log.info("uvc_preview_win", "断电重枚举摄像头", "GPIO" .. tostring(face_pwr))
         pcall(gpio.setup, face_pwr, 0)
@@ -938,14 +999,16 @@ local function face_reenumerate(tip)
     face_open(tip)
 end
 
---[[人脸动作收尾：复位忙标志 + 重开数据流，最后落状态行。
+--[[人脸动作收尾：复位忙标志 + 按需重开数据流，最后落状态行。
+@param msg      动作结果提示
+@param need_open boolean true=本次动作停过流（串行路径），收尾要 open_stream 重开画面；
+                       false=纯串口动作或并行路径，画面本就没停，不重连
 重开失败只在提示尾部带一句，不覆盖动作结果。
-@param msg 动作结果提示
 注意：必须定义在 face_begin 之前 —— face_begin 的失败分支要调它，
 Lua 里后定义的 local 在前面的闭包里是捕获不到的（取到的是全局 nil）。]]
-local function face_end(msg)
+local function face_end(msg, need_open)
     face_busy = false
-    if not quit_requested then
+    if need_open and not quit_requested then
         local ok, err = open_stream()
         if not ok then
             log.warn("uvc_preview_win", "人脸动作后重开数据流失败", err)
@@ -957,17 +1020,15 @@ local function face_end(msg)
 end
 
 --[[
-人脸动作前置：忙检查 + 开串口 + 停推流 + 确认模组就绪。
+人脸动作前置（串行 / 轻路径共用）：忙检查 + 开串口；cycle 时再停推流 + 切传感器 + 确认就绪。
 
-录入 / 验证要动模组的采集传感器，先断电重枚举（cycle 传 true）；取版本 / 清空是纯
-串口指令，走轻路径，不折腾摄像头。轻路径先开串口再停流，「模组压根没接上」与
-「停流把模组弄掉了」各给一条提示；重枚举路径反正要重开串口，不必先开这一次。
+录入 / 验证走 cycle=true 的串行降级路径：停流后发 MID_RESET 软复位，让传感器从 UVC
+出图模式切回人脸采集模式（见 face_reset_sensor）；取版本 / 清空是纯串口指令，cycle 传
+false —— 不停流、不复位、不做就绪自检，直接发指令。
 
-录入/验证会占满 CPU，与 MJPEG 收流叠加时识别超时，所以动作前停流（见文件头
-「人脸识别边界」第 4 条），airui.camera 停流后继续显示最后一帧，不黑屏。
 失败时自己给提示并复位 face_busy；成功返回 true，由调用方跑动作再调 face_end 收尾。
-@param tip 动作中的提示语
-@param cycle boolean true = 先断电重枚举摄像头
+@param tip   动作中的提示语
+@param cycle boolean true = 停流 + 软复位把传感器切回人脸模式（串行录入/验证）
 @return boolean
 ]]
 local function face_begin(tip, cycle)
@@ -978,71 +1039,171 @@ local function face_begin(tip, cycle)
     end
     face_busy = true
     update_status(tip)
-    if not cycle and not face_open(tip) then
+    if not face_open(tip) then
         face_busy = false
         return false
     end
+    if not cycle then
+        return true   -- 纯串口动作：不停流不复位
+    end
     close_stream()
     stop_widget()
-    if cycle then
-        face_reenumerate(tip)
-        if not face_on then
-            face_busy = false
-            return false
-        end
+    if not face_reset_sensor() then
+        face_busy = false
+        update_status("人脸模组切回采集模式失败，请重试")
+        return false
     end
     if not face_ready() then
-        face_end("人脸模组未就绪，请重试")
+        face_end("人脸模组未就绪，请重试", true)
         return false
     end
     return true
 end
 
--- 录入一张人脸：用户名按录入次数递增，现场连录多人时名字不重复
-local function do_face_register()
-    if not face_begin("录入中，请正对摄像头...", true) then return end
-    face_seq = face_seq + 1
-    local name = "user" .. tostring(face_seq)
-    local ok, res, extra = pcall(exfacecam.register, {
-        name = name,
-        -- admin 不传即普通用户：库里写的是 opt.admin and 1 or 0 的真假判断，
-        -- 传 0 在 Lua 里为真，反倒会被当成管理员
-        timeout = (face_cfg and face_cfg.register_timeout) or 15,
-        on_state = on_face_state,
-    })
-    local msg
-    if not ok then
-        msg = "录入异常：" .. tostring(res)
-    elseif res then
-        msg = "录入成功 用户ID " .. tostring(extra or "?") .. " " .. name
-    else
-        msg = "录入失败：" .. face_err_text(extra)
+-- ==================== 录入/验证与预览并行支持 ====================
+
+-- 应用 UVC 帧率配置。固件未实现 CONF_UVC_FPS 时 camera.config 静默失败，无副作用
+local function apply_uvc_fps(fps)
+    if camera and camera.CONF_UVC_FPS then
+        pcall(camera.config, 0, camera.CONF_UVC_FPS, fps)
     end
-    -- 原始返回值落日志：界面文案做了翻译，现场排障要按原始码比对 exfacecam.MR_*
-    log.warn("uvc_preview_win", "人脸录入 返回", tostring(ok), tostring(res), tostring(extra))
-    face_end(msg)
 end
 
--- 验证一张人脸：通过则报出命中的用户
-local function do_face_verify()
-    if not face_begin("验证中，请正对摄像头...", true) then return end
+--[[
+等待画面出现「进入本函数之后」的新帧：并行识别前确认预览真的活着，不拿旧帧/冻结画面硬跑。
+@return boolean true = 超时内收到新帧
+]]
+local function wait_frame_alive()
+    local before = frame_cnt
+    local t = 0
+    while t < face_live_timeout do
+        if frame_cnt > before then return true end
+        sys.wait(100)
+        t = t + 100
+    end
+    return false
+end
+
+--[[
+跑一次人脸动作（协程内），统一封装回包，供并行与串行路径复用。
+@return ok(pcall) , success(业务) , extra(user_id|table|错误码) , name(仅录入)
+]]
+local function face_run_once(kind)
+    if kind == "register" then
+        face_seq = face_seq + 1
+        local name = "user" .. tostring(face_seq)
+        local ok, res, extra = pcall(exfacecam.register, {
+            name = name,
+            -- admin 不传即普通用户：库里写的是 opt.admin and 1 or 0 的真假判断，
+            -- 传 0 在 Lua 里为真，反倒会被当成管理员
+            timeout = (face_cfg and face_cfg.register_timeout) or 15,
+            on_state = on_face_state,
+        })
+        return ok, ok and res or false, extra, name
+    end
     local ok, res, extra = pcall(exfacecam.verify, {
         timeout = (face_cfg and face_cfg.verify_timeout) or 15,
         on_state = on_face_state,
     })
-    local msg
+    return ok, ok and res or false, extra, nil
+end
+
+-- 把一次动作回包翻译成结果文案
+local function face_result_text(kind, ok, success, extra, name)
     if not ok then
-        msg = "验证异常：" .. tostring(res)
-    elseif res then
+        return (kind == "register" and "录入异常：" or "验证异常：") .. tostring(extra)
+    end
+    if kind == "register" then
+        if success then
+            return "录入成功 用户ID " .. tostring(extra or "?") .. " " .. tostring(name)
+        end
+        return "录入失败：" .. face_err_text(extra)
+    end
+    if success then
         local info = type(extra) == "table" and extra or {}
         local who = tostring(info.name or "")
         if who ~= "" then who = " " .. who end
-        msg = "验证通过 用户ID " .. tostring(info.user_id or "?") .. who
-    else
-        msg = "验证失败：" .. face_err_text(extra)
+        return "验证通过 用户ID " .. tostring(info.user_id or "?") .. who
     end
-    log.warn("uvc_preview_win", "人脸验证 返回", tostring(ok), tostring(res), tostring(extra))
-    face_end(msg)
+    return "验证失败：" .. face_err_text(extra)
+end
+
+--[[
+录入/验证统一入口：按 face_mode 决定并行或串行。
+- serial     ：face_begin(cycle=true) 停流串行
+- auto       ：预览不停流直接识别；并行失败（异常/业务失败/无新帧/流未开）降级串行重试一次
+- concurrent ：只走并行，失败不降级
+]]
+local function do_face_capture(kind)
+    if face_busy then return end
+    local doing = (kind == "register") and "录入" or "验证"
+
+    if face_mode == "serial" then
+        if not face_begin(doing .. "中，请正对摄像头...", true) then return end
+        local ok, success, extra, name = face_run_once(kind)
+        log.warn("uvc_preview_win", "人脸" .. doing, "serial", tostring(ok), tostring(success), tostring(extra))
+        face_end(face_result_text(kind, ok, success, extra, name), true)
+        return
+    end
+
+    -- 并行：先开串口（不停流），再降帧 + 确认画面活着
+    face_busy = true
+    update_status(doing .. "中，请正对摄像头...")
+    if not face_open(doing .. "中，请正对摄像头...") then
+        face_busy = false
+        return
+    end
+
+    local can_parallel = stream_open
+    if can_parallel then
+        apply_uvc_fps(face_busy_fps)
+        can_parallel = wait_frame_alive()
+    end
+
+    if not can_parallel then
+        if face_mode ~= "auto" then
+            face_busy = false
+            update_status(doing .. "失败：预览无画面")
+            return
+        end
+        log.warn("uvc_preview_win", "并行" .. doing .. "前置不满足，降级串行")
+        face_busy = false
+        if not face_begin(doing .. "中，请正对摄像头...", true) then return end
+        local ok, success, extra, name = face_run_once(kind)
+        face_end(face_result_text(kind, ok, success, extra, name), true)
+        return
+    end
+
+    log.info("uvc_preview_win", "并行" .. doing .. "，预览不停流 fps=" .. tostring(face_busy_fps))
+    local ok, success, extra, name = face_run_once(kind)
+    log.warn("uvc_preview_win", "人脸" .. doing, "parallel", tostring(ok), tostring(success), tostring(extra))
+
+    if ok and success then
+        apply_uvc_fps(15)
+        face_end(face_result_text(kind, ok, success, extra, name), false)
+        return
+    end
+
+    if face_mode ~= "auto" then
+        apply_uvc_fps(15)
+        face_end(face_result_text(kind, ok, success, extra, name), false)
+        return
+    end
+    log.warn("uvc_preview_win", "并行" .. doing .. "失败，降级串行重试一次")
+    face_busy = false
+    if not face_begin("正在重新" .. doing .. "，请稍候...", true) then return end
+    local ok2, success2, extra2, name2 = face_run_once(kind)
+    face_end(face_result_text(kind, ok2, success2, extra2, name2), true)
+end
+
+-- 录入一张人脸：用户名按录入次数递增，现场连录多人时名字不重复
+local function do_face_register()
+    do_face_capture("register")
+end
+
+-- 验证一张人脸：通过则报出命中的用户
+local function do_face_verify()
+    do_face_capture("verify")
 end
 
 -- 删除全部已注册用户：先数一遍现有用户，删完把个数一起报出来
@@ -1058,7 +1219,7 @@ local function do_face_clear()
     else
         msg = "删除失败"
     end
-    face_end(msg)
+    face_end(msg, false)
 end
 
 -- 读模组固件版本：串口通没通，这一条最直观
@@ -1071,7 +1232,7 @@ local function do_face_version()
     else
         msg = "版本读取失败"
     end
-    face_end(msg)
+    face_end(msg, false)
 end
 
 -- 拆掉一组界面控件（控件销毁必须晚于停流，见 close_stream 的说明）
@@ -1252,55 +1413,56 @@ local function build_tabs(w, y, h, gap)
 end
 
 --[[
-底部控制栏：UVC 与人脸各摆一份，同一位置靠 set_hidden 切换（与页签行同一套做法）。
-两栏都是 4 个等宽按钮，按钮文案压到两字。
+右侧竖排控制栏：UVC 与人脸各摆一份，同一右栏位置靠 set_hidden 切换（与页签行同一套做法）。
+两栏都是 4 个等高按钮纵向均分，按钮文案压到两字。
+左栏预览一直延伸到底，右栏只占固定窄列，预览因此更高更贴合竖画幅。
 不带 face 子表的机型只建 UVC 栏，人脸栏不占控件。
-@param w, y, h 栏几何
+@param x, y, w, h 右栏整体几何
 @param gap 按钮间距
 @param has_face 是否建人脸栏
 ]]
-local function build_ctrl_bars(w, y, h, gap, has_face)
+local function build_ctrl_bars(x, y, w, h, gap, has_face)
     local n = 4
-    local bw = math.floor((w - (n - 1) * gap) / n)
+    local bh = math.floor((h - (n - 1) * gap) / n)
 
     uvc_bar = theme.box(main_container, {
-        x = pad, y = y, w = w, h = h, color = theme.C.black, opa = 0,
+        x = x, y = y, w = w, h = h, color = theme.C.black, opa = 0,
     })
     theme.button(uvc_bar, {
-        x = 0, y = 0, w = bw, h = h,
+        x = 0, y = 0, w = w, h = bh,
         text = "拍照", on_click = function() sys.publish("UVC_CMD", "photo") end,
     })
     theme.button(uvc_bar, {
-        x = bw + gap, y = 0, w = bw, h = h,
+        x = 0, y = bh + gap, w = w, h = bh,
         text = "录像", on_click = function() sys.publish("UVC_CMD", "record") end,
     })
     theme.ghost_button(uvc_bar, {
-        x = 2 * (bw + gap), y = 0, w = bw, h = h,
+        x = 0, y = 2 * (bh + gap), w = w, h = bh,
         text = "时长", on_click = function() sys.publish("UVC_CMD", "duration") end,
     })
     theme.ghost_button(uvc_bar, {
-        x = 3 * (bw + gap), y = 0, w = bw, h = h,
+        x = 0, y = 3 * (bh + gap), w = w, h = bh,
         text = "适配", on_click = function() sys.publish("UVC_CMD", "fit") end,
     })
 
     if has_face then
         face_bar = theme.box(main_container, {
-            x = pad, y = y, w = w, h = h, color = theme.C.black, opa = 0,
+            x = x, y = y, w = w, h = h, color = theme.C.black, opa = 0,
         })
         theme.button(face_bar, {
-            x = 0, y = 0, w = bw, h = h,
+            x = 0, y = 0, w = w, h = bh,
             text = "录入", on_click = function() sys.publish("UVC_CMD", "face_register") end,
         })
         theme.button(face_bar, {
-            x = bw + gap, y = 0, w = bw, h = h,
+            x = 0, y = bh + gap, w = w, h = bh,
             text = "验证", on_click = function() sys.publish("UVC_CMD", "face_verify") end,
         })
         theme.ghost_button(face_bar, {
-            x = 2 * (bw + gap), y = 0, w = bw, h = h,
+            x = 0, y = 2 * (bh + gap), w = w, h = bh,
             text = "清空", on_click = function() sys.publish("UVC_CMD", "face_clear") end,
         })
         theme.ghost_button(face_bar, {
-            x = 3 * (bw + gap), y = 0, w = bw, h = h,
+            x = 0, y = 3 * (bh + gap), w = w, h = bh,
             text = "版本", on_click = function() sys.publish("UVC_CMD", "face_version") end,
         })
     end
@@ -1326,7 +1488,6 @@ local function build_ui()
 
     local y = pad + th + pad
     local gap = theme.dp(10)
-    local ctrl_h = theme.dp(50)
     local status_h = theme.fs("caption") + theme.dp(10)
 
     -- 页签行：预览区之上，只有配了 face 子表才出
@@ -1337,33 +1498,39 @@ local function build_ui()
         y = y + tab_h + gap
     end
 
-    -- 底部：状态行 + 控制栏，剩余高度全给预览区
-    local bottom_h = status_h + gap + ctrl_h
-    local preview_h = sh - y - pad - bottom_h
-    if preview_h < theme.dp(80) then preview_h = theme.dp(80) end
+    -- 右侧控制列固定窄宽（与原横排按钮等宽），左栏占其余宽度
+    local col_w = theme.dp(100)
+    local left_w = card_w - col_w - gap
 
-    -- 预览区：纯黑底 + 描边，airui.camera 覆盖在上面出画面
+    -- 底部只留一条状态行：左预览与右控制列都延伸到状态行上方
+    local content_h = sh - y - pad - status_h - gap
+    if content_h < theme.dp(120) then content_h = theme.dp(120) end
+
+    local col_x = pad + left_w + gap
+
+    -- 预览区：左栏满高，纯黑底 + 描边，airui.camera 覆盖在上面出画面
     theme.box(main_container, {
-        x = pad, y = y, w = card_w, h = preview_h,
+        x = pad, y = y, w = left_w, h = content_h,
         color = theme.C.black, opa = 255,
         radius = theme.R.lg, border = theme.C.stroke, border_w = 1,
     })
-    preview_area = { x = pad, y = y, w = card_w, h = preview_h }
+    preview_area = { x = pad, y = y, w = left_w, h = content_h }
     -- 组件必须在建界面时就建好并挂上解码通道，早于 excamera.open 开流（见 create_widget）
     if create_widget() then
         start_widget()
     end
 
-    local sy = y + preview_h + gap
+    -- 右侧竖排控制列与左预览同高
+    build_ctrl_bars(col_x, y, col_w, content_h, gap, has_face)
+
+    -- 底部状态行横跨整宽
+    local sy = y + content_h + gap
     status_w = card_w
     status_label = theme.label(main_container, {
         x = pad, y = sy, w = card_w, h = status_h,
         text = "准备中...", px_size = theme.fs("caption"),
         color = theme.C.t2, align = airui.TEXT_ALIGN_LEFT,
     })
-
-    local cy = sy + status_h + gap
-    build_ctrl_bars(card_w, cy, ctrl_h, gap, has_face)
 end
 
 -- ==================== 窗口生命周期 ====================
@@ -1386,6 +1553,19 @@ local function on_create()
     -- 条目带 face 子表才有人脸页签（见文件头【人脸识别】）；串口按需开，见 face_open
     local face = entry and entry.face
     face_cfg = (type(face) == "table") and face or nil
+    -- 并行模式参数（见文件头「人脸识别边界」第 4 条）；不配时默认 auto + 3fps
+    if face_cfg then
+        face_mode = (face_cfg.mode == "serial" or face_cfg.mode == "concurrent")
+            and face_cfg.mode or "auto"
+        if type(face_cfg.busy_fps) == "number" and face_cfg.busy_fps > 0 then
+            face_busy_fps = math.floor(face_cfg.busy_fps)
+        end
+        if type(face_cfg.live_timeout) == "number" and face_cfg.live_timeout >= 500 then
+            face_live_timeout = math.floor(face_cfg.live_timeout)
+        end
+    else
+        face_mode = "auto"
+    end
     -- 供电脚取条目的 en_pin。GPIO12 在多数机型是 VBUS 与 5V_EN 共轨，未声明
     -- pin12_free 就不碰（同 periph_uvc 的 check_en_pin），此时跳过断电重枚举
     face_pwr = nil

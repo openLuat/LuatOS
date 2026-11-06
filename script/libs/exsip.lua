@@ -457,7 +457,12 @@ local function start_voip_engine_now(session)
         end
     end
 
-    log_info("start voip engine with adapter:", g_current_adapter, "remote:", session.remote_ip .. ":" .. session.remote_port)
+    -- local_port 必须等于本通 SDP 里宣告的端口：两者不一致时我们能发出去、对端回来的包
+    -- 却落在没人监听的端口上，症状就是「只有一边能听到」。连续通话排查时先核对这一行
+    -- 与上一通是否相同（同一端口反复出现就是端口轮换失效）。
+    log_info("start voip engine with adapter:", g_current_adapter,
+        "remote:", session.remote_ip .. ":" .. session.remote_port,
+        "local_port:", session.local_rtp_port, "codec:", session.codec)
     local ok = voip.start({
         security = session.security,
         remote_ip = session.remote_ip,

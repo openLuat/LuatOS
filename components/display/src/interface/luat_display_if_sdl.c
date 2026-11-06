@@ -3,16 +3,39 @@
 #include "luat_display_sdl2.h"
 #include "luat_display_if_comm.h"
 #include "luat_mem.h"
+#include "luat_rtos.h"
+#include "luat_msgbus.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "display_sdl"
 #include "luat_log.h"
 
+/*本地用户数据，用于登记信息用的*/
 struct sdl_disp_userdata {
     luat_display_sdl2_ctx_t *ctx;
     void *draw_buf;
+    /*SDL后端虚拟图层*/
+    struct luat_display_layer_data v_layer[2];
 };
 
+/* 视频层。layer_id 0 是 UI 层，不叠到画面上。 */
+static struct luat_display_layer_data s_video_layer;
+
+/* 模拟真实屏幕的持续扫描, 定时器在 sdl_set_layer 里按视频层开关启停 */
+static luat_rtos_timer_t s_video_scan_timer = NULL;
+static uint8_t s_video_scan_posted = 0;
+static uint8_t s_video_scan_running = 0;
+
+/* 有的生产者(mplayer)整段播放复用同一块缓冲, 有的(videoplayer)每帧换缓冲并在下一帧释放旧的。
+ * 检测到缓冲指针变化后切换到拷贝模式, 把每帧拷进后端自有的稳定缓冲, 异步扫描就不会读到已释放内存。*/
+static uint8_t *s_video_own_buf = NULL;
+static size_t s_video_own_size = 0;
+static uint8_t s_video_copy_mode = 0;
+static luat_rtos_mutex_t s_video_lock = NULL;
+
+static void sdl_video_scan_stop(void);
+static int sdl_video_lock(void);
+static void sdl_video_unlock(void);
 
 static int sdl_deinit(struct luat_display *disp)
 {
@@ -21,6 +44,25 @@ static int sdl_deinit(struct luat_display *disp)
     }
 
     struct sdl_disp_userdata *ud = (struct sdl_disp_userdata *)disp->userdata;
+
+    sdl_video_scan_stop();
+    if (s_video_scan_timer != NULL) {
+        luat_rtos_timer_delete(s_video_scan_timer);
+        s_video_scan_timer = NULL;
+    }
+    sdl_video_lock();
+    memset(&s_video_layer, 0, sizeof(s_video_layer));
+    if (s_video_own_buf != NULL) {
+        luat_heap_free(s_video_own_buf);
+        s_video_own_buf = NULL;
+    }
+    s_video_own_size = 0;
+    s_video_copy_mode = 0;
+    sdl_video_unlock();
+    if (s_video_lock != NULL) {
+        luat_rtos_mutex_delete(s_video_lock);
+        s_video_lock = NULL;
+    }
 
     if (ud->ctx != NULL) {
         luat_display_sdl2_destroy(ud->ctx);
@@ -82,6 +124,15 @@ static int sdl_inf_init(struct luat_display *disp)
         return -1;
     }
 
+    if (s_video_lock == NULL) {
+        if (luat_rtos_mutex_create(&s_video_lock) != 0) {
+            s_video_lock = NULL;
+            LLOGE("sdl2 video lock create failed");
+            luat_heap_free(ud);
+            return -1;
+        }
+    }
+
     /*分配 CPU 可写 draw buffer*/
     uint32_t draw_buf_size = info->width * info->height * 2;
     ud->draw_buf = luat_heap_zalloc(draw_buf_size);
@@ -115,9 +166,6 @@ static int sdl_inf_init(struct luat_display *disp)
 
     return 0;
 }
-
-/* 视频层。layer_id 0 是 UI 层，不叠到画面上。 */
-static struct luat_display_layer_data s_video_layer;
 
 static struct sdl_disp_userdata *sdl_ud(struct luat_display *disp)
 {
@@ -210,6 +258,149 @@ static void restore_video_rect(struct luat_display *disp, struct sdl_disp_userda
     luat_display_sdl2_draw(ud->ctx, (int16_t)x, (int16_t)y, (uint16_t)w, (uint16_t)h, src, pitch);
 }
 
+/* 模拟真实屏幕的持续扫描: 视频层启用后按刷新周期把图层贴回窗口。
+ * 定时器回调在 timer 线程, 通过 msgbus 投递到主线程执行, 避免跨线程操作 SDL。*/
+#define SDL_VIDEO_SCAN_PERIOD_MS 16
+
+static int sdl_video_lock(void)
+{
+    if (s_video_lock == NULL) {
+        return -1;
+    }
+    return luat_rtos_mutex_lock(s_video_lock, LUAT_WAIT_FOREVER);
+}
+
+static void sdl_video_unlock(void)
+{
+    if (s_video_lock != NULL) {
+        luat_rtos_mutex_unlock(s_video_lock);
+    }
+}
+
+/*把生产者的一帧拷进后端自有缓冲。调用方需持有 s_video_lock。*/
+static int sdl_video_copy_frame(struct luat_display_layer_data *layer)
+{
+    int w;
+    int h;
+    int row;
+    uint32_t src_pitch;
+    uint8_t *dst;
+    size_t need;
+
+    if (layer == NULL || layer->buffer == NULL) {
+        return -1;
+    }
+    w = (int)(layer->area.x2 - layer->area.x1);
+    h = (int)(layer->area.y2 - layer->area.y1);
+    if (w <= 0 || h <= 0) {
+        return -1;
+    }
+    need = (size_t)w * (size_t)h * 2U;
+    if (s_video_own_size < need) {
+        uint8_t *buf = luat_heap_malloc(need);
+        if (buf == NULL) {
+            LLOGW("video layer copy buffer alloc failed, %u bytes", (unsigned int)need);
+            return -1;
+        }
+        if (s_video_own_buf != NULL) {
+            luat_heap_free(s_video_own_buf);
+        }
+        s_video_own_buf = buf;
+        s_video_own_size = need;
+    }
+    src_pitch = layer->stride ? layer->stride : (uint32_t)w * 2U;
+    dst = s_video_own_buf;
+    for (row = 0; row < h; row++) {
+        memcpy(dst + (size_t)row * (size_t)w * 2U,
+               (uint8_t *)layer->buffer + (size_t)row * src_pitch,
+               (size_t)w * 2U);
+    }
+    return 0;
+}
+
+/*需持有 s_video_lock: 视频层开着就先叠到纹理上, 再送显。
+ * 所有送显路径都必须走这里, 否则只呈现 UI 纹理会把视频区域盖掉。*/
+static void sdl_present_locked(struct luat_display *disp, struct sdl_disp_userdata *ud)
+{
+    if (disp == NULL || ud == NULL || ud->ctx == NULL) {
+        return;
+    }
+    if (s_video_layer.enable) {
+        blit_video(disp, ud);
+    }
+    luat_display_sdl2_flush(ud->ctx);
+}
+
+/*主线程执行: 把视频层叠到 SDL 纹理并送显*/
+static void sdl_video_present(void)
+{
+    struct luat_display *disp;
+    struct sdl_disp_userdata *ud;
+
+    if (sdl_video_lock() != 0) {
+        return;
+    }
+    if (s_video_layer.enable) {
+        disp = luat_display_get_default();
+        ud = sdl_ud(disp);
+        sdl_present_locked(disp, ud);
+    }
+    sdl_video_unlock();
+}
+
+static int sdl_video_scan_msg_handler(lua_State *L, void *ptr)
+{
+    (void)L;
+    (void)ptr;
+    s_video_scan_posted = 0;
+    sdl_video_present();
+    return 0;
+}
+
+static void sdl_video_scan_timer_cb(LUAT_RT_CB_PARAM)
+{
+    (void)param;
+    rtos_msg_t msg;
+
+    if (s_video_scan_posted) {
+        return;
+    }
+    msg.handler = sdl_video_scan_msg_handler;
+    msg.ptr = NULL;
+    msg.arg1 = 0;
+    msg.arg2 = 0;
+    if (luat_msgbus_put(&msg, 0) == 0) {
+        s_video_scan_posted = 1;
+    }
+}
+
+static void sdl_video_scan_start(void)
+{
+    if (s_video_scan_running) {
+        return;
+    }
+    if (s_video_scan_timer == NULL) {
+        if (luat_rtos_timer_create(&s_video_scan_timer) != 0) {
+            s_video_scan_timer = NULL;
+            LLOGW("create video scan timer failed");
+            return;
+        }
+    }
+    s_video_scan_posted = 0;
+    if (luat_rtos_timer_start(s_video_scan_timer, SDL_VIDEO_SCAN_PERIOD_MS, 1, sdl_video_scan_timer_cb, NULL) == 0) {
+        s_video_scan_running = 1;
+    }
+}
+
+static void sdl_video_scan_stop(void)
+{
+    if (s_video_scan_timer != NULL) {
+        luat_rtos_timer_stop(s_video_scan_timer);
+    }
+    s_video_scan_posted = 0;
+    s_video_scan_running = 0;
+}
+
 /*设置显示层。UI 层只记录，视频层叠到 SDL 纹理上。*/
 static int sdl_set_layer(struct luat_display_layer_data *layer_data)
 {
@@ -219,45 +410,47 @@ static int sdl_set_layer(struct luat_display_layer_data *layer_data)
     if (layer_data == NULL) {
         return -1;
     }
-    if (layer_data->layer_id == 0) {
+    if (layer_data->layer_id == LUAT_DISPLAY_LAYER_UI) {
         return 0;
     }
 
     disp = luat_display_get_default();
     ud = sdl_ud(disp);
+
+    if (sdl_video_lock() != 0) {
+        return -1;
+    }
+
     if (!layer_data->enable) {
+        sdl_video_scan_stop();
         if (ud != NULL && ud->ctx != NULL) {
             restore_video_rect(disp, ud);
             luat_display_sdl2_flush(ud->ctx);
         }
         memset(&s_video_layer, 0, sizeof(s_video_layer));
+        s_video_copy_mode = 0;
+        sdl_video_unlock();
         return 0;
     }
 
-    s_video_layer = *layer_data;
-    if (ud != NULL && ud->ctx != NULL) {
-        blit_video(disp, ud);
-        luat_display_sdl2_flush(ud->ctx);
+    /*生产者换了缓冲, 说明它不会复用同一块内存, 之后每帧都拷贝到自有缓冲*/
+    if (s_video_layer.buffer != NULL && layer_data->buffer != s_video_layer.buffer) {
+        s_video_copy_mode = 1;
     }
+
+    if (s_video_copy_mode && sdl_video_copy_frame(layer_data) == 0) {
+        s_video_layer = *layer_data;
+        s_video_layer.buffer = s_video_own_buf;
+        s_video_layer.stride = (uint32_t)(layer_data->area.x2 - layer_data->area.x1) * 2U;
+    }
+    else {
+        s_video_layer = *layer_data;
+    }
+
+    sdl_present_locked(disp, ud);
+    sdl_video_scan_start();
+    sdl_video_unlock();
     return 0;
-}
-
-/*解码线程写完整帧后由主线程贴图: 层一启用就每帧重贴，不再依赖脏标记。*/
-void luat_display_sdl_present_overlay(void)
-{
-    struct luat_display *disp;
-    struct sdl_disp_userdata *ud;
-
-    if (!s_video_layer.enable) {
-        return;
-    }
-    disp = luat_display_get_default();
-    ud = sdl_ud(disp);
-    if (ud == NULL || ud->ctx == NULL) {
-        return;
-    }
-    blit_video(disp, ud);
-    luat_display_sdl2_flush(ud->ctx);
 }
 
 static void *sdl_native(struct luat_display *disp, int which)
@@ -305,14 +498,15 @@ int luat_display_sdl_blit(struct luat_display *disp, int32_t x, int32_t y, int32
     if (pitch == 0U) {
         pitch = (uint32_t)w * 2U;
     }
+    if (sdl_video_lock() != 0) {
+        return -1;
+    }
     shadow_copy(disp, ud, (int)x, (int)y, (int)w, (int)h, data, pitch);
     luat_display_sdl2_draw(ud->ctx, (int16_t)x, (int16_t)y, (uint16_t)w, (uint16_t)h, data, pitch);
     if (present) {
-        if (s_video_layer.enable) {
-            blit_video(disp, ud);
-        }
-        luat_display_sdl2_flush(ud->ctx);
+        sdl_present_locked(disp, ud);
     }
+    sdl_video_unlock();
     return 0;
 }
 
@@ -347,7 +541,10 @@ static int sdl_pan_display(struct luat_display *disp, int index)
 
     struct sdl_disp_userdata *ud = (struct sdl_disp_userdata *)disp->userdata;
     if (ud->ctx != NULL) {
-        luat_display_sdl2_flush(ud->ctx);
+        if (sdl_video_lock() == 0) {
+            sdl_present_locked(disp, ud);
+            sdl_video_unlock();
+        }
         luat_display_sdl2_pump_events(ud->ctx);
     }
     return 0;

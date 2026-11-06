@@ -39,7 +39,6 @@ typedef struct {
     int frame_w;
     int frame_h;
 #endif
-    lv_timer_t *overlay_timer;
 } sdl_display_data_t;
 
 #endif /* LUAT_USE_AIRUI_SDL2 */

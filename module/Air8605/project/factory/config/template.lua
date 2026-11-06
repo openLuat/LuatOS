@@ -128,7 +128,15 @@
     --     -- 人脸识别摄像头（UVC 出图 + UART2 人脸协议）写法：
     --     -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
     --     --   en_pin = 73, ready_delay = 200, w = 1280, h = 720,
-    --     --   face = { uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15 } },
+    --     --   face = {
+    --     --     uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15,
+    --     --     -- 录入/验证与预览并行（可选，默认 auto）：
+    --     --     -- serial=动作前停流（画面冻结）; auto=预览不停流降帧识别，失败自动停流重试一次;
+    --     --     -- concurrent=只并行不降级
+    --     --     mode = "auto",
+    --     --     busy_fps = 3,       -- 并行识别时 UVC 帧率（降帧让出 CPU），默认 3
+    --     --     live_timeout = 3000, -- 并行前等画面新帧超时(ms)，超时降级串行，默认 3000
+    --     --   } },
     --     { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, baud = 9600, manual_init = true },
     --     { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 },
     --     { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },

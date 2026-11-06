@@ -1,8 +1,8 @@
 --[[
 @module  idle_win
 @summary 桌面首页（TabOS 深色玻璃态）——状态栏 + 时钟卡 + 应用网格 + 底部 Dock
-@version 2.4
-@date    2026.09.23
+@version 2.5
+@date    2026.10.29
 @author  江访
 
 消息协议（订阅/发布）:
@@ -27,14 +27,25 @@
   中部应用网格玻璃卡（含分页器）+ 底部玻璃 Dock
   竖屏播放器布局（配置项 ui.show_video_area）：状态栏 → 时钟 → 播放器（画面 + 独立控制栏）→ 已安装应用 → Dock
 
+=== 播放器素材闸口（起播前必读）===
+VP.start_play 是桌面播放器唯一入口，起播前有两道判断：
+  1) 拦：超过该格式分辨率上限的真解不出来 —— MP4 480×320、HZV/MJPG 1024×600
+     （video_util.check_frame），任何路径都不起播，画面区给原因文案；
+  2) 提：放不下画面区的照常播（裁着看）—— airui 播放器不支持缩放，控件被撑回
+     素材原生尺寸、越出画面区，由舞台层 VP.stage 裁掉一圈。用户主动选文件时
+     提一次「建议全屏播放」（VP.ask_fullscreen，另有「窗口播放」选项），
+     开机起播与全屏返回不弹窗。
+放得下的素材按帧原生尺寸居中摆放，不缩放、不裁剪。
+
 === 排版注意（改天气卡前必读）===
-theme.label 内部有一行 `if fs < 16 then fs = 16 end`，而 density_scale 在
-10.1" 1024x600 上算得 0.64 → 被 max(1.0, ...) 抬回 1.0，因此 theme.F.tiny/small/body
-这三个令牌在本工程实机上全部退化为 16px（仅 h2=17 略大）。
-=> 想要可靠的字号层级必须走 px_size；且行高 h 必须 >= 字号，否则字被裁切。
+theme.label 内部有一行 `if fs < theme.FONT_MIN then fs = theme.FONT_MIN end`，
+而 density_scale 在 10.1" 1024x600 上算得 0.64 → 被 max(1.0, ...) 抬回 1.0，
+因此 theme.F.tiny/small/body 这三个令牌在本工程实机上全部退化为 15~19px。
+=> 想要可靠的字号层级必须走 px_size；且行高 h 必须 >= 字号 + 3，否则字被裁切。
 ]]
 
 local exnetif = require "exnetif"
+local net_manager = require "net_manager"
 local theme = require "ui_theme"
 -- 播放器两块共用的底层：素材工具（帧尺寸口径 / 音轨初始化）与文件选择弹窗。
 -- 全屏播放页（ui/video_win.lua）用的是同一套，改口径只改模块。
@@ -82,6 +93,7 @@ local pager_prev_btn, pager_next_btn = nil, nil
 -- 关键控件
 local status_time_label, big_time_label, date_label, greet_label
 local wifi_icon, mobile_icon, ethernet_icon
+local wifi_icon_box, mobile_icon_box, ethernet_icon_box
 local battery_bar, battery_label, battery_container
 local grid_container, page_idx_label
 
@@ -587,7 +599,7 @@ local function render_grid_page()
         local tile = theme.tile(grid_container, {
             x = x, y = y, w = tile_w, h = tile_h,
             icon = app.icon, icon_size = tile_icon, text = app.name, opa = 6,
-            px_size = clamp(math.floor(screen_h * 0.02), 11, 14), text_color = theme.C.t2,
+            px_size = clamp(math.floor(screen_h * 0.02), theme.FONT_MIN, 18), text_color = theme.C.t2,
             on_click = function() tile_bind_click(app) end,
             on_long_press = long_handler,
         })
@@ -1114,6 +1126,31 @@ local function update_ethernet_icon(state)
     else ethernet_icon:set_src("/luadb/ethernet_fault.png") end
 end
 
+--[[
+按网络开关显隐顶栏网络图标
+airui.image 没有 hide/open/set_hidden，显隐只能作用在外层透明容器上
+]]
+local function apply_net_icons()
+    local list = net_manager.list_networks()
+    if not list or #list == 0 then return end
+    local group_on = { wifi = false, eth = false, ["4g"] = false }
+    for _, item in ipairs(list) do
+        if item.enabled then group_on[item.group] = true end
+    end
+    if wifi_icon_box then wifi_icon_box:set_hidden(not group_on.wifi) end
+    if mobile_icon_box then mobile_icon_box:set_hidden(not group_on["4g"]) end
+    if ethernet_icon_box then ethernet_icon_box:set_hidden(not group_on.eth) end
+end
+
+--[[
+创建顶栏网络图标：外层透明容器承载显隐，内层 image 承载 set_src
+]]
+local function make_net_icon(parent, src, x, y, size)
+    local box = theme.box(parent, { x = x, y = y, w = size, h = size })
+    local img = theme.image(box, { src = src, x = 0, y = 0, w = size, h = size })
+    return box, img
+end
+
 -- ==================== 电池充电动画 ====================
 
 local charge_anim_timer = nil
@@ -1216,8 +1253,8 @@ local function build_rail(parent)
         theme.image(item, { icon = b.icon, placeholder = true, x = math.floor((iw - isz) / 2),
             y = math.floor(ih * 0.18), w = isz, h = isz })
         theme.label(item, {
-            x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = math.floor(ih * 0.38),
-            text = b.name, px_size = clamp(math.floor(screen_h * 0.018), 10, 13),
+            x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = ih - math.floor(ih * 0.56),
+            text = b.name, px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 16),
             --[[左栏标签读 t2 而不是 t3
 
             左栏底色是「rail_bg 叠在主题 bg 上」的合成色，比纯 bg 亮一档；
@@ -1257,8 +1294,8 @@ local function build_rail(parent)
         theme.image(item, { icon = "desktop", placeholder = true, x = math.floor((iw - isz) / 2),
             y = math.floor(ih * 0.18), w = isz, h = isz })
         theme.label(item, {
-            x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = math.floor(ih * 0.38),
-            text = "桌面", px_size = clamp(math.floor(screen_h * 0.018), 10, 13),
+            x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = ih - math.floor(ih * 0.56),
+            text = "桌面", px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 16),
             color = theme.C.t2, align = airui.TEXT_ALIGN_CENTER,
         })
     else
@@ -1292,7 +1329,7 @@ local function build_status_bar(parent)
     local isz = math.floor(status_h * 0.62)
     local icon_y = math.floor((status_h - isz) / 2)
     local gap = clamp(math.floor(8 * density_scale_val), 6, 12)
-    local fs = clamp(math.floor(screen_h * 0.0217), 13, 16)   -- 设计稿问候语/时间 13px
+    local fs = clamp(math.floor(screen_h * 0.0217), theme.FONT_MIN, 18)   -- 问候语 / 时间
     local text_h = fs + 4
     local text_y = pad + math.floor((status_h - text_h) / 2)
 
@@ -1316,7 +1353,7 @@ local function build_status_bar(parent)
 
     if has_battery then
         local bw = math.floor(54 * density_scale_val)
-        local bh = math.floor(status_h * 0.58)
+        local bh = math.max(math.floor(status_h * 0.58), theme.fs("caption") + 3)
         rx = rx - bw - gap
         battery_container = theme.box(parent, {
             x = bar_x + rx, y = pad + math.floor((status_h - bh) / 2), w = bw, h = bh,
@@ -1336,24 +1373,18 @@ local function build_status_bar(parent)
 
     if has_eth then
         rx = rx - isz - gap
-        ethernet_icon = theme.image(parent, {
-            src = "/luadb/ethernet_link_down.png", x = bar_x + rx,
-            y = pad + icon_y, w = isz, h = isz,
-        })
+        ethernet_icon_box, ethernet_icon = make_net_icon(parent,
+            "/luadb/ethernet_link_down.png", bar_x + rx, pad + icon_y, isz)
     end
     if has_4g then
         rx = rx - isz - gap
-        mobile_icon = theme.image(parent, {
-            src = "/luadb/4Gxinhao6.png", x = bar_x + rx,
-            y = pad + icon_y, w = isz, h = isz,
-        })
+        mobile_icon_box, mobile_icon = make_net_icon(parent,
+            "/luadb/4Gxinhao6.png", bar_x + rx, pad + icon_y, isz)
     end
     if has_wifi then
         rx = rx - isz - gap
-        wifi_icon = theme.image(parent, {
-            src = "/luadb/wifixinhao0.png", x = bar_x + rx,
-            y = pad + icon_y, w = isz, h = isz,
-        })
+        wifi_icon_box, wifi_icon = make_net_icon(parent,
+            "/luadb/wifixinhao0.png", bar_x + rx, pad + icon_y, isz)
     end
 end
 
@@ -1369,7 +1400,7 @@ local function build_clock_card(parent)
     -- 内部度量：全部由卡片高度推导，保证「英雄字 + 日期」与右侧二维码都不被裁切
     local pad_in = clamp(math.floor(clock_h * 0.11), 10, 24)
     local hero = clamp(math.floor(clock_h * 0.50), 40, 64)
-    local fs_date = clamp(math.floor(clock_h * 0.128), 13, 16)
+    local fs_date = clamp(math.floor(clock_h * 0.128), theme.FONT_MIN, 18)
     local date_h = fs_date + 4
     local gap = math.floor(4 * density_scale_val)
     local date_y = pad_in + hero + gap
@@ -1386,7 +1417,8 @@ local function build_clock_card(parent)
 
     -- 右侧资料中心（文字 + 二维码），整体在卡片内垂直居中
     local qs = clamp(math.floor(clock_h * 0.62), 40, 80)
-    local qlabel_h = clamp(math.floor(clock_h * 0.11), 12, 16)
+    local fs_qr = clamp(math.floor(clock_h * 0.11), theme.FONT_MIN, 18)
+    local qlabel_h = fs_qr + 3
     local qlabel_w = qs + math.floor(16 * density_scale_val)
     local qr_gap = math.floor(3 * density_scale_val)
     local total_qr_h = qlabel_h + qr_gap + qs
@@ -1396,7 +1428,7 @@ local function build_clock_card(parent)
 
     theme.label(card, {
         x = qx-10, y = qr_y_start, w = qlabel_w, h = qlabel_h,
-        text = "资料中心", px_size = qlabel_h - 1, color = theme.C.t3,
+        text = "资料中心", px_size = fs_qr, color = theme.C.t3,
         align = airui.TEXT_ALIGN_CENTER,
     })
     airui.qrcode({
@@ -1420,7 +1452,7 @@ local function build_apps_card(parent)
     apps_head_label = theme.section(apps_card, {
         x = apps_pad_y + 4, y = math.floor(apps_pad_y * 0.6),
         w = math.floor(aw * 0.45), h = apps_head_h,
-        text = "已安装应用 | " .. tostring(#all_apps), px_size = clamp(math.floor(screen_h * 0.02), 12, 16),
+        text = "已安装应用 | " .. tostring(#all_apps), px_size = clamp(math.floor(screen_h * 0.02), theme.FONT_MIN, 18),
         color = theme.C.t3,
     })
 
@@ -1451,7 +1483,7 @@ local function build_apps_card(parent)
     page_idx_label = theme.label(apps_card, {
         x = pager_x - pw * 2 - pager_gap - math.floor(36 * density_scale_val), y = pager_y,
         w = math.floor(36 * density_scale_val), h = apps_head_h,
-        text = "1/1", px_size = clamp(math.floor(screen_h * 0.018), 11, 14), color = theme.C.t2,
+        text = "1/1", px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 16), color = theme.C.t2,
         align = airui.TEXT_ALIGN_CENTER,
     })
 
@@ -1637,20 +1669,20 @@ local function build_weather_card(parent)
 
     -- ========== 内部度量：全部由卡片高度推导，保证文字不被裁切 ==========
     -- 字号走 px_size 显式给像素值（绕开 theme 的 16px 字号下限歧义），
-    -- 行高统一取「字号 + 2」，修掉旧版「11~14px 行高装 16px 文字」的裁字问题。
+    -- 行高统一取「字号 + 3」（hzfont 行高 = 字号 + 3）。
     local pad_in = clamp(math.floor(weather_h * 0.15), 8, 12)
     local content_h = weather_h - 2 * pad_in
     local line_gap = clamp(math.floor(weather_h * 0.04), 2, 4)
-    local fs_info = clamp(math.floor(content_h * 0.26), 12, 18)             -- 地点|状况（设计稿 12px）
-    local fs_fc = math.min(clamp(math.floor(content_h * 0.26), 12, 16), fs_info)  -- 预报（次级，设计稿 11~12px）
-    local fs_temp = clamp(math.floor(content_h * 0.60), 20, 34)             -- 当前温度（英雄字，设计稿 30px）
+    local fs_info = clamp(math.floor(content_h * 0.26), theme.FONT_MIN, 18)             -- 地点|状况
+    local fs_fc = math.min(clamp(math.floor(content_h * 0.26), theme.FONT_MIN, 16), fs_info)  -- 预报（次级）
+    local fs_temp = clamp(math.floor(content_h * 0.60), 20, 34)             -- 当前温度（英雄字）
     -- 必要时压缩温度字号，确保「温度 + 地点|状况」两行加间距不超出内容高度
-    local max_temp_fs = content_h - fs_info - line_gap - 4
+    local max_temp_fs = content_h - fs_info - line_gap - 6
     if fs_temp > max_temp_fs then fs_temp = math.max(16, max_temp_fs) end
 
-    local temp_h = fs_temp + 2
-    local info_h = fs_info + 2
-    local fc_h = fs_fc + 2
+    local temp_h = fs_temp + 3
+    local info_h = fs_info + 3
+    local fc_h = fs_fc + 3
 
     -- ========== 左侧：天气图标 + 温度 + 地点|状况 ==========
     local icon_sz = clamp(math.floor(content_h * 0.85), 24, 40)
@@ -1832,20 +1864,103 @@ local function media_frame_size(path)
     return video_util.frame_size(path, 480, VP.portrait and VP.BASE_H or 270)
 end
 
+--[[素材是否放得进桌面画面区（只作「要不要提示全屏」的判据，不拦起播）
+
+放不下的素材在窗口里只能**裁着播**：airui 播放器不支持缩放，控件被撑回素材原生尺寸、
+越出画面区，由舞台层（VP.stage）裁掉一圈。裁着播是原有行为、不算坏，
+但看不全，所以用户主动选文件时提一次「建议全屏播放」（VP.ask_fullscreen）。
+
+FIT_SLOP 是布局取整余量：1024×600 横屏的画面区实算 479×528，而 MP4 的标准素材就是
+480×320 —— 1~2px 的差距肉眼看不出来，不该提示「放不下」。]]
+VP.FIT_SLOP = 8
+function VP.fits(vw, vh)
+    if not vw or not vh then return true end    -- 读不到尺寸：不预判
+    return (vw <= VP.w + VP.FIT_SLOP) and (vh <= VP.frame_h + VP.FIT_SLOP)
+end
+
+--- 清掉画面区里的空态提示（起播成功后调用）
+function VP.clear_empty()
+    if not VP.empty_labels then return end
+    for i = 1, #VP.empty_labels do
+        pcall(function() VP.empty_labels[i]:destroy() end)
+    end
+    VP.empty_labels = nil
+end
+
+--[[画面区空态：没有视频在播时的提示（三角 + 文案，居中）
+
+触发点：画面区建好后没有素材、起播被拒（超过该格式分辨率上限）、播放器创建失败。
+文案可传，缺省是设计稿那句「点击选择视频文件」。
+原先它是 build_video_area 里的内嵌函数，「起播被拒」那条路够不着 ——
+提到 VP 上让两处共用（本文件顶层 local 名额已满，见 VP 定义处注释）。]]
+function VP.show_empty(text)
+    if not VP.stage then return end
+    VP.clear_empty()
+    VP.empty_labels = {}
+    local d = density_scale_val
+    local function add_label(y, h, str, px)
+        VP.empty_labels[#VP.empty_labels + 1] = theme.label(VP.stage, {
+            x = 0, y = y, w = VP.w, h = h,
+            text = str, px_size = px,
+            color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
+        })
+    end
+    add_label(math.floor(VP.frame_h / 2) - math.floor(26 * d), math.max(35, math.floor(34 * d)),
+              ">", math.floor(32 * d))
+    add_label(math.floor(VP.frame_h / 2) + math.floor(10 * d), math.floor(22 * d),
+              text or "点击选择视频文件", math.max(theme.FONT_MIN, math.floor(13 * d)))
+end
+
+--[[放不下的素材：提示全屏播放（只在用户主动选文件时弹）
+
+全屏播放页整屏居中，1024×600 的素材能完整显示；窗口里只能裁着看。
+两个按钮都是「真动作」，没有「取消」：「窗口播放」就是照常在桌面里播（裁着看），
+所以点错了也不会白选一次文件。「全屏播放」确认后才动播放状态（VP.stop / current_file /
+resume_file），保证另一个选项不受影响。]]
+function VP.ask_fullscreen(path, vw, vh)
+    local name = path:match("([^/]+)$") or path
+    action_confirm_box = show_info_box("全屏播放", string.format(
+        "%s（%d×%d）超出桌面播放器画面区（%d×%d），建议全屏播放；也可留在窗口里裁着看。",
+        name, vw or 0, vh or 0, VP.w, VP.frame_h),
+        { "全屏播放", "窗口播放" },
+        function(self, btn_label)
+            self:destroy()
+            action_confirm_box = nil
+            if btn_label == "全屏播放" then
+                -- 进全屏前释放桌面的解码资源（硬解链路是单实例），退出后按 resume_file 收尾
+                VP.stop()
+                VP.current_file = path
+                VP.resume_file = path
+                VP.is_playing = true
+                VP.open_fullscreen()
+            else
+                VP.play_window(path)
+            end
+        end)
+end
+
+--- 单按钮提示框（只告知，不做选择）：起播被拒时用，例如「无法播放」
+function VP.alert(title, text)
+    action_confirm_box = show_info_box(title, text, { "知道了" }, function(self)
+        self:destroy()
+        action_confirm_box = nil
+    end)
+end
+
 --[[在舞台层里创建视频对象（HZV/MJPG/MP4 统一走 airui.video）
 
-两个创建点（VP.start_play / build_video_area）共用一份几何与格式分派：
-格式差异统一走 video_util.create_player，本函数只负责把素材帧尺寸折算成
-画面矩形。挂 VP 表而不是文件级 local：本文件顶层局部变量名额已顶到上限
-（见 VP 定义处注释）。
+唯一的创建点是 VP.play_window：格式差异统一走 video_util.create_player，
+本函数只负责把素材帧尺寸折算成画面矩形。挂 VP 表而不是文件级 local：
+本文件顶层局部变量名额已顶到上限（见 VP 定义处注释）。
 
 @param file_path string 素材路径
 @param parent    舞台层（缺省 VP.stage）
 @return 播放器对象或 nil（空态 UI 由调用方处理）]]
 function VP.create_video(file_path, parent)
-    -- 从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误
+    --[[从容器头读取实际帧尺寸，widget 必须严格匹配否则 airui 报缩放错误。
+    这里**不做缩放**：素材帧尺寸直接当控件尺寸，居中摆放（放不下时上下/左右等量越出），
+    越出部分由舞台层（VP.stage）裁掉一圈 —— airui 播放器不支持缩放，裁是唯一选项。]]
     local vw, vh = media_frame_size(file_path)
-    if vh > VP.frame_h then vh = VP.frame_h end
     local vx_off = math.floor((VP.w - vw) / 2)
     local vy_off = math.floor((VP.frame_h - vh) / 2)
 
@@ -1865,15 +1980,69 @@ function VP.create_video(file_path, parent)
     })
 end
 
-function VP.start_play(file_path)
-    log.info("idle_win", "video_start_play", file_path)
+--[[起播素材（桌面播放器的唯一入口）
+
+两件事，顺序不能换：
+  1) 拦：超过该格式分辨率上限的素材**真解不出来**，任何路径都不起播
+     （video_util.check_frame，MP4 480×320、HZV/MJPG 1024×600）；
+  2) 提：放不下画面区的素材照样播（裁着看），但用户主动选文件时提一次
+     「建议全屏播放」（VP.ask_fullscreen）。
+
+ask = true 表示「用户刚选的文件」：(1) 超上限时弹 VP.alert 且**不动现有播放**，
+(2) 放不下画面区时弹 VP.ask_fullscreen；ask 不传（开机起播 / 全屏返回的恢复起播）不弹窗。
+
+@param file_path string 素材路径
+@param ask       boolean 用户主动选文件时传 true
+]]
+function VP.start_play(file_path, ask)
+    log.info("idle_win", "video_start_play", file_path, "ask=", ask and 1 or 0)
+
+    -- 格式分辨率上限：超出的是真解不出来，不是「显示得下不下」的问题
+    local ok, vw, vh, _fmt, reason = video_util.check_frame(file_path)
+    if not ok then
+        if ask then
+            VP.alert("无法播放", reason or "无法播放该文件")
+            return                      -- 不动现有播放
+        end
+        VP.stop()
+        VP.current_file = file_path
+        VP.show_empty(reason or "无法播放该文件")
+        VP.is_playing = false
+        sync_ctrl()
+        return
+    end
+
+    -- 画面区放不下：照常播（舞台层裁切），用户主动选的提示一次全屏
+    if ask and not VP.fits(vw, vh) then
+        VP.ask_fullscreen(file_path, vw, vh)
+        return
+    end
+
+    VP.play_window(file_path)
+end
+
+---真正起播：在桌面画面区里播，素材居中摆放、超出部分由舞台层裁掉
+---这里只做「停旧 + 排队」，真正建播放器在 VP.create_now：停掉的那一路 mplayer
+---音频会话要 400~530ms 才释放完，建新会话必须让过这段窗口（收口在 video_util）
+function VP.play_window(file_path)
     VP.stop()
 
     VP.current_file = file_path
 
+    if not VP.card_ref then
+        log.warn("idle_win", "video_start_play: no video card ref")
+        return
+    end
+
+    video_util.after_release(function() VP.create_now(file_path) end)
+end
+
+---建播放器本体（由 VP.play_window 在释放窗口结束后调用，也可能是延后一轮才到这里）
+function VP.create_now(file_path)
+    -- 延后期间桌面可能已被销毁（on_destroy 清掉 card_ref / stage），到这里再判一次
     local video_card = VP.card_ref
     if not video_card then
-        log.warn("idle_win", "video_start_play: no video card ref")
+        log.warn("idle_win", "video create: no video card ref")
         return
     end
 
@@ -1883,6 +2052,11 @@ function VP.start_play(file_path)
     VP.obj = VP.create_video(file_path, VP.stage or video_card)
 
     VP.is_playing = (VP.obj ~= nil)
+    if VP.is_playing then
+        VP.clear_empty()                -- 起播成功，清掉空态提示
+    else
+        VP.show_empty("无法播放该文件")
+    end
     -- 控制栏只喂状态：文案（暂停/播放）与底色（绿/中性）由 video_bar 一起刷
     sync_ctrl()
     VP.show_ctrl()
@@ -1956,7 +2130,8 @@ function VP.open_picker(start_path)
         start_path = start,
         sw = screen_w, sh = screen_h,
         avoid = avoid,
-        on_pick = function(path) VP.start_play(path) end,
+        -- 用户主动选的文件：超格式上限弹「无法播放」、放不下画面区弹「建议全屏播放」，故传 ask
+        on_pick = function(path) VP.start_play(path, true) end,
     })
 end
 
@@ -2065,26 +2240,10 @@ local function build_video_area(parent)
         parent = video_card, x = 0, y = 0, w = VP.w, h = VP.frame_h,
     })
 
-    -- 无视频：按设计稿显示空态（三角 + 文案，居中）
-    local function show_empty_state()
-        theme.label(VP.stage, {
-            x = 0, y = math.floor(VP.frame_h / 2) - math.floor(26 * density_scale_val),
-            w = VP.w, h = math.floor(34 * density_scale_val),
-            text = ">", px_size = math.floor(32 * density_scale_val),
-            color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-        })
-        theme.label(VP.stage, {
-            x = 0, y = math.floor(VP.frame_h / 2) + math.floor(10 * density_scale_val),
-            w = VP.w, h = math.floor(22 * density_scale_val),
-            text = "点击选择视频文件", px_size = math.floor(13 * density_scale_val),
-            color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-        })
-    end
-
-    -- 几何折算与格式分派见 VP.create_video
-    VP.obj = VP.create_video(VP.current_file, VP.stage)
-    VP.is_playing = (VP.obj ~= nil)
-    if not VP.is_playing then show_empty_state() end
+    --[[起播（含空态兜底）统一走 VP.start_play：起播被拒（超过该格式分辨率上限 /
+    超出画面区）会在画面区里给出原因文案，不弹窗打断开机。
+    空态 UI 见 VP.show_empty（原先这里是内嵌的 show_empty_state，起播被拒那条路够不着）。]]
+    VP.start_play(VP.current_file)
 
     --[[控制栏（视频卡片底部，半透明深底）
 
@@ -2148,6 +2307,10 @@ local function on_create()
     update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     update_wifi_icon(status_cache.wifi_level)
     update_mobile_icon(status_cache.mobile_level)
+    -- exwin 用 pcall 执行 on_create，这里报错会被吞掉并连带跳过后面的事件订阅，单独兜住
+    if not pcall(apply_net_icons) then
+        log.error("idle_win", "网络图标显隐刷新失败")
+    end
 
     timer_handler = sys.timerLoopStart(function()
         update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
@@ -2165,6 +2328,7 @@ local function on_create()
     sys.subscribe("VIDEO_FILE_CHANGED", on_video_file_changed)
     sys.subscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
     sys.subscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
+    sys.subscribe("NET_CONFIG_CHANGED", apply_net_icons)
 
     if has_eth then
         sys.subscribe("EXLIB_NETDRV_NETWORK_STATUS", on_netdrv_status)
@@ -2195,6 +2359,8 @@ local function on_destroy()
         VP.obj = nil
     end
     video_util.audio_stop()
+    -- 定时器可能晚于 on_destroy 触发，队列里的建播放器动作必须先丢掉
+    video_util.cancel_pending()
     sys.unsubscribe("STATUS_TIME_UPDATED", update_time_date)
     if has_4g then sys.unsubscribe("STATUS_SIGNAL_UPDATED", update_mobile_icon) end
     if has_wifi then sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", update_wifi_icon) end
@@ -2207,6 +2373,7 @@ local function on_destroy()
     sys.unsubscribe("VIDEO_FILE_CHANGED", on_video_file_changed)
     sys.unsubscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
     sys.unsubscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
+    sys.unsubscribe("NET_CONFIG_CHANGED", apply_net_icons)
     if has_eth then
         sys.unsubscribe("EXLIB_NETDRV_NETWORK_STATUS", on_netdrv_status)
         sys.unsubscribe("IP_READY", on_ip_ready)
@@ -2217,6 +2384,7 @@ local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     status_time_label = nil; big_time_label = nil; date_label = nil; greet_label = nil
     wifi_icon = nil; mobile_icon = nil; ethernet_icon = nil
+    wifi_icon_box = nil; mobile_icon_box = nil; ethernet_icon_box = nil
     battery_bar = nil; battery_label = nil; battery_container = nil
     grid_container = nil; page_idx_label = nil
     apps_card = nil
@@ -2327,6 +2495,9 @@ local function on_lose_focus()
         VP.obj = nil
     end
     video_util.audio_stop()
+    -- 失焦后桌面不在前台，队列里排着的建播放器动作直接丢掉；
+    -- 释放窗口本身保留（这次销毁照样要等它释放完，回桌面时才不会抢）
+    video_util.cancel_pending()
 end
 
 local function open_handler()

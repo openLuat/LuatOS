@@ -138,6 +138,8 @@ static int block_cipher_df( unsigned char *output,
         return( MBEDTLS_ERR_CTR_DRBG_INPUT_TOO_BIG );
 #if (defined __LUATOS__) || (defined __USER_CODE__)
     buf = mbedtls_calloc(MBEDTLS_CTR_DRBG_MAX_SEED_INPUT + MBEDTLS_CTR_DRBG_BLOCKSIZE + 16, 1);
+    if( buf == NULL )
+        return( MBEDTLS_ERR_CTR_DRBG_ENTROPY_SOURCE_FAILED );
 #endif
     memset( buf, 0, MBEDTLS_CTR_DRBG_MAX_SEED_INPUT +
             MBEDTLS_CTR_DRBG_BLOCKSIZE + 16 );
@@ -381,6 +383,8 @@ static int mbedtls_ctr_drbg_reseed_internal( mbedtls_ctr_drbg_context *ctx,
         return( MBEDTLS_ERR_CTR_DRBG_INPUT_TOO_BIG );
 #if (defined __LUATOS__) || (defined __USER_CODE__)
     seed = mbedtls_calloc(MBEDTLS_CTR_DRBG_MAX_SEED_INPUT, 1);
+    if( seed == NULL )
+        return( MBEDTLS_ERR_CTR_DRBG_ENTROPY_SOURCE_FAILED );
 #endif
     memset( seed, 0, MBEDTLS_CTR_DRBG_MAX_SEED_INPUT );
 

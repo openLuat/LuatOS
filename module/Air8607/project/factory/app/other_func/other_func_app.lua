@@ -1,8 +1,8 @@
 --[[
 @module  other_func_app
-@summary 功能测试业务层：UVC / RS485 / UART 外设的开关、状态与 485 收发（config.peripherals 驱动）
-@version 1.2
-@date    2026.10.24
+@summary 功能测试业务层：UVC / RS485 / UART / 录音播放 外设的开关、状态与测试动作（config.peripherals 驱动）
+@version 1.3
+@date    2026.10.26
 @author  江访
 @usage
 订阅: OTHER_FUNC_GET / OTHER_FUNC_SET(id, enabled)
@@ -12,7 +12,16 @@
 发布: RS485_TEST_RESULT(id, ok, err) -- 发送结果回执（接收数据由 periph_rs485 直接广播 PERIPH_RX）
 
 订阅: RS485_DE_HOLD(ms)              -- 方向脚自检：把 DE 拉高 ms 毫秒再回接收态
-发布: RS485_DE_HOLD_RESULT(ok, used) -- 自检结果，used 为实际保持的毫秒数
+发布: RS485_DE_HOLD_RESULT(ok, used, pins, bad)
+                                     -- 自检结果，used 为实际保持的毫秒数，
+                                     -- pins 为拉高的方向脚，bad 为拉高期间回读不是高电平的脚
+
+订阅: AUDIO_REC_START(id, seconds)   -- 录音播放测试页发起录音
+订阅: AUDIO_REC_STOP(id)             -- 提前结束录音
+订阅: AUDIO_PLAY_START(id)           -- 回放最近一次录音
+订阅: AUDIO_PLAY_STOP(id)            -- 停止回放
+发布: AUDIO_ACTION_RESULT(id, action, ok, err) -- 上述动作的回执，action 是动作名
+（录音/播放的状态迁移由 periph_audio 直接广播 AUDIO_TEST_STATE）
 
 list 为按 config.peripherals 声明顺序排列的实例数组：
     { { id=, type=, name=, enabled=bool, info=string }, ... }
@@ -30,6 +39,7 @@ local function _compile_manifest()
     require("periph_uvc")
     require("periph_rs485")
     require("periph_uart")
+    require("periph_audio")
 end
 
 -- 外设 type → 驱动模块名
@@ -37,6 +47,7 @@ local DRIVER_OF = {
     uvc   = "periph_uvc",
     rs485 = "periph_rs485",
     uart  = "periph_uart",
+    audio = "periph_audio",
 }
 
 -- 已挂 handle 的实例列表，顺序与 config.peripherals 一致
@@ -94,13 +105,14 @@ end
 
 --[[
 @function build_items
-@summary 按 config.peripherals 收集可管理实例
+@summary 按 usb_mode 过滤后的 config.peripherals 收集可管理实例
 ]]
 local function build_items()
     items = {}
     index_of = {}
     local cfg = _G.project_config or {}
-    local list = cfg.peripherals
+    local usb_mode = require "usb_mode"
+    local list = usb_mode.filter(cfg.peripherals)
     if type(list) ~= "table" then return end
 
     for i, p in ipairs(list) do
@@ -272,14 +284,69 @@ local function on_de_hold(ms)
             sys.publish("RS485_DE_HOLD_RESULT", false, "驱动不支持方向脚自检")
             return
         end
-        local ok, used = pcall(mod.de_hold, ms)
+        local ok, hold_ok, hold_ms, hold_pins, hold_bad = pcall(mod.de_hold, ms)
         if not ok then
-            sys.publish("RS485_DE_HOLD_RESULT", false, tostring(used))
+            sys.publish("RS485_DE_HOLD_RESULT", false, tostring(hold_ok))
             return
         end
-        sys.publish("RS485_DE_HOLD_RESULT", used == true, used)
+        if not hold_ok then
+            sys.publish("RS485_DE_HOLD_RESULT", false, "没有登记到 DE 方向脚")
+            return
+        end
+        sys.publish("RS485_DE_HOLD_RESULT", true, hold_ms, hold_pins, hold_bad)
     end)
 end
+
+--[[
+@function on_audio_action
+@summary 录音播放测试页的动作请求，转给对应 handle 的同名方法
+@param action 动作名：record_start / record_stop / play_start / play_stop
+@param id 实例 id
+@param arg 透传给动作的可选参数（目前只有 record_start 用它传录音秒数）
+
+与 on_set 同理放在 sys.taskInit 里跑：exaudio.record_start / play_start 是阻塞调用，
+直接在消息派发上下文跑会把整段派发卡住。回执一律走 AUDIO_ACTION_RESULT，
+成功与否都在里面，测试页只认这一个事件。
+]]
+local function on_audio_action(action, id, arg)
+    sys.taskInit(function()
+        if #items == 0 then build_items() end
+        local idx = index_of[id]
+        if not idx then
+            sys.publish("AUDIO_ACTION_RESULT", id, action, false, "未找到外设: " .. tostring(id))
+            return
+        end
+        local it = items[idx]
+        local h = ensure_handle(it.params) or it.handle
+        if not h then
+            sys.publish("AUDIO_ACTION_RESULT", id, action, false, "驱动未就绪")
+            return
+        end
+        it.handle = h
+
+        local fn = h[action]
+        if type(fn) ~= "function" then
+            sys.publish("AUDIO_ACTION_RESULT", id, action, false, "驱动不支持该操作")
+            return
+        end
+        local ok, ret, err = pcall(fn, h, arg)
+        if not ok then
+            sys.publish("AUDIO_ACTION_RESULT", id, action, false, tostring(ret))
+            return
+        end
+        if ret ~= true then
+            sys.publish("AUDIO_ACTION_RESULT", id, action, false, tostring(err or "操作失败"))
+            return
+        end
+        sys.publish("AUDIO_ACTION_RESULT", id, action, true)
+    end)
+end
+
+-- 录音播放测试页的四个动作入口，参数折成 on_audio_action 的 action 名
+local function on_rec_start(id, seconds) on_audio_action("record_start", id, seconds) end
+local function on_rec_stop(id)          on_audio_action("record_stop",  id) end
+local function on_play_start(id)        on_audio_action("play_start",   id) end
+local function on_play_stop(id)         on_audio_action("play_stop",    id) end
 
 --[[
 @function M.get_list
@@ -308,5 +375,9 @@ sys.subscribe("OTHER_FUNC_GET", on_get)
 sys.subscribe("OTHER_FUNC_SET", on_set)
 sys.subscribe("RS485_TEST_SEND", on_rs485_send)
 sys.subscribe("RS485_DE_HOLD", on_de_hold)
+sys.subscribe("AUDIO_REC_START", on_rec_start)
+sys.subscribe("AUDIO_REC_STOP", on_rec_stop)
+sys.subscribe("AUDIO_PLAY_START", on_play_start)
+sys.subscribe("AUDIO_PLAY_STOP", on_play_stop)
 
 return M

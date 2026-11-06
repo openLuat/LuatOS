@@ -39,6 +39,7 @@ PROJECT：项目名，ascii string类型
   Engine 引擎主机系列（≥800×480）:
   "Engine_Air8607_10inch_1024x600_000_V000"     → config/eng_8607_10i_v0.lua    10寸RGB +PWM背光+喇叭(HT6873)+SD，无网络
   "Engine_Air8607A_10inch_1024x600_000_V000"    → config/eng_8607a_10i_v0.lua   10寸RGB +PWM背光+喇叭(HT6873)+UVC摄像头(AirCAMERA_1032)，无SD，无网络
+  "Engine_Air8607W_10inch_1024x600_000_V000"     → config/eng_8607w_10i_v0.lua   10寸RGB HX8282 +WiFi(airlink/601S,SPI5)+人脸识别摄像头(AirCAMERA_1034)+非隔离RS485+喇叭(内置DAC)+SD+USB HID/UVC二选一
 
 
 
@@ -59,9 +60,12 @@ Air8607 出厂固件分两个型号，云端按机型区分，密钥不同，故
 ]]
 local PROJECT_KEY_AIR8607 = "sZp7U2PwvZh4b2k6USXpNBZSTZoKPO2F"
 local PROJECT_KEY_AIR8607A = "ZgfNI8HIQw7dfsDHxqFSUzWaAiKt1uWF"
+local PROJECT_KEY_AIR8607W = "ufZWXDMvRLK9mdsm6dONgYEW2iOQMXsC"
 local air8607_variant = PROJECT:match("Air8607(A?)_")
 if air8607_variant == "A" then
     PROJECT_KEY = PROJECT_KEY_AIR8607A
+elseif air8607_variant == "W" then
+    PROJECT_KEY = PROJECT_KEY_AIR8607W
 elseif air8607_variant == "" then
     PROJECT_KEY = PROJECT_KEY_AIR8607
 end

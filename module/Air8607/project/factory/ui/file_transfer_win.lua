@@ -1,8 +1,8 @@
 --[[
 @module  file_transfer_win
 @summary 文件传输窗口（服务状态/共享清单/传输记录）
-@version 1.3
-@date    2026.09.22
+@version 1.4
+@date    2026.11.05
 @author  江访
 @usage
 本窗口为「文件传输」内置应用的展示层，单页三卡布局：
@@ -37,6 +37,7 @@
 local theme = require "ui_theme"
 local titlebar = require "settings_titlebar"
 local file_transfer_app = require "file_transfer_app"
+local tick_time = require "tick_time"
 
 local window_id = nil
 local main_container = nil
@@ -63,8 +64,11 @@ local view = {}
 local status_labels = {}
 -- 进度行标签（传输中显示，空闲显示提示）
 local progress_label = nil
--- 进度刷新节流时间戳（mcu.ticks 毫秒）
+-- 进度刷新节流时间戳（tick）
 local last_prog_update = 0
+-- 进度刷新节流窗口（毫秒）
+local PROG_REFRESH_MS = 300
+local PROG_REFRESH_TICKS = tick_time.ms(PROG_REFRESH_MS)
 
 -- 卡片容器与堆叠位置（原地重建用）
 local shared_card = nil
@@ -200,14 +204,15 @@ end
 
 -- 右侧小按钮：统一宽度 BTN_W、统一横坐标 BTN_X（全局所有小按钮共用，含"添加/清空/关闭/设置/移除"）
 local function mk_side_button(parent, text, on_click)
-    local btn_h = math.floor(row_h * 0.7)
+    local fs_px = theme.fs("label")
+    -- 按钮高 = 行高七成，夹在「文字行高」与「行高」之间
+    local btn_h = math.min(row_h, math.max(fs_px + 3, math.floor(row_h * 0.7)))
     local btn = theme.box(parent, {
         x = btn_x, y = math.floor((row_h - btn_h) / 2),
         w = btn_w, h = btn_h,
         color = CLR.primary, opa = theme.OPA.fill_hi, radius = theme.r("xs"),
         on_click = on_click,
     })
-    local fs_px = theme.fs("label")
     theme.label(btn, {
         x = 0, y = math.floor((btn_h - (fs_px + 3)) / 2),
         w = btn_w, h = fs_px + 3,
@@ -769,7 +774,7 @@ view.show_auth_dialog = function()
     airui.label({
         parent = auth_dialog,
         x = pad, y = math.floor(30 * density),
-        w = dialog_w - pad * 2, h = math.floor(18 * density),
+        w = dialog_w - pad * 2, h = math.floor(20 * density),
         text = st.auth_on and "当前: 已开启" or "当前: 未开启",
         font_size = theme.fs("caption"),
         color = CLR.t2, align = airui.TEXT_ALIGN_LEFT,
@@ -790,7 +795,7 @@ view.show_auth_dialog = function()
     auth_hint = airui.label({
         parent = auth_dialog,
         x = pad, y = math.floor(96 * density),
-        w = dialog_w - pad * 2, h = math.floor(18 * density),
+        w = dialog_w - pad * 2, h = math.floor(20 * density),
         text = "开启后上位机须输入同款token", font_size = theme.fs("caption"),
         color = CLR.t3, align = airui.TEXT_ALIGN_LEFT,
     })
@@ -897,8 +902,8 @@ end
 local function on_progress_msg(prog)
     if not progress_label then return end
     -- 节流：写片最密约200片/秒，300ms 刷一次足够
-    local now = mcu.ticks() or 0
-    if last_prog_update > 0 and (now - last_prog_update) < 300 then return end
+    local now = tick_time.now()
+    if last_prog_update > 0 and tick_time.elapsed(now, last_prog_update) < PROG_REFRESH_TICKS then return end
     last_prog_update = now
     local dir_text = (prog.dir == "D2P") and "设备→PC" or "PC→设备"
     progress_label:set_text(fit_text("传输中 " .. dir_text .. " " .. (prog.path or "")

@@ -809,6 +809,17 @@ end
 
 -- ==================== 上报主协程 ====================
 
+-- SIP 通话期间暂停"定时"上报：语音 RTP 和上报走同一条 4G Airlink 上行，
+-- 一次上报的突发流量会把上行挤爆，表现就是对端时不时"卡一下"（RTP 丢包 →
+-- 抖动缓冲欠载）。参考工程里根本没有上报模块，这也是工厂多出来的负载之一。
+-- 只跳过 timer 触发的轮询；云端下发的立即上报(report:once)仍照常执行。
+local sip_call_busy = false
+sys.subscribe("SIP_TEST_STATE", function(s)
+    sip_call_busy = s ~= nil and (
+        s.state == "incoming" or s.state == "dialing" or s.state == "answering"
+        or s.state == "talking" or s.state == "ending")
+end)
+
 local function report_task_func()
     -- 1) 等网络就绪
     while not socket.adapter(socket.dft()) do
@@ -860,7 +871,11 @@ local function report_task_func()
     while true do
         local _, reason = sys.waitUntil("AIRCLOUD_REPORT_TICK")
         if report_enabled then
-            do_report(reason)
+            if sip_call_busy and reason == "timer" then
+                log.info("aircloud", "SIP 通话中，跳过本次定时上报（不与 RTP 抢上行）")
+            else
+                do_report(reason)
+            end
         end
     end
 end

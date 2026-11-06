@@ -953,16 +953,33 @@ local function sip_task(opts)
         return count
     end
 
+    --[[RTP 端口轮换：每通拨号/来电换一个偶数端口（40000 → 40002 → …，到 65534 回绕 1024），
+    只避开仍留在 closing_dialogs 里的端口；游标跨 REGISTER 重连保留。
+
+    为什么不能"每通都从 40000 开始"：信令结束 ≠ 上一通的媒体端点已经清理干净。
+    airlink(4G) 下模组侧的 UDP socket、对端 NAT 的映射表释放都是滞后的，第二通立刻
+    用回同一个本地端口时，我们照样发得出去（对端能听到），对端发回来的包却进不来，
+    表现为「第二通 RTP 收包 0、只能单向通话」，而 voip.start 一路返回成功。
+    同一通里 SDP 与 media session 必须共用这个端口（调用点已保证）。]]
+    local rtp_port_cursor
     local function allocate_rtp_port()
-        local base = state.media.local_rtp_port
-        local step = base + MAX_CLOSING_DIALOGS * 2 <= 65535 and 2 or -2
-        for i = 0, MAX_CLOSING_DIALOGS do
-            local port, used = base + i * step, false
+        local base = math.floor(tonumber(state.media.local_rtp_port) or 40000)
+        base = base - base % 2
+        if not rtp_port_cursor then rtp_port_cursor = base end
+        for _ = 1, 32256 do
+            local port = rtp_port_cursor
+            rtp_port_cursor = rtp_port_cursor + 2
+            if rtp_port_cursor > 65534 then rtp_port_cursor = 1024 end
+            local used = false
             for _, dialog in pairs(state.closing_dialogs) do
                 if dialog.local_rtp_port == port then used = true; break end
             end
-            if not used then return port end
+            if not used then
+                log.info("sip", "allocated new dialog RTP port", port, "base", base)
+                return port
+            end
         end
+        return base
     end
 
     local function is_closing_dialog(dialog)

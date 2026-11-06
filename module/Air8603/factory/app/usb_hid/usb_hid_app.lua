@@ -5,7 +5,10 @@
 @date    2026.09.16
 @usage
 依赖: 固件需包含 LUAT_USE_USB_HOST + LUAT_USE_INPUT
-硬件: 需 USB Host 接口（如 Air8601 GPIO12 控制 VBUS）
+硬件: 需 USB Host 接口，VBUS 供电控制脚由 hw.usb.vbus_gpio 指定（缺省 GPIO12，
+      写 false 表示本板无此脚、VBUS 由硬件常供电）
+与 UVC 互斥: 两者共用 USB Host 与供电轨，带 UVC 摄像头的机型由 usb_mode 按 fskv
+      记录的外设模式决定本模块启停，切换入口「设置 → 外设模式」
 
 消息协议（订阅/发布）:
 订阅: USB_HID_ENABLE           → 启用 USB HID（初始化 USB Host + 订阅 Input 事件）
@@ -27,7 +30,6 @@ local M = {}
 
 local USB_BUS_ID = 0           -- USB 总线 ID（Air8601 使用总线 0）
 local INPUT_QUEUE_BYTES = 4096 -- Input 事件队列大小（字节）
-local VBUS_GPIO = 12           -- USB VBUS 供电控制 GPIO（Air8601 开发板）
 
 -- ==================== 局部变量 ====================
 
@@ -36,6 +38,18 @@ local subscription = nil       -- Input 订阅句柄
 local devices = {}             -- 已连接设备表 {id = {name, caps}}
 
 -- ==================== 私有函数 ====================
+
+--[[
+@function vbus_gpio_of
+@summary 取 USB VBUS 供电控制脚（hw.usb.vbus_gpio 优先，false 表示本板无此脚）
+@return number|nil  GPIO 编号，nil = 不驱动任何脚
+]]
+local function vbus_gpio_of()
+    local hw_usb = _G.project_config and _G.project_config.hw and _G.project_config.hw.usb
+    if type(hw_usb) ~= "table" then return 12 end
+    if hw_usb.vbus_gpio == false then return nil end
+    return hw_usb.vbus_gpio or 12
+end
 
 --[[
 @function usb_power_control
@@ -48,8 +62,9 @@ local function usb_power_control(on)
     -- 拉低断电会把 GT911 掉电复位、触摸直接失灵（2026-10-15 实测）。
     -- 任何路径（含禁用 USB HID）都不得拉低，VBUS 保持常供电。
     if not on then return end
-    if VBUS_GPIO then
-        gpio.setup(VBUS_GPIO, 1, gpio.PULLUP)
+    local vbus_gpio = vbus_gpio_of()
+    if vbus_gpio then
+        gpio.setup(vbus_gpio, 1, gpio.PULLUP)
         sys.wait(100)
     end
 end

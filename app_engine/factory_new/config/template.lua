@@ -108,6 +108,8 @@
     --   max_pixels    [可选] uvc 专用：源分辨率像素上限（w×h），缺省 921600（1280×720）。
     --                         相机侧固定开销约 4.25×w×h 字节，越大留给 airui.camera 显示
     --                         缓冲的余量越小（预览区会跟着收小），1920×1080 会挤爆内存
+    --   rotation      [可选] uvc 专用：UVC 页签画面旋转角，顺时针 0/90/180/270，缺省 0（不转）。
+    --                         airui.camera 只吃顺时针，逆时针 90 度写 270
     --   title         [可选] 功能测试页里该 type 分组标题，不写按 type 默认（uvc 默认「UVC 摄像头」）。
     --                         摄像头是人脸识别模组时可写 "摄像头"，避免分组标题与行名打架
     --   face          [可选] uvc 专用：摄像头带人脸识别模组（AirCAMERA_1034）时填，
@@ -118,6 +120,8 @@
     --                           rst_pin          [可选] 模组复位脚，没有就留空
     --                           register_timeout [可选] 录入超时(秒)，默认 15
     --                           verify_timeout   [可选] 验证超时(秒)，默认 15
+    --                           rotation         [可选] 人脸页签画面旋转角，写法同条目的
+    --                                            rotation，不写沿用 UVC 页签的值
     --                         注意：供电脚与 UVC 共用 en_pin，测试页不会断电重试（断电会
     --                         同时杀掉画面与人脸模组）
     --   其余字段      透传给驱动 init(params)（en_pins / bus 等，按 type 约定）
@@ -371,6 +375,13 @@
     --   wifi_native         → 芯片自带 WiFi（Air8101/Air8000 等），无额外参数
     --   wifi_airlink_spi    → Airlink SPI WiFi 外挂模组
     --       spi_id = 1, cs_pin = 8, rdy_pin = 14, [speed = 20000000]
+    --       [irq_pin = 12]          -- [可选] WIFI_IRQ 中断脚，net_manager 在 exnetif 初始化前
+    --                                -- 用 airlink.config(airlink.CONF_SPI_IRQ, pin) 配置
+    --       [airlink_mode = "hspi_master"]  -- [可选] 通信模式，缺省 spi_master
+    --                                -- 取值 spi_master / hspi_master / spi_slave / uart，
+    --                                -- 也可直接写 airlink_type = airlink.MODE_XXX 常量
+    --                                -- hspi_master 对应 airlink.MODE_HSPI_MASTER（XT804 HSPI 主机），
+    --                                -- 需固件编译进 LUAT_USE_AIRLINK_HSPI_MASTER
     --   wifi_airlink_uart   → Airlink UART WiFi 外挂模组（6205）
     --       uart_id = 3, baud = 2000000
     --   4g_native           → 芯片自带 4G（Air8000/Air780E 等），注意：net_4g 需在 features 中开启

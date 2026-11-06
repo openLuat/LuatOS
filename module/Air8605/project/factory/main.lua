@@ -50,10 +50,10 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air8605_10inch_1024x600_000_4G_V000" -- 项目名，用于 FOTA 云端鉴权
+PROJECT = "Engine_Air8605M_10inch_1024x600_000_4G_V000" -- 项目名，用于 FOTA 云端鉴权
 VERSION = "001.999.006"                                 -- 固件版本号，用于 FOTA 升级比对
 --[[
-PROJECT_KEY：项目密钥，FOTA 云端鉴权。
+PROJECT_KEY：项目密钥，FOTA 云端鉴权。··················································
 Air8605 出厂固件分四个型号，云端按机型区分，密钥不同，故按 PROJECT 里的型号段取：
   Engine_Air8605_10inch_1024x600_000_4G_V000    → Air8605 密钥（4G 版，无 Air1103）
   Engine_Air8605W_10inch_1024x600_000_WiFi_V000 → Air8605W 密钥（WiFi 版）

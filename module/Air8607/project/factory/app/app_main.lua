@@ -10,6 +10,7 @@
 boot_ui 在 logo 展示期间分批调用本模块的两个函数：
 
   core()     核心批（进桌面前必须完成）：
+    0. usb_mode.apply_boot → USB 外设模式开机仲裁（HID 模式立刻断掉 UVC 供电）
     1. status_provider_app → 状态栏数据源（时间/信号/电量定时更新，发布 STATUS_*)
     2. settings_iot_app    → IOT 平台账号登录/登出
     3. settings_app        → 设置主框架（fskv 持久化，级联 8 个 settings_*_app 子模块）
@@ -26,13 +27,14 @@ boot_ui 在 logo 展示期间分批调用本模块的两个函数：
     7. ntp_app        → NTP 时间同步（订阅 IP_READY）
     （1~4、7 为网络族，has_net 门控：无网络板不加载，见下方 optional() 内注释）
     8. factory_app    → 应用工厂（features.app_factory，级联 factory_rec）
-    9. usb_hid_app    → USB HID 键鼠（features.usb_hid）
+    9. usb_hid_app    → USB HID 键鼠（usb_mode.should_start_hid：与 UVC 二选一，HID 模式才启动）
    10. llm_chat       → AI 助手（features.ai_chat）
    11. cloud_disk_app → 合宙网盘（features.cloud_disk）
    12. tts_app        → TTS 播报（hw.audio）
-   13. aircloud_app   → AirCloud 数据上报（features.aircloud）
-   14. file_transfer_app → hzadb 文件传输（features.file_transfer）
-   15. periph_loader  → 外设预留框架（config.peripherals，未实现 type 记日志跳过）
+   13. watchdog_app   → 外部看门狗（features.wdt，Air153D 自动喂狗 + 消息桥接）
+   14. aircloud_app   → AirCloud 数据上报（features.aircloud）
+   15. file_transfer_app → hzadb 文件传输（features.file_transfer）
+   16. periph_loader  → 外设预留框架（usb_mode.filter 过滤后的 config.peripherals，未实现 type 记日志跳过）
 
 === 关键约束 ===
 
@@ -47,6 +49,11 @@ local M = {}
 
 -- ==================== 核心批：进桌面前必须完成 ====================
 function M.core()
+    -- USB 外设模式开机仲裁：power_on 序列已给 UVC 上电，这里按 fskv 记录的模式校正，
+    -- HID 模式立刻拉低 UVC_EN 断电，抢在 USB Host 枚举之前（见 usb_mode）
+    local usb_mode = require "usb_mode"
+    usb_mode.apply_boot(_G.project_config or {})
+
     -- 状态提供 app 模块（系统时间/4G信号/WiFi信号 定时更新，发布 STATUS_* 给状态栏）
     require "status_provider_app"
     -- IOT 账号模块（合宙 IoT 平台登录/登出，需联网，订阅 LOGIN_REQUEST/LOGOUT_REQUEST）
@@ -63,6 +70,8 @@ end
 function M.optional()
     local cfg = _G.project_config or {}
     local feat = cfg.features or {}
+    -- USB 外设模式（UVC 摄像头 / USB 键鼠二选一，fskv 持久化），见 usb_mode
+    local usb_mode = require "usb_mode"
 
     -- 网络族：无网络板（features 无 wifi/net_4g/ethernet 且未配 network 段，如 8607）
     -- 不加载网络栈（net_manager 会拖出 exnetif/httpplus 等整条库链）
@@ -111,9 +120,11 @@ function M.optional()
         require "factory_app"
     end
 
-    -- USB HID 键盘鼠标管理
-    if feat.usb_hid then
+    -- USB HID 键盘鼠标管理（与 UVC 摄像头二选一，HID 模式才启动，切换入口「设置 → 外设模式」）
+    if usb_mode.should_start_hid(cfg) then
         require "usb_hid_app"
+    elseif feat.usb_hid and usb_mode.has_uvc(cfg) then
+        log.info("app_main", "当前为 UVC 摄像头模式，跳过 usb_hid_app（两者共用 USB Host）")
     end
 
     -- AI 助手（WebSocket 会话 + STT/TTS，订阅 AI_CHAT_*）
@@ -131,6 +142,11 @@ function M.optional()
         require "tts_app"
     end
 
+    -- 外部看门狗（Air153D 喂狗 + WATCHDOG_* 状态消息）；开关 features.wdt，喂狗脚见 hw.wdt
+    if feat.wdt then
+        require "watchdog_app"
+    end
+
     -- AirCloud 数据上报（能力探测：有接口就采，没有就跳过，不绑定型号）
     if feat.aircloud then
         require "aircloud_app"
@@ -141,8 +157,9 @@ function M.optional()
         require "file_transfer_app"
     end
 
-    -- 外设预留框架：按 config.peripherals 逐个初始化，未实现 type 记日志跳过
-    pcall(function() require("periph_loader").init_all(cfg.peripherals) end)
+    -- 外设预留框架：按 usb_mode 过滤后的 config.peripherals 逐个初始化，未实现 type 记日志跳过
+    -- HID 模式下 uvc 条目已被 filter 摘掉，功能测试页也就没有摄像头行
+    pcall(function() require("periph_loader").init_all(usb_mode.filter(cfg.peripherals)) end)
 
     -- 功能测试业务层（config.peripherals 外设开关与状态）
     -- 必须在 init_all 之后加载：此时外设 handle 已登记，直接挂接，不会重复登记

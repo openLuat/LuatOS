@@ -63,6 +63,21 @@ local exaudio = require "exaudio"
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
 
+-- Air1103 直接驱动（仅 air1103 板使用；只调用其公开接口，不改公共库）
+-- 参考实现 flash_files/app/audio/audio_app.lua：
+--   初始化时复位一次让 MIC 上行常驻，之后录音只是"开始收集帧"，不再复位芯片。
+--   这样才能做到点录音立刻有声音；走 exaudio.record_start 会每次 02 05 复位，
+--   芯片重新 boot ≈1.4s，落盘前 2 秒全是静音。
+local chip_ok, chip = pcall(require, "air1103")
+if not chip_ok then chip = nil end
+-- 工程自带 55AA MIC 解析器（与参考工程 app/audio/sipapp_pcm_rx.lua 逐字节一致）
+local pcm_rx_ok, pcm_rx = pcall(require, "sipapp_pcm_rx")
+local mic_frames = 0    -- 累计收到的 MIC 上行帧数（预热探测用）
+local last_mic_at = 0   -- 最近一次收到 MIC 帧的时间（秒），用于判断上行是否还活着
+local function is_air1103()
+    return chip ~= nil and audio_hw.is_air1103()
+end
+
 -- ==================== 常量 ====================
 
 -- 应用生成接口（前缀 https://api.luatos.com/engine/appstore/）
@@ -253,6 +268,12 @@ end
 ]]
 local function rec_stop ()
     if state ~= "recording" then return end
+    if is_air1103() then
+        -- 只停止"写文件"并收尾；不调 exaudio.record_stop，
+        -- 避免 02 01 停掉 MIC 上行导致下次录音又要复位。
+        finalize_record(true)
+        return
+    end
     pcall(exaudio.record_stop)
     if is_v2 then
         -- 新框架：record_stop() 已 flush 剩余数据并停止，立即收尾
@@ -283,6 +304,122 @@ local function start_record_timer()
     rec_seconds = 0
     sys.publish("FACTORY_REC_DURATION", 0)
     rec_timer = sys.timerLoopStart(rec_timer_cb, 1000)
+end
+
+-- ==================== Air1103 常驻 MIC 上行 ====================
+
+-- 常驻上行回调：录音中把每帧 512B PCM 直接写文件；非录音时只计数。
+-- 关键点：这个回调一直挂着，MIC 上行就一直被消费，芯片会话不会停。
+local function air1103_on_pcm(data)
+    if not data or #data == 0 then return end
+    mic_frames = mic_frames + 1
+    last_mic_at = os.time()
+    if state == "recording" and rec_fp then
+        pcall(rec_fp.write, rec_fp, data)
+    end
+end
+
+--[[
+照抄参考工程 flash_files/app/audio/audio_app.lua 第 90~100 行：
+用工程自带 55AA 解析器 sipapp_pcm_rx 覆盖 chip.feed。
+
+为什么必须换：
+  air1103 内置 feed 在"校验失败"时直接 rxstr="" 丢弃【整个】接收缓冲
+  （见 script/libs/air1103.lua 第 228 行）。TTS 播放后 UART 上存在残留/干扰时，
+  一次校验错就把缓冲清空，之后长时间解析不出任何帧 → 预热永远等不到帧、
+  录音前 2 秒必然静音。sipapp_pcm_rx 校验失败只丢 1 字节重同步，能自愈。
+
+安装时机：进入 AI/工厂会话时安装，退出会话时还原，
+避免影响其它仍依赖 air1103 原生 feed 的录音页（同 sip_audio_app 的做法）。
+]]
+local mic_parser = pcm_rx_ok and pcm_rx.new(air1103_on_pcm) or nil
+local original_feed = chip_ok and chip.feed or nil
+local chip_feed_fn
+local function install_chip_feed()
+    if not is_air1103() or not mic_parser then return false end
+    if chip.feed == chip_feed_fn then return true end
+    original_feed = chip.feed
+    chip.feed = chip_feed_fn
+    return true
+end
+local function restore_chip_feed()
+    if not is_air1103() then return end
+    if original_feed then chip.feed = original_feed end
+end
+chip_feed_fn = function(data)
+    if type(data) == "string" then return mic_parser.feed(data) end
+end
+
+-- 确保 Air1103 MIC 上行已常驻出帧（进入会话时调用一次）。
+-- 对照参考工程 wait_mic()：
+--   1) 装解析器 + 挂回调 + 打开接收 + 清解析缓冲
+--   2) 已在出帧则直接返回（省一次 1.4s 复位）
+--   3) 没帧则发 02 05 复位，等它 boot 后自动恢复上行（此时用户还没录音，无感）
+-- @return boolean true=上行就绪
+-- Air1103 供电脚：config 里 AUDIOPA_EN = GPIO73 由 power_on 拉高常供电
+-- （eng_8605m_10i_v0.lua 第 21 行；与参考工程 power_pin=73 一致）
+local AIR1103_PWR_PIN = 73
+
+-- 照抄参考工程 reopen_mic(power_cycle=true)：复位两次仍无帧时断电重启芯片。
+-- 参考工程同时 uninit/init 串口；这里串口没坏，只断电上电即可，
+-- 避免动 exaudio 内部已记账的 is_inited 状态。
+local function air1103_power_cycle()
+    if not is_air1103() then return false end
+    log.warn("factory_rec", "Air1103 复位后仍无 MIC 帧，断电重启(GPIO" .. AIR1103_PWR_PIN .. ")")
+    pcall(gpio.setup, AIR1103_PWR_PIN, 0)
+    pcall(gpio.set, AIR1103_PWR_PIN, 0)
+    sys.wait(300)
+    pcall(gpio.setup, AIR1103_PWR_PIN, 1)
+    pcall(gpio.set, AIR1103_PWR_PIN, 1)
+    sys.wait(800)   -- 参考工程上电等待 800ms 再复位
+    if mic_parser then mic_parser.reset() end
+    local before = mic_frames
+    pcall(chip.reset)
+    local waited = 0
+    while mic_frames == before and waited < 6000 do
+        sys.wait(50); waited = waited + 50
+    end
+    local ok = mic_frames > before
+    log.info("factory_rec", "Air1103 断电重启后 MIC 上行", ok and "恢复" or "仍无帧", "等待", waited, "ms")
+    return ok
+end
+
+local warming = false   -- 预热防重入（快速进出页面时避免重复复位）
+local function air1103_warmup()
+    if not is_air1103() then return false end
+    if type(chip.on_audio_data) ~= "function" or type(chip.reset) ~= "function" then
+        return false
+    end
+    if warming then return last_mic_at > 0 end
+    warming = true
+    install_chip_feed()
+    chip.on_audio_data(air1103_on_pcm)
+    pcall(chip.set_rx_enable, true)
+    if mic_parser then mic_parser.reset() end   -- 清掉残留脏数据，避免从半个帧开始解析
+    local before = mic_frames
+    local waited = 0
+    while mic_frames == before and waited < 300 do
+        sys.wait(50); waited = waited + 50
+    end
+    if mic_frames > before then
+        warming = false
+        log.info("factory_rec", "Air1103 MIC 上行已在运行，无需复位, 累计帧", mic_frames)
+        return true
+    end
+    log.warn("factory_rec", "Air1103 MIC 上行未启动，复位一次(≈1.4s boot)")
+    pcall(chip.reset)
+    waited = 0
+    while mic_frames == before and waited < 6000 do
+        sys.wait(50); waited = waited + 50
+    end
+    local ok = mic_frames > before
+    if not ok then
+        -- 复位无效：照参考工程继续做断电重启，把"芯片没起来"这类硬故障也吃掉
+        ok = air1103_power_cycle()
+    end
+    warming = false
+    log.info("factory_rec", "Air1103 MIC 上行预热", ok and "成功" or "失败", "等待", waited, "ms, 累计帧", mic_frames)
+    return ok
 end
 
 -- ==================== 回调 ====================
@@ -353,6 +490,11 @@ local function rec_setup()
         exaudio.pm(exaudio.RESUME)
     end
     state = "idle"
+    -- Air1103：进入页面即把 MIC 上行预热好（必要时复位一次），
+    -- 之后用户点录音时上行已经在持续出帧，第一帧就是真实声音，没有 1.4s boot 空白。
+    if is_air1103() then
+        air1103_warmup()
+    end
     sys.publish("FACTORY_REC_READY", true, "音频就绪")
 end
 
@@ -363,6 +505,21 @@ end
 因此不做 exaudio.pm(SHUTDOWN) 下电，仅确保 8311 保持供电。
 ]]
 local function rec_reset()
+    if is_air1103() then
+        stop_record_timer()
+        if state == "recording" then finalize_record(true) end
+        if rec_fp then pcall(rec_fp.close, rec_fp); rec_fp = nil end
+        state = "idle"
+        -- 刻意不调 exaudio.record_stop：它会发 02 01 把 MIC 上行硬停，
+        -- 下次录音又只能靠 02 05 复位重启（boot≈1.4s），前 2 秒静音会复现。
+        -- MIC 上行常驻，退出页面也保持，下次进入页面零等待。
+        -- 仅关闭软件层解析（省 CPU）；下次 warmup 会重新打开并探测，物理上行不受影响。
+        pcall(chip.set_rx_enable, false)
+        -- 还原解析器与回调：其它录音页(exaudio.record_start)仍依赖 air1103 原生 feed
+        restore_chip_feed()
+        pcall(chip.on_audio_data, nil)
+        return
+    end
     stop_record_timer()
     if state == "recording" then
         pcall(exaudio.record_stop)
@@ -403,6 +560,44 @@ local function rec_start()
     local max_time = (ac and ac.max_record_time) or 30
     v2_finalized = false
     local fmt = get_record_format()
+
+    if is_air1103() then
+        -- Air1103：MIC 上行常驻，录音=打开文件开始收帧，芯片不复位、不重启动上行。
+        -- ⚠️ 这里绝不能做阻塞式预热：warmup 含 300ms 探测 + 最多 4s 复位等待，
+        --    卡在"点录音→开始收帧"之间会让这段时间说的话全丢（表现为前 2 秒没录到、
+        --    停止后很久才提示完成）。预热只在 rec_setup 进页面时做一次。
+        -- 这里只确保回调和解析是打开的（幂等、毫秒级，不阻塞）。
+        install_chip_feed()
+        chip.on_audio_data(air1103_on_pcm)
+        pcall(chip.set_rx_enable, true)
+        if last_mic_at == 0 then
+            -- 极端情况：进会话预热就没成功（上行确实没起来）。异步补一次复位，
+            -- 不阻塞本次点击；复位 boot 期间的那 1.4s 仍会静音，但总好过全程无声。
+            log.warn("factory_rec", "air1103 录音前从未收到 MIC 帧，异步复位一次")
+            sys.taskInit(function()
+                sys.wait(20)
+                pcall(chip.reset)
+            end)
+        end
+        local rec_path = "/ram/record" .. rec_ext()
+        if io.exists(rec_path) then pcall(os.remove, rec_path) end
+        local fp = io.open(rec_path, "wb")
+        if not fp then
+            sys.publish("FACTORY_REC_STATUS", "录音文件打开失败")
+            return
+        end
+        local header = rec_file_header()
+        if header then fp:write(header) end
+        cur_path = rec_path
+        rec_fp = fp
+        state = "recording"
+        start_record_timer()
+        sys.publish("FACTORY_REC_STATE", { state = "recording" })
+        sys.publish("FACTORY_REC_STATUS", "录音中...")
+        log.info("factory_rec", "开始录音(air1103 常驻上行) 格式:", fmt, "上限:", max_time, "秒",
+            "累计帧:", mic_frames, "距上次帧(s):", last_mic_at > 0 and (os.time() - last_mic_at) or -1)
+        return
+    end
 
     if is_v2 then
         -- ===== 新框架(audio_v2)：zbuff 回调录音，支持点击停止 =====
@@ -586,48 +781,26 @@ make_send = function()
         sys.publish("FACTORY_MAKE_ERROR", "鉴权失败(固件缺rsa库或公钥缺失)")
         return
     end
-    -- 录音格式决定上传的 Content-Type / 文件名
-    local fmt, _ = get_record_format()
-    local is_pcm = fmt:find("^PCM_") ~= nil
-    local ctype = is_pcm and "audio/pcm" or "audio/amr"
-    local fname = is_pcm and "record.pcm" or "record.amr"
-    local boundary = "----WebKitFormBoundary" .. os.time()
-    headers["Content-Type"] = "multipart/form-data; boundary=" .. boundary
-    -- device_info 自动携带屏幕分辨率 + 模块型号（JSON 对象字符串）
+    -- 流式上传：PCM 30s ≈ 960KB，io.readFile 全量 + table.concat 瞬时近 2MB，C 层 buffer
+    -- OOM 会打挂 Lua VM。改用 httpplus：files=路径分块读发，forms 携带 device_info。
+    local httpplus = require("httpplus")
     local device_info = make_device_info()
-    local body = {}
-    -- 1. file 字段（录音文件）
-    table.insert(body, "--" .. boundary .. "\r\n")
-    table.insert(body, "Content-Disposition: form-data; name=\"file\"; filename=\"" .. fname .. "\"\r\n")
-    table.insert(body, "Content-Type: " .. ctype .. "\r\n\r\n")
-    local fdata = io.readFile(latest_path)
-    if not fdata then
-        sys.publish("FACTORY_MAKE_ERROR", "读取录音文件失败")
-        return
-    end
-    table.insert(body, fdata)
-    table.insert(body, "\r\n")
-    -- 2. device_info 字段（设备信息 JSON 对象）
-    -- ⚠️ 作为【普通表单字段】发送（不带 filename）：
-    --   带 filename 的 part 会被 Spring 识别为文件(MultipartFile)，request.getParameter("device_info")
-    --   拿不到值(null) → 服务端校验报 "device_info异常"(code:54)。
-    --   无 filename → getParameter("device_info") 能拿到 JSON 字符串（等同前端
-    --   formData.append('device_info', JSON.stringify(info)) 标准写法）
-    table.insert(body, "--" .. boundary .. "\r\n")
-    table.insert(body, "Content-Disposition: form-data; name=\"device_info\"\r\n")
-    table.insert(body, "Content-Type: application/json\r\n\r\n")
-    table.insert(body, device_info)
-    table.insert(body, "\r\n")
-    -- 结束 boundary
-    table.insert(body, "--" .. boundary .. "--\r\n")
-    local body_str = table.concat(body)
-    local code, _, resp_body = http.request("POST", MAKE_APP_URL, headers, body_str, { timeout = 30000 }).wait()
-    -- 仅保留一次简短状态日志（HTTP code），不再打印 multipart 结构与完整响应体
+    local code, rresp = httpplus.request({
+        url = MAKE_APP_URL,
+        method = "POST",
+        headers = headers,
+        -- device_info 作为普通表单字段（不带 filename），服务端 getParameter 才能取到值；
+        -- Content-Type 服务端不强制（同套 ASR 收错配 audio/amr 的 PCM 也能识别），按扩展名即可
+        files = { file = latest_path },
+        forms = { device_info = device_info },
+        timeout = 30,
+    })
     log.info("factory_rec", "make_app 上传完成 code:", code)
     if code < 0 or code ~= 200 then
         sys.publish("FACTORY_MAKE_ERROR", "服务器连接失败(" .. tostring(code) .. ")")
         return
     end
+    local resp_body = (rresp and rresp.body and rresp.body:query()) or ""
     local ok, resp = pcall(json.decode, resp_body)
     if not ok or type(resp) ~= "table" then
         log.warn("factory_rec", "make_app 响应解析失败:", resp_body)

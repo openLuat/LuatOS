@@ -1,8 +1,8 @@
 --[[
 @module  video_win
 @summary 全屏播放页 —— 竖屏面板自动旋转成横屏，任意尺寸素材居中播放
-@version 1.4
-@date    2026.10.13
+@version 1.5
+@date    2026.10.29
 @author  江访
 
 === 消息协议（订阅/发布）===
@@ -218,7 +218,7 @@ end
 
 文案与颜色必须一起刷：状态切了只改文案不改色，看起来就是「按钮没反应」。
 颜色本身由 theme.video_bar 按「主题令牌 + 当前状态」算，本页只负责把状态喂进去。
-定义在 rebuild_video 之前：它的 on_complete 回调要引用本函数（局部函数须先声明后闭包）。]]
+定义在 create_video_now 之前：它的 on_complete 回调要引用本函数（局部函数须先声明后闭包）。]]
 local function sync_labels()
     if not ctrl_bar then return end
     if current_file then
@@ -227,8 +227,8 @@ local function sync_labels()
     ctrl_bar:sync(is_playing, is_loop)
 end
 
---- 按当前 current_file / geo 重建视频控件（换文件、切循环都走这里）
-local function rebuild_video()
+--- 停掉当前视频控件（立刻执行，不等释放窗口）
+local function stop_video()
     if video_obj then
         pcall(function() video_obj:stop() end)
         pcall(function() video_obj:destroy() end)
@@ -238,6 +238,10 @@ local function rebuild_video()
         pcall(function() empty_label:destroy() end)
         empty_label = nil
     end
+end
+
+--- 建视频控件（由 play 在 mplayer 音频会话释放窗口结束后调用，见 video_util）
+local function create_video_now()
     if not stage then return end
 
     local vx, vy, vw, vh = geo.video_x, geo.video_y, geo.video_w, geo.video_h
@@ -258,15 +262,20 @@ local function rebuild_video()
     is_playing = (video_obj ~= nil)
 
     if not video_obj then
+        --[[放不出来时说清原因：三种格式各有分辨率上限（MP4 480×320、HZV/MJPG 1024×600，
+        见 video_util.FRAME_MAX），被上限挡住的素材与「解码失败」的素材给人的感觉完全不同。
+        这里再问一次 check_frame（纯 Lua 读容器头，很轻）拿 reason，不要只说「无法播放」。]]
+        local ok, vw, vh, _fmt, reason = video_util.check_frame(current_file)
+        local hint = (not ok and reason) or "无法播放该文件"
         local d = geo.density
         empty_label = theme.label(stage, {
             x = 0, y = math.floor(H / 2) - math.floor(20 * d),
             w = W, h = math.floor(34 * d),
-            text = "无法播放该文件",
-            px_size = math.floor(18 * d),
+            text = hint,
+            px_size = math.floor(16 * d),
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
-        log.warn("video_win", "video create failed", current_file)
+        log.warn("video_win", "video create failed", current_file, hint, vw, vh)
     end
 end
 
@@ -285,9 +294,17 @@ local function play(path)
     current_file = path
     local vw, vh = video_util.frame_size(path, DEFAULT_VW, DEFAULT_VH)
     geo = calc_layout(W, H, vw, vh)
-    rebuild_video()
-    sync_labels()
-    start_companion_audio()
+
+    --[[停旧 → 建新要留出 mplayer 音频会话的释放窗口（见 video_util）。
+    窗口没关就把「建画面 + 起伴音 + 刷文案」整段延后到窗口结束，中间不建新会话，
+    就不会跟还没释放完的旧会话抢 luat_audio_request_play_stream。]]
+    stop_video()
+    video_util.after_release(function()
+        create_video_now()
+        sync_labels()
+        start_companion_audio()
+    end)
+
     log.info("video_win", "play", path, "frame", vw, "x", vh, "overlay=", geo.overlay)
 end
 
@@ -461,6 +478,8 @@ local function on_destroy()
     end
     -- 容器音轨（HZV 自带的那一路）兜底停掉
     if exaudio then pcall(exaudio.play_stop, { type = 0 }) end
+    -- 定时器可能晚于 on_destroy 触发，队列里的建播放器动作必须先丢掉
+    video_util.cancel_pending()
 
     video_picker.close()
 

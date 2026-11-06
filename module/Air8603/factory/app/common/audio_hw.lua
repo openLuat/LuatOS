@@ -33,13 +33,20 @@
    失灵」的旧行为且一个字节都不报错，所以 setup 成功后必须读 exaudio.bus_policy()
    对账，对不上就告警（见 check_bus_policy）。
 
+7. 【Air1103 双通路板】hw.audio.play_model 声明「播放走哪条通路」，与 model（录音走
+   哪条）分开写。Air8605M/W、Air8603M1/W1 这类板既接了 Air1103 也支持 DAC，
+   写 model="air1103" + play_model="dac" 即可录音走语音芯片、播放走内置 DAC，
+   通路切换由 app/common/audio_route.lua 按需重跑 exaudio.setup 完成。
+   play_model 不写时按 "dac" 处理，写 "air1103" 则退回单通路（播放也走语音芯片）。
+   非 Air1103 机型写不写 play_model 都不影响行为。
+
 === 对外接口 ===
 
   audio_hw.cfg()          -> table|nil      hw.audio 配置（nil = 本板无音频能力）
   audio_hw.is_air1103()   -> boolean        是否 Air1103 UART 语音芯片
   audio_hw.params(extra)  -> table          exaudio.setup 入参（extra 同名字段覆盖）
   audio_hw.setup(extra)   -> ok, err        pcall(exaudio.setup, params) + 套用音量
-  audio_hw.vol()          -> ok             单独套用 ac.play_vol
+  audio_hw.vol(level)     -> ok             套用媒体音量（nil 取 ac.play_vol）
   audio_hw.exaudio()      -> table|nil      require 到的 exaudio（无音频固件上为 nil）
 ]]
 
@@ -132,14 +139,22 @@ end
 
 --[[
 @function vol
-@summary 套用媒体音量（读 hw.audio.play_vol，settings_display_app 的统一写回点）
+@summary 套用媒体音量（settings_display_app 的统一写回点，audio_route 的 AUDIO_CFG_SYNC 生效点）
+@param number|nil level 音量 0-100，nil 取 hw.audio.play_vol
 @return boolean
 ]]
-function M.vol()
+function M.vol(level)
     local ex = get_exaudio()
     if not ex or not ex.vol then return false end
     local ac = M.cfg() or {}
-    pcall(ex.vol, ac.play_vol or 70)
+    local v = level or ac.play_vol or 70
+    pcall(ex.vol, v)
+    -- Air1103 机型：exaudio.vol 只写语音芯片的音量寄存器，够不着 audio_v2 的数字增益，
+    -- 内置 DAC 那一路（mplayer 的 MP4 音轨、audio_route 的 DAC 播放）音量在此单独下发。
+    -- audio_v2 是固件扩展库，以全局形式存在，无音频固件上为 nil，须判空
+    if M.is_air1103() and audio_v2 then
+        pcall(audio_v2.soft_volume, v)
+    end
     return true
 end
 

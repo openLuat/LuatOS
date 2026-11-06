@@ -40,6 +40,8 @@ if not ok_exaudio then exaudio = nil end
 
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
+-- 录音/播放分路：Air1103 机型录音走语音芯片、播放走内置 DAC（其余机型原样转发 exaudio）
+local audio_route = require "audio_route"
 -- Air1103 的 MP4 同名 .pcm 伴音（流式 PCM 补声，见该模块头注释）
 local pcm_play = require "pcm_play"
 
@@ -337,10 +339,11 @@ end
 ]]
 function M.audio_play(mp3_path, should_loop)
     if not has_audio() or not mp3_path then return false end
-    --[[Air1103 只认 TTS(type=1) 与流式 PCM(type=2)，文件播放(type=0) 直接被拒，
-    与其静默失败不如明确跳过；这类机型的 MP4 伴音走 pcm_play 的 .pcm 流式通路。]]
-    if audio_hw.is_air1103() then
-        log.warn("video_util", "Air1103 不支持 MP3 文件播放，配套音已跳过", mp3_path)
+    --[[Air1103 的下行只认 TTS(type=1) 与流式 PCM(type=2)，文件播放(type=0) 直接被拒。
+    分路板把播放切到内置 DAC 后 type=0 可用，此时照常放；仍走 Air1103 下行的
+    （hw.audio.play_model = "air1103"）与其静默失败不如明确跳过。]]
+    if audio_hw.is_air1103() and not audio_route.enabled() then
+        log.warn("video_util", "Air1103 下行不支持 MP3 文件播放，配套音已跳过", mp3_path)
         return false
     end
     if not exaudio_inited then
@@ -350,7 +353,7 @@ function M.audio_play(mp3_path, should_loop)
     M.audio_stop()                 -- 必须先停再记：stop 会清空 audio_mp3
     audio_mp3 = mp3_path
     local function play_loop(path)
-        return pcall(exaudio.play_start, {
+        return audio_route.play_start({
             type = 0, content = path,
             cbfnc = function(event)
                 if event == exaudio.PLAY_DONE then
@@ -422,15 +425,60 @@ local function pa_reassert()
     end, 200)
 end
 
+-- ==================== 播放器会话释放窗口 ====================
+--[[stop/destroy 到下一次 create 必须留出释放时间
+
+mplayer 的音频会话从 stop() 到 C 侧打出 `dac_sound audio v2 request end` 实测要
+400~530ms。这段窗口里再起一路新会话去 luat_audio_request_play_stream，会跟还没
+释放完的旧会话抢：轻则新会话的 DAC 驱动起不来（`Movie audio` 打印了却没有
+`dac_sound audio v2 driver started`），重则新会话阻塞在音频请求上、解码线程一帧
+不出，连带触摸 I2C 事务被拖死。真机 100% 复现（2026.11.03：桌面↔文件管理来回、
+中间切两次循环，第 5 路音频断在半路、第 6 路卡死）。
+
+页面的「停旧 → 建新」都在同一次回调里做，中间让不出时间，所以收口到这里：
+stop/destroy 打开释放窗口，窗口没关就把建播放器的动作延后到窗口结束再做。
+延后用定时器而不是 sys.wait —— 起播发生在点击 / 焦点回调里，不在协程上下文。]]
+local RELEASE_MS = 700          -- 释放窗口长度（实测 400~530ms，留余量）
+local release_timer = nil       -- 非 nil = 释放窗口未关
+local pending_create = nil      -- 窗口结束后要执行的建播放器动作
+
+-- 打开（或顺延）释放窗口：每停一路就从头计时
+local function mark_release()
+    if release_timer then sys.timerStop(release_timer) end
+    release_timer = sys.timerStart(function()
+        release_timer = nil
+        local fn = pending_create
+        pending_create = nil
+        if fn then fn() end
+    end, RELEASE_MS)
+end
+
+---释放窗口内延后执行 fn，窗口已关则立即执行
+---连点 / 连切只保留最后一次动作，不会排队建出多个播放器
+function M.after_release(fn)
+    if not release_timer then
+        fn()
+        return
+    end
+    log.info("video_util", "释放窗口未关，起播延后", RELEASE_MS .. "ms")
+    pending_create = fn
+end
+
+---丢掉待执行的建播放器动作（页面失焦 / 销毁时调用）
+---只丢动作、不关窗口：这一次销毁照样需要完整的释放时间
+function M.cancel_pending()
+    pending_create = nil
+end
+
 --[[包装 MP4 播放器：功放跟随播放状态开关，destroy 时统一收尾
 
 接口面与裸 airui.video 对象一致（:play/:pause/:stop/:destroy），调用方无感；
 paused 字段记录用户暂停状态（应用层循环续播据此跳过，见 create_player）；
-HZV/MJPG 不走这套会话收尾，create_player 仍返回裸对象。
+HZV/MJPG 没有这套 PA / 伴音副作用，由 wrap_release 只补释放窗口（见下）。
 
-pcm_path 非 nil 时（Air1103 机型 + 同名 .pcm 伴音）声音走 exaudio 流式 PCM，
-play/pause/stop/destroy 同步驱动 pcm_play；MP4 的 mplayer 音轨在 Air1103 上出不来声
-（C 层无 air1103 后端），画面照常由 mplayer 放，伴音在本层补。
+pcm_path 非 nil 时（配了同名 .pcm 伴音）声音走 exaudio 流式 PCM，
+play/pause/stop/destroy 同步驱动 pcm_play；没配伴音时 MP4 的 mplayer 音轨照常走
+内置 DAC 出声。伴音只在同目录同名文件存在时启用，二者同开会叠成双声。
 
 **收尾只碰自己这一路**：destroy 停自己的伴音、关功放，并翻一次全局功放世代作废
 pa_reassert 尚未触发的跨格式补枪，不插手别的播放器实例（历史上桌面播放器与全屏
@@ -470,11 +518,34 @@ local function wrap_mp4_player(v, pcm_path)
             self.paused = true
             pa_set(false)           -- PA_EN 跟随停止：停止关功放
             if pcm_path then pcm_play.stop() end
+            mark_release()          -- 音频会话开始释放，下一路要等
             return r
         end,
         destroy = function(_)
             pcall(function() v:destroy() end)
             mp4_session_end()
+            mark_release()
+        end,
+    }
+end
+
+--[[给裸 airui.video 补一层会话收尾：stop/destroy 顺带打开释放窗口
+
+HZV/MJPG 没有 MP4 那套 PA / 伴音副作用，所以不走 wrap_mp4_player；但 HZV 的
+videoplayer 与 MP4 的 mplayer 音轨都从 luat_audio_request_play_stream 走，
+「停旧 → 建新」同样要留释放窗口。接口面与裸对象一致（:play/:pause/:stop/:destroy）。]]
+local function wrap_release(v)
+    return {
+        play = function(self, ...) return v:play(...) end,
+        pause = function(self, ...) return v:pause(...) end,
+        stop = function(self, ...)
+            local r = v:stop(...)
+            mark_release()
+            return r
+        end,
+        destroy = function(_)
+            pcall(function() v:destroy() end)
+            mark_release()
         end,
     }
 end
@@ -576,23 +647,26 @@ function M.create_player(path, o)
 
     if fmt == "mp4" then
         --[[停掉残留的配套/容器音频再起 mplayer：两路音频同开必打架。
-        一般机型 MP4 的声音走 mplayer 自带音频通路（组件内部自行初始化），
-        不经 exaudio，也不需要 audio_ensure。
-        Air1103 例外：C 层没有 air1103 后端，mplayer 的音轨出不来声，
-        只能用同名 .pcm 伴音走 exaudio 流式 PCM 补声（见 app/common/pcm_play.lua）。]]
+        MP4 的声音走 mplayer 自带音频通路（组件内部自行初始化），不经 exaudio，
+        最终落到芯片内置 DAC；分路板（play_model="dac"）正是要走这一路。
+        只有仍留在 Air1103 单通路的机型，mplayer 的音轨才出不来声，
+        那时靠同名 .pcm 伴音走 exaudio 流式 PCM 补声（见 app/common/pcm_play.lua）。]]
         M.audio_stop()
         if exaudio then pcall(exaudio.play_stop, { type = 0 }) end
         pa_set(true)
         if pcm_play.available() then
             pcm_path = pcm_play.find_companion(path)
             if pcm_path then
-                --[[伴音走 exaudio，先把音频通路建起来。Air1103 是 UART 驱动，
+                --[[伴音走 exaudio，先把音频通路建起来。
                 不碰 mplayer 的音频请求，与 HZV 那条「不能在这里 exaudio.setup」不冲突
                 （那条针对 DAC 模式收尾的 audio_v2.shutdown）。]]
                 M.audio_ensure()
                 log.info("video_util", "MP4 走 .pcm 伴音补声", pcm_path)
+            elseif audio_route.enabled() then
+                -- 分路板上 mplayer 音轨本就走内置 DAC，没配伴音是常态
+                log.info("video_util", "MP4 音轨走内置 DAC（未配同名 .pcm 伴音）", path)
             else
-                log.warn("video_util", "Air1103 机型 MP4 无声：缺同名 .pcm 伴音", path,
+                log.warn("video_util", "Air1103 单通路 MP4 无声：缺同名 .pcm 伴音", path,
                          "转法: ffmpeg -i xx.mp4 -ac 1 -ar 16000 -f s16le xx.pcm")
             end
         end
@@ -695,6 +769,7 @@ function M.create_player(path, o)
             log.warn("video_util", "起播被拒", path, "decode=", a.decode_mode, mem_snapshot())
             pcall(function() obj:stop() end)
             pcall(function() obj:destroy() end)
+            mark_release()   -- 半路起播也可能占住音频请求，一并留释放窗口
         else
             log.warn("video_util", "airui.video 返回 nil", path, "fmt=", fmt,
                      "decode=", a.decode_mode, mem_snapshot())
@@ -714,6 +789,7 @@ function M.create_player(path, o)
             -- 起播失败收尾：此时未 wrap，直接关功放
             pa_set(false)
         end
+        mark_release()   -- 各档都试过，残留的音频请求同样要留出释放时间
         return nil
     end
     if fmt == "mp4" then
@@ -723,7 +799,7 @@ function M.create_player(path, o)
     end
     -- 播放器打开时音频任务可能再次把功放拉高，创建成功后再拉一次
     pa_set(true)
-    return v
+    return wrap_release(v)
 end
 
 return M

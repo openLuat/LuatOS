@@ -33,6 +33,8 @@ usb_mode.apply_boot(cfg)              → 开机按模式给 UVC 使能脚上电
 - 任何 fskv 调用都包 pcall 并先判 fskv 是否存在（PC 模拟器没有这个库）
 ]]
 
+local airlink_pin = require "airlink_pin"
+
 local M = {}
 
 -- ==================== 常量 ====================
@@ -308,8 +310,8 @@ function M.apply_boot(cfg)
     for _, p in ipairs(list) do
         if p and p.type == "uvc" and p.en_pin then
             local level = on and 1 or 0
-            pcall(gpio.setup, p.en_pin, level)
-            pcall(gpio.set, p.en_pin, level)
+            -- WiFi 侧使能脚（GPIO ≥100）由 airlink_pin 延后到链路就绪后下发，开机不等链路
+            airlink_pin.defer(p.en_pin, level)
             log.info("usb_mode", "UVC 供电", on and "开启" or "关闭", "GPIO" .. tostring(p.en_pin))
         end
     end

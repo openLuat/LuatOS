@@ -31,6 +31,8 @@ boot_ui 开机第 0 步先 fskv.init 再调 restore()；fskv 挂载是异步的�
 订阅: AUDIO_PLAY_TEST                → 播放一段试听语音
 发布: AUDIO_VOLUME_CHANGED(level)    → 媒体音量变化通知
 发布: AUDIO_VOLUME_VALUE(level)      → 媒体音量查询返回值
+发布: AUDIO_CFG_SYNC(level, mute)    → 音频设置与开关同步（audio_route 统一生效点，
+                                       音量 0-100 + true=静音；其它模块也可发布它）
 ]]
 -- ==================== 局部变量 ====================
 local pwm_initialized = false  -- PWM 初始化标志
@@ -61,6 +63,13 @@ local function get_exaudio()
     end
     return exaudio
 end
+
+-- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
+local audio_hw = require "audio_hw"
+
+-- 录音/播放分路 + 音量/静音统一生效点：Air1103 机型录音走语音芯片、播放走内置 DAC，
+-- 音量经全局消息 AUDIO_CFG_SYNC 同步到 exaudio.vol 与 DAC 数字增益两处
+local audio_route = require "audio_route"
 
 -- 支持 audio 功能（hw.audio 已配置）即默认开启音量调节，不设配置开关
 local FSKV_VOLUME = "media_volume"            -- 媒体音量 fskv 持久化键
@@ -101,9 +110,9 @@ local function set_volume(level)
     -- 写回配置表：llm_chat / factory_rec / video_util
     -- 每次起播都读 ac.play_vol，新起的播放自动用上用户音量
     if ac then ac.play_vol = level end
-    -- exaudio.vol 是驱动级全局增益，正在播放的音轨立即生效；
-    -- exaudio 在无音频固件上不存在，须判空后再 pcall
-    if exaudio and exaudio.vol then pcall(exaudio.vol, level) end
+    -- 走 AUDIO_CFG_SYNC 统一生效点：exaudio.vol 与 DAC 数字增益一起下发，
+    -- 同时广播全局消息，其它持有播放通路的模块跟着同步
+    audio_route.sync(level, false)
     save_fskv(FSKV_VOLUME, level)
     log.info("settings_display", "媒体音量设置为: " .. level .. "%")
     -- 上报媒体音量变化事件
@@ -128,25 +137,14 @@ local function play_volume_test()
         log.warn("settings_display", "exaudio.play_start 不存在，无法试听")
         return
     end
-    -- exaudio.setup 幂等，每次完整组装（与 llm_chat tts_init 一致）
-    local sp = { model = ac.model or "es8311", pa_ctrl = ac.pa_ctrl,
-                 pa_on_level = ac.pa_on_level or 1, dac_delay = ac.dac_delay }
-    if ac.dac_ctrl then sp.dac_ctrl = ac.dac_ctrl end
-    if ac.i2c_id then sp.i2c_id = ac.i2c_id end
-    if ac.i2s_sample then sp.i2s_sample = ac.i2s_sample end
-    if ac.bits_per_sample then sp.bits_per_sample = ac.bits_per_sample end
-    if ac.i2s_framebit then sp.i2s_framebit = ac.i2s_framebit end
-    if ac.channels then sp.channels = ac.channels end
-    if ac.pa_delay then sp.pa_delay = ac.pa_delay end
-    if ac.tx_bus_type and ac.rx_bus_type then
-        sp.tx_bus_type = ac.tx_bus_type; sp.tx_bus_id = ac.tx_bus_id or 0
-        sp.rx_bus_type = ac.rx_bus_type; sp.rx_bus_id = ac.rx_bus_id or 0
+    -- exaudio.setup 幂等，每次完整组装（入参由 audio_hw 统一提供，含 uart_id/audio_mode）
+    local ok, err = audio_hw.setup()
+    if not ok then
+        log.warn("settings_display", "exaudio.setup 异常/失败", err)
     end
-    if ac.audio_mode then sp.audio_mode = ac.audio_mode end
-    pcall(exaudio.setup, sp)
-    if exaudio.vol then pcall(exaudio.vol, current_volume) end
+    if exaudio and exaudio.vol then pcall(exaudio.vol, current_volume) end
     pcall(exaudio.play_stop, { type = 1 })
-    pcall(exaudio.play_start, { type = 1, content = "音量测试" })
+    audio_route.play_start({ type = 1, content = "音量测试" })
 end
 
 -- ==================== 内部函数 ====================

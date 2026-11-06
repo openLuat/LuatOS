@@ -83,6 +83,7 @@ function M.optional()
         require "rs485_test_win"    -- RS485 收发测试页（订阅 OPEN_RS485_TEST_WIN）
         if has_audio_periph() then
             require "audio_test_win" -- 录音播放测试页（订阅 OPEN_AUDIO_TEST_WIN）
+            -- sip_test_win 懒加载：在 other_func_win 点击 SIP 行时才 require，不常驻开机。
         end
     end
 end

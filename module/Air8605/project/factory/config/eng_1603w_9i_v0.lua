@@ -108,6 +108,10 @@ return {
                 rst_pin = nil,       -- 无独立复位脚，留空
                 register_timeout = 15, -- 录入超时（秒）
                 verify_timeout = 15,   -- 验证超时（秒）
+                -- 录入/验证与预览并行：serial=停流; auto=不停流降帧识别、失败停流重试（默认）; concurrent=只并行
+                mode = "auto",
+                busy_fps = 3,        -- 并行识别时 UVC 帧率
+                live_timeout = 3000, -- 等画面新帧超时(ms)，超时降级串行
             },
         },
         {

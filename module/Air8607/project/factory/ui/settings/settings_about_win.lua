@@ -113,8 +113,8 @@ local function build_info_list(parent, x, y, w)
     local bw       = 1                     -- theme.card 默认描边宽度
     local inner_w  = w - 2 * bw            -- 卡片内容区宽
     local pad      = theme.dp(14)
-    local fs_key   = theme.fs("micro")     -- 12
-    local fs_val   = theme.fs("label")     -- 16
+    local fs_key   = theme.fs("micro")     -- 15
+    local fs_val   = theme.fs("label")     -- 17
     local key_lh   = fs_key + 3            -- hzfont 行高 = 字号 + 3
     local val_lh   = fs_val + 3
     local gap      = theme.dp(4)

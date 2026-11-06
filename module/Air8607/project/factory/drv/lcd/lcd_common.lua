@@ -233,19 +233,6 @@ do
             -- 初始化 GT911 触摸芯片（I2C 配置、中断引脚、分辨率映射）
             return tp_model.init(cfg.hw.tp.params)
         end,
-        -- 恢复触摸 I2C 总线配置（exaudio.setup 会用 i2c.setup 重置总线，见 tp_gt911.i2c_restore）
-        i2c_restore = function()
-            if tp_model.i2c_restore then return tp_model.i2c_restore() end
-            return false
-        end,
-        --[[触摸恢复：只补回 I2C 总线配置，不重复 tp.init
-        音频/视频通路会用 i2c.setup 重配 I2C1（丢掉轮询模式），触摸总线要补回来。
-        真正的重新初始化做不到：内核 tp 库一次上电只接受一次 tp.init
-        （调用方见 ui/video_util.lua 的 tp_recover）]]
-        reinit = function()
-            if tp_model.reinit then return tp_model.reinit() end
-            return false
-        end,
     }
 end
 

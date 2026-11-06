@@ -113,7 +113,7 @@ return {
             w = 800,             -- 首选出图档（实测档位见文件头第 11 条）
             h = 480,
             max_pixels = 800 * 480, -- 像素上限按首选档收口，再大的档不取
-            rotation = 0,        -- UVC 页签不转（airui.camera 只吃顺时针，见文件头第 11 条）
+            rotation = 270,        -- UVC 页签不转（airui.camera 只吃顺时针，见文件头第 11 条）
             face = {
                 uart_id = 2,         -- 人脸模组串口 = UART2（115200/8N1，库内固定）
                 rst_pin = nil,       -- 无独立复位脚，留空

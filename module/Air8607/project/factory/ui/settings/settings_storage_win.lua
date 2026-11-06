@@ -1,9 +1,14 @@
 --[[
 @module  settings_storage_win
 @summary 存储页面（内存 + 多文件系统空间）
-@version 1.4
-@date    2026.09.15
+@version 1.5
+@date    2026.10.31
 
+v1.5 改版：
+  - 最小字号抬到 15px（theme.FONT_MIN）。原 fit_font 用「行高反推字号」，
+    行高不够就把字压到 9~10px，1024×600 大屏上完全看不清。
+    现在改为「字号定下限、行高跟着字号长」：行高 = 字号 + 3。
+  - 卡片高度下限 105 → 120，让标题与正文在最小字号之上还能分出层次。
 v1.4 修复：
   - 「总容量 / 可用空间」行文字与行框重叠：create_info_row 里
     h = rh - 2*text_pad 常常小于「字号 + 3」，而内置字库行高固定为
@@ -76,14 +81,15 @@ local function calc_percent(used, total)
     return math.min(100, math.max(0, (used / total) * 100))
 end
 
---[[取「能塞进给定行高」的字号
+--[[按行高取字号，下限 15px
 AirUI 内置字库的行高 = 字号 + 3（lv_font_hzfont.c: g_airui_hzfont_extra_leading），
-所以字号必须 <= 行高 - 3，否则 LVGL 会把文字画到 label 盒子外面。
+所以 label 盒高必须取 字号 + 3，否则 LVGL 会把文字画到盒子外面。
+行高给不够时不压字号，改由调用方按返回的行高排版 —— 压下去就看不清了。
 返回 字号, 行高（两者恒满足 行高 = 字号 + 3）。]]
 local function fit_font(row_h)
-    local fs = math.max(10, math.min(18, math.floor(row_h * 0.62)))
-    if fs + 3 > row_h then fs = row_h - 3 end
-    if fs < 9 then fs = 9 end
+    local fs = math.floor(row_h * 0.72)
+    if fs < theme.FONT_MIN then fs = theme.FONT_MIN end
+    if fs > 24 then fs = 24 end
     return fs, fs + 3
 end
 
@@ -122,27 +128,24 @@ end
 @return 右侧值 label（调用方后续 set_text 更新）
 说明：整行是一个透明容器，不再画玻璃底 + 描边方框 —— 之前那个方框配合
 溢出的文字，看起来就是「方框压在文字上」。]]
-local function create_info_row(p, y, lt, row_height)
+local function create_info_row(p, y, lt, fs, lh)
     local d = _G.density_scale or 1.0
-    local rh = row_height or math.floor(26 * d)
-    local fs, lh = fit_font(rh)
-    local ty = math.max(0, math.floor((rh - lh) / 2))
 
     local row = airui.container({
         parent = p,
         x = math.floor(16 * d), y = y,
-        w = card_w - math.floor(32 * d), h = rh,
+        w = card_w - math.floor(32 * d), h = lh,
         color = CLR.surface, color_opacity = 0,
     })
     airui.label({
-        parent = row, x = 0, y = ty,
+        parent = row, x = 0, y = 0,
         w = math.floor(90 * d), h = lh,
         text = lt, font_size = fs,
         color = CLR.t2, align = airui.TEXT_ALIGN_LEFT,
     })
     local vl = airui.label({
         parent = row,
-        x = math.floor(100 * d), y = ty,
+        x = math.floor(100 * d), y = 0,
         w = card_w - math.floor(132 * d), h = lh,
         text = "--", font_size = fs,
         color = CLR.t1, align = airui.TEXT_ALIGN_RIGHT,
@@ -154,28 +157,27 @@ local function create_memory_card(p, y, title, percent_color, card_height)
     local card = theme.card(p, { x = margin, y = y, w = card_w, h = card_height, radius = theme.R.md })
     local density = _G.density_scale or 1.0
     local pad = math.floor(card_height * 0.06)
-    local th = math.floor(card_height * 0.20)
-    local ih = math.floor(card_height * 0.15)
     local bh = math.floor(card_height * 0.08)
     local g = math.floor(card_height * 0.025)
 
-    local yt = pad
-    local yi1 = yt + th + g
-    local yi2 = yi1 + ih + g
-    local yi3 = yi2 + ih + g
-    local yb = yi3 + ih + g
+    local title_fs, title_lh = fit_font(math.floor(card_height * 0.20))
+    local pct_fs, pct_lh = fit_font(math.floor(card_height * 0.16))
+    local info_fs, info_lh = fit_font(math.floor(card_height * 0.15))
 
-    local title_fs, title_lh = fit_font(th)
-    local pct_fs, pct_lh = fit_font(math.floor(th * 0.8))
+    local yt = pad
+    local yi1 = yt + math.max(title_lh, pct_lh) + g
+    local yi2 = yi1 + info_lh + g
+    local yi3 = yi2 + info_lh + g
+    local yb = yi3 + info_lh + g
 
     airui.label({ parent = card, x = math.floor(16 * density), y = yt, w = math.floor(200 * density), h = title_lh,
         text = title, font_size = title_fs, color = CLR.t1 })
     local lp = airui.label({ parent = card, x = card_w - math.floor(180 * density), y = yt, w = math.floor(160 * density), h = pct_lh,
         text = "0% 占用", font_size = pct_fs, color = percent_color, align = airui.TEXT_ALIGN_RIGHT })
 
-    local lt = create_info_row(card, yi1, "总内存", ih)
-    local lu = create_info_row(card, yi2, "当前使用", ih)
-    local lm = create_info_row(card, yi3, "历史峰值", ih)
+    local lt = create_info_row(card, yi1, "总内存", info_fs, info_lh)
+    local lu = create_info_row(card, yi2, "当前使用", info_fs, info_lh)
+    local lm = create_info_row(card, yi3, "历史峰值", info_fs, info_lh)
     -- 进度条：轨道走主题令牌（原来是 CLR.line_soft 实色灰，深底上很突兀）
     local lb = theme.bar(card, {
         x = math.floor(16 * density), y = yb,
@@ -190,21 +192,19 @@ local function create_fs_card(p, y, title, card_height, is_internal)
     local card = theme.card(p, { x = margin, y = y, w = card_w, h = card_height, radius = theme.R.md })
     local density = _G.density_scale or 1.0
     local pad = math.floor(card_height * 0.05)
-    local th = math.floor(card_height * 0.20)
-    local rh = math.floor(card_height * 0.18)
     local bh = math.floor(card_height * 0.08)
     local g = math.floor(card_height * 0.020)
-    local row_h = math.floor(card_height * 0.18)
+
+    local title_fs, title_lh = fit_font(math.floor(card_height * 0.20))
+    local status_fs, status_lh = fit_font(math.floor(card_height * 0.16))
+    local pct_fs, pct_lh = fit_font(math.floor(card_height * 0.18))
+    local row_fs, row_lh = fit_font(math.floor(card_height * 0.18))
 
     local yt = pad
-    local yb = yt + th + g
+    local yb = yt + math.max(title_lh, status_lh) + g
     local yp = yb + bh + g
-    local yu = yp + rh + g
-    local yf = yu + row_h + g
-
-    local title_fs, title_lh = fit_font(th)
-    local status_fs, status_lh = fit_font(math.floor(th * 0.8))
-    local pct_fs, pct_lh = fit_font(rh)
+    local yu = yp + pct_lh + g
+    local yf = yu + row_lh + g
 
     airui.label({ parent = card, x = math.floor(16 * density), y = yt, w = math.floor(200 * density), h = title_lh,
         text = title, font_size = title_fs, color = CLR.t1 })
@@ -225,8 +225,8 @@ local function create_fs_card(p, y, title, card_height, is_internal)
         w = card_w - math.floor(32 * density), h = pct_lh,
         text = "已使用 --%", font_size = pct_fs, color = CLR.t1 })
 
-    local total_label = create_info_row(card, yu, "总容量", row_h)
-    local free_label = create_info_row(card, yf, "可用空间", row_h)
+    local total_label = create_info_row(card, yu, "总容量", row_fs, row_lh)
+    local free_label = create_info_row(card, yf, "可用空间", row_fs, row_lh)
 
     return {
         status = status_label, bar = bar, pct_label = pct_label,
@@ -277,7 +277,7 @@ local function build_ui()
     local card_gap_est = math.floor(margin * 0.7)
     local available_h = screen_h - th_est - margin_top * 2 - gap_count * card_gap_est
     local card_height_base = math.floor(available_h / 6)
-    if card_height_base < 105 then card_height_base = 105 end
+    if card_height_base < 120 then card_height_base = 120 end
     if card_height_base > 200 then card_height_base = 200 end
 
     memory_card_h = card_height_base

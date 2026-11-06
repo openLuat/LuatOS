@@ -668,9 +668,9 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
             border_color = theme.C.stroke, border_width = 1, radius = theme.r("md"),
             on_click = function() sys.publish("OPEN_FILE_TRANSFER_WIN") end,
         })
-        local ft_title_h = math.floor(26 * density)
-        local ft_sub_h = math.floor(18 * density)
-        local ft_gap = math.floor(4 * density)
+        local ft_title_h = math.floor(27 * density)
+        local ft_sub_h = math.floor(19 * density)
+        local ft_gap = math.floor(2 * density)
         local ft_inner_y = math.floor((card_h - ft_title_h - ft_sub_h - ft_gap) / 2)
         airui.label({
             parent = ft_card,

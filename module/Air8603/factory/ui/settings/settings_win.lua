@@ -8,7 +8,7 @@
 订阅: OPEN_SETTINGS_WIN → 打开设置主页
 发布: OPEN_IOT_WIN / OPEN_NET_WIN / OPEN_DISPLAY_WIN / OPEN_TIME_WIN /
       OPEN_STORAGE_WIN / OPEN_STORAGE_PRI_WIN / OPEN_FOTA_WIN / OPEN_SOUND_WIN /
-      OPEN_AUTOSTART_WIN / OPEN_ABOUT_WIN
+      OPEN_AUTOSTART_WIN / OPEN_ABOUT_WIN / OPEN_USB_MODE_WIN
 ]]
 
 require "settings_display_win"
@@ -25,6 +25,7 @@ require "settings_fota_win"
 require "settings_auto_win"
 require "settings_theme_win"
 require "settings_report_win"
+require "settings_usb_win"
 
 local theme = require "ui_theme"
 local titlebar = require "settings_titlebar"
@@ -53,6 +54,7 @@ local ENTRY_ICONS = {
     ["OPEN_AUTOSTART_WIN"]   = "autostart",
     ["OPEN_ABOUT_WIN"]       = "about",
     ["OPEN_AIRCLOUD_WIN"]    = "cloud",
+    ["OPEN_USB_MODE_WIN"]    = "mouse",
 }
 
 local function update_screen_size()
@@ -86,6 +88,10 @@ local function collect_entries()
     add("主题风格", "OPEN_THEME_WIN", "外观配色与强调色")
     if ui.show_storage_settings then add("存储和内存", "OPEN_STORAGE_WIN", "文件系统容量与内存占用") end
     if fe.sd_card or fe.nand_flash then add("存储顺序", "OPEN_STORAGE_PRI_WIN", "外部应用安装位置优先级") end
+    -- UVC 摄像头与 USB 键鼠共用 USB Host，两者都配了才需要二选一（见 usb_mode）
+    if require("usb_mode").available(cfg) then
+        add("外设模式", "OPEN_USB_MODE_WIN", "UVC 摄像头与 USB 键鼠二选一")
+    end
     add("系统更新", "OPEN_FOTA_WIN", "检查并下载最新固件")
     if fe.buzzer and ui.show_buzzer_settings then add("触摸音效", "OPEN_SOUND_WIN", "触摸反馈音开关与音量") end
     if fe.aircloud then add("数据上报", "OPEN_AIRCLOUD_WIN", "AirCloud 云端上报开关与周期") end

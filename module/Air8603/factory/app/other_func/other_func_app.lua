@@ -105,13 +105,14 @@ end
 
 --[[
 @function build_items
-@summary 按 config.peripherals 收集可管理实例
+@summary 按 usb_mode 过滤后的 config.peripherals 收集可管理实例
 ]]
 local function build_items()
     items = {}
     index_of = {}
     local cfg = _G.project_config or {}
-    local list = cfg.peripherals
+    local usb_mode = require "usb_mode"
+    local list = usb_mode.filter(cfg.peripherals)
     if type(list) ~= "table" then return end
 
     for i, p in ipairs(list) do

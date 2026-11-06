@@ -74,7 +74,10 @@ handle:status()    → { enabled=bool, info=string }
   一条 `发送` 都没有说明发送没走到驱动。收不到对端数据先看这几条分清
   「没发出去」「DE 没切成发送态」「发了但 DE 提前松」「发出去了但对端没回」
 - 所有 uart.* / gpio.* 调用 pcall 包裹，失败返回 false + 错误串
+- 供电脚经 airlink_pin 下发：GPIO ≥100 的 WiFi 侧脚等 airlink 链路就绪后再驱动
 ]]
+
+local airlink_pin = require "airlink_pin"
 
 local M = {}
 
@@ -138,11 +141,10 @@ local function pin_name_text(pins)
     return table.concat(out, "/")
 end
 
--- 设置 GPIO 电平
+-- 设置 GPIO 电平（WiFi 侧脚等 airlink 链路就绪后下发）
 local function pin_set(pin, level)
     if not pin then return end
-    pcall(gpio.setup, pin, level)
-    pcall(gpio.set, pin, level)
+    airlink_pin.set(pin, level)
 end
 
 -- 本串口上所有路的 DE 脚（去重），extra 用于补上尚未入表的那一路

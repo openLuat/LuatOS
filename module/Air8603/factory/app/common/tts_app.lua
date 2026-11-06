@@ -53,6 +53,9 @@ if not ok_exaudio then exaudio = nil end
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
 
+-- 录音/播放分路：Air1103 机型录音走语音芯片、播放走内置 DAC（其余机型原样转发 exaudio）
+local audio_route = require "audio_route"
+
 local gen = 0   -- 播放代次：stop/新 say 时 +1，旧协程据此退出
 
 --- 能力探测：C 库可能是 userdata，不能用 type(t)=="table" 前置判断
@@ -93,7 +96,7 @@ local function play_blocking(text, my_gen)
     if gen ~= my_gen then return false end
 
     local done = false
-    local ok = exaudio.play_start({
+    local ok = audio_route.play_start({
         type = 1,
         content = text,
         cbfnc = function(event)

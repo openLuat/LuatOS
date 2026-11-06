@@ -62,6 +62,9 @@ if not ok_exaudio then exaudio = nil end
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
 
+-- 录音/播放分路：Air1103 机型录音走语音芯片、播放走内置 DAC（其余机型原样转发 exaudio）
+local audio_route = require "audio_route"
+
 -- 录音文件固定落 /ram（内存盘，掉电即失，只作当场试听）
 local REC_PATH = "/ram/audio_test"
 -- 流式回放每批字节数（Air1103 下行 320B/10ms，取 10 帧一批）
@@ -265,7 +268,7 @@ local function record_start(h, seconds)
     local cmd_secs = secs
     if audio_hw.is_air1103() then cmd_secs = secs + AIR1103_UPSTREAM_DELAY_S end
 
-    local ok, ret = pcall(exaudio.record_start, {
+    local ok, ret = audio_route.record_start({
         format = fmt,
         time = cmd_secs,
         path = rec_data_cb,
@@ -357,7 +360,7 @@ local function play_start(h)
     play_owner = h
     local ok, ret
     if is_pcm then
-        ok, ret = pcall(exaudio.play_start, {
+        ok, ret = audio_route.play_start({
             type = 2,
             cbfnc = play_done_cb,
             priority = 1,
@@ -369,7 +372,7 @@ local function play_start(h)
             sys.taskInit(play_stream_task, h.play_gen)
         end
     else
-        ok, ret = pcall(exaudio.play_start, {
+        ok, ret = audio_route.play_start({
             type = 0,
             content = h.rec_path,
             cbfnc = play_done_cb,

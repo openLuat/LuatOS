@@ -73,13 +73,14 @@ end
 
 --[[
 @function collect_instances
-@summary 按 config.peripherals 收集可管理实例，按 type 分组并保持声明顺序
+@summary 按 usb_mode 过滤后的 config.peripherals 收集可管理实例，按 type 分组并保持声明顺序
 合并类型的全部实例并成一行，成员 id 全挂在这一行上
 @return table  { { type=, title=, items={ {key=, name=, type=, page=, members={id...}}, ... } }, ... }
 ]]
 local function collect_instances()
     local cfg = _G.project_config or {}
-    local list = cfg.peripherals
+    local usb_mode = require "usb_mode"
+    local list = usb_mode.filter(cfg.peripherals)
     local groups = {}
     local by_type = {}
     local seen = {}

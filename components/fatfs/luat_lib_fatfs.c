@@ -8,6 +8,7 @@
 @tag LUAT_USE_FATFS
 @usage
 -- 通常只使用fatfs.mount挂载tf/sd卡,其他操作走io库就可以了
+-- 支持多盘挂载, 例如同时挂载spi tf卡和u盘, 挂载点各自独立
 */
 #include "luat_base.h"
 #include "luat_spi.h"
@@ -28,23 +29,37 @@
 #include "luat_log.h"
 
 
-static FATFS *fs = NULL;		/* FatFs work area needed for each volume */
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
-extern BYTE FATFS_POWER_PIN;
-extern uint16_t FATFS_POWER_DELAY;
 extern uint8_t FATFS_NO_CRC_CHECK;
 extern uint16_t FATFS_WRITE_TO;
 DRESULT diskio_open_ramdisk(BYTE pdrv, size_t len);
-DRESULT diskio_open_spitf(BYTE pdrv, void* userdata);
-DRESULT diskio_open_sdio(BYTE pdrv, void* userdata);
+DRESULT diskio_open_spitf(BYTE pdrv, luat_fatfs_spi_t* userdata);
+DRESULT diskio_open_sdio(BYTE pdrv, luat_fatfs_sdio_t* userdata);
 DRESULT diskio_open_usb(BYTE pdrv, uint32_t usb_app_id);
 
 #ifdef LUAT_USE_FS_VFS
 extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 #endif
 
+/* 挂载槽位, 下标即 FatFs 逻辑盘号 pdrv */
+typedef struct {
+	FATFS* fs;
+	char mount_point[16];
+	uint8_t mode;
+	uint8_t used;
+}fatfs_mount_slot_t;
+
+static fatfs_mount_slot_t s_mounts[FF_VOLUMES] = {0};
 static int s_fatfs_fmt = FM_FAT32;
-static int s_fatfs_mode = -1;
+
+static int fatfs_find_pdrv(const char* mount_point) {
+	for (int i = 0; i < FF_VOLUMES; i++) {
+		if (s_mounts[i].used && !strcmp(s_mounts[i].mount_point, mount_point)) {
+			return i;
+		}
+	}
+	return -1;
+}
 
 /*
 挂载fatfs
@@ -94,23 +109,22 @@ static int fatfs_mount(lua_State *L)
 	if (FATFS_DEBUG)
 		LLOGD("fatfs_init>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
-	if (fs == NULL) {
-		fs = luat_heap_malloc(sizeof(FATFS));
-		if (fs == NULL) {
-			lua_pushboolean(L, 0);
-			LLOGD("out of memory when malloc FATFS");
-			lua_pushstring(L, "out of memory when malloc FATFS");
-			return 2;
-		}
-	}
-
 	// 挂载点
 	const char *mount_point = luaL_optstring(L, 2, "/fatfs");
 
 	int fatfs_mode = luaL_checkinteger(L, 1);
-	s_fatfs_mode = fatfs_mode;
-	FATFS_POWER_PIN = luaL_optinteger(L, 6, 0xff);
-	FATFS_POWER_DELAY = luaL_optinteger(L, 7, 1);
+	BYTE power_pin = luaL_optinteger(L, 6, 0xff);
+	WORD power_delay = luaL_optinteger(L, 7, 1);
+
+	int pdrv = diskio_alloc_pdrv();
+	if (pdrv < 0) {
+		LLOGW("no free fatfs volume, FF_VOLUMES=%d", FF_VOLUMES);
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, "no free volume");
+		return 2;
+	}
+
+	DRESULT dres = RES_ERROR;
 	if (fatfs_mode == DISK_SPI){
 		luat_fatfs_spi_t *spit = luat_heap_malloc(sizeof(luat_fatfs_spi_t));
 		if (spit == NULL) {
@@ -120,7 +134,7 @@ static int fatfs_mount(lua_State *L)
 			return 2;
 		}
 		memset(spit, 0, sizeof(luat_fatfs_spi_t));
-		
+
 		if (lua_type(L, 3) == LUA_TUSERDATA){
 			spit->spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
 			spit->fast_speed = luaL_optinteger(L, 4, 10000000);
@@ -131,15 +145,14 @@ static int fatfs_mount(lua_State *L)
 				spit->fast_speed = 5*1000*1000;
 			}
 			spit->type = 1;
-			diskio_open_spitf(0, (void*)spit);
 		} else {
 			spit->type = 0;
 			spit->spi_id = luaL_optinteger(L, 3, 0); // SPI_1
 			spit->spi_cs = luaL_optinteger(L, 4, 3); // GPIO_3
 			spit->fast_speed = luaL_optinteger(L, 5, 10000000);
 			LLOGD("init sdcard at spi=%d cs=%d", spit->spi_id, spit->spi_cs);
-			diskio_open_spitf(0, (void*)spit);
 		}
+		dres = diskio_open_spitf(pdrv, spit);
 	#ifdef LUAT_USE_SDIO
 	}else if(fatfs_mode == DISK_SDIO){
 		luat_fatfs_sdio_t *fatfs_sdio = luat_heap_malloc(sizeof(luat_fatfs_sdio_t));
@@ -154,25 +167,46 @@ static int fatfs_mount(lua_State *L)
 		fatfs_sdio->id = luaL_optinteger(L, 3, 0); // SDIO_ID
 
 		LLOGD("init FatFS at sdio");
-		diskio_open_sdio(0, (void*)fatfs_sdio);
+		dres = diskio_open_sdio(pdrv, (void*)fatfs_sdio);
 	#endif
 	#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
 	}else if(fatfs_mode == DISK_RAM){
 		LLOGD("init ramdisk at FatFS");
-		diskio_open_ramdisk(0, luaL_optinteger(L, 3, 64*1024));
+		dres = diskio_open_ramdisk(pdrv, luaL_optinteger(L, 3, 64*1024));
 	#endif
 	}else if(fatfs_mode == DISK_USB){
-		diskio_open_usb(0, luaL_optinteger(L, 3, 0));
+		dres = diskio_open_usb(pdrv, luaL_optinteger(L, 3, 0));
 	}else{
 		LLOGD("fatfs_mode error %d", fatfs_mode);
 		lua_pushboolean(L, 0);
 		lua_pushstring(L, "fatfs_mode error");
 		return 2;
 	}
-	FRESULT re = f_mount(fs, mount_point, 1);
+
+	if (dres != RES_OK) {
+		LLOGW("diskio open failed %d at pdrv %d", dres, pdrv);
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, "diskio open error");
+		return 2;
+	}
+	diskio_set_power(pdrv, power_pin, power_delay);
+
+	FATFS *fs = luat_heap_malloc(sizeof(FATFS));
+	if (fs == NULL) {
+		diskio_close(pdrv);
+		lua_pushboolean(L, 0);
+		LLOGD("out of memory when malloc FATFS");
+		lua_pushstring(L, "out of memory when malloc FATFS");
+		return 2;
+	}
+
+	char vol_path[4] = {'0' + pdrv, ':', '\0', '\0'};
+	FRESULT re = f_mount(fs, vol_path, 1);
     if (re != FR_OK) {
 		if (lua_isboolean(L, 8) && lua_toboolean(L, 8) == 0) {
 			LLOGI("sd/tf mount failed %d but auto-format is disabled", re);
+			luat_heap_free(fs);
+			diskio_close(pdrv);
 			lua_pushboolean(L, 0);
 			lua_pushstring(L, "mount error");
 			return 2;
@@ -187,34 +221,44 @@ static int fatfs_mount(lua_State *L)
 				.n_root = 0,
 			};
 			BYTE work[FF_MAX_SS] = {0};
-			re = f_mkfs(mount_point, &parm, work, FF_MAX_SS);
+			re = f_mkfs(vol_path, &parm, work, FF_MAX_SS);
 			LLOGD("auto format ret %d", re);
 			if (re == FR_OK) {
-				re = f_mount(fs, mount_point, 1);
+				re = f_mount(fs, vol_path, 1);
 				LLOGD("remount again %d", re);
 				if (re == FR_OK) {
 					LLOGI("sd/tf mount success after auto format");
 				}
 				else {
 					LLOGE("sd/tf mount failed again %d after auto format", re);
+					luat_heap_free(fs);
+					diskio_close(pdrv);
 					lua_pushboolean(L, 0);
 					lua_pushstring(L, "mount error");
-					return 2; 
+					return 2;
 				}
 			}
 			else {
 				LLOGE("sd/tf format failed %d", re);
+				luat_heap_free(fs);
+				diskio_close(pdrv);
 				lua_pushboolean(L, 0);
 				lua_pushstring(L, "format error");
 				return 2;
 			}
 		}
 	}
-	
+
+	s_mounts[pdrv].fs = fs;
+	s_mounts[pdrv].mode = fatfs_mode;
+	s_mounts[pdrv].used = 1;
+	strncpy(s_mounts[pdrv].mount_point, mount_point, sizeof(s_mounts[pdrv].mount_point) - 1);
+	diskio_bind_fs(pdrv, fs);
+
 	lua_pushboolean(L, re == FR_OK);
 	lua_pushinteger(L, re);
 	if (re == FR_OK) {
-		LLOGI("mount success at %s", fs->fs_type == FS_EXFAT ? "exfat" : (fs->fs_type == FS_FAT32 ? "fat32" : "fat16"));
+		LLOGI("mount success at %s pdrv %d", fs->fs_type == FS_EXFAT ? "exfat" : (fs->fs_type == FS_FAT32 ? "fat32" : "fat16"), pdrv);
 		#ifdef LUAT_USE_FS_VFS
               luat_fs_conf_t conf2 = {
 		            .busname = (char*)fs,
@@ -246,6 +290,18 @@ fatfs.unmount("/sd")
 static int fatfs_unmount(lua_State *L) {
 
 	const char *mount_point = luaL_optstring(L, 1, "/fatfs");
+	int pdrv = fatfs_find_pdrv(mount_point);
+	FATFS *fs = NULL;
+	if (pdrv >= 0) {
+		fs = s_mounts[pdrv].fs;
+	}
+	else {
+		// 未登记的挂载点按历史行为操作 0 号卷, 兼容 C 层直接挂载的场景
+		pdrv = 0;
+		if (s_mounts[0].used) {
+			fs = s_mounts[0].fs;
+		}
+	}
 #ifdef LUAT_USE_FS_VFS
       luat_fs_conf_t conf = {
             .busname = (char*)fs,
@@ -255,14 +311,22 @@ static int fatfs_unmount(lua_State *L) {
         };
       luat_fs_umount(&conf);
 #endif
-    FRESULT re = f_mount(NULL, "/", 0);
+    char vol_path[4] = {'0' + pdrv, ':', '\0', '\0'};
+    FRESULT re = f_mount(NULL, vol_path, 0);
 	// 对于 BK72XX 平台，进一步调用底层 sd 卡 deinit，确保控制器状态清零，下次 init 从 CMD0/CMD8 开始，避免init开头发 CMD12 出现无响应的情况
 #ifdef __BK72XX__
-	if (s_fatfs_mode == DISK_SDIO) {
+	if (s_mounts[pdrv].used && s_mounts[pdrv].mode == DISK_SDIO) {
 		bk_sd_card_deinit();
 	}
 #endif
-	s_fatfs_mode = -1;
+	diskio_unbind_fs(pdrv);
+	diskio_close(pdrv);
+	if (s_mounts[pdrv].used) {
+		luat_heap_free(s_mounts[pdrv].fs);
+		s_mounts[pdrv].fs = NULL;
+		s_mounts[pdrv].used = 0;
+		s_mounts[pdrv].mount_point[0] = '\0';
+	}
 	lua_pushinteger(L, re);
 	return 1;
 }
@@ -293,6 +357,13 @@ static int fatfs_getfree(lua_State *L)
 	DWORD fre_clust, fre_sect, tot_sect;
 	// 挂载点
 	const char *mount_point = luaL_optstring(L, 1, "/fatfs");
+	char vol_path[4] = {0};
+	int pdrv = fatfs_find_pdrv(mount_point);
+	if (pdrv >= 0) {
+		vol_path[0] = '0' + pdrv;
+		vol_path[1] = ':';
+		mount_point = vol_path;
+	}
 	FATFS *fs2;
     FRESULT re2 = f_getfree(mount_point, &fre_clust, &fs2);
     if (re2) {
@@ -340,7 +411,7 @@ static int fatfs_debug_mode(lua_State *L) {
 @api fatfs.config(crc_check, write_to, fmt)
 @int 读取时是否跳过CRC检查,1跳过不检查CRC,0不跳过检查CRC,默认不跳过,除非TF卡不支持CRC校验,否则不应该跳过!
 @int 单次写入超时时间,单位ms,默认100ms。
-@int 文件系统格式,默认FM_FAT32, 可选值 FM_FAT32, FM_EXFAT
+@int 文件系统格式,默认FM_FAT32, 可选值 fatfs.FM_FAT32, fatfs.FM_EXFAT, fatfs.FM_ANY(自动选择FAT12/16/32, 适合小容量介质)
 @return nil 无返回值
 -- 前2个配置项不建议修改
 */
@@ -353,11 +424,14 @@ static int fatfs_config(lua_State *L) {
 	}
 	if (lua_isinteger(L, 3)) {
 		s_fatfs_fmt = luaL_optinteger(L, 3, FM_FAT32);
-		if (s_fatfs_fmt != FM_FAT32 && s_fatfs_fmt != FM_EXFAT) {
+		if (s_fatfs_fmt != FM_FAT32 && s_fatfs_fmt != FM_EXFAT && s_fatfs_fmt != FM_ANY) {
 			s_fatfs_fmt = FM_FAT32;
 		}
 		if (s_fatfs_fmt == FM_EXFAT) {
 			LLOGI("fatfs set to exfat , when format sd/tf");
+		}
+		else if (s_fatfs_fmt == FM_ANY) {
+			LLOGI("fatfs set to auto fat12/16/32 , when format sd/tf");
 		}
 		else {
 			LLOGI("fatfs set to fat32 , when format sd/tf");
@@ -382,6 +456,7 @@ static const rotable_Reg_t reg_fatfs[] =
   { "USB",      ROREG_INT(DISK_USB)},
   { "FM_FAT32",         ROREG_INT(FM_FAT32)},
   { "FM_EXFAT",         ROREG_INT(FM_EXFAT)},
+  { "FM_ANY",           ROREG_INT(FM_ANY)},
 
   { NULL,		ROREG_INT(0)}
 };

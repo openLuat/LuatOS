@@ -40,7 +40,8 @@ require 即执行，按以下顺序：
 local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
 
--- Engine 引擎主机系列require ("eng_8603w1_10i_v0")      -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
+-- Engine 引擎主机系列
+require ("eng_8603w1_10i_v0")      -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603w2_10i_v0")      -- Air8603W2 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603w3_10i_v0")      -- Air8603W3 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603w4_10i_v0")      -- Air8603W4 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）

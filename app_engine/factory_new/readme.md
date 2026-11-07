@@ -50,15 +50,17 @@
 | 16 | Air1603 | 引擎主机 | 合宙引擎 AIR8607A V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；UVC摄像头(AirCAMERA_1032/AirUVC_1000)；无SD卡 | Engine_Air8607A_10inch_1024x600_000_V000 | | |
 | 17 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W1 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W1_10inch_1024x600_000_WiFi_V000 | | |
 | 18 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W2 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W2_10inch_1024x600_000_WiFi_V000 | | |
-| 19 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W3 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603W3_10inch_1024x600_000_WiFi_V000 | | |
-| 20 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W4 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603W4_10inch_1024x600_000_WiFi_V000 | | |
-| 21 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W5 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603W5_10inch_1024x600_000_WiFi_V000 | | |
+| 19 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W3 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；UVC摄像头(USB出图)；SD卡 | Engine_Air8603W3_10inch_1024x600_000_WiFi_V000 | | |
+| 20 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W4 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603W4_10inch_1024x600_000_WiFi_V000 | | |
+| 21 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W5 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603W5_10inch_1024x600_000_WiFi_V000 | | |
 | 22 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M1 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M1_10inch_1024x600_000_4G_V000 | | |
 | 23 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M2 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M2_10inch_1024x600_000_4G_V000 | | |
-| 24 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M3 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；SD卡 | Engine_Air8603M3_10inch_1024x600_000_4G_V000 | | |
-| 25 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M4 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M4_10inch_1024x600_000_4G_V000 | | |
-| 26 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M5 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；SD卡 | Engine_Air8603M5_10inch_1024x600_000_4G_V000 | | |
-| 27 | Air1603 | 引擎主机 | Air8603W | 1024*600 10寸RGB触摸屏(HX8282)；WiFi(Airlink 601S, SPI5)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2)；SD卡；USB HID/UVC 二选一 | Engine_Air8607W_10inch_1024x600_000_V000 | | |
+| 24 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M3 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；UVC摄像头(USB出图)；SD卡 | Engine_Air8603M3_10inch_1024x600_000_4G_V000 | | |
+| 25 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M4 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603M4_10inch_1024x600_000_4G_V000 | | |
+| 26 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M5 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603M5_10inch_1024x600_000_4G_V000 | | |
+| 27 | Air1603 | 引擎主机 | Air8603W | 1024*600 10寸RGB触摸屏(HX8282)；WiFi(Airlink 601S, SPI5)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2)；摄像头画面 rotation = 270；SD卡；USB HID/UVC 二选一 | Engine_Air8607W_10inch_1024x600_000_V000 | | |
+| 28 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；WiFi(Airlink 6205, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 270；SD卡 | Engine_Air8601_7inch_1024x600_010_WiFi_V000 | | |
+| 29 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；4G(Airlink 780ER2, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 270；SD卡 | Engine_Air8601_7inch_1024x600_010_4G_V000 | | |
 
 ---
 
@@ -171,6 +173,9 @@ return {
     peripherals = {
         { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
         -- rotation 是画面旋转角，顺时针 0 / 90 / 180 / 270，不写不转；逆时针 90 度写 270
+        -- 摄像头常供电、无独立使能脚（8603W3~W5 / M3~M5 的普通 USB UVC 摄像头）时省掉 en_pin：
+        -- { type = "uvc", id = "uvc1", name = "UVC摄像头", title = "摄像头",
+        --   ready_delay = 200, w = 800, h = 480, rotation = 270 },
         -- 摄像头是人脸识别模组（AirCAMERA_1034）时把上一条换成下面这条（见 6.6）：
         -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
         --   en_pin = 73, ready_delay = 200, rotation = 270,
@@ -281,36 +286,80 @@ return {
 | WiFi 详情 | `ui/wifi/wifi_detail_win.lua` | SSID/IP/MAC/信号/断开 |
 | WiFi 连接 | `ui/wifi/wifi_connect_win.lua` | 密码输入/高级配置 |
 | 应用市场 | `ui/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
-| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 / 音频 外设分组开关与状态；485 不管几路只出一行「RS485 测试」；分组标题可用配置条目的 `title` 覆盖 |
-| 摄像头测试 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本固件无 MP4 封装)；摄像头是人脸识别模组时多一个「人脸识别」页签（录入 / 验证 / 清空 / 版本）（点功能测试页的摄像头行进入） |
+| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 / 音频 外设分组入口与状态圆点；485 不管几路只出一行「RS485 测试」；分组标题可用配置条目的 `title` 覆盖。行上没有开关，点行自动开接口并进测试页、退出测试页自动断电；外设列表之后另有「背光调节」「音量调节」两张硬件能力卡（见 6.6） |
+| 摄像头测试 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本固件无 MP4 封装)；摄像头是人脸识别模组时多一个「人脸识别」页签（录入 / 验证 / 清空 / 版本）（点功能测试页的摄像头行进入）。横屏走「左预览 + 右操作区」、竖屏走上下结构（见 6.6） |
 | 485 测试 | `ui/rs485_test_win.lua` | 多路通道卡 + 统一收发日志 + 交叉线判定（点功能测试页的「RS485 测试」行进入） |
-| 录音播放 | `ui/audio_test_win.lua` | 录音时长选择 + 录音/播放/停止 + 测试日志（点功能测试页的音频行进入） |
+| 录音播放 | `ui/audio_test_win.lua` | 录音时长选择 + 录音/播放/停止 + 测试日志 + 「请接入麦克风」常驻提示（点功能测试页的音频行进入） |
 
 ### 6.6 外设接口
 
 由 `config.peripherals` 声明式配置，同一 `type` 可配多条（UART1 / UART2 / 多路 485），靠 `id` 区分。
-开关由 `features.other_func` + `ui.show_other_func` 控制（桌面图标显示，两处都要 true）。
+入口由 `features.other_func` + `ui.show_other_func` 控制（桌面图标显示，两处都要 true）。
 列表里 `type = "rs485"` 的多条配置**合并成一行**「RS485 测试」，几路全在同一个收发测试页
-逐路列出；其余 type 一条配置一行，每条独立开关。
+逐路列出；其余 type 一条配置一行。
+行上**没有开关**：行尾只留状态圆点（开 = 绿 / 关 = 轨道灰 / 驱动未就绪 = 弱描边灰）与 `>` 提示。
+点行 = 先 `OTHER_FUNC_SET(id, true)` 给这一路（合并行逐个开全部成员）上电开接口，
+再 `sys.publish(测试页事件, id)` 进测试页；退出测试页由测试页 `on_destroy` 发一次
+`TEST_WIN_CLOSED`，功能测试页收到后对本次打开的几路逐个 `OTHER_FUNC_SET(id, false)` 断电，
+功能测试页自己销毁时再补关一次兜底。底部提示是「点击行自动开启接口并进入测试页 | 退出测试页自动关闭」。
 `type = "audio"` 是录音播放测试点，硬件参数读 `config.hw.audio`（Air1103 走 UART6），
 没配 `hw.audio` 的机型 init 直接失败，列表里也不会出现「音频」组。
 有 `hw.audio` 却不配 `type = "audio"` 的机型（8603 除 M1/W1 的八型号 / 8607 / 8607A）是只播放不录音，
 「功能测试」里同样没有「音频」组，声音走 TTS / MP4 那几条路（见 6.7）。
+录音播放页的 header 副标题是「请接入麦克风后说话，录完回放听效果」，状态卡里另有一行**常驻**
+提示「请接入麦克风后再录音」（未配置音频时不显示）；录音失败文案是
+「录音失败：未收到MIC数据，请检查麦克风、供电、UART和固件」，测试日志再追加一句
+「请检查麦克风是否接入，再查供电、UART和固件」。
+**这些都只是文案提示，硬件上无法真正检测麦克风插拔**：`exaudio` 没有 mic-detect 接口；
+Air1103 的 MIC 是芯片内置、不存在插拔；ES8311 只能靠 I2C 读芯片 ID 判 codec 在不在总线上，
+判不了麦克风。所以只有「事先提示 + 事后软检测」两条：软检测是录音起播 2.5 秒内收不到
+MIC 数据即判定链路有问题（`drv/periph/periph_audio.lua` 的 `MIC_READY_TIMEOUT_MS`），
+不让人对着静音录满时长。
 `type = "uvc"` 条目带 `face` 子表表示这颗摄像头是人脸识别模组（AirCAMERA_1034）：USB 出 UVC 画面，
 UART 走人脸协议（录入 / 验证 / 删除全部 / 版本），两条通路共用 `en_pin` 供电，断电一起掉。
 带了才会在摄像头测试页多出「人脸识别」页签，不带的型号页面与原来完全一致。
 录入 / 验证前页面会把条目的 `en_pin` 断电重枚举一次（模组出完图停流后停在出图模式，
 录入指令不回包，见 `ui/uvc_preview_win.lua` 文件头「人脸识别边界」第 1 条），
 所以这颗摄像头的 `en_pin` 必须是可拉低的独立供电脚。
+不带 `face` 的是普通 USB UVC 摄像头（只出图、无控制串口、不带人脸识别），
+测试页不建页签行（也就没有「人脸识别」页签），按钮是拍照 / 录像 / 时长 / 适配；
+这种摄像头的 `en_pin` 可省略——常供电、无独立使能脚时不写，驱动全程不动 GPIO
+（8603W3~W5 / M3~M5 就是这种，`GPIO58` 仍留给 UART2 那路 485 的 DE）。
 `type = "uvc"` 条目的 `rotation` 是画面旋转角（顺时针 0 / 90 / 180 / 270，逆时针 90 度写 270），
-按模组实际安装方向填，不写不转。旋转在缩放前对帧生效，转 90 / 270 时帧的宽高互换，
+按模组实际安装方向填，不写不转。预览旋转角**只由配置里的 `rotation` 决定**
+（`ui/uvc_preview_win.lua` 读取），人脸页签取 `face.rotation`、不写就回退条目的 `rotation`，
+界面没有别的角度入口。旋转在缩放前对帧生效，转 90 / 270 时帧的宽高互换，
 预览区与取档都跟着按旋转后的宽高比算（见 `ui/uvc_preview_win.lua` 的 `disp_dims`）。
+
+摄像头测试页（`ui/uvc_preview_win.lua`）横屏（`sw >= sh`）走**左右结构**：左列预览画面区
+占满标题栏以下的高度，右列自上而下排页签 / 状态行 / 供电接线提示 / 控制按钮
+（4 个按钮排 2 列 2 行，贴右列底部）；实算 1024×600 左列 612px、右列 376px，
+800×480 左列 477px、右列 293px。竖屏保持原来的上下结构（页签 / 预览 / 状态行 /
+底部控制栏一行 4 个），宽度不够，硬拆会把预览挤没。
+右列的**供电与接线提示块**只在带 `face` 子表的人脸识别摄像头上显示：
+「供电 | 设备使用 12VDC 电源头供电」「接线 | 需接入 USB 接口与串口 共 2 个接口」。
+左列变窄后预览面积变小、会更早触发 512KB 显示缓冲收口、取到更低的 MJPEG 档，**属预期，不补偿**。
+
+「功能测试」外设列表之后另有**「背光调节」「音量调节」**两张硬件能力卡：不是
+`config.peripherals` 外设、不进任何测试结果统计（工程本来就没有 PASS/FAIL 机制），
+也不用配任何 features / ui 开关，按硬件自动判：
+- 背光：`hw.lcd.backlight.pwm_ch ~= nil` 才出滑块（10~100，默认 100）；只有 `gpio_bl` /
+  `params.pin_bl` 的板子是纯亮灭、不可调光，出只读说明「本机型背光不支持调光」。
+- 音量：`hw.audio ~= nil` 才出滑块（0~100，默认 70）与「试听」按钮，不满足出「本机型未配置音频」。
+事件链走现成的 `DISPLAY_BRIGHTNESS_GET/SET/VALUE/CHANGED`（10~100）、
+`AUDIO_VOLUME_GET/SET/VALUE/CHANGED`（0~100）、`AUDIO_PLAY_TEST`（播「音量测试」），
+业务层 `app/settings/settings_display_app.lua` 已实现，功能测试页零业务改动。
 已配该段的型号：eng_8605_10i_v0（非隔离 485 一路）/
 eng_8605w_10i_v0 / eng_8605m_10i_v0（隔离 485 一路 + Air1103 录音播放）/
 eng_8605b_10i_v0（双隔离 485，UART1/UART6）/ eng_8607a_10i_v0 /
-eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，摄像头是人脸识别模组，见配置文件头第 12、14 条）/
+eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，摄像头是人脸识别模组；
+uvc 条目已写 `rotation = 270`，画面逆时针 90 度，与 8603 全系、8607W 一致，
+人脸页签不写 `face.rotation`、自动沿用条目的值，见配置文件头第 12、14 条）/
 eng_8602_9i_wifi / eng_8602_9i_4g（双路 485，无独立供电脚）/
-eng_8603w1_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m1_10i_v0 ~ eng_8603m5_10i_v0
+eng_8603w1_10i_v0 / eng_8603w2_10i_v0 / eng_8603m1_10i_v0 / eng_8603m2_10i_v0
+（UVC 摄像头带人脸模组，en_pin = GPIO58，UART2 是人脸模组控制串口）/
+eng_8603w3_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m3_10i_v0 ~ eng_8603m5_10i_v0
+（普通 USB UVC 摄像头，常供电不写 en_pin，UART2 仍是隔离 485）/
 （Air8603 十型号，UART1 / UART2 按出货型号分档，见配置文件头第 1 条；M1 / W1 另带 Air1103 录音播放）/
 eng_8607w_10i_v0（Air8607W 10寸：UART1 = 非隔离 485、UART2 = 人脸识别摄像头控制串口、
 UART13 通用串口；USB HID 与 UVC 二选一，见 6.8）。
@@ -318,7 +367,7 @@ UART13 通用串口；USB HID 与 UVC 二选一，见 6.8）。
 | 模块 | 文件 | 职责 |
 |------|------|------|
 | 外设框架 | `drv/periph/periph_loader.lua` | 按 config.peripherals 逐条初始化，未实现 type 记日志跳过 |
-| UVC 摄像头 | `drv/periph/periph_uvc.lua` | 纯供电开关（数据流由摄像头测试页独占） |
+| UVC 摄像头 | `drv/periph/periph_uvc.lua` | 纯供电开关（en_pin 可省略 = 常供电；数据流由摄像头测试页独占） |
 | 人脸识别 | `script/libs/exfacecam.lua`（共享扩展库） | AirCAMERA_1034 人脸协议（UART 115200/8N1）：录入 / 验证 / 用户管理 |
 | RS485 | `drv/periph/periph_rs485.lua` | 多路 DE 方向控制 + 供电脚引用计数 |
 | 通用串口 | `drv/periph/periph_uart.lua` | 任意 UART 接口（波特率/数据位/校验/停止位） |
@@ -398,6 +447,28 @@ USB 键鼠与 UVC 摄像头共用同一个 USB Host 与同一条供电轨，同�
 `hw.usb.vbus_gpio` 是 usb_hid_app 驱动的 USB 供电脚，缺省 `12`（8605 系列的 VBUS 与 5V_EN 同脚）。
 本板若把 GPIO12 拿去做别的信号（如 eng_8607w_10i_v0 的 Airlink RDY），必须写 `vbus_gpio = false`
 关掉这条驱动，否则会与该信号抢脚。
+
+### 6.9 桌面视频图层与弹窗避让
+
+桌面（`ui/idle_win.lua`）默认素材是 `/luadb/fruit.mp4`，走 **mplayer 后端**：画面由后端自己送显，
+落在**独立硬件视频图层**（`luat_mplayer.c` 的 `g_video_layer.layer_id = 1`，UI 层 `layer_id = 0`），
+合成在 UI 层**之上**。LVGL 的父子关系 / 创建顺序 / z-order 对它完全无效，居中弹窗必被视频挡住。
+（这条结论只对 mplayer 后端成立；HZV / MJPG 走 videoplayer 后端，是逐帧拉 RGB565 塞进
+`lv_image`，确实走正常 LVGL 渲染。）
+
+所以弹窗不能靠 z-order 避让，只能按几何避开，统一走 `place_dialog(w, h)`：
+
+| 场景 | 落位规则 |
+|------|---------|
+| 横屏双列（`sw >= 900` 且 `sh >= 400` 自动启用） | 挪进视频右侧的空闲列，宽度收到右列宽。1024×600 上右列 x = 605、w = 407 |
+| 竖屏通栏（配置项 `ui.show_video_area` 显式打开，且 `sh > sw`、`sh >= 700`） | 视频占满宽度没有「右边」，改放避让矩形外面积最大的空闲带（右 / 左 / 下 / 上四块挑最大的居中） |
+| 无视频区 | 返回 nil，交给 `auto_center` 居中（`airui.win` 还要把 `auto_center` 置回 true） |
+
+竖屏那条的避让矩形取整张视频卡片（含控制栏），比只算画面区稳。
+`place_dialog` 覆盖桌面弹出的 `airui.msgbox` / `airui.win`，落位后把 x / y 传进去，
+msgbox 不再居中。键盘是贴底的，居中弹窗那套避让对它不适用，由 `make_dark_keyboard` 另算：
+横屏把整块键盘挪进右列（x / w 跟着右列走），竖屏视频通栏则压低键盘高度让它待在视频带
+以下（键盘的 y 语义是「距屏幕底部的偏移」，0 = 贴底，只能取负往上挪、没法下移）。
 
 ---
 
@@ -497,7 +568,9 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     仍停在接收态发不出去，日志会打 `本路缺 de_pin，发送时翻的是同串口其它路的 DE`，
     这种路必须补上真实 DE 脚。
     另外注意 8603W3/W4/W5 与 8603M3/M4/M5 的 `485_EN2 = GPIO58` 是 UART2 那路 485 的 DE，
-    而带 UVC 的 W1/W2/M1/M2 同一脚是 `UVC_EN`：混刷配置会把方向脚当供电脚用，务必按出货型号取配置。
+    而 W1/W2/M1/M2 同一脚是 `UVC_EN`（这四型的 UVC 摄像头带人脸模组、要控电）。
+    W3~W5 / M3~M5 的 UVC 摄像头是常供电的普通 USB 摄像头，条目不写 en_pin、不动这个脚；
+    混刷配置会把方向脚当供电脚常拉高，第二路 485 直接失效，务必按出货型号取配置。
     8603 十型号 UART1 那路 485（隔离与非隔离共用）的 DE 都是 `485_EN1 = PIN51 = GPIO65`，
     不是收发器自动方向；`485_EN = GPIO64` 是 485 功能总供电，两者别混。
 13. **万用表量 DE（方向脚）一直 0V、以为方向脚没驱动**：这是对的，别按它判断。485 是半双工，
@@ -520,7 +593,7 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     是芯片的强制复位序列，手动喂狗有 2 秒冷却，别在脚本里密集发 `WATCHDOG_FEED_REQUEST`。
 
 
-15. **「录音播放」报「录音失败：没有采到数据」/「未收到MIC数据」**：先看 `hw.audio` 的 `uart_id` 写没写对。
+15. **「录音播放」报「录音失败：未收到MIC数据，请检查麦克风、供电、UART和固件」**：先看 `hw.audio` 的 `uart_id` 写没写对。
     Air1103 挂在 UART6（8605W / 8605M / 8603M1 / 8603W1），`exaudio` 内部缺省取 1，漏写或写错就会把语音芯片绑到
     UART1（那是隔离 485），MIC 的上行帧一个都收不到。现在 `uart_id` / `audio_mode` 由
     `app/common/audio_hw.lua` 统一组装，六个消费方不会再漏传；还报没数据就查硬件侧：
@@ -531,6 +604,11 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     audio1 model: air1103 uart: 6` 里 `uart:` 是本次申请的串口号，跟实际不符说明配置没生效。
     另外 Air1103 每次录音都会复位芯片，约 1.4 秒后才恢复 MIC 上行，这段时间落盘是静音，
     驱动已按 2 秒补时长抵消，录出来的就是你要的时长。
+    报这条错是**软检测**的结果：录音起播 2.5 秒内一个 MIC 数据帧都没收到就直接收尾报错
+    （`drv/periph/periph_audio.lua` 的 `MIC_READY_TIMEOUT_MS`），不让人对着静音录满时长。
+    硬件上无法真正检测麦克风插拔——`exaudio` 无 mic-detect 接口；Air1103 的 MIC 是芯片内置、
+    不存在插拔；ES8311 只能靠 I2C 读芯片 ID 判 codec 在不在总线上，判不了麦克风。
+    所以界面只有「请接入麦克风后再录音」这句常驻提示，没有「麦克风已插入」这种状态显示。
 
 16. **播放 MP4 没有声音**：这几款（8605W / 8605M / 8603M1 / 8603W1）是 Air1103 录音 + 内置 DAC 播放，
     MP4 的音轨走 mplayer → C 层音频框架 → 内置 DAC，与 TTS / 录音回放共用一路。
@@ -551,3 +629,8 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     （`en_pin` 拉低 400ms 再拉高），让它回到人脸采集模式，人脸串口随之重开，
     这一段约 2 秒属正常等待。取版本 / 删除全部是纯串口指令，不做重枚举。
     供电与出图共用 `UVC_EN`，断电人脸模组一起掉，功能测试页把摄像头断电会连带杀掉人脸模组。
+18. **桌面弹窗被视频挡住 / 看不见按钮**：MP4 素材（默认 `/luadb/fruit.mp4`）走 mplayer 后端，
+    画面在独立硬件视频图层上、合成在 UI 层之上，LVGL 的 z-order 完全无效（见 6.9）。
+    工程已按几何避让，弹窗会挪到视频右侧空闲列（1024×600 是 x = 605、宽 407）或竖屏视频
+    下方的空闲带；若仍被挡，多半是弹窗没走 `place_dialog` 落位，或者把 `airui.msgbox` 的
+    x / y 又改回了居中。HZV / MJPG 走 videoplayer 后端，是普通 LVGL 层叠，不适用这条。

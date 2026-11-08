@@ -1564,7 +1564,8 @@ static int32_t rtmp_network_callback(void *data, void *param) {
                                 RTMP_LOGV("RTMP: Waiting for complete S0+S1... received %u/%u bytes", ctx->recv_pos, required_len);
                             }
                         }
-                        else if (ctx->handshake_state == 2) {
+                        /* 必须是 if: S0+S1+S2 同段到达时, 本轮回调要把 S2 一起处理掉 */
+                        if (ctx->handshake_state == 2) {
                             /* RTMP规范：等待S2(1536字节)，但有些服务器可能不发送完整S2 */
                             LLOGI("RTMP: handshake_state=2 in callback, recv_pos=%u", ctx->recv_pos);
                             if (ctx->recv_pos >= RTMP_HANDSHAKE_SIZE) {

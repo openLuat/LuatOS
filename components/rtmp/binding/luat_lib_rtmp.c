@@ -75,8 +75,9 @@ static void luat_rtmp_write_frame_native(luat_rtmp_data_t *data) {
         if (ret) {
             LLOGE("send nalu fail %d", ret);
         }
-        luat_heap_free(data);
     }
+    /* 必须在 if 外释放: destroy 后 g_rtmp_ctx 为 NULL, 否则每帧拷贝泄漏 */
+    luat_heap_free(data);
 }
 
 static void luat_rtmp_camera_app_callback(luat_camera_frame_data_t *frame, void *user_data)

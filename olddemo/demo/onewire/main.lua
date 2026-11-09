@@ -98,7 +98,7 @@ local function test_ds18b20()
 end
 -- air1602需要用虚拟总线
 local function air1602_core_init()
-    test_bus_id = onewire.create(3, 12)
+    test_bus_id = onewire.create(3, 12) --PWM3对应的硬件定时器+GPIO12，注意PWM3就不能用了
     log.info("虚拟总线id", test_bus_id)
 end
 

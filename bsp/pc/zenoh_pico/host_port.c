@@ -114,7 +114,11 @@ static _Thread_local unsigned network_event_head, network_event_count;
 int luat_rtos_event_recv(luat_rtos_task_handle task, uint32_t id, luat_event_t *out,
                          luat_rtos_event_wait_callback_t *callback, uint32_t timeout) {
     (void)callback;
-    if (!task || id || !out || timeout != LUAT_NO_WAIT || !network_event_count) return -1;
+    /* 目标EC7xx空邮箱的0会无界等待。主机明确失败，不能用空队列返回掩盖它。 */
+    if (!timeout || timeout == LUAT_WAIT_FOREVER) {
+        fputs("UNBOUNDED_EVENT_WAIT_REQUEST\n", stderr); exit(86);
+    }
+    if (!task || id || !out || timeout != 1 || !network_event_count) return -1;
     *out = network_events[network_event_head];
     network_event_head = (network_event_head + 1) % 16; --network_event_count; return 0;
 }
@@ -246,7 +250,9 @@ void luat_zp_test_barrier(int point, uint32_t generation) {
         race_arrived = 1; race_generation = generation;
         pthread_cond_broadcast(&race_ready);
         while (!race_released) pthread_cond_wait(&race_ready, &race_lock);
-        race_point = 0;
+        /* OPEN用两阶段屏障；第二阶段稳定观察发布后的真实C状态。 */
+        race_point = point == 3 ? 4 : 0;
+        race_arrived = race_released = 0;
     }
     pthread_mutex_unlock(&race_lock);
 }
@@ -267,7 +273,7 @@ static void *race_disconnect(void *unused) {
     return NULL;
 }
 int host_race_arm(int point) {
-    if (point != 1 && point != 2) return -1;
+    if (point != 1 && point != 2 && point != 3 && point != 5) return -1;
     pthread_mutex_lock(&race_lock);
     if (race_point || race_thread_live) { pthread_mutex_unlock(&race_lock); return -1; }
     race_point = point; race_arrived = race_released = race_closed = 0;
@@ -282,7 +288,7 @@ int host_race_arrived(void) {
     pthread_mutex_lock(&race_lock); int value = race_arrived; pthread_mutex_unlock(&race_lock); return value;
 }
 void host_race_release(void) {
-    pthread_mutex_lock(&race_lock); race_released = 1; pthread_cond_broadcast(&race_ready); pthread_mutex_unlock(&race_lock);
+    pthread_mutex_lock(&race_lock); race_arrived = 0; race_released = 1; pthread_cond_broadcast(&race_ready); pthread_mutex_unlock(&race_lock);
 }
 int host_race_closed(void) {
     if (race_thread_live) { pthread_join(race_thread, NULL); race_thread_live = 0; }

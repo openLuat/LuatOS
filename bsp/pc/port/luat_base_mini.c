@@ -165,6 +165,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_AIRUI
   {"airui", luaopen_airui},
 #endif
+#ifdef LUAT_USE_PLCUI
+  {"plcui", luaopen_plcui},
+#endif
 #ifdef LUAT_USE_DISPLAY
   {"display", luaopen_display},
 #endif

@@ -5,7 +5,18 @@
 #include <stdint.h>
 
 #define LUAT_ZP_KEY_MAX 255
-#define LUAT_ZP_PAYLOAD_MAX 4096
+#ifndef LUAT_ZP_PAYLOAD_MAX
+#define LUAT_ZP_PAYLOAD_MAX (256U * 1024U)
+#endif
+#ifndef LUAT_ZP_TX_PAYLOAD_BUDGET
+#define LUAT_ZP_TX_PAYLOAD_BUDGET (512U * 1024U)
+#endif
+#ifndef LUAT_ZP_RX_PAYLOAD_BUDGET
+#define LUAT_ZP_RX_PAYLOAD_BUDGET (512U * 1024U)
+#endif
+#if LUAT_ZP_PAYLOAD_MAX > 256U * 1024U || LUAT_ZP_PAYLOAD_MAX == 0
+#error "payload limit must be in 1..262144"
+#endif
 #define LUAT_ZP_QUEUE_MAX 8
 #define LUAT_ZP_SUB_MAX 4
 #define LUAT_ZP_STACK_SIZE 8192
@@ -31,9 +42,15 @@ typedef struct {
     const char *kind, *operation, *reason;
     luat_zp_io_failure_t io_failure;
     char key[LUAT_ZP_KEY_MAX + 1];
-    uint8_t payload[LUAT_ZP_PAYLOAD_MAX];
+    uint8_t *payload;
     char parameters[LUAT_ZP_PARAMETERS_MAX + 1];
 } luat_zp_event_t;
+
+/* 绑定层持有的载荷；不含SDK临时复制、协议头、Lua字符串和网络缓冲。 */
+typedef struct {
+    unsigned tx_bytes, rx_bytes, tx_peak, rx_peak, tx_rejected, rx_rejected;
+} luat_zp_payload_stats_t;
+void luat_zenoh_pico_payload_stats(luat_zp_payload_stats_t *stats);
 
 /* 所有公开入口由唯一 Lua VM 线程调用，工作任务独占 zenoh 对象。 */
 int luat_zenoh_pico_open(const char *endpoint, int adapter, uint32_t *generation);

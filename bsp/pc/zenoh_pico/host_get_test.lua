@@ -33,7 +33,7 @@ test("exports and bounded parameters", function()
     assert(not pcall(z.get, h, "", {}, function() end, function() end))
     assert(not pcall(z.get, h, PREFIX, {parameters="a\0b"}, function() end, function() end))
     assert(not pcall(z.get, h, PREFIX, {timeout_ms=99}, function() end, function() end))
-    assert(not pcall(z.get, h, PREFIX, {payload=string.rep("x",4097)}, function() end, function() end))
+    assert(not pcall(z.get, h, PREFIX, {payload=string.rep("x",z.MAX_PAYLOAD+1)}, function() end, function() end))
 end)
 test("outgoing Get binary two replies and final", function()
     for _, n in ipairs({0, 20, 4096}) do

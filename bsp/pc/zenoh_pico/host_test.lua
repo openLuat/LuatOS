@@ -83,7 +83,7 @@ test("binary and payload boundaries", function()
         wait_for(function() return events[id] ~= nil end)
         assert(events[id].kind == "published" and events[id].code == 0)
     end
-    assert(not pcall(z.publish, s, PREFIX .. "/in", string.rep("x", 4097)))
+    assert(not pcall(z.publish, s, PREFIX .. "/in", string.rep("x", z.MAX_PAYLOAD+1)))
     assert(not pcall(z.publish, s, "a\0b", "x"))
 end)
 test("remote delete differs from empty put", function()

@@ -1,8 +1,8 @@
 --[[
 @module  other_func_win
 @summary 功能测试页面（TabOS 深色玻璃态）——UVC / RS485 / 串口 / 录音播放 测试入口、背光与音量调节
-@version 1.5
-@date    2026.11.07
+@version 1.7
+@date    2026.11.09
 @author  江访
 @usage
 订阅: OPEN_OTHER_FUNC_WIN
@@ -24,8 +24,15 @@ RS485 不管配了几路，列表里只出一行「RS485 测试」（见 MERGE_T
 预览页（预览/拍照/录像），RS485 行进收发测试页（发送 + 收发历史），音频行进录音播放
 测试页（录音/停止/播放），开窗事件见 TYPE_PAGE；没有测试页的 type 行不可点。
 行上不再有开关，行尾只留状态圆点 + ">" 提示；退出测试页自动断电（TEST_WIN_CLOSED）。
-外设列表之后是「背光调节」「音量调节」两张硬件能力卡（滑块 + 试听），按 backlight.pwm_ch
+外设列表之后是「背光调节」「音量调节」两张硬件能力卡（滑块 + 试听按钮），按 backlight.pwm_ch
 与 hw.audio 自动门控，不进任何测试结果统计。
+
+点行进测试页前先弹该功能的「接线提示」（只写物理接线与注意事项），按钮「跳过 / 确定」：
+跳过不落盘，下次点同一个功能还会弹；确定写 fskv 键 other_func_tip_<type>，之后（含重启）不再弹。
+只有配了测试页的 type 才有提示（uart 没有测试页，行不可点）。原来底部那行常驻小字已去掉。
+两张能力卡的滑条对象高 SLIDER_H = 20dp（圆球直径 = h + 2 × knob padding，见 theme.slider），
+比早期的 34dp 大白球小一圈；圆球不再用纯白（浅色主题上和卡片糊在一起），走 theme.slider 的
+默认色 M.C.t1。音量卡的「试听」是按钮（ghost_button，青色描边）而不是文字链接。
 ]]
 
 local theme = require "ui_theme"
@@ -78,6 +85,51 @@ local function show_tip(text)
         title = "提示", text = text, buttons = { "确定" },
         on_action = function(self) self:hide() end,
     })
+end
+
+-- ==================== 进测试页前的接线提示 ====================
+-- 点某个功能行时先弹一次该功能的「物理接线提醒」，按钮「跳过 / 确定」：
+--   「跳过」不落盘 → 下次点同一个功能还会弹
+--   「确定」写 fskv（按 type 记）→ 该功能之后（含重启）不再弹
+-- 只有配了测试页的 type 才有提示；uart 没有测试页，行不可点，也就不需要。
+local TIP_KV_PREFIX = "other_func_tip_"
+-- 只写「要接什么线、要注意什么」，不写软件操作说明（那些在测试页里）
+local TIP_TEXT = {
+    uvc = "进入预览前请确认：\n"
+        .. "1. 摄像头已插到板载 USB Host 口（或模组排线插牢）；\n"
+        .. "2. 摄像头由使能脚控电，进页面自动上电、退出自动断电，请勿带电插拔；\n"
+        .. "3. 黑屏时先查排线与供电，再退出重进重试。",
+    rs485 = "进入收发测试前请确认：\n"
+        .. "1. A 接 A、B 接 B，线序接反收不到数据；\n"
+        .. "2. 长距离或高波特率时，总线两端按需接 120 欧终端电阻；\n"
+        .. "3. 外接设备与板卡共地，供电电压一致。",
+    audio = "进入录音播放测试前请确认：\n"
+        .. "1. 麦克风接到对应接口，未接时录音会失败；\n"
+        .. "2. 喇叭 / 功放供电正常，音量已调到可听见；\n"
+        .. "3. 录音时保持环境安静，录完点播放回听。",
+}
+local tip_box = nil
+
+--[[
+@function tip_acked
+@summary 该功能是否已确认过接线提示（fskv 无记录 / fskv 未就绪一律按未确认）
+@param string type_name 外设 type
+@return boolean
+]]
+local function tip_acked(type_name)
+    if not (fskv and fskv.get) then return false end
+    local ok, v = pcall(fskv.get, TIP_KV_PREFIX .. tostring(type_name))
+    return ok and (v == "1" or v == 1 or v == true)
+end
+
+--[[
+@function ack_tip
+@summary 记住「确定」过的接线提示，之后不再弹
+@param string type_name 外设 type
+]]
+local function ack_tip(type_name)
+    if not (fskv and fskv.set) then return end
+    pcall(fskv.set, TIP_KV_PREFIX .. tostring(type_name), "1")
 end
 
 --[[
@@ -147,6 +199,50 @@ local function collect_instances()
 end
 
 --[[
+@function enter_test
+@summary 进测试页：先给这一路（合并行是全部成员）上电开接口，再开窗
+退出测试页由 TEST_WIN_CLOSED 统一断电
+@param table it 实例行
+]]
+local function enter_test(it)
+    for i = 1, #it.members do
+        sys.publish("OTHER_FUNC_SET", it.members[i], true)
+    end
+    -- 记下本次打开的是哪几路，测试页销毁时逐个断电
+    g.active = { ids = it.members }
+    sys.publish(it.page, it.members[1])
+end
+
+--[[
+@function open_row
+@summary 行点击：该功能有接线提示且没确认过就先弹窗，「跳过 / 确定」都继续进测试页
+只有「确定」会记住（按 type 落 fskv），「跳过」下次点同一个功能还会弹
+@param table it 实例行
+]]
+local function open_row(it)
+    local tip = TIP_TEXT[it.type]
+    if not tip or tip_acked(it.type) then
+        enter_test(it)
+        return
+    end
+    if tip_box then return end   -- 已有提示窗时不叠第二个
+    tip_box = airui.msgbox({
+        parent = main_container,
+        w = math.floor((sw or 480) * 0.86),   -- 只给宽度，高度按内容自适应
+        title = it.name or "接线提示",
+        text = tip,
+        style = { text_font_size = theme.fs("body") },
+        buttons = { "跳过", "确定" },
+        on_action = function(dlg, btn)
+            tip_box = nil
+            if btn == "确定" then ack_tip(it.type) end
+            if dlg then dlg:destroy() end
+            enter_test(it)
+        end,
+    })
+end
+
+--[[
 @function build_item_row
 @summary 单行入口：名称 + 状态描述 + 状态圆点 + （可点进子页）
 @param parent 父容器
@@ -154,18 +250,10 @@ end
 @param it 实例行 { key, name, type, page, members }
 ]]
 local function build_item_row(parent, x, y, w, h, it)
-    -- 有子页的行整行可点：点行先上电开接口，再进测试页（退出测试页由 TEST_WIN_CLOSED 断电）
+    -- 有子页的行整行可点：先弹该功能的接线提示，再上电进测试页
     local row = theme.box(parent, {
         x = x, y = y, w = w, h = h, color = theme.C.black, opa = 0,
-        on_click = it.page and function()
-            -- 合并行一次打开该 type 的全部实例
-            for i = 1, #it.members do
-                sys.publish("OTHER_FUNC_SET", it.members[i], true)
-            end
-            -- 记下本次打开的是哪几路，测试页销毁时逐个断电
-            g.active = { ids = it.members }
-            sys.publish(it.page, it.members[1])
-        end or nil,
+        on_click = it.page and function() open_row(it) end or nil,
     })
 
     local pad2 = theme.dp(12)
@@ -232,6 +320,12 @@ end
 local brightness_label, brightness_slider
 local volume_label, volume_slider
 
+-- 滑条对象高度（= 轨道高度，圆球直径 = h + 2 × knob padding，见 theme.slider 注释）：
+-- 取 20 时轨道约 14px、圆球约 30px，比早期 34 + 10 的大白球小一圈，也不至于难拖
+local SLIDER_H = 20
+-- 底部动作行高度：动作文字改成按钮后，行高要装得下按钮
+local ACTION_H = 30
+
 --[[
 @function hw_caps
 @summary 硬件能力门控：背光可调光 / 有音频硬件
@@ -253,8 +347,8 @@ end
 @return number 像素高度
 ]]
 local function slider_card_height(has_action)
-    local h = theme.dp(12) + (theme.fs("body") + 3) + theme.dp(10) + theme.dp(34) + theme.dp(12)
-    if has_action then h = h + theme.dp(10) + (theme.fs("body") + 3) end
+    local h = theme.dp(12) + (theme.fs("body") + 3) + theme.dp(10) + theme.dp(SLIDER_H) + theme.dp(12)
+    if has_action then h = h + theme.dp(10) + theme.dp(ACTION_H) end
     return h
 end
 
@@ -263,7 +357,8 @@ end
 @summary 调节卡：标题 + 数值 + 可拖滑块 + （可选）底部动作
 样式照抄 ui/settings/settings_sound_win.lua 的同名卡片：一条 set_event 字符串做回调，
 拖动直接发 sys.publish(set_event, value)，min/max 与业务层夹取区间一致
-（亮度 10~100，媒体音量 0~100）。滑条高度即滑块直径，34px 便于手指拖动。
+（亮度 10~100，媒体音量 0~100）。滑条对象高 SLIDER_H = 20dp，圆球直径 = 高度 + knob
+padding（约 30px），比早期的大白球小一圈；底部动作是按钮而不是文字链接。
 @param parent 父容器
 @param x, y, w 卡片几何（高度自算，随返回值带回）
 @param title 卡片标题
@@ -298,22 +393,25 @@ local function build_slider_card(parent, x, y, w, title, value_text, min, max, v
         color = color, align = airui.TEXT_ALIGN_RIGHT,
     })
 
-    local sl_h = theme.dp(34)
+    local sl_h = theme.dp(SLIDER_H)
     local sl_y = pad2 + lh + gap2
     local bar = theme.slider(card, {
         x = pad2, y = sl_y, w = inner_w, h = sl_h,
         min = min, max = max, value = value,
-        track = theme.C.track, color = color, knob_color = theme.C.knob,
+        -- 圆球不传 knob_color：走 theme.slider 的缺省色 t1（浅色主题深球、深色主题浅球），
+        -- 原来的纯白球在浅色主题上和卡片糊在一起
+        track = theme.C.track, color = color,
         on_change = function(self)
             sys.publish(set_event, self:get_value())
         end,
     })
 
     if action then
-        theme.label(card, {
-            x = pad2, y = sl_y + sl_h + gap2, w = theme.dp(120), h = lh,
-            text = action.text, px_size = fs,
-            color = theme.C.cyan, align = airui.TEXT_ALIGN_LEFT,
+        theme.ghost_button(card, {
+            x = pad2, y = sl_y + sl_h + gap2,
+            w = theme.dp(88), h = theme.dp(ACTION_H),
+            text = action.text, size = theme.F.small,
+            fg = theme.C.cyan, border = theme.C.cyan,
             on_click = function() sys.publish(action.event) end,
         })
     end
@@ -432,12 +530,6 @@ local function build_ui()
     else
         cy = cy + build_note_card(body, 0, cy, card_w, "本机型未配置音频") + gap
     end
-
-    theme.label(body, {
-        x = 0, y = cy, w = card_w, h = theme.fs("micro") + 3,
-        text = "点击行自动开启接口并进入测试页 | 退出测试页自动关闭", px_size = theme.fs("micro"),
-        color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
-    })
 end
 
 --[[
@@ -605,6 +697,8 @@ local function on_destroy()
     end
     -- 本页先于测试页销毁时 TEST_WIN_CLOSED 已无人收，这里补一次断电兜底
     on_test_win_closed()
+    -- 提示弹窗挂在页面容器上，随容器一起销毁，这里只清掉 Lua 侧引用
+    tip_box = nil
     if main_container then main_container:destroy(); main_container = nil end
     rows = {}
     row_of = {}

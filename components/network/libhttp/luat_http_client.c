@@ -172,7 +172,7 @@ static void http_teardown(void *ctx) {
 	}
 #endif
 	if (http_ctrl->netc){
-		network_close(http_ctrl->netc, 0);
+		/* Releasing the owner must not request an asynchronous CLOSE callback. */
 		network_force_close_socket(http_ctrl->netc);
 		network_release_ctrl(http_ctrl->netc);
 		http_ctrl->netc = NULL;
@@ -342,7 +342,7 @@ static void http_report_result(luat_http_ctrl_t *http_ctrl, int error_code) {
 		luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, http_ctrl->netc, 3);
 		#endif
 		http_ctrl->re_request_count++;
-		network_close(http_ctrl->netc, 0);
+		/* Cancel silently before reusing the control block for the retry. */
 		network_force_close_socket(http_ctrl->netc);
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
 			LLOGE("http_report_result network_connect error");
@@ -351,8 +351,8 @@ static void http_report_result(luat_http_ctrl_t *http_ctrl, int error_code) {
 		return;
 	}
 error:
-	/* Claim the terminal state before closing the socket: an adapter may
-	 * report CLOSE synchronously from network_close(). */
+	/* Claim the terminal state before releasing the socket, so queued
+	 * network events cannot deliver a second terminal result. */
 	http_ctrl->finished = 1;
 	if (http_ctrl->timeout_timer) {
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);
@@ -368,7 +368,6 @@ error:
 	if (http_ctrl->tcp_closed == 0) {
 		LLOGD("http_report_result normal close");
 		http_ctrl->tcp_closed = 1;
-		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
 	}
 	#ifdef LUAT_USE_NETDRV
@@ -885,7 +884,7 @@ static void http_try_finish_if_body_complete(luat_http_ctrl_t *http_ctrl) {
 
 	// 主动关闭底层 socket，不再依赖服务器关闭
 	http_ctrl->tcp_closed = 1;
-	network_close(http_ctrl->netc, 0);
+	// 已完成事务只释放 socket 控制权，不再申请异步 CLOSE 回调。
 	network_force_close_socket(http_ctrl->netc);
 
 	// 复用 http_report_result 上报结果。

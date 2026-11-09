@@ -31,10 +31,29 @@ PROJECT：项目名，ascii string类型
   "Engine_Air1602_7inch_1024x600_000_V000"      7寸RGB  HX8282  1024x600
   "Engine_Air1602_7inch_1024x600_004_V000"      7寸RGB  HX8282  1024x600
   "Engine_Air1602_10inch1_1024x600_001_V000"    10寸RGB HX8282  1024x600
-  "Engine_Air1602_AirLCD_1090_09421_V000"      9寸RGB  HX8282  1024x600
-  "Engine_Air1602_AirLCD_1100_10421_V000"      10寸RGB HX8282  1024x600
-  "Engine_Air8601_7inch_1024x600_010_V000"      7寸RGB  HX8282  1024x600
-  "Engine_Air8602_9inch_1024x600_010_V000"      9寸RGB  HX8282  1024x600
+  "Engine_Air1602_AirLCD_1090_09421_V000"       9寸RGB  HX8282  1024x600
+  "Engine_Air1602_AirLCD_1100_10421_V000"       10寸RGB HX8282  1024x600
+  "Engine_Air8601_7inch_1024x600_010_WiFi_V000" 7寸RGB  HX8282  1024x600（WiFi 版）
+  "Engine_Air8601_7inch_1024x600_010_4G_V000"   7寸RGB  HX8282  1024x600（4G 版）
+  "Engine_Air8602_9inch_1024x600_010_WiFi_V000" 9寸RGB  HX8282  1024x600（WiFi 版）
+  "Engine_Air8602_9inch_1024x600_010_4G_V000"   9寸RGB  HX8282  1024x600（4G 版）
+  "Engine_Air8603W1_10inch_1024x600_000_WiFi_V000" 10寸RGB 1024x600（WiFi + 隔离485(UART1)）
+  "Engine_Air8603W2_10inch_1024x600_000_WiFi_V000" 10寸RGB 1024x600（WiFi + 非隔离485(UART1)）
+  "Engine_Air8603W3_10inch_1024x600_000_WiFi_V000" 10寸RGB 1024x600（WiFi + 双485(UART1/UART2)）
+  "Engine_Air8603W4_10inch_1024x600_000_WiFi_V000" 10寸RGB 1024x600（WiFi + 非隔离485 + 隔离485）
+  "Engine_Air8603W5_10inch_1024x600_000_WiFi_V000" 10寸RGB 1024x600（WiFi + TTL串口 + 隔离485）
+  "Engine_Air8603M1_10inch_1024x600_000_4G_V000"   10寸RGB 1024x600（4G + 隔离485(UART1)）
+  "Engine_Air8603M2_10inch_1024x600_000_4G_V000"   10寸RGB 1024x600（4G + 非隔离485(UART1)）
+  "Engine_Air8603M3_10inch_1024x600_000_4G_V000"   10寸RGB 1024x600（4G + 双485(UART1/UART2)）
+  "Engine_Air8603M4_10inch_1024x600_000_4G_V000"   10寸RGB 1024x600（4G + 非隔离485 + 隔离485）
+  "Engine_Air8603M5_10inch_1024x600_000_4G_V000"   10寸RGB 1024x600（4G + TTL串口 + 隔离485）
+  "Engine_Air8605_10inch_1024x600_000_4G_V000"     10寸RGB 1024x600（4G，无 Air1103）
+  "Engine_Air8605W_10inch_1024x600_000_WiFi_V000"  10寸RGB 1024x600（WiFi + Air1103语音 + NAND）
+  "Engine_Air8605M_10inch_1024x600_000_4G_V000"    10寸RGB 1024x600（4G + Air1103语音 + NAND）
+  "Engine_Air8605B_10inch_1024x600_000_4G_V000"    10寸RGB 1024x600（4G + 双隔离485 + NAND）
+  "Engine_Air8607_10inch_1024x600_000_V000"        10寸RGB 1024x600（PWM背光，无网络）
+  "Engine_Air8607A_10inch_1024x600_000_V000"       10寸RGB 1024x600（PWM背光 + UVC，无 SD/网络）
+  "Engine_Air8607W_10inch_1024x600_000_V000"       10寸RGB 1024x600（WiFi/SPI + 人脸识别摄像头）
 
   EVB turnkey 开发板系列:
   "EVB_Air8101_AirLCD_1020_000_V020"            5寸RGB  H050IWV 800x480
@@ -50,7 +69,7 @@ PROJECT：项目名，ascii string类型
 
 VERSION：项目版本号，ascii string类型
 ]]
-PROJECT = "Engine_Air8601_7inch_1024x600_010_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
+PROJECT = "Engine_Air8607_10inch_1024x600_000_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
 VERSION = "1.0.0"                                    -- 固件版本号
 
 -- 在日志中打印项目名和项目版本号
@@ -73,7 +92,10 @@ local touch_test_win = require "touch_test_win"
 -- ==================== 硬件初始化协程（LCD → TP → 测试界面 → 背光） ====================
 
 --[[
-硬件初始化协程函数，按显示、触摸、界面、背光的顺序初始化：
+硬件初始化协程函数，按上电、显示、触摸、界面、背光的顺序初始化：
+0、等待 platform_loader 的 power_on 序列跑完（LCD/TP/屏供电就绪）——
+   I2C 总线上未上电的器件会钳住 SDA/SCL，GT911 也会因电源未稳而软失败（触摸失灵），
+   故上电完成前不碰 LCD/触摸
 1、lcd_drv.init：display 底层初始化 LCD（IC 寄存器 + RGB 时序 + FrameBuffer），
    成功后自动初始化 AirUI（分辨率、字体、旋转、密度）
 2、tp_drv.init：初始化GT911触摸芯片（自动继承 LCD 分辨率做触摸尺寸兜底），并绑定到AirUI
@@ -85,6 +107,13 @@ local touch_test_win = require "touch_test_win"
 @return 无（协程函数，内部使用 sys.wait）
 ]]
 local function init_ui_task_func()
+    -- 步骤0: 等上电时序完成（未配置 power_on 的板子在 platform_loader 里已直接置位）
+    if not _G.__power_on_done then
+        if not sys.waitUntil("POWER_ON_DONE", 5000) then
+            log.warn("main", "等待 POWER_ON_DONE 超时(5s)，继续初始化，触摸可能不可用")
+        end
+    end
+
     -- 步骤1: LCD 初始化（display 底层初始化 + AirUI 初始化、字体加载、密度缩放计算）
     lcd_drv.init()
 

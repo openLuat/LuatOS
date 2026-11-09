@@ -40,8 +40,27 @@
 | Engine_Air1602_10inch1_1024x600_001_V000 | 10寸 RGB HX8282 1024x600 |
 | Engine_Air1602_AirLCD_1090_09421_V000 | 9寸 RGB HX8282 1024x600 |
 | Engine_Air1602_AirLCD_1100_10421_V000 | 10寸 RGB HX8282 1024x600 |
-| Engine_Air8601_7inch_1024x600_010_V000 | 7寸 RGB HX8282 1024x600 |
-| Engine_Air8602_9inch_1024x600_010_V000 | 9寸 RGB HX8282 1024x600 |
+| Engine_Air8601_7inch_1024x600_010_WiFi_V000 | 7寸 RGB HX8282 1024x600（WiFi 版） |
+| Engine_Air8601_7inch_1024x600_010_4G_V000 | 7寸 RGB HX8282 1024x600（4G 版） |
+| Engine_Air8602_9inch_1024x600_010_WiFi_V000 | 9寸 RGB HX8282 1024x600（WiFi 版） |
+| Engine_Air8602_9inch_1024x600_010_4G_V000 | 9寸 RGB HX8282 1024x600（4G 版） |
+| Engine_Air8603W1_10inch_1024x600_000_WiFi_V000 | 10寸 RGB 1024x600（WiFi + 隔离485(UART1)） |
+| Engine_Air8603W2_10inch_1024x600_000_WiFi_V000 | 10寸 RGB 1024x600（WiFi + 非隔离485(UART1)） |
+| Engine_Air8603W3_10inch_1024x600_000_WiFi_V000 | 10寸 RGB 1024x600（WiFi + 双485(UART1/UART2)） |
+| Engine_Air8603W4_10inch_1024x600_000_WiFi_V000 | 10寸 RGB 1024x600（WiFi + 非隔离485 + 隔离485） |
+| Engine_Air8603W5_10inch_1024x600_000_WiFi_V000 | 10寸 RGB 1024x600（WiFi + TTL串口 + 隔离485） |
+| Engine_Air8603M1_10inch_1024x600_000_4G_V000 | 10寸 RGB 1024x600（4G + 隔离485(UART1)） |
+| Engine_Air8603M2_10inch_1024x600_000_4G_V000 | 10寸 RGB 1024x600（4G + 非隔离485(UART1)） |
+| Engine_Air8603M3_10inch_1024x600_000_4G_V000 | 10寸 RGB 1024x600（4G + 双485(UART1/UART2)） |
+| Engine_Air8603M4_10inch_1024x600_000_4G_V000 | 10寸 RGB 1024x600（4G + 非隔离485 + 隔离485） |
+| Engine_Air8603M5_10inch_1024x600_000_4G_V000 | 10寸 RGB 1024x600（4G + TTL串口 + 隔离485） |
+| Engine_Air8605_10inch_1024x600_000_4G_V000 | 10寸 RGB 1024x600（4G，无 Air1103） |
+| Engine_Air8605W_10inch_1024x600_000_WiFi_V000 | 10寸 RGB 1024x600（WiFi + Air1103语音 + NAND） |
+| Engine_Air8605M_10inch_1024x600_000_4G_V000 | 10寸 RGB 1024x600（4G + Air1103语音 + NAND） |
+| Engine_Air8605B_10inch_1024x600_000_4G_V000 | 10寸 RGB 1024x600（4G + 双隔离485 + NAND） |
+| Engine_Air8607_10inch_1024x600_000_V000 | 10寸 RGB 1024x600（PWM背光，无网络） |
+| Engine_Air8607A_10inch_1024x600_000_V000 | 10寸 RGB 1024x600（PWM背光 + UVC，无 SD/网络） |
+| Engine_Air8607W_10inch_1024x600_000_V000 | 10寸 RGB 1024x600（WiFi/SPI + 人脸识别摄像头） |
 | EVB_Air8101_AirLCD_1020_000_V020 | 5寸 RGB H050IWV 800x480 |
 | EVB_Air8101_AirLCD_1070_000_V020 | 7寸 RGB HX8282 1024x600 |
 | EVB_Air8101_AirLCD_1090_000_V020 | 9寸 RGB HX8282 1024x600 |
@@ -106,3 +125,19 @@ touch_display_test/
 5. 工程不包含 FOTA、网络等内容，如需完整功能请使用 factory_new 工厂工程
 6. factory_new 的 `platform_loader` PROJECT_MAP 遗漏了 `EVB_Air8101B_5inch_480x854_000_V010`
    → `evb_8101b_5i_v1`（配置文件存在但未映射），本工程已补挂，建议 factory_new 同步修复
+7. 触摸初始化**在供电时序完成之后**才执行：`platform_loader` 的 power_on 跑完会置
+   `_G.__power_on_done` 并发布 `POWER_ON_DONE`，`main.lua` 以此门控（最长等 5 秒）。
+   8603/8605/8607 这类带多路电源轨（5V/9V/12V、UVC_EN、485_EN）的板子若跳过这一步，
+   GT911 会因电源未稳、I2C 总线被未上电器件钳住而初始化失败（表现为触摸完全失灵）
+8. `config/eng_8601_7i_v0.lua`、`config/eng_8602_9i_v0.lua` 已被 factory_new 拆成
+   WiFi / 4G 两个出货型号，本工程改用拆分后的配置；两个旧文件保留在磁盘上仅作参考，
+   不再打包。旧 PROJECT 名（如 `Engine_Air8601_7inch_1024x600_010_V000`）已作为别名
+   指向 WiFi 版配置，不会静默回退到 PC 配置
+9. 5 寸 NV3052C / 480×854 ST7701S·GC9503 这几款需要 SPI IC 寄存器序列的屏，
+   `ic_init` 必须**返回 custom_cmds 表**（由 `display.init` 内部发送）；旧的
+   `lcd.cmd/lcd.data` 直写风格在 display 底层初始化路径下不生效（屏不亮），已同步 factory_new
+10. 网格界面里所有文字都夹在屏幕内、且互不重叠：`airui.container` 天生带
+   SCROLLABLE 标志，Lua 侧没有关掉它的接口，任何子控件比屏幕大 1 像素都会在底边
+   长出左右滑动条（右下角最后一个 x 刻度、贴边触摸的十字都会踩这个坑）；
+   而刻度字框比网格间距宽时，相邻两个刻度数字会叠在一起。两者的排版规则都写在
+   `touch_test_win.lua` 的 `draw_grid` 注释里，改版面时别绕过 `place_label` 的 clamp

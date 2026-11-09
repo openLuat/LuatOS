@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=800,initial-scale=1"><title>AQUA CONTROL — Station details</title><link rel="stylesheet" href="panel.css"></head>
+<body><main class="screen" data-plcui-page="details" data-background="#101820">
+  <header class="topbar"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3C9 7 5 11 5 15a7 7 0 0014 0c0-4-4-8-7-12Z" stroke="#70e1d0" stroke-width="1.5"/><path d="M8 15a4 4 0 004 4" stroke="#70e1d0" stroke-width="1.5"/></svg></span><div class="brand">AQUA<span style="color:#56d6c1">CONTROL</span><small>HMI / 01</small></div><div class="online"><span class="dot"></span> PLC CONNECTED <span style="color:#516977;margin:0 5px">|</span> 10:42:08</div></header>
+  <h1 class="page-title">Station diagnostics</h1><div class="subtitle">EQUIPMENT STATUS <span style="color:#496473;margin:0 7px">/</span> North reservoir</div><div class="tag">SERVICE VIEW</div><div class="page-switch">02 / 02</div>
+  <section class="card" id="equipment" data-plcui="container" style="left:24px;top:145px;width:285px;height:270px">
+    <div class="kicker" style="position:absolute;left:16px;top:16px">PUMP P-01</div>
+    <div class="status-badge" data-plcui="image" data-states="normal,checked" id="detail_status" style="left:166px;top:12px;width:101px"><span class="dot"></span><span class="status-text">RUNNING</span></div>
+    <div class="rule" style="left:16px;right:16px;top:51px"></div>
+    <div class="kicker" style="position:absolute;left:16px;top:71px">MOTOR CURRENT</div><div class="dynamic" data-plcui="label" id="motor_current" data-font="hzfont" data-font-size="20" style="left:16px;top:94px;width:180px;height:26px;color:#edf7fb">3.8 A</div>
+    <div class="kicker" style="position:absolute;left:16px;top:142px">TOTAL RUN TIME</div><div class="dynamic" data-plcui="label" id="runtime" data-font="hzfont" data-font-size="20" style="left:16px;top:165px;width:200px;height:26px;color:#edf7fb">128.4 h</div>
+    <div class="rule" style="left:16px;right:16px;top:211px"></div><span style="position:absolute;left:16px;top:233px;color:#7f9aac;font-size:10px">COMMUNICATION</span><span style="position:absolute;right:16px;top:232px;color:#7de0ca;font-size:11px">ONLINE · 12 ms</span>
+  </section>
+  <section class="card" style="left:321px;top:145px;width:455px;height:270px"><div class="kicker" style="position:absolute;left:16px;top:16px">RECENT EVENTS</div><span style="position:absolute;right:16px;top:15px;color:#708b9e;font-size:10px">LOCAL LOG</span>
+    <div style="position:absolute;left:16px;right:16px;top:47px"><div class="log-row"><span class="log-time">10:41:52</span><span>Pump P-01 started</span><span class="log-badge">NORMAL</span></div><div class="log-row"><span class="log-time">10:40:18</span><span>Target level updated</span><span class="log-badge">NORMAL</span></div><div class="log-row"><span class="log-time">10:35:06</span><span>PLC connection established</span><span class="log-badge">NORMAL</span></div><div class="log-row" style="border:0"><span class="log-time">10:35:02</span><span>Station initialization complete</span><span class="log-badge">NORMAL</span></div></div>
+    <div style="position:absolute;left:16px;bottom:15px;font-size:10px;color:#6e8c9e">Demo data · no physical PLC is connected</div>
+  </section>
+  <button class="action nav" data-plcui="image" id="back" data-event-click="show_main" data-states="normal,pressed" style="left:24px;top:427px;width:180px;height:34px"><span style="font-size:15px">←</span> PROCESS OVERVIEW</button><div class="dynamic small" data-plcui="label" data-font="hzfont" data-font-size="14" id="detail_feedback" style="left:225px;top:435px;width:390px;height:20px;color:#78d9c4">All equipment operating normally</div>
+</main><script src="panel.js"></script></body></html>

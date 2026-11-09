@@ -1154,6 +1154,11 @@ target("luatos-lua")
         add_includedirs(luatos.."components/airui/binding")
         add_files(luatos.."components/airui/binding/*.c")
 
+        -- plcui
+        add_includedirs(luatos.."components/plcui/inc")
+        add_files(luatos.."components/plcui/src/**.c")
+        add_files(luatos.."components/plcui/binding/*.c")
+
         -- qrcode 和 tjpgd (tjpgd已在videoplayer处添加)
         add_includedirs(luatos.."components/qrcode")
         add_files(luatos.."components/qrcode/*.c")

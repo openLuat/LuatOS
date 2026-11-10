@@ -1457,31 +1457,39 @@ end
 M.toggle = M.switch
 
 --[[亮度/音量滑条（设计稿 .slider）
-轨道走 M.C.track、滑块走 M.C.knob、进度走 M.C.primary —— 三档全部是令牌，
-换主题自动跟随；浅色主题下这四色会被覆写成浅底深轨，不会糊成一片。
+轨道走 M.C.track、进度走 o.color、滑块默认走 M.C.t1：
+M.C.knob 是纯白，浅色主题下卡片也是白的，白色圆球等于「消失」；t1 在浅色主题下是
+深色、深色主题下是浅色，永远和底色反差，也不会和进度色糊在一起。
+要别的颜色显式传 knob_color。
 airui.slider 自带 set_value/get_value/set_range，直接当返回值用。
 
-两个必须知道的约束（来自 lvgl9/src/widgets/slider/lv_slider.c）：
-1. 横向滑条的滑块直径 = 对象高度（draw_knob 里 knob_size = lv_obj_get_height）。
-   所以 h 决定手感 —— 触屏建议 >= dp(28)，别只当成轨道粗细来填。
+三个必须知道的约束（来自 lvgl9/src/widgets/slider/lv_slider.c）：
+1. 横向滑条的圆球直径 = 对象高度 + 2 × LV_PART_KNOB 的 padding。
+   lv_theme_default 给 knob 设了 pad_all = DPX(6)（dpi 130 时约 5px），所以对象 h
+   只是「轨道高度」，真实圆球比它大一圈：要小球就填小的 h，别指望 pad 压它。
 2. 滑块只响应「拖到滑块本体上」（LV_EVENT_HIT_TEST 命中判断用 right_knob_area），
-   点轨道空白处不会跳值。因此不适合用细高比做精细调节。
+   点轨道空白处不会跳值。所以 h 太小会难拖，圆球直径建议 >= 24px。
 on_change 回调签名是 on_change(self)，用 self:get_value() 取值。
 
 3. 圆球会越出盒子：圆球圆心落在「内容区」两端（lv_bar.c 的 indic_area =
-   对象坐标 - LV_PART_MAIN 的 padding），所以最左 / 最右时圆球各探出 (h/2 - pad)。
-   值为 100% 时右侧圆球就压出父容器 —— 而容器带 LV_OBJ_FLAG_SCROLLABLE，
-   超出 1px 就会让父级变成「可滚动」并画出滑动条。因此下面按 box 给的原点 / 宽度
-   先内缩 (h/2 - pad)，让圆球的两个极限位置恰好落在 box 的左右边缘上。
-   调用方把 x / w 当成「圆球可活动的整段范围」即可，不要再自己减半径。]]
+   对象坐标 - LV_PART_MAIN 的 padding），再叠加 knob 自身 padding，最左 / 最右时
+   圆球各探出 (h/2 + knob_pad - pad)。值为 100% 时右侧圆球就压出父容器 —— 而容器带
+   LV_OBJ_FLAG_SCROLLABLE，超出 1px 就会让父级变成「可滚动」并画出滑动条。
+   因此下面按 box 给的原点 / 宽度先内缩这一整段，让圆球的两个极限位置恰好落在
+   box 的左右边缘上。调用方把 x / w 当成「圆球可活动的整段范围」即可，不要再自己减半径。]]
 function M.slider(parent, o)
     parent, o = norm(parent, o)
     local h = o.h or 26
     local pad = dp(3)
-    local over = math.max(0, math.floor(h / 2) - pad)   -- 圆球每侧探出量
+    -- 圆球比对象高多出两倍 knob padding：lv_theme_default 给 LV_PART_KNOB 设了
+    -- pad_all = DPX(6)，dpi 130 时算出来是 5px，这里按 6 留 1px 余量；
+    -- 不算进内缩量的话圆球会压出父容器（甚至把父盒变成可滚动）
+    local knob_pad = dp(6)
+    local over = math.max(0, math.floor(h / 2) + knob_pad - pad)   -- 圆球每侧探出量
     local sx = (o.x or 0) + over
     local sw = (o.w or 200) - 2 * over
     if sw < dp(24) then sw = dp(24) end
+    local knob = o.knob_color or M.C.t1
     return airui.slider({
         parent = o.parent or parent,
         x = sx, y = o.y or 0,
@@ -1491,8 +1499,8 @@ function M.slider(parent, o)
             bg_color = o.track or M.C.track, bg_opa = 255,
             border_color = o.track or M.C.track, border_width = 0,
             indicator_color = o.color or M.C.primary, indicator_opa = 255,
-            knob_color = o.knob_color or M.C.knob, knob_opa = 255,
-            knob_border_color = o.knob_color or M.C.knob, knob_border_width = 0,
+            knob_color = knob, knob_opa = 255,
+            knob_border_color = knob, knob_border_width = 0,
             radius = dp(99), pad = pad,
         },
         on_change = o.on_change,

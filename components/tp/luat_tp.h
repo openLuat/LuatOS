@@ -146,6 +146,7 @@ extern luat_tp_opts_t tp_config_cst820;
 extern luat_tp_opts_t tp_config_cst816d;
 extern luat_tp_opts_t tp_config_cst92xx;
 extern luat_tp_opts_t tp_config_pc;
+extern luat_tp_opts_t tp_config_ns2009;
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config);
 int luat_tp_process(luat_tp_config_t *config);

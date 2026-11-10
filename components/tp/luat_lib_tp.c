@@ -47,6 +47,7 @@ static const tp_reg_t tp_regs[] = {
     {"cst816d", &tp_config_cst816d},
     {"cst820", &tp_config_cst820},
     {"cst9220", &tp_config_cst92xx},
+    {"ns2009", &tp_config_ns2009},
     #endif
 #endif
 #ifdef LUAT_USE_TP_PC

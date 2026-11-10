@@ -25,6 +25,12 @@ local function close(h)
     host_pump(100)
 end
 local h = connect()
+test("SDK pending Get allocation failure preserves an empty list", function()
+    host_pending_query_oom(false)
+end)
+test("SDK pending Get allocation failure preserves the in-flight request", function()
+    host_pending_query_oom(true)
+end)
 test("exports and bounded parameters", function()
     for _, name in ipairs({"get", "cancel_get", "queryable", "unqueryable", "reply", "finish_reply"}) do
         assert(type(z[name]) == "function", name)
@@ -35,21 +41,33 @@ test("exports and bounded parameters", function()
     assert(not pcall(z.get, h, PREFIX, {timeout_ms=99}, function() end, function() end))
     assert(not pcall(z.get, h, PREFIX, {payload=string.rep("x",z.MAX_PAYLOAD+1)}, function() end, function() end))
 end)
+local function two_replies(payload, timeout_ms, context)
+    local replies, terminals, terminal = 0, 0, nil
+    local id = assert(z.get(h, PREFIX.."/peer", {payload=payload,parameters="source=lua",timeout_ms=timeout_ms},
+        function(handle,item)
+            assert(handle==h and item.kind=="get_reply" and item.code==0)
+            assert(item.key==PREFIX.."/peer" and item.payload==payload)
+            replies=replies+1
+        end,
+        function(_,item) terminal=item; terminals=terminals+1 end))
+    wait_for(function() return terminal end)
+    assert(terminal.request_id==id and terminal.reason=="completed" and terminal.code==0 and replies==2 and terminals==1,
+        ("%s id=%d got=%s reason=%s code=%s replies=%d terminals=%d"):format(
+            context,id,tostring(terminal.request_id),tostring(terminal.reason),tostring(terminal.code),replies,terminals))
+end
 test("outgoing Get binary two replies and final", function()
     for _, n in ipairs({0, 20, 4096}) do
-        local payload = ("\0\255request"):rep(math.ceil(n/9)):sub(1,n)
-        local replies, terminal = {}, nil
-        local id = assert(z.get(h, PREFIX.."/peer", {payload=payload,parameters="source=lua",timeout_ms=5000},
-            function(handle,item)
-                assert(handle==h and item.kind=="get_reply" and item.code==0)
-                assert(item.key==PREFIX.."/peer" and item.payload==payload)
-                replies[#replies+1]=item.payload
-            end,
-            function(_,item) terminal=item end))
-        wait_for(function() return terminal end)
-        assert(terminal.request_id==id and terminal.reason=="completed" and terminal.code==0)
-        assert(#replies==2)
+        two_replies(("\0\255request"):rep(math.ceil(n/9)):sub(1,n),5000,"binary length "..n)
     end
+end)
+test("375 consecutive 4096-byte Get requests at the device timeout", function()
+    local _, dropped, errors = z.state(h)
+    for n=1,375 do
+        local payload = ("\0\255"..n.."-request"):rep(1024):sub(1,4096)
+        two_replies(payload,1800,"4096B round "..n)
+    end
+    local state, after_dropped, after_errors = z.state(h)
+    assert(state==z.ONLINE and after_dropped==dropped and after_errors==errors)
 end)
 test("error reply distinct from completion", function()
     local reply, done

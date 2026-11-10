@@ -5,6 +5,7 @@
 #include "lualib.h"
 #include "luat_msgbus.h"
 #include "luat_rtos.h"
+#include "zenoh-pico/session/query.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,6 +57,32 @@ static int heap_stats(lua_State *L) {
 }
 static int fail_rx(lua_State *L) { host_fail_rx_payload((size_t)luaL_checkinteger(L, 1)); return 0; }
 void host_fail_after(long n);
+static void pending_query_dropped(void *arg) { ++*(unsigned *)arg; }
+static int pending_query_oom(lua_State *L) {
+    int occupied = lua_toboolean(L, 1);
+    _z_session_t session = {0};
+    unsigned drops = 0;
+    _z_pending_query_t *existing = NULL;
+    if (occupied) {
+        existing = _z_unsafe_register_pending_query(&session);
+        if (!existing) return luaL_error(L, "fixture allocation failed");
+        memset(existing, 0, sizeof(*existing));
+        existing->_dropper = pending_query_dropped;
+        existing->_arg = &drops;
+    }
+    _z_pending_query_slist_t *head = session._pending_queries;
+    _z_zint_t next_id = session._query_id;
+    _z_zint_t existing_id = existing ? existing->_id : 0;
+    /* 下一次申请就是实际SDK链表节点，不依赖整条z_get的分配顺序。 */
+    host_fail_after(0);
+    _z_pending_query_t *failed = _z_unsafe_register_pending_query(&session);
+    int preserved = !failed && session._pending_queries == head && session._query_id == next_id &&
+        (!existing || (existing->_id == existing_id && existing->_dropper == pending_query_dropped &&
+                       existing->_arg == &drops)) && drops == 0;
+    _z_pending_query_slist_free(&session._pending_queries);
+    if (!preserved || drops != (unsigned)occupied) return luaL_error(L, "pending Get changed on OOM");
+    return 0;
+}
 int host_disconnect(void);
 unsigned host_short_reads(void);
 unsigned host_short_writes(void);
@@ -118,6 +145,7 @@ int main(int argc, char **argv) {
     lua_pushcfunction(L, heap_stats); lua_setglobal(L, "host_heap_stats");
     lua_pushcfunction(L, fail_rx); lua_setglobal(L, "host_fail_rx_payload");
     lua_pushcfunction(L, failure); lua_setglobal(L, "host_fail_after");
+    lua_pushcfunction(L, pending_query_oom); lua_setglobal(L, "host_pending_query_oom");
     lua_pushcfunction(L, sleep_without_pump); lua_setglobal(L, "host_sleep");
     lua_pushcfunction(L, disconnect_socket); lua_setglobal(L, "host_disconnect");
     lua_pushcfunction(L, network_stats); lua_setglobal(L, "host_network_stats");

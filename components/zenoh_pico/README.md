@@ -10,7 +10,7 @@
   [zenoh-pico/](zenoh-pico)（只含嵌入式所需文件，`version.txt` 供构建期核对，说明见
   [zenoh-pico/VENDOR.md](zenoh-pico/VENDOR.md)）。
 - 测试 router：zenohd **1.9.0**。
-- 除VENDOR.md记录的一处分片可靠性修补外，第三方核心源码逐字节未修改，两个派生公共头保留原版权和许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+- 第三方核心源码仅含 VENDOR.md 记录的分片可靠性和 Get 登记分配失败两处修补，两个派生公共头保留原版权和许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
 组件目录只放模组固件要用的东西：`include/`（配置头与LuatOS平台适配）、`src/`（Lua绑定与generic系统/TCP）、
 `zenoh-pico/`（官方核心源码裁剪副本）。PC 专有的装配脚本、真实对端与测试脚本不在本目录。
@@ -160,9 +160,9 @@ LUAT_USE_ZENOH_PICO=y ./build_macos.sh
 
 ## 官方验收与回退
 
-本改动接续已合并的[PR278](https://gitee.com/openLuat/LuatOS/pulls/278)。TEMP_3000专测已通过基础连接、4096B收发/Get和180秒短测；完整4115业务及256KiB真机尚未验收。本次新增动态大载荷、预算处理及SDK分片可靠性修补，未声称目标已含本改动。新包继续要求Lua64及至少1024KiB脚本空间，见[AIR8000_PROFILE_REQUEST.md](AIR8000_PROFILE_REQUEST.md)。
+本改动接续已合并的[PR278](https://gitee.com/openLuat/LuatOS/pulls/278)。TEMP_3000专测已通过基础连接、4096B收发/Get和180秒短测；完整4115业务及256KiB真机尚未验收。本次新增动态大载荷、预算处理、SDK分片可靠性及Get登记分配失败修补，未声称目标已含本改动。新包继续要求Lua64及至少1024KiB脚本空间，见[AIR8000_PROFILE_REQUEST.md](AIR8000_PROFILE_REQUEST.md)。
 
-目标构建需核开关关闭/开启、Get+Queryable完整配置、VM位宽、注册和资源增量；我们继续负责真机二进制Pub/Sub与Get发起/应答双向、断网/重新打开、队列满/GC、持续内存及实际对端序号。目标结果完成前保持Draft，不把Get裁掉以凑空间。
+目标构建需核开关关闭/开启、Get+Queryable完整配置、VM位宽、注册和资源增量；我们继续负责真机二进制Pub/Sub与Get发起/应答双向、断网/重新打开、队列满/GC、持续内存及实际对端序号。PR供源码复核，目标验收状态仍为待验证，不把Get裁掉以凑空间。
 
 回退关闭 `LUAT_USE_ZENOH_PICO`，撤销三处PC装配/声明及新增组件；不要求清空Flash、FSKV或改变现有业务配置。
 
@@ -178,4 +178,4 @@ LUAT_USE_ZENOH_PICO=y ./build_macos.sh
 
 大载荷主机套件使用同一入口加`--payload-tests`，覆盖双向Pub/Sub、Get请求/回复与反向Queryable、远端超限、按需分配、TX/RX预算及拒绝回收、owned query过期、worker分配失败、Lua回调异常、关闭重开。测试输出与未验证项见[bsp/pc/zenoh_pico/PAYLOAD_TEST_RESULTS.md](../../bsp/pc/zenoh_pico/PAYLOAD_TEST_RESULTS.md)。主机通过不替代Air8000 ARM ABI、真实RTOS调度或完整业务RAM验收。
 
-SDK仍为1.9.0基线，唯一上游源码改动是分片头直接传入可靠性枚举，避免RELIABLE=0被布尔转换反转；来源及重建说明见[zenoh-pico/VENDOR.md](zenoh-pico/VENDOR.md)。`host_fragment_test.c`调用真实序列化/解码验证两类可靠性的首、续、末片和二进制守恒。
+SDK仍为1.9.0基线，本地修补包括分片头直接传入可靠性枚举，避免RELIABLE=0被布尔转换反转，以及Get登记分配失败时保留原请求；来源及重建说明见[zenoh-pico/VENDOR.md](zenoh-pico/VENDOR.md)。`host_fragment_test.c`调用真实序列化/解码验证两类可靠性的首、续、末片和二进制守恒。

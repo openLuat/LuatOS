@@ -5,7 +5,7 @@
 ## 环境与复现
 
 - macOS arm64、Clang、宿主Lua 5.5.1；目标LuatOS Lua 5.3/ARM/RTOS未由此替代。
-- vendored zenoh-pico 1.9.0，基线`e83d39b4415f6897e8d6c3b3b651ca88a05f4a17`加VENDOR.md记录的一处可靠性补丁。
+- vendored zenoh-pico 1.9.0，基线`e83d39b4415f6897e8d6c3b3b651ca88a05f4a17`，补丁见VENDOR.md。
 - 官方zenohd 1.9.0，二进制SHA256 `576b7110124bc352b9076aed349071fcf18023a0c9daf2bea289c8ade9fc9bdf`，默认传输配置；只监听127.0.0.1:17447，关闭发现与插件。
 - 独立C peer使用Unix后端，绑定侧执行真实generic TCP代码。大包套件每次读取上限257B、写入511B，仍强制短读短写。
 
@@ -29,7 +29,7 @@ python3 bsp/pc/zenoh_pico/run_host.py --lua-root /path/to/lua-prefix \
 |---|---|
 |256KiB载荷与内存，21组|通过，host/peer/runner均0|
 |原Pub/Sub，17项|通过，host/peer/runner均0|
-|Get生命周期，19项|通过，host/peer/runner均0|
+|Get生命周期与分配失败、375次4096B回归，22项|通过，host/peer/runner均0|
 |关闭/接纳竞态，2种交错|通过，host/peer/runner均0|
 |打开/关闭竞态，成功/失败交错|通过，host/peer/runner均0|
 
@@ -45,9 +45,16 @@ python3 bsp/pc/zenoh_pico/run_host.py --lua-root /path/to/lua-prefix \
 
 仅修Pico一处参数为原枚举后，同一默认Router、原连续三包测试通过：两个最大包占满RX512KiB，第三包完整到达绑定并明确拒绝；恢复Lua派发后仅前两包交付，额度归零。默认测试保留这条反例，没有改为降低数据量或放宽超时。补丁许可与来源见VENDOR.md。
 
+## 4096B长测首错与回归（2026-11-10）
+
+- TEMP_3000真机通过30分钟检查点，第375次4096B Get到达对端，两个回复和Final命令已接纳。设备记录374次成功，末次`GET_TERMINAL`没有细分终态与回复数，无法确定缺失环节。随后Wi-Fi断开由测试清场触发。
+- 核对旧固件ELF及当时的Mac对端二进制，均含已修的分片R位反转。4096B也会跨2048B批次，仍须用新固件验证这次首错是否消失。
+- 另复现SDK登记Get节点分配失败。旧版空表触发UBSan，已有请求时改写原请求ID。修补后两种情况均保留表头和计数，已有请求的回调正常释放。真机记录未捕获内存分配失败。
+- 将上述命令中的`--payload-tests`替换为`--get-tests`，同一修补版在真实Router与独立peer下连续完成375次4096B Get。保持1800ms请求期限，每次逐字节校验两条回复与唯一终态。Get套件22项通过，大包21组、基础17项、关闭2种及打开3种竞态复跑通过，host、peer及入口均退出0。主机连续请求为加速回归，设备24小时长稳仍待新固件验证。
+
 ## 仍须目标验收
 
-- 未执行本轮Air8000固件编译/烧录、1819的256KiB实测、真实RTOS峰值RAM/栈、持续吞吐或长期稳定性测试，也未执行完整4115注册/USB485/LED长测。
+- 本轮修补版尚未完成Air8000固件编译/烧录、1819的256KiB实测、真实RTOS峰值RAM/栈、持续吞吐或长期稳定性验收，也未执行完整4115注册/USB485/LED长测。旧TEMP_3000的长测首错见上一节。
 - 宿主Lua版本不同，ARM ABI和目标Lua 5.3须新固件核验；未执行完整PC BSP构建，只有专属host harness与generic接口严格编译。
 - 上层既有64KiB业务及网页限制没有自动放开；认证、声明容量与完整替代验收仍另列。
 - 新编号测试固件继续请求112基础裁字库/LCD相关组件，**至少1024KiB脚本Flash**。生产脚本已超过512KiB；Flash空间与通信RAM分别验收。

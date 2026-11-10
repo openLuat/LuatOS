@@ -1,5 +1,6 @@
 /** @file luat_plcui_xml.c SAX parser for the deliberately small plcui schema. */
 #include "luat_base.h"
+#ifdef LUAT_USE_PLCUI
 #include "luat_fs.h"
 #include "luat_plcui_component.h"
 #include "luat_plcui_font.h"
@@ -561,9 +562,10 @@ int luat_plcui_page_index(plcui_document_t *doc, const char *id)
 
 static bool validate_image(plcui_resource_t *resource, plcui_error_t *error)
 {
+    if (resource->image_validated) return true;
     lv_image_header_t header;
     memset(&header, 0, sizeof(header));
-    /* Package files may have changed since an earlier page visit. */
+    /* A new XML instance sees new files. Page revisits reuse this result. */
     lv_image_header_cache_drop(resource->path);
     size_t file_bytes = luat_fs_fsize(resource->path);
     if (!file_bytes || file_bytes > PLCUI_MAX_IMAGE_BYTES || lv_image_decoder_get_info(resource->path, &header) != LV_RESULT_OK || !header.w || !header.h || (uint64_t)header.w * header.h * 4U > PLCUI_MAX_IMAGE_BYTES || (uint64_t)header.w * header.h * 4U > LV_CACHE_DEF_SIZE) {
@@ -588,6 +590,7 @@ static bool validate_image(plcui_resource_t *resource, plcui_error_t *error)
         return false;
     }
     resource->decoded_bytes = (uint32_t)((uint64_t)header.w * header.h * 4U);
+    resource->image_validated = true;
     return true;
 }
 
@@ -632,7 +635,9 @@ bool luat_plcui_validate(plcui_document_t *doc, plcui_error_t *error)
                 r->font = builtin_font(r->builtin);
                 if (!r->font) { luat_plcui_error(error, "E_RESOURCE", "Builtin font is not available: %s", r->builtin); return false; }
             }
-        } else if (!validate_image(r, error)) return false;
+        }
+        /* Image payloads are checked on first page use, before replacing the
+           active page. Keep schema/references/handlers valid for every page. */
     }
     lua_State *L = doc->L;
     for (unsigned p = 0; p < doc->page_count; p++) {
@@ -738,3 +743,5 @@ void luat_plcui_free_description(plcui_document_t *doc)
     doc->pages = NULL; doc->resources = NULL;
     doc->page_count = doc->resource_count = doc->widget_count = 0;
 }
+
+#endif /* LUAT_USE_PLCUI */

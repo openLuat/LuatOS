@@ -1,7 +1,6 @@
 /*
 @module plcui
 @summary XML-first PLC UI module entry and global runtime interfaces
-@version 0.1.0
 @tag LUAT_USE_PLCUI
 */
 #include "luat_base.h"
@@ -15,6 +14,7 @@
  * @table options 初始化配置
  * @int options.width 逻辑屏幕宽度，必填，范围 1～2048 像素
  * @int options.height 逻辑屏幕高度，必填，范围 1～2048 像素
+ * @note CCM4211 display/RGB 真机目前最大 1024×600，固定方向 0。
  * @return bool|nil 成功返回 true，运行错误返回 nil
  * @return table|nil 失败时返回包含 code、message 的错误表
  * @note 目标调度频率为 60Hz，应用不需要额外创建刷新循环定时器。
@@ -32,19 +32,28 @@ static int l_init(lua_State *L)
     lua_Integer height = luaL_checkinteger(L, -1);
     lua_pop(L, 1);
     if (width <= 0 || width > 2048 || height <= 0 || height > 2048) return luat_plcui_binding_error(L, "E_SCHEMA", "Display size must be between 1 and 2048 pixels per dimension");
-#if defined(LUAT_USE_AIRUI)
     lua_getfield(L, LUA_REGISTRYINDEX, "airui_ctx");
     bool airui_active = !lua_isnil(L, -1);
     lua_pop(L, 1);
     if (airui_active) return luat_plcui_binding_error(L, "E_DISPLAY_BUSY", "Deinitialize AirUI before initializing plcui");
-#endif
+    if (lv_is_initialized() && lv_display_get_next(NULL)) {
+        return luat_plcui_binding_error(L, "E_DISPLAY_BUSY", "Another LVGL display is still active");
+    }
     /* A previous AirUI session can leave global LVGL caches and FS drivers.
        No display owner is active here, so rebuild that global state once. */
     if (lv_is_initialized()) lv_deinit();
     lv_init();
     if (plcui_platform_init((int)width, (int)height) != 0) {
         lv_deinit();
-        return luat_plcui_binding_error(L, "E_PLATFORM", "Cannot initialize the PC display platform");
+        return luat_plcui_binding_error(L, "E_PLATFORM", "Cannot initialize display; check size, RGB565, buffers and rotation");
+    }
+    int services = plcui_fs_init();
+    if (!services) services = plcui_platform_image_init();
+    if (services) {
+        plcui_platform_deinit();
+        plcui_platform_image_deinit();
+        lv_deinit();
+        return luat_plcui_binding_error(L, "E_PLATFORM", "Cannot initialize VFS/image services");
     }
     memset(runtime, 0, sizeof(*runtime));
     lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
@@ -90,9 +99,29 @@ static int l_deinit(lua_State *L)
 }
 
 /**
+ * 绑定已由业务初始化的触摸对象；nil 解除绑定。
+ * @api plcui.device_bind_touch(tp_cfg)
+ * @userdata tp_cfg tp.init 返回的 lightuserdata，nil 表示解绑
+ * @return bool|nil 成功返回 true，失败返回 nil 和错误表
+ * @note 须先调用 plcui.init；PC 兼容此调用并使用 SDL 鼠标输入。
+ */
+static int l_device_bind_touch(lua_State *L)
+{
+    if (!luat_plcui_runtime()->initialized) return luat_plcui_binding_error(L, "E_NOT_INITIALIZED", "Call plcui.init first");
+    if (!lua_isnil(L, 1) && !lua_islightuserdata(L, 1)) {
+        return luat_plcui_binding_error(L, "E_TYPE", "Expected the touch handle returned by tp.init, or nil");
+    }
+    struct luat_tp_config *config = lua_isnil(L, 1) ? NULL : lua_touserdata(L, 1);
+    if (plcui_platform_bind_touch(config)) return luat_plcui_binding_error(L, "E_PLATFORM", "Touch device is not ready or incompatible");
+    lua_pushvalue(L, 1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "plcui_touch");
+    return luat_plcui_binding_success(L);
+}
+
+/**
  * 获取 plcui 库版本号。
  * @api plcui.version()
- * @return string 版本字符串，例如 "0.1.0"
+ * @return string 版本字符串，例如 "0.2.0"
  */
 static int l_version(lua_State *L)
 {
@@ -112,7 +141,9 @@ static int l_snapshot(lua_State *L)
 {
     if (!luat_plcui_runtime()->initialized) return luat_plcui_binding_error(L, "E_NOT_INITIALIZED", "Call plcui.init first");
     const char *path = luaL_checkstring(L, 1);
-    if (plcui_platform_snapshot(path) != 0) return luat_plcui_binding_error(L, "E_RESOURCE", "Cannot save display snapshot to the host path");
+    int result = plcui_platform_snapshot(path);
+    if (result == PLCUI_PLATFORM_UNSUPPORTED) return luat_plcui_binding_error(L, "E_UNSUPPORTED", "Snapshots are not supported by this display backend");
+    if (result != 0) return luat_plcui_binding_error(L, "E_RESOURCE", "Cannot save display snapshot to the host path");
     return luat_plcui_binding_success(L);
 }
 
@@ -123,6 +154,8 @@ static int l_snapshot(lua_State *L)
  * @note 基础字段：version、initialized、width、height、active、auto_refresh、refresh_hz、auto_refresh_count。
  * @note active 为 true 时还包含 page、component_count、resource_count、events_dropped、editing。
  * @note refresh_hz 是目标频率，auto_refresh_count 是自动调度次数，不代表实际绘制帧数。
+ * @note platform 和 image_cache_bytes 分别表示平台和编译配置的缓存容量。
+ * @note image_hw_decodes/image_sw_decodes 为平台适配器成功解码次数，包含预检，不是帧数；未统计的平台返回 0。
  */
 static int l_status(lua_State *L)
 {
@@ -143,6 +176,14 @@ static int l_status(lua_State *L)
     lua_setfield(L, -2, "width");
     lua_pushinteger(L, runtime->height);
     lua_setfield(L, -2, "height");
+    lua_pushinteger(L, LV_CACHE_DEF_SIZE);
+    lua_setfield(L, -2, "image_cache_bytes");
+    lua_pushstring(L, plcui_platform_name());
+    lua_setfield(L, -2, "platform");
+    lua_pushinteger(L, plcui_platform_image_hw_count());
+    lua_setfield(L, -2, "image_hw_decodes");
+    lua_pushinteger(L, plcui_platform_image_sw_count());
+    lua_setfield(L, -2, "image_sw_decodes");
     lua_pushboolean(L, xml && !xml->closed);
     lua_setfield(L, -2, "active");
     if (xml && !xml->closed) {
@@ -165,6 +206,7 @@ static const rotable_Reg_t reg_plcui[] = {
     {"load", ROREG_FUNC(luat_plcui_xml_load)},
     {"refresh", ROREG_FUNC(l_refresh)},
     {"deinit", ROREG_FUNC(l_deinit)},
+    {"device_bind_touch", ROREG_FUNC(l_device_bind_touch)},
     {"version", ROREG_FUNC(l_version)},
     {"snapshot", ROREG_FUNC(l_snapshot)},
     {"status", ROREG_FUNC(l_status)},

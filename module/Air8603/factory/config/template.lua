@@ -1,8 +1,8 @@
 --[[
 @module  config.template
 @summary 项目配置文件参数手册（可复制后修改为实际配置）
-@version 1.3
-@date    2026.10.22
+@version 1.5
+@date    2026.11.07
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -81,7 +81,9 @@
     --   type          [必填] 外设类型: uvc / rs485 / spi_cam / can / onewire / i2c / uart / pwm / adc / audio
     --   id            [必填] 实例标识，同 type 多条时区分各路，全表唯一（如 "uvc1" / "485_1" / "uart2"）
     --   name          [必填] UI 显示名，"功能测试"列表中展示的名称（如 "UVC摄像头" / "非隔离485"）
-    --   en_pin        [条件] 使能引脚 GPIO（uvc 等单使能外设用），运行时可开关控制
+    --   en_pin        [可选] 使能引脚 GPIO（uvc 等单使能外设用），运行时可通断电：
+    --                         「功能测试」行上没有开关，点行进测试页时上电、退出测试页自动断电
+    --                         摄像头常供电、无独立使能脚时省掉，驱动不动任何 GPIO
     --   pin12_free    [可选] uvc 专用：en_pin = 12 时必须显式置 true 才允许驱动。
     --                         GPIO12 在多数板子上是 USB VBUS（断电会连带杀掉触摸屏），
     --                         故默认禁止；本板若确认 GPIO12 为独立可控的 UVC_EN 才放开
@@ -104,10 +106,15 @@
     --                         实际下发时长还会按 hw.audio.max_record_time 钳一刀
     --   ready_delay   [可选] 上电稳定延时(ms)，loader 在 init 前等待（谁用谁等）
     --   w / h         [可选] uvc 专用：首选 MJPEG 输出分辨率，预览页优先按它取档；
-    --                         不写则用预览页默认档 1280×720；像素数超过 max_pixels 时不生效
+    --                         不写则由预览页自动取档（能盖住预览区的最小可用档，上限 max_pixels）；
+    --                         像素数超过 max_pixels 时不生效。摄像头实际不支持该档时会退回自动取档
     --   max_pixels    [可选] uvc 专用：源分辨率像素上限（w×h），缺省 921600（1280×720）。
     --                         相机侧固定开销约 4.25×w×h 字节，越大留给 airui.camera 显示
     --                         缓冲的余量越小（预览区会跟着收小），1920×1080 会挤爆内存
+    --   rotation      [可选] uvc 专用：UVC 页签画面旋转角，顺时针 0/90/180/270，缺省 0（不转）。
+    --                         airui.camera 只吃顺时针，逆时针 90 度写 270
+    --                         预览旋转角只由配置里的这个字段决定（ui/uvc_preview_win.lua 读取），
+    --                         界面没有别的角度入口；旋转在缩放前对帧生效，转 90/270 时帧宽高互换
     --   title         [可选] 功能测试页里该 type 分组标题，不写按 type 默认（uvc 默认「UVC 摄像头」）。
     --                         摄像头是人脸识别模组时可写 "摄像头"，避免分组标题与行名打架
     --   face          [可选] uvc 专用：摄像头带人脸识别模组（AirCAMERA_1034）时填，
@@ -118,17 +125,28 @@
     --                           rst_pin          [可选] 模组复位脚，没有就留空
     --                           register_timeout [可选] 录入超时(秒)，默认 15
     --                           verify_timeout   [可选] 验证超时(秒)，默认 15
-    --                         注意：供电脚与 UVC 共用 en_pin，测试页不会断电重试（断电会
-    --                         同时杀掉画面与人脸模组）
+    --                           rotation         [可选] 人脸页签画面旋转角，写法同条目的
+    --                                            rotation，不写沿用 UVC 页签的值
+    --                         注意：供电脚与 UVC 共用 en_pin，断电会同时杀掉画面与人脸模组；
+    --                         但录入 / 验证前测试页**必须**断电重枚举一次（模组出完图停流后停在
+    --                         出图模式，录入指令不回包），所以这颗摄像头的 en_pin 必须是可拉低的
+    --                         独立供电脚；取版本 / 删除全部是纯串口指令，不做重枚举
     --   其余字段      透传给驱动 init(params)（en_pins / bus 等，按 type 约定）
     --
     -- 例: UVC 摄像头 ×1 + RS485 ×2（共用 UART1 与 485_EN 供电脚）+ UART ×1 + 录音播放 ×1
     -- peripherals = {
     --     { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
+    --     -- 常供电、无独立使能脚的普通 USB 摄像头（无控制串口、不带人脸）写法：
+    --     -- { type = "uvc", id = "uvc1", name = "UVC摄像头", ready_delay = 200, w = 800, h = 480 },
     --     -- 人脸识别摄像头（UVC 出图 + UART2 人脸协议）写法：
     --     -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
-    --     --   en_pin = 73, ready_delay = 200, w = 1280, h = 720,
+    --     --   en_pin = 73, ready_delay = 200, w = 800, h = 480, rotation = 270,
     --     --   face = { uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15 } },
+    --     --   ★ 首选档别写 1280x720：AirCAMERA_1034 实测只报 960x480 / 864x480 / 800x480 /
+    --     --     480x320 / 320x240，写 1280x720 匹配不上会按默认 format0/frame0 起流失败，
+    --     --     首帧从 ~1.4s 拖到 ~11s；800x480 是能匹配上的最大档
+    --     --   ★ rotation 是画面旋转角，逆时针 90 度写 270（见上面 rotation 说明）；人脸页签
+    --     --     不写 face.rotation 时自动沿用这里的值
     --     { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 14, baud = 9600, manual_init = true },
     --     { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 1, de_pin = nil, power_pin = 14, baud = 9600 },
     --     { type = "uart",  id = "uart2", name = "UART2",     uart_id = 2, baud = 115200, databits = 8, parity = "N", stopbits = 1 },
@@ -154,6 +172,9 @@
             --   "lcd_st7701s_5in"  仅作为 ic_init 回调使用，提供 ST7701S 的 custom_cmds 序列：
             --                      lcd = { model = "lcd_display_rgb",
             --                              params = { ic_init = require("lcd_st7701s_5in").ic_init, ... } }
+            --   "lcd_jd9165t_7in"  仅作为 ic_init 回调使用，提供 JD9165T 的 custom_cmds 序列：
+            --                      lcd = { model = "lcd_display_rgb",
+            --                              params = { ic_init = require("lcd_jd9165t_7in").ic_init, ... } }
             -- model = "lcd_display_rgb",
 
             -- 驱动参数，传给 model 对应驱动的 init() 函数
@@ -196,6 +217,9 @@
                 -- global = true,     -- [可选] 是否注册为全局字体
             -- },
             -- backlight = {
+            --     -- ★能不能调光只看有没有 pwm_ch：「功能测试 → 背光调节」滑块按它门控
+            --     --   （亮度 10~100，默认 100）；只有 gpio_bl / params.pin_bl 的板子是纯亮灭、
+            --     --   不可调光，功能测试页出只读说明「本机型背光不支持调光」
             --     -- 方式一: PWM 调光（支持亮度调节）
             --     pwm_ch = 3,          -- PWM 通道号
             --     pwm_freq = 10000,    -- PWM 频率 Hz，RGB 屏常用 10000
@@ -210,7 +234,7 @@
         -- 4.2 触摸驱动 tp（可选，无触摸屏则删掉整个 tp）
         -- --------------------------------------------------------
         -- tp = {
-        --     model = "tp_gt911",      -- 触摸驱动模块，目前唯一值
+        --     model = "tp_gt911",      -- 触摸驱动模块: "tp_gt911"(GT911 系) / "tp_st7232"(ST7232)
 
         --     params = {
         --         port = 1,            -- I2C 端口号: 0 / 1 / 2
@@ -226,6 +250,12 @@
                 --     { pin = 16 },
                 -- },
                 -- pwr_delay = 100,  -- [可选] I2C 上电后等待 ms，有 pwr_pins 时默认 100ms
+
+                -- === ST7232 专用（model = "tp_st7232"）===
+                -- w/h 填屏幕真实分辨率，模块内部换算成内核参数
+                --（报点两分量与宽高互换，内核按 w=600 h=1024 direction=1 swap_xy=tp.SWAP_Y 传）
+                -- flip_x = true,     -- [可选] 落点左右镜像
+                -- flip_y = true,     -- [可选] 落点上下镜像
         --     },
         -- },
 
@@ -253,12 +283,20 @@
         -- 4.5 音频 audio（可选: 板上有喇叭/MIC 才配）
         -- --------------------------------------------------------
         -- 配了才有「亮度和声音」的音量调节、TTS 播报、AI 聊天语音，
-        -- peripherals 里的 { type = "audio" } 也才登记得进去
+        -- peripherals 里的 { type = "audio" } 也才登记得进去。
+        -- 「功能测试 → 音量调节」（滑块 0~100 默认 70 + 「试听」按钮）也按 hw.audio ~= nil 门控，
+        -- 没配时出「本机型未配置音频」；录音页的麦克风提示同样只在配了音频时显示
         -- audio = {
-        --     model = "es8311",      -- [必填] 音频驱动:
+        --     model = "es8311",      -- [必填] 录音/主通路音频驱动:
         --                            --   "es8311"  = I2S 外部编解码
         --                            --   "dac"     = 主控内置 DAC
         --                            --   "air1103" = UART 语音芯片（MIC+喇叭+AEC 单芯片）
+
+        --     play_model = "dac",    -- [可选,默认"dac"] 播放走哪条通路，只对 model="air1103" 生效:
+        --                            --   录音固定走 model 声明的 Air1103，播放默认走芯片内置 DAC；
+        --                            --   显式写 "air1103" 则退回「录音播放都出语音芯片」的单通路。
+        --                            --   分路由 app/common/audio_route.lua 按需重跑 exaudio.setup；
+        --                            --   model 是 es8311 / dac / 无音频时写不写都不改变行为
 
         --     -- 音量与录音
         --     play_vol = 70,         -- [可选,默认70] 媒体音量 0~100（用户调节后存 fskv 优先）
@@ -269,8 +307,11 @@
         --     max_record_time = 30,  -- [可选,默认30] 录音最长秒数，超出自动钳制
 
         --     -- 功放与供电
-        --     pa_ctrl = 45,          -- [条件] 功放使能 GPIO；air1103 模式不写
-        --                            --   （那一路是语音芯片供电脚，由 power_on 常供电）
+        --     pa_ctrl = 45,          -- [条件] 功放使能 GPIO
+        --                            --   纯 Air1103 单通路板不写（那一脚常是语音芯片供电脚，
+        --                            --   由 power_on 常供电，写上会被 audio_v2 播完拉低掉电）；
+        --                            --   既接 Air1103 又有本地功放的板子照常写，
+        --                            --   录音前 audio_route 会补一脚 pa_on_level
         --     pa_on_level = 1,       -- [可选,默认1] 功放使能电平: 1=高电平 / 0=低电平
         --     pa_delay = 100,        -- [可选] 拉 PA 后到起播的等待 ms（防 pop 音）
         --     dac_ctrl = 43,         -- [可选] 外部编解码芯片上电使能 GPIO（es8311 常用）
@@ -301,7 +342,26 @@
         --                            --   绑到别的串口，现象是「录音没数据、播放没声音」
         --     audio_mode = "new",    -- [必填] air1103 必须走新框架，固定填 "new"
         --                            --   录音固定 PCM_16000(16kHz/16bit/单声道)；
-        --                            --   MP4 的声音要用同名 .pcm 伴音补，转法见 readme
+        --                            --   MP4 的声音走内置 DAC，个别素材无声时用同名 .pcm 伴音补，
+        --                            --   转法见 readme
+
+        --     -- ★麦克风插拔检测不了，界面只有文案提示 + 事后软检测（不要按「能识别插拔」设计）
+        --     --   exaudio 没有 mic-detect 接口；Air1103 的 MIC 是芯片内置、不存在插拔；
+        --     --   ES8311 只能靠 I2C 读芯片 ID 判 codec 在不在总线上，判不了麦克风。
+        --     --   「录音播放」测试页因此只出「请接入麦克风后再录音」常驻提示，
+        --     --   并在录音起播 2.5 秒内收不到 MIC 数据时报「未收到MIC数据」
+        -- },
+
+        -- --------------------------------------------------------
+        -- 4.6 USB 控制 usb（条件: 仅 features 中 usb_hid = true 时需要）
+        -- --------------------------------------------------------
+        -- usb = {
+        --     vbus_gpio = 12,        -- [可选] USB VBUS 供电控制 GPIO，只拉高不拉低:
+        --                            --   整段不写         = 12（与 8605/8601 一致）
+        --                            --   写 false         = 本板无 VBUS 控制脚，VBUS 由
+        --                            --                      硬件常供电，任何路径都不驱动该脚
+        --                            --   ★ 该脚与别的功能共用时必须写 false，否则 usb_hid_app
+        --                            --     上电会抢脚（例: 8607W 的 GPIO12 是 Airlink RDY）
         -- },
     -- },
 
@@ -324,6 +384,9 @@
     --     rs485 = true,        -- 启用RS485接口
     --     other_func = true,   -- 启用"功能测试"（peripherals 外设清单入口），通常同时设 ui.show_other_func = true
     --     usb_camera = true,   -- 启用USB摄像头，通常同时设 ui.show_camera_preview = true
+    --     usb_hid = true,      -- 启用USB HID 键盘鼠标；带 UVC 摄像头的机型两者二选一（共用
+    --                          --   USB Host 与供电轨）：开关写 fskv、入口「设置 → 外设模式」、
+    --                          --   默认 UVC、切换后重启生效；VBUS 控制脚见 hw.usb.vbus_gpio
     --     spi_camera = true,   -- 启用SPI摄像头，通常同时设 ui.show_camera_preview = true
     --     i2c_sensor = true,   -- 启用I2C传感器(SHT30温湿度/VOC等)，通常同时设 ui.show_sensor_panel = true
     --     nes = true,          -- 启用NES游戏实体按键，必须同时配置 nes_keys
@@ -346,6 +409,13 @@
     --   wifi_native         → 芯片自带 WiFi（Air8101/Air8000 等），无额外参数
     --   wifi_airlink_spi    → Airlink SPI WiFi 外挂模组
     --       spi_id = 1, cs_pin = 8, rdy_pin = 14, [speed = 20000000]
+    --       [irq_pin = 12]          -- [可选] WIFI_IRQ 中断脚，net_manager 在 exnetif 初始化前
+    --                                -- 用 airlink.config(airlink.CONF_SPI_IRQ, pin) 配置
+    --       [airlink_mode = "hspi_master"]  -- [可选] 通信模式，缺省 spi_master
+    --                                -- 取值 spi_master / hspi_master / spi_slave / uart，
+    --                                -- 也可直接写 airlink_type = airlink.MODE_XXX 常量
+    --                                -- hspi_master 对应 airlink.MODE_HSPI_MASTER（XT804 HSPI 主机），
+    --                                -- 需固件编译进 LUAT_USE_AIRLINK_HSPI_MASTER
     --   wifi_airlink_uart   → Airlink UART WiFi 外挂模组（6205）
     --       uart_id = 3, baud = 2000000
     --   4g_native           → 芯片自带 4G（Air8000/Air780E 等），注意：net_4g 需在 features 中开启

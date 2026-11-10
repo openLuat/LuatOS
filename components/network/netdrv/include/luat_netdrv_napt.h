@@ -173,13 +173,13 @@ static inline int napt_output_to_lan(napt_ctx_t* ctx,
                                      struct ip_hdr* ip_hdr,
                                      uint8_t* buff)
 {
-    if (ctx->eth) {
-        memcpy(ctx->eth->src.addr, ctx->net->netif->hwaddr, 6);
-        memcpy(ctx->eth->dest.addr, mapping->inet_mac, 6);
-    }
     luat_netdrv_t* dst = luat_netdrv_get(mapping->adapter_id);
-    if (dst == NULL || !dst->dataout) {
+    if (dst == NULL || !dst->netif || !dst->dataout) {
         return 1;
+    }
+    if (ctx->eth) {
+        memcpy(ctx->eth->src.addr, dst->netif->hwaddr, 6);
+        memcpy(ctx->eth->dest.addr, mapping->inet_mac, 6);
     }
     if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
         luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);

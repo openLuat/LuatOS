@@ -1137,7 +1137,7 @@ static int l_netdrv_ctrl(lua_State *L) {
         LLOGW("netdrv %d not support ctrl", id);
         return 0;
     }
-    int ret = drv->ctrl(drv, drv->userdata, cmd, arg);
+    int ret = drv->ctrl(drv, drv->userdata, cmd, (void*)(intptr_t)arg);
     lua_pushboolean(L, ret == 0);
     lua_pushinteger(L, ret);
     return 2;
@@ -1449,6 +1449,8 @@ static const rotable_Reg_t reg_netdrv[] =
 
     //@const CTRL_RESET number 控制类型-复位,当前仅支持CH390H
     { "CTRL_RESET",     ROREG_INT(LUAT_NETDRV_CTRL_RESET)},
+    //@const RNDIS_NAPT number RNDIS出口控制,用于USB网卡,第三参数为STA/ETH/GP网卡ID或-1关闭全局NAPT
+    { "RNDIS_NAPT",     ROREG_INT(LUAT_NETDRV_CTRL_RNDIS_NAPT)},
     //@const CTRL_UPDOWN number 控制类型-1=启动UP，0关闭DOWN
     { "CTRL_UPDOWN",    ROREG_INT(LUAT_NETDRV_CTRL_UPDOWN)},
     //@const RESET_HARD number 请求对网卡硬复位,当前仅支持CH390H

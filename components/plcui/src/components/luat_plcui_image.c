@@ -28,7 +28,7 @@ static void image_event(lv_event_t *event)
     } else if (code == LV_EVENT_PRESSED && luat_plcui_component_interactive(widget)) {
         widget->pressed = true;
         luat_plcui_apply_image(widget);
-    } else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
+    } else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST || code == LV_EVENT_INDEV_RESET) {
         widget->pressed = false;
         luat_plcui_apply_image(widget);
     } else if (code == LV_EVENT_CLICKED && widget->clickable && luat_plcui_component_interactive(widget)) {

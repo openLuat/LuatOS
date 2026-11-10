@@ -39,7 +39,8 @@ XML 中声明的所有事件都须在 handlers 中提供对应函数。将 XML �
 - **image 推荐使用非渐进式 JPG（Baseline JPEG）**，以便使用目标平台支持的 JPEG 硬件解码。导出时关闭“渐进式 / Progressive”选项；需要透明背景的素材可使用 PNG。如果 JPG 显示效果与原设计差异较大，例如出现明显色差、渐变条带或边缘失真，也推荐改用 PNG。PNG 能保留原始像素和抗锯齿细节，但相较于目标平台的 JPEG 硬解，解码通常会慢一些，应结合实际画质与加载时间选择。
 - 图片按目标显示尺寸导出；背景中不要保留需要实时变化的数值和输入内容。
 - XML 与图片作为同一个资源包放入 luadb 或已挂载的 SD 卡；图片 src 使用相对于 XML 目录的路径，不使用绝对路径或 `..`。
-- PC 命令行打包会平铺文件名；luadb 文件名不超过 31 字节。示例图片放在 assets 子目录，XML 引用打包后的文件名，通过 `/luadb/main.xml` 加载，不依赖启动目录。
+- 图片在页面首次使用时完整校验，同一 XML 实例内复用成功结果；运行中资源视为固定，替换 SD 图片后重新 `plcui.load()`。未打开页面的图片错误会在首次进入该页时返回，失败仍保留原页。
+- 文件读取遵循 LuatOS VFS：脚本区用 `/luadb/main.xml`，SD 卡使用实际挂载路径（如 `/sd/ui/main.xml`）。资源相对于 XML 所在目录解析；文件名长度和目录结构遵循所用文件系统及烧录工具。PLCUI 不自动改名或改写 XML。
 - 组件填写 `id/x/y/w/h`，同一页面内 ID 唯一；container 子组件使用相对于容器内容区的坐标。
 - HZFont 字号范围为 1～255，省略字号时默认 16；为文字预留足够的显示空间。
 - table 在 XML 中指定 `rows/columns`，用 `<cell row="1" column="1" text="名称"/>` 初始化；Lua 使用 `set_cell/get_cell/set_column_width/set_font_size`，行列从 1 开始。最多 128 行、16 列，总计不超过 1024 格；`grid` 开启完整网格，`row-height` 设置最小行高，`col-aligns/header-align` 控制列与表头对齐。
@@ -47,3 +48,4 @@ XML 中声明的所有事件都须在 handlers 中提供对应函数。将 XML �
 - `xml:find()` 获取组件，`set_text()` 更新文字，`set_src("资源ID")` 切换图片，`set_checked()` 切换选中状态；`xml:show()` 切页后重新查找组件。
 - 按钮操作交给业务处理，界面状态按实际设备反馈更新；事件回调保持简短。
 - 初始化后自动以 60Hz 为目标调度刷新，无需添加刷新定时器；退出时调用 `xml:close()`、`plcui.deinit()`。
+- PC 与真机使用同一套 PLCUI Lua 接口：`plcui.device_bind_touch(tp_cfg)` 在 PC 兼容成功，输入由 SDL 鼠标提供；板级上电、屏幕与 TP 初始化封装在各自驱动中，参考 AIRUI 示例的 PC 处理方式。

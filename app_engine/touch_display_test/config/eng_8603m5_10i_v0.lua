@@ -35,7 +35,8 @@
    本型号 UART1 是 TTL 串口，GPIO65 不做方向脚，power_on 不动它。
 5. 【UVC 摄像头 / GPIO58 = 485_EN2】本型号带 UVC 摄像头：画面走 USB 数据流，无控制串口、
    不带人脸识别，预览 / 拍照 / 录像入口在「功能测试」里，故不设 ui.show_camera_preview。
-   w / h / rotation 与 W1 / W2 / M1 / M2 的 UVC 摄像头一致；摄像头实际不支持该档时预览页自动取档。
+   w / h 与 W1 / W2 / M1 / M2 的 UVC 摄像头一致，rotation 按本机型摄像头实装方向填（270）；
+   摄像头实际不支持该档时预览页自动取档。
    摄像头常供电、无独立使能脚，uvc 条目不写 en_pin。
    PIN48 = GPIO58 仍是 UART2 那路隔离 485 的 DE（485_EN2），只做方向控制：power_on 拉低停在
    接收态，periph_rs485 在每帧发送窗口里拉高。

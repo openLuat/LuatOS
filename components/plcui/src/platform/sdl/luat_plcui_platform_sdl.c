@@ -2,6 +2,8 @@
  * SDL display, pointer input, host screenshots and LuatOS VFS for plcui.
  * All functions run on the Lua/UI thread; no SDL worker calls into LVGL.
  */
+#include "luat_base.h"
+#if defined(LUAT_USE_PLCUI_SDL2)
 #include "luat_plcui_platform.h"
 #include "luat_plcui_conf.h"
 #include "luat_fs.h"
@@ -12,6 +14,37 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdatomic.h>
+
+/* Synchronization and platform services stay behind the common interface. */
+static atomic_flag refresh_lock = ATOMIC_FLAG_INIT;
+
+uint32_t plcui_platform_state_lock(void)
+{
+    while (atomic_flag_test_and_set_explicit(&refresh_lock, memory_order_acquire)) {}
+    return 0;
+}
+
+void plcui_platform_state_unlock(uint32_t token)
+{
+    (void)token;
+    atomic_flag_clear_explicit(&refresh_lock, memory_order_release);
+}
+
+const char *plcui_platform_name(void) { return "sdl"; }
+
+int plcui_platform_bind_touch(struct luat_tp_config *config)
+{
+    /* Match AIRUI: physical TP binding is harmless on PC; SDL provides input. */
+    (void)config;
+    return 0;
+}
+
+/* lv_init already installs the PC software image codecs. */
+int plcui_platform_image_init(void) { return 0; }
+void plcui_platform_image_deinit(void) {}
+uint32_t plcui_platform_image_hw_count(void) { return 0; }
+uint32_t plcui_platform_image_sw_count(void) { return 0; }
 
 typedef struct {
     int16_t x;
@@ -25,7 +58,6 @@ static struct {
     SDL_Texture *texture;
     lv_display_t *display;
     lv_indev_t *pointer;
-    lv_fs_drv_t fs;
     uint16_t *frame;
     uint16_t *draw;
     int width;
@@ -132,45 +164,6 @@ static lv_obj_t *plcui_sdl_focused_input(lv_obj_t *root)
     return NULL;
 }
 
-static void *plcui_fs_open(lv_fs_drv_t *drv, const char *path, lv_fs_mode_t mode)
-{
-    (void)drv;
-    if (mode != LV_FS_MODE_RD) return NULL;
-    char vfs_path[512];
-    int length = snprintf(vfs_path, sizeof(vfs_path), "%s%s", path[0] == '/' ? "" : "/", path);
-    if (length < 0 || (size_t)length >= sizeof(vfs_path)) return NULL;
-    return luat_fs_fopen(vfs_path, "rb");
-}
-
-static lv_fs_res_t plcui_fs_close(lv_fs_drv_t *drv, void *file)
-{
-    (void)drv;
-    return luat_fs_fclose((FILE *)file) == 0 ? LV_FS_RES_OK : LV_FS_RES_FS_ERR;
-}
-
-static lv_fs_res_t plcui_fs_read(lv_fs_drv_t *drv, void *file, void *buffer, uint32_t requested, uint32_t *actual)
-{
-    (void)drv;
-    *actual = (uint32_t)luat_fs_fread(buffer, 1, requested, (FILE *)file);
-    return LV_FS_RES_OK;
-}
-
-static lv_fs_res_t plcui_fs_seek(lv_fs_drv_t *drv, void *file, uint32_t offset, lv_fs_whence_t whence)
-{
-    (void)drv;
-    int origin = whence == LV_FS_SEEK_SET ? SEEK_SET : whence == LV_FS_SEEK_CUR ? SEEK_CUR : SEEK_END;
-    return luat_fs_fseek((FILE *)file, offset, origin) == 0 ? LV_FS_RES_OK : LV_FS_RES_FS_ERR;
-}
-
-static lv_fs_res_t plcui_fs_tell(lv_fs_drv_t *drv, void *file, uint32_t *offset)
-{
-    (void)drv;
-    long position = luat_fs_ftell((FILE *)file);
-    if (position < 0) return LV_FS_RES_FS_ERR;
-    *offset = (uint32_t)position;
-    return LV_FS_RES_OK;
-}
-
 int plcui_platform_init(int width, int height)
 {
     if (g_sdl.initialized || width <= 0 || height <= 0 || width > 2048 || height > 2048) return -1;
@@ -179,7 +172,7 @@ int plcui_platform_init(int width, int height)
     g_sdl.width = width;
     g_sdl.height = height;
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-    g_sdl.window = SDL_CreateWindow("plcui 0.1 | Pump station | LuatOS PC",
+    g_sdl.window = SDL_CreateWindow("plcui 0.2 | LuatOS PC",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
         luat_pcsim_host_window_flags(SDL_WINDOW_SHOWN));
     if (!g_sdl.window) goto failed;
@@ -206,14 +199,6 @@ int plcui_platform_init(int width, int height)
     lv_indev_set_read_cb(g_sdl.pointer, plcui_sdl_pointer_read);
     lv_timer_set_period(lv_indev_get_read_timer(g_sdl.pointer), PLCUI_REFRESH_PERIOD_MS);
     lv_tick_set_cb(plcui_sdl_tick);
-    lv_fs_drv_init(&g_sdl.fs);
-    g_sdl.fs.letter = '/';
-    g_sdl.fs.open_cb = plcui_fs_open;
-    g_sdl.fs.close_cb = plcui_fs_close;
-    g_sdl.fs.read_cb = plcui_fs_read;
-    g_sdl.fs.seek_cb = plcui_fs_seek;
-    g_sdl.fs.tell_cb = plcui_fs_tell;
-    lv_fs_drv_register(&g_sdl.fs);
     SDL_StartTextInput();
     g_sdl.initialized = true;
     return 0;
@@ -317,3 +302,5 @@ int plcui_platform_snapshot(const char *path)
     SDL_FreeSurface(surface);
     return result;
 }
+
+#endif

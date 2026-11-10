@@ -1,8 +1,8 @@
 --[[
 @module  uvc_preview_win
 @summary 摄像头测试页（UVC 预览 / 拍照 / 录像 + 人脸识别录入 / 验证 / 删除全部，TabOS 深色玻璃态）
-@version 1.10
-@date    2026.11.05
+@version 1.11
+@date    2026.11.07
 @author  江访
 @usage
 订阅: OPEN_UVC_PREVIEW_WIN(id)
@@ -18,6 +18,12 @@ excamera.open / preview / close 与 exfacecam 的各条指令内部都有 sys.wa
 
 导航：标题栏「返回」回到功能测试页，这是页面唯一的出口。返回触发 on_destroy →
 request_quit，收尾交回命令协程执行。
+
+布局：标题栏通栏在顶，横竖屏两套。横屏（sw >= sh）走「左预览 + 右操作区」的左右结构：
+左列预览画面区占满标题栏以下的高度，右列自上而下排页签 / 状态行 / 供电接线提示 /
+控制按钮（4 个按钮排 2 列 2 行），控制按钮贴右列底部，余下留白均摊进上方各块的间隙。
+竖屏走上下结构（页签 / 预览 / 状态行 / 底部控制栏一行 4 个）：宽度不够，硬拆左右两列
+会把预览挤没。见 build_ui / build_side_ui。
 
 【人脸识别】摄像头是 AirCAMERA_1034 人脸识别模组时，同一颗模组出两条通路：
 USB 走 UVC 出 MJPEG 画面（上面那套 excamera 独占），UART 走协议做人脸。
@@ -1281,18 +1287,20 @@ end
 theme.pills 的选中态是建的时候定死的，没有改色接口，只能整行换。
 @param w, y, h 行几何
 @param gap 胶囊间距
+@param x 行起点，不传取左页边距（横屏要挪到右列，见 build_side_ui）
 ]]
-local function build_tabs(w, y, h, gap)
+local function build_tabs(w, y, h, gap, x)
+    x = x or pad
     local items = {
         { text = "UVC 测试", on_click = function() switch_tab(TAB_UVC) end },
         { text = "人脸识别", on_click = function() switch_tab(TAB_FACE) end },
     }
     tab_uvc_row = theme.box(main_container, {
-        x = pad, y = y, w = w, h = h, color = theme.C.black, opa = 0,
+        x = x, y = y, w = w, h = h, color = theme.C.black, opa = 0,
     })
     theme.pills(tab_uvc_row, { x = 0, y = 0, w = w, h = h, gap = gap, active = 1, items = items })
     tab_face_row = theme.box(main_container, {
-        x = pad, y = y, w = w, h = h, color = theme.C.black, opa = 0,
+        x = x, y = y, w = w, h = h, color = theme.C.black, opa = 0,
     })
     theme.pills(tab_face_row, { x = 0, y = 0, w = w, h = h, gap = gap, active = 2, items = items })
     tab_uvc_row:set_hidden(face_tab ~= TAB_UVC)
@@ -1303,58 +1311,181 @@ end
 底部控制栏：UVC 与人脸各摆一份，同一位置靠 set_hidden 切换（与页签行同一套做法）。
 两栏都是 4 个等宽按钮，按钮文案压到两字。
 不带 face 子表的机型只建 UVC 栏，人脸栏不占控件。
-@param w, y, h 栏几何
+@param w, y, h 栏几何（h 是单个按钮高，栏高按行数铺）
 @param gap 按钮间距
 @param has_face 是否建人脸栏
+@param x 栏起点，不传取左页边距（横屏要挪到右列，见 build_side_ui）
+@param cols 按钮列数，不传 4（一行 4 个）；横屏右列窄传 2，排成 2 列 2 行
 ]]
-local function build_ctrl_bars(w, y, h, gap, has_face)
-    local n = 4
-    local bw = math.floor((w - (n - 1) * gap) / n)
+local function build_ctrl_bars(w, y, h, gap, has_face, x, cols)
+    x = x or pad
+    cols = cols or 4
+    local rows = math.ceil(4 / cols)
+    local bw = math.floor((w - (cols - 1) * gap) / cols)
+    -- 栏高按行数铺：cols = 4 时只有一行，与改造前完全一致
+    local bar_h = rows * h + (rows - 1) * gap
+
+    -- 按钮表：前两个是实底主按钮，后两个是描边幽灵按钮
+    local uvc_items = {
+        { text = "拍照", cmd = "photo" },
+        { text = "录像", cmd = "record" },
+        { text = "时长", cmd = "duration", ghost = true },
+        { text = "适配", cmd = "fit", ghost = true },
+    }
+    local face_items = {
+        { text = "录入", cmd = "face_register" },
+        { text = "验证", cmd = "face_verify" },
+        { text = "清空", cmd = "face_clear", ghost = true },
+        { text = "版本", cmd = "face_version", ghost = true },
+    }
+
+    -- 按列数铺按钮：k 从 1 起，一行 cols 个，先往右再往下
+    local function fill(bar, items)
+        for k, it in ipairs(items) do
+            local bx = ((k - 1) % cols) * (bw + gap)
+            local by = math.floor((k - 1) / cols) * (h + gap)
+            local cmd = it.cmd
+            local click = function() sys.publish("UVC_CMD", cmd) end
+            if it.ghost then
+                theme.ghost_button(bar, {
+                    x = bx, y = by, w = bw, h = h,
+                    text = it.text, on_click = click,
+                })
+            else
+                theme.button(bar, {
+                    x = bx, y = by, w = bw, h = h,
+                    text = it.text, on_click = click,
+                })
+            end
+        end
+    end
 
     uvc_bar = theme.box(main_container, {
-        x = pad, y = y, w = w, h = h, color = theme.C.black, opa = 0,
+        x = x, y = y, w = w, h = bar_h, color = theme.C.black, opa = 0,
     })
-    theme.button(uvc_bar, {
-        x = 0, y = 0, w = bw, h = h,
-        text = "拍照", on_click = function() sys.publish("UVC_CMD", "photo") end,
-    })
-    theme.button(uvc_bar, {
-        x = bw + gap, y = 0, w = bw, h = h,
-        text = "录像", on_click = function() sys.publish("UVC_CMD", "record") end,
-    })
-    theme.ghost_button(uvc_bar, {
-        x = 2 * (bw + gap), y = 0, w = bw, h = h,
-        text = "时长", on_click = function() sys.publish("UVC_CMD", "duration") end,
-    })
-    theme.ghost_button(uvc_bar, {
-        x = 3 * (bw + gap), y = 0, w = bw, h = h,
-        text = "适配", on_click = function() sys.publish("UVC_CMD", "fit") end,
-    })
+    fill(uvc_bar, uvc_items)
 
     if has_face then
         face_bar = theme.box(main_container, {
-            x = pad, y = y, w = w, h = h, color = theme.C.black, opa = 0,
+            x = x, y = y, w = w, h = bar_h, color = theme.C.black, opa = 0,
         })
-        theme.button(face_bar, {
-            x = 0, y = 0, w = bw, h = h,
-            text = "录入", on_click = function() sys.publish("UVC_CMD", "face_register") end,
-        })
-        theme.button(face_bar, {
-            x = bw + gap, y = 0, w = bw, h = h,
-            text = "验证", on_click = function() sys.publish("UVC_CMD", "face_verify") end,
-        })
-        theme.ghost_button(face_bar, {
-            x = 2 * (bw + gap), y = 0, w = bw, h = h,
-            text = "清空", on_click = function() sys.publish("UVC_CMD", "face_clear") end,
-        })
-        theme.ghost_button(face_bar, {
-            x = 3 * (bw + gap), y = 0, w = bw, h = h,
-            text = "版本", on_click = function() sys.publish("UVC_CMD", "face_version") end,
-        })
+        fill(face_bar, face_items)
     end
 
     uvc_bar:set_hidden(face_tab ~= TAB_UVC)
     if face_bar then face_bar:set_hidden(face_tab ~= TAB_FACE) end
+end
+
+-- ==================== 横屏左右结构 ====================
+
+--[[
+供电与接线提示（人脸识别摄像头）：AirCAMERA_1034 用 12VDC 电源头供电，出图走 USB、
+人脸走串口，两根线都要接。摆在右列操作区，只在带 face 子表的机型显示（见文件头【人脸识别】）。
+分隔符只用 ASCII 的 "|"：内置字库不含 "·"(U+00B7)，见 ui_theme「字体能力约束」。]]
+local PWR_TIP = "供电 | 设备使用 12VDC 电源头供电\n接线 | 需接入 USB 接口与串口 共 2 个接口"
+
+-- 提示块内边距（上下左右各留这么多，块本身再带 1px 描边）
+local PWR_TIP_PAD = 8
+
+--[[
+提示块盒高：按 theme.text_lines 估出实际占几行再定盒高（行高 = 字号 + 3），
+估少了文字被裁、估多了只是块高多几像素。先算后摆：右列的间隙要按块高摊余量。]]
+local function power_tip_h(w)
+    local fs = theme.fs("micro") -- 灰字小号；15px 是全工程字号下限
+    local inner_w = w - 2 * PWR_TIP_PAD - 2
+    local lines = 0
+    for seg in string.gmatch(PWR_TIP, "([^\n]+)") do
+        lines = lines + theme.text_lines(seg, inner_w, fs)
+    end
+    return lines * (fs + 3) + 2 * PWR_TIP_PAD
+end
+
+-- 供电与接线提示块：灰字小号多行（文案见 PWR_TIP），返回块高
+local function build_power_tip(x, w, y)
+    local h = power_tip_h(w)
+    local tip = theme.box(main_container, {
+        x = x, y = y, w = w, h = h,
+        color = theme.C.surface, opa = theme.OPA.fill,
+        radius = theme.R.md, border = theme.C.stroke, border_w = 1,
+    })
+    -- 子控件原点是父容器内容区（外框 - 描边），盒宽扣掉描边才不会探出内容区画滚动条
+    theme.label(tip, {
+        x = PWR_TIP_PAD, y = PWR_TIP_PAD,
+        w = w - 2 * PWR_TIP_PAD - 2, h = h - 2 * PWR_TIP_PAD,
+        text = PWR_TIP, px_size = theme.fs("micro"),
+        color = theme.C.t2, align = airui.TEXT_ALIGN_LEFT,
+    })
+    return h
+end
+
+--[[
+横屏左右结构：左列是预览画面区，占满标题栏以下的整段高度；右列自上而下排
+页签 / 状态行 / 供电接线提示 / 控制按钮。控制按钮贴右列底部（与左列预览框下沿齐平），
+余下留白均摊进上方各块之间的间隙，块高本身不变。
+竖屏走 build_ui 下面原有的上下结构（宽度不够，硬拆会把预览挤没）。
+@param card_w 内容区宽（= sw - 2*pad）
+@param y 标题栏下方的起始 y
+@param gap, ctrl_h, status_h 与上下结构同一套控件尺寸
+@param has_face 是否带人脸识别（带则多一页签与供电接线提示）
+]]
+local function build_side_ui(card_w, y, gap, ctrl_h, status_h, has_face)
+    --[[
+    左列 62% 给预览，右列取余下 38%。右列放得下是按实际文字宽度复核过的：
+    两列按钮 bw 约 140px（"拍照" 两字约 32px）、两个页签胶囊各约 140px（"UVC 测试" 约 80px）。]]
+    local left_w = math.floor((card_w - gap) * 0.62)
+    local right_w = card_w - left_w - gap
+    local right_x = pad + left_w + gap
+
+    -- 左列：纯黑底 + 描边，airui.camera 覆盖在上面出画面（同上下结构）
+    local preview_h = sh - y - pad
+    theme.box(main_container, {
+        x = pad, y = y, w = left_w, h = preview_h,
+        color = theme.C.black, opa = 255,
+        radius = theme.R.lg, border = theme.C.stroke, border_w = 1,
+    })
+    preview_area = { x = pad, y = y, w = left_w, h = preview_h }
+
+    -- 右列块高先算好；4 个按钮在窄右列里排 2 列 2 行，栏高按行数铺
+    local tab_h = has_face and theme.dp(36) or 0
+    local tip_h = has_face and power_tip_h(right_w) or 0
+    local bar_h = 2 * ctrl_h + gap
+    local top_h = tab_h + status_h + tip_h
+    local bar_y = sh - pad - bar_h
+    if bar_y < y + top_h + gap then bar_y = y + top_h + gap end
+    local n_gap = has_face and 3 or 1 -- 页签→状态行→提示块→控制栏之间的间隙数
+    local vgap = math.floor((bar_y - y - top_h) / n_gap)
+    if vgap < gap then vgap = gap end
+
+    -- 右列自上而下：页签（有人脸才出）
+    local ry = y
+    if has_face then
+        build_tabs(right_w, ry, tab_h, gap, right_x)
+        ry = ry + tab_h + vgap
+    end
+
+    -- 状态行：宽度跟右列走，update_status 按它截断（见 update_status）
+    status_w = right_w
+    status_label = theme.label(main_container, {
+        x = right_x, y = ry, w = right_w, h = status_h,
+        text = "准备中...", px_size = theme.fs("caption"),
+        color = theme.C.t2, align = airui.TEXT_ALIGN_LEFT,
+    })
+    ry = ry + status_h + vgap
+
+    -- 供电与接线提示（有人脸才出）
+    if has_face then
+        local h = build_power_tip(right_x, right_w, ry)
+        ry = ry + h + vgap
+    end
+
+    -- 控制按钮：贴右列底部
+    build_ctrl_bars(right_w, bar_y, ctrl_h, gap, has_face, right_x, 2)
+
+    --[[组件必须在建界面时就建好并挂上解码通道，早于 excamera.open 开流（见 create_widget）。
+    排到状态行之后再建，建不出组件时的提示才写得进状态行。]]
+    if create_widget() then
+        start_widget()
+    end
 end
 
 local function build_ui()
@@ -1376,6 +1507,12 @@ local function build_ui()
     local gap = theme.dp(10)
     local ctrl_h = theme.dp(50)
     local status_h = theme.fs("caption") + theme.dp(10)
+
+    -- 横屏宽度够，走「左预览 + 右操作区」的左右结构；竖屏走下面的上下结构
+    if sw >= sh then
+        build_side_ui(card_w, y, gap, ctrl_h, status_h, has_face)
+        return
+    end
 
     -- 页签行：预览区之上，只有配了 face 子表才出
     local tab_h = 0
@@ -1505,6 +1642,7 @@ local function on_destroy()
         pcall(main_container.set_hidden, main_container, true)
     end
     request_quit()
+    sys.publish("TEST_WIN_CLOSED")   -- 收口：功能测试页据此断开本页用的接口
 end
 
 local function on_get_focus() end

@@ -19,7 +19,8 @@ static plcui_document_t *xml_arg(lua_State *L)
  * @return userdata|nil 成功返回 XML 界面实例 xml，失败返回 nil
  * @return table|nil 失败时返回错误表
  * @note 需要先调用 plcui.init；图片资源路径相对于 XML 所在目录。
- * @note 成功后替换旧界面，失败保留旧界面。
+ * @note 图片在页面首次使用时完整校验，同一XML实例内复用结果；更新SD资源后重新load。
+ * @note 当前目标页成功后替换旧界面，失败保留旧界面；其他页图片在首次进入时检查。
  * @note 业务事件回调中不能直接加载新 XML，否则返回 E_BUSY。
  */
 int luat_plcui_xml_load(lua_State *L)
@@ -66,7 +67,8 @@ int luat_plcui_xml_load(lua_State *L)
     xml->handlers_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     lua_pop(L, 1);
     plcui_error_t error;
-    if (!luat_plcui_parse(xml, path, &error) || !luat_plcui_show(xml, luat_plcui_page_index(xml, xml->entry), &error)) {
+    if (!luat_plcui_parse(xml, path, &error)
+        || !luat_plcui_show(xml, luat_plcui_page_index(xml, xml->entry), &error)) {
         luat_plcui_close(xml);
         return luat_plcui_push_error(L, &error);
     }

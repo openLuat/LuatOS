@@ -58,9 +58,9 @@
 | 24 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M3 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；UVC摄像头(USB出图)；SD卡 | Engine_Air8603M3_10inch_1024x600_000_4G_V000 | | |
 | 25 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M4 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603M4_10inch_1024x600_000_4G_V000 | | |
 | 26 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M5 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603M5_10inch_1024x600_000_4G_V000 | | |
-| 27 | Air1603 | 引擎主机 | Air8603W | 1024*600 10寸RGB触摸屏(HX8282)；WiFi(Airlink 601S, SPI5)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2)；摄像头画面 rotation = 270；SD卡；USB HID/UVC 二选一 | Engine_Air8607W_10inch_1024x600_000_V000 | | |
-| 28 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；WiFi(Airlink 6205, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 270；SD卡 | Engine_Air8601_7inch_1024x600_010_WiFi_V000 | | |
-| 29 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；4G(Airlink 780ER2, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 270；SD卡 | Engine_Air8601_7inch_1024x600_010_4G_V000 | | |
+| 27 | Air1603 | 引擎主机 | Air8603W | 1024*600 10寸RGB触摸屏(HX8282)；WiFi(Airlink 601S, SPI5)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2)；摄像头画面 rotation = 90；SD卡；USB HID/UVC 二选一 | Engine_Air8607W_10inch_1024x600_000_V000 | | |
+| 28 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；WiFi(Airlink 6205, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 90；SD卡 | Engine_Air8601_7inch_1024x600_010_WiFi_V000 | | |
+| 29 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；4G(Airlink 780ER2, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 90；SD卡 | Engine_Air8601_7inch_1024x600_010_4G_V000 | | |
 
 ---
 
@@ -176,9 +176,10 @@ return {
         -- 摄像头常供电、无独立使能脚（8603W3~W5 / M3~M5 的普通 USB UVC 摄像头）时省掉 en_pin：
         -- { type = "uvc", id = "uvc1", name = "UVC摄像头", title = "摄像头",
         --   ready_delay = 200, w = 800, h = 480, rotation = 270 },
-        -- 摄像头是人脸识别模组（AirCAMERA_1034）时把上一条换成下面这条（见 6.6）：
+        -- 摄像头是人脸识别模组（AirCAMERA_1034）时把上一条换成下面这条（见 6.6），
+        -- 带人脸识别摄像头的机型一律写 90（顺时针 90，与 8603 人脸型号一致）：
         -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
-        --   en_pin = 73, ready_delay = 200, rotation = 270,
+        --   en_pin = 73, ready_delay = 200, rotation = 90,
         --   face = { uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15 } },
         { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65,
           power_pin = 14, baud = 9600 },
@@ -355,7 +356,9 @@ UART 走人脸协议（录入 / 验证 / 删除全部 / 版本），两条通路
 eng_8605w_10i_v0 / eng_8605m_10i_v0（隔离 485 一路 + Air1103 录音播放）/
 eng_8605b_10i_v0（双隔离 485，UART1/UART6）/ eng_8607a_10i_v0 /
 eng_8601_7i_wifi / eng_8601_7i_4g（8601 的 UVC_EN = GPIO73，摄像头是人脸识别模组；
-uvc 条目已写 `rotation = 270`，画面逆时针 90 度，与 8603 全系、8607W 一致，
+uvc 条目写 `rotation = 90`（顺时针 90）；
+带人脸识别摄像头的机型（8601 / 8603W1 / W2 / M1 / M2 / 8605 / 8607W）一律 90，
+8603W3~W5 / M3~M5 等普通 USB UVC 摄像头是 270，
 人脸页签不写 `face.rotation`、自动沿用条目的值，见配置文件头第 12、14 条）/
 eng_8602_9i_wifi / eng_8602_9i_4g（双路 485，无独立供电脚）/
 eng_8603w1_10i_v0 / eng_8603w2_10i_v0 / eng_8603m1_10i_v0 / eng_8603m2_10i_v0

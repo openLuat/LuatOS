@@ -3,12 +3,15 @@
 #include "zenoh-pico.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 static z_owned_session_t session;
 static char output[256];
 static int done, failed;
 static unsigned received;
 static void peer_fail(int line) { failed = 1; fprintf(stderr, "PEER_FAIL line=%d\n", line); fflush(stderr); }
-static int two_rounds, get_mode;
+static int two_rounds, get_mode, payload_mode;
+static z_owned_slice_t device_expected;
+static int have_device_expected;
 static unsigned get_received, device_get_count;
 static char status_key[256], device_key[256];
 static z_owned_query_t held[4];
@@ -61,7 +64,13 @@ static void query_server(z_loaned_query_t *query, void *context) {
     }
     if (!strcmp(mode, "error")) {
         z_owned_bytes_t value;
-        if (z_bytes_copy_from_buf(&value, (const unsigned char *)"peer-error", 10) < 0 ||
+        const z_loaned_bytes_t *request = z_query_payload(query);
+        z_owned_slice_t data;
+        if (payload_mode && (!request || z_bytes_to_slice(request, &data) < 0)) { peer_fail(__LINE__); return; }
+        int copied = z_bytes_copy_from_buf(&value, payload_mode ? z_slice_data(z_loan(data)) : (const unsigned char *)"peer-error",
+                                          payload_mode ? z_slice_len(z_loan(data)) : 10);
+        if (payload_mode) z_drop(z_move(data));
+        if (copied < 0 ||
             z_query_reply_err(query, z_move(value), NULL) < 0) peer_fail(__LINE__);
         return;
     }
@@ -81,15 +90,20 @@ static void device_reply(z_loaned_reply_t *reply, void *context) {
     if (!z_reply_is_ok(reply)) {
         z_owned_slice_t error;
         if (z_bytes_to_slice(z_reply_err_payload(z_reply_err(reply)), &error) == 0) {
-            fprintf(stderr, "DEVICE_GET_ERROR %.*s\n", (int)z_slice_len(z_loan(error)), z_slice_data(z_loan(error)));
+            /* 无回复过期用例允许SDK合成Timeout；其它请求仍由Lua严格核回复数。 */
+            int empty_timeout = payload_mode && !device_replies && z_slice_len(z_loan(error)) == 7 &&
+                                !memcmp(z_slice_data(z_loan(error)), "Timeout", 7);
+            if (!empty_timeout) fprintf(stderr, "DEVICE_GET_ERROR %.*s\n", (int)z_slice_len(z_loan(error)), z_slice_data(z_loan(error)));
             z_drop(z_move(error));
+            if (empty_timeout) return;
         }
         peer_fail(__LINE__); return;
     }
     z_owned_slice_t value;
     if (z_bytes_to_slice(z_sample_payload(z_reply_ok(reply)), &value) < 0) { peer_fail(__LINE__); return; }
-    if (z_slice_len(z_loan(value)) != sizeof(expected)-1 ||
-        memcmp(z_slice_data(z_loan(value)), expected, sizeof(expected)-1)) peer_fail(__LINE__);
+    size_t length = payload_mode ? z_slice_len(z_loan(device_expected)) : sizeof(expected)-1;
+    const unsigned char *data = payload_mode ? z_slice_data(z_loan(device_expected)) : expected;
+    if (z_slice_len(z_loan(value)) != length || (length && memcmp(z_slice_data(z_loan(value)), data, length))) peer_fail(__LINE__);
     else device_replies++;
     z_drop(z_move(value));
 }
@@ -101,9 +115,37 @@ static void device_done(void *context) {
     if (z_bytes_copy_from_buf(&value, (const unsigned char *)text, (size_t)length) < 0 ||
         z_put(z_loan(session), z_loan(key), z_move(value), NULL) < 0) peer_fail(__LINE__);
     device_get_count++; device_pending = 0;
+    if (have_device_expected) { z_drop(z_move(device_expected)); have_device_expected = 0; }
 }
 static void control_get(z_loaned_sample_t *sample, void *context) {
     (void)context;
+    int attachment_test = 0;
+    if (payload_mode) {
+        z_owned_slice_t control;
+        if (z_bytes_to_slice(z_sample_payload(sample), &control) < 0) { peer_fail(__LINE__); return; }
+        size_t cn = z_slice_len(z_loan(control));
+        int oversized = cn == 12 && !memcmp(z_slice_data(z_loan(control)), "__oversize__", 12);
+        int maximum = cn == 7 && !memcmp(z_slice_data(z_loan(control)), "__max__", 7);
+        int burst = cn == 9 && !memcmp(z_slice_data(z_loan(control)), "__burst__", 9);
+        attachment_test = cn == 14 && !memcmp(z_slice_data(z_loan(control)), "__attachment__", 14);
+        z_drop(z_move(control));
+        if (oversized || burst || maximum) {
+            size_t n = 262144U + (oversized ? 1U : 0U);
+            unsigned char *data = malloc(n);
+            if (!data) { peer_fail(__LINE__); return; }
+            memset(data, 'B', n);
+            z_put_options_t put_options; z_put_options_default(&put_options);
+            /* 积压反例要求数据到达被测绑定，不能在router默认DROP策略处丢掉。 */
+            put_options.congestion_control = Z_CONGESTION_CONTROL_BLOCK;
+            for (int i = 0; i < (burst ? 3 : 1); ++i) {
+                z_owned_bytes_t value; z_view_keyexpr_t target; z_view_keyexpr_from_str(&target, output);
+                if (z_bytes_copy_from_buf(&value, data, n) < 0 ||
+                    z_put(z_loan(session), z_loan(target), z_move(value), &put_options) < 0) peer_fail(__LINE__);
+            }
+            printf("CONTROL_SENT %s %zu\n", burst ? "burst3" : oversized ? "oversize" : "maximum", n); fflush(stdout);
+            free(data); return;
+        }
+    }
     if (device_pending) { peer_fail(__LINE__); return; }
     z_view_keyexpr_t key; z_view_keyexpr_from_str(&key, device_key);
     z_owned_closure_reply_t closure; z_closure(&closure, device_reply, device_done, NULL);
@@ -111,7 +153,22 @@ static void control_get(z_loaned_sample_t *sample, void *context) {
     /* 对端期限须晚于被测owned-query的5秒清场，避免先被router超时。 */
     options.timeout_ms = 7000; options.consolidation = z_query_consolidation_none();
     static const unsigned char request[] = "peer\0query\377";
-    z_owned_bytes_t value; if (z_bytes_copy_from_buf(&value, request, sizeof(request)-1) < 0) { peer_fail(__LINE__); return; }
+    z_owned_bytes_t value, attachment;
+    if (payload_mode) {
+        if (attachment_test) {
+            unsigned char *bytes = malloc(131072);
+            if (!bytes) { peer_fail(__LINE__); return; }
+            memset(bytes, 'A', 131072);
+            int rc = z_slice_copy_from_buf(&device_expected, bytes, 131072);
+            if (rc == 0) rc = z_bytes_copy_from_buf(&attachment, bytes, 131072);
+            free(bytes);
+            if (rc < 0) { peer_fail(__LINE__); return; }
+            options.attachment = z_move(attachment);
+        } else if (z_bytes_to_slice(z_sample_payload(sample), &device_expected) < 0) { peer_fail(__LINE__); return; }
+        have_device_expected = 1;
+    }
+    if (z_bytes_copy_from_buf(&value, payload_mode ? z_slice_data(z_loan(device_expected)) : request,
+                             payload_mode ? z_slice_len(z_loan(device_expected)) : sizeof(request)-1) < 0) { peer_fail(__LINE__); return; }
     options.payload = z_move(value); device_replies = 0; device_pending = 1;
     (void)sample;
     if (z_get(z_loan(session), z_loan(key), "source=peer", z_move(closure), &options) < 0) peer_fail(__LINE__);
@@ -122,6 +179,7 @@ int main(int argc, char **argv) {
     if (argc == 4) {
         if (!strcmp(argv[3], "--two-rounds")) two_rounds = 1;
         else if (!strcmp(argv[3], "--get")) get_mode = 1;
+        else if (!strcmp(argv[3], "--payload")) payload_mode = get_mode = 1;
         else return 2;
     }
     z_owned_config_t config; if (z_config_default(&config) < 0) return 2;

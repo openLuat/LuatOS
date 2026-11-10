@@ -1,8 +1,8 @@
 --[[
 @module  net_storage
 @summary 网络开关存储模块（fskv封装）
-@version 1.0
-@date    2026.10.29
+@version 1.1
+@date    2026.11.09
 @author  江访
 @usage
 net_storage.init()                          初始化 fskv 并读取网络开关
@@ -15,13 +15,16 @@ net_storage.reset()                         清除网络开关记录，恢复默
 
 存储键 CONFIG_KEY = "net_app_config"，结构：
     net_app_config = {
-        version = 1,
+        version = 2,
         enabled = { ["eth_spi"] = true, ["wifi_airlink_spi"] = false },
     }
-键或字段缺失时按 true 处理。
+键或字段缺失时按 true 处理（WiFi 组同样默认开启）。
+v1 → v2 迁移：v1 曾把 wifi_app_config.wifi_enabled 这个旧镜像当 WiFi 默认值落盘，
+迁移时把 WiFi 组开关一次性恢复开启，避免仅 WiFi 机型首启即「已关闭」还得重启才能用。
 
 type 属 wifi 组时同步 wifi_app_config.wifi_enabled，两个开关保持同值。
 wifi_app_config 由 wifi_storage 统一维护，这里只改 wifi_enabled 字段并通知。
+开关真源是本模块；wifi_app_real 开机按 NET_APP_CONFIG 对齐后再决定是否自动连接。
 
 发布的事件：
     NET_CONFIG_CHANGED: { changed = { type_name, ... } }
@@ -29,7 +32,8 @@ wifi_app_config 由 wifi_storage 统一维护，这里只改 wifi_enabled 字段
 
 local CONFIG_KEY = "net_app_config"
 local WIFI_CONFIG_KEY = "wifi_app_config"
-local CONFIG_VERSION = 1
+-- v2：WiFi 组默认开启，并修正 v1 把旧镜像值写成「已关闭」的记录
+local CONFIG_VERSION = 2
 
 local net_storage = {}
 
@@ -81,12 +85,16 @@ end
 
 --[[
 @function load_from_fskv
-@summary 从 fskv 加载网络开关
+@summary 从 fskv 加载网络开关，并把 v1 记录迁移到 v2
+@note v1 曾把 wifi_app_config.wifi_enabled（旧固件默认 false 的镜像）当成 WiFi 默认值并落盘，
+      结果仅 WiFi 机型首次开机就被记成「已关闭」，用户只能进网络设置打开再重启。
+      v1→v2 迁移把 WiFi 组开关一次性恢复成开启，之后的用户操作不再被覆盖。
 ]]
 local function load_from_fskv()
     local ok, saved = pcall(fskv.get, CONFIG_KEY)
     if ok and type(saved) == "table" then
-        config.version = tonumber(saved.version) or CONFIG_VERSION
+        local saved_version = tonumber(saved.version) or 1
+        config.version = saved_version
         if type(saved.enabled) == "table" then
             for type_name, enable in pairs(saved.enabled) do
                 if type(type_name) == "string" then
@@ -94,7 +102,17 @@ local function load_from_fskv()
                 end
             end
         end
-        log.info("net_storage", "网络开关加载成功")
+        log.info("net_storage", "网络开关加载成功, version:", saved_version)
+        if saved_version < CONFIG_VERSION then
+            for type_name in pairs(config.enabled) do
+                if is_wifi_type(type_name) then
+                    config.enabled[type_name] = true
+                end
+            end
+            config.version = CONFIG_VERSION
+            save_to_fskv()
+            log.info("net_storage", "网络开关已迁移到 v" .. CONFIG_VERSION, "WiFi 组恢复开启")
+        end
     else
         log.info("net_storage", "无网络开关记录，使用默认全开")
     end
@@ -116,24 +134,19 @@ end
 --[[
 按网络列表补齐默认开关，已存在的开关不覆盖
 @param table type_list - 网络类型名列表，元素为 string 或 { type = "eth_spi" }
+@note 缺失记录一律默认开启（含 WiFi），与 WiFi 业务层默认值保持一致：
+      仅 WiFi / 仅 4G 机型首次开机就能直接联网，不需要先开开关再重启。
+      这里不再从 wifi_app_config.wifi_enabled 迁移取值——那只是本模块写出的镜像，
+      老固件残留的 false 会让网络设置页开关、WiFi 连接管理两处状态互相打架。
 ]]
 function net_storage.load(type_list)
     if type(type_list) ~= "table" then return end
-    local wifi_default = nil
-    local ok_cfg, wifi_cfg = pcall(fskv.get, WIFI_CONFIG_KEY)
-    if ok_cfg and type(wifi_cfg) == "table" and wifi_cfg.wifi_enabled ~= nil then
-        wifi_default = (wifi_cfg.wifi_enabled == true)
-    end
     local changed = false
     for _, item in ipairs(type_list) do
         local type_name = (type(item) == "table") and item.type or item
         if type(type_name) == "string" and type_name ~= ""
             and config.enabled[type_name] == nil then
-            if is_wifi_type(type_name) and wifi_default ~= nil then
-                config.enabled[type_name] = wifi_default
-            else
-                config.enabled[type_name] = true
-            end
+            config.enabled[type_name] = true
             changed = true
         end
     end

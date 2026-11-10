@@ -117,15 +117,29 @@ local function build_info_card(parent, x, y, w, h)
     }
 
     local row_h = math.max(theme.dp(30), math.floor((h - pad * 2 - theme.dp(24)) / math.max(1, #rows)))
+    local fs = theme.fs("caption")
+    local lh = fs + 3
+    local tx = theme.dp(10)
+    local inner = w - 2 * pad
     for i, r in ipairs(rows) do
-        theme.row(card, {
-            x = pad, y = pad + theme.dp(24) + (i - 1) * row_h, w = w - 2 * pad, h = row_h,
-            text = r[1], sub = nil, right = r[2], right_w = math.floor(w * 0.62),
-            px_size = theme.fs("caption"), right_px = theme.fs("caption"),
-            right_color = theme.C.t1,
+        local y0 = pad + theme.dp(24) + (i - 1) * row_h
+        local key_w = theme.text_width(r[1], fs) + theme.dp(8)
+        local val_w = inner - tx - theme.dp(12) - key_w
+        -- 值列吃掉左标题之外的整行宽度，一行放不下就折行，折到行高装得下为止
+        local lines = math.max(1, math.ceil(theme.text_width(r[2], fs) / math.max(1, val_w)))
+        if lh * lines > row_h then lines = math.max(1, math.floor(row_h / lh)) end
+        theme.label(card, {
+            x = pad + tx, y = y0 + math.floor((row_h - lh) / 2), w = key_w, h = lh,
+            text = r[1], px_size = fs, color = theme.C.t1,
+        })
+        theme.label(card, {
+            x = pad + inner - val_w, y = y0 + math.floor((row_h - lh * lines) / 2),
+            w = val_w, h = lh * lines,
+            text = theme.fit_text(r[2], val_w, fs, lines), px_size = fs,
+            color = theme.C.t1, align = airui.TEXT_ALIGN_RIGHT,
         })
         if i < #rows then
-            theme.divider(card, { x = pad, y = pad + theme.dp(24) + i * row_h, w = w - 2 * pad })
+            theme.divider(card, { x = pad, y = y0 + row_h, w = inner })
         end
     end
     return card

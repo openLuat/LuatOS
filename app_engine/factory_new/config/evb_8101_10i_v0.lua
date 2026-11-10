@@ -154,4 +154,4 @@ return {
         pin_irq = 9,                 -- ETH_INT=GPIO9（CH390H 中断引脚）
         -- pin_pwr = 53,             -- 供电已由 power_on 的 LAN_EN 处理，不重复配置
     },
-}
+}

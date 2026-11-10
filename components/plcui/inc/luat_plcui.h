@@ -80,6 +80,7 @@ typedef struct {
     char builtin[PLCUI_ID_MAX];
     const lv_font_t *font;
     uint32_t decoded_bytes;
+    bool image_validated; /* Immutable resource for this XML instance; reload to update. */
 } plcui_resource_t;
 
 typedef struct plcui_document plcui_document_t;

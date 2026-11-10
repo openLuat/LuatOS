@@ -3,33 +3,66 @@
 #include "luat_plcui.h"
 #include "luat_msgbus.h"
 #include "luat_mcu.h"
-#include <stdatomic.h>
 #include <limits.h>
 #include <string.h>
 #include <stdio.h>
 
 static plcui_runtime_t runtime;
 
-/* Timer-thread shared state is atomic. High 32 bits identify the session; low
-   32 bits are its next monotonic deadline. No queued message holds a document. */
-static atomic_uint_fast64_t refresh_schedule;
-static atomic_uint refresh_pending;
+/* Protect the complete token, including on 32-bit MCUs without 64-bit atomics.
+   No allocation, queue operation, Lua or LVGL call occurs inside this lock. */
+static uint64_t refresh_schedule;
+static unsigned refresh_pending;
+
+static uint64_t schedule_load(void)
+{
+    uint32_t lock = plcui_platform_state_lock();
+    uint64_t value = refresh_schedule;
+    plcui_platform_state_unlock(lock);
+    return value;
+}
+
+static uint64_t schedule_exchange(uint64_t value)
+{
+    uint32_t lock = plcui_platform_state_lock();
+    uint64_t previous = refresh_schedule;
+    refresh_schedule = value;
+    plcui_platform_state_unlock(lock);
+    return previous;
+}
+
+static void pending_store(unsigned value)
+{
+    uint32_t lock = plcui_platform_state_lock();
+    refresh_pending = value;
+    plcui_platform_state_unlock(lock);
+}
+
+static bool pending_compare_exchange(unsigned *expected, unsigned value)
+{
+    uint32_t lock = plcui_platform_state_lock();
+    bool equal = refresh_pending == *expected;
+    if (equal) refresh_pending = value;
+    else *expected = refresh_pending;
+    plcui_platform_state_unlock(lock);
+    return equal;
+}
 static unsigned refresh_generation;
 static uint32_t refresh_epoch_ms;
 
-static uint_fast64_t refresh_token(unsigned generation, uint32_t deadline)
+static uint64_t refresh_token(unsigned generation, uint32_t deadline)
 {
-    return ((uint_fast64_t)generation << 32) | deadline;
+    return ((uint64_t)generation << 32) | deadline;
 }
 
 static int refresh_message(lua_State *L, void *parameter)
 {
     (void)L;
     unsigned generation = (unsigned)(uintptr_t)parameter;
-    uint_fast64_t schedule = atomic_load(&refresh_schedule);
+    uint64_t schedule = schedule_load();
     if ((unsigned)(schedule >> 32) != generation || !runtime.initialized) return 0;
     unsigned expected = generation;
-    atomic_compare_exchange_strong(&refresh_pending, &expected, 0);
+    pending_compare_exchange(&expected, 0);
     uint32_t now = (uint32_t)luat_mcu_tick64_ms();
     if ((int32_t)(now - (uint32_t)schedule) < 0) return 0;
 
@@ -38,7 +71,7 @@ static int refresh_message(lua_State *L, void *parameter)
     uint32_t elapsed = now - refresh_epoch_ms;
     uint64_t next_frame = (uint64_t)elapsed * PLCUI_REFRESH_RATE_HZ / 1000U + 1U;
     uint32_t offset = (uint32_t)((next_frame * 1000U + PLCUI_REFRESH_RATE_HZ - 1U) / PLCUI_REFRESH_RATE_HZ);
-    atomic_store(&refresh_schedule, refresh_token(generation, refresh_epoch_ms + offset));
+    schedule_exchange(refresh_token(generation, refresh_epoch_ms + offset));
 
     /* Only this display uses the 60Hz gate. A paused, unchanged display stays
        paused; a dirty display can render at the next scheduled frame. */
@@ -58,18 +91,18 @@ static int refresh_message(lua_State *L, void *parameter)
 static void refresh_tick(void *parameter)
 {
     unsigned generation = (unsigned)(uintptr_t)parameter;
-    uint_fast64_t schedule = atomic_load(&refresh_schedule);
+    uint64_t schedule = schedule_load();
     if ((unsigned)(schedule >> 32) != generation) return;
     uint32_t now = (uint32_t)luat_mcu_tick64_ms();
     if ((int32_t)(now - (uint32_t)schedule) < 0) return;
     unsigned expected = 0;
-    if (!atomic_compare_exchange_strong(&refresh_pending, &expected, generation)) return;
+    if (!pending_compare_exchange(&expected, generation)) return;
 
     /* A stop/restart may race with this callback. Never clear another session's
        pending flag, and leave stale messages harmless in the main-thread queue. */
-    if ((unsigned)(atomic_load(&refresh_schedule) >> 32) != generation) {
+    if ((unsigned)(schedule_load() >> 32) != generation) {
         expected = generation;
-        atomic_compare_exchange_strong(&refresh_pending, &expected, 0);
+        pending_compare_exchange(&expected, 0);
         return;
     }
     rtos_msg_t message = {
@@ -80,7 +113,7 @@ static void refresh_tick(void *parameter)
     };
     if (luat_msgbus_put(&message, 0) != 0) {
         expected = generation;
-        atomic_compare_exchange_strong(&refresh_pending, &expected, 0);
+        pending_compare_exchange(&expected, 0);
     }
 }
 
@@ -89,10 +122,10 @@ bool luat_plcui_start_refresh(void)
     if (runtime.auto_refresh) return true;
     refresh_generation = refresh_generation >= INT_MAX ? 1U : refresh_generation + 1U;
     refresh_epoch_ms = (uint32_t)luat_mcu_tick64_ms();
-    atomic_store(&refresh_pending, 0);
-    atomic_store(&refresh_schedule, refresh_token(refresh_generation, refresh_epoch_ms + PLCUI_REFRESH_PERIOD_MS));
+    pending_store(0);
+    schedule_exchange(refresh_token(refresh_generation, refresh_epoch_ms + PLCUI_REFRESH_PERIOD_MS));
     if (plcui_platform_timer_start(PLCUI_HANDLER_PERIOD_MS, refresh_tick, (void *)(uintptr_t)refresh_generation) != 0) {
-        atomic_store(&refresh_schedule, 0);
+        schedule_exchange(0);
         return false;
     }
     runtime.auto_refresh = true;
@@ -101,9 +134,9 @@ bool luat_plcui_start_refresh(void)
 
 void luat_plcui_stop_refresh(void)
 {
-    unsigned generation = (unsigned)(atomic_exchange(&refresh_schedule, 0) >> 32);
+    unsigned generation = (unsigned)(schedule_exchange(0) >> 32);
     unsigned expected = generation;
-    if (generation) atomic_compare_exchange_strong(&refresh_pending, &expected, 0);
+    if (generation) pending_compare_exchange(&expected, 0);
     plcui_platform_timer_stop();
     runtime.auto_refresh = false;
 }
@@ -247,6 +280,9 @@ void luat_plcui_deinit(void)
     lua_pushnil(runtime.L);
     lua_setfield(runtime.L, LUA_REGISTRYINDEX, "plcui_active");
     plcui_platform_deinit();
+    plcui_platform_image_deinit();
+    lua_pushnil(runtime.L);
+    lua_setfield(runtime.L, LUA_REGISTRYINDEX, "plcui_touch");
     lv_deinit();
     memset(&runtime, 0, sizeof(runtime));
 }

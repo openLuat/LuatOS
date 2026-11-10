@@ -10,6 +10,9 @@
 #ifdef LUAT_ZENOH_TEST_BARRIERS
 /* 仅主机回归控制真实线程交错，目标构建不包含此屏障。 */
 extern void luat_zp_test_barrier(int point, uint32_t generation);
+extern void luat_zp_test_payload_alloc(int sending, size_t length);
+extern void luat_zp_test_command(uint32_t generation, uint32_t id, int op);
+extern void luat_zp_test_sample(size_t length);
 #define ZP_TEST_POINT(p, g) luat_zp_test_barrier(p, g)
 #else
 #define ZP_TEST_POINT(p, g) ((void)0)
@@ -20,7 +23,7 @@ typedef struct {
     int op;
     size_t length;
     char key[LUAT_ZP_KEY_MAX + 1];
-    uint8_t payload[LUAT_ZP_PAYLOAD_MAX];
+    uint8_t *payload;
     char parameters[LUAT_ZP_PARAMETERS_MAX + 1];
 } command_t;
 typedef struct {
@@ -32,12 +35,73 @@ typedef struct {
 static luat_rtos_queue_t commands, events;
 static luat_rtos_task_handle worker_handle;
 static atomic_uint active, wanted, state, dropped, io_failed, rng_failed;
+static atomic_uint tx_bytes, rx_bytes, tx_peak, rx_peak, tx_rejected, rx_rejected;
 static atomic_flag command_gate = ATOMIC_FLAG_INIT;
 static uint32_t next_generation;
 static int adapter_index;
 static char locator[320];
 /* 首次故障冻结；清场错误不可覆盖原阶段，也不保存key或payload。 */
 static luat_zp_io_failure_t io_diagnostic;
+
+/* 先预留再分配，出队仍占额度；只在所有者释放时归还，重开不清零。 */
+static int reserve_payload(atomic_uint *used, atomic_uint *peak, atomic_uint *rejected,
+                           size_t length, unsigned limit) {
+    unsigned before = atomic_load(used);
+    for (;;) {
+        if (length > limit || before > limit - length) {
+            atomic_fetch_add(rejected, 1); return -10;
+        }
+        unsigned after = before + (unsigned)length;
+        if (atomic_compare_exchange_weak(used, &before, after)) {
+            unsigned high = atomic_load(peak);
+            while (high < after && !atomic_compare_exchange_weak(peak, &high, after)) {}
+            return 0;
+        }
+    }
+}
+static int payload_alloc(uint8_t **out, size_t length, int sending) {
+    *out = NULL;
+    if (!length) return 0;
+    atomic_uint *used = sending ? &tx_bytes : &rx_bytes;
+    atomic_uint *rejected = sending ? &tx_rejected : &rx_rejected;
+    int rc = reserve_payload(used, sending ? &tx_peak : &rx_peak, rejected, length,
+                            sending ? LUAT_ZP_TX_PAYLOAD_BUDGET : LUAT_ZP_RX_PAYLOAD_BUDGET);
+    if (rc) return rc;
+#ifdef LUAT_ZENOH_TEST_BARRIERS
+    luat_zp_test_payload_alloc(sending, length);
+#endif
+    *out = luat_heap_malloc(length);
+    if (!*out) {
+        atomic_fetch_sub(used, (unsigned)length); atomic_fetch_add(rejected, 1); return -3;
+    }
+    return 0;
+}
+static void payload_free(uint8_t *payload, size_t length, atomic_uint *used) {
+    if (payload) { luat_heap_free(payload); atomic_fetch_sub(used, (unsigned)length); }
+}
+static void command_free(command_t *c) {
+    if (c) { payload_free(c->payload, c->length, &tx_bytes); luat_heap_free(c); }
+}
+void luat_zenoh_pico_event_free(luat_zp_event_t *e) {
+    if (e) { payload_free(e->payload, e->payload_len, &rx_bytes); luat_heap_free(e); }
+}
+void luat_zenoh_pico_payload_stats(luat_zp_payload_stats_t *s) {
+    s->tx_bytes = atomic_load(&tx_bytes); s->rx_bytes = atomic_load(&rx_bytes);
+    s->tx_peak = atomic_load(&tx_peak); s->rx_peak = atomic_load(&rx_peak);
+    s->tx_rejected = atomic_load(&tx_rejected); s->rx_rejected = atomic_load(&rx_rejected);
+}
+static int event_payload(luat_zp_event_t *e, const z_loaned_bytes_t *bytes) {
+    size_t length = bytes ? z_bytes_len(bytes) : 0;
+    if (length > LUAT_ZP_PAYLOAD_MAX) return -2;
+    int rc = payload_alloc(&e->payload, length, 0);
+    if (rc) return rc;
+    e->payload_len = length;
+    if (length) {
+        z_bytes_reader_t reader = z_bytes_get_reader(bytes);
+        if (z_bytes_reader_read(&reader, e->payload, length) != length) return -2;
+    }
+    return 0;
+}
 
 /* 保护接纳、关闭与状态发布；不在门内执行SDK或网络操作。 */
 static void command_gate_enter(void) {
@@ -89,7 +153,7 @@ static luat_zp_event_t *new_event(uint32_t gen, uint32_t id, const char *kind, i
 static int post(luat_zp_event_t *e) {
     if (!e) return -1;
     if (luat_rtos_queue_send(events, &e, sizeof(e), 0) != 0) {
-        luat_heap_free(e); atomic_fetch_add(&dropped, 1); return -1;
+        luat_zenoh_pico_event_free(e); atomic_fetch_add(&dropped, 1); return -1;
     }
     luat_zenoh_pico_wake();
     return 0;
@@ -97,7 +161,6 @@ static int post(luat_zp_event_t *e) {
 int luat_zenoh_pico_pop(luat_zp_event_t **e) {
     return events ? luat_rtos_queue_recv(events, e, sizeof(*e), 0) : -1;
 }
-void luat_zenoh_pico_event_free(luat_zp_event_t *e) { luat_heap_free(e); }
 
 static void on_sample(z_loaned_sample_t *sample, void *context) {
     subscriber_t *sub = context;
@@ -105,17 +168,19 @@ static void on_sample(z_loaned_sample_t *sample, void *context) {
     z_view_string_t key;
     if (z_keyexpr_as_view_string(z_sample_keyexpr(sample), &key) < 0) return;
     size_t kn = z_string_len(z_loan(key)), pn = z_bytes_len(z_sample_payload(sample));
+#ifdef LUAT_ZENOH_TEST_BARRIERS
+    luat_zp_test_sample(pn);
+#endif
     if (kn > LUAT_ZP_KEY_MAX || pn > LUAT_ZP_PAYLOAD_MAX) {
         atomic_fetch_add(&dropped, 1); return;
     }
     luat_zp_event_t *e = new_event(sub->generation, 0, "sample", 0);
     if (!e) return;
-    e->subscriber = sub->id; e->key_len = kn; e->payload_len = pn;
+    e->subscriber = sub->id; e->key_len = kn;
     e->operation = z_sample_kind(sample) == Z_SAMPLE_KIND_DELETE ? "delete" : "put";
     memcpy(e->key, z_string_data(z_loan(key)), kn);
-    z_bytes_reader_t reader = z_bytes_get_reader(z_sample_payload(sample));
-    if (z_bytes_reader_read(&reader, e->payload, pn) != pn) {
-        luat_heap_free(e); atomic_fetch_add(&dropped, 1); return;
+    if (event_payload(e, z_sample_payload(sample))) {
+        luat_zenoh_pico_event_free(e); atomic_fetch_add(&dropped, 1); return;
     }
     post(e);
 }
@@ -137,6 +202,7 @@ typedef struct {
     z_owned_query_t value;
     uint32_t generation, id, queryable;
     uint64_t deadline;
+    size_t retained_bytes;
     int used;
 } pending_query_t;
 static request_t requests[LUAT_ZP_GET_MAX];
@@ -147,11 +213,10 @@ static int event_sample(luat_zp_event_t *e, const z_loaned_sample_t *sample) {
     z_view_string_t key;
     if (z_keyexpr_as_view_string(z_sample_keyexpr(sample), &key) < 0) return -2;
     e->key_len = z_string_len(z_loan(key));
-    e->payload_len = z_bytes_len(z_sample_payload(sample));
-    if (e->key_len > LUAT_ZP_KEY_MAX || e->payload_len > LUAT_ZP_PAYLOAD_MAX) return -2;
+    if (e->key_len > LUAT_ZP_KEY_MAX) return -2;
     memcpy(e->key, z_string_data(z_loan(key)), e->key_len);
-    z_bytes_reader_t reader = z_bytes_get_reader(z_sample_payload(sample));
-    if (z_bytes_reader_read(&reader, e->payload, e->payload_len) != e->payload_len) return -2;
+    int rc = event_payload(e, z_sample_payload(sample));
+    if (rc) return rc;
     e->operation = z_sample_kind(sample) == Z_SAMPLE_KIND_DELETE ? "delete" : "put";
     return 0;
 }
@@ -178,20 +243,21 @@ static void on_get_reply(z_loaned_reply_t *reply, void *context) {
     if (!r->used || r->terminal || atomic_load(&wanted) != r->generation) return;
     if (luat_mcu_tick64_ms() >= r->deadline) { request_terminal(r, "timeout", -12); return; }
     luat_zp_event_t *e = new_event(r->generation, r->id, "get_reply", 0);
-    if (!e) return;
+    if (!e) { request_terminal(r, "resource_limit", -3); return; }
     e->request = r->id;
+    int rc;
     if (z_reply_is_ok(reply)) {
-        if (event_sample(e, z_reply_ok(reply))) { luat_heap_free(e); atomic_fetch_add(&dropped, 1); return; }
+        rc = event_sample(e, z_reply_ok(reply));
     } else {
         const z_loaned_bytes_t *payload = z_reply_err_payload(z_reply_err(reply));
-        e->code = -11; e->operation = "error"; e->payload_len = z_bytes_len(payload);
-        if (e->payload_len > LUAT_ZP_PAYLOAD_MAX) { luat_heap_free(e); atomic_fetch_add(&dropped, 1); return; }
-        z_bytes_reader_t reader = z_bytes_get_reader(payload);
-        if (z_bytes_reader_read(&reader, e->payload, e->payload_len) != e->payload_len) {
-            luat_heap_free(e); atomic_fetch_add(&dropped, 1); return;
-        }
+        e->code = -11; e->operation = "error";
+        rc = event_payload(e, payload);
     }
-    post(e);
+    if (rc) {
+        luat_zenoh_pico_event_free(e); atomic_fetch_add(&dropped, 1);
+        request_terminal(r, "resource_limit", rc); return;
+    }
+    if (post(e)) request_terminal(r, "resource_limit", -10);
 }
 static void on_get_drop(void *context) {
     request_t *r = context;
@@ -214,7 +280,7 @@ static void execute_get(z_owned_session_t *s, command_t *c) {
     memset(r, 0, sizeof(*r)); r->used = r->starting = 1;
     r->generation = c->generation; r->id = c->id; r->deadline = luat_mcu_tick64_ms() + c->timeout_ms;
     z_owned_bytes_t payload;
-    rc = z_bytes_copy_from_buf(&payload, c->payload, c->length);
+    rc = z_bytes_copy_from_buf(&payload, c->payload ? c->payload : (const uint8_t *)"", c->length);
     if (rc == 0) {
         z_owned_closure_reply_t closure; z_closure(&closure, on_get_reply, on_get_drop, r);
         z_get_options_t options; z_get_options_default(&options);
@@ -230,7 +296,10 @@ static void execute_get(z_owned_session_t *s, command_t *c) {
     flush_requests();
 }
 static void drop_query(pending_query_t *q) {
-    if (q->used) { z_drop(z_move(q->value)); q->used = 0; }
+    if (q->used) {
+        z_drop(z_move(q->value)); q->used = 0;
+        atomic_fetch_sub(&rx_bytes, (unsigned)q->retained_bytes); q->retained_bytes = 0;
+    }
 }
 static void on_query(z_loaned_query_t *query, void *context) {
     queryable_t *owner = context;
@@ -242,26 +311,31 @@ static void on_query(z_loaned_query_t *query, void *context) {
     if (!e) return;
     z_view_string_t key, parameters;
     const z_loaned_bytes_t *payload = z_query_payload(query);
-    if (z_keyexpr_as_view_string(z_query_keyexpr(query), &key) < 0) { luat_heap_free(e); return; }
+    const z_loaned_bytes_t *attachment = z_query_attachment(query);
+    size_t pn = payload ? z_bytes_len(payload) : 0;
+    size_t an = attachment ? z_bytes_len(attachment) : 0;
+    if (z_keyexpr_as_view_string(z_query_keyexpr(query), &key) < 0) goto reject;
     z_query_parameters(query, &parameters);
     e->key_len = z_string_len(z_loan(key)); e->parameters_len = z_string_len(z_loan(parameters));
-    e->payload_len = payload ? z_bytes_len(payload) : 0;
-    if (e->key_len > LUAT_ZP_KEY_MAX || e->parameters_len > LUAT_ZP_PARAMETERS_MAX || e->payload_len > LUAT_ZP_PAYLOAD_MAX) {
-        luat_heap_free(e); atomic_fetch_add(&dropped, 1); return;
-    }
+    if (e->key_len > LUAT_ZP_KEY_MAX || e->parameters_len > LUAT_ZP_PARAMETERS_MAX ||
+        pn > LUAT_ZP_PAYLOAD_MAX || an > LUAT_ZP_PAYLOAD_MAX) goto reject;
     memcpy(e->key, z_string_data(z_loan(key)), e->key_len);
     if (e->parameters_len) memcpy(e->parameters, z_string_data(z_loan(parameters)), e->parameters_len);
-    if (e->payload_len) {
-        z_bytes_reader_t reader = z_bytes_get_reader(payload);
-        if (z_bytes_reader_read(&reader, e->payload, e->payload_len) != e->payload_len) {
-            luat_heap_free(e); atomic_fetch_add(&dropped, 1); return;
-        }
+    if (event_payload(e, payload)) goto reject;
+    /* owned query继续持有SDK载荷和attachment，必须与Lua事件副本分别计费。 */
+    size_t retained = pn + an;
+    if (reserve_payload(&rx_bytes, &rx_peak, &rx_rejected, retained, LUAT_ZP_RX_PAYLOAD_BUDGET)) goto reject;
+    if (z_query_take_from_loaned(&q->value, query) < 0) {
+        atomic_fetch_sub(&rx_bytes, (unsigned)retained); goto reject;
     }
-    if (z_query_take_from_loaned(&q->value, query) < 0) { luat_heap_free(e); atomic_fetch_add(&dropped, 1); return; }
     q->used = 1; q->generation = owner->generation; q->queryable = owner->id;
+    q->retained_bytes = retained;
     q->id = ++next_query_token; q->deadline = luat_mcu_tick64_ms() + 5000;
     e->queryable = owner->id; e->query = q->id; e->operation = "get";
     if (post(e)) drop_query(q);
+    return;
+reject:
+    luat_zenoh_pico_event_free(e); atomic_fetch_add(&dropped, 1);
 }
 static void expire_queries(void) {
     uint64_t now = luat_mcu_tick64_ms();
@@ -296,7 +370,7 @@ static int execute_query(z_owned_session_t *s, queryable_t *owners, command_t *c
             if (c->op == LUAT_ZP_FINISH_QUERY) { drop_query(q); return 0; }
             if (luat_mcu_tick64_ms() >= q->deadline) { drop_query(q); return -12; }
             z_view_keyexpr_t key; if (z_view_keyexpr_from_str(&key, c->key) < 0) return -2;
-            z_owned_bytes_t payload; if (z_bytes_copy_from_buf(&payload, c->payload, c->length) < 0) return -3;
+            z_owned_bytes_t payload; if (z_bytes_copy_from_buf(&payload, c->payload ? c->payload : (const uint8_t *)"", c->length) < 0) return -3;
             return z_query_reply(z_loan(q->value), z_loan(key), z_move(payload), NULL);
         }
         return -4;
@@ -344,7 +418,7 @@ static int execute(z_owned_session_t *s, subscriber_t *subs, command_t *c) {
     if (z_view_keyexpr_from_str(&key, c->key) < 0) return -2;
     if (c->op == LUAT_ZP_PUBLISH) {
         z_owned_bytes_t bytes;
-        if (z_bytes_copy_from_buf(&bytes, c->payload, c->length) < 0) return -3;
+        if (z_bytes_copy_from_buf(&bytes, c->payload ? c->payload : (const uint8_t *)"", c->length) < 0) return -3;
         z_put_options_t opts; z_put_options_default(&opts);
         opts.congestion_control = Z_CONGESTION_CONTROL_DROP;
         return z_put(z_loan(*s), z_loan(key), z_move(bytes), &opts);
@@ -376,7 +450,7 @@ static void drain_commands_closed(uint32_t generation) {
     command_t *c;
     while (luat_rtos_queue_recv(commands, &c, sizeof(c), 0) == 0) {
         if (c->generation == generation) command_closed(c);
-        luat_heap_free(c);
+        command_free(c);
     }
 }
 
@@ -425,6 +499,9 @@ static void worker(void *unused) {
             command_t *cmd = NULL;
             /* 固定预算，不能依赖executor返回值或无限清空持续就绪队列。 */
             for (int i = 0; i < 4 && luat_rtos_queue_recv(commands, &cmd, sizeof(cmd), 0) == 0; ++i) {
+#ifdef LUAT_ZENOH_TEST_BARRIERS
+                if (cmd->op == LUAT_ZP_PUBLISH) luat_zp_test_command(cmd->generation, cmd->id, cmd->op);
+#endif
                 if (cmd->op == LUAT_ZP_GET) ZP_TEST_POINT(1, cmd->generation);
                 if (cmd->generation == gen && atomic_load(&wanted) == gen) {
                     if (!luat_zenoh_pico_io_failed()) {
@@ -446,7 +523,7 @@ static void worker(void *unused) {
                         post(e);
                     }
                 } else if (cmd->generation == gen) command_closed(cmd);
-                luat_heap_free(cmd);
+                command_free(cmd);
                 if (luat_zenoh_pico_io_failed() || luat_zenoh_pico_rng_failed()) break;
             }
             flush_requests(); expire_queries();
@@ -518,12 +595,14 @@ int luat_zenoh_pico_command(uint32_t gen, int op, uint32_t id, const char *key, 
 int luat_zenoh_pico_command_ex(uint32_t gen, int op, uint32_t id, const char *key, const void *payload,
                               size_t len, const char *parameters, uint32_t query, uint32_t timeout_ms) {
     if (!gen || atomic_load(&wanted) != gen || atomic_load(&state) != LUAT_ZP_ONLINE) return -8;
-    if (len > LUAT_ZP_PAYLOAD_MAX || (key && strlen(key) > LUAT_ZP_KEY_MAX) ||
+    if (len > LUAT_ZP_PAYLOAD_MAX || (len && !payload) || (key && strlen(key) > LUAT_ZP_KEY_MAX) ||
         (parameters && strlen(parameters) > LUAT_ZP_PARAMETERS_MAX)) return -2;
     command_t *c = luat_heap_malloc(sizeof(*c));
     if (!c) return -3;
     memset(c, 0, sizeof(*c)); c->generation = gen; c->id = id; c->op = op; c->length = len;
     if (key) memcpy(c->key, key, strlen(key) + 1);
+    int allocation_rc = payload_alloc(&c->payload, len, 1);
+    if (allocation_rc) { command_free(c); return allocation_rc; }
     if (len) memcpy(c->payload, payload, len);
     if (parameters) memcpy(c->parameters, parameters, strlen(parameters) + 1);
     c->query = query; c->timeout_ms = timeout_ms;
@@ -532,7 +611,7 @@ int luat_zenoh_pico_command_ex(uint32_t gen, int op, uint32_t id, const char *ke
     int rc = atomic_load(&wanted) == gen && atomic_load(&state) == LUAT_ZP_ONLINE ?
         (luat_rtos_queue_send(commands, &c, sizeof(c), 0) == 0 ? 0 : -10) : -8;
     command_gate_leave();
-    if (rc) { luat_heap_free(c); return rc; }
+    if (rc) { command_free(c); return rc; }
     return 0;
 }
 void luat_zenoh_pico_close(uint32_t gen) {

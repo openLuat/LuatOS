@@ -122,7 +122,7 @@ snapshot 能恢复当前 KEY/ABS/MT 状态，不能还原已经丢失的短按�
 | `LUAT_USE_INPUT` | 核心、整帧队列和公共设备服务 |
 | `LUAT_USE_INPUT_HID` | HID 解析器和 USB HID 适配器 |
 | `LUAT_USE_INPUT_TOUCH` | 触摸输入适配器 |
-| `LUAT_USE_INPUT_LUA` | Lua `input` 接口 |
+| `LUAT_USE_USB_HID_LUA` | `usb.hid_subscribe()`，需同时启用 `LUAT_USE_USB` 与 `LUAT_USE_INPUT_HID` |
 
 启用总开关时，将 `luat_input.c`、`luat_input_queue.c`、`luat_input_service.c` 加入编译，并提供 service 所需的 RTOS/堆接口。队列和服务不再单独配置；旧工程删除两个独立开关，并将 BSP 服务初始化处的条件编译改为 `LUAT_USE_INPUT`。原先未使用服务的 USB HID 工程还需补齐上述源文件和服务初始化。各宏须由编译参数或平台公共配置传入每个源文件；本组件不隐式包含板级配置头。
 
@@ -132,7 +132,8 @@ snapshot 能恢复当前 KEY/ABS/MT 状态，不能还原已经丢失的短按�
 #define LUAT_USE_INPUT 1
 #define LUAT_USE_INPUT_HID 1
 #define LUAT_USE_INPUT_TOUCH 1
-#define LUAT_USE_INPUT_LUA 1
+#define LUAT_USE_USB 1
+#define LUAT_USE_USB_HID_LUA 1
 ```
 
 下面演示直接使用同步核心 API；公共服务的启动要求见“服务初始化”。独立算法测试可以显式只编译核心源文件，这不再作为固件功能宏裁剪选项。

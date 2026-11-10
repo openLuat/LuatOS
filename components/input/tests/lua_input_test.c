@@ -1,4 +1,7 @@
 #include "luat_base.h"
+#include "luat_libs.h"
+#include "luat_usb.h"
+#include "luat_zbuff.h"
 #include "luat_input_service.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
@@ -16,7 +19,26 @@ static unsigned callback_errors;
 static int fail_allocation = -1;
 static unsigned mutex_creates;
 static int fail_mutex, check_init_reentry;
-int luaopen_input(lua_State *);
+/* Only the platform USB operations are stubbed; use the real Lua USB table. */
+#define USB_STUB_1(name) int name(int id) { (void)id; return -1; }
+#define USB_STUB_2(name, type) int name(int id, type arg) { (void)id; (void)arg; return -1; }
+USB_STUB_1(luat_usb_get_free_ep_num)
+USB_STUB_1(luat_usb_clear_class)
+USB_STUB_2(luat_usb_set_mode, uint8_t)
+USB_STUB_2(luat_usb_set_vid, uint16_t)
+USB_STUB_2(luat_usb_set_pid, uint16_t)
+USB_STUB_2(luat_usb_debug, uint8_t)
+USB_STUB_2(luat_usb_host_reset_device, uint8_t)
+int luat_usb_get_vid(int id, uint16_t *vid) { (void)id; *vid = 0; return -1; }
+int luat_usb_get_pid(int id, uint16_t *pid) { (void)id; *pid = 0; return -1; }
+int luat_usb_add_class(int id, uint8_t cls, uint8_t n) { (void)id; (void)cls; (void)n; return -1; }
+int luat_usb_tx(int id, uint8_t app, const void *data, uint32_t len)
+{ (void)id; (void)app; (void)data; (void)len; return -1; }
+int luat_usb_rx(int id, uint8_t app, void *data, uint32_t len)
+{ (void)id; (void)app; (void)data; (void)len; return -1; }
+int __zbuff_resize(luat_zbuff_t *buf, uint32_t len) { (void)buf; (void)len; return -1; }
+#undef USB_STUB_1
+#undef USB_STUB_2
 void luat_newlib2(lua_State *L,const rotable_Reg_t *reg) {rotable2_newlib(L,reg);}
 void *luat_heap_malloc(size_t n) { void *p=malloc(n); if(p) heap_blocks++; return p; }
 void *luat_heap_calloc(size_t n,size_t s) {
@@ -50,17 +72,19 @@ unsigned luat_msgbus_put(rtos_msg_t *msg,size_t timeout)
 {(void)timeout;if(fail_message){fail_message=0;return 1;}CHECK(!message_ready);message=*msg;message_ready=1;return 0;}
 static void *allocator(void *ud,void *p,size_t old,size_t n)
 {(void)ud;(void)old;CHECK(!locked);if(!n){free(p);return NULL;}return realloc(p,n);}
-static struct {luat_input_device_t dev;luat_input_handle_t handle;uint32_t state[16];} fixture[4];
+static struct {luat_input_device_t dev;luat_input_handle_t handle;luat_input_device_desc_t desc;uint32_t state[16];} fixture[4];
 static const uint32_t keys[9] = {[0]=1U<<30,[1]=1U<<10,[8]=1U<<16};
 static const luat_input_axis_t axes[]={{0,0,0,1023,0},{1,0,0,599,0}};
 static const luat_input_axis_t mt[]={{0x35,0,0,1023,0},{0x36,0,0,599,0},{0x39,0,-1,127,-1}};
-static const luat_input_device_desc_t desc={.name="fixture",.bus=3,.vendor=0x1234,.product=0x5678,
+static const luat_input_device_desc_t desc={.name="fixture",.bus=LUAT_INPUT_BUS_USB,.vendor=0x1234,.product=0x5678,
     .caps={.keys=keys,.key_words=9,.rel_bits=0x103,.abs=axes,.abs_count=2,.mt=mt,.mt_count=3,.mt_slots=1}};
 static int add(lua_State *L)
 {
     unsigned slot=(unsigned)luaL_checkinteger(L,1);CHECK(slot<4&&!fixture[slot].handle.id);
+    fixture[slot].desc = desc;
+    fixture[slot].desc.bus = (uint16_t)luaL_optinteger(L,2,LUAT_INPUT_BUS_USB);
     luat_input_service_lock();
-    CHECK(!luat_input_register(luat_input_service_core(),&fixture[slot].dev,&desc,fixture[slot].state,16,&fixture[slot].handle));
+    CHECK(!luat_input_register(luat_input_service_core(),&fixture[slot].dev,&fixture[slot].desc,fixture[slot].state,16,&fixture[slot].handle));
     CHECK(!luat_input_service_attach(fixture[slot].handle));
     CHECK(!luat_input_service_init() && mutex_creates==2);
     CHECK(fixture[slot].dev.core==luat_input_service_core()); /* No reset on repeated init. */
@@ -102,9 +126,10 @@ int main(int argc,char **argv)
     CHECK(argc==2);
     lua_State *L=lua_newstate(allocator,NULL);CHECK(L);
     CHECK(!luat_input_service_is_ready());
-    lua_pushcfunction(L,luaopen_input);
-    CHECK(lua_pcall(L,0,0,0)!=LUA_OK);
-    CHECK(strstr(lua_tostring(L,-1),"not initialized"));lua_pop(L,1);
+    luaL_requiref(L,"_G",luaopen_base,1);lua_pop(L,1);
+    luaL_requiref(L,"usb",luaopen_usb,1);lua_pop(L,1);
+    CHECK(!luaL_dostring(L,"assert(type(usb.on) == 'function' and input == nil); "
+        "local sub, err = usb.hid_subscribe({}, function() end); assert(sub == nil and err == 'not_ready')"));
     CHECK(!mutex_creates && !luat_input_service_is_ready());
     fail_mutex=check_init_reentry=1;
     CHECK(luat_input_service_init()==LUAT_INPUT_SERVICE_ENOMEM);
@@ -113,14 +138,13 @@ int main(int argc,char **argv)
     CHECK(!luat_input_service_init() && luat_input_service_is_ready());
     CHECK(!luat_input_service_init() && mutex_creates==2);
     puts("input startup PASS: not-ready rejection, reentrant init, failed-create retry, publish-on-success and idempotence");
-    luaL_requiref(L,"_G",luaopen_base,1);lua_pop(L,1);
     luaL_requiref(L,"table",luaopen_table,1);lua_pop(L,1);
-    luaL_requiref(L,"input",luaopen_input,1);lua_pop(L,1);
     const luaL_Reg functions[]={{"test_add",add},{"test_remove",remove_device},{"test_emit",emit},
         {"test_pump",pump},{"test_tick",tick},{"test_reject",reject},{"test_fail_alloc",fail_alloc},{NULL,NULL}};
     for(const luaL_Reg *f=functions;f->name;f++){lua_pushcfunction(L,f->func);lua_setglobal(L,f->name);}
     if(luaL_dofile(L,argv[1])) {fprintf(stderr,"Lua failure: %s\n",lua_tostring(L,-1));return 1;}
     lua_close(L);CHECK(!locked);CHECK(!heap_blocks);CHECK(callback_errors==1);
-    puts("input Lua PASS: lifecycle, retained frames, filtering, snapshots, MT, overflow, close/GC, wake retry, callback isolation");
+    puts("USB HID Lua PASS: USB-only binding, existing and new devices, explicit ID rejection, overflow recovery and unplug");
+    puts("USB HID Lua PASS: lifecycle, retained frames, filtering, snapshots, MT, overflow, close/GC, wake retry, callback isolation");
     return 0;
 }

@@ -1,20 +1,18 @@
 # TP 接入 input
 
 现有 `tp.init()` 配置硬件，并在启用 `LUAT_USE_INPUT_TOUCH` 时安装 TP→input 适配器。TP 公共驱动通过可选 sink 处理触点批次，不依赖 input 或 AirUI。
-Lua 继续使用现有 `input.subscribe()`；`airui.device_bind_touch(tp_device)`
+Lua 如需读取触点可使用 `tp.init()` 的原有回调；`airui.device_bind_touch(tp_device)`
 继续选择用于显示交互的 TP。无需 Lua 转发触摸数据，也没有新增采样任务。
 
 ## 编译与数据路径
 
-启用 `LUAT_USE_INPUT`、`LUAT_USE_INPUT_TOUCH`，核心、队列和服务由总开关统一启用；
-Lua API 额外启用 `LUAT_USE_INPUT_LUA`。
-service 目录及 C 消费者不依赖 Lua，Lua 重试定时器仍只在存在 Lua 订阅时运行。
+启用 `LUAT_USE_INPUT`、`LUAT_USE_INPUT_TOUCH`，核心、队列和服务由总开关统一启用。
+service 目录和 AirUI 的触摸处理不依赖 Lua 订阅。
 编译 input 核心/service/queue/touch，TP 公共层及 `luat_tp_input.c`；
 AirUI 平台再编译 `luat_airui_input_touch_luatos.c`。
 
 ```
 TP IRQ → 原有 TP 任务 → 芯片 read → luat_tp_input_feed → input_touch → input 核心
-                                                                    ├─ Lua 队列
                                                                     └─ AirUI 采样环
 ```
 
@@ -63,21 +61,18 @@ AirUI 的 `device_bind_touch`、原有触摸读取路径和 Lua API 均未调整
 使用一个 16 帧采样环，两个触摸指针使用独立读游标；鼠标继续使用第 3 个指针。
 这样快速 DOWN/UP 不会因为 GUI 只读取最新状态而丢失。所有触点仍可经原有
 AirUI 触摸订阅通知，原有通知的 track_id 继续表示槽位；完整 tracking ID 通过
-input API 获取。
+C input API 获取。
 
 采样环溢出时取消当前交互，并丢弃该触点到抬起为止的数据；不补出点击。
 reset/remove 取消 LVGL 当前交互并清理缓存。启用 input touch 后该设备不会再
 被旧的 `tp_config->tp_data` 读取路径重复消费。
 
-## 板端示例
+## 历史板端验证接线
 
-`olddemo/demo/usb_hid/tp_drv.lua` 使用 AirCAMERA_1032 参考接线：GT911、I²C1、
-INT51、RST2、1024×600、5 点。GPIO2 同时被当前 LCD 示例作为背光控制，
-TP 初始化后恢复高电平。脚本不注册旧 TP 回调。
+历史验证使用 AirCAMERA_1032 参考接线：GT911、I²C1、INT51、RST2、1024×600、5 点。
+GPIO2 同时作为 LCD 背光控制，TP 初始化后需恢复高电平。
 
-`input_demo.lua` 记录 TP_TRACKING、BTN_TOUCH 及每两秒的 TP_STATE，
-INPUT_LUA_STABLE 同时报告队列长度和溢出数。
-当前示例不触发 TP 休眠或唤醒，Esc 仅作为普通键盘输入处理。
+当前 `olddemo/demo/usb_hid` 只用于 USB 键鼠验证，已不包含触摸初始化脚本。
 
 ## 验证
 

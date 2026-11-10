@@ -179,7 +179,7 @@ static int matches(luat_input_subscription_t *s, luat_input_handle_t h)
     if (s->device_id && s->device_id != h.id)
         return 0;
     const luat_input_device_desc_t *d;
-    if (luat_input_get_desc(h, &d))
+    if (luat_input_get_desc(h, &d) || (s->bus && s->bus != d->bus))
         return 0;
     uint32_t types = (1U << LUAT_INPUT_EV_SYN);
     if (d->caps.key_words)
@@ -268,6 +268,13 @@ size_t luat_input_service_list(uint32_t *ids, size_t capacity)
 int luat_input_service_subscribe(luat_input_subscription_t *s, uint32_t id,
                                  uint32_t types, void *buffer, size_t bytes, void (*notify)(void *), void *userdata)
 {
+    return luat_input_service_subscribe_bus(s, id, types, 0, buffer, bytes, notify, userdata);
+}
+
+int luat_input_service_subscribe_bus(luat_input_subscription_t *s, uint32_t id,
+                                    uint32_t types, uint16_t bus, void *buffer, size_t bytes,
+                                    void (*notify)(void *), void *userdata)
+{
     if (!s || !types || !buffer || bytes < sizeof(luat_input_frame_t))
         return LUAT_INPUT_EINVAL;
     unsigned slot = 0;
@@ -278,9 +285,12 @@ int luat_input_service_subscribe(luat_input_subscription_t *s, uint32_t id,
     if (id)
     {
         int found = 0;
-        for (unsigned i = 0; i < LUAT_INPUT_SERVICE_DEVICES; i++)
-            if (devices[i].id == id)
-                found = 1;
+        for (unsigned i = 0; i < LUAT_INPUT_SERVICE_DEVICES; i++) {
+            if (devices[i].id != id) continue;
+            const luat_input_device_desc_t *d;
+            found = !bus || (!luat_input_get_desc(devices[i], &d) && d->bus == bus);
+            break;
+        }
         if (!found)
             return LUAT_INPUT_ESTALE;
     }
@@ -291,6 +301,7 @@ int luat_input_service_subscribe(luat_input_subscription_t *s, uint32_t id,
         return ret;
     s->device_id = id;
     s->types = types;
+    s->bus = bus;
     s->slot = slot;
     s->notify = notify;
     s->userdata = userdata;

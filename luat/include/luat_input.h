@@ -9,6 +9,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define LUAT_INPUT_BUS_USB 0x03U
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -253,7 +255,7 @@ typedef struct {
     const char *name;
     luat_input_caps_t caps;
     uint32_t properties;
-    uint16_t bus;
+    uint16_t bus; /* Transport type, e.g. LUAT_INPUT_BUS_USB. */
     uint16_t vendor;
     uint16_t product;
     uint16_t version;

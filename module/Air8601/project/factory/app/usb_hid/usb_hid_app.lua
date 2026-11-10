@@ -1,14 +1,14 @@
 --[[
 @module  usb_hid_app
-@summary USB HID 键盘鼠标管理模块（USB Host + Input 事件订阅）
+@summary USB HID 键盘鼠标管理模块（USB Host + HID 事件订阅）
 @version 1.0
 @date    2026.09.16
 @usage
-依赖: 固件需包含 LUAT_USE_USB_HOST + LUAT_USE_INPUT
+依赖: 固件需提供 usb.hid_subscribe()（LUAT_USE_USB_HID_LUA）
 硬件: 需 USB Host 接口（如 Air8601 GPIO12 控制 VBUS）
 
 消息协议（订阅/发布）:
-订阅: USB_HID_ENABLE           → 启用 USB HID（初始化 USB Host + 订阅 Input 事件）
+订阅: USB_HID_ENABLE           → 启用 USB HID（初始化 USB Host + 订阅 HID 事件）
 订阅: USB_HID_DISABLE          → 禁用 USB HID（关闭 USB Host + 取消订阅）
 订阅: USB_HID_GET_STATUS       → 查询 USB HID 当前状态
 发布: USB_HID_STATUS(enabled)  → USB HID 状态返回
@@ -26,13 +26,14 @@ local M = {}
 -- ==================== 配置常量 ====================
 
 local USB_BUS_ID = 0           -- USB 总线 ID（Air8601 使用总线 0）
-local INPUT_QUEUE_BYTES = 4096 -- Input 事件队列大小（字节）
+local INPUT_QUEUE_BYTES = 4096 -- HID 事件队列大小（字节）
+local REL_X, REL_Y, REL_WHEEL = 0x00, 0x01, 0x08 -- luat_input.h 中的相对轴码
 local VBUS_GPIO = 12           -- USB VBUS 供电控制 GPIO（Air8601 开发板）
 
 -- ==================== 局部变量 ====================
 
 local enabled = false          -- USB HID 启用状态
-local subscription = nil       -- Input 订阅句柄
+local subscription = nil       -- HID 订阅句柄
 local devices = {}             -- 已连接设备表 {id = {name, caps}}
 
 -- ==================== 私有函数 ====================
@@ -95,7 +96,7 @@ end
 
 --[[
 @function input_handler
-@summary Input 事件处理回调
+@summary HID 事件处理回调
 @param string kind 事件类型: "attach" / "remove" / "reset" / "overflow" / "frame"
 @param number id 设备 ID
 @param table data 事件数据（frame 事件包含事件队列）
@@ -135,16 +136,16 @@ local function input_handler(kind, id, data)
         for i = 1, data.count do
             local t, c, v = data:get(i)
 
-            if t == input.EV_KEY then
+            if t == usb.HID_EV_KEY then
                 -- 按键事件（键盘按键、鼠标按键）
                 sys.publish("USB_HID_KEY_EVENT", id, c, v)
 
-            elseif t == input.EV_REL then
+            elseif t == usb.HID_EV_REL then
                 -- 相对移动事件
-                if c == input.REL_X or c == input.REL_Y then
+                if c == REL_X or c == REL_Y then
                     -- 鼠标移动
                     sys.publish("USB_HID_MOUSE_EVENT", id, c, v)
-                elseif c == input.REL_WHEEL then
+                elseif c == REL_WHEEL then
                     -- 滚轮
                     sys.publish("USB_HID_WHEEL_EVENT", id, v)
                 end
@@ -166,15 +167,20 @@ function M.enable()
         return true
     end
 
+    if not usb or type(usb.hid_subscribe) ~= "function" then
+        log.warn("usb_hid", "固件不支持 USB HID 订阅，跳过 USB Host 初始化")
+        return false
+    end
+
     -- 初始化 USB Host
     if not usb_host_init() then
         return false
     end
 
-    -- 订阅 Input 事件
-    local ok, sub = pcall(input.subscribe, {queue_bytes = INPUT_QUEUE_BYTES}, input_handler)
+    -- 订阅 USB HID 事件
+    local ok, sub, err = pcall(usb.hid_subscribe, {queue_bytes = INPUT_QUEUE_BYTES}, input_handler)
     if not ok or not sub then
-        log.error("usb_hid", "Input 订阅失败", sub)
+        log.error("usb_hid", "HID 订阅失败", ok and err or sub)
         usb_host_deinit()
         return false
     end
@@ -197,7 +203,7 @@ function M.disable()
         return true
     end
 
-    -- 取消 Input 订阅
+    -- 取消 HID 订阅
     if subscription then
         pcall(function() subscription:close() end)
         subscription = nil

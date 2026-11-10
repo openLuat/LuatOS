@@ -1,4 +1,4 @@
-"""Compile the actual TP task bridge, input core/service and LVGL touch consumer.
+"""Test the TP task bridge and LVGL touch consumer.
 No Lua module is enabled: this also checks independent C-only operation.
 """
 from pathlib import Path

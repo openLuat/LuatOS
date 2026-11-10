@@ -1,7 +1,5 @@
 /** @file luat_input.h
- * Small, allocation-free input core. See components/input/README.md for ownership
- * and synchronization contracts. Event numbers follow Linux input semantics;
- * this is not the Linux evdev binary ABI.
+ * Event numbers follow Linux input semantics. Structures are not the Linux evdev binary ABI.
  */
 #ifndef LUAT_INPUT_H
 #define LUAT_INPUT_H

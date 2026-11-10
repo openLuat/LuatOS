@@ -16,6 +16,24 @@
 - `hid_lvgl.lua`：文本框、点击计数按钮和滚动列表。
 - `hid_events.lua`：通过 `usb.hid_subscribe()` 记录 USB HID 接入、移除与队列统计。
 
+## Lua 订阅
+
+```lua
+local sub = assert(usb.hid_subscribe({types = {usb.HID_EV_KEY, usb.HID_EV_REL}},
+    function(kind, id, data)
+        if kind == "frame" then
+            for i = 1, data.count do
+                log.info("usb_hid", id, data:get(i))
+            end
+        end
+    end))
+-- 保留 sub；停止接收时调用 sub:close()。
+```
+
+省略 `types` 接收所有默认类型；`device` 可选，按回调给出的设备 ID 筛选。
+`data:get(i)` 返回事件类型、码值和值。回调也会收到 `attach`、`remove`、
+`reset` 和 `overflow`，回调内不可等待。使用示例见 `hid_events.lua`。
+
 ## 验证
 
 1. 启动后确认界面显示正常，日志出现 `HID_LUA_LVGL_READY`、`HID_LUA_API_READY` 和 `HID_C_HOST_READY`。

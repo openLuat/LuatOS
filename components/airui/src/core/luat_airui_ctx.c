@@ -621,20 +621,20 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     }
 
     // 注册 JPEG 硬解码器
-    #ifdef LUAT_USE_JPG_HW
+    #if defined(LUAT_USE_AIRUI_LUATOS) && defined(LUAT_USE_JPG_HW)
     ret = airui_platform_luatos_register_jpg_decoder();
     if (ret != AIRUI_OK) {
         LLOGW("airui_init: register luatos jpg decoder failed, ret=%d", ret);
     }
-    #endif /* LUAT_USE_JPG_HW */
+    #endif
 
     // 注册 PNG 硬解码器
-    #ifdef LUAT_USE_PNG_HW
+    #if defined(LUAT_USE_AIRUI_LUATOS) && defined(LUAT_USE_PNG_HW)
         ret = airui_platform_luatos_register_png_decoder();
         if (ret != AIRUI_OK) {
             LLOGW("airui_init: register luatos png decoder failed, ret=%d", ret);
         }
-    #endif /* LUAT_USE_PNG_HW */
+    #endif
 
     // 启动运行时定时器
     ret = airui_start_runtime_timers(ctx);

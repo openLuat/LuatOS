@@ -13,6 +13,28 @@
 #define LUAT_LOG_TAG "drv.bt"
 #include "luat_log.h"
 
+#if defined(LUAT_USE_DRV_BLUETOOTH) && defined(LUAT_USE_AIRLINK_RPC)
+#include "luat_airlink_drv_rpc_bluetooth.h"
+
+static int drv_bt_rpc_ready(void) {
+    if (luat_airlink_peer_rpc_supported()) return 1;
+    LLOGE("peer does not support Bluetooth RPC");
+    return 0;
+}
+
+int luat_bluetooth_init(void* args) {
+    return drv_bt_rpc_ready() ? luat_airlink_drv_rpc_bluetooth_init(args) : -1;
+}
+
+int luat_bluetooth_deinit(void* args) {
+    return drv_bt_rpc_ready() ? luat_airlink_drv_rpc_bluetooth_deinit(args) : -1;
+}
+
+int luat_bluetooth_get_mac(void* args, uint8_t* addr) {
+    LLOGE("Bluetooth RPC get MAC is not supported");
+    return -1;
+}
+#else
 int luat_bluetooth_init(void* args) {
     LLOGD("执行luat_bluetooth_init");
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
@@ -58,6 +80,8 @@ int luat_bluetooth_get_mac(void* args, uint8_t *addr) {
     luat_bluetooth_mac_swap(addr);
     return 0;
 }
+
+#endif
 
 int luat_bluetooth_set_mac(void* args, uint8_t *addr, uint8_t len) {
     LLOGE("not support yet");

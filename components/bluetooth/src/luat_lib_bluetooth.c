@@ -45,15 +45,103 @@ ble_device:adv_start()
 #include "luat_msgbus.h"
 #include "luat_bluetooth.h"
 #include "luat_ble.h"
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 #include "luat_log.h"
 #define LUAT_LOG_TAG "bluetooth"
 
 extern void luat_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
+extern void luat_ble_lua_release_gatt(void);
 
 static int s_bt_ref;
 int g_bt_ble_ref;
 int g_ble_lua_cb_ref;
+static uint32_t s_ble_generation; /* Only the Lua task increments this counter. */
+#ifdef _MSC_VER
+static volatile long s_ble_active_generation;
+#else
+static volatile uint32_t s_ble_active_generation;
+#endif
+
+uint32_t luat_ble_lua_generation(void) {
+#ifdef _MSC_VER
+    return (uint32_t)_InterlockedCompareExchange(&s_ble_active_generation, 0, 0);
+#else
+    return __sync_val_compare_and_swap(&s_ble_active_generation, 0, 0);
+#endif
+}
+
+/* Publish/invalidate with full barriers: the transport task reads this token.
+ * PC critical-section hooks are no-ops, so use compiler atomics on all ports. */
+static void bluetooth_publish_generation(uint32_t generation) {
+#ifdef _MSC_VER
+    _InterlockedExchange(&s_ble_active_generation, (long)generation);
+#else
+    uint32_t previous;
+    do {
+        previous = luat_ble_lua_generation();
+    } while (__sync_val_compare_and_swap(&s_ble_active_generation, previous, generation) != previous);
+#endif
+}
+
+static void bluetooth_release_ble(lua_State *L) {
+    bluetooth_publish_generation(0);
+    luaL_unref(L, LUA_REGISTRYINDEX, g_ble_lua_cb_ref);
+    luaL_unref(L, LUA_REGISTRYINDEX, g_bt_ble_ref);
+    g_ble_lua_cb_ref = 0;
+    g_bt_ble_ref = 0;
+}
+
+static int bluetooth_is_current(lua_State *L, int ref) {
+    if (ref <= 0) return 0;
+    lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+    int same = lua_rawequal(L, 1, -1);
+    lua_pop(L, 1);
+    return same;
+}
+
+/* Successful teardown invalidates queued callbacks before releasing refs. */
+int l_bluetooth_ble_deinit(lua_State *L) {
+    int ret = -1;
+    if (bluetooth_is_current(L, g_bt_ble_ref)) {
+        ret = luat_ble_deinit(NULL);
+        if (!ret) {
+            luat_ble_lua_release_gatt();
+            bluetooth_release_ble(L);
+        }
+    }
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+
+/*
+反初始化蓝牙框架, 同时释放BLE对象。可再次调用bluetooth.init()
+@api bluetooth.deinit()
+@return boolean 是否成功
+@usage
+bluetooth_device:deinit()
+*/
+static int l_bluetooth_deinit(lua_State *L) {
+    int ret = -1;
+    if (bluetooth_is_current(L, s_bt_ref)) {
+        ret = g_bt_ble_ref > 0 ? luat_ble_deinit(NULL) : 0;
+        if (!ret) {
+            if (g_bt_ble_ref > 0) {
+                luat_ble_lua_release_gatt();
+                bluetooth_release_ble(L);
+            }
+            ret = luat_bluetooth_deinit(NULL);
+            if (!ret) {
+                luaL_unref(L, LUA_REGISTRYINDEX, s_bt_ref);
+                s_bt_ref = 0;
+            }
+        }
+    }
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
 
 /*
 初始化蓝牙框架, 仅需要调用一次
@@ -65,9 +153,14 @@ int g_ble_lua_cb_ref;
 bluetooth_device = bluetooth.init()
 */
 static int l_bluetooth_init(lua_State* L) {
-    void* bt = lua_newuserdata(L, 4);
+    if (s_bt_ref > 0) {
+        lua_rawgeti(L, LUA_REGISTRYINDEX, s_bt_ref);
+        return 1;
+    }
+    void* bt = lua_newuserdata(L, sizeof(luat_bluetooth_t));
     if (bt) {
-        luat_bluetooth_init(NULL);
+        memset(bt, 0, sizeof(luat_bluetooth_t));
+        if (luat_bluetooth_init(NULL)) return 0;
         luaL_setmetatable(L, LUAT_BLUETOOTH_TYPE);
         lua_pushvalue(L, -1);
         s_bt_ref = luaL_ref(L, LUA_REGISTRYINDEX);
@@ -130,33 +223,31 @@ end
 ble_device = bluetooth_device:ble(ble_event_cb)
 */
 static int l_bluetooth_create_ble(lua_State* L) {
-    int ret = 0;
-    
-    if (lua_isfunction(L, 2)) {
-		lua_pushvalue(L, 2);
-		g_ble_lua_cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-	}else{
-        LLOGE("error cb");
-        return 0;
-    }
-
-    ret = luat_ble_init(NULL, luat_ble_cb);
-    if (ret) {
-        LLOGE("ble init %d", ret);
-        return 0;
-    }
-
-    lua_newuserdata(L, sizeof(luat_ble_t));
+    if (!bluetooth_is_current(L, s_bt_ref) || !lua_isfunction(L, 2) || g_bt_ble_ref > 0) return 0;
+    luat_ble_t *ble = lua_newuserdata(L, sizeof(*ble));
+    memset(ble, 0, sizeof(*ble));
     luaL_setmetatable(L, LUAT_BLE_TYPE);
     lua_pushvalue(L, -1);
     g_bt_ble_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    lua_pushvalue(L, 2);
+    g_ble_lua_cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    if (++s_ble_generation == 0) ++s_ble_generation;
+    bluetooth_publish_generation(s_ble_generation);
+
+    /* Both refs must exist before a synchronous INIT callback can fire. */
+    int ret = luat_ble_init(NULL, luat_ble_cb);
+    if (ret) {
+        bluetooth_release_ble(L);
+        LLOGE("ble init %d", ret);
+        return 0;
+    }
     return 1;
 }
 
 // 隐藏这个函数
 static int l_bluetooth_get_mac(lua_State *L){
 	uint8_t mac[6] = {0};
-    luat_bluetooth_get_mac(NULL, mac);
+    if (luat_bluetooth_get_mac(NULL, mac)) return 0;
     luat_bluetooth_mac_swap(mac);
 	lua_pushlstring(L, (const char*)mac, 6);
 	return 1;
@@ -174,6 +265,7 @@ void luat_bluetooth_struct_init(lua_State *L) {
 #include "rotable2.h"
 static const rotable_Reg_t reg_bluetooth[] = {
 	{"init",                        ROREG_FUNC(l_bluetooth_init)},
+    {"deinit",                      ROREG_FUNC(l_bluetooth_deinit)},
     {"ble",                         ROREG_FUNC(l_bluetooth_create_ble)},
     {"mac",                         ROREG_FUNC(l_bluetooth_get_mac)},
 	{ NULL,                         ROREG_INT(0)}

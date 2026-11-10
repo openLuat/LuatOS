@@ -6,6 +6,8 @@
 @usage
 -- 本库用于操作BLE对象, 需要搭配bluetooth.init()使用
 -- 详细用法请查阅demo
+-- UUID字符串为大端二进制字节, 如string.fromHex("FA00"), 不是文本"FA00"。
+-- 也可使用整数UUID, 如0xFA00; 与二进制字符串表示的字节顺序相同。
 
 -- 模式解释
 -- 从机模式(peripheral), 设备会被扫描到, 并且可以被连接
@@ -56,21 +58,197 @@
 
 extern int g_bt_ble_ref;
 extern int g_ble_lua_cb_ref;
+extern uint32_t luat_ble_lua_generation(void);
+
+/* Lua UUID strings are binary, in display (big-endian) order. Integers use
+ * the same representation; the controller port performs any wire swap. */
+static int ble_parse_uuid(lua_State *L, int index, luat_ble_uuid_t *uuid) {
+    memset(uuid, 0, sizeof(*uuid));
+    if (lua_type(L, index) == LUA_TSTRING) {
+        size_t len;
+        const char *data = lua_tolstring(L, index, &len);
+        if (len != 2 && len != 4 && len != 16) return -1;
+        uuid->uuid_type = (luat_ble_uuid_type)len;
+        memcpy(uuid->uuid, data, len);
+        return 0;
+    }
+    if (lua_isinteger(L, index)) {
+        lua_Integer value = lua_tointeger(L, index);
+        if (value < 0 || (uint64_t)value > UINT32_MAX) return -1;
+        uuid->uuid_type = value <= UINT16_MAX ? LUAT_BLE_UUID_TYPE_16 : LUAT_BLE_UUID_TYPE_32;
+        for (int i = uuid->uuid_type - 1; i >= 0; i--) {
+            uuid->uuid[i] = (uint8_t)value;
+            value >>= 8;
+        }
+        return 0;
+    }
+    return -1;
+}
+
+static int ble_validate_value_args(lua_State *L, int has_value) {
+    static const char *fields[] = {"uuid_service", "uuid_characteristic", "uuid_descriptor"};
+    if (!lua_istable(L, 2)) return 0;
+    /* Snapshot once: an __index method must not change a UUID between
+     * length validation and the existing value-operation wrappers' copies. */
+    lua_newtable(L);
+    int parsed = lua_gettop(L);
+    for (size_t i = 0; i < 3; i++) {
+        luat_ble_uuid_t uuid;
+        lua_getfield(L, 2, fields[i]);
+        if (i == 2 && lua_isnil(L, -1)) {
+            lua_pop(L, 1);
+            continue;
+        }
+        int valid = !ble_parse_uuid(L, -1, &uuid);
+        lua_pop(L, 1);
+        if (!valid) { lua_pop(L, 1); return 0; }
+        lua_pushlstring(L, (const char *)uuid.uuid, uuid.uuid_type);
+        lua_setfield(L, parsed, fields[i]);
+    }
+    lua_replace(L, 2);
+    if (has_value) {
+        size_t len;
+        if (lua_type(L, 3) != LUA_TSTRING) return 0;
+        lua_tolstring(L, 3, &len);
+        if (len > UINT16_MAX) return 0;
+    }
+    return 1;
+}
+
+static void ble_free_gatt(luat_ble_gatt_service_t *gatt) {
+    if (!gatt) return;
+    if (gatt->characteristics) {
+        for (size_t i = 0; i < gatt->characteristics_num; i++) {
+            luat_ble_gatt_chara_t *ch = &gatt->characteristics[i];
+            if (ch->descriptor) {
+                for (size_t j = 0; j < ch->descriptors_num; j++) {
+                    luat_heap_free(ch->descriptor[j].value);
+                }
+                luat_heap_free(ch->descriptor);
+            }
+            luat_heap_free(ch->value);
+        }
+        luat_heap_free(gatt->characteristics);
+    }
+    luat_heap_free(gatt);
+}
+
+#ifndef LUAT_USE_DRV_BLUETOOTH
+typedef struct ble_lua_gatt {
+    luat_ble_gatt_service_t *service;
+    struct ble_lua_gatt *next;
+} ble_lua_gatt_t;
+
+/* Native controllers borrow these trees, even on a create timeout. Only the
+ * Lua task owns this list; controller callbacks must never modify the list. */
+static ble_lua_gatt_t *s_lua_gatts;
+#endif
+
+/* Call only after successful controller teardown, when all borrowing ends.
+ * Read current value pointers: native write_value may have replaced them. */
+void luat_ble_lua_release_gatt(void) {
+#ifndef LUAT_USE_DRV_BLUETOOTH
+    while (s_lua_gatts) {
+        ble_lua_gatt_t *entry = s_lua_gatts;
+        s_lua_gatts = entry->next;
+        ble_free_gatt(entry->service);
+        luat_heap_free(entry);
+    }
+#endif
+}
+
+static int ble_copy_bytes(uint8_t **dst, const uint8_t *src, size_t len) {
+    *dst = NULL;
+    if (!len) return 0;
+    if (!src) return -1;
+    *dst = luat_heap_malloc(len);
+    if (!*dst) return -1;
+    memcpy(*dst, src, len);
+    return 0;
+}
+
+static luat_ble_gatt_service_t *ble_copy_gatt(const luat_ble_gatt_service_t *src) {
+    if (!src || (src->characteristics_num && !src->characteristics)) return NULL;
+    luat_ble_gatt_service_t *dst = luat_heap_malloc(sizeof(*dst));
+    if (!dst) return NULL;
+    *dst = *src;
+    dst->characteristics = NULL;
+    if (src->characteristics_num) {
+        dst->characteristics = luat_heap_calloc(src->characteristics_num, sizeof(*dst->characteristics));
+        if (!dst->characteristics) goto fail;
+    }
+    for (size_t i = 0; i < src->characteristics_num; i++) {
+        const luat_ble_gatt_chara_t *sc = &src->characteristics[i];
+        luat_ble_gatt_chara_t *dc = &dst->characteristics[i];
+        *dc = *sc;
+        dc->value = NULL;
+        dc->descriptor = NULL;
+        if (ble_copy_bytes(&dc->value, sc->value, sc->value_len)) goto fail;
+        if (sc->descriptors_num) {
+            if (!sc->descriptor) goto fail;
+            dc->descriptor = luat_heap_calloc(sc->descriptors_num, sizeof(*dc->descriptor));
+            if (!dc->descriptor) goto fail;
+        }
+        for (size_t j = 0; j < sc->descriptors_num; j++) {
+            dc->descriptor[j] = sc->descriptor[j];
+            if (ble_copy_bytes(&dc->descriptor[j].value, sc->descriptor[j].value,
+                               sc->descriptor[j].value_len)) goto fail;
+        }
+    }
+    return dst;
+fail:
+    ble_free_gatt(dst);
+    return NULL;
+}
+
+static void ble_free_event(luat_ble_event_t evt, luat_ble_param_t *param) {
+    if (!param) return;
+    switch (evt) {
+    case LUAT_BLE_EVENT_WRITE:
+        luat_heap_free(param->write_req.value);
+        break;
+    case LUAT_BLE_EVENT_READ:
+    case LUAT_BLE_EVENT_READ_VALUE:
+        luat_heap_free(param->read_req.value);
+        break;
+    case LUAT_BLE_EVENT_SCAN_REPORT:
+        luat_heap_free(param->adv_req.data);
+        break;
+    case LUAT_BLE_EVENT_GATT_ITEM:
+        ble_free_gatt(param->gatt_item_ind.gatt_service);
+        break;
+    default:
+        break;
+    }
+    luat_heap_free(param);
+}
+
+/* User errors must not bypass release of the queued event. */
+static void ble_call_lua(lua_State *L, int nargs) {
+    if (lua_pcall(L, nargs, 0, 0) != LUA_OK) {
+        const char *error = lua_tostring(L, -1);
+        LLOGE("BLE callback failed: %s", error ? error : "non-string error");
+        lua_pop(L, 1);
+    }
+}
 
 int l_ble_callback(lua_State *L, void *ptr)
 {
     (void)ptr;
     rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
     luat_ble_event_t evt = (luat_ble_event_t)msg->arg1;
-    luat_ble_param_t *param = (luat_ble_param_t *)msg->arg2;
+    luat_ble_param_t *param = (luat_ble_param_t *)msg->ptr;
     uint8_t tmpbuff[16] = {0};
 
+    if ((uint32_t)msg->arg2 != luat_ble_lua_generation() ||
+        g_ble_lua_cb_ref <= 0 || g_bt_ble_ref <= 0) goto exit;
     lua_geti(L, LUA_REGISTRYINDEX, g_ble_lua_cb_ref);
     if (lua_isfunction(L, -1)){
         lua_geti(L, LUA_REGISTRYINDEX, g_bt_ble_ref);
         lua_pushinteger(L, evt);
     }else{
         LLOGE("用户回调函数不存在");
+        lua_pop(L, 1);
         goto exit;
     }
 
@@ -98,7 +276,7 @@ int l_ble_callback(lua_State *L, void *ptr)
         lua_pushliteral(L, "data");
         lua_pushlstring(L, (const char *)write_req->value, write_req->value_len);
         lua_settable(L, -3);
-        lua_call(L, 3, 0);
+        ble_call_lua(L, 3);
         break;
     }
     case LUAT_BLE_EVENT_READ:
@@ -125,7 +303,7 @@ int l_ble_callback(lua_State *L, void *ptr)
             lua_pushlstring(L, (const char *)read_req->value, read_req->value_len);
             lua_settable(L, -3);
         }
-        lua_call(L, 3, 0);
+        ble_call_lua(L, 3);
         break;
     }case LUAT_BLE_EVENT_SCAN_REPORT:{
         luat_ble_adv_req_t *adv_req = &(param->adv_req);
@@ -146,7 +324,7 @@ int l_ble_callback(lua_State *L, void *ptr)
         // uint8_t actv_idx;     /**< The index of the activity */
         // uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
 
-        lua_call(L, 3, 0);
+        ble_call_lua(L, 3);
         break;
     }case LUAT_BLE_EVENT_GATT_ITEM:{
         luat_ble_gatt_service_t *gatt_service = param->gatt_item_ind.gatt_service;
@@ -167,14 +345,14 @@ int l_ble_callback(lua_State *L, void *ptr)
 
             lua_seti(L, -2, m + 2);
         }
-        lua_call(L, 3, 0);
+        ble_call_lua(L, 3);
         break;
     }case LUAT_BLE_EVENT_GATT_DONE:{
         uint8_t gatt_service_num = param->gatt_done_ind.gatt_service_num;
         lua_newtable(L);
         lua_pushinteger(L, gatt_service_num);
         lua_setfield(L, -2, "service_num");
-        lua_call(L, 3, 0);
+        ble_call_lua(L, 3);
         break;
     }case LUAT_BLE_EVENT_CONN:{
         luat_ble_conn_ind_t *conn = &(param->conn_ind);
@@ -185,73 +363,63 @@ int l_ble_callback(lua_State *L, void *ptr)
         lua_setfield(L, -2, "addr");
         lua_pushinteger(L, conn->peer_addr_type);
         lua_setfield(L, -2, "addr_type");
-        lua_call(L, 3, 0);
+        ble_call_lua(L, 3);
         break;
     }case LUAT_BLE_EVENT_DISCONN:{
         luat_ble_disconn_ind_t *disconn = &(param->disconn_ind);
         lua_newtable(L);
         lua_pushinteger(L, disconn->reason);
         lua_setfield(L, -2, "reason");
-        lua_call(L, 3, 0);
+        ble_call_lua(L, 3);
         break;
     }
     default:
-        lua_call(L, 2, 0);
+        ble_call_lua(L, 2);
         break;
     }
 exit:
-    if (param)
-    {
-        if (LUAT_BLE_EVENT_WRITE == evt && param->write_req.value_len)
-        {
-            // LLOGD("free write_req.value %p %d", param->write_req.value, param->write_req.value_len);
-            luat_heap_free(param->write_req.value);
-            param->write_req.value = NULL;
-        }
-        else if (LUAT_BLE_EVENT_SCAN_REPORT == evt && param->adv_req.data_len)
-        {
-            // LLOGD("free adv_req.data %p %d", param->adv_req.data, param->adv_req.data_len);
-            luat_heap_free(param->adv_req.data);
-            param->adv_req.data = NULL;
-        }
-        else if (LUAT_BLE_EVENT_READ_VALUE == evt && param->read_req.value_len){
-            // LLOGD("free read_req.value %p %d", param->read_req.value, param->read_req.value_len);
-            luat_heap_free(param->read_req.value);
-            param->read_req.value = NULL;
-        }
-        luat_heap_free(param);
-        param = NULL;
-    }
+    ble_free_event(evt, param);
     return 0;
 }
 
 void luat_ble_cb(luat_ble_t *args, luat_ble_event_t ble_event, luat_ble_param_t *ble_param){
-    // LLOGD("ble event: %d param: %p", ble_event, ble_param);
+    /* Runs on the transport task: copy borrowed data, never call Lua or RPC. */
+    uint32_t generation = luat_ble_lua_generation();
+    if (!generation) return;
     luat_ble_param_t *luat_ble_param = NULL;
+    if (!ble_param && (ble_event == LUAT_BLE_EVENT_WRITE ||
+        ble_event == LUAT_BLE_EVENT_READ || ble_event == LUAT_BLE_EVENT_READ_VALUE ||
+        ble_event == LUAT_BLE_EVENT_SCAN_REPORT || ble_event == LUAT_BLE_EVENT_GATT_ITEM ||
+        ble_event == LUAT_BLE_EVENT_GATT_DONE || ble_event == LUAT_BLE_EVENT_CONN ||
+        ble_event == LUAT_BLE_EVENT_DISCONN)) return;
     if (ble_param){
-        // LLOGD("ble param: %p", ble_param);
         luat_ble_param = luat_heap_malloc(sizeof(luat_ble_param_t));
-        memset(luat_ble_param,0,sizeof(luat_ble_param_t));
+        if (!luat_ble_param) return;
         memcpy(luat_ble_param, ble_param, sizeof(luat_ble_param_t));
-        if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.value_len){
-            luat_ble_param->write_req.value = luat_heap_malloc(ble_param->write_req.value_len);
-            memcpy(luat_ble_param->write_req.value, ble_param->write_req.value, ble_param->write_req.value_len);
-        }else if (ble_event == LUAT_BLE_EVENT_READ_VALUE && ble_param->read_req.value_len){
-            luat_ble_param->read_req.value = luat_heap_malloc(ble_param->read_req.value_len);
-            memcpy(luat_ble_param->read_req.value, ble_param->read_req.value, ble_param->read_req.value_len);
-        }else if (ble_event == LUAT_BLE_EVENT_SCAN_REPORT && ble_param->adv_req.data_len){
-            luat_ble_param->adv_req.data = luat_heap_malloc(ble_param->adv_req.data_len);
-            memcpy(luat_ble_param->adv_req.data, ble_param->adv_req.data, ble_param->adv_req.data_len);
+        if (ble_event == LUAT_BLE_EVENT_WRITE){
+            if (ble_copy_bytes(&luat_ble_param->write_req.value, ble_param->write_req.value,
+                               ble_param->write_req.value_len)) goto fail;
+        }else if (ble_event == LUAT_BLE_EVENT_READ || ble_event == LUAT_BLE_EVENT_READ_VALUE){
+            if (ble_copy_bytes(&luat_ble_param->read_req.value, ble_param->read_req.value,
+                               ble_param->read_req.value_len)) goto fail;
+        }else if (ble_event == LUAT_BLE_EVENT_SCAN_REPORT){
+            if (ble_copy_bytes(&luat_ble_param->adv_req.data, ble_param->adv_req.data,
+                               ble_param->adv_req.data_len)) goto fail;
+        }else if (ble_event == LUAT_BLE_EVENT_GATT_ITEM){
+            luat_ble_param->gatt_item_ind.gatt_service = ble_copy_gatt(ble_param->gatt_item_ind.gatt_service);
+            if (!luat_ble_param->gatt_item_ind.gatt_service) goto fail;
         }
     }
 
     rtos_msg_t msg = {
         .handler = l_ble_callback,
-        .ptr = (void *)NULL,
+        .ptr = luat_ble_param,
         .arg1 = (int)ble_event,
-        .arg2 = (int)luat_ble_param,
+        .arg2 = (int)generation,
     };
-    luat_msgbus_put(&msg, 0);
+    if (luat_msgbus_put(&msg, 0) == 0) return;
+fail:
+    ble_free_event(ble_event, luat_ble_param);
 }
 
 /*
@@ -272,155 +440,124 @@ local att_db = { -- Service
 ble_device:gatt_create(att_db)
 */
 static int l_ble_gatt_create(lua_State *L){
-    if (!lua_isuserdata(L, 1)){
-        return 0;
-    }
-    uint8_t characteristics_num = 0;
-    size_t len = 0;
-    luat_ble_gatt_service_t *luat_ble_gatt_service = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
-    memset(luat_ble_gatt_service, 0, sizeof(luat_ble_gatt_service_t));
-
-    if (lua_type(L, 2) != LUA_TTABLE){
-        LLOGE("error param");
-        return 0;
-    }
-
-    int gatt_table_len = luaL_len(L, 2) - 1;
-
-    if (lua_rawgeti(L, -1, 1) == LUA_TSTRING){
-        const char *service_uuid = luaL_checklstring(L, -1, &len);
-        if (len == 2){
-            luat_ble_gatt_service->uuid_type = LUAT_BLE_UUID_TYPE_16;
-        }else if (len == 4){
-            luat_ble_gatt_service->uuid_type = LUAT_BLE_UUID_TYPE_32;
-        }else if (len == 16){
-            luat_ble_gatt_service->uuid_type = LUAT_BLE_UUID_TYPE_128;
-        }
-        memcpy(luat_ble_gatt_service->uuid, service_uuid, len);
-    }else if (lua_rawgeti(L, -1, 1) == LUA_TNUMBER){
-        uint16_t service_uuid = (uint16_t)luaL_checknumber(L, -1);
-        luat_ble_gatt_service->uuid_type = LUAT_BLE_UUID_TYPE_16;
-        luat_ble_gatt_service->uuid[0] = service_uuid & 0xff;
-        luat_ble_gatt_service->uuid[1] = service_uuid >> 8;
-    }else{
-        LLOGE("error uuid type");
-        return 0;
-    }
+    int top = lua_gettop(L);
+    luat_ble_gatt_service_t *gatt = NULL;
+    luat_ble_uuid_t uuid;
+    if (!lua_isuserdata(L, 1) || !lua_istable(L, 2)) goto error_exit;
+#ifndef LUAT_USE_DRV_BLUETOOTH
+    /* A retained tree must have a live Lua BLE owner that can tear it down. */
+    if (g_bt_ble_ref <= 0 || !luat_ble_lua_generation()) goto error_exit;
+    lua_rawgeti(L, LUA_REGISTRYINDEX, g_bt_ble_ref);
+    int current = lua_rawequal(L, 1, -1);
     lua_pop(L, 1);
-
-    // Characteristics
-    luat_ble_gatt_service->characteristics = (luat_ble_gatt_chara_t *)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * gatt_table_len);
-    memset(luat_ble_gatt_service->characteristics, 0, sizeof(luat_ble_gatt_chara_t) * gatt_table_len);
-    luat_ble_gatt_chara_t *characteristics = luat_ble_gatt_service->characteristics;
-    for (size_t j = 2; j <= gatt_table_len + 1; j++){
-        if (lua_rawgeti(L, -1, j) == LUA_TTABLE){
-            lua_rawgeti(L, -1, 1);
-
-            // lua_pushstring(L, "descriptor");
-            // if (LUA_TSTRING == lua_gettable(L, -2)){
-            //     const char* value = luaL_checklstring(L, -1, &len);
-            //     characteristics[j-2].value = luat_heap_malloc(len);
-            //     characteristics[j-2].value_len = len;
-            // }
-            // lua_pop(L, 1);
-
-            // UUID
-            uint16_t uuid_type = 0;
-            uint8_t uuid[LUAT_BLE_UUID_LEN_MAX] = {0};
-            if (LUA_TSTRING == lua_type(L, -1)){
-                const char *characteristics_uuid = luaL_checklstring(L, -1, &len);
-                uuid_type = len;
-                memcpy(uuid, characteristics_uuid, len);
-            }else if (LUA_TNUMBER == lua_type(L, -1)){
-                uint16_t characteristics_uuid = (uint16_t)luaL_checknumber(L, -1);
-                uuid_type = LUAT_BLE_UUID_TYPE_16;
-                uuid[0] = characteristics_uuid >> 8;
-                uuid[1] = characteristics_uuid & 0xFF;
-            }else{
-                LLOGE("error characteristics uuid type");
-                goto error_exit;
-            }
-            lua_pop(L, 1);
-
-            if (characteristics[characteristics_num].uuid_type == LUAT_BLE_UUID_TYPE_16 && 
-                characteristics[characteristics_num].uuid[0] == (LUAT_BLE_GATT_DESC_MAX >> 8) && 
-                characteristics[characteristics_num].uuid[1] <= (LUAT_BLE_GATT_DESC_MAX & 0xFF)){
-                // Descriptors
-                characteristics[characteristics_num].perm |= LUAT_BLE_GATT_PERM_READ;
-                characteristics[characteristics_num].perm |= LUAT_BLE_GATT_PERM_WRITE;
-                characteristics[characteristics_num].max_size = 0;
-
-                luat_ble_gatt_descriptor_t *descriptor = characteristics[characteristics_num].descriptor;
-                if (descriptor){
-                    descriptor = luat_heap_realloc(descriptor,sizeof(luat_ble_gatt_descriptor_t)*(characteristics[characteristics_num].descriptors_num+1));
-                    descriptor[characteristics[characteristics_num].descriptors_num].uuid_type = uuid_type;
-                    memcpy(descriptor[characteristics[characteristics_num].descriptors_num].uuid, uuid, len);
-                }else{
-                    descriptor = luat_heap_malloc(sizeof(luat_ble_gatt_descriptor_t));
-                    descriptor->uuid_type = uuid_type;
-                    memcpy(descriptor->uuid, uuid, len);
-                }
-                characteristics[characteristics_num].descriptors_num++;
-            }else{
-                // Characteristics uuid
-                characteristics[characteristics_num].uuid_type = uuid_type;
-                memcpy(characteristics[characteristics_num].uuid, uuid, len);
-
-                // Characteristics properties
-                lua_rawgeti(L, -1, 2);
-                if (LUA_TNUMBER == lua_type(L, -1)){
-                    characteristics[characteristics_num].perm = (uint16_t)luaL_optnumber(L, -1, 0);
-                }
-                lua_pop(L, 1);
-
-                // Descriptors
-                if (characteristics[characteristics_num].perm & LUAT_BLE_GATT_PERM_NOTIFY){
-                    luat_ble_gatt_chara_t *characteristic = &characteristics[characteristics_num];
-                    if (characteristic->descriptor){
-                        uint8_t descriptor_ind = characteristics[characteristics_num].descriptors_num;
-                        characteristic->descriptor = luat_heap_realloc(characteristic->descriptor,sizeof(luat_ble_gatt_descriptor_t)*(descriptor_ind+1));
-                        memset(&characteristic->descriptor[descriptor_ind],0,sizeof(luat_ble_gatt_descriptor_t));
-                        characteristic->descriptor[descriptor_ind].uuid_type = LUAT_BLE_UUID_TYPE_16;
-                        characteristic->descriptor[descriptor_ind].uuid[0] = 0x2902 >> 8;
-                        characteristic->descriptor[descriptor_ind].uuid[1] = 0x2902 & 0xFF;
-                    }else{
-                        characteristic->descriptor = luat_heap_malloc(sizeof(luat_ble_gatt_descriptor_t));
-                        memset(characteristic->descriptor,0,sizeof(luat_ble_gatt_descriptor_t));
-                        characteristic->descriptor->uuid_type = LUAT_BLE_UUID_TYPE_16;
-                        characteristic->descriptor->uuid[0] = 0x2902 >> 8;
-                        characteristic->descriptor->uuid[1] = 0x2902 & 0xFF;
-                    }
-                    characteristics[characteristics_num].descriptors_num++;
-                }
-
-                // Characteristics value
-                lua_rawgeti(L, -1, 3);
-                if (LUA_TSTRING == lua_type(L, -1)){
-                    const char *value = luaL_checklstring(L, -1, &len);
-                    characteristics[characteristics_num].value = luat_heap_malloc(len);
-                    memcpy(characteristics[characteristics_num].value, value, len);
-                    characteristics[characteristics_num].value_len = len;
-                }
-                lua_pop(L, 1);
-
-                // Characteristics max_size
-                lua_pushstring(L, "max_size");
-                if (LUA_TNUMBER == lua_gettable(L, -2)){
-                    characteristics[characteristics_num].max_size = (uint16_t)luaL_optnumber(L, -1, 0);
-                }else{
-                    characteristics[characteristics_num].max_size = 0xFF;
-                }
-                lua_pop(L, 1);
-                characteristics_num++;
-            }
+    if (!current) goto error_exit;
+#endif
+    size_t count = lua_rawlen(L, 2);
+    if (count < 2 || count > UINT8_MAX + 1U) goto error_exit;
+    lua_rawgeti(L, 2, 1);
+    if (ble_parse_uuid(L, -1, &uuid)) goto error_exit;
+    lua_pop(L, 1);
+    gatt = luat_heap_calloc(1, sizeof(*gatt));
+    if (!gatt) goto error_exit;
+    gatt->uuid_type = uuid.uuid_type;
+    memcpy(gatt->uuid, uuid.uuid, sizeof(gatt->uuid));
+    gatt->characteristics = luat_heap_calloc(count - 1, sizeof(*gatt->characteristics));
+    if (!gatt->characteristics) goto error_exit;
+    for (size_t i = 2; i <= count; i++) {
+        if (lua_rawgeti(L, 2, i) != LUA_TTABLE) goto error_exit;
+        int entry = lua_gettop(L);
+        lua_rawgeti(L, entry, 1);
+        if (ble_parse_uuid(L, -1, &uuid)) goto error_exit;
+        lua_pop(L, 1);
+        uint16_t *perm, *max_size, *value_len;
+        uint8_t **value;
+        uint16_t short_uuid = ((uint16_t)uuid.uuid[0] << 8) | uuid.uuid[1];
+        if (uuid.uuid_type == LUAT_BLE_UUID_TYPE_16 &&
+            short_uuid >= LUAT_BLE_GATT_DESC_MIN && short_uuid <= LUAT_BLE_GATT_DESC_MAX) {
+            if (!gatt->characteristics_num) goto error_exit;
+            luat_ble_gatt_chara_t *ch = &gatt->characteristics[gatt->characteristics_num - 1];
+            if (ch->descriptors_num == UINT8_MAX) goto error_exit;
+            luat_ble_gatt_descriptor_t *descs = luat_heap_realloc(ch->descriptor,
+                (ch->descriptors_num + 1) * sizeof(*descs));
+            if (!descs) goto error_exit;
+            ch->descriptor = descs;
+            luat_ble_gatt_descriptor_t *desc = &descs[ch->descriptors_num++];
+            memset(desc, 0, sizeof(*desc));
+            desc->uuid_type = uuid.uuid_type;
+            memcpy(desc->uuid, uuid.uuid, sizeof(desc->uuid));
+            perm = &desc->perm; max_size = &desc->max_size;
+            value = &desc->value; value_len = &desc->value_len;
+        } else {
+            luat_ble_gatt_chara_t *ch = &gatt->characteristics[gatt->characteristics_num++];
+            ch->uuid_type = uuid.uuid_type;
+            memcpy(ch->uuid, uuid.uuid, sizeof(ch->uuid));
+            perm = &ch->perm; max_size = &ch->max_size;
+            value = &ch->value; value_len = &ch->value_len;
+        }
+        lua_rawgeti(L, entry, 2);
+        if (!lua_isinteger(L, -1) || lua_tointeger(L, -1) < 0 ||
+            lua_tointeger(L, -1) > UINT16_MAX) goto error_exit;
+        *perm = (uint16_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        lua_rawgeti(L, entry, 3);
+        if (!lua_isnil(L, -1)) {
+            size_t len;
+            if (lua_type(L, -1) != LUA_TSTRING) goto error_exit;
+            const char *data = lua_tolstring(L, -1, &len);
+            if (len > UINT16_MAX || ble_copy_bytes(value, (const uint8_t *)data, len)) goto error_exit;
+            *value_len = (uint16_t)len;
         }
         lua_pop(L, 1);
+        lua_pushliteral(L, "max_size");
+        lua_rawget(L, entry);
+        *max_size = *value_len > 255 ? *value_len : 255;
+        if (!lua_isnil(L, -1)) {
+            if (!lua_isinteger(L, -1) || lua_tointeger(L, -1) < *value_len ||
+                lua_tointeger(L, -1) > UINT16_MAX) goto error_exit;
+            *max_size = (uint16_t)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 2);
     }
-    luat_ble_gatt_service->characteristics_num = characteristics_num;
-    lua_pushboolean(L, luat_ble_create_gatt(NULL, luat_ble_gatt_service) == 0 ? 1 : 0);
+    /* Add one CCCD for notify or indicate unless explicitly supplied. */
+    for (size_t i = 0; i < gatt->characteristics_num; i++) {
+        luat_ble_gatt_chara_t *ch = &gatt->characteristics[i];
+        if (!(ch->perm & (LUAT_BLE_GATT_PERM_NOTIFY | LUAT_BLE_GATT_PERM_IND))) continue;
+        size_t j;
+        for (j = 0; j < ch->descriptors_num; j++) {
+            if (ch->descriptor[j].uuid_type == LUAT_BLE_UUID_TYPE_16 &&
+                ch->descriptor[j].uuid[0] == 0x29 && ch->descriptor[j].uuid[1] == 0x02) break;
+        }
+        if (j < ch->descriptors_num) continue;
+        if (ch->descriptors_num == UINT8_MAX) goto error_exit;
+        luat_ble_gatt_descriptor_t *descs = luat_heap_realloc(ch->descriptor,
+            (ch->descriptors_num + 1) * sizeof(*descs));
+        if (!descs) goto error_exit;
+        ch->descriptor = descs;
+        luat_ble_gatt_descriptor_t *desc = &descs[ch->descriptors_num++];
+        memset(desc, 0, sizeof(*desc));
+        desc->uuid_type = LUAT_BLE_UUID_TYPE_16;
+        desc->uuid[0] = 0x29; desc->uuid[1] = 0x02;
+        desc->perm = LUAT_BLE_GATT_PERM_READ | LUAT_BLE_GATT_PERM_WRITE;
+        desc->max_size = 2;
+    }
+#ifndef LUAT_USE_DRV_BLUETOOTH
+    /* Allocate tracking before calling the backend: even a failed call can
+     * retain the tree until teardown, so there must be no allocation afterward. */
+    ble_lua_gatt_t *entry = luat_heap_malloc(sizeof(*entry));
+    if (!entry) goto error_exit;
+    entry->service = gatt;
+    entry->next = s_lua_gatts;
+    s_lua_gatts = entry;
+#else
+    /* Both RPC and legacy driver ports consume the tree, including failures. */
+#endif
+    lua_pushboolean(L, luat_ble_create_gatt(NULL, gatt) == 0);
     return 1;
 error_exit:
-    return 0;
+    ble_free_gatt(gatt);
+    lua_settop(L, top);
+    lua_pushboolean(L, 0);
+    return 1;
 }
 
 /*
@@ -453,7 +590,7 @@ static int l_ble_advertising_create(lua_State *L){
     }
     size_t len = 0;
     uint8_t local_name_set_flag = 0;
-    const char complete_local_name[32] = {0};
+    char complete_local_name[32] = {0};
 
     luat_ble_adv_cfg_t luat_ble_adv_cfg = {
         .addr_mode = LUAT_BLE_ADDR_MODE_PUBLIC,
@@ -465,7 +602,7 @@ static int l_ble_advertising_create(lua_State *L){
     };
 
     lua_pushstring(L, "addr_mode");
-    if (LUA_TNUMBER == lua_gettable(L, -2)){
+    if (LUA_TNUMBER == lua_gettable(L, 2)){
         luat_ble_adv_cfg.addr_mode = luaL_checknumber(L, -1);
     }
     lua_pop(L, 1);
@@ -500,14 +637,17 @@ static int l_ble_advertising_create(lua_State *L){
     }
     lua_pop(L, 1);
 
-    luat_ble_create_advertising(NULL, &luat_ble_adv_cfg);
+    if (luat_ble_create_advertising(NULL, &luat_ble_adv_cfg)) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
 
     // 广播内容 (adv data)
     uint8_t adv_data[255] = {0};
-    uint8_t adv_index = 0;
+    size_t adv_index = 0;
 
     lua_pushstring(L, "adv_data");
-    if (LUA_TTABLE == lua_gettable(L, -2)){
+    if (LUA_TTABLE == lua_gettable(L, 2)){
         int adv_data_count = luaL_len(L, -1);
         for (int i = 1; i <= adv_data_count; i++){
             lua_rawgeti(L, -1, i);
@@ -515,13 +655,14 @@ static int l_ble_advertising_create(lua_State *L){
                 lua_rawgeti(L, -1, 2);
                 if (lua_type(L, -1) == LUA_TSTRING){
                     const char *data = luaL_checklstring(L, -1, &len);
+                    if (len > 253 || adv_index + len + 2 > sizeof(adv_data)) goto end;
                     adv_data[adv_index++] = (uint8_t)(len + 1);
                     lua_rawgeti(L, -2, 1);
                     if (lua_type(L, -1) == LUA_TNUMBER){
                         uint8_t adv_type = (uint8_t)luaL_checknumber(L, -1);
                         adv_data[adv_index++] = adv_type;
                         if (adv_type == LUAT_ADV_TYPE_COMPLETE_LOCAL_NAME){
-                            luat_ble_set_name(NULL, data, len);
+                            if (luat_ble_set_name(NULL, (char *)data, len)) goto end;
                             local_name_set_flag = 1;
                         }
                     }else{
@@ -559,18 +700,19 @@ static int l_ble_advertising_create(lua_State *L){
     lua_pop(L, 1);
 
     if (!local_name_set_flag){
-        sprintf_(complete_local_name, "LuatOS_%s", luat_os_bsp());
-        luat_ble_set_name(NULL, complete_local_name, strlen(complete_local_name));
+        l_sprintf(complete_local_name, sizeof(complete_local_name), "LuatOS_%s", luat_os_bsp());
+        if (luat_ble_set_name(NULL, complete_local_name, strlen(complete_local_name))) goto end;
     }
 
     /* set adv paramters */
-    luat_ble_set_adv_data(NULL, adv_data, adv_index);
+    if (luat_ble_set_adv_data(NULL, adv_data, adv_index)) goto end;
 
     lua_pushstring(L, "rsp_data");
     if (LUA_TSTRING == lua_gettable(L, 2)){
-        uint8_t *rsp_data = luaL_checklstring(L, -1, &len);
+        const char *rsp_data = luaL_checklstring(L, -1, &len);
+        if (len > 255) goto end;
         if (len){
-            luat_ble_set_scan_rsp_data(NULL, rsp_data, len);
+            if (luat_ble_set_scan_rsp_data(NULL, (uint8_t *)rsp_data, len)) goto end;
         }
     }
     lua_pop(L, 1);
@@ -578,7 +720,9 @@ static int l_ble_advertising_create(lua_State *L){
     lua_pushboolean(L, 1);
     return 1;
 end:
-    return 0;
+    luat_ble_delete_advertising(NULL);
+    lua_pushboolean(L, 0);
+    return 1;
 }
 
 /*
@@ -623,6 +767,7 @@ ble_device:write_notify({
 }, "Hello BLE") -- 要写入的值
 */
 static int l_ble_write_notify(lua_State *L){
+    if (!ble_validate_value_args(L, 1)) { lua_pushboolean(L, 0); return 1; }
     uint16_t ret = 0;
     const char *service_uuid = NULL;
     const char *characteristic_uuid = NULL;
@@ -696,6 +841,7 @@ ble_device:write_indicate({
 }, "Hello BLE") -- 要写入的值
 */
 static int l_ble_write_indicate(lua_State *L){
+    if (!ble_validate_value_args(L, 1)) { lua_pushboolean(L, 0); return 1; }
     uint16_t ret = 0;
     const char *service_uuid = NULL;
     const char *characteristic_uuid = NULL;
@@ -769,6 +915,7 @@ ble_device:write_value({
 }, "Hello BLE") -- 要写入的值
 */
 static int l_ble_write_value(lua_State *L){
+    if (!ble_validate_value_args(L, 1)) { lua_pushboolean(L, 0); return 1; }
     uint16_t ret = 0;
     const char *service_uuid = NULL;
     const char *characteristic_uuid = NULL;
@@ -842,6 +989,7 @@ ble_device:read_value({
 })
 */
 static int l_ble_read_value(lua_State *L){
+    if (!ble_validate_value_args(L, 0)) { lua_pushboolean(L, 0); return 1; }
     uint16_t ret = 0;
     const char *service_uuid = NULL;
     const char *characteristic_uuid = NULL;
@@ -851,7 +999,7 @@ static int l_ble_read_value(lua_State *L){
     luat_ble_uuid_t descriptor = {0};
     size_t tmp = 0;
     if (1){
-        size_t len = 0;
+        uint16_t len = 0;
         uint8_t* value = NULL;
 
         lua_pushstring(L, "uuid_service");
@@ -893,11 +1041,17 @@ static int l_ble_read_value(lua_State *L){
         }
         lua_pop(L, 1);
         if (ret == 0){
+#if defined(LUAT_USE_DRV_BLUETOOTH) && defined(LUAT_USE_AIRLINK_RPC)
+            /* RPC returns the value later via EVENT_READ_VALUE. */
+            lua_pushboolean(L, 1);
+#else
             lua_pushlstring(L, (const char *)value, len);
+#endif
             return 1;
         }else{
             LLOGE("ble read value error");
-            return 0;
+            lua_pushboolean(L, 0);
+            return 1;
         }
     }
 end_error:
@@ -919,6 +1073,7 @@ ble_device:notify_enable({
 }, true) -- 开/关
 */
 static int l_ble_notify_enable(lua_State *L){
+    if (!ble_validate_value_args(L, 0)) { lua_pushboolean(L, 0); return 1; }
     uint16_t ret = 0;
     const char *service_uuid = NULL;
     const char *characteristic_uuid = NULL;
@@ -982,6 +1137,7 @@ ble_device:indicate_enable({
 }, true) -- 开/关
 */
 static int l_ble_indicate_enable(lua_State *L){
+    if (!ble_validate_value_args(L, 0)) { lua_pushboolean(L, 0); return 1; }
     uint16_t ret = 0;
     const char *service_uuid = NULL;
     const char *characteristic_uuid = NULL;
@@ -1120,7 +1276,7 @@ ble_device:connect(string.fromHex("C8478C4E027D"),0)
 static int l_ble_connect(lua_State *L){
     size_t len = 0;
     luat_ble_connect_req_t conn = {0};
-    uint8_t *adv_addr = luaL_checklstring(L, 2, &len);
+    const char *adv_addr = luaL_checklstring(L, 2, &len);
     uint8_t adv_addr_type = luaL_checknumber(L, 3);
     if (len != 6){
         LLOGE("error adv_addr len %d", len);
@@ -1210,7 +1366,7 @@ log.info("ble mac", mac and mac:toHex())
 */
 static int l_ble_get_mac(lua_State *L){
 	uint8_t mac[6] = {0};
-    luat_bluetooth_get_mac(NULL, mac);
+    if (luat_bluetooth_get_mac(NULL, mac)) return 0;
     luat_bluetooth_mac_swap(mac);
 	lua_pushlstring(L, (const char*)mac, 6);
 	return 1;
@@ -1218,6 +1374,17 @@ static int l_ble_get_mac(lua_State *L){
 
 
 static int _ble_struct_newindex(lua_State *L);
+
+/*
+反初始化BLE对象。成功后旧对象失效, 丢弃尚未派发的事件。
+可通过bluetooth_device:ble(callback)重新创建BLE对象, 切换主从角色。
+@api ble.deinit()
+@return boolean 是否成功
+@usage
+assert(ble_device:deinit())
+ble_device = bluetooth_device:ble(callback)
+*/
+extern int l_bluetooth_ble_deinit(lua_State *L);
 
 void luat_ble_struct_init(lua_State *L){
     luaL_newmetatable(L, LUAT_BLE_TYPE);
@@ -1228,6 +1395,7 @@ void luat_ble_struct_init(lua_State *L){
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_ble[] = {
+    {"deinit",          ROREG_FUNC(l_bluetooth_ble_deinit)},
     // advertise
     {"adv_create",      ROREG_FUNC(l_ble_advertising_create)},
     {"adv_start",       ROREG_FUNC(l_ble_advertising_start)},

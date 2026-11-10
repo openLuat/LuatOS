@@ -66,6 +66,12 @@ PB_BIND(drv_bluetooth_BleScanStopRequest, drv_bluetooth_BleScanStopRequest, AUTO
 PB_BIND(drv_bluetooth_BleScanDeleteRequest, drv_bluetooth_BleScanDeleteRequest, AUTO)
 
 
+PB_BIND(drv_bluetooth_BleConnectRequest, drv_bluetooth_BleConnectRequest, AUTO)
+
+
+PB_BIND(drv_bluetooth_BleValueRequest, drv_bluetooth_BleValueRequest, 2)
+
+
 PB_BIND(drv_bluetooth_BleInitResponse, drv_bluetooth_BleInitResponse, AUTO)
 
 

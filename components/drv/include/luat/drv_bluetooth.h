@@ -7,6 +7,12 @@
 #include "luat_bt.h"
 
 int luat_drv_bluetooth_init(luat_bluetooth_t* luat_bluetooth);
+int luat_drv_bluetooth_deinit(luat_bluetooth_t* luat_bluetooth);
+int luat_drv_ble_connect(void* args, luat_ble_connect_req_t* conn);
+int luat_drv_ble_disconnect(void* args);
+int luat_drv_ble_value(uint16_t operation, luat_ble_uuid_t* service,
+                       luat_ble_uuid_t* characteristic, luat_ble_uuid_t* descriptor,
+                       uint8_t* data, uint16_t len, uint8_t enable);
 
 int luat_airlink_drv_ble_uuid_swap(uint8_t* uuid_data, luat_ble_uuid_type uuid_type);
 

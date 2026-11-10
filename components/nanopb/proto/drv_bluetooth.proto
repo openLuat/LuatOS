@@ -61,9 +61,9 @@ message BleAdvStartRequest {}
 message BleAdvStopRequest {}
 message BleAdvDeleteRequest {}
 
-// GATT 创建：packed_gatt 携带 luat_ble_gatt_pack() 序列化输出
+// Versioned, pointer-free AirLink BLE wire tree (luat_airlink_ble_wire.h).
 message BleGattCreateRequest {
-    required bytes packed_gatt = 1 [(nanopb).max_size = 512];
+    required bytes packed_gatt = 1 [(nanopb).max_size = 1500];
 }
 
 // Slave 读操作的应答
@@ -88,6 +88,24 @@ message BleScanCreateRequest {
 message BleScanStartRequest {}
 message BleScanStopRequest {}
 message BleScanDeleteRequest {}
+
+message BleConnectRequest {
+    required bytes address = 1 [(nanopb).max_size = 6];
+    required uint32 address_type = 2;
+    required uint32 interval = 3;
+    required uint32 latency = 4;
+    required uint32 timeout = 5;
+}
+
+// UUID byte order is the Lua/BLE API order; empty descriptor means absent.
+message BleValueRequest {
+    required uint32 operation = 1; // LUAT_DRV_BT_CMD_BLE_* value operation
+    required bytes service = 2 [(nanopb).max_size = 16];
+    required bytes characteristic = 3 [(nanopb).max_size = 16];
+    required bytes descriptor = 4 [(nanopb).max_size = 16];
+    required bytes data = 5 [(nanopb).max_size = 512];
+    required bool enable = 6;
+}
 
 // ---- 各操作响应消息 ----
 message BleInitResponse          { required BleResult result = 1; }
@@ -129,12 +147,21 @@ message BleRpcRequest {
         BleScanStartRequest     scan_start       = 41;
         BleScanStopRequest      scan_stop        = 42;
         BleScanDeleteRequest    scan_delete      = 43;
+        BleConnectRequest       connect          = 44;
+        BleDeinitRequest        disconnect       = 45;
+        BleValueRequest         value            = 46;
+        BleInitRequest          bluetooth_init   = 50;
+        BleDeinitRequest        bluetooth_deinit = 51;
     }
 }
 
 // ---- 统一 RPC 响应 ----
 message BleRpcResponse {
     optional uint32 req_id = 1 [default = 0]; // 与请求匹配；事件上报时为 0
+    // Always present in the synchronous BLE RPC implementation. Preserve the
+    // backend's signed error rather than reporting only transport success.
+    optional sint32 status = 2;
+    optional uint32 operation = 3; // request oneof tag
     oneof payload {
         BleInitResponse          init             = 10;
         BleDeinitResponse        deinit           = 11;
@@ -158,16 +185,8 @@ message BleRpcResponse {
 
 // ---- BLE 事件通知 (服务端 → 客户端, 通过 nb_notify 发送) ----
 // event_type: luat_ble_event_t 枚举值
-// packed_data 格式随 event_type 而定：
-//   CONN      → luat_ble_conn_ind_t
-//   DISCONN   → luat_ble_disconn_ind_t
-//   GATT_DONE → luat_ble_gatt_done_ind_t
-//   WRITE     → luat_ble_write_req_t + value 字节
-//   READ      → luat_ble_read_req_t
-//   READ_VALUE→ luat_ble_read_req_t + value 字节
-//   SCAN_REPORT → luat_ble_adv_req_t + adv_data 字节
-//   GATT_ITEM → luat_ble_gatt_pack() 输出
-//   其他事件  → 无 packed_data
+// packed_data uses the versioned, bounded, pointer-free encoding documented in
+// luat_airlink_ble_wire.h, including the entire GATT_ITEM tree and values.
 message BleEventNotify {
     required uint32 event_type  = 1;
     optional bytes  packed_data = 2 [(nanopb).max_size = 1500];

@@ -165,8 +165,14 @@ static void http_teardown(void *ctx) {
 		return;
 	}
 	LLOGI("http teardown %p", http_ctrl);
+#ifdef LUAT_USE_FOTA
+	if (http_ctrl->fota_inited) {
+		http_ctrl->fota_inited = 0;
+		luat_fota_end(0);
+	}
+#endif
 	if (http_ctrl->netc){
-		network_close(http_ctrl->netc, 0);
+		/* Releasing the owner must not request an asynchronous CLOSE callback. */
 		network_force_close_socket(http_ctrl->netc);
 		network_release_ctrl(http_ctrl->netc);
 		http_ctrl->netc = NULL;
@@ -330,18 +336,13 @@ static void http_report_result(luat_http_ctrl_t *http_ctrl, int error_code) {
 	if (http_ctrl->error_code) {
 		error_code = http_ctrl->error_code;
 	}
-#ifdef LUAT_USE_FOTA
-	if (http_ctrl->isfota && error_code == HTTP_ERROR_FOTA){
-		luat_fota_end(0);
-	}
-#endif
 	LLOGD("http_report_result headers_complete:%d re_request_count:%d",http_ctrl->headers_complete,http_ctrl->re_request_count);
 	if (http_ctrl->tcp_closed == 0 && http_ctrl->headers_complete==1 && http_ctrl->re_request_count < http_ctrl->retry_cnt_max){
 		#ifdef LUAT_USE_NETDRV
 		luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, http_ctrl->netc, 3);
 		#endif
 		http_ctrl->re_request_count++;
-		network_close(http_ctrl->netc, 0);
+		/* Cancel silently before reusing the control block for the retry. */
 		network_force_close_socket(http_ctrl->netc);
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
 			LLOGE("http_report_result network_connect error");
@@ -349,19 +350,29 @@ static void http_report_result(luat_http_ctrl_t *http_ctrl, int error_code) {
 		}
 		return;
 	}
-	else if (http_ctrl->tcp_closed == 0) {
-		LLOGD("http_report_result normal close");
-		network_close(http_ctrl->netc, 0);
-		network_force_close_socket(http_ctrl->netc);
-#ifdef __BK72X__
-		return;
-#endif
-	}
 error:
+	/* Claim the terminal state before releasing the socket, so queued
+	 * network events cannot deliver a second terminal result. */
+	http_ctrl->finished = 1;
+	if (http_ctrl->timeout_timer) {
+		luat_stop_rtos_timer(http_ctrl->timeout_timer);
+	}
+#ifdef LUAT_USE_FOTA
+	/* Release the partial upgrade before waking Lua, so a new request can
+	 * start from byte zero even after timeout/close/parser errors. */
+	if (http_ctrl->fota_inited && error_code != HTTP_OK) {
+		http_ctrl->fota_inited = 0;
+		luat_fota_end(0);
+	}
+#endif
+	if (http_ctrl->tcp_closed == 0) {
+		LLOGD("http_report_result normal close");
+		http_ctrl->tcp_closed = 1;
+		network_force_close_socket(http_ctrl->netc);
+	}
 	#ifdef LUAT_USE_NETDRV
 	luat_netdrv_fire_socket_event_netctrl(EV_NW_SOCKET_ERROR, http_ctrl->netc, 3);
 	#endif
-	http_ctrl->finished = 1;
 	{
 		// 终态: 组自包含消息(含 headers/body 所有权移交)投递到 VM 线程
 		luat_http_msg_t *msg = luat_http_msg_build(http_ctrl, error_code, 0, 1);
@@ -474,7 +485,11 @@ static int on_headers_complete(http_parser* parser){
 				http_ctrl->error_code = HTTP_ERROR_FOTA;
 				return -1;
 			}
-			luat_fota_init(http_ctrl->address, http_ctrl->length, http_ctrl->spi_device, NULL, 0);
+			if (luat_fota_init(http_ctrl->address, http_ctrl->length, http_ctrl->spi_device, NULL, 0)) {
+				http_ctrl->error_code = HTTP_ERROR_FOTA;
+				return -1;
+			}
+			http_ctrl->fota_inited = 1;
 		}
 	#endif
 		http_ctrl->headers_complete = 1;
@@ -645,6 +660,7 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
 						http_ctrl->error_code = HTTP_ERROR_FOTA;
 						return -1;
 					}
+					http_ctrl->fota_inited = 0;
 				}else{
 					http_ctrl->error_code = HTTP_ERROR_FOTA;
 					return -1;
@@ -847,6 +863,7 @@ LUAT_RT_RET_TYPE luat_http_timer_callback_by_idg(LUAT_RT_CB_PARAM){
 // 避免依赖服务器按 Connection: close 主动断开
 static void http_try_finish_if_body_complete(luat_http_ctrl_t *http_ctrl) {
 	if (!http_ctrl) return;
+	if (http_ctrl->finished) return;
 	if (!http_ctrl->luatos_mode) return;
 	if (!http_ctrl->headers_complete) return;
 	if (!http_ctrl->http_body_is_finally) return;
@@ -857,7 +874,8 @@ static void http_try_finish_if_body_complete(luat_http_ctrl_t *http_ctrl) {
 	// 先执行 on_complete 完成下载/FOTA 等资源收尾
 	int ret = on_complete(&http_ctrl->parser, http_ctrl);
 	if (ret) {
-		// 保持与 on_tcp_closed 一致：出错时直接返回，由其它路径处理
+		/* on_complete only sets error_code; it does not deliver a result. */
+		http_report_result(http_ctrl, HTTP_ERROR_BODY);
 		return;
 	}
 	if (http_ctrl->error_code == -5) {
@@ -865,11 +883,9 @@ static void http_try_finish_if_body_complete(luat_http_ctrl_t *http_ctrl) {
 	}
 
 	// 主动关闭底层 socket，不再依赖服务器关闭
-	network_close(http_ctrl->netc, 0);
-	network_force_close_socket(http_ctrl->netc);
-
-	// 标记 HTTP 事务逻辑结束
 	http_ctrl->tcp_closed = 1;
+	// 已完成事务只释放 socket 控制权，不再申请异步 CLOSE 回调。
+	network_force_close_socket(http_ctrl->netc);
 
 	// 复用 http_report_result 上报结果。
 	// 此时 tcp_closed=1，http_report_result 不会再尝试重连，只会走 error: 分支，
@@ -877,6 +893,7 @@ static void http_try_finish_if_body_complete(luat_http_ctrl_t *http_ctrl) {
 }
 
 static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
+	if (http_ctrl->finished) return;
 	LLOGD("on_tcp_closed %p body is done %d header is complete %d", http_ctrl, http_ctrl->http_body_is_finally, http_ctrl->headers_complete);
 	int ret = 0;
     http_ctrl->tcp_closed = 1;
@@ -907,10 +924,7 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
 	}
 	if (http_ctrl->http_body_is_finally) {
 		ret = on_complete(&http_ctrl->parser, http_ctrl);
-		if (ret) {
-			return; // 结束，因为on_complete里面已经上报错误了
-		}
-		if (http_ctrl->error_code == -5) {
+		if (!ret && http_ctrl->error_code == HTTP_ERROR_CLOSE) {
 			http_ctrl->error_code = HTTP_OK;
 		}
 	}
@@ -920,7 +934,7 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
 		}
 	}
 	if (http_ctrl->luatos_mode) {
-		http_report_result(http_ctrl, HTTP_OK);
+		http_report_result(http_ctrl, ret ? HTTP_ERROR_BODY : HTTP_OK);
 	} else {
 		http_network_error(http_ctrl);
 	}
@@ -947,7 +961,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	        return 0;
 	    }
 	}
-	if (http_ctrl->tcp_closed){
+	if (http_ctrl->tcp_closed || http_ctrl->finished){
 		LLOGD("http already closed %p", http_ctrl);
 		return 0;
 	}
@@ -1054,6 +1068,10 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				LLOGD("nParseBytes %d resp_buff_offset %d", nParseBytes, http_ctrl->resp_buff_offset);
 				if (http_ctrl->parser.http_errno) {
 					LLOGW("http exit reason by errno: %d != HPE_OK!!", http_ctrl->parser.http_errno);
+					if (http_ctrl->luatos_mode) {
+						http_report_result(http_ctrl, http_ctrl->headers_complete ? HTTP_ERROR_BODY : HTTP_ERROR_HEADER);
+						return -1;
+					}
 					goto next_wait;
 				}
 				parsed = nParseBytes;

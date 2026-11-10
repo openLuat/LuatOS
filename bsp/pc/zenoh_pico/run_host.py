@@ -64,6 +64,7 @@ def main():
     parser.add_argument("--sanitize", action="store_true")
     suites = parser.add_mutually_exclusive_group()
     suites.add_argument("--open-race-tests", action="store_true", help="real SDK open success/failure racing close")
+    suites.add_argument("--payload-tests", action="store_true", help="256KiB real bidirectional payload and memory budget tests")
     suites.add_argument("--get-tests", action="store_true", help="run real bidirectional Get lifecycle tests instead of legacy Pub/Sub suite")
     suites.add_argument("--race-tests", choices=("dequeue", "enqueue", "both"), help="deterministic real worker close/admission interleavings")
     parser.add_argument("--skip-build", action="store_true", help="run existing binaries after test-only edits; hashes are printed")
@@ -108,6 +109,9 @@ def main():
         generic_compiler = [a for a in compiler if a not in host_defs] + generic_defs
         run([*generic_compiler, *sources, *host_files, *lua_flags, "-pthread", "-o", output / "zenoh_host_test"])
         run([*compiler, *common, here / "peer.c", "-pthread", "-o", output / "zenoh_peer"])
+        # 分片R位必须保持枚举语义，覆盖可靠/尽力两种首、续、末片。
+        run([*compiler, *common, here / "host_fragment_test.c", "-pthread", "-o", output / "host_fragment_test"])
+        run([output / "host_fragment_test"])
         # 真实socketpair合同覆盖事件预算、4096B短写、期限与短读字节守恒。
         for name in ("host_transport_test", "host_rx_test"):
             binary = output / name
@@ -142,14 +146,14 @@ def main():
                 time.sleep(0.05)
         else:
             raise TimeoutError("router listen")
-        peer = subprocess.Popen([str(output / "zenoh_peer"), endpoint, prefix] + (["--get"] if args.get_tests else []), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        peer = subprocess.Popen([str(output / "zenoh_peer"), endpoint, prefix] + (["--payload"] if args.payload_tests else ["--get"] if args.get_tests else []), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         ready(peer, "READY")
-        test_file = here / ("host_open_race.lua" if args.open_race_tests else "host_get_race.lua" if args.race_tests else "host_get_test.lua" if args.get_tests else "host_test.lua")
+        test_file = here / ("host_payload_test.lua" if args.payload_tests else "host_open_race.lua" if args.open_race_tests else "host_get_race.lua" if args.race_tests else "host_get_test.lua" if args.get_tests else "host_test.lua")
         environment = os.environ.copy()
         if args.race_tests:
             environment["ZENOH_TEST_RACE_CASE"] = args.race_tests
         result = subprocess.run([str(output / "zenoh_host_test"), str(test_file), endpoint, prefix],
-                                timeout=100 if args.get_tests else 65, env=environment)
+                                timeout=240 if args.payload_tests else 100 if args.get_tests else 65, env=environment)
         print("HOST_EXIT", result.returncode, flush=True)
         if result.returncode:
             peer.terminate()

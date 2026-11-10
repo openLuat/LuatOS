@@ -9,12 +9,18 @@
 
 #define SESSION "zenohpico.session"
 #define QUERY "zenohpico.query"
-typedef struct { uint32_t generation, next_id; int closed, subscription_count, get_count, queryable_count; } session_t;
+typedef struct {
+    uint32_t generation, next_id, failed_replies[LUAT_ZP_GET_MAX];
+    int closed, subscription_count, get_count, queryable_count;
+} session_t;
 typedef struct { uint32_t generation, token; int finished; } query_t;
 static char sessions_key;
 static atomic_uint wake_pending;
 static uint32_t callback_errors;
 static int poll_events(lua_State *L);
+#ifdef LUAT_ZENOH_TEST_BARRIERS
+extern void luat_zp_test_dispatch(const char *kind);
+#endif
 
 /* msgbus中只有唤醒信号，不携带可能释放的Lua userdata或控制块。 */
 static int on_wake(lua_State *L, void *unused) {
@@ -204,6 +210,17 @@ static int l_query_gc(lua_State *L) {
     q->finished = 1; return 0;
 }
 
+static int l_payload_stats(lua_State *L) {
+    luat_zp_payload_stats_t s; luat_zenoh_pico_payload_stats(&s);
+    lua_newtable(L);
+#define PAYLOAD_FIELD(name) lua_pushinteger(L, s.name); lua_setfield(L, -2, #name)
+    PAYLOAD_FIELD(tx_bytes); PAYLOAD_FIELD(rx_bytes); PAYLOAD_FIELD(tx_peak); PAYLOAD_FIELD(rx_peak);
+    PAYLOAD_FIELD(tx_rejected); PAYLOAD_FIELD(rx_rejected);
+#undef PAYLOAD_FIELD
+    lua_pushinteger(L, LUAT_ZP_TX_PAYLOAD_BUDGET); lua_setfield(L, -2, "tx_limit");
+    lua_pushinteger(L, LUAT_ZP_RX_PAYLOAD_BUDGET); lua_setfield(L, -2, "rx_limit");
+    return 1;
+}
 static int l_state(lua_State *L) {
     session_t *s = check(L);
     lua_pushinteger(L, luat_zenoh_pico_state(s->generation));
@@ -212,14 +229,25 @@ static int l_state(lua_State *L) {
     return 3;
 }
 
+typedef struct { luat_zp_event_t *event; session_t *session; int callback_started; } dispatch_t;
+/* VM独占固定槽，OOM后无需分配；同一请求多条失败回复只占一槽。 */
+static uint32_t *failed_reply(session_t *s, uint32_t id, int create) {
+    uint32_t *empty = NULL;
+    for (int i = 0; i < LUAT_ZP_GET_MAX; ++i) {
+        if (s->failed_replies[i] == id) return &s->failed_replies[i];
+        if (!s->failed_replies[i]) empty = &s->failed_replies[i];
+    }
+    if (create && empty) { *empty = id; return empty; }
+    return NULL;
+}
 /* 翻译与用户回调都位于pcall内，Lua内存错误也不会泄漏C事件。 */
 static int dispatch(lua_State *L) {
-    luat_zp_event_t *e = lua_touserdata(L, 1);
-    lua_rawgetp(L, LUA_REGISTRYINDEX, &sessions_key); lua_rawgeti(L, -1, e->generation);
-    session_t *s = luaL_testudata(L, -1, SESSION);
+    dispatch_t *context = lua_touserdata(L, 1);
+    luat_zp_event_t *e = context->event;
+    session_t *s = context->session;
     if (!s || s->generation != e->generation) return 0;
     if (s->closed && strcmp(e->kind, "closed") && strcmp(e->kind, "get_done")) return 0;
-    int handle = lua_gettop(L);
+    int handle = 2;
     lua_getuservalue(L, handle);
     if (!strcmp(e->kind, "error") && e->id) {
         lua_getfield(L, -1, "subscribers"); lua_rawgeti(L, -1, e->id);
@@ -234,11 +262,16 @@ static int dispatch(lua_State *L) {
         lua_pop(L, 1);
     }
     if (e->request) {
+        uint32_t *failed = failed_reply(s, e->request, 0);
+        if (failed && !strcmp(e->kind, "get_reply")) return 0;
+        if (failed && !strcmp(e->kind, "get_done")) { e->reason = "resource_limit"; e->code = -3; }
         lua_getfield(L, -1, "requests"); lua_rawgeti(L, -1, e->request);
         if (!lua_istable(L, -1)) return 0;
         lua_getfield(L, -1, !strcmp(e->kind, "get_done") ? "done" : "reply");
+        /* 终态自身构表失败也必须释放请求容量，不能等待不会再来的第二次终态。 */
         if (!strcmp(e->kind, "get_done")) {
             lua_pushnil(L); lua_rawseti(L, -4, e->request); s->get_count--;
+            if (failed) *failed = 0;
         }
     } else if (!strcmp(e->kind, "query")) {
         lua_getfield(L, -1, "queryables"); lua_rawgeti(L, -1, e->queryable);
@@ -249,6 +282,9 @@ static int dispatch(lua_State *L) {
     }
     if (!lua_isfunction(L, -1)) return 0;
     lua_pushvalue(L, handle);
+#ifdef LUAT_ZENOH_TEST_BARRIERS
+    luat_zp_test_dispatch(e->kind);
+#endif
     lua_newtable(L);
     lua_pushstring(L, e->kind); lua_setfield(L, -2, "kind");
     lua_pushinteger(L, e->id); lua_setfield(L, -2, "id");
@@ -276,19 +312,28 @@ static int dispatch(lua_State *L) {
     if (e->subscriber || !strcmp(e->kind, "query") || !strcmp(e->kind, "get_reply")) {
         lua_pushstring(L, e->operation); lua_setfield(L, -2, "operation");
         lua_pushlstring(L, e->key, e->key_len); lua_setfield(L, -2, "key");
-        lua_pushlstring(L, (const char *)e->payload, e->payload_len); lua_setfield(L, -2, "payload");
+        lua_pushlstring(L, e->payload ? (const char *)e->payload : "", e->payload_len); lua_setfield(L, -2, "payload");
     }
     if (!strcmp(e->kind, "closed")) s->closed = 1;
+    context->callback_started = 1;
     lua_call(L, 2, 0);
     return 0;
 }
 static int poll_events(lua_State *L) {
     int top = lua_gettop(L), count = 0;
     luat_zp_event_t *e;
-    while (count < 8 && luat_zenoh_pico_pop(&e) == 0) {
-        lua_pushcfunction(L, dispatch); lua_pushlightuserdata(L, e);
-        if (lua_pcall(L, 1, 0, 0) != LUA_OK) { lua_pop(L, 1); callback_errors++; }
+    while (count < 8 && lua_checkstack(L, 8) && luat_zenoh_pico_pop(&e) == 0) {
+        /* session留在pcall外层栈作GC根，异常展开后固定槽写入仍安全。 */
+        lua_rawgetp(L, LUA_REGISTRYINDEX, &sessions_key); lua_rawgeti(L, -1, e->generation); lua_remove(L, -2);
+        dispatch_t context = {e, luaL_testudata(L, -1, SESSION), 0};
+        lua_pushcfunction(L, dispatch); lua_pushlightuserdata(L, &context); lua_pushvalue(L, top + 1);
+        if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
+            if (context.session && e->request && !context.callback_started && !strcmp(e->kind, "get_reply"))
+                failed_reply(context.session, e->request, 1);
+            lua_pop(L, 1); callback_errors++;
+        }
         luat_zenoh_pico_event_free(e); count++;
+        lua_settop(L, top);
     }
     lua_settop(L, top);
     return count;
@@ -297,7 +342,7 @@ static int l_poll(lua_State *L) { lua_pushinteger(L, poll_events(L)); return 1; 
 static const luaL_Reg functions[] = {
     {"open", l_open}, {"close", l_close}, {"publish", l_publish},
     {"subscribe", l_subscribe}, {"unsubscribe", l_unsubscribe},
-    {"state", l_state}, {"poll", l_poll},
+    {"state", l_state}, {"poll", l_poll}, {"payload_stats", l_payload_stats},
     {"get", l_get}, {"cancel_get", l_cancel_get}, {"queryable", l_queryable},
     {"unqueryable", l_unqueryable}, {"reply", l_reply}, {"finish_reply", l_finish_reply}, {NULL, NULL}
 };

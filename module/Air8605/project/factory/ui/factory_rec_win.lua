@@ -86,6 +86,10 @@ local function asr_auth_headers()
     return { ["app-key"] = ak }
 end
 
+-- 流式上传：Air1103 只能录 PCM_16000（30s ≈ 960KB），io.readFile 全量读取 + table.concat
+-- 瞬时占用近 2MB，C 层 buffer OOM 会打挂 Lua VM。httpplus 分块读、分块发，峰值恒定。
+local httpplus = require("httpplus")
+
 local function request_stt(file_path)
     if not file_path or not io.exists(file_path) then
         if status_label then status_label:set_text("录音文件无效") end
@@ -104,32 +108,25 @@ local function request_stt(file_path)
         if status_label then status_label:set_text("鉴权失败") end
         return
     end
-    local bd = "----WebKitFormBoundary" .. tostring(os.time())
-    headers["Content-Type"] = "multipart/form-data; boundary=" .. bd
-    local body = {
-        "--" .. bd .. "\r\n",
-        "Content-Disposition: form-data; name=\"file\"; filename=\"record.amr\"\r\n",
-        "Content-Type: audio/amr\r\n\r\n",
-    }
-    local fdata = io.readFile(file_path)
-    if not fdata then
-        if status_label then status_label:set_text("读取录音失败") end
-        return
-    end
-    body[#body + 1] = fdata
-    body[#body + 1] = "\r\n--" .. bd .. "--\r\n"
     if status_label then status_label:set_text("语音识别中...") end
-    local code, _, rb = http.request("POST", ASR_URL, headers, table.concat(body), { timeout = 30000 }).wait()
+    local code, resp = httpplus.request({
+        url = ASR_URL,
+        method = "POST",
+        headers = headers,
+        files = { file = file_path },
+        timeout = 30,
+    })
     if code ~= 200 then
         if status_label then status_label:set_text("识别失败(" .. tostring(code) .. ")") end
         return
     end
-    local ok, resp = pcall(json.decode, rb)
-    if not ok or type(resp) ~= "table" or resp.code ~= 0 then
+    local rb = (resp and resp.body and resp.body:query()) or ""
+    local ok, j = pcall(json.decode, rb)
+    if not ok or type(j) ~= "table" or j.code ~= 0 then
         if status_label then status_label:set_text("识别结果解析失败") end
         return
     end
-    local text = (type(resp.value) == "table" and resp.value.text) or ""
+    local text = (type(j.value) == "table" and j.value.text) or ""
     if text ~= "" then
         if textarea then textarea:set_text(text) end
         if status_label then status_label:set_text("识别完成，请编辑后点击生成") end

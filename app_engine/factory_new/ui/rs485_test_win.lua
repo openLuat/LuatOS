@@ -671,6 +671,7 @@ local function on_destroy()
     ports = {}
     port_of = {}
     pending = {}
+    sys.publish("TEST_WIN_CLOSED")   -- 收口：功能测试页据此断开本页用的接口
 end
 
 local function on_get_focus() end

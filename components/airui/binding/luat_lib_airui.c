@@ -329,6 +329,18 @@ LUAMOD_API int luaopen_airui(lua_State *L) {
  * @return bool 成功返回 true，失败返回 false
  */
 static int l_airui_init(lua_State *L) {
+#if defined(LUAT_USE_PLCUI) && defined(LUAT_USE_AIRUI_SDL2)
+    // 当前plcui和airui不能同时使用，避免冲突
+    lua_getfield(L, LUA_REGISTRYINDEX, "plcui_active");
+    bool plcui_active = lua_toboolean(L, -1) != 0;
+    lua_pop(L, 1);
+    if (plcui_active) {
+        LLOGE("deinitialize plcui before initializing airui");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+#endif
+
     if (g_ctx != NULL) {
         LLOGE("airui already initialized");
         lua_pushboolean(L, 0);
@@ -379,6 +391,10 @@ static int l_airui_init(lua_State *L) {
         airui_ctx_create(g_ctx, NULL);  // 清理
         luat_heap_free(g_ctx);
         g_ctx = NULL;
+#if defined(LUAT_USE_PLCUI) && defined(LUAT_USE_AIRUI_SDL2)
+        lua_pushnil(L);
+        lua_setfield(L, LUA_REGISTRYINDEX, "airui_ctx");
+#endif
         lua_pushboolean(L, 0);
         return 1;
     }

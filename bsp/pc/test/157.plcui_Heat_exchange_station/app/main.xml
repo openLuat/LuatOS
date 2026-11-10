@@ -1,0 +1,622 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="main">
+  <resources>
+    <image id="main_background" src="main_background.png"/>
+    <image id="main_menu_button_normal" src="main_menu_button_normal.png"/>
+    <image id="main_menu_button_pressed" src="main_menu_button_pressed.png"/>
+    <image id="main_pump_control_normal" src="main_pump_control_normal.png"/>
+    <image id="main_pump_control_pressed" src="main_pump_control_pressed.png"/>
+    <image id="main_pump_control_checked" src="main_pump_control_checked.png"/>
+    <image id="main_tracking_switch_normal" src="main_tracking_switch_normal.png"/>
+    <image id="main_tracking_switch_pressed" src="main_tracking__eeeff0fd255c.png"/>
+    <image id="main_tracking_switch_checked" src="main_tracking__dfaf1164375d.png"/>
+    <image id="main_nav_main_normal" src="main_nav_main_normal.png"/>
+    <image id="main_nav_main_pressed" src="main_nav_main_pressed.png"/>
+    <image id="main_nav_parameters_normal" src="main_nav_parameters_normal.png"/>
+    <image id="main_nav_parameters_pressed" src="main_nav_parameters_pressed.png"/>
+    <image id="main_nav_records_normal" src="main_nav_records_normal.png"/>
+    <image id="main_nav_records_pressed" src="main_nav_records_pressed.png"/>
+    <image id="main_nav_trends_normal" src="main_nav_trends_normal.png"/>
+    <image id="main_nav_trends_pressed" src="main_nav_trends_pressed.png"/>
+    <image id="main_nav_pressure_normal" src="main_nav_pressure_normal.png"/>
+    <image id="main_nav_pressure_pressed" src="main_nav_pressure_pressed.png"/>
+    <image id="parameters_background" src="parameters_background.png"/>
+    <image id="records_background" src="records_background.png"/>
+    <image id="records_query_button_normal" src="records_query_button_normal.png"/>
+    <image id="records_query_button_pressed" src="records_query__a553d674eb79.png"/>
+    <image id="records_column_flow_primary_normal" src="records_column_93b3edc1bab1.png"/>
+    <image id="records_column_flow_primary_pressed" src="records_column_c2f2b60a7446.png"/>
+    <image id="records_column_flow_primary_checked" src="records_column_e600c539b8fe.png"/>
+    <image id="records_column_heat_primary_normal" src="records_column_2005271bdf71.png"/>
+    <image id="records_column_heat_primary_pressed" src="records_column_2dbf14035952.png"/>
+    <image id="records_column_heat_primary_checked" src="records_column_4c3867889f6e.png"/>
+    <image id="records_column_volume_primary_normal" src="records_column_bd6e0e157a1b.png"/>
+    <image id="records_column_volume_primary_pressed" src="records_column_73e186d35467.png"/>
+    <image id="records_column_volume_primary_checked" src="records_column_7977a8320ee1.png"/>
+    <image id="records_column_total_primary_normal" src="records_column_b8a90820d643.png"/>
+    <image id="records_column_total_primary_pressed" src="records_column_c494c670fe28.png"/>
+    <image id="records_column_total_primary_checked" src="records_column_90e4339712e3.png"/>
+    <image id="records_column_flow_secondary_normal" src="records_column_07c7789dae21.png"/>
+    <image id="records_column_flow_secondary_pressed" src="records_column_8f9afbf0f1f6.png"/>
+    <image id="records_column_flow_secondary_checked" src="records_column_065d800fd1c0.png"/>
+    <image id="records_column_heat_secondary_normal" src="records_column_b12c463fb3e9.png"/>
+    <image id="records_column_heat_secondary_pressed" src="records_column_927f9a057561.png"/>
+    <image id="records_column_heat_secondary_checked" src="records_column_6099e3e9cd60.png"/>
+    <image id="records_column_volume_secondary_normal" src="records_column_9097cbfe7b84.png"/>
+    <image id="records_column_volume_secondary_pressed" src="records_column_7884fe83d5be.png"/>
+    <image id="records_column_volume_secondary_checked" src="records_column_fa16032adda6.png"/>
+    <image id="records_column_total_secondary_normal" src="records_column_545191659c9c.png"/>
+    <image id="records_column_total_secondary_pressed" src="records_column_0fd5f418778c.png"/>
+    <image id="records_column_total_secondary_checked" src="records_column_f17ed611861f.png"/>
+    <image id="records_column_distribution_frequency_normal" src="records_column_ce983c0633e3.png"/>
+    <image id="records_column_distribution_frequency_pressed" src="records_column_6d1dbbff1ef5.png"/>
+    <image id="records_column_distribution_frequency_checked" src="records_column_13140d7d648d.png"/>
+    <image id="records_column_distribution_current_normal" src="records_column_d7c918a7ad07.png"/>
+    <image id="records_column_distribution_current_pressed" src="records_column_ec2089430ecb.png"/>
+    <image id="records_column_distribution_current_checked" src="records_column_3721a5415ff5.png"/>
+    <image id="records_column_pump_frequency_normal" src="records_column_5e67b35e1974.png"/>
+    <image id="records_column_pump_frequency_pressed" src="records_column_2616c4bc34d5.png"/>
+    <image id="records_column_pump_frequency_checked" src="records_column_56dbadbb356c.png"/>
+    <image id="records_column_pump_current_normal" src="records_column_867f8f7adb74.png"/>
+    <image id="records_column_pump_current_pressed" src="records_column_3ea08e80f1dd.png"/>
+    <image id="records_column_pump_current_checked" src="records_column_e23f09ae0400.png"/>
+    <image id="records_column_makeup_frequency_normal" src="records_column_aefae6cd5884.png"/>
+    <image id="records_column_makeup_frequency_pressed" src="records_column_2dfc1028c9f2.png"/>
+    <image id="records_column_makeup_frequency_checked" src="records_column_85cede12abdd.png"/>
+    <image id="records_column_makeup_current_normal" src="records_column_a57dbbc13274.png"/>
+    <image id="records_column_makeup_current_pressed" src="records_column_ef644da4c390.png"/>
+    <image id="records_column_makeup_current_checked" src="records_column_022f10373fb3.png"/>
+    <image id="records_column_energy_daily_normal" src="records_column_b9b4ac2c8393.png"/>
+    <image id="records_column_energy_daily_pressed" src="records_column_6cab651637e1.png"/>
+    <image id="records_column_energy_daily_checked" src="records_column_cc8bb7e50e8a.png"/>
+    <image id="trends_background" src="trends_background.png"/>
+    <image id="trends_curve_target_normal" src="trends_curve_target_normal.png"/>
+    <image id="trends_curve_target_pressed" src="trends_curve_target_pressed.png"/>
+    <image id="trends_curve_target_checked" src="trends_curve_target_checked.png"/>
+    <image id="trends_curve_primary_normal" src="trends_curve_primary_normal.png"/>
+    <image id="trends_curve_primary_pressed" src="trends_curve_p_20daecaa0884.png"/>
+    <image id="trends_curve_primary_checked" src="trends_curve_p_c403b1074a15.png"/>
+    <image id="trends_curve_return_primary_normal" src="trends_curve_r_709f1aea1336.png"/>
+    <image id="trends_curve_return_primary_pressed" src="trends_curve_r_e768472fb9cd.png"/>
+    <image id="trends_curve_return_primary_checked" src="trends_curve_r_4036b0e69b2c.png"/>
+    <image id="trends_curve_secondary_normal" src="trends_curve_s_54e6aa0c8763.png"/>
+    <image id="trends_curve_secondary_pressed" src="trends_curve_s_0742cfa3e202.png"/>
+    <image id="trends_curve_secondary_checked" src="trends_curve_s_dd2280da16fd.png"/>
+    <image id="trends_curve_return_secondary_normal" src="trends_curve_r_a84341c217f0.png"/>
+    <image id="trends_curve_return_secondary_pressed" src="trends_curve_r_36ea7a69045f.png"/>
+    <image id="trends_curve_return_secondary_checked" src="trends_curve_r_c2e44e542c35.png"/>
+    <image id="trends_curve_mean_normal" src="trends_curve_mean_normal.png"/>
+    <image id="trends_curve_mean_pressed" src="trends_curve_mean_pressed.png"/>
+    <image id="trends_curve_mean_checked" src="trends_curve_mean_checked.png"/>
+    <image id="trends_curve_outdoor_normal" src="trends_curve_outdoor_normal.png"/>
+    <image id="trends_curve_outdoor_pressed" src="trends_curve_o_fa7c813a21a7.png"/>
+    <image id="trends_curve_outdoor_checked" src="trends_curve_o_781ba7510dcb.png"/>
+    <image id="trends_legend_target_normal" src="trends_legend_target_normal.png"/>
+    <image id="trends_legend_primary_normal" src="trends_legend__93ac778dbc66.png"/>
+    <image id="trends_legend_secondary_normal" src="trends_legend__77c90ed3edc4.png"/>
+    <image id="trends_legend_return_primary_normal" src="trends_legend__94d96c17178e.png"/>
+    <image id="trends_legend_return_secondary_normal" src="trends_legend__a7a8c28c3867.png"/>
+    <image id="trends_legend_mean_normal" src="trends_legend_mean_normal.png"/>
+    <image id="trends_legend_outdoor_normal" src="trends_legend__c617f072b60c.png"/>
+    <image id="pressure_background" src="pressure_background.png"/>
+    <image id="pressure_curve_primary_normal" src="pressure_curve_b521df2547ec.png"/>
+    <image id="pressure_curve_primary_pressed" src="pressure_curve_9759c7275a27.png"/>
+    <image id="pressure_curve_primary_checked" src="pressure_curve_508b5dc330b4.png"/>
+    <image id="pressure_curve_primary2_normal" src="pressure_curve_02aab434569c.png"/>
+    <image id="pressure_curve_primary2_pressed" src="pressure_curve_3e1690495324.png"/>
+    <image id="pressure_curve_primary2_checked" src="pressure_curve_3ada02f6e5cc.png"/>
+    <image id="pressure_curve_return_primary_normal" src="pressure_curve_9188254e3a08.png"/>
+    <image id="pressure_curve_return_primary_pressed" src="pressure_curve_bd665f9faf2d.png"/>
+    <image id="pressure_curve_return_primary_checked" src="pressure_curve_4700e83f16d6.png"/>
+    <image id="pressure_curve_secondary_normal" src="pressure_curve_563875c79d51.png"/>
+    <image id="pressure_curve_secondary_pressed" src="pressure_curve_7d630b630ca9.png"/>
+    <image id="pressure_curve_secondary_checked" src="pressure_curve_3964752b1bee.png"/>
+    <image id="pressure_curve_return_secondary_normal" src="pressure_curve_7e62764c49c7.png"/>
+    <image id="pressure_curve_return_secondary_pressed" src="pressure_curve_33d275877ef3.png"/>
+    <image id="pressure_curve_return_secondary_checked" src="pressure_curve_c00d62a111cb.png"/>
+    <image id="pressure_curve_return_secondary2_normal" src="pressure_curve_d24a6dcb236c.png"/>
+    <image id="pressure_curve_return_secondary2_pressed" src="pressure_curve_c08cc9da5590.png"/>
+    <image id="pressure_curve_return_secondary2_checked" src="pressure_curve_b8cc05265117.png"/>
+    <image id="pressure_curve_difference_normal" src="pressure_curve_04ad17db7a50.png"/>
+    <image id="pressure_curve_difference_pressed" src="pressure_curve_e570e5c957e0.png"/>
+    <image id="pressure_curve_difference_checked" src="pressure_curve_4bae97835548.png"/>
+    <image id="pressure_legend_primary_normal" src="pressure_legen_b6bb8bd7fbfa.png"/>
+    <image id="pressure_legend_return_primary_normal" src="pressure_legen_a859e38d2075.png"/>
+    <image id="pressure_legend_secondary_normal" src="pressure_legen_859e58439c37.png"/>
+    <image id="pressure_legend_difference_normal" src="pressure_legen_941af8ff1e45.png"/>
+    <image id="pressure_legend_primary2_normal" src="pressure_legen_558fcddefae1.png"/>
+    <image id="pressure_legend_return_secondary_normal" src="pressure_legen_977fd733c2dd.png"/>
+    <image id="pressure_legend_return_secondary2_normal" src="pressure_legen_dc6d98ff19c4.png"/>
+  </resources>
+  <pages>
+    <page id="main" background="#183775">
+      <image id="background" x="0" y="0" w="1024" h="600" src="main_background"/>
+      <image id="menu_button" x="4" y="3" w="27" h="22" src="main_menu_button_normal" src-pressed="main_menu_button_pressed" clickable="true" on-click="toggle_menu"/>
+      <label id="clock" x="411" y="71" w="202" h="18" text="2026/11/04 16:46:10" font="hzfont" font_size="13" color="#ffffff" align="center"/>
+      <label id="primary_supply" x="48" y="102" w="180" h="19" text="一网供温:55.8℃" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="primary_pressure" x="48" y="121" w="160" h="19" text="一网供压:0.52MPa" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="primary_pressure2" x="210" y="121" w="160" h="19" text="一网供压:0.52MPa" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="flow" x="340" y="121" w="150" h="19" text="一网瞬时流量:13.65 m3/h" font="hzfont" font_size="12" color="#ffffff" align="left"/>
+      <label id="heat" x="340" y="141" w="150" h="19" text="一网瞬时热量:0.46 GJ/h" font="hzfont" font_size="12" color="#ffffff" align="left"/>
+      <label id="secondary_supply" x="815" y="102" w="200" h="19" text="二网供温:55.4℃" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="pressure" x="815" y="121" w="200" h="19" text="二网供压:0.51 MPa" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="volume_total" x="48" y="221" w="240" h="19" text="一网累积流量:29.63 m3" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="heat_total" x="48" y="241" w="240" h="19" text="一网累积热量:0.92 GJ" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="primary_return" x="48" y="302" w="180" h="19" text="一网回温:50.8℃" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="primary_return_pressure" x="48" y="321" w="180" h="19" text="一网回压:0.51 MPa" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="valve_opening" x="230" y="321" w="140" h="19" text="当前开度:14 %" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="pressure_difference" x="831" y="270" w="185" h="19" text="二网压差:0.00 MPa" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="pump_current" x="723" y="288" w="70" h="19" text="0.0 A" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="pump_frequency" x="723" y="307" w="80" h="19" text="0.0 Hz" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="secondary_return" x="857" y="293" w="165" h="19" text="二网回温:22.8℃" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="return_pressure" x="825" y="312" w="190" h="19" text="二网回压:0.51 MPa" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <label id="return_pressure2" x="833" y="331" w="190" h="19" text="二网回压:0.51 MPa" font="hzfont" font_size="13" color="#ffffff" align="left"/>
+      <image id="pump_control" x="765" y="319" w="45" h="78" src="main_pump_control_normal" src-pressed="main_pump_control_pressed" src-checked="main_pump_control_checked" clickable="true" on-click="toggle_pump"/>
+      <label id="pump_status" x="714" y="388" w="62" h="18" text="循环泵" font="hzfont" font_size="12" color="#ffffff" align="left"/>
+      <image id="tracking_switch" x="130" y="521" w="58" h="23" src="main_tracking_switch_normal" src-pressed="main_tracking_switch_pressed" src-checked="main_tracking_switch_checked" clickable="true" on-click="toggle_tracking"/>
+      <textarea id="setpoint" x="338" y="522" w="54" h="21" text="30.0" font="hzfont" font_size="12" color="#69748d" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="setpoint_submit" on-cancel="field_cancel"/>
+      <label id="setpoint_feedback" x="226" y="552" w="170" h="18" text="输出结果:0℃" font="hzfont" font_size="12" color="#ffffff" align="left"/>
+      <chart id="mini_trend" x="446" y="480" w="552" h="91" type="bar" point-count="7" y-min="0" y-max="1" hdiv="6" vdiv="0" line-width="1" grid-color="#b8bad4">
+        <series id="heat" color="#3cddff" values="0,0,0,0,0,0,0"/>
+      </chart>
+      <keyboard id="numeric_keys" x="420" y="280" w="590" h="310" layout="number" font="hzfont" font_size="18" hidden="true"/>
+      <container id="navigation" x="3" y="29" w="180" h="174" hidden="true" background="#154184" bg-opacity="255" border-color="#05abf6" border-width="1">
+        <image id="nav_main" x="0" y="0" w="178" h="34" src="main_nav_main_normal" src-pressed="main_nav_main_pressed" clickable="true" on-click="show_main"/>
+        <image id="nav_parameters" x="0" y="34" w="178" h="34" src="main_nav_parameters_normal" src-pressed="main_nav_parameters_pressed" clickable="true" on-click="show_parameters"/>
+        <image id="nav_records" x="0" y="68" w="178" h="34" src="main_nav_records_normal" src-pressed="main_nav_records_pressed" clickable="true" on-click="show_records"/>
+        <image id="nav_trends" x="0" y="102" w="178" h="34" src="main_nav_trends_normal" src-pressed="main_nav_trends_pressed" clickable="true" on-click="show_trends"/>
+        <image id="nav_pressure" x="0" y="136" w="178" h="34" src="main_nav_pressure_normal" src-pressed="main_nav_pressure_pressed" clickable="true" on-click="show_pressure"/>
+      </container>
+    </page>
+    <page id="parameters" background="#183775">
+      <image id="background" x="0" y="0" w="1024" h="600" src="parameters_background"/>
+      <image id="menu_button" x="4" y="3" w="27" h="22" src="main_menu_button_normal" src-pressed="main_menu_button_pressed" clickable="true" on-click="toggle_menu"/>
+      <label id="clock" x="411" y="71" w="202" h="18" text="2026/11/04 16:46:10" font="hzfont" font_size="13" color="#ffffff" align="center"/>
+      <container id="clip_protection_table" x="12" y="128" w="1000" h="240">
+        <table id="protection_table" x="0" y="0" w="1000" h="240" rows="12" columns="5" col-widths="180,180,220,220,200" col-aligns="left,center,center,center,center" align="left" header-align="center" grid="true" row-height="20" font="hzfont" font_size="12" color="#ffffff" background="#1c3671" header-color="#075dae" alternate-color="#254886" border-color="#078bd5" border-width="0" cell-padding="2">
+          <cell row="1" column="1" text="名称"/>
+          <cell row="1" column="2" text="实时值"/>
+          <cell row="1" column="3" text="报警上限值"/>
+          <cell row="1" column="4" text="报警下限值"/>
+          <cell row="1" column="5" text="报警状态"/>
+          <cell row="2" column="1" text="一网供温"/>
+          <cell row="2" column="2" text=""/>
+          <cell row="2" column="3" text=""/>
+          <cell row="2" column="4" text=""/>
+          <cell row="2" column="5" text=""/>
+          <cell row="3" column="1" text="一网供压1"/>
+          <cell row="3" column="2" text=""/>
+          <cell row="3" column="3" text=""/>
+          <cell row="3" column="4" text=""/>
+          <cell row="3" column="5" text=""/>
+          <cell row="4" column="1" text="一网供压2"/>
+          <cell row="4" column="2" text=""/>
+          <cell row="4" column="3" text=""/>
+          <cell row="4" column="4" text=""/>
+          <cell row="4" column="5" text=""/>
+          <cell row="5" column="1" text="一网回温"/>
+          <cell row="5" column="2" text=""/>
+          <cell row="5" column="3" text=""/>
+          <cell row="5" column="4" text=""/>
+          <cell row="5" column="5" text=""/>
+          <cell row="6" column="1" text="一网回压"/>
+          <cell row="6" column="2" text=""/>
+          <cell row="6" column="3" text=""/>
+          <cell row="6" column="4" text=""/>
+          <cell row="6" column="5" text=""/>
+          <cell row="7" column="1" text="二网供温"/>
+          <cell row="7" column="2" text=""/>
+          <cell row="7" column="3" text=""/>
+          <cell row="7" column="4" text=""/>
+          <cell row="7" column="5" text=""/>
+          <cell row="8" column="1" text="二网供压"/>
+          <cell row="8" column="2" text=""/>
+          <cell row="8" column="3" text=""/>
+          <cell row="8" column="4" text=""/>
+          <cell row="8" column="5" text=""/>
+          <cell row="9" column="1" text="二网回温"/>
+          <cell row="9" column="2" text=""/>
+          <cell row="9" column="3" text=""/>
+          <cell row="9" column="4" text=""/>
+          <cell row="9" column="5" text=""/>
+          <cell row="10" column="1" text="二网回压1"/>
+          <cell row="10" column="2" text=""/>
+          <cell row="10" column="3" text=""/>
+          <cell row="10" column="4" text=""/>
+          <cell row="10" column="5" text=""/>
+          <cell row="11" column="1" text="二网回压2"/>
+          <cell row="11" column="2" text=""/>
+          <cell row="11" column="3" text=""/>
+          <cell row="11" column="4" text=""/>
+          <cell row="11" column="5" text=""/>
+          <cell row="12" column="1" text="水箱液位"/>
+          <cell row="12" column="2" text=""/>
+          <cell row="12" column="3" text=""/>
+          <cell row="12" column="4" text=""/>
+          <cell row="12" column="5" text=""/>
+        </table>
+      </container>
+      <label id="parameter_value_0" x="194" y="150" w="176" h="18" text="55.8℃" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_0" x="443" y="150" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_0" x="4" y="0" w="68" h="16" text="28.3" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_0" x="663" y="150" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_0" x="4" y="0" w="68" h="16" text="10" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_0" x="813" y="150" w="196" h="18" text="超上限报警" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_0" x="813" y="150" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_0" x="813" y="150" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_1" x="194" y="170" w="176" h="18" text="0.52MPa" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_1" x="443" y="170" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_1" x="4" y="0" w="68" h="16" text="0.3" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_1" x="663" y="170" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_1" x="4" y="0" w="68" h="16" text="0" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_1" x="813" y="170" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_1" x="813" y="170" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_1" x="813" y="170" w="196" h="18" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_2" x="194" y="190" w="176" h="18" text="0.52MPa" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_2" x="443" y="190" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_2" x="4" y="0" w="68" h="16" text="0.25" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_2" x="663" y="190" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_2" x="4" y="0" w="68" h="16" text="0" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_2" x="813" y="190" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_2" x="813" y="190" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_2" x="813" y="190" w="196" h="18" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_3" x="194" y="210" w="176" h="18" text="50.8℃" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_3" x="443" y="210" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_3" x="4" y="0" w="68" h="16" text="28" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_3" x="663" y="210" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_3" x="4" y="0" w="68" h="16" text="15.8" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_3" x="813" y="210" w="196" h="18" text="超上限报警" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_3" x="813" y="210" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_3" x="813" y="210" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_4" x="194" y="230" w="176" h="18" text="0.52MPa" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_4" x="443" y="230" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_4" x="4" y="0" w="68" h="16" text="0.35" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_4" x="663" y="230" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_4" x="4" y="0" w="68" h="16" text="0.13" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_4" x="813" y="230" w="196" h="18" text="超上限报警" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_4" x="813" y="230" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_4" x="813" y="230" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_5" x="194" y="250" w="176" h="18" text="55.4℃" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_5" x="443" y="250" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_5" x="4" y="0" w="68" h="16" text="22" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_5" x="663" y="250" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_5" x="4" y="0" w="68" h="16" text="18" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_5" x="813" y="250" w="196" h="18" text="超上限报警" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_5" x="813" y="250" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_5" x="813" y="250" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_6" x="194" y="270" w="176" h="18" text="0.51MPa" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_6" x="443" y="270" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_6" x="4" y="0" w="68" h="16" text="0.5" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_6" x="663" y="270" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_6" x="4" y="0" w="68" h="16" text="0.15" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_6" x="813" y="270" w="196" h="18" text="超上限报警" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_6" x="813" y="270" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_6" x="813" y="270" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_7" x="194" y="290" w="176" h="18" text="22.9℃" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_7" x="443" y="290" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_7" x="4" y="0" w="68" h="16" text="23" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_7" x="663" y="290" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_7" x="4" y="0" w="68" h="16" text="20" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_7" x="813" y="290" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_7" x="813" y="290" w="196" h="18" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_7" x="813" y="290" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_8" x="194" y="310" w="176" h="18" text="0.51MPa" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_8" x="443" y="310" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_8" x="4" y="0" w="68" h="16" text="0.45" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_8" x="663" y="310" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_8" x="4" y="0" w="68" h="16" text="0.16" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_8" x="813" y="310" w="196" h="18" text="超上限报警" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_8" x="813" y="310" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_8" x="813" y="310" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_9" x="194" y="330" w="176" h="18" text="0.51MPa" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_9" x="443" y="330" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_9" x="4" y="0" w="68" h="16" text="0.46" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_9" x="663" y="330" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_9" x="4" y="0" w="68" h="16" text="0.17" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_9" x="813" y="330" w="196" h="18" text="超上限报警" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_9" x="813" y="330" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_9" x="813" y="330" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <label id="parameter_value_10" x="194" y="350" w="176" h="18" text="546mm" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_upper_10" x="443" y="350" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="upper_10" x="4" y="0" w="68" h="16" text="590" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_lower_10" x="663" y="350" w="78" h="18" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="lower_10" x="4" y="0" w="68" h="16" text="490" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <label id="alarm_10" x="813" y="350" w="196" h="18" hidden="true" text="正常" font="hzfont" font_size="12" color="#ff477f" align="center"/>
+      <label id="alarm_normal_10" x="813" y="350" w="196" h="18" text="正常" font="hzfont" font_size="12" color="#3dff90" align="center"/>
+      <label id="alarm_error_10" x="813" y="350" w="196" h="18" hidden="true" text="参数设置错误" font="hzfont" font_size="12" color="#ffe32d" align="center"/>
+      <container id="frame_pump_high" x="20" y="413" w="108" h="19" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="pump_high" x="4" y="0" w="98" h="17" text="0.55" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_pump_low" x="20" y="446" w="108" h="19" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="pump_low" x="4" y="0" w="98" h="17" text="0.22" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_tank_low" x="532" y="413" w="108" h="19" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="tank_low" x="4" y="0" w="98" h="17" text="700" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_makeup_low" x="532" y="446" w="108" h="19" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="makeup_low" x="4" y="0" w="98" h="17" text="0.4" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="numeric_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_distribution_p" x="55" y="496" w="265" h="20" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="distribution_p" x="4" y="0" w="255" h="18" text="1.2" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="pid_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_distribution_i" x="55" y="521" w="265" h="20" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="distribution_i" x="4" y="0" w="255" h="18" text="1" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="pid_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_distribution_d" x="55" y="546" w="265" h="20" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="distribution_d" x="4" y="0" w="255" h="18" text="0" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="pid_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_circulation_p" x="393" y="496" w="265" h="20" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="circulation_p" x="4" y="0" w="255" h="18" text="1.2" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="pid_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_circulation_i" x="393" y="521" w="265" h="20" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="circulation_i" x="4" y="0" w="255" h="18" text="0.5" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="pid_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_circulation_d" x="393" y="546" w="265" h="20" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="circulation_d" x="4" y="0" w="255" h="18" text="0" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="pid_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_makeup_p" x="731" y="496" w="265" h="20" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="makeup_p" x="4" y="0" w="255" h="18" text="1.2" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="pid_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_makeup_i" x="731" y="521" w="265" h="20" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="makeup_i" x="4" y="0" w="255" h="18" text="0.5" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="pid_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <container id="frame_makeup_d" x="731" y="546" w="265" h="20" background="#f7faff" border-color="#a5b9d4" border-width="1">
+        <textarea id="makeup_d" x="4" y="0" w="255" h="18" text="0" font="hzfont" font_size="12" color="#67788f" one-line="true" max-length="12" accepted-chars="0123456789." keyboard="pid_keys" on-submit="field_submit" on-cancel="field_cancel"/>
+      </container>
+      <keyboard id="numeric_keys" x="12" y="375" w="1000" h="215" layout="number" font="hzfont" font_size="18" hidden="true"/>
+      <keyboard id="pid_keys" x="12" y="96" w="1000" h="260" layout="number" font="hzfont" font_size="18" hidden="true"/>
+      <container id="navigation" x="3" y="29" w="180" h="174" hidden="true" background="#154184" bg-opacity="255" border-color="#05abf6" border-width="1">
+        <image id="nav_main" x="0" y="0" w="178" h="34" src="main_nav_main_normal" src-pressed="main_nav_main_pressed" clickable="true" on-click="show_main"/>
+        <image id="nav_parameters" x="0" y="34" w="178" h="34" src="main_nav_parameters_normal" src-pressed="main_nav_parameters_pressed" clickable="true" on-click="show_parameters"/>
+        <image id="nav_records" x="0" y="68" w="178" h="34" src="main_nav_records_normal" src-pressed="main_nav_records_pressed" clickable="true" on-click="show_records"/>
+        <image id="nav_trends" x="0" y="102" w="178" h="34" src="main_nav_trends_normal" src-pressed="main_nav_trends_pressed" clickable="true" on-click="show_trends"/>
+        <image id="nav_pressure" x="0" y="136" w="178" h="34" src="main_nav_pressure_normal" src-pressed="main_nav_pressure_pressed" clickable="true" on-click="show_pressure"/>
+      </container>
+    </page>
+    <page id="records" background="#183775">
+      <image id="background" x="0" y="0" w="1024" h="600" src="records_background"/>
+      <image id="menu_button" x="4" y="3" w="27" h="22" src="main_menu_button_normal" src-pressed="main_menu_button_pressed" clickable="true" on-click="toggle_menu"/>
+      <textarea id="date_start" x="99" y="112" w="127" h="25" text="2026-11-01" font="hzfont" font_size="13" color="#69748d" one-line="true" max-length="12" accepted-chars="0123456789-/" keyboard="date_keys" on-submit="date_submit" on-cancel="field_cancel"/>
+      <textarea id="date_end" x="325" y="112" w="127" h="25" text="2026-11-04" font="hzfont" font_size="13" color="#69748d" one-line="true" max-length="12" accepted-chars="0123456789-/" keyboard="date_keys" on-submit="date_submit" on-cancel="field_cancel"/>
+      <image id="query_button" x="474" y="110" w="72" h="29" src="records_query_button_normal" src-pressed="records_query_button_pressed" clickable="true" on-click="query_data"/>
+      <label id="result_count" x="561" y="114" w="160" h="21" text="共 267 条" font="hzfont" font_size="13" color="#00f2cf" align="left"/>
+      <image id="column_flow_primary" x="81" y="152" w="114" h="20" src="records_column_flow_primary_normal" src-pressed="records_column_flow_primary_pressed" src-checked="records_column_flow_primary_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_heat_primary" x="196" y="152" w="114" h="20" src="records_column_heat_primary_normal" src-pressed="records_column_heat_primary_pressed" src-checked="records_column_heat_primary_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_volume_primary" x="311" y="152" w="114" h="20" src="records_column_volume_primary_normal" src-pressed="records_column_volume_primary_pressed" src-checked="records_column_volume_primary_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_total_primary" x="426" y="152" w="114" h="20" src="records_column_total_primary_normal" src-pressed="records_column_total_primary_pressed" src-checked="records_column_total_primary_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_flow_secondary" x="541" y="152" w="114" h="20" src="records_column_flow_secondary_normal" src-pressed="records_column_flow_secondary_pressed" src-checked="records_column_flow_secondary_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_heat_secondary" x="656" y="152" w="114" h="20" src="records_column_heat_secondary_normal" src-pressed="records_column_heat_secondary_pressed" src-checked="records_column_heat_secondary_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_volume_secondary" x="771" y="152" w="114" h="20" src="records_column_volume_secondary_normal" src-pressed="records_column_volume_secondary_pressed" src-checked="records_column_volume_secondary_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_total_secondary" x="886" y="152" w="114" h="20" src="records_column_total_secondary_normal" src-pressed="records_column_total_secondary_pressed" src-checked="records_column_total_secondary_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_distribution_frequency" x="20" y="176" w="130" h="20" src="records_column_distribution_frequency_normal" src-pressed="records_column_distribution_frequency_pressed" src-checked="records_column_distribution_frequency_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_distribution_current" x="153" y="176" w="130" h="20" src="records_column_distribution_current_normal" src-pressed="records_column_distribution_current_pressed" src-checked="records_column_distribution_current_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_pump_frequency" x="286" y="176" w="130" h="20" src="records_column_pump_frequency_normal" src-pressed="records_column_pump_frequency_pressed" src-checked="records_column_pump_frequency_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_pump_current" x="419" y="176" w="130" h="20" src="records_column_pump_current_normal" src-pressed="records_column_pump_current_pressed" src-checked="records_column_pump_current_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_makeup_frequency" x="552" y="176" w="130" h="20" src="records_column_makeup_frequency_normal" src-pressed="records_column_makeup_frequency_pressed" src-checked="records_column_makeup_frequency_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_makeup_current" x="685" y="176" w="130" h="20" src="records_column_makeup_current_normal" src-pressed="records_column_makeup_current_pressed" src-checked="records_column_makeup_current_checked" clickable="true" on-click="toggle_column"/>
+      <image id="column_energy_daily" x="818" y="176" w="130" h="20" src="records_column_energy_daily_normal" src-pressed="records_column_energy_daily_pressed" src-checked="records_column_energy_daily_checked" clickable="true" on-click="toggle_column"/>
+      <container id="clip_energy_table" x="12" y="207" w="1000" h="387">
+        <table id="energy_table" x="0" y="0" w="1000" h="387" rows="22" columns="5" col-widths="260,185,185,185,185" col-aligns="left,right,right,right,right" align="left" header-align="center" grid="true" row-height="19" font="hzfont" font_size="11" color="#ffffff" background="#1c3671" header-color="#075dae" alternate-color="#254886" border-color="#078bd5" border-width="0" cell-padding="2">
+          <cell row="1" column="1" text="日期时间"/>
+          <cell row="1" column="2" text="一网瞬时流量"/>
+          <cell row="1" column="3" text="一网瞬时热量"/>
+          <cell row="1" column="4" text="二网瞬时流量"/>
+          <cell row="1" column="5" text="二网瞬时热量"/>
+          <cell row="2" column="1" text="2026-11-01 12:09:29"/>
+          <cell row="2" column="2" text="0"/>
+          <cell row="2" column="3" text="0"/>
+          <cell row="2" column="4" text="0"/>
+          <cell row="2" column="5" text="0"/>
+          <cell row="3" column="1" text="2026-11-01 12:17:42"/>
+          <cell row="3" column="2" text="0"/>
+          <cell row="3" column="3" text="0"/>
+          <cell row="3" column="4" text="0"/>
+          <cell row="3" column="5" text="0"/>
+          <cell row="4" column="1" text="2026-11-01 12:22:42"/>
+          <cell row="4" column="2" text="0"/>
+          <cell row="4" column="3" text="0"/>
+          <cell row="4" column="4" text="0"/>
+          <cell row="4" column="5" text="0"/>
+          <cell row="5" column="1" text="2026-11-01 12:27:42"/>
+          <cell row="5" column="2" text="0"/>
+          <cell row="5" column="3" text="0"/>
+          <cell row="5" column="4" text="0"/>
+          <cell row="5" column="5" text="0"/>
+          <cell row="6" column="1" text="2026-11-01 12:32:42"/>
+          <cell row="6" column="2" text="0"/>
+          <cell row="6" column="3" text="0"/>
+          <cell row="6" column="4" text="0"/>
+          <cell row="6" column="5" text="0"/>
+          <cell row="7" column="1" text="2026-11-01 12:37:42"/>
+          <cell row="7" column="2" text="0"/>
+          <cell row="7" column="3" text="0"/>
+          <cell row="7" column="4" text="0"/>
+          <cell row="7" column="5" text="0"/>
+          <cell row="8" column="1" text="2026-11-01 12:42:42"/>
+          <cell row="8" column="2" text="0"/>
+          <cell row="8" column="3" text="0"/>
+          <cell row="8" column="4" text="0"/>
+          <cell row="8" column="5" text="0"/>
+          <cell row="9" column="1" text="2026-11-01 12:47:42"/>
+          <cell row="9" column="2" text="0"/>
+          <cell row="9" column="3" text="0"/>
+          <cell row="9" column="4" text="0"/>
+          <cell row="9" column="5" text="0"/>
+          <cell row="10" column="1" text="2026-11-01 12:52:42"/>
+          <cell row="10" column="2" text="0"/>
+          <cell row="10" column="3" text="0"/>
+          <cell row="10" column="4" text="0"/>
+          <cell row="10" column="5" text="0"/>
+          <cell row="11" column="1" text="2026-11-01 12:57:42"/>
+          <cell row="11" column="2" text="0"/>
+          <cell row="11" column="3" text="0"/>
+          <cell row="11" column="4" text="0"/>
+          <cell row="11" column="5" text="0"/>
+          <cell row="12" column="1" text="2026-11-01 13:02:42"/>
+          <cell row="12" column="2" text="0"/>
+          <cell row="12" column="3" text="0"/>
+          <cell row="12" column="4" text="0"/>
+          <cell row="12" column="5" text="0"/>
+          <cell row="13" column="1" text="2026-11-01 13:07:42"/>
+          <cell row="13" column="2" text="0"/>
+          <cell row="13" column="3" text="0"/>
+          <cell row="13" column="4" text="0"/>
+          <cell row="13" column="5" text="0"/>
+          <cell row="14" column="1" text="2026-11-01 13:12:42"/>
+          <cell row="14" column="2" text="0"/>
+          <cell row="14" column="3" text="0"/>
+          <cell row="14" column="4" text="0"/>
+          <cell row="14" column="5" text="0"/>
+          <cell row="15" column="1" text="2026-11-01 13:17:42"/>
+          <cell row="15" column="2" text="0"/>
+          <cell row="15" column="3" text="0"/>
+          <cell row="15" column="4" text="0"/>
+          <cell row="15" column="5" text="0"/>
+          <cell row="16" column="1" text="2026-11-01 13:22:42"/>
+          <cell row="16" column="2" text="0"/>
+          <cell row="16" column="3" text="0"/>
+          <cell row="16" column="4" text="0"/>
+          <cell row="16" column="5" text="0"/>
+          <cell row="17" column="1" text="2026-11-01 13:27:42"/>
+          <cell row="17" column="2" text="0"/>
+          <cell row="17" column="3" text="0"/>
+          <cell row="17" column="4" text="0"/>
+          <cell row="17" column="5" text="0"/>
+          <cell row="18" column="1" text="2026-11-01 13:32:42"/>
+          <cell row="18" column="2" text="0"/>
+          <cell row="18" column="3" text="0"/>
+          <cell row="18" column="4" text="0"/>
+          <cell row="18" column="5" text="0"/>
+          <cell row="19" column="1" text="2026-11-01 13:37:42"/>
+          <cell row="19" column="2" text="0"/>
+          <cell row="19" column="3" text="0"/>
+          <cell row="19" column="4" text="0"/>
+          <cell row="19" column="5" text="0"/>
+          <cell row="20" column="1" text="2026-11-01 13:42:42"/>
+          <cell row="20" column="2" text="0"/>
+          <cell row="20" column="3" text="0"/>
+          <cell row="20" column="4" text="0"/>
+          <cell row="20" column="5" text="0"/>
+          <cell row="21" column="1" text="2026-11-01 13:47:42"/>
+          <cell row="21" column="2" text="0"/>
+          <cell row="21" column="3" text="0"/>
+          <cell row="21" column="4" text="0"/>
+          <cell row="21" column="5" text="0"/>
+          <cell row="22" column="1" text="2026-11-01 13:52:42"/>
+          <cell row="22" column="2" text="0"/>
+          <cell row="22" column="3" text="0"/>
+          <cell row="22" column="4" text="0"/>
+          <cell row="22" column="5" text="0"/>
+        </table>
+      </container>
+      <keyboard id="date_keys" x="12" y="375" w="1000" h="215" layout="text" font="hzfont" font_size="18" hidden="true"/>
+      <container id="navigation" x="3" y="29" w="180" h="174" hidden="true" background="#154184" bg-opacity="255" border-color="#05abf6" border-width="1">
+        <image id="nav_main" x="0" y="0" w="178" h="34" src="main_nav_main_normal" src-pressed="main_nav_main_pressed" clickable="true" on-click="show_main"/>
+        <image id="nav_parameters" x="0" y="34" w="178" h="34" src="main_nav_parameters_normal" src-pressed="main_nav_parameters_pressed" clickable="true" on-click="show_parameters"/>
+        <image id="nav_records" x="0" y="68" w="178" h="34" src="main_nav_records_normal" src-pressed="main_nav_records_pressed" clickable="true" on-click="show_records"/>
+        <image id="nav_trends" x="0" y="102" w="178" h="34" src="main_nav_trends_normal" src-pressed="main_nav_trends_pressed" clickable="true" on-click="show_trends"/>
+        <image id="nav_pressure" x="0" y="136" w="178" h="34" src="main_nav_pressure_normal" src-pressed="main_nav_pressure_pressed" clickable="true" on-click="show_pressure"/>
+      </container>
+    </page>
+    <page id="trends" background="#183775">
+      <image id="background" x="0" y="0" w="1024" h="600" src="trends_background"/>
+      <image id="menu_button" x="4" y="3" w="27" h="22" src="main_menu_button_normal" src-pressed="main_menu_button_pressed" clickable="true" on-click="toggle_menu"/>
+      <textarea id="date_start" x="99" y="112" w="127" h="25" text="2026-11-01" font="hzfont" font_size="13" color="#69748d" one-line="true" max-length="12" accepted-chars="0123456789-/" keyboard="date_keys" on-submit="date_submit" on-cancel="field_cancel"/>
+      <textarea id="date_end" x="325" y="112" w="127" h="25" text="2026-11-04" font="hzfont" font_size="13" color="#69748d" one-line="true" max-length="12" accepted-chars="0123456789-/" keyboard="date_keys" on-submit="date_submit" on-cancel="field_cancel"/>
+      <image id="query_button" x="474" y="110" w="72" h="29" src="records_query_button_normal" src-pressed="records_query_button_pressed" clickable="true" on-click="query_data"/>
+      <label id="result_count" x="561" y="114" w="160" h="21" text="共 267 条" font="hzfont" font_size="13" color="#00f2cf" align="left"/>
+      <image id="curve_target" x="75" y="152" w="125" h="20" src="trends_curve_target_normal" src-pressed="trends_curve_target_pressed" src-checked="trends_curve_target_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_primary" x="203" y="152" w="125" h="20" src="trends_curve_primary_normal" src-pressed="trends_curve_primary_pressed" src-checked="trends_curve_primary_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_return_primary" x="331" y="152" w="125" h="20" src="trends_curve_return_primary_normal" src-pressed="trends_curve_return_primary_pressed" src-checked="trends_curve_return_primary_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_secondary" x="459" y="152" w="125" h="20" src="trends_curve_secondary_normal" src-pressed="trends_curve_secondary_pressed" src-checked="trends_curve_secondary_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_return_secondary" x="587" y="152" w="125" h="20" src="trends_curve_return_secondary_normal" src-pressed="trends_curve_return_secondary_pressed" src-checked="trends_curve_return_secondary_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_mean" x="715" y="152" w="125" h="20" src="trends_curve_mean_normal" src-pressed="trends_curve_mean_pressed" src-checked="trends_curve_mean_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_outdoor" x="843" y="152" w="125" h="20" src="trends_curve_outdoor_normal" src-pressed="trends_curve_outdoor_pressed" src-checked="trends_curve_outdoor_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_target" x="350" y="212" w="118" h="18" src="trends_legend_target_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_primary" x="475" y="212" w="118" h="18" src="trends_legend_primary_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_secondary" x="600" y="212" w="118" h="18" src="trends_legend_secondary_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_return_primary" x="60" y="212" w="118" h="18" hidden="true" src="trends_legend_return_primary_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_return_secondary" x="190" y="212" w="118" h="18" hidden="true" src="trends_legend_return_secondary_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_mean" x="740" y="212" w="118" h="18" hidden="true" src="trends_legend_mean_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_outdoor" x="870" y="212" w="118" h="18" hidden="true" src="trends_legend_outdoor_normal" clickable="true" on-click="toggle_curve"/>
+      <chart id="history_chart" x="78" y="242" w="918" h="306" type="line" point-count="120" y-min="0" y-max="60" hdiv="7" vdiv="0" line-width="1" grid-color="#b8bad4">
+        <series id="target" color="#ff4089" values="18,18,18,18,18,18,18,18,30,30,30,30,30,30,30,30,30,20,20,0,60,20,50,20,20,25,25,25,25,25,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,16.8,21.7,21.7,21.7,21.7,21.7,21.7,21.7,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9,17.9"/>
+        <series id="primary" color="#ffe23d" values="23,22.92,22.83,22.75,22.66,22.58,22.49,22.41,22.32,22.24,22.15,22.07,21.98,21.9,21.81,27,26.82,26.64,26.46,26.28,26.1,25.92,25.74,25.56,25.38,25.2,25.02,24.84,24.66,24.48,24.3,24.12,23.94,23.76,20,19.97,19.93,19.9,19.86,19.83,19.79,19.76,19.72,19.68,19.5,19.48,19.46,19.45,19.43,19.41,19.39,19.37,19.36,19.34,19.32,19.3,19.28,19.27,19.25,19.23,19.21,19.19,19.18,19.16,19.14,19.12,19.1,19.09,19.07,19.05,19.03,19.01,19,18.98,18.96,18.94,18.92,18.5,18.49,18.49,18.48,18.48,18.47,18.46,18.46,18.45,18.45,18.44,18.43,18.43,18.42,18.42,18.41,18.4,18.4,18.39,18.39,18.38,18.37,18.37,18.36,18.36,18.35,18.34,18.34,18.33,18.33,18.32,48,51.16,52.89,53.84,54.36,54.65,54.81,54.9,54.94,54.97,54.98,54.99"/>
+        <series id="secondary" color="#78ff8c" values="23.45,23.41,23.37,23.31,23.23,23.13,23.02,22.9,22.76,22.63,22.51,22.4,22.31,22.24,22.18,27.42,27.28,27.15,27.01,26.85,26.67,26.47,26.26,26.04,25.81,25.58,25.37,25.17,24.99,24.83,24.69,24.55,24.42,24.28,20.55,20.53,20.5,20.44,20.37,20.29,20.21,20.13,20.06,20.02,19.84,19.84,19.86,19.89,19.92,19.94,19.95,19.94,19.92,19.87,19.82,19.75,19.69,19.63,19.59,19.56,19.55,19.56,19.59,19.62,19.64,19.66,19.67,19.66,19.62,19.57,19.51,19.45,19.39,19.33,19.29,19.27,19.27,18.88,18.92,18.96,19,19.03,19.04,19.03,19.01,18.97,18.91,18.86,18.81,18.77,18.75,18.75,18.77,18.8,0,0,0,0,0,0,0,18.86,18.8,18.75,18.71,18.67,18.66,18.66,48.37,51.56,53.34,54.34,54.9,55.21,55.38,55.45,55.47,55.46,55.42,55.39"/>
+        <series id="return_primary" color="#00baff" values="19.2,19.11,19.03,18.95,18.86,18.77,18.69,18.61,18.52,18.43,18.35,18.27,18.18,18.1,18.01,23.2,23.02,22.84,22.66,22.48,22.3,22.12,21.94,21.76,21.58,21.4,21.22,21.04,20.86,20.68,20.5,20.32,20.14,19.96,16.2,16.17,16.13,16.1,16.06,16.02,15.99,15.95,15.92,15.88,15.7,15.68,15.66,15.65,15.63,15.61,15.59,15.57,15.56,15.54,15.52,15.5,15.48,15.47,15.45,15.43,15.41,15.39,15.38,15.36,15.34,15.32,15.3,15.29,15.27,15.25,15.23,15.21,15.2,15.18,15.16,15.14,15.12,14.7,14.69,14.69,14.68,14.68,14.67,14.66,14.66,14.65,14.65,14.64,14.63,14.63,14.62,14.62,14.61,14.6,14.6,14.59,14.59,14.58,14.57,14.57,14.56,14.56,14.55,14.54,14.54,14.53,14.53,14.52,44.2,47.36,49.09,50.04,50.56,50.85,51.01,51.1,51.14,51.17,51.18,51.19" hidden="true"/>
+        <series id="return_secondary" color="#d7aaff" values="15.8,15.72,15.63,15.55,15.46,15.38,15.29,15.21,15.12,15.04,14.95,14.87,14.78,14.7,14.61,19.8,19.62,19.44,19.26,19.08,18.9,18.72,18.54,18.36,18.18,18,17.82,17.64,17.46,17.28,17.1,16.92,16.74,16.56,12.8,12.77,12.73,12.7,12.66,12.63,12.59,12.56,12.52,12.49,12.3,12.28,12.26,12.25,12.23,12.21,12.19,12.17,12.16,12.14,12.12,12.1,12.08,12.07,12.05,12.03,12.01,11.99,11.98,11.96,11.94,11.92,11.9,11.89,11.87,11.85,11.83,11.81,11.8,11.78,11.76,11.74,11.72,11.3,11.29,11.29,11.28,11.28,11.27,11.26,11.26,11.25,11.25,11.24,11.23,11.23,11.22,11.22,11.21,11.2,11.2,11.19,11.19,11.18,11.17,11.17,11.16,11.16,11.15,11.14,11.14,11.13,11.13,11.12,40.8,43.96,45.69,46.64,47.16,47.45,47.61,47.7,47.74,47.77,47.78,47.79" hidden="true"/>
+        <series id="mean" color="#ffffff" values="22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22" hidden="true"/>
+        <series id="outdoor" color="#ffb871" values="5,5.05,5.1,5.15,5.2,5.25,5.3,5.35,5.4,5.45,5.49,5.54,5.59,5.64,5.69,5.73,5.78,5.82,5.87,5.91,5.96,6,6.05,6.09,6.13,6.17,6.21,6.25,6.29,6.33,6.36,6.4,6.43,6.47,6.5,6.54,6.57,6.6,6.63,6.66,6.68,6.71,6.73,6.76,6.78,6.8,6.83,6.85,6.86,6.88,6.9,6.91,6.93,6.94,6.95,6.96,6.97,6.98,6.99,6.99,6.99,7,7,7,7,7,6.99,6.99,6.98,6.98,6.97,6.96,6.95,6.94,6.92,6.91,6.89,6.88,6.86,6.84,6.82,6.8,6.77,6.75,6.73,6.7,6.67,6.65,6.62,6.59,6.56,6.52,6.49,6.46,6.42,6.39,6.35,6.31,6.28,6.24,6.2,6.16,6.12,6.07,6.03,5.99,5.94,5.9,5.85,5.81,5.76,5.72,5.67,5.62,5.57,5.53,5.48,5.43,5.38,5.33" hidden="true"/>
+      </chart>
+      <keyboard id="date_keys" x="12" y="375" w="1000" h="215" layout="text" font="hzfont" font_size="18" hidden="true"/>
+      <container id="navigation" x="3" y="29" w="180" h="174" hidden="true" background="#154184" bg-opacity="255" border-color="#05abf6" border-width="1">
+        <image id="nav_main" x="0" y="0" w="178" h="34" src="main_nav_main_normal" src-pressed="main_nav_main_pressed" clickable="true" on-click="show_main"/>
+        <image id="nav_parameters" x="0" y="34" w="178" h="34" src="main_nav_parameters_normal" src-pressed="main_nav_parameters_pressed" clickable="true" on-click="show_parameters"/>
+        <image id="nav_records" x="0" y="68" w="178" h="34" src="main_nav_records_normal" src-pressed="main_nav_records_pressed" clickable="true" on-click="show_records"/>
+        <image id="nav_trends" x="0" y="102" w="178" h="34" src="main_nav_trends_normal" src-pressed="main_nav_trends_pressed" clickable="true" on-click="show_trends"/>
+        <image id="nav_pressure" x="0" y="136" w="178" h="34" src="main_nav_pressure_normal" src-pressed="main_nav_pressure_pressed" clickable="true" on-click="show_pressure"/>
+      </container>
+    </page>
+    <page id="pressure" background="#183775">
+      <image id="background" x="0" y="0" w="1024" h="600" src="pressure_background"/>
+      <image id="menu_button" x="4" y="3" w="27" h="22" src="main_menu_button_normal" src-pressed="main_menu_button_pressed" clickable="true" on-click="toggle_menu"/>
+      <textarea id="date_start" x="99" y="112" w="127" h="25" text="2026-11-01" font="hzfont" font_size="13" color="#69748d" one-line="true" max-length="12" accepted-chars="0123456789-/" keyboard="date_keys" on-submit="date_submit" on-cancel="field_cancel"/>
+      <textarea id="date_end" x="325" y="112" w="127" h="25" text="2026-11-04" font="hzfont" font_size="13" color="#69748d" one-line="true" max-length="12" accepted-chars="0123456789-/" keyboard="date_keys" on-submit="date_submit" on-cancel="field_cancel"/>
+      <image id="query_button" x="474" y="110" w="72" h="29" src="records_query_button_normal" src-pressed="records_query_button_pressed" clickable="true" on-click="query_data"/>
+      <label id="result_count" x="561" y="114" w="160" h="21" text="共 267 条" font="hzfont" font_size="13" color="#00f2cf" align="left"/>
+      <image id="curve_primary" x="75" y="152" w="125" h="20" src="pressure_curve_primary_normal" src-pressed="pressure_curve_primary_pressed" src-checked="pressure_curve_primary_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_primary2" x="203" y="152" w="125" h="20" src="pressure_curve_primary2_normal" src-pressed="pressure_curve_primary2_pressed" src-checked="pressure_curve_primary2_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_return_primary" x="331" y="152" w="125" h="20" src="pressure_curve_return_primary_normal" src-pressed="pressure_curve_return_primary_pressed" src-checked="pressure_curve_return_primary_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_secondary" x="459" y="152" w="125" h="20" src="pressure_curve_secondary_normal" src-pressed="pressure_curve_secondary_pressed" src-checked="pressure_curve_secondary_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_return_secondary" x="587" y="152" w="125" h="20" src="pressure_curve_return_secondary_normal" src-pressed="pressure_curve_return_secondary_pressed" src-checked="pressure_curve_return_secondary_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_return_secondary2" x="715" y="152" w="125" h="20" src="pressure_curve_return_secondary2_normal" src-pressed="pressure_curve_return_secondary2_pressed" src-checked="pressure_curve_return_secondary2_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="curve_difference" x="843" y="152" w="125" h="20" src="pressure_curve_difference_normal" src-pressed="pressure_curve_difference_pressed" src-checked="pressure_curve_difference_checked" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_primary" x="272" y="212" w="118" h="18" src="pressure_legend_primary_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_return_primary" x="412" y="212" w="118" h="18" src="pressure_legend_return_primary_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_secondary" x="552" y="212" w="118" h="18" src="pressure_legend_secondary_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_difference" x="692" y="212" w="118" h="18" src="pressure_legend_difference_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_primary2" x="26" y="212" w="118" h="18" hidden="true" src="pressure_legend_primary2_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_return_secondary" x="146" y="212" w="118" h="18" hidden="true" src="pressure_legend_return_secondary_normal" clickable="true" on-click="toggle_curve"/>
+      <image id="legend_return_secondary2" x="866" y="212" w="118" h="18" hidden="true" src="pressure_legend_return_secondary2_normal" clickable="true" on-click="toggle_curve"/>
+      <chart id="history_chart" x="78" y="242" w="918" h="306" type="line" point-count="120" y-min="0" y-max="0.7" hdiv="8" vdiv="0" line-width="1" grid-color="#b8bad4">
+        <series id="primary" color="#ff567c" values="0.46,0.48,0.48,0.46,0.46,0.47,0.46,0.44,0.44,0.46,0.47,0.47,0.46,0.47,0.47,0.33,0.33,0.33,0.33,0.33,0.33,0.46,0.47,0.48,0.47,0.45,0.44,0.45,0.46,0.45,0.46,0.47,0.48,0.47,0.45,0.45,0.46,0.45,0.44,0.45,0.47,0.48,0.47,0.46,0.46,0.46,0.45,0.44,0.45,0.47,0.47,0.47,0.47,0.47,0.47,0.45,0.44,0.45,0.46,0.46,0.55,0.56,0.57,0.56,0.54,0.53,0.54,0.55,0.55,0.54,0.56,0.57,0.57,0.55,0.54,0.54,0.54,0.54,0.54,0.55,0.57,0.57,0.55,0.55,0.55,0.55,0.53,0.53,0.55,0.56,0.56,0.56,0.56,0.56,0.55,0.53,0.53,0.54,0.56,0.56,0.55,0.56,0.57,0.55,0.53,0.53,0.54,0.55,0.55,0.55,0.57,0.57,0.56,0.54,0.54,0.54,0.54,0.54,0.54,0.56"/>
+        <series id="primary2" color="#ffad57" values="0.5,0.51,0.52,0.52,0.52,0.51,0.5,0.49,0.48,0.48,0.48,0.49,0.49,0.5,0.51,0.52,0.52,0.52,0.51,0.5,0.49,0.48,0.48,0.48,0.49,0.5,0.51,0.52,0.52,0.52,0.51,0.5,0.49,0.49,0.48,0.48,0.48,0.49,0.5,0.51,0.52,0.52,0.52,0.51,0.5,0.49,0.48,0.48,0.48,0.49,0.5,0.51,0.52,0.52,0.52,0.51,0.51,0.5,0.49,0.48,0.48,0.48,0.49,0.5,0.51,0.52,0.52,0.52,0.51,0.5,0.49,0.48,0.48,0.48,0.49,0.5,0.51,0.51,0.52,0.52,0.51,0.51,0.5,0.49,0.48,0.48,0.48,0.49,0.5,0.51,0.52,0.52,0.52,0.51,0.5,0.49,0.48,0.48,0.48,0.49,0.49,0.5,0.51,0.52,0.52,0.52,0.51,0.5,0.49,0.48,0.48,0.48,0.49,0.5,0.51,0.52,0.52,0.52,0.51,0.5" hidden="true"/>
+        <series id="return_primary" color="#00baff" values="0.6,0.62,0.61,0.6,0.6,0.6,0.6,0.59,0.59,0.61,0.62,0.61,0.6,0.59,0.6,0.59,0.59,0.59,0.61,0.62,0.61,0.59,0.59,0.6,0.59,0.59,0.6,0.61,0.62,0.61,0.59,0.59,0.6,0.6,0.59,0.6,0.62,0.62,0.6,0.59,0.59,0.6,0.6,0.6,0.61,0.62,0.61,0.6,0.58,0.59,0.6,0.6,0.6,0.61,0.61,0.61,0.59,0.58,0.59,0.6,0.57,0.56,0.57,0.57,0.56,0.55,0.54,0.55,0.57,0.57,0.56,0.57,0.57,0.56,0.54,0.54,0.56,0.57,0.57,0.56,0.56,0.56,0.55,0.54,0.55,0.56,0.58,0.57,0.56,0.56,0.56,0.55,0.54,0.55,0.57,0.58,0.57,0.56,0.56,0.56,0,0,0,0,0,0,0,0.55,0.56,0.55,0.55,0.56,0.58,0.58,0.56,0.55,0.55,0.56,0.55,0.55"/>
+        <series id="secondary" color="#78ff8c" values="0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.34,0.34,0.34,0.34,0.34,0.34,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.59,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.56,0.53,0.53,0.53,0.54,0.55,0.55,0.55,0.54,0.53,0.53,0.53,0.54,0.55,0.55,0.55,0.54,0.53,0.53,0,0,0,0,0.55,0.53,0.53,0.53,0.54,0.55,0.55,0.55,0.54,0.53,0.53,0.53,0.54,0.55,0.55,0.55,0.54,0.53,0,0,0,0,0,0,0,0.53,0.53,0.53,0.54,0.55,0.55,0.55,0.54,0.53,0.53,0.53,0.54,0.55"/>
+        <series id="return_secondary" color="#b99aff" values="0.51,0.52,0.52,0.52,0.52,0.52,0.52,0.52,0.51,0.5,0.5,0.5,0.5,0.5,0.5,0.51,0.51,0.52,0.52,0.52,0.52,0.52,0.52,0.51,0.51,0.5,0.5,0.5,0.5,0.5,0.5,0.51,0.51,0.52,0.52,0.52,0.52,0.52,0.52,0.51,0.51,0.5,0.5,0.5,0.5,0.5,0.5,0.51,0.52,0.52,0.52,0.52,0.52,0.52,0.52,0.51,0.5,0.5,0.5,0.5,0.5,0.5,0.51,0.51,0.52,0.52,0.52,0.52,0.52,0.52,0.51,0.51,0.5,0.5,0.5,0.5,0.5,0.5,0.51,0.51,0.52,0.52,0.52,0.52,0.52,0.52,0.51,0.51,0.5,0.5,0.5,0.5,0.5,0.5,0.51,0.51,0.52,0.52,0.52,0.52,0.52,0.52,0.51,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.51,0.52,0.52,0.52,0.52,0.52,0.52,0.51,0.51,0.5" hidden="true"/>
+        <series id="return_secondary2" color="#61d6f1" values="0.5,0.51,0.51,0.51,0.51,0.51,0.51,0.5,0.49,0.49,0.49,0.49,0.49,0.49,0.5,0.51,0.51,0.51,0.51,0.51,0.5,0.5,0.49,0.49,0.49,0.49,0.49,0.5,0.5,0.51,0.51,0.51,0.51,0.51,0.5,0.5,0.49,0.49,0.49,0.49,0.49,0.5,0.5,0.51,0.51,0.51,0.51,0.51,0.5,0.5,0.49,0.49,0.49,0.49,0.49,0.5,0.5,0.51,0.51,0.51,0.51,0.51,0.5,0.5,0.49,0.49,0.49,0.49,0.49,0.5,0.5,0.51,0.51,0.51,0.51,0.51,0.5,0.5,0.49,0.49,0.49,0.49,0.49,0.5,0.5,0.51,0.51,0.51,0.51,0.51,0.5,0.5,0.49,0.49,0.49,0.49,0.49,0.5,0.5,0.51,0.51,0.51,0.51,0.51,0.5,0.5,0.49,0.49,0.49,0.49,0.49,0.5,0.5,0.51,0.51,0.51,0.51,0.51,0.5,0.5" hidden="true"/>
+        <series id="difference" color="#ffe23d" values="0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36,0.36"/>
+      </chart>
+      <keyboard id="date_keys" x="12" y="375" w="1000" h="215" layout="text" font="hzfont" font_size="18" hidden="true"/>
+      <container id="navigation" x="3" y="29" w="180" h="174" hidden="true" background="#154184" bg-opacity="255" border-color="#05abf6" border-width="1">
+        <image id="nav_main" x="0" y="0" w="178" h="34" src="main_nav_main_normal" src-pressed="main_nav_main_pressed" clickable="true" on-click="show_main"/>
+        <image id="nav_parameters" x="0" y="34" w="178" h="34" src="main_nav_parameters_normal" src-pressed="main_nav_parameters_pressed" clickable="true" on-click="show_parameters"/>
+        <image id="nav_records" x="0" y="68" w="178" h="34" src="main_nav_records_normal" src-pressed="main_nav_records_pressed" clickable="true" on-click="show_records"/>
+        <image id="nav_trends" x="0" y="102" w="178" h="34" src="main_nav_trends_normal" src-pressed="main_nav_trends_pressed" clickable="true" on-click="show_trends"/>
+        <image id="nav_pressure" x="0" y="136" w="178" h="34" src="main_nav_pressure_normal" src-pressed="main_nav_pressure_pressed" clickable="true" on-click="show_pressure"/>
+      </container>
+    </page>
+  </pages>
+</ui>

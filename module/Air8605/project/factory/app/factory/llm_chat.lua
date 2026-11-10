@@ -394,24 +394,37 @@ local function asr_auth_headers()
     return { ["app-key"] = ak }
 end
 
+-- 流式上传：Air1103 只能录 PCM_16000（30s ≈ 960KB），不能用 io.readFile 全量读取，
+-- 否则 readFile + table.concat 瞬时占用近 2MB，C 层 buffer OOM 会直接打挂 Lua VM。
+-- httpplus 的 files=路径 内部 io.open + fd:fill 分块读、socket.tx 分块发，
+-- 内存峰值恒定为一个上传缓冲（24KB PSRAM），与录音时长无关。
+local httpplus = require("httpplus")
+
 local function request_stt(file_path, callback)
     if not file_path or not io.exists(file_path) then callback(""); return end
     if (io.fileSize(file_path) or 0) <= 0 then callback(""); return end
     if not socket.localIP() then callback(""); return end
     local headers = asr_auth_headers()
     if not headers then callback(""); return end
-    local bd = "----WebKitFormBoundary" .. tostring(os.time())
-    headers["Content-Type"] = "multipart/form-data; boundary=" .. bd
-    local body = { "--" .. bd .. "\r\n", "Content-Disposition: form-data; name=\"file\"; filename=\"record.amr\"\r\n", "Content-Type: audio/amr\r\n\r\n" }
-    local fdata = io.readFile(file_path)
-    if not fdata then callback(""); return end
-    body[#body + 1] = fdata; body[#body + 1] = "\r\n--" .. bd .. "--\r\n"
     sys.publish("AI_CHAT_STATUS", "语音识别中...")
-    local code, _, rb = http.request("POST", ASR_URL, headers, table.concat(body), { timeout = 30000 }).wait()
-    if code ~= 200 then sys.publish("AI_CHAT_STATUS", ""); callback(""); return end
-    local ok, resp = pcall(json.decode, rb)
-    if not ok or type(resp) ~= "table" or resp.code ~= 0 then sys.publish("AI_CHAT_STATUS", ""); callback(""); return end
-    local text = (type(resp.value) == "table" and resp.value.text) or ""
+    local code, resp = httpplus.request({
+        url = ASR_URL,
+        method = "POST",
+        headers = headers,
+        -- 文件名保持 .amr 以匹配服务端既有解析；内容实为 16k/16bit/单声道 PCM
+        files = { file = file_path },
+        timeout = 30,
+    })
+    if code ~= 200 then
+        log.warn("llm_chat", "STT 请求失败", tostring(code))
+        sys.publish("AI_CHAT_STATUS", ""); callback(""); return
+    end
+    local rb = (resp and resp.body and resp.body:query()) or ""
+    local ok, j = pcall(json.decode, rb)
+    if not ok or type(j) ~= "table" or j.code ~= 0 then
+        sys.publish("AI_CHAT_STATUS", ""); callback(""); return
+    end
+    local text = (type(j.value) == "table" and j.value.text) or ""
     sys.publish("AI_CHAT_STATUS", ""); callback(text)
 end
 

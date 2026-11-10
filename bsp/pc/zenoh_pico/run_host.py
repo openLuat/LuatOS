@@ -62,8 +62,10 @@ def main():
     parser.add_argument("--lua-root", type=Path, help="existing Lua prefix, without pkg-config")
     parser.add_argument("--router", type=Path)
     parser.add_argument("--sanitize", action="store_true")
-    parser.add_argument("--get-tests", action="store_true", help="run real bidirectional Get lifecycle tests instead of legacy Pub/Sub suite")
-    parser.add_argument("--race-tests", choices=("dequeue", "enqueue", "both"), help="deterministic real worker close/admission interleavings")
+    suites = parser.add_mutually_exclusive_group()
+    suites.add_argument("--open-race-tests", action="store_true", help="real SDK open success/failure racing close")
+    suites.add_argument("--get-tests", action="store_true", help="run real bidirectional Get lifecycle tests instead of legacy Pub/Sub suite")
+    suites.add_argument("--race-tests", choices=("dequeue", "enqueue", "both"), help="deterministic real worker close/admission interleavings")
     parser.add_argument("--skip-build", action="store_true", help="run existing binaries after test-only edits; hashes are printed")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[3]
@@ -106,6 +108,12 @@ def main():
         generic_compiler = [a for a in compiler if a not in host_defs] + generic_defs
         run([*generic_compiler, *sources, *host_files, *lua_flags, "-pthread", "-o", output / "zenoh_host_test"])
         run([*compiler, *common, here / "peer.c", "-pthread", "-o", output / "zenoh_peer"])
+        # 真实socketpair合同覆盖事件预算、4096B短写、期限与短读字节守恒。
+        for name in ("host_transport_test", "host_rx_test"):
+            binary = output / name
+            run([*generic_compiler, "-Wall", "-Wextra", "-Werror", here / (name + ".c"),
+                 component / "src/zenoh_luatos_tcp.c", "-pthread", "-o", binary])
+            run([binary])
     else:
         for name in ("zenoh_host_test", "zenoh_peer"):
             binary = output / name
@@ -136,7 +144,7 @@ def main():
             raise TimeoutError("router listen")
         peer = subprocess.Popen([str(output / "zenoh_peer"), endpoint, prefix] + (["--get"] if args.get_tests else []), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         ready(peer, "READY")
-        test_file = here / ("host_get_race.lua" if args.race_tests else "host_get_test.lua" if args.get_tests else "host_test.lua")
+        test_file = here / ("host_open_race.lua" if args.open_race_tests else "host_get_race.lua" if args.race_tests else "host_get_test.lua" if args.get_tests else "host_test.lua")
         environment = os.environ.copy()
         if args.race_tests:
             environment["ZENOH_TEST_RACE_CASE"] = args.race_tests

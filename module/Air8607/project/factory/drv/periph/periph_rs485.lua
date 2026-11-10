@@ -20,7 +20,7 @@ config/eng_xxx.lua 声明（同一 type 可多条，靠 id 区分）：
 M.init(params)     → handle | false, err
 M.list()           → { {id=, name=, handle=}, ... }
 M.get(id)          → handle
-M.de_hold(ms)      → ok, ms   把全部 DE 脚拉高 ms 毫秒再回接收态（现场量方向脚用）
+M.de_hold(ms)      → ok, ms, pins, bad   把全部 DE 脚拉高 ms 毫秒再回接收态（现场量方向脚用）
 M.reset_all()      → 关闭全部实例并清空注册表
 
 handle.id / handle.name / handle.params
@@ -74,7 +74,10 @@ handle:status()    → { enabled=bool, info=string }
   一条 `发送` 都没有说明发送没走到驱动。收不到对端数据先看这几条分清
   「没发出去」「DE 没切成发送态」「发了但 DE 提前松」「发出去了但对端没回」
 - 所有 uart.* / gpio.* 调用 pcall 包裹，失败返回 false + 错误串
+- 供电脚经 airlink_pin 下发：GPIO ≥100 的 WiFi 侧脚等 airlink 链路就绪后再驱动
 ]]
+
+local airlink_pin = require "airlink_pin"
 
 local M = {}
 
@@ -129,11 +132,19 @@ local function de_level_text(pins)
     return table.concat(out, ",")
 end
 
--- 设置 GPIO 电平
+-- 方向脚列表串：形如 "GPIO58/GPIO57"，界面上直接显示
+local function pin_name_text(pins)
+    local out = {}
+    for i = 1, #pins do
+        out[i] = "GPIO" .. tostring(pins[i])
+    end
+    return table.concat(out, "/")
+end
+
+-- 设置 GPIO 电平（WiFi 侧脚等 airlink 链路就绪后下发）
 local function pin_set(pin, level)
     if not pin then return end
-    pcall(gpio.setup, pin, level)
-    pcall(gpio.set, pin, level)
+    airlink_pin.set(pin, level)
 end
 
 -- 本串口上所有路的 DE 脚（去重），extra 用于补上尚未入表的那一路
@@ -526,8 +537,11 @@ end
 --[[
 方向脚自检：把全部已登记的 DE 脚拉高一段时间再回接收态
 供现场用万用表量方向脚用：正常发送窗口只有几毫秒，表笔看不出电平跳变
+拉高期间逐脚回读电平，回读不是高电平的脚列进 bad
 @param number ms  保持高电平的毫秒数，缺省 2000，钳在 100~10000
-@return boolean, number  是否执行, 实际保持的毫秒数
+@return boolean, number, string, string
+  是否执行, 实际保持的毫秒数, 拉高的方向脚(形如 "GPIO65/GPIO46"),
+  回读不到位的脚(形如 "GPIO46"，全部到位为空串)
 ]]
 function M.de_hold(ms)
     ms = tonumber(ms) or 2000
@@ -547,14 +561,18 @@ function M.de_hold(ms)
     for _, h in pairs(instances) do
         add(h.params and h.params.de_pin)
     end
-    if #pins == 0 then return false, 0 end
+    if #pins == 0 then return false, 0, "", "" end
 
     for i = 1, #pins do pin_set(pins[i], 1) end
     log.info("periph_rs485", "DE 自检拉高", de_level_text(pins), "保持", ms, "ms")
+    local bad = {}
+    for i = 1, #pins do
+        if pin_get(pins[i]) ~= 1 then bad[#bad + 1] = pins[i] end
+    end
     safe_wait(ms)
     for i = 1, #pins do pin_set(pins[i], 0) end
     log.info("periph_rs485", "DE 自检回接收态", de_level_text(pins))
-    return true, ms
+    return true, ms, pin_name_text(pins), pin_name_text(bad)
 end
 
 -- 关闭全部实例并清空注册表

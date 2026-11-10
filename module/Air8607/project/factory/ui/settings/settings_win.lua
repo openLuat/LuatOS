@@ -6,9 +6,9 @@
 @author  江访
 @usage
 订阅: OPEN_SETTINGS_WIN → 打开设置主页
-发布: OPEN_IOT_WIN / OPEN_WIFI_WIN / OPEN_DISPLAY_WIN / OPEN_TIME_WIN /
+发布: OPEN_IOT_WIN / OPEN_NET_WIN / OPEN_DISPLAY_WIN / OPEN_TIME_WIN /
       OPEN_STORAGE_WIN / OPEN_STORAGE_PRI_WIN / OPEN_FOTA_WIN / OPEN_SOUND_WIN /
-      OPEN_AUTOSTART_WIN / OPEN_ABOUT_WIN
+      OPEN_AUTOSTART_WIN / OPEN_ABOUT_WIN / OPEN_USB_MODE_WIN
 ]]
 
 require "settings_display_win"
@@ -18,11 +18,14 @@ require "storage_pri_win"
 require "settings_about_win"
 require "settings_sound_win"
 require "wifi_list_win"
+require "net_settings_win"
+require "net_detail_win"
 require "settings_iot_win"
 require "settings_fota_win"
 require "settings_auto_win"
 require "settings_theme_win"
 require "settings_report_win"
+require "settings_usb_win"
 
 local theme = require "ui_theme"
 local titlebar = require "settings_titlebar"
@@ -40,7 +43,7 @@ local bar_h = 56
 -- 设置项定义（icon 为语义图标名，缺失时仅显示文字）
 local ENTRY_ICONS = {
     ["OPEN_IOT_WIN"]         = "cloud",
-    ["OPEN_WIFI_WIN"]        = "wifi",
+    ["OPEN_NET_WIN"]         = "wifi",
     ["OPEN_DISPLAY_WIN"]     = "brightness",
     ["OPEN_TIME_WIN"]        = "about",
     ["OPEN_THEME_WIN"]       = "theme",
@@ -51,6 +54,7 @@ local ENTRY_ICONS = {
     ["OPEN_AUTOSTART_WIN"]   = "autostart",
     ["OPEN_ABOUT_WIN"]       = "about",
     ["OPEN_AIRCLOUD_WIN"]    = "cloud",
+    ["OPEN_USB_MODE_WIN"]    = "mouse",
 }
 
 local function update_screen_size()
@@ -74,12 +78,20 @@ local function collect_entries()
     end
 
     add("IOT账号", "OPEN_IOT_WIN", "合宙 IoT 平台登录与设备绑定")
-    if fe.wifi then add("WiFi设置", "OPEN_WIFI_WIN", "扫描、连接与已保存网络管理") end
+    local nets = cfg.network
+    if fe.wifi or fe.net_4g or fe.ethernet
+        or (type(nets) == "table" and #nets > 0) then
+        add("网络设置", "OPEN_NET_WIN", "网络开关、连接状态与 WiFi 管理")
+    end
     add("亮度和声音", "OPEN_DISPLAY_WIN", "屏幕背光与媒体音量调节")
     add("设置当前时间", "OPEN_TIME_WIN", "手动校准系统时钟")
     add("主题风格", "OPEN_THEME_WIN", "外观配色与强调色")
     if ui.show_storage_settings then add("存储和内存", "OPEN_STORAGE_WIN", "文件系统容量与内存占用") end
     if fe.sd_card or fe.nand_flash then add("存储顺序", "OPEN_STORAGE_PRI_WIN", "外部应用安装位置优先级") end
+    -- UVC 摄像头与 USB 键鼠共用 USB Host，两者都配了才需要二选一（见 usb_mode）
+    if require("usb_mode").available(cfg) then
+        add("外设模式", "OPEN_USB_MODE_WIN", "UVC 摄像头与 USB 键鼠二选一")
+    end
     add("系统更新", "OPEN_FOTA_WIN", "检查并下载最新固件")
     if fe.buzzer and ui.show_buzzer_settings then add("触摸音效", "OPEN_SOUND_WIN", "触摸反馈音开关与音量") end
     if fe.aircloud then add("数据上报", "OPEN_AIRCLOUD_WIN", "AirCloud 云端上报开关与周期") end
@@ -93,7 +105,7 @@ local function build_info_card(parent, x, y, w, h)
     local card = theme.card(parent, { x = x, y = y, w = w, h = h })
 
     theme.section(card, { x = pad, y = pad, w = w - 2 * pad,
-        text = "设备信息", px_size = theme.fs("micro"), color = theme.C.t3 })
+        text = "设备信息", px_size = theme.fs("label"), color = theme.C.t2 })
 
     local cfg = _G.project_config or {}
     local rows = {

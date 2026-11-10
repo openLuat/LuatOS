@@ -426,7 +426,7 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
     子控件还按 screen_w 摆就会右溢 2px。]]
     timer_label = airui.label({
         parent = bar, x = 0, y = math.floor(2 * d),
-        w = screen_w - 2, h = math.floor(18 * d),
+        w = screen_w - 2, h = theme.fs("micro") + 3,
         text = "", font_size = theme.fs("micro"),
         color = CLR.rose, align = airui.TEXT_ALIGN_CENTER,
     })

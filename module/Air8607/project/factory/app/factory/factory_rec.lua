@@ -60,6 +60,10 @@
 ]]
 
 local exaudio = require "exaudio"
+-- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
+local audio_hw = require "audio_hw"
+-- 录音/播放分路：Air1103 机型录音走语音芯片、播放走内置 DAC（其余机型原样转发 exaudio）
+local audio_route = require "audio_route"
 
 -- ==================== 常量 ====================
 
@@ -327,45 +331,14 @@ local function rec_setup()
             sys.wait(200)
         end
         log.info("factory_rec", "exaudio.setup model:", ac.model or "es8311")
-        -- 首次：exaudio.setup 初始化音频（用 pcall 捕获可能的异常）
-        -- 参数按配置透传：DAC 模式只需 pa_ctrl/pa_on_level/dac_delay；
-        -- ES8311 模式需 i2c_id/dac_ctrl/i2s_sample 等，可配合 tx_bus_type/rx_bus_type
-        -- 做默认驱动切换（如 Air1602 引擎板 DAC0 播放 + I2S2 录音），8000 旧框架按需透传 audio_mode
-        local setup_param = {
-            model = ac.model or "es8311",
-            pa_ctrl = ac.pa_ctrl,
-            pa_on_level = ac.pa_on_level or 1,
-            dac_delay = ac.dac_delay,
-        }
-        if ac.dac_ctrl then setup_param.dac_ctrl = ac.dac_ctrl end
-        if ac.i2c_id then setup_param.i2c_id = ac.i2c_id end
-        if ac.i2s_sample then setup_param.i2s_sample = ac.i2s_sample end
-        if ac.bits_per_sample then setup_param.bits_per_sample = ac.bits_per_sample end
-        if ac.i2s_framebit then setup_param.i2s_framebit = ac.i2s_framebit end
-        if ac.channels then setup_param.channels = ac.channels end
-        if ac.pa_delay then setup_param.pa_delay = ac.pa_delay end
-        -- 默认驱动切换（exaudio v2.8）：播放/录音用不同总线时设置（DAC0播放 + I2S2录音）
-        if ac.tx_bus_type and ac.rx_bus_type then
-            setup_param.tx_bus_type = ac.tx_bus_type
-            setup_param.tx_bus_id = ac.tx_bus_id or 0
-            setup_param.rx_bus_type = ac.rx_bus_type
-            setup_param.rx_bus_id = ac.rx_bus_id or 0
-        end
-        -- 8000 等默认旧框架型号，录音需 audio_mode="new"；1602 新框架此参数无效
-        if ac.audio_mode then setup_param.audio_mode = ac.audio_mode end
-        local ok, result = pcall(exaudio.setup, setup_param)
-        -- ok = pcall 是否无异常; result = setup 返回值（正常为 true/false）
+        -- 首次：exaudio.setup 初始化音频，入参由 audio_hw 统一组装
+        -- （必带 uart_id/audio_mode；ES8311 分总线播放/录音、8000 旧框架 audio_mode 均从 hw.audio 透传）
+        local ok, err = audio_hw.setup()
         if not ok then
-            log.error("factory_rec", "exaudio.setup 异常:", tostring(result))
-            sys.publish("FACTORY_REC_READY", false, "音频初始化异常")
+            log.error("factory_rec", "exaudio.setup 失败:", tostring(err))
+            sys.publish("FACTORY_REC_READY", false, tostring(err))
             return
         end
-        if not result then
-            log.error("factory_rec", "exaudio.setup 返回 false（音频初始化失败）")
-            sys.publish("FACTORY_REC_READY", false, "音频初始化失败")
-            return
-        end
-        exaudio.vol(ac.play_vol or 70)
         exaudio.mic_vol(ac.mic_vol or 70)
         -- 记录当前音频框架：audio_v2(新)/audio(旧)
         is_v2 = (exaudio.get_audio_mode and exaudio.get_audio_mode() == "audio_v2")
@@ -453,7 +426,7 @@ local function rec_start()
         end
         cur_path = rec_path
         rec_fp = fp
-        local ok = exaudio.record_start({
+        local ok = audio_route.record_start({
             format = rec_exformat(),
             time = 0,          -- 0 = 无限录音，由本模块计时器控制最长时长
             path = rec_data_cb,
@@ -486,7 +459,7 @@ local function rec_start()
     end
     -- 新录音用新文件名，天然避免文件冲突
     cur_path = next_rec_path()
-    local ok = exaudio.record_start({
+    local ok = audio_route.record_start({
         format = rec_exformat(),
         time = max_time,
         path = cur_path,

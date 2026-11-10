@@ -51,14 +51,14 @@ PROJECT：项目名，ascii string类型
   "Engine_Air8602_9inch_1024x600_010_4G_V000"    → config/eng_8602_9i_4g.lua    9寸RGB HX8282  +4G(airlink/780ER2)+UVC+双RS485+SD+喇叭（4G 版）
   "Engine_Air8603W1_10inch_1024x600_000_WiFi_V000" → config/eng_8603w1_10i_v0.lua  10寸RGB +WiFi(airlink/6205)+隔离RS485(UART1)+UVC(UART2控制串口)+喇叭(HT6873)+SD（WiFi 版）
   "Engine_Air8603W2_10inch_1024x600_000_WiFi_V000" → config/eng_8603w2_10i_v0.lua  10寸RGB +WiFi(airlink/6205)+非隔离RS485(UART1)+UVC(UART2控制串口)+喇叭(HT6873)+SD（WiFi 版）
-  "Engine_Air8603W3_10inch_1024x600_000_WiFi_V000" → config/eng_8603w3_10i_v0.lua  10寸RGB +WiFi(airlink/6205)+隔离RS485(UART1)+隔离RS485(UART2)+喇叭(HT6873)+SD（WiFi 版）
-  "Engine_Air8603W4_10inch_1024x600_000_WiFi_V000" → config/eng_8603w4_10i_v0.lua  10寸RGB +WiFi(airlink/6205)+非隔离RS485(UART1)+隔离RS485(UART2)+喇叭(HT6873)+SD（WiFi 版）
-  "Engine_Air8603W5_10inch_1024x600_000_WiFi_V000" → config/eng_8603w5_10i_v0.lua  10寸RGB +WiFi(airlink/6205)+TTL串口(UART1)+隔离RS485(UART2)+喇叭(HT6873)+SD（WiFi 版）
+  "Engine_Air8603W3_10inch_1024x600_000_WiFi_V000" → config/eng_8603w3_10i_v0.lua  10寸RGB +WiFi(airlink/6205)+隔离RS485(UART1)+隔离RS485(UART2)+UVC(USB)+喇叭(HT6873)+SD（WiFi 版）
+  "Engine_Air8603W4_10inch_1024x600_000_WiFi_V000" → config/eng_8603w4_10i_v0.lua  10寸RGB +WiFi(airlink/6205)+非隔离RS485(UART1)+隔离RS485(UART2)+UVC(USB)+喇叭(HT6873)+SD（WiFi 版）
+  "Engine_Air8603W5_10inch_1024x600_000_WiFi_V000" → config/eng_8603w5_10i_v0.lua  10寸RGB +WiFi(airlink/6205)+TTL串口(UART1)+隔离RS485(UART2)+UVC(USB)+喇叭(HT6873)+SD（WiFi 版）
   "Engine_Air8603M1_10inch_1024x600_000_4G_V000"   → config/eng_8603m1_10i_v0.lua  10寸RGB +4G(airlink/780ER2)+隔离RS485(UART1)+UVC(UART2控制串口)+喇叭(HT6873)+SD（4G 版）
   "Engine_Air8603M2_10inch_1024x600_000_4G_V000"   → config/eng_8603m2_10i_v0.lua  10寸RGB +4G(airlink/780ER2)+非隔离RS485(UART1)+UVC(UART2控制串口)+喇叭(HT6873)+SD（4G 版）
-  "Engine_Air8603M3_10inch_1024x600_000_4G_V000"   → config/eng_8603m3_10i_v0.lua  10寸RGB +4G(airlink/780ER2)+隔离RS485(UART1)+隔离RS485(UART2)+喇叭(HT6873)+SD（4G 版）
-  "Engine_Air8603M4_10inch_1024x600_000_4G_V000"   → config/eng_8603m4_10i_v0.lua  10寸RGB +4G(airlink/780ER2)+非隔离RS485(UART1)+隔离RS485(UART2)+喇叭(HT6873)+SD（4G 版）
-  "Engine_Air8603M5_10inch_1024x600_000_4G_V000"   → config/eng_8603m5_10i_v0.lua  10寸RGB +4G(airlink/780ER2)+TTL串口(UART1)+隔离RS485(UART2)+喇叭(HT6873)+SD（4G 版）
+  "Engine_Air8603M3_10inch_1024x600_000_4G_V000"   → config/eng_8603m3_10i_v0.lua  10寸RGB +4G(airlink/780ER2)+隔离RS485(UART1)+隔离RS485(UART2)+UVC(USB)+喇叭(HT6873)+SD（4G 版）
+  "Engine_Air8603M4_10inch_1024x600_000_4G_V000"   → config/eng_8603m4_10i_v0.lua  10寸RGB +4G(airlink/780ER2)+非隔离RS485(UART1)+隔离RS485(UART2)+UVC(USB)+喇叭(HT6873)+SD（4G 版）
+  "Engine_Air8603M5_10inch_1024x600_000_4G_V000"   → config/eng_8603m5_10i_v0.lua  10寸RGB +4G(airlink/780ER2)+TTL串口(UART1)+隔离RS485(UART2)+UVC(USB)+喇叭(HT6873)+SD（4G 版）
   "Engine_Air8605_10inch_1024x600_000_4G_V000"  → config/eng_8605_10i_v0.lua    10寸RGB +4G(airlink/780ER2,UART3)+UVC+非隔离RS485(UART1)+SD（4G 版，无 Air1103）
   "Engine_Air8605W_10inch_1024x600_000_WiFi_V000" → config/eng_8605w_10i_v0.lua  10寸RGB +WiFi(airlink/6205)+Air1103语音(UART6)+UVC+隔离RS485(UART1)+NAND+SD（WiFi 版）
   "Engine_Air8605M_10inch_1024x600_000_4G_V000"  → config/eng_8605m_10i_v0.lua  10寸RGB +4G(airlink/780ER2)+Air1103语音(UART6)+UVC+隔离RS485(UART1)+NAND+SD（4G 版）
@@ -86,7 +86,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air8605M_10inch_1024x600_000_4G_V000" -- 项目名，用于 FOTA 云端鉴权
+PROJECT = "Engine_Air8603M1_10inch_1024x600_000_4G_V000" -- 项目名，用于 FOTA 云端鉴权
 VERSION = "001.999.006"                                 -- 固件版本号，用于 FOTA 升级比对
 PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"        -- 项目密钥，FOTA 云端鉴权
 

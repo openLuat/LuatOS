@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8603m4_10i_v0
-@summary Air8603M4 引擎主机 10寸1024x600 RGB屏 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + 隔离RS485(UART2) + SD卡 配置文件（4G 版）
-@version 1.0
-@date    2026.10.26
+@summary Air8603M4 引擎主机 10寸1024x600 RGB屏 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + 隔离RS485(UART2) + UVC摄像头(USB) + SD卡 配置文件（4G 版）
+@version 1.1
+@date    2026.11.06
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -16,7 +16,7 @@
      W3 / M3  UART1 = 隔离485    UART2 = 隔离485
      W4 / M4  UART1 = 非隔离485  UART2 = 隔离485
      W5 / M5  UART1 = TTL 串口   UART2 = 隔离485
-   本文件是 Air8603M4：UART1 = 非隔离485、UART2 = 隔离485。
+   本文件是 Air8603M4：UART1 = 非隔离485、UART2 = 隔离485，另带 UVC 摄像头（USB 出图，无控制串口，见文件头第 5 条）。
    同一串口划分的 WiFi 出货型号见 config/eng_8603w4_10i_v0.lua，两者只差 network / features / ui 三处。
 2. 【音频 = 内置 DAC + 直驱 PA】本系列不出 Air1103 语音芯片版本（UART6 空闲）。
    声音由芯片内置 DAC 播放，PA 功放使能脚直驱控制：
@@ -33,9 +33,14 @@
    UART1 那路 485 的 DE = 485_EN1 = PIN51 = GPIO65（隔离与非隔离共用）；
    隔离 485（UART2）的 DE = 485_EN2 = PIN48 = GPIO58。
    本型号 UART1 是非隔离 485，power_on 把 485_EN1 拉低停在接收态。
-5. 【GPIO58 = 485_EN2】PIN48 = GPIO58 是 UART2 那路隔离 485 的 DE（485_EN2）。
-   本型号不带 UVC，该脚只做方向控制：power_on 拉低停在接收态，periph_rs485 在每帧发送窗口里拉高。
-   若与带 UVC 的型号混刷，同一脚会变成 UVC_EN，务必按出货型号取配置。
+5. 【UVC 摄像头 / GPIO58 = 485_EN2】本型号带 UVC 摄像头：画面走 USB 数据流，无控制串口、
+   不带人脸识别，预览 / 拍照 / 录像入口在「功能测试」里，故不设 ui.show_camera_preview。
+   w / h / rotation 与 W1 / W2 / M1 / M2 的 UVC 摄像头一致；摄像头实际不支持该档时预览页自动取档。
+   摄像头常供电、无独立使能脚，uvc 条目不写 en_pin。
+   PIN48 = GPIO58 仍是 UART2 那路隔离 485 的 DE（485_EN2），只做方向控制：power_on 拉低停在
+   接收态，periph_rs485 在每帧发送窗口里拉高。
+   若与带 UVC_EN 的型号（W1 / W2 / M1 / M2）混刷，同一脚会被当成 UVC 供电脚常拉高，第二路
+   485 直接失效，务必按出货型号取配置。
 6. LCD 为 RGB 10寸 1024×600（免序列四合一，无 SPI 初始化引脚），走统一 RGB 驱动
    lcd_display_rgb；LCD_DISP = PIN80 = GPIO15 作 pin_rst；时序用 1024×600 生态实测组
    hbp=140 hspw=20 hfp=160 vbp=20 vspw=3 vfp=12 @50MHz；背光 PWM3 调光。
@@ -91,7 +96,11 @@ return {
 
     -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
     -- DE 空闲低电平（接收态），发送窗口内由 periph_rs485 拉高，见文件头第 4 条
+    -- UVC 摄像头常供电不控电，故不写 en_pin（GPIO58 仍是 UART2 隔离485 的 DE，见文件头第 5 条）
     peripherals = {
+        -- UVC 摄像头（USB 出图，无控制串口）：参数与 W1/W2/M1/M2 的 UVC 摄像头一致
+        { type = "uvc", id = "uvc1", name = "UVC摄像头", title = "摄像头",
+          ready_delay = 200, w = 800, h = 480, rotation = 270 },
         { type = "rs485", id = "485_1", name = "非隔离485", uart_id = 1, de_pin = 65, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN1 = GPIO65，供电域 485_EN
         { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 2, de_pin = 58, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN2 = GPIO58，供电域 485_EN
     },
@@ -155,6 +164,7 @@ return {
         net_4g = true,      -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 1 条
         speaker = true,     -- 启用喇叭（内置 DAC + HT6873 功放）
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
+        usb_camera = true,  -- 启用 USB 摄像头（UVC）—— 入口在「功能测试」
         rs485 = true,       -- 启用 RS485 接口
         other_func = true,  -- 启用"功能测试"（peripherals 外设清单）
         wdt = true,         -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
@@ -187,5 +197,6 @@ return {
         show_brightness_slider = true, -- 设置页亮度滑块
         show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
         show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
+        -- show_camera_preview 故意不写：UVC 预览入口在「功能测试」里，见文件头第 5 条
     },
 }

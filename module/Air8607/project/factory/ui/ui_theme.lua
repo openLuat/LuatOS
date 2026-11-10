@@ -145,26 +145,34 @@ M.R = {
     xl = 22, lg = 18, md = 14, sm = 10, xs = 8,
 }
 
---[[字号（逻辑值，旧接口）
-经 dp() 缩放并夹到 M.FONT_MIN 下限。新代码建议改用 M.FS 档位 + M.fs()。]]
+--[[字号（旧接口，逻辑值 = @density=1.0 时的像素）
+经 dp() 缩放并夹到 M.FONT_MIN 下限。新代码建议改用 M.FS 档位 + M.fs()。
+档位与 M.FS 对齐（small ≈ caption、tiny ≈ label），只保证「不会比新字号体系更小」，
+不另立第三套档位。]]
 M.F = {
-    hero = 46, h1 = 21, h2 = 17, h3 = 15, body = 13, small = 11.5, tiny = 10.5,
+    hero = 46, h1 = 28, h2 = 24, h3 = 21, body = 19, small = 17, tiny = 16,
 }
 
---[[逻辑字号的最小像素下限
-固件内置点阵字库对字号有物理限制（低分屏 14 / 高分屏 16 起才清晰），低于该值
-渲染会糊成一团或直接失败，所以逻辑字号一律夹到这个下限。
-确实需要更小字号时，用 theme.label 的 px_size 显式传像素值 —— px_size 不受此下限约束。]]
-M.FONT_MIN = 16
+--[[全工程最小渲染字号（像素）—— size 与 px_size 两条路径都夹到它，没有后门
+
+为什么是 15：1024×600 大屏（7/9/10 寸）的 PPI 分别约 170/132/119，都低于
+5 寸 480×800 的 186.6 基准，density_scale 被 lcd_common 的 math.max(1.0, …) 钳在 1.0，
+于是字号 1:1 落成物理像素。此时 12/14px 的内置点阵字笔画糊成一团，实机看不清。
+
+以前 px_size 走的是「显式给小字」的旁路（12~14px 随手写），全工程因此散了一地
+低于下限的字号。现在两条路径统一夹取，装不下就改盒子高度 / 行高，不要往回压字号。]]
+M.FONT_MIN = 15
 
 --[[像素字号档位：乘密度前的基准值（@density=1.0 时的 px）
 刻意收敛到 8 档 —— 写页面时按语义选档，不要临时拍数值，
 否则全工程会像改动前那样散成十几个近似档（20/22/24/26 混用，肉眼几乎分不出）。
+低段（micro/caption/label）跟着 M.FONT_MIN 一起抬高，中高段只微调 0~2px ——
+整体比例不变、视觉层级不变，只有原先看不清的小字变清楚了。
   display 页面主标题     h1 大标题          h2 区块标题       h3 小标题 / 按钮
   body    正文 / 列表标题  label 标签 / 次要   caption 注释      micro 极弱信息]]
 M.FS = {
-    display = 32, h1 = 28, h2 = 22, h3 = 20,
-    body = 18, label = 16, caption = 14, micro = 12,
+    display = 34, h1 = 28, h2 = 24, h3 = 21,
+    body = 19, label = 17, caption = 16, micro = 15,
 }
 
 -- ==================== 一.5、字体能力约束（新增文案前必读） ====================
@@ -411,19 +419,14 @@ function M.card(parent, o)
 end
 
 --[[文本标签
-  size    = 逻辑字号，按密度换算后夹到 M.FONT_MIN 下限（防小字在低分屏上发糊）
-  px_size = 已换算好的像素字号，完全按给定值渲染、不受 FONT_MIN 约束
-            —— 需要 12~14px 这类小字时走这个参数
-注意: 行高 h 请自行给足（建议 fs + 2 以上）。小于字号的 h 会把文字裁掉。]]
+  size    = 逻辑字号，按密度换算
+  px_size = 已换算好的像素字号（等价于 size 传 dp 后的值）
+  两条路径最后都夹到 M.FONT_MIN —— 字号一律不小于全工程下限，没有「显式给小字」的旁路。
+注意: 行高 h 请自行给足（建议 fs + 3 以上）。小于字号的 h 会把文字裁掉。
+      字号被抬高后盒高不够的，改盒高，不要往回压字号。]]
 function M.label(parent, o)
-    local fs
-    if o.px_size then
-        fs = o.px_size
-        if fs < 1 then fs = 1 end
-    else
-        fs = dp(o.size or M.F.body)
-        if fs < M.FONT_MIN then fs = M.FONT_MIN end
-    end
+    local fs = o.px_size or dp(o.size or M.F.body)
+    if fs < M.FONT_MIN then fs = M.FONT_MIN end
     return airui.label({
         parent = o.parent or parent,
         x = o.x or 0, y = o.y or 0,
@@ -570,15 +573,16 @@ function M.iconbtn(parent, o)
 
     if o.text then
         --[[ 文字兜底：hzfont 行高 = 字号 + 3，label 盒高按恰好一行算并垂直居中。
-        字号与盒高都夹到内容区内，字形不越界。]]
+        字号夹到 M.FONT_MIN 与内容区之间，字形不越界。]]
         local s = math.min(iw, ih)
         local fs = math.floor(s * 0.52)
         if fs > 34 then fs = 34 end
+        if fs < M.FONT_MIN then fs = M.FONT_MIN end
         -- 字形宽不超内容区宽，行高(字号+3)不超内容区高
         local max_fs = math.min(iw, ih - 3)
-        if max_fs < 1 then max_fs = 1 end
-        if fs > max_fs then fs = max_fs end
-        if fs < 10 and max_fs >= 10 then fs = 10 end
+        --[[按钮本身装不下最小字号时，不再把字号压回去 —— 那正是「字看不清」的来源。
+        退而求其次让字贴到内容区边界（lh 会夹到 ih），按钮至少还是读得出的。]]
+        if max_fs < M.FONT_MIN then max_fs = M.FONT_MIN end
         if fs > max_fs then fs = max_fs end
         local lh = math.min(ih, fs + 3)
         M.label(btn, {
@@ -603,7 +607,7 @@ function M.button(parent, o)
         x = o.x or 0, y = o.y or 0,
         w = o.w or 120, h = o.h or 36,
         text = o.text or "",
-        font_size = math.max(16, dp(o.size or 13)),
+        font_size = math.max(M.FS.caption, dp(o.size or 13)),
         style = {
             bg_color = o.bg or M.C.amber,
             text_color = o.fg or M.C.on_amber,
@@ -634,7 +638,7 @@ function M.ghost_button(parent, o)
         x = o.x or 0, y = o.y or 0,
         w = o.w or 120, h = o.h or 36,
         text = o.text or "",
-        font_size = math.max(16, dp(o.size or 13)),
+        font_size = math.max(M.FS.caption, dp(o.size or 13)),
         style = {
             bg_color = bg, bg_opa = o.bg_opa or M.OPA.fill,
             text_color = o.fg or M.C.t1,
@@ -834,6 +838,7 @@ function M.video_bar(parent, o)
     没有呼吸感。收 2px 后每侧留出余量，四个按钮（暂停/播放、循环、选择、全屏/窗口）
     一起变，不至于只有一个按钮字小。]]
     local btn_font = math.floor(btn_size * 0.5) - 2
+    if btn_font < M.FONT_MIN then btn_font = M.FONT_MIN end
 
     --[[按钮工厂：airui.button 而不是 theme.card —— 需要真实按压反馈。
 
@@ -887,7 +892,7 @@ function M.video_bar(parent, o)
     if file_w < 24 then file_w = 24 end
     local file_label = M.label(bar, {
         x = pad_in, y = btn_y, w = file_w, h = btn_size,
-        text = o.file_text or "", px_size = math.floor(11 * d),
+        text = o.file_text or "", px_size = M.fs("micro"),
         color = M.C.t3, align = airui.TEXT_ALIGN_LEFT,
     })
 
@@ -1000,9 +1005,10 @@ function M.titlebar(parent, o)
         align = airui.TEXT_ALIGN_LEFT,
     })
     if o.sub then
+        local sub_fs = math.max(M.FONT_MIN, dp(o.sub_size or M.F.small))
         M.label(bar, {
-            x = tx, y = math.floor((h - title_h) / 2) + title_h, w = title_w, h = dp(18),
-            text = o.sub, size = o.sub_size or M.F.small, color = M.C.t3,
+            x = tx, y = math.floor((h - title_h) / 2) + title_h, w = title_w, h = sub_fs + 3,
+            text = o.sub, px_size = sub_fs, color = M.C.t3,
             align = airui.TEXT_ALIGN_LEFT,
         })
     end
@@ -1041,9 +1047,10 @@ function M.rail(parent, o)
             on_click = item.on_click,
         })
         M.image(it, { x = math.floor((iw - 21) / 2), y = dp(11), w = 21, h = 21, icon = item.icon })
+        local it_fs = math.max(M.FONT_MIN, dp(o.item_size or M.F.tiny))
         M.label(it, {
-            x = 0, y = dp(34), w = iw, h = dp(18),
-            text = item.text or "", size = o.item_size or M.F.tiny,
+            x = 0, y = dp(34), w = iw, h = it_fs + 3,
+            text = item.text or "", px_size = it_fs,
             color = on and M.C.amber_light or M.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
         widgets[i] = it
@@ -1094,16 +1101,25 @@ function M.tile(parent, o)
             text = o.mark or (o.text and string.sub(o.text, 1, 1) or "A"), size = M.F.body,
             color = M.C.on_amber, align = airui.TEXT_ALIGN_CENTER })
     end
+    --[[名称盒高按「字号 + 3」取（hzfont 行高），并夹到磁贴剩余高度内。
+    原来写死 dp(18)：字号抬到下限之上后一行字刚好吃满，再大一号就被裁掉。]]
+    local name_fs = o.px_size or dp(o.size or M.F.small)
+    if name_fs < M.FONT_MIN then name_fs = M.FONT_MIN end
+    local name_y = dp(6) + icon_size + dp(4)
+    local name_h = name_fs + 3
+    if name_h > h - name_y then name_h = h - name_y end
+    if name_h < 1 then name_h = 1 end
     M.label(tile, {
-        x = dp(2), y = dp(6) + icon_size + dp(4), w = w - dp(4), h = dp(18),
-        text = o.text or "", size = o.size or M.F.small, px_size = o.px_size, color = o.text_color or M.C.t1,
+        x = dp(2), y = name_y, w = w - dp(4), h = name_h,
+        text = o.text or "", px_size = name_fs, color = o.text_color or M.C.t1,
         align = airui.TEXT_ALIGN_CENTER,
     })
     if o.badge then
         local bw = dp(48)
+        local badge_fs = math.max(M.FONT_MIN, dp(M.F.tiny))
         M.label(tile, {
-            x = math.floor((w - bw) / 2), y = dp(6) + icon_size + dp(24), w = bw, h = dp(16),
-            text = o.badge, size = M.F.tiny, color = o.badge_color or M.C.t3,
+            x = math.floor((w - bw) / 2), y = name_y + name_h + dp(1), w = bw, h = badge_fs + 3,
+            text = o.badge, px_size = badge_fs, color = o.badge_color or M.C.t3,
             align = airui.TEXT_ALIGN_CENTER,
         })
     end
@@ -1160,7 +1176,7 @@ function M.row(parent, o)
         })
         local img = M.image(tint, { x = s * 0.22, y = s * 0.22, w = s * 0.56, h = s * 0.56, icon = o.icon })
         if not img then
-            local mfs = math.max(12, math.floor(s * 0.5))
+            local mfs = math.max(M.FONT_MIN, math.floor(s * 0.5))
             M.label(tint, {
                 x = 0, y = math.max(0, math.floor((s - (mfs + 3)) / 2)), w = s, h = mfs + 3,
                 text = o.mark or (o.text and string.sub(o.text, 1, 1)) or "-",
@@ -1256,27 +1272,38 @@ function M.pills(parent, o)
     local gap = o.gap or 8
     local n = math.max(1, #items)
     local total = o.w or 400
-    local pw = math.floor((total - (n - 1) * gap) / n)
+    -- 胶囊带四周留 2 像素余量：airui.container 探出内容区 1 像素就画滚动条（airui.md 4.2.13）
+    local m = 2
+    local pw = math.floor((total - (n - 1) * gap - 2 * m) / n)
     local h = o.h or 38
+    local fs = math.max(M.FONT_MIN, dp(o.size or M.F.body))
     local widgets = {}
     for i, it in ipairs(items) do
         local on = (i == (o.active or 0))
+        --[[bw 必须显式传：M.card 的描边规则是「没给 border_w 就照 o.border 之外
+        默认 1px」，未选中胶囊传 border = nil 也会拿到 1px 描边，内容区随之每侧
+        缩窄 1 像素 —— 于是「两个胶囊都出滚动条」。选中态才画 1px 描边。]]
+        local bw = on and 1 or 0
         local p = M.card(parent, {
-            x = (o.x or 0) + (i - 1) * (pw + gap), y = o.y, w = pw, h = h,
+            x = (o.x or 0) + m + (i - 1) * (pw + gap), y = o.y, w = pw, h = h,
             radius = M.R.md,
             color = on and (it.color or M.C.amber) or M.C.surface,
             opa = on and 48 or M.OPA.fill,
-            border = on and (it.color or M.C.amber) or nil, border_w = on and 1 or 0,
+            border = on and (it.color or M.C.amber) or nil, border_w = bw,
             on_click = it.on_click,
         })
-        --[[文字盒高取「字号 + 3」并垂直居中
+        --[[文字盒高取「字号 + 3」并垂直居中，宽高按胶囊的**内容区**取
 
         AirUI 的 label 只支持水平对齐（C 端只设 text_align），没有垂直居中：
         盒高大于行高时文字会贴在盒顶。原来这里直接把 h 传成胶囊高度，文字整体偏上
-        （越高越明显）。按 M.row 的口径收成「字号 + 3」+ 居中偏移。]]
-        local fs = math.max(M.FONT_MIN, dp(o.size or M.F.body))
+        （越高越明显）。按 M.row 的口径收成「字号 + 3」+ 居中偏移。
+        子控件 x/y 的原点是内容区左上角（= 外框 − 描边），盒宽要按 pw - 2×描边取再留
+        2 像素余量；原来直接给整块外框的 pw，选中态右缘探出内容区 2 像素，胶囊上会
+        凭空画出滚动条。]]
+        local lh = fs + 3
+        local ly = m + math.floor(math.max(0, h - 2 * bw - 2 * m - lh) / 2)
         M.label(p, {
-            x = 0, y = math.floor((h - (fs + 3)) / 2), w = pw, h = fs + 3,
+            x = m, y = ly, w = pw - 2 * bw - 2 * m, h = lh,
             text = it.text or "",
             px_size = fs,
             color = on and (it.text_color or M.C.amber_light) or M.C.t2,

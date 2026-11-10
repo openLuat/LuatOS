@@ -716,6 +716,8 @@ int airui_video_get_stats(lv_obj_t *video, airui_video_stats_t *stats);
  * Chart组件
  */
 lv_obj_t *airui_chart_create_from_config(void *L, int idx);
+int airui_chart_set_y_axis_from_config(lv_obj_t *chart, uint32_t axis_index, void *L, int idx);
+int airui_chart_set_series_config(lv_obj_t *chart, uint32_t series_index, void *L, int idx);
 int airui_chart_set_values(lv_obj_t *chart, const int32_t *values, uint32_t count);
 int airui_chart_push_value(lv_obj_t *chart, int32_t value);
 int airui_chart_set_series_values(lv_obj_t *chart, uint32_t series_index, const int32_t *values, uint32_t count);

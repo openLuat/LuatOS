@@ -327,10 +327,6 @@ struct luat_display_funcs {
     /*设置显示层*/
     int (*set_layer)(struct luat_display_layer_data *layer_data);
 
-    /*层像素已更新，需要再送显一次。真机 LCDC 扫描同一块缓冲，此回调保持 NULL。
-      PC 的 SDL 接口用它把视频层贴回窗口，调用方可能在解码线程，实现里不要直接画。*/
-    int (*refresh_layer)(struct luat_display_layer_data *layer_data);
-
     /*垂直同步*/
     int (*wait_vsync)(struct luat_display *disp);
 
@@ -396,8 +392,6 @@ int luat_display_layer_setup(struct luat_display *disp);
 void *luat_display_sdl_get_window(struct luat_display *disp);
 void *luat_display_sdl_get_renderer(struct luat_display *disp);
 void *luat_display_sdl_get_texture(struct luat_display *disp);
-/* 主线程把已更新的视频层贴到 SDL 窗口。没有新帧时直接返回。 */
-void luat_display_sdl_present_overlay(void);
 /* 把一块 RGB565 画进 SDL 窗口。pitch 是源数据行步长。present 非 0 时立刻送显并叠上视频层。 */
 int luat_display_sdl_blit(struct luat_display *disp, int32_t x, int32_t y, int32_t w, int32_t h,
                           const void *data, uint32_t pitch, int present);

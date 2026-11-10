@@ -1,8 +1,8 @@
 --[[
 @module  nes_key_app
 @summary NES游戏按键模块 — 8方向计算 + 动作键连发 + 控制键快响应
-@version 1.0
-@date    2026.05.30
+@version 1.1
+@date    2026.11.05
 @author  江访
 
 由 app_main.optional 根据 project_config.features.nes 条件加载。
@@ -31,12 +31,9 @@
 local HW_DEBOUNCE_MS = 20          -- GPIO硬件消抖(ms)
 local CTRL_DEBOUNCE_MS = 30        -- 控制键软件防抖窗口(ms)，够快且防抖动
 
--- ticks 转毫秒：mcu.hz() 动态获取 tick 频率，兼容 Air1601/1602（20ms/tick）和 PC（1ms/tick）
-local function ticks_to_ms(diff_ticks)
-    local hz = mcu.hz() or 1
-    if hz <= 0 then hz = 1 end
-    return diff_ticks * 1000 / hz
-end
+-- tick 与毫秒换算（时间一律用 mcu.ticks() + mcu.hz() 表达）
+local tick_time = require "tick_time"
+local CTRL_DEBOUNCE_TICKS = tick_time.ms(CTRL_DEBOUNCE_MS) -- 控制键软件防抖窗口(tick)
 
 -- ==================== 方向状态 ====================
 
@@ -135,15 +132,15 @@ local function create_action_callback(sname)
     end
 end
 
---- 控制键回调：仅按下沿 + 软件防抖（使用 ticks_to_ms 兼容不同 tick 频率）
+--- 控制键回调：仅按下沿 + 软件防抖（防抖窗口按 mcu.hz() 折算，见 tick_time）
 local function create_control_callback(sname)
     return function(val)
         local pressed = (val == 0)
         if not pressed then return end  -- 控制键仅响应按下沿
 
-        local now = mcu.ticks()
+        local now = tick_time.now()
         local last = ctrl_last_press[sname] or 0
-        if ticks_to_ms(now - last) >= CTRL_DEBOUNCE_MS then
+        if tick_time.elapsed(now, last) >= CTRL_DEBOUNCE_TICKS then
             ctrl_last_press[sname] = now
             log.info("nes_key", "CTRL publish NES_CTRL", sname)
             sys.publish("NES_CTRL", sname)

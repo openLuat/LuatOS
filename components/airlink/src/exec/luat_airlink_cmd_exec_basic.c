@@ -250,7 +250,10 @@ int luat_airlink_cmd_exec_notify_sys_pub(luat_airlink_cmd_t *cmd, void *userdata
     }
     memcpy(msg.ptr, cmd->data + 8, cmd->len - 8);
     msg.arg1 = cmd->len - 8;
-    luat_msgbus_put(&msg, 0);
+    // 入队失败时消费者未接管缓冲，仍由本函数负责释放。
+    if (luat_msgbus_put(&msg, 0) != 0) {
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, msg.ptr);
+    }
     return 0;
 }
 

@@ -1,8 +1,8 @@
 --[[
 @module  uvc_preview_win
 @summary 摄像头测试页（UVC 预览 / 拍照 / 录像 + 人脸识别录入 / 验证 / 删除全部，TabOS 深色玻璃态）
-@version 1.5
-@date    2026.10.30
+@version 1.10
+@date    2026.11.05
 @author  江访
 @usage
 订阅: OPEN_UVC_PREVIEW_WIN(id)
@@ -16,7 +16,8 @@ excamera.open / preview / close 与 exfacecam 的各条指令内部都有 sys.wa
 数据流由本页独占：外设开关（periph_uvc）只管供电脚，不再 camera.init，
 避免与 excamera.open 里的 camera.init 二次初始化打架。
 
-导航：标题栏「返回」回到功能测试页；底部「退出」经命令协程收尾后回桌面（exwin.return_idle）。
+导航：标题栏「返回」回到功能测试页，这是页面唯一的出口。返回触发 on_destroy →
+request_quit，收尾交回命令协程执行。
 
 【人脸识别】摄像头是 AirCAMERA_1034 人脸识别模组时，同一颗模组出两条通路：
 USB 走 UVC 出 MJPEG 画面（上面那套 excamera 独占），UART 走协议做人脸。
@@ -24,12 +25,21 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
 不带的型号页面与原来完全一致，只有「UVC 测试」。见下方「人脸识别边界」。
 
 分辨率与内存（取档做法参考 module/Air8601/project/DEPOSIT_CABINET 的 face_preview）：
-1. 开流分辨率默认 1280×720（USB 摄像头常用档），先枚举它真正支持的 MJPEG 档位，
-   首选 config.peripherals 条目里的 w / h，其次取像素数不超过 MAX_PIXELS 的最大档；
-   申请档位与实际支持档位不一致时按实际档位重开一次数据流，保证 excamera 的双帧缓冲
-   与固件解码缓冲都按真实尺寸分配。
+1. 开流分辨率取「能盖住预览组件的最小 MJPEG 档」（见 pick_uvc_mode）。预览组件只有
+   几百像素，开 1280×720 纯属浪费：相机侧要吃约 4.25×w×h 字节（双帧缓冲 w×h +
+   解码输入 w×h/4 + 解码输出 w×h×2），还要每帧把整幅源帧软件缩放到预览区。
+   首选 config.peripherals 条目里的 w / h，其次取能盖住预览组件、像素数不超过
+   MAX_PIXELS 的最小档。申请档位与实际支持档位不一致时按实际档位重开一次数据流，
+   保证 excamera 的双帧缓冲与固件解码缓冲都按真实尺寸分配。
 2. airui.camera 的两块显示缓冲按预览区大小分配（视口 w×h×2 字节 × 2 块，与 fit 无关），
    预览区因此按剩余内存收口（见 preview_size），与源分辨率同比、居中于黑底框内。
+   画面旋转在缩放前对帧生效，转 90/270 时帧的宽高互换，取档与预览区都按 UVC 页签的
+   旋转后的宽高比来（见 disp_dims）。UVC 页签取 uvc 条目的 rotation、人脸页签取
+   face.rotation，都只认顺时针 0/90/180/270（逆时针 90 度写 270）；切页签只改
+   airui.camera 的 rotation、不重建组件（见 apply_rotation）。
+   这两块走 luat_heap_malloc，恒定落在 sys/SRAM 池，把 psram 一起算进来会高估，
+   故预算只认 rtos.meminfo("sys")，余量紧张时再用 zbuff.HEAP_SRAM 真分两块探一次
+   （见 probe_fb_ok；余量宽裕就跳过，那两次大 zbuff 各触发一次强制 GC）。
    源分辨率越大，相机侧吃掉的越多，预览区就越小——这是源分辨率与预览面积的直接取舍。
 3. airui.camera 组件必须在建界面时建好、register + start，且早于 excamera.open 开流。
    组件建晚了（例如等 USB connected 再建）时，固件解码出的预览帧找不到接收方，
@@ -52,10 +62,15 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
 6. 停数据流与销毁组件的顺序不可颠倒：先 excamera.close（前面留 CLOSE_GRACE 让在途帧
    回调跑完）再动 airui.camera 组件；反序会让固件解码线程往已释放的组件里画，
    触发非对齐访问死机。关窗时根控件先 set_hidden 立刻撤画面，销毁交回命令协程收尾。
-7. 「退出」不直接 exwin.return_idle：桌面 MP4 播放器获得焦点即起播，早于收尾会和
-   未关的相机抢内存。退出发 UVC_CMD("quit")，命令协程跑完 do_teardown（停流、
-   销毁组件、断电）后才 exwin.return_idle。收尾命令带界面代数，上一代的 quit
-   不拆新页面，只补关它的数据流。
+7. 离开页面一律发 UVC_CMD("quit") 进命令协程收尾，不在点击 / 销毁回调里同步收：
+   excamera.close 含 sys.wait，且桌面 MP4 播放器获得焦点即起播，早于收尾会和
+   未关的相机抢内存。收尾命令带界面代数，上一代的 quit 不拆新页面，只补关它的数据流。
+8. 起流到出画面要好几秒，大头在固件 USB/UVC 收流侧（C 源码不在本仓库）：实测
+   「推流已启动 → _camera_decode_jpg_prepare」空 6.8 秒，且 1280×720 与 640×360
+   一样慢，与数据量无关。Lua 侧只把「点击 → 推流已启动」压到最短，并打三条耗时
+   （开流就绪 / USB 连接 / 首个原始帧）加一条 5 秒汇总，把延迟切成「USB 枚举」
+   与「收流 → 首帧」两段（见「起流耗时打点」）。首个原始帧迟迟不到是收流慢，
+   原始帧早到而画面没出是解码侧慢。
 
 人脸识别边界：
 1. 供电共用：UVC_EN 一根脚同时供出图与人脸模组，断电两者一起掉。「连不上就断电
@@ -74,6 +89,7 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
 ]]
 
 local theme = require "ui_theme"
+local tick_time = require "tick_time"
 
 --[[
 编译系统按 require "excamera" 的字面文本决定打包范围，故这里保持字面写法；
@@ -110,10 +126,11 @@ local main_container = nil
 local sw, sh = 480, 800
 local pad = 15
 
--- 源分辨率：开流前按它申请帧缓冲，连上后由 pick_uvc_mode 校正为实际支持档。
+-- 源分辨率初值：开流前按它申请帧缓冲，连上后由 pick_uvc_mode 校正为实际支持档。
 -- 相机侧固定开销约 4.25×w×h 字节（双帧缓冲 w×h + 解码输入 w×h/4 + 解码输出 w×h×2），
--- 1280×720 约 3.8MB，这一项直接决定还剩多少内存给 airui.camera 的显示缓冲
-local SENSOR_W, SENSOR_H = 1280, 720
+-- 这一项直接决定还剩多少内存给 airui.camera 的显示缓冲，故初值取预览区够用的小档
+-- 480×320 是 AirCAMERA_1034 实测最小可用档之一
+local SENSOR_W, SENSOR_H = 480, 320
 
 -- 源分辨率像素上限：像素数更大的 MJPEG 档位不取（1920×1080 时相机侧要吃掉 8.8MB）
 local MAX_PIXELS = 1280 * 720
@@ -123,11 +140,21 @@ local MAX_PIXELS = 1280 * 720
 -- 实际预算还要按开流后的剩余内存再收一次（见 preview_size）
 local PREVIEW_FB_BUDGET = 512 * 1024
 
+-- 显示缓冲真分探针的收口次数与每次收口比例（见 probe_fb_ok）
+local FB_PROBE_MAX = 4
+local FB_SHRINK = 0.7
+
 -- 停流前宽限：等一帧时间让在途帧回调跑完，避免读到 excamera.close 已释放的 zbuff
 local CLOSE_GRACE = 300
 
 -- config.peripherals 条目里的首选分辨率（不写则用上面的默认档）
 local PREF_W, PREF_H = nil, nil
+
+-- 画面旋转角，取 uvc 条目的 rotation：顺时针 0/90/180/270（airui.camera 只吃顺时针，
+-- 逆时针 90 度写 270）。不写不转
+-- cam_rotation 是 UVC 页签的值（取档与预览框按它算），face_rotation 是人脸页签的值
+local cam_rotation = 0
+local face_rotation = 0
 
 -- 画面适配模式（airui.camera 的 set_fit 取值），按此顺序循环
 local FIT_ORDER = { "contain", "cover", "center", "stretch" }
@@ -164,10 +191,12 @@ local FACE_ERR_TEXT = {
 
 -- 人脸状态提示最小间隔(ms)：模组回得快，不压一压状态行会刷到看不清
 local FACE_STATE_MIN_GAP = 500
+local FACE_STATE_MIN_GAP_TICKS = tick_time.ms(FACE_STATE_MIN_GAP)
 
 -- 运行期状态
 local cam_widget = nil          -- airui.camera 控件
 local widget_registered = false -- 是否已挂到解码通道
+local widget_w, widget_h = 0, 0 -- 预览组件尺寸，取档时挑够盖住它的最小档
 local fit_mode = "contain"
 local rec_ms = 10000
 local busy = false              -- 拍照/录像互斥
@@ -179,7 +208,6 @@ local stream_open = false       -- excamera 数据流是否开着（重复进页
 local window_open = false       -- 页面是否在前台
 local ui_gen = 0                -- 界面代数：关窗的收尾只能动同代界面
 local stale_ui = nil            -- 停流期间来不及销毁的上代界面，交回命令协程销毁
-local quit_to_idle = false      -- 「退出」请求：收尾跑完后才回桌面
 
 local periph_id = nil           -- config.peripherals 里的 UVC 实例 id
 local save_base = "/ram/photo/" -- 落盘目录（见 save_dir）
@@ -211,13 +239,28 @@ local face_on = false       -- exfacecam 串口是否已打开
 local face_busy = false     -- 录入 / 验证 / 清空 / 读版本进行中，挡重复点击
 local face_seq = 0          -- 录入名序号，保证每次录入的用户名不重复
 local face_tab = TAB_UVC    -- 当前页签
-local face_last_state = 0   -- 最近一次状态提示时刻(ms)，做人脸引导文案限流
+local face_last_state = 0   -- 最近一次状态提示时刻(tick)，做人脸引导文案限流
+
+-- 当前页签的画面旋转角
+local function active_rotation()
+    if face_tab == TAB_FACE then return face_rotation end
+    return cam_rotation
+end
+
+--[[
+下发电画面旋转角：预览组件不重建（停流重建会打断人脸录入，见文件头「已知边界」第 6 条），
+只改 airui.camera 的 rotation，下一帧即生效。]]
+local function apply_rotation()
+    if not cam_widget or cam_widget:is_destroyed() then return end
+    if type(cam_widget.set_rotation) ~= "function" then return end
+    pcall(cam_widget.set_rotation, cam_widget, active_rotation())
+end
 
 -- 页签行与控制栏各摆两份，靠 set_hidden 切换（重建控件只能在界面线程，见 create_widget）
 local tab_uvc_row = nil     -- 页签行（UVC 高亮）
 local tab_face_row = nil    -- 页签行（人脸高亮）
-local uvc_bar = nil         -- UVC 控制栏（拍照 / 录像 / 时长 / 适配 / 退出）
-local face_bar = nil        -- 人脸控制栏（录入 / 验证 / 清空 / 版本 / 退出）
+local uvc_bar = nil         -- UVC 控制栏（拍照 / 录像 / 时长 / 适配）
+local face_bar = nil        -- 人脸控制栏（录入 / 验证 / 清空 / 版本）
 
 local preview_callback  -- 前向声明：open_stream 里要传给 excamera.preview
 
@@ -349,11 +392,42 @@ local function cam_ready()
     return excamera ~= nil and camera ~= nil and camera.USB ~= nil
 end
 
+-- ==================== 起流耗时打点 ====================
+
+-- 打点记 tick，出日志才按 mcu.hz() 折算毫秒
+local function elapsed_ms(t1, t0)
+    return tick_time.to_ms(tick_time.elapsed(t1, t0))
+end
+
+local t_enter   = 0    -- 进页面时刻(tick)
+local t_frame1  = 0    -- 首个原始帧时刻(tick)，0 表示还没到
+local frame_cnt = 0    -- 原始帧计数
+local probe_timer = nil
+
+-- 首帧后 5 秒打一条汇总：原始帧一直在流而画面没出，就卡在固件解码侧
+local function log_stream_summary()
+    probe_timer = nil
+    local dt = -1
+    if t_frame1 > 0 then dt = elapsed_ms(t_frame1, t_enter) end
+    log.info("uvc_preview_win", "起流汇总", "进页面→首个原始帧", dt, "ms",
+        "5秒内原始帧", frame_cnt, "帧")
+end
+
 -- ==================== UVC 档位自适应 ====================
 
 --[[
+旋转在缩放前对帧生效（airui.camera 的 rotation），转 90/270 时帧的宽高互换。
+取档与预览区都按 UVC 页签的旋转算（组件建于进页面那一刻，切页签只换旋转不换框），
+否则视口和画面对不上（适应留黑边、铺满裁画面）。]]
+local function disp_dims(w, h)
+    if cam_rotation == 90 or cam_rotation == 270 then return h, w end
+    return w, h
+end
+
+--[[
 枚举摄像头真正支持的 MJPEG 档位，选一档回来：
-首选 config 指定的 w/h，其次像素数不超过 MAX_PIXELS 的最大档，都没有就取最小档。
+首选 config 指定的 w/h，其次取能盖住预览组件、像素数不超过 MAX_PIXELS 的最小档，
+再退预算内最大档，都没有就取最小档。
 拿到的 w/h 用来校正 excamera 的帧缓冲尺寸（它按 open 时的 w×h 建双缓冲）。]]
 local function pick_uvc_mode(app_id)
     if not camera.get_usb_config then return nil end
@@ -363,7 +437,7 @@ local function pick_uvc_mode(app_id)
         return nil
     end
 
-    local exact, best, smallest = nil, nil, nil
+    local exact, cover, best, smallest = nil, nil, nil, nil
     for fmt = 1, format_num do
         local _, ftype, frame_num = camera.get_usb_config(app_id, camera.CONF_UVC_FORMAT, fmt)
         if ftype == camera.FORMAT_MJPG and frame_num then
@@ -374,12 +448,21 @@ local function pick_uvc_mode(app_id)
                     log.info("uvc_preview_win", "UVC 支持", w, "x", h, "fps", fps)
                     if not smallest or m.px < smallest.px then smallest = m end
                     if PREF_W == w and PREF_H == h then exact = m end
-                    if m.px <= MAX_PIXELS and (not best or m.px > best.px) then best = m end
+                    if m.px <= MAX_PIXELS then
+                        if not best or m.px > best.px then best = m end
+                        -- 能不能盖住预览区，按旋转后的宽高比算（见 disp_dims）
+                        local cw, ch = disp_dims(w, h)
+                        if widget_w > 0 and cw >= widget_w and ch >= widget_h
+                            and (not cover or m.px < cover.px) then
+                            cover = m
+                        end
+                    end
                 end
             end
         end
     end
     if exact then return exact end
+    if cover then return cover end
     if best then return best end
     if smallest then
         log.warn("uvc_preview_win", "无预算内档位，改用最小档", smallest.w, smallest.h)
@@ -387,18 +470,16 @@ local function pick_uvc_mode(app_id)
     return smallest
 end
 
--- 堆剩余字节（sys + psram 合计，两个池都可能放相机缓冲与显示缓冲），取不到返回 nil
-local function heap_free()
-    local total = 0
-    local got = false
-    for _, pool in ipairs({ "sys", "psram" }) do
-        local ok, t, u = pcall(rtos.meminfo, pool)
-        if ok and type(t) == "number" and type(u) == "number" and t > u then
-            total = total + (t - u)
-            got = true
-        end
+--[[
+单池剩余字节，取不到返回 nil。
+airui.camera 的两块显示缓冲走 luat_heap_malloc，恒定落在 sys/SRAM 池，
+psram 里的相机帧缓冲让不出来，两个池合起来算是高估（见文件头「分辨率与内存」第 2 条）。]]
+local function pool_free(pool)
+    local ok, t, u = pcall(rtos.meminfo, pool)
+    if ok and type(t) == "number" and type(u) == "number" and t > u then
+        return t - u
     end
-    return got and total or nil
+    return nil
 end
 
 -- 相机侧开销：双帧缓冲 w×h + 解码输入 w×h/4 + 解码输出 w×h×2，合计约 4.25×w×h
@@ -406,10 +487,41 @@ local function sensor_cost()
     return math.floor(SENSOR_W * SENSOR_H * 4.25) + 16 * 1024
 end
 
--- 预览区尺寸：与源分辨率同比缩进黑底框，再按显示缓冲预算收口
+--[[
+显示缓冲真分探针：先占住相机侧开流要吃的几块，再按 w×h×2 真分两块显示缓冲，最后全还回去。
+探针要复现「相机侧已占满自己的份额、显示缓冲才来分」这个时刻：airui.camera 的两块缓冲是在
+首帧回调里分的，那时相机侧的帧缓冲与解码缓冲早已落位。只探显示缓冲探到的是开流前的空闲，
+真到首帧就分不下。
+内存反复占用释放后，即便余量够也可能没有连续块，估算值不可信；
+zbuff.HEAP_SRAM 与 airui.camera 的 luat_heap_malloc 是同一池，探得下组件才建得出来。
+老固件没有这个常量时退回估算。]]
+local function probe_fb_ok(w, h)
+    if not (zbuff and zbuff.HEAP_SRAM) then return true end
+    local sw, sh = SENSOR_W, SENSOR_H
+    -- 相机侧：双帧缓冲 w×h + 解码输入 w×h/4 + 解码输出 w×h×2
+    local take = { sw * sh, sw * sh, math.floor(sw * sh / 4), sw * sh * 2 }
+    -- 显示缓冲两块殿后，这两块分得下才算数
+    local n = w * h * 2
+    take[#take + 1] = n
+    take[#take + 1] = n
+    local held = {}
+    for i = 1, #take do
+        local b = zbuff.create(take[i], 0, zbuff.HEAP_SRAM)
+        if not b then
+            for j = #held, 1, -1 do held[j]:free() end
+            return false
+        end
+        held[i] = b
+    end
+    for j = #held, 1, -1 do held[j]:free() end
+    return true
+end
+
+-- 预览区尺寸：与旋转后的源分辨率同比缩进黑底框，再按显示缓冲预算收口
 local function preview_size(avail_w, avail_h)
-    local src_w = SENSOR_W > 0 and SENSOR_W or 16
-    local src_h = SENSOR_H > 0 and SENSOR_H or 9
+    -- 视口按旋转后的源宽高比算（见 disp_dims）
+    local src_w, src_h = disp_dims(SENSOR_W > 0 and SENSOR_W or 16,
+                                   SENSOR_H > 0 and SENSOR_H or 9)
     local w, h = math.floor(avail_w), math.floor(avail_h)
     local scale = math.min(w / src_w, h / src_h)
     w, h = math.floor(src_w * scale), math.floor(src_h * scale)
@@ -417,11 +529,11 @@ local function preview_size(avail_w, avail_h)
     -- 这里测到的是开流前的剩余，还要先把相机侧那 4.25×w×h 扣掉，剩下的才是显示缓冲能用的
     local budget = PREVIEW_FB_BUDGET
     collectgarbage()
-    local free = heap_free()
+    local free = pool_free("sys")
     if free then
         local after = math.floor((free - sensor_cost()) * 0.6)
         if after < budget then budget = after end
-        log.info("uvc_preview_win", "内存预算", "开流前剩余", free,
+        log.info("uvc_preview_win", "内存预算", "sys剩余", free,
             "相机侧", sensor_cost(), "显示缓冲", budget)
     end
     if budget < 64 * 1024 then budget = 64 * 1024 end
@@ -430,8 +542,21 @@ local function preview_size(avail_w, avail_h)
         local k = math.sqrt(max_px / (w * h))
         w, h = math.floor(w * k), math.floor(h * k)
     end
-    if w < theme.dp(80) then w = theme.dp(80) end
-    if h < theme.dp(60) then h = theme.dp(60) end
+    local min_w, min_h = theme.dp(80), theme.dp(60)
+    if w < min_w then w = min_w end
+    if h < min_h then h = min_h end
+    -- 估算只是上限，真分得下才算数，分不下就继续收口。余量明显宽裕时跳过探针：
+    -- 探针要连相机侧一起真分几兆，各触发一次强制 GC，白等上百毫秒
+    if free and (free - sensor_cost()) >= budget * 6 then
+        log.info("uvc_preview_win", "内存余量宽裕，跳过显示缓冲探针")
+    else
+        for _ = 1, FB_PROBE_MAX do
+            if probe_fb_ok(w, h) then break end
+            log.warn("uvc_preview_win", "显示缓冲分不下，收口", w, "x", h)
+            w, h = math.floor(w * FB_SHRINK), math.floor(h * FB_SHRINK)
+            if w < min_w or h < min_h then break end
+        end
+    end
     log.info("uvc_preview_win", "预览区", w, "x", h, "显示缓冲", (w * h * 4), "字节")
     return w, h
 end
@@ -458,6 +583,13 @@ end
 -- 收到一帧：拍照按需存单帧，录像抽帧追加进同一个文件
 local function on_frame(buff, len)
     if not buff or not len or len <= 0 then return end
+
+    frame_cnt = frame_cnt + 1
+    if t_frame1 == 0 then
+        t_frame1 = tick_time.now()
+        log.info("uvc_preview_win", "起流打点", "首个原始帧", elapsed_ms(t_frame1, t_enter), "ms")
+        probe_timer = sys.timerStart(log_stream_summary, 5000)
+    end
 
     if snap_pending then
         snap_pending = false
@@ -530,6 +662,7 @@ local function open_stream()
         return false, "预览启动失败"
     end
     stream_open = true
+    log.info("uvc_preview_win", "起流打点", "开流就绪", elapsed_ms(tick_time.now(), t_enter), "ms")
     return true
 end
 
@@ -560,7 +693,7 @@ local function create_widget()
     local okw, wdg = pcall(airui.camera, {
         parent = main_container,
         x = x, y = y, w = w, h = h,
-        fit = fit_mode, auto_start = false,
+        fit = fit_mode, rotation = active_rotation(), auto_start = false,
     })
     cam_widget = okw and wdg or nil
     widget_registered = false
@@ -569,7 +702,11 @@ local function create_widget()
         update_status("本固件不含 airui.camera 组件，无法显示画面")
         return false
     end
-    log.info("uvc_preview_win", "预览组件", w, "x", h, "源", SENSOR_W, "x", SENSOR_H)
+    -- 旋转两个入口都试：建参数 rotation 是文档写法，set_rotation 兜老固件不认建参数的情况
+    apply_rotation()
+    log.info("uvc_preview_win", "预览组件", w, "x", h, "源", SENSOR_W, "x", SENSOR_H,
+        "旋转", active_rotation())
+    widget_w, widget_h = w, h
     return true
 end
 
@@ -582,6 +719,7 @@ end
 -- USB 连接事件（协程内执行）：分辨率不一致就按实际档位重开一次；组件建于建界面时，这里只管数据流
 local function on_connected(mode)
     if not window_open then return end
+    log.info("uvc_preview_win", "起流打点", "USB 连接", elapsed_ms(tick_time.now(), t_enter), "ms")
     if mode and (mode.w ~= SENSOR_W or mode.h ~= SENSOR_H) then
         log.info("uvc_preview_win", "改用摄像头实际支持的分辨率", mode.w, "x", mode.h)
         SENSOR_W, SENSOR_H = mode.w, mode.h
@@ -596,8 +734,10 @@ local function on_connected(mode)
     start_widget()
     -- 预览行只归 UVC 页签：人脸页签的状态行留给录入/验证结果，不被重连事件盖掉
     if face_tab == TAB_UVC then
+        local rot = active_rotation()
         update_status("预览中 " .. SENSOR_W .. "x" .. SENSOR_H ..
-                      " | 适配 " .. (FIT_TITLE[fit_mode] or fit_mode))
+                      " | 适配 " .. (FIT_TITLE[fit_mode] or fit_mode) ..
+                      (rot > 0 and (" | 旋转" .. rot) or ""))
     end
 end
 
@@ -747,8 +887,8 @@ end
 只做限流 + 发消息，不碰控件。包围盒与角度参数本页不消费。
 @param state 见 FACE_STATE_TEXT]]
 local function on_face_state(state, left, top, right, bottom, yaw, pitch, roll)
-    local now = mcu.ticks() or 0
-    if now - face_last_state < FACE_STATE_MIN_GAP then return end
+    local now = tick_time.now()
+    if tick_time.elapsed(now, face_last_state) < FACE_STATE_MIN_GAP_TICKS then return end
     face_last_state = now
     sys.publish("FACE_STATE_TEXT", FACE_STATE_TEXT[state] or ("人脸状态 " .. tostring(state)))
 end
@@ -1050,11 +1190,10 @@ local function do_teardown(gen)
     if gen == ui_gen then destroy_ui() end
 end
 
--- 请求收尾：go_idle 为真时，收尾跑完后再回桌面（回桌面的动作在 cmd_loop 的 quit 分支）
-local function request_quit(go_idle)
+-- 请求收尾：收尾动作在 cmd_loop 的 quit 分支，跑完才算离开
+local function request_quit()
     if quit_requested then return end
     quit_requested = true
-    if go_idle then quit_to_idle = true end
     sys.publish("UVC_CMD", "quit", ui_gen)
 end
 
@@ -1100,12 +1239,6 @@ local function cmd_loop()
                     do_teardown(arg)
                     window_open = false
                     cmd_running = false
-                    -- 收尾跑完（流已停、组件已销毁、供电已断）才回桌面：
-                    -- 桌面 MP4 播放器在获得焦点时立刻起播，早于收尾会和相机抢内存
-                    if quit_to_idle then
-                        quit_to_idle = false
-                        pcall(exwin.return_idle)
-                    end
                 end
             end
         end
@@ -1123,6 +1256,7 @@ end
 local function switch_tab(which)
     if face_tab == which then return end
     face_tab = which
+    apply_rotation()
     if tab_uvc_row and not tab_uvc_row:is_destroyed() then
         tab_uvc_row:set_hidden(which ~= TAB_UVC)
     end
@@ -1167,14 +1301,14 @@ end
 
 --[[
 底部控制栏：UVC 与人脸各摆一份，同一位置靠 set_hidden 切换（与页签行同一套做法）。
-两栏都是 5 个等宽按钮，480 宽下每个约 82，按钮文案压到两字。
+两栏都是 4 个等宽按钮，按钮文案压到两字。
 不带 face 子表的机型只建 UVC 栏，人脸栏不占控件。
 @param w, y, h 栏几何
 @param gap 按钮间距
 @param has_face 是否建人脸栏
 ]]
 local function build_ctrl_bars(w, y, h, gap, has_face)
-    local n = 5
+    local n = 4
     local bw = math.floor((w - (n - 1) * gap) / n)
 
     uvc_bar = theme.box(main_container, {
@@ -1196,12 +1330,6 @@ local function build_ctrl_bars(w, y, h, gap, has_face)
         x = 3 * (bw + gap), y = 0, w = bw, h = h,
         text = "适配", on_click = function() sys.publish("UVC_CMD", "fit") end,
     })
-    theme.ghost_button(uvc_bar, {
-        x = 4 * (bw + gap), y = 0, w = bw, h = h,
-        text = "退出", bg = theme.C.rose, bg_opa = theme.OPA.fill,
-        border = theme.C.rose, fg = theme.C.rose_light,
-        on_click = function() request_quit(true) end,
-    })
 
     if has_face then
         face_bar = theme.box(main_container, {
@@ -1222,12 +1350,6 @@ local function build_ctrl_bars(w, y, h, gap, has_face)
         theme.ghost_button(face_bar, {
             x = 3 * (bw + gap), y = 0, w = bw, h = h,
             text = "版本", on_click = function() sys.publish("UVC_CMD", "face_version") end,
-        })
-        theme.ghost_button(face_bar, {
-            x = 4 * (bw + gap), y = 0, w = bw, h = h,
-            text = "退出", bg = theme.C.rose, bg_opa = theme.OPA.fill,
-            border = theme.C.rose, fg = theme.C.rose_light,
-            on_click = function() request_quit(true) end,
         })
     end
 
@@ -1264,7 +1386,8 @@ local function build_ui()
     end
 
     -- 底部：状态行 + 控制栏，剩余高度全给预览区
-    local bottom_h = status_h + gap + ctrl_h
+    -- 预览框以下依次是 gap / 状态行 / gap / 控制栏，余量照 pad 留在最下
+    local bottom_h = gap + status_h + gap + ctrl_h
     local preview_h = sh - y - pad - bottom_h
     if preview_h < theme.dp(80) then preview_h = theme.dp(80) end
 
@@ -1298,7 +1421,6 @@ local function on_create()
     ui_gen = ui_gen + 1
     window_open = true
     quit_requested = false
-    quit_to_idle = false
     busy = false
     snap_pending = false
     rec_file = nil
@@ -1321,6 +1443,12 @@ local function on_create()
     end
     if entry then
         if not periph_id then periph_id = entry.id end
+        -- 画面旋转角只认 0/90/180/270，其余按不转处理（同 airui.camera 的约定）
+        local r = entry.rotation
+        cam_rotation = (r == 90 or r == 180 or r == 270) and r or 0
+        -- 人脸页签可另给一个旋转角（face.rotation），不写沿用 UVC 页签的值
+        local fr = face_cfg and face_cfg.rotation
+        face_rotation = (fr == 90 or fr == 180 or fr == 270) and fr or cam_rotation
         if entry.max_pixels and entry.max_pixels > 0 then
             MAX_PIXELS = entry.max_pixels
         end
@@ -1353,6 +1481,13 @@ local function on_create()
     if periph_id then
         sys.publish("OTHER_FUNC_SET", periph_id, true)
     end
+    -- 这里不再提前 pm.power(pm.USB, true)。
+    -- 枚举依赖的是"上电沿"：示例能出画面是因为 VBUS 在 excamera.preview 内部
+    -- usb.mode(0, usb.HOST) 之后才第一次打开，模组上电时主机侧已就绪。
+    -- 提前供电会让模组在 USB 还是非 Host 状态时就完成上电，之后 excamera 里
+    -- 再调一次 pm.power(pm.USB, true) 是幂等的（无新上电沿）=> 永不枚举
+    -- （实测：两次进页面 190s+ 0 条 USB 事件，GPIO73 断电重上电也救不回）。
+    -- 上电统一交给 excamera.preview 内的 usb.mode -> pm.power(pm.USB, true)。
     sys.publish("UVC_CMD", "start")
     update_status("等待摄像头连接...")
 end
@@ -1361,11 +1496,15 @@ local function on_destroy()
     -- excamera.close 含 sys.wait，不能在销毁回调里直接调，交回命令协程收尾；
     -- 根控件先隐藏，画面立刻撤掉，控件销毁留在停流之后（顺序见 close_stream）
     stop_rec_timer()
+    if probe_timer then
+        sys.timerStop(probe_timer)
+        probe_timer = nil
+    end
     sys.unsubscribe("FACE_STATE_TEXT", on_face_state_text)
     if main_container and not main_container:is_destroyed() then
         pcall(main_container.set_hidden, main_container, true)
     end
-    request_quit(false)
+    request_quit()
 end
 
 local function on_get_focus() end
@@ -1373,6 +1512,13 @@ local function on_lose_focus() end
 
 local function open_handler(id)
     if id then periph_id = id end
+    -- 起流耗时从点击这一刻起算
+    t_enter = tick_time.now()
+    t_frame1, frame_cnt = 0, 0
+    if probe_timer then
+        sys.timerStop(probe_timer)
+        probe_timer = nil
+    end
     window_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,

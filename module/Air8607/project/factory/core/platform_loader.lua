@@ -83,6 +83,7 @@ local PROJECT_MAP = {
     -- Engine 引擎主机系列（已实现，≥800×480）
     ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
     ["Engine_Air8607A_10inch_1024x600_000_V000"]  = "eng_8607a_10i_v0",
+    ["Engine_Air8607W_10inch_1024x600_000_V000"]   = "eng_8607w_10i_v0",
     -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
     --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
     -- EVB turnkey 开发板系列（已实现，≥800×480）

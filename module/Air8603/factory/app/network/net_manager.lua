@@ -1,8 +1,8 @@
 --[[
 @module  net_manager
 @summary 统一网络管理器：读取 project_config 驱动所有网络接口的初始化
-@version 1.6
-@date    2026.10.29
+@version 1.7
+@date    2026.11.05
 @author  江访
 @usage
 在 app_main.lua 中按如下顺序加载：
@@ -268,6 +268,65 @@ function net_manager.pick_wifi_credential()
         end
     end
     return net_manager.DEFAULT_WIFI_SSID, net_manager.DEFAULT_WIFI_PASSWORD, nil, "default"
+end
+
+--[[
+列出自动连接候选凭证（按推荐顺序）
+首项与 pick_wifi_credential 一致，调用方按它比对开机凭证不会误判；
+其余已保存网络按「连成功过 → 存过没验证 → 连失败过」分档排在后面，档内保持 saved_list 既有的顺序
+末尾补默认账号并按 SSID 去重
+@param number limit 可选，最多返回几项
+@return table 数组，元素为 { ssid, password, bssid, source }，source: "saved" / "default"
+]]
+function net_manager.list_wifi_candidates(limit)
+    local raw = {}
+    local ssid, password, bssid, source = net_manager.pick_wifi_credential()
+    raw[#raw + 1] = { ssid = ssid, password = password, bssid = bssid, source = source }
+
+    local ok_saved, saved_list = pcall(fskv.get, "wifi_saved_list")
+    if ok_saved and type(saved_list) == "table" then
+        local buckets = { {}, {}, {} }
+        for _, entry in ipairs(saved_list) do
+            if entry.ssid and entry.ssid ~= "" then
+                local b = 2
+                if entry.last_connect_ok == true then
+                    b = 1
+                elseif entry.last_connect_ok == false then
+                    b = 3
+                end
+                buckets[b][#buckets[b] + 1] = entry
+            end
+        end
+        for i = 1, 3 do
+            for _, entry in ipairs(buckets[i]) do
+                raw[#raw + 1] = {
+                    ssid = entry.ssid,
+                    password = entry.password or "",
+                    bssid = entry.bssid,
+                    source = "saved",
+                }
+            end
+        end
+    end
+    raw[#raw + 1] = {
+        ssid = net_manager.DEFAULT_WIFI_SSID,
+        password = net_manager.DEFAULT_WIFI_PASSWORD,
+        bssid = nil,
+        source = "default",
+    }
+
+    -- 按 SSID 去重，保住排在前面的那条
+    local list, seen = {}, {}
+    for _, cand in ipairs(raw) do
+        if cand.ssid and cand.ssid ~= "" and not seen[cand.ssid] then
+            seen[cand.ssid] = true
+            list[#list + 1] = cand
+        end
+    end
+    if type(limit) == "number" and limit > 0 then
+        while #list > limit do table.remove(list) end
+    end
+    return list
 end
 
 --[[
@@ -538,6 +597,29 @@ end
 -- ==================== 五、exnetif 条目构建 ====================
 
 --[[
+解析 airlink 通信模式：配置可写 airlink_mode 字符串，或直接写 airlink_type 常量，缺省用 default
+]]
+local function resolve_airlink_type(net_cfg, default)
+    if not net_cfg then return default end
+    if net_cfg.airlink_type ~= nil then return net_cfg.airlink_type end
+    local name = net_cfg.airlink_mode
+    if not name then return default end
+    local const = ({
+        spi_master  = "MODE_SPI_MASTER",
+        hspi_master = "MODE_HSPI_MASTER",
+        spi_slave   = "MODE_SPI_SLAVE",
+        uart        = "MODE_UART",
+    })[name]
+    if not const then
+        log.error("net_manager", "未知 airlink_mode:", name, "按缺省模式处理")
+        return default
+    end
+    if (airlink ~= nil) and airlink[const] then return airlink[const] end
+    log.error("net_manager", "固件不支持 airlink_mode:", name, const, "按缺省模式处理")
+    return default
+end
+
+--[[
 根据 type 和配置项构建单条 exnetif 优先级条目
 ]]
 local function build_entry(net_cfg)
@@ -550,11 +632,11 @@ local function build_entry(net_cfg)
         return nil
     end
 
-    -- Airlink SPI WiFi
+    -- Airlink SPI WiFi（airlink_mode 决定通信模式，缺省 MODE_SPI_MASTER）
     if t == "wifi_airlink_spi" then
         return {
             airlink_wifi = {
-                airlink_type = airlink.MODE_SPI_MASTER,
+                airlink_type = resolve_airlink_type(net_cfg, airlink.MODE_SPI_MASTER),
                 airlink_spi_id = net_cfg.spi_id,
                 airlink_cs_pin = net_cfg.cs_pin,
                 airlink_rdy_pin = net_cfg.rdy_pin,
@@ -594,7 +676,7 @@ local function build_entry(net_cfg)
     -- Airlink SPI 4G
     if t == "4g_airlink_spi" then
         local acfg = {
-            airlink_type = airlink.MODE_SPI_MASTER,
+            airlink_type = resolve_airlink_type(net_cfg, airlink.MODE_SPI_MASTER),
             auto_socket_switch = (net_cfg.auto_socket_switch == true),
         }
         if net_cfg.spi_id then acfg.airlink_spi_id = net_cfg.spi_id end
@@ -632,9 +714,8 @@ function net_manager.build_wifi_entry(ssid, password, bssid, adv_cfg)
     local airlink_cfg = net_manager.get_wifi_hw_config()
 
     if airlink_cfg then
-        local atype = (airlink_cfg.type == "wifi_airlink_uart")
-            and airlink.MODE_UART
-            or airlink.MODE_SPI_MASTER
+        local atype = resolve_airlink_type(airlink_cfg,
+            (airlink_cfg.type == "wifi_airlink_uart") and airlink.MODE_UART or airlink.MODE_SPI_MASTER)
 
         local entry = {
             airlink_wifi = {
@@ -660,10 +741,11 @@ function net_manager.build_wifi_entry(ssid, password, bssid, adv_cfg)
             if adv_cfg.ping_ip then entry.airlink_wifi.ping_ip = adv_cfg.ping_ip end
             if adv_cfg.ping_time then entry.airlink_wifi.ping_time = tonumber(adv_cfg.ping_time) end
         end
-        if atype == airlink.MODE_SPI_MASTER then
+        if airlink_cfg.type == "wifi_airlink_spi" then
             if airlink_cfg.spi_id then entry.airlink_wifi.airlink_spi_id = airlink_cfg.spi_id end
             if airlink_cfg.cs_pin then entry.airlink_wifi.airlink_cs_pin = airlink_cfg.cs_pin end
             if airlink_cfg.rdy_pin then entry.airlink_wifi.airlink_rdy_pin = airlink_cfg.rdy_pin end
+            if airlink_cfg.speed then entry.airlink_wifi.airlink_spi_speed = airlink_cfg.speed end
         else
             if airlink_cfg.uart_id then entry.airlink_wifi.airlink_uart_id = airlink_cfg.uart_id end
             if airlink_cfg.baud then entry.airlink_wifi.airlink_uart_baud = airlink_cfg.baud end
@@ -744,6 +826,22 @@ function net_manager.build_wifi_priority(ssid, password, bssid, adv_cfg)
 end
 
 --[[
+exnetif 的 airlink 条目只带 SPI_ID / CS / RDY / SPEED，INT 中断脚不在其映射范围内，
+由本模块在 set_priority_order 之前用 airlink.config(CONF_SPI_IRQ, pin) 配好
+]]
+local function apply_airlink_extra_config()
+    if (airlink == nil) or (type(airlink.config) ~= "function") then return end
+    for _, net_cfg in ipairs(_network_configs or {}) do
+        if net_cfg.irq_pin and net_cfg.type and net_cfg.type:find("airlink", 1, true) then
+            if airlink.CONF_SPI_IRQ then
+                pcall(airlink.config, airlink.CONF_SPI_IRQ, net_cfg.irq_pin)
+                log.info("net_manager", "airlink CONF_SPI_IRQ =", net_cfg.irq_pin)
+            end
+        end
+    end
+end
+
+--[[
 调用 exnetif.set_priority_order
 @return boolean
 ]]
@@ -756,6 +854,7 @@ function net_manager.apply(priority)
         log.info("net_manager", "无可用网络，跳过 exnetif 初始化")
         return true
     end
+    apply_airlink_extra_config()
     _priority_applied = true
     return exnetif.set_priority_order(priority)
 end

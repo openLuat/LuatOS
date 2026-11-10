@@ -51,6 +51,19 @@ local MERGE_TITLE = {
     rs485 = "RS485 测试",
 }
 
+-- 独立测试入口（不来自 config.peripherals）：hw.audio.model 为 air1103 时提供 SIP 通话
+-- SIP 通话总开关：false = 入口不显示、sip_test_win / sip_test_app / sip_audio_app 都不被
+-- require（不初始化 Air1103、不抢 chip.feed / chip.on_audio_data，录音页与 AI 聊天不受影响）。
+-- 现场排查音频冲突时可临时置 false 整条链路摘掉，正常出货保持 true。
+local SIP_TEST_ENABLED = true
+local EXTRA_ENTRY = {
+    key = "__sip_test__", name = "SIP 通话", page = "OPEN_SIP_TEST_WIN",
+}
+local function has_air1103()
+    local a = ((_G.project_config or {}).hw or {}).audio
+    return type(a) == "table" and tostring(a.model or ""):lower() == "air1103"
+end
+
 -- 实例行控件：行键 → { info_label, info_w, switch, members, state, info }
 -- 合并行的行键是 type 名，其余行的行键是实例 id
 local rows = {}
@@ -148,12 +161,12 @@ local function build_item_row(parent, x, y, w, h, it)
     -- 有子页的行整行可点；开关是行的子控件，点开关不会冒泡到行的 on_click
     local row = theme.box(parent, {
         x = x, y = y, w = w, h = h, color = theme.C.black, opa = 0,
-        on_click = it.page and function() sys.publish(it.page, it.members[1]) end or nil,
+        on_click = (it.on_open or (it.page and function() sys.publish(it.page, it.members[1]) end)) or nil,
     })
 
     local pad2 = theme.dp(12)
     local gap2 = theme.dp(10)
-    local sw_w = theme.dp(52)
+    local sw_w = it.no_switch and 0 or theme.dp(52)
     local sw_h = theme.dp(28)
     -- 可点行在开关左边补一个 ">" 提示，宽度从文本区让出
     local chev_w = it.page and (theme.dp(10) + gap2) or 0
@@ -166,7 +179,7 @@ local function build_item_row(parent, x, y, w, h, it)
     local ty = math.floor((h - total) / 2)
     if ty < 0 then ty = 0 end
 
-    local txw = w - pad2 * 2 - sw_w - gap2 - chev_w
+    local txw = w - pad2 * 2 - sw_w - (sw_w > 0 and gap2 or 0) - chev_w
     if txw < theme.dp(40) then txw = theme.dp(40) end
 
     theme.label(row, {
@@ -177,30 +190,33 @@ local function build_item_row(parent, x, y, w, h, it)
 
     local info_label = theme.label(row, {
         x = pad2, y = ty + lh + theme.dp(2), w = txw, h = lh_sub,
-        text = "读取中...", px_size = fs_sub,
+        text = it.sub_info or "读取中...", px_size = fs_sub,
         color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
     })
 
     if it.page then
         theme.label(row, {
-            x = w - pad2 - sw_w - gap2 - theme.dp(10),
+            x = w - pad2 - sw_w - (sw_w > 0 and gap2 or 0) - theme.dp(10),
             y = math.floor((h - lh) / 2), w = theme.dp(10), h = lh,
             text = ">", px_size = fs,
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
     end
 
-    local togg = theme.switch(row, {
-        x = w - pad2 - sw_w, y = math.floor((h - sw_h) / 2),
-        w = sw_w, h = sw_h, checked = false,
-        on_change = function(handle)
-            -- 合并行一次通断该 type 的全部实例
-            local on = handle:get_state()
-            for i = 1, #it.members do
-                sys.publish("OTHER_FUNC_SET", it.members[i], on)
-            end
-        end,
-    })
+    local togg = nil
+    if not it.no_switch then
+        togg = theme.switch(row, {
+            x = w - pad2 - sw_w, y = math.floor((h - sw_h) / 2),
+            w = sw_w, h = sw_h, checked = false,
+            on_change = function(handle)
+                -- 合并行一次通断该 type 的全部实例
+                local on = handle:get_state()
+                for i = 1, #it.members do
+                    sys.publish("OTHER_FUNC_SET", it.members[i], on)
+                end
+            end,
+        })
+    end
 
     local rec = {
         info_label = info_label, info_w = txw, switch = togg,
@@ -270,6 +286,30 @@ local function build_ui()
             end
         end
         cy = cy + n * row_h + 2 * bw + gap
+    end
+
+    -- 独立入口：SIP 通话（Air1103）—— 受 SIP_TEST_ENABLED 总开关控制
+    if SIP_TEST_ENABLED and has_air1103() then
+        theme.section(body, {
+            x = theme.dp(4), y = cy, w = card_w - theme.dp(8), h = sec_h,
+            text = "通话", px_size = theme.fs("micro"), color = theme.C.t3,
+        })
+        cy = cy + sec_h
+        local ecard = theme.card(body, {
+            x = 0, y = cy, w = card_w, h = row_h + 2 * bw, border_w = bw,
+        })
+        build_item_row(ecard, 0, 0, card_w - 2 * bw, row_h, {
+            key = EXTRA_ENTRY.key, name = EXTRA_ENTRY.name, type = "extra",
+            page = EXTRA_ENTRY.page, members = { EXTRA_ENTRY.key },
+            no_switch = true, sub_info = "Air1103 语音通话测试",
+            on_open = function()
+                -- 懒加载：此刻才把 SIP 窗口拉入内存。
+                -- UI 走本文件缩放层适配 800x480，通话/音频内核为同事原版 sip_phone/*
+                local ok = pcall(require, "sip_test_win")
+                if ok then sys.publish("OPEN_SIP_TEST_WIN") end
+            end,
+        })
+        cy = cy + row_h + 2 * bw + gap
     end
 
     theme.label(body, {

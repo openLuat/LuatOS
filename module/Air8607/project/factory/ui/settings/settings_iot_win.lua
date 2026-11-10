@@ -72,7 +72,7 @@ local function rebuild_content(info)
         「按钮没有与底部保留边距很难看」）。现在卡片高 =
         按钮底 + 底边距，按钮与卡底始终留出与内边距同量级的空隙。]]
         local inner_pad = math.floor(card_w * 0.08)
-        local info_label_h = math.floor(screen_h * 0.045)
+        local info_label_h = math.max(math.floor(screen_h * 0.045), font_size + 3)
         local y0  = math.floor(screen_h * 0.04)                       -- 「已登录」
         local y1  = y0 + info_label_h + math.floor(screen_h * 0.03)   -- 「账号」行
         local y2  = y1 + info_label_h + math.floor(screen_h * 0.02)   -- 「昵称」行

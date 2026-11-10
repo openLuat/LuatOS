@@ -35,7 +35,6 @@
 static void sdl_display_present_current_frame(sdl_display_data_t *data);
 static void sdl_display_blackout(sdl_display_data_t *data);
 static void sdl_display_deinit(airui_ctx_t *ctx);
-static void sdl_display_overlay_timer_cb(lv_timer_t *timer);
 
 static bool sdl_display_use_upright_preview(void)
 {
@@ -504,7 +503,6 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
                 ctx->platform_data = NULL;
                 return AIRUI_ERR_INIT_FAILED;
             }
-            data->overlay_timer = lv_timer_create(sdl_display_overlay_timer_cb, 16, NULL);
             LLOGI("reuse display sdl window for airui");
             return AIRUI_OK;
         }
@@ -591,13 +589,6 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
         return AIRUI_ERR_INIT_FAILED;
     }
     return AIRUI_OK;
-}
-
-/* 界面没有脏区时 LVGL 不会调用 flush。这个定时器跟刷新周期走，只在有新视频帧时贴图。 */
-static void sdl_display_overlay_timer_cb(lv_timer_t *timer)
-{
-    (void)timer;
-    luat_display_sdl_present_overlay();
 }
 
 /**
@@ -860,10 +851,6 @@ static void sdl_display_deinit(airui_ctx_t *ctx)
     luat_pcsim_host_unbind();
 
     if (data->reuse_display) {
-        if (data->overlay_timer != NULL) {
-            lv_timer_delete(data->overlay_timer);
-            data->overlay_timer = NULL;
-        }
         if (data->rotation_buf != NULL) {
             free(data->rotation_buf);
             data->rotation_buf = NULL;

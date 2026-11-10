@@ -55,14 +55,14 @@ require ("eng_8602_9i_wifi")     -- Air8602 9寸 1024×600 HX8282 + Airlink UART
 require ("eng_8602_9i_4g")       -- Air8602 9寸 1024×600 HX8282 + Airlink UART 4G(780ER2) + SD + UVC + 双RS485（4G 版）
 require ("eng_8603w1_10i_v0")      -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC(UART2控制串口) + Air1103语音(UART6) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603w2_10i_v0")      -- Air8603W2 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
-require ("eng_8603w3_10i_v0")      -- Air8603W3 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
-require ("eng_8603w4_10i_v0")      -- Air8603W4 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
-require ("eng_8603w5_10i_v0")      -- Air8603W5 10寸 1024×600 + Airlink UART WiFi(6205) + TTL串口(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w3_10i_v0")      -- Air8603W3 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w4_10i_v0")      -- Air8603W4 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w5_10i_v0")      -- Air8603W5 10寸 1024×600 + Airlink UART WiFi(6205) + TTL串口(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603m1_10i_v0")      -- Air8603M1 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + UVC(UART2控制串口) + Air1103语音(UART6) + 喇叭(HT6873) + SD（4G）
 require ("eng_8603m2_10i_v0")      -- Air8603M2 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（4G）
-require ("eng_8603m3_10i_v0")      -- Air8603M3 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
-require ("eng_8603m4_10i_v0")      -- Air8603M4 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
-require ("eng_8603m5_10i_v0")      -- Air8603M5 10寸 1024×600 + Airlink UART 4G(780ER2) + TTL串口(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m3_10i_v0")      -- Air8603M3 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m4_10i_v0")      -- Air8603M4 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m5_10i_v0")      -- Air8603M5 10寸 1024×600 + Airlink UART 4G(780ER2) + TTL串口(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（4G）
 require ("eng_8605_10i_v0")      -- Air8605 10寸 1024×600 + Airlink UART 4G(780ER2) + SD + UVC + 非隔离RS485（4G 版，无 Air1103）
 require ("eng_8605w_10i_v0")    -- Air8605W 10寸 1024×600 + Airlink SPI WiFi(6205) + Air1103语音(UART6) + NAND + UVC + 隔离RS485（WiFi 版）
 require ("eng_8605m_10i_v0")    -- Air8605M 10寸 1024×600 + Airlink UART 4G(780ER2) + Air1103语音(UART6) + NAND + UVC + 隔离RS485（4G 版）

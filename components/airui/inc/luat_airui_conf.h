@@ -37,6 +37,22 @@
 /** 多触点：最多 LVGL 指针输入设备数，当前手动指定tp支持触控为2（indev_ptrs[] 数组大小） */
 #define AIRUI_POINTER_INDEV_MAX 5
 
+/* Per-library limits also apply when AIRUI and PLCUI share one LVGL build. */
+#ifdef LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
+#define AIRUI_IMAGE_CACHE_BYTES LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
+#elif defined(LUAT_USE_AIRUI_SDL2)
+#define AIRUI_IMAGE_CACHE_BYTES (4U * 1024U * 1024U)
+#else
+#define AIRUI_IMAGE_CACHE_BYTES (1024U * 1024U)
+#endif
+#ifdef LUAT_USE_AIRUI_IMAGE_HEADER_CACHE_COUNT
+#define AIRUI_IMAGE_HEADER_CACHE_COUNT LUAT_USE_AIRUI_IMAGE_HEADER_CACHE_COUNT
+#elif defined(LUAT_USE_AIRUI_SDL2)
+#define AIRUI_IMAGE_HEADER_CACHE_COUNT 32U
+#else
+#define AIRUI_IMAGE_HEADER_CACHE_COUNT 64U
+#endif
+
 /* -------------------------------------- 通用可选配置 -------------------------------------- */
 
 // 显示缓冲占整屏字节数的分母，默认值为2，表示每个显示缓冲分配半屏大小，双缓冲时总计占用一整屏字节数。
@@ -76,8 +92,8 @@
     #define LV_COLOR_DEPTH 16
 
     /* 图片缓存配置 */
-    #define LV_CACHE_DEF_SIZE (4 * 1024 * 1024)     /* 4MB */
-    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 32        /* 32个图片头缓存 */
+    #define LV_CACHE_DEF_SIZE AIRUI_IMAGE_CACHE_BYTES
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT AIRUI_IMAGE_HEADER_CACHE_COUNT
 
     #define LV_USE_LOG 1
     #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
@@ -158,15 +174,9 @@
     /** LVGL 简单层缓冲区大小 */
     #define LV_DRAW_LAYER_SIMPLE_BUF_SIZE (512 * 1024)
 
-    // 图片缓存配置 
-    #ifdef LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
-        // 使用自定义img缓存大小
-        #define LV_CACHE_DEF_SIZE LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
-    #else
-        // 使用默认img缓存大小
-        #define LV_CACHE_DEF_SIZE (1024 * 1024)          /* 1024KB */
-    #endif
-    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 64        /* 64个图片头缓存 */
+    // Shared LVGL starts with AIRUI limits; init reapplies the active UI limits.
+    #define LV_CACHE_DEF_SIZE AIRUI_IMAGE_CACHE_BYTES
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT AIRUI_IMAGE_HEADER_CACHE_COUNT
 
 #else
     /* 默认配置（如果未定义平台） */

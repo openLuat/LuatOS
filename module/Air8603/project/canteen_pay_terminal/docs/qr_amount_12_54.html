@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>金额 12.54 元 · 测试二维码</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:#f4f7fb;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:#1a2436}
+  .box{background:#fff;border:1px solid #e3e9f2;border-radius:16px;padding:28px 36px 24px;
+       box-shadow:0 8px 28px rgba(20,40,80,.08);text-align:center}
+  h1{font-size:26px;margin:0 0 4px} .sub{color:#64748b;font-size:14px;margin:0 0 18px}
+  .qr{width:560px;height:560px;margin:0 auto;background:#fff}
+  .qr svg{width:560px;height:560px;display:block;shape-rendering:crispEdges}
+  .code{margin:16px 0 6px;font-family:Consolas,monospace;font-size:18px;color:#2563eb}
+  .tip{color:#64748b;font-size:13px;line-height:1.9;margin:8px 0 0}
+  button{margin-top:16px;padding:8px 20px;border:0;border-radius:8px;background:#2563eb;
+         color:#fff;font-size:14px;cursor:pointer;font-family:inherit}
+  @media print{body{background:#fff}.box{box-shadow:none;border:0}button{display:none}}
+</style></head><body>
+  <div class="box">
+    <h1>金额 12.54 元</h1>
+    <p class="sub">示例工程扫码测试用 · 白底黑码，建议距离摄像头 10~20cm</p>
+    <div class="qr"><svg xmlns="http://www.w3.org/2000/svg" width="580" height="580" viewBox="0 0 29 29" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h29v29H0z"/><path stroke="#000000" d="M4 4.5h7m1 0h1m1 0h3m1 0h7M4 5.5h1m5 0h1m1 0h2m1 0h1m2 0h1m5 0h1M4 6.5h1m1 0h3m1 0h1m2 0h1m2 0h1m1 0h1m1 0h3m1 0h1M4 7.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h1m1 0h3m1 0h1M4 8.5h1m1 0h3m1 0h1m3 0h2m2 0h1m1 0h3m1 0h1M4 9.5h1m5 0h1m4 0h2m1 0h1m5 0h1M4 10.5h7m1 0h1m1 0h1m1 0h1m1 0h7M12 11.5h2m1 0h2M4 12.5h1m1 0h2m1 0h3m2 0h3m1 0h1m2 0h1m1 0h2M4 13.5h2m6 0h1m1 0h5M5 14.5h1m1 0h2m1 0h2m1 0h1m1 0h1m2 0h1m2 0h1M5 15.5h3m4 0h2m1 0h1m1 0h2m1 0h1m1 0h1M4 16.5h3m1 0h3m2 0h1m2 0h1m1 0h1m4 0h2M12 17.5h1m2 0h1m2 0h1m3 0h3M4 18.5h7m1 0h6m3 0h1m1 0h1M4 19.5h1m5 0h1m1 0h3m4 0h1m2 0h1m1 0h1M4 20.5h1m1 0h3m1 0h1m3 0h1m1 0h1m1 0h1m1 0h2m1 0h2M4 21.5h1m1 0h3m1 0h1m1 0h4m2 0h1m3 0h2M4 22.5h1m1 0h3m1 0h1m1 0h1m3 0h1m1 0h1m1 0h1M4 23.5h1m5 0h1m3 0h1m2 0h1m1 0h1m1 0h1M4 24.5h7m1 0h1m4 0h1m1 0h1m1 0h3"/></svg>
+</div>
+    <div class="code">AMOUNT:12.54</div>
+    <p class="tip">二维码内容：<b>AMOUNT:12.54</b>（虚构测试数据，纯 ASCII，解码稳定）<br>
+    示例默认 <code>C.card.parse_rule="after_dash"</code>：本码没有横杠，整串会作为账户键；
+    演示模式（<code>C.pay.enable=false</code>）不查余额，任意非空码都能触发「收款成功」<br>
+    实际扣费金额以触摸屏输入的金额为准，二维码只提供账户键</p>
+    <button onclick="window.print()">打印此二维码</button>
+  </div>
+</body></html>

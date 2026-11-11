@@ -108,13 +108,13 @@ test("unsubscribe and old sample filtering", function()
 end)
 test("bounded subscriber callbacks", function()
     local ids = {}
-    for i = 1, 4 do
+    for i = 1, z.MAX_SUBSCRIBERS do
         ids[i] = assert(z.subscribe(s, PREFIX .. "/unused/" .. i, function() end))
         wait_for(function() return events[ids[i]] ~= nil end)
     end
-    local no, err = z.subscribe(s, PREFIX .. "/unused/5", function() end)
+    local no, err = z.subscribe(s, PREFIX .. "/unused/extra", function() end)
     assert(no == nil and err == -5)
-    for _, id in ipairs(ids) do assert(z.unsubscribe(s, id)) end
+    for _, id in ipairs(ids) do assert(z.unsubscribe(s, id)); host_pump(15) end
     host_pump(700)
 end)
 test("queue backpressure and dropped result observation", function()

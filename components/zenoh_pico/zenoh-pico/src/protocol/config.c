@@ -13,6 +13,7 @@
 //
 
 #include "zenoh-pico/utils/config.h"
+#include "zenoh-pico/utils/auth.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -28,34 +29,63 @@ z_result_t _z_config_init(_z_config_t *ps) {
     return 0;
 }
 
+static void config_entry_free(void **ptr) {
+    _z_int_void_map_entry_t *entry = *ptr;
+    if (!entry) return;
+    size_t key = *(size_t *)entry->_key;
+    if ((key == Z_CONFIG_USER_KEY || key == Z_CONFIG_PASSWORD_KEY) && entry->_val)
+        _z_secure_zero(entry->_val, strlen(entry->_val));
+    z_free(entry->_key); z_free(entry->_val); z_free(entry); *ptr = NULL;
+}
+void _z_config_clear(_z_config_t *config) { _z_int_void_map_clear(config, config_entry_free); }
+void _z_config_free(_z_config_t **config) {
+    if (config && *config) { _z_config_clear(*config); z_free(*config); *config = NULL; }
+}
+static z_result_t _zp_config_insert_owned(_z_config_t *ps, uint8_t key, char *value, bool append) {
+    if (value == NULL) return _Z_ERR_SYSTEM_OUT_OF_MEMORY;
+    char *res = _z_int_void_map_insert(ps, key, value, config_entry_free, !append);
+    if (res == NULL) {
+        if (key == Z_CONFIG_USER_KEY || key == Z_CONFIG_PASSWORD_KEY) _z_secure_zero(value, strlen(value));
+        z_free(value);
+        return _Z_ERR_SYSTEM_OUT_OF_MEMORY;
+    }
+    return _Z_RES_OK;
+}
+
+z_result_t _z_config_duplicate(_z_config_t *dst, const _z_config_t *src) {
+    *dst = _z_str_intmap_make();
+    _z_str_intmap_iterator_t iter = _z_str_intmap_iterator_make(src);
+    while (_z_str_intmap_iterator_next(&iter)) {
+        uint8_t key = (uint8_t)_z_str_intmap_iterator_key(&iter);
+        char *value = _z_str_intmap_iterator_value(&iter);
+        z_result_t ret = _zp_config_insert_owned(dst, key, value ? _z_str_clone(value) : NULL, true);
+        if (ret != _Z_RES_OK) { _z_config_clear(dst); return ret; }
+    }
+    /* insert在桶头插入；反转新桶以保持CONNECT候选原有顺序。 */
+    if (dst->_vals) for (size_t i = 0; i < dst->_capacity; ++i) {
+        _z_list_t *node = dst->_vals[i], *previous = NULL;
+        while (node) { _z_list_t *next = node->_next; node->_next = previous; previous = node; node = next; }
+        dst->_vals[i] = previous;
+    }
+    return _Z_RES_OK;
+}
+_z_config_t _z_config_clone_value(const _z_config_t *src) {
+    _z_config_t dst; (void)_z_config_duplicate(&dst, src); return dst;
+}
+
 z_result_t _zp_config_insert(_z_config_t *ps, uint8_t key, const char *value) {
-    z_result_t ret = _Z_RES_OK;
-
-    const char *res = "";
-    if (key == Z_CONFIG_CONNECT_KEY) {
-        res = _z_str_intmap_insert_push(ps, key, _z_str_clone(value));
-    } else {
-        res = _z_str_intmap_insert(ps, key, _z_str_clone(value));
-    }
-    if (strcmp(res, value) != 0) {
-        _Z_ERROR_LOG(_Z_ERR_CONFIG_FAILED_INSERT);
-        ret = _Z_ERR_CONFIG_FAILED_INSERT;
-    }
-
-    return ret;
+    if (value == NULL) return Z_EINVAL;
+    return _zp_config_insert_owned(ps, key, _z_str_clone(value), key == Z_CONFIG_CONNECT_KEY);
 }
 
 z_result_t _zp_config_insert_string(_z_config_t *ps, uint8_t key, const _z_string_t *value) {
-    z_result_t ret = _Z_RES_OK;
-    char *str = _z_str_from_string_clone(value);
-    char *res = _z_str_intmap_insert(ps, key, str);
-    if (strcmp(res, str) != 0) {
-        _Z_ERROR_LOG(_Z_ERR_CONFIG_FAILED_INSERT);
-        ret = _Z_ERR_CONFIG_FAILED_INSERT;
+    if (!value) return Z_EINVAL;
+    if (key == Z_CONFIG_USER_KEY || key == Z_CONFIG_PASSWORD_KEY) {
+        size_t n = _z_string_len(value); const char *p = _z_string_data(value);
+        if (!n || n > _Z_USRPWD_MAX || !p || memchr(p, 0, n) || memchr(p, '\r', n) || memchr(p, '\n', n))
+            return _Z_ERR_AUTH_CONFIG;
     }
-    z_free(str);
-
-    return ret;
+    return _zp_config_insert_owned(ps, key, _z_str_from_string_clone(value), false);
 }
 
 char *_z_config_get(const _z_config_t *ps, uint8_t key) { return _z_str_intmap_get(ps, key); }
@@ -64,9 +94,14 @@ z_result_t _z_config_get_all(const _z_config_t *ps, _z_string_svec_t *locators, 
     _z_list_t *cfg_list = _z_str_intmap_get_all(ps, key);
     while (cfg_list != NULL) {
         _z_int_void_map_entry_t *entry = (_z_int_void_map_entry_t *)_z_list_value(cfg_list);
-        char *val = (char *)entry->_val;
-        _z_string_t s = _z_string_copy_from_str(val);
-        _Z_RETURN_IF_ERR(_z_string_svec_append(locators, &s, true));
+        if (*(size_t *)entry->_key == key) {
+            char *val = (char *)entry->_val;
+            _z_string_t borrowed = _z_string_alias_str(val), s = _z_string_null();
+            z_result_t ret = _z_string_copy(&s, &borrowed);
+            if (ret != _Z_RES_OK) { _z_string_clear(&s); return ret; }
+            ret = _z_string_svec_append(locators, &s, true);
+            if (ret != _Z_RES_OK) { _z_string_clear(&s); return ret; }
+        }
         cfg_list = _z_list_next(cfg_list);
     }
     return _Z_RES_OK;

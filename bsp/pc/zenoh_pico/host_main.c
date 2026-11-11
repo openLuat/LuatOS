@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 extern int host_race_arm(int point);
 extern int host_race_arrived(void);
 extern void host_race_release(void);
@@ -21,7 +22,7 @@ static int race_command(lua_State *L) {
 /* 真实Lua分配器连续拒绝初次申请与GC后的重试，不伪造模块事件。 */
 static size_t lua_fail_size;
 static unsigned lua_fail_remaining, lua_fail_count;
-static int lua_fail_terminal;
+static int lua_fail_terminal, lua_fail_entry, lua_entry_entered;
 static lua_Alloc original_lua_alloc;
 static void *original_lua_ud;
 static void *test_lua_alloc(void *ud, void *ptr, size_t old, size_t n) {
@@ -36,7 +37,15 @@ static int fail_lua(lua_State *L) {
 }
 static int fail_lua_count(lua_State *L) { lua_pushinteger(L, lua_fail_count); return 1; }
 static int fail_terminal(lua_State *L) { (void)L; lua_fail_terminal = 1; lua_fail_count = 0; return 0; }
+static int fail_entry(lua_State *L) { (void)L; lua_fail_entry=1; lua_entry_entered=0; lua_fail_count=0; return 0; }
+static int entry_entered(lua_State *L) { lua_pushinteger(L,lua_entry_entered); return 1; }
+void luat_zp_test_before_dispatch(const char *kind) {
+    if (lua_fail_entry == 1 && !strcmp(kind,"get_done")) {
+        lua_fail_entry=2; lua_fail_size=0; lua_fail_remaining=2;
+    }
+}
 void luat_zp_test_dispatch(const char *kind) {
+    if (lua_fail_entry==2 && !strcmp(kind,"get_done")) ++lua_entry_entered;
     if (lua_fail_terminal && !strcmp(kind, "get_done")) {
         lua_fail_terminal = 0; lua_fail_size = 0; lua_fail_remaining = 2;
     }
@@ -50,6 +59,12 @@ int host_message(rtos_msg_t *out);
 long host_allocations(void);
 size_t host_allocation_bytes(void);
 size_t host_allocation_peak(void);
+void host_reset_allocation_peak(void);
+static int reset_peak(lua_State *L) { (void)L; host_reset_allocation_peak(); return 0; }
+static int monotonic_us(lua_State *L) {
+    struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
+    lua_pushinteger(L, (lua_Integer)t.tv_sec * 1000000 + t.tv_nsec / 1000); return 1;
+}
 void host_fail_rx_payload(size_t n);
 static int heap_stats(lua_State *L) {
     lua_pushinteger(L, (lua_Integer)host_allocation_bytes());
@@ -96,6 +111,14 @@ static int network_chunks(lua_State *L) {
     host_network_chunks((unsigned)r, (unsigned)w); return 0;
 }
 void host_write_failure_after(int n);
+void host_fail_final_write(int n);
+void host_cancel_write_after(int n);
+void luat_zp_test_hold_tx(void);
+void luat_zp_test_release_tx(void);
+static int hold_tx(lua_State *L) { (void)L; luat_zp_test_hold_tx(); return 0; }
+static int release_tx(lua_State *L) { (void)L; luat_zp_test_release_tx(); return 0; }
+static int cancel_write(lua_State *L) { int n=(int)luaL_checkinteger(L,1); luaL_argcheck(L,n==5,1,"expected 5 byte partial frame"); host_cancel_write_after(n); return 0; }
+static int final_fault(lua_State *L) { int n=(int)luaL_checkinteger(L,1); luaL_argcheck(L,n>=0 && n<=5,1,"invalid final fault"); host_fail_final_write(n); return 0; }
 void host_write_release(void);
 unsigned host_writes_after_fault(void);
 unsigned host_failure_bytes(void);
@@ -127,11 +150,19 @@ static int pump(lua_State *L) {
 static int allocated(lua_State *L) { lua_pushinteger(L, host_allocations()); return 1; }
 static int failure(lua_State *L) { host_fail_after(luaL_checkinteger(L, 1)); return 0; }
 static int sleep_without_pump(lua_State *L) { luat_rtos_task_sleep((uint32_t)luaL_checkinteger(L, 1)); return 0; }
+/* LuatOS Lua的luaL_newstate为空入口；明确提供主机分配器。 */
+static void *host_vm_alloc(void *ud, void *ptr, size_t old_size, size_t size) {
+    (void)ud; (void)old_size;
+    if (!size) { free(ptr); return NULL; }
+    return realloc(ptr, size);
+}
 int main(int argc, char **argv) {
     if (argc != 4) { fprintf(stderr, "usage: host_test test.lua endpoint prefix\n"); return 2; }
-    lua_State *L = luaL_newstate(); if (!L) return 2;
+    lua_State *L = lua_newstate(host_vm_alloc, NULL); if (!L) return 2;
     original_lua_alloc = lua_getallocf(L, &original_lua_ud); lua_setallocf(L, test_lua_alloc, NULL);
-    luaL_openlibs(L); luaL_requiref(L, "zenohpico", luaopen_zenohpico, 1); lua_pop(L, 1);
+    luaL_openlibs(L); luaL_requiref(L, "zenohpico", luaopen_zenohpico, 1);
+    luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
+    lua_pushvalue(L, -2); lua_setfield(L, -2, "zenohpico"); lua_pop(L, 2);
     lua_pushcfunction(L, pump); lua_setglobal(L, "host_pump");
     lua_pushcfunction(L, race_arm); lua_setglobal(L, "host_race_arm");
     lua_pushcfunction(L, race_arrived); lua_setglobal(L, "host_race_arrived");
@@ -141,8 +172,12 @@ int main(int argc, char **argv) {
     lua_pushcfunction(L, fail_lua); lua_setglobal(L, "host_fail_lua_payload");
     lua_pushcfunction(L, fail_lua_count); lua_setglobal(L, "host_lua_failures");
     lua_pushcfunction(L, fail_terminal); lua_setglobal(L, "host_fail_lua_terminal");
+    lua_pushcfunction(L, fail_entry); lua_setglobal(L, "host_fail_lua_entry");
+    lua_pushcfunction(L, entry_entered); lua_setglobal(L, "host_lua_entry_entered");
     lua_pushcfunction(L, allocated); lua_setglobal(L, "host_allocations");
     lua_pushcfunction(L, heap_stats); lua_setglobal(L, "host_heap_stats");
+    lua_pushcfunction(L, reset_peak); lua_setglobal(L, "host_reset_peak");
+    lua_pushcfunction(L, monotonic_us); lua_setglobal(L, "host_monotonic_us");
     lua_pushcfunction(L, fail_rx); lua_setglobal(L, "host_fail_rx_payload");
     lua_pushcfunction(L, failure); lua_setglobal(L, "host_fail_after");
     lua_pushcfunction(L, pending_query_oom); lua_setglobal(L, "host_pending_query_oom");
@@ -151,6 +186,10 @@ int main(int argc, char **argv) {
     lua_pushcfunction(L, network_stats); lua_setglobal(L, "host_network_stats");
     lua_pushcfunction(L, network_chunks); lua_setglobal(L, "host_network_chunks");
     lua_pushcfunction(L, write_failure); lua_setglobal(L, "host_write_failure_after");
+    lua_pushcfunction(L, cancel_write); lua_setglobal(L, "host_cancel_write_after");
+    lua_pushcfunction(L, hold_tx); lua_setglobal(L, "host_hold_tx_reference");
+    lua_pushcfunction(L, release_tx); lua_setglobal(L, "host_release_tx_reference");
+    lua_pushcfunction(L, final_fault); lua_setglobal(L, "host_fail_final_write");
     lua_pushcfunction(L, write_release); lua_setglobal(L, "host_write_release");
     lua_pushcfunction(L, failure_stats); lua_setglobal(L, "host_write_failure_stats");
     lua_pushstring(L, argv[2]); lua_setglobal(L, "ENDPOINT");

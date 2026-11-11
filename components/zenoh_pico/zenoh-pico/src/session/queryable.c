@@ -247,8 +247,7 @@ z_result_t _z_trigger_queryables(_z_transport_common_t *transport, _z_msg_query_
         _z_wireexpr_clear(q_key);
         _z_queryable_cache_data_clear(&qle_infos);
         _z_msg_query_clear(msgq);
-        _z_session_send_reply_final(zn, qid, is_local);
-        return _Z_RES_OK;
+        return _z_session_send_reply_final(zn, qid, is_local);
     }
     // Build the z_query
     _z_query_rc_t query = _z_query_rc_new_undefined();
@@ -271,13 +270,15 @@ z_result_t _z_trigger_queryables(_z_transport_common_t *transport, _z_msg_query_
         } else {
             _z_query_rc_t query_copy = _z_query_rc_clone(&query);
             qle_info->_callback(&query_copy, qle_info->_arg);
-            _z_query_rc_drop(&query_copy);
+            z_result_t final_rc = _z_query_rc_drop_with_result(&query_copy);
+            if (ret == _Z_RES_OK && final_rc < 0) ret = final_rc;
         }
     }
     _z_wireexpr_clear(q_key);
-    _z_query_rc_drop(&query);
+    z_result_t final_rc = _z_query_rc_drop_with_result(&query);
+    if (ret == _Z_RES_OK && final_rc < 0) ret = final_rc;
     _z_queryable_cache_data_clear(&qle_infos);
-    return _Z_RES_OK;
+    return ret;
 }
 
 void _z_unregister_session_queryable(_z_session_t *zn, _z_session_queryable_rc_t *qle) {

@@ -1,8 +1,8 @@
-# zenoh-pico：可选原生 TCP client（Draft）
+# zenoh-pico：可选原生 TCP client
 
 为 LuatOS 提供官方 zenoh-pico 1.9.0 的最小原生 Lua 绑定。默认关闭；独立库名 `zenohpico`，不替换已有 Lua `zenoh` 实现。
 
-本组件含 1.9.0 核心源码（裁剪副本）、generic 系统/TCP 适配与 Lua 绑定。PC 侧装配、真实对端与主机回归在 [bsp/pc/zenoh_pico](../../bsp/pc/zenoh_pico)，最小 demo 见 [olddemo/demo/zenoh_pico/main.lua](../../olddemo/demo/zenoh_pico/main.lua)。本组件实现Get发起和Queryable应答；主机测试证据见 [bsp/pc/zenoh_pico/TEST_RESULTS.md](../../bsp/pc/zenoh_pico/TEST_RESULTS.md)。目标构建需要对应BSP环境；主机测试不代表设备已可运行。
+本组件含 1.9.0 核心源码（裁剪副本）、generic 系统/TCP 适配与 Lua 绑定。PC 侧装配、真实对端与主机回归在 [bsp/pc/zenoh_pico](../../bsp/pc/zenoh_pico)。本组件实现Get发起和Queryable应答；主机测试证据见 [bsp/pc/zenoh_pico/TEST_RESULTS.md](../../bsp/pc/zenoh_pico/TEST_RESULTS.md)。目标构建需要对应BSP环境；主机测试不代表设备已可运行。
 
 ## 固定依赖
 
@@ -10,7 +10,7 @@
   [zenoh-pico/](zenoh-pico)（只含嵌入式所需文件，`version.txt` 供构建期核对，说明见
   [zenoh-pico/VENDOR.md](zenoh-pico/VENDOR.md)）。
 - 测试 router：zenohd **1.9.0**。
-- 第三方核心源码仅含 VENDOR.md 记录的分片可靠性和 Get 登记分配失败两处修补，两个派生公共头保留原版权和许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+- 第三方核心源码含 VENDOR.md 逐项登记的本地补丁；新增认证使用固定来源的 XKCP SHA3-256，保留原版权和许可，见 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
 组件目录只放模组固件要用的东西：`include/`（配置头与LuatOS平台适配）、`src/`（Lua绑定与generic系统/TCP）、
 `zenoh-pico/`（官方核心源码裁剪副本）。PC 专有的装配脚本、真实对端与测试脚本不在本目录。
@@ -103,20 +103,20 @@ end)
 z.unqueryable(h, qid)
 ```
 
-Get的id仅代表本地接纳，必须核实际reply及done。timeout_ms默认3000，限制100—10000；零回复completed不是实收成功。SDK closure drop后才回收其context，失败/关闭/GC/断连均清理；旧generation query token不能作用新会话。incoming query最多保留5秒，GC/finish/撤销/超时会drop owned query并结束回复。
+Get的id仅代表本地接纳，必须核实际reply及done。timeout_ms默认3000，范围1—600000毫秒，从命令接纳时起算，交给SDK时扣除排队耗时；零回复completed不是实收成功。SDK closure drop后才回收其context，失败/关闭/GC/断连均清理；旧generation query token不能作用新会话。incoming query最多保留30秒，GC/finish/撤销/超时会drop owned query并结束回复。
 
 `GET_CANCEL_MODE="local"`明确取消边界：抑制取消执行后新产生的Lua回复并给一次取消终态；此前已排队的reply仍可能先于done派发，SDK请求可能继续到其timeout/drop；退休context仍占4个槽，不提前free。未启用unstable cancellation token，不把本地取消冒充网络级撤销。队列/分配失败不推进未接纳的新命令id；回调throw由VM保护并释放请求引用。SDK错误码可能与本地负值重叠，要同时核kind/reason。
 
 ## 范围和资源
 
 - 单session、显式 `tcp/host:port`、调用者给定一个网卡 adapter；目标适配支持IPv4/主机名，暂不支持IPv6。
-- 4个订阅、4个Get（含SDK退休上下文）、4个Queryable、4个pending incoming query；命令队列8槽、结果队列8槽；key/parameters各最多255字节；默认单条应用payload最大256KiB（262144字节），可用LUAT_ZP_PAYLOAD_MAX调低；SDK重组上限263168字节为Key等封装留余量，单播batch仍2048、executor容量64。
+- 16个订阅、4个Get（含SDK退休上下文）、16个Queryable、4个pending incoming query；命令队列8槽、结果队列8槽；key最多512字节、parameters最多255字节；默认单条应用payload最大256KiB（262144字节），可用LUAT_ZP_PAYLOAD_MAX调低；SDK重组上限263168字节为Key等封装留余量，单播batch仍2048、executor容量64。
 - 一个长期保留的C工作任务（请求栈8192字节）和两个队列首次使用时创建，关闭session后任务休眠；不按每条消息新建任务。Lua回调和句柄只由VM线程访问。
-- 命令/结果拥有独立数据副本。队列满、分配失败、大于限制的远端样本显式拒绝或增加 `dropped`；失败不当成送达。
+- 命令接纳时从Lua复制一次；执行时将这份载荷所有权交给SDK，最后一个SDK引用释放才退还TX预算，不再做第二次整包复制。结果仍拥有独立副本。队列满、分配失败、大于限制的远端样本显式拒绝或增加 `dropped`；失败不当成送达。
 - msgbus只发唤醒，不传跨线程 userdata；弱值句柄表及generation过滤保护GC、关闭和退订。周期可用 `sys.timerLoopStart(z.poll, 10)` 保证msgbus拥堵时仍有派发机会。
 - C任务每轮最多处理4条命令/4次executor推进，再让出5ms；网络非阻塞读取，短写按实际接纳长度推进；握手/写入有限总体超时。DNS/连接依赖LuatOS统一adapter的超时实现。
 - 命令/事件载荷按实际字节数独立分配，空载荷不分配。默认TX/RX各512KiB载荷预算（LUAT_ZP_TX_PAYLOAD_BUDGET/LUAT_ZP_RX_PAYLOAD_BUDGET），出队和回调执行中仍计费；owned incoming query持有的payload/attachment也计RX额度，finish/过期/撤销/关闭时退还。预算不在重开时清零，旧代待派发事件仍占用。额外的结构、SDK临时复制/重组和保留查询的编码元数据、网络缓存、任务栈、Lua字符串不属于此载荷计数；完整峰值RAM、持续吞吐和P95延迟仍需目标测量。
-- Get/Queryable两套配置头均启用。仍不提供peer/listen、scouting、UDP、TLS、认证配置API、自动多网卡。测试router仅loopback无认证；不用于生产安全策略。
+- Get/Queryable两套配置头均启用。仍不提供peer/listen、scouting、UDP、TLS、peer端认证和自动多网卡。支持client USRPWD认证，见下节；它不加密业务流量，网络访问策略仍需独立配置。
 
 ## 大包容量与背压
 
@@ -135,11 +135,11 @@ python3 bsp/pc/zenoh_pico/run_host.py \
 ```
 
 默认编译库内 vendored 的 1.9.0 源码（`components/zenoh_pico/zenoh-pico`），核对 `version.txt` 并打印源码清单摘要；
-如需对照另一份 1.9.0 工作树，用 `--zenoh-root ../zenoh-pico`，此时按 Git 固定提交做来源门禁。未修补的外部原版用于失败对照，新增分片可靠性测试会失败；完整通过验收使用包含已记录补丁的vendored源码。
+如需对照另一份 1.9.0 工作树，用 `--zenoh-root ../zenoh-pico`，外部目录也必须包含本批补丁，ABI标记为20261111；构建读取本地文件，不依赖.git或下载。未修补的原版不能与当前绑定混编。
 
 Get完整回归使用同一命令加 `--get-tests`，选择独立peer `--get` 和 `host_get_test.lua`；默认17项含原16项及握手半帧失败/首错一致性。peer可选 `--two-rounds` 会校验 `LuatOS\0zenoh-pico\255:1/2` 两个20B值，双轮后正常退出，无需stop，独立墙钟上限240秒；默认peer保原60秒及stop合同。
 
-有pkg-config时可用 `--lua-pkg lua5.3` 代替 `--lua-root`。仅编译时不传 `--router`。输出 `HOST_PASS`、`HOST_EXIT 0`、`PEER_EXIT 0`、`INTEROP_PASS` 才是完整主机通过；只看到 `BUILD_PASS` 不算互通。端口已有占用则停止，测试结束只清理自己的子进程。`--skip-build` 仅用于测试脚本修改后的已知二进制复验，会打印实际SHA；默认始终构建。
+有pkg-config时可用 `--lua-pkg lua5.3` 代替 `--lua-root`。仅编译时不传 `--router`。输出 `HOST_PASS`、`HOST_EXIT 0`、`PEER_EXIT 0`、`INTEROP_PASS` 才是完整主机通过；只看到 `BUILD_PASS` 不算互通。端口已有占用则停止，测试结束只清理自己的子进程。`--skip-build` 会逐项核对构建时的源码、头、测试脚本、Lua库与二进制摘要；任一输入变化必须重编，不能用旧二进制替代修后验证。默认始终构建。
 
 ## PC与目标BSP接入
 
@@ -156,11 +156,11 @@ LUAT_USE_ZENOH_PICO=y ./build_macos.sh
 
 官方目标BSP需要：同一套配置头与C11/atomic支持、仅上述官方通用源码及本模块4个src文件、统一network adapter/RTOS/堆/MCU时钟/TRNG实现，以及 `luaopen_zenohpico` 注册。桥接头位于 `components/zenoh_pico/include/luat_zenoh_pico.h`；EC7xx 侧的接线在 soc 仓库 `project/luatos/xmake.lua`，内建库注册在 `interface/src/luat_base_ec7xx.c`，开关按固件号放在 `project/luatos/inc/luat_conf_bsp_types_ec718hm.h`（1/101 号固件）。
 
-[最小demo](../../olddemo/demo/zenoh_pico/main.lua) 要求先配置网卡就绪、填写测试router和adapter，再启动 `zenoh_peer <router> test/zenohpico/manual` 作为真实回显对端。demo未烧录验证。
+目标示例需在网卡就绪后调用本页API；真实回显对端可用 `zenoh_peer <router> test/zenohpico/manual`。
 
 ## 官方验收与回退
 
-本改动接续已合并的[PR278](https://gitee.com/openLuat/LuatOS/pulls/278)。TEMP_3000专测已通过基础连接、4096B收发/Get和180秒短测；完整4115业务及256KiB真机尚未验收。本次新增动态大载荷、预算处理、SDK分片可靠性及Get登记分配失败修补，未声称目标已含本改动。新包继续要求Lua64及至少1024KiB脚本空间，见[AIR8000_PROFILE_REQUEST.md](AIR8000_PROFILE_REQUEST.md)。
+本改动接续已合并的[PR282](https://gitee.com/openLuat/LuatOS/pulls/282)和[PR278](https://gitee.com/openLuat/LuatOS/pulls/278)。TEMP_3000专测已通过基础连接、4096B收发/Get和180秒短测；完整4115业务及256KiB真机尚未验收。本次新增动态大载荷、预算处理、SDK分片可靠性及Get登记分配失败修补，未声称目标已含本改动。新包继续要求Lua64及至少1024KiB脚本空间，见[AIR8000_PROFILE_REQUEST.md](AIR8000_PROFILE_REQUEST.md)。
 
 目标构建需核开关关闭/开启、Get+Queryable完整配置、VM位宽、注册和资源增量；我们继续负责真机二进制Pub/Sub与Get发起/应答双向、断网/重新打开、队列满/GC、持续内存及实际对端序号。PR供源码复核，目标验收状态仍为待验证，不把Get裁掉以凑空间。
 
@@ -179,3 +179,20 @@ LUAT_USE_ZENOH_PICO=y ./build_macos.sh
 大载荷主机套件使用同一入口加`--payload-tests`，覆盖双向Pub/Sub、Get请求/回复与反向Queryable、远端超限、按需分配、TX/RX预算及拒绝回收、owned query过期、worker分配失败、Lua回调异常、关闭重开。测试输出与未验证项见[bsp/pc/zenoh_pico/PAYLOAD_TEST_RESULTS.md](../../bsp/pc/zenoh_pico/PAYLOAD_TEST_RESULTS.md)。主机通过不替代Air8000 ARM ABI、真实RTOS调度或完整业务RAM验收。
 
 SDK仍为1.9.0基线，本地修补包括分片头直接传入可靠性枚举，避免RELIABLE=0被布尔转换反转，以及Get登记分配失败时保留原请求；来源及重建说明见[zenoh-pico/VENDOR.md](zenoh-pico/VENDOR.md)。`host_fragment_test.c`调用真实序列化/解码验证两类可靠性的首、续、末片和二进制守恒。
+
+
+## 用户名密码认证与本批修补
+
+`open(endpoint, adapter, callback, {username="测试用户", password="测试密码"})` 显式启用client USRPWD。
+两项须同时提供，各1—128字节，不接受空值、NUL、CR/LF或未知options键。省略options仍是匿名连接；给了凭据但对端没有挑战/确认会失败，不退回匿名。认证失败不会发`opened`。
+
+- `-68`：认证配置不合法；`-67`：认证握手结构或确认不合法；`-66`：对端拒绝；`-65`：算法自检失败。断线等仍可能保留SDK的传输错误码。
+- 事件的`auth_stage`为`init_send/init_wait/open_send/open_wait/confirmed`，匿名时不添加；`remote_close_reason`保留对端Close原因，不含用户名、密码、nonce、HMAC或cookie。
+- 用真实Zenoh 1.9.0 Router测试认证成功、128字节边界、错误用户名/密码、缺少凭据/挑战；另有SHA3/HMAC独立向量、配置分配失败和截断握手反例。测试使用临时合成凭据，退出删除字典，不读取现场账号。
+- C可控凭据和proof缓冲在消费/失败/关闭时擦除；无法替Lua字符串或应用持久配置擦除原件。实现的来源、许可与本地修改见[THIRD_PARTY.md](THIRD_PARTY.md)及[zenoh-pico/VENDOR.md](zenoh-pico/VENDOR.md)。
+
+多个Queryable命中同一请求时，`finish_reply`释放其中一个owner可返回`query_owner_released`；只有最后一个owner成功发送Final后才返回`query_finished`。Final写失败返回`error`，同时记录IO首错并释放资源，不重发不明完成度的帧。关闭的`cleanup_code`单独记录清场Final失败，不覆盖先前业务首错；没有主错误时清场失败也会体现在closed.code。
+
+本批还修复配置复制/替换分配失败、握手cookie所有权与错误返回、Get退休/终态投递、已关闭会话Reply的moved数据释放及分片/扩展编码错误传播。测试操作见[CONSOLIDATED_TEST_RESULTS.md](../../bsp/pc/zenoh_pico/CONSOLIDATED_TEST_RESULTS.md)。SDK和绑定必须整批更新；不是在旧ROM上只换Lua脚本即可启用认证。
+
+仍为单会话、有界结果队列，非Get命令和队列溢出的事件不保证逐条必达；state/dropped不等于业务端收件。未提供完整Lua业务门面、多会话或全部有效RX健康信息。1819认证注册、USB485、LED、真实RAM/栈与24小时业务长测须在新固件上另验，不能凭本机通过宣布生产可替换。

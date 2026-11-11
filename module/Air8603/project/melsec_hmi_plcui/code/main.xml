@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui version="0.1" width="1024" height="600" entry="dash">
+  <resources>
+    <font id="hzfont" builtin="hzfont"/>
+
+    <image id="logo" src="logo.png"/>
+    <image id="dot_on" src="dot_online.png"/>
+    <image id="dot_off" src="dot_offline.png"/>
+    <image id="pill_ok" src="pill_normal.png"/>
+    <image id="pill_warn" src="pill_warn.png"/>
+    <image id="pill_alarm" src="pill_alarm.png"/>
+
+    <image id="nd_n" src="btn_nav_dash_n.png"/>
+    <image id="nd_p" src="btn_nav_dash_p.png"/>
+    <image id="nd_c" src="btn_nav_dash_c.png"/>
+    <image id="nt_n" src="btn_nav_trend_n.png"/>
+    <image id="nt_p" src="btn_nav_trend_p.png"/>
+    <image id="nt_c" src="btn_nav_trend_c.png"/>
+    <image id="na_n" src="btn_nav_alarm_n.png"/>
+    <image id="na_p" src="btn_nav_alarm_p.png"/>
+    <image id="na_c" src="btn_nav_alarm_c.png"/>
+    <image id="ns_n" src="btn_nav_set_n.png"/>
+    <image id="ns_p" src="btn_nav_set_p.png"/>
+    <image id="ns_c" src="btn_nav_set_c.png"/>
+    <image id="nv_n" src="btn_nav_dev_n.png"/>
+    <image id="nv_p" src="btn_nav_dev_p.png"/>
+    <image id="nv_c" src="btn_nav_dev_c.png"/>
+
+    <image id="dev_scene" src="dev_scene.png"/>
+
+    <!-- 链路流光：每组 8 帧，由 tools/gen_anim.ps1 从 tools/anim.html 渲染 -->
+    <image id="f485a_1" src="flow_485a_1.png"/>
+    <image id="f485a_2" src="flow_485a_2.png"/>
+    <image id="f485a_3" src="flow_485a_3.png"/>
+    <image id="f485a_4" src="flow_485a_4.png"/>
+    <image id="f485a_5" src="flow_485a_5.png"/>
+    <image id="f485a_6" src="flow_485a_6.png"/>
+    <image id="f485a_7" src="flow_485a_7.png"/>
+    <image id="f485a_8" src="flow_485a_8.png"/>
+    <image id="f485b_1" src="flow_485b_1.png"/>
+    <image id="f485b_2" src="flow_485b_2.png"/>
+    <image id="f485b_3" src="flow_485b_3.png"/>
+    <image id="f485b_4" src="flow_485b_4.png"/>
+    <image id="f485b_5" src="flow_485b_5.png"/>
+    <image id="f485b_6" src="flow_485b_6.png"/>
+    <image id="f485b_7" src="flow_485b_7.png"/>
+    <image id="f485b_8" src="flow_485b_8.png"/>
+    <image id="fma1_1" src="flow_ma1_1.png"/>
+    <image id="fma1_2" src="flow_ma1_2.png"/>
+    <image id="fma1_3" src="flow_ma1_3.png"/>
+    <image id="fma1_4" src="flow_ma1_4.png"/>
+    <image id="fma1_5" src="flow_ma1_5.png"/>
+    <image id="fma1_6" src="flow_ma1_6.png"/>
+    <image id="fma1_7" src="flow_ma1_7.png"/>
+    <image id="fma1_8" src="flow_ma1_8.png"/>
+    <image id="fma2_1" src="flow_ma2_1.png"/>
+    <image id="fma2_2" src="flow_ma2_2.png"/>
+    <image id="fma2_3" src="flow_ma2_3.png"/>
+    <image id="fma2_4" src="flow_ma2_4.png"/>
+    <image id="fma2_5" src="flow_ma2_5.png"/>
+    <image id="fma2_6" src="flow_ma2_6.png"/>
+    <image id="fma2_7" src="flow_ma2_7.png"/>
+    <image id="fma2_8" src="flow_ma2_8.png"/>
+
+    <image id="snd_n" src="btn_sound_n.png"/>
+    <image id="snd_c" src="btn_sound_c.png"/>
+
+    <image id="ch1_n" src="btn_ch1_n.png"/>
+    <image id="ch1_c" src="btn_ch1_c.png"/>
+    <image id="ch2_n" src="btn_ch2_n.png"/>
+    <image id="ch2_c" src="btn_ch2_c.png"/>
+    <image id="clr_n" src="btn_clear_n.png"/>
+    <image id="clr_p" src="btn_clear_p.png"/>
+
+    <image id="mute_n" src="btn_mute_n.png"/>
+    <image id="mute_c" src="btn_mute_c.png"/>
+    <image id="ack_n" src="btn_ack_n.png"/>
+    <image id="ack_p" src="btn_ack_p.png"/>
+    <image id="lclr_n" src="btn_logclear_n.png"/>
+    <image id="lclr_p" src="btn_logclear_p.png"/>
+
+    <image id="save_n" src="btn_save_n.png"/>
+    <image id="save_p" src="btn_save_p.png"/>
+    <image id="def_n" src="btn_default_n.png"/>
+    <image id="def_p" src="btn_default_p.png"/>
+    <image id="up_n" src="btn_step_up_n.png"/>
+    <image id="up_p" src="btn_step_up_p.png"/>
+    <image id="down_n" src="btn_step_down_n.png"/>
+    <image id="down_p" src="btn_step_down_p.png"/>
+  </resources>
+
+  <pages>
+    <!-- ======================= 总览 ======================= -->
+    <page id="dash" background="#0B1220">
+      <container id="rail" x="0" y="0" w="96" h="600" background="#0A1424"/>
+      <image id="logo" x="28" y="18" w="40" h="40" src="logo"/>
+
+      <image id="nav_dash" x="10" y="100" w="76" h="84" src="nd_n" src-pressed="nd_p" src-checked="nd_c" clickable="true" on-click="nav"/>
+      <image id="nav_trend" x="10" y="196" w="76" h="84" src="nt_n" src-pressed="nt_p" src-checked="nt_c" clickable="true" on-click="nav"/>
+      <image id="nav_alarm" x="10" y="292" w="76" h="84" src="na_n" src-pressed="na_p" src-checked="na_c" clickable="true" on-click="nav"/>
+      <image id="nav_dev" x="10" y="388" w="76" h="84" src="nv_n" src-pressed="nv_p" src-checked="nv_c" clickable="true" on-click="nav"/>
+      <image id="nav_set" x="10" y="484" w="76" h="84" src="ns_n" src-pressed="ns_p" src-checked="ns_c" clickable="true" on-click="nav"/>
+      <container id="divider" x="96" y="0" w="1" h="600" background="#16233A"/>
+
+      <label id="title" x="124" y="18" w="440" h="32" font="hzfont" font_size="22" color="#E6EEF9" text="温度监控"/>
+      <label id="sub" x="124" y="50" w="440" h="20" font="hzfont" font_size="13" color="#7D8EA8" text="FX32 计算机链接 · 双通道温度采集"/>
+      <image id="dot" x="596" y="30" w="12" h="12" src="dot_off"/>
+      <label id="comm" x="616" y="24" w="170" h="24" font="hzfont" font_size="14" color="#8FA3BF" text="PLC 离线"/>
+      <label id="clock" x="796" y="24" w="160" h="24" font="hzfont" font_size="14" color="#8FA3BF" align="right" text="--:--:--"/>
+      <image id="sound" x="968" y="20" w="40" h="40" src="snd_n" src-checked="snd_c" clickable="true" on-click="toggle_mute"/>
+      <container id="hline" x="112" y="76" w="896" h="1" background="#16233A"/>
+
+      <container id="card1" x="112" y="88" w="440" h="212" background="#111C2E" border-color="#1E2E46" border-width="1" radius="14">
+        <label id="ch1_title" x="20" y="16" w="286" h="26" font="hzfont" font_size="17" color="#C9D6E8" text="通道 1 · 出料温度"/>
+        <image id="ch1_pill" x="320" y="14" w="96" h="28" src="pill_ok"/>
+        <label id="ch1_val" x="20" y="54" w="220" h="88" font="hzfont" font_size="58" color="#22D3EE" text="--.-"/>
+        <label id="ch1_unit" x="238" y="104" w="60" h="34" font="hzfont" font_size="22" color="#7D8EA8" text="℃"/>
+        <label id="ch1_thr" x="20" y="156" w="400" h="22" font="hzfont" font_size="13" color="#6F819B" text="预警 -- ℃ · 报警 -- ℃"/>
+        <label id="ch1_time" x="20" y="180" w="400" h="20" font="hzfont" font_size="12" color="#4E6080" text="最近报警 --"/>
+      </container>
+
+      <container id="card2" x="568" y="88" w="440" h="212" background="#111C2E" border-color="#1E2E46" border-width="1" radius="14">
+        <label id="ch2_title" x="20" y="16" w="286" h="26" font="hzfont" font_size="17" color="#C9D6E8" text="通道 2 · 进料温度"/>
+        <image id="ch2_pill" x="320" y="14" w="96" h="28" src="pill_ok"/>
+        <label id="ch2_val" x="20" y="54" w="220" h="88" font="hzfont" font_size="58" color="#4C8DFF" text="--.-"/>
+        <label id="ch2_unit" x="238" y="104" w="60" h="34" font="hzfont" font_size="22" color="#7D8EA8" text="℃"/>
+        <label id="ch2_thr" x="20" y="156" w="400" h="22" font="hzfont" font_size="13" color="#6F819B" text="预警 -- ℃ · 报警 -- ℃"/>
+        <label id="ch2_time" x="20" y="180" w="400" h="20" font="hzfont" font_size="12" color="#4E6080" text="最近报警 --"/>
+      </container>
+
+      <container id="dash_trend" x="112" y="316" w="896" h="272" background="#111C2E" border-color="#1E2E46" border-width="1" radius="14">
+        <label id="dash_hint" x="20" y="14" w="260" h="26" font="hzfont" font_size="17" color="#C9D6E8" text="温度趋势"/>
+        <label id="dash_hint2" x="220" y="18" w="420" h="22" font="hzfont" font_size="12" color="#6F819B" text="5 分钟窗口 · 2 秒/点"/>
+        <label id="y_hi" x="20" y="46" w="36" h="20" font="hzfont" font_size="12" color="#4E6080" align="right" text="100"/>
+        <label id="y_mid" x="20" y="146" w="36" h="20" font="hzfont" font_size="12" color="#4E6080" align="right" text="50"/>
+        <label id="y_low" x="20" y="246" w="36" h="20" font="hzfont" font_size="12" color="#4E6080" align="right" text="0"/>
+        <chart id="dash_chart" x="64" y="52" w="812" h="204" type="line" point-count="150" y-min="0" y-max="100" hdiv="4" vdiv="6" line-width="2" grid-color="#1B2B44" background="#0E1727" bg-opacity="255" border-color="#1E2E46" border-width="1">
+          <series id="ch1" color="#22D3EE"/>
+          <series id="ch2" color="#4C8DFF"/>
+        </chart>
+      </container>
+    </page>
+
+    <!-- ======================= 趋势 ======================= -->
+    <page id="trend" background="#0B1220">
+      <container id="rail" x="0" y="0" w="96" h="600" background="#0A1424"/>
+      <image id="logo" x="28" y="18" w="40" h="40" src="logo"/>
+
+      <image id="nav_dash" x="10" y="100" w="76" h="84" src="nd_n" src-pressed="nd_p" src-checked="nd_c" clickable="true" on-click="nav"/>
+      <image id="nav_trend" x="10" y="196" w="76" h="84" src="nt_n" src-pressed="nt_p" src-checked="nt_c" clickable="true" on-click="nav"/>
+      <image id="nav_alarm" x="10" y="292" w="76" h="84" src="na_n" src-pressed="na_p" src-checked="na_c" clickable="true" on-click="nav"/>
+      <image id="nav_dev" x="10" y="388" w="76" h="84" src="nv_n" src-pressed="nv_p" src-checked="nv_c" clickable="true" on-click="nav"/>
+      <image id="nav_set" x="10" y="484" w="76" h="84" src="ns_n" src-pressed="ns_p" src-checked="ns_c" clickable="true" on-click="nav"/>
+      <container id="divider" x="96" y="0" w="1" h="600" background="#16233A"/>
+
+      <label id="title" x="124" y="18" w="440" h="32" font="hzfont" font_size="22" color="#E6EEF9" text="温度趋势"/>
+      <label id="sub" x="124" y="50" w="440" h="20" font="hzfont" font_size="13" color="#7D8EA8" text="10 分钟窗口 · 2 秒/点 · 300 点"/>
+      <image id="dot" x="596" y="30" w="12" h="12" src="dot_off"/>
+      <label id="comm" x="616" y="24" w="170" h="24" font="hzfont" font_size="14" color="#8FA3BF" text="PLC 离线"/>
+      <label id="clock" x="796" y="24" w="160" h="24" font="hzfont" font_size="14" color="#8FA3BF" align="right" text="--:--:--"/>
+      <image id="sound" x="968" y="20" w="40" h="40" src="snd_n" src-checked="snd_c" clickable="true" on-click="toggle_mute"/>
+      <container id="hline" x="112" y="76" w="896" h="1" background="#16233A"/>
+
+      <container id="trend_card" x="112" y="88" w="896" h="496" background="#111C2E" border-color="#1E2E46" border-width="1" radius="14">
+        <label id="t_hi" x="20" y="52" w="36" h="20" font="hzfont" font_size="12" color="#4E6080" align="right" text="100"/>
+        <label id="t_mid" x="20" y="218" w="36" h="20" font="hzfont" font_size="12" color="#4E6080" align="right" text="50"/>
+        <label id="t_low" x="20" y="380" w="36" h="20" font="hzfont" font_size="12" color="#4E6080" align="right" text="0"/>
+        <chart id="trend_chart" x="64" y="56" w="812" h="344" type="line" point-count="300" y-min="0" y-max="100" hdiv="4" vdiv="10" line-width="2" grid-color="#1B2B44" background="#0E1727" bg-opacity="255" border-color="#1E2E46" border-width="1">
+          <series id="ch1" color="#22D3EE"/>
+          <series id="ch2" color="#4C8DFF"/>
+        </chart>
+        <image id="ch1_toggle" x="20" y="424" w="96" h="36" src="ch1_n" src-checked="ch1_c" clickable="true" on-click="toggle_ch1"/>
+        <image id="ch2_toggle" x="128" y="424" w="96" h="36" src="ch2_n" src-checked="ch2_c" clickable="true" on-click="toggle_ch2"/>
+        <image id="trend_clear" x="240" y="424" w="204" h="36" src="clr_n" src-pressed="clr_p" clickable="true" on-click="clear_trend"/>
+        <label id="trend_info" x="460" y="428" w="416" h="28" font="hzfont" font_size="14" color="#8FA3BF" align="right" text="CH1 --.- ℃ · CH2 --.- ℃"/>
+      </container>
+    </page>
+
+    <!-- ======================= 报警 ======================= -->
+    <page id="alarm" background="#0B1220">
+      <container id="rail" x="0" y="0" w="96" h="600" background="#0A1424"/>
+      <image id="logo" x="28" y="18" w="40" h="40" src="logo"/>
+
+      <image id="nav_dash" x="10" y="100" w="76" h="84" src="nd_n" src-pressed="nd_p" src-checked="nd_c" clickable="true" on-click="nav"/>
+      <image id="nav_trend" x="10" y="196" w="76" h="84" src="nt_n" src-pressed="nt_p" src-checked="nt_c" clickable="true" on-click="nav"/>
+      <image id="nav_alarm" x="10" y="292" w="76" h="84" src="na_n" src-pressed="na_p" src-checked="na_c" clickable="true" on-click="nav"/>
+      <image id="nav_dev" x="10" y="388" w="76" h="84" src="nv_n" src-pressed="nv_p" src-checked="nv_c" clickable="true" on-click="nav"/>
+      <image id="nav_set" x="10" y="484" w="76" h="84" src="ns_n" src-pressed="ns_p" src-checked="ns_c" clickable="true" on-click="nav"/>
+      <container id="divider" x="96" y="0" w="1" h="600" background="#16233A"/>
+
+      <label id="title" x="124" y="18" w="440" h="32" font="hzfont" font_size="22" color="#E6EEF9" text="报警记录"/>
+      <label id="sub" x="124" y="50" w="440" h="20" font="hzfont" font_size="13" color="#7D8EA8" text="未确认报警会持续提示与播报"/>
+      <image id="dot" x="596" y="30" w="12" h="12" src="dot_off"/>
+      <label id="comm" x="616" y="24" w="170" h="24" font="hzfont" font_size="14" color="#8FA3BF" text="PLC 离线"/>
+      <label id="clock" x="796" y="24" w="160" h="24" font="hzfont" font_size="14" color="#8FA3BF" align="right" text="--:--:--"/>
+      <image id="sound" x="968" y="20" w="40" h="40" src="snd_n" src-checked="snd_c" clickable="true" on-click="toggle_mute"/>
+      <container id="hline" x="112" y="76" w="896" h="1" background="#16233A"/>
+
+      <container id="alarm_card" x="112" y="88" w="896" h="496" background="#111C2E" border-color="#1E2E46" border-width="1" radius="14">
+        <image id="alarm_mute" x="20" y="16" w="112" h="40" src="mute_n" src-checked="mute_c" clickable="true" on-click="alarm_mute"/>
+        <image id="alarm_ack" x="144" y="16" w="112" h="40" src="ack_n" src-pressed="ack_p" clickable="true" on-click="alarm_ack"/>
+        <image id="alarm_clear" x="268" y="16" w="112" h="40" src="lclr_n" src-pressed="lclr_p" clickable="true" on-click="alarm_clear"/>
+        <label id="alarm_state" x="400" y="22" w="476" h="28" font="hzfont" font_size="14" color="#8FA3BF" align="right" text="无报警"/>
+        <table id="alarm_table" x="20" y="72" w="856" h="404" rows="9" columns="6" col-widths="190,130,92,124,124,124" col-aligns="left,left,center,right,right,center" align="left" header-align="center" header="true" grid="true" row-height="44" cell-padding="6" header-color="#153C56" alternate-color="#16243A" color="#C9D6E8" background="#0E1727" border-color="#1E2E46" border-width="1" font="hzfont" font_size="14">
+          <cell row="1" column="1" text="时间"/>
+          <cell row="1" column="2" text="通道"/>
+          <cell row="1" column="3" text="类型"/>
+          <cell row="1" column="4" text="触发值"/>
+          <cell row="1" column="5" text="阈值"/>
+          <cell row="1" column="6" text="状态"/>
+        </table>
+      </container>
+    </page>
+
+    <!-- ======================= 设置 ======================= -->
+    <page id="set" background="#0B1220">
+      <container id="rail" x="0" y="0" w="96" h="600" background="#0A1424"/>
+      <image id="logo" x="28" y="18" w="40" h="40" src="logo"/>
+
+      <image id="nav_dash" x="10" y="100" w="76" h="84" src="nd_n" src-pressed="nd_p" src-checked="nd_c" clickable="true" on-click="nav"/>
+      <image id="nav_trend" x="10" y="196" w="76" h="84" src="nt_n" src-pressed="nt_p" src-checked="nt_c" clickable="true" on-click="nav"/>
+      <image id="nav_alarm" x="10" y="292" w="76" h="84" src="na_n" src-pressed="na_p" src-checked="na_c" clickable="true" on-click="nav"/>
+      <image id="nav_dev" x="10" y="388" w="76" h="84" src="nv_n" src-pressed="nv_p" src-checked="nv_c" clickable="true" on-click="nav"/>
+      <image id="nav_set" x="10" y="484" w="76" h="84" src="ns_n" src-pressed="ns_p" src-checked="ns_c" clickable="true" on-click="nav"/>
+      <container id="divider" x="96" y="0" w="1" h="600" background="#16233A"/>
+
+      <label id="title" x="124" y="18" w="440" h="32" font="hzfont" font_size="22" color="#E6EEF9" text="参数设置"/>
+      <label id="sub" x="124" y="50" w="440" h="20" font="hzfont" font_size="13" color="#7D8EA8" text="预警 / 报警阈值 · 掉电保存"/>
+      <image id="dot" x="596" y="30" w="12" h="12" src="dot_off"/>
+      <label id="comm" x="616" y="24" w="170" h="24" font="hzfont" font_size="14" color="#8FA3BF" text="PLC 离线"/>
+      <label id="clock" x="796" y="24" w="160" h="24" font="hzfont" font_size="14" color="#8FA3BF" align="right" text="--:--:--"/>
+      <image id="sound" x="968" y="20" w="40" h="40" src="snd_n" src-checked="snd_c" clickable="true" on-click="toggle_mute"/>
+      <container id="hline" x="112" y="76" w="896" h="1" background="#16233A"/>
+
+      <container id="set_card1" x="112" y="88" w="440" h="212" background="#111C2E" border-color="#1E2E46" border-width="1" radius="14">
+        <label id="s1_title" x="20" y="16" w="300" h="26" font="hzfont" font_size="17" color="#C9D6E8" text="通道 1 阈值"/>
+        <label id="s1_l1" x="20" y="62" w="96" h="26" font="hzfont" font_size="15" color="#8FA3BF" text="预警值"/>
+        <label id="ch1_warn_val" x="112" y="56" w="112" h="34" font="hzfont" font_size="24" color="#F5B841" align="right" text="--.-"/>
+        <image id="ch1_warn_down" x="238" y="54" w="52" h="40" src="down_n" src-pressed="down_p" clickable="true" on-click="step"/>
+        <image id="ch1_warn_up" x="298" y="54" w="52" h="40" src="up_n" src-pressed="up_p" clickable="true" on-click="step"/>
+        <label id="s1_l2" x="20" y="128" w="96" h="26" font="hzfont" font_size="15" color="#8FA3BF" text="报警值"/>
+        <label id="ch1_alarm_val" x="112" y="122" w="112" h="34" font="hzfont" font_size="24" color="#FF5C5C" align="right" text="--.-"/>
+        <image id="ch1_alarm_down" x="238" y="120" w="52" h="40" src="down_n" src-pressed="down_p" clickable="true" on-click="step"/>
+        <image id="ch1_alarm_up" x="298" y="120" w="52" h="40" src="up_n" src-pressed="up_p" clickable="true" on-click="step"/>
+        <label id="s1_note" x="20" y="176" w="400" h="20" font="hzfont" font_size="12" color="#4E6080" text="步进 1.0 ℃ · 预警必须小于报警"/>
+      </container>
+
+      <container id="set_card2" x="568" y="88" w="440" h="212" background="#111C2E" border-color="#1E2E46" border-width="1" radius="14">
+        <label id="s2_title" x="20" y="16" w="300" h="26" font="hzfont" font_size="17" color="#C9D6E8" text="通道 2 阈值"/>
+        <label id="s2_l1" x="20" y="62" w="96" h="26" font="hzfont" font_size="15" color="#8FA3BF" text="预警值"/>
+        <label id="ch2_warn_val" x="112" y="56" w="112" h="34" font="hzfont" font_size="24" color="#F5B841" align="right" text="--.-"/>
+        <image id="ch2_warn_down" x="238" y="54" w="52" h="40" src="down_n" src-pressed="down_p" clickable="true" on-click="step"/>
+        <image id="ch2_warn_up" x="298" y="54" w="52" h="40" src="up_n" src-pressed="up_p" clickable="true" on-click="step"/>
+        <label id="s2_l2" x="20" y="128" w="96" h="26" font="hzfont" font_size="15" color="#8FA3BF" text="报警值"/>
+        <label id="ch2_alarm_val" x="112" y="122" w="112" h="34" font="hzfont" font_size="24" color="#FF5C5C" align="right" text="--.-"/>
+        <image id="ch2_alarm_down" x="238" y="120" w="52" h="40" src="down_n" src-pressed="down_p" clickable="true" on-click="step"/>
+        <image id="ch2_alarm_up" x="298" y="120" w="52" h="40" src="up_n" src-pressed="up_p" clickable="true" on-click="step"/>
+        <label id="s2_note" x="20" y="176" w="400" h="20" font="hzfont" font_size="12" color="#4E6080" text="步进 1.0 ℃ · 预警必须小于报警"/>
+      </container>
+
+      <container id="set_card3" x="112" y="316" w="896" h="272" background="#111C2E" border-color="#1E2E46" border-width="1" radius="14">
+        <image id="set_save" x="24" y="28" w="160" h="48" src="save_n" src-pressed="save_p" clickable="true" on-click="save"/>
+        <image id="set_defaults" x="200" y="28" w="210" h="48" src="def_n" src-pressed="def_p" clickable="true" on-click="defaults"/>
+        <label id="set_hint" x="24" y="98" w="840" h="26" font="hzfont" font_size="14" color="#8FA3BF" text="修改后点「保存参数」立即生效，并写入 flash 掉电保存"/>
+        <label id="set_sum" x="24" y="136" w="840" h="26" font="hzfont" font_size="14" color="#7D8EA8" text="CH1 预警 -- ℃ / 报警 -- ℃ · CH2 预警 -- ℃ / 报警 -- ℃"/>
+        <label id="set_info" x="24" y="176" w="840" h="26" font="hzfont" font_size="13" color="#4E6080" text="量程 0.0~100.0 ℃ · 采集 1000 ms · 采样 2000 ms · 报警记录 8 条"/>
+        <label id="set_ver" x="24" y="212" w="840" h="26" font="hzfont" font_size="12" color="#3C4B62" text="melsec_hmi_plcui v1.0.0"/>
+      </container>
+    </page>
+
+    <!-- ======================= 设备 ======================= -->
+    <page id="dev" background="#0B1220">
+      <container id="rail" x="0" y="0" w="96" h="600" background="#0A1424"/>
+      <image id="logo" x="28" y="18" w="40" h="40" src="logo"/>
+
+      <image id="nav_dash" x="10" y="100" w="76" h="84" src="nd_n" src-pressed="nd_p" src-checked="nd_c" clickable="true" on-click="nav"/>
+      <image id="nav_trend" x="10" y="196" w="76" h="84" src="nt_n" src-pressed="nt_p" src-checked="nt_c" clickable="true" on-click="nav"/>
+      <image id="nav_alarm" x="10" y="292" w="76" h="84" src="na_n" src-pressed="na_p" src-checked="na_c" clickable="true" on-click="nav"/>
+      <image id="nav_dev" x="10" y="388" w="76" h="84" src="nv_n" src-pressed="nv_p" src-checked="nv_c" clickable="true" on-click="nav"/>
+      <image id="nav_set" x="10" y="484" w="76" h="84" src="ns_n" src-pressed="ns_p" src-checked="ns_c" clickable="true" on-click="nav"/>
+      <container id="divider" x="96" y="0" w="1" h="600" background="#16233A"/>
+
+      <label id="title" x="124" y="18" w="440" h="32" font="hzfont" font_size="22" color="#E6EEF9" text="设备连接图"/>
+      <label id="sub" x="124" y="50" w="520" h="20" font="hzfont" font_size="13" color="#7D8EA8" text="触摸屏 ↔ RS485 ↔ PLC ↔ AD0/AD1 ↔ 温度变送器（三线）"/>
+      <image id="dot" x="596" y="30" w="12" h="12" src="dot_off"/>
+      <label id="comm" x="616" y="24" w="170" h="24" font="hzfont" font_size="14" color="#8FA3BF" text="PLC 离线"/>
+      <label id="clock" x="796" y="24" w="160" h="24" font="hzfont" font_size="14" color="#8FA3BF" align="right" text="--:--:--"/>
+      <image id="sound" x="968" y="20" w="40" h="40" src="snd_n" src-checked="snd_c" clickable="true" on-click="toggle_mute"/>
+      <container id="hline" x="112" y="76" w="896" h="1" background="#16233A"/>
+
+      <!-- 整张连接图由 tools/gen_scene.ps1 从 tools/scene.html 渲染，坐标原点为 (112,88) -->
+      <image id="scene" x="112" y="88" w="896" h="496" src="dev_scene"/>
+
+      <!-- 链路流光：叠在静态走线上，由 ui_hmi.lua 每 200ms 换一帧（scene 坐标 +112,+88） -->
+      <image id="flow485a" x="312" y="200" w="104" h="28" src="f485a_1"/>
+      <image id="flow485b" x="312" y="232" w="104" h="28" src="f485b_1"/>
+      <image id="flowma1"  x="658" y="167" w="104" h="28" src="fma1_1"/>
+      <image id="flowma2"  x="658" y="335" w="104" h="28" src="fma2_1"/>
+
+      <!-- 图中两个「实测」虚线框（scene 坐标 806,58 / 806,226，尺寸 78x100）
+           数值放在「CH1 实测」小标题下方的视觉重心上（框内 y 约 190/358），别贴顶 -->
+      <label id="tt1_val" x="918" y="190" w="78" h="24" font="hzfont" font_size="15" color="#22D3EE" align="center" text="--.-"/>
+      <label id="tt2_val" x="918" y="358" w="78" h="24" font="hzfont" font_size="15" color="#4C8DFF" align="center" text="--.-"/>
+    </page>
+  </pages>
+</ui>

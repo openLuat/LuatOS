@@ -141,10 +141,12 @@ extern luat_tp_opts_t tp_config_gt9xx;
 extern luat_tp_opts_t tp_config_gt9157;
 extern luat_tp_opts_t tp_config_jd9261t;
 extern luat_tp_opts_t tp_config_jd9261t_inited;
+extern luat_tp_opts_t tp_config_st7232;
 extern luat_tp_opts_t tp_config_ft3x68;
 extern luat_tp_opts_t tp_config_cst820;
 extern luat_tp_opts_t tp_config_cst816d;
 extern luat_tp_opts_t tp_config_cst92xx;
+extern luat_tp_opts_t tp_config_st7102;
 extern luat_tp_opts_t tp_config_pc;
 extern luat_tp_opts_t tp_config_ns2009;
 

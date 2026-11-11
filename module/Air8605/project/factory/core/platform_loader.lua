@@ -56,6 +56,9 @@ require ("periph_uvc")            -- UVC 摄像头外设（纯供电开关，数
 require ("periph_rs485")          -- RS485 外设（多路，DE 方向 + 供电引用计数）
 require ("periph_uart")           -- 通用串口外设（收发计数 + 环形缓冲）
 require ("periph_audio")          -- 录音播放外设（Air1103 等语音芯片，config.hw.audio + type=audio）
+require ("airlink_pin")            -- WiFi 芯片侧 GPIO 门控（GPIO ≥100 等 airlink 就绪后下发）
+require ("tick_time")              -- 单调毫秒时钟（airlink_pin 的就绪等待用）
+require ("pin_share")             -- 共享 GPIO 职能仲裁（en_pin 与 de_pin 共用一脚时互斥切换）
 require ("usb_mode")              -- USB 外设模式（UVC 摄像头 / USB 键鼠二选一，fskv 持久化）
 
 -- 业务模块

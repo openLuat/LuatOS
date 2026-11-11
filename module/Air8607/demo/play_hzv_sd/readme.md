@@ -12,8 +12,8 @@ https://docs.openluat.com/protocols/hzv/
 
 项目分为以下核心模块：
 
-1、main.lua：主程序入口，初始化看门狗，按顺序调度 屏幕初始化 → 触摸初始化 → TF 卡挂载 →
-   扫描素材 → 列出素材清单 → 点亮背光，并处理选片与返回两条系统消息
+1、main.lua：主程序入口，只做两件事：初始化看门狗、按顺序 `require` 各业务逻辑功能模块，
+   不写任何业务逻辑
 
 2、lcd_app.lua：LCD 显示初始化模块，压灭背光、用 display 库初始化 RGB 屏、刷黑整屏、
    初始化 AirUI、加载中文字库
@@ -27,6 +27,23 @@ https://docs.openluat.com/protocols/hzv/
 6、hzv_player.lua：HZV 播放引擎模块，创建 `airui.video` 组件、控制功放与音量、
    控制播放进度与返回、打印播放统计
 
+7、boot_app.lua：启动编排与播放调度模块，按固定顺序完成开机流程，
+   并接收选片与返回两条系统消息做页面切换
+
+模块之间的调用关系：
+
+```
+main.lua（只做 require）
+   └── boot_app.lua（启动编排 + 播放调度，模块加载即 sys.subscribe / sys.taskInit）
+         ├── lcd_app.lua
+         ├── tp_app.lua
+         ├── sd_app.lua
+         ├── file_list.lua  ──publish HZV_PLAY_REQ──┐
+         └── hzv_player.lua ──publish HZV_BACK_REQ──┤
+                                                    ▼
+                                    boot_app.lua 订阅并做页面切换
+```
+
 ## 系统消息介绍
 
 模块之间用两条系统消息传递页面切换，发送方与接收方互不 require，避免循环依赖：
@@ -36,8 +53,8 @@ https://docs.openluat.com/protocols/hzv/
 | `HZV_PLAY_REQ` | `index` 素材序号 | file_list.lua | 点素材行发 `index>=1`，点"顺序播放全部"发 `index=0` |
 | `HZV_BACK_REQ` | 无 | hzv_player.lua | 点返回按钮、点画面、播放结束时发，回到素材清单 |
 
-接收方是 main.lua，用 `sys.subscribe` 订阅后做页面切换：起播前 `file_list.hide()`，
-返回时 `hzv_player.stop()` + `file_list.show()`。
+接收方是 boot_app.lua，文件加载时就用 `sys.subscribe` 订阅好这两条消息，收到后做页面切换：
+起播前 `file_list.hide()`，返回时 `hzv_player.stop()` + `file_list.show()`。
 
 ## 对外接口介绍
 
@@ -78,20 +95,22 @@ https://docs.openluat.com/protocols/hzv/
 
 18、`hzv_player.stats()`：返回 `video:get_stats()` 的结果，没有播放时返回 `nil`
 
+19、`boot_app.main_task_func()`：启动编排主任务函数，由 `boot_app.lua` 末尾的 `sys.taskInit` 挂起
+
+`boot_app.lua` 还订阅了两条系统消息（见上一节），这两条订阅本身也是它的对外接口。
+
 ## 演示功能概述
 
 ### 1、主程序入口模块（main.lua）
 
-按固定顺序完成一次开机流程：
+main.lua 是**纯加载入口**，除 `PROJECT`/`VERSION`、看门狗初始化和几句注释掉的调试模板之外，
+只有一串带注释的 `require` 与最后的 `sys.run()`：
 
-1. `lcd_app.init()` 初始化屏幕、AirUI 与中文字库，失败直接退出（此时什么都显示不了）；
-2. `tp_app.init()` 初始化触摸屏，失败只留日志，清单还在但点不动；
-3. `sd_app.mount()` 挂载 TF 卡，`sd_app.list_hzv()` 扫描卡上的 `*.hzv`；
-4. `hzv_player.set_playlist(files)` 保存播放列表；
-5. `file_list.init(files)` + `file_list.show()` 列出素材清单；
-6. `sys.wait(200)` 之后 `lcd_app.backlight_on()` 点亮背光，开机过程不出现花屏。
-
-开机之后由两条系统消息驱动：`HZV_PLAY_REQ` 起播，`HZV_BACK_REQ` 回清单。
+1. 按顺序 `require "lcd_app"` → `require "tp_app"` → `require "sd_app"` → `require "file_list"` →
+   `require "hzv_player"` → `require "boot_app"`；
+2. `require` 只写文件名不带目录路径，LuatOS 固件把所有 .lua 打包成扁平命名空间；
+3. `boot_app.lua` 被加载的那一刻就把主任务和两条消息的处理函数挂到系统调度，
+   所以 main.lua 里看不到任何启动编排和消息调度的逻辑。
 
 ### 2、LCD 显示模块（lcd_app.lua）
 
@@ -154,6 +173,23 @@ RGB 屏的帧缓冲由显示控制器持续扫描输出，上电时显存里是�
 
 > 播放结束回调只在 `loop=false` 且读到文件尾时触发，所以本 demo 用的是 `loop=false`。
 > 想改成一直循环播一条，把 `loop` 改成 `true`、去掉 `on_complete` 即可。
+
+### 7、启动编排与播放调度模块（boot_app.lua）
+
+**开机编排**（`boot_app.main_task_func`）按固定顺序完成一次开机流程：
+
+1. `lcd_app.init()` 初始化屏幕、AirUI 与中文字库，失败直接退出（此时什么都显示不了）；
+2. `tp_app.init()` 初始化触摸屏，失败只留日志，清单还在但点不动；
+3. `sd_app.mount()` 挂载 TF 卡，`sd_app.list_hzv()` 扫描卡上的 `*.hzv`；
+4. `hzv_player.set_playlist(files)` 保存播放列表；
+5. `file_list.init(files)` + `file_list.show()` 列出素材清单；
+6. `sys.wait(200)` 之后 `lcd_app.backlight_on()` 点亮背光，开机过程不出现花屏。
+
+**播放调度**由两条系统消息驱动：
+
+1. 收到 `HZV_PLAY_REQ`：先 `file_list.hide()` 给视频让出画面，序号为 0 调 `hzv_player.play_all()`
+   顺序轮播整张表，其他序号调 `hzv_player.play_one(index)` 只播一条，起播失败重新展开清单；
+2. 收到 `HZV_BACK_REQ`：`hzv_player.stop()` 停止播放并销毁视频组件、关闭功放，再 `file_list.show()`。
 
 ## Air8607 硬件配置
 
@@ -257,7 +293,7 @@ LUAT_USE_FATFS
 1、用 AirMaster 把视频转成 `.hzv`，拷贝到 TF 卡根目录，插进 Air8607 的 TF 卡座。
 
 2、用 Luatools **选择整个 `play_hzv_sd` 目录**，点"下载底层和脚本"烧录；
-   demo 有 6 个 `.lua` 文件，全部会被自动加入"脚本和资源列表"。
+   demo 有 7 个 `.lua` 文件，全部会被自动加入"脚本和资源列表"。
 
 3、烧录固件：选 Air1603 平台固件，确认上面的宏都已启用。
 
@@ -386,7 +422,7 @@ GT911 会停在半事务状态，之后所有读都不应答，现象就是**屏
 ### 8、播完一段之后卡住不再往下播
 
 `on_complete` 只在 `loop=false` 且读到文件尾时触发。检查 `hzv_player.lua` 里创建组件的参数，
-确认 `loop = false`、`on_complete = on_play_complete` 都还在；想改成单曲循环时才用 `loop = true`。
+确认 `loop = false`、`on_complete = play_complete_cbfunc` 都还在；想改成单曲循环时才用 `loop = true`。
 
 ### 9、清单里的中文显示成方块
 

@@ -1,8 +1,8 @@
 --[[
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
-@version 1.1
-@date    2026.10.30
+@version 1.2
+@date    2026.11.10
 @author  江访
 @usage
 本demo演示的核心功能为：
@@ -24,7 +24,18 @@
 - 插卡上电后在清单里点选播放，卡里没有 .hzv 时清单里只有一句提示，屏幕保持黑屏；
 - 素材转换方法与分辨率建议见本目录下的 readme.md 文件。
 
-更多说明见本目录下的readme.md文件
+本文件只做一件事：按顺序加载各业务逻辑功能模块，不写任何业务逻辑。
+各功能模块的说明如下：
+1、lcd_app.lua：显示初始化（压灭背光 + display 库初始化 1024x600 RGB 屏 + airui.init + 中文字库）；
+2、tp_app.lua：触摸初始化（GT911 初始化 + 绑定到 AirUI + 播放后补回触摸总线配置）；
+3、sd_app.lua：TF 卡应用（挂载 /sd、卸载、列举卡上的 *.hzv 素材）；
+4、file_list.lua：素材选择列表页（airui 列表 + 触摸点选 + 发选片/顺序播放消息）；
+5、hzv_player.lua：HZV 播放引擎（airui.video 组件 + 功放 + 轮播 + 播放统计）；
+6、boot_app.lua：启动编排与播放调度（屏幕 -> 触摸 -> TF卡 -> 素材清单 -> 背光）。
+
+模块加载即挂起各自的任务与定时器，真正的启动编排和消息调度在 boot_app.lua 里。
+
+更多说明参考本目录下的readme.md文件
 ]]
 
 
@@ -57,106 +68,46 @@ end
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
 -- if errDump then
 --     errDump.config(true, 600)
 -- end
 
 
--- 启动一个循环定时器，每隔3秒钟打印一次总内存、实时的已使用内存、历史最高的已使用内存情况
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 排查大分辨率素材起播失败时打开它，观察内存余量
--- local function mem_timer_cbfunc()
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
--- end
--- sys.timerLoopStart(mem_timer_cbfunc, 3000)
+-- end, 3000)
 
 
--- 加载LCD显示初始化功能模块（display 库初始化 RGB 屏 + airui.init + 中文字库）
-local lcd_app = require "lcd_app"
+-- 加载LCD显示初始化功能模块（压灭背光 + display 库初始化 RGB 屏 + airui.init + 中文字库）
+require "lcd_app"
 
 -- 加载触摸初始化功能模块（GT911 初始化 + 绑定到 AirUI）
-local tp_app = require "tp_app"
+require "tp_app"
 
 -- 加载TF卡挂载功能模块（挂载 /sd 并列举卡上的 *.hzv 素材）
-local sd_app = require "sd_app"
+require "sd_app"
 
 -- 加载素材选择列表页功能模块（列出素材清单，触摸点选）
-local file_list = require "file_list"
+require "file_list"
 
 -- 加载HZV播放引擎功能模块（创建 airui.video 组件、播放控制、播放统计）
-local hzv_player = require "hzv_player"
+require "hzv_player"
 
+-- 加载启动编排与播放调度功能模块（屏幕 -> 触摸 -> TF卡 -> 素材清单 -> 背光）
+require "boot_app"
 
--- 素材清单点选的消息处理函数，HZV_PLAY_REQ 的参数是素材序号，0 表示顺序播放全部
-local function on_play_req(index)
-    log.info("main", "收到选片消息", tostring(index))
-
-    -- 先收起清单，给视频让出画面
-    file_list.hide()
-
-    local ok = false
-    if index == 0 then
-        ok = hzv_player.play_all()
-    else
-        ok = hzv_player.play_one(index)
-    end
-
-    if not ok then
-        log.error("main", "起播失败，回到素材清单", tostring(index))
-        file_list.show()
-    end
-end
-
--- 回到素材清单的消息处理函数，播放结束、点返回按钮、点画面都会发这条消息
-local function on_back_req()
-    log.info("main", "收到返回消息，回到素材清单")
-    hzv_player.stop()
-    file_list.show()
-end
-
--- 加载即注册，两条消息在 main_task 之前就绪，避免消息早于订阅丢失
-sys.subscribe("HZV_PLAY_REQ", on_play_req)
-sys.subscribe("HZV_BACK_REQ", on_back_req)
-
-
--- 启动应用任务：屏幕和 AirUI 必须先初始化成功，才能创建视频组件
-local function main_task()
-    log.info("main", "开始初始化")
-
-    -- ########## 1、初始化屏幕、AirUI 与触摸 ##########
-    if not lcd_app.init() then
-        log.error("main", "屏幕初始化失败，无法播放 HZV")
-        return
-    end
-    log.info("main", "屏幕初始化完成", lcd_app.get_size())
-
-    if not tp_app.init() then
-        log.error("main", "触摸初始化失败，清单点不动")
-    end
-
-    -- ########## 2、挂载 TF 卡、扫描素材、列出清单 ##########
-    -- 挂载失败、卡里没有素材时 sd_app 会打印原因，清单里只显示一句提示
-    local files = {}
-    if sd_app.mount() then
-        files = sd_app.list_hzv()
-    end
-
-    if not hzv_player.set_playlist(files) then
-        log.error("main", "没有可播放的素材",
-            "把转换好的 .hzv 拷贝到 TF 卡根目录后重新上电")
-    end
-
-    if file_list.init(files) then
-        file_list.show()
-    end
-
-    -- ########## 3、清单画好之后再点亮背光 ##########
-    -- 这一步顺序很关键：屏初始化阶段背光一直灭着、整屏已被 display.fill 刷黑，
-    -- 等清单画完再亮背光，开机就不会看到花屏
-    sys.wait(200)
-    lcd_app.backlight_on()
-end
-
-sys.taskInit(main_task)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

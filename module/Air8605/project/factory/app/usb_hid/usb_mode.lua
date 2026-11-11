@@ -33,6 +33,8 @@ usb_mode.apply_boot(cfg)              → 开机按模式给 UVC 使能脚上电
 - 任何 fskv 调用都包 pcall 并先判 fskv 是否存在（PC 模拟器没有这个库）
 ]]
 
+local airlink_pin = require "airlink_pin"
+
 local M = {}
 
 -- ==================== 常量 ====================
@@ -304,13 +306,26 @@ end
 function M.apply_boot(cfg)
     local list = cfg and cfg.peripherals
     if type(list) ~= "table" then return end
+    -- en_pin 与某路 rs485 的 de_pin 共用一脚时（8603W3~W5 / M3~M5 的 GPIO58 = UVC_EN = 485_EN2）
+    -- 开机不抢拉高：常供电会让 485 收发器停在发送态、第二路 485 直接失效。
+    -- 共享脚留在 485 接收态（power_on 已拉低），进 UVC 测试页时由 periph_uvc 认领供电，
+    -- 退出归还，两个功能相互切换、互不影响（见 drv/periph/pin_share.lua）
+    local de_pins = {}
+    for _, p in ipairs(list) do
+        if p and p.type == "rs485" and p.de_pin then de_pins[p.de_pin] = true end
+    end
     local on = (M.mode() ~= MODE_HID)
     for _, p in ipairs(list) do
         if p and p.type == "uvc" and p.en_pin then
-            local level = on and 1 or 0
-            pcall(gpio.setup, p.en_pin, level)
-            pcall(gpio.set, p.en_pin, level)
-            log.info("usb_mode", "UVC 供电", on and "开启" or "关闭", "GPIO" .. tostring(p.en_pin))
+            if de_pins[p.en_pin] then
+                log.info("usb_mode", "UVC_EN 与 485_EN 共用 GPIO" .. tostring(p.en_pin) ..
+                         "，开机不占，切换归运行时仲裁")
+            else
+                local level = on and 1 or 0
+                -- WiFi 侧使能脚（GPIO ≥100）由 airlink_pin 延后到链路就绪后下发，开机不等链路
+                airlink_pin.defer(p.en_pin, level)
+                log.info("usb_mode", "UVC 供电", on and "开启" or "关闭", "GPIO" .. tostring(p.en_pin))
+            end
         end
     end
 end

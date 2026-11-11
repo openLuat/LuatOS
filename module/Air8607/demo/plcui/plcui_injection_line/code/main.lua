@@ -55,7 +55,8 @@ local st = {
     paused = false,
     mode = 1,                    -- 1 自动 / 2 半自动 / 3 手动
     shift = 1,                   -- 班次 1..3
-    sel = 1,                     -- 监控页选中机台
+    sel = 1,                     -- 监控页选中机台（1..3）
+    rc = 1,                      -- 参数页选中配方（1..4），勿与 sel 混用
     plan = 4200,
     al_count = 2,                -- 待处理报警
     machines = { new_machine(1), new_machine(2), new_machine(3) },
@@ -289,7 +290,7 @@ local PAR_NAME = {
 local function refresh_pr()
     set_text("clock", clock_text())
     for n = 1, 4 do
-        set_checked("rc_sel" .. n, n == st.sel)
+        set_checked("rc_sel" .. n, n == st.rc)
     end
 end
 
@@ -486,7 +487,7 @@ end
 local RC_NAME = { "ABS 壳体", "PP 盖板", "PC 透明件", "PA66 结构件" }
 
 local function select_rc(n)
-    st.sel = n
+    st.rc = n
     for i = 1, 4 do
         set_checked("rc_sel" .. i, i == n)
     end
@@ -499,7 +500,7 @@ H.rc_sel3 = function() select_rc(3) end
 H.rc_sel4 = function() select_rc(4) end
 
 H.par_apply = function()
-    set_text("par_h2", "参数已下发，配方 " .. RC_NAME[st.sel] .. " 生效")
+    set_text("par_h2", "参数已下发，配方 " .. RC_NAME[st.rc] .. " 生效")
 end
 
 H.par_def = function()
@@ -513,7 +514,7 @@ H.par_def = function()
     set_text("par_h3", "已恢复出厂默认参数")
 end
 
-H.par_upld = function() set_text("par_h2", "参数已上传：/sd/param_" .. RC_NAME[st.sel] .. ".csv") end
+H.par_upld = function() set_text("par_h2", "参数已上传：/sd/param_" .. RC_NAME[st.rc] .. ".csv") end
 H.par_dnld = function() set_text("par_h2", "配方参数已下载并载入寄存器") end
 
 -- ---------- 记录页：翻页 ----------

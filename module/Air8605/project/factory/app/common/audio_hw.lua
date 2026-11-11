@@ -8,7 +8,7 @@
 === 设计要点 ===
 
 1. 全固件只此一处组装 exaudio.setup 的入参。tts_app / llm_chat / factory_rec /
-   settings_display_app / video_util / periph_audio 六个消费方一律调用本模块，
+   settings_display_app / periph_audio 五个消费方一律调用本模块，
    不再各自复制一份字段白名单（字段漏传只会让全局音频失效，且现象离因很远）。
 
 2. **uart_id 与 audio_mode 必传**：exaudio 内部 uart_id 缺省取 1，
@@ -33,13 +33,23 @@
    失灵」的旧行为且一个字节都不报错，所以 setup 成功后必须读 exaudio.bus_policy()
    对账，对不上就告警（见 check_bus_policy）。
 
+7. 【单通路】hw.audio.model 决定整条音频通路，只在开机 setup 一次，运行期不再切。
+   Air8605M/W、Air8603M1/W1 这类接了 Air1103 的板子写 model="air1103" 即可：
+   录音走 Air1103 的 UART MIC，播放走 Air1103 下行（type=1 TTS / type=2 流式 PCM；
+   type=0 文件播放在这条通路上不成立）。
+   视频素材（HZV）的音轨不经 exaudio，仍由 videoplayer 送进内置 DAC 那一路。
+
 === 对外接口 ===
 
   audio_hw.cfg()          -> table|nil      hw.audio 配置（nil = 本板无音频能力）
   audio_hw.is_air1103()   -> boolean        是否 Air1103 UART 语音芯片
   audio_hw.params(extra)  -> table          exaudio.setup 入参（extra 同名字段覆盖）
   audio_hw.setup(extra)   -> ok, err        pcall(exaudio.setup, params) + 套用音量
-  audio_hw.vol()          -> ok             单独套用 ac.play_vol
+  audio_hw.vol(level)     -> ok             套用媒体音量（nil 取 ac.play_vol）
+  audio_hw.record_start(cfg) -> ok, ret     等价 pcall(exaudio.record_start, cfg)
+  audio_hw.play_start(cfg)   -> ok, ret     等价 pcall(exaudio.play_start, cfg)
+  audio_hw.sync(vol, mute)   -> ok          下发音量/静音并广播 AUDIO_CFG_SYNC
+  audio_hw.apply(vol, mute)  -> ok          AUDIO_CFG_SYNC 的生效点
   audio_hw.exaudio()      -> table|nil      require 到的 exaudio（无音频固件上为 nil）
 ]]
 
@@ -130,16 +140,27 @@ function M.params(extra)
     return sp
 end
 
+-- 全局消息：音频设置（音量 0-100）与开关（true = 静音）同步
+M.SYNC_MSG = "AUDIO_CFG_SYNC"
+
 --[[
 @function vol
-@summary 套用媒体音量（读 hw.audio.play_vol，settings_display_app 的统一写回点）
+@summary 套用媒体音量（settings_display_app 的统一写回点，AUDIO_CFG_SYNC 的生效点）
+@param number|nil level 音量 0-100，nil 取 hw.audio.play_vol
 @return boolean
 ]]
-function M.vol()
+function M.vol(level)
     local ex = get_exaudio()
     if not ex or not ex.vol then return false end
     local ac = M.cfg() or {}
-    pcall(ex.vol, ac.play_vol or 70)
+    local v = level or ac.play_vol or 70
+    pcall(ex.vol, v)
+    -- Air1103 机型：exaudio.vol 只写语音芯片的音量寄存器，够不着 audio_v2 的数字增益，
+    -- 内置 DAC 那一路（视频素材的音轨）音量在此单独下发。
+    -- audio_v2 是固件扩展库，以全局形式存在，无音频固件上为 nil，须判空
+    if M.is_air1103() and audio_v2 then
+        pcall(audio_v2.soft_volume, v)
+    end
     return true
 end
 
@@ -214,5 +235,59 @@ end
 function M.exaudio()
     return get_exaudio()
 end
+
+--[[
+@function record_start
+@summary 录音起播：转发 exaudio.record_start
+@param table cfg exaudio.record_start 入参
+@return boolean, any  形态与 pcall(exaudio.record_start, cfg) 一致
+]]
+function M.record_start(cfg)
+    local ex = get_exaudio()
+    if not ex or not ex.record_start then return false, "缺少 exaudio 扩展库" end
+    return pcall(ex.record_start, cfg)
+end
+
+--[[
+@function play_start
+@summary 播放起播：转发 exaudio.play_start
+@param table cfg exaudio.play_start 入参
+@return boolean, any  形态与 pcall(exaudio.play_start, cfg) 一致
+]]
+function M.play_start(cfg)
+    local ex = get_exaudio()
+    if not ex or not ex.play_start then return false, "缺少 exaudio 扩展库" end
+    return pcall(ex.play_start, cfg)
+end
+
+--[[
+@function apply
+@summary AUDIO_CFG_SYNC 生效点：音量与静音开关一起下发
+@param number|nil vol  音量 0-100，nil 取 hw.audio.play_vol
+@param boolean|nil mute  true = 静音
+@return boolean
+]]
+function M.apply(vol, mute)
+    if not M.cfg() then return false end
+    local level = (mute == true) and 0 or (vol or (M.cfg().play_vol) or 70)
+    M.vol(level)
+    return true
+end
+
+--[[
+@function sync
+@summary 同步音频设置与开关：立即生效并广播 AUDIO_CFG_SYNC
+@param number|nil vol  音量 0-100
+@param boolean|nil mute  true = 静音
+@return boolean
+]]
+function M.sync(vol, mute)
+    M.apply(vol, mute)
+    sys.publish(M.SYNC_MSG, vol, mute)
+    return true
+end
+
+-- 其它模块也可 sys.publish(AUDIO_CFG_SYNC, vol, mute) 驱动同一套生效逻辑
+sys.subscribe(M.SYNC_MSG, M.apply)
 
 return M

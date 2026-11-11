@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8605b_10i_v0
 @summary Air8605B 引擎主机 10寸1024x600 RGB屏 + 4G(UART3/780ER2) + NAND + USB摄像头 + 双隔离RS485(UART1/UART6) + SD卡 配置文件（4G 版）
-@version 1.2
-@date    2026.11.03
+@version 1.3
+@date    2026.11.04
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）

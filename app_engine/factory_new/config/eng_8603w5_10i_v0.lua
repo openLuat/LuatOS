@@ -1,8 +1,8 @@
 --[[
 @module  config.eng_8603w5_10i_v0
 @summary Air8603W5 引擎主机 10寸1024x600 RGB屏 + Airlink UART WiFi(6205) + TTL串口(UART1) + 隔离RS485(UART2) + UVC摄像头(USB) + SD卡 配置文件（WiFi 版）
-@version 1.1
-@date    2026.11.06
+@version 1.2
+@date    2026.11.11
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -33,15 +33,21 @@
    UART1 那路 485 的 DE = 485_EN1 = PIN51 = GPIO65（隔离与非隔离共用）；
    隔离 485（UART2）的 DE = 485_EN2 = PIN48 = GPIO58。
    本型号 UART1 是 TTL 串口，GPIO65 不做方向脚，power_on 不动它。
-5. 【UVC 摄像头 / GPIO58 = 485_EN2】本型号带 UVC 摄像头：画面走 USB 数据流，无控制串口、
+5. 【UVC 摄像头 / GPIO58 = UVC_EN = 485_EN2 双职能】本型号带 UVC 摄像头：画面走 USB 数据流，无控制串口、
    不带人脸识别，预览 / 拍照 / 录像入口在「功能测试」里，故不设 ui.show_camera_preview。
    w / h 与 W1 / W2 / M1 / M2 的 UVC 摄像头一致，rotation 按本机型摄像头实装方向填（270）；
    摄像头实际不支持该档时预览页自动取档。
-   摄像头常供电、无独立使能脚，uvc 条目不写 en_pin。
-   PIN48 = GPIO58 仍是 UART2 那路隔离 485 的 DE（485_EN2），只做方向控制：power_on 拉低停在
-   接收态，periph_rs485 在每帧发送窗口里拉高。
-   若与带 UVC_EN 的型号（W1 / W2 / M1 / M2）混刷，同一脚会被当成 UVC 供电脚常拉高，第二路
-   485 直接失效，务必按出货型号取配置。
+   PIN48 = GPIO58 一根脚两个职能：UVC_EN（摄像头供电开启）与 485_EN2（UART2 那路隔离 485
+   的 DE）共用，同一时刻只干一个活——拉高给摄像头供电时 485 收发器被顶在发送态，
+   停在接收态（低电平）时摄像头没电。两个功能做成相互切换、互不影响
+   （drv/periph/pin_share.lua 按职能互斥认领）：
+     开机 / 空闲：停 485 接收态（低电平），摄像头断电；
+     进 UVC 测试页：脚切给 UVC_EN，拉高 + 200ms 就绪后出图；
+     退 UVC 测试页：归还，拉回低电平，485_EN2 回到接收态；
+     进 485 测试页：脚切给 485_EN2 做 DE，摄像头还在供电会先被停干净再用。
+   两个功能分时复用这根脚，反复切换互不留影响，uvc 条目因此写 en_pin = 58。
+   与 W1 / W2 / M1 / M2 混刷仍要避免：那四型 UART2 是人脸模组控制串口（无第二路 485），
+   本文件的 485_2 会去打开 UART2，务必按出货型号取配置。
 6. LCD 为 RGB 10寸 1024×600（免序列四合一，无 SPI 初始化引脚），走统一 RGB 驱动
    lcd_display_rgb；LCD_DISP = PIN80 = GPIO15 作 pin_rst；时序用 1024×600 生态实测组
    hbp=140 hspw=20 hfp=160 vbp=20 vspw=3 vfp=12 @50MHz；背光 PWM3 调光。
@@ -86,17 +92,17 @@ return {
         { pin = 72, dir = 1, level = 0 , delay = 20 }, -- 网络模组 RST 拉低 20ms
         { pin = 74, dir = 0, level = 1 },              -- SD_EN 拉高，SD 卡供电
         { pin = 73, dir = 0, level = 0 },              -- AUDIOPA_EN 初始拉低关断功放（HT6873 高电平使能）
-        { pin = 58, dir = 0, level = 0 },              -- 485_EN2 = UART2 隔离485 的 DE，空闲停在接收态
+        { pin = 58, dir = 0, level = 0 },              -- GPIO58 = UVC_EN / 485_EN2 双职能：开机停 485 接收态（摄像头断电），进 UVC 测试页再切给 UVC_EN
         { pin = 64, dir = 0, level = 1 },              -- 485_EN 拉高，485 功能总供电
     },
 
     -- ===== 外设清单（功能测试页逐项开关 + 进子页测试）=====
     -- DE 空闲低电平（接收态），发送窗口内由 periph_rs485 拉高，见文件头第 4 条
-    -- UVC 摄像头常供电不控电，故不写 en_pin（GPIO58 仍是 UART2 隔离485 的 DE，见文件头第 5 条）
+    -- UVC_EN 与 485_EN2 共用 GPIO58（见文件头第 5 条）：uvc 条目写 en_pin = 58，进 UVC 测试页认领供电，退出归还 485_EN2
     peripherals = {
         -- UVC 摄像头（USB 出图，无控制串口）：参数与 W1/W2/M1/M2 的 UVC 摄像头一致
         { type = "uvc", id = "uvc1", name = "UVC摄像头", title = "摄像头",
-          ready_delay = 200, w = 800, h = 480, rotation = 270 },
+          en_pin = 58, ready_delay = 200, w = 800, h = 480, rotation = 270 },
         { type = "uart",  id = "uart1", name = "UART1",     uart_id = 1, baud = 115200, databits = 8, parity = "N", stopbits = 1 }, -- TTL 串口，直出对外
         { type = "rs485", id = "485_2", name = "隔离485",   uart_id = 2, de_pin = 58, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN2 = GPIO58，供电域 485_EN
     },

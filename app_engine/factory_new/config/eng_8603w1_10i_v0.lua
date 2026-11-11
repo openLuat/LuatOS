@@ -18,20 +18,17 @@
      W5 / M5  UART1 = TTL 串口   UART2 = 隔离485
    本文件是 Air8603W1：UART1 = 隔离485、UART2 = UVC 摄像头控制串口。
    同一串口划分的 4G 出货型号见 config/eng_8603m1_10i_v0.lua，两者只差 network / features / ui 三处。
-2. 【音频 = Air1103 录音 + 内置 DAC 播放】本板既接了 Air1103 语音芯片（UART6，内置
-   MIC + 喇叭 + AEC，参考 module/Air8784/project/factory）也支持芯片内置 DAC：
-   录音走 Air1103，播放（TTS / 录音回放 / MP4 音轨）走内置 DAC，由
-   hw.audio.model = "air1103" + play_model = "dac" 声明。
-   两者对 exaudio 的 model 要求互斥，通路切换由 app/common/audio_route.lua 按需
-   重跑 exaudio.setup 完成：录音前切 model="air1103"，播放前切 model="dac"。
+2. 【音频 = Air1103 单通路】本板接 Air1103 语音芯片（UART6，内置 MIC + 喇叭 + AEC，
+   参考 module/Air8784/project/factory）。hw.audio.model = "air1103" 开机 setup 一次定全局，
+   运行期不再切换：录音走 Air1103 的 UART MIC，播放（TTS / 录音回放）走 Air1103 下行，
+   只认 type=1（TTS 文本）与 type=2（流式 PCM），type=0 文件播放不成立。
    PA 功放使能脚 AUDIOPA_EN = GPIO73，HT6873 高电平使能（pa_on_level = 1），
    power_on 初始拉低关断，起播时 audio_v2 拉高、播完回落。
    Air1103 录音固定 PCM_16000（16kHz/16bit/单声道）；peripherals 的 type="audio"
-   是「录音播放」测试页（走 hw.audio，不占 uart_id）。播放由 ui/video_util.lua 出声。
+   是「录音播放」测试页（走 hw.audio，不占 uart_id）。
    exaudio.setup 的入参统一由 app/common/audio_hw.lua 组装，各消费方都走它。
-   MP4 的声音走 mplayer → C 层音频框架 → 内置 DAC；若某支素材实测无声，可在 MP4 同目录
-   放同名 .pcm 伴音（16kHz/16bit/单声道）由 ui/video_util.lua 经 app/common/pcm_play.lua
-   补声，转法：ffmpeg -i xx.mp4 -ac 1 -ar 16000 -f s16le xx.pcm
+   视频素材（HZV）的音轨由 videoplayer 自己走 luat_audio_request_play_stream → 内置 DAC，
+   不经 exaudio；播放时只保持 PA 功放开、不重跑 exaudio.setup（详见 ui/video_util.lua）。
 3. 【串口分配细则】UART2 是摄像头 / 人脸识别模组的控制串口，画面走 USB，两者互不占用。
    GPIO58 的归属见文件头第 5 条。
 4. 【RS485 供电域与方向脚】485_EN = GPIO64 是 485 功能总供电，power_on 拉高使能，之后常供电不回落；
@@ -171,10 +168,9 @@ return {
         wdt = {
             pin = 57,               -- PIN47 = GPIO57 → 三极管 → WTDOG
         },
-        -- 音频: Air1103 录音（UART6，内置 MIC）+ 内置 DAC 播放 + HT6873 功放，见文件头第 2 条
+        -- 音频: Air1103 单通路（UART6，内置 MIC + 喇叭）+ HT6873 功放，见文件头第 2 条
         audio = {
-            model = "air1103",      -- 录音通路：Air1103 语音芯片（exaudio 新框架 UART 驱动）
-            play_model = "dac",     -- 播放通路：芯片内置 DAC（TTS / 录音回放 / MP4 音轨）
+            model = "air1103",      -- 音频通路：Air1103 语音芯片（exaudio 新框架 UART 驱动，录音走 MIC、播放走下行）
             uart_id = 6,            -- Air1103 接 UART6（固定 2M 波特率；本板 UART1/2/3 已占用）
             audio_mode = "new",     -- 拉起 audio_v2 新框架（air1103 模式必须）
             pa_ctrl = 73,           -- PA(功放)使能引脚 = GPIO73（AUDIOPA_EN）

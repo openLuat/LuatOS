@@ -619,7 +619,7 @@ local function rec_start()
         end
         cur_path = rec_path
         rec_fp = fp
-        local ok = exaudio.record_start({
+        local ok = audio_hw.record_start({
             format = rec_exformat(),
             time = 0,          -- 0 = 无限录音，由本模块计时器控制最长时长
             path = rec_data_cb,
@@ -652,7 +652,7 @@ local function rec_start()
     end
     -- 新录音用新文件名，天然避免文件冲突
     cur_path = next_rec_path()
-    local ok = exaudio.record_start({
+    local ok = audio_hw.record_start({
         format = rec_exformat(),
         time = max_time,
         path = cur_path,

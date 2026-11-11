@@ -53,7 +53,7 @@ typedef struct {
 
 typedef struct {
     uint32_t id;
-    uint32_t session;
+    uint32_t session; /* Bound SIP media session; 0 for a CC-only job. */
     uint8_t state;
     uint8_t target;
     uint8_t mode;
@@ -89,9 +89,10 @@ uint32_t luat_voip_play_render(uint8_t target, int16_t *pcm,
 void luat_voip_play_commit(uint8_t target, uint32_t id);
 const char *luat_voip_play_error(int error);
 
-/* Platform/core hooks. CC playback requires the pure PCM bridge backend. */
+/* Platform/core hooks. Check only the requested legs; BOTH requires both.
+ * CC playback requires the pure PCM bridge backend, not a running SIP leg. */
 int luat_voip_play_cc_snapshot(luat_voip_play_cc_media_t *media);
-/* 0 for running G.711/8 kHz/20 ms; otherwise a play error. */
+/* SIP only: 0 for running G.711/8 kHz/20 ms; otherwise a play error. */
 int voip_play_media_snapshot(uint32_t *session);
 void voip_play_wakeup(void);
 

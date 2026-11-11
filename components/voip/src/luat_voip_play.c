@@ -162,8 +162,9 @@ static int play_alive(void)
     if (status.state == LUAT_VOIP_PLAY_STOPPING || status.state == LUAT_VOIP_PLAY_IDLE) return 0;
     /* Media snapshots may lock the transport: always take them without the
      * play lock, matching the transport -> play order used by CC rendering. */
-    if (voip_play_media_snapshot(&session) || session != status.session) {
-        play_request_end(LUAT_VOIP_PLAY_TARGET_BOTH, status.id, "media_stopped", 0);
+    if ((status.target & LUAT_VOIP_PLAY_TARGET_SIP) &&
+        (voip_play_media_snapshot(&session) || session != status.session)) {
+        play_request_end(LUAT_VOIP_PLAY_TARGET_SIP, status.id, "media_stopped", 0);
         return 0;
     }
     if ((status.target & LUAT_VOIP_PLAY_TARGET_CC) &&
@@ -697,8 +698,12 @@ static int play_start(const char *input, size_t length, uint8_t is_tts,
     result = s_play.status.state != LUAT_VOIP_PLAY_IDLE ? LUAT_VOIP_PLAY_E_BUSY : 0;
     luat_rtos_exit_critical(key);
     if (result) return result;
-    result = voip_play_media_snapshot(&session);
-    if (result) return result;
+    /* Each destination owns its media lifetime. A CC prompt can precede
+     * SIP dialing and must not inherit SIP codec/session requirements. */
+    if (opts.target & LUAT_VOIP_PLAY_TARGET_SIP) {
+        result = voip_play_media_snapshot(&session);
+        if (result) return result;
+    }
     if ((opts.target & LUAT_VOIP_PLAY_TARGET_CC) && luat_voip_play_cc_snapshot(&cc_media))
         return LUAT_VOIP_PLAY_E_CC_NOT_READY;
     tts = is_tts ? luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS) : NULL;

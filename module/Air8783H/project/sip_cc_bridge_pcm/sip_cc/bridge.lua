@@ -14,12 +14,12 @@ local cc_main = require "cc_main"
 local pcm_sip = require "pcm_sip"
 local bridge = {}
 
--- 播报方向："sip" 给 SIP 对端，"cc" 给手机 CC 对端，"both" 给两端。
+-- SIP 来电接通后的播报方向；手机来电在拨 SIP 前固定向 "cc" 播报。
 local CALL_NOTICE_TARGET = "both"
-local CALL_NOTICE_TEXT = "通话已建立，本段进行TTS播报测试"
+local CALL_NOTICE_TEXT = "您好，正在为您转接，请稍候"
 -- nil 时播报 TTS；设置为 "/luadb/Time_travel_8k.mp3" 时播放已烧录的文件。
 local CALL_NOTICE_FILE = "/luadb/Time_travel_8k.mp3"
--- 两侧接通且媒体就绪后，等待此毫秒数再播报；设为 0 则立即播报。
+-- 播报目标接通且媒体就绪后，等待此毫秒数再播报；设为 0 则立即播报。
 local CALL_NOTICE_DELAY_MS = 500
 
 local WAIT_MS, GAP_MS, POLL_MS, RECOVERY_MS = 3000, 500, 100, 3000
@@ -31,6 +31,7 @@ local recovering = false
 local recovery_timer
 local rebooted = false
 local drive
+local begin_cleanup
 
 local function now_ms()
     local high, low = mcu.ticks2(1)
@@ -50,6 +51,14 @@ local function restore_call_notice_audio(call)
     end
 end
 
+local function cc_notice_ready(call)
+    local stats = cc_main.get_stats()
+    return current == call and not call.ending and not call.cc_stop_requested and
+        call.cc_state == "cc_connected" and cc_main.get_state() == "cc_connected" and
+        cc_main.get_generation() == call.cc_generation and stats and stats.selected == true and
+        stats.session == call.pcm_session and stats.active == 1 and stats.media_ready == 1
+end
+
 local function on_call_notice_play(event, status)
     local call = current
     if not call or call.ending or call.notice_play_id ~= status.id then return end
@@ -57,6 +66,18 @@ local function on_call_notice_play(event, status)
         call.notice_play_id = nil
         log.info("sip_call_notice", "播报结束", event, "play_id", status.id, "reason", status.reason)
         restore_call_notice_audio(call)
+        if call.notice_before_sip then
+            if event ~= "done" or not cc_notice_ready(call) then
+                log.error("sip_call_notice", "呼入播报未完成或 CC 已停止，结束本次通话", status.reason)
+                begin_cleanup(call)
+                return
+            end
+            -- 播报 ID 先清除，重复终态或旧回调不能重复拨号。
+            call.sip_done = false
+            call.sip_state = "sip_dialing"
+            logi("呼入播报完成，拨打 SIP", call.owner)
+            sys.publish("SIP_DIAL_REQ", config.remote_sip_uri, call.owner)
+        end
     end
 end
 
@@ -65,12 +86,18 @@ voip.on("play", on_call_notice_play)
 local function start_call_notice(call)
     call.notice_timer = nil
     -- 延时期间可能挂断或开始下一通，旧回调不得向新通话播报。
-    if current ~= call or call.ending or
-        call.sip_state ~= "sip_connected" or call.cc_state ~= "cc_connected" then
+    if current ~= call or call.ending then return end
+    if call.notice_before_sip and not cc_notice_ready(call) then
+        begin_cleanup(call)
+        return
+    end
+    if not call.notice_before_sip and
+        (call.sip_state ~= "sip_connected" or call.cc_state ~= "cc_connected") then
         restore_call_notice_audio(call)
         return
     end
-    local opts = {target = CALL_NOTICE_TARGET, mode = "replace"}
+    local target = call.notice_before_sip and "cc" or CALL_NOTICE_TARGET
+    local opts = {target = target, mode = "replace"}
     local id, err
     if CALL_NOTICE_FILE then
         id, err = voip.playFile(CALL_NOTICE_FILE, opts)
@@ -79,45 +106,51 @@ local function start_call_notice(call)
     end
     if id then
         call.notice_play_id = id
-        log.info("sip_call_notice", "远端音频已提交", "source", CALL_NOTICE_FILE or "tts", "target", CALL_NOTICE_TARGET, "play_id", id)
+        log.info("sip_call_notice", "远端音频已提交", "source", CALL_NOTICE_FILE or "tts", "target", target, "play_id", id)
         drive()
     else
-        log.error("sip_call_notice", "远端音频提交失败", "source", CALL_NOTICE_FILE or "tts", "target", CALL_NOTICE_TARGET, "reason", err)
+        log.error("sip_call_notice", "远端音频提交失败", "source", CALL_NOTICE_FILE or "tts", "target", target, "reason", err)
         restore_call_notice_audio(call)
+        if call.notice_before_sip then begin_cleanup(call) end
     end
 end
 
--- 两侧接通事件均已确认各自媒体就绪；每通只安排一次，不因重复事件续期。
+-- 接通事件已确认相应媒体就绪；每通只安排一次，不因重复事件续期。
 local function play_call_notice(call)
-    if call.sip_state ~= "sip_connected" or call.cc_state ~= "cc_connected" or call.notice_played then return end
+    if call.notice_played or call.cc_state ~= "cc_connected" or
+        (not call.notice_before_sip and call.sip_state ~= "sip_connected") then return end
     call.notice_played = true
-    local codec = proto.normalize_codec_name(config.codec)
-    if codec == "G729" or codec == "G722" then
-        log.info("sip_call_notice", "编解码通话测试跳过 TTS/文件提示", "codec", codec)
-        return
+    -- CC 单端播报无需 SIP codec 或桥接静音；SIP 来电保持原双端提示策略。
+    if not call.notice_before_sip then
+        local codec = proto.normalize_codec_name(config.codec)
+        if codec == "G729" or codec == "G722" then
+            log.info("sip_call_notice", "编解码通话测试跳过 TTS/文件提示", "codec", codec)
+            return
+        end
+        if type(voip.bridgeMute) ~= "function" then
+            log.error("sip_call_notice", "当前固件缺少 voip.bridgeMute，请更新配套固件")
+            return
+        end
+        if not voip.bridgeMute(true) then
+            log.error("sip_call_notice", "双向桥接语音静音失败，本通跳过播报")
+            return
+        end
+        call.notice_muted = true
+        log.info("sip_call_notice", "双向桥接语音已静音")
     end
-    if type(voip.bridgeMute) ~= "function" then
-        log.error("sip_call_notice", "当前固件缺少 voip.bridgeMute，请更新配套固件")
-        return
-    end
-    if not voip.bridgeMute(true) then
-        log.error("sip_call_notice", "双向桥接语音静音失败，本通跳过播报")
-        return
-    end
-    call.notice_muted = true
-    log.info("sip_call_notice", "双向桥接语音已静音")
     if CALL_NOTICE_DELAY_MS <= 0 then
         start_call_notice(call)
         return
     end
     call.notice_timer = sys.timerStart(start_call_notice, CALL_NOTICE_DELAY_MS, call)
     if call.notice_timer then
-        log.info("sip_call_notice", "等待播报", "target", CALL_NOTICE_TARGET, "delay_ms", CALL_NOTICE_DELAY_MS)
+        log.info("sip_call_notice", "等待播报", "target", call.notice_before_sip and "cc" or CALL_NOTICE_TARGET, "delay_ms", CALL_NOTICE_DELAY_MS)
     else
         -- sys 在底层创建失败时仍保留无参数的回调登记。
         sys.timerStop(start_call_notice)
         log.error("sip_call_notice", "播报延时定时器启动失败")
         restore_call_notice_audio(call)
+        if call.notice_before_sip then begin_cleanup(call) end
     end
 end
 
@@ -192,7 +225,7 @@ local function stop_cc(call)
     sys.publish("CC_HANGUP_REQ", call.cc_generation, call.owner)
 end
 
-local function begin_cleanup(call)
+begin_cleanup = function(call)
     if call.ending then return end
     call.ending = true
     if call.notice_timer then
@@ -281,10 +314,11 @@ local function start_pending(call)
             sip_request("SIP_PROGRESS_REQ", call)
         end
     elseif config.auto_handle_mobile_incoming then
-        call.sip_done = false
-        call.sip_state = "sip_dialing"
-        logi("呼入场景：拨打 SIP", call.owner)
-        sys.publish("SIP_DIAL_REQ", config.remote_sip_uri, call.owner)
+        call.notice_before_sip = true
+        call.cc_accept_requested = true
+        call.cc_state = "cc_answering"
+        logi("呼入场景：先接听 CC，播报完成后拨打 SIP", call.owner)
+        sys.publish("CC_ACCEPT_REQ", call.cc_generation, call.owner)
     end
 end
 
@@ -299,13 +333,14 @@ drive = function()
     if wake_timer then sys.timerStop(wake_timer); wake_timer = nil end
     if rebooted then return end
     local now = now_ms()
-    -- 播放终态消息可能入队失败；复用维护节拍查询，避免本通一直静音。
+    -- 播放终态消息可能入队失败；仅 reason=done 表示成功，不能把停止当作播完。
     if current and current.notice_play_id then
         local status = voip.playStatus()
         if status.id == current.notice_play_id and status.state == "idle" then
-            current.notice_play_id = nil
-            log.info("sip_call_notice", "状态确认播报结束", "play_id", status.id, "reason", status.reason)
-            restore_call_notice_audio(current)
+            local call = current
+            on_call_notice_play(status.reason == "done" and "done" or "error", status)
+            -- 失败清理会自行驱动维护节拍，避免重入后重复建立定时器。
+            if current ~= call then return end
         end
     end
     if pending and pending.deadline and now >= pending.deadline then expire_pending(pending) end

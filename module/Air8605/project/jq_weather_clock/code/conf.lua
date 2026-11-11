@@ -46,6 +46,10 @@ M.touch = {
 -- 背光 PWM3
 M.backlight = { pwm_ch = 3, pwm_freq = 1000, level = 100 }
 
+-- 外部看门狗 Air153D（板载，喂狗脚 GPIO57，经三极管拉 WTDOG）
+-- 本工程用不着外置看门狗时把它置 false 即可
+M.wdt_pin = 57
+
 -- ==================== 上电时序 ====================
 -- 顺序即依赖：电源轨 → SD → 4G 复位 → 485
 -- 与 factory/config/eng_8605m_10i_v0.lua 一致，但**故意少开两路**：

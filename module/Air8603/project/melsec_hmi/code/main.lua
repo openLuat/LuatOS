@@ -14,6 +14,12 @@
 固件要求：LUAT_USE_GUI（airui）、display（RGB）、tp（GT911）、uart；
 报警语音另需 audio_v2 + TTS 能力与 exaudio 脚本库。
 ]]
+
+--[[
+=== 看门狗提醒 ===
+860X上有合宙Air153D 看门狗芯片 其他项目参考本项目时，须确定你的项目硬件上有无看门狗芯片 如果有 但是未添加喂狗逻辑 约12分钟左右 860X会重启
+]]
+
 PROJECT = "melsec_hmi"
 VERSION = "1.0.0"
 

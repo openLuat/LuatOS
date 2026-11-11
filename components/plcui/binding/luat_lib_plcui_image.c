@@ -27,8 +27,13 @@ static int image_set_src(lua_State *L)
     if (strlen(id) >= PLCUI_ID_MAX || !luat_plcui_resource(widget->document, id, PLCUI_RES_IMAGE)) {
         return luat_plcui_binding_error(L, "E_RESOURCE", "Image resource does not exist");
     }
+    char previous[PLCUI_ID_MAX];
+    memcpy(previous, widget->source[0], sizeof(previous));
     snprintf(widget->source[0], sizeof(widget->source[0]), "%s", id);
-    luat_plcui_apply_image(widget);
+    if (widget->document->preparing_page < 0 && !luat_plcui_prepare_widget_image(widget, &error)) {
+        memcpy(widget->source[0], previous, sizeof(previous));
+        return luat_plcui_push_error(L, &error);
+    }
     return luat_plcui_binding_success(L);
 }
 
@@ -47,8 +52,12 @@ static int image_set_checked(lua_State *L)
     plcui_widget_t *widget = luat_plcui_binding_check_type(L, PLCUI_IMAGE, &error);
     if (!widget) return luat_plcui_push_error(L, &error);
     luaL_checktype(L, 2, LUA_TBOOLEAN);
+    bool previous = widget->checked;
     widget->checked = lua_toboolean(L, 2) != 0;
-    luat_plcui_apply_image(widget);
+    if (widget->document->preparing_page < 0 && !luat_plcui_prepare_widget_image(widget, &error)) {
+        widget->checked = previous;
+        return luat_plcui_push_error(L, &error);
+    }
     return luat_plcui_binding_success(L);
 }
 
@@ -63,7 +72,7 @@ void luat_plcui_register_image_meta(lua_State *L)
         {NULL, NULL}
     };
     luaL_newmetatable(L, PLCUI_IMAGE_MT);
-    luaL_setfuncs(L, methods, 0);
+    luat_plcui_binding_register_methods(L, methods);
     luat_plcui_binding_register_common(L);
     lua_pop(L, 1);
 }

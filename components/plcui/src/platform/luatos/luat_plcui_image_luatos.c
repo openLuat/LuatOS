@@ -6,6 +6,8 @@
 #if defined(LUAT_USE_PLCUI_LUATOS)
 
 #include "luat_plcui.h"
+#include "luat_plcui_perf.h"
+#include "luat_plcui_fs.h"
 #include "luat_fs.h"
 #include "luat_image.h"
 #include "luat_mem.h"
@@ -47,30 +49,69 @@ static lv_image_decoder_t *software_decoder(int format)
     return format == LUAT_IMG_FMT_PNG ? image_state.png_sw : image_state.jpg_sw;
 }
 
+static void close_input(FILE *file, bool shared)
+{
+    uint32_t started = plcui_perf_now();
+    if (shared) plcui_fs_scope_release(file);
+    else {
+        uint32_t close_started = plcui_perf_now();
+        luat_fs_fclose(file);
+        plcui_perf_add(PERF_REAL_CLOSE, plcui_perf_now() - close_started, 0);
+    }
+    plcui_perf_add(PERF_CLOSE, plcui_perf_now() - started, 0);
+}
+
 static int read_aligned(const char *path, uint8_t **data, size_t *size)
 {
-    FILE *file = luat_fs_fopen(path, "rb");
-    if (!file) return LUAT_IMG_ERR;
+    uint32_t started = plcui_perf_now();
+    FILE *file = NULL;
+    size_t length = 0;
+    int shared = plcui_fs_scope_acquire(path, &file, &length);
+    if (shared == 0) {
+        const char *actual = luat_plcui_image_path(path);
+        if (actual) {
+            uint32_t open_started = plcui_perf_now();
+            file = luat_fs_fopen(actual, "rb");
+            plcui_perf_add(PERF_REAL_OPEN, plcui_perf_now() - open_started, 0);
+        }
+    }
+    plcui_perf_add(PERF_OPEN, plcui_perf_now() - started, 0);
+    if (shared < 0 || !file) return LUAT_IMG_ERR;
     /* Avoid another filename lookup/f_stat after fopen on FAT/LFN volumes. */
-    if (luat_fs_fseek(file, 0, SEEK_END) != 0) {
-        luat_fs_fclose(file);
-        return LUAT_IMG_ERR;
+    started = plcui_perf_now();
+    if (shared == 0) {
+        if (luat_fs_fseek(file, 0, SEEK_END) != 0) {
+            plcui_perf_add(PERF_SIZE, plcui_perf_now() - started, 0);
+            close_input(file, false);
+            return LUAT_IMG_ERR;
+        }
+        long file_size = luat_fs_ftell(file);
+        if (file_size <= 0 || (uint64_t)file_size > PLCUI_MAX_IMAGE_BYTES) {
+            plcui_perf_add(PERF_SIZE, plcui_perf_now() - started, 0);
+            close_input(file, false);
+            return LUAT_IMG_ERR;
+        }
+        length = (size_t)file_size;
     }
-    long file_size = luat_fs_ftell(file);
-    if (file_size <= 0 || (uint64_t)file_size > PLCUI_MAX_IMAGE_BYTES
+    if (!length || length > PLCUI_MAX_IMAGE_BYTES
         || luat_fs_fseek(file, 0, SEEK_SET) != 0) {
-        luat_fs_fclose(file);
+        plcui_perf_add(PERF_SIZE, plcui_perf_now() - started, 0);
+        close_input(file, shared == 1);
         return LUAT_IMG_ERR;
     }
-    size_t length = (size_t)file_size;
+    plcui_perf_add(PERF_SIZE, plcui_perf_now() - started, 0);
+    started = plcui_perf_now();
     uint8_t *input = luat_heap_memalign(8, length);
+    plcui_perf_add(PERF_ALLOC, plcui_perf_now() - started, input ? (uint32_t)length : 0);
     if (!input) {
-        luat_fs_fclose(file);
+        close_input(file, shared == 1);
         return LUAT_IMG_ERR_NOMEM;
     }
+    started = plcui_perf_now();
     size_t actual = luat_fs_fread(input, 1, length, file);
+    plcui_perf_add(PERF_READ, plcui_perf_now() - started, (uint32_t)actual);
     int failed = luat_fs_ferror(file);
-    luat_fs_fclose(file);
+    close_input(file, shared == 1);
     if (actual != length || failed) {
         luat_heap_free(input);
         return LUAT_IMG_ERR;
@@ -183,7 +224,9 @@ static void make_room(lv_image_decoder_dsc_t *dsc, uint32_t bytes)
     for (unsigned i = 0; i < 64U; ++i) {
         size_t used = lv_cache_get_size(dsc->cache, NULL);
         if (used <= maximum && bytes <= maximum - used) break;
+        uint32_t started = plcui_perf_now();
         if (!lv_cache_evict_one(dsc->cache, NULL)) break;
+        plcui_perf_add(PERF_EVICT, plcui_perf_now() - started, 0);
     }
 }
 
@@ -242,7 +285,16 @@ static lv_result_t plcui_decoder_info(lv_image_decoder_t *decoder, lv_image_deco
     int format = image_format(dsc->src);
     if (format < 0) return LV_RESULT_INVALID;
     lv_image_decoder_t *sw = software_decoder(format);
-    if (!sw || !sw->info_cb || sw->info_cb(sw, dsc, header) != LV_RESULT_OK) return LV_RESULT_INVALID;
+    if (!sw || !sw->info_cb) return LV_RESULT_INVALID;
+    bool tracing = plcui_perf_active();
+    plcui_perf_sample_t before;
+    if (tracing) plcui_perf_snapshot(&before);
+    uint32_t started = plcui_perf_now();
+    lv_result_t result = sw->info_cb(sw, dsc, header);
+    uint32_t elapsed = plcui_perf_now() - started;
+    plcui_perf_add(PERF_CODEC_INFO, elapsed, 0);
+    if (tracing) plcui_perf_slow(2, (const char *)dsc->src, elapsed, &before);
+    if (result != LV_RESULT_OK) return LV_RESULT_INVALID;
     uint64_t bytes = (uint64_t)header->w * header->h * 4U;
     if (!header->w || !header->h || bytes > PLCUI_MAX_IMAGE_BYTES || bytes > LV_CACHE_DEF_SIZE)
         return LV_RESULT_INVALID;
@@ -257,16 +309,21 @@ static lv_result_t software_open(lv_image_decoder_dsc_t *dsc, int format)
      * Its cache entry and close callback then retain their native ownership.
      */
     dsc->decoder = sw;
+    uint32_t started = plcui_perf_now();
     lv_result_t result = sw->open_cb(sw, dsc);
+    plcui_perf_add(PERF_SW, plcui_perf_now() - started,
+                  result == LV_RESULT_OK && dsc->decoded ? dsc->decoded->data_size : 0);
     if (result == LV_RESULT_OK) {
         image_state.software_count++;
-        LLOGI("SW %s %ux%u src=%s", format == LUAT_IMG_FMT_PNG ? "PNG" : "JPG",
-              (unsigned)dsc->header.w, (unsigned)dsc->header.h, (const char *)dsc->src);
+        if (PLCUI_PERF_VERBOSE && !plcui_perf_active()) {
+            LLOGI("SW %s %ux%u src=%s", format == LUAT_IMG_FMT_PNG ? "PNG" : "JPG",
+                  (unsigned)dsc->header.w, (unsigned)dsc->header.h, (const char *)dsc->src);
+        }
     }
     return result;
 }
 
-static lv_result_t plcui_decoder_open(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc)
+static lv_result_t decoder_open_inner(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc)
 {
     int format = dsc->src_type == LV_IMAGE_SRC_FILE ? image_format(dsc->src) : -1;
     if (format < 0) return LV_RESULT_INVALID;
@@ -282,9 +339,11 @@ static lv_result_t plcui_decoder_open(lv_image_decoder_t *decoder, lv_image_deco
         LLOGE("input failed ret=%d src=%s", result, (const char *)dsc->src);
         return LV_RESULT_INVALID;
     }
+    uint32_t started = plcui_perf_now();
     int safe = format == LUAT_IMG_FMT_PNG
         ? png_hardware_safe(input, input_size, dsc->header.w, dsc->header.h)
         : jpg_hardware_safe(input, input_size, dsc->header.w, dsc->header.h);
+    plcui_perf_add(PERF_SAFETY, plcui_perf_now() - started, 0);
     if (safe <= 0) {
         luat_heap_free(input);
         if (safe < 0) {
@@ -300,12 +359,21 @@ static lv_result_t plcui_decoder_open(lv_image_decoder_t *decoder, lv_image_deco
     config.source_path = dsc->src;
     luat_img_info_t image;
     memset(&image, 0, sizeof(image));
+    started = plcui_perf_now();
     result = luat_image_decode(&config, input, input_size, &image);
+    plcui_perf_add(PERF_HW, plcui_perf_now() - started, result == LUAT_IMG_OK ? image.size : 0);
     /* Only unreferenced cache entries may be evicted, never during preflight. */
-    for (unsigned retry = 0; result == LUAT_IMG_ERR_NOMEM && retry < 16U
+    /* Small cached icons can precede a reclaimable fullscreen buffer. Retain
+       a finite bound, but allow the same 64 victims as budget reclamation. */
+    for (unsigned retry = 0; result == LUAT_IMG_ERR_NOMEM && retry < 64U
          && !dsc->args.no_cache && dsc->cache && lv_image_cache_is_enabled(); ++retry) {
+        started = plcui_perf_now();
         if (!lv_cache_evict_one(dsc->cache, NULL)) break;
+        plcui_perf_add(PERF_EVICT, plcui_perf_now() - started, 0);
+        plcui_perf_add(PERF_RETRY, 0, 0);
+        started = plcui_perf_now();
         result = luat_image_decode(&config, input, input_size, &image);
+        plcui_perf_add(PERF_HW, plcui_perf_now() - started, result == LUAT_IMG_OK ? image.size : 0);
     }
     luat_heap_free(input);
     if (result != LUAT_IMG_OK || !image.data) {
@@ -325,13 +393,35 @@ static lv_result_t plcui_decoder_open(lv_image_decoder_t *decoder, lv_image_deco
         return LV_RESULT_INVALID;
     }
     lv_color_format_t color = format == LUAT_IMG_FMT_PNG ? LV_COLOR_FORMAT_ARGB8888 : LV_COLOR_FORMAT_RGB565;
+    started = plcui_perf_now();
     lv_result_t opened = finish_hardware(decoder, dsc, &image, color);
+    plcui_perf_add(PERF_POST, plcui_perf_now() - started,
+                  opened == LV_RESULT_OK && dsc->decoded ? dsc->decoded->data_size : 0);
     if (opened == LV_RESULT_OK) {
         image_state.hardware_count++;
-        LLOGI("HW %s %ux%u cf=%d src=%s", format == LUAT_IMG_FMT_PNG ? "PNG" : "JPG",
-              (unsigned)dsc->header.w, (unsigned)dsc->header.h, color, (const char *)dsc->src);
+        if (PLCUI_PERF_VERBOSE && !plcui_perf_active()) {
+            LLOGI("HW %s %ux%u cf=%d src=%s", format == LUAT_IMG_FMT_PNG ? "PNG" : "JPG",
+                  (unsigned)dsc->header.w, (unsigned)dsc->header.h, color, (const char *)dsc->src);
+        }
     }
     return opened;
+}
+
+static lv_result_t plcui_decoder_open(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc)
+{
+    bool tracing = plcui_perf_active();
+    plcui_perf_sample_t before;
+    if (tracing) plcui_perf_snapshot(&before);
+    uint32_t started = plcui_perf_now();
+    /* Cache hits return in LVGL before this adapter callback is reached. */
+    plcui_perf_add(PERF_MISS, 0, 0);
+    lv_result_t result = decoder_open_inner(decoder, dsc);
+    if (tracing) {
+        const char *path = dsc->src_type == LV_IMAGE_SRC_FILE && dsc->src
+            ? (const char *)dsc->src : "<non-file>";
+        plcui_perf_slow(1, path, plcui_perf_now() - started, &before);
+    }
+    return result;
 }
 
 static void plcui_decoder_close(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc)

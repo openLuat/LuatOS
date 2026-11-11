@@ -161,7 +161,7 @@ void luat_plcui_register_chart_meta(lua_State *L)
         {NULL, NULL}
     };
     luaL_newmetatable(L, PLCUI_CHART_MT);
-    luaL_setfuncs(L, methods, 0);
+    luat_plcui_binding_register_methods(L, methods);
     luat_plcui_binding_register_common(L);
     lua_pop(L, 1);
 }

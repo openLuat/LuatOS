@@ -9,6 +9,8 @@
 lv_obj_t *luat_plcui_image_create(plcui_widget_t *widget, lv_obj_t *parent);
 lv_obj_t *luat_plcui_label_create(plcui_widget_t *widget, lv_obj_t *parent);
 lv_obj_t *luat_plcui_textarea_create(plcui_widget_t *widget, lv_obj_t *parent);
+/* Bulk-write previously validated text; caller owns document event suppression. */
+void luat_plcui_textarea_write(lv_obj_t *object, const char *text);
 lv_obj_t *luat_plcui_keyboard_create(plcui_widget_t *widget, lv_obj_t *parent);
 lv_obj_t *luat_plcui_container_create(plcui_widget_t *widget, lv_obj_t *parent);
 lv_obj_t *luat_plcui_table_create(plcui_widget_t *widget, lv_obj_t *parent);
@@ -22,6 +24,6 @@ void luat_plcui_component_init(plcui_widget_t *widget, lv_obj_t *object);
 bool luat_plcui_component_is_within(const plcui_widget_t *widget, const plcui_widget_t *ancestor);
 bool luat_plcui_component_interactive(const plcui_widget_t *widget);
 bool luat_plcui_component_ancestors_interactive(const plcui_widget_t *widget);
-void luat_plcui_component_sync_disabled(plcui_widget_t *root);
+bool luat_plcui_component_sync_disabled(plcui_widget_t *root, plcui_error_t *error);
 
 #endif

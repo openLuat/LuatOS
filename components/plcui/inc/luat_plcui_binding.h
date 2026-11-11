@@ -19,6 +19,7 @@ plcui_widget_t *luat_plcui_binding_check_object(lua_State *L, plcui_error_t *err
 plcui_widget_t *luat_plcui_binding_check_type(lua_State *L, plcui_widget_type_t type, plcui_error_t *error);
 void luat_plcui_binding_push_object(lua_State *L, int xml_handle_stack_index, unsigned page_index, unsigned widget_index);
 void luat_plcui_binding_register_common(lua_State *L);
+void luat_plcui_binding_register_methods(lua_State *L, const luaL_Reg *methods);
 
 int luat_plcui_xml_load(lua_State *L);
 void luat_plcui_register_xml_meta(lua_State *L);

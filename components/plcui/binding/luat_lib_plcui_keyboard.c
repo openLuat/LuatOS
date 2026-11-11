@@ -42,7 +42,7 @@ void luat_plcui_register_keyboard_meta(lua_State *L)
         {NULL, NULL}
     };
     luaL_newmetatable(L, PLCUI_KEYBOARD_MT);
-    luaL_setfuncs(L, methods, 0);
+    luat_plcui_binding_register_methods(L, methods);
     /* Visibility and enabled state use the shared editing-session rules. */
     luat_plcui_binding_register_common(L);
     lua_pop(L, 1);

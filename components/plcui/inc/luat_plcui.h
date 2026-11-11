@@ -77,6 +77,7 @@ typedef struct {
     plcui_resource_type_t type;
     char id[PLCUI_ID_MAX];
     char path[PLCUI_PATH_MAX];
+    char cache_key[64]; /* Per-XML private image key, never a filesystem path. */
     char builtin[PLCUI_ID_MAX];
     const lv_font_t *font;
     uint32_t decoded_bytes;
@@ -85,6 +86,7 @@ typedef struct {
 
 typedef struct plcui_document plcui_document_t;
 typedef struct plcui_hzfont_face plcui_hzfont_face_t;
+typedef struct plcui_image_pin plcui_image_pin_t;
 typedef struct {
     plcui_widget_type_t type;
     char id[PLCUI_ID_MAX];
@@ -125,6 +127,8 @@ typedef struct {
     plcui_widget_t *widgets;
     unsigned count;
     lv_obj_t *screen;
+    plcui_image_pin_t *image_pins;
+    unsigned instance_generation;
 } plcui_page_t;
 
 typedef struct {
@@ -139,6 +143,10 @@ struct plcui_document {
     lua_State *L;
     int self_ref;
     int handlers_ref;
+    int prepare_ref;
+    int preparing_page;
+    uint32_t image_namespace;
+    plcui_document_t *image_next;
     bool closed;
     bool switching;
     bool dispatching;
@@ -169,6 +177,7 @@ typedef struct {
     plcui_document_t *document;
     int document_ref;
     unsigned generation;
+    unsigned page_generation;
     unsigned page_index;
     unsigned widget_index;
 } plcui_object_ref_t;
@@ -183,6 +192,7 @@ typedef struct {
     int width, height;
     lv_obj_t *idle_screen;
     plcui_document_t *document;
+    plcui_document_t *preparing_document;
 } plcui_runtime_t;
 
 plcui_runtime_t *luat_plcui_runtime(void);
@@ -190,7 +200,6 @@ void luat_plcui_error(plcui_error_t *error, const char *code, const char *format
 int luat_plcui_push_error(lua_State *L, const plcui_error_t *error);
 bool luat_plcui_parse(plcui_document_t *document, const char *path, plcui_error_t *error);
 bool luat_plcui_validate(plcui_document_t *document, plcui_error_t *error);
-bool luat_plcui_validate_page_images(plcui_document_t *document, int page_index, plcui_error_t *error);
 void luat_plcui_free_description(plcui_document_t *document);
 plcui_resource_t *luat_plcui_resource(plcui_document_t *document, const char *id, plcui_resource_type_t type);
 const lv_font_t *luat_plcui_font(plcui_document_t *document, const char *id);
@@ -209,5 +218,13 @@ void luat_plcui_dispatch(plcui_document_t *document);
 bool luat_plcui_check_text(plcui_widget_t *widget, const char *text, size_t length, plcui_error_t *error);
 bool luat_plcui_create_page(plcui_document_t *document, int page_index, plcui_error_t *error);
 void luat_plcui_destroy_page(plcui_document_t *document, int page_index);
+bool luat_plcui_register_images(plcui_document_t *doc, plcui_error_t *error);
+const char *luat_plcui_image_path(const char *source);
+bool luat_plcui_prepare_page_images(plcui_document_t *doc, int page, plcui_error_t *error);
+bool luat_plcui_prepare_widget_image(plcui_widget_t *widget, plcui_error_t *error);
+void luat_plcui_release_page_images(plcui_document_t *doc, int page);
+void luat_plcui_unregister_images(plcui_document_t *doc);
+uint32_t luat_plcui_image_cache_capacity(void);
+uint32_t luat_plcui_image_header_cache_capacity(void);
 
 #endif

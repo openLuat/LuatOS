@@ -1,15 +1,17 @@
 /** @file luat_plcui_image.c Image creation, state resources and pointer events. */
 #include "luat_plcui_component.h"
 #include "lvgl9/src/core/lv_obj_event_private.h"
+#define LUAT_LOG_TAG "plcui.image"
+#include "luat_log.h"
 
 void luat_plcui_apply_image(plcui_widget_t *widget)
 {
     if (!widget->obj || widget->type != PLCUI_IMAGE) return;
-    bool disabled = widget->disabled || lv_obj_has_state(widget->obj, LV_STATE_DISABLED);
-    unsigned state = disabled ? 3U : widget->pressed ? 1U : widget->checked ? 2U : 0U;
-    const char *id = widget->source[state][0] ? widget->source[state] : widget->source[0];
-    plcui_resource_t *resource = luat_plcui_resource(widget->document, id, PLCUI_RES_IMAGE);
-    if (resource) lv_image_set_src(widget->obj, resource->path);
+    if (widget->document->preparing_page >= 0
+        || widget->page_index != (unsigned)widget->document->current_page) return;
+    plcui_error_t error;
+    if (!luat_plcui_prepare_widget_image(widget, &error))
+        LLOGW("state image preparation failed: %s", error.message);
 }
 
 static void image_event(lv_event_t *event)

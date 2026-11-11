@@ -11,7 +11,16 @@
 #error "Select exactly one PLCUI platform"
 #endif
 
-#define PLCUI_VERSION "1.0.0"
+#define PLCUI_VERSION "1.0.1"
+
+// 耗时统计功能开关
+#ifndef PLCUI_PERF_ENABLE
+#define PLCUI_PERF_ENABLE 1
+#endif
+// 详细分析调试的开关，当前为开发者使用
+#ifndef PLCUI_PERF_VERBOSE
+#define PLCUI_PERF_VERBOSE 0
+#endif
 
 /* Runtime settings are available even in the PC dual-library build, whose
  * single LVGL instance uses the AIRUI profile. */
@@ -19,6 +28,13 @@
 #define PLCUI_IMAGE_CACHE_BYTES LUAT_USE_PLCUI_IMAGE_CACHE_SIZE
 #else
 #define PLCUI_IMAGE_CACHE_BYTES (6U * 1024U * 1024U)
+#endif
+#ifdef LUAT_USE_PLCUI_IMAGE_HEADER_CACHE_COUNT
+#define PLCUI_IMAGE_HEADER_CACHE_COUNT LUAT_USE_PLCUI_IMAGE_HEADER_CACHE_COUNT
+#elif defined(LUAT_USE_PLCUI_LUATOS)
+#define PLCUI_IMAGE_HEADER_CACHE_COUNT 256U
+#else
+#define PLCUI_IMAGE_HEADER_CACHE_COUNT 32U
 #endif
 #define PLCUI_DISPLAY_LINES 80
 #define PLCUI_HZFONT_DEFAULT_SIZE 16U
@@ -68,7 +84,7 @@
  * PLATFORM CONFIGURATION
  *=================*/
 #if defined(LUAT_USE_PLCUI_SDL2)
-    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 32
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT PLCUI_IMAGE_HEADER_CACHE_COUNT
     #define LV_USE_LOG 1
     #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
 
@@ -84,7 +100,7 @@
     #define LV_USE_THORVG_INTERNAL 1
 
 #elif defined(LUAT_USE_PLCUI_LUATOS)
-    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 64
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT PLCUI_IMAGE_HEADER_CACHE_COUNT
     #define LV_DRAW_LAYER_SIMPLE_BUF_SIZE (512U * 1024U)
 
     /* Optional default font, controlled only by PLCUI's BSP setting. */

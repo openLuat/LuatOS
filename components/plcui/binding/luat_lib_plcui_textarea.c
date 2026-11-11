@@ -31,7 +31,7 @@ static int textarea_set_text(lua_State *L)
     widget->text[length] = '\0';
     bool was_silent = widget->document->silent;
     widget->document->silent = true;
-    lv_textarea_set_text(widget->obj, widget->text);
+    luat_plcui_textarea_write(widget->obj, widget->text);
     widget->document->silent = was_silent;
     return luat_plcui_binding_success(L);
 }
@@ -62,6 +62,8 @@ static int textarea_get_text(lua_State *L)
  */
 static int textarea_focus(lua_State *L)
 {
+    if (luat_plcui_runtime()->preparing_document)
+        return luat_plcui_binding_error(L, "E_BUSY", "Cannot start input during page preparation");
     plcui_error_t error;
     plcui_widget_t *widget = luat_plcui_binding_check_type(L, PLCUI_TEXTAREA, &error);
     if (!widget) return luat_plcui_push_error(L, &error);
@@ -109,7 +111,7 @@ void luat_plcui_register_textarea_meta(lua_State *L)
         {NULL, NULL}
     };
     luaL_newmetatable(L, PLCUI_TEXTAREA_MT);
-    luaL_setfuncs(L, methods, 0);
+    luat_plcui_binding_register_methods(L, methods);
     luat_plcui_binding_register_common(L);
     lua_pop(L, 1);
 }

@@ -38,6 +38,10 @@ static int table_set_cell(lua_State *L)
     size_t length;
     const char *text = luaL_checklstring(L, 4, &length);
     if (length >= PLCUI_TEXT_MAX || memchr(text, 0, length)) return luat_plcui_binding_error(L, "E_SCHEMA", "Cell text exceeds 511 bytes or contains NUL");
+    /* A new page already contains the model's cell values. Reapplying the
+       same text must not repeat allocation and LVGL row-height calculation. */
+    const char *previous = widget->table->cells[index];
+    if (!strcmp(previous ? previous : "", text)) return luat_plcui_binding_success(L);
     char *copy = malloc(length + 1);
     if (!copy) return luat_plcui_binding_error(L, "E_MEMORY", "Cannot allocate cell text");
     memcpy(copy, text, length + 1);
@@ -132,7 +136,7 @@ void luat_plcui_register_table_meta(lua_State *L)
         {NULL, NULL}
     };
     luaL_newmetatable(L, PLCUI_TABLE_MT);
-    luaL_setfuncs(L, methods, 0);
+    luat_plcui_binding_register_methods(L, methods);
     luat_plcui_binding_register_common(L);
     lua_pop(L, 1);
 }

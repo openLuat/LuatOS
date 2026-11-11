@@ -560,60 +560,6 @@ int luat_plcui_page_index(plcui_document_t *doc, const char *id)
     return -1;
 }
 
-static bool validate_image(plcui_resource_t *resource, plcui_error_t *error)
-{
-    if (resource->image_validated) return true;
-    lv_image_header_t header;
-    memset(&header, 0, sizeof(header));
-    /* A new XML instance sees new files. Page revisits reuse this result. */
-    lv_image_header_cache_drop(resource->path);
-    size_t file_bytes = luat_fs_fsize(resource->path);
-    if (!file_bytes || file_bytes > PLCUI_MAX_IMAGE_BYTES || lv_image_decoder_get_info(resource->path, &header) != LV_RESULT_OK || !header.w || !header.h || (uint64_t)header.w * header.h * 4U > PLCUI_MAX_IMAGE_BYTES || (uint64_t)header.w * header.h * 4U > LV_CACHE_DEF_SIZE) {
-        luat_plcui_error(error, "E_RESOURCE", "Image is missing, unsupported or exceeds its file/pixel/cache limit: %s", resource->path);
-        return false;
-    }
-    lv_image_decoder_dsc_t probe;
-    lv_image_decoder_args_t args;
-    memset(&probe, 0, sizeof(probe));
-    memset(&args, 0, sizeof(args));
-    args.no_cache = true;
-    /* A PNG header alone does not prove that IDAT is decodable. Decode the file
-       before a transaction can replace a working page, without disturbing its cache. */
-    if (lv_image_decoder_open(&probe, resource->path, &args) != LV_RESULT_OK) {
-        luat_plcui_error(error, "E_RESOURCE", "Image cannot be fully decoded: %s", resource->path);
-        return false;
-    }
-    bool decoded = probe.decoded != NULL;
-    lv_image_decoder_close(&probe);
-    if (!decoded) {
-        luat_plcui_error(error, "E_RESOURCE", "This image requires an unsupported incremental decoder: %s", resource->path);
-        return false;
-    }
-    resource->decoded_bytes = (uint32_t)((uint64_t)header.w * header.h * 4U);
-    resource->image_validated = true;
-    return true;
-}
-
-bool luat_plcui_validate_page_images(plcui_document_t *doc, int index, plcui_error_t *error)
-{
-    bool checked[PLCUI_MAX_RESOURCES];
-    memset(checked, 0, sizeof(checked));
-    plcui_page_t *page = &doc->pages[index];
-    for (unsigned i = 0; i < page->count; i++) {
-        plcui_widget_t *widget = &page->widgets[i];
-        if (widget->type != PLCUI_IMAGE) continue;
-        for (unsigned state = 0; state < 4; state++) {
-            if (!widget->source[state][0]) continue;
-            plcui_resource_t *resource = luat_plcui_resource(doc, widget->source[state], PLCUI_RES_IMAGE);
-            if (!resource) { luat_plcui_error(error, "E_RESOURCE", "Image reference no longer exists"); return false; }
-            unsigned resource_index = (unsigned)(resource - doc->resources);
-            if (!checked[resource_index] && !validate_image(resource, error)) return false;
-            checked[resource_index] = true;
-        }
-    }
-    return true;
-}
-
 bool luat_plcui_validate(plcui_document_t *doc, plcui_error_t *error)
 {
     if (doc->width != luat_plcui_runtime()->width || doc->height != luat_plcui_runtime()->height) { luat_plcui_error(error, "E_SCHEMA", "XML size must match the initialized display size"); return false; }
@@ -737,7 +683,8 @@ void luat_plcui_free_description(plcui_document_t *doc)
         free(page->widgets);
     }
     free(doc->pages);
-    for (unsigned i = 0; i < doc->resource_count; i++) if (doc->resources[i].type == PLCUI_RES_IMAGE) lv_image_cache_drop(doc->resources[i].path);
+    for (unsigned i = 0; i < doc->resource_count; i++) if (doc->resources[i].type == PLCUI_RES_IMAGE && doc->resources[i].cache_key[0]) lv_image_cache_drop(doc->resources[i].cache_key);
+    luat_plcui_unregister_images(doc);
     free(doc->resources);
     luat_plcui_free_fonts(doc);
     doc->pages = NULL; doc->resources = NULL;

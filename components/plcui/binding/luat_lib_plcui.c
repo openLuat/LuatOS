@@ -5,6 +5,9 @@
 */
 #include "luat_base.h"
 #include "luat_plcui_binding.h"
+#include "luat_plcui_debug.h"
+#include "lvgl9/src/misc/cache/instance/lv_image_cache.h"
+#include "lvgl9/src/misc/cache/instance/lv_image_header_cache.h"
 #include "rotable2.h"
 #include <string.h>
 
@@ -22,6 +25,7 @@
  */
 static int l_init(lua_State *L)
 {
+    if (luat_plcui_runtime()->preparing_document) return luat_plcui_binding_error(L, "E_BUSY", "Page preparation is in progress");
     plcui_runtime_t *runtime = luat_plcui_runtime();
     if (runtime->initialized) return luat_plcui_binding_error(L, "E_DISPLAY_BUSY", "plcui is already initialized");
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -43,6 +47,8 @@ static int l_init(lua_State *L)
        No display owner is active here, so rebuild that global state once. */
     if (lv_is_initialized()) lv_deinit();
     lv_init();
+    lv_image_cache_resize(PLCUI_IMAGE_CACHE_BYTES, true);
+    lv_image_header_cache_resize(PLCUI_IMAGE_HEADER_CACHE_COUNT, true);
     if (plcui_platform_init((int)width, (int)height) != 0) {
         lv_deinit();
         return luat_plcui_binding_error(L, "E_PLATFORM", "Cannot initialize display; check size, RGB565, buffers and rotation");
@@ -81,6 +87,7 @@ static int l_init(lua_State *L)
  */
 static int l_refresh(lua_State *L)
 {
+    if (luat_plcui_runtime()->preparing_document) return luat_plcui_binding_error(L, "E_BUSY", "Page preparation is in progress");
     luat_plcui_refresh();
     return luat_plcui_binding_success(L);
 }
@@ -93,6 +100,7 @@ static int l_refresh(lua_State *L)
  */
 static int l_deinit(lua_State *L)
 {
+    if (luat_plcui_runtime()->preparing_document) return luat_plcui_binding_error(L, "E_BUSY", "Page preparation is in progress");
     (void)L;
     luat_plcui_deinit();
     return luat_plcui_binding_success(L);
@@ -107,6 +115,7 @@ static int l_deinit(lua_State *L)
  */
 static int l_device_bind_touch(lua_State *L)
 {
+    if (luat_plcui_runtime()->preparing_document) return luat_plcui_binding_error(L, "E_BUSY", "Page preparation is in progress");
     if (!luat_plcui_runtime()->initialized) return luat_plcui_binding_error(L, "E_NOT_INITIALIZED", "Call plcui.init first");
     if (!lua_isnil(L, 1) && !lua_islightuserdata(L, 1)) {
         return luat_plcui_binding_error(L, "E_TYPE", "Expected the touch handle returned by tp.init, or nil");
@@ -154,7 +163,7 @@ static int l_snapshot(lua_State *L)
  * @note 基础字段：version、initialized、width、height、active、auto_refresh、refresh_hz、auto_refresh_count。
  * @note active 为 true 时还包含 page、component_count、resource_count、events_dropped、editing。
  * @note refresh_hz 是目标频率，auto_refresh_count 是自动调度次数，不代表实际绘制帧数。
- * @note platform 和 image_cache_bytes 分别表示平台和编译配置的缓存容量。
+ * @note image_cache_bytes/image_header_cache_entries 是当前 LVGL 实际缓存容量，未初始化时为 0。
  * @note image_hw_decodes/image_sw_decodes 为平台适配器成功解码次数，包含预检，不是帧数；未统计的平台返回 0。
  */
 static int l_status(lua_State *L)
@@ -176,8 +185,10 @@ static int l_status(lua_State *L)
     lua_setfield(L, -2, "width");
     lua_pushinteger(L, runtime->height);
     lua_setfield(L, -2, "height");
-    lua_pushinteger(L, LV_CACHE_DEF_SIZE);
+    lua_pushinteger(L, luat_plcui_image_cache_capacity());
     lua_setfield(L, -2, "image_cache_bytes");
+    lua_pushinteger(L, luat_plcui_image_header_cache_capacity());
+    lua_setfield(L, -2, "image_header_cache_entries");
     lua_pushstring(L, plcui_platform_name());
     lua_setfield(L, -2, "platform");
     lua_pushinteger(L, plcui_platform_image_hw_count());
@@ -201,6 +212,33 @@ static int l_status(lua_State *L)
     return 1;
 }
 
+/**
+ * 开关组件创建和已有组件更新的简版耗时统计，默认关闭。
+ * @api plcui.debug(enabled)
+ * @bool enabled 可选；true 开启，false 关闭并输出剩余汇总；不传参数查询状态
+ * @return bool|nil 设置成功返回 true；查询返回当前开关；不支持时返回 nil,error
+ * @note 可在 init/load 前开启；deinit 自动输出剩余数据并关闭。
+ * @note 每秒汇总各类组件 create/prepare/update 的次数、失败数、总/平均/最大微秒及最慢组件ID。
+ * @note update 是现有对象方法的同步耗时（包含同值调用），不包含后续异步绘制或屏幕显示。
+ * @note 参数类型异常和失效句柄不计入；有效句柄的方法返回 nil,error 时计入 failed。
+ */
+static int l_debug(lua_State *L)
+{
+    if (lua_isnone(L, 1)) {
+        lua_pushboolean(L, plcui_debug_enabled());
+        return 1;
+    }
+    if (luat_plcui_runtime()->preparing_document)
+        return luat_plcui_binding_error(L, "E_BUSY", "Cannot change debug settings during page preparation");
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    bool enabled = lua_toboolean(L, 1) != 0;
+    if (enabled && !PLCUI_PERF_ENABLE)
+        return luat_plcui_binding_error(L, "E_NOT_SUPPORTED", "PLCUI timing support is not compiled");
+    if (!enabled) plcui_perf_fail("debug_off");
+    plcui_debug_set(enabled);
+    return luat_plcui_binding_success(L);
+}
+
 static const rotable_Reg_t reg_plcui[] = {
     {"init", ROREG_FUNC(l_init)},
     {"load", ROREG_FUNC(luat_plcui_xml_load)},
@@ -210,6 +248,7 @@ static const rotable_Reg_t reg_plcui[] = {
     {"version", ROREG_FUNC(l_version)},
     {"snapshot", ROREG_FUNC(l_snapshot)},
     {"status", ROREG_FUNC(l_status)},
+    {"debug", ROREG_FUNC(l_debug)},
     {NULL, ROREG_INT(0)}
 };
 

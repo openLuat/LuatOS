@@ -1,6 +1,7 @@
 /** @file luat_lib_plcui_common.c Shared Lua errors, handle lifetime and component methods. */
 #include "luat_base.h"
 #include "luat_plcui_binding.h"
+#include "luat_plcui_debug.h"
 #include <string.h>
 
 static const char *component_metatable(plcui_widget_type_t type)
@@ -81,9 +82,14 @@ plcui_widget_t *luat_plcui_binding_check_object(lua_State *L, plcui_error_t *err
         return NULL;
     }
     plcui_document_t *xml = reference->document;
+    if (luat_plcui_runtime()->preparing_document && xml != luat_plcui_runtime()->preparing_document) {
+        luat_plcui_error(error, "E_BUSY", "Only the prepared document may be accessed during preparation");
+        return NULL;
+    }
     if (!xml || xml->closed || reference->generation != xml->generation
-        || reference->page_index != (unsigned)xml->current_page
+        || reference->page_index != (unsigned)(xml->preparing_page >= 0 ? xml->preparing_page : xml->current_page)
         || reference->page_index >= xml->page_count
+        || reference->page_generation != xml->pages[reference->page_index].instance_generation
         || reference->widget_index >= xml->pages[reference->page_index].count) {
         luat_plcui_error(error, "E_OBJECT_CLOSED", "Component belongs to a closed page instance");
         return NULL;
@@ -119,6 +125,7 @@ void luat_plcui_binding_push_object(lua_State *L, int xml_handle_stack_index, un
     reference->document = xml;
     reference->document_ref = LUA_NOREF;
     reference->generation = xml->generation;
+    reference->page_generation = xml->pages[page_index].instance_generation;
     reference->page_index = page_index;
     reference->widget_index = widget_index;
     luaL_getmetatable(L, metatable);
@@ -166,9 +173,16 @@ static int component_set_hidden(lua_State *L)
                           || luat_plcui_component_is_within(xml->keyboard, widget))) {
         luat_plcui_input_finish(xml, false, true);
     }
+    bool previous = widget->hidden;
     widget->hidden = hidden;
     if (hidden) lv_obj_add_flag(widget->obj, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_HIDDEN);
+    if (!hidden && xml->preparing_page < 0
+        && !luat_plcui_prepare_page_images(xml, (int)widget->page_index, &error)) {
+        widget->hidden = previous;
+        if (previous) lv_obj_add_flag(widget->obj, LV_OBJ_FLAG_HIDDEN);
+        return luat_plcui_push_error(L, &error);
+    }
     return luat_plcui_binding_success(L);
 }
 
@@ -187,13 +201,19 @@ static int component_set_disabled(lua_State *L)
     plcui_widget_t *widget = luat_plcui_binding_check_object(L, &error);
     if (!widget) return luat_plcui_push_error(L, &error);
     luaL_checktype(L, 2, LUA_TBOOLEAN);
+    bool previous = widget->disabled;
     widget->disabled = lua_toboolean(L, 2) != 0;
     plcui_document_t *xml = widget->document;
+    if (!luat_plcui_component_sync_disabled(widget, &error)) {
+        widget->disabled = previous;
+        plcui_error_t ignored;
+        luat_plcui_component_sync_disabled(widget, &ignored);
+        return luat_plcui_push_error(L, &error);
+    }
     if (widget->disabled && (luat_plcui_component_is_within(xml->editing, widget)
                              || luat_plcui_component_is_within(xml->keyboard, widget))) {
         luat_plcui_input_finish(xml, false, true);
     }
-    luat_plcui_component_sync_disabled(widget);
     return luat_plcui_binding_success(L);
 }
 
@@ -274,6 +294,41 @@ static int component_state(lua_State *L)
 /**
  * 向当前组件元表注册公共方法、GC 和索引表。
  */
+static int timed_component_method(lua_State *L)
+{
+    const luaL_Reg *method = lua_touserdata(L, lua_upvalueindex(1));
+    if (!plcui_debug_enabled()) return method->func(L);
+    plcui_error_t error;
+    plcui_widget_t *widget = luat_plcui_binding_check_object(L, &error);
+    if (!widget) return method->func(L); /* Preserve the original error path. */
+    unsigned type = widget->type;
+    bool preparing = widget->document->preparing_page >= 0;
+    char page[PLCUI_ID_MAX], id[PLCUI_ID_MAX];
+    memcpy(page, widget->document->pages[widget->page_index].id, sizeof(page));
+    memcpy(id, widget->id, sizeof(id));
+    uint32_t started = plcui_debug_now();
+    /* No pcall or global scope: luaL_error keeps its original stack semantics. */
+    int results = method->func(L);
+    uint32_t elapsed = plcui_debug_now() - started;
+    bool success = results > 0 && !lua_isnil(L, -results);
+    plcui_debug_record(type, preparing ? "prepare" : "update", method->name,
+                       page, id, elapsed, success);
+    return results;
+}
+
+void luat_plcui_binding_register_methods(lua_State *L, const luaL_Reg *methods)
+{
+    int table = lua_absindex(L, -1);
+    for (const luaL_Reg *method = methods; method->name; ++method) {
+        if (PLCUI_PERF_ENABLE && (!strncmp(method->name, "set_", 4)
+            || !strcmp(method->name, "add_point") || !strcmp(method->name, "focus"))) {
+            lua_pushlightuserdata(L, (void *)method);
+            lua_pushcclosure(L, timed_component_method, 1);
+        } else lua_pushcfunction(L, method->func);
+        lua_setfield(L, table, method->name);
+    }
+}
+
 void luat_plcui_binding_register_common(lua_State *L)
 {
     static const luaL_Reg common_methods[] = {
@@ -283,7 +338,7 @@ void luat_plcui_binding_register_common(lua_State *L)
         {"__gc", component_gc},
         {NULL, NULL}
     };
-    luaL_setfuncs(L, common_methods, 0);
+    luat_plcui_binding_register_methods(L, common_methods);
     lua_pushvalue(L, -1);
     lua_setfield(L, -2, "__index");
 }

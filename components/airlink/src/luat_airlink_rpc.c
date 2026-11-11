@@ -19,6 +19,9 @@
 #include "luat_mem.h"
 #include "luat_mcu.h"
 #ifdef LUAT_USE_AIRLINK_RPC
+#ifdef _MSC_VER
+#include <windows.h>
+#endif
 
 #include "lua.h"
 #include "lualib.h"
@@ -99,7 +102,7 @@ typedef struct rpc_sync_ctx {
     uint16_t* out_len;
     int       ret_code;       // 0=success, <0=error
     volatile uint8_t timed_out; // 超时标志, callback 据此决定是否通知
-    volatile uint8_t refcnt;    // 引用计数: waiter(1) + slot/callback(1), 归零时销毁
+    volatile long refcnt;       // Atomic waiter + callback references.
     // yield 模式扩展
     uint8_t   is_yield;
     uint64_t  start_tick;      // 请求发起时间戳, 用于统计
@@ -125,9 +128,12 @@ static luat_rtos_mutex_t g_yield_list_mutex = NULL;  // 保护 g_yield_list
 
 // 统一释放 ctx 引用。最后一个释放者负责 delete sem/timer + free bufs + free ctx。
 static void rpc_sync_ctx_release(rpc_sync_ctx_t* ctx) {
-    if (ctx->refcnt == 0) return;
-    ctx->refcnt--;
-    if (ctx->refcnt == 0) {
+#ifdef _MSC_VER
+    long refs = InterlockedDecrement(&ctx->refcnt);
+#else
+    long refs = __sync_sub_and_fetch(&ctx->refcnt, 1);
+#endif
+    if (refs == 0) {
         // 从 yield 链表中移除
         if (ctx->is_yield == 2) {
             if (g_yield_list_mutex == NULL) {
@@ -409,6 +415,9 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
                      uint8_t* resp, uint16_t resp_size, uint16_t* resp_len,
                      uint32_t timeout_ms) {
     if (resp_len) *resp_len = 0;
+    int route = luat_airlink_rpc_route(mode, rpc_id);
+    if (route < 0 || luat_airlink_in_dispatch(route)) return -1;
+    mode = (uint8_t)route;
 
     uint64_t start_tick = luat_mcu_tick64_ms();
 
@@ -447,6 +456,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
     // 生成 pkgid 并注册 result_reg
     uint64_t pkgid = luat_airlink_get_next_cmd_id();
     luat_airlink_result_reg_t reg = {0};
+    reg.route = mode;
     reg.tm       = luat_mcu_tick64_ms();
     reg.id       = pkgid;
     reg.userdata = ctx;
@@ -510,7 +520,9 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
             rpc_sync_ctx_release(ctx);  // slot
             rpc_sync_ctx_release(ctx);  // waiter
         } else {
-            ctx->timed_out = 1;
+            /* Dispatch has claimed the callback. Its output belongs to this
+             * caller, so wait for the bounded copy before returning. */
+            luat_rtos_semaphore_take(ctx->sem, LUAT_WAIT_FOREVER);
             rpc_sync_ctx_release(ctx);  // waiter
         }
 
@@ -758,6 +770,9 @@ int luat_airlink_rpc_nb_call(uint8_t mode, uint16_t rpc_id,
 
 int luat_airlink_rpc_nb_notify(uint8_t mode, uint16_t rpc_id,
                                 const pb_msgdesc_t* desc, const void* msg) {
+    int route = luat_airlink_rpc_route(mode, rpc_id);
+    if (route < 0) return -1;
+    mode = (uint8_t)route;
     // 编码消息
     uint64_t enc_start = luat_mcu_tick64_ms();
     uint8_t* enc_buf = (uint8_t*)luat_heap_malloc(NB_ENC_BUF_SIZE);
@@ -877,6 +892,9 @@ int luat_airlink_rpc_nb_call_yield(lua_State* L, uint8_t mode, uint16_t rpc_id,
                                     const pb_msgdesc_t* req_desc, const void* req,
                                     uint32_t timeout_ms,
                                     lua_KFunction cont, lua_KContext user_ctx) {
+    int route = luat_airlink_rpc_route(mode, rpc_id);
+    if (route < 0) return -1;
+    mode = (uint8_t)route;
     uint64_t start_tick = luat_mcu_tick64_ms();
 
     // ---- 编码请求 ----
@@ -945,6 +963,7 @@ int luat_airlink_rpc_nb_call_yield(lua_State* L, uint8_t mode, uint16_t rpc_id,
     uint64_t pkgid = luat_airlink_get_next_cmd_id();
     ctx->yield_pkgid = pkgid;
     luat_airlink_result_reg_t regx = {0};
+    regx.route = mode;
     regx.tm       = luat_mcu_tick64_ms();
     regx.id       = pkgid;
     regx.userdata = ctx;

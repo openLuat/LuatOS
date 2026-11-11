@@ -26,6 +26,13 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
     if (!cmd->len) return -1;
     luat_airlink_dev_info_t snapshot = {0};
     memcpy(&snapshot, cmd->data, cmd->len < sizeof(snapshot) ? cmd->len : sizeof(snapshot));
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    int source = luat_airlink_context_link();
+    if (source >= 0) {
+        luat_airlink_link_update_peer(source, &snapshot);
+        return 0;
+    }
+#endif
     luat_airlink_dev_info_t* dev = &snapshot;
     luat_netdrv_t* drv = NULL;
     char buff[32] = {0};

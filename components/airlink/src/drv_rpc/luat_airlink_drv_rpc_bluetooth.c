@@ -54,8 +54,8 @@ static void ble_rpc_notify_dispatch(uint16_t rpc_id, const void* raw, void* user
 }
 
 static int ble_rpc_call(drv_bluetooth_BleRpcRequest* req) {
-    int mode = luat_airlink_current_mode_get();
-    if (mode < 0 || !luat_airlink_peer_rpc_supported()) return -1;
+    int mode = luat_airlink_feature_route(AIRLINK_FEATURE_BLE);
+    if (mode < 0 || !luat_airlink_feature_rpc_supported(AIRLINK_FEATURE_BLE)) return -1;
     drv_bluetooth_BleRpcResponse resp = drv_bluetooth_BleRpcResponse_init_zero;
     req->req_id = req->which_payload;
     int rc = luat_airlink_rpc_nb_call((uint8_t)mode, BLE_RPC_ID,

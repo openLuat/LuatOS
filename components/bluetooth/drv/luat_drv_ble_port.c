@@ -49,7 +49,7 @@ static void drv_ble_free_gatt(luat_ble_gatt_service_t* gatt) {
 #include "luat_airlink_drv_rpc_bluetooth.h"
 
 static int drv_ble_rpc_ready(void) {
-    if (luat_airlink_peer_rpc_supported()) return 1;
+    if (luat_airlink_feature_rpc_supported(AIRLINK_FEATURE_BLE)) return 1;
     LLOGE("peer does not support Bluetooth RPC");
     return 0;
 }

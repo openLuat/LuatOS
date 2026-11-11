@@ -10,8 +10,7 @@ extern airlink_statistic_t g_airlink_statistic;
 
 /* Pending allocation/free belongs exclusively to TX. RX only publishes ACKs
  * and session changes. The mutex protects cross-task scalar snapshots. */
-static luat_rtos_mutex_t lock;
-static struct {
+typedef struct {
     uint32_t local, peer, retired[8];
     uint8_t retired_pos;
     uint16_t tx_seq, rx_next, peer_ack;
@@ -19,7 +18,30 @@ static struct {
     uint8_t devinfo_pending, stalled;
     uint64_t last_devinfo;
     struct { luat_airlink_cmd_t* cmd; uint16_t seq; uint64_t sent, first; } pending;
-} arq;
+} airlink_arq_state_t;
+static struct {
+    luat_rtos_mutex_t mutex;
+    airlink_arq_state_t state;
+} arq_contexts[AIRLINK_LINK_COUNT + 1];
+#define lock (arq_contexts[luat_airlink_context_link() + 1].mutex)
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+static airlink_statistic_t* arq_statistics(void) {
+    int id = luat_airlink_context_link();
+    return id < 0 ? &g_airlink_statistic : luat_airlink_link_statistics(id);
+}
+#define g_airlink_statistic (*arq_statistics())
+int luat_airlink_arq_state_link(int id) {
+    if (id < 0 || id >= AIRLINK_LINK_COUNT || !arq_contexts[id + 1].mutex) return ARQ_STATE_LEGACY;
+    luat_rtos_mutex_lock(arq_contexts[id + 1].mutex, LUAT_WAIT_FOREVER);
+    int state = arq_contexts[id + 1].state.state;
+    luat_rtos_mutex_unlock(arq_contexts[id + 1].mutex);
+    return state;
+}
+#endif
+static void count_giveup(void) { luat_airlink_statistics_add(&g_airlink_statistic.arq.arq_giveup, 1); }
+static void count_retx(void) { luat_airlink_statistics_add(&g_airlink_statistic.arq.tx_retx, 1); }
+static void count_duplicate(void) { luat_airlink_statistics_add(&g_airlink_statistic.arq.rx_dup, 1); }
+#define arq (arq_contexts[luat_airlink_context_link() + 1].state)
 static const uint8_t hello_magic[8] = {'A','L','-','A','R','Q','3',0};
 
 #define LOCK() luat_rtos_mutex_lock(lock, LUAT_WAIT_FOREVER)
@@ -36,6 +58,7 @@ void luat_airlink_arq_init(void) {
 }
 
 void luat_airlink_arq_stop(void) {
+    if (!lock) return;
     LOCK();
     if (arq.pending.cmd) luat_airlink_cmd_free(arq.pending.cmd);
     arq.pending.cmd = NULL;
@@ -96,7 +119,7 @@ int luat_airlink_arq_peer_info(const luat_airlink_cmd_t* cmd) {
     if (peer && arq.local && echo == arq.local && arq.state != ARQ_STATE_ARQ) {
         arq.state = ARQ_STATE_ARQ;
         arq.devinfo_pending = 1;
-        LLOGI("ARQ3 ready session=%08x peer=%08x", arq.local, peer);
+        LLOGI("ARQ3 ready link=%d session=%08x peer=%08x", luat_airlink_context_link(), arq.local, peer);
     }
     UNLOCK();
     if (changed) luat_airlink_peer_flags_reset();
@@ -201,8 +224,8 @@ void luat_airlink_arq_check_giveup(uint64_t now) {
         if (arq.pending.cmd) {
             luat_airlink_cmd_free(arq.pending.cmd);
             arq.pending.cmd = NULL;
-            g_airlink_statistic.tx_pkg.drop++;
-            g_airlink_statistic.arq.arq_giveup++;
+            luat_airlink_statistics_add(&g_airlink_statistic.tx_pkg.drop, 1);
+            count_giveup();
         }
         arq.tx_seq = 0;
         arq.reset = 0;
@@ -210,7 +233,7 @@ void luat_airlink_arq_check_giveup(uint64_t now) {
     if (arq.pending.cmd && !arq.stalled && now - arq.pending.first >= ARQ_GIVEUP_MS) {
         arq.stalled = 1;
         arq.force_down = 1;
-        g_airlink_statistic.arq.arq_giveup++;
+        count_giveup();
         /* Keep the same sequence and payload until ACK or explicit reboot. */
     }
     UNLOCK();
@@ -251,7 +274,7 @@ int luat_airlink_arq_pending_set(luat_airlink_cmd_t* cmd, uint64_t now) {
 }
 void luat_airlink_arq_pending_retransmit(uint64_t now) {
     arq.pending.sent = now;
-    g_airlink_statistic.arq.tx_retx++;
+    count_retx();
 }
 int luat_airlink_arq_pending_try_ack(void) {
     LOCK();
@@ -265,7 +288,7 @@ int luat_airlink_arq_rx(uint16_t seq) {
     LOCK();
     int ret = ARQ_RX_DELIVER;
     if (seq != arq.rx_next) {
-        g_airlink_statistic.arq.rx_dup++;
+        count_duplicate();
         arq.need_ack = 1;
         ret = ARQ_RX_DUP;
     }

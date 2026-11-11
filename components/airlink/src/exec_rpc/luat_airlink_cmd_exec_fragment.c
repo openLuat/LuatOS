@@ -43,8 +43,17 @@ typedef struct {
     uint8_t   active;
 } frag_ctx_t;
 
-static frag_ctx_t g_frag_pool[FRAG_POOL_SIZE];
-static uint8_t g_frag_pool_hwm = 0;  // 分片池高水位 (最大并发会话数)
+static frag_ctx_t fragment_pools[AIRLINK_LINK_COUNT + 1][FRAG_POOL_SIZE];
+static uint8_t fragment_hwm[AIRLINK_LINK_COUNT + 1];
+#define g_frag_pool (fragment_pools[luat_airlink_context_link() + 1])
+#define g_frag_pool_hwm (fragment_hwm[luat_airlink_context_link() + 1])
+
+void luat_airlink_fragment_reset(void) {
+    for (int i = 0; i < FRAG_POOL_SIZE; i++) {
+        if (g_frag_pool[i].buffer) luat_heap_opt_free(AIRLINK_MEM_TYPE, g_frag_pool[i].buffer);
+        memset(&g_frag_pool[i], 0, sizeof(g_frag_pool[i]));
+    }
+}
 
 static uint8_t frag_pool_active_count(void) {
     uint8_t n = 0;
@@ -251,6 +260,10 @@ int luat_airlink_cmd_exec_fragment(luat_airlink_cmd_t* cmd, void* userdata) {
         LLOGD("frag: complete id=0x%04X cmd=0x%04X len=%d",
               reassembly_id, original_cmd, total_len);
 
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+        if (luat_airlink_context_link() >= 0) luat_airlink_instance_dispatch((luat_airlink_cmd_t*)buf);
+        else
+#endif
         luat_airlink_on_data_recv(buf, full_len);
         luat_heap_opt_free(AIRLINK_MEM_TYPE, buf);
     }

@@ -18,6 +18,7 @@ typedef struct luat_airlink_result_reg
     void* userdata2;
     airlink_result_exec exec;
     airlink_result_exec cleanup;
+    uint8_t route; // Internal instance route; legacy registrations remain in pool zero.
 } luat_airlink_result_reg_t;
 
 // 注册等待某个 pkgid 的结果回调

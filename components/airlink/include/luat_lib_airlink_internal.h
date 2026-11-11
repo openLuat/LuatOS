@@ -3,6 +3,13 @@
 
 #include "luat_base.h"
 
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+int l_airlink_setup(lua_State *L);
+int l_airlink_close(lua_State *L);
+int l_airlink_status(lua_State *L);
+int l_airlink_instance_statistics(lua_State *L);
+#endif
+
 // fota (luat_lib_airlink_fota.c)
 int l_airlink_sfota_init(lua_State *L);
 int l_airlink_sfota_done(lua_State *L);

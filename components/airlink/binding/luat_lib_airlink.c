@@ -67,6 +67,7 @@ airlink.start(airlink.MODE_SPI_MASTER)
 airlink.start(airlink.MODE_SPI_SLAVE)
 */
 static int l_airlink_start(lua_State *L) {
+    if (luat_airlink_instance_enabled()) return luaL_error(L, "use airlink.setup for instances");
     int id = luaL_checkinteger(L, 1);
     if (id == 0) {
         // 临时入口,先写死
@@ -145,6 +146,9 @@ static void print_stat(const char* tag, airlink_statistic_part_t* part, int is_f
 airlink.statistics()
 */
 static int l_airlink_statistics(lua_State *L) {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (!lua_isnoneornil(L, 1)) return l_airlink_instance_statistics(L);
+#endif
     airlink_statistic_t tmp;
     memcpy(&tmp, &g_airlink_statistic, sizeof(airlink_statistic_t));
     print_stat("收发总包", &tmp.tx_pkg, 1);
@@ -280,6 +284,12 @@ else
 end
 */
 static int l_airlink_ready(lua_State *L) {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (!lua_isnoneornil(L, 1)) {
+        lua_pushboolean(L, luat_airlink_link_ready(luaL_checkinteger(L, 1)));
+        return 1;
+    }
+#endif
     lua_pushboolean(L, luat_airlink_ready());
     return 1;
 }
@@ -515,6 +525,18 @@ log.info("airlink", "从机固件版本号", airlink.sver())
 */
 static int l_airlink_sversion(lua_State *L) {
     uint32_t version = 0;
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled() || !lua_isnoneornil(L, 1)) {
+        luat_airlink_dev_info_t peer = {0};
+        int id = luaL_optinteger(L, 1, luat_airlink_link_configured(0) ? 0 : 1);
+        if (!luat_airlink_link_peer_copy(id, &peer)) {
+            if (peer.tp == 1) memcpy(&version, peer.wifi.version, 4);
+            if (peer.tp == 2) memcpy(&version, peer.cat1.version, 4);
+        }
+        lua_pushinteger(L, version);
+        return 1;
+    }
+#endif
     if (g_airlink_ext_dev_info.tp == 0x01) {
         memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
     }
@@ -595,6 +617,11 @@ static int l_airlink_rpc(lua_State* L) {
 
 static const rotable_Reg_t reg_airlink[] =
 {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    { "setup",         ROREG_FUNC(l_airlink_setup)},
+    { "close",         ROREG_FUNC(l_airlink_close)},
+    { "status",        ROREG_FUNC(l_airlink_status)},
+#endif
     { "init" ,         ROREG_FUNC(l_airlink_init )},
     { "config",        ROREG_FUNC(l_airlink_config)},
     { "start" ,        ROREG_FUNC(l_airlink_start)},

@@ -265,6 +265,11 @@ int luat_netdrv_has_pkg_cb(uint8_t id) {
     return s_pkg_evt_regs[id].cb != NULL;
 }
 
+int luat_netdrv_has_pkg_cb_on(uint8_t id, uint8_t layer) {
+    if (id >= NW_ADAPTER_QTY) return 0;
+    return s_pkg_evt_regs[id].cb != NULL && (s_pkg_evt_regs[id].pkg_layers & layer) != 0;
+}
+
 __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_pkg_event(uint8_t id, uint8_t event,
                                                        uint8_t* buff, uint16_t len) {
     if (id >= NW_ADAPTER_QTY) return;

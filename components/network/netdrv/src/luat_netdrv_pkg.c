@@ -4,7 +4,8 @@
  * pkg_input: 在原 napt_pkg_input 前加一层 EVT_PKG 截获检查. 驱动原本调
  *            napt_pkg_input 的地方换成调本函数, 其它调用方代码 (判断返回值后
  *            是否继续 netif_input_proxy 等) 保持不变.
- * pkg_output: 集中所有 drv->dataout 调用入口 (薄包装), 与 pkg_input 对称.
+ * pkg_output: 连续数据分派到 drv->dataout; 驱动再汇入最终 output_pbuf 出口.
+ * input_pbuf/output_pbuf: 支持链式缓冲, 最终硬件出口统一抓包后调用原 sender.
  *
  * 数据流:
  *
@@ -37,6 +38,25 @@
 #include "luat_netdrv_napt.h"
 #include "luat_netdrv_event.h"
 #include "luat_netdrv_pkg.h"
+#include "luat_netdrv_capture.h"
+#include "luat_mem.h"
+
+typedef struct {
+    struct netif* netif;
+    netif_linkoutput_fn output;
+} netdrv_native_output_t;
+
+static netdrv_native_output_t native_outputs[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
+
+/* Preserve the native SDK pbuf NAPT entry's existing frame limit. */
+enum { NETDRV_PBUF_NAPT_MAX_LEN = 1520 };
+
+#ifdef LUAT_USE_NETDRV_IP_CAPTURE
+static int pkg_has_ethernet(uint8_t id) {
+    luat_netdrv_t* drv = luat_netdrv_get(id);
+    return drv && drv->netif && (drv->netif->flags & (NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET));
+}
+#endif
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
@@ -63,23 +83,20 @@ void luat_netdrv_dump_hex(const char* tag, const uint8_t* buff, uint16_t len, ui
 void luat_netdrv_dump_hex(const char* tag, const uint8_t* buff, uint16_t len, uint16_t maxlen) {}
 #endif
 
-__NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_input(uint8_t id, uint8_t src, uint8_t* buff, uint16_t len) {
-    if (buff == NULL || len == 0) {
-        return -1;
-    }
+static int pkg_input_dispatch(uint8_t id, uint8_t src, uint8_t* buff, uint16_t len, int napt) {
     switch (src) {
         case LUAT_NETDRV_CH_HW:
             // RX 入口: 被动观察 (fire 不消耗, 不阻断) + 原 NAPT 处理
-            if (luat_netdrv_has_pkg_cb(id)) {
+            if (luat_netdrv_has_pkg_cb_on(id, LUAT_NETDRV_CH_HW)) {
                 luat_netdrv_fire_pkg_event(id, LUAT_NETDRV_CH_HW, buff, len);
             }
-            return luat_netdrv_napt_pkg_input(id, buff, (size_t)len);
+            return napt ? luat_netdrv_napt_pkg_input(id, buff, (size_t)len) : 0;
         case LUAT_NETDRV_CH_LWIP: {
             // TX 出口: 注册即消费, 调用方跳过 dataout
             //   - 没有 pkg_cb 注册: 返回 0, 调用方继续原 linkoutput (HW 出口)
             //   - 有 pkg_cb 注册:   fire 后返回 1, 调用方跳过 dataout
             // Lua 侧可继续用 netdrv.send_raw(CH_HW/CH_LWIP) 注入应答或转发到其它网卡.
-            if (luat_netdrv_has_pkg_cb(id)) {
+            if (luat_netdrv_has_pkg_cb_on(id, LUAT_NETDRV_CH_LWIP)) {
                 luat_netdrv_fire_pkg_event(id, LUAT_NETDRV_CH_LWIP, buff, len);
                 return 1;
             }
@@ -90,6 +107,91 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_input(uint8_t id, uint8_t src, uint8_
             LLOGW("netdrv_pkg_input: 未知 channel 0x%X adapter %d", src, id);
             return -1;
     }
+}
+
+__NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_input(uint8_t id, uint8_t src, uint8_t* buff, uint16_t len) {
+    if (buff == NULL || len == 0) {
+        return -1;
+    }
+    if (src == LUAT_NETDRV_CH_HW) {
+        luat_netdrv_capture_raw(id, 0, buff, len, pkg_has_ethernet(id));
+    }
+    return pkg_input_dispatch(id, src, buff, len, 1);
+}
+
+__NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_input_pbuf(uint8_t id, uint8_t src, struct pbuf* p) {
+    if (p == NULL || p->tot_len == 0) {
+        return -1;
+    }
+    int napt = 0;
+    if (src == LUAT_NETDRV_CH_HW) {
+        luat_netdrv_capture_pbuf(id, 0, p, pkg_has_ethernet(id));
+        napt = p->tot_len <= NETDRV_PBUF_NAPT_MAX_LEN && luat_netdrv_napt_get_gw_adapter() >= 0;
+        if (!luat_netdrv_has_pkg_cb_on(id, LUAT_NETDRV_CH_HW)
+            && !napt) {
+            return 0;
+        }
+    } else if (src == LUAT_NETDRV_CH_LWIP) {
+        if (!luat_netdrv_has_pkg_cb_on(id, LUAT_NETDRV_CH_LWIP)) {
+            return 0;
+        }
+    } else {
+        return -1;
+    }
+    if (p->len >= p->tot_len) {
+        return pkg_input_dispatch(id, src, p->payload, p->tot_len, napt);
+    }
+    uint8_t* buff = luat_heap_malloc(p->tot_len);
+    if (buff == NULL) {
+        return src == LUAT_NETDRV_CH_HW ? 0 : ERR_MEM;
+    }
+    int result = src == LUAT_NETDRV_CH_HW ? 0 : ERR_BUF;
+    if (pbuf_copy_partial(p, buff, p->tot_len, 0) == p->tot_len) {
+        result = pkg_input_dispatch(id, src, buff, p->tot_len, napt);
+    }
+    luat_heap_free(buff);
+    return result;
+}
+
+__NETDRV_CODE_IN_RAM__ err_t luat_netdrv_pkg_output_pbuf(uint8_t id, uint8_t dst, struct pbuf* p,
+                                                        luat_netdrv_pkg_pbuf_send_cb sender, void* userdata) {
+    if (!p || !p->tot_len || !sender || !luat_netdrv_get(id) || dst != LUAT_NETDRV_CH_HW) {
+        return ERR_ARG;
+    }
+    luat_netdrv_capture_pbuf(id, 1, p, pkg_has_ethernet(id));
+    return sender(userdata, p);
+}
+
+static err_t native_output_send(void* userdata, struct pbuf* p) {
+    netdrv_native_output_t* item = userdata;
+    return item->output(item->netif, p);
+}
+
+static err_t native_linkoutput(struct netif* netif, struct pbuf* p) {
+    for (int id = 1; id < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; ++id) {
+        netdrv_native_output_t* item = &native_outputs[id];
+        if (item->netif == netif && item->output) {
+            return luat_netdrv_pkg_output_pbuf(id, LUAT_NETDRV_CH_HW, p, native_output_send, item);
+        }
+    }
+    return ERR_IF;
+}
+
+int luat_netdrv_pkg_attach_native(int id) {
+    if (id <= 0 || id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
+        return -1;
+    }
+    luat_netdrv_t* drv = luat_netdrv_get(id);
+    if (!drv || !drv->netif || !drv->netif->linkoutput) {
+        return -1;
+    }
+    if (drv->netif->linkoutput == native_linkoutput) {
+        return native_outputs[id].netif == drv->netif ? 0 : -1;
+    }
+    native_outputs[id].netif = drv->netif;
+    native_outputs[id].output = drv->netif->linkoutput;
+    drv->netif->linkoutput = native_linkoutput;
+    return 0;
 }
 
 // 硬件 TX 出口的薄包装, 与 pkg_input 对称. 集中所有 drv->dataout 调用点,

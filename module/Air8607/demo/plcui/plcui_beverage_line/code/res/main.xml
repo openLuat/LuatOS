@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="overview">
+  <resources>
+    <image id="bg_ov" src="bg_ov.jpg"/>
+    <image id="ov_nav_realtime_n" src="ov_nav_realtime_n.png"/>
+    <image id="ov_nav_realtime_c" src="ov_nav_realtime_c.png"/>
+    <image id="ov_nav_assets_n" src="ov_nav_assets_n.png"/>
+    <image id="ov_nav_assets_c" src="ov_nav_assets_c.png"/>
+    <image id="ov_nav_params_n" src="ov_nav_params_n.png"/>
+    <image id="ov_nav_params_c" src="ov_nav_params_c.png"/>
+    <image id="ov_nav_report_n" src="ov_nav_report_n.png"/>
+    <image id="ov_nav_report_c" src="ov_nav_report_c.png"/>
+    <image id="ov_nav_alarm_n" src="ov_nav_alarm_n.png"/>
+    <image id="ov_nav_alarm_c" src="ov_nav_alarm_c.png"/>
+    <image id="ov_nav_system_n" src="ov_nav_system_n.png"/>
+    <image id="ov_nav_system_c" src="ov_nav_system_c.png"/>
+    <image id="ov_btn_login_n" src="ov_btn_login_n.png"/>
+    <image id="ov_btn_login_p" src="ov_btn_login_p.png"/>
+    <image id="ov_btn_estop_n" src="ov_btn_estop_n.png"/>
+    <image id="ov_btn_estop_p" src="ov_btn_estop_p.png"/>
+    <image id="ov_btn_start_n" src="ov_btn_start_n.png"/>
+    <image id="ov_btn_start_p" src="ov_btn_start_p.png"/>
+    <image id="ov_btn_pause_n" src="ov_btn_pause_n.png"/>
+    <image id="ov_btn_pause_p" src="ov_btn_pause_p.png"/>
+    <image id="ov_btn_alarm_n" src="ov_btn_alarm_n.png"/>
+    <image id="ov_btn_alarm_p" src="ov_btn_alarm_p.png"/>
+    <image id="ov_btn_power_n" src="ov_btn_power_n.png"/>
+    <image id="ov_btn_power_c" src="ov_btn_power_c.png"/>
+    <image id="anim_belt_0" src="anim_belt_0.png"/>
+    <image id="anim_belt_1" src="anim_belt_1.png"/>
+    <image id="anim_belt_2" src="anim_belt_2.png"/>
+    <image id="anim_belt_3" src="anim_belt_3.png"/>
+    <image id="anim_belt_4" src="anim_belt_4.png"/>
+    <image id="anim_belt_5" src="anim_belt_5.png"/>
+    <image id="anim_belt_6" src="anim_belt_6.png"/>
+    <image id="anim_belt_7" src="anim_belt_7.png"/>
+    <image id="bg_rt" src="bg_rt.jpg"/>
+    <image id="rt_btn_home_n" src="rt_btn_home_n.png"/>
+    <image id="rt_btn_home_p" src="rt_btn_home_p.png"/>
+    <image id="rt_btn_refresh_n" src="rt_btn_refresh_n.png"/>
+    <image id="rt_btn_refresh_p" src="rt_btn_refresh_p.png"/>
+    <image id="rt_btn_export_n" src="rt_btn_export_n.png"/>
+    <image id="rt_btn_export_p" src="rt_btn_export_p.png"/>
+    <image id="rt_btn_ack_n" src="rt_btn_ack_n.png"/>
+    <image id="rt_btn_ack_p" src="rt_btn_ack_p.png"/>
+    <image id="bg_as" src="bg_as.jpg"/>
+    <image id="as_btn_home_n" src="as_btn_home_n.png"/>
+    <image id="as_btn_home_p" src="as_btn_home_p.png"/>
+    <image id="as_tree_root1_n" src="as_tree_root1_n.png"/>
+    <image id="as_tree_root1_c" src="as_tree_root1_c.png"/>
+    <image id="as_tree_root2_n" src="as_tree_root2_n.png"/>
+    <image id="as_tree_root2_c" src="as_tree_root2_c.png"/>
+    <image id="as_tree_1_n" src="as_tree_1_n.png"/>
+    <image id="as_tree_1_c" src="as_tree_1_c.png"/>
+    <image id="as_tree_2_n" src="as_tree_2_n.png"/>
+    <image id="as_tree_2_c" src="as_tree_2_c.png"/>
+    <image id="as_tree_3_n" src="as_tree_3_n.png"/>
+    <image id="as_tree_3_c" src="as_tree_3_c.png"/>
+    <image id="as_tree_4_n" src="as_tree_4_n.png"/>
+    <image id="as_tree_4_c" src="as_tree_4_c.png"/>
+    <image id="as_tree_5_n" src="as_tree_5_n.png"/>
+    <image id="as_tree_5_c" src="as_tree_5_c.png"/>
+    <image id="as_tree_6_n" src="as_tree_6_n.png"/>
+    <image id="as_tree_6_c" src="as_tree_6_c.png"/>
+    <image id="as_tree_7_n" src="as_tree_7_n.png"/>
+    <image id="as_tree_7_c" src="as_tree_7_c.png"/>
+    <image id="as_tree_8_n" src="as_tree_8_n.png"/>
+    <image id="as_tree_8_c" src="as_tree_8_c.png"/>
+    <image id="as_tree_9_n" src="as_tree_9_n.png"/>
+    <image id="as_tree_9_c" src="as_tree_9_c.png"/>
+    <image id="as_tree_10_n" src="as_tree_10_n.png"/>
+    <image id="as_tree_10_c" src="as_tree_10_c.png"/>
+    <image id="as_tree_11_n" src="as_tree_11_n.png"/>
+    <image id="as_tree_11_c" src="as_tree_11_c.png"/>
+    <image id="as_tab_dev_n" src="as_tab_dev_n.png"/>
+    <image id="as_tab_dev_c" src="as_tab_dev_c.png"/>
+    <image id="as_tab_grp_n" src="as_tab_grp_n.png"/>
+    <image id="as_tab_grp_c" src="as_tab_grp_c.png"/>
+    <image id="as_chip_run_n" src="as_chip_run_n.png"/>
+    <image id="as_chip_maint_n" src="as_chip_maint_n.png"/>
+    <image id="as_chip_idle_n" src="as_chip_idle_n.png"/>
+    <image id="as_chip_fault_n" src="as_chip_fault_n.png"/>
+    <image id="as_btn_start_n" src="as_btn_start_n.png"/>
+    <image id="as_btn_start_p" src="as_btn_start_p.png"/>
+    <image id="as_btn_stop_n" src="as_btn_stop_n.png"/>
+    <image id="as_btn_stop_p" src="as_btn_stop_p.png"/>
+    <image id="as_btn_reset_n" src="as_btn_reset_n.png"/>
+    <image id="as_btn_reset_p" src="as_btn_reset_p.png"/>
+    <image id="as_btn_log_n" src="as_btn_log_n.png"/>
+    <image id="as_btn_log_p" src="as_btn_log_p.png"/>
+    <image id="as_btn_eng_n" src="as_btn_eng_n.png"/>
+    <image id="as_btn_eng_p" src="as_btn_eng_p.png"/>
+    <image id="bg_pa" src="bg_pa.jpg"/>
+    <image id="pa_btn_home_n" src="pa_btn_home_n.png"/>
+    <image id="pa_btn_home_p" src="pa_btn_home_p.png"/>
+    <image id="pa_cat_1_n" src="pa_cat_1_n.png"/>
+    <image id="pa_cat_1_c" src="pa_cat_1_c.png"/>
+    <image id="pa_cat_2_n" src="pa_cat_2_n.png"/>
+    <image id="pa_cat_2_c" src="pa_cat_2_c.png"/>
+    <image id="pa_cat_3_n" src="pa_cat_3_n.png"/>
+    <image id="pa_cat_3_c" src="pa_cat_3_c.png"/>
+    <image id="pa_cat_4_n" src="pa_cat_4_n.png"/>
+    <image id="pa_cat_4_c" src="pa_cat_4_c.png"/>
+    <image id="pa_cat_5_n" src="pa_cat_5_n.png"/>
+    <image id="pa_cat_5_c" src="pa_cat_5_c.png"/>
+    <image id="pa_btn_lock_n" src="pa_btn_lock_n.png"/>
+    <image id="pa_btn_lock_p" src="pa_btn_lock_p.png"/>
+    <image id="pa_btn_save_n" src="pa_btn_save_n.png"/>
+    <image id="pa_btn_save_p" src="pa_btn_save_p.png"/>
+    <image id="pa_btn_drift_n" src="pa_btn_drift_n.png"/>
+    <image id="pa_btn_drift_p" src="pa_btn_drift_p.png"/>
+    <image id="pa_btn_default_n" src="pa_btn_default_n.png"/>
+    <image id="pa_btn_default_p" src="pa_btn_default_p.png"/>
+    <image id="pa_btn_plog_n" src="pa_btn_plog_n.png"/>
+    <image id="pa_btn_plog_p" src="pa_btn_plog_p.png"/>
+    <image id="blank" src="blank.png"/>
+    <image id="bg_rp" src="bg_rp.jpg"/>
+    <image id="rp_btn_home_n" src="rp_btn_home_n.png"/>
+    <image id="rp_btn_home_p" src="rp_btn_home_p.png"/>
+    <image id="rp_rp_1_n" src="rp_rp_1_n.png"/>
+    <image id="rp_rp_1_c" src="rp_rp_1_c.png"/>
+    <image id="rp_rp_2_n" src="rp_rp_2_n.png"/>
+    <image id="rp_rp_2_c" src="rp_rp_2_c.png"/>
+    <image id="rp_rp_3_n" src="rp_rp_3_n.png"/>
+    <image id="rp_rp_3_c" src="rp_rp_3_c.png"/>
+    <image id="rp_rp_4_n" src="rp_rp_4_n.png"/>
+    <image id="rp_rp_4_c" src="rp_rp_4_c.png"/>
+    <image id="rp_rp_5_n" src="rp_rp_5_n.png"/>
+    <image id="rp_rp_5_c" src="rp_rp_5_c.png"/>
+    <image id="rp_rp_6_n" src="rp_rp_6_n.png"/>
+    <image id="rp_rp_6_c" src="rp_rp_6_c.png"/>
+    <image id="rp_btn_excel_n" src="rp_btn_excel_n.png"/>
+    <image id="rp_btn_excel_p" src="rp_btn_excel_p.png"/>
+    <image id="rp_btn_print_n" src="rp_btn_print_n.png"/>
+    <image id="rp_btn_print_p" src="rp_btn_print_p.png"/>
+    <image id="rp_btn_pdf_n" src="rp_btn_pdf_n.png"/>
+    <image id="rp_btn_pdf_p" src="rp_btn_pdf_p.png"/>
+    <image id="rp_btn_mail_n" src="rp_btn_mail_n.png"/>
+    <image id="rp_btn_mail_p" src="rp_btn_mail_p.png"/>
+    <image id="bg_al" src="bg_al.jpg"/>
+    <image id="al_btn_home_n" src="al_btn_home_n.png"/>
+    <image id="al_btn_home_p" src="al_btn_home_p.png"/>
+    <image id="al_tab_all_n" src="al_tab_all_n.png"/>
+    <image id="al_tab_all_c" src="al_tab_all_c.png"/>
+    <image id="al_tab_urgent_n" src="al_tab_urgent_n.png"/>
+    <image id="al_tab_urgent_c" src="al_tab_urgent_c.png"/>
+    <image id="al_tab_warn_n" src="al_tab_warn_n.png"/>
+    <image id="al_tab_warn_c" src="al_tab_warn_c.png"/>
+    <image id="al_tab_tip_n" src="al_tab_tip_n.png"/>
+    <image id="al_tab_tip_c" src="al_tab_tip_c.png"/>
+    <image id="al_flt_1_n" src="al_flt_1_n.png"/>
+    <image id="al_flt_1_c" src="al_flt_1_c.png"/>
+    <image id="al_flt_2_n" src="al_flt_2_n.png"/>
+    <image id="al_flt_2_c" src="al_flt_2_c.png"/>
+    <image id="al_flt_3_n" src="al_flt_3_n.png"/>
+    <image id="al_flt_3_c" src="al_flt_3_c.png"/>
+    <image id="al_flt_4_n" src="al_flt_4_n.png"/>
+    <image id="al_flt_4_c" src="al_flt_4_c.png"/>
+    <image id="al_btn_ack_n" src="al_btn_ack_n.png"/>
+    <image id="al_btn_ack_p" src="al_btn_ack_p.png"/>
+    <image id="al_btn_reset_n" src="al_btn_reset_n.png"/>
+    <image id="al_btn_reset_p" src="al_btn_reset_p.png"/>
+    <image id="al_btn_log_n" src="al_btn_log_n.png"/>
+    <image id="al_btn_log_p" src="al_btn_log_p.png"/>
+    <image id="al_btn_sound_n" src="al_btn_sound_n.png"/>
+    <image id="al_btn_sound_c" src="al_btn_sound_c.png"/>
+    <image id="al_btn_popup_n" src="al_btn_popup_n.png"/>
+    <image id="al_btn_popup_c" src="al_btn_popup_c.png"/>
+  </resources>
+  <pages>
+    <page id="overview" background="#04121f">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_ov"/>
+      <image id="anim_belt" x="36" y="366" w="742" h="20" src="anim_belt_0"/>
+      <label id="clock" x="812" y="15" w="196" h="20" font="hzfont" font_size="15" color="#cfe9f5" align="right" text="2025-11-11 10:30:00"/>
+      <label id="s1" x="156" y="268" w="30" h="16" font="hzfont" font_size="12" color="#2ee6a0" align="left" text="运行"/>
+      <label id="s2" x="332" y="268" w="30" h="16" font="hzfont" font_size="12" color="#2ee6a0" align="left" text="运行"/>
+      <label id="s3" x="508" y="268" w="30" h="16" font="hzfont" font_size="12" color="#2ee6a0" align="left" text="运行"/>
+      <label id="s4" x="684" y="268" w="30" h="16" font="hzfont" font_size="12" color="#ffa62b" align="left" text="停机"/>
+      <label id="s5" x="156" y="432" w="30" h="16" font="hzfont" font_size="12" color="#2ee6a0" align="left" text="运行"/>
+      <label id="s6" x="332" y="432" w="30" h="16" font="hzfont" font_size="12" color="#ffa62b" align="left" text="维护"/>
+      <label id="s7" x="508" y="432" w="30" h="16" font="hzfont" font_size="12" color="#ffa62b" align="left" text="维护"/>
+      <label id="s8" x="684" y="432" w="30" h="16" font="hzfont" font_size="12" color="#ffa62b" align="left" text="待机"/>
+      <image id="nav_realtime" x="816" y="84" w="188" h="42" src="ov_nav_realtime_n" src-checked="ov_nav_realtime_c" clickable="true" on-click="show_realtime"/>
+      <image id="nav_assets" x="816" y="134" w="188" h="42" src="ov_nav_assets_n" src-checked="ov_nav_assets_c" clickable="true" on-click="show_assets"/>
+      <image id="nav_params" x="816" y="184" w="188" h="42" src="ov_nav_params_n" src-checked="ov_nav_params_c" clickable="true" on-click="show_params"/>
+      <image id="nav_report" x="816" y="234" w="188" h="42" src="ov_nav_report_n" src-checked="ov_nav_report_c" clickable="true" on-click="show_report"/>
+      <image id="nav_alarm" x="816" y="284" w="188" h="42" src="ov_nav_alarm_n" src-checked="ov_nav_alarm_c" clickable="true" on-click="show_alarm"/>
+      <image id="nav_system" x="816" y="334" w="188" h="42" src="ov_nav_system_n" src-checked="ov_nav_system_c" clickable="true" on-click="show_params"/>
+      <label id="k_out" x="884" y="470" w="118" h="22" font="hzfont" font_size="18" color="#ffd479" align="right" text="28640瓶"/>
+      <label id="k_speed" x="884" y="498" w="118" h="20" font="hzfont" font_size="16" color="#ffd479" align="right" text="420瓶/分钟"/>
+      <label id="k_pass" x="884" y="526" w="118" h="20" font="hzfont" font_size="16" color="#2ee6a0" align="right" text="99.72%"/>
+      <image id="btn_power" x="30" y="496" w="74" h="74" src="ov_btn_power_n" src-checked="ov_btn_power_c" clickable="true" on-click="on_power"/>
+      <image id="btn_login" x="118" y="518" w="112" h="32" src="ov_btn_login_n" src-pressed="ov_btn_login_p" clickable="true" on-click="on_login"/>
+      <image id="btn_estop" x="286" y="518" w="120" h="34" src="ov_btn_estop_n" src-pressed="ov_btn_estop_p" clickable="true" on-click="on_estop"/>
+      <image id="btn_start" x="416" y="518" w="120" h="34" src="ov_btn_start_n" src-pressed="ov_btn_start_p" clickable="true" on-click="on_line_start"/>
+      <image id="btn_pause" x="546" y="518" w="120" h="34" src="ov_btn_pause_n" src-pressed="ov_btn_pause_p" clickable="true" on-click="on_line_pause"/>
+      <image id="btn_alarm" x="676" y="518" w="120" h="34" src="ov_btn_alarm_n" src-pressed="ov_btn_alarm_p" clickable="true" on-click="on_alarm"/>
+      <label id="feedback" x="118" y="562" w="660" h="16" font="hzfont" font_size="12" color="#7ff2ff" align="left" text="产线运行中 · 空瓶卸垛机 → 装箱机 全部就绪"/>
+    </page>
+    <page id="realtime" background="#04121f">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_rt"/>
+      <label id="clock" x="800" y="15" w="208" h="20" font="hzfont" font_size="15" color="#cfe9f5" align="right" text="2025-11-11 10:30:00"/>
+      <image id="btn_home" x="12" y="9" w="90" h="26" src="rt_btn_home_n" src-pressed="rt_btn_home_p" clickable="true" on-click="show_overview"/>
+      <label id="dev0" x="158" y="101" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="2.90"/>
+      <label id="dev1" x="158" y="132" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="8.30"/>
+      <label id="dev2" x="158" y="163" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="3.00"/>
+      <label id="dev3" x="158" y="194" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="1.70"/>
+      <label id="dev4" x="158" y="225" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="1.50"/>
+      <label id="dev5" x="158" y="256" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="2.90"/>
+      <label id="dev6" x="158" y="287" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="1.50"/>
+      <label id="dev7" x="158" y="318" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="1.20"/>
+      <label id="dev8" x="158" y="349" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="1.50"/>
+      <label id="dev9" x="158" y="380" w="58" h="22" font="hzfont" font_size="18" color="#ffffff" align="right" text="1.20"/>
+      <chart id="trend" x="286" y="104" w="490" h="268" type="line" point-count="25" y-min="0" y-max="120" hdiv="6" vdiv="5" bg-opacity="0" line-width="2" grid-color="#1d5871">
+        <series id="level" color="#29d8f0" values="52,54,57,60,64,70,78,86,94,100,98,92,86,80,74,70,68,70,74,80,88,96,99,95,86"/>
+        <series id="pressure" color="#2ee6a0" values="45,46,47,48,52,58,66,76,88,98,100,96,88,78,70,66,68,72,78,86,92,96,94,88,80"/>
+        <series id="speed" color="#ffa62b" values="44,45,47,50,54,58,63,69,76,84,90,87,81,75,71,69,71,74,78,82,86,88,85,82,78"/>
+        <series id="temp" color="#4ad8ff" values="58,60,62,65,69,74,80,86,92,96,95,92,88,85,82,80,81,83,86,89,92,94,92,89,85"/>
+      </chart>
+      <label id="gauge_rpm" x="816" y="128" w="76" h="21" font="hzfont" font_size="17" color="#ffffff" align="center" text="830"/>
+      <label id="fill_speed" x="906" y="124" w="96" h="18" font="hzfont" font_size="14" color="#ffffff" align="left" text="120瓶/分钟"/>
+      <label id="fill_temp" x="906" y="144" w="96" h="18" font="hzfont" font_size="14" color="#ffffff" align="left" text="85℃"/>
+      <label id="gauge_torque" x="816" y="206" w="76" h="20" font="hzfont" font_size="16" color="#ffffff" align="center" text="4.2"/>
+      <label id="torque_now" x="906" y="202" w="96" h="18" font="hzfont" font_size="14" color="#ffffff" align="left" text="4.2N·m"/>
+      <label id="torque_set" x="906" y="222" w="96" h="18" font="hzfont" font_size="14" color="#ffffff" align="left" text="4.2N·m"/>
+      <label id="gauge_level" x="816" y="284" w="76" h="20" font="hzfont" font_size="16" color="#ffffff" align="center" text="68%"/>
+      <label id="raw_level" x="906" y="288" w="96" h="24" font="hzfont" font_size="20" color="#ffffff" align="left" text="78%"/>
+      <label id="gauge_cap" x="816" y="362" w="76" h="20" font="hzfont" font_size="16" color="#ffffff" align="center" text="64%"/>
+      <label id="label_stock" x="906" y="366" w="96" h="24" font="hzfont" font_size="20" color="#ffffff" align="left" text="71%"/>
+      <chart id="mini_trend" x="558" y="450" w="440" h="80" type="line" point-count="16" y-min="0" y-max="100" hdiv="4" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1d5871">
+        <series id="cap" color="#2ee6a0" values="62,66,58,61,70,74,68,72,80,84,78,74,70,66,63,60"/>
+      </chart>
+      <image id="btn_refresh" x="558" y="536" w="130" h="30" src="rt_btn_refresh_n" src-pressed="rt_btn_refresh_p" clickable="true" on-click="on_refresh"/>
+      <image id="btn_export" x="700" y="536" w="130" h="30" src="rt_btn_export_n" src-pressed="rt_btn_export_p" clickable="true" on-click="on_export"/>
+      <image id="btn_ack" x="842" y="536" w="130" h="30" src="rt_btn_ack_n" src-pressed="rt_btn_ack_p" clickable="true" on-click="on_alarm_ack"/>
+      <label id="feedback" x="558" y="568" w="440" h="16" font="hzfont" font_size="12" color="#7ff2ff" align="left" text="实时采集正常"/>
+    </page>
+    <page id="assets" background="#04121f">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_as"/>
+      <label id="clock" x="800" y="15" w="208" h="20" font="hzfont" font_size="15" color="#cfe9f5" align="right" text="2025-11-11 10:30:00"/>
+      <image id="btn_home" x="12" y="9" w="90" h="26" src="as_btn_home_n" src-pressed="as_btn_home_p" clickable="true" on-click="show_overview"/>
+      <image id="tree_root1" x="20" y="96" w="176" h="30" src="as_tree_root1_n" src-checked="as_tree_root1_c" clickable="true" on-click="tree_root1"/>
+      <image id="tree_root2" x="20" y="130" w="176" h="30" src="as_tree_root2_n" src-checked="as_tree_root2_c" clickable="true" on-click="tree_root2"/>
+      <image id="tree_1" x="28" y="166" w="158" h="24" src="as_tree_1_n" src-checked="as_tree_1_c" clickable="true" on-click="tree_1"/>
+      <image id="tree_2" x="28" y="193" w="158" h="24" src="as_tree_2_n" src-checked="as_tree_2_c" clickable="true" on-click="tree_2"/>
+      <image id="tree_3" x="28" y="220" w="158" h="24" src="as_tree_3_n" src-checked="as_tree_3_c" clickable="true" on-click="tree_3"/>
+      <image id="tree_4" x="28" y="247" w="158" h="24" src="as_tree_4_n" src-checked="as_tree_4_c" clickable="true" on-click="tree_4"/>
+      <image id="tree_5" x="28" y="274" w="158" h="24" src="as_tree_5_n" src-checked="as_tree_5_c" clickable="true" on-click="tree_5"/>
+      <image id="tree_6" x="28" y="301" w="158" h="24" src="as_tree_6_n" src-checked="as_tree_6_c" clickable="true" on-click="tree_6"/>
+      <image id="tree_7" x="28" y="328" w="158" h="24" src="as_tree_7_n" src-checked="as_tree_7_c" clickable="true" on-click="tree_7"/>
+      <image id="tree_8" x="28" y="355" w="158" h="24" src="as_tree_8_n" src-checked="as_tree_8_c" clickable="true" on-click="tree_8"/>
+      <image id="tree_9" x="28" y="382" w="158" h="24" src="as_tree_9_n" src-checked="as_tree_9_c" clickable="true" on-click="tree_9"/>
+      <image id="tree_10" x="28" y="409" w="158" h="24" src="as_tree_10_n" src-checked="as_tree_10_c" clickable="true" on-click="tree_10"/>
+      <image id="tree_11" x="28" y="436" w="158" h="24" src="as_tree_11_n" src-checked="as_tree_11_c" clickable="true" on-click="tree_11"/>
+      <image id="tab_dev" x="218" y="88" w="90" h="26" src="as_tab_dev_n" src-checked="as_tab_dev_c" clickable="true" on-click="tab_dev"/>
+      <image id="tab_grp" x="316" y="88" w="90" h="26" src="as_tab_grp_n" src-checked="as_tab_grp_c" clickable="true" on-click="tab_grp"/>
+      <label id="r0_a" x="220" y="153" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="1"/>
+      <label id="r0_n" x="256" y="153" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="空瓶卸垛机"/>
+      <image id="r0_st" x="348" y="151" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r0_t" x="424" y="153" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="428:20:00"/>
+      <label id="r0_c" x="508" y="153" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="运行"/>
+      <label id="r0_s" x="584" y="153" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r0_m" x="642" y="153" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r0_h" x="702" y="151" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r1_a" x="220" y="175" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="2"/>
+      <label id="r1_n" x="256" y="175" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="洗瓶机"/>
+      <image id="r1_st" x="348" y="173" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r1_t" x="424" y="175" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="420:10:00"/>
+      <label id="r1_c" x="508" y="175" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r1_s" x="584" y="175" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r1_m" x="642" y="175" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r1_h" x="702" y="173" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r2_a" x="220" y="197" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="3"/>
+      <label id="r2_n" x="256" y="197" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="瓶身检测机"/>
+      <image id="r2_st" x="348" y="195" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r2_t" x="424" y="197" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="402:30:00"/>
+      <label id="r2_c" x="508" y="197" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r2_s" x="584" y="197" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r2_m" x="642" y="197" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r2_h" x="702" y="195" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r3_a" x="220" y="219" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="4"/>
+      <label id="r3_n" x="256" y="219" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="灌装机"/>
+      <image id="r3_st" x="348" y="217" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r3_t" x="424" y="219" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="428:00:00"/>
+      <label id="r3_c" x="508" y="219" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r3_s" x="584" y="219" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r3_m" x="642" y="219" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r3_h" x="702" y="217" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r4_a" x="220" y="241" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="5"/>
+      <label id="r4_n" x="256" y="241" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="旋盖机"/>
+      <image id="r4_st" x="348" y="239" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r4_t" x="424" y="241" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="396:40:00"/>
+      <label id="r4_c" x="508" y="241" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r4_s" x="584" y="241" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r4_m" x="642" y="241" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r4_h" x="702" y="239" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r5_a" x="220" y="263" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="6"/>
+      <label id="r5_n" x="256" y="263" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="贴标机"/>
+      <image id="r5_st" x="348" y="261" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r5_t" x="424" y="263" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="418:00:00"/>
+      <label id="r5_c" x="508" y="263" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r5_s" x="584" y="263" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r5_m" x="642" y="263" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r5_h" x="702" y="261" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r6_a" x="220" y="285" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="7"/>
+      <label id="r6_n" x="256" y="285" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="喷标机"/>
+      <image id="r6_st" x="348" y="283" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r6_t" x="424" y="285" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="410:10:00"/>
+      <label id="r6_c" x="508" y="285" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r6_s" x="584" y="285" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r6_m" x="642" y="285" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r6_h" x="702" y="283" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r7_a" x="220" y="307" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="8"/>
+      <label id="r7_n" x="256" y="307" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="喷码机"/>
+      <image id="r7_st" x="348" y="305" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r7_t" x="424" y="307" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="386:50:00"/>
+      <label id="r7_c" x="508" y="307" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r7_s" x="584" y="307" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r7_m" x="642" y="307" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r7_h" x="702" y="305" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r8_a" x="220" y="329" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="9"/>
+      <label id="r8_n" x="256" y="329" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="装箱机"/>
+      <image id="r8_st" x="348" y="327" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r8_t" x="424" y="329" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="428:00:00"/>
+      <label id="r8_c" x="508" y="329" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r8_s" x="584" y="329" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r8_m" x="642" y="329" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r8_h" x="702" y="327" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r9_a" x="220" y="351" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="10"/>
+      <label id="r9_n" x="256" y="351" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="码垛机"/>
+      <image id="r9_st" x="348" y="349" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r9_t" x="424" y="351" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="428:00:00"/>
+      <label id="r9_c" x="508" y="351" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r9_s" x="584" y="351" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r9_m" x="642" y="351" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r9_h" x="702" y="349" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r10_a" x="220" y="373" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="11"/>
+      <label id="r10_n" x="256" y="373" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="吹瓶机"/>
+      <image id="r10_st" x="348" y="371" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r10_t" x="424" y="373" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="421:00:00"/>
+      <label id="r10_c" x="508" y="373" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r10_s" x="584" y="373" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r10_m" x="642" y="373" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="121"/>
+      <image id="r10_h" x="702" y="371" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r11_a" x="220" y="395" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="12"/>
+      <label id="r11_n" x="256" y="395" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="套标机"/>
+      <image id="r11_st" x="348" y="393" w="52" h="17" src="as_chip_idle_n"/>
+      <label id="r11_t" x="424" y="395" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="388:00:00"/>
+      <label id="r11_c" x="508" y="395" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r11_s" x="584" y="395" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r11_m" x="642" y="395" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r11_h" x="702" y="393" w="52" h="17" src="as_chip_fault_n"/>
+      <label id="r12_a" x="220" y="417" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="13"/>
+      <label id="r12_n" x="256" y="417" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="裹包机"/>
+      <image id="r12_st" x="348" y="415" w="52" h="17" src="as_chip_run_n"/>
+      <label id="r12_t" x="424" y="417" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="428:00:00"/>
+      <label id="r12_c" x="508" y="417" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r12_s" x="584" y="417" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r12_m" x="642" y="417" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r12_h" x="702" y="415" w="52" h="17" src="as_chip_maint_n"/>
+      <label id="r13_a" x="220" y="439" w="30" h="14" font="hzfont" font_size="12" color="#9fc7d8" align="center" text="14"/>
+      <label id="r13_n" x="256" y="439" w="92" h="14" font="hzfont" font_size="12" color="#eaf8ff" align="left" text="AGV 转车"/>
+      <image id="r13_st" x="348" y="437" w="52" h="17" src="as_chip_idle_n"/>
+      <label id="r13_t" x="424" y="439" w="84" h="14" font="hzfont" font_size="12" color="#cfeaf7" align="center" text="264:00:00"/>
+      <label id="r13_c" x="508" y="439" w="76" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="待机"/>
+      <label id="r13_s" x="584" y="439" w="58" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="1"/>
+      <label id="r13_m" x="642" y="439" w="60" h="14" font="hzfont" font_size="12" color="#a9d4e4" align="center" text="125"/>
+      <image id="r13_h" x="702" y="437" w="52" h="17" src="as_chip_fault_n"/>
+      <label id="d_runtime" x="900" y="98" w="104" h="20" font="hzfont" font_size="15" color="#ffd479" align="right" text="428小时"/>
+      <label id="d_session" x="900" y="130" w="104" h="20" font="hzfont" font_size="15" color="#ffd479" align="right" text="6小时12分"/>
+      <label id="d_count" x="900" y="162" w="104" h="20" font="hzfont" font_size="15" color="#ffd479" align="right" text="28640次"/>
+      <label id="d_fault" x="900" y="194" w="104" h="20" font="hzfont" font_size="15" color="#ffd479" align="right" text="2次"/>
+      <label id="d_advice" x="900" y="226" w="104" h="20" font="hzfont" font_size="15" color="#2ee6a0" align="right" text="正常"/>
+      <image id="btn_start" x="286" y="536" w="112" h="32" src="as_btn_start_n" src-pressed="as_btn_start_p" clickable="true" on-click="on_start"/>
+      <image id="btn_stop" x="406" y="536" w="112" h="32" src="as_btn_stop_n" src-pressed="as_btn_stop_p" clickable="true" on-click="on_stop"/>
+      <image id="btn_reset" x="526" y="536" w="112" h="32" src="as_btn_reset_n" src-pressed="as_btn_reset_p" clickable="true" on-click="on_reset"/>
+      <image id="btn_log" x="646" y="536" w="140" h="32" src="as_btn_log_n" src-pressed="as_btn_log_p" clickable="true" on-click="on_log"/>
+      <image id="btn_eng" x="886" y="536" w="122" h="32" src="as_btn_eng_n" src-pressed="as_btn_eng_p" clickable="true" on-click="on_engineer"/>
+      <label id="feedback" x="286" y="512" w="722" h="16" font="hzfont" font_size="12" color="#7ff2ff" align="center" text="选中设备：灌装机　运行状态：运行"/>
+    </page>
+    <page id="params" background="#04121f">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_pa"/>
+      <label id="clock" x="800" y="15" w="208" h="20" font="hzfont" font_size="15" color="#cfe9f5" align="right" text="2025-11-11 10:30:00"/>
+      <image id="btn_home" x="12" y="9" w="90" h="26" src="pa_btn_home_n" src-pressed="pa_btn_home_p" clickable="true" on-click="show_overview"/>
+      <image id="cat_1" x="16" y="106" w="164" h="36" src="pa_cat_1_n" src-checked="pa_cat_1_c" clickable="true" on-click="cat_1"/>
+      <image id="cat_2" x="16" y="150" w="164" h="36" src="pa_cat_2_n" src-checked="pa_cat_2_c" clickable="true" on-click="cat_2"/>
+      <image id="cat_3" x="16" y="194" w="164" h="36" src="pa_cat_3_n" src-checked="pa_cat_3_c" clickable="true" on-click="cat_3"/>
+      <image id="cat_4" x="16" y="238" w="164" h="36" src="pa_cat_4_n" src-checked="pa_cat_4_c" clickable="true" on-click="cat_4"/>
+      <image id="cat_5" x="16" y="282" w="164" h="36" src="pa_cat_5_n" src-checked="pa_cat_5_c" clickable="true" on-click="cat_5"/>
+      <textarea id="p_fill" x="238" y="182" w="86" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="5" accepted-chars="0123456789." keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="500"/>
+      <textarea id="p_speed" x="382" y="182" w="86" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="4" accepted-chars="0123456789" keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="420"/>
+      <textarea id="p_vac_time" x="526" y="182" w="86" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="4" accepted-chars="0123456789." keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="1.2"/>
+      <textarea id="p_vac" x="670" y="182" w="86" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="5" accepted-chars="0123456789." keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="0.35"/>
+      <textarea id="p_wash_temp" x="238" y="268" w="80" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="3" accepted-chars="0123456789" keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="85"/>
+      <textarea id="p_wash_time" x="382" y="268" w="80" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="3" accepted-chars="0123456789" keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="15"/>
+      <textarea id="p_wash_chem" x="526" y="268" w="80" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="4" accepted-chars="0123456789." keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="2.0"/>
+      <textarea id="p_torque" x="238" y="352" w="80" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="4" accepted-chars="0123456789." keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="4.2"/>
+      <textarea id="p_torque_max" x="382" y="352" w="80" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="4" accepted-chars="0123456789." keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="4.2"/>
+      <textarea id="p_cap_speed" x="526" y="352" w="80" h="20" font="hzfont" font_size="16" color="#ffd479" align="left" one-line="true" max-length="4" accepted-chars="0123456789" keyboard="num_kb" on-submit="param_submit" on-cancel="param_cancel" text="120"/>
+      <label id="cur_user" x="900" y="100" w="104" h="20" font="hzfont" font_size="15" color="#ffd479" align="left" text="工程师"/>
+      <label id="perm_text" x="906" y="134" w="72" h="18" font="hzfont" font_size="13" color="#2ee6a0" align="left" text="已开启"/>
+      <label id="lock_text" x="906" y="166" w="72" h="18" font="hzfont" font_size="13" color="#ff8a9b" align="left" text="关闭"/>
+      <image id="btn_lock" x="812" y="212" w="94" h="30" src="pa_btn_lock_n" src-pressed="pa_btn_lock_p" clickable="true" on-click="on_lock_param"/>
+      <image id="btn_save" x="914" y="212" w="94" h="30" src="pa_btn_save_n" src-pressed="pa_btn_save_p" clickable="true" on-click="on_save"/>
+      <image id="btn_drift" x="812" y="250" w="94" h="30" src="pa_btn_drift_n" src-pressed="pa_btn_drift_p" clickable="true" on-click="on_drift"/>
+      <image id="btn_default" x="914" y="250" w="94" h="30" src="pa_btn_default_n" src-pressed="pa_btn_default_p" clickable="true" on-click="on_default"/>
+      <image id="btn_plog" x="812" y="288" w="196" h="30" src="pa_btn_plog_n" src-pressed="pa_btn_plog_p" clickable="true" on-click="on_plog"/>
+      <label id="feedback" x="812" y="330" w="196" h="34" font="hzfont" font_size="12" color="#7ff2ff" align="left" text="修改需工程师权限，保存后立即生效"/>
+      <image id="dd_perm" x="900" y="128" w="104" h="26" src="blank" clickable="true" on-click="on_perm"/>
+      <image id="dd_lock" x="900" y="160" w="104" h="26" src="blank" clickable="true" on-click="on_lock"/>
+      <keyboard id="num_kb" x="196" y="290" w="596" h="180" layout="number" font="hzfont" font_size="18" hidden="true"/>
+    </page>
+    <page id="report" background="#04121f">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_rp"/>
+      <label id="clock" x="800" y="15" w="208" h="20" font="hzfont" font_size="15" color="#cfe9f5" align="right" text="2025-11-11 10:30:00"/>
+      <image id="btn_home" x="12" y="9" w="90" h="26" src="rp_btn_home_n" src-pressed="rp_btn_home_p" clickable="true" on-click="show_overview"/>
+      <image id="rp_1" x="16" y="100" w="164" h="36" src="rp_rp_1_n" src-checked="rp_rp_1_c" clickable="true" on-click="rp_1"/>
+      <image id="rp_2" x="16" y="146" w="164" h="36" src="rp_rp_2_n" src-checked="rp_rp_2_c" clickable="true" on-click="rp_2"/>
+      <image id="rp_3" x="16" y="192" w="164" h="36" src="rp_rp_3_n" src-checked="rp_rp_3_c" clickable="true" on-click="rp_3"/>
+      <image id="rp_4" x="16" y="238" w="164" h="36" src="rp_rp_4_n" src-checked="rp_rp_4_c" clickable="true" on-click="rp_4"/>
+      <image id="rp_5" x="16" y="284" w="164" h="36" src="rp_rp_5_n" src-checked="rp_rp_5_c" clickable="true" on-click="rp_5"/>
+      <image id="rp_6" x="16" y="330" w="164" h="36" src="rp_rp_6_n" src-checked="rp_rp_6_c" clickable="true" on-click="rp_6"/>
+      <chart id="output_bar" x="236" y="108" w="268" h="146" type="bar" point-count="4" y-min="0" y-max="1000" hdiv="5" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1d5871">
+        <series id="d1" color="#29d8f0" values="1000,0,0,0"/>
+        <series id="d2" color="#2ee6a0" values="0,810,0,0"/>
+        <series id="d3" color="#2ee6a0" values="0,0,810,0"/>
+        <series id="d4" color="#ffa62b" values="0,0,0,557"/>
+      </chart>
+      <chart id="pass_line" x="558" y="132" w="216" h="146" type="line" point-count="5" y-min="0" y-max="100" hdiv="5" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1d5871">
+        <series id="rate" color="#ffa62b" values="99.81,99.76,99.79,99.72,99.68"/>
+      </chart>
+      <label id="k_total" x="818" y="114" w="180" h="24" font="hzfont" font_size="20" color="#ffd479" align="left" text="28640瓶"/>
+      <label id="k_speed" x="818" y="170" w="180" h="23" font="hzfont" font_size="19" color="#ffd479" align="left" text="420瓶/分钟"/>
+      <label id="k_pass" x="818" y="226" w="90" h="22" font="hzfont" font_size="18" color="#2ee6a0" align="left" text="99.72%"/>
+      <label id="k_bad" x="916" y="226" w="82" h="22" font="hzfont" font_size="18" color="#ff8a9b" align="left" text="79瓶"/>
+      <table id="defect_table" x="204" y="352" w="560" h="112" rows="5" columns="7" font="hzfont" font_size="12" color="#dff2fb" background="#061e2c" border-color="#265a73" header-color="#0d3d55" alternate-color="#08242f" border-width="1" cell-padding="4" row-height="22" header="true" grid="false" header-align="center" col-widths="140,64,64,64,64,64,100" col-aligns="left,center,center,center,center,center,center">
+        <cell row="1" column="1" text="原因"/>
+        <cell row="1" column="2" text="数量"/>
+        <cell row="1" column="3" text="占比"/>
+        <cell row="1" column="4" text="无盖"/>
+        <cell row="1" column="5" text="无标"/>
+        <cell row="1" column="6" text="其他"/>
+        <cell row="1" column="7" text="备注"/>
+        <cell row="2" column="1" text="液位不合格"/>
+        <cell row="2" column="2" text="32瓶"/>
+        <cell row="2" column="3" text="22.8%"/>
+        <cell row="2" column="4" text="14瓶"/>
+        <cell row="2" column="5" text="17.7%"/>
+        <cell row="2" column="6" text="6瓶"/>
+        <cell row="2" column="7" text="7.6%"/>
+        <cell row="3" column="1" text="贴标错位"/>
+        <cell row="3" column="2" text="28瓶"/>
+        <cell row="3" column="3" text="20.5%"/>
+        <cell row="3" column="4" text="18瓶"/>
+        <cell row="3" column="5" text="11.4%"/>
+        <cell row="3" column="6" text="6瓶"/>
+        <cell row="3" column="7" text="7.6%"/>
+        <cell row="4" column="1" text="喷码异常"/>
+        <cell row="4" column="2" text="19瓶"/>
+        <cell row="4" column="3" text="13.5%"/>
+        <cell row="4" column="4" text="9瓶"/>
+        <cell row="4" column="5" text="11.4%"/>
+        <cell row="4" column="6" text="6瓶"/>
+        <cell row="4" column="7" text="5.2%"/>
+        <cell row="5" column="1" text="瓶盖不良"/>
+        <cell row="5" column="2" text="14瓶"/>
+        <cell row="5" column="3" text="10.0%"/>
+        <cell row="5" column="4" text="11瓶"/>
+        <cell row="5" column="5" text="9.8%"/>
+        <cell row="5" column="6" text="3瓶"/>
+        <cell row="5" column="7" text="3.1%"/>
+      </table>
+      <image id="btn_excel" x="776" y="352" w="110" h="28" src="rp_btn_excel_n" src-pressed="rp_btn_excel_p" clickable="true" on-click="on_excel"/>
+      <image id="btn_print" x="894" y="352" w="110" h="28" src="rp_btn_print_n" src-pressed="rp_btn_print_p" clickable="true" on-click="on_print"/>
+      <image id="btn_pdf" x="776" y="390" w="110" h="28" src="rp_btn_pdf_n" src-pressed="rp_btn_pdf_p" clickable="true" on-click="on_pdf"/>
+      <image id="btn_mail" x="894" y="390" w="110" h="28" src="rp_btn_mail_n" src-pressed="rp_btn_mail_p" clickable="true" on-click="on_mail"/>
+      <label id="feedback" x="204" y="322" w="180" h="16" font="hzfont" font_size="12" color="#7ff2ff" align="left" text="报表已汇总至 10:30"/>
+    </page>
+    <page id="alarm" background="#04121f">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_al"/>
+      <label id="clock" x="800" y="15" w="208" h="20" font="hzfont" font_size="15" color="#cfe9f5" align="right" text="2025-11-11 10:30:00"/>
+      <image id="btn_home" x="12" y="9" w="90" h="26" src="al_btn_home_n" src-pressed="al_btn_home_p" clickable="true" on-click="show_overview"/>
+      <image id="tab_all" x="18" y="68" w="104" h="30" src="al_tab_all_n" src-checked="al_tab_all_c" clickable="true" on-click="tab_all"/>
+      <image id="tab_urgent" x="130" y="68" w="104" h="30" src="al_tab_urgent_n" src-checked="al_tab_urgent_c" clickable="true" on-click="tab_urgent"/>
+      <image id="tab_warn" x="242" y="68" w="104" h="30" src="al_tab_warn_n" src-checked="al_tab_warn_c" clickable="true" on-click="tab_warn"/>
+      <image id="tab_tip" x="354" y="68" w="104" h="30" src="al_tab_tip_n" src-checked="al_tab_tip_c" clickable="true" on-click="tab_tip"/>
+      <image id="flt_1" x="22" y="248" w="166" h="34" src="al_flt_1_n" src-checked="al_flt_1_c" clickable="true" on-click="flt_1"/>
+      <image id="flt_2" x="22" y="290" w="166" h="34" src="al_flt_2_n" src-checked="al_flt_2_c" clickable="true" on-click="flt_2"/>
+      <image id="flt_3" x="22" y="332" w="166" h="34" src="al_flt_3_n" src-checked="al_flt_3_c" clickable="true" on-click="flt_3"/>
+      <image id="flt_4" x="22" y="374" w="166" h="34" src="al_flt_4_n" src-checked="al_flt_4_c" clickable="true" on-click="flt_4"/>
+      <label id="a0_0" x="236" y="187" w="112" h="17" font="hzfont" font_size="13" color="#cfeaf7" align="center" text="10:28:15"/>
+      <label id="a0_1" x="348" y="187" w="96" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="灌装机"/>
+      <label id="a0_2" x="444" y="187" w="128" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="灌装压力偏高"/>
+      <label id="a0_3" x="572" y="187" w="58" h="17" font="hzfont" font_size="13" color="#ffa62b" align="center" text="警告"/>
+      <label id="a0_4" x="630" y="187" w="86" h="17" font="hzfont" font_size="13" color="#ffa62b" align="center" text="处理中"/>
+      <label id="a1_0" x="236" y="221" w="112" h="17" font="hzfont" font_size="13" color="#cfeaf7" align="center" text="10:15:42"/>
+      <label id="a1_1" x="348" y="221" w="96" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="灌装机"/>
+      <label id="a1_2" x="444" y="221" w="128" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="灌装压力偏高"/>
+      <label id="a1_3" x="572" y="221" w="58" h="17" font="hzfont" font_size="13" color="#ffa62b" align="center" text="警告"/>
+      <label id="a1_4" x="630" y="221" w="86" h="17" font="hzfont" font_size="13" color="#ffa62b" align="center" text="处理中"/>
+      <label id="a2_0" x="236" y="255" w="112" h="17" font="hzfont" font_size="13" color="#cfeaf7" align="center" text="10:15:42"/>
+      <label id="a2_1" x="348" y="255" w="96" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="旋盖机"/>
+      <label id="a2_2" x="444" y="255" w="128" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="扭矩异常"/>
+      <label id="a2_3" x="572" y="255" w="58" h="17" font="hzfont" font_size="13" color="#ff4d68" align="center" text="紧急"/>
+      <label id="a2_4" x="630" y="255" w="86" h="17" font="hzfont" font_size="13" color="#ff4d68" align="center" text="未确认"/>
+      <label id="a3_0" x="236" y="289" w="112" h="17" font="hzfont" font_size="13" color="#cfeaf7" align="center" text="09:52:06"/>
+      <label id="a3_1" x="348" y="289" w="96" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="贴标机"/>
+      <label id="a3_2" x="444" y="289" w="128" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="标签偏移"/>
+      <label id="a3_3" x="572" y="289" w="58" h="17" font="hzfont" font_size="13" color="#ffa62b" align="center" text="警告"/>
+      <label id="a3_4" x="630" y="289" w="86" h="17" font="hzfont" font_size="13" color="#2ee6a0" align="center" text="已恢复"/>
+      <label id="a4_0" x="236" y="323" w="112" h="17" font="hzfont" font_size="13" color="#cfeaf7" align="center" text="09:30:11"/>
+      <label id="a4_1" x="348" y="323" w="96" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="贴标机"/>
+      <label id="a4_2" x="444" y="323" w="128" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="标签偏移"/>
+      <label id="a4_3" x="572" y="323" w="58" h="17" font="hzfont" font_size="13" color="#ffa62b" align="center" text="警告"/>
+      <label id="a4_4" x="630" y="323" w="86" h="17" font="hzfont" font_size="13" color="#2ee6a0" align="center" text="已恢复"/>
+      <label id="a5_0" x="236" y="357" w="112" h="17" font="hzfont" font_size="13" color="#cfeaf7" align="center" text="09:30:11"/>
+      <label id="a5_1" x="348" y="357" w="96" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="装箱机"/>
+      <label id="a5_2" x="444" y="357" w="128" h="17" font="hzfont" font_size="13" color="#eaf8ff" align="center" text="光电传感器异常"/>
+      <label id="a5_3" x="572" y="357" w="58" h="17" font="hzfont" font_size="13" color="#4ad8ff" align="center" text="提示"/>
+      <label id="a5_4" x="630" y="357" w="86" h="17" font="hzfont" font_size="13" color="#4ad8ff" align="center" text="已确认"/>
+      <label id="a_dev" x="790" y="104" w="200" h="19" font="hzfont" font_size="14" color="#ffd479" align="left" text="旋盖机"/>
+      <label id="a_code" x="806" y="134" w="200" h="19" font="hzfont" font_size="14" color="#ffd479" align="left" text="CAPP-012"/>
+      <label id="a_hint" x="738" y="352" w="264" h="18" font="hzfont" font_size="12" color="#7ff2ff" align="left" text="共 6 条报警，2 条待处理"/>
+      <image id="btn_ack" x="236" y="428" w="120" h="32" src="al_btn_ack_n" src-pressed="al_btn_ack_p" clickable="true" on-click="on_ack"/>
+      <image id="btn_reset" x="366" y="428" w="120" h="32" src="al_btn_reset_n" src-pressed="al_btn_reset_p" clickable="true" on-click="on_reset"/>
+      <image id="btn_log" x="496" y="428" w="120" h="32" src="al_btn_log_n" src-pressed="al_btn_log_p" clickable="true" on-click="on_export"/>
+      <image id="btn_sound" x="626" y="428" w="150" h="32" src="al_btn_sound_n" src-checked="al_btn_sound_c" clickable="true" on-click="on_sound"/>
+      <image id="btn_popup" x="786" y="428" w="150" h="32" src="al_btn_popup_n" src-checked="al_btn_popup_c" clickable="true" on-click="on_popup"/>
+      <label id="feedback" x="236" y="476" w="500" h="16" font="hzfont" font_size="12" color="#7ff2ff" align="left" text="报警声音已开启"/>
+    </page>
+  </pages>
+</ui>

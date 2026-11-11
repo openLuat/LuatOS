@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>实时数据监控</title>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div class="stage" id="stage" data-page="realtime">
+
+  <!-- ================= 顶部 ================= -->
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div>
+    <div class="hdr-wing r"></div>
+    <div class="hdr-title">实时数据监控 - 饮料灌装生产线</div>
+    <div class="hdr-status" style="left:716px;">
+      <div class="hdr-dot"></div>
+      <div class="hdr-state">运行中</div>
+      <div class="hdr-sep"></div>
+    </div>
+  </div>
+  <div class="plc" data-type="label" data-id="clock" data-fontsize="15" data-color="#cfe9f5"
+       data-align="right" data-text="2025-11-11 10:30:00"
+       style="left:800px;top:15px;width:208px;height:20px;font-size:15px;line-height:1;text-align:right;">2025-11-11 10:30:00</div>
+  <div class="plc btn plain sm" data-type="image" data-id="btn_home" data-states="normal,pressed" data-handler="show_overview"
+       style="left:12px;top:9px;width:90px;height:26px;font-size:13px;">◀ 产线总览</div>
+
+  <!-- ================= 设备 ================= -->
+  <div class="panel" style="left:14px;top:62px;width:222px;height:352px;">
+    <div class="cap">设备</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="li" style="left:22px;top:98px;width:206px;height:29px;"><span class="dot warn"></span><span class="nm">空瓶卸垛机</span><span class="dot on" style="margin-right:60px"></span></div>
+  <div class="li" style="left:22px;top:129px;width:206px;height:29px;"><span class="dot on"></span><span class="nm">洗瓶机</span><span class="dot warn" style="margin-right:60px"></span></div>
+  <div class="li sel" style="left:22px;top:160px;width:206px;height:29px;"><span class="dot on"></span><span class="nm">瓶身检测机</span><span class="dot warn" style="margin-right:60px"></span></div>
+  <div class="li" style="left:22px;top:191px;width:206px;height:29px;"><span class="dot on"></span><span class="nm">灌装机</span><span class="dot on" style="margin-right:60px"></span></div>
+  <div class="li" style="left:22px;top:222px;width:206px;height:29px;"><span class="dot on"></span><span class="nm">旋盖机</span><span class="dot warn" style="margin-right:60px"></span></div>
+  <div class="li" style="left:22px;top:253px;width:206px;height:29px;"><span class="dot on"></span><span class="nm">贴标机</span><span class="dot on" style="margin-right:60px"></span></div>
+  <div class="li" style="left:22px;top:284px;width:206px;height:29px;"><span class="dot warn"></span><span class="nm">喷标机</span><span class="dot warn" style="margin-right:60px"></span></div>
+  <div class="li" style="left:22px;top:315px;width:206px;height:29px;"><span class="dot warn"></span><span class="nm">喷码机</span><span class="dot on" style="margin-right:60px"></span></div>
+  <div class="li" style="left:22px;top:346px;width:206px;height:29px;"><span class="dot on"></span><span class="nm">装箱机</span><span class="dot on" style="margin-right:60px"></span></div>
+  <div class="li" style="left:22px;top:377px;width:206px;height:29px;"><span class="dot warn"></span><span class="nm">码垛机</span><span class="dot on" style="margin-right:60px"></span></div>
+
+  <div class="plc" data-type="label" data-id="dev0" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="2.90" style="left:158px;top:101px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">2.90</div>
+  <div class="plc" data-type="label" data-id="dev1" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="8.30" style="left:158px;top:132px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">8.30</div>
+  <div class="plc" data-type="label" data-id="dev2" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="3.00" style="left:158px;top:163px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">3.00</div>
+  <div class="plc" data-type="label" data-id="dev3" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="1.70" style="left:158px;top:194px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">1.70</div>
+  <div class="plc" data-type="label" data-id="dev4" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="1.50" style="left:158px;top:225px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">1.50</div>
+  <div class="plc" data-type="label" data-id="dev5" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="2.90" style="left:158px;top:256px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">2.90</div>
+  <div class="plc" data-type="label" data-id="dev6" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="1.50" style="left:158px;top:287px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">1.50</div>
+  <div class="plc" data-type="label" data-id="dev7" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="1.20" style="left:158px;top:318px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">1.20</div>
+  <div class="plc" data-type="label" data-id="dev8" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="1.50" style="left:158px;top:349px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">1.50</div>
+  <div class="plc" data-type="label" data-id="dev9" data-fontsize="18" data-color="#ffffff" data-align="right" data-text="1.20" style="left:158px;top:380px;width:58px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;">1.20</div>
+
+  <!-- ================= 实时趋势 ================= -->
+  <div class="panel" style="left:244px;top:62px;width:556px;height:352px;">
+    <div class="cap">实时趋势</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="legend" style="left:596px;top:98px;"><i style="background:#29d8f0"></i>灌装液位</div>
+  <div class="legend" style="left:702px;top:98px;"><i style="background:#2ee6a0"></i>灌装压力</div>
+  <div class="legend" style="left:596px;top:118px;"><i style="background:#ffa62b"></i>输送速度</div>
+  <div class="legend" style="left:702px;top:118px;"><i style="background:#4ad8ff"></i>灌装水温</div>
+
+  <div class="axis-y" style="left:246px;top:96px;width:34px;">120</div>
+  <div class="axis-y" style="left:246px;top:141px;width:34px;">100</div>
+  <div class="axis-y" style="left:246px;top:185px;width:34px;">80</div>
+  <div class="axis-y" style="left:246px;top:230px;width:34px;">60</div>
+  <div class="axis-y" style="left:246px;top:275px;width:34px;">40</div>
+  <div class="axis-y" style="left:246px;top:319px;width:34px;">20</div>
+  <div class="axis-y" style="left:246px;top:364px;width:34px;">0</div>
+
+  <div class="axis-x" style="left:280px;top:378px;width:20px;">0</div>
+  <div class="axis-x" style="left:525px;top:378px;width:20px;">5</div>
+  <div class="axis-x" style="left:762px;top:378px;width:20px;">10</div>
+  <div class="axis-x" style="left:700px;top:396px;width:44px;color:#8fb6c9;">时间</div>
+
+  <div class="plc" data-type="chart" data-id="trend" data-chart="line"
+       data-points="25" data-ymin="0" data-ymax="120" data-hdiv="6" data-vdiv="5"
+       data-series="level:#29d8f0,pressure:#2ee6a0,speed:#ffa62b,temp:#4ad8ff"
+       style="left:286px;top:104px;width:490px;height:268px;"></div>
+
+  <!-- ================= 数字 ================= -->
+  <div class="panel" style="left:812px;top:62px;width:198px;height:352px;">
+    <div class="cap">数字</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <!-- 行 1 -->
+  <div class="gauge" style="left:816px;top:100px;width:76px;height:76px;">
+    <div class="track"></div><div class="ticks"></div><div class="hub"></div>
+    <div class="needle" style="transform:rotate(38deg)"></div>
+  </div>
+  <div class="plc" data-type="label" data-id="gauge_rpm" data-fontsize="17" data-color="#ffffff" data-align="center" data-text="830" style="left:816px;top:128px;width:76px;height:21px;font-size:17px;font-weight:700;line-height:1;text-align:center;">830</div>
+  <div class="tile" style="left:900px;top:100px;width:108px;height:76px;padding:5px 8px;">
+    <div class="k" style="font-size:12px;">灌装机转速</div>
+  </div>
+  <div class="plc" data-type="label" data-id="fill_speed" data-fontsize="14" data-color="#ffffff" data-align="left" data-text="120瓶/分钟" style="left:906px;top:124px;width:96px;height:18px;font-size:14px;font-weight:700;line-height:1;">120瓶/分钟</div>
+  <div class="plc" data-type="label" data-id="fill_temp" data-fontsize="14" data-color="#ffffff" data-align="left" data-text="85℃" style="left:906px;top:144px;width:96px;height:18px;font-size:14px;font-weight:700;line-height:1;">85℃</div>
+
+  <!-- 行 2 -->
+  <div class="gauge" style="left:816px;top:178px;width:76px;height:76px;">
+    <div class="track" style="background:conic-gradient(from 135deg,#18d8ea 0deg,#18d8ea 96deg,#ff9d1f 96deg,#ff9d1f 210deg,rgba(255,255,255,.1) 210deg 270deg);"></div>
+    <div class="ticks"></div><div class="hub"></div>
+    <div class="needle" style="transform:rotate(-24deg)"></div>
+  </div>
+  <div class="plc" data-type="label" data-id="gauge_torque" data-fontsize="16" data-color="#ffffff" data-align="center" data-text="4.2" style="left:816px;top:206px;width:76px;height:20px;font-size:16px;font-weight:700;line-height:1;text-align:center;">4.2</div>
+  <div class="tile" style="left:900px;top:178px;width:108px;height:76px;padding:5px 8px;">
+    <div class="k" style="font-size:12px;">旋盖扭矩</div>
+  </div>
+  <div class="plc" data-type="label" data-id="torque_now" data-fontsize="14" data-color="#ffffff" data-align="left" data-text="4.2N·m" style="left:906px;top:202px;width:96px;height:18px;font-size:14px;font-weight:700;line-height:1;">4.2N·m</div>
+  <div class="plc" data-type="label" data-id="torque_set" data-fontsize="14" data-color="#ffffff" data-align="left" data-text="4.2N·m" style="left:906px;top:222px;width:96px;height:18px;font-size:14px;font-weight:700;line-height:1;">4.2N·m</div>
+
+  <!-- 行 3 -->
+  <div class="gauge" style="left:816px;top:256px;width:76px;height:76px;">
+    <div class="track" style="background:conic-gradient(from 135deg,#18d8ea 0deg,#18d8ea 60deg,#37e3a0 60deg,#37e3a0 176deg,#18d8ea 176deg,#18d8ea 200deg,rgba(255,255,255,.1) 200deg 270deg);"></div>
+    <div class="ticks"></div><div class="hub"></div>
+    <div class="needle" style="transform:rotate(-6deg)"></div>
+  </div>
+  <div class="plc" data-type="label" data-id="gauge_level" data-fontsize="16" data-color="#ffffff" data-align="center" data-text="68%" style="left:816px;top:284px;width:76px;height:20px;font-size:16px;font-weight:700;line-height:1;text-align:center;">68%</div>
+  <div class="tile" style="left:900px;top:256px;width:108px;height:76px;padding:5px 8px;">
+    <div class="k" style="font-size:12px;">原液液位</div>
+  </div>
+  <div class="plc" data-type="label" data-id="raw_level" data-fontsize="20" data-color="#ffffff" data-align="left" data-text="78%" style="left:906px;top:288px;width:96px;height:24px;font-size:20px;font-weight:700;line-height:1;">78%</div>
+
+  <!-- 行 4 -->
+  <div class="gauge" style="left:816px;top:334px;width:76px;height:76px;">
+    <div class="track" style="background:conic-gradient(from 135deg,#3ae6a4 0deg,#3ae6a4 172deg,rgba(255,255,255,.10) 172deg 360deg);"></div>
+    <div class="hub" style="width:6px;height:6px;margin:-3px 0 0 -3px;"></div>
+  </div>
+  <div class="plc" data-type="label" data-id="gauge_cap" data-fontsize="16" data-color="#ffffff" data-align="center" data-text="64%" style="left:816px;top:362px;width:76px;height:20px;font-size:16px;font-weight:700;line-height:1;text-align:center;">64%</div>
+  <div class="tile" style="left:900px;top:334px;width:108px;height:76px;padding:5px 8px;">
+    <div class="k" style="font-size:12px;">标签库存</div>
+  </div>
+  <div class="plc" data-type="label" data-id="label_stock" data-fontsize="20" data-color="#ffffff" data-align="left" data-text="71%" style="left:906px;top:366px;width:96px;height:24px;font-size:20px;font-weight:700;line-height:1;">71%</div>
+
+  <!-- ================= 灌装机现场 ================= -->
+  <div class="panel" style="left:14px;top:420px;width:520px;height:166px;">
+    <div class="cap">灌装机现场</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+  <div class="photo" style="left:26px;top:454px;width:244px;height:120px;background-image:url('img/plant_fill.jpg');"></div>
+  <div class="photo" style="left:282px;top:454px;width:240px;height:120px;background-image:url('img/plant_wash.jpg');"></div>
+
+  <!-- ================= 旋盖机现场 ================= -->
+  <div class="panel" style="left:546px;top:420px;width:464px;height:166px;">
+    <div class="cap">旋盖机现场</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+  <div class="plc" data-type="chart" data-id="mini_trend" data-chart="line"
+       data-points="16" data-ymin="0" data-ymax="100" data-hdiv="4" data-vdiv="0"
+       data-series="cap:#2ee6a0"
+       style="left:558px;top:450px;width:440px;height:80px;"></div>
+
+  <div class="plc btn" data-type="image" data-id="btn_refresh" data-states="normal,pressed" data-handler="on_refresh" style="left:558px;top:536px;width:130px;height:30px;">刷新数据</div>
+  <div class="plc btn plain" data-type="image" data-id="btn_export" data-states="normal,pressed" data-handler="on_export" style="left:700px;top:536px;width:130px;height:30px;">导出曲线</div>
+  <div class="plc btn orange" data-type="image" data-id="btn_ack" data-states="normal,pressed" data-handler="on_alarm_ack" style="left:842px;top:536px;width:130px;height:30px;">报警确认</div>
+
+  <div class="plc" data-type="label" data-id="feedback" data-fontsize="12" data-color="#7ff2ff" data-align="left" data-text="实时采集正常"
+       style="left:558px;top:568px;width:440px;height:16px;font-size:12px;line-height:1;color:#7ff2ff;">实时采集正常</div>
+
+</div>
+</body>
+</html>

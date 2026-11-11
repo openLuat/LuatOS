@@ -41,15 +41,19 @@ static const tp_reg_t tp_regs[] = {
     {"gt9157",  &tp_config_gt9157},
     {"jd9261t",  &tp_config_jd9261t},
 	{"jd9261t_inited",  &tp_config_jd9261t_inited},
-	{"st7232",  &tp_config_st7232},
 	{"ft3x68", &tp_config_ft3x68},
 	{"ft5446", &tp_config_ft3x68},
 	{"ft5x06", &tp_config_ft3x68},
     {"cst816d", &tp_config_cst816d},
     {"cst820", &tp_config_cst820},
     {"cst9220", &tp_config_cst92xx},
+    #if defined(TYPE_EC718PM) || defined(TYPE_EC718HM)
+    #else
+    // 注意, 任何新增TP驱动, 都必须在这个宏的范围内, 移芯模组不再新增任何TP驱动
     {"ns2009", &tp_config_ns2009},
+	{"st7232",  &tp_config_st7232},
     {"st7102", &tp_config_st7102},
+    #endif
     #endif
 #endif
 #ifdef LUAT_USE_TP_PC

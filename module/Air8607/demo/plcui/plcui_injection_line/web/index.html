@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>产线总览 - 注塑产线智能监控</title>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div class="stage page" id="page-ov" data-page="ov">
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div><div class="hdr-wing r"></div>
+    <div class="hdr-title">注塑产线智能监控系统</div>
+    <div class="hdr-status">
+      <div class="hdr-state-chip"><span class="d"></span>产线运行中</div>
+      <div class="plc" data-type="label" data-id="clock" data-fontsize="12" data-color="#8fb6c9" data-align="right"
+           style="left:800px;top:44px;width:200px;height:16px;font-size:12px;line-height:16px;text-align:right;">2026-11-11 08:00:00</div>
+    </div>
+  </div>
+
+  <!-- 产线场景 -->
+  <div class="panel" style="left:8px;top:62px;width:800px;height:492px;">
+    <div class="cap" style="min-width:150px;">产 线 全 景</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="hint" style="right:14px;top:8px;">车间A / 注塑一组 / 三机联动</div>
+    <img src="img/lib/factory.svg" style="position:absolute;right:26px;top:30px;width:170px;height:122px;opacity:.35;">
+
+    <!-- 注塑机 x3 + 机械手 x3 -->
+    <div class="dev running" id="dev-im1" style="left:22px;top:96px;width:236px;height:138px;">
+      <img src="img/lib/inj_machine.svg">
+      <div class="tag">注塑机 1# · <span class="plc" data-type="label" data-id="m1st" data-fontsize="11" data-color="#2ee6a0" data-align="left" style="position:static;font-size:11px;">运行</span></div>
+    </div>
+    <div class="dev" id="dev-rob1" style="left:36px;top:44px;width:82px;height:73px;">
+      <div class="robot-arm"><img src="img/lib/robot.svg"></div>
+    </div>
+    <div class="dev running" id="dev-im2" style="left:282px;top:96px;width:236px;height:138px;">
+      <img src="img/lib/inj_machine.svg">
+      <div class="tag">注塑机 2# · <span class="plc" data-type="label" data-id="m2st" data-fontsize="11" data-color="#2ee6a0" data-align="left" style="position:static;font-size:11px;">运行</span></div>
+    </div>
+    <div class="dev" id="dev-rob2" style="left:296px;top:44px;width:82px;height:73px;">
+      <div class="robot-arm" style="animation-delay:-1.6s;"><img src="img/lib/robot.svg"></div>
+    </div>
+    <div class="dev running" id="dev-im3" style="left:542px;top:96px;width:236px;height:138px;">
+      <img src="img/lib/inj_machine.svg">
+      <div class="tag">注塑机 3# · <span class="plc" data-type="label" data-id="m3st" data-fontsize="11" data-color="#2ee6a0" data-align="left" style="position:static;font-size:11px;">运行</span></div>
+    </div>
+    <div class="dev" id="dev-rob3" style="left:556px;top:44px;width:82px;height:73px;">
+      <div class="robot-arm" style="animation-delay:-3.2s;"><img src="img/lib/robot.svg"></div>
+    </div>
+    <div class="plc" data-type="label" data-id="m1shot" data-fontsize="11" data-color="#9fd7ea" data-align="center"
+         style="left:96px;top:238px;width:110px;height:14px;font-size:11px;line-height:14px;text-align:center;">模次 12450</div>
+    <div class="plc" data-type="label" data-id="m2shot" data-fontsize="11" data-color="#9fd7ea" data-align="center"
+         style="left:356px;top:238px;width:110px;height:14px;font-size:11px;line-height:14px;text-align:center;">模次 11982</div>
+    <div class="plc" data-type="label" data-id="m3shot" data-fontsize="11" data-color="#9fd7ea" data-align="center"
+         style="left:616px;top:238px;width:110px;height:14px;font-size:11px;line-height:14px;text-align:center;">模次 12211</div>
+
+    <!-- 传送带 -->
+    <div class="belt plc" data-type="image" data-id="anim_belt" data-anim="belt"
+         id="belt-main" style="left:22px;top:262px;width:756px;height:36px;">
+      <div class="roller" style="left:6px;"></div>
+      <div class="roller" style="left:732px;"></div>
+      <div class="part"></div><div class="part"></div><div class="part"></div>
+    </div>
+    <div class="plc" data-type="label" data-id="belt_spd" data-fontsize="11" data-color="#6d97ab" data-align="left"
+         style="left:24px;top:302px;width:240px;height:14px;font-size:11px;line-height:14px;">输送带 12.5 m/min · 运行</div>
+    <div class="plc" data-type="label" data-id="belt_cnt" data-fontsize="11" data-color="#6d97ab" data-align="right"
+         style="left:558px;top:302px;width:220px;height:14px;font-size:11px;line-height:14px;text-align:right;">本班入仓 3842 模</div>
+
+    <!-- 辅机区 -->
+    <div class="dev running" id="dev-dryer" style="left:30px;top:340px;width:78px;height:98px;">
+      <img src="img/lib/dryer.svg"><div class="tag">干燥机</div></div>
+    <div class="dev running" id="dev-hopper" style="left:112px;top:352px;width:52px;height:86px;">
+      <img src="img/lib/hopper.svg"><div class="tag">储料</div></div>
+    <div class="plc" data-type="label" data-id="dry_st" data-fontsize="10" data-color="#2ee6a0" data-align="center"
+         style="left:36px;top:440px;width:68px;height:13px;font-size:10px;line-height:13px;text-align:center;">120℃ 运行</div>
+
+    <div class="dev running" id="dev-tower" style="left:190px;top:330px;width:86px;height:108px;">
+      <img src="img/lib/tower.svg"><div class="tag">冷却塔</div></div>
+    <div class="dev running" id="dev-chiller" style="left:288px;top:352px;width:96px;height:86px;">
+      <img src="img/lib/chiller.svg"><div class="tag">冷水机</div></div>
+    <div class="dev running" id="dev-moldtemp" style="left:396px;top:352px;width:96px;height:86px;">
+      <img src="img/lib/moldtemp.svg"><div class="tag">模温机</div></div>
+    <div class="plc" data-type="label" data-id="cool_st" data-fontsize="10" data-color="#2ee6a0" data-align="center"
+         style="left:196px;top:440px;width:290px;height:13px;font-size:10px;line-height:13px;text-align:center;">冷却水 24.6℃ · 模温 45.2℃ · 流量 86 L/min</div>
+
+    <div class="dev running" id="dev-packer" style="left:516px;top:338px;width:88px;height:100px;">
+      <img src="img/lib/packer.svg"><div class="tag">称重包装</div></div>
+    <div class="dev stopped" id="dev-gran" style="left:622px;top:344px;width:76px;height:94px;">
+      <img src="img/lib/granulator.svg"><div class="tag">粉碎机</div></div>
+    <div class="dev" id="dev-recycle" style="left:712px;top:358px;width:52px;height:80px;">
+      <img src="img/lib/recycle.svg"><div class="tag">回用料</div></div>
+    <div class="plc" data-type="label" data-id="pack_st" data-fontsize="10" data-color="#2ee6a0" data-align="center"
+         style="left:520px;top:440px;width:250px;height:13px;font-size:10px;line-height:13px;text-align:center;">包装 25 kg/袋 · 今日 156 袋</div>
+
+    <!-- 物流箭头 -->
+    <img src="img/lib/arrow.svg" style="position:absolute;left:142px;top:246px;width:16px;height:16px;transform:rotate(90deg);">
+    <img src="img/lib/arrow.svg" style="position:absolute;left:402px;top:246px;width:16px;height:16px;transform:rotate(90deg);">
+    <img src="img/lib/arrow.svg" style="position:absolute;left:662px;top:246px;width:16px;height:16px;transform:rotate(90deg);">
+    <img src="img/lib/arrow.svg" style="position:absolute;left:480px;top:370px;width:16px;height:16px;">
+    <img src="img/lib/arrow.svg" style="position:absolute;left:700px;top:330px;width:14px;height:14px;transform:rotate(35deg);">
+    <div class="divider" style="left:22px;top:318px;width:756px;"></div>
+    <div class="hint" style="left:26px;top:462px;">水电气辅机区</div>
+    <div class="hint" style="left:520px;top:462px;">包装与废料回收区</div>
+  </div>
+
+  <!-- KPI 看板 -->
+  <div class="panel" style="left:816px;top:62px;width:200px;height:492px;">
+    <div class="cap" style="min-width:110px;">生 产 看 板</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="kpi" style="left:12px;top:38px;width:176px;height:74px;">
+      <div class="k-t">班次产量（模次）</div>
+      <div class="k-v"><span class="plc" data-type="label" data-id="kpi_out" data-fontsize="26" data-color="#44dcf6" data-align="left" style="position:static;font-size:26px;line-height:32px;">3842</span><span class="u">模</span></div>
+      <div class="k-sub">计划 4200 · 达成 <span class="plc" data-type="label" data-id="kpi_rate" data-fontsize="11" data-color="#6d97ab" data-align="left" style="position:static;font-size:11px;">91.5%</span></div>
+    </div>
+    <div class="kpi" style="left:12px;top:120px;width:84px;height:74px;">
+      <div class="k-t">良率</div>
+      <div class="k-v" style="font-size:22px;"><span class="plc" data-type="label" data-id="kpi_yield" data-fontsize="22" data-color="#2ee6a0" data-align="left" style="position:static;font-size:22px;line-height:28px;">99.2</span><span class="u">%</span></div>
+      <div class="k-sub">不良 30 模</div>
+    </div>
+    <div class="kpi" style="left:104px;top:120px;width:84px;height:74px;">
+      <div class="k-t">OEE</div>
+      <div class="k-v" style="font-size:22px;"><span class="plc" data-type="label" data-id="kpi_oee" data-fontsize="22" data-color="#44dcf6" data-align="left" style="position:static;font-size:22px;line-height:28px;">87.5</span><span class="u">%</span></div>
+      <div class="k-sub">开动率 92%</div>
+    </div>
+    <div class="kpi" style="left:12px;top:202px;width:176px;height:62px;">
+      <div class="k-t">平均节拍</div>
+      <div class="k-v" style="font-size:22px;"><span class="plc" data-type="label" data-id="kpi_cyc" data-fontsize="22" data-color="#44dcf6" data-align="left" style="position:static;font-size:22px;line-height:28px;">32.5</span><span class="u">s/模</span></div>
+      <div class="k-sub">目标 30.0 s/模</div>
+    </div>
+    <div class="divider" style="left:12px;top:276px;width:176px;"></div>
+    <div class="hint" style="left:14px;top:284px;">机台状态</div>
+    <div class="plc" data-type="label" data-id="st_m1" data-fontsize="12" data-color="#cfe9f5" data-align="left"
+         style="left:14px;top:302px;width:176px;height:18px;font-size:12px;line-height:18px;">1# 运行 · 215℃ · 自动</div>
+    <div class="plc" data-type="label" data-id="st_m2" data-fontsize="12" data-color="#cfe9f5" data-align="left"
+         style="left:14px;top:324px;width:176px;height:18px;font-size:12px;line-height:18px;">2# 运行 · 218℃ · 自动</div>
+    <div class="plc" data-type="label" data-id="st_m3" data-fontsize="12" data-color="#cfe9f5" data-align="left"
+         style="left:14px;top:346px;width:176px;height:18px;font-size:12px;line-height:18px;">3# 运行 · 212℃ · 自动</div>
+    <div class="divider" style="left:12px;top:372px;width:176px;"></div>
+    <div class="hint" style="left:14px;top:380px;">报警动态</div>
+    <div class="alarm-bar lv2" id="ov-alarm" style="left:12px;top:398px;width:176px;height:34px;">
+      <img class="ic" src="img/lib/attention.svg" style="width:16px;height:16px;">
+      <span class="plc" data-type="label" data-id="al_txt" data-fontsize="11" data-color="#ffc98a" data-align="left"
+            style="position:static;font-size:11px;flex:1;">2# 料温偏高 2℃</span>
+    </div>
+    <div class="hint" style="left:14px;top:438px;">报警 <span class="plc" data-type="label" data-id="al_cnt" data-fontsize="11" data-color="#ffd23e" data-align="left" style="position:static;font-size:11px;">2</span> 条 · 待处理</div>
+    <div class="hint" style="left:14px;top:456px;">当班 甲班 · 班长 王工</div>
+    <div class="hint" style="left:14px;top:474px;">工单 MO-261111-03 · PP 件重 286 g</div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script>PLC.page("ov");</script>
+</body>
+</html>

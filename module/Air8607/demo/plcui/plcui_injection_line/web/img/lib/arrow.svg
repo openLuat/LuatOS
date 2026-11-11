@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48.242 66.473" width="48.242px" height="66.473px" data-name="简单 箭头-绿色" data-category="arrow" data-subject="简单 箭头" data-state="normal" data-color="green" data-role="flow-arrow" data-group="Arrow(color)" data-original="Simple arrow.svg" data-size="48.2x66.5" data-theme="light">
+<title>简单 箭头-绿色</title><desc>简单 箭头-绿色，当前状态为「常态」。主色绿色。归属彩色箭头。建议用途：流向箭头。画布 48.2×66.5。</desc><g><linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="24.621" y1="65.946" x2="24.621" y2="3.083"><stop offset="0" stop-color="#81C03D"/><stop offset="0.533" stop-color="#75BA2A"/><stop offset="0.538" stop-color="#8FC653"/><stop offset="1" stop-color="#ADD480"/></linearGradient><polygon data-part="主体" data-material="asis" data-shade="flat" fill="url(#SVGID_1_)" points="21.137,0 0.5,0 27.823,33.193 27.994,33.384 0.747,66.473 21.429,66.473 48.742,33.261  "/></g>
+</svg>

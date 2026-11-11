@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 160" width="180" height="160" baseProfile="tiny"
+     data-name="桁架机械手 1" data-category="robot" data-subject="gantry-robot"
+     data-state="常态" data-color="灰色" data-role="取件机械手">
+  <title>桁架机械手</title>
+  <desc>龙门桁架机械手：横梁+滑车+升降臂+真空吸盘夹具，用于注塑件取出与摆放。</desc>
+  <defs>
+    <linearGradient id="rb-beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9fc4d4"/><stop offset=".5" stop-color="#5b7c8e"/><stop offset="1" stop-color="#33505f"/>
+    </linearGradient>
+    <linearGradient id="rb-arm" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7fa9bd"/><stop offset="1" stop-color="#41606f"/>
+    </linearGradient>
+    <linearGradient id="rb-orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc06b"/><stop offset="1" stop-color="#e07f16"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 立柱 -->
+  <g data-part="立柱" data-material="steel" data-shade="flat">
+    <rect x="10" y="18" width="14" height="128" rx="3" fill="url(#rb-beam)" stroke="#5f93a8" stroke-width="1.2"/>
+    <rect x="142" y="18" width="14" height="128" rx="3" fill="url(#rb-beam)" stroke="#5f93a8" stroke-width="1.2"/>
+    <rect x="6" y="140" width="22" height="10" rx="2" fill="#2b404d"/>
+    <rect x="138" y="140" width="22" height="10" rx="2" fill="#2b404d"/>
+    <rect x="14" y="26" width="6" height="112" fill="#c9e6f2" opacity=".35"/>
+    <rect x="146" y="26" width="6" height="112" fill="#c9e6f2" opacity=".35"/>
+  </g>
+
+  <!-- 横梁（带齿条） -->
+  <g data-part="横梁" data-material="steel" data-shade="flat">
+    <rect x="8" y="14" width="150" height="22" rx="4" fill="url(#rb-beam)" stroke="#5f93a8" stroke-width="1.2"/>
+    <rect x="14" y="30" width="138" height="5" rx="2.5" fill="#223945" opacity=".7"/>
+    <g fill="#223945" opacity=".55">
+      <rect x="20" y="30" width="3" height="5"/><rect x="32" y="30" width="3" height="5"/>
+      <rect x="44" y="30" width="3" height="5"/><rect x="56" y="30" width="3" height="5"/>
+      <rect x="68" y="30" width="3" height="5"/><rect x="80" y="30" width="3" height="5"/>
+      <rect x="92" y="30" width="3" height="5"/><rect x="104" y="30" width="3" height="5"/>
+      <rect x="116" y="30" width="3" height="5"/><rect x="128" y="30" width="3" height="5"/>
+      <rect x="140" y="30" width="3" height="5"/>
+    </g>
+  </g>
+
+  <!-- 滑车 -->
+  <g data-part="滑车" data-material="steel" data-shade="flat">
+    <rect x="70" y="18" width="44" height="30" rx="4" fill="url(#rb-orange)" stroke="#a86a12" stroke-width="1.2"/>
+    <rect x="78" y="24" width="28" height="8" rx="2" fill="#fff" opacity=".3"/>
+    <circle cx="80" cy="52" r="4" fill="#2b404d"/><circle cx="104" cy="52" r="4" fill="#2b404d"/>
+  </g>
+
+  <!-- 升降臂 -->
+  <g data-part="升降臂" data-material="steel" data-shade="flat">
+    <rect x="82" y="46" width="20" height="62" rx="3" fill="url(#rb-arm)" stroke="#5f93a8" stroke-width="1.1"/>
+    <rect x="87" y="52" width="4" height="50" fill="#c9e6f2" opacity=".4"/>
+    <!-- 侧置气管 -->
+    <rect x="104" y="52" width="5" height="52" rx="2.5" fill="#2b404d"/>
+  </g>
+
+  <!-- 夹具横梁 -->
+  <g data-part="夹具" data-material="steel" data-shade="flat">
+    <rect x="52" y="106" width="80" height="12" rx="3" fill="url(#rb-orange)" stroke="#a86a12" stroke-width="1.1"/>
+    <!-- 吸盘 x3 -->
+    <g>
+      <rect x="62" y="118" width="8" height="14" fill="#41606f"/>
+      <path d="M56 132 L76 132 L72 142 L60 142 Z" fill="#2b404d" stroke="#5f93a8" stroke-width="1"/>
+      <rect x="88" y="118" width="8" height="14" fill="#41606f"/>
+      <path d="M82 132 L102 132 L98 142 L86 142 Z" fill="#2b404d" stroke="#5f93a8" stroke-width="1"/>
+      <rect x="114" y="118" width="8" height="14" fill="#41606f"/>
+      <path d="M108 132 L128 132 L124 142 L112 142 Z" fill="#2b404d" stroke="#5f93a8" stroke-width="1"/>
+    </g>
+    <!-- 状态灯 -->
+    <circle cx="66" cy="112" r="3" fill="#2ee6a0"/>
+  </g>
+</svg>

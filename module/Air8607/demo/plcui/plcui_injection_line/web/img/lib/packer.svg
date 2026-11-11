@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" width="120" height="140" baseProfile="tiny"
+     data-name="称重包装机 1" data-category="packer" data-subject="weigh-packer"
+     data-state="常态" data-color="灰色" data-role="称重包装">
+  <title>称重包装机</title>
+  <desc>自动称重包装：储料斗+称重斗+称重仪表+出袋口+纸箱。</desc>
+  <defs>
+    <linearGradient id="pk-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9fc4d4"/><stop offset=".5" stop-color="#5b7c8e"/><stop offset="1" stop-color="#33505f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 储料斗 -->
+  <g data-part="储料斗" data-material="steel" data-shade="cylinder">
+    <path d="M20 10 L100 10 L88 44 L32 44 Z" fill="url(#pk-body)" stroke="#5f93a8" stroke-width="1.3"/>
+    <rect x="16" y="4" width="88" height="8" rx="3" fill="#7fa9bd" stroke="#416779" stroke-width="1"/>
+  </g>
+
+  <!-- 称重斗 -->
+  <g data-part="称重斗" data-material="steel" data-shade="cylinder">
+    <path d="M34 48 L86 48 L78 82 L42 82 Z" fill="#41606f" stroke="#78bed7" stroke-width="1.2"/>
+    <!-- 称重传感器 -->
+    <rect x="28" y="44" width="10" height="8" rx="2" fill="#e8b64c" stroke="#a8842a" stroke-width="1"/>
+    <rect x="82" y="44" width="10" height="8" rx="2" fill="#e8b64c" stroke="#a8842a" stroke-width="1"/>
+  </g>
+
+  <!-- 称重仪表 -->
+  <g data-part="仪表" data-material="plastic" data-shade="flat">
+    <rect x="42" y="88" width="36" height="24" rx="3" fill="#16323e" stroke="#5f93a8" stroke-width="1.1"/>
+    <rect x="47" y="93" width="26" height="10" rx="1.5" fill="#0c222c"/>
+    <text x="60" y="101.5" font-family="monospace" font-size="8" fill="#2ee6a0" text-anchor="middle">25.0</text>
+    <circle cx="50" cy="108" r="2" fill="#2ee6a0"/><circle cx="58" cy="108" r="2" fill="#ffa62b"/>
+  </g>
+
+  <!-- 出袋口与纸箱 -->
+  <g data-part="包装" data-material="cardboard" data-shade="flat">
+    <rect x="50" y="112" width="20" height="8" fill="#41606f"/>
+    <rect x="36" y="120" width="48" height="18" rx="2" fill="#c98a3d" stroke="#8f6224" stroke-width="1.1"/>
+    <line x1="60" y1="120" x2="60" y2="138" stroke="#8f6224" stroke-width="1.2"/>
+    <rect x="52" y="118" width="16" height="5" rx="1" fill="#e8b64c"/>
+  </g>
+</svg>

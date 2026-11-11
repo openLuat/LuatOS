@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>产线控制 - 注塑产线智能监控</title>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div class="stage page" id="page-ctl" data-page="ctl">
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div><div class="hdr-wing r"></div>
+    <div class="hdr-title">产 线 控 制 台</div>
+    <div class="hdr-status">
+      <div class="hdr-state-chip"><span class="d"></span>权限：工程师</div>
+      <div class="plc" data-type="label" data-id="clock" data-fontsize="12" data-color="#8fb6c9" data-align="right"
+           style="left:800px;top:44px;width:200px;height:16px;font-size:12px;line-height:16px;text-align:right;">2026-11-11 08:00:00</div>
+    </div>
+  </div>
+
+  <!-- 左：运行控制 -->
+  <div class="panel" style="left:8px;top:62px;width:286px;height:492px;">
+    <div class="cap" style="min-width:110px;">运 行 控 制</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="btn green plc" data-type="image" data-id="btn_start" data-states="normal,pressed" data-handler="run_start"
+         style="left:18px;top:42px;width:120px;height:64px;font-size:18px;">启 动</div>
+    <div class="btn red plc" data-type="image" data-id="btn_stop" data-states="normal,pressed" data-handler="run_stop"
+         style="left:148px;top:42px;width:120px;height:64px;font-size:18px;">停 止</div>
+    <div class="btn warn plc" data-type="image" data-id="btn_pause" data-states="normal,pressed" data-handler="run_pause"
+         style="left:18px;top:118px;width:120px;height:64px;font-size:18px;">暂 停</div>
+    <div class="btn plc" data-type="image" data-id="btn_reset" data-states="normal,pressed" data-handler="run_reset"
+         style="left:148px;top:118px;width:120px;height:64px;font-size:18px;">复 位</div>
+    <div class="divider" style="left:18px;top:196px;width:250px;"></div>
+    <div class="hint" style="left:20px;top:206px;">运行模式</div>
+    <div class="btn on plc" data-type="image" data-id="mode_auto" data-states="normal,checked" data-handler="mode_auto"
+         style="left:18px;top:226px;width:78px;height:40px;">自动</div>
+    <div class="btn plc" data-type="image" data-id="mode_semi" data-states="normal,checked" data-handler="mode_semi"
+         style="left:104px;top:226px;width:78px;height:40px;">半自动</div>
+    <div class="btn plc" data-type="image" data-id="mode_man" data-states="normal,checked" data-handler="mode_man"
+         style="left:190px;top:226px;width:78px;height:40px;">手动</div>
+    <div class="divider" style="left:18px;top:280px;width:250px;"></div>
+    <div class="hint" style="left:20px;top:290px;">安全状态</div>
+    <div class="plc" data-type="label" data-id="st_estop" data-fontsize="13" data-color="#2ee6a0" data-align="left"
+         style="left:20px;top:310px;width:248px;height:18px;font-size:13px;line-height:18px;">急停回路：正常</div>
+    <div class="plc" data-type="label" data-id="st_door" data-fontsize="13" data-color="#2ee6a0" data-align="left"
+         style="left:20px;top:332px;width:248px;height:18px;font-size:13px;line-height:18px;">安全门：全部关闭</div>
+    <div class="plc" data-type="label" data-id="st_guard" data-fontsize="13" data-color="#2ee6a0" data-align="left"
+         style="left:20px;top:354px;width:248px;height:18px;font-size:13px;line-height:18px;">光栅/联锁：正常</div>
+    <div class="plc" data-type="label" data-id="st_lube" data-fontsize="13" data-color="#2ee6a0" data-align="left"
+         style="left:20px;top:376px;width:248px;height:18px;font-size:13px;line-height:18px;">润滑油压：0.32 MPa</div>
+    <div class="divider" style="left:18px;top:402px;width:250px;"></div>
+    <div class="hint" style="left:20px;top:412px;">手动点动（长按 0.5 s · 仅手动模式）</div>
+    <div class="btn plc" data-type="image" data-id="jog_open" data-states="normal,pressed" data-handler="jog_open"
+         style="left:18px;top:432px;width:78px;height:34px;font-size:13px;">开模</div>
+    <div class="btn plc" data-type="image" data-id="jog_close" data-states="normal,pressed" data-handler="jog_close"
+         style="left:104px;top:432px;width:78px;height:34px;font-size:13px;">合模</div>
+    <div class="btn plc" data-type="image" data-id="jog_eject" data-states="normal,pressed" data-handler="jog_eject"
+         style="left:190px;top:432px;width:78px;height:34px;font-size:13px;">顶出</div>
+    <div class="btn plc" data-type="image" data-id="jog_inj" data-states="normal,pressed" data-handler="jog_inj"
+         style="left:18px;top:472px;width:78px;height:34px;font-size:13px;">注射</div>
+    <div class="btn plc" data-type="image" data-id="jog_feed" data-states="normal,pressed" data-handler="jog_feed"
+         style="left:104px;top:472px;width:78px;height:34px;font-size:13px;">加料</div>
+    <div class="btn plc" data-type="image" data-id="jog_rob" data-states="normal,pressed" data-handler="jog_rob"
+         style="left:190px;top:472px;width:78px;height:34px;font-size:13px;">取件</div>
+    <div class="hint" style="left:20px;top:516px;">当前：2# 机选中 · 点动作用于选中机台</div>
+    <div class="hint" style="left:20px;top:534px;">操作记录将写入生产日志</div>
+  </div>
+  <!-- 中：单机控制 -->
+  <div class="panel" style="left:302px;top:62px;width:360px;height:492px;">
+    <div class="cap" style="min-width:110px;">单 机 控 制</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <table class="tb" style="left:12px;top:40px;width:336px;">
+      <tr><th style="width:112px;">设备</th><th style="width:60px;">状态</th><th style="width:70px;">操作</th><th>备注</th></tr>
+      <tr><td>注塑机 1#</td><td class="st-g">运行</td><td class="st-y" style="cursor:pointer;" data-sw="im1">停止</td><td>自动 · 32.5 s</td></tr>
+      <tr class="alt"><td>注塑机 2#</td><td class="st-g">运行</td><td class="st-y" style="cursor:pointer;" data-sw="im2">停止</td><td>自动 · 31.8 s</td></tr>
+      <tr><td>注塑机 3#</td><td class="st-g">运行</td><td class="st-y" style="cursor:pointer;" data-sw="im3">停止</td><td>自动 · 33.1 s</td></tr>
+      <tr class="alt"><td>机械手 x3</td><td class="st-g">运行</td><td class="st-y" style="cursor:pointer;" data-sw="rob">停止</td><td>取件排列</td></tr>
+      <tr><td>输送带</td><td class="st-g">运行</td><td class="st-y" style="cursor:pointer;" data-sw="belt">停止</td><td>12.5 m/min</td></tr>
+      <tr class="alt"><td>干燥机</td><td class="st-g">运行</td><td class="st-y" style="cursor:pointer;" data-sw="dryer">停止</td><td>120℃</td></tr>
+      <tr><td>冷水机组</td><td class="st-g">运行</td><td class="st-y" style="cursor:pointer;" data-sw="chiller">停止</td><td>24.6℃</td></tr>
+      <tr class="alt"><td>模温机</td><td class="st-g">运行</td><td class="st-y" style="cursor:pointer;" data-sw="moldtemp">停止</td><td>45.2℃</td></tr>
+      <tr><td>称重包装</td><td class="st-g">运行</td><td class="st-y" style="cursor:pointer;" data-sw="packer">停止</td><td>25 kg/袋</td></tr>
+      <tr class="alt"><td>粉碎机</td><td class="st-r">待机</td><td class="st-g" style="cursor:pointer;" data-sw="gran">启动</td><td>废料回用</td></tr>
+    </table>
+    <div class="hint" style="left:14px;top:378px;">联动：主机停 → 机械手保持原位 → 输送带延时 30 s 停</div>
+    <div class="divider" style="left:12px;top:398px;width:336px;"></div>
+    <div class="hint" style="left:14px;top:408px;">班次与数据</div>
+    <div class="btn plc" data-type="image" data-id="btn_clear" data-states="normal,pressed" data-handler="shift_clear"
+         style="left:12px;top:428px;width:100px;height:36px;font-size:13px;">班次清零</div>
+    <div class="btn plc" data-type="image" data-id="btn_shift" data-states="normal,pressed" data-handler="shift_change"
+         style="left:122px;top:428px;width:100px;height:36px;font-size:13px;">交接班</div>
+    <div class="btn plc" data-type="image" data-id="btn_hisav" data-states="normal,pressed" data-handler="his_save"
+         style="left:232px;top:428px;width:100px;height:36px;font-size:13px;">保存记录</div>
+    <div class="hint" style="left:14px;top:474px;">当前班次：甲班 08:00-16:00 · 已运行 3 h 12 min</div>
+    <div class="hint" style="left:14px;top:492px;">班次产量 3842 模 · 计划 4200 模</div>
+    <div class="hint" style="left:14px;top:510px;">上次操作：08:02 2# 机启动（王工）</div>
+    <div class="hint" style="left:14px;top:528px;">互锁状态：满足 · 可全线启动</div>
+  </div>
+  <!-- 右：输出监控 -->
+  <div class="panel" style="left:670px;top:62px;width:346px;height:492px;">
+    <div class="cap" style="min-width:110px;">输 出 监 控</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="hint" style="left:14px;top:38px;">动作输出（DO 指示）</div>
+    <div style="position:absolute;left:14px;top:58px;width:318px;display:flex;flex-wrap:wrap;gap:8px;">
+      <div class="kpi" style="position:static;width:100px;height:46px;padding:4px 8px;"><div class="k-t" style="font-size:11px;">合模阀</div><div style="font-size:13px;"><span class="lamp g"></span>输出 ON</div></div>
+      <div class="kpi" style="position:static;width:100px;height:46px;padding:4px 8px;"><div class="k-t" style="font-size:11px;">注射阀</div><div style="font-size:13px;"><span class="lamp g"></span>输出 ON</div></div>
+      <div class="kpi" style="position:static;width:100px;height:46px;padding:4px 8px;"><div class="k-t" style="font-size:11px;">保压阀</div><div style="font-size:13px;"><span class="lamp off"></span>输出 OFF</div></div>
+      <div class="kpi" style="position:static;width:100px;height:46px;padding:4px 8px;"><div class="k-t" style="font-size:11px;">顶出阀</div><div style="font-size:13px;"><span class="lamp off"></span>输出 OFF</div></div>
+      <div class="kpi" style="position:static;width:100px;height:46px;padding:4px 8px;"><div class="k-t" style="font-size:11px;">料筒加热</div><div style="font-size:13px;"><span class="lamp g blink"></span>PWM 62%</div></div>
+      <div class="kpi" style="position:static;width:100px;height:46px;padding:4px 8px;"><div class="k-t" style="font-size:11px;">模温加热</div><div style="font-size:13px;"><span class="lamp g"></span>输出 ON</div></div>
+    </div>
+    <div class="divider" style="left:12px;top:172px;width:322px;"></div>
+    <div class="hint" style="left:14px;top:182px;">模拟量输出（AO）</div>
+    <div class="hint" style="left:14px;top:204px;">螺杆转速</div>
+    <div class="bar" style="left:100px;top:204px;width:170px;"><div class="fill g" id="bar-ao1" style="width:62%;"></div></div>
+    <div class="plc" data-type="label" data-id="ao1" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:278px;top:203px;width:54px;height:18px;font-size:12px;line-height:18px;text-align:right;">125</div>
+    <div class="hint" style="left:14px;top:230px;">背压设定</div>
+    <div class="bar" style="left:100px;top:230px;width:170px;"><div class="fill o" id="bar-ao2" style="width:25%;"></div></div>
+    <div class="plc" data-type="label" data-id="ao2" data-fontsize="12" data-color="#ffa62b" data-align="right" style="left:278px;top:229px;width:54px;height:18px;font-size:12px;line-height:18px;text-align:right;">12.5</div>
+    <div class="hint" style="left:14px;top:256px;">开合模速度</div>
+    <div class="bar" style="left:100px;top:256px;width:170px;"><div class="fill g" id="bar-ao3" style="width:70%;"></div></div>
+    <div class="plc" data-type="label" data-id="ao3" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:278px;top:255px;width:54px;height:18px;font-size:12px;line-height:18px;text-align:right;">70%</div>
+    <div class="hint" style="left:14px;top:282px;">机械手速度</div>
+    <div class="bar" style="left:100px;top:282px;width:170px;"><div class="fill g" id="bar-ao4" style="width:55%;"></div></div>
+    <div class="plc" data-type="label" data-id="ao4" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:278px;top:281px;width:54px;height:18px;font-size:12px;line-height:18px;text-align:right;">55%</div>
+    <div class="divider" style="left:12px;top:310px;width:322px;"></div>
+    <div class="hint" style="left:14px;top:320px;">故障诊断</div>
+    <div class="plc" data-type="label" data-id="diag1" data-fontsize="12" data-color="#2ee6a0" data-align="left"
+         style="left:14px;top:340px;width:318px;height:18px;font-size:12px;line-height:18px;">驱动器通讯：正常（3/3）</div>
+    <div class="plc" data-type="label" data-id="diag2" data-fontsize="12" data-color="#2ee6a0" data-align="left"
+         style="left:14px;top:362px;width:318px;height:18px;font-size:12px;line-height:18px;">温控模块：正常（6/6）</div>
+    <div class="plc" data-type="label" data-id="diag3" data-fontsize="12" data-color="#2ee6a0" data-align="left"
+         style="left:14px;top:384px;width:318px;height:18px;font-size:12px;line-height:18px;">阀岛反馈：正常（8/8）</div>
+    <div class="plc" data-type="label" data-id="diag4" data-fontsize="12" data-color="#ffd23e" data-align="left"
+         style="left:14px;top:406px;width:318px;height:18px;font-size:12px;line-height:18px;">模温偏差：2# 机 +2℃（关注）</div>
+    <div class="divider" style="left:12px;top:434px;width:322px;"></div>
+    <div class="btn warn plc" data-type="image" data-id="btn_alarmack" data-states="normal,pressed" data-handler="alarm_ack"
+         style="left:14px;top:448px;width:150px;height:42px;font-size:15px;">报警确认</div>
+    <div class="btn plc" data-type="image" data-id="btn_hist" data-states="normal,pressed" data-handler="go_rc"
+         style="left:182px;top:448px;width:150px;height:42px;font-size:15px;">历史记录</div>
+    <div class="hint" style="left:14px;top:500px;">确认需长按 2 s · 报警须消除根因后复位</div>
+    <div class="hint" style="left:14px;top:522px;">PLC 扫描周期 8 ms · HMI 通讯 100 ms</div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script>PLC.page("ctl");</script>
+</body>
+</html>

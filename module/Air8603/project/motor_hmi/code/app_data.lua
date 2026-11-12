@@ -21,6 +21,7 @@ M.online = false       -- 是否至少有一台在线
 M.ok_count = 0         -- 累计成功帧数
 M.err_count = 0        -- 累计失败帧数
 M.last_err = ""
+M.forced = nil         -- 调试用强制故障码，nil = 跟随真实值
 
 local cfg = conf.motors
 
@@ -60,7 +61,7 @@ local function apply(i, regs)
     local d = M.motors[i]
     local st = regs[2]
 
-    d.fault     = regs[1] or 0
+    d.fault     = M.forced or regs[1] or 0
     d.running   = ((st >> conf.st.run_bit) & 1) == 1
     d.fwd       = ((st >> conf.st.fwd_bit) & 1) == 1
     d.rev       = ((st >> conf.st.rev_bit) & 1) == 1
@@ -143,6 +144,19 @@ end
 ]]
 function M.get(i)
     return M.motors[i]
+end
+
+--[[
+调试用：强制指定故障码，模拟报警（传 0 或 nil 清除）
+@param code number|nil
+@return nil
+]]
+function M.force_fault(code)
+    if code == nil or code == 0 then
+        M.forced = nil
+    else
+        M.forced = code
+    end
 end
 
 --[[

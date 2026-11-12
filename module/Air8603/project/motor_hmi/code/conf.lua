@@ -68,7 +68,6 @@ conf.board = {
         h        = 600,
     },
     backlight = { pwm_ch = 3, pwm_freq = 1000, level = 100 },
-    font = { size = 18, cache_size = 4096, antialias = 1 },
     wdt_pin = 57,        -- Air153D 外部看门狗，不喂狗约 12 分钟重启
 }
 

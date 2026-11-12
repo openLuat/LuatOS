@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  电机 HMI 布局（plcui）
+  画布 1024x600，由 design/index.html 原型导出。
+  修改坐标时请同步改 design/index.html，原型是唯一事实来源。
+
+  文字行高约定：label 的 h = font_size + 3，y 按垂直居中反算。
+-->
+<ui version="0.1" width="1024" height="600" entry="main">
+
+  <resources>
+    <font  id="cn" builtin="hzfont"/>
+
+    <image id="img_chain"      src="chain.png"/>
+    <image id="img_start"      src="btn_start.png"/>
+    <image id="img_start_p"    src="btn_start_p.png"/>
+    <image id="img_stop"       src="btn_stop.png"/>
+    <image id="img_stop_p"     src="btn_stop_p.png"/>
+    <image id="img_estop"      src="btn_estop.png"/>
+    <image id="img_estop_p"    src="btn_estop_p.png"/>
+    <image id="img_nav_n"      src="nav_n.png"/>
+    <image id="img_nav_s"      src="nav_s.png"/>
+    <image id="img_sm_n"       src="sm_n.png"/>
+    <image id="img_sm_s"       src="sm_s.png"/>
+    <image id="img_bt_n"       src="bt_n.png"/>
+    <image id="img_bt_p"       src="bt_p.png"/>
+    <image id="img_bt_s"       src="bt_s.png"/>
+    <image id="img_dot_g"      src="dot_g.png"/>
+    <image id="img_dot_r"      src="dot_r.png"/>
+    <image id="img_pill_ok"    src="pill_ok.png"/>
+    <image id="img_pill_off"   src="pill_off.png"/>
+    <image id="img_pill_err"   src="pill_err.png"/>
+  </resources>
+
+  <pages>
+
+    <!-- ==================== 监控页 ==================== -->
+    <page id="main" background="#0b1620">
+
+      <!-- 顶栏 -->
+      <container id="hdr"     x="0"  y="0"  w="1024" h="44" background="#0f2233"/>
+      <container id="hdrline" x="0"  y="44" w="1024" h="1"  background="#24465c"/>
+
+      <label id="ttl"  x="16"  y="10" w="150" h="23" text="电机监控"
+             font="cn" font_size="20" color="#e6f4fa" align="left"/>
+      <label id="sub"  x="168" y="13" w="200" h="15" text="VFD-M / Modbus RTU"
+             font="cn" font_size="12" color="#56788f" align="left"/>
+
+      <image id="dot" x="372" y="17" w="10" h="10" src="img_dot_g"/>
+      <label id="onlineOk"  x="390" y="13" w="52" h="17" text="在线"
+             font="cn" font_size="14" color="#3ddc97" align="left"/>
+      <label id="onlineBad" x="390" y="13" w="52" h="17" text="离线"
+             font="cn" font_size="14" color="#ff5a5f" align="left" hidden="true"/>
+      <label id="runTxt" x="450" y="13" w="120" h="17" text="运行 0/1 台"
+             font="cn" font_size="14" color="#7ba1b8" align="left"/>
+      <label id="estopTxt" x="580" y="13" w="96" h="17" text="急停锁存"
+             font="cn" font_size="14" color="#ff5a5f" align="left" hidden="true"/>
+      <label id="clock" x="820" y="13" w="90" h="17" text="--:--:--"
+             font="cn" font_size="14" color="#7ba1b8" align="right"/>
+
+      <image id="hdrAlarm" x="932" y="8" w="76" h="28"
+             src="img_sm_n" src-pressed="img_sm_s"
+             clickable="true" on-click="nav_alarm"/>
+      <label id="hdrAlarmT" x="932" y="14" w="76" h="16" text="报警"
+             font="cn" font_size="13" color="#e6f4fa" align="center"/>
+
+      <!-- 左卡 -->
+      <container id="card1" x="12" y="50" w="596" h="440"
+                 background="#152c3f" radius="8" border-width="1" border-color="#24465c"/>
+
+      <label id="motorName" x="32" y="64" w="240" h="25" text="1 号电机"
+             font="cn" font_size="22" color="#e6f4fa" align="left"/>
+      <label id="motorSpec" x="32" y="96" w="320" h="16" text="YS562-2 / 0.12kW / B14"
+             font="cn" font_size="13" color="#7ba1b8" align="left"/>
+      <label id="motorSta"  x="412" y="66" w="176" h="16" text="站号 1"
+             font="cn" font_size="13" color="#7ba1b8" align="right"/>
+
+      <image id="chain" x="36" y="150" w="244" h="91" src="img_chain"/>
+      <label id="vfdNum" x="46" y="167" w="44" h="15" text="F50.0"
+             font="cn" font_size="12" color="#ff3b2f" align="center"/>
+
+      <image id="pill" x="36" y="274" w="170" h="28" src="img_pill_ok"/>
+
+      <label id="lCmd"  x="302" y="78"  w="110" h="16" text="频率指令"
+             font="cn" font_size="13" color="#7ba1b8" align="left"/>
+      <label id="vCmd"  x="414" y="74"  w="154" h="24" text="50.00 Hz"
+             font="cn" font_size="20" color="#e6f4fa" align="left"/>
+
+      <label id="lCur"  x="302" y="116" w="110" h="16" text="输出电流"
+             font="cn" font_size="13" color="#7ba1b8" align="left"/>
+      <label id="vCur"  x="414" y="112" w="154" h="24" text="0.0 A"
+             font="cn" font_size="20" color="#e6f4fa" align="left"/>
+
+      <label id="lFlt"  x="302" y="154" w="110" h="16" text="故障状态"
+             font="cn" font_size="13" color="#7ba1b8" align="left"/>
+      <label id="vFltOk"  x="414" y="150" w="174" h="24" text="正常"
+             font="cn" font_size="20" color="#3ddc97" align="left"/>
+      <label id="vFltBad" x="414" y="150" w="174" h="24" text=""
+             font="cn" font_size="20" color="#ff5a5f" align="left" hidden="true"/>
+
+      <label id="lCom"  x="302" y="192" w="110" h="16" text="通讯状态"
+             font="cn" font_size="13" color="#7ba1b8" align="left"/>
+      <label id="vComOk"  x="414" y="188" w="174" h="24" text="正常"
+             font="cn" font_size="20" color="#e6f4fa" align="left"/>
+      <label id="vComBad" x="414" y="188" w="174" h="24" text="中断"
+             font="cn" font_size="20" color="#ff5a5f" align="left" hidden="true"/>
+
+      <container id="cardline" x="32" y="322" w="556" h="1" background="#24465c"/>
+
+      <label id="bigFreq" x="36" y="338" w="300" h="75" text="0.00"
+             font="cn" font_size="72" color="#44dcf6" align="left"/>
+      <label id="unitHz"  x="318" y="364" w="40" h="28" text="Hz"
+             font="cn" font_size="24" color="#7ba1b8" align="left"/>
+
+      <label id="note1" x="36" y="428" w="556" h="15"
+             text="电流在本机型下处于采样盲区，长期显示 0.0 属正常"
+             font="cn" font_size="12" color="#56788f" align="left"/>
+      <label id="note2" x="36" y="450" w="556" h="15"
+             text="变频器 P91 = 2s，通讯中断时自动停车"
+             font="cn" font_size="12" color="#56788f" align="left"/>
+
+      <!-- 右卡：控制 -->
+      <container id="card2" x="620" y="50" w="392" h="440"
+                 background="#152c3f" radius="8" border-width="1" border-color="#24465c"/>
+      <label id="ctrlTtl" x="640" y="64" w="120" h="22" text="控制"
+             font="cn" font_size="20" color="#e6f4fa" align="left"/>
+
+      <image id="btnStart" x="768" y="88" w="84" h="80"
+             src="img_start" src-pressed="img_start_p"
+             clickable="true" on-click="on_start"/>
+      <label id="btnStartT" x="766" y="172" w="88" h="22" text="启动"
+             font="cn" font_size="18" color="#3ddc97" align="center"/>
+
+      <image id="btnStop" x="768" y="202" w="84" h="80"
+             src="img_stop" src-pressed="img_stop_p"
+             clickable="true" on-click="on_stop"/>
+      <label id="btnStopT" x="766" y="286" w="88" h="22" text="停止"
+             font="cn" font_size="18" color="#ffb020" align="center"/>
+
+      <image id="btnEstop" x="768" y="316" w="84" h="80"
+             src="img_estop" src-pressed="img_estop_p"
+             clickable="true" on-click="on_estop"/>
+      <label id="btnEstopT" x="766" y="400" w="88" h="22" text="急停"
+             font="cn" font_size="18" color="#ff5a5f" align="center"/>
+
+      <image id="btnRstE" x="640" y="432" w="168" h="38"
+             src="img_bt_n" src-pressed="img_bt_p"
+             clickable="true" on-click="on_reset_estop"/>
+      <label id="btnRstET" x="640" y="439" w="168" h="24" text="急停复位"
+             font="cn" font_size="15" color="#e6f4fa" align="center"/>
+
+      <image id="btnRstF" x="824" y="432" w="168" h="38"
+             src="img_bt_n" src-pressed="img_bt_p"
+             clickable="true" on-click="on_reset_fault"/>
+      <label id="btnRstFT" x="824" y="439" w="168" h="24" text="故障复位"
+             font="cn" font_size="15" color="#e6f4fa" align="center"/>
+
+      <!-- 底部状态条 -->
+      <container id="strip" x="12" y="500" w="1000" h="42"
+                 background="#152c3f" radius="8" border-width="1" border-color="#24465c"/>
+      <label id="proto" x="32" y="513" w="300" h="16" text="Modbus RTU / 9600 8N1 / 站号 1"
+             font="cn" font_size="13" color="#7ba1b8" align="left"/>
+      <label id="stat"  x="352" y="513" w="280" h="16" text="成功 0  失败 0"
+             font="cn" font_size="13" color="#56788f" align="left"/>
+      <label id="safe"  x="620" y="514" w="372" h="15"
+             text="急停为软按钮，无安全等级，不可替代硬件急停回路"
+             font="cn" font_size="12" color="#ffb020" align="right"/>
+
+      <!-- 底部导航 -->
+      <image id="tabMain" x="200" y="556" w="200" h="34"
+             src="img_nav_s" clickable="true" on-click="nav_main"/>
+      <label id="tabMainT" x="200" y="562" w="200" h="18" text="监控"
+             font="cn" font_size="15" color="#44dcf6" align="center"/>
+
+      <image id="tabAlarm" x="412" y="556" w="200" h="34"
+             src="img_nav_n" clickable="true" on-click="nav_alarm"/>
+      <label id="tabAlarmT" x="412" y="562" w="200" h="18" text="报警"
+             font="cn" font_size="15" color="#7ba1b8" align="center"/>
+
+      <image id="tabSet" x="624" y="556" w="200" h="34"
+             src="img_nav_n" clickable="true" on-click="nav_settings"/>
+      <label id="tabSetT" x="624" y="562" w="200" h="18" text="设置"
+             font="cn" font_size="15" color="#7ba1b8" align="center"/>
+
+      <!-- 模态提示：全部嵌套在 mask 里，隐藏 mask 即整体隐藏 -->
+      <container id="mask" x="0" y="0" w="1024" h="600"
+                 background="#000000" bg-opacity="150" radius="0" hidden="true">
+        <container id="mbox" x="252" y="177" w="520" h="246"
+                   background="#152c3f" radius="10" border-width="2" border-color="#ffb020"/>
+        <label id="mTtl" x="276" y="199" w="464" h="25" text="无法启动"
+               font="cn" font_size="22" color="#ffb020" align="left"/>
+        <label id="mLine1" x="276" y="249" w="464" h="19" text=""
+               font="cn" font_size="16" color="#e6f4fa" align="left"/>
+        <label id="mLine2" x="276" y="275" w="464" h="19" text=""
+               font="cn" font_size="16" color="#e6f4fa" align="left"/>
+        <image id="mOk" x="604" y="342" w="168" h="40"
+               src="img_bt_s" src-pressed="img_bt_p"
+               clickable="true" on-click="on_modal_ok"/>
+        <label id="mOkT" x="604" y="350" w="168" h="24" text="知道了"
+               font="cn" font_size="16" color="#e6f4fa" align="center"/>
+      </container>
+    </page>
+
+    <!-- ==================== 报警页 ==================== -->
+    <page id="alarm" background="#0b1620">
+
+      <container id="acard" x="12" y="50" w="1000" h="440"
+                 background="#152c3f" radius="8" border-width="1" border-color="#24465c"/>
+
+      <label id="aTtl" x="32" y="64" w="220" h="22" text="报警记录"
+             font="cn" font_size="20" color="#e6f4fa" align="left"/>
+      <label id="aSub" x="32" y="92" w="420" h="15" text="最近 8 条，新的在最上面"
+             font="cn" font_size="12" color="#56788f" align="left"/>
+
+      <table id="alarmTable" x="32" y="116" w="960" h="326"
+             rows="9" columns="4" header="true" row-height="36" grid="false"
+             col-widths="170,130,440,220"
+             col-aligns="left,left,left,left"
+             header-color="#153c56" alternate-color="#10283b"
+             background="#0c2133" color="#cfe3ee"
+             border-color="#24465c" border-width="1"
+             font="cn" font_size="14">
+        <cell row="1" column="1" text="时间"/>
+        <cell row="1" column="2" text="电机"/>
+        <cell row="1" column="3" text="内容"/>
+        <cell row="1" column="4" text="代码"/>
+      </table>
+
+      <image id="btnClear" x="612" y="450" w="168" h="34"
+             src="img_bt_n" src-pressed="img_bt_p"
+             clickable="true" on-click="on_clear"/>
+      <label id="btnClearT" x="612" y="456" w="168" h="22" text="清空记录"
+             font="cn" font_size="14" color="#e6f4fa" align="center"/>
+
+      <image id="btnRstF2" x="796" y="450" w="196" h="34"
+             src="img_bt_n" src-pressed="img_bt_p"
+             clickable="true" on-click="on_reset_fault2"/>
+      <label id="btnRstF2T" x="796" y="456" w="196" h="22" text="故障复位"
+             font="cn" font_size="14" color="#e6f4fa" align="center"/>
+
+      <label id="aTip" x="32" y="458" w="560" h="16" text=""
+             font="cn" font_size="13" color="#56788f" align="left"/>
+
+      <image id="tabMain2" x="200" y="556" w="200" h="34"
+             src="img_nav_n" clickable="true" on-click="nav_main"/>
+      <label id="tabMain2T" x="200" y="562" w="200" h="18" text="监控"
+             font="cn" font_size="15" color="#7ba1b8" align="center"/>
+
+      <image id="tabAlarm2" x="412" y="556" w="200" h="34"
+             src="img_nav_s" clickable="true" on-click="nav_alarm"/>
+      <label id="tabAlarm2T" x="412" y="562" w="200" h="18" text="报警"
+             font="cn" font_size="15" color="#44dcf6" align="center"/>
+
+      <image id="tabSet2" x="624" y="556" w="200" h="34"
+             src="img_nav_n" clickable="true" on-click="nav_settings"/>
+      <label id="tabSet2T" x="624" y="562" w="200" h="18" text="设置"
+             font="cn" font_size="15" color="#7ba1b8" align="center"/>
+    </page>
+
+    <!-- ==================== 设置页 ==================== -->
+    <page id="settings" background="#0b1620">
+
+      <container id="scard1" x="12" y="50" w="1000" h="190"
+                 background="#152c3f" radius="8" border-width="1" border-color="#24465c"/>
+
+      <label id="sTtl" x="32" y="66" w="320" h="25" text="启动间隔延时"
+             font="cn" font_size="22" color="#e6f4fa" align="left"/>
+      <label id="sD1" x="32" y="104" w="960" h="17"
+             text="多台电机依次启动时，相邻两台之间的等待时间。第 1 台立即启动，第 2 台等 N 秒，第 3 台再等 N 秒。"
+             font="cn" font_size="14" color="#7ba1b8" align="left"/>
+      <label id="sD2" x="32" y="130" w="960" h="17"
+             text="当前只接了 1 台电机，因此不会观察到延时效果，参数本身有效并被保存，接上第 2 台后自动生效。"
+             font="cn" font_size="14" color="#ffb020" align="left"/>
+      <label id="sD3" x="32" y="166" w="960" h="16"
+             text="点输入框弹数字键盘，确认后写入掉电存储，断电重启不丢。"
+             font="cn" font_size="13" color="#56788f" align="left"/>
+
+      <container id="scard2" x="12" y="252" w="1000" h="228"
+                 background="#152c3f" radius="8" border-width="1" border-color="#24465c"/>
+
+      <label id="sLbl" x="36" y="282" w="120" h="21" text="间隔时间"
+             font="cn" font_size="18" color="#e6f4fa" align="left"/>
+
+      <container id="inBox" x="172" y="270" w="140" h="48"
+                 background="#0e1f2c" radius="6" border-width="1" border-color="#44dcf6"/>
+
+      <textarea id="inGap" x="172" y="280" w="140" h="27" text="2"
+                font="cn" font_size="24" color="#44dcf6" align="center"
+                one-line="true" max-length="3" accepted-chars="0123456789"
+                keyboard="numKb" on-submit="on_gap_submit" on-cancel="on_gap_cancel"/>
+
+      <label id="sUnit" x="328" y="283" w="40" h="21" text="秒"
+             font="cn" font_size="18" color="#7ba1b8" align="left"/>
+
+      <label id="sRange" x="36" y="336" w="940" h="16"
+             text="有效范围 0 ~ 60 秒，整数。留空或超范围会自动纠正。"
+             font="cn" font_size="13" color="#7ba1b8" align="left"/>
+      <label id="sCur" x="36" y="366" w="940" h="17" text="当前生效：2 秒"
+             font="cn" font_size="14" color="#7ba1b8" align="left"/>
+
+      <image id="btnSave" x="36" y="406" w="180" h="44"
+             src="img_bt_n" src-pressed="img_bt_p"
+             clickable="true" on-click="on_save"/>
+      <label id="btnSaveT" x="36" y="416" w="180" h="24" text="保存"
+             font="cn" font_size="16" color="#e6f4fa" align="center"/>
+
+      <image id="btnDef" x="228" y="406" w="180" h="44"
+             src="img_bt_n" src-pressed="img_bt_p"
+             clickable="true" on-click="on_default"/>
+      <label id="btnDefT" x="228" y="416" w="180" h="24" text="恢复默认"
+             font="cn" font_size="16" color="#e6f4fa" align="center"/>
+
+      <label id="sTip" x="432" y="418" w="400" h="19" text=""
+             font="cn" font_size="16" color="#3ddc97" align="left"/>
+
+      <image id="btnFault" x="820" y="406" w="168" h="44"
+             src="img_bt_n" src-pressed="img_bt_p"
+             clickable="true" on-click="on_sim_fault"/>
+      <label id="btnFaultT" x="820" y="418" w="168" h="19" text="模拟故障"
+             font="cn" font_size="13" color="#56788f" align="center"/>
+
+      <keyboard id="numKb" x="0" y="360" w="1024" h="240"
+                layout="number" font="cn" font_size="20"/>
+
+      <image id="tabMain3" x="200" y="556" w="200" h="34"
+             src="img_nav_n" clickable="true" on-click="nav_main"/>
+      <label id="tabMain3T" x="200" y="562" w="200" h="18" text="监控"
+             font="cn" font_size="15" color="#7ba1b8" align="center"/>
+
+      <image id="tabAlarm3" x="412" y="556" w="200" h="34"
+             src="img_nav_n" clickable="true" on-click="nav_alarm"/>
+      <label id="tabAlarm3T" x="412" y="562" w="200" h="18" text="报警"
+             font="cn" font_size="15" color="#7ba1b8" align="center"/>
+
+      <image id="tabSet3" x="624" y="556" w="200" h="34"
+             src="img_nav_s" clickable="true" on-click="nav_settings"/>
+      <label id="tabSet3T" x="624" y="562" w="200" h="18" text="设置"
+             font="cn" font_size="15" color="#44dcf6" align="center"/>
+    </page>
+
+  </pages>
+</ui>

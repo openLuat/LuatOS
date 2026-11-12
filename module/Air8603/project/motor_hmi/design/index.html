@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>电机 HMI · plcui 交互原型</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    background:#05090d; min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif; padding:24px 0;
+  }
+  #screen { position:relative; width:1024px; height:600px; background:#0b1620; overflow:hidden; flex:none; }
+  .c { position:absolute; }
+  .l { position:absolute; display:flex; align-items:center; white-space:nowrap; overflow:hidden; }
+  .r { justify-content:flex-end; }
+  .m { justify-content:center; }
+  .i { position:absolute; display:block; }
+
+  .f11{font-size:11px}.f12{font-size:12px}.f13{font-size:13px}.f14{font-size:14px}
+  .f15{font-size:15px}.f16{font-size:16px}.f18{font-size:18px}.f20{font-size:20px}
+  .f22{font-size:22px}.f24{font-size:24px}.f72{font-size:72px}
+  .ink{color:#e6f4fa}.sub{color:#7ba1b8}.dim{color:#56788f}
+  .cy{color:#44dcf6}.gn{color:#3ddc97}.am{color:#ffb020}.rd{color:#ff5a5f}
+
+  .hdr { background:#0f2233; border-bottom:1px solid #24465c; }
+  .card { background:#152c3f; border:1px solid #24465c; border-radius:8px; }
+  .line { background:#24465c; }
+
+  .tb { position:absolute; border:1px solid #24465c; background:#0c2133; overflow:hidden; }
+  .tr { display:flex; border-bottom:1px solid #24465c; }
+  .tr:last-child { border-bottom:0; }
+  .th { background:#153c56; color:#e6f4fa; font-size:14px; }
+  .td { color:#cfe3ee; font-size:14px; }
+  .tc { display:flex; align-items:center; padding:0 8px; overflow:hidden; white-space:nowrap; }
+
+  .dim-mask { position:absolute; inset:0; background:rgba(0,0,0,.55); z-index:50; }
+  .modal { position:absolute; z-index:51; width:520px; height:246px; background:#152c3f;
+           border:2px solid #ffb020; border-radius:10px; left:252px; top:177px; padding:24px 26px; }
+  .modal h3 { font-size:22px; font-weight:500; color:#ffb020; }
+  .modal p  { font-size:16px; color:#e6f4fa; margin-top:16px; line-height:1.5; }
+  .modal .btns { position:absolute; right:26px; bottom:22px; }
+
+  .kb { position:absolute; left:0; top:360px; width:1024px; height:240px; background:#0f2233;
+        border-top:1px solid #2f6079; z-index:40; padding:12px 20px; }
+  .kb-row { display:flex; gap:10px; margin-bottom:10px; }
+  .key { flex:1; height:56px; background:#1b3a50; border:1px solid #2f6079; border-radius:6px;
+         display:flex; align-items:center; justify-content:center; font-size:24px; color:#e6f4fa; cursor:pointer; }
+  .key:active { background:#0f2635; }
+  .key.wide { flex:1.6; }
+
+  .toast { position:absolute; left:312px; top:516px; width:400px; height:36px; z-index:60;
+           background:#17607e; border:1px solid #44dcf6; border-radius:6px;
+           display:flex; align-items:center; justify-content:center; font-size:15px; color:#e6f4fa;
+           opacity:0; transition:opacity .15s; pointer-events:none; }
+  .toast.on { opacity:1; }
+
+  .switch { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
+  .sw { background:#152c3f; border:1px solid #24465c; color:#7ba1b8; font-size:13px;
+        padding:8px 18px; border-radius:6px; cursor:pointer; font-family:inherit; }
+  .sw.on { background:#17607e; border-color:#44dcf6; color:#e6f4fa; }
+  .swtip { color:#56788f; font-size:12px; margin-left:10px; }
+  .hint { margin-top:14px; color:#56788f; font-size:12px; letter-spacing:.3px; }
+  .hint b { color:#44dcf6; font-weight:400; }
+</style>
+</head>
+<body>
+
+<div class="switch">
+  <button class="sw on" id="vAon">方案 A · 单机电机图</button>
+  <button class="sw" id="vBon">方案 B · 变频器 → 电机 链路</button>
+  <span class="swtip" id="swtip">当前：单机图</span>
+</div>
+
+<div id="screen">
+  <!-- ===================== 顶栏 ===================== -->
+  <div class="c hdr" style="left:0;top:0;width:1024px;height:44px"></div>
+  <div class="l f20 ink" style="left:16px;top:10px;width:150px;height:23px">电机监控</div>
+  <div class="l f12 dim" style="left:168px;top:13px;width:200px;height:15px">VFD-M · Modbus RTU</div>
+  <div class="c" id="dot" style="left:372px;top:17px;width:10px;height:10px;border-radius:5px;background:#3ddc97"></div>
+  <div class="l f14 gn" id="hdrOnline" style="left:390px;top:13px;width:52px;height:17px">在线</div>
+  <div class="l f14 sub" id="hdrRun" style="left:450px;top:13px;width:120px;height:17px">运行 0/1 台</div>
+  <div class="l f14 rd" id="hdrEstop" style="left:580px;top:13px;width:96px;height:17px;display:none">急停锁存</div>
+  <div class="l f14 sub r" id="hdrTime" style="left:820px;top:13px;width:90px;height:17px">--:--:--</div>
+  <img class="i" id="btnAlarm" src="assets/sm_n.svg" style="left:932px;top:8px;width:76px;height:28px">
+  <div class="l f13 ink m" style="left:932px;top:14px;width:76px;height:16px;pointer-events:none">报警</div>
+
+  <!-- ===================== 页面 1：监控 ===================== -->
+  <div id="page-main">
+    <div class="c card" style="left:12px;top:50px;width:596px;height:440px"></div>
+    <div class="l f22 ink" style="left:32px;top:64px;width:240px;height:25px">1 号电机</div>
+    <div class="l f13 sub" style="left:32px;top:96px;width:320px;height:16px">YS562-2 · 0.12kW · B14</div>
+    <div class="l f13 sub r" style="left:412px;top:66px;width:176px;height:16px">站号 1</div>
+
+    <div id="varA">
+      <img class="i" src="assets/motor.svg" style="left:36px;top:128px;width:236px;height:120px">
+    </div>
+    <div id="varB" style="display:none">
+      <img class="i" src="assets/vfd.svg" style="left:36px;top:150px;width:64px;height:91px">
+      <div class="l f12 rd m" id="vfdNum" style="left:46px;top:167px;width:44px;height:15px">50.0</div>
+      <svg class="i" style="left:98px;top:180px;width:56px;height:44px" viewBox="0 0 56 44" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 38 C 18 38, 24 24, 54 24" fill="none" stroke="#6b819b" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M2 30 C 18 30, 26 16, 54 16" fill="none" stroke="#3d5c70" stroke-width="1" stroke-dasharray="3 3"/>
+      </svg>
+      <img class="i" src="assets/motor.svg" style="left:152px;top:176px;width:128px;height:65px">
+    </div>
+    <div class="c line" style="left:36px;top:260px;width:232px;height:1px"></div>
+
+    <div class="c" id="pill" style="left:36px;top:274px;width:170px;height:28px;border-radius:14px;background:rgba(61,220,151,.14);border:1px solid #3ddc97"></div>
+    <div class="l f14 gn m" id="pillText" style="left:36px;top:278px;width:170px;height:19px">运行中</div>
+
+    <div class="l f13 sub" style="left:302px;top:78px;width:110px;height:16px">频率指令</div>
+    <div class="l f20 ink" id="vCmd" style="left:414px;top:74px;width:154px;height:24px">50.00 Hz</div>
+    <div class="l f13 sub" style="left:302px;top:116px;width:110px;height:16px">输出电流</div>
+    <div class="l f20 ink" id="vCur" style="left:414px;top:112px;width:154px;height:24px">0.0 A</div>
+    <div class="l f13 sub" style="left:302px;top:154px;width:110px;height:16px">故障状态</div>
+    <div class="l f20 gn" id="vFault" style="left:414px;top:150px;width:174px;height:24px">正常</div>
+    <div class="l f13 sub" style="left:302px;top:192px;width:110px;height:16px">通讯状态</div>
+    <div class="l f20 ink" id="vComm" style="left:414px;top:188px;width:174px;height:24px">正常</div>
+
+    <div class="c line" style="left:32px;top:322px;width:556px;height:1px"></div>
+    <div class="l f72 cy" id="bigFreq" style="left:36px;top:338px;width:300px;height:75px">50.00</div>
+    <div class="l f24 sub" style="left:318px;top:364px;width:40px;height:28px">Hz</div>
+
+    <div class="l f12 dim" style="left:36px;top:428px;width:556px;height:15px">电流在本机型下处于采样盲区，长期显示 0.0 属正常</div>
+    <div class="l f12 dim" style="left:36px;top:450px;width:556px;height:15px">变频器 P91 = 2s，通讯中断时自动停车</div>
+
+    <div class="c card" style="left:620px;top:50px;width:392px;height:440px"></div>
+    <div class="l f20 ink" style="left:640px;top:64px;width:120px;height:22px">控制</div>
+
+    <img class="i" id="btnStart" src="assets/btn_start.svg" style="left:768px;top:88px;width:84px;height:80px">
+    <div class="l f18 gn m" style="left:766px;top:172px;width:88px;height:22px;pointer-events:none">启动</div>
+
+    <img class="i" id="btnStop" src="assets/btn_stop.svg" style="left:768px;top:202px;width:84px;height:80px">
+    <div class="l f18 am m" style="left:766px;top:286px;width:88px;height:22px;pointer-events:none">停止</div>
+
+    <img class="i" id="btnEstop" src="assets/btn_estop.svg" style="left:768px;top:316px;width:84px;height:80px">
+    <div class="l f18 rd m" style="left:766px;top:400px;width:88px;height:22px;pointer-events:none">急停</div>
+
+    <img class="i" id="btnResetE" src="assets/bt_n.svg" style="left:640px;top:432px;width:168px;height:38px">
+    <div class="l f15 ink m" style="left:640px;top:439px;width:168px;height:24px;pointer-events:none">急停复位</div>
+
+    <img class="i" id="btnResetF" src="assets/bt_n.svg" style="left:824px;top:432px;width:168px;height:38px">
+    <div class="l f15 ink m" style="left:824px;top:439px;width:168px;height:24px;pointer-events:none">故障复位</div>
+  </div>
+
+  <!-- ===================== 页面 2：报警 ===================== -->
+  <div id="page-alarm" style="display:none">
+    <div class="c card" style="left:12px;top:50px;width:1000px;height:440px"></div>
+    <div class="l f20 ink" style="left:32px;top:64px;width:220px;height:22px">报警记录</div>
+    <div class="l f12 dim" style="left:32px;top:92px;width:420px;height:15px">最近 8 条，新的在最上面</div>
+
+    <div class="tb" id="alarmTable" style="left:32px;top:116px;width:960px;height:326px"></div>
+
+    <img class="i" id="btnClear" src="assets/bt_n.svg" style="left:612px;top:450px;width:168px;height:34px">
+    <div class="l f14 ink m" style="left:612px;top:456px;width:168px;height:22px;pointer-events:none">清空记录</div>
+
+    <img class="i" id="btnResetF2" src="assets/bt_n.svg" style="left:796px;top:450px;width:196px;height:34px">
+    <div class="l f14 ink m" style="left:796px;top:456px;width:196px;height:22px;pointer-events:none">故障复位</div>
+
+    <div class="l f13 dim" style="left:32px;top:458px;width:560px;height:16px" id="alarmTip"></div>
+  </div>
+
+  <!-- ===================== 页面 3：设置 ===================== -->
+  <div id="page-settings" style="display:none">
+    <div class="c card" style="left:12px;top:50px;width:1000px;height:190px"></div>
+    <div class="l f22 ink" style="left:32px;top:66px;width:320px;height:25px">启动间隔延时</div>
+    <div class="l f14 sub" style="left:32px;top:104px;width:960px;height:17px">多台电机依次启动时，相邻两台之间的等待时间。第 1 台立即启动，第 2 台等 N 秒，第 3 台再等 N 秒。</div>
+    <div class="l f14 am" style="left:32px;top:130px;width:960px;height:17px">当前只接了 1 台电机，因此不会观察到延时效果，参数本身有效并被保存，接上第 2 台后自动生效。</div>
+    <div class="l f13 dim" style="left:32px;top:166px;width:960px;height:16px">输入框点一下弹数字键盘，确认后写入掉电存储，断电重启不丢。</div>
+
+    <div class="c card" style="left:12px;top:252px;width:1000px;height:228px"></div>
+    <div class="l f18 ink" style="left:36px;top:282px;width:120px;height:21px">间隔时间</div>
+
+    <div class="c" id="inputBox" style="left:172px;top:270px;width:140px;height:48px;background:#0e1f2c;border:1px solid #44dcf6;border-radius:6px"></div>
+    <div class="l f24 cy m" id="inputVal" style="left:172px;top:284px;width:140px;height:27px">2</div>
+    <div class="l f18 sub" style="left:328px;top:280px;width:40px;height:21px">秒</div>
+
+    <div class="l f13 sub" style="left:36px;top:336px;width:940px;height:16px">有效范围 0 ~ 60 秒，整数。留空或超范围会自动纠正。</div>
+    <div class="l f14 sub" id="curGap" style="left:36px;top:366px;width:940px;height:17px">当前生效：2 秒，序列状态：空闲</div>
+
+    <img class="i" id="btnSave" src="assets/bt_n.svg" style="left:36px;top:406px;width:180px;height:44px">
+    <div class="l f16 ink m" style="left:36px;top:416px;width:180px;height:24px;pointer-events:none">保存</div>
+
+    <img class="i" id="btnDefault" src="assets/bt_n.svg" style="left:228px;top:406px;width:180px;height:44px">
+    <div class="l f16 ink m" style="left:228px;top:416px;width:180px;height:24px;pointer-events:none">恢复默认</div>
+
+    <div class="l f16 gn" id="saveTip" style="left:432px;top:418px;width:400px;height:19px"></div>
+
+    <img class="i" id="btnFault" src="assets/bt_n.svg" style="left:820px;top:406px;width:168px;height:44px">
+    <div class="l f13 dim m" style="left:820px;top:418px;width:168px;height:19px;pointer-events:none">模拟故障</div>
+  </div>
+
+  <!-- ===================== 底部状态条 ===================== -->
+  <div class="c card" id="strip" style="left:12px;top:500px;width:1000px;height:42px"></div>
+  <div class="l f13 sub" style="left:32px;top:513px;width:300px;height:16px">Modbus RTU · 9600 8N1 · 站号 1</div>
+  <div class="l f13 dim" id="stat" style="left:352px;top:513px;width:280px;height:16px">成功 1240　失败 0</div>
+  <div class="l f12 am r" style="left:620px;top:514px;width:372px;height:15px">急停为软按钮，无安全等级，不可替代硬件急停回路</div>
+
+  <!-- ===================== 底部导航 ===================== -->
+  <img class="i" id="tab-main" src="assets/nav_s.svg" style="left:200px;top:556px;width:200px;height:34px">
+  <div class="l f15 cy m" id="tabT-main" style="left:200px;top:562px;width:200px;height:18px;pointer-events:none">监控</div>
+
+  <img class="i" id="tab-alarm" src="assets/nav_n.svg" style="left:412px;top:556px;width:200px;height:34px">
+  <div class="l f15 sub m" id="tabT-alarm" style="left:412px;top:562px;width:200px;height:18px;pointer-events:none">报警</div>
+
+  <img class="i" id="tab-settings" src="assets/nav_n.svg" style="left:624px;top:556px;width:200px;height:34px">
+  <div class="l f15 sub m" id="tabT-settings" style="left:624px;top:562px;width:200px;height:18px;pointer-events:none">设置</div>
+
+  <!-- ===================== 弹窗 / 键盘 / 提示 ===================== -->
+  <div class="dim-mask" id="mask" style="display:none"></div>
+  <div class="modal" id="modal" style="display:none">
+    <h3 id="mTitle">无法启动</h3>
+    <p id="mText"></p>
+    <div class="btns">
+      <img class="i" id="mOk" src="assets/bt_s.svg" style="position:relative;display:block;width:168px;height:40px">
+      <div class="l f16 ink m" style="position:absolute;right:0;top:8px;width:168px;height:24px;pointer-events:none">知道了</div>
+    </div>
+  </div>
+
+  <div class="kb" id="kb" style="display:none">
+    <div class="kb-row">
+      <div class="key" data-k="1">1</div><div class="key" data-k="2">2</div><div class="key" data-k="3">3</div>
+      <div class="key" data-k="4">4</div><div class="key" data-k="5">5</div><div class="key" data-k="6">6</div>
+      <div class="key" data-k="7">7</div><div class="key" data-k="8">8</div><div class="key" data-k="9">9</div>
+      <div class="key" data-k="0">0</div>
+    </div>
+    <div class="kb-row">
+      <div class="key wide" data-k="clear">清除</div>
+      <div class="key wide" data-k="cancel">取消</div>
+      <div class="key wide" data-k="ok" style="background:#17607e;border-color:#44dcf6">确认</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<div class="hint">
+  1024 × 600 交互原型 · 仅用 plcui 七种组件（image / label / container / table / textarea / keyboard / chart）· 无渐变 / 无阴影 / 无动画
+  &nbsp;|&nbsp; 元素坐标即 <b>main.xml</b> 里的 x/y/w/h，可直接导出
+</div>
+
+<script>
+var S = {
+  page: 'main',
+  running: true, freq: 50, target: 50, set: 50,
+  estop: false,
+  fault: 0,
+  gap: 2,
+  edit: '2',
+  ok: 1240, fail: 0,
+  alarms: [
+    { t:'11-12 19:02:11', m:'1 号电机', txt:'通讯超时 Cu', code:'#13' },
+    { t:'11-12 18:57:40', m:'1 号电机', txt:'电机过载：电机过载 OL1', code:'#5' }
+  ]
+};
+function EL(id){ return document.getElementById(id); }
+
+var toastTimer = null;
+function toast(txt){
+  var t = EL('toast');
+  t.textContent = txt; t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('on'); }, 2200);
+}
+
+function modal(title, text, color){
+  EL('mTitle').textContent = title;
+  EL('mTitle').style.color = color || '#ffb020';
+  EL('modal').style.borderColor = color || '#ffb020';
+  EL('mText').textContent = text;
+  EL('mask').style.display = 'block';
+  EL('modal').style.display = 'block';
+}
+function closeModal(){
+  EL('mask').style.display = 'none';
+  EL('modal').style.display = 'none';
+}
+
+function render(){
+  EL('hdrRun').textContent = '运行 ' + (S.running ? 1 : 0) + '/1 台';
+  EL('hdrEstop').style.display = S.estop ? 'block' : 'none';
+  EL('hdrTime').textContent = new Date().toTimeString().slice(0,8);
+
+  EL('bigFreq').textContent = S.freq.toFixed(2);
+  EL('bigFreq').className = 'l f72 ' + (S.running ? 'cy' : 'dim');
+  EL('vCmd').textContent = '50.00 Hz';
+  EL('vCur').textContent = '0.0 A';
+  var vn = EL('vfdNum');
+  if (vn) {
+    if (S.fault) {
+      vn.textContent = 'Cu';
+      vn.className = 'l f12 rd m';
+    } else {
+      vn.textContent = 'F' + S.set.toFixed(1);
+      vn.className = 'l f12 rd m';
+    }
+  }
+
+  var pt = EL('pill'), ptxt = EL('pillText');
+  if (S.fault && !S.running){
+    pt.style.background = 'rgba(255,90,95,.14)'; pt.style.borderColor = '#ff5a5f';
+    ptxt.textContent = '故障'; ptxt.className = 'l f14 rd m';
+    EL('vFault').textContent = '通讯超时 Cu'; EL('vFault').className = 'l f20 rd';
+  } else if (S.running){
+    pt.style.background = 'rgba(61,220,151,.14)'; pt.style.borderColor = '#3ddc97';
+    ptxt.textContent = '运行中'; ptxt.className = 'l f14 gn m';
+    EL('vFault').textContent = '正常'; EL('vFault').className = 'l f20 gn';
+  } else {
+    pt.style.background = 'rgba(123,161,184,.12)'; pt.style.borderColor = '#3d5c70';
+    ptxt.textContent = '已停止'; ptxt.className = 'l f14 sub m';
+    EL('vFault').textContent = S.fault ? '通讯超时 Cu' : '正常';
+    EL('vFault').className = 'l f20 ' + (S.fault ? 'rd' : 'gn');
+  }
+
+  EL('curGap').textContent = '当前生效：' + S.gap + ' 秒，序列状态：' + (S.running ? '运行中' : '空闲');
+  EL('stat').textContent = '成功 ' + S.ok + '　失败 ' + S.fail;
+  renderAlarms();
+}
+
+function renderAlarms(){
+  var cols = [170,130,440,220], head = ['时间','电机','内容','代码'];
+  var h = '<div class="tr th" style="height:38px">';
+  for (var i=0;i<4;i++) h += '<div class="tc" style="width:'+cols[i]+'px">'+head[i]+'</div>';
+  h += '</div>';
+  for (var r=0;r<8;r++){
+    var a = S.alarms[r];
+    h += '<div class="tr" style="height:36px'+(r%2?';background:#10283b':'')+'">';
+    if (a){
+      h += '<div class="tc td" style="width:'+cols[0]+'px">'+a.t+'</div>';
+      h += '<div class="tc td" style="width:'+cols[1]+'px">'+a.m+'</div>';
+      h += '<div class="tc td" style="width:'+cols[2]+'px">'+a.txt+'</div>';
+      h += '<div class="tc td" style="width:'+cols[3]+'px">'+a.code+'</div>';
+    } else {
+      h += '<div class="tc td" style="width:'+cols[0]+'px"></div>';
+      h += '<div class="tc td" style="width:'+cols[1]+'px"></div>';
+      h += '<div class="tc td" style="width:'+cols[2]+'px">'+(r===0?'暂无报警记录':'')+'</div>';
+      h += '<div class="tc td" style="width:'+cols[3]+'px"></div>';
+    }
+    h += '</div>';
+  }
+  EL('alarmTable').innerHTML = h;
+}
+
+function addAlarm(txt, code){
+  var d = new Date();
+  var t = ('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)+' '+d.toTimeString().slice(0,8);
+  S.alarms.unshift({ t:t, m:'1 号电机', txt:txt, code:code||'' });
+  if (S.alarms.length > 8) S.alarms.pop();
+  EL('btnAlarm').src = 'assets/sm_s.svg';
+  renderAlarms();
+}
+
+function doStart(){
+  if (S.estop){ modal('无法启动','急停未复位，禁止启动。请先点「急停复位」。','#ffb020'); return; }
+  if (S.fault){ modal('无法启动','1 号电机 处于故障状态：通讯超时 Cu。请先点「故障复位」再启动。','#ffb020'); return; }
+  S.running = true; S.target = 50; S.ok += 1;
+  toast('已启动：1 号电机'); render();
+}
+function doStop(){ S.running = false; S.target = 0; S.ok += 1; toast('已停止'); render(); }
+function doEstop(){
+  S.estop = true; S.running = false; S.target = 0; S.ok += 1;
+  addAlarm('急停按下','');
+  toast('急停已按下，所有电机停止');
+  render();
+}
+function doResetEstop(){
+  if (!S.estop){ modal('无需复位','当前没有急停锁存，可以直接启动。','#7ba1b8'); return; }
+  S.estop = false; toast('急停已复位，可以启动'); render();
+}
+function doResetFault(){
+  if (!S.fault){ toast('当前无故障，无需复位'); return; }
+  S.fault = 0; toast('故障已复位'); render();
+}
+function doSimFault(){
+  S.fault = 13; S.running = false; S.target = 0;
+  addAlarm('通讯超时 Cu','#13');
+  modal('报警','1 号电机：通讯超时 Cu','#ff5a5f');
+  render();
+}
+
+function openKb(){ S.edit = String(S.gap); EL('inputVal').textContent = S.edit; EL('kb').style.display='block'; }
+function closeKb(){ EL('kb').style.display='none'; }
+
+document.querySelectorAll('.key').forEach(function(k){
+  k.onclick = function(){
+    var v = k.getAttribute('data-k');
+    if (v === 'clear'){ S.edit = ''; }
+    else if (v === 'cancel'){ S.edit = String(S.gap); closeKb(); EL('inputVal').textContent = S.edit; return; }
+    else if (v === 'ok'){
+      var n = parseInt(S.edit, 10);
+      if (isNaN(n)){ modal('保存失败','请输入 0 ~ 60 之间的整数。','#ffb020'); return; }
+      n = Math.max(0, Math.min(60, n));
+      S.gap = n; closeKb(); toast('已保存：' + n + ' 秒');
+      EL('inputVal').textContent = n; render(); return;
+    } else { if (S.edit.length < 3) S.edit += v; }
+    EL('inputVal').textContent = S.edit === '' ? '—' : S.edit;
+  };
+});
+
+function bindPress(imgId, pressSrc, normalSrc, fn){
+  var el = EL(imgId);
+  el.style.cursor = 'pointer';
+  el.addEventListener('mousedown', function(){ el.src = pressSrc; });
+  el.addEventListener('mouseup',   function(){ el.src = normalSrc; });
+  el.addEventListener('mouseleave',function(){ el.src = normalSrc; });
+  el.onclick = fn;
+}
+
+bindPress('btnStart','assets/btn_start_press.svg','assets/btn_start.svg', doStart);
+bindPress('btnStop','assets/btn_stop_press.svg','assets/btn_stop.svg', doStop);
+bindPress('btnEstop','assets/btn_estop_press.svg','assets/btn_estop.svg', doEstop);
+bindPress('btnResetE','assets/bt_p.svg','assets/bt_n.svg', doResetEstop);
+bindPress('btnResetF','assets/bt_p.svg','assets/bt_n.svg', doResetFault);
+bindPress('btnResetF2','assets/bt_p.svg','assets/bt_n.svg', doResetFault);
+bindPress('btnClear','assets/bt_p.svg','assets/bt_n.svg', function(){
+  S.alarms = []; EL('btnAlarm').src = 'assets/sm_n.svg'; renderAlarms(); toast('记录已清空');
+});
+bindPress('btnSave','assets/bt_p.svg','assets/bt_n.svg', function(){ S.ok += 1; toast('已保存：' + S.gap + ' 秒'); });
+bindPress('btnDefault','assets/bt_p.svg','assets/bt_n.svg', function(){
+  S.gap = 2; EL('inputVal').textContent = '2'; toast('已恢复默认 2 秒'); render();
+});
+bindPress('btnFault','assets/bt_p.svg','assets/bt_n.svg', doSimFault);
+bindPress('btnAlarm','assets/sm_s.svg','assets/sm_n.svg', function(){ show('alarm'); });
+
+EL('mOk').onclick = closeModal;
+EL('mask').onclick = closeModal;
+EL('inputBox').onclick = openKb;
+EL('inputVal').onclick = openKb;
+
+function show(id){
+  S.page = id;
+  ['main','alarm','settings'].forEach(function(p){
+    EL('page-'+p).style.display = (p === id) ? 'block' : 'none';
+    var on = (p === id);
+    EL('tab-'+p).src = on ? 'assets/nav_s.svg' : 'assets/nav_n.svg';
+    EL('tabT-'+p).className = 'l f15 ' + (on ? 'cy' : 'sub') + ' m';
+  });
+  if (id !== 'settings') closeKb();
+  render();
+}
+['main','alarm','settings'].forEach(function(p){
+  EL('tab-'+p).style.cursor = 'pointer';
+  EL('tab-'+p).onclick = function(){ show(p); };
+});
+
+setInterval(function(){
+  if (S.freq < S.target) S.freq = Math.min(S.target, S.freq + 1.25);
+  else if (S.freq > S.target) S.freq = Math.max(S.target, S.freq - 1.25);
+  if (S.running && S.freq >= 49.9) S.freq = 50;
+  if (!S.running && S.freq <= 0.1) S.freq = 0;
+  render();
+}, 100);
+
+function setVariant(v){
+  EL('varA').style.display = (v === 'A') ? 'block' : 'none';
+  EL('varB').style.display = (v === 'B') ? 'block' : 'none';
+  EL('vAon').className = 'sw' + (v === 'A' ? ' on' : '');
+  EL('vBon').className = 'sw' + (v === 'B' ? ' on' : '');
+  EL('swtip').textContent = (v === 'A')
+    ? '当前：单机图 —— 画面重心在电机本身'
+    : '当前：链路图 —— 小窗显示设定频率 F，大字显示实际输出频率';
+}
+EL('vAon').onclick = function(){ setVariant('A'); };
+EL('vBon').onclick = function(){ setVariant('B'); };
+
+render();
+if (location.search.indexOf('v=B') >= 0) setVariant('B');
+if (location.hash) { var _p = location.hash.slice(1); if (_p) show(_p); }
+</script>
+</body>
+</html>

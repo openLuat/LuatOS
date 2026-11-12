@@ -26,6 +26,7 @@
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"
+#include "soc_spi.h"
 #endif
 
 // static uint8_t thread_rdy;
@@ -37,8 +38,11 @@ extern uint32_t g_airlink_pause;
 
 static uint8_t *s_txbuff;
 static uint8_t *s_rxbuff;
-static int self_ready;
-static int pin_rdy_state;
+static volatile int self_ready;
+static volatile int pin_rdy_state;
+#ifdef TYPE_EC718M
+static int fixed_dma;
+#endif
 // static uint8_t g_sys_need_reboot;
 static int is_irq_mode;
 static uint32_t irq_counter; // 中断计数
@@ -110,7 +114,7 @@ static void send_devinfo_update_evt(void) {
 }
 
 __AIRLINK_CODE_IN_RAM__ static int spi_slave_irq(void* param) {
-    if (self_ready == 0) {
+    if (self_ready == 0 || pin_rdy_state) {
         return 0;
     }
     // 立即拉高RDY脚, 阻止主机的发送
@@ -121,6 +125,17 @@ __AIRLINK_CODE_IN_RAM__ static int spi_slave_irq(void* param) {
     luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
     return 0;
 }
+
+#ifdef TYPE_EC718M
+/* Hardware SS owns the pad, so GPIO edge interrupts are no longer available.
+ * Fixed-frame mode disables EOR; this callback means all 1600 bytes arrived. */
+__AIRLINK_CODE_IN_RAM__ static int spi_slave_rx_done(int spi_id, void *param) {
+    (void)spi_id;
+    if (!self_ready || pin_rdy_state) return 0;
+    luat_spi_slave_transfer_pause_in_irq(SLAVE_SPI_ID);
+    return spi_slave_irq(param);
+}
+#endif
 
 static void slave_irq_mode_startup(airlink_link_data_t* link) {
     luat_gpio_cfg_t gpio  = {0};
@@ -177,12 +192,18 @@ static void spi_gpio_setup(void) {
         .mode = 1, // mode设置为1，全双工
         .bandrate = 60000000,
         .cs = 255};
-    
-    luat_spi_setup(&spi_conf);
+#ifdef TYPE_EC718M
+    fixed_dma = (SLAVE_SPI_ID == 0 && AIRLINK_SPI_CS_PIN == 8) ||
+                (SLAVE_SPI_ID == 1 && AIRLINK_SPI_CS_PIN == 12);
+    if (fixed_dma) spi_conf.cs = AIRLINK_SPI_CS_PIN;
+#endif
 
     luat_gpio_cfg_t gpio_cfg = {0};
 
     // CS片选脚
+#ifdef TYPE_EC718M
+    if (!fixed_dma) {
+#endif
     luat_gpio_set_default_cfg(&gpio_cfg);
     gpio_cfg.pin = AIRLINK_SPI_CS_PIN;
     gpio_cfg.mode = LUAT_GPIO_IRQ;
@@ -190,6 +211,9 @@ static void spi_gpio_setup(void) {
     gpio_cfg.pull = LUAT_GPIO_PULLUP;
     gpio_cfg.irq_cb = spi_slave_irq;
     luat_gpio_open(&gpio_cfg);
+#ifdef TYPE_EC718M
+    }
+#endif
 
     if (AIRLINK_SPI_RDY_PIN != 255)
     {
@@ -201,6 +225,20 @@ static void spi_gpio_setup(void) {
         luat_gpio_open(&gpio_cfg);
         pin_rdy_state = 1;
     }
+    /* Configure SPI last: opening the CS GPIO otherwise replaces its peripheral
+     * mux, leaving the slave selected while another device owns the bus. */
+    luat_spi_setup(&spi_conf);
+#ifdef TYPE_EC718M
+    if (fixed_dma) {
+        SPI_TypeDef *spi = SLAVE_SPI_ID ? SPI1 : SPI0;
+        /* The legacy RX threshold is burst + 1, leaving the final burst for
+         * timeout/EOR. AirLink frames are a multiple of the 8-byte DMA burst:
+         * request that last burst directly and notify only on DMA completion. */
+        spi->DRLR = (spi->DRLR & ~SPI_DRLR_RX_REQ_LVL_Msk) | 8;
+        spi->DRRCR &= ~SPI_DRRCR_RX_TO_REQ_EN_Msk;
+        luat_spi_set_slave_callback(SLAVE_SPI_ID, spi_slave_rx_done, NULL);
+    }
+#endif
 }
 
 __AIRLINK_CODE_IN_RAM__ static void start_spi_trans(void) {
@@ -234,8 +272,8 @@ __AIRLINK_CODE_IN_RAM__ static void start_spi_trans(void) {
     luat_spi_slave_transfer(SLAVE_SPI_ID, (const char*)s_txbuff, (char*)s_rxbuff, TEST_BUFF_SIZE);
 
     // 通知主机已经准备好了
-    luat_gpio_set(AIRLINK_SPI_RDY_PIN, 0);
     pin_rdy_state = 0;
+    luat_gpio_set(AIRLINK_SPI_RDY_PIN, 0);
 }
 
 __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
@@ -279,11 +317,26 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
         }
         // luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
         // print_tm("执行完luat_rtos_event_recv");
+#ifdef TYPE_EC718M
+        int cs_level = fixed_dma ? event.id == 1 : luat_gpio_get(AIRLINK_SPI_CS_PIN);
+#else
         int cs_level = luat_gpio_get(AIRLINK_SPI_CS_PIN);
+#endif
         // LLOGD("CS脚状态 %d %s %s event.id %d ret %d %p", cs_level, __DATE__, __TIME__, event.id, ret, spi_task_handle);
         if (cs_level == 1) {
             #if 1
-            int len = luat_spi_slave_transfer_pause_and_read_data(SLAVE_SPI_ID);
+            int len;
+#ifdef TYPE_EC718M
+            if (fixed_dma) {
+                /* Fixed 1600-byte RX DMA completion: never append trailing FIFO
+                 * bytes beyond the DMA buffer as the legacy stop/read API does. */
+                luat_spi_slave_transfer_stop(SLAVE_SPI_ID);
+                (SLAVE_SPI_ID ? SPI1 : SPI0)->FFR = SPI_FFR_TX_FLUSH_Msk | SPI_FFR_RX_FLUSH_Msk;
+                len = TEST_BUFF_SIZE;
+            }
+            else
+#endif
+                len = luat_spi_slave_transfer_pause_and_read_data(SLAVE_SPI_ID);
             g_airlink_statistic.tx_pkg.total++;
             if (len > 0 && len <= TEST_BUFF_SIZE) {
                 // LLOGE("数据长度 %d %d", len, SLAVE_SPI_ID);
@@ -315,6 +368,8 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
         }
     }
     // LLOGD("退出SPI从机任务!!");
+    self_ready = 0;
+    luat_gpio_set(AIRLINK_SPI_RDY_PIN, 1);
     luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_SPI_SLAVE);
     luat_spi_close(SLAVE_SPI_ID);
     luat_spi_slave_transfer_stop(SLAVE_SPI_ID);

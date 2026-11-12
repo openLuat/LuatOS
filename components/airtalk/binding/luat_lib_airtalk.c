@@ -96,7 +96,8 @@ static int l_airtalk_config(lua_State *L)
 		break;
 
 	}
-
+	// airtalk已经不推荐使用了, 现在推荐SIP方案 
+	LLOGW("airtalk is deprecated, please use SIP instead");
     return 0;
 }
 

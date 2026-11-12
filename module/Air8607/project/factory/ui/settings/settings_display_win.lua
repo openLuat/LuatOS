@@ -67,13 +67,14 @@ local function build_slider_card(parent, x, y, w, h, title, value_text, min, max
     })
 
     --[[滑块：拖动即时生效。
-    滑条高度即滑块直径（lv_slider 的 knob_size = 对象高度），30px 保证手指好拖。]]
+    滑条对象高度决定轨道粗细，圆球直径 = 高度 + 2 × knob padding（见 theme.slider）。
+    圆球不传 knob_color，跟进度同色 —— 原来的白色在浅色主题上和卡片糊在一起。]]
     local sl_h = theme.dp(30)
     local sl_y = math.floor(h * 0.42)
     local bar = theme.slider(card, {
         x = pad, y = sl_y, w = inner_w, h = sl_h,
         min = min, max = max, value = value,
-        track = theme.C.track, color = color, knob_color = theme.C.knob,
+        track = theme.C.track, color = color,
         on_change = on_change,
     })
 

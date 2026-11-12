@@ -47,6 +47,23 @@
 >
 >注：在v2013以下固件使用mobile.config()的返回值有bug，无论是否开启成功，返回值均为false，需要烧录V2013及以上固件才能完整验证此功能。
 
+#### RNDIS 出口配置（多网固件）
+
+在 `feat/air8000-rndis-multiwan` 配套固件中，使用 USB 网卡的 `RNDIS_NAPT` 控制命令设置出口，复用全局 NAPT 网关：
+
+```lua
+-- 先按上文启用 RNDIS NAT 模式，并初始化出口网卡、等待其 IP_READY
+netdrv.ctrl(socket.LWIP_USB, netdrv.RNDIS_NAPT, socket.LWIP_STA) -- Wi-Fi STA
+netdrv.ctrl(socket.LWIP_USB, netdrv.RNDIS_NAPT, socket.LWIP_ETH) -- 以太网
+netdrv.ctrl(socket.LWIP_USB, netdrv.RNDIS_NAPT, socket.LWIP_GP)  -- 蜂窝
+netdrv.ctrl(socket.LWIP_USB, netdrv.RNDIS_NAPT, -1) -- 关闭 NAPT 并清除映射表
+```
+
+- 第三个参数直接传网卡常量。成功返回 `true, 0`；非法出口返回 `false, -1`，出口网卡尚未初始化返回 `false, -2`，保留原配置。USB 驱动不存在时沿用 ctrl 返回 nil。
+- 全局 NAPT 网关同时用于其他 LAN，例如 Wi-Fi AP；两种接口的配置会相互覆盖。
+- `-1` 关闭的是 LuatOS NAPT，RNDIS 的 SDK 原生蜂窝路径继续工作。
+- 切换出口后 DNS 跟随出口更新；已有连接需要重新建立。
+
 #### 4、运行效果
 
 - **飞行模式进入成功**：日志打印 “进入飞行模式成功”

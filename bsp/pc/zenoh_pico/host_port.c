@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -22,19 +23,40 @@
 
 typedef union { max_align_t alignment; size_t size; } allocation_t;
 static atomic_long allocations;
+static atomic_size_t allocation_bytes, allocation_peak;
+static atomic_size_t fail_rx_length;
+static atomic_uint sample_entries;
+void luat_zp_test_sample(size_t length) {
+    atomic_fetch_add(&sample_entries, 1);
+    if (length >= 262144) { printf("BINDING_SAMPLE %zu\n", length); fflush(stdout); }
+}
+unsigned host_sample_entries(void) { return atomic_load(&sample_entries); }
+size_t host_allocation_bytes(void) { return atomic_load(&allocation_bytes); }
+size_t host_allocation_peak(void) { return atomic_load(&allocation_peak); }
+void host_reset_allocation_peak(void) { atomic_store(&allocation_peak, atomic_load(&allocation_bytes)); }
+void host_fail_rx_payload(size_t n) { atomic_store(&fail_rx_length, n); }
 static _Thread_local long fail_after = -1;
 long host_allocations(void) { return atomic_load(&allocations); }
 void host_fail_after(long n) { fail_after = n; }
+void luat_zp_test_payload_alloc(int sending, size_t length) {
+    if (!sending) {
+        size_t expected = length;
+        if (length && atomic_compare_exchange_strong(&fail_rx_length, &expected, 0)) fail_after = 0;
+    }
+}
 void *luat_heap_malloc(size_t n) {
     if (fail_after == 0) { fail_after = -1; return NULL; }
     if (fail_after > 0) --fail_after;
     if (n > SIZE_MAX - sizeof(allocation_t)) return NULL;
     allocation_t *a = malloc(sizeof(*a) + n);
     if (!a) return NULL;
-    a->size = n; atomic_fetch_add(&allocations, 1); return a + 1;
+    a->size = n; atomic_fetch_add(&allocations, 1);
+    size_t now = atomic_fetch_add(&allocation_bytes, n) + n, high = atomic_load(&allocation_peak);
+    while (high < now && !atomic_compare_exchange_weak(&allocation_peak, &high, now)) {}
+    return a + 1;
 }
 void luat_heap_free(void *p) {
-    if (p) { free((allocation_t *)p - 1); atomic_fetch_sub(&allocations, 1); }
+    if (p) { allocation_t *a = (allocation_t *)p - 1; atomic_fetch_sub(&allocation_bytes, a->size); free(a); atomic_fetch_sub(&allocations, 1); }
 }
 void *luat_heap_realloc(void *p, size_t n) {
     if (!p) return luat_heap_malloc(n);
@@ -114,7 +136,11 @@ static _Thread_local unsigned network_event_head, network_event_count;
 int luat_rtos_event_recv(luat_rtos_task_handle task, uint32_t id, luat_event_t *out,
                          luat_rtos_event_wait_callback_t *callback, uint32_t timeout) {
     (void)callback;
-    if (!task || id || !out || timeout != LUAT_NO_WAIT || !network_event_count) return -1;
+    /* 目标EC7xx空邮箱的0会无界等待。主机明确失败，不能用空队列返回掩盖它。 */
+    if (!timeout || timeout == LUAT_WAIT_FOREVER) {
+        fputs("UNBOUNDED_EVENT_WAIT_REQUEST\n", stderr); exit(86);
+    }
+    if (!task || id || !out || timeout != 1 || !network_event_count) return -1;
     *out = network_events[network_event_head];
     network_event_head = (network_event_head + 1) % 16; --network_event_count; return 0;
 }
@@ -128,11 +154,22 @@ static int host_network_notice(void) {
 }
 static int current_socket = -1;
 static atomic_uint short_reads, short_writes;
+static atomic_uint network_rx_bytes, network_tx_bytes;
+static atomic_uint read_chunk = 7, write_chunk = 17;
+void host_network_chunks(unsigned read_size, unsigned write_size) {
+    atomic_store(&read_chunk, read_size); atomic_store(&write_chunk, write_size);
+}
 static atomic_int write_budget = -1, write_fault, write_gate;
-static atomic_uint writes_after_fault, failure_bytes;
+void luat_zenoh_pico_close(uint32_t generation);
+static atomic_uint writes_after_fault, failure_bytes, command_generation;
+static atomic_int cancel_write;
+void host_write_failure_after(int n);
+void host_cancel_write_after(int n) {
+    host_write_failure_after(n); atomic_store(&cancel_write, 1);
+}
 void host_write_failure_after(int n) {
     atomic_store(&writes_after_fault, 0); atomic_store(&failure_bytes, 0);
-    atomic_store(&write_fault, 0); atomic_store(&write_budget, n);
+    atomic_store(&write_fault, 0); atomic_store(&write_budget, n); atomic_store(&cancel_write, 0);
     atomic_store(&write_gate, n >= 0);
 }
 void host_write_release(void) { atomic_store(&write_gate, 0); }
@@ -188,10 +225,12 @@ void network_release_ctrl(network_ctrl_t *c) { network_close(c, 0); luat_heap_fr
 int network_rx(network_ctrl_t *c, uint8_t *p, uint32_t n, int flags, luat_ip_addr_t *ip, uint16_t *port, uint32_t *got) {
     (void)flags; (void)ip; (void)port; *got = 0;
     if (!n) return 0;
-    ssize_t result = recv(c->socket_id, p, n > 7 ? 7 : n, 0);
+    unsigned chunk = atomic_load(&read_chunk);
+    ssize_t result = recv(c->socket_id, p, n > chunk ? chunk : n, 0);
     if (result < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) return 0;
     if (result <= 0) return -1;
     *got = (uint32_t)result;
+    atomic_fetch_add(&network_rx_bytes, *got);
     if (*got < n) atomic_fetch_add(&short_reads, 1);
     return 0;
 }
@@ -203,7 +242,8 @@ int network_tx(network_ctrl_t *c, const uint8_t *p, uint32_t n, int flags, luat_
     if (atomic_load(&write_fault)) { atomic_fetch_add(&writes_after_fault, 1); return -1; }
     int budget = atomic_load(&write_budget);
     if (budget == 0) { atomic_store(&write_fault, 1); return -1; }
-    uint32_t limit = n > 17 ? 17 : n;
+    unsigned chunk = atomic_load(&write_chunk);
+    uint32_t limit = n > chunk ? chunk : n;
     if (budget > 0 && limit > (uint32_t)budget) limit = (uint32_t)budget;
 #ifdef MSG_NOSIGNAL
     flags = MSG_NOSIGNAL;
@@ -214,9 +254,14 @@ int network_tx(network_ctrl_t *c, const uint8_t *p, uint32_t n, int flags, luat_
     if (result < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) return 0;
     if (result < 0) return -1;
     *sent = (uint32_t)result;
+    atomic_fetch_add(&network_tx_bytes, *sent);
     if (budget > 0) {
         atomic_fetch_sub(&write_budget, (int)*sent);
         atomic_fetch_add(&failure_bytes, *sent);
+        if (atomic_load(&write_budget) == 0 && atomic_exchange(&cancel_write, 0)) {
+            atomic_store(&write_fault, 1);
+            luat_zenoh_pico_close(atomic_load(&command_generation));
+        }
     }
     if (*sent < n) atomic_fetch_add(&short_writes, 1);
     /* 对齐network API：非阻塞接纳后待完成返回1；此桥不模拟目标ACK。 */
@@ -230,6 +275,8 @@ int host_disconnect(void) {
 }
 unsigned host_short_reads(void) { return atomic_load(&short_reads); }
 unsigned host_short_writes(void) { return atomic_load(&short_writes); }
+unsigned host_rx_bytes(void) { return atomic_load(&network_rx_bytes); }
+unsigned host_tx_bytes(void) { return atomic_load(&network_tx_bytes); }
 #endif
 
 /* 测试屏障暂停真实线程，终态仍由worker/SDK生成，不注入回调。 */
@@ -240,15 +287,32 @@ static pthread_cond_t race_ready = PTHREAD_COND_INITIALIZER;
 static int race_point, race_arrived, race_released, race_closed, race_thread_live;
 static uint32_t race_generation;
 static pthread_t race_thread;
+static atomic_uint race_command_id, race_command_op;
+unsigned host_race_command_id(void) { return atomic_load(&race_command_id); }
+unsigned host_race_command_op(void) { return atomic_load(&race_command_op); }
 void luat_zp_test_barrier(int point, uint32_t generation) {
     pthread_mutex_lock(&race_lock);
     if (race_point == point) {
         race_arrived = 1; race_generation = generation;
         pthread_cond_broadcast(&race_ready);
         while (!race_released) pthread_cond_wait(&race_ready, &race_lock);
-        race_point = 0;
+        /* OPEN用两阶段屏障；第二阶段稳定观察发布后的真实C状态。 */
+        race_point = point == 3 ? 4 : 0;
+        race_arrived = race_released = 0;
     }
     pthread_mutex_unlock(&race_lock);
+}
+static atomic_int final_fault = -1;
+void host_fail_final_write(int bytes) { atomic_store(&final_fault, bytes); }
+void luat_zp_test_command(uint32_t generation, uint32_t id, int op) {
+    atomic_store(&command_generation, generation);
+    if (op == LUAT_ZP_FINISH_QUERY) {
+        int bytes = atomic_exchange(&final_fault, -1);
+        if (bytes >= 0) { host_write_failure_after(bytes); host_write_release(); }
+    }
+    if (op != LUAT_ZP_PUBLISH) return;
+    atomic_store(&race_command_id, id); atomic_store(&race_command_op, (unsigned)op);
+    luat_zp_test_barrier(6, generation);
 }
 static void *race_disconnect(void *unused) {
     (void)unused;
@@ -267,7 +331,7 @@ static void *race_disconnect(void *unused) {
     return NULL;
 }
 int host_race_arm(int point) {
-    if (point != 1 && point != 2) return -1;
+    if (point != 1 && point != 2 && point != 3 && point != 5 && point != 6) return -1;
     pthread_mutex_lock(&race_lock);
     if (race_point || race_thread_live) { pthread_mutex_unlock(&race_lock); return -1; }
     race_point = point; race_arrived = race_released = race_closed = 0;
@@ -282,7 +346,7 @@ int host_race_arrived(void) {
     pthread_mutex_lock(&race_lock); int value = race_arrived; pthread_mutex_unlock(&race_lock); return value;
 }
 void host_race_release(void) {
-    pthread_mutex_lock(&race_lock); race_released = 1; pthread_cond_broadcast(&race_ready); pthread_mutex_unlock(&race_lock);
+    pthread_mutex_lock(&race_lock); race_arrived = 0; race_released = 1; pthread_cond_broadcast(&race_ready); pthread_mutex_unlock(&race_lock);
 }
 int host_race_closed(void) {
     if (race_thread_live) { pthread_join(race_thread, NULL); race_thread_live = 0; }

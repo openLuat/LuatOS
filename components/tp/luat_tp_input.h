@@ -4,7 +4,7 @@
 #include "luat_input_service.h"
 
 /* Setup is called before the TP starts. Other operations except id() require the TP task mutex.
- * They acquire the service lock only when accessing the input core. */
+ * They acquire the service lock only when accessing shared device state. */
 /** Opt in before luat_tp_init; C applications may supply their own sink instead. */
 int luat_tp_input_setup(luat_tp_config_t *config);
 int luat_tp_input_init(luat_tp_config_t *config);

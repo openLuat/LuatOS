@@ -355,6 +355,8 @@ static int voip_play_start_lua(lua_State *L, int tts)
 
 /*
 向当前通话对端播放TTS，不占用本地音频设备。
+按target检查媒体就绪：cc仅要求蜂窝通话已接通且PCM通道就绪，可在拨SIP之前播放；sip仅要求SIP媒体运行；both要求两端均就绪。
+仅向cc播放时，不要求SIP媒体运行或符合SIP播放格式限制；SIP正常启停不会直接取消CC播报，CC挂断或媒体阶段变化仍会停止播报。
 @api voip.playTTS(text, opts)
 @string text UTF-8文本
 @table opts 可选配置：target="sip"/"cc"/"both"（cc/both仅支持纯PCM桥接），mode="replace"/"mix"，gain和speech_gain为0~1
@@ -367,6 +369,7 @@ static int l_voip_play_tts(lua_State *L) { return voip_play_start_lua(L, 1); }
 
 /*
 向当前通话对端播放本地PCM16、PCM WAV或MP3文件。
+与playTTS使用相同的目标通道就绪检查，可向已接通的单端播放。
 @api voip.playFile(path, opts)
 @string path 文件系统路径
 @table opts 同playTTS；裸PCM另支持sample_rate和channels，默认8000和1，格式PCM16LE

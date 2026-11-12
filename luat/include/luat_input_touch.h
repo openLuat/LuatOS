@@ -1,5 +1,5 @@
 /** @file luat_input_touch.h
- * Allocation-free single/multi-touch adapter for the LuatOS input core.
+ * Single/multi-touch event adapter.
  */
 #ifndef LUAT_INPUT_TOUCH_H
 #define LUAT_INPUT_TOUCH_H

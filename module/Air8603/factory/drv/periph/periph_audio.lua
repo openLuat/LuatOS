@@ -42,7 +42,7 @@ handle:status()        → { enabled=bool, info=string }
   Air1103 实际接 UART6，漏传 uart_id 会被 exaudio 缺省绑到 UART1（隔离 485 那一路），
   现象是录音采不到数据、回放也没声音
 - 录音起播后做 MIC 就绪探测（2.5s）：没采到数据直接报
-  「未收到MIC数据，请检查供电、UART和固件」，不让用户对着静音录音等满时长
+  「未收到MIC数据，请检查麦克风、供电、UART和固件」，不让用户对着静音录音等满时长
 - Air1103 每次录音都复位芯片，恢复 MIC 上行前落盘的是静音，
   下发给 exaudio 的时长补 2 秒，用户要几秒就录到几秒有效音频
 - 录音一律「函数 path 手动落盘」：字符串 path 在 exaudio 内部按 "ab" 追加写，不会创建文件
@@ -205,7 +205,7 @@ finalize_record = function(h)
     h.rec_bytes = sz
     h.rec_ready = sz > 0
     if h.mic_fail then
-        publish_state(h, "error", "录音失败：未收到MIC数据，请检查供电、UART和固件")
+        publish_state(h, "error", "录音失败：未收到MIC数据，请检查麦克风、供电、UART和固件")
     elseif sz > 0 then
         publish_state(h, "idle", string.format("录音完成 %d 秒 %d 字节，可播放", h.rec_seconds or 0, sz))
     else
@@ -215,7 +215,7 @@ end
 
 --[[
 @function mic_probe
-@summary MIC 上行就绪探测：到点还没采到数据即判定供电/UART/固件有问题，直接收尾报错
+@summary MIC 上行就绪探测：到点还没采到数据即判定麦克风/供电/UART/固件有问题，直接收尾报错
 ]]
 local function mic_probe()
     mic_probe_t = nil

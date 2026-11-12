@@ -328,6 +328,8 @@ typedef struct {
     uint8_t _req_id_res;
     uint8_t _seq_num_res;
     uint8_t _version;
+    bool _auth_present;
+    uint64_t _auth_nonce;
 #if Z_FEATURE_FRAGMENTATION == 1
     uint8_t _patch;
 #endif
@@ -369,6 +371,9 @@ typedef struct {
     _z_zint_t _lease;
     _z_zint_t _initial_sn;
     _z_slice_t _cookie;
+    bool _auth_present;
+    uint16_t _auth_user_len;
+    uint8_t _auth_user[128], _auth_hmac[32];
 } _z_t_msg_open_t;
 void _z_t_msg_open_clear(_z_t_msg_open_t *msg);
 
@@ -535,10 +540,10 @@ _z_transport_message_t _z_t_msg_make_fragment(_z_zint_t sn, _z_slice_t messages,
                                               bool is_last, bool first, bool drop);
 
 /*------------------ Copy ------------------*/
-void _z_t_msg_copy(_z_transport_message_t *clone, _z_transport_message_t *msg);
+z_result_t _z_t_msg_copy(_z_transport_message_t *clone, _z_transport_message_t *msg);
 void _z_t_msg_copy_join(_z_t_msg_join_t *clone, _z_t_msg_join_t *msg);
-void _z_t_msg_copy_init(_z_t_msg_init_t *clone, _z_t_msg_init_t *msg);
-void _z_t_msg_copy_open(_z_t_msg_open_t *clone, _z_t_msg_open_t *msg);
+z_result_t _z_t_msg_copy_init(_z_t_msg_init_t *clone, _z_t_msg_init_t *msg);
+z_result_t _z_t_msg_copy_open(_z_t_msg_open_t *clone, _z_t_msg_open_t *msg);
 void _z_t_msg_copy_close(_z_t_msg_close_t *clone, _z_t_msg_close_t *msg);
 void _z_t_msg_copy_keep_alive(_z_t_msg_keep_alive_t *clone, _z_t_msg_keep_alive_t *msg);
 void _z_t_msg_copy_frame(_z_t_msg_frame_t *clone, _z_t_msg_frame_t *msg);

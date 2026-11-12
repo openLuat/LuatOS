@@ -1,8 +1,8 @@
 --[[
 @module  wifi_app
 @summary WiFi应用模块（全平台统一，基于exnetif多网融合）
-@version 1.6
-@date    2026.11.05
+@version 1.7
+@date    2026.11.09
 @author  江访
 @usage
 统一版 WiFi 业务逻辑层，通过 exnetif 框架支持所有平台：
@@ -17,6 +17,9 @@
 2. exnetif.set_priority_order 包含 WIFI + 兜底网络(以太网/4G) 的完整列表，
    exnetif 会按优先级依次尝试，WiFi 断开后自动落到以太网。
 3. 不写死等的循环：所有等待使用 sys.waitUntil 带超时，不使用忙等待。
+4. WiFi 开关只有一个真源：网络设置页（net_manager / net_storage）。
+   wifi_storage 里的 wifi_enabled 只是镜像，开机由 start_auto_when_ready 对齐，
+   这样「网络设置页显示已开启」与「WiFi 连接管理可扫描/可连接」永远一致。
 
 == 状态机（从初始化到联网的完整链路）==
   自动扫描 → WIFI_SCAN_DONE
@@ -94,6 +97,21 @@ local saved_config = {
     ping_time = "10000",
     auto_socket_switch = true
 }
+
+--[[
+WiFi 开关的唯一真源是网络设置页（net_manager / net_storage）。
+saved_config.wifi_enabled 只是 wifi_storage 里的历史镜像，老固件可能残留 false，
+会让「网络设置页显示已开启、WiFi 业务层却是关闭」两边打架，所以 net_manager 就绪后
+一律以它为准（顺手把镜像同步过去），只有开机极早期（net_manager.init 还没跑完）
+才回落到镜像值。
+@return boolean WiFi 是否启用
+]]
+local function wifi_switch_on()
+    if net_manager.is_boot_ready() then
+        saved_config.wifi_enabled = net_manager.is_wifi_enabled()
+    end
+    return saved_config.wifi_enabled == true
+end
 
 local scan_timer = nil
 local connect_timer = nil
@@ -276,7 +294,7 @@ end
 ]]
 local function restart_auto_connect(reason)
     if auto_timer then return end
-    if not saved_config.wifi_enabled then return end
+    if not wifi_switch_on() then return end
     if user_disconnect or user_connect then return end
     log.warn("wifi_app", "连接丢失，重新进入自动连接:", reason)
     start_auto_watchdog(AUTO_RECONNECT_DELAY)
@@ -310,6 +328,16 @@ local function start_auto_when_ready()
             return
         end
         sys.wait(100)
+    end
+    -- 网络设置页的开关是 WiFi 的唯一真源（net_manager.init 已完成，可以取值）：
+    -- 关机前残留的 wifi_enabled=false 镜像不能把 WiFi 业务层钉死在关闭状态，
+    -- 否则网络设置页显示已开启、WiFi 连接管理却提示“WiFi 未开启”，且扫描/自动连接全停摆。
+    saved_config.wifi_enabled = net_manager.is_wifi_enabled()
+    log.info("wifi_app", "WiFi 开关以网络设置页为准，enabled:", saved_config.wifi_enabled)
+    if not saved_config.wifi_enabled then
+        log.info("wifi_app", "WiFi 网络开关关闭，跳过自动连接")
+        stop_auto_connect()
+        return
     end
     local ssid, _, bssid = net_manager.pick_wifi_credential()
     if net_manager.is_same_as_boot_credential(ssid, bssid) then
@@ -349,7 +377,7 @@ end
 -- STA 状态（L2 关联层）：仅更新 wifi_state 和发布 UI 事件。
 -- exnetif 负责网卡切换逻辑，wifi_app 只负责 UI 状态同步。
 -- 开机时 net_manager.init() 用已保存WiFi（无则用默认账号）初始化 airlink 硬件，
--- 该 placeholder 的 CONNECTED/DISCONNECTED 事件不发布给 UI（wifi_enabled=false 时抑制），
+-- 该 placeholder 的 CONNECTED/DISCONNECTED 事件不发布给 UI（WiFi 开关关闭时抑制），
 -- 但内部 wifi_state 仍更新以保持与实际硬件状态一致。
 local function on_sta_event(evt, data)
     if evt == "CONNECTED" then
@@ -358,9 +386,10 @@ local function on_sta_event(evt, data)
         wifi_state.current_ssid = ssid
         wifi_state.connectivity_verified = false
         -- 仅当 WiFi 开关已开启时才发布状态更新给 UI；
-        -- wifi_enabled=false 时只更新内部跟踪，不通知 UI 层。
-        if saved_config.wifi_enabled then update_status(wifi_state) end
-        if not saved_config.wifi_enabled then return end
+        -- 开关关闭时只更新内部跟踪，不通知 UI 层。
+        local on_air = wifi_switch_on()
+        if on_air then update_status(wifi_state) end
+        if not on_air then return end
         -- 发布WiFi信号图标更新（连接中，用等级2表示）
         sys.publish("STATUS_WIFI_SIGNAL_UPDATED", 2)
         if user_connect then
@@ -392,8 +421,9 @@ local function on_sta_event(evt, data)
         wifi_state.bssid = "--"
         wifi_state.connectivity_verified = false
         -- 仅当 WiFi 开关已开启时才发布状态更新给 UI
-        if saved_config.wifi_enabled then update_status(wifi_state) end
-        if not saved_config.wifi_enabled then return end
+        local on_air = wifi_switch_on()
+        if on_air then update_status(wifi_state) end
+        if not on_air then return end
         -- 连接进行中的断开不通知 UI（exnetif 切换通道时会自动断开再连）
         if pending_connect then return end
         -- 没有用户主动操作且之前未连接真实SSID时的断开不通知 UI：
@@ -465,7 +495,7 @@ local function on_ip_ready(ip, adapter)
 
     stop_auto_connect()
 
-    if saved_config.wifi_enabled then update_status(wifi_state) end
+    if wifi_switch_on() then update_status(wifi_state) end
     -- 获取RSSI后更新WiFi信号图标
     if info and info.rssi then
         local level = 0
@@ -484,7 +514,7 @@ local function on_ip_lose(adapter)
     wifi_state.rssi = "--"
     wifi_state.current_ssid = ""
     wifi_state.connectivity_verified = false
-    if saved_config.wifi_enabled then update_status(wifi_state) end
+    if wifi_switch_on() then update_status(wifi_state) end
     restart_auto_connect("IP_LOSE")
 end
 
@@ -493,13 +523,10 @@ end
 -- WIFI_STORAGE_LOAD_RSP
 local function on_storage_loaded(data)
     saved_config = data.config
-    log.info("wifi_app", "配置加载完成:", saved_config.ssid, "enabled:", saved_config.wifi_enabled)
+    log.info("wifi_app", "配置加载完成:", saved_config.ssid, "镜像enabled:", saved_config.wifi_enabled)
 
-    if not saved_config.wifi_enabled then
-        log.info("wifi_app", "WiFi 已禁用，仅启用兜底网络")
-        return
-    end
-
+    -- 这里不能按 saved_config.wifi_enabled 早退：它只是 wifi_storage 的历史镜像，
+    -- 真源是网络设置页开关，要等 net_manager.init() 完成后才能取值（见 start_auto_when_ready）。
     -- WiFi 启用：开机连接由 net_manager.init() 按自动连接策略下发，
     -- 这里等网络初始化完成后再判断是补发凭证还是只挂回落看门狗。
     -- 抢在 init 之前 apply_wifi 会占用 set_priority_order 每次开机唯一一次机会，
@@ -583,7 +610,7 @@ local function on_connect_req(data)
             sys.publish("WIFI_DISCONNECTED", "SSID不能为空", -3)
             return
         end
-        if saved_config and not saved_config.wifi_enabled then
+        if not wifi_switch_on() then
             user_connect = false
             return
         end
@@ -618,11 +645,14 @@ end
 
 -- WIFI_GET_STATUS_REQ
 local function on_get_status()
+    -- 回执带的是网络设置页的真值，避免 WiFi 连接管理页误判「WiFi 未开启」
+    wifi_switch_on()
     common.on_get_status_req(wifi_state, saved_config)
 end
 
 -- WIFI_GET_CONFIG_REQ
 local function on_get_config()
+    wifi_switch_on()
     common.on_get_config_req(saved_config)
 end
 

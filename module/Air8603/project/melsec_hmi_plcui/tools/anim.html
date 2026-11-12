@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!--
+  链路流光帧素材（透明底）。?w=&h=&n=&dir=&c=
+    w,h   单帧像素尺寸，必须与 main.xml 里 image 控件一致
+    n     帧数
+    dir   ltr（左→右）/ rtl（右→左）
+    c     行波颜色（6 位 hex，不带 #）
+  页面高度 = h*n，纵向排 n 帧；tools/gen_anim.ps1 截图后按行裁成 n 张 PNG。
+
+  画法（"行波"，不是飞一个光点）：
+    1) 一条恒定的底光盖满整幅（opacity 0.13）—— 通电的线始终微微发亮；
+    2) 上面再叠一条同样盖满整幅的线，用的是"亮核会移动"的渐变：
+         头后 120px 渐亮 → 头处最亮 → 头前 40px 渐暗
+       亮核随帧推进，画面上永远有一条完整亮着的线，没有"断档空窗"；
+    3) 头部再叠 10px 模糊辉光 + 白芯，像电流涌到最前面的那一点；
+    4) 亮核在 [2, w-2] 内走一整趟（每帧推进 (w-4)/n，104 宽约 12.5px），
+       循环处右端已暗、下一帧左端重新亮起，像"下一波电流注入"，中间没有全黑空窗。
+       底图上的虚线被这条亮线压住，视觉上就是"这段线通电了"。
+-->
+<style>
+  html, body { margin:0; padding:0; background:transparent; overflow:hidden;
+    font-family:"Microsoft YaHei",sans-serif; }
+  .f { position:absolute; left:0; }
+  svg { display:block; }
+</style>
+</head>
+<body>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var w = +q.get('w') || 104;
+  var h = +q.get('h') || 28;
+  var n = +q.get('n') || 8;
+  var dir = (q.get('dir') || 'ltr').toLowerCase();
+  var c = '#' + (q.get('c') || '22D3EE');
+
+  document.body.style.width = w + 'px';
+  document.body.style.height = (h * n) + 'px';
+
+  var cy = h / 2;            // 光带压在贴图垂直中线上（与底图走线对齐）
+  var BACK = 62;             // 亮核后面的拖尾长度（亮区要比画面窄，才看得出"暗段"）
+  var FRONT = 26;            // 亮核前面的溢出长度
+  var pad = 2;               // 亮核端点内缩，避免圆头贴边
+  var SW = 3.6;              // 主线宽：要盖得住底图 2px 虚线
+
+  for (var i = 0; i < n; i++) {
+    /* 亮核在 [pad, w-pad] 内走一整趟：每帧都有光，循环处右端暗、左端重新涌入 */
+    var t = i / n;
+    var head = dir === 'rtl'
+      ? (w - pad - (w - pad * 2) * t)
+      : (pad + (w - pad * 2) * t);
+
+    var x1 = head - BACK;
+    var x2 = head + FRONT;
+    var peak = BACK / (BACK + FRONT);                  // 亮核在渐变里的位置
+
+    var id = 'f' + i;
+    var svg =
+      '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' +
+        '<defs>' +
+          '<linearGradient id="g' + id + '" gradientUnits="userSpaceOnUse" ' +
+            'x1="' + x1.toFixed(2) + '" y1="' + cy + '" ' +
+            'x2="' + x2.toFixed(2) + '" y2="' + cy + '">' +
+            '<stop offset="0"                 stop-color="' + c + '" stop-opacity="0"/>' +
+            '<stop offset="' + (peak * 0.42).toFixed(3) + '" stop-color="' + c + '" stop-opacity="0.30"/>' +
+            '<stop offset="' + (peak * 0.78).toFixed(3) + '" stop-color="' + c + '" stop-opacity="0.72"/>' +
+            '<stop offset="' + peak.toFixed(3) + '" stop-color="' + c + '" stop-opacity="1"/>' +
+            '<stop offset="1"                 stop-color="' + c + '" stop-opacity="0"/>' +
+          '</linearGradient>' +
+          '<filter id="b' + id + '" x="-300%" y="-300%" width="700%" height="700%">' +
+            '<feGaussianBlur stdDeviation="3.2"/></filter>' +
+          '<filter id="s' + id + '" x="-300%" y="-300%" width="700%" height="700%">' +
+            '<feGaussianBlur stdDeviation="1.0"/></filter>' +
+        '</defs>' +
+
+        // 底光：整条线一直微微发亮，表示"通着电"（压得很低，暗段还能透出底图虚线）
+        '<line x1="0" y1="' + cy + '" x2="' + w + '" y2="' + cy +
+          '" stroke="' + c + '" stroke-width="' + SW + '" stroke-linecap="round" opacity="0.07"/>' +
+
+        // 辉光：让亮核周围的空气也有点热感
+        '<line x1="0" y1="' + cy + '" x2="' + w + '" y2="' + cy +
+          '" stroke="url(#g' + id + ')" stroke-width="10" stroke-linecap="round" opacity="0.5" ' +
+          'filter="url(#b' + id + ')"/>' +
+
+        // 主行波：盖住底图虚线的连续亮线
+        '<line x1="0" y1="' + cy + '" x2="' + w + '" y2="' + cy +
+          '" stroke="url(#g' + id + ')" stroke-width="' + SW + '" stroke-linecap="round"/>' +
+
+        // 亮核：晕 + 核 + 白芯（走出画面就不画，避免在边缘硬切）
+        (head > -4 && head < w + 4
+          ? '<circle cx="' + head.toFixed(2) + '" cy="' + cy + '" r="6.5" fill="' + c +
+              '" opacity="0.4" filter="url(#b' + id + ')"/>' +
+            '<circle cx="' + head.toFixed(2) + '" cy="' + cy + '" r="3" fill="' + c +
+              '" opacity="0.95" filter="url(#s' + id + ')"/>' +
+            '<circle cx="' + head.toFixed(2) + '" cy="' + cy + '" r="1.5" fill="#FFFFFF" opacity="0.95"/>'
+          : '') +
+      '</svg>';
+
+    var d = document.createElement('div');
+    d.className = 'f';
+    d.style.top = (i * h) + 'px';
+    d.innerHTML = svg;
+    document.body.appendChild(d);
+  }
+})();
+</script>
+</body>
+</html>

@@ -97,8 +97,8 @@ typedef struct _drv_bluetooth_BleAdvDeleteRequest {
     char dummy_field;
 } drv_bluetooth_BleAdvDeleteRequest;
 
-typedef PB_BYTES_ARRAY_T(512) drv_bluetooth_BleGattCreateRequest_packed_gatt_t;
-/* GATT 创建：packed_gatt 携带 luat_ble_gatt_pack() 序列化输出 */
+typedef PB_BYTES_ARRAY_T(1500) drv_bluetooth_BleGattCreateRequest_packed_gatt_t;
+/* Versioned, pointer-free AirLink BLE wire tree (luat_airlink_ble_wire.h). */
 typedef struct _drv_bluetooth_BleGattCreateRequest {
     drv_bluetooth_BleGattCreateRequest_packed_gatt_t packed_gatt;
 } drv_bluetooth_BleGattCreateRequest;
@@ -137,6 +137,29 @@ typedef struct _drv_bluetooth_BleScanStopRequest {
 typedef struct _drv_bluetooth_BleScanDeleteRequest {
     char dummy_field;
 } drv_bluetooth_BleScanDeleteRequest;
+
+typedef PB_BYTES_ARRAY_T(6) drv_bluetooth_BleConnectRequest_address_t;
+typedef struct _drv_bluetooth_BleConnectRequest {
+    drv_bluetooth_BleConnectRequest_address_t address;
+    uint32_t address_type;
+    uint32_t interval;
+    uint32_t latency;
+    uint32_t timeout;
+} drv_bluetooth_BleConnectRequest;
+
+typedef PB_BYTES_ARRAY_T(16) drv_bluetooth_BleValueRequest_service_t;
+typedef PB_BYTES_ARRAY_T(16) drv_bluetooth_BleValueRequest_characteristic_t;
+typedef PB_BYTES_ARRAY_T(16) drv_bluetooth_BleValueRequest_descriptor_t;
+typedef PB_BYTES_ARRAY_T(512) drv_bluetooth_BleValueRequest_data_t;
+/* UUID byte order is the Lua/BLE API order; empty descriptor means absent. */
+typedef struct _drv_bluetooth_BleValueRequest {
+    uint32_t operation; /* LUAT_DRV_BT_CMD_BLE_* value operation */
+    drv_bluetooth_BleValueRequest_service_t service;
+    drv_bluetooth_BleValueRequest_characteristic_t characteristic;
+    drv_bluetooth_BleValueRequest_descriptor_t descriptor;
+    drv_bluetooth_BleValueRequest_data_t data;
+    bool enable;
+} drv_bluetooth_BleValueRequest;
 
 /* ---- 各操作响应消息 ---- */
 typedef struct _drv_bluetooth_BleInitResponse {
@@ -229,6 +252,11 @@ typedef struct _drv_bluetooth_BleRpcRequest {
         drv_bluetooth_BleScanStartRequest scan_start;
         drv_bluetooth_BleScanStopRequest scan_stop;
         drv_bluetooth_BleScanDeleteRequest scan_delete;
+        drv_bluetooth_BleConnectRequest connect;
+        drv_bluetooth_BleDeinitRequest disconnect;
+        drv_bluetooth_BleValueRequest value;
+        drv_bluetooth_BleInitRequest bluetooth_init;
+        drv_bluetooth_BleDeinitRequest bluetooth_deinit;
     } payload;
 } drv_bluetooth_BleRpcRequest;
 
@@ -236,6 +264,12 @@ typedef struct _drv_bluetooth_BleRpcRequest {
 typedef struct _drv_bluetooth_BleRpcResponse {
     bool has_req_id;
     uint32_t req_id; /* 与请求匹配；事件上报时为 0 */
+    /* Always present in the synchronous BLE RPC implementation. Preserve the
+ backend's signed error rather than reporting only transport success. */
+    bool has_status;
+    int32_t status;
+    bool has_operation;
+    uint32_t operation; /* request oneof tag */
     pb_size_t which_payload;
     union {
         drv_bluetooth_BleInitResponse init;
@@ -261,16 +295,8 @@ typedef struct _drv_bluetooth_BleRpcResponse {
 typedef PB_BYTES_ARRAY_T(1500) drv_bluetooth_BleEventNotify_packed_data_t;
 /* ---- BLE 事件通知 (服务端 → 客户端, 通过 nb_notify 发送) ----
  event_type: luat_ble_event_t 枚举值
- packed_data 格式随 event_type 而定：
-   CONN      → luat_ble_conn_ind_t
-   DISCONN   → luat_ble_disconn_ind_t
-   GATT_DONE → luat_ble_gatt_done_ind_t
-   WRITE     → luat_ble_write_req_t + value 字节
-   READ      → luat_ble_read_req_t
-   READ_VALUE→ luat_ble_read_req_t + value 字节
-   SCAN_REPORT → luat_ble_adv_req_t + adv_data 字节
-   GATT_ITEM → luat_ble_gatt_pack() 输出
-   其他事件  → 无 packed_data */
+ packed_data uses the versioned, bounded, pointer-free encoding documented in
+ luat_airlink_ble_wire.h, including the entire GATT_ITEM tree and values. */
 typedef struct _drv_bluetooth_BleEventNotify {
     uint32_t event_type;
     bool has_packed_data;
@@ -288,6 +314,8 @@ extern "C" {
 #define _drv_bluetooth_BleResultCode_ARRAYSIZE ((drv_bluetooth_BleResultCode)(drv_bluetooth_BleResultCode_BLE_RES_FAIL+1))
 
 #define drv_bluetooth_BleResult_code_ENUMTYPE drv_bluetooth_BleResultCode
+
+
 
 
 
@@ -350,6 +378,8 @@ extern "C" {
 #define drv_bluetooth_BleScanStartRequest_init_default {0}
 #define drv_bluetooth_BleScanStopRequest_init_default {0}
 #define drv_bluetooth_BleScanDeleteRequest_init_default {0}
+#define drv_bluetooth_BleConnectRequest_init_default {{0, {0}}, 0, 0, 0, 0}
+#define drv_bluetooth_BleValueRequest_init_default {0, {0, {0}}, {0, {0}}, {0, {0}}, {0, {0}}, 0}
 #define drv_bluetooth_BleInitResponse_init_default {drv_bluetooth_BleResult_init_default}
 #define drv_bluetooth_BleDeinitResponse_init_default {drv_bluetooth_BleResult_init_default}
 #define drv_bluetooth_BleSetNameResponse_init_default {drv_bluetooth_BleResult_init_default}
@@ -368,7 +398,7 @@ extern "C" {
 #define drv_bluetooth_BleScanStopResponse_init_default {drv_bluetooth_BleResult_init_default}
 #define drv_bluetooth_BleScanDeleteResponse_init_default {drv_bluetooth_BleResult_init_default}
 #define drv_bluetooth_BleRpcRequest_init_default {0, 0, {drv_bluetooth_BleInitRequest_init_default}}
-#define drv_bluetooth_BleRpcResponse_init_default {false, 0u, 0, {drv_bluetooth_BleInitResponse_init_default}}
+#define drv_bluetooth_BleRpcResponse_init_default {false, 0u, false, 0, false, 0, 0, {drv_bluetooth_BleInitResponse_init_default}}
 #define drv_bluetooth_BleEventNotify_init_default {0, false, {0, {0}}}
 #define drv_bluetooth_BleResult_init_zero        {false, _drv_bluetooth_BleResultCode_MIN, false, 0}
 #define drv_bluetooth_BleAdvCfg_init_zero        {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
@@ -390,6 +420,8 @@ extern "C" {
 #define drv_bluetooth_BleScanStartRequest_init_zero {0}
 #define drv_bluetooth_BleScanStopRequest_init_zero {0}
 #define drv_bluetooth_BleScanDeleteRequest_init_zero {0}
+#define drv_bluetooth_BleConnectRequest_init_zero {{0, {0}}, 0, 0, 0, 0}
+#define drv_bluetooth_BleValueRequest_init_zero  {0, {0, {0}}, {0, {0}}, {0, {0}}, {0, {0}}, 0}
 #define drv_bluetooth_BleInitResponse_init_zero  {drv_bluetooth_BleResult_init_zero}
 #define drv_bluetooth_BleDeinitResponse_init_zero {drv_bluetooth_BleResult_init_zero}
 #define drv_bluetooth_BleSetNameResponse_init_zero {drv_bluetooth_BleResult_init_zero}
@@ -408,7 +440,7 @@ extern "C" {
 #define drv_bluetooth_BleScanStopResponse_init_zero {drv_bluetooth_BleResult_init_zero}
 #define drv_bluetooth_BleScanDeleteResponse_init_zero {drv_bluetooth_BleResult_init_zero}
 #define drv_bluetooth_BleRpcRequest_init_zero    {0, 0, {drv_bluetooth_BleInitRequest_init_zero}}
-#define drv_bluetooth_BleRpcResponse_init_zero   {false, 0, 0, {drv_bluetooth_BleInitResponse_init_zero}}
+#define drv_bluetooth_BleRpcResponse_init_zero   {false, 0, false, 0, false, 0, 0, {drv_bluetooth_BleInitResponse_init_zero}}
 #define drv_bluetooth_BleEventNotify_init_zero   {0, false, {0, {0}}}
 
 /* Field tags (for use in manual encoding/decoding) */
@@ -439,6 +471,17 @@ extern "C" {
 #define drv_bluetooth_BleWriteNotifyRequest_att_handle_tag 3
 #define drv_bluetooth_BleWriteNotifyRequest_data_tag 4
 #define drv_bluetooth_BleScanCreateRequest_cfg_tag 1
+#define drv_bluetooth_BleConnectRequest_address_tag 1
+#define drv_bluetooth_BleConnectRequest_address_type_tag 2
+#define drv_bluetooth_BleConnectRequest_interval_tag 3
+#define drv_bluetooth_BleConnectRequest_latency_tag 4
+#define drv_bluetooth_BleConnectRequest_timeout_tag 5
+#define drv_bluetooth_BleValueRequest_operation_tag 1
+#define drv_bluetooth_BleValueRequest_service_tag 2
+#define drv_bluetooth_BleValueRequest_characteristic_tag 3
+#define drv_bluetooth_BleValueRequest_descriptor_tag 4
+#define drv_bluetooth_BleValueRequest_data_tag   5
+#define drv_bluetooth_BleValueRequest_enable_tag 6
 #define drv_bluetooth_BleInitResponse_result_tag 1
 #define drv_bluetooth_BleDeinitResponse_result_tag 1
 #define drv_bluetooth_BleSetNameResponse_result_tag 1
@@ -474,7 +517,14 @@ extern "C" {
 #define drv_bluetooth_BleRpcRequest_scan_start_tag 41
 #define drv_bluetooth_BleRpcRequest_scan_stop_tag 42
 #define drv_bluetooth_BleRpcRequest_scan_delete_tag 43
+#define drv_bluetooth_BleRpcRequest_connect_tag  44
+#define drv_bluetooth_BleRpcRequest_disconnect_tag 45
+#define drv_bluetooth_BleRpcRequest_value_tag    46
+#define drv_bluetooth_BleRpcRequest_bluetooth_init_tag 50
+#define drv_bluetooth_BleRpcRequest_bluetooth_deinit_tag 51
 #define drv_bluetooth_BleRpcResponse_req_id_tag  1
+#define drv_bluetooth_BleRpcResponse_status_tag  2
+#define drv_bluetooth_BleRpcResponse_operation_tag 3
 #define drv_bluetooth_BleRpcResponse_init_tag    10
 #define drv_bluetooth_BleRpcResponse_deinit_tag  11
 #define drv_bluetooth_BleRpcResponse_set_name_tag 12
@@ -613,6 +663,25 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  cfg,               1)
 #define drv_bluetooth_BleScanDeleteRequest_CALLBACK NULL
 #define drv_bluetooth_BleScanDeleteRequest_DEFAULT NULL
 
+#define drv_bluetooth_BleConnectRequest_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, BYTES,    address,           1) \
+X(a, STATIC,   REQUIRED, UINT32,   address_type,      2) \
+X(a, STATIC,   REQUIRED, UINT32,   interval,          3) \
+X(a, STATIC,   REQUIRED, UINT32,   latency,           4) \
+X(a, STATIC,   REQUIRED, UINT32,   timeout,           5)
+#define drv_bluetooth_BleConnectRequest_CALLBACK NULL
+#define drv_bluetooth_BleConnectRequest_DEFAULT NULL
+
+#define drv_bluetooth_BleValueRequest_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, UINT32,   operation,         1) \
+X(a, STATIC,   REQUIRED, BYTES,    service,           2) \
+X(a, STATIC,   REQUIRED, BYTES,    characteristic,    3) \
+X(a, STATIC,   REQUIRED, BYTES,    descriptor,        4) \
+X(a, STATIC,   REQUIRED, BYTES,    data,              5) \
+X(a, STATIC,   REQUIRED, BOOL,     enable,            6)
+#define drv_bluetooth_BleValueRequest_CALLBACK NULL
+#define drv_bluetooth_BleValueRequest_DEFAULT NULL
+
 #define drv_bluetooth_BleInitResponse_FIELDLIST(X, a) \
 X(a, STATIC,   REQUIRED, MESSAGE,  result,            1)
 #define drv_bluetooth_BleInitResponse_CALLBACK NULL
@@ -733,7 +802,12 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,write_notify,payload.write_notify), 
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scan_create,payload.scan_create),  40) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scan_start,payload.scan_start),  41) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scan_stop,payload.scan_stop),  42) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scan_delete,payload.scan_delete),  43)
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scan_delete,payload.scan_delete),  43) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,connect,payload.connect),  44) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,disconnect,payload.disconnect),  45) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,value,payload.value),  46) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,bluetooth_init,payload.bluetooth_init),  50) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,bluetooth_deinit,payload.bluetooth_deinit),  51)
 #define drv_bluetooth_BleRpcRequest_CALLBACK NULL
 #define drv_bluetooth_BleRpcRequest_DEFAULT NULL
 #define drv_bluetooth_BleRpcRequest_payload_init_MSGTYPE drv_bluetooth_BleInitRequest
@@ -753,9 +827,16 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scan_delete,payload.scan_delete),  4
 #define drv_bluetooth_BleRpcRequest_payload_scan_start_MSGTYPE drv_bluetooth_BleScanStartRequest
 #define drv_bluetooth_BleRpcRequest_payload_scan_stop_MSGTYPE drv_bluetooth_BleScanStopRequest
 #define drv_bluetooth_BleRpcRequest_payload_scan_delete_MSGTYPE drv_bluetooth_BleScanDeleteRequest
+#define drv_bluetooth_BleRpcRequest_payload_connect_MSGTYPE drv_bluetooth_BleConnectRequest
+#define drv_bluetooth_BleRpcRequest_payload_disconnect_MSGTYPE drv_bluetooth_BleDeinitRequest
+#define drv_bluetooth_BleRpcRequest_payload_value_MSGTYPE drv_bluetooth_BleValueRequest
+#define drv_bluetooth_BleRpcRequest_payload_bluetooth_init_MSGTYPE drv_bluetooth_BleInitRequest
+#define drv_bluetooth_BleRpcRequest_payload_bluetooth_deinit_MSGTYPE drv_bluetooth_BleDeinitRequest
 
 #define drv_bluetooth_BleRpcResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, UINT32,   req_id,            1) \
+X(a, STATIC,   OPTIONAL, SINT32,   status,            2) \
+X(a, STATIC,   OPTIONAL, UINT32,   operation,         3) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,init,payload.init),  10) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,deinit,payload.deinit),  11) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,set_name,payload.set_name),  12) \
@@ -819,6 +900,8 @@ extern const pb_msgdesc_t drv_bluetooth_BleScanCreateRequest_msg;
 extern const pb_msgdesc_t drv_bluetooth_BleScanStartRequest_msg;
 extern const pb_msgdesc_t drv_bluetooth_BleScanStopRequest_msg;
 extern const pb_msgdesc_t drv_bluetooth_BleScanDeleteRequest_msg;
+extern const pb_msgdesc_t drv_bluetooth_BleConnectRequest_msg;
+extern const pb_msgdesc_t drv_bluetooth_BleValueRequest_msg;
 extern const pb_msgdesc_t drv_bluetooth_BleInitResponse_msg;
 extern const pb_msgdesc_t drv_bluetooth_BleDeinitResponse_msg;
 extern const pb_msgdesc_t drv_bluetooth_BleSetNameResponse_msg;
@@ -861,6 +944,8 @@ extern const pb_msgdesc_t drv_bluetooth_BleEventNotify_msg;
 #define drv_bluetooth_BleScanStartRequest_fields &drv_bluetooth_BleScanStartRequest_msg
 #define drv_bluetooth_BleScanStopRequest_fields &drv_bluetooth_BleScanStopRequest_msg
 #define drv_bluetooth_BleScanDeleteRequest_fields &drv_bluetooth_BleScanDeleteRequest_msg
+#define drv_bluetooth_BleConnectRequest_fields &drv_bluetooth_BleConnectRequest_msg
+#define drv_bluetooth_BleValueRequest_fields &drv_bluetooth_BleValueRequest_msg
 #define drv_bluetooth_BleInitResponse_fields &drv_bluetooth_BleInitResponse_msg
 #define drv_bluetooth_BleDeinitResponse_fields &drv_bluetooth_BleDeinitResponse_msg
 #define drv_bluetooth_BleSetNameResponse_fields &drv_bluetooth_BleSetNameResponse_msg
@@ -883,7 +968,7 @@ extern const pb_msgdesc_t drv_bluetooth_BleEventNotify_msg;
 #define drv_bluetooth_BleEventNotify_fields &drv_bluetooth_BleEventNotify_msg
 
 /* Maximum encoded size of messages (where known) */
-#define DRV_BLUETOOTH_DRV_BLUETOOTH_PB_H_MAX_SIZE drv_bluetooth_BleEventNotify_size
+#define DRV_BLUETOOTH_DRV_BLUETOOTH_PB_H_MAX_SIZE drv_bluetooth_BleRpcRequest_size
 #define drv_bluetooth_BleAdvCfg_size             36
 #define drv_bluetooth_BleAdvCreateRequest_size   38
 #define drv_bluetooth_BleAdvCreateResponse_size  16
@@ -897,18 +982,19 @@ extern const pb_msgdesc_t drv_bluetooth_BleEventNotify_msg;
 #define drv_bluetooth_BleAdvStartResponse_size   16
 #define drv_bluetooth_BleAdvStopRequest_size     0
 #define drv_bluetooth_BleAdvStopResponse_size    16
+#define drv_bluetooth_BleConnectRequest_size     32
 #define drv_bluetooth_BleDeinitRequest_size      0
 #define drv_bluetooth_BleDeinitResponse_size     16
 #define drv_bluetooth_BleEventNotify_size        1509
-#define drv_bluetooth_BleGattCreateRequest_size  515
+#define drv_bluetooth_BleGattCreateRequest_size  1503
 #define drv_bluetooth_BleGattCreateResponse_size 16
 #define drv_bluetooth_BleInitRequest_size        0
 #define drv_bluetooth_BleInitResponse_size       16
 #define drv_bluetooth_BleReadResponseRequest_size 533
 #define drv_bluetooth_BleReadResponseResponse_size 16
 #define drv_bluetooth_BleResult_size             14
-#define drv_bluetooth_BleRpcRequest_size         543
-#define drv_bluetooth_BleRpcResponse_size        25
+#define drv_bluetooth_BleRpcRequest_size         1513
+#define drv_bluetooth_BleRpcResponse_size        37
 #define drv_bluetooth_BleScanCfg_size            24
 #define drv_bluetooth_BleScanCreateRequest_size  26
 #define drv_bluetooth_BleScanCreateResponse_size 16
@@ -922,6 +1008,7 @@ extern const pb_msgdesc_t drv_bluetooth_BleEventNotify_msg;
 #define drv_bluetooth_BleSetMaxMtuResponse_size  16
 #define drv_bluetooth_BleSetNameRequest_size     34
 #define drv_bluetooth_BleSetNameResponse_size    16
+#define drv_bluetooth_BleValueRequest_size       577
 #define drv_bluetooth_BleWriteNotifyRequest_size 533
 #define drv_bluetooth_BleWriteNotifyResponse_size 16
 

@@ -33,16 +33,20 @@ int luat_tp_transform(const luat_tp_config_t *cfg, int32_t *x, int32_t *y)
     return 0;
 }
 
-/* One task-context read, also used by native transport regression tests. */
-int luat_tp_process(luat_tp_config_t *cfg)
+static int tp_process(luat_tp_config_t *cfg, uint32_t message_id)
 {
     luat_tp_data_t normalized[LUAT_TP_TOUCH_MAX];
     if (!cfg || !cfg->opts || !cfg->opts->read) return -1;
     TP_LOCK();
     /* Independent of the optional sink: discard stale IRQ work after stop. */
-    if (!cfg->running) { TP_UNLOCK(); return 0; }
+    if (!cfg->running || (message_id && cfg->read_message_id && message_id != cfg->read_message_id)) {
+        TP_UNLOCK();
+        return 0;
+    }
     int ret = cfg->opts->read(cfg, cfg->tp_data);
-    if (ret >= 0 && cfg->sink_ops && cfg->sink_ops->process) {
+    if (ret == LUAT_TP_READ_NO_FRAME) {
+        ret = 0;
+    } else if (ret >= 0 && cfg->sink_ops && cfg->sink_ops->process) {
         ret = cfg->sink_ops->process(cfg, normalized);
     } else if (ret >= 0) {
         memcpy(normalized, cfg->tp_data, sizeof(normalized));
@@ -65,15 +69,22 @@ int luat_tp_process(luat_tp_config_t *cfg)
     return ret;
 }
 
+/* One task-context read, also used by native transport regression tests. */
+int luat_tp_process(luat_tp_config_t *cfg)
+{
+    return tp_process(cfg, 0);
+}
+
 void luat_tp_task_entry(void *param)
 {
     (void)param;
     uint32_t message_id;
-    luat_tp_config_t *cfg;
+    void *message;
     while (!g_s_tp_task_handle) luat_rtos_task_sleep(2);
     for (;;) {
-        luat_rtos_message_recv(g_s_tp_task_handle, &message_id, &cfg, LUAT_WAIT_FOREVER);
-        luat_tp_process(cfg);
+        if (!luat_rtos_message_recv(g_s_tp_task_handle, &message_id, &message, LUAT_WAIT_FOREVER)) {
+            tp_process(message, message_id);
+        }
     }
 }
 
@@ -91,10 +102,12 @@ int luat_tp_init(luat_tp_config_t *cfg)
     TP_LOCK();
     if (cfg->initialized) { TP_UNLOCK(); return -1; }
     cfg->task_handle = g_s_tp_task_handle;
+    cfg->read_message_id = 0;
     int ret = cfg->opts->init(cfg);
     if (!ret && cfg->sink_ops && cfg->sink_ops->open) ret = cfg->sink_ops->open(cfg);
     if (ret && cfg->opts->deinit) cfg->opts->deinit(cfg);
     cfg->initialized = cfg->running = !ret;
+    if (!ret && cfg->opts->activate) cfg->opts->activate(cfg);
 
     TP_UNLOCK();
     return ret;
@@ -140,6 +153,69 @@ int luat_tp_deinit(luat_tp_config_t *cfg)
         cfg->initialized = cfg->running = 0;
         if (cfg->sink_ops && cfg->sink_ops->close) cfg->sink_ops->close(cfg);
     }
+    TP_UNLOCK();
+    return ret;
+}
+
+static const luat_tp_calibration_ops_t *tp_calibration_ops(const luat_tp_config_t *cfg)
+{
+    return cfg && cfg->running && cfg->opts ? cfg->opts->calibration : NULL;
+}
+
+int luat_tp_calibration_begin(luat_tp_config_t *cfg, luat_tp_cal_notify_t notify)
+{
+    if (!tp_mutex || !notify) return LUAT_TP_CAL_UNSUPPORTED;
+    TP_LOCK();
+    const luat_tp_calibration_ops_t *ops = tp_calibration_ops(cfg);
+    int ret = LUAT_TP_CAL_UNSUPPORTED;
+    if (ops && ops->begin && ops->notice && ops->ack) {
+        ret = ops->begin(cfg, notify);
+        if (!ret) {
+            memset(cfg->tp_data, 0, sizeof(cfg->tp_data));
+            if (cfg->sink_ops && cfg->sink_ops->reset) cfg->sink_ops->reset(cfg);
+        }
+    }
+    TP_UNLOCK();
+    return ret;
+}
+
+bool luat_tp_calibration_notice(luat_tp_config_t *cfg, int serial, luat_tp_cal_notice_t *out)
+{
+    if (!tp_mutex || !out) return false;
+    TP_LOCK();
+    const luat_tp_calibration_ops_t *ops = tp_calibration_ops(cfg);
+    bool ready = ops && ops->notice && ops->notice(cfg, serial, out);
+    TP_UNLOCK();
+    return ready;
+}
+
+void luat_tp_calibration_ack(luat_tp_config_t *cfg, int serial, bool callback_ok)
+{
+    if (!tp_mutex) return;
+    TP_LOCK();
+    const luat_tp_calibration_ops_t *ops = tp_calibration_ops(cfg);
+    if (ops && ops->ack) ops->ack(cfg, serial, callback_ok);
+    TP_UNLOCK();
+}
+
+int luat_tp_calibration_get(luat_tp_config_t *cfg, luat_tp_cal_data_t *out)
+{
+    if (!out) return LUAT_TP_CAL_INVALID_DATA;
+    if (!tp_mutex) return LUAT_TP_CAL_UNSUPPORTED;
+    TP_LOCK();
+    const luat_tp_calibration_ops_t *ops = tp_calibration_ops(cfg);
+    int ret = ops && ops->get ? ops->get(cfg, out) : LUAT_TP_CAL_UNSUPPORTED;
+    TP_UNLOCK();
+    return ret;
+}
+
+int luat_tp_calibration_set(luat_tp_config_t *cfg, const luat_tp_cal_data_t *data)
+{
+    if (!data) return LUAT_TP_CAL_INVALID_DATA;
+    if (!tp_mutex) return LUAT_TP_CAL_UNSUPPORTED;
+    TP_LOCK();
+    const luat_tp_calibration_ops_t *ops = tp_calibration_ops(cfg);
+    int ret = ops && ops->set ? ops->set(cfg, data) : LUAT_TP_CAL_UNSUPPORTED;
     TP_UNLOCK();
     return ret;
 }

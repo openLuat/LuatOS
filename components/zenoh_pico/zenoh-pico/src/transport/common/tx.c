@@ -13,6 +13,7 @@
 //
 
 #include "zenoh-pico/transport/common/tx.h"
+#include "zenoh-pico/utils/auth.h"
 
 #include "zenoh-pico/api/constants.h"
 #include "zenoh-pico/protocol/codec/core.h"
@@ -107,7 +108,9 @@ static z_result_t _z_transport_tx_send_fragment(_z_transport_common_t *ztc, cons
     // Create an expandable wbuf for fragmentation
     _z_wbuf_t frag_buff = _z_wbuf_make(_Z_FRAG_BUFF_BASE_SIZE, true);
     // Send message as fragments
-    z_result_t ret = _z_transport_tx_send_fragment_inner(ztc, &frag_buff, n_msg, reliability, first_sn, peers);
+    z_result_t ret = _z_wbuf_capacity(&frag_buff) < _Z_FRAG_BUFF_BASE_SIZE
+        ? _Z_ERR_SYSTEM_OUT_OF_MEMORY
+        : _z_transport_tx_send_fragment_inner(ztc, &frag_buff, n_msg, reliability, first_sn, peers);
     // Clear the buffer as it's no longer required
     _z_wbuf_clear(&frag_buff);
     return ret;
@@ -123,7 +126,7 @@ static z_result_t _z_transport_tx_send_fragment(_z_transport_common_t *ztc, cons
     _ZP_UNUSED(first_sn);
     _ZP_UNUSED(peers);
     _Z_INFO("Sending the message required fragmentation feature that is deactivated.");
-    return _Z_RES_OK;
+    return _Z_ERR_TRANSPORT_NO_SPACE;
 }
 #endif
 
@@ -188,6 +191,7 @@ static z_result_t _z_transport_tx_batch_overflow(_z_transport_common_t *ztc, con
     // Retry encode
     z_result_t ret = _z_network_message_encode(&ztc->_wbuf, n_msg);
     if (ret != _Z_RES_OK) {
+        if (ret != _Z_ERR_TRANSPORT_NO_SPACE) return ret;
         // Message still doesn't fit in buffer, send as fragments
         return _z_transport_tx_send_fragment(ztc, n_msg, reliability, sn, peers);
     } else {
@@ -243,6 +247,9 @@ static z_result_t _z_transport_tx_send_n_msg_inner(_z_transport_common_t *ztc, c
             // Flush buffer or increase batch
             return _z_transport_tx_flush_or_incr_batch(ztc, peers);
         }
+    } else if (ret != _Z_ERR_TRANSPORT_NO_SPACE) {
+        _z_wbuf_set_wpos(&ztc->_wbuf, prev_wpos);
+        return ret;
     } else if (!batch_has_data) {
         // Message doesn't fit in buffer, send as fragments
         return _z_transport_tx_send_fragment(ztc, n_msg, reliability, sn, peers);
@@ -406,8 +413,12 @@ z_result_t _z_link_send_t_msg(const _z_link_t *zl, const _z_transport_message_t 
 
     // Create and prepare the buffer to serialize the message on
     uint16_t mtu = (zl->_mtu < Z_BATCH_UNICAST_SIZE) ? zl->_mtu : Z_BATCH_UNICAST_SIZE;
+    if ((zl->_cap._flow != Z_LINK_CAP_FLOW_STREAM && zl->_cap._flow != Z_LINK_CAP_FLOW_DATAGRAM) ||
+        (zl->_cap._flow == Z_LINK_CAP_FLOW_STREAM && mtu <= _Z_MSG_LEN_ENC_SIZE) || !mtu)
+        return _Z_ERR_TRANSPORT_NO_SPACE;
     _z_wbuf_t wbf = _z_wbuf_make(mtu, false);
     if (_z_wbuf_capacity(&wbf) != mtu) {
+        _z_wbuf_clear(&wbf);
         _Z_ERROR_LOG(_Z_ERR_SYSTEM_OUT_OF_MEMORY);
         return _Z_ERR_SYSTEM_OUT_OF_MEMORY;
     }
@@ -448,6 +459,12 @@ z_result_t _z_link_send_t_msg(const _z_link_t *zl, const _z_transport_message_t 
         // Send the wbuf on the socket
         ret = _z_link_send_wbuf(zl, &wbf, socket);
     }
+    if (_Z_MID(t_msg->_header) == _Z_MID_T_OPEN && t_msg->_body._open._auth_present) {
+        for (size_t i = 0; i < _z_iosli_svec_len(&wbf._ioss); ++i) {
+            _z_iosli_t *slice = _z_wbuf_get_iosli(&wbf, i);
+            if (slice->_is_alloc) _z_secure_zero(slice->_buf, slice->_w_pos);
+        }
+    }
     _z_wbuf_clear(&wbf);
 
     return ret;
@@ -463,7 +480,7 @@ z_result_t __unsafe_z_serialize_zenoh_fragment(_z_wbuf_t *dst, _z_wbuf_t *src, z
         size_t w_pos = _z_wbuf_get_wpos(dst);  // Mark the buffer for the writing operation
 
         _z_transport_message_t f_hdr =
-            _z_t_msg_make_fragment_header(sn, reliability == Z_RELIABILITY_RELIABLE, is_final, first, false);
+            _z_t_msg_make_fragment_header(sn, reliability, is_final, first, false);
         ret = _z_transport_message_encode(dst, &f_hdr);  // Encode the frame header
         if (ret == _Z_RES_OK) {
             size_t space_left = _z_wbuf_space_left(dst);

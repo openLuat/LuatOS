@@ -319,6 +319,7 @@ z_result_t _z_push_body_decode_extensions(_z_msg_ext_t *extension, void *ctx) {
                 _Z_RETURN_IF_ERR(_z_slice_copy(&s, &extension->_body._zbuf._val));
             }
             ret = _z_bytes_from_slice(&pshb->_body._put._attachment, &s);
+            if (ret != _Z_RES_OK) _z_slice_clear(&s);
             break;
         }
         default:
@@ -472,6 +473,7 @@ z_result_t _z_query_decode_extensions(_z_msg_ext_t *extension, void *ctx) {
                 _Z_RETURN_IF_ERR(_z_slice_copy(&s, &extension->_body._zbuf._val));
             }
             ret = _z_bytes_from_slice(&msg->_ext_attachment, &s);
+            if (ret != _Z_RES_OK) _z_slice_clear(&s);
             break;
         }
         default:

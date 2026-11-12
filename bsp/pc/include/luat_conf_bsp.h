@@ -287,6 +287,13 @@
 #define LUAT_USE_AIRUI_SDL2 1
 // 打开slider组件
 #define LUAT_USE_AIRUI_SLIDER 1
+#define LUAT_USE_PLCUI 1
+#define LUAT_USE_PLCUI_SDL2 1
+
+// plcui 使用 LVGL 自带的 Expat；直接编入程序，不从 DLL 导入。
+#define LV_USE_XML 1
+#define LV_USE_OBJ_NAME 1
+#define XML_STATIC
 
 #endif
 

@@ -1,8 +1,8 @@
 --[[
 @module  periph_uvc
 @summary UVC 摄像头供电外设驱动（config.peripherals 中 type="uvc"）
-@version 1.1
-@date    2026.10.23
+@version 1.2
+@date    2026.11.06
 @author  江访
 
 === 配置示例 ===
@@ -11,6 +11,8 @@ config/eng_xxx.lua 声明：
    peripherals = {
        { type = "uvc", id = "uvc1", name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
    }
+   -- 摄像头常供电、无独立使能脚时省掉 en_pin（本驱动不动任何 GPIO）：
+   --    { type = "uvc", id = "uvc1", name = "UVC摄像头", ready_delay = 200 }
    -- 本板 en_pin 为 GPIO12 且确认该脚独立可控（非 8605 那种 VBUS 共轨）时，须显式声明：
    --    { type = "uvc", id = "uvc1", name = "UVC摄像头", en_pin = 12, ready_delay = 200,
    --      pin12_free = true }
@@ -32,6 +34,8 @@ handle:status()  → { enabled=bool, info=string }
 - 本驱动是**纯供电驱动**：只控制 en_pin 电平与 ready_delay 稳定延时，
   不调用任何 camera.* —— 数据流（预览/拍照/录像）由 ui/uvc_preview_win.lua
   走 excamera 扩展库独占管理，避免与 camera.init 二次初始化打架
+- en_pin 可省略：摄像头常供电（无独立使能脚）时不写，驱动全程不动 GPIO，
+  start/stop 只登记开关状态
 - ready_delay 为供电稳定等待时长（ms），start 拉高 en_pin 后等待；
   仅协程环境下 sys.wait，非协程环境跳过等待
 - 供电控制默认禁止使用 GPIO12（8605 等机型上该脚是 VBUS 与 5V_EN 共轨，
@@ -61,9 +65,10 @@ local function pin_set(pin, level)
     airlink_pin.set(pin, level)
 end
 
--- 校验使能脚是否允许驱动；pin12_free 未声明时 GPIO12 一律拒绝
+-- 校验使能脚是否允许驱动；en_pin 缺省即摄像头常供电
+-- pin12_free 未声明时 GPIO12 一律拒绝
 local function check_en_pin(p)
-    if not p.en_pin then return false, "missing en_pin" end
+    if not p.en_pin then return true end
     if p.en_pin == 12 and not p.pin12_free then
         return false, "en_pin 12 为 VBUS，禁止驱动（如本板该脚独立可控请配 pin12_free = true）"
     end
@@ -82,7 +87,7 @@ local function uvc_start(self)
     wait_ms(p.ready_delay or 200)
 
     self.enabled = true
-    log.info("periph_uvc", "UVC 供电已打开", self.id, p.en_pin, (p.ready_delay or 200) .. "ms")
+    log.info("periph_uvc", "UVC 供电已打开", self.id, p.en_pin or "常供电", (p.ready_delay or 200) .. "ms")
     return true
 end
 
@@ -101,14 +106,14 @@ end
 -- 读取状态
 local function uvc_status(self)
     if not self then return { enabled = false, info = "invalid" } end
-    local p = self.params or {}
+    local p   = self.params or {}
     local name = self.name or p.id or "?"
     local on   = self.enabled and true or false
     local pwr  = on and "供电ON" or "供电OFF"
+    local pin  = p.en_pin and ("GPIO" .. p.en_pin) or "常供电"
     return {
         enabled = on,
-        info = string.format("%s | %s | GPIO%d | 预览页控制数据流", name, pwr,
-                             p.en_pin or 0),
+        info = string.format("%s | %s | %s | 预览页控制数据流", name, pwr, pin),
     }
 end
 
@@ -139,7 +144,7 @@ function M.init(params)
     if instances[params.id] then return false, "duplicated id: " .. tostring(params.id) end
     local h = make_handle(params)
     instances[params.id] = h
-    log.info("periph_uvc", "UVC 已登记", params.id, params.en_pin)
+    log.info("periph_uvc", "UVC 已登记", params.id, params.en_pin or "常供电")
     return h
 end
 

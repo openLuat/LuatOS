@@ -35,10 +35,15 @@ local COLOR_BTN_TEXT   = 0xFFFFFF   -- 按钮文字白色
 local LINE_THIN  = 1               -- 网格线粗细
 local LINE_THICK = 2               -- 边框/十字标记粗细
 local CROSS_HALF = 12              -- 十字臂长的一半（十字总长 25 像素）
+local CROSS_LEN  = 2 * CROSS_HALF + 1  -- 十字臂总长（含中心那 1 像素）
 local BTN_W      = 110             -- 清屏按钮宽度
 local BTN_H      = 48              -- 清屏按钮高度
 local EDGE_PAD   = 12              -- 按钮距屏幕边缘留白
 local LABEL_PAD  = 8               -- 坐标文字距十字中心的偏移
+local EDGE_SAFE  = 2               -- 标签距屏幕边缘的安全边距
+-- 说明：airui.container 天生带 LV_OBJ_FLAG_SCROLLABLE，Lua 侧没有关掉它的接口，
+-- 子控件只要比父容器大 1 像素就会在底边/右边长出滚动条。所以网格里所有标签
+-- 都必须靠 clamp 收在屏幕内（见 place_label），哪怕只是十字标记贴边也不行。
 
 -- ==================== 模块对外接口表 ====================
 local touch_test_win = {}
@@ -122,6 +127,33 @@ local function create_label(parent, x, y, w, h, text, color, align)
 end
 
 --[[
+创建文字标签，并把整个标签框收回屏幕内（右侧/底部不留 1 像素溢出）
+用 box 直接传几何参数，避免与上面的 create_label 参数顺序混淆
+
+@param table box  { x, y, w, h } 期望的位置尺寸
+@param string text  显示文字
+@param number color  文字颜色（RGB888）
+@param number align  对齐方式（airui.TEXT_ALIGN_*）
+@return userdata  airui.label 组件对象
+]]
+local function place_label(box, text, color, align)
+    -- 先夹紧尺寸：屏比标签还窄时按屏宽来，避免出现 max < min
+    local w = math.min(box.w, screen_w - EDGE_SAFE * 2)
+    local h = math.min(box.h, screen_h - EDGE_SAFE * 2)
+    local x = clamp_value(box.x, EDGE_SAFE, screen_w - w - EDGE_SAFE)
+    local y = clamp_value(box.y, EDGE_SAFE, screen_h - h - EDGE_SAFE)
+    return create_label(main_container, x, y, w, h, text, color, align)
+end
+
+--[[
+判断两个矩形是否相交（含边界视为相交，宁可少画一个字也不要叠在一起）
+@return boolean  true=相交
+]]
+local function rects_intersect(ax, ay, aw, ah, bx, by, bw, bh)
+    return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
+end
+
+--[[
 安全销毁一个 airui 组件（组件不存在或已销毁时不报错）
 @param userdata obj  airui 组件对象
 @return 无
@@ -171,16 +203,17 @@ local function add_mark(x, y)
     mark_count = mark_count + 1
 
     -- 竖条：宽 2、长 25，以 (x, y) 为中心
+    -- clamp 上限必须按十字全长算：贴边触摸时少算 1 像素就会顶出父容器长滚动条
     local v_bar = create_bar(main_container,
         clamp_value(x - 1, 0, screen_w - LINE_THICK),
-        clamp_value(y - CROSS_HALF, 0, screen_h - 2 * CROSS_HALF),
-        LINE_THICK, 2 * CROSS_HALF + 1, COLOR_MARK)
+        clamp_value(y - CROSS_HALF, 0, screen_h - CROSS_LEN),
+        LINE_THICK, CROSS_LEN, COLOR_MARK)
 
     -- 横条：宽 25、长 2，以 (x, y) 为中心
     local h_bar = create_bar(main_container,
-        clamp_value(x - CROSS_HALF, 0, screen_w - 2 * CROSS_HALF),
+        clamp_value(x - CROSS_HALF, 0, screen_w - CROSS_LEN),
         clamp_value(y - 1, 0, screen_h - LINE_THICK),
-        2 * CROSS_HALF + 1, LINE_THICK, COLOR_MARK)
+        CROSS_LEN, LINE_THICK, COLOR_MARK)
 
     -- 坐标文字："序号:(x,y)"，与日志序号一一对应，方便比对
     local mark_text = string.format("%d:(%d,%d)", mark_count, x, y)
@@ -194,10 +227,8 @@ local function add_mark(x, y)
     if label_y + label_h > screen_h then         -- 靠下边缘时翻到上方
         label_y = y - LABEL_PAD - label_h
     end
-    label_x = clamp_value(label_x, 0, screen_w - label_w)
-    label_y = clamp_value(label_y, 0, screen_h - label_h)
-    local coord_label = create_label(main_container,
-        label_x, label_y, label_w, label_h,
+    -- 贴边触摸时文字照样夹在屏幕内：越界 1 像素就会让父容器长出滚动条
+    local coord_label = place_label({ x = label_x, y = label_y, w = label_w, h = label_h },
         mark_text, COLOR_MARK_TEXT, airui.TEXT_ALIGN_LEFT)
 
     -- 记录组件引用，清屏时销毁
@@ -238,14 +269,24 @@ end
 绘制坐标网格：
 1、屏幕四周画 2 像素边框，边框即坐标范围 0 ~ w-1 / 0 ~ h-1 的边界
 2、每隔 grid_step 像素画横竖网格线，四边标注对应像素坐标
-3、右上角标注屏幕分辨率，左上角标注原点 "0"
+3、右上角标注屏幕分辨率，左上角标注原点 "0"（放不下就不画，宁缺勿叠）
+
+排版约束（都是为了不叠字、不出滚动条）：
+- x 刻度文字框宽度取 min(font_size*3, 网格间距-4)：间距 50 像素而字框 60 像素时，
+  相邻两个数字必然叠在一起，所以字框跟着间距收窄
+- y 刻度文字不进入底部 x 刻度文字带，右侧 y 刻度还要避开清屏按钮
+- 顶部 x 刻度压到右上角分辨率标注时跳过该数字（底部同一个 x 还有一份）
+- 所有标签经 place_label 夹在屏幕内：父容器带 SCROLLABLE，越界 1 像素就长滚动条
 @param 无
 @return 无
 ]]
 local function draw_grid()
     local step = grid_step
     local axis_h = font_size + 6                 -- 刻度文字条带高度
-    local axis_w = font_size * 3                 -- 刻度文字条带宽度
+    local axis_w = font_size * 3                 -- 左右两侧 y 刻度文字条带宽度
+    -- 上/下 x 刻度文字框不能比网格间距宽，否则相邻两个数字会叠在一起：
+    -- 小屏（短边 ≤480）网格 50 像素，而 20 号字的框有 60 像素，必然重叠
+    local tick_w = math.min(axis_w, step - 4)
 
     -- 屏幕边框（上、下、左、右各一条）
     create_bar(main_container, 0, 0, screen_w, LINE_THICK, COLOR_GRID_EDGE)
@@ -253,18 +294,29 @@ local function draw_grid()
     create_bar(main_container, 0, 0, LINE_THICK, screen_h, COLOR_GRID_EDGE)
     create_bar(main_container, screen_w - LINE_THICK, 0, LINE_THICK, screen_h, COLOR_GRID_EDGE)
 
+    -- 固定区域（屏幕绝对坐标），刻度文字压到它们就跳过不画
+    local res_w   = font_size * 5                                    -- 右上角分辨率标注框
+    local res_x   = screen_w - res_w - EDGE_SAFE
+    local btn_x   = screen_w - BTN_W - EDGE_PAD                      -- 右下角清屏按钮
+    local btn_y   = screen_h - BTN_H - EDGE_PAD
+    local bottom_y = screen_h - axis_h - 4                           -- 底部 x 刻度文字带
+    -- 底部刻度带以下不再画 y 刻度文字，否则左下 / 右下角会糊成一团
+
     -- 竖向网格线 + 上下两边的 x 坐标刻度
     local px = step
     while px < screen_w do
         create_bar(main_container, px, 0, LINE_THIN, screen_h, COLOR_GRID)
-        -- 顶部刻度：文字以网格线为中心
-        create_label(main_container, px - axis_w / 2, 4, axis_w, axis_h,
-            tostring(px), COLOR_AXIS_TEXT, airui.TEXT_ALIGN_CENTER)
-        -- 底部刻度：避开清屏按钮区域
-        local bottom_y = screen_h - axis_h - 4
-        if not (px + axis_w / 2 > screen_w - BTN_W - EDGE_PAD * 2 and
-                bottom_y > screen_h - BTN_H - EDGE_PAD * 2) then
-            create_label(main_container, px - axis_w / 2, bottom_y, axis_w, axis_h,
+
+        -- 顶部刻度：文字以网格线为中心，压到分辨率标注就跳过（底部还有同一个数字）
+        local tx = px - tick_w / 2
+        if not rects_intersect(tx, EDGE_SAFE, tick_w, axis_h, res_x, EDGE_SAFE, res_w, axis_h) then
+            place_label({ x = tx, y = EDGE_SAFE, w = tick_w, h = axis_h },
+                tostring(px), COLOR_AXIS_TEXT, airui.TEXT_ALIGN_CENTER)
+        end
+
+        -- 底部刻度：与清屏按钮重叠时跳过
+        if not rects_intersect(tx, bottom_y, tick_w, axis_h, btn_x, btn_y, BTN_W, BTN_H) then
+            place_label({ x = tx, y = bottom_y, w = tick_w, h = axis_h },
                 tostring(px), COLOR_AXIS_TEXT, airui.TEXT_ALIGN_CENTER)
         end
         px = px + step
@@ -274,24 +326,35 @@ local function draw_grid()
     local py = step
     while py < screen_h do
         create_bar(main_container, 0, py, screen_w, LINE_THIN, COLOR_GRID)
-        create_label(main_container, 4, py - axis_h / 2, axis_w, axis_h,
-            tostring(py), COLOR_AXIS_TEXT, airui.TEXT_ALIGN_LEFT)
-        create_label(main_container, screen_w - axis_w - 4, py - axis_h / 2, axis_w, axis_h,
-            tostring(py), COLOR_AXIS_TEXT, airui.TEXT_ALIGN_RIGHT)
+        local ty = py - axis_h / 2
+        if ty + axis_h <= bottom_y then
+            place_label({ x = 4, y = ty, w = axis_w, h = axis_h },
+                tostring(py), COLOR_AXIS_TEXT, airui.TEXT_ALIGN_LEFT)
+            -- 右侧 y 刻度还要避开清屏按钮
+            if not rects_intersect(screen_w - axis_w - 4, ty, axis_w, axis_h,
+                                   btn_x, btn_y, BTN_W, BTN_H) then
+                place_label({ x = screen_w - axis_w - 4, y = ty, w = axis_w, h = axis_h },
+                    tostring(py), COLOR_AXIS_TEXT, airui.TEXT_ALIGN_RIGHT)
+            end
+        end
         py = py + step
     end
 
-    -- 原点 "0" 标注（左上角）
-    create_label(main_container, 4, 4, axis_w, axis_h,
-        "0", COLOR_AXIS_TEXT, airui.TEXT_ALIGN_LEFT)
+    -- 原点 "0" 标注（左上角）：只在第一条刻度文字左边还有空位时画，
+    -- 否则会与 "50"/"100" 这类刻度数字叠在一起（小屏 + 50 像素网格最明显）
+    local origin_w = (step - tick_w / 2) - 8
+    if origin_w >= font_size then
+        create_label(main_container, 4, EDGE_SAFE, origin_w, axis_h,
+            "0", COLOR_AXIS_TEXT, airui.TEXT_ALIGN_LEFT)
+    end
 
     -- 分辨率标注（右上角，压低透明感用低调颜色）
     local res_text = string.format("%dx%d", screen_w, screen_h)
-    create_label(main_container, screen_w - font_size * 5 - 4, 4, font_size * 5, axis_h,
+    create_label(main_container, res_x, EDGE_SAFE, res_w, axis_h,
         res_text, COLOR_AXIS_TEXT, airui.TEXT_ALIGN_RIGHT)
 
-    log.info("touch_test_win", string.format("坐标网格绘制完成 %dx%d 网格间距=%d",
-        screen_w, screen_h, step))
+    log.info("touch_test_win", string.format("坐标网格绘制完成 %dx%d 网格间距=%d 刻度字宽=%d",
+        screen_w, screen_h, step, tick_w))
 end
 
 --[[
@@ -303,8 +366,9 @@ end
 ]]
 function touch_test_win.init()
     -- 读取逻辑分辨率（lcd_common 已按旋转方向换算好宽高）
-    screen_w = _G.screen_w
-    screen_h = _G.screen_h
+    -- 兜底 800x480：拿不到尺寸时也不能拿 nil 去做坐标运算
+    screen_w = _G.screen_w or 800
+    screen_h = _G.screen_h or 480
 
     -- 字体大小取工程配置（各型号 config 中按屏幕分辨率设定），不做密度缩放
     local font_cfg = _G.project_config.hw.lcd.font or {}

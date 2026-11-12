@@ -25,6 +25,12 @@ local function close(h)
     host_pump(100)
 end
 local h = connect()
+test("SDK pending Get allocation failure preserves an empty list", function()
+    host_pending_query_oom(false)
+end)
+test("SDK pending Get allocation failure preserves the in-flight request", function()
+    host_pending_query_oom(true)
+end)
 test("exports and bounded parameters", function()
     for _, name in ipairs({"get", "cancel_get", "queryable", "unqueryable", "reply", "finish_reply"}) do
         assert(type(z[name]) == "function", name)
@@ -32,24 +38,36 @@ test("exports and bounded parameters", function()
     assert(z.GET_CANCEL_MODE == "local" and z.MAX_GET_REQUESTS == 4)
     assert(not pcall(z.get, h, "", {}, function() end, function() end))
     assert(not pcall(z.get, h, PREFIX, {parameters="a\0b"}, function() end, function() end))
-    assert(not pcall(z.get, h, PREFIX, {timeout_ms=99}, function() end, function() end))
-    assert(not pcall(z.get, h, PREFIX, {payload=string.rep("x",4097)}, function() end, function() end))
+    assert(not pcall(z.get, h, PREFIX, {timeout_ms=0}, function() end, function() end))
+    assert(not pcall(z.get, h, PREFIX, {payload=string.rep("x",z.MAX_PAYLOAD+1)}, function() end, function() end))
 end)
+local function two_replies(payload, timeout_ms, context)
+    local replies, terminals, terminal = 0, 0, nil
+    local id = assert(z.get(h, PREFIX.."/peer", {payload=payload,parameters="source=lua",timeout_ms=timeout_ms},
+        function(handle,item)
+            assert(handle==h and item.kind=="get_reply" and item.code==0)
+            assert(item.key==PREFIX.."/peer" and item.payload==payload)
+            replies=replies+1
+        end,
+        function(_,item) terminal=item; terminals=terminals+1 end))
+    wait_for(function() return terminal end)
+    assert(terminal.request_id==id and terminal.reason=="completed" and terminal.code==0 and replies==2 and terminals==1,
+        ("%s id=%d got=%s reason=%s code=%s replies=%d terminals=%d"):format(
+            context,id,tostring(terminal.request_id),tostring(terminal.reason),tostring(terminal.code),replies,terminals))
+end
 test("outgoing Get binary two replies and final", function()
     for _, n in ipairs({0, 20, 4096}) do
-        local payload = ("\0\255request"):rep(math.ceil(n/9)):sub(1,n)
-        local replies, terminal = {}, nil
-        local id = assert(z.get(h, PREFIX.."/peer", {payload=payload,parameters="source=lua",timeout_ms=5000},
-            function(handle,item)
-                assert(handle==h and item.kind=="get_reply" and item.code==0)
-                assert(item.key==PREFIX.."/peer" and item.payload==payload)
-                replies[#replies+1]=item.payload
-            end,
-            function(_,item) terminal=item end))
-        wait_for(function() return terminal end)
-        assert(terminal.request_id==id and terminal.reason=="completed" and terminal.code==0)
-        assert(#replies==2)
+        two_replies(("\0\255request"):rep(math.ceil(n/9)):sub(1,n),5000,"binary length "..n)
     end
+end)
+test("375 consecutive 4096-byte Get requests at the device timeout", function()
+    local _, dropped, errors = z.state(h)
+    for n=1,375 do
+        local payload = ("\0\255"..n.."-request"):rep(1024):sub(1,4096)
+        two_replies(payload,1800,"4096B round "..n)
+    end
+    local state, after_dropped, after_errors = z.state(h)
+    assert(state==z.ONLINE and after_dropped==dropped and after_errors==errors)
 end)
 test("error reply distinct from completion", function()
     local reply, done
@@ -138,7 +156,7 @@ test("owned incoming query expires before late reply",function()
     host_pump(150)
     assert(z.publish(h,PREFIX.."/control","ask"))
     wait_for(function() return incoming==4 end)
-    wait_for(function() return events[0] and events[0].kind=="query_expired" and events[0].query_id==saved_query_id end)
+    wait_for(function() return events[0] and events[0].kind=="query_expired" and events[0].query_id==saved_query_id end,z.QUERY_TTL_MS+2000)
     wait_for(function() return #status==4 end)
     assert(status[4]=="DEVICE_GET_DONE:0")
     local late=assert(z.reply(h,saved_query,PREFIX.."/device","expired"))
@@ -148,12 +166,15 @@ test("owned incoming query expires before late reply",function()
 end)
 test("queryable slot capacity and revoke", function()
     local ids={}
-    for i=1,4 do ids[i]=assert(z.queryable(h,PREFIX.."/unused-query/"..i,function() end)) end
-    local id,err=z.queryable(h,PREFIX.."/unused-query/5",function() end)
+    for i=1,z.MAX_QUERYABLES do
+        ids[i]=assert(z.queryable(h,PREFIX.."/unused-query/"..i,function() end))
+        wait_for(function() return events[ids[i]] end)
+    end
+    local id,err=z.queryable(h,PREFIX.."/unused-query/extra",function() end)
     assert(id==nil and err==-5)
     for _,id in ipairs(ids) do
         wait_for(function() return events[id] end)
-        assert(z.unqueryable(h,id)==id)
+        assert(z.unqueryable(h,id)==id); host_pump(15)
     end
     host_pump(300)
 end)

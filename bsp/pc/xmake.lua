@@ -184,12 +184,14 @@ target("luatos-lua")
             -- 源码可来自归档或仓库；构建不访问Git元数据或网络, 版本由 version.txt 核对.
             local version = io.readfile(path.join(root, "version.txt"))
             assert(version and version:gsub("%s+", "") == "1.9.0", "zenoh-pico must be 1.9.0 at " .. root)
-            for _, name in ipairs({"include/zenoh-pico/api/primitives.h", "include/zenoh-pico/system/platform.h"}) do
+            for _, name in ipairs({"include/zenoh-pico/api/primitives.h", "include/zenoh-pico/system/platform.h", "include/zenoh-pico/utils/auth.h", "src/utils/auth.c", "src/utils/auth_sha3.c"}) do
                 assert(os.isfile(path.join(root, name)), "zenoh-pico source missing: " .. path.join(root, name))
             end
             for _, name in ipairs({"include/zenoh-pico.h", "include/zenoh-pico/config.h", "include/zenoh_generic_config.h", "include/zenoh_generic_platform.h", "include/zenoh_luatos_platform.h", "include/luat_zenoh_pico.h", "src/luat_lib_zenoh_pico.c", "src/luat_zenoh_pico.c", "src/zenoh_luatos_system.c", "src/zenoh_luatos_tcp.c"}) do
                 assert(os.isfile(path.join(zp_component, name)), "zenoh-pico component missing: " .. path.join(zp_component, name))
             end
+            local patch_header = io.readfile(path.join(root, "include/zenoh-pico/utils/auth.h"))
+            assert(patch_header and patch_header:find("#define ZP_LUATOS_PATCH_ABI 20261111", 1, true), "matching LuatOS patched SDK required")
             target:add("defines", "LUAT_USE_ZENOH_PICO=1", "ZENOH_GENERIC", "ZENOH_C_STANDARD=11")
             target:add("includedirs", path.join(zp_component, "include"), path.join(root, "include"))
             local areas = {"api", "collections", "link", "net", "protocol", "runtime", "session", "transport", "utils", "system/common"}
@@ -1153,6 +1155,11 @@ target("luatos-lua")
         -- 3. Lua 绑定层（binding，不在 src 目录下，需单独处理）
         add_includedirs(luatos.."components/airui/binding")
         add_files(luatos.."components/airui/binding/*.c")
+
+        -- plcui
+        add_includedirs(luatos.."components/plcui/inc")
+        add_files(luatos.."components/plcui/src/**.c")
+        add_files(luatos.."components/plcui/binding/*.c")
 
         -- qrcode 和 tjpgd (tjpgd已在videoplayer处添加)
         add_includedirs(luatos.."components/qrcode")

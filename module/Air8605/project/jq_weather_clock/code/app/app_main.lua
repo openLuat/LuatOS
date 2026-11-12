@@ -33,6 +33,32 @@ require "weather"          -- 侧效应：启动天气任务并注册 WEATHER_RE
 
 local IS_PC = (rtos.bsp() == "PC")
 
+-- ==================== 外部看门狗 ====================
+-- 板载 Air153D 外置看门狗，喂狗脚取自 conf.wdt_pin（8605 为 GPIO57，经三极管拉 WTDOG）。
+-- 启动时机放在上电时序之后、显示初始化之前：后面 lcd.init / font_load 都是重活，
+-- 一旦脚本卡死要能靠外置芯片硬复位回来。
+-- 编译系统按 require "exair153x_wdt" 的字面文本决定打包范围，故保持字面写法；
+-- 扩展库没打进固件时用 pcall 兜住，不让看门狗缺失拖垮整个应用。
+local function load_ext_wdt()
+    return require "exair153x_wdt"
+end
+
+local function watchdog_start()
+    if not conf.wdt_pin then
+        return
+    end
+    local ok, lib = pcall(load_ext_wdt)
+    if not ok or type(lib) ~= "table" then
+        log.warn("app_main", "外部看门狗启动失败（固件是否带 exair153x_wdt）", tostring(lib))
+        return
+    end
+    if lib.init({ wdt_pin = conf.wdt_pin }) then
+        log.info("app_main", "外部看门狗已启动, GPIO" .. conf.wdt_pin)
+    else
+        log.warn("app_main", "外部看门狗初始化失败, GPIO" .. conf.wdt_pin)
+    end
+end
+
 -- ==================== 上电时序 ====================
 local function power_on()
     -- 背光 PWM 先压到 0：PWM 引脚默认可能是高电平，上电瞬间背光会亮
@@ -62,6 +88,7 @@ end
 sys.taskInit(function()
     if not IS_PC then
         power_on()
+        watchdog_start()
 
         -- 4G 必须在 power_on 之后：GPIO64 的「高 50ms → 低 120ms」复位在上一步才走完。
         -- net_boot 内部用独立 task，握手过程不挡首屏。

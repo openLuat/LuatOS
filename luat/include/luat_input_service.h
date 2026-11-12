@@ -48,6 +48,7 @@ struct luat_input_subscription {
     int fault;
     unsigned slot;
     uint8_t active;
+    uint16_t bus;
     void (*notify)(void *);
     void *userdata;
 };
@@ -88,6 +89,9 @@ size_t luat_input_service_list(uint32_t *ids, size_t capacity);
 luat_input_service_info_t *luat_input_service_info(uint32_t id);
 int luat_input_service_subscribe(luat_input_subscription_t *sub, uint32_t id,
     uint32_t types, void *buffer, size_t bytes, void (*notify)(void *), void *userdata);
+/** Bind only devices of the given transport type; zero matches all. */
+int luat_input_service_subscribe_bus(luat_input_subscription_t *sub, uint32_t id,
+    uint32_t types, uint16_t bus, void *buffer, size_t bytes, void (*notify)(void *), void *userdata);
 void luat_input_service_close(luat_input_subscription_t *sub);
 /* Recover atomically into caller's pointer array; free each owned info with
  * luat_heap_free. On success overflow invalidates the consumer's entire old

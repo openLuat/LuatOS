@@ -149,7 +149,7 @@ local function build_ui()
     cycle_slider = theme.slider(card1, {
         x = pad, y = label_y + theme.dp(24), w = card_w - 2 * pad, h = sl_h,
         min = CYCLE_MIN, max = CYCLE_MAX, value = cycle_value,
-        track = theme.C.track, color = theme.SEM.info, knob_color = theme.C.knob,
+        track = theme.C.track, color = theme.SEM.info,
         on_change = function(self)
             local v = self:get_value()
             cycle_value = v

@@ -1,0 +1,639 @@
+{
+  "schema": "plcui-conversion-0.1",
+  "browser": "145.0.7632.6",
+  "browserArgs": [
+    "--disable-gpu",
+    "--disable-lcd-text",
+    "--force-color-profile=srgb"
+  ],
+  "viewport": {
+    "width": 800,
+    "height": 480,
+    "deviceScaleFactor": 1
+  },
+  "source": "../../../../../code/cursor/luatos-plcui/bsp/pc/test/157.plcui/web/index.html",
+  "pages": [
+    {
+      "id": "main",
+      "source": "index.html",
+      "reference": "reference.png",
+      "components": [
+        {
+          "id": "process",
+          "type": "container",
+          "parentId": null,
+          "text": "",
+          "data": {
+            "plcui": "container"
+          },
+          "x": 24,
+          "y": 145,
+          "absoluteX": 24,
+          "absoluteY": 145,
+          "w": 454,
+          "h": 270,
+          "color": "#ecf3f6",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 16
+        },
+        {
+          "id": "level",
+          "type": "label",
+          "parentId": "process",
+          "text": "68.0 %",
+          "data": {
+            "plcui": "label",
+            "font": "hzfont",
+            "fontSize": "20"
+          },
+          "x": 70,
+          "y": 107,
+          "absoluteX": 94,
+          "absoluteY": 252,
+          "w": 120,
+          "h": 26,
+          "color": "#e1fffa",
+          "align": "center",
+          "font": "hzfont",
+          "fontSize": 20
+        },
+        {
+          "id": "pump_status",
+          "type": "image",
+          "parentId": "process",
+          "text": "RUNNING",
+          "data": {
+            "plcui": "image",
+            "states": "normal,checked"
+          },
+          "x": 285,
+          "y": 60,
+          "absoluteX": 309,
+          "absoluteY": 205,
+          "w": 101,
+          "h": 24,
+          "color": "#81e8cc",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 10
+        },
+        {
+          "id": "pump_speed",
+          "type": "label",
+          "parentId": "process",
+          "text": "1,450 rpm",
+          "data": {
+            "plcui": "label",
+            "font": "hzfont",
+            "fontSize": "14"
+          },
+          "x": 297,
+          "y": 95,
+          "absoluteX": 321,
+          "absoluteY": 240,
+          "w": 104,
+          "h": 19,
+          "color": "#a3becb",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 14
+        },
+        {
+          "id": "telemetry",
+          "type": "container",
+          "parentId": null,
+          "text": "",
+          "data": {
+            "plcui": "container"
+          },
+          "x": 490,
+          "y": 145,
+          "absoluteX": 490,
+          "absoluteY": 145,
+          "w": 286,
+          "h": 270,
+          "color": "#ecf3f6",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 16
+        },
+        {
+          "id": "temperature",
+          "type": "label",
+          "parentId": "telemetry",
+          "text": "24.6 C",
+          "data": {
+            "plcui": "label",
+            "font": "hzfont",
+            "fontSize": "20"
+          },
+          "x": 17,
+          "y": 78,
+          "absoluteX": 507,
+          "absoluteY": 223,
+          "w": 130,
+          "h": 26,
+          "color": "#edf7fb",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 20
+        },
+        {
+          "id": "flow",
+          "type": "label",
+          "parentId": "telemetry",
+          "text": "12.4 m3/h",
+          "data": {
+            "plcui": "label",
+            "font": "hzfont",
+            "fontSize": "20"
+          },
+          "x": 17,
+          "y": 156,
+          "absoluteX": 507,
+          "absoluteY": 301,
+          "w": 180,
+          "h": 26,
+          "color": "#edf7fb",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 20
+        },
+        {
+          "id": "setpoint",
+          "type": "textarea",
+          "parentId": "telemetry",
+          "text": "75.0",
+          "data": {
+            "plcui": "textarea",
+            "font": "hzfont",
+            "fontSize": "20",
+            "keyboard": "num_kb",
+            "eventSubmit": "setpoint_submit",
+            "eventCancel": "setpoint_cancel",
+            "maxLength": "5",
+            "acceptedChars": "0123456789."
+          },
+          "x": 159,
+          "y": 214,
+          "absoluteX": 649,
+          "absoluteY": 359,
+          "w": 72,
+          "h": 24,
+          "color": "#edf7fb",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 20
+        },
+        {
+          "id": "start",
+          "type": "image",
+          "parentId": null,
+          "text": "START PUMP",
+          "data": {
+            "plcui": "image",
+            "eventClick": "motor_start",
+            "states": "normal,pressed,disabled,checked"
+          },
+          "x": 24,
+          "y": 427,
+          "absoluteX": 24,
+          "absoluteY": 427,
+          "w": 140,
+          "h": 34,
+          "color": "#102b29",
+          "align": "center",
+          "font": "hzfont",
+          "fontSize": 12
+        },
+        {
+          "id": "stop",
+          "type": "image",
+          "parentId": null,
+          "text": "STOP PUMP",
+          "data": {
+            "plcui": "image",
+            "eventClick": "motor_stop",
+            "states": "normal,pressed,disabled"
+          },
+          "x": 174,
+          "y": 427,
+          "absoluteX": 174,
+          "absoluteY": 427,
+          "w": 140,
+          "h": 34,
+          "color": "#f3c1bd",
+          "align": "center",
+          "font": "hzfont",
+          "fontSize": 12
+        },
+        {
+          "id": "feedback",
+          "type": "label",
+          "parentId": null,
+          "text": "System ready",
+          "data": {
+            "plcui": "label",
+            "font": "hzfont",
+            "fontSize": "14"
+          },
+          "x": 329,
+          "y": 435,
+          "absoluteX": 329,
+          "absoluteY": 435,
+          "w": 235,
+          "h": 20,
+          "color": "#78d9c4",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 14
+        },
+        {
+          "id": "details_nav",
+          "type": "image",
+          "parentId": null,
+          "text": "STATION DETAILS →",
+          "data": {
+            "plcui": "image",
+            "eventClick": "show_details",
+            "states": "normal,pressed"
+          },
+          "x": 604,
+          "y": 427,
+          "absoluteX": 604,
+          "absoluteY": 427,
+          "w": 172,
+          "h": 34,
+          "color": "#a4b8c4",
+          "align": "center",
+          "font": "hzfont",
+          "fontSize": 11
+        },
+        {
+          "id": "num_kb",
+          "type": "keyboard",
+          "parentId": null,
+          "text": "",
+          "data": {
+            "plcui": "keyboard",
+            "font": "hzfont",
+            "fontSize": "20",
+            "layout": "number",
+            "x": "24",
+            "y": "180",
+            "w": "454",
+            "h": "234"
+          },
+          "x": 24,
+          "y": 180,
+          "absoluteX": 24,
+          "absoluteY": 180,
+          "w": 454,
+          "h": 234,
+          "color": "#ecf3f6",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 20
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "details",
+      "source": "details.html",
+      "reference": "reference-details.png",
+      "components": [
+        {
+          "id": "equipment",
+          "type": "container",
+          "parentId": null,
+          "text": "",
+          "data": {
+            "plcui": "container"
+          },
+          "x": 24,
+          "y": 145,
+          "absoluteX": 24,
+          "absoluteY": 145,
+          "w": 285,
+          "h": 270,
+          "color": "#ecf3f6",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 16
+        },
+        {
+          "id": "detail_status",
+          "type": "image",
+          "parentId": "equipment",
+          "text": "RUNNING",
+          "data": {
+            "plcui": "image",
+            "states": "normal,checked"
+          },
+          "x": 167,
+          "y": 13,
+          "absoluteX": 191,
+          "absoluteY": 158,
+          "w": 101,
+          "h": 24,
+          "color": "#81e8cc",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 10
+        },
+        {
+          "id": "motor_current",
+          "type": "label",
+          "parentId": "equipment",
+          "text": "3.8 A",
+          "data": {
+            "plcui": "label",
+            "font": "hzfont",
+            "fontSize": "20"
+          },
+          "x": 17,
+          "y": 95,
+          "absoluteX": 41,
+          "absoluteY": 240,
+          "w": 180,
+          "h": 26,
+          "color": "#edf7fb",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 20
+        },
+        {
+          "id": "runtime",
+          "type": "label",
+          "parentId": "equipment",
+          "text": "128.4 h",
+          "data": {
+            "plcui": "label",
+            "font": "hzfont",
+            "fontSize": "20"
+          },
+          "x": 17,
+          "y": 166,
+          "absoluteX": 41,
+          "absoluteY": 311,
+          "w": 200,
+          "h": 26,
+          "color": "#edf7fb",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 20
+        },
+        {
+          "id": "back",
+          "type": "image",
+          "parentId": null,
+          "text": "← PROCESS OVERVIEW",
+          "data": {
+            "plcui": "image",
+            "eventClick": "show_main",
+            "states": "normal,pressed"
+          },
+          "x": 24,
+          "y": 427,
+          "absoluteX": 24,
+          "absoluteY": 427,
+          "w": 180,
+          "h": 34,
+          "color": "#a4b8c4",
+          "align": "center",
+          "font": "hzfont",
+          "fontSize": 11
+        },
+        {
+          "id": "detail_feedback",
+          "type": "label",
+          "parentId": null,
+          "text": "All equipment operating normally",
+          "data": {
+            "plcui": "label",
+            "font": "hzfont",
+            "fontSize": "14"
+          },
+          "x": 225,
+          "y": 435,
+          "absoluteX": 225,
+          "absoluteY": 435,
+          "w": 390,
+          "h": 20,
+          "color": "#78d9c4",
+          "align": "left",
+          "font": "hzfont",
+          "fontSize": 14
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "resources": [
+    {
+      "id": "main_background",
+      "src": "main_background.png",
+      "file": "assets/main_background.png",
+      "format": "png",
+      "sha256": "40ef8c90ae701dc1636d1b970704fda1349c8298397af029585311957b60eae0",
+      "bytes": 154780,
+      "width": 800,
+      "height": 480,
+      "decodedArgbBytes": 1536000
+    },
+    {
+      "id": "main_pump_status_normal",
+      "src": "main_pump_status_normal.png",
+      "file": "assets/main_pump_status_normal.png",
+      "format": "png",
+      "sha256": "26dfb47ca01af3a887ca0a2ace5f5a5b32d107cc02c3ac03ca945b2e33ae27dc",
+      "bytes": 1804,
+      "width": 101,
+      "height": 24,
+      "decodedArgbBytes": 9696
+    },
+    {
+      "id": "main_pump_status_checked",
+      "src": "main_pump_status_checked.png",
+      "file": "assets/main_pump_status_checked.png",
+      "format": "png",
+      "sha256": "41c662acbe14531e1fd116760f8ef9a9a80bcc81693cb4754afbf484d564efb2",
+      "bytes": 1492,
+      "width": 101,
+      "height": 24,
+      "decodedArgbBytes": 9696
+    },
+    {
+      "id": "main_start_normal",
+      "src": "main_start_normal.png",
+      "file": "assets/main_start_normal.png",
+      "format": "png",
+      "sha256": "2d16f0ec179edd512ccdf9c6fcb045eb8fed643076fc8c3f614fa19a1fddf540",
+      "bytes": 2333,
+      "width": 140,
+      "height": 34,
+      "decodedArgbBytes": 19040
+    },
+    {
+      "id": "main_start_pressed",
+      "src": "main_start_pressed.png",
+      "file": "assets/main_start_pressed.png",
+      "format": "png",
+      "sha256": "9625b5b3a0ede08ff9e91b5a57810bf12665cb6c202659dc7d08f49786e208b1",
+      "bytes": 3063,
+      "width": 140,
+      "height": 34,
+      "decodedArgbBytes": 19040
+    },
+    {
+      "id": "main_start_disabled",
+      "src": "main_start_disabled.png",
+      "file": "assets/main_start_disabled.png",
+      "format": "png",
+      "sha256": "c183cef5c5710967a59879ea4441b92a7f64ed43808fd8121bac5ff2c601e543",
+      "bytes": 1652,
+      "width": 140,
+      "height": 34,
+      "decodedArgbBytes": 19040
+    },
+    {
+      "id": "main_start_checked",
+      "src": "main_start_checked.png",
+      "file": "assets/main_start_checked.png",
+      "format": "png",
+      "sha256": "16715619f4e16dd448f2ff710ffb812fad7693a73ac6478437bcccda7266d056",
+      "bytes": 1902,
+      "width": 140,
+      "height": 34,
+      "decodedArgbBytes": 19040
+    },
+    {
+      "id": "main_stop_normal",
+      "src": "main_stop_normal.png",
+      "file": "assets/main_stop_normal.png",
+      "format": "png",
+      "sha256": "bbb85a7a94de72caab7b768e9ae2468fc7c82a648c5c5a9d6cbf0b4b4960be24",
+      "bytes": 2322,
+      "width": 140,
+      "height": 34,
+      "decodedArgbBytes": 19040
+    },
+    {
+      "id": "main_stop_pressed",
+      "src": "main_stop_pressed.png",
+      "file": "assets/main_stop_pressed.png",
+      "format": "png",
+      "sha256": "d76415a87ed43bb7f05242e77063079965c93ecc86f81375fccbb34a646449b1",
+      "bytes": 2776,
+      "width": 140,
+      "height": 34,
+      "decodedArgbBytes": 19040
+    },
+    {
+      "id": "main_stop_disabled",
+      "src": "main_stop_disabled.png",
+      "file": "assets/main_stop_disabled.png",
+      "format": "png",
+      "sha256": "aa25a911fa8da89fbe925431868faec1045b2994d8caf9265531a60b70719af1",
+      "bytes": 1582,
+      "width": 140,
+      "height": 34,
+      "decodedArgbBytes": 19040
+    },
+    {
+      "id": "main_details_nav_normal",
+      "src": "main_details_nav_normal.png",
+      "file": "assets/main_details_nav_normal.png",
+      "format": "png",
+      "sha256": "dd11862706873052bb60da794a828118b3f3b0825d8952b339c5f2de13899384",
+      "bytes": 2073,
+      "width": 172,
+      "height": 34,
+      "decodedArgbBytes": 23392
+    },
+    {
+      "id": "main_details_nav_pressed",
+      "src": "main_details_nav_pressed.png",
+      "file": "assets/main_details_nav_pressed.png",
+      "format": "png",
+      "sha256": "0b1bc0518975cc4c651811413b65538f06f7dcfffcc0302d1125dd44a95e9775",
+      "bytes": 2450,
+      "width": 172,
+      "height": 34,
+      "decodedArgbBytes": 23392
+    },
+    {
+      "id": "details_background",
+      "src": "details_background.png",
+      "file": "assets/details_background.png",
+      "format": "png",
+      "sha256": "86a687918f91d663457eb59e58ef2795bdbe90776cc33daa47c5008635d50d22",
+      "bytes": 162406,
+      "width": 800,
+      "height": 480,
+      "decodedArgbBytes": 1536000
+    },
+    {
+      "id": "details_detail_status_normal",
+      "src": "details_detail_4a36fd1d868f.png",
+      "file": "assets/details_detail_4a36fd1d868f.png",
+      "format": "png",
+      "sha256": "4a36fd1d868f5ac75deb52cdf337676fd82dcbafe548f875ab3a8c65fb5fa0a5",
+      "bytes": 1801,
+      "width": 101,
+      "height": 24,
+      "decodedArgbBytes": 9696
+    },
+    {
+      "id": "details_detail_status_checked",
+      "src": "details_detail_4a8988b847c5.png",
+      "file": "assets/details_detail_4a8988b847c5.png",
+      "format": "png",
+      "sha256": "4a8988b847c576f6d68fb517c0d58cb7cbd28ca97275e360bc426a4dae7c53e0",
+      "bytes": 1487,
+      "width": 101,
+      "height": 24,
+      "decodedArgbBytes": 9696
+    },
+    {
+      "id": "details_back_normal",
+      "src": "details_back_normal.png",
+      "file": "assets/details_back_normal.png",
+      "format": "png",
+      "sha256": "475d7ff2a1b78738b54bf8c249e232ea9290b30888aee5074fe934874390ed8b",
+      "bytes": 2477,
+      "width": 180,
+      "height": 34,
+      "decodedArgbBytes": 24480
+    },
+    {
+      "id": "details_back_pressed",
+      "src": "details_back_pressed.png",
+      "file": "assets/details_back_pressed.png",
+      "format": "png",
+      "sha256": "95b2c6159f890958e4ba0cd5431268668b18ab02549fe19d7dd59304b25c970f",
+      "bytes": 2864,
+      "width": 180,
+      "height": 34,
+      "decodedArgbBytes": 24480
+    }
+  ],
+  "warnings": [
+    "Decoded totals are estimates; image cache and decoder temporary memory must be measured in the simulator."
+  ],
+  "constraints": [
+    "Fixed 800x480 canvas",
+    "Explicit data-plcui semantics only",
+    "Rectangular hit boxes",
+    "Native keyboard is intentionally not rasterized"
+  ],
+  "totals": {
+    "pngFileBytes": 349264,
+    "decodedAllResourcesArgbBytes": 3339808,
+    "fullFrameRgb565Bytes": 768000,
+    "drawBufferBytes": null,
+    "decoderTemporaryBytes": null
+  }
+}

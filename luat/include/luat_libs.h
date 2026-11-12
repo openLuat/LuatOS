@@ -22,8 +22,6 @@ LUAMOD_API int luaopen_pwm( lua_State *L );
 LUAMOD_API int luaopen_uart( lua_State *L );
 /** usb流库*/
 LUAMOD_API int luaopen_usb(lua_State *L);
-/** input库*/
-LUAMOD_API int luaopen_input(lua_State *L);
 /** pm库*/
 LUAMOD_API int luaopen_pm( lua_State *L );
 /** fs库*/
@@ -76,6 +74,7 @@ LUAMOD_API int luaopen_lvgl( lua_State *L );
 LUAMOD_API int luaopen_lvgltimer( lua_State *L );
 LUAMOD_API int luaopen_pcscreenshot( lua_State *L );
 LUAMOD_API int luaopen_airui( lua_State *L );
+LUAMOD_API int luaopen_plcui( lua_State *L );
 
 /** ir库, 依赖gpio库*/
 LUAMOD_API int luaopen_ir( lua_State *L );

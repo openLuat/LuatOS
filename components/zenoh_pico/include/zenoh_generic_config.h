@@ -3,7 +3,7 @@
 #define ZENOH_LUATOS_CONFIG_H
 /* 1.9.0，与config.h派生值一致。 */
 
-#define Z_FRAG_MAX_SIZE 8192
+#define Z_FRAG_MAX_SIZE (256U * 1024U + 1024U)
 #define Z_BATCH_UNICAST_SIZE 2048
 #define Z_BATCH_MULTICAST_SIZE 2048
 #define Z_CONFIG_SOCKET_TIMEOUT 100
@@ -13,6 +13,8 @@
 #define Z_RUNTIME_MAX_TASKS 64
 #define Z_TRANSPORT_ACCEPT_TIMEOUT 1000
 #define Z_TRANSPORT_CONNECT_TIMEOUT 3000
+#define ZP_AUTH_OBSERVER luat_zenoh_pico_auth_observe
+#define ZP_QUERY_FINAL_OBSERVER luat_zenoh_pico_final_observe
 
 /* Stable API only. */
 #define Z_FEATURE_CONNECTIVITY 0

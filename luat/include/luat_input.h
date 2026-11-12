@@ -1,13 +1,13 @@
 /** @file luat_input.h
- * Small, allocation-free input core. See components/input/README.md for ownership
- * and synchronization contracts. Event numbers follow Linux input semantics;
- * this is not the Linux evdev binary ABI.
+ * Event numbers follow Linux input semantics. Structures are not the Linux evdev binary ABI.
  */
 #ifndef LUAT_INPUT_H
 #define LUAT_INPUT_H
 
 #include <stddef.h>
 #include <stdint.h>
+
+#define LUAT_INPUT_BUS_USB 0x03U
 
 #ifdef __cplusplus
 extern "C" {
@@ -253,7 +253,7 @@ typedef struct {
     const char *name;
     luat_input_caps_t caps;
     uint32_t properties;
-    uint16_t bus;
+    uint16_t bus; /* Transport type, e.g. LUAT_INPUT_BUS_USB. */
     uint16_t vendor;
     uint16_t product;
     uint16_t version;

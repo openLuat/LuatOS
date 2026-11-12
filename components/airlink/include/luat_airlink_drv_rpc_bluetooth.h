@@ -3,10 +3,18 @@
 
 #include "luat_base.h"
 
-#ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
+#ifdef LUAT_USE_AIRLINK_RPC
 #include "luat_airlink.h"
 #include "luat_ble.h"
 #include "luat_bt.h"
+
+int luat_airlink_drv_rpc_bluetooth_init(void* args);
+int luat_airlink_drv_rpc_bluetooth_deinit(void* args);
+int luat_airlink_drv_rpc_ble_connect(void* args, luat_ble_connect_req_t* conn);
+int luat_airlink_drv_rpc_ble_disconnect(void* args);
+int luat_airlink_drv_rpc_ble_value(uint16_t operation, luat_ble_uuid_t* service,
+                                  luat_ble_uuid_t* characteristic, luat_ble_uuid_t* descriptor,
+                                  uint8_t* data, uint16_t len, uint8_t enable);
 
 int luat_airlink_drv_rpc_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb);
 int luat_airlink_drv_rpc_ble_deinit(luat_ble_t* luat_ble);
@@ -29,6 +37,6 @@ int luat_airlink_drv_rpc_ble_start_scanning(luat_ble_t* luat_ble);
 int luat_airlink_drv_rpc_ble_stop_scanning(luat_ble_t* luat_ble);
 int luat_airlink_drv_rpc_ble_delete_scanning(luat_ble_t* luat_ble);
 
-#endif /* LUAT_USE_AIRLINK_RPC_BLUETOOTH */
+#endif /* LUAT_USE_AIRLINK_RPC */
 
 #endif /* LUAT_AIRLINK_DRV_RPC_BLUETOOTH_H */

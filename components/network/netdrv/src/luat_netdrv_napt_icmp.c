@@ -104,14 +104,14 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             IPH_CHKSUM_SET(ip_hdr, ip_sum);
 
             // 如果是ETH包, 那还需要修改源MAC和目标MAC
-            if (ctx->eth) {
-                memcpy(ctx->eth->src.addr, ctx->net->netif->hwaddr, 6);
-                memcpy(ctx->eth->dest.addr, icmps[i].inet_mac, 6);
-            }
             luat_netdrv_t* dst = luat_netdrv_get(icmps[i].adapter_id);
-            if (dst == NULL) {
+            if (dst == NULL || dst->netif == NULL) {
                 LLOGE("能找到ICMP映射关系, 但目标netdrv不存在, 这肯定是BUG啊!!");
                 return 1;
+            }
+            if (ctx->eth) {
+                memcpy(ctx->eth->src.addr, dst->netif->hwaddr, 6);
+                memcpy(ctx->eth->dest.addr, icmps[i].inet_mac, 6);
             }
             if (dst->dataout) {
                 if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {

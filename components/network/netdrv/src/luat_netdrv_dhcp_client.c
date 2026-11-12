@@ -40,6 +40,7 @@ static int luat_netdrv_dhcp_client_run(luat_netdrv_t* drv, char* rxbuff, size_t 
     Buffer_Struct tx_msg_buf = {0,0,0};
 	uint32_t remote_ip = 0;
     int result = 0;
+    int ret = 0;
 
     if (netif == NULL || !netif_is_up(netif) || !netif_is_link_up(netif)) {
         LLOGD("网卡未就绪,不发送dhcp请求 %d", adapter_index);
@@ -103,7 +104,7 @@ on_check:
         luat_netdrv_send_ip_event(drv, 1);
         luat_rtos_timer_stop(drv->dhcp_timer);
         luat_rtos_timer_start(drv->dhcp_timer, 60000, 1, dhcp_client_timer_cb, drv);
-        return 0;
+        goto cleanup;
     }
     result = ip4_dhcp_run(dhcp, rxbuff == NULL ? NULL : &rx_msg_buf, &tx_msg_buf, &remote_ip);
     if (rxbuff) {
@@ -112,13 +113,13 @@ on_check:
     }
     if (result) {
         LLOGE("adapter %d ip4_dhcp_run error %d", adapter_index, result);
-        return 0;
+        goto cleanup;
     }
     if (!tx_msg_buf.Pos) {
         if (DHCP_STATE_CHECK == dhcp->state) {
             goto on_check;
         }
-        return 0; // 没有数据需要发送
+        goto cleanup; // 没有数据需要发送
     }
     // 通过UDP发出来
     struct pbuf *p;
@@ -126,7 +127,8 @@ on_check:
     p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf.Pos, PBUF_RAM);
     if (p == NULL) {
         LLOGE("pbuf_alloc error %d", tx_msg_buf.Pos);
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
     char* data = (char*)tx_msg_buf.Data;
     for (q = p; q != NULL; q = q->next) {
@@ -142,7 +144,10 @@ on_check:
     if (result != ERR_OK) {
         LLOGE("adapter %d dhcp udp_sendto_if error %d", adapter_index, result);
     }
-    return 0;
+cleanup:
+    // ip4_dhcp_run 的发送缓冲由调用者持有，包括发送失败和无数据路径。
+    OS_DeInitBuffer(&tx_msg_buf);
+    return ret;
 }
 
 static int luat_netdrv_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {

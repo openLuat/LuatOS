@@ -96,10 +96,14 @@ _z_pending_query_t *_z_unsafe_get_pending_query_by_id(_z_session_t *zn, const _z
  *  - zn->_mutex_inner
  */
 _z_pending_query_t *_z_unsafe_register_pending_query(_z_session_t *zn) {
-    _z_zint_t qid = zn->_query_id++;
-    zn->_pending_queries = _z_pending_query_slist_push_empty(zn->_pending_queries);
-    _z_pending_query_t *pq = _z_pending_query_slist_value(zn->_pending_queries);
-    pq->_id = qid;
+    _z_pending_query_slist_t *head = _z_pending_query_slist_push_empty(zn->_pending_queries);
+    // The list returns its original head on allocation failure.
+    if (head == zn->_pending_queries) {
+        return NULL;
+    }
+    zn->_pending_queries = head;
+    _z_pending_query_t *pq = _z_pending_query_slist_value(head);
+    pq->_id = zn->_query_id++;
     return pq;
 }
 

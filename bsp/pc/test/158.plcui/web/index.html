@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=800,initial-scale=1"><title>AQUA CONTROL — Pump station</title><meta name="plcui-pages" content="index.html,details.html"><link rel="stylesheet" href="panel.css"></head>
+<body><main class="screen" data-plcui-page="main" data-background="#101820">
+  <header class="topbar"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3C9 7 5 11 5 15a7 7 0 0014 0c0-4-4-8-7-12Z" stroke="#70e1d0" stroke-width="1.5"/><path d="M8 15a4 4 0 004 4" stroke="#70e1d0" stroke-width="1.5"/></svg></span><div class="brand">AQUA<span style="color:#56d6c1">CONTROL</span><small>HMI / 01</small></div><div class="online"><span class="dot"></span> PLC CONNECTED <span style="color:#516977;margin:0 5px">|</span> 10:42:08</div></header>
+  <h1 class="page-title">Water treatment station</h1><div class="subtitle">PROCESS OVERVIEW <span style="color:#496473;margin:0 7px">/</span> North reservoir</div><div class="tag">LOCAL CONTROL</div><div class="page-switch">01 / 02</div>
+  <section class="card" id="process" data-plcui="container" style="left:24px;top:145px;width:454px;height:270px">
+    <div class="kicker" style="position:absolute;left:16px;top:16px">PROCESS DIAGRAM</div><div style="position:absolute;right:16px;top:15px;font-size:10px;color:#7d99a9">TANK T-01</div>
+    <svg width="420" height="218" viewBox="0 0 420 218" style="position:absolute;left:16px;top:40px" aria-label="Tank and pump process diagram">
+      <defs><linearGradient id="tank" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#273b49"/><stop offset=".48" stop-color="#385365"/><stop offset="1" stop-color="#243847"/></linearGradient><linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#327e8b"/><stop offset="1" stop-color="#1b5369"/></linearGradient></defs>
+      <path d="M39 26h34v49" fill="none" stroke="#527382" stroke-width="10"/><path d="M39 26h34v49" fill="none" stroke="#a3c6cb" stroke-width="2" opacity=".25"/>
+      <path d="M39 26h-9" stroke="#56d6c1" stroke-width="2"/><path d="m36 21 6 5-6 5" stroke="#56d6c1" fill="none"/>
+      <rect x="54" y="54" width="125" height="135" rx="12" fill="url(#tank)" stroke="#63818f" stroke-width="1.5"/>
+      <path d="M59 110q15-7 30 0t30 0t30 0t25 0v65q0 9-9 9H68q-9 0-9-9Z" fill="url(#water)"/>
+      <path d="M60 110q15-7 30 0t30 0t30 0t24 0" class="water-wave"/>
+      <ellipse cx="116.5" cy="54" rx="62.5" ry="13" fill="#334d5b" stroke="#668795" stroke-width="1.5"/>
+      <path d="M65 64v108" stroke="#aac9d1" opacity=".15" stroke-width="5"/>
+      <path d="M78 190v8m76-8v8" stroke="#718996" stroke-width="7"/>
+      <rect x="194" y="73" width="8" height="112" rx="3" fill="#101c24" stroke="#415969"/><rect x="196" y="114" width="4" height="68" rx="1" fill="#56d6c1"/>
+      <path d="M213 77h5m-5 27h5m-5 27h5m-5 27h5m-5 26h5" stroke="#557587"/>
+      <text x="229" y="82" fill="#748e9f" font-family="Arial" font-size="9">100%</text><text x="229" y="189" fill="#748e9f" font-family="Arial" font-size="9">0%</text>
+      <path d="M179 161h89" stroke="#4b7886" stroke-width="10" fill="none"/><path d="M179 161h89" stroke="#7dceb9" stroke-width="2" stroke-dasharray="8 6" fill="none"/>
+      <path d="M310 161h79v-52" fill="none" stroke="#4b7886" stroke-width="10"/><path d="M310 161h79v-52" fill="none" stroke="#7dceb9" stroke-width="2" stroke-dasharray="8 6"/>
+      <path d="m384 120 5-7 5 7" stroke="#56d6c1" stroke-width="1.5" fill="none"/>
+      <rect x="275" y="183" width="37" height="5" rx="2" fill="#425d6c"/><rect x="281" y="174" width="26" height="10" rx="2" fill="#314f5d"/>
+      <circle cx="289" cy="160" r="26" fill="#284d59" stroke="#6bc5be" stroke-width="1.5"/><circle cx="289" cy="160" r="17" fill="#1a3643" stroke="#45808a"/>
+      <path d="m284 149 17 11-17 11Z" fill="#56d6c1"/><circle cx="289" cy="160" r="2" fill="#123442"/>
+      <text x="278" y="210" fill="#8ca6b5" font-family="Arial" font-size="10">P-01</text><text x="353" y="95" fill="#8ca6b5" font-family="Arial" font-size="9">TO FILTER</text>
+      <path d="M347 149v24m-8-20 16 16m-16 0 16-16" stroke="#6bbcb2" stroke-width="1.5"/>
+      <text x="72" y="218" fill="#728d9f" font-family="Arial" font-size="9">CAPACITY  4,000 L</text>
+    </svg>
+    <div class="dynamic" data-plcui="label" id="level" data-font="hzfont" data-font-size="20" style="left:69px;top:106px;width:120px;height:26px;color:#e1fffa;text-align:center">68.0 %</div>
+    <div class="status-badge" data-plcui="image" id="pump_status" data-states="normal,checked" style="left:284px;top:59px;width:101px"><span class="dot"></span><span class="status-text">RUNNING</span></div>
+    <div class="dynamic small" data-plcui="label" id="pump_speed" data-font="hzfont" data-font-size="14" style="left:296px;top:94px;width:104px;height:19px;color:#a3becb">1,450 rpm</div>
+  </section>
+  <section class="card" id="telemetry" data-plcui="container" style="left:490px;top:145px;width:286px;height:270px">
+    <div class="kicker" style="position:absolute;left:16px;top:16px">LIVE TELEMETRY</div><div class="rule" style="left:16px;right:16px;top:40px"></div>
+    <div style="position:absolute;left:16px;top:55px;font-size:11px;color:#9ab0bf">Water temperature</div><div class="dynamic" data-plcui="label" data-font="hzfont" data-font-size="20" id="temperature" style="left:16px;top:77px;width:130px;height:26px;color:#edf7fb">24.6 C</div>
+    <svg width="76" height="25" style="position:absolute;right:16px;top:76px" viewBox="0 0 76 25"><path d="M0 21 9 18 16 19 23 13 30 15 38 7 45 10 54 5 62 7 69 2 76 5" fill="none" stroke="#56d6c1" stroke-width="1.5"/></svg>
+    <div class="rule" style="left:16px;right:16px;top:118px"></div>
+    <div style="position:absolute;left:16px;top:133px;font-size:11px;color:#9ab0bf">Outlet flow</div><div class="dynamic" data-plcui="label" data-font="hzfont" data-font-size="20" id="flow" style="left:16px;top:155px;width:180px;height:26px;color:#edf7fb">12.4 m3/h</div>
+    <div class="rule" style="left:16px;right:16px;top:195px"></div>
+    <div style="position:absolute;left:16px;top:216px;font-size:11px;color:#9ab0bf">Target level</div><input class="parameter" data-plcui="textarea" id="setpoint" data-font="hzfont" data-font-size="20" data-keyboard="num_kb" data-event-submit="setpoint_submit" data-event-cancel="setpoint_cancel" data-max-length="5" data-accepted-chars="0123456789." type="text" value="75.0" aria-label="Target level" style="left:145px;top:208px;width:98px"><span class="unit" style="right:18px;top:220px">%</span>
+  </section>
+  <button class="action primary" data-plcui="image" id="start" data-event-click="motor_start" data-states="normal,pressed,disabled,checked" style="left:24px;top:427px;width:140px;height:34px"><svg viewBox="0 0 16 16" fill="currentColor"><path d="m5 3 8 5-8 5Z"/></svg>START PUMP</button>
+  <button class="action stop" data-plcui="image" id="stop" data-event-click="motor_stop" data-states="normal,pressed,disabled" style="left:174px;top:427px;width:140px;height:34px"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1"/></svg>STOP PUMP</button>
+  <div class="dynamic small" data-plcui="label" data-font="hzfont" data-font-size="14" id="feedback" style="left:329px;top:435px;width:235px;height:20px;color:#78d9c4">System ready</div>
+  <button class="action nav" data-plcui="image" id="details_nav" data-event-click="show_details" data-states="normal,pressed" style="left:604px;top:427px;width:172px;height:34px">STATION DETAILS <span style="font-size:15px">→</span></button>
+  <div id="num_kb" data-plcui="keyboard" data-font="hzfont" data-font-size="20" data-layout="number" data-x="24" data-y="180" data-w="454" data-h="234"></div>
+</main><script src="panel.js"></script></body></html>

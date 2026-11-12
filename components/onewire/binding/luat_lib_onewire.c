@@ -21,7 +21,7 @@
 /*
 初始化单总线
 @api onewire.init(id)
-@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条则随意填写
+@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条硬件单总线则写0,使用虚拟总线必须填写onewire.create()创建的虚拟总线编号
 @return nil 无返回值
 @usage
 onewire.init(0) --初始化硬件单总线
@@ -35,7 +35,7 @@ static int l_onewire_init(lua_State *L)
 /*
 配置硬件单总线时序，如果不配置，默认情况下是直接匹配DS18B20
 @api onewire.timing(id, is_tick, clk_div, tRSTL, tRSTH, tPDHIGH, tPDLOW, tSLOT, tStart, tLOW1, tRDV, tREC)
-@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条则随意填写
+@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条硬件单总线则写0,使用虚拟总线必须填写onewire.create()创建的虚拟总线编号
 @boolean is_tick, 后续时序参数是否是tick,true是,false不是,如果不是tick,单位就是us,默认是false.除非具体平台有特殊要求,一般是us
 @int clk_div, tick参数下的分频系数,建议分频到1个tick=1个us,如果us参数,本参数忽略
 @int tRSTL, reset拉低总时间
@@ -97,7 +97,7 @@ static int l_onewire_timing(lua_State *L)
 /*
 硬件单总线复位
 @api onewire.reset(id, need_ack)
-@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条则随意填写
+@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条硬件单总线则写0,使用虚拟总线必须填写onewire.create()创建的虚拟总线编号
 @boolean need_ack, 是否需要检测应答信号,true需要检测,false不需要
 @return boolean 检测到应答,或者无需检测返回true,失败返回false
 @usage
@@ -112,7 +112,7 @@ static int l_onewire_reset(lua_State *L)
 /*
 硬件单总线发送或1bit者接收1bit
 @api onewire.bit(id, send1bit)
-@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条则随意填写
+@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条硬件单总线则写0,使用虚拟总线必须填写onewire.create()创建的虚拟总线编号
 @int/nil send1bit, 发送bit的电平,1高电平,0低电平,留空或者其他值,则是读1bit
 @return int 如果是发送,则忽略结果,如果是接收,则是接收到的电平
 @usage
@@ -140,10 +140,10 @@ static int l_onewire_bit(lua_State *L)
 /*
 硬件单总线发送N字节数据
 @api onewire.tx(id, data, is_msb, need_reset, need_ack)
-@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条则随意填写
+@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条硬件单总线则写0,使用虚拟总线必须填写onewire.create()创建的虚拟总线编号
 @int/string/zbuff data, 需要发送的数据,如果是int则是1个字节数据,如果是zbuff,则是从开头到指针前的数据,如果指针是0则发送全部数据
 @boolean is_msb, 是否需要先发送MSB,true是,false不是,默认情况下都是false
-@boolean need_reset, 是否需要先发送reset,true需要检测,false不需要
+@boolean need_reset, 是否需要先发送reset,true需要发送,false不需要
 @boolean need_ack, 是否需要检测应答信号,true需要检测,false不需要
 @return boolean 检测到应答,或者无需检测返回true,失败或者参数错误返回false
 @usage
@@ -190,7 +190,7 @@ static int l_onewire_tx(lua_State *L)
 /*
 硬件单总线读取N字节数据
 @api onewire.rx(id, len, cmd, buff, is_msb, need_reset, need_ack)
-@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条则随意填写
+@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条硬件单总线则写0,使用虚拟总线必须填写onewire.create()创建的虚拟总线编号
 @int len, 需要读取的字节数量
 @int cmd, 在读取前发送命令,可以填nil不发送任何命令
 @zbuff data, 接收数据缓存,接收前会清空整个缓存.如果填nil则输出字符串
@@ -261,7 +261,7 @@ static int l_onewire_rx(lua_State *L)
 /*
 单总线调试开关
 @api onewire.debug(id, onoff)
-@int id, GPIO模式对应GPIO编号,HW模式是硬件单总线编号或者虚拟总线编号,如果只有一条则随意填写
+@int id, GPIO模式对应GPIO编号,HW模式是硬件单总线编号或者虚拟总线编号,如果只有一条硬件单总线则写0,使用虚拟总线必须填写onewire.create()创建的虚拟总线编号
 @boolean onoff, true打开,false关闭
 @return nil 无返回值
 @usage
@@ -276,7 +276,7 @@ static int l_onewire_debug(lua_State *L)
 /*
 关闭单总线
 @api onewire.deinit(id)
-@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条则随意填写
+@int id, 硬件单总线编号或者虚拟总线编号,如果只有一条硬件单总线则写0,使用虚拟总线必须填写onewire.create()创建的虚拟总线编号
 @return nil 无返回值
 @usage
 onewire.deinit(0) --初始化硬件单总线

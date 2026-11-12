@@ -4,13 +4,27 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define LUAT_ZP_KEY_MAX 255
-#define LUAT_ZP_PAYLOAD_MAX 4096
+#define LUAT_ZP_KEY_MAX 512
+#ifndef LUAT_ZP_PAYLOAD_MAX
+#define LUAT_ZP_PAYLOAD_MAX (256U * 1024U)
+#endif
+#ifndef LUAT_ZP_TX_PAYLOAD_BUDGET
+#define LUAT_ZP_TX_PAYLOAD_BUDGET (512U * 1024U)
+#endif
+#ifndef LUAT_ZP_RX_PAYLOAD_BUDGET
+#define LUAT_ZP_RX_PAYLOAD_BUDGET (512U * 1024U)
+#endif
+#if LUAT_ZP_PAYLOAD_MAX > 256U * 1024U || LUAT_ZP_PAYLOAD_MAX == 0
+#error "payload limit must be in 1..262144"
+#endif
 #define LUAT_ZP_QUEUE_MAX 8
-#define LUAT_ZP_SUB_MAX 4
+#define LUAT_ZP_SUB_MAX 16
 #define LUAT_ZP_STACK_SIZE 8192
 #define LUAT_ZP_GET_MAX 4
+#define LUAT_ZP_QUERYABLE_MAX 16
 #define LUAT_ZP_QUERY_MAX 4
+#define LUAT_ZP_QUERY_TTL_MS 30000
+#define LUAT_ZP_GET_TIMEOUT_MAX 600000
 #define LUAT_ZP_PARAMETERS_MAX 255
 enum { LUAT_ZP_CLOSED, LUAT_ZP_OPENING, LUAT_ZP_ONLINE, LUAT_ZP_CLOSING, LUAT_ZP_FAILED };
 enum { LUAT_ZP_PUBLISH = 1, LUAT_ZP_SUBSCRIBE, LUAT_ZP_UNSUBSCRIBE,
@@ -26,17 +40,31 @@ typedef struct {
 } luat_zp_io_failure_t;
 typedef struct {
     uint32_t generation, id, subscriber, request, queryable, query;
-    int code;
+    int code, cleanup_code;
+    int auth_stage, auth_remote_reason;
     size_t key_len, payload_len, parameters_len;
     const char *kind, *operation, *reason;
     luat_zp_io_failure_t io_failure;
     char key[LUAT_ZP_KEY_MAX + 1];
-    uint8_t payload[LUAT_ZP_PAYLOAD_MAX];
+    uint8_t *payload;
     char parameters[LUAT_ZP_PARAMETERS_MAX + 1];
 } luat_zp_event_t;
 
+/* 绑定层持有的载荷；不含SDK临时复制、协议头、Lua字符串和网络缓冲。 */
+typedef struct {
+    unsigned tx_bytes, rx_bytes, tx_peak, rx_peak, tx_rejected, rx_rejected;
+} luat_zp_payload_stats_t;
+void luat_zenoh_pico_payload_stats(luat_zp_payload_stats_t *stats);
+
 /* 所有公开入口由唯一 Lua VM 线程调用，工作任务独占 zenoh 对象。 */
+typedef struct {
+    const char *username, *password;
+    size_t username_len, password_len;
+} luat_zp_open_options_t;
 int luat_zenoh_pico_open(const char *endpoint, int adapter, uint32_t *generation);
+int luat_zenoh_pico_open_ex(const char *endpoint, int adapter, uint32_t *generation,
+                          const luat_zp_open_options_t *options);
+int luat_zenoh_pico_io_aborted(void);
 int luat_zenoh_pico_command(uint32_t generation, int op, uint32_t id,
                            const char *key, const void *payload, size_t length);
 int luat_zenoh_pico_command_ex(uint32_t generation, int op, uint32_t id,

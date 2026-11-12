@@ -1678,7 +1678,8 @@ static void voip_cleanup(voip_ctx_t *ctx)
     voip_event_cas(&ctx->bridge_speech_muted, voip_event_load(&ctx->bridge_speech_muted), 0);
 #endif
 #ifdef LUAT_USE_VOIP_PLAY
-    luat_voip_play_cancel("voip_stopped");
+    /* The independent CC upload task may still be playing a prompt. */
+    luat_voip_play_cancel_target(LUAT_VOIP_PLAY_TARGET_SIP, "voip_stopped");
     voip_play_tx_release(ctx, 0);
 #endif
     /* 停止定时器 */

@@ -8,6 +8,8 @@
 #include "luat_airui_component.h"
 #include "luat_rtos.h"
 #include "lvgl9/lvgl.h"
+#include "lvgl9/src/misc/cache/instance/lv_image_cache.h"
+#include "lvgl9/src/misc/cache/instance/lv_image_header_cache.h"
 #include <string.h>
 #include <assert.h>
 #include "luat_conf_bsp.h"
@@ -444,6 +446,8 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     if (!lv_is_initialized()) {
         lv_init();
     }
+    lv_image_cache_resize(AIRUI_IMAGE_CACHE_BYTES, true);
+    lv_image_header_cache_resize(AIRUI_IMAGE_HEADER_CACHE_COUNT, true);
 
     /* 如果 LV_USE_LOG 宏定义为 1，则注册 LVGL 日志回调到 LuatOS 日志 */
     #if LV_USE_LOG == 1
@@ -621,20 +625,20 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     }
 
     // 注册 JPEG 硬解码器
-    #ifdef LUAT_USE_JPG_HW
+    #if defined(LUAT_USE_AIRUI_LUATOS) && defined(LUAT_USE_JPG_HW)
     ret = airui_platform_luatos_register_jpg_decoder();
     if (ret != AIRUI_OK) {
         LLOGW("airui_init: register luatos jpg decoder failed, ret=%d", ret);
     }
-    #endif /* LUAT_USE_JPG_HW */
+    #endif
 
     // 注册 PNG 硬解码器
-    #ifdef LUAT_USE_PNG_HW
+    #if defined(LUAT_USE_AIRUI_LUATOS) && defined(LUAT_USE_PNG_HW)
         ret = airui_platform_luatos_register_png_decoder();
         if (ret != AIRUI_OK) {
             LLOGW("airui_init: register luatos png decoder failed, ret=%d", ret);
         }
-    #endif /* LUAT_USE_PNG_HW */
+    #endif
 
     // 启动运行时定时器
     ret = airui_start_runtime_timers(ctx);

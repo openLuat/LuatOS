@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="800" height="480" entry="main">
+  <resources>
+    <image id="main_background" src="main_background.png"/>
+    <image id="main_pump_status_normal" src="main_pump_status_normal.png"/>
+    <image id="main_pump_status_checked" src="main_pump_status_checked.png"/>
+    <image id="main_start_normal" src="main_start_normal.png"/>
+    <image id="main_start_pressed" src="main_start_pressed.png"/>
+    <image id="main_start_disabled" src="main_start_disabled.png"/>
+    <image id="main_start_checked" src="main_start_checked.png"/>
+    <image id="main_stop_normal" src="main_stop_normal.png"/>
+    <image id="main_stop_pressed" src="main_stop_pressed.png"/>
+    <image id="main_stop_disabled" src="main_stop_disabled.png"/>
+    <image id="main_details_nav_normal" src="main_details_nav_normal.png"/>
+    <image id="main_details_nav_pressed" src="main_details_nav_pressed.png"/>
+    <image id="details_background" src="details_background.png"/>
+    <image id="details_detail_status_normal" src="details_detail_4a36fd1d868f.png"/>
+    <image id="details_detail_status_checked" src="details_detail_4a8988b847c5.png"/>
+    <image id="details_back_normal" src="details_back_normal.png"/>
+    <image id="details_back_pressed" src="details_back_pressed.png"/>
+  </resources>
+  <pages>
+    <page id="main" background="#101820">
+      <image id="background" x="0" y="0" w="800" h="480" src="main_background"/>
+      <container id="process" x="24" y="145" w="454" h="270">
+        <label id="level" x="70" y="107" w="120" h="26" text="68.0 %" font="hzfont" font_size="20" color="#e1fffa" align="center"/>
+        <image id="pump_status" x="285" y="60" w="101" h="24" src="main_pump_status_normal" src-checked="main_pump_status_checked"/>
+        <label id="pump_speed" x="297" y="95" w="104" h="19" text="1,450 rpm" font="hzfont" font_size="14" color="#a3becb" align="left"/>
+      </container>
+      <container id="telemetry" x="490" y="145" w="286" h="270">
+        <label id="temperature" x="17" y="78" w="130" h="26" text="24.6 C" font="hzfont" font_size="20" color="#edf7fb" align="left"/>
+        <label id="flow" x="17" y="156" w="180" h="26" text="12.4 m3/h" font="hzfont" font_size="20" color="#edf7fb" align="left"/>
+        <textarea id="setpoint" x="159" y="214" w="72" h="24" text="75.0" font="hzfont" font_size="20" color="#edf7fb" one-line="true" max-length="5" accepted-chars="0123456789." keyboard="num_kb" on-submit="setpoint_submit" on-cancel="setpoint_cancel"/>
+      </container>
+      <image id="start" x="24" y="427" w="140" h="34" src="main_start_normal" src-pressed="main_start_pressed" src-checked="main_start_checked" src-disabled="main_start_disabled" clickable="true" on-click="motor_start"/>
+      <image id="stop" x="174" y="427" w="140" h="34" src="main_stop_normal" src-pressed="main_stop_pressed" src-disabled="main_stop_disabled" clickable="true" on-click="motor_stop"/>
+      <label id="feedback" x="329" y="435" w="235" h="20" text="System ready" font="hzfont" font_size="14" color="#78d9c4" align="left"/>
+      <image id="details_nav" x="604" y="427" w="172" h="34" src="main_details_nav_normal" src-pressed="main_details_nav_pressed" clickable="true" on-click="show_details"/>
+      <keyboard id="num_kb" x="24" y="180" w="454" h="234" layout="number" font="hzfont" font_size="20" hidden="true"/>
+    </page>
+    <page id="details" background="#101820">
+      <image id="background" x="0" y="0" w="800" h="480" src="details_background"/>
+      <container id="equipment" x="24" y="145" w="285" h="270">
+        <image id="detail_status" x="167" y="13" w="101" h="24" src="details_detail_status_normal" src-checked="details_detail_status_checked"/>
+        <label id="motor_current" x="17" y="95" w="180" h="26" text="3.8 A" font="hzfont" font_size="20" color="#edf7fb" align="left"/>
+        <label id="runtime" x="17" y="166" w="200" h="26" text="128.4 h" font="hzfont" font_size="20" color="#edf7fb" align="left"/>
+      </container>
+      <image id="back" x="24" y="427" w="180" h="34" src="details_back_normal" src-pressed="details_back_pressed" clickable="true" on-click="show_main"/>
+      <label id="detail_feedback" x="225" y="435" w="390" h="20" text="All equipment operating normally" font="hzfont" font_size="14" color="#78d9c4" align="left"/>
+    </page>
+  </pages>
+</ui>

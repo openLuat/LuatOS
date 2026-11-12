@@ -3,22 +3,25 @@
 #include "../../stdlib/lv_mem.h"
 #include "luat_mem.h"
 #include "../../misc/lv_log.h"
-#include "luat_airui_conf.h"
 
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_CUSTOM
 
-#ifndef LUAT_AIRUI_LVGL_HEAP_TYPE
-    #ifdef LUAT_USE_PSRAM
-        #define LUAT_AIRUI_LVGL_HEAP_TYPE LUAT_HEAP_PSRAM
+#ifndef LUAT_LVGL_HEAP_TYPE
+    #if defined(LUAT_PLCUI_LVGL_HEAP_TYPE)
+        #define LUAT_LVGL_HEAP_TYPE LUAT_PLCUI_LVGL_HEAP_TYPE
+    #elif defined(LUAT_AIRUI_LVGL_HEAP_TYPE)
+        #define LUAT_LVGL_HEAP_TYPE LUAT_AIRUI_LVGL_HEAP_TYPE
+    #elif defined(LUAT_USE_PSRAM)
+        #define LUAT_LVGL_HEAP_TYPE LUAT_HEAP_PSRAM
     #else
-        #define LUAT_AIRUI_LVGL_HEAP_TYPE LUAT_HEAP_AUTO
+        #define LUAT_LVGL_HEAP_TYPE LUAT_HEAP_AUTO
     #endif
 #endif
 
 void lv_mem_init(void)
 {
     LV_LOG_INFO("lv_mem_init");
-    // luat_heap_opt_init(LUAT_AIRUI_LVGL_HEAP_TYPE);
+    // The selected LVGL profile supplies the allocator configuration.
     return;
 }
 
@@ -41,17 +44,17 @@ void lv_mem_remove_pool(lv_mem_pool_t pool)
 
 void * lv_malloc_core(size_t size)
 {
-    return luat_heap_opt_malloc(LUAT_AIRUI_LVGL_HEAP_TYPE, size);
+    return luat_heap_opt_malloc(LUAT_LVGL_HEAP_TYPE, size);
 }
 
 void * lv_realloc_core(void * p, size_t new_size)
 {
-    return luat_heap_opt_realloc(LUAT_AIRUI_LVGL_HEAP_TYPE, p, new_size);
+    return luat_heap_opt_realloc(LUAT_LVGL_HEAP_TYPE, p, new_size);
 }
 
 void lv_free_core(void * p)
 {
-    luat_heap_opt_free(LUAT_AIRUI_LVGL_HEAP_TYPE, p);
+    luat_heap_opt_free(LUAT_LVGL_HEAP_TYPE, p);
 }
 
 void lv_mem_monitor_core(lv_mem_monitor_t * mon_p)
@@ -60,7 +63,7 @@ void lv_mem_monitor_core(lv_mem_monitor_t * mon_p)
     size_t used = 0;
     size_t max_used = 0;
 
-    luat_meminfo_opt_sys(LUAT_AIRUI_LVGL_HEAP_TYPE, &total, &used, &max_used);
+    luat_meminfo_opt_sys(LUAT_LVGL_HEAP_TYPE, &total, &used, &max_used);
 
     mon_p->total_size = total;
     mon_p->free_size = (total >= used) ? (total - used) : 0;

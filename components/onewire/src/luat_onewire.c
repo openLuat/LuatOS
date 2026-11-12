@@ -2,6 +2,7 @@
 #include "luat_base.h"
 #include "luat_onewire.h"
 #include "luat_gpio.h"
+#include "luat_msgbus.h"
 #include "luat_rtos.h"
 #include "luat_timer.h"
 #if 0
@@ -421,8 +422,61 @@ int luat_onewire_dht(luat_onewire_ctx_t* ctx, int32_t* temp, int32_t* hm, int ch
 }
 
 #endif
+#include "luat_common_api.h"
 LUAT_WEAK int luat_onewire_create_virtual(int hwtimer_id, int gpio) {
     return -1;
 }
 
 LUAT_WEAK void luat_onewire_destroy_virtual(int id) {;}
+
+LUAT_WEAK int luat_onewire_reset_v2(int id, uint8_t is_sync, uint8_t *is_ack)
+{
+    return -1;
+}
+
+LUAT_WEAK int luat_onewire_write_byte_v2(int id, const uint8_t *data, uint32_t len, uint8_t is_msb, uint8_t need_reset, uint8_t check_ack, uint8_t is_sync, uint8_t *is_ack)
+{
+    return -1;
+}
+
+LUAT_WEAK int luat_onewire_read_byte_v2(int id, uint8_t *data, uint32_t len, uint8_t is_msb, uint8_t need_reset, uint8_t check_ack, uint8_t is_sync, uint8_t *is_ack)
+{
+    return -1;
+}
+
+LUAT_WEAK int luat_onewire_read_byte_with_cmd_v2(int id, const uint8_t cmd, uint8_t *data, uint32_t len, uint8_t is_msb, uint8_t need_reset, uint8_t check_ack, uint8_t is_sync, uint8_t *is_ack)
+{
+    return -1;
+}
+
+LUAT_WEAK int luat_onewire_reset(int id, uint8_t check_ack) 
+{
+    uint8_t is_ack;
+    int result = luat_onewire_reset_v2(id, 1, &is_ack);
+    if (result) return result;
+    return is_ack ? LUAT_ERROR_NONE : -LUAT_ERROR_OPERATION_FAILED;
+}
+
+LUAT_WEAK int luat_onewire_write_byte(int id, const uint8_t *data, uint32_t len, uint8_t is_msb, uint8_t need_reset, uint8_t check_ack)
+{
+    uint8_t is_ack;
+    int result = luat_onewire_write_byte_v2(id, data, len, is_msb, need_reset, check_ack, 1, &is_ack);
+    if (result) return result;
+    return is_ack ? LUAT_ERROR_NONE : -LUAT_ERROR_OPERATION_FAILED;
+}
+
+LUAT_WEAK int luat_onewire_read_byte(int id, uint8_t *data, uint32_t len, uint8_t is_msb, uint8_t need_reset, uint8_t check_ack)
+{
+    uint8_t is_ack;
+    int result = luat_onewire_read_byte_v2(id, data, len, is_msb, need_reset, check_ack, 1, &is_ack);
+    if (result) return result;
+    return is_ack ? LUAT_ERROR_NONE : -LUAT_ERROR_OPERATION_FAILED;
+}
+
+LUAT_WEAK int luat_onewire_read_byte_with_cmd(int id, const uint8_t cmd, uint8_t *data, uint32_t len, uint8_t is_msb, uint8_t need_reset, uint8_t check_ack)
+{
+    uint8_t is_ack;
+    int result = luat_onewire_read_byte_with_cmd_v2(id, cmd, data, len, is_msb, need_reset, check_ack, 1, &is_ack);
+    if (result) return result;
+    return is_ack ? LUAT_ERROR_NONE : -LUAT_ERROR_OPERATION_FAILED;
+}

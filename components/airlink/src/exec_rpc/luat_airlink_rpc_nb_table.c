@@ -36,6 +36,8 @@ extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_sdata_reg;
 #endif
 #ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_bluetooth_reg;
+#endif
+#if defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH) || defined(LUAT_USE_DRV_BLUETOOTH)
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_bluetooth_event_reg;
 #endif
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_mobile_reg;
@@ -67,6 +69,8 @@ const luat_airlink_rpc_nb_reg_t* const luat_airlink_rpc_nb_static_table[] = {
 #endif
 #ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
     &luat_airlink_rpc_bluetooth_reg,
+#endif
+#if defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH) || defined(LUAT_USE_DRV_BLUETOOTH)
     &luat_airlink_rpc_bluetooth_event_reg,
 #endif
     &luat_airlink_rpc_mobile_reg,

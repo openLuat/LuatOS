@@ -351,7 +351,7 @@ int luat_input_hid_init(luat_input_hid_t *h, luat_input_core_t *core,
     memset(h, 0, sizeof(*h));
     int ret = parse(h, descriptor, length);
     if (ret) return ret;
-    h->desc.name = "USB HID"; h->desc.bus = 3;
+    h->desc.name = "USB HID"; h->desc.bus = LUAT_INPUT_BUS_USB;
     h->desc.vendor = vendor; h->desc.product = product;
     ret = luat_input_register(core, &h->device, &h->desc, h->state,
         sizeof(h->state)/sizeof(h->state[0]), &h->handle);

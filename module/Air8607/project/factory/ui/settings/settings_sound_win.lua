@@ -53,13 +53,14 @@ local function build_slider_card(parent, x, y, w, h, title, value_text, min, max
         color = color, align = airui.TEXT_ALIGN_RIGHT,
     })
 
-    -- 滑条高度即滑块直径（lv_slider knob_size = 对象高度），34px 便于手指拖动
+    -- 滑条对象高度决定轨道粗细，圆球直径 = 高度 + 2 × knob padding（见 theme.slider）；
+    -- 圆球跟进度同色，白色在浅色主题上几乎看不见
     local sl_h = theme.dp(34)
     local sl_y = math.floor(h * 0.42)
     local bar = theme.slider(card, {
         x = pad, y = sl_y, w = inner, h = sl_h,
         min = min, max = max, value = value,
-        track = theme.C.track, color = color, knob_color = theme.C.knob,
+        track = theme.C.track, color = color,
         on_change = function(self)
             sys.publish(set_event, self:get_value())
         end,

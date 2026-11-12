@@ -557,10 +557,9 @@ void ze_closure_miss_call(const ze_loaned_closure_miss_t *closure, const ze_miss
 bool _z_config_check(const _z_config_t *config) { return !_z_str_intmap_is_empty(config); }
 _z_config_t _z_config_null(void) { return _z_str_intmap_make(); }
 z_result_t _z_config_copy(_z_config_t *dst, const _z_config_t *src) {
-    *dst = _z_str_intmap_clone(src);
-    return _Z_RES_OK;
+    return _z_config_duplicate(dst, src);
 }
-void _z_config_drop(_z_config_t *config) { _z_str_intmap_clear(config); }
+void _z_config_drop(_z_config_t *config) { _z_config_clear(config); }
 _Z_OWNED_FUNCTIONS_VALUE_IMPL(_z_config_t, config, _z_config_check, _z_config_null, _z_config_copy, _z_str_intmap_move,
                               _z_config_drop)
 
@@ -2130,6 +2129,7 @@ z_result_t z_query_reply(const z_loaned_query_t *query, const z_loaned_keyexpr_t
     // Try upgrading session weak to rc
     _z_session_rc_t sess_rc = _z_session_weak_upgrade_if_open(&_Z_RC_IN_VAL(query)->_zn);
     if (_Z_RC_IS_NULL(&sess_rc)) {
+        z_bytes_drop(payload); if (options) { z_encoding_drop(options->encoding); z_bytes_drop(options->attachment); }
         _Z_ERROR_RETURN(_Z_ERR_SESSION_CLOSED);
     }
     // Set options
@@ -2193,6 +2193,7 @@ z_result_t z_query_reply_del(const z_loaned_query_t *query, const z_loaned_keyex
     // Try upgrading session weak to rc
     _z_session_rc_t sess_rc = _z_session_weak_upgrade_if_open(&_Z_RC_IN_VAL(query)->_zn);
     if (_Z_RC_IS_NULL(&sess_rc)) {
+        if (options) z_bytes_drop(options->attachment);
         _Z_ERROR_RETURN(_Z_ERR_SESSION_CLOSED);
     }
     z_query_reply_del_options_t opts;
@@ -2220,6 +2221,7 @@ z_result_t z_query_reply_err(const z_loaned_query_t *query, z_moved_bytes_t *pay
     // Try upgrading session weak to rc
     _z_session_rc_t sess_rc = _z_session_weak_upgrade_if_open(&_Z_RC_IN_VAL(query)->_zn);
     if (_Z_RC_IS_NULL(&sess_rc)) {
+        z_bytes_drop(payload); if (options) z_encoding_drop(options->encoding);
         _Z_ERROR_RETURN(_Z_ERR_SESSION_CLOSED);
     }
     z_query_reply_err_options_t opts;

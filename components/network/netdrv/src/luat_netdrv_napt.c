@@ -131,9 +131,9 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
         // LLOGD("NAPT 未开启");
         return 0; // NAPT没有开启
     }
-    // STA(2) 不属于 NAPT 下行侧，放行会让单播 DHCP OFFER 被误 NAT 消费，
-    // 导致 4G转WiFi 切 WiFi 拿不到 IP(no offer)，故入口直接放行。
-    if (id == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
+    // STA is a WAN only. Its ordinary return traffic must enter reverse NAPT
+    // when selected; DHCP is explicitly excluded after validating the IP header.
+    if (id == NW_ADAPTER_INDEX_LWIP_WIFI_STA && id != s_gw_adapter_id) {
         return 0;
     }
     luat_netdrv_t* drv = luat_netdrv_get(id);
@@ -190,42 +190,30 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
     };
 
     if (drv->netif->flags & NETIF_FLAG_ETHARP) {
+        if (len < SIZEOF_ETH_HDR) return NAPT_RET_SKIP;
+        if (ctx.eth->type == PP_HTONS(ETHTYPE_ARP)) {
+            if (id == s_gw_adapter_id && len >= SIZEOF_ETH_HDR + sizeof(struct etharp_hdr)) {
+                struct etharp_hdr *arp = (struct etharp_hdr *)(buff + SIZEOF_ETH_HDR);
+                ip4_addr_t sip, dip;
+                memcpy(&sip, &arp->sipaddr, sizeof(sip));
+                memcpy(&dip, &arp->dipaddr, sizeof(dip));
+                if (arp->hwtype == PP_HTONS(1) && arp->proto == PP_HTONS(ETHTYPE_IP) &&
+                    arp->hwlen == 6 && arp->protolen == 4 && arp->opcode == PP_HTONS(ARP_REPLY) &&
+                    sip.addr == ip_addr_get_ip4_u32(&gw->netif->gw) &&
+                    dip.addr == ip_addr_get_ip4_u32(&gw->netif->ip_addr) &&
+                    !memcmp(arp->dhwaddr.addr, gw->netif->hwaddr, 6) &&
+                    !(arp->shwaddr.addr[0] & 1) && memcmp(arp->shwaddr.addr, "\0\0\0\0\0\0", 6)) {
+                    memcpy(gw->gw_mac, arp->shwaddr.addr, 6);
+                }
+            }
+            return NAPT_RET_SKIP;
+        }
         // LLOGD("是ETH包, 先判断是不是广播包");
-        if (memcmp(ctx.eth->dest.addr, "\xFF\xFF\xFF\xFF\xFF\xFF", 6) == 0 ||
-            ctx.eth->dest.addr[0] == 0x01
-        ) {
+        if (ctx.eth->dest.addr[0] & 1) {
             // LLOGD("是广播包,不需要执行napt");
             return 0;
         }
         // LLOGD("ETH包 " MACFMT " -> " MACFMT " %04X", MAC_ARG(ctx.eth->src.addr), MAC_ARG(ctx.eth->dest.addr), ctx.eth->type);
-        if (ctx.eth->type == PP_HTONS(ETHTYPE_ARP)) {
-            // LLOGD("ETH包 " MACFMT " -> " MACFMT " %04X", MAC_ARG(ctx.eth->src.addr), MAC_ARG(ctx.eth->dest.addr), ctx.eth->type);
-            if (s_gw_adapter_id == id) {
-                // LLOGD("ETH包 " MACFMT " -> " MACFMT " %04X", MAC_ARG(ctx.eth->src.addr), MAC_ARG(ctx.eth->dest.addr), ctx.eth->type);
-                // 这是网关侧的ARP包, 需要分析是否网关的ARP包, 然后更新到本地ARP表
-                struct etharp_hdr* hdr = (struct etharp_hdr*)(buff + SIZEOF_ETH_HDR);
-                ip4_addr_t sipaddr, dipaddr;
-                // 是不是ARP回应
-                // LLOGD("ARP数据 %04X %04X", hdr->opcode, PP_HTONS(ARP_REPLY));
-                memcpy(&sipaddr, &hdr->sipaddr, 4);
-                memcpy(&dipaddr, &hdr->dipaddr, 4);
-                char tmp[16];
-                ip4addr_ntoa_r(&sipaddr, tmp, 16);
-                // LLOGD("ARP数据 %04X %04X from %s", hdr->opcode, PP_HTONS(ARP_REPLY), tmp);
-                // if (hdr->opcode == PP_HTONS(ARP_REPLY)) {
-                    // memcpy(&dipaddr, &hdr->dipaddr, 4);
-                    if (gw && gw->netif) {
-                        // LLOGD("sipaddr.addr %08X", sipaddr.addr);
-                        memcpy(gw->gw_mac, hdr->shwaddr.addr, 6);
-                        // LLOGD("网关MAC更新成功 %02X%02X%02X%02X%02X%02X", gw->gw_mac[0], gw->gw_mac[1], gw->gw_mac[2], gw->gw_mac[3], gw->gw_mac[4], gw->gw_mac[5]);
-                        // return 0;
-                    }
-                    else {
-                        // LLOGD("不是网关的ARP包? gw %p", gw);
-                    }
-                // }
-            }
-        }
         if (ctx.eth->type != PP_HTONS(ETHTYPE_IP)) {
             // LLOGD("不是IP包, 不需要执行napt");
             return 0;
@@ -237,6 +225,24 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
         ctx.eth = NULL;
     }
 
+    size_t ip_available = len - (ctx.eth ? SIZEOF_ETH_HDR : 0);
+    if (ip_available < 20) return NAPT_RET_SKIP;
+    uint16_t ihl = IPH_HL(ctx.iphdr) * 4;
+    uint16_t ip_len = lwip_ntohs(IPH_LEN(ctx.iphdr));
+    if (ihl < 20 || ip_len < ihl || ip_len > ip_available ||
+        (lwip_ntohs(IPH_OFFSET(ctx.iphdr)) & 0x3FFF)) return NAPT_RET_SKIP;
+    uint16_t payload_len = ip_len - ihl;
+    const uint8_t *transport = (const uint8_t *)ctx.iphdr + ihl;
+    if (IPH_PROTO(ctx.iphdr) == IP_PROTO_UDP) {
+        if (payload_len < 8) return NAPT_RET_SKIP;
+        uint16_t sport = ((uint16_t)transport[0] << 8) | transport[1];
+        uint16_t dport = ((uint16_t)transport[2] << 8) | transport[3];
+        if (sport == 67 || sport == 68 || dport == 67 || dport == 68) return NAPT_RET_SKIP;
+    } else if (IPH_PROTO(ctx.iphdr) == IP_PROTO_TCP && payload_len < 20) {
+        return NAPT_RET_SKIP;
+    } else if (IPH_PROTO(ctx.iphdr) == IP_PROTO_ICMP && payload_len < 8) {
+        return NAPT_RET_SKIP;
+    }
     // 看来是IP包了, 判断一下版本号
     u8_t ipVersion;
     ipVersion = IPH_V(ctx.iphdr);
@@ -324,6 +330,9 @@ int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p) {
 }
 
 void luat_netdrv_napt_enable(int adapter_id) {
+    if (s_gw_adapter_id >= 0 && s_gw_adapter_id != adapter_id) {
+        luat_netdrv_napt_disable();
+    }
     if (adapter_id > 0) {
         luat_netdrv_napt_init_contexts();
     }
@@ -347,10 +356,11 @@ void luat_netdrv_napt_enable(int adapter_id) {
     // }
     if (adapter_id > 0) {
         luat_netdrv_t* gw = luat_netdrv_get(adapter_id);
-        if (gw && gw->netif) {
+        if (gw && gw->netif && (gw->netif->flags & NETIF_FLAG_ETHARP)) {
             ip4_addr_t* gw_ip = &gw->netif->gw;
             if (!ip4_addr_isany(gw_ip)) {
-                err_t err = etharp_query(gw->netif, gw_ip, NULL);
+                memset(gw->gw_mac, 0, sizeof(gw->gw_mac));
+                err_t err = etharp_request(gw->netif, gw_ip);
                 LLOGD("NAPT enable: ARP request for gw %08X result=%d", gw_ip->addr, err);
             } else {
                 LLOGW("NAPT enable: gateway IP is empty!");
@@ -365,34 +375,15 @@ void luat_netdrv_napt_disable(void) {
         return;
     }
     LLOGI("关闭NAPT, 清理所有映射表, 原网关适配器=%d", s_gw_adapter_id);
+    s_gw_adapter_id = -1;
     luat_netdrv_napt_tcp_cleanup();
     luat_netdrv_napt_udp_cleanup();
     luat_netdrv_napt_icmp_cleanup();
-    s_gw_adapter_id = -1;
 }
 void luat_netdrv_napt_set_gw(int adapter_id) {
-    LLOGD("NAPT set_gw: adapter=%d", adapter_id);
-#if LUAT_CONF_RNDIS_NAT_DBG
-    {
-        luat_netdrv_t* _dbg_gw = luat_netdrv_get(adapter_id);
-        NAPT_RNDIS_DBG("set_gw adapter=%d netif=%p ip=0x%08X",
-                       adapter_id, _dbg_gw ? _dbg_gw->netif : NULL,
-                       (_dbg_gw && _dbg_gw->netif) ? ip_addr_get_ip4_u32(&_dbg_gw->netif->ip_addr) : 0);
-    }
-#endif
-    s_gw_adapter_id = adapter_id;
-    napt_sync_gw_netif(adapter_id);
-    if (adapter_id > 0) {
-        luat_netdrv_t* gw = luat_netdrv_get(adapter_id);
-        if (gw && gw->netif) {
-            ip4_addr_t* gw_ip = &gw->netif->gw;
-            if (!ip4_addr_isany(gw_ip)) {
-                err_t err = etharp_query(gw->netif, gw_ip, NULL);
-                LLOGD("NAPT set_gw: ARP query gw=%08X result=%d", gw_ip->addr, err);
-            }
-        }
-    }
+    luat_netdrv_napt_enable(adapter_id);
 }
+
 
 
 /* Air8000: expose current NAPT gateway adapter_id (used by CSDK wrap_ip_input.c) */

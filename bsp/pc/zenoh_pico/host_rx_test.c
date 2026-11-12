@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /* AI-MANAGED: true */
 /* 组合既有13项真实socket合同，新增有限短读/错误与字节守恒反例。 */
+#include <pthread.h>
 #define main tx_contract_main
 #define network_rx test_empty_rx
 #define luat_zenoh_pico_io_progress test_tx_progress
@@ -76,6 +77,38 @@ static int rx_case(int scenario) {
 cleanup:
     _z_close_tcp(&s); if (peer_fd >= 0) close(peer_fd); peer_fd = -1; return result;
 }
+/* 跨过旧100ms窗口才补齐半个长度头和帧体，下一帧紧邻前一帧。 */
+static void *send_fragments(void *arg) {
+    const int fd = *(const int *)arg;
+    const uint8_t bytes[] = {2, 0, 9, 8, 1, 0, 7};
+    luat_rtos_task_sleep(160);
+    if (send(fd, bytes, 1, 0) != 1) return arg;
+    luat_rtos_task_sleep(160);
+    if (send(fd, bytes + 1, 1, 0) != 1) return arg;
+    luat_rtos_task_sleep(160);
+    if (send(fd, bytes + 2, 5, 0) != 5) return arg;
+    return NULL;
+}
+static int handshake_frames(void) {
+    _z_sys_net_socket_t s = {0};
+    _z_sys_net_endpoint_t ep = {0};
+    pthread_t writer;
+    void *outcome = NULL;
+    uint8_t buf[2] = {0};
+    int started = 0, result = 0;
+    failed = rx_fault = 0; rx_mode = 1; rx_total = 0;
+    RX_CHECK(_z_open_tcp(&s, ep, 100) == 0);
+    RX_CHECK(pthread_create(&writer, NULL, send_fragments, &peer_fd) == 0);
+    started = 1;
+    RX_CHECK(_z_read_exact_tcp(s, buf, 2) == 2 && buf[0] == 2 && buf[1] == 0);
+    RX_CHECK(_z_read_exact_tcp(s, buf, 2) == 2 && buf[0] == 9 && buf[1] == 8);
+    RX_CHECK(_z_read_exact_tcp(s, buf, 2) == 2 && buf[0] == 1 && buf[1] == 0);
+    RX_CHECK(_z_read_exact_tcp(s, buf, 1) == 1 && buf[0] == 7 && !failed);
+cleanup:
+    if (started && (pthread_join(writer, &outcome) || outcome)) result = 1;
+    _z_close_tcp(&s); if (peer_fd >= 0) close(peer_fd); peer_fd = -1;
+    return result;
+}
 int main(void) {
     rx_mode = 0;
     if (tx_contract_main()) return 1;
@@ -86,5 +119,7 @@ int main(void) {
                rc ? "FAIL" : "PASS", i, rx_calls, rx_total);
     }
     printf("RX_CONTRACT_DONE checks=5 failures=%u scope=real_socket_API_model\n", failures);
-    return failures ? 1 : 0;
+    if (failures || handshake_frames()) return 1;
+    puts("HANDSHAKE_FRAGMENTS_PASS");
+    return 0;
 }

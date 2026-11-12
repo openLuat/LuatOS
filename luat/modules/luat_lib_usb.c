@@ -36,6 +36,12 @@ pm.power(pm.USB, true)		--USB上电初始化开始工作
 #include "rotable2.h"
 
 #ifdef LUAT_USE_USB
+#if defined(LUAT_USE_USB_HID_LUA) && defined(LUAT_USE_INPUT_HID)
+#include "luat_input_service.h"
+#include "luat_rtos.h"
+#include "luat_malloc.h"
+#include <string.h>
+#endif
 static int l_usb_cb[MAX_USB_BUS_COUNT];
 
 
@@ -356,8 +362,414 @@ static int l_usb_reset_device(lua_State* L) {
     return 1;
 }
 
+#if defined(LUAT_USE_USB_HID_LUA) && defined(LUAT_USE_INPUT_HID)
+/* USB Host HID subscriptions use the shared C input service. */
+#define USB_HID_SUB_MT "usb.hid_subscription"
+#define USB_HID_FRAME_MT "usb.hid_frame"
+#define USB_HID_OWN_MT "usb.hid_snapshots"
+#define USB_HID_SUBS_KEY "luat.usb.hid_subscriptions"
+#define USB_HID_FRAME_BUDGET 8U
+
+typedef struct {
+    luat_input_subscription_t sub;
+    void *buffer;
+    int callback, slot;
+    uint8_t closed, registered;
+} lua_usb_hid_sub_t;
+typedef struct {
+    luat_input_frame_t header;
+    luat_input_event_t events[];
+} lua_usb_hid_frame_t;
+typedef struct {
+    luat_input_service_info_t *items[LUAT_INPUT_SERVICE_DEVICES];
+} lua_usb_hid_owned_t;
+
+static luat_rtos_timer_t hid_retry_timer;
+static unsigned hid_active_subscriptions; /* Lua thread only. */
+static uint32_t hid_pending;
+static int hid_dispatch(lua_State *L, void *ptr);
+static void hid_init_bindings(lua_State *L);
+
+static void hid_notify(void *userdata)
+{
+    (void)userdata;
+    if (__atomic_exchange_n(&hid_pending, 1, __ATOMIC_ACQ_REL)) return;
+    rtos_msg_t msg = {.handler = hid_dispatch};
+    if (luat_msgbus_put(&msg, 0)) __atomic_store_n(&hid_pending, 0, __ATOMIC_RELEASE);
+}
+
+static void hid_integer(lua_State *L, const char *key, lua_Integer value)
+{
+    lua_pushinteger(L, value); lua_setfield(L, -2, key);
+}
+static void hid_string(lua_State *L, const char *key, const char *value)
+{
+    lua_pushstring(L, value); lua_setfield(L, -2, key);
+}
+static int hid_error_result(lua_State *L, const char *error)
+{
+    lua_pushnil(L); lua_pushstring(L, error); return 2;
+}
+static void hid_release_owned(lua_usb_hid_owned_t *owned)
+{
+    for (unsigned i = 0; i < LUAT_INPUT_SERVICE_DEVICES; i++) {
+        luat_heap_free(owned->items[i]); owned->items[i] = NULL;
+    }
+}
+static int hid_owned_gc(lua_State *L)
+{
+    hid_release_owned(luaL_checkudata(L, 1, USB_HID_OWN_MT));
+    return 0;
+}
+static lua_usb_hid_owned_t *hid_new_owned(lua_State *L)
+{
+    lua_usb_hid_owned_t *owned = lua_newuserdata(L, sizeof(*owned));
+    memset(owned, 0, sizeof(*owned));
+    luaL_setmetatable(L, USB_HID_OWN_MT);
+    return owned;
+}
+
+static void hid_push_state(lua_State *L, const luat_input_service_info_t *info)
+{
+    const luat_input_axis_t *abs = (const void *)(info->data + info->key_words);
+    const luat_input_axis_t *mt = abs + info->abs_count;
+    const uint32_t *state = (const void *)(mt + info->mt_count);
+    lua_createtable(L, 0, 7);
+    hid_integer(L, "id", info->snapshot.device_id);
+    hid_integer(L, "sequence", info->snapshot.sequence);
+    hid_integer(L, "timestamp_ms", info->snapshot.timestamp_ms);
+    hid_integer(L, "slot", info->snapshot.mt_slot);
+    lua_newtable(L);
+    for (unsigned i = 0; i < info->key_words * 32U; i++) {
+        if (!(state[i / 32U] & (UINT32_C(1) << (i % 32U)))) continue;
+        lua_pushboolean(L, 1); lua_rawseti(L, -2, i);
+    }
+    lua_setfield(L, -2, "keys");
+    state += info->key_words;
+    lua_newtable(L);
+    for (unsigned i = 0; i < info->abs_count; i++) {
+        lua_pushinteger(L, (int32_t)state[i]); lua_rawseti(L, -2, abs[i].code);
+    }
+    lua_setfield(L, -2, "abs");
+    state += info->abs_count;
+    lua_newtable(L);
+    for (unsigned slot = 0; slot < info->mt_slots; slot++) {
+        lua_newtable(L);
+        for (unsigned i = 0; i < info->mt_count; i++) {
+            lua_pushinteger(L, (int32_t)state[slot * info->mt_count + i]);
+            lua_rawseti(L, -2, mt[i].code);
+        }
+        lua_rawseti(L, -2, slot);
+    }
+    lua_setfield(L, -2, "slots");
+}
+static void hid_push_axes(lua_State *L, const luat_input_axis_t *axes, unsigned count)
+{
+    lua_newtable(L);
+    for (unsigned i = 0; i < count; i++) {
+        lua_createtable(L, 0, 3);
+        hid_integer(L, "min", axes[i].minimum); hid_integer(L, "max", axes[i].maximum);
+        hid_integer(L, "initial", axes[i].initial);
+        lua_rawseti(L, -2, axes[i].code);
+    }
+}
+static void hid_push_bits(lua_State *L, const uint32_t *bits, unsigned words)
+{
+    lua_newtable(L);
+    unsigned n = 0;
+    for (unsigned i = 0; i < words * 32U; i++) {
+        if (!(bits[i / 32U] & (UINT32_C(1) << (i % 32U)))) continue;
+        lua_pushinteger(L, i); lua_rawseti(L, -2, ++n);
+    }
+}
+static void hid_push_info(lua_State *L, const luat_input_service_info_t *info)
+{
+    lua_createtable(L, 0, 9);
+    hid_integer(L, "id", info->snapshot.device_id); hid_string(L, "name", info->name);
+    hid_integer(L, "bus", info->bus); hid_integer(L, "vendor", info->vendor);
+    hid_integer(L, "product", info->product); hid_integer(L, "version", info->version);
+    hid_integer(L, "properties", info->properties);
+    lua_newtable(L);
+    hid_push_bits(L, info->data, info->key_words); lua_setfield(L, -2, "keys");
+    hid_push_bits(L, &info->rel_bits, 1); lua_setfield(L, -2, "rel");
+    hid_push_bits(L, &info->msc_bits, 1); lua_setfield(L, -2, "msc");
+    const luat_input_axis_t *axes = (const void *)(info->data + info->key_words);
+    hid_push_axes(L, axes, info->abs_count); lua_setfield(L, -2, "abs");
+    hid_push_axes(L, axes + info->abs_count, info->mt_count); lua_setfield(L, -2, "mt");
+    hid_integer(L, "mt_slots", info->mt_slots);
+    lua_setfield(L, -2, "caps");
+    hid_push_state(L, info); lua_setfield(L, -2, "state");
+}
+
+static uint32_t hid_check_id(lua_State *L, int index)
+{
+    lua_Integer id = luaL_checkinteger(L, index);
+    luaL_argcheck(L, id > 0 && (uint64_t)id <= UINT32_MAX, index, "invalid device id");
+    return (uint32_t)id;
+}
+static int hid_frame_get(lua_State *L)
+{
+    lua_usb_hid_frame_t *frame = luaL_checkudata(L, 1, USB_HID_FRAME_MT);
+    lua_Integer index = luaL_checkinteger(L, 2);
+    luaL_argcheck(L, index >= 1 && index <= frame->header.count, 2, "event index out of range");
+    const luat_input_event_t *event = &frame->events[index - 1];
+    lua_pushinteger(L, event->type); lua_pushinteger(L, event->code); lua_pushinteger(L, event->value);
+    return 3;
+}
+static int hid_frame_index(lua_State *L)
+{
+    lua_usb_hid_frame_t *frame = luaL_checkudata(L, 1, USB_HID_FRAME_MT);
+    const char *key = luaL_checkstring(L, 2);
+    if (!strcmp(key, "get")) lua_pushcfunction(L, hid_frame_get);
+    else if (!strcmp(key, "count")) lua_pushinteger(L, frame->header.count);
+    else if (!strcmp(key, "device_id")) lua_pushinteger(L, frame->header.device_id);
+    else if (!strcmp(key, "sequence")) lua_pushinteger(L, frame->header.sequence);
+    else if (!strcmp(key, "timestamp_ms")) lua_pushinteger(L, frame->header.timestamp_ms);
+    else lua_pushnil(L);
+    return 1;
+}
+static int hid_readonly(lua_State *L) { return luaL_error(L, "input frame is read-only"); }
+static int hid_frame_len(lua_State *L)
+{
+    lua_usb_hid_frame_t *frame = luaL_checkudata(L, 1, USB_HID_FRAME_MT);
+    lua_pushinteger(L, frame->header.count); return 1;
+}
+
+static void hid_close_sub(lua_State *L, lua_usb_hid_sub_t *sub)
+{
+    if (sub->closed) return;
+    sub->closed = 1;
+    luat_input_service_lock();
+    luat_input_service_close(&sub->sub);
+    luat_input_service_unlock();
+    luat_heap_free(sub->buffer); sub->buffer = NULL;
+    if (sub->callback != LUA_NOREF) luaL_unref(L, LUA_REGISTRYINDEX, sub->callback);
+    sub->callback = LUA_NOREF;
+    if (sub->registered) {
+        lua_getfield(L, LUA_REGISTRYINDEX, USB_HID_SUBS_KEY);
+        lua_pushnil(L); lua_rawseti(L, -2, sub->slot + 1); lua_pop(L, 1);
+        sub->registered = 0;
+        hid_active_subscriptions--;
+        if (!hid_active_subscriptions && hid_retry_timer) {
+            luat_rtos_timer_stop(hid_retry_timer); luat_rtos_timer_delete(hid_retry_timer); hid_retry_timer = NULL;
+        }
+    }
+}
+static int l_hid_close(lua_State *L)
+{
+    lua_usb_hid_sub_t *sub = luaL_checkudata(L, 1, USB_HID_SUB_MT);
+    hid_close_sub(L, sub); return 0;
+}
+static int l_hid_stats(lua_State *L)
+{
+    lua_usb_hid_sub_t *sub = luaL_checkudata(L, 1, USB_HID_SUB_MT);
+    luat_input_service_lock();
+    luat_input_subscription_t *s = &sub->sub;
+    uint32_t frames = s->frames, overflows = s->overflows, required = s->required_bytes;
+    size_t capacity = s->queue.capacity;
+    size_t used = s->queue.full ? capacity : s->queue.tail >= s->queue.head ?
+        s->queue.tail - s->queue.head : capacity - s->queue.head + s->queue.tail;
+    luat_input_service_unlock();
+    lua_newtable(L);
+    hid_integer(L, "frames", frames); hid_integer(L, "overflows", overflows);
+    hid_integer(L, "queue_bytes", capacity); hid_integer(L, "queued_bytes", used);
+    hid_integer(L, "required_bytes", required);
+    lua_pushboolean(L, sub->closed); lua_setfield(L, -2, "closed");
+    return 1;
+}
+
+/* Takes one callback payload from the top. The userdata is rooted by dispatch.
+ * Callback may close itself or create another subscription. */
+static void hid_invoke(lua_State *L, lua_usb_hid_sub_t *sub, const char *kind, uint32_t id)
+{
+    if (sub->closed) { lua_pop(L, 1); return; }
+    lua_rawgeti(L, LUA_REGISTRYINDEX, sub->callback); lua_insert(L, -2);
+    lua_pushstring(L, kind); lua_insert(L, -2);
+    if (id) lua_pushinteger(L, id); else lua_pushnil(L);
+    lua_insert(L, -2);
+    if (lua_pcall(L, 3, 0, 0) != LUA_OK) {
+        const char *error = lua_tostring(L, -1);
+        LLOGE("callback error: %s", error ? error : "non-string error");
+        lua_pop(L, 1);
+        hid_close_sub(L, sub); /* A failing consumer cannot flood the GUI task. */
+    }
+}
+
+static int hid_drain(lua_State *L, lua_usb_hid_sub_t *sub)
+{
+    for (unsigned budget = 0; budget < USB_HID_FRAME_BUDGET && !sub->closed; budget++) {
+        int base = lua_gettop(L);
+        luat_input_frame_t next;
+        luat_input_service_lock();
+        int fault = sub->sub.fault;
+        uint32_t required = sub->sub.required_bytes;
+        int ret = fault ? fault : luat_input_queue_peek(&sub->sub.queue, &next);
+        luat_input_service_unlock();
+        if (fault) {
+            lua_newtable(L);
+            hid_string(L, "reason", fault == LUAT_INPUT_ENOSPC ? "frame_too_large" : "resource_error");
+            hid_integer(L, "required_bytes", required);
+            hid_invoke(L, sub, "overflow", 0);
+            hid_close_sub(L, sub);
+            return 0;
+        }
+        if (ret == LUAT_INPUT_EEMPTY) return 0;
+        if (ret == LUAT_INPUT_ELOST) {
+            lua_usb_hid_owned_t *owned = hid_new_owned(L);
+            size_t count = 0;
+            luat_input_service_lock();
+            ret = luat_input_service_recover(&sub->sub, owned->items, LUAT_INPUT_SERVICE_DEVICES, &count);
+            luat_input_service_unlock();
+            if (ret) { lua_settop(L, base); return 0; } /* Retry on next timer tick. */
+            lua_newtable(L); hid_string(L, "reason", "queue_full");
+            hid_invoke(L, sub, "overflow", 0);
+            for (size_t i = 0; i < count && !sub->closed; i++) {
+                hid_push_info(L, owned->items[i]);
+                lua_pushboolean(L, 1); lua_setfield(L, -2, "resync");
+                hid_invoke(L, sub, "attach", owned->items[i]->snapshot.device_id);
+            }
+            hid_release_owned(owned);
+            lua_settop(L, base);
+            continue;
+        }
+        if (ret) return 0;
+        /* Lua allocation may run GC, so it occurs outside the service lock.
+         * Producers never remove a queued head except on sticky overflow. */
+        lua_usb_hid_frame_t *frame = lua_newuserdata(L, sizeof(*frame) + (size_t)next.count * sizeof(frame->events[0]));
+        memset(frame, 0, sizeof(*frame));
+        luaL_setmetatable(L, USB_HID_FRAME_MT);
+        luat_input_service_lock();
+        ret = luat_input_queue_read(&sub->sub.queue, &frame->header, frame->events, next.count);
+        luat_input_service_unlock();
+        if (ret) { lua_settop(L, base); continue; }
+        uint16_t flags = frame->header.flags;
+        uint32_t id = frame->header.device_id;
+        if (flags & LUAT_INPUT_FRAME_REMOVE) {
+            lua_pop(L, 1); lua_pushnil(L); hid_invoke(L, sub, "remove", id);
+        } else if (flags & (LUAT_INPUT_FRAME_ATTACH | LUAT_INPUT_FRAME_RESET)) {
+            const luat_input_service_info_t *info = (const void *)frame->events;
+            hid_push_info(L, info);
+            hid_invoke(L, sub, flags & LUAT_INPUT_FRAME_ATTACH ? "attach" : "reset", id);
+        } else hid_invoke(L, sub, "frame", id);
+        lua_settop(L, base);
+    }
+    return !sub->closed; /* Continue a backlog through another bounded message. */
+}
+static int hid_dispatch(lua_State *L, void *ptr)
+{
+    (void)ptr;
+    __atomic_store_n(&hid_pending, 0, __ATOMIC_RELEASE);
+    int base = lua_gettop(L);
+    lua_getfield(L, LUA_REGISTRYINDEX, USB_HID_SUBS_KEY);
+    if (!lua_istable(L, -1)) { lua_settop(L, base); return 0; }
+    int again = 0;
+    for (unsigned i = 0; i < LUAT_INPUT_SERVICE_SUBSCRIPTIONS; i++) {
+        lua_rawgeti(L, -1, i + 1);
+        lua_usb_hid_sub_t *sub = luaL_testudata(L, -1, USB_HID_SUB_MT);
+        if (sub && !sub->closed && hid_drain(L, sub)) again = 1;
+        lua_pop(L, 1);
+    }
+    lua_settop(L, base);
+    if (again) hid_notify(NULL);
+    return 0;
+}
+
+/**
+订阅 USB Host HID 输入事件，仅匹配 USB HID 设备。
+@api usb.hid_subscribe(filter, callback)
+@table 过滤项：device 为输入设备实例 ID；types 为事件类型数组；queue_bytes 默认为 4096。
+@function 回调 function(kind, device_id, data)，不可 yield。kind 包括 attach、frame、reset、remove、overflow。
+@return userdata|nil 订阅对象；保留对象直到调用 close()，垃圾回收时也会关闭。
+*/
+static int l_usb_hid_subscribe(lua_State *L)
+{
+    if (!luat_input_service_is_ready()) return hid_error_result(L, "not_ready");
+    luaL_checktype(L, 1, LUA_TTABLE); luaL_checktype(L, 2, LUA_TFUNCTION);
+    uint32_t id = 0, types = (1U << LUAT_INPUT_EV_KEY) | (1U << LUAT_INPUT_EV_REL) |
+        (1U << LUAT_INPUT_EV_ABS) | (1U << LUAT_INPUT_EV_MSC);
+    lua_getfield(L, 1, "device");
+    if (!lua_isnil(L, -1)) id = hid_check_id(L, -1);
+    lua_pop(L, 1);
+    lua_getfield(L, 1, "queue_bytes");
+    lua_Integer bytes = luaL_optinteger(L, -1, 4096);
+    luaL_argcheck(L, bytes >= 256 && bytes <= 65536, 1, "queue_bytes must be 256..65536");
+    lua_pop(L, 1);
+    lua_getfield(L, 1, "types");
+    if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TTABLE);
+        types = 0;
+        size_t count = lua_rawlen(L, -1);
+        for (size_t i = 1; i <= count; i++) {
+            lua_rawgeti(L, -1, i);
+            lua_Integer type = luaL_checkinteger(L, -1);
+            luaL_argcheck(L, type >= LUAT_INPUT_EV_SYN && type <= LUAT_INPUT_EV_MSC, 1, "invalid event type");
+            types |= UINT32_C(1) << type;
+            lua_pop(L, 1);
+        }
+        luaL_argcheck(L, types != 0, 1, "empty event types");
+    }
+    lua_pop(L, 1);
+    hid_init_bindings(L);
+    lua_usb_hid_sub_t *sub = lua_newuserdata(L, sizeof(*sub));
+    memset(sub, 0, sizeof(*sub)); sub->callback = LUA_NOREF; sub->slot = -1;
+    luaL_setmetatable(L, USB_HID_SUB_MT);
+    sub->buffer = luat_heap_malloc((size_t)bytes);
+    if (!sub->buffer) return hid_error_result(L, "no_memory");
+    lua_pushvalue(L, 2); sub->callback = luaL_ref(L, LUA_REGISTRYINDEX);
+    int created_timer = !hid_retry_timer;
+    if (created_timer) {
+        if (luat_rtos_timer_create(&hid_retry_timer)) { hid_close_sub(L, sub); return hid_error_result(L, "timer_failed"); }
+        if (luat_rtos_timer_start(hid_retry_timer, 20, 1, hid_notify, NULL)) {
+            luat_rtos_timer_delete(hid_retry_timer); hid_retry_timer = NULL;
+            hid_close_sub(L, sub); return hid_error_result(L, "timer_failed");
+        }
+    }
+    luat_input_service_lock();
+    int ret = luat_input_service_subscribe_bus(&sub->sub, id, types, LUAT_INPUT_BUS_USB, sub->buffer, (size_t)bytes, hid_notify, NULL);
+    luat_input_service_unlock();
+    if (ret) {
+        hid_close_sub(L, sub);
+        if (created_timer) { luat_rtos_timer_delete(hid_retry_timer); hid_retry_timer = NULL; }
+        return hid_error_result(L, ret == LUAT_INPUT_ESTALE ? "not_found" :
+            ret == LUAT_INPUT_SERVICE_ENOMEM ? "no_memory" : "subscription_limit_or_queue_too_small");
+    }
+    sub->slot = (int)sub->sub.slot; sub->registered = 1; hid_active_subscriptions++;
+    lua_getfield(L, LUA_REGISTRYINDEX, USB_HID_SUBS_KEY);
+    lua_pushvalue(L, -2); lua_rawseti(L, -2, sub->slot + 1); lua_pop(L, 1);
+    return 1;
+}
+
+static void hid_init_bindings(lua_State *L)
+{
+    int initialized = lua_getfield(L, LUA_REGISTRYINDEX, USB_HID_SUBS_KEY) != LUA_TNIL;
+    lua_pop(L, 1);
+    if (initialized) return;
+    luaL_newmetatable(L, USB_HID_OWN_MT);
+    lua_pushcfunction(L, hid_owned_gc); lua_setfield(L, -2, "__gc"); lua_pop(L, 1);
+    luaL_newmetatable(L, USB_HID_FRAME_MT);
+    lua_pushcfunction(L, hid_frame_index); lua_setfield(L, -2, "__index");
+    lua_pushcfunction(L, hid_readonly); lua_setfield(L, -2, "__newindex");
+    lua_pushcfunction(L, hid_frame_len); lua_setfield(L, -2, "__len");
+    hid_string(L, "__metatable", USB_HID_FRAME_MT); lua_pop(L, 1);
+    luaL_newmetatable(L, USB_HID_SUB_MT);
+    lua_pushcfunction(L, l_hid_close); lua_setfield(L, -2, "__gc");
+    static const luaL_Reg methods[] = {{"close", l_hid_close}, {"stats", l_hid_stats}, {NULL, NULL}};
+    luaL_newlib(L, methods); lua_setfield(L, -2, "__index"); lua_pop(L, 1);
+    lua_newtable(L); lua_newtable(L);
+    hid_string(L, "__mode", "v"); lua_setmetatable(L, -2);
+    lua_setfield(L, LUA_REGISTRYINDEX, USB_HID_SUBS_KEY);
+}
+#endif
+
 static const rotable_Reg_t reg_usb[] =
 {
+#if defined(LUAT_USE_USB_HID_LUA) && defined(LUAT_USE_INPUT_HID)
+    { "hid_subscribe", ROREG_FUNC(l_usb_hid_subscribe) },
+    { "HID_EV_KEY", ROREG_INT(LUAT_INPUT_EV_KEY) },
+    { "HID_EV_REL", ROREG_INT(LUAT_INPUT_EV_REL) },
+    { "HID_EV_ABS", ROREG_INT(LUAT_INPUT_EV_ABS) },
+    { "HID_EV_MSC", ROREG_INT(LUAT_INPUT_EV_MSC) },
+#endif
 	{ "tx",					ROREG_FUNC(l_usb_tx)},
 	{ "rx",					ROREG_FUNC(l_usb_rx)},
 	{ "mode",				ROREG_FUNC(l_usb_mode)},

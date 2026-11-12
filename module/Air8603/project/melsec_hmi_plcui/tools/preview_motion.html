@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>设备连接图 · 流光动效预览（真机同款 8 帧 / 200 ms）</title>
+<style>
+  html,body{margin:0;background:#05080f;font-family:'Microsoft YaHei','Segoe UI',sans-serif;color:#8FA3BF;}
+  .bar{height:34px;display:flex;align-items:center;gap:10px;padding:0 12px;font-size:12px;
+       background:#0A1424;border-bottom:1px solid #16233A;position:sticky;top:0;z-index:9;
+       white-space:nowrap;overflow:hidden;}
+  .bar > *{flex:0 0 auto}
+  .bar b{color:#22D3EE;font-weight:600}
+  .bar button{background:#13213A;color:#C9D8EE;border:1px solid #22344F;border-radius:6px;
+              padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .bar button:hover{background:#1A2C48;border-color:#2E4A70}
+  .bar button.on{background:#0E3A46;border-color:#22D3EE;color:#7FE3F5}
+  .bar .sp{flex:1}
+  .bar .hint{color:#5E7089;font-size:12px}
+
+  /* 1024×600 的整屏舞台，等比缩放到窗口宽度 */
+  .stage{width:1024px;height:600px;position:relative;overflow:hidden;background:#0B1220;
+         transform-origin:top left;margin:0 auto;box-shadow:0 0 0 1px #16233A}
+  .c{position:absolute}
+  .r{position:absolute;text-align:right}
+  .flow{position:absolute;width:104px;height:28px;image-rendering:auto}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span>流光预览 · 真机同款 32 张帧图 · <b id="ms">200</b> ms/帧（8 帧一轮 1.6 s）</span>
+  <span class="sp"></span>
+  <button id="play" class="on">暂停</button>
+  <button data-ms="250">4 fps</button>
+  <button data-ms="200" class="on">5 fps</button>
+  <button data-ms="125">8 fps</button>
+  <button id="fit" class="on">适配窗口</button>
+  <span class="hint">下面这块屏就是真机观感</span>
+</div>
+
+<div class="stage" id="stage">
+  <!-- 左侧导航 -->
+  <div class="c" style="left:0;top:0;width:96px;height:600px;background:#0A1424"></div>
+  <img class="c" src="../code/ui/img/logo.png" style="left:28px;top:18px;width:40px;height:40px">
+  <img class="c" src="../code/ui/img/btn_nav_dash_n.png" style="left:10px;top:100px;width:76px;height:84px">
+  <img class="c" src="../code/ui/img/btn_nav_trend_n.png" style="left:10px;top:196px;width:76px;height:84px">
+  <img class="c" src="../code/ui/img/btn_nav_alarm_n.png" style="left:10px;top:292px;width:76px;height:84px">
+  <img class="c" src="../code/ui/img/btn_nav_dev_c.png" style="left:10px;top:388px;width:76px;height:84px">
+  <img class="c" src="../code/ui/img/btn_nav_set_n.png" style="left:10px;top:484px;width:76px;height:84px">
+  <div class="c" style="left:96px;top:0;width:1px;height:600px;background:#16233A"></div>
+
+  <!-- 页头 -->
+  <div class="c" style="left:124px;top:18px;font-size:22px;color:#E6EEF9">设备连接图</div>
+  <div class="c" style="left:124px;top:50px;font-size:13px;color:#7D8EA8">触摸屏 ↔ RS485 ↔ PLC ↔ AD0/AD1 ↔ 温度变送器（三线）</div>
+  <img class="c" src="../code/ui/img/dot_online.png" style="left:596px;top:30px;width:12px;height:12px">
+  <div class="c" style="left:616px;top:24px;font-size:14px;color:#8FA3BF">PLC 在线</div>
+  <div class="r" style="left:796px;top:24px;width:160px;font-size:14px;color:#8FA3BF" id="clock">18:23:10</div>
+  <img class="c" src="../code/ui/img/btn_sound_n.png" style="left:968px;top:20px;width:40px;height:40px">
+  <div class="c" style="left:112px;top:76px;width:896px;height:1px;background:#16233A"></div>
+
+  <!-- 静态底图（真机上就是 dev_scene.png 这一张） -->
+  <img class="c" src="../code/ui/img/dev_scene.png" style="left:112px;top:88px;width:896px;height:496px">
+
+  <!-- 4 条链路的流光层：位置与 main.xml 完全一致 -->
+  <img class="flow" id="flow485a" src="../code/ui/img/flow_485a_1.png" style="left:312px;top:200px">
+  <img class="flow" id="flow485b" src="../code/ui/img/flow_485b_1.png" style="left:312px;top:232px">
+  <img class="flow" id="flowma1"  src="../code/ui/img/flow_ma1_1.png" style="left:658px;top:167px">
+  <img class="flow" id="flowma2"  src="../code/ui/img/flow_ma2_1.png" style="left:658px;top:335px">
+
+  <!-- 图中两处「实测」值（真机由 Lua 写入） -->
+  <div class="c" style="left:918px;top:190px;width:78px;text-align:center;font-size:15px;color:#22D3EE">72.4℃</div>
+  <div class="c" style="left:918px;top:358px;width:78px;text-align:center;font-size:15px;color:#4C8DFF">58.9℃</div>
+</div>
+
+<script>
+/* 逐行对照 code/ui_hmi.lua 的 anim_tick：
+     anim_i = anim_i % ANIM_FRAMES + 1
+     f = (anim_i + offset - 1) % ANIM_FRAMES + 1
+   帧号、相位、节奏都与真机一致，看到什么真机就是什么。 */
+const N = 8;
+const LAYERS = [
+  { id: 'flow485a', prefix: 'flow_485a_', offset: 0 },  // 请求 HMI → PLC
+  { id: 'flow485b', prefix: 'flow_485b_', offset: 4 },  // 应答 PLC → HMI，错开半个周期
+  { id: 'flowma1',  prefix: 'flow_ma1_',  offset: 0 },  // 变送器 1 黄线 → AD0
+  { id: 'flowma2',  prefix: 'flow_ma2_',  offset: 3 }   // 变送器 2 黄线 → AD1，晚一点
+];
+
+/* ?f=3 可定格在第 3 帧（截图/讲解用） */
+const HOLD = new URLSearchParams(location.search).get('f');
+let idx = HOLD ? Math.min(8, Math.max(1, +HOLD)) : 1;
+let period = 200;
+let timer = null;
+let paused = !!HOLD;
+
+function paint() {
+  for (const L of LAYERS) {
+    const f = ((idx + L.offset - 1) % N) + 1;
+    document.getElementById(L.id).src = '../code/ui/img/' + L.prefix + f + '.png';
+  }
+}
+
+function tick() {
+  if (paused) return;
+  idx = (idx % N) + 1;
+  paint();
+}
+
+function restart() {
+  if (timer) clearInterval(timer);
+  timer = setInterval(tick, period);
+}
+
+restart();
+paint();
+
+/* 顶部按钮 */
+const playBtn = document.getElementById('play');
+if (paused) {
+  playBtn.textContent = '继续';
+  playBtn.classList.remove('on');
+}
+playBtn.onclick = function () {
+  paused = !paused;
+  this.textContent = paused ? '继续' : '暂停';
+  this.classList.toggle('on', !paused);
+};
+
+document.querySelectorAll('button[data-ms]').forEach(function (b) {
+  b.onclick = function () {
+    period = +this.dataset.ms;
+    document.querySelectorAll('button[data-ms]').forEach(function (x) { x.classList.remove('on'); });
+    this.classList.add('on');
+    document.getElementById('ms').textContent = period;
+    restart();
+  };
+});
+
+/* 适配窗口（真机是 1024×600 物理像素，这里只为方便看） */
+const stage = document.getElementById('stage');
+let fit = true;
+function applyFit() {
+  const s = fit ? Math.min(1, (innerWidth - 24) / 1024) : 1;
+  stage.style.transform = 'scale(' + s + ')';
+  stage.style.marginBottom = (600 * (s - 1)) + 'px';
+  document.body.style.overflowX = fit ? 'hidden' : 'auto';
+}
+document.getElementById('fit').onclick = function () {
+  fit = !fit;
+  this.classList.toggle('on', fit);
+  applyFit();
+};
+addEventListener('resize', applyFit);
+applyFit();
+
+/* 时钟走起来，像真机 */
+setInterval(function () {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  document.getElementById('clock').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}, 1000);
+</script>
+</body>
+</html>

@@ -1,387 +1,280 @@
 #include "luat_base.h"
 
 #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_BLUETOOTH)
-
-#include "luat_airlink.h"
 #include "luat_airlink_rpc.h"
-#include "luat_mem.h"
+#include "luat_airlink_drv_rpc_bluetooth.h"
+#include "luat_airlink_ble_wire.h"
 #include "drv_bluetooth.pb.h"
-#include "luat_ble.h"
-#include "luat_bt.h"
 #include "luat_drv_ble.h"
+#include "luat_rtos.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "airlink.drv.bt"
 #include "luat_log.h"
 
-#undef LLOGD
-#define LLOGD(...)
+/* A teardown can contain several BK command waits. Transport timeout is
+ * deliberately longer; a timeout is still an error, never implied success. */
+#define BLE_RPC_TIMEOUT_MS 30000
+#define BLE_RPC_ID 0x0600
 
-#define AIRLINK_DRV_RPC_ID_BT  0x0600
+/* Generated init_zero initializes only the first (empty) oneof member. Clear
+ * the whole union explicitly before selecting a larger request member. */
+#define BLE_RPC_REQUEST \
+    drv_bluetooth_BleRpcRequest req; \
+    memset(&req, 0, sizeof(req))
 
-#ifndef ENOMEM
-#define ENOMEM 12
-#endif
-
-/* 用户通过 luat_airlink_drv_rpc_ble_init 注册的 BLE 事件回调 */
-static luat_ble_cb_t s_ble_rpc_cb = NULL;
-
-/* GATT 服务缓存，用于 GATT_ITEM 事件重建 */
-static luat_ble_gatt_service_t* s_gatts[16];
-
-/* ---------- 事件接收处理器 (void return, matches notify_handler type) ---------- */
-
-static void ble_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void* userdata) {
-    (void)rpc_id; (void)userdata;
-    if (s_ble_rpc_cb == NULL) return;
-
-    const drv_bluetooth_BleEventNotify* ev = (const drv_bluetooth_BleEventNotify*)msg_raw;
-    luat_ble_event_t event = (luat_ble_event_t)ev->event_type;
-
-    const uint8_t* data     = ev->has_packed_data ? ev->packed_data.bytes : NULL;
-    pb_size_t      data_len = ev->has_packed_data ? ev->packed_data.size  : 0;
-
-    luat_ble_param_t param;
-    memset(&param, 0, sizeof(param));
-
-    switch (event) {
-    case LUAT_BLE_EVENT_CONN:
-        if (data_len >= (pb_size_t)sizeof(luat_ble_conn_ind_t))
-            memcpy(&param.conn_ind, data, sizeof(luat_ble_conn_ind_t));
-        s_ble_rpc_cb(NULL, event, &param);
-        break;
-
-    case LUAT_BLE_EVENT_DISCONN:
-        if (data_len >= (pb_size_t)sizeof(luat_ble_disconn_ind_t))
-            memcpy(&param.disconn_ind, data, sizeof(luat_ble_disconn_ind_t));
-        s_ble_rpc_cb(NULL, event, &param);
-        break;
-
-    case LUAT_BLE_EVENT_GATT_DONE:
-        if (data_len >= (pb_size_t)sizeof(luat_ble_gatt_done_ind_t))
-            memcpy(&param.gatt_done_ind, data, sizeof(luat_ble_gatt_done_ind_t));
-        s_ble_rpc_cb(NULL, event, &param);
-        break;
-
-    case LUAT_BLE_EVENT_WRITE:
-        if (data_len >= (pb_size_t)sizeof(luat_ble_write_req_t)) {
-            memcpy(&param.write_req, data, sizeof(luat_ble_write_req_t));
-            if (param.write_req.value_len > 0 &&
-                data_len >= (pb_size_t)(sizeof(luat_ble_write_req_t) + param.write_req.value_len)) {
-                param.write_req.value = (uint8_t*)(data + sizeof(luat_ble_write_req_t));
-            }
-        }
-        s_ble_rpc_cb(NULL, event, &param);
-        break;
-
-    case LUAT_BLE_EVENT_READ:
-        if (data_len >= (pb_size_t)sizeof(luat_ble_read_req_t))
-            memcpy(&param.read_req, data, sizeof(luat_ble_read_req_t));
-        s_ble_rpc_cb(NULL, event, &param);
-        break;
-
-    case LUAT_BLE_EVENT_READ_VALUE:
-        if (data_len >= (pb_size_t)sizeof(luat_ble_read_req_t)) {
-            memcpy(&param.read_req, data, sizeof(luat_ble_read_req_t));
-            if (param.read_req.value_len > 0 &&
-                data_len >= (pb_size_t)(sizeof(luat_ble_read_req_t) + param.read_req.value_len)) {
-                param.read_req.value = (uint8_t*)(data + sizeof(luat_ble_read_req_t));
-            }
-        }
-        s_ble_rpc_cb(NULL, event, &param);
-        break;
-
-    case LUAT_BLE_EVENT_SCAN_REPORT:
-        if (data_len >= (pb_size_t)sizeof(luat_ble_adv_req_t)) {
-            memcpy(&param.adv_req, data, sizeof(luat_ble_adv_req_t));
-            if (param.adv_req.data_len > 0 &&
-                data_len >= (pb_size_t)(sizeof(luat_ble_adv_req_t) + param.adv_req.data_len)) {
-                param.adv_req.data = (uint8_t*)(data + sizeof(luat_ble_adv_req_t));
-            }
-        }
-        s_ble_rpc_cb(NULL, event, &param);
-        break;
-
-    case LUAT_BLE_EVENT_GATT_ITEM: {
-        if (data_len < 2) break;
-        uint8_t idx   = data[0];
-        uint8_t total = data[1];
-        if (idx >= 16) {
-            LLOGE("gatt item index %d out of range", (int)idx);
-            break;
-        }
-        if (s_gatts[idx] != NULL) {
-            luat_ble_gatt_service_t* g = s_gatts[idx];
-            for (size_t ch = 0; ch < g->characteristics_num; ch++) {
-                if (g->characteristics[ch].descriptor)
-                    luat_heap_free(g->characteristics[ch].descriptor);
-            }
-            if (g->characteristics) luat_heap_free(g->characteristics);
-            memset(g, 0, sizeof(*g));
-        } else {
-            s_gatts[idx] = (luat_ble_gatt_service_t*)luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
-            if (s_gatts[idx] == NULL) { LLOGE("oom for gatt service"); break; }
-            memset(s_gatts[idx], 0, sizeof(luat_ble_gatt_service_t));
-        }
-        size_t out_len = (size_t)(data_len - 2);
-        luat_ble_gatt_unpack(s_gatts[idx], (uint8_t*)(data + 2), &out_len);
-        param.gatt_item_ind.gatt_service_index    = idx;
-        param.gatt_item_ind.gatt_service_total_num = total;
-        param.gatt_item_ind.gatt_service           = s_gatts[idx];
-        s_ble_rpc_cb(NULL, event, &param);
-        break;
-    }
-
-    default:
-        s_ble_rpc_cb(NULL, event, NULL);
-        break;
-    }
+static luat_ble_cb_t s_ble_rpc_cb;
+static luat_ble_cb_t ble_rpc_callback_swap(luat_ble_cb_t cb) {
+    uint32_t critical = luat_rtos_entry_critical();
+    luat_ble_cb_t old = s_ble_rpc_cb;
+    s_ble_rpc_cb = cb;
+    luat_rtos_exit_critical(critical);
+    return old;
 }
-
-/* 声明 exec_rpc 文件中的 setter (同一编译单元组，链接时解析) */
-typedef void (*ble_rpc_notify_fn_t)(uint16_t rpc_id, const void* msg, void* userdata);
+typedef void (*ble_rpc_notify_fn_t)(uint16_t, const void*, void*);
 extern void luat_airlink_rpc_ble_set_notify_fn(ble_rpc_notify_fn_t fn);
 
-/* ---------- RPC API implementations ---------- */
+static void ble_rpc_notify_dispatch(uint16_t rpc_id, const void* raw, void* userdata) {
+    (void)rpc_id;
+    (void)userdata;
+    const drv_bluetooth_BleEventNotify* ev = raw;
+    uint32_t critical = luat_rtos_entry_critical();
+    luat_ble_cb_t cb = s_ble_rpc_cb;
+    luat_rtos_exit_critical(critical);
+    if (!cb || !ev->has_packed_data || ev->event_type >= LUAT_BLE_EVENT_MAX) return;
+    luat_ble_event_t event = (luat_ble_event_t)ev->event_type;
+    luat_ble_param_t param;
+    if (luat_airlink_ble_event_decode(event, ev->packed_data.bytes, ev->packed_data.size, &param)) {
+        LLOGW("invalid BLE event %u", (unsigned)ev->event_type);
+        return;
+    }
+    /* The callback borrows everything, including the full GATT tree. */
+    cb(NULL, event, event >= LUAT_BLE_EVENT_SCAN_REPORT ? &param : NULL);
+    luat_airlink_ble_event_cleanup(event, &param);
+}
 
-int luat_airlink_drv_rpc_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb) {
-    (void)luat_ble;
-    s_ble_rpc_cb = luat_ble_cb;
+static int ble_rpc_call(drv_bluetooth_BleRpcRequest* req) {
+    int mode = luat_airlink_current_mode_get();
+    if (mode < 0 || !luat_airlink_peer_rpc_supported()) return -1;
+    drv_bluetooth_BleRpcResponse resp = drv_bluetooth_BleRpcResponse_init_zero;
+    req->req_id = req->which_payload;
+    int rc = luat_airlink_rpc_nb_call((uint8_t)mode, BLE_RPC_ID,
+                                    drv_bluetooth_BleRpcRequest_fields, req,
+                                    drv_bluetooth_BleRpcResponse_fields, &resp,
+                                    BLE_RPC_TIMEOUT_MS);
+    if (rc) return rc;
+    if (!resp.has_req_id || resp.req_id != req->req_id || !resp.has_status ||
+        !resp.has_operation || resp.operation != req->which_payload) return -1;
+    return resp.status;
+}
+
+static int ble_rpc_empty(pb_size_t tag) {
+    BLE_RPC_REQUEST;
+    req.which_payload = tag;
+    return ble_rpc_call(&req);
+}
+
+int luat_airlink_drv_rpc_bluetooth_init(void* args) {
+    (void)args;
+    return ble_rpc_empty(drv_bluetooth_BleRpcRequest_bluetooth_init_tag);
+}
+
+int luat_airlink_drv_rpc_bluetooth_deinit(void* args) {
+    (void)args;
+    int rc = ble_rpc_empty(drv_bluetooth_BleRpcRequest_bluetooth_deinit_tag);
+    if (!rc) ble_rpc_callback_swap(NULL);
+    return rc;
+}
+
+int luat_airlink_drv_rpc_ble_init(luat_ble_t* ble, luat_ble_cb_t cb) {
+    (void)ble;
+    if (!cb) return -1;
+    luat_ble_cb_t previous = ble_rpc_callback_swap(cb);
     luat_airlink_rpc_ble_set_notify_fn(ble_rpc_notify_dispatch);
-
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest  req  = drv_bluetooth_BleRpcRequest_init_zero;
-    drv_bluetooth_BleRpcResponse resp = drv_bluetooth_BleRpcResponse_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_init_tag;
-    int rc = luat_airlink_rpc_nb_call((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields,  &req,
-                                       drv_bluetooth_BleRpcResponse_fields, &resp,
-                                       3000);
-    if (rc != 0) return rc;
-    if (resp.which_payload == drv_bluetooth_BleRpcResponse_init_tag &&
-        resp.payload.init.result.has_code &&
-        resp.payload.init.result.code != drv_bluetooth_BleResultCode_BLE_RES_OK) {
-        return (int)resp.payload.init.result.code;
-    }
-    return 0;
+    int rc = ble_rpc_empty(drv_bluetooth_BleRpcRequest_init_tag);
+    if (rc) ble_rpc_callback_swap(previous);
+    return rc;
 }
 
-int luat_airlink_drv_rpc_ble_deinit(luat_ble_t* luat_ble) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest  req  = drv_bluetooth_BleRpcRequest_init_zero;
-    drv_bluetooth_BleRpcResponse resp = drv_bluetooth_BleRpcResponse_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_deinit_tag;
-    return luat_airlink_rpc_nb_call((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                     drv_bluetooth_BleRpcRequest_fields,  &req,
-                                     drv_bluetooth_BleRpcResponse_fields, &resp,
-                                     2000);
+int luat_airlink_drv_rpc_ble_deinit(luat_ble_t* ble) {
+    (void)ble;
+    int rc = ble_rpc_empty(drv_bluetooth_BleRpcRequest_deinit_tag);
+    if (!rc) ble_rpc_callback_swap(NULL);
+    return rc;
 }
 
-int luat_airlink_drv_rpc_ble_set_name(luat_ble_t* luat_ble, char* name, uint8_t len) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
+int luat_airlink_drv_rpc_ble_set_name(luat_ble_t* ble, char* name, uint8_t len) {
+    (void)ble;
+    BLE_RPC_REQUEST;
+    if (len > sizeof(req.payload.set_name.name.bytes) || (len && !name)) return -1;
     req.which_payload = drv_bluetooth_BleRpcRequest_set_name_tag;
-    if (len > 32) len = 32;
     req.payload.set_name.name.size = len;
-    memcpy(req.payload.set_name.name.bytes, name, len);
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
+    if (len) memcpy(req.payload.set_name.name.bytes, name, len);
+    return ble_rpc_call(&req);
 }
 
-int luat_airlink_drv_rpc_ble_set_max_mtu(luat_ble_t* luat_ble, uint16_t max_mtu) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
+int luat_airlink_drv_rpc_ble_set_max_mtu(luat_ble_t* ble, uint16_t mtu) {
+    (void)ble;
+    BLE_RPC_REQUEST;
     req.which_payload = drv_bluetooth_BleRpcRequest_set_max_mtu_tag;
-    req.payload.set_max_mtu.max_mtu = max_mtu;
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
+    req.payload.set_max_mtu.max_mtu = mtu;
+    return ble_rpc_call(&req);
 }
 
-int luat_airlink_drv_rpc_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* adv_cfg) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest  req  = drv_bluetooth_BleRpcRequest_init_zero;
-    drv_bluetooth_BleRpcResponse resp = drv_bluetooth_BleRpcResponse_init_zero;
+int luat_airlink_drv_rpc_ble_create_advertising(luat_ble_t* ble, luat_ble_adv_cfg_t* cfg) {
+    (void)ble;
+    BLE_RPC_REQUEST;
     req.which_payload = drv_bluetooth_BleRpcRequest_adv_create_tag;
-    if (adv_cfg) {
-        req.payload.adv_create.has_cfg             = true;
-        req.payload.adv_create.cfg.has_channel_map = true;
-        req.payload.adv_create.cfg.channel_map      = (uint32_t)adv_cfg->channel_map;
-        req.payload.adv_create.cfg.has_addr_mode    = true;
-        req.payload.adv_create.cfg.addr_mode        = (uint32_t)adv_cfg->addr_mode;
-        req.payload.adv_create.cfg.has_intv_min     = true;
-        req.payload.adv_create.cfg.intv_min         = adv_cfg->intv_min;
-        req.payload.adv_create.cfg.has_intv_max     = true;
-        req.payload.adv_create.cfg.intv_max         = adv_cfg->intv_max;
-        req.payload.adv_create.cfg.has_adv_prop     = true;
-        req.payload.adv_create.cfg.adv_prop         = adv_cfg->adv_prop;
-        req.payload.adv_create.cfg.has_adv_type     = true;
-        req.payload.adv_create.cfg.adv_type         = (uint32_t)adv_cfg->adv_type;
+    if (cfg) {
+        drv_bluetooth_BleAdvCfg* c = &req.payload.adv_create.cfg;
+        req.payload.adv_create.has_cfg = true;
+        c->has_channel_map = c->has_addr_mode = c->has_intv_min = true;
+        c->has_intv_max = c->has_adv_prop = c->has_adv_type = true;
+        c->channel_map = cfg->channel_map;
+        c->addr_mode = cfg->addr_mode;
+        c->intv_min = cfg->intv_min;
+        c->intv_max = cfg->intv_max;
+        c->adv_prop = cfg->adv_prop;
+        c->adv_type = cfg->adv_type;
     }
-    return luat_airlink_rpc_nb_call((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                     drv_bluetooth_BleRpcRequest_fields,  &req,
-                                     drv_bluetooth_BleRpcResponse_fields, &resp,
-                                     2000);
+    return ble_rpc_call(&req);
 }
 
-int luat_airlink_drv_rpc_ble_set_adv_data(luat_ble_t* luat_ble, uint8_t* adv_buff, uint8_t adv_len) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
+int luat_airlink_drv_rpc_ble_set_adv_data(luat_ble_t* ble, uint8_t* data, uint8_t len) {
+    (void)ble;
+    BLE_RPC_REQUEST;
+    if (len > sizeof(req.payload.adv_set_data.data.bytes) || (len && !data)) return -1;
     req.which_payload = drv_bluetooth_BleRpcRequest_adv_set_data_tag;
-    if (adv_len > 31) adv_len = 31;
-    req.payload.adv_set_data.data.size = adv_len;
-    memcpy(req.payload.adv_set_data.data.bytes, adv_buff, adv_len);
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
+    req.payload.adv_set_data.data.size = len;
+    if (len) memcpy(req.payload.adv_set_data.data.bytes, data, len);
+    return ble_rpc_call(&req);
 }
 
-int luat_airlink_drv_rpc_ble_set_scan_rsp_data(luat_ble_t* luat_ble, uint8_t* rsp_data, uint8_t rsp_len) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
+int luat_airlink_drv_rpc_ble_set_scan_rsp_data(luat_ble_t* ble, uint8_t* data, uint8_t len) {
+    (void)ble;
+    BLE_RPC_REQUEST;
+    if (len > sizeof(req.payload.adv_set_scan_rsp.data.bytes) || (len && !data)) return -1;
     req.which_payload = drv_bluetooth_BleRpcRequest_adv_set_scan_rsp_tag;
-    if (rsp_len > 31) rsp_len = 31;
-    req.payload.adv_set_scan_rsp.data.size = rsp_len;
-    memcpy(req.payload.adv_set_scan_rsp.data.bytes, rsp_data, rsp_len);
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
+    req.payload.adv_set_scan_rsp.data.size = len;
+    if (len) memcpy(req.payload.adv_set_scan_rsp.data.bytes, data, len);
+    return ble_rpc_call(&req);
 }
 
-int luat_airlink_drv_rpc_ble_start_advertising(luat_ble_t* luat_ble) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_adv_start_tag;
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
-}
+#define BLE_EMPTY_API(name, tag) \
+    int luat_airlink_drv_rpc_ble_##name(luat_ble_t* ble) { \
+        (void)ble; return ble_rpc_empty(drv_bluetooth_BleRpcRequest_##tag##_tag); \
+    }
+BLE_EMPTY_API(start_advertising, adv_start)
+BLE_EMPTY_API(stop_advertising, adv_stop)
+BLE_EMPTY_API(delete_advertising, adv_delete)
+BLE_EMPTY_API(start_scanning, scan_start)
+BLE_EMPTY_API(stop_scanning, scan_stop)
+BLE_EMPTY_API(delete_scanning, scan_delete)
+#undef BLE_EMPTY_API
 
-int luat_airlink_drv_rpc_ble_stop_advertising(luat_ble_t* luat_ble) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_adv_stop_tag;
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
-}
-
-int luat_airlink_drv_rpc_ble_delete_advertising(luat_ble_t* luat_ble) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_adv_delete_tag;
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
-}
-
-int luat_airlink_drv_rpc_ble_create_gatt(luat_ble_t* luat_ble,
-                                          luat_ble_gatt_service_t* luat_ble_gatt_service) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest  req  = drv_bluetooth_BleRpcRequest_init_zero;
-    drv_bluetooth_BleRpcResponse resp = drv_bluetooth_BleRpcResponse_init_zero;
+int luat_airlink_drv_rpc_ble_create_gatt(luat_ble_t* ble, luat_ble_gatt_service_t* gatt) {
+    (void)ble;
+    BLE_RPC_REQUEST;
     req.which_payload = drv_bluetooth_BleRpcRequest_gatt_create_tag;
-    size_t packed_len = 0;
-    luat_ble_gatt_pack(luat_ble_gatt_service, NULL, &packed_len);
-    if (packed_len > 1500) {
-        LLOGE("gatt pack too large %u", (unsigned)packed_len);
-        return -1;
-    }
-    req.payload.gatt_create.packed_gatt.size = (pb_size_t)packed_len;
-    luat_ble_gatt_pack(luat_ble_gatt_service,
-                       req.payload.gatt_create.packed_gatt.bytes, &packed_len);
-    return luat_airlink_rpc_nb_call((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                     drv_bluetooth_BleRpcRequest_fields,  &req,
-                                     drv_bluetooth_BleRpcResponse_fields, &resp,
-                                     3000);
+    size_t len = 0;
+    if (luat_airlink_ble_gatt_encode(gatt, req.payload.gatt_create.packed_gatt.bytes,
+                                   sizeof(req.payload.gatt_create.packed_gatt.bytes), &len)) return -1;
+    req.payload.gatt_create.packed_gatt.size = (pb_size_t)len;
+    return ble_rpc_call(&req);
 }
 
-int luat_airlink_drv_rpc_ble_read_response_value(luat_ble_t* luat_ble, uint8_t conn_idx,
-                                                  uint16_t service_id, uint16_t att_handle,
-                                                  uint8_t* data, uint32_t len) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_read_response_tag;
-    req.payload.read_response.conn_idx   = conn_idx;
-    req.payload.read_response.service_id = service_id;
-    req.payload.read_response.att_handle = att_handle;
-    if (len > 1500) len = 1500;
-    req.payload.read_response.data.size = (pb_size_t)len;
-    if (data && len > 0) memcpy(req.payload.read_response.data.bytes, data, len);
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
-}
-
-int luat_airlink_drv_rpc_ble_write_notify_value(luat_ble_t* luat_ble, uint8_t conn_idx,
-                                                 uint16_t service_id, uint16_t att_handle,
-                                                 uint8_t* data, uint16_t len) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_write_notify_tag;
-    req.payload.write_notify.conn_idx   = conn_idx;
-    req.payload.write_notify.service_id = service_id;
-    req.payload.write_notify.att_handle = att_handle;
-    if (len > 1500) len = 1500;
-    req.payload.write_notify.data.size = len;
-    if (data && len > 0) memcpy(req.payload.write_notify.data.bytes, data, len);
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
-}
-
-int luat_airlink_drv_rpc_ble_create_scanning(luat_ble_t* luat_ble, luat_ble_scan_cfg_t* scan_cfg) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest  req  = drv_bluetooth_BleRpcRequest_init_zero;
-    drv_bluetooth_BleRpcResponse resp = drv_bluetooth_BleRpcResponse_init_zero;
+int luat_airlink_drv_rpc_ble_create_scanning(luat_ble_t* ble, luat_ble_scan_cfg_t* cfg) {
+    (void)ble;
+    BLE_RPC_REQUEST;
     req.which_payload = drv_bluetooth_BleRpcRequest_scan_create_tag;
-    if (scan_cfg) {
-        req.payload.scan_create.has_cfg              = true;
-        req.payload.scan_create.cfg.has_scan_type    = true;
-        req.payload.scan_create.cfg.scan_type        = (uint32_t)scan_cfg->scan_type;
-        req.payload.scan_create.cfg.has_addr_mode    = true;
-        req.payload.scan_create.cfg.addr_mode        = (uint32_t)scan_cfg->addr_mode;
-        req.payload.scan_create.cfg.has_scan_interval = true;
-        req.payload.scan_create.cfg.scan_interval    = scan_cfg->scan_interval;
-        req.payload.scan_create.cfg.has_scan_window  = true;
-        req.payload.scan_create.cfg.scan_window      = scan_cfg->scan_window;
+    if (cfg) {
+        drv_bluetooth_BleScanCfg* c = &req.payload.scan_create.cfg;
+        req.payload.scan_create.has_cfg = true;
+        c->has_scan_type = c->has_addr_mode = c->has_scan_interval = c->has_scan_window = true;
+        c->scan_type = cfg->scan_type;
+        c->addr_mode = cfg->addr_mode;
+        c->scan_interval = cfg->scan_interval;
+        c->scan_window = cfg->scan_window;
     }
-    return luat_airlink_rpc_nb_call((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                     drv_bluetooth_BleRpcRequest_fields,  &req,
-                                     drv_bluetooth_BleRpcResponse_fields, &resp,
-                                     2000);
+    return ble_rpc_call(&req);
 }
 
-int luat_airlink_drv_rpc_ble_start_scanning(luat_ble_t* luat_ble) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_scan_start_tag;
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
+int luat_airlink_drv_rpc_ble_connect(void* args, luat_ble_connect_req_t* conn) {
+    (void)args;
+    if (!conn) return -1;
+    BLE_RPC_REQUEST;
+    req.which_payload = drv_bluetooth_BleRpcRequest_connect_tag;
+    req.payload.connect.address.size = 6;
+    memcpy(req.payload.connect.address.bytes, conn->adv_addr, 6);
+    req.payload.connect.address_type = conn->adv_addr_type;
+    req.payload.connect.interval = conn->conn_interval;
+    req.payload.connect.latency = conn->conn_latency;
+    req.payload.connect.timeout = conn->sup_to;
+    return ble_rpc_call(&req);
 }
 
-int luat_airlink_drv_rpc_ble_stop_scanning(luat_ble_t* luat_ble) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_scan_stop_tag;
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
+int luat_airlink_drv_rpc_ble_disconnect(void* args) {
+    (void)args;
+    return ble_rpc_empty(drv_bluetooth_BleRpcRequest_disconnect_tag);
 }
 
-int luat_airlink_drv_rpc_ble_delete_scanning(luat_ble_t* luat_ble) {
-    (void)luat_ble;
-    int mode = luat_airlink_current_mode_get();
-    drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
-    req.which_payload = drv_bluetooth_BleRpcRequest_scan_delete_tag;
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
-                                       drv_bluetooth_BleRpcRequest_fields, &req);
+int luat_airlink_drv_rpc_ble_value(uint16_t operation, luat_ble_uuid_t* svc,
+                                  luat_ble_uuid_t* chr, luat_ble_uuid_t* desc,
+                                  uint8_t* data, uint16_t len, uint8_t enable) {
+    BLE_RPC_REQUEST;
+    drv_bluetooth_BleValueRequest* r = &req.payload.value;
+    if (!svc || !chr || !luat_airlink_ble_uuid_valid(svc->uuid_type, 0) ||
+        !luat_airlink_ble_uuid_valid(chr->uuid_type, 0) ||
+        (desc && !luat_airlink_ble_uuid_valid(desc->uuid_type, 1)) ||
+        len > sizeof(r->data.bytes) || (len && !data) || enable > 1) return -1;
+    switch (operation) {
+    case LUAT_DRV_BT_CMD_BLE_WRITE_VALUE:
+    case LUAT_DRV_BT_CMD_BLE_WRITE_NOTIFY:
+    case LUAT_DRV_BT_CMD_BLE_WRITE_INDICATION: break;
+    case LUAT_DRV_BT_CMD_BLE_READ_VALUE:
+    case LUAT_DRV_BT_CMD_BLE_NOTIFY_ENABLE:
+    case LUAT_DRV_BT_CMD_BLE_INDICATE_ENABLE:
+        if (len) return -1;
+        break;
+    default: return -1;
+    }
+    req.which_payload = drv_bluetooth_BleRpcRequest_value_tag;
+    r->operation = operation;
+    r->service.size = (pb_size_t)svc->uuid_type;
+    memcpy(r->service.bytes, svc->uuid, r->service.size);
+    r->characteristic.size = (pb_size_t)chr->uuid_type;
+    memcpy(r->characteristic.bytes, chr->uuid, r->characteristic.size);
+    if (desc) {
+        r->descriptor.size = (pb_size_t)desc->uuid_type;
+        memcpy(r->descriptor.bytes, desc->uuid, r->descriptor.size);
+    }
+    r->enable = enable != 0;
+    r->data.size = len;
+    if (len) memcpy(r->data.bytes, data, len);
+    return ble_rpc_call(&req);
 }
 
-#endif /* LUAT_USE_AIRLINK_RPC_BLUETOOTH */
+/* Compatibility entry points for the older handle-based drv API. */
+int luat_airlink_drv_rpc_ble_read_response_value(luat_ble_t* ble, uint8_t conn_idx,
+                                                uint16_t service_id, uint16_t handle,
+                                                uint8_t* data, uint32_t len) {
+    (void)ble; (void)conn_idx; (void)service_id; (void)handle; (void)data; (void)len;
+    /* No backend API exists: never acknowledge an unimplemented operation. */
+    return -1;
+}
+
+int luat_airlink_drv_rpc_ble_write_notify_value(luat_ble_t* ble, uint8_t conn_idx,
+                                               uint16_t service_id, uint16_t handle,
+                                               uint8_t* data, uint16_t len) {
+    (void)ble;
+    BLE_RPC_REQUEST;
+    if (len > sizeof(req.payload.write_notify.data.bytes) || (len && !data)) return -1;
+    req.which_payload = drv_bluetooth_BleRpcRequest_write_notify_tag;
+    req.payload.write_notify.conn_idx = conn_idx;
+    req.payload.write_notify.service_id = service_id;
+    req.payload.write_notify.att_handle = handle;
+    req.payload.write_notify.data.size = len;
+    if (len) memcpy(req.payload.write_notify.data.bytes, data, len);
+    return ble_rpc_call(&req);
+}
+#endif

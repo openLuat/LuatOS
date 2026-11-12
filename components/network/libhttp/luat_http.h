@@ -120,6 +120,7 @@ typedef struct{
 #ifdef LUAT_USE_FOTA
 	//OTA相关
 	uint8_t isfota;				//是否为ota下载
+	uint8_t fota_inited;			//本请求的FOTA上下文尚未结束
 	uint32_t address;			
 	uint32_t length;		
 	luat_spi_device_t* spi_device;

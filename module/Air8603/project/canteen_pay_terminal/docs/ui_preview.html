@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>食堂收费终端示例 · 触屏界面预览</title>
+<style>
+  :root { --bg:#f4f7fb; --card:#ffffff; --line:#e3e9f2; --ink:#1a2436; --sub:#64748b; --blue:#2563eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:28px 20px 48px; background:var(--bg); color:var(--ink);
+         font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .lead { color:var(--sub); font-size:14px; line-height:1.8; margin:0 0 18px; }
+  .badge { display:inline-block; background:#e8f0ff; color:var(--blue); border-radius:6px;
+           padding:2px 8px; font-size:12px; margin-right:6px; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:14px;
+           padding:18px; box-shadow:0 4px 18px rgba(20,40,80,.06); }
+  .screenWrap { margin:0 auto; overflow:hidden; }
+  #screen { width:1024px; height:600px; transform-origin:top left; position:relative;
+            background:#0f172a; border-radius:10px; overflow:hidden; color:#f1f5f9; }
+  .bar { position:absolute; left:0; top:0; width:1024px; height:64px; background:#1d4ed8; }
+  .bar .title { position:absolute; left:28px; top:14px; font-size:28px; font-weight:700; }
+  .bar .net { position:absolute; left:664px; top:18px; width:332px; font-size:18px;
+              text-align:right; color:#dbeafe; }
+  .card { position:absolute; left:28px; top:88px; width:560px; height:190px;
+          background:#1e293b; border-radius:12px; }
+  .card .cap { position:absolute; left:24px; top:18px; font-size:20px; color:#94a3b8; }
+  /* 金额字号与 config.ui.amount_font_size 保持一致（示例默认 100） */
+  .card .amount { position:absolute; left:24px; top:56px; width:512px; height:118px;
+                  font-size:100px; line-height:118px; color:#38bdf8; font-weight:700;
+                  white-space:nowrap; }
+  .scanbox { position:absolute; left:28px; top:298px; width:560px; height:170px;
+             background:#142033; border-radius:12px; border:1px dashed #334155; }
+  .scanbox .h { position:absolute; left:24px; top:18px; font-size:24px; font-weight:600; }
+  .scanbox .p { position:absolute; left:24px; font-size:18px; color:#94a3b8; }
+  .status { position:absolute; left:28px; top:482px; width:560px; height:36px;
+            font-size:20px; color:#f59e0b; line-height:36px; }
+  .result { position:absolute; left:28px; top:526px; width:560px; height:44px;
+            font-size:26px; color:#22c55e; line-height:44px; font-weight:600; }
+  .key { position:absolute; width:122px; height:82px; border:0; border-radius:10px;
+         background:#334155; color:#fff; font-size:28px; cursor:pointer;
+         font-family:inherit; transition:filter .12s, transform .08s; }
+  .key:hover { filter:brightness(1.22); }
+  .key:active { transform:scale(.96); }
+  .key.clear { background:#7f1d1d; }
+  .key.ok { width:386px; background:#22c55e; font-size:30px; font-weight:700; }
+  .foot { position:absolute; left:612px; top:552px; width:386px; font-size:16px; color:#94a3b8; }
+  .notes { margin-top:18px; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .note { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .note b { display:block; font-size:14px; margin-bottom:6px; color:var(--blue); }
+  .note span { font-size:13px; color:var(--sub); line-height:1.7; }
+  .tip { margin-top:14px; font-size:13px; color:var(--sub); line-height:1.8; }
+  code { background:#eef2f8; padding:1px 5px; border-radius:4px; font-size:12px; }
+  @media (max-width:760px) { .notes { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>食堂收费终端示例 · 触屏界面预览</h1>
+  <p class="lead">
+    <span class="badge">Air8603 W 系列</span>
+    <span class="badge">1024 x 600</span>
+    <span class="badge">LuatOS / AirUI</span><br>
+    这是 <code>ui/ui.lua</code> 的 1:1 静态预览，可点击数字键与「确认」体验交互流程。
+    本文件仅用于电脑预览，不参与烧录；真实语音、扫码、左侧收款成功弹窗由设备端 Lua 代码执行（本预览不模拟弹窗）。
+  </p>
+
+  <div class="panel">
+    <div class="screenWrap" id="screenWrap">
+      <div id="screen">
+        <div class="bar">
+          <div class="title">食堂收费终端</div>
+          <div class="net">网络：已连接</div>
+        </div>
+
+        <div class="card">
+          <div class="cap">本次金额</div>
+          <div class="amount" id="amount">￥ 0.00</div>
+        </div>
+
+        <div class="scanbox">
+          <div class="h">扫饭卡二维码</div>
+          <div class="p" style="top:66px">请将饭卡二维码对准摄像头（10~20cm）</div>
+          <div class="p" style="top:110px">识别后自动收款并播报结果</div>
+        </div>
+
+        <div class="status" id="status">请输入金额，然后点确认</div>
+        <div class="result" id="result"></div>
+
+        <div id="keys"></div>
+        <div class="foot">确认后播报金额 → 扫码 → 收款成功</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note"><b>1 · 输入金额并播报</b><span>数字键盘输入，点「确认」后 exaudio 离线中文 TTS 播报「本次消费…」。</span></div>
+    <div class="note"><b>2 · 扫到任意码即收款</b><span>本地判成功，左侧弹出「收款成功 + 输入金额」，播报「收款成功十二元五角」；按任意键关弹窗，语音不中断。</span></div>
+    <div class="note"><b>3 · 后端对接开关</b><span><code>C.pay.enable</code> 示例默认 false 不发 HTTP；填完 config.lua 占位符后改成 true 才走扣费与回传，只上报必要字段，不含图像与日志。</span></div>
+  </div>
+
+  <p class="tip">
+    金额字号由 <code>C.ui.amount_font_size</code> 控制（当前 100），货币符号由
+    <code>C.ui.currency</code> 控制（默认全角「￥」，固件内置中文字库不含半角「¥」）。
+    工程目录：<code>canteen_pay_terminal/code</code>　|　烧录前需按上级目录 README §5.0 修改
+    <code>code/config/config.lua</code> 中的 WiFi 账号密码、后端地址与凭据占位符。要改的位置清单见上级目录 <code>README.md</code> §0.3，代码里全文搜「【必改」可逐条定位；详细接线与接口协议见上级目录 <code>README.md</code>。
+  </p>
+</div>
+
+<script>
+  const CURRENCY = '￥';
+  const keys = ['1','2','3','4','5','6','7','8','9','C','0','.'];
+  const box = document.getElementById('keys');
+  const x0 = 612, y0 = 88, bw = 122, bh = 82, gx = 10, gy = 10, cols = 3;
+  let input = '', busy = false;
+
+  keys.forEach((k, i) => {
+    const b = document.createElement('button');
+    b.className = 'key' + (k === 'C' ? ' clear' : '');
+    b.textContent = k;
+    b.dataset.key = k;
+    b.style.left = (x0 + (i % cols) * (bw + gx)) + 'px';
+    b.style.top  = (y0 + Math.floor(i / cols) * (bh + gy)) + 'px';
+    box.appendChild(b);
+  });
+  const ok = document.createElement('button');
+  ok.className = 'key ok';
+  ok.textContent = '确认';
+  ok.dataset.key = 'OK';
+  ok.style.left = x0 + 'px';
+  ok.style.top  = (y0 + 4 * (bh + gy)) + 'px';
+  box.appendChild(ok);
+
+  const $ = id => document.getElementById(id);
+  const money = t => CURRENCY + ' ' + t;
+  const render = () => { $('amount').textContent = money(input === '' ? '0.00' : input); };
+  const setStatus = t => { $('status').textContent = t; };
+  const setResult  = t => { $('result').textContent = t; };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function press(k) {
+    if (busy) return;
+    if (k === 'C') input = '';
+    else if (k === '.') { if (input !== '' && !input.includes('.')) input += '.'; }
+    else if (/^\d$/.test(k)) {
+      const dot = input.indexOf('.');
+      if (dot >= 0 && input.length - dot >= 3) return;
+      if (input.length >= 8) return;
+      if (Math.round(parseFloat(input + k) * 100) > 100000) return;
+      input += k;
+    } else if (k === 'OK') { confirmPay(); return; }
+    render();
+  }
+
+  async function confirmPay() {
+    const fen = Math.round(parseFloat(input || '0') * 100);
+    if (fen <= 0) { setStatus('请先输入金额'); return; }
+    busy = true;
+    setResult('');
+    setStatus('金额确认，请听语音');
+    await sleep(900);
+    setStatus('请将饭卡二维码对准摄像头');
+    await sleep(2200);
+    setStatus('扫码成功');
+    await sleep(1200);
+    setResult('收款成功  ' + money((fen / 100).toFixed(2)));
+    setStatus('左侧弹出收款成功，按任意键关闭');
+    await sleep(3000);
+    input = ''; render(); setResult(''); setStatus('请输入金额，然后点确认');
+    busy = false;
+  }
+
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button[data-key]');
+    if (b) press(b.dataset.key);
+  });
+
+  function fit() {
+    const wrap = document.getElementById('screenWrap');
+    const avail = wrap.parentElement.clientWidth - 36;
+    const s = Math.min(1, avail / 1024);
+    $('screen').style.transform = 'scale(' + s + ')';
+    wrap.style.width  = (1024 * s) + 'px';
+    wrap.style.height = (600 * s) + 'px';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+</script>
+</body>
+</html>

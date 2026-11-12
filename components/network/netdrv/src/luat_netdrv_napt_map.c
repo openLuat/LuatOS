@@ -430,7 +430,7 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t *ctx, luat_ne
                                                      unsigned char ipType, unsigned char cid,
                                                      unsigned char lanState) __attribute__((weak));
             extern unsigned char NetMgrAdptGetLanChannelStatusByIp4Cid(unsigned char cid) __attribute__((weak));
-            if (PortMgrUeUlProcess != NULL) {
+            if (ctx->drv_gw && ctx->drv_gw->id == NW_ADAPTER_INDEX_LWIP_GPRS && PortMgrUeUlProcess != NULL) {
                 uint16_t old_port = tmp.wnet_local_port;
                 uint16_t pm_port = PortMgrUeUlProcess(
                     (napt_ctx->ip_tp == IP_PROTO_TCP) ? 1 : 0, 1,

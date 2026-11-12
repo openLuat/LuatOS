@@ -113,6 +113,7 @@ z_result_t _z_join_decode_ext(_z_msg_ext_t *extension, void *ctx) {
         }
 #if Z_FEATURE_FRAGMENTATION == 1
     } else if (_Z_EXT_FULL_ID(extension->_header) == _Z_MSG_EXT_ID_JOIN_PATCH) {
+        if (extension->_body._zint._val > UINT8_MAX) return _Z_ERR_MESSAGE_DESERIALIZATION_FAILED;
         msg->_patch = (uint8_t)extension->_body._zint._val;
 #endif
     } else if (_Z_MSG_EXT_IS_MANDATORY(extension->_header)) {
@@ -178,6 +179,76 @@ z_result_t _z_join_decode(_z_t_msg_join_t *msg, _z_zbuf_t *zbf, uint8_t header) 
     return ret;
 }
 
+/* Auth is outer ZBuf extension 3; its body is a chain containing USRPWD 2.
+ * This client profile accepts exactly one inner extension, without downgrade. */
+#define ZP_AUTH_ID 0x43
+static z_result_t auth_unit_encode(_z_wbuf_t *wbf) {
+    _Z_RETURN_IF_ERR(_z_uint8_encode(wbf, ZP_AUTH_ID));
+    _Z_RETURN_IF_ERR(_z_zsize_encode(wbf, 1));
+    return _z_uint8_encode(wbf, 0x02);
+}
+static z_result_t auth_init_encode(_z_wbuf_t *wbf, const _z_t_msg_init_t *msg, bool ack) {
+    if (!ack) return auth_unit_encode(wbf);
+    _Z_RETURN_IF_ERR(_z_uint8_encode(wbf, ZP_AUTH_ID));
+    _Z_RETURN_IF_ERR(_z_zsize_encode(wbf, 1 + _z_zint_len(msg->_auth_nonce)));
+    _Z_RETURN_IF_ERR(_z_uint8_encode(wbf, 0x22));
+    return _z_zint64_encode(wbf, msg->_auth_nonce);
+}
+static z_result_t auth_open_encode(_z_wbuf_t *wbf, const _z_t_msg_open_t *msg, bool ack) {
+    if (ack) return auth_unit_encode(wbf);
+    size_t n = msg->_auth_user_len;
+    if (!n || n > sizeof(msg->_auth_user)) return _Z_ERR_AUTH_CONFIG;
+    size_t body = _z_zint_len(n) + n + 1 + 32;
+    _Z_RETURN_IF_ERR(_z_uint8_encode(wbf, ZP_AUTH_ID));
+    _Z_RETURN_IF_ERR(_z_zsize_encode(wbf, 1 + _z_zint_len(body) + body));
+    _Z_RETURN_IF_ERR(_z_uint8_encode(wbf, 0x42));
+    _Z_RETURN_IF_ERR(_z_zsize_encode(wbf, body));
+    _Z_RETURN_IF_ERR(_z_zsize_encode(wbf, n));
+    _Z_RETURN_IF_ERR(_z_wbuf_write_bytes(wbf, msg->_auth_user, 0, n));
+    _Z_RETURN_IF_ERR(_z_zsize_encode(wbf, 32));
+    return _z_wbuf_write_bytes(wbf, msg->_auth_hmac, 0, 32);
+}
+typedef struct { void *message; bool ack; } auth_decode_ctx_t;
+static z_result_t auth_init_decode(_z_t_msg_init_t *msg, const _z_msg_ext_t *ext, bool ack) {
+    if (msg->_auth_present || _Z_EXT_FULL_ID(ext->_header) != ZP_AUTH_ID) return _Z_ERR_AUTH_PROTOCOL;
+    _z_zbuf_t body = _z_slice_as_zbuf(ext->_body._zbuf._val);
+    uint8_t kind;
+    _Z_RETURN_IF_ERR(_z_uint8_decode(&kind, &body));
+    if (kind != (ack ? 0x22 : 0x02)) return _Z_ERR_AUTH_PROTOCOL;
+    if (ack) _Z_RETURN_IF_ERR(_z_zint64_decode(&msg->_auth_nonce, &body));
+    if (_z_zbuf_len(&body)) return _Z_ERR_AUTH_PROTOCOL;
+    msg->_auth_present = true;
+    return _Z_RES_OK;
+}
+static z_result_t auth_open_decode_ext(_z_msg_ext_t *ext, void *ctx) {
+    auth_decode_ctx_t *context = ctx;
+    _z_t_msg_open_t *msg = context->message;
+    if ((ext->_header & 0x0f) != 3) {
+        return _Z_MSG_EXT_IS_MANDATORY(ext->_header) ? _Z_ERR_MESSAGE_EXTENSION_MANDATORY_AND_UNKNOWN : _Z_RES_OK;
+    }
+    if (msg->_auth_present || _Z_EXT_FULL_ID(ext->_header) != ZP_AUTH_ID) return _Z_ERR_AUTH_PROTOCOL;
+    _z_zbuf_t inner = _z_slice_as_zbuf(ext->_body._zbuf._val);
+    uint8_t kind;
+    _Z_RETURN_IF_ERR(_z_uint8_decode(&kind, &inner));
+    if (context->ack) {
+        if (kind != 0x02 || _z_zbuf_len(&inner)) return _Z_ERR_AUTH_PROTOCOL;
+    } else {
+        if (kind != 0x42) return _Z_ERR_AUTH_PROTOCOL;
+        _z_slice_t raw = _z_slice_null(), user = _z_slice_null(), hmac = _z_slice_null();
+        _Z_RETURN_IF_ERR(_z_slice_decode(&raw, &inner));
+        if (_z_zbuf_len(&inner)) return _Z_ERR_AUTH_PROTOCOL;
+        _z_zbuf_t body = _z_slice_as_zbuf(raw);
+        _Z_RETURN_IF_ERR(_z_slice_decode(&user, &body));
+        _Z_RETURN_IF_ERR(_z_slice_decode(&hmac, &body));
+        if (!user.len || user.len > sizeof(msg->_auth_user) || hmac.len != 32 || _z_zbuf_len(&body))
+            return _Z_ERR_AUTH_PROTOCOL;
+        memcpy(msg->_auth_user, user.start, user.len); msg->_auth_user_len = (uint16_t)user.len;
+        memcpy(msg->_auth_hmac, hmac.start, 32);
+    }
+    msg->_auth_present = true;
+    return _Z_RES_OK;
+}
+
 /*------------------ Init Message ------------------*/
 z_result_t _z_init_encode(_z_wbuf_t *wbf, uint8_t header, const _z_t_msg_init_t *msg) {
     _Z_DEBUG("Encoding _Z_MID_T_INIT");
@@ -206,7 +277,7 @@ z_result_t _z_init_encode(_z_wbuf_t *wbf, uint8_t header, const _z_t_msg_init_t 
 #if Z_FEATURE_FRAGMENTATION == 1
     if (msg->_patch != _Z_NO_PATCH) {
         if (_Z_HAS_FLAG(header, _Z_FLAG_T_Z)) {
-            _Z_RETURN_IF_ERR(_z_uint8_encode(wbf, _Z_MSG_EXT_ID_JOIN_PATCH));
+            _Z_RETURN_IF_ERR(_z_uint8_encode(wbf, _Z_MSG_EXT_ID_INIT_PATCH | (msg->_auth_present ? _Z_FLAG_Z_Z : 0)));
             _Z_RETURN_IF_ERR(_z_zint64_encode(wbf, msg->_patch));
         } else {
             _Z_DEBUG("Attempted to serialize Patch extension, but the header extension flag was unset");
@@ -215,16 +286,22 @@ z_result_t _z_init_encode(_z_wbuf_t *wbf, uint8_t header, const _z_t_msg_init_t 
     }
 #endif
 
+    if (msg->_auth_present) {
+        if (!_Z_HAS_FLAG(header, _Z_FLAG_T_Z)) return _Z_ERR_MESSAGE_SERIALIZATION_FAILED;
+        _Z_RETURN_IF_ERR(auth_init_encode(wbf, msg, _Z_HAS_FLAG(header, _Z_FLAG_T_INIT_A)));
+    }
     return ret;
 }
 
 z_result_t _z_init_decode_ext(_z_msg_ext_t *extension, void *ctx) {
-    _ZP_UNUSED(ctx);
+    auth_decode_ctx_t *context = ctx;
+    _z_t_msg_init_t *msg = context->message;
     z_result_t ret = _Z_RES_OK;
-    if (false) {
+    if ((extension->_header & 0x0f) == 3) {
+        return auth_init_decode(msg, extension, context->ack);
 #if Z_FEATURE_FRAGMENTATION == 1
     } else if (_Z_EXT_FULL_ID(extension->_header) == _Z_MSG_EXT_ID_INIT_PATCH) {
-        _z_t_msg_init_t *msg = (_z_t_msg_init_t *)ctx;
+        if (extension->_body._zint._val > UINT8_MAX) return _Z_ERR_MESSAGE_DESERIALIZATION_FAILED;
         msg->_patch = (uint8_t)extension->_body._zint._val;
 #endif
     } else if (_Z_MSG_EXT_IS_MANDATORY(extension->_header)) {
@@ -278,7 +355,8 @@ z_result_t _z_init_decode(_z_t_msg_init_t *msg, _z_zbuf_t *zbf, uint8_t header) 
     msg->_patch = _Z_NO_PATCH;
 #endif
     if ((ret == _Z_RES_OK) && _Z_HAS_FLAG(header, _Z_FLAG_T_Z)) {
-        ret |= _z_msg_ext_decode_iter(zbf, _z_init_decode_ext, msg);
+        auth_decode_ctx_t context = {msg, _Z_HAS_FLAG(header, _Z_FLAG_T_INIT_A)};
+        ret |= _z_msg_ext_decode_iter(zbf, _z_init_decode_ext, &context);
     }
 
     return ret;
@@ -301,6 +379,10 @@ z_result_t _z_open_encode(_z_wbuf_t *wbf, uint8_t header, const _z_t_msg_open_t 
         _Z_RETURN_IF_ERR(_z_slice_encode(wbf, &msg->_cookie))
     }
 
+    if (msg->_auth_present) {
+        if (!_Z_HAS_FLAG(header, _Z_FLAG_T_Z)) return _Z_ERR_MESSAGE_SERIALIZATION_FAILED;
+        _Z_RETURN_IF_ERR(auth_open_encode(wbf, msg, _Z_HAS_FLAG(header, _Z_FLAG_T_OPEN_A)));
+    }
     return ret;
 }
 
@@ -325,7 +407,8 @@ z_result_t _z_open_decode(_z_t_msg_open_t *msg, _z_zbuf_t *zbf, uint8_t header) 
         msg->_cookie = _z_slice_null();
     }
     if ((ret == _Z_RES_OK) && (_Z_HAS_FLAG(header, _Z_FLAG_T_Z) == true)) {
-        ret |= _z_msg_ext_skip_non_mandatories(zbf, 0x02);
+        auth_decode_ctx_t context = {msg, _Z_HAS_FLAG(header, _Z_FLAG_T_OPEN_A)};
+        ret |= _z_msg_ext_decode_iter(zbf, auth_open_decode_ext, &context);
     }
 
     return ret;

@@ -16,6 +16,7 @@ extern "C" {
 #include <stddef.h>
 #include "luat_conf_bsp.h"
 #include "lvgl9/lvgl.h"
+#include "luat_airui_conf.h"
 #if defined(LUAT_USE_AIRUI_SDL2)
 #include <SDL2/SDL.h>
 #endif

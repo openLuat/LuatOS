@@ -12,8 +12,7 @@ end
 sys.taskInit(function()
     require("lcd_drv")
     require("hid_lvgl")
-    require("input_demo")
-    require("tp_drv")
+    if usb.hid_subscribe then require("hid_events") end
     pm.power(pm.USB, false)
     sys.wait(100) -- USB电源操作由C任务异步执行，等待关闭后再切换模式
     air1601_evb_init()

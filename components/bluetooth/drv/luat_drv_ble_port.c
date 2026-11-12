@@ -15,6 +15,7 @@ uint32_t reserved; // 保留字段, 目前都是0
 #include "luat_bluetooth.h"
 #include "luat_ble.h"
 #include "luat_drv_ble.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "drv.ble"
 #include "luat_log.h"
@@ -23,6 +24,147 @@ luat_ble_cb_t g_drv_ble_cb;
 
 #undef LLOGD
 #define LLOGD(...)
+
+/* This proxy consumes the Lua-allocated tree on both success and failure.
+ * RPC serialization only borrows it for the duration of the call. */
+static void drv_ble_free_gatt(luat_ble_gatt_service_t* gatt) {
+    if (!gatt) return;
+    if (gatt->characteristics) {
+        for (size_t i = 0; i < gatt->characteristics_num; i++) {
+            luat_ble_gatt_chara_t* ch = &gatt->characteristics[i];
+            if (ch->descriptor) {
+                for (size_t j = 0; j < ch->descriptors_num; j++) {
+                    luat_heap_free(ch->descriptor[j].value);
+                }
+                luat_heap_free(ch->descriptor);
+            }
+            luat_heap_free(ch->value);
+        }
+        luat_heap_free(gatt->characteristics);
+    }
+    luat_heap_free(gatt);
+}
+
+#if defined(LUAT_USE_DRV_BLUETOOTH) && defined(LUAT_USE_AIRLINK_RPC)
+#include "luat_airlink_drv_rpc_bluetooth.h"
+
+static int drv_ble_rpc_ready(void) {
+    if (luat_airlink_peer_rpc_supported()) return 1;
+    LLOGE("peer does not support Bluetooth RPC");
+    return 0;
+}
+
+#define BLE_RPC_CALL(call) (drv_ble_rpc_ready() ? (call) : -1)
+
+int luat_ble_init(void* args, luat_ble_cb_t cb) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_init(args, cb));
+}
+
+int luat_ble_deinit(void* args) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_deinit(args));
+}
+
+int luat_ble_set_name(void* args, char* name, uint8_t len) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_set_name(args, name, len));
+}
+
+int luat_ble_set_max_mtu(void* args, uint16_t mtu) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_set_max_mtu(args, mtu));
+}
+
+int luat_ble_create_advertising(void* args, luat_ble_adv_cfg_t* cfg) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_create_advertising(args, cfg));
+}
+
+int luat_ble_set_adv_data(void* args, uint8_t* data, uint8_t len) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_set_adv_data(args, data, len));
+}
+
+int luat_ble_set_scan_rsp_data(void* args, uint8_t* data, uint8_t len) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_set_scan_rsp_data(args, data, len));
+}
+
+int luat_ble_start_advertising(void* args) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_start_advertising(args));
+}
+
+int luat_ble_stop_advertising(void* args) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_stop_advertising(args));
+}
+
+int luat_ble_delete_advertising(void* args) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_delete_advertising(args));
+}
+
+int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
+    int ret = gatt ? BLE_RPC_CALL(luat_airlink_drv_rpc_ble_create_gatt(args, gatt)) : -1;
+    drv_ble_free_gatt(gatt);
+    return ret;
+}
+
+int luat_ble_create_scanning(void* args, luat_ble_scan_cfg_t* cfg) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_create_scanning(args, cfg));
+}
+
+int luat_ble_start_scanning(void* args) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_start_scanning(args));
+}
+
+int luat_ble_stop_scanning(void* args) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_stop_scanning(args));
+}
+
+int luat_ble_delete_scanning(void* args) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_delete_scanning(args));
+}
+
+int luat_ble_connect(void* args, luat_ble_connect_req_t* conn) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_connect(args, conn));
+}
+
+int luat_ble_disconnect(void* args) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_disconnect(args));
+}
+
+int luat_ble_write_value(luat_ble_uuid_t* service, luat_ble_uuid_t* characteristic,
+                         luat_ble_uuid_t* descriptor, uint8_t* data, uint16_t len) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_value(LUAT_DRV_BT_CMD_BLE_WRITE_VALUE,
+                       service, characteristic, descriptor, data, len, 0));
+}
+
+int luat_ble_write_notify_value(luat_ble_uuid_t* service, luat_ble_uuid_t* characteristic,
+                                luat_ble_uuid_t* descriptor, uint8_t* data, uint16_t len) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_value(LUAT_DRV_BT_CMD_BLE_WRITE_NOTIFY,
+                       service, characteristic, descriptor, data, len, 0));
+}
+
+int luat_ble_write_indicate_value(luat_ble_uuid_t* service, luat_ble_uuid_t* characteristic,
+                                  luat_ble_uuid_t* descriptor, uint8_t* data, uint16_t len) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_value(LUAT_DRV_BT_CMD_BLE_WRITE_INDICATION,
+                       service, characteristic, descriptor, data, len, 0));
+}
+
+int luat_ble_read_value(luat_ble_uuid_t* service, luat_ble_uuid_t* characteristic,
+                        luat_ble_uuid_t* descriptor, uint8_t** data, uint16_t* len) {
+    if (data) *data = NULL;
+    if (len) *len = 0;
+    if (!data || !len) return -1;
+    /* The payload is delivered later through LUAT_BLE_EVENT_READ_VALUE. */
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_value(LUAT_DRV_BT_CMD_BLE_READ_VALUE,
+                       service, characteristic, descriptor, NULL, 0, 0));
+}
+
+int luat_ble_notify_enable(luat_ble_uuid_t* service, luat_ble_uuid_t* characteristic, uint8_t enable) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_value(LUAT_DRV_BT_CMD_BLE_NOTIFY_ENABLE,
+                       service, characteristic, NULL, NULL, 0, enable));
+}
+
+int luat_ble_indicate_enable(luat_ble_uuid_t* service, luat_ble_uuid_t* characteristic, uint8_t enable) {
+    return BLE_RPC_CALL(luat_airlink_drv_rpc_ble_value(LUAT_DRV_BT_CMD_BLE_INDICATE_ENABLE,
+                       service, characteristic, NULL, NULL, 0, enable));
+}
+
+#else
 
 int luat_ble_init(void* args, luat_ble_cb_t luat_ble_cb) {
     LLOGD("执行luat_ble_init %p", luat_ble_cb);
@@ -228,8 +370,8 @@ int luat_ble_delete_advertising(void* args) {
 
 // gatt
 int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
+    if (!gatt) return -1;
     LLOGD("执行luat_ble_create_gatt %d", gatt->characteristics_num);
-    uint16_t tmp = 0;
     uint64_t seq = luat_airlink_get_next_cmd_id();
     int ret = 0;
 
@@ -252,65 +394,18 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
         goto cleanup;
     }
     
-    // 数据部分
-    uint8_t ptr[1024] = {0};
-
     luat_drv_ble_msg_t msg = { .id = seq};
     msg.cmd_id = LUAT_DRV_BT_CMD_BLE_GATT_CREATE;
-    memcpy(ptr, &msg, sizeof(luat_drv_ble_msg_t));
-    
-    // LLOGD("ptr %p cmd %p cmd->data %p", ptr, cmd + 1, cmd->data);
-    #if 1
-    luat_ble_gatt_pack(gatt, ptr + sizeof(luat_drv_ble_msg_t), NULL);
-    // luat_airlink_hexdump("GATT_A1", cmd->data, cmd->len);
-    #else
-    tmp = sizeof(luat_ble_gatt_service_t);
-    memcpy(ptr + sizeof(luat_drv_ble_msg_t), &tmp, 2);
-    // 然后是luat_ble_gatt_chara_t的大小
-    tmp = sizeof(luat_ble_gatt_chara_t);
-    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 2, &tmp, 2);
-    // 然后是服务id的数量
-    tmp = gatt->characteristics_num;
-    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 2 + 2, &tmp, 2);
-    // 然后是luat_ble_gatt_descriptor_t的大小
-    tmp = sizeof(luat_ble_gatt_descriptor_t);
-    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 2 + 2 + 2, &tmp, 2);
-
-    // 头部拷贝完成, 拷贝数据
-    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 8, gatt, sizeof(luat_ble_gatt_service_t));
-    // 然后是服务id
-    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t), 
-        gatt->characteristics, gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t));
-    
-    for (size_t i = 0; i < gatt->characteristics_num; i++)
-    {
-        uint8_t descriptor_num = gatt->characteristics[i].descriptors_num;
-        // 然后是描述符id
-        memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t) + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t) + i * sizeof(luat_ble_gatt_descriptor_t), 
-        gatt->characteristics[i].descriptor, descriptor_num * sizeof(luat_ble_gatt_descriptor_t));
-    }
-    #endif
-    memcpy(cmd->data, ptr, cmd->len);
-    // LLOGD("----> %s %s", __DATE__, __TIME__);
-
-    // luat_airlink_hexdump("GATT_A2", cmd->data, cmd->len);
-
+    /* Keep the legacy layout and padding, serialize into the sized command. */
+    memset(cmd->data, 0, cmd->len);
+    memcpy(cmd->data, &msg, sizeof(msg));
+    luat_ble_gatt_pack(gatt, cmd->data + sizeof(msg), NULL);
     item.cmd = cmd;
-
-    // LLOGD("gatt 数据长度 %d %d %d", item.len, cmd->len, cmd->len - sizeof(luat_drv_ble_msg_t));
-    // luat_airlink_print_buff("bt req HEX", cmd->data, cmd->len);
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    if (ret) luat_airlink_cmd_free(cmd);
 
 cleanup:
-    for (size_t i = 0; i < gatt->characteristics_num; i++)
-    {
-        if (gatt->characteristics[i].descriptor) {
-            luat_heap_free(gatt->characteristics[i].descriptor);
-            gatt->characteristics[i].descriptor = NULL;
-        }
-    }
-    luat_heap_free(gatt->characteristics);
-    gatt->characteristics = NULL;
+    drv_ble_free_gatt(gatt);
     return ret;
 }
 
@@ -600,7 +695,7 @@ int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_cha
     msg.cmd_id = LUAT_DRV_BT_CMD_BLE_READ_VALUE;
     memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
     luat_ble_rw_req_t req = {
-        .len = len
+        .len = 0
     };
     if (uuid_service) {
         memcpy(&req.service, uuid_service, sizeof(luat_ble_uuid_t));
@@ -705,3 +800,4 @@ int luat_ble_indicate_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uui
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
     return 0;
 }
+#endif

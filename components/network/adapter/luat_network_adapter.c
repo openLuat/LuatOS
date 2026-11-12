@@ -627,7 +627,8 @@ static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network
 		{
 			return -1;
 		}
-		break;
+		/* IP readiness may be delivered after DNS has already started. */
+		return 1;
 	case EV_NW_DNS_RESULT:
 		if (event->Param1)
 		{
@@ -712,7 +713,8 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 		{
 			return -1;
 		}
-		break;
+		/* A late/repeated READY event must not fail an active connect. */
+		return 1;
 	case EV_NW_SOCKET_LISTEN:
 		if (ctrl->is_server_mode)
 		{
@@ -1809,6 +1811,8 @@ void network_force_close_socket(network_ctrl_t *ctrl)
 	}
 	ctrl->need_close = 0;
 	ctrl->socket_id = -1;
+	/* The socket is released; queued RX/TX events must not re-enter TLS. */
+	ctrl->state = NW_STATE_OFF_LINE;
 	ctrl->new_rx_flag = 0;
 	if (ctrl->dns_ip)
 	{

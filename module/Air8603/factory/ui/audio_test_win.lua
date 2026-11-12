@@ -17,7 +17,7 @@
 订阅: OTHER_FUNC_STATUS / OTHER_FUNC_CHANGED(list) -- 音频打开状态
 
 页面自上而下：
-  状态卡  芯片 / 串口 / 录音格式 + 当前状态描述
+  状态卡  芯片 / 串口 / 录音格式 + 当前状态描述 + 请接入麦克风常驻提示（未配置音频时不显示）
   录音时长  3 / 5 / 10 / 20 秒里选一个（超过 hw.audio.max_record_time 的选项不显示）
   操作    开始录音 / 播放 / 停止（空闲态禁用「停止」，录音或播放中禁用「录音」「播放」）
   测试日志  动作与结果流水（最新在上）+「清空」
@@ -235,6 +235,10 @@ local function on_test_state(id, state, info)
     if info and info ~= "" then text = text .. " | " .. tostring(info) end
     set_state_text(text)
     append_entry(text)
+    -- 录音失败时再强调一次查麦克风，现场才不会只盯着供电和固件
+    if cur_state == "error" and tostring(info or ""):find("录音失败") then
+        append_entry("请检查麦克风是否接入，再查供电、UART和固件")
+    end
 end
 
 -- 动作回执：失败要把原因摆出来，现场才知道是没初始化还是没录音文件
@@ -272,7 +276,7 @@ local function build_ui()
     local _, th = theme.header(main_container, {
         x = pad, y = pad, w = card_w,
         title = "录音播放测试",
-        sub = "对麦克风说话，录完回放听效果",
+        sub = "请接入麦克风后说话，录完回放听效果",
         on_back = function() exwin.close(window_id) end,
     })
 
@@ -286,8 +290,12 @@ local function build_ui()
     local fs_sub = theme.fs("micro")
     local info_h = fs_name + theme.dp(4)
     local sub_h = fs_sub + theme.dp(4)
+    -- 未配置音频时不显示麦克风提示（判定依据见 on_create 的未配置分支）
+    local mic_hint = (audio_id ~= nil and audio_cfg ~= nil)
     -- 三行文字的占位：行1 info_h + 行距 dp(4) + 行2 info_h + 行距 dp(10) + 行3 sub_h
     local card_h = pad_in + info_h + theme.dp(4) + info_h + theme.dp(10) + sub_h + pad_in
+    -- 配了音频再加一行麦克风常驻提示：行距 dp(2) + 行4 sub_h
+    if mic_hint then card_h = card_h + theme.dp(2) + sub_h end
 
     local card = theme.card(main_container, {
         x = pad, y = y, w = card_w, h = card_h, border_w = bw,
@@ -313,6 +321,17 @@ local function build_ui()
         text = "录音互斥：录音中不能播放，播放中不能录音",
         px_size = fs_sub, color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
     })
+
+    -- 进页面就常驻的接入提示，不等录音失败才提示
+    if mic_hint then
+        theme.label(card, {
+            x = pad_in,
+            y = pad_in + info_h + theme.dp(4) + info_h + theme.dp(10) + sub_h + theme.dp(2),
+            w = inner_w, h = sub_h,
+            text = "请接入麦克风后再录音",
+            px_size = fs_sub, color = theme.C.amber_light, align = airui.TEXT_ALIGN_LEFT,
+        })
+    end
     y = y + card_h + gap
 
     -- ===== 录音时长 =====
@@ -448,6 +467,7 @@ local function on_destroy()
     cur_state = "idle"
     audio_id = nil
     audio_cfg = nil
+    sys.publish("TEST_WIN_CLOSED")   -- 收口：功能测试页据此断开本页用的接口
 end
 
 local function on_get_focus() end

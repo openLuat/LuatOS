@@ -1,8 +1,8 @@
 --[[
 @module  wifi_storage
 @summary WiFi存储模块（fskv封装）
-@version 1.1
-@date    2026.05.29
+@version 1.2
+@date    2026.11.09
 @author  江访
 @usage
 -- 完全通过事件交互，不对外提供函数
@@ -28,8 +28,11 @@
 local CONFIG_KEY = "wifi_app_config"
 local SAVED_LIST_KEY = "wifi_saved_list"
 
+-- wifi_enabled 默认开启：仅 WiFi / WiFi+4G 机型首次开机即联网，
+-- 用户不必先去网络设置里打开开关再重启。运行期以网络设置页（net_app_config）为准，
+-- 本字段只是镜像，由 net_storage.sync_wifi_enabled 与 wifi_app_real 同步。
 local config = {
-    wifi_enabled = false,
+    wifi_enabled = true,
     ssid = "HJ",
     password = "HJ@88888",
     need_ping = true,

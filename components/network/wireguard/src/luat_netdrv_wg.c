@@ -59,6 +59,8 @@ luat_netdrv_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
     struct netif *wg_netif_struct = luat_heap_malloc(sizeof(struct netif));
     // struct netif *wg_netif = NULL;
     luat_netdrv_t *netdrv = luat_heap_malloc(sizeof(luat_netdrv_t));
+    // Add buffer for preshared key (heap-allocated to avoid dangling pointer)
+    uint8_t *preshared_key_buf = NULL;
     if (ctx == NULL || netdrv == NULL || wg_netif_struct == NULL || peer == NULL || device == NULL) {
         LLOGE("Failed to allocate memory for WireGuard netdrv %p %p %p %p", netdrv, wg_netif_struct, peer, device);
         if (netdrv)
@@ -121,9 +123,6 @@ luat_netdrv_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
     LLOGD("Adding WireGuard peer - master");
     wireguardif_peer_init(peer);
     peer->public_key = cfg->wg_conf->wg_endpoint_key;
-
-    // Add buffer for preshared key (heap-allocated to avoid dangling pointer)
-    uint8_t *preshared_key_buf = NULL;
     
     if (cfg->wg_conf->wg_preshared_key) {
         preshared_key_buf = (uint8_t*)luat_heap_malloc(WIREGUARD_SESSION_KEY_LEN + 1);

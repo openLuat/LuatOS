@@ -1,8 +1,8 @@
 --[[
 @module  periph_rs485
 @summary RS485 外设驱动（config.peripherals 中 type="rs485"，支持多路）
-@version 1.7
-@date    2026.11.11
+@version 1.6
+@date    2026.10.24
 @author  江访
 
 === 配置示例 ===
@@ -56,9 +56,6 @@ handle:status()    → { enabled=bool, info=string }
 - de_pin 接收态为低电平，发送态为高电平。**空闲时就是低电平**：半双工总线平时必须停在接收态，
   所以打开串口后方向脚一直是 0V 是对的，它只在每一帧的发送窗口里拉高（9600 波特率发 3 字节约
   6~8ms），万用表量永远是 0V。要确认它真的会翻，用 `M.de_hold(ms)` 拉高一段够长的时间再量
-- **de_pin 与别的外设 en_pin 共用一脚时**（8603W3~W5 / M3~M5 的 GPIO58 = 485_EN2 = UVC_EN），
-  经 pin_share 按职能互斥认领：start 把发送会翻的脚全认领下来（还供电的 UVC 会先被停干净
-  再当 DE 用），stop 归还，两个功能相互切换、互不影响；de_hold 自检不碰正作其它职能的共享脚
 - **半双工自回环**：485 收发器会在发送期间把总线上的自己发的字节回采到 RX。
   发送窗口（串口占用期间）收到的字节一律丢弃，窗口前后各 uart.rxClear 一次清残留，
   避免把自己的回环当成对端数据
@@ -77,11 +74,7 @@ handle:status()    → { enabled=bool, info=string }
   一条 `发送` 都没有说明发送没走到驱动。收不到对端数据先看这几条分清
   「没发出去」「DE 没切成发送态」「发了但 DE 提前松」「发出去了但对端没回」
 - 所有 uart.* / gpio.* 调用 pcall 包裹，失败返回 false + 错误串
-- 供电脚经 airlink_pin 下发：GPIO ≥100 的 WiFi 侧脚等 airlink 链路就绪后再驱动
 ]]
-
-local airlink_pin = require "airlink_pin"
-local pin_share = require "pin_share"
 
 local M = {}
 
@@ -102,8 +95,6 @@ local tx_sent = {}
 local sent_off = {}
 -- 各串口用到过的 DE 脚：uart_id → { pin, ... }（登记时就记，与该路是否已打开无关）
 local uart_de_pins = {}
--- 共享 DE 脚被别的职能切走时的交接回调（定义在 rs485_stop 之后，前向声明供 start 引用）
-local de_lost_to
 
 -- 校验位 → uart 校验常量
 local function parity_to_const(p)
@@ -147,10 +138,11 @@ local function pin_name_text(pins)
     return table.concat(out, "/")
 end
 
--- 设置 GPIO 电平（WiFi 侧脚等 airlink 链路就绪后下发）
+-- 设置 GPIO 电平
 local function pin_set(pin, level)
     if not pin then return end
-    airlink_pin.set(pin, level)
+    pcall(gpio.setup, pin, level)
+    pcall(gpio.set, pin, level)
 end
 
 -- 本串口上所有路的 DE 脚（去重），extra 用于补上尚未入表的那一路
@@ -253,11 +245,13 @@ local function on_receive(uart_id, len)
              "广播" .. tostring(#users) .. "路")
     for i = 1, #users do
         local h = users[i]
+        if not h.closing then
         h.rx_count = h.rx_count + #data
         local ring = h.rx_ring
         ring[#ring + 1] = data
         while #ring > RING_MAX do table.remove(ring, 1) end
         sys.publish("PERIPH_RX", h.id, data)
+        end
     end
 end
 
@@ -327,12 +321,6 @@ local function rs485_start(self)
     if self.enabled then return true end
 
     power_acquire(p.power_pin, p.power_hold)
-    -- 同 uart 各路 DE 一起切向，发送会翻的脚全认领下来（含兄弟路登记的 DE）：
-    -- 共用脚（8603 六型号的 GPIO58 = 485_EN2 = UVC_EN）按职能互斥，认领即交接
-    local de_pins = de_pins_of(p.uart_id, p.de_pin)
-    for i = 1, #de_pins do
-        pin_share.claim(de_pins[i], "rs485_de", "rs485:" .. tostring(self.id), de_lost_to)
-    end
     de_set(p.uart_id, 0, p.de_pin)
 
     local baud = p.baud or 9600
@@ -348,9 +336,6 @@ local function rs485_start(self)
         if not ok or (ret ~= nil and ret ~= 0) then
             uart_users[p.uart_id] = nil
             power_release(p.power_pin, p.power_hold)
-            for i = 1, #de_pins do
-                pin_share.release(de_pins[i], "rs485:" .. tostring(self.id))
-            end
             return false, string.format("UART%d 打开失败: %s", p.uart_id, tostring(ret))
         end
         ok, ret = pcall(uart.on, p.uart_id, "receive", on_receive)
@@ -387,7 +372,7 @@ end
 -- 半双工 485 自己发的字节会被收发器回采到 RX，整个发送窗口按回环丢弃，
 -- 窗口前后各清一次串口接收缓冲，残片不会被当成对端发来的数据
 local function rs485_send(self, data)
-    if not self or not self.enabled then return false, "not started" end
+    if not self or not self.enabled or self.closing then return false, "not started or closing" end
     if type(data) ~= "string" or #data == 0 then return false, "empty data" end
     local p = self.params
     local uid = p.uart_id
@@ -443,49 +428,28 @@ end
 -- 关闭串口（DE 接收态 → 释放供电）
 local function rs485_stop(self)
     if not self then return false end
+    self.closing = true
+    self.rx_ring = {}
     if not self.enabled then return true end
     local p = self.params
-
-    if p.uart_id then
-        local users = uart_users[p.uart_id]
-        if users then
-            for i = #users, 1, -1 do
-                if users[i] == self then table.remove(users, i) end
-            end
-            if #users == 0 then
-                uart_users[p.uart_id] = nil
-                tx_release(p.uart_id)
-                pcall(uart.close, p.uart_id)
-            end
+    local users = uart_users[p.uart_id]
+    if users then
+        if #users == 1 and users[1] == self then
+            -- Do not drop ownership until close succeeds, so a failed close is retryable.
+            local result = uart.on(p.uart_id, "receive", nil)
+            assert(result ~= false, "485 receive unsubscribe failed")
+            if uart.rxClear then uart.rxClear(p.uart_id) end
+            result = uart.close(p.uart_id)
+            assert(result ~= false, "485 UART close failed")
         end
+        for i=#users,1,-1 do if users[i]==self then table.remove(users,i) end end
+        if #users==0 then uart_users[p.uart_id]=nil; tx_release(p.uart_id) end
     end
-    -- 认领的 DE 脚（含兄弟路共用的）逐个归还；中途被切走时 release 落空无害
-    local de_pins = de_pins_of(p.uart_id, p.de_pin)
     de_set(p.uart_id, 0, p.de_pin)
-    for i = 1, #de_pins do
-        pin_share.release(de_pins[i], "rs485:" .. tostring(self.id))
-    end
     power_release(p.power_pin, p.power_hold)
     self.enabled = false
-    log.info("periph_rs485", "485 已关闭", self.id)
+    log.info("factory_handoff", "RS485_CLOSED", self.id)
     return true
-end
-
--- 共享 DE 脚被别的职能（如 UVC_EN）切走时的交接：凡发送时会翻这根脚的路全部停干净
--- （同一 uart 多路 DE 一起切向，脚交出后谁再发都会踩新主的电平），脚电平归新主管、这里不再动
-de_lost_to = function(pin)
-    for _, h in pairs(instances) do
-        if h.enabled then
-            local pins = de_pins_of(h.params.uart_id, h.params.de_pin)
-            for i = 1, #pins do
-                if pins[i] == pin then
-                    log.info("periph_rs485", "DE 脚已切给其它职能，交出", h.id, "GPIO" .. tostring(pin))
-                    rs485_stop(h)
-                    break
-                end
-            end
-        end
-    end
 end
 
 -- 读取状态
@@ -512,7 +476,16 @@ local function make_handle(params)
         rx_count = 0,
         rx_ring  = {},
     }
-    h.start  = rs485_start
+    h.quiesce = function(self)
+        self.closing = true
+        self.rx_ring = {}
+        if self.enabled and uart.rxClear then uart.rxClear(self.params.uart_id) end
+    end
+    h.start  = function(self)
+        local ok, err = rs485_start(self)
+        if ok then self.closing = false end
+        return ok, err
+    end
     h.send   = rs485_send
     h.recv   = rs485_recv
     h.stop   = rs485_stop
@@ -589,14 +562,7 @@ function M.de_hold(ms)
     local function add(pin)
         if pin and not seen[pin] then
             seen[pin] = true
-            -- 共享脚正作别的职能（如 UVC_EN 供电中）就不碰，自检互不影响
-            local role = pin_share.role(pin)
-            if role and role ~= "rs485_de" then
-                log.info("periph_rs485", "DE 自检跳过", "GPIO" .. tostring(pin),
-                         "该脚正在作 " .. tostring(role))
-            else
-                pins[#pins + 1] = pin
-            end
+            pins[#pins + 1] = pin
         end
     end
     for _, reg in pairs(uart_de_pins) do

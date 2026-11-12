@@ -29,7 +29,7 @@
 
 === 播放器素材闸口（起播前必读）===
 VP.start_play 是桌面播放器唯一入口，起播前有两道判断：
-  1) 拦：超过该格式分辨率上限的真解不出来 —— HZV 1024×600
+  1) 拦：超过该格式分辨率上限的真解不出来 —— MP4 480×320、HZV/MJPG 1024×600
      （video_util.check_frame），任何路径都不起播，画面区给原因文案；
   2) 提：放不下画面区的照常播（裁着看）—— airui 播放器不支持缩放，控件被撑回
      素材原生尺寸、越出画面区，由舞台层 VP.stage 裁掉一圈。用户主动选文件时
@@ -47,7 +47,7 @@ theme.label 内部有一行 `if fs < theme.FONT_MIN then fs = theme.FONT_MIN end
 local exnetif = require "exnetif"
 local net_manager = require "net_manager"
 local theme = require "ui_theme"
--- 播放器两块共用的底层：素材工具（帧尺寸口径 / 播放器创建）与文件选择弹窗。
+-- 播放器两块共用的底层：素材工具（帧尺寸口径 / 音轨初始化）与文件选择弹窗。
 -- 全屏播放页（ui/video_win.lua）用的是同一套，改口径只改模块。
 local video_picker = require "video_picker"
 local video_util = require "video_util"
@@ -65,7 +65,7 @@ local apps_card = nil
   VP.ctrl_h / VP.frame_h / VP.current_file / VP.start_play / VP.open_picker
 跨窗口调用请走本文件已有的导出接口，别在别的窗口里直接碰这张表。]]
 local VP = {}
-VP.obj = nil                    -- 播放器对象（video_util.create_player 的 wrap_release 包装对象）
+VP.obj = nil                    -- 播放器对象（airui.video 实例；MP4 为带会话收尾的包装对象）
 VP.is_playing = true            -- 播放状态
 VP.is_loop = true               -- 循环状态
 VP.ctrl_bar = nil               -- 控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
@@ -77,9 +77,15 @@ VP.ctrl_visible = true          -- 控制栏可见性
 现在控制栏由 theme.video_bar 统一构建并自带 sync/set_file，
 调用方只需要把状态喂进去（见 VP.start_play / VP.toggle_play / VP.toggle_loop），
 底色、文字色、文案三者在同一处一起刷新。]]
-VP.current_file = "/luadb/fruit.hzv"                    -- 当前播放文件（res/fruit.hzv 打包后在 /luadb/ 下）
+-- VP.current_file = "/luadb/luatos_boot.hzv"           -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
+VP.current_file = "/luadb/fruit.mp4" 
 VP.card_ref = nil             -- 视频卡片容器引用（供切换文件时使用）
 VP.stage = nil                -- 画面舞台层：视频的父对象，先于控制栏创建（见 build_video_area）
+-- 配套音频（同名 MP3）的播放状态已收进 video_util：桌面播放器与全屏播放页
+-- 共用一份，避免「两边同时出声」，也避免各自记一份状态后互相打架。
+-- 应用卡片表头计数标签（"已安装应用 | N"）。
+-- 原来只在 build_apps_card 里把它造出来就丢掉了返回值，谁也拿不到，
+-- 于是安装/卸载后这个数字永远停在开机那一刻 —— 必须持有引用才能刷新。
 local apps_head_label = nil
 -- 翻页按钮引用：空列表时要能整组隐藏（见 update_pager 的注释）
 local pager_prev_btn, pager_next_btn = nil, nil
@@ -117,7 +123,7 @@ local apps_page_index = 1
 -- 方案A：左侧视频 + 右侧信息列（横屏）
 local col_gap = 10             -- 左右栏 / 右列卡片间距（设计稿 10）
 VP.w = 480                     -- 视频区域宽度
-VP.h = 270                     -- 视频区域高度（按桌面素材 fruit.hzv 的帧高留的布局基准）
+VP.h = 270                     -- 视频区域高度（按 luatos_boot 素材帧高留的布局基准）
 VP.x = 0                       -- 视频卡左上角 X（绝对坐标，从内容区左缘算起）
 VP.y = 0                       -- 视频卡左上角 Y（绝对坐标，从屏幕顶缘算起）
 VP.frame_h = 0                 -- 视频画面高度（卡片高 - 控制栏高）
@@ -130,16 +136,16 @@ VP.enabled = false             -- 是否启用横屏双列布局（左视频 + �
 
 纵向堆叠：状态栏 → 时钟 → 播放器（画面 + 独立控制栏）→ 已安装应用 → 底部 Dock。
 **该布局不带天气卡**：天气卡那点高度让给了播放器的控制栏。
-控制栏必须独占一行、不能压在画面上。素材走 airui.video 的 videoplayer 后端
-（read_frame 非空，逐帧拉 RGB565 塞进 lv_image），确实是正常 LVGL 渲染，但被盖住是
-两条层叠规则叠加（2026-11-07 按源码订正）——
-· ① 同一父对象内后创建的子对象画在上面：只要画面与控制栏有重叠，谁后创建谁在上面；
-· ② 视频不支持缩放，大素材被强行撑回原生尺寸、越出画面区，重叠面还会被放大。
-两条叠加的结果就是按钮被盖掉，只能按几何避让（控制栏独占一行 + 弹窗挪出视频范围）。
+控制栏必须独占一行、不能压在画面上。原因（2026-09-18 按源码订正）：airui 视频其实是
+lv_image（luat_airui_video.c 里 lv_image_set_src），走正常 LVGL 渲染，所以「压在画面上的
+控件看不见」不是因为视频是独立图层，而是两条层叠规则叠加 ——
+① 同一父对象内后创建的子对象画在上面；② 视频不支持缩放，大素材被强行撑回原生尺寸、
+越出画面区。只要画面与控制栏有重叠，谁后创建谁在上面，按钮就可能被盖掉。
+（旧注释写的「硬解视频是独立图层」与源码不符，按这个口径看会误判问题范围。）
 与方案A互斥，由配置项 ui.show_video_area 显式打开（原因见下方开关注释）。]]
 VP.portrait = false
 
---[[播放器卡基准高度 = 桌面素材 fruit.hzv 的原生帧高（480×320）
+--[[播放器卡基准高度 = luatos_boot.hzv 的原生帧高（480×320）
 
 airui 播放器控件**不支持缩放**：请求尺寸与素材帧尺寸不一致时，控件会被强制改回素材尺寸
 （components/airui/src/components/widgets/luat_airui_video.c:
@@ -218,6 +224,15 @@ local has_cloud_disk = _G.project_config and _G.project_config.features and _G.p
 local has_other_func = _G.project_config and _G.project_config.features and _G.project_config.features.other_func
     and _G.project_config.ui and _G.project_config.ui.show_other_func
 
+-- R3 只恢复桌面生命周期，未加载的业务不显示入口。
+if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R3" or _G.SIP_RECOVERY_STAGE == "R4" or (_G.SIP_RECOVERY_STAGE == "R5" or (_G.SIP_RECOVERY_STAGE == "R6" or _G.SIP_RECOVERY_STAGE == "R7"))) then
+    has_other_func = has_other_func and (_G.SIP_RECOVERY_STEP == "R7-S7-PAGE-LIFECYCLE" or _G.SIP_RECOVERY_STEP == "R7-S8L-RS485-LAZY")
+    if _G.SIP_RECOVERY_STAGE ~= "R7" then
+        has_app_factory, has_ai_chat = false, false
+    end
+    if (_G.SIP_RECOVERY_STAGE ~= "R5" and (_G.SIP_RECOVERY_STAGE ~= "R6" and _G.SIP_RECOVERY_STAGE ~= "R7")) then has_cloud_disk = false end
+end
+
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
 local product_name = "合宙引擎主机" .. (model_suffix ~= "" and model_suffix or "")
@@ -240,6 +255,8 @@ end
 if has_other_func then
     table.insert(builtin_apps, { name = "功能测试", win = "OTHER_FUNC", icon = "other_func", dock = true })
 end
+
+-- SIP 通话统一从功能测试页面进入。
 
 -- 前向声明（网格点击依赖上下文菜单，后者定义在后面）
 local show_app_context_menu
@@ -483,55 +500,9 @@ local function dialog_style()
     }
 end
 
--- ==================== 弹窗避让（视频区） ====================
-
---[[弹窗落位：视频区启用时把弹窗摆到视频之外的空闲区，返回 { x, y, w, h }
-
-为什么不能靠 z-order：视频控件不支持缩放，大素材被强行撑回原生尺寸、越出画面区；
-而同一父对象内后创建的子对象画在上面（LVGL 的层叠规则）。居中弹窗与越出的那圈画面
-必然重叠，谁后建谁在上 —— 于是「要么挡住画面、要么被画面盖住」，只能按几何避开。
-落位要点：
-  · 横屏双列（VP.enabled）：收进右列，宽度收到右列宽；右列几何（right_x / right_w）由
-    calc_layout 统一算好，这里只复用，不再抄一份公式；
-  · 竖屏通栏（VP.portrait）：视频占满宽度没有「右边」，改放避让矩形外面积最大的空闲带
-    （与 ui/video_picker.lua 的 place_avoiding 同一算法：右 / 左 / 下 / 上四块里挑最大的居中）；
-  · 没有视频区：返回 nil，交给 auto_center 居中（airui.win 还要把 auto_center 置回 true）。
-避让矩形取整张视频卡片（含控制栏），比只算画面区稳。
-@return table|nil { x, y, w, h }；nil = 无需避让]]
-local function place_dialog(w, h)
-    if not (VP.enabled or VP.portrait) then return nil end
-    local m = clamp(math.floor(8 * density_scale_val), 4, 16)
-    if VP.enabled then
-        local dh = math.min(h, screen_h - 2 * m)
-        local y = clamp(math.floor((screen_h - dh) / 2), m, screen_h - m - dh)
-        return { x = content_x + pad + right_x, y = y,
-                 w = math.min(w, right_w), h = dh }
-    end
-    local ax0, ay0 = content_x + VP.x, VP.y
-    local ax1, ay1 = ax0 + VP.w, ay0 + VP.h
-    local rects = {
-        { x = ax1 + m, y = m, w = screen_w - m - (ax1 + m), h = screen_h - 2 * m },   -- 右
-        { x = m, y = m, w = ax0 - 2 * m, h = screen_h - 2 * m },                      -- 左
-        { x = m, y = ay1 + m, w = screen_w - 2 * m, h = screen_h - m - (ay1 + m) },   -- 下
-        { x = m, y = m, w = screen_w - 2 * m, h = ay0 - 2 * m },                      -- 上
-    }
-    local best, best_area = nil, 0
-    for _, r in ipairs(rects) do
-        if r.w > 0 and r.h > 0 and r.w * r.h > best_area then best, best_area = r, r.w * r.h end
-    end
-    if not best then return nil end
-    local dw, dh = math.min(w, best.w), math.min(h, best.h)
-    return {
-        x = best.x + math.floor((best.w - dw) / 2),
-        y = best.y + math.floor((best.h - dh) / 2),
-        w = dw, h = dh,
-    }
-end
-
 -- ==================== 上下文 UI 管理 ====================
 
 local context_keyboard = nil
-local context_keyboard_host = nil   -- 键盘专用宿主容器（见 make_dark_keyboard），须与键盘同生共死
 local context_verify_win = nil
 local context_password_win = nil
 local context_menu_win = nil
@@ -539,7 +510,6 @@ local action_confirm_box = nil
 
 local function destroy_context_ui()
     if context_keyboard then pcall(context_keyboard.destroy, context_keyboard); context_keyboard = nil end
-    if context_keyboard_host then pcall(context_keyboard_host.destroy, context_keyboard_host); context_keyboard_host = nil end
     if context_verify_win then pcall(context_verify_win.destroy, context_verify_win); context_verify_win = nil end
     if context_password_win then pcall(context_password_win.destroy, context_password_win); context_password_win = nil end
     if context_menu_win then pcall(context_menu_win.destroy, context_menu_win); context_menu_win = nil end
@@ -547,14 +517,9 @@ local function destroy_context_ui()
 end
 
 local function show_info_box(title, text, buttons, on_action)
-    local dw = math.min(math.floor(screen_w * 0.82), 460)
-    local dh = math.floor(screen_h * 0.26)
-    local pos = place_dialog(dw, dh)      -- 视频区启用时挪出视频范围，给 x/y 后 msgbox 不再居中
     local box = airui.msgbox({
-        w = pos and pos.w or dw,
-        h = pos and pos.h or dh,
-        x = pos and pos.x,
-        y = pos and pos.y,
+        w = math.min(math.floor(screen_w * 0.82), 460),
+        h = math.floor(screen_h * 0.26),
         style = { text_font_size = math.max(16, math.floor(16 * density_scale_val)) },
         title = title, text = text, buttons = buttons,
         on_action = on_action,
@@ -579,7 +544,7 @@ sys.run() 的下一轮 dispatch，而本轮结束时会先渲染一帧。若在�
 
 设置 → iot 这类「同一个一级菜单内部的跳转」不走这里，它们仍用各自的 sys.publish，
 因此不会被回收；只有点左栏/网格/dock 切换到另一个一级菜单时才会连带销毁。]]
-local function open_builtin(win)
+local function open_builtin_now(win)
     local host = theme.shell.host_id
     local leaf = exwin.children_of(host)[1]   -- 一级菜单互斥，宿主至多有一个直接子窗口
 
@@ -597,6 +562,11 @@ local function open_builtin(win)
     sys.publish("OPEN_" .. win .. "_WIN")
 end
 
+local function open_builtin(win)
+    local next_page = function() open_builtin_now(win) end
+    if not require("factory_handoff").defer_navigation(next_page) then next_page() end
+end
+
 --[[回到桌面态（左栏底部「桌面」入口）
 
 与 open_builtin 对称，但不开新页面：只清掉当前一级菜单的整棵子树。
@@ -604,13 +574,18 @@ close_children_of 末尾会结算一次焦点，idle 的 on_get_focus 随即把�
 所以这里不必再手动调 set_rail_active。已在桌面态时直接返回，省掉一次无谓的焦点结算。]]
 local function go_desktop()
     if active_menu == nil then return end
-    exwin.close_children_of(theme.shell.host_id)
+    local next_page = function() exwin.close_children_of(theme.shell.host_id) end
+    if not require("factory_handoff").defer_navigation(next_page) then next_page() end
 end
 
 local function tile_bind_click(app)
     if app.is_builtin then
         open_builtin(app.win)
     else
+        if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R3" or _G.SIP_RECOVERY_STAGE == "R4" or (_G.SIP_RECOVERY_STAGE == "R5" or (_G.SIP_RECOVERY_STAGE == "R6" or _G.SIP_RECOVERY_STAGE == "R7"))) then
+            log.info("sip_isolation", "APP_LAUNCH_DISABLED", _G.SIP_RECOVERY_STAGE)
+            return
+        end
         exapp.open(app.path)
     end
 end
@@ -766,14 +741,9 @@ end
 
 local function handle_uninstall_app(app)
     local app_name = app.name or "未知"
-    local dw = math.min(math.floor(screen_w * 0.80), 400)
-    local dh = math.floor(screen_h * 0.25)
-    local pos = place_dialog(dw, dh)      -- 视频区启用时挪出视频范围
     action_confirm_box = airui.msgbox({
-        w = pos and pos.w or dw,
-        h = pos and pos.h or dh,
-        x = pos and pos.x,
-        y = pos and pos.y,
+        w = math.min(math.floor(screen_w * 0.80), 400),
+        h = math.floor(screen_h * 0.25),
         style = { text_font_size = math.max(16, math.floor(16 * density_scale_val)) },
         title = "确认卸载", text = "确定要卸载 " .. app_name .. " 吗？",
         buttons = { "确定", "取消" },
@@ -797,60 +767,15 @@ end
 -- ==================== 密码验证 / 设置弹窗 ====================
 
 local function make_dark_keyboard()
-    --[[键盘同样要避让视频区（居中弹窗那套避让对它不适用：键盘是贴底的）：
-        横屏把整块键盘挪进右列（宿主容器跟着右列走）；竖屏视频通栏没有「右边」，而键盘的
-        y 语义是「距父容器底部的偏移」（0 = 贴底，只能取负往上挪、没法下移），只能压 h 让它
-        待在视频带以下。]]
-    local kx, kw = 0, screen_w
-    local kh = math.floor(200 * density_scale_val)
-    if VP.enabled then
-        kx = content_x + pad + right_x
-        kw = right_w
-    elseif VP.portrait then
-        local room = screen_h - (VP.y + VP.h) - math.floor(8 * density_scale_val)
-        if kh > room then kh = math.max(room, 120) end
-    end
-
-    --[[键盘专用宿主容器：让「键盘的父对象宽 == 键盘宽」（横屏即右列宽）
-
-    两个附属件的真实宽度来源（2026-11-07 逐条对 C 源码核对，别再笼统记成「都取父宽」）：
-      · 拼音候选栏 cand_panel —— 确实取父宽。lv_ime_pinyin.c:547-549 把它建在键盘下、宽高
-        写死 LV_PCT(100) / LV_PCT(8)；随后 lv_ime_pinyin_set_keyboard() 第 436 行把它改挂到
-        **键盘的父对象**上（与键盘平级）。LV_PCT 是样式里的百分比标记、不是定死的像素，
-        每次 lv_obj_refr_size 都按「当时的父对象内容宽」重新解析（lv_obj_pos.c:95-106），
-        所以最终宽度 = 父对象内容宽。父宽一旦不等于键盘宽，候选栏就比键盘宽，又按
-        OUT_TOP_MID 贴键盘居中（lv_ime_pinyin.c:438），左右同时溢出。
-      · 输入预览框 preview_ta / container —— 与父宽无关。C 侧按**键盘自身宽度**设
-        （luat_airui_keyboard.c:384-390 的 lv_obj_get_width(keyboard)），再 OUT_TOP_MID 贴
-        键盘顶（同文件 398 行）。键盘挪去哪它跟去哪，本身不用管。
-    直接挂本页根容器时，候选栏会按整屏宽铺开：横屏键盘只占右列，候选栏居中贴键盘后
-    左半截压到视频带上、右半截越出屏幕，正是要避开硬件视频层却反而撞上去。
-
-    宿主高度必须把「键盘 + 输入预览条 + 拼音候选栏」整段圈进去：LVGL 默认把子对象裁到父
-    对象边界（lv_refr.c:140-148，未开 LV_OBJ_FLAG_OVERFLOW_VISIBLE 时子对象一律裁到父矩形），
-    而候选栏画在键盘上方、超出宿主矩形就会被整条裁没。候选栏高 = 宿主高的 8%
-    （lv_ime_pinyin.c:549 写死 LV_PCT(8)），输入预览条高取 C 侧默认 preview_height=40，故按
-    (kh + 40) / 0.88 反解，留 12% 余量兜住取整。
-
-    键盘 x 不是绝对坐标：lv_keyboard 构造里 lv_obj_align(obj, LV_ALIGN_BOTTOM_MID)
-    （lv_keyboard.c:451），此后 x / y 都是相对「父内容区底部居中」的偏移
-    （lv_obj_pos.c:685-688：x += pw/2 - w/2、y += ph - h）。宿主宽恰好等于键盘宽时
-    x = 0 正好落在宿主左缘，也就是右列左缘。
-
-    风险（已知，Lua 侧没法根除，只能收窄影响面）：宿主是 lv_obj，构造时自带
-    LV_OBJ_FLAG_CLICKABLE + SCROLLABLE（lv_obj.c:573-578），而 airui.container 不暴露改标志
-    的接口（theme.box 传 scrollable / clip_corner 也不生效），所以宿主矩形内的触摸会被它
-    吞掉、落不到下面的右列控件上。两处收窄：① 矩形只取键盘带、不铺满右列；② 与键盘同生
-    共死，destroy_context_ui 一起销毁，密码弹窗一关就不再挡。]]
-    local host_h = math.ceil((kh + 40) / 0.88)          -- 40 = C 侧 preview_height 默认值
-    context_keyboard_host = theme.box(main_container, {
-        x = kx, y = screen_h - host_h, w = kw, h = host_h,
-    })
-
     return theme.keyboard({
-        parent = context_keyboard_host,
+        --[[键盘统一规范（与 wifi 密码键盘一致）：
+            parent 必须是「宽 = 内容区宽」的本页根容器 —— 拼音候选栏与输入预览框
+            都由 C 侧建在键盘的父对象上、宽度取父宽的 100%（整屏宽就会左右超出键盘）；
+            挂在屏幕根上还会变成「整屏底部居中」，与内容区错开且不随页面销毁。
+            y 固定 0（相对父容器底部居中），高度统一 dp(200)，全部带 preview 输入预览条。]]
+        parent = main_container,
         x = 0, y = 0,
-        w = kw, h = kh,
+        w = screen_w, h = math.floor(200 * density_scale_val),
         mode = "text", auto_hide = true, preview = true,
         on_commit = function(self) self:hide() end,
     })
@@ -868,28 +793,11 @@ local function show_password_verify_popup(title_str, on_confirm, on_cancel)
     local gap = math.floor(12 * d)
     local win_h = header_h + pad_in * 2 + label_h + gap + input_h + gap + btn_h
 
-    --[[视频区启用时挪出视频范围（居中弹窗会跟越出画面区的视频抢位置，谁后建谁在上）。
-        airui.win 的 auto_center 会覆盖 x/y，给了坐标就必须把它关掉。]]
-    local pos = place_dialog(win_w, win_h)
-    if pos then
-        -- 可用高度比原计划矮时等比压缩内边距与控件高，别让按钮被裁出窗口
-        if pos.h < win_h then
-            local s = (pos.h - header_h) / (win_h - header_h)
-            pad_in  = math.max(math.floor(pad_in * s), 6)
-            label_h = math.max(math.floor(label_h * s), 15)
-            gap     = math.max(math.floor(gap * s), 4)
-            input_h = math.max(math.floor(input_h * s), 28)
-            btn_h   = math.max(math.floor(btn_h * s), 28)
-        end
-        win_w, win_h = pos.w, pos.h
-    end
-
     context_keyboard = make_dark_keyboard()
 
     local win = airui.win({
         parent = airui.screen, title = title_str,
-        w = win_w, h = win_h, close_btn = false, auto_center = (pos == nil),
-        x = pos and pos.x, y = pos and pos.y,
+        w = win_w, h = win_h, close_btn = false, auto_center = true,
         style = dialog_style(),
         on_close = function()
             destroy_context_ui()
@@ -932,28 +840,11 @@ local function show_password_set_popup(on_confirm, on_cancel)
     local gap = math.floor(10 * d)
     local win_h = header_h + pad_in * 2 + label_h + gap + input_h + gap + btn_h
 
-    --[[视频区启用时挪出视频范围（居中弹窗会跟越出画面区的视频抢位置，谁后建谁在上）。
-        airui.win 的 auto_center 会覆盖 x/y，给了坐标就必须把它关掉。]]
-    local pos = place_dialog(win_w, win_h)
-    if pos then
-        -- 可用高度比原计划矮时等比压缩内边距与控件高，别让按钮被裁出窗口
-        if pos.h < win_h then
-            local s = (pos.h - header_h) / (win_h - header_h)
-            pad_in  = math.max(math.floor(pad_in * s), 6)
-            label_h = math.max(math.floor(label_h * s), 15)
-            gap     = math.max(math.floor(gap * s), 4)
-            input_h = math.max(math.floor(input_h * s), 28)
-            btn_h   = math.max(math.floor(btn_h * s), 28)
-        end
-        win_w, win_h = pos.w, pos.h
-    end
-
     context_keyboard = make_dark_keyboard()
 
     local win = airui.win({
         parent = airui.screen, title = "设置自启密码",
-        w = win_w, h = win_h, close_btn = false, auto_center = (pos == nil),
-        x = pos and pos.x, y = pos and pos.y,
+        w = win_w, h = win_h, close_btn = false, auto_center = true,
         style = dialog_style(),
         on_close = function()
             destroy_context_ui()
@@ -992,14 +883,9 @@ local function handle_set_auto_start(app)
             sys.publish("AUTOSTART_SET_TARGET_AND_ENABLE", app.path, pwd)
         end)
     else
-        local dw = math.min(math.floor(screen_w * 0.80), 420)
-        local dh = math.floor(screen_h * 0.28)
-        local pos = place_dialog(dw, dh)      -- 视频区启用时挪出视频范围
         action_confirm_box = airui.msgbox({
-            w = pos and pos.w or dw,
-            h = pos and pos.h or dh,
-            x = pos and pos.x,
-            y = pos and pos.y,
+            w = math.min(math.floor(screen_w * 0.80), 420),
+            h = math.floor(screen_h * 0.28),
             style = { text_font_size = math.max(16, math.floor(16 * density_scale_val)) },
             title = "设为自启应用",
             text = "确认将 " .. (app.name or "未知") .. " 设为开机自启吗？\n\n无密码保护的应用可被任意取消自启。",
@@ -1045,7 +931,6 @@ show_app_context_menu = function(app)
     local icon_size = math.floor(44 * d)
     local gap = math.floor(10 * d)
     local cancel_h = math.floor(40 * d)
-    local auto_h = math.floor(20 * d)     -- 「已设为开机自启」那行提示的高度
 
     local items = {}
     if is_auto then
@@ -1056,36 +941,13 @@ show_app_context_menu = function(app)
                   { text = "卸载应用",   color = theme.C.rose,  action = "uninstall" } }
     end
 
-    local auto_label_h = is_auto and (auto_h + gap) or 0
+    local auto_label_h = is_auto and (math.floor(20 * d) + gap) or 0
     local win_h = header_h + pad_in * 2 + icon_size + gap + auto_label_h
         + #items * (item_h + item_gap) + gap + cancel_h
 
-    --[[视频区启用时挪出视频范围（居中弹窗会跟越出画面区的视频抢位置，谁后建谁在上）；
-        airui.win 的 auto_center 会覆盖 x/y，给了坐标就必须把它关掉。]]
-    local pos = place_dialog(win_w, win_h)
-    if pos then
-        --[[可用高度比原计划矮（竖屏视频带以下就那么点高）时等比压缩内边距与条目高，
-            压完再按实算一遍高度 —— 宁可挤一点也不让「取消」按钮被裁出窗口。]]
-        if pos.h < win_h then
-            local s = (pos.h - header_h) / (win_h - header_h)
-            pad_in    = math.max(math.floor(pad_in * s), 6)
-            item_h    = math.max(math.floor(item_h * s), 26)
-            item_gap  = math.max(math.floor(item_gap * s), 3)
-            icon_size = math.max(math.floor(icon_size * s), 24)
-            gap       = math.max(math.floor(gap * s), 4)
-            cancel_h  = math.max(math.floor(cancel_h * s), 26)
-            auto_h    = math.max(math.floor(auto_h * s), 14)
-            auto_label_h = is_auto and (auto_h + gap) or 0
-            win_h = math.min(pos.h, header_h + pad_in * 2 + icon_size + gap + auto_label_h
-                + #items * (item_h + item_gap) + gap + cancel_h)
-        end
-        win_w = pos.w
-    end
-
     local win = airui.win({
         parent = airui.screen, title = app.name or "未知",
-        w = win_w, h = win_h, close_btn = true, auto_center = (pos == nil),
-        x = pos and pos.x, y = pos and pos.y,
+        w = win_w, h = win_h, close_btn = true, auto_center = true,
         style = dialog_style(),
         on_close = function() context_menu_win = nil end,
     })
@@ -1099,6 +961,7 @@ show_app_context_menu = function(app)
     if is_auto then
         -- 原文本 "● 已设为开机自启" 里的 "●"(U+25CF) 内置字库不含该字形，去掉该字符；
         -- 状态语义改由琥珀色承担（弹窗内居中的单行提示，加圆点会导致定位依赖文字实测宽度）
+        local auto_h = math.floor(20 * d)
         theme.label(win, { x = pad_in, y = y, w = win_w - 2 * pad_in, h = auto_h,
             text = "已设为开机自启", size = theme.F.body, color = theme.C.amber,
             align = airui.TEXT_ALIGN_CENTER })
@@ -1171,14 +1034,9 @@ local function check_duplicates()
         end
         lines[#lines + 1] = ""
         lines[#lines + 1] = "未保留的副本将被自动删除。"
-        local dw = math.min(math.floor(screen_w * 0.85), 480)
-        local dh = math.floor(screen_h * 0.40)
-        local pos = place_dialog(dw, dh)      -- 视频区启用时挪出视频范围
         local box = airui.msgbox({
-            w = pos and pos.w or dw,
-            h = pos and pos.h or dh,
-            x = pos and pos.x,
-            y = pos and pos.y,
+            w = math.min(math.floor(screen_w * 0.85), 480),
+            h = math.floor(screen_h * 0.40),
             style = { text_font_size = math.max(16, math.floor(16 * density_scale_val)) },
             title = "重复应用",
             text = "应用：" .. cn_name .. "\n\n" .. table.concat(lines, "\n"),
@@ -1229,14 +1087,9 @@ end
 -- ==================== FOTA 升级弹窗 ====================
 
 local function fota_msgbox(title, text, buttons, on_ok_label, ok_event)
-    local dw = math.min(math.floor(screen_w * 0.80), 420)
-    local dh = math.floor(screen_h * 0.25)
-    local pos = place_dialog(dw, dh)      -- 视频区启用时挪出视频范围
     local box = airui.msgbox({
-        w = pos and pos.w or dw,
-        h = pos and pos.h or dh,
-        x = pos and pos.x,
-        y = pos and pos.y,
+        w = math.min(math.floor(screen_w * 0.80), 420),
+        h = math.floor(screen_h * 0.25),
         style = { text_font_size = math.max(16, math.min(20, math.floor(screen_h * 0.026))) },
         title = title, text = text, buttons = buttons,
         on_action = function(self, btn_label)
@@ -2009,6 +1862,7 @@ end
 
 -- 视频控制：停止并释放视频组件
 function VP.stop()
+    video_util.audio_stop()
     if VP.obj then
         pcall(function() VP.obj:stop() end)
         pcall(function() VP.obj:destroy() end)
@@ -2018,13 +1872,14 @@ end
 
 --[[媒体素材工具已下沉到 ui/video_util.lua
 
-这份口径（容器魔数嗅探 / 帧尺寸读取 / 播放器创建）桌面播放器与全屏播放页都要用，
+这份口径（容器魔数嗅探 / 帧尺寸读取 / HZV 音轨初始化）桌面播放器与全屏播放页都要用，
 而 airui 播放器**不支持缩放** —— 帧尺寸读错不会「拉伸画面」，只会让控件溢出容器、
 把画面裁掉一块。同一份口径只能有一处实现，否则两个页面的裁切行为会不一致。
-]]
+
+配套音频（同名 MP3）也跟着下沉了：播放状态跨页面共用一份，避免两边同时出声。]]
 
 --- 读素材帧尺寸；读不到时按布局形态回退
---- 竖屏播放器布局用桌面素材 fruit.hzv 的原生尺寸（480×320），横屏沿用旧默认（480×270）。
+--- 竖屏播放器布局用 luatos_boot.hzv 的原生尺寸（480×320），横屏沿用旧默认（480×270）。
 --- 回退值必须与布局基准一致：给错不会「拉伸画面」，只会让控件溢出卡片、把画面切掉一块。
 local function media_frame_size(path)
     return video_util.frame_size(path, 480, VP.portrait and VP.BASE_H or 270)
@@ -2036,7 +1891,7 @@ end
 越出画面区，由舞台层（VP.stage）裁掉一圈。裁着播是原有行为、不算坏，
 但看不全，所以用户主动选文件时提一次「建议全屏播放」（VP.ask_fullscreen）。
 
-FIT_SLOP 是布局取整余量：1024×600 横屏的画面区实算 479×528，而桌面素材 fruit.hzv 就是
+FIT_SLOP 是布局取整余量：1024×600 横屏的画面区实算 479×528，而 MP4 的标准素材就是
 480×320 —— 1~2px 的差距肉眼看不出来，不该提示「放不下」。]]
 VP.FIT_SLOP = 8
 function VP.fits(vw, vh)
@@ -2113,9 +1968,9 @@ function VP.alert(title, text)
     end)
 end
 
---[[在舞台层里创建视频对象（统一走 airui.video 的 videoplayer 后端）
+--[[在舞台层里创建视频对象（HZV/MJPG/MP4 统一走 airui.video）
 
-唯一的创建点是 VP.play_window：创建统一走 video_util.create_player，
+唯一的创建点是 VP.play_window：格式差异统一走 video_util.create_player，
 本函数只负责把素材帧尺寸折算成画面矩形。挂 VP 表而不是文件级 local：
 本文件顶层局部变量名额已顶到上限（见 VP 定义处注释）。
 
@@ -2150,7 +2005,7 @@ end
 
 两件事，顺序不能换：
   1) 拦：超过该格式分辨率上限的素材**真解不出来**，任何路径都不起播
-     （video_util.check_frame，HZV 1024×600）；
+     （video_util.check_frame，MP4 480×320、HZV/MJPG 1024×600）；
   2) 提：放不下画面区的素材照样播（裁着看），但用户主动选文件时提一次
      「建议全屏播放」（VP.ask_fullscreen）。
 
@@ -2188,7 +2043,7 @@ function VP.start_play(file_path, ask)
 end
 
 ---真正起播：在桌面画面区里播，素材居中摆放、超出部分由舞台层裁掉
----这里只做「停旧 + 排队」，真正建播放器在 VP.create_now：停掉的那一路播放器
+---这里只做「停旧 + 排队」，真正建播放器在 VP.create_now：停掉的那一路 mplayer
 ---音频会话要 400~530ms 才释放完，建新会话必须让过这段窗口（收口在 video_util）
 function VP.play_window(file_path)
     VP.stop()
@@ -2214,7 +2069,7 @@ function VP.create_now(file_path)
 
     -- 循环交回组件（loop 参数）。旧版是「每 3 秒 stop+play」手动重播，
     -- 会把正在解码的视频硬重启，画面就停在半路 —— 用户报的「播放卡住」。
-    -- 几何折算见 VP.create_video
+    -- 几何折算与格式分派见 VP.create_video
     VP.obj = VP.create_video(file_path, VP.stage or video_card)
 
     VP.is_playing = (VP.obj ~= nil)
@@ -2227,7 +2082,12 @@ function VP.create_now(file_path)
     sync_ctrl()
     VP.show_ctrl()
 
-    -- 音轨在 HZV 容器内，由 videoplayer 自己送出（见 video_util），这里不再管声音。
+    -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、
+    -- MP4 声音走 mplayer 自带音频通路；find_companion_mp3 只认 .mjpg 后缀。
+    local mp3 = video_util.find_companion_mp3(file_path)
+    if mp3 then
+        video_util.audio_play(mp3, function() return VP.is_loop and VP.is_playing end)
+    end
 
     log.info("idle_win", "video play", file_path, "ok=", VP.obj ~= nil, "loop=", VP.is_loop)
 end
@@ -2239,10 +2099,12 @@ function VP.toggle_play()
         pcall(function() VP.obj:pause() end)
         VP.is_playing = false
         sync_ctrl()
+        video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
     else
         pcall(function() VP.obj:play() end)
         VP.is_playing = true
         sync_ctrl()
+        video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
         VP.show_ctrl()
     end
 end
@@ -2255,7 +2117,7 @@ function VP.restart()
 end
 
 -- 视频控制：切换循环
--- loop 只在创建组件时生效（HZV 也一样），所以切完标志位重建一次组件
+-- loop 只在创建组件时生效（HZV/MJPG/MP4 一视同仁），所以切完标志位重建一次组件
 function VP.toggle_loop()
     VP.is_loop = not VP.is_loop
     -- 文案（循环/单次）与底色（琥珀/中性）一起刷
@@ -2329,9 +2191,9 @@ local function build_video_area(parent)
 
     -- 资源落点随烧录方式而变（/luadb/ 或根目录），先挑实际存在的那个
     if not io.exists(VP.current_file) then
-        -- 资源可能落在 /luadb/（luadb 打包）或根目录（SD 卡 / 直拷），两个落点都试
+        -- .hzv 优先（真机硬解）；素材还没换成 hzv 时回落同名 .mjpg，避免视频卡片空掉
         for _, p in ipairs({
-            "/luadb/fruit.hzv", "/fruit.hzv",
+            "/luadb/luatos_boot.hzv", "/luatos_boot.hzv",
         }) do
             if io.exists(p) then
                 VP.current_file = p
@@ -2365,11 +2227,11 @@ local function build_video_area(parent)
     --[[画面高度：两种布局都是「卡片高 - 控制栏高」，控制栏独占卡片底部一行、不压画面。
     竖屏下卡片 = 画面原生 320 + 控制栏，画面正好占满上半部分、控制栏紧贴其下。
 
-    控制栏绝不能叠在画面上，原因（2026-11-07 按源码订正）：
-      · 视频确实是 lv_image（luat_airui_video.c 里 lv_image_set_src），走正常 LVGL 渲染，
-        层级与父层裁剪都生效，被盖住是两条层叠规则叠加：
-        ① LVGL 同一父对象内**后创建的子对象画在上面**；
-        ② 视频不支持缩放，大素材会被强行撑回原生尺寸、越出画面区。
+    控制栏绝不能叠在画面上 —— 但原因不是「视频是独立图层」：airui 视频其实是
+    lv_image（luat_airui_video.c 里 lv_image_set_src），走正常 LVGL 渲染，
+    层级与父层裁剪都生效。真正常在的两条层叠规则是：
+      · LVGL 同一父对象内**后创建的子对象画在上面**；
+      · 视频不支持缩放，大素材会被强行撑回原生尺寸、越出画面区。
     两条一叠加，只要「重建视频」发生在控制栏之后，控制栏就会被盖住 ——
     这正是用户报的「全屏播放大尺寸 hzv、返回桌面后播放按钮被盖住」。
     结构性防止见下面 stage 的注释。]]
@@ -2517,6 +2379,7 @@ local function on_destroy()
         pcall(function() VP.obj:destroy() end)
         VP.obj = nil
     end
+    video_util.audio_stop()
     -- 定时器可能晚于 on_destroy 触发，队列里的建播放器动作必须先丢掉
     video_util.cancel_pending()
     sys.unsubscribe("STATUS_TIME_UPDATED", update_time_date)
@@ -2652,6 +2515,7 @@ local function on_lose_focus()
         pcall(function() VP.obj:destroy() end)
         VP.obj = nil
     end
+    video_util.audio_stop()
     -- 失焦后桌面不在前台，队列里排着的建播放器动作直接丢掉；
     -- 释放窗口本身保留（这次销毁照样要等它释放完，回桌面时才不会抢）
     video_util.cancel_pending()

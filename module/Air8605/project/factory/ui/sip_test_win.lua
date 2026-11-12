@@ -1,21 +1,26 @@
+local memdiag = require "sip_mem_diag"
+local handoff = require "factory_handoff"
 --[[
 @module  sip_test_win
-@summary 功能测试-SIP通话 窗口：完全移植自 SIP_APP 的 1024x600 侧栏话机界面
+@summary 功能测试-SIP通话：factory 主题、底部导航和可选音频自检
 @version 3.0
 @date    2026.11.04
 @description
 五个页面：联系人 / 通话记录 / 聊天 / 我的 / 音频自检；通话时全屏通话覆盖层。
-布局、文案、交互与参考工程 ui/app_main.lua 一致；通过等比缩放层适配工厂窗口尺寸。
+复用 factory 主题与内容区；自检可跳过，四项导航固定在底部。
 ]]
 
 local exwin = require "exwin"
 local base_kit = require "ui_kit"
+local theme = require "ui_theme"
 -- 通话/账号/消息内核整套使用同事原版 SIP_APP（sip_phone/*），UI 仍走本文件缩放层
 local raw_app = require "sph_sip_app"
 local net = require "sph_net_app"
 local store = require "sph_store"
 local audio = require "sph_audio_app"
+handoff.bind_sip(raw_app, audio)
 local diag = require "sph_audio_diag"
+local perf = require "audio_perf"
 
 -- ==================== app 适配层：同事 SIP_APP -> 参考话机 UI 语义 ====================
 -- 同事内核状态: idle/connecting/ready/dialing/incoming/answering/talking/ending
@@ -25,15 +30,16 @@ local function norm_state(raw)
     if raw == "ready" then return "registered" end
     return raw
 end
-function app.status()
-    local s = raw_app.status()
+function app.status(snapshot)
+    local s = snapshot or raw_app.status(true)
     local st = norm_state(s.state)
     return {
         state = st,
-        registered = s.registered == true and st == "registered",
+        registered = s.registered == true,
+        registration_state = s.registration_state, registration_error = s.registration_error,
         peer = s.peer, number = s.peer,
         direction = s.direction, duration = s.duration, muted = s.muted == true,
-        user = s.user, unread = store.unread_total(),
+        user = s.user,
         text = s.detail or s.text or "",
         user_text = s.registered and ("账号 " .. tostring(s.user or "")) or (s.detail or ""),
         connected_at = s.duration and (os.time() - s.duration) or nil,
@@ -57,38 +63,48 @@ local function SX(v) return math.floor((v or 0) * sxk + 0.5) end
 local function SY(v) return math.floor((v or 0) * syk + 0.5) end
 local function SF(v) return math.max(10, math.floor((v or 18) * math.min(sxk, syk) + 0.5)) end
 
+local window_callback
 local kit = {}
-kit.C = base_kit.C
+-- 旧页面颜色语义映射到 factory 当前主题，不改共享 ui_kit。
+local color_keys = {
+    brand="amber", brand2="amber_light", brand_deep="amber_deep",
+    brand_soft="selected", brand_line="stroke_hi", bg="bg", bg_warm="bg",
+    card="panel", card_soft="input_bg", text="t1", text2="t2", text3="t3",
+    white="panel", white_dark="t2", line="stroke", line_soft="stroke_soft",
+    green="green", green_deep="green_deep", red="rose", red_deep="rose_deep",
+    blue="cyan", dark1="bg_top", dark2="bg", dark3="bg",
+}
+kit.C = setmetatable({}, {__index=function(_, key) return theme.C[color_keys[key] or key] end})
 
 function kit.box(parent, o)
     o = o or {}
-    return base_kit.box(parent, {
+    return theme.box(parent, {
         x = SX(o.x), y = SY(o.y), w = SX(o.w), h = SY(o.h),
-        color = o.color, opacity = o.opacity, radius = SX(o.radius),
-        border = o.border, border_color = o.border_color, border_width = o.border_width,
-        on_click = o.on_click, on_long_press = o.on_long_press,
-        scroll = o.scroll, clip = o.clip,
+        color = o.color, opa = o.opacity, radius = o.radius or 0,
+        border = o.border and (o.border_color or theme.C.stroke) or nil, border_w = o.border_width,
+        on_click = window_callback(o.on_click), on_long_press = window_callback(o.on_long_press),
+        scrollable = o.scroll, clip_corner = o.clip ~= false,
     })
 end
 function kit.label(parent, o)
     o = o or {}
-    return base_kit.label(parent, {
+    return theme.label(parent, {
         x = SX(o.x), y = SY(o.y), w = SX(o.w), h = SY(o.h),
-        text = o.text, size = SF(o.size), color = o.color,
-        align = o.align, on_click = o.on_click,
+        text = o.text, px_size = SF(o.size), color = o.color,
+        align = o.align, on_click = window_callback(o.on_click),
     })
 end
 function kit.card(parent, o)
     o = o or {}
-    o.color = o.color or base_kit.C.card
-    o.radius = o.radius or 18
-    if o.border == nil then o.border = true end
-    o.border_color = o.border_color or base_kit.C.line_soft
-    return kit.box(parent, o)
+    return theme.card(parent, {
+        x=SX(o.x), y=SY(o.y), w=SX(o.w), h=SY(o.h),
+        color=o.color, opa=o.color and 255 or nil, radius=o.radius or theme.R.lg,
+        scrollable=o.scroll, clip_corner=true, on_click=window_callback(o.on_click), on_long_press=window_callback(o.on_long_press),
+    })
 end
 function kit.btn(parent, o)
     o = o or {}
-    local C = base_kit.C
+    local C = kit.C
     local kind = o.kind or "primary"
     local bg, fg, bcol, bw, pressed
     if kind == "primary" then bg, fg, pressed = C.brand, C.white, C.brand_deep
@@ -98,35 +114,29 @@ function kit.btn(parent, o)
     elseif kind == "soft" then bg, fg, pressed = C.brand_soft, C.brand, C.brand_line
     elseif kind == "plain" then bg, fg, pressed = C.card_soft, C.text2, C.brand_soft
     else bg, fg, pressed = C.bg_warm, C.text, C.brand_soft end
-    return airui.button({
-        parent = parent,
-        x = SX(o.x), y = SY(o.y), w = SX(o.w), h = SY(o.h),
-        text = o.text or "", font_size = SF(o.size),
-        style = {
-            bg_color = bg, bg_opa = 255, text_color = fg,
-            border_color = bcol or bg, border_width = bw or 0,
-            radius = SX(o.radius or 14), pad = o.pad or 2,
-            pressed_bg_color = pressed,
-            pressed_text_color = (kind == "ghost") and C.brand or fg,
-        },
-        on_click = o.on_click,
+    if kind == "primary" or kind == "green" or kind == "red" then fg = theme.ink(bg) end
+    return theme.button(parent, {
+        x=SX(o.x), y=SY(o.y), w=SX(o.w), h=SY(o.h), text=o.text or "",
+        size=SF(o.size)/(theme.dp(100)/100), bg=bg, fg=fg,
+        border=bcol or bg, border_w=bw or 0, radius=o.radius or theme.R.md,
+        pressed=pressed, on_click=window_callback(o.on_click),
     })
 end
 function kit.avatar(parent, o)
     o = o or {}
     -- 坐标/直径均按参考基准缩放；通话层传的是实际像素（sxk=1 时一致）
-    local d = SX(o.size or 56)
-    local fs = SF(o.font_size or base_kit.FS.h3)
-    local box = kit.box(parent, { x = o.x, y = o.y, w = d, h = d, color = o.color or base_kit.C.brand, radius = math.floor(d / 2) })
+    local d = o.size or 56
+    local fs = o.font_size or base_kit.FS.h3
+    local box = kit.box(parent, { x = o.x, y = o.y, w = d, h = d, color = o.color or kit.C.brand, radius = math.floor(d / 2) })
     if not box then return nil end
     kit.label(box, { x = 0, y = math.floor((d - fs) / 2) - 2, w = d, h = fs + 4,
-        text = o.text, size = o.font_size or base_kit.FS.h3, color = base_kit.C.white, align = airui.TEXT_ALIGN_CENTER })
+        text = o.text, size = o.font_size or base_kit.FS.h3, color = theme.ink(o.color or kit.C.brand), align = airui.TEXT_ALIGN_CENTER })
     return box
 end
 function kit.input(parent, o)
     o = o or {}
-    local wrap = kit.box(parent, { x = o.x, y = o.y, w = o.w, h = o.h, color = base_kit.C.white, radius = o.radius or 12,
-        border = true, border_color = o.border_color or base_kit.C.brand_line })
+    local wrap = kit.box(parent, { x = o.x, y = o.y, w = o.w, h = o.h, color = kit.C.white, radius = o.radius or 12,
+        border = true, border_color = o.border_color or kit.C.brand_line })
     if not wrap then return nil end
     local th = SY(o.h) or SF(46)
     local ta = airui.textarea({
@@ -136,8 +146,8 @@ function kit.input(parent, o)
         text = o.text or "", placeholder = o.placeholder or "",
         max_len = o.max_len or 64, mode = o.password and "password" or "normal",
         font_size = SF(o.size or 18), align = airui.TEXT_ALIGN_LEFT,
-        on_text_change = o.on_change,
-        style = { bg_color = base_kit.C.white, text_color = base_kit.C.text, radius = 0 },
+        on_text_change = window_callback(o.on_change),
+        style = { bg_color = kit.C.white, text_color = kit.C.text, radius = 0 },
     })
     return ta
 end
@@ -151,19 +161,67 @@ function kit.first_char(s) return base_kit.first_char(s) end
 local C = kit.C
 local M = {}
 
-local root, host, clock_label, page_title
+local root, host, shell, clock_label, page_title, status_dot, status_color
 local page, selected_peer, panel, keyboard, call_layer, call_timer
+local call_name, call_clock, call_left, call_right, call_peer
+local clock_timer, window_id
+local call_left_disabled, call_right_disabled
+local status_cache = {}
 local call_layer_state, call_sub   -- 通话层当前状态与副标题标签，用于同状态只改文字不重建
 local toast_box, toast_timer, started
 local page_scroll, diag_label, profile_status, diag_timer
+local lifecycle = 0
+local closing = false
+local timers, subscriptions = {}, {}
+local return_timer
+local function alive(session)
+    return session == lifecycle and not closing and root ~= nil
+end
+window_callback = function(fn)
+    if not fn then return nil end
+    local session = lifecycle
+    return function(...)
+        if alive(session) then return fn(...) end
+    end
+end
+local function window_timer(fn, delay, repeating)
+    local owned = timers
+    local id
+    local callback = window_callback(fn)
+    local function tick(...)
+        if not repeating then owned[id] = nil end
+        return callback(...)
+    end
+    id = (repeating and sys.timerLoopStart or sys.timerStart)(tick, delay)
+    if id then owned[id] = true end
+    return id
+end
+local function stop_window_timer(id)
+    if not id then return end
+    sys.timerStop(id)
+    timers[id] = nil
+end
+local function subscribe(event, fn)
+    local callback = window_callback(fn)
+    subscriptions[event] = callback
+    sys.subscribe(event, callback)
+end
+local function cleanup(name, fn, ...)
+    local ok, err = pcall(fn, ...)
+    if not ok then log.warn("sip_ui", "cleanup failed", name, tostring(err)) end
+    return ok
+end
 local dial_number = ""
 local drafts = {}
-local nav_page
 local text_cache = setmetatable({}, { __mode = "k" })
 local RECORDS_VISIBLE = 10
-local W, H, LEFT, TOP = RW, RH, 176, 64
-local PW, PH = W - LEFT - 24, H - TOP - 24
+local W, H, LEFT, TOP = RW, RH, 20, 84
+local NAV_H = 64
+local PW, PH = RW - 40, RH - TOP - NAV_H - 16
 local render, render_call, refresh_status
+local page_contacts, page_records, page_chats, page_profile, page_diag
+local build_shell, show_call_layer, input_keyboard, edit, confirm, contact_editor
+local top_status, suspended
 -- 归一化后的通话态集合
 local call_states = { incoming = true, dialing = true, talking = true, answering = true, ending = true }
 local function busy() return call_states[app.status().state] == true end
@@ -195,15 +253,18 @@ local function change_volume(value)
 end
 
 function M.toast(text, is_error)
-    if not root then return end
-    if toast_timer then sys.timerStop(toast_timer) end
+    if not root or closing then return end
+    local measured = perf.begin("ui")
+    if toast_timer then stop_window_timer(toast_timer) end
     kit.destroy(toast_box)
     toast_box = kit.box(root, { x = 210, y = 12, w = 600, h = 42, color = is_error and C.red or C.dark1, radius = 14 })
-    label(toast_box, 14, 7, 572, tostring(text), 18, C.white)
-    toast_timer = sys.timerStart(function() kit.destroy(toast_box); toast_box = nil; toast_timer = nil end, 3000)
+    label(toast_box, 14, 7, 572, tostring(text), 18, is_error and theme.ink(C.red) or C.text)
+    toast_timer = window_timer(function() kit.destroy(toast_box); toast_box = nil; toast_timer = nil end, 3000)
+    perf.finish("ui", measured)
 end
 
 local function close_panel()
+    suspended = false
     if keyboard then kit.destroy(keyboard); keyboard = nil end
     kit.destroy(panel); panel = nil
 end
@@ -247,8 +308,8 @@ input_keyboard = function(parent, target, options, commit)
         if ascii then ascii:hide() end
         if value == "pinyin_26" and options.chinese then
             if not native then
-                native = assert(airui.keyboard({ parent = parent, x = SX(0), y = SY(376), w = SX(RW), h = SY(224), mode = "pinyin_26",
-                    auto_hide = false, preview = false, font_size = SF(20), bg_color = C.white, on_commit = commit }), "AirUI keyboard unavailable")
+                native = assert(theme.keyboard({ parent = parent, x = 0, y = 0, w = SX(RW), h = SY(224), mode = "pinyin_26",
+                    auto_hide = false, preview = false, font_size = SF(20), bg_color = C.white, on_commit = window_callback(commit) }), "AirUI keyboard unavailable")
                 target:attach_keyboard(native); native:set_target(target)
             end
             native:set_layout("pinyin_26"); native:show()
@@ -316,6 +377,7 @@ contact_editor = function(contact)
             M.toast("联系人已保存")
         end, { chinese = true, max_len = 48 })
     end
+    if contact.is_default then ask_name(); return end
     if original then
         close_panel()
         panel = kit.box(root, { x = 0, y = 0, w = RW, h = RH, color = 0x000000, opacity = 130 })
@@ -335,15 +397,16 @@ contact_editor = function(contact)
     edit("新增联系人：SIP 号码", current.num, function(num)
         if num == "" then M.toast("请输入号码", true); return false end
         current.num = num
-        sys.timerStart(ask_name, 10)
+        window_timer(ask_name, 10)
     end, { max_len = 64, hint = "填写 SIP 账号或分机号" })
 end
 
 local function empty(parent, text, width) label(parent, 22, 40, (width or PW) - 44, text, 22, C.text3, 70) end
-local function row(parent, y, title, subtitle, w)
+local function row(parent, y, title, subtitle, w, reserved)
+    local text_w = w - 36 - (reserved or 0)
     local r = kit.card(parent, { x = 0, y = y, w = w, h = 88, radius = 16 })
-    label(r, 16, 12, w - 36, kit.ellipsis(title, 23), 21)
-    label(r, 16, 48, w - 36, kit.ellipsis(subtitle, 38), 16, C.text3)
+    label(r, 16, 12, text_w, kit.ellipsis(title, 23), 21)
+    label(r, 16, 48, text_w, kit.ellipsis(subtitle, 38), 16, C.text3)
     return r
 end
 
@@ -353,54 +416,87 @@ page_contacts = function()
     button(host, list_w - 130, 0, 120, "新增", function() contact_editor() end, "ghost", 40)
     local list = kit.box(host, { x = 0, y = 54, w = list_w, h = PH - 54, scroll = true })
     local items = store.get_contacts()
+    if store.read_failed("contacts") then
+        label(list,0,0,list_w,"联系人读取失败",20)
+        button(list,0,48,120,"重试",function() render() end,"soft")
+        return
+    end
     if #items == 0 then empty(list, "还没有联系人\n右侧输入号码，或点击新增", list_w) end
     for i, c in ipairs(items) do
-        row(list, (i - 1) * 142, c.name ~= "" and c.name or c.num, c.num, list_w - 12)
+        row(list, (i - 1) * 142, (c.name ~= "" and c.name or c.num) .. (c.is_default and " · 默认" or ""), c.num, list_w - 12)
         button(list, 8, (i - 1) * 142 + 92, 100, "拨号", function() call(c.num) end, "green", 40)
         button(list, 118, (i - 1) * 142 + 92, 100, "编辑", function() contact_editor(c) end, "soft", 40)
-        button(list, 228, (i - 1) * 142 + 92, 100, "删除", function()
-            confirm("删除联系人 " .. store.display(c.num) .. "？", function() return success(store.del_contact(c.num)) end)
-        end, "plain", 40)
+        if not c.is_default then button(list, 228, (i - 1) * 142 + 92, 100, "删除", function()
+            confirm("删除联系人 " .. (c.name~="" and c.name or c.num) .. "？", function() return success(store.del_contact(c.num)) end)
+        end, "plain", 40) end
     end
     local pad = kit.card(host, { x = list_w + 12, y = 0, w = 318, h = PH, radius = 22 })
     label(pad, 18, 16, 282, "拨号盘", 22)
     local display = label(pad, 18, 54, 282, dial_number ~= "" and dial_number or "请输入号码", 28, C.brand, 44)
     local function update() set_text(display, dial_number ~= "" and dial_number or "请输入号码") end
+    -- 所有按键根据可用高度布局，拨号键始终在卡片内，不依赖滚动露出。
+    local key_top, key_gap = 102, 8
+    local dial_h, action_h, bottom = 48, 34, 12
+    local dial_y = PH - bottom - dial_h
+    local action_y = dial_y - key_gap - action_h
+    local key_h = math.floor((action_y - key_gap - key_top - 3 * key_gap) / 4)
     local keys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#" }
     for i, k in ipairs(keys) do
-        button(pad, 16 + ((i - 1) % 3) * 98, 112 + math.floor((i - 1) / 3) * 62, 90, k, function()
+        button(pad, 16 + ((i - 1) % 3) * 98, key_top + math.floor((i - 1) / 3) * (key_h + key_gap), 90, k, function()
             if #dial_number < 32 then dial_number = dial_number .. k; update() end
-        end, "soft", 54)
+        end, "soft", key_h)
     end
-    button(pad, 16, 364, 90, "删除", function() dial_number = dial_number:sub(1, -2); update() end, "plain", 40)
-    button(pad, 114, 364, 90, "清空", function() dial_number = ""; update() end, "plain", 40)
-    button(pad, 212, 364, 90, "保存", function() contact_editor({ num = dial_number }) end, "ghost", 40)
-    button(pad, 16, 420, 286, "拨号", function() call(dial_number) end, "green", 64)
+    button(pad, 16, action_y, 90, "删除", function() dial_number = dial_number:sub(1, -2); update() end, "plain", action_h)
+    button(pad, 114, action_y, 90, "清空", function() dial_number = ""; update() end, "plain", action_h)
+    button(pad, 212, action_y, 90, "保存", function() contact_editor({ num = dial_number }) end, "ghost", action_h)
+    button(pad, 16, dial_y, 286, "拨号", function() call(dial_number) end, "green", dial_h)
 end
 
+local record_number, record_page = nil, 1
 page_records = function()
-    label(host, 0, 0, 560, "通话记录 · 最近 10 条", 28)
-    button(host, PW - 140, 0, 140, "清空记录", function()
-        confirm("清空全部通话记录？", function() return success(store.clear_calls()) end)
-    end, "ghost", 40)
-    local list = kit.box(host, { x = 0, y = 56, w = PW, h = PH - 56, scroll = true })
-    local items = store.get_calls()
-    if #items == 0 then empty(list, "暂无通话记录") end
-    local titles = { missed = "未接来电", answered = "已接来电", received = "已接来电", dialed = "已拨电话", rejected = "已拒接", ended = "通话结束" }
-    for i = 1, math.min(#items, RECORDS_VISIBLE) do
-        local c = items[i]
-        local result = c.result or c.type
-        row(list, (i - 1) * 100, store.display(c.num),
-            (titles[result] or result) .. " · " .. store.fmt_time(c.ts) .. " · " .. store.fmt_dur(c.dur), PW - 12)
-        button(list, PW - 150, (i - 1) * 100 + 22, 120, "回拨", function() call(c.num) end, "green")
+    label(host,0,0,PW-330,"通话记录",28)
+    button(host,PW-300,0,148,"新增联系人",function() contact_editor() end,"soft",40)
+    button(host,PW-140,0,140,"清空记录",function()
+        confirm("清空全部通话记录？",function() return success(store.clear_calls()) end)
+    end,"ghost",40)
+    local items=store.get_calls()
+    if store.read_failed("calls") then
+        label(host,0,64,PW,"记录读取失败，原数据未清空",22)
+        button(host,0,110,160,"重试",function() render() end,"soft")
+        return
+    end
+    label(host,0,48,PW,"仅保留最近5条，后续接入服务器记录",20)
+    local list=kit.box(host,{x=0,y=92,w=PW,h=PH-100,scroll=true})
+    if #items==0 then empty(list,"暂无通话记录") end
+    for i=1,math.min(5,#items) do
+        local c=items[i];local y=(i-1)*100
+        local detail=(c.dir=="out" and "呼出" or "呼入").." / "..store.fmt_time(c.ts).." / "..store.fmt_dur(c.dur)
+        row(list,y,c.num or "",detail,PW-12,150)
+        button(list,PW-150,y+22,120,"回拨",function() call(c.num) end,"green")
     end
 end
 
 local function new_chat()
-    edit("新建聊天：SIP 账号", "", function(num)
-        if num == "" then M.toast("请输入对方账号", true); return false end
-        selected_peer = num; page = "chats"
-    end, { max_len = 64, hint = "对端和 SIP 服务器需支持 MESSAGE 文本消息" })
+    if busy() then return end
+    close_panel()
+    panel = kit.box(root, {x=0,y=0,w=RW,h=RH,color=theme.C.scrim,opacity=130})
+    local card = kit.card(panel, {x=152,y=48,w=720,h=504})
+    label(card, 24, 20, 672, "新建聊天 / 选择联系人", 26)
+    button(card, 24, 78, 220, "手动输入账号", function()
+        edit("新建聊天：SIP 账号", "", function(num)
+            if num == "" then M.toast("请输入对方账号", true); return false end
+            selected_peer = num; page = "chats"
+        end, {max_len=64,hint="对端和 SIP 服务器需支持 MESSAGE 文本消息"})
+    end, "soft", 44)
+    button(card, 548, 78, 148, "取消", close_panel, "plain", 44)
+    local list = kit.box(card, {x=24,y=140,w=672,h=340,scroll=true})
+    local contacts = store.get_contacts()
+    if #contacts == 0 then label(list, 12, 24, 648, "暂无联系人，可手动输入账号", 20, C.text2) end
+    for i,c in ipairs(contacts) do
+        local title = c.name ~= "" and (c.name .. " / " .. c.num) or c.num
+        if c.is_default then title = "默认 / " .. title end
+        button(list, 0, (i-1)*66, 656, title, function() M.open("chats",c.num) end, "plain", 56)
+    end
 end
 local msg_names = { pending = "发送中", sending = "发送中", sent = "服务端接受", accepted = "服务端接受", failed = "发送失败", unknown = "结果未知", recv = "收到" }
 local function compose()
@@ -470,7 +566,7 @@ page_chats = function()
     if y == 0 then label(messages, 16, 24, width - 40, "还没有消息", 20, C.text3) end
     button(host, x, PH - 58, 118, "拨号", function() call(peer) end, "green", 48)
     button(host, x + 132, PH - 58, width - 132, "写消息", compose, "primary", 48)
-    sys.timerStart(function()
+    window_timer(function()
         if started and page == "chats" and page_scroll == messages then
             pcall(function() messages:scroll(0, y + 100) end)
         end
@@ -481,8 +577,8 @@ page_profile = function()
     local a = store.get_acct()
     local s = app.status()
     label(host, 0, 0, 500, "我的", 28)
-    local left = kit.card(host, { x = 0, y = 54, w = 390, h = PH - 54 })
-    local online = s.state == "registered"
+    local left = kit.card(host, { x = 0, y = 54, w = 390, h = PH - 54, scroll = true })
+    local online = s.registered
     kit.avatar(left, { x = 22, y = 24, size = 74, text = kit.first_char(online and s.user or a.user), font_size = 28 })
     label(left, 112, 28, 256, online and kit.ellipsis(s.user, 14) or "未登录", 23, C.text, 34)
     label(left, 112, 64, 256, kit.ellipsis(a.server, 22), 16, C.text3)
@@ -498,7 +594,7 @@ page_profile = function()
     button(left, 196, 178, 158, "重新注册", function()
         store.save_acct(a); success(app.login(a))
     end, "ghost", 50)
-    label(left, 22, 246, 346, "账号配置", 21)
+    button(left, 22, 240, 332, "音频自检", function() M.open("diag") end, "soft", 36)
     local function info_item(y, name, value, on_edit, hint)
         local r = kit.box(left, { x = 22, y = y, w = 346, h = 60, color = C.card_soft, radius = 12,
             on_click = on_edit and function()
@@ -522,7 +618,7 @@ page_profile = function()
     info_item(352, "port", a.port, "端口为空时默认 5060", "端口")
     info_item(420, "user", a.user, "一般填写 SIP 账号", "用户名")
 
-    local right = kit.card(host, { x = 410, y = 54, w = PW - 410, h = PH - 54 })
+    local right = kit.card(host, { x = 410, y = 54, w = PW - 410, h = PH - 54, scroll = true })
     label(right, 22, 20, 300, "安全与网络", 21)
     local sec = kit.box(right, { x = 22, y = 58, w = PW - 454, h = 60, color = C.card_soft, radius = 12,
         on_click = function()
@@ -557,10 +653,8 @@ page_profile = function()
     button(right, PW - 466, 246, 70, "+", function() change_volume(math.min(100, store.get_vol() + 5)) end, "soft", 44)
 
     label(right, 22, 318, 300, "本地信息", 21)
-    local ccounts = store.counts()
     label(right, 22, 352, PW - 454,
-        string.format("联系人 %d · 通话记录 %d 条 · 会话 %d 个\n未读消息 %d 条\n数据保存在设备 fskv 分区，恢复出厂前请先记录账号",
-            ccounts.contacts, ccounts.calls, ccounts.threads, ccounts.unread), 17, C.text2, 92)
+        "本地仅保留最近5条通话记录和5条聊天消息。\n完整通话历史后续接入服务器。",17,C.text2,92)
     button(right, 22, 456, 150, "清空通话记录", function()
         confirm("清空全部通话记录？", function() return success(store.clear_calls()) end)
     end, "plain", 46)
@@ -571,11 +665,11 @@ page_profile = function()
         confirm("用设备默认 SIP 账号覆盖当前配置？", function() return success(store.reset_acct()) end)
     end, "soft", 46)
     button(right, 182, 516, 150, "清空联系人", function()
-        confirm("删除全部联系人？", function() return success(store.clear_contacts()) end)
+        confirm("删除手动联系人？默认联系人仍保留。", function() return success(store.clear_contacts()) end)
     end, "red", 46)
 end
 
--- 音频自检：完全照抄参考工程 ui/app_main.lua 的 diag_text + diagnostic。
+-- 音频自检为可选入口，数据检测与人工听音确认分开。
 local function diag_text(d)
     d = d or diag.status()
     local hardware = audio.diagnostics and audio.diagnostics() or {}
@@ -590,83 +684,99 @@ local function diag_text(d)
 end
 
 page_diag = function()
-    label(host, 0, 0, 760, "音频自检 · 先确认声音，再验证 SIP", 28)
-    label(host, 0, 45, 776, "UART6 / Air1103 → C237 → HT6873；R253 由 MUTE 控制功放", 17, C.text3)
-    local box = kit.card(host, { x = 0, y = 85, w = PW, h = 245 })
-    diag_label = label(box, 20, 15, PW - 40, diag_text(), 19, C.text, 220)
-    button(host, 0, 350, 236, "1. 播放测试音", function() local ok, err = diag.start("tone"); success(ok, err) end, "soft", 56)
-    button(host, 250, 350, 250, "2. 录音 3 秒并回放", function() local ok, err = diag.start("record"); success(ok, err) end, "soft", 56)
-    button(host, 514, 350, 282, "完整自检", function() local ok, err = diag.start("all"); success(ok, err) end, "primary", 56)
-    label(host, 0, 421, 796, "请确认：测试音清晰、录音回放能听清自己，测试期间触摸仍正常。", 18, C.text2)
-    button(host, 0, 460, 340, "我已听到两项清晰声音", function()
-        local ok, err = diag.confirm(true)
-        if success(ok, err) then M.toast("音频已人工确认"); M.open(store.has_acct() and "contacts" or "profile") end
-    end, "green", 48)
-    button(host, 356, 460, 196, "声音异常 / 未通过", function()
-        local ok, err = diag.confirm(false)
-        if success(ok, err) then M.toast("请检查 SPK、C237、功放 SD 和喇叭输出", true); render() end
-    end, "plain", 48)
-    button(host, 568, 460, 228, "账号设置 / 聊天", function() M.open(store.has_acct() and "chats" or "profile") end, "ghost", 48)
-end
-
--- ==================== 侧栏壳层 ====================
-local nav_items = {
-    { id = "contacts", name = "联系人" },
-    { id = "records", name = "通话记录" },
-    { id = "chats", name = "聊天" },
-    { id = "profile", name = "我的" },
-    { id = "diag", name = "音频自检" },
-}
-local nav_labels = {}
-
-build_shell = function()
-    -- 背景（坐标全部为参考 1024x600，经缩放层映射）
-    kit.box(root, { x = 0, y = 0, w = RW, h = RH, color = C.bg_warm })
-    -- 顶部导航条
-    kit.box(root, { x = 0, y = 0, w = RW, h = 56, color = C.dark1 })
-    page_title = label(root, LEFT + 12, 16, 300, "SIP 网络电话", 20, C.white, 30)
-    clock_label = label(root, RW - 190, 16, 178, "", 17, C.white, 28)
-
-    -- 侧栏
-    kit.box(root, { x = 0, y = 0, w = LEFT, h = RH, color = C.white })
-    label(root, 18, 20, LEFT - 30, "SIP 话机", 24, C.brand, 34)
-    nav_labels = {}
-    for i, it in ipairs(nav_items) do
-        local y = 78 + (i - 1) * 64
-        local active = it.id == page
-        local holder = kit.box(root, { x = 12, y = y, w = LEFT - 24, h = 52, radius = 12,
-            color = active and C.brand_soft or C.white,
-            on_click = function() M.open(it.id) end })
-        label(holder, 18, 13, LEFT - 60, it.name, 20, active and C.brand or C.text2, 28)
+    local d = diag.status()
+    label(host, 0, 0, PW, "音频自检", 28)
+    label(host, 0, 40, PW, "完整自检先恢复音频链路，再播放测试音并录音回放；也可跳过。", 18, C.text2)
+    local box = kit.card(host, { x=0, y=78, w=PW, h=235 })
+    diag_label = label(box, 20, 12, PW-40, diag_text(d), 18, C.text, 214)
+    local function diag_button(...)
+        local obj = button(...)
+        obj:set_disabled(d.busy == true)
+        return obj
     end
-    top_status = label(root, 18, RH - 60, LEFT - 32, "", 15, C.text3, 46)
+    local function idle_action(fn)
+        return function()
+            if diag.status().busy then return end
+            fn()
+        end
+    end
+    diag_button(host, 0, 326, 230, d.busy and "自检进行中…" or "完整自检", idle_action(function()
+        local ok, err = diag.start("all"); success(ok, err)
+    end), d.busy and "plain" or "primary", 46)
+    diag_button(host, 246, 326, 230, "我已听到清晰声音", idle_action(function()
+        local ok, err = diag.confirm(true)
+        if success(ok, err) then M.open("contacts") end
+    end), d.busy and "plain" or "green", 46)
+    diag_button(host, 492, 326, 230, "声音异常 / 未通过", idle_action(function()
+        local ok, err = diag.confirm(false)
+        if success(ok, err) then M.toast("请检查麦克风、喇叭及音频接线", true); render() end
+    end), "plain", 46)
+    diag_button(host, 738, 326, PW-738, "跳过", idle_action(function() M.open("contacts") end), d.busy and "plain" or "ghost", 46)
+    label(host, 0, 386, PW, "跳过不会记录自检通过；通话仍需音频硬件就绪。", 17, C.text2)
 end
 
--- 重建壳层（导航高亮随当前页变化）并重建内容
+-- 顶栏、内容区、底栏相互独立，重建时先释放旧壳层。
+local nav_items = {
+    { id="contacts", name="联系人" }, { id="records", name="通话记录" },
+    { id="chats", name="聊天" }, { id="profile", name="我的" },
+}
+build_shell = function()
+    PH = RH - TOP - (page == "diag" and 0 or NAV_H) - 16
+    kit.destroy(shell)
+    shell = kit.box(root, { x=0, y=0, w=RW, h=RH })
+    kit.card(shell, { x=12, y=4, w=RW-24, h=70 })
+    status_dot = nil; status_color = nil
+    button(shell, 20, 18, 76, "返回", function()
+        if _G.SIP_ISOLATION_TEST == true and _G.SIP_RECOVERY_STAGE ~= "R3" and _G.SIP_RECOVERY_STAGE ~= "R4" and (_G.SIP_RECOVERY_STAGE ~= "R5" and (_G.SIP_RECOVERY_STAGE ~= "R6" and _G.SIP_RECOVERY_STAGE ~= "R7")) then
+            M.toast("SIP 隔离测试模式：仅运行通话页面")
+            return
+        end
+        if diag.status().busy then M.toast("请等待音频自检结束后返回"); return end
+        if return_timer then return end
+        local id = window_id
+        return_timer = window_timer(function()
+            return_timer = nil
+            if id and id == window_id then exwin.close(id) end
+        end, 1)
+    end, "plain", 42)
+    top_status = kit.label(shell, { x=124, y=14, w=208, h=56, text="", size=17, color=C.text2,
+        on_click=function()
+            local d=audio.diagnostics()
+            if not d.ready or d.error or d.fault then M.open("diag"); return end
+            local s=app.status()
+            if s.registration_state == "failed" then
+                airui.msgbox({ title="注册失败", text=s.registration_error or "未知原因", buttons={"确定"},
+                    on_action=function(self) self:hide() end })
+            end
+        end })
+    page_title = kit.label(shell, { x=338, y=24, w=348, h=34, text="", size=22, align=airui.TEXT_ALIGN_CENTER })
+    clock_label = kit.label(shell, { x=RW-124, y=24, w=100, h=34, text="", size=20, align=airui.TEXT_ALIGN_RIGHT })
+    if page == "diag" then return end
+    kit.card(shell, { x=12, y=RH-NAV_H, w=RW-24, h=NAV_H-4 })
+    local iw = (RW-48)/4
+    for i, it in ipairs(nav_items) do
+        button(shell, 24+(i-1)*iw, RH-NAV_H+8, iw-8, it.name,
+            function() M.open(it.id) end, page==it.id and "primary" or "plain", NAV_H-20)
+    end
+end
 local function rebuild_all()
     if not started then return end
-    profile_status, diag_label, page_scroll = nil, nil, nil
-    kit.destroy(host)
     build_shell()
-    host = kit.box(root, { x = LEFT, y = TOP, w = PW, h = PH })
-    if host and page == "contacts" then page_contacts()
-    elseif host and page == "records" then page_records()
-    elseif host and page == "chats" then page_chats()
-    elseif host and page == "profile" then page_profile()
-    elseif host and page == "diag" then page_diag()
-    end
+    render()
 end
 
 -- ==================== 渲染 ====================
 render = function(id)
-    if not started or (busy() and id ~= nil) then return end
+    if not started or call_layer or (busy() and id ~= nil) then return end
     if id and id ~= page then return end
     -- profile_status / diag_label / page_scroll 都挂在 host 内，
     -- 销毁 host 前必须清引用，否则状态事件再对其 set_text 会报
     -- "access destroyed airui.label"。
     profile_status, diag_label, page_scroll = nil, nil, nil
+    memdiag.mark("ui.host","DESTROY_BEGIN",page)
     kit.destroy(host)
-    host = kit.box(root, { x = LEFT, y = TOP, w = PW, h = PH })
+    memdiag.mark("ui.host","DESTROY_END",page)
+    host = kit.box(root, { x = LEFT, y = TOP, w = PW, h = PH, scroll = true })
     if not host then return end
     if page == "contacts" then page_contacts()
     elseif page == "records" then page_records()
@@ -676,13 +786,18 @@ render = function(id)
     end
 end
 
+render = memdiag.wrap("ui.render", render)
+
 function M.open(id, peer)
-    if busy() then return end
+    if not started or closing then return end
+    if busy() or diag.status().busy then return end
     local changed = not (page == id and selected_peer == peer)
+    memdiag.mark("ui.open","TARGET",id)
     close_panel(); page = id; selected_peer = peer
-    if changed then rebuild_all() else render() end
+    if changed then record_number=nil;record_page=1;rebuild_all() end
     refresh_status()
 end
+M.open = memdiag.wrap("ui.open", M.open)
 M.replace = M.open
 
 -- ==================== 状态文字 ====================
@@ -692,104 +807,140 @@ local call_state_text = {
     ending = "挂断中", stopped = "未登录", error = "异常",
 }
 
-refresh_status = function()
-    if not started then return end
-    local s = app.status()
-    set_text(top_status, (call_state_text[s.state] or s.state or "") .. "\n" .. kit.ellipsis(s.user or store.get_acct().user, 14))
+local registration_names = {registered="注册成功", registering="注册中", failed="注册失败", idle="未注册"}
+refresh_status = function(snapshot)
+    if not started or call_layer then return end
+    local measured = perf.begin("ui")
+    local s = snapshot or app.status()
+    local rs = s.registration_state or "idle"
+    local detail = rs == "failed" and (s.registration_error or "未知原因") or ""
+    local full = (registration_names[rs] or "未注册") .. (detail ~= "" and ("：" .. detail) or "")
+    local color = rs == "registered" and C.green or rs == "registering" and 0xF59E0B or rs == "failed" and C.red or C.text3
+    local d = audio.diagnostics()
+    if d.initializing then full="音频初始化中";color=0xF59E0B
+    elseif diag.status().busy then full="音频自检中";color=0xF59E0B
+    elseif not d.ready or d.error or d.fault then
+        full="请重新进行音频自检";color=C.red
+    end
+    -- 字号受主题最小值约束，用真实像素计算文本块与圆灯的共同中心。
+    local fs = math.max(theme.FONT_MIN, SF(17))
+    local width = SX(208)
+    local center_y = SY(38)
+    if status_cache.obj ~= top_status or status_cache.text ~= full or
+        status_cache.font ~= fs or status_cache.width ~= width or status_cache.center ~= center_y then
+        local lines = theme.text_width(full, fs) > width and 2 or 1
+        local line_h = fs + 3
+        top_status:set_pos(SX(124), math.floor(center_y - lines * line_h / 2))
+        set_text(top_status, theme.fit_text(full, width, fs, 2))
+        status_cache.obj, status_cache.text = top_status, full
+        status_cache.font, status_cache.width, status_cache.center = fs, width, center_y
+    end
+    if status_color ~= color then
+        kit.destroy(status_dot)
+        local diameter = math.max(8, math.floor(math.min(SX(12), SY(12))))
+        status_dot = airui.container({parent=shell, x=SX(104), y=math.floor(center_y-diameter/2), w=diameter, h=diameter,
+            radius=diameter, color=color, scrollable=false})
+        status_color = color
+    end
+    set_text(page_title, store.get_acct().user or "未配置账号")
+    local t = os.date("*t")
+    set_text(clock_label, string.format("%02d:%02d", t.hour, t.min))
     if profile_status then set_text(profile_status, s.user_text or s.text or "") end
+    perf.finish("ui", measured)
 end
 
 -- ==================== 全屏通话层 ====================
-local call_started_at
 local function hhmmss(t)
     t = math.max(0, math.floor(t or 0))
     return string.format("%02d:%02d:%02d", math.floor(t / 3600), math.floor(t % 3600 / 60), t % 60)
 end
 
-show_call_layer = function()
-    local s = app.status()
-    -- 同一通话状态内的文字变化（"正在呼叫" → "对方响铃中"）只更新标签，不重建整屏。
-    -- 每次重建都要销毁并重新创建整棵 LVGL 组件树（24 段渐变、头像、多个标签和按钮），
-    -- 那是几十到上百毫秒的分配；而回铃音靠 10ms 一拍的协程喂 UART，一旦 Lua 被按住，
-    -- 下行队列立刻被掏空，驱动用静音帧补位，听感就是一阵断续的"电报声"。
-    if call_layer and call_layer_state == s.state then
-        if call_sub then set_text(call_sub, s.user_text or s.text or "") end
-        return
+show_call_layer = function(snapshot)
+    if not started then return end
+    local measured = perf.begin("ui")
+    local s = snapshot or app.status()
+    -- 一次通话只创建一棵轻量控件树；振铃/接通/静音仅更新文字。
+    -- 避免在回铃音启动和 airlink RPC 处理时分配渐变条带并反复重建全屏。
+    if not call_layer then
+        log.info("sip_ui", "open call screen", s.state)
+        close_panel()
+        call_left_disabled, call_right_disabled = nil, nil
+        call_layer = kit.box(root, { x=0, y=0, w=RW, h=RH, color=C.bg })
+        call_name = kit.label(call_layer, { x=40, y=150, w=RW-80, h=52, text="", size=34, align=airui.TEXT_ALIGN_CENTER })
+        call_sub = kit.label(call_layer, { x=40, y=230, w=RW-80, h=60, text="", size=22, color=C.text2, align=airui.TEXT_ALIGN_CENTER })
+        call_clock = kit.label(call_layer, { x=40, y=310, w=RW-80, h=42, text="00:00:00", size=28, color=C.brand, align=airui.TEXT_ALIGN_CENTER })
+        call_left = button(call_layer, 308, 430, 190, "", function()
+            if call_layer_state == "incoming" then success(app.hangup())
+            elseif call_layer_state == "talking" then success(app.toggle_mute()); render_call() end
+        end, "plain", 64)
+        call_right = button(call_layer, 526, 430, 190, "", function()
+            if call_layer_state == "incoming" then success(app.accept()) else success(app.hangup()) end
+        end, "primary", 64)
+        if call_timer then stop_window_timer(call_timer) end
+        call_timer = window_timer(function()
+            if not started or not call_layer or call_layer_state ~= "talking" then return end
+            local measured = perf.begin("ui")
+            local duration = raw_app.call_duration() or 0
+            set_text(call_clock, hhmmss(duration))
+            perf.finish("ui", measured)
+        end, 1000, true)
     end
-    kit.destroy(call_layer)
-    call_layer_state = s.state
-    call_layer = kit.box(root, { x = 0, y = 0, w = RW, h = RH, color = C.dark2 })
-    kit.grad(call_layer, 0, 0, RW, 280, C.dark2, C.dark1, 24)
     local peer = s.peer or s.number or ""
-    kit.avatar(call_layer, { x = RW / 2 - 60, y = 90, size = 120, text = kit.first_char(store.display(peer)), font_size = 42 })
-    local name = label(call_layer, 0, 234, RW, store.display(peer), 34, C.white, 46)
-    if name.set_align then pcall(function() name:set_align(airui.TEXT_ALIGN_CENTER) end) end
-    local sub = label(call_layer, 0, 288, RW, s.user_text or s.text or "", 20, C.white_dark, 32)
-    if sub.set_align then pcall(function() sub:set_align(airui.TEXT_ALIGN_CENTER) end) end
-    call_sub = sub
-    local timer = label(call_layer, 0, 330, RW, "00:00:00", 26, C.brand, 38)
-    if timer.set_align then pcall(function() timer:set_align(airui.TEXT_ALIGN_CENTER) end) end
-
-    local bw, bh, gap = 190, 64, 28
-    local total = bw * 2 + gap
-    local bx = (RW - total) / 2
-    if s.state == "incoming" then
-        button(call_layer, bx, 430, bw, "拒接", function() success(app.hangup()) end, "red", bh)
-        button(call_layer, bx + bw + gap, 430, bw, "接听", function() success(app.accept()) end, "green", bh)
-    else
-        button(call_layer, bx, 430, bw, s.muted and "取消静音" or "静音", function()
-            success(app.toggle_mute()); render_call()
-        end, "soft", bh)
-        button(call_layer, bx + bw + gap, 430, bw, "挂断", function() success(app.hangup()) end, "red", bh)
+    if call_peer ~= peer then
+        call_peer = peer
+        set_text(call_name, store.display(peer))
     end
-
-    if call_timer then sys.timerStop(call_timer) end
-    call_started_at = s.connected_at or (os.time() - (s.duration or 0))
-    local last_clock
-    call_timer = sys.timerLoopStart(function()
-        if not started then
-            sys.timerStop(call_timer); call_timer = nil
-            return
-        end
-        -- 500ms 只取一次状态：原来 busy() 里一次、这里再一次，通话中白跑两遍
-        local st = app.status()
-        if not call_states[st.state] then
-            sys.timerStop(call_timer); call_timer = nil
-            kit.destroy(call_layer); call_layer = nil
-            call_layer_state, call_sub = nil, nil
-            render()
-            return
-        end
-        if st.state == "talking" then
-            -- 秒数没变就不 set_text：每次 set_text 都会触发控件重绘，
-            -- 500ms 一刷等于每秒白刷两次全屏，通话界面自己也在抢音频的调度时间
-            local text = hhmmss(os.time() - call_started_at)
-            if text ~= last_clock then
-                last_clock = text
-                set_text(timer, text)
-            end
-        end
-    end, 500)
+    if call_layer_state ~= s.state then log.info("sip_ui", "call state", s.state) end
+    call_layer_state = s.state
+    set_text(call_sub, call_state_text[s.state] or s.text or "")
+    set_text(call_clock, hhmmss(s.duration or 0))
+    set_text(call_left, s.state == "incoming" and "拒接" or (s.muted and "取消静音" or "静音"))
+    local left_disabled = s.state ~= "incoming" and s.state ~= "talking"
+    if call_left_disabled ~= left_disabled then
+        call_left:set_disabled(left_disabled); call_left_disabled = left_disabled
+    end
+    set_text(call_right, s.state == "incoming" and "接听" or "挂断")
+    local right_disabled = s.state == "ending"
+    if call_right_disabled ~= right_disabled then
+        call_right:set_disabled(right_disabled); call_right_disabled = right_disabled
+    end
+    perf.finish("ui", measured)
 end
 render_call = show_call_layer
 
 function M.suspend_keyboard_if_active()
     if keyboard and not suspended then
         keyboard:hide(); suspended = true
-        sys.timerStart(function() if suspended then keyboard:show(); suspended = false end end, 200)
+        local target = keyboard
+        window_timer(function()
+            if suspended and keyboard == target then target:show(); suspended = false end
+        end, 200)
     end
 end
 
 -- ==================== 时钟 ====================
 local function tick_clock()
+    if not started or call_layer then return end
+    if started then
+        local d=audio.diagnostics()
+        log.info("sip_health", "rx-drain-v2", "lua_kb", math.floor(collectgarbage("count")),
+            "owner", d.owner or "idle", "rx_read", d.rx_read_bytes or 0,
+            "rx_discard", d.rx_discard_bytes or 0, "mic_frames", d.frames or 0)
+    end
     local t = os.localtime and os.localtime(os.time()) or os.date("*t")
     set_text(clock_label, string.format("%02d:%02d", t.hour or 0, t.min or 0))
 end
-local clock_timer, window_id
-
 -- ==================== 窗口生命周期 ====================
 local on_state
+local function on_audio_state() refresh_status() end
+local function on_audio_error(reason)
+    if call_layer then
+        M.toast("音频故障：" .. tostring(reason or "请重新进行音频自检"), true)
+    else refresh_status() end
+end
 local function on_create()
+    lifecycle = lifecycle + 1
+    local session = lifecycle
     -- 取工厂内容区实际画布尺寸；所有页面坐标仍以参考 1024x600 书写，
     -- 由 SX/SY 统一缩放到实际 W/H，因此 LEFT/TOP/PW/PH 保持参考值不变。
     local cw, ch = screen_w or RW, screen_h or RH
@@ -797,102 +948,163 @@ local function on_create()
     cw, ch = theme.content_fit(cw, ch)
     W, H = cw, ch
     sxk = W / RW; syk = H / RH
-    LEFT, TOP = 176, 64
-    PW, PH = RW - LEFT - 24, RH - TOP - 24
+    LEFT, TOP = 20, 84
+    PW, PH = RW - 40, RH - TOP - NAV_H - 16
 
     root = theme.page_bg(airui.screen, W, H)
+    page = "diag"
     build_shell()
-    page = "contacts"
     started = true
     render()
     refresh_status()
     tick_clock()
-    clock_timer = sys.timerLoopStart(tick_clock, 1000 * 10)
+    clock_timer = window_timer(tick_clock, 1000 * 10, true)
     -- 自检页实时刷新帧数/帧率/峰值（照抄参考工程 1s 刷新节奏）
     -- 但【录音/回放进行中一律不刷】：这段文本近 300 字，set_text 会让 LVGL 重排并整块
     -- 重绘一次；而 Air1103 的下行是 Lua 10ms 一拍喂 UART，芯片内部 DAC 缓冲只有约 60ms，
     -- 一次几十毫秒的整块重绘就足够把它掏空 —— 表现就是"回放卡"。录音期间同样会丢 MIC 帧。
     -- 自检过程中的阶段变化仍由 AUDIO_DIAG 事件驱动刷新，信息不会缺。
-    diag_timer = sys.timerLoopStart(function()
+    diag_timer = window_timer(function()
+        if call_layer then return end
+        if started then refresh_status() end
         if not (started and page == "diag" and diag_label) then return end
         local d = diag.status()
         if d.busy then return end
         set_text(diag_label, diag_text(d))
-    end, 1000)
+    end, 1000, true)
 
     -- 订阅 app 状态：非通话变化刷新导航/状态；进入通话拉起全屏层
-    on_state = function()
+    on_state = function(snapshot)
         if not started then return end
-        refresh_status()
-        local s = app.status()
+        local s = app.status(snapshot)
         if call_states[s.state] then
-            show_call_layer()
+            show_call_layer(s)
         else
             if call_layer then
-                if call_timer then sys.timerStop(call_timer); call_timer = nil end
+                if call_timer then stop_window_timer(call_timer); call_timer = nil end
                 kit.destroy(call_layer); call_layer = nil
-                call_layer_state, call_sub = nil, nil
+                call_layer_state, call_sub, call_peer = nil, nil, nil
+                call_name, call_clock, call_left, call_right = nil, nil, nil, nil
+                call_left_disabled, call_right_disabled = nil, nil
+                -- 通话只遮挡底页：挂断保留联系人输入、聊天位置和自检控件，
+                -- 仅通话记录需要重建以显示刚结束的通话。
+                if page == "records" and not panel and not diag.status().busy then render() end
+
             end
-            render()
+            refresh_status(s)
         end
     end
     -- 同事内核发布 SIP_STATE / SIP_ERROR（不是工厂旧的 SIP_TEST_*）
-    sys.subscribe("SIP_STATE", on_state)
-    sys.subscribe("SIP_ERROR", function(t) M.toast(t, true) end)
-    sys.subscribe("SIP_MSG", function() if started then refresh_status() end end)
+    on_state = memdiag.wrap("ui.SIP_STATE",on_state)
+    subscribe("SIP_STATE", on_state)
+    subscribe("SIP_STORE_CHANGED",function(key)
+        if not started or closing or panel or call_layer or diag.status().busy then return end
+        if (key=="calls" and page=="records") or
+           ((key=="contacts" or key=="default_contact") and (page=="contacts" or page=="records")) then render() end
+    end)
+    subscribe("SIP_ERROR", function(t) M.toast(t, true); refresh_status() end)
+    subscribe("AUDIO_ERROR", on_audio_error)
+    subscribe("AUDIO_READY", on_audio_state)
+    subscribe("SIP_MSG", function() if started then refresh_status() end end)
     -- 音频自检进度（sph_audio_diag 发布 AUDIO_DIAG），刷新自检页状态文本
-    sys.subscribe("AUDIO_DIAG", function() if started and diag_label then set_text(diag_label, diag_text()) end end)
+    local last_diag_busy = false
+    subscribe("AUDIO_DIAG", function()
+        if call_layer then return end
+        refresh_status()
+        if not started or page ~= "diag" then return end
+        local d = diag.status()
+        if last_diag_busy ~= d.busy then
+            last_diag_busy = d.busy; render()
+        elseif diag_label then set_text(diag_label, diag_text(d)) end
+    end)
 
     -- 先确保存储 + 网络检测就绪（工厂 net_manager 已组网，这里只读状态）；
     -- 再 init 同事内核：内部 recover_messages，并按 auto_register 自动注册。
     -- 每步之间必须让出 CPU：4G 走 airlink(UART3) 桥接，mobile.*/socket.* 是同步 RPC，
     -- 在等响应期间如果 Lua 主任务被 store/audio 初始化按住几百毫秒，
     -- 内核会直接报 "airlink.rpc rpc yield timeout" 甚至总线错误死机。
-    sys.taskInit(function()
+    handoff.enqueue(function()
         -- 进来先让一拍：上面 build_shell/render 是一次不让出的同步过程，
         -- 若此刻有 airlink RPC 在等响应，立刻再压 store/audio 初始化就会把它拖超时。
         sys.wait(100)
+        if session ~= lifecycle then return end
         pcall(store.init)
         sys.wait(50)
+        if session ~= lifecycle then return end
         pcall(net.init)
         sys.wait(50)
         -- 必须先初始化 Air1103/UART6：audio.init 内部会把 exaudio.sip_voip_start/stop
         -- 挂到通话桥 M.start/M.stop_bridge；否则通话建立时音频桥不存在。
-        pcall(audio.init)
+        if session ~= lifecycle then return end
+        local ok, ready, err = pcall(audio.init)
+        if not ok or not ready then
+            error("SIP 音频初始化失败: " .. tostring(ok and err or ready))
+        end
         sys.wait(50)
+        if session ~= lifecycle then return end
         pcall(raw_app.init)
+        if not alive(session) then return end
+        refresh_status()
+        if not panel and not diag.status().busy then render() end
     end)
 end
 
 local function on_destroy()
-    sys.unsubscribe("SIP_STATE", on_state)
-    sys.unsubscribe("SIP_ERROR")
-    sys.unsubscribe("SIP_MSG")
-    sys.unsubscribe("AUDIO_DIAG")
-    if call_timer then sys.timerStop(call_timer) end
-    if toast_timer then sys.timerStop(toast_timer) end
-    if clock_timer then sys.timerStop(clock_timer) end
-    if diag_timer then sys.timerStop(diag_timer) end
-    if root then root:destroy() end
-    root, started = nil, false
-    call_layer, call_layer_state, call_sub = nil, nil, nil
-    call_timer, clock_timer, diag_timer, window_id = nil, nil, nil, nil
-    -- 独立协程回收：挂断通话→注销 SIP→停止音频/释放 Air1103,UART6。
-    -- 幂等，失败不影响关窗；避免和工厂其它音频/网络测试抢资源。
-    sys.taskInit(function()
-        pcall(raw_app.hangup)
-        pcall(raw_app.logout)
-        pcall(audio.stop)
+    if closing or (not root and not window_id) then return end
+    -- Invalidate callbacks before cancelling diagnostics or publishing SIP changes.
+    closing = true
+    lifecycle = lifecycle + 1
+    started = false
+    window_id = nil
+    local old_root, old_keyboard, old_panel = root, keyboard, panel
+    root, keyboard, panel = nil, nil, nil
+    local old_subscriptions, old_timers = subscriptions, timers
+    subscriptions, timers = {}, {}
+    for event, callback in pairs(old_subscriptions) do
+        cleanup("unsubscribe " .. event, sys.unsubscribe, event, callback)
+    end
+    for id in pairs(old_timers) do cleanup("timer", sys.timerStop, id) end
+    cleanup("cancel diagnostic", diag.cancel)
+    -- Each operation is independent: a broken keyboard must not strand the page.
+    if old_keyboard then cleanup("keyboard", kit.destroy, old_keyboard) end
+    if old_panel then cleanup("panel", kit.destroy, old_panel) end
+    if old_root then
+        if not cleanup("root", function() old_root:destroy() end) then
+            cleanup("hide failed root", function() old_root:hide() end)
+        end
+    end
+    host, shell, clock_label, page_title = nil, nil, nil, nil
+    page_scroll, diag_label, profile_status, top_status = nil, nil, nil, nil
+    status_dot, status_color, toast_box = nil, nil, nil
+    call_layer, call_layer_state, call_sub, call_peer = nil, nil, nil, nil
+    call_name, call_clock, call_left, call_right = nil, nil, nil, nil
+    call_timer, clock_timer, diag_timer, toast_timer, return_timer = nil, nil, nil, nil, nil
+    suspended, on_state = false, nil
+    status_cache = {}
+    call_left_disabled, call_right_disabled = nil, nil
+    text_cache = setmetatable({}, { __mode = "k" })
+    -- UI removal is synchronous; network/audio shutdown may yield in its own task.
+    handoff.enqueue(function()
+        cleanup("hangup", raw_app.hangup)
+        cleanup("logout", raw_app.logout, true)
+        handoff.leave("sip")
+        closing = false
     end)
 end
 
 sys.subscribe("OPEN_SIP_TEST_WIN", function()
+    handoff.enqueue(function()
+    if window_id or closing then return end
+    handoff.prepare("sip")
+    local compacted,why=store.compact_history()
+    assert(compacted,why)
     window_id = exwin.open({
         on_create = on_create,
-        on_destroy = on_destroy,
+        on_destroy = memdiag.wrap("ui.destroy",on_destroy),
         on_get_focus = function() end,
         on_lose_focus = function() end,
     })
+    end)
 end)
 
 return M

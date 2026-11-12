@@ -116,6 +116,11 @@ end
 -- ==================== 开机自启 ====================
 
 sys.subscribe("OPEN_IDLE_WIN", function()
+    -- 分组恢复期间保留配置，只阻止后装 APP 自动启动；R9 再恢复。
+    if _G.SIP_ISOLATION_TEST == true and _G.SIP_RECOVERY_STAGE ~= "R9" then
+        log.info("sip_isolation", "APP_AUTOSTART_DISABLED", _G.SIP_RECOVERY_STAGE)
+        return
+    end
     if not get_enabled() then return end
     local target = get_target()
     if target == "" then return end

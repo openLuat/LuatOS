@@ -48,6 +48,7 @@
 ]]
 
 local theme = require "ui_theme"
+local lifecycle_only = _G.FACTORY_FULL_TEST ~= true and _G.SIP_ISOLATION_TEST == true and _G.SIP_RECOVERY_STEP == "R7-S8L-RS485-LAZY"
 
 local window_id = nil
 local main_container = nil
@@ -189,6 +190,9 @@ end
 -- 刷新某一路的收发计数与打开状态
 local function update_stat(p)
     if not p then return end
+    if lifecycle_only then
+        safe_call(p.btn, "set_text", p.opened and "手动发送" or "初始化串口")
+    end
     local state = p.opened and "已打开" or "未打开"
     safe_call(p.stat_label, "set_text", theme.fit_text(
         string.format("TX:%d RX:%d  %s", p.tx_n, p.rx_n, state), p.stat_w, theme.fs("micro")))
@@ -291,9 +295,17 @@ end
 -- ==================== 动作 ====================
 
 -- 实际发一帧（端口必须已打开）
+local exit_gate = require("factory_page_exit").new("RS485", function() exwin.close(window_id) end)
+
 local function fire_send(p, data)
+    if exit_gate.closing then return end
+    if lifecycle_only and (not p.opened or p.tx_pending) then return end
     data = tostring(data or "")
     if #data == 0 then return end
+    if lifecycle_only then
+        p.tx_pending = true
+        log.info("sip_isolation", "RS485-MANUAL-TX-DIAG1", "RS485_MANUAL_TX_REQUEST", p.id, #data)
+    end
     sys.publish("RS485_TEST_SEND", p.id, data)
     p.tx_n = p.tx_n + #data
     update_stat(p)
@@ -312,6 +324,18 @@ end
 
 -- 点通道按钮：没初始化的路先初始化，打开成功后补发这一帧
 local function do_send(p)
+    if lifecycle_only then
+        if not p or p.init_pending then return end
+        if p.opened then
+            fire_send(p, p.data)
+            return
+        end
+        p.init_pending = true
+        p.want_send = nil
+        log.info("sip_isolation", "RS485-MANUAL-TX-DIAG1", "RS485_UART_INIT_REQUEST", p.id, p.uart_id, p.baud)
+        sys.publish("OTHER_FUNC_SET", p.id, true)
+        return
+    end
     if not p then return end
     if not p.opened then
         p.want_send = p.data
@@ -326,6 +350,7 @@ end
 -- 发送窗口只有几毫秒，万用表量不到电平跳变；拉够两秒才能量出高电平
 local DE_HOLD_MS = 2000
 local function do_de_hold()
+    if lifecycle_only then return end
     sys.publish("RS485_DE_HOLD", DE_HOLD_MS)
     append_entry("INFO", 0, string.format("DE 自检：方向脚拉高 %dms，量到高电平即正常", DE_HOLD_MS))
 end
@@ -334,6 +359,7 @@ end
 
 -- 驱动收包广播（periph_rs485 的 on_receive 发布）
 local function on_rx(id, data)
+    if exit_gate.closing then return end
     local p = port_of[id]
     if not p then return end
     if type(data) ~= "string" or #data == 0 then return end
@@ -362,6 +388,10 @@ end
 local function on_send_result(id, ok, err)
     local p = port_of[id]
     if not p then return end
+    if lifecycle_only then
+        p.tx_pending = nil
+        log.info("sip_isolation", "RS485-MANUAL-TX-DIAG1", "RS485_MANUAL_TX_RESULT", id, ok, tostring(err))
+    end
     if ok then return end
     -- 失败的那条发送不会再有应答，直接摘掉，免得超时再报一次未通过
     for i = #pending, 1, -1 do
@@ -379,6 +409,11 @@ end
 local function on_set_result(id, ok, err)
     local p = port_of[id]
     if not p then return end
+    if lifecycle_only then
+        p.init_pending = nil
+        p.want_send = nil
+        log.info("sip_isolation", "RS485-MANUAL-TX-DIAG1", "RS485_UART_INIT_RESULT", id, ok, tostring(err))
+    end
     if not ok then
         p.opened = false
         p.want_send = nil
@@ -508,7 +543,7 @@ local function build_channel_card(parent, x, y, w, h, p)
     })
 
     -- 按钮文案即「UARTn 发送 <该路测试数据>」，宽度按文字算，超宽就截断
-    local btn_text = string.format("UART%d 发送 %s", p.uart_id, p.data)
+    local btn_text = lifecycle_only and string.format("仅初始化 UART%d", p.uart_id) or string.format("UART%d 发送 %s", p.uart_id, p.data)
     local fs_btn = theme.fs("caption") -- 与 theme.button 内部字号同口径
     local btn_w = theme.text_width(btn_text, fs_btn) + theme.dp(28)
     if btn_w > inner then
@@ -532,8 +567,8 @@ local function build_ui()
     local _, th = theme.header(main_container, {
         x = pad, y = pad, w = card_w,
         title = "RS485 测试",
-        sub = judge_enabled() and "A-A、B-B 交叉互接，点按钮发送" or "点按钮发送",
-        on_back = function() exwin.close(window_id) end,
+        sub = lifecycle_only and "先初始化，再点击手动发送；DE 自检禁用" or judge_enabled() and "A-A、B-B 交叉互接，点按钮发送" or "点按钮发送",
+        on_back = function() exit_gate.request() end,
     })
 
     local gap = theme.dp(8)
@@ -587,7 +622,7 @@ local function build_ui()
     -- 方向脚自检：拉高 DE 够长一段时间，现场好用万用表量（正常发送窗口只有几毫秒，表笔看不出来）
     theme.ghost_button(main_container, {
         x = pad + card_w - clear_w - de_w - gap, y = y, w = de_w, h = head_h,
-        text = "DE 自检", size = 12, fg = theme.C.t2, border = theme.C.stroke,
+        text = lifecycle_only and "DE 禁用" or "DE 自检", size = 12, fg = theme.C.t2, border = theme.C.stroke,
         on_click = function() do_de_hold() end,
     })
     theme.ghost_button(main_container, {
@@ -627,7 +662,11 @@ end
 -- ==================== 窗口生命周期 ====================
 
 local function on_create()
+    if lifecycle_only then log.info("sip_isolation","RS485-MANUAL-TX-DIAG1","RS485_PAGE_CREATE") end
     collect_ports()
+    local ids = {}
+    for _, p in ipairs(ports) do ids[#ids+1]=p.id end
+    exit_gate.open(ids)
     build_ui()
     sys.subscribe("PERIPH_RX", on_rx)
     sys.subscribe("RS485_TEST_RESULT", on_send_result)
@@ -638,7 +677,7 @@ local function on_create()
 
     -- 只自动初始化未标 manual_init 的路；手动初始化的路由各自按钮触发
     for _, p in ipairs(ports) do
-        if not p.manual_init then
+        if not lifecycle_only and not p.manual_init then
             sys.publish("OTHER_FUNC_SET", p.id, true)
         end
     end
@@ -658,6 +697,11 @@ local function on_create()
 end
 
 local function on_destroy()
+    exit_gate.active = false
+    if not exit_gate.done then
+        require("other_func_app").quiesce_page(exit_gate.ids or {})
+        for _, p in ipairs(ports) do sys.publish("OTHER_FUNC_SET", p.id, false) end
+    end
     stop_match_timer()
     sys.unsubscribe("PERIPH_RX", on_rx)
     sys.unsubscribe("RS485_TEST_RESULT", on_send_result)
@@ -671,7 +715,7 @@ local function on_destroy()
     ports = {}
     port_of = {}
     pending = {}
-    sys.publish("TEST_WIN_CLOSED")   -- 收口：功能测试页据此断开本页用的接口
+    if lifecycle_only then log.info("sip_isolation","RS485-MANUAL-TX-DIAG1","RS485_PAGE_DESTROYED") end
 end
 
 local function on_get_focus() end

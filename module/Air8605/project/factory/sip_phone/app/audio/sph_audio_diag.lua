@@ -1,7 +1,7 @@
 --[[
 @module audio_diag
 @summary 音频自检控制器：数据检测与人工听音确认严格分开。
-start("tone" / "record" / "all") 非阻塞；record 录制 3 秒后自动回放。
+start("all") 非阻塞执行恢复、测试音、录音回放；旧 tone/record 入参也执行完整流程。
 status() 与 AUDIO_DIAG 事件提供同样的快照，confirm(true) 持久化人工确认。
 ]]
 local audio = require "sph_audio_app"
@@ -20,7 +20,7 @@ local function verified()
     return audio_ok
 end
 local state = {
-    busy=false, stage="idle", detail="先播放测试音，再录音回放；声音需要人工确认",
+    busy=false, stage="idle", detail="先恢复音频链路，再播放测试音并录音回放；声音需要人工确认",
     tone_complete=false, record_complete=false, confirmed=false,
 }
 
@@ -41,7 +41,7 @@ end
 function M.start(kind)
     kind=kind or "all"
     if kind~="tone" and kind~="record" and kind~="all" then return false,"invalid_test" end
-    if state.busy or audio.is_busy() then return false,"audio_busy" end
+    if state.busy then return false,"audio_busy" end
     -- A SIP call may be ringing/dialing before its media bridge owns the speaker.
     local loaded,sip=pcall(require,"sph_sip_app")
     if not loaded then return false,"sip_state_unavailable" end
@@ -49,38 +49,52 @@ function M.start(kind)
         local s=sip.status()
         if s and (s.state=="incoming" or s.state=="dialing" or s.state=="talking" or s.state=="answering" or s.state=="ending") then return false,"call_busy" end
     end
-    local saved,err=store.set_audio_verified(false)
-    if not saved then return false,err or "storage_failed" end
+    local session,why=audio.diagnostic_begin()
+    if not session then return false,why end
+    local safe,saved,err=pcall(store.set_audio_verified,false)
+    if not safe or not saved then
+        local reason=(safe and err or saved) or "storage_failed"
+        audio.diagnostic_end(session,false,reason);return false,reason
+    end
     audio_ok=false
     state.busy=true;state.error=nil;state.stage="starting"
-    if kind=="tone" or kind=="all" then state.tone_complete=false end
-    if kind=="record" or kind=="all" then state.record_complete=false end
+    state.tone_complete=false;state.record_complete=false;state.confirmed=false
     state.detail="正在开始音频自检"
     publish()
     sys.taskInit(function()
-        local list=kind=="all" and {"tone","record"} or {kind}
+        local list={"tone","record"} -- recovery is always followed by both tests
+        local function progress(stage,detail)
+            state.stage=stage;state.detail=detail;publish()
+        end
         local safe,ok,reason=pcall(function()
+            local restored,why=audio.recover(session,progress)
+            if not restored then return false,why end
             for _,test in ipairs(list) do
-                local passed,why=audio.diagnostic_run(test,function(stage,detail)
-                    state.stage=stage;state.detail=detail;publish()
-                end)
+                local passed,why=audio.diagnostic_run(test,progress,session)
                 if not passed then return false,why end
                 if test=="tone" then state.tone_complete=true else state.record_complete=true end
             end
             return true
         end)
         if not safe then reason=ok;ok=false end
+        if session.cancelled then ok=false;reason="audio_diagnostic_cancelled" end
+        local finished,cleanup_reason=audio.diagnostic_end(session,ok,reason)
+        if not finished then ok=false;reason=cleanup_reason or reason end
         state.busy=false
         if ok then
             state.stage="awaiting_confirmation"
             state.detail="数据检查完成；请人工确认测试音和录音回放均清晰正常"
         else
             state.stage="failed";state.error=tostring(reason)
-            state.detail="自检失败，请检查 UART6、GPIO73、C237、R253 与功放 SD 电平"
+            state.detail="音频恢复或录放音验证失败，可重试完整自检；仍失败请检查接线与供电"
         end
         publish()
     end)
     return true
+end
+
+function M.cancel()
+    if state.busy then audio.diagnostic_cancel() end
 end
 
 function M.confirm(accepted)
@@ -92,7 +106,7 @@ function M.confirm(accepted)
     if not ok then return false,err or "storage_failed" end
     audio_ok = accepted==true
     state.stage=accepted and "confirmed" or "awaiting_confirmation"
-    state.detail=accepted and "人工确认已保存，可以验证 SIP 通话" or "尚未确认声音正常，SIP 通话保持禁用"
+    state.detail=accepted and "人工确认已保存，可以验证 SIP 通话" or "尚未确认声音正常，可重新自检或跳过后尝试通话"
     publish()
     return true
 end

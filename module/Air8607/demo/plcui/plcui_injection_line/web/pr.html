@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>参数设定 - 注塑产线智能监控</title>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div class="stage page" id="page-pr" data-page="pr">
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div><div class="hdr-wing r"></div>
+    <div class="hdr-title">工 艺 参 数 设 定</div>
+    <div class="hdr-status">
+      <div class="hdr-state-chip"><span class="d"></span>配方：盒盖模 M-07</div>
+      <div class="plc" data-type="label" data-id="clock" data-fontsize="12" data-color="#8fb6c9" data-align="right"
+           style="left:800px;top:44px;width:200px;height:16px;font-size:12px;line-height:16px;text-align:right;">2026-11-11 08:00:00</div>
+    </div>
+  </div>
+
+  <!-- 左：温度参数 -->
+  <div class="panel" style="left:8px;top:62px;width:332px;height:492px;">
+    <div class="cap" style="min-width:110px;">温 度 参 数</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="hint" style="left:16px;top:40px;">参数名</div><div class="hint" style="left:170px;top:40px;">设定值</div><div class="hint" style="left:288px;top:40px;">单位</div>
+    <div class="hint" style="left:16px;top:66px;">料筒 1 区温度</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_t1" data-kb="kb_num" style="left:158px;top:60px;width:110px;" value="210">
+    <div class="unit" style="left:276px;top:60px;">℃</div>
+    <div class="hint" style="left:16px;top:102px;">料筒 2 区温度</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_t2" data-kb="kb_num" style="left:158px;top:96px;width:110px;" value="215">
+    <div class="unit" style="left:276px;top:96px;">℃</div>
+    <div class="hint" style="left:16px;top:138px;">料筒 3 区温度</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_t3" data-kb="kb_num" style="left:158px;top:132px;width:110px;" value="220">
+    <div class="unit" style="left:276px;top:132px;">℃</div>
+    <div class="hint" style="left:16px;top:174px;">料筒 4 区温度</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_t4" data-kb="kb_num" style="left:158px;top:168px;width:110px;" value="215">
+    <div class="unit" style="left:276px;top:168px;">℃</div>
+    <div class="hint" style="left:16px;top:210px;">喷嘴温度</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_t5" data-kb="kb_num" style="left:158px;top:204px;width:110px;" value="225">
+    <div class="unit" style="left:276px;top:204px;">℃</div>
+    <div class="hint" style="left:16px;top:246px;">模具温度</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_t6" data-kb="kb_num" style="left:158px;top:240px;width:110px;" value="45">
+    <div class="unit" style="left:276px;top:240px;">℃</div>
+    <div class="hint" style="left:16px;top:282px;">干燥温度</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_t7" data-kb="kb_num" style="left:158px;top:276px;width:110px;" value="120">
+    <div class="unit" style="left:276px;top:276px;">℃</div>
+    <div class="hint" style="left:16px;top:318px;">模温机出口温度</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_t8" data-kb="kb_num" style="left:158px;top:312px;width:110px;" value="45">
+    <div class="unit" style="left:276px;top:312px;">℃</div>
+    <div class="divider" style="left:16px;top:352px;width:300px;"></div>
+    <div class="hint" style="left:16px;top:362px;">温度偏差报警阈值 ±5℃ · 硬保护 ±15℃</div>
+    <div class="hint" style="left:16px;top:384px;">加热速率限制 3℃/min · 料筒保温功率 4.5 kW</div>
+    <div class="hint" style="left:16px;top:406px;">分段 PID：M 段 210℃ / N 段 215℃ / Z 段 220℃</div>
+    <div class="hint" style="left:16px;top:428px;">配方版本 v2.4 · 2026-11-08 由工艺部发布</div>
+    <div class="hint" style="left:16px;top:450px;">修改需工程师权限 · 自动写入操作日志</div>
+  </div>
+  <!-- 右：压力/时间参数 -->
+  <div class="panel" style="left:348px;top:62px;width:332px;height:492px;">
+    <div class="cap" style="min-width:130px;">压 力 / 时 间</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="hint" style="left:16px;top:40px;">参数名</div><div class="hint" style="left:170px;top:40px;">设定值</div><div class="hint" style="left:288px;top:40px;">单位</div>
+    <div class="hint" style="left:16px;top:66px;">注射压力</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_p1" data-kb="kb_num" style="left:158px;top:60px;width:110px;" value="125">
+    <div class="unit" style="left:276px;top:60px;">MPa</div>
+    <div class="hint" style="left:16px;top:102px;">保压压力 1 段</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_p2" data-kb="kb_num" style="left:158px;top:96px;width:110px;" value="85">
+    <div class="unit" style="left:276px;top:96px;">MPa</div>
+    <div class="hint" style="left:16px;top:138px;">保压压力 2 段</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_p3" data-kb="kb_num" style="left:158px;top:132px;width:110px;" value="60">
+    <div class="unit" style="left:276px;top:132px;">MPa</div>
+    <div class="hint" style="left:16px;top:174px;">背压</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_p4" data-kb="kb_num" style="left:158px;top:168px;width:110px;" value="12.5">
+    <div class="unit" style="left:276px;top:168px;">MPa</div>
+    <div class="hint" style="left:16px;top:210px;">注射速度</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_v1" data-kb="kb_num" style="left:158px;top:204px;width:110px;" value="86">
+    <div class="unit" style="left:276px;top:204px;">mm/s</div>
+    <div class="hint" style="left:16px;top:246px;">保压时间</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_h1" data-kb="kb_num" style="left:158px;top:240px;width:110px;" value="3.5">
+    <div class="unit" style="left:276px;top:240px;">s</div>
+    <div class="hint" style="left:16px;top:282px;">冷却时间</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_h2" data-kb="kb_num" style="left:158px;top:276px;width:110px;" value="8.5">
+    <div class="unit" style="left:276px;top:276px;">s</div>
+    <div class="hint" style="left:16px;top:318px;">顶出次数</div>
+    <input class="pin plc" data-type="textarea" data-id="sp_n1" data-kb="kb_num" style="left:158px;top:312px;width:110px;" value="2">
+    <div class="unit" style="left:276px;top:312px;">次</div>
+    <div class="divider" style="left:16px;top:352px;width:300px;"></div>
+    <div class="hint" style="left:16px;top:362px;">压力保护上限 160 MPa · 流量上限 120 mm/s</div>
+    <div class="hint" style="left:16px;top:384px;">保压切换方式：位置 + 时间双重判定</div>
+    <div class="hint" style="left:16px;top:406px;">计量前残料保护 5 mm · 螺杆松退 6 mm</div>
+    <div class="hint" style="left:16px;top:428px;">目标节拍 30.0 s · 当前配方估算 32.5 s</div>
+    <div class="hint" style="left:16px;top:450px;">参数下发后 1 个模次内生效</div>
+  </div>
+
+  <!-- 底部操作条 -->
+  <div class="panel" style="left:688px;top:62px;width:328px;height:492px;">
+    <div class="cap" style="min-width:110px;">配 方 管 理</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="hint" style="left:14px;top:42px;">当前配方</div>
+    <div class="kpi" style="left:12px;top:60px;width:304px;height:58px;">
+      <div class="k-t">盒盖模 M-07 / PP / 件重 286 g</div>
+      <div class="k-sub" style="margin-top:4px;">版本 v2.4 · 发布 2026-11-08 · 工艺部 李工</div>
+    </div>
+    <div class="btn on plc" data-type="image" data-id="rc_sel1" data-states="normal,checked" data-handler="rc_sel1"
+         style="left:12px;top:128px;width:146px;height:44px;">M-07 盒盖</div>
+    <div class="btn plc" data-type="image" data-id="rc_sel2" data-states="normal,checked" data-handler="rc_sel2"
+         style="left:170px;top:128px;width:146px;height:44px;">M-12 罩壳</div>
+    <div class="btn plc" data-type="image" data-id="rc_sel3" data-states="normal,checked" data-handler="rc_sel3"
+         style="left:12px;top:182px;width:146px;height:44px;">M-21 卡扣</div>
+    <div class="btn plc" data-type="image" data-id="rc_sel4" data-states="normal,checked" data-handler="rc_sel4"
+         style="left:170px;top:182px;width:146px;height:44px;">M-30 手柄</div>
+    <div class="divider" style="left:12px;top:240px;width:304px;"></div>
+    <div class="hint" style="left:14px;top:250px;">操作</div>
+    <div class="btn green plc" data-type="image" data-id="btn_apply" data-states="normal,pressed" data-handler="par_apply"
+         style="left:12px;top:270px;width:146px;height:48px;font-size:16px;">应用参数</div>
+    <div class="btn red plc" data-type="image" data-id="btn_def" data-states="normal,pressed" data-handler="par_def"
+         style="left:170px;top:270px;width:146px;height:48px;font-size:16px;">恢复默认</div>
+    <div class="btn plc" data-type="image" data-id="btn_upld" data-states="normal,pressed" data-handler="par_upld"
+         style="left:12px;top:328px;width:146px;height:48px;font-size:16px;">上载 PLC</div>
+    <div class="btn plc" data-type="image" data-id="btn_dnld" data-states="normal,pressed" data-handler="par_dnld"
+         style="left:170px;top:328px;width:146px;height:48px;font-size:16px;">下载 PLC</div>
+    <div class="divider" style="left:12px;top:390px;width:304px;"></div>
+    <div class="hint" style="left:14px;top:400px;">修改历史（近 3 条）</div>
+    <div class="plc" data-type="label" data-id="par_h1" data-fontsize="11" data-color="#cfe9f5" data-align="left"
+         style="left:14px;top:420px;width:300px;height:16px;font-size:11px;line-height:16px;">11-08 14:22 冷却时间 8.0→8.5 s（李工）</div>
+    <div class="plc" data-type="label" data-id="par_h2" data-fontsize="11" data-color="#cfe9f5" data-align="left"
+         style="left:14px;top:440px;width:300px;height:16px;font-size:11px;line-height:16px;">11-05 09:10 保压 2 段 55→60 MPa（李工）</div>
+    <div class="plc" data-type="label" data-id="par_h3" data-fontsize="11" data-color="#cfe9f5" data-align="left"
+         style="left:14px;top:460px;width:300px;height:16px;font-size:11px;line-height:16px;">10-28 16:45 喷嘴温度 220→225℃（王工）</div>
+    <div class="hint" style="left:14px;top:486px;">数值框点击弹出数字键盘 · PLCUI 同步支持</div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script>PLC.page("pr");</script>
+</body>
+</html>

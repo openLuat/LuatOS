@@ -137,7 +137,12 @@ static int l_netdrv_setup(lua_State *L) {
 
         #ifdef LUAT_USE_NETDRV_WG
         if (conf.impl == LUAT_NETDRV_IMPL_WG) {
-            conf.wg_conf = luat_heap_malloc(sizeof(luat_netdrv_wg_conf_t));
+            conf.wg_conf = luat_heap_zalloc(sizeof(luat_netdrv_wg_conf_t));
+            if (conf.wg_conf == NULL) {
+                LLOGE("wg_conf malloc fail, size %d", sizeof(luat_netdrv_wg_conf_t));
+                lua_pushboolean(L, 0);
+                return 1;
+            }
             // WG的配置参数比较多, 放在这里面传递
             // 需要的参数有, private_key, public_key, endpoint, port, address, dns, mtu
             if (lua_getfield(L, 3, "wg_private_key") == LUA_TSTRING) {
@@ -178,12 +183,12 @@ static int l_netdrv_setup(lua_State *L) {
 
         #ifdef LUAT_USE_NETDRV_OPENVPN
         if (conf.impl == LUAT_NETDRV_IMPL_OPENVPN) {
-            conf.ovpn_conf = luat_heap_malloc(sizeof(luat_netdrv_openvpn_conf_t));
+            conf.ovpn_conf = luat_heap_zalloc(sizeof(luat_netdrv_openvpn_conf_t));
             if (conf.ovpn_conf == NULL) {
+                LLOGE("ovpn_conf malloc fail, size %d", sizeof(luat_netdrv_openvpn_conf_t));
                 lua_pushboolean(L, 0);
                 return 1;
             }
-            memset(conf.ovpn_conf, 0, sizeof(luat_netdrv_openvpn_conf_t));
             // OpenVPN的配置参数
             if (lua_getfield(L, 3, "ovpn_remote_ip") == LUA_TSTRING) {
                 conf.ovpn_conf->ovpn_remote_ip = luaL_checklstring(L, -1, &len);
@@ -231,12 +236,12 @@ static int l_netdrv_setup(lua_State *L) {
 
         #ifdef LUAT_USE_NETDRV_L2TP
         if (conf.impl == LUAT_NETDRV_IMPL_L2TP) {
-            conf.l2tp_conf = luat_heap_malloc(sizeof(luat_netdrv_l2tp_conf_t));
+            conf.l2tp_conf = luat_heap_zalloc(sizeof(luat_netdrv_l2tp_conf_t));
             if (conf.l2tp_conf == NULL) {
+                LLOGE("l2tp_conf malloc fail, size %d", sizeof(luat_netdrv_l2tp_conf_t));
                 lua_pushboolean(L, 0);
                 return 1;
             }
-            memset(conf.l2tp_conf, 0, sizeof(luat_netdrv_l2tp_conf_t));
             // L2TP的配置参数
             if (lua_getfield(L, 3, "l2tp_remote_ip") == LUA_TSTRING) {
                 conf.l2tp_conf->l2tp_remote_ip = luaL_checklstring(L, -1, &len);
@@ -279,12 +284,11 @@ static int l_netdrv_setup(lua_State *L) {
 
         #ifdef LUAT_USE_NETDRV_IPSEC
         if (conf.impl == LUAT_NETDRV_IMPL_IPSEC) {
-            conf.ipsec_conf = luat_heap_malloc(sizeof(luat_netdrv_ipsec_conf_t));
+            conf.ipsec_conf = luat_heap_zalloc(sizeof(luat_netdrv_ipsec_conf_t));
             if (conf.ipsec_conf == NULL) {
                 lua_pushboolean(L, 0);
                 return 1;
             }
-            memset(conf.ipsec_conf, 0, sizeof(luat_netdrv_ipsec_conf_t));
             // IPsec的配置参数
             if (lua_getfield(L, 3, "ipsec_remote_ip") == LUA_TSTRING) {
                 conf.ipsec_conf->ipsec_remote_ip = luaL_checklstring(L, -1, &len);

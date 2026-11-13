@@ -145,9 +145,12 @@ local battery_cache     = nil    -- { present, level, voltage, charging, usb }
 -- ==================== 小工具 ====================
 
 --- 安全调用：函数存在才调用，异常不影响调用方
+local query_diag = require "sip_query_diag"
 local function safe_call(name, fn, ...)
     if type(fn) ~= "function" then return nil end
+    local token, started = query_diag.begin(name)
     local ok, r1, r2 = pcall(fn, ...)
+    query_diag.finish(name, token, started)
     if not ok then
         log.debug("aircloud", "probe " .. name .. " failed:", r1)
         return nil, nil
@@ -691,6 +694,12 @@ end
 local function handle_control_command(cmd)
     if not valid_str(cmd) then return end
     log.info("aircloud", "收到下行命令:", cmd)
+    -- R5/R6 只恢复云连接与上报；TTS 属于 R7，避免下行命令提前加载音频业务。
+    if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R5" or _G.SIP_RECOVERY_STAGE == "R6")
+        and (cmd == "ttsstop" or cmd:match("^tts[:=]") or cmd:match("^ttshex[:=]")) then
+        send_control_response("ERR TTS unavailable in " .. _G.SIP_RECOVERY_STAGE)
+        return
+    end
 
     -- cycle:180 —— 改上报周期
     local cycle_val = cmd:match("^cycle[:=](%d+)$")
@@ -809,16 +818,16 @@ end
 
 -- ==================== 上报主协程 ====================
 
--- SIP 通话期间暂停"定时"上报：语音 RTP 和上报走同一条 4G Airlink 上行，
--- 一次上报的突发流量会把上行挤爆，表现就是对端时不时"卡一下"（RTP 丢包 →
--- 抖动缓冲欠载）。参考工程里根本没有上报模块，这也是工厂多出来的负载之一。
--- 只跳过 timer 触发的轮询；云端下发的立即上报(report:once)仍照常执行。
+-- SIP 通话期间暂停定时上报，减少 Airlink 查询和上报带来的竞争。
+-- 云端下发的立即上报仍照常执行；挂断后恢复正常周期，不集中补发。
 local sip_call_busy = false
-sys.subscribe("SIP_TEST_STATE", function(s)
+local function set_sip_call_busy(s)
     sip_call_busy = s ~= nil and (
         s.state == "incoming" or s.state == "dialing" or s.state == "answering"
         or s.state == "talking" or s.state == "ending")
-end)
+end
+sys.subscribe("SIP_TEST_STATE", set_sip_call_busy)
+sys.subscribe("SIP_STATE", set_sip_call_busy)
 
 local function report_task_func()
     -- 1) 等网络就绪

@@ -13,7 +13,6 @@
 //
 
 #include "zenoh-pico/protocol/definitions/transport.h"
-#include "zenoh-pico/utils/auth.h"
 
 #include "zenoh-pico/collections/slice.h"
 #include "zenoh-pico/utils/logging.h"
@@ -33,13 +32,9 @@ void _z_t_msg_join_clear(_z_t_msg_join_t *msg) {
     _ZP_UNUSED(msg);
 }
 
-void _z_t_msg_init_clear(_z_t_msg_init_t *msg) {
-    _z_slice_clear(&msg->_cookie); _z_secure_zero(msg, sizeof(*msg));
-}
+void _z_t_msg_init_clear(_z_t_msg_init_t *msg) { _z_slice_clear(&msg->_cookie); }
 
-void _z_t_msg_open_clear(_z_t_msg_open_t *msg) {
-    _z_slice_clear(&msg->_cookie); _z_secure_zero(msg, sizeof(*msg));
-}
+void _z_t_msg_open_clear(_z_t_msg_open_t *msg) { _z_slice_clear(&msg->_cookie); }
 
 void _z_t_msg_close_clear(_z_t_msg_close_t *msg) { _ZP_UNUSED(msg); }
 
@@ -100,7 +95,7 @@ z_reliability_t _z_t_msg_get_reliability(_z_transport_message_t *msg) {
 /*------------------ Join Message ------------------*/
 _z_transport_message_t _z_t_msg_make_join(z_whatami_t whatami, _z_zint_t lease, _z_id_t zid,
                                           _z_conduit_sn_list_t next_sn) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_JOIN;
 
     msg._body._join._version = Z_PROTO_VERSION;
@@ -138,7 +133,7 @@ _z_transport_message_t _z_t_msg_make_join(z_whatami_t whatami, _z_zint_t lease, 
 
 /*------------------ Init Message ------------------*/
 _z_transport_message_t _z_t_msg_make_init_syn(z_whatami_t whatami, _z_id_t zid) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_INIT;
 
     msg._body._init._version = Z_PROTO_VERSION;
@@ -168,7 +163,7 @@ _z_transport_message_t _z_t_msg_make_init_syn(z_whatami_t whatami, _z_id_t zid) 
 }
 
 _z_transport_message_t _z_t_msg_make_init_ack(z_whatami_t whatami, _z_id_t zid, _z_slice_t cookie) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_INIT;
     _Z_SET_FLAG(msg._header, _Z_FLAG_T_INIT_A);
 
@@ -199,7 +194,7 @@ _z_transport_message_t _z_t_msg_make_init_ack(z_whatami_t whatami, _z_id_t zid, 
 
 /*------------------ Open Message ------------------*/
 _z_transport_message_t _z_t_msg_make_open_syn(_z_zint_t lease, _z_zint_t initial_sn, _z_slice_t cookie) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_OPEN;
 
     msg._body._open._lease = lease;
@@ -214,7 +209,7 @@ _z_transport_message_t _z_t_msg_make_open_syn(_z_zint_t lease, _z_zint_t initial
 }
 
 _z_transport_message_t _z_t_msg_make_open_ack(_z_zint_t lease, _z_zint_t initial_sn) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_OPEN;
     _Z_SET_FLAG(msg._header, _Z_FLAG_T_OPEN_A);
 
@@ -231,7 +226,7 @@ _z_transport_message_t _z_t_msg_make_open_ack(_z_zint_t lease, _z_zint_t initial
 
 /*------------------ Close Message ------------------*/
 _z_transport_message_t _z_t_msg_make_close(uint8_t reason, bool link_only) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_CLOSE;
 
     msg._body._close._reason = reason;
@@ -244,14 +239,14 @@ _z_transport_message_t _z_t_msg_make_close(uint8_t reason, bool link_only) {
 
 /*------------------ Keep Alive Message ------------------*/
 _z_transport_message_t _z_t_msg_make_keep_alive(void) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_KEEP_ALIVE;
 
     return msg;
 }
 
 _z_transport_message_t _z_t_msg_make_frame(_z_zint_t sn, _z_zbuf_t *payload, z_reliability_t reliability) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_FRAME;
 
     msg._body._frame._sn = sn;
@@ -264,7 +259,7 @@ _z_transport_message_t _z_t_msg_make_frame(_z_zint_t sn, _z_zbuf_t *payload, z_r
 
 /*------------------ Frame Message ------------------*/
 _z_transport_message_t _z_t_msg_make_frame_header(_z_zint_t sn, z_reliability_t reliability) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_FRAME;
 
     msg._body._frame._sn = sn;
@@ -282,7 +277,7 @@ _z_transport_message_t _z_t_msg_make_fragment_header(_z_zint_t sn, z_reliability
 }
 _z_transport_message_t _z_t_msg_make_fragment(_z_zint_t sn, _z_slice_t payload, z_reliability_t reliability,
                                               bool is_last, bool first, bool drop) {
-    _z_transport_message_t msg = {0};
+    _z_transport_message_t msg;
     msg._header = _Z_MID_T_FRAGMENT;
     if (is_last == false) {
         _Z_SET_FLAG(msg._header, _Z_FLAG_T_FRAGMENT_M);
@@ -323,16 +318,27 @@ void _z_t_msg_copy_join(_z_t_msg_join_t *clone, _z_t_msg_join_t *msg) {
     memcpy(clone->_zid.id, msg->_zid.id, 16);
 }
 
-z_result_t _z_t_msg_copy_init(_z_t_msg_init_t *clone, _z_t_msg_init_t *msg) {
-    *clone = *msg;
-    clone->_cookie = _z_slice_null();
-    return _z_slice_copy(&clone->_cookie, &msg->_cookie);
+void _z_t_msg_copy_init(_z_t_msg_init_t *clone, _z_t_msg_init_t *msg) {
+    clone->_version = msg->_version;
+    clone->_whatami = msg->_whatami;
+    clone->_seq_num_res = msg->_seq_num_res;
+    clone->_req_id_res = msg->_req_id_res;
+    clone->_batch_size = msg->_batch_size;
+    memcpy(clone->_zid.id, msg->_zid.id, 16);
+    if (!_z_slice_is_empty(&msg->_cookie)) {
+        _z_slice_copy(&clone->_cookie, &msg->_cookie);
+    }
+#if Z_FEATURE_FRAGMENTATION == 1
+    clone->_patch = msg->_patch;
+#endif
 }
 
-z_result_t _z_t_msg_copy_open(_z_t_msg_open_t *clone, _z_t_msg_open_t *msg) {
-    *clone = *msg;
-    clone->_cookie = _z_slice_null();
-    return _z_slice_copy(&clone->_cookie, &msg->_cookie);
+void _z_t_msg_copy_open(_z_t_msg_open_t *clone, _z_t_msg_open_t *msg) {
+    clone->_lease = msg->_lease;
+    clone->_initial_sn = msg->_initial_sn;
+    if (!_z_slice_is_empty(&msg->_cookie)) {
+        _z_slice_copy(&clone->_cookie, &msg->_cookie);
+    }
 }
 
 void _z_t_msg_copy_close(_z_t_msg_close_t *clone, _z_t_msg_close_t *msg) { clone->_reason = msg->_reason; }
@@ -350,8 +356,7 @@ void _z_t_msg_copy_frame(_z_t_msg_frame_t *clone, _z_t_msg_frame_t *msg) {
 }
 
 /*------------------ Transport Message ------------------*/
-z_result_t _z_t_msg_copy(_z_transport_message_t *clone, _z_transport_message_t *msg) {
-    *clone = (_z_transport_message_t){0};
+void _z_t_msg_copy(_z_transport_message_t *clone, _z_transport_message_t *msg) {
     clone->_header = msg->_header;
 
     uint8_t mid = _Z_MID(msg->_header);
@@ -361,11 +366,11 @@ z_result_t _z_t_msg_copy(_z_transport_message_t *clone, _z_transport_message_t *
         } break;
 
         case _Z_MID_T_INIT: {
-            return _z_t_msg_copy_init(&clone->_body._init, &msg->_body._init);
+            _z_t_msg_copy_init(&clone->_body._init, &msg->_body._init);
         } break;
 
         case _Z_MID_T_OPEN: {
-            return _z_t_msg_copy_open(&clone->_body._open, &msg->_body._open);
+            _z_t_msg_copy_open(&clone->_body._open, &msg->_body._open);
         } break;
 
         case _Z_MID_T_CLOSE: {
@@ -376,16 +381,18 @@ z_result_t _z_t_msg_copy(_z_transport_message_t *clone, _z_transport_message_t *
             _z_t_msg_copy_keep_alive(&clone->_body._keep_alive, &msg->_body._keep_alive);
         } break;
 
-        case _Z_MID_T_FRAME:
-        case _Z_MID_T_FRAGMENT:
-            clone->_header = 0;
-            return _Z_ERR_MESSAGE_UNEXPECTED;
+        case _Z_MID_T_FRAME: {
+            _z_t_msg_copy_frame(&clone->_body._frame, &msg->_body._frame);
+        } break;
+
+        case _Z_MID_T_FRAGMENT: {
+            _z_t_msg_copy_fragment(&clone->_body._fragment, &msg->_body._fragment);
+        } break;
 
         default: {
-            return _Z_ERR_MESSAGE_UNEXPECTED;
+            _Z_INFO("WARNING: Trying to copy transport message with unknown ID(%d)", mid);
         } break;
     }
-    return _Z_RES_OK;
 }
 
 void _z_s_msg_clear(_z_scouting_message_t *msg) {

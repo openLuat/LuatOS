@@ -29,7 +29,7 @@
 
 === 播放器素材闸口（起播前必读）===
 VP.start_play 是桌面播放器唯一入口，起播前有两道判断：
-  1) 拦：超过该格式分辨率上限的真解不出来 —— MP4 480×320、HZV/MJPG 1024×600
+  1) 拦：超过该格式分辨率上限的真解不出来 —— HZV 1024×600
      （video_util.check_frame），任何路径都不起播，画面区给原因文案；
   2) 提：放不下画面区的照常播（裁着看）—— airui 播放器不支持缩放，控件被撑回
      素材原生尺寸、越出画面区，由舞台层 VP.stage 裁掉一圈。用户主动选文件时
@@ -47,7 +47,7 @@ theme.label 内部有一行 `if fs < theme.FONT_MIN then fs = theme.FONT_MIN end
 local exnetif = require "exnetif"
 local net_manager = require "net_manager"
 local theme = require "ui_theme"
--- 播放器两块共用的底层：素材工具（帧尺寸口径 / 音轨初始化）与文件选择弹窗。
+-- 播放器两块共用的底层：素材工具（帧尺寸口径 / 播放器创建）与文件选择弹窗。
 -- 全屏播放页（ui/video_win.lua）用的是同一套，改口径只改模块。
 local video_picker = require "video_picker"
 local video_util = require "video_util"
@@ -65,7 +65,7 @@ local apps_card = nil
   VP.ctrl_h / VP.frame_h / VP.current_file / VP.start_play / VP.open_picker
 跨窗口调用请走本文件已有的导出接口，别在别的窗口里直接碰这张表。]]
 local VP = {}
-VP.obj = nil                    -- 播放器对象（airui.video 实例；MP4 为带会话收尾的包装对象）
+VP.obj = nil                    -- 播放器对象（video_util.create_player 的 wrap_release 包装对象）
 VP.is_playing = true            -- 播放状态
 VP.is_loop = true               -- 循环状态
 VP.ctrl_bar = nil               -- 控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
@@ -77,15 +77,9 @@ VP.ctrl_visible = true          -- 控制栏可见性
 现在控制栏由 theme.video_bar 统一构建并自带 sync/set_file，
 调用方只需要把状态喂进去（见 VP.start_play / VP.toggle_play / VP.toggle_loop），
 底色、文字色、文案三者在同一处一起刷新。]]
--- VP.current_file = "/luadb/luatos_boot.hzv"           -- 当前播放文件（res/luatos_boot.hzv 打包后在 /luadb/ 下）
-VP.current_file = "/luadb/fruit.mp4" 
+VP.current_file = "/luadb/fruit.hzv"                    -- 当前播放文件（res/fruit.hzv 打包后在 /luadb/ 下）
 VP.card_ref = nil             -- 视频卡片容器引用（供切换文件时使用）
 VP.stage = nil                -- 画面舞台层：视频的父对象，先于控制栏创建（见 build_video_area）
--- 配套音频（同名 MP3）的播放状态已收进 video_util：桌面播放器与全屏播放页
--- 共用一份，避免「两边同时出声」，也避免各自记一份状态后互相打架。
--- 应用卡片表头计数标签（"已安装应用 | N"）。
--- 原来只在 build_apps_card 里把它造出来就丢掉了返回值，谁也拿不到，
--- 于是安装/卸载后这个数字永远停在开机那一刻 —— 必须持有引用才能刷新。
 local apps_head_label = nil
 -- 翻页按钮引用：空列表时要能整组隐藏（见 update_pager 的注释）
 local pager_prev_btn, pager_next_btn = nil, nil
@@ -123,7 +117,7 @@ local apps_page_index = 1
 -- 方案A：左侧视频 + 右侧信息列（横屏）
 local col_gap = 10             -- 左右栏 / 右列卡片间距（设计稿 10）
 VP.w = 480                     -- 视频区域宽度
-VP.h = 270                     -- 视频区域高度（按 luatos_boot 素材帧高留的布局基准）
+VP.h = 270                     -- 视频区域高度（按桌面素材 fruit.hzv 的帧高留的布局基准）
 VP.x = 0                       -- 视频卡左上角 X（绝对坐标，从内容区左缘算起）
 VP.y = 0                       -- 视频卡左上角 Y（绝对坐标，从屏幕顶缘算起）
 VP.frame_h = 0                 -- 视频画面高度（卡片高 - 控制栏高）
@@ -136,19 +130,16 @@ VP.enabled = false             -- 是否启用横屏双列布局（左视频 + �
 
 纵向堆叠：状态栏 → 时钟 → 播放器（画面 + 独立控制栏）→ 已安装应用 → 底部 Dock。
 **该布局不带天气卡**：天气卡那点高度让给了播放器的控制栏。
-控制栏必须独占一行、不能压在画面上。原因与解码后端有关（2026-11-07 按源码订正）：
-· MP4 走 mplayer 后端（luat_airui_video.c 的 g_airui_video_mplayer_ops，read_frame = NULL，
-  即后端自己送显），画面送上独立硬件视频图层（luat_mplayer.c 的 g_video_layer.layer_id = 1，
-  UI 层 layer_id = 0），合成在 UI 层之上 —— LVGL 的父子关系 / 创建顺序 / z-order 对它完全
-  无效，压在画面上的控件（含居中弹窗）必被挡住，只能按几何避让；
-· HZV / MJPG 走 videoplayer 后端（read_frame 非空，逐帧拉 RGB565 塞进 lv_image），确实走
-  正常 LVGL 渲染，被盖住是两条层叠规则叠加 —— ① 同一父对象内后创建的子对象画在上面；
-  ② 视频不支持缩放，大素材被强行撑回原生尺寸、越出画面区。只要画面与控制栏有重叠，
-  谁后创建谁在上面，按钮就可能被盖掉。
+控制栏必须独占一行、不能压在画面上。素材走 airui.video 的 videoplayer 后端
+（read_frame 非空，逐帧拉 RGB565 塞进 lv_image），确实是正常 LVGL 渲染，但被盖住是
+两条层叠规则叠加（2026-11-07 按源码订正）——
+· ① 同一父对象内后创建的子对象画在上面：只要画面与控制栏有重叠，谁后创建谁在上面；
+· ② 视频不支持缩放，大素材被强行撑回原生尺寸、越出画面区，重叠面还会被放大。
+两条叠加的结果就是按钮被盖掉，只能按几何避让（控制栏独占一行 + 弹窗挪出视频范围）。
 与方案A互斥，由配置项 ui.show_video_area 显式打开（原因见下方开关注释）。]]
 VP.portrait = false
 
---[[播放器卡基准高度 = luatos_boot.hzv 的原生帧高（480×320）
+--[[播放器卡基准高度 = 桌面素材 fruit.hzv 的原生帧高（480×320）
 
 airui 播放器控件**不支持缩放**：请求尺寸与素材帧尺寸不一致时，控件会被强制改回素材尺寸
 （components/airui/src/components/widgets/luat_airui_video.c:
@@ -492,13 +483,14 @@ local function dialog_style()
     }
 end
 
--- ==================== 弹窗避让（视频硬件图层） ====================
+-- ==================== 弹窗避让（视频区） ====================
 
 --[[弹窗落位：视频区启用时把弹窗摆到视频之外的空闲区，返回 { x, y, w, h }
 
-为什么不能靠 z-order：桌面默认素材 /luadb/fruit.mp4 走 mplayer 后端，画面由后端送上独立
-硬件视频图层（layer_id = 1，UI 层是 0）、合成在 UI 层之上，LVGL 的父子关系 / 创建顺序 /
-z-order 对它完全无效 —— 居中弹窗一定被视频挡住，只能按几何避开。落位要点：
+为什么不能靠 z-order：视频控件不支持缩放，大素材被强行撑回原生尺寸、越出画面区；
+而同一父对象内后创建的子对象画在上面（LVGL 的层叠规则）。居中弹窗与越出的那圈画面
+必然重叠，谁后建谁在上 —— 于是「要么挡住画面、要么被画面盖住」，只能按几何避开。
+落位要点：
   · 横屏双列（VP.enabled）：收进右列，宽度收到右列宽；右列几何（right_x / right_w）由
     calc_layout 统一算好，这里只复用，不再抄一份公式；
   · 竖屏通栏（VP.portrait）：视频占满宽度没有「右边」，改放避让矩形外面积最大的空闲带
@@ -805,7 +797,7 @@ end
 -- ==================== 密码验证 / 设置弹窗 ====================
 
 local function make_dark_keyboard()
-    --[[键盘同样要避让视频硬件图层（居中弹窗那套避让对它不适用：键盘是贴底的）：
+    --[[键盘同样要避让视频区（居中弹窗那套避让对它不适用：键盘是贴底的）：
         横屏把整块键盘挪进右列（宿主容器跟着右列走）；竖屏视频通栏没有「右边」，而键盘的
         y 语义是「距父容器底部的偏移」（0 = 贴底，只能取负往上挪、没法下移），只能压 h 让它
         待在视频带以下。]]
@@ -876,7 +868,7 @@ local function show_password_verify_popup(title_str, on_confirm, on_cancel)
     local gap = math.floor(12 * d)
     local win_h = header_h + pad_in * 2 + label_h + gap + input_h + gap + btn_h
 
-    --[[视频区启用时挪出视频范围（MP4 画面在独立硬件图层上，居中弹窗必被挡住）。
+    --[[视频区启用时挪出视频范围（居中弹窗会跟越出画面区的视频抢位置，谁后建谁在上）。
         airui.win 的 auto_center 会覆盖 x/y，给了坐标就必须把它关掉。]]
     local pos = place_dialog(win_w, win_h)
     if pos then
@@ -940,7 +932,7 @@ local function show_password_set_popup(on_confirm, on_cancel)
     local gap = math.floor(10 * d)
     local win_h = header_h + pad_in * 2 + label_h + gap + input_h + gap + btn_h
 
-    --[[视频区启用时挪出视频范围（MP4 画面在独立硬件图层上，居中弹窗必被挡住）。
+    --[[视频区启用时挪出视频范围（居中弹窗会跟越出画面区的视频抢位置，谁后建谁在上）。
         airui.win 的 auto_center 会覆盖 x/y，给了坐标就必须把它关掉。]]
     local pos = place_dialog(win_w, win_h)
     if pos then
@@ -1068,7 +1060,7 @@ show_app_context_menu = function(app)
     local win_h = header_h + pad_in * 2 + icon_size + gap + auto_label_h
         + #items * (item_h + item_gap) + gap + cancel_h
 
-    --[[视频区启用时挪出视频范围（MP4 画面在独立硬件图层上，居中弹窗必被挡住）；
+    --[[视频区启用时挪出视频范围（居中弹窗会跟越出画面区的视频抢位置，谁后建谁在上）；
         airui.win 的 auto_center 会覆盖 x/y，给了坐标就必须把它关掉。]]
     local pos = place_dialog(win_w, win_h)
     if pos then
@@ -2017,7 +2009,6 @@ end
 
 -- 视频控制：停止并释放视频组件
 function VP.stop()
-    video_util.audio_stop()
     if VP.obj then
         pcall(function() VP.obj:stop() end)
         pcall(function() VP.obj:destroy() end)
@@ -2027,14 +2018,13 @@ end
 
 --[[媒体素材工具已下沉到 ui/video_util.lua
 
-这份口径（容器魔数嗅探 / 帧尺寸读取 / HZV 音轨初始化）桌面播放器与全屏播放页都要用，
+这份口径（容器魔数嗅探 / 帧尺寸读取 / 播放器创建）桌面播放器与全屏播放页都要用，
 而 airui 播放器**不支持缩放** —— 帧尺寸读错不会「拉伸画面」，只会让控件溢出容器、
 把画面裁掉一块。同一份口径只能有一处实现，否则两个页面的裁切行为会不一致。
-
-配套音频（同名 MP3）也跟着下沉了：播放状态跨页面共用一份，避免两边同时出声。]]
+]]
 
 --- 读素材帧尺寸；读不到时按布局形态回退
---- 竖屏播放器布局用 luatos_boot.hzv 的原生尺寸（480×320），横屏沿用旧默认（480×270）。
+--- 竖屏播放器布局用桌面素材 fruit.hzv 的原生尺寸（480×320），横屏沿用旧默认（480×270）。
 --- 回退值必须与布局基准一致：给错不会「拉伸画面」，只会让控件溢出卡片、把画面切掉一块。
 local function media_frame_size(path)
     return video_util.frame_size(path, 480, VP.portrait and VP.BASE_H or 270)
@@ -2046,7 +2036,7 @@ end
 越出画面区，由舞台层（VP.stage）裁掉一圈。裁着播是原有行为、不算坏，
 但看不全，所以用户主动选文件时提一次「建议全屏播放」（VP.ask_fullscreen）。
 
-FIT_SLOP 是布局取整余量：1024×600 横屏的画面区实算 479×528，而 MP4 的标准素材就是
+FIT_SLOP 是布局取整余量：1024×600 横屏的画面区实算 479×528，而桌面素材 fruit.hzv 就是
 480×320 —— 1~2px 的差距肉眼看不出来，不该提示「放不下」。]]
 VP.FIT_SLOP = 8
 function VP.fits(vw, vh)
@@ -2123,9 +2113,9 @@ function VP.alert(title, text)
     end)
 end
 
---[[在舞台层里创建视频对象（HZV/MJPG/MP4 统一走 airui.video）
+--[[在舞台层里创建视频对象（统一走 airui.video 的 videoplayer 后端）
 
-唯一的创建点是 VP.play_window：格式差异统一走 video_util.create_player，
+唯一的创建点是 VP.play_window：创建统一走 video_util.create_player，
 本函数只负责把素材帧尺寸折算成画面矩形。挂 VP 表而不是文件级 local：
 本文件顶层局部变量名额已顶到上限（见 VP 定义处注释）。
 
@@ -2160,7 +2150,7 @@ end
 
 两件事，顺序不能换：
   1) 拦：超过该格式分辨率上限的素材**真解不出来**，任何路径都不起播
-     （video_util.check_frame，MP4 480×320、HZV/MJPG 1024×600）；
+     （video_util.check_frame，HZV 1024×600）；
   2) 提：放不下画面区的素材照样播（裁着看），但用户主动选文件时提一次
      「建议全屏播放」（VP.ask_fullscreen）。
 
@@ -2198,7 +2188,7 @@ function VP.start_play(file_path, ask)
 end
 
 ---真正起播：在桌面画面区里播，素材居中摆放、超出部分由舞台层裁掉
----这里只做「停旧 + 排队」，真正建播放器在 VP.create_now：停掉的那一路 mplayer
+---这里只做「停旧 + 排队」，真正建播放器在 VP.create_now：停掉的那一路播放器
 ---音频会话要 400~530ms 才释放完，建新会话必须让过这段窗口（收口在 video_util）
 function VP.play_window(file_path)
     VP.stop()
@@ -2224,7 +2214,7 @@ function VP.create_now(file_path)
 
     -- 循环交回组件（loop 参数）。旧版是「每 3 秒 stop+play」手动重播，
     -- 会把正在解码的视频硬重启，画面就停在半路 —— 用户报的「播放卡住」。
-    -- 几何折算与格式分派见 VP.create_video
+    -- 几何折算见 VP.create_video
     VP.obj = VP.create_video(file_path, VP.stage or video_card)
 
     VP.is_playing = (VP.obj ~= nil)
@@ -2237,12 +2227,7 @@ function VP.create_now(file_path)
     sync_ctrl()
     VP.show_ctrl()
 
-    -- 同名 MP3 配套播放：只有 MJPG 素材需要。HZV 的音轨已在容器内、
-    -- MP4 声音走 mplayer 自带音频通路；find_companion_mp3 只认 .mjpg 后缀。
-    local mp3 = video_util.find_companion_mp3(file_path)
-    if mp3 then
-        video_util.audio_play(mp3, function() return VP.is_loop and VP.is_playing end)
-    end
+    -- 音轨在 HZV 容器内，由 videoplayer 自己送出（见 video_util），这里不再管声音。
 
     log.info("idle_win", "video play", file_path, "ok=", VP.obj ~= nil, "loop=", VP.is_loop)
 end
@@ -2254,12 +2239,10 @@ function VP.toggle_play()
         pcall(function() VP.obj:pause() end)
         VP.is_playing = false
         sync_ctrl()
-        video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
     else
         pcall(function() VP.obj:play() end)
         VP.is_playing = true
         sync_ctrl()
-        video_util.audio_toggle(function() return VP.is_loop and VP.is_playing end)
         VP.show_ctrl()
     end
 end
@@ -2272,7 +2255,7 @@ function VP.restart()
 end
 
 -- 视频控制：切换循环
--- loop 只在创建组件时生效（HZV/MJPG/MP4 一视同仁），所以切完标志位重建一次组件
+-- loop 只在创建组件时生效（HZV 也一样），所以切完标志位重建一次组件
 function VP.toggle_loop()
     VP.is_loop = not VP.is_loop
     -- 文案（循环/单次）与底色（琥珀/中性）一起刷
@@ -2346,9 +2329,9 @@ local function build_video_area(parent)
 
     -- 资源落点随烧录方式而变（/luadb/ 或根目录），先挑实际存在的那个
     if not io.exists(VP.current_file) then
-        -- .hzv 优先（真机硬解）；素材还没换成 hzv 时回落同名 .mjpg，避免视频卡片空掉
+        -- 资源可能落在 /luadb/（luadb 打包）或根目录（SD 卡 / 直拷），两个落点都试
         for _, p in ipairs({
-            "/luadb/luatos_boot.hzv", "/luatos_boot.hzv",
+            "/luadb/fruit.hzv", "/fruit.hzv",
         }) do
             if io.exists(p) then
                 VP.current_file = p
@@ -2382,13 +2365,10 @@ local function build_video_area(parent)
     --[[画面高度：两种布局都是「卡片高 - 控制栏高」，控制栏独占卡片底部一行、不压画面。
     竖屏下卡片 = 画面原生 320 + 控制栏，画面正好占满上半部分、控制栏紧贴其下。
 
-    控制栏绝不能叠在画面上，原因分后端（2026-11-07 按源码订正）：
-      · MP4 走 mplayer 后端：画面由后端自己送上独立硬件视频图层（layer_id = 1，UI 层是 0），
-        合成在 UI 层之上，LVGL 的层级与父层裁剪都不生效 —— 控制栏只能摆在画面区之外，
-        居中弹窗同理（见 place_dialog 的避让）；
-      · HZV / MJPG 走 videoplayer 后端：视频确实是 lv_image（luat_airui_video.c 里
-        lv_image_set_src），走正常 LVGL 渲染，层级与父层裁剪都生效，被盖住是两条层叠规则
-        叠加：① LVGL 同一父对象内**后创建的子对象画在上面**；
+    控制栏绝不能叠在画面上，原因（2026-11-07 按源码订正）：
+      · 视频确实是 lv_image（luat_airui_video.c 里 lv_image_set_src），走正常 LVGL 渲染，
+        层级与父层裁剪都生效，被盖住是两条层叠规则叠加：
+        ① LVGL 同一父对象内**后创建的子对象画在上面**；
         ② 视频不支持缩放，大素材会被强行撑回原生尺寸、越出画面区。
     两条一叠加，只要「重建视频」发生在控制栏之后，控制栏就会被盖住 ——
     这正是用户报的「全屏播放大尺寸 hzv、返回桌面后播放按钮被盖住」。
@@ -2537,7 +2517,6 @@ local function on_destroy()
         pcall(function() VP.obj:destroy() end)
         VP.obj = nil
     end
-    video_util.audio_stop()
     -- 定时器可能晚于 on_destroy 触发，队列里的建播放器动作必须先丢掉
     video_util.cancel_pending()
     sys.unsubscribe("STATUS_TIME_UPDATED", update_time_date)
@@ -2673,7 +2652,6 @@ local function on_lose_focus()
         pcall(function() VP.obj:destroy() end)
         VP.obj = nil
     end
-    video_util.audio_stop()
     -- 失焦后桌面不在前台，队列里排着的建播放器动作直接丢掉；
     -- 释放窗口本身保留（这次销毁照样要等它释放完，回桌面时才不会抢）
     video_util.cancel_pending()

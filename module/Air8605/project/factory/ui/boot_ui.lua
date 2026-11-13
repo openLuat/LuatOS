@@ -1,3 +1,4 @@
+_G.SIP_DIAG_QUIET_CALL = true -- CALL-LUA-QUIET1: defer call summaries until bridge stops
 --[[
 @module  boot_ui
 @summary 开机快速点亮 + 延迟初始化编排：display就绪→logo+背光→核心批→直接进桌面
@@ -59,6 +60,12 @@ require "boot_ui" 即启动 boot_task 协程（main.lua 阶段4）：
 
 -- logo 尺寸（1:1 居中显示，不缩放）
 local LOGO_SIZE = 128
+local sip_isolation = _G.SIP_ISOLATION_TEST == true
+local recovery_stage = _G.SIP_RECOVERY_STAGE or "R0"
+if sip_isolation and recovery_stage ~= "R0" and recovery_stage ~= "R1" and recovery_stage ~= "R2" and recovery_stage ~= "R3" and recovery_stage ~= "R4" and (recovery_stage ~= "R5" and (recovery_stage ~= "R6" and recovery_stage ~= "R7")) then
+    log.error("sip_isolation", "UNSUPPORTED_STAGE", recovery_stage)
+    error("SIP recovery stage not implemented: " .. tostring(recovery_stage))
+end
 
 -- logo 首帧上屏余量：airui 首帧刷新是异步的，RGB 帧缓冲跨热复位不清屏，
 -- 背光早于首帧会把上一次会话的残留画面闪给用户（闪屏）。
@@ -161,7 +168,7 @@ local function boot_task()
     -- 6. exwin/exapp 加载（显示之后的第一件事：exapp require 时会扫描各存储应用列表）
     ok, err = pcall(function()
         exwin = require "exwin"
-        exapp = require "exapp"
+        if not sip_isolation then exapp = require "exapp" end
     end)
     if not ok then
         log.error("boot_ui", "exwin/exapp 加载失败", err)
@@ -187,12 +194,246 @@ local function boot_task()
     end
 
     -- 9. 可选批独立协程并行加载（音量恢复/网络/音频/SD/NES/UVC/HID，不阻塞进桌面）
-    sys.taskInit(optional_task)
+    if not sip_isolation then sys.taskInit(optional_task) end
 
     -- 10. 字体加载等核心初始化（读字库建 cache，初始化中最重的一步，与可选批并行消化）
     ok, err = pcall(lcd_drv.airui_core_init)
     if not ok then
         log.error("boot_ui", "airui_core_init 失败", err)
+    end
+
+    if sip_isolation then
+        log.warn("sip_isolation", "ENABLED", recovery_stage, _G.FACTORY_FULL_TEST and "R7 startup baseline; full peripheral tests on demand" or "SIP-only business startup; audio bridge v7 unchanged")
+        -- 看门狗先启动；网络初始化可能等待 AirLink 对端就绪。
+        local cfg = _G.project_config or {}
+        if (cfg.features or {}).wdt then require "watchdog_app" end
+        -- 保持原有音量/主题设置，避免对照时改变声音和绘制参数。
+        pcall(function() require("settings_display_app").restore_volume() end)
+        require "ui_theme_themes"
+        pcall(function() require("ui_theme").restore() end)
+        local net_manager = require "net_manager"
+        require "net_init"
+        local net_ok, net_err = pcall(net_manager.init, cfg)
+        if not net_ok then log.error("sip_isolation", "network init failed", net_err) end
+        -- 累加恢复已通过的分组，保留 R0 网络/音频初始化路径。
+        local group_ok = net_ok
+        local function load_member(name, loader)
+            local loaded, load_err = pcall(loader)
+            if loaded then
+                log.info("sip_isolation", recovery_stage, "LOADED", name)
+            else
+                group_ok = false
+                log.error("sip_isolation", recovery_stage, "LOAD_FAILED", name, load_err)
+            end
+            return loaded
+        end
+        if recovery_stage == "R1" or recovery_stage == "R2" or recovery_stage == "R3" or recovery_stage == "R4" or (recovery_stage == "R5" or (recovery_stage == "R6" or recovery_stage == "R7")) then
+            load_member("status_provider_app", function() require "status_provider_app" end)
+            load_member("wifi_app_real", function() require "wifi_app_real" end)
+            load_member("ntp_app", function() require "ntp_app" end)
+        end
+        if recovery_stage == "R2" or recovery_stage == "R3" or recovery_stage == "R4" or (recovery_stage == "R5" or (recovery_stage == "R6" or recovery_stage == "R7")) then
+            -- exapp 必须先成功，设置存储初始化依赖其 init 接口。
+            if load_member("recovery_exapp", function() exapp = require "recovery_exapp" end) then
+                if recovery_stage == "R4" or (recovery_stage == "R5" or (recovery_stage == "R6" or recovery_stage == "R7")) then
+                    load_member("settings_iot_app", function() require "settings_iot_app" end)
+                    load_member("iot_auto_login", function()
+                        assert(type(exapp.iot_auto_login) == "function", "missing IoT login API")
+                        sys.taskInit(function()
+                            local ok, err = pcall(exapp.iot_auto_login)
+                            if not ok then log.error("sip_isolation", recovery_stage, "INVALID_TEST", "iot_auto_login", err) end
+                        end)
+                    end)
+                end
+                load_member("settings_app", function() require "settings_app" end)
+                load_member("file_manager_app", function() require "file_manager_app" end)
+                load_member("settings_win", function() require "settings_win" end)
+                load_member("app_store_win", function() require "app_store_win" end)
+                load_member("file_manager_win", function() require "file_manager_win" end)
+            else
+                group_ok = false
+                log.error("sip_isolation", recovery_stage, "DEPENDENCY_FAILED", "exapp; settings/files skipped")
+            end
+        end
+        if recovery_stage == "R3" or recovery_stage == "R4" or (recovery_stage == "R5" or (recovery_stage == "R6" or recovery_stage == "R7")) then
+            load_member("video_win", function() require "video_win" end)
+            load_member("idle_win", function() require "idle_win" end)
+        end
+        if recovery_stage == "R4" or (recovery_stage == "R5" or (recovery_stage == "R6" or recovery_stage == "R7")) then
+            local fe = cfg.features or {}
+            if (type(cfg.network) == "table" and #cfg.network > 0) or fe.wifi or fe.net_4g or fe.ethernet then
+                load_member("weather_app", function() require "weather_app" end)
+            else
+                log.info("sip_isolation", recovery_stage, "SKIPPED", "weather_app", "network disabled in config")
+            end
+            load_member("fota_app", function() require "fota_app" end)
+        end
+        if (recovery_stage == "R5" or (recovery_stage == "R6" or recovery_stage == "R7")) then
+            local fe = cfg.features or {}
+            if fe.aircloud then
+                load_member("aircloud_app", function() require "aircloud_app" end)
+                load_member("settings_report_win", function() require "settings_report_win" end)
+            else
+                log.info("sip_isolation", recovery_stage, "SKIPPED", "aircloud_app/settings_report_win", "feature disabled")
+            end
+            if fe.cloud_disk then
+                if load_member("cloud_disk_app", function() require "cloud_disk_app" end) then
+                    load_member("cloud_disk_win", function() require "cloud_disk_win" end)
+                end
+            else
+                log.info("sip_isolation", recovery_stage, "SKIPPED", "cloud_disk_app/cloud_disk_win", "feature disabled")
+            end
+        end
+        if (recovery_stage == "R6" or recovery_stage == "R7") then
+            if (cfg.features or {}).file_transfer then
+                if load_member("file_transfer_app", function() require "file_transfer_app" end) then
+                    load_member("file_transfer_win", function() require "file_transfer_win" end)
+                end
+                log.info("sip_isolation", recovery_stage, "WAIT_SERVICE", "hzadb SERVICE_READY required before call test")
+            else
+                log.info("sip_isolation", recovery_stage, "SKIPPED", "file_transfer_app/file_transfer_win", "feature disabled")
+            end
+        end
+        if recovery_stage == "R7" then
+            local fe = cfg.features or {}
+            -- AI 语音输入也依赖 factory_rec；显式加载后由 require 缓存共享。
+            local rec_ok = true
+            if fe.app_factory or fe.ai_chat then
+                rec_ok = load_member("factory_rec", function() require "factory_rec" end)
+            end
+            if fe.app_factory then
+                if rec_ok and load_member("factory_app", function() require "factory_app" end) then
+                    load_member("factory_win", function() require "factory_win" end)
+                end
+            else
+                log.info("sip_isolation", recovery_stage, "SKIPPED", "factory_app/factory_win", "feature disabled")
+            end
+            if fe.ai_chat then
+                if rec_ok and load_member("llm_chat", function() require "llm_chat" end) then
+                    load_member("llm_chat_win", function() require "llm_chat_win" end)
+                end
+            else
+                log.info("sip_isolation", recovery_stage, "SKIPPED", "llm_chat/llm_chat_win", "feature disabled")
+            end
+            if cfg.hw and cfg.hw.audio then
+                load_member("tts_app", function() require "tts_app" end)
+            else
+                log.info("sip_isolation", recovery_stage, "SKIPPED", "tts_app", "audio not configured")
+            end
+        end
+        -- Single-action recovery on the verified R7 baseline.
+        if recovery_stage == "R7" and _G.SIP_RECOVERY_STEP == "R7-S8L-RS485-LAZY" then
+            log.info("sip_mem_diag", "S5-HISTORY-FIX", "BASELINE", "R7-S8L-RS485-LAZY")
+            log.info("sip_isolation", "R7-S8L-RS485-LAZY", "BASELINE", "R7-S4-AUDIO")
+            local usb_ok = load_member("usb_mode", function()
+                local usb_mode = require "usb_mode"
+                usb_mode.apply_boot(cfg)
+                log.info("sip_isolation", "R7-S8L-RS485-LAZY", "USB_MODE_APPLIED", usb_mode.mode())
+            end)
+            if usb_ok then
+                load_member("periph_loader", function()
+                    local usb_mode = require "usb_mode"
+                    assert(usb_mode.mode() == "uvc", "R7-S8L-RS485-LAZY requires UVC mode; test invalid")
+                    local selected = {}
+                    for _, p in ipairs(usb_mode.filter(cfg.peripherals) or {}) do
+                        if p.type == "uvc" then
+                            assert(not p.handle, "UVC already registered before S2")
+                            selected[#selected + 1] = p
+                        end
+                    end
+                    assert(#selected == 1, "R7-S8L-RS485-LAZY requires exactly one UVC entry")
+                    require("periph_loader").init_all(selected)
+                    local p = selected[1]
+                    assert(p.handle, "UVC registration failed: " .. tostring(p.id))
+                    log.info("sip_isolation", "R7-S8L-RS485-LAZY", "PERIPHERAL_READY", p.type, p.id)
+                end)
+            end
+            if usb_ok and group_ok then
+                load_member("rs485_registration", function()
+                    local selected = {}
+                    for _, p in ipairs(cfg.peripherals or {}) do
+                        if p.type == "rs485" then
+                            assert(not p.handle, "RS485 already registered before S3")
+                            selected[#selected + 1] = p
+                        end
+                    end
+                    assert(#selected == 1, "R7-S8L-RS485-LAZY requires exactly one RS485 entry")
+                    require("periph_loader").init_all(selected)
+                    local p = selected[1]
+                    assert(p.handle, "RS485 registration failed: " .. tostring(p.id))
+                    log.info("sip_isolation", "R7-S8L-RS485-LAZY", "PERIPHERAL_READY", p.type, p.id)
+                end)
+            end
+            if usb_ok and group_ok then
+                load_member("audio_registration", function()
+                    assert(cfg.hw and cfg.hw.audio, "R7-S8L-RS485-LAZY requires hw.audio")
+                    local selected = {}
+                    for _, p in ipairs(cfg.peripherals or {}) do
+                        if p.type == "audio" then
+                            assert(not p.handle, "audio already registered before S4")
+                            selected[#selected + 1] = p
+                        end
+                    end
+                    assert(#selected == 1, "R7-S8L-RS485-LAZY requires exactly one audio entry")
+                    require("periph_loader").init_all(selected)
+                    local p = selected[1]
+                    assert(p.handle, "audio registration failed: " .. tostring(p.id))
+                    assert(p.handle.inited == false and p.handle.state == "idle", "audio must remain idle and uninitialized")
+                    log.info("sip_isolation", "R7-S8L-RS485-LAZY", "PERIPHERAL_READY", p.type, p.id)
+                end)
+            end
+            if usb_ok and group_ok then
+                load_member("other_func_app", function()
+                    assert(cfg.features and cfg.features.other_func, "S5 requires other_func enabled")
+                    local list = require("usb_mode").filter(cfg.peripherals) or {}
+                    local count = 0
+                    for _, p in ipairs(list) do
+                        assert(p.type == "uvc" or p.type == "rs485" or p.type == "audio", "S5 unexpected peripheral type")
+                        assert(type(p.handle) == "table" and type(p.handle.status) == "function", "S5 requires existing S4 handles")
+                        count = count + 1
+                    end
+                    assert(count == 3, "S5 requires exactly three registered peripherals")
+                    require "other_func_app"
+                    log.info("sip_isolation", "R7-S8L-RS485-LAZY", "BUSINESS_READY", "other_func_app", "existing_handles", count)
+                end)
+            end
+            if usb_ok and group_ok then
+                load_member("other_func_win", function() require "other_func_win" end)
+                log.info("sip_isolation", "S8L-RS485-LAZY", "RS485_PAGE_DEFERRED")
+                log.info("sip_isolation", "CALL-LUA-QUIET1", "Lua call summaries deferred; native logs unchanged")
+                log.info("sip_isolation", "CALL-WINDOW-DIAG1", "last 60 ten-second windows buffered; output after stop; query counters retained")
+                log.info("sip_isolation", "SIP-STOP-RECONNECT-FIX1", "stop checked before reconnect and late socket events")
+                log.info("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "CONTROL", "RS485 manual TX retained; audio init and MIC warmup enabled; record/play/stop enabled; Back waits for cleanup; detached exit result retained; MIC probe reports UART bytes and parser ownership; recovery and scheduling diagnostics retained")
+            end
+            log.info("sip_isolation", "S8L-RS485-LAZY", "BASELINE", "S8-RS485-PAGE", "RS485 page deferred until first click; no UART open/send/DE operations")
+            if _G.FACTORY_FULL_TEST then
+                log.info("factory_handoff", "FULL_TEST_ON_DEMAND", "485/face/audio controls enabled; keep R7 startup services")
+            else
+                log.info("sip_isolation", "R7-S8L-RS485-LAZY", "EXCLUDED", "peripheral start/record/play, HID service, UVC/RS485/audio test subpages")
+            end
+            if usb_ok and group_ok then
+                log.info("sip_isolation", "R7-S8L-RS485-LAZY", "LOAD_COMPLETE")
+            else
+                log.error("sip_isolation", "R7-S8L-RS485-LAZY", "INVALID_TEST")
+            end
+        end
+        if group_ok then
+            log.info("sip_isolation", recovery_stage, "LOAD_COMPLETE", "hardware call test pending")
+        else
+            log.error("sip_isolation", recovery_stage, "INVALID_TEST", "startup load failed")
+        end
+        require "sip_test_win"
+        logo_hide()
+        if recovery_stage == "R3" or recovery_stage == "R4" or (recovery_stage == "R5" or (recovery_stage == "R6" or recovery_stage == "R7")) then
+            if group_ok then
+                sys.publish("OPEN_IDLE_WIN")
+                log.info("sip_isolation", recovery_stage, "DESKTOP_READY", "open SIP from desktop; check stage service readiness; test idle resident services first")
+            end
+        else
+            sys.publish("OPEN_SIP_TEST_WIN")
+            log.info("sip_isolation", recovery_stage, "SIP page opened; desktop/cloud/OTA/weather/AI/hzadb not started")
+        end
+        return
     end
 
     -- 11. 核心批：桌面 + 核心设置窗口（批间让出循环保证 logo 刷新不卡）

@@ -13,12 +13,6 @@ typedef struct {
     uint64_t connected_ms;
 } tcp_context_t;
 
-static int tcp_aborted(void) {
-    int rc = luat_zenoh_pico_io_aborted();
-    if (rc == -6) luat_zenoh_pico_io_fail_at("rng_failed", rc, 0, 0, 0);
-    return rc;
-}
-
 /* 此任务仅归Pico网络使用；状态机已处理通知，这里只消费固定预算的值副本。 */
 static int tcp_poll_notifications(void) {
     luat_event_t event;
@@ -75,7 +69,7 @@ z_result_t _z_socket_set_blocking(const _z_sys_net_socket_t *s, bool blocking) {
 }
 z_result_t _z_open_tcp(_z_sys_net_socket_t *s, const _z_sys_net_endpoint_t ep, uint32_t timeout) {
     s->context = NULL;
-    if (tcp_aborted() || tcp_poll_notifications() != 0) return _Z_ERR_SYSTEM_GENERIC;
+    if (luat_zenoh_pico_rng_failed() || tcp_poll_notifications() != 0) return _Z_ERR_SYSTEM_GENERIC;
     tcp_context_t *c = luat_heap_malloc(sizeof(*c));
     if (!c) return _Z_ERR_SYSTEM_OUT_OF_MEMORY;
     memset(c, 0, sizeof(*c)); c->timeout = timeout ? timeout : Z_CONFIG_SOCKET_TIMEOUT;
@@ -91,7 +85,7 @@ z_result_t _z_open_tcp(_z_sys_net_socket_t *s, const _z_sys_net_endpoint_t ep, u
 }
 size_t _z_read_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
     tcp_context_t *c = s.context;
-    if (tcp_aborted() || luat_zenoh_pico_io_failed()) return SIZE_MAX;
+    if (luat_zenoh_pico_io_failed()) return SIZE_MAX;
     if (!c || !c->net || n > UINT32_MAX) {
         luat_zenoh_pico_io_fail_at("rx_context", -1, n, 0, 0); return SIZE_MAX;
     }
@@ -116,7 +110,6 @@ size_t _z_read_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
 }
 size_t _z_read_exact_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
     tcp_context_t *c = s.context;
-    if (tcp_aborted()) return 0;
     if (luat_zenoh_pico_io_failed()) return SIZE_MAX;
     if (!c) { luat_zenoh_pico_io_fail_at("rx_exact_context", -1, n, 0, 0); return SIZE_MAX; }
     /* 1.9 TCP client仅在建会话时精确读帧。两次ACK的长度头与帧体共用
@@ -124,7 +117,6 @@ size_t _z_read_exact_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
     size_t done = 0;
     while (done < n && luat_mcu_tick64_ms() - c->connected_ms < Z_TRANSPORT_CONNECT_TIMEOUT) {
         size_t got = _z_read_tcp(s, p + done, n - done);
-        if (tcp_aborted()) return 0;
         if (luat_zenoh_pico_io_failed()) return SIZE_MAX;
         if (got != SIZE_MAX) done += got;
         else luat_rtos_task_sleep(1);
@@ -135,9 +127,6 @@ size_t _z_read_exact_tcp(const _z_sys_net_socket_t s, uint8_t *p, size_t n) {
     return SIZE_MAX;
 }
 size_t _z_send_tcp(const _z_sys_net_socket_t s, const uint8_t *p, size_t n) {
-    int abort = tcp_aborted();
-    /* 此调用也可能是同一帧的后续ioslice；取消写必须封锁清场继续写。 */
-    if (abort) { luat_zenoh_pico_io_fail_at("tx_cancelled", abort, n, 0, 0); return SIZE_MAX; }
     if (luat_zenoh_pico_io_failed()) return SIZE_MAX;
     tcp_context_t *c = s.context;
     if (!c || !c->net || n > UINT32_MAX) {
@@ -145,11 +134,6 @@ size_t _z_send_tcp(const _z_sys_net_socket_t s, const uint8_t *p, size_t n) {
     }
     uint64_t start = luat_mcu_tick64_ms(); size_t done = 0;
     while (done < n && luat_mcu_tick64_ms() - start < c->timeout) {
-        int abort = tcp_aborted();
-        if (abort) {
-            luat_zenoh_pico_io_fail_at("tx_cancelled", abort, n, done, luat_mcu_tick64_ms() - start);
-            return SIZE_MAX;
-        }
         if (tcp_poll_notifications() != 0) return SIZE_MAX;
         uint32_t sent = 0;
         uint64_t elapsed_ms = luat_mcu_tick64_ms() - start;

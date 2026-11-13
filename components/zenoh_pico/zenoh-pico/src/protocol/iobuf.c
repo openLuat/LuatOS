@@ -128,7 +128,6 @@ _z_zbuf_t _z_zbuf_make(size_t capacity) {
     if (_z_slice_simple_rc_is_null(&zbf._slice)) {
         _Z_ERROR("slice rc creation failed");
         _z_iosli_clear(&zbf._ios);
-        return _z_zbuf_null();
     }
     zbf._ios._is_alloc = false;
     return zbf;
@@ -308,7 +307,6 @@ z_result_t _z_wbuf_write(_z_wbuf_t *wbf, uint8_t b) {
                 _Z_ERROR_RETURN(_Z_ERR_TRANSPORT_NO_SPACE);
             }
             _z_iosli_t tmp = _z_iosli_make(wbf->_expansion_step);
-            if (tmp._capacity == 0) _Z_ERROR_RETURN(_Z_ERR_SYSTEM_OUT_OF_MEMORY);
             _Z_CLEAN_RETURN_IF_ERR(_z_wbuf_add_iosli(wbf, &tmp), _z_iosli_clear(&tmp));
         } else {
             wbf->_w_idx++;
@@ -333,7 +331,6 @@ z_result_t _z_wbuf_write_bytes(_z_wbuf_t *wbf, const uint8_t *bs, size_t offset,
         loffset += writable;
         while (llength > (size_t)0) {
             _z_iosli_t tmp = _z_iosli_make(wbf->_expansion_step);
-            if (tmp._capacity == 0) _Z_ERROR_RETURN(_Z_ERR_SYSTEM_OUT_OF_MEMORY);
             _Z_CLEAN_RETURN_IF_ERR(_z_wbuf_add_iosli(wbf, &tmp), _z_iosli_clear(&tmp));
             ios = _z_wbuf_get_iosli(wbf, wbf->_w_idx);
 
@@ -453,9 +450,7 @@ void _z_wbuf_set_wpos(_z_wbuf_t *wbf, size_t pos) {
 
 _z_zbuf_t _z_wbuf_to_zbuf(const _z_wbuf_t *wbf) {
     size_t len = _z_wbuf_len(wbf);
-    if (!len) return _z_zbuf_null();
     _z_zbuf_t zbf = _z_zbuf_make(len);
-    if (_z_zbuf_capacity(&zbf) < len) return zbf;
     for (size_t i = wbf->_r_idx; i <= wbf->_w_idx; i++) {
         _z_iosli_t *ios = _z_wbuf_get_iosli(wbf, i);
         _z_iosli_write_bytes(&zbf._ios, ios->_buf, ios->_r_pos, _z_iosli_readable(ios));
@@ -474,10 +469,6 @@ _z_zbuf_t _z_wbuf_moved_as_zbuf(_z_wbuf_t *wbf) {
     zbf._slice = _z_slice_simple_rc_new_from_val(&s);
     if (_z_slice_simple_rc_is_null(&zbf._slice)) {
         _Z_ERROR("slice rc creation failed");
-        /* 接管失败仍由ios拥有数据，先释放，不能返回有容量的空引用。 */
-        _z_iosli_clear(&zbf._ios);
-        _z_wbuf_clear(wbf);
-        return _z_zbuf_null();
     }
     zbf._ios._is_alloc = false;
     _z_wbuf_clear(wbf);

@@ -85,9 +85,7 @@ z_result_t _z_config_get_all(const _z_config_t *ps, _z_string_svec_t *locators, 
  * Returns:
  *     The clone of the config.
  */
-z_result_t _z_config_duplicate(_z_config_t *dst, const _z_config_t *src);
-_z_config_t _z_config_clone_value(const _z_config_t *src);
-#define _z_config_clone _z_config_clone_value
+#define _z_config_clone _z_str_intmap_clone
 
 /**
  * Get the length of the given properties map.
@@ -106,7 +104,7 @@ _z_config_t _z_config_clone_value(const _z_config_t *src);
  * Parameters:
  *   ps: A pointer to the properties map.
  */
-void _z_config_clear(_z_config_t *config);
+#define _z_config_clear _z_str_intmap_clear
 
 /**
  * Free a set of properties.
@@ -115,7 +113,7 @@ void _z_config_clear(_z_config_t *config);
  *   ps: A pointer to a pointer of properties.
  *
  */
-void _z_config_free(_z_config_t **config);
+#define _z_config_free _z_str_intmap_free
 
 #ifdef __cplusplus
 }

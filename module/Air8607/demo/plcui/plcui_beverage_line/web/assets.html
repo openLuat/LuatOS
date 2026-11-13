@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>设备运行管理</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+.tr-bg { position: absolute; background: rgba(9, 44, 62, .55); }
+.tr-bg.alt { background: rgba(6, 28, 40, .5); }
+.th-cell { position: absolute; height: 24px; line-height: 24px; text-align: center; font-size: 12px; color: #8fe3f5; background: rgba(13, 61, 85, .95); }
+.chip.run { background: #22c55e; color: #04240f; }
+.chip.idle { background: #8a97a3; color: #10181f; }
+.chip.maint { background: #ffa62b; color: #241400; }
+.chip.fault { background: #ff4d68; color: #2a0008; }
+.detail-k { position: absolute; font-size: 13px; color: #9fc7d8; }
+.plus { position: absolute; font-size: 13px; color: #6f9bb0; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage" data-page="assets">
+
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div>
+    <div class="hdr-wing r"></div>
+    <div class="hdr-title">设备运行管理 - 饮料灌装生产线</div>
+    <div class="hdr-status" style="left:716px;">
+      <div class="hdr-dot"></div>
+      <div class="hdr-state">运行中</div>
+      <div class="hdr-sep"></div>
+    </div>
+  </div>
+  <div class="plc" data-type="label" data-id="clock" data-fontsize="15" data-color="#cfe9f5"
+       data-align="right" data-text="2025-11-11 10:30:00"
+       style="left:800px;top:15px;width:208px;height:20px;font-size:15px;line-height:1;text-align:right;">2025-11-11 10:30:00</div>
+  <div class="plc btn plain sm" data-type="image" data-id="btn_home" data-states="normal,pressed" data-handler="show_overview"
+       style="left:12px;top:9px;width:90px;height:26px;font-size:13px;">◀ 产线总览</div>
+
+  <!-- ============ 左侧设备树 ============ -->
+  <div class="panel" style="left:10px;top:58px;width:196px;height:412px;">
+    <div class="cap" style="min-width:120px;">设备树</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="plc nav-root" data-type="image" data-states="normal,checked" data-id="tree_root1" data-handler="tree_root1"
+       style="left:20px;top:96px;width:176px;height:30px;"><span class="ic"></span>预处理设备</div>
+  <div class="plc nav-root sel" data-type="image" data-states="normal,checked" data-id="tree_root2" data-handler="tree_root2"
+       style="left:20px;top:130px;width:176px;height:30px;"><span class="ic"></span>灌装设备</div>
+
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_1" data-handler="tree_1" style="left:28px;top:166px;width:158px;height:24px;">包装设备</div>
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_2" data-handler="tree_2" style="left:28px;top:193px;width:158px;height:24px;">空瓶卸垛机</div>
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_3" data-handler="tree_3" style="left:28px;top:220px;width:158px;height:24px;">洗瓶机</div>
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_4" data-handler="tree_4" style="left:28px;top:247px;width:158px;height:24px;">瓶身检测机</div>
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_5" data-handler="tree_5" style="left:28px;top:274px;width:158px;height:24px;">灌装机</div>
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_6" data-handler="tree_6" style="left:28px;top:301px;width:158px;height:24px;">旋盖机</div>
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_7" data-handler="tree_7" style="left:28px;top:328px;width:158px;height:24px;">贴标机</div>
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_8" data-handler="tree_8" style="left:28px;top:355px;width:158px;height:24px;">喷标机</div>
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_9" data-handler="tree_9" style="left:28px;top:382px;width:158px;height:24px;">喷码机</div>
+  <div class="plc nav-sub" data-type="image" data-states="normal,checked" data-id="tree_10" data-handler="tree_10" style="left:28px;top:409px;width:158px;height:24px;">装箱机</div>
+  <div class="plc nav-sub sel" data-type="image" data-states="normal,checked" data-id="tree_11" data-handler="tree_11" style="left:28px;top:436px;width:158px;height:24px;">码垛机</div>
+
+  <!-- ============ 中间设备表 ============ -->
+  <div class="panel" style="left:210px;top:58px;width:580px;height:412px;">
+    <div class="cap">设备运行状态</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="plc tab sel" data-type="image" data-states="normal,checked" data-id="tab_dev" data-handler="tab_dev" style="left:218px;top:88px;width:90px;height:26px;">设备名</div>
+  <div class="plc tab" data-type="image" data-states="normal,checked" data-id="tab_grp" data-handler="tab_grp" style="left:316px;top:88px;width:90px;height:26px;">设备组</div>
+
+  <div id="table_area"></div>
+
+  <!-- ============ 右侧详情 ============ -->
+  <div class="panel" style="left:796px;top:58px;width:218px;height:240px;">
+    <div class="cap" style="min-width:150px;">灌装机详情</div>
+  </div>
+  <div class="detail-k" style="left:806px;top:100px;">运行时长</div>
+  <div class="detail-k" style="left:806px;top:132px;">本次运行</div>
+  <div class="detail-k" style="left:806px;top:164px;">灌装次数</div>
+  <div class="detail-k" style="left:806px;top:196px;">故障次数</div>
+  <div class="detail-k" style="left:806px;top:228px;">维护建议</div>
+  <div class="hr" style="left:806px;top:220px;width:198px;"></div>
+
+  <div class="plc" data-type="label" data-id="d_runtime" data-fontsize="15" data-color="#ffd479" data-align="right" data-text="428小时" style="left:900px;top:98px;width:104px;height:20px;font-size:15px;line-height:1;text-align:right;color:#ffd479;">428小时</div>
+  <div class="plc" data-type="label" data-id="d_session" data-fontsize="15" data-color="#ffd479" data-align="right" data-text="6小时12分" style="left:900px;top:130px;width:104px;height:20px;font-size:15px;line-height:1;text-align:right;color:#ffd479;">6小时12分</div>
+  <div class="plc" data-type="label" data-id="d_count" data-fontsize="15" data-color="#ffd479" data-align="right" data-text="28640次" style="left:900px;top:162px;width:104px;height:20px;font-size:15px;line-height:1;text-align:right;color:#ffd479;">28640次</div>
+  <div class="plc" data-type="label" data-id="d_fault" data-fontsize="15" data-color="#ffd479" data-align="right" data-text="2次" style="left:900px;top:194px;width:104px;height:20px;font-size:15px;line-height:1;text-align:right;color:#ffd479;">2次</div>
+  <div class="plc" data-type="label" data-id="d_advice" data-fontsize="15" data-color="#2ee6a0" data-align="right" data-text="正常" style="left:900px;top:226px;width:104px;height:20px;font-size:15px;line-height:1;text-align:right;color:#2ee6a0;">正常</div>
+
+  <div class="panel" style="left:796px;top:306px;width:218px;height:164px;">
+    <div class="cap" style="min-width:130px;">维护建议</div>
+  </div>
+  <div class="hint" style="left:812px;top:344px;width:190px;">润滑建议&nbsp;&nbsp;&nbsp;16.0%</div>
+  <div class="hint" style="left:812px;top:362px;width:190px;">紧固建议&nbsp;&nbsp;&nbsp;16.0%</div>
+  <div class="hint" style="left:812px;top:380px;width:190px;">清洗建议&nbsp;&nbsp;&nbsp;16.0%</div>
+  <div class="hint" style="left:812px;top:398px;width:190px;">校准建议&nbsp;&nbsp;&nbsp;16.0%</div>
+  <div class="hint" style="left:812px;top:416px;width:190px;">更换密封&nbsp;&nbsp;&nbsp;16.0%</div>
+  <div class="hint" style="left:812px;top:434px;width:190px;">巡检建议&nbsp;&nbsp;&nbsp;16.0%</div>
+
+  <!-- ============ 底部操作 ============ -->
+  <div class="plc btn green" data-type="image" data-id="btn_start" data-states="normal,pressed" data-handler="on_start" style="left:286px;top:536px;width:112px;height:32px;">启动设备</div>
+  <div class="plc btn red" data-type="image" data-id="btn_stop" data-states="normal,pressed" data-handler="on_stop" style="left:406px;top:536px;width:112px;height:32px;">停止设备</div>
+  <div class="plc btn" data-type="image" data-id="btn_reset" data-states="normal,pressed" data-handler="on_reset" style="left:526px;top:536px;width:112px;height:32px;">复位故障</div>
+  <div class="plc btn plain" data-type="image" data-id="btn_log" data-states="normal,pressed" data-handler="on_log" style="left:646px;top:536px;width:140px;height:32px;">查看维修记录</div>
+  <div class="plc btn plain" data-type="image" data-id="btn_eng" data-states="normal,pressed" data-handler="on_engineer" style="left:886px;top:536px;width:122px;height:32px;">工程师权限</div>
+
+  <div class="plc" data-type="label" data-id="feedback" data-fontsize="12" data-color="#7ff2ff" data-align="center" data-text="选中设备：灌装机　运行状态：运行"
+       style="left:286px;top:512px;width:722px;height:16px;font-size:12px;line-height:1;text-align:center;color:#7ff2ff;">选中设备：灌装机　运行状态：运行</div>
+
+<script>
+const ROWS = [
+  ['1',  '空瓶卸垛机', 'run',   '428:20:00', '运行', '1', '125', 'maint'],
+  ['2',  '洗瓶机',     'run',   '420:10:00', '待机', '1', '125', 'maint'],
+  ['3',  '瓶身检测机', 'run',   '402:30:00', '待机', '1', '125', 'maint'],
+  ['4',  '灌装机',     'run',   '428:00:00', '待机', '1', '125', 'maint'],
+  ['5',  '旋盖机',     'run',   '396:40:00', '待机', '1', '125', 'maint'],
+  ['6',  '贴标机',     'run',   '418:00:00', '待机', '1', '125', 'maint'],
+  ['7',  '喷标机',     'run',   '410:10:00', '待机', '1', '125', 'maint'],
+  ['8',  '喷码机',     'run',   '386:50:00', '待机', '1', '125', 'maint'],
+  ['9',  '装箱机',     'run',   '428:00:00', '待机', '1', '125', 'maint'],
+  ['10', '码垛机',     'run',   '428:00:00', '待机', '1', '125', 'maint'],
+  ['11', '吹瓶机',     'run',   '421:00:00', '待机', '1', '121', 'maint'],
+  ['12', '套标机',     'idle',  '388:00:00', '待机', '1', '125', 'fault'],
+  ['13', '裹包机',     'run',   '428:00:00', '待机', '1', '125', 'maint'],
+  ['14', 'AGV 转车',   'idle',  '264:00:00', '待机', '1', '125', 'fault'],
+];
+
+const TOP = 124, HDR = 24, RH = 22, LEFT = 218, WIDTH = 564;
+const COLS = [
+  ['a', 34, 'center'], ['n', 96, 'left'], ['st', 76, 'center'], ['t', 84, 'center'],
+  ['c', 76, 'center'], ['s', 58, 'center'], ['m', 60, 'center'], ['h', 80, 'center']
+];
+const HEAD = ['A', '设备名称', '运行状态', '运行时长', '运行次数', '启停次数', '维护周期', '健康度'];
+const ST_TEXT = {run: '运行', idle: '待机', maint: '维护', fault: '故障'};
+
+const area = document.getElementById('table_area');
+let x = LEFT;
+for (let i = 0; i < COLS.length; i++) {
+  const [k, w, al] = COLS[i];
+  const d = document.createElement('div');
+  d.className = 'th-cell';
+  d.style.left = x + 'px'; d.style.top = TOP + 'px'; d.style.width = w + 'px';
+  d.style.textAlign = al;
+  d.textContent = HEAD[i];
+  area.appendChild(d);
+  x += w;
+}
+
+function mkLabel(id, x, y, w, h, fs, color, align, text) {
+  const d = document.createElement('div');
+  d.className = 'plc';
+  d.dataset.type = 'label'; d.dataset.id = id; d.dataset.fontsize = fs;
+  d.dataset.color = color; d.dataset.align = align; d.dataset.text = text;
+  d.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;` +
+    `font-size:${fs}px;line-height:1;text-align:${align};color:${color};`;
+  d.textContent = text;
+  area.appendChild(d);
+}
+
+function mkChip(id, x, y, w, h, cls, text) {
+  const d = document.createElement('div');
+  d.className = 'plc chip ' + cls;
+  d.dataset.type = 'image'; d.dataset.id = id; d.dataset.states = 'normal';
+  d.dataset.asset = 'chip_' + cls; d.dataset.handler = '';
+  d.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;` +
+    `font-size:12px;line-height:${h}px;`;
+  d.textContent = text;
+  area.appendChild(d);
+}
+
+ROWS.forEach((row, i) => {
+  const y = TOP + HDR + i * RH;
+  const bg = document.createElement('div');
+  bg.className = 'tr-bg' + (i % 2 ? ' alt' : '');
+  bg.style.cssText = `left:${LEFT}px;top:${y}px;width:${WIDTH}px;height:${RH}px;`;
+  area.appendChild(bg);
+
+  mkLabel('r' + i + '_a', LEFT + 2, y + 5, 30, 14, 12, '#9fc7d8', 'center', row[0]);
+  mkLabel('r' + i + '_n', LEFT + 38, y + 5, 92, 14, 12, '#eaf8ff', 'left', row[1]);
+  mkChip('r' + i + '_st', LEFT + 130, y + 3, 52, 17, row[2], ST_TEXT[row[2]]);
+  mkLabel('r' + i + '_t', LEFT + 206, y + 5, 84, 14, 12, '#cfeaf7', 'center', row[3]);
+  mkLabel('r' + i + '_c', LEFT + 290, y + 5, 76, 14, 12, '#a9d4e4', 'center', row[4]);
+  mkLabel('r' + i + '_s', LEFT + 366, y + 5, 58, 14, 12, '#a9d4e4', 'center', row[5]);
+  mkLabel('r' + i + '_m', LEFT + 424, y + 5, 60, 14, 12, '#a9d4e4', 'center', row[6]);
+  mkChip('r' + i + '_h', LEFT + 484, y + 3, 52, 17, row[7], ST_TEXT[row[7]]);
+});
+</script>
+</div>
+</body>
+</html>

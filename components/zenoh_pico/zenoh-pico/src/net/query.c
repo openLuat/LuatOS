@@ -28,9 +28,6 @@ static void _z_query_clear_inner(_z_query_t *q) {
     _z_session_weak_drop(&q->_zn);
 }
 
-#ifdef ZP_QUERY_FINAL_OBSERVER
-void ZP_QUERY_FINAL_OBSERVER(int rc);
-#endif
 z_result_t _z_session_send_reply_final(_z_session_t *session, uint32_t query_id, bool is_local) {
     if (is_local) {
         return _z_session_deliver_reply_final_locally(session, query_id);
@@ -39,9 +36,6 @@ z_result_t _z_session_send_reply_final(_z_session_t *session, uint32_t query_id,
         _z_n_msg_make_response_final(&z_msg, query_id);
         z_result_t ret = _z_send_n_msg(session, &z_msg, Z_RELIABILITY_RELIABLE, Z_CONGESTION_CONTROL_BLOCK, NULL);
         _z_msg_clear(&z_msg);
-#ifdef ZP_QUERY_FINAL_OBSERVER
-        if (ret < 0) ZP_QUERY_FINAL_OBSERVER(ret);
-#endif
         return ret;
     }
 }
@@ -57,28 +51,13 @@ z_result_t _z_query_send_reply_final(_z_query_t *q) {
     return ret;
 }
 
-static z_result_t _z_query_clear_with_result(_z_query_t *q) {
-    z_result_t ret = _Z_RES_OK;
-    if (!_Z_RC_IS_NULL(&q->_zn)) ret = _z_query_send_reply_final(q);
-    _z_query_clear_inner(q);
-    return ret;
-}
-
 void _z_query_clear(_z_query_t *q) {
-    if (_z_query_clear_with_result(q) != _Z_RES_OK) {
+    // Send REPLY_FINAL message
+    if (!_Z_RC_IS_NULL(&q->_zn) && _z_query_send_reply_final(q) != _Z_RES_OK) {
         _Z_ERROR("Query send REPLY_FINAL transport failure !");
     }
-}
-
-z_result_t _z_query_rc_drop_with_result(_z_query_rc_t *query) {
-    if (query == NULL || query->_cnt == NULL) return _Z_RES_OK;
-    z_result_t ret = _Z_RESOURCE_POSITIVE_REF_COUNT;
-    if (_z_query_rc_decr(query) && query->_val != NULL) {
-        ret = _z_query_clear_with_result(query->_val);
-        z_free(query->_val);
-    }
-    *query = _z_query_rc_null();
-    return ret;
+    // Clean up memory
+    _z_query_clear_inner(q);
 }
 
 void _z_query_free(_z_query_t **query) {

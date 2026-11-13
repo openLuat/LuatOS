@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 90" width="320" height="90" baseProfile="tiny"
+     data-name="传送带 1" data-category="conveyor" data-subject="belt-conveyor"
+     data-state="常态" data-color="灰色" data-role="输送线">
+  <title>皮带传送带</title>
+  <desc>皮带输送机侧视：主动/从动滚筒、输送皮带、支腿、挡边。皮带动效由外部帧动画表现。</desc>
+  <defs>
+    <linearGradient id="cv-belt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4d6b7d"/><stop offset=".5" stop-color="#2b404d"/><stop offset="1" stop-color="#1b2c36"/>
+    </linearGradient>
+    <linearGradient id="cv-frame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fb3c4"/><stop offset="1" stop-color="#3c5c6c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 支腿 -->
+  <g data-part="支架" data-material="steel" data-shade="flat">
+    <rect x="36" y="52" width="10" height="30" fill="url(#cv-frame)" stroke="#416779" stroke-width="1"/>
+    <rect x="274" y="52" width="10" height="30" fill="url(#cv-frame)" stroke="#416779" stroke-width="1"/>
+    <rect x="30" y="80" width="22" height="6" rx="2" fill="#2b404d"/>
+    <rect x="268" y="80" width="22" height="6" rx="2" fill="#2b404d"/>
+    <rect x="150" y="52" width="10" height="30" fill="url(#cv-frame)" stroke="#416779" stroke-width="1"/>
+    <rect x="144" y="80" width="22" height="6" rx="2" fill="#2b404d"/>
+  </g>
+
+  <!-- 机架横梁 -->
+  <g data-part="机架" data-material="steel" data-shade="flat">
+    <rect x="16" y="40" width="288" height="14" rx="3" fill="url(#cv-frame)" stroke="#416779" stroke-width="1.1"/>
+  </g>
+
+  <!-- 滚筒 -->
+  <g data-part="滚筒" data-material="steel" data-shade="cylinder">
+    <circle cx="34" cy="34" r="14" fill="#5b7c8e" stroke="#5f93a8" stroke-width="1.4"/>
+    <circle cx="34" cy="34" r="6" fill="#223945"/><circle cx="34" cy="34" r="2.4" fill="#9fd7ea"/>
+    <circle cx="286" cy="34" r="14" fill="#5b7c8e" stroke="#5f93a8" stroke-width="1.4"/>
+    <circle cx="286" cy="34" r="6" fill="#223945"/><circle cx="286" cy="34" r="2.4" fill="#9fd7ea"/>
+    <circle cx="155" cy="34" r="10" fill="#4d6b7d" stroke="#5f93a8" stroke-width="1.1"/>
+    <circle cx="155" cy="34" r="3.4" fill="#223945"/>
+  </g>
+
+  <!-- 皮带（上下两段） -->
+  <g data-part="皮带" data-material="rubber" data-shade="flat">
+    <rect x="34" y="18" width="252" height="16" rx="8" fill="url(#cv-belt)" stroke="#5f93a8" stroke-width="1.2"/>
+    <rect x="34" y="38" width="252" height="10" rx="5" fill="#22303a" stroke="#416779" stroke-width="1"/>
+    <!-- 挡边 -->
+    <rect x="34" y="14" width="252" height="5" rx="2.5" fill="#78bed7" opacity=".55"/>
+    <!-- 皮带纹 -->
+    <g fill="#9fd7ea" opacity=".22">
+      <rect x="52" y="20" width="4" height="12"/><rect x="82" y="20" width="4" height="12"/>
+      <rect x="112" y="20" width="4" height="12"/><rect x="142" y="20" width="4" height="12"/>
+      <rect x="172" y="20" width="4" height="12"/><rect x="202" y="20" width="4" height="12"/>
+      <rect x="232" y="20" width="4" height="12"/><rect x="262" y="20" width="4" height="12"/>
+    </g>
+  </g>
+
+  <!-- 驱动电机 -->
+  <g data-part="驱动电机" data-material="steel" data-shade="cylinder">
+    <rect x="284" y="52" width="26" height="22" rx="4" fill="#e07f16" stroke="#a86a12" stroke-width="1.1"/>
+    <circle cx="297" cy="63" r="6" fill="#2b404d" stroke="#5f93a8" stroke-width="1"/>
+    <rect x="306" y="58" width="8" height="10" rx="2" fill="#41606f"/>
+  </g>
+</svg>

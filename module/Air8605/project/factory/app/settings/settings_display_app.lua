@@ -106,7 +106,7 @@ local function set_volume(level)
     if ac then ac.play_vol = level end
     -- exaudio.vol 是驱动级全局增益，正在播放的音轨立即生效；
     -- exaudio 在无音频固件上不存在，须判空后再 pcall
-    if exaudio and exaudio.vol then pcall(exaudio.vol, level) end
+    if not audio_hw.busy() and exaudio and exaudio.vol then pcall(exaudio.vol, level) end
     save_fskv(FSKV_VOLUME, level)
     log.info("settings_display", "媒体音量设置为: " .. level .. "%")
     -- 上报媒体音量变化事件
@@ -118,6 +118,7 @@ end
 @summary 播放一段试听语音（llm_chat TTS 同款 exaudio 配方，勿走旧框架 audio.tts）
 ]]
 local function play_volume_test()
+    if audio_hw.busy() then return false, "audio_busy" end
     local exaudio = get_exaudio()
     if not has_audio then
         log.warn("settings_display", "未配置 hw.audio，无法试听")
@@ -135,13 +136,15 @@ local function play_volume_test()
     local ok, err = audio_hw.setup()
     if not ok then
         log.warn("settings_display", "exaudio.setup 异常/失败", err)
+        return false, err
     end
-    if exaudio and exaudio.vol then pcall(exaudio.vol, current_volume) end
+    if not audio_hw.busy() and exaudio and exaudio.vol then pcall(exaudio.vol, current_volume) end
     pcall(exaudio.play_stop, { type = 1 })
     pcall(exaudio.play_start, { type = 1, content = "音量测试" })
 end
 
 -- ==================== 内部函数 ====================
+play_volume_test = audio_hw.guard(play_volume_test)
 --[[
 @function write_back_brightness
 @summary 背光亮度写回配置表 hw.lcd.backlight.level（backlight_on 开机点亮取该值作占空比）
@@ -260,7 +263,7 @@ local function restore_volume()
     if ac then ac.play_vol = current_volume end
     -- 正在播放的音轨立即对齐（未起播时是空操作）
     local exaudio = get_exaudio()
-    if exaudio and exaudio.vol then pcall(exaudio.vol, current_volume) end
+    if not audio_hw.busy() and exaudio and exaudio.vol then pcall(exaudio.vol, current_volume) end
     restored_volume = true
     log.info("settings_display", "媒体音量恢复: " .. current_volume .. "%")
     return true

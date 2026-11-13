@@ -13,7 +13,6 @@
 //
 
 #include "zenoh-pico/transport/manager.h"
-#include "zenoh-pico/utils/auth.h"
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -28,13 +27,6 @@
 static z_result_t _z_new_transport_client(_z_transport_t *zt, const _z_string_t *locator, const _z_id_t *local_zid,
                                           const _z_config_t *session_cfg) {
     z_result_t ret = _Z_RES_OK;
-    _z_usrpwd_view_t auth = {_z_config_get(session_cfg, Z_CONFIG_USER_KEY),
-                              _z_config_get(session_cfg, Z_CONFIG_PASSWORD_KEY)};
-    if (auth.user || auth.password) {
-        if (!_z_usrpwd_credential_valid(auth.user) || !_z_usrpwd_credential_valid(auth.password))
-            return _Z_ERR_AUTH_CONFIG;
-        _Z_RETURN_IF_ERR(_z_usrpwd_selftest());
-    }
     // Init link
     _z_link_t *zl = (_z_link_t *)z_malloc(sizeof(_z_link_t));
     if (zl == NULL) {
@@ -51,29 +43,23 @@ static z_result_t _z_new_transport_client(_z_transport_t *zt, const _z_string_t 
     switch (zl->_cap._transport) {
         // Unicast transport
         case Z_LINK_CAP_TRANSPORT_UNICAST: {
-            _z_transport_unicast_establish_param_t tp_param = {0};
-            ret = _z_unicast_open_client(&tp_param, zl, local_zid, auth.user ? &auth : NULL);
+            _z_transport_unicast_establish_param_t tp_param;
+            ret = _z_unicast_open_client(&tp_param, zl, local_zid);
             if (ret != _Z_RES_OK) {
                 _z_link_free(&zl);
                 return ret;
             }
             ret = _z_unicast_transport_create(zt, zl, &tp_param);
-            if (ret != _Z_RES_OK) {
-                /* create失败尚未接管link，内部缓冲已回收。 */
-                _z_link_free(&zl); zt->_type = _Z_TRANSPORT_NONE; return ret;
-            }
             // Fill peer list
             if (ret == _Z_RES_OK) {
                 ret = _z_transport_peer_unicast_add(&zt->_transport._unicast, &tp_param, *_z_link_get_socket(zl), false,
                                                     NULL);
-                if (ret != _Z_RES_OK) _z_transport_clear(zt);
             }
             break;
         }
         // Multicast transport
         case Z_LINK_CAP_TRANSPORT_RAWETH:
         case Z_LINK_CAP_TRANSPORT_MULTICAST: {
-            if (auth.user) { _z_link_free(&zl); return _Z_ERR_AUTH_CONFIG; }
             _z_transport_multicast_establish_param_t tp_param = {0};
             ret = _z_multicast_open_client(&tp_param, zl, local_zid);
             if (ret != _Z_RES_OK) {
@@ -94,8 +80,6 @@ static z_result_t _z_new_transport_client(_z_transport_t *zt, const _z_string_t 
 
 static z_result_t _z_new_transport_peer(_z_transport_t *zt, const _z_string_t *locator, const _z_id_t *local_zid,
                                         int peer_op, const _z_config_t *session_cfg, _z_runtime_t *runtime) {
-    if (_z_config_get(session_cfg, Z_CONFIG_USER_KEY) || _z_config_get(session_cfg, Z_CONFIG_PASSWORD_KEY))
-        return _Z_ERR_AUTH_CONFIG;
     z_result_t ret = _Z_RES_OK;
     // Init link
     _z_link_t *zl = (_z_link_t *)z_malloc(sizeof(_z_link_t));

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>生产记录 - 注塑产线智能监控</title>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div class="stage page" id="page-rc" data-page="rc">
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div><div class="hdr-wing r"></div>
+    <div class="hdr-title">生 产 记 录 与 报 警</div>
+    <div class="hdr-status">
+      <div class="hdr-state-chip"><span class="d"></span>记录保存 30 天</div>
+      <div class="plc" data-type="label" data-id="clock" data-fontsize="12" data-color="#8fb6c9" data-align="right"
+           style="left:800px;top:44px;width:200px;height:16px;font-size:12px;line-height:16px;text-align:right;">2026-11-11 08:00:00</div>
+    </div>
+  </div>
+
+  <!-- 左上：班次产量 -->
+  <div class="panel" style="left:8px;top:62px;width:612px;height:262px;">
+    <div class="cap" style="min-width:110px;">班 次 产 量</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <table class="tb plc" data-type="table" data-id="tb_shift" style="left:12px;top:38px;width:588px;">
+      <tr><th>班次</th><th>时段</th><th>计划(模)</th><th>实际(模)</th><th>良品</th><th>不良</th><th>良率</th><th>达成率</th></tr>
+      <tr><td>甲班</td><td>08:00-16:00</td><td>4200</td><td>3842</td><td>3812</td><td>30</td><td class="st-g">99.2%</td><td class="st-y">91.5%</td></tr>
+      <tr class="alt"><td>乙班</td><td>16:00-24:00</td><td>4200</td><td>4310</td><td>4285</td><td>25</td><td class="st-g">99.4%</td><td class="st-g">102.6%</td></tr>
+      <tr><td>丙班</td><td>00:00-08:00</td><td>4200</td><td>4088</td><td>4051</td><td>37</td><td class="st-g">99.1%</td><td class="st-g">97.3%</td></tr>
+      <tr class="alt"><td>昨日合计</td><td>全天</td><td>12600</td><td>12240</td><td>12148</td><td>92</td><td class="st-g">99.2%</td><td class="st-y">97.1%</td></tr>
+      <tr><td>本月累计</td><td>11 月</td><td>—</td><td>118,420</td><td>117,332</td><td>1088</td><td class="st-g">99.1%</td><td class="st-g">98.7%</td></tr>
+    </table>
+    <div class="hint" style="left:14px;top:238px;">统计口径：每模计 1 模次 · 不良含缩水/飞边/缺料/色差 · 数据来源 MES 同步</div>
+  </div>
+
+  <!-- 右上：统计卡 -->
+  <div class="panel" style="left:628px;top:62px;width:388px;height:262px;">
+    <div class="cap" style="min-width:110px;">运 行 统 计</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="kpi" style="left:12px;top:38px;width:180px;height:64px;">
+      <div class="k-t">今日产量</div>
+      <div class="k-v"><span class="plc" data-type="label" data-id="st_today" data-fontsize="24" data-color="#44dcf6" data-align="left" style="position:static;font-size:24px;line-height:30px;">3842</span><span class="u">模</span></div>
+    </div>
+    <div class="kpi" style="left:202px;top:38px;width:174px;height:64px;">
+      <div class="k-t">运行时长</div>
+      <div class="k-v"><span class="plc" data-type="label" data-id="st_hours" data-fontsize="24" data-color="#44dcf6" data-align="left" style="position:static;font-size:24px;line-height:30px;">3.2</span><span class="u">h</span></div>
+    </div>
+    <div class="kpi" style="left:12px;top:110px;width:180px;height:64px;">
+      <div class="k-t">停机次数</div>
+      <div class="k-v"><span class="plc" data-type="label" data-id="st_stop" data-fontsize="24" data-color="#ffa62b" data-align="left" style="position:static;font-size:24px;line-height:30px;">2</span><span class="u">次</span></div>
+    </div>
+    <div class="kpi" style="left:202px;top:110px;width:174px;height:64px;">
+      <div class="k-t">MTBF</div>
+      <div class="k-v"><span class="plc" data-type="label" data-id="st_mtbf" data-fontsize="24" data-color="#2ee6a0" data-align="left" style="position:static;font-size:24px;line-height:30px;">96</span><span class="u">min</span></div>
+    </div>
+    <div class="hint" style="left:14px;top:184px;">报警分布（今日）</div>
+    <div class="hint" style="left:14px;top:204px;">严重</div>
+    <div class="bar" style="left:60px;top:204px;width:200px;"><div class="fill r" style="width:12%;"></div></div>
+    <div class="hint" style="left:268px;top:204px;">1 条</div>
+    <div class="hint" style="left:14px;top:228px;">警告</div>
+    <div class="bar" style="left:60px;top:228px;width:200px;"><div class="fill y" style="width:30%;"></div></div>
+    <div class="hint" style="left:268px;top:228px;">2 条</div>
+    <div class="hint" style="left:318px;top:204px;">提示 3 条</div>
+    <div class="hint" style="left:318px;top:228px;">已恢复 5 条</div>
+  </div>
+  <!-- 下：报警与操作记录 -->
+  <div class="panel" style="left:8px;top:332px;width:1008px;height:222px;">
+    <div class="cap" style="min-width:130px;">报 警 与 操 作 记 录</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <table class="tb plc" data-type="table" data-id="tb_alarm" style="left:12px;top:36px;width:700px;">
+      <tr><th style="width:92px;">时间</th><th style="width:64px;">等级</th><th style="width:96px;">设备</th><th>内容</th><th style="width:72px;">状态</th></tr>
+      <tr><td>08:12:40</td><td class="st-o">警告</td><td>注塑机 2#</td><td>料筒 4 区温度偏高 3℃（218/215）</td><td class="st-g">已恢复</td></tr>
+      <tr class="alt"><td>08:05:12</td><td class="st-y">提示</td><td>注塑机 2#</td><td>模温偏差 2℃，持续 5 min</td><td class="st-o">未确认</td></tr>
+      <tr><td>07:48:12</td><td class="st-y">提示</td><td>注塑机 1#</td><td>周期超时 2.1 s（目标 30.0 s）</td><td class="st-g">已恢复</td></tr>
+      <tr class="alt"><td>06:30:55</td><td class="st-r">严重</td><td>冷水机组</td><td>冷却水流量低（&lt;60 L/min），联锁停机</td><td class="st-g">已恢复</td></tr>
+      <tr><td>05:58:20</td><td class="st-y">提示</td><td>称重包装</td><td>包装耗材余量不足 20%</td><td class="st-o">未确认</td></tr>
+    </table>
+    <div class="hint" style="left:12px;top:196px;">共 128 条记录 · 第 1/26 页</div>
+    <table class="tb plc" data-type="table" data-id="tb_oper" style="left:722px;top:36px;width:274px;">
+      <tr><th style="width:80px;">时间</th><th>操作记录</th></tr>
+      <tr><td>08:02:15</td><td>王工 启动全线</td></tr>
+      <tr class="alt"><td>08:00:00</td><td>系统 交接班（甲班）</td></tr>
+      <tr><td>07:58:32</td><td>王工 粉碎机停止</td></tr>
+      <tr class="alt"><td>07:20:10</td><td>李工 参数下载（M-07）</td></tr>
+    </table>
+    <div class="btn warn plc" data-type="image" data-id="btn_ack2" data-states="normal,pressed" data-handler="alarm_ack"
+         style="left:722px;top:170px;width:86px;height:38px;font-size:14px;">确认</div>
+    <div class="btn plc" data-type="image" data-id="btn_prev" data-states="normal,pressed" data-handler="page_prev"
+         style="left:816px;top:170px;width:86px;height:38px;font-size:14px;">上页</div>
+    <div class="btn plc" data-type="image" data-id="btn_next" data-states="normal,pressed" data-handler="page_next"
+         style="left:910px;top:170px;width:86px;height:38px;font-size:14px;">下页</div>
+    <div class="hint" style="left:12px;top:214px;">导出：U 盘 CSV（日期+班次）· MES 接口每 5 min 同步 · 时区 UTC+8</div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script>PLC.page("rc");</script>
+</body>
+</html>

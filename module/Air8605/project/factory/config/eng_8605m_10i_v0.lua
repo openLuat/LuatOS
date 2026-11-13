@@ -97,8 +97,6 @@ return {
             -- 写不在表里的档（如 1280x720）会起流失败、关流重开，首帧拖到 ~11s
             w = 800,
             h = 480,
-            -- 画面顺时针 90 度显示（airui.camera 只吃顺时针，90 = 顺时针 90）
-            rotation = 90,
             face = {
                 uart_id = 2,           -- 人脸模组串口 = UART2（115200/8N1，库内固定）
                 rst_pin = nil,         -- 无独立复位脚，留空
@@ -156,7 +154,12 @@ return {
         -- 音频: Air1103 外置语音芯片（UART6，内置 MIC/喇叭/AEC），见文件头第 3 条
         -- 供电脚 AUDIOPA_EN = GPIO73 已在 power_on 拉高常供电，此处不写 pa_ctrl
         audio = {
-            model = "air1103",        -- Air1103 语音芯片（exaudio 新框架 UART 驱动）
+            model = "air1103",
+            -- 本板原理图确认：GPIO73 为 Air1103 供电，高有效。
+            recovery_power_pin = 73,
+            recovery_power_active = 1,
+            -- 通话细粒度性能采样，默认关闭；A/B 测试时设为 true。
+            sip_perf_enabled = false,        -- Air1103 语音芯片（exaudio 新框架 UART 驱动）
             uart_id = 6,              -- Air1103 接 UART6（固定 2M 波特率）
             audio_mode = "new",       -- 拉起 audio_v2 新框架（air1103 模式必须）
             play_vol = 70,            -- 默认播放音量(0~100)，llm_chat / video_util / factory_rec 统一读

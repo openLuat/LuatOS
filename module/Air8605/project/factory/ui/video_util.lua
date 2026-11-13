@@ -276,6 +276,7 @@ HZV **不走这里**：它的音轨由 videoplayer 自己调用 luat_audio_reque
 用全局标志 _G.__hzv_audio_ready 记账：桌面播放器与全屏播放页共用同一套音频框架，
 各自 setup 一次会互相打断，标志位必须跨模块共享。]]
 function M.audio_ensure()
+    if audio_hw.busy() then return false, "audio_busy" end
     if not exaudio then return false end
     local ac = audio_hw.cfg()
     if not ac then return false end
@@ -336,6 +337,7 @@ end
 @return boolean 是否起播成功
 ]]
 function M.audio_play(mp3_path, should_loop)
+    if audio_hw.busy() then return false, "audio_busy" end
     if not has_audio() or not mp3_path then return false end
     --[[Air1103 只认 TTS(type=1) 与流式 PCM(type=2)，文件播放(type=0) 直接被拒，
     与其静默失败不如明确跳过；这类机型的 MP4 伴音走 pcm_play 的 .pcm 流式通路。]]
@@ -370,6 +372,7 @@ end
 
 --[[停掉配套音频（没有在放时是空操作）]]
 function M.audio_stop()
+    if audio_hw.busy() then return false, "audio_busy" end
     if exaudio == nil then return end
     if audio_mp3 then
         pcall(exaudio.play_stop, { type = 0 })
@@ -380,6 +383,7 @@ end
 
 --[[播放/暂停切换配套音频（暂停后再点会从头重放：exaudio 没有 seek/续播接口）]]
 function M.audio_toggle(should_loop)
+    if audio_hw.busy() then return false, "audio_busy" end
     if not audio_mp3 then return end
     if audio_playing then
         pcall(exaudio.play_stop, { type = 0 })
@@ -630,6 +634,7 @@ MJPG 逐帧按 interval 喂；HZV / MP4 自带帧时序（HZV 容器帧时长 / 
                       （素材超过该格式分辨率上限、或播放器创建失败时）
 ]]
 function M.create_player(path, o)
+    if audio_hw.busy() then return nil, "audio_busy" end
     o = o or {}
     local pcm_path = nil   -- MP4 同名 .pcm 伴音（Air1103 补声，非 nil 才走）
 

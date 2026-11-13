@@ -56,7 +56,7 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
    画面不断。excamera.photo / excamera.video 走的是 camera.start + camera.capture 的
    DVP/SPI 采集通路（luat_camera_capture 在本固件是 LUAT_WEAK 空实现，日志打
    D/camera not support yet），USB 摄像头上必然失败，故本页不用这两个接口。
-2. 本固件没有 MP4 封装，录像文件是 .mjpg（MJPEG 帧序列，可用 ffplay -f mjpeg 或
+2. 本固件只播 HZV 容器，录像文件仍是 .mjpg（MJPEG 帧序列，可用 ffplay -f mjpeg 或
    VLC 播放）。文件按 REC_SAMPLE 抽帧落盘，避免写盘阻塞 USB 收流；
    到 rec_max_bytes 上限自动停帧，状态行会标注。
 3. 录像按时长档（5/10/30 秒）录制，倒计时结束自动停止。
@@ -69,7 +69,7 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
    回调跑完）再动 airui.camera 组件；反序会让固件解码线程往已释放的组件里画，
    触发非对齐访问死机。关窗时根控件先 set_hidden 立刻撤画面，销毁交回命令协程收尾。
 7. 离开页面一律发 UVC_CMD("quit") 进命令协程收尾，不在点击 / 销毁回调里同步收：
-   excamera.close 含 sys.wait，且桌面 MP4 播放器获得焦点即起播，早于收尾会和
+   excamera.close 含 sys.wait，且桌面播放器获得焦点即起播，早于收尾会和
    未关的相机抢内存。收尾命令带界面代数，上一代的 quit 不拆新页面，只补关它的数据流。
 8. 起流到出画面要好几秒，大头在固件 USB/UVC 收流侧（C 源码不在本仓库）：实测
    「推流已启动 → _camera_decode_jpg_prepare」空 6.8 秒，且 1280×720 与 640×360

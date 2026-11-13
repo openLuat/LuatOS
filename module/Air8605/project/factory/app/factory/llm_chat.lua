@@ -147,7 +147,10 @@ tts_play_text = function(text)
     sys.publish("AI_CHAT_STATUS", "")
 end
 
+tts_play_text = audio_hw.guard(tts_play_text)
+
 tts_stop = function()
+    if audio_hw.busy() then return false, "audio_busy" end
     log.info("llm_chat", "tts_stop 调用, playing=", tts_playing)
     local r1 = pcall(exaudio.play_stop, { type = 1 })
     log.info("llm_chat", "play_stop 结果:", r1)

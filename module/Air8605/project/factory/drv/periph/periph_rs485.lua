@@ -245,11 +245,13 @@ local function on_receive(uart_id, len)
              "广播" .. tostring(#users) .. "路")
     for i = 1, #users do
         local h = users[i]
+        if not h.closing then
         h.rx_count = h.rx_count + #data
         local ring = h.rx_ring
         ring[#ring + 1] = data
         while #ring > RING_MAX do table.remove(ring, 1) end
         sys.publish("PERIPH_RX", h.id, data)
+        end
     end
 end
 
@@ -370,7 +372,7 @@ end
 -- 半双工 485 自己发的字节会被收发器回采到 RX，整个发送窗口按回环丢弃，
 -- 窗口前后各清一次串口接收缓冲，残片不会被当成对端发来的数据
 local function rs485_send(self, data)
-    if not self or not self.enabled then return false, "not started" end
+    if not self or not self.enabled or self.closing then return false, "not started or closing" end
     if type(data) ~= "string" or #data == 0 then return false, "empty data" end
     local p = self.params
     local uid = p.uart_id
@@ -426,26 +428,27 @@ end
 -- 关闭串口（DE 接收态 → 释放供电）
 local function rs485_stop(self)
     if not self then return false end
+    self.closing = true
+    self.rx_ring = {}
     if not self.enabled then return true end
     local p = self.params
-
-    if p.uart_id then
-        local users = uart_users[p.uart_id]
-        if users then
-            for i = #users, 1, -1 do
-                if users[i] == self then table.remove(users, i) end
-            end
-            if #users == 0 then
-                uart_users[p.uart_id] = nil
-                tx_release(p.uart_id)
-                pcall(uart.close, p.uart_id)
-            end
+    local users = uart_users[p.uart_id]
+    if users then
+        if #users == 1 and users[1] == self then
+            -- Do not drop ownership until close succeeds, so a failed close is retryable.
+            local result = uart.on(p.uart_id, "receive", nil)
+            assert(result ~= false, "485 receive unsubscribe failed")
+            if uart.rxClear then uart.rxClear(p.uart_id) end
+            result = uart.close(p.uart_id)
+            assert(result ~= false, "485 UART close failed")
         end
+        for i=#users,1,-1 do if users[i]==self then table.remove(users,i) end end
+        if #users==0 then uart_users[p.uart_id]=nil; tx_release(p.uart_id) end
     end
     de_set(p.uart_id, 0, p.de_pin)
     power_release(p.power_pin, p.power_hold)
     self.enabled = false
-    log.info("periph_rs485", "485 已关闭", self.id)
+    log.info("factory_handoff", "RS485_CLOSED", self.id)
     return true
 end
 
@@ -473,7 +476,16 @@ local function make_handle(params)
         rx_count = 0,
         rx_ring  = {},
     }
-    h.start  = rs485_start
+    h.quiesce = function(self)
+        self.closing = true
+        self.rx_ring = {}
+        if self.enabled and uart.rxClear then uart.rxClear(self.params.uart_id) end
+    end
+    h.start  = function(self)
+        local ok, err = rs485_start(self)
+        if ok then self.closing = false end
+        return ok, err
+    end
     h.send   = rs485_send
     h.recv   = rs485_recv
     h.stop   = rs485_stop

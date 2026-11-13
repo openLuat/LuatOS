@@ -84,15 +84,15 @@ z_result_t _z_msg_ext_encode(_z_wbuf_t *wbf, const _z_msg_ext_t *ext, bool has_n
     uint8_t enc = _Z_EXT_ENC(ext->_header);
     switch (enc) {
         case _Z_MSG_EXT_ENC_UNIT: {
-            ret = _z_msg_ext_encode_unit(wbf, &ext->_body._unit);
+            _z_msg_ext_encode_unit(wbf, &ext->_body._unit);
         } break;
 
         case _Z_MSG_EXT_ENC_ZINT: {
-            ret = _z_msg_ext_encode_zint(wbf, &ext->_body._zint);
+            _z_msg_ext_encode_zint(wbf, &ext->_body._zint);
         } break;
 
         case _Z_MSG_EXT_ENC_ZBUF: {
-            ret = _z_msg_ext_encode_zbuf(wbf, &ext->_body._zbuf);
+            _z_msg_ext_encode_zbuf(wbf, &ext->_body._zbuf);
         } break;
 
         default: {
@@ -154,7 +154,7 @@ z_result_t _z_msg_ext_vec_encode(_z_wbuf_t *wbf, const _z_msg_ext_vec_t *extensi
             ret |= _z_msg_ext_encode(wbf, _z_msg_ext_vec_get(extensions, i), true);
         }
         if (ret == _Z_RES_OK) {
-            ret |= _z_msg_ext_encode(wbf, _z_msg_ext_vec_get(extensions, i), false);
+            ret |= _z_msg_ext_encode(wbf, _z_msg_ext_vec_get(extensions, i), true);
         }
     }
     return ret;

@@ -192,6 +192,7 @@ end
 -- 复位瞬间其 I2C 引脚可能拉低 SDA，把共享总线钳死，反而触发触摸(0x5d)超时。
 local codec_restore_scheduled = false  -- 防重入：恢复任务是否已安排/执行中
 local function codec_power_restore()
+    if audio_hw.busy() then return end
     local ac = get_audio_config()
     if not ac or not ac.dac_ctrl or ac.dac_ctrl <= 0 then return end
     -- 1. 保持 8311 供电（只拉高，不拉低断电）
@@ -222,8 +223,9 @@ end
 
 -- 异步恢复任务（具名函数，防重入；供 finalize_record 统一调用）
 local function codec_restore_task()
-    codec_power_restore()
+    local ok, err = pcall(codec_power_restore)
     codec_restore_scheduled = false
+    if not ok then log.warn("factory_rec", "codec restore failed", err) end
 end
 
 -- 录音完成收尾（两框架共用，防重复执行）
@@ -386,6 +388,7 @@ end
 
 local warming = false   -- 预热防重入（快速进出页面时避免重复复位）
 local function air1103_warmup()
+    if audio_hw.busy() then return false end
     if not is_air1103() then return false end
     if type(chip.on_audio_data) ~= "function" or type(chip.reset) ~= "function" then
         return false
@@ -420,6 +423,18 @@ local function air1103_warmup()
     warming = false
     log.info("factory_rec", "Air1103 MIC 上行预热", ok and "成功" or "失败", "等待", waited, "ms, 累计帧", mic_frames)
     return ok
+end
+
+local warmup_impl = air1103_warmup
+air1103_warmup = function()
+    local was_warming = warming
+    local ok, result = pcall(warmup_impl)
+    if not ok then
+        if not was_warming then warming = false end
+        log.warn("factory_rec", "MIC warmup failed", result)
+        return false
+    end
+    return result
 end
 
 -- ==================== 回调 ====================
@@ -576,6 +591,7 @@ local function rec_start()
             log.warn("factory_rec", "air1103 录音前从未收到 MIC 帧，异步复位一次")
             sys.taskInit(function()
                 sys.wait(20)
+                if audio_hw.busy() or state ~= "recording" then return end
                 pcall(chip.reset)
             end)
         end
@@ -1149,6 +1165,13 @@ local function make_send_text(text)
 end
 
 -- ==================== 事件订阅 ====================
+audio_hw.register_busy_probe("factory_rec", function()
+    return state == "recording" or warming or codec_restore_scheduled
+end)
+rec_setup = audio_hw.guard(rec_setup)
+rec_start = audio_hw.guard(rec_start)
+rec_stop = audio_hw.guard(rec_stop)
+rec_reset = audio_hw.guard(rec_reset)
 
 sys.subscribe("FACTORY_REC_SETUP", function()
     sys.taskInit(rec_setup)

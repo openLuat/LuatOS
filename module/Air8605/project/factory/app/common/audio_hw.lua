@@ -44,6 +44,51 @@
 ]]
 
 local M = {}
+local lease_owner
+local busy_probes = {}
+local operations = 0
+
+-- 消费方可能在起播/暖机中 yield：直到函数退出都阻止恢复抢占。
+function M.guard(fn)
+    return function(...)
+        if M.busy() then return false, "audio_busy" end
+        operations = operations + 1
+        local result = table.pack(pcall(fn, ...))
+        operations = operations - 1
+        if not result[1] then error(result[2], 0) end
+        return table.unpack(result, 2, result.n)
+    end
+end
+
+-- 探针只读状态且不得 yield；不 require 消费方，避免初始化副作用。
+function M.register_busy_probe(name, probe)
+    assert(type(name) == "string" and type(probe) == "function")
+    busy_probes[name] = probe
+end
+
+function M.busy(owner)
+    return lease_owner ~= nil and lease_owner ~= owner
+end
+
+function M.acquire(owner)
+    if owner == nil then return false, "audio_owner_required" end
+    if lease_owner == owner then return true end
+    if lease_owner ~= nil then return false, "audio_busy" end
+    if operations > 0 then return false, "audio_busy:operation" end
+    for name, probe in pairs(busy_probes) do
+        local ok, busy = pcall(probe)
+        if not ok or busy then return false, "audio_busy:" .. name end
+    end
+    -- 所有检查与占有之间不 yield，避免录音/暖机抢占。
+    lease_owner = owner
+    return true
+end
+
+function M.release(owner)
+    if owner == nil or lease_owner ~= owner then return false end
+    lease_owner = nil
+    return true
+end
 
 -- exaudio 是固件扩展库，须 require 绑定；顶层引用 i2s 常量，无音频固件上 require 会报错。
 -- 懒加载：顶层 require 会把 exaudio 提前进开机关键路径（≈100ms），
@@ -62,6 +107,9 @@ local function get_exaudio()
         exaudio_loaded = true
         local ok, m = pcall(load_exaudio)
         exaudio_mod = ok and type(m) == "table" and m or nil
+        if exaudio_mod and type(exaudio_mod.is_end) == "function" then
+            M.register_busy_probe("exaudio", function() return not exaudio_mod.is_end() end)
+        end
     end
     return exaudio_mod
 end
@@ -135,7 +183,8 @@ end
 @summary 套用媒体音量（读 hw.audio.play_vol，settings_display_app 的统一写回点）
 @return boolean
 ]]
-function M.vol()
+function M.vol(owner)
+    if M.busy(owner) then return false end
     local ex = get_exaudio()
     if not ex or not ex.vol then return false end
     local ac = M.cfg() or {}
@@ -182,13 +231,32 @@ end
 -- 是触摸失灵的直接原因，所以五个消费方都调用本模块也只有第一次真正下到 exaudio
 local setup_done = false
 
+-- Call only after producers have stopped. Keep non-Air1103 codec policy unchanged.
+function M.shutdown()
+    if not M.is_air1103() then return true end
+    local ex = get_exaudio()
+    if ex then
+        if ex.record_stop then ex.record_stop() end
+        if ex.play_stop then ex.play_stop({type=0}) end
+    end
+    local chip = require "air1103"
+    chip.stop_audio()
+    chip.play_stream_stop()
+    chip.set_rx_enable(false)
+    -- Let the stop command leave UART before closing its driver.
+    sys.wait(30)
+    assert(chip.uninit(), "Air1103 uninit failed")
+    setup_done = false
+    return true
+end
+
 --[[
 @function setup
 @summary 初始化音频：组装入参 → exaudio.setup（仅首次） → 套用音量
 @param extra table|nil 同名字段覆盖
 @return boolean, string|nil
 ]]
-function M.setup(extra)
+local function setup_impl(extra, owner)
     local ac = M.cfg()
     if not ac then return false, "未配置 hw.audio" end
     local ex = get_exaudio()
@@ -202,8 +270,17 @@ function M.setup(extra)
         check_bus_policy(ex, sp)
     end
     -- 重复调用只重新套音量（「亮度和声音」页 set_volume 的统一写回点）
-    M.vol()
+    M.vol(owner)
     return true
+end
+
+function M.setup(extra, owner)
+    if M.busy(owner) then return false, "audio_busy" end
+    operations = operations + 1
+    local ok, result, reason = pcall(setup_impl, extra, owner)
+    operations = operations - 1
+    if not ok then return false, "audio_setup_failed:" .. tostring(result) end
+    return result, reason
 end
 
 --[[

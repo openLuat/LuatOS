@@ -43,6 +43,7 @@ require ("pc_default")            -- PC 模拟器回退
 -- Engine 引擎主机系列
 require ("eng_8607_10i_v0")      -- Air8603 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
 require ("eng_8607a_10i_v0")     -- Air8603 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + UVC，无 SD（无网络）
+require ("eng_8607w_10i_v0")     -- Air8603 10寸 1024×600 HX8282 + WiFi(airlink/601S,SPI5) + 人脸识别摄像头 + RS485 + 内置DAC喇叭 + SD + USB HID/UVC二选一
 
 -- EVB turnkey 开发板系列
 
@@ -53,6 +54,9 @@ require ("periph_loader")         -- 外设预留框架（config.peripherals，r
 require ("periph_uvc")            -- UVC 摄像头外设（纯供电开关，数据流走 UVC 预览页）
 require ("periph_rs485")          -- RS485 外设（多路，DE 方向 + 供电引用计数）
 require ("periph_uart")           -- 通用串口外设（收发计数 + 环形缓冲）
+require ("pin_share")             -- 共享 GPIO 职能仲裁（en_pin 与 de_pin 共用一脚时互斥切换）
+require ("airlink_pin")            -- WiFi 芯片侧 GPIO 门控（GPIO ≥100 等 airlink 就绪后下发）
+require ("tick_time")              -- 单调毫秒时钟（airlink_pin 的就绪等待用）
 
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器
@@ -210,6 +214,11 @@ end
 -- 完成标记：整个序列（含各步 delay 的电源稳定时间）跑完后置 _G.__power_on_done
 -- 并发布 POWER_ON_DONE。boot_ui 以此为门再初始化触摸 —— I2C 总线上未上电的
 -- 设备会钳住 SDA/SCL，GT911 也会因电源未稳而软失败（触摸"完全失灵"）。
+--
+-- WiFi 芯片侧脚（GPIO ≥100，如 UVC_EN / 485 供电）由 airlink_pin 延后到 airlink 链路
+-- 就绪后下发：这些脚经 airlink 通道代发，链路没起来时下发会失败。
+local airlink_pin = require "airlink_pin"
+
 if config.power_on then
     sys.taskInit(function()
         -- 背光 PWM 上电前先压灭：PWM 引脚默认高电平，上电瞬间 BL 即被拉高点亮，
@@ -227,21 +236,30 @@ if config.power_on then
             -- level 是目标电平，缺省时按旧字段 dir 兜底
             local level = step.level
             if level == nil then level = step.dir end
+            local deferred = false
             if step.pin and level ~= nil then
-                -- setup 直接给目标电平，再 set 一次兜底；两边都失败才计失败
-                local ok1 = pcall(gpio.setup, step.pin, level)
-                local ok2 = pcall(gpio.set, step.pin, level)
-                if ok1 and ok2 then
-                    local ok3, rd = pcall(gpio.get, step.pin)
+                -- WiFi 侧脚等链路就绪后补发，延时跟着一起挪走，上电序列不为等链路拖住 POWER_ON_DONE
+                if airlink_pin.is_wifi_pin(step.pin) and not airlink_pin.ready() then
+                    airlink_pin.defer(step.pin, level, step.delay)
+                    deferred = true
                     log.info("platform_loader", "POWER_ON", i, "GPIO" .. tostring(step.pin),
-                             level == 1 and "高" or "低", ok3 and ("回读 " .. tostring(rd)) or "回读失败")
+                             level == 1 and "高" or "低", "WiFi 侧脚，待 airlink 就绪后下发")
                 else
-                    bad = bad + 1
-                    log.warn("platform_loader", "POWER_ON 引脚设置失败", i,
-                             tostring(step.pin), tostring(level))
+                    -- setup 直接给目标电平，再 set 一次兜底；两边都失败才计失败
+                    local ok1 = pcall(gpio.setup, step.pin, level)
+                    local ok2 = pcall(gpio.set, step.pin, level)
+                    if ok1 and ok2 then
+                        local ok3, rd = pcall(gpio.get, step.pin)
+                        log.info("platform_loader", "POWER_ON", i, "GPIO" .. tostring(step.pin),
+                                 level == 1 and "高" or "低", ok3 and ("回读 " .. tostring(rd)) or "回读失败")
+                    else
+                        bad = bad + 1
+                        log.warn("platform_loader", "POWER_ON 引脚设置失败", i,
+                                 tostring(step.pin), tostring(level))
+                    end
                 end
             end
-            if step.delay then
+            if step.delay and not deferred then
                 sys.wait(step.delay)
             end
         end

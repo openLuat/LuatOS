@@ -139,6 +139,7 @@ end
 @return boolean, string|nil
 ]]
 function M.play(path)
+    if audio_hw.busy() then return false, "audio_busy" end
     if not M.available() then return false, "非 Air1103 流式通路" end
     if type(path) ~= "string" or not io.exists(path) then return false, "伴音文件不存在" end
 
@@ -180,6 +181,7 @@ end
 @return boolean
 ]]
 function M.pause()
+    if audio_hw.busy() then return false, "audio_busy" end
     if not st.active then return false end
     st.gen = st.gen + 1
     st.active = false
@@ -195,6 +197,7 @@ end
 @return boolean
 ]]
 function M.stop()
+    if audio_hw.busy() then return false, "audio_busy" end
     st.gen = st.gen + 1
     st.active = false
     st.paused = false
@@ -212,4 +215,6 @@ function M.playing()
     return st.active
 end
 
+audio_hw.register_busy_probe("pcm_play", function() return st.active end)
+M.play = audio_hw.guard(M.play)
 return M

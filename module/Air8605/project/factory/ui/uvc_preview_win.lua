@@ -16,8 +16,8 @@ excamera.open / preview / close 与 exfacecam 的各条指令内部都有 sys.wa
 数据流由本页独占：外设开关（periph_uvc）只管供电脚，不再 camera.init，
 避免与 excamera.open 里的 camera.init 二次初始化打架。
 
-导航：标题栏「返回」回到功能测试页，这是页面唯一的出口。返回触发 on_destroy →
-request_quit，收尾交回命令协程执行。
+导航：返回键和侧栏切页先请求命令协程收尾；资源关闭成功后才销毁窗口。
+关闭失败或超时时留在本页，允许再次点击返回重试。
 
 【人脸识别】摄像头是 AirCAMERA_1034 人脸识别模组时，同一颗模组出两条通路：
 USB 走 UVC 出 MJPEG 画面（上面那套 excamera 独占），UART 走协议做人脸。
@@ -245,6 +245,9 @@ local rec_saved = 0             -- 实际落盘的帧数
 local rec_written = 0           -- 已落盘字节数
 local rec_full = false          -- 是否因达到上限停帧
 local rec_max_bytes = 4 * 1024 * 1024
+local cleanup_done, cleanup_error = false, nil
+local exit_waiting = false
+local request_exit
 local quit_requested = false    -- 页面已销毁，长动作尽快收尾
 
 local status_label = nil
@@ -616,6 +619,7 @@ end
 
 -- 收到一帧：拍照按需存单帧，录像抽帧追加进同一个文件
 local function on_frame(buff, len)
+    if quit_requested or not window_open then return end
     if not buff or not len or len <= 0 then return end
 
     frame_cnt = frame_cnt + 1
@@ -667,7 +671,12 @@ local function close_stream()
     closing = true
     if excamera then
         sys.wait(CLOSE_GRACE)
-        pcall(excamera.close)
+        local ok,result=pcall(excamera.close)
+        log.info("factory_handoff","CAMERA_CLOSE_RESULT",ok,tostring(result))
+        if not ok or result == false then
+            closing = false
+            error("camera close failed: " .. tostring(result))
+        end
         sys.wait(100)
     end
     stream_open = false
@@ -677,10 +686,11 @@ end
 
 -- 停组件显示（保留最后一帧，不释放缓冲），只允许在数据流已关掉之后调用
 local function stop_widget()
-    widget_started = false
     if cam_widget and not cam_widget:is_destroyed() then
-        pcall(cam_widget.stop, cam_widget)
+        local ok, result = pcall(cam_widget.stop, cam_widget)
+        assert(ok and result ~= false, "camera widget stop failed: " .. tostring(result))
     end
+    widget_started = false
 end
 
 -- 把显示组件挂到解码通道（register_target 在建组件时已挂过，这里只是兜底重挂）
@@ -711,12 +721,15 @@ end
 （USB 一直处于 Host 状态时没有新的枚举动沿），只靠 on_connected 里那次 start_widget
 会让预览永远冻在最后一帧 —— 人脸验证失败降级串行后「画面卡住」就是这么来的。]]
 local function open_stream()
+    if quit_requested then return false, "页面正在关闭" end
     if not cam_ready() then return false, "相机能力不可用" end
     wait_closing()
+    if quit_requested then return false, "页面正在关闭" end
     if not excamera.open(cam_param()) then
         stream_open = false
         return false, "摄像头打开失败"
     end
+    if quit_requested then return false, "页面正在关闭" end
     if not excamera.preview(preview_callback) then
         pcall(excamera.close)
         stream_open = false
@@ -799,6 +812,7 @@ end
 
 -- excamera 预览事件：新帧 / 连接 / 断开 / 异常（在 USB 事件上下文里回调，非协程）
 function preview_callback(event, ...)
+    if quit_requested or not window_open then return end
     if event == "frame" then
         local buff, len = ...
         on_frame(buff, len)
@@ -885,8 +899,12 @@ local function do_record()
     end
 
     local f = rec_file
-    rec_file = nil              -- 先摘掉句柄，回调侧不再写
-    if f then pcall(f.close, f) end
+    rec_full = true
+    if f then
+        local ok, result = pcall(f.close, f)
+        assert(ok and result ~= false, "record file close failed")
+    end
+    rec_file = nil
     stop_rec_timer()
 
     local msg, pass
@@ -955,6 +973,7 @@ end
 -- 界面侧收人脸引导文案。回调只在录入/验证期间来，跟着 face_busy 走，不看页签：
 -- 用户中途切到 UVC 页签也要能看到引导。引导文案用琥珀色，跟结果的成功绿 / 失败红区分开
 local function on_face_state_text(text)
+    if quit_requested then return end
     if not window_open or not face_busy then return end
     update_status(text, "busy")
 end
@@ -989,8 +1008,11 @@ local face_reenumerate  -- 前向声明：face_reset_sensor 兜底要调它（�
 -- 关人脸模组串口（相机不在它手上：没传 id 就没做过 camera.init）
 local function face_close()
     if not face_on then return end
+    if exfacecam then
+        local ok, result = pcall(exfacecam.close)
+        assert(ok and result ~= false, "face UART close failed: " .. tostring(result))
+    end
     face_on = false
-    if exfacecam then pcall(exfacecam.close) end
 end
 
 --[[
@@ -1053,6 +1075,7 @@ end
 @param tip 重开失败时的提示语
 ]]
 face_reenumerate = function(tip)
+    if quit_requested then return end
     if face_pwr then
         log.info("uvc_preview_win", "断电重枚举摄像头", "GPIO" .. tostring(face_pwr))
         pcall(gpio.setup, face_pwr, 0)
@@ -1065,7 +1088,7 @@ face_reenumerate = function(tip)
         log.warn("uvc_preview_win", "本板未配摄像头供电脚，跳过断电重枚举，录入可能失败")
     end
     face_close()
-    face_open(tip)
+    if not quit_requested then face_open(tip) end
 end
 
 --[[人脸动作收尾：复位忙标志 + 弹结果窗 + 按需重开数据流，最后落状态行。
@@ -1081,6 +1104,7 @@ end
 Lua 里后定义的 local 在前面的闭包里是捕获不到的（取到的是全局 nil）。]]
 local function face_end(msg, need_open, tip, kind)
     face_busy = false
+    if quit_requested then return end
     -- 有结果窗就按成功 / 失败上色，没有（清空 / 版本这类）用调用方给的 kind
     local color_kind = tip and (tip.ok and "ok" or "err") or kind
     if tip then
@@ -1117,6 +1141,7 @@ false —— 不停流、不复位、不做就绪自检，直接发指令。
 @return boolean
 ]]
 local function face_begin(tip, cycle)
+    if quit_requested then return false end
     if face_busy then return false end
     if not exfacecam then
         update_status("本固件不含 exfacecam 库，人脸识别不可用", "err")
@@ -1171,6 +1196,7 @@ local function wait_frame_alive()
     local before = frame_cnt
     local t = 0
     while t < face_live_timeout do
+        if quit_requested then return false end
         if frame_cnt > before then return true end
         sys.wait(100)
         t = t + 100
@@ -1183,6 +1209,7 @@ end
 @return ok(pcall) , success(业务) , extra(user_id|table|错误码) , name(仅录入)
 ]]
 local function face_run_once(kind)
+    if quit_requested then return true, false, "cancelled" end
     if kind == "register" then
         face_seq = face_seq + 1
         local name = "user" .. tostring(face_seq)
@@ -1248,6 +1275,7 @@ local FACE_DECISIVE_ERR = {
 判定类失败一律不重试：降级串行要停流 + 复位传感器 + 重新就绪自检，前后十几秒画面冻在
 最后一帧 —— 尤其是「一直没检测到人脸」这种，等 15 秒超时后再冻十几秒，用户看到的就是卡死。]]
 local function face_retry_worth(ok, success, extra)
+    if quit_requested then return false end
     if not ok then return true end              -- 动作异常：值得换串行再试一次
     if success then return false end
     if extra == nil then return false end       -- 串口没开之类：重试也不会变
@@ -1262,6 +1290,7 @@ end
 - concurrent ：只走并行，失败不降级
 ]]
 local function do_face_capture(kind)
+    if quit_requested then return end
     if face_busy then return end
     face_kind = kind
     hide_face_tip()   -- 上一轮结果窗先收掉，别让两条结果叠在一起
@@ -1381,10 +1410,12 @@ end
 -- 拆掉一组界面控件（控件销毁必须晚于停流，见 close_stream 的说明）
 local function dispose_ui(it)
     if it.widget and not it.widget:is_destroyed() then
-        pcall(it.widget.destroy, it.widget)
+        local ok,err=pcall(it.widget.destroy, it.widget)
+        assert(ok and err ~= false, "CAMERA_WIDGET_DESTROY_FAILED: " .. tostring(err))
     end
     if it.container and not it.container:is_destroyed() then
-        pcall(it.container.destroy, it.container)
+        local ok,err=pcall(it.container.destroy, it.container)
+        assert(ok and err ~= false, "CAMERA_CONTAINER_DESTROY_FAILED: " .. tostring(err))
     end
 end
 
@@ -1443,23 +1474,38 @@ local function do_teardown(gen)
     snap_pending = false
     rec_full = true
     local f = rec_file
+    if f then
+        local ok, result = pcall(f.close, f)
+        assert(ok and result ~= false, "record file close failed")
+    end
     rec_file = nil
-    if f then pcall(f.close, f) end
     face_close()
     close_stream()
+    assert(require("factory_usb_host").shutdown())
     stop_widget()
     flush_stale_ui()
     if periph_id then
-        sys.publish("OTHER_FUNC_SET", periph_id, false)
+        local ok, err = require("other_func_app").set_enabled(periph_id, false)
+        assert(ok, err or "camera peripheral stop failed")
     end
     -- 只有界面代数没变（期间没有重新进本页）才动控件，避免误删新页面的界面
-    if gen == ui_gen then destroy_ui() end
+    assert(gen == ui_gen, "camera generation changed during cleanup")
+    -- Keep the page visible until the navigation barrier commits.
+    log.info("factory_handoff","CAMERA_RESOURCES_CLOSED","stream",stream_open,"face",face_on,
+        "widget",cam_widget~=nil,"container",main_container~=nil,"record_file",rec_file~=nil,
+        "lua_kb",math.floor(collectgarbage("count")),"sys_free",pool_free("sys") or "NA")
 end
 
 -- 请求收尾：收尾动作在 cmd_loop 的 quit 分支，跑完才算离开
 local function request_quit()
-    if quit_requested then return end
     quit_requested = true
+    cleanup_error = nil
+    rec_full = true
+    if snap_pending then
+        snap_pending = false
+        sys.publish("UVC_SNAP_DONE", false)
+    end
+    if probe_timer then sys.timerStop(probe_timer); probe_timer = nil end
     sys.publish("UVC_CMD", "quit", ui_gen)
 end
 
@@ -1470,7 +1516,11 @@ local function cmd_loop()
     while cmd_running do
         -- 带超时等待：页面销毁后最多 1 秒内自行退出，避免残留协程被下次进页唤醒
         local _, cmd, arg = sys.waitUntil("UVC_CMD", 1000)
+        if quit_requested then
+            if cleanup_error then cmd = nil else cmd, arg = "quit", ui_gen end
+        end
         if cmd_running and cmd then
+            local command_ok, command_err = pcall(function()
             if cmd == "start" then
                 wait_closing()          -- 上一轮停流收尾完，才动它的界面与数据流
                 if stream_open then     -- 上代收尾没跑到（quit 期间已重新进页），这里补关
@@ -1502,10 +1552,21 @@ local function cmd_loop()
                 if arg ~= ui_gen then
                     if stream_open then close_stream() end
                 else
-                    do_teardown(arg)
-                    window_open = false
-                    cmd_running = false
+                    local ok, err = pcall(do_teardown, arg)
+                    if ok then
+                        cleanup_done = true
+                        cmd_running = false
+                    else
+                        cleanup_error = tostring(err)
+                        log.error("factory_handoff", "CAMERA_CLOSE_FAILED", cleanup_error)
+                    end
                 end
+            end
+            end)
+            if not command_ok then
+                busy, face_busy = false, false
+                log.error("factory_handoff", "CAMERA_COMMAND_FAILED", tostring(command_err))
+                update_status("操作失败，请返回关闭页面：" .. tostring(command_err), "err")
             end
         end
     end
@@ -1728,7 +1789,7 @@ local function build_ui()
         x = pad, y = pad, w = card_w,
         title = has_face and "人脸识别摄像头" or "UVC 摄像头",
         sub = has_face and "预览 / 拍照 / 录像 | 人脸录入 / 验证" or "预览 / 拍照 / 录像",
-        on_back = function() exwin.close(window_id) end,
+        on_back = function() request_exit() end,
     })
 
     local y = pad + th + pad
@@ -1788,6 +1849,7 @@ local function on_create()
     ui_gen = ui_gen + 1
     window_open = true
     quit_requested = false
+    cleanup_done, cleanup_error, exit_waiting = false, nil, false
     busy = false
     snap_pending = false
     rec_file = nil
@@ -1879,7 +1941,7 @@ local function on_destroy()
     if main_container and not main_container:is_destroyed() then
         pcall(main_container.set_hidden, main_container, true)
     end
-    request_quit()
+    if not cleanup_done then request_quit() end
 end
 
 local function on_get_focus() end
@@ -1902,4 +1964,65 @@ local function open_handler(id)
     })
 end
 
-sys.subscribe("OPEN_UVC_PREVIEW_WIN", open_handler)
+local handoff = require "factory_handoff"
+
+-- Navigation stays on this page until the command worker has closed every resource.
+request_exit = function(after_close)
+    if exit_waiting then return end
+    exit_waiting = true
+    if not cleanup_done then request_quit() end
+    update_status("正在结束当前操作、保存文件并关闭摄像头，请稍候...", "busy")
+    local dialog = airui.msgbox({title="正在关闭", text="正在等待当前操作结束并释放摄像头/人脸串口，完成后自动返回。", buttons={"等待"},
+        on_action=function() end})
+    sys.taskInit(function()
+        local waited = 0
+        while not cleanup_done and not cleanup_error and waited < 30000 do
+            sys.wait(20); waited = waited + 20
+        end
+        if dialog then dialog:hide() end
+        local ok, err = false, cleanup_error or "关闭超时，仍停留本页；请稍后点击返回重试"
+        if cleanup_done then
+            local id = window_id
+            ok, err = pcall(function()
+                destroy_ui()
+                window_open = false
+                exwin.close(id)
+            end)
+        end
+        exit_waiting = false
+        if not ok then
+            update_status("关闭未完成，请点击返回重试", "err")
+            log.error("factory_handoff", "CAMERA_EXIT_BLOCKED", tostring(err))
+            airui.msgbox({title="未离开页面", text=tostring(err), buttons={"确定"},
+                on_action=function(self) self:hide() end})
+            return
+        end
+        log.info("factory_handoff", "CAMERA_EXIT_DONE")
+        if after_close then after_close() end
+    end)
+end
+handoff.set_navigation_guard(function(next_page)
+    if not window_open then return false end
+    request_exit(next_page)
+    return true
+end)
+handoff.register("camera", function()
+    if not cleanup_done and (cmd_running or window_open) then
+        request_quit()
+        local waited = 0
+        while not cleanup_done do
+            assert(not cleanup_error, cleanup_error)
+            if waited >= 30000 then error("camera/face cleanup timeout") end
+            sys.wait(20); waited = waited + 20
+        end
+    end
+    return true
+end)
+sys.subscribe("OPEN_UVC_PREVIEW_WIN", function(id)
+    if window_open then return end
+    handoff.enqueue(function()
+        if handoff.mode() ~= "test" then handoff.prepare("test") end
+        assert(not cmd_running, "previous camera worker is still closing")
+        open_handler(id)
+    end)
+end)

@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>3# 配料灌装线 · PLC HMI 可交互原型</title>
+<!--
+  第①环产物：可交互原型（1024×600，最小字号 16px）。
+  素材三源：data-asset="lib" 图库 SVG / "svg" 内联 SVG / "html" CSS 画的。
+  会随数据变动的元素标 data-raster="no"，屏上留活组件；其余第②环烘成 PNG。
+  data-plcui 标注该元素最终对应的 PLCUI 组件（image / label / container / table / chart / textarea / keyboard）。
+-->
+<style>
+  :root{
+    --scr-w:1024px; --scr-h:600px;
+    --bg:#0a1219;
+    --panel:#101d29;
+    --panel2:#152635;
+    --line:#1f3448;
+    --line2:#2c4a63;
+    --txt:#e8f1fa;
+    --dim:#8ba0b6;
+    --cyan:#22c9d8;
+    --blue:#2f9be0;
+    --green:#38c67e;
+    --amber:#f2a63c;
+    --red:#e8575c;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05080c}
+  body{
+    display:flex;align-items:center;justify-content:center;
+    font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",Arial,sans-serif;
+    font-size:16px;color:var(--txt);
+    -webkit-font-smoothing:antialiased;
+  }
+  #shell{width:1024px;height:600px;transform-origin:center center;flex:none}
+  #screen{
+    width:1024px;height:600px;position:relative;overflow:hidden;
+    background:var(--bg);border-radius:8px;user-select:none;
+    box-shadow:0 26px 80px rgba(0,0,0,.8),0 0 0 1px #1b2a38;
+  }
+
+  /* ==================== 顶栏 ==================== */
+  .topbar{
+    position:absolute;left:0;top:0;width:1024px;height:58px;z-index:15;
+    display:flex;align-items:center;gap:16px;padding:0 18px;
+    background:linear-gradient(180deg,#152534 0%,#0c1620 100%);
+    border-bottom:1px solid #22394f;
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand img{width:28px;height:29px;filter:drop-shadow(0 0 8px rgba(232,87,92,.55))}
+  .brand .b1{font-size:20px;font-weight:700;letter-spacing:.5px;line-height:1.1}
+  .brand .b2{font-size:16px;color:var(--dim);padding-left:10px;border-left:1px solid var(--line2)}
+  .mid{display:flex;gap:14px;font-size:16px;color:var(--dim)}
+  .mid b{color:#b8cbdd;font-weight:400}
+
+  .pill{
+    margin-left:auto;display:flex;align-items:center;gap:9px;height:34px;padding:0 15px;
+    border-radius:17px;border:1px solid #2b4a63;background:#12202c;
+    font-size:17px;cursor:pointer;transition:background .12s,border-color .12s;
+  }
+  .pill .dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+  .pill.manual{border-color:#6b5325;background:#1f1a10}
+  .pill.manual .dot{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+  .pill.estop{border-color:#7a2b2f;background:#25100f}
+  .pill.estop .dot{background:var(--red);box-shadow:0 0 10px var(--red)}
+  .pill.stopped .dot{background:#61758a;box-shadow:none}
+
+  .bell{position:relative;width:38px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .bell .tri{
+    width:0;height:0;border-left:15px solid transparent;border-right:15px solid transparent;
+    border-bottom:26px solid #3a2229;position:relative;
+  }
+  .bell .tri::after{
+    content:"!";position:absolute;left:-4px;top:6px;width:8px;text-align:center;
+    font-size:17px;font-weight:700;color:var(--red);
+  }
+  .bell.hot .tri{border-bottom-color:#5c1e23;filter:drop-shadow(0 0 8px rgba(232,87,92,.8))}
+  .bell em{
+    position:absolute;right:-2px;top:-1px;min-width:20px;height:20px;border-radius:10px;
+    background:var(--red);color:#fff;font-size:16px;font-style:normal;line-height:20px;text-align:center;
+    padding:0 4px;font-weight:700;
+  }
+  .bell em.zero{display:none}
+
+  .clock{font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:1px;color:#cfe1f0}
+
+  /* ==================== 页面 ==================== */
+  .page{position:absolute;left:0;top:58px;width:1024px;height:542px;display:none}
+  .page.active{display:block}
+
+  .card{
+    position:absolute;background:linear-gradient(180deg,#12212e 0%,#0e1a25 100%);
+    border:1px solid var(--line);border-radius:8px;overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  .card-head{
+    height:44px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;
+    background:linear-gradient(180deg,#162735 0%,#0f1b26 100%);
+    border-bottom:1px solid var(--line);
+    font-size:18px;font-weight:600;letter-spacing:.3px;
+  }
+  .card-head span{font-size:16px;font-weight:400;color:var(--dim)}
+  .card-head .r{margin-left:auto;display:flex;gap:14px;align-items:center;font-size:16px;color:var(--dim);font-weight:400}
+
+  /* ==================== 页1：工艺流程 ==================== */
+  .flow-wrap{
+    position:absolute;left:12px;top:8px;width:1000px;height:338px;
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;
+  }
+  .stage{
+    position:relative;width:998px;height:294px;
+    background:radial-gradient(120% 130% at 18% 0%,#16293b 0%,#0d1822 58%,#0a131c 100%);
+  }
+  .stage::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(86,138,182,.07) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(86,138,182,.07) 1px,transparent 1px);
+    background-size:31px 31px;
+    mask-image:linear-gradient(180deg,rgba(0,0,0,.9),rgba(0,0,0,.35));
+  }
+
+  /* 管道（CSS 素材） */
+  .pipe{
+    position:absolute;border-radius:3px;overflow:hidden;
+    background:linear-gradient(180deg,#37495c 0%,#748ba0 34%,#4d6276 66%,#2b3d4f 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -1px 0 rgba(0,0,0,.5);
+  }
+  .pipe.h{height:14px}
+  .pipe.v{width:14px;background:linear-gradient(90deg,#37495c 0%,#748ba0 34%,#4d6276 66%,#2b3d4f 100%)}
+  .pipe i{
+    position:absolute;border-radius:3px;opacity:0;
+    background:linear-gradient(90deg,rgba(34,201,216,0),rgba(150,247,255,.95),rgba(34,201,216,0));
+    transition:opacity .08s linear;
+  }
+  .pipe.h i{top:0;bottom:0;width:20px}
+  .pipe.v i{
+    left:0;right:0;height:20px;
+    background:linear-gradient(180deg,rgba(34,201,216,0),rgba(150,247,255,.95),rgba(34,201,216,0));
+  }
+  .pipe.h i:nth-child(1){left:4%}
+  .pipe.h i:nth-child(2){left:32%}
+  .pipe.h i:nth-child(3){left:60%}
+  .pipe.h i:nth-child(4){left:84%}
+  .pipe.v i:nth-child(1){top:2%}
+  .pipe.v i:nth-child(2){top:34%}
+  .pipe.v i:nth-child(3){top:66%}
+  .pipe i.on{opacity:1;box-shadow:0 0 10px rgba(34,201,216,.95)}
+
+  /* 设备图元 */
+  .dev{position:absolute;cursor:pointer;transition:filter .14s}
+  .dev img{width:100%;height:100%;object-fit:contain;display:block}
+  .dev.on img{filter:drop-shadow(0 0 8px rgba(47,155,224,.5)) brightness(1.06)}
+  .dev.off img{filter:grayscale(.8) brightness(.6)}
+  .dev .glow{
+    position:absolute;left:8%;right:8%;bottom:-5px;height:5px;border-radius:3px;
+    background:var(--cyan);opacity:0;transition:opacity .14s;
+  }
+  .dev.on .glow{opacity:.5;box-shadow:0 0 14px var(--cyan)}
+
+  /* 罐内液位视窗（活组件） */
+  .tank-fill{
+    position:absolute;left:12%;right:12%;bottom:7%;border-radius:3px;
+    background:linear-gradient(180deg,rgba(60,220,235,.85) 0%,rgba(24,135,180,.9) 100%);
+    box-shadow:inset 0 0 0 1px rgba(180,250,255,.5),0 0 12px rgba(34,201,216,.35);
+    transition:height .3s linear;overflow:hidden;
+  }
+  .tank-fill::after{
+    content:"";position:absolute;left:0;right:0;top:0;height:3px;
+    background:rgba(210,255,255,.85);box-shadow:0 0 8px rgba(160,250,255,.9);
+  }
+
+  /* 设备位号标签 */
+  .dtag{position:absolute;font-size:16px;color:var(--dim);white-space:nowrap;line-height:20px;display:flex;align-items:center;gap:6px}
+  .dtag b{color:#c6d8e8;font-weight:600}
+  .dtag .dg{width:8px;height:8px;border-radius:50%;background:#61758a;flex:none}
+  .dtag.run .dg{background:var(--green);box-shadow:0 0 8px var(--green)}
+  .dtag.run b{color:#e8f1fa}
+  .dtag em{font-style:normal;color:var(--cyan);font-variant-numeric:tabular-nums}
+
+  /* 灌装喷嘴（CSS 素材） */
+  .nozzle{
+    position:absolute;
+    background:linear-gradient(180deg,#8ea6bb,#4a6076);
+    clip-path:polygon(28% 0,72% 0,100% 100%,0 100%);
+    box-shadow:0 0 6px rgba(0,0,0,.6);
+  }
+  .nozzle.flow{background:linear-gradient(180deg,#bff4fb,#22c9d8);box-shadow:0 0 14px rgba(34,201,216,.9)}
+
+  /* 输送带 */
+  .conveyor{position:absolute;width:560px;height:26px;border-radius:3px;overflow:hidden;background:#0d1822;border:1px solid #22384c}
+  .conveyor .belt{
+    position:absolute;left:0;right:0;top:4px;height:18px;border-radius:2px;
+    background-color:#22323f;
+    background-image:repeating-linear-gradient(90deg,#334a5e 0 7px,#1b2833 7px 14px);
+    background-size:14px 100%;
+  }
+  .conveyor .belt.b{background-position:7px 0}
+  .conveyor.run .belt{box-shadow:inset 0 0 12px rgba(34,201,216,.25)}
+  .conveyor .rail{position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(180deg,#3a5266,#20303d)}
+
+  /* 产品箱 */
+  .box{position:absolute;width:44px;height:41px;cursor:pointer}
+  .box img{width:100%;height:100%;object-fit:contain;display:block}
+  .box .bx{position:absolute;left:9px;right:9px;bottom:5px;border-radius:2px;background:linear-gradient(180deg,rgba(90,235,250,.9),rgba(20,140,190,.95));height:0;transition:height .25s linear}
+  .box.done::after{
+    content:"OK";position:absolute;left:50%;top:-2px;transform:translateX(-50%);
+    font-size:16px;font-weight:700;color:var(--green);text-shadow:0 0 8px rgba(56,198,126,.9);
+  }
+
+  /* KPI 数据条 */
+  .kpi-row{position:absolute;left:12px;top:354px;width:1000px;height:100px;display:flex;gap:8px}
+  .kpi{
+    flex:1 1 0;background:linear-gradient(180deg,#152636,#0f1c27);
+    border:1px solid var(--line);border-radius:8px;padding:8px 12px 9px;
+    display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;
+  }
+  .kpi .k{font-size:16px;color:var(--dim);display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .kpi .k i{font-style:normal;font-size:16px;color:#5f7b93}
+  .kpi .v{font-size:27px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;color:#eaf5ff}
+  .kpi .v small{font-size:16px;font-weight:400;color:var(--dim);margin-left:4px}
+  .kpi.hot .v{color:var(--amber)}
+  .kpi.bad .v{color:var(--red)}
+  .kpi .bar{height:5px;border-radius:3px;background:#1b2c3c;overflow:hidden}
+  .kpi .bar em{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#1d7fb4,#22c9d8);transition:width .3s linear}
+  .kpi .bar em.warn{background:linear-gradient(90deg,#c07a1c,#f2a63c)}
+
+  /* ==================== 底部导航 + 操作条 ==================== */
+  .navbar{position:absolute;left:12px;bottom:14px;width:1000px;height:56px;display:flex;gap:8px;z-index:18}
+  .tab{
+    width:146px;height:56px;border-radius:8px;flex:none;
+    background:linear-gradient(180deg,#1a2b3a,#121f2b);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;gap:9px;
+    font-size:17px;color:var(--dim);cursor:pointer;transition:background .12s,color .12s;
+  }
+  .tab img{width:22px;height:22px;opacity:.6;filter:saturate(.6)}
+  .tab.active{
+    background:linear-gradient(180deg,#1d4a63,#143b50);
+    border-color:#2f7fa8;color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(47,155,224,.3),0 0 16px rgba(47,155,224,.18);
+  }
+  .tab.active img{opacity:1;filter:none}
+  .tab .badge{
+    min-width:20px;height:20px;border-radius:10px;background:var(--red);color:#fff;
+    font-size:16px;line-height:20px;text-align:center;padding:0 4px;font-weight:700;
+  }
+  .nav-gap{width:8px;flex:none}
+
+  .act{
+    height:56px;border-radius:8px;border:1px solid;cursor:pointer;color:#fff;
+    font-size:18px;font-weight:600;font-family:inherit;letter-spacing:.5px;
+    display:flex;align-items:center;justify-content:center;gap:8px;flex:none;
+    transition:filter .12s,box-shadow .12s;
+  }
+  .act:active{filter:brightness(.85)}
+  .act.run{width:96px;background:linear-gradient(180deg,#2fa46a,#1b7147);border-color:#3ec27a}
+  .act.run.on{box-shadow:0 0 18px rgba(56,198,126,.55),inset 0 0 0 1px rgba(190,255,220,.35)}
+  .act.stop{width:96px;background:linear-gradient(180deg,#3d4a5b,#26313d);border-color:#4b5d72;color:#cfdceb}
+  .act.estop{width:160px;background:linear-gradient(180deg,#e0474c,#8e1d23);border-color:#ff8186;font-size:19px;letter-spacing:1px}
+  .act.estop.fired{background:linear-gradient(180deg,#ff6065,#b3232a);box-shadow:0 0 22px rgba(232,87,92,.75)}
+  .act.ghost{background:linear-gradient(180deg,#22384c,#16283a);border-color:#2f5570;color:#cfe4f5}
+
+  /* ==================== 页2：参数 ==================== */
+  .param-list{display:flex;flex-direction:column}
+  .prow{
+    height:46px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;
+    border-bottom:1px solid rgba(31,52,72,.75);font-size:17px;
+  }
+  .prow:nth-child(odd){background:rgba(255,255,255,.015)}
+  .prow .pn{flex:1 1 0;color:#c6d8e8}
+  .prow .pv{
+    min-width:96px;text-align:right;font-size:20px;font-variant-numeric:tabular-nums;
+    color:#7fe6f2;font-weight:600;
+  }
+  .prow .pu{width:44px;font-size:16px;color:var(--dim)}
+  .prow .pedit{
+    width:52px;height:30px;border-radius:6px;border:1px solid #2f5570;
+    background:#1a2d3e;color:#9fc4de;font-size:16px;font-family:inherit;cursor:pointer;flex:none;
+  }
+  .prow .pedit:active{background:var(--blue);color:#fff}
+
+  .recipe-list{padding:12px;display:flex;flex-direction:column;gap:10px}
+  .recipe{
+    border:1px solid var(--line);border-radius:8px;background:#121f2b;padding:10px 12px;cursor:pointer;
+    display:flex;align-items:center;gap:12px;
+  }
+  .recipe .rc{
+    width:40px;height:40px;border-radius:8px;flex:none;
+    background:linear-gradient(180deg,#243a4e,#16283a);border:1px solid var(--line2);
+    display:flex;align-items:center;justify-content:center;font-size:17px;color:#9fc4de;font-weight:700;
+  }
+  .recipe .rt{flex:1 1 0}
+  .recipe .rt b{display:block;font-size:18px;font-weight:600;margin-bottom:3px}
+  .recipe .rt span{font-size:16px;color:var(--dim)}
+  .recipe .chk{width:22px;height:22px;border-radius:50%;border:1px solid #3b5872;flex:none}
+  .recipe.active{border-color:#2f9be0;background:#12293a;box-shadow:inset 0 0 0 1px rgba(47,155,224,.3)}
+  .recipe.active .chk{background:var(--blue);border-color:#7fc9f5;box-shadow:0 0 10px rgba(47,155,224,.8)}
+  .recipe.active .rc{background:linear-gradient(180deg,#2f6f95,#1b4f70);border-color:#4b9fd0;color:#eaf7ff}
+
+  .btn{
+    height:50px;border-radius:8px;border:1px solid var(--line2);cursor:pointer;
+    background:linear-gradient(180deg,#22384c,#16283a);color:#dcebf7;
+    font-size:18px;font-family:inherit;font-weight:600;
+  }
+  .btn:active{filter:brightness(.85)}
+  .btn.primary{background:linear-gradient(180deg,#2f9be0,#1c6da6);border-color:#69c0f0;color:#fff}
+  .btn.danger{background:linear-gradient(180deg,#b8383d,#7d1f24);border-color:#e4676c;color:#fff}
+  .btn.ok{background:linear-gradient(180deg,#2fa46a,#1b7147);border-color:#46c58a;color:#fff}
+  .btn.wide{width:100%}
+  .note{padding:0 14px 12px;font-size:16px;color:#6d869c;line-height:1.6}
+
+  /* ==================== 页3：报警 ==================== */
+  table.grid{width:100%;border-collapse:collapse;font-size:17px}
+  table.grid th{
+    height:38px;text-align:left;padding:0 12px;font-weight:400;color:var(--dim);
+    background:#0f1c27;border-bottom:1px solid var(--line);font-size:16px;
+  }
+  table.grid td{height:44px;padding:0 12px;border-bottom:1px solid rgba(31,52,72,.7);color:#d6e5f2}
+  table.grid tr.unack td{color:#fdf3e2;background:rgba(242,166,60,.06)}
+  table.grid tr.sel td{background:rgba(47,155,224,.14)}
+  table.grid td.msg{color:inherit}
+  .lv{display:inline-block;min-width:64px;text-align:center;padding:2px 8px;border-radius:4px;font-size:16px}
+  .lv.crit{background:rgba(232,87,92,.16);color:#ff8f93;border:1px solid rgba(232,87,92,.45)}
+  .lv.warn{background:rgba(242,166,60,.14);color:#f7bd6d;border:1px solid rgba(242,166,60,.42)}
+  .lv.info{background:rgba(47,155,224,.14);color:#84c8f2;border:1px solid rgba(47,155,224,.4)}
+
+  .astat{display:flex;gap:8px;padding:12px}
+  .astat .s{
+    flex:1 1 0;border:1px solid var(--line);border-radius:8px;background:#121f2b;
+    padding:10px;text-align:center;
+  }
+  .astat .s b{display:block;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  .astat .s span{font-size:16px;color:var(--dim)}
+  .astat .s.crit b{color:var(--red)}
+  .astat .s.warn b{color:var(--amber)}
+  .astat .s.ok b{color:var(--green)}
+
+  /* ==================== 页4：趋势 ==================== */
+  #trend-svg{width:998px;height:228px;display:block}
+  .legend{display:flex;gap:16px;font-size:16px;color:var(--dim);align-items:center}
+  .legend i{display:inline-block;width:18px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .legend .t1 i{background:#e8575c}
+  .legend .t2 i{background:#2f9be0}
+  .legend .t3 i{background:#38c67e}
+
+  .tstat{position:absolute;left:12px;top:288px;width:1000px;height:182px;display:flex;gap:8px}
+  .tstat .s{
+    flex:1 1 0;background:linear-gradient(180deg,#152636,#0f1c27);border:1px solid var(--line);
+    border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;
+  }
+  .tstat .s h4{font-size:17px;font-weight:600;color:#c6d8e8;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .tstat .s h4 i{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .tstat .row{display:flex;justify-content:space-between;font-size:17px;padding:6px 0;border-bottom:1px dashed rgba(31,52,72,.8);color:var(--dim)}
+  .tstat .row:last-child{border-bottom:none}
+  .tstat .row b{color:#e6f3ff;font-weight:600;font-variant-numeric:tabular-nums}
+
+  /* ==================== 软键盘 ==================== */
+  .kb{
+    position:absolute;left:0;right:0;bottom:0;height:296px;z-index:40;
+    background:linear-gradient(180deg,#16283a 0%,#0c1621 100%);
+    border-top:1px solid #2c4c66;box-shadow:0 -14px 40px rgba(0,0,0,.7);
+    padding:12px 18px 14px;display:flex;flex-direction:column;
+    transform:translateY(102%);transition:transform .18s ease-out;
+  }
+  .kb.show{transform:translateY(0)}
+  .kb-head{height:44px;flex:none;display:flex;align-items:center;gap:14px;margin-bottom:10px}
+  .kb-head .t{font-size:18px;color:var(--dim)}
+  .kb-head .val{
+    font-size:30px;font-weight:600;color:#7fe6f2;font-variant-numeric:tabular-nums;
+    border-bottom:2px solid #2f6f95;padding:0 6px 2px;min-width:130px;text-align:right;
+  }
+  .kb-head .u{font-size:17px;color:var(--dim)}
+  .kb-head .c{margin-left:auto;font-size:16px;color:#6d869c}
+  .kb-grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .key{
+    background:linear-gradient(180deg,#243a4e,#172836);border:1px solid #2c4a63;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;font-size:23px;color:#e8f1fa;
+    cursor:pointer;font-variant-numeric:tabular-nums;
+  }
+  .key:active{background:#2f7fa8}
+  .key.fn{font-size:18px;color:#9fc4de;background:linear-gradient(180deg,#1d3040,#152431)}
+  .kb-foot{height:52px;flex:none;display:flex;gap:12px;margin-top:10px}
+
+  /* ==================== 提示条 ==================== */
+  .toast{
+    position:absolute;left:50%;bottom:86px;transform:translate(-50%,16px);
+    background:rgba(18,38,54,.97);border:1px solid #2f7fa8;border-radius:8px;
+    padding:10px 20px;font-size:17px;color:#e8f1fa;opacity:0;pointer-events:none;
+    transition:opacity .16s,transform .16s;z-index:50;white-space:nowrap;
+    box-shadow:0 10px 30px rgba(0,0,0,.6);
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast.warn{border-color:#8a6524}
+  .toast.bad{border-color:#9c3338}
+
+  /* 急停蒙层提示（不做全屏遮罩，避免挡住报警页操作） */
+  .estop-bar{
+    position:absolute;left:0;top:58px;width:1024px;height:0;z-index:19;overflow:hidden;
+    background:repeating-linear-gradient(135deg,#4a1114 0 14px,#2a0b0d 14px 28px);
+    border-bottom:1px solid #7a2b2f;transition:height .18s;
+    display:flex;align-items:center;justify-content:center;
+    font-size:17px;color:#ffb3b6;letter-spacing:1px;
+  }
+  .estop-bar.show{height:30px}
+</style>
+</head>
+<body>
+<div id="shell">
+<div id="screen" data-plcui="container">
+
+  <!-- ============================ 顶栏 ============================ -->
+  <header class="topbar" data-plcui="container" data-asset="html">
+    <div class="brand">
+      <img src="_svg/logo.svg" alt="PLC" data-asset="lib">
+      <div class="b1" data-plcui="label" data-raster="no">3# 配料灌装线</div>
+      <div class="b2" data-plcui="label" data-raster="no">PLC HMI · 中控台</div>
+    </div>
+    <div class="mid" data-plcui="label" data-raster="no">
+      <span>班次 <b>A</b></span>
+      <span>操作员 <b>OP-03</b></span>
+      <span>工单 <b>WO-2408</b></span>
+    </div>
+    <div class="pill" id="mode-pill" title="点击切换 自动 / 手动" data-plcui="image" data-asset="html">
+      <i class="dot"></i><span id="mode-text">自动运行</span>
+    </div>
+    <div class="bell" id="bell" title="未确认报警" data-plcui="image" data-asset="html">
+      <span class="tri"></span><em id="bell-count">1</em>
+    </div>
+    <div class="clock" id="clock" data-plcui="label" data-raster="no">08:20:15</div>
+  </header>
+
+  <div class="estop-bar" id="estop-bar">急停已触发 · 全线设备已停止 · 请到「报警」页复位</div>
+
+  <!-- ============================ 页1 工艺流程 ============================ -->
+  <section class="page active" id="page-flow">
+
+    <div class="flow-wrap">
+      <div class="card-head" style="height:44px">
+        工艺流程总览
+        <span>3# 线 · 配料 → 混合加热 → 灌装</span>
+        <div class="r">
+          <span><i class="lg" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#38c67e;box-shadow:0 0 8px #38c67e;vertical-align:-1px"></i> 运行</span>
+          <span><i style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#61758a;vertical-align:-1px"></i> 停止</span>
+        </div>
+      </div>
+
+      <div class="stage" id="stage">
+
+        <!-- ---------- 管道 ---------- -->
+        <div class="pipe h" data-raster="yes" data-plcui="image" style="left:106px;top:125px;width:40px"><i></i><i></i><i></i></div>
+        <div class="pipe h" data-raster="yes" data-plcui="image" style="left:268px;top:125px;width:32px"><i></i><i></i><i></i></div>
+        <div class="pipe h" data-raster="yes" data-plcui="image" style="left:352px;top:125px;width:32px"><i></i><i></i><i></i></div>
+        <div class="pipe h" data-raster="yes" data-plcui="image" style="left:468px;top:125px;width:38px"><i></i><i></i><i></i></div>
+        <div class="pipe h" data-raster="yes" data-plcui="image" style="left:596px;top:125px;width:56px"><i></i><i></i><i></i></div>
+        <div class="pipe h" data-raster="yes" data-plcui="image" style="left:718px;top:125px;width:50px"><i></i><i></i><i></i></div>
+        <div class="pipe h" data-raster="yes" data-plcui="image" style="left:795px;top:125px;width:57px"><i></i><i></i><i></i></div>
+        <div class="pipe v" data-raster="yes" data-plcui="image" style="left:845px;top:139px;height:61px"><i></i><i></i><i></i></div>
+
+        <!-- ---------- 设备图元（图库 SVG） ---------- -->
+        <div class="dev" id="d-t101" data-key="t101" data-asset="lib" data-plcui="image"
+             style="left:30px;top:78px;width:76px;height:108px">
+          <img src="_svg/t101.svg" alt="原料罐 T-101">
+          <div class="tank-fill" id="fill-a" data-raster="no" data-plcui="image" style="height:62%"></div>
+          <div class="glow"></div>
+        </div>
+
+        <div class="dev" id="d-p101" data-key="p1" data-asset="lib" data-plcui="image"
+             style="left:146px;top:107px;width:122px;height:50px">
+          <img src="_svg/p101.svg" alt="进料泵 P-101">
+          <div class="glow"></div>
+        </div>
+
+        <div class="dev" id="d-fv101" data-key="v1" data-asset="lib" data-plcui="image"
+             style="left:300px;top:106px;width:52px;height:51px">
+          <img src="_svg/fv101.svg" alt="调节阀 FV-101">
+          <div class="glow"></div>
+        </div>
+
+        <div class="dev" id="d-t102" data-key="t102" data-asset="lib" data-plcui="image"
+             style="left:384px;top:56px;width:84px;height:152px">
+          <img src="_svg/t102.svg" alt="混合罐 T-102">
+          <div class="tank-fill" id="fill-b" data-raster="no" data-plcui="image" style="height:44%"></div>
+          <div class="glow"></div>
+        </div>
+
+        <div class="dev" id="d-e101" data-key="e101" data-asset="lib" data-plcui="image"
+             style="left:506px;top:115px;width:90px;height:34px">
+          <img src="_svg/e101.svg" alt="换热器 E-101">
+          <div class="glow"></div>
+        </div>
+
+        <div class="dev" id="d-p102" data-key="p2" data-asset="lib" data-plcui="image"
+             style="left:652px;top:100px;width:66px;height:65px">
+          <img src="_svg/p102.svg" alt="循环泵 P-102">
+          <div class="glow"></div>
+        </div>
+
+        <div class="dev" id="d-fv102" data-key="v2" data-asset="lib" data-plcui="image"
+             style="left:768px;top:94px;width:27px;height:76px">
+          <img src="_svg/fv102.svg" alt="灌装阀 FV-102">
+          <div class="glow"></div>
+        </div>
+
+        <!-- ---------- 灌装喷嘴（CSS 素材） ---------- -->
+        <div class="nozzle" id="nozzle" data-raster="yes" data-plcui="image" data-asset="html"
+             style="left:842px;top:199px;width:20px;height:9px"></div>
+
+        <!-- ---------- 输送带 + 产品箱 ---------- -->
+        <div class="conveyor" id="conveyor" data-raster="yes" data-plcui="image" data-asset="html"
+             style="left:420px;top:250px">
+          <div class="rail"></div>
+          <div class="belt" id="belt"></div>
+        </div>
+
+        <div class="box" data-asset="lib" data-plcui="image" style="left:520px;top:209px">
+          <img src="_svg/box.svg" alt="空箱">
+        </div>
+        <div class="box" data-asset="lib" data-plcui="image" style="left:630px;top:209px">
+          <img src="_svg/box.svg" alt="空箱">
+        </div>
+        <div class="box" data-asset="lib" data-plcui="image" style="left:740px;top:209px">
+          <img src="_svg/box.svg" alt="空箱">
+        </div>
+        <div class="box" id="box-fill" data-asset="lib" data-plcui="image" style="left:830px;top:209px">
+          <img src="_svg/box.svg" alt="灌装中">
+          <div class="bx" id="box-liquid" data-raster="no" data-plcui="image" style="height:0"></div>
+        </div>
+        <div class="box done" data-asset="lib" data-plcui="image" style="left:930px;top:209px">
+          <img src="_svg/box.svg" alt="成品箱">
+        </div>
+
+        <!-- ---------- 位号标签（活文字） ---------- -->
+        <div class="dtag" id="tag-t101" style="left:30px;top:190px"><i class="dg"></i><b>T-101</b> 原料罐</div>
+        <div class="dtag" id="tag-p101" style="left:146px;top:161px"><i class="dg"></i><b>P-101</b> 进料泵</div>
+        <div class="dtag" id="tag-fv101" style="left:300px;top:161px"><i class="dg"></i><b>FV-101</b> <em id="v1-pct">64%</em></div>
+        <div class="dtag" id="tag-t102" style="left:384px;top:212px"><i class="dg"></i><b>T-102</b> 混合罐</div>
+        <div class="dtag" id="tag-e101" style="left:506px;top:152px"><i class="dg"></i><b>E-101</b> 换热器</div>
+        <div class="dtag" id="tag-p102" style="left:652px;top:168px"><i class="dg"></i><b>P-102</b> 循环泵</div>
+        <div class="dtag" id="tag-fv102" style="left:800px;top:96px"><i class="dg"></i><b>FV-102</b> 灌装阀</div>
+        <div class="dtag" style="left:420px;top:280px;color:#6d869c"><b>CV-101</b> 输送线</div>
+
+      </div>
+    </div>
+
+    <!-- ---------- KPI 数据条 ---------- -->
+    <div class="kpi-row">
+      <div class="kpi" id="kpi-temp" data-plcui="container" data-asset="html">
+        <div class="k"><span>罐内温度</span><i>PV</i></div>
+        <div class="v"><span id="v-temp">78.4</span><small>℃</small></div>
+        <div class="bar"><em id="b-temp" style="width:65%"></em></div>
+      </div>
+      <div class="kpi" id="kpi-press" data-plcui="container" data-asset="html">
+        <div class="k"><span>系统压力</span><i>PV</i></div>
+        <div class="v"><span id="v-press">0.62</span><small>MPa</small></div>
+        <div class="bar"><em id="b-press" style="width:52%"></em></div>
+      </div>
+      <div class="kpi" data-plcui="container" data-asset="html">
+        <div class="k"><span>进料流量</span><i>FI</i></div>
+        <div class="v"><span id="v-flow">126.5</span><small>L/min</small></div>
+        <div class="bar"><em id="b-flow" style="width:53%"></em></div>
+      </div>
+      <div class="kpi" data-plcui="container" data-asset="html">
+        <div class="k"><span>T-102 液位</span><i>LI</i></div>
+        <div class="v"><span id="v-level">44</span><small>%</small></div>
+        <div class="bar"><em id="b-level" style="width:44%"></em></div>
+      </div>
+      <div class="kpi" data-plcui="container" data-asset="html">
+        <div class="k"><span>本班产量</span><i>CNT</i></div>
+        <div class="v"><span id="v-count">1284</span><small>瓶</small></div>
+        <div class="bar"><em id="b-count" style="width:64%"></em></div>
+      </div>
+      <div class="kpi" data-plcui="container" data-asset="html">
+        <div class="k"><span>运行时长</span><i>TMR</i></div>
+        <div class="v"><span id="v-uptime">02:07</span><small>h</small></div>
+        <div class="bar"><em id="b-uptime" style="width:42%"></em></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 页2 参数设定 ============================ -->
+  <section class="page" id="page-param">
+
+    <div class="card" style="left:12px;top:8px;width:600px;height:446px">
+      <div class="card-head">参数设定 <span>点击「修改」或数值，弹出键盘</span></div>
+      <div class="param-list" id="param-list" data-plcui="container"></div>
+    </div>
+
+    <div class="card" style="left:624px;top:8px;width:388px;height:446px">
+      <div class="card-head">配方管理 <span>当前 R-01</span></div>
+      <div class="recipe-list" id="recipe-list">
+        <div class="recipe active" data-recipe="0">
+          <div class="rc">01</div>
+          <div class="rt"><b>标准配方 250ml</b><span>250ml · 80.0℃ · 速度 70%</span></div>
+          <div class="chk"></div>
+        </div>
+        <div class="recipe" data-recipe="1">
+          <div class="rc">02</div>
+          <div class="rt"><b>大瓶配方 500ml</b><span>500ml · 84.0℃ · 速度 55%</span></div>
+          <div class="chk"></div>
+        </div>
+        <div class="recipe" data-recipe="2">
+          <div class="rc">03</div>
+          <div class="rt"><b>小瓶配方 120ml</b><span>120ml · 76.0℃ · 速度 88%</span></div>
+          <div class="chk"></div>
+        </div>
+      </div>
+      <div style="padding:0 12px 12px">
+        <button class="btn primary wide" id="btn-apply-recipe">应用选中配方</button>
+      </div>
+      <div class="note">配方下发后，温度与灌装量按配方值生效；改动参数不会自动保存回配方。</div>
+    </div>
+  </section>
+
+  <!-- ============================ 页3 报警 ============================ -->
+  <section class="page" id="page-alarm">
+
+    <div class="card" style="left:12px;top:8px;width:700px;height:446px">
+      <div class="card-head">报警记录 <span id="alarm-sum">共 3 条</span></div>
+      <div style="flex:1;overflow:hidden">
+        <table class="grid" data-plcui="table" data-raster="no">
+          <thead>
+            <tr><th style="width:104px">时间</th><th style="width:92px">代码</th><th>描述</th><th style="width:88px">等级</th><th style="width:96px">状态</th></tr>
+          </thead>
+          <tbody id="alarm-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="left:724px;top:8px;width:288px;height:446px">
+      <div class="card-head">报警处置</div>
+      <div class="astat">
+        <div class="s crit"><b id="s-crit">0</b><span>危急</span></div>
+        <div class="s warn"><b id="s-warn">1</b><span>警告</span></div>
+        <div class="s ok"><b id="s-ack">1</b><span>已确认</span></div>
+      </div>
+      <div style="padding:0 12px;display:flex;flex-direction:column;gap:10px">
+        <button class="btn primary wide" id="btn-ack-sel">确认选中</button>
+        <button class="btn wide" id="btn-ack-all">全部确认</button>
+        <button class="btn danger wide" id="btn-reset">报警复位 / 解除急停</button>
+      </div>
+      <div class="note" style="margin-top:auto">复位清除全部记录并解除急停；复位后需重新按「启动」。</div>
+    </div>
+  </section>
+
+  <!-- ============================ 页4 趋势 ============================ -->
+  <section class="page" id="page-trend">
+
+    <div class="card" style="left:12px;top:8px;width:1000px;height:272px">
+      <div class="card-head">
+        实时趋势 <span>最近 60 个采样点</span>
+        <div class="r">
+          <span class="legend"><span class="t1"><i></i>温度</span></span>
+          <span class="legend"><span class="t2"><i></i>压力</span></span>
+          <span class="legend"><span class="t3"><i></i>流量</span></span>
+        </div>
+      </div>
+      <svg id="trend-svg" viewBox="0 0 998 228" preserveAspectRatio="none" data-plcui="chart" data-raster="no"></svg>
+    </div>
+
+    <div class="tstat">
+      <div class="s">
+        <h4><i style="background:#e8575c"></i>温度 ℃</h4>
+        <div class="row"><span>当前</span><b id="ts-temp-cur">78.4</b></div>
+        <div class="row"><span>最高</span><b id="ts-temp-max">82.1</b></div>
+        <div class="row"><span>最低</span><b id="ts-temp-min">74.6</b></div>
+      </div>
+      <div class="s">
+        <h4><i style="background:#2f9be0"></i>压力 MPa</h4>
+        <div class="row"><span>当前</span><b id="ts-press-cur">0.62</b></div>
+        <div class="row"><span>最高</span><b id="ts-press-max">0.68</b></div>
+        <div class="row"><span>最低</span><b id="ts-press-min">0.55</b></div>
+      </div>
+      <div class="s">
+        <h4><i style="background:#38c67e"></i>流量 L/min</h4>
+        <div class="row"><span>当前</span><b id="ts-flow-cur">126.5</b></div>
+        <div class="row"><span>最高</span><b id="ts-flow-max">148.2</b></div>
+        <div class="row"><span>最低</span><b id="ts-flow-min">96.4</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 底部导航 + 操作 ============================ -->
+  <footer class="navbar" data-plcui="container">
+    <div class="tab active" data-page="page-flow" data-plcui="image">
+      <img src="_svg/ic-flow.svg" alt="">工艺流程
+    </div>
+    <div class="tab" data-page="page-param" data-plcui="image">
+      <img src="_svg/ic-param.svg" alt="">参数设定
+    </div>
+    <div class="tab" data-page="page-alarm" data-plcui="image">
+      <img src="_svg/ic-alarm.svg" alt="">报警
+      <span class="badge" id="tab-badge">1</span>
+    </div>
+    <div class="tab" data-page="page-trend" data-plcui="image">
+      <img src="_svg/ic-trend.svg" alt="">趋势
+    </div>
+    <div class="nav-gap"></div>
+    <button class="act run on" id="btn-run" data-plcui="image" data-asset="html">启动</button>
+    <button class="act stop" id="btn-stop" data-plcui="image" data-asset="html">停止</button>
+    <button class="act estop" id="btn-estop" data-plcui="image" data-asset="html">急停</button>
+  </footer>
+
+  <!-- ============================ 软键盘 ============================ -->
+  <div class="kb" id="kb" data-plcui="keyboard" data-raster="no">
+    <div class="kb-head">
+      <span class="t" id="kb-title">目标温度</span>
+      <span class="val" id="kb-val">80.0</span>
+      <span class="u" id="kb-unit">℃</span>
+      <span class="c">范围 <b id="kb-range">30 ~ 110</b></span>
+    </div>
+    <div class="kb-grid">
+      <div class="key" data-k="1">1</div><div class="key" data-k="2">2</div>
+      <div class="key" data-k="3">3</div><div class="key fn" data-k="del">←</div>
+      <div class="key" data-k="4">4</div><div class="key" data-k="5">5</div>
+      <div class="key" data-k="6">6</div><div class="key fn" data-k="clr">C</div>
+      <div class="key" data-k="7">7</div><div class="key" data-k="8">8</div>
+      <div class="key" data-k="9">9</div><div class="key" data-k=".">.</div>
+      <div class="key" data-k="0">0</div>
+    </div>
+    <div class="kb-foot">
+      <button class="btn wide" id="kb-cancel">取消</button>
+      <button class="btn ok wide" id="kb-ok">确认</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+</div>
+</div>
+
+<script>
+/* =========================================================
+   原型脚本：只服务「看得准、改得快」，第④环逐条搬成 Lua
+   ========================================================= */
+
+var $ = function (id) { return document.getElementById(id); };
+
+/* ---------------- 状态 ---------------- */
+var st = {
+  mode: 'auto',          // auto | manual
+  running: true,
+  estop: false,
+  p1: true, p2: true, e101: true, v2: true, t101: true, t102: true,
+  v1: 64,
+  tankA: 62, tankB: 44,
+  temp: 78.4, tempSet: 80.0,
+  press: 0.62, pressSet: 0.65,
+  flow: 126.5,
+  fillMl: 250, speed: 70, rpm: 320, kp: 2.4, ki: 0.8,
+  count: 1284, sec: 7654,
+  recipe: 0,
+  phase: 0,
+  alarms: [
+    { t: '08:12:04', code: 'A-021', msg: '混合罐 T-102 液位低于 30%', lv: 'warn', ack: false },
+    { t: '07:56:31', code: 'A-014', msg: '循环泵 P-102 电流偏高', lv: 'warn', ack: true },
+    { t: '07:40:12', code: 'A-002', msg: '压缩空气压力低', lv: 'info', ack: true }
+  ]
+};
+
+var PARAMS = [
+  { key: 'tempSet', name: '目标温度', unit: '℃', min: 30, max: 110, dec: 1 },
+  { key: 'pressSet', name: '目标压力', unit: 'MPa', min: 0.2, max: 0.95, dec: 2 },
+  { key: 'v1', name: '进料阀开度', unit: '%', min: 0, max: 100, dec: 0 },
+  { key: 'fillMl', name: '灌装量', unit: 'ml', min: 50, max: 1000, dec: 0 },
+  { key: 'speed', name: '灌装速度', unit: '%', min: 10, max: 100, dec: 0 },
+  { key: 'rpm', name: '搅拌转速', unit: 'rpm', min: 100, max: 600, dec: 0 },
+  { key: 'kp', name: 'PID · Kp', unit: '', min: 0, max: 20, dec: 1 },
+  { key: 'ki', name: 'PID · Ki', unit: '', min: 0, max: 10, dec: 1 }
+];
+
+var RECIPES = [
+  { name: '标准配方 250ml', fillMl: 250, tempSet: 80.0, speed: 70 },
+  { name: '大瓶配方 500ml', fillMl: 500, tempSet: 84.0, speed: 55 },
+  { name: '小瓶配方 120ml', fillMl: 120, tempSet: 76.0, speed: 88 }
+];
+
+var LV_NAME = { crit: '危急', warn: '警告', info: '提示' };
+
+var hist = { t: [], p: [], f: [] };
+var trendReady = false;
+
+/* ---------------- 工具 ---------------- */
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+function fixed(v, d) { return Number(v).toFixed(d); }
+
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+function nowStr() {
+  var d = new Date();
+  return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+}
+
+var toastTimer = null;
+function toast(msg, kind) {
+  var el = $('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (kind ? ' ' + kind : '');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.className = 'toast'; }, 1800);
+}
+
+function paramDef(key) {
+  for (var i = 0; i < PARAMS.length; i++) if (PARAMS[i].key === key) return PARAMS[i];
+  return null;
+}
+
+function paramText(key) {
+  var d = paramDef(key);
+  return fixed(st[key], d ? d.dec : 1);
+}
+
+/* ---------------- 页切换 ---------------- */
+function showPage(id) {
+  var pages = document.querySelectorAll('.page');
+  for (var i = 0; i < pages.length; i++) {
+    pages[i].classList.toggle('active', pages[i].id === id);
+  }
+  var tabs = document.querySelectorAll('.tab');
+  for (var j = 0; j < tabs.length; j++) {
+    tabs[j].classList.toggle('active', tabs[j].getAttribute('data-page') === id);
+  }
+  closeKb();
+  if (id === 'page-trend') drawTrend();
+}
+
+/* ---------------- 渲染 ---------------- */
+function devOn(key) {
+  if (st.estop) return false;
+  if (!st.running) return false;
+  if (key === 'v1') return st.v1 > 0;
+  return !!st[key];
+}
+
+function renderTop() {
+  var pill = $('mode-pill');
+  var txt = $('mode-text');
+  pill.className = 'pill';
+  if (st.estop) {
+    pill.classList.add('estop');
+    txt.textContent = '急停停机';
+  } else if (!st.running) {
+    pill.classList.add('stopped');
+    txt.textContent = '已停止';
+  } else if (st.mode === 'manual') {
+    pill.classList.add('manual');
+    txt.textContent = '手动模式';
+  } else {
+    txt.textContent = '自动运行';
+  }
+
+  var unack = 0;
+  for (var i = 0; i < st.alarms.length; i++) if (!st.alarms[i].ack) unack++;
+  $('bell-count').textContent = unack;
+  $('bell-count').className = unack ? '' : 'zero';
+  $('bell').classList.toggle('hot', unack > 0);
+
+  var badge = $('tab-badge');
+  badge.textContent = unack;
+  badge.style.display = unack ? '' : 'none';
+
+  $('estop-bar').classList.toggle('show', st.estop);
+}
+
+function renderDev() {
+  var devs = document.querySelectorAll('.dev');
+  for (var i = 0; i < devs.length; i++) {
+    var el = devs[i];
+    var k = el.getAttribute('data-key');
+    var on = devOn(k);
+    el.classList.toggle('on', on);
+    el.classList.toggle('off', !on);
+  }
+
+  $('v1-pct').textContent = st.v1 + '%';
+
+  var tags = ['tag-t101', 'tag-p101', 'tag-fv101', 'tag-t102', 'tag-e101', 'tag-p102', 'tag-fv102'];
+  var keys = ['t101', 'p1', 'v1', 't102', 'e101', 'p2', 'v2'];
+  for (var j = 0; j < tags.length; j++) {
+    $(tags[j]).classList.toggle('run', devOn(keys[j]));
+  }
+
+  $('fill-a').style.height = st.tankA + '%';
+  $('fill-b').style.height = st.tankB + '%';
+
+  var pouring = devOn('p1') && st.v1 > 0 && devOn('v2');
+  $('nozzle').classList.toggle('flow', pouring);
+  $('box-liquid').style.height = pouring ? '26px' : '0px';
+
+  $('conveyor').classList.toggle('run', devOn('p1'));
+}
+
+function renderKpi() {
+  $('v-temp').textContent = fixed(st.temp, 1);
+  $('v-press').textContent = fixed(st.press, 2);
+  $('v-flow').textContent = fixed(st.flow, 1);
+  $('v-level').textContent = Math.round(st.tankB);
+  $('v-count').textContent = st.count;
+  $('v-uptime').textContent = pad2(Math.floor(st.sec / 3600)) + ':' + pad2(Math.floor(st.sec % 3600 / 60));
+
+  $('b-temp').style.width = clamp((st.temp - 40) / 70 * 100, 2, 100) + '%';
+  $('b-press').style.width = clamp((st.press - 0.2) / 0.7 * 100, 2, 100) + '%';
+  $('b-flow').style.width = clamp(st.flow / 240 * 100, 2, 100) + '%';
+  $('b-level').style.width = clamp(st.tankB, 2, 100) + '%';
+  $('b-count').style.width = clamp(st.count % 2000 / 20, 2, 100) + '%';
+  $('b-uptime').style.width = clamp(st.sec % 3600 / 36, 2, 100) + '%';
+
+  var overTemp = st.temp > st.tempSet + 6;
+  $('kpi-temp').classList.toggle('hot', overTemp);
+  $('b-temp').classList.toggle('warn', overTemp);
+
+  var lowLevel = st.tankB < 20;
+  $('b-level').classList.toggle('warn', lowLevel);
+}
+
+function renderAlarmBadge() { renderTop(); }
+
+/* ---------------- 报警表 ---------------- */
+var selAck = -1;
+
+function renderAlarms() {
+  var body = $('alarm-body');
+  var html = '';
+  var unack = 0;
+  for (var i = 0; i < st.alarms.length && i < 8; i++) {
+    var a = st.alarms[i];
+    if (!a.ack) unack++;
+    html += '<tr data-i="' + i + '" class="' + (a.ack ? '' : 'unack') + (selAck === i ? ' sel' : '') + '">';
+    html += '<td>' + a.t + '</td>';
+    html += '<td>' + a.code + '</td>';
+    html += '<td class="msg">' + a.msg + '</td>';
+    html += '<td><span class="lv ' + a.lv + '">' + LV_NAME[a.lv] + '</span></td>';
+    html += '<td>' + (a.ack ? '已确认' : '待确认') + '</td>';
+    html += '</tr>';
+  }
+  body.innerHTML = html;
+
+  $('alarm-sum').textContent = '共 ' + st.alarms.length + ' 条 · 未确认 ' + unack + ' 条';
+
+  var crit = 0, warn = 0, ack = 0;
+  for (var j = 0; j < st.alarms.length; j++) {
+    if (st.alarms[j].lv === 'crit' && !st.alarms[j].ack) crit++;
+    if (st.alarms[j].lv === 'warn' && !st.alarms[j].ack) warn++;
+    if (st.alarms[j].ack) ack++;
+  }
+  $('s-crit').textContent = crit;
+  $('s-warn').textContent = warn;
+  $('s-ack').textContent = ack;
+}
+
+function addAlarm(code, msg, lv) {
+  st.alarms.unshift({ t: nowStr(), code: code, msg: msg, lv: lv, ack: false });
+  if (st.alarms.length > 20) st.alarms.length = 20;
+  renderAlarms();
+  renderTop();
+}
+
+/* ---------------- 参数表 ---------------- */
+function renderParams() {
+  var html = '';
+  for (var i = 0; i < PARAMS.length; i++) {
+    var p = PARAMS[i];
+    html += '<div class="prow" data-key="' + p.key + '">';
+    html += '<span class="pn">' + p.name + '</span>';
+    html += '<span class="pv" id="pv-' + p.key + '">' + fixed(st[p.key], p.dec) + '</span>';
+    html += '<span class="pu">' + p.unit + '</span>';
+    html += '<button class="pedit" data-key="' + p.key + '">修改</button>';
+    html += '</div>';
+  }
+  $('param-list').innerHTML = html;
+}
+
+function refreshParamValues() {
+  for (var i = 0; i < PARAMS.length; i++) {
+    var p = PARAMS[i];
+    var el = $('pv-' + p.key);
+    if (el) el.textContent = fixed(st[p.key], p.dec);
+  }
+}
+
+/* ---------------- 软键盘 ---------------- */
+var edit = { key: null, buf: '' };
+
+function openKb(key, title) {
+  var d = paramDef(key);
+  if (!d) return;
+  edit.key = key;
+  edit.buf = fixed(st[key], d.dec);
+  $('kb-title').textContent = title || d.name;
+  $('kb-unit').textContent = d.unit || '';
+  $('kb-range').textContent = d.min + ' ~ ' + d.max;
+  $('kb-val').textContent = edit.buf;
+  $('kb').classList.add('show');
+}
+
+function closeKb() {
+  $('kb').classList.remove('show');
+  edit.key = null;
+}
+
+function kbKey(k) {
+  if (k === 'clr') { edit.buf = ''; }
+  else if (k === 'del') { edit.buf = edit.buf.slice(0, -1); }
+  else if (k === '.') { if (edit.buf.indexOf('.') < 0) edit.buf += '.'; }
+  else { edit.buf += k; }
+  if (edit.buf.length > 7) edit.buf = edit.buf.slice(0, 7);
+  $('kb-val').textContent = edit.buf || '0';
+}
+
+function kbConfirm() {
+  if (!edit.key) return;
+  var d = paramDef(edit.key);
+  var v = parseFloat(edit.buf);
+  if (isNaN(v)) { toast('请输入有效数字', 'bad'); return; }
+  if (v < d.min || v > d.max) {
+    toast(d.name + ' 超出范围 ' + d.min + ' ~ ' + d.max, 'warn');
+    return;
+  }
+  st[edit.key] = v;
+  refreshParamValues();
+  renderDev();
+  renderKpi();
+  toast(d.name + ' 已设为 ' + fixed(v, d.dec) + (d.unit || ''));
+  closeKb();
+}
+
+/* ---------------- 趋势图 ---------------- */
+function initTrend() {
+  var svg = $('trend-svg');
+  var ns = 'http://www.w3.org/2000/svg';
+  var g = document.createElementNS(ns, 'g');
+  for (var i = 0; i <= 4; i++) {
+    var y = 20 + i * 47.5;
+    var line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', 54); line.setAttribute('x2', 986);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('stroke', 'rgba(72,116,152,.35)');
+    line.setAttribute('stroke-width', '1');
+    g.appendChild(line);
+    var tx = document.createElementNS(ns, 'text');
+    tx.setAttribute('x', 44); tx.setAttribute('y', y + 5);
+    tx.setAttribute('text-anchor', 'end');
+    tx.setAttribute('fill', '#6d869c');
+    tx.setAttribute('font-size', '15');
+    tx.textContent = (100 - i * 25) + '%';
+    g.appendChild(tx);
+  }
+  for (var j = 0; j <= 6; j++) {
+    var x = 54 + j * (932 / 6);
+    var vl = document.createElementNS(ns, 'line');
+    vl.setAttribute('x1', x); vl.setAttribute('x2', x);
+    vl.setAttribute('y1', 20); vl.setAttribute('y2', 210);
+    vl.setAttribute('stroke', 'rgba(72,116,152,.18)');
+    vl.setAttribute('stroke-width', '1');
+    g.appendChild(vl);
+  }
+  svg.appendChild(g);
+
+  var ids = [
+    { id: 'ln-temp', color: '#e8575c' },
+    { id: 'ln-press', color: '#2f9be0' },
+    { id: 'ln-flow', color: '#38c67e' }
+  ];
+  for (var k = 0; k < ids.length; k++) {
+    var pl = document.createElementNS(ns, 'polyline');
+    pl.setAttribute('id', ids[k].id);
+    pl.setAttribute('fill', 'none');
+    pl.setAttribute('stroke', ids[k].color);
+    pl.setAttribute('stroke-width', '2.4');
+    pl.setAttribute('stroke-linejoin', 'round');
+    pl.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(pl);
+  }
+
+  for (var n = 0; n < 60; n++) {
+    hist.t.push(76 + Math.random() * 5);
+    hist.p.push(0.58 + Math.random() * 0.07);
+    hist.f.push(112 + Math.random() * 22);
+  }
+  trendReady = true;
+  drawTrend();
+}
+
+function normOf(kind, v) {
+  if (kind === 't') return clamp((v - 40) / 70, 0, 1);
+  if (kind === 'p') return clamp((v - 0.3) / 0.6, 0, 1);
+  return clamp(v / 240, 0, 1);
+}
+
+function drawTrend() {
+  if (!trendReady) return;
+  var x0 = 54, x1 = 986, y0 = 20, y1 = 210;
+  var n = hist.t.length;
+  function build(arr, kind) {
+    var pts = [];
+    for (var i = 0; i < n; i++) {
+      var x = x0 + (n <= 1 ? 0 : i / (n - 1)) * (x1 - x0);
+      var y = y1 - normOf(kind, arr[i]) * (y1 - y0);
+      pts.push(x.toFixed(1) + ',' + y.toFixed(1));
+    }
+    return pts.join(' ');
+  }
+  $('ln-temp').setAttribute('points', build(hist.t, 't'));
+  $('ln-press').setAttribute('points', build(hist.p, 'p'));
+  $('ln-flow').setAttribute('points', build(hist.f, 'f'));
+
+  function stat(arr, dec) {
+    var mx = arr[0], mn = arr[0], sum = 0;
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i] > mx) mx = arr[i];
+      if (arr[i] < mn) mn = arr[i];
+      sum += arr[i];
+    }
+    return { cur: fixed(arr[arr.length - 1], dec), max: fixed(mx, dec), min: fixed(mn, dec) };
+  }
+  var a = stat(hist.t, 1), b = stat(hist.p, 2), c = stat(hist.f, 1);
+  $('ts-temp-cur').textContent = a.cur; $('ts-temp-max').textContent = a.max; $('ts-temp-min').textContent = a.min;
+  $('ts-press-cur').textContent = b.cur; $('ts-press-max').textContent = b.max; $('ts-press-min').textContent = b.min;
+  $('ts-flow-cur').textContent = c.cur; $('ts-flow-max').textContent = c.max; $('ts-flow-min').textContent = c.min;
+}
+
+/* ---------------- 仿真推进 ---------------- */
+var tempAlarmLatch = false;
+
+function tick() {
+  if (st.running && !st.estop) {
+    st.sec++;
+
+    var load = (st.v1 / 100) * (st.speed / 100);
+    var feed = devOn('p1') ? 1 : 0;
+    var circ = devOn('p2') ? 1 : 0;
+
+    st.temp += (st.tempSet - st.temp) * 0.10 + (Math.random() - 0.5) * 0.45;
+    st.press += (st.pressSet - st.press) * 0.12 + (Math.random() - 0.5) * 0.012;
+    st.flow = feed * (58 + load * 150) + (Math.random() - 0.5) * 2.4;
+
+    if (feed && st.v1 > 0) {
+      st.tankA = clamp(st.tankA - 0.09 - load * 0.1, 2, 100);
+      st.tankB = clamp(st.tankB + 0.07 + load * 0.09, 0, 97);
+    }
+    if (!feed && circ) {
+      st.tankB = clamp(st.tankB - 0.05, 0, 97);
+    }
+
+    if (devOn('v2') && feed && st.v1 > 0 && Math.random() < 0.55) st.count++;
+  }
+
+  if (st.temp > 88 && !tempAlarmLatch) {
+    tempAlarmLatch = true;
+    addAlarm('A-031', '混合罐温度超高 ' + fixed(st.temp, 1) + '℃', 'crit');
+    toast('⚠ 温度超高报警', 'bad');
+  }
+  if (st.temp < 86) tempAlarmLatch = false;
+
+  hist.t.push(st.temp); hist.p.push(st.press); hist.f.push(st.flow);
+  if (hist.t.length > 60) { hist.t.shift(); hist.p.shift(); hist.f.shift(); }
+
+  renderDev();
+  renderKpi();
+  renderTop();
+  if ($('page-trend').classList.contains('active')) drawTrend();
+}
+
+/* ---------------- 流动光点 / 输送带 ---------------- */
+function flowTick() {
+  st.phase++;
+  var pipes = document.querySelectorAll('.pipe');
+  for (var i = 0; i < pipes.length; i++) {
+    var p = pipes[i];
+    var dots = p.children;
+    var flowing = st.running && !st.estop && devOn('p1') && st.v1 > 0;
+    for (var j = 0; j < dots.length; j++) {
+      var on = flowing && ((j + st.phase) % dots.length === 0);
+      dots[j].classList.toggle('on', on);
+    }
+  }
+  $('belt').className = 'belt' + (st.phase % 2 ? ' b' : '');
+}
+
+/* ---------------- 操作 ---------------- */
+function setRunning(v) {
+  if (v && st.estop) { toast('急停未复位，请先到「报警」页复位', 'warn'); return; }
+  st.running = v;
+  if (v) {
+    st.p1 = true; st.p2 = true; st.v2 = true; st.v1 = st.v1 > 0 ? st.v1 : 65;
+    toast('全线启动');
+  } else {
+    st.p1 = false; st.p2 = false;
+    toast('全线停止', 'warn');
+  }
+  $('btn-run').classList.toggle('on', v);
+  renderDev(); renderTop();
+}
+
+function fireEstop() {
+  if (st.estop) { toast('急停已处于触发状态', 'warn'); return; }
+  st.estop = true;
+  st.running = false;
+  st.p1 = false; st.p2 = false; st.v2 = false;
+  $('btn-estop').classList.add('fired');
+  addAlarm('A-000', '急停按钮被按下 · 全线停机', 'crit');
+  toast('急停已触发', 'bad');
+  renderDev(); renderKpi(); renderTop();
+}
+
+function resetAll() {
+  st.estop = false;
+  st.running = false;
+  st.p1 = false; st.p2 = false; st.v2 = false;
+  st.alarms.length = 0;
+  selAck = -1;
+  $('btn-estop').classList.remove('fired');
+  $('btn-run').classList.remove('on');
+  renderAlarms(); renderDev(); renderKpi(); renderTop();
+  toast('报警已复位 · 请重新启动');
+}
+
+/* ---------------- 事件绑定 ---------------- */
+function bindEvents() {
+  var tabs = document.querySelectorAll('.tab');
+  for (var i = 0; i < tabs.length; i++) {
+    (function (t) {
+      t.onclick = function () { showPage(t.getAttribute('data-page')); };
+    })(tabs[i]);
+  }
+
+  $('mode-pill').onclick = function () {
+    if (st.estop) { toast('急停状态下不可切换模式', 'warn'); return; }
+    st.mode = st.mode === 'auto' ? 'manual' : 'auto';
+    toast(st.mode === 'auto' ? '已切到自动模式' : '已切到手动模式，可点击设备操作');
+    renderTop();
+  };
+
+  $('bell').onclick = function () { showPage('page-alarm'); };
+
+  /* 设备点击：手动模式下切换 */
+  var devs = document.querySelectorAll('.dev');
+  for (var j = 0; j < devs.length; j++) {
+    (function (el) {
+      el.onclick = function () {
+        if (st.estop) { toast('急停状态，请先复位', 'warn'); return; }
+        if (st.mode !== 'manual') { toast('自动模式不可手动操作，点击顶栏状态切换手动', 'warn'); return; }
+        var k = el.getAttribute('data-key');
+        if (k === 'v1') {
+          st.v1 = st.v1 > 0 ? 0 : 65;
+          toast('FV-101 调节阀 ' + (st.v1 > 0 ? '开 65%' : '已关闭'));
+        } else if (k === 'v2') {
+          st.v2 = !st.v2;
+          toast('FV-102 灌装阀 ' + (st.v2 ? '打开' : '关闭'));
+        } else if (k === 't101' || k === 't102' || k === 'e101') {
+          toast('该设备为仪表/容器，无可操作项');
+          return;
+        } else {
+          st[k] = !st[k];
+          toast((k === 'p1' ? 'P-101 进料泵 ' : 'P-102 循环泵 ') + (st[k] ? '启动' : '停止'));
+        }
+        renderDev(); renderTop();
+      };
+    })(devs[j]);
+  }
+
+  $('btn-run').onclick = function () { setRunning(true); };
+  $('btn-stop').onclick = function () { setRunning(false); };
+  $('btn-estop').onclick = fireEstop;
+
+  /* KPI 卡 → 设定 / 跳页 */
+  $('kpi-temp').onclick = function () { openKb('tempSet', '目标温度'); };
+  $('kpi-press').onclick = function () { openKb('pressSet', '目标压力'); };
+  var kpis = document.querySelectorAll('.kpi');
+  for (var k = 0; k < kpis.length; k++) {
+    if (k === 0 || k === 1) continue;
+    (function (el) {
+      el.onclick = function () { showPage('page-trend'); };
+    })(kpis[k]);
+  }
+
+  /* 参数行 */
+  $('param-list').onclick = function (e) {
+    var t = e.target;
+    while (t && t !== this && !t.getAttribute('data-key')) t = t.parentNode;
+    if (!t || t === this) return;
+    var key = t.getAttribute('data-key');
+    openKb(key);
+  };
+
+  /* 配方 */
+  $('recipe-list').onclick = function (e) {
+    var t = e.target;
+    while (t && t !== this && t.getAttribute('data-recipe') === null) t = t.parentNode;
+    if (!t || t === this) return;
+    st.recipe = parseInt(t.getAttribute('data-recipe'), 10);
+    var rs = this.querySelectorAll('.recipe');
+    for (var i = 0; i < rs.length; i++) rs[i].classList.toggle('active', i === st.recipe);
+  };
+
+  $('btn-apply-recipe').onclick = function () {
+    var r = RECIPES[st.recipe];
+    st.fillMl = r.fillMl; st.tempSet = r.tempSet; st.speed = r.speed;
+    refreshParamValues(); renderKpi();
+    toast('已应用：' + r.name);
+  };
+
+  /* 软键盘 */
+  var keys = document.querySelectorAll('#kb .key');
+  for (var m = 0; m < keys.length; m++) {
+    (function (key) {
+      key.onclick = function () { kbKey(key.getAttribute('data-k')); };
+    })(keys[m]);
+  }
+  $('kb-ok').onclick = kbConfirm;
+  $('kb-cancel').onclick = function () { closeKb(); toast('已取消'); };
+
+  /* 报警表 */
+  $('alarm-body').onclick = function (e) {
+    var tr = e.target;
+    while (tr && tr.tagName !== 'TR') tr = tr.parentNode;
+    if (!tr || !tr.getAttribute('data-i')) return;
+    selAck = parseInt(tr.getAttribute('data-i'), 10);
+    renderAlarms();
+  };
+
+  $('btn-ack-sel').onclick = function () {
+    if (selAck < 0 || selAck >= st.alarms.length) { toast('请先选中一条报警', 'warn'); return; }
+    st.alarms[selAck].ack = true;
+    renderAlarms(); renderTop();
+    toast('已确认 ' + st.alarms[selAck].code);
+  };
+
+  $('btn-ack-all').onclick = function () {
+    for (var i = 0; i < st.alarms.length; i++) st.alarms[i].ack = true;
+    renderAlarms(); renderTop();
+    toast('已全部确认');
+  };
+
+  $('btn-reset').onclick = resetAll;
+}
+
+/* ---------------- 启动 ---------------- */
+function clockTick() {
+  var d = new Date();
+  $('clock').textContent = pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+}
+
+function fitScreen() {
+  var s = Math.min(window.innerWidth / 1024, window.innerHeight / 600) * 0.97;
+  $('shell').style.transform = 'scale(' + s + ')';
+}
+
+window.onresize = fitScreen;
+
+(function init() {
+  fitScreen();
+  renderParams();
+  renderAlarms();
+  renderDev();
+  renderKpi();
+  renderTop();
+  bindEvents();
+  initTrend();
+  clockTick();
+  setInterval(clockTick, 1000);
+  setInterval(tick, 900);
+  setInterval(flowTick, 240);
+})();
+</script>
+</body>
+</html>

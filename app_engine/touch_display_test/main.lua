@@ -69,7 +69,7 @@ PROJECT：项目名，ascii string类型
 
 VERSION：项目版本号，ascii string类型
 ]]
-PROJECT = "Engine_Air8607_10inch_1024x600_000_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
+PROJECT = "Engine_Air8607W_10inch_1024x600_000_V000" -- 项目命名，映射到 config/ 下的配置文件和硬件参数（Air8607W 板用 W 配置，POWER_ON 6 步含 SD/SPI 片选）
 VERSION = "1.0.0"                                    -- 固件版本号
 
 -- 在日志中打印项目名和项目版本号

@@ -82,15 +82,8 @@ size_t _z_bytes_to_buf(const _z_bytes_t *bytes, uint8_t *dst, size_t len) {
 }
 z_result_t _z_bytes_from_slice(_z_bytes_t *b, _z_slice_t *s) {
     *b = _z_bytes_null();
-    /* 先准备容器，再接管slice，容器OOM不能遗留已持有数据的引用计数。 */
-    b->_slices = _z_arc_slice_svec_make(1);
-    if (b->_slices._capacity == 0) _Z_ERROR_RETURN(_Z_ERR_SYSTEM_OUT_OF_MEMORY);
     _z_arc_slice_t arc_s = _z_arc_slice_wrap(s, 0, s->len);
-    if (_z_slice_simple_rc_is_null(&arc_s.slice)) {
-        _z_arc_slice_svec_clear(&b->_slices);
-        _Z_ERROR_RETURN(_Z_ERR_SYSTEM_OUT_OF_MEMORY);
-    }
-    /* 已预留一项，append不会再次分配。成功后沿用原有slice所有权合同。 */
+    if (_z_arc_slice_len(&arc_s) != s->len) _Z_ERROR_RETURN(_Z_ERR_SYSTEM_OUT_OF_MEMORY);
     return _z_arc_slice_svec_append(&b->_slices, &arc_s, true);
 }
 
@@ -99,8 +92,7 @@ z_result_t _z_bytes_from_buf(_z_bytes_t *b, const uint8_t *src, size_t len) {
     if (len == 0) return _Z_RES_OK;
     _z_slice_t s = _z_slice_copy_from_buf(src, len);
     if (s.len != len) _Z_ERROR_RETURN(_Z_ERR_SYSTEM_OUT_OF_MEMORY);
-    _Z_CLEAN_RETURN_IF_ERR(_z_bytes_from_slice(b, &s), _z_slice_clear(&s));
-    return _Z_RES_OK;
+    return _z_bytes_from_slice(b, &s);
 }
 
 z_result_t _z_bytes_to_slice(const _z_bytes_t *bytes, _z_slice_t *s) {

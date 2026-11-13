@@ -30,6 +30,8 @@ RS485 不管配了几路，列表里只出一行「RS485 测试」（见 MERGE_T
 点行进测试页前先弹该功能的「接线提示」（只写物理接线与注意事项），按钮「跳过 / 确定」：
 跳过不落盘，下次点同一个功能还会弹；确定写 fskv 键 other_func_tip_<type>，之后（含重启）不再弹。
 只有配了测试页的 type 才有提示（uart 没有测试页，行不可点）。原来底部那行常驻小字已去掉。
+uvc 的 en_pin 与 rs485 的 de_pin 共用一脚的机型（8603W3~W5 / M3~M5 的 GPIO58 =
+UVC_EN = 485_EN2），提示后自动追加一句「相互切换、互不影响」的分时切换说明（shared_pin_note）。
 两张能力卡的滑条对象高 SLIDER_H = 20dp（圆球直径 = h + 2 × knob padding，见 theme.slider），
 比早期的 34dp 大白球小一圈；圆球不再用纯白（浅色主题上和卡片糊在一起），走 theme.slider 的
 默认色 M.C.t1。音量卡的「试听」是按钮（ghost_button，青色描边）而不是文字链接。
@@ -109,6 +111,34 @@ local TIP_TEXT = {
         .. "3. 录音时保持环境安静，录完点播放回听。",
 }
 local tip_box = nil
+
+--[[
+@function shared_pin_note
+@summary uvc 的 en_pin 与 rs485 的 de_pin 共用一脚时（8603W3~W5 / M3~M5 的
+GPIO58 = UVC_EN = 485_EN2），接线提示后追加一句分时切换说明，让两个功能怎么
+「相互切换、互不影响」在页面上可见：进哪个测试页脚就切给哪个功能，退出自动归还
+@return string 有共用脚返回追加文案，否则空串
+]]
+local function shared_pin_note()
+    local list = _G.project_config and _G.project_config.peripherals
+    if type(list) ~= "table" then return "" end
+    local en, de = {}, {}
+    for _, p in ipairs(list) do
+        if p then
+            if p.type == "uvc" and p.en_pin then en[p.en_pin] = true end
+            if p.type == "rs485" and p.de_pin then de[p.de_pin] = true end
+        end
+    end
+    local names = {}
+    for pin in pairs(en) do
+        if de[pin] then names[#names + 1] = "GPIO" .. tostring(pin) end
+    end
+    if #names == 0 then return "" end
+    table.sort(names)
+    return "\n\n注意：" .. table.concat(names, "/")
+        .. " 同时是 UVC_EN 与 485_EN2，两个功能相互切换、互不影响："
+        .. "进哪个测试页这根脚就切给哪个功能，退出自动归还。"
+end
 
 --[[
 @function tip_acked
@@ -221,6 +251,7 @@ end
 ]]
 local function open_row(it)
     local tip = TIP_TEXT[it.type]
+    if tip then tip = tip .. shared_pin_note() end
     if not tip or tip_acked(it.type) then
         enter_test(it)
         return

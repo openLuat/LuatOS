@@ -16,7 +16,6 @@
 #define ZENOH_PICO_UNICAST_TRANSPORT_H
 
 #include "zenoh-pico/api/types.h"
-#include "zenoh-pico/utils/auth.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,7 +26,7 @@ z_result_t _z_unicast_transport_create(_z_transport_t *zt, _z_link_t *zl,
 z_result_t _z_unicast_handshake_listen(_z_transport_unicast_establish_param_t *param, const _z_link_t *zl,
                                        const _z_id_t *local_zid, z_whatami_t mode, _z_sys_net_socket_t *socket);
 z_result_t _z_unicast_open_client(_z_transport_unicast_establish_param_t *param, const _z_link_t *zl,
-                                  const _z_id_t *local_zid, const _z_usrpwd_view_t *auth);
+                                  const _z_id_t *local_zid);
 z_result_t _z_unicast_open_peer(_z_transport_unicast_establish_param_t *param, const _z_link_t *zl,
                                 const _z_id_t *local_zid, int peer_op, _z_sys_net_socket_t *socket);
 z_result_t _z_unicast_send_close(_z_transport_unicast_t *ztu, uint8_t reason, bool link_only);

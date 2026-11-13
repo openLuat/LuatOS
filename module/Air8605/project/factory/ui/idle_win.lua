@@ -224,6 +224,15 @@ local has_cloud_disk = _G.project_config and _G.project_config.features and _G.p
 local has_other_func = _G.project_config and _G.project_config.features and _G.project_config.features.other_func
     and _G.project_config.ui and _G.project_config.ui.show_other_func
 
+-- R3 只恢复桌面生命周期，未加载的业务不显示入口。
+if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R3" or _G.SIP_RECOVERY_STAGE == "R4" or (_G.SIP_RECOVERY_STAGE == "R5" or (_G.SIP_RECOVERY_STAGE == "R6" or _G.SIP_RECOVERY_STAGE == "R7"))) then
+    has_other_func = has_other_func and (_G.SIP_RECOVERY_STEP == "R7-S7-PAGE-LIFECYCLE" or _G.SIP_RECOVERY_STEP == "R7-S8L-RS485-LAZY")
+    if _G.SIP_RECOVERY_STAGE ~= "R7" then
+        has_app_factory, has_ai_chat = false, false
+    end
+    if (_G.SIP_RECOVERY_STAGE ~= "R5" and (_G.SIP_RECOVERY_STAGE ~= "R6" and _G.SIP_RECOVERY_STAGE ~= "R7")) then has_cloud_disk = false end
+end
+
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
 local product_name = "合宙引擎主机" .. (model_suffix ~= "" and model_suffix or "")
@@ -246,6 +255,8 @@ end
 if has_other_func then
     table.insert(builtin_apps, { name = "功能测试", win = "OTHER_FUNC", icon = "other_func", dock = true })
 end
+
+-- SIP 通话统一从功能测试页面进入。
 
 -- 前向声明（网格点击依赖上下文菜单，后者定义在后面）
 local show_app_context_menu
@@ -533,7 +544,7 @@ sys.run() 的下一轮 dispatch，而本轮结束时会先渲染一帧。若在�
 
 设置 → iot 这类「同一个一级菜单内部的跳转」不走这里，它们仍用各自的 sys.publish，
 因此不会被回收；只有点左栏/网格/dock 切换到另一个一级菜单时才会连带销毁。]]
-local function open_builtin(win)
+local function open_builtin_now(win)
     local host = theme.shell.host_id
     local leaf = exwin.children_of(host)[1]   -- 一级菜单互斥，宿主至多有一个直接子窗口
 
@@ -551,6 +562,11 @@ local function open_builtin(win)
     sys.publish("OPEN_" .. win .. "_WIN")
 end
 
+local function open_builtin(win)
+    local next_page = function() open_builtin_now(win) end
+    if not require("factory_handoff").defer_navigation(next_page) then next_page() end
+end
+
 --[[回到桌面态（左栏底部「桌面」入口）
 
 与 open_builtin 对称，但不开新页面：只清掉当前一级菜单的整棵子树。
@@ -558,13 +574,18 @@ close_children_of 末尾会结算一次焦点，idle 的 on_get_focus 随即把�
 所以这里不必再手动调 set_rail_active。已在桌面态时直接返回，省掉一次无谓的焦点结算。]]
 local function go_desktop()
     if active_menu == nil then return end
-    exwin.close_children_of(theme.shell.host_id)
+    local next_page = function() exwin.close_children_of(theme.shell.host_id) end
+    if not require("factory_handoff").defer_navigation(next_page) then next_page() end
 end
 
 local function tile_bind_click(app)
     if app.is_builtin then
         open_builtin(app.win)
     else
+        if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R3" or _G.SIP_RECOVERY_STAGE == "R4" or (_G.SIP_RECOVERY_STAGE == "R5" or (_G.SIP_RECOVERY_STAGE == "R6" or _G.SIP_RECOVERY_STAGE == "R7"))) then
+            log.info("sip_isolation", "APP_LAUNCH_DISABLED", _G.SIP_RECOVERY_STAGE)
+            return
+        end
         exapp.open(app.path)
     end
 end

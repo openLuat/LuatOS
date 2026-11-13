@@ -59,7 +59,8 @@ M.STORAGE_ITEMS = {
 }
 
 -- 可播放的容器后缀（渲染前先按后缀筛，避免把整目录的图片/音频都列出来）
-local VIDEO_EXTS = { hzv = true, mjpg = true, mp4 = true }
+-- 只列 HZV：别的容器解不出来，列出来只会让人选到一个播不了的文件
+local VIDEO_EXTS = { hzv = true }
 
 -- 弹窗运行态。同一时刻只会有一个弹窗，用文件级局部量即可。
 local overlay = nil      -- airui.win 实例

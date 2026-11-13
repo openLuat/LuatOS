@@ -56,9 +56,6 @@ void _z_query_clear(_z_query_t *q);
 void _z_query_free(_z_query_t **query);
 
 _Z_REFCOUNT_DEFINE(_z_query, _z_query)
-/* Consume one reference. Only the last owner sends Final; a positive return
- * means another owner still holds it, not that Final reached the transport. */
-z_result_t _z_query_rc_drop_with_result(_z_query_rc_t *query);
 
 /**
  * Return type when declaring a querier.

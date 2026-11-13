@@ -13,8 +13,6 @@
 #define Z_RUNTIME_MAX_TASKS 64
 #define Z_TRANSPORT_ACCEPT_TIMEOUT 1000
 #define Z_TRANSPORT_CONNECT_TIMEOUT 3000
-#define ZP_AUTH_OBSERVER luat_zenoh_pico_auth_observe
-#define ZP_QUERY_FINAL_OBSERVER luat_zenoh_pico_final_observe
 
 /* Stable API only. */
 #define Z_FEATURE_CONNECTIVITY 0

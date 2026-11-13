@@ -1,0 +1,230 @@
+﻿<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!--
+  设备连接图（896x496，透明底），由 tools/gen_scene.ps1 用 Edge 无头模式截图为
+  code/ui/img/dev_scene.png，再作为 image 控件贴到 main.xml 的 dev 页 (112,88)。
+  画布原点 = dev 页像素 (112,88)，所以页面坐标 = 本文件坐标 + (112,88)。
+  两处「实测值」虚线框留空，由 ui_hmi.lua 用 label 叠实时温度。
+-->
+<style>
+  html, body { margin:0; padding:0; width:896px; height:496px; background:transparent; overflow:hidden;
+    font-family:"Microsoft YaHei","Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
+  #scene { position:relative; width:896px; height:496px; }
+
+  .card { position:absolute; border-radius:14px; border:1px solid #1E2E46;
+    background:linear-gradient(180deg,#152238 0%,#0E1929 100%);
+    box-shadow:0 8px 20px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04); }
+  .t  { position:absolute; left:16px; top:10px; font-size:15px; font-weight:700; color:#E6EEF9; letter-spacing:.3px; }
+  .s  { position:absolute; left:16px; top:33px; font-size:11.5px; color:#7D8EA8; }
+  .c  { position:absolute; font-size:11px; color:#8FA3BF; letter-spacing:.2px; }
+  .d  { color:#4E6080; }
+
+  /* 实物图已抠掉白底（tools/cut_bg.ps1），直接浮在深色卡片上，靠投影站住 */
+  .photo { position:absolute; overflow:visible; }
+  .photo img { width:100%; height:100%; object-fit:contain; display:block;
+    filter:drop-shadow(0 7px 10px rgba(0,0,0,.62)) drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+
+  /* HMI 屏示意 */
+  .screen { position:absolute; border-radius:10px; background:#0A1424; border:2px solid #22314A;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.6), 0 3px 10px rgba(0,0,0,.4); }
+  .scr { position:absolute; left:9px; top:9px; right:9px; bottom:9px; border-radius:6px;
+    background:linear-gradient(160deg,#071323 0%,#0A1B30 100%); overflow:hidden; }
+  .mini { position:absolute; left:9px; top:10px; width:52px; height:40px; border-radius:5px;
+    background:#0F2036; box-shadow:inset 0 0 0 1px #1B2C44; }
+  .mini i { position:absolute; bottom:6px; width:8px; border-radius:2px; background:#22D3EE; opacity:.8; }
+  .mini b { position:absolute; left:6px; top:5px; font-size:8px; color:#4C8DFF; font-weight:400; }
+  .mini2 { position:absolute; left:69px; top:10px; width:52px; height:40px; border-radius:5px;
+    background:#0F2036; box-shadow:inset 0 0 0 1px #1B2C44; }
+  .mini2 i { position:absolute; bottom:6px; width:8px; border-radius:2px; background:#4C8DFF; opacity:.8; }
+  .mini2 b { position:absolute; left:6px; top:5px; font-size:8px; color:#22D3EE; font-weight:400; }
+  .spark { position:absolute; left:9px; top:58px; width:112px; height:34px; }
+
+  /* 实测值占位（虚线框，等内容 overlay） */
+  .val { position:absolute; border-radius:10px; background:rgba(8,16,28,.8);
+    border:1px dashed #24354F; }
+  .val b { position:absolute; left:9px; top:5px; font-size:10px; font-weight:400; color:#4E6080; letter-spacing:.5px; }
+
+  svg.wire { position:absolute; left:0; top:0; }
+  .wl { position:absolute; font-size:11.5px; white-space:nowrap; transform:translateX(-50%); letter-spacing:.3px; }
+  .legend { position:absolute; left:14px; top:466px; font-size:11px; color:#4E6080; letter-spacing:.3px; }
+
+  /* 照片里两个 DB9 母口：左边 RS232（仅下载）/ 右边 RS232·RS485（接 Air8603 的 DB9 公头） */
+  .port { position:absolute; border-radius:4px; border:1px dashed rgba(148,163,184,.5); }
+  .port.on { border:1.5px solid #22D3EE;
+    box-shadow:0 0 10px rgba(34,211,238,.6), inset 0 0 8px rgba(34,211,238,.22); }
+  .port i { position:absolute; left:50%; top:52px; transform:translateX(-50%);
+    padding:1px 4px; border-radius:3px; background:rgba(8,16,30,.86);
+    font-size:9px; font-style:normal; letter-spacing:.3px; color:#8FA2BC; white-space:nowrap; }
+  .port.on i { color:#7FE3F5; }
+
+  /* 稳压电源 */
+  .psu { position:absolute; border-radius:8px; background:linear-gradient(180deg,#1A2740,#111C2D);
+    border:1px solid #2A3B55; box-shadow:0 4px 10px rgba(0,0,0,.45); }
+  .psu b { position:absolute; left:0; right:0; top:6px; text-align:center; font-size:12px; font-weight:600; color:#E6EEF9; letter-spacing:.5px; }
+  .psu i { position:absolute; left:0; right:0; bottom:5px; text-align:center; font-size:9.5px; font-style:normal; color:#7D8EA8; }
+</style>
+</head>
+<body>
+<div id="scene">
+
+  <!-- ================= 线缆层 ================= -->
+  <svg class="wire" width="896" height="496" viewBox="0 0 896 496">
+    <defs>
+      <marker id="arC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#22D3EE"/>
+      </marker>
+      <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#F59E0B"/>
+      </marker>
+      <marker id="arR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#F87171"/>
+      </marker>
+    </defs>
+
+    <!-- RS485 请求 / 应答：这两条走线在下面的 .wire.front 覆盖层里画，要压过实物照片才能"插进"DB9 母口 -->
+
+    <!-- 变送器只有黄线是信号：由变送器送进 PLC 的 AD0、AD1，箭头朝 PLC -->
+    <path d="M640 93  H 554" stroke="#FBBF24" stroke-width="2" fill="none" marker-end="url(#arA)"/>
+    <path d="M640 261 H 554" stroke="#FBBF24" stroke-width="2" fill="none" marker-end="url(#arA)"/>
+
+    <!-- 红（24V）/ 黑（0V·GND）从电源母线分给两台变送器。
+         这两根竖线要跨过黄线：先铺一小段底色当"跨线桥"，黄线保持连续，交叉处不留结点 -->
+    <path d="M610 84 V 102"  stroke="#0B1220" stroke-width="6" fill="none"/>
+    <path d="M610 252 V 270" stroke="#0B1220" stroke-width="6" fill="none"/>
+    <path d="M620 252 V 270" stroke="#0B1220" stroke-width="6" fill="none"/>
+
+    <!-- 24 VDC：稳压电源 24V 2A 出来，一路给 HMI、一路给 PLC 的 24V/0V；
+         变送器的红（24V）、黑（0V）也从这两条母线上分出去 -->
+    <path d="M104 386 H 610" stroke="#F87171" stroke-width="2.4" fill="none"/>
+    <path d="M104 400 H 620" stroke="#94A3B8" stroke-width="1.6" fill="none"/>
+    <path d="M110 386 V 324" stroke="#F87171" stroke-width="1.8" fill="none" marker-end="url(#arR)"/>
+    <path d="M118 400 V 324" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+    <path d="M418 386 V 324" stroke="#F87171" stroke-width="1.8" fill="none" marker-end="url(#arR)"/>
+    <path d="M424 400 V 330" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+
+    <!-- 变送器 1：红 24V、黑 0V -->
+    <path d="M610 386 V 88  H 640" stroke="#F87171" stroke-width="1.6" fill="none"/>
+    <path d="M620 400 V 98  H 640" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+    <!-- 变送器 2：同一条母线分支下去 -->
+    <path d="M610 256 H 640" stroke="#F87171" stroke-width="1.6" fill="none"/>
+    <path d="M620 266 H 640" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+
+    <circle cx="104" cy="386" r="3" fill="#F87171"/>
+    <circle cx="104" cy="400" r="3" fill="#94A3B8"/>
+    <circle cx="610" cy="386" r="2.6" fill="#F87171"/>
+    <circle cx="610" cy="256" r="2.6" fill="#F87171"/>
+    <circle cx="620" cy="400" r="2.6" fill="#94A3B8"/>
+    <circle cx="620" cy="266" r="2.6" fill="#94A3B8"/>
+
+    <!-- 屏蔽 / PE -->
+    <path d="M110 434 H 424" stroke="#64748B" stroke-width="1.4" stroke-dasharray="6 5" fill="none"/>
+    <path d="M424 434 V 446" stroke="#64748B" stroke-width="1.4" fill="none"/>
+    <path d="M414 446 H 434 M 418 451 H 430 M 422 456 H 426" stroke="#64748B" stroke-width="1.4" fill="none"/>
+
+    <!-- 端点 -->
+    <circle cx="208" cy="126" r="3" fill="#22D3EE"/>
+    <circle cx="208" cy="158" r="3" fill="#7FE3F5"/>
+
+    <!-- 变送器 3 芯端子（红/黑/黄）与 PLC 侧 AD0、AD1 端子 -->
+    <rect x="551" y="84"  width="8" height="17" rx="2" fill="#16233A" stroke="#3A4A63"/>
+    <rect x="551" y="252" width="8" height="17" rx="2" fill="#16233A" stroke="#3A4A63"/>
+    <rect x="640" y="84"  width="8" height="17" rx="2" fill="#16233A" stroke="#3A4A63"/>
+    <rect x="640" y="252" width="8" height="17" rx="2" fill="#16233A" stroke="#3A4A63"/>
+
+    <circle cx="110" cy="440" r="2.5" fill="#64748B"/>
+    <circle cx="424" cy="440" r="2.5" fill="#64748B"/>
+  </svg>
+
+  <!-- ================= HMI 屏 ================= -->
+  <div class="card" style="left:12px; top:20px; width:196px; height:300px;">
+    <div class="t">HMI 触摸屏</div>
+    <div class="s">Air8603W1 · Lua 组态</div>
+    <div class="screen" style="left:18px; top:58px; width:160px; height:150px;">
+      <div class="scr">
+        <div class="mini"><b>CH1</b><i style="left:8px; height:16px;"></i><i style="left:22px; height:26px;"></i><i style="left:36px; height:20px;"></i></div>
+        <div class="mini2"><b>CH2</b><i style="left:8px; height:24px;"></i><i style="left:22px; height:14px;"></i><i style="left:36px; height:28px;"></i></div>
+        <svg class="spark" viewBox="0 0 112 34" preserveAspectRatio="none">
+          <path d="M0 27 L14 22 L28 25 L42 15 L56 19 L70 10 L84 14 L98 7 L112 11"
+                fill="none" stroke="#22D3EE" stroke-width="1.6" opacity=".8"/>
+          <path d="M0 29 L14 26 L28 20 L42 24 L56 14 L70 16 L84 11 L98 15 L112 9"
+                fill="none" stroke="#4C8DFF" stroke-width="1.4" opacity=".65"/>
+        </svg>
+      </div>
+    </div>
+    <div class="c" style="left:18px; top:216px;">10.1″ · 1024×600 RGB</div>
+    <div class="c d" style="left:18px; top:238px;">RS485-1 · DE = GPIO65</div>
+    <div class="c d" style="left:18px; top:260px;">CTP 电容触摸 GT911</div>
+    <div class="c d" style="left:18px; top:282px;">plcui 组态 · 5 页 · 500 ms 刷新</div>
+  </div>
+
+  <!-- ================= PLC ================= -->
+  <div class="card" style="left:300px; top:20px; width:248px; height:300px;">
+    <div class="t">PLC 主控</div>
+    <div class="s">LY-TEK FX-32 · FX3U-24V</div>
+    <div class="photo" style="left:14px; top:54px; width:220px; height:170px;">
+      <img src="img/dev_plc_cut.png" alt="PLC">
+    </div>
+    <div class="c" style="left:24px; top:232px;">D8120 = H6087 · 站号 0</div>
+    <div class="c d" style="left:24px; top:254px;">RD3A K0 K0 → D0 / K1 → D1</div>
+    <div class="c d" style="left:24px; top:276px; font-size:10.5px;">左 DB9 下载 · 右 DB9 接屏</div>
+  </div>
+
+  <!-- ================= 变送器 1 ================= -->
+  <div class="card" style="left:650px; top:18px; width:234px; height:150px;">
+    <div class="t">温度变送器 1</div>
+    <div class="s">T100 · AD0 → D0</div>
+    <div class="photo" style="left:8px; top:38px; width:142px; height:96px;">
+      <img src="img/dev_tt_cut.png" alt="TT1">
+    </div>
+    <div class="val" style="left:156px; top:38px; width:78px; height:96px;"><b>CH1 实测</b></div>
+    <div class="wl" style="left:14px; top:132px; transform:none; color:#7D8EA8; font-size:9.5px;">红 24V · 黑 0V · 黄</div>
+  </div>
+
+  <!-- ================= 变送器 2 ================= -->
+  <div class="card" style="left:650px; top:186px; width:234px; height:150px;">
+    <div class="t">温度变送器 2</div>
+    <div class="s">T100 · AD1 → D1</div>
+    <div class="photo" style="left:8px; top:38px; width:142px; height:96px;">
+      <img src="img/dev_tt_cut.png" alt="TT2">
+    </div>
+    <div class="val" style="left:156px; top:38px; width:78px; height:96px;"><b>CH2 实测</b></div>
+    <div class="wl" style="left:14px; top:132px; transform:none; color:#7D8EA8; font-size:9.5px;">红 24V · 黑 0V · 黄</div>
+  </div>
+
+  <!-- ============ RS485 走线（覆盖层，压在照片之上才能插进 DB9） ============ -->
+  <svg class="wire front" width="896" height="496" viewBox="0 0 896 496">
+    <defs>
+      <marker id="arC2" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0 0 L8 4 L0 8 z" fill="#22D3EE"/>
+      </marker>
+    </defs>
+    <path d="M208 126 H 366 V 170" stroke="#22D3EE" stroke-width="2" fill="none" marker-end="url(#arC2)"/>
+    <path d="M360 170 V 158 H 212" stroke="#7FE3F5" stroke-width="1.6" fill="none"
+          marker-end="url(#arC2)" opacity=".85"/>
+  </svg>
+
+  <!-- ============ PLC 的两个 DB9 母口（照片里左下并排的两个蓝口） ============ -->
+  <div class="port"    style="left:327px; top:168px; width:25px; height:42px;"></div>
+  <div class="port on" style="left:352px; top:168px; width:26px; height:42px;"></div>
+  <div class="wl" style="left:386px; top:176px; transform:none; font-size:10px; color:#A9F0FC;">RS485 → DB9 公头</div>
+
+  <!-- ================= 稳压电源 ================= -->
+  <div class="psu" style="left:36px; top:370px; width:68px; height:40px;">
+    <b>24V 2A</b><i>稳压电源</i>
+  </div>
+
+  <!-- ================= 线缆文字 ================= -->
+  <div class="wl" style="left:250px; top:100px; color:#7FE3F5;">RS485 A/B</div>
+  <div class="wl" style="left:250px; top:182px; color:#5BC8E0; font-size:11px;">9600 8E1</div>
+  <div class="wl" style="left:597px; top:68px;  color:#F5BE5E;">AD0 · 黄</div>
+  <div class="wl" style="left:578px; top:236px; color:#F5BE5E;">AD1 · 黄</div>
+  <div class="wl" style="left:262px; top:354px; color:#F08A8A;">24 V 2A → HMI · PLC 24V/0V · 变送器</div>
+  <div class="wl" style="left:267px; top:440px; color:#64748B;">屏蔽层 / PE 单端接地</div>
+  <div class="wl" style="left:624px; top:344px; transform:none; font-size:10.5px; color:#7D8EA8;">红/黑取自 24V/0V 母线 · 黑线与 PLC 共地</div>
+
+  <div class="legend">变送器三线：红 = 24V · 黑 = 0V/GND · 黄 = 信号 → AD0 / AD1 · 采样 1 s · 计算机链接协议 (FX3U)</div>
+</div>
+</body>
+</html>

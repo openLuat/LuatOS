@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>工艺参数配置</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+.box { position: absolute; border-radius: 4px; background: linear-gradient(180deg, rgba(12, 56, 78, .75), rgba(6, 26, 38, .9));
+       border: 1px solid rgba(45, 150, 185, .45); }
+.box .ic { position: absolute; left: 8px; top: 11px; width: 15px; height: 15px; border-radius: 50%; border: 1px solid #79e6ff; }
+.box .unit { position: absolute; right: 8px; top: 12px; font-size: 11px; color: #7fa8bb; }
+.sec { position: absolute; font-size: 15px; color: #dff4ff; }
+.sec::before { content: ""; display: inline-block; width: 16px; height: 8px; margin-right: 8px;
+    background: linear-gradient(90deg, #29d8f0, rgba(41, 216, 240, .2)); vertical-align: middle; }
+.slider { position: absolute; height: 4px; border-radius: 2px; }
+.knob { position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    background: radial-gradient(circle, #0a3a4e 38%, #29d8f0 42%, #29d8f0 68%, rgba(41, 216, 240, .12) 72%); }
+.knob.big { width: 24px; height: 24px;
+    background: radial-gradient(circle, #ffa62b 38%, #ffd479 42%, #ffa62b 68%, rgba(255, 166, 43, .18) 72%); }
+.flow { position: absolute; display: flex; align-items: center; }
+.flow .stg { width: 32px; text-align: center; font-size: 15px; color: #dff4ff; }
+.flow i { display: block; width: 26px; height: 2px; margin: 0 12px;
+    background: linear-gradient(90deg, #2ee6a0, rgba(46, 230, 160, .25)); }
+.node { position: absolute; width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle, #0a3a4e 34%, #2ee6a0 40%, #2ee6a0 62%, rgba(46, 230, 160, .12) 66%); }
+.dd { position: absolute; display: flex; align-items: center; padding: 0 10px;
+      font-size: 13px; color: #eafaff; border-radius: 3px; background: rgba(9, 44, 62, .9); border: 1px solid rgba(45, 150, 185, .5); }
+.dd::after { content: "▾"; color: #7fe3ff; margin-left: auto; }
+.user-k { position: absolute; font-size: 14px; color: #9fc7d8; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage" data-page="params">
+
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div>
+    <div class="hdr-wing r"></div>
+    <div class="hdr-title">工艺参数配置 - 饮料灌装生产线</div>
+    <div class="hdr-status" style="left:716px;">
+      <div class="hdr-dot"></div>
+      <div class="hdr-state">运行中</div>
+      <div class="hdr-sep"></div>
+    </div>
+  </div>
+  <div class="plc" data-type="label" data-id="clock" data-fontsize="15" data-color="#cfe9f5"
+       data-align="right" data-text="2025-11-11 10:30:00"
+       style="left:800px;top:15px;width:208px;height:20px;font-size:15px;line-height:1;text-align:right;">2025-11-11 10:30:00</div>
+  <div class="plc btn plain sm" data-type="image" data-id="btn_home" data-states="normal,pressed" data-handler="show_overview"
+       style="left:12px;top:9px;width:90px;height:26px;font-size:13px;">◀ 产线总览</div>
+
+  <!-- 左侧分类 -->
+  <div class="panel" style="left:8px;top:58px;width:180px;height:412px;">
+    <div class="cap" style="min-width:110px;">参数分类</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+  <div class="plc navbtn sel" data-type="image" data-states="normal,checked" data-id="cat_1" data-handler="cat_1" style="left:16px;top:106px;width:164px;height:36px;"><span class="d"></span>灌装参数</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="cat_2" data-handler="cat_2" style="left:16px;top:150px;width:164px;height:36px;"><span class="d"></span>洗瓶参数</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="cat_3" data-handler="cat_3" style="left:16px;top:194px;width:164px;height:36px;"><span class="d"></span>旋盖参数</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="cat_4" data-handler="cat_4" style="left:16px;top:238px;width:164px;height:36px;"><span class="d"></span>贴标参数</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="cat_5" data-handler="cat_5" style="left:16px;top:282px;width:164px;height:36px;"><span class="d"></span>喷码参数</div>
+
+  <!-- 中间参数区 -->
+  <div class="panel" style="left:196px;top:58px;width:596px;height:412px;">
+    <div class="cap" style="min-width:130px;">工艺参数</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="sec" style="left:208px;top:94px;">灌装参数</div>
+  <div class="slider" style="left:208px;top:124px;width:520px;background:linear-gradient(90deg,#2ee6a0,#ffa62b 46%,rgba(41,216,240,.35) 46%);"></div>
+  <div class="knob" style="left:346px;top:115px;"></div>
+  <div class="knob big" style="left:504px;top:112px;"></div>
+  <div class="knob" style="left:646px;top:115px;"></div>
+  <div class="hint" style="left:208px;top:132px;width:50px;">16:9</div>
+  <div class="hint" style="left:430px;top:132px;width:50px;">16:9</div>
+  <div class="hint" style="left:624px;top:132px;width:50px;">16:9</div>
+  <div class="hint" style="left:700px;top:132px;width:50px;">16:9</div>
+
+  <!-- 灌装量 -->
+  <div class="sec" style="left:208px;top:152px;">灌装量</div>
+  <div class="box" style="left:208px;top:172px;width:136px;height:40px;"><span class="ic"></span><span class="unit">mL</span></div>
+  <div class="box" style="left:352px;top:172px;width:136px;height:40px;"><span class="ic"></span><span class="unit">瓶/分</span></div>
+  <div class="box" style="left:496px;top:172px;width:136px;height:40px;"><span class="ic"></span><span class="unit">s</span></div>
+  <div class="box" style="left:640px;top:172px;width:136px;height:40px;"><span class="ic"></span><span class="unit">MPa</span></div>
+  <div class="hint" style="left:210px;top:216px;width:80px;">灌装量</div>
+  <div class="hint" style="left:354px;top:216px;width:80px;">灌装速度</div>
+  <div class="hint" style="left:498px;top:216px;width:90px;">抽真空时间</div>
+  <div class="hint" style="left:642px;top:216px;width:80px;">真空度</div>
+
+  <!-- 洗瓶参数 -->
+  <div class="sec" style="left:208px;top:238px;">洗瓶参数</div>
+  <div class="box" style="left:208px;top:258px;width:136px;height:40px;"><span class="ic"></span><span class="unit">℃</span></div>
+  <div class="box" style="left:352px;top:258px;width:136px;height:40px;"><span class="ic"></span><span class="unit">s</span></div>
+  <div class="box" style="left:496px;top:258px;width:136px;height:40px;"><span class="ic"></span><span class="unit">%</span></div>
+  <div class="box" style="left:640px;top:258px;width:136px;height:40px;opacity:.6;"><span class="ic"></span><span class="unit">s</span></div>
+  <div class="hint" style="left:210px;top:302px;width:80px;">水温</div>
+  <div class="hint" style="left:354px;top:302px;width:80px;">清洗时间</div>
+  <div class="hint" style="left:498px;top:302px;width:90px;">清洗剂配比</div>
+  <div class="hint" style="left:642px;top:302px;width:80px;">喷淋压力</div>
+
+  <!-- 旋盖参数 -->
+  <div class="sec" style="left:208px;top:322px;">旋盖参数</div>
+  <div class="box" style="left:208px;top:342px;width:136px;height:40px;"><span class="ic"></span><span class="unit">N·m</span></div>
+  <div class="box" style="left:352px;top:342px;width:136px;height:40px;"><span class="ic"></span><span class="unit">N·m</span></div>
+  <div class="box" style="left:496px;top:342px;width:136px;height:40px;"><span class="ic"></span><span class="unit">瓶/分</span></div>
+  <div class="hint" style="left:210px;top:386px;width:80px;">旋盖扭矩</div>
+  <div class="hint" style="left:354px;top:386px;width:80px;">扭矩上限</div>
+  <div class="hint" style="left:498px;top:386px;width:80px;">旋盖速度</div>
+
+  <!-- 值（可编辑） -->
+  <div class="plc" data-type="textarea" data-id="p_fill" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="5" data-chars="0123456789." data-submit="param_submit" data-cancel="param_cancel"
+       data-text="500" style="left:238px;top:182px;width:86px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">500</div>
+  <div class="plc" data-type="textarea" data-id="p_speed" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="4" data-chars="0123456789" data-submit="param_submit" data-cancel="param_cancel"
+       data-text="420" style="left:382px;top:182px;width:86px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">420</div>
+  <div class="plc" data-type="textarea" data-id="p_vac_time" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="4" data-chars="0123456789." data-submit="param_submit" data-cancel="param_cancel"
+       data-text="1.2" style="left:526px;top:182px;width:86px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">1.2</div>
+  <div class="plc" data-type="textarea" data-id="p_vac" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="5" data-chars="0123456789." data-submit="param_submit" data-cancel="param_cancel"
+       data-text="0.35" style="left:670px;top:182px;width:86px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">0.35</div>
+
+  <div class="plc" data-type="textarea" data-id="p_wash_temp" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="3" data-chars="0123456789" data-submit="param_submit" data-cancel="param_cancel"
+       data-text="85" style="left:238px;top:268px;width:80px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">85</div>
+  <div class="plc" data-type="textarea" data-id="p_wash_time" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="3" data-chars="0123456789" data-submit="param_submit" data-cancel="param_cancel"
+       data-text="15" style="left:382px;top:268px;width:80px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">15</div>
+  <div class="plc" data-type="textarea" data-id="p_wash_chem" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="4" data-chars="0123456789." data-submit="param_submit" data-cancel="param_cancel"
+       data-text="2.0" style="left:526px;top:268px;width:80px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">2.0</div>
+
+  <div class="plc" data-type="textarea" data-id="p_torque" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="4" data-chars="0123456789." data-submit="param_submit" data-cancel="param_cancel"
+       data-text="4.2" style="left:238px;top:352px;width:80px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">4.2</div>
+  <div class="plc" data-type="textarea" data-id="p_torque_max" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="4" data-chars="0123456789." data-submit="param_submit" data-cancel="param_cancel"
+       data-text="4.2" style="left:382px;top:352px;width:80px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">4.2</div>
+  <div class="plc" data-type="textarea" data-id="p_cap_speed" data-fontsize="16" data-color="#ffd479" data-align="left"
+       data-keyboard="num_kb" data-maxlen="4" data-chars="0123456789" data-submit="param_submit" data-cancel="param_cancel"
+       data-text="120" style="left:526px;top:352px;width:80px;height:20px;font-size:16px;font-weight:700;line-height:1;color:#ffd479;">120</div>
+
+  <!-- 工艺流程图（静态） -->
+  <div class="flow" style="left:208px;top:404px;">
+    <span class="stg">空瓶</span><i></i><span class="stg">洗瓶</span><i></i><span class="stg">灌装</span><i></i><span class="stg">旋盖</span><i></i><span class="stg">贴标</span><i></i><span class="stg">装箱</span>
+  </div>
+  <div class="slider" style="left:208px;top:440px;width:470px;background:linear-gradient(90deg,#ffa62b,#2ee6a0 18%,#2ee6a0 78%,#29d8f0);"></div>
+  <div class="node" style="left:217px;top:435px;"></div>
+  <div class="node" style="left:299px;top:435px;"></div>
+  <div class="node" style="left:381px;top:435px;"></div>
+  <div class="node" style="left:463px;top:435px;"></div>
+  <div class="node" style="left:545px;top:435px;"></div>
+  <div class="node" style="left:627px;top:435px;background:radial-gradient(circle,#0a3a4e 34%,#ffa62b 40%,#ffa62b 62%,rgba(255,166,43,.12) 66%);"></div>
+
+  <!-- 右侧设置 -->
+  <div class="panel" style="left:800px;top:58px;width:216px;height:412px;">
+    <div class="cap" style="min-width:120px;">参数权限</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="user-k" style="left:812px;top:100px;">当前用户：</div>
+  <div class="user-k" style="left:812px;top:132px;">修改权限：</div>
+  <div class="user-k" style="left:812px;top:164px;">参数锁：</div>
+
+  <div class="plc" data-type="label" data-id="cur_user" data-fontsize="15" data-color="#ffd479" data-align="left" data-text="工程师"
+       style="left:900px;top:100px;width:104px;height:20px;font-size:15px;line-height:1;color:#ffd479;">工程师</div>
+
+  <div class="dd" style="left:900px;top:128px;width:104px;height:26px;"></div>
+  <div class="plc" data-type="label" data-id="perm_text" data-fontsize="13" data-color="#2ee6a0" data-align="left" data-text="已开启"
+       style="left:906px;top:134px;width:72px;height:18px;font-size:13px;line-height:1;color:#2ee6a0;">已开启</div>
+
+  <div class="dd" style="left:900px;top:160px;width:104px;height:26px;"></div>
+  <div class="plc" data-type="label" data-id="lock_text" data-fontsize="13" data-color="#ff8a9b" data-align="left" data-text="关闭"
+       style="left:906px;top:166px;width:72px;height:18px;font-size:13px;line-height:1;color:#ff8a9b;">关闭</div>
+
+  <div class="plc btn plain" data-type="image" data-id="btn_lock" data-states="normal,pressed" data-handler="on_lock_param" style="left:812px;top:212px;width:94px;height:30px;">锁定参数</div>
+  <div class="plc btn" data-type="image" data-id="btn_save" data-states="normal,pressed" data-handler="on_save" style="left:914px;top:212px;width:94px;height:30px;">保存配置</div>
+  <div class="plc btn plain" data-type="image" data-id="btn_drift" data-states="normal,pressed" data-handler="on_drift" style="left:812px;top:250px;width:94px;height:30px;">漂移还原</div>
+  <div class="plc btn plain" data-type="image" data-id="btn_default" data-states="normal,pressed" data-handler="on_default" style="left:914px;top:250px;width:94px;height:30px;">恢复默认</div>
+  <div class="plc btn" data-type="image" data-id="btn_plog" data-states="normal,pressed" data-handler="on_plog" style="left:812px;top:288px;width:196px;height:30px;">查看修改日志</div>
+
+  <div class="plc" data-type="label" data-id="feedback" data-fontsize="12" data-color="#7ff2ff" data-align="left" data-text="修改需工程师权限，保存后立即生效"
+       style="left:812px;top:330px;width:196px;height:34px;font-size:12px;line-height:1.4;color:#7ff2ff;">修改需工程师权限，保存后立即生效</div>
+
+  <div class="hr" style="left:812px;top:374px;width:196px;"></div>
+  <div class="hint" style="left:812px;top:386px;width:196px;">工艺配方：PET-500mL</div>
+  <div class="hint" style="left:812px;top:406px;width:196px;">上次保存：10:12　操作员：OP01</div>
+  <div class="hint" style="left:812px;top:426px;width:196px;">配方版本：V1.4　校验：通过</div>
+
+  <!-- 下拉框透明热区 -->
+  <div class="plc" data-type="image" data-id="dd_perm" data-asset="blank" data-states="normal" data-handler="on_perm"
+       style="left:900px;top:128px;width:104px;height:26px;"></div>
+  <div class="plc" data-type="image" data-id="dd_lock" data-asset="blank" data-states="normal" data-handler="on_lock"
+       style="left:900px;top:160px;width:104px;height:26px;"></div>
+
+  <div class="plc" data-type="keyboard" data-id="num_kb" data-layout="number" data-fontsize="18"
+       style="left:196px;top:290px;width:596px;height:180px;"></div>
+
+</div>
+</body>
+</html>

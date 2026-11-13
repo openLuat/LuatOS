@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>注塑机监控 - 注塑产线智能监控</title>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div class="stage page" id="page-mc" data-page="mc">
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div><div class="hdr-wing r"></div>
+    <div class="hdr-title">注塑机运行监控</div>
+    <div class="hdr-status">
+      <div class="hdr-state-chip"><span class="d"></span>数据刷新 1 s</div>
+      <div class="plc" data-type="label" data-id="clock" data-fontsize="12" data-color="#8fb6c9" data-align="right"
+           style="left:800px;top:44px;width:200px;height:16px;font-size:12px;line-height:16px;text-align:right;">2026-11-11 08:00:00</div>
+    </div>
+  </div>
+
+  <!-- 左：机台选择 -->
+  <div class="panel" style="left:8px;top:62px;width:224px;height:492px;">
+    <div class="cap" style="min-width:100px;">机 台 选 择</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="btn on" id="sel-m1" data-sel="1" style="left:16px;top:40px;width:192px;height:52px;">注塑机 1#</div>
+    <div class="btn" id="sel-m2" data-sel="2" style="left:16px;top:100px;width:192px;height:52px;">注塑机 2#</div>
+    <div class="btn" id="sel-m3" data-sel="3" style="left:16px;top:160px;width:192px;height:52px;">注塑机 3#</div>
+    <div class="divider" style="left:16px;top:226px;width:192px;"></div>
+    <div class="hint" style="left:18px;top:236px;">当前机台状态</div>
+    <div class="plc" data-type="label" data-id="mc_st" data-fontsize="14" data-color="#2ee6a0" data-align="left"
+         style="left:18px;top:256px;width:190px;height:20px;font-size:14px;line-height:20px;">● 自动运行中</div>
+    <div class="plc" data-type="label" data-id="mc_shot" data-fontsize="13" data-color="#cfe9f5" data-align="left"
+         style="left:18px;top:282px;width:190px;height:18px;font-size:13px;line-height:18px;">累计模次：12450</div>
+    <div class="plc" data-type="label" data-id="mc_cyc" data-fontsize="13" data-color="#cfe9f5" data-align="left"
+         style="left:18px;top:304px;width:190px;height:18px;font-size:13px;line-height:18px;">当前周期：32.5 s</div>
+    <div class="plc" data-type="label" data-id="mc_good" data-fontsize="13" data-color="#cfe9f5" data-align="left"
+         style="left:18px;top:326px;width:190px;height:18px;font-size:13px;line-height:18px;">班次良品：1263 模</div>
+    <div class="divider" style="left:16px;top:352px;width:192px;"></div>
+    <div class="hint" style="left:18px;top:362px;">锁模力 / 位置</div>
+    <div class="plc" data-type="label" data-id="mc_clamp" data-fontsize="13" data-color="#44dcf6" data-align="left"
+         style="left:18px;top:382px;width:190px;height:18px;font-size:13px;line-height:18px;">锁模力 1286 kN</div>
+    <div class="plc" data-type="label" data-id="mc_pos" data-fontsize="13" data-color="#44dcf6" data-align="left"
+         style="left:18px;top:404px;width:190px;height:18px;font-size:13px;line-height:18px;">开模位置 312 mm</div>
+    <div class="plc" data-type="label" data-id="mc_vel" data-fontsize="13" data-color="#44dcf6" data-align="left"
+         style="left:18px;top:426px;width:190px;height:18px;font-size:13px;line-height:18px;">注射速度 86 mm/s</div>
+    <div class="plc" data-type="label" data-id="mc_screw" data-fontsize="13" data-color="#44dcf6" data-align="left"
+         style="left:18px;top:448px;width:190px;height:18px;font-size:13px;line-height:18px;">螺杆转速 125 rpm</div>
+    <div class="hint" style="left:18px;top:472px;">模具：盒盖模 M-07 · 2 腔</div>
+  </div>
+
+  <!-- 中：工艺流程 + 温压 -->
+  <div class="panel" style="left:240px;top:62px;width:424px;height:492px;">
+    <div class="cap" style="min-width:120px;">工 艺 流 程</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="phase" id="phase-bar" style="left:14px;top:38px;width:396px;height:24px;">
+      <div class="ph done">合模</div><div class="ph act">注射</div><div class="ph">保压</div>
+      <div class="ph">冷却</div><div class="ph">开模</div><div class="ph">取件</div>
+    </div>
+    <div class="hint" style="left:16px;top:68px;">周期进度 <span class="plc" data-type="label" data-id="ph_prog" data-fontsize="11" data-color="#44dcf6" data-align="left" style="position:static;font-size:11px;">32%</span> · 阶段计时 <span class="plc" data-type="label" data-id="ph_time" data-fontsize="11" data-color="#44dcf6" data-align="left" style="position:static;font-size:11px;">1.2 s</span></div>
+    <div class="divider" style="left:14px;top:90px;width:396px;"></div>
+
+    <div class="hint" style="left:16px;top:98px;">温度监控（实际 / 设定 ℃）</div>
+    <div class="hint" style="left:16px;top:122px;">料筒 1 区</div>
+    <div class="bar" style="left:90px;top:122px;width:230px;"><div class="fill g" id="bar-t1" style="width:72%;"></div></div>
+    <div class="plc" data-type="label" data-id="tv_t1" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:328px;top:121px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">210 / 210</div>
+    <div class="hint" style="left:16px;top:148px;">料筒 2 区</div>
+    <div class="bar" style="left:90px;top:148px;width:230px;"><div class="fill g" id="bar-t2" style="width:74%;"></div></div>
+    <div class="plc" data-type="label" data-id="tv_t2" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:328px;top:147px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">215 / 215</div>
+    <div class="hint" style="left:16px;top:174px;">料筒 3 区</div>
+    <div class="bar" style="left:90px;top:174px;width:230px;"><div class="fill g" id="bar-t3" style="width:76%;"></div></div>
+    <div class="plc" data-type="label" data-id="tv_t3" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:328px;top:173px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">220 / 220</div>
+    <div class="hint" style="left:16px;top:200px;">料筒 4 区</div>
+    <div class="bar" style="left:90px;top:200px;width:230px;"><div class="fill y" id="bar-t4" style="width:73%;"></div></div>
+    <div class="plc" data-type="label" data-id="tv_t4" data-fontsize="12" data-color="#ffd23e" data-align="right" style="left:328px;top:199px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">218 / 215</div>
+    <div class="hint" style="left:16px;top:226px;">喷嘴温度</div>
+    <div class="bar" style="left:90px;top:226px;width:230px;"><div class="fill g" id="bar-t5" style="width:78%;"></div></div>
+    <div class="plc" data-type="label" data-id="tv_t5" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:328px;top:225px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">225 / 225</div>
+    <div class="hint" style="left:16px;top:252px;">模具温度</div>
+    <div class="bar" style="left:90px;top:252px;width:230px;"><div class="fill g" id="bar-t6" style="width:32%;"></div></div>
+    <div class="plc" data-type="label" data-id="tv_t6" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:328px;top:251px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">45 / 45</div>
+    <div class="divider" style="left:14px;top:278px;width:396px;"></div>
+
+    <div class="hint" style="left:16px;top:286px;">压力监控（MPa）</div>
+    <div class="hint" style="left:16px;top:310px;">注射压力</div>
+    <div class="bar" style="left:90px;top:310px;width:230px;"><div class="fill o" id="bar-p1" style="width:62%;"></div></div>
+    <div class="plc" data-type="label" data-id="pv_p1" data-fontsize="12" data-color="#ffa62b" data-align="right" style="left:328px;top:309px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">125.0</div>
+    <div class="hint" style="left:16px;top:336px;">保压压力</div>
+    <div class="bar" style="left:90px;top:336px;width:230px;"><div class="fill o" id="bar-p2" style="width:42%;"></div></div>
+    <div class="plc" data-type="label" data-id="pv_p2" data-fontsize="12" data-color="#ffa62b" data-align="right" style="left:328px;top:335px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">85.0</div>
+    <div class="hint" style="left:16px;top:362px;">背压</div>
+    <div class="bar" style="left:90px;top:362px;width:230px;"><div class="fill g" id="bar-p3" style="width:12%;"></div></div>
+    <div class="plc" data-type="label" data-id="pv_p3" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:328px;top:361px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">12.5</div>
+    <div class="hint" style="left:16px;top:388px;">锁模力</div>
+    <div class="bar" style="left:90px;top:388px;width:230px;"><div class="fill g" id="bar-p4" style="width:85%;"></div></div>
+    <div class="plc" data-type="label" data-id="pv_p4" data-fontsize="12" data-color="#44dcf6" data-align="right" style="left:328px;top:387px;width:80px;height:18px;font-size:12px;line-height:18px;text-align:right;">1286 kN</div>
+    <div class="divider" style="left:14px;top:414px;width:396px;"></div>
+    <div class="hint" style="left:16px;top:422px;">P-P-T 分段控制 · 保压 2 段 · 冷却 8.5 s</div>
+    <div class="hint" style="left:16px;top:446px;">螺杆位置 <span class="plc" data-type="label" data-id="mc_spos" data-fontsize="11" data-color="#44dcf6" data-align="left" style="position:static;font-size:11px;">48.2 mm</span> · 垫料 <span class="plc" data-type="label" data-id="mc_cush" data-fontsize="11" data-color="#44dcf6" data-align="left" style="position:static;font-size:11px;">6.8 mm</span></div>
+    <div class="hint" style="left:16px;top:470px;">计量 <span class="plc" data-type="label" data-id="mc_dose" data-fontsize="11" data-color="#44dcf6" data-align="left" style="position:static;font-size:11px;">2.8 s</span> · 残料 <span class="plc" data-type="label" data-id="mc_rest" data-fontsize="11" data-color="#44dcf6" data-align="left" style="position:static;font-size:11px;">8.2 mm</span></div>
+  </div>
+  <!-- 右：趋势与报警 -->
+  <div class="panel" style="left:672px;top:62px;width:344px;height:492px;">
+    <div class="cap" style="min-width:120px;">实 时 趋 势</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+    <div class="hint" style="left:14px;top:36px;">温度趋势 ℃（近 120 s）</div>
+    <div class="plc" data-type="chart" data-id="chart_t" data-chart="line" data-series="t1,t2,t5"
+         style="left:12px;top:52px;width:320px;height:120px;">
+      <canvas id="chart-t" width="320" height="120"></canvas>
+    </div>
+    <div class="hint" style="left:14px;top:180px;">压力趋势 MPa（近 120 s）</div>
+    <div class="plc" data-type="chart" data-id="chart_p" data-chart="line" data-series="p1,p2"
+         style="left:12px;top:196px;width:320px;height:120px;">
+      <canvas id="chart-p" width="320" height="120"></canvas>
+    </div>
+    <div class="divider" style="left:12px;top:326px;width:320px;"></div>
+    <div class="hint" style="left:14px;top:332px;">本机台报警（近 4 条） · 采样 1 s · <span class="plc" data-type="label" data-id="mc_upd" data-fontsize="11" data-color="#6d97ab" data-align="left" style="position:static;font-size:11px;">08:00:00</span></div>
+    <table class="tb" style="left:12px;top:348px;width:320px;">
+      <tr><th style="width:78px;">时间</th><th style="width:64px;">等级</th><th>内容</th><th style="width:52px;">状态</th></tr>
+      <tr><td>08:12:40</td><td class="st-o">警告</td><td>4 区料温偏高 3℃</td><td class="st-g">恢复</td></tr>
+      <tr class="alt"><td>07:48:12</td><td class="st-y">提示</td><td>周期超时 2.1 s</td><td class="st-g">恢复</td></tr>
+      <tr><td>06:30:55</td><td class="st-r">严重</td><td>冷却水流量低</td><td class="st-g">恢复</td></tr>
+      <tr class="alt"><td>05:12:03</td><td class="st-y">提示</td><td>模温偏差 2℃</td><td class="st-g">恢复</td></tr>
+    </table>
+  </div>
+</div>
+<script src="app.js"></script>
+<script>PLC.page("mc");</script>
+</body>
+</html>

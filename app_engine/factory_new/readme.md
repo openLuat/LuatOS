@@ -173,9 +173,12 @@ return {
     peripherals = {
         { type = "uvc",   id = "uvc1",  name = "UVC摄像头", en_pin = 58, ready_delay = 200 },
         -- rotation 是画面旋转角，顺时针 0 / 90 / 180 / 270，不写不转；逆时针 90 度写 270
-        -- 摄像头常供电、无独立使能脚（8603W3~W5 / M3~M5 的普通 USB UVC 摄像头）时省掉 en_pin：
+        -- 摄像头常供电、无独立使能脚时省掉 en_pin（驱动全程不动 GPIO）：
         -- { type = "uvc", id = "uvc1", name = "UVC摄像头", title = "摄像头",
         --   ready_delay = 200, w = 800, h = 480, rotation = 270 },
+        -- en_pin 与某路 rs485 的 de_pin 共用一脚时（8603W3~W5 / M3~M5 的 GPIO58 = UVC_EN
+        -- = 485_EN2）两个条目照常各写各的脚号，驱动按职能互斥认领、分时切换：
+        -- 进 UVC 测试页脚切给 UVC_EN，进 485 测试页切给 485_EN2，退出归还、互不影响
         -- 摄像头是人脸识别模组（AirCAMERA_1034）时把上一条换成下面这条（见 6.6），
         -- 带人脸识别摄像头的机型一律写 90（顺时针 90，与 8603 人脸型号一致）：
         -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
@@ -288,7 +291,7 @@ return {
 | WiFi 连接 | `ui/wifi/wifi_connect_win.lua` | 密码输入/高级配置 |
 | 应用市场 | `ui/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
 | 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 / 音频 外设分组入口与状态圆点；485 不管几路只出一行「RS485 测试」；分组标题可用配置条目的 `title` 覆盖。行上没有开关，点行自动开接口并进测试页、退出测试页自动断电；外设列表之后另有「背光调节」「音量调节」两张硬件能力卡（见 6.6） |
-| 摄像头测试 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本固件无 MP4 封装)；摄像头是人脸识别模组时多一个「人脸识别」页签（录入 / 验证 / 清空 / 版本）（点功能测试页的摄像头行进入）。横屏走「左预览 + 右操作区」、竖屏走上下结构（见 6.6） |
+| 摄像头测试 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本机只播 HZV 容器，录像拷出去看)；摄像头是人脸识别模组时多一个「人脸识别」页签（录入 / 验证 / 清空 / 版本）（点功能测试页的摄像头行进入）。横屏走「左预览 + 右操作区」、竖屏走上下结构（见 6.6） |
 | 485 测试 | `ui/rs485_test_win.lua` | 多路通道卡 + 统一收发日志 + 交叉线判定（点功能测试页的「RS485 测试」行进入） |
 | 录音播放 | `ui/audio_test_win.lua` | 录音时长选择 + 录音/播放/停止 + 测试日志 + 「请接入麦克风」常驻提示（点功能测试页的音频行进入） |
 
@@ -308,7 +311,7 @@ return {
 `type = "audio"` 是录音播放测试点，硬件参数读 `config.hw.audio`（Air1103 走 UART6），
 没配 `hw.audio` 的机型 init 直接失败，列表里也不会出现「音频」组。
 有 `hw.audio` 却不配 `type = "audio"` 的机型（8603 除 M1/W1 的八型号 / 8607 / 8607A）是只播放不录音，
-「功能测试」里同样没有「音频」组，声音走 TTS / MP4 那几条路（见 6.7）。
+「功能测试」里同样没有「音频」组，声音走 TTS / 视频音轨那几条路（见 6.7）。
 录音播放页的 header 副标题是「请接入麦克风后说话，录完回放听效果」，状态卡里另有一行**常驻**
 提示「请接入麦克风后再录音」（未配置音频时不显示）；录音失败文案是
 「录音失败：未收到MIC数据，请检查麦克风、供电、UART和固件」，测试日志再追加一句
@@ -326,8 +329,11 @@ UART 走人脸协议（录入 / 验证 / 删除全部 / 版本），两条通路
 所以这颗摄像头的 `en_pin` 必须是可拉低的独立供电脚。
 不带 `face` 的是普通 USB UVC 摄像头（只出图、无控制串口、不带人脸识别），
 测试页不建页签行（也就没有「人脸识别」页签），按钮是拍照 / 录像 / 时长 / 适配；
-这种摄像头的 `en_pin` 可省略——常供电、无独立使能脚时不写，驱动全程不动 GPIO
-（8603W3~W5 / M3~M5 就是这种，`GPIO58` 仍留给 UART2 那路 485 的 DE）。
+这种摄像头的 `en_pin` 可省略——常供电、无独立使能脚时不写，驱动全程不动 GPIO。
+`en_pin` 与某路 rs485 的 `de_pin` 共用一脚时两个条目照常各写各的脚号（8603W3~W5 /
+M3~M5 的 `GPIO58 = UVC_EN = 485_EN2`），驱动经 `drv/periph/pin_share.lua` 按职能互斥
+认领、分时切换：进 UVC 测试页脚切给 UVC_EN 供电，进 485 测试页切给 485_EN2 做 DE
+（摄像头还在供电会先停干净），退出自动归还，相互切换、互不影响。
 `type = "uvc"` 条目的 `rotation` 是画面旋转角（顺时针 0 / 90 / 180 / 270，逆时针 90 度写 270），
 按模组实际安装方向填，不写不转。预览旋转角**只由配置里的 `rotation` 决定**
 （`ui/uvc_preview_win.lua` 读取），人脸页签取 `face.rotation`、不写就回退条目的 `rotation`，
@@ -364,7 +370,7 @@ eng_8602_9i_wifi / eng_8602_9i_4g（双路 485，无独立供电脚）/
 eng_8603w1_10i_v0 / eng_8603w2_10i_v0 / eng_8603m1_10i_v0 / eng_8603m2_10i_v0
 （UVC 摄像头带人脸模组，en_pin = GPIO58，UART2 是人脸模组控制串口）/
 eng_8603w3_10i_v0 ~ eng_8603w5_10i_v0 / eng_8603m3_10i_v0 ~ eng_8603m5_10i_v0
-（普通 USB UVC 摄像头，常供电不写 en_pin，UART2 仍是隔离 485）/
+（普通 USB UVC 摄像头，en_pin = GPIO58 与 485_EN2 共用一脚、分时切换，UART2 仍是隔离 485）/
 （Air8603 十型号，UART1 / UART2 按出货型号分档，见配置文件头第 1 条；M1 / W1 另带 Air1103 录音播放）/
 eng_8607w_10i_v0（Air8607W 10寸：UART1 = 非隔离 485、UART2 = 人脸识别摄像头控制串口、
 UART13 通用串口；USB HID 与 UVC 二选一，见 6.8）。
@@ -375,6 +381,7 @@ UART13 通用串口；USB HID 与 UVC 二选一，见 6.8）。
 | UVC 摄像头 | `drv/periph/periph_uvc.lua` | 纯供电开关（en_pin 可省略 = 常供电；数据流由摄像头测试页独占） |
 | 人脸识别 | `script/libs/exfacecam.lua`（共享扩展库） | AirCAMERA_1034 人脸协议（UART 115200/8N1）：录入 / 验证 / 用户管理 |
 | RS485 | `drv/periph/periph_rs485.lua` | 多路 DE 方向控制 + 供电脚引用计数 |
+| 共享脚仲裁 | `drv/periph/pin_share.lua` | en_pin 与 de_pin 共用一脚时按职能互斥认领（UVC_EN ↔ 485_EN2 分时切换） |
 | 通用串口 | `drv/periph/periph_uart.lua` | 任意 UART 接口（波特率/数据位/校验/停止位） |
 | 录音播放 | `drv/periph/periph_audio.lua` | 录音/回放（Air1103 录 PCM_16000 走流式回放） |
 | 功能测试 | `app/other_func/other_func_app.lua` | 外设实例开关与状态（订阅 OTHER_FUNC_*） |
@@ -382,30 +389,30 @@ UART13 通用串口；USB HID 与 UVC 二选一，见 6.8）。
 ### 6.7 音频通路（`hw.audio`）
 
 全固件**只有一处**组装 `exaudio.setup` 的入参：`app/common/audio_hw.lua`。
-六个消费方 `app/common/tts_app.lua`、`app/factory/llm_chat.lua`、`app/factory/factory_rec.lua`、
-`app/settings/settings_display_app.lua`、`ui/video_util.lua`、`drv/periph/periph_audio.lua`
+五个消费方 `app/common/tts_app.lua`、`app/factory/llm_chat.lua`、`app/factory/factory_rec.lua`、
+`app/settings/settings_display_app.lua`、`drv/periph/periph_audio.lua`
 一律调它，字段不再各自维护一份拷贝。这样收口的原因是 `uart_id` / `audio_mode` 只要漏传一处，
 全局音频就废掉，而且现象离原因很远：`exaudio` 内部 `uart_id` 缺省取 1，
 而 Air1103 实际挂在 UART6；`app/common/audio_hw.lua` 又把 `exaudio.setup`
 收口成只执行首次、`air1103.init` 也不换串口，所以**第一次 setup 的入参决定终身**。
 
-`hw.audio.play_model` 决定**播放**走哪条通路，只对 `model = "air1103"` 的板子有意义：
-录音固定走 Air1103，播放默认走芯片内置 DAC（不写就是 `"dac"`），显式写 `"air1103"` 退回单通路。
-两条通路对 `exaudio.model` 的要求互斥，`audio_route` 在录音前 / 播放前各重跑一次
-`exaudio.setup` 切过去；其它 `model`（es8311 / dac / 无音频）下 `enabled()` 恒为假，
-调用形态与没有该模块时完全一致，其它型号一个字节都不用动。
+`hw.audio.model` 决定**整条音频通路**，开机 `setup` 一次定全局，运行期不再切换：
+`"es8311"`（I2S 外部编解码）/ `"dac"`（主控内置 DAC）/ `"air1103"`（UART 语音芯片）。
+Air8605M/W、Air8603M1/W1 这类接了 Air1103 的板子写 `model = "air1103"` 即可：
+录音走 Air1103 的 UART MIC，播放走 Air1103 下行，只认 `type = 1`（TTS 文本）
+与 `type = 2`（流式 PCM），`type = 0`（文件）在这条通路上不成立。
+没有「录音走语音芯片、播放走内置 DAC」的双通路切换——那需要按需重跑 `exaudio.setup`，
+而 `exaudio` 每换一次 model 都要整套重配，两条控制路径会互相踩。
 
 音量与静音开关经全局消息 **`AUDIO_CFG_SYNC(level, mute)`**（`level` 0-100，`mute` = true 静音）
-同步，任何一处改动都收敛到 `audio_route.apply` 这一个生效点：它同时下发 `exaudio.vol`
+同步，任何一处改动都收敛到 `audio_hw.apply` 这一个生效点：它同时下发 `exaudio.vol`
 与 `audio_v2.soft_volume`。两者缺一不可——Air1103 机型上 `exaudio.vol` 只写语音芯片的音量寄存器，
-够不着内置 DAC 的数字增益，MP4 音轨的音量只能靠 `soft_volume` 控；反之一样。
+够不着内置 DAC 的数字增益，视频音轨的音量只能靠 `soft_volume` 控；反之一样。
 其它模块也可 `sys.publish(AUDIO_CFG_SYNC, vol, mute)` 驱动同一套生效逻辑。
 
 | 模块 | 文件 | 职责 |
 |------|------|------|
-| 参数组装 | `app/common/audio_hw.lua` | `hw.audio` → `exaudio.setup` 入参（必带 `uart_id`/`audio_mode`）+ 音量套用 |
-| 录音/播放分路 | `app/common/audio_route.lua` | Air1103 机型录音走语音芯片、播放走内置 DAC，按需重跑 `exaudio.setup`；`AUDIO_CFG_SYNC` 的生效点 |
-| MP4 伴音 | `app/common/pcm_play.lua` | 同名 `.pcm` 伴音流式播（16kHz/16bit/单声道），跟着主播放通路走 |
+| 参数组装 | `app/common/audio_hw.lua` | `hw.audio` → `exaudio.setup` 入参（必带 `uart_id`/`audio_mode`）+ 起播转发 + 音量套用（`AUDIO_CFG_SYNC` 的生效点） |
 | TTS 播报 | `app/common/tts_app.lua` | 云端/本地文本播报（`type = 1`） |
 | 录音回放 | `drv/periph/periph_audio.lua` | 录音 + 流式回放（Air1103 录 PCM_16000） |
 
@@ -413,28 +420,24 @@ UART13 通用串口；USB HID 与 UVC 二选一，见 6.8）。
 声音由芯片内置 DAC 播放，PA 功放使能脚直驱控制，`hw.audio` 写 `model = "dac"` + `pa_ctrl` + `pa_on_level`。
 8603 / 8607 的功放是 HT6873、高电平使能：`pa_ctrl = 73`（AUDIOPA_EN）、`pa_on_level = 1`，
 `power_on` 里先拉低关断，起播时拉高，`pa_delay` 是起播后延时开 PA 的毫秒数。
-MP4 的声音由 mplayer → C 层音频框架直接出，不需要 `.pcm` 伴音。
+视频素材（HZV）的音轨由 videoplayer 直接送进音频框架 → 内置 DAC，不经 exaudio。
 
 **Air1103 语音芯片**（8605W / 8605M / 8603M1 / 8603W1，UART6，固定 2M 波特率）单芯片集成
-MIC + 喇叭 + AEC，`exaudio` 走 `model = "air1103"` + `audio_mode = "new"`，只认两种起播方式：
-`type = 1`（TTS 文本）与 `type = 2`（流式 PCM），`type = 0`（文件）直接返回 `unsupported`。
-这几个型号「既接了 Air1103 也支持内置 DAC」，因此走分路：录音出 Air1103、播放出内置 DAC
-（`model = "air1103"` + `play_model = "dac"`），`type = 0` 在 DAC 通路上是合法的。
-只有显式写 `play_model = "air1103"` 退回单通路时，MJPG 的同名 `.mp3` 伴音才不成立，
-日志会明确提示并跳过。
+MIC + 喇叭 + AEC，`exaudio` 走 `model = "air1103"` + `audio_mode = "new"`，录音与播放同一条通路：
+录音出 Air1103 的 UART MIC（固定 `PCM_16000`，16kHz/16bit/单声道），
+播放走 Air1103 下行，只认两种起播方式 `type = 1`（TTS 文本）与 `type = 2`（流式 PCM），
+`type = 0`（文件）直接返回 `unsupported`。
 
-**MP4 伴音（兜底）**：MP4 的声音走 mplayer → C 层音频框架 → 芯片内置 DAC，与 `play_model = "dac"`
-的播放通路同一路。个别素材实测不出声时，给它配一份**同目录同名**的 `.pcm` 伴音兜底
-（16kHz/16bit/单声道小端）：画面由 mplayer 照常放，声音由 `pcm_play` 流式播，
-起播同刻启动即自然同步；暂停记断点续播，循环重播从头，都跟着播放器走。素材预转：
-
-```bash
-ffmpeg -i fruit.mp4 -ac 1 -ar 16000 -f s16le fruit.pcm
-```
-
-没配同名 `.pcm` 不报错；分路板只在日志里记「MP4 音轨走内置 DAC」，
-仍留在 Air1103 单通路的机型才提示缺伴音。伴音只在文件存在时启用，
-若某支素材的 mplayer 音轨本来就有声，两者会叠成双声，删掉同名 `.pcm` 即可。
+**HZV 的音轨**：音轨打在容器里（MP3 或 PCM_S16LE），由 videoplayer 自己调
+`luat_audio_request_play_stream` 送进音频框架，**不经 exaudio**，落到底层的内置 DAC 那一路。
+因此播放时只保持 PA 功放使能（`ui/video_util.lua` 的 `pa_reassert`），
+不去重跑 `exaudio.setup` —— 它的 DAC 收尾会 `audio_v2.shutdown` 关掉 codec 和功放，
+紧接着起播会让这一路没声音。停播 / 暂停后由 `pa_off` 关掉（停播要等释放窗口结束才关，
+否则截掉尾音会 pop）：PA 常开不关，DAC 空闲噪声会被放大成电流声。
+音轨能否解出来还看固件开关：`LUAT_USE_HZV` 与
+`LUAT_USE_AUDIO_V2` 要同时打开（`components/videoplayer/src/luat_videoplayer.c`），
+且 BSP 要注册 MP3 解码器、底层 DAC 要收得住素材的采样率（fruit.hzv 是 MP3 32000Hz 单声道）。
+接 Air1103 的板子上这一路同样走内置 DAC、不经语音芯片。
 
 ### 6.8 USB HID 与 UVC 二选一
 
@@ -453,15 +456,16 @@ USB 键鼠与 UVC 摄像头共用同一个 USB Host 与同一条供电轨，同�
 本板若把 GPIO12 拿去做别的信号（如 eng_8607w_10i_v0 的 Airlink RDY），必须写 `vbus_gpio = false`
 关掉这条驱动，否则会与该信号抢脚。
 
-### 6.9 桌面视频图层与弹窗避让
+### 6.9 桌面视频区与弹窗避让
 
-桌面（`ui/idle_win.lua`）默认素材是 `/luadb/fruit.mp4`，走 **mplayer 后端**：画面由后端自己送显，
-落在**独立硬件视频图层**（`luat_mplayer.c` 的 `g_video_layer.layer_id = 1`，UI 层 `layer_id = 0`），
-合成在 UI 层**之上**。LVGL 的父子关系 / 创建顺序 / z-order 对它完全无效，居中弹窗必被视频挡住。
-（这条结论只对 mplayer 后端成立；HZV / MJPG 走 videoplayer 后端，是逐帧拉 RGB565 塞进
-`lv_image`，确实走正常 LVGL 渲染。）
+桌面（`ui/idle_win.lua`）默认素材是 `/luadb/fruit.hzv`，走 **videoplayer 后端**：逐帧拉 RGB565
+塞进 `lv_image`，是正常 LVGL 渲染。但弹窗仍不能靠 z-order 避让，只能按几何避开 ——
+是两条层叠规则叠加的结果：
 
-所以弹窗不能靠 z-order 避让，只能按几何避开，统一走 `place_dialog(w, h)`：
+1. LVGL 同一父对象内**后创建的子对象画在上面**，谁后建谁在上；
+2. 视频**不支持缩放**，大素材会被强行撑回原生尺寸、越出画面区，与弹窗的重叠面还会被放大。
+
+于是居中弹窗「要么挡住画面、要么被画面盖住」，只能按几何避开，统一走 `place_dialog(w, h)`：
 
 | 场景 | 落位规则 |
 |------|---------|
@@ -572,10 +576,13 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     本路 `de_pin` 没配却在同一串口上配了别的 DE 脚时，发送翻的是兄弟路的 DE，本路的收发器
     仍停在接收态发不出去，日志会打 `本路缺 de_pin，发送时翻的是同串口其它路的 DE`，
     这种路必须补上真实 DE 脚。
-    另外注意 8603W3/W4/W5 与 8603M3/M4/M5 的 `485_EN2 = GPIO58` 是 UART2 那路 485 的 DE，
-    而 W1/W2/M1/M2 同一脚是 `UVC_EN`（这四型的 UVC 摄像头带人脸模组、要控电）。
-    W3~W5 / M3~M5 的 UVC 摄像头是常供电的普通 USB 摄像头，条目不写 en_pin、不动这个脚；
-    混刷配置会把方向脚当供电脚常拉高，第二路 485 直接失效，务必按出货型号取配置。
+    另外注意 8603W3/W4/W5 与 8603M3/M4/M5 的 PIN48 = GPIO58 一根脚两个职能：`485_EN2`
+    （UART2 那路 485 的 DE）与 `UVC_EN`（UVC 摄像头供电）共用，软件分时切换、互不影响
+    （`drv/periph/pin_share.lua`）：进 UVC 测试页拉高供电，退出归还给 DE；进 485 测试页
+    做 DE，摄像头还在供电会先停干净。第二路 485 不通先看日志有没有 `pin_share GPIO58 职能切换`
+    或 `DE 自检跳过`，能分清是切换没走完还是链路问题。
+    W1/W2/M1/M2 同一脚是独立的 `UVC_EN`（摄像头带人脸模组、要控电，UART2 是人脸控制串口）。
+    混刷配置仍要避免，务必按出货型号取配置。
     8603 十型号 UART1 那路 485（隔离与非隔离共用）的 DE 都是 `485_EN1 = PIN51 = GPIO65`，
     不是收发器自动方向；`485_EN = GPIO64` 是 485 功能总供电，两者别混。
 13. **万用表量 DE（方向脚）一直 0V、以为方向脚没驱动**：这是对的，别按它判断。485 是半双工，
@@ -615,13 +622,13 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     不存在插拔；ES8311 只能靠 I2C 读芯片 ID 判 codec 在不在总线上，判不了麦克风。
     所以界面只有「请接入麦克风后再录音」这句常驻提示，没有「麦克风已插入」这种状态显示。
 
-16. **播放 MP4 没有声音**：这几款（8605W / 8605M / 8603M1 / 8603W1）是 Air1103 录音 + 内置 DAC 播放，
-    MP4 的音轨走 mplayer → C 层音频框架 → 内置 DAC，与 TTS / 录音回放共用一路。
+16. **播放 HZV 没有声音**：这几款（8605W / 8605M / 8603M1 / 8603W1）是 Air1103 录音 + 内置 DAC 播放，
+    HZV 的音轨由 videoplayer 直接送进音频框架 → 内置 DAC，与 TTS / 录音回放共用一路。
     先看「设置 → 亮度和声音」的音量：DAC 那一路的音量靠 `audio_v2.soft_volume` 控，
     `AUDIO_CFG_SYNC` 会把它和 `exaudio.vol` 一起下发，任何一处没跟上都会表现为没声或音量不变。
-    素材本身没声就给 MP4 配一份同目录同名的 `.pcm` 伴音兜底（见 6.7「MP4 伴音」）。
-    录音与播放是两套通路，「功能测试 → 录音播放」录得到但 MP4 没声，问题在 DAC 侧而不是语音芯片侧。
-    8603 其余八型号 / 8607 是内置 DAC + 直驱 PA，MP4 声音直接出。
+    排完音量再看固件：`LUAT_USE_HZV` 与 `LUAT_USE_AUDIO_V2` 要同时打开（见 6.7「HZV 的音轨」），
+    素材本身也要带音轨。录音与播放是两套通路，「功能测试 → 录音播放」录得到但视频没声，
+    问题在 DAC 侧而不是语音芯片侧。8603 其余八型号 / 8607 是内置 DAC + 直驱 PA，声音直接出。
 
 17. **人脸识别摄像头测不出 / 录入一直「未检测到人脸」**：先分清是串口链路还是识别问题。
     点「版本」读得到模组固件版本，说明 UART2 链路与协议是通的；读不到先查接线
@@ -634,8 +641,8 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
     （`en_pin` 拉低 400ms 再拉高），让它回到人脸采集模式，人脸串口随之重开，
     这一段约 2 秒属正常等待。取版本 / 删除全部是纯串口指令，不做重枚举。
     供电与出图共用 `UVC_EN`，断电人脸模组一起掉，功能测试页把摄像头断电会连带杀掉人脸模组。
-18. **桌面弹窗被视频挡住 / 看不见按钮**：MP4 素材（默认 `/luadb/fruit.mp4`）走 mplayer 后端，
-    画面在独立硬件视频图层上、合成在 UI 层之上，LVGL 的 z-order 完全无效（见 6.9）。
+18. **桌面弹窗被视频挡住 / 看不见按钮**：视频不支持缩放，大素材会被撑回原生尺寸、越出画面区；
+    而 LVGL 同一父对象内后创建的子对象画在上面，重叠面谁后建谁在上（见 6.9）。
     工程已按几何避让，弹窗会挪到视频右侧空闲列（1024×600 是 x = 605、宽 407）或竖屏视频
     下方的空闲带；若仍被挡，多半是弹窗没走 `place_dialog` 落位，或者把 `airui.msgbox` 的
-    x / y 又改回了居中。HZV / MJPG 走 videoplayer 后端，是普通 LVGL 层叠，不适用这条。
+    x / y 又改回了居中。

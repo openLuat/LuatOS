@@ -1,8 +1,8 @@
 --[[
 @module  sd_app
 @summary Air8607 TF 卡挂载应用功能模块（挂载 /sd 并列举卡上的 HZV 素材）
-@version 1.0
-@date    2026.10.30
+@version 1.1
+@date    2026.11.10
 @author  江访
 @usage
 本文件为 Air8607 播放 SD 卡 HZV 素材 demo 的 TF 卡应用功能模块，核心业务逻辑为：
@@ -18,7 +18,7 @@
 4、sd_app.list_hzv：返回 /sd 根目录下的 HZV 素材列表，每项为 {path=, name=, size=}
 ]]
 
-local M = {}
+local sd_app = {}
 
 -- Air8607 的 TF 卡接在 SPI1 上，SPI1_CS = GPIO8，SD_EN = GPIO74
 local SD_SPI_ID  = 1
@@ -60,10 +60,10 @@ local used_spi_id = nil
 
 @usage
 if not sd_app.mount() then
-    log.error("main", "TF 卡挂载失败")
+    log.error("boot_app", "TF 卡挂载失败")
 end
 ]]
-function M.mount()
+function sd_app.mount()
     if mounted then
         return true
     end
@@ -111,7 +111,7 @@ end
 @usage
 sd_app.unmount()
 ]]
-function M.unmount()
+function sd_app.unmount()
     if not mounted then
         return
     end
@@ -142,10 +142,10 @@ end
 
 @usage
 if sd_app.is_mounted() then
-    log.info("main", "TF 卡可用")
+    log.info("boot_app", "TF 卡可用")
 end
 ]]
-function M.is_mounted()
+function sd_app.is_mounted()
     return mounted
 end
 
@@ -226,9 +226,9 @@ end
 
 @usage
 local files = sd_app.list_hzv()
-log.info("main", "TF 卡上的 HZV 素材数量", #files)
+log.info("boot_app", "TF 卡上的 HZV 素材数量", #files)
 ]]
-function M.list_hzv()
+function sd_app.list_hzv()
     local list = {}
     if not mounted then
         log.warn("sd_app", "TF 卡未挂载，素材列表为空")
@@ -245,4 +245,4 @@ function M.list_hzv()
     return list
 end
 
-return M
+return sd_app

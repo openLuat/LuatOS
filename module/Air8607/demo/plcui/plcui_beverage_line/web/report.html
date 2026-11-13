@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>产量统计报表</title>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div class="stage" id="stage" data-page="report">
+
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div>
+    <div class="hdr-wing r"></div>
+    <div class="hdr-title">产量统计报表 - 饮料灌装生产线</div>
+    <div class="hdr-status" style="left:716px;">
+      <div class="hdr-dot"></div>
+      <div class="hdr-state">运行中</div>
+      <div class="hdr-sep"></div>
+    </div>
+  </div>
+  <div class="plc" data-type="label" data-id="clock" data-fontsize="15" data-color="#cfe9f5"
+       data-align="right" data-text="2025-11-11 10:30:00"
+       style="left:800px;top:15px;width:208px;height:20px;font-size:15px;line-height:1;text-align:right;">2025-11-11 10:30:00</div>
+  <div class="plc btn plain sm" data-type="image" data-id="btn_home" data-states="normal,pressed" data-handler="show_overview"
+       style="left:12px;top:9px;width:90px;height:26px;font-size:13px;">◀ 产线总览</div>
+
+  <!-- 左侧报表导航 -->
+  <div class="panel" style="left:8px;top:58px;width:180px;height:412px;">
+    <div class="cap" style="min-width:110px;">报表类型</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+  <div class="plc navbtn sel" data-type="image" data-states="normal,checked" data-id="rp_1" data-handler="rp_1" style="left:16px;top:100px;width:164px;height:36px;"><span class="d"></span>日报</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="rp_2" data-handler="rp_2" style="left:16px;top:146px;width:164px;height:36px;"><span class="d"></span>周报</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="rp_3" data-handler="rp_3" style="left:16px;top:192px;width:164px;height:36px;"><span class="d"></span>月报</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="rp_4" data-handler="rp_4" style="left:16px;top:238px;width:164px;height:36px;"><span class="d"></span>年报</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="rp_5" data-handler="rp_5" style="left:16px;top:284px;width:164px;height:36px;"><span class="d"></span>班次对比</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="rp_6" data-handler="rp_6" style="left:16px;top:330px;width:164px;height:36px;"><span class="d"></span>产品统计</div>
+
+  <!-- 今日产量趋势（柱状） -->
+  <div class="panel" style="left:196px;top:58px;width:320px;height:252px;">
+    <div class="cap" style="min-width:130px;">今日产量趋势</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="axis-y" style="left:200px;top:100px;width:34px;">1000</div>
+  <div class="axis-y" style="left:200px;top:129px;width:34px;">800</div>
+  <div class="axis-y" style="left:200px;top:158px;width:34px;">600</div>
+  <div class="axis-y" style="left:200px;top:188px;width:34px;">400</div>
+  <div class="axis-y" style="left:200px;top:217px;width:34px;">200</div>
+  <div class="axis-y" style="left:200px;top:246px;width:34px;">0</div>
+  <div class="hint" style="left:236px;top:86px;width:120px;color:#6f9bb0;">单位：百瓶</div>
+
+  <div class="plc" data-type="chart" data-id="output_bar" data-chart="bar"
+       data-points="4" data-ymin="0" data-ymax="1000" data-hdiv="5" data-vdiv="0"
+       data-series="d1:#29d8f0,d2:#2ee6a0,d3:#2ee6a0,d4:#ffa62b"
+       style="left:236px;top:108px;width:268px;height:146px;"></div>
+
+  <div class="axis-x" style="left:250px;top:258px;width:60px;color:#cfe9f5;">白班</div>
+  <div class="axis-x" style="left:318px;top:258px;width:60px;color:#cfe9f5;">中班</div>
+  <div class="axis-x" style="left:386px;top:258px;width:60px;color:#cfe9f5;">夜班</div>
+  <div class="axis-x" style="left:454px;top:258px;width:60px;color:#cfe9f5;">夜班</div>
+
+  <!-- 合格率趋势（折线） -->
+  <div class="panel" style="left:524px;top:58px;width:268px;height:252px;">
+    <div class="cap" style="min-width:130px;">合格率趋势</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="legend" style="left:540px;top:100px;"><i style="background:#29d8f0"></i>99.81%</div>
+  <div class="legend" style="left:626px;top:100px;"><i style="background:#2ee6a0"></i>99.76%</div>
+  <div class="legend" style="left:712px;top:100px;"><i style="background:#ffa62b"></i>99.72%</div>
+
+  <div class="axis-y" style="left:528px;top:130px;width:26px;">100</div>
+  <div class="axis-y" style="left:528px;top:160px;width:26px;">80</div>
+  <div class="axis-y" style="left:528px;top:190px;width:26px;">60</div>
+  <div class="axis-y" style="left:528px;top:220px;width:26px;">40</div>
+  <div class="axis-y" style="left:528px;top:250px;width:26px;">20</div>
+  <div class="axis-y" style="left:528px;top:268px;width:26px;">0</div>
+
+  <div class="plc" data-type="chart" data-id="pass_line" data-chart="line"
+       data-points="5" data-ymin="0" data-ymax="100" data-hdiv="5" data-vdiv="0"
+       data-series="rate:#ffa62b"
+       style="left:558px;top:132px;width:216px;height:146px;"></div>
+
+  <div class="axis-x" style="left:552px;top:286px;width:40px;">班次1</div>
+  <div class="axis-x" style="left:594px;top:286px;width:40px;">班次2</div>
+  <div class="axis-x" style="left:636px;top:286px;width:40px;">班次3</div>
+  <div class="axis-x" style="left:678px;top:286px;width:40px;">班次4</div>
+  <div class="axis-x" style="left:720px;top:286px;width:40px;">班次5</div>
+
+  <!-- 右侧 KPI -->
+  <div class="panel" style="left:800px;top:58px;width:216px;height:252px;">
+    <div class="cap" style="min-width:100px;">关键指标</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="tile" style="left:810px;top:94px;width:196px;height:48px;padding:4px 10px;">
+    <div class="k" style="font-size:12px;">总产量</div>
+  </div>
+  <div class="plc" data-type="label" data-id="k_total" data-fontsize="20" data-color="#ffd479" data-align="left" data-text="28640瓶"
+       style="left:818px;top:114px;width:180px;height:24px;font-size:20px;font-weight:700;line-height:1;color:#ffd479;">28640瓶</div>
+
+  <div class="tile" style="left:810px;top:150px;width:196px;height:48px;padding:4px 10px;">
+    <div class="k" style="font-size:12px;">平均速度</div>
+  </div>
+  <div class="plc" data-type="label" data-id="k_speed" data-fontsize="19" data-color="#ffd479" data-align="left" data-text="420瓶/分钟"
+       style="left:818px;top:170px;width:180px;height:23px;font-size:19px;font-weight:700;line-height:1;color:#ffd479;">420瓶/分钟</div>
+
+  <div class="tile" style="left:810px;top:206px;width:196px;height:48px;padding:4px 10px;">
+    <div class="k" style="font-size:12px;">合格率 / 不良品</div>
+  </div>
+  <div class="plc" data-type="label" data-id="k_pass" data-fontsize="18" data-color="#2ee6a0" data-align="left" data-text="99.72%"
+       style="left:818px;top:226px;width:90px;height:22px;font-size:18px;font-weight:700;line-height:1;color:#2ee6a0;">99.72%</div>
+  <div class="plc" data-type="label" data-id="k_bad" data-fontsize="18" data-color="#ff8a9b" data-align="left" data-text="79瓶"
+       style="left:916px;top:226px;width:82px;height:22px;font-size:18px;font-weight:700;line-height:1;color:#ff8a9b;">79瓶</div>
+
+  <div class="tile" style="left:810px;top:262px;width:196px;height:40px;padding:4px 10px;">
+    <div class="k" style="font-size:12px;">设备综合效率</div>
+    <div style="font-size:17px;font-weight:700;color:#ffffff;margin-top:-2px;">86%</div>
+  </div>
+
+  <!-- 不良品原因分析 -->
+  <div class="panel" style="left:196px;top:318px;width:820px;height:152px;">
+    <div class="cap" style="min-width:150px;">不良品原因分析</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="plc" data-type="table" data-id="defect_table" data-fontsize="12"
+       data-rows="5" data-cols="7" data-rowheight="22" data-padding="4" data-grid="false" data-header="true"
+       data-widths="140,64,64,64,64,64,100" data-aligns="left,center,center,center,center,center,center"
+       style="left:204px;top:352px;width:560px;height:112px;"></div>
+
+  <div class="plc btn" data-type="image" data-id="btn_excel" data-states="normal,pressed" data-handler="on_excel" style="left:776px;top:352px;width:110px;height:28px;">导出Excel</div>
+  <div class="plc btn plain" data-type="image" data-id="btn_print" data-states="normal,pressed" data-handler="on_print" style="left:894px;top:352px;width:110px;height:28px;">打印报表</div>
+  <div class="plc btn orange" data-type="image" data-id="btn_pdf" data-states="normal,pressed" data-handler="on_pdf" style="left:776px;top:390px;width:110px;height:28px;">导出PDF</div>
+  <div class="plc btn plain" data-type="image" data-id="btn_mail" data-states="normal,pressed" data-handler="on_mail" style="left:894px;top:390px;width:110px;height:28px;">邮件推送</div>
+
+  <div class="plc" data-type="label" data-id="feedback" data-fontsize="12" data-color="#7ff2ff" data-align="left" data-text="报表已汇总至 10:30"
+       style="left:204px;top:322px;width:180px;height:16px;font-size:12px;line-height:1;color:#7ff2ff;">报表已汇总至 10:30</div>
+
+</div>
+</body>
+</html>

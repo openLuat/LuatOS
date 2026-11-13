@@ -41,10 +41,14 @@ handle:status()  → { enabled=bool, info=string }
 - 供电控制默认禁止使用 GPIO12（8605 等机型上该脚是 VBUS 与 5V_EN 共轨，
   拉低会断触摸供电）；仅当配置显式写 pin12_free = true 时才放开，
   用于 GPIO12 独立做 UVC_EN 的机型（如 Engine_Air8607A）
+- **en_pin 与别的外设 de_pin 共用一脚时**（8603W3~W5 / M3~M5 的 GPIO58 = UVC_EN = 485_EN2），
+  经 pin_share 按职能互斥认领：start 认领（把还挂着该脚的 485 路停干净再供电）、stop 归还，
+  两个功能相互切换、互不影响；上电稳定等待期间被别的职能切走时本次 start 作废返回 false
 - 所有 gpio.* 调用 pcall 包裹，失败返回 false + 错误串
 ]]
 
 local airlink_pin = require "airlink_pin"
+local pin_share = require "pin_share"
 
 local M = {}
 
@@ -75,6 +79,17 @@ local function check_en_pin(p)
     return true
 end
 
+-- 共享 en_pin 被别的职能（如 485_EN2 的 DE）切走时的交接回调：
+-- 用到该脚的全部实例就地标记断电（含上电稳定等待中的），脚电平归新主管，这里不再动
+local function uvc_lost(pin)
+    for _, h in pairs(instances) do
+        if h.enabled and h.params and h.params.en_pin == pin then
+            h.enabled = false
+            log.info("periph_uvc", "UVC_EN 脚已切给其它职能，供电交出", h.id, "GPIO" .. tostring(pin))
+        end
+    end
+end
+
 -- 打开摄像头供电
 local function uvc_start(self)
     local p = self and self.params
@@ -83,10 +98,19 @@ local function uvc_start(self)
     if not ok then return false, err end
     if self.enabled then return true end
 
-    pin_set(p.en_pin, 1)
-    wait_ms(p.ready_delay or 200)
-
+    -- 先挂牌再等稳定：等待期间被别的职能切走时 uvc_lost 能停到它，等完再复核认领
     self.enabled = true
+    if p.en_pin then
+        local owner = "uvc:" .. tostring(self.id)
+        pin_share.claim(p.en_pin, "uvc_en", owner, uvc_lost)
+        pin_set(p.en_pin, 1)
+        wait_ms(p.ready_delay or 200)
+        if pin_share.role(p.en_pin) ~= "uvc_en" then
+            self.enabled = false
+            return false, "GPIO" .. tostring(p.en_pin) .. " 已切给其它职能，UVC 供电未生效"
+        end
+    end
+
     log.info("periph_uvc", "UVC 供电已打开", self.id, p.en_pin or "常供电", (p.ready_delay or 200) .. "ms")
     return true
 end
@@ -97,8 +121,14 @@ local function uvc_stop(self)
     if not self.enabled then return true end
     local p = self.params
 
-    pin_set(p.en_pin, 0)
     self.enabled = false
+    if p.en_pin then
+        -- 还握着这根脚才动电平：中途被别的职能切走时电平已归新主管
+        if pin_share.role(p.en_pin) == "uvc_en" then
+            pin_set(p.en_pin, 0)
+        end
+        pin_share.release(p.en_pin, "uvc:" .. tostring(self.id))
+    end
     log.info("periph_uvc", "UVC 供电已关闭", self.id)
     return true
 end

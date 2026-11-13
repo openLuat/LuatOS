@@ -1,0 +1,459 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="ov">
+  <resources>
+    <image id="bg_ov" src="bg_ov.jpg"/>
+    <image id="nav_ov_n" src="nav_ov_n.png"/>
+    <image id="nav_ov_c" src="nav_ov_c.png"/>
+    <image id="nav_mc_n" src="nav_mc_n.png"/>
+    <image id="nav_mc_c" src="nav_mc_c.png"/>
+    <image id="nav_ctl_n" src="nav_ctl_n.png"/>
+    <image id="nav_ctl_c" src="nav_ctl_c.png"/>
+    <image id="nav_pr_n" src="nav_pr_n.png"/>
+    <image id="nav_pr_c" src="nav_pr_c.png"/>
+    <image id="nav_rc_n" src="nav_rc_n.png"/>
+    <image id="nav_rc_c" src="nav_rc_c.png"/>
+    <image id="anim_belt_0" src="anim_belt_0.png"/>
+    <image id="anim_belt_1" src="anim_belt_1.png"/>
+    <image id="anim_belt_2" src="anim_belt_2.png"/>
+    <image id="anim_belt_3" src="anim_belt_3.png"/>
+    <image id="anim_belt_4" src="anim_belt_4.png"/>
+    <image id="anim_belt_5" src="anim_belt_5.png"/>
+    <image id="anim_belt_6" src="anim_belt_6.png"/>
+    <image id="anim_belt_7" src="anim_belt_7.png"/>
+    <image id="bg_mc" src="bg_mc.jpg"/>
+    <image id="mc_sel_m1_n" src="mc_sel_m1_n.png"/>
+    <image id="mc_sel_m1_c" src="mc_sel_m1_c.png"/>
+    <image id="mc_sel_m2_n" src="mc_sel_m2_n.png"/>
+    <image id="mc_sel_m2_c" src="mc_sel_m2_c.png"/>
+    <image id="mc_sel_m3_n" src="mc_sel_m3_n.png"/>
+    <image id="mc_sel_m3_c" src="mc_sel_m3_c.png"/>
+    <image id="anim_phase_0" src="anim_phase_0.png"/>
+    <image id="anim_phase_1" src="anim_phase_1.png"/>
+    <image id="anim_phase_2" src="anim_phase_2.png"/>
+    <image id="anim_phase_3" src="anim_phase_3.png"/>
+    <image id="anim_phase_4" src="anim_phase_4.png"/>
+    <image id="anim_phase_5" src="anim_phase_5.png"/>
+    <image id="anim_phase_6" src="anim_phase_6.png"/>
+    <image id="bar230_g_0" src="bar230_g_0.png"/>
+    <image id="bar230_g_1" src="bar230_g_1.png"/>
+    <image id="bar230_g_2" src="bar230_g_2.png"/>
+    <image id="bar230_g_3" src="bar230_g_3.png"/>
+    <image id="bar230_g_4" src="bar230_g_4.png"/>
+    <image id="bar230_g_5" src="bar230_g_5.png"/>
+    <image id="bar230_g_6" src="bar230_g_6.png"/>
+    <image id="bar230_g_7" src="bar230_g_7.png"/>
+    <image id="bar230_g_8" src="bar230_g_8.png"/>
+    <image id="bar230_g_9" src="bar230_g_9.png"/>
+    <image id="bar230_y_0" src="bar230_y_0.png"/>
+    <image id="bar230_y_1" src="bar230_y_1.png"/>
+    <image id="bar230_y_2" src="bar230_y_2.png"/>
+    <image id="bar230_y_3" src="bar230_y_3.png"/>
+    <image id="bar230_y_4" src="bar230_y_4.png"/>
+    <image id="bar230_y_5" src="bar230_y_5.png"/>
+    <image id="bar230_y_6" src="bar230_y_6.png"/>
+    <image id="bar230_y_7" src="bar230_y_7.png"/>
+    <image id="bar230_y_8" src="bar230_y_8.png"/>
+    <image id="bar230_y_9" src="bar230_y_9.png"/>
+    <image id="bar230_o_0" src="bar230_o_0.png"/>
+    <image id="bar230_o_1" src="bar230_o_1.png"/>
+    <image id="bar230_o_2" src="bar230_o_2.png"/>
+    <image id="bar230_o_3" src="bar230_o_3.png"/>
+    <image id="bar230_o_4" src="bar230_o_4.png"/>
+    <image id="bar230_o_5" src="bar230_o_5.png"/>
+    <image id="bar230_o_6" src="bar230_o_6.png"/>
+    <image id="bar230_o_7" src="bar230_o_7.png"/>
+    <image id="bar230_o_8" src="bar230_o_8.png"/>
+    <image id="bar230_o_9" src="bar230_o_9.png"/>
+    <image id="bg_ctl" src="bg_ctl.jpg"/>
+    <image id="ctl_btn_start_n" src="ctl_btn_start_n.png"/>
+    <image id="ctl_btn_start_p" src="ctl_btn_start_p.png"/>
+    <image id="ctl_btn_stop_n" src="ctl_btn_stop_n.png"/>
+    <image id="ctl_btn_stop_p" src="ctl_btn_stop_p.png"/>
+    <image id="ctl_btn_pause_n" src="ctl_btn_pause_n.png"/>
+    <image id="ctl_btn_pause_p" src="ctl_btn_pause_p.png"/>
+    <image id="ctl_btn_reset_n" src="ctl_btn_reset_n.png"/>
+    <image id="ctl_btn_reset_p" src="ctl_btn_reset_p.png"/>
+    <image id="ctl_mode_auto_n" src="ctl_mode_auto_n.png"/>
+    <image id="ctl_mode_auto_c" src="ctl_mode_auto_c.png"/>
+    <image id="ctl_mode_semi_n" src="ctl_mode_semi_n.png"/>
+    <image id="ctl_mode_semi_c" src="ctl_mode_semi_c.png"/>
+    <image id="ctl_mode_man_n" src="ctl_mode_man_n.png"/>
+    <image id="ctl_mode_man_c" src="ctl_mode_man_c.png"/>
+    <image id="ctl_jog_open_n" src="ctl_jog_open_n.png"/>
+    <image id="ctl_jog_open_p" src="ctl_jog_open_p.png"/>
+    <image id="ctl_jog_close_n" src="ctl_jog_close_n.png"/>
+    <image id="ctl_jog_close_p" src="ctl_jog_close_p.png"/>
+    <image id="ctl_jog_eject_n" src="ctl_jog_eject_n.png"/>
+    <image id="ctl_jog_eject_p" src="ctl_jog_eject_p.png"/>
+    <image id="ctl_jog_inj_n" src="ctl_jog_inj_n.png"/>
+    <image id="ctl_jog_inj_p" src="ctl_jog_inj_p.png"/>
+    <image id="ctl_jog_feed_n" src="ctl_jog_feed_n.png"/>
+    <image id="ctl_jog_feed_p" src="ctl_jog_feed_p.png"/>
+    <image id="ctl_jog_rob_n" src="ctl_jog_rob_n.png"/>
+    <image id="ctl_jog_rob_p" src="ctl_jog_rob_p.png"/>
+    <image id="ctl_sw_1_n" src="ctl_sw_1_n.png"/>
+    <image id="ctl_sw_1_c" src="ctl_sw_1_c.png"/>
+    <image id="ctl_sw_2_n" src="ctl_sw_2_n.png"/>
+    <image id="ctl_sw_2_c" src="ctl_sw_2_c.png"/>
+    <image id="ctl_sw_3_n" src="ctl_sw_3_n.png"/>
+    <image id="ctl_sw_3_c" src="ctl_sw_3_c.png"/>
+    <image id="ctl_sw_4_n" src="ctl_sw_4_n.png"/>
+    <image id="ctl_sw_4_c" src="ctl_sw_4_c.png"/>
+    <image id="ctl_sw_5_n" src="ctl_sw_5_n.png"/>
+    <image id="ctl_sw_5_c" src="ctl_sw_5_c.png"/>
+    <image id="ctl_sw_6_n" src="ctl_sw_6_n.png"/>
+    <image id="ctl_sw_6_c" src="ctl_sw_6_c.png"/>
+    <image id="ctl_sw_7_n" src="ctl_sw_7_n.png"/>
+    <image id="ctl_sw_7_c" src="ctl_sw_7_c.png"/>
+    <image id="ctl_sw_8_n" src="ctl_sw_8_n.png"/>
+    <image id="ctl_sw_8_c" src="ctl_sw_8_c.png"/>
+    <image id="ctl_sw_9_n" src="ctl_sw_9_n.png"/>
+    <image id="ctl_sw_9_c" src="ctl_sw_9_c.png"/>
+    <image id="ctl_sw_10_n" src="ctl_sw_10_n.png"/>
+    <image id="ctl_sw_10_c" src="ctl_sw_10_c.png"/>
+    <image id="ctl_btn_clear_n" src="ctl_btn_clear_n.png"/>
+    <image id="ctl_btn_clear_p" src="ctl_btn_clear_p.png"/>
+    <image id="ctl_btn_shift_n" src="ctl_btn_shift_n.png"/>
+    <image id="ctl_btn_shift_p" src="ctl_btn_shift_p.png"/>
+    <image id="ctl_btn_hisav_n" src="ctl_btn_hisav_n.png"/>
+    <image id="ctl_btn_hisav_p" src="ctl_btn_hisav_p.png"/>
+    <image id="ctl_btn_alarmack_n" src="ctl_btn_alarmack_n.png"/>
+    <image id="ctl_btn_alarmack_p" src="ctl_btn_alarmack_p.png"/>
+    <image id="ctl_btn_hist_n" src="ctl_btn_hist_n.png"/>
+    <image id="ctl_btn_hist_p" src="ctl_btn_hist_p.png"/>
+    <image id="bar170_g_0" src="bar170_g_0.png"/>
+    <image id="bar170_g_1" src="bar170_g_1.png"/>
+    <image id="bar170_g_2" src="bar170_g_2.png"/>
+    <image id="bar170_g_3" src="bar170_g_3.png"/>
+    <image id="bar170_g_4" src="bar170_g_4.png"/>
+    <image id="bar170_g_5" src="bar170_g_5.png"/>
+    <image id="bar170_g_6" src="bar170_g_6.png"/>
+    <image id="bar170_g_7" src="bar170_g_7.png"/>
+    <image id="bar170_g_8" src="bar170_g_8.png"/>
+    <image id="bar170_g_9" src="bar170_g_9.png"/>
+    <image id="bar170_o_0" src="bar170_o_0.png"/>
+    <image id="bar170_o_1" src="bar170_o_1.png"/>
+    <image id="bar170_o_2" src="bar170_o_2.png"/>
+    <image id="bar170_o_3" src="bar170_o_3.png"/>
+    <image id="bar170_o_4" src="bar170_o_4.png"/>
+    <image id="bar170_o_5" src="bar170_o_5.png"/>
+    <image id="bar170_o_6" src="bar170_o_6.png"/>
+    <image id="bar170_o_7" src="bar170_o_7.png"/>
+    <image id="bar170_o_8" src="bar170_o_8.png"/>
+    <image id="bar170_o_9" src="bar170_o_9.png"/>
+    <image id="bg_pr" src="bg_pr.jpg"/>
+    <image id="pr_rc_sel1_n" src="pr_rc_sel1_n.png"/>
+    <image id="pr_rc_sel1_c" src="pr_rc_sel1_c.png"/>
+    <image id="pr_rc_sel2_n" src="pr_rc_sel2_n.png"/>
+    <image id="pr_rc_sel2_c" src="pr_rc_sel2_c.png"/>
+    <image id="pr_rc_sel3_n" src="pr_rc_sel3_n.png"/>
+    <image id="pr_rc_sel3_c" src="pr_rc_sel3_c.png"/>
+    <image id="pr_rc_sel4_n" src="pr_rc_sel4_n.png"/>
+    <image id="pr_rc_sel4_c" src="pr_rc_sel4_c.png"/>
+    <image id="pr_btn_apply_n" src="pr_btn_apply_n.png"/>
+    <image id="pr_btn_apply_p" src="pr_btn_apply_p.png"/>
+    <image id="pr_btn_def_n" src="pr_btn_def_n.png"/>
+    <image id="pr_btn_def_p" src="pr_btn_def_p.png"/>
+    <image id="pr_btn_upld_n" src="pr_btn_upld_n.png"/>
+    <image id="pr_btn_upld_p" src="pr_btn_upld_p.png"/>
+    <image id="pr_btn_dnld_n" src="pr_btn_dnld_n.png"/>
+    <image id="pr_btn_dnld_p" src="pr_btn_dnld_p.png"/>
+    <image id="bg_rc" src="bg_rc.jpg"/>
+    <image id="rc_btn_ack2_n" src="rc_btn_ack2_n.png"/>
+    <image id="rc_btn_ack2_p" src="rc_btn_ack2_p.png"/>
+    <image id="rc_btn_prev_n" src="rc_btn_prev_n.png"/>
+    <image id="rc_btn_prev_p" src="rc_btn_prev_p.png"/>
+    <image id="rc_btn_next_n" src="rc_btn_next_n.png"/>
+    <image id="rc_btn_next_p" src="rc_btn_next_p.png"/>
+  </resources>
+  <pages>
+    <page id="ov" background="#0a1622">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_ov"/>
+      <image id="anim_belt" x="31" y="325" w="756" h="36" src="anim_belt_0"/>
+      <label id="clock" x="1710" y="88" w="200" h="16" font="hzfont" font_size="12" color="#8fb6c9" align="right" text="2026-11-11 20:35:04"/>
+      <label id="m1st" x="167" y="282" w="22" h="15" font="hzfont" font_size="11" color="#2ee6a0" align="left" text="运行"/>
+      <label id="m2st" x="427" y="282" w="22" h="15" font="hzfont" font_size="11" color="#2ee6a0" align="left" text="运行"/>
+      <label id="m3st" x="687" y="282" w="22" h="15" font="hzfont" font_size="11" color="#2ee6a0" align="left" text="运行"/>
+      <label id="m1shot" x="105" y="301" w="110" h="14" font="hzfont" font_size="11" color="#9fd7ea" align="center" text="模次 12450"/>
+      <label id="m2shot" x="365" y="301" w="110" h="14" font="hzfont" font_size="11" color="#9fd7ea" align="center" text="模次 11982"/>
+      <label id="m3shot" x="625" y="301" w="110" h="14" font="hzfont" font_size="11" color="#9fd7ea" align="center" text="模次 12211"/>
+      <label id="belt_spd" x="33" y="365" w="240" h="14" font="hzfont" font_size="11" color="#6d97ab" align="left" text="输送带 12.5 m/min · 运行"/>
+      <label id="belt_cnt" x="567" y="365" w="220" h="14" font="hzfont" font_size="11" color="#6d97ab" align="right" text="本班入仓 3842 模"/>
+      <label id="dry_st" x="45" y="503" w="68" h="13" font="hzfont" font_size="10" color="#2ee6a0" align="center" text="120℃ 运行"/>
+      <label id="cool_st" x="205" y="503" w="290" h="13" font="hzfont" font_size="10" color="#2ee6a0" align="center" text="冷却水 24.6℃ · 模温 45.2℃ · 流量 86 L/min"/>
+      <label id="pack_st" x="529" y="503" w="250" h="13" font="hzfont" font_size="10" color="#2ee6a0" align="center" text="包装 25 kg/袋 · 今日 156 袋"/>
+      <label id="kpi_out" x="842" y="127" w="57" h="31" font="hzfont" font_size="26" color="#44dcf6" align="left" text="3842"/>
+      <label id="kpi_rate" x="927" y="160" w="32" h="15" font="hzfont" font_size="11" color="#6d97ab" align="left" text="91.5%"/>
+      <label id="kpi_yield" x="842" y="210" w="48" h="26" font="hzfont" font_size="22" color="#2ee6a0" align="left" text="99.2"/>
+      <label id="kpi_oee" x="934" y="210" w="48" h="26" font="hzfont" font_size="22" color="#44dcf6" align="left" text="87.5"/>
+      <label id="kpi_cyc" x="842" y="292" w="48" h="26" font="hzfont" font_size="22" color="#44dcf6" align="left" text="32.5"/>
+      <label id="st_m1" x="831" y="365" w="176" h="18" font="hzfont" font_size="12" color="#cfe9f5" align="left" text="1# 运行 · 215℃ · 自动"/>
+      <label id="st_m2" x="831" y="387" w="176" h="18" font="hzfont" font_size="12" color="#cfe9f5" align="left" text="2# 运行 · 218℃ · 自动"/>
+      <label id="st_m3" x="831" y="409" w="176" h="18" font="hzfont" font_size="12" color="#cfe9f5" align="left" text="3# 运行 · 212℃ · 自动"/>
+      <label id="al_txt" x="866" y="471" w="126" h="15" font="hzfont" font_size="11" color="#ffc98a" align="left" text="2# 料温偏高 2℃"/>
+      <label id="al_cnt" x="859" y="502" w="6" h="15" font="hzfont" font_size="11" color="#ffd23e" align="left" text="2"/>
+      <image id="nav_ov" x="252" y="566" w="96" h="30" src="nav_ov_n" src-checked="nav_ov_c" clickable="true" on-click="show_ov"/>
+      <image id="nav_mc" x="356" y="566" w="96" h="30" src="nav_mc_n" src-checked="nav_mc_c" clickable="true" on-click="show_mc"/>
+      <image id="nav_ctl" x="460" y="566" w="96" h="30" src="nav_ctl_n" src-checked="nav_ctl_c" clickable="true" on-click="show_ctl"/>
+      <image id="nav_pr" x="564" y="566" w="96" h="30" src="nav_pr_n" src-checked="nav_pr_c" clickable="true" on-click="show_pr"/>
+      <image id="nav_rc" x="668" y="566" w="96" h="30" src="nav_rc_n" src-checked="nav_rc_c" clickable="true" on-click="show_rc"/>
+    </page>
+    <page id="mc" background="#0a1622">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_mc"/>
+      <image id="anim_phase" x="255" y="101" w="396" h="24" src="anim_phase_0"/>
+      <image id="bar_t1" x="331" y="185" w="230" h="16" src="bar230_g_5"/>
+      <image id="bar_t2" x="331" y="211" w="230" h="16" src="bar230_g_5"/>
+      <image id="bar_t3" x="331" y="237" w="230" h="16" src="bar230_g_5"/>
+      <image id="bar_t4" x="331" y="263" w="230" h="16" src="bar230_y_5"/>
+      <image id="bar_t5" x="331" y="289" w="230" h="16" src="bar230_g_5"/>
+      <image id="bar_t6" x="331" y="315" w="230" h="16" src="bar230_g_5"/>
+      <image id="bar_p1" x="331" y="373" w="230" h="16" src="bar230_o_5"/>
+      <image id="bar_p2" x="331" y="399" w="230" h="16" src="bar230_o_5"/>
+      <image id="bar_p3" x="331" y="425" w="230" h="16" src="bar230_g_5"/>
+      <image id="bar_p4" x="331" y="451" w="230" h="16" src="bar230_g_5"/>
+      <label id="clock" x="1702" y="88" w="200" h="16" font="hzfont" font_size="12" color="#8fb6c9" align="right" text="2026-11-11 20:35:11"/>
+      <image id="sel_m1" x="25" y="103" w="192" h="52" src="mc_sel_m1_n" src-checked="mc_sel_m1_c" clickable="true" on-click="sel_m1"/>
+      <image id="sel_m2" x="25" y="163" w="192" h="52" src="mc_sel_m2_n" src-checked="mc_sel_m2_c" clickable="true" on-click="sel_m2"/>
+      <image id="sel_m3" x="25" y="223" w="192" h="52" src="mc_sel_m3_n" src-checked="mc_sel_m3_c" clickable="true" on-click="sel_m3"/>
+      <label id="mc_st" x="27" y="319" w="190" h="20" font="hzfont" font_size="14" color="#2ee6a0" align="left" text="● 自动运行中"/>
+      <label id="mc_shot" x="27" y="345" w="190" h="18" font="hzfont" font_size="13" color="#cfe9f5" align="left" text="累计模次：12450"/>
+      <label id="mc_cyc" x="27" y="367" w="190" h="18" font="hzfont" font_size="13" color="#cfe9f5" align="left" text="当前周期：32.5 s"/>
+      <label id="mc_good" x="27" y="389" w="190" h="18" font="hzfont" font_size="13" color="#cfe9f5" align="left" text="班次良品：1263 模"/>
+      <label id="mc_clamp" x="27" y="445" w="190" h="18" font="hzfont" font_size="13" color="#44dcf6" align="left" text="锁模力 1286 kN"/>
+      <label id="mc_pos" x="27" y="467" w="190" h="18" font="hzfont" font_size="13" color="#44dcf6" align="left" text="开模位置 312 mm"/>
+      <label id="mc_vel" x="27" y="489" w="190" h="18" font="hzfont" font_size="13" color="#44dcf6" align="left" text="注射速度 86 mm/s"/>
+      <label id="mc_screw" x="27" y="511" w="190" h="18" font="hzfont" font_size="13" color="#44dcf6" align="left" text="螺杆转速 125 rpm"/>
+      <label id="ph_prog" x="309" y="132" w="23" h="15" font="hzfont" font_size="11" color="#44dcf6" align="left" text="32%"/>
+      <label id="ph_time" x="393" y="132" w="24" h="15" font="hzfont" font_size="11" color="#44dcf6" align="left" text="1.2 s"/>
+      <label id="tv_t1" x="569" y="184" w="80" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="210 / 210"/>
+      <label id="tv_t2" x="569" y="210" w="80" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="215 / 215"/>
+      <label id="tv_t3" x="569" y="236" w="80" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="220 / 220"/>
+      <label id="tv_t4" x="569" y="262" w="80" h="18" font="hzfont" font_size="12" color="#ffd23e" align="right" text="218 / 215"/>
+      <label id="tv_t5" x="569" y="288" w="80" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="225 / 225"/>
+      <label id="tv_t6" x="569" y="314" w="80" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="45 / 45"/>
+      <label id="pv_p1" x="569" y="372" w="80" h="18" font="hzfont" font_size="12" color="#ffa62b" align="right" text="125.0"/>
+      <label id="pv_p2" x="569" y="398" w="80" h="18" font="hzfont" font_size="12" color="#ffa62b" align="right" text="85.0"/>
+      <label id="pv_p3" x="569" y="424" w="80" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="12.5"/>
+      <label id="pv_p4" x="569" y="450" w="80" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="1286 kN"/>
+      <label id="mc_spos" x="309" y="510" w="46" h="15" font="hzfont" font_size="11" color="#44dcf6" align="left" text="48.2 mm"/>
+      <label id="mc_cush" x="392" y="510" w="39" h="15" font="hzfont" font_size="11" color="#44dcf6" align="left" text="6.8 mm"/>
+      <label id="mc_dose" x="285" y="534" w="24" h="15" font="hzfont" font_size="11" color="#44dcf6" align="left" text="2.8 s"/>
+      <label id="mc_rest" x="346" y="534" w="39" h="15" font="hzfont" font_size="11" color="#44dcf6" align="left" text="8.2 mm"/>
+      <chart id="chart_t" x="685" y="115" w="320" h="120" type="line" point-count="25" y-min="180" y-max="240" hdiv="4" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1d5871">
+        <series id="t1" color="#29d8f0" values="210,211,209,210,212,211,210,209,211,212,210,211,209,210,211,212,210,209,210,211,210,209,211,210,210"/>
+        <series id="t2" color="#2ee6a0" values="215,216,214,215,217,216,215,214,216,217,215,216,214,215,216,217,215,214,215,216,215,214,216,215,215"/>
+        <series id="t5" color="#ffa62b" values="225,226,224,225,227,226,225,224,226,227,225,226,224,225,226,227,225,224,225,226,225,224,226,225,225"/>
+      </chart>
+      <chart id="chart_p" x="685" y="259" w="320" h="120" type="line" point-count="25" y-min="0" y-max="200" hdiv="4" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1d5871">
+        <series id="p1" color="#ffa62b" values="125,128,122,126,130,127,124,121,125,129,126,123,120,124,128,127,125,122,126,129,125,123,127,126,125"/>
+        <series id="p2" color="#ff6b81" values="85,87,83,86,88,86,84,82,85,87,86,84,82,85,87,86,85,83,86,87,85,84,86,85,85"/>
+      </chart>
+      <label id="mc_upd" x="873" y="396" w="44" h="15" font="hzfont" font_size="11" color="#6d97ab" align="left" text="08:00:00"/>
+      <image id="nav_ov" x="252" y="566" w="96" h="30" src="nav_ov_n" src-checked="nav_ov_c" clickable="true" on-click="show_ov"/>
+      <image id="nav_mc" x="356" y="566" w="96" h="30" src="nav_mc_n" src-checked="nav_mc_c" clickable="true" on-click="show_mc"/>
+      <image id="nav_ctl" x="460" y="566" w="96" h="30" src="nav_ctl_n" src-checked="nav_ctl_c" clickable="true" on-click="show_ctl"/>
+      <image id="nav_pr" x="564" y="566" w="96" h="30" src="nav_pr_n" src-checked="nav_pr_c" clickable="true" on-click="show_pr"/>
+      <image id="nav_rc" x="668" y="566" w="96" h="30" src="nav_rc_n" src-checked="nav_rc_c" clickable="true" on-click="show_rc"/>
+    </page>
+    <page id="ctl" background="#0a1622">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_ctl"/>
+      <image id="bar_ao1" x="771" y="267" w="170" h="16" src="bar170_g_5"/>
+      <image id="bar_ao2" x="771" y="293" w="170" h="16" src="bar170_o_5"/>
+      <image id="bar_ao3" x="771" y="319" w="170" h="16" src="bar170_g_5"/>
+      <image id="bar_ao4" x="771" y="345" w="170" h="16" src="bar170_g_5"/>
+      <label id="clock" x="1698" y="88" w="200" h="16" font="hzfont" font_size="12" color="#8fb6c9" align="right" text="2026-11-11 20:35:19"/>
+      <image id="btn_start" x="27" y="105" w="120" h="64" src="ctl_btn_start_n" src-pressed="ctl_btn_start_p" clickable="true" on-click="run_start"/>
+      <image id="btn_stop" x="157" y="105" w="120" h="64" src="ctl_btn_stop_n" src-pressed="ctl_btn_stop_p" clickable="true" on-click="run_stop"/>
+      <image id="btn_pause" x="27" y="181" w="120" h="64" src="ctl_btn_pause_n" src-pressed="ctl_btn_pause_p" clickable="true" on-click="run_pause"/>
+      <image id="btn_reset" x="157" y="181" w="120" h="64" src="ctl_btn_reset_n" src-pressed="ctl_btn_reset_p" clickable="true" on-click="run_reset"/>
+      <image id="mode_auto" x="27" y="289" w="78" h="40" src="ctl_mode_auto_n" src-checked="ctl_mode_auto_c" clickable="true" on-click="mode_auto"/>
+      <image id="mode_semi" x="113" y="289" w="78" h="40" src="ctl_mode_semi_n" src-checked="ctl_mode_semi_c" clickable="true" on-click="mode_semi"/>
+      <image id="mode_man" x="199" y="289" w="78" h="40" src="ctl_mode_man_n" src-checked="ctl_mode_man_c" clickable="true" on-click="mode_man"/>
+      <label id="st_estop" x="29" y="373" w="248" h="18" font="hzfont" font_size="13" color="#2ee6a0" align="left" text="急停回路：正常"/>
+      <label id="st_door" x="29" y="395" w="248" h="18" font="hzfont" font_size="13" color="#2ee6a0" align="left" text="安全门：全部关闭"/>
+      <label id="st_guard" x="29" y="417" w="248" h="18" font="hzfont" font_size="13" color="#2ee6a0" align="left" text="光栅/联锁：正常"/>
+      <label id="st_lube" x="29" y="439" w="248" h="18" font="hzfont" font_size="13" color="#2ee6a0" align="left" text="润滑油压：0.32 MPa"/>
+      <image id="jog_open" x="27" y="495" w="78" h="34" src="ctl_jog_open_n" src-pressed="ctl_jog_open_p" clickable="true" on-click="jog_open"/>
+      <image id="jog_close" x="113" y="495" w="78" h="34" src="ctl_jog_close_n" src-pressed="ctl_jog_close_p" clickable="true" on-click="jog_close"/>
+      <image id="jog_eject" x="199" y="495" w="78" h="34" src="ctl_jog_eject_n" src-pressed="ctl_jog_eject_p" clickable="true" on-click="jog_eject"/>
+      <image id="jog_inj" x="27" y="535" w="78" h="34" src="ctl_jog_inj_n" src-pressed="ctl_jog_inj_p" clickable="true" on-click="jog_inj"/>
+      <image id="jog_feed" x="113" y="535" w="78" h="34" src="ctl_jog_feed_n" src-pressed="ctl_jog_feed_p" clickable="true" on-click="jog_feed"/>
+      <image id="jog_rob" x="199" y="535" w="78" h="34" src="ctl_jog_rob_n" src-pressed="ctl_jog_rob_p" clickable="true" on-click="jog_rob"/>
+      <image id="sw_1" x="488" y="134" w="70" h="28" src="ctl_sw_1_n" src-checked="ctl_sw_1_c" clickable="true" on-click="sw_im1"/>
+      <image id="sw_2" x="488" y="162" w="70" h="28" src="ctl_sw_2_n" src-checked="ctl_sw_2_c" clickable="true" on-click="sw_im2"/>
+      <image id="sw_3" x="488" y="190" w="70" h="28" src="ctl_sw_3_n" src-checked="ctl_sw_3_c" clickable="true" on-click="sw_im3"/>
+      <image id="sw_4" x="488" y="218" w="70" h="28" src="ctl_sw_4_n" src-checked="ctl_sw_4_c" clickable="true" on-click="sw_rob"/>
+      <image id="sw_5" x="488" y="246" w="70" h="28" src="ctl_sw_5_n" src-checked="ctl_sw_5_c" clickable="true" on-click="sw_belt"/>
+      <image id="sw_6" x="488" y="274" w="70" h="28" src="ctl_sw_6_n" src-checked="ctl_sw_6_c" clickable="true" on-click="sw_dryer"/>
+      <image id="sw_7" x="488" y="302" w="70" h="28" src="ctl_sw_7_n" src-checked="ctl_sw_7_c" clickable="true" on-click="sw_chiller"/>
+      <image id="sw_8" x="488" y="330" w="70" h="28" src="ctl_sw_8_n" src-checked="ctl_sw_8_c" clickable="true" on-click="sw_moldtemp"/>
+      <image id="sw_9" x="488" y="358" w="70" h="28" src="ctl_sw_9_n" src-checked="ctl_sw_9_c" clickable="true" on-click="sw_packer"/>
+      <image id="sw_10" x="488" y="386" w="70" h="28" src="ctl_sw_10_n" src-checked="ctl_sw_10_c" clickable="true" on-click="sw_gran"/>
+      <image id="btn_clear" x="315" y="491" w="100" h="36" src="ctl_btn_clear_n" src-pressed="ctl_btn_clear_p" clickable="true" on-click="shift_clear"/>
+      <image id="btn_shift" x="425" y="491" w="100" h="36" src="ctl_btn_shift_n" src-pressed="ctl_btn_shift_p" clickable="true" on-click="shift_change"/>
+      <image id="btn_hisav" x="535" y="491" w="100" h="36" src="ctl_btn_hisav_n" src-pressed="ctl_btn_hisav_p" clickable="true" on-click="his_save"/>
+      <label id="ao1" x="949" y="266" w="54" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="125"/>
+      <label id="ao2" x="949" y="292" w="54" h="18" font="hzfont" font_size="12" color="#ffa62b" align="right" text="12.5"/>
+      <label id="ao3" x="949" y="318" w="54" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="70%"/>
+      <label id="ao4" x="949" y="344" w="54" h="18" font="hzfont" font_size="12" color="#44dcf6" align="right" text="55%"/>
+      <label id="diag1" x="685" y="403" w="318" h="18" font="hzfont" font_size="12" color="#2ee6a0" align="left" text="驱动器通讯：正常（3/3）"/>
+      <label id="diag2" x="685" y="425" w="318" h="18" font="hzfont" font_size="12" color="#2ee6a0" align="left" text="温控模块：正常（6/6）"/>
+      <label id="diag3" x="685" y="447" w="318" h="18" font="hzfont" font_size="12" color="#2ee6a0" align="left" text="阀岛反馈：正常（8/8）"/>
+      <label id="diag4" x="685" y="469" w="318" h="18" font="hzfont" font_size="12" color="#ffd23e" align="left" text="模温偏差：2# 机 +2℃（关注）"/>
+      <image id="btn_alarmack" x="685" y="511" w="150" h="42" src="ctl_btn_alarmack_n" src-pressed="ctl_btn_alarmack_p" clickable="true" on-click="alarm_ack"/>
+      <image id="btn_hist" x="853" y="511" w="150" h="42" src="ctl_btn_hist_n" src-pressed="ctl_btn_hist_p" clickable="true" on-click="go_rc"/>
+      <image id="nav_ov" x="252" y="566" w="96" h="30" src="nav_ov_n" src-checked="nav_ov_c" clickable="true" on-click="show_ov"/>
+      <image id="nav_mc" x="356" y="566" w="96" h="30" src="nav_mc_n" src-checked="nav_mc_c" clickable="true" on-click="show_mc"/>
+      <image id="nav_ctl" x="460" y="566" w="96" h="30" src="nav_ctl_n" src-checked="nav_ctl_c" clickable="true" on-click="show_ctl"/>
+      <image id="nav_pr" x="564" y="566" w="96" h="30" src="nav_pr_n" src-checked="nav_pr_c" clickable="true" on-click="show_pr"/>
+      <image id="nav_rc" x="668" y="566" w="96" h="30" src="nav_rc_n" src-checked="nav_rc_c" clickable="true" on-click="show_rc"/>
+    </page>
+    <page id="pr" background="#0a1622">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_pr"/>
+      <label id="clock" x="1663" y="88" w="200" h="16" font="hzfont" font_size="12" color="#8fb6c9" align="right" text="2026-11-11 20:35:35"/>
+      <textarea id="sp_t1" x="167" y="123" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="210"/>
+      <textarea id="sp_t2" x="167" y="159" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="215"/>
+      <textarea id="sp_t3" x="167" y="195" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="220"/>
+      <textarea id="sp_t4" x="167" y="231" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="215"/>
+      <textarea id="sp_t5" x="167" y="267" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="225"/>
+      <textarea id="sp_t6" x="167" y="303" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="45"/>
+      <textarea id="sp_t7" x="167" y="339" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="120"/>
+      <textarea id="sp_t8" x="167" y="375" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="45"/>
+      <textarea id="sp_p1" x="507" y="123" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="125"/>
+      <textarea id="sp_p2" x="507" y="159" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="85"/>
+      <textarea id="sp_p3" x="507" y="195" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="60"/>
+      <textarea id="sp_p4" x="507" y="231" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="12.5"/>
+      <textarea id="sp_v1" x="507" y="267" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="86"/>
+      <textarea id="sp_h1" x="507" y="303" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="3.5"/>
+      <textarea id="sp_h2" x="507" y="339" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="8.5"/>
+      <textarea id="sp_n1" x="507" y="375" w="110" h="30" font="hzfont" font_size="15" color="#44dcf6" align="right" one-line="true" max-length="7" accepted-chars="0123456789." keyboard="kb_num" on-submit="par_submit" on-cancel="par_cancel" text="2"/>
+      <image id="rc_sel1" x="701" y="191" w="146" h="44" src="pr_rc_sel1_n" src-checked="pr_rc_sel1_c" clickable="true" on-click="rc_sel1"/>
+      <image id="rc_sel2" x="859" y="191" w="146" h="44" src="pr_rc_sel2_n" src-checked="pr_rc_sel2_c" clickable="true" on-click="rc_sel2"/>
+      <image id="rc_sel3" x="701" y="245" w="146" h="44" src="pr_rc_sel3_n" src-checked="pr_rc_sel3_c" clickable="true" on-click="rc_sel3"/>
+      <image id="rc_sel4" x="859" y="245" w="146" h="44" src="pr_rc_sel4_n" src-checked="pr_rc_sel4_c" clickable="true" on-click="rc_sel4"/>
+      <image id="btn_apply" x="701" y="333" w="146" h="48" src="pr_btn_apply_n" src-pressed="pr_btn_apply_p" clickable="true" on-click="par_apply"/>
+      <image id="btn_def" x="859" y="333" w="146" h="48" src="pr_btn_def_n" src-pressed="pr_btn_def_p" clickable="true" on-click="par_def"/>
+      <image id="btn_upld" x="701" y="391" w="146" h="48" src="pr_btn_upld_n" src-pressed="pr_btn_upld_p" clickable="true" on-click="par_upld"/>
+      <image id="btn_dnld" x="859" y="391" w="146" h="48" src="pr_btn_dnld_n" src-pressed="pr_btn_dnld_p" clickable="true" on-click="par_dnld"/>
+      <label id="par_h1" x="703" y="483" w="300" h="16" font="hzfont" font_size="11" color="#cfe9f5" align="left" text="11-08 14:22 冷却时间 8.0→8.5 s（李工）"/>
+      <label id="par_h2" x="703" y="503" w="300" h="16" font="hzfont" font_size="11" color="#cfe9f5" align="left" text="11-05 09:10 保压 2 段 55→60 MPa（李工）"/>
+      <label id="par_h3" x="703" y="523" w="300" h="16" font="hzfont" font_size="11" color="#cfe9f5" align="left" text="10-28 16:45 喷嘴温度 220→225℃（王工）"/>
+      <image id="nav_ov" x="252" y="566" w="96" h="30" src="nav_ov_n" src-checked="nav_ov_c" clickable="true" on-click="show_ov"/>
+      <image id="nav_mc" x="356" y="566" w="96" h="30" src="nav_mc_n" src-checked="nav_mc_c" clickable="true" on-click="show_mc"/>
+      <image id="nav_ctl" x="460" y="566" w="96" h="30" src="nav_ctl_n" src-checked="nav_ctl_c" clickable="true" on-click="show_ctl"/>
+      <image id="nav_pr" x="564" y="566" w="96" h="30" src="nav_pr_n" src-checked="nav_pr_c" clickable="true" on-click="show_pr"/>
+      <image id="nav_rc" x="668" y="566" w="96" h="30" src="nav_rc_n" src-checked="nav_rc_c" clickable="true" on-click="show_rc"/>
+      <keyboard id="kb_num" x="214" y="330" w="596" h="180" layout="number" font="hzfont" font_size="18" hidden="true"/>
+    </page>
+    <page id="rc" background="#0a1622">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_rc"/>
+      <label id="clock" x="1689" y="88" w="200" h="16" font="hzfont" font_size="12" color="#8fb6c9" align="right" text="2026-11-11 20:35:40"/>
+      <table id="tb_shift" x="21" y="101" w="588" h="171" rows="6" columns="8" font="hzfont" font_size="13" color="#cfe9f5" background="#0a1c28" border-color="#1e4a5e" header-color="#123a4c" alternate-color="#0d2534" border-width="1" cell-padding="5" row-height="30" header="true" grid="false" header-align="center" col-widths="56,90,80,80,72,64,72,74" col-aligns="center,center,center,center,center,center,center,center">
+        <cell row="1" column="1" text="班次"/>
+        <cell row="1" column="2" text="时段"/>
+        <cell row="1" column="3" text="计划(模)"/>
+        <cell row="1" column="4" text="实际(模)"/>
+        <cell row="1" column="5" text="良品"/>
+        <cell row="1" column="6" text="不良"/>
+        <cell row="1" column="7" text="良率"/>
+        <cell row="1" column="8" text="达成率"/>
+        <cell row="2" column="1" text="甲班"/>
+        <cell row="2" column="2" text="08:00-16:00"/>
+        <cell row="2" column="3" text="4200"/>
+        <cell row="2" column="4" text="3842"/>
+        <cell row="2" column="5" text="3812"/>
+        <cell row="2" column="6" text="30"/>
+        <cell row="2" column="7" text="99.2%"/>
+        <cell row="2" column="8" text="91.5%"/>
+        <cell row="3" column="1" text="乙班"/>
+        <cell row="3" column="2" text="16:00-24:00"/>
+        <cell row="3" column="3" text="4200"/>
+        <cell row="3" column="4" text="4310"/>
+        <cell row="3" column="5" text="4285"/>
+        <cell row="3" column="6" text="25"/>
+        <cell row="3" column="7" text="99.4%"/>
+        <cell row="3" column="8" text="102.6%"/>
+        <cell row="4" column="1" text="丙班"/>
+        <cell row="4" column="2" text="00:00-08:00"/>
+        <cell row="4" column="3" text="4200"/>
+        <cell row="4" column="4" text="4088"/>
+        <cell row="4" column="5" text="4051"/>
+        <cell row="4" column="6" text="37"/>
+        <cell row="4" column="7" text="99.1%"/>
+        <cell row="4" column="8" text="97.3%"/>
+        <cell row="5" column="1" text="昨日合计"/>
+        <cell row="5" column="2" text="全天"/>
+        <cell row="5" column="3" text="12600"/>
+        <cell row="5" column="4" text="12240"/>
+        <cell row="5" column="5" text="12148"/>
+        <cell row="5" column="6" text="92"/>
+        <cell row="5" column="7" text="99.2%"/>
+        <cell row="5" column="8" text="97.1%"/>
+        <cell row="6" column="1" text="本月累计"/>
+        <cell row="6" column="2" text="11 月"/>
+        <cell row="6" column="3" text="—"/>
+        <cell row="6" column="4" text="118,420"/>
+        <cell row="6" column="5" text="117,332"/>
+        <cell row="6" column="6" text="1088"/>
+        <cell row="6" column="7" text="99.1%"/>
+        <cell row="6" column="8" text="98.7%"/>
+      </table>
+      <label id="st_today" x="654" y="129" w="53" h="28" font="hzfont" font_size="24" color="#44dcf6" align="left" text="3842"/>
+      <label id="st_hours" x="844" y="129" w="40" h="28" font="hzfont" font_size="24" color="#44dcf6" align="left" text="3.2"/>
+      <label id="st_stop" x="654" y="201" w="13" h="28" font="hzfont" font_size="24" color="#ffa62b" align="left" text="2"/>
+      <label id="st_mtbf" x="844" y="201" w="26" h="28" font="hzfont" font_size="24" color="#2ee6a0" align="left" text="96"/>
+      <table id="tb_alarm" x="21" y="369" w="700" h="171" rows="6" columns="5" font="hzfont" font_size="13" color="#cfe9f5" background="#0a1c28" border-color="#1e4a5e" header-color="#123a4c" alternate-color="#0d2534" border-width="1" cell-padding="5" row-height="30" header="true" grid="false" header-align="center" col-widths="92,64,96,276,72" col-aligns="center,center,center,left,center">
+        <cell row="1" column="1" text="时间"/>
+        <cell row="1" column="2" text="等级"/>
+        <cell row="1" column="3" text="设备"/>
+        <cell row="1" column="4" text="内容"/>
+        <cell row="1" column="5" text="状态"/>
+        <cell row="2" column="1" text="08:12:40"/>
+        <cell row="2" column="2" text="警告"/>
+        <cell row="2" column="3" text="注塑机 2#"/>
+        <cell row="2" column="4" text="料筒 4 区温度偏高 3℃（218/215）"/>
+        <cell row="2" column="5" text="已恢复"/>
+        <cell row="3" column="1" text="08:05:12"/>
+        <cell row="3" column="2" text="提示"/>
+        <cell row="3" column="3" text="注塑机 2#"/>
+        <cell row="3" column="4" text="模温偏差 2℃，持续 5 min"/>
+        <cell row="3" column="5" text="未确认"/>
+        <cell row="4" column="1" text="07:48:12"/>
+        <cell row="4" column="2" text="提示"/>
+        <cell row="4" column="3" text="注塑机 1#"/>
+        <cell row="4" column="4" text="周期超时 2.1 s（目标 30.0 s）"/>
+        <cell row="4" column="5" text="已恢复"/>
+        <cell row="5" column="1" text="06:30:55"/>
+        <cell row="5" column="2" text="严重"/>
+        <cell row="5" column="3" text="冷水机组"/>
+        <cell row="5" column="4" text="冷却水流量低（&lt;60 L/min），联锁停机"/>
+        <cell row="5" column="5" text="已恢复"/>
+        <cell row="6" column="1" text="05:58:20"/>
+        <cell row="6" column="2" text="提示"/>
+        <cell row="6" column="3" text="称重包装"/>
+        <cell row="6" column="4" text="包装耗材余量不足 20%"/>
+        <cell row="6" column="5" text="未确认"/>
+      </table>
+      <table id="tb_oper" x="731" y="369" w="274" h="143" rows="5" columns="2" font="hzfont" font_size="13" color="#cfe9f5" background="#0a1c28" border-color="#1e4a5e" header-color="#123a4c" alternate-color="#0d2534" border-width="1" cell-padding="5" row-height="30" header="true" grid="false" header-align="center" col-widths="80,194" col-aligns="center,left">
+        <cell row="1" column="1" text="时间"/>
+        <cell row="1" column="2" text="操作记录"/>
+        <cell row="2" column="1" text="08:02:15"/>
+        <cell row="2" column="2" text="王工 启动全线"/>
+        <cell row="3" column="1" text="08:00:00"/>
+        <cell row="3" column="2" text="系统 交接班（甲班）"/>
+        <cell row="4" column="1" text="07:58:32"/>
+        <cell row="4" column="2" text="王工 粉碎机停止"/>
+        <cell row="5" column="1" text="07:20:10"/>
+        <cell row="5" column="2" text="李工 参数下载（M-07）"/>
+      </table>
+      <image id="btn_ack2" x="731" y="503" w="86" h="38" src="rc_btn_ack2_n" src-pressed="rc_btn_ack2_p" clickable="true" on-click="alarm_ack"/>
+      <image id="btn_prev" x="825" y="503" w="86" h="38" src="rc_btn_prev_n" src-pressed="rc_btn_prev_p" clickable="true" on-click="page_prev"/>
+      <image id="btn_next" x="919" y="503" w="86" h="38" src="rc_btn_next_n" src-pressed="rc_btn_next_p" clickable="true" on-click="page_next"/>
+      <image id="nav_ov" x="252" y="566" w="96" h="30" src="nav_ov_n" src-checked="nav_ov_c" clickable="true" on-click="show_ov"/>
+      <image id="nav_mc" x="356" y="566" w="96" h="30" src="nav_mc_n" src-checked="nav_mc_c" clickable="true" on-click="show_mc"/>
+      <image id="nav_ctl" x="460" y="566" w="96" h="30" src="nav_ctl_n" src-checked="nav_ctl_c" clickable="true" on-click="show_ctl"/>
+      <image id="nav_pr" x="564" y="566" w="96" h="30" src="nav_pr_n" src-checked="nav_pr_c" clickable="true" on-click="show_pr"/>
+      <image id="nav_rc" x="668" y="566" w="96" h="30" src="nav_rc_n" src-checked="nav_rc_c" clickable="true" on-click="show_rc"/>
+    </page>
+  </pages>
+</ui>

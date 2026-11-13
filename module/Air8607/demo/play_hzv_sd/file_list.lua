@@ -1,15 +1,15 @@
 --[[
 @module  file_list
 @summary HZV 素材选择列表页应用功能模块（airui 列表 + 触摸点选）
-@version 1.0
-@date    2026.10.30
+@version 1.1
+@date    2026.11.10
 @author  江访
 @usage
 本文件为 Air8607 播放 SD 卡 HZV 素材 demo 的素材选择列表页应用功能模块，核心业务逻辑为：
 1、建一个全屏容器做列表页，容器里放标题、提示文字、"顺序播放全部"按钮和素材列表；
 2、素材列表是一列 airui.button，每行一个文件，文字为"序号 + 文件名"，行高固定；
 3、行数超出列表容器高度时靠上下滑动翻看，列表容器自带滚动条；
-4、点素材行发出 HZV_PLAY_REQ 消息，消息参数是素材序号，由 main.lua 接消息起播；
+4、点素材行发出 HZV_PLAY_REQ 消息，消息参数是素材序号，由 boot_app.lua 接消息起播；
 5、点"顺序播放全部"按钮发出 HZV_PLAY_REQ 消息，序号固定为 0，表示按顺序轮播整张表；
 6、show 和 hide 用 set_hidden 切换列表页的显隐，播放时收起，返回时展开。
 
@@ -22,7 +22,7 @@
 3、file_list.hide：隐藏素材选择页，给视频让出画面
 ]]
 
-local M = {}
+local file_list = {}
 
 -- 列表页尺寸，铺满 1024x600 的屏幕
 local PAGE_W = 1024
@@ -76,7 +76,7 @@ local row_index = {}
 
 @return nil
 ]]
-local function on_item_click(sender)
+local function item_click_cbfunc(sender)
     local text  = sender:get_text()
     local index = row_index[text]
     if not index then
@@ -96,7 +96,7 @@ end
 
 @return nil
 ]]
-local function on_play_all_click(sender)
+local function play_all_click_cbfunc(sender)
     log.info("file_list", "选中顺序播放全部")
     sys.publish("HZV_PLAY_REQ", 0)
 end
@@ -117,7 +117,7 @@ local files = sd_app.list_hzv()
 file_list.init(files)
 file_list.show()
 ]]
-function M.init(files)
+function file_list.init(files)
     if type(files) ~= "table" then
         log.error("file_list", "素材列表不是表，无法建立选择页")
         return false
@@ -164,7 +164,7 @@ function M.init(files)
             text_color = COL_TEXT,
             radius     = 8,
         },
-        on_click  = on_play_all_click,
+        on_click  = play_all_click_cbfunc,
     })
 
     -- 素材列表区域的高度，行数超出时靠上下滑动翻看
@@ -213,7 +213,7 @@ function M.init(files)
                 text_color = COL_TEXT,
                 radius     = 8,
             },
-            on_click  = on_item_click,
+            on_click  = item_click_cbfunc,
         })
         row_index[text] = i
     end
@@ -234,7 +234,7 @@ end
 @usage
 file_list.show()
 ]]
-function M.show()
+function file_list.show()
     if not list_page then
         return
     end
@@ -254,7 +254,7 @@ end
 @usage
 file_list.hide()
 ]]
-function M.hide()
+function file_list.hide()
     if not list_page then
         return
     end
@@ -262,4 +262,4 @@ function M.hide()
     log.info("file_list", "素材选择页已隐藏")
 end
 
-return M
+return file_list

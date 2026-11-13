@@ -329,7 +329,7 @@ LUAMOD_API int luaopen_airui(lua_State *L) {
  * @return bool 成功返回 true，失败返回 false
  */
 static int l_airui_init(lua_State *L) {
-#if defined(LUAT_USE_PLCUI)
+#if defined(LUAT_USE_PLCUI) && defined(LUAT_USE_AIRUI_SDL2)
     // 当前plcui和airui不能同时使用，避免冲突
     lua_getfield(L, LUA_REGISTRYINDEX, "plcui_active");
     bool plcui_active = lua_toboolean(L, -1) != 0;

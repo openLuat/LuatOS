@@ -52,7 +52,6 @@ if not ok_exaudio then exaudio = nil end
 
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
-
 -- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
 
 local gen = 0   -- 播放代次：stop/新 say 时 +1，旧协程据此退出
@@ -121,7 +120,13 @@ local function play_blocking(text, my_gen)
 end
 
 --- 异步播报（打断当前播报），任意上下文可调
+play_blocking = audio_hw.guard(play_blocking)
+
 function M.say(text)
+    if audio_hw.busy() then
+        sys.publish("TTS_PLAY_END", false)
+        return false, "audio_busy"
+    end
     if type(text) ~= "string" or text == "" then return end
     if not M.available() then
         log.warn("tts_app", "无音频能力（hw.audio 未配置），跳过播报:", text)
@@ -142,6 +147,7 @@ end
 
 --- 停止当前播报
 function M.stop()
+    if audio_hw.busy() then return false, "audio_busy" end
     gen = gen + 1
     sys.publish("TTS_INTERRUPTED")
     pcall(exaudio.play_stop, { type = 1 })

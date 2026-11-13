@@ -1,8 +1,8 @@
 --[[
 @module  audio_hw
-@summary exaudio.setup 入参统一组装（hw.audio → exaudio.setup / 音量）
-@version 1.0
-@date    2026.10.27
+@summary exaudio.setup 入参统一组装（hw.audio → exaudio.setup / 音量）+ 音频占用租约
+@version 1.1
+@date    2026.11.13
 @author  江访
 
 === 设计要点 ===
@@ -39,18 +39,30 @@
    type=0 文件播放在这条通路上不成立）。
    视频素材（HZV）的音轨不经 exaudio，仍由 videoplayer 送进内置 DAC 那一路。
 
+8. 【音频占用】SIP 通话会长时间独占语音芯片，TTS / 语音聊天 / 录音 / 音量试听这些
+   短任务要先问一句能不能用。acquire / release 记租约，guard 包住会 yield 的起播与
+   暖机过程，register_busy_probe 让底层把「还在出声 / 还在收音」也报进来。
+   这四个入口都不 yield，检查与占有之间没有抢占窗口。
+
 === 对外接口 ===
 
   audio_hw.cfg()          -> table|nil      hw.audio 配置（nil = 本板无音频能力）
   audio_hw.is_air1103()   -> boolean        是否 Air1103 UART 语音芯片
   audio_hw.params(extra)  -> table          exaudio.setup 入参（extra 同名字段覆盖）
-  audio_hw.setup(extra)   -> ok, err        pcall(exaudio.setup, params) + 套用音量
-  audio_hw.vol(level)     -> ok             套用媒体音量（nil 取 ac.play_vol）
+  audio_hw.setup(extra, owner) -> ok, err   pcall(exaudio.setup, params) + 套用音量
+  audio_hw.vol(level, owner)   -> ok        套用媒体音量（level 为 nil 取 ac.play_vol）
   audio_hw.record_start(cfg) -> ok, ret     等价 pcall(exaudio.record_start, cfg)
   audio_hw.play_start(cfg)   -> ok, ret     等价 pcall(exaudio.play_start, cfg)
   audio_hw.sync(vol, mute)   -> ok          下发音量/静音并广播 AUDIO_CFG_SYNC
   audio_hw.apply(vol, mute)  -> ok          AUDIO_CFG_SYNC 的生效点
+  audio_hw.shutdown()     -> ok             停机（非 Air1103 直接返回 true）
   audio_hw.exaudio()      -> table|nil      require 到的 exaudio（无音频固件上为 nil）
+
+  audio_hw.acquire(owner) -> ok, why       占用音频；owner 是会话标识
+  audio_hw.release(owner) -> ok            归还
+  audio_hw.busy(owner)    -> boolean       是否被别人占用（owner 传自己的标识可豁免）
+  audio_hw.guard(fn)      -> function      包住会 yield 的音频操作，期间阻止抢占
+  audio_hw.register_busy_probe(name, fn)   登记「底层还在出声 / 收音」探针
 ]]
 
 local M = {}
@@ -140,6 +152,82 @@ function M.params(extra)
     return sp
 end
 
+-- ==================== 音频占用租约 ====================
+
+local lease_owner
+local busy_probes = {}
+local operations = 0
+
+--[[
+@function guard
+@summary 把一个会 yield 的音频操作包起来：执行期间别的任务抢不进音频
+@param function fn 被包的函数
+@return function  形态与 fn 一致；音频被占用时直接返回 false, "audio_busy"
+]]
+function M.guard(fn)
+    return function(...)
+        if M.busy() then return false, "audio_busy" end
+        operations = operations + 1
+        local result = table.pack(pcall(fn, ...))
+        operations = operations - 1
+        if not result[1] then error(result[2], 0) end
+        return table.unpack(result, 2, result.n)
+    end
+end
+
+--[[
+@function register_busy_probe
+@summary 登记「底层还在出声 / 收音」探针，acquire 前逐个问一遍
+@param string name 探针名（占用失败的原因里带上它）
+@param function probe 只读状态且不得 yield
+]]
+function M.register_busy_probe(name, probe)
+    assert(type(name) == "string" and type(probe) == "function")
+    busy_probes[name] = probe
+end
+
+--[[
+@function busy
+@summary 音频是否正被别人占用
+@param any owner 自己的会话标识，传了可以豁免自己的占用
+@return boolean
+]]
+function M.busy(owner)
+    return lease_owner ~= nil and lease_owner ~= owner
+end
+
+--[[
+@function acquire
+@summary 占用音频
+@param any owner 会话标识
+@return boolean, string|nil
+]]
+function M.acquire(owner)
+    if owner == nil then return false, "audio_owner_required" end
+    if lease_owner == owner then return true end
+    if lease_owner ~= nil then return false, "audio_busy" end
+    if operations > 0 then return false, "audio_busy:operation" end
+    for name, probe in pairs(busy_probes) do
+        local ok, busy = pcall(probe)
+        if not ok or busy then return false, "audio_busy:" .. name end
+    end
+    -- 检查到占有之间不 yield，避免录音 / 暖机中途被抢占
+    lease_owner = owner
+    return true
+end
+
+--[[
+@function release
+@summary 归还音频
+@param any owner 占用时用的会话标识
+@return boolean
+]]
+function M.release(owner)
+    if owner == nil or lease_owner ~= owner then return false end
+    lease_owner = nil
+    return true
+end
+
 -- 全局消息：音频设置（音量 0-100）与开关（true = 静音）同步
 M.SYNC_MSG = "AUDIO_CFG_SYNC"
 
@@ -147,9 +235,11 @@ M.SYNC_MSG = "AUDIO_CFG_SYNC"
 @function vol
 @summary 套用媒体音量（settings_display_app 的统一写回点，AUDIO_CFG_SYNC 的生效点）
 @param number|nil level 音量 0-100，nil 取 hw.audio.play_vol
+@param any owner 会话标识；音频被别人占用时不动音量
 @return boolean
 ]]
-function M.vol(level)
+function M.vol(level, owner)
+    if M.busy(owner) then return false end
     local ex = get_exaudio()
     if not ex or not ex.vol then return false end
     local ac = M.cfg() or {}
@@ -203,13 +293,7 @@ end
 -- 是触摸失灵的直接原因，所以五个消费方都调用本模块也只有第一次真正下到 exaudio
 local setup_done = false
 
---[[
-@function setup
-@summary 初始化音频：组装入参 → exaudio.setup（仅首次） → 套用音量
-@param extra table|nil 同名字段覆盖
-@return boolean, string|nil
-]]
-function M.setup(extra)
+local function setup_impl(extra, owner)
     local ac = M.cfg()
     if not ac then return false, "未配置 hw.audio" end
     local ex = get_exaudio()
@@ -223,8 +307,24 @@ function M.setup(extra)
         check_bus_policy(ex, sp)
     end
     -- 重复调用只重新套音量（「亮度和声音」页 set_volume 的统一写回点）
-    M.vol()
+    M.vol(nil, owner)
     return true
+end
+
+--[[
+@function setup
+@summary 初始化音频：组装入参 → exaudio.setup（仅首次） → 套用音量
+@param extra table|nil 同名字段覆盖
+@param any owner 会话标识；音频被别人占用时不初始化
+@return boolean, string|nil
+]]
+function M.setup(extra, owner)
+    if M.busy(owner) then return false, "audio_busy" end
+    operations = operations + 1
+    local ok, result, reason = pcall(setup_impl, extra, owner)
+    operations = operations - 1
+    if not ok then return false, "audio_setup_failed:" .. tostring(result) end
+    return result, reason
 end
 
 --[[
@@ -258,6 +358,29 @@ function M.play_start(cfg)
     local ex = get_exaudio()
     if not ex or not ex.play_start then return false, "缺少 exaudio 扩展库" end
     return pcall(ex.play_start, cfg)
+end
+
+--[[
+@function shutdown
+@summary 停机：停掉 Air1103 上的录音 / 播放并反初始化（非 Air1103 直接返回 true）
+@return boolean
+]]
+function M.shutdown()
+    if not M.is_air1103() then return true end
+    local ex = get_exaudio()
+    if ex then
+        if ex.record_stop then ex.record_stop() end
+        if ex.play_stop then ex.play_stop({type=0}) end
+    end
+    local chip = require "air1103"
+    chip.stop_audio()
+    chip.play_stream_stop()
+    chip.set_rx_enable(false)
+    -- 停机命令先走出串口，再关它的驱动
+    sys.wait(30)
+    assert(chip.uninit(), "Air1103 uninit failed")
+    setup_done = false
+    return true
 end
 
 --[[

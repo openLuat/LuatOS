@@ -272,6 +272,8 @@ local function open_camera_lazy(id)
         if not ok then show_tip("摄像头页面加载失败: " .. tostring(err)); return end
         camera_page_loaded = true
     end
+    sys.publish("OPEN_UVC_PREVIEW_WIN", id)
+end
 
 --[[
 @function enter_test
@@ -333,7 +335,6 @@ end
 @param x, y, w, h 行几何
 @param it 实例行 { key, name, type, page, members }
 ]]
-end
 
 local function build_item_row(parent, x, y, w, h, it)
     -- 有子页的行整行可点：先弹该功能的接线提示，再上电进测试页

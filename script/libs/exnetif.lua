@@ -14,6 +14,22 @@
 6、exnetif.version()：获取库文件版本信息
 
 -- 版本更新说明
+-- 版本号：202611121939
+-- 1、更新时间：2026-11-12 19:39
+-- 2、更新内容（setproxy 上游WiFi切换相关的4处缺陷修复）
+--    修复：setproxy 切换上游WiFi失败时仍返回true。原来 switch_upstream_wifi 的
+--          返回值没有被透出，调用方无法感知失败，会误判为切换成功
+--    修复：switch_upstream_wifi 失败后未恢复 proxy_state.wifi_config。原实现一进入
+--          就把它清空，失败返回时仍为 nil，导致 on_proxy_sta_ip_lose 直接 return，
+--          IP_LOSE 自动重连永久失效，只能重启设备。现改为先备份、失败时恢复，
+--          并主动拉起一次重连任务（切换期间 IP_LOSE 被刻意抑制，不主动拉起不会重连）
+--    修复：setproxy 重入判断只比较 ssid。同一SSID修改密码时不会触发切换，会一直
+--          用旧密码重连。现改为 ssid 或 password 任一变化都触发切换
+--    修复：setproxy 切换成功后未保留 auto_reconnect 标记。switch_upstream_wifi
+--          按 config.auto_reconnect 决定是否重建 proxy_state.wifi_config，而调用方
+--          传入的 main_adapter 通常不含该字段，导致切换成功后 wifi_config 仍为 nil，
+--          掉线重连同样失效。现由 setproxy 补上该标记再切换
+
 -- 版本号：202607211200
 -- 1、更新时间：2026-07-21 12:00
 -- 2、更新内容
@@ -286,6 +302,12 @@ end
 
 local interval_time = nil
 
+-- 前向声明：切换失败恢复凭证后，需要主动拉起重连任务（见 switch_upstream_wifi）
+local proxy_sta_reconnect_task
+-- 重连任务运行标志：switch_upstream_wifi 失败时会 taskInit 一次，
+-- 若不拦一下，重连任务内部再次失败会不断新建任务，导致任务无限增殖
+local sta_reconnect_running = false
+
 -- 代理模式下切换上游WiFi（内部函数，由 setproxy 和 proxy_sta_reconnect_task 调用）
 local function switch_upstream_wifi(config)
     if type(config) ~= "table" or not config.ssid then
@@ -298,6 +320,9 @@ local function switch_upstream_wifi(config)
     end
 
     local auto_reconnect = config.auto_reconnect or false
+    -- 备份旧凭证：切换新WiFi失败时要恢复，否则 proxy_state.wifi_config 为空，
+    -- on_proxy_sta_ip_lose 会直接 return，IP_LOSE 自动重连永久失效
+    local old_wifi_config = proxy_state.wifi_config
     proxy_state.wifi_config = nil
 
     log.info("switch_upstream_wifi", "关闭NAPT, 断开当前WiFi")
@@ -321,6 +346,16 @@ local function switch_upstream_wifi(config)
         end
         if count > 600 then
             log.error("switch_upstream_wifi", "新WiFi连接超时:", config.ssid)
+            -- 恢复原凭证，保证掉线自动重连仍然可用
+            proxy_state.wifi_config = old_wifi_config
+            if old_wifi_config then
+                log.info("switch_upstream_wifi", "已恢复原WiFi凭证，自动重连仍有效:",
+                    old_wifi_config.ssid)
+                -- 切换期间 wifi_config 被刻意清空，wlan.disconnect() 触发的 IP_LOSE
+                -- 会被 on_proxy_sta_ip_lose 抑制掉。恢复凭证后必须主动拉起一次重连
+                -- 任务，否则自动重连要等到下一次掉线才会生效
+                sys.taskInit(proxy_sta_reconnect_task)
+            end
             return false
         end
         sys.wait(100)
@@ -339,10 +374,14 @@ local function switch_upstream_wifi(config)
 end
 
 -- 代理模式下WiFi异常掉线重连任务
-local function proxy_sta_reconnect_task()
+function proxy_sta_reconnect_task()
+    if sta_reconnect_running then
+        return
+    end
     if not proxy_state.wifi_config then
         return
     end
+    sta_reconnect_running = true
     local ssid = proxy_state.wifi_config.ssid
     while true do
         local ok = switch_upstream_wifi(proxy_state.wifi_config)
@@ -353,6 +392,7 @@ local function proxy_sta_reconnect_task()
         log.error("exnetif", "上游WiFi重连失败，3秒后重试:", ssid)
         sys.wait(3000)
     end
+    sta_reconnect_running = false
 end
 
 -- 代理模式下WiFi掉线回调
@@ -1185,9 +1225,25 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         for _, a in ipairs(proxy_state.proxy_adapters) do
             if a == adapter then
                 if main_adapter == socket.LWIP_STA and proxy_state.wifi_config and other_configs.main_adapter then
-                    if proxy_state.wifi_config.ssid ~= other_configs.main_adapter.ssid then
+                    local old_cfg = proxy_state.wifi_config
+                    local new_cfg = other_configs.main_adapter
+                    -- ssid 变化必须切换；password 也一并比较，否则同一SSID改密码后会
+                    -- 一直用旧密码重连，表现为“显示代理正常但始终连不上”
+                    local pwd_changed = new_cfg.password ~= nil and old_cfg.password ~= new_cfg.password
+                    if old_cfg.ssid ~= new_cfg.ssid or pwd_changed then
                         log.info("setproxy", "检测到上游WiFi变化，切换中")
-                        switch_upstream_wifi(other_configs.main_adapter)
+                        -- 必须带上 auto_reconnect 再切换：switch_upstream_wifi 内部按
+                        -- config.auto_reconnect 决定是否重建 proxy_state.wifi_config，
+                        -- 而调用方传进来的 main_adapter 通常不含该字段，直接传会导致
+                        -- 切换成功后 wifi_config 仍为 nil，掉线重连同样失效
+                        local switch_cfg = {
+                            ssid = new_cfg.ssid,
+                            password = new_cfg.password or old_cfg.password,
+                            bssid = new_cfg.bssid,
+                            auto_reconnect = old_cfg.auto_reconnect ~= false,
+                        }
+                        -- 透出切换结果，失败时调用方才能感知（原来无条件是 true）
+                        return switch_upstream_wifi(switch_cfg)
                     else
                         log.info("setproxy", "代理已存在且凭证未变，跳过")
                     end
@@ -1706,7 +1762,7 @@ end
 exnetif.version()
 ]]
 function exnetif.version()
-    return "202607211200"
+    return "202611121939"
 end
 
 log.debug("exnetif", "version -> " .. exnetif.version())

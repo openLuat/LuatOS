@@ -197,6 +197,31 @@ static inline int napt_output_to_lan(napt_ctx_t* ctx,
     return 1;
 }
 
+// 网关MAC兜底补齐（本次修复新增）
+// 背景：WiFi STA 在 airlink 架构下（如 Air8000A），网关的 ARP REPLY 可能不经过
+//       luat_netdrv_napt_pkg_input()，导致 gw_mac 一直是全 0，LAN→WAN 转发拼出的
+//       以太网帧目标 MAC 全 0，包被静默丢弃（表现为“到本机的服务全通、穿过去全断”）。
+//       这里在真正转发前，从 lwIP 的 ARP 表兜底查一次；表里没有就补发一次 ARP 请求，
+//       等下一个包再查，最多丢几个首包。
+static inline void napt_ensure_gw_mac(luat_netdrv_t* gw)
+{
+    static const uint8_t zero_mac[6] = {0, 0, 0, 0, 0, 0};
+    if (gw == NULL || gw->netif == NULL) {
+        return;
+    }
+    if (memcmp(gw->gw_mac, zero_mac, 6) != 0) {
+        return;
+    }
+    struct eth_addr *eth_ret = NULL;
+    const ip4_addr_t *ip_ret = NULL;
+    if (etharp_find_addr(gw->netif, &gw->netif->gw, &eth_ret, &ip_ret) >= 0 && eth_ret != NULL) {
+        memcpy(gw->gw_mac, eth_ret->addr, 6);
+    }
+    else {
+        etharp_request(gw->netif, &gw->netif->gw);
+    }
+}
+
 // NAPT公共输出路由函数: LAN→WAN 方向
 static inline int napt_output_to_wan(napt_ctx_t* ctx,
                                      luat_netdrv_t* gw,
@@ -207,6 +232,7 @@ static inline int napt_output_to_wan(napt_ctx_t* ctx,
         return 1;
     }
     if (gw->netif->flags & NETIF_FLAG_ETHARP) {
+        napt_ensure_gw_mac(gw);   // 兜底：gw_mac 为空时从 lwIP ARP 表补齐
         if (ctx->eth) {
             memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
             memcpy(ctx->eth->src.addr, gw->netif->hwaddr, 6);

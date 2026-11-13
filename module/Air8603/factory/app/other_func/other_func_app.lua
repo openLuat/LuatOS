@@ -35,7 +35,9 @@ local M = {}
 local closing_ids = {}
 -- 页面切换 / 外设命令的 FIFO（factory_handoff）：只在带 SIP 的树里存在，
 -- 没有就退回 sys.taskInit 逐条起任务，功能与顺序语义一致。
-local ok_h, handoff = pcall(require, "factory_handoff")
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local HANDOFF_MOD = "factory_handoff"
+local ok_h, handoff = pcall(require, HANDOFF_MOD)
 if not ok_h or type(handoff) ~= "table" then handoff = nil end
 local function enqueue(fn)
     if handoff then handoff.enqueue(fn) else sys.taskInit(fn) end

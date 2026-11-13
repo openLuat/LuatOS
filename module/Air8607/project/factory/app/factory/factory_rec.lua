@@ -74,7 +74,9 @@ local http_upload = require "http_upload"
 local chip_ok, chip = pcall(require, "air1103")
 if not chip_ok then chip = nil end
 -- 工程自带 55AA MIC 解析器（与参考工程 app/audio/sipapp_pcm_rx.lua 逐字节一致）
-local pcm_rx_ok, pcm_rx = pcall(require, "sipapp_pcm_rx")
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local PCM_RX_MOD = "sipapp_pcm_rx"
+local pcm_rx_ok, pcm_rx = pcall(require, PCM_RX_MOD)
 local mic_frames = 0    -- 累计收到的 MIC 上行帧数（预热探测用）
 local last_mic_at = 0   -- 最近一次收到 MIC 帧的时间（秒），用于判断上行是否还活着
 local function is_air1103()

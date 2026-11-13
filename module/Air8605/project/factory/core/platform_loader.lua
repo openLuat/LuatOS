@@ -40,6 +40,11 @@ require 即执行，按以下顺序：
 local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
 require ("air1103")               -- Air1103 Lua 驱动（含静音帧保活），覆盖固件内置 C 驱动，消除播放周期性爆音
+require ("sipapp_pcm_rx")         -- 55AA MIC 上行帧解析器（Air1103 常驻上行用）
+require ("factory_handoff")       -- 测试页 / 外设命令 FIFO（与 SIP 通话互斥）
+require ("factory_page_exit")     -- 测试页退出闸门（停稳再关窗）
+require ("sip_gate")              -- SIP 通话能力门控（features.sip + Air1103）
+require ("sip_test_win")          -- SIP 通话测试页
 
 -- Engine 引擎主机系列
 require ("eng_1602_5i_v2")        -- Air1602 5寸 720×1280 NV3052C

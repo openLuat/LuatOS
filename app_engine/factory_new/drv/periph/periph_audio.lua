@@ -95,7 +95,9 @@ local mic_probe_t = nil
 -- 而驱动内置 feed 校验失败会 rxstr="" 丢整缓冲，嘈杂 UART 下会长期解析不出帧。
 local chip_ok, chip = pcall(require, "air1103")
 if not chip_ok then chip = nil end
-local pcm_rx_ok, pcm_rx = pcall(require, "sipapp_pcm_rx")
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local PCM_RX_MOD = "sipapp_pcm_rx"
+local pcm_rx_ok, pcm_rx = pcall(require, PCM_RX_MOD)
 
 local mic_frames = 0      -- 累计收到的 MIC 帧数（预热/存活判断）
 local mic_last_ts = 0     -- 最近一次收到 MIC 帧的时间(秒)：判断上行是否还活着

@@ -42,9 +42,13 @@ local theme = require "ui_theme"
 
 -- 独立测试入口（不来自 config.peripherals）：SIP 通话（Air1103 语音芯片）
 -- 开不开工由 app/sip/sip_gate.lua 定（features.sip + hw.audio.model=="air1103" 双条件）。
--- 本树没有 sip_gate 时软依赖直接判否，同一份源码在别的型号树也能跑。
-local function sip_allowed()
-    local ok, gate = pcall(require, "sip_gate")
+-- 本树没有 sip_gate 时软依赖直接判否，同一份源码在别的型号树也能跑。
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local SIP_GATE_MOD = "sip_gate"
+local SIP_TEST_WIN_MOD = "sip_test_win"
+local HANDOFF_MOD = "factory_handoff"
+local function sip_allowed()
+    local ok, gate = pcall(require, SIP_GATE_MOD)
     return ok and type(gate) == "table" and type(gate.ok) == "function" and gate.ok() == true
 end
 local EXTRA_ENTRY = {
@@ -53,7 +57,7 @@ local EXTRA_ENTRY = {
 
 -- 测试与 SIP 通话互斥（factory_handoff）：只在带 SIP 的树里存在，没有就整段跳过。
 -- 只调它的公开接口 enqueue / prepare / leave / mode，不改那份模块。
-local ok_h, handoff = pcall(require, "factory_handoff")
+local ok_h, handoff = pcall(require, HANDOFF_MOD)
 if not ok_h or type(handoff) ~= "table" then handoff = nil end
 
 local window_id = nil
@@ -592,7 +596,7 @@ local function build_ui()
                     title = "提示", text = "请插入麦克风和喇叭", buttons = { "确定" },
                     on_action = function(self)
                         self:hide()
-                        local ok = pcall(require, "sip_test_win")
+                        local ok = pcall(require, SIP_TEST_WIN_MOD)
                         if ok then sys.publish("OPEN_SIP_TEST_WIN")
                         else show_tip("SIP 页面加载失败，请检查日志") end
                     end,

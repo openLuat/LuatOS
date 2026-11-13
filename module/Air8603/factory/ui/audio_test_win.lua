@@ -212,7 +212,9 @@ end
 
 -- 退出闸门（factory_page_exit）：只在带 SIP 的树里存在——它把停止请求排进 factory_handoff
 -- 的 FIFO，等外设真停稳再关页；没有闸门就退回直接关窗 + TEST_WIN_CLOSED 收口。
-local ok_g, page_exit = pcall(require, "factory_page_exit")
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local PAGE_EXIT_MOD = "factory_page_exit"
+local ok_g, page_exit = pcall(require, PAGE_EXIT_MOD)
 if not ok_g or type(page_exit) ~= "table" or type(page_exit.new) ~= "function" then page_exit = nil end
 local exit_gate = page_exit and page_exit.new("AUDIO", function()
     exit_cleaned = true

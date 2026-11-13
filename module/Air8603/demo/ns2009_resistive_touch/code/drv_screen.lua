@@ -22,7 +22,7 @@ local drv = {}
 drv.is_pc = false
 
 local bl_cfg = { pwm_ch = 3, pwm_freq = 1000 }
-local screen_w, screen_h = 800, 480
+local screen_w, screen_h = 0, 0        -- 未初始化；init 成功后按配置 / display.getSize() 覆盖
 local inited = false
 
 --[[当前是否 PC 模拟器]]

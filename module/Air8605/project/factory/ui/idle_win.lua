@@ -220,11 +220,6 @@ local has_cloud_disk = _G.project_config and _G.project_config.features and _G.p
     and _G.project_config.ui and _G.project_config.ui.show_cloud_disk
 local has_other_func = _G.project_config and _G.project_config.features and _G.project_config.features.other_func
     and _G.project_config.ui and _G.project_config.ui.show_other_func
--- SIP 通话只给接了 Air1103 语音芯片的型号开（Air8605M / Air8605W）：语音通路整个压在
--- Air1103 的 UART 上，没有它的板子注册能成、听不见声。门槛两个条件缺一不可，见 app/sip/sip_gate.lua
-local has_sip = require("sip_gate").ok()
-
-
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
 local product_name = "合宙引擎主机" .. (model_suffix ~= "" and model_suffix or "")
@@ -246,9 +241,6 @@ if has_cloud_disk then
 end
 if has_other_func then
     table.insert(builtin_apps, { name = "功能测试", win = "OTHER_FUNC", icon = "other_func", dock = true })
-end
-if has_sip then
-    table.insert(builtin_apps, { name = "SIP通话", win = "SIP_TEST", icon = "sip", dock = true })
 end
 
 -- 前向声明（网格点击依赖上下文菜单，后者定义在后面）

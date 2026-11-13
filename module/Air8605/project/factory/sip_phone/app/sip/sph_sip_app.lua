@@ -102,9 +102,13 @@ local function user(value)
 end
 local function call_matches(data)
     if not call then return false end
-    if not call.id then return false end
-    if data.call_id and call.id and data.call_id~=call.id then return false end
-    if data.call_id then call.id=data.call_id end
+    if data.call_id then
+        if call.id and data.call_id~=call.id then return false end
+        call.id=data.call_id
+    end
+    -- 拨出侧首个事件可能不带 call_id：exsip.dial 不登记 g_current_call，事件原样透传。
+    -- 这里只拦「确认不是同一通」，缺 id 的事件一律算本通；
+    -- 否则 ringing / connected / ended 全被丢掉，界面永远停在「拨号中」。
     return true
 end
 local function on_event(token,event,action,data)

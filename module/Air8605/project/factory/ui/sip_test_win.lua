@@ -888,7 +888,7 @@ show_call_layer = function(snapshot)
     end
     if call_layer_state ~= s.state then log.info("sip_ui", "call state", s.state) end
     call_layer_state = s.state
-    set_text(call_sub, call_state_text[s.state] or s.text or "")
+    set_text(call_sub, (s.text ~= "" and s.text) or call_state_text[s.state] or "")
     set_text(call_clock, hhmmss(s.duration or 0))
     set_text(call_left, s.state == "incoming" and "拒接" or (s.muted and "取消静音" or "静音"))
     local left_disabled = s.state ~= "incoming" and s.state ~= "talking"

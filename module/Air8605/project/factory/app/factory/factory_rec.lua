@@ -62,6 +62,8 @@
 local exaudio = require "exaudio"
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
+-- 上传统一走 http_upload（httpplus 流式，避免大文件整读 OOM）
+local http_upload = require "http_upload"
 
 -- Air1103 直接驱动（仅 air1103 板使用；只调用其公开接口，不改公共库）
 -- 参考实现 flash_files/app/audio/audio_app.lua：
@@ -330,7 +332,7 @@ end
   录音前 2 秒必然静音。sipapp_pcm_rx 校验失败只丢 1 字节重同步，能自愈。
 
 安装时机：进入 AI/工厂会话时安装，退出会话时还原，
-避免影响其它仍依赖 air1103 原生 feed 的录音页（同 sip_audio_app 的做法）。
+避免影响其它仍依赖 air1103 原生 feed 的录音页。
 ]]
 local mic_parser = pcm_rx_ok and pcm_rx.new(air1103_on_pcm) or nil
 local original_feed = chip_ok and chip.feed or nil
@@ -781,18 +783,22 @@ make_send = function()
         sys.publish("FACTORY_MAKE_ERROR", "鉴权失败(固件缺rsa库或公钥缺失)")
         return
     end
-    -- 流式上传：PCM 30s ≈ 960KB，io.readFile 全量 + table.concat 瞬时近 2MB，C 层 buffer
-    -- OOM 会打挂 Lua VM。改用 httpplus：files=路径分块读发，forms 携带 device_info。
-    local httpplus = require("httpplus")
-    local device_info = make_device_info()
-    local code, rresp = httpplus.request({
+    -- 录音格式决定上传的 Content-Type / 文件名
+    local fmt, _ = get_record_format()
+    local is_pcm = fmt:find("^PCM_") ~= nil
+    local ctype = is_pcm and "audio/pcm" or "audio/amr"
+    local fname = is_pcm and "record.pcm" or "record.amr"
+    -- device_info 自动携带屏幕分辨率 + 模块型号（JSON 对象字符串）。
+    -- 它作为【普通表单字段】发送（不带 filename）：带 filename 的 part 会被 Spring 识别成
+    -- 文件(MultipartFile)，request.getParameter("device_info") 拿不到值 → 服务端报 device_info 异常。
+    -- 录音文件走 http_upload 的 httpplus 流式路径：30 秒 PCM ≈ 960KB，整读会打挂 Lua 堆。
+    local code, resp_body = http_upload.post_file({
         url = MAKE_APP_URL,
-        method = "POST",
         headers = headers,
-        -- device_info 作为普通表单字段（不带 filename），服务端 getParameter 才能取到值；
-        -- Content-Type 服务端不强制（同套 ASR 收错配 audio/amr 的 PCM 也能识别），按扩展名即可
-        files = { file = latest_path },
-        forms = { device_info = device_info },
+        file_path = latest_path,
+        filename = fname,
+        content_type = ctype,
+        forms = { device_info = make_device_info() },
         timeout = 30,
     })
     log.info("factory_rec", "make_app 上传完成 code:", code)
@@ -800,7 +806,6 @@ make_send = function()
         sys.publish("FACTORY_MAKE_ERROR", "服务器连接失败(" .. tostring(code) .. ")")
         return
     end
-    local resp_body = (rresp and rresp.body and rresp.body:query()) or ""
     local ok, resp = pcall(json.decode, resp_body)
     if not ok or type(resp) ~= "table" then
         log.warn("factory_rec", "make_app 响应解析失败:", resp_body)

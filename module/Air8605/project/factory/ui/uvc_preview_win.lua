@@ -1,8 +1,8 @@
 --[[
 @module  uvc_preview_win
 @summary 摄像头测试页（UVC 预览 / 拍照 / 录像 + 人脸识别录入 / 验证 / 删除全部，TabOS 深色玻璃态）
-@version 1.12
-@date    2026.11.11
+@version 1.13
+@date    2026.11.12
 @author  江访
 @usage
 订阅: OPEN_UVC_PREVIEW_WIN(id)
@@ -83,9 +83,10 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
    重枚举」不能当常规手段（会把正在跑的人脸模组一起杀掉）。录入 / 验证前确实要让
    传感器从出图模式切回人脸采集模式 —— 停掉 MJPEG 推流后模组仍停在出图模式，此时发
    录入指令它不回包（现场日志 cmd timeout 0x1D），取版本这类纯协议指令却正常。
-   但切换手段用 MID_RESET 软复位即可（见 face_reset_sensor，对齐 Air8601），不必断电：
-   断电会连人脸模组一起杀掉、再走 USB 重枚举，窗口长且易落进「模组尚未就绪」空窗导致
-   录入超时。只有软复位不被响应时才退回 GPIO 断电重枚举兜底（见 face_reenumerate）。
+   但切换手段走 GPIO 断电重枚举（见 face_reenumerate）：断电上电让模组整体重启、USB 重新
+   枚举，传感器回到人脸采集模式，同时新产生的 connected 事件能把显示组件补 start 回来。
+   不用 MID_RESET 软复位：软复位不停 USB 电，就不会再有 connected 事件，串行动作做完预览
+   会永久冻在最后一帧（见第 6 条）。
 2. 人脸指令是串行的：exfacecam 内部是单例状态（回包表 / 状态回调共享），并发跑
    register 与 verify 会互相抢回包。本页所有人脸动作都进同一个命令协程，天然串行，
    另设 face_busy 挡掉重复点击。
@@ -115,6 +116,10 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
 8. 人脸状态回调的限流必须按毫秒算（tick_time.now）：原来拿 mcu.ticks() 跟 500ms 比，在
    20ms/tick 的 Air1603 上实际等于 10 秒才刷新一次状态行 —— 用户看到的就是「未检测到
    人脸」一直不变、像卡住。回调本身仍然只 sys.publish，不碰控件（见第 3 条）。
+9. 状态不照抄现象，要翻译成动作（FACE_GUIDE）：模组回的状态码 / 错误码先落到「下一步
+   该做什么」——识别过程中给当场能照做的动作（抬头、退后、摘口罩），动作失败给重试前
+   该做的事（先录入再验证、清空人脸库、拉近距离重试）。只报「识别超时」而不说怎么做，
+   用户只能反复点按钮；报错一律带一句可照做的提醒（见 guide_of）。
 ]]
 
 local theme = require "ui_theme"
@@ -216,6 +221,50 @@ local FACE_ERR_TEXT = {
     [5] = "未知原因失败", [6] = "参数无效", [7] = "内存不足",
     [8] = "用户不存在", [9] = "用户数已满", [10] = "该人脸已录入",
     [12] = "活体检测未通过", [13] = "识别超时（未检测到人脸）", [14] = "授权校验失败",
+}
+
+--[[
+状态码 / 错误码 → 「下一步该做什么」。
+
+FACE_STATE_TEXT 与 FACE_ERR_TEXT 说的是「现在是什么情况」，这一张说的是「人该怎么做」：
+界面不只要报状态，还要把状态翻译成动作，把话说到用户能照做的程度。
+key = 数字时按 FACE_STATE_TEXT 的过程态取；key = "err" 时按 FACE_ERR_TEXT 的结论态取；
+其余 key 取自建故障（reopen / serial）。
+]]
+local FACE_GUIDE = {
+    -- 过程态：识别过程中模组 ~15fps 回的状态，文案要能立刻照做
+    [0]  = "保持不动，等识别完成",
+    [1]  = "请走到摄像头正前方，正脸对镜头",
+    [2]  = "请把头放平，眼睛看镜头",
+    [3]  = "请稍微抬头，眼睛看镜头",
+    [4]  = "请把脸转回正前方",
+    [5]  = "请把脸转回正前方",
+    [6]  = "请退后半步，让整张脸进画面",
+    [7]  = "请靠近一些，让脸落在画面中间",
+    [8]  = "请把刘海、帽子挪开，露出眉毛",
+    [9]  = "请摘下墨镜，露出眼睛",
+    [10] = "请摘下口罩、围巾，露出整张脸",
+    [11] = "请站正，头不要歪",
+    -- 结论态：动作结束时的错误码，给的是重试前该做的事
+    err = {
+        [1]  = "。请退后一步重新正对摄像头再试",
+        [2]  = "。动作已取消，需要就重新点一次",
+        [4]  = "。请检查摄像头排线与供电后重进本页",
+        [5]  = "。请重试一次；仍失败就重启设备",
+        [6]  = "。请退出本页重进后再试",
+        [7]  = "。请先退出其它页面释放内存再试",
+        [8]  = "。请先录入人脸再做验证",
+        [9]  = "。请先清空人脸库再录入",
+        [10] = "。该人脸已录入过，直接验证即可",
+        [12] = "。请摘掉照片、屏幕翻拍，用真脸正对镜头",
+        [13] = "。请正对摄像头、光线充足、距离约 0.5~1.5 米后重试",
+        [14] = "。请确认人脸模组型号配套，或联系技术支持",
+        timeout = "。模组没应答，请检查串口接线与供电后重试",
+    },
+    -- 自建故障
+    reopen = "。请检查摄像头与人脸模组的供电、排线后重试",
+    serial = "。请检查接线与供电后重试",
+    other  = "。请重试一次；仍失败就重启设备",
 }
 
 -- 人脸状态提示最小间隔(ms)：模组回得快，不压一压状态行会刷到看不清
@@ -441,6 +490,9 @@ local function find_uvc()
     return first
 end
 
+-- 推流基准帧率：cam_param 下发与人脸并行后的恢复帧率共用这一个数，别再各写各的
+local UVC_FPS = 15
+
 -- excamera.open 的 USB 摄像头配置表（只用于开推流，拍照/录像取推流帧落盘）
 local function cam_param()
     return {
@@ -449,7 +501,7 @@ local function cam_param()
         sensor_height = SENSOR_H,
         usb_port      = 1,
         work_mode     = 2,
-        fps           = 15,
+        fps           = UVC_FPS,
     }
 end
 
@@ -741,7 +793,8 @@ end
 
 关流时组件会被 stop（见 stop_widget），而重开流不一定会再产生 connected 事件
 （USB 一直处于 Host 状态时没有新的枚举动沿），只靠 on_connected 里那次 start_widget
-会让预览永远冻在最后一帧 —— 人脸验证失败降级串行后「画面卡住」就是这么来的。]]
+会让预览永远冻在最后一帧 —— 人脸验证失败降级串行后「画面卡住」就是这么来的。
+start_widget 是幂等的（见它上面的说明），connected 事件再补一次也不会重置显示缓冲。]]
 local function open_stream()
     if not cam_ready() then return false, "相机能力不可用" end
     wait_closing()
@@ -755,6 +808,7 @@ local function open_stream()
         return false, "预览启动失败"
     end
     stream_open = true
+    start_widget()
     log.info("uvc_preview_win", "起流打点", "开流就绪", elapsed_ms(tick_time.now(), t_enter), "ms")
     return true
 end
@@ -949,27 +1003,38 @@ end
 
 -- ==================== 人脸识别 ====================
 
+-- 取「下一步该做什么」的引导文案，见 FACE_GUIDE
+local function guide_of(key, code)
+    local t = FACE_GUIDE[key]
+    if type(t) == "table" then
+        return t[code] or FACE_GUIDE.other
+    end
+    return t or FACE_GUIDE.other
+end
+
 -- 错误码转中文说明，对不上就退回「错误码 N」
 -- exfacecam.send_cmd 超时返回的第二值是字符串 "timeout" 而不是 MR_* 数字，
 -- register/verify 会把它原样当错误码抛回来，这里要单列一条
 local function face_err_text(code)
     if code == nil then return "模组未就绪" end
     if type(code) == "number" then
-        return FACE_ERR_TEXT[code] or ("错误码 " .. tostring(code))
+        return (FACE_ERR_TEXT[code] or ("错误码 " .. tostring(code))) .. guide_of("err", code)
     end
-    if code == "timeout" then return "模组无应答（超时）" end
-    return "错误 " .. tostring(code)
+    if code == "timeout" then return "模组无应答（超时）" .. guide_of("err", "timeout") end
+    return "错误 " .. tostring(code) .. guide_of("other")
 end
 
 --[[
 人脸模组状态回调，跑在串口收包上下文里（见文件头「人脸识别边界」第 3 条）：
 只做限流 + 发消息，不碰控件。包围盒与角度参数本页不消费。
+状态不是照抄现象，而是翻译成「下一步该做什么」，见 FACE_GUIDE。
 @param state 见 FACE_STATE_TEXT]]
 local function on_face_state(state, left, top, right, bottom, yaw, pitch, roll)
     local now = tick_time.now()
     if tick_time.elapsed(now, face_last_state) < FACE_STATE_MIN_GAP_TICKS then return end
     face_last_state = now
-    sys.publish("FACE_STATE_TEXT", FACE_STATE_TEXT[state] or ("人脸状态 " .. tostring(state)))
+    sys.publish("FACE_STATE_TEXT",
+        FACE_GUIDE[state] or FACE_STATE_TEXT[state] or ("人脸状态 " .. tostring(state)))
 end
 
 -- 界面侧收人脸引导文案。回调只在录入/验证期间来，跟着 face_busy 走，不看页签：
@@ -1004,35 +1069,13 @@ local function face_open(tip)
     return true
 end
 
-local face_reenumerate  -- 前向声明：face_reset_sensor 兜底要调它（定义在下方）
+local face_reenumerate  -- 前向声明：face_begin 的复位路径要调它（定义在下方）
 
 -- 关人脸模组串口（相机不在它手上：没传 id 就没做过 camera.init）
 local function face_close()
     if not face_on then return end
     face_on = false
     if exfacecam then pcall(exfacecam.close) end
-end
-
---[[
-让模组传感器从 UVC 出图模式切回人脸采集模式。
-
-这是录入超时的根因修复（对齐 Air8601 face_manager / ecface 的做法）：停掉 MJPEG 推流后
-模组仍停在出图模式，此时直接发录入指令它不回包（cmd timeout 0x1D）。Air8601 的实测
-结论是发 MID_RESET 软复位即可切回，**不必 GPIO 断电重枚举** —— 断电会连人脸模组一起
-杀掉、再走 USB 重新枚举，窗口长且容易落进「模组还没就绪」的空窗，正是录入超时的来源。
-
-软复位失败（个别模组不响应 MID_RESET）才退回 GPIO 断电重枚举兜底。
-@return boolean true = 传感器已回到人脸采集模式
-]]
-local function face_reset_sensor()
-    local ok, res = pcall(exfacecam.reset)
-    if ok and res then
-        sys.wait(500)   -- 等模组复位完成、传感器切回人脸模式（同 Air8601 reset_module）
-        return true
-    end
-    log.warn("uvc_preview_win", "软复位模组失败，退回断电重枚举兜底", tostring(res))
-    face_reenumerate()
-    return face_on
 end
 
 --[[
@@ -1064,12 +1107,15 @@ local function face_ready()
 end
 
 --[[
-断电重枚举摄像头，再按复位后的模组重开人脸串口（软复位失败时的兜底手段）。
+断电重枚举摄像头，再按复位后的模组重开人脸串口。
 
-正常路径不再走这里：见 face_reset_sensor，停流后发 MID_RESET 软复位就能让传感器回到
-人脸采集模式，不必断电。只有个别模组不响应软复位时才兜底断电重枚举。断电会连人脸模组
-一起杀掉（同一根供电脚），所以重枚举后必须重开串口 —— 旧回包表 / 接收回调随模组作废，
-留着会把上一轮残留字节喂给新回包。供电脚不可控时只重开串口，并在日志里点明跳过了这一步。
+切换采集模式的唯一手段，走主代码那条路：停流后给摄像头供电脚断电再上电，让模组从 UVC
+出图模式整体重启、USB 重新枚举，回到人脸采集模式。断电会连人脸模组一起杀掉（同一根供电
+脚），所以重枚举后必须重开串口 —— 旧回包表 / 接收回调随模组作废，留着会把上一轮残留字节
+喂给新回包。供电脚不可控时只重开串口，并在日志里点明跳过了这一步。
+
+不用 MID_RESET 软复位：软复位不触发 USB 重新枚举，也就不会再有 connected 事件去 start_widget，
+串行动作做完预览会永久冻在最后一帧。断电重枚举靠 connected 自愈，链路更短。
 @param tip 重开失败时的提示语
 ]]
 face_reenumerate = function(tip)
@@ -1125,15 +1171,16 @@ local function face_kind_word()
 end
 
 --[[
-人脸动作前置（串行 / 轻路径共用）：忙检查 + 开串口；cycle 时再停推流 + 切传感器 + 确认就绪。
+人脸动作前置（串行 / 轻路径共用）：忙检查 + 开串口；cycle 时再停推流 + 断电重枚举 + 确认就绪。
 
-录入 / 验证走 cycle=true 的串行降级路径：停流后发 MID_RESET 软复位，让传感器从 UVC
-出图模式切回人脸采集模式（见 face_reset_sensor）；取版本 / 清空是纯串口指令，cycle 传
+录入 / 验证走 cycle=true 的串行降级路径：停流后给摄像头供电脚断电再上电，让传感器从 UVC
+出图模式整体重启回人脸采集模式（见 face_reenumerate）；取版本 / 清空是纯串口指令，cycle 传
 false —— 不停流、不复位、不做就绪自检，直接发指令。
 
-失败时自己给提示并复位 face_busy；成功返回 true，由调用方跑动作再调 face_end 收尾。
+轻路径失败自己给提示并复位 face_busy；cycle 路径的失败必须走 face_end 把画面重开回来
+（流已经停了，直接 return 会冻在最后一帧）。成功返回 true，由调用方跑动作再调 face_end 收尾。
 @param tip   动作中的提示语
-@param cycle boolean true = 停流 + 软复位把传感器切回人脸模式（串行录入/验证）
+@param cycle boolean true = 停流 + 断电重枚举把传感器切回人脸模式（串行录入/验证）
 @return boolean
 ]]
 local function face_begin(tip, cycle)
@@ -1159,16 +1206,18 @@ local function face_begin(tip, cycle)
     end
     close_stream()
     stop_widget()
-    if not face_reset_sensor() then
+    -- 断电重枚举让模组从出图模式整体重启、USB 重新枚举回人脸采集模式（见 face_reenumerate）
+    face_reenumerate("人脸模组串口重开失败，请检查接线")
+    if not face_on then
         -- 此时数据流已经被 close_stream 停掉了，必须走 face_end 把画面重开回来，
         -- 否则预览就永久冻在最后一帧（失败时「画面卡住」的另一条来源）
         local msg = "人脸模组切回采集模式失败，请重试"
-        face_end(msg, true, { ok = false, title = face_kind_word() .. "失败", detail = msg })
+        face_end(msg, true, { ok = false, title = face_kind_word() .. "失败", detail = msg .. guide_of("reopen") })
         return false
     end
     if not face_ready() then
         local msg = "人脸模组未就绪，请重试"
-        face_end(msg, true, { ok = false, title = face_kind_word() .. "失败", detail = msg })
+        face_end(msg, true, { ok = false, title = face_kind_word() .. "失败", detail = msg .. guide_of("reopen") })
         return false
     end
     return true
@@ -1227,7 +1276,7 @@ end
 local function face_result_parts(kind, ok, success, extra, name)
     if not ok then
         return (kind == "register" and "录入失败" or "验证失败"),
-            "动作异常：" .. tostring(extra), false
+            "动作异常：" .. tostring(extra) .. guide_of("other"), false
     end
     if kind == "register" then
         if success then
@@ -1300,7 +1349,7 @@ local function do_face_capture(kind)
     update_status(doing .. "中，请正对摄像头...", "busy")
     if not face_open("人脸模组串口打不开，请检查接线") then
         face_busy = false
-        show_face_tip(false, doing .. "失败", "人脸模组串口打不开，请检查接线")
+        show_face_tip(false, doing .. "失败", "人脸模组串口打不开" .. guide_of("serial"))
         return
     end
 
@@ -1314,9 +1363,9 @@ local function do_face_capture(kind)
         if face_mode ~= "auto" then
             face_busy = false
             -- 前面已经降过帧，这里要还原，否则预览一直卡在 3fps
-            apply_uvc_fps(15)
+            apply_uvc_fps(UVC_FPS)
             update_status(doing .. "失败：预览无画面", "err")
-            show_face_tip(false, doing .. "失败", "预览无画面，请确认摄像头已连接")
+            show_face_tip(false, doing .. "失败", "预览无画面，识别不了" .. guide_of("reopen"))
             return
         end
         log.warn("uvc_preview_win", "并行" .. doing .. "前置不满足，降级串行")
@@ -1332,13 +1381,13 @@ local function do_face_capture(kind)
     log.warn("uvc_preview_win", "人脸" .. doing, "parallel", tostring(ok), tostring(success), tostring(extra))
 
     if ok and success then
-        apply_uvc_fps(15)
+        apply_uvc_fps(UVC_FPS)
         face_finish(kind, ok, success, extra, name, false)
         return
     end
 
     if face_mode ~= "auto" then
-        apply_uvc_fps(15)
+        apply_uvc_fps(UVC_FPS)
         face_finish(kind, ok, success, extra, name, false)
         return
     end
@@ -1347,7 +1396,7 @@ local function do_face_capture(kind)
         -- 模组已经给出明确结论（人脸不匹配等）：重试没有意义，而且降级串行要停流，
         -- 画面会冻在最后一帧十几秒 —— 看起来就是「预览卡住」。直接出结果。
         log.warn("uvc_preview_win", "并行" .. doing .. "失败为判定性失败，不降级重试", tostring(extra))
-        apply_uvc_fps(15)
+        apply_uvc_fps(UVC_FPS)
         face_finish(kind, ok, success, extra, name, false)
         return
     end
@@ -1841,8 +1890,8 @@ local function build_side_ui(card_w, y, gap, ctrl_h, status_h, has_face)
     status_w = right_w
     status_label = theme.label(main_container, {
         x = right_x, y = ry, w = right_w, h = status_h,
-        text = "准备中...", px_size = theme.fs("caption"),
-        color = theme.C.t2, align = airui.TEXT_ALIGN_LEFT,
+        text = "准备中...", px_size = status_px(),
+        color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
     })
     ry = ry + status_h + vgap
 
@@ -1883,6 +1932,7 @@ local function build_ui()
 
     local y = pad + th + pad
     local gap = theme.dp(10)
+    local ctrl_h = theme.dp(50)
     local status_h = status_px() + theme.dp(10)
 
     -- 横屏宽度够，走「左预览 + 右操作区」的左右结构；竖屏走下面的上下结构

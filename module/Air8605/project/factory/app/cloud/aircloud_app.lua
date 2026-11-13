@@ -111,12 +111,15 @@ local excloud = require "excloud"
 
 -- ==================== 常量 ====================
 
+local ac_cfg           = (_G.project_config or {}).aircloud or {}
 local APP_VERSION      = "1.2.0"
 local FSKV_CYCLE_KEY   = "aircloud_report_cycle"   -- 上报周期（秒）
 local FSKV_ENABLE_KEY  = "aircloud_report_enable"  -- 上报总开关
 local FSKV_BOOTCNT_KEY = "aircloud_boot_count"     -- 开机次数累计
-local DEFAULT_CYCLE    = 180                       -- 默认 180 秒（与 Air8780 一致）
-local MIN_CYCLE        = 5                         -- 最小周期
+-- report_cycle / min_cycle 可由 config 的 aircloud 段覆盖；两者都只是初值与下限，
+-- 运行中的实际周期仍由 fskv 记忆与云端 cycle: 指令决定（见 get_report_cycle / set_report_cycle）
+local DEFAULT_CYCLE    = tonumber(ac_cfg.report_cycle) or 180   -- 默认 180 秒（与 Air8780 一致）
+local MIN_CYCLE        = tonumber(ac_cfg.min_cycle) or 5        -- 最小周期
 local MAX_CYCLE        = 86400                     -- 最大周期（1 天）
 local HEARTBEAT_SEC    = 60                        -- 心跳间隔（秒）
                                                  -- 不要用 excloud 默认的 300 秒：平台在线判定

@@ -192,8 +192,11 @@ local auto_start_has_password = false
 local app_cards = {}
 local all_apps = {}
 
+-- 顶栏信号图标：能力（features）决定有没有这项功能，ui.show_* 决定要不要画在顶栏
 local has_4g = _G.project_config and _G.project_config.features and _G.project_config.features.net_4g
+    and _G.project_config.ui and _G.project_config.ui.show_4g_icon
 local has_wifi = _G.project_config and _G.project_config.features and _G.project_config.features.wifi
+    and _G.project_config.ui and _G.project_config.ui.show_wifi_icon
 local has_battery = _G.project_config and _G.project_config.features and _G.project_config.features.battery
     and _G.project_config.ui and _G.project_config.ui.show_battery_icon
 
@@ -217,6 +220,9 @@ local has_cloud_disk = _G.project_config and _G.project_config.features and _G.p
     and _G.project_config.ui and _G.project_config.ui.show_cloud_disk
 local has_other_func = _G.project_config and _G.project_config.features and _G.project_config.features.other_func
     and _G.project_config.ui and _G.project_config.ui.show_other_func
+-- SIP 通话只给接了 Air1103 语音芯片的型号开（Air8605M / Air8605W）：语音通路整个压在
+-- Air1103 的 UART 上，没有它的板子注册能成、听不见声。门槛两个条件缺一不可，见 app/sip/sip_gate.lua
+local has_sip = require("sip_gate").ok()
 
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
@@ -239,6 +245,9 @@ if has_cloud_disk then
 end
 if has_other_func then
     table.insert(builtin_apps, { name = "功能测试", win = "OTHER_FUNC", icon = "other_func", dock = true })
+end
+if has_sip then
+    table.insert(builtin_apps, { name = "SIP通话", win = "SIP_TEST", icon = "sip", dock = true })
 end
 
 -- 前向声明（网格点击依赖上下文菜单，后者定义在后面）
@@ -590,6 +599,20 @@ local function open_builtin(win)
             exwin.close_children_of(leaf)
         end
         return
+    end
+
+    --[[
+    SIP 通话窗口整套（sip_phone 协议栈 + Air1103 语音桥，约 3000 行）只在首次点开时才
+    require，不进 ui_main 的可选窗口批：常驻开机既一直压着 Lua 堆，又会和通用录音抢
+    Air1103 的 UART6 实时资源。别的菜单一律不加载它。放在 begin_menu_switch 之前：
+    加载失败就整件事不发生，不会把菜单切换悬在半路。
+    ]]
+    if win == "SIP_TEST" and not package.loaded["sip_test_win"] then
+        local ok, err = pcall(require, "sip_test_win")
+        if not ok then
+            log.error("idle_win", "SIP 通话窗口加载失败", err)
+            return
+        end
     end
 
     exwin.begin_menu_switch(host)   -- 登记切换事务：新页归属 host，旧页由 exwin 在新页创建后回收

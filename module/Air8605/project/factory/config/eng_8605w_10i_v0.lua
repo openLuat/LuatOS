@@ -50,7 +50,7 @@
    **方向脚**（DE 与 /RE 并联，高=发 低=收），不是空置脚，必须交给 periph_rs485 翻转。
    J20（非隔离）与 J21（隔离）共用 UART1 和 GPIO65，只能二选一，靠改板切换
    （吹/贴 R104、R1104、R1105），软件改不了。
-   features.rs485 目前在 app/ 与 ui/ 里查不到消费方，仅作能力声明。
+   485 测试入口由 config.peripherals 的 rs485 条目驱动，配了条目才会出现在功能测试页。
 10. 上电供电轨：5V_EN = GPIO12、9V_EN = PIN46 = GPIO56、12V_EN = PIN72 = GPIO44、
     5VOUT_EN = PIN73 = GPIO52（对外 5V 输出使能）。
     5V_EN = GPIO12 由 power_on 拉高常供电。usb_hid_app 的 VBUS_GPIO=12 也是这个脚，
@@ -131,7 +131,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 10.0,               -- 10寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -161,6 +160,7 @@ return {
             model = "air1103",        -- 音频通路：Air1103 语音芯片（exaudio 新框架 UART 驱动，录音走 MIC、播放走下行）
             uart_id = 6,              -- Air1103 接 UART6（固定 2M 波特率）
             audio_mode = "new",       -- 拉起 audio_v2 新框架（air1103 模式必须）
+            power_gpio = 73,          -- Air1103 供电脚 AUDIOPA_EN = GPIO73（SIP 通话的断电自愈要用）
             play_vol = 70,            -- 默认播放音量(0~100)，llm_chat / video_util / factory_rec 统一读
             mic_vol = 70,             -- 默认录音音量(0~100)（AI 助手语音输入 / 应用工厂录音共用）
             record_format = "PCM_16000", -- Air1103 仅支持 PCM_16000（16kHz/16bit/单声道）
@@ -170,21 +170,20 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,          -- 启用 WiFi（Air6205，SPI2）—— 本型号固定为 WiFi 版
-        speaker = true,       -- 启用喇叭（Air1103 内置功放）
-        mic = true,           -- 启用麦克风（Air1103 内置 MIC）
-        sd_card = true,       -- 启用 SD 卡（SPI1，CS=GPIO8）
-        nand_flash = true,    -- 启用 NAND Flash（SPI2，CS=GPIO47）
-        usb_camera = true,    -- USB 摄像头（UVC）—— 暂无消费方，仅作能力声明
-        rs485 = true,         -- RS485 接口 —— 暂无消费方，仅作能力声明
-        other_func = true,    -- 启用"功能测试"（peripherals 外设清单）
+        wifi = true,           -- 启用 WiFi（Air6205，SPI2）—— 本型号固定为 WiFi 版
+        sd_card = true,        -- 启用 SD 卡（SPI1，CS=GPIO8）
+        nand_flash = true,     -- 启用 NAND Flash（SPI2，CS=GPIO47）
+        other_func = true,     -- 启用"功能测试"（peripherals 外设清单）
         -- usb_hid 不开：USB 键鼠与 UVC 摄像头共用 USB Host 与供电，带 UVC 的型号不启用
-        app_factory = true,   -- 启用"应用工厂"内置应用
-        ai_chat = true,       -- 启用"AI聊天助手"内置应用（语音经 Air1103）
-        cloud_disk = true,    -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
-        file_transfer = true, -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
-        aircloud = true,      -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
-        wdt = true,           -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        app_factory = true,    -- 启用"应用工厂"内置应用
+        ai_chat = true,        -- 启用"AI聊天助手"内置应用（语音经 Air1103）
+        cloud_disk = true,     -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        aircloud = true,       -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
+        wdt = true,            -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,           -- 启用固件在线升级（需联网）
+        sip = true,            -- 启用 SIP 通话（Air1103 语音芯片）
     },
 
     -- ===== AirCloud 数据上报参数 =====
@@ -223,15 +222,18 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,         -- 桌面顶栏 WiFi 图标
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card/nand_flash 时打开
-        show_camera_preview = true,    -- 设置页摄像头预览入口（暂无消费方，仅作能力声明）
-        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
-        show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
-        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
-        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
-        show_file_transfer = true,     -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
-        show_aircloud = true,          -- 设置页显示"数据上报"入口 ← 配 aircloud 时打开
+        show_wifi_icon = true,          -- 桌面顶栏 WiFi 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口 ← 配 sd_card/nand_flash 时打开
+        show_camera_preview = true,     -- 设置页摄像头预览入口（暂无消费方，仅作能力声明）
+        show_other_func = true,         -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_ai_chat = true,            -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        show_app_factory = true,        -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_file_transfer = true,      -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
+        show_aircloud = true,           -- 设置页显示"数据上报"入口 ← 配 aircloud 时打开
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 }

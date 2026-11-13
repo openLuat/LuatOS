@@ -8,6 +8,10 @@ local M = {}
 local ex_ok, exaudio = pcall(require, "exaudio")
 local chip_ok, chip = pcall(require, "air1103")
 local cfg = ((_G.project_config or {}).hw or {}).audio or {}
+-- Air1103 接线参数：取 hw.audio 的 power_gpio / uart_id / baud，没写按 Air8605M/W 默认接线
+local PIN  = tonumber(cfg.power_gpio) or 73      -- Air1103 供电脚（AUDIOPA_EN）
+local UART = tonumber(cfg.uart_id)    or 6       -- Air1103 串口；UART3 属于 Airlink
+local BAUD = tonumber(cfg.baud)       or 2000000 -- air1103 固定 2M
 local volume = math.max(0, math.min(100, tonumber(cfg.play_vol) or 70))
 local initialized, initializing = false, false
 local owner, generation = nil, 0
@@ -261,13 +265,13 @@ local function reopen_mic(power_cycle)
     stop_stream()
     assert(chip.uninit(),"Air1103 UART teardown failed")
     if power_cycle then
-        gpio.setup(73,0)
+        gpio.setup(PIN,0)
         sys.wait(300)
     end
-    -- Bind UART6 before powering the chip back on; UART3 belongs to Airlink.
-    local ok,result=pcall(chip.init,6,2000000)
+    -- Bind Air1103's UART before powering the chip back on; UART3 belongs to Airlink.
+    local ok,result=pcall(chip.init,UART,BAUD)
     if power_cycle then
-        gpio.setup(73,1)
+        gpio.setup(PIN,1)
         sys.wait(800)
     end
     assert(ok and result,"Air1103 UART reopen failed")
@@ -355,7 +359,7 @@ end
 function M.diagnostics()
     return {ready=M.is_ready(),busy=M.is_busy(),initializing=initializing,owner=owner,
         frames=frames,rx_bytes=rx_bytes,bad_frames=bad_frames,fps=fps,mic_rate=mic_rate,
-        peak=peak,volume=volume,error=fault,uart=6,baud=2000000,power_pin=73,
+        peak=peak,volume=volume,error=fault,uart=UART,baud=BAUD,power_pin=PIN,
         uplink=stats.uplink,downlink=stats.downlink,drops=stats.drops}
 end
 

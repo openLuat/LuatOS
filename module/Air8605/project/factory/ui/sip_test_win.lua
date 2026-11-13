@@ -887,6 +887,13 @@ local function on_destroy()
 end
 
 sys.subscribe("OPEN_SIP_TEST_WIN", function()
+    -- 自检：SIP 通话只在接了 Air1103 的型号上开（Air8605M / Air8605W），门槛见 app/sip/sip_gate.lua。
+    -- 桌面入口已按它藏掉，这里防的是别处误发 OPEN_SIP_TEST_WIN 把没有语音通路的板子拉起来。
+    local gate = require "sip_gate"
+    if not gate.ok() then
+        log.warn("sip_test_win", "本机型未开 SIP 通话，忽略开窗", gate.reason())
+        return
+    end
     window_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,

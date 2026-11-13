@@ -14,7 +14,7 @@
 订阅: SIM_IND(st, vl)              → 更新 SIM 卡状态和 4G 信号
 订阅: REQUEST_STATUS_REFRESH       → 重新发布当前所有状态
 
-发布: STATUS_TIME_UPDATED(time, date, weekday)      → 时间更新（每秒）
+发布: STATUS_TIME_UPDATED(time, date, weekday)      → 时间更新（分钟/日期变化时）
 发布: STATUS_SIGNAL_UPDATED(level)                   → 4G 信号等级更新
 发布: STATUS_WIFI_SIGNAL_UPDATED(level)              → WiFi 信号等级更新 (0-5)
 
@@ -61,7 +61,7 @@ local weekday_map = {
 }
 
 --[[
-更新时间信息并发布STATUS_TIME_UPDATED事件
+更新时间信息并发布STATUS_TIME_UPDATED事件（只在分钟/日期真正变化时才发）
 ]]
 local function update_time()
     local t = os.time()
@@ -73,8 +73,7 @@ local function update_time()
         local weekday = weekday_map[ew] or ew
         local changed = hhmm ~= current_time or date ~= current_date or weekday ~= current_weekday
         current_time, current_date, current_weekday = hhmm, date, weekday
-        -- 只在"分钟/日期"真正变化时发布：原来每秒 publish 一次，订阅方收到就 set_text，
-        -- 等于每秒重绘一次顶栏（通话时是白给音频链路加负载）。显示精度本来就只有分钟。
+        -- 显示精度本来就只有分钟：每秒 publish 会让订阅方每秒 set_text 重绘一次顶栏
         if changed then
             sys.publish("STATUS_TIME_UPDATED", current_time, current_date, current_weekday)
         end

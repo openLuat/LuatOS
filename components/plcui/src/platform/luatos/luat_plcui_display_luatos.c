@@ -4,6 +4,7 @@
 
 #include "luat_plcui_luatos.h"
 #include "luat_plcui_conf.h"
+#include "luat_plcui_perf.h"
 #include "luat_display.h"
 #include <string.h>
 
@@ -36,6 +37,14 @@ static int copy_rect(struct luat_display_rect *rect, const void *pixels, uint32_
     return result;
 }
 
+static int timed_copy(struct luat_display_rect *rect, const void *pixels, uint32_t stride, uint32_t *elapsed)
+{
+    uint32_t started = plcui_perf_now();
+    int result = copy_rect(rect, pixels, stride);
+    *elapsed += plcui_perf_now() - started;
+    return result;
+}
+
 static void display_flush(lv_display_t *display, const lv_area_t *area, uint8_t *pixels)
 {
     struct luat_display_fb_info *info = state.device->fb_info;
@@ -43,6 +52,7 @@ static void display_flush(lv_display_t *display, const lv_area_t *area, uint8_t 
                                      area->x2 - area->x1 + 1, area->y2 - area->y1 + 1};
     int last = lv_display_flush_is_last(display);
     lv_draw_buf_t *buffer = lv_display_get_buf_active(display);
+    uint32_t preserve_us = 0, copy_us = 0, pan_us = 0;
 
     if (!state.frame_open) {
         state.frame_open = 1;
@@ -53,7 +63,7 @@ static void display_flush(lv_display_t *display, const lv_area_t *area, uint8_t 
         if (!whole) {
             struct luat_display_rect all = {0, 0, (int32_t)info->width, (int32_t)info->height};
             const uint8_t *front = (const uint8_t *)info->fb_start + (size_t)state.front * info->fb_size;
-            if (copy_rect(&all, front, info->width * 2U) != 0) fail_frame();
+            if (timed_copy(&all, front, info->width * 2U, &preserve_us) != 0) fail_frame();
         }
     }
 
@@ -63,14 +73,17 @@ static void display_flush(lv_display_t *display, const lv_area_t *area, uint8_t 
             (uint64_t)rect.y + (uint32_t)rect.h > info->height ||
             buffer->header.stride < (uint32_t)rect.w * 2U ||
             (uint64_t)buffer->header.stride * (uint32_t)rect.h > buffer->data_size ||
-            copy_rect(&rect, pixels, buffer->header.stride) != 0) {
+            timed_copy(&rect, pixels, buffer->header.stride, &copy_us) != 0) {
             fail_frame();
         }
     }
 
     if (last) {
         if (!state.failed) {
-            if (state.device->display_funcs->pan_display(state.device, (int)info->fb_index) != 0) {
+            uint32_t started = plcui_perf_now();
+            int result = state.device->display_funcs->pan_display(state.device, (int)info->fb_index);
+            pan_us = plcui_perf_now() - started;
+            if (result != 0) {
                 fail_frame();
             } else {
                 state.front = info->fb_index;
@@ -80,6 +93,7 @@ static void display_flush(lv_display_t *display, const lv_area_t *area, uint8_t 
         state.frame_open = 0;
     }
     /* The SDK fb_flush contract is synchronous: DMA has stopped using pixels. */
+    plcui_perf_flush(preserve_us, copy_us, pan_us, last != 0, state.failed == 0);
     lv_display_flush_ready(display);
 }
 
@@ -124,7 +138,7 @@ int plcui_luatos_display_init(int width, int height)
     lv_display_set_flush_cb(display, display_flush);
     lv_timer_set_period(lv_display_get_refr_timer(display), PLCUI_REFRESH_PERIOD_MS);
     LLOGI("RGB565 %dx%d draw=%u scan=%u cache=%u", width, height,
-          draw->size, info->fb_count, (unsigned)LV_CACHE_DEF_SIZE);
+          draw->size, info->fb_count, (unsigned)luat_plcui_image_cache_capacity());
     return 0;
 }
 

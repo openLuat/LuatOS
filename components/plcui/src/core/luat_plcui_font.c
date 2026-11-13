@@ -2,6 +2,9 @@
  * XML 字体解析和独立的 HZFont 到 LVGL 适配。
  */
 #include "luat_plcui_font.h"
+#include "luat_plcui_component.h"
+#include "luat_plcui_keyboard.h"
+#include "luat_plcui_perf.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,6 +54,16 @@ static uint8_t current_supersample(void)
     return value > 0 && value <= UINT8_MAX ? (uint8_t)value : 1;
 }
 
+/* Both glyph callbacks may retrieve a bitmap. Count those calls separately
+   from character-index lookup, excluding validation and LVGL-buffer copies. */
+static const TtfBitmap *timed_hzfont_bitmap(uint16_t index, uint8_t size, uint8_t supersample)
+{
+    uint32_t started = plcui_perf_now();
+    const TtfBitmap *bitmap = luat_hzfont_get_bitmap(index, size, supersample);
+    plcui_perf_add(PERF_FONT_BITMAP, plcui_perf_now() - started, 0);
+    return bitmap;
+}
+
 static bool hzfont_glyph_description(const lv_font_t *font, lv_font_glyph_dsc_t *glyph,
                                     uint32_t letter, uint32_t letter_next)
 {
@@ -70,8 +83,11 @@ static bool hzfont_glyph_description(const lv_font_t *font, lv_font_glyph_dsc_t 
     }
 
     uint16_t index = 0;
-    if (luat_hzfont_lookup_glyph_index(letter, &index) != TTF_OK || !index) return false;
-    const TtfBitmap *bitmap = luat_hzfont_get_bitmap(index, (uint8_t)face->size, current_supersample());
+    uint32_t started = plcui_perf_now();
+    int result = luat_hzfont_lookup_glyph_index(letter, &index);
+    plcui_perf_add(PERF_FONT_LOOKUP, plcui_perf_now() - started, 0);
+    if (result != TTF_OK || !index) return false;
+    const TtfBitmap *bitmap = timed_hzfont_bitmap(index, (uint8_t)face->size, current_supersample());
     if (!bitmap || bitmap->width > UINT16_MAX || bitmap->height > UINT16_MAX) return false;
     if (bitmap->width && bitmap->height && !bitmap->pixels) return false;
     int64_t offset_y = (int64_t)bitmap->originY - (int64_t)bitmap->height;
@@ -92,8 +108,8 @@ static const void *hzfont_glyph_bitmap(lv_font_glyph_dsc_t *glyph, lv_draw_buf_t
     if (!glyph->resolved_font || glyph->format == LV_FONT_GLYPH_FORMAT_NONE) return NULL;
     const plcui_hzfont_face_t *face = glyph->resolved_font->dsc;
     if (!face || glyph->gid.index > UINT16_MAX) return NULL;
-    const TtfBitmap *bitmap = luat_hzfont_get_bitmap((uint16_t)glyph->gid.index,
-                                                   (uint8_t)face->size, current_supersample());
+    const TtfBitmap *bitmap = timed_hzfont_bitmap((uint16_t)glyph->gid.index,
+                                                (uint8_t)face->size, current_supersample());
     if (!bitmap || !bitmap->pixels || !bitmap->width || !bitmap->height) return NULL;
     if (!draw_buffer) return bitmap->pixels;
 
@@ -236,6 +252,11 @@ bool luat_plcui_set_font_size(plcui_widget_t *widget, uint16_t size, plcui_error
         font_error_context(widget, error, "font");
         return false;
     }
+    if (widget->pinyin_keyboard) {
+        plcui_widget_t candidate = *widget;
+        candidate.font = font; candidate.font_size = size;
+        if (!luat_plcui_keyboard_validate(&candidate, error)) return false;
+    }
     widget->font = font;
     widget->font_size = size;
     lv_style_selector_t selector = widget->type == PLCUI_KEYBOARD || widget->type == PLCUI_TABLE ? LV_PART_ITEMS : LV_PART_MAIN;
@@ -245,6 +266,8 @@ bool luat_plcui_set_font_size(plcui_widget_t *widget, uint16_t size, plcui_error
         lv_obj_set_size(widget->obj, widget->w, widget->h);
     }
     lv_obj_mark_layout_as_dirty(widget->obj);
+    if (widget->type == PLCUI_LABEL) luat_plcui_label_restart(widget);
+    if (widget->type == PLCUI_KEYBOARD) luat_plcui_keyboard_font_changed(widget);
     lv_obj_invalidate(widget->obj);
     return true;
 }

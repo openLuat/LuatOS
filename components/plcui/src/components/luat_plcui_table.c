@@ -41,10 +41,21 @@ lv_obj_t *luat_plcui_table_create(plcui_widget_t *widget, lv_obj_t *parent)
     lv_obj_set_style_min_height(object, data->row_height, LV_PART_ITEMS);
     lv_obj_set_style_pad_ver(object, data->cell_padding, LV_PART_ITEMS);
     lv_obj_set_style_pad_hor(object, 12, LV_PART_ITEMS);
-    lv_table_set_row_count(object, data->rows);
+    /* Set widths while the new table still has its single default row.
+       Each width setter otherwise recalculates every row. */
     lv_table_set_column_count(object, data->columns);
     for (unsigned col = 0; col < data->columns; ++col) {
         lv_table_set_column_width(object, col, data->widths[col]);
+    }
+    lv_table_set_row_count(object, data->rows);
+
+    /* No frame can use this candidate yet. Temporarily use line heights while
+       loading the cell strings, rather than measure the growing row after
+       every cell. set_cell_value preserves these public control flags. */
+    for (unsigned row = 0; row < data->rows; ++row) {
+        for (unsigned col = 0; col < data->columns; ++col) {
+            lv_table_set_cell_ctrl(object, row, col, LV_TABLE_CELL_CTRL_TEXT_CROP);
+        }
     }
     for (unsigned row = 0; row < data->rows; ++row) {
         for (unsigned col = 0; col < data->columns; ++col) {
@@ -52,6 +63,15 @@ lv_obj_t *luat_plcui_table_create(plcui_widget_t *widget, lv_obj_t *parent)
             lv_table_set_cell_value(object, row, col, text ? text : "");
         }
     }
+    /* clear_cell_ctrl does not remeasure rows. Restore wrapping first, then
+       perform one real full-table measurement. PART_ANY is necessary here:
+       PART_ITEMS alone does not emit STYLE_CHANGED for a fixed-size object. */
+    for (unsigned row = 0; row < data->rows; ++row) {
+        for (unsigned col = 0; col < data->columns; ++col) {
+            lv_table_clear_cell_ctrl(object, row, col, LV_TABLE_CELL_CTRL_TEXT_CROP);
+        }
+    }
+    lv_obj_refresh_style(object, LV_PART_ANY, LV_STYLE_PROP_ANY);
     lv_obj_add_flag(object, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
     lv_obj_set_scroll_dir(object, LV_DIR_ALL);
     lv_obj_add_event_cb(object, table_draw, LV_EVENT_DRAW_TASK_ADDED, widget);

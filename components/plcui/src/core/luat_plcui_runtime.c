@@ -1,6 +1,8 @@
 /** @file luat_plcui_runtime.c Documents, generations and deferred Lua events. */
 #include "luat_base.h"
-#include "luat_plcui.h"
+#include "luat_plcui_component.h"
+#include "luat_plcui_perf.h"
+#include "luat_plcui_debug.h"
 #include "luat_msgbus.h"
 #include "luat_mcu.h"
 #include <limits.h>
@@ -75,8 +77,6 @@ static int refresh_message(lua_State *L, void *parameter)
 
     /* Only this display uses the 60Hz gate. A paused, unchanged display stays
        paused; a dirty display can render at the next scheduled frame. */
-    lv_timer_t *display_timer = lv_display_get_refr_timer(plcui_platform_display());
-    if (display_timer) lv_timer_ready(display_timer);
     for (lv_indev_t *input = lv_indev_get_next(NULL); input; input = lv_indev_get_next(input)) {
         if (lv_indev_get_display(input) == plcui_platform_display()) {
             lv_timer_t *input_timer = lv_indev_get_read_timer(input);
@@ -181,25 +181,90 @@ bool luat_plcui_check_text(plcui_widget_t *widget, const char *text, size_t leng
     return true;
 }
 
-void luat_plcui_emit(plcui_widget_t *w, plcui_event_type_t type)
+static const char *event_handler(const plcui_widget_t *widget, plcui_event_type_t type)
+{
+    if (type < PLCUI_FINISHED) return widget->handler[type];
+    return widget->animation && type <= PLCUI_ERROR ? widget->animation->handlers[type - PLCUI_FINISHED] : "";
+}
+
+static plcui_event_t *enqueue_event(plcui_widget_t *w, plcui_event_type_t type)
 {
     plcui_document_t *doc = w->document;
-    if (doc->closed || doc->pending_close || runtime.pending_deinit || doc->silent || !w->handler[type][0]) return;
+    if (doc->closed || doc->pending_close || runtime.pending_deinit || doc->silent
+        || doc->preparing_page >= 0 || w->page_index != (unsigned)doc->current_page
+        || !event_handler(w, type)[0]) return NULL;
     if (type == PLCUI_CHANGE) {
-        for (unsigned i = 0; i < doc->event_count; i++) {
-            plcui_event_t *event = &doc->events[(doc->event_head + i) % PLCUI_EVENT_CAPACITY];
-            if (event->type == type && event->generation == doc->generation && event->page_index == w->page_index && event->widget_index == w->widget_index) {
-                snprintf(event->text, sizeof(event->text), "%s", w->text);
-                return;
+        for (unsigned i = doc->event_count; i > 0; --i) {
+            plcui_event_t *event = &doc->events[(doc->event_head + i - 1U) % PLCUI_EVENT_CAPACITY];
+            if (event->generation == doc->generation && event->page_index == w->page_index && event->widget_index == w->widget_index) {
+                if (event->type == type) return event;
+                if (event->type == PLCUI_SUBMIT || event->type == PLCUI_CANCEL) break;
             }
         }
     }
-    if (doc->event_count >= PLCUI_EVENT_CAPACITY) { doc->events_dropped++; return; }
+    if (doc->event_count >= PLCUI_EVENT_CAPACITY && type != PLCUI_CHANGE) {
+        for (unsigned i = 0; i < doc->event_count; ++i) {
+            if (doc->events[(doc->event_head + i) % PLCUI_EVENT_CAPACITY].type != PLCUI_CHANGE) continue;
+            for (unsigned j = i; j + 1U < doc->event_count; ++j)
+                doc->events[(doc->event_head + j) % PLCUI_EVENT_CAPACITY] = doc->events[(doc->event_head + j + 1U) % PLCUI_EVENT_CAPACITY];
+            doc->event_count--; doc->events_dropped++;
+            break;
+        }
+    }
+    if (doc->event_count >= PLCUI_EVENT_CAPACITY) {
+        if (!doc->events_dropped) fprintf(stderr, "[plcui] event queue is full; inspect status().events_dropped\n");
+        doc->events_dropped++; return NULL;
+    }
     plcui_event_t *event = &doc->events[(doc->event_head + doc->event_count++) % PLCUI_EVENT_CAPACITY];
     memset(event, 0, sizeof(*event));
     event->generation = doc->generation; event->page_index = w->page_index;
     event->widget_index = w->widget_index; event->type = type;
-    if (w->type == PLCUI_TEXTAREA) snprintf(event->text, sizeof(event->text), "%s", w->text);
+    return event;
+}
+
+void luat_plcui_emit(plcui_widget_t *w, plcui_event_type_t type)
+{
+    plcui_event_t *event = enqueue_event(w, type);
+    if (event && w->type == PLCUI_TEXTAREA) snprintf(event->text, sizeof(event->text), "%s", w->text);
+}
+
+void luat_plcui_slider_emit(plcui_widget_t *widget, plcui_event_type_t type, const char *reason)
+{
+    plcui_document_t *doc = widget->document;
+    if (type == PLCUI_CANCEL) {
+        unsigned boundary = 0;
+        for (unsigned i = doc->event_count; i > 0; --i) {
+            plcui_event_t *event = &doc->events[(doc->event_head + i - 1U) % PLCUI_EVENT_CAPACITY];
+            if (event->widget_index == widget->widget_index && event->page_index == widget->page_index
+                && (event->type == PLCUI_SUBMIT || event->type == PLCUI_CANCEL)) { boundary = i; break; }
+        }
+        unsigned kept = 0;
+        for (unsigned i = 0; i < doc->event_count; ++i) {
+            plcui_event_t event = doc->events[(doc->event_head + i) % PLCUI_EVENT_CAPACITY];
+            if (i >= boundary && event.type == PLCUI_CHANGE && event.widget_index == widget->widget_index && event.page_index == widget->page_index) continue;
+            doc->events[(doc->event_head + kept++) % PLCUI_EVENT_CAPACITY] = event;
+        }
+        doc->event_count = kept;
+    }
+    plcui_event_t *event = enqueue_event(widget, type);
+    if (!event) return;
+    event->value = widget->slider->value;
+    event->start_value = widget->slider->start_value;
+    snprintf(event->reason, sizeof(event->reason), "%s", reason ? reason : "");
+}
+
+void luat_plcui_animimg_emit(plcui_widget_t *widget, plcui_event_type_t type, const plcui_error_t *error)
+{
+    plcui_event_t *event = enqueue_event(widget, type);
+    if (!event) return;
+    plcui_animimg_t *a = widget->animation;
+    event->frame = (type == PLCUI_ERROR ? a->failed_frame : a->frame) + 1U;
+    event->completed_loops = a->completed_loops;
+    if (error) {
+        event->code = error->code;
+        snprintf(event->text, sizeof(event->text), "%s", error->message);
+        snprintf(event->resource_id, sizeof(event->resource_id), "%s", a->frames[a->failed_frame]);
+    }
 }
 
 void luat_plcui_dispatch(plcui_document_t *doc)
@@ -217,46 +282,124 @@ void luat_plcui_dispatch(plcui_document_t *doc)
         plcui_widget_t *widget = &page->widgets[event.widget_index];
         int stack = lua_gettop(L);
         lua_rawgeti(L, LUA_REGISTRYINDEX, doc->handlers_ref);
-        lua_getfield(L, -1, widget->handler[event.type]);
+        const char *handler = event_handler(widget, event.type);
+        lua_getfield(L, -1, handler);
         if (lua_isfunction(L, -1)) {
-            static const char *names[] = {"click", "change", "submit", "cancel"};
+            static const char *names[] = {"click", "change", "submit", "cancel", "finished", "error"};
             lua_createtable(L, 0, 5);
             lua_pushstring(L, names[event.type]); lua_setfield(L, -2, "type");
             lua_pushstring(L, page->id); lua_setfield(L, -2, "page");
             lua_pushstring(L, widget->id); lua_setfield(L, -2, "id");
             if (widget->type == PLCUI_TEXTAREA) { lua_pushstring(L, event.text); lua_setfield(L, -2, "text"); }
-            if (lua_pcall(L, 1, 0, 0) != LUA_OK) fprintf(stderr, "[plcui] handler %s failed: %s\n", widget->handler[event.type], lua_tostring(L, -1));
+            if (widget->slider) {
+                lua_pushinteger(L, event.value); lua_setfield(L, -2, "value");
+                lua_pushinteger(L, event.start_value); lua_setfield(L, -2, "start_value");
+                if (event.type == PLCUI_CANCEL) { lua_pushstring(L, event.reason); lua_setfield(L, -2, "reason"); }
+            }
+            if (widget->animation) {
+                lua_pushinteger(L, event.frame); lua_setfield(L, -2, "frame");
+                lua_pushinteger(L, event.completed_loops); lua_setfield(L, -2, "completed_loops");
+                if (event.type == PLCUI_ERROR) {
+                    lua_pushstring(L, event.code ? event.code : "E_RESOURCE"); lua_setfield(L, -2, "code");
+                    lua_pushstring(L, event.text); lua_setfield(L, -2, "message");
+                    lua_pushstring(L, event.resource_id); lua_setfield(L, -2, "resource_id");
+                }
+            }
+            if (lua_pcall(L, 1, 0, 0) != LUA_OK) fprintf(stderr, "[plcui] handler %s failed: %s\n", handler, lua_tostring(L, -1));
         }
         lua_settop(L, stack);
     }
     doc->dispatching = false;
 }
 
+static bool prepare_business(plcui_document_t *doc, int page, plcui_error_t *error)
+{
+    if (doc->prepare_ref == LUA_NOREF) return true;
+    lua_State *L = doc->L;
+    int top = lua_gettop(L);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, doc->prepare_ref);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, doc->self_ref);
+    lua_pushstring(L, doc->pages[page].id);
+    int result = lua_pcall(L, 2, 0, 0);
+    if (result != LUA_OK) {
+        const char *message = lua_tostring(L, -1);
+        luat_plcui_error(error, "E_PREPARE", "Page prepare callback failed: %s", message ? message : "non-string error");
+    }
+    lua_settop(L, top);
+    return result == LUA_OK;
+}
+
 bool luat_plcui_show(plcui_document_t *doc, int index, plcui_error_t *error)
 {
+    if (runtime.preparing_document) { luat_plcui_error(error, "E_BUSY", "Page preparation is in progress"); return false; }
     if (doc->closed) { luat_plcui_error(error, "E_OBJECT_CLOSED", "Document is closed"); return false; }
     if (index < 0 || (unsigned)index >= doc->page_count) { luat_plcui_error(error, "E_SCHEMA", "Page does not exist"); return false; }
-    if (doc->dispatching || doc->switching) { doc->pending_page = index; return true; }
-    if (index == doc->current_page) return true;
+    if (doc->dispatching || doc->switching) {
+        plcui_perf_request(doc, index);
+        doc->pending_page = index; return true;
+    }
+    if (index == doc->current_page) { plcui_perf_request(doc, -1); return true; }
+    plcui_perf_begin(doc, index);
     doc->switching = true;
-    if (!luat_plcui_validate_page_images(doc, index, error)) { doc->switching = false; return false; }
-    if (!luat_plcui_create_page(doc, index, error)) { doc->switching = false; return false; }
+    doc->preparing_page = index;
+    runtime.preparing_document = doc;
+    plcui_perf_phase(PERF_CREATE);
+    uint32_t started = plcui_perf_now();
+    bool created = luat_plcui_create_page(doc, index, error);
+    plcui_perf_step(PERF_STEP_CREATE, plcui_perf_now() - started);
+    if (!created) goto failed;
+    started = plcui_perf_now();
+    bool initialized = prepare_business(doc, index, error);
+    plcui_perf_step(PERF_STEP_INIT, plcui_perf_now() - started);
+    if (!initialized) goto failed;
+    if (doc->pending_close || runtime.pending_deinit) {
+        luat_plcui_error(error, "E_BUSY", "Preparation was cancelled"); goto failed;
+    }
+    plcui_perf_phase(PERF_CHECK);
+    started = plcui_perf_now();
+    bool ready = luat_plcui_prepare_page_images(doc, index, error);
+    plcui_perf_step(PERF_STEP_CHECK, plcui_perf_now() - started);
+    if (!ready) goto failed;
+    doc->preparing_page = -1;
+    runtime.preparing_document = NULL;
     int old_page = doc->current_page;
+    plcui_perf_phase(PERF_SWITCH);
+    started = plcui_perf_now();
     luat_plcui_input_finish(doc, false, true);
+    if (old_page >= 0) {
+        plcui_page_t *old = &doc->pages[old_page];
+        for (unsigned i = 0; i < old->count; ++i) if (old->widgets[i].slider) luat_plcui_slider_cancel(&old->widgets[i], "page_leave");
+    }
+    plcui_perf_step(PERF_STEP_INPUT, plcui_perf_now() - started);
+    started = plcui_perf_now();
     luat_plcui_dispatch(doc);
+    plcui_perf_step(PERF_STEP_DISPATCH, plcui_perf_now() - started);
     doc->generation++;
     doc->current_page = index;
+    started = plcui_perf_now();
     lv_screen_load(doc->pages[index].screen);
+    plcui_perf_step(PERF_STEP_ACTIVATE, plcui_perf_now() - started);
+    started = plcui_perf_now();
     luat_plcui_destroy_page(doc, old_page);
+    plcui_perf_step(PERF_STEP_DESTROY, plcui_perf_now() - started);
     doc->event_count = 0; doc->event_head = 0;
     doc->switching = false;
+    plcui_perf_arm(doc->pages[index].screen);
     return true;
+failed:
+    doc->preparing_page = -1;
+    runtime.preparing_document = NULL;
+    luat_plcui_destroy_page(doc, index);
+    doc->switching = false;
+    plcui_perf_fail(error && error->code ? error->code : "prepare_failed");
+    return false;
 }
 
 void luat_plcui_close(plcui_document_t *doc)
 {
     if (!doc || doc->closed) return;
-    if (doc->dispatching || doc->switching) { doc->pending_close = true; return; }
+    if (doc->dispatching || doc->switching || doc->preparing_page >= 0) { doc->pending_close = true; return; }
+    plcui_perf_cancel(doc);
     luat_plcui_input_finish(doc, false, false);
     doc->closed = true; doc->generation++;
     doc->event_count = 0; doc->event_head = 0;
@@ -264,19 +407,22 @@ void luat_plcui_close(plcui_document_t *doc)
         if (runtime.idle_screen && runtime.initialized) lv_screen_load(runtime.idle_screen);
         runtime.document = NULL;
     }
-    luat_plcui_destroy_page(doc, doc->current_page);
+    for (unsigned i = 0; i < doc->page_count; ++i) luat_plcui_destroy_page(doc, (int)i);
     doc->current_page = -1;
     luat_plcui_free_description(doc);
+    if (doc->prepare_ref != LUA_NOREF) { luaL_unref(doc->L, LUA_REGISTRYINDEX, doc->prepare_ref); doc->prepare_ref = LUA_NOREF; }
     if (doc->handlers_ref != LUA_NOREF) { luaL_unref(doc->L, LUA_REGISTRYINDEX, doc->handlers_ref); doc->handlers_ref = LUA_NOREF; }
     if (doc->self_ref != LUA_NOREF) { luaL_unref(doc->L, LUA_REGISTRYINDEX, doc->self_ref); doc->self_ref = LUA_NOREF; }
 }
 
 void luat_plcui_deinit(void)
 {
-    if (!runtime.initialized) return;
-    if (runtime.refreshing || (runtime.document && (runtime.document->dispatching || runtime.document->switching))) { runtime.pending_deinit = true; return; }
+    if (!runtime.initialized) { plcui_debug_set(false); return; }
+    if (runtime.preparing_document || runtime.refreshing || (runtime.document && (runtime.document->dispatching || runtime.document->switching))) { runtime.pending_deinit = true; return; }
     luat_plcui_stop_refresh();
     if (runtime.document) luat_plcui_close(runtime.document);
+    plcui_perf_reset();
+    plcui_debug_set(false);
     lua_pushnil(runtime.L);
     lua_setfield(runtime.L, LUA_REGISTRYINDEX, "plcui_active");
     plcui_platform_deinit();
@@ -289,14 +435,23 @@ void luat_plcui_deinit(void)
 
 void luat_plcui_refresh(void)
 {
-    if (!runtime.initialized || runtime.refreshing) return;
+    if (!runtime.initialized || runtime.refreshing || runtime.preparing_document) return;
     runtime.refreshing = true;
     plcui_document_t *doc = runtime.document;
     lua_State *L = runtime.L;
     bool anchored = doc && doc->self_ref != LUA_NOREF;
     if (anchored) lua_rawgeti(L, LUA_REGISTRYINDEX, doc->self_ref);
     plcui_platform_poll();
+    luat_plcui_components_tick(doc);
+    /* Both scheduled and explicit refresh must present a newly selected frame
+       before starting its display interval. Unchanged displays stay paused. */
+    lv_timer_t *display_timer = lv_display_get_refr_timer(plcui_platform_display());
+    if (display_timer) lv_timer_ready(display_timer);
     lv_timer_handler();
+    /* The software renderer has joined its draw tasks when the handler returns.
+       Retire even when no dirty region/physical flush was needed. */
+    luat_plcui_components_retire(doc);
+    luat_plcui_components_presented(doc);
     if (doc && !doc->closed) {
         luat_plcui_dispatch(doc);
         if (doc->pending_close) luat_plcui_close(doc);
@@ -307,6 +462,8 @@ void luat_plcui_refresh(void)
             if (!luat_plcui_show(doc, page, &error)) fprintf(stderr, "[plcui] deferred page switch failed: %s\n", error.message);
         }
     }
+    plcui_perf_poll();
+    plcui_debug_poll();
     runtime.refreshing = false;
     if (runtime.pending_deinit) luat_plcui_deinit();
     if (anchored) lua_pop(L, 1);

@@ -158,9 +158,13 @@ return {
         -- 供电脚 AUDIOPA_EN = GPIO73 已在 power_on 拉高常供电，此处不写 pa_ctrl
         audio = {
             model = "air1103",        -- 音频通路：Air1103 语音芯片（exaudio 新框架 UART 驱动，录音走 MIC、播放走下行）
+        -- 本板原理图确认：GPIO73 为 Air1103 供电，高有效。SIP 通话断电自愈按下它下电/上电
+        recovery_power_pin = 73,
+        recovery_power_active = 1,
+        -- 通话细粒度性能采样，默认关闭；A/B 测试时设为 true
+        sip_perf_enabled = false,
             uart_id = 6,              -- Air1103 接 UART6（固定 2M 波特率）
             audio_mode = "new",       -- 拉起 audio_v2 新框架（air1103 模式必须）
-            power_gpio = 73,          -- Air1103 供电脚 AUDIOPA_EN = GPIO73（SIP 通话的断电自愈要用）
             play_vol = 70,            -- 默认播放音量(0~100)，llm_chat / video_util / factory_rec 统一读
             mic_vol = 70,             -- 默认录音音量(0~100)（AI 助手语音输入 / 应用工厂录音共用）
             record_format = "PCM_16000", -- Air1103 仅支持 PCM_16000（16kHz/16bit/单声道）
@@ -181,9 +185,9 @@ return {
         file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
         aircloud = true,       -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
         wdt = true,            -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        sip = true,            -- 启用 SIP 通话（Air1103 语音芯片）
         iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
         fota = true,           -- 启用固件在线升级（需联网）
-        sip = true,            -- 启用 SIP 通话（Air1103 语音芯片）
     },
 
     -- ===== AirCloud 数据上报参数 =====

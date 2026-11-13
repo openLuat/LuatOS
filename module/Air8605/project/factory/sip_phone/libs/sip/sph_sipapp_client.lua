@@ -1823,6 +1823,11 @@ local function sip_task(opts)
     -- socket 回调：整个 SIP 信令收发与状态推进的入口。
     local function netCB(netc, event, param)
         if netc ~= state.netc then return end
+        -- A late socket event must not revive a client whose stop was requested.
+        if g_stop then
+            sys.publish(TOPIC_DISCONNECT)
+            return
+        end
         if param ~= 0 then
             log.warn("sip", "net error", event, param)
             stop_reg_timer()
@@ -1940,6 +1945,15 @@ local function sip_task(opts)
                 local invite_cseq = cseq_number(req_headers["cseq"]) or 1
                 local dialog = state.dialog
                 local inv = state.incoming_invite
+                -- A To tag identifies an in-dialog request, never a new incoming
+                -- call. A delayed re-INVITE after BYE must not resurrect a dialog.
+                -- Closing dialogs are handled before this function is called.
+                if header_tag_value(req_headers["to"]) and
+                    (not dialog or dialog.call_id ~= req_headers["call-id"]) then
+                    log.info("sip", "reject stale in-dialog INVITE", "call-id", req_headers["call-id"], "cseq", invite_cseq)
+                    net_send_on(netc, build_response(state, req_headers, 481, "Call/Transaction Does Not Exist", nil, ""))
+                    return
+                end
                 local active_id = dialog and dialog.call_id or (inv and inv.headers["call-id"])
                 if active_id and active_id ~= req_headers["call-id"] then
                     local busy_headers = copy_headers(req_headers)
@@ -2792,7 +2806,7 @@ local function sip_task(opts)
     sys.subscribe("EXLIB_NETDRV_NETWORK_STATUS", network_status_handler)
 
     -- 外层重连循环：只要未显式 stop，断线后就会等待 3 秒重连。
-    while true do
+    while not g_stop do
         local adapter_to_use
         if state.dialog or state.incoming_invite or next(state.closing_dialogs) then
             -- 来电/拨号/通话中：锁定为建立 SIP 时的网卡
@@ -2855,7 +2869,8 @@ local function sip_task(opts)
                 socket.release(netc)
                 sys.wait(3000)
             else
-                sys.waitUntil(TOPIC_DISCONNECT)
+                -- stop may have arrived while connect was yielding.
+                if not g_stop then sys.waitUntil(TOPIC_DISCONNECT) end
                 clear_connection(netc)
                 socket.close(netc)
                 socket.release(netc)

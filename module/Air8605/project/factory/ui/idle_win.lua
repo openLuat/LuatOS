@@ -224,6 +224,15 @@ local has_other_func = _G.project_config and _G.project_config.features and _G.p
 -- Air1103 的 UART 上，没有它的板子注册能成、听不见声。门槛两个条件缺一不可，见 app/sip/sip_gate.lua
 local has_sip = require("sip_gate").ok()
 
+-- R3 只恢复桌面生命周期，未加载的业务不显示入口。
+if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R3" or _G.SIP_RECOVERY_STAGE == "R4" or (_G.SIP_RECOVERY_STAGE == "R5" or (_G.SIP_RECOVERY_STAGE == "R6" or _G.SIP_RECOVERY_STAGE == "R7"))) then
+    has_other_func = has_other_func and (_G.SIP_RECOVERY_STEP == "R7-S7-PAGE-LIFECYCLE" or _G.SIP_RECOVERY_STEP == "R7-S8L-RS485-LAZY")
+    if _G.SIP_RECOVERY_STAGE ~= "R7" then
+        has_app_factory, has_ai_chat = false, false
+    end
+    if (_G.SIP_RECOVERY_STAGE ~= "R5" and (_G.SIP_RECOVERY_STAGE ~= "R6" and _G.SIP_RECOVERY_STAGE ~= "R7")) then has_cloud_disk = false end
+end
+
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
 local product_name = "合宙引擎主机" .. (model_suffix ~= "" and model_suffix or "")
@@ -599,20 +608,6 @@ local function open_builtin(win)
             exwin.close_children_of(leaf)
         end
         return
-    end
-
-    --[[
-    SIP 通话窗口整套（sip_phone 协议栈 + Air1103 语音桥，约 3000 行）只在首次点开时才
-    require，不进 ui_main 的可选窗口批：常驻开机既一直压着 Lua 堆，又会和通用录音抢
-    Air1103 的 UART6 实时资源。别的菜单一律不加载它。放在 begin_menu_switch 之前：
-    加载失败就整件事不发生，不会把菜单切换悬在半路。
-    ]]
-    if win == "SIP_TEST" and not package.loaded["sip_test_win"] then
-        local ok, err = pcall(require, "sip_test_win")
-        if not ok then
-            log.error("idle_win", "SIP 通话窗口加载失败", err)
-            return
-        end
     end
 
     exwin.begin_menu_switch(host)   -- 登记切换事务：新页归属 host，旧页由 exwin 在新页创建后回收

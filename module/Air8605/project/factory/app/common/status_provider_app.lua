@@ -40,6 +40,7 @@ local has_4g = _G.project_config and _G.project_config.features and _G.project_c
 local has_wifi = _G.project_config and _G.project_config.features and _G.project_config.features.wifi
 
 local exnetif = require "exnetif"
+local query_diag = require "sip_query_diag"
 
 local current_time = "08:00"
 local current_date = "1970-01-01"
@@ -113,7 +114,9 @@ local function update_wifi_signal()
         end
         return
     end
+    local token, started = query_diag.begin("status.wifi")
     local info = wlan.getInfo()
+    query_diag.finish("status.wifi", token, started)
     if info and info.rssi then
         wifi_rssi = info.rssi
         local new_level = rssi_to_level(wifi_rssi)
@@ -238,7 +241,9 @@ local function update_mobile_signal()
     if not sim_present then
         mobile_signal_level = -1
     else
+        local token, started = query_diag.begin("status.csq")
         local ok, csq = pcall(mobile.csq)
+        query_diag.finish("status.csq", token, started)
         -- 查询失败（airlink RPC 偶发超时等）保持上次等级，避免图标抖动
         if not (ok and type(csq) == "number") then return end
         if csq == 99 or csq <= 5 then

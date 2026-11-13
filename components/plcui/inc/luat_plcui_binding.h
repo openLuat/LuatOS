@@ -11,6 +11,8 @@
 #define PLCUI_CONTAINER_MT "plcui.container"
 #define PLCUI_TABLE_MT "plcui.table"
 #define PLCUI_CHART_MT "plcui.chart"
+#define PLCUI_ANIMIMG_MT "plcui.animimg"
+#define PLCUI_SLIDER_MT "plcui.slider"
 
 int luat_plcui_push_error(lua_State *L, const plcui_error_t *error);
 int luat_plcui_binding_error(lua_State *L, const char *code, const char *message);
@@ -19,6 +21,7 @@ plcui_widget_t *luat_plcui_binding_check_object(lua_State *L, plcui_error_t *err
 plcui_widget_t *luat_plcui_binding_check_type(lua_State *L, plcui_widget_type_t type, plcui_error_t *error);
 void luat_plcui_binding_push_object(lua_State *L, int xml_handle_stack_index, unsigned page_index, unsigned widget_index);
 void luat_plcui_binding_register_common(lua_State *L);
+void luat_plcui_binding_register_methods(lua_State *L, const luaL_Reg *methods);
 
 int luat_plcui_xml_load(lua_State *L);
 void luat_plcui_register_xml_meta(lua_State *L);
@@ -29,5 +32,7 @@ void luat_plcui_register_keyboard_meta(lua_State *L);
 void luat_plcui_register_container_meta(lua_State *L);
 void luat_plcui_register_table_meta(lua_State *L);
 void luat_plcui_register_chart_meta(lua_State *L);
+void luat_plcui_register_animimg_meta(lua_State *L);
+void luat_plcui_register_slider_meta(lua_State *L);
 
 #endif

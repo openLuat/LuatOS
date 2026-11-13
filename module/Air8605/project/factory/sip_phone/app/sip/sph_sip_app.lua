@@ -1,3 +1,4 @@
+local memdiag = require "sip_mem_diag"
 -- SIP_APP account/call/message coordinator. UI entry points never yield.
 local store = require "sph_store"
 local audio = require "sph_audio_app"
@@ -8,7 +9,7 @@ local M = {}
 local wanted, worker, initialized = false, false, false
 local generation, epoch = 0, 0
 local registered, pending, call, reconnect = false, nil, nil, false
-local S = {state="idle",detail="",user="",since=0,muted=false}
+local S = {state="idle",detail="",user="",since=0,muted=false,registration_state="idle",registration_error=""}
 local function elapsed_clock()
     if mcu and mcu.ticks2 then
         local seconds,micros=mcu.ticks2(0)
@@ -23,15 +24,37 @@ function M.call_duration()
     if not call or not call.connected_tick then return nil end
     return math.max(0,math.floor(elapsed_clock()-call.connected_tick))
 end
-function M.status()
+function M.status(light)
     local t={}; for k,v in pairs(S) do t[k]=v end
-    t.registered=registered; t.mic=audio.is_ready(); t.audio_verified=store.is_audio_verified()
+    t.registered=registered; t.mic=audio.is_ready()
+    if not light then t.audio_verified=store.is_audio_verified() end
     t.duration=M.call_duration() or 0
-    t.name=S.peer and store.find_name(S.peer); return t
+    if not light then t.name=S.peer and store.find_name(S.peer) end
+    return t
 end
 local function state(value,detail)
     S.state=value; if detail then S.detail=detail end
     sys.publish("SIP_STATE",M.status())
+end
+-- Registration belongs to the account, not to the current call state.
+local function registration(value,reason)
+    memdiag.mark("sip.registration","STATE",value)
+    S.registration_state=value
+    S.registration_error=value=="failed" and (reason or "注册失败") or ""
+    sys.publish("SIP_STATE",M.status())
+end
+local function registration_reason(data,fallback)
+    local parts,seen={},{}
+    local names={register_timeout="注册响应超时",auth_failed="账号认证失败",network_down="网络已断开"}
+    for _,key in ipairs({"code","sip_code","reason","response_reason"}) do
+        local value=data[key]
+        if value~=nil and tostring(value)~="" then
+            value=tostring(value)
+            value=names[value] or value
+            if not seen[value] then parts[#parts+1]=value; seen[value]=true end
+        end
+    end
+    return #parts>0 and table.concat(parts," · ") or fallback
 end
 local function idle_state() return registered and "ready" or (wanted and "connecting" or "idle") end
 local function finish_message(status,reason)
@@ -50,19 +73,26 @@ local function record(result)
     if not ok then emit_error(err) end
     sys.publish("SIP_CALL_LOGGED")
 end
+local function trace_teardown(stage)
+    log.info("sip_teardown",stage,"lua_kb",math.floor(collectgarbage("count")))
+end
 local function clear_call(result)
     if not call then return end
-    record(result)
+    -- Release live audio buffers/timers before reading and encoding the call log.
     audio.stop_ringback(true); audio.stop()
+    trace_teardown("stopped")
+    record(result)
+    trace_teardown("recorded")
     call=nil; S.peer=nil; S.direction=nil; S.since=0; S.muted=false
     if audio.set_mute then pcall(audio.set_mute,false) end
     local ok,err=audio.play_hangup()
+    trace_teardown("tone_requested")
     if not ok then log.warn("sip_app","hangup tone unavailable",err) end
 end
+clear_call = memdiag.wrap("sip.clear_call",clear_call)
 local function audio_gate()
     local ok,diag=pcall(require,"sph_audio_diag")
     if ok and diag.status().busy then return false,"正在执行音频诊断，请稍候" end
-    if not store.is_audio_verified() then return false,"请先完成音频自检并确认听到声音" end
     if not audio.is_ready() then return false,"音频尚未就绪，请检查麦克风和语音芯片" end
     return true
 end
@@ -83,14 +113,19 @@ local function on_event(token,event,action,data)
     if event=="register" then
         if action=="ok" then
             registered=true; store.set_logged(true)
+            registration("registered")
             if not call then state("ready","注册成功") end
         elseif action~="challenge" then
             registered=false; store.set_logged(false); reconnect=true
+            registration("failed",registration_reason(data,"注册失败，请检查账号或网络"))
             clear_call(); finish_message("unknown","注册失效，发送结果未知")
-            state("connecting","注册失败，请检查账号或网络")
+            state("connecting",S.registration_error)
         end
     elseif event=="lifecycle" and (action=="offline" or action=="stopped") then
         registered=false; store.set_logged(false); reconnect=true
+        if S.registration_state~="failed" then
+            registration("failed",registration_reason(data,"连接断开，等待重连"))
+        end
         clear_call(); finish_message("unknown","连接中断，发送结果未知")
         state("connecting","连接断开，等待重连")
     elseif event=="call" then
@@ -173,14 +208,25 @@ local function run()
         if wanted and mine==generation then
             epoch=epoch+1; local token=epoch; reconnect=false
             local a=store.get_acct(); S.user=a.user.."@"..a.server
-            engine.on(function(...) on_event(token,...) end)
+            engine.on(memdiag.wrap("sip.event",function(...) return on_event(token,...) end))
+            registration("registering")
             state("connecting","注册中")
             local ok=engine.init(config(a)) and engine.start()
-            if not ok then emit_error("SIP初始化失败，请检查固件及配置") end
+            if not ok then
+                registration("failed","SIP初始化失败，请检查固件及配置")
+                emit_error(S.registration_error)
+            end
             local elapsed=0
             while ok and wanted and mine==generation and online() and not reconnect do
                 sys.wait(500); elapsed=elapsed+500
-                if not registered and elapsed>=30000 then break end
+                if not registered and elapsed>=30000 then
+                    registration("failed","注册响应超时")
+                    break
+                end
+            end
+            if wanted and mine==generation and S.registration_state~="failed" then
+                registered=false; store.set_logged(false)
+                registration("failed",online() and "连接中断" or "网络已断开")
             end
             epoch=epoch+1; registered=false; store.set_logged(false)
             clear_call(); finish_message("unknown","会话结束，发送结果未知")
@@ -193,7 +239,7 @@ local function run()
             end
         end
     end
-    worker=false; state("idle","已注销")
+    worker=false; registration("idle"); state("idle","已注销")
 end
 local function start_worker()
     if worker then return end
@@ -209,17 +255,52 @@ function M.login(a)
     local ok,err=store.save_acct(a); if not ok then return false,err end
     ok,err=store.set_auto_register(true); if not ok then return false,err end
     generation=generation+1; epoch=epoch+1; wanted=true; registered=false; store.set_logged(false)
+    S.user=a.user.."@"..a.server
+    registration("registering")
     start_worker(); return true
 end
-function M.logout()
-    if call then return false,"请先结束当前通话" end
-    local ok,err=store.set_auto_register(false); if not ok then return false,err end
+function M.logout(preserve_auto)
+    if call then
+        if not preserve_auto then return false,"请先结束当前通话" end
+        -- Window teardown cannot wait for an asynchronous BYE response.
+        -- Send the termination once, then release local call/audio ownership.
+        if S.state~="ending" then
+            if S.state=="incoming" then pcall(engine.fail,486,"Busy Here")
+            else pcall(engine.hangUp) end
+        end
+        clear_call(S.state=="incoming" and "rejected" or "ended")
+    end
+    if not preserve_auto then
+        local ok,err=store.set_auto_register(false); if not ok then return false,err end
+    end
     wanted=false; registered=false; generation=generation+1; epoch=epoch+1; store.set_logged(false)
+    registration("idle")
     state(worker and "connecting" or "idle","正在注销"); return true
 end
+-- Coroutine-only barrier. logout() deliberately remains non-yielding for UI callbacks.
+function M.wait_stopped(timeout_ms)
+    local waited = 0
+    timeout_ms = timeout_ms or 15000
+    log.info("factory_handoff", "SIP_STOP_WAIT", "worker", worker, "client", client.is_running())
+    while worker or client.is_running() do
+        if wanted then return false, "SIP was restarted during shutdown" end
+        if waited >= timeout_ms then
+            log.error("factory_handoff", "SIP_STOP_TIMEOUT", "worker", worker, "client", client.is_running())
+            return false, "SIP后台退出超时，未启动下一功能"
+        end
+        sys.wait(20)
+        waited = waited + 20
+    end
+    if wanted then return false, "SIP was restarted during shutdown" end
+    log.info("factory_handoff", "SIP_STOPPED", "wait_ms", waited)
+    return true
+end
+
 function M.init()
-    if initialized then return true end; initialized=true
-    store.recover_messages()
+    if not initialized then
+        initialized=true
+        store.recover_messages()
+    end
     -- 工厂集成：首次打开 SIP 页默认自动注册（默认账号 cc.luatos.com:8910 始终存在）。
     -- 一旦用户在页面内手动「注销」，会写入 auto=false 及 auto_seen=true，
     -- 之后尊重该选择，不再自动连。

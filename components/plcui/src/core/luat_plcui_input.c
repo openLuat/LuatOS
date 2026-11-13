@@ -1,5 +1,6 @@
 /** @file luat_plcui_input.c Shared textarea editing and keyboard session coordination. */
 #include "luat_plcui_component.h"
+#include "luat_plcui_keyboard.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -12,12 +13,13 @@ void luat_plcui_input_finish(plcui_document_t *document, bool submit, bool notif
     document->keyboard = NULL;
     bool was_silent = document->silent;
     document->silent = true;
-    if (!submit && textarea->obj) lv_textarea_set_text(textarea->obj, document->edit_original);
+    if (!submit && textarea->obj) luat_plcui_textarea_write(textarea->obj, document->edit_original);
     if (textarea->obj) {
         snprintf(textarea->text, sizeof(textarea->text), "%s", lv_textarea_get_text(textarea->obj));
         lv_obj_remove_state(textarea->obj, LV_STATE_FOCUSED);
     }
     if (keyboard && keyboard->obj) {
+        luat_plcui_keyboard_reset(keyboard);
         lv_keyboard_set_textarea(keyboard->obj, NULL);
         lv_obj_add_flag(keyboard->obj, LV_OBJ_FLAG_HIDDEN);
     }
@@ -27,7 +29,9 @@ void luat_plcui_input_finish(plcui_document_t *document, bool submit, bool notif
 
 void luat_plcui_input_begin(plcui_widget_t *textarea)
 {
+    if (luat_plcui_runtime()->preparing_document) return;
     plcui_document_t *document = textarea->document;
+    if (textarea->page_index != (unsigned)document->current_page) return;
     if (!luat_plcui_component_interactive(textarea) || document->editing == textarea) return;
     luat_plcui_input_finish(document, false, true);
     document->editing = textarea;
@@ -39,6 +43,7 @@ void luat_plcui_input_begin(plcui_widget_t *textarea)
         if (keyboard->type != PLCUI_KEYBOARD || strcmp(keyboard->id, textarea->keyboard_id)
             || !keyboard->obj || keyboard->disabled || !luat_plcui_component_ancestors_interactive(keyboard)) continue;
         document->keyboard = keyboard;
+        luat_plcui_keyboard_reset(keyboard);
         lv_keyboard_set_textarea(keyboard->obj, textarea->obj);
         lv_obj_remove_flag(keyboard->obj, LV_OBJ_FLAG_HIDDEN);
         /* Reordering remains within the declared container, preserving its clipping. */

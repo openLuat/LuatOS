@@ -200,6 +200,7 @@ int plcui_platform_init(int width, int height)
     lv_timer_set_period(lv_indev_get_read_timer(g_sdl.pointer), PLCUI_REFRESH_PERIOD_MS);
     lv_tick_set_cb(plcui_sdl_tick);
     SDL_StartTextInput();
+    if (luat_pcsim_host_bind(g_sdl.window, g_sdl.renderer, g_sdl.texture, width, height) != 0) goto failed;
     g_sdl.initialized = true;
     return 0;
 failed:
@@ -210,6 +211,7 @@ failed:
 void plcui_platform_deinit(void)
 {
     plcui_platform_timer_stop();
+    luat_pcsim_host_unbind();
     if (g_sdl.pointer) lv_indev_delete(g_sdl.pointer);
     if (g_sdl.display) lv_display_delete(g_sdl.display);
     if (g_sdl.texture) SDL_DestroyTexture(g_sdl.texture);
@@ -219,6 +221,20 @@ void plcui_platform_deinit(void)
     free(g_sdl.frame);
     memset(&g_sdl, 0, sizeof(g_sdl));
     SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+}
+
+/**
+ * 用户关闭模拟器窗口时结束整个 PC 进程，避免窗口消失后 sys.run 仍继续运行。
+ * @note 主动调用 plcui.deinit 仅释放界面资源，不经过此退出路径。
+ */
+static void plcui_sdl_exit(void)
+{
+    SDL_StopTextInput();
+    plcui_platform_timer_stop();
+    luat_pcsim_host_unbind();
+    /* 不在事件轮询中执行 SDL_Quit；Windows IME 拆除可能访问已释放的键盘状态。
+       其余窗口和线程资源随进程退出交还操作系统。 */
+    exit(EXIT_SUCCESS);
 }
 
 void plcui_platform_poll(void)
@@ -269,11 +285,13 @@ void plcui_platform_poll(void)
             break;
         }
         case SDL_QUIT:
-            plcui_sdl_pointer_push(g_sdl.last.x, g_sdl.last.y, false);
-            SDL_HideWindow(g_sdl.window);
+            plcui_sdl_exit();
             break;
         case SDL_WINDOWEVENT:
-            if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+            if (event.window.event == SDL_WINDOWEVENT_CLOSE
+                && event.window.windowID == SDL_GetWindowID(g_sdl.window)) {
+                plcui_sdl_exit();
+            } else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
                 plcui_sdl_pointer_push(g_sdl.last.x, g_sdl.last.y, false);
             } else if (event.window.event == SDL_WINDOWEVENT_EXPOSED) {
                 SDL_RenderClear(g_sdl.renderer);
@@ -284,6 +302,7 @@ void plcui_platform_poll(void)
         default: break;
         }
     }
+    luat_pcsim_host_poll();
 }
 
 lv_display_t *plcui_platform_display(void)

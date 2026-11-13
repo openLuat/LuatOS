@@ -59,6 +59,7 @@
 ]]
 
 local air1103 = {}
+local perf = require "audio_perf"
 
 -- ==================== 配置 ====================
 local UART_ID        = 1        -- 默认串口
@@ -83,6 +84,8 @@ local is_inited     = false    -- 是否已初始化
 local rxstr         = ""       -- 接收缓冲(跨 uart 回调累积, 用于帧解析)
 local rx_enabled    = true     -- 是否解析接收数据
 local cb_identify   = nil      -- function(text)   识别结果回调
+local rx_drain_timer = nil     -- 合并积压接收事件，分批排空 UART
+local rx_read_bytes, rx_discard_bytes = 0, 0
 local cb_audio_data = nil      -- function(data)   上行 PCM 数据(512B/帧)回调
 
 -- 下行流式播放缓冲(zbuff 增量写入)
@@ -157,14 +160,30 @@ end
 
 -- ==================== 串口接收回调 ====================
 -- UART receive 事件: 读出数据 → 喂给帧解析器
-local function on_uart_receive()
-    local data = uart.read(UART_ID, 1024)
-    -- 非通话时直接丢弃, 不做字符串拼接/解析
-    if not rx_enabled then return end
-    while data and #data > 0 do
-        air1103.feed(data)
-        data = uart.read(UART_ID, 1024)
+local drain_uart
+-- 每次最多处理 4KB，保证噪声/积压时仍能让出给 AirLink 和其他任务。
+-- 关闭解析不等于停止 UART 接收，必须同样排空，不能只读 1024B 就返回。
+drain_uart = function()
+    rx_drain_timer = nil
+    if not is_inited then return end
+    for _ = 1, 4 do
+        local data = uart.read(UART_ID, 1024)
+        if not data or #data == 0 then return end
+        rx_read_bytes = rx_read_bytes + #data
+        if rx_enabled then air1103.feed(data)
+        else rx_discard_bytes = rx_discard_bytes + #data end
+        if #data < 1024 then return end
     end
+    -- 仅保留一个后续排空任务；不为每个 receive 事件新增定时器。
+    rx_drain_timer = sys.timerStart(drain_uart, 5)
+end
+local function on_uart_receive()
+    if not rx_drain_timer then drain_uart() end
+end
+
+function air1103.rx_stats()
+    return {read_bytes=rx_read_bytes,discard_bytes=rx_discard_bytes,enabled=rx_enabled,
+        draining=rx_drain_timer~=nil}
 end
 
 -- ==================== 初始化 ====================
@@ -187,11 +206,21 @@ function air1103.init(id, baud)
     return true
 end
 
+-- Recovery must rebind even when init's idempotent flag is already set.
+function air1103.rebind_rx()
+    if not is_inited then return false end
+    if rx_drain_timer then sys.timerStop(rx_drain_timer);rx_drain_timer=nil end
+    rxstr = ""
+    uart.on(UART_ID, "receive", on_uart_receive)
+    return true
+end
+
 -- 取消初始化: 停止流式播放并关闭串口, 释放底层驱动与回调。
 -- 换串口用法: 先 air1103.uninit() 再 air1103.init(新id, 2000000);
 -- 注意：不 uninit 直接使用 air1103.init 换 id 不会生效。
 -- @return boolean
 function air1103.uninit()
+    if rx_drain_timer then sys.timerStop(rx_drain_timer);rx_drain_timer=nil end
     -- 1) 若流式播放仍在运行先停止(此时串口仍开着, 内部 stop_audio 的 02 01 停止命令可送达 Air1103)
     if stream_running or stream_timer then
         air1103.play_stream_stop()
@@ -345,6 +374,7 @@ function air1103.play_stream_start(vol, options)
             return
         end
         local now = us_now()
+        perf.down_tick(now, stream_wr-stream_rd)
         local burst = 0
         while stream_running and burst < MAX_BURST and now >= next_tx do
             local avail = stream_wr - stream_rd
@@ -352,7 +382,10 @@ function air1103.play_stream_start(vol, options)
                 -- 逐帧切+打包(每帧≈3ms)
                 local body = stream_buff:toStr(stream_rd, FRAME_DOWN)
                 local f = pack(CMD_DOWN_AUDIO, body)
+                local write_started = perf.begin("uart_tx")
                 local wr = uart.write(UART_ID, f)
+                perf.down_submit(false, wr, #f)
+                perf.finish("uart_tx", write_started)
                 if report_tx_error and wr ~= #f then
                     tx_error = "uart_write_failed"
                     stream_running = false
@@ -371,7 +404,11 @@ function air1103.play_stream_start(vol, options)
             else
                 -- 队列空: 发静音帧保活(数据流永不断→Air1103 DAC 连续输出→消除爆音)
                 if STREAM_SILENT then
+                    perf.count("underflow")
+                    local write_started = perf.begin("uart_tx")
                     local wr = uart.write(UART_ID, silent_frame)
+                    perf.down_submit(true, wr, #silent_frame)
+                    perf.finish("uart_tx", write_started)
                     if report_tx_error and wr ~= #silent_frame then
                         tx_error = "uart_write_failed"
                         stream_running = false
@@ -384,6 +421,7 @@ function air1103.play_stream_start(vol, options)
             burst = burst + 1
             now = us_now()
         end
+        perf.down_end(now, burst>=MAX_BURST and now>=next_tx, stream_wr-stream_rd)
     end
     -- 启动循环定时器: 每 STREAM_TICK_MS 触发一拍(替代 sys.wait 轮询)
     stream_timer = sys.timerLoopStart(stream_play_tick, STREAM_TICK_MS)
@@ -423,6 +461,7 @@ function air1103.play_stream_write(data)
     stream_buff:write(data)
     stream_wr = stream_wr + #data
     stream_buff:used(stream_wr)
+    perf.down_queue(stream_wr-stream_rd)
 end
 
 -- 立即结束流式播放并丢弃待发数据

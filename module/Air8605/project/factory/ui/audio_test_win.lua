@@ -27,10 +27,8 @@
 ]]
 
 local theme = require "ui_theme"
-local diagnostic_mode = _G.SIP_ISOLATION_TEST == true and _G.SIP_RECOVERY_STEP == "R7-S8L-RS485-LAZY"
 
 local pending_exit_id = nil
-local last_exit_result = nil
 local exit_pending = false
 local exit_cleaned = false
 local window_id = nil
@@ -267,8 +265,6 @@ end
 local function on_init_result(id, ok, err)
     if id == pending_exit_id and not ok then
         pending_exit_id = nil
-        last_exit_result = {id=id, ready="NA", reason=tostring(err)}
-        log.warn("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "EXIT_FAILED", id, tostring(err))
     end
     if id ~= audio_id then return end
     if exit_pending then
@@ -279,8 +275,6 @@ local function on_init_result(id, ok, err)
         end
         return
     end
-    if not diagnostic_mode then return end
-    log.info("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "AUDIO_INIT_RESULT", id, ok, tostring(err))
     if not ok then
         set_state_text("初始化失败: " .. tostring(err))
     end
@@ -302,9 +296,6 @@ end
 local function on_exit_result(id, ready, reason)
     if id ~= pending_exit_id then return end
     pending_exit_id = nil
-    last_exit_result = {id=id, ready=ready, reason=reason}
-    log.info("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "EXIT_RESULT", id,
-        ready, reason or "NA", "page_alive", main_container ~= nil)
     local page_alive = main_container ~= nil and id == audio_id
     if page_alive then
         exit_cleaned = true
@@ -469,7 +460,6 @@ end
 local function on_create()
     exit_pending = false
     exit_cleaned = false
-    if diagnostic_mode then log.info("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "AUDIO_PAGE_CREATE") end
     collect_audio()
     exit_gate.open(audio_id and {audio_id} or {})
     build_ui()
@@ -491,9 +481,6 @@ local function on_create()
     clear_log()
     append_entry(hw_summary() .. " | 录音时长 " .. tostring(seconds) .. " 秒")
     -- 进页面即上电初始化，省得每次录音前还要手动开一次开关
-    if diagnostic_mode then
-        log.info("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "AUDIO_INIT_REQUEST", audio_id)
-    end
     sys.publish("OTHER_FUNC_SET", audio_id, true)
     sys.publish("OTHER_FUNC_GET")
 end
@@ -504,7 +491,6 @@ local function on_destroy()
     if audio_id and not exit_cleaned and not exit_pending then
         exit_pending = true
         pending_exit_id = audio_id
-        log.info("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "CLEANUP_REQUEST", audio_id)
         sys.publish("OTHER_FUNC_SET", audio_id, false)
     end
     sys.unsubscribe("AUDIO_TEST_STATE", on_test_state)
@@ -520,7 +506,6 @@ local function on_destroy()
     cur_state = "idle"
     audio_id = nil
     audio_cfg = nil
-    if diagnostic_mode then log.info("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "AUDIO_PAGE_DESTROYED") end
 end
 
 local function on_get_focus() end

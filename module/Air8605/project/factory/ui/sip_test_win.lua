@@ -727,10 +727,6 @@ build_shell = function()
     kit.card(shell, { x=12, y=4, w=RW-24, h=70 })
     status_dot = nil; status_color = nil
     button(shell, 20, 18, 76, "返回", function()
-        if _G.SIP_ISOLATION_TEST == true and _G.SIP_RECOVERY_STAGE ~= "R3" and _G.SIP_RECOVERY_STAGE ~= "R4" and (_G.SIP_RECOVERY_STAGE ~= "R5" and (_G.SIP_RECOVERY_STAGE ~= "R6" and _G.SIP_RECOVERY_STAGE ~= "R7")) then
-            M.toast("SIP 隔离测试模式：仅运行通话页面")
-            return
-        end
         if diag.status().busy then M.toast("请等待音频自检结束后返回"); return end
         if return_timer then return end
         local id = window_id

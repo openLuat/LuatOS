@@ -69,20 +69,8 @@ local PROJECT_KEY_BY_MODEL = {
 local project_model = PROJECT:match("Air8605([WMB]?)_")
 PROJECT_KEY = project_model and PROJECT_KEY_BY_MODEL[project_model]
 
--- SIP 外围业务隔离测试：true 按恢复阶段启动；false 恢复完整 factory 启动。
--- 只隔离业务加载，保留板级上电、当前音频桥和 Air1103 驱动。
-_G.SIP_ISOLATION_TEST = true
--- Keep the tested R7 startup footprint; enable complete peripheral test pages only.
-_G.FACTORY_FULL_TEST = true
--- 每轮实机通过后再增加下一组；当前仅支持 R0 / R1 / R2 / R3 / R4 / R5 / R6 / R7。
-_G.SIP_RECOVERY_STAGE = "R7"
-_G.SIP_RECOVERY_STEP = "R7-S8L-RS485-LAZY"
-_G.SIP_MEMORY_DIAG = "S5-HISTORY-FIX"
-_G.SIP_DOWN_DIAG = true -- R7-DOWN-DIAG: counters only, original R7 pacing
-
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-log.info("factory_handoff", "ALL-FUNC-HANDOFF7", "R7 baseline; full peripheral tests loaded on demand; audio handoff")
 
 -- 设置日志输出风格为样式2（建议调试时开启）
 -- log.style(2)

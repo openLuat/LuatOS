@@ -34,7 +34,6 @@ FOTA_PROMPT_DOWNLOAD / FOTA_PROMPT_REBOOT / FOTA_AUTO_PROMPT_UPGRADE 不再发�
 
 local libfota3_ok, libfota3 = pcall(require, "libfota3")
 if not libfota3_ok then
-    if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R4" or (_G.SIP_RECOVERY_STAGE == "R5" or (_G.SIP_RECOVERY_STAGE == "R6" or _G.SIP_RECOVERY_STAGE == "R7"))) then error(libfota3) end
     log.warn("fota_app", "libfota3 加载失败:", libfota3)
     libfota3 = nil
 end
@@ -43,7 +42,6 @@ end
 
 -- 当前待回答的确认项：libfota3.on_confirm 的 callback + 动作类型
 -- 同一时刻最多一个（libfota3 内部 running 标志串行化整个流程）
-local check_only = _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R4" or (_G.SIP_RECOVERY_STAGE == "R5" or (_G.SIP_RECOVERY_STAGE == "R6" or _G.SIP_RECOVERY_STAGE == "R7")))
 local pending_answer = nil
 local pending_kind   = nil   -- "download" | "reboot"
 
@@ -157,11 +155,6 @@ end
 -- libfota3 确认请求（"download" 下载确认 / "reboot" 重启确认）
 -- 弹窗挂起 callback，由按钮事件异步回答（true=确认 false=取消）
 local function on_confirm(action, info, callback)
-    if check_only then
-        log.info("sip_isolation", _G.SIP_RECOVERY_STAGE, "FOTA_CHECK_ONLY", action)
-        callback(false)
-        return
-    end
     -- 理论上同一时刻只有一个待确认项；若有残留（弹窗被异常销毁等），按取消兜底
     if pending_answer then
         answer_pending(false)

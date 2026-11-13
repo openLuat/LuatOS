@@ -74,10 +74,6 @@ local function collect_entries()
     local entries = {}
 
     local function add(label, event, desc)
-        if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R3" or _G.SIP_RECOVERY_STAGE == "R4" or (_G.SIP_RECOVERY_STAGE == "R5" or (_G.SIP_RECOVERY_STAGE == "R6" or _G.SIP_RECOVERY_STAGE == "R7"))) then
-            if (_G.SIP_RECOVERY_STAGE == "R3" and (event == "OPEN_IOT_WIN" or event == "OPEN_FOTA_WIN"))
-                or ((_G.SIP_RECOVERY_STAGE ~= "R5" and (_G.SIP_RECOVERY_STAGE ~= "R6" and _G.SIP_RECOVERY_STAGE ~= "R7")) and event == "OPEN_AIRCLOUD_WIN") or event == "OPEN_USB_MODE_WIN" then return end
-        end
         entries[#entries + 1] = { label = label, event = event, desc = desc, icon = ENTRY_ICONS[event] }
     end
 

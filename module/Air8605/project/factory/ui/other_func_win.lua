@@ -23,9 +23,6 @@ RS485 不管配了几路，列表里只出一行「RS485 测试」（见 MERGE_T
 
 local theme = require "ui_theme"
 local handoff = require "factory_handoff"
-local full_test = _G.FACTORY_FULL_TEST == true
-local rs485_page_only = not full_test and _G.SIP_ISOLATION_TEST == true and _G.SIP_RECOVERY_STEP == "R7-S8L-RS485-LAZY"
-local lifecycle_only = not full_test and (rs485_page_only or (_G.SIP_ISOLATION_TEST == true and _G.SIP_RECOVERY_STEP == "R7-S7-PAGE-LIFECYCLE"))
 
 local window_id = nil
 local main_container = nil
@@ -55,18 +52,16 @@ local MERGE_TITLE = {
     rs485 = "RS485 测试",
 }
 
--- 独立测试入口（不来自 config.peripherals）：hw.audio.model 为 air1103 时提供 SIP 通话
--- SIP 通话总开关：false = 入口不显示、sip_test_win / sip_test_app / sip_audio_app 都不被
--- require（不初始化 Air1103、不抢 chip.feed / chip.on_audio_data，录音页与 AI 聊天不受影响）。
--- 现场排查音频冲突时可临时置 false 整条链路摘掉，正常出货保持 true。
-local SIP_TEST_ENABLED = true
+-- 独立测试入口（不来自 config.peripherals）：SIP 通话（Air1103 语音芯片）
+-- 开不开工由 app/sip/sip_gate.lua 定（features.sip + hw.audio.model=="air1103" 双条件）。
+-- 本树没有 sip_gate 时软依赖直接判否，同一份源码在别的型号树也能跑。
+local function sip_allowed()
+    local ok, gate = pcall(require, "sip_gate")
+    return ok and type(gate) == "table" and type(gate.ok) == "function" and gate.ok() == true
+end
 local EXTRA_ENTRY = {
     key = "__sip_test__", name = "SIP 通话", page = "OPEN_SIP_TEST_WIN",
 }
-local function has_air1103()
-    local a = ((_G.project_config or {}).hw or {}).audio
-    return type(a) == "table" and tostring(a.model or ""):lower() == "air1103"
-end
 
 -- 实例行控件：行键 → { info_label, info_w, switch, members, state, info }
 -- 合并行的行键是 type 名，其余行的行键是实例 id
@@ -164,32 +159,19 @@ end
 local rs485_page_loaded = false
 local function open_rs485_lazy(id)
     if not rs485_page_loaded then
-        log.info("sip_isolation", "RS485-MANUAL-TX-DIAG1", "RS485_LOAD_BEGIN")
         local ok, err = pcall(function() require "rs485_test_win" end)
-        if not ok then
-            log.error("sip_isolation", "RS485-MANUAL-TX-DIAG1", "RS485_LOAD_FAILED", tostring(err))
-            show_tip("RS485 page load failed")
-            return
-        end
+        if not ok then show_tip("RS485 页面加载失败: " .. tostring(err)); return end
         rs485_page_loaded = true
-        log.info("sip_isolation", "RS485-MANUAL-TX-DIAG1", "RS485_LOAD_COMPLETE")
     end
-    log.info("sip_isolation", "RS485-MANUAL-TX-DIAG1", "RS485_PAGE_OPEN_REQUEST")
     sys.publish("OPEN_RS485_TEST_WIN", id)
 end
 
 local audio_page_loaded = false
 local function open_audio_page_only(id)
     if not audio_page_loaded then
-        log.info("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "AUDIO_LOAD_BEGIN")
         local ok, err = pcall(function() require "audio_test_win" end)
-        if not ok then
-            log.error("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "AUDIO_LOAD_FAILED", tostring(err))
-            show_tip("Audio page load failed")
-            return
-        end
+        if not ok then show_tip("音频页面加载失败: " .. tostring(err)); return end
         audio_page_loaded = true
-        log.info("sip_isolation", "AUDIO-EXIT-TRACE-DIAG1", "AUDIO_LOAD_COMPLETE")
     end
     sys.publish("OPEN_AUDIO_TEST_WIN", id)
 end
@@ -205,24 +187,12 @@ local function open_camera_lazy(id)
 end
 
 local function build_item_row(parent, x, y, w, h, it)
-    if full_test then
-        if it.type == "rs485" then
-            it.on_open = function() open_rs485_lazy(it.members[1]) end
-        elseif it.type == "audio" then
-            it.on_open = function() open_audio_page_only(it.members[1]) end
-        elseif it.type == "uvc" then
-            it.on_open = function() open_camera_lazy(it.members[1]) end
-        end
-    end
-    if lifecycle_only then
-        it.page, it.on_open, it.no_switch = nil, nil, true
-        if rs485_page_only and it.type == "rs485" then
-            it.page = "OPEN_RS485_TEST_WIN"
-            it.on_open = function() open_rs485_lazy(it.members[1]) end
-        elseif rs485_page_only and it.type == "audio" then
-            it.page = "OPEN_AUDIO_TEST_WIN"
-            it.on_open = function() open_audio_page_only(it.members[1]) end
-        end
+    if it.type == "rs485" then
+        it.on_open = function() open_rs485_lazy(it.members[1]) end
+    elseif it.type == "audio" then
+        it.on_open = function() open_audio_page_only(it.members[1]) end
+    elseif it.type == "uvc" then
+        it.on_open = function() open_camera_lazy(it.members[1]) end
     end
     -- 有子页的行整行可点；开关是行的子控件，点开关不会冒泡到行的 on_click
     local row = theme.box(parent, {
@@ -300,7 +270,7 @@ local function build_ui()
     local _, th = theme.header(main_container, {
         x = pad, y = pad, w = sw - 2 * pad,
         title = "功能测试",
-        sub = rs485_page_only and "RS485 手动初始化和发送，DE 自检禁用" or lifecycle_only and "只读验证：外设开关与子页已禁用" or "外设接口开关与状态",
+        sub = "外设接口开关与状态",
         on_back = function() exwin.close(window_id) end,
     })
 
@@ -331,7 +301,7 @@ local function build_ui()
     local cy = 0
 
     -- 独立入口：SIP 通话（Air1103）—— 受 SIP_TEST_ENABLED 总开关控制
-    if not lifecycle_only and SIP_TEST_ENABLED and has_air1103() then
+    if sip_allowed() then
         theme.section(body, {
             x = theme.dp(4), y = cy, w = card_w - theme.dp(8), h = sec_h,
             text = "通话", px_size = theme.fs("micro"), color = theme.C.t3,
@@ -389,7 +359,7 @@ local function build_ui()
 
     theme.label(body, {
         x = 0, y = cy, w = card_w, h = theme.fs("micro") + 3,
-        text = lifecycle_only and "请返回桌面，再进入 SIP 通话测试" or "点击行进入测试页 | 开关只控制供电与接口打开", px_size = theme.fs("micro"),
+        text = "点击行进入测试页 | 开关只控制供电与接口打开", px_size = theme.fs("micro"),
         color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
     })
 end
@@ -493,7 +463,6 @@ local function on_set_result(id, ok, err)
 end
 
 local function on_create()
-    if lifecycle_only then log.info("sip_isolation","S7-HISTORY-FIX","PAGE_CREATE") end
     rows = {}
     row_of = {}
     build_ui()
@@ -505,7 +474,6 @@ end
 
 local function on_destroy()
     handoff.enqueue(function() handoff.leave("test") end)
-    if lifecycle_only then log.info("sip_isolation","S7-HISTORY-FIX","PAGE_DESTROY_BEGIN") end
     sys.unsubscribe("OTHER_FUNC_STATUS", apply_list)
     sys.unsubscribe("OTHER_FUNC_CHANGED", apply_list)
     sys.unsubscribe("OTHER_FUNC_SET_RESULT", on_set_result)

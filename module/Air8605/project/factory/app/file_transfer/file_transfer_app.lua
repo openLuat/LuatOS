@@ -195,18 +195,7 @@ local function file_transfer_task_func()
 end
 
 sys.subscribe("FILE_TRANSFER_LOG", on_transfer_log)
-sys.taskInit(function()
-    if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R6" or _G.SIP_RECOVERY_STAGE == "R7") then
-        local ok, err = pcall(file_transfer_task_func)
-        if ok and status.hzadb_ok then
-            log.info("sip_isolation", _G.SIP_RECOVERY_STAGE, "SERVICE_READY", "hzadb")
-        else
-            log.error("sip_isolation", _G.SIP_RECOVERY_STAGE, "INVALID_TEST", "hzadb startup failed", err or "start returned false")
-        end
-    else
-        file_transfer_task_func()
-    end
-end)
+sys.taskInit(file_transfer_task_func)
 
 -- ==================== 对外接口 ====================
 

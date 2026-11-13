@@ -59,7 +59,7 @@ function M.down_end(us,capped,bytes)
 end
 local function down_report(session,t,force)
     if not down_active or (not force and t-window_start<10000) then return end
-    log.info("sip_down_diag","R7-DOWN-DIAG","session",session,"window_ms",math.floor(t-window_start),
+    log.info("sip_down_diag","session",session,"window_ms",math.floor(t-window_start),
         "pcm_frames",d.pcm,"silence_frames",d.silent,"short_or_fail",d.short,
         "ticks",d.ticks,"gap_max_us",d.gap,"exec_max_us",d.exec,"catchup_capped",d.cap,
         "queue_min_bytes",d.qmin or "NA","queue_max_bytes",d.qmax or "NA")
@@ -67,8 +67,8 @@ local function down_report(session,t,force)
 end
 function M.start(enabled)
     clear(true);window_start=now();active=enabled~=false
-    down_clear(true);down_active=_G.SIP_DOWN_DIAG==true
-    if down_active then log.info("sip_down_diag","R7-DOWN-DIAG","ENABLED","UART full submissions, not chip ACK; queue at tick/write boundaries") end
+    down_clear(true);down_active=enabled~=false
+    if down_active then log.info("sip_down_diag","ENABLED","UART full submissions, not chip ACK; queue at tick/write boundaries") end
     return window_start
 end
 -- Read cumulative downlink counts without resetting the whole-call report.

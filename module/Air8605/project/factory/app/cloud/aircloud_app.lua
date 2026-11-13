@@ -697,12 +697,6 @@ end
 local function handle_control_command(cmd)
     if not valid_str(cmd) then return end
     log.info("aircloud", "收到下行命令:", cmd)
-    -- R5/R6 只恢复云连接与上报；TTS 属于 R7，避免下行命令提前加载音频业务。
-    if _G.SIP_ISOLATION_TEST == true and (_G.SIP_RECOVERY_STAGE == "R5" or _G.SIP_RECOVERY_STAGE == "R6")
-        and (cmd == "ttsstop" or cmd:match("^tts[:=]") or cmd:match("^ttshex[:=]")) then
-        send_control_response("ERR TTS unavailable in " .. _G.SIP_RECOVERY_STAGE)
-        return
-    end
 
     -- cycle:180 —— 改上报周期
     local cycle_val = cmd:match("^cycle[:=](%d+)$")

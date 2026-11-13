@@ -11,7 +11,7 @@
 #error "Select exactly one PLCUI platform"
 #endif
 
-#define PLCUI_VERSION "1.0.1"
+#define PLCUI_VERSION "1.0.2"
 
 // 耗时统计功能开关
 #ifndef PLCUI_PERF_ENABLE

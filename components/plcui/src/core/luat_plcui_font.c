@@ -2,6 +2,8 @@
  * XML 字体解析和独立的 HZFont 到 LVGL 适配。
  */
 #include "luat_plcui_font.h"
+#include "luat_plcui_component.h"
+#include "luat_plcui_keyboard.h"
 #include "luat_plcui_perf.h"
 #include <limits.h>
 #include <stdio.h>
@@ -250,6 +252,11 @@ bool luat_plcui_set_font_size(plcui_widget_t *widget, uint16_t size, plcui_error
         font_error_context(widget, error, "font");
         return false;
     }
+    if (widget->pinyin_keyboard) {
+        plcui_widget_t candidate = *widget;
+        candidate.font = font; candidate.font_size = size;
+        if (!luat_plcui_keyboard_validate(&candidate, error)) return false;
+    }
     widget->font = font;
     widget->font_size = size;
     lv_style_selector_t selector = widget->type == PLCUI_KEYBOARD || widget->type == PLCUI_TABLE ? LV_PART_ITEMS : LV_PART_MAIN;
@@ -259,6 +266,8 @@ bool luat_plcui_set_font_size(plcui_widget_t *widget, uint16_t size, plcui_error
         lv_obj_set_size(widget->obj, widget->w, widget->h);
     }
     lv_obj_mark_layout_as_dirty(widget->obj);
+    if (widget->type == PLCUI_LABEL) luat_plcui_label_restart(widget);
+    if (widget->type == PLCUI_KEYBOARD) luat_plcui_keyboard_font_changed(widget);
     lv_obj_invalidate(widget->obj);
     return true;
 }

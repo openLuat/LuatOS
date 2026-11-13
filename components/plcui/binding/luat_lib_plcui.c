@@ -1,7 +1,10 @@
 /*
 @module plcui
-@summary XML-first PLC UI module entry and global runtime interfaces
+@summary 以 XML 组织界面的 PLCUI 初始化、加载、状态和调试接口
+@version 1.0.2
 @tag LUAT_USE_PLCUI
+@note Lua 类型检查失败或参数不能转换为所需整数时，部分接口会抛出 Lua 参数异常，可用 pcall 捕获；nil,error 用于接口明确返回的校验或运行错误。
+@note 错误表至少包含 code、message；按需附带 file、id、attribute、line、column，便于定位 XML 或资源问题。
 */
 #include "luat_base.h"
 #include "luat_plcui_binding.h"
@@ -17,11 +20,15 @@
  * @table options 初始化配置
  * @int options.width 逻辑屏幕宽度，必填，范围 1～2048 像素
  * @int options.height 逻辑屏幕高度，必填，范围 1～2048 像素
- * @note CCM4211 display/RGB 真机目前最大 1024×600，固定方向 0。
  * @return bool|nil 成功返回 true，运行错误返回 nil
  * @return table|nil 失败时返回包含 code、message 的错误表
  * @note 目标调度频率为 60Hz，应用不需要额外创建刷新循环定时器。
  * @note 重复初始化或 AirUI 已初始化时返回 E_DISPLAY_BUSY。
+ * @note 真机须先完成 display 屏幕初始化；CCM4211 display/RGB 目前最大 1024×600，固定方向 0。
+ * @note AIRUI 与 PLCUI 每次运行选择其中一套；初始化失败时不要继续加载 XML。
+ * @usage
+ * -- 真机先完成板级屏幕初始化，传入与 display 一致的尺寸。
+ * plcui.init({width = 1024, height = 600})
  */
 static int l_init(lua_State *L)
 {
@@ -43,8 +50,7 @@ static int l_init(lua_State *L)
     if (lv_is_initialized() && lv_display_get_next(NULL)) {
         return luat_plcui_binding_error(L, "E_DISPLAY_BUSY", "Another LVGL display is still active");
     }
-    /* A previous AirUI session can leave global LVGL caches and FS drivers.
-       No display owner is active here, so rebuild that global state once. */
+    /* 当前没有显示对象持有 LVGL；重建可能遗留的全局缓存和文件系统驱动。 */
     if (lv_is_initialized()) lv_deinit();
     lv_init();
     lv_image_cache_resize(PLCUI_IMAGE_CACHE_BYTES, true);
@@ -79,11 +85,15 @@ static int l_init(lua_State *L)
 }
 
 /**
- * 手动处理一次输入、LVGL 定时器和排队事件。
+ * 手动执行一次界面刷新，处理输入、组件调度、绘制及排队事件。
  * @api plcui.refresh()
- * @return bool 返回 true
+ * @return bool|nil 调用被接受时返回 true；prepare 期间返回 nil
+ * @return table|nil 失败时返回错误表，prepare 期间为 E_BUSY
  * @note 正常运行由库自动调度，无需重复注册 Lua 刷新定时器。
  * @note 未初始化或正在刷新时不重复执行。
+ * @note true 不表示必然发生物理刷屏，也不代表显示面板已经完成扫描。
+ * @usage
+ * plcui.refresh() -- 通常由自动刷新完成，仅按需手动调用。
  */
 static int l_refresh(lua_State *L)
 {
@@ -95,8 +105,12 @@ static int l_refresh(lua_State *L)
 /**
  * 关闭当前 XML 界面，停止自动刷新并释放平台资源。
  * @api plcui.deinit()
- * @return bool 返回 true，重复调用可安全结束
+ * @return bool|nil 调用被接受时返回 true，prepare 期间返回 nil
+ * @return table|nil 失败时返回错误表，prepare 期间为 E_BUSY
  * @note 在业务回调中调用时延后到安全位置执行。
+ * @note 未初始化时也可调用；会汇总并关闭调试统计，已取得的 XML/组件句柄随后失效。
+ * @usage
+ * plcui.deinit()
  */
 static int l_deinit(lua_State *L)
 {
@@ -109,9 +123,14 @@ static int l_deinit(lua_State *L)
 /**
  * 绑定已由业务初始化的触摸对象；nil 解除绑定。
  * @api plcui.device_bind_touch(tp_cfg)
- * @userdata tp_cfg tp.init 返回的 lightuserdata，nil 表示解绑
- * @return bool|nil 成功返回 true，失败返回 nil 和错误表
+ * @userdata tp_cfg tp.init 返回的 lightuserdata；须显式传 nil 才表示解绑
+ * @return bool|nil 成功返回 true，运行错误返回 nil
+ * @return table|nil 失败时返回错误表，如 E_NOT_INITIALIZED、E_TYPE、E_PLATFORM 或 E_BUSY
  * @note 须先调用 plcui.init；PC 兼容此调用并使用 SDL 鼠标输入。
+ * @note 本接口不负责配置触摸芯片引脚或总线；tp_cfg 须是业务已成功初始化的设备。
+ * @usage
+ * plcui.device_bind_touch(tp_cfg) -- tp_cfg 由板级 tp.init(...) 获得。
+ * -- plcui.device_bind_touch(nil) -- 显式解绑。
  */
 static int l_device_bind_touch(lua_State *L)
 {
@@ -130,7 +149,10 @@ static int l_device_bind_touch(lua_State *L)
 /**
  * 获取 plcui 库版本号。
  * @api plcui.version()
- * @return string 版本字符串，例如 "0.2.0"
+ * @return string 当前库版本字符串，例如 "1.0.2"
+ * @note 无需先初始化；此值与 XML 根节点的 version="0.1" 分别管理。
+ * @usage
+ * log.info("plcui", "version", plcui.version())
  */
 static int l_version(lua_State *L)
 {
@@ -145,6 +167,10 @@ static int l_version(lua_State *L)
  * @return bool|nil 成功返回 true，运行错误返回 nil
  * @return table|nil 失败时返回包含 code、message 的错误表
  * @note 需要先初始化；path 是主机路径，不是 LuatOS VFS 路径。
+ * @note 仅支持提供截图能力的平台；当前 display/RGB 真机返回 E_UNSUPPORTED。
+ * @usage
+ * -- PC 模拟器示例；输出目录须已存在。
+ * plcui.snapshot("C:/temp/plcui.bmp")
  */
 static int l_snapshot(lua_State *L)
 {
@@ -163,8 +189,12 @@ static int l_snapshot(lua_State *L)
  * @note 基础字段：version、initialized、width、height、active、auto_refresh、refresh_hz、auto_refresh_count。
  * @note active 为 true 时还包含 page、component_count、resource_count、events_dropped、editing。
  * @note refresh_hz 是目标频率，auto_refresh_count 是自动调度次数，不代表实际绘制帧数。
- * @note image_cache_bytes/image_header_cache_entries 是当前 LVGL 实际缓存容量，未初始化时为 0。
+ * @note image_cache_bytes/image_header_cache_entries 是共享 LVGL 实际缓存容量；尚未建立缓存时为 0。
  * @note image_hw_decodes/image_sw_decodes 为平台适配器成功解码次数，包含预检，不是帧数；未统计的平台返回 0。
+ * @note platform 表示当前显示后端；未加载有效 XML 时没有 page 等活动文档字段。容量字段不是当前使用量。
+ * @usage
+ * local status = plcui.status()
+ * log.info("plcui", status.version, status.platform, status.page, status.events_dropped)
  */
 static int l_status(lua_State *L)
 {
@@ -214,13 +244,21 @@ static int l_status(lua_State *L)
 
 /**
  * 开关组件创建和已有组件更新的简版耗时统计，默认关闭。
- * @api plcui.debug(enabled)
+ * @api plcui.debug([enabled])
  * @bool enabled 可选；true 开启，false 关闭并输出剩余汇总；不传参数查询状态
- * @return bool|nil 设置成功返回 true；查询返回当前开关；不支持时返回 nil,error
+ * @return bool|nil 设置成功返回 true；无参数时返回当前开关状态；运行错误返回 nil
+ * @return table|nil 失败时返回错误表，如 E_NOT_SUPPORTED 或 E_BUSY
  * @note 可在 init/load 前开启；deinit 自动输出剩余数据并关闭。
  * @note 每秒汇总各类组件 create/prepare/update 的次数、失败数、总/平均/最大微秒及最慢组件ID。
  * @note update 是现有对象方法的同步耗时（包含同值调用），不包含后续异步绘制或屏幕显示。
  * @note 参数类型异常和失效句柄不计入；有效句柄的方法返回 nil,error 时计入 failed。
+ * @note 统计含九类组件及 set_*、move、focus、add_point、play/pause/stop、clear_crop；getter 不计时。
+ * @note 各类操作按秒汇总；false 会输出剩余统计。统计槽最多 64 种组合，槽满时报告 dropped。
+ * @usage
+ * plcui.debug(true) -- 可放在 init/load 前。
+ * -- 执行固定次数的切页、交互或数据更新，再比较 count/total_us/max_us。
+ * plcui.debug(false)
+ * local enabled = plcui.debug() -- 查询返回当前开关状态。
  */
 static int l_debug(lua_State *L)
 {
@@ -254,6 +292,8 @@ static const rotable_Reg_t reg_plcui[] = {
 
 /**
  * 注册 XML 实例、组件元表和 plcui 模块全局接口。
+ * @param L 接收模块表的 Lua 状态机。
+ * @return 1，栈顶为模块表；由 Lua 模块加载器调用。
  */
 LUAMOD_API int luaopen_plcui(lua_State *L)
 {
@@ -265,6 +305,8 @@ LUAMOD_API int luaopen_plcui(lua_State *L)
     luat_plcui_register_container_meta(L);
     luat_plcui_register_table_meta(L);
     luat_plcui_register_chart_meta(L);
+    luat_plcui_register_animimg_meta(L);
+    luat_plcui_register_slider_meta(L);
     luat_newlib2(L, reg_plcui);
     return 1;
 }

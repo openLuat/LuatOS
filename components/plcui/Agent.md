@@ -4,7 +4,7 @@
 
 plcui 是以 **image 图片为设计核心**的工控界面库：先设计界面并切图，或准备组态组件图片，再由 XML 组织布局，Lua 更新数据和处理业务。
 
-支持七种组件：`image` 显示背景、设备和图片按钮；`label` 显示动态文字；`textarea` 输入参数；`keyboard` 提供数字或英文键盘；`container` 分组和嵌套布局；`table` 显示数据表格；`chart` 显示折线图或柱状图。
+1.0.2 支持九种组件：`image` 显示背景、设备和图片按钮；`label` 显示动态文字或滚动公告；`textarea` 输入参数；`keyboard` 提供数字、英文或简版中文拼音键盘；`container` 分组和嵌套布局；`table` 显示数据表格；`chart` 显示折线图或柱状图；`animimg` 播放图片帧动画；`slider` 选择单个数值。库版本与 XML 格式版本分别管理，本版 XML 仍使用 `version="0.1"`。
 
 ## 二、plcui使用举例
 
@@ -108,7 +108,7 @@ plcui.debug(false) -- 输出尚未汇总的数据并关闭
 
 `plcui.debug()` 不传参数返回当前开关状态；`plcui.deinit()` 自动汇总并关闭。
 
-开启后，`plcui.debug` 日志每秒最多汇总一次，按组件类型、阶段和方法输出 `count`、`failed`、`total_us`、`avg_us`、`max_us`，以及本批最慢调用的 `slow_page`、`slow_id`。阶段为 `create`（原生组件创建）、`prepare`（XML prepare 回调中的设置）、`update`（已有对象的更新方法）。统计涵盖七种组件，更新方法包括 `set_*`、`add_point` 和 `focus`；getter 不计入。
+开启后，`plcui.debug` 日志每秒最多汇总一次，按组件类型、阶段和方法输出 `count`、`failed`、`total_us`、`avg_us`、`max_us`，以及本批最慢调用的 `slow_page`、`slow_id`。阶段为 `create`（原生组件创建）、`prepare`（XML prepare 回调中的设置）、`update`（已有对象的更新方法）。1.0.2 统计涵盖九种组件，更新方法包括 `set_*`、`add_point`、`focus`、`move`、`play/pause/stop` 和 `clear_crop`；getter 不计入。动画帧资源准备与拼音查询/候选提交也按内部操作汇总，不逐轮询或逐像素打印。
 
 这些数字是同步调用经过时间，包含同值调用、校验及同步触发的布局/图片准备，不能当作 CPU 占用或后续绘制时间。`xml:show()` 重建的组件仍记为 create，不表示页面缓存复用。失败候选页已完成的创建也会计入。普通 `nil,error` 计入 failed；参数错误抛出的 Lua 异常和失效句柄调用不计入。相同类型/方法跨页面合并，slow_page/id 仅代表其中最大单次调用。
 

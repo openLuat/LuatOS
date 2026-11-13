@@ -26,7 +26,7 @@ static struct {
     plcui_document_t *owner;
     lv_obj_t *screen;
     uint32_t id, request, begin, arm, first, first_refresh, last_frame;
-    uint32_t steps[PERF_STEP_COUNT], components[7], component_us[7], component_max[7];
+    uint32_t steps[PERF_STEP_COUNT], components[9], component_us[9], component_max[9];
     uint32_t textarea[PERF_TA_COUNT];
     uint32_t frames, cache_start, cache_max;
     plcui_perf_phase_t phase;
@@ -155,7 +155,7 @@ static void finish(const char *status)
                   s[PERF_LV_OPEN].us, s[PERF_OPEN].us, s[PERF_READ].us, s[PERF_HW].us, s[PERF_SW].us);
         }
     }
-    for (unsigned t = 0; t < 7; ++t) if (trace.components[t])
+    for (unsigned t = 0; t < 9; ++t) if (trace.components[t])
         perf_log("WIDGET seq=%u type=%u count=%u total_us=%u max_us=%u",
               trace.id, t, trace.components[t], trace.component_us[t], trace.component_max[t]);
 }
@@ -219,7 +219,7 @@ void plcui_perf_phase(plcui_perf_phase_t phase) { if (trace.active) trace.phase 
 void plcui_perf_step(plcui_perf_step_t step, uint32_t us) { if (trace.active && step < PERF_STEP_COUNT) trace.steps[step] += us; }
 void plcui_perf_component(unsigned type, uint32_t us)
 {
-    if (!trace.active || type >= 7) return;
+    if (!trace.active || type >= 9) return;
     trace.components[type]++; trace.component_us[type] += us;
     if (us > trace.component_max[type]) trace.component_max[type] = us;
 }

@@ -1,11 +1,12 @@
 /** @file luat_plcui_images.c Visible-image preparation and per-page cache leases. */
 #include "luat_base.h"
 #ifdef LUAT_USE_PLCUI
-#include "luat_plcui.h"
+#include "luat_plcui_component.h"
 #include "luat_plcui_fs.h"
 #include "luat_plcui_perf.h"
 #include "lvgl9/src/core/lv_global.h"
 #include "lvgl9/src/core/lv_obj_draw_private.h"
+#include "lvgl9/src/widgets/image/lv_image_private.h"
 #include "lvgl9/src/misc/lv_area_private.h"
 #include "lvgl9/src/draw/lv_image_decoder_private.h"
 #include "lvgl9/src/misc/cache/lv_cache_entry.h"
@@ -102,7 +103,7 @@ void luat_plcui_unregister_images(plcui_document_t *doc)
     doc->image_namespace = 0;
 }
 
-static bool image_visible(const plcui_widget_t *widget)
+bool luat_plcui_component_visible(const plcui_widget_t *widget)
 {
     if (!widget || !widget->obj || !widget->document) return false;
     if (lv_obj_has_flag(widget->obj, LV_OBJ_FLAG_HIDDEN)
@@ -113,6 +114,21 @@ static bool image_visible(const plcui_widget_t *widget)
     int32_t ext = lv_obj_get_ext_draw_size(widget->obj);
     lv_area_increase(&visible, ext, ext);
     lv_area_t screen = {0, 0, widget->document->width - 1, widget->document->height - 1};
+    if (widget->type == PLCUI_IMAGE && widget->image && !widget->image->crop
+        && widget->image->fit == LV_IMAGE_ALIGN_CENTER) {
+        unsigned state = widget->disabled || lv_obj_has_state(widget->obj, LV_STATE_DISABLED) ? 3U
+            : widget->pressed ? 1U : widget->checked ? 2U : 0U;
+        const char *id = widget->source[state][0] ? widget->source[state] : widget->source[0];
+        plcui_resource_t *resource = luat_plcui_resource(widget->document, id, PLCUI_RES_IMAGE);
+        const void *bound = lv_image_get_src(widget->obj);
+        bool known = resource && bound && lv_image_src_get_type(bound) == LV_IMAGE_SRC_FILE
+            && !strcmp((const char *)bound, resource->cache_key);
+        /* Until the prospective source is bound, its natural size/pivot can make
+           an offscreen logical box draw into the viewport. Conservatively prepare
+           it once, without a second header IO pass; sync supplies exact native
+           source-based extents after binding. Ancestor clipping is still checked. */
+        if (!known) visible = screen;
+    }
     if (!lv_area_intersect(&visible, &visible, &screen)) return false;
     /* lv_obj_is_visible() cannot be used before candidate screen activation. */
     for (lv_obj_t *parent = lv_obj_get_parent(widget->obj); parent; parent = lv_obj_get_parent(parent)) {
@@ -180,34 +196,59 @@ static bool publish_header(const char *key, const plcui_image_pin_t *pin)
 static bool assign_image(plcui_widget_t *widget, plcui_resource_t *resource,
                          const plcui_image_pin_t *pin, plcui_error_t *error)
 {
+    const lv_image_header_t *header = &pin->decoded->header;
+    if (widget->type == PLCUI_IMAGE && !luat_plcui_image_validate_source(widget, header->w, header->h, header->cf, error)) return false;
+    if (widget->type == PLCUI_ANIMIMG && (header->w != (uint32_t)widget->w || header->h != (uint32_t)widget->h))
+        return image_error(widget, resource, error, "E_RESOURCE", "Animation frame dimensions must match its viewport");
+    if (widget->type == PLCUI_SLIDER) {
+        uint32_t side = (uint32_t)(widget->slider->vertical ? widget->w : widget->h);
+        if (header->w != side || header->h != side)
+            return image_error(widget, resource, error, "E_RESOURCE", "Slider knob image must match its square knob dimensions");
+    }
     if (!publish_header(resource->cache_key, pin))
         return image_error(widget, resource, error, "E_MEMORY", "Cannot retain prepared image information");
-    lv_image_set_src(widget->obj, resource->cache_key);
+    if (widget->type == PLCUI_SLIDER) {
+        lv_obj_set_style_bg_image_src(widget->obj, resource->cache_key, LV_PART_KNOB);
+        return lv_obj_get_style_bg_image_src(widget->obj, LV_PART_KNOB) != NULL;
+    }
+    /* The resource is immutable for this XML instance. Same-source geometry
+       updates need neither another header lookup nor a duplicated path. */
+    const void *bound = lv_image_get_src(widget->obj);
+    if (!bound || lv_image_src_get_type(bound) != LV_IMAGE_SRC_FILE || strcmp((const char *)bound, resource->cache_key))
+        lv_image_set_src(widget->obj, resource->cache_key);
     const void *source = lv_image_get_src(widget->obj);
     if (!source || lv_image_src_get_type(source) != LV_IMAGE_SRC_FILE
         || strcmp((const char *)source, resource->cache_key))
         return image_error(widget, resource, error, "E_RESOURCE", "Cannot assign prepared image");
+    if (widget->type == PLCUI_IMAGE) luat_plcui_image_sync(widget);
     return true;
 }
 
-static bool prepare_image(plcui_widget_t *widget, plcui_error_t *error)
+bool luat_plcui_image_bind(plcui_widget_t *widget, const char *id, const plcui_image_pin_t *lease, plcui_error_t *error)
 {
-    if (!image_visible(widget)) return true;
+    plcui_resource_t *resource = luat_plcui_resource(widget->document, id, PLCUI_RES_IMAGE);
+    if (!resource || !lease || lease->resource_index != (unsigned)(resource - widget->document->resources))
+        return image_error(widget, resource, error, "E_RESOURCE", "Invalid image lease");
+    return assign_image(widget, resource, lease, error);
+}
+
+void luat_plcui_image_release(plcui_image_pin_t **lease)
+{
+    if (!lease || !*lease) return;
+    plcui_image_pin_t *pin = *lease;
+    *lease = NULL;
+    if (pin->entry) lv_cache_release(pin->cache, pin->entry, NULL);
+    free(pin);
+}
+
+bool luat_plcui_image_acquire(plcui_widget_t *widget, const char *id, plcui_image_pin_t **lease, plcui_error_t *error)
+{
+    *lease = NULL;
     plcui_document_t *doc = widget->document;
-    plcui_page_t *page = &doc->pages[widget->page_index];
-    plcui_resource_t *resource = current_resource(widget);
+    plcui_resource_t *resource = luat_plcui_resource(doc, id, PLCUI_RES_IMAGE);
     if (!resource || !resource->cache_key[0])
         return image_error(widget, resource, error, "E_RESOURCE", "Image resource is not registered");
     unsigned index = (unsigned)(resource - doc->resources);
-    for (plcui_image_pin_t *pin = page->image_pins; pin; pin = pin->next) {
-        if (pin->resource_index != index) continue;
-        plcui_perf_add(PERF_REUSED, 0, 0);
-        if (!plcui_fs_scope_begin(resource->cache_key))
-            return image_error(widget, resource, error, "E_RESOURCE", "Image IO scope is busy");
-        bool assigned = assign_image(widget, resource, pin, error);
-        plcui_fs_scope_end();
-        return assigned;
-    }
     plcui_image_pin_t *pin = calloc(1, sizeof(*pin));
     if (!pin) return image_error(widget, resource, error, "E_MEMORY", "Cannot allocate prepared image lease");
     if (!plcui_fs_scope_begin(resource->cache_key)) {
@@ -246,6 +287,10 @@ static bool prepare_image(plcui_widget_t *widget, plcui_error_t *error)
         image_error(widget, resource, error, "E_MEMORY", "Prepared image requires an enabled pixel cache");
         goto done;
     }
+    if (widget->animation && (decoder.decoded->header.w != (uint32_t)widget->w || decoder.decoded->header.h != (uint32_t)widget->h)) {
+        image_error(widget, resource, error, "E_RESOURCE", "Animation frame dimensions must match its viewport");
+        goto done;
+    }
     pin->cache = decoder.cache;
     pin->entry = lv_cache_acquire(decoder.cache, lv_cache_entry_get_data(decoder.cache_entry), NULL);
     if (pin->entry != decoder.cache_entry) {
@@ -265,9 +310,7 @@ static bool prepare_image(plcui_widget_t *widget, plcui_error_t *error)
     lv_image_decoder_close(&decoder);
     plcui_perf_add(PERF_PROBE_CLOSE, plcui_perf_now() - at, 0);
     opened = false;
-    if (!assign_image(widget, resource, pin, error)) goto done;
-    pin->next = page->image_pins;
-    page->image_pins = pin;
+    *lease = pin;
     pin = NULL;
     ok = true;
 done:
@@ -282,6 +325,31 @@ done:
     return ok;
 }
 
+static bool prepare_image(plcui_widget_t *widget, plcui_error_t *error)
+{
+    if (!luat_plcui_component_visible(widget)) return true;
+    if (widget->type == PLCUI_ANIMIMG) return luat_plcui_animimg_prepare(widget, error);
+    plcui_page_t *page = &widget->document->pages[widget->page_index];
+    plcui_resource_t *resource = widget->type == PLCUI_SLIDER
+        ? luat_plcui_resource(widget->document, widget->slider->knob_source, PLCUI_RES_IMAGE) : current_resource(widget);
+    if (!resource) {
+        if (widget->type == PLCUI_SLIDER && !widget->slider->knob_source[0]) return true;
+        return image_error(widget, resource, error, "E_RESOURCE", "Unknown image resource");
+    }
+    unsigned index = (unsigned)(resource - widget->document->resources);
+    for (plcui_image_pin_t *pin = page->image_pins; pin; pin = pin->next) {
+        if (pin->resource_index != index) continue;
+        plcui_perf_add(PERF_REUSED, 0, 0);
+        return assign_image(widget, resource, pin, error);
+    }
+    plcui_image_pin_t *pin = NULL;
+    if (!luat_plcui_image_acquire(widget, resource->id, &pin, error)) return false;
+    if (!assign_image(widget, resource, pin, error)) { luat_plcui_image_release(&pin); return false; }
+    pin->next = page->image_pins;
+    page->image_pins = pin;
+    return true;
+}
+
 bool luat_plcui_prepare_widget_image(plcui_widget_t *widget, plcui_error_t *error)
 {
     if (!widget || !widget->document || !widget->obj
@@ -289,7 +357,7 @@ bool luat_plcui_prepare_widget_image(plcui_widget_t *widget, plcui_error_t *erro
         luat_plcui_error(error, "E_RESOURCE", "Image component is not instantiated");
         return false;
     }
-    if (widget->type != PLCUI_IMAGE) return true;
+    if (widget->type != PLCUI_IMAGE && widget->type != PLCUI_SLIDER && widget->type != PLCUI_ANIMIMG) return true;
     for (lv_obj_t *object = widget->obj; object; object = lv_obj_get_parent(object))
         if (lv_obj_has_flag(object, LV_OBJ_FLAG_HIDDEN)) return true;
     lv_obj_update_layout(widget->document->pages[widget->page_index].screen);
@@ -307,21 +375,165 @@ static void release_until(plcui_page_t *page, plcui_image_pin_t *stop)
     }
 }
 
+/* A running-page visibility/position transaction can prepare an animation and
+   subsequently fail on another component. Keep cache references, not extra
+   decoded frames, so rollback cannot lose its old visual to cache pressure. */
+typedef struct {
+    plcui_widget_t *widget;
+    plcui_animimg_t state;
+    char *source;
+    int32_t source_width, source_height;
+    lv_color_format_t source_format;
+} animation_image_checkpoint_t;
+
+static bool clone_image_lease(const plcui_image_pin_t *source, plcui_image_pin_t **target)
+{
+    *target = NULL;
+    if (!source) return true;
+    plcui_image_pin_t *copy = calloc(1, sizeof(*copy));
+    if (!copy) return false;
+    *copy = *source;
+    copy->next = NULL;
+    copy->entry = lv_cache_acquire(source->cache, lv_cache_entry_get_data(source->entry), NULL);
+    if (copy->entry != source->entry) {
+        if (copy->entry) lv_cache_release(copy->cache, copy->entry, NULL);
+        free(copy);
+        return false;
+    }
+    *target = copy;
+    return true;
+}
+
+static void discard_animation_checkpoints(animation_image_checkpoint_t *saved, unsigned count)
+{
+    for (unsigned i = 0; i < count; ++i) {
+        luat_plcui_image_release(&saved[i].state.current);
+        luat_plcui_image_release(&saved[i].state.next);
+        luat_plcui_image_release(&saved[i].state.retiring);
+        lv_free(saved[i].source);
+    }
+    free(saved);
+}
+
+static bool animation_needs_checkpoint(const plcui_widget_t *widget)
+{
+    const plcui_animimg_t *animation = widget->animation;
+    return animation && (!animation->current || animation->current_frame != animation->frame)
+        && luat_plcui_component_visible(widget);
+}
+
+static animation_image_checkpoint_t *checkpoint_animation_images(plcui_page_t *page,
+                                                                  unsigned count,
+                                                                  plcui_error_t *error)
+{
+    animation_image_checkpoint_t *saved = calloc(count, sizeof(*saved));
+    if (!saved) {
+        luat_plcui_error(error, "E_MEMORY", "Cannot allocate animation image transaction");
+        return NULL;
+    }
+    unsigned at = 0;
+    for (unsigned i = 0; i < page->count; ++i) {
+        plcui_widget_t *widget = &page->widgets[i];
+        if (!animation_needs_checkpoint(widget)) continue;
+        animation_image_checkpoint_t *item = &saved[at++];
+        item->widget = widget;
+        item->state = *widget->animation;
+        /* Assign clones individually; cleanup must never release an original
+           lease when allocation fails partway through this checkpoint. */
+        item->state.current = NULL;
+        item->state.next = NULL;
+        item->state.retiring = NULL;
+        if (!clone_image_lease(widget->animation->current, &item->state.current)
+            || !clone_image_lease(widget->animation->next, &item->state.next)
+            || !clone_image_lease(widget->animation->retiring, &item->state.retiring)) {
+            luat_plcui_error(error, "E_MEMORY", "Cannot retain animation image transaction");
+            discard_animation_checkpoints(saved, count);
+            return NULL;
+        }
+        if (widget->obj && widget->animation->current) {
+            const lv_image_t *native = (const lv_image_t *)widget->obj;
+            if (native->src && native->src_type == LV_IMAGE_SRC_FILE) {
+                item->source = lv_strdup(native->src);
+                if (!item->source) {
+                    luat_plcui_error(error, "E_MEMORY", "Cannot retain animation image source");
+                    discard_animation_checkpoints(saved, count);
+                    return NULL;
+                }
+                item->source_width = native->w;
+                item->source_height = native->h;
+                item->source_format = (lv_color_format_t)native->cf;
+            }
+        }
+    }
+    return saved;
+}
+
+static void rollback_animation_images(animation_image_checkpoint_t *saved, unsigned count)
+{
+    for (unsigned i = 0; i < count; ++i) {
+        animation_image_checkpoint_t *item = &saved[i];
+        plcui_widget_t *widget = item->widget;
+        plcui_animimg_t *animation = widget->animation;
+        luat_plcui_image_release(&animation->current);
+        luat_plcui_image_release(&animation->next);
+        luat_plcui_image_release(&animation->retiring);
+        *animation = item->state;
+        /* Transfer the saved references back to the widget. */
+        item->state.current = NULL;
+        item->state.next = NULL;
+        item->state.retiring = NULL;
+        if (!widget->obj) continue;
+        if (!item->source) {
+            lv_image_set_src(widget->obj, NULL);
+            continue;
+        }
+        /* Native set_src duplicates the path and can fail during OOM rollback.
+           Restore only these source fields, adopting our preallocated string;
+           leave the object's layout, callbacks and native runtime state alone. */
+        lv_image_t *native = (lv_image_t *)widget->obj;
+        lv_obj_invalidate(widget->obj);
+        if (native->src_type == LV_IMAGE_SRC_FILE || native->src_type == LV_IMAGE_SRC_SYMBOL)
+            lv_free((void *)native->src);
+        native->src = item->source;
+        item->source = NULL;
+        native->src_type = LV_IMAGE_SRC_FILE;
+        native->w = item->source_width;
+        native->h = item->source_height;
+        native->cf = item->source_format;
+        lv_obj_refresh_self_size(widget->obj);
+        lv_obj_refresh_ext_draw_size(widget->obj);
+        lv_obj_invalidate(widget->obj);
+    }
+}
+
 bool luat_plcui_prepare_page_images(plcui_document_t *doc, int page, plcui_error_t *error)
 {
     if (!doc || page < 0 || (unsigned)page >= doc->page_count || !doc->pages[page].screen) {
         luat_plcui_error(error, "E_RESOURCE", "Target page is not instantiated");
         return false;
     }
-    lv_obj_update_layout(doc->pages[page].screen);
-    plcui_image_pin_t *checkpoint = doc->pages[page].image_pins;
-    for (unsigned i = 0; i < doc->pages[page].count; ++i) {
-        plcui_widget_t *widget = &doc->pages[page].widgets[i];
-        if (widget->type == PLCUI_IMAGE && !prepare_image(widget, error)) {
-            release_until(&doc->pages[page], checkpoint);
+    plcui_page_t *target = &doc->pages[page];
+    /* Visibility must use the candidate layout (e.g. after moving a container).
+       Already-bound same-frame animations do not change lease ownership here. */
+    lv_obj_update_layout(target->screen);
+    unsigned animation_count = 0;
+    for (unsigned i = 0; i < target->count; ++i)
+        if (animation_needs_checkpoint(&target->widgets[i])) ++animation_count;
+    animation_image_checkpoint_t *saved = animation_count
+        ? checkpoint_animation_images(target, animation_count, error) : NULL;
+    if (animation_count && !saved) return false;
+    plcui_image_pin_t *checkpoint = target->image_pins;
+    for (unsigned i = 0; i < target->count; ++i) {
+        plcui_widget_t *widget = &target->widgets[i];
+        if ((widget->type == PLCUI_IMAGE || widget->type == PLCUI_SLIDER || widget->type == PLCUI_ANIMIMG)
+            && !prepare_image(widget, error)) {
+            rollback_animation_images(saved, animation_count);
+            discard_animation_checkpoints(saved, animation_count);
+            release_until(target, checkpoint);
             return false;
         }
     }
+    discard_animation_checkpoints(saved, animation_count);
     return true;
 }
 

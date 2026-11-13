@@ -3,6 +3,7 @@
 #include "luat_plcui_perf.h"
 #include "luat_plcui_debug.h"
 #include "lvgl9/src/core/lv_obj_event_private.h"
+#include "lvgl9/src/indev/lv_indev_private.h"
 
 static const plcui_widget_t *parent_of(const plcui_widget_t *widget)
 {
@@ -54,13 +55,19 @@ bool luat_plcui_component_sync_disabled(plcui_widget_t *root, plcui_error_t *err
         if (!widget->obj || !luat_plcui_component_is_within(widget, root)) continue;
         if (effective_disabled(widget)) {
             lv_obj_add_state(widget->obj, LV_STATE_DISABLED);
-            widget->pressed = false;
         } else {
             lv_obj_remove_state(widget->obj, LV_STATE_DISABLED);
         }
     }
-    return root->document->preparing_page >= 0
+    bool ready = root->document->preparing_page >= 0
         || luat_plcui_prepare_page_images(root->document, (int)root->page_index, error);
+    if (ready) {
+        for (unsigned i = 0; i < page->count; ++i) {
+            plcui_widget_t *widget = &page->widgets[i];
+            if (luat_plcui_component_is_within(widget, root) && effective_disabled(widget)) widget->pressed = false;
+        }
+    }
+    return ready;
 }
 
 static void component_hit_test(lv_event_t *event)
@@ -90,6 +97,47 @@ static bool object_within(lv_obj_t *object, lv_obj_t *ancestor)
     return false;
 }
 
+void luat_plcui_component_cancel_pointer(plcui_widget_t *root, const char *reason)
+{
+    if (!root || !root->obj) return;
+    plcui_page_t *page = &root->document->pages[root->page_index];
+    for (unsigned i = 0; i < page->count; ++i) {
+        plcui_widget_t *widget = &page->widgets[i];
+        if (luat_plcui_component_is_within(widget, root) && widget->slider)
+            luat_plcui_slider_cancel(widget, reason);
+    }
+    for (lv_indev_t *input = lv_indev_get_next(NULL); input; input = lv_indev_get_next(input)) {
+        if (lv_indev_get_type(input) != LV_INDEV_TYPE_POINTER || !object_within(input->pointer.act_obj, root->obj)) continue;
+        lv_indev_reset(input, input->pointer.act_obj);
+        lv_indev_wait_release(input);
+    }
+}
+
+bool luat_plcui_component_set_pos(plcui_widget_t *widget, int32_t x, int32_t y, plcui_error_t *error)
+{
+    if (x < -4096 || x > 4096 || y < -4096 || y > 4096) {
+        luat_plcui_error(error, "E_SCHEMA", "Position must be between -4096 and 4096"); return false;
+    }
+    if (widget->x == x && widget->y == y) return true;
+    int32_t old_x = widget->x, old_y = widget->y;
+    widget->x = x; widget->y = y;
+    lv_obj_set_pos(widget->obj, x, y);
+    plcui_document_t *doc = widget->document;
+    if (doc->preparing_page < 0 && !luat_plcui_prepare_page_images(doc, (int)widget->page_index, error)) {
+        widget->x = old_x; widget->y = old_y;
+        lv_obj_set_pos(widget->obj, old_x, old_y);
+        lv_obj_update_layout(widget->obj);
+        return false;
+    }
+    luat_plcui_component_cancel_pointer(widget, "position_changed");
+    if ((luat_plcui_component_is_within(doc->editing, widget) || luat_plcui_component_is_within(doc->keyboard, widget))
+        && doc->editing
+        && (!luat_plcui_component_visible(doc->editing) || (doc->keyboard && !luat_plcui_component_visible(doc->keyboard))))
+        luat_plcui_input_finish(doc, false, true);
+    luat_plcui_components_sync(doc);
+    return true;
+}
+
 static void screen_event(lv_event_t *event)
 {
     plcui_document_t *document = lv_event_get_user_data(event);
@@ -110,6 +158,8 @@ static lv_obj_t *create_widget(plcui_widget_t *widget, lv_obj_t *parent)
     case PLCUI_CONTAINER: return luat_plcui_container_create(widget, parent);
     case PLCUI_TABLE: return luat_plcui_table_create(widget, parent);
     case PLCUI_CHART: return luat_plcui_chart_create(widget, parent);
+    case PLCUI_ANIMIMG: return luat_plcui_animimg_create(widget, parent);
+    case PLCUI_SLIDER: return luat_plcui_slider_create(widget, parent);
     }
     return NULL;
 }
@@ -198,6 +248,7 @@ void luat_plcui_destroy_page(plcui_document_t *document, int index)
     luat_plcui_release_page_images(document, index);
     page->instance_generation++;
     for (unsigned i = 0; i < page->count; ++i) {
+        if (page->widgets[i].animation) luat_plcui_animimg_destroy(&page->widgets[i]);
         page->widgets[i].obj = NULL;
         if (page->widgets[i].chart) {
             plcui_chart_t *chart = page->widgets[i].chart;

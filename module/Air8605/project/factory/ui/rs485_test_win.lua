@@ -291,10 +291,14 @@ end
 -- ==================== 动作 ====================
 
 -- 实际发一帧（端口必须已打开）
-local exit_gate = require("factory_page_exit").new("RS485", function() exwin.close(window_id) end)
+-- 退出闸门（factory_page_exit）：只在带 SIP 的树里存在——它把停止请求排进 factory_handoff
+-- 的 FIFO，等外设真停稳再关页；没有闸门就退回直接关窗 + TEST_WIN_CLOSED 收口。
+local ok_g, page_exit = pcall(require, "factory_page_exit")
+if not ok_g or type(page_exit) ~= "table" or type(page_exit.new) ~= "function" then page_exit = nil end
+local exit_gate = page_exit and page_exit.new("RS485", function() exwin.close(window_id) end) or nil
 
 local function fire_send(p, data)
-    if exit_gate.closing then return end
+    if exit_gate and exit_gate.closing then return end
     data = tostring(data or "")
     if #data == 0 then return end
     sys.publish("RS485_TEST_SEND", p.id, data)
@@ -337,7 +341,7 @@ end
 
 -- 驱动收包广播（periph_rs485 的 on_receive 发布）
 local function on_rx(id, data)
-    if exit_gate.closing then return end
+    if exit_gate and exit_gate.closing then return end
     local p = port_of[id]
     if not p then return end
     if type(data) ~= "string" or #data == 0 then return end
@@ -537,7 +541,7 @@ local function build_ui()
         x = pad, y = pad, w = card_w,
         title = "RS485 测试",
         sub = judge_enabled() and "A-A、B-B 交叉互接，点按钮发送" or "点按钮发送",
-        on_back = function() exit_gate.request() end,
+        on_back = function() if exit_gate then exit_gate.request() else exwin.close(window_id) end end,
     })
 
     local gap = theme.dp(8)
@@ -634,7 +638,7 @@ local function on_create()
     collect_ports()
     local ids = {}
     for _, p in ipairs(ports) do ids[#ids+1]=p.id end
-    exit_gate.open(ids)
+    if exit_gate then exit_gate.open(ids) end
     build_ui()
     sys.subscribe("PERIPH_RX", on_rx)
     sys.subscribe("RS485_TEST_RESULT", on_send_result)
@@ -665,10 +669,12 @@ local function on_create()
 end
 
 local function on_destroy()
-    exit_gate.active = false
-    if not exit_gate.done then
-        require("other_func_app").quiesce_page(exit_gate.ids or {})
-        for _, p in ipairs(ports) do sys.publish("OTHER_FUNC_SET", p.id, false) end
+    if exit_gate then
+        exit_gate.active = false
+        if not exit_gate.done then
+            require("other_func_app").quiesce_page(exit_gate.ids or {})
+            for _, p in ipairs(ports) do sys.publish("OTHER_FUNC_SET", p.id, false) end
+        end
     end
     stop_match_timer()
     sys.unsubscribe("PERIPH_RX", on_rx)
@@ -683,6 +689,9 @@ local function on_destroy()
     ports = {}
     port_of = {}
     pending = {}
+    if not exit_gate then
+        sys.publish("TEST_WIN_CLOSED")   -- 收口：功能测试页据此断开本页用的接口
+    end
 end
 
 local function on_get_focus() end

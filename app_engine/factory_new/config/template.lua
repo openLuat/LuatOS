@@ -1,7 +1,7 @@
 --[[
 @module  config.template
 @summary 项目配置文件参数手册（可复制后修改为实际配置）
-@version 1.7
+@version 1.8
 @date    2026.11.13
 @author  江访
 @usage
@@ -306,6 +306,9 @@
         --                            --   由 power_on 常供电，写上会被 audio_v2 播完拉低掉电）；
         --                            --   既接 Air1103 又有本地功放的板子照常写
         --     pa_on_level = 1,       -- [可选,默认1] 功放使能电平: 1=高电平 / 0=低电平
+        --     -- Air1103 语音芯片的断电自愈（model = "air1103" 才有意义）
+        --     recovery_power_pin = 73,    -- [条件] Air1103 供电 GPIO（如 AUDIOPA_EN）
+        --     recovery_power_active = 1,  -- [条件] 供电有效电平: 1=高有效 / 0=低有效
         --     pa_delay = 100,        -- [可选] 拉 PA 后到起播的等待 ms（防 pop 音）
         --     dac_ctrl = 43,         -- [可选] 外部编解码芯片上电使能 GPIO（es8311 常用）
         --     dac_delay = 100,       -- [可选] 编解码上电稳定等待 ms

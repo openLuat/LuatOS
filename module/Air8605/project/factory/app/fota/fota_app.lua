@@ -193,7 +193,6 @@ sys.subscribe("FOTA_DOWNLOAD_START", function()
 end)
 
 sys.subscribe("FOTA_CONFIRM_REBOOT", function()
-    if check_only then return end
     if pending_kind == "reboot" then
         answer_pending(true)
     else

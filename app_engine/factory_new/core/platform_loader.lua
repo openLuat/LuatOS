@@ -39,6 +39,7 @@ require 即执行，按以下顺序：
 -- 编译清单：≥800×480 分辨率的配置/驱动（编译系统静态分析）
 local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
+require ("air1103")               -- Air1103 Lua 驱动（含静音帧保活），覆盖固件内置 C 驱动，消除播放周期性爆音
 
 -- Engine 引擎主机系列
 require ("eng_1602_5i_v2")        -- Air1602 5寸 720×1280 NV3052C

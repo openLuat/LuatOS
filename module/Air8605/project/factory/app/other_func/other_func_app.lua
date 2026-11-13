@@ -33,7 +33,17 @@ list 为按 config.peripherals 声明顺序排列的实例数组：
 
 local M = {}
 local closing_ids = {}
-local handoff = require "factory_handoff"
+-- 页面切换 / 外设命令的 FIFO（factory_handoff）：只在带 SIP 的树里存在，
+-- 没有就退回 sys.taskInit 逐条起任务，功能与顺序语义一致。
+local ok_h, handoff = pcall(require, "factory_handoff")
+if not ok_h or type(handoff) ~= "table" then handoff = nil end
+local function enqueue(fn)
+    if handoff then handoff.enqueue(fn) else sys.taskInit(fn) end
+end
+-- 没有 FIFO 时不存在「测试页未激活」这一说，一律放行
+local function page_active()
+    return handoff == nil or handoff.mode() == "test"
+end
 
 -- 编译清单：DRIVER_OF 的值经变量传给 require，编译系统文本扫描不到，
 -- 此处补字面量 require 兜底（运行时永不调用）
@@ -208,7 +218,7 @@ end
 ]]
 local function apply(id, enabled)
     if enabled and closing_ids[id] then return false, "页面正在关闭" end
-    if enabled and handoff.mode() ~= "test" then return false, "功能测试页面未激活" end
+    if enabled and not page_active() then return false, "功能测试页面未激活" end
     if #items == 0 then build_items() end
     local idx = index_of[id]
     if not idx then return false, "未找到外设: " .. tostring(id) end
@@ -236,10 +246,10 @@ sys.subscribe 的派发上下文不是协程，直接跑会把等待整段跳过
 也会把消息派发卡住。
 ]]
 local function on_set(id, enabled)
-    handoff.enqueue(function()
+    enqueue(function()
         -- A destroyed page can have a stop event still waiting for dispatch.
         -- The transition already released it; never stop the new SIP owner.
-        if handoff.mode() ~= "test" and not enabled then
+        if not page_active() and not enabled then
             sys.publish("AUDIO_EXIT_RESULT", id, true, "already_released")
             return
         end
@@ -258,9 +268,9 @@ end
 与 on_set 同理放在 sys.taskInit 里跑：rs485_send 内部要等 DE 方向切换的 tx_delay。
 ]]
 local function on_rs485_send(id, data)
-    handoff.enqueue(function()
+    enqueue(function()
         if closing_ids[id] then return end
-        if handoff.mode() ~= "test" then return end
+        if not page_active() then return end
         if #items == 0 then build_items() end
         local idx = index_of[id]
         if not idx then
@@ -295,11 +305,11 @@ end
 与 on_set 同理放在 sys.taskInit 里跑：de_hold 内部要 sys.wait 撑满保持时长。
 ]]
 local function on_de_hold(ms)
-    handoff.enqueue(function()
+    enqueue(function()
         for _, it in ipairs(items) do
             if it.type == "rs485" and closing_ids[it.id] then return end
         end
-        if handoff.mode() ~= "test" then return end
+        if not page_active() then return end
         local ok_req, mod = pcall(require, "periph_rs485")
         if not ok_req or type(mod) ~= "table" or type(mod.de_hold) ~= "function" then
             sys.publish("RS485_DE_HOLD_RESULT", false, "驱动不支持方向脚自检")
@@ -330,9 +340,9 @@ end
 成功与否都在里面，测试页只认这一个事件。
 ]]
 local function on_audio_action(action, id, arg)
-    handoff.enqueue(function()
+    enqueue(function()
         if closing_ids[id] then return end
-        if handoff.mode() ~= "test" then return end
+        if not page_active() then return end
         if #items == 0 then build_items() end
         local idx = index_of[id]
         if not idx then

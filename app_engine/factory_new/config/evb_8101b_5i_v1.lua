@@ -47,7 +47,6 @@ return {
                 -- ST7701S IC 寄存器初始化序列（引用 lcd_st7701s_5in 驱动，返回 display custom_cmds）
                 ic_init = require("lcd_st7701s_5in").ic_init,
             },
-            need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
             rotation = 180,              -- Air8101 st7701s 屏需额外旋转 180°
             screen_size = 5.0,           -- 5寸屏
             font = {
@@ -77,7 +76,13 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,                     -- 启用 WiFi
+        wifi = true,         -- 启用 WiFi
+        app_factory = true,  -- 启用"应用工厂"（录音 → 生成 → 安装，需联网）
+        ai_chat = true,      -- 启用"AI 助手"（WebSocket 会话 + STT/TTS，需联网）
+        cloud_disk = true,   -- 启用"合宙网盘"（IoT 登录 → 云端文件，需联网）
+        other_func = true,   -- 启用"功能测试"（peripherals 外设清单）
+        iot = true,          -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,         -- 启用固件在线升级（需联网）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -87,8 +92,15 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,           -- 桌面顶栏 WiFi 图标
-        show_brightness_slider = true,   -- 设置页亮度滑块
-        show_storage_settings = true,    -- 设置页存储空间入口
+        show_wifi_icon = true,          -- 桌面顶栏 WiFi 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口
+        show_app_factory = true,        -- 桌面显示"应用工厂"图标
+        show_ai_chat = true,            -- 桌面显示"AI 助手"图标
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"图标
+        show_other_func = true,         -- 桌面显示"功能测试"图标
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 }

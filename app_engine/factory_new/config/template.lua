@@ -1,8 +1,8 @@
 --[[
 @module  config.template
 @summary 项目配置文件参数手册（可复制后修改为实际配置）
-@version 1.5
-@date    2026.11.07
+@version 1.7
+@date    2026.11.13
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -133,6 +133,13 @@
     --                           verify_timeout   [可选] 验证超时(秒)，默认 15
     --                           rotation         [可选] 人脸页签画面旋转角，写法同条目的
     --                                            rotation，不写沿用 UVC 页签的值
+    --                           mode             [可选] 录入/验证与预览是否并行，默认 "auto"：
+    --                                            "serial"     = 动作前停流（画面冻结到最后一帧），动作后重开
+    --                                            "auto"       = 预览不停流，降到 busy_fps 让出 CPU 后直接识别；
+    --                                                          并行失败 / 无新帧 / 流未开时降级串行重试一次
+    --                                            "concurrent" = 只走并行，失败不降级
+    --                           busy_fps         [可选] 并行识别时的 UVC 帧率，默认 3
+    --                           live_timeout     [可选] 并行前等画面新帧的超时(ms)，默认 3000
     --                         注意：供电脚与 UVC 共用 en_pin，断电会同时杀掉画面与人脸模组；
     --                         但录入 / 验证前测试页**必须**断电重枚举一次（模组出完图停流后停在
     --                         出图模式，录入指令不回包），所以这颗摄像头的 en_pin 必须是可拉低的
@@ -147,7 +154,10 @@
     --     -- 人脸识别摄像头（UVC 出图 + UART2 人脸协议）写法：
     --     -- { type = "uvc", id = "uvc1", name = "人脸识别摄像头", title = "摄像头",
     --     --   en_pin = 73, ready_delay = 200, w = 800, h = 480, rotation = 270,
-    --     --   face = { uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15 } },
+    --     --   face = {
+    --     --     uart_id = 2, rst_pin = nil, register_timeout = 15, verify_timeout = 15,
+    --     --     mode = "auto", busy_fps = 3, live_timeout = 3000,   -- 并行识别，见上面 mode 说明
+    --     --   } },
     --     --   ★ 首选档别写 1280x720：AirCAMERA_1034 实测只报 960x480 / 864x480 / 800x480 /
     --     --     480x320 / 320x240，写 1280x720 匹配不上会按默认 format0/frame0 起流失败，
     --     --     首帧从 ~1.4s 拖到 ~11s；800x480 是能匹配上的最大档
@@ -186,8 +196,6 @@
             --     pin_rst = 15,        -- 复位引脚 GPIO 编号 (0~255)
             --     w = 1024,            -- 水平分辨率（像素），如 320/480/720/1024
             --     h = 600,             -- 竖直分辨率（像素），如 320/480/854/600
-                -- xoffset = 0,      -- [可选,默认0] X 方向像素偏移
-                -- yoffset = 0,      -- [可选,默认0] Y 方向像素偏移
                 -- pin_bl = 2,       -- [可选] 背光使能 GPIO —— init 压低延后，首帧后由 backlight_on 点亮（防 RGB 残影）
                 -- pin_pwr = 57,     -- [可选] 屏供电使能 GPIO（LCD_EN）—— init 即拉高
                 --                     同脚(pin_bl == pin_pwr)且无 ic_init 时整体延后，开电+背光一起亮，无残影
@@ -209,7 +217,6 @@
                 -- bus_speed = 50 * 1000 * 1000,  -- [可选] RGB 总线时钟 Hz（display 取作 pclk_hz）
             -- },
 
-            -- need_buffer = true,      -- 是否启用帧缓冲: display(RGB) 路径建议 true（防撕裂）
             -- screen_size = 7.0,       -- 屏幕物理尺寸(英寸): 3.5 / 4.0 / 5.0 / 7.0 / 10.0，用于计算 UI 缩放
             -- font = {
             --     size = 20,           -- 默认字号: 低分屏(≤480px)用 14，高分屏(≥720px)用 20
@@ -248,11 +255,6 @@
                 -- w = 1024,            -- [可选] 触摸面板物理宽度，大屏(≥7寸)建议填
                 -- h = 600,             -- [可选] 触摸面板物理高度
                 -- gpio_reset = 3,      -- [可选] 额外复位 GPIO，初始化时先拉低再拉高(Air1602 常用)
-                -- pwr_pins = {       -- [可选] I2C 上拉引脚列表，如已由 power_on 处理则省略
-                --     { pin = 17 },  -- 每项执行 gpio.setup(pin, 1, gpio.PULLUP)
-                --     { pin = 16 },
-                -- },
-                -- pwr_delay = 100,  -- [可选] I2C 上电后等待 ms，有 pwr_pins 时默认 100ms
         --     },
         -- },
 
@@ -264,7 +266,6 @@
         --     usb_detect_gpio = 52,       -- [必填] USB 插入检测 GPIO
         --     voltage_divider = 2,        -- [可选,默认2] 电池电压分压比
         --     full_voltage = 4150,        -- [可选,默认4150] 充满判定电压 mV
-        --     no_battery_threshold = 1500,-- [可选,默认1500] 无电池判定电压阈值 mV
         -- },
 
         -- --------------------------------------------------------
@@ -361,32 +362,42 @@
     -- 五、功能开关 features（必填）
     -- ============================================================
     -- 规则: 只写 = true 表示开启，不写即视为关闭（无需显式写 = false）
+    -- 型号裁剪规则（新增型号按下表决定写哪些 = true，不写即关闭）:
+    --   app_factory / ai_chat / cloud_disk  ← 支持联网的型号（network 有条目，或 wifi / net_4g / ethernet = true）
+    --   iot / fota                          ← 支持联网的型号（同上：IOT 账号登录、固件在线升级）
+    --   other_func                          ← 全部型号都开
+    --   nes                                 ← 带实体按键的型号（同时配 nes_keys）
+    --   nand_flash                          ← 带外置 NAND Flash 的型号（同时配 storage.nand_flash）
+    --   usb_hid                             ← 带 USB 功能、且不支持 UVC / 人脸摄像头的型号
+    --   sip                                 ← 支持 Air1103 语音芯片的型号（Air8605M / Air8605W）
+    --   wdt                                 ← 带 Air153X 外置硬件看门狗的型号（同时配 hw.wdt）
+    -- 注意: 这里只放「功能有没有」的开关，不放外设开关——音频能力看 hw.audio，
+    --       RS485 与 UVC 摄像头看 peripherals[].type，都不在 features 里重复声明。
     -- features = {
     --     wifi = true,         -- 启用WiFi，通常同时设 ui.show_wifi_icon = true
     --     nand_flash = true,   -- 启用NAND Flash，必须同时配置 storage.nand_flash
     --     net_4g = true,       -- 启用4G蜂窝网络，可选配 net_4g_config
     --     ethernet = true,     -- 启用以太网，通常同时设 ui.show_ethernet_settings = true
     --     buzzer = true,       -- 启用蜂鸣器(触摸反馈音)，通常同时设 ui.show_buzzer_settings = true
-    --     speaker = true,      -- 启用喇叭
-    --     mic = true,          -- 启用麦克风
     --     sd_card = true,      -- 启用SD/TF卡，必须同时配置 storage.sd_card
-    --     gnss = true,         -- 启用GPS/北斗定位
-    --     bluetooth = true,    -- 启用蓝牙
-    --     can = true,          -- 启用CAN总线
-    --     rs485 = true,        -- 启用RS485接口
     --     other_func = true,   -- 启用"功能测试"（peripherals 外设清单入口），通常同时设 ui.show_other_func = true
-    --     usb_camera = true,   -- 启用USB摄像头，通常同时设 ui.show_camera_preview = true
     --     usb_hid = true,      -- 启用USB HID 键盘鼠标；带 UVC 摄像头的机型两者二选一（共用
     --                          --   USB Host 与供电轨）：开关写 fskv、入口「设置 → 外设模式」、
     --                          --   默认 UVC、切换后重启生效；VBUS 控制脚见 hw.usb.vbus_gpio
-    --     spi_camera = true,   -- 启用SPI摄像头，通常同时设 ui.show_camera_preview = true
-    --     i2c_sensor = true,   -- 启用I2C传感器(SHT30温湿度/VOC等)，通常同时设 ui.show_sensor_panel = true
     --     nes = true,          -- 启用NES游戏实体按键，必须同时配置 nes_keys
     --     battery = true,      -- 启用电池管理(ADC检测+充电检测)，必须同时配置 hw.battery，
     --                          -- 通常同时设 ui.show_battery_icon = true
     --     wdt = true,          -- 启用外部看门狗(Air153C/Air153D 喂狗)，必须同时配置 hw.wdt
+    --     iot = true,          -- 启用 IoT 账号登录（合宙平台），需联网，通常同时设 ui.show_iot = true
+    --     fota = true,         -- 启用固件在线升级，需联网，通常同时设 ui.show_fota = true
+    --                          --   fota_app 加载即 libfota3.request()，会轮询等网；
+    --                          --   无网板不写此项，否则每次开机空转 60 秒
     --     app_factory = true,  -- 启用应用工厂（录音生成APP），通常同时设 ui.show_app_factory = true
     --     ai_chat = true,      -- 启用AI聊天助手（SSE流式对话+TTS），通常同时设 ui.show_ai_chat = true
+    --     sip = true,          -- 启用SIP通话（语音经 Air1103），硬前提是 hw.audio.model = "air1103"，
+    --                          --   两个条件缺一不可。门控在 app/sip/sip_gate.lua
+    --                          --   （Air8605 型号树提供，主代码没有这个模块），
+    --                          --   只有 Air8605M / Air8605W 过得了
     --     cloud_disk = true,   -- 启用合宙网盘（登录IoT账号后浏览空间文件并下载），通常同时设 ui.show_cloud_disk = true
     --     file_transfer = true, -- 启用文件传输（hzadb日志口：PC↔设备互传文件/共享清单），通常同时设 ui.show_file_transfer = true
     --     aircloud = true,     -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定芯片型号），
@@ -481,21 +492,23 @@
     -- ============================================================
     -- 规则: 只写 = true 表示显示，不写即视为隐藏（无需显式写 = false）
     -- ui = {
-    --     show_wifi_icon = true,           -- 桌面顶栏 WiFi 信号图标      ← 通常配 wifi 时打开
-    --     show_brightness_slider = true,   -- 设置页显示亮度调节滑块
+    --     show_wifi_icon = true,           -- 顶栏 WiFi 图标 + 设置页"网络设置"入口   ← 配 wifi 时打开
+    --     show_4g_icon = true,             -- 顶栏 4G 信号图标 + 设置页"网络设置"入口 ← 配 net_4g 时打开
+    --     show_ethernet_settings = true,   -- 设置页"网络设置"入口（以太网）        ← 配 ethernet 时打开
+    --     show_brightness_slider = true,   -- "亮度和声音"里显示亮度滑块            ← hw.lcd.backlight 配了 pwm_ch 才有背光可调
+    --     show_camera_preview = true,      -- 功能测试里显示 UVC 预览条目           ← 配了 peripherals[].type = "uvc" 才有此项
     --     show_storage_settings = true,    -- 设置页显示存储空间查看入口
-    --     show_4g_icon = true,             -- 桌面顶栏 4G 信号图标        ← 通常配 net_4g 时打开
-    --     show_buzzer_settings = true,     -- 设置页蜂鸣器(触摸声音)开关  ← 通常配 buzzer 时打开
-    --     show_ethernet_settings = true,   -- 设置页以太网设置入口        ← 通常配 ethernet 时打开
-    --     show_camera_preview = true,      -- 设置页摄像头预览入口        ← 通常配 usb_camera/spi_camera 时打开
-    --     show_other_func = true,         -- 桌面"功能测试"图标            ← 通常配 other_func 时打开，列出 peripherals 外设清单
-    --     show_sensor_panel = true,        -- 设置页传感器数据面板        ← 通常配 i2c_sensor 时打开
-    --     show_battery_icon = true,        -- 桌面顶栏电池图标           ← 通常配 battery 时打开
-    --     show_app_factory = true,         -- 桌面"应用工厂"入口         ← 通常配 app_factory 时打开
-    --     show_ai_chat = true,             -- 桌面"AI助手"入口           ← 通常配 ai_chat 时打开
-    --     show_cloud_disk = true,          -- 桌面"合宙网盘"入口         ← 通常配 cloud_disk 时打开
-    --     show_file_transfer = true,       -- 文件管理内"与PC互传"入口   ← 通常配 file_transfer 时打开
-    --     show_aircloud = true,            -- 设置页"数据上报"入口        ← 通常配 aircloud 时打开
+    --     show_buzzer_settings = true,     -- 设置页蜂鸣器(触摸声音)开关            ← 通常配 buzzer 时打开
+    --     show_other_func = true,          -- 桌面"功能测试"图标                    ← 通常配 other_func 时打开，列出 peripherals 外设清单
+    --     show_battery_icon = true,        -- 桌面顶栏电池图标                      ← 通常配 battery 时打开
+    --     show_iot = true,                 -- 设置页"IOT账号"入口                  ← 配 iot 时打开
+    --     show_fota = true,                -- 设置页"系统更新"入口                  ← 配 fota 时打开
+    --     show_autostart = true,           -- 设置页"后装APP自启"入口               ← 各型号都开
+    --     show_app_factory = true,         -- 桌面"应用工厂"入口                    ← 通常配 app_factory 时打开
+    --     show_ai_chat = true,             -- 桌面"AI助手"入口                     ← 通常配 ai_chat 时打开
+    --     show_cloud_disk = true,          -- 桌面"合宙网盘"入口                    ← 通常配 cloud_disk 时打开
+    --     show_file_transfer = true,       -- 文件管理内"与PC互传"入口              ← 通常配 file_transfer 时打开
+    --     show_aircloud = true,            -- 设置页"数据上报"入口                  ← 通常配 aircloud 时打开
     --     show_video_area = true,          -- 桌面内置播放器区域（竖屏：状态栏→时钟→播放器(画面+独立
     --                                      --   控制栏)→已安装应用→Dock，不带天气卡；横屏自动带播放器，无需此项）
     -- },
@@ -608,7 +621,7 @@
     -- 上报结果通过 AIRCLOUD_REPORT_RESULT 事件发布，设置页据此显示"最近一次上报结果"。
     --
     -- aircloud = {
-    --     report_cycle = 180,  -- 默认上报周期(秒)；云端下发 cycle:N 会改写并存 fskv
+    --     report_cycle = 180,  -- 上报周期初值(秒)；用户调过或云端下发 cycle:N 后，以 fskv 记的为准
     --     min_cycle    = 5,    -- 允许的最小周期(秒)，防止云端下发过密把流量打爆
     -- },
 -- }

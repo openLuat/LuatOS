@@ -77,10 +77,18 @@ local function collect_entries()
         entries[#entries + 1] = { label = label, event = event, desc = desc, icon = ENTRY_ICONS[event] }
     end
 
-    add("IOT账号", "OPEN_IOT_WIN", "合宙 IoT 平台登录与设备绑定")
+    -- 界面暴露统一由 ui.show_* 决定（不写即不显示）：IOT账号 / 系统更新 / 后装APP自启 是
+    -- 联网相关入口，无联网能力的型号按能力就不写这几个键（见 config/template.lua）
+    if ui.show_iot then add("IOT账号", "OPEN_IOT_WIN", "合宙 IoT 平台登录与设备绑定") end
     local nets = cfg.network
-    if fe.wifi or fe.net_4g or fe.ethernet
-        or (type(nets) == "table" and #nets > 0) then
+    local has_eth = fe.ethernet
+    if type(nets) == "table" then
+        for _, nc in ipairs(nets) do
+            if nc and type(nc.type) == "string" and nc.type:find("eth", 1, true) then has_eth = true break end
+        end
+    end
+    if (fe.wifi and ui.show_wifi_icon) or (fe.net_4g and ui.show_4g_icon)
+        or (has_eth and ui.show_ethernet_settings) then
         add("网络设置", "OPEN_NET_WIN", "网络开关、连接状态与 WiFi 管理")
     end
     add("亮度和声音", "OPEN_DISPLAY_WIN", "屏幕背光与媒体音量调节")
@@ -92,10 +100,10 @@ local function collect_entries()
     if require("usb_mode").available(cfg) then
         add("外设模式", "OPEN_USB_MODE_WIN", "UVC 摄像头与 USB 键鼠二选一")
     end
-    add("系统更新", "OPEN_FOTA_WIN", "检查并下载最新固件")
+    if ui.show_fota then add("系统更新", "OPEN_FOTA_WIN", "检查并下载最新固件") end
     if fe.buzzer and ui.show_buzzer_settings then add("触摸音效", "OPEN_SOUND_WIN", "触摸反馈音开关与音量") end
-    if fe.aircloud then add("数据上报", "OPEN_AIRCLOUD_WIN", "AirCloud 云端上报开关与周期") end
-    add("后装APP自启", "OPEN_AUTOSTART_WIN", "开机自动启动指定应用")
+    if fe.aircloud and ui.show_aircloud then add("数据上报", "OPEN_AIRCLOUD_WIN", "AirCloud 云端上报开关与周期") end
+    if ui.show_autostart then add("后装APP自启", "OPEN_AUTOSTART_WIN", "开机自动启动指定应用") end
     add("关于设置", "OPEN_ABOUT_WIN", "设备型号、唯一ID与版本信息")
     return entries
 end

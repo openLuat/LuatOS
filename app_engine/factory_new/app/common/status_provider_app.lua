@@ -14,7 +14,7 @@
 订阅: SIM_IND(st, vl)              → 更新 SIM 卡状态和 4G 信号
 订阅: REQUEST_STATUS_REFRESH       → 重新发布当前所有状态
 
-发布: STATUS_TIME_UPDATED(time, date, weekday)      → 时间更新（每秒）
+发布: STATUS_TIME_UPDATED(time, date, weekday)      → 时间更新（分钟/日期变化时）
 发布: STATUS_SIGNAL_UPDATED(level)                   → 4G 信号等级更新
 发布: STATUS_WIFI_SIGNAL_UPDATED(level)              → WiFi 信号等级更新 (0-5)
 
@@ -61,17 +61,22 @@ local weekday_map = {
 }
 
 --[[
-更新时间信息并发布STATUS_TIME_UPDATED事件
+更新时间信息并发布STATUS_TIME_UPDATED事件（只在分钟/日期真正变化时才发）
 ]]
 local function update_time()
     local t = os.time()
     if t then
         local dt = os.date("*t", t)
-        current_time = string.format("%02d:%02d", dt.hour, dt.min)
-        current_date = string.format("%04d-%02d-%02d", dt.year, dt.month, dt.day)
+        local hhmm = string.format("%02d:%02d", dt.hour, dt.min)
+        local date = string.format("%04d-%02d-%02d", dt.year, dt.month, dt.day)
         local ew = os.date("%A", t)
-        current_weekday = weekday_map[ew] or ew
-        sys.publish("STATUS_TIME_UPDATED", current_time, current_date, current_weekday)
+        local weekday = weekday_map[ew] or ew
+        local changed = hhmm ~= current_time or date ~= current_date or weekday ~= current_weekday
+        current_time, current_date, current_weekday = hhmm, date, weekday
+        -- 显示精度本来就只有分钟：每秒 publish 会让订阅方每秒 set_text 重绘一次顶栏
+        if changed then
+            sys.publish("STATUS_TIME_UPDATED", current_time, current_date, current_weekday)
+        end
     end
 end
 

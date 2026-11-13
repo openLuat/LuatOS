@@ -37,9 +37,11 @@
     "SD_EN = PIN51 = GPIO65" 说法冲突。本文件 power_on 实际把 SD_EN 配在 GPIO74，
     故 485_EN1 的 de_pin 按 GPIO65 填。若上板出现 RS485_1 与 SD 卡互相影响，
     请核实 SD_EN 的实际 GPIO 编号。
-11. features.usb_camera 与 ui.show_camera_preview 目前在 app/ 与 ui/ 里查不到消费方
-    （与7寸配置一致），写了不报错也不生效，此处保留仅作能力声明。features.rs485 同为
-    能力声明，485 测试入口由 config.peripherals 的 rs485 条目驱动（见第 6 条）。
+11. 485 测试入口由 config.peripherals 的 rs485 条目驱动（见第 6 条）。
+    UVC 摄像头目前只有供电脚（power_on 的 UVC_EN = GPIO73，见第 9 条），peripherals 里
+    还没有 uvc 条目，故本文件不写 ui.show_camera_preview —— 能力没声明就不暴露预览。
+    补 uvc 条目时请一并核对人脸模组串口（7 寸版用 UART2，本板 UART2 已被隔离 485 占用）
+    与 PIN55 的 AUDIOPA_EN / UVC_EN 冲突（见第 9 条）。
 12. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO73（AUDIOPA_EN = PIN55），
     低电平有效。录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
 13. 本配置由7寸版本（config/eng_8601_7i_wifi.lua / eng_8601_7i_4g.lua）移植，差异：屏幕尺寸 7→9 寸、
@@ -134,7 +136,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 9.0,                -- 9寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -173,20 +174,15 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        net_4g = true,      -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 7 条
-        speaker = true,     -- 启用喇叭（DAC PIN18 接 LM4871 功放）
-        mic = true,         -- 启用麦克风（板载 LINE_IN → 内置 ADC 录音）
-                            --   与 speaker 成对声明：同族已启 AI 助手/应用工厂的板型
-                            --   （evb_1601_7i_v12 / evb_8101_10i_v0 / eng_1602_5i_v5 …
-                            --   以及 7 寸 eng_8601_7i_wifi/4g）都写了这一项，本板原缺失。当前
-                            --   app/ 与 ui/ 里查不到消费方，属"能力声明"性质。
-        sd_card = true,     -- 启用 SD 卡（SPI1，CS=PIN38）
-        rs485 = true,       -- 启用 RS485 接口（双路，条目在 peripherals，见文件头第 6 条）
-        other_func = true,  -- 启用"功能测试"（peripherals 外设清单，485 测试入口）
-        app_factory = true, -- 启用"应用工厂"内置应用
-        ai_chat = true,     -- 启用"AI聊天助手"内置应用
-        cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
-        file_transfer = true, -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        net_4g = true,         -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 7 条
+        sd_card = true,        -- 启用 SD 卡（SPI1，CS=PIN38）
+        other_func = true,     -- 启用"功能测试"（peripherals 外设清单，485 测试入口）
+        app_factory = true,    -- 启用"应用工厂"内置应用
+        ai_chat = true,        -- 启用"AI聊天助手"内置应用
+        cloud_disk = true,     -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,           -- 启用固件在线升级（需联网）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -209,14 +205,16 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_4g_icon = true,           -- 桌面顶栏 4G 图标
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
-        show_camera_preview = true,    -- 设置页摄像头预览入口 ← 见文件头第 11 条
-        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
-        show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
-        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
-        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
-        show_file_transfer = true,     -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
+        show_4g_icon = true,            -- 桌面顶栏 4G 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_other_func = true,         -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_ai_chat = true,            -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        show_app_factory = true,        -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_file_transfer = true,      -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 }

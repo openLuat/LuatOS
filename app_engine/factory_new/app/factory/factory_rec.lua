@@ -63,6 +63,8 @@ local exaudio = require "exaudio"
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
 -- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
+-- 上传统一走 http_upload（httpplus 流式，避免大文件整读 OOM）
+local http_upload = require "http_upload"
 
 -- ==================== 常量 ====================
 
@@ -592,37 +594,19 @@ make_send = function()
     local is_pcm = fmt:find("^PCM_") ~= nil
     local ctype = is_pcm and "audio/pcm" or "audio/amr"
     local fname = is_pcm and "record.pcm" or "record.amr"
-    local boundary = "----WebKitFormBoundary" .. os.time()
-    headers["Content-Type"] = "multipart/form-data; boundary=" .. boundary
-    -- device_info 自动携带屏幕分辨率 + 模块型号（JSON 对象字符串）
-    local device_info = make_device_info()
-    local body = {}
-    -- 1. file 字段（录音文件）
-    table.insert(body, "--" .. boundary .. "\r\n")
-    table.insert(body, "Content-Disposition: form-data; name=\"file\"; filename=\"" .. fname .. "\"\r\n")
-    table.insert(body, "Content-Type: " .. ctype .. "\r\n\r\n")
-    local fdata = io.readFile(latest_path)
-    if not fdata then
-        sys.publish("FACTORY_MAKE_ERROR", "读取录音文件失败")
-        return
-    end
-    table.insert(body, fdata)
-    table.insert(body, "\r\n")
-    -- 2. device_info 字段（设备信息 JSON 对象）
-    -- ⚠️ 作为【普通表单字段】发送（不带 filename）：
-    --   带 filename 的 part 会被 Spring 识别为文件(MultipartFile)，request.getParameter("device_info")
-    --   拿不到值(null) → 服务端校验报 "device_info异常"(code:54)。
-    --   无 filename → getParameter("device_info") 能拿到 JSON 字符串（等同前端
-    --   formData.append('device_info', JSON.stringify(info)) 标准写法）
-    table.insert(body, "--" .. boundary .. "\r\n")
-    table.insert(body, "Content-Disposition: form-data; name=\"device_info\"\r\n")
-    table.insert(body, "Content-Type: application/json\r\n\r\n")
-    table.insert(body, device_info)
-    table.insert(body, "\r\n")
-    -- 结束 boundary
-    table.insert(body, "--" .. boundary .. "--\r\n")
-    local body_str = table.concat(body)
-    local code, _, resp_body = http.request("POST", MAKE_APP_URL, headers, body_str, { timeout = 30000 }).wait()
+    -- device_info 自动携带屏幕分辨率 + 模块型号（JSON 对象字符串）。
+    -- 它作为【普通表单字段】发送（不带 filename）：带 filename 的 part 会被 Spring 识别成
+    -- 文件(MultipartFile)，request.getParameter("device_info") 拿不到值 → 服务端报 device_info 异常。
+    -- 录音文件走 http_upload 的 httpplus 流式路径：30 秒 PCM ≈ 960KB，整读 + table.concat 会打挂 Lua 堆。
+    local code, resp_body = http_upload.post_file({
+        url = MAKE_APP_URL,
+        headers = headers,
+        file_path = latest_path,
+        filename = fname,
+        content_type = ctype,
+        forms = { device_info = make_device_info() },
+        timeout = 30,
+    })
     -- 仅保留一次简短状态日志（HTTP code），不再打印 multipart 结构与完整响应体
     log.info("factory_rec", "make_app 上传完成 code:", code)
     if code < 0 or code ~= 200 then

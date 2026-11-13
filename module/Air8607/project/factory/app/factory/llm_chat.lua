@@ -382,6 +382,9 @@ end
 
 -- ==================== STT ====================
 
+-- 文件上传（见 app/common/http_upload.lua）
+local http_upload = require "http_upload"
+
 local ASR_URL = "https://api.luatos.com/engine/asr/v1/audio/transcriptions"
 
 local function asr_auth_headers()
@@ -403,15 +406,16 @@ local function request_stt(file_path, callback)
     if not socket.localIP() then callback(""); return end
     local headers = asr_auth_headers()
     if not headers then callback(""); return end
-    local bd = "----WebKitFormBoundary" .. tostring(os.time())
-    headers["Content-Type"] = "multipart/form-data; boundary=" .. bd
-    local body = { "--" .. bd .. "\r\n", "Content-Disposition: form-data; name=\"file\"; filename=\"record.amr\"\r\n", "Content-Type: audio/amr\r\n\r\n" }
-    local fdata = io.readFile(file_path)
-    if not fdata then callback(""); return end
-    body[#body + 1] = fdata; body[#body + 1] = "\r\n--" .. bd .. "--\r\n"
     sys.publish("AI_CHAT_STATUS", "语音识别中...")
-    local code, _, rb = http.request("POST", ASR_URL, headers, table.concat(body), { timeout = 30000 }).wait()
-    if code ~= 200 then sys.publish("AI_CHAT_STATUS", ""); callback(""); return end
+    -- 统一走 http_upload：有 httpplus 就分块流式上传，没有才整读（整读大录音会 OOM 打挂 VM）
+    local code, rb = http_upload.post_file({
+        url = ASR_URL, headers = headers, file_path = file_path,
+        filename = "record.amr", content_type = "audio/amr", timeout = 30,
+    })
+    if code ~= 200 then
+        log.warn("llm_chat", "STT 请求失败", tostring(code))
+        sys.publish("AI_CHAT_STATUS", ""); callback(""); return
+    end
     local ok, resp = pcall(json.decode, rb)
     if not ok or type(resp) ~= "table" or resp.code ~= 0 then sys.publish("AI_CHAT_STATUS", ""); callback(""); return end
     local text = (type(resp.value) == "table" and resp.value.text) or ""

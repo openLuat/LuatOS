@@ -34,7 +34,7 @@
    超时档位由 STRAP 硬件配置（10分钟 / 60分钟 / 12小时 / 24小时），软件层不参与。
 8. 485：485_EN = GPIO14 是 485 收发供电（power_on 拉高常供电），485_EN1 = PIN51 = GPIO65 是
    非隔离 485 的 DE 方向脚。本型号 UART1 只挂非隔离 485 这一路，不配隔离 485。
-   features.rs485 目前在 app/ 与 ui/ 里查不到消费方，仅作能力声明。
+   485 测试入口由 config.peripherals 的 rs485 条目驱动，配了条目才会出现在功能测试页。
 9. 上电供电轨：5V_EN = GPIO12、9V_EN = PIN46 = GPIO56、12V_EN = PIN72 = GPIO44（本型号专有）。
    5V_EN = GPIO12 由 power_on 拉高常供电。usb_hid_app 的 VBUS_GPIO=12 也是这个脚，
    同开时会给 UVC 摄像头断电，故带 UVC 的型号不开 features.usb_hid。
@@ -114,7 +114,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 10.0,               -- 10寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -144,18 +143,18 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        net_4g = true,        -- 启用 4G（Air780ER2，UART3）—— 本型号固定为 4G 版，见文件头第 1 条
-        sd_card = true,       -- 启用 SD 卡（SPI1，CS=GPIO8）
-        usb_camera = true,    -- USB 摄像头（UVC）—— 暂无消费方，仅作能力声明
-        rs485 = true,         -- RS485 接口 —— 暂无消费方，仅作能力声明
-        other_func = true,    -- 启用"功能测试"（peripherals 外设清单）
+        net_4g = true,         -- 启用 4G（Air780ER2，UART3）—— 本型号固定为 4G 版，见文件头第 1 条
+        sd_card = true,        -- 启用 SD 卡（SPI1，CS=GPIO8）
+        other_func = true,     -- 启用"功能测试"（peripherals 外设清单）
         -- usb_hid 不开：USB 键鼠与 UVC 摄像头共用 USB Host 与供电，带 UVC 的型号不启用
-        app_factory = true,   -- 启用"应用工厂"内置应用
-        ai_chat = true,       -- 启用"AI聊天助手"内置应用
-        cloud_disk = true,    -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
-        file_transfer = true, -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
-        aircloud = true,      -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
-        wdt = true,           -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        app_factory = true,    -- 启用"应用工厂"内置应用
+        ai_chat = true,        -- 启用"AI聊天助手"内置应用
+        cloud_disk = true,     -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        aircloud = true,       -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
+        wdt = true,            -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,           -- 启用固件在线升级（需联网）
     },
 
     -- ===== AirCloud 数据上报参数 =====
@@ -188,15 +187,18 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_4g_icon = true,           -- 桌面顶栏 4G 图标
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
-        show_camera_preview = true,    -- 设置页摄像头预览入口（暂无消费方，仅作能力声明）
-        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
-        show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
-        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
-        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
-        show_file_transfer = true,     -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
-        show_aircloud = true,          -- 设置页显示"数据上报"入口 ← 配 aircloud 时打开
+        show_4g_icon = true,            -- 桌面顶栏 4G 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_camera_preview = true,     -- 设置页摄像头预览入口（暂无消费方，仅作能力声明）
+        show_other_func = true,         -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_ai_chat = true,            -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        show_app_factory = true,        -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_file_transfer = true,      -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
+        show_aircloud = true,           -- 设置页显示"数据上报"入口 ← 配 aircloud 时打开
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 }

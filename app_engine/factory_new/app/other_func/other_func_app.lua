@@ -115,8 +115,13 @@ local function build_items()
     local list = usb_mode.filter(cfg.peripherals)
     if type(list) ~= "table" then return end
 
+    -- UVC 预览条目要不要出现在功能测试里由 ui.show_camera_preview 决定
+    -- （摄像头能力本身仍由 peripherals[].type = "uvc" 声明，两者是「有没有」与「露不露」）
+    local show_uvc_preview = cfg.ui and cfg.ui.show_camera_preview
+
     for i, p in ipairs(list) do
-        if DRIVER_OF[p and p.type] then
+        local ptype = p and p.type
+        if DRIVER_OF[ptype] and (ptype ~= "uvc" or show_uvc_preview) then
             if not p.id then
                 log.warn("other_func_app", "外设缺 id，跳过", p.type, "#" .. i)
             elseif index_of[p.id] then

@@ -60,7 +60,6 @@ return {
                 vfp       = 12,
                 bus_speed = 52000000,
             },
-            need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 7.0,           -- 7寸屏
             font = {
                 size = 20,               -- 高分屏用 20 号字
@@ -89,10 +88,16 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,                     -- 启用 WiFi（exnetif 模式）
-        ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
+        wifi = true,         -- 启用 WiFi（exnetif 模式）
+        ethernet = true,     -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
         -- sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
         -- nand_flash = true,               -- 启用 NAND Flash（需配 storage.nand_flash）
+        app_factory = true,  -- 启用"应用工厂"（录音 → 生成 → 安装，需联网）
+        ai_chat = true,      -- 启用"AI 助手"（WebSocket 会话 + STT/TTS，需联网）
+        cloud_disk = true,   -- 启用"合宙网盘"（IoT 登录 → 云端文件，需联网）
+        other_func = true,   -- 启用"功能测试"（peripherals 外设清单）
+        iot = true,          -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,         -- 启用固件在线升级（需联网）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -104,10 +109,17 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,           -- 桌面顶栏 WiFi 图标
-        show_brightness_slider = true,   -- 设置页亮度滑块
-        show_storage_settings = true,    -- 设置页存储空间入口
-        show_ethernet_settings = true,   -- 设置页以太网设置入口
+        show_wifi_icon = true,          -- 桌面顶栏 WiFi 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口
+        show_ethernet_settings = true,  -- 设置页以太网设置入口
+        show_app_factory = true,        -- 桌面显示"应用工厂"图标
+        show_ai_chat = true,            -- 桌面显示"AI 助手"图标
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"图标
+        show_other_func = true,         -- 桌面显示"功能测试"图标
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 
     -- ===== 存储设备: SD/TF 卡 + NAND Flash =====

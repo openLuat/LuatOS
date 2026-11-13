@@ -114,15 +114,22 @@ local function load_project_config(project)
         return {
             name = "PC", chip = "PC", baseboard = "PC", pins = {},
             hw = {
-                lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = 320, h = 480 }, need_buffer = false, screen_size = 4.0, font = { size = 14 }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+                lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = 320, h = 480 }, screen_size = 4.0, font = { size = 14 }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
                 tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
             },
+            -- 模拟器按能力给足开关，好让设置页/顶栏的每个入口都能点开看
             features = {
                 ethernet = true,
+                iot = true,
+                fota = true,
             },
             ui = {
+                show_ethernet_settings = true,
                 show_brightness_slider = true,
                 show_storage_settings = true,
+                show_iot = true,
+                show_fota = true,
+                show_autostart = true,
             },
         }
     end
@@ -148,25 +155,30 @@ local function load_project_config(project)
     _G.mobile = {}
     function mobile.imei() return "pc_simulator" end
 
-    local w, h, sz, need_buf, fs = 800, 480, 5.0, true, 20
+    local w, h, sz, fs = 800, 480, 5.0, 20
     local _, _, rw, rh = project:find("(%d+)x(%d+)")   -- 正则提取 "720x1280"
     if rw and rh then w, h = tonumber(rw), tonumber(rh) end
     if project:find("7inch") then sz = 7.0 elseif project:find("10inch") then sz = 10.0 end
-    if w > 480 then need_buf, fs = true, 20 end         -- 高分辨率屏需要帧缓冲 + 大字体
 
     return {
         name = "PC", chip = "PC", baseboard = "PC", pins = {},
         hw = {
-            lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = w, h = h }, need_buffer = need_buf, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+            lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = w, h = h }, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
             tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
         },
+        -- 模拟器按能力给足开关，好让设置页/顶栏的每个入口都能点开看
         features = {
             wifi = true, ethernet = true,
+            iot = true, fota = true,
         },
         ui = {
             show_wifi_icon = true,
+            show_ethernet_settings = true,
             show_brightness_slider = true,
             show_storage_settings = true,
+            show_iot = true,
+            show_fota = true,
+            show_autostart = true,
         },
     }
 end

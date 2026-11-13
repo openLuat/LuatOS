@@ -64,7 +64,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏启用帧缓冲防撕裂
             screen_size = 10.0,               -- 10寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -97,8 +96,8 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        speaker = true,     -- 启用喇叭（内置 DAC + HT6873 功放）
         sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
+        other_func = true,  -- 启用"功能测试"（peripherals 外设清单）
     },
 
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====
@@ -112,7 +111,9 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_other_func = true,         -- 桌面显示"功能测试"图标
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 }

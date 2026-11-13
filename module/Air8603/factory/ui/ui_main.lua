@@ -62,7 +62,6 @@ function M.optional()
     -- 门控条件必须与 app_main.optional 对应业务层完全一致
     if _feat.app_factory then
         require "factory_win"       -- 应用工厂（订阅 OPEN_APP_FACTORY_WIN）
-        -- 不加载 factory_rec_win：被 v4.2 整合版 factory_win 取代后的孤儿文件
     end
 
     if _feat.ai_chat then

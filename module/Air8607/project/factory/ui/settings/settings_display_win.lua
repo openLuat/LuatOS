@@ -107,26 +107,33 @@ local function build_ui()
     local card_w = sw - 2 * pad
     local avail = screen_h - y - pad
 
-    -- 有音频硬件：亮度/音量两张卡等分；否则只留亮度卡（原布局）
+    -- 画几张卡由 config 开关与音频能力共同决定：ui.show_brightness_slider 不写就不画亮度卡
+    local show_bl = _G.project_config and _G.project_config.ui
+        and _G.project_config.ui.show_brightness_slider
+    local cards = (show_bl and 1 or 0) + (has_audio and 1 or 0)
     local card_h
-    if has_audio then
+    if cards >= 2 then
         card_h = math.floor((avail - pad) / 2)
         if card_h < theme.dp(110) then card_h = theme.dp(110) end
     else
         card_h = math.min(theme.dp(150), math.max(theme.dp(110), math.floor(avail * 0.45)))
     end
 
-    brightness_label, brightness_bar = build_slider_card(main_container, pad, y,
-        card_w, card_h, "屏幕亮度", "50%", 10, 100, 50, theme.C.amber,
-        function(self)
-            local v = self:get_value()
-            if brightness_label then brightness_label:set_text(tostring(v) .. "%") end
-            sys.publish("DISPLAY_BRIGHTNESS_SET", v)
-        end,
-        "拖动滑块调节，松手立即生效（PWM 背光）")
+    local y2 = y
+    if show_bl then
+        brightness_label, brightness_bar = build_slider_card(main_container, pad, y2,
+            card_w, card_h, "屏幕亮度", "50%", 10, 100, 50, theme.C.amber,
+            function(self)
+                local v = self:get_value()
+                if brightness_label then brightness_label:set_text(tostring(v) .. "%") end
+                sys.publish("DISPLAY_BRIGHTNESS_SET", v)
+            end,
+            "拖动滑块调节，松手立即生效（PWM 背光）")
+        y2 = y2 + card_h + pad
+    end
 
     if has_audio then
-        volume_label, volume_bar = build_slider_card(main_container, pad, y + card_h + pad,
+        volume_label, volume_bar = build_slider_card(main_container, pad, y2,
             card_w, card_h, "媒体音量", "70%", 0, 100, 70, theme.C.cyan,
             function(self)
                 local v = self:get_value()

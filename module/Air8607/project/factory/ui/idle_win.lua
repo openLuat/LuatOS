@@ -192,8 +192,11 @@ local auto_start_has_password = false
 local app_cards = {}
 local all_apps = {}
 
+-- 顶栏信号图标：能力（features）决定有没有这项功能，ui.show_* 决定要不要画在顶栏
 local has_4g = _G.project_config and _G.project_config.features and _G.project_config.features.net_4g
+    and _G.project_config.ui and _G.project_config.ui.show_4g_icon
 local has_wifi = _G.project_config and _G.project_config.features and _G.project_config.features.wifi
+    and _G.project_config.ui and _G.project_config.ui.show_wifi_icon
 local has_battery = _G.project_config and _G.project_config.features and _G.project_config.features.battery
     and _G.project_config.ui and _G.project_config.ui.show_battery_icon
 

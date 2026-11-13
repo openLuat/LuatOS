@@ -1,6 +1,6 @@
 --[[
 @module  config.eng_8603w1_10i_v0
-@summary Air8603W1 引擎主机 10寸1024x600 RGB屏 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC摄像头(UART2控制串口) + Air1103语音(UART6) + SD卡 配置文件（WiFi 版）
+@summary Air8603W1 引擎主机 10寸1024x600 RGB屏 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC摄像头(UART2控制串口) + SD卡 配置文件（WiFi 版）
 @version 1.3
 @date    2026.11.04
 @author  江访
@@ -18,14 +18,12 @@
      W5 / M5  UART1 = TTL 串口   UART2 = 隔离485
    本文件是 Air8603W1：UART1 = 隔离485、UART2 = UVC 摄像头控制串口。
    同一串口划分的 4G 出货型号见 config/eng_8603m1_10i_v0.lua，两者只差 network / features / ui 三处。
-2. 【音频 = Air1103 单通路】本板接 Air1103 语音芯片（UART6，内置 MIC + 喇叭 + AEC，
-   参考 module/Air8784/project/factory）。hw.audio.model = "air1103" 开机 setup 一次定全局，
-   运行期不再切换：录音走 Air1103 的 UART MIC，播放（TTS / 录音回放）走 Air1103 下行，
-   只认 type=1（TTS 文本）与 type=2（流式 PCM），type=0 文件播放不成立。
-   PA 功放使能脚 AUDIOPA_EN = GPIO73，HT6873 高电平使能（pa_on_level = 1），
-   power_on 初始拉低关断，起播时 audio_v2 拉高、播完回落。
-   Air1103 录音固定 PCM_16000（16kHz/16bit/单声道）；peripherals 的 type="audio"
-   是「录音播放」测试页（走 hw.audio，不占 uart_id）。
+2. 【音频 = 内置 DAC + 直驱 PA】本系列不出 Air1103 语音芯片版本（UART6 空闲）。
+   声音由芯片内置 DAC 播放，PA 功放使能脚直驱控制：
+   AUDIOPA_EN = GPIO73，HT6873 高电平使能（pa_on_level = 1），
+   power_on 初始拉低关断，起播时 exaudio 拉高。
+   本板无麦克风，不开录音相关功能；peripherals 不配 type="audio"（那是「录音播放」测试页），
+   故「功能测试」里没有「音频」组。播放由 ui/video_util.lua 读 hw.audio 出声。
    exaudio.setup 的入参统一由 app/common/audio_hw.lua 组装，各消费方都走它。
    视频素材（HZV）的音轨由 videoplayer 自己走 luat_audio_request_play_stream → 内置 DAC，
    不经 exaudio；播放时只保持 PA 功放开、不重跑 exaudio.setup（详见 ui/video_util.lua）。
@@ -119,7 +117,6 @@ return {
             }
         },
         { type = "rs485", id = "485_1", name = "隔离485",   uart_id = 1, de_pin = 65, power_pin = 64, power_hold = true, baud = 9600 }, -- DE = 485_EN1 = GPIO65，供电域 485_EN
-        { type = "audio", id = "audio1", name = "录音播放",   record_seconds = 5 }, -- Air1103（UART6），走 hw.audio
     },
 
     -- ===== 硬件配置 =====
@@ -141,7 +138,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 10.0,               -- 10寸屏
             -- font = { size = 20 },             -- 高分屏用 20 号字
             font = {
@@ -168,32 +164,28 @@ return {
         wdt = {
             pin = 57,               -- PIN47 = GPIO57 → 三极管 → WTDOG
         },
-        -- 音频: Air1103 单通路（UART6，内置 MIC + 喇叭）+ HT6873 功放，见文件头第 2 条
+        -- 音频: 芯片内置 DAC 播放 + HT6873 功放（AUDIOPA_EN = GPIO73 直驱，无麦克风）
         audio = {
-            model = "air1103",      -- 音频通路：Air1103 语音芯片（exaudio 新框架 UART 驱动，录音走 MIC、播放走下行）
-            uart_id = 6,            -- Air1103 接 UART6（固定 2M 波特率；本板 UART1/2/3 已占用）
-            audio_mode = "new",     -- 拉起 audio_v2 新框架（air1103 模式必须）
+            model = "dac",          -- 内置 DAC 模式
             pa_ctrl = 73,           -- PA(功放)使能引脚 = GPIO73（AUDIOPA_EN）
             pa_on_level = 1,        -- 高电平使能功放（HT6873）
             dac_delay = 6,          -- DAC 启动前冗余时间（旧框架用）
             pa_delay = 10,          -- PA 在播放开始后延迟打开的时间(ms)，透传 config_pa_power_ctrl()
             play_vol = 70,          -- 默认播放音量(0~100)
-            mic_vol = 70,           -- 默认录音音量(0~100)
-            record_format = "PCM_16000", -- Air1103 仅支持 PCM_16000（16kHz/16bit/单声道）
-            max_record_time = 30,   -- 最长录音时长(秒)，到时自动停止
         },
     },
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,        -- 启用 WiFi（Air6205，独占 UART3）—— 本型号固定为 WiFi 版，见文件头第 1 条
-        speaker = true,     -- 启用喇叭（Air1103 内置功放 + 内置 DAC / HT6873 功放）
-        mic = true,         -- 启用麦克风（Air1103 内置 MIC）
-        sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
-        usb_camera = true,  -- 启用 USB 摄像头（UVC）—— 入口在「功能测试」
-        rs485 = true,       -- 启用 RS485 接口
-        other_func = true,  -- 启用"功能测试"（peripherals 外设清单）
-        wdt = true,         -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        wifi = true,         -- 启用 WiFi（Air6205，独占 UART3）—— 本型号固定为 WiFi 版，见文件头第 1 条
+        sd_card = true,      -- 启用 SD 卡（SPI1，CS=GPIO8）
+        other_func = true,   -- 启用"功能测试"（peripherals 外设清单）
+        wdt = true,          -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        app_factory = true,  -- 启用"应用工厂"（录音 → 生成 → 安装，需联网）
+        ai_chat = true,      -- 启用"AI 助手"（WebSocket 会话 + STT/TTS，需联网）
+        cloud_disk = true,   -- 启用"合宙网盘"（IoT 登录 → 云端文件，需联网）
+        iot = true,          -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,         -- 启用固件在线升级（需联网）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -216,10 +208,17 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,         -- 桌面顶栏 WiFi 图标
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
-        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
+        show_wifi_icon = true,          -- 桌面顶栏 WiFi 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_other_func = true,         -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
         -- show_camera_preview 故意不写：UVC 预览入口在「功能测试」里，见文件头第 5 条
+        show_app_factory = true,        -- 桌面显示"应用工厂"图标
+        show_ai_chat = true,            -- 桌面显示"AI 助手"图标
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"图标
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
+        show_camera_preview = true,     -- 功能测试里显示 UVC 预览条目
     },
 }

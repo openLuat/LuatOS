@@ -99,7 +99,6 @@ return {
                     }
                 end,
             },
-            need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 5.0,           -- 5寸屏
             font = { size = 20 },        -- 高分屏用 20 号字
             backlight = {
@@ -124,10 +123,16 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,                     -- 启用 WiFi
-        nand_flash = true,               -- 启用 NAND Flash 存储
-        nes = true,                      -- 启用 NES 游戏按键（需配 nes_keys）
-        file_transfer = true,            -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        wifi = true,           -- 启用 WiFi
+        nand_flash = true,     -- 启用 NAND Flash 存储
+        nes = true,            -- 启用 NES 游戏按键（需配 nes_keys）
+        file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        app_factory = true,    -- 启用"应用工厂"（录音 → 生成 → 安装，需联网）
+        ai_chat = true,        -- 启用"AI 助手"（WebSocket 会话 + STT/TTS，需联网）
+        cloud_disk = true,     -- 启用"合宙网盘"（IoT 登录 → 云端文件，需联网）
+        other_func = true,     -- 启用"功能测试"（peripherals 外设清单）
+        iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,           -- 启用固件在线升级（需联网）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -150,9 +155,16 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,           -- 桌面顶栏 WiFi 图标
-        show_brightness_slider = true,   -- 设置页亮度滑块
-        show_storage_settings = true,    -- 设置页存储空间入口
+        show_wifi_icon = true,          -- 桌面顶栏 WiFi 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口
+        show_app_factory = true,        -- 桌面显示"应用工厂"图标
+        show_ai_chat = true,            -- 桌面显示"AI 助手"图标
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"图标
+        show_other_func = true,         -- 桌面显示"功能测试"图标
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 
     -- ===== 存储设备: NAND Flash =====

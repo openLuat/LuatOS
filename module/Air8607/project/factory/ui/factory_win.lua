@@ -65,6 +65,8 @@ local history_shown = 0         -- 已显示的 history 条数（避免重复追
 
 -- TabOS 深色玻璃态调色板（原浅色常量 → 主题令牌）
 local theme = require "ui_theme"
+-- 上传统一走 http_upload（httpplus 流式，避免大文件整读 OOM）
+local http_upload = require "http_upload"
 
 -- 主题令牌动态代理：换主题后自动取到新色值
 -- （写成 local X = theme.C.y 会在 require 时固化，换肤不生效）
@@ -260,13 +262,16 @@ local function on_record_done(data)
                 local ak = string.toBase64(cipher) or ""
                 if ak == "" then append_msg("鉴权失败(Base64)", true); return end
                 local headers = { ["app-key"] = ak }
-                local bd = "----WebKitFormBoundary" .. tostring(os.time())
-                headers["Content-Type"] = "multipart/form-data; boundary=" .. bd
-                local body = { "--" .. bd .. "\r\n", "Content-Disposition: form-data; name=\"file\"; filename=\"record.amr\"\r\n", "Content-Type: audio/amr\r\n\r\n" }
-                local fdata = io.readFile(data.path)
-                if not fdata then append_msg("读取录音失败", true); return end
-                body[#body + 1] = fdata; body[#body + 1] = "\r\n--" .. bd .. "--\r\n"
-                local code, _, rb = http.request("POST", ASR_URL, headers, table.concat(body), { timeout = 30000 }).wait()
+                -- 上传走 http_upload：PCM 30 秒 ≈ 960KB，io.readFile 整读会打挂 Lua 堆
+                local code, rb = http_upload.post_file({
+                    url = ASR_URL,
+                    headers = headers,
+                    file_path = data.path,
+                    filename = "record.amr",
+                    content_type = "audio/amr",
+                    timeout = 30,
+                })
+                if code == 0 then append_msg("读取录音失败", true); return end
                 if code ~= 200 then append_msg("识别失败(" .. tostring(code) .. ")", true); return end
                 local rok, resp = pcall(json.decode, rb)
                 if not rok or type(resp) ~= "table" or resp.code ~= 0 then append_msg("识别结果解析失败", true); return end

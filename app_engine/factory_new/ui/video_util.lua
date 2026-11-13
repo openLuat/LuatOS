@@ -141,10 +141,12 @@ TTS / 录音回放那些路径跑完之后回到播放器，功放可能已经�
 local function pa_set(on)
     local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
     if not (ac and ac.pa_ctrl) then return end
+    -- 使能电平默认 1，与 audio_hw 统一组装时的兜底一致
+    local on_lv = ac.pa_on_level or 1
     if on then
-        pcall(gpio.setup, ac.pa_ctrl, ac.pa_on_level or 0)
+        pcall(gpio.setup, ac.pa_ctrl, on_lv)
     else
-        pcall(gpio.setup, ac.pa_ctrl, (ac.pa_on_level == 1) and 0 or 1)
+        pcall(gpio.setup, ac.pa_ctrl, (on_lv == 1) and 0 or 1)
     end
 end
 

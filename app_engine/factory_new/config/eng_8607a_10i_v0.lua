@@ -75,7 +75,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏启用帧缓冲防撕裂
             screen_size = 10.0,               -- 10寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -117,15 +116,15 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        speaker = true,      -- 启用喇叭（内置 DAC + HT6873 功放）
-        usb_camera = true,   -- 启用 USB 摄像头（UVC 协议，AirCAMERA_1032）；入口在「功能测试」
-        other_func = true,   -- 启用「功能测试」页（UVC 预览 / 485 测试入口）
+        other_func = true,  -- 启用「功能测试」页（UVC 预览 / 485 测试入口）
     },
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_other_func = true,        -- 桌面「功能测试」图标 ← 配 peripherals 时打开
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_other_func = true,         -- 桌面「功能测试」图标 ← 配 peripherals 时打开
         -- show_camera_preview 故意不写：UVC 预览入口在「功能测试」里，见文件头第 8 条
+        show_autostart = true,          -- 设置页显示"后装APP自启"
+        show_camera_preview = true,     -- 功能测试里显示 UVC 预览条目
     },
 }

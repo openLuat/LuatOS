@@ -77,7 +77,6 @@ return {
                 vfp = 12,                     -- 垂直前沿
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 7.0,                -- 7寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -131,17 +130,18 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,        -- 启用 WiFi（AirLink SPI2，6205 模组）
-        net_4g = true,      -- 启用 4G（AirLink UART2，Air780ER 模组）
-        ethernet = true,    -- 启用 SPI 以太网（CH390，SPI1）
-        sd_card = true,     -- 启用 SD/TF 卡（SPI1，CS=GPIO8）
-        app_factory = true, -- 启用"应用工厂"内置应用
-        ai_chat = true,     -- 启用"AI聊天助手"内置应用
-        speaker = true,     -- 启用喇叭（DAC0 播放）
-        mic = true,         -- 启用麦克风（I2S2 + ES8311 录音）
-        usb_hid = true,     -- USB 键盘鼠标（Air8601 有 USB Host 接口）
-        cloud_disk = true,  -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
-        file_transfer = true,            -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        wifi = true,           -- 启用 WiFi（AirLink SPI2，6205 模组）
+        net_4g = true,         -- 启用 4G（AirLink UART2，Air780ER 模组）
+        ethernet = true,       -- 启用 SPI 以太网（CH390，SPI1）
+        sd_card = true,        -- 启用 SD/TF 卡（SPI1，CS=GPIO8）
+        app_factory = true,    -- 启用"应用工厂"内置应用
+        ai_chat = true,        -- 启用"AI聊天助手"内置应用
+        usb_hid = true,        -- USB 键盘鼠标（Air8601 有 USB Host 接口）
+        cloud_disk = true,     -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        other_func = true,     -- 启用"功能测试"（peripherals 外设清单）
+        iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,           -- 启用固件在线升级（需联网）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -180,14 +180,18 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,         -- 桌面顶栏 WiFi 图标
-        show_4g_icon = true,           -- 桌面顶栏 4G 信号图标
-        show_ethernet_settings = true, -- 设置页以太网设置入口
-        show_storage_settings = true,  -- 设置页存储空间入口
-        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
-        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
-        ai_chat = true,                -- 启用"AI聊天助手"内置应用
-        show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_wifi_icon = true,          -- 桌面顶栏 WiFi 图标
+        show_4g_icon = true,            -- 桌面顶栏 4G 信号图标
+        show_ethernet_settings = true,  -- 设置页以太网设置入口
+        show_storage_settings = true,   -- 设置页存储空间入口
+        show_app_factory = true,        -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_ai_chat = true,            -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_other_func = true,         -- 桌面显示"功能测试"图标
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
+        show_brightness_slider = true,  -- "亮度和声音"里显示亮度滑块
     },
 
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====

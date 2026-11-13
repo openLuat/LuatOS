@@ -56,12 +56,15 @@ function M.core()
 
     -- 状态提供 app 模块（系统时间/4G信号/WiFi信号 定时更新，发布 STATUS_* 给状态栏）
     require "status_provider_app"
+    -- 联网类业务：无联网能力的型号在 config 里不写这两个键，整段不加载
+    -- （fota_app 加载即 libfota3.request()，会轮询等网，不门控的话无网板每次开机空转 60 秒）
+    local feat = (_G.project_config or {}).features or {}
     -- IOT 账号模块（合宙 IoT 平台登录/登出，需联网，订阅 LOGIN_REQUEST/LOGOUT_REQUEST）
-    require "settings_iot_app"
+    if feat.iot then require "settings_iot_app" end
     -- 设置主模块（级联 require 所有 settings_*_app 子模块，fskv 初始化和配置加载）
     require "settings_app"
     -- FOTA 固件升级模块（订阅 IP_READY，定时向 iot.openluat.com 检查固件更新）
-    require "fota_app"
+    if feat.fota then require "fota_app" end
     -- 文件管理业务层（file_manager_win 也会 require，这里保证启动即注册）
     require "file_manager_app"
 end

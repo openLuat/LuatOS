@@ -47,7 +47,6 @@ return {
                 -- ST7701S IC 寄存器初始化序列（引用 lcd_st7701s_5in 驱动）
                 ic_init = require("lcd_st7701s_5in").ic_init,
             },
-            need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 5.0,           -- 5寸屏
             font = { size = 20 },        -- 高分屏用 20 号字
             backlight = {
@@ -109,12 +108,18 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,                     -- 启用 WiFi
-        nand_flash = true,               -- 启用 NAND Flash 存储
-        nes = true,                      -- 启用 NES 游戏按键（需配 nes_keys）
-        battery = true,                  -- 启用电池管理（需配 hw.battery + ui.show_battery_icon）
-        cloud_disk = true,               -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
-        file_transfer = true,            -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        wifi = true,           -- 启用 WiFi
+        nand_flash = true,     -- 启用 NAND Flash 存储
+        nes = true,            -- 启用 NES 游戏按键（需配 nes_keys）
+        battery = true,        -- 启用电池管理（需配 hw.battery + ui.show_battery_icon）
+        cloud_disk = true,     -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        app_factory = true,    -- 启用"应用工厂"（录音 → 生成 → 安装，需联网）
+        ai_chat = true,        -- 启用"AI 助手"（WebSocket 会话 + STT/TTS，需联网）
+        other_func = true,     -- 启用"功能测试"（peripherals 外设清单）
+        usb_hid = true,        -- 启用 USB 键鼠（无 UVC / 人脸摄像头，USB Host 独占）
+        iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,           -- 启用固件在线升级（需联网）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -137,11 +142,11 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_wifi_icon = true,           -- 桌面顶栏 WiFi 图标
-        show_brightness_slider = true,   -- 设置页亮度滑块
-        show_storage_settings = true,    -- 设置页存储空间入口
-        show_battery_icon = true,        -- 桌面顶栏电池图标 ← 配 battery 时打开
-        show_cloud_disk = true,          -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_wifi_icon = true,          -- 桌面顶栏 WiFi 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口
+        show_battery_icon = true,       -- 桌面顶栏电池图标 ← 配 battery 时打开
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
         --[[桌面播放器区域（竖屏纵向堆叠）
 
         打开后桌面纵向排布变为：状态栏 → 时钟 → 播放器 → 已安装应用 → Dock
@@ -151,8 +156,14 @@ return {
         播放器与应用卡各拿刚需后，**剩下的纵向空间全给 Dock（内置应用栏）**：
         480×854 实测 播放器 364 / 已安装应用 158 / Dock 96（1 行 4 个/页，右上角分页器可翻页）。
         不写此项时该机型桌面与本改动前完全一致。]]
-        show_video_area = true,          -- 桌面内置播放器区域（竖屏：时钟下方通栏，含独立控制栏）
-        show_file_transfer = true,     -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
+        show_video_area = true,         -- 桌面内置播放器区域（竖屏：时钟下方通栏，含独立控制栏）
+        show_file_transfer = true,      -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
+        show_app_factory = true,        -- 桌面显示"应用工厂"图标
+        show_ai_chat = true,            -- 桌面显示"AI 助手"图标
+        show_other_func = true,         -- 桌面显示"功能测试"图标
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 
     -- ===== 存储设备: NAND Flash =====

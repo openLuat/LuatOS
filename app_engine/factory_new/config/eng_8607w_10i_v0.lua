@@ -44,7 +44,7 @@
    触摸面板 1024×600。本型号 pins 不需要显式复用（同 eng_8603 系列，留空）。
 8. 【音频 = 内置 DAC + 直驱 PA】喇叭 PA 使能 = GPIO73，高电平使能（pa_on_level = 1），
    PA 延时 200ms，播放音量 70。power_on 先把 GPIO73 拉低关断功放，起播时 exaudio 拉高。
-   本板无麦克风，不开 features.mic、不配录音相关字段。音频与触摸不共用 I2C
+   本板无麦克风，不配录音相关字段（hw.audio 不写 mic 增益等键）。音频与触摸不共用 I2C
    （内置 DAC 无 codec，i2c_shared 不适用）。
 9. 【非隔离 485】485-1 挂 UART1，DE = GPIO65，供电域 = W_GPIO7 = GPIO135，波特率 9600。
    该供电域不是常供电（不写 power_hold），由 periph_rs485 按引用计数上/下电；
@@ -165,7 +165,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 10.0,                -- 10寸屏
             font = {
                 size = 20,               -- 高分屏用 20 号字
@@ -205,18 +204,16 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,        -- 启用 WiFi（Air601S，Airlink SPI5）—— 本型号固定为 WiFi 版
-        sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
-        speaker = true,     -- 启用喇叭（内置 DAC + 直驱 PA）
-        other_func = true,  -- 启用"功能测试"（peripherals 外设清单）
-        usb_camera = true,  -- 启用 USB 摄像头（UVC）能力声明
-        rs485 = true,       -- 启用 RS485 接口能力声明
-        ai_chat = true,     -- 启用"AI聊天助手"内置应用
-        app_factory = true, -- 启用"应用工厂"内置应用
-        cloud_disk = true,  -- 启用"合宙网盘"内置应用
-        file_transfer = true, -- 启用"文件传输"内置应用
-        aircloud = true,    -- 启用 AirCloud 数据上报
-        usb_hid = true,     -- 启用 USB HID 键鼠能力（与 UVC 二选一，见文件头第 2 条）
+        wifi = true,           -- 启用 WiFi（Air601S，Airlink SPI5）—— 本型号固定为 WiFi 版
+        sd_card = true,        -- 启用 SD 卡（SPI1，CS=GPIO8）
+        other_func = true,     -- 启用"功能测试"（peripherals 外设清单）
+        ai_chat = true,        -- 启用"AI聊天助手"内置应用
+        app_factory = true,    -- 启用"应用工厂"内置应用
+        cloud_disk = true,     -- 启用"合宙网盘"内置应用
+        file_transfer = true,  -- 启用"文件传输"内置应用
+        aircloud = true,       -- 启用 AirCloud 数据上报
+        iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,           -- 启用固件在线升级（需联网）
     },
 
     -- ===== AirCloud 数据上报参数 =====
@@ -250,14 +247,20 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_app_factory = true,     -- 桌面"应用工厂"图标 ← 配 app_factory 时打开
-        show_ai_chat = true,         -- 桌面"AI助手"图标 ← 配 ai_chat 时打开
-        show_cloud_disk = true,      -- 桌面"合宙网盘"图标 ← 配 cloud_disk 时打开
-        show_other_func = true,      -- 桌面"功能测试"图标 ← 配 other_func 时打开
-        show_file_transfer = true,   -- 文件管理内"与PC互传"入口 ← 配 file_transfer 时打开
-        show_storage_settings = true,-- 设置页存储空间入口 ← 配 sd_card 时打开
-        show_video_area = true,      -- 桌面竖屏播放器区
-        -- 故意不写 show_wifi_icon / show_brightness_slider / show_camera_preview /
-        -- show_sensor_panel / show_aircloud：这几个开关当前不生效，写了无效
+        show_app_factory = true,       -- 桌面"应用工厂"图标 ← 配 app_factory 时打开
+        show_ai_chat = true,           -- 桌面"AI助手"图标 ← 配 ai_chat 时打开
+        show_cloud_disk = true,        -- 桌面"合宙网盘"图标 ← 配 cloud_disk 时打开
+        show_other_func = true,        -- 桌面"功能测试"图标 ← 配 other_func 时打开
+        show_file_transfer = true,     -- 文件管理内"与PC互传"入口 ← 配 file_transfer 时打开
+        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_video_area = true,        -- 桌面竖屏播放器区
+        -- 故意不写 show_4g_icon / show_ethernet_settings / show_sensor_panel：本板无 4G、无以太网、无传感器面板
+        show_iot = true,               -- 设置页显示"IOT账号"
+        show_fota = true,              -- 设置页显示"系统更新"
+        show_autostart = true,         -- 设置页显示"后装APP自启"
+        show_wifi_icon = true,         -- 顶栏 WiFi 图标 + 网络设置入口
+        show_brightness_slider = true, -- "亮度和声音"里显示亮度滑块
+        show_camera_preview = true,    -- 功能测试里显示 UVC 预览条目
+        show_aircloud = true,          -- 设置页显示"数据上报"
     },
 }

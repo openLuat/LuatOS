@@ -1,148 +1,232 @@
-## 功能模块介绍
+## 这个 demo 是干什么的
 
-1、main.lua：主程序入口；
+一句话：**把 Air8000 当成一台“WiFi 转网线”的小路由器，并且演示“换一个 WiFi 上网，网线上挂的设备不用重新配网”。**
 
-2、netif_app: 网络管理模块,开启多网融合功能，WIFI提供网络供以太网设备上网；
+- Air8000 用 **WiFi STA** 连上一个能上网的路由器（WiFi A），这一个口叫**上游**；
+- 别人把网线插到 Air8000 的 **RJ45 网口**（板载 CH390 以太网芯片），这一个口叫**下游**；
+- Air8000 在中间做 **NAPT 地址转换 + DNS 代理**，网线那头的设备就能上网，它拿到的网关是 `192.168.5.1`；
+- 跑 30 秒后，脚本把上游从 WiFi A 换成 WiFi B，演示“换网不改配置、下游设备 IP 不变”。
 
-## 演示功能概述
+> 目录名 `wifia_out_ethernet_in_wifib_out` 是按 `<上游>_out_<接入侧>_in` 的规则起的：
+> `wifia_out` = 用 WiFi A 出去，`ethernet_in` = 网口给别人接进来，`wifib_out` = 再换成 WiFi B 出去。
 
-1. 调用 exnetif.setproxy 建立 WiFi A -> 以太网 LAN 多网融合代理（首次自动启用掉线重连）
-2. 再次调用 exnetif.setproxy 传入 WiFi B 凭证，库自动检测变化并完成 NAPT/WiFi 切换
+## 网络拓扑
+
+![](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
+
+```
+[WiFi A / WiFi B]  --WiFi STA(adapter 2)-->  [Air8000]  --CH390 网口(adapter 4)-->  [下游设备]
+     上游出网                                  NAPT + DNS 代理                    插网线即可上网
+```
+
+日志里出现的网卡编号含义（排查时最容易搞混）：
+
+| 编号 | 网卡 | 角色 |
+|---|---|---|
+| `adapter 2` | `socket.LWIP_STA`（WiFi STA） | 上游，出网口 |
+| `adapter 4` | `socket.LWIP_ETH`（CH390 网口） | 下游，LAN 口 |
+
+## 文件说明
+
+本目录下只有 2 个脚本：
+
+1、`main.lua`：主程序入口，只负责 `require "netif_app"` 和启动 `sys.run()`；
+
+2、`netif_app.lua`：网络管理模块，建立多网融合代理并演示上游 WiFi 切换。
+
+**但运行还需要 5 个库文件**，它们不在本目录，位于仓库 `script/libs/`：
+
+| 库文件 | 被谁引用 | 作用 |
+|---|---|---|
+| `exnetif.lua` | `netif_app.lua` | 多网融合主逻辑 |
+| `dnsproxy.lua` | `exnetif.lua` | 给下游设备做 DNS 代理 |
+| `dhcpsrv.lua` | `exnetif.lua` | 给下游设备分配 IP |
+| `httpdns.lua` | `exnetif.lua` | HTTP DNS 解析 |
+| `udpsrv.lua` | `dhcpsrv.lua` | UDP 服务框架 |
+
+用 Luatools 创建工程时会自动带上这些库；**用 `luatos-cli` 手工建项目时必须自己拷进脚本目录**，否则会出现：
+
+```log
+E/main exnetif.lua:67: module 'dnsproxy' not found
+E/main Lua VM exit!! reboot in 15000ms
+```
+
+（这是本 demo 在 Air8000A 上实测踩到的第一个坑。）
+
+## 演示流程
+
+| 阶段 | 动作 | 结果 |
+|---|---|---|
+| 第一阶段 | `exnetif.setproxy` 建 WiFi A → 以太网代理 | 网口出 `192.168.5.1`，DHCP/DNS 代理/NAPT 全部就绪，并自动开启 WiFi 掉线重连 |
+| 等待 | `sys.wait(switch_interval)` | WiFi A 工作 30 秒 |
+| 第二阶段 | 再次 `exnetif.setproxy`，只把 SSID 换成 WiFi B | 库检测到凭证变化，自动“关 NAPT → 断旧 WiFi → 连新 WiFi → 重开 NAPT” |
+
+第二次调用时**网卡参数完全没变**（下游还是 `LWIP_ETH`，上游还是 `LWIP_STA`），只有 `ssid/password` 变了。库内部据此判断是“切换上游”而不是“重新初始化”，所以 DHCP 服务器和网口 IP 都不会重建。
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
-1、Air8000开发板一块+可上网的sim卡一张+WIFI天线一根+wifi天线一根+网线一根：
+1、Air8000 开发板一块 + WiFi 天线 + 网线一根：
 
-- sim卡插入开发板的sim卡槽
+- WiFi 天线拧到开发板的天线座上（接 WiFi/BT 丝印那一路）；
+- 网线一端插开发板 RJ45 网口，另一端接**需要联网的以太网设备**（电脑、摄像头、PLC 等）；
+- **本 demo 不需要 SIM 卡**，全程走 WiFi 出网，4G 不参与。
 
-- 天线装到开发板上
+2、TYPE-C USB 数据线一根：
 
-- 网线一端插入开发板网口，另外一端连接其他需要联网的以太网设备
-
-2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air8000开发板和数据线的硬件接线方式为：
-
-- Air8000开发板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
-- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
+- 开发板通过 TYPE-C USB 口供电（外部供电/USB 供电 拨动开关拨到 USB 供电一侧）；
+- 另一端接电脑 USB 口，用于烧录和看日志。
 
 ## 演示软件环境
 
-1、Luatools下载调试工具
+1、Luatools 下载调试工具；
 
-2、[Air8000 V2044 - 1版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
+2、Air8000 固件：V2044-1 或更新版本（理论上 2025 年 7 月 26 日之后发布的固件都可以），需支持 `netdrv.napt`、`dhcpsrv.create`、`dnsproxy.setup` 等接口；
 
+3、**`script/libs/exnetif.lua` 库版本必须 ≥ `202607211200`，建议 ≥ `202611121939`**。
+
+| 库版本 | 行为差异 |
+|---|---|
+| `< 202607211200` | 没有“检测凭证变化并切换”的逻辑，第二次调用只会打印 `代理已存在，跳过` |
+| `202607211200` | 支持切换，但切换失败仍返回 `true`、切换后掉线重连失效、同 SSID 改密码不切换 |
+| `>= 202611121939` | 上述 3 个问题已修复 |
+
+> 判断方法：看启动日志里的 `exnetif 库版本 xxxx`，或直接调用 `exnetif.version()`。
 
 ## 演示核心步骤
 
-1、搭建好硬件环境，按接线图连接硬件,
+1、按接线图连接硬件：插好 WiFi 天线、网线接到下游设备、USB 线接电脑；
 
-2、按需修改WiFi配置（在netif_app.lua中）：
+2、修改 `netif_app.lua` 顶部“用户配置区”的两个表：
 
-分别修改 wifi_a_config 和 wifi_b_config 配置表里面的
+```lua
+local wifi_a_config = {
+    ssid = "WIFI_A_SSID",        -- 改成现场真实 WiFi 名称
+    password = "WIFI_A_PASSWORD",-- 改成现场真实 WiFi 密码
+}
 
-ssid = "WIFI名称"
-password = "WIFI密码"
-
-4、烧录内核固件和本项目的Lua脚本：main.lua：主程序入口，netif_app.lua：网络管理模块
-
-5、启动设备，观察日志输出：
-
-``` lua
-[2026-07-21 15:50:39.426][000000003.540] D/ch390h 注册完成 adapter 4 spi 1 cs 12 irq 21
-[2026-07-21 15:50:39.446][000000003.575] I/netdrv.ch390x enable irq mode in pin 21
-[2026-07-21 15:50:39.460][000000003.585] D/netdrv.ch390x 初始化MAC 3CAB724405F2
-[2026-07-21 15:50:40.404][000000004.540] I/user.netdrv 自定义以太网IP地址 nil 网关地址 nil
-[2026-07-21 15:50:40.407][000000004.541] I/netdrv 设置IP[4] 192.168.5.1 255.255.255.0 0.0.0.0 ret 0
-[2026-07-21 15:50:42.269][000000006.405] I/netdrv.ch390x link is up 1 12 100M
-[2026-07-21 15:50:42.275][000000006.405] D/netdrv 网卡(4)设置为UP
-[2026-07-21 15:50:42.279][000000006.406] D/net network ready 4, setup dns server
-[2026-07-21 15:50:42.287][000000006.406] D/netdrv IP_READY 4 192.168.5.1
-[2026-07-21 15:50:42.295][000000006.407] I/user.dnsproxy 开始监听
-[2026-07-21 15:50:42.346][000000006.470] I/user.netdrv 以太网就绪
-[2026-07-21 15:50:42.356][000000006.471] I/user.netdrv 创建dhcp服务器, 供以太网使用
-[2026-07-21 15:50:42.360][000000006.472] D/socket connect to 255.255.255.255,0
-[2026-07-21 15:50:42.368][000000006.473] D/net adapter 4 connect 255.255.255.255:0 UDP
-[2026-07-21 15:50:42.378][000000006.474] I/user.netdrv 创建dns代理服务, 供以太网使用
-[2026-07-21 15:50:42.386][000000006.474] I/user.dnsproxy 4 2
-[2026-07-21 15:50:42.396][000000006.475] I/user.dnsproxy 开始监听
-[2026-07-21 15:50:42.402][000000006.476] D/socket connect to 255.255.255.255,0
-[2026-07-21 15:50:42.411][000000006.476] D/net adapter 4 connect 255.255.255.255:0 UDP
-[2026-07-21 15:50:42.417][000000006.477] D/socket connect to 119.29.29.29,53
-[2026-07-21 15:50:42.422][000000006.477] D/net adapter 2 connect 119.29.29.29:53 UDP
-[2026-07-21 15:50:42.430][000000006.478] D/netdrv NAPT is enabled gw 2
-[2026-07-21 15:50:42.439][000000006.501] E/netdrv.napt NAPT enable: sending ARP request for gw 0101A8C0
-[2026-07-21 15:50:42.445][000000006.501] E/netdrv.napt NAPT enable: etharp_query result=0
-[2026-07-21 15:50:42.454][000000006.502] I/user.exnetif 已启用上游WiFi自动重连
-[2026-07-21 15:50:42.464][000000006.502] I/user.第一阶段成功：WiFi A -> 以太网 代理已建立，自动重连已启用
-[2026-07-21 15:50:42.468][000000006.503] I/user.WiFi A 将工作 30.00000 秒后切换到 WiFi B
-[2026-07-21 15:50:43.564][000000007.640] I/mobile sim0 sms ready
-[2026-07-21 15:50:43.566][000000007.640] D/mobile cid1, state0
-[2026-07-21 15:50:43.568][000000007.641] D/mobile bearer act 0, result 0
-[2026-07-21 15:50:43.570][000000007.641] D/mobile NETIF_LINK_ON -> IP_READY
-[2026-07-21 15:50:43.576][000000007.642] I/user.dnsproxy 开始监听
-[2026-07-21 15:50:43.578][000000007.643] D/socket connect to 255.255.255.255,0
-[2026-07-21 15:50:43.580][000000007.643] D/net adapter 4 connect 255.255.255.255:0 UDP
-[2026-07-21 15:50:43.582][000000007.644] D/socket connect to 119.29.29.29,53
-[2026-07-21 15:50:43.584][000000007.644] D/net adapter 2 connect 119.29.29.29:53 UDP
-[2026-07-21 15:50:43.586][000000007.645] I/user.udpsrv 自动重连udpsrv NWCTRL*: 0C7EB2B0
-[2026-07-21 15:50:43.589][000000007.645] D/socket connect to 255.255.255.255,0
-[2026-07-21 15:50:43.591][000000007.663] D/mobile TIME_SYNC 0 tm 1784620246
-[2026-07-21 15:50:45.093][000000009.224] I/user.dhcpsrv 是request包 6C1FF7643392 12
-[2026-07-21 15:50:45.098][000000009.224] I/user.dhcpsrv request,对应mac地址没有分配ip, send nack
-[2026-07-21 15:50:45.204][000000009.334] I/user.dhcpsrv 是discover包 6C1FF7643392 12
-[2026-07-21 15:50:45.207][000000009.334] I/user.dhcpsrv 分配ip 6C1FF7643392 192.168.5.100
-[2026-07-21 15:50:45.211][000000009.335] I/user.dhcpsrv send offer
-[2026-07-21 15:50:45.220][000000009.346] I/user.dhcpsrv 是request包 6C1FF7643392 12
-[2026-07-21 15:50:45.225][000000009.347] I/user.dhcpsrv request,发现已经分配的mac地址, send ack 6C1FF7643392 12
-[2026-07-21 15:51:12.373][000000036.503] I/user.setproxy 检测到上游WiFi变化，切换中
-[2026-07-21 15:51:12.375][000000036.504] I/user.switch_upstream_wifi 关闭NAPT, 断开当前WiFi
-[2026-07-21 15:51:12.378][000000036.504] I/netdrv NAPT is disabled, cleaning up all mappings
-[2026-07-21 15:51:12.380][000000036.504] I/netdrv.napt 关闭NAPT, 清理所有映射表, 原网关适配器=2
-[2026-07-21 15:51:12.382][000000036.504] I/netdrv.napt.map 清理TCP NAPT映射表
-[2026-07-21 15:51:12.384][000000036.506] I/netdrv.napt.map 清理UDP NAPT映射表
-[2026-07-21 15:51:12.386][000000036.507] I/netdrv.napt.icmp 清理ICMP NAPT映射表
-[2026-07-21 15:51:12.390][000000036.525] D/airlink wifi sta掉线了
-[2026-07-21 15:51:12.392][000000036.526] D/netdrv 网卡(2)设置为DOWN
-[2026-07-21 15:51:12.395][000000036.526] D/netdrv IP_LOSE 2
-[2026-07-21 15:51:14.372][000000038.508] I/user.switch_upstream_wifi 正在连接新WiFi: xiaoshuai
-[2026-07-21 15:51:16.102][000000040.238] D/airlink wifi sta上线了
-[2026-07-21 15:51:16.106][000000040.239] D/netdrv 网卡(2)设置为UP
-[2026-07-21 15:51:16.163][000000040.288] D/ulwip adapter 2 dhcp start netif c117418
-[2026-07-21 15:51:16.167][000000040.289] D/DHCP dhcp discover C8C2C68E217A
-[2026-07-21 15:51:16.169][000000040.289] I/ulwip adapter 2 dhcp payload len 282
-[2026-07-21 15:51:16.194][000000040.331] D/ulwip 收到DHCP数据包(len=310)
-[2026-07-21 15:51:16.197][000000040.332] D/DHCP find ip 798c510a 10.81.140.121
-[2026-07-21 15:51:16.199][000000040.332] D/DHCP result 2
-[2026-07-21 15:51:16.201][000000040.332] D/DHCP got offer, send request
-[2026-07-21 15:51:16.203][000000040.332] I/ulwip adapter 2 dhcp payload len 328
-[2026-07-21 15:51:16.272][000000040.396] D/ulwip 收到DHCP数据包(len=310)
-[2026-07-21 15:51:16.275][000000040.397] D/DHCP find ip 798c510a 10.81.140.121
-[2026-07-21 15:51:16.277][000000040.397] D/DHCP T1(Renew)=1799 sec
-[2026-07-21 15:51:16.279][000000040.397] D/DHCP T2(Rebind)=3149 sec
-[2026-07-21 15:51:16.281][000000040.397] D/DHCP result 5
-[2026-07-21 15:51:16.283][000000040.397] D/DHCP DHCP acquired IP 10.81.140.121
-[2026-07-21 15:51:16.285][000000040.397] D/ulwip adapter 2 ip 10.81.140.121
-[2026-07-21 15:51:16.288][000000040.397] D/ulwip adapter 2 mask 255.255.255.0
-[2026-07-21 15:51:16.290][000000040.397] D/ulwip adapter 2 gateway 10.81.140.140
-[2026-07-21 15:51:16.292][000000040.397] D/ulwip adapter 2 lease_time 3599s
-[2026-07-21 15:51:16.294][000000040.397] D/ulwip adapter 2 DNS1:10.81.140.140
-[2026-07-21 15:51:16.296][000000040.398] D/net network ready 2, setup dns server
-[2026-07-21 15:51:16.298][000000040.399] D/netdrv IP_READY 2 10.81.140.121
-[2026-07-21 15:51:16.299][000000040.399] I/user.dnsproxy 开始监听
-[2026-07-21 15:51:16.301][000000040.400] D/socket connect to 255.255.255.255,0
-[2026-07-21 15:51:16.306][000000040.401] D/net adapter 4 connect 255.255.255.255:0 UDP
-[2026-07-21 15:51:16.307][000000040.401] D/socket connect to 119.29.29.29,53
-[2026-07-21 15:51:16.309][000000040.402] D/net adapter 2 connect 119.29.29.29:53 UDP
-[2026-07-21 15:51:16.311][000000040.402] I/user.udpsrv 自动重连udpsrv NWCTRL*: 0C7EB2B0
-[2026-07-21 15:51:16.313][000000040.403] D/socket connect to 255.255.255.255,0
-[2026-07-21 15:51:16.315][000000040.409] I/user.switch_upstream_wifi 新WiFi已连接, IP: 10.81.140.121
-[2026-07-21 15:51:16.317][000000040.409] D/netdrv NAPT is enabled gw 2
-[2026-07-21 15:51:16.321][000000040.411] E/netdrv.napt NAPT enable: sending ARP request for gw 8C8C510A
-[2026-07-21 15:51:16.323][000000040.412] E/netdrv.napt NAPT enable: etharp_query result=0
-[2026-07-21 15:51:16.325][000000040.412] I/user.switch_upstream_wifi NAPT已重新打开, 切换完成
-[2026-07-21 15:51:16.327][000000040.413] I/user.第二阶段成功：WiFi B -> 以太网 代理已建立，自动重连已启用
-[2026-07-21 15:51:16.329][000000040.413] I/user.WiFi 切换演示完成，当前使用 WiFi B 提供网络
-
+local wifi_b_config = {
+    ssid = "WIFI_B_SSID",
+    password = "WIFI_B_PASSWORD",
+}
 ```
 
-6、其他设备通过wifi或以太网接入Air8000，其他设备都能正常上网，则表示验证成功。
+3、（可选）修改切换时间，单位毫秒；设为 `nil` 则只建 WiFi A、不演示切换：
+
+```lua
+local switch_interval = 30000
+```
+
+4、用 Luatools 烧录内核固件和本项目的两个 Lua 脚本（`main.lua`、`netif_app.lua`），并确认项目里的 `exnetif.lua` 是仓库 `script/libs/exnetif.lua` 的最新版本；
+
+5、启动设备，观察日志输出。
+
+## 预期日志
+
+**启动与第一阶段**（Air8000A 实测，IP 随环境变化）：
+
+```log
+I/user.netif_app exnetif 库版本 202611121939 （切换功能需 >= 202607211200）
+D/ch390h 注册完成 adapter 4 spi 1 cs 12 irq 21
+I/user.netdrv 自定义以太网IP地址 nil 网关地址 nil
+I/netdrv 设置IP[4] 192.168.5.1 255.255.255.0 0.0.0.0 ret 0
+I/netdrv.ch390x link is up 1 12 100M
+I/user.netdrv 创建dhcp服务器, 供以太网使用
+I/user.netdrv 创建dns代理服务, 供以太网使用
+D/netdrv NAPT is enabled gw 2
+I/user.exnetif 已启用上游WiFi自动重连
+I/user.netif_app 第一阶段成功：WiFi A -> 以太网 代理已建立，WiFi IP 192.168.31.103
+I/user.netif_app WiFi A 将工作 30 秒后切换到 WiFi B
+```
+
+**下游设备接入**（网线插上后会自动拿地址）：
+
+```log
+I/user.dhcpsrv 是discover包 6C1FF7643392 12
+I/user.dhcpsrv 分配ip 6C1FF7643392 192.168.5.100
+I/user.dhcpsrv send offer
+I/user.dhcpsrv request,发现已经分配的mac地址, send ack 6C1FF7643392 12
+```
+
+**第二阶段（切换）**：
+
+```log
+I/user.setproxy 检测到上游WiFi变化，切换中
+I/user.switch_upstream_wifi 关闭NAPT, 断开当前WiFi
+I/netdrv.napt 关闭NAPT, 清理所有映射表, 原网关适配器=2
+D/airlink wifi sta掉线了
+I/user.switch_upstream_wifi 正在连接新WiFi: HH_PC
+D/airlink wifi sta上线了
+D/DHCP DHCP acquired IP 192.168.137.155
+I/user.switch_upstream_wifi NAPT已重新打开, 切换完成
+I/user.switch_upstream_wifi 已启用上游WiFi自动重连
+I/user.netif_app 第二阶段成功：WiFi B -> 以太网 代理已建立，WiFi IP 192.168.137.155
+I/user.netif_app WiFi 切换演示完成，当前使用 WiFi B 提供网络
+```
+
+**切换失败时**（`wifi_b_config` 填了不存在的 SSID）：
+
+```log
+I/user.setproxy 检测到上游WiFi变化，切换中
+I/user.switch_upstream_wifi 正在连接新WiFi: NOT_EXIST_WIFI_9999
+[60 秒后]
+E/user.switch_upstream_wifi 新WiFi连接超时: NOT_EXIST_WIFI_9999
+I/user.switch_upstream_wifi 已恢复原WiFi凭证，自动重连仍有效: HHHHHHHHHHH
+E/user.第二阶段失败：无法切换到 WiFi B NOT_EXIST_WIFI_9999
+W/user.netif_app 切换失败，先等待 exnetif 自动重连 WiFi A
+I/user.switch_upstream_wifi 正在连接新WiFi: HHHHHHHHHHH
+I/user.switch_upstream_wifi 新WiFi已连接, IP: 192.168.31.103
+I/user.switch_upstream_wifi NAPT已重新打开, 切换完成
+I/user.exnetif 上游WiFi重连成功
+I/user.netif_app WiFi A 已自动恢复，IP 192.168.31.103
+```
+
+这条失败路径是本次修复的重点：原版本这里会打印“第二阶段成功”，且不会重连，只能重启设备。
+
+## 验证方法
+
+下游设备（插网线的电脑/摄像头）能正常打开网页、能 ping 通外网，就说明代理链路通了。
+
+在电脑上看一眼网络配置，应该是：
+
+- IP：`192.168.5.x`（由 Air8000 的 DHCP 分配）
+- 网关：`192.168.5.1`（Air8000 网口地址）
+- DNS：`192.168.5.1`（Air8000 的 DNS 代理）
+
+切换上游 WiFi 后，这三项**都不会变**。
+
+## 注意事项
+
+1、**切换会断开下游已建立的 TCP 连接**。切换时要先关 NAPT 并清理映射表，所以下游设备上正在跑的下载、长连接、MQTT 会话都会断，需要重连。它保证的是“IP 不变、不用重新 DHCP”，不是“连接不断”。
+
+2、**切换失败时 `setproxy` 返回什么，取决于库版本**。`202611121939` 之前无论成败都返回 `true`（返回值没有向上传递），之后正确返回 `false`。所以本 demo 不把返回值当作唯一依据，每次调用后都再用 `netdrv.ipv4(socket.LWIP_STA)` 复核是否真的拿到了 IP。二次开发时建议照抄这个判断方式。
+
+3、**切换失败后的自动恢复，同样取决于库版本**。`202611121939` 之前，`switch_upstream_wifi` 一进入就把内部 `wifi_config` 清空且失败时不恢复，导致 `on_proxy_sta_ip_lose` 里的重连判断直接 return，**自动重连永久失效**；之后版本会恢复原凭证，由 `IP_LOSE` 自动重连 WiFi A。
+
+   本 demo 的处理是：失败后先等 10 秒，看库能否自愈，不行再用 `wlan.connect` 手动回退。手动回退只保证 WiFi A 重新通网；如果库内部 `wifi_config` 仍为空，“掉线自动重连”要重启设备才能恢复。
+
+4、**同一 SSID 只改密码，需要库 ≥ `202611121939` 才会触发切换**。旧库只比较 `ssid`，密码变了但 SSID 没变时不会重连，会一直用旧密码失败；新库已改为 `ssid` 或 `password` 任一变化都触发切换。
+
+5、`PROJECT` 名为 `wifia_out_ethernet_in_wifib_out`，共 31 个字符。如果后续要接入 `iot.openluat.com` 做远程升级，注意项目名不要超过平台的长度限制，二次开发时也不建议再加长。
+
+## 常见问题
+
+**Q：日志打印“当前 exnetif 库不支持自动切换上游 WiFi，跳过第二阶段”**
+A：`exnetif.lua` 版本太旧（< `202607211200`），换成仓库 `script/libs/exnetif.lua` 最新版。
+
+**Q：日志打印“setproxy 代理已存在，跳过”，没有切换**
+A：同上，库版本太旧。旧版本没有“检测凭证变化”的逻辑，第二次调用会被当成重复调用直接返回。
+
+**Q：只改了 WiFi 密码、没换 SSID，设备一直连不上**
+A：库 `< 202611121939` 只比较 SSID，密码变了不会触发重连，会一直用旧密码。升级库即可，或临时把 SSID 也改一下 / 重启设备。
+
+**Q：日志打印“wifi_a_config 与 wifi_b_config 的 ssid 相同，无法演示切换”**
+A：两个配置表填了同一个 WiFi。这个 demo 必须准备两个可用的 WiFi（手机热点也算一个）。
+
+**Q：第一阶段就失败，提示“WiFi A 初始化失败”**
+A：先确认 `wifi_a_config` 的 SSID/密码正确、路由器没有开启 MAC 地址过滤或隐藏 SSID；再确认网线插在 Air8000 的 RJ45 口，而不是电脑的网口。
+
+**Q：网口灯不亮，日志没有 `link is up`**
+A：CH390 供电没起来。检查 `eth_config.ethpower_en = 140` 是否与实际板子一致，以及开发板是否被识别为 Air8000（不是 Air8000A 等其他型号）。
+
+**Q：下游设备能拿到 IP，但打不开网页**
+A：DNS 代理没生效。看日志里有没有 `创建dns代理服务` 和 `NAPT is enabled gw 2`，若 `gw` 不是 2，说明上游网卡选错了。

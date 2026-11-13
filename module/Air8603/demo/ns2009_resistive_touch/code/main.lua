@@ -1,18 +1,23 @@
 --[[
 @module  main
-@summary Air1603 / Air8603M1 + 7 寸 800x480 RGB 电阻屏（NS2009）显示 + 触摸整机测试
+@summary Air1603 / Air8603M1 + RGB 电阻屏（NS2009）显示 + 触摸整机测试（配置驱动，多分辨率兼容）
 @version 1.0
-@date    2026.11.11
+@date    2026.11.13
 @usage
 界面用 AirUI 控件（container/label/button/shape）实现；触摸/标定/存档走核心库 tp。
-硬件/接线见 config.lua 与上级目录的 测试硬件环境说明.md。
 
-分层：
-  config.lua     硬件 + AirUI 主题配置（唯一配置源）
-  drv_screen.lua 真机 display.init 分配 FB + PWM 背光
-  drv_touch.lua  触摸：tp（init/事件桥接/标定/fskv 存档）
-  ui_test.lua    AirUI 界面（触摸区 + 数值面板 + 按钮 + 标定/确认/超时页）
-  main.lua       装配 + 启动（本文件）
+分层（配置驱动架构，参考 module/Air8603/factory）：
+  main.lua           唯一入口：改 PROJECT 一行切换屏幕，其余只做装配（本文件）
+  core/platform_loader.lua   PROJECT → 配置文件名 → 加载 _G.project_config + 上电/引脚
+  config/ns2009_*.lua 纯数据配置（每分辨率一份）：上电时序 / RGB 时序 / 背光 / 触摸 / 字号
+  drv_screen.lua     真机 display.init 分配 FB + PWM 背光（读 CFG.lcd / CFG.backlight）
+  drv_touch.lua      触摸：tp（init/事件桥接/标定/fskv 存档）（读 CFG.touch）
+  ui_test.lua        AirUI 界面（自适应布局 + 标定/确认/超时页）
+
+=== 更换屏幕 / 分辨率：只改下面 PROJECT 一行 ===
+  "NS2009_RESISTIVE_TOUCH_1024_600" → config/ns2009_1024_600.lua
+  "NS2009_RESISTIVE_TOUCH_800_480"  → config/ns2009_800_480.lua
+  "NS2009_RESISTIVE_TOUCH_480_272"  → config/ns2009_480_272.lua
 
 启动顺序：
   1. 底板上电时序 power_on
@@ -24,52 +29,25 @@
   7. airui.refresh → 开背光 → ui.start（主循环：接标定触发）
   8. 上电标定策略：fskv 恢复 or 强制四点标定（不限时，直到成功）
 ]]
-
-PROJECT = "NS2009_RESISTIVE_TOUCH"
+PROJECT = "NS2009_RESISTIVE_TOUCH_480_272"
+--PROJECT = "NS2009_RESISTIVE_TOUCH_1024_600"   -- 改这一行切换屏幕/分辨率（映射见上）
+--PROJECT = "NS2009_RESISTIVE_TOUCH_800_480" 
 VERSION = "001.001.000"
 
 log.info("main", PROJECT, VERSION)
 
 _G.sys = require("sys")
 
--- 模块装配（依赖单向：main → 各模块）
-local CFG   = require("config")
-local drv   = require("drv_screen")
-local touch = require("drv_touch")
-local ui    = require("ui_test")
-
---[[底板上电时序（真机必须；PC 无 gpio 自动跳过）
-    少了这步：LCDC 初始化"成功"但黑屏，同时 I2C 上 NS2009 地址无应答。]]
-local function power_on()
-    if not (gpio and gpio.setup and gpio.set) then
-        log.info("main", "无 gpio 库（PC 模拟器），跳过上电时序")
-        return
-    end
-    for _, step in ipairs(CFG.power_on or {}) do
-        gpio.setup(step.pin, step.dir or 0)
-        gpio.set(step.pin, step.level or 0)
-        log.info("main", "供电轨", "GPIO" .. step.pin, "=" .. (step.level or 0))
-        if step.delay and step.delay > 0 then
-            sys.wait(step.delay)
-        end
-    end
-end
-
---[[I2C1 引脚显式复用（CFG.touch.pins），避免 pin 默认功能不是 I2C1]]
-local function apply_touch_pins()
-    if not (pins and pins.setup) then
-        log.info("main", "固件没有 pins 库，跳过 I2C1 引脚复用")
-        return
-    end
-    for _, p in ipairs(CFG.touch.pins or {}) do
-        local ok, ret = pcall(pins.setup, p[1], p[2])
-        log.info("main", "pins.setup", "PIN" .. p[1], p[2], ok and ret or "failed")
-    end
-end
+-- 装配：platform_loader require 即加载配置到 _G.project_config，并提供上电/引脚接口
+local loader = require("platform_loader")
+local CFG    = loader.get()
+local drv    = require("drv_screen")
+local touch  = require("drv_touch")
+local ui     = require("ui_test")
 
 sys.taskInit(function()
     -- 1. 先给屏/触摸上电（真机必须，PC 自动跳过）
-    power_on()
+    loader.power_on(CFG)
 
     drv.set_backlight_cfg(CFG.backlight)
     drv.backlight(0)
@@ -94,7 +72,7 @@ sys.taskInit(function()
     if airui.font_load then
         airui.font_load({
             type = "hzfont",
-            size = CFG.ui.font_size or 16,
+            size = CFG.ui.font_size or 12,
             cache_size = 1024,
             antialias = 1,
         })
@@ -106,7 +84,7 @@ sys.taskInit(function()
     -- 5. 触摸（核心库 tp）+ 绑定到 AirUI（复用 tp.init 的设备拿标定后坐标）
     local dev, err
     if tp then
-        apply_touch_pins()
+        loader.apply_touch_pins(CFG)
         dev, err = touch.init(CFG.touch)
         if not dev then
             log.error("main", "触摸初始化失败：" .. tostring(err) .. "；显示部分继续运行")
@@ -120,7 +98,7 @@ sys.taskInit(function()
     end
 
     -- 6. 建 AirUI 界面
-    ui.init(CFG, touch)
+    ui.init(CFG, touch, w, h)
     if airui.refresh then pcall(airui.refresh) end
 
     -- 7. 开背光 + 起主循环（接标定触发）

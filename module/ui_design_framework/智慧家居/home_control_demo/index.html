@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全屋智能中控 · 玻璃拟态版（1024×600 · 亮/暗双主题）</title>
+<style>
+/* ==================== 主题令牌（暗色 / 亮色） ==================== */
+:root[data-theme="dark"]{
+  --bg-orb1:rgba(124,58,237,.38); --bg-orb2:rgba(14,165,233,.34);
+  --bg-orb3:rgba(236,72,153,.24); --bg-orb4:rgba(45,212,191,.20);
+  --bg-base1:#191B26; --bg-base2:#101219;
+  --glass-1:rgba(255,255,255,.10);   /* 行元素 */
+  --glass-2:rgba(255,255,255,.16);   /* 卡片 */
+  --glass-3:rgba(255,255,255,.24);   /* 浮起/弹窗 */
+  --glass-deep:rgba(18,22,34,.62);   /* 环内心/遮罩内底 */
+  --stroke:rgba(255,255,255,.18);
+  --stroke-hi:rgba(255,255,255,.35);
+  --t1:#FFFFFF; --t2:rgba(255,255,255,.68); --t3:rgba(255,255,255,.45);
+  --pri:#7DD3FC; --pri-glow:rgba(125,211,252,.4);
+  --ok:#4ADE80; --warn:#FBBF24; --danger:#FB7185;
+  --shadow:0 10px 34px rgba(0,0,0,.32);
+  --flash:rgba(255,255,255,.5);
+}
+:root[data-theme="light"]{
+  --bg-orb1:rgba(167,139,250,.35); --bg-orb2:rgba(96,165,250,.30);
+  --bg-orb3:rgba(244,114,182,.22); --bg-orb4:rgba(45,212,191,.25);
+  --bg-base1:#EEF1F8; --bg-base2:#E3E8F2;
+  --glass-1:rgba(255,255,255,.42);
+  --glass-2:rgba(255,255,255,.55);
+  --glass-3:rgba(255,255,255,.72);
+  --glass-deep:rgba(255,255,255,.66);
+  --stroke:rgba(255,255,255,.65);
+  --stroke-hi:rgba(255,255,255,.95);
+  --t1:#1B2233; --t2:rgba(27,34,51,.66); --t3:rgba(27,34,51,.42);
+  --pri:#0284C7; --pri-glow:rgba(2,132,199,.3);
+  --ok:#16A34A; --warn:#D97706; --danger:#E11D48;
+  --shadow:0 10px 30px rgba(30,41,66,.14);
+  --flash:rgba(255,255,255,.85);
+}
+:root{
+  --r-lg:22px; --r-md:14px;
+  --eo:cubic-bezier(.22,.61,.36,1);
+  /* 动效时长令牌 */
+  --dur-fast:.42s; --dur-mid:.5s; --dur-flash:.82s;
+}
+*{margin:0;padding:0;box-sizing:border-box;
+  font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  user-select:none}
+body{background:#000;display:grid;place-items:center;min-height:100vh}
+:focus-visible{outline:2px solid var(--pri);outline-offset:3px;border-radius:var(--r-md)}
+.screen{
+  width:1024px;height:600px;position:relative;overflow:hidden;color:var(--t1);
+  border:6px solid #15171F;border-radius:24px;
+  background:
+    radial-gradient(420px 300px at 8% 8%, var(--bg-orb1), transparent 70%),
+    radial-gradient(460px 320px at 92% 16%, var(--bg-orb2), transparent 70%),
+    radial-gradient(500px 340px at 78% 95%, var(--bg-orb3), transparent 70%),
+    radial-gradient(380px 280px at 20% 92%, var(--bg-orb4), transparent 70%),
+    linear-gradient(160deg,var(--bg-base1) 0%,var(--bg-base2) 100%);
+  transition:color .3s;
+}
+.glass{
+  background:var(--glass-2);
+  backdrop-filter:blur(24px) saturate(1.4);
+  -webkit-backdrop-filter:blur(24px) saturate(1.4);
+  border:1px solid var(--stroke);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow), inset 0 1px 0 var(--stroke-hi);
+}
+
+/* ==================== 顶栏玻璃胶囊 ==================== */
+.top{
+  position:absolute;left:18px;right:18px;top:16px;height:54px;z-index:5;
+  display:flex;align-items:center;gap:12px;padding:0 18px;
+}
+.brand{font-size:16px;font-weight:800;letter-spacing:1px}
+.chip{
+  height:32px;padding:0 14px;border-radius:99px;font-size:12px;cursor:pointer;
+  background:var(--glass-1);border:1px solid var(--stroke);
+  display:flex;align-items:center;gap:6px;color:var(--t2);transition:.15s var(--eo);
+}
+.chip:hover{background:var(--glass-3);color:var(--t1)}
+.chip:active{transform:scale(.96)}
+.chip .d{width:7px;height:7px;border-radius:50%}
+.chip.ok .d{background:var(--ok);box-shadow:0 0 7px var(--ok)}
+.chip.warn .d{background:var(--warn);box-shadow:0 0 7px var(--warn)}
+.chip b{color:var(--t1);font-weight:600}
+.top .grow{flex:1}
+.clock{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.clock small{font-size:11px;font-weight:400;color:var(--t2);margin-left:7px}
+.theme-btn{
+  width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:17px;
+  background:var(--glass-1);border:1px solid var(--stroke);color:var(--t1);
+  display:grid;place-items:center;transition:.18s var(--eo);
+}
+.theme-btn:hover{background:var(--glass-3);transform:rotate(20deg)}
+.theme-btn:active{transform:scale(.92)}
+
+/* ==================== 主体（方案C骨架） ==================== */
+.main{position:absolute;left:18px;right:18px;top:82px;bottom:104px;display:flex;flex-direction:column}
+.room-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.room-bar h2{font-size:21px;font-weight:800;margin-right:6px}
+.rtab{
+  height:34px;padding:0 17px;border-radius:99px;border:1px solid var(--stroke);cursor:pointer;
+  background:var(--glass-1);color:var(--t2);font-size:13px;backdrop-filter:blur(12px);
+  transition:.15s var(--eo);
+}
+.rtab:hover{color:var(--t1);background:var(--glass-3)}
+.rtab:active{transform:scale(.96)}
+.rtab.active{background:var(--pri);border-color:transparent;color:#fff;font-weight:700;box-shadow:0 0 14px var(--pri-glow)}
+.dash{flex:1;display:grid;grid-template-columns:296px 1fr 272px;gap:14px;min-height:0}
+.panel{padding:15px 16px;display:flex;flex-direction:column;min-height:0;min-width:0}
+.panel h6{font-size:11px;color:var(--t3);letter-spacing:2px;font-weight:800;margin-bottom:10px}
+/* 左：气候 */
+.big-t{font-size:56px;font-weight:200;line-height:1;font-variant-numeric:tabular-nums}
+.big-t small{font-size:22px;color:var(--t2)}
+.climate-sub{display:flex;gap:14px;margin-top:8px;font-size:12px;color:var(--t2)}
+.climate-sub b{color:var(--t1);font-variant-numeric:tabular-nums}
+.chart{margin-top:auto}
+.bar-row{display:flex;align-items:flex-end;gap:6px;height:66px}
+.bar{flex:1;border-radius:5px 5px 0 0;background:var(--glass-1);border:1px solid var(--stroke);border-bottom:none;min-height:6px;position:relative}
+.bar.now{background:var(--pri);border-color:transparent;box-shadow:0 0 12px var(--pri-glow)}
+.bar.future{opacity:.4}
+.chart .xlab{display:flex;gap:6px;margin-top:6px}
+.chart .xlab span{flex:1;text-align:center;font-size:10px;color:var(--t3)}
+/* 中：设备矩阵 */
+.p-dev{overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
+.p-dev::-webkit-scrollbar{display:none}
+.dev-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;flex:1;align-content:start}
+.dev{
+  display:flex;align-items:center;gap:10px;background:var(--glass-1);border:1px solid var(--stroke);
+  border-radius:var(--r-md);padding:9px 12px;cursor:pointer;text-align:left;
+  color:var(--t1);min-height:50px;transition:background .15s var(--eo),border-color .15s var(--eo);
+  position:relative;overflow:hidden;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+}
+.dev:hover{background:var(--glass-3);border-color:var(--stroke-hi)}
+.dev:active{transform:scale(.97)}
+.dev .ic{
+  width:32px;height:32px;border-radius:10px;flex:0 0 32px;display:grid;place-items:center;font-size:14px;
+  background:rgba(127,127,127,.14);color:var(--t3);border:1px solid var(--stroke);
+}
+.dev.on .ic{background:rgba(125,211,252,.22);border-color:rgba(125,211,252,.4);color:var(--pri);box-shadow:0 0 12px var(--pri-glow)}
+.dev .meta{flex:1;min-width:0}
+.dev .nm{font-size:13px;font-weight:600;white-space:nowrap}
+.dev .ds{font-size:11px;color:var(--t2);margin-top:2px;font-variant-numeric:tabular-nums}
+/* 设备卡片内的闪光层（场景 07） */
+.dev .flash{
+  position:absolute;inset:-40% -20%;pointer-events:none;opacity:0;
+  background:linear-gradient(90deg,transparent 30%,var(--flash) 50%,transparent 70%);
+  transform:translateX(-140%) rotate(14deg);
+}
+@keyframes aFlash{
+  0%{transform:translateX(-140%) rotate(14deg);opacity:0}
+  12%{opacity:.9}
+  100%{transform:translateX(180%) rotate(14deg);opacity:0}
+}
+.dev.flash .flash{animation:aFlash var(--dur-flash) cubic-bezier(.3,.7,.4,1) both}
+/* 右：安防 */
+.p-sec .row{
+  display:flex;align-items:center;gap:10px;background:var(--glass-1);border:1px solid var(--stroke);width:100%;
+  border-radius:var(--r-md);padding:9px 13px;min-height:50px;cursor:pointer;
+  color:var(--t1);text-align:left;transition:background .15s var(--eo);
+}
+.p-sec .row:hover{background:var(--glass-3)}
+.p-sec .row + .row{margin-top:8px}
+.p-sec .ic{width:32px;height:32px;border-radius:10px;background:rgba(127,127,127,.14);display:grid;place-items:center;color:var(--t2);flex:0 0 32px;border:1px solid var(--stroke)}
+.p-sec .row.on .ic{color:var(--ok);background:rgba(74,222,128,.18);border-color:rgba(74,222,128,.4)}
+.p-sec .meta{flex:1;min-width:0}
+.p-sec .nm{font-size:13px;font-weight:600}
+.p-sec .ds{font-size:11px;color:var(--t2);margin-top:2px}
+.p-sec .st{font-size:11px;font-weight:800;color:var(--ok)}
+.p-sec .st.off{color:var(--t3)}
+.cam-thumb{
+  margin-top:auto;height:78px;border-radius:var(--r-md);position:relative;overflow:hidden;
+  background:var(--glass-deep);border:1px solid var(--stroke);cursor:pointer;width:100%;
+}
+.cam-thumb .lb{position:absolute;left:10px;bottom:7px;font-size:10px;color:var(--t2)}
+.cam-thumb .rec{position:absolute;right:10px;top:7px;font-size:10px;color:var(--danger);display:flex;align-items:center;gap:5px;font-weight:800}
+.cam-thumb .rec::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--danger);animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+/* ==================== 底部场景 Dock ==================== */
+.dock{
+  position:absolute;left:18px;right:18px;bottom:16px;height:76px;z-index:5;
+  display:flex;align-items:center;gap:10px;padding:0 14px;
+}
+.dock-btn{
+  flex:1;height:54px;border-radius:var(--r-md);border:1px solid var(--stroke);cursor:pointer;
+  background:var(--glass-1);color:var(--t1);display:flex;align-items:center;justify-content:center;gap:8px;
+  font-size:14px;font-weight:700;transition:.15s var(--eo);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  position:relative;overflow:hidden;
+}
+.dock-btn .i{width:28px;height:28px;border-radius:9px;background:rgba(127,127,127,.14);display:grid;place-items:center;font-size:13px;color:var(--t2)}
+.dock-btn:hover{background:var(--glass-3)}
+.dock-btn:hover .i{color:var(--pri);background:rgba(125,211,252,.2)}
+.dock-btn:active{transform:scale(.96)}
+.dock-btn.primary{
+  background:rgba(125,211,252,.2);border-color:rgba(125,211,252,.45);color:var(--pri);
+}
+.dock-btn.primary .i{background:transparent;color:var(--pri)}
+/* Dock 闪光（执行场景反馈） */
+.dock-btn .flash{
+  position:absolute;inset:-40% -20%;pointer-events:none;opacity:0;
+  background:linear-gradient(90deg,transparent 30%,var(--flash) 50%,transparent 70%);
+  transform:translateX(-140%) rotate(14deg);
+}
+.dock-btn.flash .flash{animation:aFlash var(--dur-flash) cubic-bezier(.3,.7,.4,1) both}
+/* ==================== Toast ==================== */
+.toast{
+  position:absolute;left:50%;bottom:104px;transform:translateX(-50%) translateY(10px);
+  padding:9px 22px;border-radius:99px;font-size:13px;font-weight:600;white-space:nowrap;z-index:40;
+  background:var(--glass-3);border:1px solid var(--stroke-hi);color:var(--t1);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);
+  opacity:0;pointer-events:none;
+  transition:opacity .2s var(--eo),transform .2s var(--eo);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* ==================== 弹窗（玻璃悬浮 + 中心缩放入场） ==================== */
+.mask{position:absolute;inset:0;background:rgba(10,12,18,.35);backdrop-filter:blur(4px);z-index:20;opacity:0;visibility:hidden;transition:.2s var(--eo)}
+:root[data-theme="light"] .mask{background:rgba(120,130,160,.25)}
+.mask.show{opacity:1;visibility:visible}
+.pop{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.92);
+  width:380px;padding:24px;z-index:21;opacity:0;visibility:hidden;
+  background:var(--glass-3);
+  transition:opacity .2s var(--eo),transform var(--dur-mid) var(--eo),visibility .2s;
+}
+.pop.show{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1)}
+.pop h4{font-size:17px;font-weight:800;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.pop h4 button{
+  width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:var(--t2);
+  background:var(--glass-1);border:1px solid var(--stroke);transition:.15s var(--eo);
+}
+.pop h4 button:hover{background:var(--glass-2);color:var(--t1)}
+.slider{height:30px;display:flex;align-items:center;cursor:pointer;touch-action:none;position:relative}
+.slider .track{width:100%;height:14px;border-radius:7px;background:rgba(127,127,127,.18);overflow:hidden;border:1px solid var(--stroke)}
+.slider .fill{height:100%;background:linear-gradient(90deg,rgba(125,211,252,.5),var(--pri));border-radius:7px}
+.slider .thumb{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.pop .val{text-align:right;margin-top:10px;font-size:16px;color:var(--t2);font-variant-numeric:tabular-nums}
+/* ==================== 动效体系（方案E） ==================== */
+/* 08 模块错开浮现：页面加载 / 主题切换时三栏依次浮现 */
+@keyframes aStagger{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.stagger{animation:aStagger var(--dur-mid) var(--eo) both}
+/* 05 局部内容微动：房间切换时设备矩阵逐卡上浮（容器不动） */
+@keyframes aContent{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.dev-grid.swapping .dev{animation:aContent var(--dur-fast) var(--eo) both}
+.dev-grid.swapping .dev:nth-child(2n){animation-delay:.05s}
+.dev-grid.swapping .dev:nth-child(3n){animation-delay:.1s}
+.dev-grid.swapping .dev:nth-child(3n+1){animation-delay:.06s}
+/* 02 中心微缩放：弹窗打开用（.pop 自带） */
+/* 01 Y 微位移：Toast 用（.toast 自带） */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div class="screen">
+  <!-- 顶栏玻璃胶囊 -->
+  <div class="top glass">
+    <span class="brand">Home</span>
+    <button class="chip ok" id="armChip"><span class="d"></span>安防 <b>在家布防</b></button>
+    <button class="chip ok" id="lockChip"><span class="d"></span>门锁 <b>已上锁</b></button>
+    <button class="chip warn"><span class="d"></span>窗户 <b>1 处未关</b></button>
+    <span class="grow"></span>
+    <span class="clock"><span id="clk">--:--</span><small>11月13日 周五</small></span>
+    <button class="theme-btn" id="themeBtn" aria-label="切换亮暗主题">☾</button>
+  </div>
+
+  <div class="main">
+    <!-- 房间 Tab：切换内容不跳页 -->
+    <div class="room-bar stagger" style="animation-delay:.05s">
+      <h2 id="roomName">客厅</h2>
+      <button class="rtab active">客厅</button>
+      <button class="rtab">主卧</button>
+      <button class="rtab">书房</button>
+      <button class="rtab">厨房</button>
+    </div>
+
+    <div class="dash">
+      <!-- 左：气候（错开浮现 2） -->
+      <div class="panel glass stagger" style="animation-delay:.12s">
+        <h6>气候</h6>
+        <div class="big-t">24.0<small>℃</small></div>
+        <div class="climate-sub">
+          <span>湿度 <b>48%</b></span>
+          <span>空调 <b style="color:var(--pri)">26℃ 制冷</b></span>
+        </div>
+        <div class="chart">
+          <div class="bar-row">
+            <div class="bar" style="height:42%"></div>
+            <div class="bar" style="height:38%"></div>
+            <div class="bar" style="height:46%"></div>
+            <div class="bar" style="height:55%"></div>
+            <div class="bar" style="height:68%"></div>
+            <div class="bar now" style="height:80%"></div>
+            <div class="bar future" style="height:74%"></div>
+            <div class="bar future" style="height:60%"></div>
+          </div>
+          <div class="xlab"><span>08时</span><span>12时</span><span>16时</span><span>20时</span></div>
+        </div>
+      </div>
+
+      <!-- 中：设备矩阵（错开浮现 3） -->
+      <div class="panel glass p-dev stagger" style="animation-delay:.19s">
+        <h6>设备 · <span id="devCount">3/6</span> 开</h6>
+        <div class="dev-grid" id="devGrid"></div>
+      </div>
+
+      <!-- 右：安防（错开浮现 4） -->
+      <div class="panel glass p-sec stagger" style="animation-delay:.26s">
+        <h6>安防</h6>
+        <button class="row on" id="armBtn"><span class="ic">⛨</span><span class="meta"><div class="nm">布防模式</div><div class="ds">8 传感器 · 3 摄像头</div></span><span class="st">在家布防</span></button>
+        <button class="row on" id="lockBtn"><span class="ic">🔑</span><span class="meta"><div class="nm">门锁</div><div class="ds">09:12 指纹开门</div></span><span class="st">已上锁</span></button>
+        <button class="cam-thumb" id="camBtn">
+          <span class="rec">LIVE</span>
+          <span class="lb">门口摄像头 · 1080P</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部场景 Dock（错开浮现 5） -->
+  <div class="dock glass stagger" style="animation-delay:.33s">
+    <button class="dock-btn primary"><span class="i">⌂</span>回家</button>
+    <button class="dock-btn"><span class="i">⇥</span>离家</button>
+    <button class="dock-btn"><span class="i">☾</span>睡眠</button>
+    <button class="dock-btn"><span class="i">▶</span>观影</button>
+    <button class="dock-btn"><span class="i">☀</span>起床</button>
+    <button class="dock-btn"><span class="i">✦</span>会客</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="mask" id="mask"></div>
+  <div class="pop glass" id="pop" role="dialog" aria-modal="true">
+    <h4><span id="popT">客厅主灯</span><button id="popX" aria-label="关闭">×</button></h4>
+    <div class="slider" id="sl"><div class="track"><div class="fill" id="fill"></div></div><div class="thumb" id="thumb"></div></div>
+    <div class="val" id="val">60%</div>
+  </div>
+</div>
+
+<script>
+// ==================== Toast（Y 微位移入场） ====================
+var toastTimer=null;
+function toast(m){var e=document.getElementById('toast');e.textContent=m;e.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(function(){e.classList.remove('show')},2000)}
+function clk(){var d=new Date();function p(n){return String(n).padStart(2,'0')}
+  document.getElementById('clk').textContent=p(d.getHours())+':'+p(d.getMinutes())}
+clk();setInterval(clk,1000);
+
+// ==================== 亮/暗主题切换 ====================
+var THEME_KEY='smartHomeTheme';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeBtn').textContent = t==='dark'?'☾':'☀';
+  try{localStorage.setItem(THEME_KEY,t)}catch(e){}
+}
+document.getElementById('themeBtn').onclick=function(){
+  var cur=document.documentElement.getAttribute('data-theme');
+  var next=cur==='dark'?'light':'dark';
+  applyTheme(next);
+  toast(next==='dark'?'已切换到暗色模式':'已切换到亮色模式');
+  // 主题切换时重新播放错开浮现，强化层级反馈
+  document.querySelectorAll('.stagger').forEach(function(el,i){
+    el.classList.remove('stagger');void el.offsetWidth;
+    el.style.animationDelay=(0.05+i*0.07)+'s';
+    el.classList.add('stagger');
+  });
+};
+(function(){
+  var saved=null;
+  try{saved=localStorage.getItem(THEME_KEY)}catch(e){}
+  if(saved)applyTheme(saved);
+})();
+
+// ==================== 房间数据与设备矩阵 ====================
+var ROOMS={
+  '客厅':{t:'24.0',h:48,ac:'26℃ 制冷',devs:[
+    {nm:'客厅主灯',ic:'☀',on:1,val:60,ds:'亮度 '},
+    {nm:'客厅筒灯',ic:'◍',on:1,val:80,ds:'亮度 '},
+    {nm:'灯带',ic:'≡',on:0,val:70,ds:'亮度 '},
+    {nm:'客厅窗帘',ic:'▤',on:0,val:30,ds:'开合 '},
+    {nm:'新风',ic:'❋',on:1,val:45,ds:'风量 '},
+    {nm:'加湿器',ic:'≋',on:0,val:50,ds:'雾量 '}]},
+  '主卧':{t:'25.1',h:55,ac:'25℃ 制冷',devs:[
+    {nm:'主卧吸顶灯',ic:'☀',on:0,val:70,ds:'亮度 '},
+    {nm:'床头灯',ic:'✦',on:1,val:30,ds:'亮度 '},
+    {nm:'主卧窗帘',ic:'▤',on:1,val:100,ds:'开合 '},
+    {nm:'加湿器',ic:'≋',on:0,val:50,ds:'雾量 '},
+    {nm:'新风',ic:'❋',on:1,val:40,ds:'风量 '},
+    {nm:'电热毯',ic:'♨',on:0,val:60,ds:'档位 '}]},
+  '书房':{t:'23.4',h:44,ac:'关闭',devs:[
+    {nm:'书房台灯',ic:'✦',on:1,val:80,ds:'亮度 '},
+    {nm:'书房主灯',ic:'☀',on:0,val:60,ds:'亮度 '},
+    {nm:'书房窗帘',ic:'▤',on:0,val:0,ds:'开合 '},
+    {nm:'新风',ic:'❋',on:0,val:40,ds:'风量 '}]},
+  '厨房':{t:'26.2',h:62,ac:'关闭',devs:[
+    {nm:'厨房顶灯',ic:'☀',on:1,val:90,ds:'亮度 '},
+    {nm:'油烟机',ic:'❋',on:0,val:70,ds:'档位 '},
+    {nm:'净水器',ic:'≋',on:1,val:50,ds:'流量 '}]},
+};
+var devGrid=document.getElementById('devGrid');
+
+function renderRoom(name){
+  var room=ROOMS[name];
+  document.getElementById('roomName').textContent=name;
+  document.querySelector('.big-t').innerHTML=room.t+'<small>℃</small>';
+  var sub=document.querySelector('.climate-sub');
+  sub.innerHTML='<span>湿度 <b>'+room.h+'%</b></span><span>空调 <b style="color:var(--pri)">'+room.ac+'</b></span>';
+  // 设备矩阵（局部内容微动：容器不动，卡片错开上浮）
+  devGrid.innerHTML=room.devs.map(function(d){
+    return '<button class="dev'+(d.on?' on':'')+'" data-name="'+d.nm+'" data-val="'+d.val+'" data-ds="'+d.ds+'">'+
+      '<span class="flash"></span><span class="ic">'+d.ic+'</span>'+
+      '<span class="meta"><div class="nm">'+d.nm+'</div>'+
+      '<div class="ds">'+(d.on?d.ds+d.val+'%':'关闭')+'</div></span></button>';
+  }).join('');
+  // 重触发局部内容微动
+  devGrid.classList.remove('swapping');void devGrid.offsetWidth;
+  devGrid.classList.add('swapping');
+  bindDevs();
+  updateDevCount();
+}
+function updateDevCount(){
+  var all=devGrid.querySelectorAll('.dev');
+  var on=devGrid.querySelectorAll('.dev.on').length;
+  document.getElementById('devCount').textContent=on+'/'+all.length;
+}
+document.querySelectorAll('.rtab').forEach(function(tab){
+  tab.onclick=function(){
+    document.querySelectorAll('.rtab').forEach(function(t){t.classList.remove('active')});
+    tab.classList.add('active');
+    renderRoom(tab.textContent);
+    toast('已切换到 '+tab.textContent);
+  };
+});
+
+// ==================== 设备：单击切换 + 闪光反馈；长按弹窗调档 ====================
+function bindDevs(){
+  devGrid.querySelectorAll('.dev').forEach(function(it){
+    var pressTimer=null;
+    it.addEventListener('pointerdown',function(){
+      pressTimer=setTimeout(function(){openPop(it);it._long=true},500);
+    });
+    it.addEventListener('pointerup',function(){
+      clearTimeout(pressTimer);
+      if(it._long){it._long=false;return}
+      var on=it.classList.toggle('on'),ds=it.querySelector('.ds');
+      ds.textContent=on?(it.dataset.ds+it.dataset.val+'%'):'关闭';
+      // 蒙版闪光反馈（场景 07）
+      it.classList.remove('flash');void it.offsetWidth;it.classList.add('flash');
+      updateDevCount();
+      toast(it.dataset.name+(on?' 已打开':' 已关闭'));
+    });
+  });
+}
+
+// ==================== 弹窗（中心微缩放入场 + 可拖滑条） ====================
+var pop=document.getElementById('pop'),mask=document.getElementById('mask'),
+    popT=document.getElementById('popT'),fill=document.getElementById('fill'),
+    thumb=document.getElementById('thumb'),val=document.getElementById('val'),
+    sl=document.getElementById('sl'),current=null;
+function setPop(v){
+  v=Math.max(0,Math.min(100,v));
+  fill.style.width=v+'%';thumb.style.left=v+'%';val.textContent=v+'%';
+  if(current){current.dataset.val=v;
+    var ds=current.querySelector('.ds');
+    if(current.classList.contains('on'))
+      ds.textContent=current.dataset.name==='氛围灯'
+        ?('色温'+(v*100+2000)+'K'):(current.dataset.ds+v+'%');}
+}
+function openPop(it){
+  current=it;
+  popT.textContent=it.dataset.name;
+  setPop(Number(it.dataset.val)||50);
+  mask.classList.add('show');pop.classList.add('show');
+}
+function closePop(){mask.classList.remove('show');pop.classList.remove('show');current=null}
+document.getElementById('popX').onclick=closePop;
+mask.onclick=closePop;
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closePop()});
+sl.addEventListener('pointerdown',function(e){
+  sl.setPointerCapture(e.pointerId);
+  function mv(ev){var r=sl.getBoundingClientRect();setPop(Math.round((ev.clientX-r.left)/r.width*100))}
+  mv(e);
+  function up(){sl.removeEventListener('pointermove',mv);sl.removeEventListener('pointerup',up)}
+  sl.addEventListener('pointermove',mv);sl.addEventListener('pointerup',up);
+});
+
+// ==================== 安防（与顶栏状态芯片联动 + 闪光） ====================
+var armBtn=document.getElementById('armBtn'),armChip=document.getElementById('armChip'),
+    lockBtn=document.getElementById('lockBtn'),lockChip=document.getElementById('lockChip');
+function flashEl(el){el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash')}
+armBtn.onclick=function(){
+  var on=this.classList.toggle('on'),st=this.querySelector('.st');
+  st.textContent=on?'在家布防':'已撤防';st.classList.toggle('off',!on);
+  armChip.classList.toggle('ok',on);armChip.classList.toggle('warn',!on);
+  armChip.querySelector('b').textContent=on?'在家布防':'已撤防';
+  flashEl(this);toast(on?'安防已布防':'安防已撤防');
+};
+lockBtn.onclick=function(){
+  var on=this.classList.toggle('on'),st=this.querySelector('.st');
+  st.textContent=on?'已上锁':'已开锁';st.classList.toggle('off',!on);
+  lockChip.classList.toggle('ok',on);lockChip.classList.toggle('warn',!on);
+  lockChip.querySelector('b').textContent=on?'已上锁':'已开锁';
+  flashEl(this);toast(on?'门锁已上锁':'门锁已开锁');
+};
+document.getElementById('camBtn').onclick=function(){toast('打开门口摄像头全屏画面')};
+
+// ==================== 场景 Dock（闪光反馈） ====================
+document.querySelectorAll('.dock-btn').forEach(function(b){
+  b.onclick=function(){
+    flashEl(b);
+    toast('执行场景：'+b.textContent.trim());
+  };
+});
+
+// 初始渲染
+renderRoom('客厅');
+</script>
+</body>
+</html>

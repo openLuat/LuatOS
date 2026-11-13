@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>方案B · Bento 磁贴布局 — 1024×600 深色中控</title>
+<style>
+/* ============ 设计令牌 ============ */
+:root{
+  --s0:#0B0D12; --s1:#161A24; --s2:#1E2331; --s3:#272E42;
+  --pri:#5EEAD4; --pri-deep:#14B8A6; --pri-glow:rgba(94,234,212,.4);
+  --ok:#3DDC84; --warn:#F5A623; --danger:#FF5C5C;
+  --t1:#EDF1F6; --t2:#98A0B3; --t3:#67708A;
+  --r-lg:20px; --r-md:14px;
+  --eo:cubic-bezier(.22,.61,.36,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;user-select:none}
+body{background:#000;display:grid;place-items:center;min-height:100vh}
+:focus-visible{outline:2px solid var(--pri);outline-offset:2px;border-radius:var(--r-md)}
+.screen{
+  width:1024px;height:600px;position:relative;overflow:hidden;color:var(--t1);
+  background:var(--s0);border:6px solid #191D28;border-radius:22px;
+}
+/* ============ 顶栏 ============ */
+.top{height:60px;display:flex;align-items:center;padding:0 24px;gap:16px}
+.time{font-size:26px;font-weight:200;font-variant-numeric:tabular-nums;letter-spacing:1px}
+.date{font-size:13px;color:var(--t2);margin-left:6px}
+.top .grow{flex:1}
+.weather{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--t2)}
+.weather b{color:var(--t1);font-size:16px}
+.weather .ico{color:var(--warn);font-size:18px}
+/* ============ Bento 网格 ============ */
+.bento{
+  position:absolute;left:16px;right:16px;top:60px;bottom:16px;
+  display:grid;gap:14px;
+  grid-template-columns:repeat(12,1fr);
+  grid-template-rows:repeat(6,1fr);
+}
+.tile{
+  background:var(--s1);border-radius:var(--r-lg);padding:18px 20px;position:relative;
+  display:flex;flex-direction:column;min-height:0;min-width:0;
+  box-shadow:0 6px 24px rgba(0,0,0,.28);
+}
+.tile h5{font-size:12px;color:var(--t3);letter-spacing:2px;font-weight:700;margin-bottom:10px}
+/* 空调大磁贴：占 5 列 × 6 行 */
+.t-ac{grid-column:1/6;grid-row:1/7;align-items:center;justify-content:center;gap:10px}
+.ring{
+  width:210px;height:210px;border-radius:50%;
+  background:conic-gradient(from 220deg,var(--pri-deep) calc(var(--pct,50)*.78*1%),rgba(255,255,255,.05) 0);
+  display:grid;place-items:center;filter:drop-shadow(0 0 20px var(--pri-glow));
+}
+.ring-in{width:174px;height:174px;border-radius:50%;background:var(--s1);
+  display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-t{font-size:52px;font-weight:200;line-height:1;font-variant-numeric:tabular-nums}
+.ring-t small{font-size:20px;color:var(--t2)}
+.ring-m{font-size:13px;color:var(--pri);margin-top:4px;letter-spacing:1px}
+.ac-row{display:flex;gap:16px}
+.ac-b{width:46px;height:46px;border-radius:50%;border:none;background:var(--s3);color:var(--t1);font-size:22px;cursor:pointer;transition:.15s var(--eo)}
+.ac-b:hover{background:#33405E;color:var(--pri)}
+.ac-b:active{transform:scale(.92)}
+.ac-b:disabled{opacity:.3;cursor:not-allowed}
+/* 灯光磁贴：占 4 列 × 3 行，内嵌 4 个直开开关 */
+.t-light{grid-column:6/10;grid-row:1/4}
+.lg{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1}
+.lg-item{
+  display:flex;align-items:center;gap:8px;background:var(--s2);border:none;
+  border-radius:var(--r-md);padding:8px 12px;cursor:pointer;text-align:left;
+  color:var(--t1);min-height:46px;transition:background .15s var(--eo);
+}
+.lg-item:hover{background:var(--s3)}
+.lg-item:active{transform:scale(.97)}
+.lg-item .d{width:8px;height:8px;border-radius:50%;background:var(--t3);flex:0 0 8px}
+.lg-item.on .d{background:var(--pri);box-shadow:0 0 8px var(--pri-glow)}
+.lg-item .n{font-size:14px;font-weight:500;flex:1;white-space:nowrap}
+.lg-item .p{font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums}
+/* 安防磁贴：占 3 列 × 3 行 */
+.t-sec{grid-column:10/13;grid-row:1/4}
+.sec-line{
+  display:flex;align-items:center;justify-content:space-between;flex:1;
+  background:var(--s2);border-radius:var(--r-md);padding:0 14px;min-height:44px;
+  border:none;color:var(--t1);cursor:pointer;text-align:left;font-size:14px;width:100%;
+  transition:background .15s var(--eo);
+}
+.sec-line:hover{background:var(--s3)}
+.sec-line + .sec-line{margin-top:8px}
+.sec-line .tag{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px}
+.tag.ok{background:rgba(61,220,132,.15);color:var(--ok)}
+.tag.warn{background:rgba(245,166,35,.15);color:var(--warn)}
+.tag.off{background:var(--s3);color:var(--t2)}
+/* 场景磁贴：占 4 列 × 3 行（大按钮扁平露出） */
+.t-scene{grid-column:6/10;grid-row:4/7}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1}
+.sc{
+  border:none;border-radius:var(--r-md);cursor:pointer;
+  background:var(--s2);color:var(--t1);
+  display:flex;align-items:center;gap:10px;padding:0 16px;
+  font-size:15px;font-weight:600;min-height:46px;transition:.15s var(--eo);
+}
+.sc:hover{background:var(--s3);color:var(--pri)}
+.sc:active{transform:scale(.97)}
+.sc .i{
+  width:30px;height:30px;border-radius:9px;background:rgba(94,234,212,.14);
+  color:var(--pri);display:grid;place-items:center;font-size:15px;flex:0 0 30px;
+}
+.sc.home{background:rgba(94,234,212,.14);color:var(--pri)}
+/* 环境磁贴：占 3 列 × 3 行（折线图表反馈） */
+.t-env{grid-column:10/13;grid-row:4/7}
+.env-row{display:flex;align-items:center;gap:10px;flex:1}
+.env-row + .env-row{margin-top:6px}
+.env-row .num{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;min-width:56px}
+.env-row .lb{font-size:11px;color:var(--t3);margin-top:2px}
+.env-row svg{margin-left:auto}
+/* Toast */
+.toast{
+  position:absolute;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);
+  padding:9px 22px;border-radius:99px;font-size:14px;white-space:nowrap;z-index:30;
+  background:rgba(94,234,212,.14);border:1px solid rgba(94,234,212,.4);color:var(--pri);
+  opacity:0;pointer-events:none;transition:.2s var(--eo);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* 弹窗 */
+.mask{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:20;opacity:0;visibility:hidden;transition:.2s var(--eo)}
+.mask.show{opacity:1;visibility:visible}
+.pop{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.95);
+  width:380px;background:var(--s2);border-radius:var(--r-lg);padding:24px;z-index:21;
+  box-shadow:0 16px 50px rgba(0,0,0,.5);opacity:0;visibility:hidden;transition:.2s var(--eo);
+}
+.pop.show{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1)}
+.pop h4{font-size:18px;font-weight:600;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.pop h4 button{width:40px;height:40px;border-radius:50%;border:none;background:var(--s3);color:var(--t2);font-size:20px;cursor:pointer}
+.slider{height:28px;display:flex;align-items:center;cursor:pointer;touch-action:none;position:relative}
+.slider .track{width:100%;height:12px;border-radius:6px;background:var(--s3);overflow:hidden}
+.slider .fill{height:100%;background:linear-gradient(90deg,var(--pri-deep),var(--pri));border-radius:6px}
+.slider .thumb{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);pointer-events:none}
+.pop .val{text-align:right;margin-top:8px;font-size:16px;color:var(--t2);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="screen">
+  <!-- 顶栏 -->
+  <div class="top">
+    <span class="time" id="clk">--:--</span><span class="date">11月13日 周五 · 全屋已连接</span>
+    <span class="grow"></span>
+    <span class="weather"><span class="ico">☀</span><b>24℃</b> 晴 · 室外</span>
+  </div>
+
+  <!-- Bento 磁贴 -->
+  <div class="bento">
+    <!-- 空调大磁贴 -->
+    <div class="tile t-ac">
+      <div class="ring" id="ring">
+        <div class="ring-in">
+          <div class="ring-t"><span id="acT">26</span><small>℃</small></div>
+          <div class="ring-m">制冷 · 客厅</div>
+        </div>
+      </div>
+      <div class="ac-row">
+        <button class="ac-b" id="acM" aria-label="降低温度">−</button>
+        <button class="ac-b" id="acP" aria-label="升高温度">+</button>
+      </div>
+    </div>
+
+    <!-- 灯光磁贴：开关直开，无跳转 -->
+    <div class="tile t-light">
+      <h5>灯光</h5>
+      <div class="lg">
+        <button class="lg-item on" data-name="客厅主灯" data-val="60">
+          <span class="d"></span><span class="n">客厅主灯</span><span class="p">60%</span>
+        </button>
+        <button class="lg-item on" data-name="客厅筒灯" data-val="80">
+          <span class="d"></span><span class="n">客厅筒灯</span><span class="p">80%</span>
+        </button>
+        <button class="lg-item" data-name="餐厅吊灯" data-val="50">
+          <span class="d"></span><span class="n">餐厅吊灯</span><span class="p">--</span>
+        </button>
+        <button class="lg-item" data-name="走廊灯" data-val="40">
+          <span class="d"></span><span class="n">走廊灯</span><span class="p">--</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 安防磁贴 -->
+    <div class="tile t-sec">
+      <h5>安防</h5>
+      <button class="sec-line" id="lockBtn"><span>门锁</span><span class="tag ok">已上锁</span></button>
+      <button class="sec-line" id="armBtn"><span>布防</span><span class="tag ok">在家布防</span></button>
+      <button class="sec-line"><span>窗户</span><span class="tag warn">1 处未关</span></button>
+    </div>
+
+    <!-- 场景磁贴 -->
+    <div class="tile t-scene">
+      <h5>场景</h5>
+      <div class="sg">
+        <button class="sc home"><span class="i">⌂</span>回家</button>
+        <button class="sc"><span class="i">⇥</span>离家</button>
+        <button class="sc"><span class="i">☾</span>睡眠</button>
+        <button class="sc"><span class="i">▶</span>观影</button>
+        <button class="sc"><span class="i">☀</span>起床</button>
+        <button class="sc"><span class="i">✦</span>会客</button>
+      </div>
+    </div>
+
+    <!-- 环境磁贴 -->
+    <div class="tile t-env">
+      <h5>环境</h5>
+      <div class="env-row">
+        <div><div class="num">24.0℃</div><div class="lb">温度</div></div>
+        <svg width="72" height="26" id="sp1"></svg>
+      </div>
+      <div class="env-row">
+        <div><div class="num">48%</div><div class="lb">湿度</div></div>
+        <svg width="72" height="26" id="sp2"></svg>
+      </div>
+      <div class="env-row">
+        <div><div class="num">480</div><div class="lb">CO₂ ppm</div></div>
+        <svg width="72" height="26" id="sp3"></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="mask" id="mask"></div>
+  <div class="pop" id="pop">
+    <h4><span id="popT">客厅主灯</span><button id="popX">×</button></h4>
+    <div class="slider" id="sl"><div class="track"><div class="fill" id="fill"></div></div><div class="thumb" id="thumb"></div></div>
+    <div class="val" id="val">60%</div>
+  </div>
+</div>
+
+<script>
+var toastTimer=null;
+function toast(m){var e=document.getElementById('toast');e.textContent=m;e.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(function(){e.classList.remove('show')},2000)}
+function clk(){var d=new Date();function p(n){return String(n).padStart(2,'0')}
+  document.getElementById('clk').textContent=p(d.getHours())+':'+p(d.getMinutes())}
+clk();setInterval(clk,1000);
+
+// 灯光：单击=开关（步操作），长按 500ms=弹窗调亮度（克制的滑动/跳转替代）
+var pressTimer=null,current=null;
+document.querySelectorAll('.lg-item').forEach(function(it){
+  var pEl=it.querySelector('.p');
+  function sync(){it.querySelector('.p').textContent=it.classList.contains('on')?it.dataset.val+'%':'--'}
+  it.addEventListener('pointerdown',function(){
+    pressTimer=setTimeout(function(){openPop(it);it._long=true},500);
+  });
+  it.addEventListener('pointerup',function(){
+    clearTimeout(pressTimer);
+    if(it._long){it._long=false;return}
+    var on=it.classList.toggle('on');sync();
+    toast(it.dataset.name+(on?' 已打开':' 已关闭'));
+  });
+  it._sync=sync;
+});
+
+// 弹窗
+function openPop(it){
+  current=it;
+  document.getElementById('popT').textContent=it.dataset.name;
+  setPop(Number(it.dataset.val)||50);
+  document.getElementById('mask').classList.add('show');
+  document.getElementById('pop').classList.add('show');
+}
+function closePop(){document.getElementById('mask').classList.remove('show');document.getElementById('pop').classList.remove('show');current=null}
+document.getElementById('popX').onclick=closePop;
+document.getElementById('mask').onclick=closePop;
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closePop()});
+function setPop(v){v=Math.max(0,Math.min(100,v));
+  document.getElementById('fill').style.width=v+'%';
+  document.getElementById('thumb').style.left=v+'%';
+  document.getElementById('val').textContent=v+'%';
+  if(current){current.dataset.val=v;
+    current.querySelector('.p').textContent=v+'%';}
+}
+var sl=document.getElementById('sl');
+sl.addEventListener('pointerdown',function(e){
+  sl.setPointerCapture(e.pointerId);
+  function mv(ev){var r=sl.getBoundingClientRect();setPop(Math.round((ev.clientX-r.left)/r.width*100))}
+  mv(e);
+  function up(){sl.removeEventListener('pointermove',mv);sl.removeEventListener('pointerup',up)}
+  sl.addEventListener('pointermove',mv);sl.addEventListener('pointerup',up);
+});
+
+// 空调
+var AC_MIN=16,AC_MAX=30,ac=26;
+var ring=document.getElementById('ring'),acT=document.getElementById('acT'),
+    acM=document.getElementById('acM'),acP=document.getElementById('acP');
+function renderAc(){acT.textContent=ac;
+  ring.style.setProperty('--pct',Math.round((ac-AC_MIN)/(AC_MAX-AC_MIN)*100));
+  acM.disabled=ac<=AC_MIN;acP.disabled=ac>=AC_MAX;}
+acP.onclick=function(){if(ac<AC_MAX){ac++;renderAc()}};
+acM.onclick=function(){if(ac>AC_MIN){ac--;renderAc()}};
+renderAc();
+
+// 安防
+document.getElementById('lockBtn').onclick=function(){
+  var t=this.querySelector('.tag'),ok=t.classList.toggle('ok');t.classList.toggle('off',!ok);
+  t.textContent=ok?'已上锁':'已开锁';toast('门锁已'+(ok?'上锁':'开锁'));
+};
+document.getElementById('armBtn').onclick=function(){
+  var t=this.querySelector('.tag'),ok=t.classList.toggle('ok');t.classList.toggle('off',!ok);
+  t.textContent=ok?'在家布防':'已撤防';toast(ok?'安防已布防':'安防已撤防');
+};
+
+// 场景
+document.querySelectorAll('.sc').forEach(function(b){b.onclick=function(){toast('执行场景：'+b.textContent.replace(/^\S+\s/,''))}});
+
+// 迷你趋势图
+function spark(id,data,color){var svg=document.getElementById(id),w=72,h=26;
+  var min=Math.min.apply(null,data),max=Math.max.apply(null,data),rng=max-min||1;
+  var pts=data.map(function(v,i){return (i/(data.length-1)*w).toFixed(1)+','+((1-(v-min)/rng)*(h-6)+3).toFixed(1)}).join(' ');
+  svg.innerHTML='<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'}
+spark('sp1',[23.2,23.6,23.4,23.9,24.1,24.0],'#5EEAD4');
+spark('sp2',[52,50,49,50,48,48],'#60A5FA');
+spark('sp3',[520,500,490,480,475,480],'#F5A623');
+</script>
+</body>
+</html>

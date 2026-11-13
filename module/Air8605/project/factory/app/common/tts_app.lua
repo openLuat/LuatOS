@@ -52,6 +52,7 @@ if not ok_exaudio then exaudio = nil end
 
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
+-- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
 
 local gen = 0   -- 播放代次：stop/新 say 时 +1，旧协程据此退出
 
@@ -93,7 +94,7 @@ local function play_blocking(text, my_gen)
     if gen ~= my_gen then return false end
 
     local done = false
-    local ok = exaudio.play_start({
+    local ok = audio_hw.play_start({
         type = 1,
         content = text,
         cbfnc = function(event)

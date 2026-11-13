@@ -42,9 +42,9 @@ handle:status()        → { enabled=bool, info=string }
   Air1103 实际接 UART6，漏传 uart_id 会被 exaudio 缺省绑到 UART1（隔离 485 那一路），
   现象是录音采不到数据、回放也没声音
 - 录音起播后做 MIC 就绪探测（2.5s）：没采到数据直接报
-  「未收到MIC数据，请检查供电、UART和固件」，不让用户对着静音录音等满时长
-- Air1103 每次录音都复位芯片，恢复 MIC 上行前落盘的是静音，
-  下发给 exaudio 的时长补 2 秒，用户要几秒就录到几秒有效音频
+  「未收到MIC数据，请检查麦克风、供电、UART和固件」，不让用户对着静音录音等满时长
+- Air1103 的 MIC 上行常驻（见「Air1103 常驻 MIC 上行」一节）：录音不再复位芯片，
+  第一帧就是真实声音；退化到 exaudio 那条路时才补 2 秒恢复上行的静音时长
 - 录音一律「函数 path 手动落盘」：字符串 path 在 exaudio 内部按 "ab" 追加写，不会创建文件
   （与 module/Air8784/project/factory/user/factory.lua 同款写法）
 - 状态经 sys.publish("AUDIO_TEST_STATE", id, state, info) 广播，
@@ -61,6 +61,8 @@ if not ok_exaudio then exaudio = nil end
 
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
+
+-- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
 
 -- 录音文件固定落 /ram（内存盘，掉电即失，只作当场试听）
 local REC_PATH = "/ram/audio_test"
@@ -311,7 +313,7 @@ finalize_record = function(h)
     h.rec_bytes = sz
     h.rec_ready = sz > 0
     if h.mic_fail then
-        publish_state(h, "error", "录音失败：未收到MIC数据，请检查供电、UART和固件")
+        publish_state(h, "error", "录音失败：未收到MIC数据，请检查麦克风、供电、UART和固件")
     elseif sz > 0 then
         publish_state(h, "idle", string.format("录音完成 %d 秒 %d 字节，可播放", h.rec_seconds or 0, sz))
     else
@@ -321,7 +323,7 @@ end
 
 --[[
 @function mic_probe
-@summary MIC 上行就绪探测：到点还没采到数据即判定供电/UART/固件有问题，直接收尾报错
+@summary MIC 上行就绪探测：到点还没采到数据即判定麦克风/供电/UART/固件有问题，直接收尾报错
 ]]
 local function mic_probe()
     mic_probe_t = nil
@@ -406,7 +408,7 @@ local function record_start(h, seconds)
     local cmd_secs = secs
     if audio_hw.is_air1103() then cmd_secs = secs + AIR1103_UPSTREAM_DELAY_S end
 
-    local ok, ret = pcall(exaudio.record_start, {
+    local ok, ret = audio_hw.record_start({
         format = fmt,
         time = cmd_secs,
         path = rec_data_cb,
@@ -527,7 +529,7 @@ local function play_start(h)
     end
     local ok, ret
     if is_pcm then
-        ok, ret = pcall(exaudio.play_start, {
+        ok, ret = audio_hw.play_start({
             type = 2,
             cbfnc = done,
             priority = 1,
@@ -539,7 +541,7 @@ local function play_start(h)
             sys.taskInit(play_stream_task, h, gen)
         end
     else
-        ok, ret = pcall(exaudio.play_start, {
+        ok, ret = audio_hw.play_start({
             type = 0,
             content = h.rec_path,
             cbfnc = done,

@@ -62,6 +62,7 @@
 local exaudio = require "exaudio"
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
+-- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
 -- 上传统一走 http_upload（httpplus 流式，避免大文件整读 OOM）
 local http_upload = require "http_upload"
 
@@ -362,7 +363,9 @@ end
 -- @return boolean true=上行就绪
 -- Air1103 供电脚：config 里 AUDIOPA_EN = GPIO73 由 power_on 拉高常供电
 -- （eng_8605m_10i_v0.lua 第 21 行；与参考工程 power_pin=73 一致）
-local AIR1103_PWR_PIN = 73
+local _pwr_cfg = get_audio_config()
+local AIR1103_PWR_PIN = (_pwr_cfg and _pwr_cfg.recovery_power_pin) or 73
+local AIR1103_PWR_ACT = (_pwr_cfg and _pwr_cfg.recovery_power_active) or 1
 
 -- 照抄参考工程 reopen_mic(power_cycle=true)：复位两次仍无帧时断电重启芯片。
 -- 参考工程同时 uninit/init 串口；这里串口没坏，只断电上电即可，
@@ -370,11 +373,11 @@ local AIR1103_PWR_PIN = 73
 local function air1103_power_cycle()
     if not is_air1103() then return false end
     log.warn("factory_rec", "Air1103 复位后仍无 MIC 帧，断电重启(GPIO" .. AIR1103_PWR_PIN .. ")")
-    pcall(gpio.setup, AIR1103_PWR_PIN, 0)
-    pcall(gpio.set, AIR1103_PWR_PIN, 0)
+pcall(gpio.setup, AIR1103_PWR_PIN, 1 - AIR1103_PWR_ACT)
+pcall(gpio.set, AIR1103_PWR_PIN, 1 - AIR1103_PWR_ACT)
     sys.wait(300)
-    pcall(gpio.setup, AIR1103_PWR_PIN, 1)
-    pcall(gpio.set, AIR1103_PWR_PIN, 1)
+pcall(gpio.setup, AIR1103_PWR_PIN, AIR1103_PWR_ACT)
+pcall(gpio.set, AIR1103_PWR_PIN, AIR1103_PWR_ACT)
     sys.wait(800)   -- 参考工程上电等待 800ms 再复位
     if mic_parser then mic_parser.reset() end
     local before = mic_frames
@@ -637,7 +640,7 @@ local function rec_start()
         end
         cur_path = rec_path
         rec_fp = fp
-        local ok = exaudio.record_start({
+        local ok = audio_hw.record_start({
             format = rec_exformat(),
             time = 0,          -- 0 = 无限录音，由本模块计时器控制最长时长
             path = rec_data_cb,
@@ -670,7 +673,7 @@ local function rec_start()
     end
     -- 新录音用新文件名，天然避免文件冲突
     cur_path = next_rec_path()
-    local ok = exaudio.record_start({
+    local ok = audio_hw.record_start({
         format = rec_exformat(),
         time = max_time,
         path = cur_path,

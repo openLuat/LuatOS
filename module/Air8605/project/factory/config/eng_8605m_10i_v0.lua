@@ -157,11 +157,8 @@ return {
         -- 供电脚 AUDIOPA_EN = GPIO73 已在 power_on 拉高常供电，此处不写 pa_ctrl
         audio = {
             model = "air1103",        -- 音频通路：Air1103 语音芯片（exaudio 新框架 UART 驱动，录音走 MIC、播放走下行）
-        -- 本板原理图确认：GPIO73 为 Air1103 供电，高有效。SIP 通话断电自愈按下它下电/上电
-        recovery_power_pin = 73,
-        recovery_power_active = 1,
-        -- 通话细粒度性能采样，默认关闭；A/B 测试时设为 true
-        sip_perf_enabled = false,
+            recovery_power_pin = 73,     -- [条件] Air1103 供电 GPIO（如 AUDIOPA_EN）
+            recovery_power_active = 1,   -- [条件] 供电有效电平: 1=高有效 / 0=低有效
             uart_id = 6,              -- Air1103 接 UART6（固定 2M 波特率）
             audio_mode = "new",       -- 拉起 audio_v2 新框架（air1103 模式必须）
             play_vol = 70,            -- 默认播放音量(0~100)，llm_chat / video_util / factory_rec 统一读

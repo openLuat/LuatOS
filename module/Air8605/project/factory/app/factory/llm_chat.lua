@@ -14,6 +14,7 @@
 local exaudio = require("exaudio")
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require("audio_hw")
+-- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
 
 -- ==================== 常量 ====================
 
@@ -115,7 +116,7 @@ tts_play_text = function(text)
     tts_playing = true
     sys.publish("AI_CHAT_STATUS", "TTS 播放中")
     local done = false
-    local ok = exaudio.play_start({
+    local ok = audio_hw.play_start({
         type = 1, content = tts_voice .. text,
         cbfnc = function(event)
             if event == exaudio.PLAY_DONE then done = true end
@@ -134,11 +135,13 @@ tts_play_text = function(text)
         -- 所以等这一次请求真正收尾（或最多 3s）后，必须把音量还回去。
         if not done and not tts_playing then
             log.info("llm_chat", "TTS 被中断，静音等待播放结束")
-            pcall(exaudio.vol, 0)  -- 静音（soft_volume 立即生效；es8311 板上另写一次 ES8311 寄存器，即一次 I2C）
+            -- 静音收口到 AUDIO_CFG_SYNC 统一生效点：exaudio.vol 与 DAC 数字增益一起下发，
+            -- 不用再各自拼 _G.project_config 读音量；软增益是驱动级全局的，留在 0 会把
+            -- HZV 音轨等其它播放方一起弄哑，所以等这一次请求收尾（或最多 3s）后必须还回去。
+            audio_hw.sync(0, true)
             local tw = 0
             while not done and tw < 3000 do sys.wait(100); tw = tw + 100 end
-            local ac2 = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
-            pcall(exaudio.vol, (ac2 and ac2.play_vol) or 70)
+            audio_hw.sync(nil, false)
         end
     else
         log.warn("llm_chat", "exaudio.play_start TTS 失败")

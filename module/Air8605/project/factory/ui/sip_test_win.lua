@@ -18,6 +18,8 @@ local raw_app = require "sph_sip_app"
 local net = require "sph_net_app"
 local store = require "sph_store"
 local audio = require "sph_audio_app"
+-- 服务端通话记录与账号在线状态取数口（设备网关 HTTPS + RSA），取不到时页面退回本地记录
+local api = require "sph_sip_api"
 handoff.bind_sip(raw_app, audio)
 local diag = require "sph_audio_diag"
 local perf = require "audio_perf"
@@ -402,28 +404,81 @@ contact_editor = function(contact)
 end
 
 local function empty(parent, text, width) label(parent, 22, 40, (width or PW) - 44, text, 22, C.text3, 70) end
-local function row(parent, y, title, subtitle, w, reserved)
+local function row(parent, y, title, subtitle, w, reserved, dot)
     local text_w = w - 36 - (reserved or 0)
     local r = kit.card(parent, { x = 0, y = y, w = w, h = 88, radius = 16 })
     label(r, 16, 12, text_w, kit.ellipsis(title, 23), 21)
-    label(r, 16, 48, text_w, kit.ellipsis(subtitle, 38), 16, C.text3)
+    local sx = 16
+    if dot then
+        -- 在线状态灯：只有网关返回了状态才着色，未知状态留空心灰环
+        kit.box(r, { x = 16, y = 54, w = 12, h = 12, radius = 6, color = dot,
+            border = true, border_color = 0x999999, border_width = 1 })
+        sx = 36
+    end
+    label(r, sx, 48, text_w - (sx - 16), kit.ellipsis(subtitle, 38), 16, C.text3)
     return r
+end
+
+-- ==================== 联系人在线状态（设备网关 /accounts/status） ====================
+-- 每次进联系人页只查一次：查完置 presence_state，回包 render() 不会再发起第二次请求。
+local PRESENCE_COLOR = { online = C.green, ringing = C.brand, in_call = C.blue, offline = 0x999999 }
+local presence_names = { online = "在线", ringing = "响铃", in_call = "通话中", offline = "离线" }
+local presence_cache, presence_state, presence_error, presence_updated = {}, nil, nil, nil
+
+local function presence_caption()
+    if presence_state == nil or presence_state == "loading" then return "正在查询在线状态" end
+    if presence_error then return "在线状态查询失败：" .. presence_error end
+    return presence_updated and ("在线状态 " .. os.date("%H:%M:%S", presence_updated)) or "尚无在线状态"
+end
+
+local function load_presence(items)
+    if presence_state ~= nil then return end
+    if not items or #items == 0 then presence_state = "empty"; return end
+    local numbers = {}
+    for _, c in ipairs(items) do numbers[#numbers + 1] = c.num end
+    local account = api.account()
+    presence_state = "loading"
+    sys.taskInit(function()
+        local ok, data, err = pcall(api.statuses, numbers, account)
+        if not ok then data, err = nil, tostring(data) end
+        if data then
+            presence_cache, presence_error, presence_updated = data, nil, os.time()
+            presence_state = "ok"
+        else
+            presence_error = err or "网络不可用"
+            presence_state = "err"
+        end
+        if page == "contacts" and not closing then render() end
+    end)
 end
 
 page_contacts = function()
     local list_w = PW - 330
     label(host, 0, 0, list_w - 140, "联系人", 28)
     button(host, list_w - 130, 0, 120, "新增", function() contact_editor() end, "ghost", 40)
-    local list = kit.box(host, { x = 0, y = 54, w = list_w, h = PH - 54, scroll = true })
+    local legend = { { "在线", C.green }, { "响铃", C.brand }, { "通话中", C.blue }, { "离线", 0x999999 }, { "未获取", C.white } }
+    for i, item in ipairs(legend) do
+        local x = (i - 1) * 92
+        kit.box(host, { x = x, y = 42, w = 10, h = 10, radius = 5, color = item[2], border = true, border_color = 0x999999 })
+        label(host, x + 15, 36, 76, item[1], 14, C.text2, 24)
+    end
+    label(host, 470, 36, math.max(80, list_w - 470), presence_caption(), 14, C.text2, 24)
+    local list = kit.box(host, { x = 0, y = 68, w = list_w, h = PH - 68, scroll = true })
     local items = store.get_contacts()
     if store.read_failed("contacts") then
         label(list,0,0,list_w,"联系人读取失败",20)
         button(list,0,48,120,"重试",function() render() end,"soft")
         return
     end
+    load_presence(items)
     if #items == 0 then empty(list, "还没有联系人\n右侧输入号码，或点击新增", list_w) end
     for i, c in ipairs(items) do
-        row(list, (i - 1) * 142, (c.name ~= "" and c.name or c.num) .. (c.is_default and " · 默认" or ""), c.num, list_w - 12)
+        local p = presence_cache[c.num]
+        local state_text = p and presence_names[p.status]
+        row(list, (i - 1) * 142,
+            (c.name ~= "" and c.name or c.num) .. (c.is_default and " · 默认" or ""),
+            c.num .. (state_text and (" · " .. state_text) or ""),
+            list_w - 12, 0, p and PRESENCE_COLOR[p.status])
         button(list, 8, (i - 1) * 142 + 92, 100, "拨号", function() call(c.num) end, "green", 40)
         button(list, 118, (i - 1) * 142 + 92, 100, "编辑", function() contact_editor(c) end, "soft", 40)
         if not c.is_default then button(list, 228, (i - 1) * 142 + 92, 100, "删除", function()
@@ -452,21 +507,86 @@ page_contacts = function()
     button(pad, 16, dial_y, 286, "拨号", function() call(dial_number) end, "green", dial_h)
 end
 
-local record_number, record_page = nil, 1
+local record_page = 1
+-- 服务端通话记录（设备网关 /calls，每页 20 条）。
+-- record_state 与 presence_state 同一套语义：nil=待取 / ok=有数据 / err=退回本地记录。
+local RECORDS_PAGE_SIZE = 20
+local records_data, record_state, record_error = nil, nil, nil
+
+local function record_caption(total)
+    if record_state == nil or record_state == "loading" then return "正在查询服务端通话记录…" end
+    if record_state == "err" then
+        return "服务端记录不可用：" .. tostring(record_error or "网络不可用") .. "，以下为本地记录"
+    end
+    local pages = math.max(1, math.ceil((tonumber(total) or 0) / RECORDS_PAGE_SIZE))
+    return "第 " .. record_page .. " / " .. pages .. " 页 · 共 " .. tostring(total or 0) .. " 条 · 服务端记录"
+end
+
+local function load_records(force)
+    if not force and record_state ~= nil then return end
+    record_state = "loading"
+    local want, account = record_page, api.account()
+    sys.taskInit(function()
+        local ok, data, err = pcall(api.calls, want, account, force == true)
+        if not ok then data, err = nil, tostring(data) end
+        if want ~= record_page then return end -- 期间翻了页，这包作废
+        if data then
+            records_data, record_error, record_state = data, nil, "ok"
+        else
+            records_data, record_error, record_state = nil, err or "网络不可用", "err"
+        end
+        if page == "records" and not closing then render() end
+    end)
+end
+
+local function server_rows(list, data)
+    local function num(v) return (tostring(v or ""):gsub("^sip:", ""):match("^[^@]+") or tostring(v or "")) end
+    local mine = num(api.account())
+    if #data.calls == 0 then empty(list, "暂无通话记录") end
+    for i, c in ipairs(data.calls) do
+        local y = (i - 1) * 100
+        local out = num(c.caller) == mine
+        local peer = num(out and c.callee or c.caller)
+        local dur = tonumber(c.billsec) or tonumber(c.durationSec)
+        local t = type(c.startTime) == "string" and c.startTime:sub(1, 19):gsub("T", " ") or "时间未知"
+        local detail = (out and "呼出" or "呼入") .. " / " .. (c.answered == true and "已接通" or "未接通") ..
+            " / " .. t .. " / " .. (dur and store.fmt_dur(math.max(0, dur)) or "--")
+        row(list, y, peer, detail, PW - 12, 150)
+        button(list, PW - 150, y + 22, 120, "回拨", function() call(peer) end, "green")
+    end
+end
+
 page_records = function()
-    label(host,0,0,PW-330,"通话记录",28)
+    label(host,0,0,PW-470,"通话记录",28)
+    button(host,PW-460,0,140,"刷新",function() load_records(true) end,"ghost",40)
     button(host,PW-300,0,148,"新增联系人",function() contact_editor() end,"soft",40)
     button(host,PW-140,0,140,"清空记录",function()
-        confirm("清空全部通话记录？",function() return success(store.clear_calls()) end)
+        confirm("清空全部本地通话记录？",function() return success(store.clear_calls()) end)
     end,"ghost",40)
-    local items=store.get_calls()
+    load_records()
+    local server_mode = (record_state == "ok" and records_data ~= nil)
+    local list=kit.box(host,{x=0,y=92,w=PW,h=server_mode and (PH-150) or (PH-100),scroll=true})
+    if server_mode then
+        label(host,0,48,PW,record_caption(records_data.total),20)
+        server_rows(list, records_data)
+        local total = tonumber(records_data.total) or 0
+        button(host,PW-264,PH-46,120,"上一页",function()
+            if record_page <= 1 then return end
+            record_page=record_page-1;records_data=nil;record_state=nil;render()
+        end,"ghost",40)
+        button(host,PW-132,PH-46,120,"下一页",function()
+            if record_page * RECORDS_PAGE_SIZE >= total then return end
+            record_page=record_page+1;records_data=nil;record_state=nil;render()
+        end,"ghost",40)
+        return
+    end
     if store.read_failed("calls") then
         label(host,0,64,PW,"记录读取失败，原数据未清空",22)
         button(host,0,110,160,"重试",function() render() end,"soft")
         return
     end
-    label(host,0,48,PW,"仅保留最近5条，后续接入服务器记录",20)
-    local list=kit.box(host,{x=0,y=92,w=PW,h=PH-100,scroll=true})
+    label(host,0,48,PW,record_caption(),20)
+    local items=store.get_calls()
     if #items==0 then empty(list,"暂无通话记录") end
     for i=1,math.min(5,#items) do
         local c=items[i];local y=(i-1)*100
@@ -654,7 +774,7 @@ page_profile = function()
 
     label(right, 22, 318, 300, "本地信息", 21)
     label(right, 22, 352, PW - 454,
-        "本地仅保留最近5条通话记录和5条聊天消息。\n完整通话历史后续接入服务器。",17,C.text2,92)
+        "本地只保留最近5条通话记录和5条聊天消息。\n完整通话历史由服务端提供，联网后在「通话记录」页查询。",17,C.text2,92)
     button(right, 22, 456, 150, "清空通话记录", function()
         confirm("清空全部通话记录？", function() return success(store.clear_calls()) end)
     end, "plain", 46)
@@ -790,7 +910,10 @@ function M.open(id, peer)
     local changed = not (page == id and selected_peer == peer)
     memdiag.mark("ui.open","TARGET",id)
     close_panel(); page = id; selected_peer = peer
-    if changed then record_number=nil;record_page=1;rebuild_all() end
+    if changed then
+        record_page=1;records_data=nil;record_state=nil;presence_state=nil
+        rebuild_all()
+    end
     refresh_status()
 end
 M.open = memdiag.wrap("ui.open", M.open)
@@ -995,6 +1118,9 @@ local function on_create()
     subscribe("SIP_STATE", on_state)
     subscribe("SIP_STORE_CHANGED",function(key)
         if not started or closing or panel or call_layer or diag.status().busy then return end
+        -- 服务端记录/在线状态都要重新取，否则新写入的通话和联系人查不到
+        if key=="calls" then records_data=nil;record_state=nil end
+        if key=="contacts" or key=="default_contact" then presence_cache={};presence_state=nil end
         if (key=="calls" and page=="records") or
            ((key=="contacts" or key=="default_contact") and (page=="contacts" or page=="records")) then render() end
     end)

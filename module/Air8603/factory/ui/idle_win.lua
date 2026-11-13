@@ -220,7 +220,6 @@ local has_cloud_disk = _G.project_config and _G.project_config.features and _G.p
     and _G.project_config.ui and _G.project_config.ui.show_cloud_disk
 local has_other_func = _G.project_config and _G.project_config.features and _G.project_config.features.other_func
     and _G.project_config.ui and _G.project_config.ui.show_other_func
-
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
 local product_name = "合宙引擎主机" .. (model_suffix ~= "" and model_suffix or "")

@@ -148,9 +148,12 @@ local battery_cache     = nil    -- { present, level, voltage, charging, usb }
 -- ==================== 小工具 ====================
 
 --- 安全调用：函数存在才调用，异常不影响调用方
+local query_diag = require "sip_query_diag"
 local function safe_call(name, fn, ...)
     if type(fn) ~= "function" then return nil end
+    local token, started = query_diag.begin(name)
     local ok, r1, r2 = pcall(fn, ...)
+    query_diag.finish(name, token, started)
     if not ok then
         log.debug("aircloud", "probe " .. name .. " failed:", r1)
         return nil, nil
@@ -812,6 +815,17 @@ end
 
 -- ==================== 上报主协程 ====================
 
+-- SIP 通话期间暂停定时上报，减少 Airlink 查询和上报带来的竞争。
+-- 云端下发的立即上报仍照常执行；挂断后恢复正常周期，不集中补发。
+local sip_call_busy = false
+local function set_sip_call_busy(s)
+    sip_call_busy = s ~= nil and (
+        s.state == "incoming" or s.state == "dialing" or s.state == "answering"
+        or s.state == "talking" or s.state == "ending")
+end
+sys.subscribe("SIP_TEST_STATE", set_sip_call_busy)
+sys.subscribe("SIP_STATE", set_sip_call_busy)
+
 local function report_task_func()
     -- 1) 等网络就绪
     while not socket.adapter(socket.dft()) do
@@ -863,7 +877,11 @@ local function report_task_func()
     while true do
         local _, reason = sys.waitUntil("AIRCLOUD_REPORT_TICK")
         if report_enabled then
-            do_report(reason)
+            if sip_call_busy and reason == "timer" then
+                log.info("aircloud", "SIP 通话中，跳过本次定时上报（不与 RTP 抢上行）")
+            else
+                do_report(reason)
+            end
         end
     end
 end

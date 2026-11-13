@@ -40,6 +40,7 @@ local has_4g = _G.project_config and _G.project_config.features and _G.project_c
 local has_wifi = _G.project_config and _G.project_config.features and _G.project_config.features.wifi
 
 local exnetif = require "exnetif"
+local query_diag = require "sip_query_diag"
 
 local current_time = "08:00"
 local current_date = "1970-01-01"
@@ -113,7 +114,9 @@ local function update_wifi_signal()
         end
         return
     end
+    local token, started = query_diag.begin("status.wifi")
     local info = wlan.getInfo()
+    query_diag.finish("status.wifi", token, started)
     if info and info.rssi then
         wifi_rssi = info.rssi
         local new_level = rssi_to_level(wifi_rssi)
@@ -213,12 +216,34 @@ local function is_airlink_4g()
     return false
 end
 
+-- airlink 桥接下 mobile.* 全是同步 RPC（走 UART3），一次 csq 查询就能占住 Lua 任务
+-- 几十到几百毫秒。通话期间语音桥是 5ms 一拍的，被占住就是"通话音卡顿/爆音"。
+-- 参考工程 net_app 的做法：通话中保持上次信号值，IP 事件照常处理，不查信号。
+local sip_call_busy = false
+local function set_sip_call_busy(s)
+    sip_call_busy = s ~= nil and (
+        s.state == "incoming" or s.state == "dialing" or s.state == "answering"
+        or s.state == "talking" or s.state == "ending")
+end
+sys.subscribe("SIP_TEST_STATE", set_sip_call_busy)
+-- 同事内核发布的是 SIP_STATE（不是工厂旧的 SIP_TEST_STATE）；漏订这个会导致
+-- 通话期间仍每 2 秒查一次 mobile.csq（airlink 同步 RPC，占几十~几百毫秒），
+-- 直接卡住 5ms 一拍的语音桥。
+sys.subscribe("SIP_STATE", set_sip_call_busy)
+-- 音频自检（diag：播放测试音/录音回放）期间同样要停掉 csq 查询，否则每 2 秒
+-- 一次的 airlink 同步 RPC 会卡住回放。
+local diag_busy = false
+sys.subscribe("AUDIO_DIAG", function(s) diag_busy = s ~= nil and s.busy == true end)
+
 local function update_mobile_signal()
     local old_level = mobile_signal_level
+    if sip_call_busy or diag_busy then return end
     if not sim_present then
         mobile_signal_level = -1
     else
+        local token, started = query_diag.begin("status.csq")
         local ok, csq = pcall(mobile.csq)
+        query_diag.finish("status.csq", token, started)
         -- 查询失败（airlink RPC 偶发超时等）保持上次等级，避免图标抖动
         if not (ok and type(csq) == "number") then return end
         if csq == 99 or csq <= 5 then

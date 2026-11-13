@@ -84,6 +84,13 @@ function M.optional()
             require "audio_test_win" -- 录音播放测试页（订阅 OPEN_AUDIO_TEST_WIN）
         end
     end
+
+    --[[
+    sip_test_win 不在这里加载：SIP 通话窗口整套（sip_phone 协议栈 + Air1103 语音桥）只在
+    功能测试页点开「SIP 通话」时由 other_func_win 懒 require，退出即释放。
+    门槛是 app/sip/sip_gate.lua（features.sip + hw.audio.model=="air1103"），
+    只有 Air8605M / Air8605W 过得了，其余型号既不加载也不出入口。
+    ]]
 end
 
 return M

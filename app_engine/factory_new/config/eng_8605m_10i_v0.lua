@@ -181,6 +181,7 @@ return {
         file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
         aircloud = true,       -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
         wdt = true,            -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        sip = true,            -- 启用 SIP 通话（Air1103 语音芯片）
         iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
         fota = true,           -- 启用固件在线升级（需联网）
     },

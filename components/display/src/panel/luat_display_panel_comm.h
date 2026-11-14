@@ -4,7 +4,7 @@
 #include "luat_display.h"
 #include "luat_display_if_comm.h"
 
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
+#define DISPLAY_ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 
 
 /*RGB面板列表*/

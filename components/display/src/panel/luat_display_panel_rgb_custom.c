@@ -11,7 +11,7 @@
 #define panel_spi_send_seq(panel, ...) do {                         \
         static const unsigned char d[] = { __VA_ARGS__ };           \
         int ret;                                                    \
-        ret = rgb_spi_panel_send_sequence(panel, d, ARRAY_SIZE(d)); \
+        ret = rgb_spi_panel_send_sequence(panel, d, DISPLAY_ARRAY_SIZE(d)); \
         if (ret < 0)                                                \
             return ret;                                             \
     } while (0)

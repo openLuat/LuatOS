@@ -1,10 +1,11 @@
 --[[
 @module  page_glass
-@summary 方案D · 暗色玻璃拟态 页面（1024x600 触摸，多页轮询中的一页）
-@version 3.0.0
-@note 由 ui_home 重构为页面模块：内容挂在本页根容器 ROOT 上，由 ui_page 管理器显隐轮询。
-        视觉与信息架构对齐 smart_home/layouts/方案D_玻璃拟态.html：
-        顶栏玻璃胶囊 + 房间Tab + 气候/设备/安防三栏 + 底部场景Dock + 调档调节条。
+@summary 方案D · 玻璃拟态中控页（深色/浅色双主题，1024x600 触摸）
+@version 3.1.0
+@note 视觉与信息架构对齐 docs/方案D_玻璃拟态.html：
+        顶栏玻璃胶囊（含主题切换按钮） + 房间Tab + 气候/设备/安防三栏 + 底部场景Dock + 调档调节条。
+        主题切换：顶栏按钮 → ui_theme.set_mode 保存（fskv）→ 重启进入新主题。
+      验收纪律：最小字号 16 号；任何控件（含动画全程）永不探出父容器内容区。
       v2.2 滚动条整治（官方 airui.md §4.2.13）：
         AirUI 容器滚动条固定 AUTO 且无关闭接口，子控件探出内容区 1px 即画滚动条。
         全工程纪律：任何控件（含动画全程）永不探出父容器内容区，靠尺寸预算而非禁用动效 ——
@@ -102,6 +103,33 @@ local function status_chip(parent, x, y, w, name)
     return handle
 end
 
+-- 主题切换胶囊：文字显示「点击后进入」的主题，保存偏好（fskv）后重启生效
+local function theme_chip(p)
+    local x, y, w, h = 566, 10, 120, 36
+    local box = airui.container({ parent = p, x = x, y = y, w = w, h = h,
+        color = C.card, radius = 18, border_width = 0 })
+    W.glass(box, C.card, G.tile_opa)
+    W.text_mid(p, { text = (T.mode == "dark") and "浅色主题" or "深色主题",
+        x = x, y = y, w = w, h = h, size = 16, color = C.text_sub,
+        align = airui.TEXT_ALIGN_CENTER })
+    W.press_layer(p, { x = x, y = y, w = w, h = h, radius = 18, target = box, tx = x, ty = y,
+        on_click = function()
+            local next_mode = (T.mode == "dark") and "light" or "dark"
+            T.set_mode(next_mode)
+            toast("切换到" .. (next_mode == "light" and "浅色" or "深色") .. "主题，即将重启…")
+            sys.timerStart(function()
+                log.info("page_glass", "重启进入新主题", next_mode)
+                if rtos and rtos.reboot then
+                    rtos.reboot()
+                elseif pm and pm.reboot then
+                    pm.reboot()
+                else
+                    log.error("page_glass", "未找到可用的重启接口 rtos.reboot/pm.reboot")
+                end
+            end, 800)
+        end })
+end
+
 local function build_topbar()
     local g = W.glass_card({ parent = ROOT, x = TOP.x, y = TOP.y, w = TOP.w, h = TOP.h,
         fade_in = true })
@@ -113,9 +141,10 @@ local function build_topbar()
     top_chips.lock = status_chip(p, 270, 10, 130, "门锁")
     top_chips.win  = status_chip(p, 408, 10, 150, "窗户")
     top_chips.win.set(false, "1 处未关")
-    lbl_toast = W.text_mid(p, { text = "", x = 560, y = 12, w = 200, h = 30,
-        size = 16, color = C.pri, align = airui.TEXT_ALIGN_CENTER })
-    lbl_clock = W.text(p, { text = "", x = 760, y = 15, w = 210, h = 30,
+    theme_chip(p)
+    lbl_toast = W.text_mid(ROOT, { text = "", x = 430, y = 88, w = 540, h = 36,
+        size = 16, color = C.pri, align = airui.TEXT_ALIGN_RIGHT })
+    lbl_clock = W.text(p, { text = "", x = 700, y = 15, w = 270, h = 30,
         size = 16, color = C.text_sub, align = airui.TEXT_ALIGN_RIGHT })
 end
 
@@ -179,8 +208,8 @@ local function humi_items(pct)
         local on = i <= lit
         local opa = on and 220 or 26
         items[#items + 1] = { type = "circle", cx = (i - 1) * 13 + 3, cy = 4, r = 3,
-            color = on and C.pri or 0xFFFFFF, width = 1, opacity = opa,
-            fill = true, fill_color = on and C.pri or 0xFFFFFF, fill_opacity = opa }
+            color = on and C.pri or C.soft, width = 1, opacity = opa,
+            fill = true, fill_color = on and C.pri or C.soft, fill_opacity = opa }
     end
     return items
 end
@@ -237,14 +266,14 @@ local function build_climate()
     end
     local xl = { "08时", "12时", "16时", "20时" }
     for i = 1, 4 do
-        W.text(p, { text = xl[i], x = 14 + (i - 1) * 66, y = 258,
+        W.text_mid(p, { text = xl[i], x = 14 + (i - 1) * 66, y = 258,
             w = 66, h = 22, size = T.f.mini, color = C.text_dim,
             align = airui.TEXT_ALIGN_CENTER })
     end
     -- 极淡虚线分隔（把「当前读数」和「空调控制」两段分开，不用实线抢视觉）
     W.shape(p, { x = 15, y = 284, w = 264, h = 2, items = {
         { type = "line", x1 = 0, y1 = 1, x2 = 264, y2 = 1,
-          color = 0xFFFFFF, width = 1, opacity = 12, dash_width = 6, dash_gap = 6 },
+          color = C.soft, width = 1, opacity = 12, dash_width = 6, dash_gap = 6 },
     } })
     -- 空调快捷调节
     W.text_mid(p, { text = "空调", x = 15, y = 296, w = 44, h = 34,
@@ -271,9 +300,24 @@ local function build_climate()
 end
 
 -- ==================== 中栏：设备矩阵（单套 6 磁贴原地复用，切换零位移） ====================
+-- 设备 → 内置图标（按名称关键词推断，无需改动数据层）
+local function dev_icon(d)
+    local n = d.nm or ""
+    if n:find("窗帘", 1, true) then return airui.SYMBOL_UP end
+    if n:find("新风", 1, true) then return airui.SYMBOL_LOOP end
+    if n:find("加湿", 1, true) then return airui.SYMBOL_CHARGE end
+    if n:find("电热毯", 1, true) then return airui.SYMBOL_WARNING end
+    if n:find("油烟机", 1, true) then return airui.SYMBOL_LOOP end
+    if n:find("净水", 1, true) then return airui.SYMBOL_CHARGE end
+    return airui.SYMBOL_POWER                      -- 灯（默认）
+end
+
 refresh_tile = function(d, t)
-    pcall(function() t.ds:set_text(d.on and (d.ds .. d.val .. "%") or "关闭") end)
-    W.glass(t.dot, d.on and C.pri or C.text_dim, 255)
+    pcall(function()
+        t.ds:set_text(d.on and (d.ds .. d.val .. "%") or "关闭")
+        t.ic:set_text(dev_icon(d))                 -- 图标亮灭：开 = 主色，关 = 灰
+        t.ic:set_color(d.on and C.pri or C.text_dim)
+    end)
 end
 
 update_count = function()
@@ -290,14 +334,14 @@ local function build_tile()
     W.glass(box, C.card, 0)                          -- 初始透明，apply_room 上色
     -- 磁贴不再加顶部高光条（hl）：原 hl 在点击 sweep 后会被补间停在 hl_opa=60，
     -- 在磁贴顶边留下一条常亮横线（用户反馈「点完上面出现一横」），现整体移除。
-    local dot = airui.container({ parent = box, x = 10, y = 26, w = 10, h = 10,
-        color = C.text_dim, radius = 5, border_width = 0 })
-    W.glass(dot, C.text_dim, 0)
-    local nm =         W.text(box, { text = "", x = 28, y = 8, w = TW - 76, h = 30,
+    -- 左侧小图标：亮 = 主色，灭 = 灰（替代原来的色点，开关状态更直观）
+    local ic = W.icon(box, { symbol = airui.SYMBOL_POWER, x = 8, y = 17,
+        size = 22, w = 26, h = 26, color = C.text_dim })
+    local nm =         W.text(box, { text = "", x = 40, y = 8, w = TW - 90, h = 30,
         size = 16, color = C.text, weight = 600 })
-        local ds = W.text(box, { text = "", x = 28, y = 32, w = TW - 76, h = 28,
+        local ds = W.text(box, { text = "", x = 40, y = 32, w = TW - 90, h = 28,
         size = 16, color = C.text_sub })
-    local t = { box = box, x = tx, y = ty, dot = dot, nm = nm, ds = ds, dev = nil }
+    local t = { box = box, x = tx, y = ty, ic = ic, nm = nm, ds = ds, dev = nil }
     function t.sweep() end                           -- 磁贴已移除顶部高光条，扫光同步关闭
     -- 调档按钮（打开弹窗），随磁贴一起显隐
     t.adj = pill(box, { x = TW - 44, y = 15, w = 34, h = 32, text = "调",
@@ -332,14 +376,13 @@ local function apply_room(i, animate)
             pcall(function()
                 t.nm:set_text(d.nm)
                 t.ds:set_text(d.on and (d.ds .. d.val .. "%") or "关闭")
+                t.ic:set_text(dev_icon(d))          -- 图标随设备类型 + 开关状态刷新
+                t.ic:set_color(d.on and C.pri or C.text_dim)
             end)
-            W.glass(t.dot, d.on and C.pri or C.text_dim, 255)
             t.adj.set_visible(true)
         else
-            -- 空磁贴：alpha 归零即可（容器不传 border_color 就没有描边，透明后是真不可见；
-            -- 之前看到的「透明容器框」来自 button 热区的默认 2px 描边，已随热区容器化消失）
-            pcall(function() t.nm:set_text(""); t.ds:set_text("") end)
-            W.glass(t.dot, C.text_dim, 0)
+            -- 空磁贴：文字/图标清空（label 无 alpha，清空即不可见），热区随 adj 关闭
+            pcall(function() t.nm:set_text(""); t.ds:set_text(""); t.ic:set_text("") end)
             t.adj.set_visible(false)
         end
         if animate and d and not T.motion.instant then
@@ -389,18 +432,17 @@ local function build_security()
 
     -- 安防行：返回句柄供场景联动同步。handle.set(v, quiet) 同时更新
     -- 圆点 / app_state / 顶栏芯片 / 开关滑块；quiet=true 时不弹提示（场景批量执行用）。
-    local function sec_row(y, nm, on, on_color, key, chip_on, chip_off)
+    local function sec_row(y, nm, on, on_color, key, chip_on, chip_off, icon)
         local box = airui.container({ parent = p, x = 15, y = y, w = 242, h = 50,
             color = C.card, radius = T.r.panel, border_width = 0 })
         W.glass(box, C.card, G.tile_opa)
-        local dot = airui.container({ parent = box, x = 12, y = 20, w = 10, h = 10,
-            color = on and C.ok or C.text_dim, radius = 5, border_width = 0 })
-        W.glass(dot, on and C.ok or C.text_dim, 255)
-        W.text_mid(box, { text = nm, x = 26, y = 0, w = 154, h = 50, size = 16, color = C.text,
+        local ic = W.icon(box, { symbol = icon, x = 11, y = 12, size = 20, w = 26, h = 26,
+            color = on and C.ok or C.text_dim })
+        W.text_mid(box, { text = nm, x = 42, y = 0, w = 138, h = 50, size = 16, color = C.text,
             align = airui.TEXT_ALIGN_CENTER })
         local handle = {}
-        local function render(v)
-            W.glass(dot, v and C.ok or C.text_dim, 255)
+        local function render(v)                     -- 图标亮灭跟开关状态走
+            pcall(function() ic:set_color(v and C.ok or C.text_dim) end)
             S.security[key] = v
             local chip = (key == "armed") and top_chips.arm or top_chips.lock
             if chip then chip.set(v, v and chip_on or chip_off) end
@@ -417,16 +459,15 @@ local function build_security()
         end
         return handle
     end
-    SEC_UI.arm  = sec_row(40, "布防模式", S.security.armed,  C.ok,  "armed",  "在家布防", "已撤防")
-    SEC_UI.lock = sec_row(98, "门锁",     S.security.locked, C.pri, "locked", "已上锁",   "已开锁")
+    SEC_UI.arm  = sec_row(40, "布防模式", S.security.armed,  C.ok,  "armed",  "在家布防", "已撤防", airui.SYMBOL_BELL)
+    SEC_UI.lock = sec_row(98, "门锁",     S.security.locked, C.pri, "locked", "已上锁",   "已开锁", airui.SYMBOL_KEYBOARD)
     -- 窗户（只读提示行）
     local win = airui.container({ parent = p, x = 15, y = 156, w = 242, h = 50,
         color = C.card, radius = T.r.panel, border_width = 0 })
     W.glass(win, C.card, G.tile_opa)
-    local wdot = airui.container({ parent = win, x = 12, y = 20, w = 10, h = 10,
-        color = C.warn, radius = 5, border_width = 0 })
-    W.glass(wdot, C.warn, 255)
-    W.text_mid(win, { text = "窗户", x = 30, y = 0, w = 110, h = 50, size = 16, color = C.text,
+    W.icon(win, { symbol = airui.SYMBOL_HOME, x = 11, y = 12, size = 20, w = 26, h = 26,
+        color = C.warn })
+    W.text_mid(win, { text = "窗户", x = 42, y = 0, w = 98, h = 50, size = 16, color = C.text,
         align = airui.TEXT_ALIGN_CENTER })
     W.text_mid(win, { text = "1 处未关", x = 140, y = 0, w = 92, h = 50, size = 16,
         color = C.warn, align = airui.TEXT_ALIGN_RIGHT })
@@ -434,7 +475,9 @@ local function build_security()
     local cam = airui.container({ parent = p, x = 15, y = 282, w = 242, h = 70,
         color = C.deep, radius = T.r.panel, border_width = 0 })
     W.glass(cam, C.deep, 160)
-    W.text(cam, { text = "LIVE", x = 170, y = 8, w = 62, h = 24, size = 14,
+    W.icon(cam, { symbol = airui.SYMBOL_VIDEO, x = 12, y = 8, size = 22, w = 28, h = 28,
+        color = C.danger })
+    W.text_mid(cam, { text = "LIVE", x = 170, y = 8, w = 62, h = 24, size = 16,
         color = C.danger, weight = 700, align = airui.TEXT_ALIGN_RIGHT })
     W.text(cam, { text = "门口摄像头 1080P", x = 12, y = 38, w = 220, h = 30,
         size = 16, color = C.text_sub, align = airui.TEXT_ALIGN_CENTER })
@@ -488,13 +531,26 @@ end
 -- ==================== 底部场景 Dock ====================
 local dock_items, dock_active = {}, 1
 
--- 高亮「当前执行的场景」：选中项主色底 + 主色文字，其余回到常态磁贴配色
+-- 场景 → 内置图标（回家/离家/睡眠/观影/起床/会客）
+local SCENE_ICON = {
+    ["回家"] = airui.SYMBOL_HOME,
+    ["离家"] = airui.SYMBOL_DRIVE,
+    ["睡眠"] = airui.SYMBOL_MUTE,
+    ["观影"] = airui.SYMBOL_PLAY,
+    ["起床"] = airui.SYMBOL_BELL,
+    ["会客"] = airui.SYMBOL_CALL,
+}
+
+-- 高亮「当前执行的场景」：选中项主色底 + 主色文字 + 图标亮灭，其余回到常态
 local function set_dock_active(i)
     dock_active = i
     for k, it in ipairs(dock_items) do
         local on = (k == i)
         W.glass(it.box, on and C.pri or C.card, on and 60 or G.tile_opa)
-        pcall(function() it.lbl:set_color(on and C.pri or C.text) end)
+        pcall(function()
+            it.lbl:set_color(on and C.pri or C.text)
+            if it.ic then it.ic:set_color(on and C.pri or C.text_sub) end
+        end)
     end
 end
 
@@ -512,9 +568,11 @@ local function build_dock()
         local hl = airui.container({ parent = box, x = 10, y = 1, w = bw - 20, h = 2,
             color = 0xFFFFFF, radius = 1, border_width = 0 })
         W.glass(hl, 0xFFFFFF, G.hl_opa)
-        local lbl = W.text_mid(box, { text = name, x = 0, y = 0, w = bw, h = 54, size = 16,
+        local ic = W.icon(box, { symbol = SCENE_ICON[name] or airui.SYMBOL_PLAY,
+            x = 10, y = 16, size = 18, w = 24, h = 24, color = C.text_sub })
+        local lbl = W.text_mid(box, { text = name, x = 34, y = 0, w = bw - 42, h = 54, size = 16,
             color = C.text, weight = 700, align = airui.TEXT_ALIGN_CENTER })
-        dock_items[#dock_items + 1] = { box = box, lbl = lbl }
+        dock_items[#dock_items + 1] = { box = box, lbl = lbl, ic = ic }
         W.press_layer(p, { x = bx, y = 11, w = bw, h = 54, radius = T.r.panel,
             on_click = function()
                 set_dock_active(i)                   -- 点谁高亮谁（之前写死第一项、点击不更新）
@@ -600,7 +658,7 @@ local function build_popup()
     local nm = W.text(g, { text = "", x = 20, y = 14, w = 106, h = 26,
         size = 16, color = C.text, weight = 600 })
     local sub = W.text(g, { text = "", x = 20, y = 42, w = 106, h = 20,
-        size = 13, color = C.text_dim })
+        size = 16, color = C.text_dim })
     -- 中：−  数值  + 收进一条内嵌轨道，符号用主色，底不抢戏
     local track = airui.container({ parent = g, x = 128, y = 20, w = 152, h = 44,
         color = 0xFFFFFF, radius = 12, border_width = 0 })
@@ -615,7 +673,7 @@ local function build_popup()
         color = 0xFFFFFF, opa = 0, tcolor = C.pri,
         cb = function() popup_delta(5) end })
     -- 右：关闭降级为灰字幽灵按钮（不再是一块白底）
-    parts[#parts + 1] = pill(g, { x = 288, y = 22, w = 56, h = 40, text = "关闭", size = 15,
+    parts[#parts + 1] = pill(g, { x = 288, y = 22, w = 56, h = 40, text = "关闭", size = 16,
         color = 0xFFFFFF, opa = 0, tcolor = C.text_sub,
         cb = close_popup })
     for _, part in ipairs(parts) do

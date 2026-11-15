@@ -85,6 +85,20 @@ function M.text_mid(parent, cfg)
     })
 end
 
+-- ==================== 小图标 ====================
+-- 用 AirUI 内置的 LVGL symbol 字体画图标（官方 airui_label.lua 示例即用 symbol），
+-- 不依赖 hzfont 是否覆盖 ☀ ▤ ❋ 这类 Unicode 符号。
+-- symbol 本质是特殊字符串，可用 :set_text(airui.SYMBOL_xxx) 切换图标；
+-- 亮 / 灭由调用方 :set_color(亮色 / 暗色) 控制，配合 set_vec_text 无额外开销。
+function M.icon(parent, cfg)
+    local size = cfg.size or 20
+    return airui.label({
+        parent = parent, symbol = cfg.symbol, x = cfg.x or 0, y = cfg.y or 0,
+        w = cfg.w or (size + 6), h = cfg.h or (size + 6), font_size = size,
+        color = cfg.color or C.text_dim,
+    })
+end
+
 -- ==================== 玻璃卡片 ====================
 -- 返回 { root, card(内容父容器), hl(反光条), sh(投影层), sweep() }
 -- cfg.fade_in = true：初始为近透明（配合 M.enter 上浮淡入入场）。

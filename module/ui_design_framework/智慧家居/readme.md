@@ -3,10 +3,10 @@
 玻璃拟态（Glassmorphism）风格的全屋智能中控单页 Demo：开机直接进入主界面，
 顶栏一键切换深色 / 浅色主题，房间 Tab + 气候 / 设备矩阵 / 安防三栏 + 底部场景 Dock。
 
-## 目录结构（提交至 LuatOS/module/ui_design_framework/智能家居/）
+## 目录结构（提交至 LuatOS/module/ui_design_framework/智慧家居/）
 
 ```
-智能家居/
+智慧家居/
 ├── code/       所有代码与图片、音频、视频等资源文件
 │   ├── main.lua              启动编排：硬件初始化 → 创建玻璃页
 │   ├── page_glass.lua        玻璃拟态中控页（主题切换 / 房间Tab / 气候 / 设备 / 安防 / 场景Dock）

@@ -147,6 +147,10 @@ typedef struct luat_crypto_cipher_ctx
     uint8_t tag[16];
     uint8_t tag_len;
     uint8_t flags;
+    // GCM/CCM/ChaCha20-Poly1305 的附加认证数据(AAD), 不传则为空, 与标准实现一致
+    // 注意: 新增字段一律追加在结构体末尾, 避免影响已有字段偏移
+    const char* aad;
+    size_t aad_size;
 }luat_crypto_cipher_ctx_t;
 
 int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx);

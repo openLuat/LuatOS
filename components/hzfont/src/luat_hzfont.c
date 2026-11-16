@@ -31,8 +31,10 @@
 static const uint32_t HZFONT_CACHE_ALLOWED[] = {128u, 256u, 512u, 1024u, 2048u};
 static const size_t   HZFONT_CACHE_ALLOWED_LEN = sizeof(HZFONT_CACHE_ALLOWED) / sizeof(HZFONT_CACHE_ALLOWED[0]);
 
-#ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
+#if defined(LUAT_CONF_USE_HZFONT_BUILTIN_TTF) || defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR)
+#if !(defined(LUAT_CONF_USE_HZFONT_IN_ROM) && defined(LUAT_FONT_ADDRESS))
 extern const unsigned char hzfont_builtin_ttf[];
+#endif
 extern const unsigned int hzfont_builtin_ttf_len;
 #endif
 
@@ -803,15 +805,20 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
             }
         }
     } else {
-#ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
+#if defined(LUAT_CONF_USE_HZFONT_BUILTIN_TTF) || defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR)
+#if !defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR) && defined(LUAT_CONF_USE_HZFONT_IN_ROM) && defined(LUAT_FONT_ADDRESS)
+        const size_t builtin_len = (size_t)LUAT_FONT_DATA_LEN;
+#else
+        const size_t builtin_len = (size_t)hzfont_builtin_ttf_len;
+#endif
         if (load_to_psram) {
             // 加载内置 TTF 到 psram
             hzfont_psram_chain_clear(&g_psram_chain);
             hzfont_psram_chain_init(&g_psram_chain);
 #if (defined LUAT_CONF_USE_HZFONT_IN_ROM) && (defined LUAT_FONT_ADDRESS)
-            if (!hzfont_psram_chain_append_data(&g_psram_chain, (const char *)LUAT_FONT_ADDRESS, (size_t)LUAT_FONT_DATA_LEN)) {
+            if (!hzfont_psram_chain_append_data(&g_psram_chain, (const char *)LUAT_FONT_ADDRESS, builtin_len)) {
 #else
-            if (!hzfont_psram_chain_append_data(&g_psram_chain, hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len)) {
+            if (!hzfont_psram_chain_append_data(&g_psram_chain, hzfont_builtin_ttf, builtin_len)) {
 #endif
                 LLOGE("load builtin ttf to psram failed");
                 rc = TTF_ERR_OOM;
@@ -829,9 +836,9 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
         } else {
             // 从内存直接加载内置 TTF
 #if (defined LUAT_CONF_USE_HZFONT_IN_ROM) && (defined LUAT_FONT_ADDRESS)
-            rc = ttf_load_from_memory((const char *)LUAT_FONT_ADDRESS, (size_t)LUAT_FONT_DATA_LEN, &g_ft_ctx.font);
+            rc = ttf_load_from_memory((const char *)LUAT_FONT_ADDRESS, builtin_len, &g_ft_ctx.font);
 #else
-            rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
+            rc = ttf_load_from_memory(hzfont_builtin_ttf, builtin_len, &g_ft_ctx.font);
 #endif
             if (rc == TTF_OK) {
                 g_ft_ctx.font_path[0] = '\0';
@@ -852,6 +859,15 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
         return 0;
     }
     g_ft_ctx.state = LUAT_HZFONT_STATE_READY;
+#if defined(LUAT_CONF_USE_HZFONT_BUILTIN_TTF) || defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR)
+    if (ttf_path == NULL || ttf_path[0] == '\0') {
+#if defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR)
+        LLOGI("builtin font=MiSans-Regular bytes=%u", hzfont_builtin_ttf_len);
+#else
+        LLOGI("builtin font=MiSans-Demibold");
+#endif
+    }
+#endif
     LLOGI("font loaded units_per_em=%u glyphs=%u", g_ft_ctx.font.unitsPerEm, g_ft_ctx.font.numGlyphs);
     return 1;
 }

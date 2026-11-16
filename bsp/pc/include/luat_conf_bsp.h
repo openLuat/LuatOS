@@ -266,7 +266,8 @@
 #define LUAT_USE_DISPLAY 1
 // hzfont 字体库支持
 #define LUAT_USE_HZFONT 1
-#define LUAT_CONF_USE_HZFONT_BUILTIN_TTF 1
+// Replace this define with LUAT_CONF_USE_HZFONT_BUILTIN_TTF for Demibold.
+#define LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR 1
 // pinyin 拼音库支持
 #define LUAT_USE_PINYIN 1
 //---------------------

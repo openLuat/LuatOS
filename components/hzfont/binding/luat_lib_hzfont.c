@@ -38,7 +38,7 @@ hzfont.init("/sd/font.ttf")
 hzfont.init("/sd/font.ttf", hzfont.HZFONT_CACHE_1024)
 -- 从luadb文件系统加载
 hzfont.init("/luadb/font.ttf")
--- 回退内置字库（启用 固件配置项 LUAT_CONF_USE_HZFONT_BUILTIN_TTF 时生效）
+-- 回退内置字库：LUAT_CONF_USE_HZFONT_BUILTIN_TTF 为 Demibold，LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR 为 Regular
 hzfont.init()
 */
 static int l_hzfont_init(lua_State* L) {

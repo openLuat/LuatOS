@@ -28,6 +28,7 @@
  * @int config.radius 圆角半径，默认 0
  * @int config.border_color 边框颜色（0xRRGGBB），不传或小于 0 时不绘制边框
  * @int config.border_width 边框宽度，默认 1；需与 border_color 同时有效才显示边框
+ * @bool config.scrollable 是否允许滚动，默认 true；false 时关闭滚动及滚动条，裁剪越界内容
  * @function config.on_click 点击回调函数，可选；传入时容器可点击
  * @function config.on_long_press 长按回调函数，按住>=400ms后在抬起时触发，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕

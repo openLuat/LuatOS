@@ -44,6 +44,7 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
     int radius = airui_marshal_integer(L, idx, "radius", 0);
     int border_color_value = airui_marshal_integer(L, idx, "border_color", -1);
     int border_width = airui_marshal_integer(L, idx, "border_width", 1);
+    bool scrollable = airui_marshal_bool(L, idx, "scrollable", true);
 
     lv_obj_t *container = lv_obj_create(parent);
     if (container == NULL) {
@@ -58,6 +59,11 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
     lv_obj_set_style_radius(container, radius, main_default);
     // 屏幕默认存在 padding，清掉内边距让 (0,0) 真正对齐
     lv_obj_set_style_pad_all(container, 0, main_default);
+
+    if (!scrollable) {
+        lv_obj_remove_flag(container, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+        lv_obj_set_scrollbar_mode(container, LV_SCROLLBAR_MODE_OFF);
+    }
 
     // 设置背景颜色或透明度
     if (color_value >= 0) {

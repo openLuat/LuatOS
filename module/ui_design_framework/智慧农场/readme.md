@@ -26,25 +26,29 @@
 
 顶部导航栏 8 个按钮切换页面（当前页薄荷绿高亮）。
 
-## 文件结构
+## 文件结构（按框架统一架构要求）
 
 ```
-airui_farm/
-├── main.lua           入口：加载字体、注册页面、打开第1页
-├── theme.lua          主题配色 / 自适应布局 / 通用控件 / 页面切换
-├── mock.lua           虚拟数据（随机游走）
-├── page_overview.lua  页面1 农场总览
-├── page_crop.lua      页面2 作物监测
-├── page_env.lua       页面3 环境监测
-├── page_resource.lua  页面4 资源优化
-├── page_device.lua    页面5 智能设备
-├── page_operation.lua 页面6 生产运营
-├── page_market.lua    页面7 市场销售
-├── page_trace.lua     页面8 质量追溯
-└── img/               贴图资源（40 个 PNG，含目录一起烧录）
-    ├── ic_*.png       33 个 emoji 图标（指标卡/面板标题）
-    ├── donut1..4.png  4 张环形图底图
-    └── radar1..3.png  雷达图 3 帧（animimg 自动轮播）
+智慧农场/
+├── code/                  所有代码与资源文件（烧录时整目录加入脚本区）
+│   ├── main.lua           入口：加载字体、注册页面、打开第1页
+│   ├── theme.lua          主题配色 / 自适应布局 / 通用控件 / 页面切换
+│   ├── mock.lua           虚拟数据（随机游走）
+│   ├── page_overview.lua  页面1 农场总览
+│   ├── page_crop.lua      页面2 作物监测
+│   ├── page_env.lua       页面3 环境监测
+│   ├── page_resource.lua  页面4 资源优化
+│   ├── page_device.lua    页面5 智能设备
+│   ├── page_operation.lua 页面6 生产运营
+│   ├── page_market.lua    页面7 市场销售
+│   ├── page_trace.lua     页面8 质量追溯
+│   ├── preview.html       浏览器 1:1 预览稿
+│   └── img/               贴图资源（40 个 PNG，含目录一起烧录）
+│       ├── ic_*.png       33 个 emoji 图标（指标卡/面板标题）
+│       ├── donut1..4.png  4 张环形图底图
+│       └── radar1..3.png  雷达图 3 帧（animimg 自动轮播）
+├── docs/              code 与 readme.md 之外的资料（设计参考图、示例视频说明）
+└── readme.md          本文件
 ```
 
 ## 烧录步骤（Luatools）
@@ -52,7 +56,7 @@ airui_farm/
 1. 电脑安装 [Luatools](https://docs.openluat.com/) 及 Air8603 板载 USB 转串口驱动；
 2. Type-C 数据线接 Air8603 的 **USB2** 口；
 3. Luatools 中新建项目，选择 **Air1603** 对应固件（需含 AirUI V1.1.6+ 与 hzfont 中文字库，Air8603 默认固件即可）；
-4. **脚本区添加：本目录全部 `.lua` 文件 + `img` 文件夹（40 个 PNG，保持目录结构）**。
+4. **脚本区添加：`code/` 目录下全部 `.lua` 文件 + `code/img` 文件夹（40 个 PNG，保持目录结构）**。
    下载后脚本位于 `/luadb/`，贴图位于 `/luadb/img/`（与 theme.lua 中
    `IMGDIR = "/luadb/img/"` 对应）。若 Luatools 不保留子目录结构，则把
    PNG 直接放到下载根目录并同步修改 `theme.IMGDIR`；

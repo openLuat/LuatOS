@@ -399,7 +399,7 @@ size_t _z_read_exact_tcp(const _z_sys_net_socket_t sock, uint8_t *ptr, size_t le
         }
 
         n = n + rb;
-        pos = _z_ptr_u8_offset(pos, (ptrdiff_t)n);
+        pos = _z_ptr_u8_offset(ptr, (ptrdiff_t)n);
     } while (n != len);
 
     return n;

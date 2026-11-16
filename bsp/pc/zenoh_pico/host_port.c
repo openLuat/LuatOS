@@ -33,6 +33,7 @@ void luat_zp_test_sample(size_t length) {
 unsigned host_sample_entries(void) { return atomic_load(&sample_entries); }
 size_t host_allocation_bytes(void) { return atomic_load(&allocation_bytes); }
 size_t host_allocation_peak(void) { return atomic_load(&allocation_peak); }
+void host_reset_allocation_peak(void) { atomic_store(&allocation_peak, atomic_load(&allocation_bytes)); }
 void host_fail_rx_payload(size_t n) { atomic_store(&fail_rx_length, n); }
 static _Thread_local long fail_after = -1;
 long host_allocations(void) { return atomic_load(&allocations); }
@@ -159,10 +160,16 @@ void host_network_chunks(unsigned read_size, unsigned write_size) {
     atomic_store(&read_chunk, read_size); atomic_store(&write_chunk, write_size);
 }
 static atomic_int write_budget = -1, write_fault, write_gate;
-static atomic_uint writes_after_fault, failure_bytes;
+void luat_zenoh_pico_close(uint32_t generation);
+static atomic_uint writes_after_fault, failure_bytes, command_generation;
+static atomic_int cancel_write;
+void host_write_failure_after(int n);
+void host_cancel_write_after(int n) {
+    host_write_failure_after(n); atomic_store(&cancel_write, 1);
+}
 void host_write_failure_after(int n) {
     atomic_store(&writes_after_fault, 0); atomic_store(&failure_bytes, 0);
-    atomic_store(&write_fault, 0); atomic_store(&write_budget, n);
+    atomic_store(&write_fault, 0); atomic_store(&write_budget, n); atomic_store(&cancel_write, 0);
     atomic_store(&write_gate, n >= 0);
 }
 void host_write_release(void) { atomic_store(&write_gate, 0); }
@@ -251,6 +258,10 @@ int network_tx(network_ctrl_t *c, const uint8_t *p, uint32_t n, int flags, luat_
     if (budget > 0) {
         atomic_fetch_sub(&write_budget, (int)*sent);
         atomic_fetch_add(&failure_bytes, *sent);
+        if (atomic_load(&write_budget) == 0 && atomic_exchange(&cancel_write, 0)) {
+            atomic_store(&write_fault, 1);
+            luat_zenoh_pico_close(atomic_load(&command_generation));
+        }
     }
     if (*sent < n) atomic_fetch_add(&short_writes, 1);
     /* 对齐network API：非阻塞接纳后待完成返回1；此桥不模拟目标ACK。 */
@@ -291,7 +302,15 @@ void luat_zp_test_barrier(int point, uint32_t generation) {
     }
     pthread_mutex_unlock(&race_lock);
 }
+static atomic_int final_fault = -1;
+void host_fail_final_write(int bytes) { atomic_store(&final_fault, bytes); }
 void luat_zp_test_command(uint32_t generation, uint32_t id, int op) {
+    atomic_store(&command_generation, generation);
+    if (op == LUAT_ZP_FINISH_QUERY) {
+        int bytes = atomic_exchange(&final_fault, -1);
+        if (bytes >= 0) { host_write_failure_after(bytes); host_write_release(); }
+    }
+    if (op != LUAT_ZP_PUBLISH) return;
     atomic_store(&race_command_id, id); atomic_store(&race_command_op, (unsigned)op);
     luat_zp_test_barrier(6, generation);
 }

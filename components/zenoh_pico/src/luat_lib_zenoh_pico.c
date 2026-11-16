@@ -17,9 +17,11 @@ typedef struct { uint32_t generation, token; int finished; } query_t;
 static char sessions_key;
 static atomic_uint wake_pending;
 static uint32_t callback_errors;
+static luat_zp_event_t *retry_closed;
 static int poll_events(lua_State *L);
 #ifdef LUAT_ZENOH_TEST_BARRIERS
 extern void luat_zp_test_dispatch(const char *kind);
+extern void luat_zp_test_before_dispatch(const char *kind);
 #endif
 
 /* msgbus中只有唤醒信号，不携带可能释放的Lua userdata或控制块。 */
@@ -46,6 +48,36 @@ static const char *key_arg(lua_State *L, int index) {
     return key;
 }
 
+/* 只读取原始字段，不能让认证参数的__index在半创建会话中重入。 */
+static void open_options(lua_State *L, luat_zp_open_options_t *options) {
+    memset(options, 0, sizeof(*options));
+    if (lua_isnoneornil(L, 4)) return;
+    luaL_checktype(L, 4, LUA_TTABLE);
+    lua_pushnil(L);
+    while (lua_next(L, 4)) {
+        luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, 4, "unknown open option");
+        size_t length; const char *key = lua_tolstring(L, -2, &length);
+        luaL_argcheck(L, length == 8 && (!memcmp(key, "username", 8) || !memcmp(key, "password", 8)),
+                      4, "unknown open option");
+        lua_pop(L, 1);
+    }
+    lua_pushliteral(L, "username"); lua_rawget(L, 4);
+    lua_pushliteral(L, "password"); lua_rawget(L, 4);
+    if (lua_isnil(L, -2) && lua_isnil(L, -1)) { lua_pop(L, 2); return; }
+    luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING && lua_type(L, -1) == LUA_TSTRING,
+                  4, "username and password must both be strings");
+    options->username = lua_tolstring(L, -2, &options->username_len);
+    options->password = lua_tolstring(L, -1, &options->password_len);
+    const char *values[] = {options->username, options->password};
+    size_t lengths[] = {options->username_len, options->password_len};
+    for (int i = 0; i < 2; ++i) {
+        size_t n = lengths[i]; const char *p = values[i];
+        luaL_argcheck(L, n > 0 && n <= 128 && !memchr(p, 0, n) && !memchr(p, '\r', n) && !memchr(p, '\n', n),
+                      4, "credential must be 1..128 bytes without NUL/CR/LF");
+    }
+    /* 两个字符串留栈，直到同步复制完成；模块不借用它们跨线程。 */
+}
+
 /* 弱值表允许用户释放句柄后触发GC，不以注册表强引用延长会话生命。 */
 static int l_open(lua_State *L) {
     size_t n; const char *endpoint = luaL_checklstring(L, 1, &n);
@@ -53,6 +85,7 @@ static int l_open(lua_State *L) {
     lua_Integer adapter = luaL_checkinteger(L, 2);
     luaL_argcheck(L, adapter >= 0 && adapter <= 126, 2, "adapter out of range");
     luaL_checktype(L, 3, LUA_TFUNCTION);
+    luat_zp_open_options_t options; open_options(L, &options);
     session_t *s = lua_newuserdata(L, sizeof(*s)); memset(s, 0, sizeof(*s));
     s->closed = 1;
     luaL_setmetatable(L, SESSION);
@@ -63,7 +96,7 @@ static int l_open(lua_State *L) {
     lua_newtable(L); lua_setfield(L, -2, "queryables"); lua_pop(L, 1);
     /* 先建立Lua所有权，任何后续Lua分配失败都可由__gc撤销。 */
     uint32_t gen;
-    int rc = luat_zenoh_pico_open(endpoint, (int)adapter, &gen);
+    int rc = luat_zenoh_pico_open_ex(endpoint, (int)adapter, &gen, &options);
     if (rc) { lua_pop(L, 1); return result(L, rc, 0); }
     s->generation = gen; s->closed = 0;
     lua_rawgetp(L, LUA_REGISTRYINDEX, &sessions_key);
@@ -143,10 +176,13 @@ static int l_get(lua_State *L) {
     lua_getfield(L, 3, "payload"); size_t n; const char *payload = luaL_optlstring(L, -1, "", &n);
     luaL_argcheck(L, n <= LUAT_ZP_PAYLOAD_MAX, 3, "payload too large");
     lua_getfield(L, 3, "timeout_ms"); lua_Integer ms = luaL_optinteger(L, -1, 3000);
-    luaL_argcheck(L, ms >= 100 && ms <= 10000, 3, "timeout out of range");
-    uint32_t id = next_id(L, s);
+    luaL_argcheck(L, ms >= 1 && ms <= LUAT_ZP_GET_TIMEOUT_MAX, 3, "timeout out of range");
     callback_table(L, "requests"); lua_newtable(L);
     lua_pushvalue(L, 4); lua_setfield(L, -2, "reply"); lua_pushvalue(L, 5); lua_setfield(L, -2, "done");
+    /* options元方法及建表GC均可重入；完成后再核准容量、状态和唯一ID。 */
+    if (s->closed) return result(L, -8, 0);
+    if (s->get_count >= LUAT_ZP_GET_MAX) return result(L, -5, 0);
+    uint32_t id = next_id(L, s);
     lua_rawseti(L, -2, id);
     int rc = luat_zenoh_pico_command_ex(s->generation, LUAT_ZP_GET, id, key, payload, n, parameters, 0, (uint32_t)ms);
     if (rc) { lua_pushnil(L); lua_rawseti(L, -2, id); }
@@ -163,7 +199,7 @@ static int l_cancel_get(lua_State *L) {
 static int l_queryable(lua_State *L) {
     session_t *s = check(L); const char *key = key_arg(L, 2); luaL_checktype(L, 3, LUA_TFUNCTION);
     if (s->closed) return result(L, -8, 0);
-    if (s->queryable_count >= LUAT_ZP_QUERY_MAX) return result(L, -5, 0);
+    if (s->queryable_count >= LUAT_ZP_QUERYABLE_MAX) return result(L, -5, 0);
     uint32_t id = next_id(L, s); callback_table(L, "queryables");
     lua_pushvalue(L, 3); lua_rawseti(L, -2, id);
     int rc = luat_zenoh_pico_command(s->generation, LUAT_ZP_QUERYABLE, id, key, NULL, 0);
@@ -221,6 +257,40 @@ static int l_payload_stats(lua_State *L) {
     lua_pushinteger(L, LUAT_ZP_RX_PAYLOAD_BUDGET); lua_setfield(L, -2, "rx_limit");
     return 1;
 }
+static int l_get_trace(lua_State *L) {
+    session_t *s = check(L);
+    lua_Integer id = luaL_checkinteger(L, 2);
+    luat_zp_get_trace_t trace;
+    if (id <= 0 || (uint64_t)id > UINT32_MAX || !luat_zenoh_pico_get_trace(s->generation, (uint32_t)id, &trace)) {
+        lua_pushnil(L); return 1;
+    }
+    lua_createtable(L, 0, 4);
+    lua_pushinteger(L, trace.generation); lua_setfield(L, -2, "generation");
+    lua_pushinteger(L, trace.request); lua_setfield(L, -2, "request_id");
+    lua_pushinteger(L, trace.sdk_replies); lua_setfield(L, -2, "sdk_replies");
+    lua_pushstring(L, trace.sdk_drop_source); lua_setfield(L, -2, "sdk_drop_source");
+    return 1;
+}
+static int l_health(lua_State *L) {
+    session_t *session = check(L);
+    luat_zp_health_t health;
+    uint64_t age_ms;
+    int available = luat_zenoh_pico_health(session->generation, &health, &age_ms);
+    lua_createtable(L, 0, available ? 8 : 2);
+    lua_pushinteger(L, session->generation); lua_setfield(L, -2, "generation");
+    lua_pushboolean(L, available); lua_setfield(L, -2, "available");
+    if (available) {
+        lua_pushinteger(L, (lua_Integer)health.rx_seq); lua_setfield(L, -2, "rx_seq");
+        lua_pushinteger(L, (lua_Integer)health.last_rx_ms); lua_setfield(L, -2, "last_rx_ms");
+        lua_pushinteger(L, (lua_Integer)age_ms); lua_setfield(L, -2, "rx_age_ms");
+        lua_pushinteger(L, (lua_Integer)health.effective_lease_ms); lua_setfield(L, -2, "effective_lease_ms");
+        if (health.peer_lease_ms <= LUA_MAXINTEGER) {
+            lua_pushinteger(L, (lua_Integer)health.peer_lease_ms); lua_setfield(L, -2, "peer_lease_ms");
+        }
+        lua_pushstring(L, health.rx_kind); lua_setfield(L, -2, "rx_kind");
+    }
+    return 1;
+}
 static int l_state(lua_State *L) {
     session_t *s = check(L);
     lua_pushinteger(L, luat_zenoh_pico_state(s->generation));
@@ -229,7 +299,7 @@ static int l_state(lua_State *L) {
     return 3;
 }
 
-typedef struct { luat_zp_event_t *event; session_t *session; int callback_started; } dispatch_t;
+typedef struct { luat_zp_event_t *event; session_t *session; int callback_started, terminal_retired; } dispatch_t;
 /* VM独占固定槽，OOM后无需分配；同一请求多条失败回复只占一槽。 */
 static uint32_t *failed_reply(session_t *s, uint32_t id, int create) {
     uint32_t *empty = NULL;
@@ -262,6 +332,10 @@ static int dispatch(lua_State *L) {
         lua_pop(L, 1);
     }
     if (e->request) {
+        /* close过滤了旧回复时，排队中的成功终态不能继续宣称完整完成。 */
+        if (s->closed && !strcmp(e->kind, "get_done") && e->code == 0) {
+            e->reason = "closed"; e->code = -8;
+        }
         uint32_t *failed = failed_reply(s, e->request, 0);
         if (failed && !strcmp(e->kind, "get_reply")) return 0;
         if (failed && !strcmp(e->kind, "get_done")) { e->reason = "resource_limit"; e->code = -3; }
@@ -271,6 +345,7 @@ static int dispatch(lua_State *L) {
         /* 终态自身构表失败也必须释放请求容量，不能等待不会再来的第二次终态。 */
         if (!strcmp(e->kind, "get_done")) {
             lua_pushnil(L); lua_rawseti(L, -4, e->request); s->get_count--;
+            context->terminal_retired = 1;
             if (failed) *failed = 0;
         }
     } else if (!strcmp(e->kind, "query")) {
@@ -294,6 +369,26 @@ static int dispatch(lua_State *L) {
     lua_pushinteger(L, e->queryable); lua_setfield(L, -2, "queryable_id");
     lua_pushinteger(L, e->query); lua_setfield(L, -2, "query_id");
     if (e->reason) { lua_pushstring(L, e->reason); lua_setfield(L, -2, "reason"); }
+    if (!strcmp(e->kind, "get_done")) {
+        lua_pushinteger(L, e->sdk_replies); lua_setfield(L, -2, "sdk_replies");
+        if (e->sdk_drop_source) {
+            lua_pushstring(L, e->sdk_drop_source); lua_setfield(L, -2, "sdk_drop_source");
+        }
+    }
+    if (e->first_failure) { lua_pushstring(L, e->first_failure); lua_setfield(L, -2, "first_failure"); }
+    if (e->transport_stage) {
+        lua_pushstring(L, e->transport_stage); lua_setfield(L, -2, "transport_stage");
+        if (e->transport_rc) { lua_pushinteger(L, e->transport_rc); lua_setfield(L, -2, "transport_rc"); }
+        if (e->transport_remote_reason >= 0) {
+            lua_pushinteger(L, e->transport_remote_reason); lua_setfield(L, -2, "transport_remote_reason");
+        }
+    }
+    if (e->cleanup_code) { lua_pushinteger(L, e->cleanup_code); lua_setfield(L, -2, "cleanup_code"); }
+    if (e->auth_stage) {
+        static const char *stages[] = {"none", "init_send", "init_wait", "open_send", "open_wait", "confirmed"};
+        lua_pushstring(L, stages[e->auth_stage]); lua_setfield(L, -2, "auth_stage");
+        if (e->auth_remote_reason >= 0) { lua_pushinteger(L, e->auth_remote_reason); lua_setfield(L, -2, "remote_close_reason"); }
+    }
     if (e->io_failure.stage) {
         lua_newtable(L);
         lua_pushstring(L, e->io_failure.stage); lua_setfield(L, -2, "stage");
@@ -322,15 +417,36 @@ static int dispatch(lua_State *L) {
 static int poll_events(lua_State *L) {
     int top = lua_gettop(L), count = 0;
     luat_zp_event_t *e;
-    while (count < 8 && lua_checkstack(L, 8) && luat_zenoh_pico_pop(&e) == 0) {
+    while (count < 8 && lua_checkstack(L, 8)) {
+        if (retry_closed) { e = retry_closed; retry_closed = NULL; }
+        else if (luat_zenoh_pico_pop(&e) != 0) break;
         /* session留在pcall外层栈作GC根，异常展开后固定槽写入仍安全。 */
         lua_rawgetp(L, LUA_REGISTRYINDEX, &sessions_key); lua_rawgeti(L, -1, e->generation); lua_remove(L, -2);
-        dispatch_t context = {e, luaL_testudata(L, -1, SESSION), 0};
+        dispatch_t context = {e, luaL_testudata(L, -1, SESSION), 0, 0};
         lua_pushcfunction(L, dispatch); lua_pushlightuserdata(L, &context); lua_pushvalue(L, top + 1);
+#ifdef LUAT_ZENOH_TEST_BARRIERS
+        luat_zp_test_before_dispatch(e->kind);
+#endif
         if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
             if (context.session && e->request && !context.callback_started && !strcmp(e->kind, "get_reply"))
                 failed_reply(context.session, e->request, 1);
             lua_pop(L, 1); callback_errors++;
+            /* 仅在用户回调还未开始时保留原 closed；用户回调抛错不可重发。 */
+            if (context.session && !context.callback_started && !strcmp(e->kind, "closed")) {
+                retry_closed = e;
+                break;
+            }
+            /* pcall自身扩栈/调用帧OOM时尚未进入dispatch，也必须退休唯一终态。 */
+            if (context.session && e->request && !context.terminal_retired && !strcmp(e->kind, "get_done")) {
+                lua_getuservalue(L, top + 1); lua_getfield(L, -1, "requests");
+                lua_rawgeti(L, -1, e->request);
+                if (lua_istable(L, -1)) {
+                    lua_pop(L, 1); lua_pushnil(L); lua_rawseti(L, -2, e->request);
+                    context.session->get_count--;
+                    uint32_t *failed = failed_reply(context.session, e->request, 0);
+                    if (failed) *failed = 0;
+                }
+            }
         }
         luat_zenoh_pico_event_free(e); count++;
         lua_settop(L, top);
@@ -342,7 +458,7 @@ static int l_poll(lua_State *L) { lua_pushinteger(L, poll_events(L)); return 1; 
 static const luaL_Reg functions[] = {
     {"open", l_open}, {"close", l_close}, {"publish", l_publish},
     {"subscribe", l_subscribe}, {"unsubscribe", l_unsubscribe},
-    {"state", l_state}, {"poll", l_poll}, {"payload_stats", l_payload_stats},
+    {"get_trace", l_get_trace}, {"health", l_health}, {"state", l_state}, {"poll", l_poll}, {"payload_stats", l_payload_stats},
     {"get", l_get}, {"cancel_get", l_cancel_get}, {"queryable", l_queryable},
     {"unqueryable", l_unqueryable}, {"reply", l_reply}, {"finish_reply", l_finish_reply}, {NULL, NULL}
 };
@@ -357,10 +473,18 @@ int luaopen_zenohpico(lua_State *L) {
     lua_setmetatable(L, -2); lua_rawsetp(L, LUA_REGISTRYINDEX, &sessions_key);
     luaL_newlib(L, functions);
     lua_pushliteral(L, "1.9.0"); lua_setfield(L, -2, "version");
+    lua_pushboolean(L, 1); lua_setfield(L, -2, "AUTH_USRPWD");
+    lua_pushinteger(L, 128); lua_setfield(L, -2, "AUTH_CREDENTIAL_MAX");
+    lua_pushliteral(L, "zenoh1.9-hmac-sha3-256"); lua_setfield(L, -2, "AUTH_PROFILE");
     lua_pushinteger(L, LUAT_ZP_PAYLOAD_MAX); lua_setfield(L, -2, "MAX_PAYLOAD");
     lua_pushliteral(L, "local"); lua_setfield(L, -2, "GET_CANCEL_MODE");
     lua_pushinteger(L, LUAT_ZP_GET_MAX); lua_setfield(L, -2, "MAX_GET_REQUESTS");
-    lua_pushinteger(L, LUAT_ZP_QUERY_MAX); lua_setfield(L, -2, "MAX_QUERYABLES");
+    lua_pushinteger(L, LUAT_ZP_QUERYABLE_MAX); lua_setfield(L, -2, "MAX_QUERYABLES");
+    lua_pushinteger(L, LUAT_ZP_QUERY_MAX); lua_setfield(L, -2, "MAX_INCOMING_QUERIES");
+    lua_pushinteger(L, LUAT_ZP_SUB_MAX); lua_setfield(L, -2, "MAX_SUBSCRIBERS");
+    lua_pushinteger(L, LUAT_ZP_KEY_MAX); lua_setfield(L, -2, "MAX_KEY_BYTES");
+    lua_pushinteger(L, LUAT_ZP_GET_TIMEOUT_MAX); lua_setfield(L, -2, "MAX_GET_TIMEOUT_MS");
+    lua_pushinteger(L, LUAT_ZP_QUERY_TTL_MS); lua_setfield(L, -2, "QUERY_TTL_MS");
     lua_pushinteger(L, LUAT_ZP_ONLINE); lua_setfield(L, -2, "ONLINE");
     lua_pushinteger(L, LUAT_ZP_CLOSED); lua_setfield(L, -2, "CLOSED");
     return 1;

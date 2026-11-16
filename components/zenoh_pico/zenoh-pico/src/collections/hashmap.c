@@ -123,6 +123,7 @@ _z_hashmap_entry_t _z_hashmap_extract(_z_hashmap_t *map, const void *key) {
 }
 
 void *_z_hashmap_insert(_z_hashmap_t *map, void *k, void *v, z_element_free_f f_f, bool replace) {
+    if (!map->_capacity || map->_capacity > SIZE_MAX / sizeof(_z_list_t *)) return NULL;
     if (map->_vals == NULL) {
         // Lazily allocate and initialize to NULL all the pointers
         size_t len = map->_capacity * sizeof(_z_list_t *);
@@ -134,22 +135,21 @@ void *_z_hashmap_insert(_z_hashmap_t *map, void *k, void *v, z_element_free_f f_
         }
     }
 
-    if (replace) {
-        // Free any old value
-        _z_hashmap_remove(map, k, f_f);
-    }
-
-    // Insert the element
+    /* Allocate the full new entry before replacing the old one. The caller
+     * retains key/value ownership on every failure. */
     _z_hashmap_entry_t *entry = (_z_hashmap_entry_t *)z_malloc(sizeof(_z_hashmap_entry_t));
-    if (entry != NULL) {
-        entry->_key = k;
-        entry->_val = v;
-
-        size_t idx = map->_f_hash(k) % map->_capacity;
-        map->_vals[idx] = _z_list_push(map->_vals[idx], entry);
-    } else {
+    if (entry == NULL) return NULL;
+    entry->_key = k;
+    entry->_val = v;
+    _z_list_t *node = _z_list_push(NULL, entry);
+    if (node == NULL) {
+        z_free(entry);
         return NULL;
     }
+    if (replace) _z_hashmap_remove(map, k, f_f);
+    size_t idx = map->_f_hash(k) % map->_capacity;
+    node->_next = map->_vals[idx];
+    map->_vals[idx] = node;
 
     return v;
 }

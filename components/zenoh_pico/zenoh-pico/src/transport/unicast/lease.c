@@ -24,6 +24,7 @@
 #include "zenoh-pico/transport/transport.h"
 #include "zenoh-pico/transport/unicast/transport.h"
 #include "zenoh-pico/utils/logging.h"
+#include "zenoh-pico/transport/unicast/observe.h"
 
 #if Z_FEATURE_UNICAST_TRANSPORT == 1
 #if Z_FEATURE_UNICAST_PEER == 1
@@ -144,6 +145,7 @@ _z_fut_fn_result_t _zp_unicast_lease_task_fn(void *ztu_arg, _z_executor_t *execu
             return _z_fut_fn_result_wake_up_after((unsigned long)ztu->_common._lease);
         } else {
             // THIS LOG STRING USED IN TEST, change with caution
+            _Z_TRANSPORT_FAULT("lease_expired", 0, -1);
             _Z_INFO("Closing session because it has expired after %zums", ztu->_common._lease);
             return _zp_unicast_failed_result(ztu, executor);
         }
@@ -181,14 +183,17 @@ _z_fut_fn_result_t _zp_unicast_keep_alive_task_fn(void *ztu_arg, _z_executor_t *
     if (mode == Z_WHATAMI_CLIENT) {
         assert(_z_transport_peer_unicast_slist_value(ztu->_peers) != NULL);
         if (!ztu->_common._transmitted) {
-            if (_zp_unicast_send_keep_alive(ztu) < 0) {
+            z_result_t rc = _zp_unicast_send_keep_alive(ztu);
+            if (rc < 0) {
+                _Z_TRANSPORT_FAULT("keepalive_tx", rc, -1);
                 // THIS LOG STRING USED IN TEST, change with caution
                 _Z_INFO("Send keep alive failed.");
                 return _zp_unicast_failed_result(ztu, executor);
             }
         }
         ztu->_common._transmitted = false;
-        return _z_fut_fn_result_wake_up_after((unsigned long)ztu->_common._lease / Z_TRANSPORT_LEASE_EXPIRE_FACTOR);
+        unsigned long interval = (unsigned long)ztu->_common._lease / Z_TRANSPORT_LEASE_EXPIRE_FACTOR;
+        return _z_fut_fn_result_wake_up_after(interval ? interval : 1);
     }
 // TODO: Should we have a task per peer ?
 #if Z_FEATURE_UNICAST_PEER == 1

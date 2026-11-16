@@ -74,6 +74,10 @@ z_result_t _z_link_recv_t_msg(_z_transport_message_t *t_msg, const _z_link_t *zl
                               z_clock_t recv_deadline) {
     // Create and prepare the buffer
     _z_zbuf_t zbf = _z_zbuf_make(Z_BATCH_UNICAST_SIZE);
+    if (_z_zbuf_capacity(&zbf) < Z_BATCH_UNICAST_SIZE) {
+        _z_zbuf_clear(&zbf);
+        return _Z_ERR_SYSTEM_OUT_OF_MEMORY;
+    }
     _z_zbuf_reset(&zbf);
 
     z_result_t ret = Z_ETIMEDOUT;
@@ -99,11 +103,14 @@ z_result_t _z_link_recv_t_msg(_z_transport_message_t *t_msg, const _z_link_t *zl
     }
 
     if (ret == _Z_RES_OK) {
-        _z_transport_message_t l_t_msg;
-        ret = _z_transport_message_decode(&l_t_msg, &zbf);
-        if (ret == _Z_RES_OK) {
-            _z_t_msg_copy(t_msg, &l_t_msg);
-        }
+        _z_transport_message_t decoded = {0}, owned = {0};
+        ret = _z_transport_message_decode(&decoded, &zbf);
+        /* 同步握手只接收一条消息，尾数据不能静默丢弃。 */
+        if (ret == _Z_RES_OK && _z_zbuf_len(&zbf)) ret = _Z_ERR_MESSAGE_DESERIALIZATION_FAILED;
+        if (ret == _Z_RES_OK) ret = _z_t_msg_copy(&owned, &decoded);
+        _z_t_msg_clear(&decoded);
+        if (ret == _Z_RES_OK) *t_msg = owned;
+        else _z_t_msg_clear(&owned);
     } else {
         _Z_ERROR_LOG(ret);
     }

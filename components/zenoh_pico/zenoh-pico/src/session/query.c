@@ -24,6 +24,7 @@
 #include "zenoh-pico/session/utils.h"
 #include "zenoh-pico/utils/locality.h"
 #include "zenoh-pico/utils/logging.h"
+#include "zenoh-pico/session/drop_scope.h"
 
 #if Z_FEATURE_QUERY == 1
 void _z_pending_query_clear(_z_pending_query_t *pen_qry) {
@@ -57,7 +58,9 @@ static bool _z_pending_query_timeout(const _z_pending_query_t *foo, const _z_pen
 void _z_pending_query_process_timeout(_z_session_t *zn) {
     _z_session_mutex_lock(zn);
     // Extract all queries with timeout elapsed
+    _Z_DROP_SCOPE_ENTER("sdk_timeout");
     zn->_pending_queries = _z_pending_query_slist_drop_all_filter(zn->_pending_queries, _z_pending_query_timeout, NULL);
+    _Z_DROP_SCOPE_LEAVE();
     _z_session_mutex_unlock(zn);
 }
 

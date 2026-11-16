@@ -317,7 +317,7 @@ static const rotable_Reg_t reg_airtalk[] =
     { "EVENT_AUDIO_END",       ROREG_INT(LUAT_AIRTALK_CB_AUDIO_END)},
 	//@const EVENT_ERROR number airtalk发生异常，后续param为异常值
     { "EVENT_ERROR",       ROREG_INT(LUAT_AIRTALK_CB_ERROR)},
-	//@const EVENT_ERROR number airtalk发生异常，长时间没有收到音频数据
+	//@const ERROR_NO_DATA number airtalk发生异常，长时间没有收到音频数据
     { "ERROR_NO_DATA",       ROREG_INT(LUAT_AIRTALL_ERR_LONG_TIME_NO_DATA)},
     { NULL,         ROREG_INT(0) }
 };

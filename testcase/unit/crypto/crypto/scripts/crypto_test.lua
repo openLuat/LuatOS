@@ -559,14 +559,52 @@ function crypto_tests.test_gcm_tag_validation()
     
     local ciphertext, tag = crypto.cipher_encrypt("AES-128-GCM", "NONE", plaintext, key, iv)
     
-    -- 尝试用错误的TAG解密,应该失败或返回错误的结果
+    -- 1) 错误的TAG解密必须失败
     local wrong_tag = string.sub(tag, 1, #tag - 1) .. string.char((string.byte(string.sub(tag, #tag)) + 1) % 256)
-    local decrypted_wrong = crypto.cipher_decrypt("AES-128-GCM", "NONE", ciphertext, key, iv, wrong_tag)
+    local decrypted_wrong, err1 = crypto.cipher_decrypt("AES-128-GCM", "NONE", ciphertext, key, iv, wrong_tag)
+    assert(decrypted_wrong == nil, "错误的TAG竟然解密成功了, tag没有被校验")
+    assert(err1 ~= nil, "TAG校验失败时应返回错误码")
     
-    -- 正确的TAG解密应该成功
+    -- 2) 全0的TAG解密必须失败
+    local decrypted_zero = crypto.cipher_decrypt("AES-128-GCM", "NONE", ciphertext, key, iv, string.rep("\0", 16))
+    assert(decrypted_zero == nil, "全0的TAG竟然解密成功了, tag没有被校验")
+    
+    -- 3) 错误密钥 + 正确TAG解密必须失败
+    local decrypted_key2 = crypto.cipher_decrypt("AES-128-GCM", "NONE", ciphertext, "1234567890abcdef", iv, tag)
+    assert(decrypted_key2 == nil, "错误密钥竟然解密成功了, tag没有被校验")
+    
+    -- 4) 篡改密文(翻转首字节) + 正确TAG解密必须失败
+    local bad_cipher = string.char((string.byte(ciphertext, 1) ~ 0x01)) .. string.sub(ciphertext, 2)
+    local decrypted_bad = crypto.cipher_decrypt("AES-128-GCM", "NONE", bad_cipher, key, iv, tag)
+    assert(decrypted_bad == nil, "密文被篡改竟然解密成功了, tag没有被校验")
+    
+    -- 5) 正确的TAG解密应该成功
     local decrypted_correct = crypto.cipher_decrypt("AES-128-GCM", "NONE", ciphertext, key, iv, tag)
     assert(decrypted_correct == plaintext, "使用正确TAG解密失败")
     log.info("crypto_tests", "GCM TAG验证测试通过")
+end
+
+-- GCM 已知向量测试: tag 必须与标准实现(空AAD)一致, 供跨平台互通校验用
+-- 参考值由 OpenSSL(nodejs crypto) 计算: key=0123456789abcdef iv=0102030405060708090A0B0C pt=hello
+function crypto_tests.test_gcm_known_vector()
+    log.info("crypto_tests", "开始GCM已知向量测试")
+    local key = "0123456789abcdef"
+    local iv = string.char(0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,0x0C)
+    local ciphertext, tag = crypto.cipher_encrypt("AES-128-GCM", "NONE", "hello", key, iv)
+    assert(string.toHex(ciphertext) == "A8F54AA34F",
+        string.format("GCM 密文与标准实现不一致: 期望 A8F54AA34F, 实际 %s", string.toHex(ciphertext)))
+    assert(string.toHex(tag) == "1F822CEADAF5CE56EAB177E111E5DAE9",
+        string.format("GCM tag 与标准实现不一致: 期望 1F822CEADAF5CE56EAB177E111E5DAE9, 实际 %s", string.toHex(tag)))
+    -- 带 AAD 的向量
+    local ciphertext2, tag2 = crypto.cipher_encrypt("AES-128-GCM", "NONE", "hello", key, iv, "1234567890123456")
+    assert(string.toHex(tag2) == "18539E63626C91516D927EC823A5B2F1",
+        string.format("带AAD的tag不一致: 期望 18539E63626C91516D927EC823A5B2F1, 实际 %s", string.toHex(tag2)))
+    local plain2 = crypto.cipher_decrypt("AES-128-GCM", "NONE", ciphertext2, key, iv, tag2, "1234567890123456")
+    assert(plain2 == "hello", "带AAD的GCM解密失败")
+    -- AAD 不匹配时必须失败
+    local plain_bad = crypto.cipher_decrypt("AES-128-GCM", "NONE", ciphertext2, key, iv, tag2, "wrong-aad")
+    assert(plain_bad == nil, "AAD不匹配竟然解密成功了")
+    log.info("crypto_tests", "GCM已知向量测试通过")
 end
 
 ----------------------------------------------------------------------

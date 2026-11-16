@@ -234,13 +234,35 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     cctx.iv = luaL_optlstring(L, 5, "", &cctx.iv_size);
     cctx.flags = flags;
 
+    // 加密: 第 6 个参数是 AAD(附加认证数据), 可选
+    // 解密: 第 6 个参数是 tag, 第 7 个参数是 AAD, 均可选
+    // 传了 tag 就必须校验, 校验不过要返回失败, 不能把乱码当明文返回
+    if (flags & 0x1) {
+        cctx.aad = luaL_optlstring(L, 6, NULL, &cctx.aad_size);
+    }
+    else {
+        size_t tag_size = 0;
+        const char* tag = luaL_optlstring(L, 6, NULL, &tag_size);
+        if (tag && tag_size > 0) {
+            if (tag_size > sizeof(cctx.tag)) {
+                return luaL_error(L, "invalid tag size %d, should be 1~%d", (int)tag_size, (int)sizeof(cctx.tag));
+            }
+            memcpy(cctx.tag, tag, tag_size);
+            cctx.tag_len = (uint8_t)tag_size;
+        }
+        cctx.aad = luaL_optlstring(L, 7, NULL, &cctx.aad_size);
+    }
+
     luaL_Buffer buff;
     luaL_buffinitsize(L, &buff, cctx.str_size + 32); // 预分配空间
     cctx.outbuff = buff.b;
 
     int ret = luat_crypto_cipher_xxx(&cctx);
     if (ret) {
-        return 0;
+        // 失败(含 GCM tag 校验失败)一律返回 nil + 错误码, 不返回半成品数据
+        lua_pushnil(L);
+        lua_pushinteger(L, ret);
+        return 2;
     }
     luaL_pushresultsize(&buff, cctx.outlen);
     if (cctx.tag_len > 0 && (cctx.flags & 0x1)) {
@@ -254,38 +276,47 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
 
 /**
 对称加密
-@api crypto.cipher_encrypt(type, padding, str, key, iv, tag)
+@api crypto.cipher_encrypt(type, padding, str, key, iv, aad)
 @string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅crypto.cipher_list()
 @string 对齐方式, 支持PKCS7/ZERO/ONE_AND_ZEROS/ZEROS_AND_LEN/NONE
 @string 需要加密的数据
 @string 密钥,需要对应算法的密钥长度
 @string IV值, 非ECB算法需要
-@string GCM模式下的tag, 可选参数, 不传则不检查tag
+@string GCM/CCM/ChaCha20-Poly1305 模式下的附加认证数据(AAD), 可选参数, 不传等同于标准 GCM 的空 AAD
 @return string 加密后的字符串
 @return string GCM模式下的tag值, 可选返回
 @usage
 -- 计算AES
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
 local data2 = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "1234567890123456", "1234567890123456", "1234567890666666")
+-- GCM, 不带 AAD
+local cipher, tag = crypto.cipher_encrypt("AES-128-GCM", "NONE", "hello", "0123456789abcdef", "abcdef9876543210")
+-- GCM, 带 AAD
+local cipher2, tag2 = crypto.cipher_encrypt("AES-128-GCM", "NONE", "hello", "0123456789abcdef", "abcdef9876543210", "header")
  */
 int l_crypto_cipher_encrypt(lua_State *L) {
     return l_crypto_cipher_xxx(L, 1);
 }
 /**
 对称解密
-@api crypto.cipher_decrypt(type, padding, str, key, iv)
+@api crypto.cipher_decrypt(type, padding, str, key, iv, tag, aad)
 @string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅crypto.cipher_list()
 @string 对齐方式, 支持PKCS7/ZERO/ONE_AND_ZEROS/ZEROS_AND_LEN/NONE
 @string 需要解密的数据
 @string 密钥,需要对应算法的密钥长度
 @string IV值, 非ECB算法需要
-@return string 解密后的字符串
+@string GCM/CCM/ChaCha20-Poly1305 模式下的认证标签(tag), 可选参数; 传了就必须校验通过才返回明文
+@string GCM/CCM/ChaCha20-Poly1305 模式下的附加认证数据(AAD), 可选参数, 不传等同于空 AAD
+@return string 解密后的字符串, 失败时返回nil
+@return int 失败时的错误码(成功时不返回)
 @usage
 -- 用AES加密,然后用AES解密
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
 local data2 = crypto.cipher_decrypt("AES-128-ECB", "PKCS7", data, "1234567890123456")
 -- data的hex为 757CCD0CDC5C90EADBEEECF638DD0000
 -- data2的值为 1234567890123456
+-- GCM 解密, 密钥或 tag 不对时返回 nil, err
+local plain, err = crypto.cipher_decrypt("AES-128-GCM", "NONE", cipher, "0123456789abcdef", "abcdef9876543210", tag)
  */
 int l_crypto_cipher_decrypt(lua_State *L) {
     return l_crypto_cipher_xxx(L, 0);

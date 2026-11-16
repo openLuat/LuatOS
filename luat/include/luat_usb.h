@@ -70,7 +70,7 @@ int luat_usb_get_pid(int id, uint16_t *pid);
 int luat_usb_set_dev_id(int id, uint16_t dev_id);
 int luat_usb_get_dev_id(int id, uint16_t *dev_id);
 
-int luat_usb_set_mode(int id, uint8_t mode);
+int luat_usb_set_mode(int id, uint8_t mode, uint8_t force_full_speed);
 
 int luat_usb_add_class(int id, uint8_t class, uint8_t num);
 int luat_usb_get_free_ep_num(int id);

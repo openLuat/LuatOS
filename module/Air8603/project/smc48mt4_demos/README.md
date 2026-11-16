@@ -3,6 +3,8 @@
 研宏 **SMC-48MT-4** 这台小型 PLC 的屏端演示程序集合。每个子目录是一个独立可运行的演示，
 共用同一套屏（Air8603W1）、同一套通信参数，只是"PLC 采什么、屏上显示什么"不同。
 
+仓库地址：<https://gitee.com/openLuat/LuatOS/tree/master/module/Air8603/project/smc48mt4_demos>
+
 ## 演示列表
 
 | 目录 | 演示 | 做什么 | 已有实现 |

@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>天气预报 · Win11深色 · 可滑动 · 1024宽 预览稿</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Microsoft YaHei", "Segoe UI", sans-serif; }
+  html { overflow-x: hidden; }
+  body { width: 1024px; background: #141d33; color: #e8eefc; overflow-y: auto; }
+
+  .card { background: #1f2a47; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.28); }
+  .sub { color: #8fa0bf; font-size: 16px; }
+  .acc { color: #5aa7ff; font-size: 16px; }
+  .topbar { display: flex; align-items: center; height: 52px; padding: 0 20px; }
+  .topbar .t { font-size: 20px; font-weight: bold; }
+  .topbar .time { margin-left: 10px; color: #8fa0bf; font-size: 16px; }
+  .chip-btn { margin-left: auto; font-size: 16px; color: #cfe0ff; background: #26355a; border: 1px solid #35486f;
+              border-radius: 16px; padding: 5px 14px; }
+  .wrap { width: 1024px; padding: 0 14px; }
+
+  /* ---------- 主屏：当前天气（全宽，地图已去掉） ---------- */
+  .hero { padding: 14px 24px; position: relative; overflow: visible; }
+  .hero .cap { font-size: 16px; color: #8fa0bf; cursor: pointer; user-select: none; }
+  .hero .cap .caret { font-size: 13px; margin-left: 4px; }
+  .citymenu { position: absolute; top: 40px; left: 24px; width: 250px; background: #26355a;
+              border: 1px solid #35486f; border-radius: 10px; padding: 6px; z-index: 50;
+              box-shadow: 0 8px 24px rgba(0,0,0,.45); display: none; }
+  .citymenu.open { display: block; }
+  .citymenu .mhead { font-size: 16px; color: #8fa0bf; padding: 6px 10px 4px; }
+  .cityitem { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+              border: 1px solid transparent; cursor: pointer; }
+  .cityitem:hover { background: #2a3a66; }
+  .cityitem.on { background: #2a3a66; border-color: #5aa7ff; }
+  .cityitem .cn { font-size: 16px; color: #e8eefc; }
+  .cityitem .cp { font-size: 15px; color: #8fa0bf; }
+  .cityitem .cwi { width: 26px; height: 26px; margin-left: auto; flex-shrink: 0; }
+  .cityitem .ct { font-size: 18px; font-weight: bold; color: #e8eefc; width: 44px; text-align: right; }
+  .hero .main { display: flex; align-items: center; gap: 16px; margin-top: 2px; }
+  .hero .wi { width: 74px; height: 74px; }
+  .hero .temp { font-size: 64px; font-weight: bold; line-height: 1; }
+  .hero .temp sup { font-size: 24px; font-weight: normal; vertical-align: 30px; color: #cfe0ff; }
+  .hero .cond { font-size: 18px; font-weight: bold; }
+  .hero .feels { font-size: 16px; color: #8fa0bf; margin-top: 2px; }
+  .hero .tip { font-size: 16px; color: #cfe0ff; margin-top: 8px; }
+  .chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 12px; }
+  .chip { font-size: 16px; color: #8fa0bf; }
+  .chip b { color: #e8eefc; margin-left: 4px; }
+
+  /* ---------- 每小时预报 ---------- */
+  .sec-title { display: flex; align-items: center; height: 46px; padding-right: 4px; margin-top: 12px; }
+  .sec-title .t { font-size: 18px; font-weight: bold; margin-right: 16px; }
+  .tabs { display: flex; gap: 6px; }
+  .tab { font-size: 16px; color: #cfe0ff; background: #26355a; border-radius: 15px; padding: 5px 13px; cursor: pointer; }
+  .tab.on { background: #d8a017; color: #fff; font-weight: bold; }
+  .viewtog { margin-left: auto; display: flex; gap: 8px; }
+  .viewtog .tab { padding: 5px 16px; }
+
+  /* 日期条（内容随 tab 切换） */
+  .daystrip { display: flex; gap: 8px; height: 112px; margin-top: 10px; }
+  .daycard { flex: 1; padding: 10px 12px 8px; display: flex; gap: 8px; cursor: pointer;
+             border: 1px solid transparent; align-items: center; }
+  .daycard .dcol { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .daycard .row1 { display: flex; gap: 8px; align-items: baseline; }
+  .daycard .d { font-size: 21px; font-weight: bold; }
+  .daycard .w { font-size: 16px; color: #8fa0bf; }
+  .daycard .v1 { font-size: 21px; font-weight: bold; line-height: 1.15; }
+  .daycard .v1 small { font-size: 16px; color: #8fa0bf; font-weight: normal; }
+  .daycard .v2 { font-size: 16px; color: #aebcd6; }
+  .daycard .v3 { font-size: 16px; color: #8fa0bf; white-space: nowrap; }
+  .daycard .wi { width: 40px; height: 40px; flex-shrink: 0; }
+  .daycard .vbar { width: 12px; height: 52px; background: #16203a; border-radius: 6px; position: relative; overflow: hidden; flex-shrink: 0; margin-left: auto; }
+  .daycard .vbar i { position: absolute; left: 0; bottom: 0; width: 100%; border-radius: 6px; }
+  .daycard.sel { background: #2a3a66; border-color: #5aa7ff; }
+
+  /* 概览图表区 */
+  .overview { margin-top: 10px; padding: 12px 16px 6px; }
+  .ov-head { display: flex; align-items: center; height: 36px; }
+  .ov-head .t { font-size: 16px; font-weight: bold; }
+  .ov-head .right { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 16px; color: #8fa0bf; }
+  .sw { width: 30px; height: 16px; border-radius: 8px; background: #3f6fd8; position: relative; cursor: pointer; }
+  .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+  .sw.off { background: #35486f; }
+  .sw.off::after { left: 2px; right: auto; }
+  .radio { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #8fa0bf; }
+  .radio i { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #5aa7ff; }
+  .radio.on { color: #e8eefc; }
+  .radio.on i { background: #5aa7ff; box-shadow: inset 0 0 0 3px #1f2a47; }
+  .ovchart { width: 100%; height: 252px; display: block; background: #1a2340; border-radius: 8px; }
+  .ov-legend { display: flex; gap: 22px; height: 32px; align-items: center; font-size: 16px; color: #8fa0bf; padding: 0 4px; }
+  .ov-legend .li { display: flex; align-items: center; gap: 7px; }
+  .ov-legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ---------- 列表视图：横向滑动的小时卡片 ---------- */
+  .listwrap { padding: 4px 0 2px; }
+  .liststrip { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 12px; }
+  .liststrip::-webkit-scrollbar { height: 8px; }
+  .liststrip::-webkit-scrollbar-thumb { background: #35486f; border-radius: 4px; }
+  .lcard { flex: 0 0 118px; background: #26355a; border-radius: 10px; padding: 12px 10px;
+           display: flex; flex-direction: column; gap: 7px; }
+  .lcard .lt { font-size: 16px; color: #8fa0bf; }
+  .lcard .lwi { width: 36px; height: 36px; }
+  .lcard .ltemp { font-size: 24px; font-weight: bold; }
+  .lcard .lcond { font-size: 16px; color: #cfe0ff; white-space: nowrap; }
+  .lcard .lrow { font-size: 16px; color: #8fa0bf; white-space: nowrap; }
+  .listfoot { display: flex; gap: 22px; align-items: center; height: 34px; font-size: 16px; color: #8fa0bf; padding: 0 4px; }
+  .listfoot .exp { margin-left: auto; color: #5aa7ff; }
+
+  /* ---------- 第二屏：详细信息 ---------- */
+  .sec2-title { display: flex; align-items: center; height: 52px; margin-top: 14px; }
+  .sec2-title .t { font-size: 20px; font-weight: bold; }
+  .sec2-title .time { margin-left: 10px; color: #8fa0bf; font-size: 16px; }
+  .sec2-title .right { margin-left: auto; color: #5aa7ff; font-size: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding-bottom: 20px; }
+  .dcard { padding: 14px 16px; min-height: 176px; display: flex; flex-direction: column; }
+  .dcard .k { font-size: 16px; color: #8fa0bf; }
+  .dcard .big { font-size: 34px; font-weight: bold; margin-top: auto; }
+  .dcard .big small { font-size: 16px; font-weight: normal; color: #8fa0bf; }
+  .dcard .tag { font-size: 16px; margin-top: 4px; }
+  .dcard .desc { font-size: 16px; color: #8fa0bf; margin-top: 6px; line-height: 1.45; }
+  .dcard .viz { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .spark { width: 100%; height: 44px; display: block; }
+  .ring { width: 92px; height: 92px; }
+  .compass { width: 110px; height: 110px; }
+  .hbars { display: flex; gap: 5px; align-items: flex-end; height: 74px; }
+  .hbars i { width: 10px; border-radius: 3px; background: linear-gradient(180deg, #6fc0ff, #2f6fd8); }
+  .gbars { display: flex; flex-direction: column; gap: 7px; width: 100%; align-items: flex-start; }
+  .gbars i { height: 9px; border-radius: 5px; background: linear-gradient(90deg, #35c26e, #8fe3a8); }
+  .sunviz { width: 100%; height: 70px; display: block; }
+  .phase { width: 92px; height: 92px; border-radius: 50%; background: linear-gradient(90deg, #f2c14e 62%, #2c3a5e 62%);
+           box-shadow: 0 0 16px rgba(242,193,78,.25); }
+
+  /* ---------- 主题相关颜色（CSS 类，换主题无需重绘图表） ---------- */
+  .lbl  { fill: #8fa0bf; }          body.light .lbl  { fill: #5a6b8c; }
+  .mtxt { fill: #e8eefc; }          body.light .mtxt { fill: #1a2437; }
+  .mid  { fill: #aebcd6; }          body.light .mid  { fill: #7688ad; }
+  .nband { fill: #16203a; opacity: .55; }  body.light .nband { fill: #dfe4f2; opacity: .8; }
+  .disc { fill: #16203a; }          body.light .disc { fill: #e4e9f5; }
+  .trk  { stroke: #31446e; fill: none; }   body.light .trk  { stroke: #d5dcea; }
+  .kt   { color: #e8eefc; }         body.light .kt   { color: #1a2437; }
+  .themetog { margin-left: 10px; font-size: 19px; cursor: pointer; user-select: none; }
+
+  /* ---------- 浅色主题（body.light 覆盖） ---------- */
+  body.light { background: #eef1f8; color: #1a2437; }
+  body.light .card { background: #ffffff; box-shadow: 0 2px 10px rgba(30,50,90,.12); }
+  body.light .sub, body.light .topbar .time, body.light .hero .cap, body.light .hero .feels,
+  body.light .chip, body.light .ov-head .right, body.light .ov-legend,
+  body.light .dcard .k, body.light .dcard .big small, body.light .dcard .desc,
+  body.light .daycard .w, body.light .daycard .v1 small, body.light .daycard .v3,
+  body.light .lcard .lt, body.light .lcard .lrow, body.light .listfoot,
+  body.light .sec2-title .time, body.light .citymenu .mhead, body.light .cityitem .cp { color: #5a6b8c; }
+  body.light .acc { color: #0a7cd5; }
+  body.light .chip-btn { color: #1a2437; background: #e3e9f6; border-color: #c6d2ea; }
+  body.light .hero .temp sup, body.light .hero .tip, body.light .daycard .d,
+  body.light .daycard .v1, body.light .lcard .ltemp, body.light .lcard .lcond,
+  body.light .chip b, body.light .daycard .v2 { color: #1a2437; }
+  body.light .tab { color: #1a2437; background: #e3e9f6; }
+  body.light .tab.on { background: #d8a017; color: #fff; }
+  body.light .daycard .vbar { background: #dfe4f2; }
+  body.light .daycard.sel { background: #eaf1ff; border-color: #0a7cd5; }
+  body.light .ovchart { background: #f3f5fa; }
+  body.light .sw { background: #0a7cd5; }
+  body.light .sw.off { background: #c6d2ea; }
+  body.light .radio { color: #5a6b8c; }
+  body.light .radio i { border-color: #0a7cd5; }
+  body.light .radio.on { color: #1a2437; }
+  body.light .radio.on i { background: #0a7cd5; box-shadow: inset 0 0 0 3px #ffffff; }
+  body.light .citymenu { background: #ffffff; border-color: #c6d2ea; box-shadow: 0 8px 24px rgba(30,50,90,.18); }
+  body.light .cityitem:hover { background: #eef1f8; }
+  body.light .cityitem.on { background: #eaf1ff; border-color: #0a7cd5; }
+  body.light .lcard { background: #eef1f8; }
+  body.light .liststrip::-webkit-scrollbar-thumb { background: #c6d2ea; }
+  body.light .listfoot .exp, body.light .sec2-title .right { color: #0a7cd5; }
+</style>
+</head>
+<body>
+
+<!-- ============ SVG 天气图标库 ============ -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="g-sun" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#ffab24"/>
+    </linearGradient>
+    <linearGradient id="g-cloud" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dfe9f6"/><stop offset="1" stop-color="#9db4d4"/>
+    </linearGradient>
+    <linearGradient id="g-moon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffefb0"/><stop offset="1" stop-color="#f5bd3a"/>
+    </linearGradient>
+    <linearGradient id="g-drop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7cc4ff"/><stop offset="1" stop-color="#2f8ce0"/>
+    </linearGradient>
+    <linearGradient id="g-ov" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d9b74a"/><stop offset=".45" stop-color="#7ba86a"/><stop offset="1" stop-color="#2e5c58"/>
+    </linearGradient>
+    <linearGradient id="g-rainbar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7cb8ff"/><stop offset="1" stop-color="#2b62c9"/>
+    </linearGradient>
+    <linearGradient id="g-gust" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a5a9c"/><stop offset="1" stop-color="#22345f"/>
+    </linearGradient>
+    <linearGradient id="g-hum" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5f9dd8"/><stop offset="1" stop-color="#2c4a7c"/>
+    </linearGradient>
+    <linearGradient id="g-pres" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8f7ff0"/><stop offset="1" stop-color="#3a3f7c"/>
+    </linearGradient>
+    <linearGradient id="g-vis" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4cb878"/><stop offset="1" stop-color="#1f4a38"/>
+    </linearGradient>
+    <linearGradient id="g-feel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c8a86a"/><stop offset="1" stop-color="#4a4438"/>
+    </linearGradient>
+    <symbol id="i-sun" viewBox="0 0 64 64">
+      <g stroke="#ffc63e" stroke-width="3.4" stroke-linecap="round">
+        <line x1="32" y1="4" x2="32" y2="11"/><line x1="32" y1="53" x2="32" y2="60"/>
+        <line x1="4" y1="32" x2="11" y2="32"/><line x1="53" y1="32" x2="60" y2="32"/>
+        <line x1="12.4" y1="12.4" x2="17.4" y2="17.4"/><line x1="46.6" y1="46.6" x2="51.6" y2="51.6"/>
+        <line x1="12.4" y1="51.6" x2="17.4" y2="46.6"/><line x1="46.6" y1="17.4" x2="51.6" y2="12.4"/>
+      </g>
+      <circle cx="32" cy="32" r="14.5" fill="url(#g-sun)"/>
+      <circle cx="27.5" cy="27.5" r="5.5" fill="#fff3c4" opacity=".55"/>
+    </symbol>
+    <symbol id="i-cloud" viewBox="0 0 64 64">
+      <circle cx="22" cy="34" r="10.5" fill="url(#g-cloud)"/>
+      <circle cx="35" cy="28" r="13.5" fill="url(#g-cloud)"/>
+      <circle cx="46" cy="36" r="9.5" fill="url(#g-cloud)"/>
+      <rect x="16" y="34" width="37" height="12" rx="6" fill="url(#g-cloud)"/>
+    </symbol>
+    <symbol id="i-rain" viewBox="0 0 64 64">
+      <circle cx="23" cy="24" r="9.5" fill="url(#g-cloud)"/>
+      <circle cx="34" cy="19" r="12" fill="url(#g-cloud)"/>
+      <circle cx="44" cy="26" r="8.5" fill="url(#g-cloud)"/>
+      <rect x="16" y="24" width="34" height="10" rx="5" fill="url(#g-cloud)"/>
+      <!-- 雨滴下落动画（SMIL，只在雨天图标里生效） -->
+      <g stroke="url(#g-drop)" stroke-width="4.6" stroke-linecap="round">
+        <line x1="24" y1="42" x2="22" y2="52">
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.75;1" dur="1.1s" repeatCount="indefinite"/>
+          <animateTransform attributeName="transform" type="translate" values="0,-7;0,9" dur="1.1s" repeatCount="indefinite"/>
+        </line>
+        <line x1="34" y1="42" x2="32" y2="54">
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.75;1" dur="1.1s" begin="0.35s" repeatCount="indefinite"/>
+          <animateTransform attributeName="transform" type="translate" values="0,-7;0,9" dur="1.1s" begin="0.35s" repeatCount="indefinite"/>
+        </line>
+        <line x1="44" y1="42" x2="42" y2="52">
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.75;1" dur="1.1s" begin="0.7s" repeatCount="indefinite"/>
+          <animateTransform attributeName="transform" type="translate" values="0,-7;0,9" dur="1.1s" begin="0.7s" repeatCount="indefinite"/>
+        </line>
+      </g>
+    </symbol>
+    <symbol id="i-moon" viewBox="0 0 64 64">
+      <mask id="m-crescent"><rect width="64" height="64" fill="#fff"/><circle cx="43" cy="24" r="15" fill="#000"/></mask>
+      <circle cx="34" cy="32" r="17" fill="url(#g-moon)" mask="url(#m-crescent)"/>
+      <circle cx="28" cy="28" r="4" fill="#fff2c8" opacity=".5"/>
+    </symbol>
+    <symbol id="i-partly" viewBox="0 0 64 64">
+      <g stroke="#ffc63e" stroke-width="3" stroke-linecap="round">
+        <line x1="45" y1="4" x2="45" y2="9"/><line x1="45" y1="25" x2="45" y2="30"/>
+        <line x1="30" y1="17" x2="35" y2="17"/><line x1="55" y1="17" x2="60" y2="17"/>
+        <line x1="34.6" y1="6.6" x2="38" y2="10"/><line x1="52" y1="24" x2="55.4" y2="27.4"/>
+        <line x1="34.6" y1="27.4" x2="38" y2="24"/><line x1="52" y1="10" x2="55.4" y2="6.6"/>
+      </g>
+      <circle cx="45" cy="17" r="9" fill="url(#g-sun)"/>
+      <circle cx="20" cy="36" r="9.5" fill="url(#g-cloud)"/>
+      <circle cx="31" cy="30" r="12" fill="url(#g-cloud)"/>
+      <circle cx="42" cy="37" r="8.5" fill="url(#g-cloud)"/>
+      <rect x="13" y="36" width="36" height="11" rx="5.5" fill="url(#g-cloud)"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ================= 第一屏 ================= -->
+<div class="wrap">
+  <div class="topbar">
+    <span class="t">当前天气</span><span class="time">18:58</span>
+    <span class="chip-btn">💬 看到了不同的天气?</span>
+    <span class="themetog" id="themetog" title="切换主题">🌙</span>
+  </div>
+
+  <div class="card hero">
+    <div class="cap" id="city-btn">上海市,浦东新区 <span class="caret">⌄</span></div>
+    <div class="citymenu" id="city-menu"></div>
+    <div class="main">
+      <svg class="wi"><use href="#i-partly" id="hero-icon"/></svg>
+      <div class="temp"><span id="hero-temp">19</span><sup>°C</sup></div>
+      <div>
+        <div class="cond" id="hero-cond">多云</div>
+        <div class="feels">体感温度 <span id="hero-feels">20</span>°</div>
+      </div>
+    </div>
+    <div class="tip" id="hero-tip">有零星阵雨。最低气温 18°。</div>
+    <div class="chips">
+      <span class="chip">空气质量<b id="c-aqi">70</b></span>
+      <span class="chip">风速<b id="c-wind">东风 2级</b></span>
+      <span class="chip">湿度<b id="c-hum">93%</b></span>
+      <span class="chip">能见度<b id="c-vis">2.6 公里</b></span>
+      <span class="chip">气压<b id="c-pres">1020 hPa</b></span>
+      <span class="chip">露点<b id="c-dew">17°</b></span>
+    </div>
+  </div>
+
+  <div class="sec-title">
+    <span class="t">每小时预报</span>
+    <span class="tabs" id="tabs"></span>
+    <span class="viewtog"><span class="tab on">图表</span><span class="tab">列表</span></span>
+  </div>
+
+  <div class="daystrip" id="daystrip"></div>
+
+  <div class="card overview">
+    <div class="ov-head">
+      <span class="t" id="ov-tab">概览</span>
+      <span class="right" id="ov-right"></span>
+    </div>
+    <svg class="ovchart" id="ovchart" viewBox="0 0 960 252"></svg>
+    <div class="ov-legend" id="ov-legend"></div>
+    <div id="ov-list" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ================= 第二屏：天气详细信息 ================= -->
+<div class="wrap">
+  <div class="sec2-title">
+    <span class="t">天气详细信息</span><span class="time" id="detail-date">11月13日 周五 · 今天</span>
+    <span class="right">生活活动指数 ›</span>
+  </div>
+  <div class="grid" id="dgrid">
+    <div class="card dcard"><div class="k">温度</div>
+      <div class="viz"><svg class="spark" viewBox="0 0 200 44" preserveAspectRatio="none">
+        <path d="M0,10 C40,8 70,14 100,26 C130,36 170,38 200,34" stroke="#39c1c9" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        <circle cx="150" cy="33" r="5.5" fill="#39c1c9"/></svg></div>
+      <div class="big" id="v-temp">19<small>°</small></div>
+      <div class="tag" style="color:#8fe3a8">稳定 🙂</div>
+      <div class="desc">感觉保持当前温度 19°，明天预计比今天较冷。</div></div>
+    <div class="card dcard"><div class="k">体感温度</div>
+      <div class="viz"><svg class="spark" viewBox="0 0 200 44" preserveAspectRatio="none">
+        <path d="M0,26 C50,20 90,12 140,14 C170,15 190,13 200,12" stroke="#6fc0ff" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        <circle cx="140" cy="14" r="5.5" fill="#6fc0ff"/></svg></div>
+      <div class="big" id="v-feels">20<small>°</small></div>
+      <div class="tag sub" id="v-feels-tag">舒适</div>
+      <div class="desc">感觉比实际温度更暖和。</div></div>
+    <div class="card dcard"><div class="k">云量</div>
+      <div class="viz"><div style="position:relative;width:132px;height:132px">
+        <svg viewBox="0 0 132 132" style="width:132px;height:132px">
+          <circle cx="66" cy="66" r="62" fill="#24345c"/>
+          <use href="#i-cloud" x="8"  y="16" width="58" height="58" opacity=".9"/>
+          <use href="#i-cloud" x="66" y="10" width="52" height="52" opacity=".75"/>
+          <use href="#i-cloud" x="6"  y="68" width="52" height="52" opacity=".7"/>
+          <use href="#i-cloud" x="62" y="62" width="58" height="58" opacity=".85"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:18px;text-shadow:0 1px 4px rgba(0,0,0,.6)" id="v-cloud-c">多云</div>
+      </div></div>
+      <div class="big" id="v-cloud">86<small>%</small></div>
+      <div class="tag sub">云量很高，下午早些时更多云。</div></div>
+    <div class="card dcard"><div class="k">降水</div>
+      <div class="viz"><div style="position:relative;width:132px;height:132px">
+        <svg viewBox="0 0 132 132" style="width:132px;height:132px">
+          <circle cx="66" cy="66" r="62" fill="#24345c"/>
+          <path d="M66,4 a62,62 0 0,1 59,81 l-59,-13 z" fill="#2f6fd8" opacity=".5"/>
+          <use href="#i-rain" x="30" y="24" width="72" height="72"/>
+        </svg>
+        <div style="position:absolute;left:0;right:0;bottom:30px;text-align:center;font-weight:bold;font-size:18px;text-shadow:0 1px 4px rgba(0,0,0,.6)" id="v-precip-c">降雨</div>
+      </div></div>
+      <div class="big" id="v-precip">9.2 <small>毫米</small></div>
+      <div class="tag sub">预计未来 24 小时</div>
+      <div class="desc">大约 1.5 小时后开始降雨。</div></div>
+    <div class="card dcard"><div class="k">风速</div>
+      <div class="viz" style="gap:12px">
+        <svg class="compass" viewBox="0 0 110 110">
+          <circle cx="55" cy="55" r="46" class="disc"/>
+          <text x="55" y="22" class="lbl" font-size="16" text-anchor="middle">北</text>
+          <text x="55" y="102" class="lbl" font-size="16" text-anchor="middle">南</text>
+          <text x="14" y="61" class="lbl" font-size="16">西</text>
+          <text x="88" y="61" class="lbl" font-size="16">东</text>
+          <path d="M55,55 L42,38 L55,14 L62,40 Z" fill="#5aa7ff"/>
+          <circle cx="55" cy="55" r="5" fill="#fff"/>
+        </svg>
+        <div style="font-size:16px;color:#8fa0bf;line-height:1.7">
+          来自 <span class="kt" id="v-wind-from">东南 (134°)</span><br>
+          <span class="kt" style="font-size:22px;font-weight:bold" id="v-wind">7</span> 公里/时 风速<br>
+          <span class="kt" style="font-size:22px;font-weight:bold" id="v-gust">10</span> 公里/时 阵风
+        </div>
+      </div>
+      <div class="big" id="v-level" style="font-size:22px">风力: 2 (轻风) 🍃</div>
+      <div class="desc">风力度小。预计保持平均风速 5 公里/小时。</div></div>
+    <div class="card dcard"><div class="k">湿度</div>
+      <div class="viz" style="gap:16px">
+        <div class="hbars" id="v-hbars"></div>
+        <div style="font-size:16px;color:#8fa0bf;line-height:1.8">
+          <span class="kt" style="font-size:26px;font-weight:bold" id="v-hum">93</span>% 相对湿度<br>
+          露点 <span class="kt" style="font-size:20px;font-weight:bold" id="v-dew">17</span>°<br>温度</div>
+      </div>
+      <div class="tag" style="color:#ffd166">潮湿 💧</div>
+      <div class="desc">持续潮湿。在下午 5:00 时达到 99% 的最高值。</div></div>
+    <div class="card dcard"><div class="k">紫外线</div>
+      <div class="viz"><svg class="ring" viewBox="0 0 92 92">
+        <circle cx="46" cy="46" r="36" fill="none" class="trk" stroke-width="9"/>
+        <path d="M46,10 a36,36 0 0,1 33,22" fill="none" stroke="#e6533c" stroke-width="9" stroke-linecap="round"/>
+        <path d="M79,32 a36,36 0 0,1 -8,42" fill="none" stroke="#f5a623" stroke-width="9"/>
+        <path d="M71,74 a36,36 0 0,1 -50,-4" fill="none" stroke="#35c26e" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="21" cy="60" r="7" fill="#8fe3a8"/></svg></div>
+      <div class="big" id="v-uv">1</div>
+      <div class="tag" style="color:#8fe3a8">低 🙂</div>
+      <div class="desc">明天的的最高紫外线强度较低。</div></div>
+    <div class="card dcard"><div class="k">空气质量指数</div>
+      <div class="viz"><svg class="ring" viewBox="0 0 92 92">
+        <circle cx="46" cy="46" r="36" fill="none" class="trk" stroke-width="9"/>
+        <path d="M46,10 a36,36 0 1,1 -33,50" fill="none" stroke="#f5a623" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="27" cy="70" r="7" fill="#ffd166"/></svg></div>
+      <div class="big" id="v-aqi">70</div>
+      <div class="tag" style="color:#ffd166">良 🙂</div>
+      <div class="desc">空气质量有恶化趋势。主要污染物: PM2.5 25 μg/m³</div></div>
+    <div class="card dcard"><div class="k">能见度</div>
+      <div class="viz"><div class="gbars">
+        <i style="width:96%"></i><i style="width:88%"></i><i style="width:80%"></i>
+        <i style="width:72%"></i><i style="width:64%"></i></div></div>
+      <div class="big" id="v-vis">2.6 <small>公里</small></div>
+      <div class="tag" style="color:#8fe3a8">良好 🙂</div>
+      <div class="desc">预计明天的能见度与今天的相似。</div></div>
+    <div class="card dcard"><div class="k">气压</div>
+      <div class="viz"><svg class="spark" viewBox="0 0 200 44" preserveAspectRatio="none">
+        <path d="M0,30 C40,34 80,22 120,18 C150,15 180,14 200,12" stroke="#8f7ff0" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        <circle cx="160" cy="15" r="5.5" fill="#8f7ff0"/></svg></div>
+      <div class="big" id="v-pres">1020 <small>hPa</small></div>
+      <div class="tag sub">18:38 (现在)</div>
+      <div class="desc" style="color:#ffd166">缓慢上升 📈</div>
+      <div class="desc">预计在未来两到三个小时内将缓慢上升。</div></div>
+    <div class="card dcard"><div class="k">太阳</div>
+      <div class="viz"><svg class="sunviz" viewBox="0 0 200 70" preserveAspectRatio="none">
+        <path d="M10,62 C60,10 140,10 190,62" fill="none" class="trk" stroke-width="3"/>
+        <path d="M10,62 C60,10 140,10 190,62" fill="none" stroke="url(#g-sun)" stroke-width="3.5"
+              stroke-dasharray="180 320" stroke-linecap="round"/>
+        <circle cx="70" cy="26" r="6" fill="#ffd166"/>
+        <circle cx="150" cy="30" r="5" fill="#31446e"/></svg></div>
+      <div class="desc">10 小时 38 分钟</div>
+      <div class="big" style="font-size:20px;display:flex;gap:24px">
+        <span>☀ <b style="margin-left:4px">06:18</b> <span class="sub">日出</span></span>
+        <span>🌙 <b style="margin-left:4px">16:56</b> <span class="sub">日落</span></span></div></div>
+    <div class="card dcard"><div class="k">月相</div>
+      <div class="viz"><div class="phase"></div></div>
+      <div class="big" style="font-size:20px">月相</div>
+      <div class="tag sub">亏凸月</div></div>
+  </div>
+</div>
+
+<script>
+/* ================= 基础数据 ================= */
+function rng(seed){ let s = seed >>> 0;
+  return function(){ s |= 0; s = s + 0x6D2B79F5 | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+const ICONS = { sun:"i-sun", cloud:"i-cloud", rain:"i-rain", moon:"i-moon", partly:"i-partly" };
+const CONDS = { sun:"晴", cloud:"多云", rain:"降雨", moon:"晴夜", partly:"多云" };
+const days = [
+  { d:12, w:"昨天", icon:"rain",   hi:17, lo:14 },
+  { d:13, w:"今天", icon:"partly", hi:21, lo:18 },
+  { d:14, w:"周六", icon:"rain",   hi:19, lo:15 },
+  { d:15, w:"周日", icon:"sun",    hi:20, lo:14 },
+  { d:16, w:"周一", icon:"sun",    hi:22, lo:15 },
+  { d:17, w:"周二", icon:"partly", hi:23, lo:16 },
+  { d:18, w:"周三", icon:"cloud",  hi:22, lo:16 },
+];
+/* ================= 城市（下拉切换） ================= */
+const CITIES = [
+  { name:"浦东新区", prov:"上海市" },
+  { name:"黄浦区", prov:"上海市" },
+  { name:"成都市", prov:"四川省" },
+  { name:"朝阳区", prov:"北京市" },
+];
+let curCity = 0;
+const cityCond = c => { const r = rng(c * 811 + 3); return ["sun","cloud","rain","partly","moon"][Math.round(r()*4)]; };
+const cityTemp = c => { const r = rng(c * 811 + 9); return 12 + Math.round(r()*12); };
+function renderCityMenu(){
+  const m = document.getElementById("city-menu");
+  m.innerHTML = `<div class="mhead">我的位置</div>` + CITIES.map((c,i)=>`
+    <div class="cityitem${i === curCity ? " on" : ""}" data-i="${i}">
+      <div><div class="cn">${c.name}</div><div class="cp">${c.prov},${c.name}</div></div>
+      <svg class="cwi"><use href="#${ICONS[cityCond(i)]}"/></svg>
+      <div class="ct">${cityTemp(i)}°</div>
+    </div>`).join("");
+  m.querySelectorAll(".cityitem").forEach(el => el.onclick = e => {
+    e.stopPropagation();
+    curCity = +el.dataset.i;
+    m.classList.remove("open");
+    refresh();
+  });
+}
+document.getElementById("city-btn").onclick = e => {
+  e.stopPropagation();
+  renderCityMenu();
+  document.getElementById("city-menu").classList.toggle("open");
+};
+document.addEventListener("click", () => document.getElementById("city-menu").classList.remove("open"));
+
+let sel = 1;
+let curTab = "概览";
+let togState = {};          // 各 tab 附加线开关（默认全关：不画附加线）
+let radioState = "4小时";   // 降水 tab 的时间范围
+let viewMode = "chart";     // chart=图表 / list=列表
+
+const hours = ["17:00","当前","21:00","23:00","01:00","03:00","05:00","07:00","09:00","11:00","13:00","15:00"];
+function sx(i){ return 62 + i * 78; }
+function fser(day, tabIdx, min, max){
+  const r = rng(curCity * 571 + day.d * 977 + tabIdx * 131 + 7);
+  return hours.map(() => min + r() * (max - min));
+}
+const H = i => sx(i);
+
+/* ================= 图表绘制辅助 ================= */
+function hourRow(){ return hours.map((h,i)=>`<text x="${H(i)}" y="20" class="lbl" font-size="16" text-anchor="middle">${h}</text>`).join(""); }
+// y 轴标签：在 top~bot 区间内均匀分布，第一个值在顶部（30°在上、-15°在下）
+function yLabels(list, x, top, bot){
+  if (top === undefined) top = 60;
+  if (bot === undefined) bot = 210;
+  return list.map((v,i)=>{
+    const y = list.length === 1 ? (top + bot) / 2 : top + i * (bot - top) / (list.length - 1);
+    return `<text x="${x}" y="${(y + 5).toFixed(1)}" class="lbl" font-size="16" text-anchor="${x<30?'start':'end'}">${v}</text>`;
+  }).join("");
+}
+function toY(v, min, max, top, bot){ return bot - (v - min) / (max - min) * (bot - top); }
+function linePath(vals, min, max, top, bot){
+  return vals.map((v,i)=>`${i?"L":"M"}${H(i)},${toY(v,min,max,top,bot).toFixed(1)}`).join(" ");
+}
+function areaPath(vals, min, max, top, bot){
+  return `M${H(0)},${bot} ` + vals.map((v,i)=>`L${H(i)},${toY(v,min,max,top,bot).toFixed(1)}`).join(" ") + ` L${H(vals.length-1)},${bot} Z`;
+}
+function nightBands(){ // 夜间色带（20:00~06:00）——颜色走 CSS 类，随主题切换
+  let s = "";
+  [0,2,3,4,5].forEach(i => s += `<rect x="${H(i)-30}" y="30" width="60" height="196" class="nband"/>`);
+  return s;
+}
+
+/* ================= 各 tab 图表（tg = 开关是否打开） ================= */
+const CHARTS = {
+  "概览": (day, tg) => {
+    const temps = fser(day, 0, day.lo - 1, day.hi + 1);
+    const precs = fser(day, 1, 5, 90).map(v => Math.round(v));
+    const icons = ["rain","rain","cloud","moon","moon","moon","partly","sun","sun","sun","partly","cloud"];
+    let s = nightBands() + hourRow();
+    icons.forEach((ic,i)=> s += `<use href="#${ICONS[ic]}" x="${H(i)-12}" y="46" width="24" height="24"/>`);
+    temps.forEach((t,i)=> s += `<text x="${H(i)}" y="92" class="mtxt" font-size="16" font-weight="bold" text-anchor="middle">${Math.round(t)}°</text>`);
+    s += `<path d="${areaPath(temps, day.lo-2, day.hi+2, 100, 210)}" fill="url(#g-ov)" opacity=".85"/>`;
+    s += `<path d="${linePath(temps, day.lo-2, day.hi+2, 100, 210)}" stroke="#f2e2a0" stroke-width="2.5" fill="none"/>`;
+    // 体感温度附加线：只有开关打开才画
+    if (tg) s += `<path d="${linePath(fser(day, 13, day.lo-1, day.hi+2), day.lo-2, day.hi+2, 100, 210)}" stroke="#dfe6f2" stroke-width="2.5" fill="none"/>`;
+    precs.forEach((p,i)=> s += `<text x="${H(i)}" y="238" fill="#6fc0ff" font-size="16" text-anchor="middle">💧 ${p}%</text>`);
+    s += yLabels(["30°","15°","0°","-15°"], 26);
+    return s;
+  },
+  "降水": (day, tg) => {
+    const bars = fser(day, 2, 0, 1.2);
+    const cum = bars.reduce((a,v,i)=>{ a.push((a[i-1]||0) + v*0.35); return a; }, []);
+    let s = hourRow();
+    bars.forEach((v,i)=>{
+      if (v > 0.06) s += `<rect x="${H(i)-11}" y="${toY(v,0,1.2,60,210)}" width="22" height="${210-toY(v,0,1.2,60,210)}" rx="4" fill="url(#g-rainbar)"/>`;
+    });
+    // 累计降水附加线：只有开关打开才画
+    if (tg) s += `<path d="${linePath(cum, 0, 1.4, 60, 210)}" stroke="#5fd0e8" stroke-width="2.5" fill="none"/>`;
+    s += `<line x1="34" y1="210" x2="926" y2="210" class="trk"/>`;
+    s += yLabels(["1.2","0.9","0.6","0.3","0"], 26);
+    return s;
+  },
+  "风速": (day, tg) => {
+    const wind = fser(day, 3, 4, 18), gust = fser(day, 4, 10, 30);
+    let s = hourRow();
+    // 阵风区域：只有开关打开才画
+    if (tg) s += `<path d="${areaPath(gust, 0, 60, 60, 210)}" fill="url(#g-gust)"/>`;
+    s += `<path d="${linePath(wind, 0, 60, 60, 210)}" stroke="#6fa8e8" stroke-width="2.5" fill="none"/>`;
+    hours.forEach((_,i)=>{
+      const ang = Math.round(fser(day,5,0,360)[i]);
+      s += `<path d="M${H(i)},52 l-5,10 l5,-3 l5,3 z" class="mid" transform="rotate(${ang} ${H(i)} 55)"/>`;
+    });
+    s += yLabels(["60","45","30","15","0"], 26);
+    return s;
+  },
+  "湿度": (day, tg) => {
+    const hum = fser(day, 6, 60, 100);
+    let s = hourRow();
+    s += `<path d="${areaPath(hum, 0, 100, 46, 210)}" fill="url(#g-hum)"/>`;
+    // 露点附加线：只有开关打开才画
+    if (tg) s += `<path d="${linePath(fser(day, 7, day.lo-3, day.lo+2), 0, 100, 46, 210)}" stroke="#39c1c9" stroke-width="2.5" fill="none"/>`;
+    s += yLabels(["100","80","60","40","20","0"], 26) + yLabels(["30°","20°","10°","0°","-10°"], 928);
+    return s;
+  },
+  "云量": day => {
+    const cl = fser(day, 8, 30, 100);
+    let s = hourRow();
+    cl.forEach((v,i)=>{
+      const y = toY(v,0,100,56,210);
+      const col = v > 85 ? "#9db8dc" : v > 65 ? "#5f8fd0" : "#3f6fc0";
+      s += `<rect x="${H(i)-12}" y="${y}" width="24" height="${210-y}" rx="11" fill="${col}"/>`;
+    });
+    s += yLabels(["100","80","60","40","20","0"], 26);
+    return s;
+  },
+  "气压": day => {
+    const pr = fser(day, 9, 1012, 1028);
+    let s = hourRow();
+    s += `<path d="${areaPath(pr, 1000, 1030, 56, 210)}" fill="url(#g-pres)"/>`;
+    s += yLabels(["1030","1020","1010","1000"], 26);
+    return s;
+  },
+  "紫外线": day => {
+    // 按真实昼夜规律生成：6~18 点有紫外线，正午最强；按强度分色圆角柱
+    const uvs = fser(day, 10, 0, 8);
+    let s = hourRow() + yLabels(["10","5","0"], 26);
+    s += `<line x1="34" y1="210" x2="926" y2="210" class="trk"/>`;
+    hours.forEach((_,i)=>{
+      const h = (17 + i*2) % 24;
+      const mask = (h >= 6 && h <= 18) ? Math.sin(Math.PI * (h - 6) / 12) : 0;
+      const v = uvs[i] * mask;
+      if (v < 0.5) return;
+      const col = v > 7 ? "#e6533c" : v > 5 ? "#f08a3c" : v > 2 ? "#f5c542" : "#7cc26e";
+      const y = toY(v, 0, 10, 60, 210);
+      s += `<rect x="${H(i)-12}" y="${y.toFixed(1)}" width="24" height="${(210-y).toFixed(1)}" rx="6" fill="${col}"/>`;
+    });
+    return s;
+  },
+  "可见度": day => {
+    const vis = fser(day, 11, 1, 14);
+    let s = hourRow();
+    s += `<path d="${areaPath(vis, 0, 30, 56, 210)}" fill="url(#g-vis)"/>`;
+    s += yLabels(["30","20","10","0"], 26);
+    return s;
+  },
+  "体感温度": (day, tg) => {
+    const feel = fser(day, 12, day.lo, day.hi + 2);
+    let s = hourRow();
+    s += `<path d="${areaPath(feel, -15, 30, 50, 210)}" fill="url(#g-feel)"/>`;
+    // 实际温度附加线：只有开关打开才画
+    if (tg) s += `<path d="${linePath(fser(day, 0, day.lo-1, day.hi+1), -15, 30, 50, 210)}" stroke="#dfe6f2" stroke-width="2.5" fill="none"/>`;
+    s += yLabels(["30°","15°","0°","-15°"], 26);
+    return s;
+  },
+};
+
+/* ================= 日期卡（随 tab 切换内容） ================= */
+function cardHTML(day, tab){
+  const r = rng(curCity * 571 + day.d * 613 + 17);
+  const vbar = (pct, color) => `<div class="vbar"><i style="height:${pct}%;background:${color}"></i></div>`;
+  switch (tab) {
+    case "概览": return `<div class="dcol"><div class="row1"><span class="d">${day.d}</span><span class="w">${day.w}</span></div>
+      <svg class="wi"><use href="#${ICONS[day.icon]}"/></svg>
+      <div class="v2"><b class="kt" style="font-size:17px">${day.hi}°</b> / ${day.lo}°</div></div>`;
+    case "降水": { const mm = (r()*9).toFixed(2), pc = Math.round(r()*90);
+      return `<div class="dcol"><div class="row1"><span class="d">${day.d}</span><span class="w">${day.w}</span></div>
+      <div class="v1">${mm} <small>毫米</small></div><div class="v2">💧 ${pc}%</div></div>` + vbar(pc, "url(#g-rainbar)"); }
+    case "风速": { const w = 6+Math.round(r()*14), g = w+3+Math.round(r()*8);
+      return `<div class="dcol"><div class="row1"><span class="d">${day.d}</span><span class="w">${day.w}</span></div>
+      <div class="v1">${w}<small> 公里/...</small></div><div class="v2">${g} 公里/...</div>
+      <div class="v3">阵风: ${g} 公里/小时</div></div>` + vbar(w/35*100, "#6fa8e8"); }
+    case "湿度": { const h1 = 80+Math.round(r()*18), h2 = h1-10-Math.round(r()*10);
+      return `<div class="dcol"><div class="row1"><span class="d">${day.d}</span><span class="w">${day.w}</span></div>
+      <div class="v1">${h1}<small>%</small></div><div class="v2">${h2}%</div></div>` + vbar(h1, "#39c1c9"); }
+    case "云量": { const c1 = 55+Math.round(r()*45), c2 = Math.max(5, c1-10-Math.round(r()*30));
+      return `<div class="dcol"><div class="row1"><span class="d">${day.d}</span><span class="w">${day.w}</span></div>
+      <div style="display:flex;gap:4px">
+        <svg style="width:34px;height:34px"><use href="#${ICONS.cloud}"/></svg>
+        <svg style="width:34px;height:34px"><use href="#${ICONS.cloud}"/></svg></div>
+      <div class="v1">${c1}% <small>${c2}%</small></div></div>`; }
+    case "气压": { const p1 = 1012+Math.round(r()*16), p2 = p1-2-Math.round(r()*6);
+      return `<div class="dcol"><div class="row1"><span class="d">${day.d}</span><span class="w">${day.w}</span></div>
+      <div class="v1">${p1}<small> hPa</small></div><div class="v2">${p2} hPa</div></div>` + vbar((p1-1000)/35*100, "#8f7ff0"); }
+    case "紫外线": { const u = 1+Math.round(r()*3);
+      const lab = u > 2 ? `<span style="color:#f5c542">中等</span>` : `<span style="color:#8fe3a8">低</span>`;
+      return `<div class="dcol"><div class="row1"><span class="d">${day.d}</span><span class="w">${day.w}</span></div>
+      <div class="v1">${u}</div><div class="v2">${lab}</div></div>` + vbar(u*12, u>2?"#f5c542":"#7cc26e"); }
+    case "可见度": { const k1 = (4+r()*20).toFixed(0), k2 = (1+r()*6).toFixed(1);
+      return `<div class="dcol"><div class="row1"><span class="d">${day.d}</span><span class="w">${day.w}</span></div>
+      <div class="v1">${k1}<small> 公里</small></div><div class="v2">${k2} 公里</div>
+      <div class="v3">${k1 > 15 ? "非常好" : "优"}</div></div>` + vbar(k1/30*100, "#4cb878"); }
+    case "体感温度": { const f1 = day.hi+1, f2 = day.lo-2;
+      return `<div class="dcol"><div class="row1"><span class="d">${day.d}</span><span class="w">${day.w}</span></div>
+      <div class="v1">${f1}°</div><div class="v2">${f2}°</div></div>` + vbar((f1+10)/40*100, "url(#g-sun)"); }
+  }
+}
+
+/* ================= tab 配置 ================= */
+const TAB_META = {
+  "概览":   { tog:"体感温度", legend:[["#d9b74a","温度"],["💧","降水概率"]], togLegend:["#dfe6f2","体感温度"] },
+  "降水":   { tog:"累计降水", radio:["4小时","24小时"],
+              legend:[["#7cb8ff","雨"],["#4a90e2","阵雨"],["#8fd0f0","雨/雪"]], togLegend:["#5fd0e8","累计降水"] },
+  "风速":   { tog:"阵风",     legend:[["#6fa8e8","风速"]], togLegend:["#3a5a9c","阵风"] },
+  "湿度":   { tog:"露点",     legend:[["#5f9dd8","湿度"]], togLegend:["#39c1c9","露点"] },
+  "云量":   { tog:"",        legend:[["#3f6fc0","晴朗"],["#5f8fd0","大部晴朗"],["#7fa8d8","局部多云"],["#9db8dc","多云"]] },
+  "气压":   { tog:"",        legend:[["#8f7ff0","气压"]] },
+  "紫外线": { tog:"",        legend:[["#b9a7f5","极端"],["#e6533c","非常高"],["#f08a3c","高"],["#f5c542","中等"],["#7cc26e","低"]] },
+  "可见度": { tog:"",        legend:[["#4cb878","可见度"]] },
+  "体感温度": { tog:"温度",   legend:[["#c8a86a","体感温度"]], togLegend:["#dfe6f2","温度"] },
+};
+const TAB_NAMES = Object.keys(TAB_META);
+
+/* ================= 列表视图（与图表同源种子数据，切换视图天气不变） ================= */
+function buildList(day){
+  const temps = fser(day, 0, day.lo - 1, day.hi + 1);              // 与概览温度同源
+  const precs = fser(day, 1, 5, 90).map(v => Math.round(v));       // 与概览降水概率同源
+  const wind  = fser(day, 3, 4, 18).map(v => Math.round(v + 8));   // 与风速tab同源
+  const feels = fser(day, 12, day.lo, day.hi + 2);                 // 与体感温度tab同源
+  const icons = ["rain","rain","cloud","moon","moon","moon","partly","sun","sun","sun","partly","cloud"];
+  const condText = { sun:"晴朗", cloud:"多云", moon:"夜间晴朗", partly:"局部晴朗", rain:"降雨" };
+  const cards = hours.map((h,i)=>`<div class="lcard">
+    <div class="lt">${h}</div>
+    <svg class="lwi"><use href="#${ICONS[icons[i]]}"/></svg>
+    <div class="ltemp">${Math.round(temps[i])}°</div>
+    <div class="lcond">${condText[icons[i]]}</div>
+    <div class="lrow">🌡 ${Math.round(feels[i])}°</div>
+    <div class="lrow">💧 ${precs[i]}%</div>
+    <div class="lrow">🌬 ${wind[i]} 公里/时</div>
+  </div>`).join("");
+  return `<div class="listwrap"><div class="liststrip">${cards}</div>
+    <div class="listfoot"><span>🌡 体感温度</span><span>💧 降水</span><span>🌬 风速</span><span class="exp">展开 ›</span></div></div>`;
+}
+
+/* ================= 渲染 ================= */
+const tabsEl = document.getElementById("tabs");
+TAB_NAMES.forEach(name => {
+  const el = document.createElement("span");
+  el.className = "tab" + (name === curTab ? " on" : "");
+  el.textContent = name;
+  el.onclick = () => { curTab = name; refresh(); };
+  tabsEl.appendChild(el);
+});
+
+const strip = document.getElementById("daystrip");
+let cardEls = [];
+days.forEach((day, i) => {
+  const el = document.createElement("div");
+  el.className = "card daycard";
+  el.onclick = () => { sel = i; refresh(); };
+  strip.appendChild(el); cardEls.push(el);
+});
+
+function refresh(){
+  const day = days[sel];
+  document.querySelectorAll("#tabs .tab").forEach((el,i)=> el.classList.toggle("on", TAB_NAMES[i] === curTab));
+  /* 图表/列表 视图切换（数据同源，前后天气不变） */
+  document.querySelectorAll(".viewtog .tab").forEach(t =>
+    t.classList.toggle("on", (t.textContent.trim() === "列表") === (viewMode === "list")));
+  document.querySelector(".ov-head").style.display = viewMode === "chart" ? "flex" : "none";
+  document.getElementById("ovchart").style.display = viewMode === "chart" ? "block" : "none";
+  document.getElementById("ov-legend").style.display = viewMode === "chart" ? "flex" : "none";
+  const listEl = document.getElementById("ov-list");
+  listEl.style.display = viewMode === "list" ? "block" : "none";
+  if (viewMode === "list") listEl.innerHTML = buildList(day);
+  cardEls.forEach((el,i) => {
+    el.classList.toggle("sel", i === sel);
+    el.innerHTML = cardHTML(days[i], curTab);
+  });
+  document.getElementById("ov-tab").textContent = curTab;
+  const meta = TAB_META[curTab];
+  /* 图表头部右侧：降水 tab 有 4小时/24小时 单选；有 tog 的 tab 有开关。
+     附加线默认不画，点开关后才出现（对齐 Win11 行为） */
+  const right = document.getElementById("ov-right");
+  right.innerHTML = "";
+  (meta.radio || []).forEach(rn => {
+    const el = document.createElement("span");
+    el.className = "radio" + (radioState === rn ? " on" : "");
+    el.innerHTML = `<i></i>${rn}`;
+    el.onclick = () => { radioState = rn; refresh(); };
+    right.appendChild(el);
+  });
+  if (meta.tog) {
+    const sw = document.createElement("span");
+    sw.className = "sw" + (togState[curTab] ? "" : " off");
+    sw.onclick = () => { togState[curTab] = !togState[curTab]; refresh(); };
+    const nm = document.createElement("span");
+    nm.textContent = meta.tog;
+    right.appendChild(sw); right.appendChild(nm);
+  }
+  right.style.visibility = (meta.tog || meta.radio) ? "visible" : "hidden";
+  document.getElementById("ovchart").innerHTML = CHARTS[curTab](day, !!togState[curTab]);
+  const legend = meta.legend.concat(meta.togLegend && togState[curTab] ? [meta.togLegend] : []);
+  document.getElementById("ov-legend").innerHTML = legend.map(([c,n]) =>
+    `<span class="li"><span class="dot" style="background:${c}"></span>${n}</span>`).join("");
+
+  /* 详细信息卡随日期+城市刷新（虚拟数据，不同城市/日期都不同） */
+  const r = rng(curCity * 571 + day.d * 977 + 31);
+  const hi = day.hi + Math.round(r()*2 - 1), lo = day.lo + Math.round(r()*2 - 1);
+  const feels = hi + 1 + Math.round(r()*2);
+  const hum = 70 + Math.round(r()*28), dew = lo - 1 + Math.round(r()*3);
+  const aqi = 40 + Math.round(r()*70);
+  const wind = 4 + Math.round(r()*12), gust = wind + 3 + Math.round(r()*5);
+  const visV = 2 + r()*8, presV = 1005 + Math.round(r()*20);
+  const dirs = ["东北","东风","东南","南风","西南"], dir = dirs[Math.round(r()*4)];
+  /* 顶栏 hero：城市名 + 当前天气随城市切换 */
+  const city = CITIES[curCity];
+  document.getElementById("city-btn").innerHTML = `${city.prov},${city.name} <span class="caret">⌄</span>`;
+  const hIcon = cityCond(curCity);
+  document.getElementById("hero-icon").setAttribute("href", "#" + ICONS[hIcon]);
+  document.getElementById("hero-temp").textContent = cityTemp(curCity);
+  document.getElementById("hero-cond").textContent = CONDS[hIcon];
+  document.getElementById("hero-feels").textContent = feels;
+  document.getElementById("hero-tip").textContent = {
+    rain:"预计今天有降雨，出门请带伞。", sun:"今天天气晴朗，适合外出。",
+    cloud:"云量较多，天气凉爽。", partly:"局部晴朗，偶有阳光。", moon:"今晚天气晴朗。" }[hIcon];
+  document.getElementById("c-aqi").textContent = aqi;
+  document.getElementById("c-wind").textContent = `${dir} ${wind < 6 ? 2 : wind < 10 ? 3 : 4}级`;
+  document.getElementById("c-hum").textContent = hum + "%";
+  document.getElementById("c-vis").textContent = visV.toFixed(1) + " 公里";
+  document.getElementById("c-pres").textContent = presV + " hPa";
+  document.getElementById("c-dew").textContent = dew + "°";
+  document.getElementById("detail-date").textContent = `11月${day.d}日 ${day.w} · ${day.w === "今天" ? "今天" : "预报"}`;
+  document.getElementById("v-temp").innerHTML = `${hi}<small>°</small>`;
+  document.getElementById("v-feels").innerHTML = `${feels}<small>°</small>`;
+  document.getElementById("v-feels-tag").textContent = feels - hi > 2 ? "偏暖" : "舒适";
+  document.getElementById("v-cloud").innerHTML = `${55 + Math.round(r()*40)}<small>%</small>`;
+  document.getElementById("v-cloud-c").textContent = CONDS[day.icon];
+  document.getElementById("v-precip").innerHTML = `${(r()*14).toFixed(1)} <small>毫米</small>`;
+  document.getElementById("v-wind").textContent = wind;
+  document.getElementById("v-gust").textContent = gust;
+  document.getElementById("v-wind-from").textContent = `${dir} (${90 + Math.round(r()*90)}°)`;
+  document.getElementById("v-level").textContent = `风力: ${wind < 6 ? "2 (轻风)" : wind < 10 ? "3 (微风)" : "4 (和风)"} 🍃`;
+  document.getElementById("v-hum").textContent = hum;
+  document.getElementById("v-dew").textContent = dew;
+  document.getElementById("v-uv").textContent = 1 + Math.round(r()*6);
+  document.getElementById("v-aqi").textContent = aqi;
+  document.getElementById("v-vis").innerHTML = `${visV.toFixed(1)} <small>公里</small>`;
+  document.getElementById("v-pres").innerHTML = `${presV} <small>hPa</small>`;
+  const hb = document.getElementById("v-hbars"); hb.innerHTML = "";
+  for (let i = 0; i < 8; i++) { const b = document.createElement("i"); b.style.height = (30 + r()*55) + "%"; hb.appendChild(b); }
+}
+refresh();
+
+/* 图表/列表切换（真实切换视图） */
+document.querySelectorAll(".viewtog .tab").forEach(t => {
+  t.onclick = () => {
+    viewMode = t.textContent.trim() === "列表" ? "list" : "chart";
+    refresh();
+  };
+});
+
+/* 主题切换：深色默认，点击变浅色（SVG 颜色走 CSS 类，无需重绘图表） */
+let theme = "dark";
+document.getElementById("themetog").onclick = () => {
+  theme = theme === "dark" ? "light" : "dark";
+  document.body.classList.toggle("light", theme === "light");
+  document.getElementById("themetog").textContent = theme === "dark" ? "🌙" : "☀️";
+};
+</script>
+</body>
+</html>

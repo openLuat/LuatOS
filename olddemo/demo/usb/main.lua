@@ -37,6 +37,7 @@ usb.on(0, usb_cb)
 --usb.debug(0, true)
 pm.power(pm.USB, false)		--确保USB外设是掉电状态
 usb.mode(0, usb.HOST)		--usb设置成主机模式
+--usb.mode(0, usb.HOST, true)	--Air160X如果外接HUB+鼠标键盘，必须强制使用FS模式，芯片平台无法兼容HS和FS设备共存，只能强制用FS模式。如果接摄像头+U盘则无需强制FS
 pm.power(pm.USB, true)		--USB上电初始化开始工作
 
 -- 1601开发板需要这么操作

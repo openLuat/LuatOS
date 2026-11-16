@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>3D打印机 HMI · 1:1 预览稿（1024×600）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { background: #3a3a3a; height: 100%; }
+  body { display: flex; align-items: center; justify-content: center; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
+
+  #screen { position: relative; width: 1024px; height: 600px; background: #000; overflow: hidden; color: #fff; }
+  .page { position: absolute; inset: 0; display: none; }
+  .page.on { display: block; }
+  .click { cursor: pointer; }
+
+  /* 顶栏 */
+  .topbar { position: absolute; left: 0; top: 0; width: 100%; height: 62px; }
+  .home { position: absolute; left: 26px; top: 14px; width: 34px; height: 34px; cursor: pointer; }
+  .crumb { position: absolute; left: 74px; top: 18px; font-size: 22px; color: #fff; letter-spacing: 1px; white-space: nowrap; }
+  .crumb .sep { color: #8a8a8a; margin: 0 10px; }
+  .crumb span.link { cursor: pointer; }
+  .wifi { position: absolute; right: 26px; top: 15px; width: 32px; height: 32px; cursor: pointer; }
+
+  /* 首页 */
+  .homewrap { position: absolute; left: 0; top: 62px; width: 1024px; height: 538px; display: flex; align-items: center; justify-content: center; gap: 46px; }
+  .bigcard { width: 214px; height: 262px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
+  .bigcard svg { width: 96px; height: 96px; }
+  .bigcard span { margin-top: 22px; font-size: 30px; color: #000; letter-spacing: 2px; }
+
+  /* 打印文件列表 */
+  .filelist { position: absolute; left: 30px; top: 68px; width: 520px; padding: 10px; border: 2px solid #6a6a6a; border-radius: 8px; box-sizing: border-box; }
+  .fileitem { height: 52px; line-height: 52px; padding-left: 16px; font-size: 22px; color: #fff; background: #1c1c1c; border-radius: 10px; margin-bottom: 6px; cursor: pointer; }
+  .fileitem.sel { background: #f5a81e; color: #000; }
+  .pager { position: absolute; left: 60px; top: 404px; font-size: 24px; color: #fff; display: flex; align-items: center; gap: 26px; }
+  .pager .num { font-size: 20px; color: #cfcfcf; min-width: 44px; text-align: center; }
+  .previewbox { position: absolute; left: 600px; top: 78px; width: 336px; height: 224px; background: #d7d7d7; border: 2px solid #f5a81e; border-radius: 8px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+  .pvname { position: absolute; left: 600px; top: 318px; width: 336px; text-align: center; font-size: 24px; color: #fff; }
+  .pvdate { position: absolute; left: 600px; top: 352px; width: 336px; text-align: center; font-size: 18px; color: #bdbdbd; }
+  .btn-print { position: absolute; left: 668px; top: 486px; width: 200px; height: 62px; background: #f5b81e; border-radius: 8px; font-size: 26px; color: #000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+  /* 打印中 */
+  .jtb { position: absolute; left: 44px; top: 78px; width: 300px; height: 206px; background: #d7d7d7; border: 2px solid #f5a81e; border-radius: 8px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+  .jname { position: absolute; left: 44px; top: 298px; width: 300px; text-align: center; font-size: 24px; }
+  .jdate { position: absolute; left: 44px; top: 330px; width: 300px; text-align: center; font-size: 18px; color: #bdbdbd; }
+  .metrics { position: absolute; left: 392px; top: 76px; width: 590px; display: grid; grid-template-columns: 290px 290px; grid-row-gap: 26px; }
+  .metric { display: flex; align-items: center; }
+  .metric .ico { width: 44px; height: 44px; margin-right: 12px; }
+  .metric .val { font-size: 32px; color: #fff; }
+  .metric .unit { margin-left: 10px; font-size: 20px; color: #cfcfcf; }
+  .jbtns { position: absolute; left: 470px; top: 330px; width: 520px; display: flex; gap: 46px; }
+  .btn-stop { width: 220px; height: 64px; border: 2px solid #f5a81e; border-radius: 8px; color: #f5a81e; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .btn-pause { width: 220px; height: 64px; background: #f5c033; border-radius: 8px; color: #000; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .prog { position: absolute; left: 44px; top: 470px; width: 940px; }
+  .prog .lab { font-size: 24px; }
+  .prog .pct { position: absolute; right: 0; top: 0; font-size: 24px; color: #f5c033; }
+  .prog .track { margin-top: 14px; height: 26px; border: 2px solid #f5a81e; border-radius: 14px; padding: 3px; }
+  .prog .fill { height: 100%; background: #f5c033; border-radius: 10px; width: 0; transition: width .1s linear; }
+
+  /* 准备 */
+  .prepwrap { position: absolute; left: 40px; top: 84px; width: 944px; display: grid; grid-template-columns: 460px 460px; grid-gap: 24px; }
+  .pcard { height: 116px; background: #1c1c1c; border-radius: 8px; display: flex; align-items: center; padding: 0 22px; cursor: pointer; }
+  .pcard .sq { width: 62px; height: 62px; border-radius: 8px; margin-right: 20px; display: flex; align-items: center; justify-content: center; }
+  .pcard .sq svg { width: 40px; height: 40px; }
+  .pcard .nm { font-size: 26px; color: #fff; }
+  .pcard .rt { margin-left: auto; font-size: 26px; color: #9a9a9a; }
+  .pcard .rt.val { color: #b06be0; }
+  .pcard .rt.on { color: #fff; }
+
+  /* 移动轴 */
+  .unitrow { position: absolute; left: 44px; top: 82px; width: 940px; display: flex; align-items: center; }
+  .unitrow .t { font-size: 24px; }
+  .seg { margin-left: 26px; display: flex; width: 560px; height: 56px; border: 2px solid #f5a81e; border-radius: 28px; overflow: hidden; }
+  .seg div { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; cursor: pointer; }
+  .seg div.on { background: #f5c033; color: #000; border-radius: 24px; }
+  .axis { position: absolute; left: 44px; top: 168px; width: 210px; }
+  .axrow { display: flex; align-items: center; margin-bottom: 22px; }
+  .axrow b { font-size: 26px; font-weight: normal; width: 44px; }
+  .axrow .box { width: 150px; height: 58px; border: 2px solid #6a6a6a; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+  .dpad { position: absolute; left: 340px; top: 168px; width: 300px; }
+  .dpad .row { display: flex; justify-content: center; gap: 22px; margin-bottom: 14px; }
+  .dbtn { width: 88px; height: 82px; background: #242424; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
+  .dbtn:active { background: #3a3a3a; }
+  .dbtn svg { width: 30px; height: 26px; }
+  .dbtn span { font-size: 20px; color: #58c8d8; }
+  .dbtn.flat { flex-direction: row; gap: 2px; }
+  .zcol { position: absolute; left: 760px; top: 168px; width: 100px; display: flex; flex-direction: column; gap: 16px; }
+  .zcol .dbtn { width: 92px; height: 84px; }
+
+  /* 进退料 */
+  .filrow { position: absolute; left: 44px; top: 84px; width: 936px; height: 170px; background: #1c1c1c; border-radius: 8px; padding: 16px 22px; }
+  .fhead { display: flex; align-items: center; gap: 12px; font-size: 24px; }
+  .fhead .ico { width: 38px; height: 38px; }
+  .slider { margin-top: 18px; height: 20px; background: #333; border-radius: 10px; position: relative; cursor: pointer; }
+  .slider .sfill { position: absolute; left: 0; top: 0; height: 20px; background: #f5a81e; border-radius: 10px; }
+  .slider .knob { position: absolute; top: -10px; width: 40px; height: 40px; background: #f5c033; border-radius: 50%; }
+  .frow2 { position: absolute; left: 44px; top: 272px; width: 936px; height: 96px; background: #1c1c1c; border-radius: 8px; display: flex; align-items: center; padding: 0 22px; cursor: pointer; }
+  .frow3 { position: absolute; left: 44px; top: 384px; width: 936px; height: 96px; background: #1c1c1c; border-radius: 8px; display: flex; align-items: center; padding: 0 22px; cursor: pointer; }
+  .frow2 .ico, .frow3 .ico { width: 40px; height: 40px; margin-right: 14px; }
+  .frow2 .nm, .frow3 .nm { font-size: 26px; }
+  .frow2 .v, .frow3 .v { margin-left: auto; font-size: 26px; }
+
+  /* 设置 */
+  .smenu { position: absolute; left: 26px; top: 84px; width: 170px; }
+  .smenu div { position: relative; height: 78px; line-height: 78px; font-size: 26px; color: #bdbdbd; padding-left: 22px; cursor: pointer; }
+  .smenu div.on { color: #ffa51f; }
+  .smenu div.on::before { content: ""; position: absolute; left: 0; top: 12px; width: 4px; height: 54px; background: #ffa51f; }
+  .sgrid { position: absolute; left: 230px; top: 84px; width: 764px; display: grid; grid-template-columns: 372px 372px; grid-gap: 20px; }
+  .scard { height: 132px; background: #1c1c1c; border-radius: 8px; display: flex; align-items: center; padding: 0 18px; cursor: pointer; }
+  .scard .badge { width: 62px; height: 62px; border-radius: 50%; margin-right: 16px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: #000; }
+  .scard .tx { font-size: 22px; }
+  .scard .tx2 { font-size: 20px; color: #ffa51f; margin-top: 4px; }
+  .scard .rt { margin-left: auto; font-size: 24px; }
+  .aboutrows { position: absolute; left: 236px; top: 84px; width: 752px; }
+  .arow { height: 62px; display: flex; align-items: center; font-size: 22px; padding: 0 16px; border-radius: 6px; cursor: pointer; }
+  .arow .v { margin-left: auto; }
+  .arow.sel { background: #f5a81e; color: #000; }
+
+  /* 系统设置 2×2 */
+  .sysgrid { position: absolute; left: 236px; top: 96px; width: 752px; display: grid; grid-template-columns: 366px 366px; grid-gap: 20px; }
+  .syscard { height: 150px; background: #1c1c1c; border-radius: 8px; display: flex; align-items: center; padding: 0 20px; cursor: pointer; }
+  .syscard .bi { width: 64px; height: 64px; border-radius: 50%; margin-right: 16px; display: flex; align-items: center; justify-content: center; }
+  .syscard .nm { font-size: 26px; }
+  .syscard .rt { margin-left: auto; font-size: 26px; color: #cfcfcf; }
+
+  /* 调平 */
+  .lvgrid { position: absolute; left: 52px; top: 96px; display: grid; grid-template-columns: repeat(3, 118px); grid-gap: 14px; }
+  .lvcell { height: 106px; background: #8e9eae; border-radius: 6px; color: #fff; font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .lvcell.on { background: #f5d02e; color: #000; }
+  .lvhint { position: absolute; left: 480px; top: 176px; width: 480px; font-size: 34px; line-height: 1.5; }
+
+  /* 调平完成提示（视频同款：橄榄绿横条 + 黄圈对勾） */
+  .lvtoast { position: absolute; left: 44px; top: 232px; width: 936px; height: 168px; background: #3d4a3c;
+    border: 1px solid #5d6b58; border-radius: 4px; display: none; align-items: center; justify-content: center; gap: 26px; }
+  .lvtoast.on { display: flex; }
+  .lvtoast .txt { font-size: 40px; color: #fff; }
+
+  /* 弹窗 */
+  .mask { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: none; }
+  .mask.on { display: block; }
+  .dlg { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 600px; background: #3c3c3c; border-radius: 8px; padding: 34px 40px 30px; }
+  .dlg .tt { font-size: 30px; text-align: center; line-height: 1.4; }
+  .dlg .btns { margin-top: 34px; display: flex; justify-content: center; gap: 60px; }
+  .dlg .yes { width: 200px; height: 66px; background: #f5c033; border-radius: 6px; color: #000; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .dlg .no { width: 200px; height: 66px; border: 2px solid #f5a81e; border-radius: 6px; color: #ffa51f; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+  /* WiFi */
+  .wifidlg { width: 640px; }
+  .wrow { margin-top: 24px; }
+  .wrow .lb { font-size: 24px; display: flex; align-items: center; gap: 10px; }
+  .winput { margin-top: 12px; height: 56px; background: #111; border: 1px solid #6a6a6a; border-radius: 8px; font-size: 26px; color: #fff; display: flex; align-items: center; padding: 0 16px; cursor: pointer; }
+  .winput.empty { color: #9a9a9a; }
+  .wok { margin-top: 26px; height: 62px; background: #f5b81e; border-radius: 6px; color: #000; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .wclose { position: absolute; right: 18px; top: 14px; font-size: 34px; color: #ffa51f; cursor: pointer; line-height: 1; }
+
+  /* 软键盘（复刻视频：数字带符号、符号副键、Backspace/空格） */
+  .kbd { position: absolute; left: 40px; top: 78px; width: 944px; background: #1c1c1c; border: 1px solid #6a6a6a; border-radius: 10px; padding: 8px; box-sizing: border-box; }
+  .kbd .inputrow { display: flex; gap: 6px; margin-bottom: 8px; }
+  .kbd .inp { flex: 1; height: 58px; background: #111; border: 1px solid #6a6a6a; border-radius: 8px; font-size: 30px; color: #fff; padding: 0 14px; line-height: 56px; overflow: hidden; white-space: nowrap; }
+  .kbd .inputrow .key { flex: none; width: 96px; height: 58px; font-size: 26px; }
+  .kbd .kbwrap { display: flex; gap: 6px; }
+  .kbd .kbcols { flex: 1; }
+  .kbd .r { display: flex; gap: 6px; margin-bottom: 6px; }
+  .key { flex: 1; height: 56px; background: #242424; border: 1px solid #6a6a6a; border-radius: 8px; font-size: 21px; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .key:active { background: #f5a81e; color: #000; }
+  .key .s { font-size: 13px; color: #9a9a9a; align-self: flex-start; margin: 6px 0 0 2px; }
+  .key.caps { background: #f5a81e; color: #000; font-size: 18px; }
+  .key.side { background: #242424; border: 1px solid #6a6a6a; color: #fff; font-size: 18px; }
+  .kbd .kbside { width: 152px; display: flex; flex-direction: column; gap: 5px; }
+  .kbd .kbside .key { flex: none; height: 56px; }
+  .key.space { flex: 3.2; }
+
+  /* 数字键盘 */
+  .np { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 520px; background: #3c3c3c; border-radius: 8px; padding: 16px; display: none; z-index: 60; }
+  .np.on { display: block; }
+  .np .disp { height: 58px; background: #111; border-radius: 6px; font-size: 28px; color: #fff; display: flex; align-items: center; padding: 0 12px; }
+  .np .grid9 { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 8px; }
+  .nk { height: 62px; background: #f5b81e; border-radius: 6px; color: #000; font-size: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .np .colright { position: absolute; right: 16px; top: 16px; width: 96px; }
+  .np .colright .nk { margin-bottom: 8px; height: 58px; }
+
+  /* 亮度 / 速度 弹窗滑块 */
+  .dlg .sl { margin-top: 30px; height: 24px; background: #2a2a2a; border-radius: 12px; position: relative; cursor: pointer; }
+  .dlg .sf { position: absolute; left: 0; top: 0; height: 24px; background: #f5a81e; border-radius: 12px; }
+  .dlg .kn { position: absolute; top: -10px; width: 44px; height: 44px; background: #f5c033; border-radius: 50%; }
+</style>
+</head>
+<body>
+<div id="screen">
+
+  <!-- ============ 1 首页 ============ -->
+  <div class="page on" id="p-home">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="homewrap">
+      <div class="bigcard" style="background:#f5a81e" onclick="go('p-files')">
+        <svg viewBox="0 0 64 64"><rect x="14" y="10" width="34" height="24" rx="3" fill="none" stroke="#000" stroke-width="3"/><rect x="18" y="16" width="26" height="12" rx="1.5" fill="#000"/><rect x="10" y="38" width="44" height="16" rx="3" fill="none" stroke="#000" stroke-width="3"/><circle cx="20" cy="34" r="2" fill="#000"/><circle cx="32" cy="34" r="2" fill="#000"/><circle cx="44" cy="34" r="2" fill="#000"/></svg>
+        <span>打印</span>
+      </div>
+      <div class="bigcard" style="background:#8fe3e6" onclick="go('p-prep')">
+        <svg viewBox="0 0 64 64"><rect x="8" y="12" width="34" height="8" rx="4" fill="#000"/><circle cx="20" cy="16" r="7" fill="none" stroke="#000" stroke-width="3"/><rect x="22" y="28" width="34" height="8" rx="4" fill="#000"/><circle cx="36" cy="32" r="7" fill="none" stroke="#000" stroke-width="3"/><rect x="8" y="44" width="34" height="8" rx="4" fill="#000"/><circle cx="20" cy="48" r="7" fill="none" stroke="#000" stroke-width="3"/></svg>
+        <span>准备</span>
+      </div>
+      <div class="bigcard" style="background:#d7e84b" onclick="go('p-set')">
+        <svg viewBox="0 0 64 64"><path d="M28 8 h8 l2 8 6 3 8-2 4 7-6 6 v6 l6 6-4 7-8-2-6 3-2 8h-8l-2-8-6-3-8 2-4-7 6-6v-6l-6-6 4-7 8 2 6-3z" fill="none" stroke="#000" stroke-width="3" stroke-linejoin="round"/><circle cx="32" cy="34" r="8" fill="none" stroke="#000" stroke-width="3"/></svg>
+        <span>设置</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2 打印-文件列表 ============ -->
+  <div class="page" id="p-files">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span>打印</span></div>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="filelist" id="filelist"></div>
+    <div class="pager">
+      <span class="click" onclick="pageFirst()">|&lt;</span>
+      <span class="click" onclick="pagePrev()">&lt;</span>
+      <span class="num" id="pagenum">1/3</span>
+      <span class="click" onclick="pageNext()">&gt;</span>
+      <span class="click" onclick="pageLast()">&gt;|</span>
+    </div>
+    <div class="previewbox" id="filethumb"></div>
+    <div class="pvname" id="filename">方块兔</div>
+    <div class="pvdate" id="filedate">2022/11/14</div>
+    <div class="btn-print" onclick="startPrint()">打印</div>
+  </div>
+
+  <!-- ============ 3 打印中 ============ -->
+  <div class="page" id="p-printing">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span class="link" onclick="go('p-files')">打印</span><span class="sep">&gt;</span><span>打印中</span></div>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="jtb" id="jobthumb"></div>
+    <div class="jname" id="jobname">微笑太阳</div>
+    <div class="jdate" id="jobdate">2022/07/03</div>
+    <div class="metrics">
+      <div class="metric">
+        <svg class="ico" viewBox="0 0 40 40"><rect x="6" y="8" width="10" height="20" rx="2" fill="#f5a81e"/><rect x="18" y="8" width="10" height="20" rx="2" fill="#f5a81e"/><rect x="8" y="30" width="20" height="6" rx="3" fill="#f5a81e"/><rect x="30" y="12" width="4" height="14" fill="#f5a81e"/></svg>
+        <span class="val">170</span><span class="unit">200°C</span>
+      </div>
+      <div class="metric">
+        <svg class="ico" viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="#9fd35a" stroke-width="2.6"/><path d="M20 20 L20 10 M20 20 L28 24" stroke="#9fd35a" stroke-width="2.6"/></svg>
+        <span class="val">60</span><span class="unit">%</span>
+      </div>
+      <div class="metric">
+        <svg class="ico" viewBox="0 0 40 40"><path d="M8 12 q4 -6 8 0 q4 6 8 0 q4 -6 8 0" fill="none" stroke="#b06be0" stroke-width="2.6"/><path d="M8 22 q4 -6 8 0 q4 6 8 0 q4 -6 8 0" fill="none" stroke="#b06be0" stroke-width="2.6"/><rect x="8" y="30" width="24" height="4" rx="2" fill="#b06be0"/></svg>
+        <span class="val">60</span><span class="unit">60°C</span>
+      </div>
+      <div class="metric">
+        <svg class="ico" viewBox="0 0 40 40"><path d="M10 8 v24 M10 20 h20 M30 8 v24" stroke="#58c8d8" stroke-width="2.6" fill="none"/><path d="M26 16 l4 -4 4 4 M26 24 l4 4 4 -4" stroke="#58c8d8" stroke-width="2.2" fill="none"/></svg>
+        <span class="val">0.1</span><span class="unit">MM</span>
+      </div>
+    </div>
+    <div class="jbtns">
+      <div class="btn-stop" onclick="askStop()">停止</div>
+      <div class="btn-pause" onclick="askPause()">暂停</div>
+    </div>
+    <div class="prog">
+      <div class="lab">打印进度</div>
+      <div class="pct" id="pct">0 %</div>
+      <div class="track"><div class="fill" id="pfill"></div></div>
+    </div>
+
+    <div class="mask" id="m-stop">
+      <div class="dlg">
+        <div class="tt">是否停止打印?</div>
+        <div class="btns">
+          <div class="yes" onclick="doStop()">是</div>
+          <div class="no" onclick="closeMask('m-stop')">否</div>
+        </div>
+      </div>
+    </div>
+    <div class="mask" id="m-pause">
+      <div class="dlg">
+        <div class="tt">已加载<br>是否继续或停止打印?</div>
+        <div class="btns">
+          <div class="yes" onclick="resumePrint()">是</div>
+          <div class="no" onclick="doStop()">否</div>
+        </div>
+      </div>
+    </div>
+    <div class="mask" id="m-done">
+      <div class="dlg">
+        <div class="tt">打印完成!</div>
+        <div class="btns">
+          <div class="yes" onclick="closeMask('m-done');go('p-files')">是</div>
+          <div class="no" onclick="closeMask('m-done');go('p-files')">否</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 4 准备 ============ -->
+  <div class="page" id="p-prep">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span>准备</span></div>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="prepwrap">
+      <div class="pcard" onclick="go('p-move')">
+        <div class="sq" style="background:#f5d02e"><svg viewBox="0 0 40 40"><path d="M20 6 v28 M6 20 h28" stroke="#000" stroke-width="3"/><path d="M20 6 l-4 5 h8z M20 34 l-4 -5 h8z M6 20 l5 -4 v8z M34 20 l-5 -4 v8z" fill="#000"/></svg></div>
+        <span class="nm">移动轴</span><span class="rt">&gt;</span>
+      </div>
+      <div class="pcard" onclick="go('p-feed')">
+        <div class="sq" style="background:#f5a81e"><svg viewBox="0 0 40 40"><path d="M14 6 h12 v10 l-6 8 -6 -8z" fill="#000"/><rect x="17" y="24" width="6" height="10" fill="#000"/></svg></div>
+        <span class="nm">进退料</span><span class="rt">&gt;</span>
+      </div>
+      <div class="pcard" onclick="toggleFan()">
+        <div class="sq" style="background:#b06be0"><svg viewBox="0 0 40 40"><path d="M20 20 q-3 -12 6 -14 q4 8 -2 14 q9 -6 12 2 q-8 8 -16 2 q-6 9 -14 4 q-1 -9 14 -8z" fill="#000"/><circle cx="20" cy="20" r="3" fill="#b06be0"/></svg></div>
+        <span class="nm">风扇</span><span class="rt val" id="fanstate">OFF</span>
+      </div>
+      <div class="pcard" onclick="toggleCool()">
+        <div class="sq" style="background:#58c8d8"><svg viewBox="0 0 40 40"><path d="M20 6 q9 12 9 18 a9 9 0 0 1 -18 0 q0 -6 9 -18z" fill="none" stroke="#000" stroke-width="2.8"/><path d="M14 26 a6 6 0 0 0 6 6" fill="none" stroke="#000" stroke-width="2.4"/></svg></div>
+        <span class="nm">冷却</span><span class="rt on" id="coolstate">ON</span>
+      </div>
+      <div class="pcard" onclick="openMask('m-help')">
+        <div class="sq" style="background:#f5d02e"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="13" fill="none" stroke="#000" stroke-width="3"/><rect x="18.5" y="11" width="3" height="11" fill="#000"/><circle cx="20" cy="27" r="2" fill="#000"/></svg></div>
+        <span class="nm">说明</span><span class="rt">&gt;</span>
+      </div>
+    </div>
+    <div class="mask" id="m-help">
+      <div class="dlg">
+        <div class="tt" style="font-size:24px;line-height:1.6">操作说明<br>磨损喷嘴请及时更换<br>移动轴前请先归零</div>
+        <div class="btns"><div class="yes" onclick="closeMask('m-help')">确定</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 5 移动轴 ============ -->
+  <div class="page" id="p-move">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span class="link" onclick="go('p-prep')">准备</span><span class="sep">&gt;</span><span>移动轴</span></div>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="unitrow">
+      <span class="t">单位:MM</span>
+      <div class="seg" id="unitseg">
+        <div class="on" onclick="setUnit(0.1,this)">0.1 MM</div>
+        <div onclick="setUnit(1,this)">1MM</div>
+        <div onclick="setUnit(10,this)">10MM</div>
+      </div>
+    </div>
+    <div class="axis">
+      <div class="axrow"><b style="color:#58c8d8">X:</b><div class="box" id="posx">49.4</div></div>
+      <div class="axrow"><b style="color:#58c8d8">Y:</b><div class="box" id="posy">49.8</div></div>
+      <div class="axrow"><b style="color:#58c8d8">Z:</b><div class="box" id="posz">49.6</div></div>
+    </div>
+    <div class="dpad">
+      <div class="row">
+        <div class="dbtn" onclick="axisMove('y',1)"><svg viewBox="0 0 30 26"><path d="M15 2 l8 10 h-5 v12 h-6 v-12 h-5z" fill="#58c8d8"/></svg><span>Y</span></div>
+      </div>
+      <div class="row">
+        <div class="dbtn flat" onclick="axisMove('x',-1)"><svg viewBox="0 0 30 26"><path d="M10 13 l10 -8 v5 h8 v6 h-8 v5z" fill="#58c8d8"/></svg><span>X</span></div>
+        <div class="dbtn" onclick="axisHome('x')"><svg viewBox="0 0 30 26"><path d="M15 4 L26 13 H22 V23 H8 V13 H4 Z" fill="none" stroke="#58c8d8" stroke-width="2.2" stroke-linejoin="round"/></svg></div>
+        <div class="dbtn flat" onclick="axisMove('x',1)"><span>X</span><svg viewBox="0 0 30 26"><path d="M20 13 l-10 -8 v5 h-8 v6 h8 v5z" fill="#58c8d8"/></svg></div>
+      </div>
+      <div class="row">
+        <div class="dbtn" onclick="axisMove('y',-1)"><svg viewBox="0 0 30 26"><path d="M15 24 l8 -10 h-5 v-12 h-6 v12 h-5z" fill="#58c8d8"/></svg><span>Y</span></div>
+      </div>
+    </div>
+    <div class="zcol">
+      <div class="dbtn" style="width:92px" onclick="axisMove('z',1)"><svg viewBox="0 0 30 26"><path d="M15 2 l8 10 h-5 v12 h-6 v-12 h-5z" fill="#58c8d8"/></svg><span>Z</span></div>
+      <div class="dbtn" style="width:92px" onclick="axisHome('z')"><svg viewBox="0 0 30 26"><path d="M15 4 L26 13 H22 V23 H8 V13 H4 Z" fill="none" stroke="#58c8d8" stroke-width="2.2" stroke-linejoin="round"/></svg></div>
+      <div class="dbtn" style="width:92px" onclick="axisMove('z',-1)"><svg viewBox="0 0 30 26"><path d="M15 24 l8 -10 h-5 v-12 h-6 v12 h-5z" fill="#58c8d8"/></svg><span>Z</span></div>
+    </div>
+  </div>
+
+  <!-- ============ 6 进退料 ============ -->
+  <div class="page" id="p-feed">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span class="link" onclick="go('p-prep')">准备</span><span class="sep">&gt;</span><span>进退料</span></div>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="filrow">
+      <div class="fhead">
+        <svg class="ico" viewBox="0 0 40 40"><rect x="6" y="6" width="10" height="22" rx="2" fill="#f5a81e"/><rect x="18" y="6" width="10" height="22" rx="2" fill="#f5a81e"/><rect x="8" y="30" width="20" height="6" rx="3" fill="#f5a81e"/></svg>
+        <span>喷头温度</span>
+      </div>
+      <div class="slider click" id="nozzleSlider" onclick="setNozzle(event)">
+        <div class="sfill" id="nsfill" style="width:46%"></div>
+        <div class="knob" id="nsknob" style="left:44%"></div>
+      </div>
+      <div style="position:absolute;left:500px;top:130px;font-size:26px" id="nozzleVal">33 °C</div>
+    </div>
+    <div class="frow2" onclick="openNp('in')">
+      <svg class="ico" viewBox="0 0 40 40"><path d="M20 4 v22 M20 26 l-7 -8 h14z" fill="#c8e02e" stroke="#c8e02e" stroke-width="1"/><path d="M8 34 h24" stroke="#c8e02e" stroke-width="3"/></svg>
+      <span class="nm">进料</span><span class="v" id="feedIn">85.0MM</span>
+    </div>
+    <div class="frow3" onclick="openNp('out')">
+      <svg class="ico" viewBox="0 0 40 40"><path d="M20 36 v-22 M20 14 l-7 8 h14z" fill="#58c8d8" stroke="#58c8d8" stroke-width="1"/><path d="M8 6 h24" stroke="#58c8d8" stroke-width="3"/></svg>
+      <span class="nm">出料</span><span class="v" id="feedOut">95.0MM</span>
+    </div>
+  </div>
+
+  <!-- ============ 7 设置-配置 ============ -->
+  <div class="page" id="p-set">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span>设置</span></div>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="smenu">
+      <div class="on">配置</div>
+      <div onclick="go('p-sys')">系统设置</div>
+      <div onclick="go('p-about')">关于</div>
+    </div>
+    <div class="sgrid">
+      <div class="scard" onclick="openNp('pla')">
+        <div class="badge" style="background:#f5d02e">PLA</div>
+        <div><div class="tx">PLA温度设置</div><div class="tx2" id="platemp">180°C</div></div>
+      </div>
+      <div class="scard" onclick="openNp('abs')">
+        <div class="badge" style="background:#ffa51f">ABS</div>
+        <div><div class="tx">ABS温度设置</div><div class="tx2" id="abstemp">180°C</div></div>
+      </div>
+      <div class="scard" onclick="go('p-level')">
+        <div class="badge" style="background:#b06be0"><svg width="34" height="34" viewBox="0 0 34 34"><path d="M10 6 v22 M17 6 v22 M24 6 v22" stroke="#000" stroke-width="3"/><circle cx="10" cy="12" r="4" fill="#000"/><circle cx="17" cy="22" r="4" fill="#000"/><circle cx="24" cy="10" r="4" fill="#000"/></svg></div>
+        <div><div class="tx">调平</div></div><div class="rt">&gt;</div>
+      </div>
+      <div class="scard" onclick="toggleLight()">
+        <div class="badge" style="background:#58c8d8"><svg width="30" height="34" viewBox="0 0 30 34"><path d="M15 4 a8 8 0 0 1 5 14 v4 h-10 v-4 a8 8 0 0 1 5 -14z" fill="none" stroke="#000" stroke-width="2.6"/><path d="M10 26 h10 M12 30 h6" stroke="#000" stroke-width="2.6"/></svg></div>
+        <div><div class="tx">灯光</div></div><div class="rt" id="lightstate" style="color:#fff">OFF</div>
+      </div>
+      <div class="scard" onclick="toggleSound()">
+        <div class="badge" style="background:#ff8a3c"><svg width="32" height="32" viewBox="0 0 32 32"><path d="M16 4 a7 7 0 0 1 7 7 v6 l3 4 h-20 l3 -4 v-6 a7 7 0 0 1 7 -7z" fill="none" stroke="#000" stroke-width="2.6"/><path d="M13 25 a3 3 0 0 0 6 0" fill="none" stroke="#000" stroke-width="2.6"/></svg></div>
+        <div><div class="tx">声音</div></div><div class="rt" id="soundstate" style="color:#ffa51f">OFF</div>
+      </div>
+      <div class="scard" onclick="openMask('m-bri')">
+        <div class="badge" style="background:#f5d02e"><svg width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="7" fill="none" stroke="#000" stroke-width="2.6"/><path d="M17 3 v4 M17 27 v4 M3 17 h4 M27 17 h4 M7 7 l3 3 M24 24 l3 3 M27 7 l-3 3 M10 24 l-3 3" stroke="#000" stroke-width="2.6"/></svg></div>
+        <div><div class="tx">亮度</div></div><div class="rt">&gt;</div>
+      </div>
+    </div>
+
+    <div class="mask" id="m-bri">
+      <div class="dlg" style="width:640px">
+        <div class="tt" style="font-size:26px">亮度调节</div>
+        <div class="sl" id="briSlider" onclick="setBri(event)">
+          <div class="sf" id="brifill" style="width:60%"></div>
+          <div class="kn" id="briknob" style="left:58%"></div>
+        </div>
+        <div style="margin-top:14px;font-size:22px;text-align:center" id="brival">60 %</div>
+        <div class="btns"><div class="yes" onclick="closeMask('m-bri')">确定</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 8 设置-系统设置 ============ -->
+  <div class="page" id="p-sys">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span class="link" onclick="go('p-set')">设置</span></div>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="smenu">
+      <div onclick="go('p-set')">配置</div>
+      <div class="on">系统设置</div>
+      <div onclick="go('p-about')">关于</div>
+    </div>
+    <div class="sysgrid">
+      <div class="syscard" onclick="go('p-wifi')">
+        <div class="bi" style="background:#0e2a1c"><svg width="40" height="40" viewBox="0 0 32 32"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#9fd35a" stroke-width="2.8"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#9fd35a" stroke-width="2.8"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#9fd35a" stroke-width="2.8"/><circle cx="16" cy="27" r="2" fill="#9fd35a"/></svg></div>
+        <span class="nm">WIFI</span><span class="rt">&gt;</span>
+      </div>
+      <div class="syscard" onclick="openMask('m-speed')">
+        <div class="bi" style="background:#3a2c05"><svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="#f5c033" stroke-width="2.8"/><path d="M20 20 L20 11" stroke="#f5c033" stroke-width="2.8"/><path d="M20 20 L27 25" stroke="#f5c033" stroke-width="2.8"/></svg></div>
+        <span class="nm">速度</span><span class="rt">&gt;</span>
+      </div>
+      <div class="syscard" onclick="openMask('m-home')">
+        <div class="bi" style="background:#2a0f2a"><svg width="40" height="40" viewBox="0 0 40 40"><path d="M20 8 a12 12 0 1 1 -10 6" fill="none" stroke="#e58ce8" stroke-width="2.8"/><path d="M10 8 v7 h7" fill="none" stroke="#e58ce8" stroke-width="2.8"/></svg></div>
+        <span class="nm">回零</span><span class="rt">&gt;</span>
+      </div>
+      <div class="syscard" onclick="openMask('m-pid')">
+        <div class="bi" style="background:#06282a"><svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="#58c8d8" stroke-width="2.8"/><path d="M13 22 v-5 M20 22 v-9 M27 22 v-6" stroke="#58c8d8" stroke-width="2.8"/></svg></div>
+        <span class="nm">一键调温</span><span class="rt">&gt;</span>
+      </div>
+    </div>
+
+    <div class="mask" id="m-speed">
+      <div class="dlg" style="width:640px">
+        <div class="tt" style="font-size:26px">打印速度</div>
+        <div class="sl" id="spdSlider" onclick="setSpd(event)">
+          <div class="sf" id="spdfill" style="width:80%"></div>
+          <div class="kn" id="spdknob" style="left:78%"></div>
+        </div>
+        <div style="margin-top:14px;font-size:22px;text-align:center" id="spdval">100 %</div>
+        <div class="btns"><div class="yes" onclick="closeMask('m-speed')">确定</div></div>
+      </div>
+    </div>
+    <div class="mask" id="m-home">
+      <div class="dlg">
+        <div class="tt">是否执行回零?</div>
+        <div class="btns">
+          <div class="yes" onclick="doHomeAll()">是</div>
+          <div class="no" onclick="closeMask('m-home')">否</div>
+        </div>
+      </div>
+    </div>
+    <div class="mask" id="m-pid">
+      <div class="dlg">
+        <div class="tt">已开始一键调温</div>
+        <div class="btns"><div class="yes" onclick="closeMask('m-pid')">确定</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 9 设置-关于 ============ -->
+  <div class="page" id="p-about">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span class="link" onclick="go('p-set')">设置</span></div>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="smenu">
+      <div onclick="go('p-set')">配置</div>
+      <div onclick="go('p-sys')">系统设置</div>
+      <div class="on">关于</div>
+    </div>
+    <div class="aboutrows" id="aboutrows">
+      <div class="arow" onclick="selRow(this)"><span>设备名称</span><span class="v">LEVETOP</span></div>
+      <div class="arow sel" onclick="selRow(this)"><span>设备型号</span><span class="v">LEVETOP-10 Smart</span></div>
+      <div class="arow" onclick="selRow(this)"><span>版本号</span><span class="v">V0.1.9 ⤓</span></div>
+      <div class="arow" onclick="selRow(this)"><span>打印尺寸</span><span class="v">300x300x300</span></div>
+      <div class="arow" onclick="selRow(this)"><span>公司网站</span><span class="v">http://www.levetop.cn/</span></div>
+    </div>
+  </div>
+
+  <!-- ============ 10 调平 ============ -->
+  <div class="page" id="p-level">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span class="link" onclick="go('p-set')">设置</span><span class="sep">&gt;</span><span>调平</span></div>
+      <svg class="wifi" viewBox="0 0 32 32" onclick="go('p-wifi')"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="lvgrid" id="lvgrid"></div>
+    <div class="lvhint">请点击数字<br>进行辅助调平</div>
+    <div class="lvtoast" id="lvtoast">
+      <svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="22" fill="none" stroke="#f5c033" stroke-width="3.5"/><path d="M15 27 l8 8 15 -17" fill="none" stroke="#f5c033" stroke-width="3.5" stroke-linecap="round"/></svg>
+      <span class="txt">已完成手动调平</span>
+    </div>
+  </div>
+
+  <!-- ============ 11 WiFi ============ -->
+  <div class="page" id="p-wifi">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-home')">首页</span><span class="sep">&gt;</span><span class="link" onclick="go('p-set')">设置</span><span class="sep">&gt;</span><span>网络</span></div>
+      <svg class="wifi" viewBox="0 0 32 32"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+    </div>
+    <div class="mask on" style="background:rgba(0,0,0,.35)">
+      <div class="dlg wifidlg">
+        <div class="wclose" onclick="go('p-sys')">✕</div>
+        <div class="wrow">
+          <div class="lb">
+            <svg width="26" height="26" viewBox="0 0 32 32"><path d="M4 12 A17 17 0 0 1 28 12" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M9 17 A10 10 0 0 1 23 17" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M14 22 A4.5 4.5 0 0 1 18 22" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="16" cy="27" r="2" fill="#fff"/></svg>
+            <span>请输入WiFi名称</span>
+          </div>
+          <div class="winput" id="wifiname" onclick="openKbd('name')">LEVETOP</div>
+        </div>
+        <div class="wrow">
+          <div class="lb">
+            <svg width="22" height="26" viewBox="0 0 22 26"><rect x="2" y="11" width="18" height="13" rx="3" fill="none" stroke="#ffa51f" stroke-width="2.4"/><path d="M6 11 v-4 a5 5 0 0 1 10 0" fill="none" stroke="#ffa51f" stroke-width="2.4"/></svg>
+            <span>请输入WiFi密码</span>
+          </div>
+          <div class="winput" id="wifipass" onclick="openKbd('pass')">••••••</div>
+        </div>
+        <div class="wok" onclick="saveWifi()">确定</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 12 软键盘 ============ -->
+  <div class="page" id="p-kbd">
+    <div class="topbar">
+      <svg class="home" viewBox="0 0 32 32" onclick="go('p-home')"><path d="M16 4 L28 15 H24 V27 H19 V19 H13 V27 H8 V15 H4 Z" fill="none" stroke="#ffa51f" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      <div class="crumb"><span class="link" onclick="go('p-set')">设置</span><span class="sep">&gt;</span><span class="link" onclick="go('p-wifi')">网络</span><span class="sep">&gt;</span><span>输入</span></div>
+    </div>
+    <div class="kbd">
+      <div class="inputrow">
+        <div class="inp" id="kbdtxt"></div>
+        <div class="key side" onclick="kbdBack()">⌫</div>
+      </div>
+      <div class="kbwrap">
+        <div class="kbcols">
+          <div class="r" id="kbrow0"></div>
+          <div class="r" id="kbrow1"></div>
+          <div class="r" id="kbrow2"></div>
+          <div class="r" id="kbrow3"></div>
+          <div class="r" id="kbrow4"></div>
+        </div>
+        <div class="kbside">
+          <div class="key side" onclick="kbdCancel()">X</div>
+          <div class="key caps" id="capskey" onclick="kbdCaps()">Caps</div>
+          <div class="key side" onclick="kbdDone()">Enter</div>
+          <div class="key side" onclick="kbdBack()">Backspace</div>
+          <div class="key side" onclick="kbdCancel()">Hide</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 全局浮层：数字键盘（进/出料、PLA/ABS 温度共用） ============ -->
+  <div class="np" id="np">
+    <div class="disp" id="npdisp"></div>
+    <div class="colright">
+      <div class="nk" onclick="closeNp()">X</div>
+      <div class="nk" onclick="npDel()">Del</div>
+      <div class="nk" onclick="npOk()">确定</div>
+    </div>
+    <div class="grid9" style="width:360px">
+      <div class="nk" onclick="npKey('1')">1</div><div class="nk" onclick="npKey('2')">2</div>
+      <div class="nk" onclick="npKey('3')">3</div><div class="nk" onclick="npKey('-')">-</div>
+      <div class="nk" onclick="npKey('4')">4</div><div class="nk" onclick="npKey('5')">5</div>
+      <div class="nk" onclick="npKey('6')">6</div><div class="nk" onclick="npKey('.')">.</div>
+      <div class="nk" onclick="npKey('7')">7</div><div class="nk" onclick="npKey('8')">8</div>
+      <div class="nk" onclick="npKey('9')">9</div><div class="nk" onclick="npKey('0')">0</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ===================== 状态 ===================== */
+var S = {
+  page: 0, sel: 0, unit: 0.1,
+  pos: { x: 49.4, y: 49.8, z: 49.6 },
+  prog: 0, timer: null, printing: false,
+  kbdTarget: 'name', kbdText: '', caps: false,
+  wifiName: 'LEVETOP', wifiPass: '123456',
+  plaTemp: 180, absTemp: 180, light: false, sound: false,
+  bri: 60, spd: 100, fanOn: false, coolOn: true,
+  lvNext: 1, lvToastTimer: null, feedIn: 85.0, feedOut: 95.0, nozzle: 33
+};
+
+/* ===================== 模型数据（3 页 × 5 个） ===================== */
+var FILES = [
+  [ { n: '牛奶盒', d: '2022/09/12', k: 'milk' }, { n: '方块兔', d: '2022/11/14', k: 'bunny' },
+    { n: '马克杯', d: '2022/10/05', k: 'mug' }, { n: '微笑太阳', d: '2022/07/03', k: 'sun' },
+    { n: '粉红小屋', d: '2022/08/21', k: 'house' } ],
+  [ { n: '巧克力小蛋糕', d: '2022/10/21', k: 'cake' }, { n: '齿轮', d: '2022/11/02', k: 'gear' },
+    { n: '花瓶', d: '2022/09/28', k: 'vase' }, { n: '小黄鸭', d: '2022/06/15', k: 'duck' },
+    { n: '小熊', d: '2022/12/01', k: 'bear' } ],
+  [ { n: '火箭', d: '2022/05/09', k: 'rocket' }, { n: '六角笔筒', d: '2022/07/18', k: 'pen' },
+    { n: '龙猫', d: '2022/11/25', k: 'cat' }, { n: '星球', d: '2022/04/02', k: 'planet' },
+    { n: '饼干模具', d: '2022/08/30', k: 'cookie' } ]
+];
+
+function curFile() { return FILES[S.page][S.sel]; }
+
+/* ===================== 模型缩略图（全部代码绘制） ===================== */
+function modelSvg(k, size) {
+  var s = size || 150;
+  var g = {
+    bunny: '<ellipse cx="50" cy="88" rx="30" ry="5" fill="#b9b9b9"/><rect x="24" y="44" width="52" height="40" rx="10" fill="#f6f6f3"/><path d="M30 44 q-4 -26 8 -22 q2 8 12 8 q10 0 12 -8 q12 -4 8 22z" fill="#f6f6f3"/><circle cx="40" cy="62" r="3" fill="#222"/><circle cx="60" cy="62" r="3" fill="#222"/><path d="M50 68 l-3 4 h6z" fill="#e79aa4"/>',
+    sun: '<path d="M50 14 L58 34 L78 30 L72 50 L90 60 L70 68 L72 88 L52 78 L32 88 L34 68 L14 60 L32 50 L26 30 L46 34 Z" fill="#f7c531"/><circle cx="50" cy="52" r="18" fill="#f39c12"/><circle cx="43" cy="48" r="3" fill="#222"/><circle cx="57" cy="48" r="3" fill="#222"/><path d="M38 58 q12 14 24 0 q-12 6 -24 0z" fill="#e5533d"/>',
+    milk: '<ellipse cx="50" cy="88" rx="26" ry="5" fill="#b9b9b9"/><path d="M32 30 h36 v56 h-36z" fill="#f2f5f8"/><path d="M32 30 l10 -12 h36 l10 12z" fill="#dfe8f0"/><rect x="32" y="46" width="36" height="14" fill="#7fb2d8"/><ellipse cx="50" cy="86" rx="18" ry="3" fill="#cfd8e0"/>',
+    mug: '<ellipse cx="50" cy="88" rx="26" ry="5" fill="#b9b9b9"/><path d="M28 34 h40 v40 a20 20 0 0 1 -40 0z" fill="#e9eef2"/><ellipse cx="48" cy="34" rx="20" ry="6" fill="#cfd8e0"/><path d="M68 44 a12 12 0 0 1 0 22" fill="none" stroke="#e9eef2" stroke-width="6"/>',
+    house: '<ellipse cx="50" cy="88" rx="30" ry="5" fill="#b9b9b9"/><path d="M22 50 L50 24 L78 50 V84 H22z" fill="#f0a3b8"/><path d="M14 52 L50 18 L86 52" fill="none" stroke="#e07a97" stroke-width="6"/><rect x="42" y="60" width="16" height="24" fill="#fff2f5"/>',
+    cake: '<ellipse cx="50" cy="88" rx="28" ry="5" fill="#b9b9b9"/><path d="M24 52 h52 v30 a6 6 0 0 1 -6 6 h-40 a6 6 0 0 1 -6 -6z" fill="#5a3626"/><ellipse cx="50" cy="52" rx="26" ry="7" fill="#7b4a33"/><circle cx="50" cy="34" r="8" fill="#d63b3b"/><path d="M50 42 v8" stroke="#8a5a3a" stroke-width="3"/>',
+    gear: '<path d="M46 12 h8 l2 8 7 3 7-4 5 6-5 6 1 7 8 4-3 8-8-1-6 5 1 9h-8l-2-8-7-3-7 4-5-6 5-6-1-7-8-4 3-8 8 1 6-5z" fill="#c9ced4"/><circle cx="50" cy="52" r="12" fill="#fff"/>',
+    vase: '<ellipse cx="50" cy="88" rx="22" ry="4" fill="#b9b9b9"/><path d="M38 24 h24 l-4 18 q10 14 6 34 q-2 12 -14 12 q-12 0 -14 -12 q-4 -20 6 -34z" fill="#8fd0c9"/><ellipse cx="50" cy="24" rx="12" ry="4" fill="#6fb8b0"/>',
+    duck: '<ellipse cx="50" cy="88" rx="26" ry="5" fill="#b9b9b9"/><ellipse cx="50" cy="62" rx="28" ry="20" fill="#f7d64a"/><circle cx="62" cy="34" r="14" fill="#f7d64a"/><circle cx="66" cy="30" r="3" fill="#222"/><path d="M74 34 l12 4 -12 5z" fill="#f08a2c"/>',
+    bear: '<ellipse cx="50" cy="88" rx="26" ry="5" fill="#b9b9b9"/><circle cx="32" cy="30" r="10" fill="#a9744f"/><circle cx="68" cy="30" r="10" fill="#a9744f"/><circle cx="50" cy="52" r="26" fill="#c48a5f"/><circle cx="41" cy="48" r="3.5" fill="#222"/><circle cx="59" cy="48" r="3.5" fill="#222"/><ellipse cx="50" cy="60" rx="7" ry="5" fill="#f0dcc8"/>',
+    rocket: '<ellipse cx="50" cy="88" rx="22" ry="5" fill="#b9b9b9"/><path d="M50 12 q16 16 16 40 h-32 q0 -24 16 -40z" fill="#e8edf2"/><circle cx="50" cy="42" r="8" fill="#58c8d8"/><path d="M34 52 l-10 16 h10z M66 52 l10 16 h-10z" fill="#f5a81e"/><path d="M42 76 h16 l-8 12z" fill="#f5a81e"/>',
+    pen: '<ellipse cx="50" cy="88" rx="24" ry="5" fill="#b9b9b9"/><path d="M32 30 h36 l6 52 h-48z" fill="#9fb8d8"/><ellipse cx="50" cy="30" rx="18" ry="5" fill="#7f9cc0"/><rect x="44" y="10" width="4" height="20" fill="#f5c033"/><rect x="54" y="16" width="4" height="14" fill="#e5533d"/>',
+    cat: '<ellipse cx="50" cy="88" rx="26" ry="5" fill="#b9b9b9"/><circle cx="50" cy="54" r="26" fill="#e6e6e6"/><path d="M28 34 l2 18 14-10z M72 34 l-2 18 -14-10z" fill="#e6e6e6"/><circle cx="41" cy="52" r="3" fill="#222"/><circle cx="59" cy="52" r="3" fill="#222"/><path d="M46 62 h8 l-4 4z" fill="#e79aa4"/>',
+    planet: '<circle cx="50" cy="52" r="26" fill="#b06be0"/><ellipse cx="50" cy="54" rx="40" ry="10" fill="none" stroke="#f5c033" stroke-width="5"/>',
+    cookie: '<path d="M50 16 L58 36 L78 32 L72 52 L90 62 L70 70 L72 88 L52 78 L32 88 L34 70 L14 62 L32 52 L26 32 L46 36 Z" fill="#d9a25f"/><circle cx="44" cy="50" r="4" fill="#5a3626"/><circle cx="58" cy="60" r="4" fill="#5a3626"/><circle cx="50" cy="70" r="4" fill="#5a3626"/>'
+  }[k] || '';
+  return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 100 100">' + g + '</svg>';
+}
+
+/* ===================== 页面切换 ===================== */
+function go(id) {
+  document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('on'); });
+  var el = document.getElementById(id);
+  if (el) el.classList.add('on');
+  if (id === 'p-level') resetLevel();   // 每次进入调平都从第 1 点开始
+}
+function openMask(id) { var m = document.getElementById(id); if (m) m.classList.add('on'); }
+function closeMask(id) { var m = document.getElementById(id); if (m) m.classList.remove('on'); }
+
+/* ===================== 文件列表 / 分页 ===================== */
+function renderFiles() {
+  var box = document.getElementById('filelist');
+  var html = '';
+  FILES[S.page].forEach(function (f, i) {
+    html += '<div class="fileitem' + (i === S.sel ? ' sel' : '') + '" onclick="selectFile(' + i + ')">' + f.n + '.obj</div>';
+  });
+  box.innerHTML = html;
+  document.getElementById('pagenum').textContent = (S.page + 1) + '/3';
+  renderFilePreview();
+}
+function renderFilePreview() {
+  var f = curFile();
+  document.getElementById('filethumb').innerHTML = modelSvg(f.k, 150);
+  document.getElementById('filename').textContent = f.n;
+  document.getElementById('filedate').textContent = f.d;
+}
+function selectFile(i) { S.sel = i; renderFiles(); }
+function pageFirst() { S.page = 0; S.sel = 0; renderFiles(); }
+function pagePrev() { if (S.page > 0) { S.page--; S.sel = 0; renderFiles(); } }
+function pageNext() { if (S.page < 2) { S.page++; S.sel = 0; renderFiles(); } }
+function pageLast() { S.page = 2; S.sel = 0; renderFiles(); }
+
+/* ===================== 打印流程 ===================== */
+function startPrint() {
+  var f = curFile();
+  document.getElementById('jobthumb').innerHTML = modelSvg(f.k, 150);
+  document.getElementById('jobname').textContent = f.n;
+  document.getElementById('jobdate').textContent = f.d;
+  S.prog = 0; S.printing = true;
+  updateProg();
+  go('p-printing');
+  if (S.timer) clearInterval(S.timer);
+  S.timer = setInterval(function () {
+    S.prog += 1;
+    if (S.prog >= 100) { S.prog = 100; updateProg(); finishPrint(); return; }
+    updateProg();
+  }, 120);
+}
+function updateProg() {
+  document.getElementById('pfill').style.width = S.prog + '%';
+  document.getElementById('pct').textContent = S.prog + ' %';
+}
+function stopTimer() { if (S.timer) { clearInterval(S.timer); S.timer = null; } S.printing = false; }
+function askStop() { openMask('m-stop'); }
+function askPause() { stopTimer(); openMask('m-pause'); }
+function resumePrint() { closeMask('m-pause'); S.printing = true; if (S.timer) clearInterval(S.timer); S.timer = setInterval(function () { S.prog += 1; if (S.prog >= 100) { S.prog = 100; updateProg(); finishPrint(); return; } updateProg(); }, 120); }
+function doStop() { stopTimer(); S.prog = 0; updateProg(); closeMask('m-stop'); closeMask('m-pause'); go('p-files'); }
+function finishPrint() { stopTimer(); openMask('m-done'); }
+
+/* ===================== 移动轴 ===================== */
+function fmtPos(v) { return (S.unit < 1) ? v.toFixed(1) : v.toFixed(1); }
+function renderPos() {
+  document.getElementById('posx').textContent = S.pos.x.toFixed(1);
+  document.getElementById('posy').textContent = S.pos.y.toFixed(1);
+  document.getElementById('posz').textContent = S.pos.z.toFixed(1);
+}
+function setUnit(u, el) {
+  S.unit = u;
+  var seg = document.getElementById('unitseg');
+  [].forEach.call(seg.children, function (c) { c.classList.remove('on'); });
+  el.classList.add('on');
+  if (u === 0.1) { S.pos = { x: 49.4, y: 49.8, z: 49.6 }; }
+  else { S.pos = { x: 50.0, y: 50.0, z: 50.0 }; }
+  renderPos();
+}
+function axisMove(axis, dir) {
+  var v = S.pos[axis] + dir * S.unit;
+  if (v < 0) v = 0;
+  if (v > 300) v = 300;
+  S.pos[axis] = Math.round(v * 10) / 10;
+  renderPos();
+}
+function axisHome(axis) { S.pos[axis] = 0; renderPos(); }
+function doHomeAll() { S.pos = { x: 0, y: 0, z: 0 }; renderPos(); closeMask('m-home'); }
+
+/* ===================== 进退料 ===================== */
+function setNozzle(e) {
+  var box = document.getElementById('nozzleSlider').getBoundingClientRect();
+  var p = Math.min(1, Math.max(0, (e.clientX - box.left) / box.width));
+  S.nozzle = Math.round(p * 260);
+  document.getElementById('nsfill').style.width = (p * 100) + '%';
+  document.getElementById('nsknob').style.left = Math.max(0, p * 100 - 2) + '%';
+  document.getElementById('nozzleVal').textContent = S.nozzle + ' °C';
+}
+var npTarget = null;
+function openNp(target) {
+  npTarget = target; npbuf = '';
+  document.getElementById('npdisp').textContent = '';
+  document.getElementById('np').classList.add('on');
+}
+function closeNp() { document.getElementById('np').classList.remove('on'); }
+var npbuf = '';
+function npKey(k) { if (npbuf.length < 8) { npbuf += k; document.getElementById('npdisp').textContent = npbuf; } }
+function npDel() { npbuf = npbuf.slice(0, -1); document.getElementById('npdisp').textContent = npbuf; }
+function npOk() {
+  var v = parseFloat(npbuf);
+  if (!isNaN(v)) {
+    if (npTarget === 'out') { S.feedOut = v; document.getElementById('feedOut').textContent = v.toFixed(1) + 'MM'; }
+    if (npTarget === 'in') { S.feedIn = v; document.getElementById('feedIn').textContent = v.toFixed(1) + 'MM'; }
+    if (npTarget === 'pla') { S.plaTemp = Math.round(v); document.getElementById('platemp').textContent = Math.round(v) + '°C'; }
+    if (npTarget === 'abs') { S.absTemp = Math.round(v); document.getElementById('abstemp').textContent = Math.round(v) + '°C'; }
+  }
+  closeNp();
+}
+function feedStep(dir) {
+  S.feedIn = Math.round((S.feedIn + 5) * 10) / 10;
+  document.getElementById('feedIn').textContent = S.feedIn.toFixed(1) + 'MM';
+}
+
+/* ===================== 准备页开关 ===================== */
+function toggleFan() { S.fanOn = !S.fanOn; var e = document.getElementById('fanstate'); e.textContent = S.fanOn ? 'ON' : 'OFF'; e.className = 'rt ' + (S.fanOn ? 'on' : 'val'); }
+function toggleCool() { S.coolOn = !S.coolOn; var e = document.getElementById('coolstate'); e.textContent = S.coolOn ? 'ON' : 'OFF'; e.className = 'rt ' + (S.coolOn ? 'on' : 'val'); }
+
+/* ===================== 设置开关 / 滑块 ===================== */
+function toggleLight() { S.light = !S.light; var e = document.getElementById('lightstate'); e.textContent = S.light ? 'ON' : 'OFF'; e.style.color = S.light ? '#ffa51f' : '#fff'; }
+function toggleSound() { S.sound = !S.sound; var e = document.getElementById('soundstate'); e.textContent = S.sound ? 'ON' : 'OFF'; e.style.color = S.sound ? '#9fd35a' : '#ffa51f'; }
+function setBri(e) {
+  var box = document.getElementById('briSlider').getBoundingClientRect();
+  var p = Math.min(1, Math.max(0, (e.clientX - box.left) / box.width));
+  S.bri = Math.round(p * 100);
+  document.getElementById('brifill').style.width = S.bri + '%';
+  document.getElementById('briknob').style.left = Math.max(0, S.bri - 2) + '%';
+  document.getElementById('brival').textContent = S.bri + ' %';
+}
+function setSpd(e) {
+  var box = document.getElementById('spdSlider').getBoundingClientRect();
+  var p = Math.min(1, Math.max(0, (e.clientX - box.left) / box.width));
+  S.spd = Math.round(p * 200);
+  document.getElementById('spdfill').style.width = (S.spd / 2) + '%';
+  document.getElementById('spdknob').style.left = Math.max(0, S.spd / 2 - 2) + '%';
+  document.getElementById('spdval').textContent = S.spd + ' %';
+}
+
+/* ===================== 关于行选择 ===================== */
+function selRow(el) {
+  [].forEach.call(document.getElementById('aboutrows').children, function (c) { c.classList.remove('sel'); });
+  el.classList.add('sel');
+}
+
+/* ===================== 调平 ===================== */
+/* 布局与视频一致：上行 3 4 / 中行 5 / 下行 1 2；
+   黄色高亮 = 当前该点的点（点完自动亮下一个），5 点全部完成弹「已完成手动调平」 */
+var LV = [[3, 4, 0], [5, 0, 0], [1, 2, 0]];
+function renderLevel() {
+  var html = '';
+  for (var r = 0; r < 3; r++) {
+    for (var c = 0; c < 3; c++) {
+      var n = LV[r][c];
+      var cls = 'lvcell' + (n && n === S.lvNext ? ' on' : '');
+      html += '<div class="' + cls + '"' + (n ? ' onclick="pickLevel(' + n + ')"' : '') + '>' + (n ? n : '') + '</div>';
+    }
+  }
+  document.getElementById('lvgrid').innerHTML = html;
+}
+function resetLevel() {
+  S.lvNext = 1;
+  if (S.lvToastTimer) { clearTimeout(S.lvToastTimer); S.lvToastTimer = null; }
+  var t = document.getElementById('lvtoast');
+  if (t) t.classList.remove('on');
+  renderLevel();
+}
+function pickLevel(n) {
+  if (n !== S.lvNext) return;             // 只高亮那个可点，其它数字点不动
+  S.lvNext = n + 1;
+  if (S.lvNext > 5) {                     // 5 点完成：提示 1.6s 后自动退回设置页
+    S.lvNext = 0;
+    renderLevel();
+    var t = document.getElementById('lvtoast');
+    t.classList.add('on');
+    if (S.lvToastTimer) clearTimeout(S.lvToastTimer);
+    S.lvToastTimer = setTimeout(function () {
+      t.classList.remove('on');
+      S.lvNext = 1;
+      renderLevel();
+      go('p-set');
+    }, 1600);
+    return;
+  }
+  renderLevel();
+}
+
+/* ===================== WiFi + 键盘 ===================== */
+function openKbd(target) {
+  S.kbdTarget = target;
+  S.kbdText = (target === 'name') ? S.wifiName : S.wifiPass;
+  S.caps = false;
+  renderKbd();
+  go('p-kbd');
+}
+var KB_ROWS = [
+  [['1','!'],['2','@'],['3','#'],['4','$'],['5','%'],['6','^'],['7','&'],['8','*'],['9','('],['0',')']],
+  [['Q',''],['W',''],['E',''],['U',''],['R',''],['T',''],['Y',''],['I',''],['O',''],['P',''],['\\','|']],
+  [['A',''],['S',''],['D',''],['F',''],['G',''],['H',''],['J',''],['K',''],['L',''],[';',':'],['\'','"']],
+  [['Z',''],['X',''],['C',''],['V',''],['B',''],['N',''],['M',''],['.',','],['/','?']],
+  [['~','`'],['-','_'],['=','+'],['/','?'],['SPACE',''],['[','{'],[']','}']]
+];
+function renderKbd() {
+  for (var r = 0; r < KB_ROWS.length; r++) {
+    var html = '';
+    for (var i = 0; i < KB_ROWS[r].length; i++) {
+      var main = KB_ROWS[r][i][0], sub = KB_ROWS[r][i][1];
+      var lbl = S.caps ? main.toUpperCase() : main;
+      if (main === 'SPACE') {
+        html += '<div class="key space" onclick="kbdKey(\' \')"></div>';
+        continue;
+      }
+      html += '<div class="key" onclick="kbdKey(\'' + main.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">'
+        + lbl + (sub ? '<span class="s">' + sub + '</span>' : '') + '</div>';
+    }
+    document.getElementById('kbrow' + r).innerHTML = html;
+  }
+  // 密码也明文显示（与实机一致，不做圆点掩码）
+  document.getElementById('kbdtxt').textContent = S.kbdText;
+  document.getElementById('capskey').style.background = S.caps ? '#46c8dd' : '#8fd8e6';
+}
+function kbdKey(ch) { S.kbdText += S.caps ? ch.toUpperCase() : ch; renderKbd(); }
+function kbdBack() { S.kbdText = S.kbdText.slice(0, -1); renderKbd(); }
+function kbdCaps() { S.caps = !S.caps; renderKbd(); }
+function kbdDone() {
+  if (S.kbdTarget === 'name') { S.wifiName = S.kbdText; document.getElementById('wifiname').textContent = S.wifiName || ' '; }
+  // 弹窗里密码以圆点掩码显示（键盘页内为明文）
+  else { S.wifiPass = S.kbdText; document.getElementById('wifipass').textContent = S.wifiPass ? '•'.repeat(S.wifiPass.length) : ' '; }
+  go('p-wifi');
+}
+function kbdCancel() { go('p-wifi'); }
+function saveWifi() { go('p-sys'); }
+
+/* ===================== 初始化 ===================== */
+renderFiles();
+renderPos();
+renderLevel();
+document.getElementById('wifipass').textContent = '•'.repeat(S.wifiPass.length);
+</script>
+</body>
+</html>

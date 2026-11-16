@@ -163,7 +163,7 @@ static int l_usb_rx(lua_State *L)
 
 /*
 设置USB工作模式，必须在USB外设掉电不工作时进行设置
-@api usb.mode(id, mode)
+@api usb.mode(id, mode, force_full_speed)
 @int usb总线id,默认0,如果芯片只有1条USB线,填0
 @int 工作模式,只有3种,usb.HOST主机模式,usb.DEVICE从机模式,usb.OTG协商模式,默认是从机模式
 @boolean 是否强制全速模式，只有在主机模式下有效，默认false不强制。如果芯片USB不支持HS和FS共存，接入多个FS设备时比如键盘鼠标U盘共存时必须强制全速模式。单个FS设备时可以不强制全速模式

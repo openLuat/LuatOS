@@ -6,7 +6,7 @@
 #include "luat_input_service.h"
 #include "luat_rtos.h"
 #include "luat_mcu.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include <string.h>
 #define LUAT_LOG_TAG "input"
 #include "luat_log.h"
@@ -21,9 +21,13 @@ typedef struct usb_hid_input {
     struct usb_hid_input *next;
     luat_input_hid_t *parser;
     uint8_t *reports;
-    uint32_t dropped, invalid;
-    uint16_t stride, packet_size, head, tail;
-    uint8_t pending, lost, interface_number;
+    volatile uint32_t head, tail;
+    volatile uint32_t pending, reset_seq;
+    uint32_t handled_reset_seq;
+    volatile uint32_t dropped;
+    uint32_t invalid;
+    uint16_t stride, packet_size;
+    uint8_t interface_number;
 } usb_hid_input_t;
 typedef struct {
     uint32_t timestamp_ms;
@@ -39,45 +43,66 @@ static luat_rtos_task_handle worker;
 #define USB_INPUT_LOCK() luat_input_service_lock()
 #define USB_INPUT_UNLOCK() luat_input_service_unlock()
 
+/* Single-core contract: one serialized ISR produces and one worker consumes
+ * each device ring, with no DMA/other-core access. Aligned 32-bit accesses and
+ * compiler-only barriers preserve ordering without hardware barriers, exclusive
+ * PSRAM RMW or interrupt-critical sections. DMA/SMP use requires DMB/atomics. */
+static uint32_t shared_load(volatile uint32_t *value)
+{
+    uint32_t current = *value;
+    __asm__ volatile ("" ::: "memory");
+    return current;
+}
+
+static void shared_store(volatile uint32_t *value, uint32_t desired)
+{
+    __asm__ volatile ("" ::: "memory");
+    *value = desired;
+}
 
 /* Called with session_lock and core serialization held; IRQ never takes them. */
 static void process(usb_hid_input_t *input)
 {
     uint8_t data[LUAT_INPUT_HID_REPORT_BYTES];
+    shared_store(&input->pending, 1);
     for (unsigned budget = 0; budget < LUAT_INPUT_USB_HID_DEPTH; budget++) {
-        uint32_t critical = luat_rtos_entry_critical();
-        if (input->lost) {
-            input->head = input->tail = 0;
-            input->pending = input->lost = 0;
-            luat_rtos_exit_critical(critical);
+        uint32_t reset_seq = shared_load(&input->reset_seq);
+        if (reset_seq != input->handled_reset_seq) {
+            /* Discard reports up to this snapshot. Reports arriving afterwards
+             * remain queued and are parsed after the reset on the next pass. */
+            uint32_t tail = shared_load(&input->tail);
+            shared_store(&input->head, tail);
+            input->handled_reset_seq = reset_seq;
             luat_input_hid_reset(input->parser, (uint32_t)luat_mcu_tick64_ms());
             LLOGW("HID state lost intf=%u dropped=%lu", input->interface_number,
                   (unsigned long)input->dropped);
             break;
         }
-        if (input->head == input->tail) {
-            input->pending = 0;
-            luat_rtos_exit_critical(critical);
-            break;
-        }
-        usb_hid_input_packet_t *packet = (void *)(input->reports + input->head * input->stride);
+        uint32_t head = input->head;
+        uint32_t tail = shared_load(&input->tail);
+        if (head == tail) break;
+        usb_hid_input_packet_t *packet = (void *)(input->reports + head * input->stride);
         uint16_t length = packet->length;
         uint32_t timestamp_ms = packet->timestamp_ms;
         memcpy(data, packet->data, length);
-        input->head = (input->head + 1U) % LUAT_INPUT_USB_HID_DEPTH;
-        luat_rtos_exit_critical(critical);
+        shared_store(&input->head, (head + 1U) % LUAT_INPUT_USB_HID_DEPTH);
         int ret = luat_input_hid_feed(input->parser, data, length, timestamp_ms);
         if (ret && ret != LUAT_INPUT_ENOTSUP && ret != LUAT_INPUT_HID_ROLLOVER) {
-            uint32_t errors = __sync_add_and_fetch(&input->invalid, 1);
+            uint32_t errors = ++input->invalid;
             luat_input_hid_reset(input->parser, timestamp_ms);
             if (errors == 1 || !(errors % 100))
                 LLOGW("HID malformed intf=%u ret=%d len=%u errors=%lu",
                       input->interface_number, ret, length, (unsigned long)errors);
         }
     }
-    uint32_t critical = luat_rtos_entry_critical();
-    if (input->head == input->tail && !input->lost) input->pending = 0;
-    luat_rtos_exit_critical(critical);
+    /* The ISR publishes tail/reset_seq before reading pending. Clearing pending
+     * before this recheck closes the empty-queue/wake race without a critical
+     * section. Keep dispatch bounded by scheduling another pass if necessary. */
+    shared_store(&input->pending, 0);
+    if (input->head != shared_load(&input->tail) ||
+        input->handled_reset_seq != shared_load(&input->reset_seq)) {
+        luat_rtos_event_send(worker, 1, 0, 0, 0, 0);
+    }
 }
 
 static void drain(void)
@@ -110,7 +135,7 @@ static void task(void *userdata)
 
 /* Transport serializes OPEN/CLOSE. First OPEN lazily creates the shared worker;
  * it remains parked with an infinite wait when no devices are attached. */
-static int init(void)
+static __LUAT_C_CODE_IN_RAM__ int init(void)
 {
     if (worker) return 0;
     if (!luat_input_service_is_ready()) {
@@ -121,7 +146,7 @@ static int init(void)
     return luat_rtos_task_create(&worker, 4096, 90, "input_hid", task, NULL, 32);
 }
 
-static void open_device(luat_usb_hid_host_t *device)
+static __LUAT_C_CODE_IN_RAM__ void open_device(luat_usb_hid_host_t *device)
 {
     if (device->userdata) return;
     uint16_t packet_size = device->packet_size;
@@ -134,7 +159,10 @@ static void open_device(luat_usb_hid_host_t *device)
     size_t prefix = (sizeof(usb_hid_input_t) + 7U) & ~(size_t)7U;
     size_t parser_size = (luat_input_hid_size() + 7U) & ~(size_t)7U;
     size_t stride = (sizeof(usb_hid_input_packet_t) + packet_size + 3U) & ~(size_t)3U;
-    usb_hid_input_t *input = luat_heap_calloc(1, prefix + parser_size + stride * LUAT_INPUT_USB_HID_DEPTH);
+    /* The ISR-visible session, parser and complete report ring share one PSRAM
+     * allocation. The weak heap implementation falls back where PSRAM is absent. */
+    usb_hid_input_t *input = luat_heap_opt_calloc(LUAT_HEAP_PSRAM, 1,
+        prefix + parser_size + stride * LUAT_INPUT_USB_HID_DEPTH);
     int ret = -1;
     if (!input) goto OUT;
     input->parser = (void *)((uint8_t *)input + prefix);
@@ -154,9 +182,9 @@ static void open_device(luat_usb_hid_host_t *device)
     if (ret) goto DEINIT;
     input->next = sessions;
     sessions = input;
-    uint32_t critical = luat_rtos_entry_critical();
+    /* OPEN completes before the transport starts RX. */
+    __asm__ volatile ("" ::: "memory");
     device->userdata = input;
-    luat_rtos_exit_critical(critical);
     LLOGI("HID attached bus=%u addr=%u intf=%u id=%lu buffer=%u context=%u",
         device->bus, device->address, device->interface_number,
         (unsigned long)luat_input_hid_handle(input->parser).id,
@@ -167,7 +195,7 @@ static void open_device(luat_usb_hid_host_t *device)
 DEINIT:
     luat_input_hid_deinit(input->parser, (uint32_t)luat_mcu_tick64_ms());
 FREE:
-    luat_heap_free(input);
+    luat_heap_opt_free(LUAT_HEAP_PSRAM, input);
 OUT:
     if (ret) LLOGW("HID unsupported/init failed addr=%u intf=%u ret=%d; transport remains active",
         device->address, device->interface_number, ret);
@@ -175,16 +203,15 @@ OUT:
     luat_rtos_mutex_unlock(session_lock);
 }
 
-static void close_device(luat_usb_hid_host_t *device)
+static __LUAT_C_CODE_IN_RAM__ void close_device(luat_usb_hid_host_t *device)
 {
     /* Failed OPEN may have been rejected before transport setup. */
     if (!session_lock || !device->userdata) return;
     luat_rtos_mutex_lock(session_lock, UINT32_MAX);
     USB_INPUT_LOCK();
-    uint32_t critical = luat_rtos_entry_critical();
+    /* CLOSE runs only after RX stopped and in-flight callbacks joined. */
     usb_hid_input_t *input = device->userdata;
     device->userdata = NULL;
-    luat_rtos_exit_critical(critical);
     if (input) {
         usb_hid_input_t **link = &sessions;
         while (*link && *link != input) link = &(*link)->next;
@@ -193,39 +220,35 @@ static void close_device(luat_usb_hid_host_t *device)
               (unsigned long)input->dropped, (unsigned long)input->invalid);
         luat_input_service_detach(luat_input_hid_handle(input->parser));
         luat_input_hid_deinit(input->parser, (uint32_t)luat_mcu_tick64_ms());
-        luat_heap_free(input);
+        luat_heap_opt_free(LUAT_HEAP_PSRAM, input);
     }
     USB_INPUT_UNLOCK();
     luat_rtos_mutex_unlock(session_lock);
 }
 
-static void report(luat_usb_hid_host_t *device, const uint8_t *data, uint32_t length)
+static __LUAT_C_CODE_IN_RAM__ void report(luat_usb_hid_host_t *device, const uint8_t *data, uint32_t length)
 {
-    uint32_t critical = luat_rtos_entry_critical();
     usb_hid_input_t *input = device->userdata;
-    if (!input) {
-        luat_rtos_exit_critical(critical);
-        return;
-    }
-    unsigned next = (input->tail + 1U) % LUAT_INPUT_USB_HID_DEPTH;
-    if (input->lost || !data || !length || length > input->packet_size || next == input->head) {
-        input->lost = 1;
-        __sync_add_and_fetch(&input->dropped, 1);
+    if (!input) return;
+    uint32_t tail = input->tail;
+    uint32_t next = (tail + 1U) % LUAT_INPUT_USB_HID_DEPTH;
+    if (!data || !length || length > input->packet_size || next == shared_load(&input->head)) {
+        input->dropped++;
+        /* Monotonic sequence avoids an ISR/task shared clear of a lost flag. */
+        shared_store(&input->reset_seq, input->reset_seq + 1U);
     } else {
-        usb_hid_input_packet_t *packet = (void *)(input->reports + input->tail * input->stride);
+        usb_hid_input_packet_t *packet = (void *)(input->reports + tail * input->stride);
         packet->timestamp_ms = (uint32_t)luat_mcu_tick64_ms();
         packet->length = length;
         memcpy(packet->data, data, length);
-        input->tail = next;
+        shared_store(&input->tail, next);
     }
-    int notify = !input->pending;
-    input->pending = 1;
-    luat_rtos_exit_critical(critical);
-    if (notify) luat_rtos_event_send(worker, 1, 0, 0, 0, 0);
+    /* pending is written only by the worker. A report published while the
+     * worker is active is covered by its end-of-drain queue recheck. */
+    if (!shared_load(&input->pending)) luat_rtos_event_send(worker, 1, 0, 0, 0, 0);
 }
 
-void luat_input_usb_hid_callback(luat_usb_hid_host_t *device,
-    luat_usb_hid_event_t event, const uint8_t *data, uint32_t length)
+__LUAT_C_CODE_IN_RAM__ void luat_input_usb_hid_callback(luat_usb_hid_host_t *device, luat_usb_hid_event_t event, const uint8_t *data, uint32_t length)
 {
     if (!device) return;
     switch (event) {

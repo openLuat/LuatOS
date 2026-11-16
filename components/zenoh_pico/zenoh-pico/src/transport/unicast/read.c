@@ -27,6 +27,7 @@
 #include "zenoh-pico/transport/unicast/lease.h"
 #include "zenoh-pico/transport/unicast/rx.h"
 #include "zenoh-pico/utils/logging.h"
+#include "zenoh-pico/transport/unicast/observe.h"
 
 #define _Z_UNICAST_PEER_READ_STATUS_OK 0
 #define _Z_UNICAST_PEER_READ_STATUS_PENDING_DATA -1
@@ -52,11 +53,13 @@ static z_result_t _z_unicast_process_messages(_z_transport_unicast_t *ztu, _z_tr
         z_result_t ret = _z_transport_message_decode(&t_msg, &zbuf);
 
         if (ret != _Z_RES_OK) {
+            _Z_TRANSPORT_FAULT("decode", ret, -1);
             _Z_INFO("Connection compromised due to malformed message: %d", ret);
             return ret;
         }
         ret = _z_unicast_handle_transport_message(ztu, &t_msg, peer);
         if (ret != _Z_RES_OK) {
+            _Z_TRANSPORT_FAULT("process", ret, -1);
             if (ret != _Z_ERR_CONNECTION_CLOSED) {
                 _Z_WARN("Connection compromised due to message processing error: %d", ret);
             }
@@ -71,6 +74,7 @@ static z_result_t _z_unicast_process_messages(_z_transport_unicast_t *ztu, _z_tr
     }
 
     if (_z_unicast_update_rx_buffer(ztu) != _Z_RES_OK) {
+        _Z_TRANSPORT_FAULT("rx_buffer", _Z_ERR_SYSTEM_OUT_OF_MEMORY, -1);
         _Z_ERROR("Connection closed due to lack of memory to allocate rx buffer");
         _Z_ERROR_RETURN(_Z_ERR_SYSTEM_OUT_OF_MEMORY);
     }

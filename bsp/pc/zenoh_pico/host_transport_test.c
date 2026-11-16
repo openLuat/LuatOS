@@ -63,7 +63,9 @@ void luat_rtos_task_sleep(uint32_t ms) {
 }
 luat_rtos_task_handle luat_rtos_get_current_handle(void) { return missing_task ? NULL : (void *)(uintptr_t)1; }
 int luat_zenoh_pico_adapter(void) { return 0; }
-int luat_zenoh_pico_rng_failed(void) { return 0; }
+static int abort_code;
+int luat_zenoh_pico_rng_failed(void) { return abort_code == -6; }
+int luat_zenoh_pico_io_aborted(void) { return abort_code; }
 int luat_zenoh_pico_io_failed(void) { return failed; }
 void luat_zenoh_pico_io_progress(int sending, size_t n) { if (sending && !failed) accepted += n; }
 void luat_zenoh_pico_io_fail_at(const char *stage, int rc, size_t requested,
@@ -212,6 +214,20 @@ static int expect_receive_events(_z_sys_net_socket_t s) {
 static int expect_empty(_z_sys_net_socket_t s) {
     CHECK(_z_send_tcp(s, payload, 0) == 0 && calls == 0 && !failed); return 0;
 }
+static int expect_cancel(_z_sys_net_socket_t s) {
+    abort_code = -13; uint8_t b;
+    CHECK(_z_read_tcp(s, &b, 1) == SIZE_MAX && !failed);
+    CHECK(_z_send_tcp(s, payload, 1) == SIZE_MAX && calls == 0 && failed);
+    CHECK(diagnostic.rc == -13 && !strcmp(diagnostic.stage, "tx_cancelled"));
+    abort_code = 0; CHECK(_z_send_tcp(s, payload, 1) == SIZE_MAX && calls == 0);
+    abort_code = 0; return 0;
+}
+static int expect_rng(_z_sys_net_socket_t s) {
+    abort_code = -6;
+    CHECK(_z_send_tcp(s, payload, 1) == SIZE_MAX && calls == 0 && failed);
+    CHECK(diagnostic.rc == -6 && !strcmp(diagnostic.stage, "rng_failed"));
+    abort_code = 0; return 0;
+}
 int main(void) {
     _z_sys_net_socket_t no_task = {0}; _z_sys_net_endpoint_t endpoint = {0};
     missing_task = 1;
@@ -233,7 +249,9 @@ int main(void) {
         {"oversized_count_rejected", BAD_LENGTH, expect_invalid},
         {"empty_write_no_call", FULL, expect_empty},
         {"unknown_private_event_is_failure", FULL, expect_unknown_event},
-        {"receive_consumes_notices", FULL, expect_receive_events}
+        {"receive_consumes_notices", FULL, expect_receive_events},
+        {"cancel_read_clean_but_write_poisoned", FULL, expect_cancel},
+        {"rng_failure_stops_io", FULL, expect_rng}
     };
     unsigned failures = 0;
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {

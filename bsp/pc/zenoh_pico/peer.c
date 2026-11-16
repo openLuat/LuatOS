@@ -150,8 +150,9 @@ static void control_get(z_loaned_sample_t *sample, void *context) {
     z_view_keyexpr_t key; z_view_keyexpr_from_str(&key, device_key);
     z_owned_closure_reply_t closure; z_closure(&closure, device_reply, device_done, NULL);
     z_get_options_t options; z_get_options_default(&options);
-    /* 对端期限须晚于被测owned-query的5秒清场，避免先被router超时。 */
-    options.timeout_ms = 7000; options.consolidation = z_query_consolidation_none();
+    /* 对端期限晚于被测owned-query的30秒清场，避免先被router超时。 */
+    options.timeout_ms = 35000; options.consolidation = z_query_consolidation_none();
+    if (getenv("ZENOH_FINAL_FAULT_TEST")) options.timeout_ms = 1500;
     static const unsigned char request[] = "peer\0query\377";
     z_owned_bytes_t value, attachment;
     if (payload_mode) {
@@ -183,8 +184,12 @@ int main(int argc, char **argv) {
         else return 2;
     }
     z_owned_config_t config; if (z_config_default(&config) < 0) return 2;
-    zp_config_insert(z_loan_mut(config), Z_CONFIG_MODE_KEY, "client");
-    zp_config_insert(z_loan_mut(config), Z_CONFIG_CONNECT_KEY, argv[1]);
+    int config_rc = zp_config_insert(z_loan_mut(config), Z_CONFIG_MODE_KEY, "client");
+    if (!config_rc) config_rc = zp_config_insert(z_loan_mut(config), Z_CONFIG_CONNECT_KEY, argv[1]);
+    const char *user = getenv("ZENOH_TEST_USER"), *password = getenv("ZENOH_TEST_PASSWORD");
+    if (!config_rc && user) config_rc = zp_config_insert(z_loan_mut(config), Z_CONFIG_USER_KEY, user);
+    if (!config_rc && password) config_rc = zp_config_insert(z_loan_mut(config), Z_CONFIG_PASSWORD_KEY, password);
+    if (config_rc) { z_drop(z_move(config)); return 2; }
     if (z_open(&session, z_move(config), NULL) < 0) return 3;
     char input[256], finish[256];
     snprintf(input, sizeof(input), "%s/in", argv[2]); snprintf(output, sizeof(output), "%s/out", argv[2]);
@@ -215,7 +220,7 @@ int main(int argc, char **argv) {
 
     printf("READY\n"); fflush(stdout);
     z_clock_t start = z_clock_now();
-    while (!done && !failed && z_clock_elapsed_ms(&start) < ((two_rounds || get_mode) ? 240000 : 60000)) {
+    while (!done && !failed && z_clock_elapsed_ms(&start) < (getenv("ZENOH_PERF_TEST") ? 300000 : (two_rounds || get_mode) ? 240000 : 60000)) {
         zp_spin_once(z_loan(session)); z_sleep_ms(5);
         for (int i = 0; i < 4; ++i) if (held_used[i] && z_clock_elapsed_ms(&held_at[i]) >= 1500) {
             printf("HOLD_DROP %d\n", i); fflush(stdout);

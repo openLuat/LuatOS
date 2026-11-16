@@ -27,6 +27,7 @@
 #include "zenoh-pico/transport/unicast/transport.h"
 #include "zenoh-pico/transport/utils.h"
 #include "zenoh-pico/utils/logging.h"
+#include "zenoh-pico/transport/unicast/observe.h"
 
 #if Z_FEATURE_UNICAST_TRANSPORT == 1
 static z_result_t _z_unicast_transport_create_inner(_z_transport_unicast_t *ztu, _z_link_t *zl,
@@ -92,11 +93,16 @@ z_result_t _z_unicast_transport_create(_z_transport_t *zt, _z_link_t *zl,
 }
 
 static z_result_t _z_unicast_handshake_open(_z_transport_unicast_establish_param_t *param, const _z_link_t *zl,
-                                            const _z_id_t *local_zid, z_whatami_t mode, _z_sys_net_socket_t *socket) {
+                                            const _z_id_t *local_zid, z_whatami_t mode, _z_sys_net_socket_t *socket,
+                                            const _z_usrpwd_view_t *auth) {
     z_clock_t recv_deadline = z_clock_now();
     z_clock_advance_ms(&recv_deadline, Z_TRANSPORT_CONNECT_TIMEOUT);
 
     _z_transport_message_t ism = _z_t_msg_make_init_syn(mode, *local_zid);
+    if (auth) { _Z_AUTH_OBSERVE(1, -1); ism._body._init._auth_present = true; _Z_SET_FLAG(ism._header, _Z_FLAG_T_Z); }
+#if Z_FEATURE_FRAGMENTATION == 1
+    uint8_t offered_patch = ism._body._init._patch;
+#endif
     param->_seq_num_res = ism._body._init._seq_num_res;  // The announced sn resolution
     param->_req_id_res = ism._body._init._req_id_res;    // The announced req id resolution
     param->_batch_size = ism._body._init._batch_size;    // The announced batch size
@@ -109,11 +115,20 @@ static z_result_t _z_unicast_handshake_open(_z_transport_unicast_establish_param
         return ret;
     }
     // Try to receive response
+    if (auth) _Z_AUTH_OBSERVE(2, -1);
     _z_transport_message_t iam = {0};
     _Z_RETURN_IF_ERR(_z_link_recv_t_msg(&iam, zl, socket, recv_deadline));
     if ((_Z_MID(iam._header) != _Z_MID_T_INIT) || !_Z_HAS_FLAG(iam._header, _Z_FLAG_T_INIT_A)) {
+        if (auth && _Z_MID(iam._header) == _Z_MID_T_CLOSE) _Z_AUTH_OBSERVE(2, iam._body._close._reason);
+        z_result_t error = auth && _Z_MID(iam._header) == _Z_MID_T_CLOSE ? _Z_ERR_AUTH_REJECTED : _Z_ERR_MESSAGE_UNEXPECTED;
         _z_t_msg_clear(&iam);
-        _Z_ERROR_RETURN(_Z_ERR_MESSAGE_UNEXPECTED);
+        return error;
+    }
+    if (auth && !iam._body._init._auth_present) {
+        _z_t_msg_clear(&iam); return _Z_ERR_AUTH_PROTOCOL;
+    }
+    if (iam._body._init._version != Z_PROTO_VERSION || iam._body._init._batch_size < 16) {
+        _z_t_msg_clear(&iam); return _Z_ERR_MESSAGE_UNEXPECTED;
     }
     param->_remote_whatami = iam._body._init._whatami;
     _Z_DEBUG("Received Z_INIT(Ack)");
@@ -139,7 +154,7 @@ static z_result_t _z_unicast_handshake_open(_z_transport_unicast_establish_param
         ret = _Z_ERR_TRANSPORT_OPEN_SN_RESOLUTION;
     }
 #if Z_FEATURE_FRAGMENTATION == 1
-    if (iam._body._init._patch <= ism._body._init._patch) {
+    if (iam._body._init._patch <= offered_patch) {
         param->_patch = iam._body._init._patch;
     } else {
         // TODO: Use a better error code?
@@ -157,7 +172,7 @@ static z_result_t _z_unicast_handshake_open(_z_transport_unicast_establish_param
     if (mode == Z_WHATAMI_CLIENT) {
         // The initial SN at TX side
         z_random_fill(&param->_initial_sn_tx, sizeof(param->_initial_sn_tx));
-        param->_initial_sn_tx = param->_initial_sn_tx & !_z_sn_modulo_mask(param->_seq_num_res);
+        param->_initial_sn_tx = param->_initial_sn_tx & _z_sn_modulo_mask(param->_seq_num_res);
     }
     // Should be pre-initialized in peer mode
 
@@ -167,12 +182,18 @@ static z_result_t _z_unicast_handshake_open(_z_transport_unicast_establish_param
     // Create the OpenSyn message
     _z_zint_t lease = Z_TRANSPORT_LEASE;
     _z_zint_t initial_sn = param->_initial_sn_tx;
-    _z_slice_t cookie = _z_slice_null();
-    if (!_z_slice_is_empty(&iam._body._init._cookie)) {
-        _z_slice_copy(&cookie, &iam._body._init._cookie);
-    }
+    _z_slice_t cookie = _z_slice_steal(&iam._body._init._cookie);
     _z_transport_message_t osm = _z_t_msg_make_open_syn(lease, initial_sn, cookie);
+    if (auth) {
+        _Z_AUTH_OBSERVE(3, -1);
+        osm._body._open._auth_present = true;
+        osm._body._open._auth_user_len = (uint16_t)strlen(auth->user);
+        memcpy(osm._body._open._auth_user, auth->user, osm._body._open._auth_user_len);
+        ret = _z_usrpwd_hmac(osm._body._open._auth_hmac, iam._body._init._auth_nonce, auth->password);
+        _Z_SET_FLAG(osm._header, _Z_FLAG_T_Z);
+    }
     _z_t_msg_clear(&iam);
+    if (ret != _Z_RES_OK) { _z_t_msg_clear(&osm); return ret; }
     // Encode and send the message
     _Z_DEBUG("Sending Z_OPEN(Syn)");
     ret = _z_link_send_t_msg(zl, &osm, socket);
@@ -181,12 +202,17 @@ static z_result_t _z_unicast_handshake_open(_z_transport_unicast_establish_param
         return ret;
     }
     // Try to receive response
+    if (auth) _Z_AUTH_OBSERVE(4, -1);
     _z_transport_message_t oam = {0};
     _Z_RETURN_IF_ERR(_z_link_recv_t_msg(&oam, zl, socket, recv_deadline));
     if ((_Z_MID(oam._header) != _Z_MID_T_OPEN) || !_Z_HAS_FLAG(oam._header, _Z_FLAG_T_OPEN_A)) {
+        if (auth && _Z_MID(oam._header) == _Z_MID_T_CLOSE) _Z_AUTH_OBSERVE(4, oam._body._close._reason);
+        z_result_t error = auth && _Z_MID(oam._header) == _Z_MID_T_CLOSE ? _Z_ERR_AUTH_REJECTED : _Z_ERR_MESSAGE_UNEXPECTED;
         _z_t_msg_clear(&oam);
-        _Z_ERROR_LOG(_Z_ERR_MESSAGE_UNEXPECTED);
-        ret = _Z_ERR_MESSAGE_UNEXPECTED;
+        return error;
+    }
+    if (auth && !oam._body._open._auth_present) {
+        _z_t_msg_clear(&oam); return _Z_ERR_AUTH_PROTOCOL;
     }
     // THIS LOG STRING USED IN TEST, change with caution
     _Z_DEBUG("Received Z_OPEN(Ack)");
@@ -194,6 +220,8 @@ static z_result_t _z_unicast_handshake_open(_z_transport_unicast_establish_param
     // The initial SN at RX side. Initialize the session as we had already received
     // a message with a SN equal to initial_sn - 1.
     param->_initial_sn_rx = oam._body._open._initial_sn;
+    _Z_ACCEPTED_OPEN(oam._body._open._lease, param->_lease);
+    if (auth) _Z_AUTH_OBSERVE(5, -1);
     _z_t_msg_clear(&oam);
     return _Z_RES_OK;
 }
@@ -287,8 +315,8 @@ z_result_t _z_unicast_handshake_listen(_z_transport_unicast_establish_param_t *p
 }
 
 z_result_t _z_unicast_open_client(_z_transport_unicast_establish_param_t *param, const _z_link_t *zl,
-                                  const _z_id_t *local_zid) {
-    return _z_unicast_handshake_open(param, zl, local_zid, Z_WHATAMI_CLIENT, NULL);
+                                  const _z_id_t *local_zid, const _z_usrpwd_view_t *auth) {
+    return _z_unicast_handshake_open(param, zl, local_zid, Z_WHATAMI_CLIENT, NULL, auth);
 }
 
 z_result_t _z_unicast_open_peer(_z_transport_unicast_establish_param_t *param, const _z_link_t *zl,
@@ -297,10 +325,10 @@ z_result_t _z_unicast_open_peer(_z_transport_unicast_establish_param_t *param, c
 
     // Init sn tx
     z_random_fill(&param->_initial_sn_tx, sizeof(param->_initial_sn_tx));
-    param->_initial_sn_tx = param->_initial_sn_tx & !_z_sn_modulo_mask(param->_seq_num_res);
+    param->_initial_sn_tx = param->_initial_sn_tx & _z_sn_modulo_mask(param->_seq_num_res);
 
     if (peer_op == _Z_PEER_OP_OPEN) {
-        ret = _z_unicast_handshake_open(param, zl, local_zid, Z_WHATAMI_PEER, socket);
+        ret = _z_unicast_handshake_open(param, zl, local_zid, Z_WHATAMI_PEER, socket, NULL);
     } else {
         // Initialize common parameters
         param->_lease = Z_TRANSPORT_LEASE;
@@ -340,7 +368,8 @@ z_result_t _z_unicast_transport_create(_z_transport_t *zt, _z_link_t *zl,
 }
 
 z_result_t _z_unicast_open_client(_z_transport_unicast_establish_param_t *param, const _z_link_t *zl,
-                                  const _z_id_t *local_zid) {
+                                  const _z_id_t *local_zid, const _z_usrpwd_view_t *auth) {
+    _ZP_UNUSED(auth);
     _ZP_UNUSED(param);
     _ZP_UNUSED(zl);
     _ZP_UNUSED(local_zid);

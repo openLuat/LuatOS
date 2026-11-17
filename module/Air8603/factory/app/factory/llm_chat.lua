@@ -116,13 +116,14 @@ tts_play_text = function(text)
     tts_playing = true
     sys.publish("AI_CHAT_STATUS", "TTS 播放中")
     local done = false
-    local ok = audio_hw.play_start({
+    -- 起播并取回 exaudio 的真实返回值：ok=pcall 结果，ret=起播是否成立，reason=拒绝原因
+    local ok, ret, reason = audio_hw.play_start({
         type = 1, content = tts_voice .. text,
         cbfnc = function(event)
             if event == exaudio.PLAY_DONE then done = true end
         end
     })
-    if ok then
+    if ok and ret then
         -- 起播这一瞬若已离开前台，立刻真停一次：此刻请求已登记，play_stop 能落到
         -- 驱动上；否则只能靠下面的静音分支挡，而它最多等 3s，长文本会漏声到别的页面。
         if not page_active then tts_stop() end
@@ -144,7 +145,7 @@ tts_play_text = function(text)
             audio_hw.sync(nil, false)
         end
     else
-        log.warn("llm_chat", "exaudio.play_start TTS 失败")
+        log.warn("llm_chat", "TTS 起播失败:", tostring(ok and reason or ret))
     end
     tts_playing = false
     sys.publish("AI_CHAT_STATUS", "")
@@ -182,6 +183,12 @@ tts_init = function()
     if tts_is_v2 and audio_v2 and audio_v2.config_codec_power_ctrl then pcall(audio_v2.config_codec_power_ctrl, false, 0, 0, 0, 0) end
     tts_has_play_start = (type(exaudio.play_start) == "function")
     if not tts_has_play_start then log.warn("llm_chat", "TTS: exaudio.play_start 不存在，无法播放"); return false end
+    -- 打印 TTS 能力面：Air1103 的 type=1 离线 TTS 依赖固件的 audio_v2.tts_pcm_start/read/stop
+    log.info("llm_chat", "TTS 能力: model=", tostring(ac.model),
+        " audio_v2=", tostring(audio_v2 ~= nil),
+        " tts_pcm_start=", tostring(audio_v2 and type(audio_v2.tts_pcm_start)),
+        " tts_pcm_read=", tostring(audio_v2 and type(audio_v2.tts_pcm_read)),
+        " tts_pcm_stop=", tostring(audio_v2 and type(audio_v2.tts_pcm_stop)))
     log.info("llm_chat", "TTS init ok, v2=", tts_is_v2)
     tts_inited = true
     return true

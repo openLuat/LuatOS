@@ -62,7 +62,7 @@ VERSION：项目版本号，ascii string类型
 ]]
 -- main.lua - 程序入口文件
 PROJECT = "Engine_Air8603M1_10inch_1024x600_000_4G_V000"  -- 项目名，用于 FOTA 云端鉴权
-VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
+VERSION = "001.999.007"                               -- 固件版本号，用于 FOTA 升级比对
 --[[
 PROJECT_KEY：项目密钥，FOTA 云端鉴权。
 Air8603 出厂固件共 10 个型号（W1~W5 为 WiFi 版，M1~M5 为 4G 版），

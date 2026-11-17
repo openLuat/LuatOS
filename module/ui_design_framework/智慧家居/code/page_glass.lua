@@ -4,7 +4,8 @@
 @version 3.1.0
 @note 视觉与信息架构对齐 docs/方案D_玻璃拟态.html：
         顶栏玻璃胶囊（含主题切换按钮） + 房间Tab + 气候/设备/安防三栏 + 底部场景Dock + 调档调节条。
-        主题切换：顶栏按钮 → ui_theme.set_mode 保存（fskv）→ 重启进入新主题。
+        主题切换：顶栏按钮 → ui_theme.set_mode 原地更新令牌 + 存 fskv → 本页 destroy/create
+        原地重建，即时生效，不重启（房间/设备/安防等状态保留）。
       验收纪律：最小字号 16 号；任何控件（含动画全程）永不探出父容器内容区。
       v2.2 滚动条整治（官方 airui.md §4.2.13）：
         AirUI 容器滚动条固定 AUTO 且无关闭接口，子控件探出内容区 1px 即画滚动条。
@@ -24,7 +25,11 @@ local C, G = T.c, T.glass
 local M = {}
 
 local SW, SH = T.screen.w, T.screen.h
-local ROOT = airui.screen                    -- 本页根容器：由 ui_page 传入，默认回退屏幕
+local BASE = nil                             -- 外部传入的屏幕/父容器，重建时复用
+local PAGE = nil                             -- 本页专属容器：destroy 时整棵销毁，重建不残留
+local ROOT = airui.screen                    -- 当前内容挂载点（= PAGE）
+local timer_climate, timer_clock             -- 本页定时器句柄，destroy 时停掉
+local retheme_pending = false                -- 防止 50ms 内连点触发两次重建
 
 -- ==================== 布局常量（对应 HTML 1024x600，均已按内容区核算） ====================
 local TOP = { x = 18, y = 16, w = 988, h = 54 }
@@ -103,7 +108,7 @@ local function status_chip(parent, x, y, w, name)
     return handle
 end
 
--- 主题切换胶囊：文字显示「点击后进入」的主题，保存偏好（fskv）后重启生效
+-- 主题切换胶囊：文字显示「点击后进入」的主题，保存偏好（fskv）后原地重建页面，不重启
 local function theme_chip(p)
     local x, y, w, h = 566, 10, 120, 36
     local box = airui.container({ parent = p, x = x, y = y, w = w, h = h,
@@ -114,19 +119,17 @@ local function theme_chip(p)
         align = airui.TEXT_ALIGN_CENTER })
     W.press_layer(p, { x = x, y = y, w = w, h = h, radius = 18, target = box, tx = x, ty = y,
         on_click = function()
+            if retheme_pending then return end
+            retheme_pending = true
             local next_mode = (T.mode == "dark") and "light" or "dark"
-            T.set_mode(next_mode)
-            toast("切换到" .. (next_mode == "light" and "浅色" or "深色") .. "主题，即将重启…")
+            T.set_mode(next_mode)              -- 令牌已原地更新，fskv 已保存
+            local base = BASE
+            -- 延后一帧再拆页面：避免在点击回调里销毁正在命中的控件
             sys.timerStart(function()
-                log.info("page_glass", "重启进入新主题", next_mode)
-                if rtos and rtos.reboot then
-                    rtos.reboot()
-                elseif pm and pm.reboot then
-                    pm.reboot()
-                else
-                    log.error("page_glass", "未找到可用的重启接口 rtos.reboot/pm.reboot")
-                end
-            end, 800)
+                M.create(base)                 -- create 内部先 destroy 旧页，再按新令牌全量重建
+                retheme_pending = false
+                toast("已切换到" .. (next_mode == "light" and "浅色" or "深色") .. "主题")
+            end, 50)
         end })
 end
 
@@ -595,7 +598,8 @@ end
 -- 视觉：不贴白底卡片（白 @200 在暗色界面里像一块灯箱），而是「凹陷控制条」——
 -- 底比面板更暗一档（G.inset_opa），中间 −  数值  + 收进一条内嵌轨道（G.track_opa），
 -- 按钮本体全透明只留青色符号，关闭降级为灰字幽灵按钮，层级一目了然。
-local ADJ_OPA = G.inset_opa
+-- 不能在这里缓存标量：切主题后 G.inset_opa 会变，必须现取
+local function adj_opa() return G.inset_opa end
 
 popup_delta = function(dv)
     if not cur_dev then return end
@@ -625,7 +629,7 @@ open_popup = function(d, t)
         popup.sub:set_text(d.ds or "")
         popup.val:set_text(d.val .. "%")
     end)
-    W.glass(popup.g, C.deep, ADJ_OPA)
+    W.glass(popup.g, C.deep, adj_opa())
     W.glass(popup.bar, C.pri, 190)
     W.glass(popup.track, 0xFFFFFF, G.track_opa)
     W.temp_pulse(popup.val)
@@ -636,7 +640,7 @@ close_popup = function()
     popup_open = false
     for _, part in ipairs(popup.parts) do part.set_disabled(true) end
     W.tween(3, function(tt)
-        W.glass(popup.g, C.deep, math.floor(ADJ_OPA * (1 - tt)))
+        W.glass(popup.g, C.deep, math.floor(adj_opa() * (1 - tt)))
     end, function()
         for _, part in ipairs(popup.parts) do part.set_visible(false) end
         pcall(function() popup.nm:set_text(""); popup.sub:set_text(""); popup.val:set_text("") end)
@@ -709,9 +713,35 @@ local function update_clock()
     if lbl_clock then pcall(function() lbl_clock:set_text(txt) end) end
 end
 
--- ==================== 构建入口 ====================
+-- ==================== 销毁 / 构建入口 ====================
+-- 切主题时先把整棵控件树和本页定时器拆掉，再用新令牌原样重建。
+-- 数据层（app_state 的房间/设备/安防）不动，所以切完主题当前房间和设备状态都保留。
+function M.destroy()
+    if timer_climate then pcall(function() sys.timerStop(timer_climate) end); timer_climate = nil end
+    if timer_clock    then pcall(function() sys.timerStop(timer_clock) end);    timer_clock = nil end
+    S.stop_sim()
+    toast_seq = toast_seq + 1                            -- 作废尚未到期的 toast 定时器
+    if PAGE then
+        pcall(function() PAGE:destroy() end)             -- container:destroy 会连带销毁全部子组件
+        PAGE = nil
+    end
+    BASE, ROOT = nil, airui.screen
+    lbl_clock, lbl_toast = nil, nil
+    lbl_room, lbl_count = nil, nil
+    lb_temp, lb_humi, lb_acst, lb_ac_temp = nil, nil, nil, nil
+    climate_chart, humi_dots = nil, nil
+    grids_parent = nil
+    top_chips, room_tabs, tiles, dock_items, SEC_UI, handles = {}, {}, {}, {}, {}, {}
+    popup, popup_open, cur_dev, cur_tile = nil, false, nil, nil
+    dock_active = 1
+end
+
 function M.create(root)
-    ROOT = root or airui.screen
+    M.destroy()                                          -- 重建前必先清干净，防止句柄/控件叠加
+    BASE = root or airui.screen
+    PAGE = airui.container({ parent = BASE, x = 0, y = 0, w = SW, h = SH,
+        color = 0x000000, color_opacity = 0, border_width = 0 })  -- 透明页容器，只作整页销毁锚点
+    ROOT = PAGE
     build_background()
     build_topbar()
     build_roombar()
@@ -720,15 +750,15 @@ function M.create(root)
     build_security()
     build_dock()
     build_popup()
-    -- 初始房间与状态（磁贴直接落位，不播动画）
-    apply_room(1, false)
+    -- 初始房间与状态（磁贴直接落位，不播动画）；S.active 保留切主题前的房间
+    apply_room(S.active, false)
     top_chips.arm.set(S.security.armed, S.security.armed and "在家布防" or "已撤防")
     top_chips.lock.set(S.security.locked, S.security.locked and "已上锁" or "已开锁")
     update_clock()
     W.enter(handles)                                     -- 模块依次淡入（零位移）
     S.start_sim()
-    sys.timerLoopStart(function() update_climate(true) end, 5000)
-    sys.timerLoopStart(update_clock, 20000)
+    timer_climate = sys.timerLoopStart(function() update_climate(true) end, 5000)
+    timer_clock = sys.timerLoopStart(update_clock, 20000)
     log.info("page_glass", "方案D 玻璃拟态页已创建，微动", T.motion.enabled and "开" or "关")
 end
 

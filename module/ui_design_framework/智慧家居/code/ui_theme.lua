@@ -5,8 +5,8 @@
 @usage  改主题只动这一个文件；关闭全部微动把 M.motion.enabled 设为 false。
         颜色 0xRRGGBB，opacity 0-255（越小越透明）。
         与 docs/方案D_玻璃拟态.html（深色 / 浅色两套 CSS 变量）同一套视觉令牌。
-        运行中切换：T.set_mode("light"/"dark") 保存偏好，重启后自动生效（页面在顶栏
-        提供「主题」按钮，点击保存 → 提示 → 重启进入新主题）。
+        运行中切换：T.set_mode("light"/"dark") 原地更新 M.c / M.glass 的字段并保存 fskv；
+        页面收到切换后 destroy + create 原地重建，立即生效，无需重启。
 ]]
 local M = {}
 
@@ -100,14 +100,22 @@ M.light = {
     },
 }
 
--- 生效当前主题：M.c / M.glass 指向所选模式（页面构建时读取，构建后不变）
+-- 生效当前主题：M.c / M.glass 是常驻表，只原地改字段，不换引用。
+-- page_glass / ui_widget 在 require 时就把这两张表存进了 local C, G，
+-- 若这里改成 M.c = t.c，那些引用会永远停在旧主题；原地改字段才能全局同步。
+M.c, M.glass = {}, {}
+local function copy_tokens(dst, src)
+    for k in pairs(dst) do dst[k] = nil end
+    for k, v in pairs(src) do dst[k] = v end
+end
 function M.apply(mode)
     local t = (mode == "light") and M.light or M.dark
     M.mode = (mode == "light") and "light" or "dark"
-    M.c, M.glass = t.c, t.glass
+    copy_tokens(M.c, t.c)
+    copy_tokens(M.glass, t.glass)
 end
 
--- 保存并生效主题偏好（本机页面的切换入口：set_mode → toast → 重启后 apply 读回）
+-- 保存并生效主题偏好：令牌立即更新，页面随后原地重建；fskv 只负责下次开机记忆
 function M.set_mode(mode)
     M.apply(mode)
     if fskv then pcall(function()

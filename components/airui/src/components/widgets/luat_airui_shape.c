@@ -770,3 +770,12 @@ int airui_shape_get_count(lv_obj_t *shape)
     }
     return (int)data->count;
 }
+
+int airui_shape_set_hidden(lv_obj_t *shape, bool hidden)
+{
+    if (shape == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    lv_obj_set_flag(shape, LV_OBJ_FLAG_HIDDEN, hidden);
+    return AIRUI_OK;
+}

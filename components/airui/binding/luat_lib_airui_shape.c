@@ -200,6 +200,24 @@ static int l_shape_get_count(lua_State *L)
 }
 
 /**
+ * 设置 Shape 隐藏状态，保留图元和子对象。
+ * @api shape:set_hidden(hidden)
+ * @bool hidden true 隐藏，false 显示；与 container:set_hidden 一样按 Lua 布尔规则处理
+ * @return nil
+ * @usage
+ * shape:set_hidden(true)
+ * shape:set_hidden(false)
+ */
+static int l_shape_set_hidden(lua_State *L)
+{
+    lv_obj_t *shape = airui_check_component(L, 1, AIRUI_SHAPE_MT);
+    if (airui_shape_set_hidden(shape, lua_toboolean(L, 2)) != AIRUI_OK) {
+        return luaL_error(L, "invalid shape");
+    }
+    return 0;
+}
+
+/**
  * Shape:get_pos()
  * @api shape:get_pos()
  * @return int x X 坐标
@@ -288,6 +306,7 @@ void airui_register_shape_meta(lua_State *L)
         {"add_item", l_shape_add_item},
         {"clear", l_shape_clear},
         {"get_count", l_shape_get_count},
+        {"set_hidden", l_shape_set_hidden},
         {"get_pos", l_shape_get_pos},
         {"set_pos", l_shape_set_pos},
         {"move", l_shape_move},

@@ -51,7 +51,7 @@ VERSION：项目版本号，ascii string类型
 ]]
 -- main.lua - 程序入口文件
 PROJECT = "Engine_Air8607_10inch_1024x600_000_V000"
-VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
+VERSION = "001.999.007"                               -- 固件版本号，用于 FOTA 升级比对
 --[[
 PROJECT_KEY：项目密钥，FOTA 云端鉴权。
 Air8607 出厂固件分两个型号，云端按机型区分，密钥不同，故按 PROJECT 里的型号段取：

@@ -398,8 +398,14 @@ local function to_big_endian(num, bytes)
     end
     local result = {}
     for i = bytes, 1, -1 do
-        result[i] = string.char(num % 256)
-        num = math.floor(num / 256)
+        local byte = num % 256
+        result[i] = string.char(byte)
+        -- 注意：LuatOS 的 float 是 32 位，直接 num/256 在大数上会丢精度——
+        -- 例：1794855104/256 = 7011152.75，float32 在该量级只能 0.5 步进，
+        -- 舍入成 7011153.0，floor 后字节 +1，整值恒定 +256（时间戳 bug 根因）。
+        -- 改用减法：num-byte 必为 256 的整数倍，且商 < 2^24，float32 对
+        -- 2^24 以内的整数完全精确，除法无损。
+        num = (num - byte) / 256
     end
     return table.concat(result)
 end

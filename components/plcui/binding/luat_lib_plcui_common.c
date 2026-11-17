@@ -477,9 +477,9 @@ static int component_state(lua_State *L)
         lua_setfield(L, -2, "point_count");
         lua_pushinteger(L, widget->chart->count);
         lua_setfield(L, -2, "series_count");
-        lua_pushnumber(L, (lua_Number)widget->chart->minimum / PLCUI_CHART_SCALE);
+        lua_pushnumber(L, (lua_Number)widget->chart->minimum);
         lua_setfield(L, -2, "y_min");
-        lua_pushnumber(L, (lua_Number)widget->chart->maximum / PLCUI_CHART_SCALE);
+        lua_pushnumber(L, (lua_Number)widget->chart->maximum);
         lua_setfield(L, -2, "y_max");
     }
     return 1;

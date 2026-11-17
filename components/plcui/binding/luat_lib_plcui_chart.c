@@ -28,7 +28,7 @@ static plcui_chart_series_t *check_series(lua_State *L, plcui_widget_t *widget)
  * @table values 从索引 1 开始的连续数字数组，长度必须等于 XML 的 point-count（2～1024）。
  * @return bool|nil 成功返回 true，运行错误返回 nil。
  * @return table|nil 失败时返回包含 code、message 的错误表，成功时不返回。
- * @note 每个值必须是 -1000～1000 的有限数字，按两位小数四舍五入保存；不接受 NaN 或无穷大。
+ * @note 每个值必须是有限数字，按两位小数四舍五入保存；无固定业务范围，不接受 NaN 或无穷大。极大数精度受双精度浮点限制。
  * @note 完整校验和临时缓冲分配成功后才更新；非法数据或内存不足时保留该系列原有数据。
  * @note 成功后重置该系列的环形游标，不改变其他系列、坐标轴范围或显隐状态。
  * @note 超出 Y 轴范围的值按轴边界绘制，get_values 仍返回两位小数精度的保存值。
@@ -50,7 +50,7 @@ static int chart_set_values(lua_State *L)
     unsigned count = widget->chart->points;
     if (lua_rawlen(L, 3) != count) return luat_plcui_binding_error(L, "E_SCHEMA", "Values length must equal point-count");
     /* 先写入有界临时数组，全部校验成功后再覆盖系列，保证失败时旧数据不变。 */
-    int32_t *values = malloc(count * sizeof(*values));
+    double *values = malloc(count * sizeof(*values));
     if (!values) return luat_plcui_binding_error(L, "E_MEMORY", "Cannot allocate chart update buffer");
     for (unsigned i = 0; i < count; ++i) {
         lua_rawgeti(L, 3, (lua_Integer)i + 1);
@@ -58,7 +58,7 @@ static int chart_set_values(lua_State *L)
         lua_pop(L, 1);
         if (!valid) {
             free(values);
-            return luat_plcui_binding_error(L, "E_SCHEMA", "Chart values must be finite numbers between -1000 and 1000");
+            return luat_plcui_binding_error(L, "E_SCHEMA", "Chart values must be finite numbers");
         }
     }
     memcpy(series->values, values, count * sizeof(*values));
@@ -73,7 +73,7 @@ static int chart_set_values(lua_State *L)
  * 向指定系列末尾追加一个数据点，并移出当前最旧的数据点。
  * @api chart:add_point(series_id, value)
  * @string series_id XML 的 series 节点中已声明的系列 ID，区分大小写。
- * @number value -1000～1000 的有限数字，按两位小数四舍五入保存。
+ * @number value 有限数字，无固定业务范围，按两位小数四舍五入保存；极大数精度受双精度浮点限制。
  * @return bool|nil 成功返回 true，运行错误返回 nil。
  * @return table|nil 失败时返回包含 code、message 的错误表，成功时不返回。
  * @note 使用固定长度环形数据，不改变 point-count；新点绘制在最右侧，其余点向左推进。
@@ -90,8 +90,8 @@ static int chart_add_point(lua_State *L)
     if (!widget) return luat_plcui_push_error(L, &error);
     plcui_chart_series_t *series = check_series(L, widget);
     if (!series) return luat_plcui_binding_error(L, "E_RESOURCE", "Chart series does not exist");
-    int32_t value;
-    if (!luat_plcui_chart_number(luaL_checknumber(L, 3), &value)) return luat_plcui_binding_error(L, "E_SCHEMA", "Chart value must be between -1000 and 1000");
+    double value;
+    if (!luat_plcui_chart_number(luaL_checknumber(L, 3), &value)) return luat_plcui_binding_error(L, "E_SCHEMA", "Chart value must be finite");
     series->values[series->start] = value;
     series->start = (series->start + 1U) % widget->chart->points;
     lv_chart_set_next_value(widget->obj, series->native, luat_plcui_chart_display_value(widget, value));
@@ -123,7 +123,7 @@ static int chart_get_values(lua_State *L)
     unsigned count = widget->chart->points;
     lua_createtable(L, (int)count, 0);
     for (unsigned i = 0; i < count; ++i) {
-        lua_pushnumber(L, (lua_Number)series->values[(series->start + i) % count] / PLCUI_CHART_SCALE);
+        lua_pushnumber(L, (lua_Number)series->values[(series->start + i) % count]);
         lua_rawseti(L, -2, (lua_Integer)i + 1);
     }
     return 1;
@@ -132,8 +132,8 @@ static int chart_get_values(lua_State *L)
 /**
  * 设置所有系列共用的主 Y 轴范围，并重新计算当前数据的绘制位置。
  * @api chart:set_range(minimum, maximum)
- * @number minimum Y 轴下限，-1000～1000 的有限数字，按两位小数处理。
- * @number maximum Y 轴上限，-1000～1000 的有限数字，按两位小数处理后仍须大于 minimum。
+ * @number minimum Y 轴下限，有限数字，无固定业务范围，按两位小数处理。
+ * @number maximum Y 轴上限，有限数字，无固定业务范围，按两位小数处理后仍须大于 minimum。
  * @return bool|nil 成功返回 true，运行错误返回 nil。
  * @return table|nil 失败时返回包含 code、message 的错误表，成功时不返回。
  * @note 两个边界完整校验后统一更新；非法范围返回 E_SCHEMA，旧坐标轴和数据保持不变。
@@ -148,14 +148,14 @@ static int chart_set_range(lua_State *L)
     plcui_error_t error;
     plcui_widget_t *widget = luat_plcui_binding_check_type(L, PLCUI_CHART, &error);
     if (!widget) return luat_plcui_push_error(L, &error);
-    int32_t minimum, maximum;
+    double minimum, maximum;
     if (!luat_plcui_chart_number(luaL_checknumber(L, 2), &minimum)
         || !luat_plcui_chart_number(luaL_checknumber(L, 3), &maximum) || minimum >= maximum) {
-        return luat_plcui_binding_error(L, "E_SCHEMA", "Chart range must satisfy -1000 <= min < max <= 1000");
+        return luat_plcui_binding_error(L, "E_SCHEMA", "Chart range must be finite with rounded min < max");
     }
     widget->chart->minimum = minimum;
     widget->chart->maximum = maximum;
-    lv_chart_set_axis_range(widget->obj, LV_CHART_AXIS_PRIMARY_Y, minimum, maximum);
+    lv_chart_set_axis_range(widget->obj, LV_CHART_AXIS_PRIMARY_Y, 0, PLCUI_CHART_NATIVE_MAX);
     for (unsigned i = 0; i < widget->chart->count; ++i) {
         luat_plcui_chart_sync_series(widget, &widget->chart->series[i]);
     }

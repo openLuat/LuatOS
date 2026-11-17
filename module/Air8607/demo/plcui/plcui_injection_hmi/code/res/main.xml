@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="overview">
+  <resources>
+    <image id="bg_ov" src="bg_ov.jpg"/>
+    <image id="lamp_run" src="lamp_run.png"/>
+    <image id="lamp_idle" src="lamp_idle.png"/>
+    <image id="lamp_alarm" src="lamp_alarm.png"/>
+    <image id="flag" src="flag.png"/>
+    <image id="btnstart_n" src="btnstart_n.png"/>
+    <image id="btnstart_p" src="btnstart_p.png"/>
+    <image id="btnstop_n" src="btnstop_n.png"/>
+    <image id="btnstop_p" src="btnstop_p.png"/>
+    <image id="btnreset_n" src="btnreset_n.png"/>
+    <image id="btnreset_p" src="btnreset_p.png"/>
+    <image id="estop_n" src="estop_n.png"/>
+    <image id="estop_p" src="estop_p.png"/>
+    <image id="flow_0" src="flow_0.png"/>
+    <image id="flow_1" src="flow_1.png"/>
+    <image id="flow_2" src="flow_2.png"/>
+    <image id="flow_3" src="flow_3.png"/>
+    <image id="knobsp" src="knobsp.png"/>
+    <image id="thumb" src="thumb.png"/>
+    <image id="dot_run" src="dot_run.png"/>
+    <image id="dot_idle" src="dot_idle.png"/>
+    <image id="dot_fault" src="dot_fault.png"/>
+    <image id="tab_ov_n" src="tab_ov_n.png"/>
+    <image id="tab_ov_c" src="tab_ov_c.png"/>
+    <image id="tab_tr_n" src="tab_tr_n.png"/>
+    <image id="tab_tr_c" src="tab_tr_c.png"/>
+    <image id="tab_al_n" src="tab_al_n.png"/>
+    <image id="tab_al_c" src="tab_al_c.png"/>
+    <image id="tab_st_n" src="tab_st_n.png"/>
+    <image id="tab_st_c" src="tab_st_c.png"/>
+    <image id="badge" src="badge.png"/>
+    <image id="nd_needle" src="nd_needle.png"/>
+    <image id="g_cap" src="g_cap.png"/>
+    <image id="barfill_g" src="barfill_g.png"/>
+    <image id="barfill_i" src="barfill_i.png"/>
+    <image id="barfill_f" src="barfill_f.png"/>
+    <image id="arr_n" src="arr_n.png"/>
+    <image id="arr_c" src="arr_c.png"/>
+    <image id="ack_n" src="ack_n.png"/>
+    <image id="ack_p" src="ack_p.png"/>
+    <image id="ack_d" src="ack_d.png"/>
+    <image id="bg_tr" src="bg_tr.jpg"/>
+    <image id="bg_al" src="bg_al.jpg"/>
+    <image id="btnackall_n" src="btnackall_n.png"/>
+    <image id="btnackall_p" src="btnackall_p.png"/>
+    <image id="btnclr_n" src="btnclr_n.png"/>
+    <image id="btnclr_p" src="btnclr_p.png"/>
+    <image id="bg_st" src="bg_st.jpg"/>
+    <image id="sw_on" src="sw_on.png"/>
+    <image id="sw_off" src="sw_off.png"/>
+    <image id="btnsave_n" src="btnsave_n.png"/>
+    <image id="btnsave_p" src="btnsave_p.png"/>
+  </resources>
+  <pages>
+    <page id="overview" background="#1c2024">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_ov"/>
+      <label id="shift" x="381" y="32" w="74" h="12" font="hzfont" font_size="10" color="#dfe5e7" align="left" text="白班 A 组"/>
+      <label id="clock" x="474" y="21" w="188" h="20" font="hzfont" font_size="13" color="#ffd15c" align="center" text="2026-11-16 16:36:02"/>
+      <image id="lamp" x="673" y="20" w="20" h="20" src="lamp_run"/>
+      <label id="status_text" x="698" y="30" w="80" h="14" font="hzfont" font_size="10" color="#e9edee" align="left" text="运行中"/>
+      <image id="estop_flag" x="796" y="21" w="84" h="22" src="flag" hidden="true"/>
+      <label id="kpi1" x="26" y="77" w="150" h="22" font="hzfont" font_size="19" color="#ffd15c" align="left" text="1 286"/>
+      <label id="foot1" x="21" y="103" w="225" h="10" font="hzfont" font_size="9" color="#8a9499" align="left" text="当班目标 1600 件 · 达成 80.4%"/>
+      <label id="kpi2" x="279" y="77" w="150" h="22" font="hzfont" font_size="19" color="#ffd15c" align="left" text="89.4"/>
+      <label id="kpi3" x="532" y="77" w="150" h="22" font="hzfont" font_size="19" color="#ffd15c" align="left" text="222.8"/>
+      <label id="foot3" x="527" y="103" w="225" h="10" font="hzfont" font_size="9" color="#8a9499" align="left" text="设定值 220 ℃ · 上限 245 ℃"/>
+      <label id="kpi4" x="785" y="77" w="150" h="22" font="hzfont" font_size="19" color="#ffd15c" align="left" text="28.4"/>
+      <label id="foot4" x="780" y="103" w="225" h="10" font="hzfont" font_size="9" color="#8a9499" align="left" text="标准节拍 28.0 s · 偏差 +1.4%"/>
+      <image id="btn_start" x="15" y="487" w="76" h="66" src="btnstart_n" src-pressed="btnstart_p" clickable="true" on-click="line_start"/>
+      <image id="btn_stop" x="89" y="487" w="76" h="66" src="btnstop_n" src-pressed="btnstop_p" clickable="true" on-click="line_stop"/>
+      <image id="btn_reset" x="163" y="487" w="76" h="66" src="btnreset_n" src-pressed="btnreset_p" clickable="true" on-click="line_reset"/>
+      <image id="btn_estop" x="242" y="480" w="74" h="74" src="estop_n" src-pressed="estop_p" clickable="true" on-click="line_estop"/>
+      <image id="flow0" x="334" y="503" w="96" h="14" src="flow_0"/>
+      <image id="flow1" x="452" y="503" w="96" h="14" src="flow_0"/>
+      <image id="flow2" x="570" y="503" w="96" h="14" src="flow_0"/>
+      <label id="pipe_txt" x="334" y="534" w="340" h="12" font="hzfont" font_size="9" color="#8ff0ac" align="left" text="阀门 开 · 介质流动 · DN40 · 16 MPa"/>
+      <image id="knob_sp" x="714" y="484" w="66" h="66" src="knobsp" fit="center" pivot-x="33" pivot-y="33" rotation="0" antialias="true"/>
+      <label id="sp_val" x="794" y="488" w="102" h="20" font="hzfont" font_size="15" color="#ffd15c" align="center" text="220"/>
+      <slider id="sl_sp" x="790" y="510" w="170" h="24" min="180" max="260" value="220" step="1" knob-src="thumb" track-color="#0d1113" on-change="sp_change"/>
+      <label id="total_out" x="66" y="570" w="80" h="16" font="hzfont" font_size="13" color="#ffd15c" align="left" text="86 542"/>
+      <image id="comm_led" x="149" y="572" w="13" h="13" src="dot_run"/>
+      <label id="comm_txt" x="164" y="572" w="260" h="12" font="hzfont" font_size="9" color="#9fa9ae" align="left" text="PROFINET · 通讯正常 · 延迟 4 ms"/>
+      <image id="tab_ov" x="724" y="567" w="66" h="24" src="tab_ov_n" src-checked="tab_ov_c" clickable="true" on-click="go_overview"/>
+      <image id="tab_tr" x="796" y="567" w="66" h="24" src="tab_tr_n" src-checked="tab_tr_c" clickable="true" on-click="go_trend"/>
+      <image id="tab_al" x="868" y="567" w="66" h="24" src="tab_al_n" src-checked="tab_al_c" clickable="true" on-click="go_alarm"/>
+      <image id="tab_st" x="940" y="567" w="66" h="24" src="tab_st_n" src-checked="tab_st_c" clickable="true" on-click="go_settings"/>
+      <image id="tab_badge" x="924" y="561" w="16" h="16" src="badge"/>
+      <label id="tab_num" x="924" y="562" w="16" h="14" font="hzfont" font_size="9" color="#ffffff" align="center" text="3"/>
+      <chart id="ch_ov" x="52" y="148" w="536" h="148" type="line" point-count="60" y-min="0" y-max="100" hdiv="0" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1a2429">
+        <series id="t" color="#ffb43a" values="55,56.38,57.52,58.38,58.98,59.31,59.42,59.33,59.07,58.7,58.24,57.73,57.2,56.65,56.11,55.55,54.98,54.38,53.73,53.01,52.2,51.31,50.32,49.25,48.13,46.98,45.85,44.79,43.86,43.11,42.62,42.41,42.54,43.03,43.88,45.09,46.62,48.44,50.46,52.62,54.82,56.96,58.96,60.71,62.15,63.2,63.82,63.97,63.66,62.9,61.74,60.22,58.44,56.46,54.38,52.3,50.3,48.46,46.85,45.51"/>
+        <series id="p" color="#48d8d0" values="61.64,61.41,60.94,60.28,59.49,58.62,57.73,56.86,56.04,55.3,54.64,54.06,53.54,53.06,52.59,52.1,51.55,50.92,50.19,49.36,48.42,47.41,46.34,45.26,44.23,43.3,42.53,41.98,41.7,41.74,42.11,42.84,43.91,45.29,46.95,48.83,50.85,52.93,55,56.96,58.74,60.27,61.49,62.37,62.87,63.01,62.79,62.26,61.44,60.41,59.23,57.95,56.65,55.37,54.18,53.09,52.14,51.33,50.65,50.09"/>
+        <series id="s" color="#ff7a3c" values="58.03,56.63,55.27,53.99,52.85,51.87,51.05,50.4,49.91,49.53,49.24,48.99,48.75,48.47,48.12,47.69,47.15,46.52,45.81,45.06,44.3,43.59,42.98,42.52,42.28,42.28,42.57,43.17,44.07,45.27,46.73,48.4,50.23,52.15,54.07,55.93,57.65,59.17,60.44,61.4,62.05,62.38,62.4,62.13,61.62,60.92,60.09,59.17,58.24,57.34,56.5,55.77,55.14,54.63,54.22,53.88,53.58,53.28,52.93,52.51"/>
+      </chart>
+      <image id="nd_t" x="33" y="334" w="96" h="96" src="nd_needle" fit="center" pivot-x="48" pivot-y="48" rotation="0" antialias="true"/>
+      <image id="cap_t" x="75" y="376" w="12" h="12" src="g_cap"/>
+      <label id="v_t" x="33" y="432" w="96" h="15" font="hzfont" font_size="13" color="#ffd15c" align="center" text="222.8"/>
+      <image id="nd_p" x="205" y="334" w="96" h="96" src="nd_needle" fit="center" pivot-x="48" pivot-y="48" rotation="0" antialias="true"/>
+      <image id="cap_p" x="247" y="376" w="12" h="12" src="g_cap"/>
+      <label id="v_p" x="205" y="432" w="96" h="15" font="hzfont" font_size="13" color="#ffd15c" align="center" text="92.0"/>
+      <label id="dev_title" x="362" y="334" w="256" h="12" font="hzfont" font_size="10" color="#9fd8d4" align="left" text="■ 全线综合参数 / LINE"/>
+      <label id="dt1" x="368" y="364" w="114" h="14" font="hzfont" font_size="12" color="#48d8d0" align="left" text="222.8 ℃"/>
+      <label id="dt2" x="500" y="364" w="114" h="14" font="hzfont" font_size="12" color="#48d8d0" align="left" text="92.0 MPa"/>
+      <label id="dt3" x="368" y="398" w="114" h="14" font="hzfont" font_size="12" color="#48d8d0" align="left" text="220 ℃"/>
+      <label id="dt4" x="500" y="398" w="114" h="14" font="hzfont" font_size="12" color="#48d8d0" align="left" text="89.4 %"/>
+      <label id="dt5" x="368" y="432" w="114" h="14" font="hzfont" font_size="12" color="#48d8d0" align="left" text="2 / 3 台"/>
+      <label id="dt6" x="500" y="432" w="114" h="14" font="hzfont" font_size="12" color="#48d8d0" align="left" text="1286 件"/>
+      <image id="led0" x="647" y="153" w="16" h="16" src="dot_run"/>
+      <label id="st0" x="666" y="169" w="52" h="12" font="hzfont" font_size="9" color="#8ff0ac" align="left" text="运行"/>
+      <label id="ld0" x="920" y="168" w="36" h="12" font="hzfont" font_size="9" color="#aeb7bb" align="right" text="82 %"/>
+      <image id="bar0" x="666" y="181" w="243" h="6" src="barfill_g" fit="stretch"/>
+      <image id="sel0" x="958" y="159" w="24" h="22" src="arr_n" src-checked="arr_c" clickable="true" on-click="dev_sel0"/>
+      <image id="led1" x="647" y="199" w="16" h="16" src="dot_run"/>
+      <label id="st1" x="666" y="215" w="52" h="12" font="hzfont" font_size="9" color="#f0cd7e" align="left" text="待机"/>
+      <label id="ld1" x="920" y="214" w="36" h="12" font="hzfont" font_size="9" color="#aeb7bb" align="right" text="15 %"/>
+      <image id="bar1" x="666" y="227" w="44" h="6" src="barfill_g" fit="stretch"/>
+      <image id="sel1" x="958" y="205" w="24" h="22" src="arr_n" src-checked="arr_c" clickable="true" on-click="dev_sel1"/>
+      <image id="led2" x="647" y="245" w="16" h="16" src="dot_run"/>
+      <label id="st2" x="666" y="261" w="52" h="12" font="hzfont" font_size="9" color="#ff9a90" align="left" text="故障"/>
+      <label id="ld2" x="920" y="260" w="36" h="12" font="hzfont" font_size="9" color="#aeb7bb" align="right" text="0 %"/>
+      <image id="bar2" x="666" y="273" w="1" h="6" src="barfill_g" fit="stretch"/>
+      <image id="sel2" x="958" y="251" w="24" h="22" src="arr_n" src-checked="arr_c" clickable="true" on-click="dev_sel2"/>
+      <label id="al_cnt" x="940" y="306" w="58" h="11" font="hzfont" font_size="9" color="#ffb0a8" align="center" text="2 未确认"/>
+      <image id="ad0" x="648" y="334" w="14" h="14" src="dot_run"/>
+      <label id="alv0" x="664" y="328" w="30" h="11" font="hzfont" font_size="9" color="#ff8b80" align="left" text="严重"/>
+      <label id="alt0" x="698" y="329" w="56" h="10" font="hzfont" font_size="9" color="#788288" align="left" text="14:12:30"/>
+      <label id="ald0" x="664" y="341" w="242" h="12" font="hzfont" font_size="9" color="#d8dfe1" align="left" text="液压系统压力低于安全阈值 62 MPa"/>
+      <image id="ak0" x="950" y="329" w="48" h="22" src="ack_n" src-pressed="ack_p" clickable="true" on-click="ack0"/>
+      <image id="ad1" x="648" y="372" w="14" h="14" src="dot_run"/>
+      <label id="alv1" x="664" y="366" w="30" h="11" font="hzfont" font_size="9" color="#f0cd7e" align="left" text="警告"/>
+      <label id="alt1" x="698" y="367" w="56" h="10" font="hzfont" font_size="9" color="#788288" align="left" text="13:58:02"/>
+      <label id="ald1" x="664" y="379" w="242" h="12" font="hzfont" font_size="9" color="#d8dfe1" align="left" text="2# 模温偏差 +4.5 ℃，接近上限"/>
+      <image id="ak1" x="950" y="367" w="48" h="22" src="ack_n" src-pressed="ack_p" clickable="true" on-click="ack1"/>
+      <image id="ad2" x="648" y="410" w="14" h="14" src="dot_run"/>
+      <label id="alv2" x="664" y="404" w="30" h="11" font="hzfont" font_size="9" color="#f0cd7e" align="left" text="警告"/>
+      <label id="alt2" x="698" y="405" w="56" h="10" font="hzfont" font_size="9" color="#788288" align="left" text="13:40:11"/>
+      <label id="ald2" x="664" y="417" w="242" h="12" font="hzfont" font_size="9" color="#d8dfe1" align="left" text="润滑油脂位偏低，建议补充"/>
+      <image id="ak2" x="950" y="405" w="48" h="22" src="ack_n" src-pressed="ack_p" src-disabled="ack_d" clickable="true" on-click="ack2"/>
+    </page>
+    <page id="trend" background="#1c2024">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_tr"/>
+      <label id="shift" x="381" y="32" w="74" h="12" font="hzfont" font_size="10" color="#dfe5e7" align="left" text="白班 A 组"/>
+      <label id="clock" x="474" y="21" w="188" h="20" font="hzfont" font_size="13" color="#ffd15c" align="center" text="2026-11-16 16:36:11"/>
+      <image id="lamp" x="673" y="20" w="20" h="20" src="lamp_run"/>
+      <label id="status_text" x="698" y="30" w="80" h="14" font="hzfont" font_size="10" color="#e9edee" align="left" text="运行中"/>
+      <image id="estop_flag" x="796" y="21" w="84" h="22" src="flag" hidden="true"/>
+      <image id="btn_start" x="15" y="487" w="76" h="66" src="btnstart_n" src-pressed="btnstart_p" clickable="true" on-click="line_start"/>
+      <image id="btn_stop" x="89" y="487" w="76" h="66" src="btnstop_n" src-pressed="btnstop_p" clickable="true" on-click="line_stop"/>
+      <image id="btn_reset" x="163" y="487" w="76" h="66" src="btnreset_n" src-pressed="btnreset_p" clickable="true" on-click="line_reset"/>
+      <image id="btn_estop" x="242" y="480" w="74" h="74" src="estop_n" src-pressed="estop_p" clickable="true" on-click="line_estop"/>
+      <image id="flow0" x="334" y="503" w="96" h="14" src="flow_0"/>
+      <image id="flow1" x="452" y="503" w="96" h="14" src="flow_0"/>
+      <image id="flow2" x="570" y="503" w="96" h="14" src="flow_0"/>
+      <label id="pipe_txt" x="334" y="534" w="340" h="12" font="hzfont" font_size="9" color="#8ff0ac" align="left" text="阀门 开 · 介质流动 · DN40 · 16 MPa"/>
+      <image id="knob_sp" x="714" y="484" w="66" h="66" src="knobsp" fit="center" pivot-x="33" pivot-y="33" rotation="0" antialias="true"/>
+      <label id="sp_val" x="794" y="488" w="102" h="20" font="hzfont" font_size="15" color="#ffd15c" align="center" text="220"/>
+      <slider id="sl_sp" x="790" y="510" w="170" h="24" min="180" max="260" value="220" step="1" knob-src="thumb" track-color="#0d1113" on-change="sp_change"/>
+      <label id="total_out" x="66" y="570" w="80" h="16" font="hzfont" font_size="13" color="#ffd15c" align="left" text="86 542"/>
+      <image id="comm_led" x="149" y="572" w="13" h="13" src="dot_run"/>
+      <label id="comm_txt" x="164" y="572" w="260" h="12" font="hzfont" font_size="9" color="#9fa9ae" align="left" text="PROFINET · 通讯正常 · 延迟 4 ms"/>
+      <image id="tab_ov" x="724" y="567" w="66" h="24" src="tab_ov_n" src-checked="tab_ov_c" clickable="true" on-click="go_overview"/>
+      <image id="tab_tr" x="796" y="567" w="66" h="24" src="tab_tr_n" src-checked="tab_tr_c" clickable="true" on-click="go_trend"/>
+      <image id="tab_al" x="868" y="567" w="66" h="24" src="tab_al_n" src-checked="tab_al_c" clickable="true" on-click="go_alarm"/>
+      <image id="tab_st" x="940" y="567" w="66" h="24" src="tab_st_n" src-checked="tab_st_c" clickable="true" on-click="go_settings"/>
+      <image id="tab_badge" x="924" y="561" w="16" h="16" src="badge"/>
+      <label id="tab_num" x="924" y="562" w="16" h="14" font="hzfont" font_size="9" color="#ffffff" align="center" text="3"/>
+      <chart id="ch_tr" x="70" y="172" w="924" h="232" type="line" point-count="80" y-min="0" y-max="100" hdiv="0" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1a2429">
+        <series id="t" color="#ffb43a" values="55,56.38,57.52,58.38,58.98,59.31,59.42,59.33,59.07,58.7,58.24,57.73,57.2,56.65,56.11,55.55,54.98,54.38,53.73,53.01,52.2,51.31,50.32,49.25,48.13,46.98,45.85,44.79,43.86,43.11,42.62,42.41,42.54,43.03,43.88,45.09,46.62,48.44,50.46,52.62,54.82,56.96,58.96,60.71,62.15,63.2,63.82,63.97,63.66,62.9,61.74,60.22,58.44,56.46,54.38,52.3,50.3,48.46,46.85,45.51,44.48,43.78,43.41,43.34,43.54,43.97,44.59,45.34,46.18,47.06,47.94,48.81,49.63,50.41,51.15,51.85,52.54,53.23,53.94,54.68"/>
+        <series id="p" color="#48d8d0" values="61.64,61.41,60.94,60.28,59.49,58.62,57.73,56.86,56.04,55.3,54.64,54.06,53.54,53.06,52.59,52.1,51.55,50.92,50.19,49.36,48.42,47.41,46.34,45.26,44.23,43.3,42.53,41.98,41.7,41.74,42.11,42.84,43.91,45.29,46.95,48.83,50.85,52.93,55,56.96,58.74,60.27,61.49,62.37,62.87,63.01,62.79,62.26,61.44,60.41,59.23,57.95,56.65,55.37,54.18,53.09,52.14,51.33,50.65,50.09,49.62,49.2,48.81,48.42,47.99,47.5,46.96,46.37,45.74,45.1,44.49,43.96,43.56,43.34,43.34,43.6,44.15,45,46.15,47.58"/>
+        <series id="s" color="#ff7a3c" values="58.03,56.63,55.27,53.99,52.85,51.87,51.05,50.4,49.91,49.53,49.24,48.99,48.75,48.47,48.12,47.69,47.15,46.52,45.81,45.06,44.3,43.59,42.98,42.52,42.28,42.28,42.57,43.17,44.07,45.27,46.73,48.4,50.23,52.15,54.07,55.93,57.65,59.17,60.44,61.4,62.05,62.38,62.4,62.13,61.62,60.92,60.09,59.17,58.24,57.34,56.5,55.77,55.14,54.63,54.22,53.88,53.58,53.28,52.93,52.51,51.97,51.3,50.47,49.5,48.41,47.21,45.96,44.71,43.52,42.45,41.57,40.94,40.6,40.59,40.91,41.59,42.58,43.87,45.41,47.13"/>
+      </chart>
+      <label id="st_t" x="22" y="392" w="150" h="26" font="hzfont" font_size="21" color="#ffd15c" align="left" text="222.6"/>
+      <label id="st_p" x="275" y="392" w="150" h="26" font="hzfont" font_size="21" color="#48d8d0" align="left" text="91.5"/>
+      <label id="st_sp" x="528" y="392" w="150" h="26" font="hzfont" font_size="21" color="#ffd15c" align="left" text="220"/>
+      <label id="st_d" x="781" y="392" w="150" h="26" font="hzfont" font_size="21" color="#63e08a" align="left" text="+2.6"/>
+    </page>
+    <page id="alarm" background="#1c2024">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_al"/>
+      <label id="shift" x="381" y="32" w="74" h="12" font="hzfont" font_size="10" color="#dfe5e7" align="left" text="白班 A 组"/>
+      <label id="clock" x="474" y="21" w="188" h="20" font="hzfont" font_size="13" color="#ffd15c" align="center" text="2026-11-16 16:36:26"/>
+      <image id="lamp" x="673" y="20" w="20" h="20" src="lamp_run"/>
+      <label id="status_text" x="698" y="30" w="80" h="14" font="hzfont" font_size="10" color="#e9edee" align="left" text="运行中"/>
+      <image id="estop_flag" x="796" y="21" w="84" h="22" src="flag" hidden="true"/>
+      <image id="btn_start" x="15" y="487" w="76" h="66" src="btnstart_n" src-pressed="btnstart_p" clickable="true" on-click="line_start"/>
+      <image id="btn_stop" x="89" y="487" w="76" h="66" src="btnstop_n" src-pressed="btnstop_p" clickable="true" on-click="line_stop"/>
+      <image id="btn_reset" x="163" y="487" w="76" h="66" src="btnreset_n" src-pressed="btnreset_p" clickable="true" on-click="line_reset"/>
+      <image id="btn_estop" x="242" y="480" w="74" h="74" src="estop_n" src-pressed="estop_p" clickable="true" on-click="line_estop"/>
+      <image id="flow0" x="334" y="503" w="96" h="14" src="flow_0"/>
+      <image id="flow1" x="452" y="503" w="96" h="14" src="flow_0"/>
+      <image id="flow2" x="570" y="503" w="96" h="14" src="flow_0"/>
+      <label id="pipe_txt" x="334" y="534" w="340" h="12" font="hzfont" font_size="9" color="#8ff0ac" align="left" text="阀门 开 · 介质流动 · DN40 · 16 MPa"/>
+      <image id="knob_sp" x="714" y="484" w="66" h="66" src="knobsp" fit="center" pivot-x="33" pivot-y="33" rotation="0" antialias="true"/>
+      <label id="sp_val" x="794" y="488" w="102" h="20" font="hzfont" font_size="15" color="#ffd15c" align="center" text="220"/>
+      <slider id="sl_sp" x="790" y="510" w="170" h="24" min="180" max="260" value="220" step="1" knob-src="thumb" track-color="#0d1113" on-change="sp_change"/>
+      <label id="total_out" x="66" y="570" w="80" h="16" font="hzfont" font_size="13" color="#ffd15c" align="left" text="86 542"/>
+      <image id="comm_led" x="149" y="572" w="13" h="13" src="dot_run"/>
+      <label id="comm_txt" x="164" y="572" w="260" h="12" font="hzfont" font_size="9" color="#9fa9ae" align="left" text="PROFINET · 通讯正常 · 延迟 4 ms"/>
+      <image id="tab_ov" x="724" y="567" w="66" h="24" src="tab_ov_n" src-checked="tab_ov_c" clickable="true" on-click="go_overview"/>
+      <image id="tab_tr" x="796" y="567" w="66" h="24" src="tab_tr_n" src-checked="tab_tr_c" clickable="true" on-click="go_trend"/>
+      <image id="tab_al" x="868" y="567" w="66" h="24" src="tab_al_n" src-checked="tab_al_c" clickable="true" on-click="go_alarm"/>
+      <image id="tab_st" x="940" y="567" w="66" h="24" src="tab_st_n" src-checked="tab_st_c" clickable="true" on-click="go_settings"/>
+      <image id="tab_badge" x="924" y="561" w="16" h="16" src="badge"/>
+      <label id="tab_num" x="924" y="562" w="16" h="14" font="hzfont" font_size="9" color="#ffffff" align="center" text="3"/>
+      <label id="al_stat" x="24" y="70" w="340" h="16" font="hzfont" font_size="10" color="#c8d0d3" align="left" text="未确认报警 3 条 · 累计记录 4 条"/>
+      <image id="b_ackall" x="740" y="59" w="134" h="40" src="btnackall_n" src-pressed="btnackall_p" clickable="true" on-click="alarm_ack_all"/>
+      <image id="b_clr" x="874" y="59" w="130" h="40" src="btnclr_n" src-pressed="btnclr_p" clickable="true" on-click="alarm_clear"/>
+      <table id="tb_al" x="22" y="140" w="980" h="300" rows="7" columns="6" font="hzfont" font_size="11" color="#d6dcde" background="#0a1013" border-color="#1d272c" header-color="#1b2327" alternate-color="#121b1f" border-width="1" cell-padding="6" row-height="42" header="true" grid="false" header-align="left" col-widths="80,150,180,380,110,80" col-aligns="left,left,left,left,center,center"/>
+    </page>
+    <page id="settings" background="#1c2024">
+      <image id="bg" x="0" y="0" w="1024" h="600" src="bg_st"/>
+      <label id="shift" x="381" y="32" w="74" h="12" font="hzfont" font_size="10" color="#dfe5e7" align="left" text="白班 A 组"/>
+      <label id="clock" x="474" y="21" w="188" h="20" font="hzfont" font_size="13" color="#ffd15c" align="center" text="2026-11-16 16:36:42"/>
+      <image id="lamp" x="673" y="20" w="20" h="20" src="lamp_run"/>
+      <label id="status_text" x="698" y="30" w="80" h="14" font="hzfont" font_size="10" color="#e9edee" align="left" text="运行中"/>
+      <image id="estop_flag" x="796" y="21" w="84" h="22" src="flag" hidden="true"/>
+      <image id="btn_start" x="15" y="487" w="76" h="66" src="btnstart_n" src-pressed="btnstart_p" clickable="true" on-click="line_start"/>
+      <image id="btn_stop" x="89" y="487" w="76" h="66" src="btnstop_n" src-pressed="btnstop_p" clickable="true" on-click="line_stop"/>
+      <image id="btn_reset" x="163" y="487" w="76" h="66" src="btnreset_n" src-pressed="btnreset_p" clickable="true" on-click="line_reset"/>
+      <image id="btn_estop" x="242" y="480" w="74" h="74" src="estop_n" src-pressed="estop_p" clickable="true" on-click="line_estop"/>
+      <image id="flow0" x="334" y="503" w="96" h="14" src="flow_0"/>
+      <image id="flow1" x="452" y="503" w="96" h="14" src="flow_0"/>
+      <image id="flow2" x="570" y="503" w="96" h="14" src="flow_0"/>
+      <label id="pipe_txt" x="334" y="534" w="340" h="12" font="hzfont" font_size="9" color="#8ff0ac" align="left" text="阀门 开 · 介质流动 · DN40 · 16 MPa"/>
+      <image id="knob_sp" x="714" y="484" w="66" h="66" src="knobsp" fit="center" pivot-x="33" pivot-y="33" rotation="0" antialias="true"/>
+      <label id="sp_val" x="794" y="488" w="102" h="20" font="hzfont" font_size="15" color="#ffd15c" align="center" text="220"/>
+      <slider id="sl_sp" x="790" y="510" w="170" h="24" min="180" max="260" value="220" step="1" knob-src="thumb" track-color="#0d1113" on-change="sp_change"/>
+      <label id="total_out" x="66" y="570" w="80" h="16" font="hzfont" font_size="13" color="#ffd15c" align="left" text="86 542"/>
+      <image id="comm_led" x="149" y="572" w="13" h="13" src="dot_run"/>
+      <label id="comm_txt" x="164" y="572" w="260" h="12" font="hzfont" font_size="9" color="#9fa9ae" align="left" text="PROFINET · 通讯正常 · 延迟 4 ms"/>
+      <image id="tab_ov" x="724" y="567" w="66" h="24" src="tab_ov_n" src-checked="tab_ov_c" clickable="true" on-click="go_overview"/>
+      <image id="tab_tr" x="796" y="567" w="66" h="24" src="tab_tr_n" src-checked="tab_tr_c" clickable="true" on-click="go_trend"/>
+      <image id="tab_al" x="868" y="567" w="66" h="24" src="tab_al_n" src-checked="tab_al_c" clickable="true" on-click="go_alarm"/>
+      <image id="tab_st" x="940" y="567" w="66" h="24" src="tab_st_n" src-checked="tab_st_c" clickable="true" on-click="go_settings"/>
+      <image id="tab_badge" x="924" y="561" w="16" h="16" src="badge"/>
+      <label id="tab_num" x="924" y="562" w="16" h="14" font="hzfont" font_size="9" color="#ffffff" align="center" text="3"/>
+      <textarea id="p1" x="156" y="99" w="94" h="18" font="hzfont" font_size="12" color="#48d8d0" align="left" one-line="true" max-length="4" accepted-chars="0123456789" keyboard="kb_num" on-submit="param_submit" on-cancel="param_cancel" text="245"/>
+      <textarea id="p2" x="156" y="153" w="94" h="18" font="hzfont" font_size="12" color="#48d8d0" align="left" one-line="true" max-length="4" accepted-chars="0123456789" keyboard="kb_num" on-submit="param_submit" on-cancel="param_cancel" text="195"/>
+      <textarea id="p3" x="156" y="207" w="94" h="18" font="hzfont" font_size="12" color="#48d8d0" align="left" one-line="true" max-length="5" accepted-chars="0123456789." keyboard="kb_num" on-submit="param_submit" on-cancel="param_cancel" text="12.0"/>
+      <textarea id="p4" x="156" y="261" w="94" h="18" font="hzfont" font_size="12" color="#48d8d0" align="left" one-line="true" max-length="4" accepted-chars="0123456789" keyboard="kb_num" on-submit="param_submit" on-cancel="param_cancel" text="45"/>
+      <textarea id="p5" x="156" y="315" w="94" h="18" font="hzfont" font_size="12" color="#48d8d0" align="left" one-line="true" max-length="4" accepted-chars="0123456789" keyboard="kb_num" on-submit="param_submit" on-cancel="param_cancel" text="250"/>
+      <textarea id="p6" x="156" y="369" w="94" h="18" font="hzfont" font_size="12" color="#48d8d0" align="left" one-line="true" max-length="4" accepted-chars="0123456789" keyboard="kb_num" on-submit="param_submit" on-cancel="param_cancel" text="115"/>
+      <image id="sw1" x="766" y="96" w="48" h="22" src="sw_off" src-checked="sw_on" clickable="true" on-click="sw1"/>
+      <image id="sw2" x="766" y="150" w="48" h="22" src="sw_off" src-checked="sw_on" clickable="true" on-click="sw2"/>
+      <image id="sw3" x="766" y="204" w="48" h="22" src="sw_off" src-checked="sw_on" clickable="true" on-click="sw3"/>
+      <label id="st_br" x="866" y="264" w="60" h="16" font="hzfont" font_size="12" color="#ffd15c" align="right" text="70%"/>
+      <slider id="sl_br" x="648" y="264" w="200" h="24" min="0" max="100" value="70" step="1" knob-src="thumb" track-color="#0d1113" on-change="bright_change"/>
+      <image id="b_save" x="18" y="410" w="138" h="40" src="btnsave_n" src-pressed="btnsave_p" clickable="true" on-click="param_save"/>
+      <label id="st_msg" x="168" y="422" w="600" h="14" font="hzfont" font_size="9" color="#7ff2ff" align="left" text="最近保存：本班次未写入 · 校验码 0x1A4F"/>
+      <keyboard id="kb_num" x="214" y="250" w="596" h="190" layout="number" font="hzfont" font_size="18" hidden="true"/>
+    </page>
+  </pages>
+</ui>

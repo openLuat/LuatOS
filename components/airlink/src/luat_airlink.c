@@ -1233,12 +1233,26 @@ int luat_airlink_has_wifi(void) {
 
 uint32_t luat_airlink_sversion(void) {
     uint32_t version = 0;
-
-    if (g_airlink_ext_dev_info.tp == 0x01) {
-        memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+    const luat_airlink_dev_info_t* info = &g_airlink_ext_dev_info;
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    luat_airlink_dev_info_t peer = {0};
+    if (luat_airlink_instance_enabled()) {
+        /* BSP diagnostics and BLE/PM version gates need the Wi-Fi peer,
+         * even when it is not link 0. Retain cellular-only compatibility. */
+        int route = luat_airlink_feature_route(AIRLINK_FEATURE_WIFI);
+        if (route < AIRLINK_ROUTE_BASE)
+            route = luat_airlink_feature_route(AIRLINK_FEATURE_CELLULAR);
+        if (route < AIRLINK_ROUTE_BASE ||
+            luat_airlink_link_peer_copy(route - AIRLINK_ROUTE_BASE, &peer)) return 0;
+        info = &peer;
     }
-    else if (g_airlink_ext_dev_info.tp == 0x02) {
-        memcpy(&version, g_airlink_ext_dev_info.cat1.version, 4);
+#endif
+
+    if (info->tp == 0x01) {
+        memcpy(&version, info->wifi.version, 4);
+    }
+    else if (info->tp == 0x02) {
+        memcpy(&version, info->cat1.version, 4);
     }
     return version;
 }

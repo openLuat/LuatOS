@@ -16,6 +16,12 @@
 #define AIRLINK_DRV_780ER2 3
 #define AIRLINK_DRV_780EPM AIRLINK_DRV_780ER2
 #define AIRLINK_DRV_8000S 4
+#define AIRLINK_DRV_NETIF 5
+#define AIRLINK_FEATURE_NETIF 8
+#define AIRLINK_NETIF_CLIENT 1
+#define AIRLINK_NETIF_PROVIDER 2
+/* Logical channel, independent of either board's local adapter numbering. */
+#define AIRLINK_NETIF_CHANNEL 254
 
 /* Shared by pre-Lua onboard startup and the Lua air8000s defaults. */
 #define AIRLINK_8000S_SPI_ID 0
@@ -31,12 +37,17 @@ typedef struct {
     uint8_t mode, drv, uart_id, spi_id, cs, rdy;
     uint32_t speed;
     int sta_adapter, ap_adapter, cellular_adapter;
+    uint8_t netif_role;
+    int network_adapter;
 } luat_airlink_setup_t;
 
 int luat_airlink_setup_link(int id, const luat_airlink_setup_t* conf);
 int luat_airlink_stop_link(int id);
 int luat_airlink_link_configured(int id);
 int luat_airlink_link_ready(int id);
+/* Provider announcement only. Configure NAPT/DNS before announcing an uplink.
+ * -1 withdraws Internet availability; a changed uplink advances generation. */
+int luat_airlink_link_netstate(int id, int uplink);
 int luat_airlink_instance_enabled(void);
 int luat_airlink_context_link(void);
 int luat_airlink_in_dispatch(int route);

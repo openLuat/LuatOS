@@ -782,8 +782,7 @@ static int l_netdrv_napt(lua_State *L) {
     int id = luaL_optinteger(L, 1, -1);
     if (id < 0) {
         LLOGI("NAPT is disabled, cleaning up all mappings");
-        luat_netdrv_napt_disable();
-        lua_pushboolean(L, 1);
+        lua_pushboolean(L, luat_netdrv_napt_set_sync(-1) == 0);
         return 1;
     }
     luat_netdrv_t* netdrv = luat_netdrv_get(id);
@@ -792,8 +791,7 @@ static int l_netdrv_napt(lua_State *L) {
         return 0;
     }
     LLOGD("NAPT is enabled gw %d", id);
-    luat_netdrv_napt_enable(id);
-    lua_pushboolean(L, 1);
+    lua_pushboolean(L, luat_netdrv_napt_set_sync(id) == 0);
     return 1;
 }
 

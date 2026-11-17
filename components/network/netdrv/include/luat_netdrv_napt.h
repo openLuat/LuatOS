@@ -182,7 +182,7 @@ static inline int napt_output_to_lan(napt_ctx_t* ctx,
         memcpy(ctx->eth->dest.addr, mapping->inet_mac, 6);
     }
     if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);
+        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, (uint8_t*)ctx->eth, ctx->len);
     }
     else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
         memcpy(buff, mapping->inet_mac, 6);
@@ -192,7 +192,9 @@ static inline int napt_output_to_lan(napt_ctx_t* ctx,
         luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, buff, ctx->len + 14);
     }
     else {
-        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len);
+        /* ctx->len includes the received Ethernet header, ip_hdr does not. */
+        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, (uint8_t*)ip_hdr,
+                              ctx->len - (ctx->eth ? sizeof(struct eth_hdr) : 0));
     }
     return 1;
 }
@@ -210,7 +212,7 @@ static inline int napt_output_to_wan(napt_ctx_t* ctx,
         if (ctx->eth) {
             memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
             memcpy(ctx->eth->src.addr, gw->netif->hwaddr, 6);
-            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, (uint8_t*)ctx->eth, ctx->len);
         }
         else {
             memcpy(buff, gw->gw_mac, 6);
@@ -222,10 +224,10 @@ static inline int napt_output_to_wan(napt_ctx_t* ctx,
     }
     else {
         if (ctx->eth) {
-            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len - 14);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, (uint8_t*)ip_hdr, ctx->len - 14);
         }
         else {
-            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, (uint8_t*)ip_hdr, ctx->len);
         }
     }
     return 1;
@@ -240,6 +242,8 @@ void luat_netdrv_napt_udp_cleanup(void);
 void luat_netdrv_napt_icmp_cleanup(void);
 
 int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len);
+/* Synchronous task-context setter; never call from the TCP/IP core/dataout. */
+int luat_netdrv_napt_set_sync(int adapter_id);
 
 int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p);
 

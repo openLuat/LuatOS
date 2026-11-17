@@ -1,6 +1,6 @@
 # AirLink 实例模式使用说明
 
-适用版本：LuatOS `fix/airlink-air8000s-instance` 分支，基于 `feat/airlink-dual-arq3`，包含提交 `7dda7d0d2`、`4657bee58`。
+适用版本：LuatOS `feat/airlink-dual-arq3` 分支。
 
 更新时间：2026-11-17。
 
@@ -110,6 +110,8 @@ local ok, rc = airlink.setup(id, conf)
 | `sta_adapter` | Wi-Fi STA 对应的主控网卡 | Wi-Fi 驱动默认 STA，蜂窝驱动默认 `-1` |
 | `ap_adapter` | Wi-Fi AP 对应的主控网卡 | Wi-Fi 驱动默认 AP，蜂窝驱动默认 `-1` |
 | `cellular_adapter` | 蜂窝转发对应的主控网卡 | 蜂窝驱动默认 GP_GW，Wi-Fi 驱动默认 `-1` |
+| `role` | `netif`专用，必填：`provider`供网端或`client`用网端 | 无 |
+| `network_adapter` | `netif`专用，本端裸IPv4网卡；不得占用STA/AP | GP_GW |
 
 网卡参数可用 `-1` 表示不映射。通常保留驱动默认值即可。
 
@@ -121,6 +123,7 @@ air6208
 air8000s
 air780epm
 air780er2
+netif
 ```
 
 驱动名称被接受，不代表对应板型、固件和接线已经完成验收；当前 780 双路验收使用的是 Air780EPM。
@@ -249,6 +252,106 @@ Air8000自身的蜂窝网卡仍是 `socket.LWIP_GP`，外接780使用
 此处覆盖实例创建、SPI收发、功能路由和启动初始化。旧 `airlink.power`、
 `irqmode`、`wakeup_irqmode` 等单实例省电/中断接口不属于多路配置接口，
 不要与本节流程混用；多路休眠和快速断电重启仍需单独适配、验收。
+
+### 3.6 Air8000 UART1对外供网 → Air1602 UART1
+
+双方使用新版实例固件、UART1交叉连接、共地、电平匹配，默认2 Mbps/8N1。
+Air8000保留板内SPI实例0，对外供网使用实例1；Air1602用网链路使用实例0。
+`provider/client`是网络业务角色，与UART收发方向、SPI主从无关。
+
+将 `script/libs/airlink_net.lua` 加入双方脚本，供网端另加入 `dnsproxy.lua`。
+应用自行初始化各个WAN；下例初始化Wi-Fi，4G由平台初始化，以太网需按板型配置。
+
+**Air8000：**
+
+```lua
+sys.taskInit(function()
+    wlan.init()
+    wlan.connect("你的SSID", "你的密码")
+    local gateway = require("airlink_net").provider(1, {
+        uart_id = 1,
+        priority = {socket.LWIP_STA, socket.LWIP_GP, socket.ETH0},
+        dns = "119.29.29.29"
+    })
+    -- gateway.uplink：当前出口ID，nil表示无可用出口
+    -- gateway.enable(false/true)：暂停/恢复供网策略
+end)
+```
+
+**Air1602：**
+
+```lua
+sys.taskInit(function()
+    local adapter = require("airlink_net").client(0, {uart_id = 1})
+    while not netdrv.ready(adapter) do sys.wait(100) end
+    local code = http.request("GET", "http://httpbin.luatos.com/get",
+        nil, nil, {adapter = adapter}).wait()
+    log.info("http", code)
+end)
+```
+
+固定子网默认配置：
+
+| 设备 | 本地网卡 | IPv4 | 网关/DNS |
+|---|---|---|---|
+| Air8000 | GP_GW | `192.168.111.2/24` | DNS代理监听此地址 |
+| Air1602 | GP_GW | `192.168.111.1/24` | `192.168.111.2` |
+
+可通过 `adapter/ip/mask` 覆盖本地配置，client另支持 `gateway/default`；
+如改子网，双方需一致，并避免与WAN网段重叠。两端本地adapter编号可以不同。
+不使用DHCP，WAN切换不会替换Air1602的网卡、IP、网关或DNS。
+
+控制器每500 ms按 `priority` 选择已就绪且具有IPv4地址的WAN。
+出口丢失、变化、IP/网关变化时，先撤销可用状态，关闭并清理NAPT和DNS映射，
+再绑定新出口。DNS控件按候选WAN缓存复用，避免异步关闭期间反复销毁控件。
+控制器独占设备的全局NAPT和dnsproxy，不能与 `exnetif.setproxy` 或其他NAPT控制器并用。
+`netdrv.ready()`只表示网卡具备地址和链路，不检测上游能否访问互联网。
+
+底层接口也可独立使用：
+
+```lua
+assert(airlink.setup(1, {
+    drv = "netif", role = "provider", uart_id = 1,
+    network_adapter = socket.LWIP_GP_GW
+}))
+-- 配置固定IPv4、NAPT和DNS完成后，再通告选定WAN：
+assert(airlink.netstate(1, socket.LWIP_STA))
+-- 撤销Internet可用状态：
+assert(airlink.netstate(1, -1))
+```
+
+`airlink.netstate(id, uplink)`仅用于provider状态通告，不替代NAPT/DNS配置。
+返回 `ok, rc`，非provider、停止实例、自身LAN作为出口或非法编号会失败。
+每次出口编号变化递增状态代次；同一WAN重新建链时先通告 `-1` 再通告WAN，
+确保client收到新的代次。状态通过每秒心跳发送，`netif`链路超时为5秒。
+
+`airlink.status(id)`新增：
+
+- `network_adapter`：本地供网/用网网卡。
+- `peer_type=3`、`net_protocol=1`：通用网卡协议。
+- `peer_role`：1为client，2为provider。
+- `peer_online`、`peer_uplink`、`net_generation`：对端通告状态。
+
+`ready(id)`要求协议匹配且角色互补；用 `ready` 等待，**不要要求 `version > 0`**。
+provider的LAN随对端握手就绪，client网卡还需provider通告有可用出口。
+client在出口代次改变时重新发布网络状态，应用应通过 `IP_LOSE/IP_READY` 重连。
+既有TCP/MQTT会话不保证跨WAN迁移，NAPT清表后应重新建立连接。
+
+协议使用设备信息 `tp=3` 和IP逻辑通道254，保持既有devinfo大小与ARQ尾部偏移。
+双方都必须使用支持 `netif` 的固件；不能将旧780/6208驱动名称作为供网角色替代品。
+本版提供IPv4 TCP/UDP/ICMP转发，不提供IPv6路由或IP分片转发。
+
+NAPT的C层 `enable/disable/set_gw` 在TCP/IP上下文异步执行；
+Lua `netdrv.napt()` 等待清表与出口配置完成后返回。
+转发与切换共用非阻塞排他门，争用期间丢弃包以避免越过NAPT或死锁；
+它不撤回已经送入硬件/串口发送队列的旧包。
+
+2026-11-17真机验证：Air8000板内Wi-Fi实例0作为出口，通过UART1实例1向
+Air1602实例0供网。已通过局域网UDP回显、DNS解析、256/4096/16384字节
+HTTP完整回显，以及Wi-Fi断开通知、固定IP保留、恢复后DNS和4096字节HTTP。
+Wi-Fi断网期间UART链路保持就绪。另通过供网端外部链路停止8秒后的超时通知、
+供网端重启后的重新握手和HTTP恢复；三个阶段直接向固定网关53端口发起DNS查询
+均成功。4G和以太网出口的实际切换尚待硬件验收。
 
 ## 4. 等待链路就绪
 

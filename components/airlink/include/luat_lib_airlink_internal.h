@@ -7,6 +7,7 @@
 int l_airlink_setup(lua_State *L);
 int l_airlink_close(lua_State *L);
 int l_airlink_status(lua_State *L);
+int l_airlink_netstate(lua_State *L);
 int l_airlink_instance_statistics(lua_State *L);
 #endif
 

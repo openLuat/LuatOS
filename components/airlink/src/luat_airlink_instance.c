@@ -30,6 +30,8 @@ typedef struct {
     int net_result;
     uint8_t net_owned;
     luat_airlink_dev_info_t peer;
+    int uplink;
+    uint32_t net_generation, peer_generation;
     airlink_statistic_t stats;
     uint64_t last_rx;
     uint16_t fragment;
@@ -95,8 +97,14 @@ int luat_airlink_link_ready(int id) {
     if (!luat_airlink_link_configured(id)) return 0;
     airlink_instance_t* l = &links[id];
     luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
-    int ready = l->running && !l->stalled && l->last_rx && luat_mcu_tick64_ms() - l->last_rx < 20000 &&
+    int ready = l->running && !l->stalled && l->last_rx &&
+        luat_mcu_tick64_ms() - l->last_rx < (l->conf.drv == AIRLINK_DRV_NETIF ? 5000 : 20000) &&
         (l->conf.drv != AIRLINK_DRV_8000S || l->board_gpio_step == 2);
+    if (l->conf.drv == AIRLINK_DRV_NETIF)
+        ready = ready && l->peer.tp == AIRLINK_DEV_NETIF &&
+            l->peer.network.protocol == AIRLINK_NETIF_PROTOCOL &&
+            l->peer.network.role == (l->conf.netif_role == AIRLINK_NETIF_CLIENT ?
+                AIRLINK_NETIF_PROVIDER : AIRLINK_NETIF_CLIENT);
     luat_rtos_mutex_unlock(l->lock);
     return ready;
 }
@@ -105,6 +113,7 @@ static int features(int drv) {
     if (drv == AIRLINK_DRV_6208 || drv == AIRLINK_DRV_6205 || drv == AIRLINK_DRV_8000S)
         return AIRLINK_FEATURE_WIFI | AIRLINK_FEATURE_BLE;
     if (drv == AIRLINK_DRV_780EPM) return AIRLINK_FEATURE_CELLULAR;
+    if (drv == AIRLINK_DRV_NETIF) return AIRLINK_FEATURE_NETIF;
     return 0;
 }
 int luat_airlink_feature_route(int feature) {
@@ -140,6 +149,8 @@ int luat_airlink_instance_default_route(const luat_airlink_cmd_t* cmd) {
 int luat_airlink_link_adapter(int id, int remote) {
     if (!luat_airlink_link_configured(id)) return -1;
     luat_airlink_setup_t* c = &links[id].conf;
+    if (c->drv == AIRLINK_DRV_NETIF)
+        return remote == AIRLINK_NETIF_CHANNEL ? c->network_adapter : -1;
     if (remote == NW_ADAPTER_INDEX_LWIP_WIFI_STA) return c->sta_adapter;
     if (remote == NW_ADAPTER_INDEX_LWIP_WIFI_AP) return c->ap_adapter;
     if (remote == NW_ADAPTER_INDEX_LWIP_GP_GW) return c->cellular_adapter;
@@ -147,6 +158,8 @@ int luat_airlink_link_adapter(int id, int remote) {
 }
 static int remote_adapter(const luat_airlink_setup_t* c, int local) {
     if (local < 0) return -1;
+    if (c->drv == AIRLINK_DRV_NETIF)
+        return local == c->network_adapter ? AIRLINK_NETIF_CHANNEL : -1;
     if (local == c->sta_adapter) return NW_ADAPTER_INDEX_LWIP_WIFI_STA;
     if (local == c->ap_adapter) return NW_ADAPTER_INDEX_LWIP_WIFI_AP;
     if (local == c->cellular_adapter) return NW_ADAPTER_INDEX_LWIP_GP_GW;
@@ -393,6 +406,36 @@ static int air8000s_board_init(airlink_instance_t* l) {
     }
     return 1;
 }
+int luat_airlink_link_netstate(int id, int uplink) {
+    if (!luat_airlink_link_configured(id) || uplink < -1 || uplink >= LUAT_AIRLINK_MAX_ADAPTERS) return -1;
+    airlink_instance_t* l = &links[id];
+    if (l->conf.drv != AIRLINK_DRV_NETIF || l->conf.netif_role != AIRLINK_NETIF_PROVIDER ||
+        uplink == l->conf.network_adapter) return -1;
+    luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
+    if (!l->running) { luat_rtos_mutex_unlock(l->lock); return -1; }
+    if (l->uplink != uplink) {
+        l->uplink = uplink;
+        l->net_generation++;
+    }
+    luat_rtos_mutex_unlock(l->lock);
+    return 0;
+}
+static void instance_self_info(airlink_instance_t* l, luat_airlink_dev_info_t* info) {
+    if (l->conf.drv != AIRLINK_DRV_NETIF) {
+        *info = *luat_airlink_self_dev_info_ptr();
+        return;
+    }
+    memset(info, 0, sizeof(*info));
+    info->tp = AIRLINK_DEV_NETIF;
+    info->network.protocol = AIRLINK_NETIF_PROTOCOL;
+    info->network.role = l->conf.netif_role;
+    luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
+    info->network.online = l->uplink >= 0;
+    info->network.uplink = l->uplink < 0 ? 255 : l->uplink;
+    uint32_t generation = l->net_generation;
+    luat_rtos_mutex_unlock(l->lock);
+    for (int i = 0; i < 4; i++) info->network.generation[i] = generation >> (8 * i);
+}
 static void io_task(void* param) {
     airlink_instance_t* l = param;
     l->io_task = luat_rtos_get_current_handle();
@@ -441,7 +484,9 @@ static void io_task(void* param) {
         }
         if (now - heartbeat >= 1000 || luat_airlink_arq_devinfo_pending()) {
             uint8_t info[sizeof(luat_airlink_cmd_t) + sizeof(luat_airlink_dev_info_t) + AIRLINK_ARQ_HELLO_SIZE];
-            luat_airlink_arq_devinfo(info, luat_airlink_self_dev_info_ptr());
+            luat_airlink_dev_info_t self;
+            instance_self_info(l, &self);
+            luat_airlink_arq_devinfo(info, &self);
             if (!send_cmd(l, (void*)info, 0)) luat_airlink_arq_set_devinfo_pending(0);
             heartbeat = now;
             tcpip_callback(instance_net_update, l);
@@ -495,11 +540,12 @@ static void io_task(void* param) {
 static void instance_net_update(void* param) {
     airlink_instance_t* l = param;
     int id = (int)(l - links);
-    luat_airlink_dev_info_t peer;
+    luat_airlink_dev_info_t peer = {0};
     luat_airlink_link_peer_copy(id, &peer);
     int online = luat_airlink_link_ready(id);
-    int adapters[] = {l->conf.sta_adapter, l->conf.ap_adapter, l->conf.cellular_adapter};
-    for (int i = 0; i < 3; i++) {
+    int adapters[] = {l->conf.sta_adapter, l->conf.ap_adapter, l->conf.cellular_adapter,
+        l->conf.drv == AIRLINK_DRV_NETIF ? l->conf.network_adapter : -1};
+    for (int i = 0; i < 4; i++) {
         if (adapters[i] < 0 || !(l->net_owned & (1u << i))) continue;
         luat_netdrv_t* drv = luat_netdrv_get(adapters[i]);
         if (!drv || !drv->netif) continue;
@@ -518,18 +564,28 @@ static void instance_net_update(void* param) {
             /* GP_GW is the inter-device routed subnet. The modem's WAN IP is
              * informational: never overwrite the application's NAPT-side IP. */
             up = online && (peer.cat1.cat_state == 1 || peer.cat1.cat_state == 5);
+        } else if (i == 3) {
+            up = online && (l->conf.netif_role == AIRLINK_NETIF_PROVIDER || peer.network.online);
+            uint32_t generation = 0;
+            for (int n = 0; n < 4; n++) generation |= (uint32_t)peer.network.generation[n] << (8 * n);
+            /* A WAN switch invalidates transport sessions even if the fixed
+             * client address and the provider's availability did not change. */
+            if (l->conf.netif_role == AIRLINK_NETIF_CLIENT && generation != l->peer_generation &&
+                netif_is_link_up(drv->netif)) luat_netdrv_set_link_updown(drv, 0);
+            l->peer_generation = generation;
         }
         if (!!netif_is_link_up(drv->netif) != !!up) luat_netdrv_set_link_updown(drv, !!up);
     }
 }
 static void instance_net_setup(void* param) {
     airlink_instance_t* l = param;
-    int adapters[] = {l->conf.sta_adapter, l->conf.ap_adapter, l->conf.cellular_adapter};
+    int adapters[] = {l->conf.sta_adapter, l->conf.ap_adapter, l->conf.cellular_adapter,
+        l->conf.drv == AIRLINK_DRV_NETIF ? l->conf.network_adapter : -1};
     l->net_result = -1;
     /* setup owns new adapters exclusively; never reboot an unrelated driver. */
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 4; i++)
         if (adapters[i] >= 0 && luat_netdrv_get(adapters[i])) goto done;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         if (adapters[i] < 0) continue;
         luat_netdrv_conf_t c = {0}; c.id = adapters[i]; c.impl = LUAT_NETDRV_IMPL_WHALE;
         if (i < 2) {
@@ -544,7 +600,7 @@ static void instance_net_setup(void* param) {
         luat_netdrv_t* drv = luat_netdrv_setup(&c);
         if (drv) l->net_owned |= 1u << i;
         if (!drv || !drv->netif) goto done;
-        if (i == 0) drv->dhcp_enable = 1;
+        drv->dhcp_enable = i == 0;
         luat_netdrv_set_link_updown(drv, 0);
     }
     l->net_result = 0;
@@ -575,9 +631,16 @@ int luat_airlink_setup_link(int id, const luat_airlink_setup_t* c) {
     if (c->mode == LUAT_AIRLINK_MODE_HSPI_MASTER) return -3;
 #endif
     if (!c->speed || (c->mode == LUAT_AIRLINK_MODE_UART && c->uart_id >= 10)) return -4;
-    if (c->drv == AIRLINK_DRV_780EPM ? c->sta_adapter >= 0 || c->ap_adapter >= 0 : c->cellular_adapter >= 0) return -4;
-    int adapters[] = {c->sta_adapter, c->ap_adapter, c->cellular_adapter};
-    for (int a = 0; a < 3; a++) {
+    if (c->drv == AIRLINK_DRV_NETIF) {
+        if (c->mode != LUAT_AIRLINK_MODE_UART ||
+            (c->netif_role != AIRLINK_NETIF_CLIENT && c->netif_role != AIRLINK_NETIF_PROVIDER) ||
+            c->network_adapter < 0 || c->network_adapter == NW_ADAPTER_INDEX_LWIP_WIFI_STA ||
+            c->network_adapter == NW_ADAPTER_INDEX_LWIP_WIFI_AP ||
+            c->sta_adapter >= 0 || c->ap_adapter >= 0 || c->cellular_adapter >= 0) return -4;
+    } else if (c->drv == AIRLINK_DRV_780EPM ? c->sta_adapter >= 0 || c->ap_adapter >= 0 : c->cellular_adapter >= 0) return -4;
+    int adapters[] = {c->sta_adapter, c->ap_adapter, c->cellular_adapter,
+        c->drv == AIRLINK_DRV_NETIF ? c->network_adapter : -1};
+    for (int a = 0; a < 4; a++) {
         if (adapters[a] < -1 || adapters[a] >= LUAT_AIRLINK_MAX_ADAPTERS) return -4;
         if (adapters[a] >= 0) for (int b = 0; b < a; b++) if (adapters[a] == adapters[b]) return -4;
     }
@@ -586,10 +649,11 @@ int luat_airlink_setup_link(int id, const luat_airlink_setup_t* c) {
         luat_airlink_setup_t* o = &links[i].conf;
         if (c->mode == LUAT_AIRLINK_MODE_UART && o->mode == c->mode && o->uart_id == c->uart_id) return -5;
         if (c->mode != LUAT_AIRLINK_MODE_UART && o->mode != LUAT_AIRLINK_MODE_UART && c->spi_id == o->spi_id && c->cs == o->cs) return -5;
-        for (int a = 0; a < 3; a++) if (remote_adapter(o, adapters[a]) >= 0) return -5;
+        for (int a = 0; a < 4; a++) if (remote_adapter(o, adapters[a]) >= 0) return -5;
     }
     airlink_instance_t* l = &links[id];
     l->conf = *c;
+    l->uplink = -1;
     if (luat_rtos_semaphore_create(&l->net_done, 0)) goto fail;
     luat_rtos_semaphore_take(l->net_done, 0);
     if (luat_rtos_mutex_create(&l->lock) || luat_rtos_queue_create(&l->tx, QUEUE_DEPTH, sizeof(airlink_queue_item_t)) ||

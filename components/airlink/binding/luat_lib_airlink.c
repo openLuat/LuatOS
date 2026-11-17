@@ -621,6 +621,7 @@ static const rotable_Reg_t reg_airlink[] =
     { "setup",         ROREG_FUNC(l_airlink_setup)},
     { "close",         ROREG_FUNC(l_airlink_close)},
     { "status",        ROREG_FUNC(l_airlink_status)},
+    { "netstate",      ROREG_FUNC(l_airlink_netstate)},
 #endif
     { "init" ,         ROREG_FUNC(l_airlink_init )},
     { "config",        ROREG_FUNC(l_airlink_config)},

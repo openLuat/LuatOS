@@ -31,6 +31,7 @@ int l_airlink_setup(lua_State* L) {
     if (!strcmp(drv, "air6205")) c.drv = AIRLINK_DRV_6205;
     else if (!strcmp(drv, "air6208")) c.drv = AIRLINK_DRV_6208;
     else if (!strcmp(drv, "air8000s")) c.drv = AIRLINK_DRV_8000S;
+    else if (!strcmp(drv, "netif")) c.drv = AIRLINK_DRV_NETIF;
     else if (!strcmp(drv, "air780epm") || !strcmp(drv, "air780er2")) c.drv = AIRLINK_DRV_780EPM;
     else return luaL_argerror(L, 2, "unsupported drv");
     lua_pop(L, 1);
@@ -42,10 +43,25 @@ int l_airlink_setup(lua_State* L) {
     c.rdy = option(L, "rdy", onboard ? AIRLINK_8000S_RDY : 255, 0, 255);
     c.speed = c.mode == LUAT_AIRLINK_MODE_UART ? option(L, "baudrate", 2000000, 1, 20000000) : option(L, "speed", onboard ? AIRLINK_8000S_SPEED : 20000000, 1, 100000000);
     int cellular = c.drv == AIRLINK_DRV_780EPM;
-    c.sta_adapter = option(L, "sta_adapter", cellular ? -1 : NW_ADAPTER_INDEX_LWIP_WIFI_STA, -1, LUAT_AIRLINK_MAX_ADAPTERS - 1);
-    c.ap_adapter = option(L, "ap_adapter", cellular ? -1 : NW_ADAPTER_INDEX_LWIP_WIFI_AP, -1, LUAT_AIRLINK_MAX_ADAPTERS - 1);
+    int network = c.drv == AIRLINK_DRV_NETIF;
+    if (network) {
+        static const char* const roles[] = {"client", "provider", NULL};
+        lua_getfield(L, 2, "role");
+        c.netif_role = luaL_checkoption(L, -1, NULL, roles) + 1;
+        lua_pop(L, 1);
+        c.network_adapter = option(L, "network_adapter", NW_ADAPTER_INDEX_LWIP_GP_GW, 0, LUAT_AIRLINK_MAX_ADAPTERS - 1);
+    }
+    c.sta_adapter = option(L, "sta_adapter", cellular || network ? -1 : NW_ADAPTER_INDEX_LWIP_WIFI_STA, -1, LUAT_AIRLINK_MAX_ADAPTERS - 1);
+    c.ap_adapter = option(L, "ap_adapter", cellular || network ? -1 : NW_ADAPTER_INDEX_LWIP_WIFI_AP, -1, LUAT_AIRLINK_MAX_ADAPTERS - 1);
     c.cellular_adapter = option(L, "cellular_adapter", cellular ? NW_ADAPTER_INDEX_LWIP_GP_GW : -1, -1, LUAT_AIRLINK_MAX_ADAPTERS - 1);
     int rc = luat_airlink_setup_link(id, &c);
+    lua_pushboolean(L, rc == 0); lua_pushinteger(L, rc);
+    return 2;
+}
+/* airlink.netstate(id, uplink): -1 withdraws the provider's WAN.
+ * Does not select NAPT or DNS; the gateway controller configures those first. */
+int l_airlink_netstate(lua_State* L) {
+    int rc = luat_airlink_link_netstate(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
     lua_pushboolean(L, rc == 0); lua_pushinteger(L, rc);
     return 2;
 }
@@ -73,6 +89,16 @@ int l_airlink_status(lua_State* L) {
     integer(L, "cat_state", peer.tp == 2 ? peer.cat1.cat_state : 0);
     integer(L, "sta_adapter", luat_airlink_link_adapter(id, NW_ADAPTER_INDEX_LWIP_WIFI_STA));
     integer(L, "cellular_adapter", luat_airlink_link_adapter(id, NW_ADAPTER_INDEX_LWIP_GP_GW));
+    integer(L, "network_adapter", luat_airlink_link_adapter(id, AIRLINK_NETIF_CHANNEL));
+    if (peer.tp == AIRLINK_DEV_NETIF) {
+        integer(L, "net_protocol", peer.network.protocol);
+        integer(L, "peer_role", peer.network.role);
+        boolean(L, "peer_online", peer.network.online);
+        integer(L, "peer_uplink", peer.network.uplink == 255 ? -1 : peer.network.uplink);
+        uint32_t generation = 0;
+        for (int n = 0; n < 4; n++) generation |= (uint32_t)peer.network.generation[n] << (8 * n);
+        integer(L, "net_generation", generation);
+    }
     return 1;
 }
 static void part(lua_State* L, const char* name, const airlink_statistic_part_t* p) {

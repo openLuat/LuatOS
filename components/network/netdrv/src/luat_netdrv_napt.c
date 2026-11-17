@@ -1,4 +1,7 @@
 #include "luat_base.h"
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
 #ifdef __LUATOS__
@@ -14,6 +17,7 @@
 #include "lwip/icmp.h"
 #include "lwip/prot/etharp.h"
 #include "lwip/tcpip.h"
+#include "lwip/timeouts.h"
 #include "lwip/tcp.h"
 #include "lwip/udp.h"
 #include "lwip/prot/tcp.h"
@@ -38,7 +42,24 @@
 #define UDP_MAP_TIMEOUT (60 * 1000)
 #define NAPT_MAX_PACKET_SIZE (1520)
 
-static int s_gw_adapter_id = -1;
+/* Packet producers include driver tasks and the TCP/IP core. Never wait for
+ * this gate in a packet callback: dataout may itself need the core. */
+#ifdef _MSC_VER
+typedef volatile long napt_atomic_t;
+#define NAPT_LOAD(p) _InterlockedCompareExchange((p), 0, 0)
+#define NAPT_STORE(p, v) _InterlockedExchange((p), (v))
+#define NAPT_ADD(p, v) _InterlockedExchangeAdd((p), (v))
+#define NAPT_CAS(p, old, value) (_InterlockedCompareExchange((p), (value), (old)) == (old))
+#else
+typedef int napt_atomic_t;
+#define NAPT_LOAD(p) __atomic_load_n((p), __ATOMIC_ACQUIRE)
+#define NAPT_STORE(p, v) __atomic_store_n((p), (v), __ATOMIC_RELEASE)
+#define NAPT_ADD(p, v) __atomic_fetch_add((p), (v), __ATOMIC_ACQ_REL)
+#define NAPT_CAS(p, old, value) __sync_bool_compare_and_swap((p), (old), (value))
+#endif
+static napt_atomic_t s_gw_adapter_id = -1;
+static napt_atomic_t s_napt_busy, s_napt_changes;
+static void napt_disable_locked(void);
 
 // 同步 drvs[adapter_id]->netif 与 prvlwip.lwip_netif (SOC固件的真实netif)
 // 用于解决 PDP 重激活后 drvs[]->netif 指针过时的问题
@@ -122,11 +143,11 @@ static void napt_sync_gw_netif(int adapter_id) {
 }
 
 #if !defined(LUAT_USE_PSRAM) && !defined(LUAT_USE_NETDRV_NAPT)
-__NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
+static int napt_pkg_input_locked(int id, uint8_t* buff, size_t len) {
     return 0;
 }
 #else
-__NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
+static __NETDRV_CODE_IN_RAM__ int napt_pkg_input_locked(int id, uint8_t* buff, size_t len) {
     if (s_gw_adapter_id < 0) {
         // LLOGD("NAPT 未开启");
         return 0; // NAPT没有开启
@@ -302,6 +323,14 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
 }
 #endif
 
+__NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
+    if (NAPT_LOAD(&s_napt_changes) || !NAPT_CAS(&s_napt_busy, 0, 1))
+        return NAPT_RET_OK; /* Consume on contention; never bypass NAPT. */
+    int ret = NAPT_LOAD(&s_napt_changes) ? NAPT_RET_OK : napt_pkg_input_locked(id, buff, len);
+    NAPT_STORE(&s_napt_busy, 0);
+    return ret;
+}
+
 // 辅助函数
 int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p) {
     if (p == NULL || p->tot_len > NAPT_MAX_PACKET_SIZE) {
@@ -329,14 +358,14 @@ int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p) {
     return ret;
 }
 
-void luat_netdrv_napt_enable(int adapter_id) {
+static void napt_enable_locked(int adapter_id) {
     if (s_gw_adapter_id >= 0 && s_gw_adapter_id != adapter_id) {
-        luat_netdrv_napt_disable();
+        napt_disable_locked();
     }
     if (adapter_id > 0) {
         luat_netdrv_napt_init_contexts();
     }
-    s_gw_adapter_id = adapter_id;
+    NAPT_STORE(&s_gw_adapter_id, adapter_id);
 #if LUAT_CONF_RNDIS_NAT_DBG
     {
         luat_netdrv_t* _dbg_gw = luat_netdrv_get(adapter_id);
@@ -369,16 +398,89 @@ void luat_netdrv_napt_enable(int adapter_id) {
     }
 }
 
-void luat_netdrv_napt_disable(void) {
+static void napt_disable_locked(void) {
     if (s_gw_adapter_id < 0) {
         LLOGD("NAPT已经是关闭状态");
         return;
     }
     LLOGI("关闭NAPT, 清理所有映射表, 原网关适配器=%d", s_gw_adapter_id);
-    s_gw_adapter_id = -1;
+    NAPT_STORE(&s_gw_adapter_id, -1);
     luat_netdrv_napt_tcp_cleanup();
     luat_netdrv_napt_udp_cleanup();
     luat_netdrv_napt_icmp_cleanup();
+}
+typedef struct napt_change {
+    struct napt_change* next;
+    int adapter;
+    luat_rtos_semaphore_t done;
+} napt_change_t;
+/* This list and its timer belong exclusively to the TCP/IP core. */
+static napt_change_t *change_head, *change_tail;
+static int change_scheduled;
+
+static void napt_apply_changes(void* unused) {
+    (void)unused;
+    if (!NAPT_CAS(&s_napt_busy, 0, 1)) {
+        sys_timeout(1, napt_apply_changes, NULL);
+        return;
+    }
+    while (change_head) {
+        napt_change_t* req = change_head;
+        change_head = req->next;
+        if (!change_head) change_tail = NULL;
+        if (req->adapter < 0) napt_disable_locked();
+        else napt_enable_locked(req->adapter);
+        NAPT_ADD(&s_napt_changes, -1);
+        if (req->done) luat_rtos_semaphore_release(req->done);
+        else luat_heap_free(req);
+    }
+    NAPT_STORE(&s_napt_busy, 0);
+    change_scheduled = 0;
+}
+static void napt_queue_change(void* param) {
+    napt_change_t* req = param;
+    if (change_tail) change_tail->next = req;
+    else change_head = req;
+    change_tail = req;
+    if (!change_scheduled) {
+        change_scheduled = 1;
+        napt_apply_changes(NULL);
+    }
+}
+static int napt_submit_change(int adapter, int wait) {
+    napt_change_t* req = luat_heap_zalloc(sizeof(*req));
+    if (!req) return -1;
+    req->adapter = adapter;
+    if (wait && luat_rtos_semaphore_create(&req->done, 0)) {
+        luat_heap_free(req);
+        return -1;
+    }
+    if (wait) luat_rtos_semaphore_take(req->done, 0);
+    NAPT_ADD(&s_napt_changes, 1);
+    if (tcpip_callback_with_block(napt_queue_change, req, 0) != ERR_OK) {
+        NAPT_ADD(&s_napt_changes, -1);
+        if (req->done) luat_rtos_semaphore_delete(req->done);
+        luat_heap_free(req);
+        return -1;
+    }
+    if (wait) {
+        luat_rtos_semaphore_take(req->done, LUAT_WAIT_FOREVER);
+        luat_rtos_semaphore_delete(req->done);
+        luat_heap_free(req);
+    }
+    return 0;
+}
+/* C callers may be in the core, so these setters are asynchronous. */
+void luat_netdrv_napt_enable(int adapter_id) {
+    if (napt_submit_change(adapter_id, 0)) LLOGE("NAPT change enqueue failed");
+}
+void luat_netdrv_napt_disable(void) {
+    if (napt_submit_change(-1, 0)) LLOGE("NAPT disable enqueue failed");
+}
+/* Task-context API: completion means maps/gateway/ARP setup were applied.
+ * Must not be called by the TCP/IP core or from a dataout callback. */
+int luat_netdrv_napt_set_sync(int adapter_id) {
+    return napt_submit_change(adapter_id, 1);
 }
 void luat_netdrv_napt_set_gw(int adapter_id) {
     luat_netdrv_napt_enable(adapter_id);
@@ -388,5 +490,5 @@ void luat_netdrv_napt_set_gw(int adapter_id) {
 
 /* Air8000: expose current NAPT gateway adapter_id (used by CSDK wrap_ip_input.c) */
 int luat_netdrv_napt_get_gw_adapter(void) {
-    return s_gw_adapter_id;
+    return NAPT_LOAD(&s_gw_adapter_id);
 }

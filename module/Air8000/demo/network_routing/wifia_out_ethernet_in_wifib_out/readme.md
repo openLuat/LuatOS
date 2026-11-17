@@ -28,17 +28,50 @@
 
 ## 文件说明
 
-本目录下只有 2 个脚本：
+本目录下 3 个脚本：
 
 1、`main.lua`：主程序入口，只负责 `require "netif_app"` 和启动 `sys.run()`；
 
-2、`netif_app.lua`：网络管理模块，建立多网融合代理并演示上游 WiFi 切换。
+2、`netif_app.lua`：网络管理模块，建立多网融合代理并演示上游 WiFi 切换；
 
-**但运行还需要 5 个库文件**，它们不在本目录，位于仓库 `script/libs/`：
+3、`exnetif.lua`：**本 demo 自带的修复版**，版本 `202611121939`。
+
+### 为什么自带一份 exnetif.lua
+
+`script/libs/exnetif.lua` 是公共库，被仓库里 40 多个 demo 共用。本 demo 用到的
+「同一个下游网卡、反复更换上游 WiFi 凭证」能力，公共库原来有 4 处缺陷：
+
+| 缺陷 | 后果 |
+|---|---|
+| `setproxy` 重入分支不接收 `switch_upstream_wifi` 的返回值 | 切换失败也报成功 |
+| 切换失败后不恢复 `proxy_state.wifi_config` | 掉线自动重连永久失效，只能重启设备 |
+| 重入判断只比较 `ssid` | 同一 SSID 改密码后一直用旧密码重连 |
+| 切换时没补 `auto_reconnect` 标记 | 切换成功后重连同样失效 |
+
+这些缺陷只在「WiFi 做上游 + 同一个下游 adapter 重复调 `setproxy` + 凭证变化」
+这个组合下才会触发。其他 demo 要么换了下游 adapter（`ETH` → `AP`）、要么上游是
+4G/以太网，都走不到这条路径。
+
+所以把这版修复收在本目录，**不改公共库，避免波及别的项目**。
+
+### 打包注意
+
+如果 Luatools 勾选「添加默认 lib」，`script/libs/exnetif.lua` 可能与本目录的同名文件冲突。
+**请确认最终工程里 `exnetif.lua` 的版本号是 `202611121939`**，脚本启动会打印：
+
+```log
+D/user.exnetif version -> 202611121939
+I/user.netif_app exnetif 库版本 202611121939 （切换功能需 >= 202607211200）
+```
+
+如果打印的是 `202607021200` 或更低，说明被公共库覆盖了，需要用本目录的版本重新覆盖一次。
+
+### 其余依赖库
+
+另外 4 个库仍从仓库 `script/libs/` 取：
 
 | 库文件 | 被谁引用 | 作用 |
 |---|---|---|
-| `exnetif.lua` | `netif_app.lua` | 多网融合主逻辑 |
 | `dnsproxy.lua` | `exnetif.lua` | 给下游设备做 DNS 代理 |
 | `dhcpsrv.lua` | `exnetif.lua` | 给下游设备分配 IP |
 | `httpdns.lua` | `exnetif.lua` | HTTP DNS 解析 |

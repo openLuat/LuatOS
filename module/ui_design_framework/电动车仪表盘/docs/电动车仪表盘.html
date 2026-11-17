@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>CHRONO — 电动车仪表盘 v2（1024x600 · 与固件同步）</title>
+<!--
+  v2 设计稿。坐标 = code/app/app_config.lua 的 LAYOUT，配色 = 同文件 DARK/LIGHT（含 finish 派生算法）。
+  改这里的数字 = 改 LAYOUT，两边必须一起动，否则 docs/layout_check.py 会失真。
+  · 画布 1024x600，全绝对定位，坐标即 LAYOUT
+  · 卡片 border:1px + border-box → 子元素基准 = 内容区(Lua 的 cw/ch)，与真机一致
+  · 字号 16/18/22/34/64 = SIZES.micro/label/value/big/hero
+-->
+<style>
+:root{--k:1}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:#05050b;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  font-family:'Inter','Segoe UI',system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+  -webkit-font-smoothing:antialiased}
+#frame{flex:0 0 auto;transform:scale(var(--k));transform-origin:center center}
+#screen{position:relative;width:1024px;height:600px;overflow:hidden;background:var(--bg);color:var(--text);
+  box-shadow:0 0 0 1px rgba(255,255,255,.05),0 30px 90px rgba(0,0,0,.65);
+  transition:background .45s ease,color .45s ease}
+#screen::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 50% 44%,var(--glow-fill) 0%,transparent 62%);
+  opacity:var(--halo-a);transition:opacity .45s ease}
+/* 左右侧光：卡片是半透明的，必须底下有东西可透，否则「透明卡片」= 一圈描边浮在纯黑上。
+   早期是三个 border-radius:50% 的实心圆（单层 opacity = 硬边），真机上一眼就能看出「三个圆」，已废弃。
+   现在改成两束圆心落在屏外的光（at -7% / 107%，半径 44%x73% = 固件的 rx455/ry437），
+   屏幕上只露弧边 + 渐变淡出，和底部 #amb 是同一套语言。
+   峰值 alpha 约 29.8%（0.298），中心浓、往屏内逐级变浅——固件用「3 层同心椭圆、半径等距 100px、
+   opa 34/28/23」逼近这条曲线（CSS 是连续渐变，真机是 3 级阶梯，灰阶差 <2% 不可辨）。
+   光晕右边界收到 x≈285（79% 处透明），不再渗进表盘——与固件 ORB_L 外框 285 一致。 */
+#orbs{position:absolute;left:0;top:0;width:1024px;height:600px;pointer-events:none;
+  opacity:calc(var(--orb-a) * .298 * var(--orb-k,1));transition:opacity .45s ease;
+  background:
+    radial-gradient(44% 73% at -7% 46%,var(--mode-col,#22A8F5) 0%,transparent 79%),
+    radial-gradient(44% 73% at 107% 46%,var(--mode-col,#22A8F5) 0%,transparent 79%)}
+/* 底部氛围光：颜色 = 当前档位色，盖在卡片之上（pointer-events:none 不挡点击），
+   整屏铺满 + 渐变集中在底部，只有底部真的上色，上方自动透明 */
+#amb{position:absolute;left:0;top:0;width:1024px;height:600px;pointer-events:none;
+  background:
+    radial-gradient(58% 22% at 50% 100%,var(--mode-col,#22A8F5) 0%,transparent 72%),
+    radial-gradient(95% 50% at 50% 104%,var(--mode-col,#22A8F5) 0%,transparent 68%);
+  opacity:var(--amb-a);transition:opacity .45s ease}
+.abs{position:absolute}
+/* 玻璃卡片：底色半透明（LVGL 的 bg_opa）+ 更亮的半透明描边 + 顶部一条高光线（1px rect）。
+   这三样正好是 LVGL 能 1:1 做出来的，所以设计稿和固件不会失真。 */
+.card{position:absolute;background:var(--card);border:1px solid var(--card-edge);border-radius:14px;
+  box-shadow:var(--card-sh);
+  transition:background .45s ease,border-color .45s ease,box-shadow .45s ease}
+.card::after{content:'';position:absolute;left:14px;right:14px;top:0;height:1px;border-radius:1px;
+  background:var(--hl);pointer-events:none;transition:background .45s ease}
+.lb{position:absolute;display:flex;align-items:center;white-space:nowrap;line-height:1;transition:color .45s ease}
+.lb.c{justify-content:center}.lb.r{justify-content:flex-end}
+.t16{font-size:16px}.t18{font-size:18px}.t22{font-size:22px}.t34{font-size:34px}.t64{font-size:64px}
+.sp{letter-spacing:.24em}.num{font-variant-numeric:tabular-nums}
+.mute{color:var(--text-mute)}.dim{color:var(--text-dim)}
+.row{position:absolute;border-radius:12px;background:transparent;transition:background .18s ease}
+.row .ico{position:absolute;display:block;transition:color .18s ease,filter .18s ease}
+.row .badge{position:absolute;display:flex;align-items:center;justify-content:center;font-size:16px;
+  transition:color .18s ease,filter .18s ease}
+.row .name{position:absolute;display:flex;align-items:center;font-size:16px;
+  transition:color .18s ease}
+.pill{position:absolute;border:1px solid var(--card-edge);border-radius:17px;background:transparent;
+  cursor:pointer;transition:background .22s,border-color .22s}
+.pill .plb{position:absolute;left:0;top:5px;width:200px;height:22px;display:flex;align-items:center;
+  justify-content:center;font-size:16px;letter-spacing:.1em;color:var(--text-dim);transition:color .22s}
+.seg{position:absolute;top:0;width:17px;height:12px;border-radius:4px;transition:background .25s ease}
+#tbDot{display:block;transition:opacity .2s linear}
+#tbLive{color:var(--magenta);letter-spacing:.18em}
+#tbIconWrap{cursor:pointer;transition:transform .2s ease}
+#tbIconWrap:hover{transform:scale(1.06)}#tbIconWrap:active{transform:scale(.94)}
+#tbChip{cursor:pointer;border-radius:13px;transition:border-color .25s,background .25s}
+#tbChip::after{display:none}   /* 26px 高的小胶囊不需要顶部高光线，边框已是档位色 */
+#caption{position:fixed;left:0;right:0;bottom:10px;text-align:center;font-size:11px;letter-spacing:.1em;
+  color:#4b4b5c;font-family:'Segoe UI',system-ui,sans-serif}
+</style>
+</head>
+<body>
+<div id="frame">
+  <div id="screen" data-theme="dark">
+    <!-- 左右侧光（z 序最低）：卡片半透明，透的就是这两束 -->
+    <div id="orbs"></div>
+    <!-- 顶栏：dot 24,20 / live 42 / link 120 / chip 474 / date 660 / clock 832 / btn 952 -->
+    <svg id="tbDot" class="abs" style="left:24px;top:20px" width="10" height="10" viewBox="0 0 10 10">
+      <circle cx="5" cy="5" r="4" fill="currentColor"/></svg>
+    <div id="tbLive" class="lb abs t16" style="left:42px;top:14px;width:64px;height:22px">实时</div>
+    <div id="tbChip" class="card" style="left:474px;top:14px;width:76px;height:26px">
+      <div id="tbChipLb" class="lb c t16" style="left:0;top:1px;width:74px;height:22px">标准</div>
+    </div>
+    <div id="tbDate" class="lb r abs t16 mute" style="left:660px;top:16px;width:136px;height:22px"></div>
+    <div id="tbClock" class="lb r abs t22 num" style="left:832px;top:10px;width:108px;height:30px">00:00</div>
+    <div id="tbIconWrap" class="card" style="left:952px;top:10px;width:44px;height:44px;border-radius:22px">
+      <svg id="tbIcon" class="abs" style="left:9px;top:9px" width="24" height="24" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+    </div>
+
+    <!-- 表盘：静态层 408x408 @308,86；轴心 512,290 -->
+    <svg id="dial" class="abs" style="left:308px;top:86px" width="408" height="408" viewBox="0 0 408 408"></svg>
+    <div id="dSpeed" class="lb c abs t64 num" style="left:362px;top:306px;width:300px;height:68px">0</div>
+    <div class="lb c abs t16" style="left:362px;top:378px;width:300px;height:22px;color:var(--unit)">km/h</div>
+
+    <!-- 卡片容器（内部子控件由 JS 按 LAYOUT 生成，内容区 230x150 / 230x90 / 974x86） -->
+    <div id="cardIndL" class="card" style="left:24px;top:64px;width:232px;height:152px"></div>
+    <div id="cardIndR" class="card" style="left:768px;top:64px;width:232px;height:152px"></div>
+    <div id="cardMode" class="card" style="left:24px;top:228px;width:232px;height:152px"></div>
+    <div id="cardRide" class="card" style="left:24px;top:392px;width:232px;height:92px"></div>
+    <!-- 输出功率卡已删（它每 150ms 要重建一条 shape + 重绘 232x152，信息价值低）。
+         右列改成两张卡：指示灯 64..216 + 大电量卡 228..484，底边与左列对齐。 -->
+    <div id="cardBatt" class="card" style="left:768px;top:228px;width:232px;height:256px;cursor:pointer"></div>
+    <div id="cardBand" class="card" style="left:24px;top:496px;width:976px;height:88px"></div>
+
+    <!-- 氛围光层：整屏 1024x600，只在底部显出档位色，pointer-events:none -->
+    <div id="amb"></div>
+  </div>
+</div>
+<div id="caption">1024x600 · Air8607 · 坐标与 code/app/app_config.lua LAYOUT 一致 · 点右上圆钮切主题 / 点胶囊切档位 / 点电池卡插枪</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ==================== 布局：与 app_config.LAYOUT 逐项对应 ==================== */
+var L={pw:1024,ph:600,mx:24,col_w:232,left_x:24,right_x:768,
+  card_y1:64,card_h1:152,card_y2:228,card_h2:152,card_y3:392,card_h3:92,
+  band_y:496,band_h:88,
+  dial_cx:512,dial_cy:290,ring_r:193,ring_w:6,face_r:186,glow_r:204,
+  tick_out:180,tick_in_major:164,tick_in_mid:170,tick_in_minor:174,
+  num_r:148,needle_len:160,needle_tail:26,hub_r:11,unit_y:378};
+var MAX=160,START=135,SWEEP=270,PI=Math.PI,CEN=204;   /* CEN = 静态层 408/2 */
+
+/* ==================== 色板：与 app_config DARK/LIGHT 一致 ==================== */
+var DARK={dark:1,bg:0x07060E,card:0x0D0B17,cardEdge:0x1C1830,hairline:0x161231,hi:0x161231,
+  face:0x0B0916,text:0xEFEBFF,textDim:0x8F88AD,textMute:0x5E5878,
+  cyan:0x22A8F5,violet:0xA78BFA,magenta:0xF472B6,amber:0xFBBF24,green:0x4ADE80,red:0xFB7185,
+  ring1:0x22A8F5,ring2:0xA78BFA,ring3:0xF472B6,
+  tickMajor:0xEDD9F5,tickMid:0x7C6BA8,tickMinor:0x3E3760,tickText:0x9A92B8,
+  brand:0x8B7BC0,unit:0x9C8AD6,needle:0xF472B6,needleTail:0x5C1740,needleTip:0xFFF2FA,
+  hub:0xF472B6,hubDot:0x2A0C22,segOff:0x1A1630,
+  btnBg:0x141122,btnEdge:0x2A2450,btnIcon:0xEFEBFF,glowOpa:18};
+
+var LIGHT={dark:0,bg:0xF4F5FA,card:0xFFFFFF,cardEdge:0xE1E2EE,hairline:0xEAEBF4,hi:0xEFE9FB,
+  face:0xFFFFFF,text:0x161328,textDim:0x6C6885,textMute:0x9793AB,
+  cyan:0x088CD8,violet:0x7C3AED,magenta:0xD81B8C,amber:0xD97706,green:0x16A34A,red:0xDC2626,
+  ring1:0x088CD8,ring2:0x7C3AED,ring3:0xD81B8C,
+  tickMajor:0x4C1D95,tickMid:0xB49BE8,tickMinor:0xD8CDF0,tickText:0x5A4A6A,
+  brand:0x9C8CD0,unit:0x8B76C8,needle:0x7C3AED,needleTail:0x3A1060,needleTip:0xD81B8C,
+  hub:0xD81B8C,hubDot:0x3A1060,segOff:0xE8E5F2,
+  btnBg:0xF0EAF8,btnEdge:0xD8CBF0,btnIcon:0x161328,glowOpa:24};
+
+function mix(a,b,k){
+  var ar=(a>>16)&255,ag=(a>>8)&255,ab=a&255,br=(b>>16)&255,bg=(b>>8)&255,bb=b&255;
+  return (((ar+(br-ar)*k+0.5)|0)<<16) | (((ag+(bg-ag)*k+0.5)|0)<<8) | ((ab+(bb-ab)*k+0.5)|0);
+}
+function finish(p){
+  var o={},k;for(k in p){if(p.hasOwnProperty(k))o[k]=p[k];}
+  o.ringD1=mix(p.ring1,p.bg,.62); o.ringD2=mix(p.ring2,p.bg,.62); o.ringD3=mix(p.ring3,p.bg,.62);
+  o.ringEdge=mix(p.violet,p.bg,.74); o.faceEdge=mix(p.violet,p.bg,.82);
+  o.glowFill=mix(p.violet,p.bg,.45); o.hubRim=mix(p.hub,p.bg,.55);
+  /* 幽灵水印：10% 文字色压在卡面上。AirUI 的 border_opa 固定 COVER，
+     固件那边同样预混成实色（app_config.finish 的 p.ghost） */
+  o.ghost=mix(p.text,p.card,.90);
+  return o;
+}
+function hex(v){var s=v.toString(16);while(s.length<6)s='0'+s;return '#'+s;}
+function rgba(v,a){return 'rgba('+((v>>16)&255)+','+((v>>8)&255)+','+(v&255)+','+a+')';}
+function dim(v,k){return ((((v>>16)&255)*k+0.5)|0)<<16 | (((((v>>8)&255)*k+0.5)|0)<<8) | (((v&255)*k+0.5)|0);}
+
+var PAL=finish(DARK), THEME='dark';
+/* 带透明度的颜色字符串（--card / --card-edge 等不再是 hex）：LVGL 侧对应 color + opa 两个参数 */
+var STR={};
+/* acc 由 1.9/2.6/3.6 降到 1.2/1.7/2.3（τ 0.83/0.59/0.43s）：真机 15Hz 指针追不上更快的收敛 */
+var MODES=[{name:'ECO',cn:'经济',lo:16,hi:58,acc:1.2,kw:0.028},
+           {name:'NORMAL',cn:'标准',lo:28,hi:108,acc:1.7,kw:0.035},
+           {name:'SPORT',cn:'运动',lo:52,hi:152,acc:2.3,kw:0.046}];
+var ACCKEY=['cyan','violet','magenta'];
+/* 侧光档位补偿（同固件 GLASS.orbA）= 青的线性亮度 / 该色线性亮度：
+   0.349/0.336=1.04（紫）、0.349/0.347=1.01（品红），再按六层 alpha 叠加回代成 1.05 / 1.03。
+   青变蓝后亮度与紫/品红只差 3~4%，补偿量从上一版的 1.32/1.28 收窄到几乎为 1。 */
+var ORBK=[1,1.05,1.03];
+
+/* ==================== 工具（同 app_util） ==================== */
+function fmt(n){return String(Math.floor(n+0.5));}
+function oneDP(v){var n=Math.floor((v||0)*10+0.5);return Math.floor(n/10)+'.'+(n%10);}
+function pad2(n){n=Math.floor(n);return n<10?'0'+n:String(n);}
+function clockText(s){s=Math.floor(s||0);var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;
+  return h+':'+pad2(m)+':'+pad2(x);}   /* h:mm:ss，避免 03:24 被读成 3 小时 24 分 */
+function clamp(v,lo,hi){return v<lo?lo:(v>hi?hi:v);}
+function rnd(){return Math.random();}
+function polar(r,deg){var a=deg*PI/180;return [CEN+r*Math.cos(a),CEN+r*Math.sin(a)];}
+
+/* ==================== DOM 小工具 ==================== */
+function $(id){return document.getElementById(id);}
+function mk(parent,cls,css,txt){
+  var e=document.createElement('div');
+  if(cls)e.className=cls;
+  if(css)e.style.cssText=css;
+  if(txt!=null)e.textContent=txt;
+  parent.appendChild(e);
+  return e;
+}
+function st(el,t){if(el&&el.__t!==t){el.__t=t;el.textContent=t;}}
+function pageXY(r,deg){var a=deg*PI/180;return [512+r*Math.cos(a),290+r*Math.sin(a)];}
+
+/* ==================== 图标（24 格，描边 currentColor） ==================== */
+var ICONS={
+  turnl:'<polyline points="4,12 12,5 12,9 20,9 20,15 12,15 12,19 4,12"/>',
+  turnr:'<polyline points="20,12 12,5 12,9 4,9 4,15 12,15 12,19 20,12"/>',
+  high:'<path d="M5 12A7 7 0 0 1 19 12"/><line x1="5" y1="12" x2="19" y2="12"/>'+
+       '<line x1="9" y1="13" x2="9" y2="18"/><line x1="12" y1="13" x2="12" y2="20"/>'+
+       '<line x1="15" y1="13" x2="15" y2="18"/>',
+  batt:'<rect x="3" y="7" width="15" height="10" rx="2"/><rect x="19" y="10" width="2" height="4" rx="1"/>'+
+       '<rect x="6" y="10" width="3" height="4" rx="1"/><rect x="10" y="10" width="3" height="4" rx="1"/>'+
+       '<rect x="14" y="10" width="3" height="4" rx="1"/>'
+};
+var ICON_SUN='<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/>'+
+  '<line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/>'+
+  '<line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/>'+
+  '<line x1="17" y1="17" x2="19" y2="19"/><line x1="19" y1="5" x2="17" y2="7"/>'+
+  '<line x1="5" y1="19" x2="7" y2="17"/>';
+var ICON_MOON='<path d="M20.5 15.2A8.6 8.6 0 1 1 8.8 3.5a6.8 6.8 0 0 0 11.7 11.7z" fill="currentColor" stroke="none"/>';
+
+/* ==================== 表盘 ==================== */
+var progEl,progRedEl,nMainEl,nTailEl,nTipEl;
+
+function arcPath(r,a0,a1){
+  var p0=polar(r,a0),p1=polar(r,a1),large=(a1-a0)>180?1:0;
+  return 'M '+p0[0].toFixed(2)+' '+p0[1].toFixed(2)+' A '+r+' '+r+' 0 '+large+' 1 '+
+         p1[0].toFixed(2)+' '+p1[1].toFixed(2);
+}
+
+function buildDial(P){
+  var s=[],i,SEG=SWEEP/8;
+  /* 表盘面透明：不画 face_r 那块实心圆盘，只留一层极淡雾光 + 一圈细边，
+     让背后的氛围光直接透上来。雾光颜色由 setMode 按档位改（id=dialGlow）。 */
+  s.push('<circle id="dialGlow" cx="204" cy="204" r="'+L.glow_r+'" fill="'+hex(P.glowFill)+'" fill-opacity="0.16"/>');
+  s.push('<circle cx="204" cy="204" r="'+L.glow_r+'" fill="none" stroke="'+hex(P.ringEdge)+'" stroke-width="1" opacity="0.30"/>');
+  var cols=[P.ringD1,P.ringD2,P.ringD3,P.ringD2,P.ringD1,P.ringD2,P.ringD3,P.ringD2];
+  for(i=1;i<=8;i++){
+    var a0=Math.round(START+SEG*(i-1)-0.6),a1=Math.round(START+SEG*i+0.6);
+    s.push('<path d="'+arcPath(L.ring_r,a0,a1)+'" fill="none" stroke="'+hex(cols[i-1])+
+           '" stroke-width="'+L.ring_w+'" stroke-linecap="round"/>');
+  }
+  for(i=0;i<=32;i++){
+    var t=i/32,deg=START+SWEEP*t,major=(i%4===0),mid=(i%2===0);
+    var rin=major?L.tick_in_major:(mid?L.tick_in_mid:L.tick_in_minor);
+    var wd=major?3:(mid?2:1);
+    var col=major?P.tickMajor:(mid?P.tickMid:P.tickMinor);
+    var p1=polar(L.tick_out,deg),p2=polar(rin,deg);
+    s.push('<line x1="'+p1[0].toFixed(1)+'" y1="'+p1[1].toFixed(1)+'" x2="'+p2[0].toFixed(1)+
+           '" y2="'+p2[1].toFixed(1)+'" stroke="'+hex(col)+'" stroke-width="'+wd+'" stroke-linecap="round"/>');
+  }
+  s.push('<path id="prog" fill="none" stroke-width="'+L.ring_w+'" stroke-linecap="round"/>');
+  s.push('<path id="progRed" fill="none" stroke-width="'+L.ring_w+'" stroke-linecap="round"/>');
+  /* 已删两处纯装饰、每帧跟着重绘的元素（真机上要重画整块 412x412）：
+     progDot（进度弧末端亮点，圆点已被环形进度头覆盖，肉眼看不出差别）
+     nGlow（指针 10px 柔光，主体 4px 线 + 尖端亮点已足够，柔光只让指针发毛） */
+  s.push('<line id="nTail" stroke-width="4" stroke-linecap="round" stroke="'+hex(P.needleTail)+'"/>');
+  s.push('<line id="nMain" stroke-width="4" stroke-linecap="round" stroke="'+hex(P.needle)+'"/>');
+  s.push('<circle id="nTip" r="4" fill="'+hex(P.needleTip)+'"/>');
+  s.push('<circle cx="204" cy="204" r="'+(L.hub_r-1)+'" fill="'+hex(P.hub)+'"/>');
+  s.push('<circle cx="204" cy="204" r="'+(L.hub_r+3)+'" fill="none" stroke="'+hex(P.hubRim)+'" stroke-width="1" opacity="0.47"/>');
+  s.push('<circle cx="204" cy="204" r="5" fill="'+hex(P.hubDot)+'"/>');
+  s.push('<circle cx="201" cy="201" r="2" fill="'+hex(P.needleTip)+'" opacity="0.35"/>');
+  $('dial').innerHTML=s.join('');
+  progEl=$('prog');progRedEl=$('progRed');
+  nMainEl=$('nMain');nTailEl=$('nTail');nTipEl=$('nTip');
+}
+
+function buildNumbers(){
+  var host=mk($('screen'),'abs','left:0;top:0;width:1024px;height:600px;pointer-events:none');
+  /* 只标 0/40/80/120/160 五档：刻度数字是辅助读数的，标太密会跟中心大数字抢注意力 */
+  for(var i=0;i<=32;i+=8){
+    var t=i/32,p=pageXY(L.num_r,START+SWEEP*t);
+    mk(host,'lb c abs num','left:'+Math.round(p[0])+'px;top:'+Math.round(p[1])+
+      'px;width:40px;height:22px;margin-left:-20px;margin-top:-11px;font-size:15px;'+
+      'color:var(--text-mute)',fmt(MAX*t));
+  }
+}
+
+/* ==================== 卡片 ==================== */
+var R={rows:[],pills:[],segs:[],band:{}};
+
+var IND_L=[{id:'left',kind:'turn',dir:'l',key:'green',name:'左转',blink:1},
+           {id:'high',kind:'high',key:'cyan',name:'远光'},
+           {id:'abs',kind:'text',label:'ABS',key:'amber',name:'制动'}];
+var IND_R=[{id:'right',kind:'turn',dir:'r',key:'green',name:'右转',blink:1},
+           {id:'batt',kind:'batt',key:'amber',name:'电池'},
+           {id:'tcs',kind:'text',label:'TCS',key:'magenta',name:'防滑'}];
+var ROW_Y=[2,53,104];
+
+function indRow(card,cf,y){
+  var row=mk(card,'row','left:14px;top:'+y+'px;width:202px;height:44px');
+  row.dataset.ind=cf.id;row.dataset.accent=cf.key;
+  if(cf.blink)row.dataset.blink='1';
+  var node;
+  if(cf.kind==='text'){
+    node=mk(row,'badge','left:0;top:10px;width:40px;height:24px',cf.label);
+  }else{
+    node=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    node.setAttribute('class','ico');
+    node.setAttribute('style','left:0;top:7px');
+    node.setAttribute('width','30');node.setAttribute('height','30');
+    node.setAttribute('viewBox','0 0 24 24');
+    node.setAttribute('fill','none');node.setAttribute('stroke','currentColor');
+    node.setAttribute('stroke-width','2');
+    node.setAttribute('stroke-linecap','round');node.setAttribute('stroke-linejoin','round');
+    node.innerHTML=ICONS[cf.kind+(cf.dir||'')];
+    row.appendChild(node);
+  }
+  var nm=mk(row,'name','left:38px;top:11px;width:160px;height:22px',cf.name);
+  R.rows.push({el:row,ico:node,name:nm,cf:cf,last:null});
+}
+
+function buildCards(P){
+  /* --- 指示灯两卡 --- */
+  for(var i=0;i<3;i++){
+    indRow($('cardIndL'),IND_L[i],ROW_Y[i]);
+    indRow($('cardIndR'),IND_R[i],ROW_Y[i]);
+  }
+
+  /* --- 模式卡：标题 14,10 + 胶囊 14,34/74/114 202x34 --- */
+  mk($('cardMode'),'lb abs t16 mute','left:14px;top:10px;width:202px;height:19px','驾驶模式');
+  for(i=1;i<=3;i++){
+    var pill=mk($('cardMode'),'pill','left:14px;top:'+(34+(i-1)*40)+'px;width:202px;height:34px');
+    pill.dataset.mode=i;
+    var plb=mk(pill,'plb',null,MODES[i-1].cn);
+    R.pills.push({el:pill,lb:plb});
+  }
+
+  /* --- 骑行卡：只放时长（里程与均速在底部带，同一个数字不再出现两遍） --- */
+  mk($('cardRide'),'lb abs t16 mute','left:14px;top:12px;width:202px;height:19px','本次骑行时长');
+  R.rideVal=mk($('cardRide'),'lb abs t34 num','left:14px;top:40px;width:202px;height:40px','0:03:24');
+
+  /* --- 大电量卡：228..484（内容区 230x254）。四层：标签 / hero 数字 +「%」/ 发丝线 / 续航副行。
+     与固件 ui_cards.build_battery 完全一致：44 / 76(104x67) / 114 / 172 线 / 188。
+     段条和量程仍是删掉的（shape 要重建）；续航是 label，改文本不碰 items 表。
+     右侧 138..212 的空档压一块幽灵电池：描边外壳 + 4 格电池芯，4 格按电量亮灭。 --- */
+  /* 电池芯 4 格：与固件 R.battCells 一致，数组下标 0 = 最下格（top 144）。 */
+  R.battCells=[];
+  for(var gI=0;gI<4;gI++){
+    R.battCells.push(mk($('cardBatt'),'abs',
+      'left:146px;top:'+(78+(3-gI)*22)+'px;width:60px;height:18px;border-radius:5px;background:var(--ghost-fill)'));
+  }
+  mk($('cardBatt'),'abs','left:140px;top:72px;width:72px;height:96px;border:2px solid var(--ghost);border-radius:18px');
+  mk($('cardBatt'),'abs','left:162px;top:62px;width:28px;height:12px;border-radius:4px;background:var(--ghost)');
+  mk($('cardBatt'),'lb abs t16 mute','left:14px;top:44px;width:202px;height:19px','剩余电量');
+  R.battVal=mk($('cardBatt'),'lb abs t64 num','left:14px;top:76px;width:104px;height:67px','78');
+  mk($('cardBatt'),'lb abs t18 dim','left:100px;top:114px;width:30px;height:22px','%');
+  mk($('cardBatt'),'abs','left:14px;top:172px;width:202px;height:1px;background:var(--hair)');
+  R.battSub=mk($('cardBatt'),'lb abs t16 dim','left:14px;top:188px;width:202px;height:22px','可行驶 — km');
+
+  /* --- 底部数据带：3 栏 324（续航已并入电池卡，不再重复） --- */
+  var caps=['总里程 km','本次里程 km','平均速度 km/h'],keys=['odo','trip','avg'];
+  for(i=0;i<3;i++){
+    var x=324*i;
+    mk($('cardBand'),'lb abs t16 mute','left:'+x+'px;top:10px;width:324px;height:19px',caps[i]);
+    R.band[keys[i]]=mk($('cardBand'),'lb abs t34 num','left:'+x+'px;top:34px;width:324px;height:40px','0');
+    if(i)mk($('cardBand'),'abs','left:'+x+'px;top:12px;width:1px;height:62px;background:var(--hair)');
+  }
+}
+
+/* ==================== 仿真：与 app_sim.lua 同参数 ==================== */
+var S={mode:2,speed:0,target:0,power:0,eff:0,battery:78,range:186,temp:32,ctrl:28,
+  trip:42.6,odo:12860,ride_s:204,avg:24,charging:false,booting:true,blink:false,
+  ind:{left:false,right:false,high:false,abs:false,batt:false,tcs:false}};
+var boot_t=0,target_t=0,data_t=0,ind_t=0,blink_t=0,BOOT_S=1.6;
+var DEMO_IND=true;   /* 指示灯演示固定态（同固件 app_sim.demo_ind） */
+
+function modeOf(){return MODES[S.mode-1]||MODES[1];}
+/* 同固件 app_sim.pick_target：巡航换目标限制在「当前目标 ±MAX_JUMP」内，
+   起点先向档位中心回拉 30%（否则随机游走会贴在区间边缘）。
+   full=true 是切档触发，不受限——点 SPORT 就该立刻冲出去。 */
+var MAX_JUMP=28,TGT_S=5.5;
+function pickTarget(full){
+  var m=modeOf();
+  if(full){S.target=m.lo+rnd()*(m.hi-m.lo);return;}
+  var mid=(m.lo+m.hi)*0.5;
+  var base=(S.target>0)?(S.target+(mid-S.target)*0.3):m.lo;
+  var a=Math.max(m.lo,base-MAX_JUMP),b=Math.min(m.hi,base+MAX_JUMP);
+  S.target=a+rnd()*(b-a);
+}
+
+function step(dt){
+  if(S.booting){
+    boot_t+=dt;
+    if(boot_t<BOOT_S){
+      var p=boot_t/BOOT_S;
+      S.speed=(p<0.6)?MAX*(1-Math.pow(1-p/0.6,3)):MAX*(1-(p-0.6)/0.4);
+    }else{S.booting=false;S.speed=0;pickTarget();}
+  }else{
+    var k=Math.min(1,dt*modeOf().acc);
+    S.speed=S.speed+(S.target-S.speed)*k;
+    if(Math.abs(S.target-S.speed)<0.4)S.speed=S.target;
+  }
+  if(S.charging){S.power=0;S.eff=0;}
+  else{
+    var want=S.speed*modeOf().kw+0.2;
+    S.power=S.power+(want-S.power)*Math.min(1,dt*3);
+    S.eff=(S.speed>3)?(S.power*1000/Math.max(S.speed,1)):0;
+    if(S.eff>45)S.eff=45;
+  }
+  blink_t+=dt;if(blink_t>=0.5){blink_t-=0.5;S.blink=!S.blink;}
+  target_t+=dt;if(target_t>=TGT_S){target_t-=TGT_S;if(!S.booting)pickTarget();}
+  data_t+=dt;
+  if(data_t>=2.4){
+    data_t-=2.4;
+    if(S.charging)S.battery=clamp(S.battery+1,0,100);
+    else if(!S.booting)S.battery=clamp(S.battery-S.speed*0.002,6,100);
+    S.range=Math.floor(S.battery*2.4+0.5);
+    var tw=30+S.power*4.5;
+    S.temp=S.temp+(tw-S.temp)*0.25+(rnd()-0.5)*0.6;
+    S.ctrl=S.temp-4+(rnd()-0.5)*0.8;
+    if(S.temp<20)S.temp=20;
+    if(S.ctrl<18)S.ctrl=18;
+  }
+  if(!S.booting&&!S.charging){
+    var dkm=S.speed*dt/3600;
+    S.trip+=dkm;S.odo+=dkm;S.ride_s+=dt;
+    S.avg=S.avg+(S.speed-S.avg)*Math.min(1,dt*0.25);
+    if(S.avg>199)S.avg=199;
+  }
+  ind_t+=dt;
+  if(DEMO_IND){
+    /* 演示固定态（同固件 app_sim.demo_ind）：电池常亮、左转常亮并跟随 blink 1Hz 闪、
+       远光开，右转 / ABS / TCS 灭。置 false 回到 2.6s 随机。 */
+    S.ind.left=true;S.ind.right=false;
+    S.ind.high=true;S.ind.abs=false;
+    S.ind.tcs=false;S.ind.batt=true;
+  }
+  else if(ind_t>=2.6){
+    ind_t-=2.6;
+    var r=rnd();
+    if(r<0.24){S.ind.left=true;S.ind.right=false;}
+    else if(r<0.48){S.ind.left=false;S.ind.right=true;}
+    else if(r<0.60){S.ind.left=true;S.ind.right=true;}
+    else{S.ind.left=false;S.ind.right=false;}
+    S.ind.high=rnd()>0.55;
+    S.ind.abs=rnd()>0.84;
+    S.ind.tcs=rnd()>0.78;
+    S.ind.batt=S.battery<22;
+  }
+}
+
+/* ==================== 绘制 ==================== */
+function angleOf(spd){spd=clamp(spd,0,MAX);return START+SWEEP*(spd/MAX);}
+
+function drawProg(){
+  if(!progEl)return;
+  var end=Math.round(angleOf(S.speed)),ratio=S.speed/MAX,col=PAL[ACCKEY[S.mode-1]];
+  if(end-START>=1){
+    progEl.style.display='';
+    progEl.setAttribute('d',arcPath(L.ring_r,START,end));
+    progEl.setAttribute('stroke',hex(col));
+  }else progEl.style.display='none';
+  var hi=Math.round(START+SWEEP*0.86);
+  if(ratio>0.86&&end>hi){
+    progRedEl.style.display='';
+    progRedEl.setAttribute('d',arcPath(L.ring_r,hi,end));
+    progRedEl.setAttribute('stroke',hex(PAL.red));
+  }else progRedEl.style.display='none';
+}
+
+function drawNeedle(){
+  if(!nMainEl)return;
+  var a=Math.round(angleOf(S.speed))*PI/180,cs=Math.cos(a),sn=Math.sin(a);
+  var tx=(CEN+L.needle_len*cs).toFixed(1),ty=(CEN+L.needle_len*sn).toFixed(1);
+  var bx=(CEN-L.needle_tail*cs).toFixed(1),by=(CEN-L.needle_tail*sn).toFixed(1);
+  nMainEl.setAttribute('x1',CEN);nMainEl.setAttribute('y1',CEN);
+  nMainEl.setAttribute('x2',tx);nMainEl.setAttribute('y2',ty);
+  nTailEl.setAttribute('x1',CEN);nTailEl.setAttribute('y1',CEN);
+  nTailEl.setAttribute('x2',bx);nTailEl.setAttribute('y2',by);
+  nTipEl.setAttribute('cx',tx);nTipEl.setAttribute('cy',ty);
+}
+
+function drawInd(){
+  for(var i=0;i<R.rows.length;i++){
+    var e=R.rows[i],cf=e.cf,lit=S.ind[cf.id]||false;
+    if(cf.blink&&lit)lit=S.blink;
+    if(lit===e.last)continue;
+    e.last=lit;
+    /* 暗态 0.26 → 0.45：同固件 DIM_K，0.26 时字母和线框在深底上只剩残影 */
+    var bright=PAL[cf.key],col=lit?bright:dim(bright,0.45);
+    e.ico.style.color=hex(col);
+    e.ico.style.filter=lit?'drop-shadow(0 0 4px '+rgba(bright,0.55)+')':'none';
+    e.el.style.background=lit?rgba(bright,28/255):'transparent';
+    e.name.style.color=hex(PAL.text);   /* 说明文字恒白，真机同款：暗态 textDim 太糊 */
+  }
+}
+
+var lastGhostPi=-1;   /* 电池 4 格只在整数档位变化时重刷；applyTheme 会重置 */
+function drawBar(){
+  /* 电量只有一个整数：与固件一致，四舍五入后写进 hero 数字 */
+  var pi=Math.floor(clamp(S.battery,0,100)+0.5);
+  st(R.battVal,fmt(pi));
+  /* 电池芯 4 格：竖排、自下而上。25% 一档四舍五入，非零至少亮 1 格。
+     亮格按余量换色（≥50 绿 / ≥20 琥珀 / 其余红），59% 透明度 + 4% 灭格，
+     与固件 ui_cards.render 一致；R.battCells[0] 对应固件的 i=1（最下格）。 */
+  if(pi!==lastGhostPi){
+    lastGhostPi=pi;
+    var lit=(pi>0)?Math.max(1,Math.floor(pi/25+0.5)):0;
+    var litCol=(pi>=50?'green':(pi>=20?'amber':'red'));
+    for(var i=0;i<R.battCells.length;i++)
+      R.battCells[i].style.background=(i<lit)?rgba(PAL[litCol],150/255):'var(--ghost-fill)';
+  }
+  /* 副行：充电换文案，否则显示续航（range 随电量 2.4s 变一次，同固件 render） */
+  st(R.battSub,S.charging?'正在充电…':'可行驶 '+fmt(S.range)+' km');
+}
+
+function drawText(){
+  st($('dSpeed'),fmt(S.speed));
+  st(R.rideVal,clockText(S.ride_s));
+  /* 功率/温度卡已移除：S.power、S.temp、S.ctrl 仍在仿真里跑，只是不再上屏 */
+  st(R.band.odo,fmt(S.odo));
+  st(R.band.trip,oneDP(S.trip));
+  st(R.band.avg,fmt(S.avg));
+  /* 充电只换颜色；副行文案在 drawBar 里更新（同固件 ui_cards.render） */
+  R.battVal.style.color=S.charging?hex(PAL.green):hex(PAL.text);
+  R.battSub.style.color=S.charging?hex(PAL.green):'';   /* '' = 回到 class 的 --text-dim，跟随主题 */
+}
+
+/* ==================== 主题 / 模式 ==================== */
+function setMode(m){
+  S.mode=m;
+  if(!S.booting)pickTarget(true);   /* 切档不受 MAX_JUMP 限制，同固件 set_mode */
+  var col=PAL[ACCKEY[m-1]];
+  /* 档位色 = 全局氛围色：底部氛围光 + 表盘中心雾光 + 中心辉光一起跟着变 */
+  var halo=mix(col,PAL.bg,.72);
+  $('screen').style.setProperty('--mode-col',hex(col));
+  $('screen').style.setProperty('--glow-fill',hex(halo));
+  /* 侧光按档位补偿：紫/品红亮度低，同样 alpha 下环会显得小一圈 */
+  $('screen').style.setProperty('--orb-k',String(ORBK[m-1]));
+  var gl=$('dialGlow');if(gl)gl.setAttribute('fill',hex(halo));
+  $('tbChipLb').textContent=MODES[m-1].cn;
+  $('tbChipLb').style.color=hex(col);
+  $('tbChip').style.borderColor=hex(col);
+  for(var i=1;i<=3;i++){
+    var on=(i===m),pc=PAL[ACCKEY[i-1]],p=R.pills[i-1];
+    p.el.style.borderColor=on?hex(pc):STR.cardEdge;
+    p.el.style.background=on?rgba(pc,34/255):'transparent';
+    p.lb.style.color=on?hex(PAL.text):hex(PAL.textDim);
+  }
+  drawProg();drawBar();
+}
+
+function applyTheme(name){
+  THEME=name;
+  PAL=finish(name==='light'?LIGHT:DARK);
+  var lit=(name==='light');
+  var s=$('screen').style;
+  /* 玻璃卡片四件套：底色、描边、顶部高光、卡内分隔线，全部带 alpha。
+     暗色用「白 + 极低 alpha」提亮，亮色用「白 + 中 alpha」做磨砂白——两者都不用模糊。 */
+  STR.card    = lit?'rgba(255,255,255,.68)':'rgba(255,255,255,.048)';
+  /* 暗色描边要 15%：4.8% 的底色上再压 8% 的边，实测只差 4/255，8 张卡会糊成一片 */
+  STR.cardEdge= lit?'rgba(30,41,59,.10)':'rgba(255,255,255,.15)';
+  STR.hl      = lit?'rgba(255,255,255,.95)':'rgba(255,255,255,.13)';
+  STR.hair    = lit?'rgba(30,41,59,.08)':'rgba(255,255,255,.06)';
+  STR.btnBg   = lit?'rgba(255,255,255,.72)':'rgba(255,255,255,.07)';
+  STR.btnEdge = lit?'rgba(30,41,59,.12)':'rgba(255,255,255,.10)';
+  s.setProperty('--bg',hex(PAL.bg));
+  s.setProperty('--card',STR.card);
+  s.setProperty('--card-edge',STR.cardEdge);
+  s.setProperty('--hl',STR.hl);
+  s.setProperty('--card-sh',lit?'0 2px 10px rgba(30,41,59,.06)':'0 2px 12px rgba(0,0,0,.42)');
+  s.setProperty('--orb-a',lit?'0.62':'1');
+  s.setProperty('--text',hex(PAL.text));
+  s.setProperty('--text-dim',hex(PAL.textDim));
+  s.setProperty('--text-mute',hex(PAL.textMute));
+  s.setProperty('--hair',STR.hair);
+  s.setProperty('--ghost',hex(PAL.ghost));
+  /* 电池芯灭格：4% 文字色（真 alpha，对应固件 set_color(C.text,10)）。
+     亮格是三档余量色，在 drawBar 里按 PAL[col] 现算，不用 CSS 变量。 */
+  s.setProperty('--ghost-fill',rgba(PAL.text,.039));
+  s.setProperty('--seg-off',hex(PAL.segOff));
+  s.setProperty('--brand',hex(PAL.brand));
+  s.setProperty('--unit',hex(PAL.unit));
+  s.setProperty('--tick-text',hex(PAL.tickText));
+  s.setProperty('--magenta',hex(PAL.magenta));
+  s.setProperty('--halo-a',name==='light'?'0.16':'0.9');
+  /* --glow-fill / --mode-col 由 setMode 写入（随档位变），这里只给氛围光定强度 */
+  s.setProperty('--amb-a',name==='light'?'0.13':'0.20');
+  $('screen').dataset.theme=name;
+  var ic=$('tbIcon');
+  ic.innerHTML=(name==='light')?ICON_MOON:ICON_SUN;
+  ic.style.color=hex(PAL.btnIcon);
+  $('tbIconWrap').style.background=STR.btnBg;
+  $('tbIconWrap').style.borderColor=STR.btnEdge;
+  $('tbDot').style.color=hex(PAL.magenta);
+  buildDial(PAL);
+  for(var i=0;i<R.rows.length;i++)R.rows[i].last=null;
+  lastGhostPi=-1;   /* 电池格子是内联色，换主题必须重刷 */
+  setMode(S.mode);
+  drawInd();drawBar();drawNeedle();drawText();
+}
+
+/* ==================== 时钟 / 缩放 ==================== */
+var WK=['周日','周一','周二','周三','周四','周五','周六'];
+function refreshClock(){
+  var d=new Date();
+  st($('tbClock'),pad2(d.getHours())+':'+pad2(d.getMinutes()));
+  st($('tbDate'),pad2(d.getMonth()+1)+'/'+pad2(d.getDate())+'  '+WK[d.getDay()]);
+}
+function fit(){
+  var k=Math.min((window.innerWidth-48)/1024,(window.innerHeight-72)/600,1.25);
+  if(k<0.4)k=0.4;
+  document.documentElement.style.setProperty('--k',k.toFixed(4));
+}
+
+/* ==================== 交互 ==================== */
+$('tbIconWrap').addEventListener('click',function(){applyTheme(THEME==='dark'?'light':'dark');});
+$('tbChip').addEventListener('click',function(){setMode(S.mode%3+1);});
+$('cardBatt').addEventListener('click',function(){
+  S.charging=!S.charging;
+  if(S.charging)pickTarget();
+  drawBar();drawText();
+});
+R.pills.forEach(function(p,i){
+  p.el.addEventListener('click',function(){setMode(i+1);});
+});
+
+/* ==================== 启动 ==================== */
+var lastT=0,accNeed=0,accProg=0,accBar=0,accInd=1,accClock=0,dotT=0,dotOn=true;
+
+function loop(now){
+  if(!lastT)lastT=now;
+  var dt=(now-lastT)/1000;lastT=now;
+  if(dt>0.1)dt=0.1;
+  step(dt);
+  drawText();
+  /* 与固件 ANIM 对齐：指针 15Hz / 进度弧 5Hz / 条 6.7Hz（原 20/8/8Hz） */
+  accNeed+=dt;if(accNeed>=0.066){accNeed=0;drawNeedle();}
+  accProg+=dt;if(accProg>=0.2){accProg=0;drawProg();}
+  accBar+=dt;if(accBar>=0.15){accBar=0;drawBar();}
+  accInd+=dt;if(accInd>=0.10){accInd=0;drawInd();}
+  accClock+=dt;if(accClock>=1.0){accClock=0;refreshClock();}
+  dotT+=dt;
+  if(dotT>=0.75){dotT-=0.75;dotOn=!dotOn;$('tbDot').style.opacity=dotOn?1:0.27;}
+  window.requestAnimationFrame(loop);
+}
+
+buildCards();
+buildNumbers();
+var q=(location.search.match(/theme=(light|dark)/)||[])[1];
+applyTheme(q||'dark');
+/* ?mode=1/2/3 直接进指定档位，方便对比三种氛围色截图 */
+var qm=parseInt((location.search.match(/mode=([123])/)||[])[1],10);
+if(qm)setMode(qm);
+refreshClock();
+fit();
+window.addEventListener('resize',fit);
+pickTarget();
+window.requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

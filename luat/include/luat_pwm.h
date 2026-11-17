@@ -5,7 +5,8 @@
 #include "luat_base.h"
 
 enum {
-    LUAT_PWM_EV_STEP_DONE,
+    LUAT_PWM_EV_PULSE_DONE,
+    LUAT_PWM_EV_STEP_PULSE_DONE,
 };
 typedef void (*luat_pwm_isr_callback)(int channel, uint32_t event, void *data, void *user_param);
 /**
@@ -88,7 +89,7 @@ int luat_pwm_close(int channel);
  */
 int luat_pwm_update_dutycycle(int channel, size_t pulse);
 
-int luat_pwm_step_pulse_add(int channel, uint32_t period, uint32_t duty, uint32_t pulse_num);
+int luat_pwm_step_pulse_add(int channel, uint32_t freq, uint32_t duty, uint32_t pulse_num);
 
 int luat_pwm_step_pulse_clear(int channel);
 

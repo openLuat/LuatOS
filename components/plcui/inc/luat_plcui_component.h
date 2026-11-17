@@ -52,9 +52,9 @@ lv_obj_t *luat_plcui_keyboard_create(plcui_widget_t *widget, lv_obj_t *parent);
 lv_obj_t *luat_plcui_container_create(plcui_widget_t *widget, lv_obj_t *parent);
 lv_obj_t *luat_plcui_table_create(plcui_widget_t *widget, lv_obj_t *parent);
 lv_obj_t *luat_plcui_chart_create(plcui_widget_t *widget, lv_obj_t *parent);
-bool luat_plcui_chart_number(double value, int32_t *scaled);
+bool luat_plcui_chart_number(double value, double *rounded);
 plcui_chart_series_t *luat_plcui_chart_series(plcui_widget_t *widget, const char *id);
-int32_t luat_plcui_chart_display_value(const plcui_widget_t *widget, int32_t value);
+int32_t luat_plcui_chart_display_value(const plcui_widget_t *widget, double value);
 void luat_plcui_chart_sync_series(plcui_widget_t *widget, plcui_chart_series_t *series);
 
 void luat_plcui_component_init(plcui_widget_t *widget, lv_obj_t *object);

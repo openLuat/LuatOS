@@ -46,7 +46,7 @@ XML 中声明的所有事件都须在 handlers 中提供对应函数。将 XML �
 - 组件填写 `id/x/y/w/h`，同一页面内 ID 唯一；container 子组件使用相对于容器内容区的坐标。
 - HZFont 字号范围为 1～255，省略字号时默认 16；为文字预留足够的显示空间。
 - table 在 XML 中指定 `rows/columns`，用 `<cell row="1" column="1" text="名称"/>` 初始化；Lua 使用 `set_cell/get_cell/set_column_width/set_font_size`，行列从 1 开始。最多 128 行、16 列，总计不超过 1024 格；`grid` 开启完整网格，`row-height` 设置最小行高，`col-aligns/header-align` 控制列与表头对齐。
-- chart 指定 `type="line|bar"`、`point-count`、`y-min/y-max`，用 `<series id="supply" color="#44dcf6" values="..."/>` 初始化；Lua 使用 `set_values/get_values/add_point/set_range/set_series_hidden`。点数 2～1024，系列 1～8，数值范围 -1000～1000、精度两位小数，未填写 values 时初始化为下限；超轴值按边界绘制并保留原始数据，刻度和图例用外围文字或图片表达。
+- chart 指定 `type="line|bar"`、`point-count`、`y-min/y-max`，用 `<series id="supply" color="#44dcf6" values="..."/>` 初始化；Lua 使用 `set_values/get_values/add_point/set_range/set_series_hidden`。点数 2～1024，系列 1～8；数值与轴范围支持当前 Lua 数值类型可表示的有限数，没有固定业务区间，内部用 double 保存并按两位小数四舍五入。精度受 Lua 数值类型限制：单精度配置在较大数值下不能保持 0.01 分辨率，双精度配置也不保证任意大数的分位精度。XML 在单精度配置同样拒绝超出 FLT_MAX 的值，避免 Lua 读回无穷大。数据保存与绘图分离，原始舍入值映射到安全整数区间绘图；未填写 values 时初始化为下限，超轴值按边界绘制并保留保存值。所有系列共用 Y 轴，柱状图仍从轴下限起画；刻度和图例用外围文字或图片表达。相同点数下原始数据内存由每点 4 字节增至 8 字节，LVGL 绘图缓冲仍为每点 4 字节。
 - `xml:find()` 获取组件，`set_text()` 更新文字，`set_src("资源ID")` 切换图片，`set_checked()` 切换选中状态；`xml:show()` 切页后重新查找组件。
 - 按钮操作交给业务处理，界面状态按实际设备反馈更新；事件回调保持简短。
 - 初始化后自动以 60Hz 为目标调度刷新，无需添加刷新定时器；退出时调用 `xml:close()`、`plcui.deinit()`。

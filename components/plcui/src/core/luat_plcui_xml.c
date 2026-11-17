@@ -141,15 +141,15 @@ static bool relative_path(const char *path)
     return true;
 }
 
-static bool chart_number_attr(parser_t *p, const char **attrs, const char *name, int32_t *dest)
+static bool chart_number_attr(parser_t *p, const char **attrs, const char *name, double *dest)
 {
     const char *text = attribute(attrs, name);
     if (!text) return true;
     char *end;
     errno = 0;
     double value = strtod(text, &end);
-    if (!text[0] || *end || errno || !luat_plcui_chart_number(value, dest)) {
-        fail(p, "E_SCHEMA", "Chart numbers must be finite and between -1000 and 1000");
+    if (!text[0] || *end || (errno && errno != ERANGE) || !luat_plcui_chart_number(value, dest)) {
+        fail(p, "E_SCHEMA", "Chart numbers must be finite");
         snprintf(p->error->attribute, sizeof(p->error->attribute), "%s", name);
         return false;
     }
@@ -217,7 +217,7 @@ static void parse_series_values(parser_t *p, const char *text, plcui_chart_t *ch
         char *end;
         errno = 0;
         double value = strtod(text, &end);
-        if (end == text || errno || !luat_plcui_chart_number(value, &series->values[i])) { fail(p, "E_SCHEMA", "Invalid chart series value"); return; }
+        if (end == text || (errno && errno != ERANGE) || !luat_plcui_chart_number(value, &series->values[i])) { fail(p, "E_SCHEMA", "Invalid chart series value"); return; }
         while (isspace((unsigned char)*end)) ++end;
         if (i + 1 == chart->points) {
             if (*end) fail(p, "E_SCHEMA", "Series values count must equal point-count");
@@ -536,7 +536,7 @@ static void XMLCALL start_element(void *data, const char *name, const char **att
             w->chart = calloc(1, sizeof(*w->chart));
             if (!w->chart) { fail(p, "E_MEMORY", "Cannot allocate chart description"); return; }
             plcui_chart_t *chart = w->chart;
-            chart->maximum = 100 * PLCUI_CHART_SCALE;
+            chart->maximum = 100;
             chart->grid_color = 0x34566b;
             int32_t points = 60, hdiv = 5, vdiv = 6, line = 2, border = 0, opacity = 0;
             integer_attr(p, attrs, "point-count", &points, 2, PLCUI_CHART_MAX_POINTS, false);

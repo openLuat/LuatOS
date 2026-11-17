@@ -29,6 +29,7 @@
 #define PLCUI_CHART_MAX_POINTS 1024U
 #define PLCUI_CHART_MAX_SERIES 8U
 #define PLCUI_CHART_SCALE 100
+#define PLCUI_CHART_NATIVE_MAX 100000
 #define PLCUI_ANIM_MAX_FRAMES 64U
 
 typedef enum { PLCUI_IMAGE, PLCUI_LABEL, PLCUI_TEXTAREA, PLCUI_KEYBOARD, PLCUI_CONTAINER, PLCUI_TABLE, PLCUI_CHART, PLCUI_ANIMIMG, PLCUI_SLIDER } plcui_widget_type_t;
@@ -49,7 +50,7 @@ typedef struct {
 typedef struct {
     char id[PLCUI_ID_MAX];
     uint32_t color;
-    int32_t *values;
+    double *values;
     uint32_t start;
     bool hidden;
     lv_chart_series_t *native;
@@ -57,7 +58,7 @@ typedef struct {
 
 typedef struct {
     uint16_t points, count, hdiv, vdiv, line_width;
-    int32_t minimum, maximum;
+    double minimum, maximum;
     uint32_t grid_color;
     bool bar;
     plcui_chart_series_t series[PLCUI_CHART_MAX_SERIES];

@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>可视门铃室内机 · 1024×600 预览稿</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; background: #10151b; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", "Source Han Sans", sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ============ 设备外框 + 主题变量 ============ */
+  .device {
+    position: relative; width: 1024px; height: 600px;
+    border-radius: 10px; overflow: hidden; background: #fff;
+    box-shadow: 0 24px 60px rgba(0,0,0,.55);
+
+    /* 浅色主题（对应视频里的原机界面） */
+    --bg1: #f4f8fd; --bg2: #d9e6f4; --bg3: #cbdcee;
+    --card: #ffffff; --text: #1f2b38; --sub: #6b7887;
+    --line: #e6ecf3; --rail: #2c3a4b; --railfg: #b9c6d4;
+    --shadow: rgba(40,90,150,.16);
+    --keypad: #a9b4c1;
+  }
+  .device.dark {
+    --bg1: #131c26; --bg2: #0e1620; --bg3: #0a1119;
+    --card: #1b2733; --text: #eaf1f8; --sub: #93a3b3;
+    --line: #2a3846; --rail: #0d151d; --railfg: #7f8fa0;
+    --shadow: rgba(0,0,0,.42);
+    --keypad: #7f8fa2;
+  }
+
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
+  .screen.on { display: flex; }
+
+  /* ============ 主题切换（与天气预报 / 3D打印机 同一交互） ============ */
+  .themetog {
+    position: absolute; top: 14px; left: 20px; z-index: 40;
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 21px; cursor: pointer; user-select: none;
+    background: rgba(255,255,255,.62); border: 1px solid rgba(120,150,180,.28);
+    transition: background .18s, transform .12s;
+  }
+  .themetog:hover { background: rgba(255,255,255,.9); }
+  .themetog:active { transform: scale(.94); }
+  .device.dark .themetog { background: rgba(255,255,255,.10); border-color: rgba(160,190,220,.25); }
+
+  /* ============ 1. 主界面 ============ */
+  #home {
+    background:
+      radial-gradient(120% 90% at 78% 8%, rgba(255,255,255,.95) 0%, rgba(255,255,255,0) 55%),
+      linear-gradient(158deg, var(--bg1) 0%, var(--bg2) 45%, var(--bg3) 100%);
+  }
+  .device.dark #home {
+    background:
+      radial-gradient(120% 90% at 78% 8%, rgba(90,130,180,.22) 0%, rgba(255,255,255,0) 55%),
+      linear-gradient(158deg, var(--bg1) 0%, var(--bg2) 45%, var(--bg3) 100%);
+  }
+  #home::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(100deg, rgba(255,255,255,0) 42%, rgba(255,255,255,.5) 47%,
+                rgba(255,255,255,0) 52%, rgba(255,255,255,0) 68%, rgba(255,255,255,.26) 72%,
+                rgba(255,255,255,0) 76%);
+    opacity: .5;
+  }
+  .device.dark #home::after { opacity: .12; }
+
+  .statusbar { position: absolute; top: 18px; right: 22px; display: flex; align-items: center; gap: 18px; }
+  .statusbar > div { cursor: pointer; padding: 6px; border-radius: 8px; transition: background .15s; }
+  .statusbar > div:hover { background: rgba(255,255,255,.45); }
+  .device.dark .statusbar > div:hover { background: rgba(255,255,255,.10); }
+  .statusbar svg { display: block; }
+  .shield path { fill: #34c759; }
+  .device.armed .shield path { fill: #ff3b30; }
+
+  .clock { position: absolute; left: 52px; top: 62px; font-size: 84px; font-weight: 300; letter-spacing: -2px; color: var(--text); line-height: 1; }
+  .date  { position: absolute; left: 56px; top: 160px; font-size: 20px; color: var(--sub); letter-spacing: .5px; }
+
+  .quick { position: absolute; top: 124px; right: 96px; display: flex; gap: 22px; }
+  .qbtn {
+    position: relative; width: 62px; height: 62px; border-radius: 50%;
+    background: rgba(255,255,255,.62); border: 1px solid rgba(120,150,180,.28);
+    display: flex; align-items: center; justify-content: center;
+    color: #46586b; cursor: pointer; transition: transform .12s, background .15s;
+  }
+  .device.dark .qbtn { background: rgba(255,255,255,.10); border-color: rgba(160,190,220,.22); color: #b7c8d8; }
+  .qbtn:hover { background: rgba(255,255,255,.9); }
+  .device.dark .qbtn:hover { background: rgba(255,255,255,.18); }
+  .qbtn:active { transform: scale(.94); }
+  .qnum {
+    position: absolute; right: -6px; bottom: -4px; min-width: 22px; height: 22px; padding: 0 5px;
+    border-radius: 11px; background: var(--card); color: #46586b;
+    font-size: 14px; line-height: 22px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  }
+  .device.dark .qnum { color: #b7c8d8; }
+
+  .tiles { position: absolute; left: 40px; bottom: 58px; display: flex; gap: 46px; }
+  .tile { position: relative; width: 190px; text-align: center; cursor: pointer; }
+  .tile .ico {
+    position: relative; width: 190px; height: 190px; border-radius: 54px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 22px var(--shadow);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .tile:hover .ico { transform: translateY(-3px); box-shadow: 0 16px 28px var(--shadow); }
+  .tile:active .ico { transform: scale(.96); }
+  .tile .lb { margin-top: 16px; font-size: 22px; color: var(--text); }
+
+  .ico.call { background: linear-gradient(180deg, #57e07a 0%, #33c95a 100%); }
+  .ico.msg  { background: linear-gradient(180deg, #ffc44d 0%, #f7a92b 100%); }
+  .ico.mon  { background: linear-gradient(180deg, #4a91ff 0%, #2b6fe8 100%); }
+  .ico.set  { background: linear-gradient(180deg, #2f7ff0 0%, #1660cf 100%); }
+
+  .badge {
+    position: absolute; right: 10px; top: 10px; min-width: 34px; height: 34px; padding: 0 7px;
+    border-radius: 17px; background: #ff3b30; color: #fff; font-size: 18px; line-height: 34px;
+    border: 3px solid #f7a92b; text-align: center;
+  }
+
+  .scenes { position: absolute; left: 40px; bottom: 58px; display: none; gap: 46px; }
+  .scene { width: 190px; text-align: center; cursor: pointer; }
+  .scene .ico {
+    width: 190px; height: 190px; border-radius: 50%; background: var(--card);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 20px var(--shadow); transition: transform .12s;
+  }
+  .scene:active .ico { transform: scale(.96); }
+  .scene.on .ico { outline: 4px solid #f5a623; outline-offset: -4px; }
+  .scene .lb { margin-top: 16px; font-size: 22px; color: var(--text); }
+
+  .dots { position: absolute; left: 50%; transform: translateX(-50%); bottom: 32px; display: flex; gap: 10px; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(70,100,130,.28); transition: .2s; }
+  .dots i.on { background: #4a85d6; width: 22px; border-radius: 5px; }
+
+  /* ============ 通用标题栏 ============ */
+  .titlebar {
+    height: 62px; display: flex; align-items: center; padding: 0 18px;
+    border-bottom: 1px solid var(--line); background: var(--card); flex: none;
+  }
+  .back {
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    color: var(--sub); cursor: pointer; border-radius: 8px; transition: background .15s;
+  }
+  .back:hover { background: rgba(120,150,180,.14); }
+  .back:active { background: rgba(120,150,180,.24); }
+  .titlebar .tip { flex: 1; margin-left: 10px; font-size: 18px; color: var(--sub); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .titlebar .tcenter { flex: 1; text-align: center; font-size: 20px; color: var(--text); }
+
+  /* ============ 2. 通话 ============ */
+  #call { background: var(--card); }
+  #call .body { flex: 1; display: flex; }
+
+  .keypad {
+    flex: 1; padding: 26px 0 0 0; margin: 0 auto; width: 640px;
+    display: grid; grid-template-columns: repeat(4, 124px); grid-auto-rows: 110px;
+    gap: 8px 34px; justify-content: center; align-content: start;
+  }
+  .key {
+    display: flex; align-items: center; justify-content: center; font-size: 34px;
+    color: var(--keypad); cursor: pointer; border-radius: 14px; user-select: none;
+    transition: background .12s, color .12s;
+  }
+  .key:hover { background: rgba(120,150,180,.12); }
+  .key:active { background: rgba(90,140,210,.22); color: #2b6fe8; }
+  .key.fn { font-size: 30px; }
+  .key.zero { }
+
+  .rail { width: 96px; background: var(--rail); display: flex; flex-direction: column; padding-top: 8px; gap: 4px; }
+  .ritem {
+    height: 96px; display: flex; align-items: center; justify-content: center;
+    color: var(--railfg); cursor: pointer; transition: background .15s;
+  }
+  .ritem:hover { background: rgba(255,255,255,.08); }
+  .ritem.on { background: #f5a623; color: #fff; }
+
+  .floatbtns { position: absolute; right: 132px; top: 292px; display: flex; flex-direction: column; gap: 26px; }
+  .fbtn {
+    width: 78px; height: 78px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 16px rgba(30,80,160,.28); cursor: pointer;
+    transition: transform .12s, filter .12s;
+  }
+  .fbtn:hover { filter: brightness(1.06); }
+  .fbtn:active { transform: scale(.94); }
+  .fbtn.green { background: linear-gradient(180deg, #57e07a, #2fc356); }
+  .fbtn.blue  { background: linear-gradient(180deg, #4a91ff, #2470e6); }
+  .fbtn.red   { background: linear-gradient(180deg, #ff6a5e, #e8362a); }
+
+  /* ============ 3. 监视 ============ */
+  #monitor { background: var(--card); }
+  #monitor .main { flex: 1; display: flex; }
+  .preview { flex: 1; margin: 10px 0 10px 10px; border-radius: 4px; overflow: hidden; background: #39434e; position: relative; cursor: pointer; }
+  .camview {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(58% 52% at 64% 36%, rgba(255,255,255,.90) 0%, rgba(255,255,255,0) 64%),
+      linear-gradient(160deg, #7f8b99 0%, #5f6b78 42%, #39434e 100%);
+  }
+  .camview .floorline { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: linear-gradient(180deg, rgba(120,132,145,.5), rgba(70,80,90,.72)); }
+  .camview .doorline { position: absolute; right: 8%; top: 0; bottom: 30%; width: 2%; background: linear-gradient(90deg, rgba(30,38,46,.4), rgba(30,38,46,.08)); }
+  .camview .ghost { position: absolute; left: 50%; top: 44%; transform: translate(-50%,-50%); font-size: 62px; font-weight: 700; letter-spacing: 8px; color: rgba(255,255,255,.20); }
+  .camview .stamp { position: absolute; right: 14px; bottom: 12px; font-size: 16px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .camview .rec { position: absolute; left: 14px; top: 12px; font-size: 16px; color: #fff; display: flex; align-items: center; gap: 8px; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .camview .rec i { width: 10px; height: 10px; border-radius: 50%; background: #ff3b30; animation: blink 1.4s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  .devlist { width: 96px; padding: 12px 10px 12px 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .toolbtn { width: 62px; height: 62px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .12s; }
+  .toolbtn:active { transform: scale(.95); }
+  .toolbtn.white { background: var(--card); border: 1px solid var(--line); color: var(--sub); }
+  .toolbtn.orange { background: #ff8a00; color: #fff; }
+
+  .camchips { position: absolute; left: 10px; right: 106px; bottom: 10px; display: flex; gap: 8px; padding: 8px; }
+  .chip {
+    height: 46px; padding: 0 18px; border-radius: 23px; display: flex; align-items: center;
+    font-size: 17px; cursor: pointer; background: rgba(10,20,30,.55); color: #e8f0f8;
+    border: 1px solid rgba(255,255,255,.22); backdrop-filter: blur(4px); transition: background .15s;
+  }
+  .chip:hover { background: rgba(10,20,30,.75); }
+  .chip.on { background: #ff8a00; border-color: #ff8a00; color: #fff; }
+
+  /* ============ 4. 门口取景 ============ */
+  #live { background: #0b0f14; }
+  #live .cam { position: absolute; inset: 0; background: radial-gradient(58% 50% at 66% 40%, rgba(255,255,255,.92) 0%, rgba(255,255,255,0) 62%), linear-gradient(160deg, #7f8b99 0%, #5f6b78 42%, #39434e 100%); }
+  #live .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 32%; background: linear-gradient(180deg, rgba(120,132,145,.55) 0%, rgba(70,80,90,.75) 100%); }
+  #live .frame { position: absolute; right: 8%; top: 74px; bottom: 34%; width: 2%; background: linear-gradient(90deg, rgba(30,38,46,.42), rgba(30,38,46,.10)); }
+  #live .blur { position: absolute; border-radius: 50%; filter: blur(14px); opacity: .45; }
+  #live .topbar {
+    position: absolute; left: 0; right: 0; top: 0; height: 64px;
+    background: linear-gradient(180deg, rgba(0,0,0,.52), rgba(0,0,0,0));
+    display: flex; align-items: center; padding: 0 18px; color: #fff;
+  }
+  #live .topbar .name { flex: 1; text-align: center; font-size: 22px; letter-spacing: 1px; }
+  #live .topbar .stamp { font-size: 16px; opacity: .9; }
+  #live .back { color: #fff; }
+  #live .back:hover { background: rgba(255,255,255,.16); }
+
+  .lockbtn {
+    position: absolute; left: 26px; top: 50%; transform: translateY(-50%);
+    width: 64px; height: 64px; border-radius: 50%; background: rgba(0,0,0,.28);
+    border: 1px solid rgba(255,255,255,.35); display: flex; align-items: center; justify-content: center;
+    color: #fff; cursor: pointer; transition: transform .12s, background .15s;
+  }
+  .lockbtn:hover { background: rgba(0,0,0,.45); }
+  .lockbtn:active { transform: translateY(-50%) scale(.94); }
+  .liveacts { position: absolute; right: 26px; bottom: 26px; display: flex; gap: 14px; }
+  .lact {
+    height: 56px; padding: 0 22px; border-radius: 28px; display: flex; align-items: center; gap: 10px;
+    background: rgba(0,0,0,.42); border: 1px solid rgba(255,255,255,.28); color: #fff;
+    font-size: 18px; cursor: pointer; backdrop-filter: blur(4px);
+  }
+  .lact:hover { background: rgba(0,0,0,.6); }
+  .lact.hang { background: rgba(232,54,42,.9); border-color: rgba(232,54,42,.9); }
+
+  /* ============ 5. 消息 ============ */
+  #msg { background: var(--bg1); }
+  .msglist { flex: 1; overflow: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .mitem {
+    display: flex; gap: 14px; padding: 16px; border-radius: 10px; background: var(--card);
+    box-shadow: 0 2px 8px var(--shadow); cursor: pointer; transition: transform .12s;
+  }
+  .mitem:active { transform: scale(.995); }
+  .mico { width: 52px; height: 52px; border-radius: 26px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .mico.call { background: rgba(76,217,100,.16); color: #2fc356; }
+  .mico.alarm { background: rgba(255,59,48,.14); color: #e8362a; }
+  .mico.sys { background: rgba(47,127,240,.14); color: #2b6fe8; }
+  .mbody { flex: 1; min-width: 0; }
+  .mtitle { font-size: 19px; color: var(--text); display: flex; justify-content: space-between; }
+  .mtitle span { font-size: 16px; color: var(--sub); font-weight: 400; }
+  .mdesc { margin-top: 6px; font-size: 17px; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mempty { text-align: center; color: var(--sub); font-size: 18px; padding: 60px 0; }
+
+  /* ============ 6. 设置 ============ */
+  #set { background: var(--bg1); }
+  .setlist { flex: 1; overflow: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .sitem {
+    background: var(--card); border-radius: 10px; padding: 10px 18px;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  .srow { display: flex; align-items: center; gap: 14px; }
+  .sico { width: 44px; height: 44px; border-radius: 22px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .sname { flex: 1; font-size: 19px; color: var(--text); }
+  .sval { font-size: 17px; color: var(--sub); }
+  .sitem.clickable { cursor: pointer; transition: transform .12s; }
+  .sitem.clickable:active { transform: scale(.995); }
+
+  /* 开关 */
+  .sw { width: 62px; height: 34px; border-radius: 17px; background: rgba(120,150,180,.35); position: relative; cursor: pointer; flex: none; transition: background .18s; }
+  .sw i { position: absolute; left: 3px; top: 3px; width: 28px; height: 28px; border-radius: 50%; background: #fff; transition: left .18s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .sw.on { background: #f5a623; }
+  .sw.on i { left: 31px; }
+
+  /* 滑块（同 3D打印机 的拖动条） */
+  .slider { position: relative; height: 30px; margin-top: 8px; cursor: pointer; }
+  .slider .track { position: absolute; left: 0; right: 0; top: 11px; height: 8px; border-radius: 4px; background: rgba(120,150,180,.28); }
+  .slider .fill { position: absolute; left: 0; top: 11px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #ffc44d, #f5a623); width: 60%; }
+  .slider .knob { position: absolute; top: 5px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.28); transform: translateX(-50%); left: 60%; }
+
+  /* ============ 弹层 ============ */
+  .modal { position: absolute; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; }
+  .modal.on { display: flex; }
+  .modal .mask { position: absolute; inset: 0; background: rgba(6,12,20,.42); }
+  .mbox {
+    position: relative; width: 520px; max-height: 470px; overflow: auto;
+    background: var(--card); border-radius: 14px; padding: 22px 24px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.35);
+    animation: pop .16s ease-out;
+  }
+  @keyframes pop { from { transform: scale(.94); opacity: .6; } to { transform: scale(1); opacity: 1; } }
+  .mtitle2 { font-size: 22px; color: var(--text); margin-bottom: 16px; }
+  .mtext { font-size: 18px; color: var(--sub); line-height: 1.7; }
+  .mbtns { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
+  .mbtn {
+    height: 52px; padding: 0 26px; border-radius: 10px; font-size: 19px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(120,150,180,.16); color: var(--text); border: none;
+    font-family: inherit; transition: filter .12s;
+  }
+  .mbtn:hover { filter: brightness(.96); }
+  .mbtn.primary { background: #f5a623; color: #fff; }
+  .mbtn.danger { background: #e8362a; color: #fff; }
+  .mbtn.green { background: #2fc356; color: #fff; }
+
+  /* 楼层按钮（B1 + 1F~13F，5 列 3 行） */
+  .floors { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .floorbtn {
+    height: 72px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; cursor: pointer; background: rgba(120,150,180,.14); color: var(--text);
+    transition: background .15s, color .15s;
+  }
+  .floorbtn:hover { background: rgba(120,150,180,.26); }
+  .floorbtn.on { background: #f5a623; color: #fff; }
+
+  /* 应用抽屉 */
+  .drawer { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .ditem { text-align: center; cursor: pointer; }
+  .ditem .dico {
+    width: 96px; height: 96px; border-radius: 28px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 16px var(--shadow); transition: transform .12s;
+  }
+  .ditem:active .dico { transform: scale(.95); }
+  .ditem .dlb { margin-top: 10px; font-size: 17px; color: var(--text); }
+
+  /* 住户列表 */
+  .userrow {
+    display: flex; align-items: center; gap: 14px; padding: 14px 6px;
+    border-bottom: 1px solid var(--line); cursor: pointer;
+  }
+  .userrow:last-child { border-bottom: none; }
+  .uavatar { width: 46px; height: 46px; border-radius: 23px; background: rgba(47,127,240,.15); color: #2b6fe8; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .uname { flex: 1; font-size: 19px; color: var(--text); }
+  .uroom { font-size: 17px; color: var(--sub); }
+
+  /* toast */
+  .toast {
+    position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%) translateY(16px);
+    background: rgba(20,30,42,.92); color: #fff; font-size: 18px;
+    padding: 14px 26px; border-radius: 10px; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; z-index: 80; white-space: nowrap;
+  }
+  .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="device" id="device">
+
+  <!-- 主题切换（天气预报 / 3D打印机 同款） -->
+  <div class="themetog" id="themetog" onclick="toggleTheme()" title="切换主题">☀️</div>
+
+  <!-- ================= 1. 主界面 ================= -->
+  <section class="screen on" id="home">
+    <div class="statusbar">
+      <div onclick="openUser()" title="住户">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4a5a6a" stroke-width="1.8">
+          <path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <div class="shield" onclick="toggleArm()" title="布防">
+        <svg width="24" height="24" viewBox="0 0 24 24">
+          <path d="M12 2 4 5v7c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V5l-8-3z"/>
+          <path d="m8.5 12 2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div onclick="openDrawer()" title="全部功能">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#4a5a6a">
+          <rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="clock" id="clock">17:43</div>
+    <div class="date" id="date">2024-7-2 星期二</div>
+
+    <div class="quick">
+      <div class="qbtn" onclick="openElevator()" title="电梯呼梯">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+          <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 6v12M8.6 8.4 12 5l3.4 3.4"/>
+        </svg>
+      </div>
+      <div class="qbtn" onclick="openVolume()" title="广播音量">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+          <path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6M18.6 6.6a7.5 7.5 0 0 1 0 10.8"/>
+        </svg>
+        <span class="qnum" id="volnum">60</span>
+      </div>
+    </div>
+
+    <div class="tiles" id="tiles">
+      <div class="tile" onclick="go('call')">
+        <div class="ico call">
+          <svg width="76" height="76" viewBox="0 0 24 24" fill="#fff">
+            <path d="M6.6 3.2c.7-.4 1.6-.2 2.1.4l2 2.5c.5.6.5 1.4.1 2l-1 1.3c-.3.4-.3.9 0 1.3 1 1.5 2.3 2.8 3.8 3.8.4.3.9.3 1.3 0l1.3-1c.6-.4 1.4-.4 2 .1l2.5 2c.6.5.8 1.4.4 2.1-1.4 2.5-4.2 3.9-7.1 3.2C9.6 19.9 4.1 14.4 3.3 8.3 2.6 5.4 4 5 6.6 3.2z"/>
+          </svg>
+        </div>
+        <div class="lb">通话</div>
+      </div>
+
+      <div class="tile" onclick="go('msg')">
+        <div class="ico msg">
+          <svg width="76" height="76" viewBox="0 0 24 24" fill="#fff">
+            <path d="M3 6.6C3 5.4 4 4.5 5.2 4.5h13.6c1.2 0 2.2.9 2.2 2.1v9.6c0 1.2-1 2.1-2.2 2.1H8.4l-3.9 2.9c-.5.4-1.5.2-1.5-.7V6.6z"/>
+            <path d="M6.2 9.2h11.6M6.2 12.6h7.6" stroke="#f7a92b" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span class="badge" id="msgbadge">2</span>
+        </div>
+        <div class="lb">消息</div>
+      </div>
+
+      <div class="tile" onclick="go('monitor')">
+        <div class="ico mon">
+          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9">
+            <path d="M1.8 12S5.4 5.4 12 5.4 22.2 12 22.2 12 18.6 18.6 12 18.6 1.8 12 1.8 12z"/>
+            <circle cx="12" cy="12" r="3.4" fill="#fff" stroke="none"/>
+          </svg>
+        </div>
+        <div class="lb">监视</div>
+      </div>
+
+      <div class="tile" onclick="go('set')">
+        <div class="ico set">
+          <svg width="78" height="78" viewBox="0 0 24 24" fill="#fff">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+          </svg>
+        </div>
+        <div class="lb">设置</div>
+      </div>
+    </div>
+
+    <div class="scenes" id="scenes">
+      <div class="scene on" onclick="setScene(this,'在家')">
+        <div class="ico"><svg width="66" height="66" viewBox="0 0 24 24" fill="#2f7ff0"><path d="M12 3 2.5 11h2.6v9h5.2v-5.6h3.4V20h5.2v-9h2.6L12 3z"/></svg></div>
+        <div class="lb">在家</div>
+      </div>
+      <div class="scene" onclick="setScene(this,'外出')">
+        <div class="ico"><svg width="72" height="72" viewBox="0 0 24 24" fill="#2f7ff0"><path d="M4 14.2 5.4 9c.2-.8.9-1.4 1.8-1.4h5.9c.9 0 1.6.6 1.8 1.4l1.4 5.2H4z"/><rect x="3.2" y="14" width="12.6" height="4.2" rx="1.6"/><circle cx="6" cy="18.6" r="1.9"/><circle cx="13" cy="18.6" r="1.9"/><path d="M17.5 8h4M18.5 5.5h2.5M18.5 10.5h2.5" stroke="#2f7ff0" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <div class="lb">外出</div>
+      </div>
+      <div class="scene" onclick="setScene(this,'睡眠')">
+        <div class="ico"><svg width="66" height="66" viewBox="0 0 24 24" fill="#f5a623"><path d="M20 14.6A8.6 8.6 0 0 1 9.4 4 8.7 8.7 0 1 0 20 14.6z"/></svg></div>
+        <div class="lb">睡眠</div>
+      </div>
+      <div class="scene" onclick="setScene(this,'自定义')">
+        <div class="ico"><svg width="66" height="66" viewBox="0 0 24 24" fill="#2f7ff0"><rect x="4" y="12" width="4" height="8" rx="1.2"/><rect x="10" y="7" width="4" height="13" rx="1.2"/><rect x="16" y="3" width="4" height="17" rx="1.2"/></svg></div>
+        <div class="lb">自定义</div>
+      </div>
+    </div>
+
+    <div class="dots"><i class="on" id="dot1"></i><i id="dot2"></i></div>
+  </section>
+
+  <!-- ================= 2. 通话 ================= -->
+  <section class="screen" id="call">
+    <div class="titlebar">
+      <div class="back" onclick="go('home')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5 8 12l7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="tip" id="calltip">*请输入对方房号（如 1 室 2 楼），其中 4 位</div>
+    </div>
+
+    <div class="body">
+      <div class="keypad">
+        <div class="key" onclick="tap('1')">1</div>
+        <div class="key" onclick="tap('2')">2</div>
+        <div class="key" onclick="tap('3')">3</div>
+        <div class="key fn" onclick="bk()">—</div>
+
+        <div class="key" onclick="tap('4')">4</div>
+        <div class="key" onclick="tap('5')">5</div>
+        <div class="key" onclick="tap('6')">6</div>
+        <div class="key" onclick="tap('0')">0</div>
+
+        <div class="key" onclick="tap('7')">7</div>
+        <div class="key" onclick="tap('8')">8</div>
+        <div class="key" onclick="tap('9')">9</div>
+        <div class="key fn" onclick="openUser()">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3 2.7-4.8 6-4.8s6 1.8 6 4.8"/>
+            <path d="M16.4 7.2a3 3 0 0 1 0 4.6M18.6 5a6 6 0 0 1 0 9"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="ritem on" onclick="setCallMode(this,'电话')">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 3.2c.7-.4 1.6-.2 2.1.4l2 2.5c.5.6.5 1.4.1 2l-1 1.3c-.3.4-.3.9 0 1.3 1 1.5 2.3 2.8 3.8 3.8.4.3.9.3 1.3 0l1.3-1c.6-.4 1.4-.4 2 .1l2.5 2c.6.5.8 1.4.4 2.1-1.4 2.5-4.2 3.9-7.1 3.2C9.6 19.9 4.1 14.4 3.3 8.3 2.6 5.4 4 5 6.6 3.2z"/></svg>
+        </div>
+        <div class="ritem" onclick="setCallMode(this,'对讲')">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <rect x="5" y="3" width="14" height="18" rx="2.4"/><circle cx="12" cy="9" r="2.2"/>
+            <path d="M8.4 16c0-1.9 1.6-3 3.6-3s3.6 1.1 3.6 3"/>
+          </svg>
+        </div>
+        <div class="ritem" onclick="setCallMode(this,'呼叫')">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path d="M4 5.6C4 4.7 4.7 4 5.6 4h3c.7 0 1.3.4 1.5 1.1l.9 2.6c.2.6 0 1.2-.5 1.6l-1.5 1.2a11 11 0 0 0 4.4 4.4l1.2-1.5c.4-.5 1-.7 1.6-.5l2.6.9c.7.2 1.1.8 1.1 1.5v3c0 .9-.7 1.6-1.6 1.5C11.3 19.2 4.8 12.7 4 5.6z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="floatbtns">
+      <div class="fbtn green" onclick="dial()" title="呼叫">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="#fff"><path d="M6.6 3.2c.7-.4 1.6-.2 2.1.4l2 2.5c.5.6.5 1.4.1 2l-1 1.3c-.3.4-.3.9 0 1.3 1 1.5 2.3 2.8 3.8 3.8.4.3.9.3 1.3 0l1.3-1c.6-.4 1.4-.4 2 .1l2.5 2c.6.5.8 1.4.4 2.1-1.4 2.5-4.2 3.9-7.1 3.2C9.6 19.9 4.1 14.4 3.3 8.3 2.6 5.4 4 5 6.6 3.2z"/></svg>
+      </div>
+      <div class="fbtn blue" onclick="openUser()" title="呼叫住户">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="8" r="3.8"/><path d="M4.4 20c0-3.8 3.4-6 7.6-6s7.6 2.2 7.6 6H4.4z"/></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 3. 监视 ================= -->
+  <section class="screen" id="monitor">
+    <div class="titlebar">
+      <div class="back" onclick="go('home')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5 8 12l7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="tcenter" id="monname">主单元门口机</div>
+      <div style="width:96px"></div>
+    </div>
+
+    <div class="main">
+      <div class="preview" onclick="go('live')">
+        <div class="camview" id="camview">
+          <div class="floorline"></div>
+          <div class="doorline"></div>
+          <div class="rec"><i></i>REC</div>
+          <div class="ghost" id="camtxt">IPC</div>
+          <div class="stamp" id="camstamp">07/02/021 Tue 17:42:56</div>
+        </div>
+      </div>
+      <div class="devlist">
+        <div class="toolbtn white" onclick="refreshCam()" title="搜索设备">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.6"/><rect x="13" y="3" width="8" height="8" rx="1.6"/><rect x="3" y="13" width="8" height="8" rx="1.6"/><rect x="13" y="13" width="8" height="8" rx="1.6"/></svg>
+        </div>
+        <div class="toolbtn orange" onclick="toast('正在搜索局域网内的 IPC…')" title="搜索">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="6.4"/><path d="m16 16 4.4 4.4" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="camchips" id="camchips">
+      <div class="chip on" onclick="pickCam(this,'主单元门口机','IPC')">主单元门口机</div>
+      <div class="chip" onclick="pickCam(this,'仓库枪机 01','IPC-01')">仓库枪机 01</div>
+      <div class="chip" onclick="pickCam(this,'仓库球机 02','IPC-02')">仓库球机 02</div>
+    </div>
+  </section>
+
+  <!-- ================= 4. 门口取景 ================= -->
+  <section class="screen" id="live">
+    <div class="cam">
+      <div class="floor"></div><div class="frame"></div>
+      <div class="blur" style="width:320px;height:320px;left:38%;top:8%;background:#d6e4f0"></div>
+      <div class="blur" style="width:260px;height:260px;left:64%;top:32%;background:#eef4fa"></div>
+      <div class="blur" style="width:300px;height:300px;left:6%;top:54%;background:#2f3a45"></div>
+    </div>
+
+    <div class="topbar">
+      <div class="back" onclick="go('monitor')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5 8 12l7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="name" id="livename">主单元门口机</div>
+      <div class="stamp">07/02/021 Tue 17:42:56</div>
+    </div>
+
+    <div class="lockbtn" onclick="unlock()" title="开锁">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="5" y="10" width="14" height="10" rx="2.2"/><path d="M8.5 10V7.6a3.5 3.5 0 0 1 7 0V10"/>
+      </svg>
+    </div>
+
+    <div class="liveacts">
+      <div class="lact" onclick="toast('已开始对讲')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>
+        </svg>
+        对讲
+      </div>
+      <div class="lact hang" onclick="go('monitor')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 3.2c.7-.4 1.6-.2 2.1.4l2 2.5c.5.6.5 1.4.1 2l-1 1.3c-.3.4-.3.9 0 1.3 1 1.5 2.3 2.8 3.8 3.8.4.3.9.3 1.3 0l1.3-1c.6-.4 1.4-.4 2 .1l2.5 2c.6.5.8 1.4.4 2.1-1.4 2.5-4.2 3.9-7.1 3.2C9.6 19.9 4.1 14.4 3.3 8.3 2.6 5.4 4 5 6.6 3.2z"/></svg>
+        挂断
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 5. 消息 ================= -->
+  <section class="screen" id="msg">
+    <div class="titlebar">
+      <div class="back" onclick="go('home')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5 8 12l7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="tcenter">消息</div>
+      <div style="width:96px;text-align:right">
+        <span style="font-size:17px;color:var(--sub);cursor:pointer" onclick="clearMsg()">清空</span>
+      </div>
+    </div>
+    <div class="msglist" id="msglist">
+      <div class="mitem" onclick="onMsg('门铃呼叫')">
+        <div class="mico call">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 3.2c.7-.4 1.6-.2 2.1.4l2 2.5c.5.6.5 1.4.1 2l-1 1.3c-.3.4-.3.9 0 1.3 1 1.5 2.3 2.8 3.8 3.8.4.3.9.3 1.3 0l1.3-1c.6-.4 1.4-.4 2 .1l2.5 2c.6.5.8 1.4.4 2.1-1.4 2.5-4.2 3.9-7.1 3.2C9.6 19.9 4.1 14.4 3.3 8.3 2.6 5.4 4 5 6.6 3.2z"/></svg>
+        </div>
+        <div class="mbody">
+          <div class="mtitle">主单元门口机 · 未接来电 <span>17:42</span></div>
+          <div class="mdesc">门口机呼叫 1203，无人接听</div>
+        </div>
+      </div>
+      <div class="mitem" onclick="onMsg('移动侦测')">
+        <div class="mico alarm">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3 2.5 20h19L12 3z"/><path d="M12 9.5v4.5" stroke-linecap="round"/><circle cx="12" cy="17" r="1.1" fill="currentColor" stroke="none"/></svg>
+        </div>
+        <div class="mbody">
+          <div class="mtitle">仓库枪机 01 · 移动侦测 <span>16:20</span></div>
+          <div class="mdesc">检测到画面变化，已抓拍 3 张</div>
+        </div>
+      </div>
+      <div class="mitem" onclick="onMsg('门磁报警')">
+        <div class="mico alarm">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="10" width="14" height="10" rx="2.2"/><path d="M8.5 10V7.6a3.5 3.5 0 0 1 7 0V10"/></svg>
+        </div>
+        <div class="mbody">
+          <div class="mtitle">门磁 · 门窗被打开 <span>昨天</span></div>
+          <div class="mdesc">1F 后门磁触发，请确认</div>
+        </div>
+      </div>
+      <div class="mitem" onclick="onMsg('系统通知')">
+        <div class="mico sys">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.6"/><path d="M12 8v5" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/></svg>
+        </div>
+        <div class="mbody">
+          <div class="mtitle">系统通知 <span>11-14</span></div>
+          <div class="mdesc">新版本固件可用，建议在空闲时升级</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 6. 设置 ================= -->
+  <section class="screen" id="set">
+    <div class="titlebar">
+      <div class="back" onclick="go('home')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5 8 12l7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="tcenter">设置</div>
+      <div style="width:96px"></div>
+    </div>
+
+    <div class="setlist">
+      <!-- 音量 -->
+      <div class="sitem">
+        <div class="srow">
+          <div class="sico" style="background:rgba(245,166,35,.16);color:#f5a623">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/></svg>
+          </div>
+          <div class="sname">广播音量</div>
+          <div class="sval" id="volval">60</div>
+        </div>
+        <div class="slider" id="volslider" onmousedown="dragStart(event,'vol')" ontouchstart="dragStart(event,'vol')">
+          <div class="track"></div><div class="fill" id="volfill"></div><div class="knob" id="volknob"></div>
+        </div>
+      </div>
+
+      <!-- 亮度 -->
+      <div class="sitem">
+        <div class="srow">
+          <div class="sico" style="background:rgba(47,127,240,.14);color:#2b6fe8">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          </div>
+          <div class="sname">屏幕亮度</div>
+          <div class="sval" id="brival">70</div>
+        </div>
+        <div class="slider" id="brislider" onmousedown="dragStart(event,'bri')" ontouchstart="dragStart(event,'bri')">
+          <div class="track"></div><div class="fill" id="brifill"></div><div class="knob" id="briKnob"></div>
+        </div>
+      </div>
+
+      <!-- 主题 -->
+      <div class="sitem clickable" onclick="toggleTheme()">
+        <div class="srow">
+          <div class="sico" style="background:rgba(120,90,220,.14);color:#7a5adc">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 14.6A8.6 8.6 0 0 1 9.4 4 8.7 8.7 0 1 0 20 14.6z"/></svg>
+          </div>
+          <div class="sname">显示主题</div>
+          <div class="sval" id="themetxt">浅色</div>
+        </div>
+      </div>
+
+      <!-- 布防 -->
+      <div class="sitem">
+        <div class="srow">
+          <div class="sico" style="background:rgba(52,199,89,.16);color:#34c759">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 5v7c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V5l-8-3z"/></svg>
+          </div>
+          <div class="sname">离家布防</div>
+          <div class="sw" id="armsw" onclick="toggleArm()"><i></i></div>
+        </div>
+      </div>
+
+      <!-- 电梯 -->
+      <div class="sitem clickable" onclick="openElevator()">
+        <div class="srow">
+          <div class="sico" style="background:rgba(47,127,240,.14);color:#2b6fe8">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 6v12M8.6 8.4 12 5l3.4 3.4"/></svg>
+          </div>
+          <div class="sname">电梯呼梯</div>
+          <div class="sval">B1 ~ 13F</div>
+        </div>
+      </div>
+
+      <!-- 关于 -->
+      <div class="sitem clickable" onclick="openAbout()">
+        <div class="srow">
+          <div class="sico" style="background:rgba(107,120,135,.16);color:#6b7887">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.4" stroke-linecap="round"/><circle cx="12" cy="7.8" r="1.1" fill="currentColor" stroke="none"/></svg>
+          </div>
+          <div class="sname">关于本机</div>
+          <div class="sval">Air8603</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 弹层 ================= -->
+  <div class="modal" id="modal">
+    <div class="mask" onclick="closeModal()"></div>
+    <div class="mbox" id="mbox"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ===================== 基础 ===================== */
+var S = {
+  theme: 'light',
+  volume: 60,
+  brightness: 70,
+  armed: false,
+  scene: '在家',
+  callMode: '电话',
+  num: '',
+  cam: '主单元门口机'
+};
+
+function $(id) { return document.getElementById(id); }
+
+function go(id) {
+  document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('on'); });
+  $(id).classList.add('on');
+  // 主题按钮只放在主界面，子页返回箭头位置不被遮挡
+  $('themetog').style.display = (id === 'home') ? 'flex' : 'none';
+  if (id === 'msg') { S.msgUnread = 0; renderBadge(); }
+}
+
+/* ===================== 主题（同天气预报） ===================== */
+function toggleTheme() {
+  S.theme = S.theme === 'light' ? 'dark' : 'light';
+  applyTheme();
+}
+function applyTheme() {
+  var dark = S.theme === 'dark';
+  $('device').classList.toggle('dark', dark);
+  $('themetog').textContent = dark ? '🌙' : '☀️';
+  $('themetxt').textContent = dark ? '深色' : '浅色';
+  try { localStorage.setItem('doorbell_theme', S.theme); } catch (e) {}
+}
+
+/* ===================== 提示 / 弹层 ===================== */
+var toastTimer = null;
+function toast(msg) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.remove('on'); }, 1800);
+}
+var modalBack = null;
+function openModal(html, back) { modalBack = back || null; $('mbox').innerHTML = html; $('modal').classList.add('on'); }
+function closeModal() { $('modal').classList.remove('on'); var b = modalBack; modalBack = null; if (b) b(); }
+
+/* ===================== 首页交互 ===================== */
+function toggleArm() {
+  S.armed = !S.armed;
+  $('device').classList.toggle('armed', S.armed);
+  $('armsw').classList.toggle('on', S.armed);
+  toast(S.armed ? '已布防：门窗磁、移动侦测全部生效' : '已撤防');
+}
+
+function setScene(el, name) {
+  document.querySelectorAll('.scene').forEach(function (s) { s.classList.remove('on'); });
+  el.classList.add('on');
+  S.scene = name;
+  toast('已切换到「' + name + '」场景');
+}
+
+function openElevator() {
+  var floors = ['B1'];
+  for (var i = 1; i <= 13; i++) floors.push(i + 'F');
+  var html = '<div class="mtitle2">电梯呼梯</div>'
+    + '<div class="mtext" style="margin-bottom:14px">选择要呼叫的楼层，室内机将联动门口机呼梯。</div>'
+    + '<div class="floors">';
+  floors.forEach(function (f) {
+    html += '<div class="floorbtn" onclick="callFloor(this,\'' + f + '\')">' + f + '</div>';
+  });
+  html += '</div><div class="mbtns"><button class="mbtn" onclick="closeModal()">取消</button></div>';
+  openModal(html);
+}
+function callFloor(el, f) {
+  document.querySelectorAll('.floorbtn').forEach(function (b) { b.classList.remove('on'); });
+  el.classList.add('on');
+  setTimeout(function () { closeModal(); toast('电梯已呼至 ' + f); }, 320);
+}
+
+function openVolume() {
+  var html = '<div class="mtitle2">广播音量</div>'
+    + '<div class="mtext">拖动调节室内机的提示音 / 广播音量。</div>'
+    + '<div class="sitem" style="box-shadow:none;padding:14px 0;background:transparent">'
+    + '<div class="srow"><div class="sname">音量</div><div class="sval" id="mvolval">' + S.volume + '</div></div>'
+    + '<div class="slider" id="mvolslider" onmousedown="dragStart(event,\'mvol\')" ontouchstart="dragStart(event,\'mvol\')">'
+    + '<div class="track"></div><div class="fill" id="mvolfill"></div><div class="knob" id="mvolknob"></div></div></div>'
+    + '<div class="mbtns"><button class="mbtn primary" onclick="closeModal()">完成</button></div>';
+  openModal(html);
+  setSlider('mvol', S.volume);
+}
+
+function openUser() {
+  var users = [['张先生', '1203 主卧'], ['李女士', '1201'], ['物业中心', '大堂'], ['门岗', '1F 门厅']];
+  var html = '<div class="mtitle2">呼叫住户</div>';
+  users.forEach(function (u) {
+    html += '<div class="userrow" onclick="callUser(\'' + u[0] + '\')">'
+      + '<div class="uavatar">' + u[0].charAt(0) + '</div>'
+      + '<div class="uname">' + u[0] + '</div><div class="uroom">' + u[1] + '</div></div>';
+  });
+  html += '<div class="mbtns"><button class="mbtn" onclick="closeModal()">取消</button></div>';
+  openModal(html);
+}
+function callUser(name) {
+  closeModal();
+  dial(name);
+}
+
+function openDrawer() {
+  var apps = [
+    ['通话', 'call', 'linear-gradient(180deg,#57e07a,#33c95a)', 'M6.6 3.2c.7-.4 1.6-.2 2.1.4l2 2.5c.5.6.5 1.4.1 2l-1 1.3c-.3.4-.3.9 0 1.3 1 1.5 2.3 2.8 3.8 3.8.4.3.9.3 1.3 0l1.3-1c.6-.4 1.4-.4 2 .1l2.5 2c.6.5.8 1.4.4 2.1-1.4 2.5-4.2 3.9-7.1 3.2C9.6 19.9 4.1 14.4 3.3 8.3 2.6 5.4 4 5 6.6 3.2z'],
+    ['消息', 'msg', 'linear-gradient(180deg,#ffc44d,#f7a92b)', 'M3 6.6C3 5.4 4 4.5 5.2 4.5h13.6c1.2 0 2.2.9 2.2 2.1v9.6c0 1.2-1 2.1-2.2 2.1H8.4l-3.9 2.9c-.5.4-1.5.2-1.5-.7V6.6z'],
+    ['监视', 'monitor', 'linear-gradient(180deg,#4a91ff,#2b6fe8)', 'M1.8 12S5.4 5.4 12 5.4 22.2 12 22.2 12 18.6 18.6 12 18.6 1.8 12 1.8 12z'],
+    ['设置', 'set', 'linear-gradient(180deg,#2f7ff0,#1660cf)', 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z']
+  ];
+  var html = '<div class="mtitle2">全部功能</div><div class="drawer">';
+  apps.forEach(function (a) {
+    html += '<div class="ditem" onclick="closeModal();go(\'' + a[1] + '\')"><div class="dico" style="background:' + a[2] + '">'
+      + '<svg width="48" height="48" viewBox="0 0 24 24" fill="#fff"><path fill-rule="evenodd" clip-rule="evenodd" d="' + a[3] + '"/></svg></div>'
+      + '<div class="dlb">' + a[0] + '</div></div>';
+  });
+  // 电梯 / 音量 / 布防 / 主题
+  html += '<div class="ditem" onclick="closeModal();openElevator()"><div class="dico" style="background:#6b8cff">'
+    + '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 6v12M8.6 8.4 12 5l3.4 3.4"/></svg></div><div class="dlb">电梯</div></div>'
+    + '<div class="ditem" onclick="closeModal();openVolume()"><div class="dico" style="background:#f5a623">'
+    + '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/></svg></div><div class="dlb">音量</div></div>'
+    + '<div class="ditem" onclick="closeModal();toggleArm()"><div class="dico" style="background:#34c759">'
+    + '<svg width="44" height="44" viewBox="0 0 24 24" fill="#fff"><path d="M12 2 4 5v7c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V5l-8-3z"/></svg></div><div class="dlb">布防</div></div>'
+    + '<div class="ditem" onclick="closeModal();toggleTheme()"><div class="dico" style="background:#7a5adc">'
+    + '<svg width="44" height="44" viewBox="0 0 24 24" fill="#fff"><path d="M20 14.6A8.6 8.6 0 0 1 9.4 4 8.7 8.7 0 1 0 20 14.6z"/></svg></div><div class="dlb">主题</div></div>';
+  html += '</div><div class="mbtns"><button class="mbtn" onclick="closeModal()">关闭</button></div>';
+  openModal(html);
+}
+
+function openAbout() {
+  openModal('<div class="mtitle2">关于本机</div>'
+    + '<div class="mtext">型号：海康威视 可视对讲室内机<br>主控：Air8603 · 1024×600<br>固件：LuatOS V1028<br>UI 框架：airui（1:1 预览稿）</div>'
+    + '<div class="mbtns"><button class="mbtn primary" onclick="closeModal()">知道了</button></div>');
+}
+
+/* ===================== 通话 ===================== */
+function tap(n) {
+  if (S.num.length < 4) { S.num += n; renderNum(); }
+}
+function bk() { S.num = S.num.slice(0, -1); renderNum(); }
+function renderNum() {
+  $('calltip').textContent = S.num ? ('房号：' + S.num + '　（点绿色键呼叫）') : '*请输入对方房号（如 1 室 2 楼），其中 4 位';
+}
+function setCallMode(el, mode) {
+  document.querySelectorAll('.ritem').forEach(function (r) { r.classList.remove('on'); });
+  el.classList.add('on');
+  S.callMode = mode;
+  toast('已切换到「' + mode + '」');
+}
+function dial(target) {
+  var who = target || (S.num ? ('房号 ' + S.num) : '主单元门口机');
+  openModal('<div class="mtitle2">正在呼叫</div>'
+    + '<div class="mtext" style="font-size:22px;color:var(--text);margin:8px 0 6px">' + who + '</div>'
+    + '<div class="mtext">请稍候，正在建立可视对讲连接…</div>'
+    + '<div class="mbtns"><button class="mbtn" onclick="closeModal()">取消</button>'
+    + '<button class="mbtn danger" onclick="closeModal();toast(\'已挂断\')">挂断</button></div>');
+  setTimeout(function () {
+    if ($('modal').classList.contains('on')) { closeModal(); toast('对方已接听，进入取景画面'); go('live'); }
+  }, 2600);
+}
+function unlock() {
+  toast('门已开启');
+  var l = document.querySelector('.lockbtn');
+  l.style.background = 'rgba(52,199,89,.75)';
+  setTimeout(function () { l.style.background = ''; }, 1200);
+}
+
+/* ===================== 消息 ===================== */
+function onMsg(t) { toast('打开：' + t); }
+function clearMsg() {
+  $('msglist').innerHTML = '<div class="mempty">暂无消息</div>';
+  S.msgUnread = 0; renderBadge();
+  toast('消息已清空');
+}
+function renderBadge() {
+  var b = $('msgbadge');
+  var n = S.msgUnread === undefined ? 2 : S.msgUnread;
+  b.style.display = n > 0 ? 'block' : 'none';
+  b.textContent = n;
+}
+
+/* ===================== 监视 ===================== */
+function pickCam(el, name, tag) {
+  document.querySelectorAll('#camchips .chip').forEach(function (c) { c.classList.remove('on'); });
+  el.classList.add('on');
+  S.cam = name;
+  $('monname').textContent = name;
+  $('livename').textContent = name;
+  $('camtxt').textContent = tag;
+  toast('已切换到 ' + name);
+}
+function refreshCam() { toast('已刷新设备列表（3 台在线）'); }
+
+/* ===================== 滑块（拖动） ===================== */
+var dragging = null;
+function dragStart(e, which) {
+  dragging = which;
+  moveTo(e, which);
+  e.preventDefault();
+}
+function moveTo(e, which) {
+  var id = which === 'vol' ? 'volslider' : which === 'bri' ? 'brislider' : 'mvolslider';
+  var el = $(id);
+  if (!el) return;
+  var r = el.getBoundingClientRect();
+  var x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+  var p = Math.max(0, Math.min(1, x / r.width));
+  setSlider(which, Math.round(p * 100));
+  if (which === 'vol') { S.volume = Math.round(p * 100); }
+  if (which === 'bri') { S.brightness = Math.round(p * 100); $('device').style.filter = 'brightness(' + (0.55 + p * 0.45) + ')'; }
+  if (which === 'mvol') { S.volume = Math.round(p * 100); $('volval').textContent = S.volume; $('volnum').textContent = S.volume; setSlider('vol', S.volume); }
+}
+function setSlider(which, v) {
+  var f = $(which + 'fill'), k = $(which === 'bri' ? 'briKnob' : which + 'knob');
+  var vEl = $(which + 'val'), nEl = $(which === 'vol' ? 'volnum' : null);
+  if (f) f.style.width = v + '%';
+  if (k) k.style.left = v + '%';
+  if (vEl) vEl.textContent = v;
+  if (nEl) nEl.textContent = v;
+  if (which === 'mvol') { var mv = $('mvolval'); if (mv) mv.textContent = v; }
+}
+document.addEventListener('mousemove', function (e) { if (dragging) moveTo(e, dragging); });
+document.addEventListener('mouseup', function () { dragging = null; });
+document.addEventListener('touchmove', function (e) { if (dragging) moveTo(e, dragging); }, { passive: false });
+document.addEventListener('touchend', function () { dragging = null; });
+
+/* ===================== 时钟 / 初始化 ===================== */
+var WK = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+function tick() {
+  var d = new Date();
+  $('clock').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  $('date').textContent = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + ' ' + WK[d.getDay()];
+}
+
+/* 首页两屏切换（对应视频里的滑动） */
+var page = 1;
+$('device').addEventListener('wheel', function (e) {
+  if (!$('home').classList.contains('on')) return;
+  page = e.deltaY > 0 ? 2 : 1;
+  applyPage();
+});
+function applyPage() {
+  $('tiles').style.display = page === 1 ? 'flex' : 'none';
+  $('scenes').style.display = page === 1 ? 'none' : 'flex';
+  $('dot1').classList.toggle('on', page === 1);
+  $('dot2').classList.toggle('on', page === 2);
+}
+
+(function init() {
+  try {
+    var t = localStorage.getItem('doorbell_theme');
+    if (t) S.theme = t;
+  } catch (e) {}
+  applyTheme();
+  setSlider('vol', S.volume);
+  setSlider('bri', S.brightness);
+  renderBadge();
+  renderNum();
+  tick(); setInterval(tick, 10000);
+})();
+</script>
+</body>
+</html>

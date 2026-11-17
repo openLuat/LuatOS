@@ -38,18 +38,25 @@ function M.enqueue(fn)
         running = false
     end)
 end
-function M.prepare(target)
-    log.info("factory_handoff", "STOP_BEGIN", mode or "none", "->", target)
+-- opts.keep_audio = true：目标方紧接着要重建同一条音频通路（SIP 自检就是这样），
+-- 拆掉再装回来要跑一次完整的 exaudio.setup（重开 UART6 + 重配 audio_v2），
+-- 是这条路上唯一一处没有必要的重活，且这段全同步、压在进窗调用栈里。
+-- 拆音频只留给真正收尾（leave → idle）时做。
+function M.prepare(target, opts)
+    local keep_audio = type(opts) == "table" and opts.keep_audio == true
+    log.info("factory_handoff", "STOP_BEGIN", mode or "none", "->", target, keep_audio and "keep_audio" or "")
     for _, fn in pairs(hooks) do assert(fn() ~= false, "page cleanup failed") end
     if type(sip) == "table" then
         local ok, err = sip.logout(true); assert(ok ~= false, err)
         ok, err = sip.wait_stopped(15000); assert(ok, err)
     end
-    if type(audio) == "table" then assert(audio.shutdown()) end
+    if not keep_audio and type(audio) == "table" then assert(audio.shutdown()) end
     local periph = require "other_func_app"
     local ok, err = periph.stop_all(); assert(ok, err)
-    local hw = require "audio_hw"
-    assert(hw.shutdown())
+    if not keep_audio then
+        local hw = require "audio_hw"
+        assert(hw.shutdown())
+    end
     mode = target
     log.info("factory_handoff", "STOP_DONE", target)
     return true

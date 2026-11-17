@@ -94,15 +94,16 @@ local function play_blocking(text, my_gen)
     if gen ~= my_gen then return false end
 
     local done = false
-    local ok = audio_hw.play_start({
+    -- 起播并取回 exaudio 的真实返回值：ok=pcall 结果，ret=起播是否成立，reason=拒绝原因
+    local ok, ret, reason = audio_hw.play_start({
         type = 1,
         content = text,
         cbfnc = function(event)
             if event == exaudio.PLAY_DONE then done = true end
         end
     })
-    if not ok then
-        log.warn("tts_app", "exaudio.play_start 失败")
+    if not (ok and ret) then
+        log.warn("tts_app", "exaudio.play_start 失败:", tostring(ok and reason or ret))
         return false
     end
     sys.publish("TTS_PLAY_BEGIN", text)

@@ -5,7 +5,7 @@
 @note 与 docs/方案D_玻璃拟态.html 同一套视觉令牌，开机直接进入，无多页轮询。
       硬件默认：Air8607(Air1603) + 官方 AirLCD_1100 10.1寸（1024x600，JD9165BA + GT911）。
       换 Air8601 + 7寸 HX8282：改 hardware.lua 顶部 M.profile = "air8601_7i"。
-      主题：默认深色，顶栏「主题」按钮切换浅色/深色（fskv 记忆，重启生效）。
+      主题：默认深色，顶栏「主题」按钮切换浅色/深色（页面原地重建即时生效，fskv 记忆）。
 ]]
 PROJECT = "home_control_demo"
 VERSION = "1.1.0"

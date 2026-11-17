@@ -115,9 +115,12 @@ function M.fmt_temp(t)
 end
 
 -- 温湿度模拟：每 5 秒做一次 ±0.2℃ / ±1% 的小幅漂移，模拟真实传感器读数
+-- 句柄留着，页面切主题原地重建时先停后起，避免重复定时器叠加。
+M._sim_timer = nil
 function M.start_sim()
+    if M._sim_timer then return end
     math.randomseed(os.time() or 1)
-    sys.timerLoopStart(function()
+    M._sim_timer = sys.timerLoopStart(function()
         for _, r in ipairs(M.rooms) do
             local dt = math.random() - math.random()   -- -1 ~ 1
             r.temp = r.temp + dt * 0.2
@@ -130,6 +133,13 @@ function M.start_sim()
             if r.humi > 90 then r.humi = 90 end
         end
     end, 5000)
+end
+
+function M.stop_sim()
+    if M._sim_timer then
+        pcall(function() sys.timerStop(M._sim_timer) end)
+        M._sim_timer = nil
+    end
 end
 
 return M

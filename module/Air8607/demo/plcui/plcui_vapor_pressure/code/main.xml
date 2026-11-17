@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="run">
+  <resources>
+    <font id="hzfont" builtin="hzfont"/>
+    <image id="bg_run" src="bg_run.jpg"/>
+    <image id="bg_man" src="bg_man.jpg"/>
+    <image id="bg_test" src="bg_test.jpg"/>
+    <image id="im_alarm" src="im_alarm.png"/>
+    <image id="im_car" src="im_car.png"/>
+    <image id="im_valve_o" src="im_valve_o.png"/>
+    <image id="im_valve_c" src="im_valve_c.png"/>
+    <image id="im_lamp_idle" src="im_lamp_idle.png"/>
+    <image id="im_lamp_run" src="im_lamp_run.png"/>
+    <image id="im_lamp_done" src="im_lamp_done.png"/>
+    <image id="im_lamp_alarm" src="im_lamp_alarm.png"/>
+    <image id="im_liq00" src="im_liq00.png"/>
+    <image id="im_rod00" src="im_rod00.png"/>
+    <image id="im_liq01" src="im_liq01.png"/>
+    <image id="im_rod01" src="im_rod01.png"/>
+    <image id="im_liq02" src="im_liq02.png"/>
+    <image id="im_rod02" src="im_rod02.png"/>
+    <image id="im_liq03" src="im_liq03.png"/>
+    <image id="im_rod03" src="im_rod03.png"/>
+    <image id="im_liq04" src="im_liq04.png"/>
+    <image id="im_rod04" src="im_rod04.png"/>
+    <image id="im_liq05" src="im_liq05.png"/>
+    <image id="im_rod05" src="im_rod05.png"/>
+    <image id="im_liq06" src="im_liq06.png"/>
+    <image id="im_rod06" src="im_rod06.png"/>
+    <image id="im_liq07" src="im_liq07.png"/>
+    <image id="im_rod07" src="im_rod07.png"/>
+    <image id="im_liq08" src="im_liq08.png"/>
+    <image id="im_rod08" src="im_rod08.png"/>
+    <image id="im_liq09" src="im_liq09.png"/>
+    <image id="im_rod09" src="im_rod09.png"/>
+    <image id="im_liq10" src="im_liq10.png"/>
+    <image id="im_rod10" src="im_rod10.png"/>
+    <image id="st1_g" src="st1_g.png"/>
+    <image id="st1_a" src="st1_a.png"/>
+    <image id="st1_d" src="st1_d.png"/>
+    <image id="st2_g" src="st2_g.png"/>
+    <image id="st2_a" src="st2_a.png"/>
+    <image id="st2_d" src="st2_d.png"/>
+    <image id="st3_g" src="st3_g.png"/>
+    <image id="st3_a" src="st3_a.png"/>
+    <image id="st3_d" src="st3_d.png"/>
+    <image id="st4_g" src="st4_g.png"/>
+    <image id="st4_a" src="st4_a.png"/>
+    <image id="st4_d" src="st4_d.png"/>
+    <image id="st5_g" src="st5_g.png"/>
+    <image id="st5_a" src="st5_a.png"/>
+    <image id="st5_d" src="st5_d.png"/>
+    <image id="st6_g" src="st6_g.png"/>
+    <image id="st6_a" src="st6_a.png"/>
+    <image id="st6_d" src="st6_d.png"/>
+    <image id="bt_auto" src="bt_auto.png"/>
+    <image id="bt_auto_p" src="bt_auto_p.png"/>
+    <image id="bt_pause" src="bt_pause.png"/>
+    <image id="bt_pause_p" src="bt_pause_p.png"/>
+    <image id="bt_reset" src="bt_reset.png"/>
+    <image id="bt_reset_p" src="bt_reset_p.png"/>
+    <image id="bt_estop" src="bt_estop.png"/>
+    <image id="bt_estop_p" src="bt_estop_p.png"/>
+    <image id="bt_back" src="bt_back.png"/>
+    <image id="bt_back_p" src="bt_back_p.png"/>
+    <image id="bt_gman" src="bt_gman.png"/>
+    <image id="bt_gman_p" src="bt_gman_p.png"/>
+    <image id="bt_gtest" src="bt_gtest.png"/>
+    <image id="bt_gtest_p" src="bt_gtest_p.png"/>
+    <image id="bt_tstart" src="bt_tstart.png"/>
+    <image id="bt_tstart_p" src="bt_tstart_p.png"/>
+    <image id="bt_tstop" src="bt_tstop.png"/>
+    <image id="bt_tstop_p" src="bt_tstop_p.png"/>
+    <image id="bt_recalc" src="bt_recalc.png"/>
+    <image id="bt_recalc_p" src="bt_recalc_p.png"/>
+    <image id="bt_go" src="bt_go.png"/>
+    <image id="bt_go_p" src="bt_go_p.png"/>
+    <image id="bt_halt" src="bt_halt.png"/>
+    <image id="bt_halt_p" src="bt_halt_p.png"/>
+    <image id="bt_v1o" src="bt_v1o.png"/>
+    <image id="bt_v1o_p" src="bt_v1o_p.png"/>
+    <image id="bt_v1c" src="bt_v1c.png"/>
+    <image id="bt_v1c_p" src="bt_v1c_p.png"/>
+    <image id="bt_v2o" src="bt_v2o.png"/>
+    <image id="bt_v2o_p" src="bt_v2o_p.png"/>
+    <image id="bt_v2c" src="bt_v2c.png"/>
+    <image id="bt_v2c_p" src="bt_v2c_p.png"/>
+    <image id="bt_up" src="bt_up.png"/>
+    <image id="bt_up_p" src="bt_up_p.png"/>
+    <image id="bt_down" src="bt_down.png"/>
+    <image id="bt_down_p" src="bt_down_p.png"/>
+    <image id="bt_mstop" src="bt_mstop.png"/>
+    <image id="bt_mstop_p" src="bt_mstop_p.png"/>
+    <image id="bt_s5" src="bt_s5.png"/>
+    <image id="bt_s5_p" src="bt_s5_p.png"/>
+    <image id="bt_s10" src="bt_s10.png"/>
+    <image id="bt_s10_p" src="bt_s10_p.png"/>
+    <image id="bt_s25" src="bt_s25.png"/>
+    <image id="bt_s25_p" src="bt_s25_p.png"/>
+    <image id="bt_nup" src="bt_nup.png"/>
+    <image id="bt_nup_p" src="bt_nup_p.png"/>
+    <image id="bt_ndn" src="bt_ndn.png"/>
+    <image id="bt_ndn_p" src="bt_ndn_p.png"/>
+    <image id="bt_heat_on" src="bt_heat_on.png"/>
+    <image id="bt_heat_on_p" src="bt_heat_on_p.png"/>
+    <image id="bt_heat_off" src="bt_heat_off.png"/>
+    <image id="bt_heat_off_p" src="bt_heat_off_p.png"/>
+    <image id="bt_minus" src="bt_minus.png"/>
+    <image id="bt_minus_p" src="bt_minus_p.png"/>
+    <image id="bt_plus" src="bt_plus.png"/>
+    <image id="bt_plus_p" src="bt_plus_p.png"/>
+  </resources>
+  <pages>
+    <page id="run" background="#8FD3F2">
+      <image id="tb_bg" x="0" y="0" w="1024" h="600" src="bg_run"/>
+      <label id="tb_title" x="22" y="8" w="380" h="44" text="蒸气压测定仪" font="hzfont" font_size="34" color="#0B2E52" align="left"/>
+      <image id="tb_lamp" x="392" y="18" w="32" h="32" src="im_lamp_idle"/>
+      <label id="tb_badge" x="434" y="20" w="300" h="32" text="待机" font="hzfont" font_size="20" color="#0B2E52" align="left"/>
+      <image id="tb_alarm" x="430" y="14" w="264" h="36" src="im_alarm" hidden="true"/>
+      <label id="tb_cd" x="768" y="12" w="232" h="20" text="2026/11/17" font="hzfont" font_size="16" color="#4A7EA6" align="right"/>
+      <label id="tb_ct" x="768" y="30" w="232" h="28" text="12:00:00" font="hzfont" font_size="22" color="#0B2E52" align="right"/>
+      <image id="stp1" x="16" y="76" w="158" h="34" src="st1_g"/>
+      <image id="stp2" x="180" y="76" w="158" h="34" src="st2_g"/>
+      <image id="stp3" x="344" y="76" w="158" h="34" src="st3_g"/>
+      <image id="stp4" x="508" y="76" w="158" h="34" src="st4_g"/>
+      <image id="stp5" x="672" y="76" w="158" h="34" src="st5_g"/>
+      <image id="stp6" x="836" y="76" w="158" h="34" src="st6_g"/>
+      <image id="pv_liq" x="190" y="166" w="248" h="178" src="im_liq10" hidden="true"/>
+      <image id="pv_rod0" x="308" y="154" w="12" h="168" src="im_rod00"/>
+      <image id="pv_rod1" x="308" y="154" w="12" h="157" src="im_rod01" hidden="true"/>
+      <image id="pv_rod2" x="308" y="154" w="12" h="146" src="im_rod02" hidden="true"/>
+      <image id="pv_rod3" x="308" y="154" w="12" h="135" src="im_rod03" hidden="true"/>
+      <image id="pv_rod4" x="308" y="154" w="12" h="124" src="im_rod04" hidden="true"/>
+      <image id="pv_rod5" x="308" y="154" w="12" h="113" src="im_rod05" hidden="true"/>
+      <image id="pv_rod6" x="308" y="154" w="12" h="102" src="im_rod06" hidden="true"/>
+      <image id="pv_rod7" x="308" y="154" w="12" h="91" src="im_rod07" hidden="true"/>
+      <image id="pv_rod8" x="308" y="154" w="12" h="80" src="im_rod08" hidden="true"/>
+      <image id="pv_rod9" x="308" y="154" w="12" h="69" src="im_rod09" hidden="true"/>
+      <image id="pv_rod10" x="308" y="154" w="12" h="58" src="im_rod10" hidden="true"/>
+      <image id="pv_car0" x="190" y="320" w="248" h="24" src="im_car"/>
+      <image id="pv_car1" x="190" y="309" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_car2" x="190" y="298" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_car3" x="190" y="287" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_car4" x="190" y="276" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_car5" x="190" y="265" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_car6" x="190" y="254" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_car7" x="190" y="243" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_car8" x="190" y="232" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_car9" x="190" y="221" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_car10" x="190" y="210" w="248" h="24" src="im_car" hidden="true"/>
+      <image id="pv_v1" x="232" y="372" w="36" h="36" src="im_valve_c"/>
+      <image id="pv_v2" x="364" y="372" w="36" h="36" src="im_valve_c"/>
+      <label id="pv_pv" x="26" y="170" w="70" h="40" text="0.0" font="hzfont" font_size="30" color="#0E63B0" align="left"/>
+      <label id="pv_pu" x="96" y="178" w="60" h="22" text="kPa" font="hzfont" font_size="16" color="#4A7EA6" align="left"/>
+      <label id="pv_tv" x="26" y="234" w="70" h="36" text="25.0" font="hzfont" font_size="26" color="#D97706" align="left"/>
+      <label id="pv_tu" x="96" y="242" w="60" h="22" text="℃" font="hzfont" font_size="16" color="#4A7EA6" align="left"/>
+      <label id="pv_lv" x="452" y="208" w="140" h="24" text="液面高度 0.0 mm" font="hzfont" font_size="16" color="#1A5C8E" align="left"/>
+      <label id="pv_cv" x="452" y="240" w="140" h="24" text="软塞高度 0.0 mm" font="hzfont" font_size="16" color="#1A5C8E" align="left"/>
+      <label id="pv_xv" x="452" y="272" w="140" h="24" text="体积比 1.000" font="hzfont" font_size="16" color="#1A5C8E" align="left"/>
+      <image id="dv_v1o" x="628" y="156" w="112" h="48" src="bt_v1o" src-pressed="bt_v1o_p" clickable="true" on-click="dev_op"/>
+      <image id="dv_v1c" x="748" y="156" w="112" h="48" src="bt_v1c" src-pressed="bt_v1c_p" clickable="true" on-click="dev_op"/>
+      <label id="ds_v1" x="872" y="166" w="120" h="24" text="阀1:关" font="hzfont" font_size="18" color="#1A5C8E" align="left"/>
+      <image id="dv_v2o" x="628" y="208" w="112" h="48" src="bt_v2o" src-pressed="bt_v2o_p" clickable="true" on-click="dev_op"/>
+      <image id="dv_v2c" x="748" y="208" w="112" h="48" src="bt_v2c" src-pressed="bt_v2c_p" clickable="true" on-click="dev_op"/>
+      <label id="ds_v2" x="872" y="218" w="120" h="24" text="阀2:关" font="hzfont" font_size="18" color="#1A5C8E" align="left"/>
+      <image id="dv_up" x="628" y="304" w="112" h="48" src="bt_up" src-pressed="bt_up_p" clickable="true" on-click="dev_op"/>
+      <image id="dv_down" x="748" y="304" w="112" h="48" src="bt_down" src-pressed="bt_down_p" clickable="true" on-click="dev_op"/>
+      <image id="dv_mstop" x="868" y="304" w="120" h="48" src="bt_mstop" src-pressed="bt_mstop_p" clickable="true" on-click="dev_op"/>
+      <label id="ds_step" x="862" y="273" w="132" h="22" text="步长 10" font="hzfont" font_size="16" color="#2A5A0C" align="left"/>
+      <image id="dv_s5" x="628" y="358" w="72" h="48" src="bt_s5" src-pressed="bt_s5_p" clickable="true" on-click="dev_step"/>
+      <image id="dv_s10" x="702" y="358" w="72" h="48" src="bt_s10" src-pressed="bt_s10_p" clickable="true" on-click="dev_step"/>
+      <image id="dv_s25" x="776" y="358" w="72" h="48" src="bt_s25" src-pressed="bt_s25_p" clickable="true" on-click="dev_step"/>
+      <image id="dv_nup" x="850" y="358" w="68" h="48" src="bt_nup" src-pressed="bt_nup_p" clickable="true" on-click="dev_jump"/>
+      <image id="dv_ndn" x="920" y="358" w="68" h="48" src="bt_ndn" src-pressed="bt_ndn_p" clickable="true" on-click="dev_jump"/>
+      <label id="hs_temp" x="628" y="433" w="180" h="22" text="设定 37.5℃" font="hzfont" font_size="16" color="#2A5A0C" align="left"/>
+      <image id="hs_on" x="628" y="460" w="100" h="48" src="bt_heat_on" src-pressed="bt_heat_on_p" clickable="true" on-click="heat_on"/>
+      <image id="hs_off" x="736" y="460" w="100" h="48" src="bt_heat_off" src-pressed="bt_heat_off_p" clickable="true" on-click="heat_off"/>
+      <image id="hs_minus" x="844" y="460" w="72" h="48" src="bt_minus" src-pressed="bt_minus_p" clickable="true" on-click="temp_minus"/>
+      <image id="hs_plus" x="924" y="460" w="72" h="48" src="bt_plus" src-pressed="bt_plus_p" clickable="true" on-click="temp_plus"/>
+      <label id="rs_1" x="30" y="456" w="180" h="22" text="环节 --" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="rs_2" x="222" y="456" w="180" h="22" text="阀1:关 阀2:关" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="rs_3" x="414" y="456" w="176" h="22" text="步进 0.0 mm" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="rs_4" x="30" y="484" w="180" h="22" text="液位 0%" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="rs_5" x="222" y="484" w="180" h="22" text="加热 关" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="rs_6" x="414" y="484" w="176" h="22" text="蒸气压 -- kPa" font="hzfont" font_size="17" color="#2E8B2E" align="left"/>
+      <image id="bd_auto" x="16" y="532" w="140" h="56" src="bt_auto" src-pressed="bt_auto_p" clickable="true" on-click="auto_start"/>
+      <image id="bd_pause" x="164" y="532" w="96" h="56" src="bt_pause" src-pressed="bt_pause_p" clickable="true" on-click="auto_pause"/>
+      <image id="bd_reset" x="268" y="532" w="96" h="56" src="bt_reset" src-pressed="bt_reset_p" clickable="true" on-click="reset"/>
+      <image id="bd_estop" x="372" y="532" w="112" h="56" src="bt_estop" src-pressed="bt_estop_p" clickable="true" on-click="estop"/>
+      <image id="bd_test" x="504" y="532" w="112" h="56" src="bt_gtest" src-pressed="bt_gtest_p" clickable="true" on-click="go_test"/>
+    </page>
+    <page id="man" background="#8FD3F2">
+      <image id="tb_bg" x="0" y="0" w="1024" h="600" src="bg_man"/>
+      <label id="tb_title" x="22" y="8" w="380" h="44" text="环节手动" font="hzfont" font_size="34" color="#0B2E52" align="left"/>
+      <image id="tb_lamp" x="392" y="18" w="32" h="32" src="im_lamp_idle"/>
+      <label id="tb_badge" x="434" y="20" w="300" h="32" text="待机" font="hzfont" font_size="20" color="#0B2E52" align="left"/>
+      <image id="tb_alarm" x="430" y="14" w="264" h="36" src="im_alarm" hidden="true"/>
+      <label id="tb_cd" x="768" y="12" w="232" h="20" text="2026/11/17" font="hzfont" font_size="16" color="#4A7EA6" align="right"/>
+      <label id="tb_ct" x="768" y="30" w="232" h="28" text="12:00:00" font="hzfont" font_size="22" color="#0B2E52" align="right"/>
+      <image id="stp1" x="16" y="76" w="158" h="34" src="st1_g"/>
+      <image id="stp2" x="180" y="76" w="158" h="34" src="st2_g"/>
+      <image id="stp3" x="344" y="76" w="158" h="34" src="st3_g"/>
+      <image id="stp4" x="508" y="76" w="158" h="34" src="st4_g"/>
+      <image id="stp5" x="672" y="76" w="158" h="34" src="st5_g"/>
+      <image id="stp6" x="836" y="76" w="158" h="34" src="st6_g"/>
+      <image id="mv_l1" x="32" y="162" w="32" h="32" src="im_lamp_idle"/>
+      <label id="mv_s1" x="74" y="164" w="240" h="26" text="待机" font="hzfont" font_size="18" color="#1A5C8E" align="left"/>
+      <image id="mv_g1" x="30" y="204" w="112" h="48" src="bt_go" src-pressed="bt_go_p" clickable="true" on-click="st_go"/>
+      <image id="mv_h1" x="156" y="204" w="112" h="48" src="bt_halt" src-pressed="bt_halt_p" clickable="true" on-click="st_halt"/>
+      <image id="mv_l2" x="364" y="162" w="32" h="32" src="im_lamp_idle"/>
+      <label id="mv_s2" x="406" y="164" w="240" h="26" text="待机" font="hzfont" font_size="18" color="#1A5C8E" align="left"/>
+      <image id="mv_g2" x="362" y="204" w="112" h="48" src="bt_go" src-pressed="bt_go_p" clickable="true" on-click="st_go"/>
+      <image id="mv_h2" x="488" y="204" w="112" h="48" src="bt_halt" src-pressed="bt_halt_p" clickable="true" on-click="st_halt"/>
+      <image id="mv_l3" x="696" y="162" w="32" h="32" src="im_lamp_idle"/>
+      <label id="mv_s3" x="738" y="164" w="240" h="26" text="待机" font="hzfont" font_size="18" color="#1A5C8E" align="left"/>
+      <image id="mv_g3" x="694" y="204" w="112" h="48" src="bt_go" src-pressed="bt_go_p" clickable="true" on-click="st_go"/>
+      <image id="mv_h3" x="820" y="204" w="112" h="48" src="bt_halt" src-pressed="bt_halt_p" clickable="true" on-click="st_halt"/>
+      <image id="mv_l4" x="32" y="310" w="32" h="32" src="im_lamp_idle"/>
+      <label id="mv_s4" x="74" y="312" w="240" h="26" text="待机" font="hzfont" font_size="18" color="#1A5C8E" align="left"/>
+      <image id="mv_g4" x="30" y="352" w="112" h="48" src="bt_go" src-pressed="bt_go_p" clickable="true" on-click="st_go"/>
+      <image id="mv_h4" x="156" y="352" w="112" h="48" src="bt_halt" src-pressed="bt_halt_p" clickable="true" on-click="st_halt"/>
+      <image id="mv_l5" x="364" y="310" w="32" h="32" src="im_lamp_idle"/>
+      <label id="mv_s5" x="406" y="312" w="240" h="26" text="待机" font="hzfont" font_size="18" color="#1A5C8E" align="left"/>
+      <image id="mv_g5" x="362" y="352" w="112" h="48" src="bt_go" src-pressed="bt_go_p" clickable="true" on-click="st_go"/>
+      <image id="mv_h5" x="488" y="352" w="112" h="48" src="bt_halt" src-pressed="bt_halt_p" clickable="true" on-click="st_halt"/>
+      <image id="mv_l6" x="696" y="310" w="32" h="32" src="im_lamp_idle"/>
+      <label id="mv_s6" x="738" y="312" w="240" h="26" text="待机" font="hzfont" font_size="18" color="#1A5C8E" align="left"/>
+      <image id="mv_g6" x="694" y="352" w="112" h="48" src="bt_go" src-pressed="bt_go_p" clickable="true" on-click="st_go"/>
+      <image id="mv_h6" x="820" y="352" w="112" h="48" src="bt_halt" src-pressed="bt_halt_p" clickable="true" on-click="st_halt"/>
+      <label id="ms_1" x="30" y="452" w="300" h="22" text="当前环节 --" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="ms_2" x="350" y="452" w="300" h="22" text="腔体压力 0.0 kPa" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="ms_3" x="670" y="452" w="320" h="22" text="腔体温度 25.0 ℃" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="ms_4" x="30" y="482" w="300" h="22" text="步进位置 0.0 mm" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="ms_5" x="350" y="482" w="300" h="22" text="加热 关 / 阀1:关 阀2:关" font="hzfont" font_size="17" color="#1A5C8E" align="left"/>
+      <label id="ms_6" x="670" y="482" w="320" h="22" text="蒸气压 -- kPa" font="hzfont" font_size="17" color="#2E8B2E" align="left"/>
+      <image id="bd_back" x="16" y="532" w="112" h="56" src="bt_back" src-pressed="bt_back_p" clickable="true" on-click="go_run"/>
+      <image id="bd_test" x="136" y="532" w="112" h="56" src="bt_gtest" src-pressed="bt_gtest_p" clickable="true" on-click="go_test"/>
+      <image id="bd_reset" x="744" y="532" w="96" h="56" src="bt_reset" src-pressed="bt_reset_p" clickable="true" on-click="reset"/>
+      <image id="bd_estop" x="856" y="532" w="112" h="56" src="bt_estop" src-pressed="bt_estop_p" clickable="true" on-click="estop"/>
+    </page>
+    <page id="test" background="#8FD3F2">
+      <image id="tb_bg" x="0" y="0" w="1024" h="600" src="bg_test"/>
+      <label id="tb_title" x="22" y="8" w="380" h="44" text="膨胀参数" font="hzfont" font_size="34" color="#0B2E52" align="left"/>
+      <image id="tb_lamp" x="392" y="18" w="32" h="32" src="im_lamp_idle"/>
+      <label id="tb_badge" x="434" y="20" w="300" h="32" text="待机" font="hzfont" font_size="20" color="#0B2E52" align="left"/>
+      <image id="tb_alarm" x="430" y="14" w="264" h="36" src="im_alarm" hidden="true"/>
+      <label id="tb_cd" x="768" y="12" w="232" h="20" text="2026/11/17" font="hzfont" font_size="16" color="#4A7EA6" align="right"/>
+      <label id="tb_ct" x="768" y="30" w="232" h="28" text="12:00:00" font="hzfont" font_size="22" color="#0B2E52" align="right"/>
+      <image id="stp1" x="16" y="76" w="158" h="34" src="st1_g"/>
+      <image id="stp2" x="180" y="76" w="158" h="34" src="st2_g"/>
+      <image id="stp3" x="344" y="76" w="158" h="34" src="st3_g"/>
+      <image id="stp4" x="508" y="76" w="158" h="34" src="st4_g"/>
+      <image id="stp5" x="672" y="76" w="158" h="34" src="st5_g"/>
+      <image id="stp6" x="836" y="76" w="158" h="34" src="st6_g"/>
+      <table id="ts_tbl" x="16" y="120" w="600" h="200" rows="5" columns="5" row-height="40" col-widths="80,150,120,120,130" col-aligns="center,center,center,center,center" align="center" header-align="center" grid="false" header="true" cell-padding="6" font="hzfont" font_size="19" color="#0B2E52" background="#FFFFFF" header-color="#A8D84B" alternate-color="#EFF7FC" border-color="#8CC2E2" border-width="2">
+        <cell row="1" column="1" text="次数"/>
+        <cell row="1" column="2" text="压力 kPa"/>
+        <cell row="1" column="3" text="温度 ℃"/>
+        <cell row="1" column="4" text="体积比"/>
+        <cell row="1" column="5" text="残差 kPa"/>
+        <cell row="2" column="1" text="1"/>
+        <cell row="2" column="2" text="---"/>
+        <cell row="2" column="3" text="---"/>
+        <cell row="2" column="4" text="---"/>
+        <cell row="2" column="5" text="---"/>
+        <cell row="3" column="1" text="2"/>
+        <cell row="3" column="2" text="---"/>
+        <cell row="3" column="3" text="---"/>
+        <cell row="3" column="4" text="---"/>
+        <cell row="3" column="5" text="---"/>
+        <cell row="4" column="1" text="3"/>
+        <cell row="4" column="2" text="---"/>
+        <cell row="4" column="3" text="---"/>
+        <cell row="4" column="4" text="---"/>
+        <cell row="4" column="5" text="---"/>
+        <cell row="5" column="1" text="结论"/>
+        <cell row="5" column="2" text="---"/>
+        <cell row="5" column="3" text="---"/>
+        <cell row="5" column="4" text="---"/>
+        <cell row="5" column="5" text="---"/>
+      </table>
+      <chart id="ts_chart" x="26" y="392" w="580" h="108" type="line" point-count="3" y-min="0" y-max="120" hdiv="4" vdiv="4" line-width="3" grid-color="#B7D6E8" bg-opacity="0">
+        <series id="mea" color="#0E63B0" values="0,0,0"/>
+        <series id="fit" color="#D97706" values="0,0,0"/>
+      </chart>
+      <label id="ts_a" x="632" y="162" w="200" h="60" text="0.0" font="hzfont" font_size="40" color="#2E8B2E" align="left"/>
+      <label id="ts_au" x="838" y="182" w="80" h="28" text="kPa" font="hzfont" font_size="20" color="#4A7EA6" align="left"/>
+      <label id="ts_b" x="632" y="288" w="200" h="52" text="0.0" font="hzfont" font_size="32" color="#0E63B0" align="left"/>
+      <label id="ts_bu" x="838" y="300" w="80" h="26" text="kPa" font="hzfont" font_size="18" color="#4A7EA6" align="left"/>
+      <label id="ts_c" x="632" y="400" w="200" h="52" text="0.0" font="hzfont" font_size="32" color="#0B2E52" align="left"/>
+      <label id="ts_cu" x="838" y="412" w="80" h="26" text="kPa" font="hzfont" font_size="18" color="#4A7EA6" align="left"/>
+      <label id="ts_r" x="760" y="474" w="220" h="28" text="0.00 kPa" font="hzfont" font_size="22" color="#D97706" align="left"/>
+      <image id="bd_tstart" x="16" y="532" w="128" h="56" src="bt_tstart" src-pressed="bt_tstart_p" clickable="true" on-click="test_start"/>
+      <image id="bd_tstop" x="152" y="532" w="112" h="56" src="bt_tstop" src-pressed="bt_tstop_p" clickable="true" on-click="test_stop"/>
+      <image id="bd_calc" x="272" y="532" w="112" h="56" src="bt_recalc" src-pressed="bt_recalc_p" clickable="true" on-click="test_calc"/>
+      <image id="bd_man" x="392" y="532" w="112" h="56" src="bt_gman" src-pressed="bt_gman_p" clickable="true" on-click="go_man"/>
+      <image id="bd_back" x="512" y="532" w="112" h="56" src="bt_back" src-pressed="bt_back_p" clickable="true" on-click="go_run"/>
+      <image id="bd_reset" x="744" y="532" w="96" h="56" src="bt_reset" src-pressed="bt_reset_p" clickable="true" on-click="reset"/>
+      <image id="bd_estop" x="856" y="532" w="112" h="56" src="bt_estop" src-pressed="bt_estop_p" clickable="true" on-click="estop"/>
+    </page>
+  </pages>
+</ui>

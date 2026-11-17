@@ -45,6 +45,13 @@
 
 -- 版本更新说明
 
+-- 版本号：202611171546
+-- 1、更新时间：2026-11-17 15:46
+-- 2、更新内容
+--    修复 to_big_endian 拆字节时 num/256 在 32 位浮点下的精度丢失：
+--    大数低字节余数 ≥0xC0 时商被舍入进位，编码值恒定偏 +256（GPS 时间戳 1280 字段）
+--    改为先减余数再除，保证被除数为 256 的整数倍、商 < 2^24，浮点除法无损
+
 -- 版本号：202610212319
 -- 1、更新时间：2026-10-21 23:19
 -- 2、更新内容
@@ -2423,7 +2430,7 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 excloud.version()
 ]]
 function excloud.version()
-    return "202610212319"
+    return "202611171546"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

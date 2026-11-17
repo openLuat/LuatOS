@@ -120,13 +120,13 @@ function M.glass_card(cfg)
         border_width = G.card_edge or 0 })
     M.glass(card, C.card, cfg.fade_in and 6 or G.card_opa)
     local hl = airui.container({ parent = card, x = 20, y = 1, w = w - 44, h = 2,
-        color = 0xFFFFFF, radius = 1, border_width = 0 })
-    M.glass(hl, 0xFFFFFF, cfg.fade_in and 0 or G.hl_opa)
+        color = C.hl, radius = 1, border_width = 0 })
+    M.glass(hl, C.hl, cfg.fade_in and 0 or G.hl_opa)
     local handle = { root = root, card = card, hl = hl, sh = sh, x = cfg.x, y = cfg.y }
     function handle.sweep()                                -- 交互时反光条轻微扫光
         M.tween(MO.sweep_fr, function(t)
             local opa = G.hl_opa + (G.hl_sweep_opa - G.hl_opa) * math.sin(t * math.pi)
-            M.glass(hl, 0xFFFFFF, math.floor(opa))
+            M.glass(hl, C.hl, math.floor(opa))
         end)
     end
     return handle
@@ -143,7 +143,7 @@ function M.enter(handles)
             pcall(function() c.root:set_pos(c.x, c.y) end)
             M.glass(c.card, C.card, G.card_opa)
             M.glass(c.sh, C.shadow, G.shadow_opa)
-            M.glass(c.hl, 0xFFFFFF, G.hl_opa)
+            M.glass(c.hl, C.hl, G.hl_opa)
         end
         return
     end
@@ -153,12 +153,12 @@ function M.enter(handles)
                 pcall(function() c.root:set_pos(c.x, c.y + MO.enter_dy * (1 - t)) end)
                 M.glass(c.card, C.card, math.floor(6 + (G.card_opa - 6) * t))
                 M.glass(c.sh, C.shadow, math.floor(8 + (G.shadow_opa - 8) * t))
-                M.glass(c.hl, 0xFFFFFF, math.floor(G.hl_opa * t))
+                M.glass(c.hl, C.hl, math.floor(G.hl_opa * t))
             end, function()                          -- 收尾自愈：强制落回最终态
                 pcall(function() c.root:set_pos(c.x, c.y) end)
                 M.glass(c.card, C.card, G.card_opa)
                 M.glass(c.sh, C.shadow, G.shadow_opa)
-                M.glass(c.hl, 0xFFFFFF, G.hl_opa)
+                M.glass(c.hl, C.hl, G.hl_opa)
             end)
         end, math.max(5, (i - 1) * MO.enter_gap))    -- 延迟最小 5ms，0 会导致 rtos 定时器创建失败
     end

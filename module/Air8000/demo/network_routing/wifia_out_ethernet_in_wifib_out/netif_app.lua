@@ -127,6 +127,23 @@ local function netif_app_task_func()
     if not res or not ip then
         log.error("第一阶段失败：以太网或 WiFi A 初始化失败")
         log.error("请检查 netif_app.lua 中 wifi_a_config 的 ssid/password，以及网线是否插好")
+
+        -- WiFi A 连不上时不要干等切换周期，也不该直接退出：
+        -- 立刻用 WiFi B 的凭证重试一次，能连上就继续提供网络。
+        -- 前提是 exnetif >= 202611121939（初始化失败会回滚 available 状态），
+        -- 否则第二次调 setproxy 会因状态仍为 OPENED 而跳过 WiFi 初始化。
+        if wifi_b_config and wifi_b_config.ssid ~= wifi_a_config.ssid then
+            log.warn("netif_app", "WiFi A 不可用，立即尝试 WiFi B:", wifi_b_config.ssid)
+            res = exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_STA, build_proxy_opts(wifi_b_config))
+            ip = sta_ip()
+            if res and ip then
+                log.info("netif_app", "已改用 WiFi B 建立代理，WiFi IP", ip)
+                return
+            end
+            log.error("netif_app", "WiFi A 与 WiFi B 均不可用，退出演示")
+        else
+            log.error("netif_app", "WiFi B 未配置或与 WiFi A 相同，无法自动换用")
+        end
         return
     end
     log.info("第一阶段成功：WiFi A -> 以太网 代理已建立，WiFi IP", ip)

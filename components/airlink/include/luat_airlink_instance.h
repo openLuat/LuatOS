@@ -1,6 +1,10 @@
 #ifndef LUAT_AIRLINK_INSTANCE_H
 #define LUAT_AIRLINK_INSTANCE_H
 
+#if defined(LUAT_USE_AIRLINK_MANUAL_SETUP) && !defined(LUAT_USE_AIRLINK_INSTANCE)
+#error "LUAT_USE_AIRLINK_MANUAL_SETUP requires LUAT_USE_AIRLINK_INSTANCE"
+#endif
+
 /* Link IDs and transport modes are separate namespaces. */
 #define AIRLINK_LINK_COUNT 2
 #define AIRLINK_ROUTE_BASE 128
@@ -11,6 +15,13 @@
 #define AIRLINK_DRV_6205 2
 #define AIRLINK_DRV_780ER2 3
 #define AIRLINK_DRV_780EPM AIRLINK_DRV_780ER2
+#define AIRLINK_DRV_8000S 4
+
+/* Shared by pre-Lua onboard startup and the Lua air8000s defaults. */
+#define AIRLINK_8000S_SPI_ID 0
+#define AIRLINK_8000S_CS 8
+#define AIRLINK_8000S_RDY 22
+#define AIRLINK_8000S_SPEED 31000000
 
 void luat_airlink_statistics_add(uint64_t* counter, uint64_t value);
 void luat_airlink_statistics_copy(airlink_statistic_t* dst, const airlink_statistic_t* src);

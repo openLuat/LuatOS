@@ -1162,6 +1162,12 @@ int luat_airlink_result_send(uint8_t* buff, size_t len) {
 }
 
 void luat_airlink_wait_ready(void) {
+#if defined(LUAT_USE_AIRLINK) && defined(LUAT_USE_AIRLINK_AUTO_MASTER)
+    /* Runs in the pre-Lua task: instance setup waits for a TCPIP callback,
+     * so it must not be invoked from the TCPIP thread itself. */
+    extern void luat_airlink_master_autostart(void);
+    luat_airlink_master_autostart();
+#endif
 #ifdef LUAT_USE_AIRLINK_INSTANCE
     if (luat_airlink_instance_enabled()) {
         int route = luat_airlink_feature_route(AIRLINK_FEATURE_WIFI);
@@ -1170,13 +1176,13 @@ void luat_airlink_wait_ready(void) {
         return;
     }
 #endif
-    // Air8000硬等最多200ms, 梁健要加的, 有问题找他
+    /* Manual builds leave ownership to setup(). An automatic instance build
+     * must not fall back to legacy startup/waiting if setup failed. */
+#if defined(LUAT_USE_AIRLINK_MANUAL_SETUP) || (defined(LUAT_USE_AIRLINK_INSTANCE) && defined(LUAT_USE_AIRLINK_AUTO_MASTER))
+    return;
+#endif
+    // Legacy Air8000 startup waits at most 500 ms.
     if (luat_airlink_has_wifi()) {
-        #if defined(LUAT_USE_AIRLINK) && defined(LUAT_USE_AIRLINK_AUTO_MASTER)
-	    LLOGD("open airlink for air8000s");
-	    extern void luat_airlink_master_autostart(void);
-	    luat_airlink_master_autostart();
-        #endif
         // LLOGD("等待Air8000s启动");
 	    size_t count = 0;
         uint64_t tnow = luat_mcu_tick64_ms();
@@ -1237,6 +1243,7 @@ uint32_t luat_airlink_sversion(void) {
     return version;
 }
 
+#ifndef LUAT_USE_AIRLINK_INSTANCE
 static void netdrv_airlink_setup(void* params) {
 	if (luat_airlink_instance_enabled()) return;
 	(void)params;
@@ -1259,13 +1266,34 @@ static void netdrv_airlink_setup(void* params) {
 	luat_airlink_task_start();
 	luat_airlink_start(1); // SPI master模式
 }
+#endif
 
 void luat_airlink_master_autostart(void) {
+#ifdef LUAT_USE_AIRLINK_MANUAL_SETUP
+    return;
+#else
+    if (luat_airlink_instance_enabled()) return;
 	if (!luat_airlink_has_wifi()){
 		return;
 	}
 
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    luat_airlink_setup_t conf = {0};
+    conf.drv = AIRLINK_DRV_8000S;
+    conf.mode = LUAT_AIRLINK_MODE_SPI_MASTER;
+    conf.spi_id = AIRLINK_8000S_SPI_ID;
+    conf.cs = AIRLINK_8000S_CS;
+    conf.rdy = AIRLINK_8000S_RDY;
+    conf.speed = AIRLINK_8000S_SPEED;
+    conf.sta_adapter = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+    conf.ap_adapter = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+    conf.cellular_adapter = -1;
+    int ret = luat_airlink_setup_link(0, &conf);
+    if (ret) LLOGE("Air8000S auto setup failed: %d", ret);
+#else
 	tcpip_callback(netdrv_airlink_setup, NULL);
+#endif
+#endif
 }
 
 // 使用哪种模式作为主模式, 默认是-1, 等待阶段, 0 - 2 已经收到某种模式的消息了, 就固定使用这种模式, 不再切换了

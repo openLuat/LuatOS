@@ -38,6 +38,7 @@ typedef struct {
     volatile uint8_t tx_busy;
     uint8_t ack_due;
     uint8_t stalled, escaped, in_frame, cmd_budget;
+    uint8_t board_gpio_step;
     size_t rx_used;
     uint8_t *rxbuf, *txbuf, *wire;
 } airlink_instance_t;
@@ -94,13 +95,15 @@ int luat_airlink_link_ready(int id) {
     if (!luat_airlink_link_configured(id)) return 0;
     airlink_instance_t* l = &links[id];
     luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
-    int ready = l->running && !l->stalled && l->last_rx && luat_mcu_tick64_ms() - l->last_rx < 20000;
+    int ready = l->running && !l->stalled && l->last_rx && luat_mcu_tick64_ms() - l->last_rx < 20000 &&
+        (l->conf.drv != AIRLINK_DRV_8000S || l->board_gpio_step == 2);
     luat_rtos_mutex_unlock(l->lock);
     return ready;
 }
 static int features(int drv) {
     /* Current Air6205 firmware also provides BLE over RPC. */
-    if (drv == AIRLINK_DRV_6208 || drv == AIRLINK_DRV_6205) return AIRLINK_FEATURE_WIFI | AIRLINK_FEATURE_BLE;
+    if (drv == AIRLINK_DRV_6208 || drv == AIRLINK_DRV_6205 || drv == AIRLINK_DRV_8000S)
+        return AIRLINK_FEATURE_WIFI | AIRLINK_FEATURE_BLE;
     if (drv == AIRLINK_DRV_780EPM) return AIRLINK_FEATURE_CELLULAR;
     return 0;
 }
@@ -162,7 +165,7 @@ int luat_airlink_link_send(int id, const luat_airlink_cmd_t* cmd) {
     luat_airlink_cmd_t* group[QUEUE_DEPTH] = {0};
     luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
     int ret = -1;
-    size_t queued = 0;
+    uint32_t queued = 0;
     if (!l->running || luat_rtos_queue_get_cnt(l->tx, &queued) || queued + count > QUEUE_DEPTH) goto done;
     uint16_t frag = ++l->fragment;
     for (unsigned n = 0, off = 0; n < count; n++) {
@@ -277,7 +280,12 @@ static void receive_frame(airlink_instance_t* l, airlink_link_data_t* frame) {
         luat_airlink_link_receive(id, frame->data, frame->len);
     luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
     luat_airlink_statistics_add(&l->stats.rx_pkg.total, 1);
-    if (!ret) { l->last_rx = luat_mcu_tick64_ms(); luat_airlink_statistics_add(&l->stats.rx_pkg.ok, 1); }
+    if (!ret) {
+        uint64_t now = luat_mcu_tick64_ms();
+        if (l->last_rx && now - l->last_rx >= 20000) l->board_gpio_step = 0;
+        l->last_rx = now;
+        luat_airlink_statistics_add(&l->stats.rx_pkg.ok, 1);
+    }
     else luat_airlink_statistics_add(&l->stats.rx_pkg.drop, 1);
     luat_rtos_mutex_unlock(l->lock);
 }
@@ -352,13 +360,46 @@ static int next_item(airlink_instance_t* l, airlink_queue_item_t* item) {
     l->cmd_budget = 0;
     return luat_rtos_queue_recv(l->ip, item, 0, 0);
 }
+/* Keep Air8000S GPIO24 high for the board's charging IC. Send the legacy GPIO
+ * commands directly on this link, never via the default peripheral route:
+ * the onboard Wi-Fi may be link 1 while link 0 belongs to a cellular peer.
+ * No synchronous RPC here: this worker must keep receiving responses. */
+static int air8000s_board_init(airlink_instance_t* l) {
+    if (l->conf.drv != AIRLINK_DRV_8000S) return 0;
+    luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
+    uint8_t step = l->board_gpio_step;
+    int peer_ready = l->peer.tp == 1 && l->last_rx;
+    luat_rtos_mutex_unlock(l->lock);
+    if (step == 2) return 0;
+    /* Keep normal SPI polling alive until the peer's devinfo is received. */
+    if (!peer_ready) return 0;
+    luat_gpio_t gpio = {0};
+    gpio.pin = 24; gpio.mode = Luat_GPIO_OUTPUT; gpio.pull = LUAT_GPIO_PULLUP;
+    uint8_t buffer[sizeof(luat_airlink_cmd_t) + 8 + sizeof(gpio)] = {0};
+    luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)buffer;
+    uint64_t seq = luat_airlink_get_next_cmd_id();
+    memcpy(cmd->data, &seq, 8);
+    if (step == 0) {
+        cmd->cmd = 0x300; cmd->len = 8 + sizeof(gpio);
+        memcpy(cmd->data + 8, &gpio, sizeof(gpio));
+    } else {
+        cmd->cmd = 0x301; cmd->len = 10;
+        cmd->data[8] = 24; cmd->data[9] = 1;
+    }
+    if (!send_cmd(l, cmd, 0)) {
+        luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
+        l->board_gpio_step = step + 1;
+        luat_rtos_mutex_unlock(l->lock);
+    }
+    return 1;
+}
 static void io_task(void* param) {
     airlink_instance_t* l = param;
     l->io_task = luat_rtos_get_current_handle();
-    int id = (int)(l - links);
     luat_airlink_arq_init();
     uint64_t heartbeat = 0;
 #ifdef LUAT_USE_AIRLINK_HSPI_MASTER
+    int id = (int)(l - links);
     if (l->conf.mode == LUAT_AIRLINK_MODE_HSPI_MASTER) xt804_hspi_enable_host_int();
 #endif
     while (l->running) {
@@ -406,6 +447,7 @@ static void io_task(void* param) {
             tcpip_callback(instance_net_update, l);
         }
         if (l->tx_busy) { luat_rtos_task_sleep(1); continue; }
+        if (air8000s_board_init(l)) { luat_rtos_task_sleep(1); continue; }
         int sent = 0;
         if (luat_airlink_arq_pending_active()) {
             if (now - luat_airlink_arq_pending_sent_ms() >= ARQ_RTO_MS) {
@@ -528,6 +570,7 @@ int luat_airlink_setup_link(int id, const luat_airlink_setup_t* c) {
     if (id < 0 || id >= AIRLINK_LINK_COUNT || !c || !features(c->drv)) return -1;
     if (links[id].configured) return -2;
     if (c->mode != LUAT_AIRLINK_MODE_UART && c->mode != LUAT_AIRLINK_MODE_SPI_MASTER && c->mode != LUAT_AIRLINK_MODE_HSPI_MASTER) return -3;
+    if (c->drv == AIRLINK_DRV_8000S && c->mode != LUAT_AIRLINK_MODE_SPI_MASTER) return -3;
 #ifndef LUAT_USE_AIRLINK_HSPI_MASTER
     if (c->mode == LUAT_AIRLINK_MODE_HSPI_MASTER) return -3;
 #endif

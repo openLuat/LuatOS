@@ -1,8 +1,8 @@
 # AirLink 实例模式使用说明
 
-适用版本：LuatOS `feat/airlink-dual-arq3` 分支，包含提交 `7dda7d0d2`、`4657bee58`。
+适用版本：LuatOS `fix/airlink-air8000s-instance` 分支，基于 `feat/airlink-dual-arq3`，包含提交 `7dda7d0d2`、`4657bee58`。
 
-更新时间：2026-11-12。
+更新时间：2026-11-17。
 
 ## 1. 功能概述
 
@@ -38,6 +38,23 @@
 
 并包含 AirLink、对应传输方式和网络组件。
 
+**Air8000 默认自动启动板内 Air8000S。** 在已有的
+`LUAT_USE_AIRLINK_AUTO_MASTER` 配置上开启 `LUAT_USE_AIRLINK_INSTANCE` 后，
+固件在执行 `main.lua` 前自动创建实例 `0`，绑定STA/AP网卡，最多等待链路就绪500 ms。
+脚本仍可直接使用 `wlan.init()` / `wlan.connect()`，只需为外接从机配置实例 `1`。
+不带Wi-Fi的子型号不会自动创建实例；创建失败会记录错误，不回退到legacy。
+未开启实例宏的固件继续使用原legacy自动启动流程。
+
+如需由脚本自行分配全部实例，可额外开启**可选的手动启动宏**：
+
+```c
+#define LUAT_USE_AIRLINK_MANUAL_SETUP 1
+```
+
+该宏优先于自动启动配置，禁止Lua执行前自动创建板内实例。
+手动启动固件必须由脚本配置链路，不能依赖旧脚本隐式启动 Wi-Fi。
+该宏必须与 `LUAT_USE_AIRLINK_INSTANCE` 同时定义。
+
 当前 CCM SDK 已在以下文件开启（路径相对于 CCM SDK 仓库根目录）：
 
 ```text
@@ -52,12 +69,14 @@ assert(type(airlink.setup) == "function", "固件不支持AirLink实例模式")
 
 ### 2.2 运行方式
 
-- 旧脚本继续使用旧初始化流程，仍走 legacy 路径。
+- 未开启实例宏的Air8000，以及未使用自动实例启动或 `setup` 的其他平台，保留legacy路径。
+- Air8000自动实例固件保留Wi-Fi使用习惯，但板内链路已是实例 `0`，不要重复 `setup(0, ...)`。
 - 新脚本直接调用 `airlink.setup(id, conf)`，进入实例模式。
 - 实例模式不需要预先调用 `airlink.init()`、`airlink.config()`、`airlink.start()`。
 - 同一次启动中，两套初始化方式不能混用。
 
-**开启编译宏不会自动改变旧脚本的运行模式。**
+**Air8000同时开启实例和自动启动宏时，板内链路自动切换为实例模式。**
+其他手动配置平台仍由 `airlink.setup()` 进入实例模式。
 
 旧模式下，无参数 `ready()`、`statistics()`、`sver()` 保留原有路径。但此前传给无参数接口、被忽略的多余参数，现在可能被解释为实例 ID，例如 `airlink.ready(0)`。
 
@@ -99,11 +118,18 @@ local ok, rc = airlink.setup(id, conf)
 ```text
 air6205
 air6208
+air8000s
 air780epm
 air780er2
 ```
 
 驱动名称被接受，不代表对应板型、固件和接线已经完成验收；当前 780 双路验收使用的是 Air780EPM。
+
+`air8000s` 使用 Air8000 板内 SPI 默认配置：`mode=airlink.MODE_SPI_MASTER`、
+`spi_id=0`、`cs=8`、`rdy=22`、`speed=31000000`，SPI Mode 3、8位、MSB、
+1600字节全双工帧。默认值来自现有Air8000驱动，不代表新的多路硬件验收结果。
+可显式覆盖SPI参数；该驱动不接受UART或HSPI模式，返回 `-3`。
+其能力为Wi-Fi和BLE，网卡默认映射STA/AP。
 
 ### 3.2 双 UART
 
@@ -184,6 +210,45 @@ assert(airlink.setup(1, {
     speed = 1000000
 }))
 ```
+
+### 3.5 Air8000 内置 Air8000S＋外接从机
+
+主控保留Air8000原有自动启动配置，开启实例宏，**无需开启手动启动宏**：
+
+```lua
+sys.taskInit(function()
+    -- 板内Air8000S已经自动创建为实例0，无需再次setup。
+    assert(airlink.status(0), "板内Air8000S自动创建失败")
+
+    -- 示例：外接780，UART编号必须按实际接线填写。
+    local ok, rc = airlink.setup(1, {
+        drv = "air780epm",
+        mode = airlink.MODE_UART,
+        uart_id = 1,
+        baudrate = 2000000
+    })
+    assert(ok, "外接从机setup失败: " .. tostring(rc))
+    -- 后续按第4节等待链路，再执行wlan.init/wlan.connect。
+end)
+```
+
+仅使用板内Wi-Fi时，不需要任何 `airlink.setup()` 调用。
+若开启 `LUAT_USE_AIRLINK_MANUAL_SETUP`，则先在任务中执行
+`assert(airlink.setup(0, {drv = "air8000s"}))`，再配置外接实例。
+
+Air8000自身的蜂窝网卡仍是 `socket.LWIP_GP`，外接780使用
+`socket.LWIP_GP_GW`，两者不能混淆。
+板内GPIO23上电时序和3.3V IO配置仍由Air8000 BSP启动代码负责；
+组件不会把其他主控的GPIO23当作通用电源脚。
+
+驱动收到Wi-Fi设备信息后，将GPIO24配置为输出并拉高，以维持Air8000充电IC。
+这两条初始化命令明确发往该实例，即使Air8000S配置在实例1，也不会误发到实例0。
+它是**从机GPIO24**，不是主控GPIO24。`ready(id)` 在初始化命令完成发送后才为真；
+这不等于对端应用执行确认。链路超时后收到新帧会重新进行初始化。
+
+此处覆盖实例创建、SPI收发、功能路由和启动初始化。旧 `airlink.power`、
+`irqmode`、`wakeup_irqmode` 等单实例省电/中断接口不属于多路配置接口，
+不要与本节流程混用；多路休眠和快速断电重启仍需单独适配、验收。
 
 ## 4. 等待链路就绪
 

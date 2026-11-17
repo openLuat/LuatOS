@@ -372,7 +372,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
         cctx->outlen += output_size;
     }
 
-_exit:
+//_exit:
     if (temp){
         luat_heap_free(temp);
     }

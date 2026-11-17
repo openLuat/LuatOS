@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="main">
+  <resources>
+    <font id="hzfont" builtin="hzfont"/>
+    <!-- 状态切换键：6 态 × 三态 -->
+    <image id="sw_stop_n" src="sw_stop_n.png"/>
+    <image id="sw_stop_p" src="sw_stop_p.png"/>
+    <image id="sw_stop_c" src="sw_stop_c.png"/>
+    <image id="sw_local_n" src="sw_local_n.png"/>
+    <image id="sw_local_p" src="sw_local_p.png"/>
+    <image id="sw_local_c" src="sw_local_c.png"/>
+    <image id="sw_remote_n" src="sw_remote_n.png"/>
+    <image id="sw_remote_p" src="sw_remote_p.png"/>
+    <image id="sw_remote_c" src="sw_remote_c.png"/>
+    <image id="sw_auto_n" src="sw_auto_n.png"/>
+    <image id="sw_auto_p" src="sw_auto_p.png"/>
+    <image id="sw_auto_c" src="sw_auto_c.png"/>
+    <image id="sw_fault_n" src="sw_fault_n.png"/>
+    <image id="sw_fault_p" src="sw_fault_p.png"/>
+    <image id="sw_fault_c" src="sw_fault_c.png"/>
+    <image id="sw_maint_n" src="sw_maint_n.png"/>
+    <image id="sw_maint_p" src="sw_maint_p.png"/>
+    <image id="sw_maint_c" src="sw_maint_c.png"/>
+    <!-- 操作键：4 个 × 三态 + 故障复位 × 三态 -->
+    <image id="btnop_p1_n" src="btnop_p1_n.png"/>
+    <image id="btnop_p1_p" src="btnop_p1_p.png"/>
+    <image id="btnop_p1_d" src="btnop_p1_d.png"/>
+    <image id="btnop_p2_n" src="btnop_p2_n.png"/>
+    <image id="btnop_p2_p" src="btnop_p2_p.png"/>
+    <image id="btnop_p2_d" src="btnop_p2_d.png"/>
+    <image id="btnop_mx_n" src="btnop_mx_n.png"/>
+    <image id="btnop_mx_p" src="btnop_mx_p.png"/>
+    <image id="btnop_mx_d" src="btnop_mx_d.png"/>
+    <image id="btnop_mode_n" src="btnop_mode_n.png"/>
+    <image id="btnop_mode_p" src="btnop_mode_p.png"/>
+    <image id="btnop_mode_d" src="btnop_mode_d.png"/>
+    <image id="btnrst_n" src="btnrst_n.png"/>
+    <image id="btnrst_p" src="btnrst_p.png"/>
+    <image id="btnrst_d" src="btnrst_d.png"/>
+    <!-- 设备徽章 6 色 -->
+    <image id="bd_stop" src="bd_stop.png"/>
+    <image id="bd_run" src="bd_run.png"/>
+    <image id="bd_manual" src="bd_manual.png"/>
+    <image id="bd_fault" src="bd_fault.png"/>
+    <image id="bd_lock" src="bd_lock.png"/>
+    <image id="bd_auto" src="bd_auto.png"/>
+    <!-- 状态徽标 / 横幅底板 6 态 -->
+    <image id="bdg_stop" src="bdg_stop.png"/>
+    <image id="bdg_local" src="bdg_local.png"/>
+    <image id="bdg_remote" src="bdg_remote.png"/>
+    <image id="bdg_auto" src="bdg_auto.png"/>
+    <image id="bdg_fault" src="bdg_fault.png"/>
+    <image id="bdg_maint" src="bdg_maint.png"/>
+    <image id="bn_stop" src="bn_stop.png"/>
+    <image id="bn_local" src="bn_local.png"/>
+    <image id="bn_remote" src="bn_remote.png"/>
+    <image id="bn_auto" src="bn_auto.png"/>
+    <image id="bn_fault" src="bn_fault.png"/>
+    <image id="bn_maint" src="bn_maint.png"/>
+    <!-- 工艺流程 6 态 + 4 帧流动 -->
+    <image id="flow_stop" src="flow_stop.png"/>
+    <image id="flow_local" src="flow_local.png"/>
+    <image id="flow_remote" src="flow_remote.png"/>
+    <image id="flow_auto" src="flow_auto.png"/>
+    <image id="flow_fault" src="flow_fault.png"/>
+    <image id="flow_maint" src="flow_maint.png"/>
+    <image id="flow_a0" src="flow_a0.png"/>
+    <image id="flow_a1" src="flow_a1.png"/>
+    <image id="flow_a2" src="flow_a2.png"/>
+    <image id="flow_a3" src="flow_a3.png"/>
+    <!-- 数据块 / 液位 / 输出条 / 罩 -->
+    <image id="datablock" src="datablock.png"/>
+    <image id="devrow" src="devrow.png"/>
+    <image id="bar_slot" src="bar_slot.png"/>
+    <image id="bar_fill" src="bar_fill.png"/>
+    <image id="lv0" src="lv0.png"/>
+    <image id="lv1" src="lv1.png"/>
+    <image id="lv2" src="lv2.png"/>
+    <image id="lv3" src="lv3.png"/>
+    <image id="lv4" src="lv4.png"/>
+    <image id="overlay_maint" src="overlay_maint.png"/>
+  </resources>
+  <pages>
+    <page id="main" background="#EEF1F5">
+
+      <!-- ============ 顶栏 ============ -->
+      <container id="head_bg" x="0" y="0" w="1024" h="96" background="#FFFFFF" border-color="#C7CED8" border-width="2"/>
+      <label id="page_title" x="20" y="14" w="240" h="34" font="hzfont" font_size="28" color="#1F2937" align="left" text="加药间监控"/>
+      <label id="subtitle" x="20" y="54" w="500" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="污水处理 · PAC/PAM 加药 · 出水浊度目标 5 NTU"/>
+
+      <image id="badge_bg" x="266" y="20" w="152" h="56" src="bdg_stop"/>
+      <label id="badge_ico" x="278" y="28" w="30" h="40" font="hzfont" font_size="26" color="#1F2937" align="center" text="■"/>
+      <label id="badge_txt" x="312" y="28" w="100" h="40" font="hzfont" font_size="24" color="#1F2937" align="left" text="停机"/>
+
+      <label id="sw_label" x="452" y="12" w="120" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="状态切换器"/>
+      <image id="sw_stop"  x="452" y="38" w="90" h="48" src="sw_stop_n"  src-pressed="sw_stop_p"  src-checked="sw_stop_c"  clickable="true" on-click="to_stop"/>
+      <image id="sw_local" x="550" y="38" w="90" h="48" src="sw_local_n" src-pressed="sw_local_p" src-checked="sw_local_c" clickable="true" on-click="to_local"/>
+      <image id="sw_remote" x="648" y="38" w="90" h="48" src="sw_remote_n" src-pressed="sw_remote_p" src-checked="sw_remote_c" clickable="true" on-click="to_remote"/>
+      <image id="sw_auto"  x="746" y="38" w="90" h="48" src="sw_auto_n"  src-pressed="sw_auto_p"  src-checked="sw_auto_c"  clickable="true" on-click="ask_auto"/>
+      <image id="sw_fault" x="844" y="38" w="90" h="48" src="sw_fault_n" src-pressed="sw_fault_p" src-checked="sw_fault_c" clickable="true" on-click="to_fault"/>
+      <image id="sw_maint" x="942" y="38" w="90" h="48" src="sw_maint_n" src-pressed="sw_maint_p" src-checked="sw_maint_c" clickable="true" on-click="to_maint"/>
+
+      <!-- ============ 状态横幅 ============ -->
+      <image id="banner_bg" x="12" y="100" w="1000" h="36" src="bn_stop"/>
+      <label id="banner_ico" x="26" y="104" w="28" h="28" font="hzfont" font_size="22" color="#1F2937" align="center" text="■"/>
+      <label id="banner_txt" x="62" y="104" w="540" h="28" font="hzfont" font_size="18" color="#1F2937" align="left" text="设备未上电 · 全屏只读"/>
+      <label id="banner_hint" x="700" y="104" w="300" h="28" font="hzfont" font_size="16" color="#1F2937" align="right" text="当前状态：停机"/>
+
+      <!-- ============ 左侧设备列表 ============ -->
+      <container id="dev_panel" x="12" y="144" w="248" h="344" background="#FFFFFF" border-color="#C7CED8" border-width="2" radius="6"/>
+      <label id="dev_ttl" x="24" y="152" w="220" h="24" font="hzfont" font_size="18" color="#1F2937" align="left" text="设备列表 / DEVICES"/>
+
+      <image id="drow_p1" x="24" y="186" w="224" h="68" src="devrow"/>
+      <label id="dn_p1" x="34" y="194" w="140" h="22" font="hzfont" font_size="18" color="#1F2937" align="left" text="计量泵 1"/>
+      <label id="ds_p1" x="34" y="218" w="140" h="20" font="hzfont" font_size="16" color="#5B6675" align="left" text="PAC · 变频计量"/>
+      <label id="dv_p1" x="124" y="196" w="70" h="20" font="hzfont" font_size="16" color="#5B6675" align="right" text="0%"/>
+      <image id="db_p1" x="162" y="206" w="76" h="28" src="bd_stop"/>
+      <label id="db_p1_txt" x="162" y="206" w="76" h="28" font="hzfont" font_size="16" color="#FFFFFF" align="center" text="停止"/>
+
+      <image id="drow_p2" x="24" y="262" w="224" h="68" src="devrow"/>
+      <label id="dn_p2" x="34" y="270" w="140" h="22" font="hzfont" font_size="18" color="#1F2937" align="left" text="计量泵 2"/>
+      <label id="ds_p2" x="34" y="294" w="140" h="20" font="hzfont" font_size="16" color="#5B6675" align="left" text="PAM · 变频计量"/>
+      <label id="dv_p2" x="124" y="272" w="70" h="20" font="hzfont" font_size="16" color="#5B6675" align="right" text="0%"/>
+      <image id="db_p2" x="162" y="282" w="76" h="28" src="bd_stop"/>
+      <label id="db_p2_txt" x="162" y="282" w="76" h="28" font="hzfont" font_size="16" color="#FFFFFF" align="center" text="停止"/>
+
+      <image id="drow_mx" x="24" y="338" w="224" h="68" src="devrow"/>
+      <label id="dn_mx" x="34" y="346" w="140" h="22" font="hzfont" font_size="18" color="#1F2937" align="left" text="搅拌机"/>
+      <label id="ds_mx" x="34" y="370" w="140" h="20" font="hzfont" font_size="16" color="#5B6675" align="left" text="药剂罐 · 均匀混合"/>
+      <image id="db_mx" x="162" y="358" w="76" h="28" src="bd_stop"/>
+      <label id="db_mx_txt" x="162" y="358" w="76" h="28" font="hzfont" font_size="16" color="#FFFFFF" align="center" text="停止"/>
+
+      <image id="drow_lv" x="24" y="414" w="224" h="68" src="devrow"/>
+      <label id="dn_lv" x="34" y="422" w="140" h="22" font="hzfont" font_size="18" color="#1F2937" align="left" text="药剂液位"/>
+      <label id="ds_lv" x="34" y="446" w="140" h="20" font="hzfont" font_size="16" color="#5B6675" align="left" text="液位罐 · 4~20mA"/>
+      <label id="dv_lv" x="124" y="424" w="70" h="20" font="hzfont" font_size="16" color="#5B6675" align="right" text="72%"/>
+      <image id="db_lv" x="162" y="434" w="76" h="28" src="bd_run"/>
+      <label id="db_lv_txt" x="162" y="434" w="76" h="28" font="hzfont" font_size="16" color="#FFFFFF" align="center" text="正常"/>
+
+      <!-- ============ 工艺流程 ============ -->
+      <container id="flow_panel" x="272" y="144" w="740" h="200" background="#FFFFFF" border-color="#C7CED8" border-width="2" radius="6"/>
+      <label id="flow_ttl" x="284" y="152" w="400" h="24" font="hzfont" font_size="18" color="#1F2937" align="left" text="工艺流程 / PROCESS FLOW"/>
+      <image id="flow_svg" x="284" y="180" w="716" h="164" src="flow_stop"/>
+      <image id="tank_liquid" x="304" y="222" w="74" h="76" src="lv0"/>
+      <image id="flow_anim" x="284" y="180" w="716" h="164" src="flow_a0" hidden="true"/>
+
+      <!-- ============ PID 面板 ============ -->
+      <container id="pid_panel" x="272" y="352" w="740" h="136" background="#FFFFFF" border-color="#C7CED8" border-width="2" radius="6"/>
+      <label id="pid_ttl" x="284" y="360" w="460" h="24" font="hzfont" font_size="18" color="#1F2937" align="left" text="PID 调节 · 出水浊度 (NTU)"/>
+      <image id="pid_sp_bg" x="284" y="392" w="212" h="84" src="datablock"/>
+      <image id="pid_pv_bg" x="506" y="392" w="212" h="84" src="datablock"/>
+      <image id="pid_mv_bg" x="728" y="392" w="212" h="84" src="datablock"/>
+      <label id="pid_sp_l" x="284" y="398" w="212" h="20" font="hzfont" font_size="16" color="#5B6675" align="center" text="SP 设定值"/>
+      <label id="pid_sp_v" x="284" y="418" w="212" h="32" font="hzfont" font_size="28" color="#1F2937" align="center" text="5.0 NTU"/>
+      <label id="pid_pv_l" x="506" y="398" w="212" h="20" font="hzfont" font_size="16" color="#5B6675" align="center" text="PV 测量值"/>
+      <label id="pid_pv_v" x="506" y="416" w="212" h="40" font="hzfont" font_size="40" color="#1F2937" align="center" text="-- NTU"/>
+      <label id="pid_mv_l" x="728" y="398" w="212" h="20" font="hzfont" font_size="16" color="#5B6675" align="center" text="MV 输出"/>
+      <label id="pid_mv_v" x="728" y="418" w="212" h="32" font="hzfont" font_size="28" color="#1F2937" align="center" text="0 %"/>
+      <label id="mv_cap" x="744" y="456" w="180" h="20" font="hzfont" font_size="16" color="#5B6675" align="left" text="输出百分比"/>
+      <image id="mv_slot" x="744" y="474" w="180" h="10" src="bar_slot"/>
+      <image id="mv_bar" x="744" y="474" w="180" h="10" src="bar_fill"/>
+
+      <!-- ============ 维护检修罩（单图 set_hidden） ============ -->
+      <image id="maint_overlay" x="272" y="144" w="740" h="344" src="overlay_maint" hidden="true"/>
+
+      <!-- ============ 事件记录 ============ -->
+      <container id="log_panel" x="12" y="496" w="508" h="96" background="#FFFFFF" border-color="#C7CED8" border-width="2" radius="6"/>
+      <label id="log_ttl" x="24" y="502" w="250" h="22" font="hzfont" font_size="16" color="#1F2937" align="left" text="事件记录 / EVENT LOG"/>
+      <label id="log_r0" x="24" y="524" w="484" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="系统初始化完成，等待操作"/>
+      <label id="log_r1" x="24" y="546" w="484" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="PLC 通讯建立 · 从站 1"/>
+      <label id="log_r2" x="24" y="568" w="484" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="当前状态：停机"/>
+
+      <!-- ============ 操作区 ============ -->
+      <container id="ops_panel" x="532" y="496" w="480" h="96" background="#FFFFFF" border-color="#C7CED8" border-width="2" radius="6"/>
+      <label id="op_hint" x="540" y="500" w="460" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="操作区 · 全部禁用"/>
+      <image id="btn_p1"  x="540" y="516" w="84" h="48" src="btnop_p1_n"  src-pressed="btnop_p1_p"  src-disabled="btnop_p1_d"  clickable="true" on-click="toggle_p1" disabled="true"/>
+      <image id="btn_p2"  x="632" y="516" w="84" h="48" src="btnop_p2_n"  src-pressed="btnop_p2_p"  src-disabled="btnop_p2_d"  clickable="true" on-click="toggle_p2" disabled="true"/>
+      <image id="btn_mx"  x="724" y="516" w="84" h="48" src="btnop_mx_n"  src-pressed="btnop_mx_p"  src-disabled="btnop_mx_d"  clickable="true" on-click="toggle_mx" disabled="true"/>
+      <image id="btn_mode" x="816" y="516" w="84" h="48" src="btnop_mode_n" src-pressed="btnop_mode_p" src-disabled="btnop_mode_d" clickable="true" on-click="ask_auto" disabled="true"/>
+      <image id="btn_rst" x="908" y="516" w="84" h="48" src="btnrst_n" src-pressed="btnrst_p" src-disabled="btnrst_d" clickable="true" on-click="reset_fault" disabled="true"/>
+
+    </page>
+  </pages>
+</ui>

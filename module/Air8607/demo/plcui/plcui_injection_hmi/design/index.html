@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>智能注塑车间 · 1# 产线监控总览 | PLCUI 原型 1024×600</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* 页面栈：导出时按 ?page=xxx 只显示一页 */
+  .page{position:absolute;left:0;top:0;width:1024px;height:600px;display:none;}
+  .page.active{display:block;}
+  /* 素材瓦片被隐藏时用 visibility，保证导出底图不残留文字 */
+  .hide{visibility:hidden;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i><i class="screw bm"></i>
+
+  <!-- ================= 总览 ================= -->
+  <section class="page" data-page="overview">
+    <div id="ov-shell"></div>
+
+    <!-- 趋势面板 -->
+    <div class="panel" style="left:10px;top:124px;width:616px;height:198px">
+      <div class="ttl" style="left:22px;top:130px">■ 温度 / 压力 实时趋势<span class="sub">· 窗口 60 s · 采样 1 Hz · 左轴 ℃ / 右轴 MPa</span></div>
+      <div class="plot" style="left:18px;top:148px;width:600px;height:166px">
+        <!-- 栅格与刻度：烘图 -->
+        <div class="gline" style="left:34px;top:0;width:536px"></div>
+        <div class="gline" style="left:34px;top:37px;width:536px"></div>
+        <div class="gline" style="left:34px;top:74px;width:536px"></div>
+        <div class="gline" style="left:34px;top:111px;width:536px"></div>
+        <div class="gline" style="left:34px;top:148px;width:536px"></div>
+        <div class="glinev" style="left:34px;top:0;height:148px"></div>
+        <div class="glinev" style="left:141px;top:0;height:148px"></div>
+        <div class="glinev" style="left:248px;top:0;height:148px"></div>
+        <div class="glinev" style="left:355px;top:0;height:148px"></div>
+        <div class="glinev" style="left:462px;top:0;height:148px"></div>
+        <div class="glinev" style="left:569px;top:0;height:148px"></div>
+        <span class="ax" style="left:4px;top:-5px;width:28px;text-align:right">260</span>
+        <span class="ax" style="left:4px;top:32px;width:28px;text-align:right">240</span>
+        <span class="ax" style="left:4px;top:69px;width:28px;text-align:right">220</span>
+        <span class="ax" style="left:4px;top:106px;width:28px;text-align:right">200</span>
+        <span class="ax" style="left:4px;top:142px;width:28px;text-align:right">180</span>
+        
+        <span class="axr" style="left:576px;top:-5px;width:22px">120</span>
+        <span class="axr" style="left:576px;top:32px;width:22px">105</span>
+        <span class="axr" style="left:576px;top:69px;width:22px">90</span>
+        <span class="axr" style="left:576px;top:106px;width:22px">75</span>
+        <span class="axr" style="left:576px;top:142px;width:22px">60</span>
+        
+        <span class="ax" style="left:34px;top:152px;width:60px">-60 s</span>
+        <span class="ax" style="left:270px;top:152px;width:60px">-30 s</span>
+        <span class="ax" style="left:540px;top:152px;width:34px;text-align:right">现在</span>
+        <span class="axr" style="left:306px;top:4px;width:224px;text-align:right;color:#aeb8bc">模温 ▬ 压力 ▬ SP ▬</span>
+        <!-- 曲线本体：chart 组件（背景透明，栅格来自烘图） -->
+        <div data-plcui="chart" data-raster="no" data-asset="html" data-id="ch_ov"
+             data-type="line" data-points="60" data-ymin="0" data-ymax="100" data-hdiv="0" data-vdiv="0"
+             data-series="t:#ffb43a,p:#48d8d0,s:#ff7a3c"
+             style="left:34px;top:0;width:536px;height:148px" id="ch_ov">
+          <svg width="536" height="148" style="position:absolute;left:0;top:0;overflow:visible" id="svg_ov"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- 仪表 + 详情 -->
+    <div class="panel" style="left:10px;top:330px;width:166px;height:128px">
+      <div class="gauge" style="left:33px;top:334px;width:96px;height:96px" id="g_t">
+        <div class="bezel"></div><div class="face"></div><div class="ticks"></div><div class="major"></div>
+        <span class="gnum" style="left:35%;top:65%">180</span>
+        <span class="gnum" style="left:31%;top:42%">200</span>
+        <span class="gnum" style="left:50%;top:29%">220</span>
+        <span class="gnum" style="left:69%;top:42%">240</span>
+        <span class="gnum" style="left:65%;top:65%">260</span>
+                <div class="needle" data-plcui="image" data-raster="yes" data-asset="html" data-id="nd_t"
+             data-asset-name="nd_needle" data-alpha="1" data-pivot="48,48"><i></i></div>
+        <div class="gcap" data-plcui="image" data-raster="yes" data-asset="html" data-id="cap_t"
+             data-asset-name="g_cap" data-alpha="1"></div>
+      </div>
+      <div class="led" data-plcui="label" data-raster="no" data-asset="html" data-id="v_t"
+           data-fs="13" data-color="#ffd15c" data-align="center"
+           style="left:33px;top:432px;width:96px;height:15px;font-size:13px;text-align:center">220.0</div>
+      <div class="hint" style="left:10px;top:448px;width:146px;text-align:center;font-size:8px">模温表・MOLD TEMP ℃</div>
+    </div>
+
+    <div class="panel" style="left:182px;top:330px;width:166px;height:128px">
+      <div class="gauge" style="left:205px;top:334px;width:96px;height:96px" id="g_p">
+        <div class="bezel"></div><div class="face"></div><div class="ticks"></div><div class="major"></div>
+        <span class="gnum" style="left:35%;top:65%">60</span>
+        <span class="gnum" style="left:31%;top:42%">75</span>
+        <span class="gnum" style="left:50%;top:29%">90</span>
+        <span class="gnum" style="left:69%;top:42%">105</span>
+        <span class="gnum" style="left:65%;top:65%">120</span>
+                <div class="needle" data-plcui="image" data-raster="yes" data-asset="html" data-id="nd_p"
+             data-asset-name="nd_needle" data-alpha="1" data-pivot="48,48"><i></i></div>
+        <div class="gcap" data-plcui="image" data-raster="yes" data-asset="html" data-id="cap_p"
+             data-asset-name="g_cap" data-alpha="1"></div>
+      </div>
+      <div class="led" data-plcui="label" data-raster="no" data-asset="html" data-id="v_p"
+           data-fs="13" data-color="#ffd15c" data-align="center"
+           style="left:205px;top:432px;width:96px;height:15px;font-size:13px;text-align:center">88.0</div>
+      <div class="hint" style="left:182px;top:448px;width:146px;text-align:center;font-size:8px">射胶压力・INJ PRESS MPa</div>
+    </div>
+
+    <div class="panel" style="left:354px;top:330px;width:272px;height:128px">
+      <div class="led-cyan ell" data-plcui="label" data-raster="no" data-asset="html" data-id="dev_title"
+           data-fs="10" data-color="#9fd8d4" data-align="left"
+           style="left:362px;top:334px;width:256px;height:12px;font-size:9.5px;letter-spacing:1px">■ 全线综合参数 / LINE</div>
+      <!-- 6 个详情节 -->
+      <div class="cell" style="left:362px;top:350px;width:126px;height:30px"></div>
+      <div class="hint" style="left:368px;top:354px;font-size:8px">实时模温</div>
+      <div class="led-cyan" data-plcui="label" data-raster="no" data-asset="html" data-id="dt1"
+           data-fs="12" data-color="#48d8d0" data-align="left"
+           style="left:368px;top:364px;width:114px;height:14px;font-size:11.5px">220.0 ℃</div>
+      <div class="cell" style="left:494px;top:350px;width:126px;height:30px"></div>
+      <div class="hint" style="left:500px;top:354px;font-size:8px">射胶压力</div>
+      <div class="led-cyan" data-plcui="label" data-raster="no" data-asset="html" data-id="dt2"
+           data-fs="12" data-color="#48d8d0" data-align="left"
+           style="left:500px;top:364px;width:114px;height:14px;font-size:11.5px">88.0 MPa</div>
+      <div class="cell" style="left:362px;top:384px;width:126px;height:30px"></div>
+      <div class="hint" style="left:368px;top:388px;font-size:8px">模温设定值</div>
+      <div class="led-cyan" data-plcui="label" data-raster="no" data-asset="html" data-id="dt3"
+           data-fs="12" data-color="#48d8d0" data-align="left"
+           style="left:368px;top:398px;width:114px;height:14px;font-size:11.5px">220 ℃</div>
+      <div class="cell" style="left:494px;top:384px;width:126px;height:30px"></div>
+      <div class="hint" style="left:500px;top:388px;font-size:8px">综合 OEE</div>
+      <div class="led-cyan" data-plcui="label" data-raster="no" data-asset="html" data-id="dt4"
+           data-fs="12" data-color="#48d8d0" data-align="left"
+           style="left:500px;top:398px;width:114px;height:14px;font-size:11.5px">89.4 %</div>
+      <div class="cell" style="left:362px;top:418px;width:126px;height:30px"></div>
+      <div class="hint" style="left:368px;top:422px;font-size:8px">运行设备</div>
+      <div class="led-cyan" data-plcui="label" data-raster="no" data-asset="html" data-id="dt5"
+           data-fs="12" data-color="#48d8d0" data-align="left"
+           style="left:368px;top:432px;width:114px;height:14px;font-size:11.5px">2 / 3 台</div>
+      <div class="cell" style="left:494px;top:418px;width:126px;height:30px"></div>
+      <div class="hint" style="left:500px;top:422px;font-size:8px">当班产量</div>
+      <div class="led-cyan" data-plcui="label" data-raster="no" data-asset="html" data-id="dt6"
+           data-fs="12" data-color="#48d8d0" data-align="left"
+           style="left:500px;top:432px;width:114px;height:14px;font-size:11.5px">1 286 件</div>
+    </div>
+
+    <!-- 设备状态 -->
+    <div class="panel" style="left:634px;top:124px;width:380px;height:168px">
+      <div class="ttl" style="left:646px;top:130px">■ 设备状态<span class="sub">· 点箭头查看详情</span></div>
+      <!-- 设备卡 ×3 -->
+      <div class="devcard" style="left:642px;top:148px;width:364px;height:44px"></div>
+      <span class="dot" data-plcui="image" data-raster="yes" data-asset="html" data-id="led0"
+            data-asset-name="dot" data-states="run,idle,fault"
+            style="left:650px;top:156px;width:10px;height:10px"></span>
+      <div style="position:absolute;left:666px;top:154px;font-size:10.5px;font-weight:600;letter-spacing:.6px;text-shadow:0 1px 0 #000">注塑机 A</div>
+      <div class="mono" style="position:absolute;left:900px;top:155px;width:56px;text-align:right;font-size:7.5px;color:#778187">IMM-A01</div>
+      <div data-plcui="label" data-raster="no" data-asset="html" data-id="st0" data-fs="9"
+           data-color="#8ff0ac" data-align="left" style="left:666px;top:169px;width:52px;height:12px;font-size:9.5px;color:#8ff0ac">运行</div>
+      <div class="mono" data-plcui="label" data-raster="no" data-asset="html" data-id="ld0" data-fs="9"
+           data-color="#aeb7bb" data-align="right" style="left:920px;top:168px;width:36px;height:12px;font-size:9.5px;color:#aeb7bb;text-align:right">82 %</div>
+      <div class="bar" style="left:666px;top:181px;width:296px;height:6px"></div>
+      <div class="bar-fill" data-plcui="image" data-raster="yes" data-asset="html" data-id="bar0"
+           data-asset-name="barfill" data-states="g,i,f" data-fit="stretch"
+           style="left:666px;top:181px;width:243px;height:6px"></div>
+      <div class="arrow" data-plcui="image" data-raster="yes" data-asset="html" data-id="sel0"
+           data-asset-name="arr" data-states="n,c" data-on="dev_sel0"
+           style="left:960px;top:161px;width:20px;height:18px">›</div>
+
+      <div class="devcard" style="left:642px;top:194px;width:364px;height:44px"></div>
+      <span class="dot dot--idle" data-plcui="image" data-raster="yes" data-asset="html" data-id="led1"
+            data-asset-name="dot" data-states="run,idle,fault"
+            style="left:650px;top:202px;width:10px;height:10px"></span>
+      <div style="position:absolute;left:666px;top:200px;font-size:10.5px;font-weight:600;letter-spacing:.6px;text-shadow:0 1px 0 #000">注塑机 B</div>
+      <div class="mono" style="position:absolute;left:900px;top:201px;width:56px;text-align:right;font-size:7.5px;color:#778187">IMM-B02</div>
+      <div data-plcui="label" data-raster="no" data-asset="html" data-id="st1" data-fs="9"
+           data-color="#f0cd7e" data-align="left" style="left:666px;top:215px;width:52px;height:12px;font-size:9.5px;color:#f0cd7e">待机</div>
+      <div class="mono" data-plcui="label" data-raster="no" data-asset="html" data-id="ld1" data-fs="9"
+           data-color="#aeb7bb" data-align="right" style="left:920px;top:214px;width:36px;height:12px;font-size:9.5px;color:#aeb7bb;text-align:right">15 %</div>
+      <div class="bar" style="left:666px;top:227px;width:296px;height:6px"></div>
+      <div class="bar-fill i" data-plcui="image" data-raster="yes" data-asset="html" data-id="bar1"
+           data-asset-name="barfill" data-states="g,i,f" data-fit="stretch"
+           style="left:666px;top:227px;width:44px;height:6px"></div>
+      <div class="arrow" data-plcui="image" data-raster="yes" data-asset="html" data-id="sel1"
+           data-asset-name="arr" data-states="n,c" data-on="dev_sel1"
+           style="left:960px;top:207px;width:20px;height:18px">›</div>
+
+      <div class="devcard" style="left:642px;top:240px;width:364px;height:44px"></div>
+      <span class="dot dot--fault" data-plcui="image" data-raster="yes" data-asset="html" data-id="led2"
+            data-asset-name="dot" data-states="run,idle,fault"
+            style="left:650px;top:248px;width:10px;height:10px"></span>
+      <div style="position:absolute;left:666px;top:246px;font-size:10.5px;font-weight:600;letter-spacing:.6px;text-shadow:0 1px 0 #000">注塑机 C</div>
+      <div class="mono" style="position:absolute;left:900px;top:247px;width:56px;text-align:right;font-size:7.5px;color:#778187">IMM-C03</div>
+      <div data-plcui="label" data-raster="no" data-asset="html" data-id="st2" data-fs="9"
+           data-color="#ff9a90" data-align="left" style="left:666px;top:261px;width:52px;height:12px;font-size:9.5px;color:#ff9a90">故障</div>
+      <div class="mono" data-plcui="label" data-raster="no" data-asset="html" data-id="ld2" data-fs="9"
+           data-color="#aeb7bb" data-align="right" style="left:920px;top:260px;width:36px;height:12px;font-size:9.5px;color:#aeb7bb;text-align:right">0 %</div>
+      <div class="bar" style="left:666px;top:273px;width:296px;height:6px"></div>
+      <div class="bar-fill f" data-plcui="image" data-raster="yes" data-asset="html" data-id="bar2"
+           data-asset-name="barfill" data-states="g,i,f" data-fit="stretch"
+           style="left:666px;top:273px;width:1px;height:6px"></div>
+      <div class="arrow" data-plcui="image" data-raster="yes" data-asset="html" data-id="sel2"
+           data-asset-name="arr" data-states="n,c" data-on="dev_sel2"
+           style="left:960px;top:253px;width:20px;height:18px">›</div>
+    </div>
+
+    <!-- 实时报警 -->
+    <div class="panel" style="left:634px;top:300px;width:380px;height:158px">
+      <div class="ttl" style="left:646px;top:305px">■ 实时报警</div>
+      <div style="position:absolute;left:938px;top:303px;width:62px;height:16px;border-radius:9px;background:rgba(220,60,45,.18);box-shadow:inset 0 0 0 1px rgba(255,90,70,.3)"></div>
+      <div data-plcui="label" data-raster="no" data-asset="html" data-id="al_cnt" data-fs="9"
+           data-color="#ffb0a8" data-align="center" style="left:940px;top:306px;width:58px;height:11px;font-size:8.5px;color:#ffb0a8;text-align:center">3 未确认</div>
+
+      <div class="alarm-row sev" style="left:642px;top:324px;width:364px;height:34px"></div>
+      <span class="dot dot--fault" data-plcui="image" data-raster="yes" data-asset="html" data-id="ad0"
+            data-asset-name="dot" data-states="run,idle,fault" style="left:651px;top:337px;width:8px;height:8px"></span>
+      <div data-plcui="label" data-raster="no" data-asset="html" data-id="alv0" data-fs="9"
+           data-color="#ff8b80" data-align="left" style="left:664px;top:328px;width:30px;height:11px;font-size:8.5px;color:#ff8b80;font-weight:700">严重</div>
+      <div class="mono" data-plcui="label" data-raster="no" data-asset="html" data-id="alt0" data-fs="9"
+           data-color="#788288" data-align="left" style="left:698px;top:329px;width:56px;height:10px;font-size:8px;color:#788288">14:12:30</div>
+      <div class="ell" data-plcui="label" data-raster="no" data-asset="html" data-id="ald0" data-fs="9"
+           data-color="#d8dfe1" data-align="left" style="left:664px;top:341px;width:242px;height:12px;font-size:9px;color:#d8dfe1">液压系统压力低于安全阈值 62 MPa</div>
+      <div class="ackbtn" data-plcui="image" data-raster="yes" data-asset="html" data-id="ak0"
+           data-asset-name="ack" data-states="n,p" data-on="ack0"
+           style="left:952px;top:331px;width:44px;height:18px">确认</div>
+
+      <div class="alarm-row warn" style="left:642px;top:362px;width:364px;height:34px"></div>
+      <span class="dot dot--idle" data-plcui="image" data-raster="yes" data-asset="html" data-id="ad1"
+            data-asset-name="dot" data-states="run,idle,fault" style="left:651px;top:375px;width:8px;height:8px"></span>
+      <div data-plcui="label" data-raster="no" data-asset="html" data-id="alv1" data-fs="9"
+           data-color="#f0cd7e" data-align="left" style="left:664px;top:366px;width:30px;height:11px;font-size:8.5px;color:#f0cd7e;font-weight:700">警告</div>
+      <div class="mono" data-plcui="label" data-raster="no" data-asset="html" data-id="alt1" data-fs="9"
+           data-color="#788288" data-align="left" style="left:698px;top:367px;width:56px;height:10px;font-size:8px;color:#788288">13:58:02</div>
+      <div class="ell" data-plcui="label" data-raster="no" data-asset="html" data-id="ald1" data-fs="9"
+           data-color="#d8dfe1" data-align="left" style="left:664px;top:379px;width:242px;height:12px;font-size:9px;color:#d8dfe1">2# 模温偏差 +4.5 ℃，接近上限</div>
+      <div class="ackbtn" data-plcui="image" data-raster="yes" data-asset="html" data-id="ak1"
+           data-asset-name="ack" data-states="n,p" data-on="ack1"
+           style="left:952px;top:369px;width:44px;height:18px">确认</div>
+
+      <div class="alarm-row warn acked" style="left:642px;top:400px;width:364px;height:34px"></div>
+      <span class="dot dot--off" data-plcui="image" data-raster="yes" data-asset="html" data-id="ad2"
+            data-asset-name="dot" data-states="run,idle,fault" style="left:651px;top:413px;width:8px;height:8px"></span>
+      <div data-plcui="label" data-raster="no" data-asset="html" data-id="alv2" data-fs="9"
+           data-color="#f0cd7e" data-align="left" style="left:664px;top:404px;width:30px;height:11px;font-size:8.5px;color:#c9a765;font-weight:700">警告</div>
+      <div class="mono" data-plcui="label" data-raster="no" data-asset="html" data-id="alt2" data-fs="9"
+           data-color="#788288" data-align="left" style="left:698px;top:405px;width:56px;height:10px;font-size:8px;color:#788288">13:40:11</div>
+      <div class="ell" data-plcui="label" data-raster="no" data-asset="html" data-id="ald2" data-fs="9"
+           data-color="#d8dfe1" data-align="left" style="left:664px;top:417px;width:242px;height:12px;font-size:9px;color:#9aa3a7">润滑油脂位偏低，建议补充</div>
+      <div class="ackbtn is-disabled" data-plcui="image" data-raster="yes" data-asset="html" data-id="ak2"
+           data-asset-name="ack" data-states="n,p,d" data-on="ack2"
+           style="left:952px;top:407px;width:44px;height:18px">已确认</div>
+    </div>
+  </section>
+
+  <!-- ================= 趋势 ================= -->
+  <section class="page" data-page="trend">
+    <div id="tr-shell"></div>
+    <div class="panel" style="left:10px;top:56px;width:1004px;height:300px">
+      <div class="ttl" style="left:22px;top:62px">■ 工艺曲线 / 长趋势分析<span class="sub">· 模温与射胶压力 · 橙色为目标线 SP</span></div>
+      <div class="plot" style="left:18px;top:84px;width:984px;height:258px">
+        <div class="gline" style="left:34px;top:4px;width:924px"></div>
+        <div class="gline" style="left:34px;top:62px;width:924px"></div>
+        <div class="gline" style="left:34px;top:120px;width:924px"></div>
+        <div class="gline" style="left:34px;top:178px;width:924px"></div>
+        <div class="gline" style="left:34px;top:236px;width:924px"></div>
+        <div class="glinev" style="left:34px;top:4px;height:232px"></div>
+        <div class="glinev" style="left:218px;top:4px;height:232px"></div>
+        <div class="glinev" style="left:402px;top:4px;height:232px"></div>
+        <div class="glinev" style="left:586px;top:4px;height:232px"></div>
+        <div class="glinev" style="left:770px;top:4px;height:232px"></div>
+        <div class="glinev" style="left:954px;top:4px;height:232px"></div>
+        <span class="ax" style="left:2px;top:-1px;width:30px;text-align:right">260</span>
+        <span class="ax" style="left:2px;top:57px;width:30px;text-align:right">240</span>
+        <span class="ax" style="left:2px;top:115px;width:30px;text-align:right">220</span>
+        <span class="ax" style="left:2px;top:173px;width:30px;text-align:right">200</span>
+        <span class="ax" style="left:2px;top:231px;width:30px;text-align:right">180</span>
+        <span class="axr" style="left:960px;top:-1px;width:24px">120</span>
+        <span class="axr" style="left:960px;top:57px;width:24px">105</span>
+        <span class="axr" style="left:960px;top:115px;width:24px">90</span>
+        <span class="axr" style="left:960px;top:173px;width:24px">75</span>
+        <span class="axr" style="left:960px;top:231px;width:24px">60</span>
+        <span class="ax" style="left:34px;top:240px;width:60px">-120 s</span>
+        <span class="ax" style="left:490px;top:240px;width:60px">-60 s</span>
+        <span class="axr" style="left:900px;top:240px;width:60px;text-align:right">现在</span>
+        <div data-plcui="chart" data-raster="no" data-asset="html" data-id="ch_tr"
+             data-type="line" data-points="80" data-ymin="0" data-ymax="100" data-hdiv="0" data-vdiv="0"
+             data-series="t:#ffb43a,p:#48d8d0,s:#ff7a3c"
+             style="left:52px;top:88px;width:924px;height:232px" id="ch_tr">
+          <svg width="924" height="232" style="position:absolute;left:0;top:0" id="svg_tr"></svg>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="left:10px;top:364px;width:245px;height:88px"></div>
+    <div class="hint" style="left:22px;top:374px;letter-spacing:1.2px">实时模温 PV</div>
+    <div class="led" data-plcui="label" data-raster="no" data-asset="html" data-id="st_t" data-fs="21" data-color="#ffd15c" data-align="left" style="left:22px;top:392px;width:150px;height:26px;font-size:21px">--</div>
+    <div class="hint" style="left:182px;top:400px">℃</div>
+    <div class="panel" style="left:263px;top:364px;width:245px;height:88px"></div>
+    <div class="hint" style="left:275px;top:374px;letter-spacing:1.2px">射胶压力 PV</div>
+    <div class="led-cyan" data-plcui="label" data-raster="no" data-asset="html" data-id="st_p" data-fs="21" data-color="#48d8d0" data-align="left" style="left:275px;top:392px;width:150px;height:26px;font-size:21px">--</div>
+    <div class="hint" style="left:435px;top:400px">MPa</div>
+    <div class="panel" style="left:516px;top:364px;width:245px;height:88px"></div>
+    <div class="hint" style="left:528px;top:374px;letter-spacing:1.2px">模温设定值 SP</div>
+    <div class="led" data-plcui="label" data-raster="no" data-asset="html" data-id="st_sp" data-fs="21" data-color="#ffd15c" data-align="left" style="left:528px;top:392px;width:150px;height:26px;font-size:21px">--</div>
+    <div class="hint" style="left:688px;top:400px">℃</div>
+    <div class="panel" style="left:769px;top:364px;width:245px;height:88px"></div>
+    <div class="hint" style="left:781px;top:374px;letter-spacing:1.2px">过程偏差 ΔT</div>
+    <div class="led-g" data-plcui="label" data-raster="no" data-asset="html" data-id="st_d" data-fs="21" data-color="#63e08a" data-align="left" style="left:781px;top:392px;width:150px;height:26px;font-size:21px">--</div>
+    <div class="hint" style="left:941px;top:400px">℃</div>
+  </section>
+
+  <!-- ================= 报警 ================= -->
+  <section class="page" data-page="alarm">
+    <div id="al-shell"></div>
+    <div class="panel" style="left:10px;top:56px;width:1004px;height:50px">
+      <div data-plcui="label" data-raster="no" data-asset="html" data-id="al_stat" data-fs="10"
+           data-color="#c8d0d3" data-align="left" style="left:24px;top:70px;width:340px;height:16px;font-size:10px;letter-spacing:.6px;color:#c8d0d3">未确认报警 3 条 · 累计记录 4 条</div>
+      <div class="btn" data-plcui="image" data-raster="yes" data-asset="html" data-id="b_ackall"
+           data-asset-name="btnackall" data-states="n,p" data-on="alarm_ack_all"
+           style="left:744px;top:63px;width:126px;height:32px;font-size:10px;letter-spacing:1.2px">全部确认</div>
+      <div class="btn" data-plcui="image" data-raster="yes" data-asset="html" data-id="b_clr"
+           data-asset-name="btnclr" data-states="n,p" data-on="alarm_clear"
+           style="left:878px;top:63px;width:122px;height:32px;font-size:10px;letter-spacing:1.2px">清除已确认</div>
+    </div>
+    <div class="panel" style="left:10px;top:114px;width:1004px;height:344px">
+      <div class="ttl" style="left:22px;top:119px">■ 报警记录表<span class="sub">· rows 含表头 · 已确认行置灰</span></div>
+      <div data-plcui="table" data-raster="no" data-asset="html" data-id="tb_al"
+           data-rows="7" data-cols="6" data-row-height="42" data-col-widths="80,150,180,380,110,80"
+           style="left:22px;top:140px;width:980px;height:300px;overflow:hidden;background:#0a1013;border:1px solid #1d272c">
+        <table style="width:980px;border-collapse:collapse;table-layout:fixed">
+        <tr style="height:42px;background:#1b2327"><td style="width:80px;padding:0 10px;color:#8c969b;font-size:10px;letter-spacing:1px">级别</td><td style="width:150px;padding:0 10px;color:#8c969b;font-size:10px;letter-spacing:1px">发生时间</td><td style="width:180px;padding:0 10px;color:#8c969b;font-size:10px;letter-spacing:1px">设备 / 回路</td><td style="width:380px;padding:0 10px;color:#8c969b;font-size:10px;letter-spacing:1px">报警描述</td><td style="width:110px;padding:0 10px;color:#8c969b;font-size:10px;letter-spacing:1px">状态</td><td style="width:80px;padding:0 10px;color:#8c969b;font-size:10px;letter-spacing:1px">处理</td></tr>
+        <tr style="height:42px;background:#0e1518;border-bottom:1px solid #1d272c"><td style="width:80px;padding:0 10px;color:#ff8b80;font-size:11px;">严重</td><td style="width:150px;padding:0 10px;color:#d6dcde;font-size:11px;">14:12:30</td><td style="width:180px;padding:0 10px;color:#d6dcde;font-size:11px;">注塑机 C / 液压回路</td><td style="width:380px;padding:0 10px;color:#d6dcde;font-size:11px;">液压系统压力低于安全阈值 62 MPa</td><td style="width:110px;padding:0 10px;color:#d6dcde;font-size:11px;">未确认</td><td style="width:80px;padding:0 10px;color:#d6dcde;font-size:11px;">—</td></tr>
+        <tr style="height:42px;background:#121b1f;border-bottom:1px solid #1d272c"><td style="width:80px;padding:0 10px;color:#f0cd7e;font-size:11px;">警告</td><td style="width:150px;padding:0 10px;color:#d6dcde;font-size:11px;">13:58:02</td><td style="width:180px;padding:0 10px;color:#d6dcde;font-size:11px;">模温单元 2#</td><td style="width:380px;padding:0 10px;color:#d6dcde;font-size:11px;">模温偏差 +4.5 ℃，接近上限</td><td style="width:110px;padding:0 10px;color:#d6dcde;font-size:11px;">未确认</td><td style="width:80px;padding:0 10px;color:#d6dcde;font-size:11px;">—</td></tr>
+        <tr style="height:42px;background:#0e1518;border-bottom:1px solid #1d272c"><td style="width:80px;padding:0 10px;color:#f0cd7e;font-size:11px;">警告</td><td style="width:150px;padding:0 10px;color:#d6dcde;font-size:11px;">13:40:11</td><td style="width:180px;padding:0 10px;color:#d6dcde;font-size:11px;">注塑机 B / 润滑</td><td style="width:380px;padding:0 10px;color:#d6dcde;font-size:11px;">润滑油脂位偏低，建议补充</td><td style="width:110px;padding:0 10px;color:#d6dcde;font-size:11px;">已确认</td><td style="width:80px;padding:0 10px;color:#d6dcde;font-size:11px;">—</td></tr>
+        <tr style="height:42px;background:#121b1f;border-bottom:1px solid #1d272c"><td style="width:80px;padding:0 10px;color:#d6dcde;font-size:11px;">提示</td><td style="width:150px;padding:0 10px;color:#d6dcde;font-size:11px;">12:05:44</td><td style="width:180px;padding:0 10px;color:#d6dcde;font-size:11px;">安全回路</td><td style="width:380px;padding:0 10px;color:#d6dcde;font-size:11px;">安全门联锁信号抖动，已记录</td><td style="width:110px;padding:0 10px;color:#d6dcde;font-size:11px;">已确认</td><td style="width:80px;padding:0 10px;color:#d6dcde;font-size:11px;">—</td></tr>
+        <tr style="height:42px;background:#0e1518;border-bottom:1px solid #1d272c"><td style="width:80px;padding:0 10px;color:#d6dcde;font-size:11px;">提示</td><td style="width:150px;padding:0 10px;color:#d6dcde;font-size:11px;">11:22:18</td><td style="width:180px;padding:0 10px;color:#d6dcde;font-size:11px;">注塑机 A</td><td style="width:380px;padding:0 10px;color:#d6dcde;font-size:11px;">合模压力波动超出 ±3%，已自恢复</td><td style="width:110px;padding:0 10px;color:#d6dcde;font-size:11px;">已确认</td><td style="width:80px;padding:0 10px;color:#d6dcde;font-size:11px;">—</td></tr>
+        <tr style="height:42px;background:#121b1f;border-bottom:1px solid #1d272c"><td style="width:80px;padding:0 10px;color:#d6dcde;font-size:11px;">提示</td><td style="width:150px;padding:0 10px;color:#d6dcde;font-size:11px;">10:48:03</td><td style="width:180px;padding:0 10px;color:#d6dcde;font-size:11px;">全线</td><td style="width:380px;padding:0 10px;color:#d6dcde;font-size:11px;">班次交接完成，参数已归档</td><td style="width:110px;padding:0 10px;color:#d6dcde;font-size:11px;">已确认</td><td style="width:80px;padding:0 10px;color:#d6dcde;font-size:11px;">—</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 设置 ================= -->
+  <section class="page" data-page="settings">
+    <div id="st-shell"></div>
+    <div class="panel" style="left:10px;top:56px;width:1004px;height:402px">
+      <div class="ttl" style="left:22px;top:62px">■ 控制器参数设置<span class="sub">· HMI → PLC 写入 · 当前权限：工艺工程师</span></div>
+
+      <!-- 第 1 列：6 个数值输入 -->
+      <div data-row="1"></div>
+      <div class="hint" style="left:32px;top:100px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">模温上限报警</div>
+      <div class="inbox" style="left:148px;top:94px;width:110px;height:28px"></div>
+      <div class="inval" data-plcui="textarea" data-raster="no" data-asset="html" data-id="p1"
+           data-fs="12" data-color="#48d8d0" data-keyboard="kb_num" data-max="4" data-chars="0123456789"
+           data-on-submit="param_submit" data-on-cancel="param_cancel"
+           style="left:156px;top:99px;width:94px;height:18px;font-size:12px">245</div>
+      <div class="hint" style="left:266px;top:102px;width:18px">℃</div>
+      <div class="hint" style="left:292px;top:103px;width:180px">超过触发警告</div>
+
+      <div class="hint" style="left:32px;top:154px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">模温下限报警</div>
+      <div class="inbox" style="left:148px;top:148px;width:110px;height:28px"></div>
+      <div class="inval" data-plcui="textarea" data-raster="no" data-asset="html" data-id="p2"
+           data-fs="12" data-color="#48d8d0" data-keyboard="kb_num" data-max="4" data-chars="0123456789"
+           data-on-submit="param_submit" data-on-cancel="param_cancel"
+           style="left:156px;top:153px;width:94px;height:18px;font-size:12px">195</div>
+      <div class="hint" style="left:266px;top:156px;width:18px">℃</div>
+      <div class="hint" style="left:292px;top:157px;width:180px">低于触发警告</div>
+
+      <div class="hint" style="left:32px;top:208px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">PID 比例带</div>
+      <div class="inbox" style="left:148px;top:202px;width:110px;height:28px"></div>
+      <div class="inval" data-plcui="textarea" data-raster="no" data-asset="html" data-id="p3"
+           data-fs="12" data-color="#48d8d0" data-keyboard="kb_num" data-max="5" data-chars="0123456789."
+           data-on-submit="param_submit" data-on-cancel="param_cancel"
+           style="left:156px;top:207px;width:94px;height:18px;font-size:12px">12.0</div>
+      <div class="hint" style="left:266px;top:210px;width:18px">%</div>
+      <div class="hint" style="left:292px;top:211px;width:180px">温控回路 P</div>
+
+      <div class="hint" style="left:32px;top:262px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">PID 积分时间</div>
+      <div class="inbox" style="left:148px;top:256px;width:110px;height:28px"></div>
+      <div class="inval" data-plcui="textarea" data-raster="no" data-asset="html" data-id="p4"
+           data-fs="12" data-color="#48d8d0" data-keyboard="kb_num" data-max="4" data-chars="0123456789"
+           data-on-submit="param_submit" data-on-cancel="param_cancel"
+           style="left:156px;top:261px;width:94px;height:18px;font-size:12px">45</div>
+      <div class="hint" style="left:266px;top:264px;width:18px">s</div>
+      <div class="hint" style="left:292px;top:265px;width:180px">温控回路 I</div>
+
+      <div class="hint" style="left:32px;top:316px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">通讯轮询周期</div>
+      <div class="inbox" style="left:148px;top:310px;width:110px;height:28px"></div>
+      <div class="inval" data-plcui="textarea" data-raster="no" data-asset="html" data-id="p5"
+           data-fs="12" data-color="#48d8d0" data-keyboard="kb_num" data-max="4" data-chars="0123456789"
+           data-on-submit="param_submit" data-on-cancel="param_cancel"
+           style="left:156px;top:315px;width:94px;height:18px;font-size:12px">250</div>
+      <div class="hint" style="left:266px;top:318px;width:24px">ms</div>
+      <div class="hint" style="left:292px;top:319px;width:180px">PROFINET</div>
+
+      <div class="hint" style="left:32px;top:370px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">射胶压力上限</div>
+      <div class="inbox" style="left:148px;top:364px;width:110px;height:28px"></div>
+      <div class="inval" data-plcui="textarea" data-raster="no" data-asset="html" data-id="p6"
+           data-fs="12" data-color="#48d8d0" data-keyboard="kb_num" data-max="4" data-chars="0123456789"
+           data-on-submit="param_submit" data-on-cancel="param_cancel"
+           style="left:156px;top:369px;width:94px;height:18px;font-size:12px">115</div>
+      <div class="hint" style="left:266px;top:372px;width:24px">MPa</div>
+      <div class="hint" style="left:292px;top:373px;width:180px">超载保护</div>
+
+      <!-- 第 2 列：3 个开关 + 1 个滑块 -->
+      <div class="hint" style="left:526px;top:100px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">报警蜂鸣器</div>
+      <div class="sw on" data-plcui="image" data-raster="yes" data-asset="html" data-id="sw1"
+           data-asset-name="sw" data-states="on,off" data-on="sw1"
+           style="left:766px;top:96px;width:48px;height:22px"><span></span></div>
+      <div class="hint" style="left:826px;top:102px;width:170px">点击拨动开关</div>
+
+      <div class="hint" style="left:526px;top:154px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">班次自动切换</div>
+      <div class="sw on" data-plcui="image" data-raster="yes" data-asset="html" data-id="sw2"
+           data-asset-name="sw" data-states="on,off" data-on="sw2"
+           style="left:766px;top:150px;width:48px;height:22px"><span></span></div>
+      <div class="hint" style="left:826px;top:156px;width:170px">08:00 / 20:00</div>
+
+      <div class="hint" style="left:526px;top:208px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">趋势历史存储</div>
+      <div class="sw" data-plcui="image" data-raster="yes" data-asset="html" data-id="sw3"
+           data-asset-name="sw" data-states="on,off" data-on="sw3"
+           style="left:766px;top:204px;width:48px;height:22px"><span></span></div>
+      <div class="hint" style="left:826px;top:210px;width:170px">本地 24 h 环形缓冲</div>
+
+      <div class="hint" style="left:526px;top:262px;width:110px;font-size:9.5px;color:#c6ced2;letter-spacing:.4px">面板背光亮度</div>
+      <div class="track" style="left:648px;top:272px;width:200px;height:10px">
+        <div class="track-fill" style="width:140px"></div>
+      </div>
+      <div class="thumbimg" style="left:782px;top:265px;width:24px;height:24px"></div>
+      <div class="thumbimg" style="left:782px;top:265px;width:24px;height:24px;background:transparent;box-shadow:none"></div>
+      <div class="led" data-plcui="label" data-raster="no" data-asset="html" data-id="st_br"
+           data-fs="12" data-color="#ffd15c" data-align="right" style="left:866px;top:264px;width:60px;height:16px;font-size:12px;text-align:right">70%</div>
+      <div data-plcui="slider" data-raster="no" data-asset="html" data-id="sl_br"
+           data-min="0" data-max="100" data-value="70" data-on-change="bright_change"
+           style="left:648px;top:264px;width:200px;height:24px"></div>
+
+      <div class="hint" style="left:526px;top:316px;width:420px;font-size:8.5px;line-height:1.6;color:#7d878d">
+        滑块与背光亮度实时联动；数值框点击后弹出数字键盘，确认写入、取消回滚原值。
+      </div>
+
+      <div class="btn btn-start" data-plcui="image" data-raster="yes" data-asset="html" data-id="b_save"
+           data-asset-name="btnsave" data-states="n,p" data-on="param_save"
+           style="left:22px;top:414px;width:130px;height:32px;font-size:10.5px;letter-spacing:1.4px">保存参数</div>
+      <div data-plcui="label" data-raster="no" data-asset="html" data-id="st_msg" data-fs="9"
+           data-color="#7ff2ff" data-align="left" style="left:168px;top:422px;width:600px;height:14px;font-size:9px;color:#7ff2ff">最近保存：本班次未写入 · 校验码 0x1A4F</div>
+
+      <div class="kb" data-plcui="keyboard" data-raster="no" data-asset="html" data-id="kb_num"
+           style="left:214px;top:250px;width:596px;height:190px" data-layout="number"></div>
+    </div>
+  </section>
+
+  <!-- 急停确认（原型交互；真机用 image 弹窗图层） -->
+  <div class="mask" id="mask">
+    <div class="dialog">
+      <div class="dt">⚠ 紧急停机确认</div>
+      <div class="db">确认触发急停？将立即切断 1# 产线全线动力、关闭液压阀门并进入红色报警锁定状态。需现场排查后执行「复位」方可重新启动。</div>
+      <div class="btn" id="dlg_cancel" style="left:60px;bottom:16px;width:120px;height:34px;position:absolute;font-size:10.5px">取 消</div>
+      <div class="btn btn-danger" id="dlg_ok" style="left:220px;bottom:16px;width:120px;height:34px;position:absolute;font-size:10.5px">确认急停</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   原型脚本：只服务于「浏览器里真的能点」这件事。
+   真机同款行为在 code/*.lua 里重写，两边数据字段一一对应。
+   ===================================================================== */
+window.onerror = function(m, s, l, c){ document.title = "ERR:" + m + "@" + l; };
+
+var P = new URLSearchParams(location.search);
+var PAGE = P.get("page") || "overview";
+var ST = P.get("state") || "";
+
+/* ---------- 机箱公共层（顶栏 / KPI / 控制区 / 底栏） ---------- */
+function tabsHTML(cur){
+  var items = [["overview","总 览","tab_ov","go_overview"],["trend","趋 势","tab_tr","go_trend"],
+               ["alarm","报 警","tab_al","go_alarm"],["settings","设 置","tab_st","go_settings"]];
+  var x = 724, out = "";
+  for (var i=0;i<items.length;i++){
+    var it = items[i], on = (it[0]===cur);
+    out += '<div class="tab'+(on?' is-checked':'')+'" data-nav="'+it[0]+'" data-plcui="image" data-raster="yes" data-asset="html"'
+         + ' data-id="'+it[2]+'" data-asset-name="'+it[2]+'" data-states="n,c" data-on="'+it[3]+'"'
+         + ' style="left:'+x+'px;top:567px;width:66px;height:24px">'+it[1]+'</div>';
+    x += 72;
+  }
+  out += '<div class="badgeimg" data-plcui="image" data-raster="yes" data-asset="html" data-id="tab_badge"'
+       + ' data-asset-name="badge" data-states="n" style="left:924px;top:561px;width:16px;height:16px"></div>';
+  out += '<div class="abs" data-plcui="label" data-raster="no" data-asset="html" data-id="tab_num" data-fs="9" data-color="#ffffff" data-align="center"'
+       + ' style="left:924px;top:562px;width:16px;height:14px;font-size:8.5px;color:#fff;text-align:center;line-height:14px">3</div>';
+  return out;
+}
+function shellHTML(cur, withKpi){
+  var h = "";
+  /* 顶栏 */
+  h += '<div class="panel" style="left:10px;top:10px;width:1004px;height:42px"></div>';
+  h += '<div class="brand-mark">⚙</div>';
+  h += '<div class="brand-name">智能注塑车间 · <b>1# 产线</b> 监控总览</div>';
+  h += '<div class="brand-sub">INJECTION MOLDING LINE 01 · CENTRAL OPERATION PANEL</div>';
+  h += '<div class="chip" style="left:372px;top:17px;width:92px;height:28px"></div>';
+  h += '<div class="k" style="left:381px;top:21px;position:absolute;font-size:8px;color:#8d979c;letter-spacing:.8px">当前班次</div>';
+  h += '<div class="abs" data-plcui="label" data-raster="no" data-asset="html" data-id="shift" data-fs="10" data-color="#dfe5e7" data-align="left"'
+     + ' style="left:381px;top:32px;width:74px;height:12px;font-size:10.5px;color:#dfe5e7">白班 A 组</div>';
+  h += '<div class="screen" style="left:470px;top:17px;width:196px;height:28px"></div>';
+  h += '<div class="led" data-plcui="label" data-raster="no" data-asset="html" data-id="clock" data-fs="13" data-color="#ffd15c" data-align="center"'
+     + ' style="left:474px;top:21px;width:188px;height:20px;font-size:13px;text-align:center;letter-spacing:1px">2026-11-16 14:59:00</div>';
+  h += '<div class="lamp lamp--run" data-plcui="image" data-raster="yes" data-asset="html" data-id="lamp"'
+     + ' data-asset-name="lamp" data-states="run,idle,alarm" style="left:676px;top:23px;width:14px;height:14px"></div>';
+  h += '<div class="abs" style="left:698px;top:19px;font-size:8px;color:#8d979c;letter-spacing:.8px">设备状态</div>';
+  h += '<div class="abs" data-plcui="label" data-raster="no" data-asset="html" data-id="status_text" data-fs="10" data-color="#e9edee" data-align="left"'
+     + ' style="left:698px;top:30px;width:80px;height:14px;font-size:10.5px;color:#e9edee;font-weight:600">运行中</div>';
+  h += '<div class="estop-flag" data-plcui="image" data-raster="yes" data-asset="html" data-id="estop_flag" data-asset-name="flag" data-hidden="1"'
+     + ' style="left:796px;top:21px;width:84px;height:22px;visibility:hidden">⚠ 紧急停机</div>';
+  h += '<div class="chip" style="left:898px;top:17px;width:106px;height:28px"></div>';
+  h += '<div class="abs" style="left:907px;top:21px;font-size:8px;color:#8d979c;letter-spacing:.8px">操作员</div>';
+  h += '<div class="abs" style="left:907px;top:31px;font-size:9.5px;color:#dfe5e7">张 工 · OP-0142</div>';
+
+  /* KPI */
+  if (withKpi){
+    var cards = [
+      ["当前产量","件 / 当班","kpi1","1 286","foot1","当班目标 1600 件 · 达成 80.4%"],
+      ["设备综合效率 OEE","%","kpi2","89.4","","可用率 94.2% · 性能 95.1% · 良率 99.6%"],
+      ["模具温度","℃","kpi3","220.0","foot3","设定值 220 ℃ · 上限 245 ℃"],
+      ["成型节拍","s","kpi4","28.4","foot4","标准节拍 28.0 s · 偏差 +1.4%"]
+    ];
+    for (var i=0;i<4;i++){
+      var c = cards[i], x = 10 + i*253;
+      h += '<div class="panel" style="left:'+x+'px;top:56px;width:245px;height:62px"></div>';
+      h += '<div class="kpi-name" style="left:'+(x+11)+'px;top:63px">'+c[0]+'</div>';
+      h += '<div class="kpi-unit" style="left:'+(x+183)+'px;top:64px;position:absolute">'+c[1]+'</div>';
+      h += '<div class="kpi-box screen" style="left:'+(x+10)+'px;top:76px;width:225px;height:24px"></div>';
+      h += '<div class="led" data-plcui="label" data-raster="no" data-asset="html" data-id="'+c[2]+'" data-fs="19" data-color="#ffd15c" data-align="left"'
+         + ' style="left:'+(x+16)+'px;top:77px;width:150px;height:22px;font-size:19px;font-weight:700">'+c[3]+'</div>';
+      if (c[4]){
+        h += '<div class="abs" data-plcui="label" data-raster="no" data-asset="html" data-id="'+c[4]+'" data-fs="9" data-color="#8a9499" data-align="left"'
+           + ' style="left:'+(x+11)+'px;top:103px;width:225px;height:10px;font-size:8.5px;color:#8a9499">'+c[5]+'</div>';
+      } else {
+        h += '<div class="abs" style="left:'+(x+11)+'px;top:103px;width:225px;font-size:8.5px;color:#8a9499">'+c[5]+'</div>';
+      }
+    }
+  }
+
+  /* 控制区 */
+  h += '<div class="panel" style="left:10px;top:466px;width:1004px;height:92px"></div>';
+  h += '<div class="abs" style="left:20px;top:472px;font-size:8px;letter-spacing:1.4px;color:#8c969b">主控操作 / MAIN CONTROL</div>';
+  h += '<div class="btn btn-start" data-plcui="image" data-raster="yes" data-asset="html" data-id="btn_start" data-asset-name="btnstart" data-states="n,p" data-on="line_start"'
+     + ' style="left:20px;top:492px;width:66px;height:56px;flex-direction:column;gap:2px;font-size:10px"><span class="ico">▶</span><span>启动</span></div>';
+  h += '<div class="btn btn-stop" data-plcui="image" data-raster="yes" data-asset="html" data-id="btn_stop" data-asset-name="btnstop" data-states="n,p" data-on="line_stop"'
+     + ' style="left:94px;top:492px;width:66px;height:56px;flex-direction:column;gap:2px;font-size:10px"><span class="ico">■</span><span>停止</span></div>';
+  h += '<div class="btn btn-reset" data-plcui="image" data-raster="yes" data-asset="html" data-id="btn_reset" data-asset-name="btnreset" data-states="n,p" data-on="line_reset"'
+     + ' style="left:168px;top:492px;width:66px;height:56px;flex-direction:column;gap:2px;font-size:10px"><span class="ico">↺</span><span>复位</span></div>';
+  h += '<div class="estop" data-plcui="image" data-raster="yes" data-asset="html" data-id="btn_estop" data-asset-name="estop" data-states="n,p" data-on="line_estop"'
+     + ' style="left:246px;top:484px;width:66px;height:66px"><span class="head">急 停</span></div>';
+
+  /* 管路 */
+  h += '<div class="abs" style="left:330px;top:472px;font-size:8px;letter-spacing:1.4px;color:#8c969b">液压 / 冷却管路 · PIPE &amp; VALVE</div>';
+  h += '<div class="pipe" style="left:334px;top:502px;width:96px;height:16px"><div class="flow" data-plcui="image" data-raster="yes" data-asset="html" data-id="flow0" data-asset-name="flow" data-frames="4" data-alpha="1" style="left:0;top:1px;width:96px;height:14px"></div></div>';
+  h += '<div class="valve" style="left:426px;top:495px;width:30px;height:30px"></div>';
+  h += '<div class="pipe" style="left:452px;top:502px;width:96px;height:16px"><div class="flow" data-plcui="image" data-raster="yes" data-asset="html" data-id="flow1" data-asset-name="flow" data-frames="4" data-alpha="1" style="left:0;top:1px;width:96px;height:14px"></div></div>';
+  h += '<div class="valve" style="left:544px;top:495px;width:30px;height:30px"></div>';
+  h += '<div class="pipe" style="left:570px;top:502px;width:96px;height:16px"><div class="flow" data-plcui="image" data-raster="yes" data-asset="html" data-id="flow2" data-asset-name="flow" data-frames="4" data-alpha="1" style="left:0;top:1px;width:96px;height:14px"></div></div>';
+  h += '<div class="abs" data-plcui="label" data-raster="no" data-asset="html" data-id="pipe_txt" data-fs="9" data-color="#8ff0ac" data-align="left"'
+     + ' style="left:334px;top:534px;width:340px;height:12px;font-size:8px;color:#8ff0ac;letter-spacing:.4px">阀门 开 · 介质流动 · DN40 · 16 MPa</div>';
+
+  /* 设定值锚（旋钮 + 滑块） */
+  h += '<div class="abs" style="left:712px;top:472px;font-size:8px;letter-spacing:1.4px;color:#8c969b">模温设定值 / SETPOINT</div>';
+  h += '<div class="knob" id="knob" data-plcui="image" data-raster="yes" data-asset="html" data-id="knob_sp" data-asset-name="knobsp" data-alpha="1" data-pivot="31,31"'
+     + ' style="left:716px;top:486px;width:62px;height:62px"><i></i></div>';
+  h += '<div class="screen" style="left:790px;top:484px;width:110px;height:26px"></div>';
+  h += '<div class="led" data-plcui="label" data-raster="no" data-asset="html" data-id="sp_val" data-fs="15" data-color="#ffd15c" data-align="center"'
+     + ' style="left:794px;top:488px;width:102px;height:20px;font-size:15px;text-align:center">220</div>';
+  h += '<div class="track" style="left:790px;top:518px;width:170px;height:10px"><div class="track-fill" id="spfill" style="width:93px"></div></div>';
+  h += '<div class="thumbimg" id="spthumb" style="left:869px;top:510px;width:24px;height:24px"></div>';
+  h += '<div data-plcui="slider" data-raster="no" data-asset="html" data-id="sl_sp" data-min="180" data-max="260" data-value="220" data-on-change="sp_change"'
+     + ' style="left:790px;top:510px;width:170px;height:24px"></div>';
+  h += '<div class="abs" style="left:790px;top:534px;width:170px;font-family:Consolas,monospace;font-size:8px;color:#7c868b">180 ℃<span style="float:right">260 ℃</span></div>';
+
+  /* 底栏 */
+  h += '<div class="panel" style="left:10px;top:566px;width:1004px;height:26px"></div>';
+  h += '<div class="abs" style="left:20px;top:573px;font-size:8px;color:#8d979c;letter-spacing:1px">产量累计</div>';
+  h += '<div class="led" data-plcui="label" data-raster="no" data-asset="html" data-id="total_out" data-fs="13" data-color="#ffd15c" data-align="left"'
+     + ' style="left:66px;top:570px;width:80px;height:16px;font-size:13px;font-weight:700">86 542</div>';
+  h += '<div class="dot dot--run" data-plcui="image" data-raster="yes" data-asset="html" data-id="comm_led" data-asset-name="dot" data-states="run,idle,fault"'
+     + ' style="left:152px;top:575px;width:7px;height:7px"></div>';
+  h += '<div class="abs" data-plcui="label" data-raster="no" data-asset="html" data-id="comm_txt" data-fs="9" data-color="#9fa9ae" data-align="left"'
+     + ' style="left:164px;top:572px;width:260px;height:12px;font-size:8px;color:#9fa9ae;letter-spacing:.3px">PROFINET · 通讯正常 · 延迟 4 ms</div>';
+  h += tabsHTML(cur);
+
+  /* 返回键（非总览页） */
+  return h;
+}
+
+var page = document.querySelector('[data-page="'+PAGE+'"]') || document.querySelector('[data-page="overview"]');
+page.classList.add("active");
+var shellId = {overview:"ov-shell",trend:"tr-shell",alarm:"al-shell",settings:"st-shell"}[PAGE];
+document.getElementById(shellId).innerHTML = shellHTML(PAGE, PAGE === "overview");
+
+/* 面板归一化：.panel 只当定位容器（铺满整页），可见饰板换成 .plate，
+   这样面板内子元素可以直接写页面绝对坐标，不会被包含块挪位。 */
+(function(){
+  /* data-id 即设备侧组件 ID，同时补成 DOM id 供原型脚本取用 */
+  var all = document.querySelectorAll("[data-plcui]");
+  for (var a=0;a<all.length;a++){
+    var did = all[a].getAttribute("data-id");
+    if (did) all[a].id = did;
+  }
+  var ps = document.querySelectorAll(".panel");
+  for (var i=0;i<ps.length;i++){
+    var p = ps[i], s = p.style;
+    var pl = document.createElement("div");
+    pl.className = "plate";
+    pl.style.left = s.left; pl.style.top = s.top;
+    pl.style.width = s.width; pl.style.height = s.height;
+    p.parentNode.insertBefore(pl, p);
+    s.left = "0"; s.top = "0"; s.width = "1024px"; s.height = "600px";
+    s.background = "none"; s.boxShadow = "none"; s.border = "0"; s.pointerEvents = "none";
+  }
+})();
+
+/* ---------- 数据 ---------- */
+var N = 60, TMIN=180, TMAX=260, PMIN=60, PMAX=120;
+var S = {run:true, est:false, sp:220, out:1286, total:86542, oee:89.4, cycle:28.4, sel:-1};
+var temp=[], press=[];
+for (var i=0;i<80;i++){ temp.push(220+Math.sin(i/9)*4.2+Math.sin(i/3.1)*0.9+(Math.random()*2-1)*0.7); press.push(88+Math.sin(i/11)*5.5+Math.sin(i/4.3)*1.1+(Math.random()*2-1)*0.6); }
+
+var devices=[{n:"注塑机 A",c:"IMM-A01",base:"运行",load:82,fault:false},{n:"注塑机 B",c:"IMM-B02",base:"待机",load:15,fault:false},{n:"注塑机 C",c:"IMM-C03",base:"故障",load:0,fault:true}];
+var alarms=[
+  {lv:"严重",t:"14:12:30",d:"液压系统压力低于安全阈值 62 MPa",ack:false},
+  {lv:"警告",t:"13:58:02",d:"2# 模温偏差 +4.5 ℃，接近上限",ack:false},
+  {lv:"警告",t:"13:40:11",d:"润滑油脂位偏低，建议补充",ack:true}
+];
+
+/* ---------- 曲线 ---------- */
+function normT(v){ return (v-TMIN)/(TMAX-TMIN)*100; }
+function normP(v){ return (v-PMIN)/(PMAX-PMIN)*100; }
+function drawChart(svg, w, h, n){
+  if (!svg) return;
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  var NS = "http://www.w3.org/2000/svg";
+  var sers = [
+    {arr:temp, f:normT, c:"#ffb43a", wd:2.2, dash:""},
+    {arr:press, f:normP, c:"#48d8d0", wd:1.8, dash:""},
+    {arr:null, f:function(){ return normT(S.sp); }, c:"#ff7a3c", wd:1.4, dash:"5 4"}
+  ];
+  for (var k=0;k<sers.length;k++){
+    var s = sers[k], pl = document.createElementNS(NS,"polyline"), pts = [];
+    for (var i=0;i<n;i++){
+      var v = s.arr ? s.arr[80-n+i] : null;
+      var x = (n===1)?0:i*(w/(n-1));
+      pts.push(x.toFixed(1)+","+((100-s.f(v))/100*h).toFixed(1));
+    }
+    pl.setAttribute("points", pts.join(" "));
+    pl.setAttribute("fill", "none");
+    pl.setAttribute("stroke", s.c);
+    pl.setAttribute("stroke-width", s.wd);
+    pl.setAttribute("stroke-linejoin", "round");
+    if (s.dash) pl.setAttribute("stroke-dasharray", s.dash);
+    svg.appendChild(pl);
+  }
+}
+
+/* ---------- 渲染 ---------- */
+function $(id){
+  var e = page.querySelector('[data-id="'+id+'"]');
+  if (e) return e;
+  e = page.querySelector("#"+id);
+  if (e) return e;
+  return document.getElementById(id);
+}
+function setText(id, t){ var e=$(id); if(e) e.textContent=t; }
+function gauge(el, val, lo, hi){
+  if (!el) return;
+  var a = -135 + (Math.max(lo,Math.min(hi,val))-lo)/(hi-lo)*270;
+  el.style.setProperty("--a", a.toFixed(1)+"deg");
+}
+function devState(d){
+  if (S.est) return {s:"急停", cls:"fault", load:0};
+  if (!S.run) return {s:d.fault?"故障":"待机", cls:d.fault?"fault":"idle", load:d.fault?0:Math.round(d.load*.35)};
+  return {s:d.base, cls:d.fault?"fault":(d.base==="待机"?"idle":"run"), load:d.load};
+}
+function render(){
+  var t = temp[79], p = press[79];
+  if (PAGE === "overview"){
+    setText("kpi1", S.out.toLocaleString("en-US").replace(/,/g," "));
+    setText("foot1", "当班目标 1600 件 · 达成 "+(S.out/1600*100).toFixed(1)+"%");
+    setText("kpi2", S.est?"—":S.oee.toFixed(1));
+    setText("kpi3", t.toFixed(1));
+    setText("kpi4", S.est?"—":S.cycle.toFixed(1));
+    setText("foot3", "设定值 "+S.sp+" ℃ · 上限 245 ℃");
+    setText("foot4", "标准节拍 28.0 s · 偏差 "+((S.cycle-28)/28*100>=0?"+":"")+((S.cycle-28)/28*100).toFixed(1)+"%");
+    setText("v_t", t.toFixed(1));
+    setText("v_p", p.toFixed(1));
+    gauge($("g_t"), t, TMIN, TMAX);
+    gauge($("g_p"), p, PMIN, PMAX);
+    setText("dt1", t.toFixed(1)+" ℃");
+    setText("dt2", p.toFixed(1)+" MPa");
+    setText("dt3", S.sp+" ℃");
+    setText("dt4", S.est?"—":S.oee.toFixed(1)+" %");
+    setText("dt5", (S.run&&!S.est)?"2 / 3 台":"0 / 3 台");
+    setText("dt6", S.out+" 件");
+    for (var i=0;i<3;i++){
+      var d = devices[i], st = devState(d);
+      setText("st"+i, st.s);
+      setText("ld"+i, st.load+" %");
+      $("st"+i).style.color = st.cls==="fault"?"#ff9a90":(st.cls==="idle"?"#f0cd7e":"#8ff0ac");
+      $("led"+i).className = "dot dot--"+(st.cls==="run"?"run":(st.cls==="idle"?"idle":(st.load>0?"run":"fault")));
+      var bar = $("bar"+i);
+      bar.style.width = Math.max(1, Math.round(296*st.load/100))+"px";
+      bar.className = "bar-fill" + (st.cls==="fault"?" f":(st.cls==="idle"?" i":""));
+    }
+    var un = 0;
+    for (var j=0;j<alarms.length;j++) if(!alarms[j].ack) un++;
+    setText("al_cnt", un+" 未确认");
+    for (var k=0;k<3;k++){
+      var a = alarms[k], row = page.querySelectorAll(".alarm-row")[k];
+      if (!a || !row) continue;
+      row.className = "alarm-row "+(a.lv==="严重"?"sev":"warn")+(a.ack?" acked":"");
+      setText("alv"+k, a.lv); setText("alt"+k, a.t); setText("ald"+k, a.d);
+      var ak = $("ak"+k);
+      ak.textContent = a.ack?"已确认":"确认";
+      ak.className = "ackbtn"+(a.ack?" is-disabled":"");
+    }
+    drawChart($("svg_ov"), 536, 148, 60);
+  }
+  if (PAGE === "trend"){
+    setText("st_t", t.toFixed(1)); setText("st_p", p.toFixed(1));
+    setText("st_sp", S.sp); setText("st_d", (t-S.sp>=0?"+":"")+(t-S.sp).toFixed(1));
+    drawChart($("svg_tr"), 924, 232, 80);
+  }
+  setText("shift", (new Date().getHours()>=8&&new Date().getHours()<20)?"白班 A 组":"夜班 B 组");
+  drawChart($("svg_tr"), 924, 232, 80);
+}
+
+/* ---------- 时钟 ---------- */
+function f2(n){ return (n<10?"0":"")+n; }
+function tickClock(){
+  var d = new Date();
+  setText("clock", d.getFullYear()+"-"+f2(d.getMonth()+1)+"-"+f2(d.getDate())+" "+f2(d.getHours())+":"+f2(d.getMinutes())+":"+f2(d.getSeconds()));
+}
+/* ---------- 状态 ---------- */
+function applyState(){
+  setText("status_text", S.est?"紧急停机":(S.run?"运行中":"已停止"));
+  var l = $("lamp");
+  if (l) l.className = "lamp lamp--"+(S.est?"alarm":(S.run?"run":"idle"));
+  var f = $("estop_flag"); if (f) f.style.visibility = S.est?"visible":"hidden";
+  setText("comm_txt", S.est?"PROFINET · 链路告警 · 请排查后复位":"PROFINET · 通讯正常 · 延迟 4 ms");
+  setText("pipe_txt", S.est?"阀门 关断 · 介质截止" : (S.run?"阀门 开 · 介质流动 · DN40 · 16 MPa":"阀门 开 · 保压待机 · DN40 · 16 MPa"));
+  var cl = $("comm_led"); if (cl) cl.className = "dot dot--"+(S.est?"idle":"run");
+  render();
+}
+/* ---------- 设定值 ---------- */
+function setSp(v){
+  S.sp = Math.max(180, Math.min(260, Math.round(v)));
+  setText("sp_val", S.sp);
+  setText("dt3", S.sp+" ℃");
+  var k = $("knob"); if (k) k.style.setProperty("--k", (-135+(S.sp-180)/80*270).toFixed(1)+"deg");
+  var f = $("spfill"); if (f) f.style.width = Math.round(170*(S.sp-180)/80)+"px";
+  var th = $("spthumb"); if (th) th.style.left = (790 + Math.round(162*(S.sp-180)/80) - 12)+"px";
+  render();
+}
+
+/* ---------- 页面切换（原型内点击） ---------- */
+document.addEventListener("click", function(e){
+  var nav = e.target.closest("[data-nav]");
+  if (nav){ location.search = "?page="+nav.getAttribute("data-nav"); return; }
+  var tgt = e.target.closest("[data-on]");
+  if (!tgt) return;
+  var on = tgt.getAttribute("data-on");
+  tgt.classList.add("is-pressed");
+  setTimeout(function(){ tgt.classList.remove("is-pressed"); }, 130);
+  if (on === "line_start"){ if (S.est) return; S.run = true; applyState(); }
+  else if (on === "line_stop"){ S.run = false; applyState(); }
+  else if (on === "line_reset"){ S.est = false; S.run = false; applyState(); }
+  else if (on === "line_estop"){ $("mask").classList.add("show"); }
+  else if (on === "go_overview"){ location.search = "?page=overview"; }
+  else if (on.indexOf("dev_sel") === 0){ var i = +on.slice(-1); S.sel = (S.sel===i?-1:i);
+    var t = ["■ 设备详情 · IMM-A01","■ 设备详情 · IMM-B02","■ 设备详情 · IMM-C03"];
+    setText("dev_title", S.sel<0?"■ 全线综合参数 / LINE":t[S.sel]);
+    for (var q=0;q<3;q++) $("sel"+q).classList.toggle("is-checked", S.sel===q);
+  }
+  else if (on.indexOf("ack") === 0){ var k = +on.slice(-1); alarms[k].ack = true; render(); }
+  else if (on === "sw1" || on === "sw2" || on === "sw3"){ tgt.classList.toggle("on"); }
+  else if (on === "alarm_ack_all" || on === "alarm_clear"){ }
+  else if (on === "param_save"){ setText("st_msg", "参数已写入控制器 · CRC 校验通过 · 校验码 0x1A4F"); }
+});
+
+/* ---------- 输入框 + 软键盘 ---------- */
+var editing = null, backup = "";
+function buildKb(el){
+  var keys = ["7","8","9","4","5","6","1","2","3",".","0","-"];
+  var h = "";
+  for (var r=0;r<4;r++){
+    h += '<div class="row">';
+    for (var c=0;c<3;c++){
+      var k = keys[r*3+c];
+      h += '<div class="key" data-key="'+k+'">'+k+'</div>';
+    }
+    h += '</div>';
+  }
+  h += '<div class="row"><div class="key fn" data-key="ESC">取消</div><div class="key fn" data-key="DEL">退格</div><div class="key fn" data-key="OK">确认</div></div>';
+  el.innerHTML = h;
+}
+document.addEventListener("focusin", function(e){
+  var t = e.target;
+  if (t.hasAttribute && t.hasAttribute("data-plcui") && t.getAttribute("data-plcui")==="textarea"){
+    editing = t; backup = t.textContent;
+    t.setAttribute("contenteditable","true");
+    var kb = $("kb_num"); if (kb){ if (!kb.innerHTML) buildKb(kb); kb.classList.add("show"); }
+  }
+});
+document.addEventListener("click", function(e){
+  var k = e.target.closest(".key"); if (!k || !editing) return;
+  var code = k.getAttribute("data-key"), kb = $("kb_num");
+  if (code === "OK"){ editing.blur(); kb.classList.remove("show"); setText("st_msg", "参数已确认："+editing.textContent); editing = null; }
+  else if (code === "ESC"){ editing.textContent = backup; editing.blur(); kb.classList.remove("show"); editing = null; }
+  else if (code === "DEL"){ editing.textContent = editing.textContent.slice(0,-1); }
+  else { editing.textContent = (editing.textContent + code).slice(0,6); }
+});
+
+/* ---------- 急停弹窗 ---------- */
+$("dlg_cancel").addEventListener("click", function(){ $("mask").classList.remove("show"); });
+$("dlg_ok").addEventListener("click", function(){
+  $("mask").classList.remove("show");
+  S.est = true; S.run = false;
+  alarms.unshift({lv:"严重", t:"现在", d:"急停按钮触发 · 全线安全停机", ack:false});
+  alarms.pop();
+  applyState();
+});
+
+/* ---------- 周期步进 ---------- */
+function step(){
+  var act = S.run && !S.est;
+  temp.push(Math.max(TMIN+2, Math.min(TMAX-2, temp[79] + (S.sp-temp[79])*0.09 + (act?Math.sin(Date.now()/900)*1.6+(Math.random()*2-1)*0.6:(Math.random()*2-1)*0.3))));
+  press.push(Math.max(PMIN+2, Math.min(PMAX-2, press[79] + (88-press[79])*0.12 + (act?Math.cos(Date.now()/1100)*2.0+(Math.random()*2-1)*0.7:(Math.random()*2-1)*0.4))));
+  temp.shift(); press.shift();
+  if (act){ if (Math.random()<0.42){ S.out++; S.total++; }
+    S.oee = Math.max(84, Math.min(94, S.oee + (Math.random()*2-1)*0.5));
+    S.cycle = Math.max(26.5, Math.min(30.5, S.cycle + (Math.random()*2-1)*0.3)); }
+  render(); tickClock();
+  var tot = $("total_out"); if (tot) tot.textContent = S.total.toLocaleString("en-US").replace(/,/g," ");
+}
+
+/* ---------- 导出辅助：?state= 控制全局状态 ---------- */
+if (ST === "hide"){
+  /* 底图导出：所有 data-plcui 元素隐藏 */
+  var els = document.querySelectorAll("[data-plcui]");
+  for (var i=0;i<els.length;i++) els[i].classList.add("hide");
+}
+if (ST === "pressed"){ var b = document.querySelectorAll("[data-plcui=image]"); for (var i=0;i<b.length;i++) b[i].classList.add("is-pressed"); }
+if (ST === "checked"){ var b2 = document.querySelectorAll("[data-plcui=image]"); for (var i=0;i<b2.length;i++) b2[i].classList.add("is-checked"); }
+
+tickClock(); applyState(); setSp(220);
+
+/* 导出模式（?export=1）不跑定时器，保证底图可复现 */
+if (P.get("export") !== "1") setInterval(step, 1000);
+
+/* 导出模式（?json=1）：把当前页所有 PLCUI 元素的实测包围盒 + 标注打包成 base64 JSON，
+   由 tools/export_assets.py 读取后生成 main.xml。坐标一律取 CSS 显示值（G2）。 */
+if (P.get("json") === "1"){
+  setTimeout(function(){
+    /* 旋转会污染 getBoundingClientRect，测量前把指针/旋钮的 transform 清掉 */
+    var nds = page.querySelectorAll(".needle");
+    for (var t=0;t<nds.length;t++) nds[t].style.transform = "none";
+    var items = [], els = page.querySelectorAll("[data-plcui]");
+    for (var i=0;i<els.length;i++){
+      var e = els[i], r = e.getBoundingClientRect(), d = {};
+      d.tag = e.getAttribute("data-plcui");
+      d.text = (e.textContent || "").replace(/\s+/g," ").trim();
+      for (var j=0;j<e.attributes.length;j++){
+        var a = e.attributes[j];
+        if (a.name.indexOf("data-") === 0) d[a.name.slice(5)] = a.value;
+      }
+      var x = Math.round(r.left), y = Math.round(r.top);
+      var w = Math.round(r.width), h = Math.round(r.height);
+      /* display:none 的元素（如软键盘）rect 恒为 0，回退到内联/计算样式取值，
+         否则会把 0 宽高写进 XML，PLCUI 的 w/h 下限是 1，直接 E_SCHEMA 加载失败 */
+      if (!w || !h){
+        var cs = window.getComputedStyle(e);
+        w = w || Math.round(parseFloat(e.style.width)  || parseFloat(cs.width)  || 0);
+        h = h || Math.round(parseFloat(e.style.height) || parseFloat(cs.height) || 0);
+        x = Math.round(parseFloat(e.style.left) || 0);
+        y = Math.round(parseFloat(e.style.top)  || 0);
+      }
+      d.x = x; d.y = y; d.w = w; d.h = h;
+      items.push(d);
+    }
+    var pre = document.createElement("pre");
+    pre.id = "jsonout";
+    pre.textContent = btoa(unescape(encodeURIComponent(JSON.stringify(items))));
+    document.body.appendChild(pre);
+    document.title = "READY";
+  }, 60);
+}
+</script>
+</body>
+</html>

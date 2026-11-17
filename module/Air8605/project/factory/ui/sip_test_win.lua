@@ -78,8 +78,20 @@ local color_keys = {
 }
 kit.C = setmetatable({}, {__index=function(_, key) return theme.C[color_keys[key] or key] end})
 
+--[[父容器为空时一律不建控件
+
+airui 的 container/label 收到 parent = nil 会退化成挂在屏幕根上：控件照画，
+但不在任何页面容器里，于是 (a) kit.destroy(host) 删不掉它们，旧图层留在屏幕上成残影，
+(b) 坐标变成整屏坐标，列表行直接盖到顶部状态栏。宁可返回 nil 让调用方显式失败。]]
+local function need_parent(kind, parent)
+    if parent then return true end
+    log.error("sip_ui", kind .. " skipped: parent is nil")
+    return false
+end
+
 function kit.box(parent, o)
     o = o or {}
+    if not need_parent("box", parent) then return nil end
     return theme.box(parent, {
         x = SX(o.x), y = SY(o.y), w = SX(o.w), h = SY(o.h),
         color = o.color, opa = o.opacity, radius = o.radius or 0,
@@ -90,6 +102,7 @@ function kit.box(parent, o)
 end
 function kit.label(parent, o)
     o = o or {}
+    if not need_parent("label", parent) then return nil end
     return theme.label(parent, {
         x = SX(o.x), y = SY(o.y), w = SX(o.w), h = SY(o.h),
         text = o.text, px_size = SF(o.size), color = o.color,
@@ -98,6 +111,7 @@ function kit.label(parent, o)
 end
 function kit.card(parent, o)
     o = o or {}
+    if not need_parent("card", parent) then return nil end
     return theme.card(parent, {
         x=SX(o.x), y=SY(o.y), w=SX(o.w), h=SY(o.h),
         color=o.color, opa=o.color and 255 or nil, radius=o.radius or theme.R.lg,
@@ -106,6 +120,7 @@ function kit.card(parent, o)
 end
 function kit.btn(parent, o)
     o = o or {}
+    if not need_parent("button", parent) then return nil end
     local C = kit.C
     local kind = o.kind or "primary"
     local bg, fg, bcol, bw, pressed
@@ -156,7 +171,13 @@ end
 function kit.grad(parent, x, y, w, h, c1, c2, steps)
     return base_kit.grad(parent, SX(x), SY(y), SX(w), SY(h), c1, c2, steps)
 end
-function kit.destroy(obj) base_kit.destroy(obj) end
+function kit.destroy(obj)
+    -- base_kit.destroy 内部 pcall 吞错：控件没删掉时旧图层会留在屏幕上，
+    -- 玻璃卡片半透明，残影直接透出来。这里把失败显式记下来，便于定位。
+    if not obj then return end
+    local ok, err = pcall(obj.destroy, obj)
+    if not ok then log.warn("sip_ui", "destroy failed", tostring(err)) end
+end
 function kit.ellipsis(s, n) return base_kit.ellipsis(s, n) end
 function kit.first_char(s) return base_kit.first_char(s) end
 
@@ -185,6 +206,14 @@ window_callback = function(fn)
     return function(...)
         if alive(session) then return fn(...) end
     end
+end
+-- 毫秒时钟（与 audio_perf 同一套取法）：只用来量入口几段同步过程的耗时
+local function ms_now()
+    if mcu and mcu.ticks2 then
+        local s, us = mcu.ticks2(0)
+        return s * 1000 + (us or 0) / 1000
+    end
+    return os.time() * 1000
 end
 local function window_timer(fn, delay, repeating)
     local owned = timers
@@ -220,7 +249,9 @@ local RECORDS_VISIBLE = 10
 local W, H, LEFT, TOP = RW, RH, 20, 84
 local NAV_H = 64
 local PW, PH = RW - 40, RH - TOP - NAV_H - 16
-local render, render_call, refresh_status
+local render, render_call, refresh_status, request_render
+-- 建树代次：整页重建会递增，前一次 render 留下的分拍回调据此作废
+local render_seq = 0
 local page_contacts, page_records, page_chats, page_profile, page_diag
 local build_shell, show_call_layer, input_keyboard, edit, confirm, contact_editor
 local top_status, suspended
@@ -341,7 +372,7 @@ edit = function(title, value, on_save, options)
     local function save()
         local s = value_ref:get_text()
         if options.trim ~= false then s = trim(s) end
-        if on_save(s) ~= false then close_panel(); render() end
+        if on_save(s) ~= false then close_panel(); request_render() end
     end
     button(card, 24, 218, 130, "取消", close_panel, "plain")
     button(card, 650, 218, 150, options.submit or "保存", save)
@@ -360,7 +391,7 @@ confirm = function(title, fn)
     label(c, 28, 30, 464, title, 22, C.text, 72)
     button(c, 28, 132, 190, "取消", close_panel, "plain")
     button(c, 302, 132, 190, "确认", function()
-        if fn() ~= false then close_panel(); render() end
+        if fn() ~= false then close_panel(); request_render() end
     end, "red")
 end
 
@@ -407,6 +438,7 @@ local function empty(parent, text, width) label(parent, 22, 40, (width or PW) - 
 local function row(parent, y, title, subtitle, w, reserved, dot)
     local text_w = w - 36 - (reserved or 0)
     local r = kit.card(parent, { x = 0, y = y, w = w, h = 88, radius = 16 })
+    if not r then return nil end
     label(r, 16, 12, text_w, kit.ellipsis(title, 23), 21)
     local sx = 16
     if dot then
@@ -425,10 +457,12 @@ local PRESENCE_COLOR = { online = C.green, ringing = C.brand, in_call = C.blue, 
 local presence_names = { online = "在线", ringing = "响铃", in_call = "通话中", offline = "离线" }
 local presence_cache, presence_state, presence_error, presence_updated = {}, nil, nil, nil
 
+-- 文案压在一行内：theme.label 默认自动换行、行高 = 字号 + 3，
+-- 一旦换出第二行就会溢出盒子，直接压到下面的列表行上。
 local function presence_caption()
     if presence_state == nil or presence_state == "loading" then return "正在查询在线状态" end
-    if presence_error then return "在线状态查询失败：" .. presence_error end
-    return presence_updated and ("在线状态 " .. os.date("%H:%M:%S", presence_updated)) or "尚无在线状态"
+    if presence_error then return kit.ellipsis("查询失败:" .. tostring(presence_error), 15) end
+    return presence_updated and ("在线 " .. os.date("%H:%M:%S", presence_updated)) or "尚无在线状态"
 end
 
 local function load_presence(items)
@@ -448,7 +482,7 @@ local function load_presence(items)
             presence_error = err or "网络不可用"
             presence_state = "err"
         end
-        if page == "contacts" and not closing then render() end
+        if page == "contacts" and not closing then request_render() end
     end)
 end
 
@@ -458,16 +492,22 @@ page_contacts = function()
     button(host, list_w - 130, 0, 120, "新增", function() contact_editor() end, "ghost", 40)
     local legend = { { "在线", C.green }, { "响铃", C.brand }, { "通话中", C.blue }, { "离线", 0x999999 }, { "未获取", C.white } }
     for i, item in ipairs(legend) do
-        local x = (i - 1) * 92
+        local x = (i - 1) * 82
         kit.box(host, { x = x, y = 42, w = 10, h = 10, radius = 5, color = item[2], border = true, border_color = 0x999999 })
-        label(host, x + 15, 36, 76, item[1], 14, C.text2, 24)
+        label(host, x + 15, 36, 62, item[1], 15, C.text2, 22)
     end
-    label(host, 470, 36, math.max(80, list_w - 470), presence_caption(), 14, C.text2, 24)
+    label(host, 418, 36, math.max(120, list_w - 418), presence_caption(), 15, C.text2, 22)
+    -- 列表区：滚动容器建不出来时退回不可滚动版本，避免整批行挂到屏幕根上
     local list = kit.box(host, { x = 0, y = 68, w = list_w, h = PH - 68, scroll = true })
+        or kit.box(host, { x = 0, y = 68, w = list_w, h = PH - 68 })
+    if not list then
+        label(host, 0, 72, list_w, "联系人列表创建失败", 20, C.red)
+        return
+    end
     local items = store.get_contacts()
     if store.read_failed("contacts") then
         label(list,0,0,list_w,"联系人读取失败",20)
-        button(list,0,48,120,"重试",function() render() end,"soft")
+        button(list,0,48,120,"重试",function() request_render() end,"soft")
         return
     end
     load_presence(items)
@@ -486,6 +526,7 @@ page_contacts = function()
         end, "plain", 40) end
     end
     local pad = kit.card(host, { x = list_w + 12, y = 0, w = 318, h = PH, radius = 22 })
+    if not pad then return end
     label(pad, 18, 16, 282, "拨号盘", 22)
     local display = label(pad, 18, 54, 282, dial_number ~= "" and dial_number or "请输入号码", 28, C.brand, 44)
     local function update() set_text(display, dial_number ~= "" and dial_number or "请输入号码") end
@@ -513,13 +554,17 @@ local record_page = 1
 local RECORDS_PAGE_SIZE = 20
 local records_data, record_state, record_error = nil, nil, nil
 
+-- 同 presence_caption：一律压一行，盒高只给一行的量，换行会溢出压到下面的记录行
 local function record_caption(total)
-    if record_state == nil or record_state == "loading" then return "正在查询服务端通话记录…" end
-    if record_state == "err" then
-        return "服务端记录不可用：" .. tostring(record_error or "网络不可用") .. "，以下为本地记录"
+    local text
+    if record_state == nil or record_state == "loading" then text = "正在查询服务端通话记录…"
+    elseif record_state == "err" then
+        text = "服务端记录不可用：" .. tostring(record_error or "网络不可用") .. "，以下为本地记录"
+    else
+        local pages = math.max(1, math.ceil((tonumber(total) or 0) / RECORDS_PAGE_SIZE))
+        text = "第 " .. record_page .. " / " .. pages .. " 页 · 共 " .. tostring(total or 0) .. " 条 · 服务端记录"
     end
-    local pages = math.max(1, math.ceil((tonumber(total) or 0) / RECORDS_PAGE_SIZE))
-    return "第 " .. record_page .. " / " .. pages .. " 页 · 共 " .. tostring(total or 0) .. " 条 · 服务端记录"
+    return kit.ellipsis(text, 46)
 end
 
 local function load_records(force)
@@ -535,7 +580,7 @@ local function load_records(force)
         else
             records_data, record_error, record_state = nil, err or "网络不可用", "err"
         end
-        if page == "records" and not closing then render() end
+        if page == "records" and not closing then request_render() end
     end)
 end
 
@@ -566,23 +611,28 @@ page_records = function()
     load_records()
     local server_mode = (record_state == "ok" and records_data ~= nil)
     local list=kit.box(host,{x=0,y=92,w=PW,h=server_mode and (PH-150) or (PH-100),scroll=true})
+        or kit.box(host,{x=0,y=92,w=PW,h=server_mode and (PH-150) or (PH-100)})
+    if not list then
+        label(host,0,96,PW,"通话记录列表创建失败",20,C.red)
+        return
+    end
     if server_mode then
         label(host,0,48,PW,record_caption(records_data.total),20)
         server_rows(list, records_data)
         local total = tonumber(records_data.total) or 0
         button(host,PW-264,PH-46,120,"上一页",function()
             if record_page <= 1 then return end
-            record_page=record_page-1;records_data=nil;record_state=nil;render()
+            record_page=record_page-1;records_data=nil;record_state=nil;request_render()
         end,"ghost",40)
         button(host,PW-132,PH-46,120,"下一页",function()
             if record_page * RECORDS_PAGE_SIZE >= total then return end
-            record_page=record_page+1;records_data=nil;record_state=nil;render()
+            record_page=record_page+1;records_data=nil;record_state=nil;request_render()
         end,"ghost",40)
         return
     end
     if store.read_failed("calls") then
         label(host,0,64,PW,"记录读取失败，原数据未清空",22)
-        button(host,0,110,160,"重试",function() render() end,"soft")
+        button(host,0,110,160,"重试",function() request_render() end,"soft")
         return
     end
     label(host,0,48,PW,record_caption(),20)
@@ -804,11 +854,38 @@ local function diag_text(d)
 end
 
 page_diag = function()
+    --[[这一页分五拍建，每拍之间让出一帧
+
+    实测整页一次同步过程 386ms（日志 boot body），是触摸帧环（16 帧）预算的两倍多：
+    这段时间里 lv_timer_handler 不跑，读不到触摸，帧环一溢出就走
+    lv_indev_reset + lv_indev_wait_release 把整段按压丢掉。
+    拆成五拍后每拍只建一小组控件，并各自打出耗时 —— 下一次日志能直接指认
+    是哪一拍、哪一个控件在吃时间（现在只知道慢在 render 里，不知道慢在谁身上）。
+
+    live() 是 stale 检查：任何一拍开跑前先确认这棵控件树还是当前那次 render 的。
+    期间若又触发了一次整页重建，render_seq 已经变了，旧拍直接作废，
+    不会在新建的树上补控件。]]
+    local seq = render_seq
+    local function live()
+        return seq == render_seq and started and not closing and host ~= nil
+    end
     local d = diag.status()
+    local t = ms_now()
     label(host, 0, 0, PW, "音频自检", 28)
-    label(host, 0, 40, PW, "完整自检先恢复音频链路，再播放测试音并录音回放；也可跳过。", 18, C.text2)
-    local box = kit.card(host, { x=0, y=78, w=PW, h=235 })
-    diag_label = label(box, 20, 12, PW-40, diag_text(d), 18, C.text, 214)
+    log.info("sip_ui", "diag p1", math.floor(ms_now() - t), "ms")
+    window_timer(function()
+        if not live() then return end
+        local t2 = ms_now()
+        label(host, 0, 40, PW, "完整自检先恢复音频链路，再播放测试音并录音回放；也可跳过。", 18, C.text2)
+        local box = kit.card(host, { x=0, y=78, w=PW, h=235 })
+        log.info("sip_ui", "diag p2", math.floor(ms_now() - t2), "ms")
+        window_timer(function()
+            if not live() then return end
+            local t3 = ms_now()
+            diag_label = label(box, 20, 12, PW-40, diag_text(d), 18, C.text, 214)
+            log.info("sip_ui", "diag p3", math.floor(ms_now() - t3), "ms")
+        end, 1)
+    end, 1)
     local function diag_button(...)
         local obj = button(...)
         obj:set_disabled(d.busy == true)
@@ -820,19 +897,29 @@ page_diag = function()
             fn()
         end
     end
-    diag_button(host, 0, 326, 230, d.busy and "自检进行中…" or "完整自检", idle_action(function()
-        local ok, err = diag.start("all"); success(ok, err)
-    end), d.busy and "plain" or "primary", 46)
-    diag_button(host, 246, 326, 230, "我已听到清晰声音", idle_action(function()
-        local ok, err = diag.confirm(true)
-        if success(ok, err) then M.open("contacts") end
-    end), d.busy and "plain" or "green", 46)
-    diag_button(host, 492, 326, 230, "声音异常 / 未通过", idle_action(function()
-        local ok, err = diag.confirm(false)
-        if success(ok, err) then M.toast("请检查麦克风、喇叭及音频接线", true); render() end
-    end), "plain", 46)
-    diag_button(host, 738, 326, PW-738, "跳过", idle_action(function() M.open("contacts") end), d.busy and "plain" or "ghost", 46)
-    label(host, 0, 386, PW, "跳过不会记录自检通过；通话仍需音频硬件就绪。", 17, C.text2)
+    window_timer(function()
+        if not live() then return end
+        local t4 = ms_now()
+        diag_button(host, 0, 326, 230, d.busy and "自检进行中…" or "完整自检", idle_action(function()
+            local ok, err = diag.start("all"); success(ok, err)
+        end), d.busy and "plain" or "primary", 46)
+        diag_button(host, 246, 326, 230, "我已听到清晰声音", idle_action(function()
+            local ok, err = diag.confirm(true)
+            if success(ok, err) then M.open("contacts") end
+        end), d.busy and "plain" or "green", 46)
+        diag_button(host, 492, 326, 230, "声音异常 / 未通过", idle_action(function()
+            local ok, err = diag.confirm(false)
+            if success(ok, err) then M.toast("请检查麦克风、喇叭及音频接线", true); request_render() end
+        end), "plain", 46)
+        diag_button(host, 738, 326, PW-738, "跳过", idle_action(function() M.open("contacts") end), d.busy and "plain" or "ghost", 46)
+        log.info("sip_ui", "diag p4", math.floor(ms_now() - t4), "ms")
+    end, 1)
+    window_timer(function()
+        if not live() then return end
+        local t5 = ms_now()
+        label(host, 0, 386, PW, "跳过不会记录自检通过；通话仍需音频硬件就绪。", 17, C.text2)
+        log.info("sip_ui", "diag p5", math.floor(ms_now() - t5), "ms")
+    end, 1)
 end
 
 -- 顶栏、内容区、底栏相互独立，重建时先释放旧壳层。
@@ -889,10 +976,15 @@ render = function(id)
     -- 销毁 host 前必须清引用，否则状态事件再对其 set_text 会报
     -- "access destroyed airui.label"。
     profile_status, diag_label, page_scroll = nil, nil, nil
+    render_seq = render_seq + 1
+    local t_host = ms_now()
     memdiag.mark("ui.host","DESTROY_BEGIN",page)
     kit.destroy(host)
     memdiag.mark("ui.host","DESTROY_END",page)
-    host = kit.box(root, { x = LEFT, y = TOP, w = PW, h = PH, scroll = true })
+    -- page 容器不滚动：airui 的 container 不裁剪越界子控件，一旦被滚动，
+    -- 列表行会翻出容器盖到顶部状态栏上（截图里第一行压住「返回」就是这么来的）。
+    host = kit.box(root, { x = LEFT, y = TOP, w = PW, h = PH })
+    log.info("sip_ui", "render host", math.floor(ms_now() - t_host), "ms")
     if not host then return end
     if page == "contacts" then page_contacts()
     elseif page == "records" then page_records()
@@ -904,6 +996,47 @@ end
 
 render = memdiag.wrap("ui.render", render)
 
+--[[整页重建统一走这里，不在回调里直接 render()
+
+render() 会 kit.destroy(host) 再整棵重建。下面三类触发点都可能落在同一个调用栈里：
+状态回包、自检阶段变化、按钮点击分页。逐次销毁重建有两个后果：
+  · LVGL 的控件删除与重画追不上，屏幕上叠出上一帧（玻璃卡片半透明，残影直接透出来）
+  · 点击回调正在执行时把它所属的按钮销毁，airui 的事件派发就断在半路，表现为"点不动"
+所以合并到下一拍只做一次，并且弹窗/通话层/自检进行中一律不重建。
+force 只给自检状态翻转用：按钮的禁用态和"自检进行中…"文案都在控件树里，
+busy 变化那一拍必须重建，否则界面停在旧状态。]]
+local render_pending = false
+request_render = function(force)
+    if render_pending or not started or closing then return end
+    render_pending = true
+    window_timer(function()
+        render_pending = false
+        if not started or closing then return end
+        if panel or call_layer then return end
+        if not force and diag.status().busy then return end
+        render()
+    end, 1)
+end
+
+--[[切页同样不在点击回调里同步重建
+
+M.open 是被导航键、自检按钮的 on_click 直接调的，而 rebuild_all() 会 kit.destroy(shell)
+—— shell 里就是刚被点的那颗按钮。airui 的事件派发正走到这颗按钮的回调中段，它所属的
+控件树被删掉，派发链就断在半路：这一次点击之后按钮看起来"点不动"，要再点一次才恢复。
+所以切页也合并到下一拍，并且重建后补一次 refresh_status（新 label 是空的）。]]
+local rebuild_pending = false
+local function request_rebuild()
+    if rebuild_pending or not started or closing then return end
+    rebuild_pending = true
+    window_timer(function()
+        rebuild_pending = false
+        if not started or closing then return end
+        if panel or call_layer then return end
+        rebuild_all()
+        refresh_status()
+    end, 1)
+end
+
 function M.open(id, peer)
     if not started or closing then return end
     if busy() or diag.status().busy then return end
@@ -912,9 +1045,10 @@ function M.open(id, peer)
     close_panel(); page = id; selected_peer = peer
     if changed then
         record_page=1;records_data=nil;record_state=nil;presence_state=nil
-        rebuild_all()
+        request_rebuild()
+    else
+        refresh_status()
     end
-    refresh_status()
 end
 M.open = memdiag.wrap("ui.open", M.open)
 M.replace = M.open
@@ -929,6 +1063,9 @@ local call_state_text = {
 local registration_names = {registered="注册成功", registering="注册中", failed="注册失败", idle="未注册"}
 refresh_status = function(snapshot)
     if not started or call_layer then return end
+    -- 首屏建树已推迟一拍（见 on_create）；shell 没建出来前 top_status 还是 nil，
+    -- 下面 set_pos/set_text 都会打在空引用上，先跳过这一拍。
+    if not shell then return end
     local measured = perf.begin("ui")
     local s = snapshot or app.status()
     local rs = s.registration_state or "idle"
@@ -1072,12 +1209,39 @@ local function on_create()
 
     root = theme.page_bg(airui.screen, W, H)
     page = "diag"
-    build_shell()
     started = true
-    render()
-    refresh_status()
-    tick_clock()
-    clock_timer = window_timer(tick_clock, 1000 * 10, true)
+    --[[首屏建树分三拍，每拍之间让出一帧
+
+    build_shell + render 是六十来个 airui 控件的一次不让出同步过程。它压在「SIP 通话」
+    那一格点击回调的调用栈里（handoff 队列首任务、store/网络初始化之前），LVGL 的触摸派发
+    一路被按住：触摸帧环只有 16 帧，读取方一被按住就溢出，溢出会走
+    lv_indev_reset + lv_indev_wait_release 把整段按压丢掉，
+    表现就是"点了 SIP 通话界面还在刷、但摸不动"。
+    原来只往后挪一拍不够：1ms 定时器与 lv_timer_handler 之间没有让出保证，
+    六十个控件仍是一口气建完。这里拆成 壳层 / 内容 / 状态 三拍。]]
+    local boot_t0 = ms_now()
+    local boot_stage = 0
+    local function boot_tick()
+        boot_stage = boot_stage + 1
+        if not started or closing or not root then return end
+        if boot_stage == 1 then
+            local t = ms_now()
+            build_shell()
+            log.info("sip_ui", "boot shell", math.floor(ms_now() - t), "ms")
+        elseif boot_stage == 2 then
+            local t = ms_now()
+            render()
+            log.info("sip_ui", "boot body", math.floor(ms_now() - t), "ms")
+        else
+            refresh_status()
+            tick_clock()
+            clock_timer = window_timer(tick_clock, 1000 * 10, true)
+            log.info("sip_ui", "boot ready", math.floor(ms_now() - boot_t0), "ms")
+            return
+        end
+        window_timer(boot_tick, 1)
+    end
+    window_timer(boot_tick, 1)
     -- 自检页实时刷新帧数/帧率/峰值（照抄参考工程 1s 刷新节奏）
     -- 但【录音/回放进行中一律不刷】：这段文本近 300 字，set_text 会让 LVGL 重排并整块
     -- 重绘一次；而 Air1103 的下行是 Lua 10ms 一拍喂 UART，芯片内部 DAC 缓冲只有约 60ms，
@@ -1107,7 +1271,7 @@ local function on_create()
                 call_left_disabled, call_right_disabled = nil, nil
                 -- 通话只遮挡底页：挂断保留联系人输入、聊天位置和自检控件，
                 -- 仅通话记录需要重建以显示刚结束的通话。
-                if page == "records" and not panel and not diag.status().busy then render() end
+                if page == "records" and not panel then request_render() end
 
             end
             refresh_status(s)
@@ -1122,7 +1286,7 @@ local function on_create()
         if key=="calls" then records_data=nil;record_state=nil end
         if key=="contacts" or key=="default_contact" then presence_cache={};presence_state=nil end
         if (key=="calls" and page=="records") or
-           ((key=="contacts" or key=="default_contact") and (page=="contacts" or page=="records")) then render() end
+           ((key=="contacts" or key=="default_contact") and (page=="contacts" or page=="records")) then request_render() end
     end)
     subscribe("SIP_ERROR", function(t) M.toast(t, true); refresh_status() end)
     subscribe("AUDIO_ERROR", on_audio_error)
@@ -1136,7 +1300,7 @@ local function on_create()
         if not started or page ~= "diag" then return end
         local d = diag.status()
         if last_diag_busy ~= d.busy then
-            last_diag_busy = d.busy; render()
+            last_diag_busy = d.busy; request_render(true)
         elseif diag_label then set_text(diag_label, diag_text(d)) end
     end)
 
@@ -1167,7 +1331,7 @@ local function on_create()
         pcall(raw_app.init)
         if not alive(session) then return end
         refresh_status()
-        if not panel and not diag.status().busy then render() end
+        if not panel then request_render() end
     end)
 end
 
@@ -1224,15 +1388,31 @@ sys.subscribe("OPEN_SIP_TEST_WIN", function()
     end
     handoff.enqueue(function()
     if window_id or closing then return end
-    handoff.prepare("sip")
-    local compacted,why=store.compact_history()
-    assert(compacted,why)
+    -- 先让一拍：sys.taskInit 会立刻把新协程跑到第一个 yield，而这一格任务在让出之前
+    -- 全是同步的（页面清理、sip.logout、other_func_app.stop_all），
+    -- 点击回调还没返回就被按住十几秒 —— 就是"点了 SIP 通话先卡住"。
+    -- 让出一拍先放行触摸派发，再做收尾。
+    sys.wait(50)
+    if window_id or closing then return end
+    -- keep_audio：本页下一步就是 audio.init 重建同一条 Air1103 通路，
+    -- 这里不拆音频，省掉一次完整的 exaudio.setup（重开 UART6 + 重配 audio_v2）
+    local t_prepare = ms_now()
+    handoff.prepare("sip", { keep_audio = true })
+    log.info("sip_ui", "handoff.prepare", math.floor(ms_now() - t_prepare), "ms")
+    sys.wait(50)
+    if window_id or closing then return end
+    local t_open = ms_now()
     window_id = exwin.open({
         on_create = on_create,
         on_destroy = memdiag.wrap("ui.destroy",on_destroy),
         on_get_focus = function() end,
         on_lose_focus = function() end,
     })
+    log.info("sip_ui", "exwin.open", math.floor(ms_now() - t_open), "ms")
+    -- 通话历史压缩是文件 I/O，挪到开窗之后：挡在 exwin.open 前面只会让窗口晚出来，
+    -- 而且压缩失败不该把窗口一起吞掉。
+    local compacted, why = store.compact_history()
+    if not compacted then log.warn("sip_test_win", "compact_history failed", tostring(why)) end
     end)
 end)
 

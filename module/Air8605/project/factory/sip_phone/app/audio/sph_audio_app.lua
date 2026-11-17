@@ -59,6 +59,17 @@ local function restore_touch()
         pcall(_G.tp_drv.i2c_restore)
     end
 end
+-- 800Hz/16kHz 测试音的 100ms 波形（3200 字节），每次自检都是同一串
+local tone_cache
+local function tone_pcm()
+    if tone_cache then return tone_cache end
+    local chunks={}
+    for i=0,1599 do
+        chunks[#chunks+1]=string.pack("<h",math.floor(6000*math.sin(2*math.pi*800*i/16000)))
+    end
+    tone_cache=table.concat(chunks)
+    return tone_cache
+end
 local function signal_error(reason)
     fault = tostring(reason)
     log.error("audio_app", fault)
@@ -982,12 +993,16 @@ function M.diagnostic_run(kind,progress,session)
             log.info("audio_diag","PCM format",16000,16,1,"volume",volume,"chip_volume",math.floor(volume*31/100))
             probe_start()
             local ok,id=start_stream("diagnostic");assert(ok,id);token=id
-            local chunks={}
-            for i=0,1599 do
-                chunks[#chunks+1]=string.pack("<h",math.floor(6000*math.sin(2*math.pi*800*i/16000)))
+            -- 波形只算一次：1600 次 math.sin + string.pack 每次自检重跑，
+            -- 造出 1600 个临时短串，堆一涨就在喂数中途触发完整 GC。
+            local pcm=tone_pcm()
+            for i=1,30 do
+                submit(pcm)
+                -- 每次 submit 是 5 段 640B 的 UART6 下行写，30 次连写就是几百毫秒不让出，
+                -- 而这段时间 lv_timer_handler 跑不了、触摸帧环会被挤爆。逐次让一拍。
+                -- 芯片队列一次攒满 3 秒，且 feed_pcm 自带 1920B 水位闸，不会欠载。
+                if i<30 then sys.wait(1) end
             end
-            local pcm=table.concat(chunks)
-            for i=1,30 do submit(pcm) end
         else
             report("recording","请说话：录制 3 秒，随后自动回放")
             -- 先让 UI 把状态刷完：report 会触发 LVGL 重排长文本 + fskv 读，

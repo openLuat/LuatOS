@@ -51,8 +51,8 @@
   audio_hw.params(extra)  -> table          exaudio.setup 入参（extra 同名字段覆盖）
   audio_hw.setup(extra, owner) -> ok, err   pcall(exaudio.setup, params) + 套用音量
   audio_hw.vol(level, owner)   -> ok        套用媒体音量（level 为 nil 取 ac.play_vol）
-  audio_hw.record_start(cfg) -> ok, ret     等价 pcall(exaudio.record_start, cfg)
-  audio_hw.play_start(cfg)   -> ok, ret     等价 pcall(exaudio.play_start, cfg)
+  audio_hw.record_start(cfg) -> ok, ret, reason  等价 pcall(exaudio.record_start, cfg)
+  audio_hw.play_start(cfg)   -> ok, ret, reason  等价 pcall(exaudio.play_start, cfg)
   audio_hw.sync(vol, mute)   -> ok          下发音量/静音并广播 AUDIO_CFG_SYNC
   audio_hw.apply(vol, mute)  -> ok          AUDIO_CFG_SYNC 的生效点
   audio_hw.shutdown()     -> ok             停机（非 Air1103 直接返回 true）
@@ -352,7 +352,7 @@ end
 @function play_start
 @summary 播放起播：转发 exaudio.play_start
 @param table cfg exaudio.play_start 入参
-@return boolean, any  形态与 pcall(exaudio.play_start, cfg) 一致
+@return boolean, any, any  ok=pcall 结果，ret=起播是否成立，reason=拒绝原因（形态同 pcall(exaudio.play_start, cfg)）
 ]]
 function M.play_start(cfg)
     local ex = get_exaudio()

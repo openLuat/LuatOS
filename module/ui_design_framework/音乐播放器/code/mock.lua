@@ -1,7 +1,7 @@
 --[[
 @module mock
 @summary 音乐播放器 HMI —— 曲目数据 / 设置默认值 / 运行时状态
-         与 index.html 的 T[]、DEF 一一对应（8 首演示曲目）
+         与 index.html 的 T[]、DEF 一一对应（9 首演示曲目，其中第 1 首为真实现声）
 
          约定：
          1. 只放数据，不放控件、不调 airui。
@@ -43,9 +43,13 @@ mock.SORTS = { "默认排序", "按曲名", "按艺术家", "按时长" }
 mock.SORT_KEYS = { "idx", "name", "artist", "dur" }
 
 --[[ 曲目表：改这里就能换歌。
-     g1/g2 封面底色，c1/c2 该曲目强调色；八首 c1 互不相同
-     （踩坑："切歌看着没变" 就是主色撞色）]]
+     g1/g2 封面底色，c1/c2 该曲目强调色；九首 c1 互不相同
+     （踩坑："切歌看着没变" 就是主色撞色）
+     audio=true 表示该曲目有真实 MP3；切到其他曲目会停止放歌。]]
 mock.TRACKS = {
+    { n = "试听1",    en = "DEMO AUDIO 1",             a = "无名氏", al = "试听",
+      yr = 2026, d = 6, fmt = "MP3 · 56kbps", art = "simple", audio = true,
+      g1 = 0xB7C9D6, g2 = 0xEFE3D0, c1 = 0xD08C5A, c2 = 0x7FA6BE },
     { n = "晴天",     en = "SUNNY DAY",                a = "周杰伦", al = "叶惠美",
       yr = 2003, d = 269, fmt = "FLAC · 44.1kHz / 16bit", art = "sun",
       g1 = 0x8FB8CE, g2 = 0xE3D2AE, c1 = 0xE2B96B, c2 = 0x7FA6BE },
@@ -74,7 +78,7 @@ mock.TRACKS = {
 
 -- 设置默认值（html 的 DEF）
 mock.DEF = {
-    vol = 68, mode = 0, accent = "amber", eq = 1, fav = {},
+    vol = 40, mode = 0, accent = "amber", eq = 1, fav = {},
     sound = true, spectrum = true, clock24 = true, sd = true, resume = true,
     theme = "day", sort = "idx", fmt = "all",
 }

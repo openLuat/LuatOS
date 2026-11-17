@@ -13,6 +13,15 @@
 4. 首帧上屏后开背光：PWM3 @1kHz 占空比 100（提前开会闪屏）
 5. airui.font_load：矢量字库（必须 airui.init 之后，否则总线错误死机）
 6. tp.init：GT911 触摸 I2C1（三步缺一步按钮 on_click 都不触发）
+
+=== 看门狗（参考 TMR_Batching_System）===
+- 内部硬狗：wdt.init(60000)，独立心跳 task 每秒 wdt.feed()；
+- 外置 Air153D：GPIO57 → NPN → WTDOG，库内部自动喂狗，解决约 10 分钟周期性整机复位；
+  内部 wdt 喂不到这颗外部芯片，两者并存且互不替代。
+
+=== 音频 ===
+- audio/demo_10s.mp3（内容为 6 秒示例）；app_audio 优先 audio_v2、退回 exaudio；
+- AUDIOPA_EN = GPIO73 由 exaudio.setup 管理。
 ]]
 
 PROJECT = "music_player_ui"
@@ -23,8 +32,62 @@ local sys = require "sys"
 local theme = require "theme"
 local mock  = require "mock"
 local page  = require "page_music"
+local ok_audio, app_audio = pcall(require, "app_audio")
+if not ok_audio then app_audio = nil end
 
 local SCREEN_W, SCREEN_H = 1024, 600
+
+-- ═══ 内部硬件看门狗（参考 docs.openluat.com osapi/core/wdt）═══
+-- Air8603（Air1603 内核）内部硬狗由固件自动开启，默认 20s 且不能关闭；
+-- wdt.init(60000) 把超时放宽到本系列最大 60s，容忍偶发卡顿减少误复位。
+-- 心跳 task 每秒喂一次；主循环卡死就停止喂狗，60s 后整机复位自恢复。
+pcall(function()
+    if wdt and type(wdt.init) == "function" then
+        if wdt.init(60000) then
+            log.info("wdt", "内部硬件看门狗已开启，超时 60s")
+        else
+            log.warn("wdt", "wdt.init 返回 false，沿用内核默认 20s")
+        end
+    else
+        log.warn("wdt", "固件未提供 wdt 库，跳过设置（内核默认硬狗仍在）")
+    end
+end)
+
+-- ═══ 板载 Air153D 外置硬件看门狗（参考 TMR_Batching_System）═══
+-- 该芯片上电即计时，STRAP 选 10 分钟/60 分钟/12 小时/24 小时。
+-- 不喂狗会拉 PWR_OFF → RESET_N，造成约 10 多分钟一次的整机周期复位。
+-- 上面的内部 wdt 喂不到这颗外部芯片，必须单独喂。
+local EXT_WDT_ENABLE = true
+local EXT_WDT_PIN    = 57
+if EXT_WDT_ENABLE then
+    local function load_exair153x_wdt()
+        return require "exair153x_wdt"
+    end
+    local ok, ext_wdt = pcall(load_exair153x_wdt)
+    if ok and type(ext_wdt) == "table" then
+        -- init 内部会 sys.taskInit 独立自动喂狗任务：首次立即喂，之后默认每 180s 一次
+        if not ext_wdt.init({ wdt_pin = EXT_WDT_PIN }) then
+            log.error("main", "Air153D 外置看门狗初始化失败")
+        end
+    else
+        log.error("main", "exair153x_wdt 未打包进固件，Air153D 将周期复位整机")
+    end
+else
+    log.warn("main", "外置看门狗已禁用，Air153D 会周期复位整机")
+end
+
+-- 内部狗心跳：每秒喂一次，同时打断点便于串口判断时基是否还在走
+sys.taskInit(function()
+    local beat = 0
+    while true do
+        sys.wait(1000)
+        beat = beat + 1
+        if beat % 5 == 0 then log.info("main", "tick", beat) end
+        pcall(function()
+            if wdt and type(wdt.feed) == "function" then wdt.feed() end
+        end)
+    end
+end)
 
 sys.taskInit(function()
     log.info("main", "boot start")
@@ -38,7 +101,7 @@ sys.taskInit(function()
     pcall(gpio.setup, 72, 0)   -- 网络模组 RST
     sys.wait(20)
     pcall(gpio.setup, 74, 1)   -- SD_EN（播放器必须挂 SD 卡）
-    pcall(gpio.setup, 73, 1)   -- AUDIOPA_EN 开功放
+    pcall(gpio.setup, 73, 0)   -- AUDIOPA_EN 先关断，交给 exaudio.setup 接管
 
     -- 2. RGB 屏硬件初始化
     local ok, err = pcall(display.init, "custom", {
@@ -57,9 +120,9 @@ sys.taskInit(function()
 
     -- 4. 首帧后开背光
     sys.wait(100)
-    local pok, pret = pcall(pwm.open, 3, 1000, 100)
+    local pok, pret = pcall(pwm.open, 3, 1000, 85)
     if not pok or pret == false then
-        pcall(pwm.setup, 3, 1000, 100)
+        pcall(pwm.setup, 3, 1000, 85)
         pcall(pwm.start, 3)
     end
 
@@ -92,6 +155,12 @@ sys.taskInit(function()
         mode = (h >= 7 and h < 18) and "day" or "night"
     end
     theme.apply(mode, mock.S.accent)
+
+    -- 8. 音频后端（内置 6 秒 MP3；缺库或文件时不阻塞 UI）
+    if app_audio then
+        local aok, aerr = pcall(app_audio.init)
+        if not aok then log.warn("main", "audio init error", aerr) end
+    end
 
     pcall(function() math.randomseed(os.time() or 12345) end)
     ok, err = pcall(page.open)

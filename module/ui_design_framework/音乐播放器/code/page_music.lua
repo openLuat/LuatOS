@@ -18,6 +18,8 @@
 local sys   = require "sys"
 local theme = require "theme"
 local mock  = require "mock"
+local ok_audio, app_audio = pcall(require, "app_audio")
+if not ok_audio then app_audio = nil end
 
 local M = {}
 local S, P = mock.S, mock.P
@@ -43,6 +45,27 @@ local function put(sh, items)
     if not has and not drawn[sh] then return end
     drawn[sh] = has or nil
     pcall(sh.set_items, sh, items or {})
+end
+
+-- nil-safe 方法调用：先取方法再 pcall，避免对象为 nil 时在 pcall 外索引报错
+local function call(obj, method, ...)
+    if not obj then return false end
+    local f = obj[method]
+    if type(f) ~= "function" then return false end
+    return pcall(f, obj, ...)
+end
+
+-- 可见页立即刷新，其余页延后一帧，避免一次点击产生几十次 set_items
+local function refresh_all()
+    if P.page == "play" then M.refresh_play()
+    elseif P.page == "library" then M.refresh_lib()
+    elseif P.page == "favorites" then M.refresh_fav() end
+    M.refresh_mini()
+    theme.defer(function()
+        if P.page ~= "play" then M.refresh_play() end
+        if P.page ~= "library" then M.refresh_lib() end
+        if P.page ~= "favorites" then M.refresh_fav() end
+    end)
 end
 
 -- 表格里只显示格式第一段（html 的 x.fmt.split(' ')[0]）
@@ -369,6 +392,7 @@ local function build_prog(scr)
     R.p_pct = txt(pc, 394, 54, 100, 20, "0%", C.dim, 16, AR)
     -- 透明滑杆盖在轨道上（真拖动）；两侧 10 段热区做兜底点按
     R.p_slider = theme.slider(pc, 14, 38, 480, 6, 0, function(_, v)
+        if R.p_syncing then return end
         v = tonumber(v)
         if not v and R.p_slider then
             pcall(function() v = R.p_slider:get_value() end)
@@ -385,6 +409,12 @@ end
 --------------------------------------------------------------------
 -- 控制条：模式 / 上一首 / 播放 / 下一首 / 音量 / 收藏
 --------------------------------------------------------------------
+local function draw_vol_bar()
+    local w = math.floor(82 * S.vol / 100)
+    put(R.vol_fill, (w > 2) and { rc(0, 0, w, 4, C.ac, 2) } or {})
+    call(R.vol_knob, "set_pos", 422 + w - 5, 5)
+end
+
 local function build_ctrl(scr)
     -- html 的 .ctrl 没有卡片底/边框，只有一行 flex
     local ct = theme.box(scr, 416, 204, 508, 80, C.bg)
@@ -423,14 +453,20 @@ local function build_ctrl(scr)
     R.vol_knob = theme.circle(ct, 422 + math.floor(82 * S.vol / 100) - 5, 5, 10, C.ac)
     R.vol_lb = txt(ct, 374, 58, 130, 20, "VOL 68", C.dim, 16, AR)
     local function on_vol(_, v)
+        if R.vol_syncing then return end
         v = tonumber(v)
         if not v and R.vol_slider then
             pcall(function() v = R.vol_slider:get_value() end)
         end
         v = tonumber(v)
         if not v then return end
-        S.vol = math.max(0, math.min(100, math.floor(v)))
-        M.refresh_vol()
+        v = math.max(0, math.min(100, math.floor(v)))
+        if v == S.vol then return end
+        S.vol = v
+        -- 拖动时只画线条和圆点；音量命令与文字放到 100ms 任务里合并，
+        -- 避免每个触摸事件都刷文字/滑块/soft_volume 造成几秒积压。
+        R.vol_pending = v
+        draw_vol_bar()
     end
     local ok_sl, sl = pcall(airui.slider, {
         parent = ct, x = 410, y = 0, w = 96, h = 28,
@@ -444,6 +480,7 @@ local function build_ctrl(scr)
     else
         R.vol_slider = theme.slider(ct, 422, 8, 82, 4, S.vol, on_vol)
     end
+    R.vol_audio = S.vol
     return ct
 end
 
@@ -835,6 +872,7 @@ local function build_mini(root)
     R.mini_fill = theme.shape(bar, 242, 26, 484, 4)
     R.mini_knob = theme.circle(bar, 242, 22, 12, C.ac)
     R.mini_slider = theme.slider(bar, 242, 26, 484, 4, 0, function(_, v)
+        if R.p_syncing then return end
         v = tonumber(v)
         if not v and R.mini_slider then
             pcall(function() v = R.mini_slider:get_value() end)
@@ -885,46 +923,75 @@ end
 --------------------------------------------------------------------
 -- 刷新：播放态 / 时间 / 音量 / 频谱 / 时钟
 --------------------------------------------------------------------
-local function progress_pct()
+local function track_has_audio(i)
+    local tr = mock.track(i)
+    return tr and tr.audio == true
+end
+
+local function duration_s()
     local tr = mock.track(P.i)
-    local p = (tr.d > 0) and (P.t / tr.d) or 0
+    if tr and tr.audio and app_audio and app_audio.started() then
+        local d = app_audio.duration_ms()
+        if d and d > 0 then return d / 1000 end
+    end
+    return tr and tr.d or 0
+end
+
+local function progress_pct()
+    local d = duration_s()
+    local p = (d > 0) and (P.t / d) or 0
     if p < 0 then p = 0 elseif p > 1 then p = 1 end
     return p
 end
 
-function M.refresh_time()
-    local tr = mock.track(P.i)
+local function draw_progress()
     local p = progress_pct()
-    set_text(R.p_cur, mock.fmt_t(P.t))
-    set_text(R.p_dur, mock.fmt_t(tr.d))
     local pct = math.floor(p * 100 + 0.5)
-    set_text(R.p_pct, pct .. "%")
-    set_text(R.mini_time, mock.fmt_t(P.t))
     local w = math.floor(480 * p)
     put(R.p_fill, (w > 2) and { rc(0, 0, w, 6, C.ac, 3) } or {})
-    pcall(R.p_knob.set_pos, R.p_knob, 14 + w - 6, 35)
+    call(R.p_knob, "set_pos", 14 + w - 6, 35)
     local mw = math.floor(484 * p)
     put(R.mini_fill, (mw > 2) and { rc(0, 0, mw, 4, C.ac, 2) } or {})
-    pcall(R.mini_knob.set_pos, R.mini_knob, 242 + mw - 6, 22)
-    local pv = pct
-    if R.p_syncing then return end
+    call(R.mini_knob, "set_pos", 242 + mw - 6, 22)
+    call(R.p_slider, "set_value", pct, false)
+    call(R.mini_slider, "set_value", pct, false)
+end
+
+-- 每帧只刷线和圆点，让进度条与真实音频连续对接；文字仍每秒刷一次
+function M.refresh_progress()
+    if not R or R.p_syncing then return end
     R.p_syncing = true
-    if R.p_slider then pcall(R.p_slider.set_value, R.p_slider, pv, false) end
-    if R.mini_slider then pcall(R.mini_slider.set_value, R.mini_slider, pv, false) end
+    pcall(draw_progress)
     R.p_syncing = false
 end
 
-function M.refresh_vol()
-    local w = math.floor(82 * S.vol / 100)
-    put(R.vol_fill, (w > 2) and { rc(0, 0, w, 4, C.ac, 2) } or {})
-    if R.vol_knob then pcall(R.vol_knob.set_pos, R.vol_knob, 422 + w - 5, 5) end
-    set_text(R.vol_lb, "VOL " .. S.vol)
-    set_text(R.mini_vol, "VOL " .. S.vol)
-    if R.vol_slider and not R.vol_syncing then
-        R.vol_syncing = true
-        pcall(R.vol_slider.set_value, R.vol_slider, S.vol, false)
-        R.vol_syncing = false
-    end
+function M.refresh_time()
+    if not R or R.p_syncing then return end
+    R.p_syncing = true
+    pcall(function()
+        local p = progress_pct()
+        set_text(R.p_cur, mock.fmt_t(P.t))
+        set_text(R.p_dur, mock.fmt_t(math.floor(duration_s() + 0.5)))
+        set_text(R.p_pct, math.floor(p * 100 + 0.5) .. "%")
+        set_text(R.mini_time, mock.fmt_t(P.t))
+        draw_progress()
+    end)
+    R.p_syncing = false
+end
+
+function M.refresh_vol(sync_slider)
+    if not R or R.vol_syncing then return end
+    R.vol_syncing = true
+    pcall(function()
+        draw_vol_bar()
+        set_text(R.vol_lb, "VOL " .. S.vol)
+        set_text(R.mini_vol, "VOL " .. S.vol)
+        -- 拖动过程中不要回写滑块，避免和手指抢值
+        if sync_slider ~= false then
+            call(R.vol_slider, "set_value", S.vol, false)
+        end
+    end)
+    R.vol_syncing = false
 end
 
 function M.refresh_clock()
@@ -1069,18 +1136,18 @@ function M.refresh_play()
     set_text(R.p_meta, "SD CARD · TRACK " .. mock.pad2(P.i))
 
     -- 控制键：直接用 AirUI 内置符号
-    pcall(R.play_ic.set_symbol, R.play_ic,
+    call(R.play_ic, "set_symbol",
         P.playing and airui.SYMBOL_PAUSE or airui.SYMBOL_PLAY)
-    pcall(R.play_ic.set_color, R.play_ic, C.white)
-    pcall(R.prev_ic.set_color, R.prev_ic, C.text)
-    pcall(R.next_ic.set_color, R.next_ic, C.text)
+    call(R.play_ic, "set_color", C.white)
+    call(R.prev_ic, "set_color", C.text)
+    call(R.next_ic, "set_color", C.text)
     local has = mock.is_fav(P.i)
-    pcall(R.fav_bg.set_color, R.fav_bg, has and C.acw or C.btn, 255)
-    pcall(R.fav_bg.set_border_color, R.fav_bg, has and C.acline or C.line)
+    call(R.fav_bg, "set_color", has and C.acw or C.btn, 255)
+    call(R.fav_bg, "set_border_color", has and C.acline or C.line)
     put(R.fav_sh, theme.IC.heart(18, 18, has and C.ac or C.sub, has))
-    pcall(R.mode_ic.set_symbol, R.mode_ic,
+    call(R.mode_ic, "set_symbol",
         (S.mode == 2) and airui.SYMBOL_SHUFFLE or airui.SYMBOL_LOOP)
-    pcall(R.mode_ic.set_color, R.mode_ic, (S.mode > 0) and C.ac or C.sub)
+    call(R.mode_ic, "set_color", (S.mode > 0) and C.ac or C.sub)
     set_text(R.mode_lb, mock.MODES[S.mode + 1])
     set_text(R.q_count, mock.pad2(#mock.TRACKS) .. " TRACKS")
 
@@ -1246,11 +1313,11 @@ function M.refresh_mini()
     set_text(R.mini_name, tr.n)
     set_text(R.mini_artist, tr.a)
     set_text(R.mini_vol, "VOL " .. S.vol)
-    pcall(R.mini_play.set_symbol, R.mini_play,
+    call(R.mini_play, "set_symbol",
         P.playing and airui.SYMBOL_PAUSE or airui.SYMBOL_PLAY)
-    pcall(R.mini_play.set_color, R.mini_play, C.white)
-    pcall(R.mini_prev.set_color, R.mini_prev, C.text)
-    pcall(R.mini_next.set_color, R.mini_next, C.text)
+    call(R.mini_play, "set_color", C.white)
+    call(R.mini_prev, "set_color", C.text)
+    call(R.mini_next, "set_color", C.text)
     M.refresh_time()
 end
 
@@ -1313,36 +1380,63 @@ end
 --------------------------------------------------------------------
 function M.toggle_play()
     P.playing = not P.playing
-    M.refresh_play()
-    M.refresh_mini()
-    M.refresh_lib()
-    M.refresh_fav()
+    if P.playing then
+        -- 无真实音频的曲目也进入播放态，由 100ms 任务走演示进度，只是不出声
+        if track_has_audio(P.i) then
+            if app_audio then pcall(app_audio.resume_or_play) end
+        elseif app_audio then
+            pcall(app_audio.stop)
+        end
+    elseif app_audio then
+        pcall(app_audio.stop)
+    end
+    refresh_all()
 end
 
 function M.step(dir)
     if dir < 0 and P.t > 4 then
         P.t = 0
+        if app_audio then
+            if P.playing and track_has_audio(P.i) then
+                pcall(app_audio.play)
+            else
+                pcall(app_audio.stop)
+            end
+        end
         M.refresh_time()
         return
     end
     local n = #mock.TRACKS
     if S.mode == 2 and dir > 0 then
-        local nxt = P.i
-        while n > 1 and nxt == P.i do nxt = math.random(n) end
-        P.i = nxt
+        if n > 1 then
+            P.i = ((P.i - 1 + math.random(n - 1)) % n) + 1
+        else
+            P.i = 1
+        end
     else
         P.i = ((P.i - 1 + dir) % n) + 1
     end
     P.t = 0
-    M.refresh_play(); M.refresh_mini(); M.refresh_lib(); M.refresh_fav()
+    if app_audio then
+        if P.playing and track_has_audio(P.i) then
+            pcall(app_audio.play)
+        else
+            pcall(app_audio.stop)
+        end
+    end
+    refresh_all()
 end
 
 function M.goto_track(i)
     if not i then return end
     P.i = i
     P.t = 0
+    -- 点任意曲目都进入播放态；只有真实曲目才起播，其余静音走演示进度
     P.playing = true
-    M.refresh_play(); M.refresh_mini(); M.refresh_lib(); M.refresh_fav()
+    if app_audio then
+        if track_has_audio(i) then pcall(app_audio.play) else pcall(app_audio.stop) end
+    end
+    refresh_all()
 end
 
 function M.cycle_mode()
@@ -1354,7 +1448,7 @@ end
 function M.toggle_fav(i)
     local has = mock.is_fav(i)
     mock.set_fav(i, not has)
-    M.refresh_play(); M.refresh_fav(); M.refresh_lib()
+    refresh_all()
     M.toast(has and "已取消收藏" or ("已收藏：" .. mock.TRACKS[i].n))
 end
 
@@ -1654,7 +1748,10 @@ end
 
 function M.toggle_sd()
     S.sd = not S.sd
-    if not S.sd then P.playing = false end
+    if not S.sd then
+        P.playing = false
+        if app_audio then pcall(app_audio.stop) end
+    end
     M.refresh_set(); M.refresh_lib(); M.refresh_play(); M.refresh_mini()
     M.refresh_source()
     sw_toast("sd", S.sd)
@@ -1719,24 +1816,50 @@ function M.build(root)
         while M.gen == gen do
             sys.wait(100)
             if M.gen ~= gen then break end
-            tick = tick + 1
-            M.refresh_spec()
-            if tick % 10 == 0 then
-                if P.playing and S.sd then
-                    local tr = mock.track(P.i)
-                    P.t = P.t + 1
-                    if P.t >= tr.d then
-                        if S.mode == 1 then
-                            P.t = 0
-                            M.refresh_time()
-                        else
-                            M.step(1)
-                        end
-                    else
-                        M.refresh_time()
+            local ok, err = pcall(function()
+                tick = tick + 1
+                -- 音量拖动合并到 100ms 一次，避免 soft_volume 和文字刷新排队
+                if R.vol_pending then
+                    local v = R.vol_pending
+                    R.vol_pending = nil
+                    if v ~= R.vol_audio then
+                        if app_audio then pcall(app_audio.set_volume, v) end
+                        R.vol_audio = v
                     end
+                    M.refresh_vol(false)
                 end
-                M.refresh_clock()
+                if app_audio then app_audio.update() end
+                M.refresh_spec()
+                -- 进度只由 UI 自己的 10 拍=1 秒推进，不再读 app_audio.position_ms()
+                -- （当初能完整播放的版本就是这么走的，避免依赖音频时基）
+                if P.playing and S.sd then M.refresh_progress() end
+                if tick % 10 == 0 then
+                    if P.playing and S.sd then
+                        P.t = P.t + 1
+                        local d = duration_s()
+                        if d > 0 and P.t >= d then
+                            if S.mode == 1 then
+                                P.t = 0
+                                if app_audio then
+                                    if track_has_audio(P.i) then
+                                        pcall(app_audio.play)
+                                    else
+                                        pcall(app_audio.stop)
+                                    end
+                                end
+                                M.refresh_time()
+                            else
+                                M.step(1)
+                            end
+                        else
+                            M.refresh_time()
+                        end
+                    end
+                    M.refresh_clock()
+                end
+            end)
+            if not ok then
+                pcall(log.error, "music", "tick error: " .. tostring(err))
             end
         end
     end)

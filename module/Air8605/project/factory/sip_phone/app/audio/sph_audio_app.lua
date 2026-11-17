@@ -270,6 +270,8 @@ end
 -- UART6 上就已经常驻 64 帧/秒的 MIC 上行解析，和 10ms 一拍的播放下行
 -- 挤同一个 Lua 任务 / 同一个 UART 驱动 —— 录音页(AI 聊天)回放跟着一起卡。
 -- 现在改成：预热验证完就 set_rx_enable(false) 恢复轻载；自检录音/通话前再接管。
+local preparation
+local mic_stopped = false
 local rx_on = false      -- 当前是否由本模块接管并解析 MIC 上行
 local mic_ok = false     -- 硬件预热是否验证通过（空闲不按 last_mic 判活）
 
@@ -277,32 +279,62 @@ local function mic_idle()
     if chip_ok then
         -- set_rx_enable(false) 只关闭 Lua 解析，芯片仍会持续发送 MIC。
         -- 自检回放/空闲时从源头停上行；下一次 ensure_mic 会复位恢复。
-        if type(chip.stop_audio)=="function" then pcall(chip.stop_audio) end
+        if type(chip.stop_audio)=="function" then
+            local ok, stopped = pcall(chip.stop_audio)
+            mic_stopped = ok and stopped == true
+        end
         pcall(chip.set_rx_enable,false)
     end
     rx_on=false
 end
 
 -- 接管 MIC 上行并等到真的出帧（任务上下文调用）
-local function ensure_mic(wait)
+local function ensure_mic(wait, active)
     wait=wait or sys.wait
     local token = generation
+    active = active or function() return token == generation end
+    if not active() then return false end
     if rx_on and last_mic>0 and now()-last_mic<3000 then return true end
     if not mic_install() then return false end
     chip.on_audio_data(on_pcm);chip.set_rx_enable(true);rx_on=true
     mic_parser.reset()
     local before=frames
     local waited=0
-    while token==generation and frames==before and waited<300 do wait(30);waited=waited+30 end
-    if token~=generation then return false end
-    if frames>before then mic_ok=true;return true end
+    while active() and not mic_stopped and frames==before and waited<300 do wait(30);waited=waited+30 end
+    if not active() then return false end
+    if frames>before then mic_stopped=false;mic_ok=true;return true end
     -- 上行可能已被上一次回放停掉(exaudio.finish → play_stream_stop → 02 01)，复位恢复
     assert(chip.reset(),"Air1103 reset command failed")
+    mic_stopped=false
     local deadline=now()+6000
-    while token==generation and frames==before and now()<deadline do wait(50) end
-    if token~=generation then return false end
+    while active() and frames==before and now()<deadline do wait(50) end
+    if not active() then return false end
     mic_ok=frames>before
     return mic_ok
+end
+
+-- Call preparation has its own lifetime: tone generations must not cancel it.
+function M.prepare_call()
+    if preparation then return true end
+    if suspended or not initialized or fault or diag_busy or initializing
+        or (owner and owner~="tone") then return false,"audio_not_ready" end
+    local job={started=now()}
+    preparation=job
+    log.info("audio_app","call MIC prepare")
+    sys.taskInit(function()
+        local ok,result=pcall(ensure_mic,sys.wait,function() return preparation==job end)
+        if preparation~=job then return end
+        job.done=true;job.ok=ok and result==true
+        job.error=ok and "audio_not_ready" or tostring(result)
+        log.info("audio_app",job.ok and "call MIC ready" or "call MIC failed",
+            "elapsed_ms",math.floor(now()-job.started))
+        if not job.ok then signal_error(job.error) end
+    end)
+    return true
+end
+local function cancel_preparation()
+    if preparation then log.info("audio_app","call MIC preparation released") end
+    preparation=nil
 end
 
 -- The lease stays held until the worker has unwound, including cancellation.
@@ -323,7 +355,7 @@ local function diagnostic_wait(ms,session)
 end
 
 function M.diagnostic_begin()
-    if diag_busy or initializing or (owner and owner~="tone") then return nil,"audio_busy" end
+    if preparation or diag_busy or initializing or (owner and owner~="tone") then return nil,"audio_busy" end
     local supported,reason=firmware()
     if not supported then return nil,reason end
     local session={}
@@ -500,11 +532,12 @@ end
 function M.is_ready()
     if not initialized or fault then return false end
     -- 空闲(未接管上行)时按"硬件已验证"判断，接管期间才按帧判活
+    if preparation and not preparation.done then return mic_ok end
     if not rx_on then return mic_ok end
     return last_mic>0 and now()-last_mic<3000
 end
 function M.is_running() return owner=="call" end
-function M.is_busy() return owner~=nil or initializing or diag_busy end
+function M.is_busy() return preparation~=nil or owner~=nil or initializing or diag_busy end
 function M.is_bridge_ok() return owner=="call" and M.is_ready() and chip.is_running() end
 function M.get_volume() return volume end
 function M.set_mute(on)
@@ -534,7 +567,16 @@ local function start_impl(session)
     -- 恢复 MIC 可能复位芯片，先停掉旧铃音，避免复位时仍在喂下行。
     if owner=="tone" then cancel_playback() end
     -- 通话才接管 MIC 上行（打开 SIP 页不接管）
-    if not ensure_mic() then return signal_error("audio_not_ready") end
+    local job=preparation
+    if job then
+        while preparation==job and not job.done do sys.wait(20) end
+        if preparation~=job then return false,"audio_cancelled" end
+        if not job.ok then return false,job.error end
+    end
+    if not ensure_mic(nil,job and function() return preparation==job end or nil) then
+        if job and preparation~=job then return false,"audio_cancelled" end
+        return signal_error("audio_not_ready")
+    end
     local rate=session and tonumber(session.sample_rate or 8000) or 8000
     if rate~=8000 then return false,"unsupported_sample_rate" end
     -- 自检可跳过；ensure_mic 与忙状态检查仍保护硬件和音频资源。
@@ -600,6 +642,7 @@ local function start_impl(session)
         "body","excludes summary logging; includes PCM processing",
         "rtp_arrival_jitter","NA","pcm_internal_queue","NA","uart_hw_error_counter","NA")
     local PLAY_TARGET=1920   -- 下行水位 60ms(320B/10ms)，与官方 audio_drv.play_buffer_ms=60 一致
+    if job then log.info("audio_app","call bridge ready","prepare_elapsed_ms",math.floor(now()-job.started)) end
     log.info("audio_app","bridge v7: bounded MIC callback uplink",
         "up_max_frames",4,"up_budget_ms",3,"retry_ms",10,
         "play_first_ms",20,"play_ms",5,"perf",cfg.sip_perf_enabled==true)
@@ -841,6 +884,7 @@ function M.start(session)
 end
 
 function M.stop()
+    cancel_preparation()
     if diag_busy then return true end -- diagnostic worker owns cleanup until it exits
     if owner=="call" or owner=="tone" then cancel_playback() end
     muted=false
@@ -852,6 +896,7 @@ M.stop_bridge=M.stop
 
 function M.shutdown()
     suspended = true
+    cancel_preparation()
     cancel_playback()
     M.diagnostic_cancel()
     local waited = 0

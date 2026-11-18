@@ -161,7 +161,7 @@ M.F = {
 
 以前 px_size 走的是「显式给小字」的旁路（12~14px 随手写），全工程因此散了一地
 低于下限的字号。现在两条路径统一夹取，装不下就改盒子高度 / 行高，不要往回压字号。]]
-M.FONT_MIN = 15
+M.FONT_MIN = 18
 
 --[[像素字号档位：乘密度前的基准值（@density=1.0 时的 px）
 刻意收敛到 8 档 —— 写页面时按语义选档，不要临时拍数值，
@@ -768,50 +768,12 @@ function M.ink(bg)
     return pick_ink(bg)
 end
 
---[[视频控制栏 —— 桌面播放器（idle_win）与全屏播放页（video_win）共用的**唯一**实现
-
-== 为什么要收口 ==
-这两个页面原先各写一份控制栏，于是「按钮顺序 / 尺寸上限 / 配色策略」三处细节天然漂移：
-全屏页把「返回」摆在最左、桌面页把「全屏」摆在最右 —— 同一个控制栏，方向感相反；
-按钮间距一个是 clamp(6d, 4, 10)、一个是 clamp(6d, 4, 8)；文件名让位宽度一个减一个 gap、
-一个减两个。两边都改调本函数之后，「排列与样式一致」是结构性成立的，不再靠人工核对。
-
-== 排列（自左向右，与设计稿一致）==
-    播放 | 循环 | 选择 | 全屏/窗口
-最右一格固定是「形态切换」：桌面上是「全屏」，全屏页里是「窗口」（点它退回窗口态）。
-
-== 颜色走两个轴 ==
-  · 随主题：底色一律取主题令牌（green / amber / cyan / violet / track）—— 换肤即换色
-  · 随状态：播放键 —— 播放中 = 绿，暂停 = 中性轨道色（一眼看出有没有在放）
-            循环键 —— 循环中 = 琥珀，单次 = 中性轨道色
-    状态一变就同时刷新底色与文字色（bar:sync），而不是只换文案。
-    这正是「视频控制按钮的颜色要随状态变化」的落点。
-  文字色既不写死、也不取 t1：由 M.button_colors 按「底色折算成实色后的真实对比度」配，
-  底色落在「配黑字配白字都不够读」的中间带时还会自动推一档 ——
-  所以科技蓝（亮绿配黑字）与晨曦浅色（深绿配白字）这两类方向相反的主题都读得出字。
-
-== 透明度策略（沿用原桌面播放器的口径）==
-主按钮（播放）实底 255；在用的状态键 180；不在用的状态键 118（压到中性、退到背景里）。
-
-@table o
-  parent        控制栏容器
-  x, y, w, h    控制栏几何
-  radius        控制栏圆角（逻辑值；桌面播放器贴着视频卡片底部，传 0）
-  playing       初始播放状态
-  loop          初始循环状态
-  file_text     左侧文件名
-  mode_text     最右按钮文案（"全屏" / "窗口"）
-  on_play / on_loop / on_pick / on_mode   四个按钮的点击回调
-@return bar
-  bar.ctrl / bar.file_label / bar.play / bar.loop / bar.pick / bar.mode
-  bar:sync(playing, loop)   按状态刷新「播放」「循环」两个按钮（文案 + 颜色），
-                            参数传 nil 表示该状态不变
-  bar:set_file(text)        刷新左侧文件名
-  bar:state()               取回当前 (playing, loop)
-]]
+--[[Shared video controls for desktop and fullscreen playback.
+Four rounded text buttons: primary play/pause, tinted active loop, neutral pick/mode.
+Narrow bars center the controls; wider bars also show the current filename.
+The handle exposes sync(playing, loop), set_file(text), and state().]]
 function M.video_bar(parent, o)
     o = o or {}
-    local d = _G.density_scale or 1.0
     local W = o.w or 400
     local ctrl_h = o.h or 48
 
@@ -822,78 +784,75 @@ function M.video_bar(parent, o)
         radius = (o.radius ~= nil) and o.radius or M.R.md, border_w = 0,
     })
 
-    local btn_size = clamp_i(math.floor(ctrl_h * 1.0), 36, 48)   -- 按钮加宽以容纳中文标签
-    local btn_gap  = clamp_i(math.floor(6 * d), 4, 8)
-    local btn_y    = math.floor((ctrl_h - btn_size) / 2)
-    local pad_in   = math.floor(10 * d)
+    local pad_in = dp(12)
+    local btn_gap = clamp_i(dp(8), 6, 12)
+    local btn_font = math.max(M.FONT_MIN, M.fs("label"))
+    local btn_h = math.min(dp(40), ctrl_h - dp(12))
+    local btn_y = math.floor((ctrl_h - btn_h) / 2)
+    local btn_w = math.min(math.max(dp(64), btn_font * 2 + dp(24)),
+        math.floor((W - pad_in * 2 - btn_gap * 3) / 4))
 
-    --[[配色三级：主按钮（播放）最实，在用的状态键次之，不在用的状态键最淡。
-    这三个不透明度只表达「强调程度」，会被 M.button_colors 折算成等价实色 + 配套文字色。]]
-    local UNDER = M.C.panel            -- 按钮底色的实际衬底（控制栏 opa 235，近似实底）
-    local OPA_PRIMARY, OPA_ON, OPA_OFF = 255, 180, 118
+    local accent = M.C.primary or M.C.amber
+    local neutral = M.C.input_bg
+    local loop_fill = alpha_blend(accent, neutral, 36)
 
-    --[[按钮文字比「按钮尺寸的一半」再收一号（24 -> 22，正好落在 M.FS 的 h2 档）
 
-    起因：btn_size 被夹在 48，两个汉字在 24px 下正好排满 48px，左右顶到按钮边、
-    没有呼吸感。收 2px 后每侧留出余量，四个按钮（暂停/播放、循环、选择、全屏/窗口）
-    一起变，不至于只有一个按钮字小。]]
-    local btn_font = math.floor(btn_size * 0.5) - 2
-    if btn_font < M.FONT_MIN then btn_font = M.FONT_MIN end
-
-    --[[按钮工厂：airui.button 而不是 theme.card —— 需要真实按压反馈。
-
-    底色交给 M.button_colors 处理，拿回来的一定是「实色 + 读得清的文字色」：
-    文字色按底色的实际对比度取 —— 浅色档的绿是深绿配白字、深色档的绿是亮绿配黑字，
-    方向相反但都读得出；底色若正好落在「配黑字配白字都不够」的中间带会被推一档。
-
-    这里不再写 text_color = theme.C.t1：那句话在一半主题下是读不出字的
-    —— 实测科技蓝下只有 1.45:1、晨曦浅色下 2.96:1（t1 的明暗方向刚好和语义色相反）。]]
-    local function make_btn(text, fill, opa, x, on_click)
-        local bg, ink = M.button_colors(fill, UNDER, opa)
+    local function make_btn(text, fill, x, on_click)
+        local bg, ink = M.button_colors(fill)
+        local pressed_fill = fill == accent and (M.C.primary_deep or M.C.amber_deep)
+            or alpha_blend(accent, bg, 40)
+        local pressed, pressed_ink = M.button_colors(pressed_fill)
         return airui.button({
-            parent = bar, x = x, y = btn_y, w = btn_size, h = btn_size,
+            parent = bar, x = x, y = btn_y, w = btn_w, h = btn_h,
             text = text, font_size = btn_font,
             style = {
                 bg_color = bg, bg_opa = 255, text_color = ink,
-                border_width = 0, radius = dp(M.R.xs),
-                pressed_bg_color = bg, pressed_bg_opa = 255, pressed_text_color = ink,
+                border_width = 0,
+                radius = math.min(dp(12), math.floor(btn_h / 2)),
+                pressed_bg_color = pressed, pressed_bg_opa = 255, pressed_text_color = pressed_ink,
             },
             on_click = on_click,
         })
     end
 
-    --[[就地改一个按钮的底色 + 文字色
-
-    状态切换只改文案不改色，就等于「按钮颜色不随状态变化」——
-    所以 set_text 与 set_style 必须成对出现，收进这一个函数里防漏。]]
-    local function repaint(btn, fill, opa)
-        local bg, ink = M.button_colors(fill, UNDER, opa)
+    local function repaint(btn, fill)
+        local bg, ink = M.button_colors(fill)
+        local pressed_fill = fill == accent and (M.C.primary_deep or M.C.amber_deep)
+            or alpha_blend(accent, bg, 40)
+        local pressed, pressed_ink = M.button_colors(pressed_fill)
         btn:set_style({
             bg_color = bg, bg_opa = 255, text_color = ink,
-            pressed_bg_color = bg, pressed_bg_opa = 255, pressed_text_color = ink,
+            border_width = 0,
+            pressed_bg_color = pressed, pressed_bg_opa = 255, pressed_text_color = pressed_ink,
         })
     end
 
     -- 自右向左摆位：最右一格固定是「形态切换」，与设计稿的排布一致
-    local step = btn_size + btn_gap
-    local x_mode = W - pad_in - btn_size
+    local btns_w = btn_w * 4 + btn_gap * 3
+    local file_w = W - pad_in * 2 - btns_w - btn_gap
+    local show_file = file_w >= dp(96)
+    local start_x = show_file and (W - pad_in - btns_w) or math.floor((W - btns_w) / 2)
+    local step = btn_w + btn_gap
+    local x_mode = start_x + step * 3
     local x_pick = x_mode - step
     local x_loop = x_pick - step
     local x_play = x_loop - step
 
-    local mode_btn = make_btn(o.mode_text or "全屏", M.C.violet, OPA_ON, x_mode, o.on_mode)
-    local pick_btn = make_btn("选择",             M.C.cyan,   OPA_ON, x_pick, o.on_pick)
-    local loop_btn = make_btn("循环",             M.C.amber,  OPA_ON, x_loop, o.on_loop)
-    local play_btn = make_btn("暂停",             M.C.green, OPA_PRIMARY, x_play, o.on_play)
+    local mode_btn = make_btn(o.mode_text or "全屏", neutral, x_mode, o.on_mode)
+    local pick_btn = make_btn("选择", neutral, x_pick, o.on_pick)
+    local loop_btn = make_btn("循环", loop_fill, x_loop, o.on_loop)
+    local play_btn = make_btn("暂停", M.C.cyan, x_play, o.on_play)
 
     -- 文件名标签（左侧，宽度让开右侧 4 个按钮；至少留 1 个按钮间距，别顶到按钮上）
-    local btns_w = btn_size * 4 + btn_gap * 3
-    local file_w = W - pad_in * 2 - btns_w - btn_gap
-    if file_w < 24 then file_w = 24 end
+    local file_fs = math.max(M.FONT_MIN, M.fs("micro"))
+    local function file_text(text)
+        return show_file and M.fit_text(text or "", file_w, file_fs) or ""
+    end
     local file_label = M.label(bar, {
-        x = pad_in, y = btn_y, w = file_w, h = btn_size,
-        text = o.file_text or "", px_size = M.fs("micro"),
-        color = M.C.t3, align = airui.TEXT_ALIGN_LEFT,
+        x = pad_in, y = math.floor((ctrl_h - file_fs - 3) / 2),
+        w = math.max(1, file_w), h = file_fs + 3,
+        text = file_text(o.file_text), px_size = file_fs,
+        color = M.C.t2, align = airui.TEXT_ALIGN_LEFT,
     })
 
     local play_state = o.playing and true or false
@@ -901,19 +860,15 @@ function M.video_bar(parent, o)
 
     local function apply_play()
         play_btn:set_text(play_state and "暂停" or "播放")
-        if play_state then
-            repaint(play_btn, M.C.green, OPA_PRIMARY)
-        else
-            repaint(play_btn, M.C.track, OPA_OFF)
-        end
+        repaint(play_btn, play_state and M.C.cyan or M.C.green)
     end
 
     local function apply_loop()
         loop_btn:set_text(loop_state and "循环" or "单次")
         if loop_state then
-            repaint(loop_btn, M.C.amber, OPA_ON)
+            repaint(loop_btn, loop_fill)
         else
-            repaint(loop_btn, M.C.track, OPA_OFF)
+            repaint(loop_btn, neutral)
         end
     end
 
@@ -931,7 +886,7 @@ function M.video_bar(parent, o)
         apply_loop()
     end
     function handle:set_file(text)
-        file_label:set_text(text or "")
+        file_label:set_text(file_text(text))
     end
     function handle:state()
         return play_state, loop_state
@@ -1101,17 +1056,18 @@ function M.tile(parent, o)
             text = o.mark or (o.text and string.sub(o.text, 1, 1) or "A"), size = M.F.body,
             color = M.C.on_amber, align = airui.TEXT_ALIGN_CENTER })
     end
-    --[[名称盒高按「字号 + 3」取（hzfont 行高），并夹到磁贴剩余高度内。
-    原来写死 dp(18)：字号抬到下限之上后一行字刚好吃满，再大一号就被裁掉。]]
+    -- 名称支持指定行数，调用方按同一字号和行数预留磁贴高度。
     local name_fs = o.px_size or dp(o.size or M.F.small)
     if name_fs < M.FONT_MIN then name_fs = M.FONT_MIN end
     local name_y = dp(6) + icon_size + dp(4)
-    local name_h = name_fs + 3
+    local name_lines = o.name_lines or 1
+    local name_h = (name_fs + 3) * name_lines
     if name_h > h - name_y then name_h = h - name_y end
     if name_h < 1 then name_h = 1 end
     M.label(tile, {
         x = dp(2), y = name_y, w = w - dp(4), h = name_h,
-        text = o.text or "", px_size = name_fs, color = o.text_color or M.C.t1,
+        text = M.fit_text(o.text or "", w - dp(4), name_fs, name_lines),
+        px_size = name_fs, color = o.text_color or M.C.t1,
         align = airui.TEXT_ALIGN_CENTER,
     })
     if o.badge then

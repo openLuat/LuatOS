@@ -28,6 +28,7 @@ device_info.version = _G.VERSION
 local function get_device_info()
     -- 获取设备型号
     device_info.model = (_G.project_config and _G.project_config.name) or ""
+    device_info.chip = (_G.project_config and _G.project_config.chip) or "--"
     -- 获取MCU唯一ID（原始格式和十六进制格式）
     local ok, unique_id = pcall(mcu.unique_id)
     if ok and unique_id then

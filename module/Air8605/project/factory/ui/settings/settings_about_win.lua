@@ -1,45 +1,12 @@
---[[
-@module  settings_about_win
-@summary 关于设备子页面（TabOS 主题化）
-@version 3.2
-@date    2026.10.15
-@author  江访
-
-=== 消息协议 ===
-订阅: OPEN_ABOUT_WIN             -> 打开本页
-发布: ABOUT_DEVICE_GET_INFO      -> 请求设备信息（型号 / ID / 版本 / 内核）
-发布: CONFIG_GET_DEVICE_NAME     -> 请求设备名称
-订阅: ABOUT_DEVICE_INFO(info)    -> { device_name, model, unique_id, version, kernel }
-订阅: CONFIG_DEVICE_NAME_VALUE(name)
-
-=== v3.2 修复 ===
-弹窗无法关闭：软键盘弹起后盖住弹窗底部的取消/保存按钮，点击落到键盘上。
-弹窗改为避开键盘占据的屏幕底部区域定位，关闭路径统一走 close_edit_dialog
-（逐容错），取消/保存/失焦/销毁都可靠关窗。
-
-=== v3.0 重写解决的两件事 ===
-1) 文字溢出容器
-   原实现把几何量写死成「XX * density_scale」并散在四个函数里，而 LVGL 的 label
-   默认是自动换行（LV_LABEL_LONG_WRAP）—— 行高不够时文字会自己撑破盒子、溢出到
-   卡片外面（内核版本那段最长，最明显）。现在：
-     · 行高由「字号 + 3」（hzfont 行高）+ 估算行数算出来，不再拍数值；
-     · 键在上、值在下且占满整行宽（原来值是挤在右侧 60% 的窄列里）；
-     · 值文本按可用宽度做「截断 + ...」兜底，无论上报多长都不会溢出。
-2) 方框套方框不好看
-   原来是「带描边的大卡 -> 里面每一小行再各自带描边」，双层边框 + 大量留白。
-   现在整组只有一个卡片，行与行之间用 1px 主题分隔线（theme.divider）。
-]]
-
+-- 设置首页嵌入式设备信息卡，复用设备信息事件和名称编辑弹窗。
 local theme = require "ui_theme"
 
-local window_id = nil
 local main_container = nil
 local edit_win = nil
 local name_input = nil
 local soft_keyboard = nil
 
 local sw, sh = 480, 800
-local product_name = "合宙引擎主机"
 
 -- 字段 -> 值标签的更新函数（行是在 build_info_list 里建的，这里存闭包）
 local value_setters = {}
@@ -70,10 +37,12 @@ end
 --[[可展示的信息行。lines = 该值最多占几行（决定行高与截断预算）]]
 local ITEMS = {
     { key = "设备名称", field = "device_name", hint = "点此修改", lines = 1, placeholder = "--" },
-    { key = "设备型号", field = "model",       lines = 1, placeholder = "--" },
-    { key = "设备 ID",  field = "unique_id",   lines = 1, placeholder = "--" },
-    { key = "软件版本", field = "version",     lines = 1, placeholder = "--" },
+    { key = "设备型号", field = "model",       lines = 2, placeholder = "--" },
+    { key = "设备ID",   field = "unique_id",   lines = 2, placeholder = "--" },
+    { key = "固件版本", field = "version",     lines = 1, placeholder = "--" },
     { key = "内核版本", field = "kernel",      lines = 2, placeholder = "--" },
+    { key = "主控芯片", field = "chip",        lines = 1, placeholder = "--" },
+    { key = "屏幕分辨率", field = "resolution", lines = 1, placeholder = "--" },
 }
 
 local function update_screen_size()
@@ -109,68 +78,70 @@ end
 外高少 2。以前直接按外框 w x total_h 铺满，右/下各撑出 2px —— 容器天生带
 LV_OBJ_FLAG_SCROLLABLE，超出就画滚动条，这张圆角卡片上便多出一对「滑块」
 （用户报的「没考虑容器倒角 -> 出现滑块」就是它）。]]
-local function build_info_list(parent, x, y, w)
+local function build_info_list(parent, x, y, w, h)
     local bw       = 1                     -- theme.card 默认描边宽度
     local inner_w  = w - 2 * bw            -- 卡片内容区宽
     local pad      = theme.dp(14)
-    local fs_key   = theme.fs("micro")     -- 15
-    local fs_val   = theme.fs("label")     -- 17
+    local fs_key   = math.max(theme.FONT_MIN, theme.fs("micro"))
+    local fs_val   = math.max(theme.FONT_MIN, theme.fs("label"))
     local key_lh   = fs_key + 3            -- hzfont 行高 = 字号 + 3
     local val_lh   = fs_val + 3
-    local gap      = theme.dp(4)
-    local value_w  = inner_w - pad * 2
+    local key_w    = theme.text_width("屏幕分辨率", fs_key)
+    local value_x  = pad + key_w + theme.dp(12)
+    local value_w  = inner_w - pad - value_x
 
     -- 先算总高：每行 = 上下内边距 + 键行 + 间隙 + 值行*行数
-    local total_h = 0
+    local total_h = pad * 2
     for i, it in ipairs(ITEMS) do
-        it.row_h = pad * 2 + key_lh + gap + val_lh * (it.lines or 1)
+        it.row_h = theme.dp(8) * 2 + val_lh * (it.lines or 1)
         total_h = total_h + it.row_h + (i < #ITEMS and 1 or 0)
     end
 
-    local card = theme.card(parent, { x = x, y = y, w = w, h = total_h + 2 * bw, border_w = bw })
+    -- 填满可用高度，富余空间均分到各行；高度不足时由外层容器滚动。
+    local card_h = math.max(h or 0, total_h + 2 * bw)
+    local extra = card_h - total_h - 2 * bw
+    local card = theme.card(parent, { x = x, y = y, w = w, h = card_h, border_w = bw })
 
-    local cy = 0
+    local cy = pad
     for i, it in ipairs(ITEMS) do
+        local row_h = it.row_h + math.floor(extra * i / #ITEMS) - math.floor(extra * (i - 1) / #ITEMS)
         local row = theme.box(card, {
-            x = 0, y = cy, w = inner_w, h = it.row_h,
+            x = 0, y = cy, w = inner_w, h = row_h,
             color = theme.C.black, opa = 0,
             on_click = it.on_click,
         })
 
         theme.label(row, {
-            x = pad, y = pad, w = value_w, h = key_lh,
+            x = pad, y = math.floor((row_h - key_lh) / 2),
+            w = key_w, h = key_lh,
             text = it.key, px_size = fs_key,
             color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
         })
-        if it.hint then
-            theme.label(row, {
-                x = pad, y = pad, w = value_w, h = key_lh,
-                text = it.hint, px_size = fs_key,
-                color = theme.C.primary, align = airui.TEXT_ALIGN_RIGHT,
+        local value_label
+        local lines = it.lines or 1
+        local function set_value(text)
+            current_values[it.field] = tostring(text or "")
+            local display_text = fit_value(text, value_w, fs_val, lines)
+            local shown_lines = math.min(lines, theme.text_lines(display_text, value_w, fs_val))
+            local value_h = val_lh * shown_lines
+            -- Label 没有垂直对齐属性，按实际行数居中创建，避免单行值顶在两行框上方。
+            if value_label and not value_label:is_destroyed() then value_label:destroy() end
+            value_label = theme.label(row, {
+                x = value_x, y = math.floor((row_h - value_h) / 2), w = value_w, h = value_h,
+                text = display_text, px_size = fs_val,
+                color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
             })
         end
-
-        local value_label = theme.label(row, {
-            x = pad, y = pad + key_lh + gap, w = value_w,
-            h = val_lh * (it.lines or 1),
-            text = it.placeholder, px_size = fs_val,
-            color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
-        })
-        local lines = it.lines or 1
-        value_setters[it.field] = function(text)
-            current_values[it.field] = tostring(text or "")
-            if value_label and not value_label:is_destroyed() then
-                value_label:set_text(fit_value(text, value_w, fs_val, lines))
-            end
-        end
+        value_setters[it.field] = set_value
+        set_value(it.placeholder)
 
         if i < #ITEMS then
-            theme.divider(card, { x = pad, y = cy + it.row_h, w = value_w })
+            theme.divider(card, { x = pad, y = cy + row_h, w = inner_w - 2 * pad })
         end
-        cy = cy + it.row_h + 1
+        cy = cy + row_h + 1
     end
 
-    return card, total_h + 2 * bw
+    return card, card_h
 end
 
 --[[更改设备名称弹窗：配色全部走令牌（原先把标题色写死成纯白，
@@ -296,52 +267,15 @@ local function create_edit_win(device_name)
     })
 end
 
-local function build_ui()
-    update_screen_size()
-
-    local cfg_chip = (_G.project_config and _G.project_config.chip) or ""
-    local suffix = cfg_chip:gsub("^Air", "")
-    product_name = (suffix ~= "") and ("合宙引擎主机" .. suffix) or "合宙引擎主机"
-
-    local ctx = theme.page({
-        title = "关于设备",
-        sub = "设备型号、唯一 ID 与版本信息",
-        on_back = function() exwin.close(window_id) end,
-    })
-    main_container = ctx.base
-
-    -- 内容区可滚动：矮横屏（800×480）高密度时信息行可能超出，滚动兜底
-    local body = theme.box(ctx.base, {
-        x = ctx.x, y = ctx.y, w = ctx.w, h = ctx.h,
-        color = theme.C.black, opa = 0, scrollable = true,
-    })
-
-    ITEMS[1].on_click = function()
-        create_edit_win(current_values.device_name or product_name)
-    end
-
-    local _, card_h = build_info_list(body, 0, 0, ctx.w)
-
-    -- 底部说明：剩余空间不够就不画，避免被裁成半行
-    local fs_note = theme.fs("micro")
-    local note_y = card_h + theme.dp(10)
-    if note_y + (fs_note + 3) <= ctx.h then
-        theme.label(body, {
-            x = 0, y = note_y, w = ctx.w, h = fs_note + 3,
-            text = "设备名称可点击修改；其余信息由系统上报",
-            px_size = fs_note, color = theme.C.t3,
-            align = airui.TEXT_ALIGN_CENTER,
-        })
-    end
-end
-
 local function on_device_info(info)
     if not info then return end
     if info.device_name and value_setters.device_name then value_setters.device_name(info.device_name) end
     if info.model and value_setters.model then value_setters.model(info.model) end
     if info.unique_id and value_setters.unique_id then value_setters.unique_id(info.unique_id) end
-    if info.version and value_setters.version then value_setters.version(info.version) end
     if info.kernel and value_setters.kernel then value_setters.kernel(info.kernel) end
+    if info.version and value_setters.version then value_setters.version(info.version) end
+    if info.chip and value_setters.chip then value_setters.chip(info.chip) end
+    if info.resolution and value_setters.resolution then value_setters.resolution(info.resolution) end
     log.info("settings_about", "UI更新设备信息")
 end
 
@@ -350,41 +284,42 @@ local function on_device_name(device_name)
     log.info("settings_about", "更新设备名称", device_name)
 end
 
-local function on_create()
+local M = {}
+function M.mount(root, x, y, w, h, parent)
+    main_container = root
+    update_screen_size()
     value_setters = {}
     current_values = {}
-    build_ui()
-    sys.publish("ABOUT_DEVICE_GET_INFO")
-    sys.publish("CONFIG_GET_DEVICE_NAME")
+    ITEMS[1].on_click = function() create_edit_win(current_values.device_name or "") end
+    local host = parent or root
+    if h then
+        host = theme.box(host, {
+            x = x, y = y, w = w, h = h,
+            color = theme.C.black, opa = 0, scrollable = true,
+        })
+        x, y = 0, 0
+    end
+    local _, card_h = build_info_list(host, x, y, w, h)
+    local cfg = _G.project_config or {}
+    on_device_info({
+        device_name = "合宙引擎主机" .. (cfg.chip or ""):gsub("^Air", ""),
+        model = cfg.name or "--", chip = cfg.chip or "--",
+        resolution = string.format("%d × %d", screen_w or 480, screen_h or 800),
+    })
     sys.subscribe("ABOUT_DEVICE_INFO", on_device_info)
     sys.subscribe("CONFIG_DEVICE_NAME_VALUE", on_device_name)
+    sys.publish("ABOUT_DEVICE_GET_INFO")
+    sys.publish("CONFIG_GET_DEVICE_NAME")
+    return card_h
 end
 
-local function on_destroy()
+function M.unmount()
     sys.unsubscribe("ABOUT_DEVICE_INFO", on_device_info)
     sys.unsubscribe("CONFIG_DEVICE_NAME_VALUE", on_device_name)
     close_edit_dialog()
-    if main_container then
-        main_container:destroy()
-        main_container = nil
-    end
+    main_container = nil
     value_setters = {}
     current_values = {}
 end
-
-local function on_get_focus() end
-
-local function on_lose_focus()
-    close_edit_dialog()
-end
-
-local function open_handler()
-    window_id = exwin.open({
-        on_create = on_create,
-        on_destroy = on_destroy,
-        on_lose_focus = on_lose_focus,
-        on_get_focus = on_get_focus,
-    })
-end
-
-sys.subscribe("OPEN_ABOUT_WIN", open_handler)
+M.close_editor = close_edit_dialog
+return M

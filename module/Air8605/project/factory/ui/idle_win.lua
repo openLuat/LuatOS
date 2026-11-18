@@ -293,11 +293,9 @@ end
 local function calc_grid_metrics(gw)
     local inner_w = gw - 2 * apps_pad_y
     tile_icon = clamp(math.floor(screen_h * 0.060 * density_scale_val), 26, 48)   -- 设计稿 36
-    --[[瓦片内容高度：图标 y=dp(6) + 图标 + 文字 y 偏移 dp(4) + 文字高 dp(18) = dp(28) + 图标，
-    而容器还要减掉上下各 1px 描边 —— 原来的 dp(30) 让内容**正好顶到容器边缘**（余量 0），
-    真机上再有一两个像素的取整/行高差，LVGL 就会给瓦片画出滚动条
-    （用户报的「已安装应用里挤出滑块」）。这里把余量提到 dp(34)，文字下方固定留 4px。]]
-    tile_h = tile_icon + math.floor(34 * density_scale_val)
+    -- 图标上下间距 + 两行名称 + 底部安全边距，分页行数随磁贴高度重新计算。
+    local name_fs = clamp(math.floor(screen_h * 0.02), theme.FONT_MIN, 18)
+    tile_h = tile_icon + theme.dp(14) + 2 * (name_fs + 3) + 2
     apps_head_h = clamp(math.floor(screen_h * 0.045), 24, 30)
     grid_gap = clamp(math.floor(screen_w * 0.010), 6, 12)
 
@@ -317,6 +315,8 @@ local function calc_layout()
     status_h = clamp(math.floor(sh * 0.05), 28, 36)
     header_h = 0
     dock_h = clamp(math.floor(sh * 0.105), 48, 72)
+    local dock_name_fs = math.max(theme.FONT_MIN, theme.dp(theme.F.tiny))
+    dock_h = math.max(dock_h, 28 + theme.dp(14) + 2 * (dock_name_fs + 3) + 4)
 
     content_x = rail_w
     content_w = sw - rail_w
@@ -647,6 +647,7 @@ local function render_grid_page()
         local tile = theme.tile(grid_container, {
             x = x, y = y, w = tile_w, h = tile_h,
             icon = app.icon, icon_size = tile_icon, text = app.name, opa = 6,
+            name_lines = 2,
             px_size = clamp(math.floor(screen_h * 0.02), theme.FONT_MIN, 18), text_color = theme.C.t2,
             on_click = function() tile_bind_click(app) end,
             on_long_press = long_handler,
@@ -1378,17 +1379,15 @@ local function build_rail(parent)
         color = theme.C.rail_bg, opa = theme.OPA.rail })
     local rail = rail_container
 
-    -- 品牌块
+    -- 品牌图片直接显示，不叠加卡片底色或内缩。
     local bs = clamp(math.floor(rail_w * 0.42), 32, 44)
-    local brand = theme.card(rail, {
+    theme.image(rail, {
+        icon = "brand",
         x = math.floor((rail_w - bs) / 2), y = pad, w = bs, h = bs,
-        radius = theme.R.md, color = theme.C.amber, opa = 255, border_w = 0,
     })
-    theme.image(brand, { icon = "brand", placeholder = true,
-        x = bs * 0.24, y = bs * 0.24, w = bs * 0.52, h = bs * 0.52 })
 
     -- 内置应用快捷入口（替代原导航项）
-    local iw = math.floor(rail_w * 0.80)
+    local iw = math.floor(rail_w * 0.90)
     local gap = math.floor(6 * density_scale_val)            -- 设计稿 6
     --[[项高按数量自适应：内置应用项 + 底部「桌面」项都要落在栏内。
     溢出的控件会顶出父容器，而 LVGL 容器天生带 SCROLLABLE，一溢出整条左栏就会长出滑动条。]]
@@ -1419,19 +1418,19 @@ local function build_rail(parent)
             pcall(function() hl:set_hidden(false) end)
         end
 
-        local isz = math.floor(ih * 0.36)
+        local isz = math.floor(ih * 0.42)
         theme.image(item, { icon = b.icon, placeholder = true, x = math.floor((iw - isz) / 2),
             y = math.floor(ih * 0.18), w = isz, h = isz })
         theme.label(item, {
-            x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = ih - math.floor(ih * 0.56),
-            text = b.name, px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 16),
+            x = 0, y = math.floor(ih * 0.56), w = iw, h = ih - math.floor(ih * 0.56),
+            text = b.name, px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 20),
             --[[左栏标签读 t2 而不是 t3
 
             左栏底色是「rail_bg 叠在主题 bg 上」的合成色，比纯 bg 亮一档；
             t3 是弱文字档，在两套玻璃主题的合成左栏上只有 2.3 / 2.9:1（低于 3:1 下限）。
             t2 在全部 9 套主题的左栏上都 ≥ 4.6:1，而且左栏标签本就是主导航文案，
             语义上对应「次级文字」而非「弱文字」。]]
-            color = theme.C.t2, align = airui.TEXT_ALIGN_CENTER,
+            color = theme.C.black, align = airui.TEXT_ALIGN_CENTER,
         })
         y = y + ih + gap
     end
@@ -1459,14 +1458,14 @@ local function build_rail(parent)
             pcall(function() hl:set_hidden(false) end)
         end
 
-        local isz = math.floor(ih * 0.36)
+        local isz = math.floor(ih * 0.42)
         -- desktop.png 尚未提供时按占位块绘制（与品牌块、应用项同一套兜底）
         theme.image(item, { icon = "desktop", placeholder = true, x = math.floor((iw - isz) / 2),
             y = math.floor(ih * 0.18), w = isz, h = isz })
         theme.label(item, {
             x = 2, y = math.floor(ih * 0.56), w = iw - 4, h = ih - math.floor(ih * 0.56),
-            text = "桌面", px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 16),
-            color = theme.C.t2, align = airui.TEXT_ALIGN_CENTER,
+            text = "桌面", px_size = clamp(math.floor(screen_h * 0.018), theme.FONT_MIN, 20),
+            color = theme.C.black, align = airui.TEXT_ALIGN_CENTER,
         })
     else
         log.warn("idle_win", "左栏放不下「桌面」入口（内置应用过多），已跳过")
@@ -1503,17 +1502,11 @@ local function build_status_bar(parent)
     local text_h = fs + 4
     local text_y = pad + math.floor((status_h - text_h) / 2)
 
-    -- 左侧：问候语
-    greet_label = theme.label(parent, {
-        x = bar_x, y = text_y, w = math.floor(bar_w * 0.55), h = text_h,
-        text = greeting_text(status_cache.time) .. "，合宙用户!",
-        px_size = fs, color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
-    })
-
     -- 右侧从右往左：时间 / 电量 / 以太网 / 4G / WiFi
     local rx = bar_w
 
-    local time_w = clamp(math.floor(50 * density_scale_val), 44, 64)
+    -- 为 HH:MM 留出五个字符和取整余量，字号抬高后不再受原来 50px 宽度限制。
+    local time_w = fs * 5 + theme.dp(4)
     rx = rx - time_w
     status_time_label = theme.label(parent, {
         x = bar_x + rx, y = text_y, w = time_w, h = text_h,
@@ -1556,6 +1549,12 @@ local function build_status_bar(parent)
         wifi_icon_box, wifi_icon = make_net_icon(parent,
             "/luadb/wifixinhao0.png", bar_x + rx, pad + icon_y, isz)
     end
+    -- 图标和时间先占位，问候语使用剩余宽度，避免在右列较窄时相互覆盖。
+    greet_label = theme.label(parent, {
+        x = bar_x, y = text_y, w = math.max(1, rx - gap), h = text_h,
+        text = greeting_text(status_cache.time) .. "，合宙用户!",
+        px_size = fs, color = theme.C.t1, align = airui.TEXT_ALIGN_LEFT,
+    })
 end
 
 local function build_clock_card(parent)
@@ -1687,29 +1686,18 @@ local function build_dock(parent)
     local sx = math.floor((inner_w - total) / 2)
     local icon_size = clamp(math.floor(dock_h * 0.52), 28, 42)
 
-    --[[Dock 瓦片几何
-
-    theme.tile 的内容高 = 图标 y 偏移 dp(6) + 图标 + 文字 y 偏移 dp(4) + 文字高 dp(18)
-    = 图标 + dp(28)，容器还要再减掉上下各 1px 描边。原来写死 icon_size + 26 —— 连 dp(28)
-    都不到，内容比容器高 3px，而 LVGL 容器默认 scrollbar_mode = AUTO，于是 Dock 里每个
-    图标下面都挂一条滑块（用户报的「内置应用挤出了滑块」）。这里按网格瓦片同样的口径留 dp(34)；
-    Dock 不够高时先缩图标（下限 28），保证「内容 + 描边」放得下、瓦片绝不超出卡片。
-    （Dock 自身矮于 60 的矮横屏 —— 800×480 这一档 —— 图标已到下限，
-    文字区仍会顶满瓦片；那是 Dock 高度公式本身偏矮，不属于本次改动范围。）]]
-    local label_reserve = math.floor(6 * density_scale_val + 0.5) + math.floor(4 * density_scale_val + 0.5) + math.floor(18 * density_scale_val + 0.5)
-    local icon_fit = dock_h - 2 - label_reserve - 2      -- 上下各 1px 描边 + 2px 余量
-    if icon_size > icon_fit and icon_fit >= 28 then icon_size = icon_fit end
-
-    local dock_tile_h = icon_size + math.floor(34 * density_scale_val)
-    local dock_inner_h = math.max(dock_h - 2, icon_size)
-    if dock_tile_h > dock_inner_h then dock_tile_h = dock_inner_h end
+    local name_fs = math.max(theme.FONT_MIN, theme.dp(theme.F.tiny))
+    local name_reserve = theme.dp(14) + 2 * (name_fs + 3) + 2
+    local dock_inner_h = dock_h - 2
+    icon_size = math.min(icon_size, dock_inner_h - name_reserve)
+    local dock_tile_h = icon_size + name_reserve
 
     for i, it in ipairs(items) do
         local win = it.win
         theme.tile(dock, {
-            x = sx + (i - 1) * iw, y = math.floor((dock_h - dock_tile_h) / 2),
+            x = sx + (i - 1) * iw, y = math.floor((dock_inner_h - dock_tile_h) / 2),
             w = iw, h = dock_tile_h,
-            icon = it.icon, icon_size = icon_size, text = it.name,
+            icon = it.icon, icon_size = icon_size, text = it.name, name_lines = 2,
             size = theme.F.tiny, text_color = theme.C.t2,
             on_click = function() open_builtin(win) end,
         })
@@ -2412,9 +2400,8 @@ local function build_video_area(parent)
     所以「播放 | 循环 | 选择 | 全屏」的排列、按钮尺寸、间距、配色策略两处完全一致，
     不会再各自漂移（此前全屏页把返回键摆在最左、这里把全屏键摆在最右，方向感相反）。
 
-    按钮的底色与文字色由 video_bar 按「主题令牌 + 播放/循环状态」算：
-    播放中 = 绿、暂停 = 中性、循环 = 琥珀、单次 = 中性；文字色按底色亮度自动取深/浅，
-    所以浅色档（晨曦浅色）与深色档（科技蓝）都不会出现读不出的字。
+    暂停按钮使用青色，播放按钮使用绿色；循环开启时淡色标记，四个按钮均无边框。
+    四个按钮保留中文，文字色按底色亮度自动取深/浅。
 
     控制栏贴着视频卡片底部，圆角交给卡片自己，这里传 0。]]
     VP.ctrl_bar = theme.video_bar(video_card, {

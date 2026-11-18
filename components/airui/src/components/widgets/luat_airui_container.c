@@ -141,6 +141,9 @@ int airui_container_set_border_color(lv_obj_t *container, uint32_t color_value, 
     lv_color_t border_color = lv_color_hex(color_value);
     int border_width = width > 0 ? width : 0;
     lv_obj_set_style_border_width(container, border_width, main_default);
+    // LVGL 将边框与 padding 相加作为内容区留白，抵消边框以保留完整的 w/h。
+    // 创建和运行时修改边框都走这里；边框关闭时同时恢复零 padding。
+    lv_obj_set_style_pad_all(container, -border_width, main_default);
     if (border_width > 0) {
         lv_obj_set_style_border_color(container, border_color, main_default);
         lv_obj_set_style_border_opa(container, LV_OPA_COVER, main_default);

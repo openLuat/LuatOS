@@ -73,18 +73,7 @@ local current_config = {
 
 local function connect_on_config_rsp(data)
     current_config = data.config
-    log.info("wifi_connect_win", "配置加载完成:", json.encode(current_config))
-    
-    if connect_from_saved and connect_password_textarea and connect_current_wifi then
-        if current_config.ssid == connect_current_wifi.ssid then
-            connect_password_textarea:set_text(current_config.password or "")
-            connect_advanced_config.need_ping = current_config.need_ping ~= nil and current_config.need_ping or true
-            connect_advanced_config.local_network_mode = current_config.local_network_mode ~= nil and current_config.local_network_mode or false
-            connect_advanced_config.ping_ip = current_config.ping_ip or ""
-            connect_advanced_config.ping_time = current_config.ping_time or "10000"
-            connect_advanced_config.auto_socket_switch = current_config.auto_socket_switch ~= nil and current_config.auto_socket_switch or true
-        end
-    end
+    -- 已保存条目的配置在创建表单时加载，异步全局回执不能覆盖用户正在编辑的值。
 end
 
 local function connect_create_ui()
@@ -93,11 +82,11 @@ local function connect_create_ui()
     local config
     if connect_from_saved and connect_current_wifi then
         config = {
-            need_ping = connect_current_wifi.need_ping ~= nil and connect_current_wifi.need_ping or true,
+            need_ping = connect_current_wifi.need_ping ~= false,
             local_network_mode = connect_current_wifi.local_network_mode ~= nil and connect_current_wifi.local_network_mode or false,
             ping_ip = connect_current_wifi.ping_ip or "",
             ping_time = connect_current_wifi.ping_time or "10000",
-            auto_socket_switch = connect_current_wifi.auto_socket_switch ~= nil and connect_current_wifi.auto_socket_switch or true
+            auto_socket_switch = connect_current_wifi.auto_socket_switch ~= false
         }
     elseif connect_from_saved and current_config then
         config = current_config
@@ -138,7 +127,7 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         x = 0, y = TITLE_H,
         w = SCREEN_W, h = SCREEN_H - TITLE_H - bottom_bar_h,
         color = CLR.surface, color_opacity = 0,
-        scroll = true
+        scrollable = true
     })
 
     -- 密码区域
@@ -157,6 +146,7 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         w = SCREEN_W - 2 * MARGIN, h = math.floor(80 * _G.density_scale),
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1, radius = theme.r("md"),
+        scrollable = false,
     })
     connect_password_textarea = theme.input({
         parent = password_card,
@@ -190,30 +180,36 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         color = CLR.t2,
         align = airui.TEXT_ALIGN_LEFT,
     })
+    local field_font = math.max(18, theme.fs("body"))
+    local field_h = math.max(math.floor(44 * _G.density_scale), field_font + 16)
+    local row_h = math.max(math.floor(60 * _G.density_scale), field_h + 12)
+    local row_gap = math.max(8, math.floor(10 * _G.density_scale))
+    local y_offset = math.floor(15 * _G.density_scale)
     local advanced_card = airui.container({
         parent = content_container,
         x = MARGIN, y = math.floor(160 * _G.density_scale),
-        w = SCREEN_W - 2 * MARGIN, h = math.floor(330 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN, h = 2 * y_offset + 5 * row_h + 4 * row_gap,
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1, radius = theme.r("md"),
+        scrollable = false,
     })
 
-    local y_offset = math.floor(15 * _G.density_scale)
     local row_w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale)
 
     -- need_ping 开关行
     local need_ping_row = airui.container({
         parent = advanced_card,
         x = math.floor(10 * _G.density_scale), y = y_offset,
-        w = row_w, h = math.floor(45 * _G.density_scale),
+        w = row_w, h = row_h,
+        scrollable = false,
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1, radius = theme.r("sm"),
     })
     airui.label({
         parent = need_ping_row,
         text = "网络连通检测",
-        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
-        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        x = math.floor(10 * _G.density_scale), y = math.floor((row_h - (theme.fs("h3") + 6)) / 2),
+        w = math.floor(200 * _G.density_scale), h = theme.fs("h3") + 6,
         font_size = theme.fs("h3"),
         color = CLR.t1,
         align = airui.TEXT_ALIGN_LEFT,
@@ -223,121 +219,125 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
     theme.switch 的轨道与滑块全部取主题令牌，换肤自动跟随。]]
     theme.switch({
         parent = need_ping_row,
-        x = row_w - math.floor(80 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        x = row_w - math.floor(80 * _G.density_scale), y = math.floor((row_h - math.floor(29 * _G.density_scale)) / 2),
         w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         checked = connect_advanced_config.need_ping,
         on_change = function(self)
             connect_advanced_config.need_ping = self:get_state()
         end
     })
-    y_offset = y_offset + math.floor(55 * _G.density_scale)
+    y_offset = y_offset + row_h + row_gap
 
     -- 局域网模式开关
     local local_network_mode_row = airui.container({
         parent = advanced_card,
         x = math.floor(10 * _G.density_scale), y = y_offset,
-        w = row_w, h = math.floor(45 * _G.density_scale),
+        w = row_w, h = row_h,
+        scrollable = false,
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1, radius = theme.r("sm"),
     })
     airui.label({
         parent = local_network_mode_row,
         text = "局域网模式",
-        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
-        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        x = math.floor(10 * _G.density_scale), y = math.floor((row_h - (theme.fs("h3") + 6)) / 2),
+        w = math.floor(200 * _G.density_scale), h = theme.fs("h3") + 6,
         font_size = theme.fs("h3"),
         color = CLR.t1,
         align = airui.TEXT_ALIGN_LEFT,
     })
     theme.switch({
         parent = local_network_mode_row,
-        x = row_w - math.floor(80 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        x = row_w - math.floor(80 * _G.density_scale), y = math.floor((row_h - math.floor(29 * _G.density_scale)) / 2),
         w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         checked = connect_advanced_config.local_network_mode,
         on_change = function(self)
             connect_advanced_config.local_network_mode = self:get_state()
         end
     })
-    y_offset = y_offset + math.floor(55 * _G.density_scale)
+    y_offset = y_offset + row_h + row_gap
 
     -- 检测间隔输入
     local ping_time_row = airui.container({
         parent = advanced_card,
         x = math.floor(10 * _G.density_scale), y = y_offset,
-        w = row_w, h = math.floor(45 * _G.density_scale),
+        w = row_w, h = row_h,
+        scrollable = false,
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1, radius = theme.r("sm"),
     })
     airui.label({
         parent = ping_time_row,
         text = "检测间隔 (ms)",
-        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
-        w = math.floor(150 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        x = math.floor(10 * _G.density_scale), y = math.floor((row_h - (theme.fs("h3") + 6)) / 2),
+        w = math.floor(150 * _G.density_scale), h = theme.fs("h3") + 6,
         font_size = theme.fs("h3"),
         color = CLR.t1,
         align = airui.TEXT_ALIGN_LEFT,
     })
     connect_ping_time_input = theme.input({
         parent = ping_time_row,
-        x = row_w - math.floor(120 * _G.density_scale), y = math.floor(8 * _G.density_scale),
-        w = math.floor(110 * _G.density_scale), h = math.floor(29 * _G.density_scale),
+        x = row_w - math.max(120, math.floor(120 * _G.density_scale)) - 10, y = math.floor((row_h - field_h) / 2),
+        w = math.max(120, math.floor(120 * _G.density_scale)), h = field_h,
         text = connect_advanced_config.ping_time,
         placeholder = "10000",
         max_len = 10,
-        font_size = theme.fs("body"),
+        font_size = field_font,
         color = CLR.t1,
     })
-    y_offset = y_offset + math.floor(55 * _G.density_scale)
+    y_offset = y_offset + row_h + row_gap
 
     -- 检测IP输入
     local ping_ip_row = airui.container({
         parent = advanced_card,
         x = math.floor(10 * _G.density_scale), y = y_offset,
-        w = row_w, h = math.floor(45 * _G.density_scale),
+        w = row_w, h = row_h,
+        scrollable = false,
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1, radius = theme.r("sm"),
     })
     airui.label({
         parent = ping_ip_row,
         text = "检测IP",
-        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
-        w = math.floor(100 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        x = math.floor(10 * _G.density_scale), y = math.floor((row_h - (theme.fs("h3") + 6)) / 2),
+        w = math.floor(100 * _G.density_scale), h = theme.fs("h3") + 6,
         font_size = theme.fs("h3"),
         color = CLR.t1,
         align = airui.TEXT_ALIGN_LEFT,
     })
     connect_ping_ip_input = theme.input({
         parent = ping_ip_row,
-        x = row_w - math.floor(170 * _G.density_scale), y = math.floor(8 * _G.density_scale),
-        w = math.floor(160 * _G.density_scale), h = math.floor(29 * _G.density_scale),
+        x = row_w - math.max(190, math.floor(190 * _G.density_scale)) - 10, y = math.floor((row_h - field_h) / 2),
+        w = math.max(190, math.floor(190 * _G.density_scale)), h = field_h,
         text = connect_advanced_config.ping_ip,
         placeholder = "可选",
         max_len = 32,
-        font_size = theme.fs("body"),
+        font_size = field_font,
         color = CLR.t1,
     })
-    y_offset = y_offset + math.floor(55 * _G.density_scale)
+    y_offset = y_offset + row_h + row_gap
 
     -- 自动切换连接开关
     local auto_socket_switch_row = airui.container({
         parent = advanced_card,
         x = math.floor(10 * _G.density_scale), y = y_offset,
-        w = row_w, h = math.floor(45 * _G.density_scale),
+        w = row_w, h = row_h,
+        scrollable = false,
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1, radius = theme.r("sm"),
     })
     airui.label({
         parent = auto_socket_switch_row,
         text = "自动切换连接",
-        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
-        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        x = math.floor(10 * _G.density_scale), y = math.floor((row_h - (theme.fs("h3") + 6)) / 2),
+        w = math.floor(200 * _G.density_scale), h = theme.fs("h3") + 6,
         font_size = theme.fs("h3"),
         color = CLR.t1,
         align = airui.TEXT_ALIGN_LEFT,
     })
     theme.switch({
         parent = auto_socket_switch_row,
-        x = row_w - math.floor(80 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        x = row_w - math.floor(80 * _G.density_scale), y = math.floor((row_h - math.floor(29 * _G.density_scale)) / 2),
         w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         checked = connect_advanced_config.auto_socket_switch,
         on_change = function(self)
@@ -382,24 +382,8 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
         on_click = function()
             if connect_connecting then return end  -- 防止重复点击
             local password = connect_password_textarea:get_text()
-            -- 无密码热点允许空密码连接
-            if not password or password == "" then
-                connect_connecting = true
-                if connect_status_label then
-                    connect_status_label:set_text("正在连接...")
-                    connect_status_label:set_color(CLR.primary)
-                end
-                if connect_wifi_keyboard then connect_wifi_keyboard:hide() end
-                if connect_btn_connect then connect_btn_connect:set_text("连接中...") end
-                sys.publish("WIFI_CONNECT_REQ", {
-                    ssid = connect_current_wifi and connect_current_wifi.ssid,
-                    password = "",
-                    bssid = connect_current_wifi and connect_current_wifi.bssid,
-                    advanced_config = connect_advanced_config
-                })
-                return
-            end
-            if #password < 8 then
+            password = password or ""
+            if password ~= "" and #password < 8 then
                 airui.msgbox({
                     text = "WiFi密码长度至少需要8位",
                     buttons = { "确定" },
@@ -409,10 +393,10 @@ connect_main_container = theme.page_bg(airui.screen, SCREEN_W, SCREEN_H)
             end
 
             connect_advanced_config.ping_time = connect_ping_time_input:get_text()
-            connect_advanced_config.ping_ip = connect_ping_ip_input:get_text()
+            connect_advanced_config.ping_ip = (connect_ping_ip_input:get_text() or ""):match("^%s*(.-)%s*$")
 
             local ping_time_num = tonumber(connect_advanced_config.ping_time)
-            if not ping_time_num or ping_time_num <= 0 then
+            if not ping_time_num or ping_time_num <= 0 or ping_time_num % 1 ~= 0 then
                 airui.msgbox({
                     text = "检测间隔必须是正整数，请重新输入",
                     buttons = { "确定" },

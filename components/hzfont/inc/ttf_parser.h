@@ -36,6 +36,9 @@ typedef struct {
     int16_t ascent;            // hhea 表中的 ascent（基线以上最高点）
     int16_t descent;           // hhea 表中的 descent（基线以下最低点）
     int16_t lineGap;           // hhea 表中的 lineGap（行距补偿）
+    uint32_t hmtxOffset;
+    uint16_t numHMetrics;
+    uint16_t lastHAdvance;     // hmtx 尾部仅有左侧留白，复用最后一个 advance
     /* 内存优化：流式读取支持与小表缓存 */
     void *file;           /* VFS 文件句柄 (luat_fs_fopen 返回的 FILE*)，无数据整读时有效 */
     size_t fileSize;      /* 字体文件大小 */
@@ -64,13 +67,16 @@ typedef struct {
     uint16_t *contourEnds;
     uint16_t pointCount;
     TtfPoint *points;
+    int32_t advanceWidth;      // 字体单位，-1 表示字体缺少有效度量
+    int16_t leftSideBearing;
 } TtfGlyph;
 
 typedef struct {
     uint32_t width;
     uint32_t height;
-    int32_t originX;
+    int32_t originX;            // 位图相对于笔位置的水平偏移，含栅格化边距
     int32_t originY;
+    int32_t advance;            // 整像素前进宽度，-1 表示空字形没有可用度量
     float scale;
     uint8_t *pixels;
 } TtfBitmap;
@@ -88,7 +94,7 @@ void ttf_unload(TtfFont *font);
 int ttf_set_debug(int enable);
 // 查询当前调试设置
 int ttf_get_debug(void);
-/* 运行时抗锯齿模式：1=扫描线边界2x2AA, 2=扫描线边界3x3AA, 3=扫描线边界4x4AA */
+/* 运行时抗锯齿模式：1/2/3 分别使用 4/6/8 条子扫描线 */
 // 读取当前超采样率/AA模式
 int ttf_get_supersample_rate(void);
 /* 运行时设置超采样率：仅允许 1/2/3，非法值将被修正到最近的允许值 */
@@ -97,6 +103,8 @@ int ttf_set_supersample_rate(int rate);
 
 // 根据码点查询 glyph 索引
 int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *glyphIndex);
+// 返回字体单位的 advance，失败返回 -1；lsb 可选。
+int32_t ttf_glyph_horizontal_metrics(const TtfFont *font, uint16_t glyph_index, int16_t *lsb);
 // 载入 glyph 轮廓数据
 int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph);
 // 释放 glyph 结构内部分配的内存

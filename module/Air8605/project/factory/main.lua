@@ -50,7 +50,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air8605M_10inch_1024x600_000_4G_V000" -- 项目名，用于 FOTA 云端鉴权
+PROJECT = "Engine_Air8605W_10inch_1024x600_000_WiFi_V000" -- 项目名，用于 FOTA 云端鉴权
 VERSION = "001.999.007"                                 -- 固件版本号，用于 FOTA 升级比对
 --[[
 PROJECT_KEY：项目密钥，FOTA 云端鉴权。··················································

@@ -15,7 +15,6 @@
 #define PLCUI_PATH_MAX 384
 #define PLCUI_TEXT_MAX 512
 #define PLCUI_MAX_PAGES 16
-#define PLCUI_MAX_WIDGETS 512
 #define PLCUI_MAX_XML_DEPTH 16
 #define PLCUI_MAX_RESOURCES 256
 #define PLCUI_EVENT_CAPACITY 64
@@ -230,6 +229,7 @@ typedef struct {
 
 plcui_runtime_t *luat_plcui_runtime(void);
 void luat_plcui_error(plcui_error_t *error, const char *code, const char *format, ...);
+void luat_plcui_xml_memory_error(const plcui_document_t *document, plcui_error_t *error, const char *reason);
 int luat_plcui_push_error(lua_State *L, const plcui_error_t *error);
 bool luat_plcui_parse(plcui_document_t *document, const char *path, plcui_error_t *error);
 bool luat_plcui_validate(plcui_document_t *document, plcui_error_t *error);

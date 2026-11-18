@@ -4,6 +4,7 @@
 #include "luat_plcui_debug.h"
 #include "lvgl9/src/core/lv_obj_event_private.h"
 #include "lvgl9/src/indev/lv_indev_private.h"
+#include <stdio.h>
 
 static const plcui_widget_t *parent_of(const plcui_widget_t *widget)
 {
@@ -169,7 +170,7 @@ bool luat_plcui_create_page(plcui_document_t *document, int index, plcui_error_t
     plcui_page_t *page = &document->pages[index];
     page->instance_generation++;
     page->screen = lv_obj_create(NULL);
-    if (!page->screen) { luat_plcui_error(error, "E_MEMORY", "Cannot create page"); return false; }
+    if (!page->screen) { luat_plcui_xml_memory_error(document, error, "Cannot create page"); return false; }
     lv_obj_remove_style_all(page->screen);
     lv_obj_set_size(page->screen, document->width, document->height);
     lv_obj_set_style_bg_color(page->screen, lv_color_hex(page->background), 0);
@@ -203,7 +204,8 @@ bool luat_plcui_create_page(plcui_document_t *document, int index, plcui_error_t
                 textarea_stage = lv_obj_create(NULL);
                 if (!textarea_stage) {
                     luat_plcui_destroy_page(document, index);
-                    luat_plcui_error(error, "E_MEMORY", "Cannot create textarea staging screen");
+                    luat_plcui_xml_memory_error(document, error, "Cannot create textarea staging screen");
+                    snprintf(error->id, sizeof(error->id), "%s", widget->id);
                     return false;
                 }
                 lv_obj_remove_style_all(textarea_stage);
@@ -230,7 +232,8 @@ bool luat_plcui_create_page(plcui_document_t *document, int index, plcui_error_t
             if (!object) {
                 if (textarea_stage) lv_obj_delete(textarea_stage);
                 luat_plcui_destroy_page(document, index);
-                luat_plcui_error(error, "E_MEMORY", "Cannot create component: %s", widget->id);
+                luat_plcui_xml_memory_error(document, error, "Cannot create component");
+                snprintf(error->id, sizeof(error->id), "%s", widget->id);
                 return false;
             }
         }

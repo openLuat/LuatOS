@@ -16,6 +16,9 @@
 #include <limits.h>
 #include <ctype.h>
 
+#define LUAT_LOG_TAG "plcui.xml"
+#include "luat_log.h"
+
 typedef enum { TAG_NONE, TAG_UI, TAG_RESOURCES, TAG_PAGES, TAG_PAGE, TAG_IMAGE, TAG_FONT, TAG_WIDGET, TAG_CELL, TAG_SERIES, TAG_FRAME } tag_t;
 typedef struct {
     XML_Parser parser;
@@ -37,11 +40,27 @@ void luat_plcui_error(plcui_error_t *error, const char *code, const char *format
     va_end(args);
 }
 
+/**
+ * 构造 XML 或页面组件分配失败的提示，同时给出精简当前 XML 的处理建议。
+ * @param document 当前文档，用于记录组件数量与 XML 路径。
+ * @param error 接收 E_MEMORY 错误；调用方可继续填写行列或组件 ID。
+ * @param reason 简短的内部阶段说明，使用 ASCII，最多保留 80 字节。
+ */
+void luat_plcui_xml_memory_error(const plcui_document_t *document, plcui_error_t *error, const char *reason)
+{
+    luat_plcui_error(error, "E_MEMORY",
+        "XML组件内存不足（已登记%u个组件）。请减少当前XML中的组件数量，或拆分为多个XML文件。原因：%.80s",
+        document ? document->widget_count : 0U, reason);
+    if (document) snprintf(error->file, sizeof(error->file), "%s", document->path);
+    LLOGE("%s", error->message);
+}
+
 static void fail(parser_t *p, const char *code, const char *message)
 {
     if (p->failed) return;
     p->failed = true;
-    luat_plcui_error(p->error, code, "%s", message);
+    if (!strcmp(code, "E_MEMORY")) luat_plcui_xml_memory_error(p->doc, p->error, message);
+    else luat_plcui_error(p->error, code, "%s", message);
     snprintf(p->error->file, sizeof(p->error->file), "%s", p->doc->path);
     p->error->line = (unsigned long)XML_GetCurrentLineNumber(p->parser);
     p->error->column = (unsigned long)XML_GetCurrentColumnNumber(p->parser) + 1UL;
@@ -347,8 +366,12 @@ static void XMLCALL start_element(void *data, const char *name, const char **att
         char accepted[512];
         snprintf(accepted, sizeof(accepted), "|id||x||y||w||h||hidden||disabled|%s", specific);
         if (!allowed(p, attrs, accepted)) return;
-        if (doc->widget_count >= PLCUI_MAX_WIDGETS) { fail(p, "E_SCHEMA", "Component count limit exceeded"); return; }
-        plcui_widget_t *items = realloc(page->widgets, (page->count + 1U) * sizeof(*items));
+        /* 组件描述按需分配，仅检查索引范围及分配字节数，避免计数或乘法溢出。 */
+        uint64_t description_bytes = ((uint64_t)page->count + 1U) * sizeof(plcui_widget_t);
+        if (page->count >= INT32_MAX || doc->widget_count == UINT_MAX || description_bytes > SIZE_MAX) {
+            fail(p, "E_MEMORY", "Component descriptions exceed addressable memory"); return;
+        }
+        plcui_widget_t *items = realloc(page->widgets, (size_t)description_bytes);
         if (!items) { fail(p, "E_MEMORY", "Cannot allocate component description"); return; }
         page->widgets = items;
         plcui_widget_t *w = &items[page->count];

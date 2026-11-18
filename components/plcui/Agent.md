@@ -44,6 +44,7 @@ XML 中声明的所有事件都须在 handlers 中提供对应函数。将 XML �
 - 图片运行中视为固定，替换文件后重新 `plcui.load()`。缓存按XML实例隔离，重新加载不会复用旧版本像素；资源仍按原LuatOS VFS路径读取，内部缓存键不对应磁盘目录。
 - 文件读取遵循 LuatOS VFS：脚本区用 `/luadb/main.xml`，SD 卡使用实际挂载路径（如 `/sd/ui/main.xml`）。资源相对于 XML 所在目录解析；文件名长度和目录结构遵循所用文件系统及烧录工具。PLCUI 不自动改名或改写 XML。
 - 组件填写 `id/x/y/w/h`，同一页面内 ID 唯一；container 子组件使用相对于容器内容区的坐标。
+- 组件总数按需分配，不设固定的 512 个上限；实际规模受 XML 最大 256KiB 和可用内存约束，描述分配失败返回 `E_MEMORY`。XML 描述或页面组件分配失败时，日志及错误表会提示已登记组件数量，并建议减少当前 XML 的组件数量或拆分为多个 XML 文件；只在同一个 XML 内拆成更多 page，不会减少全部页面常驻的组件描述。未显示页面也会保留组件描述，只有目标页创建原生对象；可通过 `plcui.status().component_count` 查看全部页面合计数量。
 - HZFont 字号范围为 1～255，省略字号时默认 16；为文字预留足够的显示空间。
 - table 在 XML 中指定 `rows/columns`，用 `<cell row="1" column="1" text="名称"/>` 初始化；Lua 使用 `set_cell/get_cell/set_column_width/set_font_size`，行列从 1 开始。最多 128 行、16 列，总计不超过 1024 格；`grid` 开启完整网格，`row-height` 设置最小行高，`col-aligns/header-align` 控制列与表头对齐。
 - chart 指定 `type="line|bar"`、`point-count`、`y-min/y-max`，用 `<series id="supply" color="#44dcf6" values="..."/>` 初始化；Lua 使用 `set_values/get_values/add_point/set_range/set_series_hidden`。点数 2～1024，系列 1～8；数值与轴范围支持当前 Lua 数值类型可表示的有限数，没有固定业务区间，内部用 double 保存并按两位小数四舍五入。精度受 Lua 数值类型限制：单精度配置在较大数值下不能保持 0.01 分辨率，双精度配置也不保证任意大数的分位精度。XML 在单精度配置同样拒绝超出 FLT_MAX 的值，避免 Lua 读回无穷大。数据保存与绘图分离，原始舍入值映射到安全整数区间绘图；未填写 values 时初始化为下限，超轴值按边界绘制并保留保存值。所有系列共用 Y 轴，柱状图仍从轴下限起画；刻度和图例用外围文字或图片表达。相同点数下原始数据内存由每点 4 字节增至 8 字节，LVGL 绘图缓冲仍为每点 4 字节。

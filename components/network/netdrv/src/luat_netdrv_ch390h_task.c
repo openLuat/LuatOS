@@ -161,33 +161,35 @@ static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     }
 }
 
+static err_t ch390h_send_pbuf(void* userdata, struct pbuf* p) {
+    ch390h_t* ch = (ch390h_t*)userdata;
+    if (ch->status == CH390H_STATUS_STOPPED) {
+        return ERR_IF;
+    }
+    luat_ch390h_cstring_t* cs = new_cstring(ch, p->tot_len);
+    if (cs == NULL) {
+        return 0;
+    }
+    cs->len = p->tot_len;
+    if (pbuf_copy_partial(p, cs->buff, p->tot_len, 0) != p->tot_len) {
+        luat_heap_opt_free(ch->pkg_mem_type, cs);
+        return ERR_BUF;
+    }
+    send_msg_cs(ch, cs);
+    return 0;
+}
+
 static void ch390h_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, uint16_t len) {
-    (void)drv;
     ch390h_t* ch = (ch390h_t*)userdata;
     if (ch->status == CH390H_STATUS_STOPPED) {
         return;
     }
-    luat_ch390h_cstring_t* cs = new_cstring(ch, len);
-    if (cs == NULL) {
-        return;
-    }
-    cs->len = len;
-    memcpy(cs->buff, buff, len);
-    send_msg_cs(ch, cs);
-}
-
-static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
-    if (ch->status == CH390H_STATUS_STOPPED) {
-        return;
-    }
-    // LLOGI("lwip待发送到硬件层 %p %d", p, p->tot_len);
-    luat_ch390h_cstring_t* cs = new_cstring(ch, p->tot_len);
-    if (cs == NULL) {
-        return;
-    }
-    cs->len = p->tot_len;
-    pbuf_copy_partial(p, cs->buff, p->tot_len, 0);
-    send_msg_cs(ch, cs);
+    /* Read-only view: the private sender copies synchronously into the SPI queue. */
+    struct pbuf p = {0};
+    p.payload = buff;
+    p.len = len;
+    p.tot_len = len;
+    luat_netdrv_pkg_output_pbuf(drv->id, LUAT_NETDRV_CH_HW, &p, ch390h_send_pbuf, ch);
 }
 
 
@@ -207,19 +209,11 @@ err_t ch390_netif_output(struct netif *netif, struct pbuf *p) {
         if (ch->status == CH390H_STATUS_STOPPED) {
             return ERR_IF;
         }
-        // LWIP 层拦截: 用户已声明拦截 (layer="lwip") 则原 dataout 流程被吞掉.
-        // 注意: pbuf 可能是多片链表, 仅当单片 (p->next == NULL) 且
-        // 首片 payload 长度 >= tot_len 时才能直接传 payload 指针.
-        // 返回 0 = 未拦截, 1 = 已拦截 (跳过 ch390h_dataout_pbuf).
-        if (p != NULL && p->tot_len > 0 && p->next == NULL && p->len >= p->tot_len) {
-            int intercepted = luat_netdrv_pkg_input(ch->netdrv->id, LUAT_NETDRV_CH_LWIP, p->payload, p->tot_len);
-            if (intercepted != 0) {
-                // Lua 已拿走控制权, 原 TX 包不入 spi 队列 (Lua 自己 send_raw)
-                break;
-            }
+        int intercepted = luat_netdrv_pkg_input_pbuf(ch->netdrv->id, LUAT_NETDRV_CH_LWIP, p);
+        if (intercepted != 0) {
+            return intercepted < 0 ? (err_t)intercepted : 0;
         }
-        ch390h_dataout_pbuf(ch, p);
-        break;
+        return luat_netdrv_pkg_output_pbuf(ch->netdrv->id, LUAT_NETDRV_CH_HW, p, ch390h_send_pbuf, ch);
     }
     return 0;
 }
@@ -332,6 +326,10 @@ static int ch390_status_on_0(ch390h_t* ch) {
 
 // 处理一帧: 统计/注入lwIP (单帧与批量模式共用)
 static void ch390_process_rx_frame(ch390h_t* ch, uint8_t* buf, uint16_t len) {
+    /* The device length includes the Ethernet FCS. */
+    if (len < 18) {
+        return;
+    }
     NETDRV_STAT_IN(ch->netdrv, len);
     // 替换原 napt_pkg_input 调用为 pkg_input (内含 EVT_PKG 截获检查)
     int ret = luat_netdrv_pkg_input(ch->adapter_id, LUAT_NETDRV_CH_HW, buf, (uint16_t)(len - 4));

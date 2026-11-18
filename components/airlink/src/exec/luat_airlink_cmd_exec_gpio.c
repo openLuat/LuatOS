@@ -96,7 +96,8 @@ int luat_airlink_cmd_exec_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
         }
         //中断任务
         if (airlink_gpio_irq_cb_handle == NULL) {
-            luat_rtos_task_create(&airlink_gpio_irq_cb_handle, 1 * 1024, 55, "airlink", luat_airlink_gpio_irq_cb_task, NULL, 1024);
+            // gpio irq使用queue传递消息，无需额外的event, event_cout归0
+            luat_rtos_task_create(&airlink_gpio_irq_cb_handle, 1 * 1024, 55, "airlink", luat_airlink_gpio_irq_cb_task, NULL, 0);
         }
         //中断回调函数
         conf.irq_cb = airlink_gpio_irq_cb;

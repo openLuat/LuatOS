@@ -35,6 +35,9 @@
  *   - dash_gap 虚线间隔长度，默认 0
  *   - round_start 起点是否圆头，bool
  *   - round_end 终点是否圆头，bool
+ *   - grad_color 渐变终点色，0xRRGGBB；起点色为 color，仅水平/竖直线条支持
+ *   - grad_dir 渐变方向，"none"/"ver"/"hor" 或 0/1/2；只传 grad_color 时沿线条方向渐变
+ *   - 渐变始终按包围盒从左到右/从上到下计算，与端点顺序无关；支持线宽、虚线及独立圆头
  * circle 圆形：
  *   - type = "circle"
  *   - cx, cy 圆心坐标
@@ -80,6 +83,12 @@
  *   - rounded 两端是否圆头，bool。round_start / round_end 任一为 true 时同样圆头
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Shape 对象
+ * 矩形/圆角矩形和实心圆（fill=true）还支持：
+ *   - fill_grad_color 填充渐变终点色，0xRRGGBB；起点色为 fill_color
+ *   - fill_grad_dir 渐变方向，"none"/"ver"/"hor" 或 0/1/2；只传终点色时默认纵向
+ *   - fill_opacity 控制整个渐变填充的透明度；描边仍为 color 指定的纯色
+ * 未传渐变终点色时保持纯色；方向设为 "none" 可显式关闭渐变。
+ * 斜线、椭圆、圆弧、空心图形等不支持的渐变配置会在解析时打印警告并回退纯色，不在重绘时重复警告。
  *
  * @usage
  * local shape = airui.shape({
@@ -88,7 +97,7 @@
  *         {type = "line", x1 = 10, y1 = 10, x2 = 180, y2 = 10, color = 0xff0000, width = 2},
  *         {type = "circle", cx = 40, cy = 60, r = 18, color = 0x00ff00, width = 2},
  *         {type = "ellipse", cx = 100, cy = 60, rx = 30, ry = 18, color = 0x00ffff, width = 2},
- *         {type = "rect", x = 140, y = 30, w = 40, h = 40, radius = 8, color = 0xffffff, width = 2, fill = true, fill_color = 0x334455},
+ *         {type = "rect", x = 140, y = 30, w = 40, h = 40, radius = 8, color = 0xffffff, width = 2, fill = true, fill_color = 0x334455, fill_grad_color = 0x0088ff, fill_grad_dir = "hor"},
  *         {type = "arc", cx = 40, cy = 60, r = 28, start_angle = 135, end_angle = 45, color = 0x22d3ee, width = 6, rounded = true},
  *     }
  * })

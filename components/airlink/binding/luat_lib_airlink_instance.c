@@ -21,6 +21,8 @@ static void boolean(lua_State* L, const char* name, int value) {
 
 /* airlink.setup(id, {drv="air6205"/"air780epm", mode=airlink.MODE_UART,
  * uart_id=1, baudrate=2000000, sta_adapter=..., cellular_adapter=...})
+ * netif also accepts SPI_MASTER/SPI_SLAVE with spi_id/cs/rdy/speed;
+ * slave support is platform-specific, independent of provider/client role.
  * Returns success, error code. Call directly, before legacy init/start. */
 int l_airlink_setup(lua_State* L) {
     int id = luaL_checkinteger(L, 1);

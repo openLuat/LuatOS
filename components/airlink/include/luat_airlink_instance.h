@@ -64,6 +64,14 @@ void luat_airlink_link_update_peer(int id, const luat_airlink_dev_info_t* peer);
 airlink_statistic_t* luat_airlink_link_statistics(int id);
 int luat_airlink_link_snapshot(int id, airlink_statistic_t* stats, luat_airlink_dev_info_t* peer);
 int luat_airlink_link_spi_transfer(int id, const uint8_t* tx, uint8_t* rx, size_t len);
+/* Instance SPI slave port. DMA buffers remain owned by the IO worker until
+ * poll completes or close stops DMA. Unsupported platforms return -3. */
+int luat_airlink_instance_slave_check(const luat_airlink_setup_t* conf);
+int luat_airlink_instance_slave_open(int id, const luat_airlink_setup_t* conf);
+int luat_airlink_instance_slave_start(int id, uint8_t* tx, uint8_t* rx, size_t len);
+/* poll: 1600=completed, 0=pending/idle, -1=aborted, -2=rearm delay. */
+int luat_airlink_instance_slave_poll(int id);
+void luat_airlink_instance_slave_close(int id);
 void luat_airlink_instance_dispatch(luat_airlink_cmd_t* cmd);
 void luat_airlink_fragment_reset(void);
 int luat_airlink_flags_supported_link(int id, int rpc);

@@ -35,7 +35,7 @@ typedef struct {
     airlink_statistic_t stats;
     uint64_t last_rx;
     uint16_t fragment;
-    uint8_t configured, uart_opened;
+    uint8_t configured, uart_opened, slave_opened;
     volatile uint8_t running;
     volatile uint8_t tx_busy;
     uint8_t ack_due;
@@ -262,6 +262,7 @@ static void dispatch_task(void* param) {
 int luat_airlink_link_spi_transfer(int id, const uint8_t* tx, uint8_t* rx, size_t len) {
     if (!luat_airlink_link_configured(id)) return -1;
     luat_airlink_setup_t* c = &links[id].conf;
+    if (c->mode != LUAT_AIRLINK_MODE_SPI_MASTER && c->mode != LUAT_AIRLINK_MODE_HSPI_MASTER) return -1;
     int bus = -1;
     for (int i = 0; i < AIRLINK_LINK_COUNT; i++) if (buses[i].used && buses[i].id == c->spi_id) bus = i;
     if (bus < 0) return -1;
@@ -279,10 +280,13 @@ int luat_airlink_link_spi_transfer(int id, const uint8_t* tx, uint8_t* rx, size_
         ret = luat_spi_device_config(&dev);
     }
     if (!ret) {
-        luat_gpio_set(c->cs, 0);
-        ret = luat_spi_transfer(c->spi_id, (const char*)tx, len, (char*)rx, len);
-        luat_gpio_set(c->cs, 1);
-        if (ret != (int)len) ret = -1;
+        if (c->mode == LUAT_AIRLINK_MODE_SPI_MASTER && c->rdy != 255 && luat_gpio_get(c->rdy)) ret = -1;
+        else {
+            luat_gpio_set(c->cs, 0);
+            ret = luat_spi_transfer(c->spi_id, (const char*)tx, len, (char*)rx, len);
+            luat_gpio_set(c->cs, 1);
+            if (ret != (int)len) ret = -1;
+        }
     } else ret = -1;
     luat_rtos_mutex_unlock(buses[bus].lock);
     return ret;
@@ -341,6 +345,11 @@ static int send_frame(airlink_instance_t* l, size_t len) {
         return -1;
     }
     if (len < FRAME_SIZE) memset(l->txbuf + len, 0, FRAME_SIZE - len);
+    if (l->conf.mode == LUAT_AIRLINK_MODE_SPI_SLAVE) {
+        int ret = luat_airlink_instance_slave_start((int)(l - links), l->txbuf, l->rxbuf, FRAME_SIZE);
+        if (!ret) l->tx_busy = 1;
+        return ret;
+    }
     int ret = luat_airlink_link_spi_transfer((int)(l - links), l->txbuf, l->rxbuf, FRAME_SIZE);
     if (ret != FRAME_SIZE) return -1;
     airlink_link_data_t* f = luat_airlink_data_unpack(l->rxbuf, FRAME_SIZE);
@@ -362,7 +371,9 @@ static int send_cmd(airlink_instance_t* l, const luat_airlink_cmd_t* cmd, int re
     int ret = send_frame(l, len);
     luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
     luat_airlink_statistics_add(&l->stats.tx_pkg.total, 1);
-    luat_airlink_statistics_add(ret ? &l->stats.tx_pkg.err : &l->stats.tx_pkg.ok, 1);
+    /* Slave DMA submission is not transmission completion. */
+    if (ret || l->conf.mode != LUAT_AIRLINK_MODE_SPI_SLAVE)
+        luat_airlink_statistics_add(ret ? &l->stats.tx_pkg.err : &l->stats.tx_pkg.ok, 1);
     luat_rtos_mutex_unlock(l->lock);
     return ret;
 }
@@ -440,12 +451,45 @@ static void io_task(void* param) {
     airlink_instance_t* l = param;
     l->io_task = luat_rtos_get_current_handle();
     luat_airlink_arq_init();
-    uint64_t heartbeat = 0;
+    uint64_t heartbeat = 0, net_tick = 0;
 #ifdef LUAT_USE_AIRLINK_HSPI_MASTER
     int id = (int)(l - links);
     if (l->conf.mode == LUAT_AIRLINK_MODE_HSPI_MASTER) xt804_hspi_enable_host_int();
 #endif
     while (l->running) {
+        uint64_t now = luat_mcu_tick64_ms();
+        /* Link-down notifications must continue even when RDY is stuck high,
+         * a slave is waiting for clocks, or a UART TX is still in flight. */
+        if (now - net_tick >= 1000) {
+            tcpip_callback(instance_net_update, l);
+            net_tick = now;
+        }
+        if (l->conf.mode == LUAT_AIRLINK_MODE_SPI_SLAVE) {
+            int n = luat_airlink_instance_slave_poll((int)(l - links));
+            if (n == -2) { luat_rtos_task_sleep(1); continue; }
+            if (l->tx_busy && n) {
+                l->tx_busy = 0;
+                luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
+                luat_airlink_statistics_add(n > 0 ? &l->stats.tx_pkg.ok : &l->stats.tx_pkg.err, 1);
+                luat_rtos_mutex_unlock(l->lock);
+                if (n == FRAME_SIZE) {
+                    airlink_link_data_t* f = luat_airlink_data_unpack(l->rxbuf, FRAME_SIZE);
+                    if (f) receive_frame(l, f);
+                    else {
+                        luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
+                        luat_airlink_statistics_add(&l->stats.rx_pkg.total, 1);
+                        luat_airlink_statistics_add(&l->stats.rx_pkg.err, 1);
+                        luat_rtos_mutex_unlock(l->lock);
+                    }
+                } else {
+                    /* Force a fresh status frame after a partial transfer or
+                     * master restart instead of retaining stale WAN state. */
+                    luat_airlink_arq_set_devinfo_pending(1);
+                    luat_rtos_task_sleep(1);
+                    continue;
+                }
+            }
+        }
         if (l->conf.mode == LUAT_AIRLINK_MODE_UART) {
             uint8_t bytes[512];
             for (int burst = 0; burst < 32 && l->running; burst++) {
@@ -467,7 +511,7 @@ static void io_task(void* param) {
             }
         }
 #endif
-        uint64_t now = luat_mcu_tick64_ms();
+        now = luat_mcu_tick64_ms();
         luat_airlink_arq_pending_try_ack();
         luat_airlink_arq_check_giveup(now);
         luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
@@ -489,7 +533,12 @@ static void io_task(void* param) {
             luat_airlink_arq_devinfo(info, &self);
             if (!send_cmd(l, (void*)info, 0)) luat_airlink_arq_set_devinfo_pending(0);
             heartbeat = now;
-            tcpip_callback(instance_net_update, l);
+            /* One SPI transaction per iteration. The slave needs time to
+             * raise RDY, process DMA completion and arm its next buffer. */
+            if (l->conf.mode == LUAT_AIRLINK_MODE_SPI_MASTER) {
+                luat_rtos_task_sleep(1);
+                continue;
+            }
         }
         if (l->tx_busy) { luat_rtos_task_sleep(1); continue; }
         if (air8000s_board_init(l)) { luat_rtos_task_sleep(1); continue; }
@@ -518,6 +567,9 @@ static void io_task(void* param) {
                 luat_airlink_cmd_free(item.cmd);
             } else if (l->conf.mode == LUAT_AIRLINK_MODE_SPI_MASTER && (l->conf.rdy == 255 || !luat_gpio_get(l->conf.rdy))) {
                 luat_airlink_cmd_t empty = {0}; send_cmd(l, &empty, 0);
+            } else if (l->conf.mode == LUAT_AIRLINK_MODE_SPI_SLAVE) {
+                /* Always arm RX, even when there is no local traffic. */
+                luat_airlink_cmd_t empty = {0}; send_cmd(l, &empty, 0);
             }
         }
         if (sent) l->ack_due = 0;
@@ -527,6 +579,9 @@ static void io_task(void* param) {
     luat_airlink_arq_stop();
     if (l->uart_opened) {
         luat_uart_close(l->conf.uart_id); l->uart_opened = 0;
+    }
+    if (l->slave_opened) {
+        luat_airlink_instance_slave_close((int)(l - links)); l->slave_opened = 0;
     }
     airlink_queue_item_t item;
     while (!luat_rtos_queue_recv(l->tx, &item, 0, 0)) luat_airlink_cmd_free(item.cmd);
@@ -609,6 +664,7 @@ done:
 }
 static void uart_rx(int uart_id, uint32_t len) { (void)uart_id; (void)len; }
 static void release_instance(airlink_instance_t* l) {
+    if (l->slave_opened) luat_airlink_instance_slave_close((int)(l - links));
     if (l->uart_opened) {
         luat_uart_close(l->conf.uart_id);
     }
@@ -620,20 +676,28 @@ static void release_instance(airlink_instance_t* l) {
     luat_heap_free(l->rxbuf); luat_heap_free(l->txbuf); luat_heap_free(l->wire);
     memset(l, 0, sizeof(*l));
 }
-int luat_airlink_setup_link(int id, const luat_airlink_setup_t* c) {
+static int validate_setup(int id, const luat_airlink_setup_t* c) {
     extern luat_rtos_queue_t airlink_cmd_queue;
     if (airlink_cmd_queue || luat_airlink_current_mode_get() >= 0) return -7;
     if (id < 0 || id >= AIRLINK_LINK_COUNT || !c || !features(c->drv)) return -1;
     if (links[id].configured) return -2;
-    if (c->mode != LUAT_AIRLINK_MODE_UART && c->mode != LUAT_AIRLINK_MODE_SPI_MASTER && c->mode != LUAT_AIRLINK_MODE_HSPI_MASTER) return -3;
+    if (c->mode != LUAT_AIRLINK_MODE_UART && c->mode != LUAT_AIRLINK_MODE_SPI_MASTER &&
+        c->mode != LUAT_AIRLINK_MODE_HSPI_MASTER && c->mode != LUAT_AIRLINK_MODE_SPI_SLAVE) return -3;
+    if (c->mode == LUAT_AIRLINK_MODE_SPI_SLAVE) {
+        if (c->drv != AIRLINK_DRV_NETIF) return -3;
+        int rc = luat_airlink_instance_slave_check(c);
+        if (rc) return rc;
+    }
     if (c->drv == AIRLINK_DRV_8000S && c->mode != LUAT_AIRLINK_MODE_SPI_MASTER) return -3;
 #ifndef LUAT_USE_AIRLINK_HSPI_MASTER
     if (c->mode == LUAT_AIRLINK_MODE_HSPI_MASTER) return -3;
 #endif
     if (!c->speed || (c->mode == LUAT_AIRLINK_MODE_UART && c->uart_id >= 10)) return -4;
     if (c->drv == AIRLINK_DRV_NETIF) {
-        if (c->mode != LUAT_AIRLINK_MODE_UART ||
-            (c->netif_role != AIRLINK_NETIF_CLIENT && c->netif_role != AIRLINK_NETIF_PROVIDER) ||
+        if (c->mode == LUAT_AIRLINK_MODE_HSPI_MASTER) return -3;
+        if (c->mode == LUAT_AIRLINK_MODE_SPI_MASTER &&
+            (c->cs == 255 || c->rdy == 255 || c->cs == c->rdy || c->speed < 1000000 || c->speed > 20000000)) return -4;
+        if ((c->netif_role != AIRLINK_NETIF_CLIENT && c->netif_role != AIRLINK_NETIF_PROVIDER) ||
             c->network_adapter < 0 || c->network_adapter == NW_ADAPTER_INDEX_LWIP_WIFI_STA ||
             c->network_adapter == NW_ADAPTER_INDEX_LWIP_WIFI_AP ||
             c->sta_adapter >= 0 || c->ap_adapter >= 0 || c->cellular_adapter >= 0) return -4;
@@ -649,8 +713,21 @@ int luat_airlink_setup_link(int id, const luat_airlink_setup_t* c) {
         luat_airlink_setup_t* o = &links[i].conf;
         if (c->mode == LUAT_AIRLINK_MODE_UART && o->mode == c->mode && o->uart_id == c->uart_id) return -5;
         if (c->mode != LUAT_AIRLINK_MODE_UART && o->mode != LUAT_AIRLINK_MODE_UART && c->spi_id == o->spi_id && c->cs == o->cs) return -5;
+        if (c->mode != LUAT_AIRLINK_MODE_UART && o->mode != LUAT_AIRLINK_MODE_UART &&
+            (c->mode == LUAT_AIRLINK_MODE_SPI_SLAVE || o->mode == LUAT_AIRLINK_MODE_SPI_SLAVE)) {
+            /* A slave cannot share a controller with a master or another
+             * slave, even with different CS. RDY is an output on the slave. */
+            if (c->spi_id == o->spi_id || c->cs == o->cs ||
+                (c->rdy != 255 && (c->rdy == o->cs || c->rdy == o->rdy)) ||
+                (o->rdy != 255 && c->cs == o->rdy)) return -5;
+        }
         for (int a = 0; a < 4; a++) if (remote_adapter(o, adapters[a]) >= 0) return -5;
     }
+    return 0;
+}
+int luat_airlink_setup_link(int id, const luat_airlink_setup_t* c) {
+    int rc = validate_setup(id, c);
+    if (rc) return rc;
     airlink_instance_t* l = &links[id];
     l->conf = *c;
     l->uplink = -1;
@@ -667,6 +744,9 @@ int luat_airlink_setup_link(int id, const luat_airlink_setup_t* c) {
         l->uart_opened = 1;
         if (luat_uart_ctrl(c->uart_id, LUAT_UART_SET_RECV_CALLBACK, uart_rx)) goto fail;
         if (luat_uart_ctrl(c->uart_id, LUAT_UART_SET_SENT_CALLBACK, uart_sent)) goto fail;
+    } else if (c->mode == LUAT_AIRLINK_MODE_SPI_SLAVE) {
+        if (luat_airlink_instance_slave_open(id, c)) goto fail;
+        l->slave_opened = 1;
     } else {
         if (c->cs == 255) goto fail;
         luat_gpio_cfg_t gpio; luat_gpio_set_default_cfg(&gpio);
@@ -705,6 +785,7 @@ started_fail:
     l->running = 0;
     while (l->dispatch_task || l->io_task) luat_rtos_task_sleep(5);
     if (l->uart_opened) { luat_uart_close(l->conf.uart_id); l->uart_opened = 0; }
+    if (l->slave_opened) { luat_airlink_instance_slave_close(id); l->slave_opened = 0; }
     luat_heap_free(l->rxbuf); luat_heap_free(l->txbuf); luat_heap_free(l->wire);
     l->rxbuf = l->txbuf = l->wire = NULL;
     /* Netdrv has no destroy API. Keep a failed claim reserved, like close(),

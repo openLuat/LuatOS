@@ -5,15 +5,20 @@
 @date    2025.06.26
 @author  王城钧
 @usage
-本文件的对外接口有6个：
+本文件的对外接口有8个：
 1、exnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络，再次调用时增量更新变化项(需要在task中调用)
 2、exnetif.notify_status(cb_fnc)：设置网络状态变化回调函数
 3、exnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合，再次调用时自动切换上游WiFi无需重复初始化(需要在task中调用)
 4、exnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 5、exnetif.close(type, adapter)：关闭网卡功能或多网融合,内核固件版本需为2026年1月后的固件
 6、exnetif.version()：获取库文件版本信息
+7、exnetif.airlink_provider(id, opts)：通过UART/SPI AirLink固定网卡供网，跟随本库出口策略
+8、exnetif.airlink_client(id, opts)：创建UART/SPI AirLink固定网卡用网端
 
 -- 版本更新说明
+-- 202611180002：AirLink固定网卡支持SPI主机/EC718M从机，传输主从独立于供网角色。
+-- 202611180001：整合AirLink provider/client；代理库按需加载；
+--               供网跟随set_priority_order，close(true)暂停，enable(true)恢复。
 -- 版本号：202607211200
 -- 1、更新时间：2026-07-21 12:00
 -- 2、更新内容
@@ -48,9 +53,14 @@
 ]]
 local exnetif = {}
 
-dnsproxy = require("dnsproxy")
-dhcpsrv = require("dhcpsrv")
-httpdns = require("httpdns")
+-- 按需加载：AirLink client只需固定网卡，不需要代理/探测库。
+local dnsproxy, dhcpsrv, httpdns
+local priority_configured = false
+local priority_monitor_started = false
+local proxy_owner
+local proxy_initializing = false
+local proxy_generation = 0
+local airlink_provider_controller, stop_airlink_provider
 -- 设置pingip
 local wifi_ping_ip
 local eth_ping_ip
@@ -162,13 +172,14 @@ local function apply_priority()
         -- log.info("网卡顺序",type_to_string(net_type),available[net_type])
         if available[net_type] == connection_states.CONNECTED then
             usable = true
+            -- 更新优先级时可能先设置了尚未就绪的首选网卡，恢复实际选定出口。
+            socket.dft(net_type)
             -- 设置优先级高的网卡
             if current_active ~= net_type then
                 log.info("设置网卡", type_to_string(net_type))
                 states_cbfnc(type_to_string(net_type), net_type) -- 默认网卡改变的回调函数
                 publish_network_status(type_to_string(net_type), net_type) -- 发布网络状态变化消息
-                socket.dft(net_type)
-                if auto_socket_switch and socket.close_all then
+                if auto_socket_switch and socket.close_all and current_active ~= nil then
                     socket.close_all(current_active)
                 end
                 current_active = net_type
@@ -188,6 +199,7 @@ end
 
 -- httpdns域名解析测试
 local function http_dnstest(adaptertest)
+    httpdns = httpdns or require("httpdns")
     local ip = httpdns.ali("baidu.com", {
         adapter = adaptertest,
         timeout = 3000
@@ -298,12 +310,14 @@ local function switch_upstream_wifi(config)
     end
 
     local auto_reconnect = config.auto_reconnect or false
+    local generation = proxy_generation
     proxy_state.wifi_config = nil
 
     log.info("switch_upstream_wifi", "关闭NAPT, 断开当前WiFi")
     netdrv.napt(-1)
     wlan.disconnect()
     sys.wait(2000)
+    if generation ~= proxy_generation then return false end
 
     log.info("switch_upstream_wifi", "正在连接新WiFi:", config.ssid)
     local bssid_bin = nil
@@ -314,6 +328,7 @@ local function switch_upstream_wifi(config)
 
     local count = 1
     while true do
+        if generation ~= proxy_generation then return false end
         local ip = netdrv.ipv4(socket.LWIP_STA)
         if ip and ip ~= "0.0.0.0" then
             log.info("switch_upstream_wifi", "新WiFi已连接, IP:", ip)
@@ -344,8 +359,11 @@ local function proxy_sta_reconnect_task()
         return
     end
     local ssid = proxy_state.wifi_config.ssid
+    local generation = proxy_generation
     while true do
+        if generation ~= proxy_generation then return end
         local ok = switch_upstream_wifi(proxy_state.wifi_config)
+        if generation ~= proxy_generation then return end
         if ok then
             log.info("exnetif", "上游WiFi重连成功")
             break
@@ -960,13 +978,26 @@ function exnetif.set_priority_order(networkConfigs)
         log.error("网络配置为空")
         return false
     end
+    -- 在任何硬件初始化之前排除供网LAN及旧单实例AirLink初始化。
+    if airlink_provider_controller then
+        local lan = airlink_provider_controller.adapter
+        for _, config in ipairs(networkConfigs) do
+            assert(not config.airlink_4G and not config.airlink_wifi,
+                "legacy AirLink cannot be mixed with an AirLink provider")
+            assert(not ((config.WIFI and lan == socket.LWIP_STA)
+                or (config.ETHERNET and lan == socket.LWIP_ETH)
+                or (config.ETHUSER1 and lan == socket.LWIP_USER1)
+                or (config.LWIP_GP and lan == socket.LWIP_GP)), "LAN cannot be an uplink")
+        end
+    end
     if #networkConfigs == 1 then
         single_network_mode = true
     else
         single_network_mode = false
     end
 
-    if not single_network_mode then
+    if not single_network_mode and not priority_monitor_started then
+        priority_monitor_started = true
         -- CONNECTING的网卡需要定时ping
         sys.taskInit(ping_test_loop)
 
@@ -1078,6 +1109,14 @@ function exnetif.set_priority_order(networkConfigs)
 
     -- 设置新优先级
     current_priority = new_priority
+    priority_configured = true
+    if not single_network_mode then
+        for _, wan in ipairs(current_priority) do
+            if available[wan] == connection_states.SINGLE_NETWORK then
+                available[wan] = netdrv.ready(wan) and connection_states.CONNECTING or connection_states.OPENED
+            end
+        end
+    end
     -- 此处按照用户期望的配置，先设置优先级最高的默认网卡
     -- 防止出现以下问题：
     -- 例如Air8000内核固件运行起来之后，默认网卡是socket.LWIP_GP，如果用户调用exnetif.set_priority_order接口配置最高优先级网卡为socket.LWIP_ETH
@@ -1179,7 +1218,7 @@ end
         }
     })
 ]]
-function exnetif.setproxy(adapter, main_adapter, other_configs)
+local function setproxy(adapter, main_adapter, other_configs)
     -- 代理已存在检测：同一 adapter+main_adapter 组合再次调用时，跳过重复初始化
     if proxy_state.main_adapter == main_adapter then
         for _, a in ipairs(proxy_state.proxy_adapters) do
@@ -1542,6 +1581,21 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
     return true
 end
 
+function exnetif.setproxy(adapter, main_adapter, other_configs)
+    assert(proxy_owner ~= "airlink", "AirLink provider owns NAPT/DNS; use its controller")
+    if proxy_initializing then return false end
+    -- 初始化可能yield，提前保留所有权；完成前不允许close释放给另一控制器。
+    proxy_owner, proxy_initializing = "proxy", true
+    local ok, result = pcall(function()
+        dnsproxy = dnsproxy or require("dnsproxy")
+        dhcpsrv = dhcpsrv or require("dhcpsrv")
+        return setproxy(adapter, main_adapter, other_configs)
+    end)
+    proxy_initializing = false
+    if not ok then error(result, 0) end
+    return result
+end
+
 -- 运行时更新WiFi凭证（内部函数，逻辑已合并到set_priority_order）
 local function update_wifi(config)
     if type(config) ~= "table" or not config.ssid then
@@ -1600,6 +1654,8 @@ end
 关闭网卡功能。(内核固件版本支持情况：Air8000系列模组对应V2022版本及以后版本，Air780/700 系列模组对应V2024及以后版本，Air1601/1602系列模组对应V1008版本及以后版本,Air8101 系列模组对应V2002及以后版本)
 @api exnetif.close(type,adapter)
 @param type boolean 是否为多网融合(true=关闭多网融合, false=关闭单个网卡)
+AirLink provider模式下true表示同步暂停供网，使用返回控制器的enable(true)恢复。
+setproxy初始化尚未结束时返回false，应在初始化结束后再关闭。
 @param adapter number 需要关闭的网卡，可选值: socket.LWIP_ETH/LWIP_USER1/LWIP_STA/LWIP_AP/LWIP_GP/LWIP_GP_GW
      各网卡关闭行为:
        LWIP_ETH   -> 拉低供电+关SPI+netdrv.ctrl(adapter,netdrv.CTRL_UPDOWN,0)
@@ -1619,6 +1675,12 @@ end
 ]]
 function exnetif.close(type, adapter)
     if type == true then
+        if airlink_provider_controller then
+            return stop_airlink_provider()
+        end
+        if proxy_initializing then return false end
+        -- 取消仍在等待WiFi的旧代理重连任务，防止其晚到后重开NAPT。
+        proxy_generation = proxy_generation + 1
         -- 关闭多网融合：停止 DHCP 服务器、DNS 代理、NAPT，恢复各网卡独立状态
         log.info("exnetif", "关闭多网融合功能")
 
@@ -1632,7 +1694,7 @@ function exnetif.close(type, adapter)
         end
 
         -- 2. 关闭 DNS 代理
-        dnsproxy.close()
+        if dnsproxy then dnsproxy.close() end
         log.info("exnetif", "DNS 代理已关闭")
 
         -- 3. 禁用 NAPT
@@ -1658,6 +1720,7 @@ function exnetif.close(type, adapter)
         proxy_state.proxy_adapters = {}
         proxy_state.main_adapter = nil
         proxy_state.wifi_config = nil
+        proxy_owner = nil
 
         return true
     else
@@ -1699,6 +1762,181 @@ function exnetif.close(type, adapter)
     end
 end
 
+local function setup_airlink_netif(id, role, opts)
+    local mode = opts.mode or airlink.MODE_UART
+    assert(mode == airlink.MODE_UART or mode == airlink.MODE_SPI_MASTER or mode == airlink.MODE_SPI_SLAVE,
+        "AirLink netif requires UART, SPI master or SPI slave")
+    local adapter = opts.adapter or socket.LWIP_GP_GW
+    if mode ~= airlink.MODE_UART then
+        assert(opts.spi_id ~= nil and opts.cs ~= nil and opts.rdy ~= nil,
+            "SPI netif requires spi_id, cs and rdy")
+    end
+    local ok, rc = airlink.setup(id, {
+        drv = "netif", role = role, mode = mode,
+        uart_id = opts.uart_id or 1, baudrate = opts.baudrate or 2000000,
+        spi_id = opts.spi_id, cs = opts.cs, rdy = opts.rdy, speed = opts.speed,
+        network_adapter = adapter
+    })
+    assert(ok, "airlink netif setup failed: " .. tostring(rc))
+    return adapter
+end
+
+--[[
+创建AirLink用网端，固定地址在出口变化和断链时保留。支持UART和SPI。
+@api exnetif.airlink_client(id, opts)
+@param number 实例ID，Air1602通常为0
+@param table 可选配置：uart_id=1, baudrate=2000000, adapter=socket.LWIP_GP_GW,
+ip="192.168.111.1", mask="255.255.255.0", gateway="192.168.111.2", default=true
+mode默认airlink.MODE_UART；SPI需配置mode、spi_id、cs、rdy，speed为1~20MHz。
+SPI主机/从机与client/provider角色独立；当前SPI从机适配EC718M平台。
+@return number 固定网卡adapter；gateway同时作为首选DNS
+@usage
+local adapter = exnetif.airlink_client(0, {uart_id=1})
+]]
+function exnetif.airlink_client(id, opts)
+    opts = opts or {}
+    local adapter = setup_airlink_netif(id, "client", opts)
+    local gateway = opts.gateway or "192.168.111.2"
+    netdrv.ipv4(adapter, opts.ip or "192.168.111.1", opts.mask or "255.255.255.0", gateway)
+    socket.setDNS(adapter, 1, gateway)
+    if opts.default ~= false then socket.dft(adapter) end
+    return adapter
+end
+
+--[[
+创建AirLink供网端，需要在task中调用。支持UART和SPI，独占全局NAPT/DNS。
+@api exnetif.airlink_provider(id, opts)
+@param number 实例ID，Air8000板内实例0保留，对外供网通常使用1
+@param table 可选配置：uart_id=1, baudrate=2000000, adapter=socket.LWIP_GP_GW,
+ip="192.168.111.2", mask="255.255.255.0", dns="119.29.29.29",
+priority={socket.LWIP_STA,socket.LWIP_GP}
+mode默认airlink.MODE_UART；SPI需配置mode、spi_id、cs、rdy，speed为1~20MHz。
+Air8000保留板内SPI0，对外从机使用独立SPI1、硬件CS12和空闲RDY GPIO。
+@return table 控制器：adapter、uplink（无出口为nil）、enable(false/true)暂停/恢复
+@usage
+-- WAN由应用初始化；调用过set_priority_order后，忽略opts.priority并跟随本库选路。
+-- 未调用set_priority_order时，按opts.priority选择ready且IPv4有效的WAN，不检测公网。
+local gateway = exnetif.airlink_provider(1, {uart_id=1})
+-- exnetif.close(true)同步暂停供网；gateway.enable(true)恢复，无需重新setup。
+-- 暂停期间仍保留NAPT/DNS所有权，不能再调用setproxy。
+]]
+function exnetif.airlink_provider(id, opts)
+    assert(not proxy_owner, "NAPT/DNS is already owned by a proxy or AirLink provider")
+    opts = opts or {}
+    local priority = opts.priority or {socket.LWIP_STA, socket.LWIP_GP}
+    local adapter = opts.adapter or socket.LWIP_GP_GW
+    local candidates = priority_configured and current_priority or priority
+    assert(#candidates > 0, "priority must contain an uplink")
+    for _, wan in ipairs(candidates) do
+        assert(wan ~= adapter, "LAN cannot be an uplink")
+    end
+    setup_airlink_netif(id, "provider", opts)
+    proxy_owner = "airlink"
+    local ip = opts.ip or "192.168.111.2"
+    netdrv.ipv4(adapter, ip, opts.mask or "255.255.255.0", ip)
+    dnsproxy = dnsproxy or require("dnsproxy")
+    -- 由本控制器统一管理LAN/选定WAN，忽略其他网卡的IP_READY。
+    sys.unsubscribe("IP_READY", dnsproxy.on_ip_ready)
+    local controller = {adapter = adapter, uplink = nil}
+    airlink_provider_controller = controller
+    local enabled, changed = true, true
+    local last_key
+    -- socket.close没有Lua可见的完成屏障，保持引用并复用控件。
+    local upstreams, listener = {}, nil
+    function controller.enable(value)
+        value = not not value
+        if enabled ~= value then enabled, changed = value, true end
+    end
+    local function close_dns()
+        local txid = dnsproxy.txid
+        dnsproxy.close()
+        dnsproxy.txid = txid
+    end
+    local function withdraw()
+        airlink.netstate(id, -1)
+        local cleared = netdrv.napt(-1)
+        close_dns()
+        controller.uplink, last_key = nil, nil
+        return cleared
+    end
+    stop_airlink_provider = function()
+        controller.enable(false)
+        local cleared = withdraw()
+        changed = not cleared
+        return cleared
+    end
+    local function start_dns(wan)
+        if not upstreams[wan] then
+            upstreams[wan] = socket.create(wan, function(sc, event)
+                if upstreams[wan] == dnsproxy.main_sc then dnsproxy.on_response(sc, event) end
+            end)
+            if not upstreams[wan] then return false end
+            socket.config(upstreams[wan], 1053, true)
+        end
+        if not listener then
+            listener = socket.create(adapter, function(sc, event)
+                if dnsproxy.main_sc and dnsproxy.srvs[adapter] == listener then
+                    dnsproxy.on_request(sc, event, adapter)
+                end
+            end)
+            if not listener then return false end
+            socket.config(listener, 53, true)
+        end
+        dnsproxy.main_sc = upstreams[wan]
+        dnsproxy.srvs[adapter] = listener
+        dnsproxy.on_ip_ready()
+        return true
+    end
+    sys.subscribe("IP_LOSE", function(lost)
+        if lost == adapter or lost == controller.uplink then changed = true end
+    end)
+    sys.taskInit(function()
+        while true do
+            local selected, key
+            if enabled and netdrv.ready(adapter) then
+                local uplinks = priority
+                if priority_configured then
+                    -- 单网模式不启动探测任务；多网模式必须使用已探测选定的出口。
+                    uplinks = single_network_mode and current_priority or {current_active}
+                end
+                for _, wan in ipairs(uplinks) do
+                    local usable = not priority_configured
+                        or (single_network_mode and available[wan] ~= connection_states.DISCONNECTED
+                            and available[wan] ~= connection_states.STOPED)
+                        or (not single_network_mode and available[wan] == connection_states.CONNECTED)
+                    if wan ~= adapter and usable and netdrv.ready(wan) then
+                        local addr, mask, gateway = netdrv.ipv4(wan)
+                        if addr and addr ~= "" and addr ~= "0.0.0.0" then
+                            selected = wan
+                            key = table.concat({wan, addr, mask or "", gateway or ""}, "/")
+                            break
+                        end
+                    end
+                end
+            end
+            if changed or key ~= last_key then
+                -- 先撤销供网，再清理映射；同一WAN地址变化/断线也需要重建。
+                local cleared = withdraw()
+                if selected and cleared then
+                    if not priority_configured then socket.dft(selected) end
+                    dnsproxy.server = opts.dns or "119.29.29.29"
+                    local dns_ok = start_dns(selected)
+                    if dns_ok and netdrv.napt(selected) then
+                        airlink.netstate(id, selected)
+                        controller.uplink, last_key = selected, key
+                    else
+                        close_dns()
+                    end
+                end
+                changed = not cleared
+                log.info("exnetif", "airlink uplink", controller.uplink or -1)
+            end
+            sys.wait(500)
+        end
+    end)
+    return controller
+end
+
 --[[
 获取库版本信息
 @return string 年月日时分
@@ -1706,7 +1944,7 @@ end
 exnetif.version()
 ]]
 function exnetif.version()
-    return "202607211200"
+    return "202611180002"
 end
 
 log.debug("exnetif", "version -> " .. exnetif.version())

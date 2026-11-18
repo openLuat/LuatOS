@@ -250,8 +250,8 @@ local function build_eth_param(net_cfg)
 end
 
 -- 自动连接兜底账号：无已保存成功网络时使用
-net_manager.DEFAULT_WIFI_SSID = "admin-降功耗，找合宙！"
-net_manager.DEFAULT_WIFI_PASSWORD = "Air123456"
+net_manager.DEFAULT_WIFI_SSID = "HJ"
+net_manager.DEFAULT_WIFI_PASSWORD = "HJ@88888"
 
 --[[
 读取 WiFi 自动连接凭证

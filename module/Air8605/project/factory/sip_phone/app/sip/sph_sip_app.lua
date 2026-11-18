@@ -10,12 +10,25 @@ local wanted, worker, initialized = false, false, false
 local generation, epoch = 0, 0
 local registered, pending, call, reconnect = false, nil, nil, false
 local S = {state="idle",detail="",user="",since=0,muted=false,registration_state="idle",registration_error=""}
+S.registration_phase="idle"
+S.registration_detail=""
+S.registration_last_error=""
 local function elapsed_clock()
     if mcu and mcu.ticks2 then
         local seconds,micros=mcu.ticks2(0)
         return seconds+(micros or 0)/1000000
     end
     return os.time()
+end
+local reg_attempt, reg_started, reg_last = 0, nil, nil
+local function reg_log(stage, reason, repeat_log)
+    reason=reason or ""
+    local key=stage..":"..reason
+    if not repeat_log and reg_last==key then return end
+    reg_last=key
+    local write=stage=="failed" and log.warn or log.info
+    write("sip_reg",stage,"attempt",reg_attempt,"reason",reason,
+        "elapsed_ms",reg_started and math.floor((elapsed_clock()-reg_started)*1000) or 0)
 end
 local function emit_error(text) sys.publish("SIP_ERROR",text); return false,text end
 local function online() return net.is_up() end
@@ -37,10 +50,23 @@ local function state(value,detail)
     sys.publish("SIP_STATE",M.status())
 end
 -- Registration belongs to the account, not to the current call state.
+local function registration_phase(phase, detail)
+    detail=detail or ""
+    if S.registration_phase==phase and S.registration_detail==detail then return end
+    S.registration_phase=phase; S.registration_detail=detail
+    sys.publish("SIP_STATE",M.status())
+end
 local function registration(value,reason)
     memdiag.mark("sip.registration","STATE",value)
+    if value=="registered" or value=="failed" or value=="idle" then
+        reg_log(value,reason)
+    end
     S.registration_state=value
     S.registration_error=value=="failed" and (reason or "注册失败") or ""
+    S.registration_phase=value
+    S.registration_detail=S.registration_error
+    if value=="failed" then S.registration_last_error=S.registration_error
+    elseif value=="registered" or value=="idle" then S.registration_last_error="" end
     sys.publish("SIP_STATE",M.status())
 end
 local function registration_reason(data,fallback)
@@ -119,9 +145,12 @@ local function on_event(token,event,action,data)
             registered=true; store.set_logged(true)
             registration("registered")
             if not call then state("ready","注册成功") end
-        elseif action~="challenge" then
+        elseif action=="challenge" then
+            reg_log("authenticating","authentication challenge; continuing")
+            registration_phase("authenticating","正在认证，等待结果")
+        else
             registered=false; store.set_logged(false); reconnect=true
-            registration("failed",registration_reason(data,"注册失败，请检查账号或网络"))
+            registration("failed",registration_reason(data,"registration failed; no specific reason provided"))
             clear_call(); finish_message("unknown","注册失效，发送结果未知")
             state("connecting",S.registration_error)
         end
@@ -140,6 +169,10 @@ local function on_event(token,event,action,data)
             local ok,err=audio_gate()
             if not ok then
                 record("rejected"); engine.fail(480,"Audio unavailable"); state("ending",err); return
+            end
+            local prepared,why=audio.prepare_call()
+            if not prepared then
+                engine.fail(480,"Audio unavailable"); clear_call("rejected"); state("ending",why); return
             end
             state("incoming","来电")
             -- 同拨号：先让 UI 把通话层建出来，再起铃声，避免起播点被整屏重建抽干。
@@ -208,21 +241,49 @@ local function run()
     while wanted do
         local mine=generation
         registered=false; store.set_logged(false); state("connecting","等待网络")
-        while wanted and mine==generation and not online() do sys.wait(500) end
+        reg_started=nil;reg_last=nil
+        local waiting_since=elapsed_clock()
+        local next_notice=waiting_since
+        if not online() then registration_phase("waiting_network","网络未就绪，联网后自动注册") end
+        while wanted and mine==generation and not online() do
+            local tick=elapsed_clock()
+            if tick>=next_notice then
+                local cached=net.status()
+                reg_log("waiting_network","network not ready",true)
+                log.info("sip_reg","network cache","ready",cached.ready,"link",cached.link,
+                    "ip",cached.ip,"wait_ms",math.floor((tick-waiting_since)*1000))
+                next_notice=tick+10
+            end
+            sys.wait(500)
+        end
         if wanted and mine==generation then
             epoch=epoch+1; local token=epoch; reconnect=false
             local a=store.get_acct(); S.user=a.user.."@"..a.server
             engine.on(memdiag.wrap("sip.event",function(...) return on_event(token,...) end))
+            reg_attempt=reg_attempt+1;reg_started=elapsed_clock();reg_last=nil
+            reg_log("registering","network ready; starting registration")
+            log.info("sip_reg","endpoint","server",a.server,"port",tonumber(a.port) or 5060,
+                "transport",a.transport)
             registration("registering")
+            if S.registration_last_error~="" then registration_phase("retrying","正在重新注册") end
             state("connecting","注册中")
-            local ok=engine.init(config(a)) and engine.start()
+            local init_ok=engine.init(config(a))
+            local ok=init_ok and engine.start()
             if not ok then
-                registration("failed","SIP初始化失败，请检查固件及配置")
+                registration("failed",init_ok and "SIP start failed" or "SIP initialization failed")
                 emit_error(S.registration_error)
             end
             local elapsed=0
             while ok and wanted and mine==generation and online() and not reconnect do
                 sys.wait(500); elapsed=elapsed+500
+                if not wanted or mine~=generation then break end
+                if not registered and online() and not reconnect and elapsed>=5000
+                    and S.registration_phase~="authenticating" then
+                    registration_phase("waiting_response","等待服务器响应")
+                end
+                if not registered and online() and not reconnect and elapsed<30000 and elapsed%10000==0 then
+                    reg_log("waiting_response","waiting for registration response",true)
+                end
                 if not registered and elapsed>=30000 then
                     registration("failed","注册响应超时")
                     break
@@ -239,6 +300,8 @@ local function run()
             while client.is_running() do sys.wait(100) end
             if wanted and mine==generation then
                 state("connecting","连接失败，稍后重试")
+                reg_log("retry_wait","retry in 8 seconds")
+                registration_phase("retry_wait",S.registration_last_error.."；8秒后自动重试")
                 for _=1,16 do if not wanted or generation~=mine then break end; sys.wait(500) end
             end
         end
@@ -260,6 +323,7 @@ function M.login(a)
     ok,err=store.set_auto_register(true); if not ok then return false,err end
     generation=generation+1; epoch=epoch+1; wanted=true; registered=false; store.set_logged(false)
     S.user=a.user.."@"..a.server
+    S.registration_last_error=""
     registration("registering")
     start_worker(); return true
 end
@@ -277,6 +341,7 @@ function M.logout(preserve_auto)
     if not preserve_auto then
         local ok,err=store.set_auto_register(false); if not ok then return false,err end
     end
+    reg_log("logging_out","requested logout")
     wanted=false; registered=false; generation=generation+1; epoch=epoch+1; store.set_logged(false)
     registration("idle")
     state(worker and "connecting" or "idle","正在注销"); return true
@@ -328,7 +393,9 @@ function M.dial(num)
     if not registered or S.state~="ready" then return false,"未注册或当前忙" end
     local ok,err=audio_gate(); if not ok then return false,err end
     call={peer=num,direction="out",ts=os.time()}; S.peer=num; S.direction="out"; S.since=call.ts
-    if not engine.dial(num) then call=nil; S.peer=nil; S.direction=nil; S.since=0; return false,"呼出失败" end
+    local prepared,why=audio.prepare_call()
+    if not prepared then call=nil; S.peer=nil; S.direction=nil; S.since=0; return false,why end
+    if not engine.dial(num) then audio.stop(); call=nil; S.peer=nil; S.direction=nil; S.since=0; return false,"呼出失败" end
     state("dialing","正在呼叫")
     -- 延后 100ms 再起回铃音：state() 会触发 UI 重建整屏通话层，那是几十到上百毫秒的
     -- LVGL 分配；若正好压在起播点上，喂数协程被按住，下行队列被掏空，驱动补静音帧，

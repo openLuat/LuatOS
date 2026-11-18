@@ -94,7 +94,7 @@ end
 local function status_chip(parent, x, y, w, name)
     local box = airui.container({ parent = parent, x = x, y = y, w = w, h = 36,
         color = C.card, radius = 18, border_width = 0 })
-    W.glass(box, C.card, G.tile_opa)
+    W.glass(box, C.tile, G.tile_opa)
     local dot = airui.container({ parent = parent, x = x + 12, y = y + 14, w = 8, h = 8,
         color = C.ok, radius = 4, border_width = 0 })
     W.glass(dot, C.ok, 255)
@@ -108,29 +108,42 @@ local function status_chip(parent, x, y, w, name)
     return handle
 end
 
--- 主题切换胶囊：文字显示「点击后进入」的主题，保存偏好（fskv）后原地重建页面，不重启
-local function theme_chip(p)
-    local x, y, w, h = 566, 10, 120, 36
+-- 外观重建：延后一帧再拆页，避免在点击回调里销毁正在命中的控件
+local function rebuild_after(msg)
+    if retheme_pending then return end
+    retheme_pending = true
+    local base = BASE
+    sys.timerStart(function()
+        M.create(base)                         -- create 内部先 destroy 旧页，再按新令牌全量重建
+        retheme_pending = false
+        toast(msg)
+    end, 50)
+end
+
+-- 外观胶囊：文字显示「点击后进入」的状态（明暗 / 配色）
+local function look_chip(p, x, w, text, cb)
+    local y, h = 10, 36
     local box = airui.container({ parent = p, x = x, y = y, w = w, h = h,
-        color = C.card, radius = 18, border_width = 0 })
-    W.glass(box, C.card, G.tile_opa)
-    W.text_mid(p, { text = (T.mode == "dark") and "浅色主题" or "深色主题",
-        x = x, y = y, w = w, h = h, size = 16, color = C.text_sub,
-        align = airui.TEXT_ALIGN_CENTER })
+        color = C.tile, radius = 18, border_width = 0 })
+    W.glass(box, C.tile, G.tile_opa)
+    W.text_mid(p, { text = text, x = x, y = y, w = w, h = h, size = 16,
+        color = C.text_sub, align = airui.TEXT_ALIGN_CENTER })
     W.press_layer(p, { x = x, y = y, w = w, h = h, radius = 18, target = box, tx = x, ty = y,
-        on_click = function()
-            if retheme_pending then return end
-            retheme_pending = true
-            local next_mode = (T.mode == "dark") and "light" or "dark"
-            T.set_mode(next_mode)              -- 令牌已原地更新，fskv 已保存
-            local base = BASE
-            -- 延后一帧再拆页面：避免在点击回调里销毁正在命中的控件
-            sys.timerStart(function()
-                M.create(base)                 -- create 内部先 destroy 旧页，再按新令牌全量重建
-                retheme_pending = false
-                toast("已切换到" .. (next_mode == "light" and "浅色" or "深色") .. "主题")
-            end, 50)
-        end })
+        on_click = cb })
+end
+
+-- 顶栏两个外观胶囊：「浅色/深色」+「配色 A/B」，两套配色都留在固件里随时对比
+local function look_chips(p)
+    look_chip(p, 566, 86, (T.mode == "dark") and "浅色" or "深色", function()
+        local nm = (T.mode == "dark") and "light" or "dark"
+        T.set_mode(nm)                          -- 令牌已原地更新，fskv 已保存
+        rebuild_after("已切换到" .. (nm == "light" and "浅色" or "深色") .. "主题")
+    end)
+    look_chip(p, 662, 86, "配色" .. ((T.scheme == "A") and "B" or "A"), function()
+        local ns = (T.scheme == "A") and "B" or "A"
+        T.set_scheme(ns)
+        rebuild_after("已切换到配色 " .. ns .. ((ns == "A") and " · 石墨黑" or " · 石墨紫"))
+    end)
 end
 
 local function build_topbar()
@@ -144,10 +157,10 @@ local function build_topbar()
     top_chips.lock = status_chip(p, 270, 10, 130, "门锁")
     top_chips.win  = status_chip(p, 408, 10, 150, "窗户")
     top_chips.win.set(false, "1 处未关")
-    theme_chip(p)
+    look_chips(p)
     lbl_toast = W.text_mid(ROOT, { text = "", x = 430, y = 88, w = 540, h = 36,
         size = 16, color = C.pri, align = airui.TEXT_ALIGN_RIGHT })
-    lbl_clock = W.text(p, { text = "", x = 700, y = 15, w = 270, h = 30,
+    lbl_clock = W.text(p, { text = "", x = 760, y = 15, w = 210, h = 30,
         size = 16, color = C.text_sub, align = airui.TEXT_ALIGN_RIGHT })
 end
 
@@ -396,15 +409,15 @@ local function apply_room(i, animate)
                 W.glass(t.box, C.card, 0)
                 W.tween(T.motion.swap_fr, function(tt)
                     pcall(function() t.box:set_pos(t.x, t.y + math.floor(12 * (1 - tt))) end)
-                    W.glass(t.box, C.card, math.floor(G.tile_opa * tt))
+                    W.glass(t.box, C.tile, math.floor(G.tile_opa * tt))
                 end, function()                      -- 收尾自愈：强制落回最终态
                     pcall(function() t.box:set_pos(t.x, t.y) end)
-                    W.glass(t.box, C.card, G.tile_opa)
+                    W.glass(t.box, C.tile, G.tile_opa)
                 end)
             end, math.max(5, (k - 1) * T.motion.swap_gap))
         else
             pcall(function() t.box:set_pos(t.x, t.y) end)  -- 即时模式：直接落位
-            W.glass(t.box, C.card, d and G.tile_opa or 0)
+            W.glass(t.box, C.tile, d and G.tile_opa or 0)
         end
     end
     for j, tab in ipairs(room_tabs) do tab.set_active(j == i) end
@@ -438,7 +451,7 @@ local function build_security()
     local function sec_row(y, nm, on, on_color, key, chip_on, chip_off, icon)
         local box = airui.container({ parent = p, x = 15, y = y, w = 242, h = 50,
             color = C.card, radius = T.r.panel, border_width = 0 })
-        W.glass(box, C.card, G.tile_opa)
+        W.glass(box, C.tile, G.tile_opa)
         local ic = W.icon(box, { symbol = icon, x = 11, y = 12, size = 20, w = 26, h = 26,
             color = on and C.ok or C.text_dim })
         W.text_mid(box, { text = nm, x = 42, y = 0, w = 138, h = 50, size = 16, color = C.text,
@@ -467,7 +480,7 @@ local function build_security()
     -- 窗户（只读提示行）
     local win = airui.container({ parent = p, x = 15, y = 156, w = 242, h = 50,
         color = C.card, radius = T.r.panel, border_width = 0 })
-    W.glass(win, C.card, G.tile_opa)
+    W.glass(win, C.tile, G.tile_opa)
     W.icon(win, { symbol = airui.SYMBOL_HOME, x = 11, y = 12, size = 20, w = 26, h = 26,
         color = C.warn })
     W.text_mid(win, { text = "窗户", x = 42, y = 0, w = 98, h = 50, size = 16, color = C.text,
@@ -549,7 +562,7 @@ local function set_dock_active(i)
     dock_active = i
     for k, it in ipairs(dock_items) do
         local on = (k == i)
-        W.glass(it.box, on and C.pri or C.card, on and 60 or G.tile_opa)
+        W.glass(it.box, on and C.pri or C.tile, on and 60 or G.tile_opa)
         pcall(function()
             it.lbl:set_color(on and C.pri or C.text)
             if it.ic then it.ic:set_color(on and C.pri or C.text_sub) end
@@ -567,10 +580,10 @@ local function build_dock()
         local bx = 14 + (i - 1) * (bw + 10)
         local box = airui.container({ parent = p, x = bx, y = 11, w = bw, h = 54,
             color = C.card, radius = T.r.panel, border_width = 0 })
-        W.glass(box, C.card, G.tile_opa)
+        W.glass(box, C.tile, G.tile_opa)
         local hl = airui.container({ parent = box, x = 10, y = 1, w = bw - 20, h = 2,
-            color = 0xFFFFFF, radius = 1, border_width = 0 })
-        W.glass(hl, 0xFFFFFF, G.hl_opa)
+            color = C.hl, radius = 1, border_width = 0 })
+        W.glass(hl, C.hl, G.hl_opa)
         local ic = W.icon(box, { symbol = SCENE_ICON[name] or airui.SYMBOL_PLAY,
             x = 10, y = 16, size = 18, w = 24, h = 24, color = C.text_sub })
         local lbl = W.text_mid(box, { text = name, x = 34, y = 0, w = bw - 42, h = 54, size = 16,
@@ -581,7 +594,7 @@ local function build_dock()
                 set_dock_active(i)                   -- 点谁高亮谁（之前写死第一项、点击不更新）
                 W.tween(T.motion.sweep_fr, function(tt)
                     local opa = G.hl_opa + (G.hl_sweep_opa - G.hl_opa) * math.sin(tt * math.pi)
-                    W.glass(hl, 0xFFFFFF, math.floor(opa))
+                    W.glass(hl, C.hl, math.floor(opa))
                 end)
                 apply_scene(name)                    -- 场景联动：安防开关 + 当前房间设备
                 toast("执行场景：" .. name)
@@ -631,7 +644,7 @@ open_popup = function(d, t)
     end)
     W.glass(popup.g, C.deep, adj_opa())
     W.glass(popup.bar, C.pri, 190)
-    W.glass(popup.track, 0xFFFFFF, G.track_opa)
+    W.glass(popup.track, C.track, G.track_opa)
     W.temp_pulse(popup.val)
 end
 
@@ -646,7 +659,7 @@ close_popup = function()
         pcall(function() popup.nm:set_text(""); popup.sub:set_text(""); popup.val:set_text("") end)
         W.glass(popup.g, C.deep, 0)
         W.glass(popup.bar, C.pri, 0)
-        W.glass(popup.track, 0xFFFFFF, 0)            -- 轨道也要归零，否则关闭后底部留一块浅色圆角
+        W.glass(popup.track, C.track, 0)             -- 轨道也要归零，否则关闭后底部留一块浅色圆角
     end)
 end
 
@@ -666,7 +679,7 @@ local function build_popup()
     -- 中：−  数值  + 收进一条内嵌轨道，符号用主色，底不抢戏
     local track = airui.container({ parent = g, x = 128, y = 20, w = 152, h = 44,
         color = 0xFFFFFF, radius = 12, border_width = 0 })
-    W.glass(track, 0xFFFFFF, 0)                      -- 初始归零：子容器不随父容器 alpha 走，必须自己关
+    W.glass(track, C.track, 0)                       -- 初始归零：子容器不随父容器 alpha 走，必须自己关
     local val = W.text_mid(g, { text = "", x = 168, y = 0, w = 72, h = 84,
         size = 22, color = C.pri, weight = 700, align = airui.TEXT_ALIGN_CENTER })
     local parts = {}

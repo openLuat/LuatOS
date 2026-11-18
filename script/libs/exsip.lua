@@ -471,7 +471,9 @@ local function start_voip_engine_now(session)
         codec = codec,
         ptime = tonumber(session.ptime) or 20,  -- 打包时长，单位毫秒
         sample_rate = tonumber(session.sample_rate) or 8000,    -- 采样率，单位Hz，默认8000
-        jitter_depth = 3,   --抖动缓冲深度，单位为包，默认值为3，建议值为3-5，过大可能增加通话延迟，过小可能增加丢包率
+        -- 抖动缓冲深度，单位为包(20ms)，建议 3-5；过大增加延迟，过小丢包/卡顿。
+        -- 可由应用配置 g_config.jitter_depth 覆盖，默认 3
+        jitter_depth = math.max(1, math.min(16, tonumber(g_config and g_config.jitter_depth) or 3)),
         multimedia_id = 0,  --多媒体ID
         stats_interval = 5000,  --统计信息上报间隔
         -- 使用 SIP 层锁定的网卡适配器，确保媒体和 SIP 使用同一个网卡

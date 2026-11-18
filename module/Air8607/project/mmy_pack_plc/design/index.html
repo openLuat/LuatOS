@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>PACK-3 储能模组线 · PLC 主控屏 · PLCUI 原型 1024×600</title>
+<style>
+/* ============================================================
+   设计约束（来自 PLCUI 库能力，不是网页炫技）
+   1. 字号只取 16 / 18 / 22 / 28 / 38，硬下限 16
+   2. 只用 container / label / table / chart / slider / image
+   3. 无阴影、无渐变、无自定义线宽；层次靠纯色档位差
+   4. 进度条不可改宽 -> 用数值 + 色块，不做横向进度条
+   ============================================================ */
+:root{
+  --bg:#E9EDF3; --panel:#FFFFFF; --panel2:#F4F7FB;
+  --line:#DCE3EC; --ink:#16202E; --ink2:#5A6676; --ink3:#8B97A7;
+  --blue:#2563EB; --green:#0FA968; --amber:#E09A18; --red:#E5484D;
+  --violet:#6E56CF; --dark:#16202E;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{background:#CBD3DE;display:flex;align-items:center;justify-content:center;
+  font-family:"Microsoft YaHei","PingFang SC","Source Han Sans SC",sans-serif;
+  -webkit-font-smoothing:antialiased;}
+.screen{position:relative;width:1024px;height:600px;overflow:hidden;background:var(--bg);
+  font-variant-numeric:tabular-nums;zoom:var(--z,1);}
+
+/* ---------------- 顶栏 ---------------- */
+.hdr{position:absolute;left:0;top:0;width:1024px;height:96px;background:var(--dark);}
+.logo{position:absolute;left:24px;top:26px;width:44px;height:44px;border-radius:10px;
+  background:var(--blue);color:#fff;font-size:18px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;}
+.brand{position:absolute;left:80px;top:20px;font-size:26px;font-weight:700;color:#fff;line-height:32px;}
+.brand small{font-size:16px;font-weight:400;color:#9FB0C6;margin-left:10px;}
+.sub{position:absolute;left:80px;top:56px;font-size:16px;color:#8FA2BA;line-height:20px;}
+.tabs{position:absolute;left:352px;top:0;height:96px;display:flex;gap:6px;}
+.tab{position:relative;width:96px;height:96px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:#93A5BC;cursor:pointer;user-select:none;}
+.tab.on{color:#fff;}
+.tab.on::after{content:"";position:absolute;left:20px;right:20px;bottom:0;height:4px;
+  background:var(--blue);border-radius:2px 2px 0 0;}
+.clock{position:absolute;right:24px;top:14px;font-size:38px;font-weight:700;color:#fff;line-height:44px;}
+.clock-sub{position:absolute;right:24px;top:62px;font-size:16px;color:#9FB0C6;}
+
+/* ---------------- 页面与卡片 ---------------- */
+.page{position:absolute;left:0;top:96px;width:1024px;height:504px;display:none;}
+.page.on{display:block;}
+.card{position:absolute;background:var(--panel);border-radius:10px;}
+.body{position:absolute;left:0;top:0;right:0;bottom:0;}
+.ttl{position:absolute;font-size:18px;font-weight:700;color:var(--ink);line-height:22px;}
+.ttl i{display:inline-block;width:4px;height:16px;border-radius:2px;background:var(--blue);
+  vertical-align:-3px;margin-right:8px;}
+.note{position:absolute;font-size:16px;color:var(--ink3);text-align:right;line-height:22px;}
+
+/* 表格：设备端即 table 组件（header + grid） */
+table.t{border-collapse:collapse;font-size:16px;table-layout:fixed;}
+table.t th{font-size:16px;font-weight:700;color:var(--ink2);background:var(--panel2);
+  text-align:left;padding:0 10px;height:34px;border-bottom:1px solid var(--line);}
+table.t td{font-size:16px;color:var(--ink);height:32px;padding:0 10px;
+  border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;}
+table.t tr:last-child td{border-bottom:none;}
+table.t .r{text-align:right;} table.t .c{text-align:center;}
+
+#toast{position:absolute;left:312px;top:552px;width:400px;height:34px;border-radius:8px;
+  background:#22304A;color:#fff;font-size:16px;display:none;
+  align-items:center;justify-content:center;z-index:9;}
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+
+  <!-- ================= 顶栏 ================= -->
+  <div class="hdr">
+    <div class="logo">P3</div>
+    <div class="brand">PACK-3<small>储能模组装配线</small></div>
+    <div class="sub">PLC 主控 · 电芯 52 串 · 工位 04 拧紧</div>
+    <div class="tabs" id="tabs"></div>
+    <div class="clock" id="clock">19:41</div>
+    <div class="clock-sub" id="clocksub">第 1284 模组 · 自动运行</div>
+  </div>
+
+  <!-- ================= P1 总览 ================= -->
+  <div class="page on" data-p="0">
+    <div class="card" style="left:12px;top:10px;width:1000px;height:40px;background:#DFF3E9;border-radius:8px">
+      <div class="body">
+        <span style="position:absolute;left:0;top:0;width:5px;height:40px;border-radius:8px 0 0 8px;background:#0FA968"></span>
+        <span style="position:absolute;left:18px;top:11px;width:8px;height:8px;border-radius:4px;background:#0FA968"></span>
+        <span style="position:absolute;left:34px;top:8px;font-size:16px;font-weight:700;color:#0A6B43">自动运行 · 步序 04/07 螺栓拧紧</span>
+        <span style="position:absolute;left:392px;top:8px;font-size:16px;color:#2F6B52">批次 B20261117-03</span>
+        <span style="position:absolute;left:612px;top:8px;font-size:16px;color:#2F6B52">配方 PACK-280-1P52S</span>
+        <span style="position:absolute;right:16px;top:8px;font-size:16px;font-weight:700;color:#0A6B43">节拍 42.6 s</span>
+      </div>
+    </div>
+
+    <div class="card" style="left:12px;top:62px;width:660px;height:296px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>产线拓扑</div>
+      <div class="note" style="left:396px;top:12px;width:250px">7 工位 · 全部就绪</div>
+      <div class="body" id="b-stations"></div>
+    </div>
+
+    <div class="card" style="left:684px;top:62px;width:328px;height:296px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>当班产出</div>
+      <div class="body" id="b-kpi"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:370px;width:504px;height:124px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>拧紧轴实时</div>
+      <div class="note" style="left:236px;top:12px;width:254px">目标 8.5 N·m ± 0.3</div>
+      <div class="body" id="b-axes"></div>
+    </div>
+
+    <div class="card" style="left:528px;top:370px;width:484px;height:124px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>报警与事件</div>
+      <div class="note" style="left:302px;top:12px;width:168px">今日 6 条</div>
+      <div class="body" id="b-alarms"></div>
+    </div>
+  </div>
+
+  <!-- ================= P2 趋势 ================= -->
+  <div class="page" data-p="1">
+    <div class="card" style="left:12px;top:10px;width:636px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>拧紧扭矩 · 角度历程</div>
+      <div class="body">
+        <div style="position:absolute;left:290px;top:14px;display:flex;gap:14px;font-size:16px;color:var(--ink2)">
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#2563EB;vertical-align:3px;margin-right:6px"></b>M1</span>
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#6E56CF;vertical-align:3px;margin-right:6px"></b>M3</span>
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#E5484D;vertical-align:3px;margin-right:6px"></b>上限 8.8</span>
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#8B97A7;vertical-align:3px;margin-right:6px"></b>下限 8.2</span>
+        </div>
+        <div id="c-torque" style="position:absolute;left:14px;top:52px"></div>
+      </div>
+    </div>
+
+    <div class="card" style="left:664px;top:10px;width:348px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>气密 · 压力衰减</div>
+      <div class="body">
+        <div style="position:absolute;left:14px;top:44px;display:flex;gap:14px;font-size:16px;color:var(--ink2)">
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#0FA968;vertical-align:3px;margin-right:6px"></b>腔体压力</span>
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#E5484D;vertical-align:3px;margin-right:6px"></b>限值 24.6</span>
+        </div>
+        <div id="c-leak" style="position:absolute;left:14px;top:74px"></div>
+      </div>
+    </div>
+
+    <div class="card" style="left:12px;top:272px;width:636px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>拧紧结果 · 本模组</div>
+      <div class="note" style="left:448px;top:12px;width:174px">4 轴全部合格</div>
+      <div class="body" id="b-torque"></div>
+    </div>
+
+    <div class="card" style="left:664px;top:272px;width:348px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>焊接与测试</div>
+      <div class="body" id="b-weld"></div>
+    </div>
+  </div>
+
+  <!-- ================= P3 步序 ================= -->
+  <div class="page" data-p="2">
+    <div class="card" style="left:12px;top:10px;width:472px;height:330px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>当前模组步序</div>
+      <div class="note" style="left:296px;top:12px;width:162px">04 / 07 进行中</div>
+      <div class="body" id="b-steps"></div>
+    </div>
+
+    <div class="card" style="left:496px;top:10px;width:516px;height:330px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>工位联锁矩阵</div>
+      <div class="note" style="left:306px;top:12px;width:196px">○ 满足 · ● 阻断</div>
+      <div class="body" id="b-lock"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:352px;width:1000px;height:142px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>配方参数</div>
+      <div class="note" style="left:700px;top:12px;width:286px">PACK-280-1P52S · 已下发 PLC</div>
+      <div class="body" id="b-recipe"></div>
+    </div>
+  </div>
+
+  <!-- ================= P4 点位 ================= -->
+  <div class="page" data-p="3">
+    <div class="card" style="left:12px;top:10px;width:330px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>数字输入 DI</div>
+      <div class="note" style="left:180px;top:12px;width:136px">12 / 16</div>
+      <div class="body" id="b-di"></div>
+    </div>
+
+    <div class="card" style="left:352px;top:10px;width:330px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>数字输出 DO</div>
+      <div class="note" style="left:180px;top:12px;width:136px">9 / 16</div>
+      <div class="body" id="b-do"></div>
+    </div>
+
+    <div class="card" style="left:692px;top:10px;width:320px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>模拟量 AI</div>
+      <div class="note" style="left:170px;top:12px;width:136px">0-10 V</div>
+      <div class="body" id="b-ai"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:272px;width:330px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>强制表</div>
+      <div class="note" style="left:180px;top:12px;width:136px">1 点强制</div>
+      <div class="body" id="b-force"></div>
+    </div>
+
+    <div class="card" style="left:352px;top:272px;width:330px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>背板模块</div>
+      <div class="note" style="left:180px;top:12px;width:136px">6 / 6 在线</div>
+      <div class="body" id="b-mod"></div>
+    </div>
+
+    <div class="card" style="left:692px;top:272px;width:320px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>扫描与诊断</div>
+      <div class="body" id="b-diag"></div>
+    </div>
+  </div>
+
+  <!-- ================= P5 系统 ================= -->
+  <div class="page" data-p="4">
+    <div class="card" style="left:12px;top:10px;width:500px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>设备信息</div>
+      <div class="body" id="b-info"></div>
+    </div>
+
+    <div class="card" style="left:524px;top:10px;width:488px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>当班统计</div>
+      <div class="body" id="b-stat"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:272px;width:330px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>显示与背光</div>
+      <div class="body" id="b-bright"></div>
+    </div>
+
+    <div class="card" style="left:352px;top:272px;width:330px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>运行诊断</div>
+      <div class="body" id="b-rundiag"></div>
+    </div>
+
+    <div class="card" style="left:692px;top:272px;width:320px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>版本与说明</div>
+      <div class="body" id="b-ver"></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+/* ============================================================
+   数据：与后续 main.xml / ui_vars.lua 共用同一套口径
+   ============================================================ */
+const TABS=['总览','趋势','步序','点位','系统'];
+const C={g:'#0FA968',a:'#E09A18',r:'#E5484D',m:'#8B97A7',b:'#2563EB',v:'#6E56CF'};
+
+const dec=(el,x)=>{el.style.left=x+'px';return el;};
+const mk=(p,l,t,w,h,bg,rad)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px;width:${w}px;height:${h}px;
+    border-radius:${rad===undefined?8:rad}px;background:${bg||'transparent'}`;
+  d._l=l;d._t=t;d._w=w;d._h=h;p.appendChild(d);return d;};
+const put=(p,html,l,t,w)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px`+(w?`;width:${w}px`:'');
+  d.innerHTML=html;p.appendChild(d);return d;};
+
+/* ---------------- P1 工位 ---------------- */
+(function(){
+  const P=document.getElementById('b-stations');
+  const S=[['上料','电芯就位','ok','6.2 s'],['堆叠','52 串完成','ok','12.4 s'],
+           ['极耳焊','激光焊接','ok','8.8 s'],['入箱','模组入箱','ok','5.6 s'],
+           ['拧紧','4 轴进行','run','4.1 s'],['气密','等待放行','wait','—'],
+           ['下线','打码缓存','wait','—']];
+  const W=140,H=88,GX=12,GY=14,L=14,T=44;
+  S.forEach((s,i)=>{
+    const x=L+(i%4)*(W+GX), y=T+Math.floor(i/4)*(H+GY);
+    const run=s[2]==='run';
+    const d=mk(P,x,y,W,H,run?C.b:'#F4F7FB');
+    d.style.border=run?'none':'1px solid #E6ECF5';
+    d.innerHTML=`
+      <div style="position:absolute;left:12px;top:10px;font-size:18px;font-weight:700;
+        color:${run?'#fff':'#16202E'}">${s[0]}</div>
+      <div style="position:absolute;left:12px;top:38px;font-size:16px;
+        color:${run?'#DCE7FF':'#5A6676'}">${s[1]}</div>
+      <div style="position:absolute;left:12px;top:62px;font-size:16px;
+        color:${run?'#DCE7FF':'#8B97A7'}">${s[3]}</div>
+      <div style="position:absolute;right:12px;top:16px;width:8px;height:8px;border-radius:4px;
+        background:${run?'#7DF3C4':(s[2]==='ok'?C.g:C.m)}"></div>`;
+  });
+  mk(P,14,246,596,2,'#DCE3EC',1);
+  put(P,`<span style="font-size:16px;color:#8B97A7">→ 产出方向 · 下游缓存 8 / 12</span>`,14,254);
+})();
+
+/* ---------------- P1 KPI ---------------- */
+(function(){
+  const P=document.getElementById('b-kpi');
+  const K=[['节拍','42.6','s / 模组',0],['当班产量','1284','模组',0],
+           ['OEE','86.2','%',1],['良率','99.3','%',1]];
+  K.forEach((k,i)=>{
+    const x=14+(i%2)*154, y=46+Math.floor(i/2)*112;
+    const d=mk(P,x,y,146,100,'#F4F7FB');
+    d.innerHTML=`
+      <div style="position:absolute;left:14px;top:12px;font-size:16px;color:#5A6676">${k[0]}</div>
+      <div style="position:absolute;left:14px;top:38px;font-size:38px;font-weight:700;
+        line-height:42px;color:${k[3]?C.g:'#16202E'}">${k[1]}</div>
+      <div style="position:absolute;left:14px;top:82px;font-size:16px;color:#8B97A7">${k[2]}</div>`;
+  });
+})();
+
+/* ---------------- P1 拧紧轴 ---------------- */
+(function(){
+  const P=document.getElementById('b-axes');
+  [['M1','8.42','42°'],['M2','8.38','41°'],['M3','8.45','43°'],['M4','8.40','42°']]
+  .forEach((a,i)=>{
+    const d=mk(P,14+i*120,44,108,64,'#F4F7FB');
+    d.innerHTML=`
+      <div style="position:absolute;left:12px;top:6px;font-size:16px;color:#5A6676">${a[0]}</div>
+      <div style="position:absolute;left:12px;top:26px;font-size:22px;font-weight:700;color:#16202E">${a[1]}</div>
+      <div style="position:absolute;right:10px;top:32px;font-size:16px;color:${C.g}">${a[2]}</div>`;
+  });
+})();
+
+/* ---------------- P1 报警 ---------------- */
+(function(){
+  const P=document.getElementById('b-alarms');
+  [['05:12','拧紧轴 M3 扭矩偏差 +0.06，已自动复拧','a'],
+   ['04:58','气密 2 号腔泄漏率偏高，复测通过','a'],
+   ['04:31','焊接烟尘净化器压差高，待换滤芯','m']]
+  .forEach((a,i)=>{
+    const y=42+i*26;
+    put(P,`
+      <span style="position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:4px;
+        background:${a[2]==='a'?C.a:C.m}"></span>
+      <span style="position:absolute;left:18px;top:0;font-size:16px;color:#8B97A7">${a[0]}</span>
+      <span style="position:absolute;left:68px;top:0;font-size:16px;color:#16202E;
+        width:388px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a[1]}</span>`,14,y,470);
+  });
+})();
+
+/* ---------------- 表格 ---------------- */
+function table(id, head, rows, w){
+  const P=document.getElementById(id);
+  const t=document.createElement('table');
+  t.className='t'; t.style.cssText=`position:absolute;left:14px;top:46px;width:${w}px`;
+  let h='<thead><tr>';
+  head.forEach((x,i)=>{h+=`<th class="${x.a||''}">${x.t}</th>`;});
+  h+='</tr></thead><tbody>';
+  rows.forEach(r=>{
+    h+='<tr>';
+    r.forEach(c=>{
+      const o=(typeof c==='object')?c:{v:c};
+      h+=`<td class="${o.a||''}" ${o.c?`style="color:${o.c}"`:''}>${o.v}</td>`;
+    });
+    h+='</tr>';
+  });
+  t.innerHTML=h+'</tbody>';
+  P.appendChild(t);
+  return t;
+}
+
+/* ---------------- P2 图表（设备端 = chart 组件） ---------------- */
+function chart(el, series, o){
+  const W=o.w, H=o.h, padL=46, padR=14, padT=10, padB=26;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const X=i=>padL+iw*i, Y=v=>padT+ih-(v-o.min)/(o.max-o.min)*ih;
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  for(let i=0;i<=4;i++){
+    const y=padT+ih*i/4, v=o.max-(o.max-o.min)*i/4;
+    s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#E6ECF5" stroke-width="1"/>`;
+    s+=`<text x="${padL-8}" y="${y+5}" text-anchor="end" font-size="14" fill="#8B97A7">${v.toFixed(o.dec||0)}</text>`;
+  }
+  o.xlab.forEach((t,i)=>{
+    const n=o.xlab.length-1;
+    const x=padL+iw*i/n;
+    const anchor=i===0?'start':(i===n?'end':'middle');
+    s+=`<text x="${x}" y="${H-8}" text-anchor="${anchor}" font-size="14" fill="#8B97A7">${t}</text>`;
+  });
+  series.forEach(se=>{
+    const pts=se.d.map((v,i)=>`${X(i/(se.d.length-1)).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    if(se.dash){
+      s+=`<polyline points="${pts}" fill="none" stroke="${se.c}" stroke-width="2" stroke-dasharray="7 6"/>`;
+    }else{
+      s+=`<polyline points="${pts}" fill="none" stroke="${se.c}" stroke-width="2.5" stroke-linejoin="round"/>`;
+      const last=se.d[se.d.length-1];
+      s+=`<circle cx="${X(1)}" cy="${Y(last)}" r="4" fill="#fff" stroke="${se.c}" stroke-width="2.5"/>`;
+    }
+  });
+  s+='</svg>';
+  el.innerHTML=s;
+}
+
+(function(){
+  const d1=[],d3=[];
+  for(let i=0;i<=40;i++){
+    const t=i/40;
+    const v=t<0.82 ? 0.4+8.1*Math.pow(t/0.82,1.35) : 8.5+0.04*Math.sin(i*0.6);
+    d1.push(+(v*0.995).toFixed(2));
+    d3.push(+(v*1.015+0.02*Math.sin(i*0.9)).toFixed(2));
+  }
+  chart(document.getElementById('c-torque'),[
+    {c:'#E5484D',d:new Array(41).fill(8.8),dash:true},
+    {c:'#8B97A7',d:new Array(41).fill(8.2),dash:true},
+    {c:'#2563EB',d:d1},{c:'#6E56CF',d:d3},
+  ],{w:608,h:184,min:0,max:10,dec:1,xlab:['0°','15°','30°','45°','60°']});
+})();
+
+(function(){
+  const d=[];
+  for(let i=0;i<=36;i++){
+    const t=i/36;
+    let v;
+    if(t<0.18) v=25*Math.pow(t/0.18,0.7);
+    else if(t<0.34) v=25+0.15*Math.sin(i);
+    else v=25-0.9*(t-0.34)/0.66;
+    d.push(+v.toFixed(2));
+  }
+  chart(document.getElementById('c-leak'),[
+    {c:'#E5484D',d:new Array(37).fill(24.6),dash:true},
+    {c:'#0FA968',d:d},
+  ],{w:320,h:160,min:23,max:26,dec:1,xlab:['0 s','60 s','120 s','180 s']});
+})();
+
+/* ---------------- P2 表格与焊接 ---------------- */
+table('b-torque',[{t:'轴',a:''},{t:'扭矩 N·m',a:'r'},{t:'角度',a:'r'},{t:'判定',a:'c'},{t:'复拧',a:'c'}],
+  [['M1','8.42','42°',{v:'合格',c:C.g,a:'c'},{v:'0',a:'c'}],
+   ['M2','8.38','41°',{v:'合格',c:C.g,a:'c'},{v:'0',a:'c'}],
+   ['M3','8.45','43°',{v:'合格',c:C.g,a:'c'},{v:'1',c:C.a,a:'c'}],
+   ['M4','8.40','42°',{v:'合格',c:C.g,a:'c'},{v:'0',a:'c'}]],604);
+
+(function(){
+  const P=document.getElementById('b-weld');
+  [['激光功率','1.8','kW',C.v],['焊接速度','120','mm/s',C.v],
+   ['保护气流量','18','L/min',C.b],['测试压力','25.0','kPa',C.g],
+   ['泄漏率','0.12','kPa/min',C.g],['烟尘压差','1.8','kPa',C.a]]
+  .forEach((w,i)=>{
+    put(P,`
+      <span style="position:absolute;left:0;top:3px;width:4px;height:16px;border-radius:2px;background:${w[3]}"></span>
+      <span style="position:absolute;left:16px;top:0;font-size:16px;color:#5A6676">${w[0]}</span>
+      <span style="position:absolute;right:66px;top:0;font-size:16px;font-weight:700;color:#16202E">${w[1]}</span>
+      <span style="position:absolute;right:0;top:0;font-size:16px;color:#8B97A7;width:62px;text-align:right">${w[2]}</span>`,
+      14,46+i*28,320);
+  });
+})();
+
+/* ---------------- P3 步序 / 联锁 / 配方 ---------------- */
+(function(){
+  const P=document.getElementById('b-steps');
+  [['01','电芯上料','52 颗 · 扫码校验','done'],['02','堆叠配组','极性复核 + 间隙','done'],
+   ['03','极耳焊接','激光 1.8 kW','done'],['04','螺栓拧紧','8.5 N·m × 4 轴','run'],
+   ['05','气密测试','25 kPa / 0.3','wait'],['06','下线打码','MES 过站','wait'],
+   ['07','入缓存','8 / 12','wait']]
+  .forEach((s,i)=>{
+    const run=s[3]==='run', done=s[3]==='done';
+    const d=mk(P,14,46+i*38,444,34,run?'#E7EEFE':'transparent',6);
+    d.innerHTML=`
+      <span style="position:absolute;left:8px;top:6px;font-size:16px;font-weight:700;
+        color:${run?C.b:(done?C.g:'#8B97A7')}">${s[0]}</span>
+      <span style="position:absolute;left:42px;top:6px;font-size:16px;width:112px;
+        color:${run?'#16202E':(done?'#16202E':'#8B97A7')}">${s[1]}</span>
+      <span style="position:absolute;left:158px;top:6px;font-size:16px;color:#8B97A7;width:208px">${s[2]}</span>
+      <span style="position:absolute;right:10px;top:6px;font-size:16px;font-weight:700;
+        color:${run?C.b:(done?C.g:'#8B97A7')}">${run?'进行':(done?'完成':'等待')}</span>`;
+  });
+})();
+
+put(document.getElementById('b-lock'),`<span style="font-size:16px;color:#8B97A7">● 表示该条件未满足时禁止该工位启动；○ 为当前满足</span>`,14,258,492);
+
+table('b-lock',[{t:'联锁条件'},{t:'上料',a:'c'},{t:'堆叠',a:'c'},{t:'焊接',a:'c'},{t:'拧紧',a:'c'}],
+  [['安全门闭合',{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'}],
+   ['上游有料',{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'},{v:'●',c:C.g,a:'c'},{v:'●',c:C.g,a:'c'}],
+   ['工位空闲',{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'}],
+   ['配方已下发',{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'},{v:'○',c:C.g,a:'c'}],
+   ['气密合格',{v:'●',c:C.m,a:'c'},{v:'●',c:C.m,a:'c'},{v:'●',c:C.m,a:'c'},{v:'○',c:C.g,a:'c'}]],492);
+
+(function(){
+  const P=document.getElementById('b-recipe');
+  [['拧紧扭矩','8.5','N·m'],['拧紧角度','45','°'],['气密压差','0.3','kPa/min'],
+   ['激光功率','1.8','kW'],['焊接速度','120','mm/s'],['节拍上限','45','s']]
+  .forEach((p,i)=>{
+    put(P,`
+      <div style="font-size:16px;color:#8B97A7;line-height:20px">${p[0]}</div>
+      <div style="font-size:28px;font-weight:700;color:#16202E;line-height:34px;margin-top:4px">${p[1]}
+        <span style="font-size:16px;font-weight:400;color:#8B97A7">${p[2]}</span></div>`,14+i*164,44);
+  });
+  put(P,`<span style="font-size:16px;color:#8B97A7">切换记录 11-17 08:12　由 PACK-314-1P48S 切换至本配方，首件已复核</span>`,14,110,980);
+})();
+
+/* ---------------- P4 点位 ---------------- */
+table('b-di',[{t:'位号'},{t:'名称'},{t:'状态',a:'r'}],
+  [['I0.0','启动按钮',{v:'ON',c:C.g,a:'r'}],['I0.1','停止按钮',{v:'OFF',c:C.m,a:'r'}],
+   ['I0.2','安全门闭合',{v:'ON',c:C.g,a:'r'}],['I0.3','定位到位',{v:'ON',c:C.g,a:'r'}],
+   ['I0.4','扭矩合格',{v:'ON',c:C.g,a:'r'}]],296);
+
+table('b-do',[{t:'位号'},{t:'名称'},{t:'状态',a:'r'}],
+  [['Q0.0','上料允许',{v:'ON',c:C.g,a:'r'}],['Q0.1','拧紧启动',{v:'ON',c:C.g,a:'r'}],
+   ['Q0.2','气密放行',{v:'OFF',c:C.m,a:'r'}],['Q0.3','输送电机',{v:'ON',c:C.g,a:'r'}],
+   ['Q0.4','三色灯绿',{v:'ON',c:C.g,a:'r'}]],296);
+
+table('b-ai',[{t:'通道'},{t:'名称'},{t:'值',a:'r'}],
+  [['AI0','拧紧扭矩','8.42 N·m'],['AI1','气密压力','25.0 kPa'],
+   ['AI2','激光功率','1.8 kW'],['AI3','环境温度','23.4 ℃'],
+   ['AI4','母线电压','540 V']],286);
+
+(function(){
+  const P=document.getElementById('b-force');
+  [['M0.2','拧紧中',1],['Q0.2','气密放行',0],['M0.5','故障位',0]].forEach((f,i)=>{
+    const d=mk(P,14,46+i*38,300,32,f[2]?'#FDF1DA':'#F4F7FB',6);
+    d.innerHTML=`
+      <span style="position:absolute;left:12px;top:6px;font-size:16px;color:#16202E">${f[0]}</span>
+      <span style="position:absolute;left:74px;top:6px;font-size:16px;color:#5A6676">${f[1]}</span>
+      <span style="position:absolute;right:12px;top:6px;font-size:16px;font-weight:700;
+        color:${f[2]?C.a:C.m}">${f[2]?'强制':'实时'}</span>`;
+  });
+  const b=mk(P,14,176,300,30,C.b,6);
+  b.style.cssText+=';color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center';
+  b.textContent='全部取消强制';
+})();
+
+(function(){
+  const P=document.getElementById('b-mod');
+  [['槽 1','CPU CTRL-1500'],['槽 2','DI 16 × 24V'],['槽 3','DO 16 × 24V'],
+   ['槽 4','AI 8 × 0-10V'],['槽 5','AO 4 × 0-10V'],['槽 6','PN 通信']]
+  .forEach((m,i)=>{
+    put(P,`
+      <span style="position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:4px;background:${C.g}"></span>
+      <span style="position:absolute;left:18px;top:0;font-size:16px;color:#8B97A7;width:52px">${m[0]}</span>
+      <span style="position:absolute;left:74px;top:0;font-size:16px;color:#16202E">${m[1]}</span>
+      <span style="position:absolute;right:0;top:0;font-size:16px;color:${C.g};width:52px;text-align:right">OK</span>`,
+      14,46+i*28,300);
+  });
+})();
+
+(function(){
+  const P=document.getElementById('b-diag');
+  [['扫描周期','3.4 ms'],['CPU 负荷','28 %'],['任务数','6 个'],['PN 周期','2 ms']]
+  .forEach((d,i)=>{
+    const x=14+(i%2)*150, y=46+Math.floor(i/2)*62;
+    const c=mk(P,x,y,140,52,'#F4F7FB');
+    c.innerHTML=`
+      <div style="position:absolute;left:12px;top:6px;font-size:16px;color:#8B97A7">${d[0]}</div>
+      <div style="position:absolute;left:12px;top:26px;font-size:22px;font-weight:700;color:#16202E">${d[1]}</div>`;
+  });
+})();
+
+/* ---------------- P5 系统 ---------------- */
+table('b-info',[{t:'项目'},{t:'值',a:'r'}],
+  [['设备名称','PACK-3 储能模组装配线'],['产线编号','LN-PACK-03'],
+   ['控制器','CTRL-1500 / V3.2.7'],['工位数','7'],
+   ['节拍设计值','42 s / 模组']],466);
+
+(function(){
+  const P=document.getElementById('b-stat');
+  [['当班产量','1284','模组'],['良品','1275','件'],['不良','9','件'],['停机','23','min']]
+  .forEach((s,i)=>{
+    const x=14+(i%2)*232, y=46+Math.floor(i/2)*96;
+    const c=mk(P,x,y,220,86,'#F4F7FB');
+    c.innerHTML=`
+      <div style="position:absolute;left:16px;top:10px;font-size:16px;color:#5A6676">${s[0]}</div>
+      <div style="position:absolute;left:16px;top:34px;font-size:34px;font-weight:700;color:#16202E">${s[1]}
+        <span style="font-size:16px;font-weight:400;color:#8B97A7;margin-left:6px">${s[2]}</span></div>`;
+  });
+})();
+
+(function(){
+  const P=document.getElementById('b-bright');
+  const track=mk(P,16,46,298,10,'#EAEFF6',5);
+  mk(track,0,0,246,10,C.b,5);
+  const k=mk(track,240,-6,22,22,'#fff',11);
+  k.style.border='3px solid #2563EB';
+  put(P,`<span style="font-size:16px;color:#5A6676">亮度 82 % · PWM3（GPIO13）</span>`,16,70);
+  ['夜间','标准','明亮'].forEach((b,i)=>{
+    const d=mk(P,16+i*92,104,84,40,i===1?C.b:'#EAEFF6');
+    d.style.cssText+=';display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;'+
+      (i===1?'color:#fff':'color:#5A6676');
+    d.textContent=b;
+  });
+  put(P,`<span style="font-size:16px;color:#8B97A7">背光在显示初始化后点亮，避免上电花屏</span>`,16,160);
+})();
+
+(function(){
+  const P=document.getElementById('b-rundiag');
+  [['运行时长','06:52:14'],['上电次数','42'],['通信错误','0'],['缓存占用','38 %']]
+  .forEach((d,i)=>{
+    const x=14+(i%2)*150, y=46+Math.floor(i/2)*62;
+    const c=mk(P,x,y,140,52,'#F4F7FB');
+    c.innerHTML=`
+      <div style="position:absolute;left:12px;top:6px;font-size:16px;color:#8B97A7">${d[0]}</div>
+      <div style="position:absolute;left:12px;top:26px;font-size:22px;font-weight:700;color:#16202E">${d[1]}</div>`;
+  });
+  put(P,`<span style="font-size:16px;color:#8B97A7">最近无通信错误，诊断缓冲 0 条</span>`,14,176);
+})();
+
+(function(){
+  const P=document.getElementById('b-ver');
+  [['PLCUI','v1.3'],['固件','Air1603 / 103 号'],['工程','mmy_pack_plc'],['版本','1.0.0']]
+  .forEach((v,i)=>{
+    put(P,`
+      <span style="position:absolute;left:0;top:0;font-size:16px;color:#8B97A7">${v[0]}</span>
+      <span style="position:absolute;right:0;top:0;font-size:16px;color:#16202E">${v[1]}</span>`,
+      14,46+i*30,292);
+  });
+  put(P,`<span style="font-size:16px;color:#8B97A7;line-height:22px">布局在 main.xml，数据由 ui_vars.lua 绑定；全屏纯色块，未使用图片素材</span>`,14,178,292);
+})();
+
+/* ---------------- 页签 / 时钟 / 缩放 ---------------- */
+(function(){
+  const box=document.getElementById('tabs');
+  TABS.forEach((t,i)=>{
+    const el=document.createElement('div');
+    el.className='tab'+(i===0?' on':'');
+    el.textContent=t;
+    el.onclick=()=>{
+      document.querySelectorAll('.tab').forEach((x,j)=>x.classList.toggle('on',j===i));
+      document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===i));
+      toast(t);
+    };
+    box.appendChild(el);
+  });
+  let tm=null;
+  function toast(s){
+    const el=document.getElementById('toast');
+    el.textContent=s;el.style.display='flex';
+    clearTimeout(tm);tm=setTimeout(()=>el.style.display='none',1100);
+  }
+  const m=location.hash.match(/p([1-5])/);
+  if(m){
+    const k=+m[1]-1;
+    document.querySelectorAll('.tab').forEach((x,j)=>x.classList.toggle('on',j===k));
+    document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===k));
+  }
+  const ck=document.getElementById('clock');
+  (function tick(){
+    const d=new Date();
+    ck.textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    setTimeout(tick,10000);
+  })();
+  function fit(){
+    const z=Math.min((window.innerWidth-40)/1024,(window.innerHeight-40)/600,1.5);
+    document.documentElement.style.setProperty('--z',z.toFixed(3));
+  }
+  fit();window.addEventListener('resize',fit);
+})();
+</script>
+</body>
+</html>

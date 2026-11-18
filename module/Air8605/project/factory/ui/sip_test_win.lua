@@ -39,6 +39,8 @@ function app.status(snapshot)
         state = st,
         registered = s.registered == true,
         registration_state = s.registration_state, registration_error = s.registration_error,
+        registration_phase = s.registration_phase, registration_detail = s.registration_detail,
+        registration_last_error = s.registration_last_error,
         peer = s.peer, number = s.peer,
         direction = s.direction, duration = s.duration, muted = s.muted == true,
         user = s.user,
@@ -947,8 +949,15 @@ build_shell = function()
             local d=audio.diagnostics()
             if not d.ready or d.error or d.fault then M.open("diag"); return end
             local s=app.status()
-            if s.registration_state == "failed" then
-                airui.msgbox({ title="注册失败", text=s.registration_error or "未知原因", buttons={"确定"},
+            if s.registration_state ~= "registered" then
+                local detail=s.registration_detail or ""
+                if detail=="" then detail=s.registration_error or "" end
+                if detail=="" then detail="正在注册，等待服务器响应" end
+                local previous=s.registration_last_error or ""
+                if previous~="" and not detail:find(previous,1,true) then
+                    detail=detail.."\n上次失败："..previous
+                end
+                airui.msgbox({ title="注册状态", text=detail, buttons={"确定"},
                     on_action=function(self) self:hide() end })
             end
         end })
@@ -1072,6 +1081,12 @@ refresh_status = function(snapshot)
     local detail = rs == "failed" and (s.registration_error or "未知原因") or ""
     local full = (registration_names[rs] or "未注册") .. (detail ~= "" and ("：" .. detail) or "")
     local color = rs == "registered" and C.green or rs == "registering" and 0xF59E0B or rs == "failed" and C.red or C.text3
+    local phase=s.registration_phase
+    if phase=="waiting_network" then full="等待网络";color=0xF59E0B
+    elseif phase=="waiting_response" then full="注册等待中\n等待服务器响应";color=0xF59E0B
+    elseif phase=="authenticating" then full="正在认证\n等待认证结果";color=0xF59E0B
+    elseif phase=="retrying" then full="正在重试";color=0xF59E0B
+    elseif phase=="retry_wait" then full="注册失败："..(s.registration_last_error or "未知原因");color=C.red end
     local d = audio.diagnostics()
     if d.initializing then full="音频初始化中";color=0xF59E0B
     elseif diag.status().busy then full="音频自检中";color=0xF59E0B
@@ -1084,7 +1099,7 @@ refresh_status = function(snapshot)
     local center_y = SY(38)
     if status_cache.obj ~= top_status or status_cache.text ~= full or
         status_cache.font ~= fs or status_cache.width ~= width or status_cache.center ~= center_y then
-        local lines = theme.text_width(full, fs) > width and 2 or 1
+        local lines = (full:find("\n",1,true) or theme.text_width(full, fs) > width) and 2 or 1
         local line_h = fs + 3
         top_status:set_pos(SX(124), math.floor(center_y - lines * line_h / 2))
         set_text(top_status, theme.fit_text(full, width, fs, 2))

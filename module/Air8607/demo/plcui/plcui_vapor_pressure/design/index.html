@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>蒸气压测定仪 PLCUI 原型 1024x600</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #060C13; font-family: "Microsoft YaHei", "hzfont", sans-serif;
+       display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+#stage { position: relative; width: 1024px; height: 600px; overflow: hidden;
+         box-shadow: 0 18px 60px rgba(0,0,0,.7); }
+.page { position: absolute; inset: 0; display: none; }
+.page.on { display: block; }
+.w { position: absolute; overflow: hidden; }
+.w img { width: 100%; height: 100%; display: block; }
+.w.btn { cursor: pointer; }
+.w.btn:active img { filter: brightness(.72); }
+.w.lbl { white-space: nowrap; }
+.w.box { }
+.w.chart { border: 0; }
+.w.chart .grid { position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(to bottom, #1B3348 0 1px, transparent 1px 25%),
+                    repeating-linear-gradient(to right, #1B3348 0 1px, transparent 1px 20%); }
+.w.chart .tip { position: absolute; left: 6px; top: 4px; font-size: 14px; color: #4F7A98; }
+.w.tbl { display: grid; }
+.w.tbl div { font-size: 20px; color: #E6F1FB; display: flex; align-items: center;
+             justify-content: center; border-right: 1px solid #1E3A52;
+             border-bottom: 1px solid #1E3A52; }
+.w.tbl div.head { background: #16293A; color: #C7DCF0; }
+#hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px;
+        color: #4F7A98; font-size: 13px; letter-spacing: .5px; }
+</style>
+</head>
+<body>
+<div id="stage">
+<div class="page on" id="page-run" style="background:#8FD3F2">
+<div id="tb_bg" class="w " style="left:0px;top:0px;width:1024px;height:600px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/bg_run.jpg" alt=""></div>
+<div id="tb_title" class="w  lbl" style="left:22px;top:8px;width:380px;height:44px;font-size:34px;color:#0B2E52;text-align:left;line-height:1.2;padding-top:3px;" data-plcui="label">蒸气压测定仪</div>
+<div id="tb_lamp" class="w " style="left:392px;top:18px;width:32px;height:32px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_lamp_idle.png" alt=""></div>
+<div id="badge-run" class="w  lbl" style="left:434px;top:20px;width:300px;height:32px;font-size:20px;color:#0B2E52;text-align:left;line-height:1.2;padding-top:4px;" data-plcui="label">待机</div>
+<div id="tb_alarm" class="w " style="left:430px;top:14px;width:264px;height:36px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_alarm.png" alt=""></div>
+<div id="tb_cd" class="w  lbl" style="left:768px;top:12px;width:232px;height:20px;font-size:16px;color:#4A7EA6;text-align:right;line-height:1.2;padding-top:0px;" data-plcui="label">2026/11/17</div>
+<div id="tb_ct" class="w  lbl" style="left:768px;top:30px;width:232px;height:28px;font-size:22px;color:#0B2E52;text-align:right;line-height:1.2;padding-top:1px;" data-plcui="label">12:00:00</div>
+<div id="stp1" class="w " style="left:16px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st1_g.png" alt=""></div>
+<div id="stp2" class="w " style="left:180px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st2_g.png" alt=""></div>
+<div id="stp3" class="w " style="left:344px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st3_g.png" alt=""></div>
+<div id="stp4" class="w " style="left:508px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st4_g.png" alt=""></div>
+<div id="stp5" class="w " style="left:672px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st5_g.png" alt=""></div>
+<div id="stp6" class="w " style="left:836px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st6_g.png" alt=""></div>
+<div id="pv_liq" class="w " style="left:190px;top:166px;width:248px;height:178px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_liq10.png" alt=""></div>
+<div id="pv_rod0" class="w " style="left:308px;top:154px;width:12px;height:168px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod00.png" alt=""></div>
+<div id="pv_rod1" class="w " style="left:308px;top:154px;width:12px;height:157px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod01.png" alt=""></div>
+<div id="pv_rod2" class="w " style="left:308px;top:154px;width:12px;height:146px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod02.png" alt=""></div>
+<div id="pv_rod3" class="w " style="left:308px;top:154px;width:12px;height:135px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod03.png" alt=""></div>
+<div id="pv_rod4" class="w " style="left:308px;top:154px;width:12px;height:124px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod04.png" alt=""></div>
+<div id="pv_rod5" class="w " style="left:308px;top:154px;width:12px;height:113px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod05.png" alt=""></div>
+<div id="pv_rod6" class="w " style="left:308px;top:154px;width:12px;height:102px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod06.png" alt=""></div>
+<div id="pv_rod7" class="w " style="left:308px;top:154px;width:12px;height:91px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod07.png" alt=""></div>
+<div id="pv_rod8" class="w " style="left:308px;top:154px;width:12px;height:80px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod08.png" alt=""></div>
+<div id="pv_rod9" class="w " style="left:308px;top:154px;width:12px;height:69px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod09.png" alt=""></div>
+<div id="pv_rod10" class="w " style="left:308px;top:154px;width:12px;height:58px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_rod10.png" alt=""></div>
+<div id="pv_car0" class="w " style="left:190px;top:320px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car1" class="w " style="left:190px;top:309px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car2" class="w " style="left:190px;top:298px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car3" class="w " style="left:190px;top:287px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car4" class="w " style="left:190px;top:276px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car5" class="w " style="left:190px;top:265px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car6" class="w " style="left:190px;top:254px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car7" class="w " style="left:190px;top:243px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car8" class="w " style="left:190px;top:232px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car9" class="w " style="left:190px;top:221px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_car10" class="w " style="left:190px;top:210px;width:248px;height:24px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_car.png" alt=""></div>
+<div id="pv_v1" class="w " style="left:232px;top:372px;width:36px;height:36px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_valve_c.png" alt=""></div>
+<div id="pv_v2" class="w " style="left:364px;top:372px;width:36px;height:36px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_valve_c.png" alt=""></div>
+<div id="pv_pv" class="w  lbl" style="left:26px;top:170px;width:70px;height:40px;font-size:30px;color:#0E63B0;text-align:left;line-height:1.2;padding-top:3px;" data-plcui="label">0.0</div>
+<div id="pv_pu" class="w  lbl" style="left:96px;top:178px;width:60px;height:22px;font-size:16px;color:#4A7EA6;text-align:left;line-height:1.2;padding-top:1px;" data-plcui="label">kPa</div>
+<div id="pv_tv" class="w  lbl" style="left:26px;top:234px;width:70px;height:36px;font-size:26px;color:#D97706;text-align:left;line-height:1.2;padding-top:3px;" data-plcui="label">25.0</div>
+<div id="pv_tu" class="w  lbl" style="left:96px;top:242px;width:60px;height:22px;font-size:16px;color:#4A7EA6;text-align:left;line-height:1.2;padding-top:1px;" data-plcui="label">℃</div>
+<div id="pv_lv" class="w  lbl" style="left:452px;top:208px;width:140px;height:24px;font-size:16px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">液面高度 0.0 mm</div>
+<div id="pv_cv" class="w  lbl" style="left:452px;top:240px;width:140px;height:24px;font-size:16px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">软塞高度 0.0 mm</div>
+<div id="pv_xv" class="w  lbl" style="left:452px;top:272px;width:140px;height:24px;font-size:16px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">体积比 1.000</div>
+<div id="dv_v1o" class="w btn" style="left:628px;top:156px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_v1o_p" onclick="fire('dev_op', 'dev_op', this)"><img src="../code/bt_v1o.png" alt=""></div>
+<div id="dv_v1c" class="w btn" style="left:748px;top:156px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_v1c_p" onclick="fire('dev_op', 'dev_op', this)"><img src="../code/bt_v1c.png" alt=""></div>
+<div id="ds_v1" class="w  lbl" style="left:872px;top:166px;width:120px;height:24px;font-size:18px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:1px;" data-plcui="label">阀1:关</div>
+<div id="dv_v2o" class="w btn" style="left:628px;top:208px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_v2o_p" onclick="fire('dev_op', 'dev_op', this)"><img src="../code/bt_v2o.png" alt=""></div>
+<div id="dv_v2c" class="w btn" style="left:748px;top:208px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_v2c_p" onclick="fire('dev_op', 'dev_op', this)"><img src="../code/bt_v2c.png" alt=""></div>
+<div id="ds_v2" class="w  lbl" style="left:872px;top:218px;width:120px;height:24px;font-size:18px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:1px;" data-plcui="label">阀2:关</div>
+<div id="dv_up" class="w btn" style="left:628px;top:304px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_up_p" onclick="fire('dev_op', 'dev_op', this)"><img src="../code/bt_up.png" alt=""></div>
+<div id="dv_down" class="w btn" style="left:748px;top:304px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_down_p" onclick="fire('dev_op', 'dev_op', this)"><img src="../code/bt_down.png" alt=""></div>
+<div id="dv_mstop" class="w btn" style="left:868px;top:304px;width:120px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_mstop_p" onclick="fire('dev_op', 'dev_op', this)"><img src="../code/bt_mstop.png" alt=""></div>
+<div id="ds_step" class="w  lbl" style="left:862px;top:273px;width:132px;height:22px;font-size:16px;color:#2A5A0C;text-align:left;line-height:1.2;padding-top:1px;" data-plcui="label">步长 10</div>
+<div id="dv_s5" class="w btn" style="left:628px;top:358px;width:72px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_s5_p" onclick="fire('dev_step', 'dev_step', this)"><img src="../code/bt_s5.png" alt=""></div>
+<div id="dv_s10" class="w btn" style="left:702px;top:358px;width:72px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_s10_p" onclick="fire('dev_step', 'dev_step', this)"><img src="../code/bt_s10.png" alt=""></div>
+<div id="dv_s25" class="w btn" style="left:776px;top:358px;width:72px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_s25_p" onclick="fire('dev_step', 'dev_step', this)"><img src="../code/bt_s25.png" alt=""></div>
+<div id="dv_nup" class="w btn" style="left:850px;top:358px;width:68px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_nup_p" onclick="fire('dev_jump', 'dev_jump', this)"><img src="../code/bt_nup.png" alt=""></div>
+<div id="dv_ndn" class="w btn" style="left:920px;top:358px;width:68px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_ndn_p" onclick="fire('dev_jump', 'dev_jump', this)"><img src="../code/bt_ndn.png" alt=""></div>
+<div id="hs_temp" class="w  lbl" style="left:628px;top:433px;width:180px;height:22px;font-size:16px;color:#2A5A0C;text-align:left;line-height:1.2;padding-top:1px;" data-plcui="label">设定 37.5℃</div>
+<div id="hs_on" class="w btn" style="left:628px;top:460px;width:100px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_heat_on_p" onclick="fire('heat_on', 'heat_on', this)"><img src="../code/bt_heat_on.png" alt=""></div>
+<div id="hs_off" class="w btn" style="left:736px;top:460px;width:100px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_heat_off_p" onclick="fire('heat_off', 'heat_off', this)"><img src="../code/bt_heat_off.png" alt=""></div>
+<div id="hs_minus" class="w btn" style="left:844px;top:460px;width:72px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_minus_p" onclick="fire('temp_minus', 'temp_minus', this)"><img src="../code/bt_minus.png" alt=""></div>
+<div id="hs_plus" class="w btn" style="left:924px;top:460px;width:72px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_plus_p" onclick="fire('temp_plus', 'temp_plus', this)"><img src="../code/bt_plus.png" alt=""></div>
+<div id="rs_1" class="w  lbl" style="left:30px;top:456px;width:180px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">环节 --</div>
+<div id="rs_2" class="w  lbl" style="left:222px;top:456px;width:180px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">阀1:关 阀2:关</div>
+<div id="rs_3" class="w  lbl" style="left:414px;top:456px;width:176px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">步进 0.0 mm</div>
+<div id="rs_4" class="w  lbl" style="left:30px;top:484px;width:180px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">液位 0%</div>
+<div id="rs_5" class="w  lbl" style="left:222px;top:484px;width:180px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">加热 关</div>
+<div id="rs_6" class="w  lbl" style="left:414px;top:484px;width:176px;height:22px;font-size:17px;color:#2E8B2E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">蒸气压 -- kPa</div>
+<div id="bd_auto" class="w btn" style="left:16px;top:532px;width:140px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_auto_p" onclick="fire('auto_start', 'auto_start', this)"><img src="../code/bt_auto.png" alt=""></div>
+<div id="bd_pause" class="w btn" style="left:164px;top:532px;width:96px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_pause_p" onclick="fire('auto_pause', 'auto_pause', this)"><img src="../code/bt_pause.png" alt=""></div>
+<div id="bd_reset" class="w btn" style="left:268px;top:532px;width:96px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_reset_p" onclick="fire('reset', 'reset', this)"><img src="../code/bt_reset.png" alt=""></div>
+<div id="bd_estop" class="w btn" style="left:372px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_estop_p" onclick="fire('estop', 'estop', this)"><img src="../code/bt_estop.png" alt=""></div>
+<div id="bd_test" class="w btn" style="left:504px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_gtest_p" onclick="fire('go_test', 'go_test', this)"><img src="../code/bt_gtest.png" alt=""></div>
+</div>
+<div class="page" id="page-man" style="background:#8FD3F2">
+<div id="tb_bg" class="w " style="left:0px;top:0px;width:1024px;height:600px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/bg_man.jpg" alt=""></div>
+<div id="tb_title" class="w  lbl" style="left:22px;top:8px;width:380px;height:44px;font-size:34px;color:#0B2E52;text-align:left;line-height:1.2;padding-top:3px;" data-plcui="label">环节手动</div>
+<div id="tb_lamp" class="w " style="left:392px;top:18px;width:32px;height:32px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_lamp_idle.png" alt=""></div>
+<div id="badge-man" class="w  lbl" style="left:434px;top:20px;width:300px;height:32px;font-size:20px;color:#0B2E52;text-align:left;line-height:1.2;padding-top:4px;" data-plcui="label">待机</div>
+<div id="tb_alarm" class="w " style="left:430px;top:14px;width:264px;height:36px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_alarm.png" alt=""></div>
+<div id="tb_cd" class="w  lbl" style="left:768px;top:12px;width:232px;height:20px;font-size:16px;color:#4A7EA6;text-align:right;line-height:1.2;padding-top:0px;" data-plcui="label">2026/11/17</div>
+<div id="tb_ct" class="w  lbl" style="left:768px;top:30px;width:232px;height:28px;font-size:22px;color:#0B2E52;text-align:right;line-height:1.2;padding-top:1px;" data-plcui="label">12:00:00</div>
+<div id="stp1" class="w " style="left:16px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st1_g.png" alt=""></div>
+<div id="stp2" class="w " style="left:180px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st2_g.png" alt=""></div>
+<div id="stp3" class="w " style="left:344px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st3_g.png" alt=""></div>
+<div id="stp4" class="w " style="left:508px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st4_g.png" alt=""></div>
+<div id="stp5" class="w " style="left:672px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st5_g.png" alt=""></div>
+<div id="stp6" class="w " style="left:836px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st6_g.png" alt=""></div>
+<div id="mv_l1" class="w " style="left:32px;top:162px;width:32px;height:32px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_lamp_idle.png" alt=""></div>
+<div id="mv_s1" class="w  lbl" style="left:74px;top:164px;width:240px;height:26px;font-size:18px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">待机</div>
+<div id="mv_g1" class="w btn" style="left:30px;top:204px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_go_p" onclick="fire('st_go', 'st_go', this)"><img src="../code/bt_go.png" alt=""></div>
+<div id="mv_h1" class="w btn" style="left:156px;top:204px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_halt_p" onclick="fire('st_halt', 'st_halt', this)"><img src="../code/bt_halt.png" alt=""></div>
+<div id="mv_l2" class="w " style="left:364px;top:162px;width:32px;height:32px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_lamp_idle.png" alt=""></div>
+<div id="mv_s2" class="w  lbl" style="left:406px;top:164px;width:240px;height:26px;font-size:18px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">待机</div>
+<div id="mv_g2" class="w btn" style="left:362px;top:204px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_go_p" onclick="fire('st_go', 'st_go', this)"><img src="../code/bt_go.png" alt=""></div>
+<div id="mv_h2" class="w btn" style="left:488px;top:204px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_halt_p" onclick="fire('st_halt', 'st_halt', this)"><img src="../code/bt_halt.png" alt=""></div>
+<div id="mv_l3" class="w " style="left:696px;top:162px;width:32px;height:32px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_lamp_idle.png" alt=""></div>
+<div id="mv_s3" class="w  lbl" style="left:738px;top:164px;width:240px;height:26px;font-size:18px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">待机</div>
+<div id="mv_g3" class="w btn" style="left:694px;top:204px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_go_p" onclick="fire('st_go', 'st_go', this)"><img src="../code/bt_go.png" alt=""></div>
+<div id="mv_h3" class="w btn" style="left:820px;top:204px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_halt_p" onclick="fire('st_halt', 'st_halt', this)"><img src="../code/bt_halt.png" alt=""></div>
+<div id="mv_l4" class="w " style="left:32px;top:310px;width:32px;height:32px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_lamp_idle.png" alt=""></div>
+<div id="mv_s4" class="w  lbl" style="left:74px;top:312px;width:240px;height:26px;font-size:18px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">待机</div>
+<div id="mv_g4" class="w btn" style="left:30px;top:352px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_go_p" onclick="fire('st_go', 'st_go', this)"><img src="../code/bt_go.png" alt=""></div>
+<div id="mv_h4" class="w btn" style="left:156px;top:352px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_halt_p" onclick="fire('st_halt', 'st_halt', this)"><img src="../code/bt_halt.png" alt=""></div>
+<div id="mv_l5" class="w " style="left:364px;top:310px;width:32px;height:32px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_lamp_idle.png" alt=""></div>
+<div id="mv_s5" class="w  lbl" style="left:406px;top:312px;width:240px;height:26px;font-size:18px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">待机</div>
+<div id="mv_g5" class="w btn" style="left:362px;top:352px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_go_p" onclick="fire('st_go', 'st_go', this)"><img src="../code/bt_go.png" alt=""></div>
+<div id="mv_h5" class="w btn" style="left:488px;top:352px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_halt_p" onclick="fire('st_halt', 'st_halt', this)"><img src="../code/bt_halt.png" alt=""></div>
+<div id="mv_l6" class="w " style="left:696px;top:310px;width:32px;height:32px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_lamp_idle.png" alt=""></div>
+<div id="mv_s6" class="w  lbl" style="left:738px;top:312px;width:240px;height:26px;font-size:18px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">待机</div>
+<div id="mv_g6" class="w btn" style="left:694px;top:352px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_go_p" onclick="fire('st_go', 'st_go', this)"><img src="../code/bt_go.png" alt=""></div>
+<div id="mv_h6" class="w btn" style="left:820px;top:352px;width:112px;height:48px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_halt_p" onclick="fire('st_halt', 'st_halt', this)"><img src="../code/bt_halt.png" alt=""></div>
+<div id="ms_1" class="w  lbl" style="left:30px;top:452px;width:300px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">当前环节 --</div>
+<div id="ms_2" class="w  lbl" style="left:350px;top:452px;width:300px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">腔体压力 0.0 kPa</div>
+<div id="ms_3" class="w  lbl" style="left:670px;top:452px;width:320px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">腔体温度 25.0 ℃</div>
+<div id="ms_4" class="w  lbl" style="left:30px;top:482px;width:300px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">步进位置 0.0 mm</div>
+<div id="ms_5" class="w  lbl" style="left:350px;top:482px;width:300px;height:22px;font-size:17px;color:#1A5C8E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">加热 关 / 阀1:关 阀2:关</div>
+<div id="ms_6" class="w  lbl" style="left:670px;top:482px;width:320px;height:22px;font-size:17px;color:#2E8B2E;text-align:left;line-height:1.2;padding-top:0px;" data-plcui="label">蒸气压 -- kPa</div>
+<div id="bd_back" class="w btn" style="left:16px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_back_p" onclick="fire('go_run', 'go_run', this)"><img src="../code/bt_back.png" alt=""></div>
+<div id="bd_test" class="w btn" style="left:136px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_gtest_p" onclick="fire('go_test', 'go_test', this)"><img src="../code/bt_gtest.png" alt=""></div>
+<div id="bd_reset" class="w btn" style="left:744px;top:532px;width:96px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_reset_p" onclick="fire('reset', 'reset', this)"><img src="../code/bt_reset.png" alt=""></div>
+<div id="bd_estop" class="w btn" style="left:856px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_estop_p" onclick="fire('estop', 'estop', this)"><img src="../code/bt_estop.png" alt=""></div>
+</div>
+<div class="page" id="page-test" style="background:#8FD3F2">
+<div id="tb_bg" class="w " style="left:0px;top:0px;width:1024px;height:600px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/bg_test.jpg" alt=""></div>
+<div id="tb_title" class="w  lbl" style="left:22px;top:8px;width:380px;height:44px;font-size:34px;color:#0B2E52;text-align:left;line-height:1.2;padding-top:3px;" data-plcui="label">膨胀参数</div>
+<div id="tb_lamp" class="w " style="left:392px;top:18px;width:32px;height:32px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_lamp_idle.png" alt=""></div>
+<div id="badge-test" class="w  lbl" style="left:434px;top:20px;width:300px;height:32px;font-size:20px;color:#0B2E52;text-align:left;line-height:1.2;padding-top:4px;" data-plcui="label">待机</div>
+<div id="tb_alarm" class="w " style="left:430px;top:14px;width:264px;height:36px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/im_alarm.png" alt=""></div>
+<div id="tb_cd" class="w  lbl" style="left:768px;top:12px;width:232px;height:20px;font-size:16px;color:#4A7EA6;text-align:right;line-height:1.2;padding-top:0px;" data-plcui="label">2026/11/17</div>
+<div id="tb_ct" class="w  lbl" style="left:768px;top:30px;width:232px;height:28px;font-size:22px;color:#0B2E52;text-align:right;line-height:1.2;padding-top:1px;" data-plcui="label">12:00:00</div>
+<div id="stp1" class="w " style="left:16px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st1_g.png" alt=""></div>
+<div id="stp2" class="w " style="left:180px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st2_g.png" alt=""></div>
+<div id="stp3" class="w " style="left:344px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st3_g.png" alt=""></div>
+<div id="stp4" class="w " style="left:508px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st4_g.png" alt=""></div>
+<div id="stp5" class="w " style="left:672px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st5_g.png" alt=""></div>
+<div id="stp6" class="w " style="left:836px;top:76px;width:158px;height:34px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen"><img src="../code/st6_g.png" alt=""></div>
+<div id="ts_tbl" class="w tbl" style="left:16px;top:120px;width:600px;height:200px;background:#FFFFFF;border:1px solid #8CC2E2;grid-template-columns:80px 150px 120px 120px 130px;grid-template-rows:repeat(5,1fr);" data-plcui="table"><div class="head">次数</div><div class="head">压力 kPa</div><div class="head">温度 ℃</div><div class="head">体积比</div><div class="head">残差 kPa</div><div>1</div><div>---</div><div>---</div><div>---</div><div>---</div><div>2</div><div>---</div><div>---</div><div>---</div><div>---</div><div>3</div><div>---</div><div>---</div><div>---</div><div>---</div><div>结论</div><div>---</div><div>---</div><div>---</div><div>---</div></div>
+<div id="ts_chart" class="w  chart" style="left:26px;top:392px;width:580px;height:108px;" data-plcui="chart"><div class="grid"></div><div class="tip">chart ts_chart（line, 3 点）</div></div>
+<div id="ts_a" class="w  lbl" style="left:632px;top:162px;width:200px;height:60px;font-size:40px;color:#2E8B2E;text-align:left;line-height:1.2;padding-top:8px;" data-plcui="label">0.0</div>
+<div id="ts_au" class="w  lbl" style="left:838px;top:182px;width:80px;height:28px;font-size:20px;color:#4A7EA6;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">kPa</div>
+<div id="ts_b" class="w  lbl" style="left:632px;top:288px;width:200px;height:52px;font-size:32px;color:#0E63B0;text-align:left;line-height:1.2;padding-top:8px;" data-plcui="label">0.0</div>
+<div id="ts_bu" class="w  lbl" style="left:838px;top:300px;width:80px;height:26px;font-size:18px;color:#4A7EA6;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">kPa</div>
+<div id="ts_c" class="w  lbl" style="left:632px;top:400px;width:200px;height:52px;font-size:32px;color:#0B2E52;text-align:left;line-height:1.2;padding-top:8px;" data-plcui="label">0.0</div>
+<div id="ts_cu" class="w  lbl" style="left:838px;top:412px;width:80px;height:26px;font-size:18px;color:#4A7EA6;text-align:left;line-height:1.2;padding-top:2px;" data-plcui="label">kPa</div>
+<div id="ts_r" class="w  lbl" style="left:760px;top:474px;width:220px;height:28px;font-size:22px;color:#D97706;text-align:left;line-height:1.2;padding-top:1px;" data-plcui="label">0.00 kPa</div>
+<div id="bd_tstart" class="w btn" style="left:16px;top:532px;width:128px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_tstart_p" onclick="fire('test_start', 'test_start', this)"><img src="../code/bt_tstart.png" alt=""></div>
+<div id="bd_tstop" class="w btn" style="left:152px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_tstop_p" onclick="fire('test_stop', 'test_stop', this)"><img src="../code/bt_tstop.png" alt=""></div>
+<div id="bd_calc" class="w btn" style="left:272px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_recalc_p" onclick="fire('test_calc', 'test_calc', this)"><img src="../code/bt_recalc.png" alt=""></div>
+<div id="bd_man" class="w btn" style="left:392px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_gman_p" onclick="fire('go_man', 'go_man', this)"><img src="../code/bt_gman.png" alt=""></div>
+<div id="bd_back" class="w btn" style="left:512px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_back_p" onclick="fire('go_run', 'go_run', this)"><img src="../code/bt_back.png" alt=""></div>
+<div id="bd_reset" class="w btn" style="left:744px;top:532px;width:96px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_reset_p" onclick="fire('reset', 'reset', this)"><img src="../code/bt_reset.png" alt=""></div>
+<div id="bd_estop" class="w btn" style="left:856px;top:532px;width:112px;height:56px;" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="gen" data-pressed="bt_estop_p" onclick="fire('estop', 'estop', this)"><img src="../code/bt_estop.png" alt=""></div>
+</div>
+</div>
+<div id="hint">1024 x 600 原型：按底部按钮切页，点击其它按钮只做状态反馈（PLCUI 交互由 main.lua 实现）</div>
+<script>
+var PAGES = {"go_run": "run", "go_trend": "trend", "go_man": "man", "go_dev": "dev", "go_test": "test"};
+function show(id) {
+  document.querySelectorAll('.page').forEach(function (p) {
+    p.classList.toggle('on', p.id === 'page-' + id);
+  });
+  window.__page = id;
+}
+function fire(ev, name, target) {
+  if (PAGES[name]) { show(PAGES[name]); return; }
+  var badge = document.querySelector('#page-' + window.__page + ' #badge-' + window.__page);
+  if (badge) { badge.textContent = '模拟点击 ' + name; }
+  console.log('click', ev, name);
+}
+</script>
+</body></html>

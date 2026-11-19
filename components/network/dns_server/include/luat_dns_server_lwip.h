@@ -28,6 +28,8 @@ typedef struct luat_dns_server_lwip_port {
     void (*udp_bind_netif)(struct udp_pcb *pcb, const struct netif *netif);
     /* 必须原子地复制全部字节，或返回 ERR_MEM 且不消耗任何数据。 */
     err_t (*tcp_write_copy)(struct tcp_pcb *pcb, const void *data, uint16_t length);
+    /* 本地地址已绑定；固定 TCP 出口或验证平台源路由，无法保证时返回 ERR_RTE。 */
+    err_t (*tcp_select_netif)(struct tcp_pcb *pcb, const struct netif *netif, const ip_addr_t *dest);
 } luat_dns_server_lwip_port_t;
 
 /** 仅由 luat_dns_server_lwip_default.c 定义（适用于未修改的上游 lwIP）。

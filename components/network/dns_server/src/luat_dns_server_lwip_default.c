@@ -18,6 +18,12 @@ static err_t dns_write(struct tcp_pcb *pcb, const void *data, uint16_t length) {
     return tcp_write(pcb, data, length, TCP_WRITE_FLAG_COPY);
 }
 
+static err_t dns_tcp_select_netif(struct tcp_pcb *pcb, const struct netif *netif, const ip_addr_t *dest) {
+    (void)dest;
+    tcp_bind_netif(pcb, netif);
+    return ERR_OK;
+}
+
 const luat_dns_server_lwip_port_t luat_dns_server_lwip_default_port = {
-    dns_attach, udp_bind_netif, dns_write
+    dns_attach, udp_bind_netif, dns_write, dns_tcp_select_netif
 };

@@ -58,17 +58,32 @@ int luat_dhcps_init(luat_dhcps_t *server, const luat_dhcps_config_t *config,
         !subnet_host(c.pool_start, network, c.netmask) ||
         !subnet_host(c.pool_end, network, c.netmask)) return -1;
     uint64_t available = (uint64_t)c.pool_end - (uint64_t)c.pool_start + 1;
-    if (c.server_ip >= c.pool_start && c.server_ip <= c.pool_end) available--;
-    if (available < c.client_count ||
-        (c.router && !subnet_host(c.router, network, c.netmask))) return -1;
+    if (c.router && !subnet_host(c.router, network, c.netmask)) return -1;
+    uint32_t reserved[2 + LUAT_DHCPS_DNS_MAX] = {c.server_ip, c.router};
     for (unsigned i = 0; i < LUAT_DHCPS_DNS_MAX; i++) {
         if (c.dns[i] && !unicast(c.dns[i])) return -1;
+        reserved[2 + i] = c.dns[i];
     }
+    /* 将池内保留地址去重，避免网关兼任 DNS 时重复扣减容量。 */
+    unsigned count = 0;
+    for (unsigned i = 0; i < 2 + LUAT_DHCPS_DNS_MAX; i++) {
+        uint32_t ip = reserved[i];
+        unsigned j = 0;
+        if (ip < c.pool_start || ip > c.pool_end) continue;
+        while (j < count && reserved[j] != ip) j++;
+        if (j == count) reserved[count++] = ip;
+    }
+    if (available - count < c.client_count) return -1;
     server->config = c;
     server->leases = leases;
     uint32_t candidate = c.pool_start;
     for (unsigned i = 0; i < c.client_count; i++) {
-        if (candidate == c.server_ip) candidate++;
+        for (;;) {
+            unsigned j = 0;
+            while (j < count && reserved[j] != candidate) j++;
+            if (j == count) break;
+            candidate++;
+        }
         memset(&leases[i], 0, sizeof(leases[i]));
         leases[i].ip = candidate++;
     }

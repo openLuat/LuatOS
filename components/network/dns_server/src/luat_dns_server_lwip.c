@@ -39,6 +39,7 @@ struct dns_request {
 
 typedef struct {
     dns_stream_t *stream;
+    uint16_t forwarded; /* 当前被 lwIP 暂存的接收链中，已经成功入队的字节数。 */
     uint8_t side;
 } dns_endpoint_t;
 
@@ -483,8 +484,7 @@ static err_t dns_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *packet
     dns_endpoint_t *endpoint = arg;
     dns_stream_t *stream = endpoint->stream;
     struct tcp_pcb *peer = stream->pcb[1 - endpoint->side];
-    uint8_t *copy;
-    err_t result;
+    uint16_t skip = endpoint->forwarded;
     if (stream->failed || error != ERR_OK || !peer) {
         if (packet) pbuf_free(packet);
         dns_stream_abort(stream);
@@ -500,26 +500,32 @@ static err_t dns_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *packet
     /* 上游 lwIP 在 SYN_SENT 状态下拒绝 tcp_write。将原始 pbuf 留给 lwIP，
      * 等待上游握手完成后，由其重试先前拒收的数据。
      */
-    if ((!endpoint->side && !stream->connected) || packet->tot_len > tcp_sndbuf(peer)) return ERR_MEM;
-    copy = luat_heap_malloc(packet->tot_len);
-    if (!copy) return ERR_MEM;
-    if (pbuf_copy_partial(packet, copy, packet->tot_len, 0) != packet->tot_len) {
-        luat_heap_free(copy);
-        pbuf_free(packet);
-        dns_stream_abort(stream);
-        return ERR_ABRT;
+    if (!endpoint->side && !stream->connected) return ERR_MEM;
+    for (const struct pbuf *part = packet; part; part = part->next) {
+        if (skip >= part->len) { skip -= part->len; continue; }
+        while (skip < part->len) {
+            uint16_t n = part->len - skip;
+            uint16_t room = tcp_sndbuf(peer);
+            const uint8_t *data = (const uint8_t *)part->payload + skip;
+            if (n > room) n = room;
+            err_t result = n ? stream->owner->port.tcp_write_copy(peer, data, n) : ERR_MEM;
+            if (result == ERR_MEM) {
+                tcp_output(peer);
+                return ERR_MEM; /* lwIP 重投同一接收链，从 forwarded 继续。 */
+            }
+            if (result != ERR_OK) {
+                pbuf_free(packet);
+                dns_stream_abort(stream);
+                return ERR_ABRT;
+            }
+            dns_count_frames(&stream->framing[endpoint->side], data, n);
+            endpoint->forwarded += n;
+            skip += n;
+            stream->activity = sys_now();
+        }
+        skip = 0;
     }
-    /* 一次性复制写入，确保链式 pbuf 因背压而重试时保持原子性。 */
-    result = stream->owner->port.tcp_write_copy(peer, copy, packet->tot_len);
-    if (result == ERR_OK) dns_count_frames(&stream->framing[endpoint->side], copy, packet->tot_len);
-    luat_heap_free(copy);
-    if (result == ERR_MEM) return ERR_MEM;
-    if (result != ERR_OK) {
-        pbuf_free(packet);
-        dns_stream_abort(stream);
-        return ERR_ABRT;
-    }
-    stream->activity = sys_now();
+    endpoint->forwarded = 0;
     tcp_recved(pcb, packet->tot_len);
     pbuf_free(packet);
     tcp_output(peer);
@@ -553,6 +559,7 @@ static err_t dns_tcp_accept(void *arg, struct tcp_pcb *pcb, err_t error) {
         tcp_err(stream->pcb[i], dns_tcp_error);
     }
     if (!stream->pcb[1] || tcp_bind(stream->pcb[1], &server->wan_ip, 0) != ERR_OK ||
+        server->port.tcp_select_netif(stream->pcb[1], upstream.netif, &server->servers[0]) != ERR_OK ||
         tcp_connect(stream->pcb[1], &server->servers[0], server->upstream_port, dns_tcp_connected) != ERR_OK) {
         dns_stream_abort(stream);
         return ERR_ABRT;
@@ -620,7 +627,8 @@ int luat_dns_server_start(const luat_dns_server_config_t *config, luat_dns_serve
     if (!config || !config->lan || !IP_IS_V4(&config->lan->ip_addr) ||
         ip_addr_isany(&config->lan->ip_addr) || !config->select_upstream || !config->random ||
         !config->port || !config->port->udp_attach || !config->port->udp_bind_netif ||
-        !config->port->tcp_write_copy || config->udp_slots > 128 || config->tcp_slots > 64 ||
+        !config->port->tcp_write_copy || !config->port->tcp_select_netif ||
+        config->udp_slots > 128 || config->tcp_slots > 64 ||
         (config->max_packet && config->max_packet < 17) ||
         config->retry_ms > 0x7fffffffU || config->tcp_idle_ms > 0x7fffffffU) return ERR_ARG;
     server = luat_heap_calloc(1, sizeof(*server));

@@ -21,15 +21,36 @@
 
 产物只有 `code/` 会被烧录，`docs/` 留在仓库里做设计存档。
 
-## 2. 烧录
+## 2. 调试硬件环境
+
+| 项目 | 说明 |
+|---|---|
+| 主控 | **Air8607**（SoC：Air1603），`code/hardware.lua` 顶部 `M.profile = "air8607_10i"`（默认值） |
+| 屏幕 | 合宙官方 **AirLCD_1100** 10.1 寸 RGB 屏，1024×600 RGB565，驱动 IC **JD9165BA**（免初始化、无 SPI 引脚） |
+| 屏幕引脚 | 复位 `pin_rst = GPIO15`；RGB 时序 `hbp 140 / hspw 20 / hfp 160 / vbp 20 / vspw 3 / vfp 12`，总线 50MHz |
+| 触摸 | **GT911** 电容触摸，`I2C1` 轮询；`TP_RST = GPIO14`、`TP_INT = GPIO51`（AirLCD_1100 排线自带） |
+| 背光 | **PWM3**（PIN55 / GPIO13），`pwm.setDuty(3, 90)` 约 90% 占空比；另有首帧后 500ms 的兜底点亮 |
+| 其他上电脚 | `SD_EN = GPIO74` 拉高、`AUDIOPA_EN = GPIO73` 拉低（关断未使用的功放）；`GPIO38` 是 I2C1 的 SDA，不预置 |
+| 供电 | USB 供电即可，屏幕由开发板排线供电 |
+| 备选板级 | Air8601（Air1601）+ 7 寸 **HX8282** 1024×600：改 `M.profile = "air8601_7i"`；触摸 `TP_RST = GPIO56 / TP_INT = GPIO51`，背光 `PIN43 / GPIO13` |
+
+## 3. 内核固件
+
+| 项目 | 说明 |
+|---|---|
+| 固件文件 | `LuatOS-SoC_V1030_Air1603_102.soc`（Air1603 / 1601 / 1602 同编号固件内容一致） |
+| 烧录工具 | 合宙 **Luatools**：选中上述 `.soc` 固件 + 本工程 `code/` 目录脚本，底层下载 |
+| 脚本 / 文件系统 | 102 号固件脚本区 4096KB / fs 1536KB，本工程远小于该预算 |
+| 内置库 | `airui`、`display`（或 `lcd`）、`tp`、`i2c`、`gpio`、`pwm`、`hzfont`、`fskv`（主题记忆）、`pins`（仅 8601 profile 需要） |
+| airui 版本 | 需 **≥ 1.2.0**（`airui.device_bind_touch`、`airui.container` 的 `scrollable` 键、`airui.shape`）；LuatOS 仓库当前为 1.3.1 |
+
+## 4. 烧录
 
 1. Luatools → 项目管理 → 新建项目，**代码目录选本工程的 `code/`**（不要把 `docs/` 选进去）。
-2. 固件选 Air8607（Air1603）的 LuatOS-SoC 全功能固件，需带 `airui` + `display`(或 `lcd`) + `hzfont` + `tp` + `i2c` + `pwm`。
-   `airui` 版本要求 ≥ 1.2.0（`airui.device_bind_touch`、`airui.container` 的 `scrollable` 键、`airui.shape`）。
-3. 屏幕参数保持 1024×600、RGB；下载后自动执行 `main.lua`。
-4. 换 Air8601 + 7 寸：只改 `code/hardware.lua` 顶部 `M.profile = "air8601_7i"`。
+2. 固件按上节选择；屏幕参数保持 1024×600、RGB；下载后自动执行 `main.lua`。
+3. 换 Air8601 + 7 寸：只改 `code/hardware.lua` 顶部 `M.profile = "air8601_7i"`。
 
-## 3. 交互路径
+## 5. 交互路径
 
 ```
 首页 ─┬─ 取件 → 输入 4 位取件码（演示期只校验位数，满 4 位自动提交，也可按「确认」）
@@ -45,7 +66,7 @@
 - 顶栏主题钮（太阳 / 月牙图标 + 当前「亮色」/「暗色」）切换主题：只改色板键值 + 整页重建（不换表、不换结构），
   已输入的取件码与选中的规格都在 `M.S` 里，重建后自动恢复；选择存 `fskv` 的 `ui_mode`，重启保持。
 
-## 4. 接真实业务要改的地方
+## 6. 接真实业务要改的地方
 
 | 位置 | 现状 | 替换为 |
 |---|---|---|
@@ -55,7 +76,7 @@
 | 开门屏 `我已关好门` | 纯 UI 跳转 | 在这里下发柜锁开 / 关指令，并等待锁状态回读 |
 | 取件码屏数字键盘 | 手输 4 位，`push()` 是唯一输入入口 | 需要时接扫码枪的码流，仍走 `push()` |
 
-## 5. 布局约定（改界面前必读）
+## 7. 布局约定（改界面前必读）
 
 - 屏幕分区在 `ui_theme.LAYOUT`：顶栏 64、内容区 y=64 高 480、底注 y=544 高 56。所有页面只往 `body`（1024×480）里摆。
 - `ui_widget` 建容器时即登记内容区 `cw/ch = 外框 − 2×border_width`，之后每个子控件按父登记值收敛；
@@ -67,7 +88,7 @@
   规格卡上的单价与余格是静态值，不进 `W.num`；若日后接后台余量刷新，要保持等宽就得换成 `W.num`。
 - 中文最小字号 16；`label` 没有 `font_weight`，层级只靠字号 + 色阶。
 
-## 6. 交付前自检
+## 8. 交付前自检
 
 ```powershell
 cd code

@@ -417,7 +417,8 @@
       <label id="sa_u3" x="888" y="294" w="84" h="22" font="hzfont" font_size="16" color="#6E7E93" align="left" text="min"/>
       <container id="br_card" x="12" y="368" w="330" h="222" background="#FFFFFF" radius="10" border-color="#DCE3EC" border-width="1"/>
       <label id="br_ttl" x="26" y="380" w="200" h="24" font="hzfont" font_size="20" color="#16202E" align="left" text="显示与背光"/>
-      <slider id="br_sl" x="28" y="416" w="298" h="22" min="10" max="100" value="82" step="1" orientation="horizontal" track-color="#EAEFF6" indicator-color="#2563EB" knob-color="#2563EB" on-change="set_bright"/>
+      <label id="br_num" x="28" y="408" w="140" h="44" font="hzfont" font_size="36" color="#2563EB" align="left" text="82 %"/>
+      <label id="br_pwm" x="168" y="426" w="160" h="24" font="hzfont" font_size="16" color="#6E7E93" align="left" text="PWM3（GPIO13）"/>
       <label id="br_v" x="28" y="446" w="298" h="22" font="hzfont" font_size="16" color="#46566B" align="left" text="亮度 82 % · PWM3（GPIO13）"/>
       <container id="br_b0" x="28" y="478" w="84" h="40" background="#FFFFFF" radius="8" border-color="#2563EB" border-width="1"/>
       <image id="br_h0" x="28" y="478" w="84" h="40" src="hit" clickable="true" on-click="br_night"/>

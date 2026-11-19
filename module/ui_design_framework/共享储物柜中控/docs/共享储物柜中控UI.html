@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LOCKER 24 — 共享储物柜中控（1024×600）</title>
+<!--
+  共享储物柜中控 · 10 寸横屏设计稿（1024×600）
+  ─ 画布固定 1024×600 + overflow:hidden，任何控件不得撑破
+  ─ 结构：顶栏 64 + 舞台 480 + 底注 56 = 600
+  ─ 时钟/柜号等运行期会变的值用等宽 tabular-nums，改值不抖动
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFF7F1; --card:#FFFFFF; --ink:#16120F; --ink2:#7A7168; --ink3:#B7AEA5;
+  --line:#EDE3D9; --line2:#DCCFC2;
+  --orange:#FF6B2C; --orange-d:#F03A17; --teal:#0FC2A5; --teal-d:#00967E;
+  /* 语义色：所有"白底/浅底"一律走变量，深色模式下才不会漏出白块 */
+  --page:#E8E0D8; --hi:#FFFFFF; --press:#FDF6EF;
+  --orange-l:#FFF3EC; --teal-l:#EAFBF6;
+  --mute-bg:#F7F0E9; --mute-line:#F0E7DE; --cab:#D3C6B8;
+  --shadow:rgba(60,40,25,.45);
+  --toast-bg:#16120F; --toast-fg:#FFFFFF;
+  --aura-o:.20; --aura-t:.18;
+  --sans:'Space Grotesk','PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif;
+  --mono:'JetBrains Mono','Space Grotesk','PingFang SC',monospace;
+}
+/* 暗色：只换令牌，不动结构；二维码区例外，永远白底黑码（扫码器不认反色） */
+[data-theme="dark"]{
+  --page:#0B0908;
+  /* 暗色下 txt3 提亮一档：16 号小字在 RGB565 抖动下容易糊成一片灰 */
+  --bg:#16120F; --card:#211C18; --ink:#F4EEE8; --ink2:#A79C91; --ink3:#7A6F66;
+  --line:#332C25; --line2:#453B32;
+  --orange:#FF7F45; --orange-d:#FF5A2B; --teal:#1FD9B8; --teal-d:#00B098;
+  --hi:#2A241F; --press:#332B25;
+  --orange-l:#3A2015; --teal-l:#122A26;
+  --mute-bg:#26211C; --mute-line:#312A24; --cab:#6B6059;
+  --shadow:rgba(0,0,0,.7);
+  --toast-bg:#F4EEE8; --toast-fg:#16120F;
+  --aura-o:.14; --aura-t:.12;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--page);display:flex;align-items:center;justify-content:center;overflow:hidden;
+  font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;
+  transition:background-color .32s ease}
+#frame{flex:0 0 auto;transform-origin:center center}
+#screen{position:relative;width:1024px;height:600px;overflow:hidden;background:var(--bg);
+  isolation:isolate;
+  box-shadow:0 30px 80px -30px var(--shadow),0 0 0 1px rgba(0,0,0,.05);
+  transition:background-color .32s ease}
+#screen::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(46% 58% at 4% -6%,rgba(255,107,44,var(--aura-o)),transparent 70%),
+             radial-gradient(48% 60% at 100% 108%,rgba(15,194,165,var(--aura-t)),transparent 72%);
+  transition:opacity .32s ease}
+/* 换主题的瞬间只关过渡（不动 animation），避免几十个属性同时插值出现拖影 */
+html.no-anim *,html.no-anim *::before,html.no-anim *::after{transition:none !important}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+/* 顶栏 64 */
+.bar{position:relative;z-index:3;height:64px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 40px}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand b{font-size:21px;font-weight:700;letter-spacing:-.02em}
+.brand b i{font-style:normal;color:var(--orange)}
+.brand span{font-size:12.5px;color:var(--ink2);letter-spacing:.04em}
+.hud{display:flex;align-items:center;gap:14px}
+/* 主题切换：只切 data-theme，图标靠 CSS 显隐，不给 JS 留状态 */
+.themebtn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px 0 12px;
+  border-radius:100px;border:1px solid var(--line);background:var(--card);color:var(--ink2);
+  font-family:var(--sans);font-size:12.5px;letter-spacing:.02em;cursor:pointer;
+  transition:color .16s,border-color .16s,background-color .16s}
+.themebtn:hover{color:var(--ink);border-color:var(--line2)}
+.themebtn:active{transform:scale(.97)}
+.themebtn span{min-width:24px;text-align:center}
+.themebtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;display:block}
+.themebtn .i-moon{display:none}
+[data-theme="dark"] .themebtn .i-sun{display:none}
+[data-theme="dark"] .themebtn .i-moon{display:block}
+.online{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2)}
+.online i{position:relative;width:7px;height:7px;border-radius:50%;background:var(--teal)}
+.online i::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--teal);
+  animation:ring 2.4s ease-out infinite}
+@keyframes ring{0%{transform:scale(1);opacity:.6}70%,100%{transform:scale(3);opacity:0}}
+.clock{font-size:22px;font-weight:700;letter-spacing:.02em;color:var(--ink);
+  min-width:66px;text-align:right;contain:content}
+
+/* 舞台 480 */
+.stage{position:relative;z-index:2;height:480px;padding:22px 40px 18px;display:flex}
+/* display 切换不用改（正确性优先），但每屏之间用一次合成层入场替代"硬闪" */
+.scr{display:none;width:100%;height:100%;contain:layout style paint}
+.scr.on{display:flex;animation:scrIn .24s cubic-bezier(.22,.9,.3,1) both}
+@keyframes scrIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* 首页：两张大色块 */
+.card{position:relative;flex:1;border:0;border-radius:28px;cursor:pointer;overflow:hidden;
+  display:flex;flex-direction:column;padding:28px 32px 26px;color:#fff;text-align:left;
+  font-family:var(--sans);
+  /* 只过渡 transform：卡片提升为合成层后只做层位移，不再每帧重绘网点+渐变+描边大字 */
+  transform:translateZ(0);backface-visibility:hidden;
+  transition:transform .26s cubic-bezier(.2,.9,.3,1)}
+.card + .card{margin-left:22px}
+.card::before{content:'';position:absolute;right:-70px;top:-100px;width:300px;height:300px;
+  border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.26),transparent 66%)}
+/* 卡面质感：细网点，朝右下角渐隐 */
+.card::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;
+  background-image:radial-gradient(rgba(255,255,255,.85) 1px,transparent 1.3px);
+  background-size:14px 14px;opacity:.12}
+.c1{background:
+    radial-gradient(62% 52% at 0% 100%,rgba(112,16,0,.22),transparent 66%),
+    radial-gradient(58% 48% at 100% 0%,rgba(255,208,168,.24),transparent 62%),
+    linear-gradient(138deg,#FF9142 0%,#FF5B28 46%,#DC2A0B 100%);
+  box-shadow:0 24px 48px -24px rgba(214,44,10,.8),inset 0 1px 0 rgba(255,255,255,.24)}
+.c2{background:
+    radial-gradient(62% 52% at 0% 100%,rgba(0,58,50,.26),transparent 66%),
+    radial-gradient(58% 48% at 100% 0%,rgba(178,255,240,.22),transparent 62%),
+    linear-gradient(138deg,#2AE0BC 0%,#0BB89C 48%,#00786A 100%);
+  box-shadow:0 24px 48px -24px rgba(0,120,106,.75),inset 0 1px 0 rgba(255,255,255,.24)}
+.card:hover{transform:translateY(-5px);will-change:transform}
+.c1:hover{box-shadow:0 32px 58px -24px rgba(214,44,10,.9),inset 0 1px 0 rgba(255,255,255,.24)}
+.c2:hover{box-shadow:0 32px 58px -24px rgba(0,120,106,.85),inset 0 1px 0 rgba(255,255,255,.24)}
+/* 暗底上同一个阴影会晕成橙/青光斑，压暗一档 */
+[data-theme="dark"] .c1{box-shadow:0 22px 44px -28px rgba(240,58,23,.5),inset 0 1px 0 rgba(255,255,255,.2)}
+[data-theme="dark"] .c2{box-shadow:0 22px 44px -28px rgba(0,150,126,.5),inset 0 1px 0 rgba(255,255,255,.2)}
+[data-theme="dark"] .c1:hover{box-shadow:0 30px 56px -28px rgba(240,58,23,.62),inset 0 1px 0 rgba(255,255,255,.22)}
+[data-theme="dark"] .c2:hover{box-shadow:0 30px 56px -28px rgba(0,150,126,.6),inset 0 1px 0 rgba(255,255,255,.22)}
+.card:active{transform:translateY(-1px) scale(.995)}
+.card .pill{position:relative;z-index:3;display:inline-flex;align-items:center;gap:8px;
+  align-self:flex-start;height:29px;padding:0 13px;border-radius:100px;
+  background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.22);
+  font-size:11px;font-weight:700;letter-spacing:.14em}
+.card .pill i{position:relative;width:5px;height:5px;border-radius:50%;background:#fff}
+/* 扩散环用独立伪元素做 transform/opacity，不动 box-shadow（每帧重绘的元凶） */
+.card .pill i::after{content:'';position:absolute;inset:0;border-radius:50%;background:#fff;
+  animation:dotPulse 2.6s ease-out infinite}
+@keyframes dotPulse{0%{transform:scale(1);opacity:.75}70%,100%{transform:scale(3.4);opacity:0}}
+.card .mid{position:relative;z-index:3;flex:1;display:flex;align-items:center;
+  justify-content:space-between;gap:16px}
+.card .tit{display:flex;flex-direction:column;gap:10px}
+.card .tit b{font-size:72px;line-height:1;font-weight:700;letter-spacing:-.03em}
+.card .tit em{font-style:normal;font-family:var(--mono);font-size:10.5px;font-weight:700;
+  letter-spacing:.3em;opacity:.7}
+.card .bot{position:relative;z-index:3;padding-top:15px;border-top:1px solid rgba(255,255,255,.25);
+  font-size:13px;letter-spacing:.02em;opacity:.9}
+.card .go{position:absolute;right:26px;top:24px;width:46px;height:46px;border-radius:50%;
+  display:grid;place-items:center;background:rgba(255,255,255,.2);
+  border:1px solid rgba(255,255,255,.26);z-index:4;
+  transition:transform .26s,background .26s}
+.card .go svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+.card:hover .go{transform:translateX(4px);background:rgba(255,255,255,.32)}
+
+/* 卡内图标：柜格 + 方向箭头（取件=向上取出，存件=向下放入） */
+.card .deco{position:relative;flex:0 0 auto;width:176px;height:176px;margin:10px -14px 0 0;
+  display:grid;place-items:center;transform:translateZ(0)}
+/* 箭头呼吸：取件向上飘，存件向下沉（独立层，不带着整张卡重绘） */
+.card .deco .arw{animation:bob 2.8s ease-in-out infinite;will-change:transform}
+.c2 .deco .arw{animation-name:bobDown}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes bobDown{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+.card .deco::before{content:'';position:absolute;inset:-14px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.18),rgba(255,255,255,0) 66%)}
+/* 图标落影：让柜格立在卡面上 */
+.card .deco::after{content:'';position:absolute;left:50%;bottom:8px;width:86px;height:12px;
+  transform:translateX(-50%);border-radius:50%;
+  background:radial-gradient(ellipse at center,rgba(60,20,0,.16),rgba(60,20,0,0) 76%)}
+.c2 .deco::after{background:radial-gradient(ellipse at center,rgba(0,50,42,.20),rgba(0,50,42,0) 76%)}
+.card .deco svg{position:relative;z-index:1;width:100%;height:100%;display:block;
+  transition:transform .34s cubic-bezier(.2,.9,.3,1)}
+.card:hover .deco svg{transform:translateY(-5px) scale(1.04)}
+.card .tit .desc{font-size:13px;opacity:.78;letter-spacing:.02em;margin-top:1px}
+/* 卡内信息块：取件=4 位码位方块，存件=三档规格竖条（都用矩形，真机可直接落图元） */
+.card .chips{position:relative;z-index:3;display:flex;align-items:flex-end;gap:6px;
+  height:24px;margin-top:2px}
+.card .chips i{display:block;flex:0 0 auto;background:rgba(255,255,255,.20);
+  border:1px solid rgba(255,255,255,.42)}
+.card .chips i.k-code{width:14px;height:19px;border-radius:5px}
+.card .chips i.k-lv{width:8px;height:11px;border-radius:3px 3px 1px 1px}
+.card .chips i.k-lv:nth-child(2){height:17px}
+.card .chips i.k-lv:nth-child(3){height:24px}
+
+/* 取件屏 */
+#s-code{gap:30px}
+.code-l{flex:1;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.back{align-self:flex-start;height:34px;padding:0 15px;border-radius:10px;border:1px solid var(--line2);
+  background:transparent;color:var(--ink2);font-family:var(--sans);font-size:12.5px;cursor:pointer;
+  margin-bottom:22px;transition:color .15s,border-color .15s,background-color .15s}
+.back:hover{color:var(--ink);border-color:var(--ink3);background:var(--hi)}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;
+  letter-spacing:.16em;color:var(--orange)}
+.eyebrow::before{content:'';width:18px;height:3px;border-radius:2px;background:var(--orange)}
+h2{font-size:38px;font-weight:700;line-height:1.1;margin-top:12px;letter-spacing:-.01em}
+.slots{display:flex;gap:14px;margin-top:28px}
+.slots i{width:74px;height:88px;border-radius:20px;border:2px solid var(--line2);background:var(--card);
+  display:grid;place-items:center;font-family:var(--mono);font-style:normal;font-size:38px;
+  font-weight:700;color:var(--ink);
+  transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s}
+.slots i.f{background:var(--orange);border-color:var(--orange);color:#fff;
+  box-shadow:0 10px 22px -12px rgba(255,107,44,.9)}
+.slots i.cur{border-color:var(--orange);box-shadow:0 0 0 4px rgba(255,107,44,.14)}
+.hint{margin-top:26px;font-size:13px;color:var(--ink2);line-height:1.7}
+
+/* 键盘 */
+.pad{flex:0 0 300px;width:300px;display:grid;grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(4,88px);gap:12px;align-self:center}
+.key{border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+  font-family:var(--mono);font-size:25px;font-weight:700;cursor:pointer;display:grid;place-items:center;
+  box-shadow:0 6px 14px -10px rgba(90,60,35,.5);
+  transition:transform .12s,background-color .12s,border-color .12s,box-shadow .12s}
+.key:hover{background:var(--hi);border-color:var(--line2);transform:translateY(-2px);
+  box-shadow:0 12px 22px -12px rgba(90,60,35,.5)}
+.key:active{transform:translateY(0) scale(.97);background:var(--press)}
+.key.del{font-family:var(--sans);font-size:16px;color:var(--ink2)}
+/* 确认键是"弱化但可读"：暗色下 ink3 会糊掉，统一提到 ink2 */
+.key.ok{font-family:var(--sans);font-size:17px;color:var(--ink2);background:var(--mute-bg);
+  border-color:var(--mute-line);box-shadow:none}
+.key.ok.on{background:linear-gradient(148deg,#FF8A38,#F03A17);border-color:transparent;color:#fff;
+  box-shadow:0 14px 26px -12px rgba(240,58,23,.85)}
+.key.ok.on:hover{transform:translateY(-2px);box-shadow:0 18px 30px -12px rgba(240,58,23,.95)}
+
+/* 开门屏 */
+#s-open{flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.open-art{width:204px;height:auto;display:block;margin-bottom:4px;
+  animation:pop .5s cubic-bezier(.2,1.35,.4,1) both}
+.open-no{font-family:var(--mono);font-size:102px;font-weight:700;line-height:1;color:var(--orange);
+  letter-spacing:-.02em;animation:pop .45s cubic-bezier(.2,1.35,.4,1) both}
+.open-no em{font-style:normal;font-size:24px;font-family:var(--sans);color:var(--ink2);
+  letter-spacing:0;margin-left:8px}
+#s-open h3{font-size:26px;font-weight:700;margin-top:16px}
+#s-open p{font-size:14px;color:var(--ink2);margin-top:8px}
+.scan{display:inline-flex;align-items:center;gap:9px;margin-top:20px;font-size:12.5px;
+  color:var(--ink2);padding:9px 18px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.scan i{width:7px;height:7px;border-radius:50%;background:var(--teal-d);animation:pulse 1.1s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.75)}}
+#s-open .done-btn{margin-top:24px;height:56px;width:252px;font-size:17px}
+
+/* 结果屏 */
+#s-done{flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.done-ico{width:96px;height:96px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(148deg,#1FD9B6,#00967E);box-shadow:0 18px 36px -16px rgba(0,150,126,.75);
+  animation:pop .5s cubic-bezier(.2,1.35,.4,1) both}
+.done-ico svg{width:42px;height:42px;stroke:#fff;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+@keyframes pop{from{transform:scale(.72);opacity:0}to{transform:scale(1);opacity:1}}
+#s-done h3{font-size:32px;font-weight:700;margin-top:22px;letter-spacing:-.01em}
+#s-done p{font-size:14px;color:var(--ink2);margin-top:10px}
+.tags{display:flex;gap:10px;margin-top:18px}
+.tagline{display:inline-flex;align-items:baseline;gap:10px;padding:10px 20px;
+  border-radius:14px;background:var(--card);border:1px solid var(--line)}
+.tagline span{font-size:11.5px;color:var(--ink2);letter-spacing:.1em}
+.tagline b{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--orange)}
+.done-btn{height:62px;width:272px;border-radius:18px;border:0;cursor:pointer;margin-top:26px;
+  background:linear-gradient(148deg,#FF8A38,#F03A17);color:#fff;font-family:var(--sans);
+  font-size:19px;font-weight:700;letter-spacing:.06em;
+  box-shadow:0 16px 30px -14px rgba(240,58,23,.8);
+  transition:transform .18s,box-shadow .18s}
+.done-btn:hover{transform:translateY(-2px);box-shadow:0 22px 38px -14px rgba(240,58,23,.9)}
+
+/* 存件屏 */
+#s-spec{flex-direction:column}
+.spec-head{flex:0 0 auto}
+.spec-head .back{margin-bottom:14px;display:block;width:74px}
+.spec-head .eyebrow{display:flex;width:fit-content}
+.spec-head h2{margin-top:8px}
+
+/* 三档规格：纵向大卡。没有时长和金额可选，图标就是这一屏唯一的主角 */
+.specs{display:flex;gap:18px;margin-top:18px}
+.spec{position:relative;flex:1;border-radius:22px;border:2px solid var(--line);background:var(--card);
+  cursor:pointer;padding:24px 16px 18px;display:flex;flex-direction:column;align-items:center;
+  text-align:center;font-family:var(--sans);
+  transition:transform .16s,border-color .16s,background-color .16s,box-shadow .16s}
+.spec:hover{border-color:var(--line2);transform:translateY(-4px);
+  box-shadow:0 24px 40px -26px rgba(90,60,35,.75)}
+.spec.on{border-color:var(--orange);background:var(--orange-l);
+  box-shadow:0 24px 40px -24px rgba(255,107,44,.9)}
+
+/* 勾徽标：未选是空心框（提示可点），选中变橙底白勾（明确"已选"） */
+.spec .tick{position:absolute;right:16px;top:14px;width:26px;height:26px;border-radius:9px;
+  display:grid;place-items:center;background:transparent;border:1.5px solid var(--line2);color:transparent;
+  transition:background-color .16s,border-color .16s,color .16s}
+.spec.on .tick{background:var(--orange);border-color:var(--orange);color:#fff}
+.spec .tick svg{width:16px;height:16px;display:block}
+
+.spec .cab{flex:0 0 96px;width:96px;height:96px;display:grid;place-items:center;
+  color:var(--cab);transition:color .16s}
+.spec .cab svg{width:96px;height:96px;display:block}
+/* 柜格用粗描边空心，内部物品用细描边+浅填充，两层一对比就分得开 */
+.spec .cab svg .obj{fill:currentColor;fill-opacity:.24;stroke-width:1.9}
+.spec:hover .cab{color:var(--ink3)}
+.spec.on .cab,
+.spec.on:hover .cab{color:var(--orange)}
+
+.spec .info{display:flex;flex-direction:column;align-items:center;gap:5px;margin-top:12px}
+.spec .nm{font-size:21px;font-weight:700;line-height:1.2;transition:color .16s}
+.spec.on .nm{color:var(--orange)}
+.spec .sz{font-family:var(--sans);font-size:12.5px;color:var(--ink3);letter-spacing:.02em;line-height:1.35}
+.spec .meta{display:flex;align-items:baseline;gap:10px;margin-top:4px}
+.spec .pr{font-family:var(--mono);font-size:25px;font-weight:700;color:var(--ink);line-height:1;
+  transition:color .16s}
+.spec.on .pr{color:var(--orange)}
+.spec .pr small{font-family:var(--sans);font-size:11.5px;font-weight:500;color:var(--ink2);margin-left:3px}
+.spec .qty{font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+
+/* 底部操作：不做预付，只讲清"怎么计费"，和一个主按钮 */
+.opbar{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:24px;
+  padding:14px 4px 0;border-top:1px solid var(--line)}
+.opbar .note{font-size:12.5px;color:var(--ink3);line-height:1.6;letter-spacing:.02em}
+.opbar .note b{color:var(--ink2);font-weight:600}
+.go-btn{flex:0 0 auto;height:50px;padding:0 46px;border-radius:15px;border:0;cursor:pointer;
+  background:linear-gradient(148deg,#FF8A38,#F03A17);color:#fff;font-family:var(--sans);
+  font-size:16px;font-weight:700;letter-spacing:.04em;
+  box-shadow:0 14px 26px -14px rgba(240,58,23,.85);
+  transition:transform .16s,box-shadow .16s}
+.go-btn:hover{transform:translateY(-1px);box-shadow:0 18px 30px -14px rgba(240,58,23,.95)}
+
+/* 底注 56 */
+.foot{position:relative;z-index:3;height:56px;display:flex;align-items:center;justify-content:center;
+  gap:12px;font-size:12px;color:var(--ink2);letter-spacing:.02em}
+.foot i{width:4px;height:4px;border-radius:50%;background:var(--ink3)}
+.foot b{font-family:var(--mono);font-weight:700;color:var(--ink)}
+
+/* 轻提示 */
+.toast{position:absolute;left:50%;bottom:74px;transform:translate(-50%,14px);z-index:20;
+  display:flex;align-items:center;gap:9px;height:44px;padding:0 20px;border-radius:14px;
+  background:var(--toast-bg);color:var(--toast-fg);font-size:13.5px;
+  box-shadow:0 20px 40px -18px rgba(0,0,0,.6);opacity:0;pointer-events:none;
+  transition:opacity .22s,transform .22s}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.toast i{width:6px;height:6px;border-radius:50%;background:var(--orange)}
+</style>
+</head>
+<body>
+<div id="frame">
+<div id="screen">
+
+  <header class="bar">
+    <div class="brand">
+      <b>LOCKER<i>24</i></b>
+      <span>阳光里社区 · A 站 01 号机</span>
+    </div>
+    <div class="hud">
+      <button class="themebtn" id="themeBtn" title="切换亮 / 暗主题">
+        <svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/>
+          <path d="M12 2.4v2.6M12 19v2.6M2.4 12h2.6M19 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24"><path d="M20 14.4A8.6 8.6 0 1 1 9.6 4a6.8 6.8 0 0 0 10.4 10.4z"/></svg>
+        <span id="themeTxt">亮色</span>
+      </button>
+      <span class="online"><i></i>设备在线</span>
+      <span class="clock num" id="clock">09:32</span>
+    </div>
+  </header>
+
+  <main class="stage">
+
+    <!-- 首页 -->
+    <section class="scr on" id="s-home">
+      <button class="card c1" data-act="pickup">
+        <span class="pill"><i></i>自助取件</span>
+        <span class="mid">
+          <span class="tit"><b>取 件</b><em>PICK UP</em><span class="desc">输入短信中的取件码</span>
+            <span class="chips"><i class="k-code"></i><i class="k-code"></i><i class="k-code"></i><i class="k-code"></i></span></span>
+          <span class="deco">
+            <svg viewBox="0 0 140 140" fill="none" stroke="#fff" stroke-width="3.4"
+              stroke-linecap="round" stroke-linejoin="round">
+              <!-- 箭头：从柜机上方离开（取出） -->
+              <g class="arw">
+                <path d="M70 24V6"/>
+                <path d="M60 14l10-8 10 8"/>
+              </g>
+              <!-- 柜机柜体：顶灯带 + 外框 -->
+              <rect x="6" y="30" width="128" height="104" rx="30" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.34)" stroke-width="3"/>
+              <path d="M26 40h88" stroke="rgba(255,255,255,.30)" stroke-width="2.4"/>
+              <!-- 柜格阵列 3×2（空位） -->
+              <g fill="rgba(255,255,255,.13)" stroke="rgba(255,255,255,.22)" stroke-width="2.2">
+                <rect x="18" y="45" width="30" height="33" rx="9"/>
+                <rect x="92" y="45" width="30" height="33" rx="9"/>
+                <rect x="18" y="86" width="30" height="33" rx="9"/>
+                <rect x="55" y="86" width="30" height="33" rx="9"/>
+                <rect x="92" y="86" width="30" height="33" rx="9"/>
+              </g>
+              <!-- 亮起的那一格：上排中间 -->
+              <rect x="55" y="45" width="30" height="33" rx="9" fill="rgba(255,255,255,.5)" stroke="#fff" stroke-width="3.6"/>
+            </svg>
+          </span>
+        </span>
+        <span class="bot">4 位码 · 即时开柜</span>
+        <span class="go"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
+      </button>
+
+      <button class="card c2" data-act="deposit">
+        <span class="pill"><i></i>自助存件</span>
+        <span class="mid">
+          <span class="tit"><b>存 件</b><em>DEPOSIT</em><span class="desc">三档柜型，扫码即存</span>
+            <span class="chips"><i class="k-lv"></i><i class="k-lv"></i><i class="k-lv"></i></span></span>
+          <span class="deco">
+            <svg viewBox="0 0 140 140" fill="none" stroke="#fff" stroke-width="3.4"
+              stroke-linecap="round" stroke-linejoin="round">
+              <!-- 箭头：从柜机上方沉入（放入） -->
+              <g class="arw">
+                <path d="M70 6v18"/>
+                <path d="M60 16l10 8 10-8"/>
+              </g>
+              <!-- 柜机柜体：顶灯带 + 外框 -->
+              <rect x="6" y="30" width="128" height="104" rx="30" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.34)" stroke-width="3"/>
+              <path d="M26 40h88" stroke="rgba(255,255,255,.30)" stroke-width="2.4"/>
+              <!-- 柜格阵列 3×2（空位） -->
+              <g fill="rgba(255,255,255,.13)" stroke="rgba(255,255,255,.22)" stroke-width="2.2">
+                <rect x="18" y="45" width="30" height="33" rx="9"/>
+                <rect x="55" y="45" width="30" height="33" rx="9"/>
+                <rect x="92" y="45" width="30" height="33" rx="9"/>
+                <rect x="18" y="86" width="30" height="33" rx="9"/>
+                <rect x="92" y="86" width="30" height="33" rx="9"/>
+              </g>
+              <!-- 亮起的那一格：下排中间 -->
+              <rect x="55" y="86" width="30" height="33" rx="9" fill="rgba(255,255,255,.5)" stroke="#fff" stroke-width="3.6"/>
+            </svg>
+          </span>
+        </span>
+        <span class="bot">24 小时自助 · 微信 / 支付宝</span>
+        <span class="go"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
+      </button>
+    </section>
+
+    <!-- 取件 -->
+    <section class="scr" id="s-code">
+      <div class="code-l">
+        <button class="back" id="backBtn">← 返回</button>
+        <span class="eyebrow">取件</span>
+        <h2>输入 4 位取件码</h2>
+        <div class="slots" id="slots"><i></i><i class="cur"></i><i></i><i></i></div>
+        <p class="hint">取件码见短信通知，遇到问题请拨 <b>400-820-1234</b></p>
+      </div>
+      <div class="pad" id="pad">
+        <button class="key" data-k="1">1</button>
+        <button class="key" data-k="2">2</button>
+        <button class="key" data-k="3">3</button>
+        <button class="key" data-k="4">4</button>
+        <button class="key" data-k="5">5</button>
+        <button class="key" data-k="6">6</button>
+        <button class="key" data-k="7">7</button>
+        <button class="key" data-k="8">8</button>
+        <button class="key" data-k="9">9</button>
+        <button class="key del" data-k="del">删除</button>
+        <button class="key" data-k="0">0</button>
+        <button class="key ok" data-k="ok">确认</button>
+      </div>
+    </section>
+
+    <!-- 存件 -->
+    <section class="scr" id="s-spec">
+      <div class="spec-head">
+        <button class="back" id="back2">← 返回</button>
+        <span class="eyebrow">存件</span>
+        <h2>选择柜格规格</h2>
+      </div>
+
+      <div class="specs" id="specs">
+        <button class="spec on" data-spec="S">
+          <span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12.5l5 5 9-10"/></svg></span>
+          <span class="cab">
+            <svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="2.6"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="24" y="26" width="48" height="44" rx="12"/>
+              <rect class="obj" x="33" y="38" width="30" height="20" rx="3"/>
+              <path class="obj" d="M33 41l15 11 15-11"/>
+            </svg>
+          </span>
+          <span class="info">
+            <b class="nm">小柜</b>
+            <span class="sz">文件袋 · 小快递</span>
+            <span class="meta"><span class="pr">¥2<small>/时</small></span>
+              <span class="qty">余6格</span></span>
+          </span>
+        </button>
+
+        <button class="spec" data-spec="M">
+          <span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12.5l5 5 9-10"/></svg></span>
+          <span class="cab">
+            <svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="2.6"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="17" y="20" width="62" height="56" rx="14"/>
+              <rect class="obj" x="30" y="34" width="36" height="32" rx="12"/>
+              <path class="obj" d="M41 34v-6h14v6"/>
+              <path class="obj" d="M30 44h36"/>
+            </svg>
+          </span>
+          <span class="info">
+            <b class="nm">中柜</b>
+            <span class="sz">双肩包 · 鞋盒</span>
+            <span class="meta"><span class="pr">¥3<small>/时</small></span>
+              <span class="qty">余4格</span></span>
+          </span>
+        </button>
+
+        <button class="spec" data-spec="L">
+          <span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12.5l5 5 9-10"/></svg></span>
+          <span class="cab">
+            <svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="2.6"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="13" width="78" height="70" rx="16"/>
+              <rect class="obj" x="21" y="31" width="54" height="38" rx="8"/>
+              <path class="obj" d="M41 31v-6h14v6"/>
+              <path class="obj" d="M21 41h54"/>
+              <circle class="obj" cx="30" cy="71" r="3"/>
+              <circle class="obj" cx="66" cy="71" r="3"/>
+            </svg>
+          </span>
+          <span class="info">
+            <b class="nm">大柜</b>
+            <span class="sz">登机箱 · 大纸箱</span>
+            <span class="meta"><span class="pr">¥5<small>/时</small></span>
+              <span class="qty">余2格</span></span>
+          </span>
+        </button>
+      </div>
+
+      <div class="opbar">
+        <p class="note">按<b>实际存放时长</b>计费 · 取件时结算</p>
+        <button class="go-btn" id="depBtn">确认存件</button>
+      </div>
+    </section>
+
+    <!-- 开门等待放入 -->
+    <section class="scr" id="s-open">
+      <img class="open-art" src="img/door-open.svg" alt="柜门已弹开">
+      <div class="open-no"><span id="openNo">B2</span><em>号柜</em></div>
+      <h3>柜门已弹开</h3>
+      <p>请放入物品，然后用力关好柜门</p>
+      <div class="scan"><i></i><span id="scanTxt">等待关门确认…</span></div>
+      <button class="done-btn" id="openBtn">我已关好门</button>
+    </section>
+
+    <!-- 结果 -->
+    <section class="scr" id="s-done">
+      <div class="done-ico">
+        <svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>
+      </div>
+      <h3 id="doneTitle">A3 号柜已打开</h3>
+      <p id="doneSub">请取走物品，并随手关好柜门</p>
+      <div class="tags">
+        <div class="tagline" id="doneTag"><span>柜格</span><b id="doneNo">A3</b></div>
+        <div class="tagline" id="doneCodeTag"><span>取件码</span><b id="doneCode">8362</b></div>
+      </div>
+      <button class="done-btn" id="doneBtn">完 成</button>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <span>取件码 24 小时内有效</span><i></i>
+    <span>单件限重 30kg</span><i></i>
+    <span>客服 <b>400-820-1234</b></span>
+  </footer>
+
+  <div class="toast" id="toast"><i></i><span id="toastTxt"></span></div>
+
+</div>
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var frame = $('frame');
+
+  /* 画布等比缩放：真机 1024×600 时 k=1 */
+  function fit() {
+    frame.style.transform = 'scale(' + Math.min(window.innerWidth / 1024, window.innerHeight / 600, 1) + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  /* 时钟：只在"分钟"真正变化时写 DOM，并对齐到下一个整分再唤醒，
+     避免每秒一次 setInterval + textContent 触发顶栏重排 */
+  var clockEl = $('clock'), clockTxt = '';
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function tick() {
+    var d = new Date(), t = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    if (t !== clockTxt) { clockTxt = t; clockEl.textContent = t; }
+    setTimeout(tick, 60000 - d.getSeconds() * 1000 - d.getMilliseconds() + 20);
+  }
+  tick();
+
+  /* 切屏：NodeList 只查一次，只摘下上一屏的 .on（原来 5 屏全量 toggle 会强制 5 次样式重算） */
+  var SCRS = [].slice.call(document.querySelectorAll('.scr')), curScr = 's-home';
+  function show(id) {
+    if (curScr === id) return;
+    SCRS.forEach(function (s) { if (s.classList.contains('on')) s.classList.remove('on'); });
+    var el = document.getElementById(id);
+    if (el) el.classList.add('on');
+    curScr = id;
+  }
+
+  /* 轻提示 */
+  var toastTimer, toastEl = $('toast');
+  function toast(msg) {
+    $('toastTxt').textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 2400);
+  }
+
+  /* 取件码输入 */
+  var digits = [], slotsEl = $('slots'), okKey = document.querySelector('.key.ok'), autoTimer;
+  function render() {
+    for (var i = 0; i < 4; i++) {
+      var el = slotsEl.children[i];
+      el.textContent = digits[i] || '';
+      el.classList.toggle('f', i < digits.length);
+      el.classList.toggle('cur', i === digits.length && digits.length < 4);
+    }
+    okKey.classList.toggle('on', digits.length === 4);
+    /* 满 4 位自动提交，仍可点确认立即提交 */
+    clearTimeout(autoTimer);
+    if (digits.length === 4) autoTimer = setTimeout(submit, 500);
+  }
+  function reset() { digits = []; render(); }
+
+  $('pad').addEventListener('click', function (e) {
+    var btn = e.target.closest('.key');
+    if (!btn) return;
+    var k = btn.dataset.k;
+    if (k === 'del') { digits.pop(); render(); return; }
+    if (k === 'ok') { submit(); return; }
+    if (digits.length < 4) { digits.push(k); render(); }
+  });
+
+  /* 柜号池：真机由下位机返回 */
+  var POOL = ['A3', 'B4', 'C2', 'A7', 'B5', 'C6', 'A1', 'B8'], pi = 0;
+  function nextCell() { return POOL[pi++ % POOL.length]; }
+
+  /* 存件：规格 */
+  var SPEC = {
+    S: { name: '小柜', price: 2, pool: ['A1', 'A3', 'A5', 'A7'] },
+    M: { name: '中柜', price: 3, pool: ['B2', 'B4', 'B5', 'B6'] },
+    L: { name: '大柜', price: 5, pool: ['C1', 'C2'] }
+  };
+  var spec = 'S', spi = { S: 0, M: 0, L: 0 };
+
+  $('specs').addEventListener('click', function (e) {
+    var b = e.target.closest('.spec');
+    if (!b) return;
+    spec = b.dataset.spec;
+    document.querySelectorAll('.spec').forEach(function (s) { s.classList.toggle('on', s === b); });
+  });
+
+  /* 结果屏：取件码不做校验，4 位齐了就开门（失败分支不做了，所以只有成功态） */
+  var backTimer;
+  function result(title, sub, cellNo, code) {
+    $('doneTitle').textContent = title;
+    $('doneSub').textContent = sub;
+    $('doneTag').style.display = cellNo ? 'inline-flex' : 'none';
+    if (cellNo) $('doneNo').textContent = cellNo;
+    $('doneCodeTag').style.display = code ? 'inline-flex' : 'none';
+    if (code) $('doneCode').textContent = code;
+    $('doneBtn').textContent = '完 成';
+    show('s-done');
+    clearTimeout(backTimer);
+    backTimer = setTimeout(home, code ? 15000 : 8000);
+  }
+
+  function home() {
+    clearTimeout(backTimer);
+    reset();
+    show('s-home');
+  }
+
+  function submit() {
+    if (digits.length < 4) { toast('请输入完整的 4 位取件码'); return; }
+    var no = nextCell();
+    result(no + ' 号柜已打开', '请取走物品，并随手关好柜门', no, '');
+  }
+
+  /* 进入存件屏时复位选择 */
+  function enterDeposit() {
+    spec = 'S';
+    document.querySelectorAll('.spec').forEach(function (s) {
+      s.classList.toggle('on', s.dataset.spec === 'S');
+    });
+    show('s-spec');
+  }
+
+  /* 入口 */
+  document.querySelectorAll('[data-act]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (btn.dataset.act === 'pickup') { reset(); show('s-code'); return; }
+      enterDeposit();
+    });
+  });
+
+  function genCode() { return String(1000 + Math.floor(Math.random() * 9000)); }
+
+  /* 确认存件 → 直接开柜（不预付，取件时按实际时长结算） */
+  $('depBtn').addEventListener('click', function () {
+    var st = SPEC[spec];
+    var no = st.pool[spi[spec]++ % st.pool.length];
+    openDoor(no, genCode());
+  });
+
+  /* 开门过渡：真机由门锁信号结束等待，这里 3 秒模拟关门 */
+  var openTimer, pending = null;
+  function openDoor(no, code) {
+    pending = { no: no, code: code };
+    $('openNo').textContent = no;
+    $('scanTxt').textContent = '等待关门确认…';
+    show('s-open');
+    clearTimeout(openTimer);
+    openTimer = setTimeout(finishStore, 3000);
+  }
+
+  function finishStore() {
+    if (!pending) return;
+    var p = pending;
+    pending = null;
+    clearTimeout(openTimer);
+    result('存件完成', '取件码已发送至手机 · 取件时结算费用', p.no, p.code);
+  }
+
+  $('openBtn').addEventListener('click', finishStore);
+
+  $('back2').addEventListener('click', home);
+  $('backBtn').addEventListener('click', home);
+  $('doneBtn').addEventListener('click', function () {
+    home();
+    toast('操作完成，感谢使用');
+  });
+
+  /* 闲置超时：任何屏停留 30 秒无操作回首页 */
+  var idleTimer;
+  function idleReset() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () {
+      if ($('s-open').classList.contains('on')) { idleReset(); return; }  /* 开门期间不打断 */
+      if (!$('s-home').classList.contains('on')) {
+        home();
+        toast('长时间无操作，已返回首页');
+      }
+    }, 30000);
+  }
+  document.addEventListener('click', idleReset, true);
+  document.addEventListener('keydown', idleReset);
+  idleReset();
+
+  /* 调试用实体键盘 */
+  document.addEventListener('keydown', function (e) {
+    if (!$('s-code').classList.contains('on')) return;
+    if (/^[0-9]$/.test(e.key)) {
+      if (digits.length < 4) { digits.push(e.key); render(); }
+    } else if (e.key === 'Backspace') {
+      digits.pop(); render();
+    } else if (e.key === 'Enter') {
+      submit();
+    }
+  });
+})();
+
+/* 亮 / 暗主题：只切 <html data-theme>，配色全在 CSS 令牌里，不碰任何节点结构 */
+(function () {
+  var root = document.documentElement;
+  var btn = document.getElementById('themeBtn');
+  var txt = document.getElementById('themeTxt');
+
+  function paint(mode) {
+    root.setAttribute('data-theme', mode);
+    txt.textContent = mode === 'dark' ? '暗色' : '亮色';
+    try { localStorage.setItem('locker-theme', mode); } catch (e) { }
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem('locker-theme'); } catch (e) { }
+  if (saved !== 'dark' && saved !== 'light') {
+    saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  paint(saved);
+
+  btn.addEventListener('click', function () {
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    /* 切换瞬间关过渡：否则几十个控件同时插值，屏幕上会闪一片拖影 */
+    root.classList.add('no-anim');
+    paint(next);
+    void root.offsetWidth;
+    requestAnimationFrame(function () { root.classList.remove('no-anim'); });
+  });
+})();
+</script>
+</body>
+</html>

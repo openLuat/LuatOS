@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="overview">
+  <resources>
+    <font id="hzfont" builtin="hzfont"/>
+    <!-- 4x4 透明热区：PLCUI 只有 image 可点，铺在标签上做点击区 -->
+    <image id="hit" src="hit.png"/>
+  </resources>
+  <pages>
+    <page id="overview" background="#0B1017">
+      <container id="hd" x="0" y="0" w="1024" h="96" background="#070C12"/>
+      <container id="hd_logo" x="24" y="26" w="44" h="44" background="#22D3EE" radius="10"/>
+      <label id="hd_logo_t" x="24" y="33" w="44" h="26" font="hzfont" font_size="18" color="#04222B" align="center" text="C"/>
+      <label id="hd_brand" x="80" y="20" w="160" h="32" font="hzfont" font_size="26" color="#FFFFFF" align="left" text="CDU-1200"/>
+      <label id="hd_brand_s" x="246" y="30" w="130" h="22" font="hzfont" font_size="16" color="#7C90A8" align="left" text="液冷散热机组"/>
+      <label id="hd_sub" x="80" y="56" w="420" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="PLC 主控 · 一次侧 12 ℃ / 二次侧 32 ℃ · N+1 双泵"/>
+      <image id="tab_h0" x="352" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="tab_t0" x="352" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="总览"/>
+      <image id="tab_h1" x="454" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_lp"/>
+      <label id="tab_t1" x="454" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="回路"/>
+      <image id="tab_h2" x="556" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_tr"/>
+      <label id="tab_t2" x="556" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="趋势"/>
+      <image id="tab_h3" x="658" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_io"/>
+      <label id="tab_t3" x="658" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="点位"/>
+      <image id="tab_h4" x="760" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="tab_t4" x="760" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="系统"/>
+      <container id="hd_line" x="372" y="92" w="56" h="4" background="#22D3EE" radius="2"/>
+      <label id="hd_clock" x="800" y="12" w="200" h="46" font="hzfont" font_size="38" color="#FFFFFF" align="right" text="20:02"/>
+      <label id="hd_cs" x="700" y="62" w="300" h="20" font="hzfont" font_size="16" color="#7C90A8" align="right" text="负载 82 % · 自动运行"/>
+      <container id="bn" x="12" y="106" w="1000" h="40" background="#0F2A22" radius="8"/>
+      <container id="bn_acc" x="12" y="106" w="5" h="40" background="#2DD4A7" radius="2"/>
+      <container id="bn_dot" x="30" y="122" w="8" h="8" background="#2DD4A7" radius="4"/>
+      <label id="bn_t" x="46" y="114" w="320" h="24" font="hzfont" font_size="16" color="#7BE8BE" align="left" text="自动运行 · P1 主泵 · P2 热备"/>
+      <label id="bn_q" x="404" y="114" w="240" h="24" font="hzfont" font_size="16" color="#4E9C7E" align="left" text="换热 980 kW / 额定 1200"/>
+      <label id="bn_cop" x="700" y="114" w="140" h="24" font="hzfont" font_size="16" color="#4E9C7E" align="left" text="COP 5.8"/>
+      <label id="bn_dt" x="830" y="114" w="166" h="24" font="hzfont" font_size="16" color="#7BE8BE" align="right" text="温差 8.2 K"/>
+      <container id="lp_card" x="12" y="158" w="660" h="300" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="lp_ttl_bar" x="26" y="173" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="lp_ttl" x="38" y="170" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="双回路流程"/>
+      <container id="p_s1" x="32" y="231" w="230" h="6" background="#38BDF8" radius="3"/>
+      <container id="p_r1" x="32" y="331" w="230" h="6" background="#7DD3FC" radius="3"/>
+      <container id="p_s2" x="342" y="231" w="270" h="6" background="#2DD4A7" radius="3"/>
+      <container id="p_r2" x="342" y="331" w="270" h="6" background="#FB923C" radius="3"/>
+      <container id="hx_b" x="262" y="214" w="80" h="140" background="#16222E" radius="6" border-color="#526A85" border-width="2"/>
+      <container id="hx_l1" x="272" y="246" w="60" h="2" background="#526A85"/>
+      <container id="hx_l2" x="272" y="284" w="60" h="2" background="#526A85"/>
+      <container id="hx_l3" x="272" y="322" w="60" h="2" background="#526A85"/>
+      <container id="rk_b" x="612" y="198" w="42" h="172" background="#16222E" radius="4" border-color="#22303F" border-width="1"/>
+      <container id="rk_l0" x="618" y="218" w="30" h="6" background="#2E4052" radius="2"/>
+      <container id="rk_l1" x="618" y="246" w="30" h="6" background="#2E4052" radius="2"/>
+      <container id="rk_l2" x="618" y="274" w="30" h="6" background="#2E4052" radius="2"/>
+      <container id="rk_l3" x="618" y="326" w="30" h="6" background="#2E4052" radius="2"/>
+      <container id="bp_v1" x="492" y="231" w="6" h="67" background="#2DD4A7" radius="3"/>
+      <container id="bp_h" x="492" y="289" w="98" h="6" background="#2DD4A7" radius="3"/>
+      <container id="bp_v2" x="590" y="231" w="6" h="67" background="#2DD4A7" radius="3"/>
+      <container id="vl_1" x="486" y="220" w="8" h="26" background="#526A85" radius="2"/>
+      <container id="vl_2" x="594" y="220" w="8" h="26" background="#526A85" radius="2"/>
+      <container id="p1_b" x="432" y="209" w="50" h="50" background="#0D151E" radius="25" border-color="#2DD4A7" border-width="4"/>
+      <label id="p1_l" x="432" y="221" w="50" h="26" font="hzfont" font_size="16" color="#2DD4A7" align="center" text="P1"/>
+      <container id="p2_b" x="514" y="272" w="40" h="40" background="#0D151E" radius="20" border-color="#526A85" border-width="3"/>
+      <label id="p2_l" x="514" y="280" w="40" h="24" font="hzfont" font_size="16" color="#6C8099" align="center" text="P2"/>
+      <label id="t_s1" x="32" y="242" w="120" h="26" font="hzfont" font_size="18" color="#38BDF8" align="left" text="12.0 ℃"/>
+      <label id="t_r1" x="32" y="344" w="120" h="26" font="hzfont" font_size="18" color="#7DD3FC" align="left" text="18.5 ℃"/>
+      <label id="t_s2" x="342" y="242" w="120" h="26" font="hzfont" font_size="18" color="#2DD4A7" align="left" text="32.4 ℃"/>
+      <label id="t_r2" x="342" y="344" w="120" h="26" font="hzfont" font_size="18" color="#FB923C" align="left" text="40.6 ℃"/>
+      <label id="hx_cap" x="250" y="368" w="110" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="板式换热器"/>
+      <label id="rk_cap" x="604" y="378" w="80" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="机柜区"/>
+      <label id="p1_t" x="442" y="264" w="80" h="22" font="hzfont" font_size="16" color="#2DD4A7" align="left" text="78 %"/>
+      <label id="p2_t" x="518" y="346" w="96" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="P2 热备"/>
+      <container id="lg1" x="32" y="402" w="10" h="10" background="#38BDF8" radius="3"/>
+      <label id="lg1_t" x="50" y="396" w="150" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="一次侧 冷冻水"/>
+      <container id="lg2" x="212" y="402" w="10" h="10" background="#2DD4A7" radius="3"/>
+      <label id="lg2_t" x="230" y="396" w="150" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="二次侧 冷却液"/>
+      <container id="lg3" x="402" y="402" w="10" h="10" background="#FB923C" radius="3"/>
+      <label id="lg3_t" x="420" y="396" w="160" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="回液 40.6 ℃"/>
+      <container id="kp_card" x="684" y="158" w="328" h="300" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="kp_ttl_bar" x="698" y="173" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="kp_ttl" x="710" y="170" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="机组实时"/>
+      <container id="kp_cb0" x="698" y="204" w="146" h="100" background="#1A2532" radius="8"/>
+      <label id="kp_k0" x="712" y="216" w="120" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="换热功率"/>
+      <label id="kp_v0" x="712" y="236" w="120" h="50" font="hzfont" font_size="40" color="#E6EEF7" align="left" text="980"/>
+      <label id="kp_u0" x="712" y="286" w="120" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="kW / 1200"/>
+      <container id="kp_cb1" x="852" y="204" w="146" h="100" background="#1A2532" radius="8"/>
+      <label id="kp_k1" x="866" y="216" w="120" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="供液温度"/>
+      <label id="kp_v1" x="866" y="236" w="120" h="50" font="hzfont" font_size="40" color="#E6EEF7" align="left" text="32.4"/>
+      <label id="kp_u1" x="866" y="286" w="120" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="℃ 目标 32"/>
+      <container id="kp_cb2" x="698" y="316" w="146" h="100" background="#1A2532" radius="8"/>
+      <label id="kp_k2" x="712" y="328" w="120" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="供回温差"/>
+      <label id="kp_v2" x="712" y="348" w="120" h="50" font="hzfont" font_size="40" color="#2DD4A7" align="left" text="8.2"/>
+      <label id="kp_u2" x="712" y="398" w="120" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="K"/>
+      <container id="kp_cb3" x="852" y="316" w="146" h="100" background="#1A2532" radius="8"/>
+      <label id="kp_k3" x="866" y="328" w="120" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="泵频"/>
+      <label id="kp_v3" x="866" y="348" w="120" h="50" font="hzfont" font_size="40" color="#2DD4A7" align="left" text="78"/>
+      <label id="kp_u3" x="866" y="398" w="120" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="%"/>
+      <container id="pm_card" x="12" y="470" w="504" h="124" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="pm_ttl_bar" x="26" y="485" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="pm_ttl" x="38" y="482" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="泵组与冗余"/>
+      <label id="pm_note" x="300" y="482" w="190" h="26" font="hzfont" font_size="16" color="#6C8099" align="right" text="N+1 · 自动轮换"/>
+      <label id="pm_n0" x="26" y="516" w="40" h="26" font="hzfont" font_size="18" color="#E6EEF7" align="left" text="P1"/>
+      <label id="pm_d0" x="70" y="518" w="120" h="24" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="主泵 · 运行"/>
+      <label id="pm_fl0" x="262" y="518" w="40" h="24" font="hzfont" font_size="16" color="#6C8099" align="left" text="频率"/>
+      <label id="pm_fv0" x="306" y="516" w="70" h="26" font="hzfont" font_size="18" color="#2DD4A7" align="left" text="78 %"/>
+      <label id="pm_cl0" x="386" y="518" w="40" h="24" font="hzfont" font_size="16" color="#6C8099" align="left" text="电流"/>
+      <label id="pm_cv0" x="430" y="516" w="60" h="26" font="hzfont" font_size="18" color="#E6EEF7" align="left" text="46.2 A"/>
+      <label id="pm_n1" x="26" y="550" w="40" h="26" font="hzfont" font_size="18" color="#E6EEF7" align="left" text="P2"/>
+      <label id="pm_d1" x="70" y="552" w="120" h="24" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="备用 · 热备"/>
+      <label id="pm_fl1" x="262" y="552" w="40" h="24" font="hzfont" font_size="16" color="#6C8099" align="left" text="频率"/>
+      <label id="pm_fv1" x="306" y="550" w="70" h="26" font="hzfont" font_size="18" color="#6C8099" align="left" text="0 %"/>
+      <label id="pm_cl1" x="386" y="552" w="40" h="24" font="hzfont" font_size="16" color="#6C8099" align="left" text="电流"/>
+      <label id="pm_cv1" x="430" y="550" w="60" h="26" font="hzfont" font_size="18" color="#E6EEF7" align="left" text="0.0 A"/>
+      <container id="al_card" x="528" y="470" w="484" h="124" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="al_ttl_bar" x="542" y="485" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="al_ttl" x="554" y="482" w="168" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="报警与事件"/>
+      <label id="al_note" x="806" y="482" w="190" h="26" font="hzfont" font_size="16" color="#6C8099" align="right" text="今日 4 条"/>
+      <container id="al_d0" x="542" y="517" w="8" h="8" background="#6C8099" radius="4"/>
+      <label id="al_t0" x="556" y="512" w="44" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="20:01"/>
+      <label id="al_x0" x="616" y="512" w="380" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="left" text="P2 热备泵轮换试运转完成"/>
+      <container id="al_d1" x="542" y="543" w="8" h="8" background="#F5A524" radius="4"/>
+      <label id="al_t1" x="556" y="538" w="44" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="19:48"/>
+      <label id="al_x1" x="616" y="538" w="380" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="left" text="二次侧压差偏低 3 kPa，已自动提频"/>
+      <container id="al_d2" x="542" y="569" w="8" h="8" background="#6C8099" radius="4"/>
+      <label id="al_t2" x="556" y="564" w="44" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="19:12"/>
+      <label id="al_x2" x="616" y="564" w="380" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="left" text="补水阀动作 12 s，液位恢复 68 %"/>
+    </page>
+    <page id="loop" background="#0B1017">
+      <container id="hd" x="0" y="0" w="1024" h="96" background="#070C12"/>
+      <container id="hd_logo" x="24" y="26" w="44" h="44" background="#22D3EE" radius="10"/>
+      <label id="hd_logo_t" x="24" y="33" w="44" h="26" font="hzfont" font_size="18" color="#04222B" align="center" text="C"/>
+      <label id="hd_brand" x="80" y="20" w="160" h="32" font="hzfont" font_size="26" color="#FFFFFF" align="left" text="CDU-1200"/>
+      <label id="hd_brand_s" x="246" y="30" w="130" h="22" font="hzfont" font_size="16" color="#7C90A8" align="left" text="液冷散热机组"/>
+      <label id="hd_sub" x="80" y="56" w="420" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="PLC 主控 · 一次侧 12 ℃ / 二次侧 32 ℃ · N+1 双泵"/>
+      <image id="tab_h0" x="352" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="tab_t0" x="352" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="总览"/>
+      <image id="tab_h1" x="454" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_lp"/>
+      <label id="tab_t1" x="454" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="回路"/>
+      <image id="tab_h2" x="556" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_tr"/>
+      <label id="tab_t2" x="556" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="趋势"/>
+      <image id="tab_h3" x="658" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_io"/>
+      <label id="tab_t3" x="658" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="点位"/>
+      <image id="tab_h4" x="760" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="tab_t4" x="760" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="系统"/>
+      <container id="hd_line" x="474" y="92" w="56" h="4" background="#22D3EE" radius="2"/>
+      <label id="hd_clock" x="800" y="12" w="200" h="46" font="hzfont" font_size="38" color="#FFFFFF" align="right" text="20:02"/>
+      <label id="hd_cs" x="700" y="62" w="300" h="20" font="hzfont" font_size="16" color="#7C90A8" align="right" text="负载 82 % · 自动运行"/>
+      <container id="a_card" x="12" y="106" w="500" h="220" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="a_ttl_bar" x="26" y="121" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="a_ttl" x="38" y="118" w="208" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="一次侧 · 冷冻水"/>
+      <label id="a_note" x="342" y="118" w="156" h="26" font="hzfont" font_size="16" color="#6C8099" align="right" text="设施侧"/>
+      <label id="a_k0" x="26" y="152" w="180" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="供水温度"/>
+      <label id="a_v0" x="26" y="176" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="12.0"/>
+      <label id="a_u0" x="84" y="184" w="110" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="℃"/>
+      <label id="a_k1" x="262" y="152" w="180" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="回水温度"/>
+      <label id="a_v1" x="262" y="176" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="18.5"/>
+      <label id="a_u1" x="320" y="184" w="110" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="℃"/>
+      <label id="a_k2" x="26" y="230" w="180" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="供回压差"/>
+      <label id="a_v2" x="26" y="254" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="180"/>
+      <label id="a_u2" x="84" y="262" w="110" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="kPa"/>
+      <label id="a_k3" x="262" y="230" w="180" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="流量"/>
+      <label id="a_v3" x="262" y="254" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="132"/>
+      <label id="a_u3" x="320" y="262" w="110" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="m3/h"/>
+      <container id="b_card" x="524" y="106" w="488" h="220" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="bb_ttl_bar" x="538" y="121" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="bb_ttl" x="550" y="118" w="208" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="二次侧 · 冷却液"/>
+      <label id="bb_note" x="854" y="118" w="144" h="26" font="hzfont" font_size="16" color="#6C8099" align="right" text="机柜侧"/>
+      <label id="bb_k0" x="538" y="152" w="180" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="供液温度"/>
+      <label id="bb_v0" x="538" y="176" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="32.4"/>
+      <label id="bb_u0" x="596" y="184" w="110" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="℃"/>
+      <label id="bb_k1" x="774" y="152" w="180" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="回液温度"/>
+      <label id="bb_v1" x="774" y="176" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="40.6"/>
+      <label id="bb_u1" x="832" y="184" w="110" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="℃"/>
+      <label id="bb_k2" x="538" y="230" w="180" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="供回压差"/>
+      <label id="bb_v2" x="538" y="254" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="165"/>
+      <label id="bb_u2" x="596" y="262" w="110" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="kPa"/>
+      <label id="bb_k3" x="774" y="230" w="180" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="流量"/>
+      <label id="bb_v3" x="774" y="254" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="105"/>
+      <label id="bb_u3" x="832" y="262" w="110" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="m3/h"/>
+      <container id="ef_card" x="12" y="338" w="500" h="150" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="ef_ttl_bar" x="26" y="353" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="ef_ttl" x="38" y="350" w="208" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="换热与能效"/>
+      <label id="ef_k0" x="26" y="382" w="150" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="换热量"/>
+      <label id="ef_v0" x="26" y="406" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="980"/>
+      <label id="ef_u0" x="84" y="414" w="90" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="kW"/>
+      <label id="ef_k1" x="188" y="382" w="150" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="COP"/>
+      <label id="ef_v1" x="188" y="406" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="5.8"/>
+      <label id="ef_u1" x="246" y="414" w="90" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text=""/>
+      <label id="ef_k2" x="350" y="382" w="150" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="接近温差"/>
+      <label id="ef_v2" x="350" y="406" w="96" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="1.2"/>
+      <label id="ef_u2" x="408" y="414" w="90" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="K"/>
+      <container id="mu_card" x="524" y="338" w="488" h="150" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="mu_ttl_bar" x="538" y="353" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="mu_ttl" x="550" y="350" w="208" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="补水与液位"/>
+      <label id="mu_k0" x="538" y="382" w="150" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="膨胀罐液位"/>
+      <label id="mu_v0" x="538" y="406" w="92" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="68"/>
+      <label id="mu_u0" x="592" y="414" w="96" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="%"/>
+      <label id="mu_k1" x="696" y="382" w="150" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="补水量"/>
+      <label id="mu_v1" x="696" y="406" w="92" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="0.8"/>
+      <label id="mu_u1" x="750" y="414" w="96" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="m3/h"/>
+      <label id="mu_k2" x="854" y="382" w="150" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="电导率"/>
+      <label id="mu_v2" x="854" y="406" w="92" h="36" font="hzfont" font_size="28" color="#E6EEF7" align="left" text="0.8"/>
+      <label id="mu_u2" x="908" y="414" w="96" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="μS/cm"/>
+      <container id="pr_card" x="12" y="500" w="1000" h="100" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="pr_ttl_bar" x="26" y="513" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="pr_ttl" x="38" y="510" w="208" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="保护与联锁"/>
+      <container id="pr_d0" x="26" y="546" w="8" h="8" background="#2DD4A7" radius="4"/>
+      <label id="pr_k0" x="42" y="540" w="180" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="机柜区漏液"/>
+      <label id="pr_v0" x="42" y="560" w="180" h="24" font="hzfont" font_size="18" color="#2DD4A7" align="left" text="无泄漏"/>
+      <container id="pr_d1" x="224" y="546" w="8" h="8" background="#2DD4A7" radius="4"/>
+      <label id="pr_k1" x="240" y="540" w="180" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="管路间漏液"/>
+      <label id="pr_v1" x="240" y="560" w="180" h="24" font="hzfont" font_size="18" color="#2DD4A7" align="left" text="无泄漏"/>
+      <container id="pr_d2" x="422" y="546" w="8" h="8" background="#2DD4A7" radius="4"/>
+      <label id="pr_k2" x="438" y="540" w="180" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="泵坑漏液"/>
+      <label id="pr_v2" x="438" y="560" w="180" h="24" font="hzfont" font_size="18" color="#2DD4A7" align="left" text="无泄漏"/>
+      <container id="pr_d3" x="620" y="546" w="8" h="8" background="#2DD4A7" radius="4"/>
+      <label id="pr_k3" x="636" y="540" w="180" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="双泵互备"/>
+      <label id="pr_v3" x="636" y="560" w="180" h="24" font="hzfont" font_size="18" color="#2DD4A7" align="left" text="已投入"/>
+      <container id="pr_d4" x="818" y="546" w="8" h="8" background="#2DD4A7" radius="4"/>
+      <label id="pr_k4" x="834" y="540" w="180" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="电源冗余"/>
+      <label id="pr_v4" x="834" y="560" w="180" h="24" font="hzfont" font_size="18" color="#2DD4A7" align="left" text="双路正常"/>
+    </page>
+    <page id="trend" background="#0B1017">
+      <container id="hd" x="0" y="0" w="1024" h="96" background="#070C12"/>
+      <container id="hd_logo" x="24" y="26" w="44" h="44" background="#22D3EE" radius="10"/>
+      <label id="hd_logo_t" x="24" y="33" w="44" h="26" font="hzfont" font_size="18" color="#04222B" align="center" text="C"/>
+      <label id="hd_brand" x="80" y="20" w="160" h="32" font="hzfont" font_size="26" color="#FFFFFF" align="left" text="CDU-1200"/>
+      <label id="hd_brand_s" x="246" y="30" w="130" h="22" font="hzfont" font_size="16" color="#7C90A8" align="left" text="液冷散热机组"/>
+      <label id="hd_sub" x="80" y="56" w="420" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="PLC 主控 · 一次侧 12 ℃ / 二次侧 32 ℃ · N+1 双泵"/>
+      <image id="tab_h0" x="352" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="tab_t0" x="352" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="总览"/>
+      <image id="tab_h1" x="454" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_lp"/>
+      <label id="tab_t1" x="454" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="回路"/>
+      <image id="tab_h2" x="556" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_tr"/>
+      <label id="tab_t2" x="556" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="趋势"/>
+      <image id="tab_h3" x="658" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_io"/>
+      <label id="tab_t3" x="658" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="点位"/>
+      <image id="tab_h4" x="760" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="tab_t4" x="760" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="系统"/>
+      <container id="hd_line" x="576" y="92" w="56" h="4" background="#22D3EE" radius="2"/>
+      <label id="hd_clock" x="800" y="12" w="200" h="46" font="hzfont" font_size="38" color="#FFFFFF" align="right" text="20:02"/>
+      <label id="hd_cs" x="700" y="62" w="300" h="20" font="hzfont" font_size="16" color="#7C90A8" align="right" text="负载 82 % · 自动运行"/>
+      <container id="tc_card" x="12" y="106" w="636" h="230" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="tc_ttl_bar" x="26" y="121" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="tc_ttl" x="38" y="118" w="208" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="供回液温度"/>
+      <container id="tc_lg1" x="262" y="128" w="12" h="4" background="#2DD4A7" radius="2"/>
+      <label id="tc_lg1t" x="280" y="118" w="70" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="供液"/>
+      <container id="tc_lg2" x="340" y="128" w="12" h="4" background="#FB923C" radius="2"/>
+      <label id="tc_lg2t" x="358" y="118" w="70" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="回液"/>
+      <container id="tc_g0" x="26" y="195" w="608" h="1" background="#1E2B3A"/>
+      <container id="tc_g1" x="26" y="233" w="608" h="1" background="#1E2B3A"/>
+      <container id="tc_g2" x="26" y="270" w="608" h="1" background="#1E2B3A"/>
+      <chart id="ch_t" x="26" y="158" w="608" h="150" type="line" point-count="30" y-min="30" y-max="42" hdiv="0" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1E2B3A">
+        <series id="sup" color="#2DD4A7" values="32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4,32.4"/>
+        <series id="ret" color="#FB923C" values="40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6,40.6"/>
+      </chart>
+      <label id="tc_cap" x="26" y="312" w="420" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="纵轴 30-42 ℃  横轴 30 s"/>
+      <container id="dp_card" x="664" y="106" w="348" h="230" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="dp_ttl_bar" x="678" y="121" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="dp_ttl" x="690" y="118" w="208" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="二次侧压差"/>
+      <container id="dp_g0" x="678" y="195" w="320" h="1" background="#1E2B3A"/>
+      <container id="dp_g1" x="678" y="233" w="320" h="1" background="#1E2B3A"/>
+      <container id="dp_g2" x="678" y="270" w="320" h="1" background="#1E2B3A"/>
+      <chart id="ch_d" x="678" y="158" w="320" h="150" type="line" point-count="30" y-min="148" y-max="180" hdiv="0" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1E2B3A">
+        <series id="dp" color="#38BDF8" values="165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165,165"/>
+      </chart>
+      <label id="dp_cap" x="678" y="312" w="320" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="纵轴 148-180 kPa  横轴 30 s"/>
+      <container id="pv_card" x="12" y="348" w="1000" h="232" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="pv_ttl_bar" x="26" y="363" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="pv_ttl" x="38" y="360" w="208" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="泵频与阀位"/>
+      <container id="pv_lg1" x="372" y="370" w="12" h="4" background="#2DD4A7" radius="2"/>
+      <label id="pv_lg1t" x="390" y="360" w="100" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="P1 频率"/>
+      <container id="pv_lg2" x="480" y="370" w="12" h="4" background="#A78BFA" radius="2"/>
+      <label id="pv_lg2t" x="498" y="360" w="100" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="三通阀"/>
+      <container id="pv_lg3" x="588" y="370" w="12" h="4" background="#526A85" radius="2"/>
+      <label id="pv_lg3t" x="606" y="360" w="100" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="P2 频率"/>
+      <container id="pv_g0" x="26" y="437" w="972" h="1" background="#1E2B3A"/>
+      <container id="pv_g1" x="26" y="475" w="972" h="1" background="#1E2B3A"/>
+      <container id="pv_g2" x="26" y="512" w="972" h="1" background="#1E2B3A"/>
+      <chart id="ch_v" x="26" y="400" w="972" h="150" type="line" point-count="50" y-min="0" y-max="100" hdiv="0" vdiv="0" bg-opacity="0" line-width="2" grid-color="#1E2B3A">
+        <series id="p1" color="#2DD4A7" values="78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78,78"/>
+        <series id="vl" color="#A78BFA" values="62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62"/>
+        <series id="p2" color="#526A85" values="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"/>
+      </chart>
+      <label id="pv_cap" x="26" y="554" w="420" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="纵轴 0-100 %  横轴 50 s"/>
+    </page>
+    <page id="io" background="#0B1017">
+      <container id="hd" x="0" y="0" w="1024" h="96" background="#070C12"/>
+      <container id="hd_logo" x="24" y="26" w="44" h="44" background="#22D3EE" radius="10"/>
+      <label id="hd_logo_t" x="24" y="33" w="44" h="26" font="hzfont" font_size="18" color="#04222B" align="center" text="C"/>
+      <label id="hd_brand" x="80" y="20" w="160" h="32" font="hzfont" font_size="26" color="#FFFFFF" align="left" text="CDU-1200"/>
+      <label id="hd_brand_s" x="246" y="30" w="130" h="22" font="hzfont" font_size="16" color="#7C90A8" align="left" text="液冷散热机组"/>
+      <label id="hd_sub" x="80" y="56" w="420" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="PLC 主控 · 一次侧 12 ℃ / 二次侧 32 ℃ · N+1 双泵"/>
+      <image id="tab_h0" x="352" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="tab_t0" x="352" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="总览"/>
+      <image id="tab_h1" x="454" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_lp"/>
+      <label id="tab_t1" x="454" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="回路"/>
+      <image id="tab_h2" x="556" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_tr"/>
+      <label id="tab_t2" x="556" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="趋势"/>
+      <image id="tab_h3" x="658" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_io"/>
+      <label id="tab_t3" x="658" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="点位"/>
+      <image id="tab_h4" x="760" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="tab_t4" x="760" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="系统"/>
+      <container id="hd_line" x="678" y="92" w="56" h="4" background="#22D3EE" radius="2"/>
+      <label id="hd_clock" x="800" y="12" w="200" h="46" font="hzfont" font_size="38" color="#FFFFFF" align="right" text="20:02"/>
+      <label id="hd_cs" x="700" y="62" w="300" h="20" font="hzfont" font_size="16" color="#7C90A8" align="right" text="负载 82 % · 自动运行"/>
+      <container id="di_card" x="12" y="106" w="330" h="250" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <label id="di_ttl" x="26" y="118" w="200" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="数字输入 DI"/>
+      <label id="di_note" x="192" y="118" w="136" h="26" font="hzfont" font_size="16" color="#6C8099" align="right" text="9 / 12"/>
+      <table id="tb_di" x="26" y="152" w="296" h="192" rows="6" columns="3" col-widths="70,158,68" col-aligns="left,left,right" font="hzfont" font_size="16" color="#E6EEF7" background="#121A24" border-color="#24303F" border-width="1" header="true" header-color="#1A2532" alternate-color="#151F2B" grid="false" cell-padding="4" row-height="32" header-align="left"/>
+      <container id="do_card" x="352" y="106" w="330" h="250" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <label id="do_ttl" x="366" y="118" w="200" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="数字输出 DO"/>
+      <label id="do_note" x="532" y="118" w="136" h="26" font="hzfont" font_size="16" color="#6C8099" align="right" text="4 / 8"/>
+      <table id="tb_do" x="366" y="152" w="296" h="192" rows="6" columns="3" col-widths="70,158,68" col-aligns="left,left,right" font="hzfont" font_size="16" color="#E6EEF7" background="#121A24" border-color="#24303F" border-width="1" header="true" header-color="#1A2532" alternate-color="#151F2B" grid="false" cell-padding="4" row-height="32" header-align="left"/>
+      <container id="ai_card" x="692" y="106" w="320" h="250" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="ai_ttl_bar" x="706" y="121" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="ai_ttl" x="718" y="118" w="168" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="模拟量 AI"/>
+      <label id="ai_note" x="856" y="118" w="142" h="26" font="hzfont" font_size="16" color="#6C8099" align="right" text="4-20 mA"/>
+      <table id="tb_ai" x="706" y="152" w="286" h="192" rows="6" columns="3" col-widths="66,114,106" col-aligns="left,left,right" font="hzfont" font_size="16" color="#E6EEF7" background="#121A24" border-color="#24303F" border-width="1" header="true" header-color="#1A2532" alternate-color="#151F2B" grid="false" cell-padding="4" row-height="32" header-align="left"/>
+      <container id="ao_card" x="12" y="368" w="330" h="222" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="ao_ttl_bar" x="26" y="383" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="ao_ttl" x="38" y="380" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="模拟量输出 AO"/>
+      <label id="ao_t0" x="26" y="416" w="56" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="AO0"/>
+      <label id="ao_n0" x="84" y="416" w="160" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="left" text="P1 频率给定"/>
+      <label id="ao_v0" x="230" y="414" w="100" h="26" font="hzfont" font_size="18" color="#E6EEF7" align="right" text="78 %"/>
+      <label id="ao_t1" x="26" y="454" w="56" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="AO1"/>
+      <label id="ao_n1" x="84" y="454" w="160" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="left" text="三通阀位给定"/>
+      <label id="ao_v1" x="230" y="452" w="100" h="26" font="hzfont" font_size="18" color="#E6EEF7" align="right" text="62 %"/>
+      <label id="ao_t2" x="26" y="492" w="56" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="AO2"/>
+      <label id="ao_n2" x="84" y="492" w="160" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="left" text="补水阀给定"/>
+      <label id="ao_v2" x="230" y="490" w="100" h="26" font="hzfont" font_size="18" color="#E6EEF7" align="right" text="0 %"/>
+      <container id="fc_card" x="352" y="368" w="330" h="222" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="fc_ttl_bar" x="366" y="383" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="fc_ttl" x="378" y="380" w="168" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="强制表"/>
+      <label id="fc_note" x="520" y="380" w="136" h="26" font="hzfont" font_size="16" color="#6C8099" align="right" text="0 点强制"/>
+      <container id="fc_r0" x="366" y="414" w="300" h="32" background="#1A2532" radius="6"/>
+      <image id="fc_h0" x="366" y="414" w="300" h="32" src="hit" clickable="true" on-click="fc_0"/>
+      <label id="fc_t0" x="378" y="420" w="60" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="left" text="M0.1"/>
+      <label id="fc_n0" x="440" y="420" w="120" h="22" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="P2 允许"/>
+      <label id="fc_s0" x="590" y="420" w="64" h="22" font="hzfont" font_size="16" color="#6C8099" align="right" text="实时"/>
+      <container id="fc_btn" x="366" y="476" w="300" h="34" background="#22D3EE" radius="6"/>
+      <image id="fc_btn_h" x="366" y="476" w="300" h="34" src="hit" clickable="true" on-click="fc_clear"/>
+      <label id="fc_btn_t" x="366" y="482" w="300" h="24" font="hzfont" font_size="16" color="#04222B" align="center" text="全部取消强制"/>
+      <label id="fc_hint" x="366" y="522" w="300" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="强制值优先于实时映像"/>
+      <container id="dg_card" x="692" y="368" w="320" h="222" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="dg_ttl_bar" x="706" y="383" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="dg_ttl" x="718" y="380" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="扫描与诊断"/>
+      <container id="dg_cb0" x="706" y="414" w="140" h="52" background="#1A2532" radius="8"/>
+      <label id="dg_k0" x="718" y="420" w="120" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="扫描周期"/>
+      <label id="dg_v0" x="718" y="438" w="126" h="26" font="hzfont" font_size="22" color="#E6EEF7" align="left" text="3.4 ms"/>
+      <container id="dg_cb1" x="856" y="414" w="140" h="52" background="#1A2532" radius="8"/>
+      <label id="dg_k1" x="868" y="420" w="120" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="CPU 负荷"/>
+      <label id="dg_v1" x="868" y="438" w="126" h="26" font="hzfont" font_size="22" color="#E6EEF7" align="left" text="26 %"/>
+      <container id="dg_cb2" x="706" y="476" w="140" h="52" background="#1A2532" radius="8"/>
+      <label id="dg_k2" x="718" y="482" w="120" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="AO 周期"/>
+      <label id="dg_v2" x="718" y="500" w="126" h="26" font="hzfont" font_size="22" color="#E6EEF7" align="left" text="2 ms"/>
+      <container id="dg_cb3" x="856" y="476" w="140" h="52" background="#1A2532" radius="8"/>
+      <label id="dg_k3" x="868" y="482" w="120" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="通信错误"/>
+      <label id="dg_v3" x="868" y="500" w="126" h="26" font="hzfont" font_size="22" color="#E6EEF7" align="left" text="0"/>
+    </page>
+    <page id="sys" background="#0B1017">
+      <container id="hd" x="0" y="0" w="1024" h="96" background="#070C12"/>
+      <container id="hd_logo" x="24" y="26" w="44" h="44" background="#22D3EE" radius="10"/>
+      <label id="hd_logo_t" x="24" y="33" w="44" h="26" font="hzfont" font_size="18" color="#04222B" align="center" text="C"/>
+      <label id="hd_brand" x="80" y="20" w="160" h="32" font="hzfont" font_size="26" color="#FFFFFF" align="left" text="CDU-1200"/>
+      <label id="hd_brand_s" x="246" y="30" w="130" h="22" font="hzfont" font_size="16" color="#7C90A8" align="left" text="液冷散热机组"/>
+      <label id="hd_sub" x="80" y="56" w="420" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="PLC 主控 · 一次侧 12 ℃ / 二次侧 32 ℃ · N+1 双泵"/>
+      <image id="tab_h0" x="352" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="tab_t0" x="352" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="总览"/>
+      <image id="tab_h1" x="454" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_lp"/>
+      <label id="tab_t1" x="454" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="回路"/>
+      <image id="tab_h2" x="556" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_tr"/>
+      <label id="tab_t2" x="556" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="趋势"/>
+      <image id="tab_h3" x="658" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_io"/>
+      <label id="tab_t3" x="658" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="点位"/>
+      <image id="tab_h4" x="760" y="0" w="96" h="96" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="tab_t4" x="760" y="35" w="96" h="26" font="hzfont" font_size="18" color="#6C8099" align="center" text="系统"/>
+      <container id="hd_line" x="780" y="92" w="56" h="4" background="#22D3EE" radius="2"/>
+      <label id="hd_clock" x="800" y="12" w="200" h="46" font="hzfont" font_size="38" color="#FFFFFF" align="right" text="20:02"/>
+      <label id="hd_cs" x="700" y="62" w="300" h="20" font="hzfont" font_size="16" color="#7C90A8" align="right" text="负载 82 % · 自动运行"/>
+      <container id="if_card" x="12" y="106" w="500" h="250" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="if_ttl_bar" x="26" y="121" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="if_ttl" x="38" y="118" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="设备信息"/>
+      <table id="tb_if" x="26" y="152" w="466" h="192" rows="6" columns="2" col-widths="150,300" col-aligns="left,right" font="hzfont" font_size="16" color="#E6EEF7" background="#121A24" border-color="#24303F" border-width="1" header="true" header-color="#1A2532" alternate-color="#151F2B" grid="false" cell-padding="6" row-height="32" header-align="left"/>
+      <container id="en_card" x="524" y="106" w="488" h="250" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="en_ttl_bar" x="538" y="121" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="en_ttl" x="550" y="118" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="能效统计"/>
+      <container id="en_cb0" x="538" y="152" w="220" h="86" background="#1A2532" radius="8"/>
+      <label id="en_k0" x="554" y="162" w="190" h="20" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="今日换热量"/>
+      <label id="en_v0" x="554" y="184" w="130" h="44" font="hzfont" font_size="36" color="#E6EEF7" align="left" text="18.4"/>
+      <label id="en_u0" x="658" y="198" w="90" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="GJ"/>
+      <container id="en_cb1" x="770" y="152" w="220" h="86" background="#1A2532" radius="8"/>
+      <label id="en_k1" x="786" y="162" w="190" h="20" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="平均 COP"/>
+      <label id="en_v1" x="786" y="184" w="130" h="44" font="hzfont" font_size="36" color="#E6EEF7" align="left" text="5.8"/>
+      <label id="en_u1" x="890" y="198" w="90" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text=""/>
+      <container id="en_cb2" x="538" y="248" w="220" h="86" background="#1A2532" radius="8"/>
+      <label id="en_k2" x="554" y="258" w="190" h="20" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="PUE 贡献"/>
+      <label id="en_v2" x="554" y="280" w="130" h="44" font="hzfont" font_size="36" color="#E6EEF7" align="left" text="1.08"/>
+      <label id="en_u2" x="658" y="294" w="90" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text=""/>
+      <container id="en_cb3" x="770" y="248" w="220" h="86" background="#1A2532" radius="8"/>
+      <label id="en_k3" x="786" y="258" w="190" h="20" font="hzfont" font_size="16" color="#9BAEC2" align="left" text="运行时长"/>
+      <label id="en_v3" x="786" y="280" w="130" h="44" font="hzfont" font_size="36" color="#E6EEF7" align="left" text="412"/>
+      <label id="en_u3" x="890" y="294" w="90" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="h"/>
+      <container id="br_card" x="12" y="368" w="330" h="222" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="br_ttl_bar" x="26" y="383" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="br_ttl" x="38" y="380" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="显示与背光"/>
+      <label id="br_num" x="28" y="410" w="120" h="44" font="hzfont" font_size="36" color="#38BDF8" align="left" text="82 %"/>
+      <label id="br_pwm" x="150" y="424" w="170" h="24" font="hzfont" font_size="16" color="#6C8099" align="left" text="PWM3（GPIO13）"/>
+      <container id="br_b0" x="28" y="478" w="84" h="40" background="#121A24" radius="8" border-color="#38BDF8" border-width="1"/>
+      <image id="br_h0" x="28" y="478" w="84" h="40" src="hit" clickable="true" on-click="br_night"/>
+      <label id="br_t0" x="28" y="486" w="84" h="24" font="hzfont" font_size="16" color="#38BDF8" align="center" text="夜间"/>
+      <container id="br_b1" x="120" y="478" w="84" h="40" background="#121A24" radius="8" border-color="#38BDF8" border-width="1"/>
+      <image id="br_h1" x="120" y="478" w="84" h="40" src="hit" clickable="true" on-click="br_std"/>
+      <label id="br_t1" x="120" y="486" w="84" h="24" font="hzfont" font_size="16" color="#38BDF8" align="center" text="标准"/>
+      <container id="br_b2" x="212" y="478" w="84" h="40" background="#121A24" radius="8" border-color="#38BDF8" border-width="1"/>
+      <image id="br_h2" x="212" y="478" w="84" h="40" src="hit" clickable="true" on-click="br_high"/>
+      <label id="br_t2" x="212" y="486" w="84" h="24" font="hzfont" font_size="16" color="#38BDF8" align="center" text="明亮"/>
+      <label id="br_note" x="28" y="530" w="298" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="背光在显示初始化后点亮"/>
+      <container id="rd_card" x="352" y="368" w="330" h="222" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="rd_ttl_bar" x="366" y="383" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="rd_ttl" x="378" y="380" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="运行诊断"/>
+      <container id="rd_cb0" x="366" y="414" w="140" h="52" background="#1A2532" radius="8"/>
+      <label id="rd_k0" x="378" y="420" w="120" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="运行时长"/>
+      <label id="rd_v0" x="378" y="438" w="126" h="26" font="hzfont" font_size="22" color="#E6EEF7" align="left" text="412 h"/>
+      <container id="rd_cb1" x="516" y="414" w="140" h="52" background="#1A2532" radius="8"/>
+      <label id="rd_k1" x="528" y="420" w="120" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="启停次数"/>
+      <label id="rd_v1" x="528" y="438" w="126" h="26" font="hzfont" font_size="22" color="#E6EEF7" align="left" text="38"/>
+      <container id="rd_cb2" x="366" y="476" w="140" h="52" background="#1A2532" radius="8"/>
+      <label id="rd_k2" x="378" y="482" w="120" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="轮换次数"/>
+      <label id="rd_v2" x="378" y="500" w="126" h="26" font="hzfont" font_size="22" color="#E6EEF7" align="left" text="12"/>
+      <container id="rd_cb3" x="516" y="476" w="140" h="52" background="#1A2532" radius="8"/>
+      <label id="rd_k3" x="528" y="482" w="120" h="20" font="hzfont" font_size="16" color="#6C8099" align="left" text="缓存占用"/>
+      <label id="rd_v3" x="528" y="500" w="126" h="26" font="hzfont" font_size="22" color="#E6EEF7" align="left" text="36 %"/>
+      <label id="rd_note" x="366" y="528" w="300" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="最近无通信错误，诊断缓冲 0 条"/>
+      <container id="vr_card" x="692" y="368" w="320" h="222" background="#121A24" radius="10" border-color="#24303F" border-width="1"/>
+      <container id="vr_ttl_bar" x="706" y="383" w="4" h="18" background="#22D3EE" radius="2"/>
+      <label id="vr_ttl" x="718" y="380" w="188" h="26" font="hzfont" font_size="20" color="#E6EEF7" align="left" text="版本与说明"/>
+      <label id="vr_k0" x="706" y="414" w="120" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="PLCUI"/>
+      <label id="vr_v0" x="826" y="414" w="166" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="right" text="v1.0.2"/>
+      <label id="vr_k1" x="706" y="444" w="120" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="固件"/>
+      <label id="vr_v1" x="826" y="444" w="166" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="right" text="Air1603 / 103 号"/>
+      <label id="vr_k2" x="706" y="474" w="120" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="工程"/>
+      <label id="vr_v2" x="826" y="474" w="166" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="right" text="mmy_cdu_plc"/>
+      <label id="vr_k3" x="706" y="504" w="120" h="22" font="hzfont" font_size="16" color="#6C8099" align="left" text="版本"/>
+      <label id="vr_v3" x="826" y="504" w="166" h="22" font="hzfont" font_size="16" color="#E6EEF7" align="right" text="1.0.0"/>
+      <label id="vr_note" x="706" y="532" w="292" h="44" font="hzfont" font_size="16" color="#6C8099" align="left" text="main.xml 定布局，ui_vars.lua 绑数据；全屏纯色块，零图片"/>
+    </page>
+  </pages>
+</ui>

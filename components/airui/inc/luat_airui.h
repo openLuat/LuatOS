@@ -213,6 +213,9 @@ typedef struct {
  * 统一管理所有运行态数据，替代全局变量
  */
 struct airui_ctx {
+#if defined(LUAT_USE_AIRUI_REMOTE)
+    struct airui_remote *remote;
+#endif
     // LVGL 驱动实例
     lv_display_t *display;          /**< 显示设备 */
     lv_indev_t *indev;               /**< 主指针输入设备（= indev_ptrs[0]，向后兼容） */

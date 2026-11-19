@@ -16,6 +16,7 @@
 #include "../inc/luat_airui_component.h"
 #include "../inc/luat_airui_binding.h"
 #include "../inc/luat_airui_symbol.h"
+#include "../inc/luat_airui_remote.h"
 #include "lvgl9/src/themes/default/lv_theme_default.h"
 #include "luat_conf_bsp.h"
 #if defined(LUAT_USE_AIRUI_LUATOS)
@@ -36,6 +37,13 @@ static airui_ctx_t *g_ctx = NULL;
 // 函数声明
 static int l_airui_init(lua_State *L);
 static int l_airui_deinit(lua_State *L);
+#if defined(LUAT_USE_AIRUI_REMOTE)
+static int l_airui_remote_start(lua_State *L);
+static int l_airui_remote_capture(lua_State *L);
+static int l_airui_remote_read(lua_State *L);
+static int l_airui_remote_pointer(lua_State *L);
+static int l_airui_remote_stop(lua_State *L);
+#endif
 static int l_airui_refresh(lua_State *L);
 static int l_airui_full_refresh(lua_State *L);
 static int l_airui_sleep(lua_State *L);
@@ -166,6 +174,13 @@ static const rotable_Reg_t reg_airui[] = {
     // 基础设置
     {"init", ROREG_FUNC(l_airui_init)},
     {"deinit", ROREG_FUNC(l_airui_deinit)},
+#if defined(LUAT_USE_AIRUI_REMOTE)
+    {"remote_start", ROREG_FUNC(l_airui_remote_start)},
+    {"remote_capture", ROREG_FUNC(l_airui_remote_capture)},
+    {"remote_read", ROREG_FUNC(l_airui_remote_read)},
+    {"remote_pointer", ROREG_FUNC(l_airui_remote_pointer)},
+    {"remote_stop", ROREG_FUNC(l_airui_remote_stop)},
+#endif
     {"refresh", ROREG_FUNC(l_airui_refresh)},
     {"full_refresh", ROREG_FUNC(l_airui_full_refresh)},
     {"sleep", ROREG_FUNC(l_airui_sleep)},
@@ -423,6 +438,129 @@ static int l_airui_deinit(lua_State *L) {
     
     return 0;
 }
+
+#if defined(LUAT_USE_AIRUI_REMOTE)
+static int l_airui_remote_error(lua_State *L, int error) {
+    lua_pushnil(L);
+    lua_pushinteger(L, error);
+    return 2;
+}
+
+/**
+ * 启动 AirUI 远控
+ * @api airui.remote_start()
+ * @return bool|nil 成功返回 true，失败返回 nil 和错误码
+ */
+static int l_airui_remote_start(lua_State *L) {
+    int ret = airui_remote_start(g_ctx);
+    if (ret != AIRUI_OK) {
+        return l_airui_remote_error(L, ret);
+    }
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+/**
+ * 采集已提交的画面
+ * @api airui.remote_capture(scale, previous_frame_id)
+ * @int 降采样因子，支持 1、2、4
+ * @int 上一次收到的帧编号，可选，默认 0
+ * @return int|nil 帧编号、宽、高、像素字节数、屏幕宽、屏幕高。帧编号相同时像素字节数为 0，失败返回 nil 和错误码
+ */
+static int l_airui_remote_capture(lua_State *L) {
+    lua_Integer scale = luaL_checkinteger(L, 1);
+    lua_Integer previous = luaL_optinteger(L, 2, 0);
+    if (g_ctx == NULL || g_ctx->remote == NULL || airui_is_sleeping(g_ctx)) {
+        return l_airui_remote_error(L, AIRUI_ERR_NOT_INITIALIZED);
+    }
+    if (scale < 0 || (uint64_t)scale > UINT32_MAX || previous < 0 || (uint64_t)previous > UINT32_MAX) {
+        return l_airui_remote_error(L, AIRUI_ERR_INVALID_PARAM);
+    }
+
+    airui_remote_capture_info_t info;
+    int ret = airui_remote_capture(g_ctx, (uint32_t)scale, (uint32_t)previous, &info);
+    if (ret != AIRUI_OK) {
+        return l_airui_remote_error(L, ret);
+    }
+    lua_pushinteger(L, info.frame_id);
+    lua_pushinteger(L, info.width);
+    lua_pushinteger(L, info.height);
+    lua_pushinteger(L, info.len);
+    lua_pushinteger(L, info.screen_width);
+    lua_pushinteger(L, info.screen_height);
+    return 6;
+}
+
+/**
+ * 分片读取已缓存的 RGB565 画面
+ * @api airui.remote_read(frame_id, offset, len)
+ * @int 帧编号
+ * @int 字节偏移，从 0 开始
+ * @int 读取字节数
+ * @return string|nil 像素数据，失败返回 nil 和错误码
+ */
+static int l_airui_remote_read(lua_State *L) {
+    lua_Integer frame_id = luaL_checkinteger(L, 1);
+    lua_Integer offset = luaL_checkinteger(L, 2);
+    lua_Integer len = luaL_checkinteger(L, 3);
+    if (frame_id < 0 || (uint64_t)frame_id > UINT32_MAX ||
+        offset < 0 || (uint64_t)offset > SIZE_MAX || len <= 0 || (uint64_t)len > SIZE_MAX) {
+        return l_airui_remote_error(L, AIRUI_ERR_INVALID_PARAM);
+    }
+
+    const uint8_t *data;
+    int ret = airui_remote_read(g_ctx, (uint32_t)frame_id, (size_t)offset, (size_t)len, &data);
+    if (ret != AIRUI_OK) {
+        return l_airui_remote_error(L, ret);
+    }
+    lua_pushlstring(L, (const char *)data, (size_t)len);
+    return 1;
+}
+
+/**
+ * 提交一个远程指针事件
+ * @api airui.remote_pointer(kind, x, y)
+ * @int 事件类型，1 按下、2 移动、3 抬起、4 取消
+ * @int 屏幕原始坐标 x，取消时可省略
+ * @int 屏幕原始坐标 y，取消时可省略
+ * @return bool|nil 成功入队或取消返回 true，失败返回 nil 和错误码
+ */
+static int l_airui_remote_pointer(lua_State *L) {
+    lua_Integer kind = luaL_checkinteger(L, 1);
+    if (g_ctx == NULL || g_ctx->remote == NULL) {
+        return l_airui_remote_error(L, AIRUI_ERR_NOT_INITIALIZED);
+    }
+
+    lua_Integer x = 0;
+    lua_Integer y = 0;
+    if (kind != AIRUI_REMOTE_POINTER_CANCEL) {
+        x = luaL_checkinteger(L, 2);
+        y = luaL_checkinteger(L, 3);
+    }
+    if (kind < AIRUI_REMOTE_POINTER_DOWN || kind > AIRUI_REMOTE_POINTER_CANCEL ||
+        x < 0 || x > INT32_MAX || y < 0 || y > INT32_MAX) {
+        return l_airui_remote_error(L, AIRUI_ERR_INVALID_PARAM);
+    }
+
+    int ret = airui_remote_pointer(g_ctx, (airui_remote_pointer_kind_t)kind, (int32_t)x, (int32_t)y);
+    if (ret != AIRUI_OK) {
+        return l_airui_remote_error(L, ret);
+    }
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+/**
+ * 停止并释放 AirUI 远控
+ * @api airui.remote_stop()
+ * @return nil
+ */
+static int l_airui_remote_stop(lua_State *L) {
+    (void)L;
+    airui_remote_stop(g_ctx);
+    return 0;
+}
+#endif
 
 /**
  * 刷新 LVGL 显示（执行定时器处理）

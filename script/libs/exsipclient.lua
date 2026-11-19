@@ -2886,6 +2886,11 @@ local function sip_task(opts)
 
         state.current_adapter = adapter_to_use
 
+        -- 查询实际选中的网卡，兼容 PC ETH0 及订阅前已就绪的网卡。
+        if not ready_adapters[adapter_to_use] and socket.adapter(adapter_to_use) then
+            ready_adapters[adapter_to_use] = true
+        end
+
         if not ready_adapters[adapter_to_use] then
             log.info("sip", "adapter not ready, waiting for IP_READY:", adapter_to_use)
             sys.wait(1000)

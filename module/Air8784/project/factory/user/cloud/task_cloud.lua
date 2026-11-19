@@ -55,11 +55,11 @@ function M.start(adapter)
             protocol.legacy({schema="air8784.sip.v1",kind="ack",op="update",result="ok",imei=imei}, settings.record.revision)
         end
     end
-    -- 模式切换：兼容老固件文本 mode:cc / mode:sip（映射 phone / single）
+    -- 旧任务协议只支持 single/phone；独立 CC 请使用 set_config + sos_mode=cc。
     local mode_seq=0
     local function map_mode(value)
         local m=tostring(value or ""):lower()
-        if m=="cc" or m=="phone" then return "phone" end
+        if m=="sip_cc" or m=="phone" then return "phone" end
         if m=="sip" or m=="single" then return "single" end
         return nil
     end
@@ -104,7 +104,7 @@ function M.start(adapter)
                             controller.command(c)
                         end
                     else
-                        -- 文本短命令兜底：update / fota / mode:cc|sip|single|phone
+                        -- 文本短命令兜底：update / fota / mode:sip_cc|sip|single|phone
                         local s = tostring(raw):match("^%s*(.-)%s*$")
                         local low = s and s:lower() or ""
                         if low=="update" or low=="fota" then

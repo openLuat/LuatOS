@@ -393,7 +393,7 @@ local function start_voip_engine_now(session)
         return
     end
     -- 唤醒音频硬件（audio_v2 框架下 ES8311 可能处于 shutdown，需先恢复）
-    if exaudio.pm then
+    if exaudio.pm and not (rtos and rtos.bsp() == "PC") then
         pcall(exaudio.pm, exaudio.RESUME)
     end
 

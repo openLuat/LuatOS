@@ -17,6 +17,11 @@
 
 #ifdef LUAT_USE_AUDIO_V2
 
+#ifdef LUAT_USE_VOIP
+extern int luat_audio_voip_driver_event(uint32_t event, uint8_t *rx_data,
+                                      uint32_t param, luat_audio_driver_ctrl_t *ctrl);
+#endif
+
 #define PC_AUDIO_MAX_BLOCK_LEN 8000U
 #define PC_AUDIO_DEFAULT_RATE 16000U
 #define PC_AUDIO_DEFAULT_ALIGN 2U
@@ -118,6 +123,12 @@ static void SDLCALL pc_audio_tx_callback(void *userdata, Uint8 *stream, int len)
         if (driver->tx_block_offset == driver->tx_block_len) {
             driver->tx_block_offset = 0;
             driver->tx_block_pos = (driver->tx_block_pos + 1) % driver->tx_block_num;
+#ifdef LUAT_USE_VOIP
+            if (luat_audio_voip_driver_event(LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE,
+                                             NULL, 0, driver->ctrl)) {
+                continue;
+            }
+#endif
             if (!driver->ctrl->opts->support_full_loop) {
                 luat_audio_driver_event_callback(LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE,
                                                  NULL, 0, driver->ctrl);
@@ -167,6 +178,12 @@ static void SDLCALL pc_audio_rx_callback(void *userdata, Uint8 *stream, int len)
         if (driver->rx_block_offset == driver->rx_block_len) {
             driver->rx_block_offset = 0;
             driver->rx_block_pos = (driver->rx_block_pos + 1) % driver->rx_block_num;
+#ifdef LUAT_USE_VOIP
+            if (luat_audio_voip_driver_event(LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE,
+                                             block, driver->rx_block_len, driver->ctrl)) {
+                continue;
+            }
+#endif
             if (!driver->ctrl->opts->support_full_loop) {
                 luat_audio_driver_event_callback(LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE,
                                                  block, driver->rx_block_len, driver->ctrl);
@@ -175,10 +192,6 @@ static void SDLCALL pc_audio_rx_callback(void *userdata, Uint8 *stream, int len)
             luat_i2s_conf_t *i2s = luat_i2s_get_config(0);
             if (i2s && i2s->luat_i2s_event_callback) {
                 i2s->luat_i2s_event_callback(0, LUAT_I2S_EVENT_RX_DONE, block, driver->rx_block_len, i2s->userdata);
-            } else if (i2s) {
-                LLOGI("pc_audio_rx_callback: i2s config found but callback is NULL");
-            } else {
-                LLOGI("pc_audio_rx_callback: i2s config not found for id=0");
             }
         }
     }
@@ -370,7 +383,14 @@ static int pc_audio_start_tx(luat_audio_driver_ctrl_t *ctrl, uint32_t **play_buf
         return -LUAT_ERROR_PARAM_OVERFLOW;
     }
 
-    driver->tx_buffer = (uint8_t *)SDL_calloc(1, total_len);
+    /* Speech owns its PCM ring; replacing it disconnects VoIP decoding from SDL. */
+    if (ctrl->request_work_mode == LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER && *play_buff) {
+        driver->tx_buffer = (uint8_t *)*play_buff;
+        driver->tx_buffer_external = 1;
+    } else {
+        driver->tx_buffer = (uint8_t *)SDL_calloc(1, total_len);
+        driver->tx_buffer_external = 0;
+    }
     if (!driver->tx_buffer) {
         return -LUAT_ERROR_NO_MEMORY;
     }

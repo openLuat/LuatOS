@@ -18,7 +18,7 @@ local air1103 = require "air1103"
 local cc_sip, cc_app
 local state, failed, pending = "INIT", false, false
 local adapter = {
-    modes = runtime.switchable and {"pair", "round", "phone"} or {"phone"},
+    modes = runtime.switchable and {"pair", "round", "phone"} or (runtime.active == "single" and {"pair", "round"} or {"phone"}),
     mode_switch = runtime.switchable,
     active_mode = runtime.active
 }

@@ -6,23 +6,24 @@
 @author  王世豪
 @usage
 协同配置版本：运行模式独立于主动任务保存，删除任务不改变模式。
-首次无任务时启动SIP_CC。需要cc.setBridge和rtos.reboot才允许网页跨模式切换。
-固件缺少路由选择时仅提供phone模式，避免把CC音频错误接到单SIP。
+首次无配置时启动单 SIP；cc 为独立蜂窝电话，phone 为 SIP_CC。
+跨模式保存后空闲重启，能力检查由 aircloud_settings 统一处理。
 ]]
 assert(fskv and fskv.init(), "fskv unavailable")
-local saved = require("aircloud_settings").record
+local settings = require "aircloud_settings"
+local saved = settings.record
 if type(saved) ~= "table" then saved = {revision="0", boot_count=0} end
-if saved.runtime_mode ~= "single" and saved.runtime_mode ~= "phone" then
-    saved.runtime_mode = saved.task and saved.task.mode ~= "phone" and "single" or "phone"
+if saved.runtime_mode ~= "single" and saved.runtime_mode ~= "phone" and saved.runtime_mode ~= "cc" then
+    saved.runtime_mode = type(saved.task)=="table" and saved.task.mode == "phone" and "phone" or "single"
     assert(fskv.set("sip_task_v1", saved), "mode migration storage failed")
 end
-local M = {active = "phone"}
-M.switchable = cc and type(cc.setBridge) == "function" and rtos and type(rtos.reboot) == "function" or false
-if M.switchable and saved.runtime_mode == "single" then
+local M = {active = saved.runtime_mode}
+if settings.single_only or rtos.bsp() == "PC" then
     M.active = "single"
+    M.switchable = false -- 明确选择单 SIP 时，不允许网页切换到其他音频分支。
+    log.info("task_runtime", "boot mode", M.active, rtos.bsp() == "PC" and "PC direct audio" or "Air1103 single SIP")
+    return M
 end
-if not M.switchable then
-    log.warn("task_runtime", "firmware lacks cc.setBridge/rtos.reboot; only phone mode available")
-end
+M.switchable = settings.switchable -- 旧任务协议的 single/phone 切换能力。
 log.info("task_runtime", "boot mode", M.active)
 return M

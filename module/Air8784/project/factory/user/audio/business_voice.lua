@@ -46,12 +46,12 @@ function M.config_text(before,after,reboot)
     local parts={}
     if not same(before.sip,after.sip) then parts[#parts+1]="SIP参数修改成功" end
     if before.sos_mode~=after.sos_mode then
-        parts[#parts+1]="SOS模式已修改为"..(after.sos_mode=="sip" and "SIP模式" or "SIP桥接4G模式")
+        parts[#parts+1]="SOS模式已修改为"..(({sip="SIP模式",cc="蜂窝电话模式",sip_cc="SIP桥接4G模式"})[after.sos_mode] or after.sos_mode)
     end
     local number_fields={"sos_sip_numbers","sos_sip_cc_numbers","sos_sip_cc_peers","sos_sip_cc_map","sos_cc_numbers"}
     for _,key in ipairs(number_fields) do
         if not same(before[key],after[key]) then
-            local numbers=after.sos_mode=="sip" and after.sos_sip_numbers or after.sos_sip_cc_numbers
+            local numbers=after.sos_mode=="sip" and after.sos_sip_numbers or (after.sos_mode=="cc" and after.sos_cc_numbers or after.sos_sip_cc_numbers)
             parts[#parts+1]="SOS号码修改完成，共"..#(numbers or {}).."个号码";break
         end
     end
@@ -67,7 +67,12 @@ function M.new(adapter)
     local settings=require "aircloud_settings"
     local copy=require("sos_config").copy
     local api={};local pending,playing
-    local boot_pending=adapter.speech_status~=nil
+    local boot_pending=adapter.startup_mode~=nil or adapter.speech_status~=nil
+    local poweron_pending=boot_pending
+    -- 使用本次实际运行模式，不读取尚未重启生效的 saved.sos_mode。
+    local boot_mode=adapter.startup_mode or settings.active
+    local mode_names={sip="单SIP模式",cc="独立蜂窝电话模式",sip_cc="SIP桥接4G模式"}
+    local boot_text="开机完成，当前为"..(mode_names[boot_mode] or tostring(boot_mode))
     local registered,ready_pending=false,false
     local registration_epoch=0
     local observed_epoch
@@ -84,11 +89,12 @@ function M.new(adapter)
     end
     local function startup_step()
         if playing or voice.is_playing() or not adapter.voice_ready() then return end
-        local kind=boot_pending and "boot" or (ready_pending and registered and not settings.pending and "ready")
+        local kind=poweron_pending and "poweron" or (boot_pending and "boot" or (ready_pending and registered and not settings.pending and "ready"))
         if not kind then return end
         local item={kind=kind,epoch=registration_epoch}
         local function consume()
-            if kind=="boot" then boot_pending=false
+            if kind=="poweron" then poweron_pending=false
+            elseif kind=="boot" then boot_pending=false
             elseif item.epoch==registration_epoch then ready_pending=false end
         end
         if not M.supported() then
@@ -96,7 +102,7 @@ function M.new(adapter)
         end
         local function can_play()
             observe_registration()
-            return adapter.voice_ready() and (kind=="boot" or (registered and not settings.pending))
+            return adapter.voice_ready() and (kind~="ready" or (registered and not settings.pending))
         end
         playing=item
         local function done(status,reason)
@@ -106,7 +112,7 @@ function M.new(adapter)
             if status~="cancelled" then consume() end
             log.info("business_voice","STARTUP_SPEECH_END",kind,status,reason)
         end
-        local text=kind=="boot" and "开机完成" or "SIP通话已就绪"
+        local text=kind=="poweron" and "开机" or (kind=="boot" and boot_text or "SIP通话已就绪")
         local ok,reason=voice.start_text(text,can_play,adapter.restore_volume,done,15000)
         if not ok and playing==item then
             playing=nil;consume()

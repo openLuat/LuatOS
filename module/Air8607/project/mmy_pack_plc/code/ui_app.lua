@@ -29,7 +29,9 @@ local ST_X, ST_Y, ST_PITCH, ST_GAP = 26, 202, 152, 102
 -- 步序表几何：行距 38，与 sp_* 一致
 local SP_X, SP_Y, SP_PITCH = 26, 152, 38
 
-local XML_CANDIDATES = { "/luadb/main.xml", "/res/main.xml", "/main.xml" }
+-- 真机上 LuaDB 会把 code/ 下的目录树原样打包，res/main.xml 落在 /luadb/res/ 下；
+-- 模拟器则把脚本目录挂成根，/res/main.xml 能直接命中，所以两种都要列
+local XML_CANDIDATES = { "/luadb/res/main.xml", "/res/main.xml", "/luadb/main.xml", "/main.xml" }
 
 local function warn_once(key, msg, extra)
     if warned[key] then return end
@@ -316,11 +318,9 @@ local function go(page)
     return function() ui_app.show(page) end
 end
 
+-- 老固件（PLCUI 1.0.1）没有 slider：背光只有三档按钮 + 数值，不做滑块
 local function set_brightness(v)
     data_app.set_bright(v)
-    -- 三档按钮要同步滑块位置，否则读数变了、滑块还停在原处
-    local sl = node("br_sl")
-    if sl then try(sl.set_value, "set_value", sl, data_app.bright()) end
     ui_app.refresh()
 end
 
@@ -338,13 +338,6 @@ ui_app.handlers = {
     fc_clear = function() data_app.clear_force(); ui_app.refresh() end,
 
     -- 背光：滑块拖动时取当前值；三档按钮直接给值
-    set_bright = function()
-        local sl = node("br_sl")
-        if sl then
-            local ok, val = pcall(sl.get_value, sl)
-            if ok and val then set_brightness(val) end
-        end
-    end,
     br_night = function() set_brightness(32) end,
     br_std = function() set_brightness(82) end,
     br_high = function() set_brightness(100) end,

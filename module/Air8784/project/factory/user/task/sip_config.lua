@@ -22,6 +22,13 @@
 本文件对外提供 config 配置表，直接在其他功能模块中require "sip_config"就可以加载运行；
 ]]
 
+if rtos.bsp() == "PC" then
+    local real_mobile = mobile
+    mobile = setmetatable({
+        imei = function() return "864317088000000" end,
+    }, { __index = real_mobile })
+end
+
 local config = {
     -- ==================== SIP 服务器 ====================
     sip_server_addr = "cc.luatos.com",
@@ -71,6 +78,11 @@ local config = {
     -- 日志标签
     log_tag = "sip_cc_demo",
 }
+
+if rtos.bsp() == "PC" then
+    -- PC 模拟器上真正可用的网卡是 socket.ETH0(17)，LWIP_ETH(4) 在 PC 上不存在
+    config.adapter = socket.ETH0 or config.adapter
+end
 
 -- 启动即加载云端持久化的传输覆盖（从 fskv 读取，确保重启后仍生效）
 do

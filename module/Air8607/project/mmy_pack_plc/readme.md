@@ -136,6 +136,33 @@ PLCUI 后面那次调用就变成空操作，容量按我们的来。真机内�
 - 背光滑块在 PC 模拟器上不生效（`pwm` 不可用），真机才有效果。
 - 页签切换后组件句柄要重新 `find`，`ui_app.show()` 里延时 40 ms 再刷首帧，这是 PLCUI 的既有约束。
 
+
+## 真机烧录与固件兼容（2026-11-18 实测）
+
+设备：**Air1603_A10**，固件 `LuatOS_V1031_Air160X`（build 2026-11-12，对应 PLCUI **1.0.1**）。
+
+```bash
+# 进 boot 模式
+luatos-cli.exe device boot --port COM12
+# 整机烧录（ROM + 脚本），固件用仓库里现成的 Air1603 102 号
+luatos-cli.exe flash run ^
+  --soc "LuatOS/module/Air1601_Air1602_Air1603_Air1604_Air1605/demo/ws2812/firmware/LuatOS-SoC_V1031_Air1603_102_20261112_022607.soc" ^
+  --port COM12 --script "LuatOS/module/Air8607/project/<工程>/code" --tail-log-secs 8
+```
+
+踩到并已修掉的三处：
+
+| 现象（真机日志） | 原因 | 处理 |
+|---|---|---|
+| `fopen not found /luadb/main.xml`、`/res/main.xml` | LuaDB 把 `code/` 的目录树**原样打包**，XML 落在 `/luadb/res/` 下；模拟器把脚本目录挂成根，所以只在真机暴露 | 候选路径补上 `/luadb/res/main.xml` |
+| `Unsupported element ... slider` | `slider` / `animimg` 是 **PLCUI 1.0.2（2026-11-13）** 才加的，设备固件是 11-12 的 1.0.1 | 去掉滑块，背光改成「大号数值 + 三档按钮」 |
+| `Unknown attribute: fit` | `fit` / `src-x` / `crop` 同样是 1.0.2 的属性 | 不依赖拉伸图，改纯标签显示 |
+
+`E/pwm setup ch 3` 是**已知的虚假报错**：固件在 `LUAT_CONF_PWM_MAXID` 未定义时无条件打印，通道 ≤5 实际是成功的（见 `demo/plcui/plcui_injection_hmi/code/boot_app.lua` 的注释），背光正常。
+
+**结论**：这套界面只用到了 1.0.1 就有的组件（container / label / image / table / chart），所以能在现成固件上直接跑；
+若要使用 `slider`、`animimg`、图片裁剪旋转等能力，必须换 11-13 之后编译的固件。
+
 ## 在 PC 模拟器上跑
 
 ```powershell

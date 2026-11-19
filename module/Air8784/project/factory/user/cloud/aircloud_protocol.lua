@@ -251,7 +251,7 @@ function M.new(backend,cloud)
     function api.start()
         cloud.on(api.event)
         assert(cloud.setup({transport="tcp",use_getip=true,auto_reconnect=false,max_getip_retry=1,
-            keep_idle=60,keep_interval=10,keep_cnt=3,debug=false}))
+            keep_idle=60,keep_interval=10,keep_cnt=3,debug=false,virtual_phone_number = "12345678910",virtual_serial_num = 1,}))
         sys.taskInit(function() while true do api.step();sys.wait(100) end end)
     end
     api.sos_status=sos_status

@@ -13,6 +13,16 @@ SIP 服务器、账号、音频和按键参数集中在此，烧录前请按实�
 local config = {}
 local account = require "sip_config"
 
+-- -- PC 模拟器下 mobile 是只读 userdata(rotable)，无法直接改写字段，且 imei()/muid() 返回 nil；
+-- -- 用可写代理表替换，未覆盖的字段仍回退到原 mobile
+-- if rtos.bsp() == "PC" then
+--     local real_mobile = mobile
+--     mobile = setmetatable({
+--         imei = function() return "1234" end,
+--         muid = function() return "pc-muid" end,
+--     }, { __index = real_mobile })
+-- end
+
 -- ==================== SIP 配置 ====================
 
 config.sip = {

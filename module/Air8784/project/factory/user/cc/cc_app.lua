@@ -45,7 +45,7 @@ local function cc_app_task()
     end
 
     -- 本机开机提示不依赖联网，先初始化音频，再等待 SIP 网络。
-    if not socket.adapter(socket.LWIP_GP) then sys.waitUntil("IP_READY", 10000) end
+    if not socket.adapter(socket.dft()) then sys.waitUntil("IP_READY", 10000) end
     log.info(PROJECT, "网络等待结束", "adapter=" .. tostring(socket.dft()))
 
     -- 3. 初始化 SIP(必须在 CC/SIP 音频启动前完成 cc_sip_bridge 配置)

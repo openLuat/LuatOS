@@ -8,7 +8,7 @@
 - 4G模组 SIP 用户名: 1903CFC1
 - 远程 SIP 客户端: 1903CFC0
 - 写死手机号: 13781142418
-- SIP服务器: 180.152.6.34:8910
+- SIP服务器: cc.luatos.com:8910
 
 呼出流程（SIP客户端1903CFC0 → 4G模组1903CFC1 → 手机）:
 1. 1903CFC0 拨打 SIP 1903CFC1 (INVITE) 或发送 MESSAGE 含手机号
@@ -37,15 +37,15 @@ local audio_drv = require("audio_drv")
 -- ==================== 配置 ====================
 
 local CONFIG = {
-    sip_server_addr = "180.152.6.34",
+    sip_server_addr = "cc.luatos.com",
     sip_server_port = 8910,
-    sip_domain = "180.152.6.34",
+    sip_domain = "cc.luatos.com",
     sip_username = "1903CFC1",
     sip_password = "Air.903CFC",
     sip_transport = "udp",
     
     -- 远程 SIP 客户端（控制端/被叫端）
-    remote_sip_uri = "sip:195544F0@180.152.6.34",
+    remote_sip_uri = "sip:195544F0@cc.luatos.com",
     
     -- 写死的手机号码（用于呼出）
     target_phone_number = "137xxxx24xx",

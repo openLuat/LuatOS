@@ -117,6 +117,7 @@ local function create_wifi_item(wifi_entry, index)
         parent = wifi_list_container,
         x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale) + (index - 1) * math.floor(75 * _G.density_scale),
         w = item_w, h = math.floor(65 * _G.density_scale),
+        scrollable = false,
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1, radius = theme.r("md"),
         on_click = function()
@@ -179,6 +180,7 @@ local function create_saved_item(saved_wifi, index, stx)
         parent = saved_list_container,
         x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale) + (index - 1) * math.floor(60 * _G.density_scale),
         w = item_w, h = math.floor(50 * _G.density_scale),
+        scrollable = false,
         color = theme.C.surface, color_opacity = theme.OPA.glass,
         border_color = theme.C.stroke, border_width = 1, radius = theme.r("md"),
         on_click = function()
@@ -309,9 +311,11 @@ local function build_ui()
     })
 
     local sy = sty + theme.dp(22)
-    local saved_h = theme.dp(150)
+    -- 已保存网络保留一条完整记录的空间，多条通过列表内滚动查看。
+    local saved_h = theme.dp(80)
     saved_list_container = theme.card(scr, {
         x = MARGIN, y = sy, w = card_w, h = saved_h,
+        scrollable = true,
     })
 
     -- 附近的wifi
@@ -347,8 +351,11 @@ local function build_ui()
     scanning_indicator:hide()
 
     local lcy = scy + theme.dp(26)
+    -- 优先用满剩余高度并保留底部边距；矮屏至少提供三条完整记录的高度。
+    local nearby_h = math.max(theme.dp(235), SCREEN_H - TITLE_H - lcy - MARGIN)
     wifi_list_container = theme.card(scr, {
-        x = MARGIN, y = lcy, w = card_w, h = theme.dp(200),
+        x = MARGIN, y = lcy, w = card_w, h = nearby_h,
+        scrollable = true,
     })
 end
 

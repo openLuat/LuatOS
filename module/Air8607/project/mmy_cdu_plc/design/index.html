@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>CDU-1200 液冷散热机组 · PLC 主控屏 · PLCUI 原型 1024×600</title>
+<style>
+/* ============================================================
+   深色工业风（数据中心屏）：深底分层 + 1px 描边分卡 + 青色主色
+   约束与上一套一致：纯色块、无阴影无渐变、字号 16 起
+   ============================================================ */
+:root{
+  --bg:#0B1017; --panel:#121A24; --panel2:#1A2532; --line:#24303F;
+  --ink:#E6EEF7; --ink2:#9BAEC2; --ink3:#6C8099;
+  --acc:#22D3EE; --data:#38BDF8; --ok:#2DD4A7; --warn:#F5A524; --alarm:#FF5C6C;
+  --violet:#A78BFA; --dark:#070C12;
+  --ice:#38BDF8; --ice2:#7DD3FC; --teal:#2DD4A7; --warm:#FB923C; --steel:#526A85;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{background:#05080C;display:flex;align-items:center;justify-content:center;
+  font-family:"Microsoft YaHei","PingFang SC","Source Han Sans SC",sans-serif;
+  -webkit-font-smoothing:antialiased;}
+.screen{position:relative;width:1024px;height:600px;overflow:hidden;background:var(--bg);
+  font-variant-numeric:tabular-nums;zoom:var(--z,1);}
+
+/* ---------------- 顶栏 ---------------- */
+.hdr{position:absolute;left:0;top:0;width:1024px;height:96px;background:var(--dark);
+  border-bottom:1px solid #16202C;}
+.logo{position:absolute;left:24px;top:26px;width:44px;height:44px;border-radius:10px;
+  background:var(--acc);color:#04222B;font-size:18px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;}
+.brand{position:absolute;left:80px;top:20px;font-size:26px;font-weight:700;color:#fff;line-height:32px;}
+.brand small{font-size:16px;font-weight:400;color:#7C90A8;margin-left:10px;}
+.sub{position:absolute;left:80px;top:56px;font-size:16px;color:#6C8099;line-height:20px;}
+.tabs{position:absolute;left:352px;top:0;height:96px;display:flex;gap:6px;}
+.tab{position:relative;width:96px;height:96px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:#6C8099;cursor:pointer;user-select:none;}
+.tab.on{color:var(--acc);}
+.tab.on::after{content:"";position:absolute;left:20px;right:20px;bottom:0;height:4px;
+  background:var(--acc);border-radius:2px 2px 0 0;}
+.clock{position:absolute;right:24px;top:14px;font-size:38px;font-weight:700;color:#fff;line-height:44px;}
+.clock-sub{position:absolute;right:24px;top:62px;font-size:16px;color:#7C90A8;}
+
+/* ---------------- 页面与卡片 ---------------- */
+.page{position:absolute;left:0;top:96px;width:1024px;height:504px;display:none;}
+.page.on{display:block;}
+.card{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:10px;}
+.body{position:absolute;left:0;top:0;right:0;bottom:0;}
+.ttl{position:absolute;font-size:20px;font-weight:700;color:var(--ink);line-height:24px;}
+.ttl i{display:inline-block;width:4px;height:18px;border-radius:2px;background:var(--acc);
+  vertical-align:-3px;margin-right:8px;}
+.note{position:absolute;font-size:16px;color:var(--ink3);text-align:right;line-height:24px;}
+
+table.t{border-collapse:collapse;font-size:16px;table-layout:fixed;}
+table.t th{font-size:16px;font-weight:700;color:var(--ink3);background:var(--panel2);
+  text-align:left;padding:0 10px;height:34px;border-bottom:1px solid var(--line);}
+table.t td{font-size:16px;color:var(--ink);height:32px;padding:0 10px;
+  border-bottom:1px solid #1B2534;white-space:nowrap;overflow:hidden;}
+table.t tr:last-child td{border-bottom:none;}
+table.t .r{text-align:right;} table.t .c{text-align:center;}
+
+/* 管路 */
+.pipe{position:absolute;border-radius:3px;}
+.pipe.h{height:6px;}
+.pipe.v{width:6px;}
+.arw{position:absolute;width:0;height:0;}
+.hx{position:absolute;border-radius:6px;background:#16222E;border:2px solid var(--steel);}
+.hx i{position:absolute;left:8px;right:8px;height:2px;background:var(--steel);opacity:.5;}
+.pump{position:absolute;border-radius:50%;background:#0D151E;border:4px solid var(--teal);
+  display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--teal);}
+.pump.off{border-color:var(--steel);color:var(--steel);}
+.rack{position:absolute;border-radius:4px;background:#16222E;border:1px solid #22303F;}
+.rack i{position:absolute;left:4px;right:4px;height:6px;border-radius:2px;background:#2E4052;}
+
+#toast{position:absolute;left:312px;top:552px;width:400px;height:34px;border-radius:8px;
+  background:#1E2B3A;border:1px solid #2C3B4E;color:#fff;font-size:16px;display:none;
+  align-items:center;justify-content:center;z-index:9;}
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+
+  <div class="hdr">
+    <div class="logo">C</div>
+    <div class="brand">CDU-1200<small>液冷散热机组</small></div>
+    <div class="sub">PLC 主控 · 一次侧 12 ℃ / 二次侧 32 ℃ · N+1 双泵</div>
+    <div class="tabs" id="tabs"></div>
+    <div class="clock" id="clock">20:02</div>
+    <div class="clock-sub" id="clocksub">负载 82 % · 自动运行</div>
+  </div>
+
+  <!-- ================= P1 总览 ================= -->
+  <div class="page on" data-p="0">
+    <div class="card" style="left:12px;top:10px;width:1000px;height:40px;background:#0F2A22;border-radius:8px">
+      <div class="body">
+        <span style="position:absolute;left:0;top:0;width:5px;height:40px;border-radius:8px 0 0 8px;background:#2DD4A7"></span>
+        <span style="position:absolute;left:18px;top:11px;width:8px;height:8px;border-radius:4px;background:#2DD4A7"></span>
+        <span style="position:absolute;left:34px;top:8px;font-size:16px;font-weight:700;color:#7BE8BE">自动运行 · P1 主泵 · P2 热备</span>
+        <span style="position:absolute;left:392px;top:8px;font-size:16px;color:#4E9C7E">换热 980 kW / 额定 1200</span>
+        <span style="position:absolute;left:700px;top:8px;font-size:16px;color:#4E9C7E">COP 5.8</span>
+        <span style="position:absolute;right:16px;top:8px;font-size:16px;font-weight:700;color:#7BE8BE">ΔT 8.2 K</span>
+      </div>
+    </div>
+
+    <div class="card" style="left:12px;top:62px;width:660px;height:300px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>双回路流程</div>
+      <div class="body" id="loop"></div>
+    </div>
+
+    <div class="card" style="left:684px;top:62px;width:328px;height:300px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>机组实时</div>
+      <div class="body" id="kpi"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:374px;width:504px;height:124px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>泵组与冗余</div>
+      <div class="note" style="left:300px;top:12px;width:190px">N+1 · 自动轮换</div>
+      <div class="body" id="pumps"></div>
+    </div>
+
+    <div class="card" style="left:528px;top:374px;width:484px;height:124px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>报警与事件</div>
+      <div class="note" style="left:302px;top:12px;width:168px">今日 4 条</div>
+      <div class="body" id="alarms"></div>
+    </div>
+  </div>
+
+  <!-- ================= P2 回路 ================= -->
+  <div class="page" data-p="1">
+    <div class="card" style="left:12px;top:10px;width:500px;height:220px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>一次侧 · 冷冻水</div>
+      <div class="note" style="left:330px;top:12px;width:156px">设施侧</div>
+      <div class="body" id="loopA"></div>
+    </div>
+
+    <div class="card" style="left:524px;top:10px;width:488px;height:220px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>二次侧 · 冷却液</div>
+      <div class="note" style="left:330px;top:12px;width:144px">机柜侧</div>
+      <div class="body" id="loopB"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:242px;width:500px;height:150px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>换热与能效</div>
+      <div class="body" id="eff"></div>
+    </div>
+
+    <div class="card" style="left:524px;top:242px;width:488px;height:150px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>补水与液位</div>
+      <div class="body" id="makeup"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:404px;width:1000px;height:100px">
+      <div class="ttl" style="left:14px;top:10px"><i></i>保护与联锁</div>
+      <div class="body" id="protect"></div>
+    </div>
+  </div>
+
+  <!-- ================= P3 趋势 ================= -->
+  <div class="page" data-p="2">
+    <div class="card" style="left:12px;top:10px;width:636px;height:230px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>供回液温度</div>
+      <div class="body">
+        <div style="position:absolute;left:250px;top:14px;display:flex;gap:14px;font-size:16px;color:var(--ink2)">
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#2DD4A7;vertical-align:3px;margin-right:6px"></b>供液</span>
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#FB923C;vertical-align:3px;margin-right:6px"></b>回液</span>
+        </div>
+        <div id="c-temp" style="position:absolute;left:14px;top:52px"></div>
+        <div style="position:absolute;left:14px;top:206px;font-size:16px;color:var(--ink3)">纵轴 30-42 ℃　横轴 6 s</div>
+      </div>
+    </div>
+
+    <div class="card" style="left:664px;top:10px;width:348px;height:230px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>二次侧压差</div>
+      <div class="body">
+        <div id="c-dp" style="position:absolute;left:14px;top:52px"></div>
+        <div style="position:absolute;left:14px;top:206px;font-size:16px;color:var(--ink3)">纵轴 148-180 kPa　横轴 6 s</div>
+      </div>
+    </div>
+
+    <div class="card" style="left:12px;top:252px;width:1000px;height:232px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>泵频与阀位</div>
+      <div class="body">
+        <div style="position:absolute;left:360px;top:14px;display:flex;gap:16px;font-size:16px;color:var(--ink2)">
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#2DD4A7;vertical-align:3px;margin-right:6px"></b>P1 频率</span>
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#A78BFA;vertical-align:3px;margin-right:6px"></b>三通阀</span>
+          <span><b style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#526A85;vertical-align:3px;margin-right:6px"></b>P2 频率</span>
+        </div>
+        <div id="c-pump" style="position:absolute;left:14px;top:52px"></div>
+        <div style="position:absolute;left:14px;top:206px;font-size:16px;color:var(--ink3)">纵轴 0-100 %　横轴 6 s</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= P4 点位 ================= -->
+  <div class="page" data-p="3">
+    <div class="card" style="left:12px;top:10px;width:330px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>数字输入 DI</div>
+      <div class="note" style="left:180px;top:12px;width:136px">9 / 12</div>
+      <div class="body" id="b-di"></div>
+    </div>
+
+    <div class="card" style="left:352px;top:10px;width:330px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>数字输出 DO</div>
+      <div class="note" style="left:180px;top:12px;width:136px">4 / 8</div>
+      <div class="body" id="b-do"></div>
+    </div>
+
+    <div class="card" style="left:692px;top:10px;width:320px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>模拟量 AI</div>
+      <div class="note" style="left:170px;top:12px;width:136px">4-20 mA</div>
+      <div class="body" id="b-ai"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:272px;width:330px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>模拟量输出 AO</div>
+      <div class="body" id="b-ao"></div>
+    </div>
+
+    <div class="card" style="left:352px;top:272px;width:330px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>强制表</div>
+      <div class="note" style="left:180px;top:12px;width:136px">0 点强制</div>
+      <div class="body" id="b-force"></div>
+    </div>
+
+    <div class="card" style="left:692px;top:272px;width:320px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>扫描与诊断</div>
+      <div class="body" id="b-diag"></div>
+    </div>
+  </div>
+
+  <!-- ================= P5 系统 ================= -->
+  <div class="page" data-p="4">
+    <div class="card" style="left:12px;top:10px;width:500px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>设备信息</div>
+      <div class="body" id="b-info"></div>
+    </div>
+
+    <div class="card" style="left:524px;top:10px;width:488px;height:250px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>能效统计</div>
+      <div class="body" id="b-energy"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:272px;width:330px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>显示与背光</div>
+      <div class="body" id="b-bright"></div>
+    </div>
+
+    <div class="card" style="left:352px;top:272px;width:330px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>运行诊断</div>
+      <div class="body" id="b-run"></div>
+    </div>
+
+    <div class="card" style="left:692px;top:272px;width:320px;height:222px">
+      <div class="ttl" style="left:14px;top:12px"><i></i>版本与说明</div>
+      <div class="body" id="b-ver"></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+const TABS=['总览','回路','趋势','点位','系统'];
+const C={g:'#2DD4A7',a:'#F5A524',r:'#FF5C6C',m:'#6C8099',b:'#38BDF8',v:'#A78BFA',
+         ice:'#38BDF8',ice2:'#7DD3FC',teal:'#2DD4A7',warm:'#FB923C'};
+
+const mk=(p,l,t,w,h,bg,rad)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px;width:${w}px;height:${h}px;
+    border-radius:${rad===undefined?8:rad}px;background:${bg||'transparent'}`;
+  p.appendChild(d);return d;};
+const put=(p,html,l,t,w)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px`+(w?`;width:${w}px`:'');
+  d.innerHTML=html;p.appendChild(d);return d;};
+
+/* ---------------- P1 双回路 ---------------- */
+(function(){
+  const P=document.getElementById('loop');
+  const Y_S=76, Y_R=176, X0=20, X1=250, HX0=250, HX1=330, X2=600;
+
+  // 两侧小标题
+  // 管路
+  mk(P,X0,Y_S-3,X1-X0,6,C.ice,3);
+  mk(P,X0,Y_R-3,X1-X0,6,C.ice2,3);
+  mk(P,HX1,Y_S-3,X2-HX1,6,C.teal,3);
+  mk(P,HX1,Y_R-3,X2-HX1,6,C.warm,3);
+
+  // 板换
+  const hx=document.createElement('div');hx.className='hx';
+  hx.style.cssText+=';left:'+HX0+'px;top:56px;width:'+(HX1-HX0)+'px;height:140px';
+  hx.innerHTML='<i style="top:28px"></i><i style="top:66px"></i><i style="top:104px"></i>';
+  P.appendChild(hx);
+  put(P,`<span style="font-size:16px;color:#9BAEC2">板式换热器</span>`,HX0-6,204);
+
+  // 机柜
+  const rk=document.createElement('div');rk.className='rack';
+  rk.style.cssText+=';left:600px;top:40px;width:42px;height:172px';
+  rk.innerHTML='<i style="top:16px"></i><i style="top:44px"></i><i style="top:72px"></i><i style="top:124px"></i>';
+  P.appendChild(rk);
+  put(P,`<span style="font-size:16px;color:#6C8099">机柜区</span>`,596,220);
+
+  // 方向箭头（供液向右、回液向左）
+  const arw=(x,y,c,toRight)=>{const a=document.createElement('div');a.className='arw';
+    a.style.cssText+=`;left:${x}px;top:${y-5}px;`+
+      (toRight?`border-left:9px solid ${c};`:`border-right:9px solid ${c};`)+
+      'border-top:5px solid transparent;border-bottom:5px solid transparent;';
+    P.appendChild(a);};
+  arw(140,Y_S,C.ice,true); arw(200,Y_R,C.ice2,false);
+  arw(470,Y_S,C.teal,true); arw(470,Y_R,C.warm,false);
+
+  // 温度读数：供管在管上，回管在管下
+  put(P,`<span style="font-size:18px;font-weight:700;color:#38BDF8">12.0 ℃</span>`,X0,Y_S+8);
+  put(P,`<span style="font-size:18px;font-weight:700;color:#7DD3FC">18.5 ℃</span>`,X0,Y_R+10);
+  put(P,`<span style="font-size:18px;font-weight:700;color:#2DD4A7">32.4 ℃</span>`,HX1+8,Y_S+8);
+  put(P,`<span style="font-size:18px;font-weight:700;color:#FB923C">40.6 ℃</span>`,HX1+8,Y_R+10);
+
+  // 主泵 P1（供液管上）
+  const p1=document.createElement('div');p1.className='pump';
+  p1.style.cssText+=';left:420px;top:'+(Y_S-25)+'px;width:50px;height:50px';
+  p1.textContent='P1';
+  P.appendChild(p1);
+  put(P,`<span style="font-size:16px;color:#2DD4A7">78 %</span>`,430,Y_S+30);
+
+  // 旁路 + 备用泵 P2
+  mk(P,480,Y_S-3,6,67,C.teal,3);        // 下支管
+  mk(P,480,131,98,6,C.teal,3);         // 横向旁路
+  mk(P,578,Y_S-3,6,67,C.teal,3);        // 上支管
+  const p2=document.createElement('div');p2.className='pump off';
+  p2.style.cssText+=';left:502px;top:114px;width:40px;height:40px;border-width:3px';
+  p2.textContent='P2';
+  P.appendChild(p2);
+  // 两个隔离阀
+  mk(P,474,Y_S-14,8,26,'#526A85',2); mk(P,582,Y_S-14,8,26,'#526A85',2);
+  put(P,`<span style="font-size:16px;color:#6C8099">P2 热备</span>`,506,Y_R+12);
+  // 底部图例：两条回路的颜色对应关系
+  put(P,`<span style="position:absolute;left:0;top:4px;width:10px;height:10px;border-radius:3px;background:#38BDF8"></span>
+         <span style="position:absolute;left:18px;top:0;font-size:16px;color:#9BAEC2">一次侧 冷冻水</span>`,X0,244,170);
+  put(P,`<span style="position:absolute;left:0;top:4px;width:10px;height:10px;border-radius:3px;background:#2DD4A7"></span>
+         <span style="position:absolute;left:18px;top:0;font-size:16px;color:#9BAEC2">二次侧 冷却液</span>`,X0+180,244,180);
+  put(P,`<span style="position:absolute;left:0;top:4px;width:10px;height:10px;border-radius:3px;background:#FB923C"></span>
+         <span style="position:absolute;left:18px;top:0;font-size:16px;color:#9BAEC2">回液 40.6 ℃</span>`,X0+370,244,170);
+})();
+
+/* ---------------- P1 KPI ---------------- */
+(function(){
+  const P=document.getElementById('kpi');
+  [['换热功率','980','kW / 1200',0],['供液温度','32.4','℃ 目标 32',0],
+   ['供回温差','8.2','K',1],['泵频','78','%',1]].forEach((k,i)=>{
+    const x=14+(i%2)*154, y=46+Math.floor(i/2)*112;
+    const d=mk(P,x,y,146,100,'#1A2532');
+    d.innerHTML=`
+      <div style="position:absolute;left:14px;top:12px;font-size:16px;color:#9BAEC2">${k[0]}</div>
+      <div style="position:absolute;left:14px;top:34px;font-size:40px;font-weight:700;
+        line-height:46px;color:${k[3]?C.g:'#E6EEF7'}">${k[1]}</div>
+      <div style="position:absolute;left:14px;top:82px;font-size:16px;color:#6C8099">${k[2]}</div>`;
+  });
+})();
+
+/* ---------------- P1 泵组 ---------------- */
+(function(){
+  const P=document.getElementById('pumps');
+  [['P1','主泵 · 运行','78','46.2',C.g],['P2','备用 · 热备','0','0.0',C.m]].forEach((p,i)=>{
+    const y=46+i*34;
+    put(P,`
+      <span style="position:absolute;left:14px;top:4px;font-size:18px;font-weight:700;color:#E6EEF7">${p[0]}</span>
+      <span style="position:absolute;left:56px;top:6px;font-size:16px;color:#9BAEC2">${p[1]}</span>
+      <span style="position:absolute;left:250px;top:4px;font-size:16px;color:#6C8099">频率</span>
+      <span style="position:absolute;left:296px;top:3px;font-size:18px;font-weight:700;color:${p[4]};white-space:nowrap">${p[2]} %</span>
+      <span style="position:absolute;left:372px;top:4px;font-size:16px;color:#6C8099">电流</span>
+      <span style="position:absolute;left:418px;top:3px;font-size:18px;font-weight:700;color:#E6EEF7;white-space:nowrap">${p[3]} A</span>`,
+      14,y,480);
+  });
+})();
+
+/* ---------------- P1 报警 ---------------- */
+(function(){
+  const P=document.getElementById('alarms');
+  [['20:01','P2 热备泵轮换试运转完成','m'],
+   ['19:48','二次侧压差偏低 3 kPa，已自动提频','a'],
+   ['19:12','补水阀动作 12 s，液位恢复 68 %','m']].forEach((a,i)=>{
+    put(P,`
+      <span style="position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:4px;
+        background:${a[2]==='a'?C.a:C.m}"></span>
+      <span style="position:absolute;left:18px;top:0;font-size:16px;color:#6C8099">${a[0]}</span>
+      <span style="position:absolute;left:68px;top:0;font-size:16px;color:#E6EEF7;
+        width:388px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a[1]}</span>`,
+      14,42+i*26,470);
+  });
+})();
+
+/* ---------------- P2 回路参数 ---------------- */
+function params(id, list){
+  const P=document.getElementById(id);
+  list.forEach((it,i)=>{
+    const x=14+(i%2)*236, y=46+Math.floor(i/2)*78;
+    put(P,`
+      <div style="font-size:16px;color:#6C8099;line-height:20px">${it[0]}</div>
+      <div style="font-size:28px;font-weight:700;color:#E6EEF7;line-height:34px;margin-top:2px">${it[1]}
+        <span style="font-size:16px;font-weight:400;color:#6C8099">${it[2]}</span></div>`,x,y);
+  });
+}
+params('loopA',[['供水温度','12.0','℃'],['回水温度','18.5','℃'],
+                 ['供回压差','180','kPa'],['流量','132','m³/h']]);
+params('loopB',[['供液温度','32.4','℃'],['回液温度','40.6','℃'],
+                 ['供回压差','165','kPa'],['流量','105','m³/h']]);
+
+(function(){
+  const P=document.getElementById('eff');
+  [['换热量','980','kW'],['COP','5.8',''],['接近温差','1.2','K']].forEach((e,i)=>{
+    put(P,`
+      <div style="font-size:16px;color:#6C8099;line-height:20px">${e[0]}</div>
+      <div style="font-size:28px;font-weight:700;color:#E6EEF7;line-height:34px;margin-top:2px">${e[1]}
+        <span style="font-size:16px;font-weight:400;color:#6C8099">${e[2]}</span></div>`,14+i*162,44);
+  });
+})();
+
+(function(){
+  const P=document.getElementById('makeup');
+  [['膨胀罐液位','68','%'],['补水量','0.8','m³/h'],['电导率','0.8','μS/cm']].forEach((m,i)=>{
+    put(P,`
+      <div style="font-size:16px;color:#6C8099;line-height:20px">${m[0]}</div>
+      <div style="font-size:28px;font-weight:700;color:#E6EEF7;line-height:34px;margin-top:2px">${m[1]}
+        <span style="font-size:16px;font-weight:400;color:#6C8099">${m[2]}</span></div>`,14+i*158,44);
+  });
+})();
+
+(function(){
+  const P=document.getElementById('protect');
+  [['机柜区漏液','无泄漏',C.g],['管路间漏液','无泄漏',C.g],['泵坑漏液','无泄漏',C.g],
+   ['双泵互备','已投入',C.g],['电源冗余','双路正常',C.g]].forEach((p,i)=>{
+    const x=14+i*198;
+    put(P,`
+      <span style="position:absolute;left:0;top:6px;width:8px;height:8px;border-radius:4px;background:${p[2]}"></span>
+      <span style="position:absolute;left:16px;top:0;font-size:16px;color:#9BAEC2">${p[0]}</span>
+      <span style="position:absolute;left:16px;top:22px;font-size:18px;font-weight:700;color:${p[2]}">${p[1]}</span>`,
+      x,40,190);
+  });
+})();
+
+/* ---------------- 图表 ---------------- */
+function chart(el, series, o){
+  const W=o.w,H=o.h,padL=52,padR=14,padT=10,padB=24;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const X=i=>padL+iw*i, Y=v=>padT+ih-(v-o.min)/(o.max-o.min)*ih;
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  for(let i=0;i<=4;i++){
+    const y=padT+ih*i/4, v=o.max-(o.max-o.min)*i/4;
+    s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1E2B3A"/>`;
+    s+=`<text x="${padL-8}" y="${y+5}" text-anchor="end" font-size="14" fill="#6C8099">${v.toFixed(o.dec||0)}</text>`;
+  }
+  o.xlab.forEach((t,i)=>{
+    const n=o.xlab.length-1,x=padL+iw*i/n;
+    s+=`<text x="${x}" y="${H-6}" text-anchor="${i===0?'start':(i===n?'end':'middle')}" font-size="14" fill="#6C8099">${t}</text>`;
+  });
+  series.forEach(se=>{
+    const pts=se.d.map((v,i)=>`${X(i/(se.d.length-1)).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    s+=`<polyline points="${pts}" fill="none" stroke="${se.c}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    s+=`<circle cx="${X(1)}" cy="${Y(se.d[se.d.length-1])}" r="4" fill="#fff" stroke="${se.c}" stroke-width="2.5"/>`;
+  });
+  el.innerHTML=s+'</svg>';
+}
+const wave=(n,base,amp,seed)=>Array.from({length:n},(_,i)=>
+  +(base+Math.sin((i+seed)*0.55)*amp+Math.sin((i+seed)*0.17)*amp*0.4).toFixed(2));
+
+chart(document.getElementById('c-temp'),[
+  {c:C.teal,d:wave(31,32.4,0.22,1)},{c:C.warm,d:wave(31,40.6,0.30,2)}],
+  {w:608,h:150,min:30,max:42,dec:0,xlab:['0 s','2 s','4 s','6 s']});
+chart(document.getElementById('c-dp'),[
+  {c:C.b,d:wave(31,165,2.2,3)}],
+  {w:320,h:150,min:148,max:180,dec:0,xlab:['0 s','3 s','6 s']});
+chart(document.getElementById('c-pump'),[
+  {c:C.teal,d:wave(51,78,1.6,4)},{c:C.v,d:wave(51,62,2.0,5)},{c:'#526A85',d:new Array(51).fill(0)}],
+  {w:972,h:150,min:0,max:100,dec:0,xlab:['0 s','2 s','4 s','6 s']});
+
+/* ---------------- 表格 ---------------- */
+function table(id, head, rows, w, cols){
+  if(cols){}
+  const P=document.getElementById(id);
+  const t=document.createElement('table');
+  t.className='t';t.style.cssText=`position:absolute;left:14px;top:46px;width:${w}px`;
+  let h='';
+  if(cols){h+='<colgroup>';cols.split(',').forEach(c=>{h+=`<col style="width:${c}px">`;});h+='</colgroup>';}
+  h+='<thead><tr>';
+  head.forEach(x=>{h+=`<th class="${x.a||''}">${x.t}</th>`;});
+  h+='</tr></thead><tbody>';
+  rows.forEach(r=>{h+='<tr>';r.forEach(c=>{
+    const o=(typeof c==='object')?c:{v:c};
+    h+=`<td class="${o.a||''}" ${o.c?`style="color:${o.c}"`:''}>${o.v}</td>`;});h+='</tr>';});
+  t.innerHTML=h+'</tbody>';P.appendChild(t);
+}
+const G='#2DD4A7',M='#6C8099',A='#F5A524';
+table('b-di',[{t:'位号'},{t:'名称'},{t:'状态',a:'r'}],
+  [['I0.0','急停回路',{v:'ON',c:G,a:'r'}],['I0.1','双泵运行',{v:'ON',c:G,a:'r'}],
+   ['I0.2','膨胀罐低液位',{v:'OFF',c:M,a:'r'}],['I0.3','漏液报警',{v:'OFF',c:M,a:'r'}],
+   ['I0.4','电源双路',{v:'ON',c:G,a:'r'}]],296,'62,166,68');
+table('b-do',[{t:'位号'},{t:'名称'},{t:'状态',a:'r'}],
+  [['Q0.0','P1 运行',{v:'ON',c:G,a:'r'}],['Q0.1','P2 运行',{v:'OFF',c:M,a:'r'}],
+   ['Q0.2','补水电磁阀',{v:'OFF',c:M,a:'r'}],['Q0.3','三通调节阀',{v:'ON',c:G,a:'r'}],
+   ['Q0.4','风机',{v:'ON',c:G,a:'r'}]],296);
+table('b-ai',[{t:'通道'},{t:'名称'},{t:'值',a:'r'}],
+  [['AI0','供液温度','32.4 ℃'],['AI1','回液温度','40.6 ℃'],
+   ['AI2','供回压差','165 kPa'],['AI3','流量','105 m³/h'],
+   ['AI4','膨胀罐液位','68 %']],286);
+
+(function(){
+  const P=document.getElementById('b-ao');
+  [['AO0','P1 频率给定','78','%'],['AO1','三通阀位给定','62','%'],
+   ['AO2','补水阀给定','0','%']].forEach((a,i)=>{
+    put(P,`
+      <span style="position:absolute;left:0;top:2px;font-size:16px;color:#6C8099;width:56px">${a[0]}</span>
+      <span style="position:absolute;left:58px;top:2px;font-size:16px;color:#E6EEF7">${a[1]}</span>
+      <span style="position:absolute;right:0;top:0;font-size:18px;font-weight:700;color:#E6EEF7;white-space:nowrap">${a[2]} <span style="font-size:16px;font-weight:400;color:#6C8099">${a[3]}</span></span>`,
+      14,46+i*38,300);
+  });
+})();
+
+(function(){
+  const P=document.getElementById('b-force');
+  [['M0.1','P2 允许','实时']].forEach((f,i)=>{
+    const d=mk(P,14,46,300,32,'#1A2532',6);
+    d.innerHTML=`
+      <span style="position:absolute;left:12px;top:6px;font-size:16px;color:#E6EEF7">${f[0]}</span>
+      <span style="position:absolute;left:74px;top:6px;font-size:16px;color:#9BAEC2">${f[1]}</span>
+      <span style="position:absolute;right:12px;top:6px;font-size:16px;color:#6C8099">${f[2]}</span>`;
+  });
+  const b=mk(P,14,110,300,34,C.b,6);
+  b.style.cssText+=';color:#04222B;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center';
+  b.textContent='全部取消强制';
+  put(P,`<span style="font-size:16px;color:#6C8099">强制值优先于实时映像，复位后恢复采集</span>`,14,158,300);
+})();
+
+(function(){
+  const P=document.getElementById('b-diag');
+  [['扫描周期','3.4 ms'],['CPU 负荷','26 %'],['AO 周期','2 ms'],['通信错误','0']].forEach((d,i)=>{
+    const x=14+(i%2)*150, y=46+Math.floor(i/2)*62;
+    const c=mk(P,x,y,140,52,'#1A2532');
+    c.innerHTML=`
+      <div style="position:absolute;left:12px;top:6px;font-size:16px;color:#6C8099">${d[0]}</div>
+      <div style="position:absolute;left:12px;top:24px;font-size:22px;font-weight:700;color:#E6EEF7">${d[1]}</div>`;
+  });
+})();
+
+/* ---------------- P5 ---------------- */
+table('b-info',[{t:'项目'},{t:'值',a:'r'}],
+  [['设备名称','CDU-1200 液冷散热机组'],['位号','CDU-A03'],
+   ['控制器','CTRL-1500 / V3.2.7'],['额定制冷量','1200 kW'],
+   ['投运日期','2026.03']],466);
+
+(function(){
+  const P=document.getElementById('b-energy');
+  [['今日换热量','18.4','GJ'],['平均 COP','5.8',''],['PUE 贡献','1.08',''],['运行时长','412','h']]
+  .forEach((e,i)=>{
+    const x=14+(i%2)*232, y=46+Math.floor(i/2)*96;
+    const c=mk(P,x,y,220,86,'#1A2532');
+    c.innerHTML=`
+      <div style="position:absolute;left:16px;top:10px;font-size:16px;color:#9BAEC2">${e[0]}</div>
+      <div style="position:absolute;left:16px;top:32px;font-size:36px;font-weight:700;color:#E6EEF7">${e[1]}
+        <span style="font-size:16px;font-weight:400;color:#6C8099;margin-left:6px">${e[2]}</span></div>`;
+  });
+})();
+
+(function(){
+  const P=document.getElementById('b-bright');
+  const tr=mk(P,16,46,298,10,'#1E2B3A',5);
+  mk(tr,0,0,246,10,C.b,5);
+  const k=mk(tr,240,-6,22,22,'#fff',11);k.style.border='3px solid #38BDF8';
+  put(P,`<span style="font-size:16px;color:#9BAEC2">亮度 82 % · PWM3（GPIO13）</span>`,16,70);
+  ['夜间','标准','明亮'].forEach((b,i)=>{
+    const d=mk(P,16+i*92,104,84,40,'#121A24');
+    d.style.cssText+=`;border:1px solid ${C.b};display:flex;align-items:center;justify-content:center;`+
+      `font-size:16px;font-weight:700;color:${C.b}`;
+    d.textContent=b;
+  });
+  put(P,`<span style="font-size:16px;color:#6C8099">背光在显示初始化后点亮，避免上电花屏</span>`,16,160,300);
+})();
+
+(function(){
+  const P=document.getElementById('b-run');
+  [['运行时长','412 h'],['启停次数','38'],['轮换次数','12'],['缓存占用','36 %']].forEach((d,i)=>{
+    const x=14+(i%2)*150, y=46+Math.floor(i/2)*62;
+    const c=mk(P,x,y,140,52,'#1A2532');
+    c.innerHTML=`
+      <div style="position:absolute;left:12px;top:6px;font-size:16px;color:#6C8099">${d[0]}</div>
+      <div style="position:absolute;left:12px;top:24px;font-size:22px;font-weight:700;color:#E6EEF7">${d[1]}</div>`;
+  });
+  put(P,`<span style="font-size:16px;color:#6C8099">最近无通信错误，诊断缓冲 0 条</span>`,14,176,300);
+})();
+
+(function(){
+  const P=document.getElementById('b-ver');
+  [['PLCUI','v1.0.2'],['固件','Air1603 / 103 号'],['工程','mmy_cdu_plc'],['版本','1.0.0']]
+  .forEach((v,i)=>{
+    put(P,`
+      <span style="position:absolute;left:0;top:0;font-size:16px;color:#6C8099">${v[0]}</span>
+      <span style="position:absolute;right:0;top:0;font-size:16px;color:#E6EEF7">${v[1]}</span>`,
+      14,46+i*30,292);
+  });
+  put(P,`<span style="font-size:16px;color:#6C8099;line-height:22px">main.xml 定布局，ui_vars.lua 绑数据；全屏纯色块，零图片</span>`,14,168,292);
+})();
+
+/* ---------------- 页签 / 时钟 ---------------- */
+(function(){
+  const box=document.getElementById('tabs');
+  TABS.forEach((t,i)=>{
+    const el=document.createElement('div');
+    el.className='tab'+(i===0?' on':'');el.textContent=t;
+    el.onclick=()=>{
+      document.querySelectorAll('.tab').forEach((x,j)=>x.classList.toggle('on',j===i));
+      document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===i));
+      toast(t);
+    };
+    box.appendChild(el);
+  });
+  let tm=null;
+  function toast(s){
+    const el=document.getElementById('toast');
+    el.textContent=s;el.style.display='flex';
+    clearTimeout(tm);tm=setTimeout(()=>el.style.display='none',1100);
+  }
+  const ck=document.getElementById('clock');
+  (function tick(){
+    const d=new Date();
+    ck.textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    setTimeout(tick,10000);
+  })();
+  const m=location.hash.match(/p([1-5])/);
+  if(m){const k=+m[1]-1;
+    document.querySelectorAll('.tab').forEach((x,j)=>x.classList.toggle('on',j===k));
+    document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===k));}
+  function fit(){
+    const z=Math.min((window.innerWidth-40)/1024,(window.innerHeight-40)/600,1.5);
+    document.documentElement.style.setProperty('--z',z.toFixed(3));
+  }
+  fit();window.addEventListener('resize',fit);
+})();
+</script>
+</body>
+</html>

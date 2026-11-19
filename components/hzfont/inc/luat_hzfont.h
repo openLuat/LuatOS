@@ -16,9 +16,9 @@ typedef enum {
 int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psram);
 // 查询当前 hzfont 状态
 luat_hzfont_state_t luat_hzfont_get_state(void);
-// 估算一段 UTF-8 字符串的像素宽度
+// 返回一段 UTF-8 字符串的水平前进宽度（像素）
 uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size);
-/* antialias = -1(自动), 1(边界2x2), 2(边界3x3), 3(边界4x4) */
+/* antialias = -1(自动), 1(低), 2(中), 3(高) */
 // 在屏幕上绘制 UTF-8 文本（带缓存和抗锯齿控制）
 int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias);
 
@@ -37,7 +37,7 @@ typedef struct {
 TtfFont * luat_hzfont_get_ttf(void);
 // 用于 airui 的码点查找接口（复用 hzfont 内部 cp cache）
 int luat_hzfont_lookup_glyph_index(uint32_t codepoint, uint16_t *glyph_index);
-// 获取位图并输出本次流程统计（供 airui 调试汇总）
+// 获取位图和度量并输出流程统计，空字形可只带字距（供 airui 使用）
 const TtfBitmap * luat_hzfont_get_bitmap_profiled(uint16_t glyph_index, uint8_t font_size,
                                                   uint8_t supersample, luat_hzfont_bitmap_profile_t *prof_out);
 // 访问指定 glyph 的缓存位图（不存在时会触发实时渲染）

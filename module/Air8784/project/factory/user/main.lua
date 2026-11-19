@@ -30,7 +30,7 @@ VERSION：项目版本号,ascii string类型
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "Air8784_Factory"
-VERSION = "001.000.007"
+VERSION = "001.000.008"
 
 -- 出厂固件版本：业务模式由 AirCloud 网页任务下发配置（task_cloud，Tag19/20）
 -- 此KEY值仅针对合宙官方IOT平台FOTA(libfota3)，如需使用请替换为项目对应KEY
@@ -43,7 +43,8 @@ PRODUCT_KEY = "AVbrqZ5tldhyJV8oXqLqa2jPmTey2zMg"
 --   "normal"  强制进业务模式（跳过产测检查），调试 SIP / AirCloud 用，无需先跑产测
 --   "factory" 强制进产测模式，调试产测指令用
 -- 注意：强制 "normal" 时若未写号，日志 PROD/PCB 打印为 nil，不影响业务功能
-local BOOT_MODE = "auto"
+-- local BOOT_MODE = "auto"
+local BOOT_MODE = "normal" -- 未配置默认单 SIP；后续按 AirCloud 保存的 sip/cc/sip_cc 模式启动
 -- ============================================================
 
 log.info("main", PROJECT, VERSION)
@@ -87,6 +88,11 @@ local function otp_ready()
 end
 
 local function decide_mode()
+    if BOOT_MODE == "single" then return "single" end
+    if BOOT_MODE == "cc" then
+        if rtos.bsp() == "PC" then return "business" end
+        return "cc"
+    end
     if BOOT_MODE == "factory" then return "factory" end
     if BOOT_MODE == "normal" then return "business" end
     -- auto
@@ -106,7 +112,10 @@ local mode = decide_mode()
 -- 当前模式标记（factory / business），供日志与后续扩展使用
 _G.WORK_MODE = mode
 
-if mode == "factory" then
+if mode == "cc" then
+    log.info("main", "进入独立蜂窝电话模式 (Air1103)")
+    require "cc_local_app"
+elseif mode == "factory" then
     log.info("main", "进入产测模式(USB 单通道)")
     require "factory"
 else

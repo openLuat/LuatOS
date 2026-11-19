@@ -11,6 +11,15 @@ UP 双沿触发，按下启动 1s 定时器：按住超过 1s 视为长按 → �
 短按（<1s 松开）为预留动作，当前不处理。由 main.lua 加载，不与其他相同 GPIO 按键模块重复加载。
 ]]
 
+if rtos.bsp() == "PC" then
+    -- LuaTools 按文本扫描依赖，每个 require 单独一行。
+    local runtime = require "task_runtime"
+    if runtime.active == "single" then
+        local keyboard = require "pc_sip_keys"
+        keyboard.start()
+    end
+    return
+end
 gpio.setup(23,1)
 local function on_sos_pressed()sys.publish("SIP_TASK_PRIMARY")end
 gpio.setup(20,on_sos_pressed,gpio.PULLUP,gpio.FALLING)

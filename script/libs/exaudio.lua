@@ -2269,12 +2269,12 @@ exaudio.play_hangup() -- 播放挂断提示音（播完后自动复位Air1103）
 --       必须调用 play_hangup() 播放挂断提示音后，复位Air1103；
 --       注意：若传入true，不调用play_hangup() 芯片不会复位、上行(MIC)无法恢复，挂断后主动呼出场景会没有声音!!!
 ]]
-function exaudio.stop_ringback(skip_reset)
+function exaudio.stop_ringback(skip_reset,keep_rx)
     if audio_setup_param.model == "air1103" then
         if not air1103 or type(air1103.stop_tones) ~= "function" then
             return false
         end
-        return air1103.stop_tones(skip_reset)
+        return air1103.stop_tones(skip_reset,keep_rx)
     end
     return false
 end

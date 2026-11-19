@@ -9,9 +9,9 @@ require("sys")
 local sip = require("exsipclient")
 
 -- local SIP_CONFIG = {
---     sip_server_addr = "180.152.6.34",
+--     sip_server_addr = "cc.luatos.com",
 --     sip_server_port = 8910,
---     sip_domain = "180.152.6.34",
+--     sip_domain = "cc.luatos.com",
 --     sip_username = "100000",
 --     sip_password = "Mm123.",
 --     sip_transport = exsip.TRANSPORT_UDP,
@@ -19,9 +19,9 @@ local sip = require("exsipclient")
 -- }
 
 -- 配置 SIP 服务器信息（请根据实际情况修改）
-local SIP_SERVER = "180.152.6.34"      -- SIP 服务器地址
+local SIP_SERVER = "cc.luatos.com"      -- SIP 服务器地址
 local SIP_PORT = 8910                -- SIP 服务器端口
-local SIP_DOMAIN = "180.152.6.34"       -- SIP 域
+local SIP_DOMAIN = "cc.luatos.com"       -- SIP 域
 -- local SIP_USER = "10123450"              -- 用户名
 -- local SIP_PASSWORD = "Air.012345"        -- 密码
 local SIP_USER = "195544F0"              -- 用户名

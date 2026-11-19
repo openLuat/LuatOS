@@ -14,13 +14,23 @@ PROJECT/VERSION/PRODUCT_KEY/FOTA 由 factory/main.lua 统一管理（libfota3）
 ]]
 sys = require "sys"
 sysplus = require "sysplus"
-require "netdrv_4g"
+-- require "netdrv_4g"
+if rtos.bsp() == "PC" then
+    require 'netdrv_pc'
+else
+    require "netdrv_4g"
+end
+
 -- Keep module imports separate for Luatools dependency scanning.
 local aircloud_settings = require "aircloud_settings"
 local sip_config = require "sip_config"
-aircloud_settings.init("8784", sip_config)
+aircloud_settings.init("8784", sip_config, WORK_MODE == "single")
 local mode = require "task_runtime"
-if mode.active == "single" then
+if mode.active == "cc" then
+    require "cc_local_app"
+    require "cc_local_cloud"
+    return -- 独立 CC 自己管理按键和云端，不加载 SIP 任务引擎。
+elseif mode.active == "single" then
     require "single_app"
 else
     require "cc_app"

@@ -451,11 +451,11 @@ static bool hzfont_get_glyph_dsc(const lv_font_t * font, lv_font_glyph_dsc_t * d
         }
     }
 
-    // 3. 填充 LVGL 描述信息
-    dsc_out->adv_w = (uint16_t)bitmap->width; 
+    // 空字形也有字距，例如空格。
+    dsc_out->adv_w = (uint16_t)bitmap->advance;
     dsc_out->box_w = (uint16_t)bitmap->width;
     dsc_out->box_h = (uint16_t)bitmap->height;
-    dsc_out->ofs_x = 0;
+    dsc_out->ofs_x = bitmap->pixels ? (int16_t)bitmap->originX : 0;
     
     // 设置每行字节数。对于 A8 格式，stride 等于像素宽度
     dsc_out->stride = dsc_out->box_w;
@@ -467,7 +467,7 @@ static bool hzfont_get_glyph_dsc(const lv_font_t * font, lv_font_glyph_dsc_t * d
     // 计算公式：字号 - 内部 originY (基线位置) - 位图高度
     dsc_out->ofs_y = (int16_t)((int32_t)bitmap->originY - (int32_t)bitmap->height);
     
-    dsc_out->format = LV_FONT_GLYPH_FORMAT_A8; // HZFont 输出 A8 格式灰度图
+    dsc_out->format = bitmap->pixels ? LV_FONT_GLYPH_FORMAT_A8 : LV_FONT_GLYPH_FORMAT_NONE;
     dsc_out->gid.index = glyph_index;
 
     ok = true;
@@ -559,7 +559,7 @@ profile_done:
  * @param path TTF 文件路径（传 NULL 则尝试加载内置字库）
  * @param size 字号
  * @param cache_size 点阵缓存上限数量
- * @param antialias 抗锯齿等级 (-1: 自动, 1: 边界2x2, 2: 边界3x3, 3: 边界4x4)
+ * @param antialias 抗锯齿等级 (-1: 自动, 1: 低, 2: 中, 3: 高)
  * @param load_to_psram 是否在初始化时将字库数据复制到 PSRAM（默认 false）
  * @return lv_font_t* 字体对象指针，失败返回 NULL
  */

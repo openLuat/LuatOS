@@ -11,10 +11,10 @@
 
 | 参数 | 当前值 | 说明 |
 | --- | --- | --- |
-| `sip_server_addr` | `180.152.6.34` | SIP 服务器地址 |
+| `sip_server_addr` | `cc.luatos.com` | SIP 服务器地址 |
 | `sip_server_port` | `8910` | SIP 服务器端口 |
 | `sip_username` | `1903CFC1` | 4G 模组 SIP 账号 |
-| `remote_sip_uri` | `sip:195544F0@180.152.6.34` | 手机来电转拨的 SIP 客户端 |
+| `remote_sip_uri` | `sip:195544F0@cc.luatos.com` | 手机来电转拨的 SIP 客户端 |
 | `target_phone_number` | `137xxxx24xx` | SIP 呼入时模组拨打的手机号 |
 | `codec` | `PCMU` | 当前主测 G.711 PCMU/8k |
 | `auto_answer_sip` | `true` | SIP 来电自动进入早期媒体并拨手机 |

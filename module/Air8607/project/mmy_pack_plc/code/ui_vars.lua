@@ -69,6 +69,7 @@ ui_vars.PAGES = {
     -- 系统：亮度读数与当班统计
     sys = {
         { id = "hd_clock", var = "clock" },
+        { id = "br_num",   var = "br_num" },
         { id = "br_v",     var = "br_v" },
         { id = "sa_v0",    var = "sa_v0" },
         { id = "sa_v1",    var = "sa_v1" },

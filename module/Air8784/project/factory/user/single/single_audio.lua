@@ -8,6 +8,9 @@
 提供初始化、采集、播放、恢复接口；使用 single_config.audio。
 volume 控制本机喇叭，mic_gain 控制本机MIC到SIP的重采样增益。
 ]]
+if rtos.bsp() == "PC" then
+    return require "single_audio_pc"
+end
 local exaudio = require "exaudio"
 local air1103 = require "air1103"
 local single_config = require "single_config"

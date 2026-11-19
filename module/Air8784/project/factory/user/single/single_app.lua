@@ -54,7 +54,7 @@ local function callback(event, action, payload)
             call_generation=call_generation+1
             call_voice.cancel()
             set_state("INCOMING")
-            log.info("single_app", "接通电话")
+            log.info("single_app", "收到来电，等待接听")
             post("RING",call_generation)   -- 旧来电的排队消息不得作用于新来电
             answer.start(settings.answer_settings(), function(token)
                 post("AUTO_ACCEPT", token)
@@ -79,7 +79,7 @@ local function callback(event, action, payload)
     elseif event == "media" then
         log.info("single_app", "MEDIA", action, payload.codec, payload.sample_rate)
         -- 官方 media/ready 不保证桥接成功，以实际设备适配层状态为准。
-        if action == "ready" and not single_audio.is_running() then
+        if action == "ready" and rtos.bsp() ~= "PC" and not single_audio.is_running() then
             log.error("single_app", "PCM桥接启动失败")
             post("RESTART")
         end
@@ -151,11 +151,16 @@ local function single_app_task()
     local sip_config = {}
     for key, value in pairs(cfg.sip) do sip_config[key] = value end
     if sip_config.sip_domain == "" then sip_config.sip_domain = sip_config.sip_server_addr end
-    sip_config.adapter = socket.LWIP_GP
+    local adapter = rtos.bsp() == "PC" and socket.dft() or socket.LWIP_GP
+    sip_config.adapter = adapter
     sip_config.auto_answer = false -- 本业务层检查1103就绪后再接听
     if not voip then log.error("single_app", "固件缺少 voip 库") return end
     sip_config.cc_sip_bridge = false
-    sip_config.audio_mode = voip.AUDIO_MODE_BRIDGE
+    if rtos.bsp() == "PC" then
+        sip_config.audio_mode = voip.AUDIO_MODE_I2S
+    else
+        sip_config.audio_mode = voip.AUDIO_MODE_BRIDGE
+    end
     exsip.on(callback)
     while true do
         registered = false
@@ -165,7 +170,7 @@ local function single_app_task()
             sys.wait(5000)
         end
         set_state("INIT")
-        while not socket.adapter(socket.LWIP_GP) do sys.waitUntil("IP_READY", 1000) end
+        while not socket.adapter(adapter) do sys.waitUntil("IP_READY", 1000) end
         sys.cleanMsg(TASK)
         -- TLS 证书按需读取：缺失则告警并等待重试（证书可经 OTA 补烧，无需重启即可自愈）
         local cert_ok = true
@@ -190,7 +195,7 @@ local function single_app_task()
                     if not recover_audio() then sys.wait(5000) end
                 end
                 local msg = sys.waitMsg(TASK, nil, 1000)
-                if not socket.adapter(socket.LWIP_GP) then break end
+                if not socket.adapter(adapter) then break end
                 if type(msg) == "table" then
                     local command, value = msg[1], msg[2]
                     if command == "RESTART" then break end

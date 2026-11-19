@@ -10,7 +10,9 @@
 #define LUAT_LOG_TAG "main"
 #include "luat_log.h"
 
+LUAMOD_API int luaopen_pcconsole(lua_State *L);
 static const luaL_Reg loadedlibs[] = {
+  {"pcconsole", luaopen_pcconsole},
   {"_G", luaopen_base}, // _G
   {LUA_LOADLIBNAME, luaopen_package}, // require
   {LUA_COLIBNAME, luaopen_coroutine}, // coroutine协程库

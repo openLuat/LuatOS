@@ -4,6 +4,8 @@
 
 #include "luat_mem.h"
 #include <string.h>
+#include "tiny_jpeg.h"
+#include <stdlib.h>
 
 #define REMOTE_POINTER_QUEUE 16
 #define REMOTE_POINTER_TIMEOUT_MS 1500
@@ -27,6 +29,7 @@ struct airui_remote {
     bool held;
     uint32_t input_tick;
     uint8_t *pixels;
+    size_t capacity;
     size_t len;
     uint32_t frame_id;
     uint32_t frame_tick;
@@ -38,6 +41,7 @@ static void release_frame(struct airui_remote *remote)
         luat_heap_free(remote->pixels);
         remote->pixels = NULL;
     }
+    remote->capacity = 0;
     remote->len = 0;
 }
 
@@ -126,8 +130,78 @@ int airui_remote_start(airui_ctx_t *ctx)
     return AIRUI_OK;
 }
 
-int airui_remote_capture(airui_ctx_t *ctx, uint32_t scale, uint32_t previous,
-                         airui_remote_capture_info_t *info)
+#define REMOTE_JPEG_MAX_BYTES (64U * 1024U)
+
+typedef struct {
+    uint8_t *data;
+    size_t capacity;
+    size_t used;
+    bool overflow;
+} remote_jpeg_output_t;
+
+static void write_jpeg(void *context, void *data, int len)
+{
+    remote_jpeg_output_t *out = context;
+    if (len < 0 || (size_t)len > out->capacity - out->used) {
+        out->overflow = true;
+    }
+    if (!out->overflow) {
+        memcpy(out->data + out->used, data, (size_t)len);
+        out->used += (size_t)len;
+    }
+}
+
+static int encode_jpeg(const airui_remote_frame_t *frame, uint32_t scale,
+                       uint32_t width, uint32_t height, remote_jpeg_output_t *out)
+{
+    uint8_t *strip = luat_heap_malloc((size_t)width * 8U * 3U);
+    if (strip == NULL) {
+        return AIRUI_ERR_NO_MEM;
+    }
+    void *encoder = jpeg_encode_init(write_jpeg, out, 1, width, height, 3);
+    if (encoder == NULL) {
+        luat_heap_free(strip);
+        return AIRUI_ERR_NO_MEM;
+    }
+
+    uint16_t last_pixel = 0;
+    uint8_t last_y = 0;
+    uint8_t last_cb = 128;
+    uint8_t last_cr = 128;
+    for (uint32_t y = 0; y < height && !out->overflow; y += 8) {
+        uint8_t *dest = strip;
+        for (uint32_t row = y; row < y + 8; row++) {
+            uint32_t source_y = row < height ? row : height - 1;
+            const uint16_t *source = (const uint16_t *)(frame->pixels + source_y * scale * frame->stride);
+            for (uint32_t x = 0; x < width; x++) {
+                uint16_t pixel = source[x * scale];
+                if (pixel != last_pixel) {
+                    int r = (pixel >> 11) & 31;
+                    int g = (pixel >> 5) & 63;
+                    int b = pixel & 31;
+                    r = (r << 3) | (r >> 2);
+                    g = (g << 2) | (g >> 4);
+                    b = (b << 3) | (b >> 2);
+                    last_y = (uint8_t)((77 * r + 150 * g + 29 * b + 128) >> 8);
+                    last_cb = (uint8_t)((32768 - 43 * r - 85 * g + 128 * b) >> 8);
+                    last_cr = (uint8_t)((32768 + 128 * r - 107 * g - 21 * b) >> 8);
+                    last_pixel = pixel;
+                }
+                *dest++ = last_y;
+                *dest++ = last_cb;
+                *dest++ = last_cr;
+            }
+        }
+        jpeg_encode_run(encoder, strip);
+    }
+    jpeg_encode_end(encoder);
+    free(encoder);
+    luat_heap_free(strip);
+    return out->overflow ? AIRUI_ERR_PLATFORM_ERROR : AIRUI_OK;
+}
+
+static int capture_frame(airui_ctx_t *ctx, uint32_t scale, uint32_t previous,
+                         airui_remote_capture_info_t *info, bool jpeg)
 {
     airui_remote_frame_t frame;
     if (ctx == NULL || ctx->remote == NULL || airui_is_sleeping(ctx)) {
@@ -148,23 +222,38 @@ int airui_remote_capture(airui_ctx_t *ctx, uint32_t scale, uint32_t previous,
     if (frame.sequence == previous) {
         len = 0;
     } else {
-        if (remote->pixels == NULL || remote->len != len) {
+        size_t capacity = len;
+        if (jpeg && capacity > REMOTE_JPEG_MAX_BYTES) {
+            capacity = REMOTE_JPEG_MAX_BYTES;
+        }
+        if (remote->pixels == NULL || remote->capacity != capacity) {
             release_frame(remote);
-            remote->pixels = luat_heap_malloc(len);
+            remote->pixels = luat_heap_malloc(capacity);
             if (remote->pixels == NULL) {
                 return AIRUI_ERR_NO_MEM;
             }
+            remote->capacity = capacity;
         }
         luat_airui_remote_sync_fb(frame.pixels, (size_t)frame.stride * frame.height);
-        uint16_t *dest = (uint16_t *)remote->pixels;
-        for (uint32_t y = 0; y < height; y++) {
-            const uint16_t *row = (const uint16_t *)(frame.pixels + y * scale * frame.stride);
-            if (scale == 1) {
-                memcpy(dest, row, width * sizeof(uint16_t));
-                dest += width;
-            } else {
-                for (uint32_t x = 0; x < width; x++) {
-                    *dest++ = row[x * scale];
+        if (jpeg) {
+            remote_jpeg_output_t out = {.data = remote->pixels, .capacity = capacity};
+            ret = encode_jpeg(&frame, scale, width, height, &out);
+            if (ret != AIRUI_OK) {
+                release_frame(remote);
+                return ret;
+            }
+            len = out.used;
+        } else {
+            uint16_t *dest = (uint16_t *)remote->pixels;
+            for (uint32_t y = 0; y < height; y++) {
+                const uint16_t *row = (const uint16_t *)(frame.pixels + y * scale * frame.stride);
+                if (scale == 1) {
+                    memcpy(dest, row, width * sizeof(uint16_t));
+                    dest += width;
+                } else {
+                    for (uint32_t x = 0; x < width; x++) {
+                        *dest++ = row[x * scale];
+                    }
                 }
             }
         }
@@ -181,6 +270,18 @@ int airui_remote_capture(airui_ctx_t *ctx, uint32_t scale, uint32_t previous,
         .screen_height = frame.height,
     };
     return AIRUI_OK;
+}
+
+int airui_remote_capture_rgb(airui_ctx_t *ctx, uint32_t scale, uint32_t previous,
+                            airui_remote_capture_info_t *info)
+{
+    return capture_frame(ctx, scale, previous, info, false);
+}
+
+int airui_remote_capture_jpeg(airui_ctx_t *ctx, uint32_t scale, uint32_t previous,
+                             airui_remote_capture_info_t *info)
+{
+    return capture_frame(ctx, scale, previous, info, true);
 }
 
 int airui_remote_read(airui_ctx_t *ctx, uint32_t frame_id, size_t offset, size_t len,

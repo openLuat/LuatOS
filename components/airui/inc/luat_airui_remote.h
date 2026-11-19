@@ -35,8 +35,10 @@ typedef enum {
 
 int airui_remote_start(airui_ctx_t *ctx);
 void airui_remote_stop(airui_ctx_t *ctx);
-int airui_remote_capture(airui_ctx_t *ctx, uint32_t scale, uint32_t previous,
-                         airui_remote_capture_info_t *info);
+int airui_remote_capture_rgb(airui_ctx_t *ctx, uint32_t scale, uint32_t previous,
+                            airui_remote_capture_info_t *info);
+int airui_remote_capture_jpeg(airui_ctx_t *ctx, uint32_t scale, uint32_t previous,
+                             airui_remote_capture_info_t *info);
 /* Copy the borrowed bytes before the next capture, timer callback, or stop. */
 int airui_remote_read(airui_ctx_t *ctx, uint32_t frame_id, size_t offset, size_t len,
                     const uint8_t **data);

@@ -39,7 +39,8 @@ static int l_airui_init(lua_State *L);
 static int l_airui_deinit(lua_State *L);
 #if defined(LUAT_USE_AIRUI_REMOTE)
 static int l_airui_remote_start(lua_State *L);
-static int l_airui_remote_capture(lua_State *L);
+static int l_airui_remote_capture_rgb(lua_State *L);
+static int l_airui_remote_capture_jpeg(lua_State *L);
 static int l_airui_remote_read(lua_State *L);
 static int l_airui_remote_pointer(lua_State *L);
 static int l_airui_remote_stop(lua_State *L);
@@ -176,7 +177,8 @@ static const rotable_Reg_t reg_airui[] = {
     {"deinit", ROREG_FUNC(l_airui_deinit)},
 #if defined(LUAT_USE_AIRUI_REMOTE)
     {"remote_start", ROREG_FUNC(l_airui_remote_start)},
-    {"remote_capture", ROREG_FUNC(l_airui_remote_capture)},
+    {"remote_capture_rgb", ROREG_FUNC(l_airui_remote_capture_rgb)},
+    {"remote_capture_jpeg", ROREG_FUNC(l_airui_remote_capture_jpeg)},
     {"remote_read", ROREG_FUNC(l_airui_remote_read)},
     {"remote_pointer", ROREG_FUNC(l_airui_remote_pointer)},
     {"remote_stop", ROREG_FUNC(l_airui_remote_stop)},
@@ -460,14 +462,7 @@ static int l_airui_remote_start(lua_State *L) {
     return 1;
 }
 
-/**
- * 采集已提交的画面
- * @api airui.remote_capture(scale, previous_frame_id)
- * @int 降采样因子，支持 1、2、4
- * @int 上一次收到的帧编号，可选，默认 0
- * @return int|nil 帧编号、宽、高、像素字节数、屏幕宽、屏幕高。帧编号相同时像素字节数为 0，失败返回 nil 和错误码
- */
-static int l_airui_remote_capture(lua_State *L) {
+static int l_airui_remote_capture_frame(lua_State *L, bool jpeg) {
     lua_Integer scale = luaL_checkinteger(L, 1);
     lua_Integer previous = luaL_optinteger(L, 2, 0);
     if (g_ctx == NULL || g_ctx->remote == NULL || airui_is_sleeping(g_ctx)) {
@@ -478,7 +473,8 @@ static int l_airui_remote_capture(lua_State *L) {
     }
 
     airui_remote_capture_info_t info;
-    int ret = airui_remote_capture(g_ctx, (uint32_t)scale, (uint32_t)previous, &info);
+    int ret = jpeg ? airui_remote_capture_jpeg(g_ctx, (uint32_t)scale, (uint32_t)previous, &info)
+                   : airui_remote_capture_rgb(g_ctx, (uint32_t)scale, (uint32_t)previous, &info);
     if (ret != AIRUI_OK) {
         return l_airui_remote_error(L, ret);
     }
@@ -492,7 +488,34 @@ static int l_airui_remote_capture(lua_State *L) {
 }
 
 /**
- * 分片读取已缓存的 RGB565 画面
+ * 采集已提交的 RGB565 画面
+ * @api airui.remote_capture_rgb(scale, previous_frame_id)
+ * @int 降采样因子，支持 1、2、4
+ * @int 上一次收到的帧编号，可选，默认 0，切换格式时传 0
+ * @return int|nil 帧编号、宽、高、RGB565 字节数、屏幕宽、屏幕高。帧编号相同时字节数为 0，失败返回 nil 和错误码
+ */
+static int l_airui_remote_capture_rgb(lua_State *L) {
+    return l_airui_remote_capture_frame(L, false);
+}
+
+/**
+ * 缓存一帧 JPEG 预览，返回值与 remote_capture_rgb 相同，len 为 JPEG 字节数
+ * @api airui.remote_capture_jpeg(scale, previous)
+ * @int 缩小倍率，1、2 或 4
+ * @int 已显示帧序号，可省略
+ * @return int|nil 帧号，失败返回 nil 和错误码
+ * @return int 宽度
+ * @return int 高度
+ * @return int JPEG 字节数，画面未更新时为 0
+ * @return int 屏幕原始宽度
+ * @return int 屏幕原始高度
+ */
+static int l_airui_remote_capture_jpeg(lua_State *L) {
+    return l_airui_remote_capture_frame(L, true);
+}
+
+/**
+ * 分片读取已缓存的 RGB565 或 JPEG 画面
  * @api airui.remote_read(frame_id, offset, len)
  * @int 帧编号
  * @int 字节偏移，从 0 开始

@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="overview">
+  <resources>
+    <font id="hzfont" builtin="hzfont"/>
+    <!-- 4x4 透明热区：PLCUI 只有 image 可点 -->
+    <image id="hit" src="hit.png"/>
+  </resources>
+  <pages>
+    <page id="overview" background="#F7F8FA">
+      <container id="nav" x="0" y="0" w="88" h="600" background="#14222B" radius="0"/>
+      <container id="nav_logo" x="22" y="20" w="44" h="44" background="#00A870" radius="4"/>
+      <label id="nav_logo_t" x="22" y="30" w="44" h="26" font="hzfont" font_size="18" color="#04241B" align="center" text="E"/>
+      <container id="nav_hl" x="0" y="84" w="88" h="88" background="#1D2F3A" radius="0"/>
+      <container id="nav_bar" x="0" y="84" w="3" h="88" background="#00A870" radius="0"/>
+      <image id="nav_h0" x="0" y="84" w="88" h="88" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="nav_t0" x="0" y="116" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="总览"/>
+      <image id="nav_h1" x="0" y="172" w="88" h="88" src="hit" clickable="true" on-click="go_tm"/>
+      <label id="nav_t1" x="0" y="204" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="时序"/>
+      <image id="nav_h2" x="0" y="260" w="88" h="88" src="hit" clickable="true" on-click="go_cv"/>
+      <label id="nav_t2" x="0" y="292" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="曲线"/>
+      <image id="nav_h3" x="0" y="348" w="88" h="88" src="hit" clickable="true" on-click="go_io"/>
+      <label id="nav_t3" x="0" y="380" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="点位"/>
+      <image id="nav_h4" x="0" y="436" w="88" h="88" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="nav_t4" x="0" y="468" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="系统"/>
+      <label id="nav_foot" x="0" y="566" w="88" h="20" font="hzfont" font_size="14" color="#5C7180" align="center" text="v1.0.0"/>
+      <container id="top" x="88" y="0" w="936" h="64" background="#FFFFFF" radius="0"/>
+      <container id="top_line" x="88" y="63" w="936" h="1" background="#E3E7ED" radius="0"/>
+      <label id="tp_name" x="108" y="10" w="200" h="28" font="hzfont" font_size="22" color="#1A2332" align="left" text="EFEM-200"/>
+      <label id="tp_sub" x="236" y="16" w="160" h="22" font="hzfont" font_size="16" color="#8A94A6" align="left" text="晶圆传输模块"/>
+      <label id="tp_desc" x="108" y="36" w="220" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="双装载口 · 三腔体 · 300 mm"/>
+      <container id="tp_dot" x="418" y="25" w="8" h="8" background="#00A870" radius="4"/>
+      <label id="tp_state" x="434" y="20" w="120" h="24" font="hzfont" font_size="16" color="#00A870" align="left" text="自动运行"/>
+      <label id="tp_meta" x="556" y="22" w="300" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="FOUP A · 25 片 · RCP-28nm-A"/>
+      <label id="tp_clock" x="884" y="8" w="120" h="40" font="hzfont" font_size="30" color="#1A2332" align="right" text="00:23"/>
+      <container id="fl_card" x="100" y="76" w="608" h="352" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="fl_ttl" x="116" y="88" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="晶圆流转"/>
+      <label id="fl_note" x="476" y="88" w="216" h="22" font="hzfont" font_size="15" color="#8A94A6" align="right" text="FOUP A → PM2"/>
+      <container id="lp0" x="120" y="132" w="108" h="88" background="#FCFDFE" radius="4" border-color="#9AA6B8" border-width="1"/>
+      <container id="lp0_s0" x="128" y="148" w="92" h="6" background="#E7ECF3" radius="2"/>
+      <container id="lp0_s1" x="128" y="162" w="92" h="6" background="#E7ECF3" radius="2"/>
+      <container id="lp0_s2" x="128" y="176" w="92" h="6" background="#E7ECF3" radius="2"/>
+      <container id="lp0_s3" x="128" y="190" w="92" h="6" background="#E7ECF3" radius="2"/>
+      <label id="lp0_t" x="130" y="194" w="90" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="LP1 · A"/>
+      <container id="lp1" x="120" y="264" w="108" h="88" background="#F1FBF7" radius="4" border-color="#00A870" border-width="1"/>
+      <container id="lp1_s0" x="128" y="280" w="92" h="6" background="#E7ECF3" radius="2"/>
+      <container id="lp1_s1" x="128" y="294" w="92" h="6" background="#E7ECF3" radius="2"/>
+      <container id="lp1_s2" x="128" y="308" w="92" h="6" background="#E7ECF3" radius="2"/>
+      <container id="lp1_s3" x="128" y="322" w="92" h="6" background="#E7ECF3" radius="2"/>
+      <label id="lp1_t" x="130" y="326" w="90" h="22" font="hzfont" font_size="16" color="#00A870" align="left" text="LP2 · B"/>
+      <container id="al" x="284" y="218" w="84" h="56" background="#FCFDFE" radius="4" border-color="#9AA6B8" border-width="1"/>
+      <container id="al_l" x="292" y="240" w="68" h="6" background="#E7ECF3" radius="2"/>
+      <label id="al_t" x="286" y="282" w="100" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="ALIGNER"/>
+      <container id="rb" x="408" y="192" w="104" h="104" background="#FFFFFF" radius="52" border-color="#00A870" border-width="1"/>
+      <label id="rb_t" x="408" y="228" w="104" h="22" font="hzfont" font_size="16" color="#00A870" align="center" text="ROBOT"/>
+      <label id="rb_s" x="408" y="250" w="104" h="20" font="hzfont" font_size="15" color="#8A94A6" align="center" text="双臂"/>
+      <container id="pm0" x="562" y="128" w="128" h="60" background="#FCFDFE" radius="4" border-color="#9AA6B8" border-width="1"/>
+      <label id="pm0_t" x="574" y="136" w="110" h="22" font="hzfont" font_size="16" color="#1A2332" align="left" text="PM1"/>
+      <label id="pm0_s" x="574" y="160" w="110" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="待机"/>
+      <container id="pm1" x="562" y="216" w="128" h="60" background="#F1FBF7" radius="4" border-color="#00A870" border-width="1"/>
+      <label id="pm1_t" x="574" y="224" w="110" h="22" font="hzfont" font_size="16" color="#00A870" align="left" text="PM2"/>
+      <label id="pm1_s" x="574" y="248" w="110" h="20" font="hzfont" font_size="15" color="#00A870" align="left" text="工艺中"/>
+      <container id="pm2" x="562" y="304" w="128" h="60" background="#FCFDFE" radius="4" border-color="#9AA6B8" border-width="1"/>
+      <label id="pm2_t" x="574" y="312" w="110" h="22" font="hzfont" font_size="16" color="#1A2332" align="left" text="PM3"/>
+      <label id="pm2_s" x="574" y="336" w="110" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="待机"/>
+      <container id="cn0" x="228" y="175" w="24" h="2" background="#9AA6B8" radius="0"/>
+      <container id="cn1" x="252" y="175" w="2" h="69" background="#9AA6B8" radius="0"/>
+      <container id="cn2" x="252" y="243" w="32" h="2" background="#9AA6B8" radius="0"/>
+      <container id="cn3" x="228" y="307" w="24" h="2" background="#9AA6B8" radius="0"/>
+      <container id="cn4" x="252" y="243" w="2" h="65" background="#9AA6B8" radius="0"/>
+      <container id="cn5" x="368" y="243" w="40" h="2" background="#00A870" radius="0"/>
+      <container id="cn6" x="512" y="243" w="26" h="2" background="#00A870" radius="0"/>
+      <container id="cn7" x="538" y="158" w="2" h="166" background="#9AA6B8" radius="0"/>
+      <container id="cn8" x="538" y="158" w="24" h="2" background="#9AA6B8" radius="0"/>
+      <container id="cn9" x="538" y="244" w="24" h="2" background="#00A870" radius="0"/>
+      <container id="cn10" x="538" y="332" w="24" h="2" background="#9AA6B8" radius="0"/>
+      <label id="fl_from" x="120" y="376" w="260" h="22" font="hzfont" font_size="15" color="#8A94A6" align="left" text="FOUP A · 第 12 片"/>
+      <label id="fl_to" x="488" y="376" w="200" h="22" font="hzfont" font_size="15" color="#00A870" align="left" text="→ 送入 PM2"/>
+      <container id="kp_card" x="720" y="76" w="292" h="168" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="kp_ttl" x="736" y="88" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="吞吐"/>
+      <label id="kp_wph" x="736" y="108" w="120" h="48" font="hzfont" font_size="40" color="#00A870" align="left" text="148"/>
+      <label id="kp_wph_u" x="736" y="156" w="120" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="片 / 时"/>
+      <label id="kp_ut" x="852" y="112" w="130" h="32" font="hzfont" font_size="26" color="#1A2332" align="left" text="96.4 %"/>
+      <label id="kp_ut_u" x="852" y="146" w="130" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="稼动率"/>
+      <label id="kp_ok" x="736" y="188" w="260" h="22" font="hzfont" font_size="15" color="#5B6675" align="left" text="搬运成功 99.98 %"/>
+      <container id="rb_card" x="720" y="256" w="292" h="172" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="rbt_ttl" x="736" y="268" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="机械手"/>
+      <label id="rb_k0" x="736" y="294" w="130" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="R 轴"/>
+      <label id="rb_v0" x="736" y="312" w="130" h="28" font="hzfont" font_size="20" color="#1A2332" align="left" text="128.4°"/>
+      <label id="rb_k1" x="872" y="294" w="130" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="Z 轴"/>
+      <label id="rb_v1" x="872" y="312" w="130" h="28" font="hzfont" font_size="20" color="#1A2332" align="left" text="-12.0 mm"/>
+      <label id="rb_k2" x="736" y="346" w="130" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="夹持"/>
+      <label id="rb_v2" x="736" y="364" w="130" h="28" font="hzfont" font_size="20" color="#1A2332" align="left" text="-82 kPa"/>
+      <label id="rb_k3" x="872" y="346" w="130" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="电流"/>
+      <label id="rb_v3" x="872" y="364" w="130" h="28" font="hzfont" font_size="20" color="#1A2332" align="left" text="2.4 A"/>
+      <label id="rb_note" x="736" y="400" w="260" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="A 臂取片 · B 臂待命"/>
+      <container id="ev_card" x="100" y="440" w="912" h="148" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="ev_ttl" x="116" y="450" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="事件流"/>
+      <label id="ev_note" x="876" y="450" w="120" h="22" font="hzfont" font_size="15" color="#8A94A6" align="right" text="近 30 分钟"/>
+      <container id="ev_b0" x="116" y="476" w="4" h="64" background="#D98600" radius="0"/>
+      <label id="ev_t0" x="132" y="476" w="120" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="00:12"/>
+      <label id="ev_x0" x="132" y="498" w="268" h="22" font="hzfont" font_size="16" color="#1A2332" align="left" text="PM3 抽气偏长 0.8 s"/>
+      <container id="ev_b1" x="416" y="476" w="4" h="64" background="#8A94A6" radius="0"/>
+      <label id="ev_t1" x="432" y="476" w="120" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="23:48"/>
+      <label id="ev_x1" x="432" y="498" w="268" h="22" font="hzfont" font_size="16" color="#1A2332" align="left" text="LP2 开盒气压不足，已重试"/>
+      <container id="ev_b2" x="716" y="476" w="4" h="64" background="#D98600" radius="0"/>
+      <label id="ev_t2" x="732" y="476" w="120" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="22:30"/>
+      <label id="ev_x2" x="732" y="498" w="268" h="22" font="hzfont" font_size="16" color="#1A2332" align="left" text="示教点偏移 0.02 mm"/>
+      <label id="ev_sum" x="116" y="550" w="420" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="今日 5 条 · 无停机类报警"/>
+    </page>
+    <page id="timing" background="#F7F8FA">
+      <container id="nav" x="0" y="0" w="88" h="600" background="#14222B" radius="0"/>
+      <container id="nav_logo" x="22" y="20" w="44" h="44" background="#00A870" radius="4"/>
+      <label id="nav_logo_t" x="22" y="30" w="44" h="26" font="hzfont" font_size="18" color="#04241B" align="center" text="E"/>
+      <container id="nav_hl" x="0" y="172" w="88" h="88" background="#1D2F3A" radius="0"/>
+      <container id="nav_bar" x="0" y="172" w="3" h="88" background="#00A870" radius="0"/>
+      <image id="nav_h0" x="0" y="84" w="88" h="88" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="nav_t0" x="0" y="116" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="总览"/>
+      <image id="nav_h1" x="0" y="172" w="88" h="88" src="hit" clickable="true" on-click="go_tm"/>
+      <label id="nav_t1" x="0" y="204" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="时序"/>
+      <image id="nav_h2" x="0" y="260" w="88" h="88" src="hit" clickable="true" on-click="go_cv"/>
+      <label id="nav_t2" x="0" y="292" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="曲线"/>
+      <image id="nav_h3" x="0" y="348" w="88" h="88" src="hit" clickable="true" on-click="go_io"/>
+      <label id="nav_t3" x="0" y="380" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="点位"/>
+      <image id="nav_h4" x="0" y="436" w="88" h="88" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="nav_t4" x="0" y="468" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="系统"/>
+      <label id="nav_foot" x="0" y="566" w="88" h="20" font="hzfont" font_size="14" color="#5C7180" align="center" text="v1.0.0"/>
+      <container id="top" x="88" y="0" w="936" h="64" background="#FFFFFF" radius="0"/>
+      <container id="top_line" x="88" y="63" w="936" h="1" background="#E3E7ED" radius="0"/>
+      <label id="tp_name" x="108" y="10" w="200" h="28" font="hzfont" font_size="22" color="#1A2332" align="left" text="EFEM-200"/>
+      <label id="tp_sub" x="236" y="16" w="160" h="22" font="hzfont" font_size="16" color="#8A94A6" align="left" text="晶圆传输模块"/>
+      <label id="tp_desc" x="108" y="36" w="220" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="双装载口 · 三腔体 · 300 mm"/>
+      <container id="tp_dot" x="418" y="25" w="8" h="8" background="#00A870" radius="4"/>
+      <label id="tp_state" x="434" y="20" w="120" h="24" font="hzfont" font_size="16" color="#00A870" align="left" text="自动运行"/>
+      <label id="tp_meta" x="556" y="22" w="300" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="FOUP A · 25 片 · RCP-28nm-A"/>
+      <label id="tp_clock" x="884" y="8" w="120" h="40" font="hzfont" font_size="30" color="#1A2332" align="right" text="00:23"/>
+      <container id="gt_card" x="100" y="76" w="912" h="300" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="gt_ttl" x="116" y="88" w="300" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="搬运时序 · 24.3 s"/>
+      <label id="gt_x0" x="190" y="106" w="44" h="20" font="hzfont" font_size="15" color="#8A94A6" align="center" text="0.0s"/>
+      <container id="gt_g0" x="204" y="128" w="1" h="148" background="#EFF2F6" radius="0"/>
+      <label id="gt_x1" x="346" y="106" w="44" h="20" font="hzfont" font_size="15" color="#8A94A6" align="center" text="4.9s"/>
+      <container id="gt_g1" x="360" y="128" w="1" h="148" background="#EFF2F6" radius="0"/>
+      <label id="gt_x2" x="502" y="106" w="44" h="20" font="hzfont" font_size="15" color="#8A94A6" align="center" text="9.7s"/>
+      <container id="gt_g2" x="516" y="128" w="1" h="148" background="#EFF2F6" radius="0"/>
+      <label id="gt_x3" x="658" y="106" w="44" h="20" font="hzfont" font_size="15" color="#8A94A6" align="center" text="14.6s"/>
+      <container id="gt_g3" x="672" y="128" w="1" h="148" background="#EFF2F6" radius="0"/>
+      <label id="gt_x4" x="814" y="106" w="44" h="20" font="hzfont" font_size="15" color="#8A94A6" align="center" text="19.4s"/>
+      <container id="gt_g4" x="828" y="128" w="1" h="148" background="#EFF2F6" radius="0"/>
+      <label id="gt_x5" x="970" y="106" w="44" h="20" font="hzfont" font_size="15" color="#8A94A6" align="center" text="24.3s"/>
+      <container id="gt_g5" x="984" y="128" w="1" h="148" background="#EFF2F6" radius="0"/>
+      <label id="gt_n0" x="116" y="134" w="84" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="LP1"/>
+      <container id="gt_b0_0" x="204" y="132" w="65" h="22" background="#9AA6B8" radius="2"/>
+      <label id="gt_l0_0" x="210" y="133" w="57" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="开盒"/>
+      <container id="gt_b0_1" x="271" y="132" w="103" h="22" background="#0B7285" radius="2"/>
+      <label id="gt_l0_1" x="277" y="133" w="95" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="取片"/>
+      <container id="gt_b0_2" x="874" y="132" w="107" h="22" background="#9AA6B8" radius="2"/>
+      <label id="gt_l0_2" x="880" y="133" w="99" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="回位"/>
+      <label id="gt_n1" x="116" y="164" w="84" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="LP2"/>
+      <container id="gt_b1_0" x="204" y="162" w="100" h="22" background="#9AA6B8" radius="2"/>
+      <label id="gt_l1_0" x="210" y="163" w="92" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="映射"/>
+      <container id="gt_b1_1" x="659" y="162" w="107" h="22" background="#0B7285" radius="2"/>
+      <label id="gt_l1_1" x="665" y="163" w="99" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="取片"/>
+      <container id="gt_b1_2" x="890" y="162" w="91" h="22" background="#9AA6B8" radius="2"/>
+      <label id="gt_l1_2" x="896" y="163" w="83" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="关盒"/>
+      <label id="gt_n2" x="116" y="194" w="84" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="ROBOT"/>
+      <container id="gt_b2_0" x="377" y="192" w="68" h="22" background="#00A870" radius="2"/>
+      <label id="gt_l2_0" x="383" y="193" w="60" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="取片"/>
+      <container id="gt_b2_1" x="447" y="192" w="87" h="22" background="#00A870" radius="2"/>
+      <label id="gt_l2_1" x="453" y="193" w="79" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="送入"/>
+      <container id="gt_b2_2" x="608" y="192" w="49" h="22" background="#00A870" radius="2"/>
+      <label id="gt_l2_2" x="614" y="193" w="41" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="取回"/>
+      <container id="gt_b2_3" x="768" y="192" w="103" h="22" background="#00A870" radius="2"/>
+      <label id="gt_l2_3" x="774" y="193" w="95" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="送回"/>
+      <label id="gt_n3" x="116" y="224" w="84" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="ALIGNER"/>
+      <container id="gt_b3_0" x="447" y="222" w="68" h="22" background="#6D5AE6" radius="2"/>
+      <label id="gt_l3_0" x="453" y="223" w="60" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="对中"/>
+      <container id="gt_b3_1" x="518" y="222" w="87" h="22" background="#6D5AE6" radius="2"/>
+      <label id="gt_l3_1" x="524" y="223" w="79" h="20" font="hzfont" font_size="15" color="#FFFFFF" align="left" text="读码"/>
+      <label id="gt_n4" x="116" y="254" w="84" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="PM2"/>
+      <container id="gt_b4_0" x="537" y="252" w="23" h="22" background="#D98600" radius="2"/>
+      <container id="gt_b4_1" x="563" y="252" w="42" h="22" background="#D98600" radius="2"/>
+      <label id="gt_note" x="116" y="290" w="700" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="单周期 24.3 s · 第 12 片 · Robot 占比 38 %"/>
+      <container id="oc_card" x="100" y="388" w="352" h="200" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="oc_ttl" x="116" y="400" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="各站占用"/>
+      <label id="oc_n0" x="116" y="428" w="82" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="LP1"/>
+      <container id="oc_t0" x="200" y="434" w="190" h="9" background="#EFF2F6" radius="5"/>
+      <container id="oc_f0" x="200" y="434" w="117" h="9" background="#00A870" radius="5"/>
+      <label id="oc_v0" x="400" y="427" w="50" h="20" font="hzfont" font_size="15" color="#1A2332" align="left" text="62 %"/>
+      <label id="oc_n1" x="116" y="458" w="82" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="ROBOT"/>
+      <container id="oc_t1" x="200" y="464" w="190" h="9" background="#EFF2F6" radius="5"/>
+      <container id="oc_f1" x="200" y="464" w="176" h="9" background="#D98600" radius="5"/>
+      <label id="oc_v1" x="400" y="457" w="50" h="20" font="hzfont" font_size="15" color="#1A2332" align="left" text="93 %"/>
+      <label id="oc_n2" x="116" y="488" w="82" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="ALIGNER"/>
+      <container id="oc_t2" x="200" y="494" w="190" h="9" background="#EFF2F6" radius="5"/>
+      <container id="oc_f2" x="200" y="494" w="77" h="9" background="#00A870" radius="5"/>
+      <label id="oc_v2" x="400" y="487" w="50" h="20" font="hzfont" font_size="15" color="#1A2332" align="left" text="41 %"/>
+      <label id="oc_n3" x="116" y="518" w="82" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="PM2"/>
+      <container id="oc_t3" x="200" y="524" w="190" h="9" background="#EFF2F6" radius="5"/>
+      <container id="oc_f3" x="200" y="524" w="108" h="9" background="#00A870" radius="5"/>
+      <label id="oc_v3" x="400" y="517" w="50" h="20" font="hzfont" font_size="15" color="#1A2332" align="left" text="57 %"/>
+      <label id="oc_note" x="116" y="554" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="LP2 48 % · PM1 35 %"/>
+      <container id="cy_card" x="464" y="388" w="264" h="200" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="cy_ttl" x="480" y="400" w="240" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="节拍分解 · 24.3 s"/>
+      <label id="cy_k0" x="480" y="424" w="120" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="取放片"/>
+      <label id="cy_v0" x="480" y="440" w="120" h="26" font="hzfont" font_size="20" color="#1A2332" align="left" text="8.6 s"/>
+      <label id="cy_k1" x="480" y="460" w="120" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="对中读码"/>
+      <label id="cy_v1" x="480" y="476" w="120" h="26" font="hzfont" font_size="20" color="#1A2332" align="left" text="5.0 s"/>
+      <label id="cy_k2" x="480" y="496" w="120" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="腔体交接"/>
+      <label id="cy_v2" x="480" y="512" w="120" h="26" font="hzfont" font_size="20" color="#1A2332" align="left" text="3.4 s"/>
+      <label id="cy_k3" x="480" y="532" w="120" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="等待"/>
+      <label id="cy_v3" x="480" y="548" w="120" h="26" font="hzfont" font_size="20" color="#1A2332" align="left" text="7.3 s"/>
+      <container id="bt_card" x="740" y="388" w="272" h="200" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="bt_ttl" x="756" y="400" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="瓶颈"/>
+      <label id="bt_k" x="756" y="428" w="200" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="当前瓶颈"/>
+      <label id="bt_v" x="756" y="446" w="240" h="30" font="hzfont" font_size="22" color="#D98600" align="left" text="PM2 工艺"/>
+      <label id="bt_n1" x="756" y="480" w="240" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="占用 57 %"/>
+      <label id="bt_n2" x="756" y="502" w="240" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="等待主要来自该腔体"/>
+    </page>
+    <page id="curve" background="#F7F8FA">
+      <container id="nav" x="0" y="0" w="88" h="600" background="#14222B" radius="0"/>
+      <container id="nav_logo" x="22" y="20" w="44" h="44" background="#00A870" radius="4"/>
+      <label id="nav_logo_t" x="22" y="30" w="44" h="26" font="hzfont" font_size="18" color="#04241B" align="center" text="E"/>
+      <container id="nav_hl" x="0" y="260" w="88" h="88" background="#1D2F3A" radius="0"/>
+      <container id="nav_bar" x="0" y="260" w="3" h="88" background="#00A870" radius="0"/>
+      <image id="nav_h0" x="0" y="84" w="88" h="88" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="nav_t0" x="0" y="116" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="总览"/>
+      <image id="nav_h1" x="0" y="172" w="88" h="88" src="hit" clickable="true" on-click="go_tm"/>
+      <label id="nav_t1" x="0" y="204" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="时序"/>
+      <image id="nav_h2" x="0" y="260" w="88" h="88" src="hit" clickable="true" on-click="go_cv"/>
+      <label id="nav_t2" x="0" y="292" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="曲线"/>
+      <image id="nav_h3" x="0" y="348" w="88" h="88" src="hit" clickable="true" on-click="go_io"/>
+      <label id="nav_t3" x="0" y="380" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="点位"/>
+      <image id="nav_h4" x="0" y="436" w="88" h="88" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="nav_t4" x="0" y="468" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="系统"/>
+      <label id="nav_foot" x="0" y="566" w="88" h="20" font="hzfont" font_size="14" color="#5C7180" align="center" text="v1.0.0"/>
+      <container id="top" x="88" y="0" w="936" h="64" background="#FFFFFF" radius="0"/>
+      <container id="top_line" x="88" y="63" w="936" h="1" background="#E3E7ED" radius="0"/>
+      <label id="tp_name" x="108" y="10" w="200" h="28" font="hzfont" font_size="22" color="#1A2332" align="left" text="EFEM-200"/>
+      <label id="tp_sub" x="236" y="16" w="160" h="22" font="hzfont" font_size="16" color="#8A94A6" align="left" text="晶圆传输模块"/>
+      <label id="tp_desc" x="108" y="36" w="220" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="双装载口 · 三腔体 · 300 mm"/>
+      <container id="tp_dot" x="418" y="25" w="8" h="8" background="#00A870" radius="4"/>
+      <label id="tp_state" x="434" y="20" w="120" h="24" font="hzfont" font_size="16" color="#00A870" align="left" text="自动运行"/>
+      <label id="tp_meta" x="556" y="22" w="300" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="FOUP A · 25 片 · RCP-28nm-A"/>
+      <label id="tp_clock" x="884" y="8" w="120" h="40" font="hzfont" font_size="30" color="#1A2332" align="right" text="00:23"/>
+      <container id="c1_card" x="100" y="76" w="448" h="246" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="c1_ttl" x="116" y="88" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="腔体真空度"/>
+      <container id="c1_g0" x="114" y="190" w="418" h="1" background="#EFF2F6" radius="0"/>
+      <container id="c1_g1" x="114" y="245" w="418" h="1" background="#EFF2F6" radius="0"/>
+      <container id="c1_g2" x="114" y="300" w="418" h="1" background="#EFF2F6" radius="0"/>
+      <chart id="ch1" x="114" y="120" w="418" h="166" type="line" point-count="30" y-min="0.1" y-max="1.0" hdiv="0" vdiv="0" bg-opacity="0" line-width="2" grid-color="#EFF2F6">
+        <series id="vac" color="#0B7285" values="0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42,0.42"/>
+      </chart>
+      <label id="c1_cap" x="114" y="290" w="300" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="纵轴 0.1-1.0 Pa"/>
+      <container id="c2_card" x="560" y="76" w="452" h="246" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="c2_ttl" x="576" y="88" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="N2 吹扫压力"/>
+      <container id="c2_g0" x="574" y="190" w="422" h="1" background="#EFF2F6" radius="0"/>
+      <container id="c2_g1" x="574" y="245" w="422" h="1" background="#EFF2F6" radius="0"/>
+      <container id="c2_g2" x="574" y="300" w="422" h="1" background="#EFF2F6" radius="0"/>
+      <chart id="ch2" x="574" y="120" w="422" h="166" type="line" point-count="30" y-min="0.2" y-max="0.6" hdiv="0" vdiv="0" bg-opacity="0" line-width="2" grid-color="#EFF2F6">
+        <series id="n2" color="#6D5AE6" values="0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40,0.40"/>
+      </chart>
+      <label id="c2_cap" x="574" y="290" w="300" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="纵轴 0.2-0.6 MPa"/>
+      <container id="c3_card" x="100" y="334" w="448" h="242" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="c3_ttl" x="116" y="346" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="机械手电流"/>
+      <container id="c3_g0" x="114" y="446" w="418" h="1" background="#EFF2F6" radius="0"/>
+      <container id="c3_g1" x="114" y="500" w="418" h="1" background="#EFF2F6" radius="0"/>
+      <container id="c3_g2" x="114" y="554" w="418" h="1" background="#EFF2F6" radius="0"/>
+      <chart id="ch3" x="114" y="378" w="418" h="162" type="line" point-count="30" y-min="0" y-max="6" hdiv="0" vdiv="0" bg-opacity="0" line-width="2" grid-color="#EFF2F6">
+        <series id="cur" color="#0B7285" values="3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4"/>
+      </chart>
+      <label id="c3_cap" x="114" y="544" w="300" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="纵轴 0-6 A"/>
+      <container id="c4_card" x="560" y="334" w="452" h="242" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="c4_ttl" x="576" y="346" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="腔体温度"/>
+      <container id="c4_g0" x="574" y="446" w="422" h="1" background="#EFF2F6" radius="0"/>
+      <container id="c4_g1" x="574" y="500" w="422" h="1" background="#EFF2F6" radius="0"/>
+      <container id="c4_g2" x="574" y="554" w="422" h="1" background="#EFF2F6" radius="0"/>
+      <chart id="ch4" x="574" y="378" w="422" h="162" type="line" point-count="30" y-min="18" y-max="30" hdiv="0" vdiv="0" bg-opacity="0" line-width="2" grid-color="#EFF2F6">
+        <series id="tmp" color="#D98600" values="23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6,23.6"/>
+      </chart>
+      <label id="c4_cap" x="574" y="544" w="300" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="纵轴 18-30 ℃"/>
+    </page>
+    <page id="io" background="#F7F8FA">
+      <container id="nav" x="0" y="0" w="88" h="600" background="#14222B" radius="0"/>
+      <container id="nav_logo" x="22" y="20" w="44" h="44" background="#00A870" radius="4"/>
+      <label id="nav_logo_t" x="22" y="30" w="44" h="26" font="hzfont" font_size="18" color="#04241B" align="center" text="E"/>
+      <container id="nav_hl" x="0" y="348" w="88" h="88" background="#1D2F3A" radius="0"/>
+      <container id="nav_bar" x="0" y="348" w="3" h="88" background="#00A870" radius="0"/>
+      <image id="nav_h0" x="0" y="84" w="88" h="88" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="nav_t0" x="0" y="116" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="总览"/>
+      <image id="nav_h1" x="0" y="172" w="88" h="88" src="hit" clickable="true" on-click="go_tm"/>
+      <label id="nav_t1" x="0" y="204" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="时序"/>
+      <image id="nav_h2" x="0" y="260" w="88" h="88" src="hit" clickable="true" on-click="go_cv"/>
+      <label id="nav_t2" x="0" y="292" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="曲线"/>
+      <image id="nav_h3" x="0" y="348" w="88" h="88" src="hit" clickable="true" on-click="go_io"/>
+      <label id="nav_t3" x="0" y="380" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="点位"/>
+      <image id="nav_h4" x="0" y="436" w="88" h="88" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="nav_t4" x="0" y="468" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="系统"/>
+      <label id="nav_foot" x="0" y="566" w="88" h="20" font="hzfont" font_size="14" color="#5C7180" align="center" text="v1.0.0"/>
+      <container id="top" x="88" y="0" w="936" h="64" background="#FFFFFF" radius="0"/>
+      <container id="top_line" x="88" y="63" w="936" h="1" background="#E3E7ED" radius="0"/>
+      <label id="tp_name" x="108" y="10" w="200" h="28" font="hzfont" font_size="22" color="#1A2332" align="left" text="EFEM-200"/>
+      <label id="tp_sub" x="236" y="16" w="160" h="22" font="hzfont" font_size="16" color="#8A94A6" align="left" text="晶圆传输模块"/>
+      <label id="tp_desc" x="108" y="36" w="220" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="双装载口 · 三腔体 · 300 mm"/>
+      <container id="tp_dot" x="418" y="25" w="8" h="8" background="#00A870" radius="4"/>
+      <label id="tp_state" x="434" y="20" w="120" h="24" font="hzfont" font_size="16" color="#00A870" align="left" text="自动运行"/>
+      <label id="tp_meta" x="556" y="22" w="300" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="FOUP A · 25 片 · RCP-28nm-A"/>
+      <label id="tp_clock" x="884" y="8" w="120" h="40" font="hzfont" font_size="30" color="#1A2332" align="right" text="00:23"/>
+      <container id="di_card" x="100" y="76" w="292" h="250" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="di_ttl" x="116" y="86" w="120" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="DI"/>
+      <label id="di_note" x="286" y="88" w="82" h="20" font="hzfont" font_size="15" color="#8A94A6" align="right" text="10/16"/>
+      <table id="tb_di" x="114" y="118" w="264" h="192" rows="6" columns="3" col-widths="74,126,62" col-aligns="left,left,right" font="hzfont" font_size="16" color="#1A2332" background="#FFFFFF" border-color="#E3E7ED" border-width="1" header="true" header-color="#FAFBFC" alternate-color="#FFFFFF" grid="false" cell-padding="4" row-height="30" header-align="left"/>
+      <container id="do_card" x="404" y="76" w="292" h="250" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="do_ttl" x="420" y="86" w="120" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="DO"/>
+      <label id="do_note" x="590" y="88" w="82" h="20" font="hzfont" font_size="15" color="#8A94A6" align="right" text="6/12"/>
+      <table id="tb_do" x="418" y="118" w="264" h="192" rows="6" columns="3" col-widths="74,126,62" col-aligns="left,left,right" font="hzfont" font_size="16" color="#1A2332" background="#FFFFFF" border-color="#E3E7ED" border-width="1" header="true" header-color="#FAFBFC" alternate-color="#FFFFFF" grid="false" cell-padding="4" row-height="30" header-align="left"/>
+      <container id="ai_card" x="708" y="76" w="304" h="250" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="ai_ttl" x="724" y="86" w="120" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="AI"/>
+      <label id="ai_note" x="826" y="88" w="170" h="20" font="hzfont" font_size="15" color="#8A94A6" align="right" text="4-20 mA"/>
+      <table id="tb_ai" x="722" y="118" w="276" h="192" rows="6" columns="3" col-widths="60,110,106" col-aligns="left,left,right" font="hzfont" font_size="16" color="#1A2332" background="#FFFFFF" border-color="#E3E7ED" border-width="1" header="true" header-color="#FAFBFC" alternate-color="#FFFFFF" grid="false" cell-padding="4" row-height="30" header-align="left"/>
+      <container id="ao_card" x="100" y="338" w="596" h="250" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="ao_ttl" x="116" y="348" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="模拟量输出 AO"/>
+      <container id="ao_c0" x="116" y="382" w="176" h="88" background="#FAFBFC" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="ao_k0" x="130" y="394" w="150" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="AO0 · R 轴速度"/>
+      <label id="ao_v0" x="130" y="420" w="100" h="32" font="hzfont" font_size="26" color="#1A2332" align="left" text="68"/>
+      <label id="ao_u0" x="168" y="428" w="40" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="%"/>
+      <container id="ao_c1" x="308" y="382" w="176" h="88" background="#FAFBFC" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="ao_k1" x="322" y="394" w="150" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="AO1 · Z 轴速度"/>
+      <label id="ao_v1" x="322" y="420" w="100" h="32" font="hzfont" font_size="26" color="#1A2332" align="left" text="54"/>
+      <label id="ao_u1" x="360" y="428" w="40" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="%"/>
+      <container id="ao_c2" x="500" y="382" w="176" h="88" background="#FAFBFC" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="ao_k2" x="514" y="394" w="150" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="AO2 · 抽气阀开度"/>
+      <label id="ao_v2" x="514" y="420" w="100" h="32" font="hzfont" font_size="26" color="#1A2332" align="left" text="80"/>
+      <label id="ao_u2" x="552" y="428" w="40" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="%"/>
+      <container id="ao_tr" x="116" y="486" w="236" h="8" background="#EFF2F6" radius="4"/>
+      <container id="ao_fi" x="116" y="486" w="168" h="8" background="#00A870" radius="4"/>
+      <label id="ao_note" x="364" y="480" w="300" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="速度给定随配方切换 · 当前 68 %"/>
+      <label id="ao_note2" x="116" y="514" w="400" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="AO 刷新周期 2 ms，掉电保持"/>
+      <container id="fc_card" x="708" y="338" w="304" h="118" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="fc_ttl" x="724" y="346" w="120" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="强制"/>
+      <label id="fc_tag" x="724" y="372" w="180" h="22" font="hzfont" font_size="16" color="#1A2332" align="left" text="M1.2  LP2 允许"/>
+      <label id="fc_st" x="916" y="372" w="80" h="22" font="hzfont" font_size="16" color="#D98600" align="right" text="强制"/>
+      <container id="fc_btn" x="724" y="400" w="272" h="30" background="#FFFFFF" radius="4" border-color="#00A870" border-width="1"/>
+      <image id="fc_btn_h" x="724" y="400" w="272" h="30" src="hit" clickable="true" on-click="fc_clear"/>
+      <label id="fc_btn_t" x="724" y="404" w="272" h="22" font="hzfont" font_size="15" color="#00A870" align="center" text="取消全部强制"/>
+      <container id="dg_card" x="708" y="468" w="304" h="120" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="dg_ttl" x="724" y="476" w="120" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="诊断"/>
+      <label id="dg_l1" x="724" y="500" w="272" h="20" font="hzfont" font_size="16" color="#1A2332" align="left" text="周期 2.8 ms  负荷 22 %"/>
+      <label id="dg_l2" x="724" y="526" w="272" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="通信错误 0 · AO 2 ms"/>
+    </page>
+    <page id="sys" background="#F7F8FA">
+      <container id="nav" x="0" y="0" w="88" h="600" background="#14222B" radius="0"/>
+      <container id="nav_logo" x="22" y="20" w="44" h="44" background="#00A870" radius="4"/>
+      <label id="nav_logo_t" x="22" y="30" w="44" h="26" font="hzfont" font_size="18" color="#04241B" align="center" text="E"/>
+      <container id="nav_hl" x="0" y="436" w="88" h="88" background="#1D2F3A" radius="0"/>
+      <container id="nav_bar" x="0" y="436" w="3" h="88" background="#00A870" radius="0"/>
+      <image id="nav_h0" x="0" y="84" w="88" h="88" src="hit" clickable="true" on-click="go_ov"/>
+      <label id="nav_t0" x="0" y="116" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="总览"/>
+      <image id="nav_h1" x="0" y="172" w="88" h="88" src="hit" clickable="true" on-click="go_tm"/>
+      <label id="nav_t1" x="0" y="204" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="时序"/>
+      <image id="nav_h2" x="0" y="260" w="88" h="88" src="hit" clickable="true" on-click="go_cv"/>
+      <label id="nav_t2" x="0" y="292" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="曲线"/>
+      <image id="nav_h3" x="0" y="348" w="88" h="88" src="hit" clickable="true" on-click="go_io"/>
+      <label id="nav_t3" x="0" y="380" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="点位"/>
+      <image id="nav_h4" x="0" y="436" w="88" h="88" src="hit" clickable="true" on-click="go_sy"/>
+      <label id="nav_t4" x="0" y="468" w="88" h="24" font="hzfont" font_size="17" color="#A9BECC" align="center" text="系统"/>
+      <label id="nav_foot" x="0" y="566" w="88" h="20" font="hzfont" font_size="14" color="#5C7180" align="center" text="v1.0.0"/>
+      <container id="top" x="88" y="0" w="936" h="64" background="#FFFFFF" radius="0"/>
+      <container id="top_line" x="88" y="63" w="936" h="1" background="#E3E7ED" radius="0"/>
+      <label id="tp_name" x="108" y="10" w="200" h="28" font="hzfont" font_size="22" color="#1A2332" align="left" text="EFEM-200"/>
+      <label id="tp_sub" x="236" y="16" w="160" h="22" font="hzfont" font_size="16" color="#8A94A6" align="left" text="晶圆传输模块"/>
+      <label id="tp_desc" x="108" y="36" w="220" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="双装载口 · 三腔体 · 300 mm"/>
+      <container id="tp_dot" x="418" y="25" w="8" h="8" background="#00A870" radius="4"/>
+      <label id="tp_state" x="434" y="20" w="120" h="24" font="hzfont" font_size="16" color="#00A870" align="left" text="自动运行"/>
+      <label id="tp_meta" x="556" y="22" w="300" h="22" font="hzfont" font_size="16" color="#5B6675" align="left" text="FOUP A · 25 片 · RCP-28nm-A"/>
+      <label id="tp_clock" x="884" y="8" w="120" h="40" font="hzfont" font_size="30" color="#1A2332" align="right" text="00:23"/>
+      <container id="pf_card" x="100" y="76" w="360" h="512" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="pf_ttl" x="116" y="88" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="设备档案"/>
+      <label id="pf_k0" x="118" y="120" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="设备名称"/>
+      <label id="pf_v0" x="118" y="140" w="320" h="22" font="hzfont" font_size="17" color="#1A2332" align="left" text="EFEM-200 晶圆传输模块"/>
+      <label id="pf_k1" x="118" y="170" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="位号"/>
+      <label id="pf_v1" x="118" y="190" w="320" h="22" font="hzfont" font_size="17" color="#1A2332" align="left" text="EFEM-A02"/>
+      <label id="pf_k2" x="118" y="220" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="控制器"/>
+      <label id="pf_v2" x="118" y="240" w="320" h="22" font="hzfont" font_size="17" color="#1A2332" align="left" text="CTRL-1500 / V3.2.7"/>
+      <label id="pf_k3" x="118" y="270" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="适用晶圆"/>
+      <label id="pf_v3" x="118" y="290" w="320" h="22" font="hzfont" font_size="17" color="#1A2332" align="left" text="300 mm"/>
+      <label id="pf_k4" x="118" y="320" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="装载口"/>
+      <label id="pf_v4" x="118" y="340" w="320" h="22" font="hzfont" font_size="17" color="#1A2332" align="left" text="2 × FOUP"/>
+      <label id="pf_k5" x="118" y="370" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="腔体"/>
+      <label id="pf_v5" x="118" y="390" w="320" h="22" font="hzfont" font_size="17" color="#1A2332" align="left" text="PM1 / PM2 / PM3"/>
+      <label id="pf_k6" x="118" y="420" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="投运日期"/>
+      <label id="pf_v6" x="118" y="440" w="320" h="22" font="hzfont" font_size="17" color="#1A2332" align="left" text="2026.05"/>
+      <label id="pf_k7" x="118" y="470" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="固件"/>
+      <label id="pf_v7" x="118" y="490" w="320" h="22" font="hzfont" font_size="17" color="#1A2332" align="left" text="Air1603 / 102 号"/>
+      <label id="pf_k8" x="118" y="520" w="320" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="界面"/>
+      <label id="pf_v8" x="118" y="540" w="320" h="22" font="hzfont" font_size="17" color="#1A2332" align="left" text="mmy_efem_plc 1.0.0"/>
+      <container id="mt_card" x="472" y="76" w="540" h="250" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="mt_ttl" x="488" y="88" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="维护计数"/>
+      <label id="mt_note" x="872" y="88" w="124" h="20" font="hzfont" font_size="15" color="#8A94A6" align="right" text="按片数 / 按小时"/>
+      <container id="mt_c0" x="488" y="120" w="240" h="80" background="#FAFBFC" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="mt_k0" x="502" y="128" w="210" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="机械手动作"/>
+      <label id="mt_v0" x="502" y="150" w="150" h="36" font="hzfont" font_size="28" color="#1A2332" align="left" text="1,284,300"/>
+      <label id="mt_u0" x="646" y="162" w="50" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="次"/>
+      <container id="mt_c1" x="742" y="120" w="240" h="80" background="#FAFBFC" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="mt_k1" x="756" y="128" w="210" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="LP 开盒"/>
+      <label id="mt_v1" x="756" y="150" w="150" h="36" font="hzfont" font_size="28" color="#1A2332" align="left" text="42,180"/>
+      <label id="mt_u1" x="900" y="162" w="50" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="次"/>
+      <container id="mt_c2" x="488" y="212" w="240" h="80" background="#FAFBFC" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="mt_k2" x="502" y="220" w="210" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="真空过滤器"/>
+      <label id="mt_v2" x="502" y="242" w="150" h="36" font="hzfont" font_size="28" color="#1A2332" align="left" text="1,240"/>
+      <label id="mt_u2" x="646" y="254" w="50" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="h"/>
+      <container id="mt_c3" x="742" y="212" w="240" h="80" background="#FAFBFC" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="mt_k3" x="756" y="220" w="210" h="20" font="hzfont" font_size="15" color="#5B6675" align="left" text="密封圈"/>
+      <label id="mt_v3" x="756" y="242" w="150" h="36" font="hzfont" font_size="28" color="#1A2332" align="left" text="860"/>
+      <label id="mt_u3" x="900" y="254" w="50" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="h"/>
+      <container id="br_card" x="472" y="338" w="258" h="250" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="br_ttl" x="488" y="350" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="显示"/>
+      <label id="br_v" x="488" y="382" w="140" h="44" font="hzfont" font_size="34" color="#00A870" align="left" text="82 %"/>
+      <label id="br_u" x="488" y="426" w="200" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="PWM3（GPIO13）"/>
+      <container id="br_b0" x="488" y="458" w="66" h="36" background="#FFFFFF" radius="4" border-color="#00A870" border-width="1"/>
+      <image id="br_h0" x="488" y="458" w="66" h="36" src="hit" clickable="true" on-click="br_1"/>
+      <label id="br_t0" x="488" y="466" w="66" h="22" font="hzfont" font_size="16" color="#00A870" align="center" text="夜"/>
+      <container id="br_b1" x="564" y="458" w="66" h="36" background="#FFFFFF" radius="4" border-color="#00A870" border-width="1"/>
+      <image id="br_h1" x="564" y="458" w="66" h="36" src="hit" clickable="true" on-click="br_2"/>
+      <label id="br_t1" x="564" y="466" w="66" h="22" font="hzfont" font_size="16" color="#00A870" align="center" text="标"/>
+      <container id="br_b2" x="640" y="458" w="66" h="36" background="#FFFFFF" radius="4" border-color="#00A870" border-width="1"/>
+      <image id="br_h2" x="640" y="458" w="66" h="36" src="hit" clickable="true" on-click="br_3"/>
+      <label id="br_t2" x="640" y="466" w="66" h="22" font="hzfont" font_size="16" color="#00A870" align="center" text="亮"/>
+      <label id="br_n" x="488" y="514" w="220" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="洁净间照度高"/>
+      <container id="rd_card" x="742" y="338" w="270" h="250" background="#FFFFFF" radius="4" border-color="#E3E7ED" border-width="1"/>
+      <label id="rd_ttl" x="758" y="350" w="200" h="24" font="hzfont" font_size="18" color="#1A2332" align="left" text="运行"/>
+      <label id="rd_k0" x="758" y="382" w="110" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="运行时长"/>
+      <label id="rd_v0" x="758" y="400" w="110" h="24" font="hzfont" font_size="19" color="#1A2332" align="left" text="1,240 h"/>
+      <label id="rd_k1" x="758" y="426" w="110" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="搬运片数"/>
+      <label id="rd_v1" x="758" y="444" w="110" h="24" font="hzfont" font_size="19" color="#1A2332" align="left" text="86,420"/>
+      <label id="rd_k2" x="758" y="470" w="110" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="故障次数"/>
+      <label id="rd_v2" x="758" y="488" w="110" h="24" font="hzfont" font_size="19" color="#1A2332" align="left" text="2"/>
+      <label id="rd_k3" x="758" y="514" w="110" h="20" font="hzfont" font_size="15" color="#8A94A6" align="left" text="缓存"/>
+      <label id="rd_v3" x="758" y="532" w="110" h="24" font="hzfont" font_size="19" color="#1A2332" align="left" text="31 %"/>
+      <label id="rd_n1" x="882" y="390" w="120" h="44" font="hzfont" font_size="15" color="#8A94A6" align="left" text="无通信错误"/>
+      <label id="rd_n2" x="882" y="414" w="120" h="44" font="hzfont" font_size="15" color="#8A94A6" align="left" text="诊断缓冲 0 条"/>
+    </page>
+  </pages>
+</ui>

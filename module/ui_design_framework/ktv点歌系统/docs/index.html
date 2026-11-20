@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=0">
+<title>AIR KTV 智能点歌系统</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+button,.ic{font-size:16px;font-family:inherit}
+html,body{width:1024px;height:600px;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:"Microsoft YaHei","PingFang SC","Heiti SC",sans-serif;font-size:16px;user-select:none;-webkit-user-select:none}
+:root{--bg:#10131D;--nav:#171C29;--topbar:#141827;--mini:#161B29;--input:#121624;--card:#20283A;--card2:#252E42;--track:#2C3550;--tag:#28324A;--tag-text:#CBD3E2;--func:#2A3450;--text:#FFFFFF;--sub:#A7B0C0;--line:rgba(255,255,255,.07);--blue:#477BFF;--blue-hover:#5C8BFF;--purple:#7B61FF;--cyan:#19D5D0;--placeholder:#5C6678;--op-hover:#33405C;--del:#FF7B8A;--rank1:#FFD35C;--rank2:#C9D4E8;--rank3:#E7A46B;--toast-bg:rgba(20,26,42,.96);--sw-off:#C6D0E0;--glow-a:rgba(71,123,255,.22);--glow-b:rgba(123,97,255,.20);--glow-c:rgba(249,87,166,.13);--grid:rgba(180,205,255,.035);--glass:rgba(32,40,58,.70);--shadow:rgba(0,0,0,.35);--title-grad:linear-gradient(100deg,#8FB4FF,#B79BFF 55%,#6FE6E1);--title-stroke:rgba(255,255,255,.10)}
+body[data-mode="light"]{--bg:#F2F4F9;--nav:#E8ECF5;--topbar:#FFFFFF;--mini:#FFFFFF;--input:#F4F6FB;--card:#FFFFFF;--card2:#F0F3FA;--track:#DDE3EF;--tag:#E9EDF6;--tag-text:#3A4560;--func:#E1E7F2;--text:#1A2233;--sub:#5A6680;--line:rgba(20,30,60,.10);--blue:#2F62E6;--blue-hover:#4A75EC;--purple:#6649E8;--cyan:#0E9E99;--placeholder:#9AA5BA;--op-hover:#DCE3F0;--del:#E0455C;--rank1:#D9A400;--rank2:#8492AC;--rank3:#B8753A;--toast-bg:rgba(255,255,255,.97);--sw-off:#C7D0E0;--glow-a:rgba(71,123,255,.30);--glow-b:rgba(140,100,255,.24);--glow-c:rgba(249,87,166,.18);--grid:rgba(70,100,180,.07);--glass:rgba(255,255,255,.78);--shadow:rgba(40,60,110,.14);--title-grad:linear-gradient(100deg,#2F62E6,#7B3FE4 55%,#0E9E99);--title-stroke:rgba(255,255,255,.55)}
+body[data-theme="purple"]{--blue:#7B61FF;--purple:#477BFF;--cyan:#B98CFF}
+body[data-theme="cyan"]{--blue:#19A7CE;--purple:#477BFF;--cyan:#19D5D0}
+body[data-mode="light"][data-theme="purple"]{--blue:#6649E8;--purple:#2F62E6;--cyan:#9B5DE5}
+body[data-mode="light"][data-theme="cyan"]{--blue:#0E9E99;--purple:#2F62E6;--cyan:#0BA8A3}
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic-fill{fill:currentColor;stroke:none}
+
+#app{position:relative;width:1024px;height:600px;overflow:hidden;background:
+ radial-gradient(760px 420px at 8% -12%,var(--glow-a),transparent 60%),
+ radial-gradient(680px 440px at 100% 4%,var(--glow-b),transparent 58%),
+ radial-gradient(620px 380px at 46% 116%,var(--glow-c),transparent 60%),
+ var(--bg)}
+/* 背景装饰层：网格 + 光斑 + 音符，纯 CSS，不拦截触摸 */
+#app:before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+ background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+ background-size:40px 40px;
+ -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.9),rgba(0,0,0,.25) 70%,transparent);
+ mask-image:linear-gradient(180deg,rgba(0,0,0,.9),rgba(0,0,0,.25) 70%,transparent)}
+#bgdeco{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+#bgdeco .glow{position:absolute;border-radius:50%;filter:blur(30px);opacity:.55}
+#bgdeco .g1{width:360px;height:360px;left:-90px;top:-120px;background:radial-gradient(circle,var(--glow-a),transparent 68%)}
+#bgdeco .g2{width:420px;height:420px;right:-120px;top:60px;background:radial-gradient(circle,var(--glow-b),transparent 68%)}
+#bgdeco .g3{width:380px;height:380px;left:340px;bottom:-200px;background:radial-gradient(circle,var(--glow-c),transparent 68%)}
+#bgdeco .ring{position:absolute;border:1px solid var(--line);border-radius:50%}
+#bgdeco .r1{width:240px;height:240px;right:60px;top:96px;opacity:.5}
+#bgdeco .r2{width:150px;height:150px;right:105px;top:141px;opacity:.4}
+#bgdeco .note{position:absolute;fill:none;stroke:var(--cyan);stroke-width:1.8;opacity:.10}
+#bgdeco .n1{right:120px;top:120px;width:70px;height:70px}
+#bgdeco .n2{left:200px;bottom:110px;width:46px;height:46px;transform:rotate(-18deg)}
+#bgdeco .wave{position:absolute;left:0;right:0;bottom:56px;height:70px;opacity:.16}
+#bgdeco .wave path{fill:none;stroke:var(--cyan);stroke-width:2}
+#stage{position:absolute;left:124px;top:58px;right:0;bottom:0;overflow:hidden;z-index:1}
+#topbar{position:absolute;left:0;top:0;width:1024px;height:58px;background:linear-gradient(180deg,var(--topbar),var(--bg));border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 22px;z-index:5;box-shadow:0 6px 24px var(--shadow)}
+#topbar:after{content:"";position:absolute;left:0;bottom:-1px;width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--blue),var(--purple),var(--cyan),transparent);opacity:.6;pointer-events:none}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;margin-right:12px}
+.logo .ic{width:22px;height:22px;color:#fff}
+.sys-name{font-size:19px;font-weight:700;letter-spacing:1px}
+.sys-name small{font-size:16px;color:var(--sub);font-weight:400;margin-left:10px;letter-spacing:0}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:18px}
+.room{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:6px 14px;font-size:16px;color:var(--sub)}
+.room b{color:var(--cyan);font-size:16px}
+.clockbox{display:flex;align-items:center;gap:10px;white-space:nowrap}
+#clock{font-size:20px;font-weight:700;letter-spacing:1px;line-height:1}
+#date{font-size:16px;color:var(--sub)}
+
+#sidebar{position:absolute;left:0;top:58px;width:124px;bottom:84px;background:linear-gradient(180deg,var(--nav),var(--bg));border-right:1px solid var(--line);padding:14px 16px 0 8px;z-index:4;display:flex;flex-direction:column;align-items:flex-end}
+.nav{width:100px;height:74px;margin:0 0 9px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--sub);cursor:pointer;border:1px solid transparent;transition:background .15s,color .15s,box-shadow .15s,transform .15s}
+.nav .ni{width:44px;height:44px;border-radius:14px;background:var(--nc);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 14px rgba(0,0,0,.3)}
+.nav .ni .ic{width:26px;height:26px;stroke-width:2}
+.nav:hover{background:var(--card2);color:var(--text);transform:translateY(-2px)}
+.nav.active{background:linear-gradient(180deg,rgba(71,123,255,.26),rgba(123,97,255,.10));color:var(--text);border-color:rgba(71,123,255,.42);box-shadow:0 8px 20px rgba(71,123,255,.18)}
+.nav.active .ni{box-shadow:0 8px 18px rgba(71,123,255,.55)}
+.nav-txt{font-size:17px;font-weight:700}
+.nav-foot{display:none}
+.nav-foot b{display:block;color:var(--cyan);font-size:16px}
+
+.page{position:absolute;left:0;top:0;right:0;bottom:84px;padding:14px 16px;overflow:hidden;display:none}
+.page.active{display:block}
+/* 可滑动列表：固定高度 + 常显滑动条 */
+.yscroll{overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--blue) var(--track)}
+.yscroll::-webkit-scrollbar{width:8px}
+.yscroll::-webkit-scrollbar-track{background:var(--track);border-radius:4px}
+.yscroll::-webkit-scrollbar-thumb{background:var(--blue);border-radius:4px}
+/* 自定义滚动条：长按滑块后拖动才滚动，短按不生效 */
+.sb-wrap{position:relative;display:flex;min-height:0}
+.sb-wrap>.yscroll{flex:1;min-width:0;width:100%;scrollbar-width:none!important}
+.sb-wrap>.yscroll::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+.sb-track{width:12px;flex:none;position:relative;margin-left:4px;border-radius:6px;background:transparent}
+.sb-thumb{position:absolute;left:1px;width:10px;border-radius:5px;background:var(--blue);cursor:grab;touch-action:none;min-height:30px;transition:background .15s;box-shadow:0 0 10px rgba(71,123,255,.35)}
+.sb-thumb.drag{background:var(--cyan);cursor:grabbing}
+.phead{display:flex;align-items:center;height:30px;margin-bottom:10px}
+.phead h2{font-size:19px;font-weight:700}
+.phead .bar{width:4px;height:18px;background:var(--blue);border-radius:2px;margin-right:10px}
+.phead .desc{font-size:16px;color:var(--sub);margin-left:12px}
+.phead .right{margin-left:auto;font-size:16px;color:var(--sub)}
+.pback{width:34px;height:34px;border-radius:9px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-right:10px;cursor:pointer;color:var(--sub)}
+.pback:hover{color:var(--text);background:var(--card2)}
+.pback .ic{width:18px;height:18px}
+
+.cover{position:relative;border-radius:10px;overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 0 -10px 22px rgba(0,0,0,.14),0 3px 10px var(--shadow)}
+.cover:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(135deg,rgba(255,255,255,.18),transparent 46%)}
+.cv-glow{position:absolute;inset:0;pointer-events:none}
+.cover .cv-pattern{position:absolute;inset:0;width:100%;height:100%}
+.cover .cv-mark{position:relative;z-index:1;color:rgba(255,255,255,.96);font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,.35);line-height:1}
+.cover .cv-note{position:absolute;right:6px;bottom:4px;width:20px;height:20px;color:rgba(255,255,255,.62);z-index:1}
+.addbtn{width:40px;height:40px;border-radius:10px;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;border:none;flex:none}
+.addbtn:hover{background:var(--blue-hover)}
+.addbtn .ic{width:20px;height:20px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:18px;padding:8px 16px;font-size:16px;cursor:pointer;white-space:nowrap}
+.chip:hover{color:var(--text);border-color:var(--blue)}
+.chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn{border:none;border-radius:9px;padding:0 18px;height:40px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;background:var(--blue)}
+.btn.ghost{background:var(--card);color:var(--sub);border:1px solid var(--line)}
+.btn.ghost:hover{color:var(--text)}
+.btn .ic{width:18px;height:18px}
+.song-name{font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.song-artist{font-size:16px;color:var(--sub);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sel{outline:2px solid var(--cyan);outline-offset:-2px}
+/* 商用质感：卡片悬浮发光与层次 */
+.qcard,.songcard,.newcard,.cat-item,.setcard,.order-row,.rank-row,.pl-card,.pl-song,.result-box,.queue,.sumbar{transition:background .15s,box-shadow .15s}
+.qcard:hover,.songcard:hover,.newcard:hover,.cat-item:hover,.pl-card:hover,.setcard:hover{box-shadow:0 8px 22px var(--shadow),0 0 0 1px var(--blue),0 0 18px rgba(71,123,255,.18)}
+.nav.active{box-shadow:0 8px 20px rgba(71,123,255,.18),0 0 0 1px rgba(71,123,255,.35)}
+.addbtn{box-shadow:0 4px 10px rgba(0,0,0,.22)}
+.cbtn.main{box-shadow:0 8px 24px rgba(71,123,255,.35)}
+/* 文字渐变渲染：标题 / 歌手名 / 主打歌名 */
+.phead h2,.sec-title h3,.artist-card .an,.feature .ftitle,.play-info .ptitle,.pl-card .pn,.pl-head .pinfo .pn{
+ background:var(--title-grad);-webkit-background-clip:text;background-clip:text;
+ -webkit-text-fill-color:transparent;color:var(--blue);
+ font-weight:800;letter-spacing:.3px;
+}
+#mname,.mmeta .song-name{background:var(--title-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--blue)}
+.song-name{letter-spacing:.2px}
+
+/* ---------- HOME ---------- */
+.hero{display:flex;gap:12px;height:118px;margin-bottom:8px}
+.feature{width:360px;height:118px;border-radius:14px;background:linear-gradient(120deg,#1E3A8A,#4C1D95 60%,#831843);position:relative;overflow:hidden;display:flex;align-items:center;padding:11px;cursor:pointer;flex:none;color:#FFFFFF;box-shadow:0 10px 26px rgba(30,20,80,.35),inset 0 1px 0 rgba(255,255,255,.14)}
+.feature:before{content:"";position:absolute;right:-30px;top:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.20),transparent 66%);pointer-events:none}
+.feature:after{content:"♫";position:absolute;right:16px;bottom:-24px;font-size:96px;line-height:1;color:rgba(255,255,255,.07);pointer-events:none}
+.feature .fc{width:92px;height:92px;border-radius:12px;overflow:hidden;flex:none;position:relative}
+.feature .finfo{margin-left:14px;z-index:1;min-width:0}
+.feature .tag{display:inline-block;background:var(--cyan);color:#06121A;font-size:16px;font-weight:700;padding:3px 8px;border-radius:4px;margin-bottom:6px}
+.feature .ftitle{font-size:20px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feature .fartist{font-size:16px;color:#D8DFF0;margin-top:5px}
+.feature .fdesc{font-size:16px;color:#B9C4DE;margin-top:5px}
+.feature .fadd{position:absolute;right:11px;bottom:11px;z-index:2}
+.quick{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr);gap:6px}
+.qcard{background:var(--card);border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;gap:10px;padding:0 12px;cursor:pointer}
+.qcard:hover{background:var(--card2)}
+.qcard .qi{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}
+.qcard .qi .ic{width:20px;height:20px}
+.qcard .qt{font-size:16px;font-weight:600}
+.qcard .qs{font-size:16px;color:var(--sub);margin-top:2px}
+.sec-title{display:flex;align-items:center;height:20px;margin-bottom:6px}
+.sec-title h3{font-size:16px;font-weight:700}
+.sec-title .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);margin-right:9px}
+.sec-title .more{margin-left:auto;font-size:16px;color:var(--sub);cursor:pointer}
+.hot-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.songcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:7px;position:relative;cursor:pointer}
+.songcard:hover{background:var(--card2)}
+.songcard .sc1{position:relative}
+.songcard .addbtn{position:absolute;right:2px;bottom:2px;width:34px;height:34px;border-radius:9px}
+.songcard .addbtn .ic{width:18px;height:18px}
+.songcard .meta{margin-top:5px}
+.new-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+/* 磁贴大厅：参考商用 KTV 大色块入口 */
+.tile-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);gap:14px;height:calc(100% - 182px)}
+.tile{position:relative;border-radius:18px;overflow:hidden;cursor:pointer;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;box-shadow:0 10px 24px var(--shadow);transition:transform .15s,box-shadow .15s}
+.tile:hover{transform:translateY(-4px);box-shadow:0 16px 32px var(--shadow)}
+.tile:before{content:"";position:absolute;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.12);right:-60px;top:-70px}
+.tile:after{content:"";position:absolute;width:120px;height:120px;border-radius:50%;border:2px solid rgba(255,255,255,.14);left:-40px;bottom:-50px}
+.tile .tic{width:66px;height:66px;border-radius:18px;background:rgba(255,255,255,.20);display:flex;align-items:center;justify-content:center;z-index:1;box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.tile .tic .ic{width:36px;height:36px;stroke-width:1.6}
+.tile .tt{font-size:20px;font-weight:800;z-index:1;letter-spacing:1px}
+.tile .td{font-size:16px;z-index:1;opacity:.85}
+.tile.hero-tile{grid-column:span 2}
+.newcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:7px;display:flex;align-items:center;gap:8px;cursor:pointer;height:92px;position:relative}
+.newcard:hover{background:var(--card2)}
+.newcard .meta{flex:1;min-width:0;overflow:hidden}
+.newcard .addbtn{position:absolute;left:45px;top:41px;width:30px;height:30px;border-radius:8px}
+.newcard .addbtn .ic{width:16px;height:16px}
+
+/* ---------- CATEGORY / ARTIST ---------- */
+.split{display:flex;gap:12px;height:calc(100% - 40px)}
+.cat-col{width:104px;flex:none;display:flex;flex-direction:column;gap:7px}
+.cat-item{height:44px;border-radius:10px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;padding:0 12px;font-size:16px;cursor:pointer;color:var(--sub);white-space:nowrap}
+.cat-item:hover{color:var(--text)}
+.cat-item.on{background:linear-gradient(90deg,rgba(71,123,255,.3),rgba(123,97,255,.12));color:var(--text);border-color:rgba(71,123,255,.5)}
+.grid-right{flex:1;min-width:0}
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:120px;gap:9px;align-content:start;height:100%;padding-right:8px}
+.cat-song{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;height:120px;cursor:pointer;position:relative}
+.cat-song:hover{background:var(--card2)}
+.cat-song .cover{margin-bottom:4px}
+.cat-song .addbtn{position:absolute;right:8px;bottom:8px;width:34px;height:34px;border-radius:9px}
+.cat-song .song-name,.cat-song .song-artist{padding-right:40px}
+
+.filterbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filterbar .lbl{font-size:16px;color:var(--sub);margin-right:2px}
+.abc{display:flex;gap:4px;margin-left:8px}
+.abc span{width:26px;height:26px;border-radius:6px;background:var(--card);color:var(--sub);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.abc span:hover,.abc span.on{background:var(--blue);color:#fff}
+.abc span.all{width:44px}
+.artist-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;align-content:start}
+#p-artist .artist-grid{height:calc(100% - 116px);padding-right:8px}
+.artist-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer}
+.artist-card:hover{background:var(--card2)}
+.artist-card .cover{margin:0 auto 8px;border-radius:50%}
+.artist-card .an{font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.artist-card .ac{font-size:16px;color:var(--sub);margin-top:4px}
+
+/* ---------- SEARCH ---------- */
+.searchbar{display:flex;gap:10px;margin-bottom:12px}
+.search-input{flex:1;height:48px;background:var(--input);border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;padding:0 14px;gap:10px}
+.search-input .ic{color:var(--sub)}
+.search-input input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:16px;font-family:inherit;width:100%}
+.search-input input::placeholder{color:var(--placeholder)}
+.searchbar .btn{height:48px;padding:0 26px;font-size:16px}
+.ime-pill{height:32px;min-width:56px;padding:0 12px;border-radius:16px;background:var(--func);color:var(--cyan);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--line)}
+.ime-pill:hover{background:var(--blue);color:#fff}
+.search-body{display:flex;gap:12px;height:calc(100% - 100px)}
+.result-box{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;overflow:hidden}
+.result-box .rt{font-size:16px;color:var(--sub);margin-bottom:6px}
+.result-row{height:44px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);cursor:pointer}
+.result-row:last-child{border-bottom:none}
+.result-row:hover{background:rgba(71,123,255,.08)}
+.result-row .rk{width:22px;text-align:center;font-size:16px;color:var(--sub)}
+.result-row .cover{border-radius:6px}
+.result-row .meta{flex:1;min-width:0}
+.result-row .addbtn{width:32px;height:32px;border-radius:8px}
+.keyboard{width:560px;flex:none;background:var(--nav);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;align-self:center}
+.candbar{height:44px;flex:none;margin-bottom:6px;border-radius:10px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;overflow:hidden;box-shadow:0 4px 14px var(--shadow)}
+.cand-arrow{width:36px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--sub);cursor:pointer}
+.cand-arrow:hover{background:var(--op-hover);color:var(--cyan)}
+.cand-list{flex:1;min-width:0;height:100%;display:flex;align-items:center;justify-content:space-around;gap:2px;padding:0 4px}
+.cand-item{flex:1;min-width:0;text-align:center;font-size:19px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;padding:6px 0;border-radius:8px}
+.cand-item:hover,.cand-item.on{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff}
+.cand-py{min-width:62px;text-align:center;font-size:16px;color:var(--cyan);font-weight:700;letter-spacing:1px;border-right:1px solid var(--line);margin-right:4px}
+.cand-tip{flex:1;text-align:center;font-size:16px;color:var(--placeholder)}
+.krow{display:flex;justify-content:center;gap:5px;height:66px;flex:none;margin-bottom:5px}
+.krow:last-child{margin-bottom:0}
+.key{flex:1;min-width:0;height:100%;border-radius:10px;background:var(--card2);border:1px solid var(--line);color:var(--text);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
+.key:hover{background:var(--blue);color:#fff}
+.key.fp{background:var(--func);color:var(--cyan);flex:1.5}
+.key.fw{flex:2}
+
+/* ---------- ORDERED ---------- */
+.sumbar{display:flex;align-items:center;gap:26px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0 18px;height:56px;margin-bottom:12px}
+.sumbar .si{font-size:16px;color:var(--sub)}
+.sumbar .si b{font-size:20px;color:var(--text);margin:0 4px}
+.sumbar .btn{margin-left:auto;height:36px}
+.order-list{display:flex;flex-direction:column;gap:7px}
+#p-ordered .order-list{height:calc(100% - 100px);padding-right:8px}
+.order-row{height:56px;background:var(--card);border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;gap:12px;padding:0 12px}
+.order-row.playing{background:linear-gradient(90deg,rgba(71,123,255,.18),var(--card));border-color:rgba(71,123,255,.45)}
+.order-row .num{width:26px;text-align:center;font-size:16px;color:var(--sub);font-weight:700}
+.order-row.playing .num{color:var(--cyan)}
+.order-row .cover{border-radius:7px}
+.order-row .meta{flex:1;min-width:0}
+.status{font-size:16px;padding:4px 10px;border-radius:12px;background:var(--func);color:var(--sub)}
+.status.on{background:rgba(25,213,208,.16);color:var(--cyan)}
+.op{width:40px;height:40px;border-radius:9px;background:var(--card2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sub)}
+.op:hover{color:var(--text);background:var(--op-hover)}
+.op .ic{width:18px;height:18px}
+.op.del:hover{color:var(--del)}
+
+/* ---------- RANK ---------- */
+.tabs{display:flex;gap:10px;margin-bottom:12px}
+.rank-list{display:flex;flex-direction:column;gap:6px;height:calc(100% - 91px);padding-right:4px}
+.rank-row{height:62px;flex:none;display:flex;align-items:center;gap:14px;background:var(--card);border-radius:11px;padding:0 16px;cursor:pointer;border:1px solid transparent}
+.rank-row:hover{border-color:var(--line)}
+.rank-row .rn{width:34px;text-align:center;font-size:22px;font-weight:800;color:var(--sub)}
+.rank-row.top1 .rn{color:var(--rank1)}
+.rank-row.top2 .rn{color:var(--rank2)}
+.rank-row.top3 .rn{color:var(--rank3)}
+.rank-row .cover{width:44px!important;height:44px!important;border-radius:8px}
+.rank-row .meta{flex:1;min-width:0}
+.rank-row .meta .song-name{font-size:18px}
+.rank-row .meta .song-artist{font-size:16px}
+.rank-row .dur{font-size:16px;color:var(--sub)}
+.rank-row .addbtn{width:38px;height:38px;border-radius:9px}
+
+/* ---------- PLAYLIST ---------- */
+.pl-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:12px;height:calc(100% - 40px)}
+.pl-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;align-items:center;gap:10px;cursor:pointer;min-height:0;overflow:hidden}
+.pl-card:hover{background:var(--card2)}
+.pl-card .cover{border-radius:12px}
+.pl-card .pinfo{min-width:0}
+.pl-card .pn{font-size:17px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-card .pd{font-size:16px;color:var(--sub);margin-top:6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pl-card .pc{font-size:16px;color:var(--cyan);margin-top:6px}
+.pl-detail{display:none;height:100%}
+.pl-detail.show{display:flex;flex-direction:column}
+.pl-grid.hide{display:none}
+.backbtn{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:var(--sub);font-size:16px;margin-bottom:10px}
+.backbtn:hover{color:#fff}
+.backbtn .ic{width:18px;height:18px}
+.pl-head{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.pl-head .pinfo .pn{font-size:22px}
+.pl-songs{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;padding-right:8px}
+.pl-song{flex:none;height:58px;display:flex;align-items:center;gap:12px;background:var(--card);border-radius:10px;padding:0 14px}
+.pl-song .cover{border-radius:6px}
+.pl-song .meta{flex:1;min-width:0}
+.pl-song .addbtn{width:36px;height:36px;border-radius:9px}
+
+/* ---------- PLAYING ---------- */
+.play-wrap{display:flex;flex-direction:column;gap:8px;height:calc(100% - 40px)}
+.play-top{display:flex;gap:16px;height:158px;flex:none}
+.play-cover{width:156px;height:156px;border-radius:14px;overflow:hidden;flex:none;box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.play-info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+.play-info .ptitle{font-size:22px;line-height:1.25;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
+.play-info .partist{font-size:16px;color:var(--sub);margin-top:0;line-height:19px;flex:none}
+.progress{margin-top:3px;flex:none}
+.pbar,.vtrack,.mbar,.track{touch-action:none}
+.pbar-fill,.vfill,.mfill,.fill{position:relative}
+.pbar-fill:after,.vfill:after,.mfill:after,.fill:after{content:"";position:absolute;right:-7px;top:50%;width:14px;height:14px;transform:translateY(-50%);border-radius:50%;background:#FFB733;border:2px solid #FF9A3D;box-shadow:0 2px 7px rgba(0,0,0,.35);pointer-events:none}
+.pbar{height:8px;border-radius:4px;background:var(--track);cursor:grab;overflow:visible;position:relative}
+.pbar-fill{height:100%;width:34%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:4px}
+.ptime{display:flex;justify-content:space-between;font-size:16px;line-height:19px;color:var(--sub);margin-top:3px}
+.controls{display:flex;align-items:center;gap:14px;margin-top:4px;flex:none}
+.cbtn{width:42px;height:42px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text)}
+.cbtn:hover{background:var(--card2)}
+.cbtn.main{width:48px;height:48px;background:linear-gradient(135deg,var(--blue),var(--purple));border:none;color:#FFFFFF}
+.cbtn .ic{width:22px;height:22px}
+.cbtn.main .ic{width:26px;height:26px}
+.vol-row{display:flex;align-items:center;gap:12px;margin-top:5px;color:var(--sub);line-height:19px;flex:none}
+.vol-row .ic{color:var(--cyan)}
+.vtrack{width:240px;height:8px;border-radius:4px;background:var(--track);cursor:pointer;overflow:hidden}
+.vfill{height:100%;width:64%;background:var(--cyan);border-radius:4px}
+.queue{margin-top:0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 14px;flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.queue .qt{font-size:16px;font-weight:600;margin-bottom:4px;color:var(--text);flex:none;line-height:19px}
+.queue>.qt{flex:none}
+.qrow{height:38px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);flex:none}
+.qrow .qn{width:20px;color:var(--sub);font-size:16px}
+.qrow .cover{border-radius:4px}
+.qrow .meta{flex:1;min-width:0}
+.qrow .qst{font-size:16px;color:var(--sub)}
+.qrow.big{height:78px;gap:14px;padding:0 6px;border-top:none;border-radius:10px;background:var(--card2)}
+.qrow.big .qn{width:26px;font-size:20px;color:var(--cyan);font-weight:700}
+.qrow.big .cover{border-radius:8px}
+.qrow.big .song-name{font-size:20px;font-weight:700}
+.qrow.big .song-artist{font-size:16px;margin-top:5px}
+.qrow.big .qst{color:var(--cyan);font-size:16px}
+.qempty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:16px}
+
+/* 商用功能磁贴：切歌/播放/重唱/原唱 · 静音/调音/控制/气氛 */
+.func-panel{display:flex;flex-direction:column;gap:6px;flex:none}
+.func-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.func-row.eight{grid-template-columns:repeat(8,1fr)}
+.fcard{height:48px;border-radius:11px;background:linear-gradient(145deg,rgba(71,123,255,.14),rgba(123,97,255,.08));border:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;transition:transform .15s,box-shadow .15s,background .15s;color:var(--text)}
+.fcard:hover{transform:translateY(-2px);background:linear-gradient(145deg,rgba(71,123,255,.26),rgba(123,97,255,.16));box-shadow:0 6px 16px rgba(71,123,255,.20)}
+.fcard .fi{width:42px;height:42px;border-radius:12px;background:var(--nc,linear-gradient(135deg,#477BFF,#7B61FF));display:flex;align-items:center;justify-content:center;color:#fff;flex:none;box-shadow:0 4px 10px rgba(0,0,0,.22)}
+.fcard .fi .ic{width:27px;height:27px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.fcard .ft{font-size:16px;font-weight:600}
+.fcard.on{background:linear-gradient(145deg,rgba(249,154,61,.28),rgba(244,92,67,.16));border-color:rgba(249,154,61,.6)}
+
+/* ---------- SETTINGS ---------- */
+.set-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(2,1fr);gap:12px;height:calc(100% - 40px)}
+.setcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;overflow:hidden}
+.setcard h3{font-size:16px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+.setcard h3 .ic{color:var(--cyan);width:19px;height:19px}
+.setrow{margin-bottom:16px}
+.setrow:last-child{margin-bottom:0}
+.setrow .sl{display:flex;justify-content:space-between;font-size:16px;margin-bottom:10px}
+.setrow .sl span:last-child{color:var(--cyan);font-weight:700}
+.track{height:10px;border-radius:5px;background:var(--track);cursor:pointer;overflow:hidden}
+.track .fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+.themes{display:flex;gap:8px;flex:1}
+.theme{flex:1;height:48px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;border:2px solid transparent;font-size:16px}
+.theme.on{border-color:var(--text)}
+.themes-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.themes-row:last-child{margin-bottom:0}
+.theme-hint{font-size:16px;color:var(--sub);width:36px;flex:none}
+.tsw{width:48px;height:28px;border-radius:14px;position:relative;background:var(--sw-off);flex:none;border:1px solid var(--line);transition:background .22s}
+.tsw:after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:3px;left:3px;box-shadow:0 1px 4px rgba(0,0,0,.35);transition:left .22s}
+.theme.on .tsw{background:var(--tc);border-color:transparent}
+.theme.on .tsw:after{left:23px}
+.info-row{display:flex;justify-content:space-between;font-size:16px;padding:0;line-height:1.2;border-bottom:1px solid var(--line)}
+.info-card h3{margin-bottom:8px}
+.info-row:last-child{border-bottom:none}
+.info-row span:first-child{color:var(--sub)}
+.info-row span:last-child{font-weight:600}
+
+/* ---------- MINI PLAYER ---------- */
+#mini{position:absolute;left:0;right:0;bottom:0;height:84px;background:var(--mini);border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 20px;z-index:3}
+#mini .mcover{width:64px;height:64px;border-radius:10px;overflow:hidden;flex:none}
+#mini .mmeta{width:170px;min-width:0}
+#mini .mmeta .song-name{font-size:20px;font-weight:700}
+#mini .mmeta .song-artist{font-size:18px;margin-top:4px}
+#mini .mctrl{display:flex;align-items:center;gap:18px;margin-left:12px}
+#mini .mc{width:52px;height:52px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#0D1424}
+#mini .mc:hover{background:var(--card2)}
+#mini .mc .ic{width:28px;height:28px}
+#mini .mc.main{width:58px;height:58px;background:var(--blue);color:#0D1424}
+#mini .mc[data-act="prev"],#mini .mc[data-act="next"]{background:linear-gradient(135deg,#FFB33D,#F57C24);color:#0D1424;box-shadow:0 4px 12px rgba(245,124,36,.35)}
+#mini .mc[data-act="prev"]:hover,#mini .mc[data-act="next"]:hover{filter:brightness(1.12)}
+#mini .mc.main .ic{width:32px;height:32px}
+#mini .mbar{flex:1;min-width:110px;height:10px;border-radius:5px;background:var(--track);cursor:pointer;overflow:hidden}
+#mini .mbar .mfill{height:100%;width:34%;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+#mini .mtime{font-size:16px;color:var(--sub);width:104px;min-width:104px;text-align:center;white-space:nowrap}
+#mini .mcnt{background:var(--card);border-radius:10px;padding:9px 12px;font-size:16px;color:var(--sub);cursor:pointer;white-space:nowrap}
+#mini .mcnt b{color:var(--cyan);font-size:16px}
+#mini .mfunc{display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(71,123,255,.28),rgba(123,97,255,.2));border:1px solid rgba(71,123,255,.45);border-radius:10px;padding:9px 12px;font-size:16px;color:var(--text);cursor:pointer;white-space:nowrap}
+#mini .mfunc .ic{width:22px;height:22px;color:var(--cyan)}
+#mini .mfunc:hover{background:linear-gradient(135deg,rgba(71,123,255,.42),rgba(123,97,255,.3))}
+.func-pop{display:none;position:absolute;left:50%;bottom:210px;transform:translateX(-50%);width:620px;background:var(--toast-bg);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 16px 40px var(--shadow);z-index:20}
+.func-pop.show{display:block}
+.func-pop .fp-head{display:flex;align-items:center;justify-content:space-between;font-size:19px;font-weight:800;color:var(--text);margin-bottom:12px}
+.func-pop .fp-head span{cursor:pointer;color:var(--sub);font-size:20px;line-height:1}
+.func-pop .func-row{gap:10px;margin-bottom:10px}
+.func-pop .func-row:last-child{margin-bottom:0}
+.func-pop .fcard{height:62px}
+
+#dim{position:absolute;inset:0;background:rgba(0,0,0,0);pointer-events:none;z-index:8}
+#toast{position:absolute;left:50%;bottom:112px;transform:translateX(-50%) translateY(10px);background:var(--toast-bg);border:1px solid var(--blue);border-radius:30px;padding:16px 34px;font-size:22px;font-weight:700;letter-spacing:.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:20;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* 调音 / 空调 弹窗 */
+.modal-mask{display:none;position:absolute;inset:0;background:rgba(4,8,20,.6);z-index:28}
+.modal-mask.show{display:block}
+.modal{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:520px;background:var(--toast-bg);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 60px var(--shadow);z-index:29;padding:18px 20px 20px}
+.modal.show{display:block}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-title{font-size:19px;font-weight:800;background:var(--title-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--blue)}
+.modal-x{cursor:pointer;color:var(--sub);font-size:20px;line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+.modal-x:hover{background:var(--card2);color:var(--text)}
+.modal-body{display:flex;flex-direction:column;gap:16px}
+.mrow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.mrow .ml{display:flex;align-items:center;justify-content:space-between;font-size:16px;margin-bottom:12px}
+.mrow .ml b{color:var(--cyan);font-weight:700;font-size:17px}
+.mrow .mt{height:12px;border-radius:6px;background:var(--track);cursor:pointer;overflow:visible;position:relative}
+.mrow .mf{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+.mrow .scale{display:flex;justify-content:space-between;font-size:16px;color:var(--sub);margin-top:8px}
+.ac-ctl{display:flex;align-items:center;justify-content:center;gap:26px;padding:6px 0}
+.ac-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 16px rgba(71,123,255,.35)}
+.ac-btn:hover{filter:brightness(1.12)}
+.ac-val{font-size:46px;font-weight:800;color:var(--text);min-width:130px;text-align:center}
+.ac-val small{font-size:22px;color:var(--sub);font-weight:600}
+.ac-val-sm{font-size:34px;font-weight:800;color:var(--text);min-width:80px;text-align:center;color:var(--cyan)}
+.ac-state{text-align:center;font-size:17px;color:var(--sub);margin-top:2px}
+/* 空调增强 */
+.ac-power{display:flex;align-items:center;justify-content:space-between}
+.ac-switch{width:64px;height:34px;border-radius:18px;background:var(--sw-off);position:relative;cursor:pointer;transition:background .18s;flex:none}
+.ac-switch:after{content:"";position:absolute;left:3px;top:3px;width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3);transition:left .18s}
+.ac-switch.on{background:linear-gradient(135deg,#477BFF,#7B61FF)}
+.ac-switch.on:after{left:33px}
+.ac-label{font-size:16px;color:var(--text);font-weight:600}
+.ac-cardsel{display:flex;align-items:center;gap:10px;margin-top:10px}
+.ac-cardsel .cs-arrow{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--purple));border:1px solid transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;flex:none;box-shadow:0 6px 14px var(--shadow);transition:all .15s}
+.ac-cardsel .cs-arrow:hover{filter:brightness(1.16);transform:scale(1.05)}
+.ac-cardsel .cs-arrow .ic{width:28px;height:28px;stroke-width:2.4}
+.ac-cardsel .cs-card{flex:1;height:60px;border-radius:12px;background:linear-gradient(135deg,rgba(71,123,255,.3),rgba(123,97,255,.22));border:1px solid var(--blue);display:flex;align-items:center;justify-content:center;gap:12px;cursor:pointer;color:var(--text);box-shadow:0 0 14px rgba(71,123,255,.2);transition:all .15s}
+.ac-cardsel .cs-card:active{transform:scale(.98)}
+.ac-cardsel .cs-card .ic{width:28px;height:28px;color:var(--cyan)}
+.ac-cardsel .cs-card .cs-name{font-size:20px;font-weight:800}
+.ac-cardsel .cs-card .cs-desc{font-size:16px;color:var(--sub);font-weight:400}
+.ac-dots{display:flex;justify-content:center;gap:8px;margin-top:8px}
+.ac-dots .dot{width:8px;height:8px;border-radius:50%;background:var(--card2);cursor:pointer;transition:all .15s}
+.ac-dots .dot.on{width:22px;border-radius:5px;background:var(--blue)}
+.ac-temp-off{opacity:.45;pointer-events:none}
+</style>
+</head>
+<body>
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+<symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-cat" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="i-artist" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></symbol>
+<symbol id="i-rank" viewBox="0 0 24 24"><path d="M4 20V10h5v10M10 20V4h5v16M16 20v-7h5v7M2 20h20"/></symbol>
+<symbol id="i-playlist" viewBox="0 0 24 24"><path d="M4 6h14M4 12h14M4 18h9"/><circle cx="18" cy="18" r="2"/><path d="M20 18V9l3-1"/></symbol>
+<symbol id="i-playing" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8l7 4-7 4z"/></symbol>
+<symbol id="i-set" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></symbol>
+<symbol id="i-prev" viewBox="0 0 24 24"><path d="M7 5v14M20 5l-11 7 11 7z"/></symbol>
+<symbol id="i-next" viewBox="0 0 24 24"><path d="M17 5v14M4 5l11 7-11 7z"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3z"/></symbol>
+<symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9a4 4 0 0 1 0 6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-fire" viewBox="0 0 24 24"><path d="M12 2s5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 1-3s0 3 2 3c0-4 2-7 2-10z"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.9 6 6.6.9-4.8 4.6 1.1 6.5L12 18l-5.8 3 1.1-6.5L2.5 9.9 9.1 9z"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5z"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+<symbol id="i-replay" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+<symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></symbol>
+<symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></symbol>
+<symbol id="i-eq" viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7"/><circle cx="6" cy="8" r="2"/><circle cx="12" cy="16" r="2"/><circle cx="18" cy="11" r="2"/></symbol>
+<symbol id="i-control" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5"/><circle cx="15" cy="17" r="2.5"/></symbol>
+<symbol id="i-atmos" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.8 1 1.5 1 2.5h6c0-1 .3-1.7 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+<symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2v20M4 6l16 12M20 6L4 18"/><path d="M9 4l3 3 3-3M9 20l3-3 3 3M3 9l4 1-1 4M21 9l-4 1 1 4M3 15l4-1-1-4M21 15l-4-1 1-4"/></symbol>
+<symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8a2.5 2.5 0 1 1-2.5 2.5"/></symbol>
+<symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></symbol>
+</svg>
+
+<div id="app">
+  <div id="bgdeco">
+    <span class="glow g1"></span><span class="glow g2"></span><span class="glow g3"></span>
+    <span class="ring r1"></span><span class="ring r2"></span>
+    <svg class="note n1"><use href="#i-note"/></svg>
+    <svg class="note n2"><use href="#i-note"/></svg>
+    <svg class="wave" viewBox="0 0 1024 70" preserveAspectRatio="none"><path d="M0 35 Q40 8 80 35 T160 35 T240 35 T320 35 T400 35 T480 35 T560 35 T640 35 T720 35 T800 35 T880 35 T960 35 T1024 35"/></svg>
+  </div>
+  <div id="topbar">
+    <div class="logo"><svg class="ic ic-fill"><use href="#i-note"/></svg></div>
+    <div class="sys-name">AIR KTV</div>
+    <div class="top-right">
+      <div class="clockbox"><div id="date">----</div><div id="clock">00:00:00</div></div>
+      <div class="room">包厢 <b>VIP 088</b></div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="nav active" data-nav="home"><span class="ni" style="--nc:linear-gradient(135deg,#477BFF,#7B61FF)"><svg class="ic"><use href="#i-home"/></svg></span><span class="nav-txt">推荐</span></div>
+    <div class="nav" data-nav="category"><span class="ni" style="--nc:linear-gradient(135deg,#7B61FF,#B98CFF)"><svg class="ic"><use href="#i-cat"/></svg></span><span class="nav-txt">点歌</span></div>
+    <div class="nav" data-nav="search"><span class="ni" style="--nc:linear-gradient(135deg,#19D5D0,#477BFF)"><svg class="ic"><use href="#i-search"/></svg></span><span class="nav-txt">搜索</span></div>
+    <div class="nav" data-nav="ordered"><span class="ni" style="--nc:linear-gradient(135deg,#19A7CE,#19D5D0)"><svg class="ic"><use href="#i-list"/></svg></span><span class="nav-txt">已点</span></div>
+    <div class="nav" data-nav="settings"><span class="ni" style="--nc:linear-gradient(135deg,#F2994A,#F45C43)"><svg class="ic"><use href="#i-set"/></svg></span><span class="nav-txt">设置</span></div>
+    <div class="nav-foot">包厢<b>VIP 088</b>AIR KTV</div>
+  </div>
+
+  <div id="stage">
+    <section class="page active" id="p-home"></section>
+    <section class="page" id="p-category"></section>
+    <section class="page" id="p-artist"></section>
+    <section class="page" id="p-search"></section>
+    <section class="page" id="p-ordered"></section>
+    <section class="page" id="p-rank"></section>
+    <section class="page" id="p-playlist"></section>
+    <section class="page" id="p-playing"></section>
+    <section class="page" id="p-settings"></section>
+  </div>
+
+  <div id="mini">
+      <div class="mcover" id="mcover"></div>
+      <div class="mmeta"><div class="song-name" id="mname"></div><div class="song-artist" id="martist"></div></div>
+      <div class="mctrl">
+        <div class="mc" data-act="prev"><svg class="ic"><use href="#i-prev"/></svg></div>
+        <div class="mc main" data-act="toggle"><svg class="ic ic-fill" id="miniPlayIcon"><use href="#i-pause"/></svg></div>
+        <div class="mc" data-act="next"><svg class="ic"><use href="#i-next"/></svg></div>
+      </div>
+      <div class="mbar" data-act="seek"><div class="mfill" id="mfill"></div></div>
+      <div class="mtime" id="mtime">00:00 / 00:00</div>
+      <div class="mfunc" data-act="funcPop"><svg class="ic"><use href="#i-set"/></svg>功能</div>
+      <div class="mcnt" data-nav="ordered">已点 <b id="miniCount">0</b> 首</div>
+      <div class="func-pop" id="funcPop"><div class="fp-head">快捷功能<span data-act="funcClose">✕</span></div><div id="funcPopBody"></div></div>
+  </div>
+
+  <div class="modal-mask" id="modalMask" data-act="modalClose"></div>
+  <div class="modal" id="modal">
+    <div class="modal-head"><span class="modal-title" id="modalTitle"></span><span class="modal-x" data-act="modalClose">✕</span></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+
+  <div id="dim"></div>
+  <div id="toast"></div>
+</div>
+
+<script>
+/* ============ 图标 ============ */
+function ic(id,cls){return '<svg class="ic '+(cls||'')+'"><use href="#i-'+id+'"/></svg>';}
+
+/* ============ 模拟数据 ============ */
+var GRADIENTS=[
+ ['#477BFF','#7B61FF'],['#19D5D0','#3B82F6'],['#F857A6','#FF5858'],
+ ['#F7B733','#FC4A1A'],['#11998E','#38EF7D'],['#8E2DE2','#4A00E0'],
+ ['#00C6FF','#0072FF'],['#EE0979','#FF6A00'],['#4568DC','#B06AB3'],
+ ['#0F2027','#2C5364'],['#FF512F','#DD2476'],['#3A1C71','#D76D77'],
+ ['#1D976C','#93F9B9'],['#C33764','#1D2671'],['#F2994A','#F2C94C'],
+ ['#5F2584','#C06C84'],['#2B5876','#4E4376'],['#EB3349','#F45C43']
+];
+var PATTERNS=[
+ '<circle cx="72" cy="28" r="30" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2"/><circle cx="72" cy="28" r="18" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="2"/><circle cx="72" cy="28" r="7" fill="rgba(255,255,255,.15)"/>',
+ '<path d="M0 68 Q25 42 50 68 T100 68 V100 H0Z" fill="rgba(255,255,255,.10)"/><path d="M0 80 Q25 54 50 80 T100 80 V100 H0Z" fill="rgba(255,255,255,.10)"/>',
+ '<path d="M-10 100 L55 -10 M20 110 L85 0 M50 110 L115 0" stroke="rgba(255,255,255,.12)" stroke-width="9"/>',
+ '<circle cx="80" cy="22" r="26" fill="rgba(255,255,255,.12)"/><circle cx="18" cy="88" r="34" fill="rgba(0,0,0,.14)"/>',
+ '<circle cx="50" cy="50" r="34" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.6"/><circle cx="50" cy="50" r="25" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.6"/><circle cx="50" cy="50" r="16" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="1.6"/><circle cx="50" cy="50" r="5" fill="rgba(255,255,255,.22)"/>',
+ '<path d="M30 74 V30 l34-7 v42" fill="none" stroke="rgba(255,255,255,.30)" stroke-width="4" stroke-linecap="round"/><circle cx="24" cy="74" r="8" fill="rgba(255,255,255,.26)"/><circle cx="58" cy="65" r="8" fill="rgba(255,255,255,.26)"/>',
+ '<path d="M50 8 L58 40 L90 48 L58 56 L50 88 L42 56 L10 48 L42 40Z" fill="rgba(255,255,255,.14)"/><circle cx="50" cy="48" r="6" fill="rgba(255,255,255,.24)"/>',
+ '<path d="M0 30 Q25 12 50 30 T100 30 M0 52 Q25 34 50 52 T100 52 M0 74 Q25 56 50 74 T100 74" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="3"/>'
+];
+function cover(i,size,label,fill){
+ var g=GRADIENTS[i%GRADIENTS.length];
+ return '<div class="cover" style="width:'+size+'px;height:'+size+'px;background:linear-gradient(135deg,'+g[0]+','+g[1]+')">'+
+  '<span class="cv-glow" style="background:radial-gradient(circle at 28% 22%,'+g[0]+'aa,transparent 62%)"></span>'+
+  '<svg class="cv-pattern" viewBox="0 0 100 100" preserveAspectRatio="none">'+PATTERNS[i%PATTERNS.length]+'</svg>'+
+  '<span class="cv-mark" style="font-size:'+Math.max(16,Math.round(size*0.34))+'px">'+(label||'♪')+'</span>'+
+  (fill?'<svg class="cv-note ic ic-fill"><use href="#i-note"/></svg>':'')+'</div>';
+}
+var SONGS=[
+ {n:'孤勇者',a:'陈奕迅',d:'4:16',c:['流行歌曲','影视金曲','网络热歌'],l:'G'},
+ {n:'晴天',a:'周杰伦',d:'4:29',c:['华语歌曲','经典老歌','流行歌曲'],l:'Q'},
+ {n:'海阔天空',a:'BEYOND',d:'5:26',c:['粤语歌曲','经典老歌'],l:'H'},
+ {n:'Shape of You',a:'Ed Sheeran',d:'3:53',c:['欧美歌曲','流行歌曲'],l:'S'},
+ {n:'起风了',a:'买辣椒也用券',d:'5:23',c:['网络热歌','流行歌曲'],l:'Q'},
+ {n:'富士山下',a:'陈奕迅',d:'4:18',c:['粤语歌曲','经典老歌'],l:'F'},
+ {n:'夜曲',a:'周杰伦',d:'3:48',c:['华语歌曲','经典老歌'],l:'Y'},
+ {n:'Dynamite',a:'BTS',d:'3:19',c:['日韩歌曲','流行歌曲'],l:'D'},
+ {n:'月亮代表我的心',a:'邓丽君',d:'3:29',c:['经典老歌','华语歌曲'],l:'Y'},
+ {n:'可能',a:'程响',d:'4:12',c:['网络热歌','流行歌曲'],l:'K'},
+ {n:'红日',a:'李克勤',d:'4:40',c:['粤语歌曲','经典老歌'],l:'H'},
+ {n:'Perfect',a:'Ed Sheeran',d:'4:21',c:['欧美歌曲','影视金曲'],l:'P'},
+ {n:'稻香',a:'周杰伦',d:'3:43',c:['华语歌曲','流行歌曲'],l:'D'},
+ {n:'天花乱坠',a:'郑秀文',d:'3:35',c:['粤语歌曲'],l:'T'},
+ {n:'First Love',a:'宇多田光',d:'4:18',c:['日韩歌曲','经典老歌'],l:'F'},
+ {n:'演员',a:'薛之谦',d:'4:21',c:['华语歌曲','流行歌曲'],l:'Y'},
+ {n:'My Heart Will Go On',a:'Celine Dion',d:'4:39',c:['欧美歌曲','影视金曲'],l:'M'},
+ {n:'光辉岁月',a:'BEYOND',d:'4:58',c:['粤语歌曲','经典老歌'],l:'G'},
+ {n:'芒种',a:'音阙诗听',d:'3:32',c:['网络热歌'],l:'M'},
+ {n:'Love Story',a:'Taylor Swift',d:'3:55',c:['欧美歌曲','流行歌曲'],l:'L'},
+ {n:'青花瓷',a:'周杰伦',d:'3:58',c:['华语歌曲','经典老歌'],l:'Q'},
+ {n:'K歌之王',a:'陈奕迅',d:'5:22',c:['粤语歌曲','经典老歌'],l:'K'},
+ {n:'大鱼',a:'周深',d:'4:36',c:['影视金曲','华语歌曲'],l:'D'},
+ {n:'Bad Guy',a:'Billie Eilish',d:'3:14',c:['欧美歌曲','流行歌曲'],l:'B'},
+ {n:'朋友',a:'周华健',d:'4:13',c:['经典老歌','华语歌曲'],l:'P'},
+ {n:'向云端',a:'小霞 / 海洋Bo',d:'4:25',c:['网络热歌'],l:'X'},
+ {n:'童话',a:'光良',d:'4:02',c:['华语歌曲','经典老歌'],l:'T'},
+ {n:'See You Again',a:'Wiz Khalifa',d:'3:49',c:['欧美歌曲','影视金曲'],l:'S'},
+ {n:'听海',a:'张惠妹',d:'4:56',c:['华语歌曲','经典老歌'],l:'T'},
+ {n:'奢香夫人',a:'凤凰传奇',d:'4:35',c:['网络热歌','流行歌曲'],l:'S'},
+ {n:'Lemon',a:'米津玄师',d:'4:17',c:['日韩歌曲'],l:'L'},
+ {n:'吻别',a:'张学友',d:'5:12',c:['华语歌曲','经典老歌'],l:'W'},
+ {n:'小幸运',a:'田馥甄',d:'4:22',c:['影视金曲','流行歌曲'],l:'X'},
+ {n:'摇太阳',a:'凤凰传奇',d:'3:58',c:['网络热歌'],l:'Y'},
+ {n:'Yesterday',a:'The Beatles',d:'2:05',c:['欧美歌曲','经典老歌'],l:'Y'},
+ {n:'静夜思',a:'李荣浩',d:'4:08',c:['华语歌曲','流行歌曲'],l:'J'}
+];
+var ARTISTS=[
+ {n:'周杰伦',t:'男',c:42,l:'Z'},{n:'陈奕迅',t:'男',c:38,l:'C'},{n:'邓丽君',t:'女',c:31,l:'D'},
+ {n:'BEYOND',t:'组合',c:26,l:'B'},{n:'张学友',t:'男',c:35,l:'Z'},{n:'Ed Sheeran',t:'男',c:19,l:'E'},
+ {n:'Taylor Swift',t:'女',c:24,l:'T'},{n:'BTS',t:'组合',c:22,l:'B'},{n:'薛之谦',t:'男',c:28,l:'X'},
+ {n:'张惠妹',t:'女',c:20,l:'Z'},{n:'凤凰传奇',t:'组合',c:18,l:'F'},{n:'光良',t:'男',c:15,l:'G'},
+ {n:'宇多田光',t:'女',c:12,l:'Y'},{n:'米津玄师',t:'男',c:11,l:'M'},{n:'周深',t:'男',c:23,l:'Z'},
+ {n:'田馥甄',t:'女',c:16,l:'T'},{n:'Billie Eilish',t:'女',c:14,l:'B'},{n:'李荣浩',t:'男',c:21,l:'L'}
+];
+var CATS=['华语歌曲','粤语歌曲','欧美歌曲','日韩歌曲','经典老歌','流行歌曲','网络热歌','影视金曲'];
+var PLAYLISTS=[
+ {n:'经典怀旧',d:'那些年，我们一起听过的旋律',c:88},
+ {n:'流行热歌',d:'当下最火的流行金曲',c:126},
+ {n:'情歌对唱',d:'适合双人合唱的浪漫曲目',c:64},
+ {n:'派对嗨歌',d:'点燃全场的动感节奏',c:97},
+ {n:'欧美金曲',d:'经典英文歌精选',c:75},
+ {n:'粤语经典',d:'港乐黄金年代代表作',c:58}
+];
+var RANKS={
+ '热门点唱榜':[0,1,4,2,15,8,12,22],
+ '新歌榜':[25,9,18,31,33,30,20,5],
+ '飙升榜':[26,4,9,0,35,14,29,19],
+ '经典金曲榜':[8,2,6,24,32,1,34,16]
+};
+var HOT=['孤勇者','起风了','晴天','海阔天空','可能','芒种','稻香','向云端'];
+var RECENT=['演员','红日','小幸运'];
+
+/* ============ 状态 ============ */
+var state={
+ page:'home', selected:-1, cat:0, artistFilter:'全部', artistLetter:'全部',
+ ordered:[{i:0,playing:true},{i:2,playing:false},{i:12,playing:false},{i:8,playing:false},{i:5,playing:false},{i:6,playing:false},{i:24,playing:false},{i:14,playing:false},{i:19,playing:false}],
+ playIndex:0, playing:true, progress:34, volume:64, brightness:100,
+ mute:false, origin:false, atmos:false, pitch:50, micVol:70,
+ acTemp:24, acOn:true, acMode:'cool', acFan:'auto',
+ theme:'blue', mode:'dark', rank:'热门点唱榜', plDetail:-1, query:'', kbSym:false, kbLower:false,
+ ime:'cn', pinyin:'', candPage:0
+};
+function fmt(sec){var m=Math.floor(sec/60),s=sec%60;return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;}
+function durSec(d){var p=d.split(':');return parseInt(p[0])*60+parseInt(p[1]);}
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},1800);}
+
+/* ============ 页面渲染 ============ */
+function head(title,desc,right){var back=state.page==='home'?'':'<span class="pback" data-nav="home">'+ic('back')+'</span>';return '<div class="phead">'+back+'<span class="bar"></span><h2>'+title+'</h2>'+(desc?'<span class="desc">'+desc+'</span>':'')+(right?'<span class="right">'+right+'</span>':'')+'</div>';}
+
+function renderHome(){
+ var feat=SONGS[0];
+
+ var h=head('欢迎光临','今晚尽兴欢唱','点击磁贴开始欢唱');
+ h+='<div class="feature" style="width:100%;height:96px;margin-bottom:14px" data-song="0">'+cover(0,78,feat.n[0],true)+'<div class="finfo"><span class="tag">今日主打</span><div class="ftitle">'+feat.n+'</div><div class="fartist">'+feat.a+'　·　高品质曲库，一键点唱</div></div><button class="addbtn fadd" data-act="add" data-i="0" style="width:44px;height:44px">'+ic('plus')+'</button></div>';
+ h+='<div class="sec-title"><span class="dot"></span><h3>快捷入口</h3><span class="more">常用功能一屏直达</span></div>';
+ var tiles=[
+  ['category','歌名点歌','按曲风选歌','#i-cat','linear-gradient(135deg,#477BFF,#5B8CFF)'],
+  ['artist','歌手点歌','按歌手找歌','#i-artist','linear-gradient(135deg,#7B61FF,#B98CFF)'],
+  ['search','全能搜索','歌名 / 歌手','#i-search','linear-gradient(135deg,#19A7CE,#19D5D0)'],
+  ['rank','热门榜单','大家都在唱','#i-rank','linear-gradient(135deg,#F2994A,#F45C43)'],
+  ['playlist','精选歌单','场景推荐','#i-playlist','linear-gradient(135deg,#EE0979,#F857A6)'],
+  ['ordered','已点歌曲',state.ordered.length+' 首待唱','#i-list','linear-gradient(135deg,#0EA5A0,#38D6A0)'],
+  ['playing','正在播放','播放控制','#i-playing','linear-gradient(135deg,#4568DC,#7B61FF)'],
+  ['settings','系统设置','主题 / 音量','#i-set','linear-gradient(135deg,#64748B,#94A3B8)']
+ ];
+ h+='<div class="tile-grid">';
+ tiles.forEach(function(t){h+='<div class="tile" data-nav="'+t[0]+'" style="background:'+t[4]+'"><span class="tic"><svg class="ic"><use href="'+t[3]+'"/></svg></span><span class="tt">'+t[1]+'</span><span class="td">'+t[2]+'</span></div>';});
+ h+='</div>';
+ document.getElementById('p-home').innerHTML=h;
+}
+
+function renderCategory(){
+ var h=head('歌曲分类','按风格与语种选歌','共 '+SONGS.length+' 首歌曲');
+ h+='<div class="split"><div class="cat-col">';
+ CATS.forEach(function(c,i){h+='<div class="cat-item'+(state.cat===i?' on':'')+'" data-act="cat" data-i="'+i+'">'+c+'</div>';});
+ h+='</div><div class="grid-right"><div class="cat-grid">';
+ var list=[];SONGS.forEach(function(s,i){if(s.c.indexOf(CATS[state.cat])>=0)list.push(i);});
+ if(!list.length)list=[0,1,2,3,4,5,6,7];
+ list=list.slice(0,9);
+ list.forEach(function(i){var s=SONGS[i];h+='<div class="cat-song'+(state.selected===i?' sel':'')+'" data-song="'+i+'">'+cover(i,60,s.n[0],true)+'<div class="song-name">'+s.n+'</div><div class="song-artist">'+s.a+' · '+s.d+'</div><button class="addbtn" data-act="add" data-i="'+i+'">'+ic('plus')+'</button></div>';});
+ h+='</div></div></div>';
+ document.getElementById('p-category').innerHTML=h;
+}
+
+function renderArtist(){
+ var h=head('歌手分类','按歌手查找歌曲','华语 / 欧美 / 日韩');
+ h+='<div class="filterbar"><span class="lbl">歌手类型</span>';
+ ['全部','男','女','组合'].forEach(function(t){h+='<div class="chip'+(state.artistFilter===t?' on':'')+'" data-act="af" data-v="'+t+'">'+t+'</div>';});
+ h+='<div class="abc"><span class="all'+(state.artistLetter==='全部'?' on':'')+'" data-act="al" data-v="全部">全部</span>';
+ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(c){h+='<span class="'+(state.artistLetter===c?'on':'')+'" data-act="al" data-v="'+c+'">'+c+'</span>';});
+ h+='</div></div><div class="artist-grid yscroll">';
+ var arr=ARTISTS.filter(function(a){return (state.artistFilter==='全部'||a.t===state.artistFilter)&&(state.artistLetter==='全部'||a.l===state.artistLetter);});
+ if(!arr.length)h+='<div style="grid-column:1/-1;color:var(--sub);font-size:16px;padding:28px;text-align:center">暂无 '+state.artistLetter+' 开头的歌手，换个字母试试</div>';
+ arr.forEach(function(a){var idx=ARTISTS.indexOf(a);h+='<div class="artist-card" data-act="artist" data-i="'+idx+'">'+cover(idx+5,78,a.n[0])+'<div class="an">'+a.n+'</div><div class="ac">'+a.c+' 首歌曲</div></div>';});
+ h+='</div>';
+ document.getElementById('p-artist').innerHTML=h;
+ setupScrollBars();
+}
+
+/* 轻量中文拼音候选：常用音节 + 歌曲/歌手高频字 */
+var PINYIN={
+ a:['啊','阿'],ai:['爱','碍','艾','唉'],an:['安','按','暗','岸'],ba:['吧','把','爸','八','巴'],
+ bai:['白','百','摆','败','拜'],ban:['半','伴','办','版','班','般'],bao:['保','包','报','抱','宝','饱'],
+ bei:['北','被','背','杯','备','倍'],bi:['比','笔','必','毕','币'],bian:['边','变','便','遍','编'],
+ biao:['表','标'],bie:['别'],bing:['并','病','冰','兵'],bo:['波','播','博','伯'],bu:['不','部','步','布','补'],
+ cai:['才','菜','采','彩','猜'],can:['参','餐','残'],cao:['草','操'],ce:['测','侧','策'],
+ cha:['茶','查','差','插'],chan:['产','禅','缠'],chang:['唱','长','常','场','畅','厂'],chao:['超','朝','潮'],
+ chen:['陈','晨','沉'],cheng:['成','城','程','称','诚'],chi:['吃','尺','迟','赤'],chong:['重','充','冲','虫'],
+ chu:['出','处','除','楚','触'],chuan:['穿','传','船','川'],chuang:['创','窗','床'],chun:['春','纯','唇','蠢'],
+ ci:['词','次','此','刺','瓷','慈'],cong:['从','聪'],cu:['粗','促'],cuo:['错','措'],
+ da:['大','达','打','答'],dai:['带','代','待','袋','戴'],dan:['但','单','淡','蛋'],dang:['当','挡','党'],
+ dao:['到','道','岛','稻','倒','导'],de:['的','得','德'],deng:['等','灯','登','邓'],di:['地','低','第','底','迪'],
+ dian:['点','电','店','典','殿','垫'],diao:['调','掉','钓'],ding:['定','订','顶'],dong:['动','东','懂','冬'],
+ dou:['都','豆','斗'],du:['度','读','独','赌','毒','渡'],duan:['段','断','端','短'],dui:['对','队'],
+ duo:['多','朵','躲'],er:['二','而','耳'],fa:['发','法','罚'],fan:['反','饭','范','烦','翻','凡'],
+ fang:['方','房','放','防','芳'],fei:['飞','非','费','肥'],fen:['分','份','粉','奋'],
+ feng:['风','峰','逢','锋','蜂','凤','丰'],fu:['福','服','复','富','父','夫','负','付','附'],
+ gai:['该','改','盖'],gan:['感','敢','赶','干','甘'],gang:['刚','钢','港'],gao:['高','告','糕'],
+ ge:['歌','个','各','哥','格','隔','革'],gen:['跟','根'],geng:['更','耕'],gong:['工','公','功','供','宫'],
+ gou:['够','狗','构'],gu:['孤','古','故','顾','鼓','固','谷'],guan:['关','观','管','官'],guang:['光','广'],
+ gui:['贵','归','规'],guo:['国','过','果','锅'],hai:['还','海','孩','害'],han:['汉','含','寒','喊'],
+ hang:['行','航','杭'],hao:['好','号','豪','毫','浩'],he:['和','喝','合','河','何'],hei:['黑'],
+ hen:['很','狠','恨'],hong:['红','宏','洪','虹'],hou:['后','厚','侯'],hu:['湖','虎','呼','护','胡','壶'],
+ hua:['花','华','画','话','化'],huai:['坏','怀'],huan:['欢','还','环','换','幻','缓'],huang:['黄','皇','慌'],
+ hui:['会','回','汇','辉','灰'],huo:['或','火','活','获','货'],ji:['几','机','记','计','级','极','急','集','季','济'],
+ jia:['家','加','假','价','甲'],jian:['见','间','件','建','减','检','简'],jiang:['将','江','讲','奖'],
+ jiao:['叫','教','交','角','脚','椒'],jie:['节','结','解','街','姐','借','接','杰'],jin:['今','金','进','近','紧'],
+ jing:['京','惊','精','静','境','敬','竞','晶'],jiu:['九','酒','久','旧','救'],ju:['句','举','据','局','剧','具'],
+ jue:['觉','决','绝'],jun:['军','君','均'],kai:['开','凯'],kan:['看','刊'],kang:['康'],kao:['考','靠'],
+ ke:['可','科','客','课','克','刻','颗'],ken:['肯'],kong:['空','控','孔'],kou:['口','扣'],ku:['苦','库','哭','裤'],
+ kuai:['快','块'],kuan:['宽','款'],kun:['困','昆'],kuo:['阔','扩'],la:['拉','啦','辣'],lai:['来','莱'],
+ lan:['蓝','兰','懒','烂'],lang:['浪','郎','朗','狼'],lao:['老','劳','牢'],le:['了','乐','勒'],
+ lei:['类','泪','累','雷'],leng:['冷'],li:['里','理','力','立','利','丽','历','粒'],lian:['连','脸','练','恋','联'],
+ liang:['两','亮','辆','凉','量'],liao:['聊','料'],lie:['列','烈','裂'],lin:['林','临','邻','淋'],
+ ling:['另','领','令','灵','零'],liu:['六','流','留','刘'],long:['龙','隆'],lou:['楼','漏'],
+ lu:['路','陆','露','鲁','卢'],lv:['绿','旅','律','虑'],lun:['论','轮'],luo:['落','罗','洛'],
+ ma:['吗','妈','马','码'],mai:['买','卖','麦'],man:['满','慢','漫','曼'],mang:['忙','芒','盲'],
+ mao:['猫','毛','帽'],mei:['没','美','每','妹'],men:['们','门'],meng:['梦','猛','蒙'],mi:['米','迷','密','蜜'],
+ mian:['面','免','棉'],min:['民','敏'],ming:['名','明','命'],mo:['莫','末','默','摸'],mu:['木','目','母','慕'],
+ na:['那','拿','哪','纳'],nan:['难','男','南'],nao:['闹','脑'],ne:['呢'],nei:['内'],neng:['能'],
+ ni:['你','泥','呢','逆','拟'],nian:['年','念'],niang:['娘'],nin:['您'],niu:['牛','扭'],nong:['浓','农'],
+ nu:['努','怒'],nv:['女'],nuo:['诺'],ou:['欧','偶'],pa:['怕','爬'],pai:['排','派','牌'],pan:['盘','判','盼'],
+ pao:['跑','泡'],pei:['陪','配','培'],peng:['朋','碰','棚'],pi:['皮','批','披'],pian:['片','偏','篇'],
+ piao:['票','飘'],pin:['品','拼'],ping:['平','评','苹','瓶'],po:['破','迫','泼'],pu:['普','铺','谱'],
+ qi:['起','七','期','气','汽','奇','骑','棋'],qian:['前','钱','千','签','浅'],qiang:['强','抢','墙'],
+ qiao:['桥','巧','敲'],qie:['且','切'],qin:['亲','琴','勤'],qing:['晴','情','清','青','倾','轻','庆','请'],
+ qiong:['穷'],qiu:['秋','求','球'],qu:['去','取','曲','区','趣'],quan:['全','权','泉','劝','圈'],que:['却','确','缺'],
+ qun:['群'],ran:['然','燃'],rang:['让'],re:['热'],ren:['人','任','认','忍','仁'],reng:['仍'],ri:['日'],
+ rong:['容','荣','融'],rou:['肉','柔'],ru:['如','入'],ruan:['软'],rui:['锐'],run:['润'],ruo:['若','弱'],
+ san:['三','散'],sao:['扫'],se:['色'],sen:['森'],sha:['沙','杀','傻'],shan:['山','善','闪','删'],
+ shang:['上','尚','伤','商'],shao:['少','烧','稍','绍'],she:['设','社','舍','射','奢'],
+ shen:['深','身','神','什','审'],sheng:['生','声','升','胜','盛','圣'],
+ shi:['是','十','时','事','世','使','始','式','识','诗','史','士','视','试','释','势','逝','适','侍','嗜','噬'],
+ shou:['首','手','收','受','守','熟','瘦'],shu:['书','树','数','输','术','束','舒'],shua:['刷'],shuai:['帅','摔'],
+ shuang:['双','爽'],shui:['水','谁','睡'],shun:['顺','瞬'],shuo:['说','硕'],si:['四','思','死','私','丝','寺'],
+ song:['送','松','颂'],sou:['搜'],su:['速','素','诉','苏'],suan:['算','酸'],sui:['岁','随','虽'],sun:['孙','损'],
+ suo:['所','锁','索'],ta:['他','她','它','塔'],tai:['太','台','抬','泰'],tan:['谈','弹','摊','炭'],
+ tang:['糖','汤','唐','躺'],tao:['桃','逃','套','淘'],te:['特'],teng:['疼','腾'],ti:['提','题','体','替','踢'],
+ tian:['天','田','甜','添','填'],tiao:['条','调','跳'],tie:['铁','贴'],ting:['听','停','庭','挺','厅'],
+ tong:['通','同','童','铜','统'],tou:['头','投','透'],tu:['图','土','兔','突'],tuan:['团'],tui:['推','退','腿'],
+ tuo:['脱','拖','托'],wa:['哇','挖','娃'],wai:['外','歪'],wan:['万','晚','完','玩','碗','湾'],
+ wang:['王','网','望','忘','往'],wei:['为','位','未','味','胃','伟','卫','围','维'],
+ wen:['文','问','闻','吻','温'],wo:['我','握','窝'],wu:['五','无','午','舞','务','物','雾','乌'],
+ xi:['西','希','洗','喜','系','细','席','习','惜'],xia:['下','夏','吓','虾'],xian:['现','先','线','限','县','仙'],
+ xiang:['向','想','相','香','乡','箱','详','享'],xiao:['小','笑','消','晓','校','效'],xie:['谢','写','些','鞋','协'],
+ xin:['新','心','信','辛','欣','薪'],xing:['行','星','型','醒','幸','姓'],xiong:['兄','熊','雄'],
+ xiu:['修','休','秀','绣'],xu:['需','须','许','徐','续'],xuan:['选','宣','悬','旋'],xue:['学','雪','血','穴'],
+ xun:['寻','询','训','迅','巡'],ya:['呀','牙','压','亚','鸭'],yan:['眼','演','严','言','盐','颜'],
+ yang:['阳','羊','样','洋','养','氧'],yao:['要','摇','药','邀','腰'],ye:['也','夜','叶','业','野'],
+ yi:['一','以','已','意','衣','医','依','异','艺','忆'],yin:['音','银','引','饮','阴','印'],
+ ying:['应','影','英','赢','硬','映'],yong:['用','勇','永','泳','拥','庸'],you:['有','又','右','友','油','游','优'],
+ yu:['与','雨','语','鱼','于','玉','遇','余','渔'],yuan:['元','远','原','愿','圆','员'],
+ yue:['月','越','约','乐','阅','岳'],yun:['云','运','韵','匀','允','晕'],zan:['赞','暂'],zao:['早','造','糟','澡'],
+ ze:['则','责','择'],zen:['怎'],zeng:['增','赠'],zhan:['站','展','占','战'],zhang:['张','长','章','掌','丈'],
+ zhao:['找','照','招','朝','赵'],zhe:['这','着','者','折','哲','浙'],zhen:['真','针','珍','阵','震'],
+ zheng:['正','整','政','争','征','郑'],zhi:['之','知','只','直','制','指','纸','志','至','致'],
+ zhong:['中','种','重','钟','终'],zhou:['周','州','舟','皱'],zhu:['主','住','注','助','祝','著','竹'],
+ zhua:['抓'],zhuan:['转','专','砖'],zhuang:['装','壮','状'],zhui:['追'],zhun:['准'],zhuo:['桌','捉','卓'],
+ zi:['子','字','自','资','紫'],zong:['总','纵','宗'],zou:['走','奏'],zu:['组','足','族','祖'],
+ zuan:['钻'],zui:['最','醉','嘴'],zun:['尊'],zuo:['做','作','左','坐','座']
+};
+function toggleIme(){
+ state.ime=state.ime==='cn'?'en':'cn';
+ state.pinyin='';state.candPage=0;state.kbSym=false;
+ renderSearch();
+ toast(state.ime==='cn'?'已切换中文拼音输入':'已切换英文输入');
+}
+function candList(){
+ var py=state.pinyin.toLowerCase();if(!py)return [];
+ var arr=(PINYIN[py]||[]).slice();
+ if(!arr.length){Object.keys(PINYIN).forEach(function(k){if(k.indexOf(py)===0){PINYIN[k].forEach(function(c){if(arr.indexOf(c)<0&&arr.length<24)arr.push(c);});}});}
+ if(!arr.length)arr=[py];
+ return arr;
+}
+function renderCand(){
+ var box=document.getElementById('candbar');if(!box)return;
+ var arr=candList(),per=8,pages=Math.max(1,Math.ceil(arr.length/per));
+ state.candPage=Math.max(0,Math.min(state.candPage,pages-1));
+ var chunk=arr.slice(state.candPage*per,state.candPage*per+per);
+ var h='<div class="cand-py">'+(state.pinyin||'拼音')+'</div>';
+ h+='<div class="cand-arrow" data-act="candPage" data-v="-1">‹</div><div class="cand-list">';
+ if(!state.pinyin)h+='<div class="cand-tip">输入拼音后在这里选字</div>';
+ else chunk.forEach(function(c){h+='<div class="cand-item'+(c===chunk[0]?' on':'')+'" data-act="cand" data-v="'+c+'">'+c+'</div>';});
+ h+='</div><div class="cand-arrow" data-act="candPage" data-v="1">›</div>';
+ box.innerHTML=h;
+}
+function syncInput(){
+ var inp=document.getElementById('sinput');if(!inp)return;
+ inp.value=state.query+state.pinyin;
+ try{inp.setSelectionRange(inp.value.length,inp.value.length);}catch(e){}
+}
+function commitCand(c){state.query+=c;state.pinyin='';state.candPage=0;syncInput();renderCand();refreshResults();}
+
+function kbRows(){
+ var lower=state.ime==='cn'?true:state.kbLower;
+ var imeKey={t:state.ime==='cn'?'EN':'中',v:'IME',c:'fp'};
+ function L(s){return lower?s.toLowerCase():s;}
+ if(state.kbSym)return [
+  [imeKey,{t:'ABC',v:'ABC',c:'fp'},'1','2','3','4','5','6','7','8','9','0',{t:'退格',v:'DEL',c:'fp'}],
+  ['-','/',';','(',')','&','@','.',',','?',{t:'搜索',v:'DO',c:'fp'}],
+  [{t:'空格',v:'SPACE',c:'fw'},'!','"',':','+','*','=','_',{t:'清空',v:'CLEAR',c:'fw'}]
+ ];
+ return [
+  [{t:'1#',v:'SYM',c:'fp'},L('Q'),L('W'),L('E'),L('R'),L('T'),L('Y'),L('U'),L('I'),L('O'),L('P'),{t:'退格',v:'DEL',c:'fp'}],
+  [imeKey,{t:lower?'abc':'ABC',v:'ABC',c:'fp'},L('A'),L('S'),L('D'),L('F'),L('G'),L('H'),L('J'),L('K'),L('L'),{t:'搜索',v:'DO',c:'fp'}],
+  [{t:'空格',v:'SPACE',c:'fw'},L('Z'),L('X'),L('C'),L('V'),L('B'),L('N'),L('M'),{t:'清空',v:'CLEAR',c:'fw'}]
+ ];
+}
+function kbKey(k){
+ if(typeof k==='string')return '<div class="key" data-act="key" data-v="'+k+'">'+k+'</div>';
+ return '<div class="key '+k.c+'" data-act="key" data-v="'+k.v+'">'+k.t+'</div>';
+}
+function renderSearch(){
+ var h=head('歌曲搜索','输入歌名 / 歌手 / 拼音首字母');
+ h+='<div class="searchbar"><div class="search-input">'+ic('search')+'<input id="sinput" placeholder="输入歌名 / 歌手 / 拼音" autocomplete="off"><span class="ime-pill" data-act="ime">'+(state.ime==='cn'?'中文':'EN')+'</span></div><button class="btn" data-act="doSearch">'+ic('search')+'搜索</button></div>';
+ h+='<div class="search-body"><div class="result-box"><div class="rt">搜索结果</div>';
+ var res=searchResult();
+ if(!res.length){h+='<div style="color:var(--sub);padding:30px;text-align:center;font-size:16px">没有找到相关歌曲，换个关键词试试</div>';}
+ res.slice(0,4).forEach(function(i,idx){var s=SONGS[i];h+='<div class="result-row"><span class="rk">'+(idx+1)+'</span>'+cover(i,32,s.n[0])+'<div class="meta"><div class="song-name">'+s.n+'</div><div class="song-artist">'+s.a+'</div></div><button class="addbtn" data-act="add" data-i="'+i+'">'+ic('plus')+'</button></div>';});
+ h+='</div><div class="keyboard"><div class="candbar" id="candbar"></div>';
+ kbRows().forEach(function(row){h+='<div class="krow">';row.forEach(function(k){h+=kbKey(k);});h+='</div>';});
+ h+='</div></div>';
+ document.getElementById('p-search').innerHTML=h;
+ var inp=document.getElementById('sinput');
+ if(inp){
+  syncInput();
+  inp.oninput=function(){
+   var val=this.value;
+   if(state.ime==='cn'&&val.indexOf(state.query)===0){
+    var tail=val.slice(state.query.length);
+    if(/^[a-zA-Z]*$/.test(tail)){state.pinyin=tail;state.candPage=0;renderCand();refreshResults();return;}
+   }
+   state.query=val;state.pinyin='';state.candPage=0;renderCand();refreshResults();
+  };
+ }
+ renderCand();
+}
+function searchResult(){
+ var q=state.query.trim().toUpperCase();
+ if(!q)return [];
+ var r=[];SONGS.forEach(function(s,i){if(s.n.toUpperCase().indexOf(q)>=0||s.a.toUpperCase().indexOf(q)>=0||s.l===q)r.push(i);});
+ return r;
+}
+function refreshResults(){
+ var el=document.querySelector('#p-search .result-box');if(!el)return;
+ var res=searchResult(),h='<div class="rt">搜索结果</div>';
+ if(!res.length)h+='<div style="color:var(--sub);padding:30px;text-align:center;font-size:16px">没有找到相关歌曲，换个关键词试试</div>';
+ res.slice(0,4).forEach(function(i,idx){var s=SONGS[i];h+='<div class="result-row"><span class="rk">'+(idx+1)+'</span>'+cover(i,32,s.n[0])+'<div class="meta"><div class="song-name">'+s.n+'</div><div class="song-artist">'+s.a+'</div></div><button class="addbtn" data-act="add" data-i="'+i+'">'+ic('plus')+'</button></div>';});
+ el.innerHTML=h;
+}
+
+function renderOrdered(){
+ var total=state.ordered.reduce(function(a,o){return a+durSec(SONGS[o.i].d);},0);
+ var h=head('已点歌曲','点歌队列管理','按点歌顺序演唱');
+ h+='<div class="sumbar"><div class="si">已点 <b>'+state.ordered.length+'</b> 首</div><div class="si">预计时长 <b>'+Math.round(total/60)+'</b> 分钟</div><div class="si">当前演唱 <b style="color:var(--cyan)">'+SONGS[state.playIndex].n+'</b></div><button class="btn ghost" data-act="clearOrder">'+ic('trash')+'清空列表</button></div>';
+ h+='<div class="order-list yscroll">';
+ state.ordered.forEach(function(o,idx){var s=SONGS[o.i];h+='<div class="order-row'+(o.playing?' playing':'')+'"><span class="num">'+(idx+1)+'</span>'+cover(o.i,42,s.n[0])+'<div class="meta"><div class="song-name">'+s.n+'</div><div class="song-artist">'+s.a+'</div></div><span class="status'+(o.playing?' on':'')+'">'+(o.playing?'正在播放':'待唱')+'</span><div class="op" data-act="pin" data-i="'+idx+'" title="置顶">'+ic('pin')+'</div><div class="op del" data-act="del" data-i="'+idx+'" title="删除">'+ic('trash')+'</div></div>';});
+ if(!state.ordered.length)h+='<div style="color:var(--sub);text-align:center;padding:60px;font-size:16px">点歌列表为空，去挑几首喜欢的歌吧</div>';
+ h+='</div>';
+ document.getElementById('p-ordered').innerHTML=h;
+ setupScrollBars();
+}
+
+function renderRank(){
+ var h=head('排行榜','大家都在点','数据为模拟展示');
+ h+='<div class="tabs">';
+ Object.keys(RANKS).forEach(function(k){h+='<div class="chip'+(state.rank===k?' on':'')+'" data-act="rank" data-v="'+k+'">'+k+'</div>';});
+ h+='</div><div class="rank-list yscroll">';
+ RANKS[state.rank].forEach(function(i,idx){var s=SONGS[i];var cls=idx<3?' top'+(idx+1):'';h+='<div class="rank-row'+cls+'" data-song="'+i+'"><span class="rn">'+(idx+1)+'</span>'+cover(i,44,s.n[0])+'<div class="meta"><div class="song-name">'+s.n+'</div><div class="song-artist">'+s.a+'</div></div><span class="dur">'+s.d+'</span><button class="addbtn" data-act="add" data-i="'+i+'">'+ic('plus')+'</button></div>';});
+ h+='</div>';
+ document.getElementById('p-rank').innerHTML=h;
+}
+
+function renderPlaylist(){
+ var el=document.getElementById('p-playlist');
+ if(state.plDetail>=0){
+  var pl=PLAYLISTS[state.plDetail];
+  var h='<div class="pl-detail show"><div class="backbtn" data-act="plBack">'+ic('back')+'返回歌单列表</div>';
+  h+='<div class="pl-head">'+cover(state.plDetail+3,110,pl.n[0])+'<div class="pinfo"><div class="pn">'+pl.n+'</div><div style="color:var(--sub);margin-top:8px;font-size:16px">'+pl.d+'</div><div class="pc">共 '+pl.c+' 首 · 精选推荐</div></div></div>';
+  h+='<div class="pl-songs yscroll">';
+  for(var k=0;k<12;k++){var i=(state.plDetail*4+k)%SONGS.length;var s=SONGS[i];h+='<div class="pl-song">'+cover(i,40,s.n[0])+'<div class="meta"><div class="song-name">'+s.n+'</div><div class="song-artist">'+s.a+'</div></div><button class="addbtn" data-act="add" data-i="'+i+'">'+ic('plus')+'</button></div>';}
+  h+='</div></div>';
+  el.innerHTML=h;setupScrollBars();return;
+ }
+ var h2=head('歌单推荐','按场景挑选歌单','共 '+PLAYLISTS.length+' 个精选歌单');
+ h2+='<div class="pl-grid">';
+ PLAYLISTS.forEach(function(p,i){h2+='<div class="pl-card" data-act="pl" data-i="'+i+'">'+cover(i+3,104,p.n[0],true)+'<div class="pinfo"><div class="pn">'+p.n+'</div><div class="pd">'+p.d+'</div><div class="pc">'+p.c+' 首歌曲 · 点击查看</div></div></div>';});
+ h2+='</div>';
+ el.innerHTML=h2;
+ setupScrollBars();
+}
+
+/* 商用功能磁贴：切歌/播放/重唱/原唱 · 静音/调音/控制/气氛 */
+var FUNC=[
+ [['next','切歌','i-next','linear-gradient(135deg,#477BFF,#7B61FF)'],
+  ['toggle','播放','i-play','linear-gradient(135deg,#7B61FF,#B98CFF)'],
+  ['replay','重唱','i-replay','linear-gradient(135deg,#19A7CE,#19D5D0)'],
+  ['origin','原唱','i-mic','linear-gradient(135deg,#F857A6,#FF5858)']],
+ [['mute','静音','i-mute','linear-gradient(135deg,#F2994A,#F45C43)'],
+  ['eq','调音','i-eq','linear-gradient(135deg,#11998E,#38EF7D)'],
+  ['control','空调','i-control','linear-gradient(135deg,#477BFF,#19D5D0)'],
+  ['atmos','气氛','i-atmos','linear-gradient(135deg,#F7B733,#FC4A1A)']]
+];
+function funcCards(oneRow){
+ var h='';
+ if(oneRow){
+  h+='<div class="func-row eight">';
+  FUNC.forEach(function(row){row.forEach(function(f){h+=funcBtn(f);});});
+  h+='</div>';
+ }else{
+  FUNC.forEach(function(row){
+   h+='<div class="func-row">';
+   row.forEach(function(f){h+=funcBtn(f);});
+   h+='</div>';
+  });
+ }
+ return h;
+}
+function funcBtn(f){
+ var on=(f[0]==='toggle'&&state.playing)||(f[0]==='mute'&&state.mute)||(f[0]==='origin'&&state.origin)||(f[0]==='atmos'&&state.atmos)||(f[0]==='eq'&&state.eqOpen)||(f[0]==='control'&&state.acOpen);
+ var icon=f[0]==='toggle'?(state.playing?'i-pause':'i-play'):f[2];
+ var label=f[0]==='origin'?(state.origin?'原唱':'伴唱'):f[1];
+ return '<div class="fcard'+(on?' on':'')+'" data-act="func" data-v="'+f[0]+'" style="--nc:'+f[3]+'"><span class="fi">'+ic(icon.replace(/^i-/,''))+'</span><span class="ft">'+label+'</span></div>';
+}
+function renderPlaying(){
+ var s=SONGS[state.playIndex];
+ var total=durSec(s.d),cur=Math.round(total*state.progress/100);
+ var h=head('正在播放','大功率高清音效','专业 KTV 控制台');
+ h+='<div class="play-wrap">';
+ h+='<div class="play-top"><div class="play-cover">'+cover(state.playIndex,156,s.n[0],true)+'</div>';
+ h+='<div class="play-info"><div class="ptitle">'+s.n+'</div><div class="partist">演唱：'+s.a+'　·　'+s.d+'</div>';
+ h+='<div class="progress"><div class="pbar" data-act="seek"><div class="pbar-fill" id="pbarFill"></div></div><div class="ptime"><span id="pCur">'+fmt(cur)+'</span><span>'+s.d+'</span></div></div>';
+ h+='<div class="controls"><div class="cbtn" data-act="prev">'+ic('prev')+'</div><div class="cbtn main" data-act="toggle"><svg class="ic ic-fill"><use href="#i-'+(state.playing?'pause':'play')+'"/></svg></div><div class="cbtn" data-act="next">'+ic('next')+'</div></div>';
+ h+='<div class="vol-row">'+ic('vol')+'<div class="vtrack" data-act="volume"><div class="vfill" id="vfill" style="width:'+state.volume+'%"></div></div><span id="vtxt">'+state.volume+'%</span></div>';
+ h+='</div></div>';
+ h+='<div class="func-panel">'+funcCards()+'</div>';
+ h+='<div class="queue"><div class="qt">播放队列 · 即将演唱</div>';
+ var nextSong=null,nextNum='';
+ if(state.ordered.length){
+  var curIdx=state.ordered.findIndex(function(o){return o.i===state.playIndex;});
+  if(curIdx<0)curIdx=0;
+  var nIdx=(curIdx+1)%state.ordered.length;
+  nextSong=state.ordered[nIdx];
+  nextNum=(nIdx+1);
+ }
+ if(nextSong){var q=SONGS[nextSong.i];h+='<div class="qrow big"><span class="qn">'+nextNum+'</span>'+cover(nextSong.i,56,q.n[0])+'<div class="meta"><div class="song-name">'+q.n+'</div><div class="song-artist">'+q.a+'</div></div><span class="qst">待唱</span></div>';}
+ else{h+='<div class="qempty">暂无待唱歌曲</div>';}
+ h+='</div></div>';
+ document.getElementById('p-playing').innerHTML=h;
+ updateProgress();
+}
+
+function renderSettings(){
+ var themes=[['blue','科技蓝'],['purple','梦幻紫'],['cyan','清新青']];
+ var h=head('系统设置','参数调节与设备信息');
+ h+='<div class="set-grid">';
+ h+='<div class="setcard"><h3>'+ic('vol')+'音量与亮度</h3>';
+ h+='<div class="setrow"><div class="sl"><span>系统音量</span><span id="setVol">'+state.volume+'%</span></div><div class="track" data-act="setVol"><div class="fill" id="setVolFill" style="width:'+state.volume+'%"></div></div></div>';
+ h+='<div class="setrow"><div class="sl"><span>屏幕亮度</span><span id="setBri">'+state.brightness+'%</span></div><div class="track" data-act="setBri"><div class="fill" id="setBriFill" style="width:'+state.brightness+'%"></div></div></div>';
+ h+='</div>';
+ h+='<div class="setcard"><h3>'+ic('star')+'主题风格</h3>';
+ h+='<div class="themes-row"><span class="theme-hint">配色</span><div class="themes">';
+ themes.forEach(function(t){var tc=t[0]==='blue'?'linear-gradient(135deg,#477BFF,#7B61FF)':t[0]==='purple'?'linear-gradient(135deg,#7B61FF,#B98CFF)':'linear-gradient(135deg,#19A7CE,#19D5D0)';h+='<div class="theme'+(state.theme===t[0]?' on':'')+'" data-act="theme" data-v="'+t[0]+'" style="--tc:'+tc+'"><span class="tsw"></span>'+t[1]+'</div>';});
+ h+='</div></div><div class="themes-row"><span class="theme-hint">模式</span><div class="themes">';
+ h+='<div class="theme'+(state.mode==='dark'?' on':'')+'" data-act="mode" data-v="dark" style="--tc:linear-gradient(135deg,#477BFF,#7B61FF)"><span class="tsw"></span>'+ic('moon')+'深色</div>';
+ h+='<div class="theme'+(state.mode==='light'?' on':'')+'" data-act="mode" data-v="light" style="--tc:linear-gradient(135deg,#19A7CE,#19D5D0)"><span class="tsw"></span>'+ic('sun')+'浅色</div>';
+ h+='</div></div></div>';
+ h+='<div class="setcard info-card"><h3>'+ic('info')+'系统信息</h3><div style="display:flex;flex-direction:column;justify-content:space-around;height:calc(100% - 28px)">';
+ [['设备型号','Air8603 串口屏'],['屏幕分辨率','1024 × 600'],['系统版本','AirUI KTV V2.6.0'],['曲库版本','2026.11 高清曲库'],['音频输出','HDMI / 光纤 / 模拟'],['网络连接','已连接 · 有线']].forEach(function(r){h+='<div class="info-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>';});
+ h+='</div></div>';
+ h+='<div class="setcard"><h3>'+ic('check')+'快捷操作</h3>';
+ h+='<div style="display:flex;flex-direction:column;gap:6px"><button class="btn" data-nav="ordered" style="width:100%;height:36px">查看已点歌曲</button><button class="btn ghost" data-nav="rank" style="width:100%;height:36px">进入排行榜</button><button class="btn ghost" data-act="reset" style="width:100%;height:36px">恢复默认设置</button></div>';
+ h+='</div></div>';
+ document.getElementById('p-settings').innerHTML=h;
+}
+
+/* ============ 公共更新 ============ */
+function updateMini(){
+ var s=SONGS[state.playIndex];
+ var mc=document.getElementById('mcover');
+ mc.style.cssText='width:64px;height:64px;border-radius:10px;background:linear-gradient(135deg,'+GRADIENTS[state.playIndex%GRADIENTS.length][0]+','+GRADIENTS[state.playIndex%GRADIENTS.length][1]+');display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800';
+ mc.textContent=s.n[0];
+ document.getElementById('mname').textContent=s.n;
+ document.getElementById('martist').textContent=s.a;
+ document.getElementById('miniCount').textContent=state.ordered.length;
+ document.querySelector('#miniPlayIcon use').setAttribute('href','#i-'+(state.playing?'pause':'play'));
+ updateProgress();
+}
+function updateProgress(){
+ var s=SONGS[state.playIndex],total=durSec(s.d),cur=Math.round(total*state.progress/100);
+ var f=document.getElementById('pbarFill');if(f)f.style.width=state.progress+'%';
+ var c=document.getElementById('pCur');if(c)c.textContent=fmt(cur);
+ var mf=document.getElementById('mfill');if(mf)mf.style.width=state.progress+'%';
+ var mt=document.getElementById('mtime');if(mt)mt.textContent=fmt(cur)+' / '+s.d;
+}
+function go(page){
+ state.page=page;state.selected=-1;
+ document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+ document.getElementById('p-'+page).classList.add('active');
+ var navMap={artist:'category',search:'search',rank:'home',playlist:'home',playing:'home',category:'category',ordered:'ordered',settings:'settings',home:'home'};
+ document.querySelectorAll('.nav').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-nav')===(navMap[page]||page));});
+ ({home:renderHome,category:renderCategory,artist:renderArtist,search:renderSearch,ordered:renderOrdered,rank:renderRank,playlist:renderPlaylist,playing:renderPlaying,settings:renderSettings})[page]();
+ updateMini();
+ setupScrollBars();
+}
+function addSong(i){
+ if(state.ordered.some(function(o){return o.i===i;})){toast('《'+SONGS[i].n+'》已在点歌列表中');return;}
+ state.ordered.push({i:i,playing:false});
+ toast('已添加《'+SONGS[i].n+'》到点歌列表');
+ document.getElementById('miniCount').textContent=state.ordered.length;
+ if(state.page==='ordered'||state.page==='home'||state.page==='playing')go(state.page);
+}
+function togglePlay(){state.playing=!state.playing;toast(state.playing?'继续播放':'已暂停');updateMini();if(state.page==='playing')renderPlaying();var fb=document.getElementById('funcPopBody');if(fb&&fb.innerHTML)fb.innerHTML=funcCards();}
+function changeSong(step){
+ if(!state.ordered.length){toast('点歌列表为空');return;}
+ var cur=state.ordered.findIndex(function(o){return o.i===state.playIndex;});
+ if(cur<0)cur=0;
+ var next=(cur+step+state.ordered.length)%state.ordered.length;
+ state.ordered.forEach(function(o,idx){o.playing=(idx===next);});
+ state.playIndex=state.ordered[next].i;
+ state.progress=0;
+ toast('播放：'+SONGS[state.playIndex].n);
+ updateMini();
+ if(state.page==='playing')renderPlaying();
+ var fb=document.getElementById('funcPopBody');if(fb&&fb.innerHTML)fb.innerHTML=funcCards();
+}
+function setDim(){document.getElementById('dim').style.background='rgba(0,0,0,'+((100-state.brightness)/250).toFixed(3)+')';}
+function setTheme(){document.body.setAttribute('data-theme',state.theme);document.body.setAttribute('data-mode',state.mode);}
+
+/* 自定义滚动条：长按滑块 350ms 后进入拖动模式，短按不生效 */
+function setupScrollBars(){
+ var nodes=document.querySelectorAll('.yscroll');
+ for(var n=0;n<nodes.length;n++)(function(sc){
+  if(sc.getAttribute('data-sb'))return;
+  sc.setAttribute('data-sb','1');
+  var cs=window.getComputedStyle(sc);
+  var wrap=document.createElement('div');wrap.className='sb-wrap';
+  var grow=parseFloat(cs.flexGrow)||0;
+  if(grow>0){wrap.style.flex=cs.flexGrow+' '+cs.flexShrink+' '+cs.flexBasis;wrap.style.minHeight='0';sc.style.flex='none';}
+  else{wrap.style.height=Math.round(sc.getBoundingClientRect().height)+'px';}
+  sc.style.height='100%';
+  if(sc.parentNode)sc.parentNode.insertBefore(wrap,sc);
+  wrap.appendChild(sc);
+  var track=document.createElement('div');track.className='sb-track';
+  var thumb=document.createElement('div');thumb.className='sb-thumb';
+  track.appendChild(thumb);wrap.appendChild(track);
+  function upd(){
+   var ch=sc.clientHeight,sh=sc.scrollHeight,max=sh-ch;
+   var th=Math.max(30,Math.round(ch*ch/Math.max(sh,1)));
+   if(th>ch)th=ch;
+   thumb.style.height=th+'px';
+   var range=Math.max(0,ch-th);
+   var top=max>0?Math.round(sc.scrollTop/max*range):0;
+   thumb.style.top=top+'px';
+   track.style.display=max>1?'block':'none';
+  }
+  sc.addEventListener('scroll',upd);
+  var holding=false,active=false,sy=0,st=0,timer=null;
+  function down(e){
+   if(e.button!==undefined&&e.button!==0)return;
+   e.preventDefault();e.stopPropagation();
+   holding=true;active=false;sy=e.clientY;st=parseFloat(thumb.style.top)||0;
+   timer=setTimeout(function(){if(holding){active=true;thumb.classList.add('drag');}},350);
+   try{thumb.setPointerCapture(e.pointerId);}catch(err){}
+  }
+  function move(e){
+   if(!holding||!active)return;
+   e.preventDefault();e.stopPropagation();
+   var dy=e.clientY-sy,ch=sc.clientHeight,sh=sc.scrollHeight,th=thumb.offsetHeight;
+   var range=Math.max(0,ch-th),max=Math.max(0,sh-ch);
+   var nt=Math.max(0,Math.min(range,st+dy));
+   thumb.style.top=nt+'px';
+   sc.scrollTop=max>0?nt/range*max:0;
+  }
+  function up(){clearTimeout(timer);holding=false;active=false;thumb.classList.remove('drag');}
+  thumb.addEventListener('pointerdown',down);
+  thumb.addEventListener('pointermove',move);
+  thumb.addEventListener('pointerup',up);
+  thumb.addEventListener('pointercancel',up);
+  window.addEventListener('pointerup',up);
+  upd();setTimeout(upd,0);
+ })(nodes[n]);
+}
+
+/* 调音 / 空调 弹窗 */
+function acStatus(){
+ if(!state.acOn)return '空调已关闭';
+ var mn={cool:'制冷',heat:'制热',fan:'送风',dry:'除湿'}[state.acMode]||'制冷';
+ var fn={auto:'自动风',low:'低速风',mid:'中速风',high:'高速风'}[state.acFan]||'自动风';
+ return '运行中 · '+mn+' · '+fn+' · '+state.acTemp+'°C';
+}
+function openModal(type){
+ var title='',body='';
+ if(type==='eq'){
+  title='音效调音';
+  body='<div class="mrow"><div class="ml"><span>音调</span><b id="pitchVal">'+state.pitch+'</b></div><div class="mt" data-act="pitch"><div class="mf" id="pitchFill" style="width:'+state.pitch+'%"></div></div><div class="scale"><span>低</span><span>标准</span><span>高</span></div></div>';
+  body+='<div class="mrow"><div class="ml"><span>麦克风音量</span><b id="micVal">'+state.micVol+'%</b></div><div class="mt" data-act="micVol"><div class="mf" id="micFill" style="width:'+state.micVol+'%"></div></div><div class="scale"><span>小</span><span>大</span></div></div>';
+  body+='<div class="mrow"><div class="ml"><span>系统音量</span><b id="eqVolVal">'+state.volume+'%</b></div><div class="mt" data-act="setVol"><div class="mf" id="eqVolFill" style="width:'+state.volume+'%"></div></div><div class="scale"><span>小</span><span>大</span></div></div>';
+ }else if(type==='ac'){
+  title='空调控制';
+  var modes=[['cool','制冷','snow','快速降温'],['heat','制热','fire','温暖空间'],['fan','送风','wind','通风换气'],['dry','除湿','drop','干爽舒适']];
+  var fans=[['auto','自动','wind','智能调速'],['low','低速','wind','轻柔送风'],['mid','中速','wind','均衡送风'],['high','高速','wind','强劲送风']];
+  function cardSel(items,cur,act){
+   var idx=0;items.forEach(function(it,k){if(it[0]===cur)idx=k;});
+   var it=items[idx];
+   var desc=it[3]||'';
+   var h='<div class="ac-cardsel">';
+   h+='<div class="cs-arrow" data-act="'+act+'Prev">'+ic('back')+'</div>';
+   h+='<div class="cs-card" data-act="'+act+'Cycle">'+ic(it[2])+'<span class="cs-name">'+it[1]+'</span>'+(desc?'<span class="cs-desc">'+desc+'</span>':'')+'</div>';
+   h+='<div class="cs-arrow" data-act="'+act+'Next" style="transform:rotate(180deg)">'+ic('back')+'</div>';
+   h+='</div><div class="ac-dots">';
+   items.forEach(function(p,k){h+='<div class="dot'+(k===idx?' on':'')+'" data-act="'+act+'Set" data-v="'+k+'"></div>';});
+   h+='</div>';
+   return h;
+  }
+  body='<div class="mrow"><div class="ac-power"><span class="ac-label">空调电源</span><div class="ac-switch'+(state.acOn?' on':'')+'" data-act="acToggle"></div></div><div class="ac-state" id="acState">'+acStatus()+'</div></div>';
+  body+='<div class="mrow'+(state.acOn?'':' ac-temp-off')+'" id="acModeRow"><div class="ml"><span>运行模式</span><b id="acModeLbl">'+modes.filter(function(m){return m[0]===state.acMode;})[0][1]+'</b></div>'+cardSel(modes,state.acMode,'acMode')+'</div>';
+  body+='<div class="mrow'+(state.acOn?'':' ac-temp-off')+'" id="acFanRow"><div class="ml"><span>风速大小</span><b id="acFanLbl">'+fans.filter(function(f){return f[0]===state.acFan;})[0][1]+'</b></div>'+cardSel(fans,state.acFan,'acFan')+'</div>';
+  body+='<div class="mrow'+(state.acOn?'':' ac-temp-off')+'" id="acTempRow"><div class="ml"><span>温度设置</span><b><span id="acVal">'+state.acTemp+'</span>°C</b></div><div class="ac-ctl"><div class="ac-btn" data-act="acDown">−</div><div class="ac-val-sm">'+state.acTemp+'°</div><div class="ac-btn" data-act="acUp">＋</div></div></div>';
+ }
+ var mt=document.getElementById('modalTitle'),mb=document.getElementById('modalBody');
+ if(mt)mt.textContent=title;if(mb)mb.innerHTML=body;
+ var mask=document.getElementById('modalMask'),modal=document.getElementById('modal');
+ if(mask)mask.classList.add('show');if(modal)modal.classList.add('show');
+}
+function closeModal(){
+ var mask=document.getElementById('modalMask'),modal=document.getElementById('modal');
+ if(mask)mask.classList.remove('show');if(modal)modal.classList.remove('show');
+ state.eqOpen=false;state.acOpen=false;
+ var fb=document.getElementById('funcPopBody');if(fb&&fb.innerHTML)fb.innerHTML=funcCards();
+ if(state.page==='playing')renderPlaying();
+}
+function applySlider(act,pct){
+ if(act==='seek'){state.progress=pct;updateProgress();}
+ if(act==='volume'){state.volume=pct;var vf=document.getElementById('vfill');if(vf)vf.style.width=pct+'%';var vt=document.getElementById('vtxt');if(vt)vt.textContent=pct+'%';}
+ if(act==='setVol'){state.volume=pct;var sv=document.getElementById('setVol');if(sv)sv.textContent=pct+'%';var sf=document.getElementById('setVolFill');if(sf)sf.style.width=pct+'%';var ev=document.getElementById('eqVolVal');if(ev)ev.textContent=pct+'%';var ef=document.getElementById('eqVolFill');if(ef)ef.style.width=pct+'%';}
+ if(act==='setBri'){state.brightness=pct;var sb=document.getElementById('setBri');if(sb)sb.textContent=pct+'%';var sbf=document.getElementById('setBriFill');if(sbf)sbf.style.width=pct+'%';setDim();}
+ if(act==='pitch'){state.pitch=pct;var pv=document.getElementById('pitchVal');if(pv)pv.textContent=pct;var pf=document.getElementById('pitchFill');if(pf)pf.style.width=pct+'%';}
+ if(act==='micVol'){state.micVol=pct;var mv=document.getElementById('micVal');if(mv)mv.textContent=pct+'%';var mf=document.getElementById('micFill');if(mf)mf.style.width=pct+'%';}
+}
+/* 进度/音量/亮度：按住即可连续拖动，非单点 */
+var sliderDrag=null,SLIDER_ACTS=',seek,volume,setVol,setBri,pitch,micVol,';
+function sliderPct(el,cx){var r=el.getBoundingClientRect();return Math.max(0,Math.min(100,Math.round((cx-r.left)/r.width*100)));}
+document.addEventListener('pointerdown',function(e){
+ var el=e.target.closest('[data-act]');if(!el)return;
+ var act=el.getAttribute('data-act')||'';
+ if(SLIDER_ACTS.indexOf(','+act+',')<0)return;
+ sliderDrag=el;applySlider(act,sliderPct(el,e.clientX));
+ try{el.setPointerCapture(e.pointerId);}catch(err){}
+},true);
+document.addEventListener('pointermove',function(e){
+ if(!sliderDrag)return;
+ applySlider(sliderDrag.getAttribute('data-act'),sliderPct(sliderDrag,e.clientX));
+},true);
+function endSliderDrag(){sliderDrag=null;}
+window.addEventListener('pointerup',endSliderDrag);
+window.addEventListener('pointercancel',endSliderDrag);
+
+/* ============ 事件 ============ */
+document.addEventListener('click',function(e){
+ var nav=e.target.closest('[data-nav]');if(nav){go(nav.getAttribute('data-nav'));return;}
+ var el=e.target.closest('[data-act]');if(!el)return;
+ var act=el.getAttribute('data-act'),i=parseInt(el.getAttribute('data-i')),v=el.getAttribute('data-v');
+ if(act==='add'){addSong(i);return;}
+ if(act==='cat'){state.cat=i;renderCategory();return;}
+ if(act==='af'){state.artistFilter=v;renderArtist();return;}
+ if(act==='al'){state.artistLetter=v;renderArtist();var ag=document.querySelector('#p-artist .artist-grid');if(ag)ag.scrollTop=0;return;}
+ if(act==='artist'){toast(ARTISTS[i].n+' · 共 '+ARTISTS[i].c+' 首可点歌曲');return;}
+ if(act==='fill'){state.query=v;state.pinyin='';state.candPage=0;renderSearch();return;}
+ if(act==='ime'){toggleIme();return;}
+ if(act==='cand'){commitCand(v);return;}
+ if(act==='candPage'){state.candPage=Math.max(0,state.candPage+(parseInt(v)||0));renderCand();return;}
+ if(act==='key'){
+  if(v==='IME'){toggleIme();return;}
+  if(v==='SYM'){state.kbSym=true;renderSearch();return;}
+  if(v==='ABC'){if(state.kbSym){state.kbSym=false;}else{state.kbLower=!state.kbLower;}renderSearch();return;}
+  if(v==='DO'){
+   if(state.pinyin)commitCand(candList()[0]);
+   var r=searchResult();toast(r.length?'找到 '+r.length+' 首相关歌曲':'没有找到相关歌曲');return;
+  }
+  if(v==='DEL'){
+   if(state.ime==='cn'&&state.pinyin){state.pinyin=state.pinyin.slice(0,-1);state.candPage=0;syncInput();renderCand();refreshResults();return;}
+   state.query=state.query.slice(0,-1);
+  }
+  else if(v==='CLEAR'){state.query='';state.pinyin='';state.candPage=0;}
+  else if(v==='SPACE'){
+   if(state.ime==='cn'&&state.pinyin){commitCand(candList()[0]);return;}
+   state.query+=' ';
+  }
+  else if(state.ime==='cn'&&/^[a-zA-Z]$/.test(v)){
+   state.pinyin+=v.toLowerCase();state.candPage=0;syncInput();renderCand();refreshResults();return;
+  }
+  else state.query+=v;
+  state.candPage=0;syncInput();renderCand();refreshResults();return;
+ }
+ if(act==='doSearch'){var r=searchResult();toast(r.length?'找到 '+r.length+' 首相关歌曲':'没有找到相关歌曲');return;}
+ if(act==='rank'){state.rank=v;renderRank();return;}
+ if(act==='pl'){state.plDetail=i;renderPlaylist();return;}
+ if(act==='plBack'){state.plDetail=-1;renderPlaylist();return;}
+ if(act==='pin'){if(i>0){var it=state.ordered.splice(i,1)[0];state.ordered.unshift(it);toast('已置顶《'+SONGS[it.i].n+'》');}else toast('该歌曲已在首位');renderOrdered();return;}
+ if(act==='del'){var d=state.ordered.splice(i,1)[0];toast('已删除《'+SONGS[d.i].n+'》');renderOrdered();document.getElementById('miniCount').textContent=state.ordered.length;return;}
+ if(act==='clearOrder'){state.ordered=[];toast('点歌列表已清空');renderOrdered();document.getElementById('miniCount').textContent=0;return;}
+ if(act==='prev'){changeSong(-1);return;}
+ if(act==='next'){changeSong(1);return;}
+ if(act==='toggle'){togglePlay();return;}
+ if(act==='funcPop'){
+  var pop=document.getElementById('funcPop'),body=document.getElementById('funcPopBody');
+  if(body&&!body.innerHTML)body.innerHTML=funcCards();
+  if(pop)pop.classList.toggle('show');
+  return;
+ }
+ if(act==='funcClose'){var p=document.getElementById('funcPop');if(p)p.classList.remove('show');return;}
+ if(act==='func'){
+  if(v==='next'){changeSong(1);return;}
+  if(v==='toggle'){togglePlay();return;}
+  if(v==='replay'){state.progress=0;updateProgress();toast('重唱《'+SONGS[state.playIndex].n+'》已从头开始');return;}
+  if(v==='mute'){state.mute=!state.mute;toast(state.mute?'已静音':'已取消静音');}
+  else if(v==='origin'){state.origin=!state.origin;toast(state.origin?'已切换原唱':'已切换伴唱');}
+  else if(v==='atmos'){state.atmos=!state.atmos;toast(state.atmos?'氛围灯已开启':'氛围灯已关闭');}
+  else if(v==='eq'){state.eqOpen=!state.eqOpen;if(state.eqOpen)openModal('eq');else closeModal();}
+  else if(v==='control'){state.acOpen=!state.acOpen;if(state.acOpen)openModal('ac');else closeModal();}
+  if(state.page==='playing')renderPlaying();
+  var fb=document.getElementById('funcPopBody');if(fb)fb.innerHTML=funcCards();
+  return;
+ }
+ if(act==='modalClose'){closeModal();return;}
+ if(act==='acUp'||act==='acDown'){
+  state.acTemp=Math.max(16,Math.min(30,state.acTemp+(act==='acUp'?1:-1)));
+  var av=document.getElementById('acVal');if(av)av.textContent=state.acTemp;
+  var avs=document.querySelector('.ac-val-sm');if(avs)avs.textContent=state.acTemp+'°';
+  var ast=document.getElementById('acState');if(ast)ast.textContent=acStatus();
+  toast('空调温度：'+state.acTemp+'°C');return;
+ }
+ if(act==='acToggle'){
+  state.acOn=!state.acOn;
+  openModal('ac');
+  toast(state.acOn?'空调已开启':'空调已关闭');return;
+ }
+ if(act.indexOf('acMode')===0||act.indexOf('acFan')===0){
+  var isMode=act.indexOf('acMode')===0;
+  var arr=isMode?[['cool','制冷'],['heat','制热'],['fan','送风'],['dry','除湿']]:[['auto','自动'],['low','低速'],['mid','中速'],['high','高速']];
+  var cur=isMode?state.acMode:state.acFan;
+  var idx=0;arr.forEach(function(it,k){if(it[0]===cur)idx=k;});
+  if(act.indexOf('Prev')>=0)idx=(idx-1+arr.length)%arr.length;
+  else if(act.indexOf('Next')>=0)idx=(idx+1)%arr.length;
+  else if(act.indexOf('Cycle')>=0)idx=(idx+1)%arr.length;
+  else if(act.indexOf('Set')>=0)idx=parseInt(v)||0;
+  if(isMode)state.acMode=arr[idx][0];else state.acFan=arr[idx][0];
+  openModal('ac');
+  toast((isMode?'模式：':'风速：')+arr[idx][1]);return;
+ }
+ if(act==='seek'||act==='volume'||act==='setVol'||act==='setBri'||act==='pitch'||act==='micVol'){
+  applySlider(act,sliderPct(el,e.clientX));return;
+ }
+ if(act==='theme'){
+   if(v===state.theme){toast('当前已选中该配色');return;}
+   state.theme=v;setTheme();
+   var els=document.querySelectorAll('#p-settings [data-act="theme"]');
+   for(var i=0;i<els.length;i++){els[i].classList.toggle('on',els[i].getAttribute('data-v')===v);}
+   toast('配色已切换');return;
+ }
+ if(act==='mode'){
+   if(v===state.mode){toast(v==='dark'?'当前已是深色模式':'当前已是浅色模式');return;}
+   state.mode=v;setTheme();
+   var mes=document.querySelectorAll('#p-settings [data-act="mode"]');
+   for(var mi=0;mi<mes.length;mi++){mes[mi].classList.toggle('on',mes[mi].getAttribute('data-v')===v);}
+   toast(v==='dark'?'已切换深色模式':'已切换浅色模式');return;
+ }
+ if(act==='reset'){state.volume=64;state.brightness=100;state.theme='blue';state.mode='dark';setTheme();setDim();renderSettings();toast('已恢复默认设置');return;}
+});
+document.addEventListener('click',function(e){
+ var s=e.target.closest('[data-song]');if(!s)return;
+ if(e.target.closest('[data-act]'))return;
+ state.selected=parseInt(s.getAttribute('data-song'));
+ document.querySelectorAll('.page.active [data-song]').forEach(function(x){x.classList.remove('sel');});
+ s.classList.add('sel');
+});
+
+/* ============ 时钟与模拟进度 ============ */
+function tick(){
+ var d=new Date(),p=function(n){return (n<10?'0':'')+n;};
+ document.getElementById('clock').textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+ var wk=['星期日','星期一','星期二','星期三','星期四','星期五','星期六'][d.getDay()];
+ document.getElementById('date').textContent=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+wk;
+}
+setInterval(tick,1000);tick();
+setInterval(function(){if(state.playing){state.progress=(state.progress+1)%101;updateProgress();}},1500);
+
+setTheme();setDim();go('home');updateMini();
+</script>
+</body>
+</html>

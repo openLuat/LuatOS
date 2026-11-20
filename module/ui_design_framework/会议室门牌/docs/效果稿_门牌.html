@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>会议室门牌 · 效果稿（1024x600 深/浅）</title>
+<style>
+/* 视觉令牌与 code/ui_theme.lua 一一对应：c.* / glass.* / dept.*
+   卡片全部半透明：照片从卡片后面透出来，靠 2px 描边 + 投影保证轮廓可分辨 */
+:root{
+  --bg:#0A121F; --veil:rgba(5,10,20,.54);
+  --card:rgba(24,33,47,.70); --tile:rgba(34,48,71,.78); --track:rgba(26,37,52,.62);
+  --text:#E9F0FA; --sub:#9BAAC1; --dim:#7C8CA6;
+  --pri:#5AA9FF; --on-pri:#07111E; --ok:#34D399; --warn:#FBBF24; --danger:#F87171;
+  --edge:rgba(42,58,82,.95); --divider:#2E3E55; --shadow:rgba(0,0,0,.55);
+  --d1:#60A5FA; --d1bg:rgba(37,99,235,.38); --d1t:#DCEAFF;
+  --d2:#34D399; --d2bg:rgba(14,159,110,.38); --d2t:#D6FBEB;
+  --d3:#FBBF24; --d3bg:rgba(180,83,9,.38); --d3t:#FFF3D6;
+  --d4:#A78BFA; --d4bg:rgba(109,40,217,.38); --d4t:#EDE6FF;
+  --d5:#F87171; --d5bg:rgba(185,28,28,.38); --d5t:#FFE1E1;
+}
+body[data-theme="light"]{
+  --bg:#E8F1FB; --veil:rgba(243,248,255,.36);
+  --card:rgba(255,255,255,.77); --tile:rgba(226,236,248,.82); --track:rgba(206,222,240,.85);
+  --text:#0E1B2E; --sub:#42536B; --dim:#5C6D85;
+  --pri:#1D63D6; --on-pri:#FFFFFF; --ok:#0E7F5C; --warn:#9C4708; --danger:#C4263B;
+  --edge:rgba(183,199,219,.95); --divider:#C3D4E6; --shadow:rgba(60,85,112,.20);
+  --d1:#2563EB; --d1bg:rgba(219,234,254,.84); --d1t:#1E40AF;
+  --d2:#0E9F6E; --d2bg:rgba(209,250,229,.84); --d2t:#065F46;
+  --d3:#B45309; --d3bg:rgba(254,243,199,.84); --d3t:#92400E;
+  --d4:#7C3AED; --d4bg:rgba(237,233,254,.84); --d4t:#5B21B6;
+  --d5:#DC2626; --d5bg:rgba(254,226,226,.84); --d5t:#991B1B;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;user-select:none}
+body{background:#20262F;min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 0 40px}
+.bar{display:flex;gap:10px;align-items:center;color:#B9C6D8;font-size:13px}
+.bar button{background:#2D3644;color:#D6E0EE;border:1px solid #3B4657;border-radius:16px;padding:6px 14px;font-size:13px;cursor:pointer}
+.bar button.on{background:#3B82F6;border-color:#3B82F6;color:#fff}
+.stage-wrap{width:1024px;height:600px;position:relative;box-shadow:0 24px 60px rgba(0,0,0,.45);border-radius:10px;overflow:hidden}
+.stage{position:absolute;inset:0;background:var(--bg);color:var(--text);overflow:hidden}
+/* 背景照片 + 纱层：照片只解码一次（真机上由 wallpaper.lua 挂在屏幕级） */
+.stage .photo{position:absolute;inset:0;background:url(bg_tower.jpg) center/cover no-repeat}
+.stage .veil{position:absolute;inset:0;background:var(--veil)}
+.screen{position:absolute;inset:0;display:none;padding:14px 18px 0}
+.screen.on{display:block}
+
+/* 卡片：内容区 = 外框 − 2px 描边，子元素坐标全部按内容区核算 */
+.card{position:absolute;background:var(--card);border:2px solid var(--edge);border-radius:20px;
+      box-shadow:0 4px 10px var(--shadow);overflow:hidden;backdrop-filter:blur(2px)}
+.card::before{content:"";position:absolute;left:20px;right:24px;top:1px;height:2px;border-radius:1px;
+      background:#fff;opacity:.10}
+body[data-theme="light"] .card::before{display:none}
+.t{position:absolute;white-space:nowrap;line-height:1.2}
+.dim{color:var(--dim)} .sub{color:var(--sub)}
+
+/* 胶囊 */
+.chip{position:absolute;border-radius:18px;background:var(--tile);color:var(--sub);
+      display:flex;align-items:center;justify-content:center;font-size:16px}
+.chip.on{background:var(--pri);color:var(--on-pri)}
+
+/* 主页 · 状态卡 */
+.badge{position:absolute;left:14px;top:32px;width:268px;height:54px;display:flex;align-items:center;
+       font-size:40px;font-weight:800;letter-spacing:2px}
+.badge.ok{color:var(--ok)} .badge.busy{color:var(--danger)}
+.infobox{position:absolute;left:12px;top:90px;width:272px;height:140px;background:var(--tile);border-radius:12px}
+.track{position:absolute;left:14px;top:260px;width:268px;height:8px;border-radius:4px;background:var(--track);overflow:hidden}
+.track i{display:block;height:100%;border-radius:4px;background:var(--pri)}
+.btn{position:absolute;border-radius:12px;display:flex;align-items:center;justify-content:center;
+     font-size:18px;font-weight:600;color:var(--on-pri);background:var(--pri)}
+
+/* 周视图 */
+.grid{position:absolute;left:2px;top:38px;width:666px;height:430px}
+.ghead{display:grid;grid-template-columns:64px repeat(7,86px);height:34px;align-items:center;
+       font-size:16px;color:var(--sub);border-bottom:1px solid var(--divider)}
+.ghead div{text-align:center;white-space:nowrap}
+.ghead div.today{color:var(--pri);font-weight:700}
+.gbody{display:grid;grid-template-columns:64px repeat(7,86px);height:396px}
+.gtime{position:relative}
+.gtime span{position:absolute;right:8px;font-size:16px;color:var(--dim)}
+.gcol{position:relative;border-left:1px dashed var(--divider)}
+.gcol.today{background:rgba(90,169,255,.05)}
+.blk{position:absolute;left:2px;right:2px;border-radius:6px;padding:2px 0 0 10px;overflow:hidden}
+.blk::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px;background:var(--ac,var(--pri))}
+.blk b{display:block;font-size:16px;font-weight:600;line-height:1.2}
+.blk small{display:block;font-size:16px;opacity:.85;line-height:1.2}
+.nowline{position:absolute;left:0;right:0;height:2px;background:var(--pri);opacity:.75}
+.nowline::after{content:"";position:absolute;right:0;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--pri)}
+
+/* 预约页 / 详情页 / 设置页通用 */
+.keypad{position:absolute;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.key{border-radius:12px;background:var(--tile);display:flex;align-items:center;justify-content:center;
+     font-size:22px;color:var(--text)}
+.key.act{color:var(--sub);font-size:16px;border:1px solid var(--divider)}
+.field{position:absolute;border-radius:12px;background:var(--tile);display:flex;align-items:center;
+       justify-content:center;font-size:22px;color:var(--dim)}
+.field.on{background:rgba(90,169,255,.31);color:var(--text)}
+body[data-theme="light"] .field.on{background:rgba(29,99,214,.16)}
+.stepper{position:absolute;border-radius:12px;background:var(--tile);display:flex;align-items:center}
+.stepper b{flex:1;text-align:center;font-size:20px;font-weight:600}
+.stepper span{width:44px;height:36px;margin:0 4px;border-radius:10px;background:rgba(36,64,94,.85);color:var(--text);
+      display:flex;align-items:center;justify-content:center;font-size:20px}
+body[data-theme="light"] .stepper span{background:rgba(29,99,214,.85)}
+.tag{position:absolute;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.rowlabel{position:absolute;font-size:16px;color:var(--dim)}
+.rowvalue{position:absolute;font-size:16px;color:var(--text)}
+.note{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);color:#8194AC;font-size:12px}
+</style>
+</head>
+<body data-theme="light">
+
+<div class="bar">
+  <span>页面</span>
+  <button class="on" data-page="home">门牌主页</button>
+  <button data-page="booking">预约登记</button>
+  <button data-page="detail">预约详情</button>
+  <button data-page="setup">门牌设置</button>
+  <span>·</span>
+  <span>外观</span>
+  <button data-theme="light" class="on">浅色</button>
+  <button data-theme="dark">深色</button>
+</div>
+
+<div class="stage-wrap">
+<div class="stage">
+  <div class="photo"></div>
+  <div class="veil"></div>
+
+  <!-- ================= 门牌主页 ================= -->
+  <section class="screen on" id="home">
+    <div class="card" style="left:18px;top:14px;width:988px;height:64px">
+      <div class="t" style="left:18px;top:8px;font-size:24px;font-weight:600">A栋 801 会议室</div>
+      <div class="t dim" style="left:18px;top:40px;font-size:16px">8F 东区 · 12 座 · 支持投屏</div>
+      <div class="t sub" style="left:368px;top:9px;font-size:18px">11-19 周四</div>
+      <div class="t dim" style="left:368px;top:36px;font-size:16px">今日 3 场 · 共 5 小时</div>
+      <div class="chip" style="left:604px;top:14px;width:86px;height:36px">设置</div>
+      <div class="chip" style="left:700px;top:14px;width:86px;height:36px">深色</div>
+      <div class="t" style="left:796px;top:6px;width:170px;height:48px;font-size:38px;font-weight:600;
+           display:flex;align-items:center;justify-content:flex-end">09:42</div>
+    </div>
+
+    <div class="card" style="left:18px;top:90px;width:300px;height:326px">
+      <div class="t dim" style="left:14px;top:12px;font-size:16px">会议室状态</div>
+      <div class="badge busy">使用中</div>
+      <div class="infobox">
+        <div class="t" style="left:12px;top:12px;font-size:22px;font-weight:600">产品评审</div>
+        <div class="t sub" style="left:12px;top:50px;font-size:16px">市场部 · 5 人</div>
+        <div class="t sub" style="left:12px;top:72px;font-size:16px">负责人 李娜 · 分机 8802</div>
+        <div class="t sub" style="left:12px;top:94px;font-size:16px">时段 09:00-11:00</div>
+        <div class="t dim" style="left:12px;top:116px;font-size:16px">预约工号 8801</div>
+      </div>
+      <div class="t sub" style="left:14px;top:238px;font-size:16px">剩余 78 分钟 · 11:00 结束</div>
+      <div class="track"><i style="width:65%"></i></div>
+      <div class="btn" style="left:14px;top:276px;width:268px;height:42px">立即预约</div>
+    </div>
+
+    <div class="card" style="left:18px;top:428px;width:300px;height:156px">
+      <div class="t dim" style="left:14px;top:10px;font-size:16px">今日议程</div>
+      <div class="t dim" style="left:150px;top:10px;width:132px;text-align:right;font-size:16px">3 场 · 5 小时</div>
+      <div class="t" style="left:14px;top:36px;font-size:16px;color:var(--pri)">09:00</div>
+      <div style="position:absolute;left:68px;top:43px;width:6px;height:6px;border-radius:50%;background:var(--d2)"></div>
+      <div class="t" style="left:80px;top:36px;font-size:16px">产品评审</div>
+      <div class="t" style="left:14px;top:72px;font-size:16px;color:var(--pri)">13:00</div>
+      <div style="position:absolute;left:68px;top:79px;width:6px;height:6px;border-radius:50%;background:var(--d1)"></div>
+      <div class="t" style="left:80px;top:72px;font-size:16px">研发周会</div>
+      <div class="t" style="left:14px;top:108px;font-size:16px;color:var(--pri)">16:00</div>
+      <div style="position:absolute;left:68px;top:115px;width:6px;height:6px;border-radius:50%;background:var(--d3)"></div>
+      <div class="t" style="left:80px;top:108px;font-size:16px">新人面试</div>
+    </div>
+
+    <div class="card" style="left:330px;top:90px;width:676px;height:494px">
+      <div class="t dim" style="left:14px;top:10px;font-size:16px">本周预约</div>
+      <div class="t dim" style="left:386px;top:10px;width:272px;text-align:right;font-size:16px">点日期列空白处可快速预约</div>
+      <div class="grid">
+        <div class="ghead">
+          <div class="dim">时间</div>
+          <div>周一 16</div><div>周二 17</div><div>周三 18</div>
+          <div class="today">周四 19</div><div>周五 20</div><div>周六 21</div><div>周日 22</div>
+        </div>
+        <div class="gbody" id="gbody"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 预约登记 ================= -->
+  <section class="screen" id="booking">
+    <div class="card" style="left:18px;top:14px;width:988px;height:64px">
+      <div class="t" style="left:18px;top:8px;font-size:24px;font-weight:600">预约登记</div>
+      <div class="t dim" style="left:18px;top:40px;font-size:16px">开放 08:00-20:00 · 单次 1~3 小时 · 时段不可重叠</div>
+      <div class="chip" style="left:700px;top:14px;width:86px;height:36px">深色</div>
+      <div class="chip" style="left:796px;top:14px;width:170px;height:36px">返回门牌</div>
+    </div>
+
+    <div class="card" style="left:18px;top:90px;width:300px;height:494px">
+      <div class="t dim" style="left:14px;top:14px;font-size:16px">身份验证</div>
+      <div class="t sub" style="left:14px;top:42px;font-size:16px">工号</div>
+      <div class="field on" style="left:14px;top:62px;width:268px;height:44px">8801</div>
+      <div class="t sub" style="left:14px;top:114px;font-size:16px">密码</div>
+      <div class="field" style="left:14px;top:134px;width:268px;height:44px">****</div>
+      <div class="keypad" style="left:14px;top:190px;width:268px;height:292px">
+        <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+        <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+        <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+        <div class="key act">清空</div><div class="key">0</div><div class="key act">退格</div>
+      </div>
+    </div>
+
+    <div class="card" style="left:330px;top:90px;width:676px;height:494px">
+      <div class="t dim" style="left:14px;top:14px;font-size:16px">预约信息</div>
+      <div class="t sub" style="left:14px;top:42px;font-size:16px">预约部门</div>
+      <div class="chip" style="left:14px;top:62px;width:118px;height:38px">研发部</div>
+      <div class="chip on" style="left:142px;top:62px;width:118px;height:38px">市场部</div>
+      <div class="chip" style="left:270px;top:62px;width:118px;height:38px">人事部</div>
+      <div class="chip" style="left:398px;top:62px;width:118px;height:38px">财务部</div>
+      <div class="chip" style="left:526px;top:62px;width:118px;height:38px">总经办</div>
+
+      <div class="t sub" style="left:14px;top:110px;font-size:16px">负责人</div>
+      <div class="chip" style="left:14px;top:130px;width:118px;height:38px">张伟</div>
+      <div class="chip on" style="left:142px;top:130px;width:118px;height:38px">李娜</div>
+      <div class="chip" style="left:270px;top:130px;width:118px;height:38px">赵敏</div>
+      <div class="chip" style="left:398px;top:130px;width:118px;height:38px">王强</div>
+      <div class="chip" style="left:526px;top:130px;width:118px;height:38px">周总</div>
+
+      <div class="t sub" style="left:14px;top:176px;font-size:16px">会议主题</div>
+      <div class="chip" style="left:14px;top:196px;width:204px;height:36px">研发周会</div>
+      <div class="chip on" style="left:228px;top:196px;width:204px;height:36px">产品评审</div>
+      <div class="chip" style="left:442px;top:196px;width:204px;height:36px">客户接待</div>
+      <div class="chip" style="left:14px;top:236px;width:204px;height:36px">财务审计</div>
+      <div class="chip" style="left:228px;top:236px;width:204px;height:36px">新人面试</div>
+      <div class="chip" style="left:442px;top:236px;width:204px;height:36px">经营例会</div>
+
+      <div class="t sub" style="left:14px;top:280px;font-size:16px">预约日期</div>
+      <div class="chip" style="left:14px;top:300px;width:86px;height:36px">周一</div>
+      <div class="chip" style="left:108px;top:300px;width:86px;height:36px">周二</div>
+      <div class="chip" style="left:202px;top:300px;width:86px;height:36px">周三</div>
+      <div class="chip on" style="left:296px;top:300px;width:86px;height:36px">周四</div>
+      <div class="chip" style="left:390px;top:300px;width:86px;height:36px">周五</div>
+      <div class="chip" style="left:484px;top:300px;width:86px;height:36px">周六</div>
+      <div class="chip" style="left:578px;top:300px;width:86px;height:36px">周日</div>
+
+      <div class="t sub" style="left:14px;top:344px;font-size:16px">开始时间</div>
+      <div class="t sub" style="left:228px;top:344px;font-size:16px">时长</div>
+      <div class="t sub" style="left:442px;top:344px;font-size:16px">人数</div>
+      <div class="stepper" style="left:14px;top:364px;width:204px;height:44px">
+        <span>-</span><b>10:00</b><span>+</span></div>
+      <div class="stepper" style="left:228px;top:364px;width:204px;height:44px">
+        <span>-</span><b>2 小时</b><span>+</span></div>
+      <div class="stepper" style="left:442px;top:364px;width:204px;height:44px">
+        <span>-</span><b>5 人</b><span>+</span></div>
+
+      <div class="t sub" style="left:14px;top:416px;font-size:16px">新增预约 · 周四 10:00-12:00 · 5 人</div>
+      <div class="btn" style="left:14px;top:440px;width:180px;height:44px;background:var(--tile);color:var(--sub);font-weight:400">取消</div>
+      <div class="btn" style="left:206px;top:440px;width:464px;height:44px">确认预约</div>
+    </div>
+  </section>
+
+  <!-- ================= 预约详情 ================= -->
+  <section class="screen" id="detail">
+    <div class="card" style="left:18px;top:14px;width:988px;height:64px">
+      <div class="t" style="left:18px;top:8px;font-size:24px;font-weight:600">预约详情</div>
+      <div class="t dim" style="left:18px;top:40px;font-size:16px">周四 10:00-12:00 · A栋 801 会议室</div>
+      <div class="chip" style="left:700px;top:14px;width:86px;height:36px">深色</div>
+      <div class="chip" style="left:796px;top:14px;width:170px;height:36px">返回门牌</div>
+    </div>
+
+    <div class="card" style="left:18px;top:90px;width:520px;height:494px">
+      <div class="tag" style="left:16px;top:14px;width:96px;height:32px;background:var(--d2);color:var(--on-pri)">市场部</div>
+      <div class="tag" style="left:396px;top:14px;width:104px;height:32px;background:var(--d2bg);color:var(--ok)">待开始</div>
+      <div class="t" style="left:16px;top:56px;font-size:26px;font-weight:600">产品评审</div>
+      <div class="t sub" style="left:16px;top:94px;font-size:16px">负责人 李娜 · 分机 8802</div>
+
+      <div style="position:absolute;left:16px;top:122px;width:484px;height:104px;background:var(--tile);border-radius:12px">
+        <div class="t dim" style="left:14px;top:12px;font-size:16px">预约时段</div>
+        <div class="t" style="left:14px;top:34px;font-size:28px;font-weight:600;color:var(--d2)">10:00 - 12:00</div>
+        <div class="t sub" style="left:14px;top:74px;font-size:16px">时长 2 小时 · 5 人 · 市场部</div>
+      </div>
+
+      <div style="position:absolute;left:16px;top:230px;width:484px;border-top:1px dashed var(--divider)"></div>
+      <div class="rowlabel" style="left:16px;top:248px">预约日期</div>
+      <div class="rowvalue" style="left:150px;top:248px">周四（19 日）</div>
+      <div class="rowlabel" style="left:16px;top:288px">当前状态</div>
+      <div class="rowvalue" style="left:150px;top:288px">待开始</div>
+      <div class="rowlabel" style="left:16px;top:328px">预约工号</div>
+      <div class="rowvalue" style="left:150px;top:328px">8801</div>
+      <div class="rowlabel" style="left:16px;top:368px">会议室</div>
+      <div class="rowvalue" style="left:150px;top:368px">A栋 801 会议室</div>
+      <div class="t dim" style="left:16px;top:406px;font-size:16px">门牌终端 · 密码用于自助取消与修改</div>
+    </div>
+
+    <div class="card" style="left:556px;top:90px;width:450px;height:494px">
+      <div class="t dim" style="left:16px;top:14px;font-size:16px">预约操作</div>
+      <div class="btn" style="left:16px;top:42px;width:134px;height:46px;background:var(--warn)">编辑</div>
+      <div class="btn" style="left:158px;top:42px;width:134px;height:46px;background:var(--danger);color:#fff">删除</div>
+      <div class="btn" style="left:300px;top:42px;width:130px;height:46px;background:var(--tile);color:var(--sub);font-weight:400">返回</div>
+
+      <div class="t" style="left:16px;top:102px;font-size:16px;color:var(--warn)">输入密码后再次点击「删除」</div>
+      <div class="field on" style="left:16px;top:126px;width:414px;height:44px">***</div>
+
+      <div class="keypad" style="left:16px;top:210px;width:414px;height:276px">
+        <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+        <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+        <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+        <div class="key act">清空</div><div class="key">0</div><div class="key act">退格</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 门牌设置 ================= -->
+  <section class="screen" id="setup">
+    <div class="card" style="left:18px;top:14px;width:988px;height:64px">
+      <div class="t" style="left:18px;top:8px;font-size:24px;font-weight:600">门牌设置</div>
+      <div class="t dim" style="left:18px;top:40px;font-size:16px">会议室名称 / 离线校时 · 修改需要管理员密码</div>
+      <div class="chip" style="left:700px;top:14px;width:86px;height:36px">深色</div>
+      <div class="chip" style="left:796px;top:14px;width:170px;height:36px">返回门牌</div>
+    </div>
+
+    <div class="card" style="left:18px;top:90px;width:300px;height:494px">
+      <div class="t dim" style="left:14px;top:14px;font-size:16px">管理员验证</div>
+      <div class="t sub" style="left:14px;top:42px;font-size:16px">管理员密码</div>
+      <div class="field on" style="left:14px;top:62px;width:268px;height:44px">****</div>
+      <div class="t" style="left:14px;top:114px;font-size:16px;color:var(--ok)">密码正确，可以保存</div>
+      <div class="keypad" style="left:14px;top:146px;width:268px;height:334px">
+        <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+        <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+        <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+        <div class="key act">清空</div><div class="key">0</div><div class="key act">退格</div>
+      </div>
+    </div>
+
+    <div class="card" style="left:330px;top:90px;width:676px;height:494px">
+      <div class="t dim" style="left:14px;top:14px;font-size:16px">会议室与时间</div>
+
+      <div class="t sub" style="left:14px;top:42px;font-size:16px">会议室名称</div>
+      <div class="chip on" style="left:14px;top:62px;width:152px;height:36px">A栋 801 会议室</div>
+      <div class="chip" style="left:176px;top:62px;width:152px;height:36px">A栋 802 会议室</div>
+      <div class="chip" style="left:338px;top:62px;width:152px;height:36px">A栋 803 会议室</div>
+      <div class="chip" style="left:500px;top:62px;width:152px;height:36px">B栋 201 会议室</div>
+      <div class="chip" style="left:14px;top:102px;width:152px;height:36px">B栋 202 会议室</div>
+      <div class="chip" style="left:176px;top:102px;width:152px;height:36px">C栋 301 会议室</div>
+      <div class="chip" style="left:338px;top:102px;width:152px;height:36px">8F 培训室</div>
+      <div class="chip" style="left:500px;top:102px;width:152px;height:36px">3F 洽谈室</div>
+
+      <div class="t sub" style="left:14px;top:152px;font-size:16px">日期（离线手动校准）</div>
+      <div class="stepper" style="left:14px;top:172px;width:204px;height:44px">
+        <span>-</span><b>2026</b><span>+</span></div>
+      <div class="stepper" style="left:232px;top:172px;width:204px;height:44px">
+        <span>-</span><b>11 月</b><span>+</span></div>
+      <div class="stepper" style="left:450px;top:172px;width:204px;height:44px">
+        <span>-</span><b>19 日</b><span>+</span></div>
+
+      <div class="t sub" style="left:14px;top:224px;font-size:16px">时间（5 分钟一档）</div>
+      <div class="stepper" style="left:14px;top:244px;width:204px;height:44px">
+        <span>-</span><b>09</b><span>+</span></div>
+      <div class="stepper" style="left:232px;top:244px;width:204px;height:44px">
+        <span>-</span><b>45</b><span>+</span></div>
+      <div style="position:absolute;left:450px;top:244px;width:204px;height:44px;background:var(--tile);
+           border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--pri)">
+        11-19 周四 09:45</div>
+
+      <div class="t dim" style="left:14px;top:302px;font-size:16px">说明：名称与时间修改需要管理员密码（默认 8888）</div>
+      <div class="t dim" style="left:14px;top:328px;font-size:16px">离线时用步进器手动校准，会同时写入硬件 RTC 与本地基准</div>
+      <div class="t dim" style="left:14px;top:354px;font-size:16px">设置项存 fskv，掉电重启后保持；名称预设可在 app_state.lua 里增删</div>
+      <div class="t" style="left:14px;top:380px;font-size:16px;color:var(--ok)">当前时钟：09:42 · 已校时</div>
+
+      <div class="btn" style="left:14px;top:440px;width:180px;height:44px;background:var(--tile);color:var(--sub);font-weight:400">取消</div>
+      <div class="btn" style="left:206px;top:440px;width:464px;height:44px">保存设置</div>
+    </div>
+  </section>
+</div>
+</div>
+
+<div class="note">效果稿仅供比对视觉与布局；尺寸、间距、字号与 code/ 下 Lua 实现一一对应（1024x600）</div>
+
+<script>
+document.querySelectorAll('.bar button[data-page]').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('.bar button[data-page]').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('on'); });
+    document.getElementById(b.dataset.page).classList.add('on');
+  };
+});
+document.querySelectorAll('.bar button[data-theme]').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('.bar button[data-theme]').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    document.body.dataset.theme = b.dataset.theme;
+    // 主题胶囊文字显示「点击后进入」的外观
+    document.querySelectorAll('.card .chip').forEach(function (c) {
+      if (c.textContent === '深色' || c.textContent === '浅色') {
+        c.textContent = (b.dataset.theme === 'light') ? '深色' : '浅色';
+      }
+    });
+  };
+});
+
+var OPEN = 8, ROW = 33, ROWS = 12;
+var DEPT = [
+  { a: 'var(--d1)', bg: 'var(--d1bg)', t: 'var(--d1t)' },
+  { a: 'var(--d2)', bg: 'var(--d2bg)', t: 'var(--d2t)' },
+  { a: 'var(--d3)', bg: 'var(--d3bg)', t: 'var(--d3t)' },
+  { a: 'var(--d4)', bg: 'var(--d4bg)', t: 'var(--d4t)' },
+  { a: 'var(--d5)', bg: 'var(--d5bg)', t: 'var(--d5t)' }
+];
+var BOOKINGS = [
+  { day: 1, start: 9,  dur: 2, topic: '研发周会', dept: 0 },
+  { day: 1, start: 14, dur: 1, topic: '客户接待', dept: 1 },
+  { day: 2, start: 10, dur: 1, topic: '产品评审', dept: 1 },
+  { day: 3, start: 15, dur: 3, topic: '经营例会', dept: 4 },
+  { day: 4, start: 9,  dur: 2, topic: '产品评审', dept: 1 },
+  { day: 4, start: 13, dur: 2, topic: '研发周会', dept: 0 },
+  { day: 4, start: 16, dur: 1, topic: '新人面试', dept: 2 },
+  { day: 5, start: 11, dur: 2, topic: '财务审计', dept: 3 },
+  { day: 6, start: 10, dur: 2, topic: '客户接待', dept: 1 },
+  { day: 7, start: 14, dur: 1, topic: '新人面试', dept: 2 }
+];
+
+function buildGrid() {
+  var body = document.getElementById('gbody');
+  var html = '<div class="gtime">';
+  for (var i = 0; i < ROWS; i++) {
+    var label = (OPEN + i < 10 ? '0' : '') + (OPEN + i) + ':00';
+    html += '<span style="top:' + (i * ROW + 7) + 'px">' + label + '</span>';
+  }
+  html += '</div>';
+  for (var d = 1; d <= 7; d++) {
+    html += '<div class="gcol' + (d === 4 ? ' today' : '') + '">';
+    BOOKINGS.forEach(function (b) {
+      if (b.day !== d) return;
+      var top = (b.start - OPEN) * ROW;
+      var h = b.dur * ROW - 3;
+      var c = DEPT[b.dept];
+      html += '<div class="blk" style="top:' + top + 'px;height:' + h + 'px;background:' + c.bg
+        + ';color:' + c.t + ';--ac:' + c.a + '">'
+        + '<b>' + b.topic + '</b>'
+        + (h >= 40 ? '<small>' + ['研发部', '市场部', '人事部', '财务部', '总经办'][b.dept] + '</small>' : '')
+        + '</div>';
+    });
+    if (d === 4) html += '<div class="nowline" style="top:' + (1.7 * ROW) + 'px"></div>';
+    html += '</div>';
+  }
+  body.innerHTML = html;
+}
+buildGrid();
+</script>
+</body>
+</html>

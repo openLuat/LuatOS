@@ -5,6 +5,7 @@
  */
 
 #include "luat_airui.h"
+#include "luat_airui_remote.h"
 #include "luat_airui_component.h"
 #include "luat_rtos.h"
 #include "lvgl9/lvgl.h"
@@ -110,6 +111,11 @@ static void input_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
     
     if (ud->ctx->ops->input_ops->read_pointer) {
         ud->ctx->ops->input_ops->read_pointer(ud->ctx, indev, data);
+#if defined(LUAT_USE_AIRUI_REMOTE)
+        if (data->state == LV_INDEV_STATE_PRESSED) {
+            airui_remote_cancel_pointer(ud->ctx);
+        }
+#endif
     }
 }
 
@@ -852,6 +858,9 @@ void airui_deinit(airui_ctx_t *ctx)
     
     // 停止运行时定时器
     airui_stop_runtime_timers(ctx);
+#if defined(LUAT_USE_AIRUI_REMOTE)
+    airui_remote_stop(ctx);
+#endif
     
     // 清理平台驱动
     if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->deinit != NULL) {

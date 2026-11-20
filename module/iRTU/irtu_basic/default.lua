@@ -84,28 +84,51 @@ local function get_device_model()
     return hmeta.model()
 end
 
+-- hmeta.model() 可能上报带硬件版本后缀的型号(如 Air8000U_A14)，先去掉 "_xxx" 再按型号族匹配
+local function model_base_name(model)
+    if not model or model == "" then return "" end
+    return (model:gsub("_.*$", ""))
+end
+
 -- 根据型号获取对应的GPIO配置
 local function get_gpio_config()
     local model = get_device_model()
+    local name = model_base_name(model)
     log.info("Current device model:", model)
-    
-    -- 根据型号获取对应的引脚配置
+
+    -- Air8000 系列子型号按是否内置 WiFi/BLE 芯片分三组：
+    --   A 组(带 WiFi)：Air8000 / Air8000A / Air8000AB / Air8000U / Air8000N / Air8000XB / Air8000G
+    --     SPI0 是 4G 与 WiFi 协处理器之间的 AirLink 总线：CS=GPIO8、CLK/MOSI/MISO=GPIO9~11，
+    --     且 GPIO22/23 是 AirLink 的 RDY/WiFi 使能脚。这些脚绝不能初始化为普通 GPIO，
+    --     否则 AirLink 会立刻断链，产测 AT+STEST=1 表现为 5 秒后返回 +CME ERROR: 100。
+    --   W 组(带 WiFi)：Air8000W / Air8000WU / Air8000WN，同上，但 GPIO6/7/24/25 可用。
+    --   D 组(无 WiFi)：Air8000D / Air8000DB，GPIO8~11、22/23 可作普通 IO。
     local config = nil
-    if model == "Air8000T" then
-        config = model_gpio_configs["Air780EPM_Air780EHM"]
-    elseif model == "Air8000" or model == "Air8000A" then
-        -- Air8000 同样通过 SPI0 连接 WiFi，不能将 GPIO8~11 初始化为普通输入。
+    if name == "Air8000T" then
+        -- Air8000T 无 WiFi，沿用原有配置
         config = model_gpio_configs["Air8000A"]
-    elseif model == "Air8000W" then
+    elseif name == "Air8000W" or name == "Air8000WU" or name == "Air8000WN" then
         config = model_gpio_configs["Air8000W"]
-    elseif model == "Air8000D" then
+    elseif name == "Air8000D" or name == "Air8000DB" then
         config = model_gpio_configs["Air8000D"]
-    elseif model == "Air780EPM" or model == "Air780EHM" then
+    elseif name == "Air8000G" then
+        -- Air8000G 内置 GNSS，可用 GPIO 与 Air8000A 同集
+        config = model_gpio_configs["Air8000A"]
+    elseif name == "Air8000" or name == "Air8000A" or name == "Air8000U"
+        or name == "Air8000N" or name == "Air8000AB" or name == "Air8000XB" then
+        -- 与 Air8000A 引脚体系一致，不能将 GPIO8~11 初始化为普通输入
+        config = model_gpio_configs["Air8000A"]
+    elseif name == "Air780EPM" or name == "Air780EHM" then
         config = model_gpio_configs["Air780EPM_Air780EHM"]
-    elseif model == "Air780EHV" then
+    elseif name == "Air780EHV" then
         config = model_gpio_configs["Air780EHV"]
-    elseif model == "Air780EGH" or model == "Air780EGP" or model == "Air780EGG" then
+    elseif name == "Air780EGH" or name == "Air780EGP" or name == "Air780EGG" then
         config = model_gpio_configs["Air780EGH_Air780EGP_Air780EGG"]
+    elseif name:sub(1, 7) == "Air8000" then
+        -- 未列出的 Air8000 子型号统一按“带 AirLink 的 SPI0 平台”处理，
+        -- 绝不能回落到包含 GPIO8~11/22/23 的 Air780EPM 表
+        log.warn("Unknown Air8000 model:", model, "using Air8000A configuration")
+        config = model_gpio_configs["Air8000A"]
     else
         log.warn("Unknown device model:", model, "using Air780EPM/Air780EHM default configuration")
         config = model_gpio_configs["Air780EPM_Air780EHM"] -- 默认使用Air780EPM/Air780EHM配置

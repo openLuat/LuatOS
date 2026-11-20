@@ -20,7 +20,7 @@ VERSION：项目版本号,ascii string类型
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "iRTU"
-VERSION = "5.0.5"
+VERSION = "5.0.6"
 
 --联网成功获取配置之后，代码里会将PRODUCT_KEY更新为当前项目下的KEY值进行升级，所以这里写死为默认值
 --如果需要手动修改KEY请参考https://docs.openluat.com/air780epm/luatos/app/ota/fota/
@@ -55,7 +55,10 @@ if rfa and atc and RFA_MODE then
                 _G.IRTU_DISABLE_VUART = true
                 _G.IRTU_DISABLE_UART1 = true
                 local model = hmeta.model()
-                if model == "Air8000" or model == "Air8000A" or model == "Air8000G" or model == "Air8000D" or model == "Air8000U" or model == "Air8000N"
+                -- 内置 GNSS 的型号(RFA 模式下 UART2 由 CGNSPWR/CGNSTST/CGNSCMD 独占)
+                if model == "Air8000" or model == "Air8000A" or model == "Air8000AB"
+                    or model == "Air8000G" or model == "Air8000D" or model == "Air8000DB"
+                    or model == "Air8000U" or model == "Air8000N"
                     or model == "Air780EGH" or model == "Air780EGP" or model == "Air780EGG" then
                     _G.IRTU_DISABLE_UART2 = true
                 end

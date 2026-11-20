@@ -70,7 +70,8 @@
 
 ## 内核固件
 
-- 烧录工具：合宙 **Luatools**（选 Air1603 系列固件 + 本工程 `code/` 目录脚本，底层下载即可）
+- 固件文件名：`LuatOS-SoC_V1030_Air1603_102.soc`
+- 烧录工具：合宙 **Luatools**（选中上述 .soc 固件 + 本工程 `code/` 目录脚本，底层下载即可）
 - 工程依赖的固件内置库：`airui`、`display`、`tp`、`i2c`、`gpio`、`pwm`、`fskv`、`hzfont`
 - 中文用 hzfont 矢量字库并 `load_to_psram`（2048 字上限 ≈ 200KB PSRAM）；
   拷不进 PSRAM 时自动退回按需读取，界面完整但重建页面会慢

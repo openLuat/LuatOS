@@ -52,6 +52,7 @@ extern "C"
 
 typedef void tje_write_func(void* context, void* data, int size);
 void *jpeg_encode_init(tje_write_func* func, void* context, uint8_t quality, uint32_t width, uint32_t height, uint8_t src_num_components);
+/* Encode one strip of eight packed YCbCr rows, with the final row repeated if needed. */
 void jpeg_encode_run(void *ctx, uint8_t *src_data);
 void jpeg_encode_end(void *ctx);
 // ============================================================

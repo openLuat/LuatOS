@@ -429,7 +429,7 @@ TJEI_FORCE_INLINE TJE_FUN void tjei_write_bits(TJEState* state,
 
     // Push the stack.
     uint32_t nloc = *location + num_bits;
-    *bitbuffer |= (uint32_t)(bits << (32 - nloc));
+    *bitbuffer |= (uint32_t)bits << (32 - nloc);
     *location = nloc;
     while ( *location >= 8 ) {
         // Grab the most significant byte.
@@ -602,25 +602,27 @@ static TJE_FUN void tjei_encode_and_write_MCU(TJEState* state,
                                       uint32_t* location)
 {
     int du[64];  // Data unit in zig-zag order
-
-    float dct_mcu[64];
-    memcpy(dct_mcu, mcu, 64 * sizeof(float));
+    int last_possible_ac = 63;
 
 #if TJE_USE_FAST_DCT
-    tjei_fdct(dct_mcu);
-    for ( int i = 0; i < 64; ++i ) {
-        float fval = dct_mcu[i];
-        fval *= qt[i];
-#if 0
-        fval = (fval > 0) ? floorf(fval + 0.5f) : ceilf(fval - 0.5f);
-#else
-        fval = floorf(fval + 1024 + 0.5f);
-        fval -= 1024;
-#endif
-        int val = (int)fval;
-        du[tjei_zig_zag[i]] = val;
+    int differing = 1;
+    while (differing < 64 && mcu[differing] == mcu[0]) {
+        differing++;
+    }
+    if (differing == 64) {
+        // A constant input has only DC, equal to 64 times the sample in this DCT.
+        float dc = (64.0f * mcu[0]) * qt[0];
+        du[0] = (int)(floorf(dc + 1024 + 0.5f) - 1024);
+        last_possible_ac = 0;
+    } else {
+        tjei_fdct(mcu);
+        for (int i = 0; i < 64; ++i) {
+            float fval = mcu[i] * qt[i];
+            du[tjei_zig_zag[i]] = (int)(floorf(fval + 1024 + 0.5f) - 1024);
+        }
     }
 #else
+    float dct_mcu[64];
     for ( int v = 0; v < 8; ++v ) {
         for ( int u = 0; u < 8; ++u ) {
             dct_mcu[v * 8 + u] = slow_fdct(u, v, mcu);
@@ -652,7 +654,7 @@ static TJE_FUN void tjei_encode_and_write_MCU(TJEState* state,
 
     int last_non_zero_i = 0;
     // Find the last non-zero element.
-    for ( int i = 63; i > 0; --i ) {
+    for (int i = last_possible_ac; i > 0; --i) {
         if (du[i] != 0) {
             last_non_zero_i = i;
             break;
@@ -1205,16 +1207,18 @@ void jpeg_encode_run(void *ctx, uint8_t *src_data)
     TJE_ContextStruct *handle = (TJE_ContextStruct *)ctx;
     TJEState* state = &handle->encode_state;
     uint32_t width = handle->width;
-    uint32_t height = handle->height;
     uint32_t src_num_components = handle->num_components;
-    uint32_t block_index, src_index, col, row;
-    uint8_t r,g,b;
+    uint32_t block_index, src_index;
 	for ( uint32_t x = 0; x < width; x += 8 ) {
 		// Block loop: ====
 		for ( uint32_t off_y = 0; off_y < 8; ++off_y ) {
 			for ( uint32_t off_x = 0; off_x < 8; ++off_x ) {
 				block_index = (off_y * 8 + off_x);
-				src_index = (((0 + off_y) * width) + (x + off_x)) * src_num_components;
+                uint32_t column = x + off_x;
+                if (column >= width) {
+                    column = width - 1;
+                }
+                src_index = (off_y * width + column) * src_num_components;
 //				if (is_rgb)
 //				{
 //					r = src_data[src_index + 0];
@@ -1280,6 +1284,11 @@ void TJE_FUN jpeg_encode_end(void *ctx)
     uint16_t EOI = tjei_be_word(0xffd9);
     TJE_ContextStruct *handle = (TJE_ContextStruct *)ctx;
     TJEState* state = &handle->encode_state;
+    if (handle->location != 0) {
+        uint32_t padding = 8U - handle->location;
+        tjei_write_bits(state, &handle->bitbuffer, &handle->location,
+                        (uint16_t)padding, (uint16_t)((1U << padding) - 1U));
+    }
     tjei_write(state, &EOI, sizeof(uint16_t), 1);
 
     if (state->output_buffer_count) {

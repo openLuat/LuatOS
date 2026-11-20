@@ -29,6 +29,7 @@ static bool slider_integer(lua_State *L, int index, int32_t *value)
  * @api slider:get_value()
  * @return int|nil 成功返回当前整数值，运行错误返回 nil
  * @return table|nil 失败时返回包含 code、message 的错误表
+ * @note 预览值按 step 吸附，旋钮在拖动中跟随指针，松手后停在步进位置。
  * @note 没有拖动时为已提交或程序设置的值；方法本身不改变数值或派发事件。
  * @usage
  * local slider = xml:find("main", "speed")

@@ -41,7 +41,7 @@
 
 1、Luatools 下载调试工具：[https://docs.openluat.com/air780epm/common/Luatools/](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、支持 AirCAMERA_1032 预览的 Air8101B 固件：[https://docs.openluat.com/air8101/luatos/firmware/](https://docs.openluat.com/air8101/luatos/firmware/)
+2、包含 AirCAMERA_1032 UVC 修复并启用 JPEG 软件解码的 Air8101B 固件。[Air8101 固件下载](https://docs.openluat.com/air8101/luatos/firmware/)
 
 > 当前最新的 V2022 106 号固件还不支持。预计在 V2023 临时固件、V2024 正式固件中支持。
 >
@@ -80,7 +80,7 @@ I/user.air1032 first_display 1920 1080 jpeg 1920 1088 visible 1024 480
 
 ## 常见问题
 
-- **界面提示 USB camera open failed**。检查摄像头是否插在开发板的 USB-A 口，确认当前使用的固件具备上述 UVC 修复。
+- **界面提示 USB camera open failed**。检查摄像头是否插在开发板的 USB-A 口，并按「演示软件环境」中的固件要求确认所用固件已包含 AirCAMERA_1032 UVC 修复。
 - **界面提示 JPEG display failed**。检查固件是否启用了 JPEG 软件解码。串口日志可查看解码或内存相关的错误。
 - **高分辨率切换时画面暂时空白**。切换会重新打开摄像头。等状态栏更新到 `Live` 后，画面开始刷新。
 - **720p 或 1080p 预览时画面卡顿**。脚本先用软件解码整帧 JPEG，再裁剪上屏。两档分辨率的单帧解码耗时较长。想让画面更流畅，可以切换到原生 640×360。

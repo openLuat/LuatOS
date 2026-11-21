@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>LUMA 光弧 · 美容仪 UI 效果稿（深蓝科技 · 1024×600）</title>
+<!--
+  LUMA 光弧 · 深蓝科技风效果稿（Air8607 / 1024×600）
+  与亮色稿同骨架（顶栏 64 / 概览 78-182 / 轮播 194-458 / 托片 470-574），
+  只换视觉语言：近黑蓝底 + 蓝光 + 深色相框，器件照片原色不动。
+
+  器件不变色的做法（这一版的核心取舍）：
+  产品图是米白底（背景 249，机身 250），任何"染色 / 压暗 / 抠图"都会把它做坏——
+  抠图分不开（同亮度），染色后变成一张青蓝全息图，也认不出是器械了。
+  所以这一版**不给图片加任何 filter**，改用「深色相框 + 明亮展示窗」：
+  卡片外壳走深蓝，图片按 10px 内缩摆在框里，白底与浅暖色的框内沿相接，
+  视觉上是一块嵌在深色仪器面板里的样本窗，器械保持真实颜色。
+
+  代价要认：三张图并排时亮面积偏大，焦点靠蓝色发光描边 + 侧卡变暗来区分，
+  不再靠"图上压一层黑"。若真机觉得亮窗抢戏，只能重出深底产品图（那才是根治）。
+
+  真机落地：CSS 的发光 / 伪元素 / 网格都没有，需要
+  (a) 色表进 app_config，(b) 四角角标用 shape 的 line 画，
+  (c) 蓝色发光用多圈低透明度 shape 叠（或直接接受平面描边），
+  (d) 图片按控件尺寸出图并保持原色（F7：单 IDAT + 尺寸预算）。
+-->
+<style>
+:root{
+  --dur:0s;
+  --bg:#070C16; --bg2:#0A1220;
+  --panel:#0C1626; --panel2:#101E33;
+  --line:#17263C; --line2:#28405F;
+  --ink:#E6EFFC; --ink2:#A9BDD6; --ink3:#7A8FA8;
+  --blue:#4C8DFF; --blue-dim:#1E4C8A; --sky:#7DD3FC; --indigo:#7A8CFF;
+  --btn:#1D4ED8; --btn2:#2563EB;
+  /* 器件展示窗内沿：取产品图底色的暖白，让白底照片与框无缝相接 */
+  --win:#F4F1EC;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{display:grid;place-items:center;background:#01030A;color:var(--ink);
+  font-family:"PingFang SC","Microsoft YaHei","HarmonyOS Sans",sans-serif;
+  -webkit-font-smoothing:antialiased}
+.serif{font-family:"Songti SC","SimSun","Noto Serif SC",serif}
+.num{font-family:Cambria,"Times New Roman",serif;font-variant-numeric:tabular-nums}
+/* 拉丁小字：科技风的信息密度靠它，12px 起（汉字才受 16 下限约束） */
+.en{font-size:12px;letter-spacing:.2em;color:var(--blue-dim);
+  font-family:Consolas,"SF Mono",monospace;text-transform:uppercase}
+
+#screen{position:relative;width:1024px;height:600px;overflow:hidden;
+  background:radial-gradient(118% 92% at 20% -6%,#10203A 0%,#0A1220 42%,
+    var(--bg) 64%,#04070E 100%);
+  box-shadow:0 0 0 1px rgba(76,141,255,.10),0 30px 90px rgba(0,0,0,.9)}
+#bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+/* 网格：48px 一格，透明度压到 .05——再高就变成 Excel 表格 */
+#bg .grid{position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(76,141,255,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(76,141,255,.05) 1px,transparent 1px);
+  background-size:48px 48px;
+  -webkit-mask-image:radial-gradient(120% 104% at 50% 42%,#000 26%,transparent 76%);
+  mask-image:radial-gradient(120% 104% at 50% 42%,#000 26%,transparent 76%)}
+#bg .g{position:absolute;border-radius:50%}
+#bg .g1{left:-200px;top:-280px;width:820px;height:720px;
+  background:radial-gradient(closest-side,rgba(76,141,255,.26),transparent 70%)}
+#bg .g2{right:-220px;bottom:-300px;width:800px;height:760px;
+  background:radial-gradient(closest-side,rgba(122,140,255,.20),transparent 70%)}
+#bg .g3{left:300px;top:110px;width:700px;height:460px;
+  background:radial-gradient(closest-side,rgba(76,141,255,.10),transparent 72%)}
+/* 顶部一条蓝色光带：像面板的背光边 */
+#bg .topglow{position:absolute;left:0;top:0;width:100%;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(76,141,255,.55) 30%,
+    rgba(125,211,252,.85) 50%,rgba(76,141,255,.55) 70%,transparent)}
+/* 扫描光带：9s 自上而下扫一遍，是「设备在线」的隐含信号 */
+#bg .scan{position:absolute;left:0;width:100%;height:190px;
+  background:linear-gradient(to bottom,transparent,rgba(76,141,255,.06),transparent);
+  animation:scan 9s linear infinite}
+@keyframes scan{0%{top:-190px}100%{top:600px}}
+#hair{position:absolute;left:48px;top:64px;width:928px;height:1px;z-index:1;
+  background:linear-gradient(90deg,rgba(40,64,95,0),rgba(40,64,95,.95) 16%,
+    rgba(40,64,95,.95) 84%,rgba(40,64,95,0))}
+/* Frame */
+#topbar{position:absolute;left:0;top:0;width:1024px;height:64px;display:flex;
+  align-items:center;padding:0 48px;z-index:2}
+#brand{display:flex;align-items:center;gap:12px}
+#brand .mark{width:21px;height:21px;color:var(--sky);
+  filter:drop-shadow(0 0 7px rgba(125,211,252,.6))}
+#brand .name{font-size:17px;letter-spacing:.26em;color:var(--ink)}
+#brand .sep{width:1px;height:16px;background:var(--line2);margin:0 4px}
+#brand .cn{font-size:16px;letter-spacing:.3em;color:var(--ink2)}
+#topright{margin-left:auto;display:flex;align-items:center;gap:26px;
+  font-size:16px;color:var(--ink2)}
+#live{display:flex;align-items:center;gap:7px}
+#live i{width:5px;height:5px;border-radius:50%;background:var(--sky);
+  box-shadow:0 0 9px rgba(125,211,252,.95);animation:blink 2.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+#batt{display:flex;align-items:center;gap:9px}
+/* 电量用「分段格」而不是实心条：科技风里格子比连续条更像仪表 */
+#batt .shell{display:flex;gap:2px;align-items:center}
+#batt .shell b{display:block;width:4px;height:11px;background:var(--line2)}
+#batt .shell b.on{background:var(--sky);box-shadow:0 0 6px rgba(125,211,252,.8)}
+#batt .shell b.cap{width:3px;height:9px;background:transparent;
+  border-left:1px solid var(--line2)}
+
+/* 第二层：概览三卡 —— 深蓝底 + 蓝描边 + 四角 L 标 */
+#ov{position:absolute;left:48px;top:78px;width:928px;height:104px;
+  display:flex;gap:20px;z-index:2}
+.ovc{position:relative;width:296px;height:104px;padding:15px 22px;
+  background:linear-gradient(152deg,rgba(16,30,51,.94) 0%,rgba(10,18,32,.96) 100%);
+  border:1px solid rgba(76,141,255,.20);
+  box-shadow:inset 0 0 24px rgba(76,141,255,.06),0 8px 22px rgba(0,0,0,.5)}
+/* 四个角各画两条短线，八层背景拼出 L 形角标 */
+.ovc::after{content:"";position:absolute;inset:6px;pointer-events:none;
+  background:
+    linear-gradient(var(--line2),var(--line2)) left top/14px 1px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) left top/1px 14px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) right top/14px 1px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) right top/1px 14px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) left bottom/14px 1px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) left bottom/1px 14px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) right bottom/14px 1px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) right bottom/1px 14px no-repeat}
+/* 当前模式卡：左侧蓝光条 + 更亮的边 + 外发光 */
+.ovc.cur{border-color:rgba(76,141,255,.48);
+  box-shadow:inset 0 0 28px rgba(76,141,255,.12),0 0 24px rgba(76,141,255,.14),
+    0 8px 22px rgba(0,0,0,.5)}
+.ovc.cur::before{content:"";position:absolute;left:-1px;top:16px;width:2px;height:72px;
+  background:var(--sky);box-shadow:0 0 11px rgba(125,211,252,1)}
+.ovc .lab{display:flex;align-items:center;gap:10px;font-size:16px;
+  letter-spacing:.1em;color:var(--ink2)}
+.ovc .val{height:32px;line-height:32px;margin-top:5px;font-size:28px;
+  color:var(--ink);letter-spacing:.02em;white-space:nowrap;
+  text-shadow:0 0 20px rgba(76,141,255,.30)}
+.ovc .val.row{display:flex;align-items:center;gap:14px}
+.ovc .sub{position:absolute;right:22px;bottom:13px;font-size:16px;
+  color:var(--ink3);letter-spacing:.02em}
+/* 档位：5 段刻度，点亮段带辉光，像增益表 */
+#ovBars{display:flex;gap:5px;align-items:center}
+#ovBars b{display:block;width:26px;height:4px;background:var(--line);
+  cursor:pointer;transition:background .18s ease,box-shadow .18s ease}
+#ovBars b.on{background:var(--sky);box-shadow:0 0 9px rgba(125,211,252,.85)}
+#ovProg{position:absolute;left:0;bottom:0;height:2px;width:0;
+  background:var(--sky);box-shadow:0 0 11px rgba(125,211,252,.9);
+  transition:width .45s linear}
+/* 第三层：单焦点轮播（234 + 420 + 234 三槽铺满 928） */
+#carou{position:absolute;left:48px;top:194px;width:928px;height:264px;z-index:2}
+.slot{position:absolute;overflow:hidden;cursor:pointer;
+  background:linear-gradient(150deg,#101E33 0%,#0A1220 100%);
+  border:1px solid var(--line2);
+  transition:border-color .3s ease,box-shadow .3s ease,opacity .3s ease}
+/* 展示窗：图片按 --pad 内缩，**不加任何 filter**，器件保持原色。
+   白底照片直接压在深蓝卡上是一块生硬的白洞，加一圈深色相框就变成
+   「嵌在仪器面板里的样本窗」，且不需要改图一件事。 */
+.slot .pic{position:absolute;left:0;right:0;top:0;bottom:0;margin:auto;
+  width:calc((100% - 2 * var(--pad, 10px)) * var(--zoom, 1));
+  height:calc((100% - 2 * var(--pad, 10px)) * var(--zoom, 1));
+  object-fit:contain;background:var(--win);
+  box-shadow:inset 0 0 30px rgba(4,8,16,.50),0 0 0 1px rgba(76,141,255,.24);
+  transition:opacity .28s ease}
+/* 四角 L 标（画在深色相框上，不压图片） */
+.slot::before{content:"";position:absolute;inset:3px;z-index:2;pointer-events:none;
+  background:
+    linear-gradient(var(--blue-dim),var(--blue-dim)) left top/14px 1px no-repeat,
+    linear-gradient(var(--blue-dim),var(--blue-dim)) left top/1px 14px no-repeat,
+    linear-gradient(var(--blue-dim),var(--blue-dim)) right top/14px 1px no-repeat,
+    linear-gradient(var(--blue-dim),var(--blue-dim)) right top/1px 14px no-repeat,
+    linear-gradient(var(--blue-dim),var(--blue-dim)) left bottom/14px 1px no-repeat,
+    linear-gradient(var(--blue-dim),var(--blue-dim)) left bottom/1px 14px no-repeat,
+    linear-gradient(var(--blue-dim),var(--blue-dim)) right bottom/14px 1px no-repeat,
+    linear-gradient(var(--blue-dim),var(--blue-dim)) right bottom/1px 14px no-repeat}
+.side{width:234px;height:208px;top:28px;opacity:.55;--pad:10px;--zoom:1}
+/* 侧卡变暗靠 opacity（只是变暗，色相不变），hover 才恢复原色 */
+.side:hover{opacity:1;border-color:rgba(76,141,255,.6);
+  box-shadow:0 0 22px rgba(76,141,255,.24)}
+#sL{left:0}
+#sR{left:694px}
+.side .nm{position:absolute;left:0;bottom:0;width:100%;height:34px;z-index:3;
+  text-align:center;line-height:34px;font-size:16px;color:var(--ink2);
+  background:rgba(8,14,26,.94);
+  border-top:1px solid rgba(76,141,255,.22)}
+.main{left:254px;top:0;width:420px;height:264px;cursor:default;--pad:16px;--zoom:.84;
+  border-color:rgba(76,141,255,.75);
+  box-shadow:0 0 0 1px rgba(76,141,255,.28),0 0 40px rgba(76,141,255,.30),
+    0 18px 46px rgba(0,0,0,.65)}
+.main::before{background:
+    linear-gradient(var(--sky),var(--sky)) left top/20px 1px no-repeat,
+    linear-gradient(var(--sky),var(--sky)) left top/1px 20px no-repeat,
+    linear-gradient(var(--sky),var(--sky)) right top/20px 1px no-repeat,
+    linear-gradient(var(--sky),var(--sky)) right top/1px 20px no-repeat,
+    linear-gradient(var(--sky),var(--sky)) left bottom/20px 1px no-repeat,
+    linear-gradient(var(--sky),var(--sky)) left bottom/1px 20px no-repeat,
+    linear-gradient(var(--sky),var(--sky)) right bottom/20px 1px no-repeat,
+    linear-gradient(var(--sky),var(--sky)) right bottom/1px 20px no-repeat}
+/* 焦点切换动效：只推近，不动 opacity——淡入交给内联 style，避免两层抢同一属性 */
+.main .pic.in{animation:pop .34s cubic-bezier(.22,.61,.36,1) both}
+@keyframes pop{from{transform:scale(1.035)}to{transform:scale(1)}}
+
+/* 左右切换：方形切角按钮，比圆形更贴科技风 */
+.nav{position:absolute;top:110px;width:44px;height:44px;padding:0;cursor:pointer;
+  display:grid;place-items:center;z-index:4;
+  background:rgba(10,18,32,.92);border:1px solid rgba(76,141,255,.42);
+  box-shadow:0 0 16px rgba(76,141,255,.18);
+  transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,
+    transform .2s ease}
+.nav svg{width:14px;height:14px;fill:none;stroke:var(--sky);stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.nav:hover{background:rgba(76,141,255,.22);border-color:var(--sky);
+  box-shadow:0 0 24px rgba(76,141,255,.55);transform:scale(1.06)}
+#navL{left:268px}
+#navR{left:614px}
+
+/* 页码：选中项拉长成一条发光横杠 */
+.dots{position:absolute;left:50%;top:14px;transform:translateX(-50%);
+  display:flex;align-items:center;gap:7px;padding:7px 11px;
+  background:rgba(6,11,20,.80);border:1px solid rgba(76,141,255,.26);
+  box-shadow:0 0 16px rgba(76,141,255,.18);z-index:3}
+.dots b{display:block;width:6px;height:6px;background:var(--line2);
+  cursor:pointer;transition:width .24s ease,background .24s ease,box-shadow .24s ease}
+.dots b.on{width:18px;background:var(--sky);box-shadow:0 0 10px rgba(125,211,252,.9)}
+/* 第四层：底部托片 */
+#tray{position:absolute;left:48px;top:470px;width:928px;height:104px;
+  display:flex;align-items:center;padding:0 26px;z-index:2;
+  background:linear-gradient(152deg,rgba(16,30,51,.94),rgba(9,15,27,.96));
+  border:1px solid rgba(76,141,255,.22);
+  box-shadow:inset 0 0 26px rgba(76,141,255,.06),0 10px 26px rgba(0,0,0,.55)}
+#tray::after{content:"";position:absolute;inset:6px;pointer-events:none;
+  background:
+    linear-gradient(var(--line2),var(--line2)) left top/14px 1px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) left top/1px 14px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) right top/14px 1px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) right top/1px 14px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) left bottom/14px 1px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) left bottom/1px 14px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) right bottom/14px 1px no-repeat,
+    linear-gradient(var(--line2),var(--line2)) right bottom/1px 14px no-repeat}
+#tray .stat{display:flex;align-items:center;gap:10px;font-size:16px;
+  color:var(--ink2);letter-spacing:.02em}
+#tray .dot{width:7px;height:7px;background:var(--sky);
+  box-shadow:0 0 11px rgba(125,211,252,1)}
+#tray .sep{width:1px;height:18px;background:var(--line2);margin:0 22px}
+#trayHint{margin-left:24px;font-size:16px;color:var(--ink3);letter-spacing:.02em}
+/* 主按钮：蓝填充 + 白字（7.5:1）。
+   亮蓝 #4C8DFF 压白字只有 3.1:1，所以底用更深的 #1D4ED8，亮蓝只做边和辉光。 */
+#startBtn{margin-left:auto;width:168px;height:52px;flex:none;cursor:pointer;
+  border:1px solid rgba(125,211,252,.55);background:var(--btn);color:#F4F9FF;
+  font-family:inherit;font-size:16px;letter-spacing:.18em;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  box-shadow:0 0 24px rgba(76,141,255,.42),inset 0 1px 0 rgba(255,255,255,.18);
+  transition:background .22s,box-shadow .22s,transform .22s,color .22s,filter .22s}
+#startBtn:hover{background:var(--btn2);
+  box-shadow:0 0 34px rgba(76,141,255,.65),inset 0 1px 0 rgba(255,255,255,.22);
+  transform:translateY(-1px)}
+#startBtn svg{width:13px;height:13px;fill:currentColor;flex:none}
+/* 运行态：反相成深蓝透明底 + 亮蓝字，一眼区分「正在输出能量」 */
+#startBtn.run{background:rgba(76,141,255,.12);color:var(--sky);
+  border-color:var(--sky);box-shadow:0 0 26px rgba(125,211,252,.30)}
+#startBtn.run:hover{background:rgba(76,141,255,.22);
+  box-shadow:0 0 34px rgba(125,211,252,.45)}
+</style>
+</head>
+<body>
+<div id="screen">
+<div id="bg">
+  <div class="grid"></div>
+  <div class="g g1"></div>
+  <div class="g g2"></div>
+  <div class="g g3"></div>
+  <div class="scan"></div>
+  <div class="topglow"></div>
+</div>
+<div id="hair"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="i-mark" fill="none" stroke="currentColor" stroke-width="1.3">
+    <circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="2.4"/>
+    <path d="M12 3.6v3.6M12 16.8v3.6" stroke-width="1"/>
+  </g>
+  <g id="i-play" fill="currentColor"><path d="M8 5.2 18.4 12 8 18.8z"/></g>
+  <g id="i-pause" fill="currentColor">
+    <rect x="7.6" y="5.4" width="3.2" height="13.2"/>
+    <rect x="13.2" y="5.4" width="3.2" height="13.2"/>
+  </g>
+</defs></svg>
+<!-- 图片源：与亮色稿同一批 480x320 产品图，**不做任何调色** -->
+<div id="pool" style="position:absolute;width:0;height:0;overflow:hidden">
+  <img data-k="clean"  src="img/mode_clean.png"  alt="">
+  <img data-k="import" src="img/mode_import.png" alt="">
+  <img data-k="ems"    src="img/mode_ems.png"    alt="">
+  <img data-k="rf"     src="img/mode_rf.png"     alt="">
+  <img data-k="led"    src="img/mode_led.png"    alt="">
+  <img data-k="cool"   src="img/mode_cool.png"   alt="">
+</div>
+<header id="topbar">
+  <div id="brand">
+    <svg class="mark" viewBox="0 0 24 24"><use href="#i-mark"></use></svg>
+    <span class="name serif">LUMA</span>
+    <span class="sep"></span>
+    <span class="cn serif">光弧</span>
+  </div>
+  <div id="topright">
+    <div id="live"><i></i><span class="en">system online</span></div>
+    <div id="batt"><div class="shell"></div><span class="num">78%</span></div>
+    <div id="clock" class="num">21:08</div>
+  </div>
+</header>
+
+<section id="ov">
+  <div class="ovc cur">
+    <div class="lab">当前模式<span class="en">mode</span></div>
+    <div class="val serif" id="ovName">射频紧致</div>
+    <div class="sub num" id="ovIdx">04 / 06</div>
+  </div>
+  <div class="ovc">
+    <div class="lab">能量档位<span class="en">level</span></div>
+    <div class="val row"><span class="num" id="ovLv">5</span>
+      <span id="ovBars"></span></div>
+    <div class="sub">共 5 档</div>
+  </div>
+  <div class="ovc">
+    <div class="lab">本次时长<span class="en">session</span></div>
+    <div class="val num" id="ovTime">15:00</div>
+    <div class="sub" id="ovSub">建议 15 分钟</div>
+    <div id="ovProg"></div>
+  </div>
+</section>
+
+<div id="carou">
+  <div class="slot side" id="sL">
+    <img class="pic" id="sLimg" src="#" alt="">
+    <div class="nm" id="sLnm">微电流提拉</div>
+  </div>
+  <div class="slot main" id="sC">
+    <img class="pic" id="sCimg" src="#" alt="">
+    <div class="dots" id="dots"></div>
+  </div>
+  <div class="slot side" id="sR">
+    <img class="pic" id="sRimg" src="#" alt="">
+    <div class="nm" id="sRnm">光子嫩肤</div>
+  </div>
+  <button class="nav" id="navL" aria-label="上一个模式">
+    <svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8"/></svg></button>
+  <button class="nav" id="navR" aria-label="下一个模式">
+    <svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button>
+</div>
+
+<section id="tray">
+  <div class="stat"><span class="dot"></span>已连接</div>
+  <div class="sep"></div>
+  <div class="stat">电量 78%</div>
+  <div id="trayHint">温热深层加热，激发胶原 · 每周 2–3 次</div>
+  <button id="startBtn">
+    <svg viewBox="0 0 24 24"><use href="#i-play"></use></svg>
+    <span id="startTxt">开始护理</span>
+  </button>
+</section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const MODES=[
+  {k:'clean', n:'深层清洁',  m:10, lv:3, d:'导出毛孔油脂与角质'},
+  {k:'import',n:'精华导入',  m:15, lv:4, d:'超声促渗，直达肌底'},
+  {k:'ems',   n:'微电流提拉',m:12, lv:4, d:'低频微电流，即时提拉'},
+  {k:'rf',    n:'射频紧致',  m:15, lv:5, d:'温热深层加热，激发胶原'},
+  {k:'led',   n:'光子嫩肤',  m:20, lv:2, d:'红光照射，改善暗沉'},
+  {k:'cool',  n:'冰感舒缓',  m:8,  lv:2, d:'低温镇定，收敛毛孔'}
+];
+const N=MODES.length;
+const wrap=i=>(i%N+N)%N;
+const SRC={};
+document.querySelectorAll('#pool img').forEach(im=>SRC[im.dataset.k]=im.getAttribute('src'));
+
+/* 电量分段格：4 格刻度 + 末格电池头（78% ≈ 3/4） */
+$('batt').querySelector('.shell').innerHTML =
+  [1,2,3,4].map(i=>'<b class="'+(i<=3?'on':'')+'"></b>').join('')+'<b class="cap"></b>';
+
+const S={i:3, lv:5, total:900, left:900, run:false};
+const $btn=$('startBtn');
+const fmt=s=>String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+
+/* 三槽换图：先预热再淡入，避免切图瞬间闪空 */
+function setPic(img, key, anim){
+  if(img.dataset.k===key)return;
+  img.dataset.k=key;
+  img.classList.remove('in');
+  img.style.opacity=0;
+  const pre=new Image();
+  pre.onload=()=>{
+    img.src=SRC[key];
+    img.style.opacity=1;
+    if(anim){void img.offsetWidth;img.classList.add('in')}
+  };
+  pre.src=SRC[key];
+}
+
+function paint(){
+  const m=MODES[S.i];
+  const prev=MODES[wrap(S.i-1)], next=MODES[wrap(S.i+1)];
+  setPic($('sLimg'), prev.k);
+  setPic($('sCimg'), m.k, true);
+  setPic($('sRimg'), next.k);
+  $('sLnm').textContent=prev.n;
+  $('sRnm').textContent=next.n;
+
+  $('dots').innerHTML=MODES.map((_,i)=>
+    '<b class="'+(i===S.i?'on':'')+'" data-i="'+i+'"></b>').join('');
+
+  $('ovName').textContent=m.n;
+  $('ovIdx').textContent=String(S.i+1).padStart(2,'0')+' / '+String(N).padStart(2,'0');
+  $('ovLv').textContent=S.lv;
+  $('ovBars').innerHTML=[1,2,3,4,5].map(v=>
+    '<b class="'+(v<=S.lv?'on':'')+'" data-v="'+v+'"></b>').join('');
+  $('ovTime').textContent=fmt(S.left);
+  $('ovSub').textContent='建议 '+m.m+' 分钟';
+  $('ovProg').style.width=((S.total-S.left)/S.total*100).toFixed(1)+'%';
+
+  $('trayHint').textContent=S.run
+    ? '护理中 · '+m.n+' · '+S.lv+' 档 · 剩余 '+fmt(S.left)
+    : m.d+' · 每周 2–3 次';
+  $('startTxt').textContent=S.run?'暂停护理'
+    :(S.left<S.total&&S.left>0?'继续护理':'开始护理');
+  $btn.classList.toggle('run',S.run);
+  $btn.querySelector('use').setAttribute('href',S.run?'#i-pause':'#i-play');
+}
+
+function pick(i){
+  i=wrap(i);
+  if(i===S.i)return;
+  S.i=i; S.lv=MODES[i].lv; S.total=MODES[i].m*60; S.left=S.total; S.run=false;
+  paint();
+}
+
+$('sL').onclick=()=>pick(S.i-1);
+$('sR').onclick=()=>pick(S.i+1);
+$('navL').onclick=()=>pick(S.i-1);
+$('navR').onclick=()=>pick(S.i+1);
+$('dots').onclick=e=>{
+  const b=e.target.closest('b');
+  if(b)pick(+b.dataset.i);
+};
+$('ovBars').onclick=e=>{
+  const b=e.target.closest('b');
+  if(b){S.lv=+b.dataset.v;paint()}
+};
+$btn.onclick=()=>{
+  if(S.left<=0)S.left=S.total;
+  S.run=!S.run; paint();
+};
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft')pick(S.i-1);
+  if(e.key==='ArrowRight')pick(S.i+1);
+});
+setInterval(()=>{
+  if(!S.run)return;
+  S.left=Math.max(0,S.left-1);
+  if(!S.left)S.run=false;
+  paint();
+},1000);
+
+function tick(){
+  const d=new Date();
+  $('clock').textContent=String(d.getHours()).padStart(2,'0')+':'
+    +String(d.getMinutes()).padStart(2,'0');
+}
+setInterval(tick,10000); tick();
+
+paint();
+
+/* ?audit=1：越界自检（#bg 装饰层与 #pool 图片源不参与） */
+if(new URLSearchParams(location.search).get('audit')){
+  const sr=$('screen').getBoundingClientRect(), rows=[];
+  document.querySelectorAll('#screen *').forEach(el=>{
+    if(el.closest('#pool')||el.closest('#bg'))return;
+    if(['SVG','DEFS','G','PATH','CIRCLE','RECT','USE'].includes(el.tagName))return;
+    const r=el.getBoundingClientRect();
+    if(!r.width&&!r.height)return;
+    if(r.right>sr.right+.5||r.bottom>sr.bottom+.5||r.left<sr.left-.5||r.top<sr.top-.5)
+      rows.push('<'+(el.id?('#'+el.id):el.className)+'> r='+r.right.toFixed(0)
+        +' b='+r.bottom.toFixed(0));
+  });
+  const pre=document.createElement('pre');
+  pre.id='AUDIT'; pre.textContent=rows.length?rows.join('\n'):'PASS';
+  document.body.appendChild(pre);
+}
+</script>
+</body>
+</html>

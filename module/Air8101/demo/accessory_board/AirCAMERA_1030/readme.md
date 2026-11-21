@@ -2,7 +2,7 @@
 
 ## 演示功能概述
 
-本示例主要是展示 AirCAMERA_1030 的使用，本地拍摄照片或者视频录制后通过 httpplus 扩展库将图片或者视频上传至 air32.com
+本示例演示 AirCAMERA_1030 的拍照上传、录像、RTMP 推流和 USB 摄像头 LCD 实时预览。
 
 1、main.lua：主程序入口
 
@@ -14,7 +14,9 @@
 
 5、netdrv_wifi.lua：连接 WIFI
 
-注意：take_photo_http_post.lua 和 video_http_post.lua 和 rtmp_app.lua 只能打开一个不能同时打开
+6、[usb_preview.lua](usb_preview.lua) 逐帧抓取 USB MJPG 图像，在 LCD 上解码显示。
+
+拍照、录像、推流和 LCD 预览共用一个摄像头，请一次运行一种业务。
 
 > 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址，或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
 
@@ -33,6 +35,8 @@
 - 加载 take_photo_http_post 模块（通过 require "take_photo_http_post"）
 
 - 加载 video_http_post 模块（通过 require "video_http_post"）
+
+- 默认启动拍照上传。使用 LCD 预览时启用 `require "usb_preview"`，并注释联网和其他摄像头业务模块。
 
 ### 2、WIFI 连接模块（netdrv_wifi.lua）
 
@@ -101,6 +105,11 @@
 - 处理异常情况 ：推流异常时发送RECONNECT_RTMP信息，然后根据重连函数进行重连
 
 - 释放资源 ：推流结束时excamera.close()关闭摄像头，释放资源
+
+### 6、USB 摄像头 LCD 预览模块（usb_preview.lua）
+
+- 自动启动 640×360 预览。触摸底部按钮可切换分辨率、停止和恢复预览。
+- [board.lua](board.lua) 配置开发板硬件和分辨率。[camera_app.lua](camera_app.lua) 负责供电和抓帧。[ui.lua](ui.lua) 负责 JPEG 解码、居中裁剪和触摸按钮。
 
 ## 演示硬件环境
 
@@ -194,13 +203,43 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 
 ![](https://docs.openLuat.com/cdn/image/8101_usb_rtmp.jpg)
 
+### 4、USB 摄像头 LCD 预览硬件环境
+
+- Air8101B V3.0 开发板、AirCAMERA_1030 摄像头和 USB 数据线。
+- AirLCD_1100 屏幕，10.1 寸、1024×600 RGB，带 GT911 触摸。液晶时序配置使用 `hx8282`。
+- 摄像头接开发板的 USB-A 口，开启 `VBAT_UVC`。脚本通过 GPIO29 控制摄像头供电。
+
 ## 演示软件环境
 
 1、Luatools 下载调试工具：[https://docs.openluat.com/air780epm/common/Luatools/](https://docs.openluat.com/air780epm/common/Luatools/)
 
 2、Air8101 V2006 版本固件：[https://docs.openluat.com/air8101/luatos/firmware/](https://docs.openluat.com/air8101/luatos/firmware/)
 
+3、LCD 预览使用支持 UVC MJPG 采集和 `lcd.image2raw` 的 Air8101B 固件。10 档预览结果已在 V2023 106 的 MJPEG Final 和 UVCFixes 测试固件上确认。
+
 ## 演示核心步骤
+
+### 使用 usb_preview 演示 LCD 实时预览
+
+1. 接好摄像头、LCD 和触摸屏。
+2. 在 `main.lua` 中取消 `require "usb_preview"` 的注释，注释 `require "netdrv_wifi"` 和当前启用的摄像头业务模块（默认是 `require "photo_to_aircloud"`）。把本目录下的 Lua 文件与固件一起烧录。
+3. 上电后自动从 640×360 开始。点 **RES** 逐档切换。点 **STOP** 后保持停止，选好分辨率再点 **START** 即可恢复。
+
+可切换的 MJPG 分辨率为 640×360、640×480、800×600、1024×768、1280×720、1280×800、1280×1024、160×120、320×240、352×288、1920×1080。大图按原像素居中裁剪到 LCD 预览区。
+
+在 V2022 106 正式固件上，640×360 上电预览的 Luatools 日志如下。`first_display` 表示首帧已绘制，`preview_frames` 每绘制 20 帧输出一次。
+
+```text
+I/user.board LCD 就绪 1024 600
+I/user.board tp.init gt911 ok
+I/user.air1030 camera.init 640 360 0
+I/user.air1030 first_display 640 360 jpeg 640 360 visible 640 360
+I/user.air1030 preview_frames 20
+I/user.air1030 preview_frames 40
+I/user.air1030 preview_frames 60
+```
+
+> **1920×1080 说明**。AirCAMERA_1030 的 UVC 描述符声明支持该 MJPG 档位。当前的 V2022 106 正式固件可以抓到 1080p 的 JPEG 首帧，但 DMA2D 转换会报错并触发看门狗重启。需要等后续新版本解决。
 
 ### **使用take_photo_http_post拍照功能演示的核心步骤：**
 

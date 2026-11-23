@@ -76,6 +76,21 @@ require ("eng_8605b_10i_v0")    -- Air8605B 10寸 1024×600 + Airlink UART 4G(78
 require ("eng_8607_10i_v0")      -- Air8607 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
 require ("eng_8607a_10i_v0")     -- Air8607A 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + UVC，无 SD（无网络）
 require ("eng_8607w_10i_v0")      -- Air8607W 10寸 1024×600 + Airlink SPI WiFi(Air601S,SPI5) + 非隔离RS485(UART1) + 人脸识别摄像头(UART2) + 喇叭(内置DAC) + SD + USB HID/UVC 二选一（WiFi 版）
+require ("eng_8606_10i_v010")     -- Air8606 10寸 1024×600 + 接口复用装配（SPI2 4G/WiFi、UART2 CAN/RS232、双485、GNSS/EX2、对外电源、看门狗）+ J24 SPI以太网 + Air1103语音 + SD
+
+-- Air8606 专属：接口复用配置 / EX2 伴随诊断 / 外设驱动 / 诊断页（eng_8606_10i_v010 及其依赖）
+require ("air8606_config")       -- Air8606 装配配置生成器（按 mux 选择构建 project_config）
+require ("board_options")        -- Air8606 上电默认装配
+require ("air8606_mux")          -- Air8606 接口复用锁存（fskv，重启生效）
+require ("air8606_peer")         -- EX2 伴随脚本诊断通道（SPI2 airlink sdata）
+require ("air8606_resources")    -- 共享引脚互斥与电源域引用计数
+require ("periph_can")           -- CAN2 收发诊断（uart2 装配为 CAN 时）
+require ("periph_gnss")          -- Air510W GNSS（4G 装配，经 EX2 控制）
+require ("periph_power")         -- 对外 5V/VIN 电源开关（J17/J18）
+require ("periph_peer")          -- EX2 侧 J15 网口诊断
+require ("periph_wdt")           -- Air153D 看门狗状态与手动喂狗请求
+require ("air8606_test_win")     -- 外设诊断页（订阅 OPEN_AIR8606_TEST_WIN）
+require ("settings_mux_win")     -- 接口复用设置页（订阅 OPEN_AIR8606_MUX_WIN）
 
 -- EVB turnkey 开发板系列
 require ("evb_8101_5i_v0")        -- Air8101 5寸 800×480 H050IWV
@@ -159,6 +174,7 @@ local PROJECT_MAP = {
     ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
     ["Engine_Air8607A_10inch_1024x600_000_V000"]  = "eng_8607a_10i_v0",
     ["Engine_Air8607W_10inch_1024x600_000_V000"]   = "eng_8607w_10i_v0",
+    ["Engine_Air8606_10inch_1024x600_V010"]        = "eng_8606_10i_v010",
     -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
     --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
     -- 8605 系列的旧名指向各自的后继型号：8605 由 WiFi+4G 双网改回 4G 单网并补 _4G 后缀，

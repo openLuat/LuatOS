@@ -149,6 +149,10 @@ function M.params(extra)
     if type(extra) == "table" then
         for k, v in pairs(extra) do sp[k] = v end
     end
+    -- Air8606 GPIO73 兼作 Air1103 供电与 PA 使能。自动 PA 关断绝不能碰这条共用轨，
+    -- 板级上电序列保持它常开：pa_ctrl 置 nil = 交给 exaudio 的自动 PA 控制不用该脚
+    -- （文档口径「不传 = 不使用」；参考实现是 >0 才用，写 0 同义但 nil 更可移植）
+    if ac.pa_power_hold then sp.pa_ctrl = nil end
     return sp
 end
 
@@ -254,6 +258,56 @@ function M.vol(level, owner)
     return true
 end
 
+-- ==================== PA 功放供电 ====================
+
+-- PA 使用者登记：pa_off 前逐个问一遍，还有人在用（如桌面 HZV 在播）就不拉低。
+-- 与 busy_probes 的区别：占用租约管「音频任务能不能开」，这里只管「能不能关 PA」——
+-- 视频走 videoplayer 的 luat_audio_request_play_stream，不占租约但要用 PA。
+local pa_blockers = {}
+
+--[[
+@function register_pa_blocker
+@summary 登记「PA 还有人用」探针（video_util 按播放态登记），pa_off 逐个问
+@param string name   探针名
+@param function probe 只读状态且不得 yield，返回 true 表示此刻不能关 PA
+]]
+function M.register_pa_blocker(name, probe)
+    assert(type(name) == "string" and type(probe) == "function")
+    pa_blockers[name] = probe
+end
+
+--[[
+@function pa_set
+@summary 打开/关闭 PA 功放供电（hw.audio.pa_ctrl）
+pa_power_hold 板（如 Air8606：GPIO73 兼作语音芯片供电）由板级上电常供电，这里绝不动它；
+pa_ctrl 未配的板（8605M/W 三键接线）直接返回 false。
+@param on boolean true=开 / false=关
+@return boolean 是否驱动了该脚
+]]
+function M.pa_set(on)
+    local ac = M.cfg()
+    if not (ac and ac.pa_ctrl) or ac.pa_power_hold then return false end
+    local on_lv = ac.pa_on_level or 1
+    pcall(gpio.setup, ac.pa_ctrl, on and on_lv or ((on_lv == 1) and 0 or 1))
+    return true
+end
+
+--[[
+@function pa_off
+@summary 关闭 PA 功放供电（没人用了才真关）
+音频任务在跑（busy）或有 PA 使用者登记（如桌面视频在播）时放弃，
+否则会把别人正在用的功放掐掉（音量测试收尾 vs 桌面视频并发就是这条路）。
+@return boolean 是否真的关了
+]]
+function M.pa_off()
+    if M.busy() then return false end
+    for _, probe in pairs(pa_blockers) do
+        local ok, on = pcall(probe)
+        if ok and on then return false end
+    end
+    return M.pa_set(false)
+end
+
 -- 新语义字段的生效对账：setup 成功后读 exaudio.bus_policy() 与实际传入的字段核对。
 -- 旧版 exaudio 对未知表字段静默忽略，只传不验会退回「每次播放重配 I2C」的旧行为且
 -- 不报任何错。对不上只告警不补救：那层「播完恢复触摸总线」的补救本身就是 i2c.setup，
@@ -299,6 +353,14 @@ local function setup_impl(extra, owner)
     local ex = get_exaudio()
     if not ex or not ex.setup then return false, "缺少 exaudio 扩展库" end
     local sp = M.params(extra)
+    -- pa_power_hold 板（Air8606）：把 PA 控制脚钉在使能电平，并让 audio_v2 放弃
+    -- 自动 PA 控制（config_pa_power_ctrl 不存在的固件静默跳过，只留钉脚）
+    if ac.pa_power_hold and ac.pa_ctrl then
+        pcall(gpio.setup, ac.pa_ctrl, ac.pa_on_level or 1)
+        if audio_v2 and type(audio_v2.config_pa_power_ctrl) == "function" then
+            pcall(audio_v2.config_pa_power_ctrl, false, 0, 1, 0)
+        end
+    end
     if not setup_done then
         local ok, ret = pcall(ex.setup, sp)
         if not ok then return false, "exaudio.setup 异常: " .. tostring(ret) end

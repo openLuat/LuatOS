@@ -43,13 +43,13 @@
         audio_mode / play_vol
       ▪ app/factory/factory_rec.lua（应用工厂录音）：
         同上 + record_format / max_record_time / mic_vol
-      ▪ ui/video_util.lua（桌面视频配套音轨）：
+      ▪ ui/media/video_util.lua（桌面视频配套音轨）：
         model / pa_ctrl / pa_on_level / dac_delay / play_vol
     注意 dac_delay 只在旧音频框架 audio_setup() 里被消费；新框架 audio_v2 的 DAC 通路
     实际只把 pa_delay 透传给 audio_v2.config_pa_power_ctrl()，dac_delay 不起作用（保留仅为兼容）。
 12. 【UVC 测试】UVC_EN = GPIO73（power_on 里已拉高常供电），测试入口三件套缺一不可：
     config.peripherals 加 uvc 条目 + features.other_func = true + ui.show_other_func = true。
-    桌面「功能测试」→ 摄像头行（可通断电）→ 点行进摄像头测试页（ui/uvc_preview_win.lua），
+    桌面「功能测试」→ 摄像头行（可通断电）→ 点行进摄像头测试页（ui/test/uvc_preview_win.lua），
     数据流由该页独占走 excamera，periph_uvc 只管供电脚。
     摄像头 MJPEG 分辨率由预览页按摄像头实际支持的档位自适应选取（像素数上限 max_pixels，
     缺省 921600 = 1280×720，超了会挤爆内存导致预览无画面），条目里的 w / h 只是首选档。

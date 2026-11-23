@@ -23,7 +23,7 @@
    AUDIOPA_EN = GPIO73，HT6873 高电平使能（pa_on_level = 1），
    power_on 初始拉低关断，起播时 exaudio 拉高。
    本板无麦克风，不开录音相关功能；peripherals 不配 type="audio"（那是「录音播放」测试页），
-   故「功能测试」里没有「音频」组。播放由 ui/video_util.lua 读 hw.audio 出声。
+   故「功能测试」里没有「音频」组。播放由 ui/media/video_util.lua 读 hw.audio 出声。
 3. 【串口分配细则】UART1 与 UART2 是两个独立对外接口，可以同时打开。
    GPIO58 的归属见文件头第 5 条。
 4. 【RS485 供电域与方向脚】485_EN = GPIO64 是 485 功能总供电，power_on 拉高使能，之后常供电不回落；

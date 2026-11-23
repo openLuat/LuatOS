@@ -119,6 +119,8 @@ end
 --[[
 @function play_volume_test
 @summary 播放一段试听语音（llm_chat TTS 同款 exaudio 配方，勿走旧框架 audio.tts）
+播完自动关 PA 供电（audio_hw.pa_off，pa_power_hold 共用轨板由它内部跳过）：
+PA 常开时 DAC 空闲噪声被放大成电流声。
 ]]
 local function play_volume_test()
     if audio_hw.busy() then return false, "audio_busy" end
@@ -143,7 +145,25 @@ local function play_volume_test()
     end
     if not audio_hw.busy() and exaudio and exaudio.vol then pcall(exaudio.vol, current_volume) end
     pcall(exaudio.play_stop, { type = 1 })
-    audio_hw.play_start({ type = 1, content = "音量测试" })
+    local done = false
+    local started, ret, reason = audio_hw.play_start({
+        type = 1, content = "音量测试",
+        cbfnc = function(event)
+            if event == exaudio.PLAY_DONE then done = true end
+        end,
+    })
+    if not (started and ret) then
+        log.warn("settings_display", "试听起播失败:", tostring(started and reason or ret))
+        return false, started and reason or ret
+    end
+    -- 播完自动关 PA：等待放独立协程，本函数保持短占用。
+    -- 是否真关由 audio_hw.pa_off 统一判（音频占用租约 + PA 使用者登记，
+    -- 桌面 HZV 在播时它会放弃，别掐掉视频的功放）
+    sys.taskInit(function()
+        local t = 0
+        while not done and t < 15000 do sys.wait(100); t = t + 100 end
+        audio_hw.pa_off()
+    end)
 end
 
 -- ==================== 内部函数 ====================

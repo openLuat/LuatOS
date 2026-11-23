@@ -68,7 +68,7 @@
     切页签只改 airui.camera 的 rotation，不重建预览组件（停流重建会打断人脸录入）。
 12. 【UVC 测试入口】config.peripherals 加 uvc 条目 + features.other_func = true +
     ui.show_other_func = true 三件套齐了才有「功能测试 → 摄像头」行；
-    数据流由 ui/uvc_preview_win.lua 走 excamera 独占管理，periph_uvc 只管供电脚。
+    数据流由 ui/test/uvc_preview_win.lua 走 excamera 独占管理，periph_uvc 只管供电脚。
     不设 ui.show_camera_preview（避免两处入口）。
 13. 【上电时序】先拉高两条共享 SPI 总线的片选（Airlink SPI5 的 GPIO56、SD SPI1 的 GPIO8），
    再开供电域：WIFI 供电 = GPIO72、SD 卡供电 = GPIO74、UVC 供电 = GPIO132（等 200ms 就绪），

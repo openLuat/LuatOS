@@ -16,7 +16,7 @@ boot_ui 在 logo 展示期间分批调用本模块的两个函数：
 
   optional() 可选窗口批（optional_task 协程调用，features 门控）：
     factory_win / llm_chat_win / cloud_disk_win / file_transfer_win
-    / other_func_win + uvc_preview_win + rs485_test_win + audio_test_win
+    / other_func_win + uvc_preview_win + rs485_test_win + air8606_test_win + audio_test_win
 
   消息流: boot_ui 画 logo → 核心批完成 → OPEN_IDLE_WIN → idle_win
 
@@ -80,6 +80,7 @@ function M.optional()
         require "other_func_win"    -- 功能测试窗口（订阅 OPEN_OTHER_FUNC_WIN）
         require "uvc_preview_win"   -- UVC 预览页（订阅 OPEN_UVC_PREVIEW_WIN）
         require "rs485_test_win"    -- RS485 收发测试页（订阅 OPEN_RS485_TEST_WIN）
+        require "air8606_test_win"  -- 外设诊断页（订阅 OPEN_AIR8606_TEST_WIN：串口/CAN/GNSS/EX2网口/对外电源/看门狗）
         if has_audio_periph() then
             require "audio_test_win" -- 录音播放测试页（订阅 OPEN_AUDIO_TEST_WIN）
         end

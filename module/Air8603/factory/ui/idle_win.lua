@@ -274,9 +274,14 @@ local rail_container = nil
 『销毁时停掉待触发的重建定时器』这条清理会静默失效。]]
 local rail_rebuild_timer = nil
 
---[[失焦前正在播放的视频文件路径
-桌面失焦时会销毁视频组件以释放硬解资源，回到桌面按此路径恢复播放。]]
+--[[失焦前的视频文件路径与暂停意图
+桌面失焦时会销毁视频组件以释放硬解资源，回到桌面按此路径恢复播放。
+resume_paused 记住失焦前是不是暂停态：恢复时建好组件立刻暂停，
+回到的是暂停画面而不是黑屏（漏记暂停态会让「暂停→切页→回来」画面区永黑）。
+play_pending = 建播动作还在释放窗口里排队（VP.obj 还没建出来）。]]
 VP.resume_file = nil
+VP.resume_paused = false
+VP.play_pending = false
 
 -- ==================== 布局计算 ====================
 
@@ -2087,6 +2092,7 @@ function VP.ask_fullscreen(path, vw, vh)
                 VP.stop()
                 VP.current_file = path
                 VP.resume_file = path
+                VP.resume_paused = false
                 VP.is_playing = true
                 VP.open_fullscreen()
             else
@@ -2147,10 +2153,11 @@ end
 ask = true 表示「用户刚选的文件」：(1) 超上限时弹 VP.alert 且**不动现有播放**，
 (2) 放不下画面区时弹 VP.ask_fullscreen；ask 不传（开机起播 / 全屏返回的恢复起播）不弹窗。
 
-@param file_path string 素材路径
-@param ask       boolean 用户主动选文件时传 true
+@param file_path   string   素材路径
+@param ask         boolean  用户主动选文件时传 true
+@param keep_paused boolean  建好组件立刻暂停（失焦恢复的暂停态）
 ]]
-function VP.start_play(file_path, ask)
+function VP.start_play(file_path, ask, keep_paused)
     log.info("idle_win", "video_start_play", file_path, "ask=", ask and 1 or 0)
 
     -- 格式分辨率上限：超出的是真解不出来，不是「显示得下不下」的问题
@@ -2174,27 +2181,34 @@ function VP.start_play(file_path, ask)
         return
     end
 
-    VP.play_window(file_path)
+    VP.play_window(file_path, keep_paused)
 end
 
 ---真正起播：在桌面画面区里播，素材居中摆放、超出部分由舞台层裁掉
 ---这里只做「停旧 + 排队」，真正建播放器在 VP.create_now：停掉的那一路播放器
 ---音频会话要 400~530ms 才释放完，建新会话必须让过这段窗口（收口在 video_util）
-function VP.play_window(file_path)
+function VP.play_window(file_path, keep_paused)
     VP.stop()
 
     VP.current_file = file_path
+    -- 建播要过释放窗口（≤700ms），这期间失焦会被 cancel_pending 丢掉：
+    -- 先把恢复意图（含暂停意图）记下，回来才不会黑屏
+    VP.resume_file = file_path
+    VP.resume_paused = keep_paused and true or false
+    VP.play_pending = true
 
     if not VP.card_ref then
         log.warn("idle_win", "video_start_play: no video card ref")
+        VP.play_pending = false
         return
     end
 
-    video_util.after_release(function() VP.create_now(file_path) end)
+    video_util.after_release(function() VP.create_now(file_path, keep_paused) end)
 end
 
 ---建播放器本体（由 VP.play_window 在释放窗口结束后调用，也可能是延后一轮才到这里）
-function VP.create_now(file_path)
+function VP.create_now(file_path, keep_paused)
+    VP.play_pending = false
     -- 延后期间桌面可能已被销毁（on_destroy 清掉 card_ref / stage），到这里再判一次
     local video_card = VP.card_ref
     if not video_card then
@@ -2212,6 +2226,13 @@ function VP.create_now(file_path)
         VP.clear_empty()                -- 起播成功，清掉空态提示
     else
         VP.show_empty("无法播放该文件")
+    end
+    -- 恢复暂停态：建好组件立刻暂停，回到的是暂停画面而不是黑屏。
+    -- 暂停必须落在建播完成点上（start_play 经 after_release 异步到这里）
+    if VP.obj and keep_paused then
+        pcall(function() VP.obj:pause() end)
+        VP.is_playing = false
+        log.info("idle_win", "video create paused", file_path)
     end
     -- 控制栏只喂状态：文案（暂停/播放）与底色（绿/中性）由 video_bar 一起刷
     sync_ctrl()
@@ -2307,14 +2328,15 @@ local function on_video_file_changed(path)
     if type(path) ~= "string" or path == "" then return end
     if VP.current_file == path then return end
     VP.current_file = path
-    -- 记进 resume_file，回桌面时恢复起播
+    -- 记进 resume_file，回桌面时恢复起播（全屏里是播着看的，回来不保持暂停）
     VP.resume_file = path
+    VP.resume_paused = false
     -- 桌面在前台时（理论上不会走到这里，因为只有全屏页会发这条消息）立即切过去
     if VP.obj then VP.start_play(path) end
 end
 
 -- 方案A：左列视频卡片（铺满内容区高度）+ 卡片底部常驻控制栏
-local function build_video_area(parent)
+local function build_video_area(parent, keep_paused)
     if not VP.enabled and not VP.portrait then return end
 
     -- 资源落点随烧录方式而变（/luadb/ 或根目录），先挑实际存在的那个
@@ -2392,7 +2414,7 @@ local function build_video_area(parent)
     --[[起播（含空态兜底）统一走 VP.start_play：起播被拒（超过该格式分辨率上限 /
     超出画面区）会在画面区里给出原因文案，不弹窗打断开机。
     空态 UI 见 VP.show_empty（原先这里是内嵌的 show_empty_state，起播被拒那条路够不着）。]]
-    VP.start_play(VP.current_file)
+    VP.start_play(VP.current_file, nil, keep_paused)
 
     --[[控制栏（视频卡片底部，半透明深底）
 
@@ -2431,8 +2453,11 @@ local timer_handler = nil
 local function on_create()
     log.info("idle_win", "on_create begin")
     calc_layout()
-    -- 重建时 build_video_area 会自行起播，不需要 on_get_focus 再恢复一次
-    VP.resume_file = nil
+    -- 重建时 build_video_area 会自行起播（暂停意图随 keep_paused 传进去，
+    -- 换肤回来才不会把用户的暂停顶掉），不需要 on_get_focus 再恢复一次
+    local keep_paused = VP.resume_paused and true or false
+    VP.resume_file, VP.resume_paused = nil, false
+    VP.play_pending = false
 
     main_container = theme.page_bg(airui.screen, screen_w, screen_h)
     -- 桌面带左栏时被别的页面盖住也要露出左栏
@@ -2442,7 +2467,7 @@ local function on_create()
     build_status_bar(main_container)
     build_clock_card(main_container)
     pcall(build_weather_card, main_container)  -- pcall 防止天气卡片报错阻断后续构建
-    pcall(build_video_area, main_container)    -- 方案A：左侧视频区域
+    pcall(build_video_area, main_container, keep_paused)    -- 方案A：左侧视频区域
 
     -- 先收集应用列表（此时 apps_card 为空，render_grid_page 会直接返回），
     -- 再创建应用卡片与网格，保证卡片标题中的应用数量准确
@@ -2605,11 +2630,14 @@ local function on_get_focus()
     end
     -- 桌面重新获得焦点 = 压在它上面的窗口都已被关闭 → 清除左栏一级菜单高亮
     set_rail_active(nil)
-    -- 失焦时释放掉的视频在这里恢复（音视频一起从头播，避免音画错位）
-    if VP.resume_file and not VP.obj and VP.is_playing then
-        local f = VP.resume_file
-        VP.resume_file = nil
-        pcall(VP.start_play, f)
+    -- 失焦时释放掉的视频在这里恢复（音视频一起从头播，避免音画错位）。
+    -- 暂停态同样要恢复（建好组件立刻暂停）：此前只恢复「失焦前在播」的，
+    -- 暂停后切页回来恢复路径整段跳过、画面区只剩黑色卡片（用户报的永黑）
+    if VP.resume_file and not VP.obj and not VP.play_pending then
+        local f, paused = VP.resume_file, VP.resume_paused
+        VP.resume_file, VP.resume_paused = nil, false
+        log.info("idle_win", "video resume", f, "paused=", paused)
+        pcall(VP.start_play, f, nil, paused)
     end
     update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     load_external_apps()
@@ -2634,9 +2662,13 @@ local function on_lose_focus()
     整组销毁、回到桌面时按记录的文件重新起播（见 on_get_focus），音视频一起从头开始、观感一致。
     代价是回到桌面要重新解码起播，换来的是失焦期间不占解码资源。]]
     if VP.obj then
-        if VP.current_file and VP.is_playing then
+        -- 记账不看 is_playing：它只表示「是否在播」，不表示「要不要画面」。
+        -- 暂停态漏记的话，回桌面的恢复条件永远不成立，画面区永黑
+        if VP.current_file then
             VP.resume_file = VP.current_file
+            VP.resume_paused = not VP.is_playing
         end
+        log.info("idle_win", "video release", tostring(VP.resume_file), "paused=", VP.resume_paused)
         pcall(function() VP.obj:stop() end)
         pcall(function() VP.obj:destroy() end)
         VP.obj = nil
@@ -2644,6 +2676,7 @@ local function on_lose_focus()
     -- 失焦后桌面不在前台，队列里排着的建播放器动作直接丢掉；
     -- 释放窗口本身保留（这次销毁照样要等它释放完，回桌面时才不会抢）
     video_util.cancel_pending()
+    VP.play_pending = false
 end
 
 local function open_handler()

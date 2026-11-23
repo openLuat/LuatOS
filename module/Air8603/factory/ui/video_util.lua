@@ -137,17 +137,11 @@ end
 TTS / 录音回放那些路径跑完之后回到播放器，功放可能已经是关的）。
 停播必须关：PA 常开时 DAC 空闲噪声被放大成电流声（2026.11.11 实测切界面时出现）。]]
 
--- PA 功放使能/关闭（引脚与电平读板级 hw.audio）
+-- PA 功放使能/关闭：驱动收口到 audio_hw.pa_set（pa_power_hold 闸在那边统一挡）。
+-- 本模块仍只管功放引脚、不初始化音频框架 —— require audio_hw 不碰 exaudio（它内部懒加载）
+local audio_hw = require "audio_hw"
 local function pa_set(on)
-    local ac = _G.project_config and _G.project_config.hw and _G.project_config.hw.audio
-    if not (ac and ac.pa_ctrl) then return end
-    -- 使能电平默认 1，与 audio_hw 统一组装时的兜底一致
-    local on_lv = ac.pa_on_level or 1
-    if on then
-        pcall(gpio.setup, ac.pa_ctrl, on_lv)
-    else
-        pcall(gpio.setup, ac.pa_ctrl, (on_lv == 1) and 0 or 1)
-    end
+    return audio_hw.pa_set(on)
 end
 
 -- 跨路径功放补枪的世代号（关功放时也 +1，作废还没落地的补枪）
@@ -163,10 +157,11 @@ local function pa_reassert()
     end, 200)
 end
 
--- 停播后关功放，顺带作废 200ms 那一脚补枪（否则它会把刚关的功放又拉起来）
+-- 停播后关功放，顺带作废 200ms 那一脚补枪（否则它会把刚关的功放又拉起来）。
+-- 真关与否由 audio_hw.pa_off 统一判：别的音频任务 / PA 使用者还在用就放弃
 local function pa_off()
     pa_gen = pa_gen + 1
-    pa_set(false)
+    audio_hw.pa_off()
 end
 
 -- 暂停后延后关功放：暂停瞬间 DAC 还在收尾，立刻关会有 pop；
@@ -197,6 +192,12 @@ local RELEASE_MS = 700          -- 释放窗口长度（实测 400~530ms，留�
 local release_timer = nil       -- 非 nil = 释放窗口未关
 local pending_create = nil      -- 窗口结束后要执行的建播放器动作
 local live_players = 0          -- 还活着的播放器数（wrap_release 记账，0 时才允许关功放）
+local playing_players = 0       -- 正在播的播放器数（暂停/停止即退出计数，PA 仲裁看它）
+-- PA 使用者探针：桌面视频正在播时 audio_hw.pa_off 会放弃关功放
+-- （音量测试收尾等路径要关 PA，不能掐掉视频正在用的功放）
+pcall(function()
+    require("audio_hw").register_pa_blocker("video", function() return playing_players > 0 end)
+end)
 
 -- 打开（或顺延）释放窗口：每停一路就从头计时
 local function mark_release()
@@ -236,20 +237,25 @@ HZV 的 videoplayer 音轨从 luat_audio_request_play_stream 走，「停旧 →
 同样要留释放窗口（见上方释放窗口说明）。接口面与裸对象一致（:play/:pause/:stop/:destroy）。]]
 local function wrap_release(v)
     live_players = live_players + 1
+    playing_players = playing_players + 1   -- 创建即起播（auto_play / start_player 两条路都是）
     local closed = false
+    local playing = true
     local function bye()
         if closed then return end      -- stop + destroy 连着调也只记一次账
         closed = true
+        if playing then playing = false; playing_players = playing_players - 1 end
         live_players = live_players - 1
         mark_release()
     end
     return {
         play = function(self, ...)
+            if not playing then playing = true; playing_players = playing_players + 1 end
             pa_reassert()   -- 暂停期间功放可能已被关，恢复播放重新拉高
             return v:play(...)
         end,
         pause = function(self, ...)
             local r = v:pause(...)
+            if playing then playing = false; playing_players = playing_players - 1 end
             pa_off_later()  -- 暂停也要关功放，否则挂着 PA 一样有电流声
             return r
         end,

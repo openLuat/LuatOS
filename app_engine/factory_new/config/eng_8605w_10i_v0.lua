@@ -30,7 +30,7 @@
    五个消费方（tts_app / llm_chat / factory_rec / settings_display_app /
    periph_audio）都走它，任何一处都不会再漏传 uart_id。
    视频素材（HZV）的音轨由 videoplayer 自己走 luat_audio_request_play_stream → 内置 DAC，
-   不经 exaudio；播放时只保持 PA 功放开、不重跑 exaudio.setup（详见 ui/video_util.lua）。
+   不经 exaudio；播放时只保持 PA 功放开、不重跑 exaudio.setup（详见 ui/media/video_util.lua）。
 4. 【WiFi_RESET 先高维持低】PIN4 = GPIO64：上电先拉高 50ms 再拉低 120ms 使能
    （与 eng_1602_10i_v10421 的 airlink 模组复位写法一致）。
 5. LCD 为 RGB 10寸 1024×600（免序列四合一），走统一 RGB 驱动 lcd_display_rgb；

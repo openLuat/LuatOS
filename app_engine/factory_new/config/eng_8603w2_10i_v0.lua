@@ -23,7 +23,7 @@
    AUDIOPA_EN = GPIO73，HT6873 高电平使能（pa_on_level = 1），
    power_on 初始拉低关断，起播时 exaudio 拉高。
    本板无麦克风，不开录音相关功能；peripherals 不配 type="audio"（那是「录音播放」测试页），
-   故「功能测试」里没有「音频」组。播放由 ui/video_util.lua 读 hw.audio 出声。
+   故「功能测试」里没有「音频」组。播放由 ui/media/video_util.lua 读 hw.audio 出声。
 3. 【串口分配细则】UART2 是摄像头 / 人脸识别模组的控制串口，画面走 USB，两者互不占用。
    GPIO58 的归属见文件头第 5 条。
 4. 【RS485 供电域与方向脚】485_EN = GPIO64 是 485 功能总供电，power_on 拉高使能，之后常供电不回落；
@@ -35,7 +35,7 @@
    本型号 UART1 是非隔离 485，power_on 把 485_EN1 拉低停在接收态。
 5. 【UVC 摄像头】UVC_EN = PIN48 = GPIO58 是摄像头供电开启信号，power_on 拉高后 200ms 就绪。
    摄像头画面走 USB 数据流，UART2 是这颗摄像头 / 人脸识别模组的控制串口，两者互不占用。
-   预览 / 拍照 / 录像由 ui/uvc_preview_win.lua 走 excamera 扩展库独占管理，外设开关只负责供电，
+   预览 / 拍照 / 录像由 ui/test/uvc_preview_win.lua 走 excamera 扩展库独占管理，外设开关只负责供电，
    不再重复 camera.init。预览入口按需求放在「功能测试」里，因此不设 ui.show_camera_preview
    （避免两处入口）。w / h 不写时用预览页默认档 1280×720，预览页会枚举摄像头真正支持的档位取可用档。
 6. LCD 为 RGB 10寸 1024×600（免序列四合一，无 SPI 初始化引脚），走统一 RGB 驱动

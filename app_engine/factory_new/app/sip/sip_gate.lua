@@ -24,8 +24,8 @@ Air1103 是 UART 语音芯片，型号里只有 Air8605M / Air8605W 接了它
 
 === 调用方 ===
 
-ui/idle_win.lua         桌面「SIP通话」入口按它显隐
-ui/sip_test_win.lua     开窗前自检，门槛没过不建窗口
+ui/core/idle_win.lua         桌面「SIP通话」入口按它显隐
+ui/test/sip_test_win.lua     开窗前自检，门槛没过不建窗口
 ]]
 
 local M = {}

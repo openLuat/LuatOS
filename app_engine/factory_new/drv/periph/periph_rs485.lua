@@ -33,7 +33,7 @@ handle:status()    → { enabled=bool, info=string }
 === 事件 ===
 
 收到数据时逐包广播：sys.publish("PERIPH_RX", handle.id, data)
-订阅方（如 ui/rs485_test_win.lua）自行拼历史记录，驱动不维护发送历史。
+订阅方（如 ui/test/rs485_test_win.lua）自行拼历史记录，驱动不维护发送历史。
 
 === 约定 ===
 

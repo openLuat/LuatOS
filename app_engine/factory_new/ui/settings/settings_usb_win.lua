@@ -340,4 +340,11 @@ local function open()
     end
 end
 
-sys.subscribe("OPEN_USB_MODE_WIN", open)
+-- Air8606 机型：USB Host 是「接口复用」页的一个页签，转投统一入口（参考库同款转发）
+sys.subscribe("OPEN_USB_MODE_WIN", function()
+    if (_G.project_config or {}).radio then
+        sys.publish("OPEN_AIR8606_MUX_WIN", "usb")
+        return
+    end
+    open()
+end)

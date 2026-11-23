@@ -25,12 +25,12 @@
 7. 音频使用芯片内置 DAC 播放，PA 功放 HT6873，AUDIOPA_EN = GPIO73，
    高电平使能（pa_on_level = 1，power_on 初始拉低关断，起播时 exaudio 拉高）。
    本板无麦克风，不开启录音相关功能。
-   hw.audio 字段消费方：app/common/tts_app.lua、ui/video_util.lua。
+   hw.audio 字段消费方：app/common/tts_app.lua、ui/media/video_util.lua。
 8. 【UVC 摄像头】AirCAMERA_1032（AirUVC_1000）USB 摄像头，UVC_EN = GPIO12。
    本板 GPIO12 是独立的摄像头使能脚，**不是** 8605 那种 VBUS 与 5V_EN 共轨脚
    （8605 上拉低 GPIO12 会断触摸供电，periph_uvc 因此默认禁用该脚）。
    本板经确认 GPIO12 可独立驱动，故按 pin12_free = true 显式解除禁用。
-   摄像头数据流（预览/拍照/录像）由 ui/uvc_preview_win.lua 走 excamera 扩展库独占管理，
+   摄像头数据流（预览/拍照/录像）由 ui/test/uvc_preview_win.lua 走 excamera 扩展库独占管理，
    外设开关只负责供电，不再重复 camera.init。
    预览入口按需求放在「功能测试」里，因此不设 ui.show_camera_preview（避免两处入口）。
 ]]

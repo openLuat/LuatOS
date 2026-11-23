@@ -54,6 +54,11 @@ local function _compile_manifest()
     require("periph_rs485")
     require("periph_uart")
     require("periph_audio")
+    require("periph_can")
+    require("periph_gnss")
+    require("periph_power")
+    require("periph_peer")
+    require("periph_wdt")
 end
 
 -- 外设 type → 驱动模块名
@@ -62,6 +67,11 @@ local DRIVER_OF = {
     rs485 = "periph_rs485",
     uart  = "periph_uart",
     audio = "periph_audio",
+    can   = "periph_can",
+    gnss  = "periph_gnss",
+    power = "periph_power",
+    peer  = "periph_peer",
+    wdt   = "periph_wdt",
 }
 
 -- 已挂 handle 的实例列表，顺序与 config.peripherals 一致

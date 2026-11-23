@@ -1,0 +1,301 @@
+--[[
+@module  platform_loader
+@summary 平台检测与项目配置加载器（从 main.lua 中抽离）
+@version 1.0
+@date    2026.05.22
+@author  江访
+
+=== 执行流程 ===
+
+require 即执行，按以下顺序：
+  1. 编译清单：包进永不调用的 _compile_manifest()，仅供编译系统文本扫描打包，运行时不执行
+  2. 平台检测：hmeta.model() → 识别芯片型号 → 设 _G.model_str / _G.is_pc
+  3. PROJECT 映射：长命名 "Engine_Air8606_10inch_1024x600_V010" → 短文件名 "eng_8606_10i_v010"
+  4. 配置加载：require(cfg_name) → 返回配置 table → 存入 _G.project_config
+  5. PC 适配：模拟器环境补充 mobile.* 桩函数、设置默认网卡为 ETH0
+  6. 引脚初始化：遍历 config.pins，逐条调用 pins.setup(pin, func)
+
+=== 关键设计 ===
+
+- 短文件名映射（PROJECT_MAP）：LuatOS 文件系统限制文件名 ≤24 字节，长 PROJECT 名（如 "Engine_Air8606_10inch_1024x600_V010" 36 字节）
+  必须映射到短名（如 "eng_8606_10i_v010" 17 字节）。命名格式: {eng|evb|cor}_{芯片简写}_{尺寸简写}_{版本简写}
+
+- 三级回退策略（容错设计）：
+  第一级：PROJECT_MAP 命中 → require 配置文件 → 返回 table
+  第二级：配置文件 require 返回非 table → PC 配置（根据 PROJECT 名推断分辨率）
+  第三级：PROJECT_MAP 未命中 → PC配置
+
+- require 编译清单：不是给运行时用的，是给编译系统文本扫描用的。
+  编译系统扫描这些 require 语句决定哪些 .lua 文件打包进固件；
+  包进永不调用的函数后运行时不执行，动态 require（变量名）扫不到的文件才必须登记。
+
+- 本树是 Air8606 单型号出厂固件（module/Air8606/factory）：
+  编译清单与 PROJECT_MAP 只带本型号及其依赖，主工程（app_engine/factory_new）的
+  其余机型配置一律不打包 —— 这是按型号裁剪的约定，别从主工程整份覆盖回来。
+]]
+
+-- ==================== 编译清单（编译系统文本扫描，运行时不执行） ====================
+-- 新增驱动或配置文件时在此加一行，编译系统会自动打包对应 .lua 文件。
+-- 包进永不调用的函数：这些 require 若在顶层执行，会在点亮屏幕前把全部配置 +
+-- 整条网络库链（≈400ms）加载进启动关键路径；函数体内的静态 require 编译系统
+-- 文本扫描同样能扫到（与 app_main / ui_main 的函数体 require 同一机制）。
+
+-- 编译清单：本型号的配置/驱动（编译系统静态分析）
+local function _compile_manifest()
+require ("pc_default")            -- PC 模拟器回退
+require ("air1103")               -- Air1103 Lua 驱动（含静音帧保活），覆盖固件内置 C 驱动，消除播放周期性爆音
+require ("sipapp_pcm_rx")         -- 55AA MIC 上行帧解析器（Air1103 常驻上行用，factory_rec / periph_audio 软依赖）
+
+-- Air8606 引擎主机（本树唯一型号）：接口复用装配 / EX2 伴随诊断 / 外设驱动 / 诊断页
+require ("eng_8606_10i_v010")     -- Air8606 10寸 1024×600 + 接口复用装配（SPI2 4G/WiFi、UART2 CAN/RS232、双485、GNSS/EX2、对外电源、看门狗）+ J24 SPI以太网 + Air1103语音 + SD
+require ("air8606_config")       -- Air8606 装配配置生成器（按 mux 选择构建 project_config）
+require ("board_options")        -- Air8606 上电默认装配
+require ("air8606_mux")          -- Air8606 接口复用锁存（fskv，重启生效）
+require ("air8606_peer")         -- EX2 伴随脚本诊断通道（SPI2 airlink sdata）
+require ("air8606_resources")    -- 共享引脚互斥与电源域引用计数
+require ("periph_can")           -- CAN2 收发诊断（uart2 装配为 CAN 时）
+require ("periph_gnss")          -- Air510W GNSS（4G 装配，经 EX2 控制）
+require ("periph_power")         -- 对外 5V/VIN 电源开关（J17/J18）
+require ("periph_peer")          -- EX2 侧 J15 网口诊断
+require ("periph_wdt")           -- Air153D 看门狗状态与手动喂狗请求
+require ("air8606_test_win")     -- 外设诊断页（订阅 OPEN_AIR8606_TEST_WIN）
+require ("settings_mux_win")     -- 接口复用设置页（订阅 OPEN_AIR8606_MUX_WIN）
+
+-- 驱动
+require ("lcd_display_rgb")       -- RGB display 统一驱动
+require ("tp_gt911")              -- GT911 触摸（统一）
+require ("periph_loader")         -- 外设预留框架（config.peripherals，require 无副作用）
+require ("periph_uvc")            -- UVC 摄像头外设（纯供电开关，数据流走 UVC 预览页）
+require ("periph_rs485")          -- RS485 外设（多路，DE 方向 + 供电引用计数）
+require ("periph_uart")           -- 通用串口外设（收发计数 + 环形缓冲）
+require ("periph_audio")          -- 录音播放外设（Air1103 等语音芯片，config.hw.audio + type=audio）
+require ("pin_share")             -- 共享 GPIO 职能仲裁（en_pin 与 de_pin 共用一脚时互斥切换）
+require ("usb_mode")              -- USB 外设模式（UVC 摄像头 / USB 键鼠二选一，fskv 持久化）
+require ("tick_time")              -- tick 与毫秒换算（时间一律用 mcu.ticks() + mcu.hz() 表达）
+require ("airlink_pin")            -- WiFi 芯片侧 GPIO 门控（GPIO ≥100 等 airlink 就绪后下发）
+
+-- 业务模块
+require ("net_manager")           -- 统一网络管理器
+require ("net_init")
+require ("aircloud_app")          -- AirCloud 通用数据上报（能力探测型，有接口就采）
+require ("settings_report_win")   -- AirCloud 上报设置页（配 features.aircloud 使用）
+require ("settings_usb_win")      -- 外设模式设置页（UVC 摄像头 / USB 键鼠二选一，配 features.usb_hid 使用）
+-- 应用工厂 / AI 聊天体积大，800×480 脚本区 1024KB 先不打包
+end
+
+
+--[[app_main / ui_main 等聚合入口 **不登记** 在本清单：它们由 boot_ui 源码内的
+函数体静态 require 文本扫描打包（与 features 门控里的 require "llm_chat" 同一机制）。
+清单内只放「动态 require（变量名）扫不到」的文件——各机型配置、驱动、外设框架。]]
+
+-- ==================== 1. 平台检测 ====================
+-- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()
+local ok, _model = pcall(hmeta.model)
+if not ok or not _model then _model = rtos.bsp() end
+_G.model_str = tostring(_model or "")
+
+-- PC 模拟器检测：hmeta.model 在 PC 上会报错，model_str 为空或 "PC"
+_G.is_pc = (not ok) or (_G.model_str == "PC") or (_G.model_str == "")
+
+-- ==================== 2. PROJECT 长名 → 短文件名映射 ====================
+-- 短名格式: {eng|evb|cor}_{芯片简写}_{尺寸简写}_{版本简写}，目标 ≤24 字节
+-- eng = Engine 引擎主机, evb = EVB turnkey 开发板, cor = Core 核心板
+local PROJECT_MAP = {
+    -- Air8606 引擎主机（本树唯一型号）
+    ["Engine_Air8606_10inch_1024x600_V010"]        = "eng_8606_10i_v010",
+    -- 别名：参考库/旧命名落到同一配置（SPI2 装配由 air8606_mux 开机锁存，与 PROJECT 后缀无关）
+    ["Engine_Air8606_10inch_1024x600_V000"]        = "eng_8606_10i_v010",
+    ["Engine_Air8606_10inch_1024x600_4G_V000"]     = "eng_8606_10i_v010",
+    ["Engine_Air8606_10inch_1024x600_WiFi_V000"]   = "eng_8606_10i_v010",
+}
+
+-- ==================== 3. 加载项目配置 ====================
+
+--[[
+加载 PROJECT 对应的硬件/功能/UI 配置
+@param project string  PROJECT 长名
+@return table  配置表 { name, chip, baseboard, pins, hw={lcd,tp}, features, ui }
+@logic
+  1. PC 模拟 → 内联配置（lcd_display_rgb + ETH0 网卡）
+  2. PROJECT_MAP 命中 → require 配置文件 → 返回 table
+  3. 失败 → 回退：根据 PROJECT 长名推断分辨率的 PC 配置
+]]
+local function load_project_config(project)
+    -- PC 模拟器：直接返回内联配置，避免依赖文件系统
+    if project == "PC" or project:find("^PC") then
+        _G.model_str = "PC"
+        socket.dft(socket.ETH0)                        -- PC 模拟器用 ETH0 网卡
+        _G.mobile = {}                                  -- 补充 mobile 模块桩
+        function mobile.imei() return "pc_simulator" end
+        return {
+            name = "PC", chip = "PC", baseboard = "PC", pins = {},
+            hw = {
+                lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = 320, h = 480 }, screen_size = 4.0, font = { size = 14 }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+                tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
+            },
+            -- 模拟器按能力给足开关，好让设置页/顶栏的每个入口都能点开看
+            features = {
+                ethernet = true,
+                iot = true,
+                fota = true,
+            },
+            ui = {
+                show_ethernet_settings = true,
+                show_brightness_slider = true,
+                show_storage_settings = true,
+                show_iot = true,
+                show_fota = true,
+                show_autostart = true,
+            },
+        }
+    end
+
+    -- 正常路径：PROJECT_MAP 查找 → require 配置文件
+    local cfg_name = PROJECT_MAP[project]
+    if cfg_name then
+        local cfg = require(cfg_name)
+        -- require 返回配置文件 return 的 table（不是 boolean）
+        if type(cfg) == "table" then
+            log.info("platform_loader", "配置加载成功:", cfg_name, "<-", project)
+            return cfg
+        end
+        log.warn("platform_loader", "配置文件加载失败:", cfg_name, "，回退到 PC 模拟")
+    else
+        log.warn("platform_loader", "未找到 PROJECT 映射:", project, "，回退到 PC 模拟")
+    end
+
+    -- 最终回退：生成 PC 配置
+    -- 从 PROJECT 名中提取分辨率信息（如 "720x1280"），用于模拟器窗口大小
+    _G.model_str = "PC"
+    socket.dft(socket.ETH0)
+    _G.mobile = {}
+    function mobile.imei() return "pc_simulator" end
+
+    local w, h, sz, fs = 800, 480, 5.0, 20
+    local _, _, rw, rh = project:find("(%d+)x(%d+)")   -- 正则提取 "720x1280"
+    if rw and rh then w, h = tonumber(rw), tonumber(rh) end
+    if project:find("7inch") then sz = 7.0 elseif project:find("10inch") then sz = 10.0 end
+
+    return {
+        name = "PC", chip = "PC", baseboard = "PC", pins = {},
+        hw = {
+            lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = w, h = h }, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+            tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
+        },
+        -- 模拟器按能力给足开关，好让设置页/顶栏的每个入口都能点开看
+        features = {
+            wifi = true, ethernet = true,
+            iot = true, fota = true,
+        },
+        ui = {
+            show_wifi_icon = true,
+            show_ethernet_settings = true,
+            show_brightness_slider = true,
+            show_storage_settings = true,
+            show_iot = true,
+            show_fota = true,
+            show_autostart = true,
+        },
+    }
+end
+
+-- 全局存储配置，后续所有模块通过 _G.project_config 读取硬件/功能/UI 参数
+_G.project_config = load_project_config(_G.PROJECT)
+
+-- ==================== 4. PC 运行时适配 ====================
+-- 在 PC 模拟器上补充真机才有的 mobile 模块桩函数，避免 require 时报 nil
+if _G.is_pc then
+    _G.model_str = "PC"
+    _G.project_config.chip = "PC"
+    socket.dft(socket.ETH0)
+    _G.mobile = {}
+    function mobile.imei() return "pc_simulator" end    -- FOTA 等需要 IMEI 的场景
+    function mobile.csq() return 99 end                  -- 信号强度满格（状态栏显示用）
+    function mobile.simPin() return false end            -- 无 SIM 卡
+    function mobile.setAuto() end                        -- 空操作
+    function mobile.flymode() end                        -- 空操作
+    log.info("platform_loader", "PC 模拟器模式，默认网卡=ETH0，4G 已禁用")
+end
+
+-- ==================== 5. 配置引脚（底板决定接线） ====================
+-- 引脚配置由底板决定，不在驱动中硬编码。逐条调用 pins.setup 设置引脚功能
+-- 对应设计文档 阶段 2.1 PIN_CFG
+local config = _G.project_config
+if config.pins and pins then
+    for _, p in ipairs(config.pins) do
+        pcall(pins.setup, p.pin, p.func)                -- pcall 防止单条引脚配置失败阻塞整体
+    end
+    log.info("platform_loader", "引脚配置完成, 数量:", #config.pins)
+end
+
+-- ==================== 6. GPIO 供电上电（底板决定） ====================
+-- 对应设计文档 阶段 2.2 POWER_ON：设置 GPIO 方向/电平，控制外设供电
+-- power_on 格式: { pin=GPIO编号, level=0低/1高, [delay=延时ms], [dir=兼容旧字段] }
+-- 例: Airlink WiFi 模组上电 → GPIO55 拉低 50ms → 拉高 120ms
+-- 使用 sys.taskInit 创建协程执行 sys.wait，避免阻塞主线程
+--
+-- 电平直接写进 gpio.setup 第 2 参：gpio.setup(pin, mode) 里 0/1 都是输出模式、
+-- 数字即初始电平（luat_lib_gpio.c l_gpio_setup，nil 才是输入）。不能再拿 dir 当初始电平
+-- 先配成低再靠 gpio.set 纠正 —— set 不生效时引脚就停在低电平上。dir 只在 level 缺省时兜底。
+-- 每步独立 pcall 并打印回读值：单条引脚失败不能中断后面的上电步骤，失败也必须看得见。
+--
+-- 完成标记：整个序列（含各步 delay 的电源稳定时间）跑完后置 _G.__power_on_done
+-- 并发布 POWER_ON_DONE。boot_ui 以此为门再初始化触摸 —— I2C 总线上未上电的
+-- 设备会钳住 SDA/SCL，GT911 也会因电源未稳而软失败（触摸"完全失灵"）。
+--
+-- WiFi 芯片侧脚（GPIO ≥100，如 UVC_EN / 485 供电）由 airlink_pin 延后到 airlink 链路
+-- 就绪后下发：这些脚经 airlink 通道代发，链路没起来时下发会失败。
+local airlink_pin = require "airlink_pin"
+
+if config.power_on then
+    sys.taskInit(function()
+        -- 背光 PWM 上电前先压灭：PWM 引脚默认高电平，上电瞬间 BL 即被拉高点亮，
+        -- 与 backlight_on 的延时表无关 → 背光提前亮。故上电序列一开始就用 0 占空比
+        -- 压住 PWM 背光通道，等 boot_ui 首帧后 backlight_on 再点亮。
+        -- 仅 PWM 背光板（backlight.pwm_ch 存在）需要；GPIO 背光板由 pin_bl 压低延后，无需此步。
+        local bl = config.hw and config.hw.lcd and config.hw.lcd.backlight
+        if bl and bl.pwm_ch then
+            pcall(pwm.setup, bl.pwm_ch, bl.pwm_freq or 1000, 0)  -- 占空比 0 = 熄灭
+            pcall(pwm.start, bl.pwm_ch)
+            log.info("platform_loader", "背光 PWM", bl.pwm_ch, "上电即压灭(占空比0)")
+        end
+        local bad = 0
+        for i, step in ipairs(config.power_on) do
+            -- level 是目标电平，缺省时按旧字段 dir 兜底
+            local level = step.level
+            if level == nil then level = step.dir end
+            local deferred = false
+            if step.pin and level ~= nil then
+                -- WiFi 侧脚等链路就绪后补发，延时跟着一起挪走，上电序列不为等链路拖住 POWER_ON_DONE
+                if airlink_pin.is_wifi_pin(step.pin) and not airlink_pin.ready() then
+                    airlink_pin.defer(step.pin, level, step.delay)
+                    deferred = true
+                    log.info("platform_loader", "POWER_ON", i, "GPIO" .. tostring(step.pin),
+                             level == 1 and "高" or "低", "WiFi 侧脚，待 airlink 就绪后下发")
+                else
+                    -- setup 直接给目标电平，再 set 一次兜底；两边都失败才计失败
+                    local ok1 = pcall(gpio.setup, step.pin, level)
+                    local ok2 = pcall(gpio.set, step.pin, level)
+                    if ok1 and ok2 then
+                        local ok3, rd = pcall(gpio.get, step.pin)
+                        log.info("platform_loader", "POWER_ON", i, "GPIO" .. tostring(step.pin),
+                                 level == 1 and "高" or "低", ok3 and ("回读 " .. tostring(rd)) or "回读失败")
+                    else
+                        bad = bad + 1
+                        log.warn("platform_loader", "POWER_ON 引脚设置失败", i,
+                                 tostring(step.pin), tostring(level))
+                    end
+                end
+            end
+            if step.delay and not deferred then
+                sys.wait(step.delay)
+            end
+        end
+        log.info("platform_loader", "POWER_ON 完成, 步骤数:", #config.power_on, "失败:", bad)
+        _G.__power_on_done = true
+        sys.publish("POWER_ON_DONE")
+    end)
+else
+    -- 无上电序列的板子视为立即就绪（boot_ui 以 _G.__power_on_done 为门）
+    _G.__power_on_done = true
+end

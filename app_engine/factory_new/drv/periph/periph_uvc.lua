@@ -32,7 +32,7 @@ handle:status()  → { enabled=bool, info=string }
 === 约定 ===
 
 - 本驱动是**纯供电驱动**：只控制 en_pin 电平与 ready_delay 稳定延时，
-  不调用任何 camera.* —— 数据流（预览/拍照/录像）由 ui/uvc_preview_win.lua
+  不调用任何 camera.* —— 数据流（预览/拍照/录像）由 ui/test/uvc_preview_win.lua
   走 excamera 扩展库独占管理，避免与 camera.init 二次初始化打架
 - en_pin 可省略：摄像头常供电（无独立使能脚）时不写，驱动全程不动 GPIO，
   start/stop 只登记开关状态

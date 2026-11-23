@@ -73,6 +73,16 @@ end
 function M.optional()
     local cfg = _G.project_config or {}
     local feat = cfg.features or {}
+
+    -- Air8606 4G 装配：启动 EX2 伴随脚本诊断通道（GNSS / J15 网口 / 状态轮询）。
+    -- 模块名经变量传给 require：只有登记过编译清单的树才打包了它，缺文件时静默跳过。
+    if not _G.is_pc and cfg.radio == "4g" then
+        local AIR8606_PEER_MOD = "air8606_peer"
+        local ok_p, peer = pcall(require, AIR8606_PEER_MOD)
+        if ok_p and type(peer) == "table" and type(peer.init) == "function" then
+            peer.init(cfg)
+        end
+    end
     -- USB 外设模式（UVC 摄像头 / USB 键鼠二选一，fskv 持久化），见 usb_mode
     local usb_mode = require "usb_mode"
 
@@ -170,7 +180,7 @@ function M.optional()
         require "other_func_app"
         --[[
         SIP 通话业务层不在这里加载：整套（sip_phone 协议栈 + Air1103 语音桥）由
-        ui/sip_test_win 在首次打开「SIP通话」时懒 require，退出关窗即释放音频资源，
+        ui/test/sip_test_win 在首次打开「SIP通话」时懒 require，退出关窗即释放音频资源，
         避免常驻内存、也避免和通用录音抢 Air1103 的 UART6 实时资源导致爆音。
         是否开这个功能由 app/sip/sip_gate.lua 决定（features.sip + hw.audio.model=="air1103"），
         只有 Air8605M / Air8605W 过得了。

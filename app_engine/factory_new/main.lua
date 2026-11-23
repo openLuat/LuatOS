@@ -66,6 +66,7 @@ PROJECT：项目名，ascii string类型
   "Engine_Air8607_10inch_1024x600_000_V000"     → config/eng_8607_10i_v0.lua    10寸RGB +PWM背光+喇叭(HT6873)+SD，无网络
   "Engine_Air8607A_10inch_1024x600_000_V000"    → config/eng_8607a_10i_v0.lua   10寸RGB +PWM背光+喇叭(HT6873)+UVC摄像头(AirCAMERA_1032)，无SD，无网络
   "Engine_Air8607W_10inch_1024x600_000_V000"     → config/eng_8607w_10i_v0.lua   10寸RGB HX8282 +WiFi(airlink/601S,SPI5)+人脸识别摄像头(AirCAMERA_1034)+非隔离RS485+喇叭(内置DAC)+SD+USB HID/UVC二选一
+  "Engine_Air8606_10inch_1024x600_V010"          → config/eng_8606_10i_v010.lua  10寸RGB +接口复用装配(SPI2 4G/WiFi、UART2 CAN/RS232、双485、GNSS/EX2、对外电源、看门狗)+J24 SPI以太网+Air1103语音+SD（装配在「设置→接口复用」切换，重启生效）
 
 
   EVB turnkey 开发板系列（≥800×480）:
@@ -86,7 +87,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air8603M1_10inch_1024x600_000_4G_V000" -- 项目名，用于 FOTA 云端鉴权
+PROJECT = "Engine_Air8606_10inch_1024x600_V010" -- 项目名，用于 FOTA 云端鉴权
 VERSION = "001.999.007"                                 -- 固件版本号，用于 FOTA 升级比对
 PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"        -- 项目密钥，FOTA 云端鉴权
 

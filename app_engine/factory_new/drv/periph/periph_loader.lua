@@ -43,8 +43,12 @@ local PERIPH_REGISTRY = {
     ["rs485"]   = function(params) return require("periph_rs485").init(params) end,
     ["uart"]    = function(params) return require("periph_uart").init(params) end,
     ["audio"]   = function(params) return require("periph_audio").init(params) end,
+    ["can"]     = function(params) return require("periph_can").init(params) end,
+    ["gnss"]    = function(params) return require("periph_gnss").init(params) end,
+    ["power"]   = function(params) return require("periph_power").init(params) end,
+    ["peer"]    = function(params) return require("periph_peer").init(params) end,
+    ["wdt"]     = function(params) return require("periph_wdt").init(params) end,
     -- ["spi_cam"] = function(params) return require("periph_spi_cam").init(params) end,
-    -- ["can"]     = function(params) return require("periph_can").init(params) end,
     -- ["onewire"] = function(params) return require("periph_onewire").init(params) end,
 }
 

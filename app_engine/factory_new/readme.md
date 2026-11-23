@@ -3,7 +3,7 @@
 > 本工程由 `app_engine/factory` 复制而来，UI 层按 `tablet-smart-home` 设计稿重做为 **深色玻璃态（TabOS）** 风格；
 > 初始化方式参考桌面版 factory：**RGB 屏走 `display` 库初始化 + 全局 `lcd` 代理**。
 >
-> - 设计令牌与组件工厂：`ui/ui_theme.lua`
+> - 设计令牌与组件工厂：`ui/core/ui_theme.lua`
 > - 图标资源清单（尺寸/命名）：`docs/ui_icons.md`
 > - 视觉基调：底色 `#080B10` + 半透明白玻璃卡片 + 琥珀 `#FFB454` 强调色 + 大圆角
 > - 已重做页面：欢迎页、桌面首页、设置主页、亮度和声音、触摸音效、标题栏组件
@@ -21,7 +21,7 @@
 | 窗口/应用库 | `exwin` / `exapp` 内置到 `libs/`，不再依赖固件内置版本 | `libs/exwin.lua` `libs/exapp.lua` |
 | PC 模拟器 | `pcconf/pcconf.json`（存储/网络/模拟器开关） + `fskv.bin` | `pcconf/` `fskv.bin` |
 | 业务容错 | `net_manager.init` 用 pcall 包裹，网络起不来不阻断 UI | `app/app_main.lua` |
-| 内存裁剪 | `factory_win` / `llm_chat_win` 暂不打包（常驻窗口约占 1024KB） | `ui/ui_main.lua` |
+| 内存裁剪 | `factory_win` / `llm_chat_win` 暂不打包（常驻窗口约占 1024KB） | `ui/core/ui_main.lua` |
 
 > ⚠️ 当前 `PROJECT = "EVB_Air1601_5inch_800x480_000_V011"`（5 寸 800×480 RGB，display 底层），
 > 编译清单已按该机型裁剪。若需恢复多机型支持，需把其余 config/驱动 require 加回 `core/platform_loader.lua`。
@@ -61,6 +61,7 @@
 | 27 | Air1603 | 引擎主机 | Air8603W | 1024*600 10寸RGB触摸屏(HX8282)；WiFi(Airlink 601S, SPI5)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2)；摄像头画面 rotation = 90；SD卡；USB HID/UVC 二选一 | Engine_Air8607W_10inch_1024x600_000_V000 | | |
 | 28 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；WiFi(Airlink 6205, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 90；SD卡 | Engine_Air8601_7inch_1024x600_010_WiFi_V000 | | |
 | 29 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；4G(Airlink 780ER2, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 90；SD卡 | Engine_Air8601_7inch_1024x600_010_4G_V000 | | |
+| 30 | Air1602 | 引擎主机 | 合宙引擎 AIR8606 V010 10寸 | 1024*600 10寸RGB触摸屏；接口复用装配(SPI2 4G/WiFi、UART2 CAN/RS232、隔离/非隔离485、UART3 人脸/485-2、音频回放、USB Host)；J24 SPI以太网(CH390H)；GNSS/EX2网口(4G装配)；对外5V/VIN电源；Air153D看门狗；Air1103录音播放；SD卡；装配在「设置→接口复用」切换、重启生效 | Engine_Air8606_10inch_1024x600_V010 | | |
 
 ---
 
@@ -120,13 +121,14 @@ factory/
 │   ├── settings/              # 设置子模块（显示/声音/存储/内存/关于/IOT）
 │   ├── ntp/ntp_app.lua        # NTP 校时
 │   └── fota_app.lua           # OTA 固件升级
-├── ui/                        # UI 层（纯事件驱动）
-│   ├── boot_ui.lua            # 开机快速点亮 + 延迟初始化编排
-│   ├── ui_main.lua            # UI 窗口清单（boot_ui 在 logo 展示期间延迟加载）
-│   ├── idle_win.lua           # 桌面启动器
-│   ├── settings/              # 设置页面（9 个子页面）
-│   ├── wifi/                  # WiFi 页面
-│   ├── app_store_win.lua      # 应用市场
+├── ui/                        # UI 层（纯事件驱动，按功能分子目录，require 一律裸文件名）
+│   ├── core/                  # 框架与桌面（boot_ui / ui_main / ui_theme / ui_theme_themes / ui_kit / idle_win）
+│   ├── settings/              # 设置页面（含接口复用 settings_mux_win）
+│   ├── wifi/                  # WiFi 页面（列表/连接/详情）
+│   ├── net/                   # 网络设置页（设置/详情）
+│   ├── test/                  # 测试页（功能测试 / UVC / 485 / 录音 / 外设诊断 / SIP）
+│   ├── media/                 # 视频（video_win / video_picker / video_util）
+│   └── apps/                  # 应用窗口（应用市场/文件管理/文件传输/网盘/AI 助手/应用工厂）
 └── res/                       # 图片资源 + RSA 公钥
 ```
 
@@ -238,7 +240,7 @@ return {
 | 平台加载器 | `core/platform_loader.lua` | 平台检测 → 配置映射 → 引脚初始化 → GPIO 上电 |
 | 驱动构建 | `drv/lcd/lcd_common.lua` | 动态加载 LCD/TP 驱动，构建全局接口 |
 | 业务加载器 | `app/app_main.lua` | 按序 require 所有业务模块 |
-| UI 入口 | `ui/ui_main.lua` | 加载 UI 页面，创建硬件初始化协程 |
+| UI 入口 | `ui/core/ui_main.lua` | 加载 UI 页面，创建硬件初始化协程 |
 
 ### 6.2 网络与通信
 
@@ -276,7 +278,7 @@ return {
 
 | 窗口 | 文件 | 功能 |
 |------|------|------|
-| 桌面 | `ui/idle_win.lua` | 时间/日期/信号/快捷入口/外部应用网格 |
+| 桌面 | `ui/core/idle_win.lua` | 时间/日期/信号/快捷入口/外部应用网格 |
 | 设置主页 | `ui/settings/settings_win.lua` | 功能入口列表（WiFi/亮度和声音/设置当前时间/存储/声音/关于/更新） |
 | 亮度和声音 | `ui/settings/settings_display_win.lua` | 亮度滑块 + 媒体音量滑块（有音频硬件时默认启用） |
 | 设置当前时间 | `ui/settings/settings_time_win.lua` | 年月日时分秒加减调节 + 直接输入，保存写入系统时钟 |
@@ -289,11 +291,12 @@ return {
 | WiFi 列表 | `ui/wifi/wifi_list_win.lua` | 开关/扫描/网络列表 |
 | WiFi 详情 | `ui/wifi/wifi_detail_win.lua` | SSID/IP/MAC/信号/断开 |
 | WiFi 连接 | `ui/wifi/wifi_connect_win.lua` | 密码输入/高级配置 |
-| 应用市场 | `ui/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
-| 功能测试 | `ui/other_func_win.lua` | UVC / RS485 / 串口 / 音频 外设分组入口与状态圆点；485 不管几路只出一行「RS485 测试」；分组标题可用配置条目的 `title` 覆盖。行上没有开关，点行自动开接口并进测试页、退出测试页自动断电；外设列表之后另有「背光调节」「音量调节」两张硬件能力卡（见 6.6） |
-| 摄像头测试 | `ui/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本机只播 HZV 容器，录像拷出去看)；摄像头是人脸识别模组时多一个「人脸识别」页签（录入 / 验证 / 清空 / 版本）（点功能测试页的摄像头行进入）。横屏走「左预览 + 右操作区」、竖屏走上下结构（见 6.6） |
-| 485 测试 | `ui/rs485_test_win.lua` | 多路通道卡 + 统一收发日志 + 交叉线判定（点功能测试页的「RS485 测试」行进入） |
-| 录音播放 | `ui/audio_test_win.lua` | 录音时长选择 + 录音/播放/停止 + 测试日志 + 「请接入麦克风」常驻提示（点功能测试页的音频行进入） |
+| 应用市场 | `ui/apps/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
+| 功能测试 | `ui/test/other_func_win.lua` | UVC / RS485 / 串口 / 音频 外设分组入口与状态圆点；485 不管几路只出一行「RS485 测试」；分组标题可用配置条目的 `title` 覆盖。行上没有开关，点行自动开接口并进测试页、退出测试页自动断电；外设列表之后另有「背光调节」「音量调节」两张硬件能力卡（见 6.6） |
+| 摄像头测试 | `ui/test/uvc_preview_win.lua` | 预览 / 拍照(.jpg) / 录像(.mjpg，本机只播 HZV 容器，录像拷出去看)；摄像头是人脸识别模组时多一个「人脸识别」页签（录入 / 验证 / 清空 / 版本）（点功能测试页的摄像头行进入）。横屏走「左预览 + 右操作区」、竖屏走上下结构（见 6.6） |
+| 485 测试 | `ui/test/rs485_test_win.lua` | 多路通道卡 + 统一收发日志 + 交叉线判定（点功能测试页的「RS485 测试」行进入） |
+| 录音播放 | `ui/test/audio_test_win.lua` | 录音时长选择 + 录音/播放/停止 + 测试日志 + 「请接入麦克风」常驻提示（点功能测试页的音频行进入） |
+| 外设诊断 | `ui/test/air8606_test_win.lua` | CAN / RS232 / GNSS / EX2网口(J15) / 对外电源(J17/J18) / 看门狗 诊断页：状态轮询 + 开启/关闭/刷新 + 串口与 CAN ASCII 发送 + 诊断日志（点功能测试页对应行进入；8606 专属装配，带 `type="uart"` 条目的其它型号也可用串口测试） |
 
 ### 6.6 外设接口
 
@@ -307,7 +310,7 @@ return {
 `TEST_WIN_CLOSED`，功能测试页收到后对本次打开的几路逐个 `OTHER_FUNC_SET(id, false)` 断电，
 功能测试页自己销毁时再补关一次兜底。**点行进测试页前先弹该功能的「接线提示」**（只写物理接线与注意事项），
 按钮「跳过 / 确定」：点「跳过」不落盘，下次点同一个功能还会弹；点「确定」写 fskv 键 `other_func_tip_<type>`，
-之后（含重启）不再弹。只有配了测试页的 type 才有提示（uart 行不可点）。
+之后（含重启）不再弹。只有配了测试页的 type 才有提示（uart / can / gnss / power / peer / wdt 行进外设诊断页，同样有提示）。
 `type = "audio"` 是录音播放测试点，硬件参数读 `config.hw.audio`（Air1103 走 UART6），
 没配 `hw.audio` 的机型 init 直接失败，列表里也不会出现「音频」组。
 有 `hw.audio` 却不配 `type = "audio"` 的机型（8603 除 M1/W1 的八型号 / 8607 / 8607A）是只播放不录音，
@@ -325,7 +328,7 @@ MIC 数据即判定链路有问题（`drv/periph/periph_audio.lua` 的 `MIC_READ
 UART 走人脸协议（录入 / 验证 / 删除全部 / 版本），两条通路共用 `en_pin` 供电，断电一起掉。
 带了才会在摄像头测试页多出「人脸识别」页签，不带的型号页面与原来完全一致。
 录入 / 验证前页面会把条目的 `en_pin` 断电重枚举一次（模组出完图停流后停在出图模式，
-录入指令不回包，见 `ui/uvc_preview_win.lua` 文件头「人脸识别边界」第 1 条），
+录入指令不回包，见 `ui/test/uvc_preview_win.lua` 文件头「人脸识别边界」第 1 条），
 所以这颗摄像头的 `en_pin` 必须是可拉低的独立供电脚。
 不带 `face` 的是普通 USB UVC 摄像头（只出图、无控制串口、不带人脸识别），
 测试页不建页签行（也就没有「人脸识别」页签），按钮是拍照 / 录像 / 时长 / 适配；
@@ -336,11 +339,11 @@ M3~M5 的 `GPIO58 = UVC_EN = 485_EN2`），驱动经 `drv/periph/pin_share.lua` 
 （摄像头还在供电会先停干净），退出自动归还，相互切换、互不影响。
 `type = "uvc"` 条目的 `rotation` 是画面旋转角（顺时针 0 / 90 / 180 / 270，逆时针 90 度写 270），
 按模组实际安装方向填，不写不转。预览旋转角**只由配置里的 `rotation` 决定**
-（`ui/uvc_preview_win.lua` 读取），人脸页签取 `face.rotation`、不写就回退条目的 `rotation`，
+（`ui/test/uvc_preview_win.lua` 读取），人脸页签取 `face.rotation`、不写就回退条目的 `rotation`，
 界面没有别的角度入口。旋转在缩放前对帧生效，转 90 / 270 时帧的宽高互换，
-预览区与取档都跟着按旋转后的宽高比算（见 `ui/uvc_preview_win.lua` 的 `disp_dims`）。
+预览区与取档都跟着按旋转后的宽高比算（见 `ui/test/uvc_preview_win.lua` 的 `disp_dims`）。
 
-摄像头测试页（`ui/uvc_preview_win.lua`）横屏（`sw >= sh`）走**左右结构**：左列预览画面区
+摄像头测试页（`ui/test/uvc_preview_win.lua`）横屏（`sw >= sh`）走**左右结构**：左列预览画面区
 占满标题栏以下的高度，右列自上而下排页签 / 状态行 / 供电接线提示 / 控制按钮
 （4 个按钮排 2 列 2 行，贴右列底部）；实算 1024×600 左列 612px、右列 376px，
 800×480 左列 477px、右列 293px。竖屏保持原来的上下结构（页签 / 预览 / 状态行 /
@@ -430,7 +433,7 @@ MIC + 喇叭 + AEC，`exaudio` 走 `model = "air1103"` + `audio_mode = "new"`，
 
 **HZV 的音轨**：音轨打在容器里（MP3 或 PCM_S16LE），由 videoplayer 自己调
 `luat_audio_request_play_stream` 送进音频框架，**不经 exaudio**，落到底层的内置 DAC 那一路。
-因此播放时只保持 PA 功放使能（`ui/video_util.lua` 的 `pa_reassert`），
+因此播放时只保持 PA 功放使能（`ui/media/video_util.lua` 的 `pa_reassert`），
 不去重跑 `exaudio.setup` —— 它的 DAC 收尾会 `audio_v2.shutdown` 关掉 codec 和功放，
 紧接着起播会让这一路没声音。停播 / 暂停后由 `pa_off` 关掉（停播要等释放窗口结束才关，
 否则截掉尾音会 pop）：PA 常开不关，DAC 空闲噪声会被放大成电流声。
@@ -458,7 +461,7 @@ USB 键鼠与 UVC 摄像头共用同一个 USB Host 与同一条供电轨，同�
 
 ### 6.9 桌面视频区与弹窗避让
 
-桌面（`ui/idle_win.lua`）默认素材是 `/luadb/fruit.hzv`，走 **videoplayer 后端**：逐帧拉 RGB565
+桌面（`ui/core/idle_win.lua`）默认素材是 `/luadb/fruit.hzv`，走 **videoplayer 后端**：逐帧拉 RGB565
 塞进 `lv_image`，是正常 LVGL 渲染。但弹窗仍不能靠 z-order 避让，只能按几何避开 ——
 是两条层叠规则叠加的结果：
 

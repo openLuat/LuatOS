@@ -17,6 +17,7 @@ extern struct luat_display_panel dsi_panel_st7701s;
 extern struct luat_display_panel dsi_panel_custom;
 extern struct luat_display_panel dsi_panel_ili9881c;
 extern struct luat_display_panel dsi_panel_hx8279;
+extern struct luat_display_panel dsi_panel_ft8201p;
 
 /*LVDS面板列表*/
 extern struct luat_display_panel lvds_panel_custom;

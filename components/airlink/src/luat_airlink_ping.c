@@ -77,6 +77,9 @@ int luat_airlink_ping_raw(uint8_t mode, uint64_t pkgid,
                           uint16_t* echo_len_out) {
     if (rtt_ms_out) *rtt_ms_out = 0;
     if (echo_len_out) *echo_len_out = 0;
+    int route = luat_airlink_rpc_route(mode, 0);
+    if (route < 0 || luat_airlink_in_dispatch(route)) return -1;
+    mode = (uint8_t)route;
 
     ping_sync_ctx_t* ctx = (ping_sync_ctx_t*)luat_heap_malloc(sizeof(ping_sync_ctx_t));
     if (!ctx) {
@@ -99,6 +102,7 @@ int luat_airlink_ping_raw(uint8_t mode, uint64_t pkgid,
     ctx->refcnt = 1;  // waiter 引用
 
     luat_airlink_result_reg_t reg = {0};
+    reg.route = mode;
     reg.tm       = luat_mcu_tick64_ms();
     reg.id       = pkgid;
     reg.userdata = ctx;

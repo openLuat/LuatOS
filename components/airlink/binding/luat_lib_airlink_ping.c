@@ -152,6 +152,14 @@ int l_airlink_ping(lua_State *L) {
     }
 
     uint32_t timeout_ms = (uint32_t)luaL_optinteger(L, 2, 3000);
+    int current_mode = luat_airlink_current_mode_get();
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) {
+        int id = luaL_optinteger(L, 3, luat_airlink_link_configured(0) ? 0 : 1);
+        luaL_argcheck(L, luat_airlink_link_configured(id), 3, "unconfigured link");
+        current_mode = AIRLINK_ROUTE_BASE + id;
+    }
+#endif
     uint64_t pkgid      = luat_airlink_get_next_cmd_id();
 
     size_t args_size = sizeof(ping_worker_args_t) + data_len;
@@ -162,7 +170,6 @@ int l_airlink_ping(lua_State *L) {
         return 1;
     }
     memset(args, 0, sizeof(ping_worker_args_t));
-    int current_mode = luat_airlink_current_mode_get();
     args->mode        = (current_mode >= 0) ? (uint8_t)current_mode : LUAT_AIRLINK_MODE_LOOPBACK;
     args->pkgid       = pkgid;
     args->timeout_ms  = timeout_ms;

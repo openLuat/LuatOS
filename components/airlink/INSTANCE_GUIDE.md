@@ -1,0 +1,827 @@
+# AirLink 实例模式使用说明
+
+适用版本：LuatOS `feat/airlink-dual-arq3` 分支。
+
+更新时间：2026-11-23。
+
+## 1. 功能概述
+
+实例模式允许主控同时连接两个 AirLink 从机，各自独立收发、维护状态及绑定网卡。
+
+已验证的组合：
+
+| 组合 | 连接方式 |
+|---|---|
+| 6205＋780EPM | 双 UART |
+| 6205＋780EPM | 共享 SPI 总线、独立 CS |
+| 6208＋780EPM | UART＋SPI |
+| AIR8605 板载 6205 | UART3 单实例 |
+
+本文约定：
+
+- 实例 `0`：Wi-Fi，6205/6208。
+- 实例 `1`：蜂窝，780。
+- Wi-Fi 网卡：`socket.LWIP_STA`。
+- 蜂窝转发网卡：`socket.LWIP_GP_GW`。
+
+**实例 ID、UART/SPI 编号、网卡编号是三种不同的编号。** 实例 `0` 并不表示 UART0。本文的实例分配是示例约定，实际功能路由根据配置的驱动能力选择实例。
+
+## 2. 开启方式与兼容性
+
+### 2.1 编译配置
+
+主控固件需要启用：
+
+```c
+#define LUAT_USE_AIRLINK_INSTANCE 1
+```
+
+并包含 AirLink、对应传输方式和网络组件。
+
+**Air8000 默认自动启动板内 Air8000S。** 在已有的
+`LUAT_USE_AIRLINK_AUTO_MASTER` 配置上开启 `LUAT_USE_AIRLINK_INSTANCE` 后，
+固件在执行 `main.lua` 前自动创建实例 `0`，绑定STA/AP网卡，最多等待链路就绪500 ms。
+脚本仍可直接使用 `wlan.init()` / `wlan.connect()`，只需为外接从机配置实例 `1`。
+不带Wi-Fi的子型号不会自动创建实例；创建失败会记录错误，不回退到legacy。
+未开启实例宏的固件继续使用原legacy自动启动流程。
+
+如需由脚本自行分配全部实例，可额外开启**可选的手动启动宏**：
+
+```c
+#define LUAT_USE_AIRLINK_MANUAL_SETUP 1
+```
+
+该宏优先于自动启动配置，禁止Lua执行前自动创建板内实例。
+手动启动固件必须由脚本配置链路，不能依赖旧脚本隐式启动 Wi-Fi。
+该宏必须与 `LUAT_USE_AIRLINK_INSTANCE` 同时定义。
+
+当前 CCM SDK 已在以下文件开启（路径相对于 CCM SDK 仓库根目录）：
+
+```text
+csdk/project/luatos/include/luat_conf_bsp.h
+```
+
+Lua 检查：
+
+```lua
+assert(type(airlink.setup) == "function", "固件不支持AirLink实例模式")
+```
+
+### 2.2 运行方式
+
+- 未开启实例宏的Air8000，以及未使用自动实例启动或 `setup` 的其他平台，保留legacy路径。
+- Air8000自动实例固件保留Wi-Fi使用习惯，但板内链路已是实例 `0`，不要重复 `setup(0, ...)`。
+- 新脚本直接调用 `airlink.setup(id, conf)`，进入实例模式。
+- 实例模式不需要预先调用 `airlink.init()`、`airlink.config()`、`airlink.start()`。
+- 同一次启动中，两套初始化方式不能混用。
+
+**Air8000同时开启实例和自动启动宏时，板内链路自动切换为实例模式。**
+其他手动配置平台仍由 `airlink.setup()` 进入实例模式。
+
+旧模式下，无参数 `ready()`、`statistics()`、`sver()` 保留原有路径。但此前传给无参数接口、被忽略的多余参数，现在可能被解释为实例 ID，例如 `airlink.ready(0)`。
+
+实例模式下，查询接口应明确传入实例 ID。无参数 `statistics()` 仍是旧全局统计入口，不代表两个实例的统计总和。
+
+## 3. 创建实例
+
+```lua
+local ok, rc = airlink.setup(id, conf)
+```
+
+返回：
+
+- `ok`：是否创建成功。
+- `rc`：`0` 表示成功，负数表示错误。
+
+创建成功表示实例任务已启动；对端握手和网络就绪需要另外等待。建议在 `sys.taskInit` 创建的任务中调用。
+
+### 3.1 配置参数
+
+| 参数 | 说明 | 默认值 |
+|---|---|---|
+| `drv` | 从机驱动名称，必填 | 无 |
+| `mode` | UART、SPI主机；`netif`另支持EC718M SPI从机 | `airlink.MODE_UART` |
+| `uart_id` | 主控 UART 编号 | `1` |
+| `baudrate` | UART 波特率 | `2000000` |
+| `spi_id` | 本机 SPI 控制器编号 | `0` |
+| `cs` | 本机片选GPIO：主机输出、从机硬件输入 | `255`，SPI 使用时必须配置 |
+| `rdy` | 本机就绪GPIO：主机输入、从机输出，低电平可传输 | `255`，netif的SPI模式必须配置 |
+| `speed` | SPI 时钟频率，Hz | `20000000` |
+| `sta_adapter` | Wi-Fi STA 对应的主控网卡 | Wi-Fi 驱动默认 STA，蜂窝驱动默认 `-1` |
+| `ap_adapter` | Wi-Fi AP 对应的主控网卡 | Wi-Fi 驱动默认 AP，蜂窝驱动默认 `-1` |
+| `cellular_adapter` | 蜂窝转发对应的主控网卡 | 蜂窝驱动默认 GP_GW，Wi-Fi 驱动默认 `-1` |
+| `role` | `netif`专用，必填：`provider`供网端或`client`用网端 | 无 |
+| `network_adapter` | `netif`专用，本端裸IPv4网卡；不得占用STA/AP | GP_GW |
+
+网卡参数可用 `-1` 表示不映射。通常保留驱动默认值即可。
+
+`drv` 支持：
+
+```text
+air6205
+air6208
+air8000s
+air780epm
+air780er2
+netif
+```
+
+驱动名称被接受，不代表对应板型、固件和接线已经完成验收；当前 780 双路验收使用的是 Air780EPM。
+
+`air8000s` 使用 Air8000 板内 SPI 默认配置：`mode=airlink.MODE_SPI_MASTER`、
+`spi_id=0`、`cs=8`、`rdy=22`、`speed=31000000`，SPI Mode 3、8位、MSB、
+1600字节全双工帧。默认值来自现有Air8000驱动，不代表新的多路硬件验收结果。
+可显式覆盖SPI参数；该驱动不接受UART或HSPI模式，返回 `-3`。
+其能力为Wi-Fi和BLE，网卡默认映射STA/AP。
+
+### 3.2 双 UART
+
+```lua
+local ok, rc = airlink.setup(0, {
+    drv = "air6205",
+    mode = airlink.MODE_UART,
+    uart_id = 1,
+    baudrate = 2000000
+})
+assert(ok, "Wi-Fi setup失败: " .. tostring(rc))
+
+ok, rc = airlink.setup(1, {
+    drv = "air780epm",
+    mode = airlink.MODE_UART,
+    uart_id = 2,
+    baudrate = 2000000
+})
+assert(ok, "蜂窝 setup失败: " .. tostring(rc))
+```
+
+UART 使用 8N1，两端波特率一致，TX/RX 交叉连接并共地。`setup` 会配置主控 UART，无需再对同一端口调用 `uart.setup()`。
+
+### 3.3 共享 SPI
+
+下面为已测试的主控引脚配置：
+
+```lua
+-- 先保证两个从机都处于未选中状态
+gpio.setup(12, 1, gpio.PULLUP)
+gpio.setup(8, 1, gpio.PULLUP)
+
+assert(airlink.setup(0, {
+    drv = "air6205",
+    mode = airlink.MODE_SPI_MASTER,
+    spi_id = 1,
+    cs = 12,
+    rdy = 41,
+    speed = 1000000
+}))
+
+assert(airlink.setup(1, {
+    drv = "air780epm",
+    mode = airlink.MODE_SPI_MASTER,
+    spi_id = 1,
+    cs = 8,
+    rdy = 42,
+    speed = 1000000
+}))
+```
+
+两路共用 SCLK/MOSI/MISO，各用独立 CS、RDY，并共地。实例内部通过总线锁协调传输。
+
+这里的 `cs`、`rdy` 都是**主控 GPIO 编号**。780 从机自己的引脚需要在从机侧另行配置。已验证的 EPM 从机配置为 SPI0、CS8、RDY22。
+
+当前验收速度为 **1 MHz**；虽然接口默认 20 MHz，使用时建议明确填写已验证的频率。共享总线上的 780EPM 需使用包含硬件 CS 修复的固件。
+
+该修复对 EC718M 的 SPI0/CS8、SPI1/CS12 原生片选组合采用硬件 CS 和固定 1600 字节 DMA 完成通知；其他片选组合保留旧路径。
+
+### 3.4 UART＋SPI
+
+组合上述两种配置即可，例如：
+
+```lua
+assert(airlink.setup(0, {
+    drv = "air6208",
+    mode = airlink.MODE_UART,
+    uart_id = 2,
+    baudrate = 2000000
+}))
+
+assert(airlink.setup(1, {
+    drv = "air780epm",
+    mode = airlink.MODE_SPI_MASTER,
+    spi_id = 1,
+    cs = 8,
+    rdy = 42,
+    speed = 1000000
+}))
+```
+
+### 3.5 Air8000 内置 Air8000S＋外接从机
+
+主控保留Air8000原有自动启动配置，开启实例宏，**无需开启手动启动宏**：
+
+```lua
+sys.taskInit(function()
+    -- 板内Air8000S已经自动创建为实例0，无需再次setup。
+    assert(airlink.status(0), "板内Air8000S自动创建失败")
+
+    -- 示例：外接780，UART编号必须按实际接线填写。
+    local ok, rc = airlink.setup(1, {
+        drv = "air780epm",
+        mode = airlink.MODE_UART,
+        uart_id = 1,
+        baudrate = 2000000
+    })
+    assert(ok, "外接从机setup失败: " .. tostring(rc))
+    -- 后续按第4节等待链路，再执行wlan.init/wlan.connect。
+end)
+```
+
+仅使用板内Wi-Fi时，不需要任何 `airlink.setup()` 调用。
+若开启 `LUAT_USE_AIRLINK_MANUAL_SETUP`，则先在任务中执行
+`assert(airlink.setup(0, {drv = "air8000s"}))`，再配置外接实例。
+
+Air8000自身的蜂窝网卡仍是 `socket.LWIP_GP`，外接780使用
+`socket.LWIP_GP_GW`，两者不能混淆。
+板内GPIO23上电时序和3.3V IO配置仍由Air8000 BSP启动代码负责；
+组件不会把其他主控的GPIO23当作通用电源脚。
+
+驱动收到Wi-Fi设备信息后，将GPIO24配置为输出并拉高，以维持Air8000充电IC。
+这两条初始化命令明确发往该实例，即使Air8000S配置在实例1，也不会误发到实例0。
+它是**从机GPIO24**，不是主控GPIO24。`ready(id)` 在初始化命令完成发送后才为真；
+这不等于对端应用执行确认。链路超时后收到新帧会重新进行初始化。
+
+此处覆盖实例创建、SPI收发、功能路由和启动初始化。旧 `airlink.power`、
+`irqmode`、`wakeup_irqmode` 等单实例省电/中断接口不属于多路配置接口，
+不要与本节流程混用；多路休眠和快速断电重启仍需单独适配、验收。
+
+### 3.6 Air8000 UART1对外供网 → Air1602 UART1
+
+双方使用新版实例固件、UART1交叉连接、共地、电平匹配，默认2 Mbps/8N1。
+Air8000保留板内SPI实例0，对外供网使用实例1；Air1602用网链路使用实例0。
+`provider/client`是网络业务角色，与UART收发方向、SPI主从无关。
+
+将 `script/libs/exnetif.lua` 加入双方脚本，供网端另加入 `dnsproxy.lua`。
+Client不加载DNS/DHCP/HTTPDNS代理库；使用多WAN探测时还需加入 `httpdns.lua`。
+应用自行初始化各个WAN；下例初始化Wi-Fi，4G由平台初始化，以太网需按板型配置。
+本节示例默认使用UART；SPI供网使用下一节的主从配置。
+`netif`支持UART、标准SPI主机和已适配平台的SPI从机，不接受HSPI。
+
+**Air8000：**
+
+```lua
+sys.taskInit(function()
+    wlan.init()
+    wlan.connect("你的SSID", "你的密码")
+    local gateway = require("exnetif").airlink_provider(1, {
+        uart_id = 1,
+        priority = {socket.LWIP_STA, socket.LWIP_GP, socket.ETH0},
+        dns = "119.29.29.29"
+    })
+    -- gateway.uplink：当前出口ID，nil表示无可用出口
+    -- gateway.enable(false/true)：暂停/恢复供网策略
+end)
+```
+
+**Air1602：**
+
+```lua
+sys.taskInit(function()
+    local adapter = require("exnetif").airlink_client(0, {uart_id = 1})
+    while not netdrv.ready(adapter) do sys.wait(100) end
+    local code = http.request("GET", "http://httpbin.luatos.com/get",
+        nil, nil, {adapter = adapter}).wait()
+    log.info("http", code)
+end)
+```
+
+固定子网默认配置：
+
+| 设备 | 本地网卡 | IPv4 | 网关/DNS |
+|---|---|---|---|
+| Air8000 | GP_GW | `192.168.111.2/24` | DNS代理监听此地址 |
+| Air1602 | GP_GW | `192.168.111.1/24` | `192.168.111.2` |
+
+可通过 `adapter/ip/mask` 覆盖本地配置，client另支持 `gateway/default`；
+如改子网，双方需一致，并避免与WAN网段重叠。两端本地adapter编号可以不同。
+不使用DHCP，WAN切换不会替换Air1602的网卡、IP、网关或DNS。
+
+未调用 `exnetif.set_priority_order()` 时，控制器每500 ms按 `opts.priority`
+选择已就绪且具有IPv4地址的WAN；默认顺序为Wi-Fi、4G，不检测公网可达性。
+调用 `set_priority_order()` 后，供网自动跟随exnetif选定的出口，忽略 `opts.priority`；
+多网模式使用探测选路结果，单网模式检查唯一网卡的ready状态及IPv4地址。
+后续更新优先级也生效；供网LAN不能列为WAN。
+
+例如让exnetif统一初始化WAN、探测及选择出口：
+
+```lua
+local exnetif = require "exnetif"
+sys.taskInit(function()
+    assert(exnetif.set_priority_order({
+        {WIFI = {ssid = "你的SSID", password = "你的密码"}},
+        {LWIP_GP = true}
+    }))
+    local gateway = exnetif.airlink_provider(1, {uart_id = 1})
+    -- 临时暂停：gateway.enable(false)，下一个策略周期生效
+    -- 同步关闭供网：exnetif.close(true)，保留UART实例及固定地址
+    -- 恢复：gateway.enable(true)，无需重新setup
+end)
+```
+
+出口丢失、变化、IP/网关变化时，先撤销可用状态，关闭并清理NAPT和DNS映射，
+再绑定新出口。DNS控件按候选WAN缓存复用，避免异步关闭期间反复销毁控件。
+控制器独占设备的全局NAPT和dnsproxy，不能与 `exnetif.setproxy` 或其他NAPT控制器并用。
+`setproxy`和AirLink provider会互斥检查；Provider暂停后仍保留所有权，
+`close(true)`不会被轮询任务自动恢复，必须使用 `gateway.enable(true)`。
+`enable`使用点调用，不使用冒号。一个设备最多创建一个Provider控制器。
+供网/用网控制统一使用 `exnetif.airlink_provider()` / `exnetif.airlink_client()`。
+`netdrv.ready()`只表示网卡具备地址和链路，不检测上游能否访问互联网。
+
+底层接口也可独立使用：
+
+```lua
+assert(airlink.setup(1, {
+    drv = "netif", role = "provider", uart_id = 1,
+    network_adapter = socket.LWIP_GP_GW
+}))
+-- 配置固定IPv4、NAPT和DNS完成后，再通告选定WAN：
+assert(airlink.netstate(1, socket.LWIP_STA))
+-- 撤销Internet可用状态：
+assert(airlink.netstate(1, -1))
+```
+
+`airlink.netstate(id, uplink)`仅用于provider状态通告，不替代NAPT/DNS配置。
+返回 `ok, rc`，非provider、停止实例、自身LAN作为出口或非法编号会失败。
+每次出口编号变化递增状态代次；同一WAN重新建链时先通告 `-1` 再通告WAN，
+确保client收到新的代次。状态通过每秒心跳发送，`netif`链路超时为5秒。
+
+`airlink.status(id)`新增：
+
+- `network_adapter`：本地供网/用网网卡。
+- `peer_type=3`、`net_protocol=1`：通用网卡协议。
+- `peer_role`：1为client，2为provider。
+- `peer_online`、`peer_uplink`、`net_generation`：对端通告状态。
+
+`ready(id)`要求协议匹配且角色互补；用 `ready` 等待，**不要要求 `version > 0`**。
+provider的LAN随对端握手就绪，client网卡还需provider通告有可用出口。
+client在出口代次改变时重新发布网络状态，应用应通过 `IP_LOSE/IP_READY` 重连。
+既有TCP/MQTT会话不保证跨WAN迁移，NAPT清表后应重新建立连接。
+
+协议使用设备信息 `tp=3` 和IP逻辑通道254，保持既有devinfo大小与ARQ尾部偏移。
+双方都必须使用支持 `netif` 的固件；不能将旧780/6208驱动名称作为供网角色替代品。
+本版提供IPv4 TCP/UDP/ICMP转发，不提供IPv6路由或IP分片转发。
+
+NAPT的C层 `enable/disable/set_gw` 在TCP/IP上下文异步执行；
+Lua `netdrv.napt()` 等待清表与出口配置完成后返回。
+转发与切换共用非阻塞排他门，争用期间丢弃包以避免越过NAPT或死锁；
+它不撤回已经送入硬件/串口发送队列的旧包。
+
+2026-11-17真机验证：Air8000板内Wi-Fi实例0作为出口，通过UART1实例1向
+Air1602实例0供网。已通过局域网UDP回显、DNS解析、256/4096/16384字节
+HTTP完整回显，以及Wi-Fi断开通知、固定IP保留、恢复后DNS和4096字节HTTP。
+Wi-Fi断网期间UART链路保持就绪。另通过供网端外部链路停止8秒后的超时通知、
+供网端重启后的重新握手和HTTP恢复；三个阶段直接向固定网关53端口发起DNS查询
+均成功。4G和以太网出口的实际切换尚待硬件验收。
+
+### 3.7 Air8000 SPI从机供网 → Air1602 SPI主机用网
+
+与UART版本复用固定IP、网卡、NAPT、DNS、出口策略和断网恢复机制。
+**Provider/Client不限定SPI主从**；以下按两端现有驱动能力选择：
+
+```text
+Air8000 实例0：SPI0主机 → 板内Air8000S（Wi-Fi），保留自动启动
+Air8000 实例1：SPI1从机/Provider ←→ Air1602 实例0：SPI主机/Client
+```
+
+本轮SPI从机端口适配 **EC718M平台（含Air8000的EC718HM）**，
+其他平台选择SPI从机会返回 `-3`。Air1602本轮使用已存在的SPI主机接口；
+没有为Air1602新增从机HAL。
+
+#### 参数与接线
+
+- 标准SPI Mode 3（CPOL=1、CPHA=1）、8位、MSB、固定1600字节全双工帧。
+- `mode`：`airlink.MODE_SPI_MASTER` 或 `airlink.MODE_SPI_SLAVE`。
+- `spi_id/cs/rdy`：exnetif的SPI入口必须显式填写，编号均为**本机**编号。
+- `speed`：主机时钟1～20 MHz，默认20 MHz；首次联调建议先用1 MHz。
+- EC718M从机要求原生硬件片选：SPI0/CS8或SPI1/CS12；Air8000板内占用SPI0，
+  因此对外使用 **SPI1/CS12**。从机RDY不能使用SPI0/SPI1的GPIO8～15。
+- 从机独占SPI控制器，不能与板内主机实例共用同一个控制器。
+
+| Air1602（主机） | Air8000（从机） |
+|---|---|
+| 对应SPI的SCK | SPI1 SCK |
+| MOSI | SPI1 MOSI |
+| MISO | SPI1 MISO |
+| 自选CS输出GPIO | 硬件CS GPIO12 |
+| 自选RDY输入GPIO | 自选空闲RDY输出GPIO |
+| GND | GND |
+
+MOSI/MISO按信号同名连接，双方I/O电平需匹配。以下RDY编号只是示例，
+须按开发板引出及其他外设占用情况调整；不要把板内Wi-Fi的CS8/RDY22接到外部链路。
+
+**Air8000：**
+
+```lua
+local exnetif = require "exnetif"
+sys.taskInit(function()
+    wlan.init()
+    wlan.connect("你的SSID", "你的密码", 1)
+    local gateway = exnetif.airlink_provider(1, {
+        mode = airlink.MODE_SPI_SLAVE,
+        spi_id = 1, cs = 12, rdy = 18, -- RDY示例，按开发板调整
+        speed = 1000000,
+        priority = {socket.LWIP_STA, socket.LWIP_GP}
+    })
+    -- 同样支持exnetif.set_priority_order、close(true)、gateway.enable(true)
+end)
+```
+
+**Air1602：**
+
+```lua
+local exnetif = require "exnetif"
+sys.taskInit(function()
+    local adapter = exnetif.airlink_client(0, {
+        mode = airlink.MODE_SPI_MASTER,
+        spi_id = 2, cs = 4, rdy = 16, -- 示例，按开发板引出及接线调整
+        speed = 1000000
+    })
+    while not netdrv.ready(adapter) do sys.wait(100) end
+    local code = http.request("GET", "http://httpbin.luatos.com/get",
+        nil, nil, {adapter = adapter}).wait()
+    log.info("http", code)
+end)
+```
+
+两端均需更新内核和Lua库。SPI从机不调用旧 `airlink.init/config/start`，
+实例API会独立建立队列、设备信息、网卡映射、DMA收发和状态维护。
+
+#### 握手、恢复和验证边界
+
+- 从机先准备DMA收发缓冲，再拉低RDY；完整1600字节DMA完成后立即拉高RDY，
+  停止DMA并处理帧，然后准备下一帧。硬件CS负责选中从机。
+- 即使没有本机待发送数据，从机仍准备空帧接收主机流量，主机在RDY有效时持续轮询。
+- RDY持续为高、从机等待时钟等情况下，网络状态维护仍运行；5秒未收到有效帧会下线。
+- 从机一轮DMA超过2秒未完成会停止并清理DMA，RDY拉高至少20ms后重新准备，
+  用于主机重启或半帧中断后的重新同步；恢复期间业务连接仍需重试。
+- `exnetif.close(true)`只暂停供网策略；`airlink.close(id)`才停止实例DMA，
+  从机RDY保持高电平，实例槽位仍保留，重新setup需要重启。
+- SPI目前使用既有legacy帧格式及CRC，不启用UART的ARQ3重传，`status.arq=0`正常。
+- 2026-11-18：Air8000、Air1602固件及PC MSVC构建通过；SPI端口DMA/RDY、
+  实例资源冲突、实际IO循环超时维护、netif协议和exnetif控制器软件回归通过。
+  **UART真机结果不能代替SPI真机验收**：SPI实际连线、吞吐、断线/复位恢复
+  及与板内Wi-Fi并行工作仍需连接设备验证。
+
+## 4. 等待链路就绪
+
+在 `sys.taskInit` 创建的任务中等待：
+
+```lua
+local function wait_link(id, timeout_ms)
+    for _ = 1, math.ceil(timeout_ms / 100) do
+        local s = airlink.status(id)
+        if s and s.ready and s.version > 0 then
+            return s
+        end
+        sys.wait(100)
+    end
+    error("AirLink握手超时: " .. id)
+end
+
+local wifi = wait_link(0, 15000)
+local cell = wait_link(1, 15000)
+
+assert(wifi.peer_type == 1, "实例0不是Wi-Fi设备")
+assert(cell.peer_type == 2, "实例1不是蜂窝设备")
+```
+
+需要区分三个状态：
+
+| 状态 | 含义 |
+|---|---|
+| `setup` 成功 | 实例创建及任务启动成功 |
+| `airlink.ready(id)` | AirLink 通信链路就绪 |
+| `netdrv.ready(adapter)` | 对应主控网卡就绪 |
+
+**AirLink ready 不等于已经可以访问互联网。** 实际联网能力应通过指定网卡的请求验证。
+
+### 4.1 UART/SPI Wi-Fi从机OTA
+
+实例模式使用 `airlink.sfota(path, id, expected_version)`。当前支持已完成
+ARQ3握手的UART Wi-Fi实例，以及配置了RDY的SPI主机Wi-Fi实例。
+未协商ARQ3的UART、SPI从机、HSPI、蜂窝和通用netif实例返回false。
+省略 `id` 时选择Wi-Fi功能路由，建议显式传入实例编号。
+
+```lua
+sys.subscribe("AIRLINK_SFOTA_DONE", function(ok, reason, id)
+    log.info("peer ota", id, ok, reason)
+    -- 成功后可重新连接Wi-Fi；失败按reason处理
+end)
+
+sys.taskInit(function()
+    -- 实例1已经setup，固件包已下载并校验
+    while not airlink.ready(1) do sys.wait(100) end
+    assert(airlink.sfota("/luadb/peer.bin", 1, 33), "OTA请求被拒绝")
+end)
+```
+
+- 返回true只表示请求已接受。传输使用目标实例的队列、ARQ会话与UART，
+  等待各包ACK和擦除间隔，再发送完成、结束及复位指令。
+- SPI使用既有CRC帧，按RDY就绪及擦除间隔发送，`arq=0`正常。
+  RDY不代表flash写入成功；SPI没有逐包写入ACK，不自动重发可能已写入的块。
+  必须传入非零且不同于当前版本的 `expected_version`，最终读回目标版本才报告成功。
+- 目标实例先排空已有发送队列，OTA期间拒绝新的业务发送；其他实例保持运行。
+- UART成功事件要求对端重启到新ARQ会话、重新握手，并读回指定版本。
+  UART的 `expected_version`省略或为0时只检查重启/握手，不确认目标版本；
+  旧从机协议不返回flash写入结果，建议始终填写目标版本并事先校验固件包。
+- 传输阶段30秒无进展或重启后60秒未通过检查会失败。
+  原因还包括 `no_memory`、`file_error`、`not_ready`、`peer_reset`、
+  `transport_error`、`closed`。
+- 已开始传输后失败会停止目标实例，防止继续重放不确定的写包。
+  恢复需检查从机状态并重启主控；其他实例不因此停止。
+- 旧单链路 `sfota(path)` 保留原流程；低级 `sfota_init/write/done/end`
+  不提供此实例OTA状态机的等待与完成校验。
+
+2026-11-23真机验证：Air1602实例1、UART1、2 Mbps，向Air6205传输
+740714字节OTA包，完成V1032→V1033升级；从机记录 `fota_done/end ret 0`，
+主控收到 `AIRLINK_SFOTA_DONE(true, nil, 1)`，随后Wi-Fi取得IPv4地址。
+本轮验证了实例框架的非零实例路由，仅接一个真实从机；双从机并发OTA尚未验收。
+
+同日SPI真机验证：Air1602实例1，SPI1、CS=GPIO12、RDY=GPIO41、
+Mode 3、1 MHz → Air6205，完成同一740714字节包的V1032→V1033升级，
+约122秒收到成功事件，随后Wi-Fi DHCP成功。从机记录 `fota_done/end ret 0`。
+切换UART/SPI时需重启采用首次握手锁定传输模式的从机。
+
+## 5. 双网络联网完整示例
+
+### 5.1 主控脚本
+
+下面示例使用双 UART。前提是：
+
+- 6205 已运行对应 AirLink 从机固件。
+- 780 已运行 AirLink 从机，并配置蜂窝 NAPT、DNS 代理。
+- 780 转发网卡地址为 `192.168.111.2/24`。
+- 根据实际板卡完成必要的供电、复位和外部看门狗初始化。
+
+```lua
+PROJECT = "airlink_dual_example"
+VERSION = "001.000.000"
+
+sys = require "sys"
+
+local WIFI = socket.LWIP_STA
+local CELL = socket.LWIP_GP_GW
+local wifi_ip_ready = false
+
+sys.subscribe("IP_READY", function(ip, adapter)
+    if adapter == WIFI and ip and ip ~= "0.0.0.0" then
+        wifi_ip_ready = true
+    end
+    log.info("IP_READY", adapter, ip)
+end)
+
+sys.subscribe("IP_LOSE", function(adapter)
+    if adapter == WIFI then
+        wifi_ip_ready = false
+    end
+end)
+
+local function wait_for(check, timeout_ms, message)
+    for _ = 1, math.ceil(timeout_ms / 100) do
+        if check() then return end
+        sys.wait(100)
+    end
+    error(message)
+end
+
+local function setup_link(id, conf)
+    local ok, rc = airlink.setup(id, conf)
+    assert(ok, "setup失败: " .. id .. ", rc=" .. tostring(rc))
+end
+
+local function request(adapter, name)
+    local payload = "hello from " .. name
+    local code, _, body = http.request(
+        "POST",
+        "http://httpbin.luatos.com/post",
+        {["Content-Type"] = "text/plain"},
+        payload,
+        {adapter = adapter, timeout = 20000}
+    ).wait()
+
+    local obj = code == 200 and type(body) == "string"
+        and json.decode(body)
+    local passed = type(obj) == "table" and obj.data == payload
+    log.info(name, "HTTP", code, "回显一致", passed)
+end
+
+sys.taskInit(function()
+    assert(type(airlink.setup) == "function", "固件缺少实例接口")
+
+    setup_link(0, {
+        drv = "air6205",
+        mode = airlink.MODE_UART,
+        uart_id = 1,
+        baudrate = 2000000
+    })
+
+    setup_link(1, {
+        drv = "air780epm",
+        mode = airlink.MODE_UART,
+        uart_id = 2,
+        baudrate = 2000000
+    })
+
+    for id = 0, 1 do
+        wait_for(function()
+            local s = airlink.status(id)
+            return s and s.ready and s.version > 0
+        end, 15000, "链路握手超时: " .. id)
+        log.info("link", id, json.encode(airlink.status(id)))
+    end
+
+    assert(airlink.status(0).peer_type == 1, "Wi-Fi对端类型错误")
+    assert(airlink.status(1).peer_type == 2, "蜂窝对端类型错误")
+
+    -- 主控到780的转发网段
+    netdrv.ipv4(CELL, "192.168.111.1",
+        "255.255.255.0", "192.168.111.2")
+    socket.setDNS(CELL, 1, "192.168.111.2")
+
+    -- Wi-Fi连接
+    wlan.init()
+    wifi_ip_ready = false
+    wlan.connect("你的SSID", "你的密码", 1)
+
+    wait_for(function()
+        return wifi_ip_ready and netdrv.ready(WIFI)
+    end, 90000, "Wi-Fi获取IP超时")
+
+    wait_for(function()
+        return netdrv.ready(CELL)
+    end, 90000, "蜂窝转发网卡未就绪")
+
+    -- 两个任务分别指定网卡，独立发起请求
+    sys.taskInit(function() request(WIFI, "wifi") end)
+    sys.taskInit(function() request(CELL, "cellular") end)
+end)
+
+sys.run()
+```
+
+业务请求通过 `adapter` 选择出口。实例模式本身不自动提供网络故障切换或负载均衡。
+
+### 5.2 780 UART 从机侧参考
+
+780 仍可使用旧单实例接口，与主控实例模式通信：
+
+```lua
+PROJECT = "airlink_cell_peer"
+VERSION = "001.000.000"
+
+sys = require "sys"
+local dnsproxy = require "dnsproxy"
+
+sys.taskInit(function()
+    assert(uart.setup(1, 2000000, 8, 1) == 0)
+
+    airlink.init()
+    airlink.config(airlink.CONF_UART_ID, 1)
+    sys.wait(100)
+    airlink.start(airlink.MODE_UART)
+
+    netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
+    netdrv.ipv4(socket.LWIP_GP_GW,
+        "192.168.111.2", "255.255.255.0", "192.168.111.1")
+
+    while not socket.adapter(socket.LWIP_GP) do
+        sys.wait(1000)
+    end
+
+    netdrv.napt(socket.LWIP_GP)
+    dnsproxy.setup(socket.LWIP_GP_GW, socket.LWIP_GP)
+end)
+
+sys.run()
+```
+
+这段依赖支持对应接口的蜂窝固件，以及 `dnsproxy` 模块。已验证的 EPM 构建使用 DATA3 固件类型；不同 780 型号应使用其对应固件。
+
+## 6. 状态、统计与链路探测
+
+### 6.1 状态查询
+
+```lua
+local s = airlink.status(0)
+log.info("status", json.encode(s))
+```
+
+未配置的实例返回 `nil`。主要字段：
+
+| 字段 | 含义 |
+|---|---|
+| `id` | 实例 ID |
+| `ready` | 链路是否就绪 |
+| `peer_type` | `1` 为 Wi-Fi，`2` 为蜂窝；尚未取得信息时可能为 `0` |
+| `version` | 对端上报版本 |
+| `arq` | ARQ 协商状态；本轮 UART 测试就绪值为 `1` |
+| `rpc` | 对端是否声明 RPC 能力 |
+| `fragment` | 对端是否声明分片能力 |
+| `sta_state` | 对端 Wi-Fi STA 状态 |
+| `cat_state` | 对端蜂窝状态 |
+| `sta_adapter` | 主控映射的 STA 网卡 |
+| `cellular_adapter` | 主控映射的蜂窝转发网卡 |
+
+其他查询：
+
+```lua
+local ready = airlink.ready(0)
+local version = airlink.sver(0)
+```
+
+UART 在双方支持时协商 ARQ3；旧对端可继续使用 legacy。当前 SPI 使用 legacy，`arq=0` 属于正常情况。不能将 SPI 联网测试描述为 ARQ3 验证。
+
+### 6.2 统计查询
+
+```lua
+local s = airlink.statistics(0)
+log.info("statistics", json.encode(s))
+```
+
+未配置的实例返回 `nil`。包括：
+
+- `tx_pkg`、`rx_pkg`：链路包统计。
+- `tx_ip`、`rx_ip`：IP 包统计。
+- `tx_bytes`、`rx_bytes`：字节统计。
+- `arq`：ARQ 状态。
+- `retx`：ARQ 重传次数。
+- `giveup`：ARQ 放弃次数。
+- `duplicate`：重复帧去重次数。
+
+各统计分组包含 `total/ok/err/drop`。这些是对应代码路径的计数，`drop=0` 不能单独证明物理链路完全无丢帧。
+
+### 6.3 AirLink ping
+
+```lua
+sys.subscribe("AIRLINK_PING_RESULT", function(reqid, ok, value, echo)
+    log.info("ping", reqid, ok, value, echo)
+end)
+
+local reqid = airlink.ping("hello", 3000, 0)
+```
+
+第三个参数为实例 ID。这是对 AirLink 对端的回显探测，不是互联网 ICMP ping。多路同时探测时，用返回的 `reqid` 区分结果。
+
+成功时，事件中的 `value` 为往返耗时毫秒数，`echo` 为回显数据；失败时 `value` 为 `"timeout"` 或错误码，`echo` 为 `nil`。
+
+## 7. 关闭实例
+
+```lua
+local ok, rc = airlink.close(0)
+assert(ok, "close失败: " .. tostring(rc))
+```
+
+关闭实例 `0` 后，实例 `1` 可以继续通信。
+
+关闭是异步处理：工作任务会清理队列并释放传输缓冲。若检查收发是否停止，应留出收尾时间：
+
+```lua
+airlink.close(0)
+sys.wait(1500)
+log.info("link0 ready", airlink.ready(0))
+```
+
+上述等待时间用于示例观察，不是同步完成通知。
+
+当前实现保留已关闭实例的槽位和网卡归属：
+
+- 不能对同一 ID 再次 `setup`。
+- 不能通过关闭全部实例切回旧初始化流程。
+- 重新配置需要重启。
+
+## 8. 创建错误码
+
+| `rc` | 含义 |
+|---|---|
+| `0` | 成功 |
+| `-1` | 实例 ID、驱动或配置无效 |
+| `-2` | 实例槽位已经配置，包括已关闭的实例 |
+| `-3` | 传输模式不支持 |
+| `-4` | 参数或网卡映射不合法 |
+| `-5` | UART、SPI 片选或网卡归属冲突 |
+| `-6` | 内存、硬件、网络初始化或任务创建失败 |
+| `-7` | 旧 AirLink 流程已经初始化或启动 |
+
+Lua 参数类型错误、未知驱动名及部分参数越界会直接抛出参数错误，不一定返回上述错误码。
+
+`-6` 若发生在网卡已部分创建之后，当前实现可能保留槽位，需重启后再配置。
+
+## 9. 使用边界
+
+- 最多两个实例，ID 为 `0`、`1`。
+- 推荐当前已验证的“一条 Wi-Fi＋一条蜂窝”组合。
+- 两个 UART 实例必须使用不同 UART。
+- 共享 SPI 必须使用不同 CS，并正确连接从机 RDY。
+- 实例SPI从机目前仅适配EC718M的netif模式，必须独占SPI控制器。
+- `wlan`、BLE、蜂窝操作按功能选择实例；同类设备的多实例选择不属于本轮验收范围。
+- HSPI 已有代码适配，但本轮没有完成 HSPI 实机验收。
+- AIR8605 板载 6205 使用主控 UART3；同时连接 780 需要另一条独立连接，不能仅通过创建两个实例共用同一 UART。
+- 板级供电、复位及外部看门狗仍需由具体板子的初始化代码处理。已测试 AIR8605 使用 GPIO64 复位、GPIO57 喂外部看门狗，UART 测试时将 SPI2 的 CS4/CS47 拉高。

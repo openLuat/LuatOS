@@ -36,6 +36,7 @@ luat_rtos_queue_t airlink_ippkg_queue;
 
 // Per-transport 槽位 (indexed by mode: 0=SPI_SLAVE, 1=SPI_MASTER, 2=UART)
 static luat_airlink_transport_slot_t g_transport_slots[LUAT_AIRLINK_MAX_TRANSPORTS];
+static luat_rtos_mutex_t g_cmd_id_mutex;
 #ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
 // adapter_id → mode 绑定表 (0xFF = 未绑定)
 static uint8_t g_adapter_transport_binding[LUAT_AIRLINK_MAX_ADAPTERS];
@@ -295,6 +296,7 @@ uint64_t g_airlink_wifi_boot_time;
 
 int luat_airlink_init(void)
 {
+    if (!g_cmd_id_mutex) luat_rtos_mutex_create(&g_cmd_id_mutex);
     luat_airlink_flags_init();
 #ifdef LUAT_USE_AIRLINK_RPC
     extern void luat_airlink_rpc_stats_init(void);
@@ -307,6 +309,7 @@ int luat_airlink_init(void)
 
 int luat_airlink_start(int id)
 {
+    if (luat_airlink_instance_enabled()) return -1;
     int ret = -255;
     if (id < 0 || id >= LUAT_AIRLINK_MAX_TRANSPORTS) {
         LLOGE("airlink_start: 无效 mode %d", id);
@@ -458,6 +461,15 @@ void luat_airlink_print_buff(const char *tag, uint8_t *buff, size_t len)
 
 int luat_airlink_queue_send(int tp, airlink_queue_item_t *item)
 {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) {
+        if (!item || !item->cmd || tp != LUAT_AIRLINK_QUEUE_CMD) return -1;
+        int route = luat_airlink_instance_default_route(item->cmd);
+        int rc = route < AIRLINK_ROUTE_BASE ? -1 : luat_airlink_link_send(route - AIRLINK_ROUTE_BASE, item->cmd);
+        if (!rc) { luat_airlink_cmd_free(item->cmd); item->cmd = NULL; }
+        return rc;
+    }
+#endif
     int ret = -1;
     luat_airlink_newdata_notify_cb notify_cb = NULL;
     if (tp == LUAT_AIRLINK_QUEUE_CMD)
@@ -551,6 +563,9 @@ int luat_airlink_cmd_recv(int tp, airlink_queue_item_t *item, size_t timeout)
 
 int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
 {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) return luat_airlink_link_send_ip(adapter_id, data, len);
+#endif
     int ret = 0;
     g_airlink_statistic.tx_ip.total ++;
     g_airlink_statistic.tx_bytes.total += len;
@@ -754,6 +769,11 @@ int luat_airlink_cmd_recv_for_mode(uint8_t mode, airlink_queue_item_t* cmd) {
 
 // 向指定 mode 的 CMD 队列发送命令, 并触发其 notify_cb
 int luat_airlink_send2transport(luat_airlink_cmd_t* cmd, uint8_t mode) {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (mode >= AIRLINK_ROUTE_BASE && mode < AIRLINK_ROUTE_BASE + AIRLINK_LINK_COUNT)
+        return luat_airlink_link_send(mode - AIRLINK_ROUTE_BASE, cmd);
+    if (luat_airlink_instance_enabled()) return -1;
+#endif
     if (mode >= LUAT_AIRLINK_MAX_TRANSPORTS) {
         LLOGE("send2transport: 无效 mode %d", mode);
         return -1;
@@ -862,8 +882,11 @@ void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len) {
 static uint64_t next_cmd_id = 1;
 
 uint64_t luat_airlink_get_next_cmd_id() {
-    // TODO 加锁?
-    return next_cmd_id++;
+    if (!g_cmd_id_mutex) luat_rtos_mutex_create(&g_cmd_id_mutex);
+    luat_rtos_mutex_lock(g_cmd_id_mutex, LUAT_WAIT_FOREVER);
+    uint64_t id = next_cmd_id++;
+    luat_rtos_mutex_unlock(g_cmd_id_mutex);
+    return id;
 }
 
 luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd_id, uint16_t data_len) {
@@ -883,6 +906,13 @@ void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd) {
 
 
 void luat_airlink_send2slave(luat_airlink_cmd_t* cmd) {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) {
+        int route = luat_airlink_instance_default_route(cmd);
+        if (route >= AIRLINK_ROUTE_BASE) luat_airlink_link_send(route - AIRLINK_ROUTE_BASE, cmd);
+        return;
+    }
+#endif
     int mode = luat_airlink_current_mode_get();
     uint16_t max_data = luat_airlink_transport_max_data_len(mode);
 
@@ -920,6 +950,9 @@ void luat_airlink_send2slave(luat_airlink_cmd_t* cmd) {
 }
 
 int luat_airlink_ready(void) {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) return luat_airlink_link_ready(luat_airlink_link_configured(0) ? 0 : 1);
+#endif
     uint64_t tnow = luat_mcu_tick64_ms();
     uint64_t diff = tnow - g_airlink_last_cmd_timestamp;
     if (diff < 2000) {
@@ -1023,7 +1056,8 @@ int luat_airlink_syspub_send(uint8_t* buff, size_t len) {
 
 
 static luat_rtos_mutex_t reg_mutex;
-static luat_airlink_result_reg_t regs[64];
+static luat_airlink_result_reg_t legacy_results[64];
+static luat_airlink_result_reg_t* result_pools[AIRLINK_LINK_COUNT + 1] = {legacy_results, NULL, NULL};
 
 void luat_airlink_result_mutex_init(void) {
     if (reg_mutex == NULL) {
@@ -1032,14 +1066,21 @@ void luat_airlink_result_mutex_init(void) {
 }
 
 int luat_airlink_result_reg(luat_airlink_result_reg_t* reg) {
+    if (!reg) return -1;
     if (reg_mutex == NULL) {
         luat_rtos_mutex_create(&reg_mutex);
     }
-    luat_rtos_mutex_lock(reg_mutex, 1000);
+    int pool = reg->route >= AIRLINK_ROUTE_BASE && reg->route < AIRLINK_ROUTE_BASE + AIRLINK_LINK_COUNT ?
+        reg->route - AIRLINK_ROUTE_BASE + 1 : 0;
+    luat_rtos_mutex_lock(reg_mutex, LUAT_WAIT_FOREVER);
+    if (!result_pools[pool]) result_pools[pool] = luat_heap_opt_zalloc(AIRLINK_MEM_TYPE, 64 * sizeof(*reg));
+    luat_airlink_result_reg_t* regs = result_pools[pool];
+    if (!regs) { luat_rtos_mutex_unlock(reg_mutex); return -2; }
     for (size_t i = 0; i < 64; i++)
     {
         if (regs[i].tm == 0) {
             memcpy(&regs[i], reg, sizeof(luat_airlink_result_reg_t));
+            if (!regs[i].tm) regs[i].tm = 1;
             luat_rtos_mutex_unlock(reg_mutex);
             return 0;
         }
@@ -1055,12 +1096,16 @@ int luat_airlink_result_unreg(uint64_t id) {
     if (reg_mutex == NULL) {
         return -1;
     }
-    luat_rtos_mutex_lock(reg_mutex, 1000);
-    for (size_t i = 0; i < 64; i++) {
-        if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
-            memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
-            luat_rtos_mutex_unlock(reg_mutex);
-            return 0;
+    luat_rtos_mutex_lock(reg_mutex, LUAT_WAIT_FOREVER);
+    for (int pool = 0; pool <= AIRLINK_LINK_COUNT; pool++) {
+        luat_airlink_result_reg_t* regs = result_pools[pool];
+        if (!regs) continue;
+        for (size_t i = 0; i < 64; i++) {
+            if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
+                memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
+                luat_rtos_mutex_unlock(reg_mutex);
+                return 0;
+            }
         }
     }
     luat_rtos_mutex_unlock(reg_mutex);
@@ -1078,29 +1123,16 @@ int luat_airlink_cmd_exec_result(luat_airlink_cmd_t* cmd, void* userdata) {
     }
     uint64_t id = 0;
     memcpy(&id, cmd->data + 8, 8);
-    // LLOGD("result exec id=0x%llx", id);
-    luat_airlink_result_reg_t local = {0};
-    luat_rtos_mutex_lock(reg_mutex, 1000);
-    for (size_t i = 0; i < 64; i++)
-    {
-        if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
-            memcpy(&local, &regs[i], sizeof(local));
-            memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
-            break;
-        }
-    }
-    luat_rtos_mutex_unlock(reg_mutex);
-    if (local.exec) {
-        local.exec(&local, cmd);
-        return 0;
-    }
-    return -1;
+    return luat_airlink_result_dispatch(id, cmd);
 }
 
 int luat_airlink_result_dispatch(uint64_t id, luat_airlink_cmd_t* cmd) {
     if (reg_mutex == NULL) return -1;
     luat_airlink_result_reg_t local = {0};
-    luat_rtos_mutex_lock(reg_mutex, 1000);
+    luat_rtos_mutex_lock(reg_mutex, LUAT_WAIT_FOREVER);
+    int source = luat_airlink_context_link();
+    luat_airlink_result_reg_t* regs = result_pools[source + 1];
+    if (!regs) { luat_rtos_mutex_unlock(reg_mutex); return -1; }
     for (size_t i = 0; i < 64; i++) {
         if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
             memcpy(&local, &regs[i], sizeof(local));
@@ -1130,13 +1162,27 @@ int luat_airlink_result_send(uint8_t* buff, size_t len) {
 }
 
 void luat_airlink_wait_ready(void) {
-    // Air8000硬等最多200ms, 梁健要加的, 有问题找他
+#if defined(LUAT_USE_AIRLINK) && defined(LUAT_USE_AIRLINK_AUTO_MASTER)
+    /* Runs in the pre-Lua task: instance setup waits for a TCPIP callback,
+     * so it must not be invoked from the TCPIP thread itself. */
+    extern void luat_airlink_master_autostart(void);
+    luat_airlink_master_autostart();
+#endif
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) {
+        int route = luat_airlink_feature_route(AIRLINK_FEATURE_WIFI);
+        if (route >= AIRLINK_ROUTE_BASE)
+            for (int ms = 0; ms < 500 && !luat_airlink_link_ready(route - AIRLINK_ROUTE_BASE); ms += 5) luat_rtos_task_sleep(5);
+        return;
+    }
+#endif
+    /* Manual builds leave ownership to setup(). An automatic instance build
+     * must not fall back to legacy startup/waiting if setup failed. */
+#if defined(LUAT_USE_AIRLINK_MANUAL_SETUP) || (defined(LUAT_USE_AIRLINK_INSTANCE) && defined(LUAT_USE_AIRLINK_AUTO_MASTER))
+    return;
+#endif
+    // Legacy Air8000 startup waits at most 500 ms.
     if (luat_airlink_has_wifi()) {
-        #if defined(LUAT_USE_AIRLINK) && defined(LUAT_USE_AIRLINK_AUTO_MASTER)
-	    LLOGD("open airlink for air8000s");
-	    extern void luat_airlink_master_autostart(void);
-	    luat_airlink_master_autostart();
-        #endif
         // LLOGD("等待Air8000s启动");
 	    size_t count = 0;
         uint64_t tnow = luat_mcu_tick64_ms();
@@ -1161,6 +1207,7 @@ void luat_airlink_wait_ready(void) {
 static uint32_t has_wifi = 0;
 static char model[32] = {0};
 int luat_airlink_has_wifi(void) {
+    if (luat_airlink_instance_enabled()) return luat_airlink_feature_route(AIRLINK_FEATURE_WIFI) >= AIRLINK_ROUTE_BASE;
     if (model[0] == 0) {
         luat_hmeta_model_name(model);
         if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000W\0", model, 9) == 0 || memcmp("Air8000A\0", model, 9) == 0) {
@@ -1186,17 +1233,33 @@ int luat_airlink_has_wifi(void) {
 
 uint32_t luat_airlink_sversion(void) {
     uint32_t version = 0;
-
-    if (g_airlink_ext_dev_info.tp == 0x01) {
-        memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+    const luat_airlink_dev_info_t* info = &g_airlink_ext_dev_info;
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    luat_airlink_dev_info_t peer = {0};
+    if (luat_airlink_instance_enabled()) {
+        /* BSP diagnostics and BLE/PM version gates need the Wi-Fi peer,
+         * even when it is not link 0. Retain cellular-only compatibility. */
+        int route = luat_airlink_feature_route(AIRLINK_FEATURE_WIFI);
+        if (route < AIRLINK_ROUTE_BASE)
+            route = luat_airlink_feature_route(AIRLINK_FEATURE_CELLULAR);
+        if (route < AIRLINK_ROUTE_BASE ||
+            luat_airlink_link_peer_copy(route - AIRLINK_ROUTE_BASE, &peer)) return 0;
+        info = &peer;
     }
-    else if (g_airlink_ext_dev_info.tp == 0x02) {
-        memcpy(&version, g_airlink_ext_dev_info.cat1.version, 4);
+#endif
+
+    if (info->tp == 0x01) {
+        memcpy(&version, info->wifi.version, 4);
+    }
+    else if (info->tp == 0x02) {
+        memcpy(&version, info->cat1.version, 4);
     }
     return version;
 }
 
+#ifndef LUAT_USE_AIRLINK_INSTANCE
 static void netdrv_airlink_setup(void* params) {
+	if (luat_airlink_instance_enabled()) return;
 	(void)params;
 	// 自动新增STA和AP的netdrv
 	// 自动新增STA和AP的netdrv
@@ -1217,13 +1280,34 @@ static void netdrv_airlink_setup(void* params) {
 	luat_airlink_task_start();
 	luat_airlink_start(1); // SPI master模式
 }
+#endif
 
 void luat_airlink_master_autostart(void) {
+#ifdef LUAT_USE_AIRLINK_MANUAL_SETUP
+    return;
+#else
+    if (luat_airlink_instance_enabled()) return;
 	if (!luat_airlink_has_wifi()){
 		return;
 	}
 
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    luat_airlink_setup_t conf = {0};
+    conf.drv = AIRLINK_DRV_8000S;
+    conf.mode = LUAT_AIRLINK_MODE_SPI_MASTER;
+    conf.spi_id = AIRLINK_8000S_SPI_ID;
+    conf.cs = AIRLINK_8000S_CS;
+    conf.rdy = AIRLINK_8000S_RDY;
+    conf.speed = AIRLINK_8000S_SPEED;
+    conf.sta_adapter = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+    conf.ap_adapter = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+    conf.cellular_adapter = -1;
+    int ret = luat_airlink_setup_link(0, &conf);
+    if (ret) LLOGE("Air8000S auto setup failed: %d", ret);
+#else
 	tcpip_callback(netdrv_airlink_setup, NULL);
+#endif
+#endif
 }
 
 // 使用哪种模式作为主模式, 默认是-1, 等待阶段, 0 - 2 已经收到某种模式的消息了, 就固定使用这种模式, 不再切换了

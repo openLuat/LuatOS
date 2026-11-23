@@ -40,6 +40,15 @@ typedef struct luat_airlink_dev_cat_info {
     uint8_t unique_id[32];
 } luat_airlink_dev_wifi_cat_t;
 
+/* Fits inside the existing union: sizeof(devinfo) and the ARQ tail stay fixed.
+ * tp=3, protocol=1. All multibyte wire values are byte arrays. */
+#define AIRLINK_DEV_NETIF 3
+#define AIRLINK_NETIF_PROTOCOL 1
+typedef struct {
+    uint8_t protocol, role, online, uplink;
+    uint8_t generation[4];
+} luat_airlink_dev_netif_t;
+
 typedef struct luat_airlink_dev_info
 {
     uint8_t tp;
@@ -48,6 +57,7 @@ typedef struct luat_airlink_dev_info
     {
         luat_airlink_dev_wifi_info_t wifi;
         luat_airlink_dev_wifi_cat_t cat1;
+        luat_airlink_dev_netif_t network;
     };
 } luat_airlink_dev_info_t;
 

@@ -50,6 +50,10 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len
 }
 
 __AIRLINK_CODE_IN_RAM__ int luat_airlink_on_data_accept(uint8_t *data, size_t len) {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    int source = luat_airlink_context_link();
+    if (source >= 0) return luat_airlink_link_receive(source, data, len);
+#endif
     if (!data || len < sizeof(luat_airlink_cmd_t)) return -1;
     luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
     if (cmd->len > len - sizeof(*cmd)) return -1;
@@ -149,6 +153,12 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_task(void *param) {
     }
     return 0;
 }
+
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+void luat_airlink_instance_dispatch(luat_airlink_cmd_t* cmd) {
+    exec_cmd(cmd);
+}
+#endif
 
 void luat_airlink_task_start(void) {
     // 单独创建个队列处理消息，不然task的quest超过512个会卡死

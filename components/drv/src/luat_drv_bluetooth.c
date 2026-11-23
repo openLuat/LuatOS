@@ -9,7 +9,7 @@
  * missing peer capability is an error, not a silent raw-command fallback. */
 #ifdef LUAT_USE_AIRLINK_RPC
 #define BLE_ROUTE(name, arguments) \
-    return luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0 \
+    return luat_airlink_feature_rpc_supported(AIRLINK_FEATURE_BLE) \
         ? luat_airlink_drv_rpc_##name arguments : -1
 #else
 #define BLE_ROUTE(name, arguments) return luat_airlink_drv_##name arguments

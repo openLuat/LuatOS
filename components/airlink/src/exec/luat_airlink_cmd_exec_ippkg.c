@@ -21,16 +21,28 @@
 extern airlink_statistic_t g_airlink_statistic;
 
 __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
-    uint8_t adapter_id = cmd->data[0];
+    airlink_statistic_t* stats = &g_airlink_statistic;
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_context_link() >= 0) stats = luat_airlink_link_statistics(luat_airlink_context_link());
+#endif
+    int adapter_id;
     // 防御: cmd->len == 0 时 cmd->len - 1 在 uint16_t 下会绕回 0xFFFF
     // 进而把 64KB 当作包长度丢进 napt_pkg_input, 触发缓冲区越界.
     // cmd->len < 2 时 payload 长度不足 1 字节, 也不可处理.
     if (cmd->len < 2) {
-        g_airlink_statistic.rx_ip.drop += 1;
+        luat_airlink_statistics_add(&stats->rx_ip.drop, 1);
         return 0;
     }
-    g_airlink_statistic.rx_ip.total += 1;
-    g_airlink_statistic.rx_bytes.total += cmd->len - 1;
+    adapter_id = cmd->data[0];
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    int source = luat_airlink_context_link();
+    if (source >= 0) {
+        adapter_id = luat_airlink_link_adapter(source, adapter_id);
+        if (adapter_id < 0) return -1;
+    }
+#endif
+    luat_airlink_statistics_add(&stats->rx_ip.total, 1);
+    luat_airlink_statistics_add(&stats->rx_bytes.total, cmd->len - 1);
     // 打印 EtherType 用于调试入向帧类型
     #if 0
     if (cmd->len >= 1 + 14) {
@@ -54,21 +66,21 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd
         // 仅当 NAPT 真正消费时 (+= 1) 才计入 rx_napt_ip, 避免 -1 错误
         // 与 0 长度空包被错误地算成 NAPT 成功
         if (ret > 0) {
-            g_airlink_statistic.rx_napt_ip.total += 1;
-            g_airlink_statistic.rx_napt_bytes.total += cmd->len - 1;
+            luat_airlink_statistics_add(&stats->rx_napt_ip.total, 1);
+            luat_airlink_statistics_add(&stats->rx_napt_bytes.total, cmd->len - 1);
         }
         // LLOGD("NAPT/Lua 已处理, 不需要转发给具体的netdrv了");
         return 0;
     }
     drv = luat_netdrv_get(adapter_id);
     if (drv == NULL || drv->netif == NULL) {
-        g_airlink_statistic.rx_ip.drop += 1;
-        g_airlink_statistic.rx_bytes.drop += cmd->len - 1;
+        luat_airlink_statistics_add(&stats->rx_ip.drop, 1);
+        luat_airlink_statistics_add(&stats->rx_bytes.drop, cmd->len - 1);
         LLOGD("没有找到适配器 %d, 无法处理其IP包", adapter_id);
         return 0;
     }
-    g_airlink_statistic.rx_ip.ok += 1;
-    g_airlink_statistic.rx_bytes.ok += cmd->len - 1;
+    luat_airlink_statistics_add(&stats->rx_ip.ok, 1);
+    luat_airlink_statistics_add(&stats->rx_bytes.ok, cmd->len - 1);
 
     // 这里开始就复杂了
     // 首先, 如果是平台的包, 那就直接交给平台处理

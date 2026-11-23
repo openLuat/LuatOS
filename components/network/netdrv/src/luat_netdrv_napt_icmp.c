@@ -116,7 +116,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             if (dst->dataout) {
                 if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
                     // LLOGD("输出到内网netdrv,无需额外添加eth头");
-                    luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);
+                    luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, (uint8_t*)ctx->eth, ctx->len);
                 }
                 else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
                     // 需要补全一个ETH头部
@@ -129,8 +129,9 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
                     // luat_netdrv_print_pkg("下行数据", icmp_buff, ctx->len + 14);
                 }
                 else {
-                    // 那就是IP2IP, 不需要加ETH头了
-                    luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len);
+                    // 裸IP出口需要扣除入包可能携带的以太网头
+                    luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, (uint8_t*)ip_hdr,
+                                          ctx->len - (ctx->eth ? sizeof(struct eth_hdr) : 0));
                 }
             }
             else {
@@ -220,7 +221,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             if (ctx->eth) {
                 memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
                 memcpy(ctx->eth->src.addr, gw->netif->hwaddr, 6);
-                luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);
+                luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, (uint8_t*)ctx->eth, ctx->len);
             }
             else {
                 memcpy(icmp_buff, gw->gw_mac, 6);
@@ -232,10 +233,10 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
         }
         else {
             if (ctx->eth) {
-                luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len - 14);
+                luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, (uint8_t*)ip_hdr, ctx->len - 14);
             }
             else {
-                luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len);
+                luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, (uint8_t*)ip_hdr, ctx->len);
             }
         }
         return 1;

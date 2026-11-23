@@ -26,7 +26,7 @@ luat_airlink_mobile_evt_cb g_airlink_mobile_evt_cb;
 int luat_airlink_mobile_event_callback(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr) {
     LLOGD("airlink mobile event %d, index %d, status %d", event, index, status);
     // 当 mobile netif 状态变化时，控制 GP_GW 的 netif link up/down
-    if (event == LUAT_MOBILE_EVENT_NETIF) {
+    if (event == LUAT_MOBILE_EVENT_NETIF && !luat_airlink_instance_enabled()) {
         luat_netdrv_t* gw = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_GP_GW);
         if (gw && gw->netif) {
             if (status == LUAT_MOBILE_NETIF_LINK_ON) {

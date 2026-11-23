@@ -162,6 +162,14 @@ static int wlan_ap_inc_handler(lua_State* L, void* ptr) {
 /* 统一 WLAN NOTIFY 接收处理器 (由 nb_dispatch 在收到 0x0301/0x0302/0x0303/0x0304 NOTIFY 时调用) */
 static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void* userdata) {
     (void)userdata;
+    int adapter = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+    int source = luat_airlink_context_link();
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (source >= 0) {
+        adapter = luat_airlink_link_adapter(source, adapter);
+        if (adapter < 0) return;
+    }
+#endif
 
     switch (rpc_id) {
     case AIRLINK_DRV_RPC_ID_WLAN_EVENT: {
@@ -190,10 +198,20 @@ static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void*
     }
     case AIRLINK_DRV_RPC_ID_WLAN_STA_EVENT: {
         const drv_wlan_WlanStaIncNotify* notify = (const drv_wlan_WlanStaIncNotify*)msg_raw;
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+        if (source >= 0) {
+            luat_airlink_dev_info_t peer;
+            if (!luat_airlink_link_peer_copy(source, &peer) && peer.tp == 1) {
+                if (!strcmp(notify->event, "CONNECTED")) peer.wifi.sta_state = 1;
+                if (!strcmp(notify->event, "DISCONNECTED")) peer.wifi.sta_state = 0;
+                luat_airlink_link_update_peer(source, &peer);
+            }
+        }
+#endif
         // STA 事件即时同步网卡链路状态，弥补 devinfo 快照延迟，确保 CONNECTED 后 DHCP 重启（link_updown 有 transition 检查 + 500ms 防抖，重复调用无害）
         #ifdef LUAT_USE_NETDRV
         {
-            luat_netdrv_t* nd = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_STA);
+            luat_netdrv_t* nd = luat_netdrv_get(adapter);
             if (nd && nd->netif) {
                 if (strcmp(notify->event, "DISCONNECTED") == 0) {
                     //LLOGI("wifi sta disconnected, set link down");
@@ -201,12 +219,12 @@ static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void*
                 } else if (strcmp(notify->event, "CONNECTED") == 0) {
                     // 防抖：103 可能重复发 CONNECTED（netif_event_cb + 轮询），
                     // 避免重复 DOWN+UP 打断正在进行的 DHCP
-                    static uint64_t _last_force_renew = 0;
+                    static uint64_t renew[AIRLINK_LINK_COUNT + 1];
                     uint64_t _now = luat_mcu_tick64_ms();
-                    if (_now - _last_force_renew < 500) {
+                    if (_now - renew[source + 1] < 500) {
                         //LLOGI("wifi sta connected, DHCP renew skipped (debounce)");
                     } else {
-                        _last_force_renew = _now;
+                        renew[source + 1] = _now;
                         //LLOGI("wifi sta connected, force DHCP renew");
                         // 强制 link DOWN→UP 来重启 DHCP。
                         // link_updown 自身有 transition 检查，如果已 DOWN 则不会重复 DOWN。
@@ -241,6 +259,9 @@ static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void*
     }
     case AIRLINK_DRV_RPC_ID_WLAN_IP_EVENT: {
         const drv_wlan_WlanIpReadyNotify* notify = (const drv_wlan_WlanIpReadyNotify*)msg_raw;
+        /* Instance STA owns its DHCP lease. A peer's IP_READY is not the
+         * host's address, gateway or DNS; host lwIP publishes its own event. */
+        if (source >= 0) break;
         // IP_READY 仅用于确认 WiFi 已连接，不设静态 IP
         // 新架构下 1601 lwIP DHCP 自己拿 IP/网关/DNS
         #ifdef LUAT_USE_NETDRV

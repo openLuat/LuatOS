@@ -156,6 +156,10 @@ static uint32_t s_speed  = HSPI_DEFAULT_SPEED;
 extern void luat_spi_fast_transfer(int spi_id, const void* send_buf, void* recv_buf, size_t recv_length);
 
 int xt804_hspi_spi_xfer(const uint8_t *tx, uint8_t *rx, uint16_t len) {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    int source = luat_airlink_context_link();
+    if (source >= 0) return luat_airlink_link_spi_transfer(source, tx, rx, len);
+#endif
     if (!g_spi_inited) {
         // SPI id/CS/速度由 airlink.config() 配置 (g_airlink_spi_conf), 未配置时用默认值
         // 判据: cs_pin 非 0 视为已配置 (1601 可用 CS 引脚为 4/8/37, 不会配 0)

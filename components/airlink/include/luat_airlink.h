@@ -260,6 +260,7 @@ int luat_airlink_cmd_exec_fragment(luat_airlink_cmd_t* cmd, void* userdata);
 #include "luat_airlink_result.h"
 #include "luat_airlink_transport.h"
 #include "luat_airlink_rpc.h"
+#include "luat_airlink_instance.h"
 
 #include "luat_airlink_drv_gpio.h"
 #include "luat_airlink_drv_uart.h"

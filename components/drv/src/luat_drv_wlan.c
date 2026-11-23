@@ -20,7 +20,7 @@
 
 int luat_drv_wlan_init(luat_wlan_config_t *conf) {
     #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_WLAN)
-    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+    if (luat_airlink_feature_rpc_supported(AIRLINK_FEATURE_WIFI))
         return luat_airlink_drv_rpc_wlan_init(conf);
     #endif
     return luat_airlink_drv_wlan_init(conf);
@@ -36,7 +36,7 @@ int luat_drv_wlan_ready(void) {
 
 int luat_drv_wlan_connect(luat_wlan_conninfo_t* info) {
     #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_WLAN)
-    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+    if (luat_airlink_feature_rpc_supported(AIRLINK_FEATURE_WIFI))
         return luat_airlink_drv_rpc_wlan_connect(info);
     #endif
     return luat_airlink_drv_wlan_connect(info);
@@ -44,7 +44,7 @@ int luat_drv_wlan_connect(luat_wlan_conninfo_t* info) {
 
 int luat_drv_wlan_disconnect(void) {
     #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_WLAN)
-    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+    if (luat_airlink_feature_rpc_supported(AIRLINK_FEATURE_WIFI))
         return luat_airlink_drv_rpc_wlan_disconnect();
     #endif
     return luat_airlink_drv_wlan_disconnect();
@@ -52,7 +52,7 @@ int luat_drv_wlan_disconnect(void) {
 
 int luat_drv_wlan_scan(void) {
     #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_WLAN)
-    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+    if (luat_airlink_feature_rpc_supported(AIRLINK_FEATURE_WIFI))
         return luat_airlink_drv_rpc_wlan_scan();
     #endif
     return luat_airlink_drv_wlan_scan();
@@ -103,6 +103,15 @@ int luat_drv_wlan_get_ps(void) {
 }
 
 int luat_drv_wlan_get_ap_bssid(char* buff) {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) {
+        luat_airlink_dev_info_t peer = {0};
+        int id = luat_airlink_feature_route(AIRLINK_FEATURE_WIFI) - AIRLINK_ROUTE_BASE;
+        if (luat_airlink_link_peer_copy(id, &peer) || !luat_airlink_link_ready(id) || peer.tp != 1 || !peer.wifi.sta_state) return -1;
+        memcpy(buff, peer.wifi.sta_ap_bssid, 6);
+        return 0;
+    }
+#endif
     if (g_airlink_ext_dev_info.wifi.sta_state == 0) {
         buff[0] = 0;
         return -1;
@@ -112,6 +121,14 @@ int luat_drv_wlan_get_ap_bssid(char* buff) {
 }
 
 int luat_drv_wlan_get_ap_rssi(void) {
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) {
+        luat_airlink_dev_info_t peer = {0};
+        int id = luat_airlink_feature_route(AIRLINK_FEATURE_WIFI) - AIRLINK_ROUTE_BASE;
+        if (luat_airlink_link_peer_copy(id, &peer) || !luat_airlink_link_ready(id) || peer.tp != 1 || !peer.wifi.sta_state) return 0;
+        return peer.wifi.sta_ap_rssi;
+    }
+#endif
     if (g_airlink_ext_dev_info.wifi.sta_state == 0) {
         return 0;
     }
@@ -131,7 +148,7 @@ int luat_drv_wlan_get_ap_gateway(char* buff) {
 // AP类
 int luat_drv_wlan_ap_start(luat_wlan_apinfo_t *apinfo) {
     #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_WLAN)
-    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+    if (luat_airlink_feature_rpc_supported(AIRLINK_FEATURE_WIFI))
         return luat_airlink_drv_rpc_wlan_ap_start(apinfo);
     #endif
     return luat_airlink_drv_wlan_ap_start(apinfo);
@@ -139,7 +156,7 @@ int luat_drv_wlan_ap_start(luat_wlan_apinfo_t *apinfo) {
 
 int luat_drv_wlan_ap_stop(void) {
     #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_AIRLINK_RPC_WLAN)
-    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+    if (luat_airlink_feature_rpc_supported(AIRLINK_FEATURE_WIFI))
         return luat_airlink_drv_rpc_wlan_ap_stop();
     #endif
     return luat_airlink_drv_wlan_ap_stop();

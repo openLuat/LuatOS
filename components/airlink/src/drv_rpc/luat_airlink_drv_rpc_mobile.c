@@ -170,11 +170,15 @@ static int mobile_do_call(
     uint8_t require_ready
 ) {
     int rc;
-    int mode = luat_airlink_current_mode_get();
+    int mode = luat_airlink_feature_route(AIRLINK_FEATURE_CELLULAR);
     uint32_t timeout_ms = mobile_call_timeout_ms(tier);
 
     if (!req || !resp) return -EINVAL;
-    if (require_ready && !luat_airlink_ready()) {
+    int ready = luat_airlink_ready();
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) ready = mode >= AIRLINK_ROUTE_BASE && luat_airlink_link_ready(mode - AIRLINK_ROUTE_BASE);
+#endif
+    if (require_ready && !ready) {
         return AIRLINK_DRV_RPC_MOBILE_NOT_READY;
     }
     if (mode < 0) {

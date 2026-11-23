@@ -11,7 +11,7 @@
 #define panel_dsi_send_seq(panel, ...) do {                         \
         static const unsigned char d[] = { __VA_ARGS__ };           \
         int ret;                                                    \
-        ret = dsi_panel_send_sequence(panel, d, ARRAY_SIZE(d));     \
+        ret = dsi_panel_send_sequence(panel, d, DISPLAY_ARRAY_SIZE(d));     \
         if (ret < 0)                                                \
             return ret;                                             \
     } while (0)

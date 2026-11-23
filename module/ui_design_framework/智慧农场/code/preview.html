@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>智慧养殖场 · AirUI 预览 (800x480)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    background:#020604; overflow:hidden; user-select:none;
+    display:flex; align-items:center; justify-content:center;
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+  }
+  #stage { width:800px; transform-origin:center center; }
+  #screen {
+    width:800px; height:480px; position:relative; overflow:hidden;
+    border-radius:10px;
+    box-shadow:0 0 46px rgba(78,230,176,.18), 0 0 0 1px #1b4a38;
+    background:
+      radial-gradient(900px 500px at 15% 0%, rgba(140,255,200,.16), transparent 60%),
+      radial-gradient(800px 500px at 92% 100%, rgba(140,255,200,.12), transparent 55%),
+      linear-gradient(155deg,#1C6248 0%,#24795B 45%,#1A5A42 100%);
+  }
+  #caption { margin-top:9px; text-align:center; color:#6fae90; font-size:12px; letter-spacing:1px; }
+  .deco { position:absolute; width:15px; height:15px; z-index:9; pointer-events:none; }
+  .deco.tl { left:3px; top:3px;    border-left:2px solid #4EE6B0; border-top:2px solid #4EE6B0; }
+  .deco.tr { right:3px; top:3px;   border-right:2px solid #4EE6B0; border-top:2px solid #4EE6B0; }
+  .deco.bl { left:3px; bottom:3px; border-left:2px solid #4EE6B0; border-bottom:2px solid #4EE6B0; }
+  .deco.br { right:3px; bottom:3px;border-right:2px solid #4EE6B0; border-bottom:2px solid #4EE6B0; }
+  #navbar {
+    position:absolute; left:0; top:0; width:100%; height:36px;
+    display:flex; align-items:center; padding:0 10px;
+  }
+  .slashes { color:#4EE6B0; font-size:13px; font-weight:bold; letter-spacing:-1px; margin-right:8px; }
+  .logochip {
+    width:21px; height:21px; border-radius:5px; margin-right:8px;
+    background:rgba(78,230,176,.16); border:1px solid rgba(78,230,176,.75);
+    display:flex; align-items:center; justify-content:center; font-size:12px;
+    box-shadow:0 0 8px rgba(78,230,176,.35);
+  }
+  #navtitle { color:#F2FFF9; font-size:17px; font-weight:bold;
+    text-shadow:0 0 12px rgba(78,230,176,.85); }
+  .hline { flex:1; height:2px; margin:0 12px;
+    background:linear-gradient(90deg, rgba(78,230,176,.65), rgba(78,230,176,.04)); }
+  .navbtn {
+    height:24px; line-height:22px; padding:0 7px; margin-left:4px; text-align:center;
+    background:rgba(78,230,176,.10); color:#D8F5E7; font-size:13px;
+    border:1px solid rgba(78,230,176,.55); border-radius:4px; cursor:pointer;
+  }
+  .navbtn:hover { border-color:#4EE6B0; color:#fff; }
+  .navbtn.on {
+    background:linear-gradient(180deg,#54EFB8,#2FA578); color:#052E1E; font-weight:bold;
+    box-shadow:0 0 10px rgba(78,230,176,.65); border-color:#4EE6B0;
+  }
+  #hline { position:absolute; left:0; top:36px; width:100%; height:2px;
+    background:linear-gradient(90deg, rgba(78,230,176,.85), rgba(78,230,176,.1)); }
+  #content { position:absolute; left:0; top:38px; width:100%; bottom:0; }  /* 面板 */
+  .panel {
+    position:absolute; border-radius:8px;
+    background:rgba(8,48,33,.5);
+    border:1px solid rgba(78,230,176,.45);
+  }
+  .panel::before, .panel::after, .bk::before, .bk::after {
+    content:''; position:absolute; width:9px; height:9px; pointer-events:none;
+  }
+  .panel::before { left:-1px; top:-1px;    border-left:2px solid #4EE6B0; border-top:2px solid #4EE6B0; }
+  .panel::after  { right:-1px; top:-1px;   border-right:2px solid #4EE6B0; border-top:2px solid #4EE6B0; }
+  .bk { position:absolute; inset:0; pointer-events:none; }
+  .bk::before { left:-1px; bottom:-1px;    border-left:2px solid #4EE6B0; border-bottom:2px solid #4EE6B0; }
+  .bk::after  { right:-1px; bottom:-1px;   border-right:2px solid #4EE6B0; border-bottom:2px solid #4EE6B0; }
+  .phead {
+    position:absolute; left:8px; right:8px; top:5px; height:22px;
+    display:flex; align-items:center; gap:7px; padding:0 10px 0 6px;
+    background:linear-gradient(90deg, rgba(78,230,176,.20), rgba(78,230,176,0) 75%);
+    border-radius:11px;
+  }
+  .picon {
+    flex:none; width:16px; height:16px; border-radius:4px;
+    background:rgba(78,230,176,.16); border:1px solid rgba(78,230,176,.7);
+    display:flex; align-items:center; justify-content:center; font-size:10px;
+  }
+  .ptitle { color:#F2FFF9; font-size:13.5px; font-weight:bold; white-space:nowrap;
+    text-shadow:0 0 8px rgba(78,230,176,.55); }
+  .pbody { position:absolute; left:8px; right:8px; top:30px; bottom:5px; }
+  /* 指标卡 */
+  .mgrid { display:grid; width:100%; height:100%; gap:6px; }
+  .mcard {
+    position:relative; border-radius:6px;
+    background:rgba(8,52,36,.45);
+    border:1px solid rgba(78,230,176,.55);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .mcard::before, .mcard::after { content:''; position:absolute; width:7px; height:7px; }
+  .mcard::before { left:-1px; top:-1px;  border-left:2px solid #4EE6B0; border-top:2px solid #4EE6B0; }
+  .mcard::after  { right:-1px; top:-1px; border-right:2px solid #4EE6B0; border-top:2px solid #4EE6B0; }
+  .micirc {
+    width:26px; height:26px; border-radius:50%;
+    border:1.5px solid rgba(78,230,176,.85);
+    background:radial-gradient(circle, rgba(78,230,176,.28), rgba(78,230,176,.04));
+    display:flex; align-items:center; justify-content:center; font-size:13px;
+    box-shadow:0 0 10px rgba(78,230,176,.3);
+  }
+  .mname { color:#CFEBDC; font-size:12px; margin-top:2px; white-space:nowrap; }
+  .mvalwrap { display:flex; align-items:baseline; }
+  .mval { font-size:21px; font-weight:bold; font-family:Consolas,monospace;
+    text-shadow:0 0 12px rgba(78,230,176,.45); }
+  .munit { color:#9ED4BC; font-size:12px; margin-left:3px; }  /* 进度条 */
+  .prow { display:flex; align-items:center; margin-bottom:3px; flex:1; min-height:0; line-height:1.05; }
+  .pdot { flex:none; width:9px; height:9px; border-radius:2px; margin-right:7px;
+    box-shadow:0 0 6px rgba(255,255,255,.15); }
+  .pname { flex:none; width:60px; color:#D8F5E7; font-size:12px; }
+  .ppct { flex:none; width:34px; font-size:12px; font-weight:bold;
+    font-family:Consolas,monospace; }
+  .ptrack { flex:1; height:7px; border-radius:4px; background:rgba(5,36,25,.85);
+    position:relative; overflow:visible; }
+  .pbar { position:absolute; left:0; top:0; height:100%; border-radius:4px; }
+  .pbar i { position:absolute; right:-3px; top:50%; transform:translateY(-50%);
+    width:9px; height:9px; border-radius:50%; background:#fff;
+    box-shadow:0 0 8px 2px currentColor; }
+  /* 告警/状态列表 */
+  .lrow {
+    display:flex; align-items:center; justify-content:space-between;
+    background:linear-gradient(90deg, rgba(78,230,176,.20), rgba(78,230,176,.06));
+    border-left:3px solid #4EE6B0; border-radius:4px;
+    padding:0 10px; margin-bottom:4px; flex:1; min-height:0;
+  }
+  .lname { color:#F2FFF9; font-size:12.5px; white-space:nowrap; }
+  .lval  { color:#9ED4BC; font-size:11.5px; white-space:nowrap;
+    font-family:Consolas,"Microsoft YaHei",monospace; }
+  /* 环形图/雷达图布局 */
+  .dcwrap { display:flex; height:100%; }
+  .dcwrap canvas { flex:none; width:56%; height:100%; }
+  .dleg { flex:1; display:flex; flex-direction:column; justify-content:center;
+    gap:2px; padding-left:10px; min-width:0; }
+  .dr { display:flex; align-items:center; gap:7px; font-size:12.5px; color:#D8F5E7; }
+  .dr i { flex:none; width:9px; height:9px; border-radius:50%;
+    box-shadow:0 0 6px rgba(78,230,176,.3); }
+  .dr .dv { margin-left:auto; color:#F2FFF9; font-weight:bold;
+    font-family:Consolas,monospace; }
+  .mcard.h { flex-direction:row; gap:9px; padding:0 10px; }
+  .mcard.h .micirc { width:22px; height:22px; font-size:11px; flex:none; }
+  .mcol { display:flex; flex-direction:column; align-items:center; min-width:0; }
+  .mcard.h .mcol { align-items:flex-start; }
+  .mcard.h .mname { font-size:11px; margin-top:0; }
+  .mcard.h .mval { font-size:16px; }
+  .mcard.h .munit { font-size:10px; }
+  canvas { display:block; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="screen">
+    <i class="deco tl"></i><i class="deco tr"></i><i class="deco bl"></i><i class="deco br"></i>
+    <div id="navbar"></div>
+    <div id="hline"></div>
+    <div id="content"></div>
+  </div>
+  <div id="caption">AirUI 工程 1:1 预览 · 800×480 · 虚拟数据每 2 秒刷新 · 点击顶部按钮切换页面</div>
+</div>
+<script>/* 调色板（参考效果图取色） */
+const C = {
+  mint:'#4EE6B0', mint2:'#23C98A', orange:'#FFA14A', pink:'#FF4FA0',
+  yellow:'#FFD34D', blue:'#4F8CFF', purple:'#8B7BFF', cyan:'#35D0E0',
+  red:'#FF6B6B', text:'#F2FFF9', sub:'#9ED4BC',
+  grid:'rgba(190,235,210,.32)', axis:'rgba(158,212,188,.60)',
+};
+const PAD = 6, NAV_H = 38;
+
+/* 虚拟数据（随机游走） */
+const st = {};
+function next(key, min, max, drift) {
+  let v = st[key]; if (v == null) v = (min + max) / 2;
+  drift = drift ?? (max - min) / 20;
+  v += (Math.random() * 2 - 1) * drift;
+  v = Math.max(min, Math.min(max, v)); st[key] = v; return v;
+}
+function rint(key, min, max, drift) { return Math.round(next(key, min, max, drift)); }
+function fmt(v, dec = 1) { return v.toFixed(dec); }
+function series(key, min, max, n, base) {
+  let v = base ?? next(key, min, max); const t = [];
+  for (let i = 0; i < n; i++) {
+    v += (Math.random() * 2 - 1) * (max - min) / 8;
+    v = Math.max(min, Math.min(max, v)); t.push(Math.round(v));
+  }
+  return t;
+}
+
+/* 8个页面定义
+   kind: m=指标卡  d=环形图  r=雷达图  p=进度条  l=告警列表  c=折线/柱状图 */
+const pages = [{ name:'农场总览', panels:[
+  { t:'农场基本信息', ic:'🌱', kind:'m', ncol:2, items:[
+    { ic:'📐', n:'总面积',   c:C.mint,   u:'亩', f:()=>'1215' },
+    { ic:'🌱', n:'种植面积', c:C.orange, u:'亩', f:()=>'816' },
+    { ic:'🖥', n:'设备总数', c:C.yellow, u:'台', f:()=>'40' },
+    { ic:'📶', n:'在线设备', c:C.cyan,   u:'台', f:()=>rint('ondev',33,40,1) },
+  ]},
+  { t:'作物分布', ic:'🌾', kind:'d', center:{ v:'5', n:'作物种类' }, cats:[
+    { n:'水稻', pc:31.84, c:C.mint,   t:'31.84%' },
+    { n:'小麦', pc:11.53, c:C.pink,   t:'11.53%' },
+    { n:'玉米', pc:6.79,  c:C.yellow, t:'6.79%' },
+    { n:'果树', pc:33.29, c:C.blue,   t:'33.29%' },
+    { n:'蔬菜', pc:16.75, c:C.cyan,   t:'16.75%' },
+  ]},
+  { t:'产量预测', ic:'📈', kind:'c', ctype:'bar', ymax:50, ulabel:'产量(吨)',
+    cats:['水稻','小麦','玉米','果树','蔬菜'], series:[
+      { n:'去年产量', color:C.orange, gen:()=>series('cropL',8,44,5,22) },
+      { n:'预测产量', color:C.mint,   gen:()=>series('cropP',8,46,5,25) },
+    ]},
+  { t:'水肥监测', ic:'💧', kind:'c', ctype:'bar', ymax:100, ulabel:'',
+    cats:['区域A','区域B','区域C','区域D','区域E','区域F'], series:[
+      { n:'水分', color:C.mint,   gen:()=>series('wA',40,95,6,70) },
+      { n:'肥力', color:C.orange, gen:()=>series('fA',15,90,6,45) },
+    ]},
+  { t:'土壤监测', ic:'🧪', kind:'c', ctype:'bar', ymax:600, ulabel:'含量/指数',
+    cats:['氮','磷','钾','酸碱度','有机质'], series:[
+      { n:'实际值', color:C.mint, gen:()=>series('sAct',120,560,5,300) },
+      { n:'标准值', color:C.blue, gen:()=>series('sStd',100,520,5,260) },
+    ]},
+  { t:'设备运行状态', ic:'🖥', kind:'l', rows:[
+    { n:'土壤传感器', v:()=>rint('s1',33,40,1)+'/40 在线' },
+    { n:'气象站',     v:()=>'运行中 2/2' },
+    { n:'灌溉设备',   v:()=>'灌溉中 3/6' },
+    { n:'卷帘/风机',  v:()=>'开启 1/4' },
+  ]},
+]},
+{ name:'作物监测', panels:[
+  { t:'作物生长状态', ic:'🌱', kind:'d', center:{ v:'1280', n:'种植面积(亩)' }, cats:[
+    { n:'苗期',   pc:18.5, c:C.mint,   t:'18.5%' },
+    { n:'生长期', pc:42.3, c:C.pink,   t:'42.3%' },
+    { n:'成熟期', pc:26.7, c:C.yellow, t:'26.7%' },
+    { n:'采收期', pc:12.5, c:C.blue,   t:'12.5%' },
+  ]},
+  { t:'环境监测数据', ic:'🌡', kind:'m', ncol:2, items:[
+    { ic:'🌡', n:'气温',   c:C.mint,   u:'℃',   f:()=>fmt(next('air_t',18,32)) },
+    { ic:'💧', n:'湿度',   c:C.orange, u:'%',   f:()=>fmt(next('air_h',40,90)) },
+    { ic:'☀',  n:'光照',   c:C.yellow, u:'klux',f:()=>fmt(next('light',20,80)) },
+    { ic:'🍃', n:'CO₂',   c:C.cyan,   u:'ppm', f:()=>fmt(next('co2',380,900,20),0) },
+  ]},
+  { t:'土壤墒情', ic:'📊', kind:'c', ctype:'line', ymax:100, ulabel:'墒情(%)', series:[
+      { n:'土壤湿度', color:C.mint,   gen:()=>series('sh2',30,78,24,55) },
+      { n:'土壤温度', color:C.orange, gen:()=>series('st2',12,30,24,20) },
+    ]},
+  { t:'病虫害预警', ic:'🐛', kind:'l', rows:[
+    { n:'蚜虫风险(A区) - 中度',   v:()=>'09:47' },
+    { n:'霜霉风险(B区) - 低',     v:()=>'09:12' },
+    { n:'钻心虫(C区) - 已防治',   v:()=>'昨日' },
+    { n:'白粉病(D区) - 低',       v:()=>'昨日' },
+  ]},
+  { t:'作物长势排行', ic:'🏆', kind:'c', ctype:'bar', ymax:100, ulabel:'长势(分)',
+    cats:['A区','B区','C区','D区','E区','F区'], series:[
+      { color:C.mint, gen:()=>series('rank',55,95,6,85) },
+    ]},
+  { t:'实时告警', ic:'🚨', kind:'l', rows:[
+    { n:'B区湿度偏低',     v:()=>fmt(next('w1',25,35))+'%' },
+    { n:'C区光照过强',     v:()=>rint('w2',80,95,2)+'klux' },
+    { n:'3号传感器离线',   v:()=>'今日 09:41' },
+    { n:'D区施肥延迟',     v:()=>'预计 30min' },
+  ]},
+]},{ name:'环境监测', panels:[
+  { t:'当前天气', ic:'⛅', kind:'m', ncol:3, items:[
+    { ic:'🌡', n:'温度',   c:C.mint,   u:'℃',   f:()=>fmt(next('air_t',18,32)) },
+    { ic:'💧', n:'湿度',   c:C.orange, u:'%',   f:()=>fmt(next('air_h',40,90)) },
+    { ic:'🍃', n:'风速',   c:C.yellow, u:'m/s', f:()=>fmt(next('wind',0.5,8)) },
+  ]},
+  { t:'温度趋势', ic:'🌡', kind:'c', ctype:'line', ymax:40, ulabel:'温度(℃)', series:[
+      { color:C.mint, gen:()=>series('trend_t',18,32,24) },
+    ]},
+  { t:'湿度趋势', ic:'💧', kind:'c', ctype:'line', ymax:100, ulabel:'湿度(%)', series:[
+      { color:C.cyan, gen:()=>series('trend_h',40,90,24) },
+    ]},
+  { t:'光照与CO₂', ic:'☀', kind:'m', ncol:2, items:[
+    { ic:'☀',  n:'光照',  c:C.yellow, u:'klux', f:()=>fmt(next('light',20,80)) },
+    { ic:'🍃', n:'CO₂',  c:C.cyan,   u:'ppm',  f:()=>fmt(next('co2',380,900,20),0) },
+  ]},
+  { t:'土壤环境', ic:'🌾', kind:'m', ncol:3, items:[
+    { ic:'💧', n:'土壤湿度', c:C.mint,   u:'%', f:()=>fmt(next('soil_h',30,75)) },
+    { ic:'🌡', n:'土壤温度', c:C.orange, u:'℃', f:()=>fmt(next('soil_t',15,28)) },
+    { ic:'🧪', n:'pH值',    c:C.yellow, u:'',  f:()=>fmt(next('soil_ph',5.5,7.5)) },
+  ]},
+  { t:'环境告警', ic:'🚨', kind:'l', rows:[
+    { n:'光照过强(E区)',   v:()=>rint('lx',70,85,2)+'klux' },
+    { n:'CO₂浓度偏高',    v:()=>rint('co2a',850,950,10)+'ppm' },
+    { n:'湿度偏低预警',   v:()=>fmt(next('hwa',25,34))+'%' },
+    { n:'气温正常',       v:()=>fmt(next('air_t',18,32))+'℃' },
+  ]},
+]},
+{ name:'资源优化', panels:[
+  { t:'资源利用概览', ic:'♻', kind:'m', ncol:3, items:[
+    { ic:'💧', n:'水资源利用率', c:C.mint,   u:'%', f:()=>rint('wr',84,92,1) },
+    { ic:'🧪', n:'肥料利用率',   c:C.orange, u:'%', f:()=>rint('fr',88,95,1) },
+    { ic:'💡', n:'能源利用率',   c:C.yellow, u:'%', f:()=>rint('er',74,84,1) },
+  ]},
+  { t:'资源消耗趋势', ic:'📈', kind:'c', ctype:'line', ymax:100, ulabel:'消耗量',
+    cats:['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+    series:[
+      { n:'用水量',   color:C.mint,   gen:()=>series('wuse',30,95,12,60) },
+      { n:'肥料用量', color:C.orange, gen:()=>series('fuse',20,90,12,50) },
+      { n:'能源消耗', color:C.purple, gen:()=>series('euse',25,85,12,55) },
+    ]},
+  { t:'土壤营养监测', ic:'🧪', kind:'r', ymax:100,
+    cats:['1号农田','2号农田','3号农田','4号农田','5号农田','6号农田'], series:[
+      { n:'氮含量',   color:C.mint,   gen:()=>series('nrad',45,95,6,70) },
+      { n:'磷含量',   color:C.mint2,  gen:()=>series('prad',40,90,6,62) },
+      { n:'钾含量',   color:C.orange, gen:()=>series('krad',40,95,6,68) },
+      { n:'有机质',   color:C.pink,   gen:()=>series('orad',35,90,6,58) },
+    ]},
+  { t:'灌溉系统状态', ic:'💧', kind:'d', center:{ v:'252', n:'灌溉系统状态' }, cats:[
+    { n:'滴灌系统', pc:68, c:C.pink,   t:'68' },
+    { n:'喷灌系统', pc:99, c:C.mint,   t:'99' },
+    { n:'微喷系统', pc:34, c:C.orange, t:'34' },
+    { n:'传统灌溉', pc:51, c:C.blue,   t:'51' },
+  ]},
+  { t:'资源优化指标', ic:'🎯', kind:'p', rows:[
+    { n:'智能灌溉',   pc:78, c:C.blue },
+    { n:'能源管理',   pc:64, c:C.red },
+    { n:'作物产量',   pc:53, c:C.pink },
+    { n:'病虫害防治', pc:41, c:C.yellow },
+    { n:'精准施肥',   pc:29, c:C.cyan },
+  ]},
+  { t:'系统告警信息', ic:'🚨', kind:'l', rows:[
+    { n:'肥料库存不足，建议及时补充', v:()=>'09:47' },
+    { n:'检测到6号农田氮含量偏高',   v:()=>'09:15' },
+    { n:'智能监测系统检测到异常风速', v:()=>'30分钟前' },
+    { n:'3号水泵压力波动异常',       v:()=>'08:52' },
+  ]},
+]},{ name:'智能设备', panels:[
+  { t:'设备数据概览', ic:'📡', kind:'m', ncol:2, items:[
+    { ic:'📐', n:'生产面积', c:C.mint,   u:'亩', f:()=>'1280' },
+    { ic:'🌾', n:'作物种类', c:C.orange, u:'类', f:()=>'12' },
+    { ic:'📈', n:'产量预测', c:C.yellow, u:'吨', f:()=>fmt(next('pred',96,120,2)) },
+    { ic:'🖥', n:'设备总数', c:C.cyan,   u:'台', f:()=>'45' },
+  ]},
+  { t:'气象监测', ic:'⛅', kind:'m', ncol:3, items:[
+    { ic:'🌡', n:'温度',   c:C.mint,   u:'℃',   f:()=>fmt(next('air_t',18,32)) },
+    { ic:'💧', n:'湿度',   c:C.orange, u:'%',   f:()=>fmt(next('air_h',40,90)) },
+    { ic:'🌧', n:'降水',   c:C.blue,   u:'mm',  f:()=>fmt(next('rain',0,15)) },
+  ]},
+  { t:'设备状态监控', ic:'🖥', kind:'l', rows:[
+    { n:'土壤传感器', v:()=>rint('s1n',36,40,1)+'/40 在线' },
+    { n:'气象站',     v:()=>'在线' },
+    { n:'灌溉设备',   v:()=>rint('irri',2,6,1)+'/6 运行' },
+    { n:'自动化机械', v:()=>rint('mach',1,3,1)+'台作业' },
+  ]},
+  { t:'设备负载', ic:'📊', kind:'c', ctype:'bar', ymax:100, ulabel:'负载(%)',
+    cats:['水泵','风机','卷帘','阀门','传感器','摄像头'], series:[
+      { color:C.cyan, gen:()=>series('load',30,90,6,60) },
+    ]},
+  { t:'实时告警', ic:'🚨', kind:'l', rows:[
+    { n:'7号传感器离线',   v:()=>'今日 09:41' },
+    { n:'3号阀门响应慢',   v:()=>'延迟 1.2s' },
+    { n:'摄像头画面正常',  v:()=>'12/12 在线' },
+    { n:'网关通信正常',    v:()=>rint('gw',20,60,3)+'ms' },
+  ]},
+  { t:'作物生长监测', ic:'🌱', kind:'c', ctype:'line', ymax:100, ulabel:'生长(cm)', series:[
+      { color:C.mint, gen:()=>series('growth',20,90,24) },
+    ]},
+]},
+{ name:'生产运营', panels:[
+  { t:'生产概览', ic:'🏭', kind:'m', ncol:3, items:[
+    { ic:'📐', n:'种植面积', c:C.mint,   u:'亩', f:()=>'1280' },
+    { ic:'🌾', n:'品种数',   c:C.orange, u:'类', f:()=>'12' },
+    { ic:'📈', n:'产量总计', c:C.yellow, u:'吨', f:()=>fmt(next('total',320,400,3)) },
+  ]},
+  { t:'资源使用情况', ic:'📦', kind:'m', ncol:3, items:[
+    { ic:'💧', n:'水',     c:C.blue,   u:'m3', f:()=>fmt(next('w_use',800,1500,30),0) },
+    { ic:'🧪', n:'肥',     c:C.orange, u:'kg', f:()=>fmt(next('f_use',200,400,8),0) },
+    { ic:'🛡', n:'农药',   c:C.pink,   u:'kg', f:()=>fmt(next('pest',20,60,2)) },
+  ]},
+  { t:'月度产量分析', ic:'📈', kind:'c', ctype:'bar', ymax:120, ulabel:'产量(吨)',
+    cats:['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+    series:[
+      { n:'实际产量', color:C.mint,   gen:()=>series('mAct',50,110,12,85) },
+      { n:'计划产量', color:C.orange, gen:()=>series('mPlan',55,105,12,90) },
+    ]},
+  { t:'成本构成', ic:'💰', kind:'c', ctype:'bar', ymax:50, ulabel:'成本(万元)',
+    cats:['人工','物料','设备','其他'], series:[
+      { color:C.orange, gen:()=>[rint('c_labor',15,30,1), rint('c_mater',10,25,1),
+        rint('c_devid',8,18,1), rint('c_other',3,10,1)] },
+    ]},
+  { t:'种植日历', ic:'📅', kind:'l', rows:[
+    { n:'播种期(春)',   v:()=>'已完成' },
+    { n:'生长期(当前)', v:()=>'第 '+rint('day',60,90,1)+' 天' },
+    { n:'收获期(秋)',   v:()=>'预计 45天后' },
+    { n:'下一茬准备',   v:()=>'育苗中' },
+  ]},
+  { t:'市场价格趋势', ic:'💹', kind:'c', ctype:'line', ymax:100, ulabel:'价格指数', series:[
+      { color:C.purple, gen:()=>series('price',40,90,24) },
+    ]},
+]},{ name:'市场销售', panels:[
+  { t:'销售概览', ic:'💰', kind:'m', ncol:3, items:[
+    { ic:'💰', n:'总销售额', c:C.mint,   u:'万元', f:()=>fmt(next('sales',280,420,8)) },
+    { ic:'📦', n:'销售量',   c:C.orange, u:'吨',   f:()=>fmt(next('vol',90,140,3)) },
+    { ic:'📈', n:'同比增长', c:C.yellow, u:'%',    f:()=>fmt(next('yoy',5,25,1)) },
+  ]},
+  { t:'利润分析', ic:'📊', kind:'p', rows:[
+    { n:'毛利率', f:()=>rint('mgl',20,40,1), c:C.blue },
+    { n:'净利率', f:()=>rint('jll',12,25,1), c:C.red },
+    { n:'复购率', f:()=>rint('fgl',30,50,1), c:C.pink },
+    { n:'回款率', f:()=>rint('hkl',75,92,1), c:C.yellow },
+    { n:'增长率', f:()=>rint('zzl',5,25,1),  c:C.cyan },
+  ]},
+  { t:'销售趋势', ic:'📈', kind:'c', ctype:'line', ymax:100, ulabel:'销售额(万元)', series:[
+      { n:'销售额', color:C.mint,   gen:()=>series('saleT',30,90,24) },
+      { n:'目标值', color:C.orange, gen:()=>series('saleG',40,95,24) },
+    ]},
+  { t:'产品销售排行', ic:'🏆', kind:'c', ctype:'bar', ymax:100, ulabel:'销量(吨)',
+    cats:['蔬菜','水果','粮食','花卉','药材','其他'], series:[
+      { color:C.mint, gen:()=>series('saleRank',50,95,6,80) },
+    ]},
+  { t:'产品类别分析', ic:'🥬', kind:'d', center:{ v:'12', n:'产品类别' }, cats:[
+    { n:'蔬菜', pc:52, c:C.mint,   t:'52%' },
+    { n:'水果', pc:28, c:C.pink,   t:'28%' },
+    { n:'粮食', pc:20, c:C.yellow, t:'20%' },
+  ]},
+  { t:'季节性销售分析', ic:'🍂', kind:'c', ctype:'bar', ymax:100, ulabel:'占比(%)',
+    cats:['春','夏','秋','冬'], series:[
+      { color:C.orange, gen:()=>[rint('spring',50,70,2), rint('summer',70,95,2),
+        rint('autumn',60,85,2), rint('winter',30,50,2)] },
+    ]},
+]},
+{ name:'质量追溯', panels:[
+  { t:'产品基本信息', ic:'🏷', kind:'m', ncol:2, items:[
+    { ic:'🏷', n:'产地批次', c:C.mint,   u:'个', f:()=>rint('batch',20,40,1) },
+    { ic:'📐', n:'种植面积', c:C.orange, u:'亩', f:()=>'1280' },
+    { ic:'📈', n:'预计产量', c:C.yellow, u:'吨', f:()=>fmt(next('est_out',96,120,2)) },
+    { ic:'✅', n:'合格率',   c:C.cyan,   u:'%',  f:()=>fmt(next('pass',96,100,0.3)) },
+  ]},
+  { t:'质量指标', ic:'✅', kind:'l', rows:[
+    { n:'农药残留 - 合格 0.01mg/kg', v:()=>'今日 08:30' },
+    { n:'重金属检测 - 合格 未检出',  v:()=>'今日 08:30' },
+    { n:'营养成分 - 优',             v:()=>'昨日' },
+    { n:'新鲜度指数',                v:()=>rint('fresh',85,98,1)+' 分' },
+  ]},
+  { t:'追溯次数统计', ic:'🔍', kind:'c', ctype:'line', ymax:200, ulabel:'追溯(次)', series:[
+      { color:C.cyan, gen:()=>series('trace_n',80,180,24) },
+    ]},
+  { t:'质量等级分布', ic:'🎖', kind:'c', ctype:'bar', ymax:100, ulabel:'占比(%)',
+    cats:['特级','一级','二级','三级'], series:[
+      { color:C.mint, gen:()=>[rint('g_s',30,45,2), rint('g_a',35,50,2),
+        rint('g_b',10,20,2), rint('g_c',2,8,1)] },
+    ]},
+  { t:'溯源链路', ic:'🔗', kind:'p', rows:[
+    { n:'种植环节', pc:100, c:C.mint },
+    { n:'加工环节', pc:100, c:C.cyan },
+    { n:'物流环节', pc:72,  c:C.blue },
+    { n:'销售环节', pc:45,  c:C.orange },
+  ]},
+  { t:'认证与预警', ic:'🛡', kind:'l', rows:[
+    { n:'有机产品认证', v:()=>'已通过' },
+    { n:'绿色食品认证', v:()=>'已通过' },
+    { n:'地理标志',     v:()=>'已认证' },
+    { n:'今日质量预警', v:()=>rint('warn',0,2,1)+' 条' },
+  ]},
+]},
+];
+/* ================= 布局与渲染 ================= */
+function cellRect(i) {
+  const col = (i - 1) % 2, row = Math.floor((i - 1) / 2);
+  const pw = Math.floor((800 - PAD * 3) / 2);
+  const ph = Math.floor((480 - NAV_H - PAD * 3) / 3);
+  return { x: PAD + col * (pw + PAD), y: PAD + row * (ph + PAD), w: pw, h: ph };
+}
+let tickers = [], charts = [];
+
+function el(tag, cls, style) {
+  const d = document.createElement(tag);
+  if (cls) d.className = cls;
+  if (style) for (const k in style) d.style[k] = style[k];
+  return d;
+}
+function drawPanel(r, p) {
+  const d = el('div', 'panel',
+    { left:r.x+'px', top:r.y+'px', width:r.w+'px', height:r.h+'px' });
+  const head = el('div', 'phead');
+  const icon = el('div', 'picon'); icon.textContent = p.ic || '◆';
+  const title = el('div', 'ptitle'); title.textContent = p.t;
+  head.appendChild(icon); head.appendChild(title);
+  d.appendChild(head);
+  d.appendChild(el('i', 'bk'));
+  const b = el('div', 'pbody');
+  d.appendChild(b);
+  document.getElementById('content').appendChild(d);
+  return b;
+}
+/* 指标卡组 */
+function addMetrics(a, p) {
+  const ncol = p.ncol, rows = Math.ceil(p.items.length / ncol);
+  const grid = el('div', 'mgrid');
+  grid.style.gridTemplateColumns = 'repeat(' + ncol + ',1fr)';
+  grid.style.gridTemplateRows = 'repeat(' + rows + ',1fr)';
+  p.items.forEach(it => {
+    const card = el('div', 'mcard' + (rows > 1 ? ' h' : ''));
+    card.appendChild(el('i', 'bk'));
+    const circ = el('div', 'micirc'); circ.textContent = it.ic || '◆';
+    const name = el('div', 'mname'); name.textContent = it.n;
+    const wrap = el('div', 'mvalwrap');
+    const val = el('div', 'mval');
+    val.style.color = it.c;
+    val.style.textShadow = '0 0 12px ' + it.c + '66';
+    const unit = el('div', 'munit'); unit.textContent = it.u || '';
+    wrap.appendChild(val); wrap.appendChild(unit);
+    const col = el('div', 'mcol');
+    col.appendChild(name); col.appendChild(wrap);
+    card.appendChild(circ); card.appendChild(col);
+    grid.appendChild(card);
+    tickers.push(() => { val.textContent = it.f(); });
+  });
+  a.appendChild(grid);
+}
+/* 进度条组 */
+function addProgress(a, p) {
+  const box = el('div', '', { display:'flex', flexDirection:'column', height:'100%' });
+  p.rows.forEach(row => {
+    const r = el('div', 'prow');
+    const dot = el('i', 'pdot');  dot.style.background = row.c;
+    const name = el('span', 'pname'); name.textContent = row.n;
+    const pct = el('span', 'ppct'); pct.style.color = row.c;
+    const track = el('div', 'ptrack');
+    const bar = el('div', 'pbar'); bar.style.color = row.c;
+    bar.style.background = 'linear-gradient(90deg,' + row.c + 'CC,' + row.c + '88)';
+    const tip = el('i'); tip.style.color = row.c;
+    bar.appendChild(tip); track.appendChild(bar);
+    r.appendChild(dot); r.appendChild(name); r.appendChild(pct); r.appendChild(track);
+    box.appendChild(r);
+    const set = () => {
+      const v = row.f ? row.f() : row.pc;
+      pct.textContent = v + '%';
+      bar.style.width = v + '%';
+    };
+    set(); tickers.push(set);
+  });
+  a.appendChild(box);
+}
+/* 告警/状态列表 */
+function addList(a, p) {
+  const box = el('div', '', { display:'flex', flexDirection:'column', height:'100%' });
+  p.rows.forEach(row => {
+    const r = el('div', 'lrow');
+    const name = el('div', 'lname'); name.textContent = row.n;
+    const val = el('div', 'lval');
+    r.appendChild(name); r.appendChild(val); box.appendChild(r);
+    tickers.push(() => { val.textContent = row.v(); });
+  });
+  a.appendChild(box);
+}/* 折线/柱状图 */
+function addChart(a, p) {
+  const cv = document.createElement('canvas');
+  cv.style.width = '100%'; cv.style.height = '100%';
+  a.appendChild(cv);
+  p.series.forEach(s => { s.vals = s.gen(); });
+  charts.push({ cv: cv, def: p, type: 'c' });
+  setTimeout(() => { fitCanvas(cv); drawChart(cv, p); }, 0);
+}
+function fitCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return false;
+  cv._w = w; cv._h = h; cv._dpr = dpr;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  return true;
+}
+function drawChart(cv, p) {
+  const ctx = cv.getContext('2d');
+  if (!cv._w) return;
+  const dpr = cv._dpr, W = cv._w, H = cv._h;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const hasLegend = p.series.length > 1;
+  const padL = 34, padR = 8;
+  const padT = p.ulabel ? 24 : (hasLegend ? 16 : 6);
+  const padB = p.cats ? 20 : 12;
+  const pw = W - padL - padR, ph = H - padT - padB;
+  if (pw <= 0 || ph <= 0) return;
+  /* 虚线网格 */
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  for (let i = 1; i <= 3; i++) {
+    const y = Math.round(padT + ph * i / 3) + 0.5;
+    ctx.moveTo(padL, y); ctx.lineTo(padL + pw, y);
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+  /* 底部轴线 */
+  ctx.strokeStyle = C.axis;
+  ctx.beginPath();
+  ctx.moveTo(padL, Math.round(padT + ph) + 0.5);
+  ctx.lineTo(padL + pw, Math.round(padT + ph) + 0.5);
+  ctx.stroke();
+  /* Y轴刻度 */
+  ctx.fillStyle = C.sub; ctx.font = '9px Consolas,monospace';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let i = 0; i <= 4; i++) {
+    const v = p.ymax * i / 4;
+    ctx.fillText(v.toFixed(0), padL - 5, padT + ph * (1 - i / 4));
+  }
+  /* 左上角标签 / 图例 */
+  if (p.ulabel) {
+    ctx.fillStyle = '#CFEBDC'; ctx.font = '10px "Microsoft YaHei"';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(p.ulabel, 6, 11);
+  }
+  if (hasLegend) {
+    ctx.font = '10px "Microsoft YaHei"'; ctx.textAlign = 'right';
+    ctx.textBaseline = 'alphabetic';
+    let x = W - 6;
+    for (let i = p.series.length - 1; i >= 0; i--) {
+      const s = p.series[i];
+      ctx.fillStyle = C.text;
+      ctx.fillText(s.n || '', x, padT - 4);
+      x -= ctx.measureText(s.n || '').width + 4;
+      ctx.fillStyle = s.color; ctx.fillRect(x - 8, padT - 12, 8, 8);
+      x -= 20;
+    }
+  }
+  /* X轴类别 */
+  if (p.cats) {
+    ctx.fillStyle = C.sub; ctx.font = '10px "Microsoft YaHei"';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    const slot = pw / p.cats.length;
+    p.cats.forEach((c, i) => ctx.fillText(c, padL + slot * (i + 0.5), padT + ph + 14));
+  }
+  if (p.ctype === 'line') drawLines(ctx, p, padL, padT, pw, ph);
+  else drawBars(ctx, p, padL, padT, pw, ph);
+}
+function drawLines(ctx, p, padL, padT, pw, ph) {
+  p.series.forEach(s => {
+    const vals = s.vals, n = vals.length;
+    const pt = i => [ padL + pw * i / (n - 1),
+      padT + ph * (1 - Math.min(vals[i] / p.ymax, 1)) ];
+    const grad = ctx.createLinearGradient(0, padT, 0, padT + ph);
+    grad.addColorStop(0, s.color + '3E');
+    grad.addColorStop(1, s.color + '08');
+    ctx.beginPath();
+    ctx.moveTo(padL, padT + ph);
+    for (let i = 0; i < n; i++) { const q = pt(i); ctx.lineTo(q[0], q[1]); }
+    ctx.lineTo(padL + pw, padT + ph); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) { const q = pt(i); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }
+    ctx.strokeStyle = s.color; ctx.lineWidth = 2;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.shadowColor = s.color; ctx.shadowBlur = 5;
+    ctx.stroke(); ctx.shadowBlur = 0;
+    for (let i = 0; i < n; i += 1) {
+      const q = pt(i);
+      ctx.beginPath(); ctx.arc(q[0], q[1], 3, 0, 6.3);
+      ctx.fillStyle = s.color; ctx.fill();
+      ctx.beginPath(); ctx.arc(q[0], q[1], 1.3, 0, 6.3);
+      ctx.fillStyle = '#1A5A42'; ctx.fill();
+    }
+  });
+}
+function drawBars(ctx, p, padL, padT, pw, ph) {
+  const ns = p.series.length, n = p.cats ? p.cats.length : p.series[0].vals.length;
+  const groupW = pw / n;
+  const bw = Math.max(Math.min(groupW / (ns + 0.6), 16), 4);
+  p.series.forEach((s, si) => {
+    const vals = s.vals;
+    for (let i = 0; i < n; i++) {
+      const bh = ph * Math.min(vals[i] / p.ymax, 1);
+      const x = padL + groupW * i + groupW / 2 + (si - (ns - 1) / 2) * (bw + 3) - bw / 2;
+      const y = padT + ph - bh;
+      const grad = ctx.createLinearGradient(0, y, 0, y + bh);
+      grad.addColorStop(0, s.color + 'E0');
+      grad.addColorStop(1, s.color + '22');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, bw, bh, [3, 3, 0, 0]);
+      else ctx.rect(x, y, bw, bh);
+      ctx.fill();
+    }
+  });
+}/* 环形图 */
+function addDonut(a, p) {
+  const wrap = el('div', 'dcwrap');
+  const cv = document.createElement('canvas');
+  wrap.appendChild(cv);
+  const leg = el('div', 'dleg');
+  p.cats.forEach(c => {
+    const r = el('div', 'dr');
+    const i = el('i'); i.style.background = c.c;
+    const n = el('span'); n.textContent = c.n;
+    const v = el('span', 'dv'); v.textContent = c.t;
+    r.appendChild(i); r.appendChild(n); r.appendChild(v);
+    leg.appendChild(r);
+  });
+  wrap.appendChild(leg);
+  a.appendChild(wrap);
+  charts.push({ cv: cv, def: p, type: 'd' });
+  setTimeout(() => { fitCanvas(cv); drawDonut(cv, p); }, 0);
+}
+function drawDonut(cv, def) {
+  const ctx = cv.getContext('2d');
+  if (!cv._w) return;
+  const dpr = cv._dpr, W = cv._w, H = cv._h;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(W, H) / 2 - 6, ring = R * 0.30;
+  const total = def.cats.reduce((s, c) => s + c.pc, 0);
+  let ang = -Math.PI / 2;
+  ctx.lineWidth = ring; ctx.lineCap = 'round';
+  def.cats.forEach(c => {
+    const sweep = c.pc / total * Math.PI * 2;
+    ctx.beginPath();
+    ctx.strokeStyle = c.c;
+    ctx.shadowColor = c.c; ctx.shadowBlur = 9;
+    ctx.arc(cx, cy, R - ring / 2, ang + 0.045, ang + sweep - 0.045);
+    ctx.stroke();
+    ang += sweep;
+  });
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = C.text; ctx.font = 'bold 21px Consolas,monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(def.center.v, cx, cy + 3);
+  ctx.fillStyle = C.sub; ctx.font = '10px "Microsoft YaHei"';
+  ctx.fillText(def.center.n, cx, cy + 17);
+}
+/* 雷达图 */
+function addRadar(a, p) {
+  const wrap = el('div', 'dcwrap');
+  const cv = document.createElement('canvas');
+  cv.style.width = '64%'; cv.style.height = '100%';
+  wrap.appendChild(cv);
+  const leg = el('div', 'dleg');
+  p.series.forEach(s => {
+    const r = el('div', 'dr');
+    const i = el('i'); i.style.background = s.color;
+    const n = el('span'); n.textContent = s.n;
+    r.appendChild(i); r.appendChild(n);
+    leg.appendChild(r);
+  });
+  wrap.appendChild(leg);
+  a.appendChild(wrap);
+  p.series.forEach(s => { s.vals = s.gen(); });
+  charts.push({ cv: cv, def: p, type: 'r' });
+  setTimeout(() => { fitCanvas(cv); drawRadar(cv, p); }, 0);
+}
+function drawRadar(cv, def) {
+  const ctx = cv.getContext('2d');
+  if (!cv._w) return;
+  const dpr = cv._dpr, W = cv._w, H = cv._h;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const cx = W / 2, cy = H / 2 + 2;
+  const R = Math.min(W, H) / 2 - 18;
+  const n = def.cats.length;
+  const angOf = i => -Math.PI / 2 + i * Math.PI * 2 / n;
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  for (let k = 1; k <= 4; k++) {
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const a = angOf(i % n);
+      const q = [cx + R * k / 4 * Math.cos(a), cy + R * k / 4 * Math.sin(a)];
+      if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]);
+    }
+    ctx.stroke();
+  }
+  for (let i = 0; i < n; i++) {
+    const a = angOf(i);
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a));
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#CFEBDC'; ctx.font = '10px "Microsoft YaHei"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < n; i++) {
+    const a = angOf(i);
+    ctx.fillText(def.cats[i], cx + (R + 12) * Math.cos(a), cy + (R + 12) * Math.sin(a));
+  }
+  def.series.forEach(s => {
+    const vals = s.vals;
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const j = i % n, a = angOf(j);
+      const r = R * Math.min(vals[j] / def.ymax, 1);
+      const q = [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+      if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]);
+    }
+    ctx.closePath();
+    ctx.fillStyle = s.color + '2C'; ctx.fill();
+    ctx.strokeStyle = s.color; ctx.lineWidth = 1.6;
+    ctx.shadowColor = s.color; ctx.shadowBlur = 4;
+    ctx.stroke(); ctx.shadowBlur = 0;
+    for (let i = 0; i < n; i++) {
+      const a = angOf(i);
+      const r = R * Math.min(vals[i] / def.ymax, 1);
+      ctx.beginPath();
+      ctx.arc(cx + r * Math.cos(a), cy + r * Math.sin(a), 2.2, 0, 6.3);
+      ctx.fillStyle = s.color; ctx.fill();
+    }
+  });
+}/* 顶部导航与页面构建 */
+function buildNav() {
+  const bar = document.getElementById('navbar');
+  const s = el('span', 'slashes'); s.textContent = '///';
+  const chip = el('div', 'logochip'); chip.textContent = '🌾';
+  const t = el('div'); t.id = 'navtitle'; t.textContent = '智慧养殖场';
+  const line = el('div', 'hline');
+  bar.appendChild(s); bar.appendChild(chip); bar.appendChild(t); bar.appendChild(line);
+  pages.forEach((p, i) => {
+    const b = el('div', 'navbtn'); b.textContent = p.name;
+    b.dataset.idx = i + 1;
+    b.onclick = () => buildPage(i + 1);
+    bar.appendChild(b);
+  });
+}
+function buildPage(idx) {
+  document.querySelectorAll('.navbtn').forEach(b =>
+    b.classList.toggle('on', +b.dataset.idx === idx));
+  document.getElementById('content').innerHTML = '';
+  tickers = []; charts = [];
+  const def = pages[idx - 1];
+  def.panels.forEach((p, i) => {
+    const a = drawPanel(cellRect(i + 1), p);
+    if (p.kind === 'm') addMetrics(a, p);
+    else if (p.kind === 'p') addProgress(a, p);
+    else if (p.kind === 'l') addList(a, p);
+    else if (p.kind === 'd') addDonut(a, p);
+    else if (p.kind === 'r') addRadar(a, p);
+    else addChart(a, p);
+  });
+  tick();
+}
+function tick() {
+  charts.forEach(ch => {
+    if (ch.type === 'c') {
+      ch.def.series.forEach(s => { s.vals = s.gen(); });
+      drawChart(ch.cv, ch.def);
+    } else if (ch.type === 'r') {
+      ch.def.series.forEach(s => { s.vals = s.gen(); });
+      drawRadar(ch.cv, ch.def);
+    }
+  });
+  tickers.forEach(f => f());
+}
+/* 自适应缩放（保证整屏完整显示，不会被裁切） */
+function fit() {
+  const stageH = 480 + 28;
+  let s = Math.min((window.innerWidth - 14) / 800, (window.innerHeight - 14) / stageH);
+  if (s > 1.8) s = 1.8;
+  if (s < 0.2) s = 0.2;
+  document.getElementById('stage').style.transform = 'scale(' + s + ')';
+}
+buildNav();
+buildPage(1);
+setInterval(tick, 1500);
+setInterval(fit, 600);
+window.addEventListener('resize', fit);
+window.addEventListener('load', fit);
+fit();
+</script>
+</body>
+</html>

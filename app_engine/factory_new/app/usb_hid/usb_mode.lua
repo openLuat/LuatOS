@@ -31,6 +31,8 @@ usb_mode.apply_boot(cfg)              → 开机按模式给 UVC 使能脚上电
 - HID 模式下 filter() 会把 uvc 条目从外设清单里摘掉，功能测试页也就没有摄像头行，
   避免用户在 HID 模式下手动给摄像头上电又把 USB Host 抢回去
 - 任何 fskv 调用都包 pcall 并先判 fskv 是否存在（PC 模拟器没有这个库）
+- Air8606 机型的 USB 选择由 air8606_mux 统一维护（开机锁存、接口复用页切换）：
+  mux 已加载时 mode/set 委托给它，其它机型走原 fskv 键 usb_mode_config
 ]]
 
 local airlink_pin = require "airlink_pin"
@@ -42,6 +44,26 @@ local M = {}
 local CONFIG_KEY = "usb_mode_config" -- fskv 存储键
 local MODE_UVC = "uvc"               -- UVC 摄像头模式
 local MODE_HID = "hid"               -- USB 键鼠模式
+
+-- ==================== Air8606 mux 委托（软依赖） ====================
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，
+-- 带它的树在 platform_loader 编译清单登记（air8606_mux 由 eng_8606_10i_v010 加载）
+local MUX_MOD = "air8606_mux"
+local mux_cache, mux_checked = nil, false
+local function mux_mod()
+    if not mux_checked then
+        mux_checked = true
+        local ok, m = pcall(require, MUX_MOD)
+        mux_cache = (ok and type(m) == "table" and type(m.current) == "function") and m or false
+    end
+    return mux_cache or nil
+end
+-- mux 未 load（非 8606 机型 / PC 模拟）时返回 nil，走原 fskv 路径
+local function mux_usb()
+    local m = mux_mod()
+    if not m then return nil end
+    return m.current("usb")
+end
 
 -- 可选模式定义（设置页按此顺序列出）
 local MODES = {
@@ -138,6 +160,8 @@ end
 @return string "uvc" | "hid"
 ]]
 function M.mode()
+    local mv = mux_usb()
+    if mv == MODE_HID or mv == MODE_UVC then return mv end
     local saved = kv_get(CONFIG_KEY)
     if saved == MODE_HID then return MODE_HID end
     return MODE_UVC -- 默认 UVC 摄像头
@@ -145,14 +169,26 @@ end
 
 --[[
 @function set
-@summary 写 USB 外设模式到 fskv
+@summary 写 USB 外设模式（mux 机型写 air8606_mux_config，其它机型写 usb_mode_config）
 @param string mode  "uvc" | "hid"
 @return boolean, string|nil  是否成功，失败原因
 ]]
 function M.set(mode)
     if not MODES[mode] then return false, "unknown mode: " .. tostring(mode) end
-    if M.mode() == mode then return true end
-    local ok, err = kv_set(CONFIG_KEY, mode)
+    local m = mux_usb() and mux_mod()
+    local ok, err
+    if m then
+        -- mux 机型：并入接口复用存档，保存后重启生效（与接口复用页同一口径）。
+        -- 早退比较存档值：M.mode() 读的是本次开机锁存的 active，与 pending 不同代
+        local _, pending = m.state()
+        if type(pending) ~= "table" then return false, "接口配置尚未加载" end
+        if pending.usb == mode then return true end
+        pending.usb = mode
+        ok, err = m.save(pending)
+    else
+        if M.mode() == mode then return true end
+        ok, err = kv_set(CONFIG_KEY, mode)
+    end
     if ok then
         log.info("usb_mode", "外设模式已写入:", mode)
         sys.publish("USB_MODE_CHANGED", mode)
@@ -306,13 +342,26 @@ end
 function M.apply_boot(cfg)
     local list = cfg and cfg.peripherals
     if type(list) ~= "table" then return end
+    -- en_pin 与某路 rs485 的 de_pin 共用一脚时（8603W3~W5 / M3~M5 的 GPIO58 = UVC_EN = 485_EN2）
+    -- 开机不抢拉高：常供电会让 485 收发器停在发送态、第二路 485 直接失效。
+    -- 共享脚留在 485 接收态（power_on 已拉低），进 UVC 测试页时由 periph_uvc 认领供电，
+    -- 退出归还，两个功能相互切换、互不影响（见 drv/periph/pin_share.lua）
+    local de_pins = {}
+    for _, p in ipairs(list) do
+        if p and p.type == "rs485" and p.de_pin then de_pins[p.de_pin] = true end
+    end
     local on = (M.mode() ~= MODE_HID)
     for _, p in ipairs(list) do
         if p and p.type == "uvc" and p.en_pin then
-            local level = on and 1 or 0
-            -- WiFi 侧使能脚（GPIO ≥100）由 airlink_pin 延后到链路就绪后下发，开机不等链路
-            airlink_pin.defer(p.en_pin, level)
-            log.info("usb_mode", "UVC 供电", on and "开启" or "关闭", "GPIO" .. tostring(p.en_pin))
+            if de_pins[p.en_pin] then
+                log.info("usb_mode", "UVC_EN 与 485_EN 共用 GPIO" .. tostring(p.en_pin) ..
+                         "，开机不占，切换归运行时仲裁")
+            else
+                local level = on and 1 or 0
+                -- WiFi 侧使能脚（GPIO ≥100）由 airlink_pin 延后到链路就绪后下发，开机不等链路
+                airlink_pin.defer(p.en_pin, level)
+                log.info("usb_mode", "UVC 供电", on and "开启" or "关闭", "GPIO" .. tostring(p.en_pin))
+            end
         end
     end
 end

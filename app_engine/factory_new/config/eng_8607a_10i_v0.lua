@@ -25,12 +25,12 @@
 7. 音频使用芯片内置 DAC 播放，PA 功放 HT6873，AUDIOPA_EN = GPIO73，
    高电平使能（pa_on_level = 1，power_on 初始拉低关断，起播时 exaudio 拉高）。
    本板无麦克风，不开启录音相关功能。
-   hw.audio 字段消费方：app/common/tts_app.lua、ui/video_util.lua。
+   hw.audio 字段消费方：app/common/tts_app.lua、ui/media/video_util.lua。
 8. 【UVC 摄像头】AirCAMERA_1032（AirUVC_1000）USB 摄像头，UVC_EN = GPIO12。
    本板 GPIO12 是独立的摄像头使能脚，**不是** 8605 那种 VBUS 与 5V_EN 共轨脚
    （8605 上拉低 GPIO12 会断触摸供电，periph_uvc 因此默认禁用该脚）。
    本板经确认 GPIO12 可独立驱动，故按 pin12_free = true 显式解除禁用。
-   摄像头数据流（预览/拍照/录像）由 ui/uvc_preview_win.lua 走 excamera 扩展库独占管理，
+   摄像头数据流（预览/拍照/录像）由 ui/test/uvc_preview_win.lua 走 excamera 扩展库独占管理，
    外设开关只负责供电，不再重复 camera.init。
    预览入口按需求放在「功能测试」里，因此不设 ui.show_camera_preview（避免两处入口）。
 ]]
@@ -75,7 +75,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏启用帧缓冲防撕裂
             screen_size = 10.0,               -- 10寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -117,15 +116,15 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        speaker = true,      -- 启用喇叭（内置 DAC + HT6873 功放）
-        usb_camera = true,   -- 启用 USB 摄像头（UVC 协议，AirCAMERA_1032）；入口在「功能测试」
-        other_func = true,   -- 启用「功能测试」页（UVC 预览 / 485 测试入口）
+        other_func = true,  -- 启用「功能测试」页（UVC 预览 / 485 测试入口）
     },
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_other_func = true,        -- 桌面「功能测试」图标 ← 配 peripherals 时打开
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_other_func = true,         -- 桌面「功能测试」图标 ← 配 peripherals 时打开
         -- show_camera_preview 故意不写：UVC 预览入口在「功能测试」里，见文件头第 8 条
+        show_autostart = true,          -- 设置页显示"后装APP自启"
+        show_camera_preview = true,     -- 功能测试里显示 UVC 预览条目
     },
 }

@@ -27,6 +27,7 @@
 #include "zenoh-pico/transport/unicast/transport.h"
 #include "zenoh-pico/transport/utils.h"
 #include "zenoh-pico/utils/logging.h"
+#include "zenoh-pico/transport/unicast/observe.h"
 
 #if Z_FEATURE_UNICAST_TRANSPORT == 1
 static z_result_t _z_unicast_transport_create_inner(_z_transport_unicast_t *ztu, _z_link_t *zl,
@@ -219,6 +220,7 @@ static z_result_t _z_unicast_handshake_open(_z_transport_unicast_establish_param
     // The initial SN at RX side. Initialize the session as we had already received
     // a message with a SN equal to initial_sn - 1.
     param->_initial_sn_rx = oam._body._open._initial_sn;
+    _Z_ACCEPTED_OPEN(oam._body._open._lease, param->_lease);
     if (auth) _Z_AUTH_OBSERVE(5, -1);
     _z_t_msg_clear(&oam);
     return _Z_RES_OK;

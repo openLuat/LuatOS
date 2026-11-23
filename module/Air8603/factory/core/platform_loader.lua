@@ -41,18 +41,16 @@ local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
 
 -- Engine 引擎主机系列
-require ("eng_8603w1_10i_v0")      -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w1_10i_v0")      -- Air8603W1 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + UVC(UART2控制串口) + Air1103语音(UART6) + 喇叭(HT6873) + SD（WiFi）
 require ("eng_8603w2_10i_v0")      -- Air8603W2 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（WiFi）
-require ("eng_8603w3_10i_v0")      -- Air8603W3 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
-require ("eng_8603w4_10i_v0")      -- Air8603W4 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
-require ("eng_8603w5_10i_v0")      -- Air8603W5 10寸 1024×600 + Airlink UART WiFi(6205) + TTL串口(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（WiFi）
-require ("eng_8603m1_10i_v0")      -- Air8603M1 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603w3_10i_v0")      -- Air8603W3 10寸 1024×600 + Airlink UART WiFi(6205) + 隔离RS485(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w4_10i_v0")      -- Air8603W4 10寸 1024×600 + Airlink UART WiFi(6205) + 非隔离RS485(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603w5_10i_v0")      -- Air8603W5 10寸 1024×600 + Airlink UART WiFi(6205) + TTL串口(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（WiFi）
+require ("eng_8603m1_10i_v0")      -- Air8603M1 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + UVC(UART2控制串口) + Air1103语音(UART6) + 喇叭(HT6873) + SD（4G）
 require ("eng_8603m2_10i_v0")      -- Air8603M2 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + UVC(UART2控制串口) + 喇叭(HT6873) + SD（4G）
-require ("eng_8603m3_10i_v0")      -- Air8603M3 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
-require ("eng_8603m4_10i_v0")      -- Air8603M4 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
-require ("eng_8603m5_10i_v0")      -- Air8603M5 10寸 1024×600 + Airlink UART 4G(780ER2) + TTL串口(UART1) + 隔离RS485(UART2) + 喇叭(HT6873) + SD（4G）
-
-
+require ("eng_8603m3_10i_v0")      -- Air8603M3 10寸 1024×600 + Airlink UART 4G(780ER2) + 隔离RS485(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m4_10i_v0")      -- Air8603M4 10寸 1024×600 + Airlink UART 4G(780ER2) + 非隔离RS485(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（4G）
+require ("eng_8603m5_10i_v0")      -- Air8603M5 10寸 1024×600 + Airlink UART 4G(780ER2) + TTL串口(UART1) + 隔离RS485(UART2) + UVC(USB) + 喇叭(HT6873) + SD（4G）
 
 -- 驱动
 require ("lcd_display_rgb")       -- RGB display 统一驱动
@@ -62,15 +60,19 @@ require ("periph_uvc")            -- UVC 摄像头外设（纯供电开关，数
 require ("periph_rs485")          -- RS485 外设（多路，DE 方向 + 供电引用计数）
 require ("periph_uart")           -- 通用串口外设（收发计数 + 环形缓冲）
 require ("periph_audio")          -- 录音播放外设（Air1103 等语音芯片，config.hw.audio + type=audio）
+require ("pin_share")             -- 共享 GPIO 职能仲裁（en_pin 与 de_pin 共用一脚时互斥切换）
+require ("usb_mode")              -- USB 外设模式（UVC 摄像头 / USB 键鼠二选一，fskv 持久化）
+require ("tick_time")              -- tick 与毫秒换算（时间一律用 mcu.ticks() + mcu.hz() 表达）
+require ("airlink_pin")            -- WiFi 芯片侧 GPIO 门控（GPIO ≥100 等 airlink 就绪后下发）
 
 -- 业务模块
 require ("net_manager")           -- 统一网络管理器
 require ("net_init")
 require ("aircloud_app")          -- AirCloud 通用数据上报（能力探测型，有接口就采）
 require ("settings_report_win")   -- AirCloud 上报设置页（配 features.aircloud 使用）
+require ("settings_usb_win")      -- 外设模式设置页（UVC 摄像头 / USB 键鼠二选一，配 features.usb_hid 使用）
 -- 应用工厂 / AI 聊天体积大，800×480 脚本区 1024KB 先不打包
 end
-
 
 --[[app_main / ui_main 等聚合入口 **不登记** 在本清单：它们由 boot_ui 源码内的
 函数体静态 require 文本扫描打包（与 features 门控里的 require "llm_chat" 同一机制）。
@@ -118,6 +120,7 @@ local PROJECT_MAP = {
     ["Engine_Air8605B_10inch_1024x600_000_4G_V000"]  = "eng_8605b_10i_v0",
     ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
     ["Engine_Air8607A_10inch_1024x600_000_V000"]  = "eng_8607a_10i_v0",
+    ["Engine_Air8607W_10inch_1024x600_000_V000"]   = "eng_8607w_10i_v0",
     -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
     --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
     -- 8605 系列的旧名指向各自的后继型号：8605 由 WiFi+4G 双网改回 4G 单网并补 _4G 后缀，
@@ -164,15 +167,22 @@ local function load_project_config(project)
         return {
             name = "PC", chip = "PC", baseboard = "PC", pins = {},
             hw = {
-                lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = 320, h = 480 }, need_buffer = false, screen_size = 4.0, font = { size = 14 }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+                lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = 320, h = 480 }, screen_size = 4.0, font = { size = 14 }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
                 tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
             },
+            -- 模拟器按能力给足开关，好让设置页/顶栏的每个入口都能点开看
             features = {
                 ethernet = true,
+                iot = true,
+                fota = true,
             },
             ui = {
+                show_ethernet_settings = true,
                 show_brightness_slider = true,
                 show_storage_settings = true,
+                show_iot = true,
+                show_fota = true,
+                show_autostart = true,
             },
         }
     end
@@ -198,25 +208,30 @@ local function load_project_config(project)
     _G.mobile = {}
     function mobile.imei() return "pc_simulator" end
 
-    local w, h, sz, need_buf, fs = 800, 480, 5.0, true, 20
+    local w, h, sz, fs = 800, 480, 5.0, 20
     local _, _, rw, rh = project:find("(%d+)x(%d+)")   -- 正则提取 "720x1280"
     if rw and rh then w, h = tonumber(rw), tonumber(rh) end
     if project:find("7inch") then sz = 7.0 elseif project:find("10inch") then sz = 10.0 end
-    if w > 480 then need_buf, fs = true, 20 end         -- 高分辨率屏需要帧缓冲 + 大字体
 
     return {
         name = "PC", chip = "PC", baseboard = "PC", pins = {},
         hw = {
-            lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = w, h = h }, need_buffer = need_buf, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+            lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = w, h = h }, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
             tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
         },
+        -- 模拟器按能力给足开关，好让设置页/顶栏的每个入口都能点开看
         features = {
             wifi = true, ethernet = true,
+            iot = true, fota = true,
         },
         ui = {
             show_wifi_icon = true,
+            show_ethernet_settings = true,
             show_brightness_slider = true,
             show_storage_settings = true,
+            show_iot = true,
+            show_fota = true,
+            show_autostart = true,
         },
     }
 end
@@ -264,6 +279,11 @@ end
 -- 完成标记：整个序列（含各步 delay 的电源稳定时间）跑完后置 _G.__power_on_done
 -- 并发布 POWER_ON_DONE。boot_ui 以此为门再初始化触摸 —— I2C 总线上未上电的
 -- 设备会钳住 SDA/SCL，GT911 也会因电源未稳而软失败（触摸"完全失灵"）。
+--
+-- WiFi 芯片侧脚（GPIO ≥100，如 UVC_EN / 485 供电）由 airlink_pin 延后到 airlink 链路
+-- 就绪后下发：这些脚经 airlink 通道代发，链路没起来时下发会失败。
+local airlink_pin = require "airlink_pin"
+
 if config.power_on then
     sys.taskInit(function()
         -- 背光 PWM 上电前先压灭：PWM 引脚默认高电平，上电瞬间 BL 即被拉高点亮，
@@ -281,21 +301,30 @@ if config.power_on then
             -- level 是目标电平，缺省时按旧字段 dir 兜底
             local level = step.level
             if level == nil then level = step.dir end
+            local deferred = false
             if step.pin and level ~= nil then
-                -- setup 直接给目标电平，再 set 一次兜底；两边都失败才计失败
-                local ok1 = pcall(gpio.setup, step.pin, level)
-                local ok2 = pcall(gpio.set, step.pin, level)
-                if ok1 and ok2 then
-                    local ok3, rd = pcall(gpio.get, step.pin)
+                -- WiFi 侧脚等链路就绪后补发，延时跟着一起挪走，上电序列不为等链路拖住 POWER_ON_DONE
+                if airlink_pin.is_wifi_pin(step.pin) and not airlink_pin.ready() then
+                    airlink_pin.defer(step.pin, level, step.delay)
+                    deferred = true
                     log.info("platform_loader", "POWER_ON", i, "GPIO" .. tostring(step.pin),
-                             level == 1 and "高" or "低", ok3 and ("回读 " .. tostring(rd)) or "回读失败")
+                             level == 1 and "高" or "低", "WiFi 侧脚，待 airlink 就绪后下发")
                 else
-                    bad = bad + 1
-                    log.warn("platform_loader", "POWER_ON 引脚设置失败", i,
-                             tostring(step.pin), tostring(level))
+                    -- setup 直接给目标电平，再 set 一次兜底；两边都失败才计失败
+                    local ok1 = pcall(gpio.setup, step.pin, level)
+                    local ok2 = pcall(gpio.set, step.pin, level)
+                    if ok1 and ok2 then
+                        local ok3, rd = pcall(gpio.get, step.pin)
+                        log.info("platform_loader", "POWER_ON", i, "GPIO" .. tostring(step.pin),
+                                 level == 1 and "高" or "低", ok3 and ("回读 " .. tostring(rd)) or "回读失败")
+                    else
+                        bad = bad + 1
+                        log.warn("platform_loader", "POWER_ON 引脚设置失败", i,
+                                 tostring(step.pin), tostring(level))
+                    end
                 end
             end
-            if step.delay then
+            if step.delay and not deferred then
                 sys.wait(step.delay)
             end
         end

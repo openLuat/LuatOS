@@ -42,9 +42,9 @@ handle:status()        → { enabled=bool, info=string }
   Air1103 实际接 UART6，漏传 uart_id 会被 exaudio 缺省绑到 UART1（隔离 485 那一路），
   现象是录音采不到数据、回放也没声音
 - 录音起播后做 MIC 就绪探测（2.5s）：没采到数据直接报
-  「未收到MIC数据，请检查供电、UART和固件」，不让用户对着静音录音等满时长
-- Air1103 每次录音都复位芯片，恢复 MIC 上行前落盘的是静音，
-  下发给 exaudio 的时长补 2 秒，用户要几秒就录到几秒有效音频
+  「未收到MIC数据，请检查麦克风、供电、UART和固件」，不让用户对着静音录音等满时长
+- Air1103 的 MIC 上行常驻（见「Air1103 常驻 MIC 上行」一节）：录音不再复位芯片，
+  第一帧就是真实声音；退化到 exaudio 那条路时才补 2 秒恢复上行的静音时长
 - 录音一律「函数 path 手动落盘」：字符串 path 在 exaudio 内部按 "ab" 追加写，不会创建文件
   （与 module/Air8784/project/factory/user/factory.lua 同款写法）
 - 状态经 sys.publish("AUDIO_TEST_STATE", id, state, info) 广播，
@@ -61,6 +61,8 @@ if not ok_exaudio then exaudio = nil end
 
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
+
+-- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
 
 -- 录音文件固定落 /ram（内存盘，掉电即失，只作当场试听）
 local REC_PATH = "/ram/audio_test"
@@ -93,7 +95,9 @@ local mic_probe_t = nil
 -- 而驱动内置 feed 校验失败会 rxstr="" 丢整缓冲，嘈杂 UART 下会长期解析不出帧。
 local chip_ok, chip = pcall(require, "air1103")
 if not chip_ok then chip = nil end
-local pcm_rx_ok, pcm_rx = pcall(require, "sipapp_pcm_rx")
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local PCM_RX_MOD = "sipapp_pcm_rx"
+local pcm_rx_ok, pcm_rx = pcall(require, PCM_RX_MOD)
 
 local mic_frames = 0      -- 累计收到的 MIC 帧数（预热/存活判断）
 local mic_last_ts = 0     -- 最近一次收到 MIC 帧的时间(秒)：判断上行是否还活着
@@ -112,7 +116,8 @@ local function mic_install()
 end
 local function mic_restore()
     if not chip then return end
-    if original_feed then chip.feed = original_feed end
+    if chip.feed == chip_feed_fn and original_feed then chip.feed = original_feed end
+    original_feed = nil
 end
 chip_feed_fn = function(data)
     if type(data) == "string" then return mic_parser.feed(data) end
@@ -123,7 +128,7 @@ mic_on_pcm = function(data)
     mic_frames = mic_frames + 1
     mic_last_ts = os.time()
     local h = rec_owner
-    if h and h.state == "recording" and h.rec_fp then
+    if h and not h.closing and h.state == "recording" and h.rec_fp then
         h.mic_got = true
         pcall(h.rec_fp.write, h.rec_fp, data)
     end
@@ -131,13 +136,17 @@ end
 
 -- 预热：探测 300ms，已在出帧直接返回；没帧才复位一次（此时用户还没录音，无感）
 local mic_warming = false
-local function mic_warmup()
+local warm_generation = 0
+local function mic_warmup(generation)
+    generation = generation or warm_generation
+    if generation ~= warm_generation then return false end
+    if audio_hw.busy() then return false end
     if not chip or not mic_parser or not audio_hw.is_air1103() then return false end
     if mic_warming then
         -- 已有预热在跑（例如回放结束后的异步恢复）：等它结束，别让录音在没上行时开跑
         local w = 0
-        while mic_warming and w < 6000 do sys.wait(50); w = w + 50 end
-        return mic_last_ts > 0 and (os.time() - mic_last_ts) <= 2
+        while generation == warm_generation and mic_warming and w < 6000 do sys.wait(50); w = w + 50 end
+        return generation == warm_generation and mic_last_ts > 0 and (os.time() - mic_last_ts) <= 2
     end
     mic_warming = true
     mic_install()
@@ -146,9 +155,10 @@ local function mic_warmup()
     mic_parser.reset()
     local before = mic_frames
     local waited = 0
-    while mic_frames == before and waited < 300 do
+    while generation == warm_generation and mic_frames == before and waited < 300 do
         sys.wait(50); waited = waited + 50
     end
+    if generation ~= warm_generation then mic_warming = false; return false end
     if mic_frames > before then
         mic_warming = false
         log.info("periph_audio", "Air1103 MIC 上行已在运行，无需复位")
@@ -157,13 +167,25 @@ local function mic_warmup()
     log.warn("periph_audio", "Air1103 MIC 上行未启动，复位一次(≈1.4s boot)")
     pcall(chip.reset)
     waited = 0
-    while mic_frames == before and waited < 3000 do
+    while generation == warm_generation and mic_frames == before and waited < 3000 do
         sys.wait(50); waited = waited + 50
     end
     mic_warming = false
-    local ok = mic_frames > before
+    local ok = generation == warm_generation and mic_frames > before
     log.info("periph_audio", "Air1103 MIC 上行预热", ok and "成功" or "失败", "等待", waited, "ms")
     return ok
+end
+
+local warmup_impl = mic_warmup
+mic_warmup = function(generation)
+    local was_warming = mic_warming
+    local ok, result = pcall(warmup_impl, generation)
+    if not ok then
+        if not was_warming then mic_warming = false end
+        log.warn("periph_audio", "MIC warmup failed", result)
+        return false
+    end
+    return result
 end
 
 --[[
@@ -217,13 +239,14 @@ end
 @return boolean, string|nil
 ]]
 local function audio_setup(h)
+    if audio_hw.busy() then return false, "audio_busy" end
     local ac = audio_cfg()
     if not ac then return false, "未配置 hw.audio" end
     if exaudio == nil then return false, "缺少 exaudio 扩展库" end
     if h.inited then
         pcall(exaudio.pm, exaudio.RESUME)
         -- 再次进入页面也补一次预热（上次若被别的页面停过上行，这里恢复）
-        if audio_hw.is_air1103() then sys.taskInit(mic_warmup) end
+        if audio_hw.is_air1103() then sys.taskInit(mic_warmup, warm_generation) end
         return true
     end
 
@@ -240,14 +263,14 @@ local function audio_setup(h)
     log.info("periph_audio", "音频就绪", h.id, sp.model, "uart:", tostring(sp.uart_id))
     -- Air1103：进页面即在后台预热 MIC 上行。预热完成后再点录音，
     -- 第一帧就是真实声音，录几秒就是几秒，不需要再补 2 秒静音时长。
-    if audio_hw.is_air1103() then sys.taskInit(mic_warmup) end
+    if audio_hw.is_air1103() then sys.taskInit(mic_warmup, warm_generation) end
     return true
 end
 
 -- 录音数据回调：C 层把编码后的音频帧写入 zbuff 后反调，随后 exaudio 会 del 该 zbuff
 local function rec_data_cb(buff, len)
     local h = rec_owner
-    if not h or not h.rec_fp then return end
+    if not h or h.closing or not h.rec_fp then return end
     if buff and len and len > 0 then
         local ok, data = pcall(buff.toStr, buff, 0, len)
         if ok and type(data) == "string" and #data > 0 then
@@ -261,7 +284,7 @@ end
 local function rec_done_cb(event)
     if exaudio == nil or event ~= exaudio.RECORD_DONE then return end
     local h = rec_owner
-    if not h or h.state ~= "recording" then return end
+    if not h or h.closing or h.state ~= "recording" then return end
     finalize_record(h)
 end
 
@@ -280,7 +303,8 @@ finalize_record = function(h)
         h.rec_timer = nil
     end
     if h.rec_fp then
-        pcall(h.rec_fp.close, h.rec_fp)
+        local ok, result = pcall(h.rec_fp.close, h.rec_fp)
+        assert(ok and result ~= false and result ~= nil, "record file close failed")
         h.rec_fp = nil
     end
     rec_owner = nil
@@ -291,7 +315,7 @@ finalize_record = function(h)
     h.rec_bytes = sz
     h.rec_ready = sz > 0
     if h.mic_fail then
-        publish_state(h, "error", "录音失败：未收到MIC数据，请检查供电、UART和固件")
+        publish_state(h, "error", "录音失败：未收到MIC数据，请检查麦克风、供电、UART和固件")
     elseif sz > 0 then
         publish_state(h, "idle", string.format("录音完成 %d 秒 %d 字节，可播放", h.rec_seconds or 0, sz))
     else
@@ -301,7 +325,7 @@ end
 
 --[[
 @function mic_probe
-@summary MIC 上行就绪探测：到点还没采到数据即判定供电/UART/固件有问题，直接收尾报错
+@summary MIC 上行就绪探测：到点还没采到数据即判定麦克风/供电/UART/固件有问题，直接收尾报错
 ]]
 local function mic_probe()
     mic_probe_t = nil
@@ -328,6 +352,7 @@ local function record_start(h, seconds)
     if h.state == "recording" then return false, "正在录音" end
     if h.state == "playing" then return false, "正在播放，请先停止" end
 
+    local generation = warm_generation
     local ac = audio_cfg() or {}
     local fmt, ext = rec_format_of(ac)
     if fmt == nil then return false, "缺少 exaudio 扩展库" end
@@ -362,6 +387,7 @@ local function record_start(h, seconds)
             log.warn("periph_audio", "录音前 MIC 上行已停，复位恢复(≈1.4s)")
             mic_warmup()
         end
+        if generation ~= warm_generation or not h.inited then return false, "audio_test_closed" end
         h.state = "recording"
         h.rec_end_ts = os.time() + secs
         if h.rec_timer then sys.timerStop(h.rec_timer); h.rec_timer = nil end
@@ -384,7 +410,7 @@ local function record_start(h, seconds)
     local cmd_secs = secs
     if audio_hw.is_air1103() then cmd_secs = secs + AIR1103_UPSTREAM_DELAY_S end
 
-    local ok, ret = pcall(exaudio.record_start, {
+    local ok, ret = audio_hw.record_start({
         format = fmt,
         time = cmd_secs,
         path = rec_data_cb,
@@ -428,15 +454,15 @@ end
 
 -- 流式回放协程：边读文件边喂 Air1103，喂完 exaudio.finish() 排空触发 PLAY_DONE
 -- play_gen 是每次回放的代号：停止后立刻重开时，上一个协程靠它认出自己已过期
-local function play_stream_task(gen)
-    local h = play_owner
-    if not h then return end
+local function play_stream_task(h, gen)
+    if play_owner ~= h or h.play_gen ~= gen or h.stop_req then return end
     local file = io.open(h.rec_path, "rb")
     if not file then
         play_owner = nil
         publish_state(h, "error", "回放文件打开失败")
         return
     end
+    h.play_fp = file
     local has_pending = chip and type(chip.get_pending) == "function"
     while h.play_gen == gen and not h.stop_req do
         local d = file:read(PLAY_CHUNK)
@@ -463,8 +489,8 @@ local function play_stream_task(gen)
             sys.wait(math.max(20, math.floor(#d / PLAY_BYTE_PER_MS)))
         end
     end
-    file:close()
-    if h.play_gen == gen then
+    if h.play_fp == file then file:close(); h.play_fp = nil end
+    if h.play_gen == gen and not h.stop_req then
         pcall(exaudio.finish)
     end
 end
@@ -473,12 +499,12 @@ end
 local function play_done_cb(event)
     if exaudio == nil or event ~= exaudio.PLAY_DONE then return end
     local h = play_owner
-    if not h then return end
+    if not h or h.closing then return end
     play_owner = nil
     h.stop_req = false
     publish_state(h, "idle", "播放完成")
     -- 播完 exaudio 会发 02 01 停 MIC 上行；立刻异步恢复，保证下一次录音还能采到声
-    if audio_hw.is_air1103() then sys.taskInit(mic_warmup) end
+    if audio_hw.is_air1103() then sys.taskInit(mic_warmup, warm_generation) end
 end
 --[[
 @function play_start
@@ -487,6 +513,7 @@ end
 @return boolean, string|nil
 ]]
 local function play_start(h)
+    if audio_hw.busy() then return false, "audio_busy" end
     if not h or not h.inited then return false, "音频未初始化" end
     if h.state == "recording" then return false, "正在录音，请先停止" end
     if h.state == "playing" then return false, "正在播放" end
@@ -498,24 +525,28 @@ local function play_start(h)
     h.stop_req = false
     h.play_gen = (h.play_gen or 0) + 1
     play_owner = h
+    local gen = h.play_gen
+    local function done(event)
+        if play_owner == h and h.play_gen == gen then play_done_cb(event) end
+    end
     local ok, ret
     if is_pcm then
-        ok, ret = pcall(exaudio.play_start, {
+        ok, ret = audio_hw.play_start({
             type = 2,
-            cbfnc = play_done_cb,
+            cbfnc = done,
             priority = 1,
             sampling_rate = 16000,
             sampling_depth = 16,
             signed_or_unsigned = true,
         })
         if ok and ret then
-            sys.taskInit(play_stream_task, h.play_gen)
+            sys.taskInit(play_stream_task, h, gen)
         end
     else
-        ok, ret = pcall(exaudio.play_start, {
+        ok, ret = audio_hw.play_start({
             type = 0,
             content = h.rec_path,
-            cbfnc = play_done_cb,
+            cbfnc = done,
         })
     end
     if not ok or not ret then
@@ -537,12 +568,15 @@ local function play_stop(h)
     if not h or h.state ~= "playing" then return false, "当前没有在播放" end
     -- stop_req 置起后不再归位：正在跑的喂数协程靠它退出，归位只在 play_start / 播完
     h.stop_req = true
+    h.play_gen = h.play_gen + 1
+    play_owner = nil
+    if h.play_fp then pcall(h.play_fp.close, h.play_fp); h.play_fp = nil end
     pcall(exaudio.play_stop, { type = 2 })
     pcall(exaudio.play_stop, { type = 0 })
     play_owner = nil
     publish_state(h, "idle", "已停止播放")
     -- 停播会让 exaudio 发 02 01 停掉 MIC 上行，这里立刻异步恢复，下次录音零等待
-    if audio_hw.is_air1103() then sys.taskInit(mic_warmup) end
+    if audio_hw.is_air1103() then sys.taskInit(mic_warmup, warm_generation) end
     return true
 end
 
@@ -554,19 +588,33 @@ end
 ]]
 audio_teardown = function(h)
     if not h then return false end
-    if h.state == "recording" then
-        -- Air1103 不走 exaudio.record_stop（会 02 01 停上行），只关文件收尾
-        if not audio_hw.is_air1103() then pcall(exaudio.record_stop) end
-        finalize_record(h)
-    elseif h.state == "playing" then
-        h.stop_req = true
-        pcall(exaudio.play_stop, { type = 2 })
-        pcall(exaudio.play_stop, { type = 0 })
-        play_owner = nil
-    end
+    warm_generation = warm_generation + 1
     h.inited = false
-    publish_state(h, "idle", "已关闭")
-    log.info("periph_audio", "音频已关闭", h.id)
+    h.stop_req = true
+    h.play_gen = h.play_gen + 1
+    local was_playing = play_owner == h
+    if was_playing then play_owner = nil end
+    if h.play_fp then
+        assert(h.play_fp:close(), "playback file close failed")
+        h.play_fp = nil
+    end
+    if rec_owner == h or h.rec_fp or h.rec_timer then
+        if not audio_hw.is_air1103() then exaudio.record_stop() end
+        finalize_record(h)
+    end
+    if was_playing then exaudio.play_stop({type=0}) end
+    local waited = 0
+    while mic_warming do
+        if waited >= 6500 then error("factory MIC worker did not stop") end
+        sys.wait(20); waited = waited + 20
+    end
+    mic_restore()
+    if mic_parser then mic_parser.reset() end
+    mic_last_ts = 0
+    assert(audio_hw.shutdown())
+    publish_state(h, "idle", "closed")
+    log.info("factory_handoff", "AUDIO_TEST_CLOSED", h.id)
+    sys.publish("AUDIO_EXIT_RESULT", h.id, true, "closed")
     return true
 end
 
@@ -613,12 +661,20 @@ local function make_handle(params)
         stop_req = false,
         play_gen = 0,
     }
-    h.start        = audio_setup
-    h.stop         = audio_teardown
-    h.record_start = record_start
-    h.record_stop  = record_stop
-    h.play_start   = play_start
-    h.play_stop    = play_stop
+    h.quiesce = function(self)
+        self.closing = true
+        self.stop_req = true
+        self.play_gen = self.play_gen + 1
+        warm_generation = warm_generation + 1
+        if self.rec_timer then sys.timerStop(self.rec_timer); self.rec_timer = nil end
+        if mic_probe_t then sys.timerStop(mic_probe_t); mic_probe_t = nil end
+    end
+    h.start        = audio_hw.guard(audio_setup)
+    h.stop         = audio_hw.guard(audio_teardown)
+    h.record_start = audio_hw.guard(record_start)
+    h.record_stop  = audio_hw.guard(record_stop)
+    h.play_start   = audio_hw.guard(play_start)
+    h.play_stop    = audio_hw.guard(play_stop)
     h.status       = audio_status
     return h
 end
@@ -662,6 +718,7 @@ end
 
 -- 关闭全部实例并清空注册表
 function M.reset_all()
+    if audio_hw.busy() then return false, "audio_busy" end
     for id, h in pairs(instances) do
         pcall(h.stop, h)
         instances[id] = nil
@@ -671,4 +728,11 @@ function M.reset_all()
     return true
 end
 
+audio_hw.register_busy_probe("periph_audio", function()
+    if mic_warming then return true end
+    for _, h in pairs(instances) do
+        if h.state == "recording" or h.state == "playing" then return true end
+    end
+    return false
+end)
 return M

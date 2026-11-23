@@ -55,7 +55,6 @@ return {
                 h = 480,                 -- 竖直分辨率
                 -- RGB 时序（hbp/hspw/hfp/vbp/vspw/vfp/bus_speed）由真机板型 config 提供
             },
-            need_buffer = false,         -- 模拟器不启用帧缓冲（与 platform_loader 的 PC 内联配置一致）
             screen_size = 4.0,           -- 4寸屏
             font = { size = 14 },        -- 低分屏用 14 号字
             backlight = {
@@ -77,7 +76,13 @@ return {
     -- ===== 功能开关（只写 = true 的项）=====
     -- PC 模拟器: 仅以太网可用
     features = {
-        ethernet = true,                 -- 启用以太网
+        ethernet = true,     -- 启用以太网
+        app_factory = true,  -- 启用"应用工厂"（录音 → 生成 → 安装，需联网）
+        ai_chat = true,      -- 启用"AI 助手"（WebSocket 会话 + STT/TTS，需联网）
+        cloud_disk = true,   -- 启用"合宙网盘"（IoT 登录 → 云端文件，需联网）
+        other_func = true,   -- 启用"功能测试"（peripherals 外设清单）
+        iot = true,          -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,         -- 启用固件在线升级（需联网）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -86,7 +91,15 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_ethernet_settings = true,   -- 设置页以太网入口（PC 有虚拟以太网）
-        show_storage_settings = true,    -- 设置页存储空间入口
+        show_ethernet_settings = true,  -- 设置页以太网入口（PC 有虚拟以太网）
+        show_storage_settings = true,   -- 设置页存储空间入口
+        show_app_factory = true,        -- 桌面显示"应用工厂"图标
+        show_ai_chat = true,            -- 桌面显示"AI 助手"图标
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"图标
+        show_other_func = true,         -- 桌面显示"功能测试"图标
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
+        show_brightness_slider = true,  -- "亮度和声音"里显示亮度滑块
     },
 }

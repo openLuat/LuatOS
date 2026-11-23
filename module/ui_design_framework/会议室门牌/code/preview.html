@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>会议室门牌 · 1024x600 设计稿</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { width:100%; height:100%; background:#0b0e14; display:flex; align-items:center; justify-content:center;
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif; }
+#led { position:relative; width:1024px; height:600px; overflow:hidden; background:#0d1524;
+  font-variant-numeric:tabular-nums; user-select:none; }
+.tp { position:absolute; left:0; top:0; width:1024px; height:600px; opacity:0; pointer-events:none; transition:opacity .18s; }
+.tp.on { opacity:1; pointer-events:auto; }
+button { font-family:inherit; border:0; background:none; cursor:pointer; color:inherit; }
+.off { display:none !important; }
+
+/* ---------- 通用控件 ---------- */
+.tool { display:flex; align-items:center; gap:8px; height:44px; padding:0 16px; border-radius:8px; font-size:16px;
+  letter-spacing:.5px; border:1.5px solid rgba(30,60,95,.26); background:rgba(255,255,255,.72); color:#25405c; }
+.tool:active { transform:translateY(1px); }
+.tool .ic { width:18px; height:18px; }
+.tool.on { background:#1E7BD6; border-color:#1E7BD6; color:#fff; }
+.tool.dark { border-color:rgba(255,255,255,.42); background:rgba(255,255,255,.14); color:#fff; }
+.tool.dark.on { background:#FFD166; border-color:#FFD166; color:#3A2B06; }
+.tool.dark.warn { background:rgba(214,52,86,.55); border-color:rgba(255,186,206,.72); }
+
+/* ---------- 模板 A：企业蓝 · 天际线 ---------- */
+.tp-a { background:linear-gradient(180deg,#08182f 0%,#0f3357 40%,#1c5c8c 68%,#2d84b4 100%); }
+.a-sky { position:absolute; left:0; top:0; width:1024px; height:600px;
+  background:radial-gradient(100% 70% at 80% 6%, rgba(255,116,86,.40), transparent 58%),
+             radial-gradient(70% 55% at 8% 34%, rgba(30,170,220,.40), transparent 68%); }
+.a-city { position:absolute; left:0; bottom:0; width:1024px; height:300px; }
+.a-city svg { width:1024px; height:300px; display:block; }
+.a-haze { position:absolute; left:0; bottom:0; width:1024px; height:320px;
+  background:linear-gradient(180deg, rgba(8,24,47,0) 0%, rgba(8,24,47,.42) 55%, rgba(6,18,36,.86) 100%); }
+.a-top { position:absolute; left:0; top:0; width:1024px; height:58px; display:flex; align-items:center;
+  padding:0 24px; background:rgba(255,255,255,.96); box-shadow:0 2px 16px rgba(0,10,25,.22); }
+.a-brand { display:flex; align-items:center; gap:12px; }
+.a-brand .mark { width:30px; height:30px; }
+.a-brand b { font-size:20px; font-weight:600; color:#1F2937; letter-spacing:3px; }
+.a-top .tool { height:40px; }
+.a-top .tools { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.a-left { position:absolute; left:56px; top:150px; width:330px; }
+.a-room { font-size:44px; font-weight:600; color:#fff; letter-spacing:3px; text-shadow:0 4px 20px rgba(0,16,36,.55); }
+.a-en { margin-top:10px; font-size:18px; color:rgba(214,236,255,.84); letter-spacing:7px; }
+.a-meta { margin-top:18px; font-size:16px; color:rgba(196,222,244,.76); letter-spacing:1px; }
+.a-meta i { display:inline-block; width:6px; height:6px; border-radius:50%; background:rgba(150,210,245,.8); margin:0 8px 3px; }
+.a-dial { position:absolute; left:512px; top:298px; width:228px; height:228px; transform:translate(-50%,-50%);
+  border-radius:50%; background:radial-gradient(circle at 50% 38%, #16406c 0%, #0b2445 68%, #061a33 100%);
+  box-shadow:0 0 0 1px rgba(130,195,255,.28), 0 14px 46px rgba(0,18,44,.55), inset 0 0 34px rgba(40,120,200,.28);
+  display:flex; align-items:center; justify-content:center; }
+.a-dial .ring { position:absolute; left:6px; top:6px; width:216px; height:216px; border-radius:50%;
+  background:repeating-conic-gradient(from -.35deg, rgba(196,230,255,.9) 0deg .85deg, transparent .85deg 6deg);
+  -webkit-mask:radial-gradient(circle, transparent 0 96px, #000 96px 106px, transparent 106px);
+          mask:radial-gradient(circle, transparent 0 96px, #000 96px 106px, transparent 106px); }
+.a-dial .ring2 { position:absolute; left:6px; top:6px; width:216px; height:216px; border-radius:50%;
+  background:repeating-conic-gradient(from -.35deg, rgba(110,200,255,.55) 0deg 2.2deg, transparent 2.2deg 30deg);
+  -webkit-mask:radial-gradient(circle, transparent 0 86px, #000 86px 97px, transparent 97px);
+          mask:radial-gradient(circle, transparent 0 86px, #000 86px 97px, transparent 97px); }
+.dial-face { position:relative; text-align:center; }
+.a-clock { font-size:38px; font-weight:300; color:#fff; letter-spacing:3px; line-height:1; }
+.a-clock b { font-size:44px; font-weight:300; }
+.a-clock em { font-size:16px; font-style:normal; margin-left:6px; color:rgba(200,225,250,.8); }
+.a-date { margin-top:12px; padding-top:10px; border-top:1px solid rgba(150,205,255,.34);
+  font-size:16px; color:#BEDAEF; letter-spacing:1px; }
+.a-week { margin-top:7px; font-size:16px; color:#8FB6D8; letter-spacing:2px; }
+.a-right { position:absolute; left:650px; top:128px; width:322px; }
+.a-tag { font-size:16px; letter-spacing:2px; color:rgba(255,198,198,.92); }
+.a-range { margin-top:10px; font-size:30px; color:#fff; letter-spacing:2px; }
+.a-topic { display:block; margin-top:16px; padding:12px 14px; border-radius:6px; line-height:26px;
+  background:rgba(176,38,58,.58); border-left:4px solid #FF8091; font-size:18px; color:#fff; letter-spacing:.5px; }
+.a-next { margin-top:18px; font-size:16px; color:rgba(200,222,242,.72); letter-spacing:1px; }
+.a-foot { position:absolute; left:0; bottom:0; width:1024px; height:64px; display:flex; align-items:center;
+  padding:0 26px; background:linear-gradient(90deg, rgba(18,104,182,.94), rgba(20,148,198,.86));
+  border-top:1px solid rgba(255,255,255,.2); }
+.a-stat { display:flex; align-items:center; gap:12px; font-size:16px; color:#EAF6FF; letter-spacing:1px; cursor:pointer; padding:6px 12px 6px 0; }
+.a-stat .dot { width:10px; height:10px; border-radius:50%; background:#3BE08A; box-shadow:0 0 12px #3BE08A; }
+.a-stat b { font-weight:600; }
+.a-foot .acts { margin-left:auto; display:flex; gap:10px; }
+.a-foot .tool { height:44px; border-color:rgba(255,255,255,.5); background:rgba(255,255,255,.16); color:#fff; }
+.a-foot .tool.hi { background:#fff; color:#10639f; border-color:#fff; }
+.a-foot .tool.warn { background:rgba(206,52,60,.92); border-color:rgba(255,196,200,.58); }
+
+/* ---------- 模板 B：商务蓝紫 · 二维码 ---------- */
+.tp-b { background:linear-gradient(135deg,#0d1533 0%,#1a2b63 40%,#27398a 64%,#3a53ab 100%); }
+.b-sky { position:absolute; left:0; top:0; width:1024px; height:600px;
+  background:radial-gradient(58% 58% at 80% 44%, rgba(120,190,255,.34), transparent 62%),
+             radial-gradient(70% 52% at 16% 90%, rgba(96,64,196,.42), transparent 70%); }
+.b-arc { position:absolute; border-radius:50%; border:1px solid rgba(150,200,255,.16); }
+.b-arc.a1 { right:-160px; top:-200px; width:800px; height:800px; }
+.b-arc.a2 { right:20px; top:-90px; width:540px; height:540px; border-color:rgba(190,215,255,.11); }
+.b-arc.a3 { right:120px; top:20px; width:340px; height:340px; border-color:rgba(190,215,255,.08); }
+.b-tower { position:absolute; right:92px; bottom:0; width:210px; height:470px; opacity:.86; }
+.b-tower svg { width:210px; height:470px; display:block; }
+.b-top { position:absolute; left:56px; top:44px; width:912px; display:flex; align-items:flex-start; }
+.b-clock { font-size:64px; font-weight:200; color:#fff; letter-spacing:3px; line-height:1; }
+.b-date { margin-top:12px; font-size:16px; color:rgba(208,224,255,.82); letter-spacing:2px; }
+.b-top .tools { margin-left:auto; display:flex; gap:10px; }
+.b-chips { position:absolute; left:56px; top:198px; display:flex; }
+.b-chip { width:222px; padding:16px 18px; background:rgba(188,68,108,.34);
+  border:1.5px solid rgba(255,186,206,.58); cursor:pointer; }
+.b-chip:first-child { border-radius:4px 0 0 4px; }
+.b-chip:last-child { border-radius:0 4px 4px 0; border-left:0; }
+.b-chip b { display:block; font-size:22px; font-weight:600; color:#fff; letter-spacing:1px; }
+.b-chip span { display:block; margin-top:6px; font-size:16px; color:rgba(255,224,234,.74); letter-spacing:3px; }
+.b-chip.hot { background:rgba(214,52,86,.52); }
+.b-chip.hot.free { background:rgba(36,150,110,.5); border-color:rgba(160,255,220,.6); }
+.b-body { position:absolute; left:56px; top:330px; width:600px; }
+.b-label { display:flex; align-items:center; gap:9px; font-size:16px; color:rgba(255,212,222,.86); letter-spacing:2px; }
+.b-label .ic { width:16px; height:16px; }
+.b-topic { margin-top:14px; font-size:30px; color:#fff; letter-spacing:1px; line-height:42px; }
+.b-time { margin-top:14px; font-size:20px; color:rgba(224,234,255,.88); letter-spacing:1px; }
+.b-prog { margin-top:20px; width:380px; height:6px; border-radius:3px; background:rgba(255,255,255,.18); }
+.b-prog i { display:block; height:6px; border-radius:3px; background:linear-gradient(90deg,#5FD0FF,#B98CFF); transition:width .4s; }
+.b-prog-t { margin-top:10px; font-size:16px; color:rgba(206,222,255,.66); letter-spacing:1px; }
+.b-qr { position:absolute; right:72px; bottom:90px; width:140px; text-align:center; cursor:pointer; }
+.b-qr .code { width:140px; height:140px; padding:9px; border-radius:10px; background:#fff; box-shadow:0 8px 30px rgba(0,10,40,.4); }
+.b-qr .code svg { width:122px; height:122px; display:block; }
+.b-qr .cap { margin-top:10px; font-size:16px; color:rgba(220,234,255,.86); letter-spacing:1px; }
+.b-dots { position:absolute; left:56px; bottom:42px; display:flex; gap:10px; align-items:center; }
+.b-dots i { display:block; width:10px; height:10px; border-radius:5px; background:rgba(255,255,255,.3); cursor:pointer; transition:width .2s; }
+.b-dots i.on { width:28px; background:#fff; }
+
+/* ---------- 模板 C：红白表格 · 预约列表 ---------- */
+.tp-c { background:#f3efeb; }
+.c-photo { position:absolute; left:0; top:0; width:1024px; height:600px;
+  background:radial-gradient(46% 40% at 20% 26%, #cdd8e8 0%, transparent 62%),
+             radial-gradient(44% 36% at 66% 64%, #ecdbd0 0%, transparent 64%),
+             radial-gradient(56% 48% at 90% 22%, #c6d4c6 0%, transparent 66%),
+             linear-gradient(140deg,#dde3ea,#f3ebe3 58%,#e8dfd6);
+  filter:blur(3px) saturate(.92); }
+.c-shade { position:absolute; left:0; top:0; width:1024px; height:600px; background:rgba(255,255,255,.18); }
+.c-top { position:absolute; left:0; top:0; width:1024px; height:72px; display:flex; align-items:center;
+  padding:0 26px; background:linear-gradient(90deg,#8d1d22 0%,#b62c32 44%,#8a181d 100%);
+  box-shadow:0 3px 14px rgba(80,10,14,.3); }
+.c-brand { display:flex; align-items:center; gap:12px; }
+.c-brand .mark { width:32px; height:32px; }
+.c-brand b { font-size:20px; font-weight:600; color:#fff; letter-spacing:4px; }
+.c-top .tools { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.c-clock { margin-left:18px; display:flex; align-items:baseline; gap:12px; color:#fff; }
+.c-clock .hm { font-size:30px; letter-spacing:2px; }
+.c-clock .dt { font-size:16px; opacity:.82; letter-spacing:1px; }
+.c-side { position:absolute; left:40px; top:96px; width:272px; }
+.c-room { padding:20px; border-radius:4px; background:rgba(255,255,255,.92); box-shadow:0 5px 18px rgba(70,40,40,.1);
+  font-size:28px; color:#A8242A; letter-spacing:2px; text-align:center; }
+.c-state { margin-top:12px; padding:22px 20px 18px; border-radius:4px; background:rgba(255,255,255,.94);
+  box-shadow:0 5px 18px rgba(70,40,40,.1); text-align:center; cursor:pointer; }
+.c-state b { display:block; font-size:24px; color:#C62A30; letter-spacing:2px; }
+.c-state span { display:block; margin-top:8px; font-size:18px; color:#D0555A; letter-spacing:3px; }
+.c-state.free b { color:#1E8A5B; }
+.c-state.free span { color:#3AA377; }
+.c-lock { margin-top:12px; width:100%; height:64px; border-radius:4px; background:rgba(255,255,255,.94);
+  box-shadow:0 5px 18px rgba(70,40,40,.1); display:flex; align-items:center; justify-content:center; gap:12px;
+  font-size:18px; color:#A8242A; letter-spacing:1px; }
+.c-lock.opened { color:#1E8A5B; }
+.c-lock .ic { width:26px; height:26px; }
+.c-btns { margin-top:12px; display:flex; gap:10px; }
+.c-book { flex:1; height:56px; border-radius:4px; font-size:18px; letter-spacing:1px;
+  background:linear-gradient(90deg,#A8242A,#C0333A); color:#fff; box-shadow:0 6px 18px rgba(140,20,26,.28); }
+.c-sched { flex:1; height:56px; border-radius:4px; font-size:18px; letter-spacing:1px;
+  background:rgba(255,255,255,.94); color:#A8242A; border:1.5px solid rgba(168,36,42,.32);
+  box-shadow:0 5px 18px rgba(70,40,40,.1); }
+.c-book:active, .c-sched:active { transform:translateY(1px); }
+.c-cancel { flex:1; height:52px; border-radius:4px; font-size:18px; letter-spacing:1px; color:#A8242A;
+  background:rgba(255,255,255,.94); border:1.5px dashed rgba(168,36,42,.5); box-shadow:0 5px 18px rgba(70,40,40,.1); }
+.c-cancel:active { transform:translateY(1px); }
+.c-table { position:absolute; left:332px; top:96px; width:652px; }
+.c-head { display:flex; align-items:center; height:46px; border-radius:4px 4px 0 0;
+  background:rgba(255,255,255,.9); font-size:16px; color:#8A4444; letter-spacing:1px; }
+.c-head span { padding:0 18px; }
+.c-head span:nth-child(1) { width:158px; }
+.c-head span:nth-child(2) { flex:1; }
+.c-head span:nth-child(3) { width:92px; text-align:right; }
+.c-head span:nth-child(4) { width:74px; }
+.c-list { margin-top:8px; display:flex; flex-direction:column; gap:8px; }
+.c-row { display:flex; align-items:center; height:58px; border-radius:4px; background:rgba(255,255,255,.92);
+  font-size:16px; color:#4B3B3B; cursor:pointer; box-shadow:0 3px 12px rgba(70,40,40,.07); transition:transform .1s; }
+.c-row:active { transform:translateY(1px); }
+.c-row.on { background:linear-gradient(90deg,#A8242A,#BE3238); color:#fff; box-shadow:0 6px 20px rgba(140,20,26,.28); }
+.c-row span { padding:0 18px; }
+.c-row .t { width:158px; letter-spacing:1px; }
+.c-row .s { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.c-row .p { width:92px; text-align:right; opacity:.86; }
+.c-row .go { width:64px; height:32px; margin-right:10px; border-radius:4px; font-size:16px; letter-spacing:.5px;
+  background:rgba(168,36,42,.1); color:#A8242A; border:1px solid rgba(168,36,42,.28); }
+.c-row .go:active { transform:translateY(1px); }
+.c-row.on .go { background:rgba(255,255,255,.2); color:#fff; border-color:rgba(255,255,255,.42); }
+.c-row .cur-tag { width:64px; margin-right:10px; text-align:center; font-size:16px; color:#fff;
+  background:rgba(255,255,255,.24); border-radius:4px; padding:5px 0; }
+.c-foot { position:absolute; left:332px; top:410px; width:652px; }
+.c-next { display:flex; align-items:center; gap:10px; height:52px; padding:0 18px; border-radius:4px;
+  background:rgba(255,255,255,.82); font-size:16px; color:#7A5A5A; letter-spacing:1px; }
+.c-next b { color:#A8242A; }
+.c-next .btn { margin-left:auto; height:38px; padding:0 16px; border-radius:4px; font-size:16px;
+  background:rgba(168,36,42,.1); color:#A8242A; border:1px solid rgba(168,36,42,.3); }
+
+/* ---------- 弹层 ---------- */
+.mask { position:absolute; left:0; top:0; width:1024px; height:600px; background:rgba(12,18,30,.42);
+  opacity:0; pointer-events:none; transition:opacity .16s; z-index:20; }
+.mask.on { opacity:1; pointer-events:auto; }
+.panel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(.98); width:470px;
+  max-height:568px; overflow-y:auto; background:#FDFCFA; border-radius:16px;
+  box-shadow:0 24px 70px rgba(10,20,40,.34); padding:26px 26px 20px;
+  opacity:0; pointer-events:none; transition:opacity .16s, transform .16s; z-index:21; }
+.panel.on { opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
+.panel h3 { font-size:22px; font-weight:600; color:#1E2733; letter-spacing:1px; }
+.panel .sub { margin-top:8px; font-size:16px; color:#7C8896; }
+.panel .close { position:absolute; right:14px; top:12px; width:38px; height:38px; border-radius:50%;
+  font-size:24px; color:#94A0AE; display:flex; align-items:center; justify-content:center; }
+.panel .close:active { background:#EEF1F5; }
+.kv { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #EDF0F4; font-size:16px; }
+.kv span { width:92px; color:#8A96A4; letter-spacing:1px; }
+.kv b { flex:1; color:#2A3441; font-weight:500; }
+.p-btns { display:flex; gap:10px; margin-top:16px; }
+.p-btns .btn { flex:1; height:48px; border-radius:8px; font-size:17px; letter-spacing:1px; background:#EEF2F7; color:#31445A; }
+.p-btns .btn.main { background:#1E7BD6; color:#fff; }
+.p-btns .btn.danger { background:#C8343C; color:#fff; }
+.p-btns .btn:active { transform:translateY(1px); }
+.tp-list { margin-top:18px; display:flex; flex-direction:column; gap:12px; }
+.tp-item { display:block; width:100%; text-align:left; padding:14px 18px; border-radius:10px;
+  border:1.5px solid #E3E8EF; background:#fff; }
+.tp-item b { display:block; font-size:18px; font-weight:600; color:#243043; margin-bottom:5px; line-height:24px; }
+.tp-item span { display:block; font-size:16px; color:#8A96A4; line-height:22px; }
+.tp-item.sel { border-color:#1E7BD6; background:#F2F8FF; }
+.seg { display:flex; gap:10px; margin-top:18px; }
+.seg button { flex:1; height:48px; border-radius:8px; font-size:17px; background:#F0F3F8; color:#3A4A5C; border:1.5px solid transparent; }
+.seg button.on { border-color:#1E7BD6; background:#EAF3FF; color:#1E7BD6; font-weight:600; }
+.slots { margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+.slots button { height:50px; border-radius:8px; font-size:17px; background:#F6F8FB; color:#3A4A5C;
+  border:1.5px solid #E7ECF3; display:flex; align-items:center; justify-content:space-between; padding:0 18px; }
+.slots button em { font-style:normal; font-size:16px; color:#93A0AF; }
+.slots button.on { border-color:#1E7BD6; background:#EAF3FF; color:#1E7BD6; }
+.slots button.on em { color:#5C8FC4; }
+.slots button.taken { opacity:.55; }
+.slots button.taken em { color:#B23A3F; }
+.qr-big { margin:18px auto 0; width:236px; height:236px; padding:14px; border-radius:12px; background:#fff;
+  box-shadow:0 8px 26px rgba(20,40,80,.14); }
+.qr-big svg { width:208px; height:208px; display:block; }
+/* ---------- 会议详情：会议内容 ---------- */
+.agenda { margin-top:12px; padding:13px 16px; border-radius:10px; background:#F4F7FB; }
+.agenda h4 { font-size:16px; font-weight:600; color:#3B4A5C; letter-spacing:1px; }
+.agenda ul { margin-top:8px; list-style:none; }
+.agenda li { position:relative; padding-left:16px; margin-top:6px; font-size:16px; line-height:22px; color:#4C5A6B; }
+.agenda li::before { content:""; position:absolute; left:2px; top:8px; width:6px; height:6px; border-radius:3px; background:#8FB6DC; }
+.agenda .note { margin-top:8px; font-size:16px; line-height:22px; color:#8C98A6; }
+
+/* ---------- 会议日程 ---------- */
+#pSched { width:552px; }
+.sched { margin-top:16px; display:flex; flex-direction:column; gap:10px; }
+.sched-item { display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+  padding:12px 14px; border-radius:10px; border:1.5px solid #E6EBF2; background:#fff; }
+.sched-item .tm { width:114px; font-size:16px; color:#5B6878; letter-spacing:1px; }
+.sched-item .tt { flex:1; font-size:17px; color:#243043; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.sched-item .pp { font-size:16px; color:#95A1AF; }
+.sched-item .tag { padding:3px 9px; border-radius:4px; font-size:16px; background:#EEF2F7; color:#6E7B8B; }
+.sched-item.cur { border-color:#1E7BD6; background:#F2F8FF; }
+.sched-item.cur .tag { background:#1E7BD6; color:#fff; }
+.sched-item.mine .tag { background:#E7F6EE; color:#1E8A5B; }
+.sched-item.sel { border-color:#1E8A5B; background:#F1FAF5; box-shadow:0 0 0 3px rgba(30,138,91,.12); }
+.sched-item.sel .tag { background:#1E8A5B; color:#fff; }
+.sched-item.past { opacity:.6; }
+.sched-tip { margin-top:12px; font-size:16px; color:#8C98A6; line-height:22px; }
+.book-mine { margin-top:14px; display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:8px;
+  background:#FDF3F3; border:1px solid #F0D6D7; }
+.book-mine span { flex:1; font-size:16px; color:#8E3A3F; letter-spacing:.5px; }
+.book-mine button { height:36px; padding:0 16px; border-radius:6px; font-size:16px; background:#C8343C; color:#fff; }
+.book-mine button:active { transform:translateY(1px); }
+.door-state { display:flex; align-items:center; gap:10px; }
+.door-state .dot { width:12px; height:12px; border-radius:50%; background:#C8343C; }
+.door-state .dot.open { background:#1E8A5B; box-shadow:0 0 10px rgba(30,138,91,.6); }
+
+.toast { position:absolute; left:50%; top:70px; transform:translate(-50%,-10px); padding:11px 26px; border-radius:8px;
+  background:rgba(24,32,44,.9); color:#fff; font-size:17px; letter-spacing:.5px; opacity:0; pointer-events:none;
+  transition:opacity .2s, transform .2s; z-index:30; }
+.toast.on { opacity:1; transform:translate(-50%,0); }
+
+/* ---------- 主题：浅色（默认）/ 深色 ---------- */
+/* 浅色下 A/B 的深蓝夜空换成浅蓝白日光；深色下 C 的红白表格换成暗红木色 */
+#led.light .tp-a { background:linear-gradient(180deg,#eaf3fc 0%,#d7e7f6 42%,#bed6ee 70%,#a9c8e6 100%); }
+#led.light .tp-a .a-sky { background:radial-gradient(100% 70% at 80% 6%, rgba(255,168,132,.34), transparent 58%),
+                                 radial-gradient(70% 55% at 8% 34%, rgba(90,180,230,.30), transparent 68%); }
+#led.light .tp-a .a-haze { background:linear-gradient(180deg, rgba(233,243,252,0) 0%, rgba(226,238,250,.5) 55%, rgba(214,229,244,.9) 100%); }
+#led.light .a-top { background:rgba(255,255,255,.98); box-shadow:0 2px 14px rgba(30,80,140,.14); }
+#led.light .a-brand b { color:#1B3A5C; }
+#led.light .a-room { color:#16324F; text-shadow:0 2px 10px rgba(255,255,255,.7); }
+#led.light .a-en { color:#3E6E9E; }
+#led.light .a-meta { color:#4C7196; }
+#led.light .a-meta i { background:#5C93C4; }
+#led.light .a-dial { background:radial-gradient(circle at 50% 38%, #f7fbff 0%, #ddeaf8 68%, #c6d9ee 100%);
+  box-shadow:0 0 0 1px rgba(60,120,180,.34), 0 12px 34px rgba(40,90,150,.18), inset 0 0 30px rgba(120,170,220,.22); }
+#led.light .a-dial .ring { background:repeating-conic-gradient(from -.35deg, rgba(56,110,168,.85) 0deg .85deg, transparent .85deg 6deg); }
+#led.light .a-dial .ring2 { background:repeating-conic-gradient(from -.35deg, rgba(80,140,200,.6) 0deg 2.2deg, transparent 2.2deg 30deg); }
+#led.light .a-clock { color:#16324F; }
+#led.light .a-clock em { color:#3E6E9E; }
+#led.light .a-date { border-top-color:rgba(60,110,168,.34); color:#2B5B85; }
+#led.light .a-week { color:#4A7398; }
+#led.light .a-tag { color:#A8404E; }
+#led.light .a-range { color:#16324F; }
+#led.light .a-topic { background:rgba(200,52,60,.13); border-left-color:#C8343C; color:#8C2230; }
+#led.light .a-next { color:#46688A; }
+#led.light .a-foot { background:linear-gradient(90deg, rgba(30,123,214,.95), rgba(46,160,206,.9)); }
+#led.light .a-stat { color:#EAF6FF; }
+#led.light .b-sky { background:radial-gradient(58% 58% at 80% 44%, rgba(120,180,240,.34), transparent 62%),
+                             radial-gradient(70% 52% at 16% 90%, rgba(120,96,210,.22), transparent 70%); }
+#led.light .tp-b { background:linear-gradient(135deg,#eef4fc 0%,#dbe7f8 40%,#c9daf2 64%,#b6cdec 100%); }
+#led.light .b-arc { border-color:rgba(70,120,180,.18); }
+#led.light .b-clock { color:#16294A; }
+#led.light .b-date { color:#3C5C86; }
+#led.light .b-chip { background:rgba(255,255,255,.72); border-color:rgba(200,52,86,.42); }
+#led.light .b-chip b { color:#20304C; }
+#led.light .b-chip span { color:#6E7F9C; }
+#led.light .b-chip.hot { background:rgba(214,52,86,.16); }
+#led.light .b-chip.hot b { color:#A8242A; }
+#led.light .b-chip.hot span { color:#B4616E; }
+#led.light .b-chip.hot.free { background:rgba(36,150,110,.16); border-color:rgba(30,138,91,.5); }
+#led.light .b-chip.hot.free b { color:#1E8A5B; }
+#led.light .b-chip.hot.free span { color:#4C8E76; }
+#led.light .tp-b .tool.dark { background:rgba(255,255,255,.74); color:#2A4468; border-color:rgba(60,110,170,.28); }
+#led.light .tp-b .tool.dark.on { background:rgba(200,52,86,.16); color:#A8242A; border-color:rgba(200,52,86,.42); }
+#led.light .b-label { color:#A8404E; }
+#led.light .b-topic { color:#16294A; }
+#led.light .b-time { color:#3A5A86; }
+#led.light .b-prog { background:rgba(30,60,110,.16); }
+#led.light .b-prog-t { color:#5A7492; }
+#led.light .b-qr .cap { color:#3A5A86; }
+#led.light .b-dots i { background:rgba(30,60,110,.28); }
+#led.light .b-dots i.on { background:#1E7BD6; }
+#led.dark .tp-c { background:#1b1516; }
+#led.dark .c-photo { background:radial-gradient(46% 40% at 20% 26%, #3a2a2e 0%, transparent 62%),
+                                radial-gradient(44% 36% at 66% 64%, #40302a 0%, transparent 64%),
+                                radial-gradient(56% 48% at 90% 22%, #243028 0%, transparent 66%),
+                                linear-gradient(140deg,#241c1d,#2e2321 58%,#241b1a); filter:blur(3px) saturate(.9); }
+#led.dark .c-shade { background:rgba(0,0,0,.34); }
+#led.dark .c-room { background:rgba(48,36,37,.94); color:#F2A0A4; box-shadow:0 5px 18px rgba(0,0,0,.34); }
+#led.dark .c-state { background:rgba(48,36,37,.96); box-shadow:0 5px 18px rgba(0,0,0,.34); }
+#led.dark .c-state b { color:#FF8A8E; }
+#led.dark .c-state span { color:#C9868A; }
+#led.dark .c-state.free b { color:#49D18E; }
+#led.dark .c-state.free span { color:#6FBF97; }
+#led.dark .c-lock { background:rgba(48,36,37,.96); color:#F2A0A4; box-shadow:0 5px 18px rgba(0,0,0,.34); }
+#led.dark .c-lock.opened { color:#49D18E; }
+#led.dark .c-sched { background:rgba(48,36,37,.96); color:#F2A0A4; border-color:rgba(220,120,124,.4); }
+#led.dark .c-cancel { background:rgba(48,36,37,.96); color:#F2A0A4; border-color:rgba(220,120,124,.55); }
+#led.dark .c-head { background:rgba(44,34,35,.94); color:#C9A0A0; }
+#led.dark .c-row { background:rgba(44,34,35,.94); color:#EAD8D8; box-shadow:0 3px 12px rgba(0,0,0,.28); }
+#led.dark .c-row .go { background:rgba(220,120,124,.16); color:#F2A0A4; border-color:rgba(220,120,124,.36); }
+#led.dark .c-next { background:rgba(44,34,35,.9); color:#C9A0A0; }
+#led.dark .c-next b { color:#F28086; }
+#led.dark .c-next .btn { background:rgba(220,120,124,.16); color:#F2A0A4; border-color:rgba(220,120,124,.36); }
+/* 弹层：浅色底（默认）/ 深色底 */
+#led.dark .panel { background:#1C242E; box-shadow:0 24px 70px rgba(0,0,0,.6); }
+#led.dark .panel h3 { color:#EAF1F8; }
+#led.dark .panel .sub { color:#9AA8B8; }
+#led.dark .panel .close { color:#8FA0B2; }
+#led.dark .panel .close:active { background:#2A3644; }
+#led.dark .kv { border-bottom-color:#2A3644; }
+#led.dark .kv span { color:#8FA0B2; }
+#led.dark .kv b { color:#DCE6F0; }
+#led.dark .agenda { background:#232D39; }
+#led.dark .agenda h4 { color:#C7D4E2; }
+#led.dark .agenda li { color:#B9C7D6; }
+#led.dark .agenda li::before { background:#6E93BC; }
+#led.dark .agenda .note { color:#93A3B3; }
+#led.dark .p-btns .btn { background:#2A3644; color:#D6E2EE; }
+#led.dark .tp-item { background:#232D39; border-color:#2F3B49; }
+#led.dark .tp-item b { color:#E6EEF6; }
+#led.dark .tp-item span { color:#9AA8B8; }
+#led.dark .tp-item.sel { border-color:#3B93E8; background:#1E2E42; }
+#led.dark .seg button { background:#232D39; color:#C7D4E2; }
+#led.dark .seg button.on { background:rgba(30,123,214,.24); color:#7CB8F5; border-color:#3B93E8; }
+#led.dark .slots button { background:#232D39; color:#C7D4E2; border-color:#2F3B49; }
+#led.dark .slots button em { color:#8FA0B2; }
+#led.dark .slots button.on { background:rgba(30,123,214,.24); color:#7CB8F5; border-color:#3B93E8; }
+#led.dark .slots button.on em { color:#6FA6DC; }
+#led.dark .book-mine { background:rgba(200,52,60,.16); border-color:rgba(200,52,60,.44); }
+#led.dark .book-mine span { color:#F0A0A4; }
+#led.dark .sched-item { background:#232D39; border-color:#2F3B49; }
+#led.dark .sched-item .tm { color:#A9B8C7; }
+#led.dark .sched-item .tt { color:#E6EEF6; }
+#led.dark .sched-item .pp { color:#8FA0B2; }
+#led.dark .sched-item .tag { background:#2E3A48; color:#A9B8C7; }
+#led.dark .sched-item.cur { background:#1E2E42; border-color:#3B93E8; }
+#led.dark .sched-item.mine { background:#1F2E27; }
+#led.dark .sched-tip { color:#8FA0B2; }
+#led.dark .a-topic, #led.dark .b-topic { color:#fff; }
+</style>
+</head>
+<body>
+<style>
+.a-topic, .b-topic { width:100%; text-align:left; display:block; }
+.b-chip { text-align:left; }
+.c-room { cursor:pointer; }
+.a-dial { cursor:pointer; }
+</style>
+<div id="led" class="light">
+
+  <!-- ==================== 模板 A：企业蓝 · 天际线 ==================== -->
+  <section class="tp tp-a on" data-tpl="a">
+    <div class="a-sky"></div>
+    <div class="a-city" id="cityA"></div>
+    <div class="a-haze"></div>
+    <header class="a-top">
+      <div class="a-brand">
+        <svg class="mark" viewBox="0 0 32 32"><path d="M16 2 29 9v14L16 30 3 23V9z" fill="#D8323C"/><path d="M16 9l6 7-6 7-6-7z" fill="#fff"/></svg>
+        <b>东证创新</b>
+      </div>
+      <div class="tools">
+        <button class="tool" data-act="qr">扫码签到</button>
+        <button class="tool" data-act="dnd" id="dndA">免打扰</button>
+        <button class="tool" data-act="theme" id="thA">深色</button>
+        <button class="tool" data-act="tplmenu">模板 · 天际线</button>
+      </div>
+    </header>
+
+    <div class="a-left">
+      <div class="a-room" data-act="room">蓝聪会议室</div>
+      <div class="a-en">MEETING ROOM</div>
+      <div class="a-meta">3F 东区<i></i>可容纳 12 人</div>
+    </div>
+
+    <div class="a-dial" data-act="dial">
+      <div class="ring"></div><div class="ring2"></div>
+      <div class="dial-face" id="faceClock">
+        <div class="a-clock" id="aClock">13:27</div>
+        <div class="a-date" id="aDate">2026/11/19</div>
+        <div class="a-week" id="aWeek">星期四</div>
+      </div>
+      <div class="dial-face off" id="faceLeft">
+        <div class="a-clock"><b id="aLeftMin">38</b><em>分钟</em></div>
+        <div class="a-date" id="aLeftLab">剩余时间</div>
+        <div class="a-week" id="aLeftTip">预计 14:05 结束</div>
+      </div>
+    </div>
+
+    <div class="a-right">
+      <div class="a-tag" id="aTag">CURRENT MEETING · 当前会议</div>
+      <div class="a-range" id="aRange">13:05 - 14:05</div>
+      <button class="a-topic" data-act="detail" data-i="0" id="aTopic">关于多种交互方案讨论会议</button>
+      <div class="a-next" id="aNext">下一场 14:15 · Q4 产品规划评审</div>
+    </div>
+
+    <footer class="a-foot">
+      <div class="a-stat" data-act="state">
+        <span class="dot" id="aDot"></span>
+        <span id="aStatText">会议中 · 剩余 <b id="aFootLeft">38</b> 分钟</span>
+      </div>
+      <div class="acts">
+        <button class="tool" data-act="detail" data-i="0" id="aDetail">会议详情</button>
+        <button class="tool" data-act="sched">会议日程</button>
+        <button class="tool" data-act="book">预约会议室</button>
+        <button class="tool warn" data-act="cancel-book" id="aCancel" style="display:none">取消预约</button>
+        <button class="tool hi" data-act="door" id="aDoor">开门</button>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ==================== 模板 B：商务蓝紫 · 二维码 ==================== -->
+  <section class="tp tp-b" data-tpl="b">
+    <div class="b-sky"></div>
+    <div class="b-arc a1"></div><div class="b-arc a2"></div><div class="b-arc a3"></div>
+    <div class="b-tower" id="towerB"></div>
+
+    <div class="b-top">
+      <div>
+        <div class="b-clock" id="bClock">13:27</div>
+        <div class="b-date" id="bDate">2026/11/19 星期四</div>
+      </div>
+      <div class="tools">
+        <button class="tool dark" data-act="sched">会议日程</button>
+        <button class="tool dark warn" data-act="cancel-book" id="bCancel" style="display:none">取消预约</button>
+        <button class="tool dark" data-act="dnd" id="dndB">免打扰</button>
+        <button class="tool dark" data-act="theme" id="thB">深色</button>
+        <button class="tool dark" data-act="tplmenu">模板 · 商务</button>
+      </div>
+    </div>
+
+    <div class="b-chips">
+      <button class="b-chip" data-act="room"><b>蓝聪会议室</b><span>MEETING ROOM</span></button>
+      <button class="b-chip hot" data-act="state" id="bState">
+        <b id="bStateT">会议中</b><span id="bStateS">IN MEETING</span>
+      </button>
+    </div>
+
+    <div class="b-body">
+      <div class="b-label">
+        <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="rgba(255,212,222,.9)" stroke-width="1.6">
+          <rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5"/>
+        </svg>
+        <span id="bLabel">CURRENT MEETING · 当前会议</span>
+      </div>
+      <button class="b-topic" data-act="detail" data-i="0" id="bTopic">关于多种交互方案讨论会议</button>
+      <div class="b-time" id="bTime">13:05 - 14:05</div>
+      <div class="b-prog"><i id="bProg" style="width:36%"></i></div>
+      <div class="b-prog-t" id="bProgT">已进行 22 分钟 · 共 60 分钟</div>
+    </div>
+
+    <button class="b-qr" data-act="qr">
+      <div class="code" id="qrB"></div>
+      <div class="cap">扫码签到</div>
+    </button>
+
+    <div class="b-dots" id="dotsB">
+      <i class="on" data-act="tpl" data-v="0"></i>
+      <i data-act="tpl" data-v="1"></i>
+      <i data-act="tpl" data-v="2"></i>
+    </div>
+  </section>
+
+  <!-- ==================== 模板 C：红白表格 · 预约列表 ==================== -->
+  <section class="tp tp-c" data-tpl="c">
+    <div class="c-photo"></div><div class="c-shade"></div>
+
+    <header class="c-top">
+      <div class="c-brand">
+        <svg class="mark" viewBox="0 0 32 32"><path d="M16 3c2.2 5.2 5.6 8.6 10.8 10.8C21.6 16 18.2 19.4 16 24.6 13.8 19.4 10.4 16 5.2 13.8 10.4 11.6 13.8 8.2 16 3z" fill="#fff"/></svg>
+        <b>东证创新</b>
+      </div>
+      <div class="tools">
+        <button class="tool dark" data-act="dnd" id="dndC">免打扰</button>
+        <button class="tool dark" data-act="theme" id="thC">深色</button>
+        <button class="tool dark" data-act="tplmenu">模板 · 表格</button>
+      </div>
+      <div class="c-clock">
+        <span class="hm" id="cClock">13:27</span>
+        <span class="dt" id="cDate">11/19 星期四</span>
+      </div>
+    </header>
+
+    <aside class="c-side">
+      <div class="c-room" data-act="room">蓝聪会议室</div>
+      <div class="c-state" data-act="state" id="cState">
+        <b id="cStateT">正在使用</b><span id="cStateS">OCCUPIED</span>
+      </div>
+      <button class="c-lock" data-act="door" id="cLock">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
+        </svg>
+        <span id="cLockT">门禁已上锁</span>
+      </button>
+      <div class="c-btns">
+        <button class="c-sched" data-act="sched">会议日程</button>
+        <button class="c-book" data-act="book">预约会议室</button>
+      </div>
+      <div class="c-btns" id="cCancelWrap" style="display:none">
+        <button class="c-cancel" data-act="cancel-book">取消预约</button>
+      </div>
+    </aside>
+
+    <div class="c-table">
+      <div class="c-head"><span>时间</span><span>会议主题</span><span>人数</span><span></span></div>
+      <div class="c-list" id="cList"></div>
+    </div>
+
+    <div class="c-foot">
+      <div class="c-next">
+        <span>下一场 <b id="cNextT">14:15</b></span>
+        <span id="cNextS">Q4 产品规划评审</span>
+        <button class="btn" data-act="book">预约</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="mask" id="mask"></div>
+
+  <!-- 会议详情（只展示会议内容，不放签到/结束这类操作） -->
+  <div class="panel" id="pDetail">
+    <button class="close" data-act="close">×</button>
+    <h3>会议详情</h3>
+    <div class="sub" id="dTopic">关于多种交互方案讨论会议</div>
+    <div style="margin-top:12px">
+      <div class="kv"><span>时间</span><b id="dTime">10:05 - 11:05</b></div>
+      <div class="kv"><span>预约人</span><b id="dOwner">张明 · 产品部</b></div>
+      <div class="kv"><span>参会人数</span><b id="dPeople">8 / 12 人</b></div>
+      <div class="kv"><span>会议室</span><b>蓝聪会议室 · 3F 东区</b></div>
+    </div>
+    <div class="agenda">
+      <h4>会议内容</h4>
+      <ul id="dAgenda"></ul>
+      <div class="note" id="dNote">请提前 5 分钟到场，会前资料已随日程同步。</div>
+    </div>
+    <div class="p-btns">
+      <button class="btn" data-act="close">关闭</button>
+      <button class="btn main" data-act="sched">查看会议日程</button>
+    </div>
+  </div>
+
+  <!-- 会议日程 -->
+  <div class="panel" id="pSched">
+    <button class="close" data-act="close">×</button>
+    <h3>会议日程</h3>
+    <div class="sub" id="schedSub">蓝聪会议室 · 3F 东区 · 今天</div>
+    <div class="sched" id="schedList"></div>
+    <div class="sched-tip">点普通场次切换为「正在使用」；点你的预约把它选中，再按下方「取消预约」。</div>
+    <div class="p-btns">
+      <button class="btn" data-act="close">关闭</button>
+      <button class="btn danger" data-act="cancel-sel" id="schedCancel" style="display:none">取消预约</button>
+      <button class="btn main" data-act="book">预约会议室</button>
+    </div>
+  </div>
+
+  <!-- 预约 -->
+  <div class="panel" id="pBook">
+    <button class="close" data-act="close">×</button>
+    <h3>预约会议室</h3>
+    <div class="sub">蓝聪会议室 · 3F 东区 · 可容纳 12 人</div>
+    <div class="seg" id="segDate">
+      <button class="on" data-act="pick-date" data-v="0">今天</button>
+      <button data-act="pick-date" data-v="1">明天</button>
+    </div>
+    <div class="slots" id="segSlot">
+      <button class="on" data-act="pick-slot" data-v="0">14:15 - 15:30 <em>空闲</em></button>
+      <button data-act="pick-slot" data-v="1">15:45 - 17:00 <em>空闲</em></button>
+      <button data-act="pick-slot" data-v="2">17:15 - 18:30 <em>空闲</em></button>
+    </div>
+    <div class="book-mine" id="bookMine" style="display:none">
+      <span id="bookMineTxt">已预约 14:15 - 15:30</span>
+      <button data-act="cancel-last">取消预约</button>
+    </div>
+    <div class="p-btns">
+      <button class="btn" data-act="close">取消</button>
+      <button class="btn main" data-act="book-ok">确认预约</button>
+    </div>
+  </div>
+
+  <!-- 二维码 -->
+  <div class="panel" id="pQr" style="width:404px">
+    <button class="close" data-act="close">×</button>
+    <h3 style="text-align:center">扫码签到</h3>
+    <div class="sub" style="text-align:center">使用企业微信扫描下方二维码</div>
+    <div class="qr-big" id="qrBig"></div>
+    <div class="p-btns">
+      <button class="btn" data-act="close">关闭</button>
+      <button class="btn main" data-act="sign">模拟签到成功</button>
+    </div>
+  </div>
+
+  <!-- 模板选择 -->
+  <div class="panel" id="pTpl">
+    <button class="close" data-act="close">×</button>
+    <h3>选择显示模板</h3>
+    <div class="sub">点顶栏的模板方框可随时切换</div>
+    <div class="tp-list" id="tplList">
+      <button class="tp-item sel" data-act="pick-tpl" data-v="0"><b>天际线 · 企业蓝</b><span>白顶栏 + 城市夜景 + 圆形表盘时钟</span></button>
+      <button class="tp-item" data-act="pick-tpl" data-v="1"><b>商务蓝 · 二维码</b><span>大字号时间 + 会议胶囊 + 扫码签到</span></button>
+      <button class="tp-item" data-act="pick-tpl" data-v="2"><b>红白表格 · 预约列表</b><span>会议室状态 + 全天会议表格</span></button>
+    </div>
+  </div>
+
+  <!-- 门禁 -->
+  <div class="panel" id="pDoor" style="width:404px">
+    <button class="close" data-act="close">×</button>
+    <h3>门禁控制</h3>
+    <div class="sub">蓝聪会议室 · 3F 东区</div>
+    <div style="margin-top:14px">
+      <div class="kv"><span>当前状态</span><b class="door-state"><i class="dot" id="doorDot"></i><span id="doorState">门禁已上锁</span></b></div>
+      <div class="kv"><span>开门权限</span><b>会议期间可远程开门</b></div>
+      <div class="kv"><span>操作说明</span><b id="doorHint">确认后远程开锁，30 秒内可推门进入</b></div>
+    </div>
+    <div class="p-btns">
+      <button class="btn" data-act="close">取消</button>
+      <button class="btn main" data-act="door-ok" id="doorOk">确认开门</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+var $ = function(id){ return document.getElementById(id); };
+var led = $('led');
+/* bookings：可预约多场，每场一个 bid；selBid：日程里被选中的那笔预约 */
+var S = { tpl:0, dnd:false, door:false, dial:'clock', cur:0, date:0, slot:0,
+  bookings:[], bidSeq:1, selBid:null, free:false, theme:'light' };
+var TPLS = ['a','b','c'];
+var TPL_NAME = ['天际线 · 企业蓝','商务蓝 · 二维码','红白表格 · 预约列表'];
+var PANELS = ['pDetail','pBook','pQr','pTpl','pDoor','pSched'];
+
+function pad(n){ return n<10 ? '0'+n : ''+n; }
+function fmt(min){
+  min = Math.max(0, Math.floor(min));
+  return pad(Math.floor(min/60)%24)+':'+pad(min%60);
+}
+
+/* ---- 今天的固定日程（单位：当天分钟数），虚拟时钟在当前场次里走 ---- */
+var DAY = [
+  { idx:0, st:605, et:665, topic:'关于多种交互方案讨论会议', owner:'张明', dept:'产品部', people:8,
+    agenda:['交互方案对比：实体按键 / 触控 / 语音','下一代门牌交互排期确认','遗留问题闭环与责任人'] },
+  { idx:1, st:677, et:737, topic:'Q4 产品规划评审', owner:'李静', dept:'研发部', people:6,
+    agenda:['Q4 版本范围与里程碑','人力与资源缺口对齐','主要风险项与兜底方案'] },
+  { idx:2, st:777, et:837, topic:'客户接待 · 东证创新', owner:'王强', dept:'市场部', people:10,
+    agenda:['来访客户与议程介绍','产品演示与现场答疑','后续合作意向沟通'] }
+];
+
+/* 可预约时段（今天/明天通用） */
+var SLOTS = [
+  { st:855, et:930 },   // 14:15 - 15:30
+  { st:945, et:1020 },  // 15:45 - 17:00
+  { st:1035, et:1110 }  // 17:15 - 18:30
+];
+
+var VNOW = 635;   /* 虚拟时钟：10:35（第一场进行中，剩余 30 分钟） */
+
+function curMeet(){ return DAY[S.cur] || DAY[0]; }
+function leftMin(){ return Math.max(1, Math.ceil(curMeet().et - VNOW)); }
+function dayList(){
+  var arr = DAY.slice();
+  for (var i=0;i<S.bookings.length;i++) if (S.bookings[i].day === 0) arr.push(S.bookings[i]);
+  arr.sort(function(a,b){ return a.st - b.st; });
+  return arr;
+}
+function findBook(bid){
+  for (var i=0;i<S.bookings.length;i++) if (S.bookings[i].bid === bid) return S.bookings[i];
+  return null;
+}
+function curListIdx(){
+  var arr = dayList();
+  for (var i=0;i<arr.length;i++) if (arr[i].idx === S.cur) return i;
+  return 0;
+}
+function dateFull(d){
+  return d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate());
+}
+function weekStr(d){ return '星期'+'日一二三四五六'[d.getDay()]; }
+
+/* 虚拟时钟推进：走到本场结束就自动进入下一场，永不出现「0 分钟」 */
+function stepTime(){
+  var m = curMeet();
+  if (VNOW >= m.et) {
+    if (S.cur < DAY.length - 1) S.cur++;
+    else { S.cur = 0; VNOW = DAY[0].st + 1; }
+    return true;
+  }
+  return false;
+}
+
+function drawCity(){
+  var seed = 20260211, out = '', light = (S.theme === 'light');
+  function rnd(){ seed = (seed*9301+49297)%233280; return seed/233280; }
+  var x = -24;
+  while (x < 1052) {
+    var bw = 26 + Math.floor(rnd()*46);
+    var bh = 46 + Math.floor(rnd()*118);
+    var y = 300 - bh;
+    var bf = light ? (rnd()>.5 ? '#BFD3E8' : '#AEC6DF') : (rnd()>.5 ? '#0b2039' : '#0d2743');
+    out += '<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+bh+'" fill="'+bf+'"/>';
+    for (var wy=y+12; wy<286; wy+=17){
+      for (var wx=x+7; wx<x+bw-9; wx+=13){
+        if (rnd()>.74) out += '<rect x="'+wx+'" y="'+wy+'" width="4" height="7" fill="'
+          + (light ? 'rgba(94,132,174,' : 'rgba(255,214,150,')
+          + (0.3+rnd()*0.55).toFixed(2) + ')"/>';
+      }
+    }
+    x += bw + 5;
+  }
+  $('cityA').innerHTML = '<svg viewBox="0 0 1024 300" preserveAspectRatio="none">'+out+'</svg>';
+}
+function towerSVG(){
+  var light = (S.theme === 'light');
+  var c1 = light ? 'rgba(56,104,158,.62)' : 'rgba(200,225,255,.6)';
+  var c2 = light ? 'rgba(70,118,170,.52)' : 'rgba(190,225,255,.5)';
+  var c3 = light ? 'rgba(70,118,170,.44)' : 'rgba(190,225,255,.42)';
+  var f1 = light ? 'rgba(120,164,206,.24)' : 'rgba(190,220,255,.26)';
+  var f2 = light ? 'rgba(120,164,206,.18)' : 'rgba(190,220,255,.2)';
+  var f3 = light ? 'rgba(120,164,206,.14)' : 'rgba(190,220,255,.16)';
+  return '<svg viewBox="0 0 210 470" fill="none">'
+  + '<path d="M105 0v48" stroke="'+c1+'" stroke-width="2"/>'
+  + '<path d="M102 88 L102 180 M108 88 L108 180" stroke="'+c2+'" stroke-width="2"/>'
+  + '<path d="M99 226 L99 292 M111 226 L111 292" stroke="'+c2+'" stroke-width="3"/>'
+  + '<path d="M96 352 L50 470 M114 352 L160 470 M105 352 L105 470" stroke="'+c3+'" stroke-width="3"/>'
+  + '<circle cx="105" cy="68" r="14" fill="'+f1+'" stroke="'+c1+'" stroke-width="2"/>'
+  + '<circle cx="105" cy="200" r="30" fill="'+f2+'" stroke="'+c1+'" stroke-width="2"/>'
+  + '<circle cx="105" cy="318" r="38" fill="'+f3+'" stroke="'+c1+'" stroke-width="2"/>'
+  + '</svg>';
+}
+function qrSVG(size){
+  var n = 25, cell = size/n, seed = 7717, out = '';
+  function rnd(){ seed = (seed*9301+49297)%233280; return seed/233280; }
+  function finder(fx,fy){
+    return '<rect x="'+fx*cell+'" y="'+fy*cell+'" width="'+7*cell+'" height="'+7*cell+'" fill="#12161C"/>'
+      + '<rect x="'+(fx+1)*cell+'" y="'+(fy+1)*cell+'" width="'+5*cell+'" height="'+5*cell+'" fill="#fff"/>'
+      + '<rect x="'+(fx+2)*cell+'" y="'+(fy+2)*cell+'" width="'+3*cell+'" height="'+3*cell+'" fill="#12161C"/>';
+  }
+  for (var y=0;y<n;y++){
+    for (var x=0;x<n;x++){
+      if ((x<8&&y<8)||(x>n-9&&y<8)||(x<8&&y>n-9)) continue;
+      if (rnd()>.52) out += '<rect x="'+x*cell+'" y="'+y*cell+'" width="'+(cell+0.2)+'" height="'+(cell+0.2)+'" fill="#12161C"/>';
+    }
+  }
+  return '<svg viewBox="0 0 '+size+' '+size+'">'+out+finder(0,0)+finder(n-7,0)+finder(0,n-7)+'</svg>';
+}
+
+function renderCList(){
+  var list = dayList(), html = '';
+  for (var i=0;i<list.length;i++){
+    var m = list[i];
+    var isCur = (m.idx === S.cur) && !S.free;
+    html += '<div class="c-row'+(isCur?' on':'')+'" data-act="detail" data-i="'+i+'">'
+      + '<span class="t">'+fmt(m.st)+' - '+fmt(m.et)+'</span>'
+      + '<span class="s">'+m.topic+'</span>'
+      + '<span class="p">'+m.people+' 人</span>'
+      + (m.mine
+          ? '<button class="go" data-act="cancel-book" data-bid="'+m.bid+'">取消</button>'
+          : (isCur
+              ? '<span class="cur-tag">进行中</span>'
+              : '<button class="go" data-act="set-cur" data-i="'+i+'">切换</button>'))
+      + '</div>';
+  }
+  $('cList').innerHTML = html;
+}
+
+function renderSched(){
+  var list = dayList(), html = '';
+  for (var i=0;i<list.length;i++){
+    var m = list[i], cls = 'sched-item', tag = '待开始', act = 'set-cur';
+    if (m.idx === S.cur && !S.free) { tag = '进行中'; cls += ' cur'; }
+    else if (m.mine) {
+      tag = '我预约'; cls += ' mine'; act = 'sel-book';
+      if (m.bid === S.selBid) { tag = '已选中'; cls += ' sel'; }
+    }
+    else if (m.et <= VNOW) { tag = '已结束'; cls += ' past'; }
+    html += '<button class="'+cls+'" data-act="'+act+'" data-i="'+i+'"'
+      + (m.mine ? ' data-bid="'+m.bid+'"' : '') + '>'
+      + '<span class="tm">'+fmt(m.st)+' - '+fmt(m.et)+'</span>'
+      + '<span class="tt">'+m.topic+'</span>'
+      + '<span class="pp">'+m.people+' 人</span>'
+      + '<span class="tag">'+tag+'</span>'
+      + '</button>';
+  }
+  $('schedList').innerHTML = html;
+
+  var tmr = S.bookings.filter(function(b){ return b.day === 1; });
+  var sub = '蓝聪会议室 · 3F 东区 · 今天 · ' + dateFull(new Date());
+  if (tmr.length) sub += ' · 明天已预约 ' + tmr.map(function(b){ return fmt(b.st)+'-'+fmt(b.et); }).join('、');
+  $('schedSub').textContent = sub;
+}
+
+function setTheme(t){
+  S.theme = t;
+  var led = $('led');
+  led.classList.toggle('light', t === 'light');
+  led.classList.toggle('dark', t === 'dark');
+  var label = (t === 'light') ? '深色' : '浅色';
+  ['thA','thB','thC'].forEach(function(id){ var b = $(id); if (b) b.textContent = label; });
+  drawCity();
+  $('towerB').innerHTML = towerSVG();
+  render();
+  toast(t === 'light' ? '已切换浅色主题' : '已切换深色主题');
+}
+
+function render(){
+  var free = S.free;
+  var m = curMeet();
+  var next = DAY[S.cur + 1];
+  var curIdx = curListIdx();
+  var nextIdx = next ? dayList().indexOf(next) : curIdx;
+
+  if (free) {
+    $('aTag').textContent = 'ROOM AVAILABLE · 当前空闲';
+    $('aRange').textContent = next ? (fmt(next.st) + ' - ' + fmt(next.et)) : '今日已无后续会议';
+    $('aTopic').textContent = '当前空闲 · 可立即预约';
+    $('aTopic').setAttribute('data-i', nextIdx);
+    $('aDetail').setAttribute('data-i', nextIdx);
+    $('aNext').textContent = next ? ('可预约 ' + fmt(next.st) + ' 起时段 · ' + next.topic) : '今日会议已全部结束';
+    $('aDot').style.background = '#FFC24B';
+    $('aDot').style.boxShadow = '0 0 12px #FFC24B';
+
+    $('bLabel').textContent = 'ROOM AVAILABLE · 当前空闲';
+    $('bTopic').textContent = '当前空闲 · 可立即预约';
+    $('bTopic').setAttribute('data-i', nextIdx);
+    $('bTime').textContent = next ? ('下一场 ' + fmt(next.st) + ' - ' + fmt(next.et)) : '今日已无后续会议';
+    $('bStateT').textContent = '空闲';
+    $('bStateS').textContent = 'AVAILABLE';
+    $('bState').classList.add('free');
+    $('bState').setAttribute('data-i', nextIdx);
+
+    $('cStateT').textContent = '当前空闲';
+    $('cStateS').textContent = 'AVAILABLE';
+    $('cState').classList.add('free');
+  } else {
+    $('aTag').textContent = 'CURRENT MEETING · 当前会议';
+    $('aRange').textContent = fmt(m.st) + ' - ' + fmt(m.et);
+    $('aTopic').textContent = m.topic;
+    $('aTopic').setAttribute('data-i', curIdx);
+    $('aDetail').setAttribute('data-i', curIdx);
+    $('aNext').textContent = next ? ('下一场 ' + fmt(next.st) + ' · ' + next.topic) : '今天最后一场 · 结束后可预约';
+    $('aDot').style.background = '#3BE08A';
+    $('aDot').style.boxShadow = '0 0 12px #3BE08A';
+
+    $('bLabel').textContent = 'CURRENT MEETING · 当前会议';
+    $('bTopic').textContent = m.topic;
+    $('bTopic').setAttribute('data-i', curIdx);
+    $('bTime').textContent = fmt(m.st) + ' - ' + fmt(m.et);
+    $('bStateT').textContent = '会议中';
+    $('bStateS').textContent = 'IN MEETING';
+    $('bState').classList.remove('free');
+    $('bState').setAttribute('data-i', curIdx);
+
+    $('cStateT').textContent = '正在使用';
+    $('cStateS').textContent = 'OCCUPIED';
+    $('cState').classList.remove('free');
+  }
+
+  $('cNextT').textContent = next ? fmt(next.st) : '—';
+  $('cNextS').textContent = next ? next.topic : '今天已无后续会议';
+
+  renderCList();
+  renderSched();
+  updateDnd();
+  updateDoor();
+  updateDial();
+  updateCancel();
+}
+
+/* 取消入口：三套模板的按钮 + 预约弹层提示条，仅在有预约时出现；
+   日程弹层底部的「取消预约」只在选中某笔预约时出现 */
+function updateCancel(){
+  var has = S.bookings.length > 0;
+  ['aCancel','bCancel'].forEach(function(id){
+    var el = $(id); if (el) el.style.display = has ? '' : 'none';
+  });
+  var wrap = $('cCancelWrap'); if (wrap) wrap.style.display = has ? '' : 'none';
+  var bar = $('bookMine'); if (bar) bar.style.display = has ? '' : 'none';
+  var sc = $('schedCancel');
+  if (sc) sc.style.display = (S.selBid && findBook(S.selBid)) ? '' : 'none';
+
+  if (has) {
+    var txt = S.bookings.map(function(b){
+      return (b.day === 1 ? '明天 ' : '') + fmt(b.st) + '-' + fmt(b.et);
+    }).join('、');
+    $('bookMineTxt').textContent = '已预约 ' + txt + '（' + S.bookings.length + ' 场）';
+  }
+}
+
+/* 三套模板的「取消预约」：打开日程并选中最近一笔预约，避免误删 */
+function openCancel(){
+  if (!S.bookings.length) { toast('当前没有预约'); return; }
+  var last = S.bookings[S.bookings.length - 1];
+  if (last.day !== 0) { doCancel(last.bid); return; }
+  S.selBid = last.bid;
+  renderSched(); updateCancel(); openPanel('pSched');
+  toast('已选中你的预约，点下方「取消预约」即可取消');
+}
+
+/* 取消某一笔预约；不带 bid 时优先用日程里选中的那笔 */
+function doCancel(bid){
+  if (!S.bookings.length) { toast('当前没有预约'); return; }
+  var b = findBook(bid) || findBook(S.selBid) || S.bookings[S.bookings.length - 1];
+  if (!b) { toast('请先在会议日程里选中你的预约场次'); return; }
+  S.bookings = S.bookings.filter(function(x){ return x.bid !== b.bid; });
+  if (S.selBid === b.bid) S.selBid = null;
+  closePanels();
+  render(); tick();
+  toast('已取消预约 · ' + (b.day === 1 ? '明天 ' : '') + fmt(b.st) + '-' + fmt(b.et) + ' 已释放');
+}
+
+/* 预约弹层里的时段状态：该日期已被自己约过的时段标「已预约」，并自动跳到下一个空闲时段 */
+function renderSlots(){
+  var btns = $('segSlot').querySelectorAll('button'), taken = [];
+  for (var i=0;i<btns.length;i++){
+    var s = SLOTS[i];
+    var t = S.bookings.some(function(b){ return b.day === S.date && b.st === s.st; });
+    taken.push(t);
+    btns[i].classList.toggle('taken', t);
+    btns[i].querySelector('em').textContent = t ? '已预约' : '空闲';
+  }
+  if (taken[S.slot]) {
+    var k = taken.indexOf(false);
+    if (k >= 0) S.slot = k;
+  }
+  for (var j=0;j<btns.length;j++) btns[j].classList.toggle('on', j === S.slot);
+}
+
+function tick(){
+  VNOW += 0.125;          /* 虚拟时钟：每 8 秒推进 1 分钟，剩余时间持续递减 */
+  if (stepTime()) render();
+  var free = S.free;
+  var m = curMeet();
+  var next = DAY[S.cur + 1];
+  var t = fmt(VNOW);
+  $('aClock').textContent = t;
+  $('bClock').textContent = t;
+  $('cClock').textContent = t;
+
+  var d = new Date();
+  var ds = dateFull(d), wk = weekStr(d);
+  $('aDate').textContent = ds;
+  $('aWeek').textContent = wk;
+  $('bDate').textContent = ds + ' ' + wk;
+  $('cDate').textContent = pad(d.getMonth()+1) + '/' + pad(d.getDate()) + ' ' + wk;
+
+  var total = m.et - m.st;
+  var done = Math.min(total, Math.max(0, VNOW - m.st));
+  var left = leftMin();
+  var pct = Math.round(done / total * 100);
+
+  if (free) {
+    var gap = next ? Math.max(0, Math.ceil(next.st - VNOW)) : 0;
+    $('aLeftMin').textContent = gap;
+    $('aLeftLab').textContent = '距下一场';
+    $('aLeftTip').textContent = next ? (fmt(next.st) + ' 开始') : '今日会议已结束';
+    $('aStatText').textContent = '当前空闲 · 可立即预约';
+    $('bProg').style.width = '0%';
+    $('bProgT').textContent = '当前时段无会议 · 可直接预约';
+  } else {
+    $('aLeftMin').textContent = left;
+    $('aLeftLab').textContent = '剩余时间';
+    $('aLeftTip').textContent = '预计 ' + fmt(m.et) + ' 结束';
+    $('aStatText').innerHTML = '会议中 · 剩余 <b id="aFootLeft">' + left + '</b> 分钟';
+    $('bProg').style.width = pct + '%';
+    $('bProgT').textContent = '已进行 ' + Math.round(done) + ' 分钟 · 共 ' + total + ' 分钟';
+  }
+}
+
+function openPanel(id){
+  for (var i=0;i<PANELS.length;i++) $(PANELS[i]).classList.remove('on');
+  $(id).classList.add('on');
+  $('mask').classList.add('on');
+}
+function closePanels(){
+  for (var i=0;i<PANELS.length;i++) $(PANELS[i]).classList.remove('on');
+  $('mask').classList.remove('on');
+}
+function setTpl(n){
+  S.tpl = ((n||0)+3)%3;
+  var all = document.querySelectorAll('.tp');
+  for (var i=0;i<all.length;i++) all[i].classList.toggle('on', all[i].getAttribute('data-tpl') === TPLS[S.tpl]);
+  var dots = document.querySelectorAll('#dotsB i');
+  for (var j=0;j<dots.length;j++) dots[j].classList.toggle('on', j===S.tpl);
+  var items = document.querySelectorAll('#tplList .tp-item');
+  for (var k=0;k<items.length;k++) items[k].classList.toggle('sel', k===S.tpl);
+  toast('已切换：'+TPL_NAME[S.tpl]);
+}
+function updateDnd(){
+  ['dndA','dndB','dndC'].forEach(function(id){
+    var b = $(id); if (!b) return;
+    b.classList.toggle('on', S.dnd);
+    b.textContent = S.dnd ? '免打扰中' : '免打扰';
+  });
+}
+function updateDoor(){
+  var on = S.door;
+  var c = $('cLock');
+  c.classList.toggle('opened', on);
+  $('cLockT').textContent = on ? '门禁已开启' : '门禁已上锁';
+  $('doorState').textContent = on ? '门禁已开启' : '门禁已上锁';
+  $('doorState').style.color = on ? '#1E8A5B' : '#C8343C';
+  $('doorDot').classList.toggle('open', on);
+  $('doorHint').textContent = on
+    ? '门禁已开启，等待推门进入（30 秒后自动上锁）'
+    : '确认后远程开锁，30 秒内可推门进入';
+  $('doorOk').textContent = on ? '确认上锁' : '确认开门';
+  $('doorOk').className = 'btn ' + (on ? 'danger' : 'main');
+  $('aDoor').textContent = on ? '已开锁' : '开门';
+  c.querySelector('svg').innerHTML = on
+    ? '<rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 7.6-1.6"/>'
+    : '<rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>';
+}
+function updateDial(){
+  $('faceClock').classList.toggle('off', S.dial !== 'clock');
+  $('faceLeft').classList.toggle('off', S.dial !== 'left');
+}
+function fillDetail(i){
+  var list = dayList();
+  var m = list[i] || list[0];
+  $('dTopic').textContent = m.topic;
+  $('dTime').textContent = fmt(m.st) + ' - ' + fmt(m.et);
+  $('dOwner').textContent = m.mine ? '我 · 产品部' : (m.owner + ' · ' + m.dept);
+  $('dPeople').textContent = m.people + ' / 12 人';
+  var dev = m.mine ? '投屏 · 白板' : '投屏 · 视频会议 · 白板';
+  var ul = $('dAgenda');
+  ul.innerHTML = '';
+  var items = m.agenda || ['临时预约会议'];
+  for (var k=0;k<items.length;k++){
+    var li = document.createElement('li');
+    li.textContent = items[k];
+    ul.appendChild(li);
+  }
+  $('dNote').textContent = dev + ' · ' + (m.mine
+    ? '这是你刚才预约的时段，已同步到会议日程。'
+    : '请提前 5 分钟到场，会前资料已随日程同步。');
+}
+/* 点某场会议 → 设为「正在使用」；虚拟时钟随之落到该场时段内 */
+function setCurrent(i){
+  var list = dayList();
+  var m = list[i];
+  if (!m) return;
+  if (m.idx < 0) { toast('这是你的预约场次，选它再点「取消预约」即可取消'); return; }
+  S.cur = m.idx;
+  S.free = false;
+  if (VNOW < m.st + 1) VNOW = m.st + 1;
+  if (VNOW > m.et - 1) VNOW = m.et - 1;
+  render(); tick();
+  toast('已切换为：' + fmt(m.st) + ' - ' + fmt(m.et) + ' ' + m.topic);
+}
+
+var toastTimer = null;
+function toast(txt){
+  var t = $('toast');
+  t.textContent = txt;
+  t.classList.add('on');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('on'); }, 1800);
+}
+
+led.addEventListener('click', function(ev){
+  var el = ev.target.closest('[data-act]');
+  if (!el) return;
+  var act = el.getAttribute('data-act');
+  if (act === 'close') { closePanels(); return; }
+  if (act === 'detail') { fillDetail(parseInt(el.getAttribute('data-i')||'0',10)); openPanel('pDetail'); return; }
+  if (act === 'book') { renderSlots(); openPanel('pBook'); return; }
+  if (act === 'qr') { openPanel('pQr'); return; }
+  if (act === 'tplmenu') { openPanel('pTpl'); return; }
+  if (act === 'door') { openPanel('pDoor'); return; }
+  if (act === 'dnd') {
+    S.dnd = !S.dnd; updateDnd();
+    toast(S.dnd ? '已开启免打扰 · 通知静音' : '已关闭免打扰');
+    return;
+  }
+  if (act === 'dial') {
+    S.dial = (S.dial === 'clock') ? 'left' : 'clock';
+    updateDial();
+    toast(S.dial === 'clock' ? '表盘显示当前时间'
+      : (S.free ? '表盘显示距下一场分钟数' : '表盘显示会议剩余时间'));
+    return;
+  }
+  if (act === 'state') {
+    S.free = !S.free;
+    render(); tick();
+    toast(S.free ? '会议已结束 · 房间空闲，可立即预约' : '已恢复为「会议中」');
+    return;
+  }
+  if (act === 'sched') { renderSched(); updateCancel(); openPanel('pSched'); return; }
+  if (act === 'cancel-book') {
+    var bid = parseInt(el.getAttribute('data-bid') || '0', 10);
+    if (bid) doCancel(bid); else openCancel();
+    return;
+  }
+  if (act === 'cancel-sel') { doCancel(S.selBid); return; }
+  if (act === 'cancel-last') {
+    var lb = S.bookings[S.bookings.length - 1];
+    if (lb) doCancel(lb.bid); else toast('当前没有预约');
+    return;
+  }
+  if (act === 'sel-book') {
+    var sb = parseInt(el.getAttribute('data-bid') || '0', 10);
+    S.selBid = (S.selBid === sb) ? null : sb;
+    renderSched(); updateCancel();
+    toast(S.selBid ? '已选中这笔预约，点「取消预约」可取消' : '已取消选中');
+    return;
+  }
+  if (act === 'set-cur') {
+    setCurrent(parseInt(el.getAttribute('data-i') || '0', 10));
+    if ($('pSched').classList.contains('on')) renderSched();
+    return;
+  }
+  if (act === 'room') { toast('蓝聪会议室 · 3F 东区 · 可容纳 12 人'); return; }
+  if (act === 'theme') { setTheme(S.theme === 'light' ? 'dark' : 'light'); return; }
+  if (act === 'tpl') { setTpl(parseInt(el.getAttribute('data-v'),10)); return; }
+  if (act === 'pick-tpl') { setTpl(parseInt(el.getAttribute('data-v'),10)); closePanels(); return; }
+  if (act === 'pick-date' || act === 'pick-slot') {
+    var wrap = el.parentNode;
+    var btns = wrap.querySelectorAll('button');
+    for (var i=0;i<btns.length;i++) btns[i].classList.toggle('on', btns[i]===el);
+    if (act === 'pick-date') { S.date = parseInt(el.getAttribute('data-v'),10); renderSlots(); }
+    else S.slot = parseInt(el.getAttribute('data-v'),10);
+    return;
+  }
+  if (act === 'book-ok') {
+    var s = SLOTS[S.slot] || SLOTS[0];
+    var dup = S.bookings.some(function(b){ return b.day === S.date && b.st === s.st; });
+    if (dup) { toast('这个时段已经预约过了，可在会议日程里取消后重约'); return; }
+    var nb = { bid:S.bidSeq++, idx:-1, mine:true, day:S.date, st:s.st, et:s.et,
+      topic:'我的预约 · 交互方案同步会', owner:'我', dept:'产品部', people:4,
+      agenda:['预约主题：交互方案同步','参会人：产品部 4 人','备注：由门牌现场预约'] };
+    S.bookings.push(nb);
+    if (S.date === 0) S.selBid = nb.bid;
+    closePanels();
+    render(); tick();
+    toast('预约成功 · ' + (S.date === 1 ? '明天 ' : '') + fmt(s.st) + '-' + fmt(s.et) + ' 已写入日程');
+    setTimeout(function(){
+      renderSched(); updateCancel(); openPanel('pSched');
+    }, 620);
+    return;
+  }
+  if (act === 'sign') { closePanels(); toast('签到成功 · 已记录参会'); return; }
+  if (act === 'door-ok') {
+    S.door = !S.door; updateDoor(); closePanels();
+    toast(S.door ? '门禁已解锁 · 会议期间常开' : '门禁已上锁');
+    return;
+  }
+});
+
+$('mask').addEventListener('click', closePanels);
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') closePanels();
+  if (e.key === '1' || e.key === '2' || e.key === '3') setTpl(parseInt(e.key,10)-1);
+  if (e.key === 't' || e.key === 'T') setTheme(S.theme === 'light' ? 'dark' : 'light');
+});
+
+drawCity();
+$('towerB').innerHTML = towerSVG();
+$('qrB').innerHTML = qrSVG(122);
+$('qrBig').innerHTML = qrSVG(208);
+render();
+tick();
+setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

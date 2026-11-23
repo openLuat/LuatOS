@@ -8,14 +8,14 @@
 订阅: OPEN_SETTINGS_WIN → 打开设置主页
 发布: OPEN_IOT_WIN / OPEN_NET_WIN / OPEN_DISPLAY_WIN / OPEN_TIME_WIN /
       OPEN_STORAGE_WIN / OPEN_STORAGE_PRI_WIN / OPEN_FOTA_WIN / OPEN_SOUND_WIN /
-      OPEN_AUTOSTART_WIN / OPEN_ABOUT_WIN / OPEN_USB_MODE_WIN
+      OPEN_AUTOSTART_WIN / OPEN_USB_MODE_WIN
 ]]
 
 require "settings_display_win"
 require "settings_time_win"
 require "settings_storage_win"
 require "storage_pri_win"
-require "settings_about_win"
+local device_info = require "settings_about_win"
 require "settings_sound_win"
 require "wifi_list_win"
 require "net_settings_win"
@@ -28,7 +28,6 @@ require "settings_report_win"
 require "settings_usb_win"
 
 local theme = require "ui_theme"
-local titlebar = require "settings_titlebar"
 
 local window_id = nil
 local main_container = nil
@@ -52,7 +51,6 @@ local ENTRY_ICONS = {
     ["OPEN_FOTA_WIN"]        = "update",
     ["OPEN_SOUND_WIN"]       = "sound",
     ["OPEN_AUTOSTART_WIN"]   = "autostart",
-    ["OPEN_ABOUT_WIN"]       = "about",
     ["OPEN_AIRCLOUD_WIN"]    = "cloud",
     ["OPEN_USB_MODE_WIN"]    = "mouse",
 }
@@ -77,10 +75,18 @@ local function collect_entries()
         entries[#entries + 1] = { label = label, event = event, desc = desc, icon = ENTRY_ICONS[event] }
     end
 
-    add("IOT账号", "OPEN_IOT_WIN", "合宙 IoT 平台登录与设备绑定")
+    -- 界面暴露统一由 ui.show_* 决定（不写即不显示）：IOT账号 / 系统更新 / 后装APP自启 是
+    -- 联网相关入口，无联网能力的型号按能力就不写这几个键（见 config/template.lua）
+    if ui.show_iot then add("IOT账号", "OPEN_IOT_WIN", "合宙 IoT 平台登录与设备绑定") end
     local nets = cfg.network
-    if fe.wifi or fe.net_4g or fe.ethernet
-        or (type(nets) == "table" and #nets > 0) then
+    local has_eth = fe.ethernet
+    if type(nets) == "table" then
+        for _, nc in ipairs(nets) do
+            if nc and type(nc.type) == "string" and nc.type:find("eth", 1, true) then has_eth = true break end
+        end
+    end
+    if (fe.wifi and ui.show_wifi_icon) or (fe.net_4g and ui.show_4g_icon)
+        or (has_eth and ui.show_ethernet_settings) then
         add("网络设置", "OPEN_NET_WIN", "网络开关、连接状态与 WiFi 管理")
     end
     add("亮度和声音", "OPEN_DISPLAY_WIN", "屏幕背光与媒体音量调节")
@@ -92,59 +98,14 @@ local function collect_entries()
     if require("usb_mode").available(cfg) then
         add("外设模式", "OPEN_USB_MODE_WIN", "UVC 摄像头与 USB 键鼠二选一")
     end
-    add("系统更新", "OPEN_FOTA_WIN", "检查并下载最新固件")
+    if ui.show_fota then add("系统更新", "OPEN_FOTA_WIN", "检查并下载最新固件") end
     if fe.buzzer and ui.show_buzzer_settings then add("触摸音效", "OPEN_SOUND_WIN", "触摸反馈音开关与音量") end
-    if fe.aircloud then add("数据上报", "OPEN_AIRCLOUD_WIN", "AirCloud 云端上报开关与周期") end
-    add("后装APP自启", "OPEN_AUTOSTART_WIN", "开机自动启动指定应用")
-    add("关于设置", "OPEN_ABOUT_WIN", "设备型号、唯一ID与版本信息")
+    if fe.aircloud and ui.show_aircloud then add("数据上报", "OPEN_AIRCLOUD_WIN", "AirCloud 云端上报开关与周期") end
+    if ui.show_autostart then add("后装APP自启", "OPEN_AUTOSTART_WIN", "开机自动启动指定应用") end
     return entries
 end
 
---[[右侧设备信息卡]]
-local function build_info_card(parent, x, y, w, h)
-    local card = theme.card(parent, { x = x, y = y, w = w, h = h })
-
-    theme.section(card, { x = pad, y = pad, w = w - 2 * pad,
-        text = "设备信息", px_size = theme.fs("label"), color = theme.C.t2 })
-
-    local cfg = _G.project_config or {}
-    local rows = {
-        { "设备型号", cfg.name or "--" },
-        { "主控芯片", cfg.chip or "--" },
-        { "固件版本", VERSION or "--" },
-        { "底板型号", cfg.baseboard or "--" },
-        { "屏幕分辨率", string.format("%d × %d", scr_w, scr_h) },
-    }
-
-    local row_h = math.max(theme.dp(30), math.floor((h - pad * 2 - theme.dp(24)) / math.max(1, #rows)))
-    local fs = theme.fs("caption")
-    local lh = fs + 3
-    local tx = theme.dp(10)
-    local inner = w - 2 * pad
-    for i, r in ipairs(rows) do
-        local y0 = pad + theme.dp(24) + (i - 1) * row_h
-        local key_w = theme.text_width(r[1], fs) + theme.dp(8)
-        local val_w = inner - tx - theme.dp(12) - key_w
-        -- 值列吃掉左标题之外的整行宽度，一行放不下就折行，折到行高装得下为止
-        local lines = math.max(1, math.ceil(theme.text_width(r[2], fs) / math.max(1, val_w)))
-        if lh * lines > row_h then lines = math.max(1, math.floor(row_h / lh)) end
-        theme.label(card, {
-            x = pad + tx, y = y0 + math.floor((row_h - lh) / 2), w = key_w, h = lh,
-            text = r[1], px_size = fs, color = theme.C.t1,
-        })
-        theme.label(card, {
-            x = pad + inner - val_w, y = y0 + math.floor((row_h - lh * lines) / 2),
-            w = val_w, h = lh * lines,
-            text = theme.fit_text(r[2], val_w, fs, lines), px_size = fs,
-            color = theme.C.t1, align = airui.TEXT_ALIGN_RIGHT,
-        })
-        if i < #rows then
-            theme.divider(card, { x = pad, y = y0 + row_h, w = inner })
-        end
-    end
-    return card
-end
-
+-- 横屏左右分栏；窄屏信息卡与设置入口上下排列。
 local function build_ui()
     update_screen_size()
     -- 统一骨架：背景 + 页边距 + 标题栏一次算清，不再各页自己拼
@@ -163,7 +124,7 @@ local function build_ui()
 
     if wide then
         local nav_w = math.max(theme.dp(180), math.min(theme.dp(240), math.floor(sw * 0.26)))
-        local nav = theme.card(main_container, { x = pad, y = y, w = nav_w, h = body_h })
+        local nav = theme.card(main_container, { x = pad, y = y, w = nav_w, h = body_h, scrollable = true })
 
         local row_h = math.max(theme.dp(42), math.floor((body_h - pad * 2) / math.max(1, #entries)))
         row_h = math.min(row_h, theme.dp(56))
@@ -178,9 +139,15 @@ local function build_ui()
             })
         end
 
-        build_info_card(main_container, pad + nav_w + pad, y, sw - nav_w - 3 * pad, body_h)
+        device_info.mount(main_container, pad + nav_w + pad, y, sw - nav_w - 3 * pad, body_h)
     else
-        -- 窄屏：两列入口卡片
+        -- 窄屏：信息位于入口上方，内容滚动以保留所有设置入口。
+        local body = theme.box(main_container, {
+            x = ctx.x, y = y, w = ctx.w, h = body_h,
+            color = theme.C.black, opa = 0, scrollable = true,
+        })
+        local info_h = device_info.mount(main_container, 0, 0, ctx.w, body_h, body)
+        local entries_y = info_h + pad
         local cols = (sw >= 420) and 2 or 1
         local gap = pad
         local cw = math.floor((sw - 2 * pad - (cols - 1) * gap) / cols)
@@ -188,12 +155,11 @@ local function build_ui()
         for i, e in ipairs(entries) do
             local col = (i - 1) % cols
             local row = math.floor((i - 1) / cols)
-            local x = pad + col * (cw + gap)
-            local cy = y + row * (ch + gap)
-            if cy + ch > screen_h - pad then break end
+            local x = col * (cw + gap)
+            local cy = entries_y + row * (ch + gap)
             local event = e.event
             -- 窄屏下这些行直接落在页面底色上，必须自带卡面（否则只剩孤立文字）
-            theme.row(main_container, {
+            theme.row(body, {
                 x = x, y = cy, w = cw, h = ch,
                 icon = e.icon, icon_size = theme.dp(28),
                 px_size = theme.fs("body"), sub_px = theme.fs("micro"),
@@ -208,6 +174,7 @@ end
 local function on_create() build_ui() end
 
 local function on_destroy()
+    device_info.unmount()
     if main_container then main_container:destroy(); main_container = nil end
 end
 
@@ -220,11 +187,12 @@ sys.subscribe("UI_THEME_CHANGED", on_theme_changed)
 local function on_get_focus()
     if theme_dirty then
         theme_dirty = false
+        device_info.unmount()
         if main_container then main_container:destroy(); main_container = nil end
         build_ui()
     end
 end
-local function on_lose_focus() end
+local function on_lose_focus() device_info.close_editor() end
 
 local function open_handler()
     window_id = exwin.open({

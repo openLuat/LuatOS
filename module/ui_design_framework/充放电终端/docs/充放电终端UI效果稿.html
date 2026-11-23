@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>充放电终端 · 10寸 UI 效果稿（VoltAgent 翠绿信号）</title>
+<style>
+:root{
+  --abyss:#050507;              /* 画布（Abyss Black） */
+  --carbon:#1b1a19;             /* 卡片表面：比画布亮约 8%，暖中性，不再"贴在背景上" */
+  --carbon2:#242322;            /* 次级面：卡内小卡 / 徽章 / 顶栏浮件 */
+  --charcoal:#3d3a39;           /* 边框（Warm Charcoal） */
+  --charcoal-dim:#322e2c;       /* 分割线：随卡片提亮同步上调，保证可见 */
+  --green:#00d992; --mint:#2fd6a1; --emerald:#10b981;
+  --snow:#f2f2f2; --parchment:#b8b3b0; --steel:#8b949e;
+  --info:#4cb3d4;
+  --sans:"Inter","PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+  --r-card:8px; --r-btn:6px;
+  /* ===== 亮色主题 ===== */
+  --lt-abyss:#f2f1ee; --lt-carbon:#ffffff; --lt-carbon2:#f7f5f2;
+  --lt-line:#dbd6d0; --lt-line-dim:#e8e4de;
+  --lt-green:#00a576; --lt-mint:#00895f; --lt-emerald:#0b8f63; --lt-info:#1e7fa8;
+  --lt-snow:#1b1a19; --lt-parchment:#4e4a46; --lt-steel:#7d7873;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--abyss);font-family:var(--sans);color:var(--snow);
+  display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+#scaler{transform-origin:center center}
+.device{
+  width:1024px;height:600px;position:relative;border:1px solid var(--charcoal);border-radius:16px;
+  background:
+    radial-gradient(rgba(0,217,146,.05) 1px, transparent 1.5px) 0 0/26px 26px,
+    radial-gradient(900px 480px at 50% -22%, rgba(0,217,146,.11), transparent 56%),
+    radial-gradient(520px 320px at 106% 112%, rgba(0,217,146,.07), transparent 60%),
+    linear-gradient(165deg,#0a0c0e,#050507 50%,#040506);
+  box-shadow:0 34px 90px rgba(0,0,0,.82), inset 0 1px 0 rgba(255,255,255,.04);
+  padding:16px 22px 15px;display:flex;flex-direction:column;gap:12px;
+}
+/* ===== 顶栏 ===== */
+header{display:flex;align-items:center;height:46px;flex:0 0 46px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:42px;height:42px;border-radius:var(--r-btn);background:linear-gradient(180deg,#242322,#1b1a19);border:1px solid var(--charcoal);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 18px rgba(0,217,146,.12)}
+.logo svg{width:22px;height:22px;animation:boltglow 2.8s ease-in-out infinite}
+@keyframes boltglow{0%,100%{filter:drop-shadow(0 0 2px var(--green))}50%{filter:drop-shadow(0 0 10px var(--green))}}
+.brand .name{font-size:17px;font-weight:700;letter-spacing:.3px;line-height:1.05}
+.brand .sub{font-size:16px;color:var(--steel);letter-spacing:2px;margin-top:4px;font-family:var(--mono)}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:9px}
+.chip{display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:9999px;background:linear-gradient(180deg,#242322,#1b1a19);border:1px solid var(--charcoal);font-size:16px;color:var(--parchment);user-select:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.chip b{color:var(--snow);font-weight:600;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+.chip.clock b{font-size:16px;letter-spacing:.5px}
+.dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+#stateBtn{cursor:pointer;border:1px solid rgba(0,217,146,.5);color:var(--mint);font-weight:600;background:linear-gradient(180deg,rgba(0,217,146,.12),rgba(0,217,146,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 16px rgba(0,217,146,.15);transition:.2s}
+#stateBtn:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 22px rgba(0,217,146,.28)}
+#stateBtn.discharge{border-color:rgba(76,179,212,.5);color:var(--info);background:linear-gradient(180deg,rgba(76,179,212,.12),rgba(76,179,212,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 16px rgba(76,179,212,.15)}
+#stateBtn .dot{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.8s infinite}
+#stateBtn.discharge .dot{background:var(--info);box-shadow:0 0 8px var(--info)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* 右上角充放电状态卡片（三态：充电中 / 放电中 / 保持） */
+.status-card{display:flex;align-items:center;gap:12px;height:40px;padding:0 16px;border-radius:10px;
+  background:linear-gradient(180deg,#242322,#1b1a19);border:1px solid rgba(0,217,146,.5);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 0 16px rgba(0,217,146,.12);cursor:pointer;
+  transition:.2s;min-width:168px;user-select:none}
+.status-card:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 22px rgba(0,217,146,.28)}
+.sc-state{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:600;color:var(--mint)}
+.sc-state .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.8s infinite}
+.sc-power{margin-left:auto;font-family:var(--mono);font-size:16px;color:var(--parchment);font-variant-numeric:tabular-nums}
+.sc-power small{font-size:16px;color:var(--steel);margin-left:2px}
+.status-card.discharge{border-color:rgba(76,179,212,.5);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 0 16px rgba(76,179,212,.12)}
+.status-card.discharge .sc-state{color:var(--info)}
+.status-card.discharge .sc-state .dot{background:var(--info);box-shadow:0 0 8px var(--info)}
+.status-card.hold{border-color:rgba(61,58,57,.6);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+.status-card.hold .sc-state{color:var(--steel)}
+.status-card.hold .sc-state .dot{background:var(--steel);box-shadow:none;animation:none}
+/* ===== 主体 ===== */
+main{flex:1 1 auto;display:grid;grid-template-columns:336px 1fr;gap:12px;min-height:0}
+.col{display:flex;flex-direction:column;gap:12px;min-height:0}
+.card{background:var(--carbon);border:1px solid var(--charcoal);border-radius:var(--r-card);position:relative;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 4px 14px rgba(0,0,0,.45)}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px 0;font-size:16px;color:var(--parchment)}
+.card-head .t{display:flex;align-items:center;gap:9px;font-weight:600;color:var(--snow);letter-spacing:.5px}
+.card-head .mark{width:3px;height:13px;background:var(--green);box-shadow:0 0 7px var(--green);border-radius:1px}
+.card-head .val{font-family:var(--mono);color:var(--steel);font-size:16px}
+/* ===== 电量主卡 ===== */
+.battery-card{flex:1 1 auto;display:flex;flex-direction:column;border:2px solid rgba(0,217,146,.5);box-shadow:0 0 0 1px rgba(0,0,0,.4),0 0 34px rgba(0,217,146,.12),inset 0 1px 0 rgba(255,255,255,.03)}
+.battery-body{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:16px;padding:10px 20px 6px}
+.battery-pic{position:relative;width:122px;height:228px;flex:0 0 122px}
+.battery-pic svg{width:100%;height:100%;overflow:visible}
+.battery-info{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.pct{font-family:var(--mono);font-size:74px;font-weight:700;line-height:1;letter-spacing:-3px;
+  background:linear-gradient(180deg,#a5ffdc 0%,#2fd6a1 45%,#0d9f6e 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+  filter:drop-shadow(0 0 24px rgba(0,217,146,.4));font-variant-numeric:tabular-nums}
+.pct-unit{font-size:22px;font-weight:700;color:var(--green);text-shadow:0 0 12px rgba(0,217,146,.5)}
+.pct-label{font-size:16px;color:var(--steel);letter-spacing:1.5px;margin-top:3px;font-family:var(--mono)}
+.m-meta{display:flex;gap:26px;margin-top:20px;padding-top:14px;border-top:1px solid var(--charcoal-dim)}
+.m-meta .k{font-size:16px;color:var(--steel);letter-spacing:1px}
+.m-meta .v{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px;font-family:var(--mono);color:var(--snow)}
+.m-meta .v small{font-size:16px;color:var(--parchment);font-weight:400;margin-left:2px}
+.battery-foot{display:flex;align-items:center;gap:13px;padding:12px 16px 13px;border-top:1px solid var(--charcoal-dim)}
+.ring{position:relative;width:44px;height:44px;flex:0 0 44px}
+.ring svg{transform:rotate(-90deg)}
+.ring .ringnum{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--mint);font-family:var(--mono)}
+.foot-txt .a{font-size:16px;font-weight:600;color:var(--snow)}
+.foot-txt .b{font-size:16px;color:var(--steel);margin-top:3px;font-family:var(--mono)}
+/* ===== 功率卡 ===== */
+.power-card{flex:0 0 226px;display:flex;flex-direction:column}
+.power-body{flex:1 1 auto;display:flex;align-items:center;gap:16px;padding:12px 18px 4px}
+.io{flex:1 1 auto;display:flex;flex-direction:column;gap:4px}
+.io .tag{font-size:16px;color:var(--steel);letter-spacing:1.2px}
+.io .big{font-family:var(--mono);font-size:40px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.io .big small{font-size:16px;font-weight:600;color:var(--steel);margin-left:3px}
+.io .sub{font-size:16px;color:var(--parchment);font-variant-numeric:tabular-nums;font-family:var(--mono)}
+.io.in .big{color:var(--mint);text-shadow:0 0 18px rgba(0,217,146,.35)}
+.io.out .big{color:var(--snow)}
+.io-divider{width:1px;align-self:stretch;background:var(--charcoal-dim)}
+.power-curve{flex:0 0 auto;height:86px;padding:0 12px 8px}
+.power-curve svg{width:100%;height:100%;display:block}
+#curveLine{filter:drop-shadow(0 0 4px rgba(0,217,146,.55))}
+/* ===== 端口卡 ===== */
+.port-card{flex:1 1 auto;display:flex;flex-direction:column}
+.ports{flex:1 1 auto;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:auto 1fr;gap:10px;padding:12px 16px 15px}
+.port{display:flex;flex-direction:column;gap:5px;padding:10px 13px;border-radius:var(--r-card);background:var(--carbon2);border:1px solid var(--charcoal);cursor:pointer;transition:border-color .2s,opacity .2s,background .2s,box-shadow .2s;user-select:none}
+.port:hover{border-color:rgba(0,217,146,.45);box-shadow:0 0 14px rgba(0,217,146,.10)}
+.port.on{border-color:rgba(0,217,146,.5);background:linear-gradient(180deg,rgba(0,217,146,.06),rgba(0,217,146,.02))}
+.port.off{opacity:.45}
+.port .top{display:flex;align-items:center;justify-content:space-between}
+.port .pn{font-size:16px;font-weight:700}
+.port .proto{font-size:16px;padding:2px 7px;border-radius:9999px;font-weight:700;background:rgba(0,217,146,.08);border:1px solid rgba(0,217,146,.28);color:var(--mint);letter-spacing:.5px;font-family:var(--mono)}
+.port .mid{display:flex;align-items:baseline;gap:8px}
+.port .amp{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--snow);font-variant-numeric:tabular-nums}
+.port .amp small{font-size:16px;color:var(--steel);font-weight:400}
+.port .w{font-family:var(--mono);font-size:16px;color:var(--parchment);font-variant-numeric:tabular-nums}
+.port .st{font-size:16px;color:var(--steel);display:flex;align-items:center;gap:5px;letter-spacing:.5px}
+.port .st .dot{width:6px;height:6px;flex:0 0 6px}
+.port.on .st .dot{background:var(--green);box-shadow:0 0 6px var(--green)}
+.port.off .st .dot{background:var(--charcoal)}
+.port.main{grid-column:1/-1;flex-direction:row;align-items:center;gap:16px;padding:11px 16px;border-color:rgba(0,217,146,.55);background:linear-gradient(90deg,rgba(0,217,146,.10),rgba(0,217,146,.02));box-shadow:0 0 22px rgba(0,217,146,.10)}
+.port.main.off{border-color:var(--charcoal);background:var(--carbon2);box-shadow:none;opacity:.45}
+.port.main .left{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.port.main .pn{font-size:16px}
+.port.main .mid{margin-left:auto;display:flex;align-items:baseline;gap:12px}
+.port.main .amp{font-size:22px}
+.port.main .amp small{font-size:16px}
+.port.main .w{font-size:16px}
+.port.main .st{font-size:16px}
+/* ===== 底部 ===== */
+footer{flex:0 0 38px;display:flex;align-items:center;gap:14px;padding:0 4px}
+.protect{display:flex;align-items:center;gap:10px;font-size:16px;color:var(--parchment)}
+.protect .shield{display:flex;align-items:center;gap:6px;color:var(--mint);font-weight:600}
+.protect .shield svg{width:14px;height:14px}
+.protect .items{display:flex;gap:6px}
+.protect .it{padding:3px 11px;border-radius:9999px;background:var(--carbon);border:1px solid var(--charcoal);font-size:16px;color:var(--parchment);letter-spacing:1px}
+
+/* ===== 充电动效 ===== */
+.battery-pic .bubbles{position:absolute;left:14px;top:24%;bottom:7%;width:94px;overflow:hidden;pointer-events:none}
+.battery-pic .bubbles span{position:absolute;bottom:-14px;border-radius:50%;opacity:0;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.92),rgba(0,217,146,.6) 55%,rgba(0,217,146,0));
+  animation:rise 3.4s linear infinite}
+/* 每个气泡的周期各不相同，否则"同速 + 等间隔延迟"会排成一条斜线一起上移 */
+.battery-pic .bubbles span:nth-child(1){left:16%;width:9px;height:9px;animation-duration:3.1s;animation-delay:0s}
+.battery-pic .bubbles span:nth-child(2){left:44%;width:6px;height:6px;animation-duration:3.7s;animation-delay:.8s}
+.battery-pic .bubbles span:nth-child(3){left:70%;width:10px;height:10px;animation-duration:3.3s;animation-delay:1.5s}
+.battery-pic .bubbles span:nth-child(4){left:32%;width:5px;height:5px;animation-duration:4.1s;animation-delay:2.1s}
+.battery-pic .bubbles span:nth-child(5){left:82%;width:7px;height:7px;animation-duration:3.5s;animation-delay:2.7s}
+.battery-pic .bubbles span:nth-child(6){left:56%;width:8px;height:8px;animation-duration:3.9s;animation-delay:1.9s}
+@keyframes rise{0%{bottom:-14px;opacity:0}16%{opacity:.9}70%{opacity:.7}100%{bottom:100%;opacity:0}}
+.battery-pic .glow{position:absolute;inset:-26px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(0,217,146,.22),transparent 65%);
+  animation:glowpulse 2.8s ease-in-out infinite}
+@keyframes glowpulse{0%,100%{opacity:.3;transform:scale(.96)}50%{opacity:.8;transform:scale(1.07)}}
+.battery-pic.charging .fill{animation:fillpulse 2.8s ease-in-out infinite}
+@keyframes fillpulse{0%,100%{opacity:1}50%{opacity:.78}}
+.battery-pic .flow{animation:flow 2.8s ease-in-out infinite}
+@keyframes flow{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-24px);opacity:.9}}
+.battery-pic .surface{animation:surf 2.8s ease-in-out infinite}
+@keyframes surf{0%,100%{transform:translateY(0);opacity:.8}50%{transform:translateY(-2px);opacity:.5}}
+.battery-pic.discharge .bubbles,.battery-pic.discharge .glow{display:none}
+.battery-pic.hold .bubbles,.battery-pic.hold .glow{display:none}
+.battery-pic.discharge .surface{opacity:.35}
+
+/* ============================================================
+   亮色主题（暖白 + 翠绿）
+   保持 VoltAgent 的暖中性身份：画布不用纯白，卡片纯白浮起，
+   翠绿在亮底上加深到 #00A576（原 #00D992 对比度不足，读不清）
+   ============================================================ */
+[data-theme="light"]{
+  --abyss:var(--lt-abyss); --carbon:var(--lt-carbon); --carbon2:var(--lt-carbon2);
+  --charcoal:var(--lt-line); --charcoal-dim:var(--lt-line-dim);
+  --green:var(--lt-green); --mint:var(--lt-mint); --emerald:var(--lt-emerald); --info:var(--lt-info);
+  --snow:var(--lt-snow); --parchment:var(--lt-parchment); --steel:var(--lt-steel);
+}
+/* 电池图（SVG）：用类名覆盖填充与渐变，避免白底上出现黑色外壳 */
+[data-theme="light"] .cshell{fill:#ffffff}
+[data-theme="light"] .ctab{fill:#f4f1ed}
+[data-theme="light"] .ctabfg{fill:#d3cdc6}
+[data-theme="light"] .ctint{fill:rgba(0,165,118,.06)}
+[data-theme="light"] .surface{fill:rgba(255,255,255,.85)}
+[data-theme="light"] .cticks{stroke:#e7efe9}
+[data-theme="light"] .cs1{stop-color:#d8d2cb}
+[data-theme="light"] .cs2{stop-color:#b5aea6}
+[data-theme="light"] .cf1{stop-color:#0b9e6e}
+[data-theme="light"] .cf2{stop-color:#00b87c}
+[data-theme="light"] .cf3{stop-color:#66dcb4}
+[data-theme="light"] .cglow{stop-color:#00a576}
+[data-theme="light"] .device{
+  border-color:#dcd7d1;
+  background:
+    radial-gradient(rgba(0,165,118,.06) 1px, transparent 1.5px) 0 0/26px 26px,
+    radial-gradient(900px 480px at 50% -22%, rgba(0,165,118,.10), transparent 56%),
+    radial-gradient(520px 320px at 106% 112%, rgba(0,165,118,.06), transparent 60%),
+    linear-gradient(165deg,#fbfaf8,#f2f1ee 50%,#efede9);
+  box-shadow:0 30px 80px rgba(35,30,25,.18), inset 0 1px 0 #fff;
+}
+[data-theme="light"] .logo{background:linear-gradient(180deg,#ffffff,#f6f4f1);box-shadow:inset 0 1px 0 #fff,0 1px 3px rgba(30,25,20,.10)}
+[data-theme="light"] .chip{background:linear-gradient(180deg,#ffffff,#f7f5f2);box-shadow:inset 0 1px 0 #fff,0 1px 2px rgba(30,25,20,.06)}
+[data-theme="light"] .status-card{background:linear-gradient(180deg,#ffffff,#f9f7f4);box-shadow:0 1px 3px rgba(30,25,20,.08)}
+[data-theme="light"] .status-card:hover{box-shadow:0 2px 10px rgba(0,165,118,.16)}
+[data-theme="light"] .status-card.hold{border-color:#d8d3cd}
+[data-theme="light"] .card{box-shadow:0 1px 2px rgba(30,25,20,.05),0 6px 18px rgba(30,25,20,.06)}
+[data-theme="light"] .battery-card{border-color:rgba(0,165,118,.55);box-shadow:0 0 0 1px rgba(0,0,0,.02),0 0 24px rgba(0,165,118,.12)}
+[data-theme="light"] .port:hover{box-shadow:0 2px 10px rgba(0,165,118,.14)}
+[data-theme="light"] .port.on{background:linear-gradient(180deg,rgba(0,165,118,.10),rgba(0,165,118,.03))}
+[data-theme="light"] .port.main{background:linear-gradient(90deg,rgba(0,165,118,.12),rgba(0,165,118,.03));box-shadow:0 2px 12px rgba(0,165,118,.10)}
+[data-theme="light"] .port.main.off{background:var(--carbon2);box-shadow:none}
+[data-theme="light"] .battery-pic .bubbles span{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.98),rgba(255,255,255,.65) 55%,rgba(255,255,255,0))}
+[data-theme="light"] .battery-pic .glow{background:radial-gradient(circle,rgba(0,165,118,.18),transparent 65%)}
+[data-theme="light"] .pct{
+  background-image:linear-gradient(180deg,#0a8f66 0%,#00996f 45%,#046b4f 100%);
+  filter:drop-shadow(0 1px 6px rgba(0,165,118,.22));
+}
+[data-theme="light"] .pct-unit{text-shadow:none}
+[data-theme="light"] #curveLine{filter:drop-shadow(0 1px 2px rgba(0,165,118,.35))}
+[data-theme="light"] .card-head .mark{box-shadow:none}
+/* 亮底上的翠绿描边统一加深，避免 50% 透明度的高亮绿发白发灰 */
+[data-theme="light"] .status-card{border-color:rgba(0,165,118,.55)}
+[data-theme="light"] .port{border-color:#ded9d3}
+[data-theme="light"] .port.on{border-color:rgba(0,165,118,.55)}
+[data-theme="light"] .port.main{border-color:rgba(0,165,118,.55)}
+[data-theme="light"] .port .proto{background:rgba(0,165,118,.10);border:1px solid rgba(0,165,118,.32)}
+
+/* 主题切换按钮：顶栏右侧胶囊（与状态卡、时钟同排） */
+.theme-chip{width:132px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--charcoal);background:var(--carbon2);color:var(--parchment);
+  font:600 18px/1 var(--sans);cursor:pointer;transition:.2s;user-select:none;letter-spacing:1px}
+.theme-chip:hover{border-color:var(--green);color:var(--green)}
+</style>
+</head>
+<body>
+<div id="scaler"><div class="device">
+<header>
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="var(--green)"/></svg></div>
+    <div>
+      <div class="name">移动电源</div>
+      <div class="sub">POWERBANK · 20000 MAH</div>
+    </div>
+  </div>
+  <div class="top-right">
+    <div class="status-card" id="statusCard">
+      <div class="sc-state"><span class="dot" id="scDot"></span><span id="scState">充电中</span></div>
+      <div class="sc-power" id="scPower">60<small>W</small></div>
+    </div>
+    <button class="theme-chip" id="themeBtn" type="button">切换亮色</button>
+    <div class="chip clock"><b id="clockV">14:32</b></div>
+  </div>
+</header>
+<main>
+<section class="card battery-card">
+  <div class="card-head"><div class="t"><span class="mark"></span>电池电量</div><div class="val">74 WH</div></div>
+  <div class="battery-body">
+    <div class="battery-pic charging" id="batteryPic">
+      <svg viewBox="0 0 130 240" fill="none">
+        <defs>
+          <linearGradient id="fill" x1="0" y1="1" x2="0" y2="0">
+            <stop class="cf1" offset="0" stop-color="#0c9a6c"/><stop class="cf2" offset=".55" stop-color="#00d992"/><stop class="cf3" offset="1" stop-color="#7ff0c6"/>
+          </linearGradient>
+          <linearGradient id="shell" x1="0" y1="0" x2="1" y2="0">
+            <stop class="cs1" offset="0" stop-color="#33302f"/><stop class="cs2" offset=".5" stop-color="#57524f"/><stop class="cs1" offset="1" stop-color="#33302f"/>
+          </linearGradient>
+          <linearGradient id="flowg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+          </linearGradient>
+          <radialGradient id="innerGlow" cx=".5" cy=".78" r=".7">
+            <stop class="cglow" offset="0" stop-color="#00d992" stop-opacity=".30"/><stop class="cglow" offset="1" stop-color="#00d992" stop-opacity="0"/>
+          </radialGradient>
+          <clipPath id="cell"><rect x="15" y="34" width="100" height="190" rx="20"/></clipPath>
+        </defs>
+        <rect class="ctab" x="50" y="12" width="30" height="16" rx="6" stroke="url(#shell)" stroke-width="2.5" fill="#101010"/>
+        <rect class="ctabfg" x="53" y="13.5" width="10" height="13" rx="4" fill="#3d3a39"/>
+        <rect class="cshell" x="15" y="30" width="100" height="204" rx="24" stroke="url(#shell)" stroke-width="2.5" fill="#0c0c0c"/>
+        <g clip-path="url(#cell)">
+          <rect class="ctint" x="15" y="34" width="100" height="190" fill="rgba(0,217,146,.04)"/>
+          <rect class="fill" x="15" y="110" width="100" height="114" fill="url(#fill)"/>
+          <rect x="15" y="34" width="100" height="190" fill="url(#innerGlow)"/>
+          <rect class="flow" x="15" y="180" width="100" height="22" fill="url(#flowg)"/>
+          <rect class="surface" x="15" y="107" width="100" height="4" rx="2" fill="rgba(255,255,255,.55)"/>
+        </g>
+        <path d="M26 42 Q29 40 34 40 L34 58 Q29 58 26 56 Z" fill="rgba(255,255,255,.05)"/>
+        <g class="cticks" stroke="#050507" stroke-width="2">
+          <line x1="18" y1="82" x2="112" y2="82"/><line x1="18" y1="130" x2="112" y2="130"/><line x1="18" y1="178" x2="112" y2="178"/>
+        </g>
+      </svg>
+      <div class="bubbles"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="glow"></div>
+    </div>
+    <div class="battery-info">
+      <div><span class="pct" id="pctV">60</span><span class="pct-unit">%</span></div>
+      <div class="pct-label" id="pctLabel">11152 MAH 可用</div>
+      <div class="m-meta">
+        <div class="item">
+          <div class="k">已充电</div>
+          <div class="v" id="chargedV">12.9<small>Wh</small></div>
+        </div>
+        <div class="item">
+          <div class="k">剩余时间</div>
+          <div class="v" id="remainV">1.2<small>h</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="battery-foot">
+    <div class="ring">
+      <svg width="44" height="44" viewBox="0 0 44 44">
+        <circle cx="22" cy="22" r="18" stroke="var(--charcoal-dim)" stroke-width="4" fill="none"/>
+        <circle cx="22" cy="22" r="18" stroke="var(--green)" stroke-width="4" fill="none" stroke-linecap="round" stroke-dasharray="113" stroke-dashoffset="2.3"/>
+      </svg>
+      <div class="ringnum">98%</div>
+    </div>
+    <div class="foot-txt">
+      <div class="a">电池健康度</div>
+      <div class="b">循环 128 次 · 电芯 31.6°C</div>
+    </div>
+  </div>
+</section>
+<div class="col">
+<section class="card power-card">
+  <div class="card-head"><div class="t"><span class="mark"></span>实时功率</div><div class="val" id="updateT">14:32:05</div></div>
+  <div class="power-body">
+    <div class="io in">
+      <span class="tag">输入 · TYPE-C PD</span>
+      <div class="big" id="inW">60<small>W</small></div>
+      <div class="sub" id="inSub">20V · 3.00A</div>
+    </div>
+    <div class="io-divider"></div>
+    <div class="io out">
+      <span class="tag">输出 · 总功率</span>
+      <div class="big" id="outW">122<small>W</small></div>
+      <div class="sub" id="outSub">3 口在输出</div>
+    </div>
+  </div>
+  <div class="power-curve">
+    <svg viewBox="0 0 620 82" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="curveFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#00d992" stop-opacity=".26"/><stop offset="1" stop-color="#00d992" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <g stroke="rgba(61,58,57,.5)" stroke-width="1" stroke-dasharray="3 5">
+        <line x1="0" y1="27" x2="620" y2="27"/>
+        <line x1="0" y1="54" x2="620" y2="54"/>
+      </g>
+      <path id="curveArea" d="" fill="url(#curveFill)"/>
+      <path id="curveLine" d="" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
+</section>
+
+<section class="card port-card">
+  <div class="card-head"><div class="t"><span class="mark"></span>输出端口</div><div class="val">点击开关</div></div>
+  <div class="ports">
+    <div class="port main on" data-idx="0">
+      <div class="left">
+        <div class="pn">USB-C1</div>
+        <div class="proto">PD 100W</div>
+      </div>
+      <div class="mid"><span class="amp">3.00<small>A</small></span><span class="w">20.0V · 60W</span></div>
+      <div class="st"><span class="dot"></span>输出中</div>
+    </div>
+    <div class="port on" data-idx="1">
+      <div class="top"><span class="pn">USB-C2</span><span class="proto">PD 30W</span></div>
+      <div class="mid"><span class="amp">2.00<small>A</small></span><span class="w">15.0V · 30W</span></div>
+      <div class="st"><span class="dot"></span>输出中</div>
+    </div>
+    <div class="port on" data-idx="2">
+      <div class="top"><span class="pn">USB-A1</span><span class="proto">QC 22.5W</span></div>
+      <div class="mid"><span class="amp">1.80<small>A</small></span><span class="w">12.0V · 21.6W</span></div>
+      <div class="st"><span class="dot"></span>输出中</div>
+    </div>
+    <div class="port off" data-idx="3">
+      <div class="top"><span class="pn">USB-A2</span><span class="proto">5V 2A</span></div>
+      <div class="mid"><span class="amp">0.00<small>A</small></span><span class="w">5.0V · 0W</span></div>
+      <div class="st"><span class="dot"></span>空闲</div>
+    </div>
+  </div>
+</section>
+</div>
+</main>
+<footer>
+  <div class="protect">
+    <span class="shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/></svg>多重保护</span>
+    <span class="items"><span class="it">过流</span><span class="it">过压</span><span class="it">过温</span><span class="it">短路</span><span class="it">过放</span></span>
+  </div>
+</footer>
+</div></div>
+<script>
+/* ---------- 亮 / 暗主题切换 ---------- */
+(function(){
+  const btn = document.getElementById('themeBtn');
+  const root = document.documentElement;
+  let light = false;
+  btn.addEventListener('click', () => {
+    light = !light;
+    root.dataset.theme = light ? 'light' : 'dark';
+    btn.textContent = light ? '切换暗色' : '切换亮色';
+  });
+})();
+
+/* ---------- 自适应缩放 ---------- */
+function fit(){
+  const s = Math.min(innerWidth/1060, innerHeight/650, 1);
+  scaler.style.transform = `scale(${s})`;
+}
+addEventListener('resize', fit); fit();
+
+/* ---------- 时钟 ---------- */
+const clockV = document.getElementById('clockV');
+function tick(){
+  const d = new Date(), p = n => String(n).padStart(2,'0');
+  clockV.textContent = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  const u = document.getElementById('updateT');
+  if(u) u.textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+tick(); setInterval(tick, 1000);
+
+/* ---------- 充放电状态卡片（三态自动切换） ---------- */
+const statusCard = document.getElementById('statusCard');
+const scState = document.getElementById('scState');
+const scPower = document.getElementById('scPower');
+const inW = document.getElementById('inW');
+const inSub = document.getElementById('inSub');
+const pctLabel = document.getElementById('pctLabel');
+const batteryPic = document.getElementById('batteryPic');
+let charging = true;                 // 充电按钮：点击卡片切换
+let soc = 60;                        // 电量（与效果稿一致，可接真实数据）
+let onCount = 3, outTotal = 111.6;   // 由 refreshOut() 维护
+
+function computeState(){
+  if (soc >= 100) return 'hold';        // 电量满 → 保持
+  if (charging) return 'charge';        // 按钮充电 → 充电中
+  if (onCount > 0) return 'discharge';  // 有端口输出 → 放电中
+  return 'hold';                        // 无充电无输出 → 保持
+}
+
+function renderState(){
+  const st = computeState();
+  statusCard.classList.remove('discharge','hold');
+  if(st === 'discharge'){
+    statusCard.classList.add('discharge');
+    scState.textContent = '放电中';
+    scPower.innerHTML = (outTotal % 1 === 0 ? outTotal : outTotal.toFixed(1)) + '<small>W</small>';
+  }else if(st === 'hold'){
+    statusCard.classList.add('hold');
+    scState.textContent = '保持';
+    scPower.innerHTML = soc >= 100 ? '满电' : '待机';
+  }else{
+    scState.textContent = '充电中';
+    scPower.innerHTML = '60<small>W</small>';
+  }
+  batteryPic.classList.toggle('charging', st === 'charge');
+  batteryPic.classList.toggle('discharge', st === 'discharge');
+  batteryPic.classList.toggle('hold', st === 'hold');   // 保持态与设备端一致：不出气泡
+  if(st === 'charge'){
+    inW.innerHTML = '60<small>W</small>';
+    inSub.textContent = '20V · 3.00A';
+    pctLabel.textContent = '11152 MAH 可用';
+  }else if(st === 'discharge'){
+    inW.innerHTML = '0<small>W</small>';
+    inSub.textContent = '未连接输入';
+    pctLabel.textContent = '正在为设备供电';
+  }else{
+    inW.innerHTML = '0<small>W</small>';
+    inSub.textContent = '未连接输入';
+    pctLabel.textContent = soc >= 100 ? '电量已充满' : '待机中';
+  }
+}
+
+statusCard.addEventListener('click', () => {
+  charging = !charging;
+  renderState();
+});
+
+/* ---------- 端口开关 ---------- */
+const ports = document.querySelectorAll('.port');
+const portData = [
+  {amp:'3.00', w:'20.0V · 60W'},
+  {amp:'2.00', w:'15.0V · 30W'},
+  {amp:'1.80', w:'12.0V · 21.6W'},
+  {amp:'0.00', w:'5.0V · 0W'},
+];
+const outW = document.getElementById('outW');
+const outSub = document.getElementById('outSub');
+function refreshOut(){
+  onCount = 0; outTotal = 0;
+  ports.forEach((p,i) => {
+    if(p.classList.contains('on')){
+      onCount++;
+      outTotal += [60,30,21.6,0][i];
+      p.querySelector('.st').lastChild.textContent = '输出中';
+    }else{
+      p.querySelector('.st').lastChild.textContent = '空闲';
+    }
+  });
+  outW.innerHTML = `${outTotal % 1 === 0 ? outTotal : outTotal.toFixed(1)}<small>W</small>`;
+  outSub.textContent = onCount + ' 口在输出';
+  renderState();
+}
+ports.forEach((p,i) => {
+  p.addEventListener('click', () => {
+    p.classList.toggle('on');
+    p.classList.toggle('off');
+    const amp = p.querySelector('.amp');
+    const w = p.querySelector('.w');
+    if(p.classList.contains('on')){
+      amp.innerHTML = portData[i].amp + '<small>A</small>';
+      w.textContent = portData[i].w;
+    }else{
+      amp.innerHTML = '0.00<small>A</small>';
+      w.textContent = w.textContent.replace(/·.*/,'· 0W');
+    }
+    refreshOut();
+  });
+});
+
+/* ---------- 功率曲线：实时走动 ---------- */
+(function(){
+  const W = 620, H = 82, N = 90;
+  const data = new Array(N).fill(41);
+  let t = 0;
+  const line = document.getElementById('curveLine');
+  const area = document.getElementById('curveArea');
+  function step(){
+    t += 0.05;
+    const target = 41 + Math.sin(t)*10 + Math.sin(t*0.41+1.7)*5;
+    data.push(target);
+    data.shift();
+    const d = data.map((v,i) => (i?'L':'M') + (i/(N-1)*W).toFixed(1) + ' ' + v.toFixed(1)).join(' ');
+    line.setAttribute('d', d);
+    area.setAttribute('d', d + ` L${W} ${H} L0 ${H} Z`);
+    requestAnimationFrame(step);
+  }
+  step();
+})();
+</script>
+</body>
+</html>

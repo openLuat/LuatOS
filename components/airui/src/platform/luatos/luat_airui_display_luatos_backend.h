@@ -5,6 +5,7 @@
  */
 
 #include "luat_airui.h"
+#include "luat_airui_remote.h"
 
 typedef struct airui_luatos_fb_backend {
     const char *name;
@@ -17,6 +18,9 @@ typedef struct airui_luatos_fb_backend {
     int (*suspend)(airui_ctx_t *ctx, void *backend_ctx);
     int (*resume)(airui_ctx_t *ctx, void *backend_ctx);
     void (*detach)(void *backend_ctx);
+#if defined(LUAT_USE_AIRUI_REMOTE)
+    int (*committed_frame)(airui_ctx_t *ctx, void *backend_ctx, airui_remote_frame_t *frame);
+#endif
 } airui_luatos_fb_backend_t;
 
 const airui_luatos_fb_backend_t *airui_luatos_fb_backend_display(void);

@@ -652,9 +652,19 @@ static int l_socket_tx(lua_State *L)
 	{
 		ip_len = 0;
 	    ip = luaL_checklstring(L, 3, &ip_len);
+	    // 为字符串结束符预留空间，拒绝截断或包含内嵌零的地址。
+	    if (ip_len >= sizeof(ip_buf) || memchr(ip, 0, ip_len) != NULL)
+	    {
+	        lua_pushboolean(L, 0);
+	        return 1;
+	    }
 	    memcpy(ip_buf, ip, ip_len);
 	    ip_buf[ip_len] = 0;
-	    ipaddr_aton(ip_buf, &ip_addr);
+	    if (!ipaddr_aton(ip_buf, &ip_addr))
+	    {
+	        lua_pushboolean(L, 0);
+	        return 1;
+	    }
 
 	}
 	uint32_t tx_len;
@@ -1222,9 +1232,19 @@ static int l_socket_set_dns(lua_State *L)
 	{
 		ip_len = 0;
 	    ip = luaL_checklstring(L, 3, &ip_len);
+	    // 为字符串结束符预留空间，拒绝截断或包含内嵌零的地址。
+	    if (ip_len >= sizeof(ip_buf) || memchr(ip, 0, ip_len) != NULL)
+	    {
+	        lua_pushboolean(L, 0);
+	        return 1;
+	    }
 	    memcpy(ip_buf, ip, ip_len);
 	    ip_buf[ip_len] = 0;
-	    ipaddr_aton(ip_buf, &ip_addr);
+	    if (!ipaddr_aton(ip_buf, &ip_addr))
+	    {
+	        lua_pushboolean(L, 0);
+	        return 1;
+	    }
 	}
 #else
 	int adapter_index = luaL_optinteger(L, 1, network_register_get_default());

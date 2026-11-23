@@ -153,7 +153,12 @@ cleanup:
 static int luat_netdrv_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
     LWIP_UNUSED_ARG(arg);
     LWIP_UNUSED_ARG(pcb);
-    LWIP_UNUSED_ARG(port);
+    if (!p) return ERR_OK;
+    /* 先确认 DHCPv4 固定头和 cookie 完整，再访问客户端地址字段。 */
+    if (port != DHCP_SERVER_PORT || p->tot_len < DHCP_OPTIONS_OFS || !addr || !IP_IS_V4(addr)) {
+        pbuf_free(p);
+        return ERR_OK;
+    }
     LLOGD("收到DHCP数据包(len=%d)", p->tot_len);
     u16_t total_len = p->tot_len;
     char* ptr = luat_heap_malloc(total_len);
@@ -162,17 +167,18 @@ static int luat_netdrv_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
         pbuf_free(p);
         return ERR_OK;
     }
-    pbuf_copy_partial(p, ptr, total_len, 0);
+    u16_t copied = pbuf_copy_partial(p, ptr, total_len, 0);
     pbuf_free(p);
-    p = NULL; // 防止重复释放
+    if (copied != total_len) {
+        luat_heap_free(ptr);
+        return ERR_OK;
+    }
 
     // 解析DHCP数据包中的mac地址
     uint8_t received_mac[6];
     memcpy(received_mac, ptr + 28, 6);
     
-    u16_t ip_header_length = IP_IS_V6(addr) ? 40 : 20;
-    u16_t udp_header_length = 8;
-    u16_t max_dhcp_packet_len;
+    const u16_t header_length = 20 + 8; /* IPv4、UDP 的最小头部长度 */
 
     // 收到DHCP数据包, 需要逐个netdrv查一遍, 对照mac
     for (size_t i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++)
@@ -190,9 +196,8 @@ static int luat_netdrv_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
         if (0 == memcmp(local_mac, received_mac, 6)) {
             // 如果找到匹配的网络接口
             // 先检查数据包长度是否足够
-            max_dhcp_packet_len = netif->mtu - ip_header_length - udp_header_length;
-            if (total_len > max_dhcp_packet_len) {
-                LLOGE("dhcp pkg too large %d mtu %d len %d", drv->id, netif->mtu, max_dhcp_packet_len);
+            if ((uint32_t)total_len + header_length > netif->mtu) {
+                LLOGE("dhcp pkg too large %d mtu %d len %d", drv->id, netif->mtu, total_len);
                 break;
             }
             // 注意, luat_netdrv_dhcp_client_run是会释放ptr的, 所以不能在这里释放

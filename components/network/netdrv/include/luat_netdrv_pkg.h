@@ -2,6 +2,7 @@
 #define LUAT_NETDRV_PKG_H
 
 #include <stdint.h>
+#include "lwip/err.h"
 #include "luat_netdrv_event.h"  // 提供 LUAT_NETDRV_CH_HW 等常量与回调原型
 
 /**
@@ -28,6 +29,13 @@
 int luat_netdrv_pkg_input(uint8_t id, uint8_t src, uint8_t* buff, uint16_t len);
 
 /**
+ * pbuf 包入口, 支持链式缓冲. 借用 p, 不修改引用计数, 不保存指针.
+ * HW: 抓包 -> 按需展开一次供观察/NAPT 使用, 失败返回0继续协议栈.
+ * LWIP: 仅有对应层订阅时展开并拦截, 1=消费, 0=放行, 负数=失败.
+ */
+int luat_netdrv_pkg_input_pbuf(uint8_t id, uint8_t src, struct pbuf* p);
+
+/**
  * 硬件驱动层统一的包出口 (TX)
  * 与 pkg_input 对称,集中所有 netdrv->dataout 调用入口.
  *
@@ -40,5 +48,18 @@ int luat_netdrv_pkg_input(uint8_t id, uint8_t src, uint8_t* buff, uint16_t len);
  *  -1  = 失败 (adapter 缺失 / dataout 为空 / buff 为空 / 未知 dst)
  */
 int luat_netdrv_pkg_output(uint8_t id, uint8_t dst, uint8_t* buff, uint16_t len);
+
+typedef err_t (*luat_netdrv_pkg_pbuf_send_cb)(void* userdata, struct pbuf* p);
+
+/**
+ * 最终硬件 TX 公共入口: 抓包后调用原驱动 sender, 原样返回 sender 的结果.
+ * 公共层借用 p, 不展开、不 ref/free; sender 按自身约定复制或引用数据.
+ * sender 不得再次进入本入口. Ethernet/RAW IP 格式由网卡标志判断.
+ */
+err_t luat_netdrv_pkg_output_pbuf(uint8_t id, uint8_t dst, struct pbuf* p,
+                                 luat_netdrv_pkg_pbuf_send_cb sender, void* userdata);
+
+/* 原生网卡: 包装已有 linkoutput, 将普通 TX 和 dataout 回环统一接到公共出口. */
+int luat_netdrv_pkg_attach_native(int id);
 
 #endif

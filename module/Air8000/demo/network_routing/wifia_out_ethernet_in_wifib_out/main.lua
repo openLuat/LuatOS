@@ -1,12 +1,13 @@
 --[[
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
-@version 1.0
-@date    2025.08.05
+@version 1.1
+@date    2026.11.12
 @author  魏健强
 @usage
 本demo演示的核心功能为：
 1.设置多网融合功能，演示动态切换WiFi上游网络
+依赖：exnetif.lua 库版本需 >= 202607211200，旧版本不支持自动切换
 更多说明参考本目录下的readme.md文件
 ]]
 --[[

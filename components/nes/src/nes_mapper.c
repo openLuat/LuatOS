@@ -793,6 +793,7 @@ int nes_load_mapper(nes_t* nes){
 #if NES_ENABLE_HEAVY_MAPPERS
         NES_CASE_LOAD_MAPPER(31);
 #endif
+#ifdef LUAT_USE_NES_FULL
         NES_CASE_LOAD_MAPPER(32);
         NES_CASE_LOAD_MAPPER(33);
         NES_CASE_LOAD_MAPPER(34);
@@ -951,6 +952,7 @@ int nes_load_mapper(nes_t* nes){
         NES_CASE_LOAD_MAPPER(253);
         NES_CASE_LOAD_MAPPER(254);
         NES_CASE_LOAD_MAPPER(255);
+#endif // LUAT_USE_NES_FULL
         default :
             NES_LOG_ERROR("mapper:%03d is unsupported\n",nes->nes_rom.mapper_number);
             return NES_ERROR;

@@ -25,6 +25,7 @@ pm.power(pm.USB, true)		--USB上电初始化开始工作
 目前设备类只有usb.HID可以通过usb操作库api和对端通讯,usb.CDC-ACM虚拟串口直接使用uart api
 ]]
 */
+#include "lua.h"
 #include "luat_base.h"
 #include "luat_sys.h"
 #include "luat_msgbus.h"
@@ -162,17 +163,26 @@ static int l_usb_rx(lua_State *L)
 
 /*
 设置USB工作模式，必须在USB外设掉电不工作时进行设置
-@api usb.mode(id, mode)
+@api usb.mode(id, mode, force_full_speed)
 @int usb总线id,默认0,如果芯片只有1条USB线,填0
 @int 工作模式,只有3种,usb.HOST主机模式,usb.DEVICE从机模式,usb.OTG协商模式,默认是从机模式
+@boolean 是否强制全速模式，只有在主机模式下有效，默认false不强制。如果芯片USB不支持HS和FS共存，接入多个FS设备时比如键盘鼠标U盘共存时必须强制全速模式。单个FS设备时可以不强制全速模式
 @return bool 成功返回true,否则返回false,总线id填错,所选模式不支持时,USB外设正在工作等情况下返回失败
 @usage
 pm.power(pm.USB, false)
 usb.mode(0, usb.DEVICE)
 pm.power(pm.USB, true)
+
+pm.power(pm.USB, false)
+usb.mode(0, usb.HOST, true) --强制使用USB主机全速模式
+pm.power(pm.USB, true)
 */
 static int l_usb_mode(lua_State* L) {
-	int result = luat_usb_set_mode(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, LUAT_USB_MODE_DEVICE));
+    uint8_t force_full_speed = 0;
+    if (lua_isboolean(L, 3)) {
+        force_full_speed = lua_toboolean(L, 3);
+    }
+	int result = luat_usb_set_mode(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, LUAT_USB_MODE_DEVICE), force_full_speed);
 	lua_pushboolean(L, !result);
     return 1;
 }

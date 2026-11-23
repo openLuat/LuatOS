@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include "zenoh-pico/utils/result.h"
 #include "zenoh-pico/config.h"
-#define ZP_LUATOS_PATCH_ABI 20261111
+#define ZP_LUATOS_PATCH_ABI 20261116
 #define _Z_USRPWD_MAX 128
 #ifdef ZP_AUTH_OBSERVER
 void ZP_AUTH_OBSERVER(int stage, int remote_reason);

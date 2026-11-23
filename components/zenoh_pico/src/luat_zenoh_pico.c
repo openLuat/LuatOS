@@ -6,7 +6,7 @@
 #include "luat_mcu.h"
 #include "zenoh-pico.h"
 #include "zenoh-pico/utils/auth.h"
-#if ZP_LUATOS_PATCH_ABI != 20261111
+#if ZP_LUATOS_PATCH_ABI != 20261116
 #error "This binding requires the matching LuatOS patched SDK"
 #endif
 #include <stdatomic.h>
@@ -39,6 +39,9 @@ typedef struct {
 
 static luat_rtos_queue_t commands, events;
 static luat_rtos_task_handle worker_handle;
+/* Open 成功前预留本代的 closed 对象。队列满时另存一条，先发完较早的事件。 */
+static luat_zp_event_t *close_reserve;
+static _Atomic(luat_zp_event_t *) overflow_closed;
 static atomic_uint active, wanted, state, dropped, io_failed, rng_failed, cleanup_io, io_cancelled;
 static atomic_uint get_reserved;
 static atomic_uint tx_bytes, rx_bytes, tx_peak, rx_peak, tx_rejected, rx_rejected;
@@ -185,6 +188,48 @@ static void command_gate_enter(void) {
 }
 static void command_gate_leave(void) { atomic_flag_clear(&command_gate); }
 
+/* SDK 回调只写 worker 私有数据；VM 读取的副本由 command_gate 保护。 */
+static luat_zp_health_t observed_health, published_health;
+static const char *transport_stage, *first_failure;
+static int transport_rc, transport_remote_reason;
+
+void luat_zp_observe_rx(const char *event, uint64_t peer_lease, uint64_t effective_lease) {
+    if (peer_lease) {
+        observed_health.peer_lease_ms = peer_lease;
+        observed_health.effective_lease_ms = effective_lease;
+    }
+    observed_health.last_rx_ms = luat_mcu_tick64_ms();
+    observed_health.rx_kind = event;
+    observed_health.rx_seq++;
+}
+void luat_zp_observe_transport_fault(const char *stage, int result, int remote_reason) {
+    if (!transport_stage && !atomic_load(&cleanup_io)) {
+        if (!first_failure) first_failure = "transport";
+        transport_stage = stage;
+        transport_rc = result;
+        transport_remote_reason = remote_reason;
+    }
+}
+static void publish_rx(uint32_t generation) {
+    command_gate_enter();
+    if (atomic_load(&wanted) == generation) published_health = observed_health;
+    command_gate_leave();
+}
+int luat_zenoh_pico_health(uint32_t generation, luat_zp_health_t *snapshot, uint64_t *age_ms) {
+    command_gate_enter();
+    int available = generation && atomic_load(&wanted) == generation &&
+        atomic_load(&state) == LUAT_ZP_ONLINE && published_health.generation == generation &&
+        published_health.rx_kind && published_health.effective_lease_ms;
+    if (available) {
+        *snapshot = published_health;
+        uint64_t now = luat_mcu_tick64_ms();
+        if (now >= snapshot->last_rx_ms) *age_ms = now - snapshot->last_rx_ms;
+        else available = 0;
+    }
+    command_gate_leave();
+    return available;
+}
+
 /* 与close共用短门：close返回后，本代工作任务不可再覆盖CLOSING。 */
 static int publish_state(uint32_t generation, unsigned next) {
     command_gate_enter();
@@ -198,6 +243,7 @@ int luat_zenoh_pico_adapter(void) { return adapter_index; }
 void luat_zenoh_pico_io_fail_at(const char *stage, int rc, size_t requested,
                               size_t transferred, uint64_t elapsed_ms) {
     if (atomic_load(&io_failed)) return;
+    if (!first_failure && !atomic_load(&cleanup_io)) first_failure = "io";
     io_diagnostic.stage = stage; io_diagnostic.rc = rc;
     io_diagnostic.requested = requested; io_diagnostic.transferred = transferred;
     io_diagnostic.elapsed_ms = elapsed_ms;
@@ -225,10 +271,16 @@ uint32_t luat_zenoh_pico_dropped(void) { return atomic_load(&dropped); }
 
 /* 结果队列有界；分配失败/队列满可由dropped及state观察。 */
 static luat_zp_event_t *new_event(uint32_t gen, uint32_t id, const char *kind, int code) {
-    luat_zp_event_t *e = luat_heap_malloc(sizeof(*e));
+    luat_zp_event_t *e = !strcmp(kind, "closed") ? close_reserve : luat_heap_malloc(sizeof(*e));
     if (!e) { atomic_fetch_add(&dropped, 1); return NULL; }
     memset(e, 0, sizeof(*e));
     e->generation = gen; e->id = id; e->kind = kind; e->code = code;
+    if (observed_health.generation == gen) e->first_failure = first_failure;
+    if (observed_health.generation == gen && transport_stage) {
+        e->transport_stage = transport_stage;
+        e->transport_rc = transport_rc;
+        e->transport_remote_reason = transport_remote_reason;
+    }
     e->auth_stage = auth_stage; e->auth_remote_reason = auth_remote_reason;
     if (atomic_load(&io_failed) && io_diagnostic.generation == gen) {
         e->io_failure = io_diagnostic;
@@ -244,8 +296,24 @@ static int post(luat_zp_event_t *e) {
     luat_zenoh_pico_wake();
     return 0;
 }
+static void publish_closed(luat_zp_event_t *e) {
+    command_gate_enter();
+    close_reserve = NULL;
+    if (luat_rtos_queue_send(events, &e, sizeof(e), 0) != 0) atomic_store(&overflow_closed, e);
+    atomic_store(&active, 0);
+    command_gate_leave();
+    luat_zenoh_pico_wake();
+}
 int luat_zenoh_pico_pop(luat_zp_event_t **e) {
-    return events ? luat_rtos_queue_recv(events, e, sizeof(*e), 0) : -1;
+    if (!events) return -1;
+    command_gate_enter();
+    int rc = luat_rtos_queue_recv(events, e, sizeof(*e), 0);
+    if (rc != 0) {
+        *e = atomic_exchange(&overflow_closed, NULL);
+        if (*e) rc = 0;
+    }
+    command_gate_leave();
+    return rc;
 }
 
 static void on_sample(z_loaned_sample_t *sample, void *context) {
@@ -277,8 +345,30 @@ typedef struct {
     uint32_t generation, id;
     uint64_t deadline;
     int used, starting, sdk_done, terminal, done_posted, code;
-    const char *reason;
+    const char *reason, *sdk_drop_source;
+    uint32_t sdk_replies;
 } request_t;
+/* 最近四个 SDK drop 与唯一的 Lua 业务终态分别留存。 */
+static luat_zp_get_trace_t completed_get[LUAT_ZP_GET_MAX];
+static unsigned trace_cursor;
+static const char *drop_source;
+int luat_zenoh_pico_get_trace(uint32_t generation, uint32_t request, luat_zp_get_trace_t *out) {
+    int found = 0;
+    if (!generation || !request) return 0;
+    command_gate_enter();
+    for (unsigned i = 0; i < LUAT_ZP_GET_MAX; ++i) {
+        if (completed_get[i].generation == generation && completed_get[i].request == request) {
+            *out = completed_get[i]; found = 1; break;
+        }
+    }
+    command_gate_leave();
+    return found;
+}
+const char *luat_zp_swap_query_drop_scope(const char *source) {
+    const char *previous = drop_source;
+    drop_source = source;
+    return previous;
+}
 typedef struct {
     z_owned_queryable_t value;
     uint32_t generation, id;
@@ -322,7 +412,12 @@ static void flush_requests(void) {
         if (!r->terminal && now >= r->deadline) request_terminal(r, "timeout", -12);
         if (r->terminal && !r->done_posted) {
             luat_zp_event_t *e = new_event(r->generation, r->id, "get_done", r->code);
-            if (e) { e->request = r->id; e->reason = r->reason; }
+            if (e) {
+                e->request = r->id;
+                e->reason = r->reason;
+                e->sdk_replies = r->sdk_replies;
+                e->sdk_drop_source = r->sdk_drop_source;
+            }
             if (post(e) == 0) r->done_posted = 1;
         }
         if (r->sdk_done && r->done_posted) request_release(r);
@@ -330,7 +425,9 @@ static void flush_requests(void) {
 }
 static void on_get_reply(z_loaned_reply_t *reply, void *context) {
     request_t *r = context;
-    if (!r->used || r->terminal || atomic_load(&wanted) != r->generation) return;
+    if (!r->used) return;
+    if (r->sdk_replies < UINT32_MAX) r->sdk_replies++;
+    if (r->terminal || atomic_load(&wanted) != r->generation) return;
     if (luat_mcu_tick64_ms() >= r->deadline) { request_terminal(r, "timeout", -12); return; }
     luat_zp_event_t *e = new_event(r->generation, r->id, "get_reply", 0);
     if (!e) { request_terminal(r, "resource_limit", -3); return; }
@@ -352,9 +449,18 @@ static void on_get_reply(z_loaned_reply_t *reply, void *context) {
 static void on_get_drop(void *context) {
     request_t *r = context;
     r->sdk_done = 1;
+    r->sdk_drop_source = drop_source ? drop_source : (atomic_load(&cleanup_io) ? "cleanup" : "unknown");
+    command_gate_enter();
+    completed_get[trace_cursor] = (luat_zp_get_trace_t){
+        .generation = r->generation, .request = r->id, .sdk_replies = r->sdk_replies,
+        .sdk_drop_source = r->sdk_drop_source };
+    trace_cursor = (trace_cursor + 1) % LUAT_ZP_GET_MAX;
+    command_gate_leave();
     if (!r->starting && !r->terminal) {
-        int expired = luat_mcu_tick64_ms() >= r->deadline;
-        request_terminal(r, expired ? "timeout" : "completed", expired ? -12 : 0);
+        int expired = (drop_source && !strcmp(drop_source, "sdk_timeout")) || luat_mcu_tick64_ms() >= r->deadline;
+        if (expired) request_terminal(r, "timeout", -12);
+        else if (drop_source && !strcmp(drop_source, "wire_final")) request_terminal(r, "completed", 0);
+        else request_terminal(r, "sdk_drop_unknown", -1);
     }
 }
 static void execute_get(z_owned_session_t *s, command_t *c) {
@@ -387,7 +493,11 @@ static void execute_get(z_owned_session_t *s, command_t *c) {
     } else r->sdk_done = 1;
     r->starting = 0;
     if (rc) { request_terminal(r, "error", rc); r->sdk_done = 1; }
-    else if (r->sdk_done) request_terminal(r, "completed", 0);
+    else if (r->sdk_done) {
+        if (r->sdk_drop_source && !strcmp(r->sdk_drop_source, "wire_final")) request_terminal(r, "completed", 0);
+        else if (r->sdk_drop_source && !strcmp(r->sdk_drop_source, "sdk_timeout")) request_terminal(r, "timeout", -12);
+        else request_terminal(r, "sdk_drop_unknown", -1);
+    }
     else post(new_event(c->generation, c->id, "get_started", 0));
     flush_requests();
 }
@@ -591,9 +701,10 @@ static void worker(void *unused) {
             stop_commands(gen);
             clear_auth();
             luat_zp_event_t *closed = new_event(gen, 0, "closed", 0);
-            atomic_store(&active, 0);
-            post(closed); continue;
+            publish_closed(closed); continue;
         }
+        observed_health = (luat_zp_health_t){ .generation = gen };
+        transport_stage = NULL; first_failure = NULL;
         memset(&io_diagnostic, 0, sizeof(io_diagnostic)); io_diagnostic.generation = gen;
         z_owned_session_t session;
         subscriber_t subs[LUAT_ZP_SUB_MAX] = {0};
@@ -615,6 +726,7 @@ static void worker(void *unused) {
         failure_reason = open_failure_reason(rc);
         ZP_TEST_POINT(3, gen);
         if (opened && !luat_zenoh_pico_rng_failed()) {
+            publish_rx(gen);
             if (publish_state(gen, LUAT_ZP_ONLINE)) post(new_event(gen, 0, "opened", 0));
         } else {
             if (rc == 0) rc = -6;
@@ -660,6 +772,7 @@ static void worker(void *unused) {
                 if (luat_zenoh_pico_io_failed() || luat_zenoh_pico_rng_failed()) break;
             }
             flush_requests(); expire_queries();
+            uint64_t previous_rx = observed_health.rx_seq;
             for (int i = 0; i < 4 && !luat_zenoh_pico_io_failed() &&
                  !luat_zenoh_pico_rng_failed(); ++i) zp_spin_once(z_loan(session));
             /* 主动close中断读取不等于意外断连；真正IO首错仍保留。 */
@@ -671,11 +784,14 @@ static void worker(void *unused) {
                 failure_reason = session_closed ? "session_closed" : "transport_disconnected";
                 if (publish_state(gen, LUAT_ZP_FAILED)) {
                     luat_zp_event_t *failure = new_event(gen, 0, "error", rc);
-                    if (failure && !io_lost) failure->reason = failure_reason;
+                    if (failure && first_failure && !strcmp(first_failure, "transport"))
+                        failure->reason = "transport_failure";
+                    else if (failure && !io_lost) failure->reason = failure_reason;
                     post(failure);
                 }
                 break;
             }
+            if (observed_health.rx_seq != previous_rx) publish_rx(gen);
             luat_rtos_task_sleep(5);
         }
         if (opened && luat_zenoh_pico_rng_failed() && atomic_load(&wanted) == gen) {
@@ -701,12 +817,12 @@ static void worker(void *unused) {
             if (failed_before_cleanup) closed->io_failure = terminal_io;
             else memset(&closed->io_failure, 0, sizeof(closed->io_failure));
             /* 握手失败保留SDK原码，不能仅在worker的-7分支保留IO分类。 */
-            closed->reason = failed_before_cleanup ? "io_failure" : failure_reason;
+            if (first_failure && !strcmp(first_failure, "transport")) closed->reason = "transport_failure";
+            else closed->reason = failed_before_cleanup ? "io_failure" : failure_reason;
         }
         /* active归零同时发布CLOSED与可重开，事件准备期间仍保持清理态。 */
         ZP_TEST_POINT(5, gen);
-        atomic_store(&active, 0);
-        post(closed);
+        publish_closed(closed);
     }
 }
 
@@ -725,7 +841,7 @@ int luat_zenoh_pico_open_ex(const char *endpoint, int adapter, uint32_t *gen,
             return _Z_ERR_AUTH_CONFIG;
         if (_z_usrpwd_selftest()) return _Z_ERR_AUTH_CRYPTO;
     }
-    if (atomic_load(&active)) return -8;
+    if (atomic_load(&active) || atomic_load(&overflow_closed)) return -8;
     size_t n = strlen(endpoint);
     if (n < 7 || n >= sizeof(locator) || strncmp(endpoint, "tcp/", 4) ||
         strpbrk(endpoint, "#?; \t\r\n") || adapter < 0 || adapter > 126) return -2;
@@ -742,6 +858,8 @@ int luat_zenoh_pico_open_ex(const char *endpoint, int adapter, uint32_t *gen,
             commands = events = NULL; worker_handle = NULL; return -3;
         }
     }
+    close_reserve = luat_heap_malloc(sizeof(*close_reserve));
+    if (!close_reserve) return -3;
     clear_auth(); auth_stage = 0; auth_remote_reason = -1;
     if (options && options->username) {
         memcpy(auth_user, options->username, options->username_len);

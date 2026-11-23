@@ -51,15 +51,15 @@
    差别只有最右一格的文案：桌面是「全屏」（进来），本页是「窗口」（回去）。
    按钮的底色与文字色都由 video_bar 按主题令牌 + 当前状态算，本页不自己写颜色。
 
-7. **MP4 / HZV / MJPG 统一走 airui.video**（2026-10-09 起）
-   airui.video 已支持 HZV 与 MP4：MP4 由组件自动路由到 mplayer 后端（硬件图层
-   送显、自带音频通路、组件内部循环重播与 EOS 回调），三种格式统一入口
-   video_util.create_player，控制栏对所有格式一视同仁（播放/循环/重播都有效）。
+7. **统一走 airui.video**（2026-10-09 起，2026-11-11 收窄为只播 HZV）
+   素材由组件自动路由到 videoplayer 后端（控件内画面、自带逐帧时序与音频通路、
+   组件内部循环重播与 EOS 回调），入口统一是 video_util.create_player，
+   控制栏对播放/循环/重播一视同仁。
 
-8. **MP4 的视频图层永远在最上层**（HZV/MJPG 是控件内画面，不会）
-   mplayer 后端直显硬件视频图层，选择器弹窗会被正在播放的 MP4 盖住 ——
-   全屏模式下点「选择」先销毁 MP4 播放器再开弹窗，未选文件关弹窗时恢复播放
-   （见 open_picker）。
+8. **点「选择」不再销毁播放器**
+   原先必须先销毁 MP4 播放器才能开弹窗（它的硬件视频图层压在 UI 之上，弹窗必被
+   盖住）。只播 HZV 后画面是 stage 上的 lv_image 控件，弹窗建在它之上，不需要
+   这个动作；未选文件关弹窗什么都不用恢复（见 open_picker）。
 ]]
 
 local theme = require "ui_theme"
@@ -68,15 +68,15 @@ local video_util = require "video_util"
 local ok_exaudio, exaudio = pcall(require, "exaudio")
 if not ok_exaudio then exaudio = nil end
 
--- 读不到容器头时的兜底帧尺寸：与工程里唯一的开机素材 luatos_boot.hzv 一致
-local DEFAULT_FILE = "/luatos_boot.hzv"
+-- 兜底素材与兜底帧尺寸：与桌面素材 fruit.hzv 一致（480×320）
+local DEFAULT_FILE = "/luadb/fruit.hzv"
 local DEFAULT_VW, DEFAULT_VH = 480, 320
 
 local window_id = nil
 local bg = nil                -- 全屏黑底（airui.shape，不可滚动、不吃点击）
 local hit_layer = nil         -- 点击拦截层（吃点击的容器，挡住穿透到桌面的点击）
 local stage = nil             -- 舞台层：视频的父对象（换文件不影响它，因此不影响层级）
-local video_obj = nil         -- 播放器对象（airui.video 实例；MP4 为带会话收尾的包装对象）
+local video_obj = nil         -- 播放器对象（video_util.create_player 的 wrap_release 包装对象）
 local ctrl_bar = nil          -- 底部控制栏句柄（theme.video_bar 的返回值，不是 LVGL 对象）
 local empty_label = nil       -- 素材放不出来时的提示
 
@@ -240,13 +240,13 @@ local function stop_video()
     end
 end
 
---- 建视频控件（由 play 在 mplayer 音频会话释放窗口结束后调用，见 video_util）
+--- 建视频控件（由 play 在播放器音频会话释放窗口结束后调用，见 video_util）
 local function create_video_now()
     if not stage then return end
 
     local vx, vy, vw, vh = geo.video_x, geo.video_y, geo.video_w, geo.video_h
 
-    --[[HZV/MJPG/MP4 统一走 airui.video（父容器内控件，随 UI 层级显示/隐藏）。
+    --[[统一走 airui.video 的 videoplayer 后端（父容器内控件，随 UI 层级显示/隐藏）。
     循环/暂停/停止组件自带，控制栏代码无感。]]
     video_obj = video_util.create_player(current_file, {
         parent = stage,
@@ -262,7 +262,7 @@ local function create_video_now()
     is_playing = (video_obj ~= nil)
 
     if not video_obj then
-        --[[放不出来时说清原因：三种格式各有分辨率上限（MP4 480×320、HZV/MJPG 1024×600，
+        --[[放不出来时说清原因：HZV 有分辨率上限（1024×600，
         见 video_util.FRAME_MAX），被上限挡住的素材与「解码失败」的素材给人的感觉完全不同。
         这里再问一次 check_frame（纯 Lua 读容器头，很轻）拿 reason，不要只说「无法播放」。]]
         local ok, vw, vh, _fmt, reason = video_util.check_frame(current_file)
@@ -279,15 +279,6 @@ local function create_video_now()
     end
 end
 
---- 播放配套音频（同名 MP3）：只有 MJPG 素材有；HZV 的音轨在容器内
-local function start_companion_audio()
-    video_util.audio_stop()
-    local mp3 = video_util.find_companion_mp3(current_file)
-    if mp3 then
-        video_util.audio_play(mp3, function() return is_loop and is_playing end)
-    end
-end
-
 --- 切换到某个文件：重算几何 -> 重建画面 -> 刷新文案
 local function play(path)
     if type(path) ~= "string" or path == "" then return end
@@ -295,14 +286,13 @@ local function play(path)
     local vw, vh = video_util.frame_size(path, DEFAULT_VW, DEFAULT_VH)
     geo = calc_layout(W, H, vw, vh)
 
-    --[[停旧 → 建新要留出 mplayer 音频会话的释放窗口（见 video_util）。
-    窗口没关就把「建画面 + 起伴音 + 刷文案」整段延后到窗口结束，中间不建新会话，
+    --[[停旧 → 建新要留出播放器音频会话的释放窗口（见 video_util）。
+    窗口没关就把「建画面 + 刷文案」整段延后到窗口结束，中间不建新会话，
     就不会跟还没释放完的旧会话抢 luat_audio_request_play_stream。]]
     stop_video()
     video_util.after_release(function()
         create_video_now()
         sync_labels()
-        start_companion_audio()
     end)
 
     log.info("video_win", "play", path, "frame", vw, "x", vh, "overlay=", geo.overlay)
@@ -313,16 +303,14 @@ local function toggle_play()
     if is_playing then
         pcall(function() video_obj:pause() end)
         is_playing = false
-        video_util.audio_toggle(function() return is_loop and is_playing end)
     else
         pcall(function() video_obj:play() end)
         is_playing = true
-        video_util.audio_toggle(function() return is_loop and is_playing end)
     end
     sync_labels()
 end
 
--- loop 只在创建组件时生效（HZV/MJPG/MP4 一视同仁），所以切完标志位整组重建一次
+-- loop 只在创建组件时生效（HZV 也一样），所以切完标志位整组重建一次
 local function toggle_loop()
     is_loop = not is_loop
     sync_labels()
@@ -335,17 +323,8 @@ end
 
 --- 打开文件选择器（弹窗按旋转后的逻辑尺寸算大小）
 local function open_picker()
-    --[[MP4 的视频图层永远在最上层，会盖住选择器弹窗（HZV/MJPG 是控件内画面不会）。
-    点「选择」先销毁正在播放的 MP4；未选文件关闭弹窗时恢复播放，选中则播新文件。]]
-    local resume_mp4 = false
-    if video_obj and current_file and video_util.guess_format(current_file) == "mp4" then
-        pcall(function() video_obj:stop() end)
-        pcall(function() video_obj:destroy() end)
-        video_obj = nil
-        is_playing = false
-        resume_mp4 = true
-        sync_labels()
-    end
+    --[[点「选择」不销毁播放器：画面是 stage 上的 lv_image 控件，弹窗建在它之上不会被
+    盖住（原先要先销毁 MP4，是因为它的硬件视频图层压在 UI 之上）。选中则播新文件。]]
     local start = (current_file and current_file:match("^(.+/)")) or "/"
     video_picker.open({
         start_path = start,
@@ -361,10 +340,6 @@ local function open_picker()
                 sys.publish("VIDEO_FILE_CHANGED", path)
             end
             play(path)
-        end,
-        on_cancel = function()
-            -- 未选文件关闭弹窗：恢复被销毁的 MP4 播放
-            if resume_mp4 and current_file then play(current_file) end
         end,
     })
 end
@@ -429,8 +404,7 @@ local function on_create(init_file)
     if type(file) ~= "string" or file == "" or not io.exists(file) then
         file = nil
         for _, p in ipairs({
-            DEFAULT_FILE, "/luadb/luatos_boot.hzv",
-            "/luatos_boot.hzv", "/luadb/luatos_boot.mjpg",
+            DEFAULT_FILE, "/fruit.hzv",
         }) do
             if io.exists(p) then
                 file = p
@@ -470,7 +444,6 @@ end
 local function on_destroy()
     log.info("video_win", "on_destroy")
     window_id = nil
-    video_util.audio_stop()
     if video_obj then
         pcall(function() video_obj:stop() end)
         pcall(function() video_obj:destroy() end)

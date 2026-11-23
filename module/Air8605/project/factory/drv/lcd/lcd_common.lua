@@ -33,7 +33,7 @@ require 即执行，以下按顺序发生：
 
 4. 双字体路径：有 font.path → 从文件系统加载 .ttf（Air8101），无 path → 使用固件内置字库（其余平台）
 
-5. RGB 帧缓冲：统一走 display.init 分配 FrameBuffer（need_buffer 仅作配置语义保留），
+5. RGB 帧缓冲：统一走 display.init 分配 FrameBuffer（配置里不再设帧缓冲开关），
    不再需要 lcd.setupBuff / autoFlush 手动管理
 ]]
 
@@ -53,7 +53,7 @@ end
 --[[
 airui.init 引擎初始化（不含字体）：airui.init + 屏幕旋转 + 逻辑分辨率 + 密度缩放
 logo 绘制依赖本段产出的 _G.screen_w/h，字体与页面加载依赖 density_scale
-@param table cfg  config.hw.lcd 配置（含 need_buffer, font, rotation, screen_size, backlight）
+@param table cfg  config.hw.lcd 配置（含 font, rotation, screen_size, backlight）
 @return boolean  true=成功, false(或nil)=airui.init 失败
 ]]
 function M.airui_init(cfg)

@@ -111,12 +111,15 @@ local excloud = require "excloud"
 
 -- ==================== 常量 ====================
 
+local ac_cfg           = (_G.project_config or {}).aircloud or {}
 local APP_VERSION      = "1.2.0"
 local FSKV_CYCLE_KEY   = "aircloud_report_cycle"   -- 上报周期（秒）
 local FSKV_ENABLE_KEY  = "aircloud_report_enable"  -- 上报总开关
 local FSKV_BOOTCNT_KEY = "aircloud_boot_count"     -- 开机次数累计
-local DEFAULT_CYCLE    = 180                       -- 默认 180 秒（与 Air8780 一致）
-local MIN_CYCLE        = 5                         -- 最小周期
+-- report_cycle / min_cycle 可由 config 的 aircloud 段覆盖；两者都只是初值与下限，
+-- 运行中的实际周期仍由 fskv 记忆与云端 cycle: 指令决定（见 get_report_cycle / set_report_cycle）
+local DEFAULT_CYCLE    = tonumber(ac_cfg.report_cycle) or 180   -- 默认 180 秒（与 Air8780 一致）
+local MIN_CYCLE        = tonumber(ac_cfg.min_cycle) or 5        -- 最小周期
 local MAX_CYCLE        = 86400                     -- 最大周期（1 天）
 local HEARTBEAT_SEC    = 60                        -- 心跳间隔（秒）
                                                  -- 不要用 excloud 默认的 300 秒：平台在线判定
@@ -145,9 +148,12 @@ local battery_cache     = nil    -- { present, level, voltage, charging, usb }
 -- ==================== 小工具 ====================
 
 --- 安全调用：函数存在才调用，异常不影响调用方
+local query_diag = require "sip_query_diag"
 local function safe_call(name, fn, ...)
     if type(fn) ~= "function" then return nil end
+    local token, started = query_diag.begin(name)
     local ok, r1, r2 = pcall(fn, ...)
+    query_diag.finish(name, token, started)
     if not ok then
         log.debug("aircloud", "probe " .. name .. " failed:", r1)
         return nil, nil
@@ -809,6 +815,17 @@ end
 
 -- ==================== 上报主协程 ====================
 
+-- SIP 通话期间暂停定时上报，减少 Airlink 查询和上报带来的竞争。
+-- 云端下发的立即上报仍照常执行；挂断后恢复正常周期，不集中补发。
+local sip_call_busy = false
+local function set_sip_call_busy(s)
+    sip_call_busy = s ~= nil and (
+        s.state == "incoming" or s.state == "dialing" or s.state == "answering"
+        or s.state == "talking" or s.state == "ending")
+end
+sys.subscribe("SIP_TEST_STATE", set_sip_call_busy)
+sys.subscribe("SIP_STATE", set_sip_call_busy)
+
 local function report_task_func()
     -- 1) 等网络就绪
     while not socket.adapter(socket.dft()) do
@@ -860,7 +877,11 @@ local function report_task_func()
     while true do
         local _, reason = sys.waitUntil("AIRCLOUD_REPORT_TICK")
         if report_enabled then
-            do_report(reason)
+            if sip_call_busy and reason == "timer" then
+                log.info("aircloud", "SIP 通话中，跳过本次定时上报（不与 RTP 抢上行）")
+            else
+                do_report(reason)
+            end
         end
     end
 end

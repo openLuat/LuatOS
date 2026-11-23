@@ -28,6 +28,9 @@
 
 local theme = require "ui_theme"
 
+local pending_exit_id = nil
+local exit_pending = false
+local exit_cleaned = false
 local window_id = nil
 local main_container = nil
 
@@ -150,10 +153,10 @@ end
 
 -- 按当前状态禁用不可点的按钮：录音/播放只在空闲态可用，停止只在录音或播放时可用
 local function refresh_action_btns()
-    local busy = (cur_state == "recording" or cur_state == "playing")
+    local busy = exit_pending or (cur_state == "recording" or cur_state == "playing")
     safe_call(act_btns.rec,  "set_disabled", busy)
     safe_call(act_btns.play, "set_disabled", busy)
-    safe_call(act_btns.stop, "set_disabled", not busy)
+    safe_call(act_btns.stop, "set_disabled", exit_pending or not busy)
 end
 
 -- 可选时长：硬件上限以下的那几档，上限不够时只留上限这一档
@@ -207,18 +210,32 @@ end
 
 -- ==================== 动作 ====================
 
+-- 退出闸门（factory_page_exit）：只在带 SIP 的树里存在——它把停止请求排进 factory_handoff
+-- 的 FIFO，等外设真停稳再关页；没有闸门就退回直接关窗 + TEST_WIN_CLOSED 收口。
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local PAGE_EXIT_MOD = "factory_page_exit"
+local ok_g, page_exit = pcall(require, PAGE_EXIT_MOD)
+if not ok_g or type(page_exit) ~= "table" or type(page_exit.new) ~= "function" then page_exit = nil end
+local exit_gate = page_exit and page_exit.new("AUDIO", function()
+    exit_cleaned = true
+    exwin.close(window_id)
+end) or nil
+
 local function do_record()
+    if exit_pending or (exit_gate and exit_gate.closing) then return end
     if not audio_id then return end
     sys.publish("AUDIO_REC_START", audio_id, seconds)
 end
 
 local function do_play()
+    if exit_pending or (exit_gate and exit_gate.closing) then return end
     if not audio_id then return end
     sys.publish("AUDIO_PLAY_START", audio_id)
 end
 
 -- 录音与播放只有一件事在跑，一个停止按钮通吃
 local function do_stop()
+    if exit_pending or (exit_gate and exit_gate.closing) then return end
     if not audio_id then return end
     sys.publish("AUDIO_REC_STOP", audio_id)
     sys.publish("AUDIO_PLAY_STOP", audio_id)
@@ -255,7 +272,26 @@ local function on_action_result(id, action, ok, err)
 end
 
 -- 音频打开状态回填（进页面自动初始化的那次结果）
+local function on_init_result(id, ok, err)
+    if id == pending_exit_id and not ok then
+        pending_exit_id = nil
+    end
+    if id ~= audio_id then return end
+    if exit_pending then
+        if not ok then
+            exit_pending = false
+            refresh_action_btns()
+            set_state_text("退出清理失败: " .. tostring(err))
+        end
+        return
+    end
+    if not ok then
+        set_state_text("初始化失败: " .. tostring(err))
+    end
+end
+
 local function on_status(list)
+    if exit_pending or (exit_gate and exit_gate.closing) then return end
     if type(list) ~= "table" then return end
     for _, s in ipairs(list) do
         if s and s.id == audio_id then
@@ -264,6 +300,24 @@ local function on_status(list)
             return
         end
     end
+end
+
+-- Back waits for cleanup plus a fresh MIC observation, not just resource release.
+local function on_exit_result(id, ready, reason)
+    if id ~= pending_exit_id then return end
+    pending_exit_id = nil
+    local page_alive = main_container ~= nil and id == audio_id
+    if page_alive then
+        exit_cleaned = true
+        exwin.close(window_id)
+    end
+    if page_alive and ready ~= true then
+        show_tip("录音资源已释放，麦克风就绪未确认。请保留日志，必要时进行音频自检。")
+    end
+end
+
+local function request_exit()
+    if exit_gate then exit_gate.request() else exwin.close(window_id) end
 end
 
 -- ==================== 界面 ====================
@@ -277,7 +331,7 @@ local function build_ui()
         x = pad, y = pad, w = card_w,
         title = "录音播放测试",
         sub = "请接入麦克风后说话，录完回放听效果",
-        on_back = function() exwin.close(window_id) end,
+        on_back = request_exit,
     })
 
     local gap = theme.dp(8)
@@ -321,7 +375,7 @@ local function build_ui()
         text = "录音互斥：录音中不能播放，播放中不能录音",
         px_size = fs_sub, color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
     })
-
+    y = y + card_h + gap
     -- 进页面就常驻的接入提示，不等录音失败才提示
     if mic_hint then
         theme.label(card, {
@@ -332,7 +386,6 @@ local function build_ui()
             px_size = fs_sub, color = theme.C.amber_light, align = airui.TEXT_ALIGN_LEFT,
         })
     end
-    y = y + card_h + gap
 
     -- ===== 录音时长 =====
     local opts = duration_options()
@@ -429,7 +482,10 @@ end
 -- ==================== 窗口生命周期 ====================
 
 local function on_create()
+    exit_pending = false
+    exit_cleaned = false
     collect_audio()
+    if exit_gate then exit_gate.open(audio_id and {audio_id} or {}) end
     build_ui()
     sys.subscribe("AUDIO_TEST_STATE", on_test_state)
     sys.subscribe("AUDIO_ACTION_RESULT", on_action_result)
@@ -454,6 +510,18 @@ local function on_create()
 end
 
 local function on_destroy()
+    if exit_gate then
+        exit_gate.active = false
+        if not exit_cleaned then require("other_func_app").quiesce_page(exit_gate.ids or {}) end
+        if audio_id and not exit_cleaned and not exit_pending then
+            exit_pending = true
+            pending_exit_id = audio_id
+            sys.publish("OTHER_FUNC_SET", audio_id, false)
+        end
+    end
+    if not exit_gate then
+    sys.publish("TEST_WIN_CLOSED")   -- 收口：功能测试页据此断开本页用的接口
+    end
     sys.unsubscribe("AUDIO_TEST_STATE", on_test_state)
     sys.unsubscribe("AUDIO_ACTION_RESULT", on_action_result)
     sys.unsubscribe("OTHER_FUNC_STATUS", on_status)
@@ -467,7 +535,6 @@ local function on_destroy()
     cur_state = "idle"
     audio_id = nil
     audio_cfg = nil
-    sys.publish("TEST_WIN_CLOSED")   -- 收口：功能测试页据此断开本页用的接口
 end
 
 local function on_get_focus() end
@@ -475,6 +542,10 @@ local function on_lose_focus() end
 
 -- 入口事件带的 id 只说明是从哪一行进来的，页面固定测 hw.audio 这一路音频
 local function open_handler()
+    if pending_exit_id then
+        show_tip("录音退出清理仍在进行，请稍后重试。")
+        return
+    end
     window_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,
@@ -483,4 +554,7 @@ local function open_handler()
     })
 end
 
+-- Keep completion listeners alive after sidebar/direct destruction.
+sys.subscribe("AUDIO_EXIT_RESULT", on_exit_result)
+sys.subscribe("OTHER_FUNC_SET_RESULT", on_init_result)
 sys.subscribe("OPEN_AUDIO_TEST_WIN", open_handler)

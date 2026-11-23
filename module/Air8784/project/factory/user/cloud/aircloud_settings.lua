@@ -52,22 +52,30 @@ end
 function M.answer_settings()
     return M.saved.sip
 end
-function M.init(platform,flat)
+function M.init(platform,flat,force_single)
     if M.platform then return M end
     assert(fskv and fskv.init(),"fskv unavailable")
     M.platform=platform;M.flat=flat
+    M.single_only=platform=="8784" and (rtos.bsp()=="PC" or force_single==true)
     M.key=platform=="8784" and "sip_task_v1" or "aircloud_pcm_v1"
     local value=fskv.get(M.key) -- native API may return zero values
     M.record=type(value)=="table" and copy(value) or {revision="0",boot_count=0}
     M.migration_warning=M.record.migration_warning
-    if platform=="8784" and M.record.runtime_mode~="single" and M.record.runtime_mode~="phone" then
-        M.record.runtime_mode=type(M.record.task)=="table" and M.record.task.mode~="phone" and "single" or "phone"
+    if platform=="8784" and M.record.runtime_mode~="single" and M.record.runtime_mode~="phone" and M.record.runtime_mode~="cc" then
+        M.record.runtime_mode=type(M.record.task)=="table" and M.record.task.mode=="phone" and "phone" or "single"
     end
     if type(M.record.revision)~="string" then
         M.record.migration_original=copy(M.record);M.record.revision="0"
         M.migration_warning="???????????????"
     end
     M.switchable=platform=="8784" and cc and type(cc.setBridge)=="function" and rtos and type(rtos.reboot)=="function" or false
+    M.can_reboot=rtos and type(rtos.reboot)=="function" or false
+    M.cc_supported=platform=="8784" and not M.single_only and M.can_reboot
+    for _,name in ipairs({"init","dial","accept","hangUp","lastNum","record","on","quality","extern_source","input"}) do
+        if not cc or type(cc[name])~="function" then M.cc_supported=false end
+    end
+    M.cc_supported=M.cc_supported and audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW~=nil
+        and voip and type(voip.pcmResampler)=="function" or false
     local cfg=sos.empty();cfg.sip={};cfg.audio={}
     for k in pairs(fields) do cfg.sip[k]=flat[k] end
     if platform=="8784" then
@@ -91,6 +99,14 @@ function M.init(platform,flat)
     if cfg.sos_mode=="sip" and not M.record.auto_answer_explicit then
         cfg.sip.auto_answer=false
     end
+    if M.single_only then
+        -- 模拟器只提供单 SIP；清除旧桥接任务，防止把手机号当 SIP 目标拨出。
+        M.switchable=false
+        M.record.runtime_mode="single"
+        if M.record.task and M.record.task.mode=="phone" then M.record.task=nil end
+        cfg.sos_mode="sip"
+        cfg.sip.auto_answer=M.record.auto_answer_explicit and cfg.sip.auto_answer or false
+    end
     M.saved=cfg;M.boot=copy(cfg);M.applied=copy(cfg)
     for k,v in pairs(cfg.sip) do flat[k]=v end
     if cfg.sos_mode=="sip_cc" and cfg.sos_sip_cc_peers[1] then
@@ -98,13 +114,15 @@ function M.init(platform,flat)
         flat.target_phone_number=cfg.sos_sip_cc_numbers[1]
     end
     if platform=="8784" then flat.air1103_volume=cfg.audio.volume end
-    M.active=platform=="8784" and (M.switchable and M.record.runtime_mode=="single" and "sip" or "sip_cc") or "sip_cc"
+    M.active=platform=="8784" and ({single="sip",phone="sip_cc",cc="cc"})[M.record.runtime_mode] or "sip_cc"
+    if M.single_only then M.active="sip" end
     M.record.unified=copy(cfg);M.record.unified_version=1;M.record.migration_warning=M.migration_warning
     return M
 end
 function M.from_legacy(record,base)
     local cfg=copy(base);for k,v in pairs(sos.empty()) do cfg[k]=v end
-    cfg.sos_mode=record.runtime_mode=="single" and "sip" or "sip_cc"
+    cfg.sos_mode=({single="sip",phone="sip_cc",cc="cc"})[record.runtime_mode] or "sip"
+    if record.runtime_mode=="cc" then return cfg end
     local task=record.task
     if not task then return cfg end
     if type(task)~="table" or type(task.targets)~="table" then
@@ -137,6 +155,8 @@ function M.persist(record)
     return true
 end
 function M.legacy_write(record)
+    if record.runtime_mode=="cc" then return false end -- 独立 CC 仅由 set_config 保存，旧 SIP 任务不能覆盖。
+    if M.single_only and record.runtime_mode~="single" then return false end
     local next_record=copy(record)
     next_record.unified=M.from_legacy(record,M.saved)
     next_record.unified_version=1;next_record.migration_warning=M.migration_warning
@@ -151,18 +171,29 @@ function M.legacy_write(record)
     if M.on_persisted then record.announcement_pending=false end
     return true
 end
+function M.available_modes()
+    if M.platform~="8784" then return {"sip_cc"} end
+    local modes={"sip"}
+    if M.cc_supported then modes[#modes+1]="cc" end
+    if not M.single_only and M.switchable then modes[#modes+1]="sip_cc" end
+    return modes
+end
+function M.supports_mode(mode)
+    for _,m in ipairs(M.available_modes()) do if m==mode then return true end end
+    return false
+end
 function M.capabilities(mode)
     mode=mode or M.saved.sos_mode
     local writable={"sip.sip_server_addr","sip.sip_server_port","sip.sip_domain","sip.sip_username","sip.sip_password","sip.sip_transport","sip.auto_answer","sip.delay_auto_answer"}
     for _,f in ipairs(sos.fields) do writable[#writable+1]=f end
     if M.platform=="8784" and mode=="sip" then writable[#writable+1]="audio.volume";writable[#writable+1]="audio.mic_gain" end
-    local tts=M.platform=="8784" and require("business_voice").supported()
+    local tts=M.platform=="8784" and M.active~="cc" and require("business_voice").supported()
     local commands={"get_sip_status","get_sip_config","get_status","set_config"}
     local unsupported={"get_location","speak_battery"}
     if tts then commands[#commands+1]="play_tts" else unsupported[#unsupported+1]="play_tts" end
     return {commands=commands,
         unsupported_commands=unsupported,writable_fields=writable,
-        modes=M.switchable and {"sip","sip_cc"} or {"sip_cc"},max_targets=M.platform=="8784" and 3 or 1,
+        modes=M.available_modes(),max_targets=mode=="cc" and 1 or (M.platform=="8784" and 3 or 1),
         max_sip_peers=1,keys=M.platform=="8784",outgoing_sos=M.platform=="8784",
         audio=M.platform=="8784" and mode=="sip",battery=false,location=false,tts=tts,
         migration_warning=M.migration_warning}
@@ -176,7 +207,8 @@ end
 function M.sos_configured()
     local cfg=sos.normalize(sos.public(M.saved))
     if not cfg then return false end
-    if cfg.sos_mode=="sip" then return M.switchable==true end
+    if cfg.sos_mode=="sip" then return M.platform=="8784" end
+    if cfg.sos_mode=="cc" then return M.cc_supported and #cfg.sos_cc_numbers==1 end
     if cfg.sos_mode~="sip_cc" or #cfg.sos_sip_cc_numbers>(M.platform=="8784" and 3 or 1) then return false end
     for _,peer in ipairs(cfg.sos_sip_cc_peers) do
         if peer~=cfg.sos_sip_cc_peers[1] then return false end
@@ -191,7 +223,12 @@ function M.update(p)
     local mode=normalized and normalized.sos_mode or M.saved.sos_mode
     local unsupported={}
     -- A SIP-only save must not validate an unconfigured or legacy SOS record.
-    if normalized and mode~="sip_cc" and not (mode=="sip" and M.switchable) then unsupported[#unsupported+1]="sos_mode" end
+    if normalized and (not M.supports_mode(mode) or (mode~=M.active and not M.can_reboot)) then
+        unsupported[#unsupported+1]="sos_mode"
+    end
+    if normalized and mode=="cc" and #normalized.sos_cc_numbers~=1 then
+        return false,"invalid_sos_cc_numbers",{message="独立 CC 需要一个手机号"}
+    end
     if normalized and mode=="sip_cc" then
         local ns,ps=normalized.sos_sip_cc_numbers,normalized.sos_sip_cc_peers
         if #ns>(M.platform=="8784" and 3 or 1) then unsupported[#unsupported+1]="sos_sip_cc_numbers" end
@@ -232,9 +269,10 @@ function M.update(p)
     next_record.revision=string.format("%08x-0000-0000-0000-%012x",os.time(),revision_seq)
     next_record.last_req=nil
     if M.platform=="8784" and normalized then
-        next_record.runtime_mode=mode=="sip" and "single" or "phone"
+        next_record.runtime_mode=({sip="single",sip_cc="phone",cc="cc"})[mode]
         next_record.task={imei=mobile.imei(),wait=30,name64="",mode=mode=="sip" and "round" or "phone",account_targets=true,
             targets=copy(mode=="sip" and cfg.sos_sip_numbers or cfg.sos_sip_cc_numbers)}
+        if mode=="cc" then next_record.task=nil end
         next_record.announcement_pending=false
     end
     if normalized then next_record.migration_warning=nil end
@@ -244,7 +282,7 @@ function M.update(p)
     if M.platform~="8784" and M.same_connection(cfg.sip,M.boot.sip) and same(cfg.sos_sip_cc_peers,M.boot.sos_sip_cc_peers) then
         M.flat.target_phone_number=cfg.sos_sip_cc_numbers[1]
     end
-    local mode_changed=(mode=="sip_cc" or (mode=="sip" and M.switchable)) and mode~=M.active
+    local mode_changed=mode~=M.active
     M.pending=mode_changed or not M.same_connection(cfg.sip,M.boot.sip) or not same(cfg.audio,M.boot.audio)
         or not same(cfg.sos_sip_cc_peers,M.boot.sos_sip_cc_peers)
     if not M.pending then M.applied=copy(cfg) end

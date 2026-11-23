@@ -1,8 +1,8 @@
 --[[
 @module  hzv_player
 @summary HZV 音视频播放引擎应用功能模块（airui.video 播放控制 + 功放 + 播放统计）
-@version 1.1
-@date    2026.10.30
+@version 1.2
+@date    2026.11.10
 @author  江访
 @usage
 本文件为 Air8607 播放 SD 卡 HZV 素材 demo 的播放引擎应用功能模块，核心业务逻辑为：
@@ -27,7 +27,7 @@ HZV 的音画同步由底层引擎完成，Lua 侧不需要设置 interval，也
 local lcd_app = require "lcd_app"
 local tp_app  = require "tp_app"
 
-local M = {}
+local hzv_player = {}
 
 -- Air8607 功放使能脚 = GPIO73（AUDIOPA_EN），HT6873 高电平使能
 local PIN_PA       = 73
@@ -155,7 +155,7 @@ end
 --[[
 销毁视频组件本体；
 
-@summary 组件对象失效时用 pcall 兜住，不把任务带崩
+@summary 释放解码通道占用的内存，组件对象失效时由调用方用 pcall 兜住
 
 @param table v airui.video 组件对象
 @return nil
@@ -165,9 +165,9 @@ local function destroy_video(v)
 end
 
 --[[
-销毁视频组件本体；
+销毁按钮组件本体；
 
-@summary 组件对象失效时用 pcall 兜住，不把任务带崩
+@summary 把"返回列表"按钮销毁掉，释放组件占用的资源
 
 @param table b airui.button 组件对象
 @return nil
@@ -179,13 +179,13 @@ end
 --[[
 "返回列表"按钮的点击回调；
 
-@summary 发出回到素材选择页的消息，由 main.lua 收消息做页面切换
+@summary 发出回到素材选择页的消息，由 boot_app.lua 收消息做页面切换
 
 @param userdata sender 被点中的按钮
 
 @return nil
 ]]
-local function on_back_click(sender)
+local function back_click_cbfunc(sender)
     log.info("hzv_player", "点返回按钮，回到素材选择页")
     sys.publish("HZV_BACK_REQ")
 end
@@ -199,7 +199,7 @@ end
 
 @return nil
 ]]
-local function on_video_click(sender)
+local function video_click_cbfunc(sender)
     log.info("hzv_player", "点视频画面，回到素材选择页")
     sys.publish("HZV_BACK_REQ")
 end
@@ -225,7 +225,7 @@ local function build_back_btn()
             text_color = 0xFFFFFF,
             radius     = 10,
         },
-        on_click  = on_back_click,
+        on_click  = back_click_cbfunc,
     })
     if not back_btn then
         log.warn("hzv_player", "返回按钮创建失败，只能点视频画面返回")
@@ -277,7 +277,7 @@ end
 
 @return nil
 ]]
-local function on_play_complete()
+local function play_complete_cbfunc()
     play_done = true
 end
 
@@ -301,7 +301,7 @@ end
 @return nil
 ]]
 local function print_stats()
-    local stats = M.stats()
+    local stats = hzv_player.stats()
     if not stats then
         return
     end
@@ -358,8 +358,8 @@ local function open_player(path, name)
         decode_mode = "hw",          -- 硬解优先，拿不到硬解时底层回退软解
         loop        = false,         -- 播到文件尾触发 on_complete，由轮播任务决定下一步
         auto_play   = false,         -- 由本模块控制播放时机，先设音量、开功放再 play
-        on_complete = on_play_complete,
-        on_click    = on_video_click,
+        on_complete = play_complete_cbfunc,
+        on_click    = video_click_cbfunc,
     })
 
     if not video then
@@ -422,7 +422,7 @@ end
 
 @return nil
 ]]
-local function rotate_task()
+local function rotate_task_func()
     while running do
         if play_done then
             play_done = false
@@ -446,7 +446,7 @@ end
 
 @return nil
 ]]
-local function stats_task()
+local function stats_task_func()
     while running do
         sys.wait(T_STATS)
         if running then
@@ -481,8 +481,8 @@ local function start_playback()
         return false
     end
 
-    sys.taskInit(rotate_task)
-    sys.taskInit(stats_task)
+    sys.taskInit(rotate_task_func)
+    sys.taskInit(stats_task_func)
     return true
 end
 
@@ -500,7 +500,7 @@ end
 @usage
 hzv_player.play_one(2)
 ]]
-function M.play_one(index)
+function hzv_player.play_one(index)
     if not playlist or #playlist == 0 then
         log.error("hzv_player", "播放列表为空，无法播放")
         return false
@@ -527,7 +527,7 @@ end
 @usage
 hzv_player.play_all()
 ]]
-function M.play_all()
+function hzv_player.play_all()
     if not playlist or #playlist == 0 then
         log.error("hzv_player", "播放列表为空，无法播放")
         return false
@@ -552,7 +552,7 @@ end
 @usage
 hzv_player.set_playlist(sd_app.list_hzv())
 ]]
-function M.set_playlist(files)
+function hzv_player.set_playlist(files)
     if type(files) ~= "table" or #files == 0 then
         log.error("hzv_player", "没有可播放的 HZV 素材")
         return false
@@ -574,7 +574,7 @@ end
 @usage
 hzv_player.stop()
 ]]
-function M.stop()
+function hzv_player.stop()
     running   = false
     play_done = false
     destroy_player()
@@ -596,7 +596,7 @@ if stats then
     log.info("hzv_player", "fps", stats.fps)
 end
 ]]
-function M.stats()
+function hzv_player.stats()
     if not video then
         return nil
     end
@@ -608,4 +608,4 @@ function M.stats()
     return nil
 end
 
-return M
+return hzv_player

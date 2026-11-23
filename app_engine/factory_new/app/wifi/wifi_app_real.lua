@@ -399,7 +399,10 @@ local function on_sta_event(evt, data)
             local save_pwd = pending_connect and pending_connect.password or ""
             local save_bssid = pending_connect and pending_connect.bssid or ""
             if save_name and save_name ~= "" then
-                sys.publish("WIFI_STORAGE_SAVE_REQ", {ssid = save_name, password = save_pwd, bssid = save_bssid})
+                sys.publish("WIFI_STORAGE_SAVE_REQ", {
+                    ssid = save_name, password = save_pwd, bssid = save_bssid,
+                    advanced_config = pending_connect and pending_connect.advanced_config,
+                })
             end
             pending_connect = nil
         end
@@ -481,7 +484,10 @@ local function on_ip_ready(ip, adapter)
             local save_pwd = pending_connect and pending_connect.password or ""
             local save_bssid = pending_connect and pending_connect.bssid or ""
             if save_name and save_name ~= "" then
-                sys.publish("WIFI_STORAGE_SAVE_REQ", {ssid = save_name, password = save_pwd, bssid = save_bssid})
+                sys.publish("WIFI_STORAGE_SAVE_REQ", {
+                    ssid = save_name, password = save_pwd, bssid = save_bssid,
+                    advanced_config = pending_connect and pending_connect.advanced_config,
+                })
             end
             pending_connect = nil
         end

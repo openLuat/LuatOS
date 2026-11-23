@@ -4,7 +4,7 @@
 
 plcui 是以 **image 图片为设计核心**的工控界面库：先设计界面并切图，或准备组态组件图片，再由 XML 组织布局，Lua 更新数据和处理业务。
 
-支持七种组件：`image` 显示背景、设备和图片按钮；`label` 显示动态文字；`textarea` 输入参数；`keyboard` 提供数字或英文键盘；`container` 分组和嵌套布局；`table` 显示数据表格；`chart` 显示折线图或柱状图。
+1.0.2 支持九种组件：`image` 显示背景、设备和图片按钮；`label` 显示动态文字或滚动公告；`textarea` 输入参数；`keyboard` 提供数字、英文或简版中文拼音键盘；`container` 分组和嵌套布局；`table` 显示数据表格；`chart` 显示折线图或柱状图；`animimg` 播放图片帧动画；`slider` 选择单个数值。库版本与 XML 格式版本分别管理，本版 XML 仍使用 `version="0.1"`。
 
 ## 二、plcui使用举例
 
@@ -44,9 +44,10 @@ XML 中声明的所有事件都须在 handlers 中提供对应函数。将 XML �
 - 图片运行中视为固定，替换文件后重新 `plcui.load()`。缓存按XML实例隔离，重新加载不会复用旧版本像素；资源仍按原LuatOS VFS路径读取，内部缓存键不对应磁盘目录。
 - 文件读取遵循 LuatOS VFS：脚本区用 `/luadb/main.xml`，SD 卡使用实际挂载路径（如 `/sd/ui/main.xml`）。资源相对于 XML 所在目录解析；文件名长度和目录结构遵循所用文件系统及烧录工具。PLCUI 不自动改名或改写 XML。
 - 组件填写 `id/x/y/w/h`，同一页面内 ID 唯一；container 子组件使用相对于容器内容区的坐标。
+- 组件总数按需分配，不设固定的 512 个上限；实际规模受 XML 最大 256KiB 和可用内存约束，描述分配失败返回 `E_MEMORY`。XML 描述或页面组件分配失败时，日志及错误表会提示已登记组件数量，并建议减少当前 XML 的组件数量或拆分为多个 XML 文件；只在同一个 XML 内拆成更多 page，不会减少全部页面常驻的组件描述。未显示页面也会保留组件描述，只有目标页创建原生对象；可通过 `plcui.status().component_count` 查看全部页面合计数量。
 - HZFont 字号范围为 1～255，省略字号时默认 16；为文字预留足够的显示空间。
 - table 在 XML 中指定 `rows/columns`，用 `<cell row="1" column="1" text="名称"/>` 初始化；Lua 使用 `set_cell/get_cell/set_column_width/set_font_size`，行列从 1 开始。最多 128 行、16 列，总计不超过 1024 格；`grid` 开启完整网格，`row-height` 设置最小行高，`col-aligns/header-align` 控制列与表头对齐。
-- chart 指定 `type="line|bar"`、`point-count`、`y-min/y-max`，用 `<series id="supply" color="#44dcf6" values="..."/>` 初始化；Lua 使用 `set_values/get_values/add_point/set_range/set_series_hidden`。点数 2～1024，系列 1～8，数值范围 -1000～1000、精度两位小数，未填写 values 时初始化为下限；超轴值按边界绘制并保留原始数据，刻度和图例用外围文字或图片表达。
+- chart 指定 `type="line|bar"`、`point-count`、`y-min/y-max`，用 `<series id="supply" color="#44dcf6" values="..."/>` 初始化；Lua 使用 `set_values/get_values/add_point/set_range/set_series_hidden`。点数 2～1024，系列 1～8；数值与轴范围支持当前 Lua 数值类型可表示的有限数，没有固定业务区间，内部用 double 保存并按两位小数四舍五入。精度受 Lua 数值类型限制：单精度配置在较大数值下不能保持 0.01 分辨率，双精度配置也不保证任意大数的分位精度。XML 在单精度配置同样拒绝超出 FLT_MAX 的值，避免 Lua 读回无穷大。数据保存与绘图分离，原始舍入值映射到安全整数区间绘图；未填写 values 时初始化为下限，超轴值按边界绘制并保留保存值。所有系列共用 Y 轴，柱状图仍从轴下限起画；刻度和图例用外围文字或图片表达。相同点数下原始数据内存由每点 4 字节增至 8 字节，LVGL 绘图缓冲仍为每点 4 字节。
 - `xml:find()` 获取组件，`set_text()` 更新文字，`set_src("资源ID")` 切换图片，`set_checked()` 切换选中状态；`xml:show()` 切页后重新查找组件。
 - 按钮操作交给业务处理，界面状态按实际设备反馈更新；事件回调保持简短。
 - 初始化后自动以 60Hz 为目标调度刷新，无需添加刷新定时器；退出时调用 `xml:close()`、`plcui.deinit()`。
@@ -108,7 +109,7 @@ plcui.debug(false) -- 输出尚未汇总的数据并关闭
 
 `plcui.debug()` 不传参数返回当前开关状态；`plcui.deinit()` 自动汇总并关闭。
 
-开启后，`plcui.debug` 日志每秒最多汇总一次，按组件类型、阶段和方法输出 `count`、`failed`、`total_us`、`avg_us`、`max_us`，以及本批最慢调用的 `slow_page`、`slow_id`。阶段为 `create`（原生组件创建）、`prepare`（XML prepare 回调中的设置）、`update`（已有对象的更新方法）。统计涵盖七种组件，更新方法包括 `set_*`、`add_point` 和 `focus`；getter 不计入。
+开启后，`plcui.debug` 日志每秒最多汇总一次，按组件类型、阶段和方法输出 `count`、`failed`、`total_us`、`avg_us`、`max_us`，以及本批最慢调用的 `slow_page`、`slow_id`。阶段为 `create`（原生组件创建）、`prepare`（XML prepare 回调中的设置）、`update`（已有对象的更新方法）。1.0.2 统计涵盖九种组件，更新方法包括 `set_*`、`add_point`、`focus`、`move`、`play/pause/stop` 和 `clear_crop`；getter 不计入。动画帧资源准备与拼音查询/候选提交也按内部操作汇总，不逐轮询或逐像素打印。
 
 这些数字是同步调用经过时间，包含同值调用、校验及同步触发的布局/图片准备，不能当作 CPU 占用或后续绘制时间。`xml:show()` 重建的组件仍记为 create，不表示页面缓存复用。失败候选页已完成的创建也会计入。普通 `nil,error` 计入 failed；参数错误抛出的 Lua 异常和失效句柄调用不计入。相同类型/方法跨页面合并，slow_page/id 仅代表其中最大单次调用。
 

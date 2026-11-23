@@ -5,11 +5,10 @@
  */
 
 #include "luat_airui.h"
+#include "luat_airui_remote.h"
 #include "luat_airui_component.h"
 #include "luat_rtos.h"
 #include "lvgl9/lvgl.h"
-#include "lvgl9/src/misc/cache/instance/lv_image_cache.h"
-#include "lvgl9/src/misc/cache/instance/lv_image_header_cache.h"
 #include <string.h>
 #include <assert.h>
 #include "luat_conf_bsp.h"
@@ -112,6 +111,11 @@ static void input_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
     
     if (ud->ctx->ops->input_ops->read_pointer) {
         ud->ctx->ops->input_ops->read_pointer(ud->ctx, indev, data);
+#if defined(LUAT_USE_AIRUI_REMOTE)
+        if (data->state == LV_INDEV_STATE_PRESSED) {
+            airui_remote_cancel_pointer(ud->ctx);
+        }
+#endif
     }
 }
 
@@ -446,8 +450,6 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     if (!lv_is_initialized()) {
         lv_init();
     }
-    lv_image_cache_resize(AIRUI_IMAGE_CACHE_BYTES, true);
-    lv_image_header_cache_resize(AIRUI_IMAGE_HEADER_CACHE_COUNT, true);
 
     /* 如果 LV_USE_LOG 宏定义为 1，则注册 LVGL 日志回调到 LuatOS 日志 */
     #if LV_USE_LOG == 1
@@ -856,6 +858,9 @@ void airui_deinit(airui_ctx_t *ctx)
     
     // 停止运行时定时器
     airui_stop_runtime_timers(ctx);
+#if defined(LUAT_USE_AIRUI_REMOTE)
+    airui_remote_stop(ctx);
+#endif
     
     // 清理平台驱动
     if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->deinit != NULL) {

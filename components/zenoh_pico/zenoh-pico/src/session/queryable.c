@@ -125,7 +125,9 @@ static z_result_t __unsafe_z_get_session_queryables_by_key(_z_session_t *zn, con
                                         : _z_locality_allows_local(qle_val->_allowed_origin);
         if (origin_allowed && _z_keyexpr_intersects(&qle_val->_key._inner, key)) {
             _z_session_queryable_rc_t qle_clone = _z_session_queryable_rc_clone(qle);
+            /* append失败未消费临时clone；先还引用，再清理已接纳元素。 */
             _Z_CLEAN_RETURN_IF_ERR(_z_session_queryable_rc_svec_append(qle_infos, &qle_clone, false),
+                                   _z_session_queryable_rc_drop(&qle_clone);
                                    _z_session_queryable_rc_svec_clear(qle_infos));
         }
         xs = _z_session_queryable_rc_slist_next(xs);
@@ -146,7 +148,7 @@ static z_result_t __unsafe_z_get_session_queryables_rc_by_key(_z_session_t *zn, 
     if (ret != _Z_RES_OK) {
         _z_session_queryable_rc_svec_rc_drop(qle_infos);
     }
-    return _Z_RES_OK;
+    return ret;
 }
 
 _z_session_queryable_rc_t _z_get_session_queryable_by_id(_z_session_t *zn, const _z_zint_t id) {
@@ -177,7 +179,15 @@ _z_session_queryable_rc_t _z_register_session_queryable(_z_session_t *zn, _z_ses
         return out;
     }
     _z_unsafe_queryable_cache_invalidate(zn);
-    zn->_local_queryable = _z_session_queryable_rc_slist_push_empty(zn->_local_queryable);
+    _z_session_queryable_rc_slist_t *head = _z_session_queryable_rc_slist_push_empty(zn->_local_queryable);
+    /* push_empty分配失败会返回原表头；不能将它当成新槽覆盖已有声明。 */
+    if (head == zn->_local_queryable) {
+        _z_session_mutex_unlock(zn);
+        _z_session_queryable_rc_drop(&out);
+        *q = _z_session_queryable_null();
+        return out;
+    }
+    zn->_local_queryable = head;
     _z_session_queryable_rc_t *ret = _z_session_queryable_rc_slist_value(zn->_local_queryable);
     *ret = _z_session_queryable_rc_clone(
         &out);  // immediately increase reference count to prevent eventual drop by concurrent session close

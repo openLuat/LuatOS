@@ -30,9 +30,9 @@
    本配置是 PWM3 调光。上板前请再核对一次。
 9. 本配置由 factory 工程同名配置（factory/config/eng_8601_7i_v0.lua）移植，硬件参数一致；
    差异只在驱动模型（本工程走 lcd_display_rgb）与 UI 段（桌面入口开关）。
-10. features.usb_camera / rs485 与 ui.show_camera_preview 在 app/ 与 ui/ 里没有直接消费方，
-    写了不报错也不生效，保留仅作能力声明。UVC 的实际开关与测试走 config.peripherals
-    （见第 12 条）；RS485 同理，配了 peripherals 里的 rs485 条目才会出现在功能测试页。
+10. UVC 摄像头与 RS485 的能力由 config.peripherals 的条目声明（见第 12 条），
+    功能测试页有没有这两行、开关与状态全由条目驱动。UVC 预览行要不要露出来另由
+    ui.show_camera_preview 控制（不写即不显示）；RS485 没有显示开关，配了条目即出现。
 11. 音频使用芯片内置 DAC 播放（非 ES8311 外挂芯片），PA 功放使能 = GPIO74（AUDIOPA_EN），
     **低电平有效**（pa_on_level = 0 → 播放时 exaudio 把 GPIO74 拉低使能，空闲/关机拉高）。
     录音走线路输入（LINE_IN），格式 AMR_NB。参考 hzv_1024_display demo。
@@ -43,13 +43,13 @@
         audio_mode / play_vol
       ▪ app/factory/factory_rec.lua（应用工厂录音）：
         同上 + record_format / max_record_time / mic_vol
-      ▪ ui/video_util.lua（桌面视频配套音轨）：
+      ▪ ui/media/video_util.lua（桌面视频配套音轨）：
         model / pa_ctrl / pa_on_level / dac_delay / play_vol
     注意 dac_delay 只在旧音频框架 audio_setup() 里被消费；新框架 audio_v2 的 DAC 通路
     实际只把 pa_delay 透传给 audio_v2.config_pa_power_ctrl()，dac_delay 不起作用（保留仅为兼容）。
 12. 【UVC 测试】UVC_EN = GPIO73（power_on 里已拉高常供电），测试入口三件套缺一不可：
     config.peripherals 加 uvc 条目 + features.other_func = true + ui.show_other_func = true。
-    桌面「功能测试」→ 摄像头行（可通断电）→ 点行进摄像头测试页（ui/uvc_preview_win.lua），
+    桌面「功能测试」→ 摄像头行（可通断电）→ 点行进摄像头测试页（ui/test/uvc_preview_win.lua），
     数据流由该页独占走 excamera，periph_uvc 只管供电脚。
     摄像头 MJPEG 分辨率由预览页按摄像头实际支持的档位自适应选取（像素数上限 max_pixels，
     缺省 921600 = 1280×720，超了会挤爆内存导致预览无画面），条目里的 w / h 只是首选档。
@@ -158,7 +158,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 7.0,                -- 7寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -198,23 +197,17 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        net_4g = true,  -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 6 条
-        speaker = true, -- 启用喇叭（DAC 接功放）
-        mic = true,     -- 启用麦克风（板载 LINE_IN → 内置 ADC 录音）
-        --   与 speaker 成对声明：同族已启 AI 助手/应用工厂的板型
-        --   （evb_1601_7i_v12 / evb_8101_10i_v0 / eng_1602_5i_v5 …）都写了这一项，
-        --   本板原缺失。当前 app/ 与 ui/ 里查不到消费方，属"能力声明"性质
-        --   （与 usb_camera / rs485 同一类，见文件头第 10 条）。
-        sd_card = true,       -- 启用 SD 卡（SPI1，CS=GPIO8）
-        usb_camera = true,    -- USB 摄像头（UVC）—— 见文件头第 10 条：暂无消费方
-        rs485 = true,         -- 启用 RS485 接口（1 路，条目在 peripherals，见文件头第 13 条）
-        other_func = true,    -- 启用"功能测试"（peripherals 外设清单，UVC 预览测试入口）
+        net_4g = true,         -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 6 条
+        sd_card = true,        -- 启用 SD 卡（SPI1，CS=GPIO8）
+        other_func = true,     -- 启用"功能测试"（peripherals 外设清单，UVC 预览测试入口）
         -- usb_hid 不开：USB 键鼠与 UVC 摄像头共用 USB Host 与供电，带 UVC 的型号不启用
-        app_factory = true,   -- 启用"应用工厂"内置应用
-        ai_chat = true,       -- 启用"AI聊天助手"内置应用
-        cloud_disk = true,    -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
-        file_transfer = true, -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
-        aircloud = true,      -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
+        app_factory = true,    -- 启用"应用工厂"内置应用
+        ai_chat = true,        -- 启用"AI聊天助手"内置应用
+        cloud_disk = true,     -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        aircloud = true,       -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
+        iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,           -- 启用固件在线升级（需联网）
     },
 
     -- ===== AirCloud 数据上报参数 =====
@@ -249,15 +242,18 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_4g_icon = true,           -- 桌面顶栏 4G 图标
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
-        show_camera_preview = true,    -- 设置页摄像头预览入口 ← 见文件头第 10 条
-        show_other_func = true,        -- 桌面"功能测试"图标 ← 配 other_func 时打开（UVC 测试入口）
-        show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
-        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
-        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
-        show_file_transfer = true,     -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
-        show_aircloud = true,          -- 设置页显示"数据上报"入口 ← 配 aircloud 时打开
+        show_4g_icon = true,            -- 桌面顶栏 4G 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_camera_preview = true,     -- 设置页摄像头预览入口 ← 见文件头第 10 条
+        show_other_func = true,         -- 桌面"功能测试"图标 ← 配 other_func 时打开（UVC 测试入口）
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_ai_chat = true,            -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        show_app_factory = true,        -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_file_transfer = true,      -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
+        show_aircloud = true,           -- 设置页显示"数据上报"入口 ← 配 aircloud 时打开
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 }

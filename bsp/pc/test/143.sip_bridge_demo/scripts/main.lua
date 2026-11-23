@@ -7,7 +7,7 @@
 - 4G模组 SIP 用户名: 1903CFC1
 - 远程 SIP 客户端: 1903CFC0
 - 目标手机号: 13781142418
-- SIP服务器: 180.152.6.34:8910
+- SIP服务器: cc.luatos.com:8910
 
 PC模拟器运行命令:
   build\out\luatos-lua.exe test\143.sip_bridge_demo\scripts\
@@ -122,7 +122,7 @@ commands["dial"] = function(args)
 end
 
 commands["dial_sip"] = function(args)
-    local uri = args[1] or "sip:1903CFC0@180.152.6.34"
+    local uri = args[1] or "sip:1903CFC0@cc.luatos.com"
     print("拨打 SIP:", uri)
     bridge.dial_sip(uri)
 end

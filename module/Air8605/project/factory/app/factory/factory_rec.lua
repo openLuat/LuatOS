@@ -62,6 +62,9 @@
 local exaudio = require "exaudio"
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
+-- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
+-- 上传统一走 http_upload（httpplus 流式，避免大文件整读 OOM）
+local http_upload = require "http_upload"
 
 -- Air1103 直接驱动（仅 air1103 板使用；只调用其公开接口，不改公共库）
 -- 参考实现 flash_files/app/audio/audio_app.lua：
@@ -71,7 +74,9 @@ local audio_hw = require "audio_hw"
 local chip_ok, chip = pcall(require, "air1103")
 if not chip_ok then chip = nil end
 -- 工程自带 55AA MIC 解析器（与参考工程 app/audio/sipapp_pcm_rx.lua 逐字节一致）
-local pcm_rx_ok, pcm_rx = pcall(require, "sipapp_pcm_rx")
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local PCM_RX_MOD = "sipapp_pcm_rx"
+local pcm_rx_ok, pcm_rx = pcall(require, PCM_RX_MOD)
 local mic_frames = 0    -- 累计收到的 MIC 上行帧数（预热探测用）
 local last_mic_at = 0   -- 最近一次收到 MIC 帧的时间（秒），用于判断上行是否还活着
 local function is_air1103()
@@ -192,6 +197,7 @@ end
 -- 复位瞬间其 I2C 引脚可能拉低 SDA，把共享总线钳死，反而触发触摸(0x5d)超时。
 local codec_restore_scheduled = false  -- 防重入：恢复任务是否已安排/执行中
 local function codec_power_restore()
+    if audio_hw.busy() then return end
     local ac = get_audio_config()
     if not ac or not ac.dac_ctrl or ac.dac_ctrl <= 0 then return end
     -- 1. 保持 8311 供电（只拉高，不拉低断电）
@@ -222,8 +228,9 @@ end
 
 -- 异步恢复任务（具名函数，防重入；供 finalize_record 统一调用）
 local function codec_restore_task()
-    codec_power_restore()
+    local ok, err = pcall(codec_power_restore)
     codec_restore_scheduled = false
+    if not ok then log.warn("factory_rec", "codec restore failed", err) end
 end
 
 -- 录音完成收尾（两框架共用，防重复执行）
@@ -330,7 +337,7 @@ end
   录音前 2 秒必然静音。sipapp_pcm_rx 校验失败只丢 1 字节重同步，能自愈。
 
 安装时机：进入 AI/工厂会话时安装，退出会话时还原，
-避免影响其它仍依赖 air1103 原生 feed 的录音页（同 sip_audio_app 的做法）。
+避免影响其它仍依赖 air1103 原生 feed 的录音页。
 ]]
 local mic_parser = pcm_rx_ok and pcm_rx.new(air1103_on_pcm) or nil
 local original_feed = chip_ok and chip.feed or nil
@@ -358,7 +365,9 @@ end
 -- @return boolean true=上行就绪
 -- Air1103 供电脚：config 里 AUDIOPA_EN = GPIO73 由 power_on 拉高常供电
 -- （eng_8605m_10i_v0.lua 第 21 行；与参考工程 power_pin=73 一致）
-local AIR1103_PWR_PIN = 73
+local _pwr_cfg = get_audio_config()
+local AIR1103_PWR_PIN = (_pwr_cfg and _pwr_cfg.recovery_power_pin) or 73
+local AIR1103_PWR_ACT = (_pwr_cfg and _pwr_cfg.recovery_power_active) or 1
 
 -- 照抄参考工程 reopen_mic(power_cycle=true)：复位两次仍无帧时断电重启芯片。
 -- 参考工程同时 uninit/init 串口；这里串口没坏，只断电上电即可，
@@ -366,11 +375,11 @@ local AIR1103_PWR_PIN = 73
 local function air1103_power_cycle()
     if not is_air1103() then return false end
     log.warn("factory_rec", "Air1103 复位后仍无 MIC 帧，断电重启(GPIO" .. AIR1103_PWR_PIN .. ")")
-    pcall(gpio.setup, AIR1103_PWR_PIN, 0)
-    pcall(gpio.set, AIR1103_PWR_PIN, 0)
+pcall(gpio.setup, AIR1103_PWR_PIN, 1 - AIR1103_PWR_ACT)
+pcall(gpio.set, AIR1103_PWR_PIN, 1 - AIR1103_PWR_ACT)
     sys.wait(300)
-    pcall(gpio.setup, AIR1103_PWR_PIN, 1)
-    pcall(gpio.set, AIR1103_PWR_PIN, 1)
+pcall(gpio.setup, AIR1103_PWR_PIN, AIR1103_PWR_ACT)
+pcall(gpio.set, AIR1103_PWR_PIN, AIR1103_PWR_ACT)
     sys.wait(800)   -- 参考工程上电等待 800ms 再复位
     if mic_parser then mic_parser.reset() end
     local before = mic_frames
@@ -386,6 +395,7 @@ end
 
 local warming = false   -- 预热防重入（快速进出页面时避免重复复位）
 local function air1103_warmup()
+    if audio_hw.busy() then return false end
     if not is_air1103() then return false end
     if type(chip.on_audio_data) ~= "function" or type(chip.reset) ~= "function" then
         return false
@@ -420,6 +430,18 @@ local function air1103_warmup()
     warming = false
     log.info("factory_rec", "Air1103 MIC 上行预热", ok and "成功" or "失败", "等待", waited, "ms, 累计帧", mic_frames)
     return ok
+end
+
+local warmup_impl = air1103_warmup
+air1103_warmup = function()
+    local was_warming = warming
+    local ok, result = pcall(warmup_impl)
+    if not ok then
+        if not was_warming then warming = false end
+        log.warn("factory_rec", "MIC warmup failed", result)
+        return false
+    end
+    return result
 end
 
 -- ==================== 回调 ====================
@@ -576,6 +598,7 @@ local function rec_start()
             log.warn("factory_rec", "air1103 录音前从未收到 MIC 帧，异步复位一次")
             sys.taskInit(function()
                 sys.wait(20)
+                if audio_hw.busy() or state ~= "recording" then return end
                 pcall(chip.reset)
             end)
         end
@@ -619,7 +642,7 @@ local function rec_start()
         end
         cur_path = rec_path
         rec_fp = fp
-        local ok = exaudio.record_start({
+        local ok = audio_hw.record_start({
             format = rec_exformat(),
             time = 0,          -- 0 = 无限录音，由本模块计时器控制最长时长
             path = rec_data_cb,
@@ -652,7 +675,7 @@ local function rec_start()
     end
     -- 新录音用新文件名，天然避免文件冲突
     cur_path = next_rec_path()
-    local ok = exaudio.record_start({
+    local ok = audio_hw.record_start({
         format = rec_exformat(),
         time = max_time,
         path = cur_path,
@@ -781,18 +804,22 @@ make_send = function()
         sys.publish("FACTORY_MAKE_ERROR", "鉴权失败(固件缺rsa库或公钥缺失)")
         return
     end
-    -- 流式上传：PCM 30s ≈ 960KB，io.readFile 全量 + table.concat 瞬时近 2MB，C 层 buffer
-    -- OOM 会打挂 Lua VM。改用 httpplus：files=路径分块读发，forms 携带 device_info。
-    local httpplus = require("httpplus")
-    local device_info = make_device_info()
-    local code, rresp = httpplus.request({
+    -- 录音格式决定上传的 Content-Type / 文件名
+    local fmt, _ = get_record_format()
+    local is_pcm = fmt:find("^PCM_") ~= nil
+    local ctype = is_pcm and "audio/pcm" or "audio/amr"
+    local fname = is_pcm and "record.pcm" or "record.amr"
+    -- device_info 自动携带屏幕分辨率 + 模块型号（JSON 对象字符串）。
+    -- 它作为【普通表单字段】发送（不带 filename）：带 filename 的 part 会被 Spring 识别成
+    -- 文件(MultipartFile)，request.getParameter("device_info") 拿不到值 → 服务端报 device_info 异常。
+    -- 录音文件走 http_upload 的 httpplus 流式路径：30 秒 PCM ≈ 960KB，整读会打挂 Lua 堆。
+    local code, resp_body = http_upload.post_file({
         url = MAKE_APP_URL,
-        method = "POST",
         headers = headers,
-        -- device_info 作为普通表单字段（不带 filename），服务端 getParameter 才能取到值；
-        -- Content-Type 服务端不强制（同套 ASR 收错配 audio/amr 的 PCM 也能识别），按扩展名即可
-        files = { file = latest_path },
-        forms = { device_info = device_info },
+        file_path = latest_path,
+        filename = fname,
+        content_type = ctype,
+        forms = { device_info = make_device_info() },
         timeout = 30,
     })
     log.info("factory_rec", "make_app 上传完成 code:", code)
@@ -800,7 +827,6 @@ make_send = function()
         sys.publish("FACTORY_MAKE_ERROR", "服务器连接失败(" .. tostring(code) .. ")")
         return
     end
-    local resp_body = (rresp and rresp.body and rresp.body:query()) or ""
     local ok, resp = pcall(json.decode, resp_body)
     if not ok or type(resp) ~= "table" then
         log.warn("factory_rec", "make_app 响应解析失败:", resp_body)
@@ -1149,6 +1175,13 @@ local function make_send_text(text)
 end
 
 -- ==================== 事件订阅 ====================
+audio_hw.register_busy_probe("factory_rec", function()
+    return state == "recording" or warming or codec_restore_scheduled
+end)
+rec_setup = audio_hw.guard(rec_setup)
+rec_start = audio_hw.guard(rec_start)
+rec_stop = audio_hw.guard(rec_stop)
+rec_reset = audio_hw.guard(rec_reset)
 
 sys.subscribe("FACTORY_REC_SETUP", function()
     sys.taskInit(rec_setup)

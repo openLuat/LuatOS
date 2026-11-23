@@ -198,10 +198,14 @@ int luat_onewire_read_byte_with_cmd_v2(int id, const uint8_t cmd, uint8_t *data,
  * @brief 单总线发出2个read bit+1个write bit操作来搜索ID
  * 
  * @param id id, 硬件单总线编号或者虚拟总线编号,如果只有一条硬件单总线则写0,使用虚拟总线必须填写luat_onewire_create_virtual创建的虚拟总线编号
+ * @param id_buf 保存读出的ID
+ * @param id_byte_len id的byte长度
+ * @param is_msb 是否MSB优先，默认是0，一般都是LSB先
+ * @param is_sync 是否同步方式
  * @param is_all_done 是否已经全部搜索完成，如果返回1，则无法再搜索，需要luat_onewire_find_id_stop重置搜索
  * @return 0无异常 其他失败
  */
-int luat_onewire_find_id(int id, uint8_t *is_all_done);
+int luat_onewire_find_id(int id, uint8_t *id_buf, uint8_t id_byte_len, uint8_t is_msb, uint8_t is_sync, uint8_t *is_all_done);
 /**
  * @brief 单总线停止搜索所有ID，并且清空内置搜索状态
  * 

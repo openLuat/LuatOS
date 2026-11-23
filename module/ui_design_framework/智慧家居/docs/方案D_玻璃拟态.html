@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>玻璃之家 · 全屋智能中控（方案D 玻璃拟态 · 真机效果稿）</title>
+<style>
+  :root{
+    --bg:#14161E;--text:#EDF1F6;--sub:#9AA2B5;--dim:#67708A;--edge:#59637B;
+    --card:rgba(255,255,255,.149);--tile:rgba(255,255,255,.102);--taboff:rgba(255,255,255,.047);
+    --track:rgba(255,255,255,.055);--hl:rgba(255,255,255,.235);
+    --pri:#7DD3FC;--pri-deep:#38BDF8;--btn:#24344D;--ok:#4ADE80;--warn:#FBBF24;--danger:#FB7185;
+    --deep:#0F1420;--swoff:#3A4356;--g1:#7C3AED;--g2:#0EA5E9;--g3:#EC4899;--g4:#2DD4BF;
+  }
+  body.light{
+    --bg:#E2E8F2;--text:#1F2A3C;--sub:#5B6472;--dim:#8A93A6;--edge:#C7D0DE;
+    --card:rgba(255,255,255,.647);--tile:rgba(255,255,255,.471);--taboff:rgba(255,255,255,.35);
+    --track:rgba(255,255,255,.275);--hl:rgba(255,255,255,.588);
+    --pri:#0EA5E9;--pri-deep:#0284C7;--btn:#334E68;--ok:#16A34A;--warn:#D97706;--danger:#E11D48;
+    --deep:#F3F6FA;--swoff:#D3DAE6;--g1:#93C5FD;--g2:#7DD3FC;--g3:#F9A8D4;--g4:#5EEAD4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none}
+  body{height:100%;background:#0B0D12;display:flex;align-items:center;justify-content:center;
+    font-family:"PingFang SC","Microsoft YaHei","HarmonyOS Sans",sans-serif}
+  #stage{position:relative;width:1024px;height:600px;overflow:hidden;background:var(--bg);
+    color:var(--text);transition:background .3s;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+  .orb{position:absolute;pointer-events:none}
+  .o1{left:0;top:0;width:360px;height:220px;background:var(--g1);opacity:.133;border-radius:110px}
+  .o2{left:680px;top:0;width:344px;height:260px;background:var(--g2);opacity:.133;border-radius:120px}
+  .o3{left:620px;top:380px;width:404px;height:220px;background:var(--g3);opacity:.118;border-radius:110px}
+  .o4{left:0;top:360px;width:280px;height:240px;background:var(--g4);opacity:.110;border-radius:120px}
+  .glass{position:absolute;background:var(--card);border:2px solid var(--edge);border-radius:22px;
+    box-shadow:0 5px 0 0 rgba(0,0,0,.275)}
+  .glass::before{content:"";position:absolute;left:20px;top:1px;right:24px;height:2px;
+    border-radius:1px;background:var(--hl)}
+  .ptitle{font-size:16px;font-weight:700;color:var(--dim)}
+  #topbar{left:18px;top:16px;width:988px;height:54px;display:flex;align-items:center;padding:0 14px}
+  #topbar .logo{font-size:20px;font-weight:700}
+  .schip{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;margin-left:10px;
+    border-radius:18px;background:var(--tile);font-size:16px;color:var(--sub)}
+  .schip .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+  .schip .dot.warn{background:var(--warn)}
+  #clock{margin-left:auto;font-size:16px;color:var(--sub)}
+  #themeBtn{margin-left:8px;height:36px;padding:0 18px;border:0;border-radius:18px;cursor:pointer;
+    background:var(--tile);color:var(--sub);font-size:16px;font-family:inherit;line-height:36px}
+  #roombar{position:absolute;left:0;top:84px;width:1024px;height:36px}
+  #roomName{position:absolute;left:18px;top:0;width:130px;height:36px;font-size:28px;font-weight:700;line-height:36px}
+  .tab{position:absolute;top:0;width:76px;height:36px;border-radius:18px;font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;background:var(--taboff);color:var(--sub)}
+  .tab.on{background:rgba(125,211,252,.235);color:var(--pri)}
+  body.light .tab.on{background:rgba(14,165,233,.235)}
+  #toast{position:absolute;left:430px;top:88px;width:540px;height:36px;text-align:right;font-size:16px;
+    color:var(--pri);pointer-events:none;line-height:36px;opacity:0;transition:opacity .2s}
+  .panel{position:absolute;top:128px;height:368px;padding:14px 15px}
+  #climate{left:18px;width:296px}#devices{left:328px;width:392px}#sec{left:734px;width:272px}
+  #temp{font-size:46px;font-weight:700;margin-top:4px}
+  #temp small{font-size:22px;color:var(--sub);font-weight:600}
+  .meta{display:flex;justify-content:space-between;font-size:16px;color:var(--sub);margin-top:4px}
+  .meta .ac{color:var(--pri)}
+  #humiDots{display:flex;gap:7px;margin-top:10px}
+  #humiDots i{width:6px;height:6px;border-radius:50%;background:var(--card)}
+  #humiDots i.on{background:var(--pri)}
+  #trend{margin-top:8px;height:94px}
+  .axis{display:flex;justify-content:space-between;font-size:16px;color:var(--dim);margin-top:4px;padding:0 2px}
+  .divider{border:0;border-top:1px dashed rgba(255,255,255,.047);margin:12px 0 10px}
+  body.light .divider{border-top:1px dashed rgba(100,116,139,.35)}
+  .acrow{display:flex;align-items:center;gap:10px}
+  .acrow .nm{font-size:16px;color:var(--sub)}
+  .rbtn{width:42px;height:42px;border-radius:12px;border:0;cursor:pointer;font-size:20px;color:#fff;
+    background:var(--btn);font-family:inherit}
+  #acVal{flex:1;text-align:center;font-size:24px;font-weight:700}
+  #grid{display:grid;grid-template-columns:176px 176px;gap:10px;margin-top:8px}
+  .tile{position:relative;width:176px;height:64px;border-radius:14px;background:var(--tile);cursor:pointer}
+  .tile .ic{position:absolute;left:8px;top:17px;width:26px;height:26px;color:var(--dim)}
+  .tile.on .ic{color:var(--pri)}
+  .tile .nm{position:absolute;left:40px;top:8px;font-size:16px;font-weight:600}
+  .tile .ds{position:absolute;left:40px;top:32px;font-size:16px;color:var(--sub)}
+  .tile .adj{position:absolute;right:10px;top:15px;width:34px;height:32px;border-radius:10px;border:0;
+    background:var(--btn);color:#fff;font-size:16px;cursor:pointer;font-family:inherit}
+  .tile.empty{visibility:hidden}
+  #adjust{position:absolute;left:15px;top:268px;width:358px;height:84px;border-radius:14px;
+    background:var(--deep);opacity:.59;display:none}
+  body.light #adjust{opacity:.92}
+  #adjust.show{display:block}
+  #adjust .bar{position:absolute;left:8px;top:22px;width:3px;height:40px;border-radius:2px;
+    background:var(--pri);opacity:.75}
+  #adjust .nm{position:absolute;left:20px;top:14px;font-size:16px;font-weight:600}
+  #adjust .tp{position:absolute;left:20px;top:42px;font-size:16px;color:var(--dim)}
+  #adjust .track{position:absolute;left:128px;top:20px;width:152px;height:44px;border-radius:12px;
+    background:var(--track)}
+  #adjVal{position:absolute;left:168px;top:0;width:72px;height:84px;line-height:84px;text-align:center;
+    font-size:22px;font-weight:700;color:var(--pri)}
+  #adjust .gh{position:absolute;top:24px;width:36px;height:36px;border:0;background:transparent;
+    color:var(--pri);font-size:20px;cursor:pointer;font-family:inherit}
+  #adjMinus{left:132px}#adjPlus{left:240px}
+  #adjClose{position:absolute;left:288px;top:22px;width:56px;height:40px;border:0;background:transparent;
+    color:var(--sub);font-size:16px;cursor:pointer;font-family:inherit}
+  .secrow{position:absolute;left:15px;width:242px;height:50px;border-radius:14px;background:var(--tile);
+    display:flex;align-items:center;padding:0 11px}
+  .secrow .ic{width:26px;height:26px;flex:none}
+  .secrow .nm{flex:1;text-align:center;font-size:16px}
+  .secrow .st{font-size:16px;color:var(--warn)}
+  .sw{position:relative;width:50px;height:28px;border-radius:14px;background:var(--swoff);
+    opacity:.78;cursor:pointer;flex:none;transition:background .2s}
+  .sw i{position:absolute;left:4px;top:4px;width:20px;height:20px;border-radius:50%;background:#fff;
+    transition:left .2s}
+  .sw.on{opacity:1}.sw.on i{left:26px}
+  .cam{position:absolute;left:15px;top:282px;width:242px;height:70px;border-radius:14px;
+    background:var(--deep);opacity:.63;cursor:pointer;padding:8px 12px}
+  body.light .cam{opacity:.92}
+  .cam .ic{position:absolute;left:12px;top:8px;width:28px;height:28px;color:var(--danger)}
+  .cam .live{position:absolute;right:12px;top:8px;font-size:16px;font-weight:700;color:var(--danger)}
+  .cam .nm2{position:absolute;left:0;right:0;top:38px;text-align:center;font-size:16px;color:var(--sub)}
+  #dock{left:18px;top:505px;width:988px;height:76px;display:flex;align-items:center;padding:0 14px;gap:10px}
+  .scene{flex:1;height:54px;border-radius:14px;background:var(--tile);display:flex;align-items:center;
+    justify-content:center;gap:8px;font-size:16px;font-weight:700;cursor:pointer}
+  .scene .ic{width:24px;height:24px;color:var(--sub)}
+  .scene.on{background:rgba(125,211,252,.235);color:var(--pri)}
+  body.light .scene.on{background:rgba(14,165,233,.235)}
+  .scene.on .ic{color:var(--pri)}
+  svg{display:block}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div><div class="orb o4"></div>
+
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <g id="i-power" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9"/><path d="M6.3 6.5a8 8 0 1 0 11.4 0"/></g>
+    <g id="i-up" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/><path d="M12 9v12"/></g>
+    <g id="i-loop" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></g>
+    <g id="i-charge" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></g>
+    <g id="i-warn" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L2 20h20z"/><path d="M12 10v4"/></g>
+    <g id="i-bell" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 0 0 4 0"/></g>
+    <g id="i-key" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h.01M11 14h.01M15 14h.01"/></g>
+    <g id="i-home" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></g>
+    <g id="i-video" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="11" height="10" rx="2"/><path d="M14 11l7-4v10l-7-4"/></g>
+    <g id="i-drive" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-4l2-5h12l2 5v4"/><path d="M3 16h18v3h-3v-1H6v1H3z"/><circle cx="8" cy="16.5" r="1.4"/><circle cx="16" cy="16.5" r="1.4"/></g>
+    <g id="i-mute" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l6 6M22 9l-6 6"/></g>
+    <g id="i-play" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"/></g>
+    <g id="i-call" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 6 6L16 13l5 2v3a2 2 0 0 1-2 2C11 20 4 13 4 5a2 2 0 0 1 2-2z"/></g>
+  </defs></svg>
+
+  <div class="glass" id="topbar">
+    <span class="logo">Home</span>
+    <span class="schip"><span class="dot" id="dArm"></span><span id="tArm">安防</span></span>
+    <span class="schip"><span class="dot" id="dLock"></span><span id="tLock">门锁</span></span>
+    <span class="schip"><span class="dot warn"></span><span>窗户 1 处未关</span></span>
+    <span id="clock"></span>
+    <button id="themeBtn">浅色主题</button>
+  </div>
+
+  <div id="roombar"><span id="roomName"></span><span id="tabs"></span></div>
+  <div id="toast"></div>
+
+  <div class="glass panel" id="climate">
+    <div class="ptitle">气候</div>
+    <div id="temp"></div>
+    <div class="meta"><span id="humi"></span><span class="ac" id="acSt"></span></div>
+    <div id="humiDots"></div>
+    <div id="trend"><svg viewBox="0 0 264 94" width="264" height="94" preserveAspectRatio="none">
+      <defs><linearGradient id="gf" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="var(--pri)" stop-opacity=".28"/>
+        <stop offset="1" stop-color="var(--pri)" stop-opacity="0"/></linearGradient></defs>
+      <path id="trendFill" fill="url(#gf)"></path>
+      <path id="trendLine" fill="none" stroke="var(--pri)" stroke-width="2"></path>
+    </svg></div>
+    <div class="axis"><span>08时</span><span>12时</span><span>16时</span><span>20时</span></div>
+    <hr class="divider">
+    <div class="acrow">
+      <span class="nm">空调</span>
+      <button class="rbtn" onclick="acDelta(-1)">−</button>
+      <span id="acVal"></span>
+      <button class="rbtn" onclick="acDelta(1)">+</button>
+    </div>
+  </div>
+
+  <div class="glass panel" id="devices">
+    <div class="ptitle" id="devCount"></div>
+    <div id="grid"></div>
+    <div id="adjust">
+      <div class="bar"></div><div class="nm" id="adjNm"></div><div class="tp" id="adjTp"></div>
+      <div class="track"></div><div id="adjVal"></div>
+      <button class="gh" id="adjMinus" onclick="adjDelta(-5)">−</button>
+      <button class="gh" id="adjPlus" onclick="adjDelta(5)">+</button>
+      <button id="adjClose" onclick="closeAdj()">关闭</button>
+    </div>
+  </div>
+
+  <div class="glass panel" id="sec">
+    <div class="ptitle">安防</div>
+    <div class="secrow" style="top:40px">
+      <svg class="ic" id="icArm"><use href="#i-bell"></use></svg>
+      <span class="nm">布防模式</span>
+      <div class="sw on" id="swArm" onclick="toggleArm()"><i></i></div>
+    </div>
+    <div class="secrow" style="top:98px">
+      <svg class="ic" id="icLock"><use href="#i-key"></use></svg>
+      <span class="nm">门锁</span>
+      <div class="sw on" id="swLock" onclick="toggleLock()"><i></i></div>
+    </div>
+    <div class="secrow" style="top:156px">
+      <svg class="ic" style="color:var(--warn)"><use href="#i-home"></use></svg>
+      <span class="nm">窗户</span><span class="st">1 处未关</span>
+    </div>
+    <div class="cam" onclick="toast('打开门口摄像头画面')">
+      <svg class="ic"><use href="#i-video"></use></svg>
+      <span class="live">LIVE</span>
+      <span class="nm2">门口摄像头 1080P</span>
+    </div>
+  </div>
+
+  <div class="glass" id="dock"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const ICON={"窗帘":"up","新风":"loop","加湿":"charge","电热毯":"warn","油烟机":"loop","净水":"charge"};
+const devIcon=nm=>{for(const k in ICON)if(nm.includes(k))return ICON[k];return"power"};
+const SCENE_ICON={"回家":"home","离家":"drive","睡眠":"mute","观影":"play","起床":"bell","会客":"call"};
+const scenes=["回家","离家","睡眠","观影","起床","会客"];
+const RULES={
+  "回家":{armed:false,locked:false,lights:true,curtains:true},
+  "离家":{armed:true,locked:true,allOff:true},
+  "睡眠":{armed:true,locked:true,lights:false,curtains:false},
+  "观影":{armed:false,locked:true,lights:false,curtains:false,tapeOnly:true},
+  "起床":{armed:false,locked:false,lights:true,curtains:true},
+  "会客":{armed:false,locked:false,allOn:true},
+};
+const rooms=[
+ {name:"客厅",temp:24.0,humi:48,ac_t:26,ac_mode:"制冷",devs:[
+   {nm:"客厅主灯",on:true,val:60,ds:"亮度 "},{nm:"客厅筒灯",on:true,val:80,ds:"亮度 "},
+   {nm:"灯带",on:false,val:70,ds:"亮度 "},{nm:"客厅窗帘",on:false,val:30,ds:"开合 "},
+   {nm:"新风",on:true,val:45,ds:"风量 "},{nm:"加湿器",on:false,val:50,ds:"雾量 "}]},
+ {name:"主卧",temp:25.1,humi:55,ac_t:25,ac_mode:"制冷",devs:[
+   {nm:"主卧吸顶灯",on:false,val:70,ds:"亮度 "},{nm:"床头灯",on:true,val:30,ds:"亮度 "},
+   {nm:"主卧窗帘",on:true,val:100,ds:"开合 "},{nm:"加湿器",on:false,val:50,ds:"雾量 "},
+   {nm:"新风",on:true,val:40,ds:"风量 "},{nm:"电热毯",on:false,val:60,ds:"温度 "}]},
+ {name:"书房",temp:23.4,humi:44,ac_t:24,ac_mode:"关闭",devs:[
+   {nm:"书房台灯",on:true,val:80,ds:"亮度 "},{nm:"书房主灯",on:false,val:60,ds:"亮度 "},
+   {nm:"书房窗帘",on:false,val:0,ds:"开合 "},{nm:"新风",on:false,val:40,ds:"风量 "}]},
+ {name:"厨房",temp:26.2,humi:62,ac_t:26,ac_mode:"关闭",devs:[
+   {nm:"厨房顶灯",on:true,val:90,ds:"亮度 "},{nm:"油烟机",on:false,val:70,ds:"风量 "},
+   {nm:"净水器",on:true,val:50,ds:"流量 "}]},
+];
+const state={armed:true,locked:true,cur:0,adj:null,scene:0};
+function toast(m){const t=$("toast");t.textContent=m;t.style.opacity=1;
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function renderTabs(){const r=rooms[state.cur];$("roomName").textContent=r.name;
+  $("tabs").innerHTML=rooms.map((x,i)=>`<span class="tab ${i===state.cur?'on':''}" style="left:${150+i*86}px" onclick="switchRoom(${i})">${x.name}</span>`).join("")}
+function renderDots(h){const lit=Math.round(h/5);
+  $("humiDots").innerHTML=Array.from({length:20},(_,i)=>`<i class="${i<lit?'on':''}"></i>`).join("")}
+function drawTrend(){const r=rooms[state.cur],base=Math.round(r.temp);
+  const off=[-3,-2,-1,0,2,4,5,4,2,1,-1,-2];
+  const pts=off.map((o,i)=>{const v=Math.max(16,Math.min(32,base+o));
+    return [i*24,94-(v-16)*88/16-4]});
+  const line=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  $("trendLine").setAttribute("d",line);
+  $("trendFill").setAttribute("d",line+" L264 94 L0 94 Z")}
+function renderClimate(){const r=rooms[state.cur];
+  $("temp").innerHTML=r.temp.toFixed(1)+"<small>°C</small>";
+  $("humi").textContent="湿度 "+r.humi+"%";
+  $("acSt").textContent=r.ac_t+"℃ "+r.ac_mode;
+  $("acVal").textContent=r.ac_t+"℃";renderDots(r.humi);drawTrend()}
+function renderTiles(){const r=rooms[state.cur];
+  const on=r.devs.filter(d=>d.on).length;
+  $("devCount").textContent="设备 · "+on+"/"+r.devs.length+" 开";
+  const cells=[];
+  for(let i=0;i<6;i++){const d=r.devs[i];
+    if(!d){cells.push('<div class="tile empty"></div>');continue}
+    cells.push(`<div class="tile ${d.on?'on':''}" onclick="toggleDev(${i})">
+      <svg class="ic"><use href="#i-${devIcon(d.nm)}"></use></svg>
+      <span class="nm">${d.nm}</span>
+      <span class="ds">${d.on?d.ds+d.val+"%":"关闭"}</span>
+      <button class="adj" onclick="openAdj(event,${i})">调</button></div>`)}
+  $("grid").innerHTML=cells.join("");
+  if(state.adj&&!r.devs.includes(state.adj))closeAdj()}
+function renderSec(){
+  $("swArm").classList.toggle("on",state.armed);
+  $("swLock").classList.toggle("on",state.locked);
+  $("icArm").style.color=state.armed?"var(--ok)":"var(--sub)";
+  $("icLock").style.color=state.locked?"var(--pri)":"var(--sub)";
+  $("swArm").style.background=state.armed?"var(--ok)":"var(--swoff)";
+  $("swLock").style.background=state.locked?"var(--pri-deep)":"var(--swoff)";
+  $("dArm").style.background=state.armed?"var(--ok)":"var(--warn)";
+  $("tArm").textContent="安防 "+(state.armed?"在家布防":"已撤防");
+  $("dLock").style.background=state.locked?"var(--ok)":"var(--warn)";
+  $("tLock").textContent="门锁 "+(state.locked?"已上锁":"已开锁")}
+function renderDock(){$("dock").innerHTML=scenes.map((s,i)=>
+  `<div class="scene ${i===state.scene?'on':''}" onclick="runScene(${i})">
+    <svg class="ic"><use href="#i-${SCENE_ICON[s]}"></use></svg>${s}</div>`).join("")}
+function refresh(){renderTabs();renderClimate();renderTiles();renderSec()}
+function switchRoom(i){state.cur=i;state.adj=null;closeAdj();toast("已切换到 "+rooms[i].name);refresh()}
+function toggleDev(i){const d=rooms[state.cur].devs[i];d.on=!d.on;toast(d.nm+(d.on?" 已打开":" 已关闭"));renderTiles()}
+function openAdj(e,i){e.stopPropagation();state.adj=rooms[state.cur].devs[i];
+  $("adjust").classList.add("show");$("adjNm").textContent=state.adj.nm;
+  $("adjTp").textContent=state.adj.ds.trim();$("adjVal").textContent=state.adj.val+"%"}
+function closeAdj(){$("adjust").classList.remove("show");state.adj=null}
+function adjDelta(v){if(!state.adj)return;
+  state.adj.val=Math.max(0,Math.min(100,state.adj.val+v));
+  $("adjVal").textContent=state.adj.val+"%";renderTiles()}
+function acDelta(v){const r=rooms[state.cur];
+  r.ac_t=Math.max(16,Math.min(30,r.ac_t+v));
+  renderClimate();toast(r.name+"空调 "+r.ac_t+"℃")}
+function toggleArm(){state.armed=!state.armed;renderSec();
+  toast("布防模式 "+(state.armed?"已开启":"已关闭"))}
+function toggleLock(){state.locked=!state.locked;renderSec();
+  toast("门锁 "+(state.locked?"已开启":"已关闭"))}
+function runScene(i){state.scene=i;renderDock();
+  const r=RULES[scenes[i]],devs=rooms[state.cur].devs;
+  devs.forEach(d=>{const L=d.ds.includes("亮度"),C=d.ds.includes("开合");
+    if(r.allOff)d.on=false;
+    else if(r.allOn){d.on=true;if(C)d.val=100}
+    else if(r.tapeOnly)d.on=L&&d.nm.includes("灯带");
+    else{if(L&&r.lights!==undefined)d.on=r.lights;
+      if(C&&r.curtains!==undefined){d.on=r.curtains;d.val=r.curtains?100:0}}});
+  state.armed=r.armed;state.locked=r.locked;
+  renderTiles();renderSec();toast("执行场景："+scenes[i])}
+$("themeBtn").onclick=()=>{const L=document.body.classList.toggle("light");
+  $("themeBtn").textContent=L?"深色主题":"浅色主题";toast(L?"已切换浅色主题":"已切换深色主题")};
+function tick(){const d=new Date();
+  $("clock").textContent=String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")
+  +" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+setInterval(tick,20000);
+setInterval(()=>{const r=rooms[state.cur];
+  r.temp=Math.max(16,Math.min(32,r.temp+(Math.random()-.5)*.6));
+  r.humi=Math.max(20,Math.min(90,Math.round(r.humi+(Math.random()-.5)*2)));
+  renderClimate()},5000);
+renderDock();refresh();tick();
+</script>
+</body>
+</html>

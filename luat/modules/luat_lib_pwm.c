@@ -27,9 +27,12 @@ pwm.stop(1) -- 关闭PWM1
 
 -- 提醒: pwm.setFreq和pwm.setDuty的, 仅在start/open状态下立即生效, stop/close状态是不会生效的
 */
+#include "lauxlib.h"
+#include "lua.h"
 #include "luat_base.h"
 #include "luat_pwm.h"
 #include "luat_mem.h"
+#include "luat_msgbus.h"
 
 #define LUAT_LOG_TAG "pwm"
 #include "luat_log.h"
@@ -42,6 +45,26 @@ static luat_pwm_conf_t* confs[12];
 static uint64_t s_state = 0;
 static luat_pwm_conf_t* confs[LUAT_CONF_PWM_MAXID];
 #endif
+
+static int _l_pwm_callback_ref;
+
+int l_pwm_handler(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_pop(L, 1);
+    int channel = msg->arg1;
+    int event = msg->arg2;
+    if (_l_pwm_callback_ref) {
+        lua_geti(L, LUA_REGISTRYINDEX, _l_pwm_callback_ref);
+        if (lua_isfunction(L, -1)) {
+            lua_pushinteger(L, channel);
+            lua_pushinteger(L, event);
+            lua_pushnil(L);
+            lua_call(L, 3, 0);
+        }
+    }
+    lua_pushinteger(L, 0);
+    return 1;
+}
 
 /**
 开启指定的PWM通道
@@ -284,6 +307,110 @@ static int l_pwm_set_freq(lua_State *L) {
     return 1;
 }
 
+/*
+注册pwm事件回调，目前只有Air160X系列支持
+@api pwm.on(func)
+@function 回调方法
+@return nil 无返回值
+@usage
+pwm.on(function(channel, event, param)
+    log.info("pwm", channel, event, param)
+end)
+--回调参数有2个
+1、channel pwm通道
+2、event,消息
+3、param,预留,目前没有意义可以忽略
+event类型含义
+1、pwm.EV_PULSE_DONE,pwm单步脉冲完成，由pwm.open pwm.start发起的指定数量脉冲完成后回调
+1、pwm.EV_STEP_DONE,pwm多步脉冲完成，由pwm.step_start发起的多步脉冲完成后回调
+*/
+static int l_pwm_on(lua_State *L) {
+
+    if (_l_pwm_callback_ref) {
+    	luaL_unref(L, LUA_REGISTRYINDEX, _l_pwm_callback_ref);
+    	_l_pwm_callback_ref = 0;
+    }
+	if (lua_isfunction(L, 1)) {
+		lua_pushvalue(L, 1);
+		_l_pwm_callback_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+	}
+    return 0;
+}
+
+/*
+pwm多步脉冲添加1个步骤。多步脉冲的步骤只能被step_clear或者step_stop清除,step_start不会清除step_add的步骤，同一组步骤可以被step_start多次启动
+@api pwm.step_add(channel, freq, duty, num)
+@int PWM通道
+@int 频率 单位hz
+@int 占空比 单位千分之1
+@int 脉冲数量，不能为0
+@return boolean 处理结果,成功返回true,失败返回false
+@usage
+pwm.step_clear(1)
+pwm.step_add(1,1000,500,10) -- channel1 添加1个步骤,周期1Khz,占空比50.0%, 10个脉冲
+pwm.step_add(1,2000,400,20) -- channel1 添加1个步骤,周期2Khz,占空比40.0%, 20个脉冲
+pwm.step_add(1,3000,300,30) -- channel1 添加1个步骤,周期3Khz,占空比30.0%, 30个脉冲
+pwm.step_add(1,4000,100,40) -- channel1 添加1个步骤,周期4Khz,占空比20.0%, 40个脉冲
+pwm.step_start(1)
+*/
+static int l_pwm_step_add(lua_State *L) {
+    int channel = luaL_checkinteger(L, 1);
+    int freq = luaL_checkinteger(L, 2);
+    int duty = luaL_checkinteger(L, 3);
+    int num = luaL_checkinteger(L, 4);
+    if (freq && num) {
+        lua_pushboolean(L, !luat_pwm_step_pulse_add(channel, freq, duty, num));
+    } else {
+        LLOGE("pwm step add freq and num must not 0 %d,%d", freq, num);
+        lua_pushboolean(L, 0);
+    }
+    return 1;
+
+}
+
+/*
+pwm多步脉冲清空所有添加的步骤
+@api pwm.step_clear(channel)
+@int PWM通道
+@return boolean 处理结果,成功返回true,失败返回false
+@usage
+-- channel1 清空所有步骤
+pwm.step_clear(1)
+*/
+static int l_pwm_step_clear(lua_State *L) {
+    lua_pushboolean(L, !luat_pwm_step_pulse_clear(luaL_checkinteger(L, 1)));
+    return 1;
+}
+
+/*
+pwm多步脉冲启动
+@api pwm.step_start(channel)
+@int PWM通道
+@return boolean 处理结果,成功返回true,失败返回false
+@usage
+-- channel1 启动多步脉冲
+pwm.step_start(1)
+*/
+static int l_pwm_step_start(lua_State *L) {
+    int channel = luaL_checkinteger(L, 1);
+    lua_pushboolean(L, !luat_pwm_step_pulse_start(channel));
+    return 1;
+}
+
+/*
+pwm多步脉冲停止
+@api pwm.step_stop(channel)
+@int PWM通道
+@return boolean 处理结果,成功返回true,失败返回false
+@usage
+-- channel1 停止多步脉冲
+pwm.step_stop(1)
+*/
+static int l_pwm_step_stop(lua_State *L) {
+     lua_pushboolean(L, !luat_pwm_step_pulse_stop(luaL_checkinteger(L, 1)));
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_pwm[] =
 {
@@ -298,10 +425,47 @@ static const rotable_Reg_t reg_pwm[] =
     { "setDuty" ,    ROREG_FUNC(l_pwm_set_duty )},
     { "setFreq" ,    ROREG_FUNC(l_pwm_set_freq )},
 
+    { "on",         ROREG_FUNC(l_pwm_on )},
+    { "step_add",         ROREG_FUNC(l_pwm_step_add )},
+    { "step_clear",         ROREG_FUNC(l_pwm_step_clear )},
+    { "step_start",         ROREG_FUNC(l_pwm_step_start )},
+    { "step_stop",         ROREG_FUNC(l_pwm_step_stop )},
+    { "EV_PULSE_DONE",   ROREG_INT(LUAT_PWM_EV_PULSE_DONE)},
+    { "EV_STEP_DONE",   ROREG_INT(LUAT_PWM_EV_STEP_PULSE_DONE)},
 	{ NULL,          ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_pwm( lua_State *L ) {
     luat_newlib2(L, reg_pwm);
     return 1;
+}
+
+LUAT_WEAK int luat_pwm_step_pulse_add(int channel, uint32_t period, uint32_t duty, uint32_t pulse_num) 
+{
+    LLOGD("not support pwm_step_pulse_add");
+    return -1;
+}
+
+LUAT_WEAK int luat_pwm_step_pulse_clear(int channel) 
+{
+    LLOGD("not support pwm_step_pulse_clear");
+    return -1;
+}
+
+LUAT_WEAK int luat_pwm_step_pulse_start(int channel) 
+{
+    LLOGD("not support pwm_step_pulse_start");
+    return -1;
+}
+
+LUAT_WEAK int luat_pwm_step_pulse_stop(int channel) 
+{
+    LLOGD("not support pwm_step_pulse_stop");
+    return -1;
+}
+
+LUAT_WEAK int luat_pwm_set_isr_callback(int channel, luat_pwm_isr_callback callback, void *param) 
+{
+    LLOGD("not support pwm_set_isr_callback");
+    return -1;
 }

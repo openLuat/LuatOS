@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>自助售币机 · 轻奢金属 · 1024×600 效果稿</title>
+<!--
+  设计真源：本文件即唯一视觉真源（airui-ui-flow 阶段 1）
+  能力约束：无渐变 / 无模糊阴影 / 无字体粗细 / 无 hover / 无 flex 主布局
+  背景：纯色 + 矢量图元（circle / 1px rect），无底图。
+        真机 = 静态 shape 一次构建，运行期不重绘，零贴图、零缓存占用。
+  图片：仅 img/coin_hero.png（金币主视觉），不承担背景职责。
+-->
+<style>
+/* ===== 令牌：键名与 ui_theme.lua 的 C 表一一对应 ===== */
+:root{
+  /* 卡片填充对 bg 提到 1.40:1（原来 1.14 只有描边能看见面）；tile 再亮一档做内嵌块 */
+  --bg:#0E0F12; --panel:#171A20; --card:#2A2F38; --tile:#343B47;
+  --track:#3C4450; --hl:#4A5261; --edge:#454D5A; --divider:#39404C;
+  --shadow:#000000;
+  --text:#F4F1EA; --text_sub:#C9C4B9; --text_dim:#A9A296;
+  --pri:#D9B36C; --pri_deep:#B08A46; --on_pri:#141518;
+  --btn:#D9B36C; --sel:#3A3423;
+  --ok:#7FB98A; --warn:#D9A05B; --danger:#C86A6A;
+  /* 背景装饰（真机 = shape 填充，低 opa） */
+  --disc:rgba(217,179,108,.055);
+  --vline:rgba(244,241,234,.05);
+  --edgeline:rgba(217,179,108,.34);
+}
+body.light{
+  /* bg 压深 -> 白卡对 bg 1.41:1（原 1.06 只有描边能看见面），edge 同步加深到 2.0:1 */
+  --bg:#E2D8C5; --panel:#FBF8F2; --card:#FFFFFF; --tile:#FDFAF4;
+  --track:#DED4C0; --hl:#FFFFFF; --edge:#A8997C; --divider:#CFC4AE;
+  --shadow:#9C8E72;
+  --text:#221F1A; --text_sub:#4A443A; --text_dim:#5C5548;
+  --pri:#7E5A18; --pri_deep:#5F4210; --on_pri:#FFFDF9;
+  --btn:#26231D; --sel:#F8EDD4;
+  --ok:#2F6B3F; --warn:#8A5A16; --danger:#8E3434;
+  --disc:rgba(126,90,24,.05);
+  --vline:rgba(34,31,26,.045);
+  --edgeline:rgba(126,90,24,.28);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#08090B}
+body{display:flex;align-items:center;justify-content:center;font-family:"PingFang SC","Microsoft YaHei",sans-serif}
+.mono{font-family:Consolas,"DejaVu Sans Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ===== 舞台：1024x600，绝对定位，px ===== */
+#stage{position:relative;width:1024px;height:600px;overflow:hidden;background:var(--bg);flex:0 0 auto}
+
+/* ===== 背景装饰层：纯色 + 矢量图元 =====
+   真机对应：static shape（circle / rect）低 opa，一次构建后永不下发。
+   全部外框夹在 [0,1024]x[0,600] 内，遵守 G6：不允许正向溢出。 */
+#deco{position:absolute;left:0;top:0;width:1024px;height:600px;overflow:hidden}
+.disc{position:absolute;border-radius:50%;background:var(--disc)}
+.vline{position:absolute;width:1px;height:600px;top:0;background:var(--vline)}
+.edgeline{position:absolute;background:var(--edgeline)}
+
+/* 元素基类 */
+.abs{position:absolute}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:16px}
+.tile{background:var(--tile);border:1px solid var(--edge);border-radius:12px}
+.label{color:var(--text);white-space:nowrap;line-height:1.2}
+.sub{color:var(--text_sub)}
+.dim{color:var(--text_dim)}
+.gold{color:var(--pri)}
+.center{text-align:center}
+.right{text-align:right}
+.hr{background:var(--divider)}
+.goldline{background:var(--pri_deep);opacity:.55}
+
+/* 实偏移投影（真机=同尺寸块错位 4px） */
+.shadowblk{background:var(--shadow);opacity:.45;border-radius:16px}
+
+/* 图片 */
+.hero{background-image:url("img/coin_hero.png");background-size:100% 100%;border-radius:50%}
+.badge{background-image:url("img/coin_hero.png");background-size:100% 100%;border-radius:50%}
+
+/* 主题切换按钮 */
+.themebtn{border:1px solid var(--edge);border-radius:10px;background:var(--tile)}
+
+/* 选中档位卡：真机=改 border_color + 填充色 */
+.picked{background:var(--sel);border-color:var(--pri)}
+
+/* 成功对勾圆环（真机 = circle 描边 + 多段 line 折线） */
+.okring{background:rgba(47,107,63,.10);border:2px solid var(--ok);border-radius:50%}
+
+/* 屏 */
+.screen{position:absolute;left:0;top:0;width:1024px;height:600px;display:none}
+.screen.on{display:block}
+</style>
+</head>
+<body>
+<div id="stage">
+  <!-- ================= 背景装饰（纯矢量，无图） ================= -->
+  <div id="deco">
+    <!-- 右上暖金圆盘：极低 opa，硬边不可见，只提供角落氛围 -->
+    <div data-k="shape" class="disc abs" style="left:624px;top:0;width:400px;height:400px"></div>
+    <!-- 右下冷灰圆盘 -->
+    <div data-k="shape" class="disc abs" style="left:864px;top:400px;width:160px;height:160px;background:rgba(150,168,200,.05)"></div>
+    <!-- 左侧竖向细线组：票据 / 拉丝质感 -->
+    <div data-k="shape" class="vline abs" style="left:0;top:0;width:1px;height:600px"></div>
+    <div data-k="shape" class="vline abs" style="left:16px;top:0;width:1px;height:600px"></div>
+    <div data-k="shape" class="vline abs" style="left:32px;top:0;width:1px;height:600px"></div>
+    <div data-k="shape" class="vline abs" style="left:48px;top:0;width:1px;height:600px"></div>
+    <div data-k="shape" class="vline abs" style="left:64px;top:0;width:1px;height:600px"></div>
+    <!-- 上下压边金线 -->
+    <div data-k="shape" class="edgeline abs" style="left:0;top:0;width:1024px;height:1px"></div>
+    <div data-k="shape" class="edgeline abs" style="left:0;top:599px;width:1024px;height:1px;opacity:.5"></div>
+  </div>
+
+  <!-- ================= 顶栏 y 0..57 =================
+       z-index 必须高于 .screen：screen 是全屏透明块，不抬层级就会吃掉顶栏点击 -->
+  <div data-k="group" data-bw="0" class="abs" style="left:0;top:0;width:1024px;height:58px;z-index:10">
+    <!-- 徽标：菱形线稿 + 中心币，逐段 shape -->
+    <svg data-k="shape" class="abs" style="left:28px;top:12px;width:34px;height:34px" viewBox="0 0 34 34">
+      <path d="M17 2.5 31 17 17 31.5 3 17Z" fill="none" stroke="var(--pri)" stroke-width="1.4"/>
+      <circle cx="17" cy="17" r="6.2" fill="none" stroke="var(--pri)" stroke-width="1.4"/>
+      <path d="M17 12.4v9.2M12.4 17h9.2" stroke="var(--pri_deep)" stroke-width="1.2"/>
+    </svg>
+    <div data-k="label" data-fs="21" class="label abs" style="left:76px;top:11px;width:230px;height:26px;font-size:21px">星光电玩城</div>
+    <div data-k="label" data-fs="16" class="dim abs" style="left:76px;top:38px;width:300px;height:19px;font-size:16px">S&nbsp;T&nbsp;A&nbsp;R&nbsp;&nbsp;&nbsp;A&nbsp;R&nbsp;C&nbsp;A&nbsp;D&nbsp;E</div>
+
+    <!-- 会员 -->
+    <div data-k="card" data-bw="1" class="tile abs" style="left:450px;top:13px;width:188px;height:32px">
+      <svg data-k="shape" class="abs" style="left:13px;top:7px;width:16px;height:16px" viewBox="0 0 16 16">
+        <circle cx="8" cy="5.4" r="2.6" fill="none" stroke="var(--text_sub)" stroke-width="1.3"/>
+        <path d="M2.8 14c.5-2.8 2.6-4.4 5.2-4.4s4.7 1.6 5.2 4.4" fill="none" stroke="var(--text_sub)" stroke-width="1.3"/>
+      </svg>
+      <div data-k="label" data-fs="16" class="sub abs" style="left:36px;top:6px;width:142px;height:19px;font-size:16px" id="userTxt">未登录</div>
+    </div>
+
+    <!-- 余额 -->
+    <div data-k="card" data-bw="1" class="tile abs" style="left:650px;top:13px;width:178px;height:32px">
+      <div data-k="image" class="badge abs" style="left:9px;top:5px;width:20px;height:20px"></div>
+      <div data-k="label" data-fs="16" class="sub abs" style="left:35px;top:6px;width:44px;height:19px;font-size:16px">余额</div>
+      <div data-k="num" data-fs="20" data-tpl="9999" class="gold mono abs" style="left:114px;top:4px;width:52px;height:23px;font-size:20px;text-align:left" id="balTxt">0</div>
+    </div>
+
+    <!-- 时钟（会变，等宽） -->
+    <div data-k="card" data-bw="1" class="tile abs" style="left:840px;top:13px;width:112px;height:32px">
+      <div data-k="num" data-fs="18" data-tpl="99:99:99" class="sub mono abs" style="left:14px;top:5px;width:82px;height:21px;font-size:18px" id="clock">--:--:--</div>
+    </div>
+
+    <!-- 主题按钮 -->
+    <div data-k="card" data-bw="1" class="themebtn abs" style="left:964px;top:13px;width:32px;height:32px">
+      <svg data-k="shape" class="abs" style="left:7px;top:7px;width:16px;height:16px" viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="3.2" fill="none" stroke="var(--pri)" stroke-width="1.4"/>
+        <path d="M8 1v1.8M8 13.2V15M1 8h1.8M13.2 8H15M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3" stroke="var(--pri)" stroke-width="1.3"/>
+      </svg>
+    </div>
+    <div data-k="hit" data-hit="1" class="abs" style="left:964px;top:13px;width:32px;height:32px" onclick="toggleTheme()"></div>
+  </div>
+  <div data-k="shape" class="hr abs" style="left:28px;top:57px;width:968px;height:1px"></div>
+
+  <!-- ================= 1 · 登录 ================= -->
+  <section class="screen on" data-screen="login">
+    <!-- 左：主视觉 -->
+    <div data-k="image" class="hero abs" style="left:64px;top:104px;width:240px;height:240px"></div>
+    <div data-k="shape" class="goldline abs" style="left:64px;top:372px;width:44px;height:1px"></div>
+    <div data-k="label" data-fs="34" class="label abs" style="left:64px;top:390px;width:320px;height:41px;font-size:34px">扫码即玩</div>
+    <div data-k="label" data-fs="16" class="dim abs" style="left:64px;top:442px;width:320px;height:19px;font-size:16px">COIN  ·  LOAD  ·  PLAY</div>
+    <div data-k="label" data-fs="16" class="sub abs" style="left:64px;top:486px;width:120px;height:19px;font-size:16px">24H 自助</div>
+    <div data-k="label" data-fs="16" class="sub abs" style="left:196px;top:486px;width:120px;height:19px;font-size:16px">秒到账</div>
+    <div data-k="label" data-fs="16" class="sub abs" style="left:316px;top:486px;width:140px;height:19px;font-size:16px">会员专属加赠</div>
+    <div data-k="shape" class="hr abs" style="left:64px;top:534px;width:456px;height:1px"></div>
+    <div data-k="label" data-fs="16" class="dim abs" style="left:64px;top:552px;width:400px;height:19px;font-size:16px">支持微信 / 支付宝 · 客服 400-000-0000</div>
+
+    <!-- 右：登录卡 392x456 -->
+    <div data-k="card" data-bw="1" class="card abs" style="left:592px;top:88px;width:392px;height:456px">
+      <div data-k="label" data-fs="26" class="label abs" style="left:28px;top:30px;width:200px;height:31px;font-size:26px">会员登录</div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:72px;width:334px;height:19px;font-size:16px">输入会员号或手机号，即刻选购游戏币</div>
+
+      <!-- 输入框 334x68 -->
+      <div data-k="card" data-bw="1" class="tile abs" style="left:28px;top:110px;width:334px;height:68px">
+        <svg data-k="shape" class="abs" style="left:16px;top:22px;width:22px;height:22px" viewBox="0 0 22 22">
+          <circle cx="11" cy="7.6" r="3.4" fill="none" stroke="var(--text_sub)" stroke-width="1.4"/>
+          <path d="M4 19c.6-3.4 3.4-5.4 7-5.4s6.4 2 7 5.4" fill="none" stroke="var(--text_sub)" stroke-width="1.4"/>
+        </svg>
+        <div data-k="label" data-fs="18" class="dim abs" style="left:52px;top:22px;width:236px;height:22px;font-size:18px" id="memberVal">请输入会员号 / 手机号</div>
+        <svg data-k="shape" class="abs" style="left:296px;top:23px;width:20px;height:20px" viewBox="0 0 20 20">
+          <circle cx="10" cy="10" r="8" fill="none" stroke="var(--text_dim)" stroke-width="1.3"/>
+          <path d="M7 7l6 6M13 7l-6 6" stroke="var(--text_dim)" stroke-width="1.3"/>
+        </svg>
+        <div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:332px;height:66px" onclick="openKb('member')"></div>
+      </div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:188px;width:334px;height:19px;font-size:16px" id="lgHint">请输入 4 位以上会员号或 11 位手机号</div>
+
+      <!-- 主按钮 334x64 -->
+      <div data-k="card" data-bw="0" class="abs" style="left:28px;top:220px;width:334px;height:64px;background:var(--btn);border-radius:14px">
+        <div data-k="label" data-fs="20" class="abs center" style="left:0;top:20px;width:334px;height:24px;font-size:20px;color:var(--on_pri)" id="loginBtnTxt">登录并选币</div>
+      </div>
+      <div data-k="hit" data-hit="1" class="abs" style="left:28px;top:220px;width:334px;height:64px" onclick="doLogin()"></div>
+
+      <!-- 或 -->
+      <div data-k="shape" class="hr abs" style="left:28px;top:308px;width:155px;height:1px"></div>
+      <div data-k="label" data-fs="16" class="dim abs center" style="left:183px;top:299px;width:24px;height:19px;font-size:16px">或</div>
+      <div data-k="shape" class="hr abs" style="left:207px;top:308px;width:155px;height:1px"></div>
+
+      <!-- 扫码登录 334x56 -->
+      <div data-k="card" data-bw="1" class="tile abs" style="left:28px;top:330px;width:334px;height:56px">
+        <svg data-k="shape" class="abs" style="left:22px;top:17px;width:22px;height:22px" viewBox="0 0 22 22">
+          <path d="M3 8V4.5A1.5 1.5 0 014.5 3H8M14 3h3.5A1.5 1.5 0 0119 4.5V8M19 14v3.5a1.5 1.5 0 01-1.5 1.5H14M8 19H4.5A1.5 1.5 0 013 17.5V14" fill="none" stroke="var(--pri)" stroke-width="1.4"/>
+          <path d="M3 11h16" stroke="var(--pri)" stroke-width="1.2"/>
+        </svg>
+        <div data-k="label" data-fs="17" class="sub abs" style="left:58px;top:18px;width:250px;height:21px;font-size:17px">扫码登录（会员二维码）</div>
+        <div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:332px;height:54px" onclick="startScan()"></div>
+      </div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:404px;width:120px;height:19px;font-size:16px">没有会员号？</div>
+      <div data-k="label" data-fs="16" class="gold abs" style="left:152px;top:404px;width:140px;height:19px;font-size:16px">先购币再注册</div>
+      <div data-k="hit" data-hit="1" class="abs" style="left:152px;top:400px;width:140px;height:27px" onclick="doLogin()"></div>
+    </div>
+  </section>
+
+  <!-- ================= 2 · 扫码登录 =================
+       真机 = 机器侧扫码窗读手机上的会员码；屏幕只做"对准"引导 + 60s 超时。
+       取景框里的金色扫描线靠 sys.timer 改 y 往返移动（真机可做，不是 CSS 动画）。 -->
+  <section class="screen" data-screen="scan">
+    <div data-k="card" data-bw="1" class="card abs" style="left:282px;top:84px;width:460px;height:476px">
+      <div data-k="label" data-fs="30" class="label abs center" style="left:0;top:26px;width:458px;height:33px;font-size:30px">扫码登录</div>
+      <div data-k="label" data-fs="16" class="dim abs center" style="left:0;top:68px;width:458px;height:19px;font-size:16px">请将手机会员码对准下方扫码口</div>
+
+      <!-- 取景框 300x220 -->
+      <div data-k="card" data-bw="1" class="tile abs" style="left:79px;top:104px;width:300px;height:220px">
+        <svg data-k="shape" class="abs" style="left:0;top:0;width:298px;height:218px" viewBox="0 0 298 218">
+          <path d="M2 26V2h24M272 2h24v24M296 192v24h-24M26 216H2v-24" fill="none" stroke="var(--pri)" stroke-width="2" stroke-linecap="square"/>
+        </svg>
+        <!-- 手机示意：让用户一眼知道"把手机放这里" -->
+        <svg data-k="shape" class="abs" style="left:101px;top:56px;width:96px;height:96px" viewBox="0 0 96 96">
+          <rect x="18" y="4" width="60" height="88" rx="9" fill="none" stroke="var(--text_dim)" stroke-width="2"/>
+          <rect x="28" y="22" width="40" height="40" fill="none" stroke="var(--text_dim)" stroke-width="2"/>
+          <circle cx="48" cy="78" r="4" fill="none" stroke="var(--text_dim)" stroke-width="2"/>
+        </svg>
+        <div data-k="shape" class="abs" style="left:24px;top:20px;width:250px;height:2px;background:var(--pri);opacity:.85" id="scanLine"></div>
+        <div data-k="label" data-fs="16" class="dim abs center" style="left:0;top:190px;width:298px;height:19px;font-size:16px">对准扫码口，保持不动</div>
+      </div>
+
+      <!-- 状态条 398x52 -->
+      <div data-k="card" data-bw="1" class="tile abs" style="left:30px;top:344px;width:398px;height:52px">
+        <div data-k="shape" class="abs" style="left:14px;top:18px;width:14px;height:14px;background:var(--warn);border-radius:50%" id="scanDot"></div>
+        <div data-k="label" data-fs="16" class="sub abs" style="left:36px;top:15px;width:200px;height:19px;font-size:16px" id="scanTip">等待扫码</div>
+        <div data-k="num" data-fs="20" data-tpl="99" class="mono abs right" style="left:300px;top:13px;width:40px;height:23px;font-size:20px;color:var(--text)" id="scanLeft">60</div>
+        <div data-k="label" data-fs="16" class="dim abs" style="left:348px;top:15px;width:20px;height:19px;font-size:16px">秒</div>
+      </div>
+
+      <!-- 模拟按钮 -->
+      <div data-k="card" data-bw="0" class="abs" style="left:12px;top:404px;width:209px;height:44px;background:var(--btn);border-radius:12px">
+        <div data-k="label" data-fs="17" class="abs center" style="left:0;top:12px;width:209px;height:21px;font-size:17px;color:var(--on_pri)">模拟扫码成功</div>
+      </div>
+      <div data-k="hit" data-hit="1" class="abs" style="left:12px;top:404px;width:209px;height:44px" onclick="scanOk()"></div>
+
+      <div data-k="card" data-bw="1" class="tile abs" style="left:237px;top:404px;width:209px;height:44px">
+        <div data-k="label" data-fs="17" class="sub abs center" style="left:0;top:12px;width:207px;height:21px;font-size:17px">取消返回</div>
+      </div>
+      <div data-k="hit" data-hit="1" class="abs" style="left:237px;top:404px;width:209px;height:44px" onclick="scanCancel()"></div>
+    </div>
+  </section>
+
+  <!-- ================= 3 · 档位 ================= -->
+  <section class="screen" data-screen="tier">
+    <div data-k="label" data-fs="30" class="label abs" style="left:28px;top:78px;width:360px;height:36px;font-size:30px">选择游戏币档位</div>
+    <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:122px;width:420px;height:19px;font-size:16px">W&nbsp;E&nbsp;C&nbsp;H&nbsp;A&nbsp;T&nbsp;&nbsp;/&nbsp;&nbsp;A&nbsp;L&nbsp;I&nbsp;P&nbsp;A&nbsp;Y&nbsp;&nbsp;&nbsp;即时到账</div>
+
+    <div data-k="card" data-bw="1" class="tile abs" style="left:812px;top:76px;width:184px;height:38px">
+      <div data-k="label" data-fs="16" class="sub abs" style="left:14px;top:9px;width:60px;height:19px;font-size:16px">余额</div>
+      <div data-k="num" data-fs="20" data-tpl="9999" class="gold mono abs" style="left:120px;top:6px;width:52px;height:23px;font-size:20px;text-align:left" id="balTxt2">0</div>
+    </div>
+
+    <div data-k="group" data-bw="0" class="abs" style="left:28px;top:152px;width:968px;height:284px" id="tierGrid"></div>
+
+    <!-- 结算条（内容区 966×102，整行内容按 51 的中线居中对齐） -->
+    <div data-k="card" data-bw="1" class="card abs" style="left:28px;top:452px;width:968px;height:104px">
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:41px;width:60px;height:19px;font-size:16px">已选</div>
+      <div data-k="num" data-fs="34" data-tpl="99999" class="mono abs" style="left:70px;top:33px;width:92px;height:39px;font-size:34px;color:var(--text)" id="sumCoins">0</div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:168px;top:41px;width:30px;height:19px;font-size:16px">币</div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:210px;top:41px;width:50px;height:19px;font-size:16px">赠送</div>
+      <div data-k="num" data-fs="34" data-tpl="+999" class="mono abs" style="left:252px;top:33px;width:96px;height:39px;font-size:34px;color:var(--ok)" id="sumGift">+0</div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:352px;top:41px;width:50px;height:19px;font-size:16px">会员</div>
+      <div data-k="label" data-fs="18" class="sub abs" style="left:394px;top:40px;width:130px;height:22px;font-size:18px" id="sumUser">未登录</div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:552px;top:41px;width:40px;height:19px;font-size:16px">实付</div>
+      <div data-k="label" data-fs="26" class="gold abs" style="left:596px;top:37px;width:28px;height:29px;font-size:26px">¥</div>
+      <div data-k="num" data-fs="44" data-tpl="999.99" class="gold mono abs" style="left:622px;top:28px;width:160px;height:49px;font-size:44px" id="sumPay">0.00</div>
+
+      <div data-k="card" data-bw="0" class="abs" style="left:792px;top:19px;width:148px;height:64px;background:var(--btn);border-radius:14px">
+        <div data-k="label" data-fs="19" class="abs center" style="left:0;top:21px;width:148px;height:24px;font-size:19px;color:var(--on_pri)">确认支付</div>
+      </div>
+      <div data-k="hit" data-hit="1" class="abs" style="left:792px;top:20px;width:148px;height:64px" id="nextHit" onclick="toPay()"></div>
+    </div>
+  </section>
+
+  <!-- ================= 4 · 支付 ================= -->
+  <section class="screen" data-screen="pay">
+    <div data-k="card" data-bw="1" class="card abs" style="left:28px;top:76px;width:420px;height:496px">
+      <div data-k="label" data-fs="26" class="label abs" style="left:28px;top:26px;width:112px;height:31px;font-size:26px">扫码支付</div>
+      <div data-k="label" data-fs="18" class="gold abs" style="left:148px;top:30px;width:80px;height:23px;font-size:18px" id="payBrandTxt">微信</div>
+
+      <!-- 二维码 200x200 -->
+      <div data-k="card" data-bw="1" class="tile abs" style="left:109px;top:64px;width:200px;height:200px">
+        <svg data-k="shape" class="abs" style="left:14px;top:14px;width:170px;height:170px" viewBox="0 0 170 170" id="qrArt">
+          <g fill="var(--text)" id="qrGrid"></g>
+        </svg>
+      </div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:288px;width:180px;height:19px;font-size:16px">剩余支付时间</div>
+      <div data-k="num" data-fs="20" data-tpl="99:99" class="mono abs" style="left:300px;top:286px;width:90px;height:23px;font-size:20px;color:var(--text);text-align:right" id="cdTxt">02:00</div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:326px;width:362px;height:19px;font-size:16px">请使用手机扫描上方二维码</div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:348px;width:362px;height:19px;font-size:16px">支付完成后游戏币自动到账</div>
+
+      <div data-k="shape" class="hr abs" style="left:28px;top:398px;width:362px;height:1px"></div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:418px;width:362px;height:19px;font-size:16px" id="qrNote">订单已生成，请在倒计时内完成</div>
+      <div data-k="label" data-fs="16" class="gold abs" style="left:28px;top:444px;width:200px;height:19px;font-size:16px">遇到问题请联系店员</div>
+    </div>
+
+    <div data-k="card" data-bw="1" class="card abs" style="left:468px;top:76px;width:528px;height:496px">
+      <div data-k="label" data-fs="19" class="label abs" style="left:28px;top:24px;width:200px;height:23px;font-size:19px">订单明细</div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:66px;width:200px;height:19px;font-size:16px">充值档位</div>
+      <div data-k="label" data-fs="17" class="sub abs right" style="left:320px;top:65px;width:178px;height:21px;font-size:17px" id="ordTier">—</div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:100px;width:200px;height:19px;font-size:16px">到账游戏币</div>
+      <div data-k="label" data-fs="17" class="gold abs right" style="left:320px;top:99px;width:178px;height:21px;font-size:17px" id="ordCoins">—</div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:134px;width:200px;height:19px;font-size:16px">会员加赠</div>
+      <div data-k="label" data-fs="17" class="abs right" style="left:320px;top:133px;width:178px;height:21px;font-size:17px;color:var(--ok)" id="ordGift">—</div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:168px;width:200px;height:19px;font-size:16px">支付方式</div>
+      <div data-k="label" data-fs="17" class="sub abs right" style="left:320px;top:167px;width:178px;height:21px;font-size:17px" id="ordMth">微信支付</div>
+
+      <div data-k="shape" class="hr abs" style="left:28px;top:206px;width:470px;height:1px"></div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:228px;width:60px;height:19px;font-size:16px">实付</div>
+      <div data-k="label" data-fs="26" class="gold abs" style="left:72px;top:223px;width:28px;height:31px;font-size:26px">¥</div>
+      <div data-k="num" data-fs="44" data-tpl="9999.00" class="gold mono abs" style="left:104px;top:214px;width:200px;height:49px;font-size:44px" id="ordPay">0.00</div>
+
+      <!-- 支付方式 -->
+      <div data-k="card" data-bw="1" class="tile abs" style="left:28px;top:292px;width:228px;height:56px;border-color:var(--pri)" id="mthWechat">
+        <div data-k="label" data-fs="17" class="gold abs center" style="left:0;top:17px;width:226px;height:21px;font-size:17px" id="mthTxtW">微信支付</div>
+        <div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:226px;height:54px" onclick="setMth('wechat')"></div>
+      </div>
+      <div data-k="card" data-bw="1" class="tile abs" style="left:272px;top:292px;width:228px;height:56px" id="mthAlipay">
+        <div data-k="label" data-fs="17" class="sub abs center" style="left:0;top:17px;width:226px;height:21px;font-size:17px" id="mthTxtA">支付宝</div>
+        <div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:226px;height:54px" onclick="setMth('alipay')"></div>
+      </div>
+
+      <!-- 状态条 -->
+      <div data-k="card" data-bw="1" class="tile abs" style="left:28px;top:364px;width:470px;height:52px">
+        <div data-k="shape" class="abs" style="left:16px;top:17px;width:16px;height:16px;background:var(--warn);border-radius:50%" id="statDot"></div>
+        <div data-k="label" data-fs="18" class="sub abs" style="left:44px;top:15px;width:410px;height:21px;font-size:18px" id="statTitle">等待支付</div>
+      </div>
+
+      <div data-k="card" data-bw="1" class="tile abs" style="left:28px;top:430px;width:228px;height:52px">
+        <div data-k="label" data-fs="18" class="sub abs center" style="left:0;top:15px;width:226px;height:21px;font-size:18px">模拟支付成功</div>
+        <div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:226px;height:50px" onclick="simPay(true)"></div>
+      </div>
+      <div data-k="card" data-bw="1" class="tile abs" style="left:272px;top:430px;width:228px;height:52px">
+        <div data-k="label" data-fs="18" class="sub abs center" style="left:0;top:15px;width:226px;height:21px;font-size:18px">返回重选</div>
+        <div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:226px;height:50px" onclick="toTier()"></div>
+      </div>
+    </div>
+  </section>
+  <!-- ================= 5 · 支付成功 =================
+       独立屏（不复用 pay 屏状态条）：成功后二维码必须消失，否则用户以为还要扫。
+       10s 倒计时自动回首页；主按钮立即回首页，次按钮留在档位页供连买。 -->
+  <section class="screen" data-screen="success">
+    <div data-k="card" data-bw="1" class="card abs" style="left:232px;top:88px;width:560px;height:460px">
+      <div data-k="shape" class="okring abs" style="left:243px;top:34px;width:72px;height:72px"></div>
+      <svg data-k="shape" class="abs" style="left:267px;top:61px;width:24px;height:18px" viewBox="0 0 24 18">
+        <polyline points="2,10 9,16 22,2" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <div data-k="label" data-fs="34" class="label abs center" style="left:0;top:120px;width:558px;height:37px;font-size:34px">支付成功</div>
+      <div data-k="label" data-fs="18" class="sub abs center" style="left:0;top:163px;width:558px;height:21px;font-size:18px">游戏币已到账</div>
+
+      <div data-k="shape" class="hr abs" style="left:48px;top:204px;width:462px;height:1px"></div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:48px;top:224px;width:200px;height:19px;font-size:16px">支付金额</div>
+      <div data-k="num" data-fs="20" data-tpl="9999.00" class="mono abs right" style="left:278px;top:222px;width:232px;height:23px;font-size:20px;color:var(--text)" id="succAmt">¥0.00</div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:48px;top:256px;width:200px;height:19px;font-size:16px">到账游戏币</div>
+      <div data-k="label" data-fs="17" class="gold abs right" style="left:278px;top:255px;width:232px;height:21px;font-size:17px" id="succCoins">—</div>
+
+      <div data-k="card" data-bw="1" class="card abs" style="left:48px;top:288px;width:462px;height:48px;border-radius:10px">
+        <div data-k="shape" class="abs" style="left:16px;top:16px;width:14px;height:14px;background:var(--ok);border-radius:50%"></div>
+        <div data-k="label" data-fs="16" class="sub abs" style="left:38px;top:14px;width:404px;height:19px;font-size:16px">请到下方取币口领取实体币</div>
+      </div>
+
+      <div data-k="num" data-fs="20" data-tpl="99" class="mono abs" style="left:184px;top:346px;width:26px;height:23px;font-size:20px;color:var(--text);text-align:right" id="succSec">10</div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:214px;top:348px;width:160px;height:19px;font-size:16px">秒后自动返回首页</div>
+
+      <div data-k="card" data-bw="1" class="tile abs" style="left:69px;top:384px;width:200px;height:52px;background:var(--btn);border-color:var(--btn);border-radius:12px">
+        <div data-k="label" data-fs="17" class="abs center" style="left:0;top:15px;width:198px;height:21px;font-size:17px;color:var(--on_pri)">完成返回首页</div>
+        <div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:198px;height:50px" onclick="goHome()"></div>
+      </div>
+      <div data-k="card" data-bw="1" class="tile abs" style="left:289px;top:384px;width:200px;height:52px">
+        <div data-k="label" data-fs="17" class="sub abs center" style="left:0;top:15px;width:198px;height:21px;font-size:17px">继续购买</div>
+        <div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:198px;height:50px" onclick="buyMore()"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 6 · 数字键盘 ================= -->
+  <section class="screen" data-screen="kb">
+    <div data-k="card" data-bw="1" class="card abs" style="left:28px;top:76px;width:420px;height:496px">
+      <div data-k="label" data-fs="26" class="label abs" style="left:28px;top:30px;width:362px;height:31px;font-size:26px" id="kbTitle">输入会员号</div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:74px;width:362px;height:19px;font-size:16px" id="kbDesc">手机号或卡号，4-11 位</div>
+
+      <div data-k="card" data-bw="1" class="tile abs" style="left:28px;top:112px;width:362px;height:88px">
+        <div data-k="num" data-fs="38" data-tpl="99999999999" class="mono abs" style="left:20px;top:22px;width:320px;height:45px;font-size:38px;color:var(--text);letter-spacing:2px" id="echo">— — — —</div>
+      </div>
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:218px;width:362px;height:19px;font-size:16px" id="kbTip">逐位回显，改值不位移</div>
+
+      <div data-k="card" data-bw="0" class="abs" style="left:28px;top:300px;width:362px;height:64px;background:var(--btn);border-radius:14px">
+        <div data-k="label" data-fs="20" class="abs center" style="left:0;top:20px;width:362px;height:24px;font-size:20px;color:var(--on_pri)">确认</div>
+      </div>
+      <div data-k="hit" data-hit="1" class="abs" style="left:28px;top:300px;width:362px;height:64px" onclick="kbOk()"></div>
+
+      <div data-k="card" data-bw="1" class="tile abs" style="left:28px;top:382px;width:362px;height:56px">
+        <div data-k="label" data-fs="17" class="sub abs center" style="left:0;top:17px;width:360px;height:21px;font-size:17px">返回</div>
+        <div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:360px;height:54px" onclick="kbBack()"></div>
+      </div>
+
+      <div data-k="label" data-fs="16" class="dim abs" style="left:28px;top:456px;width:362px;height:19px;font-size:16px">不确定？可请店员协助操作</div>
+    </div>
+
+    <div data-k="group" data-bw="0" class="abs" style="left:468px;top:76px;width:528px;height:496px" id="kbKeys"></div>
+  </section>
+</div>
+<script>
+/* 状态集中：与真机 app_state.lua 同名同义 */
+var state = { page: "login", member: "", tier: 1, mth: "wechat", kb: "member", buf: "" };
+
+var TIERS = [
+  { coins: 100,  price: 10,  gift: 0,   tag: "",     unit: "0.10 元/币" },
+  { coins: 300,  price: 30,  gift: 20,  tag: "",     unit: "0.09 元/币" },
+  { coins: 500,  price: 50,  gift: 50,  tag: "",     unit: "0.09 元/币" },
+  { coins: 1000, price: 100, gift: 130, tag: "热销", unit: "0.08 元/币" },
+  { coins: 2000, price: 200, gift: 300, tag: "最优", unit: "0.08 元/币" },
+  { coins: 0,    price: 0,   gift: 0,   tag: "",    unit: "10 币/元", custom: true }
+];
+
+var $ = function (id) { return document.getElementById(id); };
+
+function show(page) {
+  state.page = page;
+  var ss = document.querySelectorAll(".screen");
+  for (var i = 0; i < ss.length; i++) ss[i].classList.toggle("on", ss[i].dataset.screen === page);
+}
+
+function toggleTheme() {
+  document.body.classList.toggle("light");
+}
+
+/* ---------- 档位卡：3 列 x 2 行，卡 313x134 ---------- */
+function renderTiers() {
+  var box = $("tierGrid");
+  var html = "";
+  for (var i = 0; i < TIERS.length; i++) {
+    var t = TIERS[i];
+    var cx = (i % 3) * 327;
+    var cy = Math.floor(i / 3) * 148;
+    var on = (i === state.tier);
+    html += '<div data-k="card" data-bw="1" class="abs ' + (on ? 'picked' : 'tile') +
+      '" style="left:' + cx + 'px;top:' + cy + 'px;width:313px;height:134px" id="tc' + i + '">';
+    html += '<div data-k="label" data-fs="26" class="abs" style="left:20px;top:20px;width:190px;height:32px;font-size:26px;' +
+      (on ? 'color:var(--pri)' : 'color:var(--text)') + '">' + (t.custom ? "自定义" : t.coins + " 币") + '</div>';
+    html += '<div data-k="label" data-fs="16" class="dim abs" style="left:20px;top:62px;width:200px;height:19px;font-size:16px">' +
+      (t.custom ? "最低 ￥10 · 10 币/元" : "¥" + t.price + " · " + t.unit) + '</div>';
+    html += '<div data-k="label" data-fs="16" class="abs" style="left:20px;top:92px;width:180px;height:19px;font-size:16px;color:' +
+      (t.custom ? 'var(--pri)' : (t.gift > 0 ? 'var(--ok)' : 'var(--text_dim)')) + '">' +
+      (t.custom ? "点击输入金额" : (t.gift > 0 ? "+" + t.gift + " 赠币" : "无赠币")) + '</div>';
+    if (t.tag) {
+      html += '<div data-k="card" data-bw="1" class="abs" style="left:231px;top:22px;width:64px;height:24px;' +
+        'border-color:var(--pri_deep);border-radius:12px">' +
+        '<div data-k="label" data-fs="16" class="abs center" style="left:0;top:2px;width:62px;height:19px;font-size:16px;color:var(--pri)">' + t.tag + '</div></div>';
+    }
+    if (on) {
+      html += '<svg data-k="shape" class="abs" style="left:277px;top:98px;width:24px;height:24px" viewBox="0 0 24 24">' +
+        '<circle cx="12" cy="12" r="10" fill="var(--pri)"/>' +
+        '<path d="M6.8 12.4l3.4 3.4 7-7.4" fill="none" stroke="var(--on_pri)" stroke-width="2"/></svg>';
+    }
+    html += '<div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:311px;height:132px" onclick="pick(' + i + ')"></div>';
+    html += '</div>';
+  }
+  box.innerHTML = html;
+}
+
+function pick(i) {
+  state.tier = i;
+  renderTiers();
+  refreshSum();
+}
+
+function refreshSum() {
+  var t = TIERS[state.tier];
+  var coins = t.custom ? 0 : t.coins;
+  var gift = t.gift;
+  $("sumCoins").textContent = coins;
+  $("sumGift").textContent = "+" + gift;
+  $("sumPay").textContent = t.custom ? "0.00" : t.price.toFixed(2);
+  $("sumUser").textContent = state.member ? ("尾号 " + state.member.slice(-4)) : "未登录";
+}
+
+/* ---------- 支付 ---------- */
+function toPay() {
+  var t = TIERS[state.tier];
+  if (t.custom && !state.customAmount) { openKb("amount"); return; }
+  $("ordTier").textContent = t.custom ? ("自定义 ¥" + state.customAmount) : (t.coins + " 币档");
+  $("ordCoins").textContent = t.custom ? Math.round(state.customAmount * 10) + " 币" : t.coins + " 币";
+  $("ordGift").textContent = "+" + t.gift + " 币";
+  $("ordPay").textContent = t.custom ? Number(state.customAmount).toFixed(2) : t.price.toFixed(2);
+  show("pay");
+}
+
+function setMth(m) {
+  state.mth = m;
+  $("ordMth").textContent = m === "wechat" ? "微信支付" : "支付宝";
+  $("payBrandTxt").textContent = m === "wechat" ? "微信" : "支付宝";
+  /* 选中态：金边 + 淡底，三处一起改（真机 = 改 border_color + set_color 填充） */
+  $("mthWechat").style.borderColor = m === "wechat" ? "var(--pri)" : "var(--edge)";
+  $("mthAlipay").style.borderColor = m === "alipay" ? "var(--pri)" : "var(--edge)";
+  $("mthWechat").style.background = m === "wechat" ? "var(--sel)" : "var(--tile)";
+  $("mthAlipay").style.background = m === "alipay" ? "var(--sel)" : "var(--tile)";
+  $("mthTxtW").style.color = m === "wechat" ? "var(--pri)" : "var(--text_sub)";
+  $("mthTxtA").style.color = m === "alipay" ? "var(--pri)" : "var(--text_sub)";
+}
+
+/* ---------- 支付结果 ----------
+   成功：切到独立成功屏，10s 倒计时自动回首页（公共设备不能让成功页滞留）。
+   失败：留在支付屏改状态条，用户可重试或换方式。 */
+var succTimer = null, succLeft = 10;
+
+function simPay(ok) {
+  if (ok) { startSuccess(); return; }
+  $("statTitle").textContent = "支付失败 · 请重试或更换方式";
+  $("statTitle").style.color = "var(--danger)";
+  $("statDot").style.background = "var(--danger)";
+  $("qrNote").textContent = "支付失败，可重试或更换支付方式";
+}
+
+/* 支付屏状态复位（回到首页/连买时必须清，否则下次进来还是上次的结果） */
+function payReset() {
+  $("statTitle").textContent = "等待支付";
+  $("statTitle").style.color = "var(--text_sub)";
+  $("statDot").style.background = "var(--warn)";
+  $("qrNote").textContent = "订单已生成，请在倒计时内完成";
+}
+
+function succStop() {
+  if (succTimer) { clearInterval(succTimer); succTimer = null; }
+}
+
+function succPaint() {
+  var t = TIERS[state.tier] || TIERS[0];
+  var price = t.custom ? Number(state.customAmount || 0).toFixed(2) : t.price.toFixed(2);
+  var coins = t.custom ? Math.round((state.customAmount || 0) * 10) : t.coins;
+  var gift = t.gift || 0;
+  $("succAmt").textContent = "¥" + price;
+  $("succCoins").textContent = coins + " 币" + (gift > 0 ? " +" + gift + " 赠" : "");
+  $("succSec").textContent = succLeft;
+}
+
+function startSuccess() {
+  succStop();
+  succLeft = 10;
+  succPaint();
+  show("success");
+  succTimer = setInterval(function () {
+    succLeft--;
+    if (succLeft <= 0) { goHome(); return; }
+    $("succSec").textContent = succLeft;
+  }, 1000);
+}
+
+/* 回首页：结束本次订单、复位支付屏；会员保持登录（真机侧 60s 空闲登出） */
+function goHome() {
+  succStop();
+  payReset();
+  state.tier = 1;
+  state.customAmount = 0;
+  show("login");
+}
+
+/* 连买：留在档位页，清掉本次订单与支付屏残留 */
+function buyMore() {
+  succStop();
+  payReset();
+  show("tier");
+  renderTiers();
+  refreshSum();
+}
+
+function toTier() { show("tier"); renderTiers(); refreshSum(); }
+
+function doLogin() {
+  $("lgHint").textContent = "请输入 4 位以上会员号或 11 位手机号";
+  $("lgHint").style.color = "var(--text_dim)";
+  if (state.member) { show("tier"); renderTiers(); refreshSum(); return; }
+  openKb("member");
+}
+
+/* ---------- 扫码登录 ----------
+   真机 = 机器侧扫码窗读手机上的会员码；效果稿里用按钮模拟。
+   走完必须落到与键盘登录完全相同的状态（state.member + 顶栏 + 档位页），
+   否则两条登录路径的后续行为会分叉。 */
+var SCAN_MEMBER = "13800001234";
+var scanTimer = null, scanAnim = null, scanLeft = 60, scanY = 20, scanDir = 1;
+
+function scanStop() {
+  if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
+  if (scanAnim) { clearInterval(scanAnim); scanAnim = null; }
+}
+
+/* 扫描线往返：真机用 sys.timer 改 y，40ms 一步 */
+function scanLineStart() {
+  scanY = 20; scanDir = 1;
+  $("scanLine").style.top = scanY + "px";
+  scanAnim = setInterval(function () {
+    scanY += scanDir * 3;
+    if (scanY >= 170) { scanY = 170; scanDir = -1; }
+    else if (scanY <= 20) { scanY = 20; scanDir = 1; }
+    $("scanLine").style.top = scanY + "px";
+  }, 40);
+}
+
+function startScan() {
+  scanStop();
+  scanLeft = 60;
+  $("scanLeft").textContent = scanLeft;
+  $("scanTip").textContent = "等待扫码";
+  $("scanTip").style.color = "var(--text_sub)";
+  $("scanDot").style.background = "var(--warn)";
+  $("scanLine").style.background = "var(--pri)";
+  $("lgHint").textContent = "请输入 4 位以上会员号或 11 位手机号";
+  $("lgHint").style.color = "var(--text_dim)";
+  show("scan");
+  scanLineStart();
+  scanTimer = setInterval(function () {
+    scanLeft--;
+    $("scanLeft").textContent = scanLeft;
+    if (scanLeft <= 0) {
+      scanStop();
+      show("login");
+      $("lgHint").textContent = "扫码超时，请重试或输入会员号";
+      $("lgHint").style.color = "var(--danger)";
+    }
+  }, 1000);
+}
+
+/* 模拟扫码成功：先亮 0.5s 成功态（真机识别也有延迟），再进档位页 */
+function scanOk() {
+  scanStop();
+  $("scanTip").textContent = "已识别 · 会员 1234";
+  $("scanTip").style.color = "var(--ok)";
+  $("scanDot").style.background = "var(--ok)";
+  $("scanLine").style.background = "var(--ok)";
+  setTimeout(function () {
+    state.member = SCAN_MEMBER;
+    $("userTxt").textContent = "会员 " + SCAN_MEMBER.slice(-4);
+    $("memberVal").textContent = SCAN_MEMBER;
+    $("memberVal").style.color = "var(--text)";
+    $("sumUser").textContent = "尾号 " + SCAN_MEMBER.slice(-4);
+    show("tier"); renderTiers(); refreshSum();
+  }, 500);
+}
+
+function scanCancel() { scanStop(); show("login"); }
+
+/* ---------- 键盘 ---------- */
+var KEYS = ["1","2","3","4","5","6","7","8","9","CLR","0","DEL"];
+
+function renderKeys() {
+  var box = $("kbKeys"), html = "";
+  for (var i = 0; i < KEYS.length; i++) {
+    var k = KEYS[i];
+    var x = 12 + (i % 3) * 171;
+    var y = 12 + Math.floor(i / 3) * 120;
+    var isTxt = (k === "CLR" || k === "DEL");
+    html += '<div data-k="card" data-bw="1" class="tile abs" style="left:' + x + 'px;top:' + y + 'px;width:161px;height:110px">';
+    html += '<div data-k="label" data-fs="' + (isTxt ? 18 : 30) + '" class="abs center" style="left:0;top:' +
+      (isTxt ? 44 : 37) + 'px;width:159px;height:' + (isTxt ? 22 : 36) + 'px;font-size:' + (isTxt ? 18 : 30) +
+      'px;color:' + (isTxt ? 'var(--text_sub)' : 'var(--text)') + '">' +
+      (k === "CLR" ? "清空" : (k === "DEL" ? "退格" : k)) + '</div>';
+    html += '<div data-k="hit" data-hit="1" class="abs" style="left:0;top:0;width:159px;height:108px" onclick="kbKey(\'' + k + '\')"></div>';
+    html += '</div>';
+  }
+  box.innerHTML = html;
+}
+
+function openKb(kind) {
+  state.kb = kind;
+  state.buf = kind === "member" ? state.member : "";
+  if (kind === "member") {
+    $("kbTitle").textContent = "输入会员号";
+    $("kbDesc").textContent = "手机号或卡号，4-11 位";
+    $("kbTip").textContent = "逐位回显，改值不位移";
+  } else {
+    $("kbTitle").textContent = "输入金额";
+    $("kbDesc").textContent = "最低 ￥10，10 币/元";
+    $("kbTip").textContent = "单位为元，确认后选中自定义档";
+  }
+  renderEcho();
+  renderKeys();
+  show("kb");
+}
+
+function renderEcho() {
+  var s = state.buf || "";
+  $("echo").textContent = s.length ? s : "— — — —";
+}
+
+function kbKey(k) {
+  if (k === "CLR") state.buf = "";
+  else if (k === "DEL") state.buf = state.buf.slice(0, -1);
+  else if (state.buf.length < 11) state.buf += k;
+  renderEcho();
+}
+
+function kbBack() { show(state.kb === "member" ? "login" : "tier"); }
+
+function kbOk() {
+  if (state.kb === "member") {
+    if (state.buf.length < 4) { $("kbTip").textContent = "至少 4 位，请继续输入"; return; }
+    state.member = state.buf;
+    $("userTxt").textContent = "会员 " + state.buf.slice(-4);
+    $("memberVal").textContent = state.buf;
+    $("memberVal").className = "label abs";
+    $("memberVal").style.color = "var(--text)";
+    show("tier"); renderTiers(); refreshSum();
+  } else {
+    var v = Number(state.buf || 0);
+    if (v < 10) { $("kbTip").textContent = "最低 ￥10，请重新输入"; return; }
+    state.customAmount = v;
+    state.tier = 5;
+    renderTiers(); refreshSum();
+    $("sumCoins").textContent = v * 10;
+    $("sumPay").textContent = v.toFixed(2);
+    show("tier");
+  }
+}
+
+/* ---------- 伪二维码（真机为服务端下发的图片） ---------- */
+function renderQR() {
+  var n = 25, u = 170 / n, html = "", seed = 20261120;
+  function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  function cell(x, y) {
+    return '<rect x="' + (x * u).toFixed(2) + '" y="' + (y * u).toFixed(2) +
+      '" width="' + u.toFixed(2) + '" height="' + u.toFixed(2) + '"/>';
+  }
+  for (var y = 0; y < n; y++) {
+    for (var x = 0; x < n; x++) {
+      if ((x < 7 && y < 7) || (x > n - 8 && y < 7) || (x < 7 && y > n - 8)) continue;
+      if (rnd() > 0.5) html += cell(x, y);
+    }
+  }
+  // 三个定位角
+  var f = [[0, 0], [n - 7, 0], [0, n - 7]];
+  for (var i = 0; i < 3; i++) {
+    var ox = f[i][0], oy = f[i][1];
+    html += '<rect x="' + (ox * u).toFixed(2) + '" y="' + (oy * u).toFixed(2) +
+      '" width="' + (7 * u).toFixed(2) + '" height="' + (7 * u).toFixed(2) + '"/>';
+    html += '<rect x="' + ((ox + 1) * u).toFixed(2) + '" y="' + ((oy + 1) * u).toFixed(2) +
+      '" width="' + (5 * u).toFixed(2) + '" height="' + (5 * u).toFixed(2) + '" fill="var(--card)"/>';
+    html += '<rect x="' + ((ox + 2) * u).toFixed(2) + '" y="' + ((oy + 2) * u).toFixed(2) +
+      '" width="' + (3 * u).toFixed(2) + '" height="' + (3 * u).toFixed(2) + '"/>';
+  }
+  document.getElementById("qrGrid").innerHTML = html;
+}
+
+/* ---------- 时钟（真机 = sys.timerStart 1s） ---------- */
+function tick() {
+  var d = new Date();
+  var p = function (n) { return (n < 10 ? "0" : "") + n; };
+  $("clock").textContent = p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+}
+
+/* ---------- 初始化 ---------- */
+renderTiers();
+renderKeys();
+renderQR();
+refreshSum();
+tick();
+setInterval(tick, 1000);
+
+/* 展示外壳：等比缩放到窗口，不参与 1024x600 设计坐标 */
+function fitStage() {
+  var s = Math.min(window.innerWidth / 1024, window.innerHeight / 600, 1);
+  var st = $("stage");
+  st.style.transform = "scale(" + s + ")";
+  st.style.transformOrigin = "center center";
+}
+window.addEventListener("resize", fitStage);
+fitStage();
+
+/* 预览入口：?s=login|tier|pay|kb & t=light （仅为看稿方便，真机由状态机驱动） */
+(function () {
+  var q = new URLSearchParams(location.search);
+  var s = q.get("s");
+  if (q.get("t") === "light") document.body.classList.add("light");
+  if (s && s !== "login") {
+    state.member = "13800001234";
+    $("userTxt").textContent = "会员 1234";
+    $("memberVal").textContent = "13800001234";
+    $("memberVal").style.color = "var(--text)";
+    $("sumUser").textContent = "尾号 " + state.member.slice(-4);
+  }
+  if (s === "tier") { state.tier = 2; renderTiers(); refreshSum(); show("tier"); }
+  if (s === "pay") { state.tier = 3; renderTiers(); refreshSum(); toPay(); }
+  if (s === "success") { state.tier = 3; renderTiers(); refreshSum(); startSuccess(); }
+  if (s === "scan") { startScan(); }
+  if (s === "kb") { openKb("member"); }
+})();
+</script>
+</div>
+</body>
+</html>

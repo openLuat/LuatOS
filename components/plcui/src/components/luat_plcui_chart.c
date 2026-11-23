@@ -1,15 +1,29 @@
-/** @file luat_plcui_chart.c Bounded two-decimal line/bar data charts. */
+/** @file luat_plcui_chart.c Two-decimal data charts with safe native projection. */
 #include "luat_plcui_component.h"
+#include <float.h>
 #include <math.h>
 #include <string.h>
 
-bool luat_plcui_chart_number(double value, int32_t *scaled)
+bool luat_plcui_chart_number(double value, double *rounded)
 {
-    /* Limit the native values to +/-100000. LVGL uses signed 32-bit products
-       while drawing; with the XML height limit of 4096 this stays in range. */
-    if (!isfinite(value) || value < -1000.0 || value > 1000.0) return false;
-    double number = value * PLCUI_CHART_SCALE;
-    *scaled = (int32_t)(number + (number < 0 ? -0.5 : 0.5));
+    if (!isfinite(value)) return false;
+#if LUA_FLOAT_TYPE == LUA_FLOAT_FLOAT
+    /* XML uses strtod even when Lua numbers are single precision. Keep
+       accepted values representable by get_values() and state(). */
+    if (value < -FLT_MAX || value > FLT_MAX) return false;
+#endif
+    if (fabs(value) < 1.0 / (DBL_EPSILON * PLCUI_CHART_SCALE)) {
+        /* Preserve the existing rounding of ordinary decimal values. */
+        double number = value * PLCUI_CHART_SCALE;
+        *rounded = trunc(number + (number < 0 ? -0.5 : 0.5)) / PLCUI_CHART_SCALE;
+    } else {
+        /* Multiplying a large integer by 100 can change it or overflow.
+           Round only its fractional part at these magnitudes. */
+        double whole;
+        double fraction = modf(value, &whole);
+        *rounded = whole + round(fraction * PLCUI_CHART_SCALE) / PLCUI_CHART_SCALE;
+    }
+    if (*rounded == 0) *rounded = 0.0;
     return true;
 }
 
@@ -21,17 +35,29 @@ plcui_chart_series_t *luat_plcui_chart_series(plcui_widget_t *widget, const char
     return NULL;
 }
 
-int32_t luat_plcui_chart_display_value(const plcui_widget_t *widget, int32_t value)
+int32_t luat_plcui_chart_display_value(const plcui_widget_t *widget, double value)
 {
-    if (value < widget->chart->minimum) return widget->chart->minimum;
-    if (value > widget->chart->maximum) return widget->chart->maximum;
-    return value;
+    double minimum = widget->chart->minimum;
+    double maximum = widget->chart->maximum;
+    if (value <= minimum) return 0;
+    if (value >= maximum) return PLCUI_CHART_NATIVE_MAX;
+    double span = maximum - minimum;
+    double position;
+    if (isfinite(span)) {
+        position = (value - minimum) / span;
+    } else {
+        /* Opposite extreme endpoints can overflow their difference. */
+        position = (value * 0.5 - minimum * 0.5) / (maximum * 0.5 - minimum * 0.5);
+    }
+    if (position <= 0) return 0;
+    if (position >= 1) return PLCUI_CHART_NATIVE_MAX;
+    return (int32_t)(position * PLCUI_CHART_NATIVE_MAX + 0.5);
 }
 
 void luat_plcui_chart_sync_series(plcui_widget_t *widget, plcui_chart_series_t *series)
 {
-    /* Keep projection inside the chart rectangle even for a very narrow axis.
-       The document retains the real values so changing range can restore them. */
+    /* LVGL multiplies native values by pixel height in signed 32-bit math.
+       Only projected values enter LVGL; original values survive range changes. */
     int32_t *native = lv_chart_get_series_y_array(widget->obj, series->native);
     for (unsigned i = 0; i < widget->chart->points; ++i) {
         native[i] = luat_plcui_chart_display_value(widget, series->values[i]);
@@ -59,7 +85,7 @@ lv_obj_t *luat_plcui_chart_create(plcui_widget_t *widget, lv_obj_t *parent)
     lv_obj_set_style_size(object, 0, 0, LV_PART_INDICATOR);
     lv_chart_set_type(object, data->bar ? LV_CHART_TYPE_BAR : LV_CHART_TYPE_LINE);
     lv_chart_set_point_count(object, data->points);
-    lv_chart_set_axis_range(object, LV_CHART_AXIS_PRIMARY_Y, data->minimum, data->maximum);
+    lv_chart_set_axis_range(object, LV_CHART_AXIS_PRIMARY_Y, 0, PLCUI_CHART_NATIVE_MAX);
     lv_chart_set_div_line_count(object, data->hdiv, data->vdiv);
     lv_chart_set_update_mode(object, LV_CHART_UPDATE_MODE_SHIFT);
     for (unsigned i = 0; i < data->count; ++i) {
@@ -67,7 +93,7 @@ lv_obj_t *luat_plcui_chart_create(plcui_widget_t *widget, lv_obj_t *parent)
         series->native = lv_chart_add_series(object, lv_color_hex(series->color), LV_CHART_AXIS_PRIMARY_Y);
         if (!series->native) return NULL;
         /* Keep LVGL's buffers owned by LVGL; XML owns a separate persistent copy. */
-        lv_chart_set_all_values(object, series->native, data->minimum);
+        lv_chart_set_all_values(object, series->native, 0);
         luat_plcui_chart_sync_series(widget, series);
         lv_chart_hide_series(object, series->native, series->hidden);
     }

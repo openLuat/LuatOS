@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>产线总览</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+.machine { position: absolute; border-radius: 4px;
+    background: linear-gradient(180deg, #6f8798 0%, #46606f 22%, #2b404d 60%, #1b2c36 100%);
+    border: 1px solid rgba(120, 190, 215, .45);
+    box-shadow: 0 0 14px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .25); }
+.machine::before { content: ""; position: absolute; left: 8px; right: 8px; top: 10px; height: 26px;
+    background: repeating-linear-gradient(90deg, rgba(190, 235, 255, .30) 0 3px, rgba(20, 40, 52, .0) 3px 9px),
+                linear-gradient(180deg, rgba(180, 230, 250, .28), rgba(30, 50, 62, .1));
+    border-radius: 2px; }
+.machine::after { content: ""; position: absolute; left: 50%; bottom: 8px; width: 34px; height: 16px; margin-left: -17px;
+    background: linear-gradient(180deg, #9fd7ea, #47808f); border-radius: 2px; opacity: .8; }
+.machine.light { width: 10px; height: 10px; border-radius: 50%; background: #2ee6a0; box-shadow: 0 0 10px #2ee6a0;
+    position: absolute; top: -12px; left: 50%; margin-left: -5px; }
+.plate { position: absolute; border-radius: 3px; display: flex; align-items: center; padding: 0 10px;
+    font-size: 13px; color: #eafaff;
+    background: linear-gradient(180deg, rgba(12, 58, 80, .95), rgba(6, 26, 38, .95));
+    border: 1px solid rgba(45, 160, 195, .7); }
+.power { position: absolute; width: 74px; height: 74px; border-radius: 50%;
+    background: radial-gradient(circle, #ff4d68 34%, rgba(255, 77, 104, .25) 36%, rgba(255, 77, 104, .06) 70%, transparent 72%);
+    border: 2px solid rgba(255, 120, 140, .8); box-shadow: 0 0 18px rgba(255, 60, 90, .5); }
+.power::before { content: ""; position: absolute; left: 50%; top: 20px; width: 6px; height: 22px; margin-left: -3px;
+    background: #fff; border-radius: 3px; }
+.power::after { content: ""; position: absolute; left: 50%; top: 26px; width: 26px; height: 26px; margin-left: -13px;
+    border: 4px solid #fff; border-radius: 50%; border-top-color: transparent; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage" data-page="overview">
+
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div>
+    <div class="hdr-wing r"></div>
+    <div class="hdr-title">PET 饮料灌装生产线 智能中控监管系统</div>
+    <div class="hdr-status" style="left:756px;">
+      <div class="hdr-dot"></div>
+      <div class="hdr-state">运行中</div>
+      <div class="hdr-sep"></div>
+    </div>
+  </div>
+  <div class="plc" data-type="label" data-id="clock" data-fontsize="15" data-color="#cfe9f5"
+       data-align="right" data-text="2025-11-11 10:30:00"
+       style="left:812px;top:15px;width:196px;height:20px;font-size:15px;line-height:1;text-align:right;">2025-11-11 10:30:00</div>
+  <div class="hint" style="left:812px;top:36px;width:196px;text-align:right;color:#8fb6c9;">当班操作员：OP01</div>
+
+  <!-- 产线示意 -->
+  <svg style="position:absolute;left:10px;top:60px;width:790px;height:410px;" width="790" height="410">
+    <defs>
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="5" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g filter="url(#glow)" fill="none" stroke="#2bff9e" stroke-linecap="round">
+      <path d="M30 315 H 762" stroke-width="8" opacity=".45"/>
+      <path d="M115 288 V 315" stroke-width="5" opacity=".5"/>
+      <path d="M291 288 V 315" stroke-width="5" opacity=".5"/>
+      <path d="M467 288 V 315" stroke-width="5" opacity=".5"/>
+      <path d="M643 288 V 315" stroke-width="5" opacity=".5"/>
+      <path d="M115 315 V 360" stroke-width="5" opacity=".5"/>
+      <path d="M291 315 V 360" stroke-width="5" opacity=".5"/>
+      <path d="M467 315 V 360" stroke-width="5" opacity=".5"/>
+      <path d="M643 315 V 360" stroke-width="5" opacity=".5"/>
+    </g>
+    <g fill="#8dffc9" opacity=".95">
+      <circle cx="150" cy="256" r="4"/><circle cx="390" cy="256" r="4"/>
+      <circle cx="620" cy="256" r="4"/><circle cx="200" cy="318" r="4"/>
+      <circle cx="460" cy="318" r="4"/><circle cx="660" cy="356" r="4"/>
+    </g>
+  </svg>
+
+  <!-- 传送带光点动画（帧图由 tools/make_extra_assets.py 生成） -->
+  <div class="plc" data-type="image" data-id="anim_belt" data-asset="anim_belt" style="left:36px;top:366px;width:742px;height:20px;"></div>
+
+  <!-- 上排设备 -->
+  <div class="machine" style="left:44px;top:176px;width:132px;height:78px;"><span class="machine light"></span></div>
+  <div class="machine" style="left:220px;top:176px;width:132px;height:78px;"><span class="machine light"></span></div>
+  <div class="machine" style="left:396px;top:176px;width:132px;height:78px;"><span class="machine light"></span></div>
+  <div class="machine" style="left:572px;top:176px;width:132px;height:78px;"><span class="machine light"></span></div>
+
+  <!-- 下排设备 -->
+  <div class="machine" style="left:44px;top:360px;width:132px;height:60px;"><span class="machine light"></span></div>
+  <div class="machine" style="left:220px;top:360px;width:132px;height:60px;"><span class="machine light" style="background:#ffa62b;box-shadow:0 0 10px #ffa62b"></span></div>
+  <div class="machine" style="left:396px;top:360px;width:132px;height:60px;"><span class="machine light" style="background:#ffa62b;box-shadow:0 0 10px #ffa62b"></span></div>
+  <div class="machine" style="left:572px;top:360px;width:132px;height:60px;"><span class="machine light" style="background:#ffa62b;box-shadow:0 0 10px #ffa62b"></span></div>
+
+  <!-- 设备铭牌 -->
+  <div class="plate" style="left:40px;top:260px;width:150px;height:28px;">空瓶卸垛机</div>
+  <div class="plate" style="left:216px;top:260px;width:150px;height:28px;">瓶身检测机</div>
+  <div class="plate" style="left:392px;top:260px;width:150px;height:28px;">全自动灌装机</div>
+  <div class="plate" style="left:568px;top:260px;width:150px;height:28px;">旋盖机</div>
+
+  <div class="plate" style="left:40px;top:424px;width:150px;height:28px;">液位检测机</div>
+  <div class="plate" style="left:216px;top:424px;width:150px;height:28px;">贴标机</div>
+  <div class="plate" style="left:392px;top:424px;width:150px;height:28px;">装箱机</div>
+  <div class="plate" style="left:568px;top:424px;width:150px;height:28px;">AGV 转车</div>
+
+  <!-- 状态（动态） -->
+  <div class="plc" data-type="label" data-id="s1" data-fontsize="12" data-color="#2ee6a0" data-align="left" data-text="运行" style="left:156px;top:268px;width:30px;height:16px;font-size:12px;line-height:1;color:#2ee6a0;">运行</div>
+  <div class="plc" data-type="label" data-id="s2" data-fontsize="12" data-color="#2ee6a0" data-align="left" data-text="运行" style="left:332px;top:268px;width:30px;height:16px;font-size:12px;line-height:1;color:#2ee6a0;">运行</div>
+  <div class="plc" data-type="label" data-id="s3" data-fontsize="12" data-color="#2ee6a0" data-align="left" data-text="运行" style="left:508px;top:268px;width:30px;height:16px;font-size:12px;line-height:1;color:#2ee6a0;">运行</div>
+  <div class="plc" data-type="label" data-id="s4" data-fontsize="12" data-color="#ffa62b" data-align="left" data-text="停机" style="left:684px;top:268px;width:30px;height:16px;font-size:12px;line-height:1;color:#ffa62b;">停机</div>
+  <div class="plc" data-type="label" data-id="s5" data-fontsize="12" data-color="#2ee6a0" data-align="left" data-text="运行" style="left:156px;top:432px;width:30px;height:16px;font-size:12px;line-height:1;color:#2ee6a0;">运行</div>
+  <div class="plc" data-type="label" data-id="s6" data-fontsize="12" data-color="#ffa62b" data-align="left" data-text="维护" style="left:332px;top:432px;width:30px;height:16px;font-size:12px;line-height:1;color:#ffa62b;">维护</div>
+  <div class="plc" data-type="label" data-id="s7" data-fontsize="12" data-color="#ffa62b" data-align="left" data-text="维护" style="left:508px;top:432px;width:30px;height:16px;font-size:12px;line-height:1;color:#ffa62b;">维护</div>
+  <div class="plc" data-type="label" data-id="s8" data-fontsize="12" data-color="#ffa62b" data-align="left" data-text="待机" style="left:684px;top:432px;width:30px;height:16px;font-size:12px;line-height:1;color:#ffa62b;">待机</div>
+
+  <!-- 右侧菜单 -->
+  <div class="panel" style="left:806px;top:60px;width:208px;height:368px;">
+    <div class="cap" style="min-width:110px;">功能菜单</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="nav_realtime" data-handler="show_realtime" style="left:816px;top:84px;width:188px;height:42px;"><span class="d"></span>实时数据监控</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="nav_assets" data-handler="show_assets" style="left:816px;top:134px;width:188px;height:42px;"><span class="d"></span>设备运行管理</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="nav_params" data-handler="show_params" style="left:816px;top:184px;width:188px;height:42px;"><span class="d"></span>工艺参数配置</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="nav_report" data-handler="show_report" style="left:816px;top:234px;width:188px;height:42px;"><span class="d"></span>产量统计报表</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="nav_alarm" data-handler="show_alarm" style="left:816px;top:284px;width:188px;height:42px;"><span class="d"></span>故障报警记录</div>
+  <div class="plc navbtn" data-type="image" data-states="normal,checked" data-id="nav_system" data-handler="show_params" style="left:816px;top:334px;width:188px;height:42px;"><span class="d"></span>系统设置</div>
+
+  <!-- 右下 KPI -->
+  <div class="panel" style="left:806px;top:436px;width:208px;height:140px;">
+    <div class="cap" style="min-width:110px;">当班指标</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="hint" style="left:818px;top:474px;width:70px;color:#9fc7d8;">当班产量</div>
+  <div class="hint" style="left:818px;top:502px;width:70px;color:#9fc7d8;">灌装速度</div>
+  <div class="hint" style="left:818px;top:530px;width:70px;color:#9fc7d8;">合格率</div>
+
+  <div class="plc" data-type="label" data-id="k_out" data-fontsize="18" data-color="#ffd479" data-align="right" data-text="28640瓶" style="left:884px;top:470px;width:118px;height:22px;font-size:18px;font-weight:700;line-height:1;text-align:right;color:#ffd479;">28640瓶</div>
+  <div class="plc" data-type="label" data-id="k_speed" data-fontsize="16" data-color="#ffd479" data-align="right" data-text="420瓶/分钟" style="left:884px;top:498px;width:118px;height:20px;font-size:16px;font-weight:700;line-height:1;text-align:right;color:#ffd479;">420瓶/分钟</div>
+  <div class="plc" data-type="label" data-id="k_pass" data-fontsize="16" data-color="#2ee6a0" data-align="right" data-text="99.72%" style="left:884px;top:526px;width:118px;height:20px;font-size:16px;font-weight:700;line-height:1;text-align:right;color:#2ee6a0;">99.72%</div>
+
+  <!-- 底部控制 -->
+  <div class="plc" data-type="image" data-id="btn_power" data-states="normal,checked" data-asset="power" data-handler="on_power" style="left:30px;top:496px;width:74px;height:74px;"></div>
+
+  <div class="plc btn plain" data-type="image" data-id="btn_login" data-states="normal,pressed" data-handler="on_login" style="left:118px;top:518px;width:112px;height:32px;">权限登录</div>
+
+  <div class="plc btn red" data-type="image" data-id="btn_estop" data-states="normal,pressed" data-handler="on_estop" style="left:286px;top:518px;width:120px;height:34px;">急停</div>
+  <div class="plc btn green" data-type="image" data-id="btn_start" data-states="normal,pressed" data-handler="on_line_start" style="left:416px;top:518px;width:120px;height:34px;">启动产线</div>
+  <div class="plc btn orange" data-type="image" data-id="btn_pause" data-states="normal,pressed" data-handler="on_line_pause" style="left:546px;top:518px;width:120px;height:34px;">暂停产线</div>
+  <div class="plc btn orange" data-type="image" data-id="btn_alarm" data-states="normal,pressed" data-handler="on_alarm" style="left:676px;top:518px;width:120px;height:34px;">一键报警</div>
+
+  <div class="plc" data-type="label" data-id="feedback" data-fontsize="12" data-color="#7ff2ff" data-align="left" data-text="产线运行中 · 空瓶卸垛机 → 装箱机 全部就绪"
+       style="left:118px;top:562px;width:660px;height:16px;font-size:12px;line-height:1;color:#7ff2ff;">产线运行中 · 空瓶卸垛机 → 装箱机 全部就绪</div>
+
+</div>
+</body>
+</html>

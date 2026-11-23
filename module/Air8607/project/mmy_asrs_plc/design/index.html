@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ASRS-2400 立体库 · 单屏主视图原型 1024×600</title>
+<style>
+/* ============================================================
+   版式：单屏主视图 + 右侧面板切换（不分页）
+   视觉：暖纸底 + 墨绿/赭石，物流看板感
+   ============================================================ */
+:root{
+  --bg:#F4F1EC; --panel:#FFFFFF; --panel2:#FAF8F4;
+  --line:#E2DCD2; --line2:#EFEAE2;
+  --ink:#2A2622; --ink2:#6B6259; --ink3:#9A9088;
+  --green:#1F4D3D; --amber:#C4703A; --gold:#B8863B; --red:#B23A48;
+  --empty:#EAE4DA; --busy:#C4703A; --lock:#B8863B;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{background:#CFC7BB;display:flex;align-items:center;justify-content:center;
+  font-family:"Microsoft YaHei","PingFang SC","Source Han Sans SC",sans-serif;
+  -webkit-font-smoothing:antialiased;}
+.screen{position:relative;width:1024px;height:600px;overflow:hidden;background:var(--bg);
+  font-variant-numeric:tabular-nums;zoom:var(--z,1);}
+
+/* ---------- 顶栏 ---------- */
+.hdr{position:absolute;left:0;top:0;width:1024px;height:56px;background:var(--green);}
+.logo{position:absolute;left:20px;top:10px;width:36px;height:36px;border-radius:4px;
+  background:#F4F1EC;color:var(--green);font-size:17px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;}
+.brand{position:absolute;left:68px;top:8px;font-size:20px;font-weight:700;color:#F7F4EE;line-height:24px;}
+.brand small{font-size:14px;font-weight:400;color:#A9BDB2;margin-left:8px;}
+.sub{position:absolute;left:68px;top:32px;font-size:14px;color:#8FA79A;}
+.hstat{position:absolute;left:400px;top:16px;font-size:16px;color:#D9E4DC;}
+.hstat b{color:#F7F4EE;font-size:18px;}
+.clock{position:absolute;right:20px;top:8px;font-size:26px;font-weight:700;color:#F7F4EE;}
+
+/* ---------- 状态带 ---------- */
+.strip{position:absolute;left:0;top:56px;width:1024px;height:36px;background:#E9E2D6;
+  border-bottom:1px solid var(--line);}
+.strip .item{position:absolute;top:8px;font-size:15px;color:var(--ink2);}
+.strip b{font-size:17px;color:var(--ink);}
+
+/* ---------- 主区 ---------- */
+.card{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:6px;}
+.ttl{position:absolute;font-size:16px;font-weight:700;color:var(--ink);line-height:20px;}
+.note{position:absolute;font-size:14px;color:var(--ink3);text-align:right;line-height:20px;}
+
+.cell{position:absolute;width:13px;height:13px;border-radius:2px;background:var(--empty);}
+.cell.full{background:var(--green);}
+.cell.busy{background:var(--busy);}
+.cell.lock{background:var(--lock);}
+
+.chip{position:absolute;height:30px;border-radius:15px;display:flex;align-items:center;
+  justify-content:center;font-size:15px;cursor:pointer;user-select:none;
+  border:1px solid var(--line);color:var(--ink2);background:#FFFFFF;}
+.chip.on{background:var(--green);border-color:var(--green);color:#F7F4EE;font-weight:700;}
+
+.row{border-bottom:1px solid var(--line2);}
+#toast{position:absolute;left:352px;top:548px;width:320px;height:30px;border-radius:6px;
+  background:var(--ink);color:#fff;font-size:15px;display:none;
+  align-items:center;justify-content:center;z-index:9;}
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+
+  <div class="hdr">
+    <div class="logo">A</div>
+    <div class="brand">ASRS-2400<small>立体库 · 6 巷道 720 库位</small></div>
+    <div class="sub">堆垛机 2 台 · 输送线 3 段 · 自动运行</div>
+    <div class="hstat" id="hstat">在库 <b>486</b> / 720 · 占用 <b>67.5 %</b></div>
+    <div class="clock" id="clock">20:02</div>
+  </div>
+
+  <div class="strip">
+    <div class="item" style="left:20px">今日入库 <b>132</b> 托</div>
+    <div class="item" style="left:180px">出库 <b>118</b> 托</div>
+    <div class="item" style="left:330px">待执行任务 <b>14</b></div>
+    <div class="item" style="left:490px">平均作业 <b>48</b> s / 托</div>
+    <div class="item" style="left:660px">设备稼动 <b>94.2 %</b></div>
+    <div class="item" style="right:20px;color:var(--amber)">● 2 台堆垛机作业中</div>
+  </div>
+
+  <!-- 库位矩阵 -->
+  <div class="card" style="left:12px;top:104px;width:600px;height:484px">
+    <div class="ttl" style="left:16px;top:12px">库位分布 / 俯视 6 巷道 × 24 列 × 5 层</div>
+    <div class="note" style="left:360px;top:12px;width:224px">绿色在库 · 赭石作业中</div>
+    <div class="body" id="matrix"></div>
+  </div>
+
+  <!-- 右侧面板 -->
+  <div class="card" style="left:624px;top:104px;width:388px;height:484px">
+    <div id="chips" style="position:absolute;left:14px;top:12px;width:360px;height:32px"></div>
+    <div class="body" id="panel"></div>
+  </div>
+
+
+  <div id="toast"></div>
+</div>
+
+<script>
+const C={green:'#1F4D3D',amber:'#C4703A',gold:'#B8863B',red:'#B23A48',
+         empty:'#EAE4DA',line:'#E2DCD2',ink:'#2A2622',ink2:'#6B6259',ink3:'#9A9088'};
+const mk=(p,l,t,w,h,bg,rad)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px;width:${w}px;height:${h}px;`+
+    `border-radius:${rad===undefined?4:rad}px;background:${bg||'transparent'}`;
+  p.appendChild(d);return d;};
+const put=(p,html,l,t,w)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px`+(w?`;width:${w}px`:'');
+  d.innerHTML=html;p.appendChild(d);return d;};
+
+/* ---------- 库位矩阵 ---------- */
+const ROWS=6, COLS=24, LAYERS=5;
+const CW=20, CH=8, PX=22, PY=9;       // 托盘位是扁条：宽 20 高 8
+
+var LIGHT=0;
+const stateOf=(r,c)=>{                 // 伪随机但稳定
+  const h=((r*37+c*17+LIGHT)*7)%100;
+  if(h<12) return 'busy';
+  if(h<17) return 'lock';
+  if(h<62) return 'full';
+  return 'empty';
+};
+
+(function(){
+  const P=document.getElementById('matrix');
+  const X0=56, Y0=50;
+  for(let c=0;c<COLS;c++){
+    if(c%4===0) put(P,`<span style="font-size:12px;color:${C.ink3}">${String(c+1).padStart(2,'0')}</span>`,
+      X0+c*PX-2, Y0-18);
+  }
+  for(let r=0;r<ROWS;r++){
+    const baseY=Y0+r*(LAYERS*PY+18);
+    put(P,`<span style="font-size:15px;font-weight:700;color:${C.ink2}">S${r+1}</span>`,14,baseY+12);
+    for(let l=0;l<LAYERS;l++){
+      for(let c=0;c<COLS;c++){
+        const st=stateOf(r,c);
+        const d=document.createElement('div');
+        d.className='cell'+(st==='full'?' full':st==='busy'?' busy':st==='lock'?' lock':'');
+        d.style.width=CW+'px'; d.style.height=CH+'px';
+        d.style.left=(X0+c*PX)+'px';
+        d.style.top=(baseY+l*PY)+'px';
+        d.title=`S${r+1}-${String(c+1).padStart(2,'0')}-${LAYERS-l}`;
+        P.appendChild(d);
+      }
+    }
+  }
+  const lg=[[C.green,'在库'],[C.empty,'空位'],[C.amber,'作业中'],[C.gold,'锁定']];
+  lg.forEach((g,i)=>{
+    const x=56+i*104;
+    mk(P,x,438,11,11,g[0],2);
+    put(P,`<span style="font-size:14px;color:${C.ink2}">${g[1]}</span>`,x+17,434);
+  });
+  put(P,`<span style="font-size:14px;color:${C.ink3}">每格一个托盘位 · 上行为高层</span>`,56,462,500);
+})();
+
+/* ---------- 右侧三视图 ---------- */
+const VIEWS=['库位','任务','报警'];
+let cur=0;
+
+function viewSlot(P){
+  put(P,`<span style="position:absolute;left:14px;top:52px;font-size:14px;color:${C.ink3}">当前选中</span>
+    <span style="position:absolute;left:14px;top:72px;font-size:22px;font-weight:700;color:${C.ink}">S3-14-3</span>
+    <span style="position:absolute;left:14px;top:102px;font-size:14px;color:${C.ink2}">托盘 PLT-8821304 · 入库 11-18 09:42</span>`,0,0,360);
+  const rows=[['状态','在库'],['货主','华东电子'],['批次','B26-1148'],['存储天数','4 天'],['重量','682 kg']];
+  rows.forEach((r,i)=>{
+    const y=140+i*34;
+    put(P,`<span style="position:absolute;left:14px;top:0;font-size:14px;color:${C.ink3}">${r[0]}</span>
+      <span style="position:absolute;right:14px;top:0;font-size:15px;color:${C.ink}">${r[1]}</span>
+      <span style="position:absolute;left:0;bottom:-8px;width:360px;height:1px;background:${C.line}"></span>`,
+      0,y,360);
+  });
+  const b=mk(P,14,330,360,36,C.green,4);
+  b.style.cssText+=';display:flex;align-items:center;justify-content:center;font-size:15px;'+
+    'font-weight:700;color:#F7F4EE';
+  b.textContent='指定出库';
+  put(P,`<span style="font-size:14px;color:${C.ink3}">点击库位可切换选中，此处随选中刷新</span>`,14,382,360);
+}
+
+function viewTask(P){
+  put(P,`<span style="position:absolute;left:14px;top:56px;font-size:14px;color:${C.ink3}">执行队列</span>`,0,0,360);
+  put(P,`<span style="position:absolute;right:14px;top:56px;font-size:14px;color:${C.ink3}">14 条待执行</span>`,0,0,360);
+  const T=[['01','出库','S3-14-3','SC2','执行中','#C4703A'],
+           ['02','入库','S1-07-2','SC1','执行中','#C4703A'],
+           ['03','移库','S5-19-1 → S2-03-4','SC1','排队','#6B6259'],
+           ['04','出库','S6-02-5','SC2','排队','#6B6259'],
+           ['05','入库','S4-11-1','SC1','排队','#6B6259']];
+  T.forEach((t,i)=>{
+    const y=84+i*52;
+    mk(P,14,y,360,46,'#FAF8F4',4);
+    put(P,`<span style="position:absolute;left:26px;top:${y+13}px;font-size:16px;font-weight:700;color:${C.ink3}">${t[0]}</span>`,0,0,360);
+    put(P,`<span style="position:absolute;left:56px;top:${y+6}px;font-size:15px;font-weight:700;color:${C.ink}">${t[1]}</span>`,0,0,360);
+    put(P,`<span style="position:absolute;left:56px;top:${y+26}px;font-size:14px;color:${C.ink2}">${t[2]}</span>`,0,0,360);
+    put(P,`<span style="position:absolute;right:14px;top:${y+13}px;font-size:14px;color:${t[5]};font-weight:700">${t[4]}</span>`,0,0,360);
+  });
+  put(P,`<span style="font-size:14px;color:${C.ink3}">平均单托 48 s · 双机并行</span>`,14,352,360);
+}
+
+function viewAlarm(P){
+  put(P,`<span style="position:absolute;left:14px;top:56px;font-size:14px;color:${C.ink3}">报警</span>`,0,0,360);
+  const A=[['20:01','SC2 取货到位信号延迟 0.3 s','#C4703A'],
+           ['18:42','输送线 2 段货物偏移，已复位','#6B6259']];
+  A.forEach((a,i)=>{
+    const y=84+i*62;
+    mk(P,14,y,360,54,'#FAF8F4',4);
+    mk(P,14,y,3,54,a[2],0);
+    put(P,`<span style="position:absolute;left:28px;top:${y+8}px;font-size:14px;color:${C.ink3}">${a[0]}</span>`,0,0,360);
+    put(P,`<span style="position:absolute;left:28px;top:${y+28}px;font-size:14px;color:${C.ink};width:330px">${a[1]}</span>`,0,0,360);
+  });
+  put(P,`<span style="position:absolute;left:14px;top:218px;font-size:14px;color:${C.ink3}">维护计数</span>`,0,0,360);
+  [['堆垛机运行','2,840 h'],['链条润滑','剩余 96 h'],['货叉保养','剩余 12 天'],['输送线皮带','正常']]
+  .forEach((m,i)=>{
+    const y=244+i*34;
+    mk(P,14,y+30,360,1,C.line);
+    put(P,`<span style="position:absolute;left:14px;top:${y}px;font-size:14px;color:${C.ink3}">${m[0]}</span>`,0,0,360);
+    put(P,`<span style="position:absolute;right:14px;top:${y}px;font-size:14px;color:${C.ink}">${m[1]}</span>`,0,0,360);
+  });
+}
+
+function render(){
+  const P=document.getElementById('panel');
+  P.innerHTML='';
+  if(cur===0) viewSlot(P);
+  else if(cur===1) viewTask(P);
+  else viewAlarm(P);
+}
+
+/* ---------- 切换 chip ---------- */
+(function(){
+  const box=document.getElementById('chips');
+  VIEWS.forEach((v,i)=>{
+    const el=document.createElement('div');
+    el.className='chip'+(i===0?' on':'');
+    el.style.left=(i*76)+'px';el.style.width='68px';el.style.position='absolute';
+    el.textContent=v;
+    el.onclick=()=>{
+      cur=i;
+      [...box.children].forEach((x,j)=>x.classList.toggle('on',j===i));
+      render();
+      toast(v+'视图');
+    };
+    box.appendChild(el);
+  });
+  const m=location.hash.match(/^#(task|alarm|slot)$/);
+  if(m){cur=(m[1]==='task')?1:(m[1]==='alarm'?2:0);
+    [...box.children].forEach((x,j)=>x.classList.toggle('on',j===cur));}
+  render();
+})();
+
+let tm=null;
+function toast(s){
+  const el=document.getElementById('toast');
+  el.textContent=s;el.style.display='flex';
+  clearTimeout(tm);tm=setTimeout(()=>el.style.display='none',1000);
+}
+(function(){
+  const ck=document.getElementById('clock');
+  (function tick(){
+    const d=new Date();
+    ck.textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    setTimeout(tick,10000);
+  })();
+  function fit(){
+    const z=Math.min((window.innerWidth-40)/1024,(window.innerHeight-40)/600,1.5);
+    document.documentElement.style.setProperty('--z',z.toFixed(3));
+  }
+  fit();window.addEventListener('resize',fit);
+})();
+</script>
+</body>
+</html>

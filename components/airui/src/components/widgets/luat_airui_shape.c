@@ -11,11 +11,16 @@
 #include "lvgl9/src/draw/lv_draw_arc.h"
 #include "lvgl9/src/draw/lv_draw_line.h"
 #include "lvgl9/src/draw/lv_draw_rect.h"
+#include "lvgl9/src/misc/lv_area_private.h"
+#include "lvgl9/src/misc/lv_color_op.h"
 #include "lua.h"
 #include "lauxlib.h"
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
+
+#define LUAT_LOG_TAG "airui_shape"
+#include "luat_log.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -33,6 +38,10 @@ typedef struct {
     airui_shape_item_type_t type;
     lv_color_t color;
     lv_color_t fill_color;
+    lv_color_t grad_color;
+    lv_color_t fill_grad_color;
+    lv_grad_dir_t grad_dir;
+    lv_grad_dir_t fill_grad_dir;
     lv_opa_t opa;
     lv_opa_t fill_opa;
     int16_t width;
@@ -217,6 +226,54 @@ static int32_t airui_shape_round_double(double value)
     return (int32_t)(value - 0.5);
 }
 
+static lv_grad_dir_t airui_shape_parse_gradient(lua_State *L, int idx, const char *color_key,
+                                               const char *dir_key, lv_grad_dir_t default_dir,
+                                               lv_color_t *color)
+{
+    lv_grad_dir_t dir = default_dir;
+    bool has_color = airui_marshal_color(L, idx, color_key, color);
+    bool has_dir = airui_marshal_grad_dir(L, idx, dir_key, &dir);
+    lua_getfield(L, idx, dir_key);
+    bool dir_present = !lua_isnil(L, -1);
+    lua_pop(L, 1);
+    if (dir_present && !has_dir) {
+        LLOGW("%s currently supports only none/ver/hor (0/1/2); using solid color", dir_key);
+        return LV_GRAD_DIR_NONE;
+    }
+    if (has_dir && dir == LV_GRAD_DIR_NONE) {
+        return LV_GRAD_DIR_NONE;
+    }
+    if (!has_color) {
+        if (has_dir) {
+            LLOGW("%s requires %s; using solid color", dir_key, color_key);
+        }
+        return LV_GRAD_DIR_NONE;
+    }
+    return dir;
+}
+
+static void airui_shape_parse_gradients(lua_State *L, int idx, const char *type, airui_shape_item_t *item)
+{
+    lv_grad_dir_t line_dir = LV_GRAD_DIR_VER;
+    if (item->type == AIRUI_SHAPE_ITEM_LINE && item->data.line.y1 == item->data.line.y2) {
+        line_dir = LV_GRAD_DIR_HOR;
+    }
+    item->grad_dir = airui_shape_parse_gradient(L, idx, "grad_color", "grad_dir", line_dir, &item->grad_color);
+    item->fill_grad_dir = airui_shape_parse_gradient(L, idx, "fill_grad_color", "fill_grad_dir",
+                                                    LV_GRAD_DIR_VER, &item->fill_grad_color);
+    if (item->grad_dir != LV_GRAD_DIR_NONE &&
+        (item->type != AIRUI_SHAPE_ITEM_LINE ||
+         (item->data.line.x1 != item->data.line.x2 && item->data.line.y1 != item->data.line.y2))) {
+        LLOGW("%s stroke gradient is currently unsupported (only horizontal/vertical lines); using solid color", type);
+        item->grad_dir = LV_GRAD_DIR_NONE;
+    }
+    if (item->fill_grad_dir != LV_GRAD_DIR_NONE &&
+        (!item->fill || (item->type != AIRUI_SHAPE_ITEM_RECT && item->type != AIRUI_SHAPE_ITEM_CIRCLE))) {
+        LLOGW("%s fill gradient is currently unsupported (requires filled rect/circle); using solid color", type);
+        item->fill_grad_dir = LV_GRAD_DIR_NONE;
+    }
+}
+
 static int airui_shape_parse_item(lua_State *L, int idx, airui_shape_item_t *item)
 {
     const char *type;
@@ -361,7 +418,122 @@ static int airui_shape_parse_item(lua_State *L, int idx, airui_shape_item_t *ite
             return AIRUI_ERR_INVALID_PARAM;
     }
 
+    airui_shape_parse_gradients(L, abs_idx, type, item);
     return AIRUI_OK;
+}
+
+static void airui_shape_set_gradient(lv_grad_dsc_t *grad, lv_color_t start, lv_color_t end, lv_grad_dir_t dir)
+{
+    grad->dir = dir;
+    grad->stops_count = 2;
+    grad->stops[0].color = start;
+    grad->stops[0].opa = LV_OPA_COVER;
+    grad->stops[0].frac = 0;
+    grad->stops[1].color = end;
+    grad->stops[1].opa = LV_OPA_COVER;
+    grad->stops[1].frac = 255;
+}
+
+static lv_color_t airui_shape_line_gradient_color(const airui_shape_item_t *item,
+                                                 const lv_area_t *bounds, int32_t pos)
+{
+    int32_t start = item->grad_dir == LV_GRAD_DIR_HOR ? bounds->x1 : bounds->y1;
+    int32_t end = item->grad_dir == LV_GRAD_DIR_HOR ? bounds->x2 : bounds->y2;
+    uint8_t mix = end > start ? (uint8_t)(LV_CLAMP(0, pos - start, end - start) * 255 / (end - start)) : 0;
+    return lv_color_mix(item->grad_color, item->color, mix);
+}
+
+/* Keep every dash and cap on the same gradient, without allocating a bitmap. */
+static void airui_shape_draw_gradient_line_part(lv_layer_t *layer, const airui_shape_item_t *item,
+                                               const lv_area_t *bounds, const lv_area_t *area,
+                                               int32_t radius, const lv_area_t *clip)
+{
+    lv_area_t saved_clip = layer->_clip_area;
+    if (clip != NULL && !lv_area_intersect(&layer->_clip_area, &saved_clip, clip)) {
+        layer->_clip_area = saved_clip;
+        return;
+    }
+    lv_draw_rect_dsc_t dsc;
+    lv_draw_rect_dsc_init(&dsc);
+    dsc.base.layer = layer;
+    dsc.bg_opa = item->opa;
+    dsc.border_width = 0;
+    dsc.radius = radius;
+    int32_t start = item->grad_dir == LV_GRAD_DIR_HOR ? area->x1 : area->y1;
+    int32_t end = item->grad_dir == LV_GRAD_DIR_HOR ? area->x2 : area->y2;
+    airui_shape_set_gradient(&dsc.bg_grad, airui_shape_line_gradient_color(item, bounds, start),
+                            airui_shape_line_gradient_color(item, bounds, end), item->grad_dir);
+    lv_draw_rect(layer, &dsc, area);
+    layer->_clip_area = saved_clip;
+}
+
+static void airui_shape_draw_gradient_line(lv_layer_t *layer, const lv_draw_line_dsc_t *line,
+                                         const airui_shape_item_t *item)
+{
+    bool horizontal = line->p1.y == line->p2.y;
+    int32_t start = horizontal ? LV_MIN(line->p1.x, line->p2.x) : LV_MIN(line->p1.y, line->p2.y);
+    int32_t end = horizontal ? LV_MAX(line->p1.x, line->p2.x) : LV_MAX(line->p1.y, line->p2.y);
+    if (start == end || item->width <= 0 || item->opa <= LV_OPA_MIN) {
+        return;
+    }
+    int32_t half = (item->width - 1) / 2;
+    int32_t half_extra = item->width / 2;
+    lv_area_t body;
+    if (horizontal) {
+        lv_area_set(&body, start, (int32_t)line->p1.y - half_extra, end - 1, (int32_t)line->p1.y + half);
+    } else {
+        lv_area_set(&body, (int32_t)line->p1.x - half_extra, start, (int32_t)line->p1.x + half, end - 1);
+    }
+    lv_area_t bounds = body;
+    lv_area_t caps[2];
+    bool rounded[2] = {item->round_start != 0, item->round_end != 0};
+    int32_t cap_correction = (item->width & 1) ? 0 : 1;
+    for (int i = 0; i < 2; i++) {
+        int32_t x = (int32_t)(i == 0 ? line->p1.x : line->p2.x);
+        int32_t y = (int32_t)(i == 0 ? line->p1.y : line->p2.y);
+        lv_area_set(&caps[i], x - half_extra, y - half_extra,
+                    x + half_extra - cap_correction, y + half_extra - cap_correction);
+        if (rounded[i]) {
+            lv_area_join(&bounds, &bounds, &caps[i]);
+        }
+    }
+
+    bool dashed = item->dash_width > 0 && item->dash_gap > 0;
+    int32_t period = dashed ? (int32_t)item->dash_width + item->dash_gap : end - start;
+    lv_area_t visible;
+    bool body_visible = lv_area_intersect(&visible, &body, &layer->_clip_area);
+    int32_t first = body_visible ? (horizontal ? visible.x1 : visible.y1) : end;
+    int32_t last_visible = body_visible ? (horizontal ? visible.x2 : visible.y2) : start - 1;
+    /* Skip off-screen dashes while retaining the full line's gradient origin. */
+    for (int32_t pos = start + (first - start) / period * period; pos <= last_visible; pos += period) {
+        lv_area_t part = body;
+        int32_t last = dashed ? LV_MIN(pos + item->dash_width, end) - 1 : end - 1;
+        if (horizontal) {
+            part.x1 = pos;
+            part.x2 = last;
+        } else {
+            part.y1 = pos;
+            part.y2 = last;
+        }
+        airui_shape_draw_gradient_line_part(layer, item, &bounds, &part, 0, NULL);
+    }
+    for (int i = 0; i < 2; i++) {
+        if (!rounded[i]) continue;
+        lv_area_t clip = caps[i];
+        bool at_start = (horizontal ? line->p1.x : line->p1.y) == start;
+        if (i == 1) at_start = !at_start;
+        /* Clip caps to the outside half so translucent joins are drawn once. */
+        if (horizontal) {
+            if (at_start) clip.x2 = start - 1;
+            else clip.x1 = end;
+        } else {
+            if (at_start) clip.y2 = start - 1;
+            else clip.y1 = end;
+        }
+        if (clip.x1 <= clip.x2 && clip.y1 <= clip.y2) {
+            airui_shape_draw_gradient_line_part(layer, item, &bounds, &caps[i], LV_RADIUS_CIRCLE, &clip);
+        }
+    }
 }
 
 static void airui_shape_draw_line_item(lv_layer_t *layer, const lv_area_t *coords, const airui_shape_item_t *item)
@@ -381,7 +553,11 @@ static void airui_shape_draw_line_item(lv_layer_t *layer, const lv_area_t *coord
     dsc.p1.y = coords->y1 + item->data.line.y1;
     dsc.p2.x = coords->x1 + item->data.line.x2;
     dsc.p2.y = coords->y1 + item->data.line.y2;
-    lv_draw_line(layer, &dsc);
+    if (item->grad_dir != LV_GRAD_DIR_NONE) {
+        airui_shape_draw_gradient_line(layer, &dsc, item);
+    } else {
+        lv_draw_line(layer, &dsc);
+    }
 }
 
 static void airui_shape_draw_circle_item(lv_layer_t *layer, const lv_area_t *coords, const airui_shape_item_t *item)
@@ -403,6 +579,7 @@ static void airui_shape_draw_circle_item(lv_layer_t *layer, const lv_area_t *coo
         dsc.radius = LV_RADIUS_CIRCLE;
         dsc.bg_color = item->fill_color;
         dsc.bg_opa = item->fill_opa;
+        airui_shape_set_gradient(&dsc.bg_grad, item->fill_color, item->fill_grad_color, item->fill_grad_dir);
         dsc.border_color = item->color;
         dsc.border_width = item->width;
         dsc.border_opa = item->opa;
@@ -447,6 +624,7 @@ static void airui_shape_draw_rect_item(lv_layer_t *layer, const lv_area_t *coord
     dsc.radius = item->data.rect.radius;
     dsc.bg_opa = item->fill ? item->fill_opa : LV_OPA_TRANSP;
     dsc.bg_color = item->fill_color;
+    airui_shape_set_gradient(&dsc.bg_grad, item->fill_color, item->fill_grad_color, item->fill_grad_dir);
     dsc.border_opa = item->opa;
     dsc.border_color = item->color;
     dsc.border_width = item->width;
@@ -769,4 +947,13 @@ int airui_shape_get_count(lv_obj_t *shape)
         return 0;
     }
     return (int)data->count;
+}
+
+int airui_shape_set_hidden(lv_obj_t *shape, bool hidden)
+{
+    if (shape == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    lv_obj_set_flag(shape, LV_OBJ_FLAG_HIDDEN, hidden);
+    return AIRUI_OK;
 }

@@ -1,43 +1,44 @@
 --[[
 @module  gt911
 @summary GT911 触摸控制器通用驱动
-@version 1.1
-@date    2026.10.23
+@version 1.4
+@date    2026.11.19
 @author  江访
 @usage
-传入底板接线参数，执行 GPIO复位 → I2C初始化 → tp.init → airui绑定
-params: { port, pin_rst, pin_int, int_type, i2c_speed, w, h, gpio_reset }
+传入底板接线参数，配置 I2C、完成触摸复位后将设备绑定到 AirUI。
+params: { port, pin_rst, pin_int, int_type, i2c_speed, w, h, gpio_reset, reset_hold_ms, rst_external_pullup }
 触摸芯片只初始化一次：init 重复调用直接返回已初始化的设备对象，不再碰 tp.init
 ]]
 local M = {}
 
--- tp.init 返回的触摸设备对象，非 nil 即已初始化成功
--- 内核 tp 库一次上电只接受一次 tp.init（luat_lib_tp.c 的 s_init，成功即置位），
--- 二次调用打印 E/tp tp has been initialized!!! 并返回 nil，故只认首次成功
 local tp_device = nil
+local touch_bound = false
+local retry_with_rst_input = false
+
+local function bind_touch()
+    if not touch_bound then
+        if not airui.device_bind_touch(tp_device) then return false, "AirUI 触摸绑定失败" end
+        touch_bound = true
+        log.info("gt911", "READY", "初始化成功，已绑定 AirUI")
+    end
+    return tp_device
+end
 
 function M.init(params)
-    -- 已初始化过：内核 tp 库只接受一次 tp.init，直接返回设备对象
-    if tp_device then
-        return tp_device
-    end
+    if _G.is_pc or (_G.project_config and _G.project_config.chip == "PC") then return true end
+    -- V1032 accepts one successful tp.init. A failed AirUI bind can be retried on that handle.
+    if tp_device then return bind_touch() end
     -- GPIO 复位序列（部分底板需要）
     if params.gpio_reset then
         gpio.setup(params.gpio_reset, 0)
         gpio.close(params.gpio_reset)
     end
 
-    -- I2C 初始化
-    -- 第三参 true = 轮询模式（API 文档原话："除非使用中有问题，否则留空"）。
-    -- 触摸坐标在 TP 中断路径里突发读，中断驱动 I2C 与嵌套中断相互干扰时，
-    -- 会恰好"仅触摸时"报 I2C 错误 —— 轮询模式根治；触摸带宽极小，性能无感。
-    -- params.i2c_polling 可显式传 false 回退平台默认（中断模式）。
+    -- Keep the existing polling preference for BSPs that implement the option.
     local polling = params.i2c_polling
     if polling == nil then polling = true end
-    if params.i2c_speed then
-        i2c.setup(params.port, params.i2c_speed, polling)
-    else
-        i2c.setup(params.port, 0, polling)
+    if i2c.setup(params.port, params.i2c_speed or 0, polling) ~= 1 then
+        return false, "I2C" .. params.port .. " 初始化失败"
     end
 
     -- tp.init
@@ -75,20 +76,45 @@ function M.init(params)
         end
     end
 
-    local r = tp.init("gt911", tp_params)
-    log.info("gt911", r and "初始化成功" or "初始化失败，PC模拟器可以忽略")
-    if not r then return false end
-    -- 成功即封口：内核 s_init 已置位，之后任何路径都不再调 tp.init
-    tp_device = r
-
-    -- PC 模拟跳过绑定（用鼠标替代）
-    if _G.project_config and _G.project_config.chip == "PC" then
-        log.info("gt911", "PC模式，跳过触摸绑定")
-        return r
+    local rst_released
+    if params.reset_hold_ms then
+        -- The first attempt hands both pins to the native driver while still low.
+        if not gpio.setup(params.pin_rst, 0) then return false, "TP_RST 配置失败" end
+        sys.wait(params.reset_hold_ms)
+        if not gpio.setup(params.pin_int, 0) then
+            gpio.set(params.pin_rst, 1)
+            if params.rst_external_pullup then gpio.setup(params.pin_rst, nil, 0) end
+            return false, "TP_INT 配置失败"
+        end
+        sys.wait(2) -- INT low across the reset rising edge selects 7-bit address 0x5D.
+        if retry_with_rst_input and params.rst_external_pullup then
+            -- Keep GPIO ownership across the retry. R16 holds RST high after the pulse.
+            gpio.set(params.pin_rst, 1)
+            sys.wait(6)
+            rst_released = gpio.setup(params.pin_rst, nil, 0)
+            if not rst_released then
+                gpio.setup(params.pin_int, nil, 0)
+                return false, "TP_RST 输入配置失败"
+            end
+            sys.wait(55)
+            -- Complete Goodix INT sync before the first address phase. Use V1032 polling
+            -- on this retry so the native driver cannot drive the physical INT low again.
+            if not gpio.setup(params.pin_int, nil, 0) then return false, "TP_INT 输入配置失败" end
+            tp_params.pin_rst, tp_params.pin_int = 0xff, 0xff
+        end
     end
-
-    airui.device_bind_touch(r)
-    return r
+    tp_device = tp.init("gt911", tp_params)
+    if not tp_device then
+        if params.rst_external_pullup then
+            retry_with_rst_input = true
+            -- Native failure cleanup can restore LCD_D16 on GPIO72. Keep TP2-1 in GPIO mode.
+            if not rst_released and not gpio.setup(params.pin_rst, nil, 0) then
+                return false, "TP_RST 输入配置失败"
+            end
+        end
+        return false, "GT911 探测或配置失败，见 gt9xx 日志"
+    end
+    return bind_touch()
 end
 
 return M

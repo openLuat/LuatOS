@@ -51,6 +51,7 @@ local function two_replies(payload, timeout_ms, context)
         end,
         function(_,item) terminal=item; terminals=terminals+1 end))
     wait_for(function() return terminal end)
+    assert(terminal.sdk_drop_source == "wire_final" and terminal.sdk_replies == replies, context)
     assert(terminal.request_id==id and terminal.reason=="completed" and terminal.code==0 and replies==2 and terminals==1,
         ("%s id=%d got=%s reason=%s code=%s replies=%d terminals=%d"):format(
             context,id,tostring(terminal.request_id),tostring(terminal.reason),tostring(terminal.code),replies,terminals))
@@ -94,6 +95,9 @@ test("cancel suppresses late reply and keeps finite context", function()
     host_pump(2200)
     assert(replies==0 and terminals==1)
     assert(z.cancel_get(h,id)==nil)
+    local trace=assert(z.get_trace(h,id))
+    assert(trace.generation==z.health(h).generation and trace.request_id==id)
+    assert(trace.sdk_drop_source=="wire_final" and done.sdk_drop_source==nil)
 end)
 test("allocation refusal does not consume command id", function()
     local before=assert(z.publish(h,PREFIX.."/unused","id"))

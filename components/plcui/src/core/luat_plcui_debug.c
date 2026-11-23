@@ -22,7 +22,7 @@ static struct {
     unsigned used;
     debug_bucket_t buckets[DEBUG_BUCKETS];
 } debug;
-static const char *types[] = {"image", "label", "textarea", "keyboard", "container", "table", "chart"};
+static const char *types[] = {"image", "label", "textarea", "keyboard", "container", "table", "chart", "animimg", "slider"};
 
 bool plcui_debug_enabled(void) { return debug.enabled; }
 

@@ -1,0 +1,658 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="run">
+  <resources>
+      <image id="bg_run_t" src="bg_run_t.jpg"/>
+      <image id="bg_run_b" src="bg_run_b.jpg"/>
+      <image id="pump_1_run" src="pump_1_run.png"/>
+      <image id="chip_vfd" src="chip_vfd.png"/>
+      <image id="pump_2_freq" src="pump_2_freq.png"/>
+      <image id="chip_fpwr" src="chip_fpwr.png"/>
+      <image id="pump_3_freq" src="pump_3_freq.png"/>
+      <image id="pump_4_stand" src="pump_4_stand.png"/>
+      <image id="chip_stby" src="chip_stby.png"/>
+      <image id="pump_5_stand" src="pump_5_stand.png"/>
+      <image id="run_start_a" src="run_start_a.png"/>
+      <image id="run_start_b" src="run_start_b.png"/>
+      <image id="run_stop_a" src="run_stop_a.png"/>
+      <image id="run_stop_b" src="run_stop_b.png"/>
+      <image id="run_menu_a" src="run_menu_a.png"/>
+      <image id="run_menu_b" src="run_menu_b.png"/>
+      <image id="run_auto_a" src="run_auto_a.png"/>
+      <image id="run_auto_b" src="run_auto_b.png"/>
+      <image id="run_manual_b" src="run_manual_b.png"/>
+      <image id="run_manual_a" src="run_manual_a.png"/>
+      <image id="run_fault_a" src="run_fault_a.png"/>
+      <image id="run_fault_b" src="run_fault_b.png"/>
+      <image id="bg_p_time_t" src="bg_p_time_t.jpg"/>
+      <image id="bg_p_time_b" src="bg_p_time_b.jpg"/>
+      <image id="sw_off" src="sw_off.png"/>
+      <image id="sbtn_runscr" src="sbtn_runscr.png"/>
+      <image id="sbtn_factory" src="sbtn_factory.png"/>
+      <image id="nav_0_s" src="nav_0_s.png"/>
+      <image id="nav_0_n" src="nav_0_n.png"/>
+      <image id="nav_1_n" src="nav_1_n.png"/>
+      <image id="nav_2_n" src="nav_2_n.png"/>
+      <image id="nav_3_n" src="nav_3_n.png"/>
+      <image id="nav_4_n" src="nav_4_n.png"/>
+      <image id="nav_5_n" src="nav_5_n.png"/>
+      <image id="bg_form_t" src="bg_form_t.jpg"/>
+      <image id="bg_form_b" src="bg_form_b.jpg"/>
+      <image id="lb001" src="lb001.png"/>
+      <image id="lb002" src="lb002.png"/>
+      <image id="lb003" src="lb003.png"/>
+      <image id="lb004" src="lb004.png"/>
+      <image id="lb005" src="lb005.png"/>
+      <image id="lb006" src="lb006.png"/>
+      <image id="lb007" src="lb007.png"/>
+      <image id="lb008" src="lb008.png"/>
+      <image id="lb009" src="lb009.png"/>
+      <image id="lb010" src="lb010.png"/>
+      <image id="lb011" src="lb011.png"/>
+      <image id="nav_1_s" src="nav_1_s.png"/>
+      <image id="lb012" src="lb012.png"/>
+      <image id="lb013" src="lb013.png"/>
+      <image id="lb014" src="lb014.png"/>
+      <image id="nav_2_s" src="nav_2_s.png"/>
+      <image id="lb015" src="lb015.png"/>
+      <image id="lb016" src="lb016.png"/>
+      <image id="lb017" src="lb017.png"/>
+      <image id="lb018" src="lb018.png"/>
+      <image id="lb019" src="lb019.png"/>
+      <image id="lb020" src="lb020.png"/>
+      <image id="lb021" src="lb021.png"/>
+      <image id="lb022" src="lb022.png"/>
+      <image id="lb023" src="lb023.png"/>
+      <image id="lb024" src="lb024.png"/>
+      <image id="lb025" src="lb025.png"/>
+      <image id="tog_sleepen_a" src="tog_sleepen_a.png"/>
+      <image id="lb026" src="lb026.png"/>
+      <image id="lb027" src="lb027.png"/>
+      <image id="lb028" src="lb028.png"/>
+      <image id="lb029" src="lb029.png"/>
+      <image id="lb030" src="lb030.png"/>
+      <image id="lb031" src="lb031.png"/>
+      <image id="selbox" src="selbox.png"/>
+      <image id="lb032" src="lb032.png"/>
+      <image id="lb033" src="lb033.png"/>
+      <image id="tog_spsleep_a" src="tog_spsleep_a.png"/>
+      <image id="nav_3_s" src="nav_3_s.png"/>
+      <image id="lb034" src="lb034.png"/>
+      <image id="lb035" src="lb035.png"/>
+      <image id="lb036" src="lb036.png"/>
+      <image id="lb037" src="lb037.png"/>
+      <image id="lb038" src="lb038.png"/>
+      <image id="lb039" src="lb039.png"/>
+      <image id="tog_rotate_a" src="tog_rotate_a.png"/>
+      <image id="lb040" src="lb040.png"/>
+      <image id="lb041" src="lb041.png"/>
+      <image id="lb042" src="lb042.png"/>
+      <image id="lb043" src="lb043.png"/>
+      <image id="lb044" src="lb044.png"/>
+      <image id="lb045" src="lb045.png"/>
+      <image id="lb046" src="lb046.png"/>
+      <image id="lb047" src="lb047.png"/>
+      <image id="lb048" src="lb048.png"/>
+      <image id="lb049" src="lb049.png"/>
+      <image id="lb050" src="lb050.png"/>
+      <image id="lb051" src="lb051.png"/>
+      <image id="lb052" src="lb052.png"/>
+      <image id="fbtn_reset" src="fbtn_reset.png"/>
+      <image id="nav_4_s" src="nav_4_s.png"/>
+      <image id="lb053" src="lb053.png"/>
+      <image id="lb054" src="lb054.png"/>
+      <image id="lb055" src="lb055.png"/>
+      <image id="lb056" src="lb056.png"/>
+      <image id="lb057" src="lb057.png"/>
+      <image id="lb058" src="lb058.png"/>
+      <image id="sbtn_next" src="sbtn_next.png"/>
+      <image id="nav_5_s" src="nav_5_s.png"/>
+      <image id="lb059" src="lb059.png"/>
+      <image id="lb060" src="lb060.png"/>
+      <image id="tog_selftest_b" src="tog_selftest_b.png"/>
+      <image id="lb061" src="lb061.png"/>
+      <image id="lb062" src="lb062.png"/>
+      <image id="fbtn_pcal" src="fbtn_pcal.png"/>
+      <image id="lb063" src="lb063.png"/>
+      <image id="lb064" src="lb064.png"/>
+      <image id="lb065" src="lb065.png"/>
+      <image id="lb066" src="lb066.png"/>
+      <image id="lb067" src="lb067.png"/>
+      <image id="lb068" src="lb068.png"/>
+      <image id="sbtn_prev" src="sbtn_prev.png"/>
+      <image id="lb069" src="lb069.png"/>
+      <image id="fbtn_off" src="fbtn_off.png"/>
+      <image id="lb070" src="lb070.png"/>
+      <image id="lb071" src="lb071.png"/>
+      <image id="tog_swapslp_b" src="tog_swapslp_b.png"/>
+      <image id="tog_noswap_b" src="tog_noswap_b.png"/>
+      <image id="tog_swaphr_b" src="tog_swaphr_b.png"/>
+      <image id="lb072" src="lb072.png"/>
+      <image id="lb073" src="lb073.png"/>
+      <image id="fbtn_ok" src="fbtn_ok.png"/>
+      <image id="lb074" src="lb074.png"/>
+      <image id="fbtn_tcal" src="fbtn_tcal.png"/>
+      <image id="lb075" src="lb075.png"/>
+      <image id="sbtn_runscr_w" src="sbtn_runscr_w.png"/>
+      <image id="bg_menu_t" src="bg_menu_t.jpg"/>
+      <image id="bg_menu_b" src="bg_menu_b.jpg"/>
+      <image id="menu_0" src="menu_0.png"/>
+      <image id="menu_1" src="menu_1.png"/>
+      <image id="menu_2" src="menu_2.png"/>
+      <image id="menu_3" src="menu_3.png"/>
+      <image id="menu_4" src="menu_4.png"/>
+      <image id="menu_5" src="menu_5.png"/>
+      <image id="menu_6" src="menu_6.png"/>
+      <image id="menu_7" src="menu_7.png"/>
+      <image id="menu_8" src="menu_8.png"/>
+      <image id="menu_9" src="menu_9.png"/>
+      <image id="bg_fault_t" src="bg_fault_t.jpg"/>
+      <image id="bg_fault_b" src="bg_fault_b.jpg"/>
+      <image id="flt_clear" src="flt_clear.png"/>
+      <image id="flt_back" src="flt_back.png"/>
+      <image id="chip_aux" src="chip_aux.png"/>
+      <image id="pump_1_freq" src="pump_1_freq.png"/>
+      <image id="pump_1_stand" src="pump_1_stand.png"/>
+      <image id="pump_2_run" src="pump_2_run.png"/>
+      <image id="pump_2_stand" src="pump_2_stand.png"/>
+      <image id="pump_3_run" src="pump_3_run.png"/>
+      <image id="pump_3_stand" src="pump_3_stand.png"/>
+      <image id="pump_4_freq" src="pump_4_freq.png"/>
+      <image id="pump_4_run" src="pump_4_run.png"/>
+      <image id="pump_5_freq" src="pump_5_freq.png"/>
+      <image id="pump_5_run" src="pump_5_run.png"/>
+      <image id="sw_on" src="sw_on.png"/>
+      <image id="tog_noswap_a" src="tog_noswap_a.png"/>
+      <image id="tog_rotate_b" src="tog_rotate_b.png"/>
+      <image id="tog_selftest_a" src="tog_selftest_a.png"/>
+      <image id="tog_sleepen_b" src="tog_sleepen_b.png"/>
+      <image id="tog_spsleep_b" src="tog_spsleep_b.png"/>
+      <image id="tog_swaphr_a" src="tog_swaphr_a.png"/>
+      <image id="tog_swapslp_a" src="tog_swapslp_a.png"/>
+  </resources>
+  <pages>
+    <page id="run" background="#101820">
+      <image id="rn_1" x="0" y="0" w="1024" h="300" src="bg_run_t"/>
+      <image id="rn_2" x="0" y="300" w="1024" h="300" src="bg_run_b"/>
+      <label id="run_cd" x="24" y="14" w="200" h="26" text="" font_size="20" color="#123C74" align="left" font="hzfont"/>
+      <label id="run_ct" x="24" y="40" w="200" h="26" text="" font_size="20" color="#123C74" align="left" font="hzfont"/>
+      <image id="pump_img_1" x="218" y="300" w="82" h="132" src="pump_1_run"/>
+      <image id="pump_chip_1" x="216" y="524" w="86" h="28" src="chip_vfd"/>
+      <image id="pump_img_2" x="322" y="300" w="82" h="132" src="pump_2_freq"/>
+      <image id="pump_chip_2" x="320" y="524" w="86" h="28" src="chip_fpwr"/>
+      <image id="pump_img_3" x="426" y="300" w="82" h="132" src="pump_3_freq"/>
+      <image id="pump_chip_3" x="424" y="524" w="86" h="28" src="chip_fpwr"/>
+      <image id="pump_img_4" x="530" y="300" w="82" h="132" src="pump_4_stand"/>
+      <image id="pump_chip_4" x="528" y="524" w="86" h="28" src="chip_stby"/>
+      <image id="pump_img_5" x="634" y="300" w="82" h="132" src="pump_5_stand"/>
+      <image id="pump_chip_5" x="632" y="524" w="86" h="28" src="chip_stby"/>
+      <textarea id="run_p" x="778" y="138" w="176" h="32" text="1.87" font_size="24" color="#16243C" align="left" max-length="8" accepted-chars="0123456789." keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="run_t" x="778" y="220" w="176" h="32" text="2.00" font_size="24" color="#16243C" align="left" max-length="8" accepted-chars="0123456789." keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="run_l" x="778" y="302" w="176" h="32" text="1.20" font_size="24" color="#16243C" align="left" max-length="8" accepted-chars="0123456789." keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="run_f" x="778" y="384" w="176" h="32" text="46.50" font_size="24" color="#16243C" align="left" max-length="8" accepted-chars="0123456789." keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="rn_19" x="332" y="64" w="168" h="46" src="run_start_a" src-pressed="run_start_b" clickable="true" on-click="run_start"/>
+      <image id="rn_20" x="524" y="64" w="168" h="46" src="run_stop_a" src-pressed="run_stop_b" clickable="true" on-click="run_stop"/>
+      <image id="rn_21" x="28" y="538" w="160" h="44" src="run_menu_a" src-pressed="run_menu_b" clickable="true" on-click="go_menu"/>
+      <image id="run_auto" x="768" y="438" w="242" h="42" src="run_auto_a" src-pressed="run_auto_b" clickable="true" on-click="set_auto"/>
+      <image id="run_manual" x="768" y="488" w="242" h="42" src="run_manual_b" src-pressed="run_manual_a" clickable="true" on-click="set_manual"/>
+      <image id="rn_24" x="768" y="538" w="242" h="42" src="run_fault_a" src-pressed="run_fault_b" clickable="true" on-click="go_flt"/>
+      <keyboard id="kb" x="24" y="180" w="454" h="234" layout="number" hidden="true" font="hzfont"/>
+    </page>
+    <page id="p_time" background="#101820">
+      <image id="pt_1" x="0" y="0" w="1024" h="300" src="bg_p_time_t"/>
+      <image id="pt_2" x="0" y="300" w="1024" h="300" src="bg_p_time_b"/>
+      <image id="pt_3" x="136" y="129" w="44" h="34" src="sw_off" src-pressed="sw_off" clickable="true" on-click="sw_click"/>
+      <textarea id="pt_4" x="236" y="135" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_5" x="296" y="135" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_6" x="386" y="135" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_7" x="446" y="135" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_8" x="556" y="135" w="52" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pt_9" x="136" y="203" w="44" h="34" src="sw_off" src-pressed="sw_off" clickable="true" on-click="sw_click"/>
+      <textarea id="pt_10" x="236" y="209" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_11" x="296" y="209" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_12" x="386" y="209" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_13" x="446" y="209" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_14" x="556" y="209" w="52" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pt_15" x="136" y="277" w="44" h="34" src="sw_off" src-pressed="sw_off" clickable="true" on-click="sw_click"/>
+      <textarea id="pt_16" x="236" y="283" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_17" x="296" y="283" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_18" x="386" y="283" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_19" x="446" y="283" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_20" x="556" y="283" w="52" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pt_21" x="136" y="351" w="44" h="34" src="sw_off" src-pressed="sw_off" clickable="true" on-click="sw_click"/>
+      <textarea id="pt_22" x="236" y="357" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_23" x="296" y="357" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_24" x="386" y="357" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_25" x="446" y="357" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_26" x="556" y="357" w="52" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pt_27" x="136" y="425" w="44" h="34" src="sw_off" src-pressed="sw_off" clickable="true" on-click="sw_click"/>
+      <textarea id="pt_28" x="236" y="431" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_29" x="296" y="431" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_30" x="386" y="431" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_31" x="446" y="431" w="52" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <textarea id="pt_32" x="556" y="431" w="52" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pt_33" x="36" y="499" w="150" h="36" src="sbtn_runscr" src-pressed="sbtn_runscr" clickable="true" on-click="go_run"/>
+      <image id="pt_34" x="206" y="499" w="150" h="36" src="sbtn_factory" src-pressed="sbtn_factory" clickable="true" on-click="go_p_factory"/>
+      <textarea id="pt_35" x="516" y="505" w="72" h="20" text="2.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pt_36" x="830" y="18" w="172" h="48" src="nav_0_s" src-pressed="nav_0_n"/>
+      <image id="pt_37" x="830" y="74" w="172" h="48" src="nav_1_n" src-pressed="nav_1_n" clickable="true" on-click="go_p_out"/>
+      <image id="pt_38" x="830" y="130" w="172" h="48" src="nav_2_n" src-pressed="nav_2_n" clickable="true" on-click="go_p_in"/>
+      <image id="pt_39" x="830" y="186" w="172" h="48" src="nav_3_n" src-pressed="nav_3_n" clickable="true" on-click="go_p_sleep"/>
+      <image id="pt_40" x="830" y="242" w="172" h="48" src="nav_4_n" src-pressed="nav_4_n" clickable="true" on-click="go_p_pumps"/>
+      <image id="pt_41" x="830" y="298" w="172" h="48" src="nav_5_n" src-pressed="nav_5_n" clickable="true" on-click="go_p_sys1"/>
+      <label id="p_time_cd" x="830" y="360" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <label id="p_time_ct" x="830" y="388" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <keyboard id="kb" x="24" y="180" w="454" h="234" layout="number" hidden="true" font="hzfont"/>
+    </page>
+    <page id="p_out" background="#101820">
+      <image id="po_1" x="0" y="0" w="1024" h="300" src="bg_form_t"/>
+      <image id="po_2" x="0" y="300" w="1024" h="300" src="bg_form_b"/>
+      <label id="po_3" x="16" y="27" w="802" h="28" text="出口设置" font_size="25" color="#0A2C5C" align="center" font="hzfont"/>
+      <image id="po_4" x="20" y="77" w="89" h="27" src="lb001"/>
+      <container id="po_5" x="180" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_6" x="180" y="89" w="72" h="20" text="1" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="po_7" x="296" y="73" w="122" h="32" text="1=0-5V,3=4-20ma" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="po_8" x="419" y="77" w="272" h="30" src="lb002"/>
+      <container id="po_9" x="579" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_10" x="579" y="89" w="72" h="20" text="2.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="po_11" x="20" y="151" w="272" h="30" src="lb003"/>
+      <container id="po_12" x="180" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_13" x="180" y="163" w="72" h="20" text="1.60" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="po_14" x="419" y="151" w="89" h="27" src="lb004"/>
+      <container id="po_15" x="579" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_16" x="579" y="163" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="po_17" x="695" y="147" w="122" h="32" text="1=启用0=屏蔽" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="po_18" x="20" y="225" w="272" h="30" src="lb005"/>
+      <container id="po_19" x="180" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_20" x="180" y="237" w="72" h="20" text="0.18" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="po_21" x="419" y="225" w="253" h="30" src="lb006"/>
+      <container id="po_22" x="579" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_23" x="579" y="237" w="72" h="20" text="0.0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="po_24" x="20" y="299" w="272" h="30" src="lb007"/>
+      <container id="po_25" x="180" y="305" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_26" x="180" y="311" w="72" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="po_27" x="419" y="299" w="253" h="30" src="lb008"/>
+      <container id="po_28" x="579" y="305" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_29" x="579" y="311" w="72" h="20" text="10.0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="po_30" x="20" y="373" w="119" h="27" src="lb009"/>
+      <container id="po_31" x="180" y="379" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_32" x="180" y="385" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="po_33" x="419" y="373" w="253" h="30" src="lb010"/>
+      <container id="po_34" x="579" y="379" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_35" x="579" y="385" w="72" h="20" text="0.0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="po_36" x="24" y="447" w="392" h="30" src="lb011"/>
+      <container id="po_37" x="324" y="453" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="po_38" x="324" y="459" w="72" h="20" text="92" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="po_39" x="36" y="529" w="150" h="36" src="sbtn_runscr" src-pressed="sbtn_runscr" clickable="true" on-click="go_run"/>
+      <image id="po_40" x="206" y="529" w="150" h="36" src="sbtn_factory" src-pressed="sbtn_factory" clickable="true" on-click="go_p_factory"/>
+      <image id="po_41" x="830" y="18" w="172" h="48" src="nav_0_n" src-pressed="nav_0_n" clickable="true" on-click="go_p_time"/>
+      <image id="po_42" x="830" y="74" w="172" h="48" src="nav_1_s" src-pressed="nav_1_n"/>
+      <image id="po_43" x="830" y="130" w="172" h="48" src="nav_2_n" src-pressed="nav_2_n" clickable="true" on-click="go_p_in"/>
+      <image id="po_44" x="830" y="186" w="172" h="48" src="nav_3_n" src-pressed="nav_3_n" clickable="true" on-click="go_p_sleep"/>
+      <image id="po_45" x="830" y="242" w="172" h="48" src="nav_4_n" src-pressed="nav_4_n" clickable="true" on-click="go_p_pumps"/>
+      <image id="po_46" x="830" y="298" w="172" h="48" src="nav_5_n" src-pressed="nav_5_n" clickable="true" on-click="go_p_sys1"/>
+      <label id="p_out_cd" x="830" y="360" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <label id="p_out_ct" x="830" y="388" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <keyboard id="kb" x="24" y="180" w="454" h="234" layout="number" hidden="true" font="hzfont"/>
+    </page>
+    <page id="p_in" background="#101820">
+      <image id="pi_1" x="0" y="0" w="1024" h="300" src="bg_form_t"/>
+      <image id="pi_2" x="0" y="300" w="1024" h="300" src="bg_form_b"/>
+      <label id="pi_3" x="16" y="27" w="802" h="28" text="入口设置" font_size="25" color="#0A2C5C" align="center" font="hzfont"/>
+      <image id="pi_4" x="20" y="77" w="89" h="27" src="lb001"/>
+      <container id="pi_5" x="180" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pi_6" x="180" y="89" w="72" h="20" text="1" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="pi_7" x="296" y="73" w="122" h="32" text="1=0-5V,3=4-20ma" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="pi_8" x="419" y="77" w="272" h="30" src="lb012"/>
+      <container id="pi_9" x="579" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pi_10" x="579" y="89" w="72" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pi_11" x="20" y="151" w="272" h="30" src="lb003"/>
+      <container id="pi_12" x="180" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pi_13" x="180" y="163" w="72" h="20" text="3.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pi_14" x="419" y="151" w="89" h="27" src="lb004"/>
+      <container id="pi_15" x="579" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pi_16" x="579" y="163" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="pi_17" x="695" y="147" w="122" h="32" text="1=启用0=屏蔽" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="pi_18" x="20" y="225" w="76" h="27" src="lb013"/>
+      <container id="pi_19" x="180" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pi_20" x="180" y="237" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="pi_21" x="296" y="221" w="122" h="32" text="1=启用,0=屏蔽" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="pi_22" x="419" y="225" w="272" h="30" src="lb014"/>
+      <container id="pi_23" x="579" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pi_24" x="579" y="237" w="72" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pi_25" x="36" y="529" w="150" h="36" src="sbtn_runscr" src-pressed="sbtn_runscr" clickable="true" on-click="go_run"/>
+      <image id="pi_26" x="206" y="529" w="150" h="36" src="sbtn_factory" src-pressed="sbtn_factory" clickable="true" on-click="go_p_factory"/>
+      <image id="pi_27" x="830" y="18" w="172" h="48" src="nav_0_n" src-pressed="nav_0_n" clickable="true" on-click="go_p_time"/>
+      <image id="pi_28" x="830" y="74" w="172" h="48" src="nav_1_n" src-pressed="nav_1_n" clickable="true" on-click="go_p_out"/>
+      <image id="pi_29" x="830" y="130" w="172" h="48" src="nav_2_s" src-pressed="nav_2_n"/>
+      <image id="pi_30" x="830" y="186" w="172" h="48" src="nav_3_n" src-pressed="nav_3_n" clickable="true" on-click="go_p_sleep"/>
+      <image id="pi_31" x="830" y="242" w="172" h="48" src="nav_4_n" src-pressed="nav_4_n" clickable="true" on-click="go_p_pumps"/>
+      <image id="pi_32" x="830" y="298" w="172" h="48" src="nav_5_n" src-pressed="nav_5_n" clickable="true" on-click="go_p_sys1"/>
+      <label id="p_in_cd" x="830" y="360" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <label id="p_in_ct" x="830" y="388" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <keyboard id="kb" x="24" y="180" w="454" h="234" layout="number" hidden="true" font="hzfont"/>
+    </page>
+    <page id="p_sleep" background="#101820">
+      <image id="ps_1" x="0" y="0" w="1024" h="300" src="bg_form_t"/>
+      <image id="ps_2" x="0" y="300" w="1024" h="300" src="bg_form_b"/>
+      <label id="ps_3" x="16" y="27" w="802" h="28" text="换泵休眠" font_size="25" color="#0A2C5C" align="center" font="hzfont"/>
+      <image id="ps_4" x="20" y="77" w="76" h="27" src="lb015"/>
+      <container id="ps_5" x="132" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_6" x="132" y="89" w="72" h="20" text="8" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_7" x="286" y="77" w="205" h="30" src="lb016"/>
+      <container id="ps_8" x="398" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_9" x="398" y="89" w="72" h="20" text="10.0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_10" x="552" y="77" w="205" h="30" src="lb017"/>
+      <container id="ps_11" x="664" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_12" x="664" y="89" w="72" h="20" text="1.5" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_13" x="20" y="151" w="224" h="30" src="lb018"/>
+      <container id="ps_14" x="132" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_15" x="132" y="163" w="72" h="20" text="0.15" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_16" x="286" y="151" w="205" h="46" src="lb019"/>
+      <container id="ps_17" x="398" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_18" x="398" y="163" w="72" h="20" text="30" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_19" x="552" y="151" w="210" h="30" src="lb020"/>
+      <container id="ps_20" x="664" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_21" x="664" y="163" w="72" h="20" text="20.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_22" x="20" y="225" w="224" h="46" src="lb021"/>
+      <container id="ps_23" x="132" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_24" x="132" y="237" w="72" h="20" text="0.10" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_25" x="286" y="225" w="205" h="30" src="lb022"/>
+      <container id="ps_26" x="398" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_27" x="398" y="237" w="72" h="20" text="3.0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_28" x="552" y="225" w="210" h="30" src="lb023"/>
+      <container id="ps_29" x="664" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_30" x="664" y="237" w="72" h="20" text="25.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_31" x="20" y="299" w="210" h="30" src="lb024"/>
+      <container id="ps_32" x="132" y="305" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_33" x="132" y="311" w="72" h="20" text="29.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_34" x="286" y="299" w="205" h="30" src="lb025"/>
+      <container id="ps_35" x="398" y="305" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_36" x="398" y="311" w="72" h="20" text="30.0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="tog_sleepen" x="558" y="307" w="244" h="32" src="tog_sleepen_a" src-pressed="tog_sleepen_a" clickable="true" on-click="tog_click"/>
+      <image id="ps_38" x="20" y="373" w="224" h="46" src="lb026"/>
+      <container id="ps_39" x="132" y="379" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_40" x="132" y="385" w="72" h="20" text="0.05" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_41" x="286" y="373" w="205" h="30" src="lb027"/>
+      <container id="ps_42" x="398" y="379" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_43" x="398" y="385" w="72" h="20" text="1.0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_44" x="552" y="373" w="224" h="30" src="lb028"/>
+      <container id="ps_45" x="664" y="379" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_46" x="664" y="385" w="72" h="20" text="0.10" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_47" x="20" y="447" w="210" h="30" src="lb029"/>
+      <container id="ps_48" x="132" y="453" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_49" x="132" y="459" w="72" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_50" x="286" y="447" w="205" h="30" src="lb030"/>
+      <container id="ps_51" x="398" y="453" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_52" x="398" y="459" w="72" h="20" text="0.0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_53" x="552" y="449" w="78" h="27" src="lb031"/>
+      <image id="ps_54" x="678" y="453" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="ps_54L" x="678" y="460" w="124" h="20" text="运行主泵" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="ps_56" x="20" y="521" w="224" h="46" src="lb032"/>
+      <container id="ps_57" x="132" y="527" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_58" x="132" y="533" w="72" h="20" text="0.03" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="ps_59" x="286" y="521" w="205" h="30" src="lb033"/>
+      <container id="ps_60" x="398" y="527" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="ps_61" x="398" y="533" w="72" h="20" text="0.0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="tog_spsleep" x="558" y="529" w="244" h="32" src="tog_spsleep_a" src-pressed="tog_spsleep_a" clickable="true" on-click="tog_click"/>
+      <image id="ps_63" x="830" y="18" w="172" h="48" src="nav_0_n" src-pressed="nav_0_n" clickable="true" on-click="go_p_time"/>
+      <image id="ps_64" x="830" y="74" w="172" h="48" src="nav_1_n" src-pressed="nav_1_n" clickable="true" on-click="go_p_out"/>
+      <image id="ps_65" x="830" y="130" w="172" h="48" src="nav_2_n" src-pressed="nav_2_n" clickable="true" on-click="go_p_in"/>
+      <image id="ps_66" x="830" y="186" w="172" h="48" src="nav_3_s" src-pressed="nav_3_n"/>
+      <image id="ps_67" x="830" y="242" w="172" h="48" src="nav_4_n" src-pressed="nav_4_n" clickable="true" on-click="go_p_pumps"/>
+      <image id="ps_68" x="830" y="298" w="172" h="48" src="nav_5_n" src-pressed="nav_5_n" clickable="true" on-click="go_p_sys1"/>
+      <label id="p_sleep_cd" x="830" y="360" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <label id="p_sleep_ct" x="830" y="388" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <keyboard id="kb" x="24" y="180" w="454" h="234" layout="number" hidden="true" font="hzfont"/>
+    </page>
+    <page id="p_pumps" background="#101820">
+      <image id="pp_1" x="0" y="0" w="1024" h="300" src="bg_form_t"/>
+      <image id="pp_2" x="0" y="300" w="1024" h="300" src="bg_form_b"/>
+      <label id="pp_3" x="16" y="27" w="802" h="28" text="泵组设置" font_size="25" color="#0A2C5C" align="center" font="hzfont"/>
+      <image id="pp_4" x="20" y="77" w="205" h="30" src="lb034"/>
+      <container id="pp_5" x="132" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_6" x="132" y="89" w="72" h="20" text="5" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pp_7" x="286" y="77" w="205" h="30" src="lb035"/>
+      <container id="pp_8" x="398" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_9" x="398" y="89" w="72" h="20" text="1" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pp_10" x="552" y="77" w="205" h="30" src="lb036"/>
+      <container id="pp_11" x="664" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_12" x="664" y="89" w="72" h="20" text="2" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pp_13" x="20" y="151" w="205" h="30" src="lb037"/>
+      <container id="pp_14" x="132" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_15" x="132" y="163" w="72" h="20" text="2" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pp_16" x="286" y="151" w="205" h="30" src="lb038"/>
+      <container id="pp_17" x="398" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_18" x="398" y="163" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pp_19" x="552" y="151" w="220" h="30" src="lb039"/>
+      <container id="pp_20" x="664" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_21" x="664" y="163" w="72" h="20" text="2" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="tog_rotate" x="26" y="233" w="244" h="32" src="tog_rotate_a" src-pressed="tog_rotate_a" clickable="true" on-click="tog_click"/>
+      <image id="pp_23" x="286" y="227" w="78" h="27" src="lb040"/>
+      <image id="pp_24" x="412" y="231" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="pp_24L" x="412" y="238" w="124" h="20" text="顺序" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="pp_26" x="552" y="227" w="78" h="27" src="lb041"/>
+      <image id="pp_27" x="678" y="231" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="pp_27L" x="678" y="238" w="124" h="20" text="倒序" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="pp_29" x="20" y="301" w="76" h="27" src="lb042"/>
+      <image id="pp_30" x="146" y="305" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="pp_30L" x="146" y="312" w="124" h="20" text="变频" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="pp_32" x="286" y="301" w="76" h="27" src="lb043"/>
+      <image id="pp_33" x="412" y="305" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="pp_33L" x="412" y="312" w="124" h="20" text="工频" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="pp_35" x="552" y="301" w="76" h="27" src="lb044"/>
+      <image id="pp_36" x="678" y="305" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="pp_36L" x="678" y="312" w="124" h="20" text="工频" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="pp_38" x="20" y="375" w="76" h="27" src="lb045"/>
+      <image id="pp_39" x="146" y="379" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="pp_39L" x="146" y="386" w="124" h="20" text="待机" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="pp_41" x="286" y="375" w="76" h="27" src="lb046"/>
+      <image id="pp_42" x="412" y="379" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="pp_42L" x="412" y="386" w="124" h="20" text="待机" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="pp_44" x="552" y="375" w="78" h="27" src="lb047"/>
+      <image id="pp_45" x="678" y="379" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="pp_45L" x="678" y="386" w="124" h="20" text="5泵" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="pp_47" x="20" y="447" w="205" h="30" src="lb048"/>
+      <container id="pp_48" x="132" y="453" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_49" x="132" y="459" w="72" h="20" text="10" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pp_50" x="286" y="447" w="205" h="30" src="lb049"/>
+      <container id="pp_51" x="398" y="453" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_52" x="398" y="459" w="72" h="20" text="10" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pp_53" x="552" y="447" w="205" h="30" src="lb050"/>
+      <container id="pp_54" x="664" y="453" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_55" x="664" y="459" w="72" h="20" text="1" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pp_56" x="20" y="521" w="205" h="30" src="lb051"/>
+      <container id="pp_57" x="132" y="527" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_58" x="132" y="533" w="72" h="20" text="5" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pp_59" x="286" y="521" w="220" h="30" src="lb052"/>
+      <container id="pp_60" x="398" y="527" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pp_61" x="398" y="533" w="72" h="20" text="24" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="act_reset" x="621" y="529" w="120" h="32" src="fbtn_reset" src-pressed="fbtn_reset" clickable="true" on-click="act_click"/>
+      <image id="pp_63" x="830" y="18" w="172" h="48" src="nav_0_n" src-pressed="nav_0_n" clickable="true" on-click="go_p_time"/>
+      <image id="pp_64" x="830" y="74" w="172" h="48" src="nav_1_n" src-pressed="nav_1_n" clickable="true" on-click="go_p_out"/>
+      <image id="pp_65" x="830" y="130" w="172" h="48" src="nav_2_n" src-pressed="nav_2_n" clickable="true" on-click="go_p_in"/>
+      <image id="pp_66" x="830" y="186" w="172" h="48" src="nav_3_n" src-pressed="nav_3_n" clickable="true" on-click="go_p_sleep"/>
+      <image id="pp_67" x="830" y="242" w="172" h="48" src="nav_4_s" src-pressed="nav_4_n"/>
+      <image id="pp_68" x="830" y="298" w="172" h="48" src="nav_5_n" src-pressed="nav_5_n" clickable="true" on-click="go_p_sys1"/>
+      <label id="p_pumps_cd" x="830" y="360" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <label id="p_pumps_ct" x="830" y="388" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <keyboard id="kb" x="24" y="180" w="454" h="234" layout="number" hidden="true" font="hzfont"/>
+    </page>
+    <page id="p_sys1" background="#101820">
+      <image id="y1_1" x="0" y="0" w="1024" h="300" src="bg_form_t"/>
+      <image id="y1_2" x="0" y="300" w="1024" h="300" src="bg_form_b"/>
+      <label id="y1_3" x="16" y="27" w="802" h="28" text="系统设置" font_size="25" color="#0A2C5C" align="center" font="hzfont"/>
+      <label id="y1_4" x="26" y="31" w="66" h="22" text="运行时间" font_size="16" color="#0A2C5C" align="left" font="hzfont"/>
+      <container id="y1_5" x="96" y="31" w="52" h="26" background="#FFFFFF" border-color="#0A2C5C" border-width="1"/>
+      <textarea id="p_sys1_sub" x="96" y="34" w="52" h="22" text="26" font_size="16" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="y1_7" x="152" y="31" w="24" h="22" text="天" font_size="16" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="y1_8" x="20" y="77" w="137" h="27" src="lb053"/>
+      <container id="y1_9" x="180" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y1_10" x="180" y="89" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="y1_11" x="296" y="73" w="122" h="32" text="0=常开有效,1=常闭有效" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="y1_12" x="419" y="77" w="137" h="46" src="lb054"/>
+      <container id="y1_13" x="579" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y1_14" x="579" y="89" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="y1_15" x="695" y="73" w="122" h="32" text="0=主泵,1=辅泵" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="y1_16" x="20" y="151" w="104" h="27" src="lb055"/>
+      <container id="y1_17" x="180" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y1_18" x="180" y="163" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="y1_19" x="296" y="147" w="122" h="32" text="0=常开有效,1=常闭有效" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="y1_20" x="419" y="151" w="137" h="46" src="lb056"/>
+      <container id="y1_21" x="579" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y1_22" x="579" y="163" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="y1_23" x="695" y="147" w="122" h="32" text="0=辅泵 1=电磁闭开关,2=报警输出" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="y1_24" x="20" y="225" w="137" h="46" src="lb057"/>
+      <container id="y1_25" x="180" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y1_26" x="180" y="237" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="y1_27" x="296" y="221" w="122" h="32" text="0=安全 1=超压,2=相序" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="y1_28" x="419" y="225" w="76" h="27" src="lb058"/>
+      <container id="y1_29" x="579" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y1_30" x="579" y="237" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="y1_31" x="695" y="221" w="122" h="32" text="0=关闭，1=入口电磁闭,2=报警输出,3=泄压阀" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="y1_32" x="36" y="529" w="150" h="36" src="sbtn_runscr" src-pressed="sbtn_runscr" clickable="true" on-click="go_run"/>
+      <image id="y1_33" x="206" y="529" w="150" h="36" src="sbtn_factory" src-pressed="sbtn_factory" clickable="true" on-click="go_p_factory"/>
+      <image id="y1_34" x="376" y="529" w="150" h="36" src="sbtn_next" src-pressed="sbtn_next" clickable="true" on-click="go_p_sys2"/>
+      <image id="y1_35" x="830" y="18" w="172" h="48" src="nav_0_n" src-pressed="nav_0_n" clickable="true" on-click="go_p_time"/>
+      <image id="y1_36" x="830" y="74" w="172" h="48" src="nav_1_n" src-pressed="nav_1_n" clickable="true" on-click="go_p_out"/>
+      <image id="y1_37" x="830" y="130" w="172" h="48" src="nav_2_n" src-pressed="nav_2_n" clickable="true" on-click="go_p_in"/>
+      <image id="y1_38" x="830" y="186" w="172" h="48" src="nav_3_n" src-pressed="nav_3_n" clickable="true" on-click="go_p_sleep"/>
+      <image id="y1_39" x="830" y="242" w="172" h="48" src="nav_4_n" src-pressed="nav_4_n" clickable="true" on-click="go_p_pumps"/>
+      <image id="y1_40" x="830" y="298" w="172" h="48" src="nav_5_s" src-pressed="nav_5_n"/>
+      <label id="p_sys1_cd" x="830" y="360" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <label id="p_sys1_ct" x="830" y="388" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <keyboard id="kb" x="24" y="180" w="454" h="234" layout="number" hidden="true" font="hzfont"/>
+    </page>
+    <page id="p_sys2" background="#101820">
+      <image id="y2_1" x="0" y="0" w="1024" h="300" src="bg_form_t"/>
+      <image id="y2_2" x="0" y="300" w="1024" h="300" src="bg_form_b"/>
+      <label id="y2_3" x="16" y="27" w="802" h="28" text="系统设置" font_size="25" color="#0A2C5C" align="center" font="hzfont"/>
+      <image id="y2_4" x="20" y="77" w="137" h="46" src="lb059"/>
+      <container id="y2_5" x="180" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y2_6" x="180" y="89" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="y2_7" x="296" y="73" w="122" h="32" text="0=安全,1=超压" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="y2_8" x="419" y="77" w="137" h="46" src="lb060"/>
+      <container id="y2_9" x="579" y="83" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y2_10" x="579" y="89" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="y2_11" x="695" y="73" w="122" h="32" text="0=关闭,1=报警输出" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="tog_selftest" x="26" y="159" w="377" h="32" src="tog_selftest_b" src-pressed="tog_selftest_b" clickable="true" on-click="tog_click"/>
+      <label id="y2_13" x="26" y="193" w="377" h="32" text="1=启用,0=屏蔽" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="y2_14" x="419" y="153" w="78" h="27" src="lb061"/>
+      <image id="y2_15" x="678" y="157" w="124" h="32" src="selbox" clickable="true" on-click="sel_click"/>
+      <label id="y2_15L" x="678" y="164" w="124" h="20" text="中文" font_size="15" color="#123C74" align="center" font="hzfont"/>
+      <image id="y2_17" x="20" y="225" w="253" h="30" src="lb062"/>
+      <container id="y2_18" x="180" y="231" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y2_19" x="180" y="237" w="72" h="20" text="1" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="act_pcal" x="554" y="233" w="120" h="32" src="fbtn_pcal" src-pressed="fbtn_pcal" clickable="true" on-click="act_click"/>
+      <image id="y2_21" x="20" y="299" w="272" h="30" src="lb063"/>
+      <container id="y2_22" x="180" y="305" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y2_23" x="180" y="311" w="72" h="20" text="0.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="y2_24" x="419" y="299" w="272" h="30" src="lb064"/>
+      <container id="y2_25" x="579" y="305" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y2_26" x="579" y="311" w="72" h="20" text="3.00" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="y2_27" x="20" y="373" w="89" h="27" src="lb065"/>
+      <container id="y2_28" x="180" y="379" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y2_29" x="180" y="385" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="y2_30" x="419" y="373" w="89" h="27" src="lb066"/>
+      <container id="y2_31" x="579" y="379" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y2_32" x="579" y="385" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="y2_33" x="20" y="447" w="89" h="27" src="lb067"/>
+      <container id="y2_34" x="180" y="453" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y2_35" x="180" y="459" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="y2_36" x="419" y="447" w="89" h="27" src="lb068"/>
+      <container id="y2_37" x="579" y="453" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="y2_38" x="579" y="459" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="y2_39" x="36" y="529" w="150" h="36" src="sbtn_runscr" src-pressed="sbtn_runscr" clickable="true" on-click="go_run"/>
+      <image id="y2_40" x="206" y="529" w="150" h="36" src="sbtn_factory" src-pressed="sbtn_factory" clickable="true" on-click="go_p_factory"/>
+      <image id="y2_41" x="376" y="529" w="150" h="36" src="sbtn_prev" src-pressed="sbtn_prev" clickable="true" on-click="go_p_sys1"/>
+      <image id="y2_42" x="830" y="18" w="172" h="48" src="nav_0_n" src-pressed="nav_0_n" clickable="true" on-click="go_p_time"/>
+      <image id="y2_43" x="830" y="74" w="172" h="48" src="nav_1_n" src-pressed="nav_1_n" clickable="true" on-click="go_p_out"/>
+      <image id="y2_44" x="830" y="130" w="172" h="48" src="nav_2_n" src-pressed="nav_2_n" clickable="true" on-click="go_p_in"/>
+      <image id="y2_45" x="830" y="186" w="172" h="48" src="nav_3_n" src-pressed="nav_3_n" clickable="true" on-click="go_p_sleep"/>
+      <image id="y2_46" x="830" y="242" w="172" h="48" src="nav_4_n" src-pressed="nav_4_n" clickable="true" on-click="go_p_pumps"/>
+      <image id="y2_47" x="830" y="298" w="172" h="48" src="nav_5_s" src-pressed="nav_5_n" clickable="true" on-click="go_p_sys1"/>
+      <label id="p_sys2_cd" x="830" y="360" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <label id="p_sys2_ct" x="830" y="388" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <keyboard id="kb" x="24" y="180" w="454" h="234" layout="number" hidden="true" font="hzfont"/>
+    </page>
+    <page id="p_factory" background="#101820">
+      <image id="pf_1" x="0" y="0" w="1024" h="300" src="bg_form_t"/>
+      <image id="pf_2" x="0" y="300" w="1024" h="300" src="bg_form_b"/>
+      <label id="pf_3" x="16" y="27" w="802" h="28" text="厂家设置" font_size="25" color="#0A2C5C" align="center" font="hzfont"/>
+      <label id="pf_4" x="606" y="34" w="200" h="20" text="SIKEMNS-1.0" font_size="15" color="#0A2C5C" align="right" font="hzfont"/>
+      <image id="pf_5" x="20" y="77" w="352" h="46" src="lb069"/>
+      <container id="pf_6" x="121" y="81" w="48" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_7" x="121" y="87" w="48" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <container id="pf_8" x="183" y="81" w="48" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_9" x="183" y="87" w="48" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <container id="pf_10" x="245" y="81" w="48" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_11" x="245" y="87" w="48" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <container id="pf_12" x="307" y="81" w="48" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_13" x="307" y="87" w="48" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="act_off" x="554" y="85" w="120" h="32" src="fbtn_off" src-pressed="fbtn_off" clickable="true" on-click="act_click"/>
+      <image id="pf_15" x="20" y="151" w="101" h="27" src="lb070"/>
+      <container id="pf_16" x="180" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_17" x="180" y="163" w="72" h="20" text="1" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="pf_18" x="296" y="147" w="122" h="32" text="(0停止，1启用)" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="pf_19" x="419" y="151" w="76" h="27" src="lb071"/>
+      <container id="pf_20" x="579" y="157" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_21" x="579" y="163" w="72" h="20" text="1" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="tog_swapslp" x="26" y="233" w="244" h="32" src="tog_swapslp_b" src-pressed="tog_swapslp_b" clickable="true" on-click="tog_click"/>
+      <image id="tog_noswap" x="292" y="233" w="244" h="32" src="tog_noswap_b" src-pressed="tog_noswap_b" clickable="true" on-click="tog_click"/>
+      <image id="tog_swaphr" x="558" y="233" w="244" h="32" src="tog_swaphr_b" src-pressed="tog_swaphr_b" clickable="true" on-click="tog_click"/>
+      <image id="pf_25" x="24" y="299" w="422" h="30" src="lb072"/>
+      <container id="pf_26" x="324" y="305" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_27" x="324" y="311" w="72" h="20" text="10" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="pf_28" x="20" y="373" w="352" h="46" src="lb073"/>
+      <container id="pf_29" x="121" y="377" w="48" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_30" x="121" y="383" w="48" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <container id="pf_31" x="183" y="377" w="48" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_32" x="183" y="383" w="48" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <container id="pf_33" x="245" y="377" w="48" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_34" x="245" y="383" w="48" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <container id="pf_35" x="307" y="377" w="48" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_36" x="307" y="383" w="48" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="act_ok" x="554" y="381" w="120" h="32" src="fbtn_ok" src-pressed="fbtn_ok" clickable="true" on-click="act_click"/>
+      <image id="pf_38" x="20" y="447" w="137" h="27" src="lb074"/>
+      <container id="pf_39" x="180" y="453" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_40" x="180" y="459" w="72" h="20" text="0" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <image id="act_tcal" x="554" y="455" w="120" h="32" src="fbtn_tcal" src-pressed="fbtn_tcal" clickable="true" on-click="act_click"/>
+      <image id="pf_42" x="346" y="521" w="146" h="27" src="lb075"/>
+      <container id="pf_43" x="646" y="527" w="72" h="32" background="#FFFFFF" border-color="#1E4E8C" border-width="1"/>
+      <textarea id="pf_44" x="646" y="533" w="72" h="20" text="180" font_size="17" color="#16243C" align="center" max-length="10" accepted-chars="0123456789.-" keyboard="kb" one-line="true" on-submit="val_submit" on-cancel="val_cancel" font="hzfont"/>
+      <label id="pf_45" x="776" y="517" w="26" h="32" text="设0常亮" font_size="12" color="#0A2C5C" align="left" font="hzfont"/>
+      <image id="pf_46" x="30" y="529" w="140" h="36" src="sbtn_runscr_w" src-pressed="sbtn_runscr_w" clickable="true" on-click="go_run"/>
+      <image id="pf_47" x="830" y="18" w="172" h="48" src="nav_0_n" src-pressed="nav_0_n" clickable="true" on-click="go_p_time"/>
+      <image id="pf_48" x="830" y="74" w="172" h="48" src="nav_1_n" src-pressed="nav_1_n" clickable="true" on-click="go_p_out"/>
+      <image id="pf_49" x="830" y="130" w="172" h="48" src="nav_2_n" src-pressed="nav_2_n" clickable="true" on-click="go_p_in"/>
+      <image id="pf_50" x="830" y="186" w="172" h="48" src="nav_3_n" src-pressed="nav_3_n" clickable="true" on-click="go_p_sleep"/>
+      <image id="pf_51" x="830" y="242" w="172" h="48" src="nav_4_n" src-pressed="nav_4_n" clickable="true" on-click="go_p_pumps"/>
+      <image id="pf_52" x="830" y="298" w="172" h="48" src="nav_5_n" src-pressed="nav_5_n" clickable="true" on-click="go_p_sys1"/>
+      <label id="p_factory_cd" x="830" y="360" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <label id="p_factory_ct" x="830" y="388" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <keyboard id="kb" x="24" y="180" w="454" h="234" layout="number" hidden="true" font="hzfont"/>
+    </page>
+    <page id="menu" background="#101820">
+      <image id="mn_1" x="0" y="0" w="1024" h="300" src="bg_menu_t"/>
+      <image id="mn_2" x="0" y="300" w="1024" h="300" src="bg_menu_b"/>
+      <image id="mn_3" x="120" y="110" w="238" h="86" src="menu_0" src-pressed="menu_0" clickable="true" on-click="go_run"/>
+      <image id="mn_4" x="376" y="110" w="238" h="86" src="menu_1" src-pressed="menu_1" clickable="true" on-click="go_p_time"/>
+      <image id="mn_5" x="632" y="110" w="238" h="86" src="menu_2" src-pressed="menu_2" clickable="true" on-click="go_p_out"/>
+      <image id="mn_6" x="120" y="214" w="238" h="86" src="menu_3" src-pressed="menu_3" clickable="true" on-click="go_p_in"/>
+      <image id="mn_7" x="376" y="214" w="238" h="86" src="menu_4" src-pressed="menu_4" clickable="true" on-click="go_p_sleep"/>
+      <image id="mn_8" x="632" y="214" w="238" h="86" src="menu_5" src-pressed="menu_5" clickable="true" on-click="go_p_pumps"/>
+      <image id="mn_9" x="120" y="318" w="238" h="86" src="menu_6" src-pressed="menu_6" clickable="true" on-click="go_p_sys1"/>
+      <image id="mn_10" x="376" y="318" w="238" h="86" src="menu_7" src-pressed="menu_7" clickable="true" on-click="go_p_factory"/>
+      <image id="mn_11" x="632" y="318" w="238" h="86" src="menu_8" src-pressed="menu_8" clickable="true" on-click="go_flt"/>
+      <image id="mn_12" x="120" y="422" w="238" h="86" src="menu_9" src-pressed="menu_9" clickable="true" on-click="go_run"/>
+    </page>
+    <page id="fault" background="#101820">
+      <image id="ft_1" x="0" y="0" w="1024" h="300" src="bg_fault_t"/>
+      <image id="ft_2" x="0" y="300" w="1024" h="300" src="bg_fault_b"/>
+      <table id="flt_tbl" x="60" y="96" w="904" h="320" rows="8" columns="4" col-widths="90,354,230,230" col-aligns="center,left,center,center" row-height="40" header="true" grid="true" header-color="#62C8F0" alternate-color="#EAF4FC" background="#FFFFFF" border-color="#7FA8CC" border-width="1" color="#16243C" font="hzfont" font_size="16"><cell row="1" column="1" text="序号"/><cell row="1" column="2" text="故障内容"/><cell row="1" column="3" text="发生时间"/><cell row="1" column="4" text="清除时间"/><cell row="2" column="1" text="1"/><cell row="2" column="2" text="出水超压"/><cell row="2" column="3" text="2026/04/02 15:20:11"/><cell row="2" column="4" text="2026/04/02 15:20:30"/><cell row="3" column="1" text="2"/><cell row="3" column="2" text="变频器故障"/><cell row="3" column="3" text="2026/04/02 15:18:02"/><cell row="3" column="4" text="2026/04/02 15:18:40"/></table>
+      <image id="ft_3" x="300" y="520" w="180" h="52" src="flt_clear" src-pressed="flt_clear" clickable="true" on-click="clear_faults"/>
+      <image id="ft_4" x="544" y="520" w="180" h="52" src="flt_back" src-pressed="flt_back" clickable="true" on-click="go_run"/>
+      <label id="ft_cd" x="830" y="32" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+      <label id="ft_ct" x="830" y="60" w="180" h="28" text="" font_size="20" color="#C8F060" align="center" font="hzfont"/>
+    </page>
+  </pages>
+</ui>

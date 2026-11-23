@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EFEM-200 · 侧栏导航版原型 1024×600</title>
+<style>
+/* ============================================================
+   版式：左侧竖向导航 + 顶部状态条 + 非网格主区
+   与前两套的差异在骨架，不在配色
+   ============================================================ */
+:root{
+  --bg:#F7F8FA; --panel:#FFFFFF; --panel2:#FAFBFC;
+  --line:#E3E7ED; --line2:#EFF2F6;
+  --ink:#1A2332; --ink2:#5B6675; --ink3:#8A94A6;
+  --acc:#00A870; --acc2:#0B7285; --warn:#D98600; --alarm:#D6336C;
+  --violet:#6D5AE6; --steel:#9AA6B8;
+  --nav:#14222B; --nav2:#1D2F3A;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{background:#DDE2E8;display:flex;align-items:center;justify-content:center;
+  font-family:"Microsoft YaHei","PingFang SC","Source Han Sans SC",sans-serif;
+  -webkit-font-smoothing:antialiased;}
+.screen{position:relative;width:1024px;height:600px;overflow:hidden;background:var(--bg);
+  font-variant-numeric:tabular-nums;zoom:var(--z,1);}
+
+/* ---------- 左侧导航 ---------- */
+.nav{position:absolute;left:0;top:0;width:88px;height:600px;background:var(--nav);}
+.navlogo{position:absolute;left:22px;top:20px;width:44px;height:44px;border-radius:4px;
+  background:var(--acc);color:#04241B;font-size:18px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;}
+.navitem{position:absolute;left:0;width:88px;height:88px;display:flex;align-items:center;
+  justify-content:center;font-size:17px;color:#8FA6B4;cursor:pointer;user-select:none;}
+.navitem.on{background:var(--nav2);color:#FFFFFF;font-weight:700;}
+.navitem.on::before{content:"";position:absolute;left:0;top:0;width:3px;height:88px;background:var(--acc);}
+.navfoot{position:absolute;left:0;bottom:16px;width:88px;text-align:center;font-size:14px;color:#5C7180;}
+
+/* ---------- 顶部状态条 ---------- */
+.top{position:absolute;left:88px;top:0;width:936px;height:64px;background:#FFFFFF;
+  border-bottom:1px solid var(--line);}
+.tname{position:absolute;left:20px;top:10px;font-size:22px;font-weight:700;color:var(--ink);}
+.tname small{font-size:16px;font-weight:400;color:var(--ink3);margin-left:8px;}
+.tsub{position:absolute;left:20px;top:36px;font-size:15px;color:var(--ink3);}
+.tstate{position:absolute;left:330px;top:20px;font-size:16px;font-weight:700;color:var(--acc);
+  padding-left:16px;}
+.tstate::before{content:"";position:absolute;left:0;top:5px;width:8px;height:8px;border-radius:4px;background:var(--acc);}
+.tmeta{position:absolute;left:520px;top:22px;font-size:16px;color:var(--ink2);}
+.tclock{position:absolute;right:20px;top:8px;font-size:30px;font-weight:700;color:var(--ink);}
+
+/* ---------- 页面与卡片 ---------- */
+.page{position:absolute;left:88px;top:64px;width:936px;height:536px;display:none;}
+.page.on{display:block;}
+.card{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:4px;}
+.body{position:absolute;left:0;top:0;right:0;bottom:0;}
+.ttl{position:absolute;font-size:18px;font-weight:700;color:var(--ink);line-height:22px;letter-spacing:.5px;}
+.note{position:absolute;font-size:15px;color:var(--ink3);text-align:right;line-height:22px;}
+
+table.t{border-collapse:collapse;font-size:16px;table-layout:fixed;}
+table.t th{font-size:16px;font-weight:700;color:var(--ink3);background:var(--panel2);
+  text-align:left;padding:0 10px;height:32px;border-bottom:1px solid var(--line);}
+table.t td{font-size:16px;color:var(--ink);height:30px;padding:0 10px;
+  border-bottom:1px solid var(--line2);white-space:nowrap;overflow:hidden;}
+table.t tr:last-child td{border-bottom:none;}
+table.t .r{text-align:right;} table.t .c{text-align:center;}
+
+.blk{position:absolute;border:1px solid var(--steel);border-radius:4px;background:#FCFDFE;}
+.blk.on{border-color:var(--acc);background:#F1FBF7;}
+.blk i{position:absolute;left:8px;right:8px;height:6px;border-radius:2px;background:#E7ECF3;}
+.conn{position:absolute;background:var(--steel);opacity:.55;}
+.conn.on{background:var(--acc);opacity:1;}
+
+#toast{position:absolute;left:412px;top:552px;width:380px;height:32px;border-radius:4px;
+  background:#14222B;color:#fff;font-size:16px;display:none;
+  align-items:center;justify-content:center;z-index:9;}
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+
+  <div class="nav" id="nav">
+    <div class="navlogo">E</div>
+    <div class="navfoot">v1.0.0</div>
+  </div>
+
+  <div class="top">
+    <div class="tname">EFEM-200<small>晶圆传输模块</small></div>
+    <div class="tsub">双装载口 · 三腔体 · 300 mm</div>
+    <div class="tstate">自动运行</div>
+    <div class="tmeta">FOUP A · 25 片 · 配方 RCP-28nm-A</div>
+    <div class="tclock" id="clock">00:19</div>
+  </div>
+
+  <!-- ================= P1 总览 ================= -->
+  <div class="page on" data-p="0">
+    <div class="card" style="left:12px;top:12px;width:608px;height:352px">
+      <div class="ttl" style="left:16px;top:12px">晶圆流转</div>
+      <div class="note" style="left:360px;top:12px;width:232px">FOUP A → PM2</div>
+      <div class="body" id="flow"></div>
+    </div>
+
+    <div class="card" style="left:632px;top:12px;width:292px;height:168px">
+      <div class="ttl" style="left:16px;top:12px">吞吐</div>
+      <div class="body" id="kpiA"></div>
+    </div>
+
+    <div class="card" style="left:632px;top:192px;width:292px;height:172px">
+      <div class="ttl" style="left:16px;top:12px">机械手</div>
+      <div class="body" id="kpiB"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:376px;width:912px;height:148px">
+      <div class="ttl" style="left:16px;top:10px">事件流</div>
+      <div class="note" style="left:760px;top:10px;width:136px">近 30 分钟</div>
+      <div class="body" id="events"></div>
+    </div>
+  </div>
+
+  <!-- ================= P2 时序 ================= -->
+  <div class="page" data-p="1">
+    <div class="card" style="left:12px;top:12px;width:912px;height:300px">
+      <div class="ttl" style="left:16px;top:12px">搬运时序 · 24.3 s</div>
+      <div class="body" id="gantt"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:324px;width:352px;height:200px">
+      <div class="ttl" style="left:16px;top:12px">各站占用</div>
+      <div class="body" id="occupy"></div>
+    </div>
+
+    <div class="card" style="left:376px;top:324px;width:264px;height:200px">
+      <div class="ttl" style="left:16px;top:12px">节拍分解</div>
+      <div class="body" id="cycle"></div>
+    </div>
+
+    <div class="card" style="left:652px;top:324px;width:272px;height:200px">
+      <div class="ttl" style="left:16px;top:12px">瓶颈</div>
+      <div class="body" id="bottle"></div>
+    </div>
+  </div>
+
+  <!-- ================= P3 曲线 ================= -->
+  <div class="page" data-p="2">
+    <div class="card" style="left:12px;top:12px;width:448px;height:246px">
+      <div class="ttl" style="left:16px;top:12px">腔体真空度</div>
+      <div class="body"><div id="c1" style="position:absolute;left:14px;top:44px"></div>
+        <div style="position:absolute;left:14px;top:214px;font-size:15px;color:var(--ink3)">纵轴 0.1-1.0 Pa</div></div>
+    </div>
+    <div class="card" style="left:472px;top:12px;width:452px;height:246px">
+      <div class="ttl" style="left:16px;top:12px">N2 吹扫压力</div>
+      <div class="body"><div id="c2" style="position:absolute;left:14px;top:44px"></div>
+        <div style="position:absolute;left:14px;top:214px;font-size:15px;color:var(--ink3)">纵轴 0.2-0.6 MPa</div></div>
+    </div>
+    <div class="card" style="left:12px;top:270px;width:448px;height:242px">
+      <div class="ttl" style="left:16px;top:12px">机械手电流</div>
+      <div class="body"><div id="c3" style="position:absolute;left:14px;top:44px"></div>
+        <div style="position:absolute;left:14px;top:210px;font-size:15px;color:var(--ink3)">纵轴 0-6 A</div></div>
+    </div>
+    <div class="card" style="left:472px;top:270px;width:452px;height:242px">
+      <div class="ttl" style="left:16px;top:12px">腔体温度</div>
+      <div class="body"><div id="c4" style="position:absolute;left:14px;top:44px"></div>
+        <div style="position:absolute;left:14px;top:210px;font-size:15px;color:var(--ink3)">纵轴 18-30 ℃</div></div>
+    </div>
+  </div>
+
+  <!-- ================= P4 点位 ================= -->
+  <div class="page" data-p="3">
+    <div class="card" style="left:12px;top:12px;width:292px;height:250px">
+      <div class="ttl" style="left:16px;top:10px">DI</div>
+      <div class="note" style="left:200px;top:10px;width:76px">10/16</div>
+      <div class="body" id="t-di"></div>
+    </div>
+    <div class="card" style="left:316px;top:12px;width:292px;height:250px">
+      <div class="ttl" style="left:16px;top:10px">DO</div>
+      <div class="note" style="left:200px;top:10px;width:76px">6/12</div>
+      <div class="body" id="t-do"></div>
+    </div>
+    <div class="card" style="left:620px;top:12px;width:304px;height:250px">
+      <div class="ttl" style="left:16px;top:10px">AI</div>
+      <div class="note" style="left:200px;top:10px;width:88px">4-20 mA</div>
+      <div class="body" id="t-ai"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:274px;width:596px;height:250px">
+      <div class="ttl" style="left:16px;top:10px">模拟量输出 AO</div>
+      <div class="body" id="t-ao"></div>
+    </div>
+
+    <div class="card" style="left:620px;top:274px;width:304px;height:118px">
+      <div class="ttl" style="left:16px;top:8px">强制</div>
+      <div class="body" id="t-force"></div>
+    </div>
+
+    <div class="card" style="left:620px;top:404px;width:304px;height:120px">
+      <div class="ttl" style="left:16px;top:8px">诊断</div>
+      <div class="body" id="t-diag"></div>
+    </div>
+  </div>
+
+  <!-- ================= P5 系统 ================= -->
+  <div class="page" data-p="4">
+    <div class="card" style="left:12px;top:12px;width:360px;height:512px">
+      <div class="ttl" style="left:16px;top:12px">设备档案</div>
+      <div class="body" id="p-file"></div>
+    </div>
+
+    <div class="card" style="left:384px;top:12px;width:540px;height:250px">
+      <div class="ttl" style="left:16px;top:12px">维护计数</div>
+      <div class="note" style="left:380px;top:12px;width:144px">按片数 / 按小时</div>
+      <div class="body" id="p-maint"></div>
+    </div>
+
+    <div class="card" style="left:384px;top:274px;width:258px;height:250px">
+      <div class="ttl" style="left:16px;top:12px">显示</div>
+      <div class="body" id="p-bright"></div>
+    </div>
+
+    <div class="card" style="left:654px;top:274px;width:270px;height:250px">
+      <div class="ttl" style="left:16px;top:12px">运行</div>
+      <div class="body" id="p-run"></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+const NAV=['总览','时序','曲线','点位','系统'];
+const C={ok:'#00A870',warn:'#D98600',alarm:'#D6336C',mut:'#8A94A6',
+         ink:'#1A2332',acc2:'#0B7285',violet:'#6D5AE6',steel:'#9AA6B8'};
+
+const mk=(p,l,t,w,h,bg,rad)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px;width:${w}px;height:${h}px;`+
+    `border-radius:${rad===undefined?4:rad}px;background:${bg||'transparent'}`;
+  p.appendChild(d);return d;};
+const put=(p,html,l,t,w)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px`+(w?`;width:${w}px`:'');
+  d.innerHTML=html;p.appendChild(d);return d;};
+
+/* ---------- P1 流转 ---------- */
+(function(){
+  const P=document.getElementById('flow');
+  const lp=(y,name,on)=>{
+    const b=document.createElement('div');b.className='blk'+(on?' on':'');
+    b.style.cssText+=`;left:20px;top:${y}px;width:108px;height:88px`;
+    b.innerHTML='<i style="top:16px"></i><i style="top:30px"></i><i style="top:44px"></i><i style="top:58px"></i>';
+    P.appendChild(b);
+    put(P,`<span style="font-size:16px;font-weight:700;color:${on?'#00A870':'#5B6675'}">${name}</span>`,30,y+62);
+  };
+  lp(56,'LP1 · A',false); lp(188,'LP2 · B',true);
+
+  const al=document.createElement('div');al.className='blk';
+  al.style.cssText+=';left:184px;top:142px;width:84px;height:56px';
+  al.innerHTML='<i style="top:22px"></i>';P.appendChild(al);
+  put(P,`<span style="font-size:16px;color:#5B6675">ALIGNER</span>`,186,206);
+
+  const rb=mk(P,308,116,104,104,'#FFFFFF',52);rb.style.border='1px solid var(--acc)';
+  put(P,`<span style="font-size:16px;font-weight:700;color:#00A870">ROBOT</span>`,328,152);
+  put(P,`<span style="font-size:15px;color:#8A94A6">双臂</span>`,336,174);
+
+  const pm=(y,name,st,on)=>{
+    const b=document.createElement('div');b.className='blk'+(on?' on':'');
+    b.style.cssText+=`;left:462px;top:${y}px;width:128px;height:60px`;
+    P.appendChild(b);
+    put(P,`<span style="font-size:16px;font-weight:700;color:${on?'#00A870':'#1A2332'}">${name}</span>`,474,y+8);
+    put(P,`<span style="font-size:15px;color:${st==='工艺中'?'#00A870':'#8A94A6'}">${st}</span>`,474,y+32);
+  };
+  pm(52,'PM1','待机'); pm(140,'PM2','工艺中',true); pm(228,'PM3','待机');
+
+  const conn=(l,t,w,h,on)=>{const d=document.createElement('div');
+    d.className='conn'+(on?' on':'');d.style.cssText+=`;left:${l}px;top:${t}px;width:${w}px;height:${h}px`;
+    P.appendChild(d);};
+  conn(128,99,24,2,false); conn(152,99,2,69,false); conn(152,167,32,2,false);
+  conn(128,231,24,2,false); conn(152,167,2,65,false);
+  conn(268,167,40,2,true);
+  conn(412,167,26,2,true);
+  conn(438,82,2,166,false);
+  conn(438,82,24,2,false); conn(438,168,24,2,true); conn(438,256,24,2,false);
+
+  put(P,`<span style="font-size:15px;color:#8A94A6">FOUP A · 第 12 片</span>`,20,300);
+  put(P,`<span style="font-size:15px;color:#00A870;font-weight:700">→ 送入 PM2</span>`,388,300);
+})();
+
+/* ---------- P1 右侧两块 ---------- */
+(function(){
+  const A=document.getElementById('kpiA');
+  put(A,`
+    <div style="position:absolute;left:16px;top:32px;font-size:40px;font-weight:700;color:#00A870;line-height:44px">148</div>
+    <div style="position:absolute;left:16px;top:80px;font-size:15px;color:#8A94A6">片 / 时</div>
+    <div style="position:absolute;left:132px;top:36px;font-size:26px;font-weight:700;color:#1A2332;line-height:30px">96.4 %</div>
+    <div style="position:absolute;left:132px;top:70px;font-size:15px;color:#8A94A6">稼动率</div>
+    <div style="position:absolute;left:16px;top:112px;font-size:15px;color:#5B6675;white-space:nowrap">搬运成功 99.98 %</div>`,
+    0,0,280);
+})();
+
+(function(){
+  const B=document.getElementById('kpiB');
+  [['R 轴','128.4°'],['Z 轴','-12.0 mm'],['夹持','-82 kPa'],['电流','2.4 A']].forEach((r,i)=>{
+    const x=16+(i%2)*136, y=38+Math.floor(i/2)*52;
+    put(B,`<div style="font-size:15px;color:#8A94A6;line-height:18px">${r[0]}</div>
+      <div style="font-size:20px;font-weight:700;color:#1A2332;line-height:26px">${r[1]}</div>`,x,y,130);
+  });
+  put(B,`<span style="font-size:15px;color:#8A94A6">A 臂取片 · B 臂待命</span>`,16,146,260);
+})();
+
+/* ---------- P1 事件流（横向三段） ---------- */
+(function(){
+  const P=document.getElementById('events');
+  [['00:12','PM3 抽气偏长 0.8 s',C.warn],['23:48','LP2 开盒气压不足，已重试',C.mut],
+   ['22:30','示教点偏移 0.02 mm',C.warn]].forEach((e,i)=>{
+    const x=16+i*300;
+    mk(P,x,36,4,64,e[2],2);
+    put(P,`<div style="font-size:15px;color:#8A94A6;line-height:18px">${e[0]}</div>
+      <div style="font-size:16px;color:#1A2332;line-height:22px;margin-top:4px;width:268px">${e[1]}</div>`,x+16,36,272);
+  });
+  put(P,`<span style="font-size:15px;color:#8A94A6">今日 5 条 · 无停机类报警</span>`,16,110,400);
+})();
+
+/* ---------- P2 甘特 ---------- */
+(function(){
+  const P=document.getElementById('gantt');
+  const X0=104, W=780, T=24.3;
+  const rows=[
+    ['LP1',[['开盒',0,2.1,'#9AA6B8'],['取片',2.1,5.4,'#0B7285'],['回位',20.9,24.3,'#9AA6B8']]],
+    ['LP2',[['映射',0,3.2,'#9AA6B8'],['取片',14.2,17.6,'#0B7285'],['关盒',21.4,24.3,'#9AA6B8']]],
+    ['ROBOT',[['取片',5.4,7.6,'#00A870'],['送入',7.6,10.4,'#00A870'],['取回',12.6,14.2,'#00A870'],['送回',17.6,20.9,'#00A870']]],
+    ['ALIGNER',[['对中',7.6,9.8,'#6D5AE6'],['读码',9.8,12.6,'#6D5AE6']]],
+    ['PM2',[['开腔',10.4,11.2,'#D98600'],['工艺',11.2,12.6,'#D98600']]],
+  ];
+  for(let i=0;i<=5;i++){
+    const x=X0+W*i/5;
+    put(P,`<span style="font-size:15px;color:#8A94A6">${(T*i/5).toFixed(1)}s</span>`,x-10,30);
+    mk(P,x,52,1,148,'#EFF2F6');
+  }
+  rows.forEach((r,ri)=>{
+    const y=56+ri*30;
+    put(P,`<span style="font-size:16px;color:#5B6675">${r[0]}</span>`,16,y+2,88);
+    r[1].forEach(seg=>{
+      const [name,t0,t1,col]=seg;
+      const l=X0+W*t0/T, w=Math.max(2,W*(t1-t0)/T-2);
+      mk(P,l,y,w,22,col,2);
+      if(w>44) put(P,`<span style="font-size:15px;color:#FFFFFF">${name}</span>`,l+6,y+2);
+    });
+  });
+  put(P,`<span style="font-size:15px;color:#8A94A6">单周期 24.3 s · 第 12 片 · Robot 占比 38 %</span>`,16,214,600);
+})();
+
+/* ---------- P2 三块 ---------- */
+(function(){
+  const P=document.getElementById('occupy');
+  [['LP1',62],['ROBOT',93],['ALIGNER',41],['PM2',57]].forEach((o,i)=>{
+    const y=40+i*30;
+    put(P,`<span style="font-size:15px;color:#5B6675">${o[0]}</span>`,16,y,66);
+    mk(P,86,y+8,200,9,'#EFF2F6',5);
+    mk(P,86,y+8,200*o[1]/100,9,o[1]>85?'#D98600':'#00A870',5);
+    put(P,`<span style="font-size:15px;color:#1A2332">${o[1]} %</span>`,296,y-1,50);
+  });
+  put(P,`<span style="font-size:15px;color:#8A94A6">LP2 48 % · PM1 35 %</span>`,16,166,320);
+})();
+
+(function(){
+  const P=document.getElementById('cycle');
+  [['取放片','8.6'],['对中读码','5.0'],['腔体交接','3.4'],['等待','7.3']].forEach((c,i)=>{
+    const y=40+i*40;
+    put(P,`<span style="font-size:15px;color:#8A94A6">${c[0]}</span>`,16,y,120);
+    put(P,`<span style="font-size:20px;font-weight:700;color:#1A2332">${c[1]}<span style="font-size:15px;font-weight:400;color:#8A94A6"> s</span></span>`,16,y+16,120);
+  });
+  put(P,`<span style="font-size:15px;color:#8A94A6">合计 24.3 s</span>`,16,200-28,240);
+})();
+
+(function(){
+  const P=document.getElementById('bottle');
+  put(P,`<div style="position:absolute;left:16px;top:40px;font-size:15px;color:#8A94A6">当前瓶颈</div>
+    <div style="position:absolute;left:16px;top:58px;font-size:22px;font-weight:700;color:#D98600">PM2 工艺</div>
+    <div style="position:absolute;left:16px;top:92px;font-size:15px;color:#5B6675;width:236px;line-height:20px">占用 57 %，等待时间主要来自该腔体；建议提升 PM3 分流比例</div>`,0,0,264);
+})();
+
+/* ---------- 图表 ---------- */
+function chart(el, series, o){
+  const W=o.w,H=o.h,padL=50,padR=12,padT=6,padB=20;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const X=i=>padL+iw*i, Y=v=>padT+ih-(v-o.min)/(o.max-o.min)*ih;
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  const dv=o.div||3;
+  for(let i=0;i<=dv;i++){
+    const y=padT+ih*i/dv, v=o.max-(o.max-o.min)*i/dv;
+    s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#EFF2F6"/>`;
+    s+=`<text x="${padL-8}" y="${y+5}" text-anchor="end" font-size="13" fill="#8A94A6">${v.toFixed(o.dec||0)}</text>`;
+  }
+  o.xlab.forEach((t,i)=>{
+    const n=o.xlab.length-1,x=padL+iw*i/n;
+    s+=`<text x="${x}" y="${H-4}" text-anchor="${i===0?'start':(i===n?'end':'middle')}" font-size="13" fill="#8A94A6">${t}</text>`;
+  });
+  series.forEach(se=>{
+    const pts=se.d.map((v,i)=>`${X(i/(se.d.length-1)).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    s+=`<polyline points="${pts}" fill="none" stroke="${se.c}" stroke-width="2" stroke-linejoin="round"/>`;
+  });
+  el.innerHTML=s+'</svg>';
+}
+const wave=(n,b,a,sd)=>Array.from({length:n},(_,i)=>
+  +(b+Math.sin((i+sd)*0.5)*a+Math.sin((i+sd)*0.13)*a*0.5).toFixed(2));
+
+chart(document.getElementById('c1'),[{c:C.acc2,d:wave(31,0.42,0.16,1)}],
+  {w:418,h:166,min:0.1,max:1.0,dec:1,xlab:['0 s','15 s','30 s']});
+chart(document.getElementById('c2'),[{c:C.violet,d:wave(31,0.4,0.05,3)}],
+  {w:422,h:166,min:0.2,max:0.6,dec:1,div:4,xlab:['0 s','15 s','30 s']});
+chart(document.getElementById('c3'),[{c:C.acc2,d:wave(31,3.4,0.9,5)}],
+  {w:418,h:162,min:0,max:6,dec:0,div:3,xlab:['0 s','15 s','30 s']});
+chart(document.getElementById('c4'),[{c:C.warn,d:wave(31,23.6,0.6,7)}],
+  {w:422,h:162,min:18,max:30,dec:0,div:4,xlab:['0 s','15 s','30 s']});
+
+/* ---------- 表格 ---------- */
+function table(id, head, rows, w, cols, top){
+  const P=document.getElementById(id);
+  const t=document.createElement('table');
+  t.className='t';t.style.cssText=`position:absolute;left:14px;top:${top||42}px;width:${w}px`;
+  let h='';
+  if(cols){h+='<colgroup>';cols.split(',').forEach(c=>{h+=`<col style="width:${c}px">`;});h+='</colgroup>';}
+  h+='<thead><tr>';
+  head.forEach(x=>{h+=`<th class="${x.a||''}">${x.t}</th>`;});
+  h+='</tr></thead><tbody>';
+  rows.forEach(r=>{h+='<tr>';r.forEach(c=>{
+    const o=(typeof c==='object')?c:{v:c};
+    h+=`<td class="${o.a||''}" ${o.c?`style="color:${o.c}"`:''}>${o.v}</td>`;});h+='</tr>';});
+  t.innerHTML=h+'</tbody>';P.appendChild(t);
+}
+const G='#00A870',M='#8A94A6',A='#D98600';
+table('t-di',[{t:'位号'},{t:'名称'},{t:'状态',a:'r'}],
+  [['I0.0','急停',{v:'ON',c:G,a:'r'}],['I0.1','LP1 有盒',{v:'ON',c:G,a:'r'}],
+   ['I0.2','LP2 有盒',{v:'ON',c:G,a:'r'}],['I0.3','门联锁',{v:'ON',c:G,a:'r'}],
+   ['I0.4','真空到位',{v:'ON',c:G,a:'r'}]],264,'62,140,62');
+table('t-do',[{t:'位号'},{t:'名称'},{t:'状态',a:'r'}],
+  [['Q0.0','LP1 开盒',{v:'OFF',c:M,a:'r'}],['Q0.1','LP2 开盒',{v:'ON',c:G,a:'r'}],
+   ['Q0.2','腔体抽气',{v:'ON',c:G,a:'r'}],['Q0.3','N2 吹扫',{v:'OFF',c:M,a:'r'}],
+   ['Q0.4','报警灯黄',{v:'ON',c:A,a:'r'}]],264,'62,140,62');
+table('t-ai',[{t:'通道'},{t:'名称'},{t:'值',a:'r'}],
+  [['AI0','腔体真空','0.31 Pa'],['AI1','N2 压力','0.40 MPa'],
+   ['AI2','R 轴电流','2.4 A'],['AI3','腔体温度','23.6 ℃'],
+   ['AI4','洁净度','ISO 3']],276,'60,110,106');
+
+/* AO：横向三列，不用表格 */
+(function(){
+  const P=document.getElementById('t-ao');
+  [['AO0','R 轴速度','68','%'],['AO1','Z 轴速度','54','%'],['AO2','抽气阀开度','80','%']]
+  .forEach((a,i)=>{
+    const x=16+i*192, y=44;
+    mk(P,x,y,176,88,'#FAFBFC').style.border='1px solid var(--line)';
+    put(P,`<div style="font-size:15px;color:#8A94A6;line-height:18px">${a[0]} · ${a[1]}</div>
+      <div style="font-size:26px;font-weight:700;color:#1A2332;line-height:32px;margin-top:6px">${a[2]}
+        <span style="font-size:15px;font-weight:400;color:#8A94A6">${a[3]}</span></div>`,x+14,y+12,150);
+  });
+  mk(P,16,148,236,8,'#EFF2F6',4); mk(P,16,148,168,8,'#00A870',4);
+  put(P,`<span style="font-size:15px;color:#8A94A6">速度给定随配方切换 · 当前 68 %</span>`,264,142,300);
+  put(P,`<span style="font-size:15px;color:#8A94A6">AO 刷新周期 2 ms，掉电保持</span>`,16,176,400);
+})();
+
+(function(){
+  const P=document.getElementById('t-force');
+  put(P,`<div style="position:absolute;left:16px;top:34px;font-size:16px;color:#1A2332">M1.2  LP2 允许</div>
+    <div style="position:absolute;right:16px;top:34px;font-size:16px;font-weight:700;color:#D98600">强制</div>`,0,0,272);
+  const b=mk(P,16,62,272,30,'#FFFFFF');b.style.cssText+=';border:1px solid var(--acc);'+
+    'display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#00A870';
+  b.textContent='取消全部强制';
+})();
+
+(function(){
+  const P=document.getElementById('t-diag');
+  put(P,`<div style="position:absolute;left:16px;top:32px;font-size:16px;color:#1A2332">周期 2.8 ms  负荷 22 %</div>
+    <div style="position:absolute;left:16px;top:58px;font-size:15px;color:#8A94A6">通信错误 0 · AO 2 ms</div>`,0,0,272);
+})();
+
+/* ---------- P5 ---------- */
+(function(){
+  const P=document.getElementById('p-file');
+  [['设备名称','EFEM-200 晶圆传输模块'],['位号','EFEM-A02'],['控制器','CTRL-1500 / V3.2.7'],
+   ['适用晶圆','300 mm'],['装载口','2 × FOUP'],['腔体','PM1 / PM2 / PM3'],
+   ['投运日期','2026.05'],['固件','Air1603 / 102 号'],['界面','mmy_efem_plc 1.0.0']]
+  .forEach((f,i)=>{
+    const y=44+i*50;
+    put(P,`<div style="font-size:15px;color:#8A94A6;line-height:18px">${f[0]}</div>
+      <div style="font-size:17px;color:#1A2332;line-height:22px;margin-top:2px">${f[1]}</div>`,18,y,320);
+  });
+})();
+
+(function(){
+  const P=document.getElementById('p-maint');
+  [['机械手动作','1,284,300','次'],['LP 开盒','42,180','次'],
+   ['真空过滤器','1,240','h'],['密封圈','860','h']].forEach((m,i)=>{
+    const x=16+(i%2)*254, y=44+Math.floor(i/2)*92;
+    const c=mk(P,x,y,240,80,'#FAFBFC');c.style.border='1px solid var(--line)';
+    c.innerHTML=`<div style="position:absolute;left:14px;top:8px;font-size:15px;color:#5B6675">${m[0]}</div>
+      <div style="position:absolute;left:14px;top:30px;font-size:28px;font-weight:700;color:#1A2332">${m[1]}
+        <span style="font-size:15px;font-weight:400;color:#8A94A6">${m[2]}</span></div>`;
+  });
+})();
+
+(function(){
+  const P=document.getElementById('p-bright');
+  put(P,`<div style="position:absolute;left:16px;top:44px;font-size:34px;font-weight:700;color:#00A870">82 %</div>
+    <div style="position:absolute;left:16px;top:88px;font-size:15px;color:#8A94A6">PWM3（GPIO13）</div>`,0,0,230);
+  ['夜','标','亮'].forEach((b,i)=>{
+    const d=mk(P,16+i*76,120,66,36,'#FFFFFF');
+    d.style.cssText+=';border:1px solid var(--acc);display:flex;align-items:center;'+
+      'justify-content:center;font-size:16px;font-weight:700;color:#00A870';
+    d.textContent=b;
+  });
+  put(P,`<span style="font-size:15px;color:#8A94A6">洁净间照度高</span>`,16,176,220);
+})();
+
+(function(){
+  const P=document.getElementById('p-run');
+  [['运行时长','1,240 h'],['搬运片数','86,420'],['故障次数','2'],['缓存','31 %']].forEach((d,i)=>{
+    const x=16, y=44+i*44;
+    put(P,`<div style="font-size:15px;color:#8A94A6;line-height:18px">${d[0]}</div>
+      <div style="font-size:19px;font-weight:700;color:#1A2332;line-height:24px">${d[1]}</div>`,x,y,110);
+  });
+  put(P,`<span style="font-size:15px;color:#8A94A6;line-height:20px">无通信错误<br>诊断缓冲 0 条</span>`,140,52,120);
+})();
+
+/* ---------- 导航 / 时钟 ---------- */
+(function(){
+  const nav=document.getElementById('nav');
+  NAV.forEach((t,i)=>{
+    const el=document.createElement('div');
+    el.className='navitem'+(i===0?' on':'');el.textContent=t;
+    el.style.top=(84+i*88)+'px';
+    el.onclick=()=>{
+      document.querySelectorAll('.navitem').forEach((x,j)=>x.classList.toggle('on',j===i));
+      document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===i));
+      toast(t);
+    };
+    nav.appendChild(el);
+  });
+  let tm=null;
+  function toast(s){
+    const el=document.getElementById('toast');
+    el.textContent=s;el.style.display='flex';
+    clearTimeout(tm);tm=setTimeout(()=>el.style.display='none',1100);
+  }
+  const ck=document.getElementById('clock');
+  (function tick(){
+    const d=new Date();
+    ck.textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    setTimeout(tick,10000);
+  })();
+  const m=location.hash.match(/p([1-5])/);
+  if(m){const k=+m[1]-1;
+    document.querySelectorAll('.navitem').forEach((x,j)=>x.classList.toggle('on',j===k));
+    document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===k));}
+  function fit(){
+    const z=Math.min((window.innerWidth-40)/1024,(window.innerHeight-40)/600,1.5);
+    document.documentElement.style.setProperty('--z',z.toFixed(3));
+  }
+  fit();window.addEventListener('resize',fit);
+})();
+</script>
+</body>
+</html>

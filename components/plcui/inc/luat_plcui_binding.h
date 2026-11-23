@@ -11,6 +11,8 @@
 #define PLCUI_CONTAINER_MT "plcui.container"
 #define PLCUI_TABLE_MT "plcui.table"
 #define PLCUI_CHART_MT "plcui.chart"
+#define PLCUI_ANIMIMG_MT "plcui.animimg"
+#define PLCUI_SLIDER_MT "plcui.slider"
 
 int luat_plcui_push_error(lua_State *L, const plcui_error_t *error);
 int luat_plcui_binding_error(lua_State *L, const char *code, const char *message);
@@ -30,5 +32,7 @@ void luat_plcui_register_keyboard_meta(lua_State *L);
 void luat_plcui_register_container_meta(lua_State *L);
 void luat_plcui_register_table_meta(lua_State *L);
 void luat_plcui_register_chart_meta(lua_State *L);
+void luat_plcui_register_animimg_meta(lua_State *L);
+void luat_plcui_register_slider_meta(lua_State *L);
 
 #endif

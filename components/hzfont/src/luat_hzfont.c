@@ -23,7 +23,6 @@
 
 #define HZFONT_FONT_PATH_MAX   260   // 字体文件路径最大长度
 #define HZFONT_ADVANCE_RATIO   0.4f  // 默认advance距离比例
-#define HZFONT_ASCENT_RATIO    0.8f  // 默认水平基线高度比例
 #define HZFONT_YIELD_THRESHOLD_US 1000000ULL // 渲染循环中默认的让出调度时间间隔
 
 /* 默认/允许缓存容量集中定义，便于维护 */
@@ -31,8 +30,10 @@
 static const uint32_t HZFONT_CACHE_ALLOWED[] = {128u, 256u, 512u, 1024u, 2048u};
 static const size_t   HZFONT_CACHE_ALLOWED_LEN = sizeof(HZFONT_CACHE_ALLOWED) / sizeof(HZFONT_CACHE_ALLOWED[0]);
 
-#ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
+#if defined(LUAT_CONF_USE_HZFONT_BUILTIN_TTF) || defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR)
+#if !(defined(LUAT_CONF_USE_HZFONT_IN_ROM) && defined(LUAT_FONT_ADDRESS))
 extern const unsigned char hzfont_builtin_ttf[];
+#endif
 extern const unsigned int hzfont_builtin_ttf_len;
 #endif
 
@@ -56,7 +57,7 @@ typedef enum {
  */
 typedef struct {
     TtfBitmap bitmap;          ///< 字符位图数据（若 from_cache=1 则指向缓存）
-    uint32_t advance;          ///< 字形前进宽度（像素），用于确定下一个字符位置
+    int32_t advance;           ///< 字形前进宽度（像素）
     uint32_t codepoint;        ///< Unicode 编码点（UTF-32）
     uint32_t glyph_index;      ///< 当前字体中的 glyph 索引
     // 以下4项用于性能分析/调试，记录各阶段耗时（单位：微秒us）
@@ -508,7 +509,7 @@ static hzfont_cache_entry_t *hzfont_cache_allocate_slot(void) {
 // 插入新 bitmap 到缓存（支持替换现有条目）
 static hzfont_cache_entry_t *hzfont_cache_insert(uint16_t glyph_index, uint8_t font_size,
                                                      uint8_t supersample, TtfBitmap *bitmap) {
-    if (!bitmap || !bitmap->pixels) {
+    if (!bitmap || (!bitmap->pixels && bitmap->advance < 0)) {
         return NULL;
     }
     // 先查找是否已在缓存中存在
@@ -516,6 +517,9 @@ static hzfont_cache_entry_t *hzfont_cache_insert(uint16_t glyph_index, uint8_t f
     if (!entry) {
         // 不存在，则分配新的缓存槽
         entry = hzfont_cache_allocate_slot();
+        if (!entry) {
+            return NULL;
+        }
     } else {
         // 存在，则替换现有的 bitmap
         if (entry->bitmap.pixels) {
@@ -604,15 +608,6 @@ static uint32_t hzfont_calc_fallback_advance(unsigned char font_size) {
         adv = 1.0f;
     }
     return (uint32_t)ceilf(adv);
-}
-
-// 计算默认的上升高度用于基线对齐
-static uint32_t hzfont_default_ascent(unsigned char font_size) {
-    float asc = (float)font_size * HZFONT_ASCENT_RATIO;
-    if (asc < 1.0f) {
-        asc = 1.0f;
-    }
-    return (uint32_t)ceilf(asc);
 }
 
 // 逐字符解码 UTF-8，遇错则返回占位符
@@ -803,15 +798,20 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
             }
         }
     } else {
-#ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
+#if defined(LUAT_CONF_USE_HZFONT_BUILTIN_TTF) || defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR)
+#if !defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR) && defined(LUAT_CONF_USE_HZFONT_IN_ROM) && defined(LUAT_FONT_ADDRESS)
+        const size_t builtin_len = (size_t)LUAT_FONT_DATA_LEN;
+#else
+        const size_t builtin_len = (size_t)hzfont_builtin_ttf_len;
+#endif
         if (load_to_psram) {
             // 加载内置 TTF 到 psram
             hzfont_psram_chain_clear(&g_psram_chain);
             hzfont_psram_chain_init(&g_psram_chain);
 #if (defined LUAT_CONF_USE_HZFONT_IN_ROM) && (defined LUAT_FONT_ADDRESS)
-            if (!hzfont_psram_chain_append_data(&g_psram_chain, (const char *)LUAT_FONT_ADDRESS, (size_t)LUAT_FONT_DATA_LEN)) {
+            if (!hzfont_psram_chain_append_data(&g_psram_chain, (const char *)LUAT_FONT_ADDRESS, builtin_len)) {
 #else
-            if (!hzfont_psram_chain_append_data(&g_psram_chain, hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len)) {
+            if (!hzfont_psram_chain_append_data(&g_psram_chain, hzfont_builtin_ttf, builtin_len)) {
 #endif
                 LLOGE("load builtin ttf to psram failed");
                 rc = TTF_ERR_OOM;
@@ -829,9 +829,9 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
         } else {
             // 从内存直接加载内置 TTF
 #if (defined LUAT_CONF_USE_HZFONT_IN_ROM) && (defined LUAT_FONT_ADDRESS)
-            rc = ttf_load_from_memory((const char *)LUAT_FONT_ADDRESS, (size_t)LUAT_FONT_DATA_LEN, &g_ft_ctx.font);
+            rc = ttf_load_from_memory((const char *)LUAT_FONT_ADDRESS, builtin_len, &g_ft_ctx.font);
 #else
-            rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
+            rc = ttf_load_from_memory(hzfont_builtin_ttf, builtin_len, &g_ft_ctx.font);
 #endif
             if (rc == TTF_OK) {
                 g_ft_ctx.font_path[0] = '\0';
@@ -852,6 +852,15 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
         return 0;
     }
     g_ft_ctx.state = LUAT_HZFONT_STATE_READY;
+#if defined(LUAT_CONF_USE_HZFONT_BUILTIN_TTF) || defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR)
+    if (ttf_path == NULL || ttf_path[0] == '\0') {
+#if defined(LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR)
+        LLOGI("builtin font=MiSans-Regular bytes=%u", hzfont_builtin_ttf_len);
+#else
+        LLOGI("builtin font=MiSans-Demibold");
+#endif
+    }
+#endif
     LLOGI("font loaded units_per_em=%u glyphs=%u", g_ft_ctx.font.unitsPerEm, g_ft_ctx.font.numGlyphs);
     return 1;
 }
@@ -874,12 +883,21 @@ static uint32_t hzfont_glyph_estimate_width_px(const TtfGlyph *glyph, float scal
     return (uint32_t)ceilf(widthF);
 }
 
-// 估算 UTF-8 字符串的渲染宽度（不实际绘制）
-uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
-    if (!utf8 || font_size == 0 || g_ft_ctx.state != LUAT_HZFONT_STATE_READY) {
-        return 0;
+// 共用绘制和测宽的缺字处理，空格缺字时保持为空白。
+static int hzfont_lookup_layout_glyph(uint32_t codepoint, uint16_t *glyph_index) {
+    if (luat_hzfont_lookup_glyph_index(codepoint, glyph_index) == TTF_OK && *glyph_index != 0) {
+        return TTF_OK;
     }
-    if (g_ft_ctx.font.unitsPerEm == 0) {
+    if (codepoint != ' ' && luat_hzfont_lookup_glyph_index('*', glyph_index) == TTF_OK && *glyph_index != 0) {
+        return TTF_OK;
+    }
+    return TTF_ERR_RANGE;
+}
+
+// 计算 UTF-8 字符串的水平前进宽度。
+uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
+    const TtfFont *font = &g_ft_ctx.font;
+    if (!utf8 || font_size == 0 || g_ft_ctx.state != LUAT_HZFONT_STATE_READY || font->unitsPerEm == 0) {
         return 0;
     }
 
@@ -889,11 +907,7 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
     const unsigned char *cursor = (const unsigned char *)utf8;
     const unsigned char *end = cursor + strlen(utf8);
     uint32_t total = 0;
-    float scale = (float)font_size / (float)g_ft_ctx.font.unitsPerEm;
-    if (scale <= 0.0f) {
-        scale = 1.0f;
-    }
-
+    uint32_t fallback = hzfont_calc_fallback_advance(font_size);
     uint8_t supersample = (uint8_t)ttf_get_supersample_rate();
 
     while (cursor < end) {
@@ -904,52 +918,32 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
         if (cp == '\r' || cp == '\n') {
             continue;
         }
-        if (cp == ' ' || cp == '\t') {
-            total += hzfont_calc_fallback_advance(font_size);
-            continue;
-        }
-
         uint16_t glyph_index = 0;
-        hzfont_cp_cache_entry_t *cp_entry = hzfont_cp_cache_lookup(cp);
-        if (cp_entry) {
-            glyph_index = cp_entry->glyph_index;
-        } else {
-            if (ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index) != TTF_OK) {
-                uint16_t star_index = 0;
-                if (ttf_lookup_glyph_index(&g_ft_ctx.font, (uint32_t)'*', &star_index) == TTF_OK) {
-                    glyph_index = star_index;
-                } else {
-                    total += hzfont_calc_fallback_advance(font_size);
-                    continue;
-                }
-            } else {
-                hzfont_cp_cache_insert(cp, glyph_index);
-            }
-        }
-
-        hzfont_cache_entry_t *cache_entry = hzfont_cache_get(glyph_index, (uint8_t)font_size, supersample);
-        if (cache_entry && cache_entry->bitmap.width > 0) {
-            uint32_t width = cache_entry->bitmap.width;
-            if (width == 0) {
-                width = hzfont_calc_fallback_advance(font_size);
-            }
-            total += width;
+        if (cp == '\t' || hzfont_lookup_layout_glyph(cp, &glyph_index) != TTF_OK) {
+            total += fallback;
             continue;
         }
 
+        hzfont_cache_entry_t *entry = hzfont_cache_get(glyph_index, font_size, supersample);
+        if (entry && entry->bitmap.advance >= 0) {
+            total += (uint32_t)entry->bitmap.advance;
+            continue;
+        }
+        int32_t advance = ttf_glyph_horizontal_metrics(font, glyph_index, NULL);
+        if (advance >= 0) {
+            total += (uint32_t)ttf_scaled_value(font, advance, font_size);
+            continue;
+        }
+
+        uint32_t width = 0;
         TtfGlyph glyph;
-        int rc = ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph);
-        if (rc != TTF_OK) {
-            total += hzfont_calc_fallback_advance(font_size);
-            continue;
+        if (ttf_load_glyph(font, glyph_index, &glyph) == TTF_OK) {
+            width = hzfont_glyph_estimate_width_px(&glyph, (float)font_size / font->unitsPerEm);
+            ttf_free_glyph(&glyph);
         }
-        uint32_t width = hzfont_glyph_estimate_width_px(&glyph, scale);
-        ttf_free_glyph(&glyph);
-        if (width == 0) {
-            width = hzfont_calc_fallback_advance(font_size);
-        }
-        total += width;
+        total += width ? width : fallback;
     }
+
     if (timing_enabled) {
         uint32_t total_us = hzfont_elapsed_from(func_start_ts);
         LLOGI("字符长度=%u 宽度=%u 测量耗时=%.3f ms",
@@ -973,7 +967,7 @@ static void hzfont_release_glyphs(glyph_render_t *glyphs, size_t count) {
 
 // 根据字号决定默认的抗锯齿等级
 static inline int hzfont_pick_antialias_auto(unsigned char font_size) {
-    /* 规则：<=16 用边界2x2AA，17~32 用边界3x3AA，>32 用边界4x4AA */
+    /* 规则：<=16 用等级 1，17~32 用等级 2，>32 用等级 3 */
     if (font_size <= 16) {
         return 1;
     }
@@ -1035,7 +1029,7 @@ static int hzfont_build_log_preview(const char *utf8, size_t utf8_len, char *out
  * @param utf8      待绘制的 UTF-8 字符串
  * @param font_size 字号（像素值）
  * @param color     文本颜色（ARGB/RGB 格式，依赖底层 LCD 驱动）
- * @param antialias 抗锯齿等级：-1=自动, 1=边界2x2, 2=边界3x3, 3=边界4x4
+ * @param antialias 抗锯齿等级：-1=自动, 1=低, 2=中, 3=高
  * @return 绘制成功返回0，失败返回负值
  */
 int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias) {
@@ -1070,11 +1064,11 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     int new_rate = prev_rate;
     if (antialias < 0) { // -1时自动选择抗锯齿等级
         new_rate = hzfont_pick_antialias_auto(font_size); 
-    } else if (antialias <= 1) { // 1时扫描线边界2x2 AA
+    } else if (antialias <= 1) {
         new_rate = 1;
-    } else if (antialias == 2) { // 2时扫描线边界3x3 AA
+    } else if (antialias == 2) {
         new_rate = 2;
-    } else { // 3及以上时扫描线边界4x4 AA
+    } else {
         new_rate = 3;
     }
     // 检查抗锯齿等级是否发生变化，如果发生变化，则设置新的抗锯齿等级
@@ -1107,14 +1101,7 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     const unsigned char *cursor = (const unsigned char *)utf8;
     const unsigned char *end = cursor + utf8_len;
     size_t glyph_count = 0;
-    // 按照字体 metrics 计算基线
-    int32_t font_baseline = ttf_scaled_baseline(&g_ft_ctx.font, font_size);
-    // 如果基线计算失败，则使用默认的上升高度
-    if (font_baseline <= 0) {
-        LLOGW("ttf_scaled_baseline failed : %d, use default_ascent", font_baseline);
-        font_baseline = (int32_t)hzfont_default_ascent(font_size);
-    }
-    int pen_x = x;
+    int32_t pen_x = x;
     const uint64_t yield_threshold_us = HZFONT_YIELD_THRESHOLD_US; // 让出阈值（可通过宏统一调整）
     uint64_t yield_last_ts = timing_enabled ? func_start_ts : hzfont_now_us();
 
@@ -1129,52 +1116,27 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
         }
         glyph_render_t slot;
         memset(&slot, 0, sizeof(slot));
-        slot.advance = hzfont_calc_fallback_advance(font_size);
+        slot.advance = (int32_t)hzfont_calc_fallback_advance(font_size);
         slot.codepoint = cp;
         slot.status = HZFONT_GLYPH_LOOKUP_FAIL; // 默认先假设查找失败
         
-        // 处理特殊字符
         if (cp == '\r' || cp == '\n') {
-             // 跳过换行符，不在此函数内换行
-            continue; 
-        } else if (cp == ' ' || cp == '\t') {
-            // 空格或制表符，直接增加笔锋位置，不在此函数内绘制
+            continue;
+        }
+        if (cp == '\t') {
             slot.status = HZFONT_GLYPH_OK;
-            pen_x += (int)slot.advance;
             goto glyph_timing_update;
         }
 
         uint64_t glyph_stamp = timing_enabled ? hzfont_now_us() : 0;
         uint16_t glyph_index = 0;
-        int rc = TTF_OK;
-        // 优先查找 code point 缓存，加快常用字符的查询
-        hzfont_cp_cache_entry_t *cp_entry = hzfont_cp_cache_lookup(cp);
-        if (cp_entry) { 
-            // 命中 code point 缓存，直接使用缓存的 glyph 索引
-            glyph_index = cp_entry->glyph_index;
-            if (timing_enabled) {
-                slot.time_lookup_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
-                sum_lookup_us += slot.time_lookup_us;
-            }
-        } else { 
-            // 未命中 code point 缓存，则查找 glyph 索引
-            rc = ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index);
-            if (timing_enabled) {
-                slot.time_lookup_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
-                sum_lookup_us += slot.time_lookup_us;
-            }
-            if (rc != TTF_OK) {
-                uint16_t star_index = 0;
-                if (ttf_lookup_glyph_index(&g_ft_ctx.font, (uint32_t)'*', &star_index) == TTF_OK) {
-                    glyph_index = star_index; // 用替代字符保证不存在的字符渲染不会中断
-                } else {
-                    glyph_count++;
-                    continue;
-                }
-            } else {
-                // 缓存查到的索引，未来直接复用
-                hzfont_cp_cache_insert(cp, glyph_index); 
-            }
+        int rc = hzfont_lookup_layout_glyph(cp, &glyph_index);
+        if (timing_enabled) {
+            slot.time_lookup_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
+            sum_lookup_us += slot.time_lookup_us;
+        }
+        if (rc != TTF_OK) {
+            goto glyph_timing_update;
         }
 
         slot.glyph_index = glyph_index;
@@ -1225,33 +1187,16 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
             }
         }
 
-        // 调整高度
-        if (slot.bitmap.width > 0 && slot.bitmap.height > 0 && slot.bitmap.pixels) {
-            slot.has_bitmap = 1;
-            slot.advance = slot.bitmap.width;
-            if (slot.advance == 0) {
-                slot.advance = hzfont_calc_fallback_advance(font_size);
-            }
-        } else {
-            slot.bitmap.originY = font_baseline;
+        if (slot.bitmap.advance >= 0) {
+            slot.advance = slot.bitmap.advance;
         }
-
-        // 调整宽度
-        size_t slot_index = glyph_count;
-        if (!slot.has_bitmap) { // 没有位图时只调整笔锋位置即可
-            if (slot.bitmap.originY == 0) {
-                slot.bitmap.originY = font_baseline;
-            }
-            if (timing_enabled) {
-                slot.time_draw_us = 0;
-            }
-            pen_x += (int)slot.advance;
+        slot.has_bitmap = slot.bitmap.pixels != NULL;
+        if (!slot.has_bitmap) {
             goto glyph_timing_update;
         }
 
-        // 检查字体宽度
         uint64_t draw_stamp = timing_enabled ? hzfont_now_us() : 0;
-        int draw_x = pen_x;
+        int draw_x = pen_x + (int)slot.bitmap.originX;
         int draw_y_base = y - (int)slot.bitmap.originY;
         size_t row_buf_capacity = (size_t)slot.bitmap.width;
         if (row_buf_capacity == 0) {
@@ -1259,7 +1204,6 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
                 slot.time_draw_us = hzfont_elapsed_from(draw_stamp);
                 sum_draw_us += slot.time_draw_us;
             }
-            pen_x += (int)slot.advance;
             goto glyph_timing_update;
         }
 
@@ -1271,7 +1215,6 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
                 sum_draw_us += slot.time_draw_us;
             }
             slot.status = HZFONT_GLYPH_DRAW_FAIL;
-            pen_x += (int)slot.advance;
             result = -5;
             LLOGE("luat_heap_malloc row buffer failed");
             goto glyph_timing_update;
@@ -1306,10 +1249,10 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
             slot.time_draw_us = hzfont_elapsed_from(draw_stamp);
             sum_draw_us += slot.time_draw_us;
         }
-        pen_x += (int)slot.advance;
         rendered_count++;
 
 glyph_timing_update:
+        pen_x += slot.advance;
         if (timing_enabled) {
             uint64_t glyph_total64 = (uint64_t)slot.time_lookup_us +
                                      (uint64_t)slot.time_load_us +
@@ -1325,7 +1268,7 @@ glyph_timing_update:
                 max_slot_snapshot = slot;
             }
             // LLOGI("glyph[%u] UTF-32编码=U+%04lX idx=%u status=%s 单个字绘制总耗时=%.3f ms 查找耗时=%.3f ms 加载耗时=%.3f ms 栅格化耗时=%.3f ms 绘制耗时=%.3f ms",
-            //     (unsigned)slot_index,
+            //     (unsigned)glyph_count,
             //     (unsigned long)slot.codepoint,
             //     (unsigned)slot.glyph_index,
             //     hzfont_status_text(slot.status),
@@ -1489,5 +1432,6 @@ profile_done:
 
 // 获取最近一次位图获取流程统计（供 airui 调试汇总）
 const TtfBitmap * luat_hzfont_get_bitmap(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
-    return luat_hzfont_get_bitmap_profiled(glyph_index, font_size, supersample, NULL);
+    const TtfBitmap *bitmap = luat_hzfont_get_bitmap_profiled(glyph_index, font_size, supersample, NULL);
+    return bitmap && bitmap->pixels ? bitmap : NULL;
 }

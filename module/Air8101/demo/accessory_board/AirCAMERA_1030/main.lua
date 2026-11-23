@@ -5,7 +5,8 @@
 @date    2025.11.09
 @author  陈取德
 @usage
-本demo主要使用AirCAMERA_1030 usb摄像头完成一次拍照上传任务或usb摄像头循环轮切录制视频任务
+本 demo 使用 AirCAMERA_1030 USB 摄像头演示拍照上传、录像、推流和 LCD 实时预览。
+要演示 LCD 预览，取消下方 require "usb_preview" 的注释，并注释联网和其他摄像头业务模块。
 ]]
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -73,7 +74,7 @@ require "netdrv_wifi"
 
 -- 因air32.cn后续将不再开放用于拍照测试使用，所以拍照上传业务请参考photo_to_aircloud.lua
 -- 使用take_photo_http_post.lua拍照上传应用DEMO时请将上传服务器的url替换为您自己的服务器地址
--- 以下录像和拍照演示，只能四选一打开
+-- 以下摄像头业务共用摄像头，一次只启用一个。
 
 -- 导入photo_to_aircloud拍照上传应用DEMO
 require "photo_to_aircloud"
@@ -86,6 +87,9 @@ require "photo_to_aircloud"
 
 -- 导入rtmp推流驱动模块
 -- require "rtmp_app"
+
+-- LCD 软件预览。启用时注释上面的 netdrv_wifi 和其他摄像头业务模块。
+-- require "usb_preview"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

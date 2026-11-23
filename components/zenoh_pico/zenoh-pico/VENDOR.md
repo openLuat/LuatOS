@@ -88,7 +88,7 @@
 
 ## 本地修补：认证、所有权和异常路径（2026-11-11）
 
-基线仍为上述1.9.0提交，未升级SDK。当前绑定要求`utils/auth.h`中的`ZP_LUATOS_PATCH_ABI=20261111`，不能只保留version.txt而混入未修补源码。
+基线仍为上述1.9.0提交，未升级SDK。当前绑定要求`utils/auth.h`中的`ZP_LUATOS_PATCH_ABI=20261116`，不能只保留version.txt而混入未修补源码。
 
 - `utils/auth.{h,c}`、`utils/auth_sha3.c`：client USRPWD辅助、HMAC-SHA3-256、已知向量自检、敏感缓冲擦除。`auth_sha3.c`来自XKCP固定提交的CompactFIPS202，仅保留便携SHA3-256路径，来源与CC0许可见父目录THIRD_PARTY.md。
 - `protocol/definitions/transport.{h,c}`、`protocol/codec/transport.c`、`transport/unicast/transport.{h,c}`、`transport/common/rx.c`、`transport/manager.c`：认证四阶段扩展、严格消息与扩展检查、cookie深复制失败传播/所有权转移、错误OpenAck不误成功、初始序号掩码及失败link清理。

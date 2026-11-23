@@ -5,7 +5,7 @@
 @date    2026.09.17
 
 === 解决的问题 ===
-此前 ui/idle_win.lua 的天气卡是写死的占位数据（"上海 / 晴 / 26℃"）。
+此前 ui/core/idle_win.lua 的天气卡是写死的占位数据（"上海 / 晴 / 26℃"）。
 本模块把它接到真实数据源：**无需用户配置**，开机联网后自动按出口 IP 定位城市并取天气。
 
 === 核心逻辑 ===
@@ -27,12 +27,12 @@
 
 === 消息协议（订阅 / 发布）===
 订阅: WEATHER_REQUEST        → 应答式：立即把当前数据回发一次
-                                ui/idle_win.lua 建窗时调用。天气数据可能在窗口订阅之前
+                                ui/core/idle_win.lua 建窗时调用。天气数据可能在窗口订阅之前
                                 就已到达（订阅晚于发布 = 丢首帧），用请求-应答消除该时序竞态。
 发布: WEATHER_UPDATED(data)  → 天气整卡刷新
                                 data = { city = string, condition = string, temp = number,
                                          daily = { {day=,high=,low=}, ... } }
-                                字段契约见 ui/idle_win.lua 的 on_weather_updated
+                                字段契约见 ui/core/idle_win.lua 的 on_weather_updated
 
 === 数据源说明 ===
 全部免 key、免注册、免证书配置（优先走 http，省掉 TLS 开销）。

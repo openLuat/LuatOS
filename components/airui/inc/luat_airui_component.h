@@ -758,6 +758,7 @@ int airui_shape_set_items(lv_obj_t *shape, void *L, int idx);
 int airui_shape_add_item(lv_obj_t *shape, void *L, int idx);
 int airui_shape_clear(lv_obj_t *shape);
 int airui_shape_get_count(lv_obj_t *shape);
+int airui_shape_set_hidden(lv_obj_t *shape, bool hidden);
 
 /**
  * NES 组件（NES 模拟器嵌入式播放）

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 120" width="210" height="120">
+  <ellipse cx="105" cy="108" rx="90" ry="5" fill="#F1E7DD"/>
+
+  <!-- 关闭的柜格 -->
+  <rect x="12" y="8" width="82" height="92" rx="13" fill="#FFFFFF" stroke="#E7DCD1" stroke-width="2.5"/>
+  <path d="M88 45v14" stroke="#DCCFC2" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- 弹开的柜格 -->
+  <rect x="104" y="8" width="82" height="92" rx="13" fill="#FFFFFF" stroke="#FF6B2C" stroke-width="2.5"/>
+  <rect x="110" y="14" width="70" height="80" rx="8" fill="#FF6B2C" fill-opacity="0.09"/>
+
+  <!-- 门扇：向外张开后在正面的窄侧影 -->
+  <path d="M186 3 L201 11 L201 97 L186 105 Z" fill="#FFF0E8" stroke="#FF6B2C" stroke-width="2.5"
+    stroke-linejoin="round"/>
+  <path d="M195 49v13" stroke="#FF6B2C" stroke-width="3" stroke-linecap="round"/>
+</svg>

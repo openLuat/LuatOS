@@ -135,7 +135,7 @@ python3 bsp/pc/zenoh_pico/run_host.py \
 ```
 
 默认编译库内 vendored 的 1.9.0 源码（`components/zenoh_pico/zenoh-pico`），核对 `version.txt` 并打印源码清单摘要；
-如需对照另一份 1.9.0 工作树，用 `--zenoh-root ../zenoh-pico`，外部目录也必须包含本批补丁，ABI标记为20261111；构建读取本地文件，不依赖.git或下载。未修补的原版不能与当前绑定混编。
+如需对照另一份 1.9.0 工作树，用 `--zenoh-root ../zenoh-pico`，外部目录也必须包含本批补丁，ABI标记为20261116；构建读取本地文件，不依赖.git或下载。未修补的原版不能与当前绑定混编。
 
 Get完整回归使用同一命令加 `--get-tests`，选择独立peer `--get` 和 `host_get_test.lua`；默认17项含原16项及握手半帧失败/首错一致性。peer可选 `--two-rounds` 会校验 `LuatOS\0zenoh-pico\255:1/2` 两个20B值，双轮后正常退出，无需stop，独立墙钟上限240秒；默认peer保原60秒及stop合同。
 
@@ -160,7 +160,7 @@ LUAT_USE_ZENOH_PICO=y ./build_macos.sh
 
 ## 官方验收与回退
 
-本改动接续已合并的[PR282](https://gitee.com/openLuat/LuatOS/pulls/282)和[PR278](https://gitee.com/openLuat/LuatOS/pulls/278)。TEMP_3000专测已通过基础连接、4096B收发/Get和180秒短测；完整4115业务及256KiB真机尚未验收。本次新增动态大载荷、预算处理、SDK分片可靠性及Get登记分配失败修补，未声称目标已含本改动。新包继续要求Lua64及至少1024KiB脚本空间，见[AIR8000_PROFILE_REQUEST.md](AIR8000_PROFILE_REQUEST.md)。
+此前 Air8000 测试固件已验证基础连接、4096B 发布订阅和 Get。本版将载荷上限扩至 256KiB，并修正查询、分片与关闭回执。新固件的目标配置见 [Air8000 出包要求](AIR8000_PROFILE_REQUEST.md)。
 
 目标构建需核开关关闭/开启、Get+Queryable完整配置、VM位宽、注册和资源增量；我们继续负责真机二进制Pub/Sub与Get发起/应答双向、断网/重新打开、队列满/GC、持续内存及实际对端序号。PR供源码复核，目标验收状态仍为待验证，不把Get裁掉以凑空间。
 
@@ -195,4 +195,12 @@ SDK仍为1.9.0基线，本地修补包括分片头直接传入可靠性枚举，
 
 本批还修复配置复制/替换分配失败、握手cookie所有权与错误返回、Get退休/终态投递、已关闭会话Reply的moved数据释放及分片/扩展编码错误传播。测试操作见[CONSOLIDATED_TEST_RESULTS.md](../../bsp/pc/zenoh_pico/CONSOLIDATED_TEST_RESULTS.md)。SDK和绑定必须整批更新；不是在旧ROM上只换Lua脚本即可启用认证。
 
-仍为单会话、有界结果队列，非Get命令和队列溢出的事件不保证逐条必达；state/dropped不等于业务端收件。未提供完整Lua业务门面、多会话或全部有效RX健康信息。1819认证注册、USB485、LED、真实RAM/栈与24小时业务长测须在新固件上另验，不能凭本机通过宣布生产可替换。
+每次只支持一个会话。普通命令的接纳和对端实际收到是两个阶段；队列有界，可从 state 查询 dropped 计数。新版本的目标板内存、任务栈和长时间运行仍需用对应固件验证。
+
+### 会话及 Get 诊断
+
+`health(session)` 返回当前 handle 的 generation、available。ONLINE 且收到本代有效 OpenAck 后，表中含对端 peer_lease_ms、实际 effective_lease_ms、有效 RX 序号 rx_seq、rx_kind、同一设备单调时钟 last_rx_ms 与 rx_age_ms。关闭后和旧 handle 不再返回 RX 或租期。反复读取不会刷新 RX。调用者在不同时钟域使用年龄，同代同序号只换算一次。单条 frame/fragment 计数表示已接纳的协议单元。
+
+Get 业务回调保持一次。get_done 的 sdk_replies 是到投递业务终态时 SDK 回调的条数，包含错误回复。已知 SDK drop 来源时给出 sdk_drop_source。local timeout/cancel 后可用 `get_trace(session, request_id)` 读取最近四次已释放请求中的同代记录；未释放、被后续覆盖或无匹配返回 nil。wire_final 表示匹配 wire Final 造成 SDK 释放，sdk_timeout、cleanup、unknown 分别记录。错误／关闭事件的 first_failure 区分先观察到的 IO 或 transport，transport_stage、transport_rc、transport_remote_reason 仅在有对应证据时出现。IO 快照也可记录随后观察到的 IO 错误。
+
+Open 成功前为本连接预留一份 closed 回执。普通队列满时保留该回执，旧队列排空后通过 poll 投递；在这段时间申请新会话可返回忙。Lua 构造 closed 事件失败后下一次 poll 再取，已经进入用户回调的事件不会重发。长期无可用内存时不能保证 Lua 回调完成。

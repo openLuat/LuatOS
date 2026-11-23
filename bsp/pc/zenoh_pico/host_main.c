@@ -22,7 +22,7 @@ static int race_command(lua_State *L) {
 /* 真实Lua分配器连续拒绝初次申请与GC后的重试，不伪造模块事件。 */
 static size_t lua_fail_size;
 static unsigned lua_fail_remaining, lua_fail_count;
-static int lua_fail_terminal, lua_fail_entry, lua_entry_entered;
+static int lua_fail_terminal, lua_fail_entry, lua_entry_entered, lua_fail_closed;
 static lua_Alloc original_lua_alloc;
 static void *original_lua_ud;
 static void *test_lua_alloc(void *ud, void *ptr, size_t old, size_t n) {
@@ -44,7 +44,11 @@ void luat_zp_test_before_dispatch(const char *kind) {
         lua_fail_entry=2; lua_fail_size=0; lua_fail_remaining=2;
     }
 }
+static int fail_closed(lua_State *L) { (void)L; lua_fail_closed=1; lua_fail_count=0; return 0; }
 void luat_zp_test_dispatch(const char *kind) {
+    if (lua_fail_closed && !strcmp(kind, "closed")) {
+        lua_fail_closed=0; lua_fail_size=0; lua_fail_remaining=2;
+    }
     if (lua_fail_entry==2 && !strcmp(kind,"get_done")) ++lua_entry_entered;
     if (lua_fail_terminal && !strcmp(kind, "get_done")) {
         lua_fail_terminal = 0; lua_fail_size = 0; lua_fail_remaining = 2;
@@ -171,6 +175,7 @@ int main(int argc, char **argv) {
     lua_pushcfunction(L, race_command); lua_setglobal(L, "host_race_command");
     lua_pushcfunction(L, fail_lua); lua_setglobal(L, "host_fail_lua_payload");
     lua_pushcfunction(L, fail_lua_count); lua_setglobal(L, "host_lua_failures");
+    lua_pushcfunction(L, fail_closed); lua_setglobal(L, "host_fail_lua_closed");
     lua_pushcfunction(L, fail_terminal); lua_setglobal(L, "host_fail_lua_terminal");
     lua_pushcfunction(L, fail_entry); lua_setglobal(L, "host_fail_lua_entry");
     lua_pushcfunction(L, entry_entered); lua_setglobal(L, "host_lua_entry_entered");

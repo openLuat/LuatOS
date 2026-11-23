@@ -17,6 +17,7 @@
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
 #include "luat_netdrv.h"
+#include "luat_netdrv_capture.h"
 #include "luat_netdrv_napt.h"
 #include "luat_netdrv_drv.h"
 #include "luat_network_adapter.h"
@@ -1080,6 +1081,12 @@ netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_RESET, netdrv.RESET_HARD)
 netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DOWN, 1)
 netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DOWN, 0)
 
+-- IP抓包: 每张网卡独立配置, 默认关闭, 需固件支持CTRL_IP_CAPTURE
+-- 第三个参数为每包最多输出的IP字节数(1..1500), 0关闭
+-- Luatools收到有效日志后新建PCAP, 每个文件最大200 MiB
+local ok, err = netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_IP_CAPTURE, 1500)
+netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_IP_CAPTURE, 0)
+
 -- DNS 客户端配置(第三个参数改传 table)
 netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DNS, {
     cache_enable = true,  -- 缓存总开关
@@ -1130,6 +1137,21 @@ static int l_netdrv_ctrl(lua_State *L) {
         return 2;
     }
 #endif
+
+    if (cmd == LUAT_NETDRV_CTRL_IP_CAPTURE) {
+#ifdef LUAT_USE_NETDRV_IP_CAPTURE
+        lua_Integer snaplen = luaL_checkinteger(L, 3);
+        luaL_argcheck(L, id > 0 && id < NW_ADAPTER_INDEX_LWIP_NETIF_QTY, 1, "invalid adapter");
+        luaL_argcheck(L, snaplen >= 0 && snaplen <= LUAT_NETDRV_CAPTURE_MAX_LEN, 3, "snaplen must be 0..1500");
+        int ret = luat_netdrv_capture_config(id, (uint16_t)snaplen);
+        lua_pushboolean(L, ret == 0);
+        lua_pushinteger(L, ret);
+#else
+        lua_pushboolean(L, 0);
+        lua_pushinteger(L, -1);
+#endif
+        return 2;
+    }
 
     arg = luaL_checkinteger(L, 3);
     luat_netdrv_t* drv = luat_netdrv_get(id);
@@ -1464,6 +1486,10 @@ static const rotable_Reg_t reg_netdrv[] =
 #ifdef LUAT_USE_NETDRV_DNS_CLIENT
     //@const CTRL_DNS number 控制类型-DNS客户端配置,第三个参数传table
     { "CTRL_DNS",       ROREG_INT(LUAT_NETDRV_CTRL_DNS)},
+#endif
+#ifdef LUAT_USE_NETDRV_IP_CAPTURE
+    //@const CTRL_IP_CAPTURE number ctrl(id, CTRL_IP_CAPTURE, snaplen): 0 disables, 1..1500 captures RX/TX
+    { "CTRL_IP_CAPTURE", ROREG_INT(LUAT_NETDRV_CTRL_IP_CAPTURE)},
 #endif
 
     //@const EVT_SOCKET number 事件类型-socket事件

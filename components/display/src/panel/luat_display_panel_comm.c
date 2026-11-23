@@ -28,13 +28,13 @@ struct luat_display_panel *luat_display_find_panel(unsigned int connector_type)
 {
     size_t i;
 
-    for (i = 0; i < ARRAY_SIZE(panels); i++) {
+    for (i = 0; i < DISPLAY_ARRAY_SIZE(panels); i++) {
         if (panels[i]->connector_type == connector_type) {
             break;
         }
     }
 
-    if (i >= ARRAY_SIZE(panels))
+    if (i >= DISPLAY_ARRAY_SIZE(panels))
         return NULL;
 
     LLOGI("find panel driver : %s\n", panels[i]->name);

@@ -26,6 +26,7 @@
 #include "zenoh-pico/transport/unicast/transport.h"
 #include "zenoh-pico/transport/utils.h"
 #include "zenoh-pico/utils/logging.h"
+#include "zenoh-pico/transport/unicast/observe.h"
 
 #if Z_FEATURE_UNICAST_TRANSPORT == 1
 
@@ -125,11 +126,13 @@ static z_result_t _z_unicast_handle_frame(_z_transport_unicast_t *ztu, uint8_t h
     // From this point, memory cleaning must be handled by the network message layer
     _z_network_message_t curr_nmsg = {0};
     _z_arc_slice_t arcs = _z_arc_slice_empty();
+    const bool has_payload = _z_zbuf_len(msg->_payload) > 0;
     while (_z_zbuf_len(msg->_payload) > 0) {
         _Z_RETURN_IF_ERR(_z_network_message_decode(&curr_nmsg, msg->_payload, &arcs, (uintptr_t)&peer->common));
         curr_nmsg._reliability = tmsg_reliability;
         _Z_RETURN_IF_ERR(_z_handle_network_message(&ztu->_common, &curr_nmsg, &peer->common));
     }
+    if (has_payload) _Z_ACCEPTED_RX("frame");
     return _Z_RES_OK;
 }
 
@@ -210,7 +213,7 @@ static z_result_t _z_unicast_handle_fragment_inner(_z_transport_unicast_t *ztu, 
             *dbuf_state = _Z_DBUF_STATE_OVERFLOW;
         } else {
             // Fill buffer
-            _z_wbuf_write_bytes(dbuf, msg->_payload.start, 0, msg->_payload.len);
+            _Z_RETURN_IF_ERR(_z_wbuf_write_bytes(dbuf, msg->_payload.start, 0, msg->_payload.len));
         }
     }
     // Process final fragment
@@ -237,7 +240,8 @@ static z_result_t _z_unicast_handle_fragment_inner(_z_transport_unicast_t *ztu, 
         zm._reliability = tmsg_reliability;
         if (ret == _Z_RES_OK) {
             // Memory clear of the network message data must be handled by the network message layer
-            _z_handle_network_message(&ztu->_common, &zm, &peer->common);
+            ret = _z_handle_network_message(&ztu->_common, &zm, &peer->common);
+            if (ret == _Z_RES_OK) _Z_ACCEPTED_RX("fragment");
         } else {
             _Z_INFO("Failed to decode defragmented message");
             _Z_ERROR_LOG(_Z_ERR_MESSAGE_DESERIALIZATION_FAILED);
@@ -246,6 +250,8 @@ static z_result_t _z_unicast_handle_fragment_inner(_z_transport_unicast_t *ztu, 
         // Free the decoding buffer
         _z_zbuf_clear(&zbf);
         *dbuf_state = _Z_DBUF_STATE_NULL;
+    } else if (*dbuf_state == _Z_DBUF_STATE_INIT && msg->_payload.len > 0) {
+        _Z_ACCEPTED_RX("fragment");
     }
 #else
     _ZP_UNUSED(ztu);
@@ -281,6 +287,7 @@ z_result_t _z_unicast_handle_transport_message(_z_transport_unicast_t *ztu, _z_t
 
         case _Z_MID_T_KEEP_ALIVE: {
             _Z_DEBUG("Received Z_KEEP_ALIVE message");
+            _Z_ACCEPTED_RX("keepalive");
             _z_t_msg_keep_alive_clear(&t_msg->_body._keep_alive);
             break;
         }
@@ -302,6 +309,7 @@ z_result_t _z_unicast_handle_transport_message(_z_transport_unicast_t *ztu, _z_t
             // Peer will be dropped thanks to the error
             _Z_ERROR_LOG(_Z_ERR_CONNECTION_CLOSED);
             ret = _Z_ERR_CONNECTION_CLOSED;
+            _Z_TRANSPORT_FAULT("remote_close", ret, t_msg->_body._close._reason);
             _z_t_msg_close_clear(&t_msg->_body._close);
             break;
         }

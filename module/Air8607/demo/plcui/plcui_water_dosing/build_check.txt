@@ -1,0 +1,62 @@
+﻿PLCUI 工程自检：c:\gitee\LuatOS\module\Air8607\demo\plcui\plcui_water_dosing
+
+== 1. Lua 语法解析 ==
+  [ OK ] boot_app.lua               解析通过（115 行）
+  [ OK ] data_app.lua               解析通过（242 行）
+  [ OK ] exd_air8607_rgb.lua        解析通过（201 行）
+  [ OK ] main.lua                   解析通过（39 行）
+  [ OK ] tp_app.lua                 解析通过（167 行）
+  [ OK ] ui_app.lua                 解析通过（241 行）
+  [ OK ] ui_vars.lua                解析通过（100 行）
+
+== 2. 代码规范 ==
+  [ OK ] boot_app.lua               无匿名函数
+  [ OK ] data_app.lua               无匿名函数
+  [ OK ] exd_air8607_rgb.lua        无匿名函数
+  [ OK ] main.lua                   无匿名函数
+  [ OK ] tp_app.lua                 无匿名函数
+  [ OK ] ui_app.lua                 无匿名函数
+  [ OK ] ui_vars.lua                无匿名函数
+  [ OK ] require 目标全部存在（7 个模块）
+  [ OK ] main.lua 末尾 sys.run()
+  [ OK ] main.lua 无函数定义
+
+== 3. main.xml ==
+  [ OK ] 根元素 <ui version="0.1"> 1024x600 entry=main
+  [ OK ] 页数 1：main
+  [ OK ] 文件大小 13.7 KB
+  [ OK ] 资源 72 个，ID 唯一
+  [ OK ] STATE 表 badge/banner/flow 资源名全部可解析
+  [ OK ] 组件 74 个（上限 512）
+  [ OK ] 组件 ID 页内唯一（共 74 个）
+  [ OK ] XML 中 10 个事件全部在 ui_app.handlers 注册
+  [ OK ] src / knob-src 引用的资源全部已声明
+  [ OK ] 资源文件全部存在（72 个）
+  [ OK ] 叠加层素材（流动帧/液位/维护罩）均为透明 RGBA
+  [ OK ] 资源文件名均 <=23 字节
+  [ OK ] 0 张 chart 的点数、系列数、值域全部合法
+  [ OK ] table 规模与行高合规
+  [ OK ] textarea 的 keyboard 引用均在本页
+
+== 3b. PLCUI 1.0.2 schema 取值域 ==
+  [ OK ] 全部组件的属性名与整型取值域都合法（44 条规则）
+
+== 3c. 字形覆盖（实测探针结论） ==
+  [ OK ] 没有使用 hzfont 缺字形的符号（— ▣ ⚠ ▶ ✓）
+
+== 4. 绑定表 ui_vars ==
+  [ OK ] 使用单页 BIND 平铺绑定表（34 条）
+  [ OK ] 公共层 34 条绑定，组件全部存在
+  [ OK ] 公共层组件在四页均存在
+  [ OK ] 绑定变量 33 个全部由 data_app.get() 提供
+
+== 5. 交付文档 ==
+  [ OK ] code/readme.md
+  [ OK ] design/spec.md
+  [ OK ] design/fallback.md
+  [ OK ] design/index.html
+  [ OK ] preview/verify.md
+  [ OK ] design/index.html 单文件内联 CSS，无需 theme.css
+
+== 汇总 ==
+  通过 44 / 失败 0 / 警告 0

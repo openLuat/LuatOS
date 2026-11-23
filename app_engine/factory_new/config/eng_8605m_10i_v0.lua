@@ -16,23 +16,21 @@
 2. 【串口分配】UART1 = 隔离485、UART2 = 人脸识别 UVC 摄像头串口、UART6 = Air1103 语音。
    「功能测试」里只有隔离 485，没有非隔离 485（那是 8605 的 UART1），
    但多一个「录音播放」项（Air1103，见下条）。
-3. 【音频 = Air1103 录音 + 内置 DAC 播放】Air1103 挂 UART6（固定 2M 波特率），单芯片集成
-   MIC + 喇叭 + AEC，**只用来录音**（exaudio 走 model="air1103" + audio_mode="new" 新框架，
-   参考 module/Air8784/project/factory）；播放（TTS / 录音回放 / MP4 音轨）一律走芯片
-   内置 DAC，由 hw.audio.play_model = "dac" 声明。
-   录音与播放对 exaudio 的 model 要求互斥，通路切换由 app/common/audio_route.lua 按需
-   重跑 exaudio.setup 完成：录音前切 model="air1103"，播放前切 model="dac"。
+3. 【音频 = Air1103 单通路】Air1103 挂 UART6（固定 2M 波特率），单芯片集成
+   MIC + 喇叭 + AEC，exaudio 走 model="air1103" + audio_mode="new" 新框架
+   （参考 module/Air8784/project/factory）。hw.audio.model = "air1103" 开机 setup 一次定全局，
+   运行期不再切换：录音走 Air1103 的 UART MIC，播放（TTS / 录音回放）走 Air1103 下行，
+   只认 type=1（TTS 文本）与 type=2（流式 PCM），type=0 文件播放不成立。
    AUDIOPA_EN = PIN55 = GPIO73：power_on 拉高常供电，hw.audio 不写 pa_ctrl
    （写上后 audio_v2 会在播完把它拉低，若该脚兼作 Air1103 供电，语音芯片会跟着掉电）。
    语音芯片上电到就绪约 1.4s（参考工程 boot_ms=1500）；录音每次都会复位芯片，
    恢复 MIC 上行前的静音段由 periph_audio 按 2 秒补时长抵消。
    Air1103 模式录音固定 PCM_16000（16kHz/16bit/单声道）。
    exaudio.setup 的入参（含 uart_id/audio_mode）统一由 app/common/audio_hw.lua 组装，
-   六个消费方（tts_app / llm_chat / factory_rec / settings_display_app / video_util /
+   五个消费方（tts_app / llm_chat / factory_rec / settings_display_app /
    periph_audio）都走它，任何一处都不会再漏传 uart_id。
-   MP4 的声音走 mplayer → C 层音频框架 → 内置 DAC；若某支素材实测无声，可在 MP4 同目录
-   放同名 .pcm 伴音（16kHz/16bit/单声道）由 ui/video_util.lua 经 app/common/pcm_play.lua
-   补声，转法：ffmpeg -i xx.mp4 -ac 1 -ar 16000 -f s16le xx.pcm
+   视频素材（HZV）的音轨由 videoplayer 自己走 luat_audio_request_play_stream → 内置 DAC，
+   不经 exaudio；播放时只保持 PA 功放开、不重跑 exaudio.setup（详见 ui/media/video_util.lua）。
 4. 【4G_RESET 先高维持低】PIN4 = GPIO64：上电先拉高 50ms 再拉低 120ms 使能
    （与 eng_1602_10i_v10421 的 airlink 模组复位写法一致）。
 5. LCD 为 RGB 10寸 1024×600（免序列四合一），走统一 RGB 驱动 lcd_display_rgb；
@@ -51,7 +49,7 @@
    **方向脚**（DE 与 /RE 并联，高=发 低=收），不是空置脚，必须交给 periph_rs485 翻转。
    J20（非隔离）与 J21（隔离）共用 UART1 和 GPIO65，只能二选一，靠改板切换
    （吹/贴 R104、R1104、R1105），软件改不了。
-   features.rs485 目前在 app/ 与 ui/ 里查不到消费方，仅作能力声明。
+   485 测试入口由 config.peripherals 的 rs485 条目驱动，配了条目才会出现在功能测试页。
 10. 上电供电轨：5V_EN = GPIO12、9V_EN = PIN46 = GPIO56、12V_EN = PIN72 = GPIO44、
     5VOUT_EN = PIN73 = GPIO52（对外 5V 输出使能）。
     5V_EN = GPIO12 由 power_on 拉高常供电。usb_hid_app 的 VBUS_GPIO=12 也是这个脚，
@@ -132,7 +130,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 10.0,               -- 10寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -156,11 +153,12 @@ return {
         wdt = {
             pin = 57,               -- PIN47 = GPIO57 → 三极管 → WTDOG
         },
-        -- 音频: Air1103 录音（UART6，内置 MIC）+ 内置 DAC 播放，见文件头第 3 条
+        -- 音频: Air1103 单通路（UART6，内置 MIC + 喇叭），见文件头第 3 条
         -- 供电脚 AUDIOPA_EN = GPIO73 已在 power_on 拉高常供电，此处不写 pa_ctrl
         audio = {
-            model = "air1103",        -- 录音通路：Air1103 语音芯片（exaudio 新框架 UART 驱动）
-            play_model = "dac",       -- 播放通路：芯片内置 DAC（TTS / 录音回放 / MP4 音轨）
+            model = "air1103",        -- 音频通路：Air1103 语音芯片（exaudio 新框架 UART 驱动，录音走 MIC、播放走下行）
+            recovery_power_pin = 73,     -- [条件] Air1103 供电 GPIO（如 AUDIOPA_EN）
+            recovery_power_active = 1,   -- [条件] 供电有效电平: 1=高有效 / 0=低有效
             uart_id = 6,              -- Air1103 接 UART6（固定 2M 波特率）
             audio_mode = "new",       -- 拉起 audio_v2 新框架（air1103 模式必须）
             play_vol = 70,            -- 默认播放音量(0~100)，llm_chat / video_util / factory_rec 统一读
@@ -172,21 +170,20 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        net_4g = true,        -- 启用 4G（Air780ER2，UART3）—— 本型号固定为 4G 版
-        speaker = true,       -- 启用喇叭（Air1103 内置功放）
-        mic = true,           -- 启用麦克风（Air1103 内置 MIC）
-        sd_card = true,       -- 启用 SD 卡（SPI1，CS=GPIO8）
-        nand_flash = true,    -- 启用 NAND Flash（SPI2，CS=GPIO47）
-        usb_camera = true,    -- USB 摄像头（UVC）—— 暂无消费方，仅作能力声明
-        rs485 = true,         -- RS485 接口 —— 暂无消费方，仅作能力声明
-        other_func = true,    -- 启用"功能测试"（peripherals 外设清单）
+        net_4g = true,         -- 启用 4G（Air780ER2，UART3）—— 本型号固定为 4G 版
+        sd_card = true,        -- 启用 SD 卡（SPI1，CS=GPIO8）
+        nand_flash = true,     -- 启用 NAND Flash（SPI2，CS=GPIO47）
+        other_func = true,     -- 启用"功能测试"（peripherals 外设清单）
         -- usb_hid 不开：USB 键鼠与 UVC 摄像头共用 USB Host 与供电，带 UVC 的型号不启用
-        app_factory = true,   -- 启用"应用工厂"内置应用
-        ai_chat = true,       -- 启用"AI聊天助手"内置应用（语音经 Air1103）
-        cloud_disk = true,    -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
-        file_transfer = true, -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
-        aircloud = true,      -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
-        wdt = true,           -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        app_factory = true,    -- 启用"应用工厂"内置应用
+        ai_chat = true,        -- 启用"AI聊天助手"内置应用（语音经 Air1103）
+        cloud_disk = true,     -- 启用"合宙网盘"内置应用（IoT 登录取 space_key → 空间文件列表 → 下载）
+        file_transfer = true,  -- 启用"文件传输"内置应用（hzadb日志口：PC↔设备互传文件/共享清单）
+        aircloud = true,       -- 启用 AirCloud 数据上报（通用能力探测：有接口就采，不绑定型号）
+        wdt = true,            -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        sip = true,            -- 启用 SIP 通话（Air1103 语音芯片）
+        iot = true,            -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,           -- 启用固件在线升级（需联网）
     },
 
     -- ===== AirCloud 数据上报参数 =====
@@ -224,15 +221,18 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_4g_icon = true,           -- 桌面顶栏 4G 信号图标
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card/nand_flash 时打开
-        show_camera_preview = true,    -- 设置页摄像头预览入口（暂无消费方，仅作能力声明）
-        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
-        show_cloud_disk = true,        -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
-        show_ai_chat = true,           -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
-        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
-        show_file_transfer = true,     -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
-        show_aircloud = true,          -- 设置页显示"数据上报"入口 ← 配 aircloud 时打开
+        show_4g_icon = true,            -- 桌面顶栏 4G 信号图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口 ← 配 sd_card/nand_flash 时打开
+        show_camera_preview = true,     -- 设置页摄像头预览入口（暂无消费方，仅作能力声明）
+        show_other_func = true,         -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"入口 ← 配 cloud_disk 时打开
+        show_ai_chat = true,            -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        show_app_factory = true,        -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_file_transfer = true,      -- 桌面显示"文件传输"入口 ← 配 file_transfer 时打开
+        show_aircloud = true,           -- 设置页显示"数据上报"入口 ← 配 aircloud 时打开
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
     },
 }

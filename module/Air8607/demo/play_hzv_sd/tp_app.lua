@@ -1,8 +1,8 @@
 --[[
 @module  tp_app
 @summary Air8607 GT911 触摸初始化应用功能模块（tp 库 + AirUI 触摸绑定）
-@version 1.0
-@date    2026.10.30
+@version 1.1
+@date    2026.11.10
 @author  江访
 @usage
 本文件为 Air8607 播放 SD 卡 HZV 素材 demo 的触摸初始化应用功能模块，核心业务逻辑为：
@@ -20,7 +20,7 @@
 3、tp_app.recover：延迟一发补回触摸 I2C 总线配置，避开音频收尾那一瞬间
 ]]
 
-local M = {}
+local tp_app = {}
 
 -- GT911 触摸控制器，Air8607 整机板载
 local TP_MODEL = "gt911"
@@ -87,10 +87,10 @@ end
 
 @usage
 if not tp_app.init() then
-    log.error("main", "触摸初始化失败，界面按钮点不动")
+    log.error("boot_app", "触摸初始化失败，界面按钮点不动")
 end
 ]]
-function M.init()
+function tp_app.init()
     -- 内核 tp 库一次上电只接受一次 tp.init，重复调用直接补总线配置返回
     if tp_device then
         log.info("tp_app", "触摸已经初始化过，跳过 tp.init")
@@ -152,7 +152,7 @@ end
 @usage
 tp_app.i2c_restore()
 ]]
-function M.i2c_restore()
+function tp_app.i2c_restore()
     return i2c_restore_bus()
 end
 
@@ -170,7 +170,7 @@ end
 @usage
 tp_app.recover()
 ]]
-function M.recover(delay_ms)
+function tp_app.recover(delay_ms)
     if not tp_device then
         return false
     end
@@ -183,4 +183,4 @@ function M.recover(delay_ms)
     return true
 end
 
-return M
+return tp_app

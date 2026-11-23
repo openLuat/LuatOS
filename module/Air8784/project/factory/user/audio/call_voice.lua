@@ -50,6 +50,11 @@ function M.prepare()
     return false
 end
 function M.speak(text,valid)
+    if rtos.bsp() == "PC" then
+        if valid and not valid() then return false end
+        log.info("call_voice", "PC 通话提示", text)
+        return true
+    end
     if not M.prepare() then log.warn("call_voice","TTS_SKIPPED","audio not released",text);return false end
     if valid and not valid() then log.info("call_voice","TTS_SKIPPED","call changed",text);return false end
     exaudio=exaudio or require "exaudio"

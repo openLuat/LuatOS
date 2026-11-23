@@ -162,7 +162,6 @@ local function build_ui()
     y = y + card1_h + pad
 
     -- ---------- 卡片2：状态 ----------
-    local cfg_ac = (_G.project_config or {}).aircloud or {}
     local fields = {
         { key = "connected",     label = "连接状态" },
         { key = "authenticated", label = "云端鉴权" },

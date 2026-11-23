@@ -1,41 +1,14 @@
-# Air8000 认证与长测修补固件请求
+# Air8000 原生 zenohpico 测试固件配置
 
-本次接续[PR282](https://gitee.com/openLuat/LuatOS/pulls/282)和[PR278](https://gitee.com/openLuat/LuatOS/pulls/278)。PR278修正事件等待、握手分段读取与关闭竞态；TEMP_3000已提供V2057/112、Lua64和1024KiB脚本区。专测基础连接、4096B收发/Get和180秒短时负载通过，不能据此宣称完整业务或长期稳定性全部通过。
+请基于本 PR 最终合入的提交构建，分配一个新的固件编号。
 
-## 本次问题与修正
+| 项目 | 构建要求 |
+|---|---|
+| 平台与脚本 ABI | Air8000，112 基础，Lua 64 位 |
+| 组件 | 启用原生 zenohpico，包括用户名密码认证、Pub/Sub、Get 和 Queryable |
+| SDK | 同一提交中的 LuatOS 绑定、generic TCP 适配、配置头与随库 zenoh-pico 1.9.0。包含 auth.c 和 auth_sha3.c；ZP_LUATOS_PATCH_ABI 为 20261116 |
+| 裁剪 | 裁掉字库和 LCD 相关组件 |
+| 脚本空间 | 至少 1024KiB（1048576 字节）可用于脚本；现用脚本已超过 512KiB |
+| 消息大小 | 使用随库配置，单条载荷上限 256KiB。载荷预算占用运行时 RAM，脚本区使用 Flash |
 
-现行注册资料和Type源码以完整逻辑消息下发，超过原LuatOS绑定4096B限制。前期测试未覆盖这一完整业务场景。Zenoh-Pico本身支持传输分片；本次扩展LuatOS封装及编译配置，并修正1.9.0分片可靠性的一处枚举传参错误；不改变业务协议。
-
-- 默认单条有效payload最大256KiB＝262144字节，覆盖publish、sample、Get请求/回复和Queryable应答；JSON/Base64等业务编码算在payload内。
-- 命令/事件按实际长度分配，空载荷不分配。TX/RX默认各512KiB载荷预算，原队列各8项保留；所有者真正释放才退额，不在出队或重开时清零。
-- incoming owned query的payload和attachment纳入接收持有预算，结束/超时/撤销/关闭统一归还。Get丢失回复不冒completed。
-- SDK重组配置同步为256KiB＋1024B封装余量，batch仍2048；两个配置入口一致。不是把每个网络帧或每个队列槽预分配为256KiB。
-- 连续大包实测另发现SDK将RELIABLE枚举转布尔值后编码反转。直接传原枚举，已补两种可靠性的首/续/末片反例和真实三包突发回归；本地SDK补丁在VENDOR.md登记。
-- 保留PR278最终修复，不修改共享network、默认装配、119服务或生产设备。
-
-主机测试及实际结果见[bsp/pc/zenoh_pico/PAYLOAD_TEST_RESULTS.md](../../bsp/pc/zenoh_pico/PAYLOAD_TEST_RESULTS.md)。目标ARM、RTOS、峰值堆/栈、真实网络及完整4115长稳待新包验证；不将主机容量写成设备已通过。
-
-## 固件要求
-
-请以本PR最终确认的完整提交SHA构建，提供可区别于TEMP_3100的新编号测试固件，由维护者分配编号。
-
-- 继续112基础、Lua64、完整原生Pico（包含Get/Queryable），脚本Flash分区至少1024KiB＝1048576字节，格式开销另计。
-- 按原请求裁掉字库、LCD/触摸、U8G2/U8X8、EINK/EPD、HT1621及显示独占资源；有共享引用的组件需核引用后裁剪，不整件删除公共总线/内存实现。
-- 当前生产脚本超过512KiB，512KiB会迫使反复拆包，不能满足接近实际业务规模的验证。脚本Flash与256KiB消息RAM互相独立，不能混用容量指标。
-- 请注明LuatOS/BSP/SDK提交、实际生效宏和头文件来源，提供SoC SHA、ELF/map与AP/脚本/FS/FOTA分区及余量；不能只改文件名或metadata。
-- RAM需包含绑定payload预算外的SDK重组/临时复制/保留query元数据、Lua字符串、任务栈和网络缓存；不把payload_stats当整个系统内存。
-
-## 收件后验收
-
-先核编号、SHA、Lua位宽和至少1024KiB实际脚本布局，再在专用测试板复验基础连接和旧4096B用例；继续64/128/256KiB双向收发、Get/Queryable及上限边界、队列/内存不足、关闭重开和内存回收。完整业务注册、Type摘要、采集与长稳分别验收。旧上层64KiB限制仍需独立核对，不宣称本PR已把所有网页/业务上限扩大到256KiB。
-
-不操作原生产4115；目标证据未完成前保持测试固件用途。回退本次组件提交需重编相同ABI/BSP固件，应用数据及分区迁移规则以实际构建收件为准。
-
-
-## 本批增量与出包范围
-
-PR282之后，本批集中补client用户名密码认证、错误凭据拒绝、Final真实错误返回、Get/配置/载荷所有权与分配失败处理。移除发送时的第二份整包复制；声明容量改为16订阅/16Queryable，Get为4，入站Query仍为4，Key512字节，Get期限最多600秒、入站Query30秒。完整本机结果与隔夜性能限制见[集中结果](../../bsp/pc/zenoh_pico/CONSOLIDATED_TEST_RESULTS.md)。
-
-请使用此新PR最终合入SHA的绑定、generic适配、配置头及全部vendored SDK一起构建，包含auth.c/auth_sha3.c，核SDK补丁ABI 20261111。不要只取主绑定文件或沿用旧SDK对象。仍请求112基础、Lua64、至少1024KiB可用脚本空间及新编号；字库/LCD显示相关裁剪按上文范围。当前生产脚本超过512KiB，若仍给512KiB就必须重新拆包，无法按实际业务规模验收。
-
-认证在本机真实Router验证不替代ARM自检、BSP链接与8KiB任务栈峰值；收包后先检查auth能力和向量、错密码拒绝，再做专板完整注册/采集及长测。旧262143B公网超时和第375次Get真机根因仍未确认；不能写成这批修复已定因关闭。此固件申请面向下一轮完整验收，不等于生产切换批准。
+发布时请附固件编号、下载链接、实际构建提交及脚本分区大小，以便核对目标版本并复测。主机回归结果与复测命令见[测试结果](../../bsp/pc/zenoh_pico/CONSOLIDATED_TEST_RESULTS.md)。

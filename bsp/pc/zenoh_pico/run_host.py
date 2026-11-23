@@ -27,7 +27,7 @@ def source_files(root):
     if version != "1.9.0": raise RuntimeError("zenoh-pico must be 1.9.0")
     for name in ["include/zenoh-pico/utils/auth.h", "src/utils/auth.c", "src/utils/auth_sha3.c"]:
         if not (root/name).is_file(): raise RuntimeError("matching patched SDK missing " + name)
-    if "#define ZP_LUATOS_PATCH_ABI 20261111" not in (root/"include/zenoh-pico/utils/auth.h").read_text():
+    if "#define ZP_LUATOS_PATCH_ABI 20261116" not in (root/"include/zenoh-pico/utils/auth.h").read_text():
         raise RuntimeError("matching patched SDK ABI required")
     files = sorted(root.glob("src/**/*.c"))
     files = [f for f in files if any(f.relative_to(root).as_posix().startswith("src/" + a + "/") for a in AREAS)]
@@ -125,6 +125,8 @@ def main():
         # 分片R位必须保持枚举语义，覆盖可靠/尽力两种首、续、末片。
         run([*compiler, *common, here / "host_fragment_test.c", "-pthread", "-o", output / "host_fragment_test"])
         run([output / "host_fragment_test"])
+        run([*compiler, *common, here / "host_response_final.c", "-pthread", "-o", output / "host_response_final"])
+        run([output / "host_response_final"])
         # 真实socketpair合同覆盖事件预算、4096B短写、期限与短读字节守恒。
         for name in ("host_transport_test", "host_rx_test"):
             binary = output / name
@@ -150,7 +152,7 @@ def main():
                 if actual != hmac.new(nonce.to_bytes(8,"little"), password.encode(), hashlib.sha3_256).hexdigest():
                     raise RuntimeError("HMAC oracle mismatch")
         print("AUTH_ORACLE_PASS vectors=31", flush=True)
-        names = ["zenoh_host_test", "zenoh_peer", "host_auth_test", "host_sdk_memory_test", "host_fragment_test", "host_rx_test", "host_transport_test"]
+        names = ["host_response_final", "zenoh_host_test", "zenoh_peer", "host_auth_test", "host_sdk_memory_test", "host_fragment_test", "host_rx_test", "host_transport_test"]
         if any(hashlib.sha256(Path(p).read_bytes()).hexdigest()!=digest for p,digest in frozen.items()): raise RuntimeError("inputs changed during build")
         manifest.write_text(json.dumps({"inputs":frozen,"compiler":args.cc,"compiler_version":compiler_version,"flags":compiler,"sanitize":args.sanitize,"tx_copy_baseline":args.tx_copy_baseline,
             "binaries":{n:hashlib.sha256((output/n).read_bytes()).hexdigest() for n in names}},indent=2)+"\n")

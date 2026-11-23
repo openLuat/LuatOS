@@ -1,8 +1,8 @@
 --[[
 @module  other_func_win
 @summary 功能测试页面（TabOS 深色玻璃态）——UVC / RS485 / 串口 / 录音播放 测试入口、背光与音量调节
-@version 1.7
-@date    2026.11.09
+@version 1.8
+@date    2026.11.13
 @author  江访
 @usage
 订阅: OPEN_OTHER_FUNC_WIN
@@ -16,26 +16,49 @@
 
 页面按 UVC / RS485 / 串口 / 音频 四组展示实例，组内保持 config.peripherals 声明顺序。
 RS485 不管配了几路，列表里只出一行「RS485 测试」（见 MERGE_TITLE），几路全进同一个
-收发测试页逐路列出；其余 type 一条配置一行，下方显示驱动上报的状态描述。
+收发测试页逐路列出；其余 type 一条配置一行，每条独立开关，下方显示驱动上报的状态描述。
 分组标题默认取 TYPE_TITLE，配置条目写了 title 时用条目自己的（摄像头是人脸识别模组
 的板子写 "摄像头"，避免「UVC 摄像头」分组配「人脸识别摄像头」行名打架）。
 
 行可点即测试：点行先给这一路（合并行是全部成员）上电开接口，再进测试页 —— UVC 行进
 预览页（预览/拍照/录像），RS485 行进收发测试页（发送 + 收发历史），音频行进录音播放
 测试页（录音/停止/播放），开窗事件见 TYPE_PAGE；没有测试页的 type 行不可点。
-行上不再有开关，行尾只留状态圆点 + ">" 提示；退出测试页自动断电（TEST_WIN_CLOSED）。
+行尾是外设开关（控制供电与接口打开）+ ">" 提示；退出测试页自动断电（TEST_WIN_CLOSED）。
 外设列表之后是「背光调节」「音量调节」两张硬件能力卡（滑块 + 试听按钮），按 backlight.pwm_ch
 与 hw.audio 自动门控，不进任何测试结果统计。
 
 点行进测试页前先弹该功能的「接线提示」（只写物理接线与注意事项），按钮「跳过 / 确定」：
 跳过不落盘，下次点同一个功能还会弹；确定写 fskv 键 other_func_tip_<type>，之后（含重启）不再弹。
 只有配了测试页的 type 才有提示（uart 没有测试页，行不可点）。原来底部那行常驻小字已去掉。
+uvc 的 en_pin 与 rs485 的 de_pin 共用一脚的机型（8603W3~W5 / M3~M5 的 GPIO58 =
+UVC_EN = 485_EN2），提示后自动追加一句「相互切换、互不影响」的分时切换说明（shared_pin_note）。
 两张能力卡的滑条对象高 SLIDER_H = 20dp（圆球直径 = h + 2 × knob padding，见 theme.slider），
 比早期的 34dp 大白球小一圈；圆球不再用纯白（浅色主题上和卡片糊在一起），走 theme.slider 的
 默认色 M.C.t1。音量卡的「试听」是按钮（ghost_button，青色描边）而不是文字链接。
 ]]
 
 local theme = require "ui_theme"
+
+
+-- 独立测试入口（不来自 config.peripherals）：SIP 通话（Air1103 语音芯片）
+-- 开不开工由 app/sip/sip_gate.lua 定（features.sip + hw.audio.model=="air1103" 双条件）。
+-- 本树没有 sip_gate 时软依赖直接判否，同一份源码在别的型号树也能跑。
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local SIP_GATE_MOD = "sip_gate"
+local SIP_TEST_WIN_MOD = "sip_test_win"
+local HANDOFF_MOD = "factory_handoff"
+local function sip_allowed()
+    local ok, gate = pcall(require, SIP_GATE_MOD)
+    return ok and type(gate) == "table" and type(gate.ok) == "function" and gate.ok() == true
+end
+local EXTRA_ENTRY = {
+    key = "__sip_test__", name = "SIP 通话", page = "OPEN_SIP_TEST_WIN",
+}
+
+-- 测试与 SIP 通话互斥（factory_handoff）：只在带 SIP 的树里存在，没有就整段跳过。
+-- 只调它的公开接口 enqueue / prepare / leave / mode，不改那份模块。
+local ok_h, handoff = pcall(require, HANDOFF_MOD)
+if not ok_h or type(handoff) ~= "table" then handoff = nil end
 
 local window_id = nil
 local main_container = nil
@@ -109,6 +132,34 @@ local TIP_TEXT = {
         .. "3. 录音时保持环境安静，录完点播放回听。",
 }
 local tip_box = nil
+
+--[[
+@function shared_pin_note
+@summary uvc 的 en_pin 与 rs485 的 de_pin 共用一脚时（8603W3~W5 / M3~M5 的
+GPIO58 = UVC_EN = 485_EN2），接线提示后追加一句分时切换说明，让两个功能怎么
+「相互切换、互不影响」在页面上可见：进哪个测试页脚就切给哪个功能，退出自动归还
+@return string 有共用脚返回追加文案，否则空串
+]]
+local function shared_pin_note()
+    local list = _G.project_config and _G.project_config.peripherals
+    if type(list) ~= "table" then return "" end
+    local en, de = {}, {}
+    for _, p in ipairs(list) do
+        if p then
+            if p.type == "uvc" and p.en_pin then en[p.en_pin] = true end
+            if p.type == "rs485" and p.de_pin then de[p.de_pin] = true end
+        end
+    end
+    local names = {}
+    for pin in pairs(en) do
+        if de[pin] then names[#names + 1] = "GPIO" .. tostring(pin) end
+    end
+    if #names == 0 then return "" end
+    table.sort(names)
+    return "\n\n注意：" .. table.concat(names, "/")
+        .. " 同时是 UVC_EN 与 485_EN2，两个功能相互切换、互不影响："
+        .. "进哪个测试页这根脚就切给哪个功能，退出自动归还。"
+end
 
 --[[
 @function tip_acked
@@ -198,6 +249,36 @@ local function collect_instances()
     return out
 end
 
+local rs485_page_loaded = false
+local function open_rs485_lazy(id)
+    if not rs485_page_loaded then
+        local ok, err = pcall(function() require "rs485_test_win" end)
+        if not ok then show_tip("RS485 页面加载失败: " .. tostring(err)); return end
+        rs485_page_loaded = true
+    end
+    sys.publish("OPEN_RS485_TEST_WIN", id)
+end
+
+local audio_page_loaded = false
+local function open_audio_page_only(id)
+    if not audio_page_loaded then
+        local ok, err = pcall(function() require "audio_test_win" end)
+        if not ok then show_tip("音频页面加载失败: " .. tostring(err)); return end
+        audio_page_loaded = true
+    end
+    sys.publish("OPEN_AUDIO_TEST_WIN", id)
+end
+
+local camera_page_loaded = false
+local function open_camera_lazy(id)
+    if not camera_page_loaded then
+        local ok, err = pcall(function() require "uvc_preview_win" end)
+        if not ok then show_tip("摄像头页面加载失败: " .. tostring(err)); return end
+        camera_page_loaded = true
+    end
+    sys.publish("OPEN_UVC_PREVIEW_WIN", id)
+end
+
 --[[
 @function enter_test
 @summary 进测试页：先给这一路（合并行是全部成员）上电开接口，再开窗
@@ -210,7 +291,15 @@ local function enter_test(it)
     end
     -- 记下本次打开的是哪几路，测试页销毁时逐个断电
     g.active = { ids = it.members }
-    sys.publish(it.page, it.members[1])
+    if it.type == "rs485" then
+        open_rs485_lazy(it.members[1])
+    elseif it.type == "audio" then
+        open_audio_page_only(it.members[1])
+    elseif it.type == "uvc" then
+        open_camera_lazy(it.members[1])
+    else
+        sys.publish(it.page, it.members[1])
+    end
 end
 
 --[[
@@ -221,6 +310,7 @@ end
 ]]
 local function open_row(it)
     local tip = TIP_TEXT[it.type]
+    if tip then tip = tip .. shared_pin_note() end
     if not tip or tip_acked(it.type) then
         enter_test(it)
         return
@@ -249,19 +339,22 @@ end
 @param x, y, w, h 行几何
 @param it 实例行 { key, name, type, page, members }
 ]]
+
 local function build_item_row(parent, x, y, w, h, it)
     -- 有子页的行整行可点：先弹该功能的接线提示，再上电进测试页
     local row = theme.box(parent, {
         x = x, y = y, w = w, h = h, color = theme.C.black, opa = 0,
-        on_click = it.page and function() open_row(it) end or nil,
+        on_click = (it.page or it.on_open) and function()
+            if it.on_open then it.on_open(it) else open_row(it) end
+        end or nil,
     })
 
     local pad2 = theme.dp(12)
     local gap2 = theme.dp(10)
-    local dot_d = theme.dp(10)
+    local sw_w = it.no_switch and 0 or theme.dp(52)
+    local sw_h = theme.dp(28)
     -- 可点行在行尾补一个 ">" 提示，宽度从文本区让出
     local chev_w = it.page and (theme.dp(10) + gap2) or 0
-    local dot_w = dot_d + gap2
 
     local fs = theme.fs("body")
     local fs_sub = theme.fs("micro")
@@ -271,7 +364,7 @@ local function build_item_row(parent, x, y, w, h, it)
     local ty = math.floor((h - total) / 2)
     if ty < 0 then ty = 0 end
 
-    local txw = w - pad2 * 2 - dot_w - chev_w
+    local txw = w - pad2 * 2 - sw_w - (sw_w > 0 and gap2 or 0) - chev_w
     if txw < theme.dp(40) then txw = theme.dp(40) end
 
     theme.label(row, {
@@ -282,29 +375,36 @@ local function build_item_row(parent, x, y, w, h, it)
 
     local info_label = theme.label(row, {
         x = pad2, y = ty + lh + theme.dp(2), w = txw, h = lh_sub,
-        text = "读取中...", px_size = fs_sub,
+        text = it.sub_info or "读取中...", px_size = fs_sub,
         color = theme.C.t3, align = airui.TEXT_ALIGN_LEFT,
     })
 
     if it.page then
         theme.label(row, {
-            x = w - pad2 - theme.dp(10),
+            x = w - pad2 - sw_w - (sw_w > 0 and gap2 or 0) - theme.dp(10),
             y = math.floor((h - lh) / 2), w = theme.dp(10), h = lh,
             text = ">", px_size = fs,
             color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
         })
     end
 
-    -- 行尾状态圆点：开 = 绿、关 = 轨道灰、驱动未就绪 = 弱描边灰
-    -- 圆点半径给直径值即可（radius 会被 theme 再过一次 dp，LVGL 夹到 min(w,h)/2）
-    local dot = theme.box(row, {
-        x = w - pad2 - chev_w - dot_d,
-        y = math.floor((h - dot_d) / 2), w = dot_d, h = dot_d,
-        radius = dot_d, color = theme.C.stroke_soft,
-    })
+    local togg = nil
+    if not it.no_switch then
+        togg = theme.switch(row, {
+            x = w - pad2 - sw_w, y = math.floor((h - sw_h) / 2),
+            w = sw_w, h = sw_h, checked = false,
+            on_change = function(handle)
+                -- 合并行一次通断该 type 的全部实例
+                local on = handle:get_state()
+                for i = 1, #it.members do
+                    sys.publish("OTHER_FUNC_SET", it.members[i], on)
+                end
+            end,
+        })
+    end
 
     local rec = {
-        info_label = info_label, info_w = txw, dot = dot,
+        info_label = info_label, info_w = txw, switch = togg,
         members = it.members, state = {}, info = {},
     }
     rows[it.key] = rec
@@ -475,6 +575,37 @@ local function build_ui()
         cy = cy + theme.dp(20) + theme.fs("body") + 3 + gap
     end
 
+    -- 开不开工由 app/sip/sip_gate.lua 定（features.sip + hw.audio.model=="air1103" 双条件）。
+    if sip_allowed() then
+        theme.section(body, {
+            x = theme.dp(4), y = cy, w = card_w - theme.dp(8), h = sec_h,
+            text = "通话", px_size = theme.fs("micro"), color = theme.C.t3,
+        })
+        cy = cy + sec_h
+        local ecard = theme.card(body, {
+            x = 0, y = cy, w = card_w, h = row_h + 2 * bw, border_w = bw,
+        })
+        build_item_row(ecard, 0, 0, card_w - 2 * bw, row_h, {
+            key = EXTRA_ENTRY.key, name = EXTRA_ENTRY.name, type = "extra",
+            page = EXTRA_ENTRY.page, members = { EXTRA_ENTRY.key },
+            no_switch = true, sub_info = "Air1103 语音通话测试",
+            on_open = function()
+                -- 懒加载：此刻才把 SIP 窗口拉入内存。
+                -- UI 走本文件缩放层适配 800x480，通话/音频内核为同事原版 sip_phone/*
+                airui.msgbox({
+                    title = "提示", text = "请插入麦克风和喇叭", buttons = { "确定" },
+                    on_action = function(self)
+                        self:hide()
+                        local ok = pcall(require, SIP_TEST_WIN_MOD)
+                        if ok then sys.publish("OPEN_SIP_TEST_WIN")
+                        else show_tip("SIP 页面加载失败，请检查日志") end
+                    end,
+                })
+            end,
+        })
+        cy = cy + row_h + 2 * bw + gap
+    end
+
     for _, grp in ipairs(groups) do
         theme.section(body, {
             x = theme.dp(4), y = cy, w = card_w - theme.dp(8), h = sec_h,
@@ -530,6 +661,18 @@ local function build_ui()
     else
         cy = cy + build_note_card(body, 0, cy, card_w, "本机型未配置音频") + gap
     end
+
+    theme.label(body, {
+        x = 0, y = cy, w = card_w, h = theme.fs("micro") + 3,
+        text = "点击行进入测试页 | 开关只控制供电与接口打开", px_size = theme.fs("micro"),
+        color = theme.C.t3, align = airui.TEXT_ALIGN_CENTER,
+    })
+end
+
+-- 开关动作容错：theme.switch 返回的是普通 table，没有 is_destroyed，只能靠 pcall 兜住
+local function safe_switch(togg, method, ...)
+    if type(togg) ~= "table" or type(togg[method]) ~= "function" then return end
+    pcall(togg[method], togg, ...)
 end
 
 --[[
@@ -538,6 +681,7 @@ end
 @param r 行记录
 @return string
 ]]
+
 local function row_text(r)
     local n = #r.members
     local on, known = 0, 0
@@ -555,7 +699,7 @@ end
 
 --[[
 @function update_row
-@summary 按行内各实例的状态刷新文字与状态圆点
+@summary 按行内各实例的状态刷新文字与开关
 @param r 行记录
 ]]
 local function update_row(r)
@@ -572,17 +716,19 @@ local function update_row(r)
     if r.info_label and not r.info_label:is_destroyed() then
         r.info_label:set_text(theme.fit_text(row_text(r), r.info_w or 0, theme.fs("micro")))
     end
-    -- 圆点只表示开 / 关：合并行要全开才算开，未就绪压到弱灰
-    if r.dot and not r.dot:is_destroyed() then
-        local c = theme.C.stroke_soft
-        if known > 0 then c = (on == n) and theme.C.green or theme.C.track end
-        r.dot:set_color(c, 255)
+    if known == 0 then
+        safe_switch(r.switch, "set_state", false)
+        safe_switch(r.switch, "set_enabled", false)
+    else
+        safe_switch(r.switch, "set_enabled", true)
+        -- 合并行要全开才算开，部分打开时开关保持关
+        safe_switch(r.switch, "set_state", on == n)
     end
 end
 
 --[[
 @function apply_list
-@summary 用驱动状态列表刷新各行状态描述与状态圆点
+@summary 用驱动状态列表刷新各行开关与状态描述
 @param list { { id=, enabled=, info= }, ... }
 ]]
 local function apply_list(list)
@@ -684,6 +830,7 @@ local function on_create()
 end
 
 local function on_destroy()
+    if handoff then handoff.enqueue(function() handoff.leave("test") end) end
     sys.unsubscribe("OTHER_FUNC_STATUS", apply_list)
     sys.unsubscribe("OTHER_FUNC_CHANGED", apply_list)
     sys.unsubscribe("OTHER_FUNC_SET_RESULT", on_set_result)
@@ -706,16 +853,26 @@ local function on_destroy()
     volume_label, volume_slider = nil, nil
 end
 
-local function on_get_focus() end
+local function on_get_focus()
+    if not handoff then return end
+    handoff.enqueue(function()
+        if main_container and handoff.mode() ~= "test" then handoff.prepare("test") end
+    end)
+end
 local function on_lose_focus() end
 
-local function open_handler()
+local function open_window()
     window_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,
         on_lose_focus = on_lose_focus,
         on_get_focus = on_get_focus,
     })
+end
+
+local function open_handler()
+    if not handoff then open_window(); return end
+    handoff.enqueue(function() handoff.prepare("test"); open_window() end)
 end
 
 sys.subscribe("OPEN_OTHER_FUNC_WIN", open_handler)

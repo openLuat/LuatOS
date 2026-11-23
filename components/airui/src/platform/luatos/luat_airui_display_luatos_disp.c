@@ -27,6 +27,12 @@ typedef struct {
     const void *direct_layer_owner;
     uint8_t frame_open;   /*本帧已经选定后备缓冲，后续条带继续写入它*/
     uint8_t front_valid;  /*至少完整呈现过一帧，后备缓冲可以从前缓冲克隆*/
+#if defined(LUAT_USE_AIRUI_REMOTE)
+    uint32_t committed_index;
+    uint32_t frame_sequence;
+    bool frame_failed;
+    bool needs_redraw;
+#endif
 } luatos_fb_display_ctx_t;
 
 static int luatos_fb_display_attach(airui_ctx_t *ctx, uint16_t w, uint16_t h, void **out_ctx)
@@ -130,9 +136,14 @@ static void luatos_fb_display_flush(airui_ctx_t *ctx, void *backend_ctx,
             all.y = 0;
             all.w = (int32_t)info->width;
             all.h = (int32_t)info->height;
-            disp->display_funcs->fb_flush(disp, &all,
+            int ret = disp->display_funcs->fb_flush(disp, &all,
                                           (const uint8_t *)info->fb_start + front * info->fb_size,
                                           LUAT_DISPLAY_ROTATE_0);
+#if defined(LUAT_USE_AIRUI_REMOTE)
+            fb_ctx->frame_failed = ret != 0;
+#else
+            (void)ret;
+#endif
         }
     }
     fb_ctx->frame_open = 1U;
@@ -143,17 +154,68 @@ static void luatos_fb_display_flush(airui_ctx_t *ctx, void *backend_ctx,
     if (draw_buf != NULL && draw_buf->header.stride > 0U) {
         info->stride = draw_buf->header.stride;
     }
-    disp->display_funcs->fb_flush(disp, &rect, px_map, (enum disp_rotate)rotation);
+    int ret = disp->display_funcs->fb_flush(disp, &rect, px_map, (enum disp_rotate)rotation);
     info->stride = saved_stride;
 
+#if defined(LUAT_USE_AIRUI_REMOTE)
+    fb_ctx->frame_failed |= ret != 0;
+#endif
+
     if (is_last) {
-        if (disp->display_funcs->pan_display != NULL) {
-            disp->display_funcs->pan_display(disp, (int)info->fb_index);
-        }
         fb_ctx->frame_open = 0U;
+        if (disp->display_funcs->pan_display != NULL
+#if defined(LUAT_USE_AIRUI_REMOTE)
+            && !fb_ctx->frame_failed
+#endif
+        ) {
+            ret = disp->display_funcs->pan_display(disp, (int)info->fb_index);
+        }
+#if defined(LUAT_USE_AIRUI_REMOTE)
+        if (ret != 0 || fb_ctx->frame_failed) {
+            info->fb_index = fb_ctx->committed_index;
+            fb_ctx->frame_failed = false;
+            fb_ctx->needs_redraw = true;
+            return;
+        }
+        fb_ctx->committed_index = info->fb_index;
+        if (++fb_ctx->frame_sequence == 0) {
+            fb_ctx->frame_sequence = 1;
+        }
+#else
+        (void)ret;
+#endif
         fb_ctx->front_valid = 1U;
     }
 }
+
+#if defined(LUAT_USE_AIRUI_REMOTE)
+static int luatos_fb_display_committed_frame(airui_ctx_t *ctx, void *backend_ctx, airui_remote_frame_t *frame)
+{
+    luatos_fb_display_ctx_t *fb_ctx = backend_ctx;
+    struct luat_display_fb_info *info = fb_ctx->display_conf->fb_info;
+    if (info == NULL || info->fb_start == NULL || info->format != LUAT_DISPLAY_FORMAT_RGB565 ||
+        info->width == 0 || info->height == 0 || info->stride != info->width * sizeof(uint16_t) ||
+        info->height > info->fb_size / info->stride || info->fb_count < 2) {
+        return AIRUI_ERR_NOT_SUPPORTED;
+    }
+    if (fb_ctx->needs_redraw || !fb_ctx->front_valid) {
+        /* This call runs outside LVGL drawing, where invalidation is safe. */
+        fb_ctx->needs_redraw = false;
+        lv_obj_invalidate(lv_display_get_screen_active(ctx->display));
+        return AIRUI_ERR_NOT_INITIALIZED;
+    }
+    if (fb_ctx->frame_open || fb_ctx->committed_index >= info->fb_count ||
+        fb_ctx->direct_layer_owner != NULL) {
+        return AIRUI_ERR_NOT_SUPPORTED;
+    }
+    frame->pixels = (const uint8_t *)info->fb_start + fb_ctx->committed_index * info->fb_size;
+    frame->width = info->width;
+    frame->height = info->height;
+    frame->stride = info->stride;
+    frame->sequence = fb_ctx->frame_sequence;
+    return AIRUI_OK;
+}
+#endif
 
 static int luatos_fb_display_direct_present(airui_ctx_t *ctx, void *backend_ctx, const void *owner,
                                             const lv_area_t *area, const void *buffer,
@@ -280,6 +342,9 @@ static const airui_luatos_fb_backend_t luatos_fb_display_ops = {
     .suspend = luatos_fb_display_suspend,
     .resume = luatos_fb_display_resume,
     .detach = luatos_fb_display_detach,
+#if defined(LUAT_USE_AIRUI_REMOTE)
+    .committed_frame = luatos_fb_display_committed_frame,
+#endif
 };
 
 const airui_luatos_fb_backend_t *airui_luatos_fb_backend_display(void)

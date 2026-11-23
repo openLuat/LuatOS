@@ -1,8 +1,8 @@
 --[[
 @module  lcd_app
 @summary Air8607 LCD 显示初始化应用功能模块（display 库 + AirUI）
-@version 1.0
-@date    2026.10.30
+@version 1.1
+@date    2026.11.10
 @author  江访
 @usage
 本文件为 Air8607 播放 SD 卡 HZV 素材 demo 的显示初始化应用功能模块，核心业务逻辑为：
@@ -11,7 +11,7 @@
 3、调用 display.fill 把整屏刷黑，清掉上电时显存里的随机内容；
 4、调用 airui.init(width, height) 初始化 AirUI，HZV 视频组件必须在它之后创建；
 5、调用 airui.font_load 加载固件内置的中文矢量字库，素材列表页的文字才显示得出来；
-6、界面或视频首帧准备好后，由 main.lua 调 lcd_app.backlight_on() 点亮背光。
+6、界面或视频首帧准备好后，由 boot_app.lua 调 lcd_app.backlight_on() 点亮背光。
 
 本文件的对外接口有3个：
 1、lcd_app.init：初始化屏幕与 AirUI，背光保持熄灭，成功返回 true，失败返回 false
@@ -19,7 +19,7 @@
 3、lcd_app.get_size：返回屏幕分辨率 width, height
 ]]
 
-local M = {}
+local lcd_app = {}
 
 -- Air8607 整机 10 寸 RGB 屏分辨率
 local LCD_WIDTH  = 1024
@@ -60,11 +60,11 @@ local backlight_is_on = false
 
 @usage
 if not lcd_app.init() then
-    log.error("main", "屏幕初始化失败")
+    log.error("boot_app", "屏幕初始化失败")
     return
 end
 ]]
-function M.init()
+function lcd_app.init()
     -- 背光先压到最暗，PWM 通道输出有效但占空比为 0
     pwm.setup(PWM_BACKLIGHT_CH, PWM_BACKLIGHT_FREQ, 0)
     pwm.start(PWM_BACKLIGHT_CH)
@@ -145,7 +145,7 @@ end
 
 @api lcd_app.backlight_on()
 
-@summary 把 PWM3 占空比设到 PWM_BACKLIGHT_DUTY，视频首帧画好之后由 main.lua 调用
+@summary 把 PWM3 占空比设到 PWM_BACKLIGHT_DUTY，视频首帧画好之后由 boot_app.lua 调用
 
 @return nil
 
@@ -153,7 +153,7 @@ end
 sys.wait(200)
 lcd_app.backlight_on()
 ]]
-function M.backlight_on()
+function lcd_app.backlight_on()
     if backlight_is_on then
         return
     end
@@ -178,8 +178,8 @@ end
 @usage
 local w, h = lcd_app.get_size()
 ]]
-function M.get_size()
+function lcd_app.get_size()
     return lcd_width, lcd_height
 end
 
-return M
+return lcd_app

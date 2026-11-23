@@ -4,6 +4,7 @@
 #include "luat_fs.h"
 #include "luat_plcui_component.h"
 #include "luat_plcui_font.h"
+#include "luat_plcui_keyboard.h"
 #include "lvgl9/src/libs/expat/expat.h"
 #include "lvgl9/src/draw/lv_image_decoder_private.h"
 #include "lvgl9/src/misc/cache/instance/lv_image_header_cache.h"
@@ -15,7 +16,10 @@
 #include <limits.h>
 #include <ctype.h>
 
-typedef enum { TAG_NONE, TAG_UI, TAG_RESOURCES, TAG_PAGES, TAG_PAGE, TAG_IMAGE, TAG_FONT, TAG_WIDGET, TAG_CELL, TAG_SERIES } tag_t;
+#define LUAT_LOG_TAG "plcui.xml"
+#include "luat_log.h"
+
+typedef enum { TAG_NONE, TAG_UI, TAG_RESOURCES, TAG_PAGES, TAG_PAGE, TAG_IMAGE, TAG_FONT, TAG_WIDGET, TAG_CELL, TAG_SERIES, TAG_FRAME } tag_t;
 typedef struct {
     XML_Parser parser;
     plcui_document_t *doc;
@@ -36,11 +40,27 @@ void luat_plcui_error(plcui_error_t *error, const char *code, const char *format
     va_end(args);
 }
 
+/**
+ * 构造 XML 或页面组件分配失败的提示，同时给出精简当前 XML 的处理建议。
+ * @param document 当前文档，用于记录组件数量与 XML 路径。
+ * @param error 接收 E_MEMORY 错误；调用方可继续填写行列或组件 ID。
+ * @param reason 简短的内部阶段说明，使用 ASCII，最多保留 80 字节。
+ */
+void luat_plcui_xml_memory_error(const plcui_document_t *document, plcui_error_t *error, const char *reason)
+{
+    luat_plcui_error(error, "E_MEMORY",
+        "XML组件内存不足（已登记%u个组件）。请减少当前XML中的组件数量，或拆分为多个XML文件。原因：%.80s",
+        document ? document->widget_count : 0U, reason);
+    if (document) snprintf(error->file, sizeof(error->file), "%s", document->path);
+    LLOGE("%s", error->message);
+}
+
 static void fail(parser_t *p, const char *code, const char *message)
 {
     if (p->failed) return;
     p->failed = true;
-    luat_plcui_error(p->error, code, "%s", message);
+    if (!strcmp(code, "E_MEMORY")) luat_plcui_xml_memory_error(p->doc, p->error, message);
+    else luat_plcui_error(p->error, code, "%s", message);
     snprintf(p->error->file, sizeof(p->error->file), "%s", p->doc->path);
     p->error->line = (unsigned long)XML_GetCurrentLineNumber(p->parser);
     p->error->column = (unsigned long)XML_GetCurrentColumnNumber(p->parser) + 1UL;
@@ -140,15 +160,15 @@ static bool relative_path(const char *path)
     return true;
 }
 
-static bool chart_number_attr(parser_t *p, const char **attrs, const char *name, int32_t *dest)
+static bool chart_number_attr(parser_t *p, const char **attrs, const char *name, double *dest)
 {
     const char *text = attribute(attrs, name);
     if (!text) return true;
     char *end;
     errno = 0;
     double value = strtod(text, &end);
-    if (!text[0] || *end || errno || !luat_plcui_chart_number(value, dest)) {
-        fail(p, "E_SCHEMA", "Chart numbers must be finite and between -1000 and 1000");
+    if (!text[0] || *end || (errno && errno != ERANGE) || !luat_plcui_chart_number(value, dest)) {
+        fail(p, "E_SCHEMA", "Chart numbers must be finite");
         snprintf(p->error->attribute, sizeof(p->error->attribute), "%s", name);
         return false;
     }
@@ -216,7 +236,7 @@ static void parse_series_values(parser_t *p, const char *text, plcui_chart_t *ch
         char *end;
         errno = 0;
         double value = strtod(text, &end);
-        if (end == text || errno || !luat_plcui_chart_number(value, &series->values[i])) { fail(p, "E_SCHEMA", "Invalid chart series value"); return; }
+        if (end == text || (errno && errno != ERANGE) || !luat_plcui_chart_number(value, &series->values[i])) { fail(p, "E_SCHEMA", "Invalid chart series value"); return; }
         while (isspace((unsigned char)*end)) ++end;
         if (i + 1 == chart->points) {
             if (*end) fail(p, "E_SCHEMA", "Series values count must equal point-count");
@@ -281,10 +301,20 @@ static void XMLCALL start_element(void *data, const char *name, const char **att
         memset(page, 0, sizeof(*page));
         copy_attr(p, attrs, "id", page->id, sizeof(page->id), true);
         color_attr(p, attrs, "background", &page->background);
-    } else if (parent == TAG_WIDGET && (!strcmp(name, "cell") || !strcmp(name, "series"))) {
+    } else if (parent == TAG_WIDGET && (!strcmp(name, "cell") || !strcmp(name, "series") || !strcmp(name, "frame"))) {
         plcui_page_t *page = &doc->pages[doc->page_count - 1U];
         plcui_widget_t *owner = &page->widgets[p->widget_stack[p->depth - 1]];
-        if (!strcmp(name, "cell") && owner->table) {
+        if (!strcmp(name, "frame") && owner->animation) {
+            tag = TAG_FRAME;
+            if (!allowed(p, attrs, "|src|")) return;
+            plcui_animimg_t *animation = owner->animation;
+            if (animation->count >= PLCUI_ANIM_MAX_FRAMES) { fail(p, "E_SCHEMA", "Animation exceeds 64 frames"); return; }
+            void *frames = realloc(animation->frames, (animation->count + 1U) * sizeof(*animation->frames));
+            if (!frames) { fail(p, "E_MEMORY", "Cannot allocate animation frames"); return; }
+            animation->frames = frames;
+            memset(animation->frames[animation->count], 0, PLCUI_ID_MAX);
+            copy_attr(p, attrs, "src", animation->frames[animation->count++], PLCUI_ID_MAX, true);
+        } else if (!strcmp(name, "cell") && owner->table) {
             tag = TAG_CELL;
             if (!allowed(p, attrs, "|row||column||text|")) return;
             int32_t row = 0, column = 0;
@@ -315,7 +345,7 @@ static void XMLCALL start_element(void *data, const char *name, const char **att
             if (!series->values) { fail(p, "E_MEMORY", "Cannot allocate chart values"); return; }
             parse_series_values(p, attribute(attrs, "values"), owner->chart, series);
         } else { fail(p, "E_SCHEMA", "cell requires a table and series requires a chart"); return; }
-    } else if ((parent == TAG_PAGE || parent == TAG_WIDGET) && (!strcmp(name, "image") || !strcmp(name, "label") || !strcmp(name, "textarea") || !strcmp(name, "keyboard") || !strcmp(name, "container") || !strcmp(name, "table") || !strcmp(name, "chart"))) {
+    } else if ((parent == TAG_PAGE || parent == TAG_WIDGET) && (!strcmp(name, "image") || !strcmp(name, "label") || !strcmp(name, "textarea") || !strcmp(name, "keyboard") || !strcmp(name, "container") || !strcmp(name, "table") || !strcmp(name, "chart") || !strcmp(name, "animimg") || !strcmp(name, "slider"))) {
         tag = TAG_WIDGET;
         plcui_page_t *page = &doc->pages[doc->page_count - 1U];
         int32_t parent_index = -1;
@@ -324,18 +354,24 @@ static void XMLCALL start_element(void *data, const char *name, const char **att
             if (index >= page->count || page->widgets[index].type != PLCUI_CONTAINER) { fail(p, "E_SCHEMA", "Only container components can contain child components"); return; }
             parent_index = (int32_t)index;
         }
-        plcui_widget_type_t type = !strcmp(name, "image") ? PLCUI_IMAGE : !strcmp(name, "label") ? PLCUI_LABEL : !strcmp(name, "textarea") ? PLCUI_TEXTAREA : !strcmp(name, "keyboard") ? PLCUI_KEYBOARD : !strcmp(name, "table") ? PLCUI_TABLE : !strcmp(name, "chart") ? PLCUI_CHART : PLCUI_CONTAINER;
-        const char *specific = type == PLCUI_IMAGE ? "|src||src-pressed||src-checked||src-disabled||clickable||on-click||hit-x||hit-y||hit-w||hit-h|" :
-                               type == PLCUI_LABEL ? "|text||font||font_size||color||align|" :
+        plcui_widget_type_t type = !strcmp(name, "image") ? PLCUI_IMAGE : !strcmp(name, "label") ? PLCUI_LABEL : !strcmp(name, "textarea") ? PLCUI_TEXTAREA : !strcmp(name, "keyboard") ? PLCUI_KEYBOARD : !strcmp(name, "table") ? PLCUI_TABLE : !strcmp(name, "chart") ? PLCUI_CHART : !strcmp(name, "animimg") ? PLCUI_ANIMIMG : !strcmp(name, "slider") ? PLCUI_SLIDER : PLCUI_CONTAINER;
+        const char *specific = type == PLCUI_IMAGE ? "|src||src-pressed||src-checked||src-disabled||clickable||on-click||hit-x||hit-y||hit-w||hit-h||src-x||src-y||fit||zoom||rotation||pivot-x||pivot-y||opacity||antialias|" :
+                               type == PLCUI_LABEL ? "|text||font||font_size||color||align||long-mode||scroll-duration-ms||scroll-delay-ms|" :
                                type == PLCUI_TEXTAREA ? "|text||font||font_size||color||align||max-length||accepted-chars||keyboard||one-line||on-change||on-submit||on-cancel|" :
-                               type == PLCUI_KEYBOARD ? "|layout||font||font_size|" :
+                               type == PLCUI_KEYBOARD ? "|layout||font||font_size||ime|" :
+                               type == PLCUI_ANIMIMG ? "|interval-ms||repeat-count||auto-start||on-finished||on-error|" :
+                               type == PLCUI_SLIDER ? "|min||max||value||step||orientation||track-color||indicator-color||knob-color||knob-src||on-change||on-submit||on-cancel|" :
                                type == PLCUI_TABLE ? "|rows||columns||col-widths||col-aligns||align||header-align||grid||row-height||header||cell-padding||header-color||alternate-color||font||font_size||color||background||border-color||border-width|" :
                                type == PLCUI_CHART ? "|type||point-count||y-min||y-max||hdiv||vdiv||line-width||grid-color||background||bg-opacity||border-color||border-width|" : "|background||bg-opacity||border-color||border-width||radius||padding|";
         char accepted[512];
         snprintf(accepted, sizeof(accepted), "|id||x||y||w||h||hidden||disabled|%s", specific);
         if (!allowed(p, attrs, accepted)) return;
-        if (doc->widget_count >= PLCUI_MAX_WIDGETS) { fail(p, "E_SCHEMA", "Component count limit exceeded"); return; }
-        plcui_widget_t *items = realloc(page->widgets, (page->count + 1U) * sizeof(*items));
+        /* 组件描述按需分配，仅检查索引范围及分配字节数，避免计数或乘法溢出。 */
+        uint64_t description_bytes = ((uint64_t)page->count + 1U) * sizeof(plcui_widget_t);
+        if (page->count >= INT32_MAX || doc->widget_count == UINT_MAX || description_bytes > SIZE_MAX) {
+            fail(p, "E_MEMORY", "Component descriptions exceed addressable memory"); return;
+        }
+        plcui_widget_t *items = realloc(page->widgets, (size_t)description_bytes);
         if (!items) { fail(p, "E_MEMORY", "Cannot allocate component description"); return; }
         page->widgets = items;
         plcui_widget_t *w = &items[page->count];
@@ -361,6 +397,31 @@ static void XMLCALL start_element(void *data, const char *name, const char **att
             w->font_size = (uint16_t)font_size;
         }
         if (type == PLCUI_IMAGE) {
+            plcui_image_t *image = luat_plcui_image_config(w, p->error);
+            if (!image) { fail(p, "E_MEMORY", "Cannot allocate image configuration"); return; }
+            const char *fit = attribute(attrs, "fit");
+            if (fit) {
+                if (!strcmp(fit, "stretch")) image->fit = LV_IMAGE_ALIGN_STRETCH;
+                else if (!strcmp(fit, "contain")) image->fit = LV_IMAGE_ALIGN_CONTAIN;
+                else if (!strcmp(fit, "cover")) image->fit = LV_IMAGE_ALIGN_COVER;
+                else if (!strcmp(fit, "center")) image->fit = LV_IMAGE_ALIGN_CENTER;
+                else fail(p, "E_SCHEMA", "Invalid image fit");
+            }
+            bool manual = attribute(attrs, "zoom") || attribute(attrs, "rotation") || attribute(attrs, "pivot-x") || attribute(attrs, "pivot-y");
+            if (manual && image->fit != LV_IMAGE_ALIGN_CENTER) fail(p, "E_SCHEMA", "Manual transforms require fit=center");
+            int32_t zoom = 256, rotation = 0, opacity = 255;
+            integer_attr(p, attrs, "zoom", &zoom, 1, 4096, false);
+            integer_attr(p, attrs, "rotation", &rotation, INT32_MIN, INT32_MAX, false);
+            integer_attr(p, attrs, "opacity", &opacity, 0, 255, false);
+            image->zoom = (uint16_t)zoom; image->rotation = (uint16_t)((rotation % 3600 + 3600) % 3600); image->opacity = (uint8_t)opacity;
+            bool_attr(p, attrs, "antialias", &image->antialias);
+            image->pivot_explicit = attribute(attrs, "pivot-x") || attribute(attrs, "pivot-y");
+            integer_attr(p, attrs, "pivot-x", &image->pivot_x, -4096, 4096, image->pivot_explicit);
+            integer_attr(p, attrs, "pivot-y", &image->pivot_y, -4096, 4096, image->pivot_explicit);
+            image->crop = attribute(attrs, "src-x") || attribute(attrs, "src-y");
+            integer_attr(p, attrs, "src-x", &image->crop_x, 0, 4096, image->crop);
+            integer_attr(p, attrs, "src-y", &image->crop_y, 0, 4096, image->crop);
+            if (image->crop && (manual || fit)) fail(p, "E_SCHEMA", "Source crop cannot be combined with fit or transforms");
             const char *sources[] = {"src", "src-pressed", "src-checked", "src-disabled"};
             for (unsigned i = 0; i < 4; i++) copy_attr(p, attrs, sources[i], w->source[i], sizeof(w->source[i]), i == 0);
             bool_attr(p, attrs, "clickable", &w->clickable);
@@ -374,6 +435,18 @@ static void XMLCALL start_element(void *data, const char *name, const char **att
             if ((int64_t)w->hit_x + w->hit_w > w->w || (int64_t)w->hit_y + w->hit_h > w->h) fail(p, "E_SCHEMA", "Hit rectangle must remain inside the component bounds");
             if (w->handler[PLCUI_CLICK][0] && !w->clickable) fail(p, "E_SCHEMA", "on-click requires clickable=true");
         } else if (type == PLCUI_LABEL || type == PLCUI_TEXTAREA) {
+            if (type == PLCUI_LABEL && (attribute(attrs, "long-mode") || attribute(attrs, "scroll-duration-ms") || attribute(attrs, "scroll-delay-ms"))) {
+                plcui_label_t *label = luat_plcui_label_config(w, p->error);
+                if (!label) { fail(p, "E_MEMORY", "Cannot allocate label configuration"); return; }
+                const char *mode = attribute(attrs, "long-mode");
+                if (mode && !strcmp(mode, "scroll")) label->mode = LV_LABEL_LONG_MODE_SCROLL;
+                else if (mode && !strcmp(mode, "scroll_circular")) label->mode = LV_LABEL_LONG_MODE_SCROLL_CIRCULAR;
+                else if (mode && strcmp(mode, "clip")) fail(p, "E_SCHEMA", "Invalid label long-mode");
+                int32_t duration = 4000, delay = 500;
+                integer_attr(p, attrs, "scroll-duration-ms", &duration, 100, 600000, false);
+                integer_attr(p, attrs, "scroll-delay-ms", &delay, 0, 60000, false);
+                label->duration_ms = (uint32_t)duration; label->delay_ms = (uint32_t)delay;
+            }
             copy_attr(p, attrs, "text", w->text, sizeof(w->text), false);
             color_attr(p, attrs, "color", &w->color);
             const char *align = attribute(attrs, "align");
@@ -399,6 +472,53 @@ static void XMLCALL start_element(void *data, const char *name, const char **att
             w->numeric_keyboard = true;
             if (layout && !strcmp(layout, "text")) w->numeric_keyboard = false;
             else if (layout && strcmp(layout, "number")) fail(p, "E_SCHEMA", "Keyboard layout must be number or text");
+            const char *ime = attribute(attrs, "ime");
+            if (ime && !strcmp(ime, "pinyin")) w->pinyin_keyboard = true;
+            else if (ime && strcmp(ime, "none")) fail(p, "E_SCHEMA", "Keyboard ime must be none or pinyin");
+            if (w->pinyin_keyboard && w->numeric_keyboard) fail(p, "E_SCHEMA", "Pinyin requires layout=text");
+        } else if (type == PLCUI_ANIMIMG) {
+            w->animation = calloc(1, sizeof(*w->animation));
+            if (!w->animation) { fail(p, "E_MEMORY", "Cannot allocate animation description"); return; }
+            int32_t interval = 100, repeat = -1;
+            integer_attr(p, attrs, "interval-ms", &interval, 20, 60000, false);
+            integer_attr(p, attrs, "repeat-count", &repeat, -1, 65535, false);
+            if (!repeat) fail(p, "E_SCHEMA", "repeat-count must be -1 or positive");
+            w->animation->interval_ms = (uint32_t)interval;
+            w->animation->repeat_count = repeat;
+            w->animation->auto_start = true;
+            bool_attr(p, attrs, "auto-start", &w->animation->auto_start);
+            copy_attr(p, attrs, "on-finished", w->animation->handlers[0], PLCUI_ID_MAX, false);
+            copy_attr(p, attrs, "on-error", w->animation->handlers[1], PLCUI_ID_MAX, false);
+        } else if (type == PLCUI_SLIDER) {
+#if !LV_USE_SLIDER
+            fail(p, "E_NOT_SUPPORTED", "Slider is disabled in LVGL configuration"); return;
+#else
+            w->slider = calloc(1, sizeof(*w->slider));
+            if (!w->slider) { fail(p, "E_MEMORY", "Cannot allocate slider description"); return; }
+            plcui_slider_t *slider = w->slider;
+            int32_t step = 1;
+            slider->maximum = 100;
+            slider->track_color = 0x243746; slider->indicator_color = 0x1caa8d; slider->knob_color = 0xeef7fa;
+            integer_attr(p, attrs, "min", &slider->minimum, -32768, 32767, false);
+            integer_attr(p, attrs, "max", &slider->maximum, -32768, 32767, false);
+            integer_attr(p, attrs, "step", &step, 1, 65535, false);
+            slider->step = (uint32_t)step; slider->value = slider->minimum;
+            integer_attr(p, attrs, "value", &slider->value, -32768, 32767, false);
+            const char *orientation = attribute(attrs, "orientation");
+            slider->vertical = orientation && !strcmp(orientation, "vertical");
+            if (orientation && !slider->vertical && strcmp(orientation, "horizontal")) fail(p, "E_SCHEMA", "Invalid slider orientation");
+            if (slider->minimum >= slider->maximum || slider->value < slider->minimum || slider->value > slider->maximum
+                || (slider->maximum - slider->minimum) % step || (slider->value - slider->minimum) % step)
+                fail(p, "E_SCHEMA", "Slider range/value must be on its step grid");
+            if ((slider->vertical && w->h <= w->w) || (!slider->vertical && w->w <= w->h)) fail(p, "E_SCHEMA", "Slider orientation must match its aspect ratio");
+            color_attr(p, attrs, "track-color", &slider->track_color);
+            color_attr(p, attrs, "indicator-color", &slider->indicator_color);
+            color_attr(p, attrs, "knob-color", &slider->knob_color);
+            copy_attr(p, attrs, "knob-src", slider->knob_source, PLCUI_ID_MAX, false);
+            copy_attr(p, attrs, "on-change", w->handler[PLCUI_CHANGE], PLCUI_ID_MAX, false);
+            copy_attr(p, attrs, "on-submit", w->handler[PLCUI_SUBMIT], PLCUI_ID_MAX, false);
+            copy_attr(p, attrs, "on-cancel", w->handler[PLCUI_CANCEL], PLCUI_ID_MAX, false);
+#endif
         } else if (type == PLCUI_TABLE) {
             w->table = calloc(1, sizeof(*w->table));
             if (!w->table) { fail(p, "E_MEMORY", "Cannot allocate table description"); return; }
@@ -439,7 +559,7 @@ static void XMLCALL start_element(void *data, const char *name, const char **att
             w->chart = calloc(1, sizeof(*w->chart));
             if (!w->chart) { fail(p, "E_MEMORY", "Cannot allocate chart description"); return; }
             plcui_chart_t *chart = w->chart;
-            chart->maximum = 100 * PLCUI_CHART_SCALE;
+            chart->maximum = 100;
             chart->grid_color = 0x34566b;
             int32_t points = 60, hdiv = 5, vdiv = 6, line = 2, border = 0, opacity = 0;
             integer_attr(p, attrs, "point-count", &points, 2, PLCUI_CHART_MAX_POINTS, false);
@@ -596,20 +716,34 @@ bool luat_plcui_validate(plcui_document_t *doc, plcui_error_t *error)
             if (w->type == PLCUI_IMAGE) {
                 for (unsigned k = 0; k < 4; k++) if (w->source[k][0] && !luat_plcui_resource(doc, w->source[k], PLCUI_RES_IMAGE)) { luat_plcui_error(error, "E_RESOURCE", "Unknown image reference: %s", w->source[k]); return false; }
             }
+            if (w->animation) {
+                if (w->animation->count < 2) { luat_plcui_error(error, "E_SCHEMA", "Animation requires 2 to 64 frames"); return false; }
+                for (unsigned k = 0; k < w->animation->count; ++k)
+                    if (!luat_plcui_resource(doc, w->animation->frames[k], PLCUI_RES_IMAGE)) { luat_plcui_error(error, "E_RESOURCE", "Unknown animation image: %s", w->animation->frames[k]); return false; }
+            }
+            if (w->slider && w->slider->knob_source[0] && !luat_plcui_resource(doc, w->slider->knob_source, PLCUI_RES_IMAGE)) {
+                luat_plcui_error(error, "E_RESOURCE", "Unknown slider knob image: %s", w->slider->knob_source); return false;
+            }
             if ((w->type == PLCUI_LABEL || w->type == PLCUI_TEXTAREA || w->type == PLCUI_KEYBOARD || w->type == PLCUI_TABLE) && !luat_plcui_resolve_widget_font(w, error)) return false;
+            if (w->type == PLCUI_KEYBOARD && !luat_plcui_keyboard_validate(w, error)) return false;
             if (w->chart && !w->chart->count) { luat_plcui_error(error, "E_SCHEMA", "A chart requires at least one series"); return false; }
             if ((w->type == PLCUI_LABEL || w->type == PLCUI_TEXTAREA) && !luat_plcui_check_text(w, w->text, strlen(w->text), error)) return false;
             if (w->type == PLCUI_TEXTAREA && w->keyboard_id[0]) {
                 bool found = false;
-                for (unsigned j = 0; j < page->count; j++) if (!strcmp(w->keyboard_id, page->widgets[j].id) && page->widgets[j].type == PLCUI_KEYBOARD) found = true;
+                for (unsigned j = 0; j < page->count; j++) if (!strcmp(w->keyboard_id, page->widgets[j].id) && page->widgets[j].type == PLCUI_KEYBOARD) {
+                    found = true;
+                    if (page->widgets[j].pinyin_keyboard && w->accepted_chars[0]) { luat_plcui_error(error, "E_SCHEMA", "Pinyin textarea requires empty accepted-chars: %s", w->id); return false; }
+                }
                 if (!found) { luat_plcui_error(error, "E_SCHEMA", "Input keyboard must refer to a keyboard on the same page: %s", w->id); return false; }
             }
-            for (unsigned k = 0; k < 4; k++) if (w->handler[k][0]) {
+            for (unsigned k = 0; k < (w->animation ? 6U : 4U); k++) {
+                const char *handler = k < 4 ? w->handler[k] : w->animation->handlers[k - 4];
+                if (!handler[0]) continue;
                 lua_rawgeti(L, LUA_REGISTRYINDEX, doc->handlers_ref);
-                lua_getfield(L, -1, w->handler[k]);
+                lua_getfield(L, -1, handler);
                 bool valid = lua_isfunction(L, -1);
                 lua_pop(L, 2);
-                if (!valid) { luat_plcui_error(error, "E_HANDLER", "Missing event handler: %s", w->handler[k]); return false; }
+                if (!valid) { luat_plcui_error(error, "E_HANDLER", "Missing event handler: %s", handler); return false; }
             }
         }
     }
@@ -667,6 +801,10 @@ void luat_plcui_free_description(plcui_document_t *doc)
         plcui_page_t *page = &doc->pages[i];
         for (unsigned j = 0; j < page->count; ++j) {
             plcui_widget_t *widget = &page->widgets[j];
+            free(widget->image);
+            free(widget->label);
+            free(widget->slider);
+            if (widget->animation) { free(widget->animation->frames); free(widget->animation); }
             if (widget->table) {
                 if (widget->table->cells) {
                     unsigned count = (unsigned)widget->table->rows * widget->table->columns;

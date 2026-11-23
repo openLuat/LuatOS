@@ -39,6 +39,21 @@ typedef struct {
     uint64_t elapsed_ms, total_tx, total_rx;
 } luat_zp_io_failure_t;
 typedef struct {
+    uint32_t generation;
+    uint64_t rx_seq, last_rx_ms, peer_lease_ms, effective_lease_ms;
+    const char *rx_kind;
+} luat_zp_health_t;
+typedef struct {
+    uint32_t generation, request, sdk_replies;
+    const char *sdk_drop_source;
+} luat_zp_get_trace_t;
+int luat_zenoh_pico_get_trace(uint32_t generation, uint32_t request, luat_zp_get_trace_t *out);
+int luat_zenoh_pico_health(uint32_t generation, luat_zp_health_t *snapshot, uint64_t *age_ms);
+
+typedef struct {
+    const char *transport_stage, *sdk_drop_source, *first_failure;
+    uint32_t sdk_replies;
+    int transport_rc, transport_remote_reason;
     uint32_t generation, id, subscriber, request, queryable, query;
     int code, cleanup_code;
     int auth_stage, auth_remote_reason;

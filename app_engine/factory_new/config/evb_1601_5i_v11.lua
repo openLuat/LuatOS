@@ -35,7 +35,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000,
             },
-            need_buffer = true,
             screen_size = 5.0,
             font = { size = 20 },
             backlight = {
@@ -61,11 +60,35 @@ return {
         net_4g = true,
         ethernet = false, -- 未配 CH390 SPI 时 net_manager 会用空 spi 崩掉 Lua
         sd_card = true,
+        app_factory = true,  -- 启用"应用工厂"（录音 → 生成 → 安装，需联网）
+        ai_chat = true,      -- 启用"AI 助手"（WebSocket 会话 + STT/TTS，需联网）
+        cloud_disk = true,   -- 启用"合宙网盘"（IoT 登录 → 云端文件，需联网）
+        other_func = true,   -- 启用"功能测试"（peripherals 外设清单）
+        iot = true,          -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,         -- 启用固件在线升级（需联网）
     },
 
     ui = {
         show_wifi_icon = true,
         show_4g_icon = true,
         show_storage_settings = true,
+        show_app_factory = true,  -- 桌面显示"应用工厂"图标
+        show_ai_chat = true,      -- 桌面显示"AI 助手"图标
+        show_cloud_disk = true,   -- 桌面显示"合宙网盘"图标
+        show_other_func = true,   -- 桌面显示"功能测试"图标
+        show_iot = true,          -- 设置页显示"IOT账号"
+        show_fota = true,         -- 设置页显示"系统更新"
+        show_autostart = true,    -- 设置页显示"后装APP自启"
+    },
+
+    -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====
+    -- 接线取同底板 EVB_Air1601 的另三份配置（7i_v11 / 7i_v12 / 10i_v11 均为 spi_id=1、pin_cs=8），
+    -- SD 插槽在底板上、与屏无关；上板请核对一次 SPI1 与 CS=GPIO8。
+    storage = {
+        sd_card = {
+            spi_id = 1,                  -- SPI 接口 ID
+            pin_cs = 8,                  -- 片选 CS 引脚 GPIO8
+            speed = 40000000,            -- SPI 时钟频率 Hz（高速卡推荐 20MHz+）
+        },
     },
 }

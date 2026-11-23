@@ -213,15 +213,6 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
             LLOGE("mbedtls_cipher_set_iv fail -0x%04x %s", -ret, cctx->cipher);
             goto _error_exit;
         }
-        #if defined(MBEDTLS_GCM_C) || defined(MBEDTLS_CHACHAPOLY_C)
-        if (MBEDTLS_MODE_GCM == cipher_mode || MBEDTLS_CIPHER_CHACHA20_POLY1305 == cipher_type) {
-            ret = mbedtls_cipher_update_ad(&ctx, (const unsigned char*)"1234567890123456", 16);
-            if (ret) {
-                LLOGE("mbedtls_cipher_update_ad fail -0x%04x %s", -ret, cctx->cipher);
-                goto _error_exit;
-            }
-        }
-        #endif
     }
     
 
@@ -244,6 +235,22 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     }
 
     mbedtls_cipher_reset(&ctx);
+    #if defined(MBEDTLS_GCM_C) || defined(MBEDTLS_CHACHAPOLY_C)
+    // GCM / ChaCha20-Poly1305: AAD 必须在 reset 之后、注入明文之前送进去.
+    // 1) 没有 AAD 时也要调用一次(长度 0): mbedtls 2.18 下 GCM 上下文要靠这次调用才真正初始化,
+    //    否则 set_iv 不生效(见提交 342f0d39e);
+    // 2) 这里以前固定塞了 "1234567890123456" 当 AAD, 导致算出的 tag 与标准 GCM(空 AAD)不一致,
+    //    与 OpenSSL 等标准实现互通时 tag 永远对不上. 现改为由调用方传参, 默认空.
+    if (MBEDTLS_MODE_GCM == cipher_mode || MBEDTLS_CIPHER_CHACHA20_POLY1305 == cipher_type) {
+        const unsigned char* aad = (const unsigned char*)(cctx->aad ? cctx->aad : "");
+        size_t aad_size = cctx->aad ? cctx->aad_size : 0;
+        ret = mbedtls_cipher_update_ad(&ctx, aad, aad_size);
+        if (ret) {
+            LLOGE("mbedtls_cipher_update_ad fail -0x%04x %s", -ret, cctx->cipher);
+            goto _error_exit;
+        }
+    }
+    #endif
 
     // 开始注入数据
     block_size = mbedtls_cipher_get_block_size(&ctx);
@@ -253,7 +260,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     	temp = luat_heap_malloc(new_len);
         if (temp == NULL) {
             LLOGE("out of memory when malloc cipher buffer");
-            goto _exit;
+            goto _fail;
         }
         memset(temp, 0, new_len);
     	memcpy(temp, cctx->str, cctx->str_size);
@@ -291,7 +298,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
                     ret = get_pkcs_padding(output, output_size, &output_size);
                     if (ret) {
                         LLOGE("get_pkcs_padding fail 0x%04X %s", -ret, cctx->cipher);
-                        goto _exit;
+                        goto _fail;
                     }
                 } else if (!strcmp("ZEROS_AND_LEN", cctx->pad)) {
                     if (output_size > 0) {
@@ -322,7 +329,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
         }
         if (ret) {
             LLOGE("mbedtls_cipher_update fail 0x%04X %s", -ret, cctx->cipher);
-            goto _exit;
+            goto _fail;
         }
         //else LLOGD("mbedtls_cipher_update, output size=%ld", output_size);
         if (output_size > 0) {
@@ -338,16 +345,17 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     ret = mbedtls_cipher_finish(&ctx, (unsigned char *)output, &output_size);
     if (ret) {
         LLOGE("mbedtls_cipher_finish fail 0x%04X %s", -ret, cctx->cipher);
-        goto _exit;
+        goto _fail;
     }
     // 还有额外的操作
     #if defined(MBEDTLS_GCM_C) || defined(MBEDTLS_CHACHAPOLY_C)
     if (MBEDTLS_MODE_GCM == cipher_mode || MBEDTLS_CIPHER_CHACHA20_POLY1305 == cipher_type) {
-        if ((cctx->flags & 0x1) == 0 && cctx->tag_len == 16) {
-            ret = mbedtls_cipher_check_tag(&ctx, cctx->tag, 16);
+        if ((cctx->flags & 0x1) == 0 && cctx->tag_len > 0) {
+            // 解密: 只要调用方传了 tag 就必须校验通过才返回明文, 校验失败一律报错
+            ret = mbedtls_cipher_check_tag(&ctx, cctx->tag, cctx->tag_len);
             if (ret) {
                 LLOGE("mbedtls_cipher_check_tag fail 0x%04X %s", -ret, cctx->cipher);
-                goto _exit;
+                goto _fail;
             }
         }
         else if (cctx->flags & 0x1) {
@@ -364,18 +372,25 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
         cctx->outlen += output_size;
     }
 
-_exit:
+//_exit:
     if (temp){
         luat_heap_free(temp);
     }
     mbedtls_cipher_free(&ctx);
     return 0;
+_fail:
+    // 运行期失败(去填充失败 / tag 校验失败 / finish 失败等): 保留具体错误码
+    if (temp){
+        luat_heap_free(temp);
+    }
+    mbedtls_cipher_free(&ctx);
+    return ret ? ret : -1;
 _error_exit:
     if (temp){
         luat_heap_free(temp);
     }
 	mbedtls_cipher_free(&ctx);
-	return -1;
+	return ret ? ret : -1;
 }
 
 int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {

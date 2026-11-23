@@ -26,7 +26,7 @@ local COMMAND_TIMEOUT = 5000
 -- luat_atc_define.h: AT_RESULT_NULL。结束自定义指令但不追加结果码。
 local AT_RESULT_NONE = 0xFFFF
 local GNSS_UART = 2
-local gnss_models = {Air8000 = true, Air8000A = true, Air8000G = true, Air8000D = true, Air8000U = true, Air8000N = true, Air780EGH = true, Air780EGP = true, Air780EGG = true}
+local gnss_models = {Air8000 = true, Air8000A = true, Air8000G = true, Air8000D = true, Air8000U = true, Air8000N = true, Air8000AB = true, Air8000DB = true, Air780EGH = true, Air780EGP = true, Air780EGG = true}
 local gnss_session, gnss_owner
 local gnss_tst = 0
 M.rfCaliDone, M.rfNSTDone = 0, 0
@@ -64,6 +64,11 @@ local function command_timeout(ctx)
         -- AT 固件空扫描不回 OK，由命令的总超时返回 ERROR。
         command_finish(ctx, atc.RES_ERROR)
     else
+        -- 超时统一回 +CME ERROR: 100；同时打印型号与 AirLink 就绪状态，
+        -- 便于产线区分“链路未就绪”(AirLink 未启动/从机无响应)与“指令不支持”。
+        log.warn("rfa", "AT timeout", ctx.name, "model",
+            (hmeta and hmeta.model and hmeta.model()) or "nil",
+            "airlink_ready", airlink and airlink.ready and airlink.ready())
         command_cme(ctx, 100)
     end
 end
@@ -445,7 +450,8 @@ local function register_commands()
     for i = commands_bound + 1, #commands do
         local handler = commands[i][2]
         if not atc.bind(commands[i][1], function(kind, ...)
-            local ctx = {src = atc_src_id, port = in_buffs[atc_src_id]}
+            -- 记录命令名，便于超时等异常日志定位是哪个扩展指令
+            local ctx = {src = atc_src_id, port = in_buffs[atc_src_id], name = commands[i][1]}
             active_cmd = ctx
             if not ctx.port then return command_finish(ctx, AT_RESULT_NONE) end
             local ok, err = pcall(handler, ctx, kind, ...)

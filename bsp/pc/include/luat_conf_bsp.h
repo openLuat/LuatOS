@@ -9,7 +9,7 @@
 
 #define LUAT_BSP_PC 1 // 定义平台标识符，供代码中使用
 
-#define LUAT_BSP_VERSION "V2038"
+#define LUAT_BSP_VERSION "V2040"
 // PC模拟器: Lua VM退出后1秒重启, 无需等15秒
 #define LUAT_EXIT_REBOOT_DELAY 1000
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
@@ -266,7 +266,8 @@
 #define LUAT_USE_DISPLAY 1
 // hzfont 字体库支持
 #define LUAT_USE_HZFONT 1
-#define LUAT_CONF_USE_HZFONT_BUILTIN_TTF 1
+// Replace this define with LUAT_CONF_USE_HZFONT_BUILTIN_TTF for Demibold.
+#define LUAT_CONF_USE_HZFONT_BUILTIN_REGULAR 1
 // pinyin 拼音库支持
 #define LUAT_USE_PINYIN 1
 //---------------------

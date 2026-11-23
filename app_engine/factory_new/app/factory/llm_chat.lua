@@ -14,8 +14,7 @@
 local exaudio = require("exaudio")
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require("audio_hw")
--- 录音/播放分路：Air1103 机型录音走语音芯片、播放走内置 DAC（其余机型原样转发 exaudio）
-local audio_route = require("audio_route")
+-- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
 
 -- ==================== 常量 ====================
 
@@ -117,13 +116,14 @@ tts_play_text = function(text)
     tts_playing = true
     sys.publish("AI_CHAT_STATUS", "TTS 播放中")
     local done = false
-    local ok = audio_route.play_start({
+    -- 起播并取回 exaudio 的真实返回值：ok=pcall 结果，ret=起播是否成立，reason=拒绝原因
+    local ok, ret, reason = audio_hw.play_start({
         type = 1, content = tts_voice .. text,
         cbfnc = function(event)
             if event == exaudio.PLAY_DONE then done = true end
         end
     })
-    if ok then
+    if ok and ret then
         -- 起播这一瞬若已离开前台，立刻真停一次：此刻请求已登记，play_stop 能落到
         -- 驱动上；否则只能靠下面的静音分支挡，而它最多等 3s，长文本会漏声到别的页面。
         if not page_active then tts_stop() end
@@ -139,19 +139,22 @@ tts_play_text = function(text)
             -- 静音收口到 AUDIO_CFG_SYNC 统一生效点：exaudio.vol 与 DAC 数字增益一起下发，
             -- 不用再各自拼 _G.project_config 读音量；软增益是驱动级全局的，留在 0 会把
             -- HZV 音轨等其它播放方一起弄哑，所以等这一次请求收尾（或最多 3s）后必须还回去。
-            audio_route.sync(0, true)
+            audio_hw.sync(0, true)
             local tw = 0
             while not done and tw < 3000 do sys.wait(100); tw = tw + 100 end
-            audio_route.sync(nil, false)
+            audio_hw.sync(nil, false)
         end
     else
-        log.warn("llm_chat", "exaudio.play_start TTS 失败")
+        log.warn("llm_chat", "TTS 起播失败:", tostring(ok and reason or ret))
     end
     tts_playing = false
     sys.publish("AI_CHAT_STATUS", "")
 end
 
+tts_play_text = audio_hw.guard(tts_play_text)
+
 tts_stop = function()
+    if audio_hw.busy() then return false, "audio_busy" end
     log.info("llm_chat", "tts_stop 调用, playing=", tts_playing)
     local r1 = pcall(exaudio.play_stop, { type = 1 })
     log.info("llm_chat", "play_stop 结果:", r1)
@@ -180,6 +183,12 @@ tts_init = function()
     if tts_is_v2 and audio_v2 and audio_v2.config_codec_power_ctrl then pcall(audio_v2.config_codec_power_ctrl, false, 0, 0, 0, 0) end
     tts_has_play_start = (type(exaudio.play_start) == "function")
     if not tts_has_play_start then log.warn("llm_chat", "TTS: exaudio.play_start 不存在，无法播放"); return false end
+    -- 打印 TTS 能力面：Air1103 的 type=1 离线 TTS 依赖固件的 audio_v2.tts_pcm_start/read/stop
+    log.info("llm_chat", "TTS 能力: model=", tostring(ac.model),
+        " audio_v2=", tostring(audio_v2 ~= nil),
+        " tts_pcm_start=", tostring(audio_v2 and type(audio_v2.tts_pcm_start)),
+        " tts_pcm_read=", tostring(audio_v2 and type(audio_v2.tts_pcm_read)),
+        " tts_pcm_stop=", tostring(audio_v2 and type(audio_v2.tts_pcm_stop)))
     log.info("llm_chat", "TTS init ok, v2=", tts_is_v2)
     tts_inited = true
     return true
@@ -383,6 +392,9 @@ end
 
 -- ==================== STT ====================
 
+-- 文件上传（见 app/common/http_upload.lua）
+local http_upload = require "http_upload"
+
 local ASR_URL = "https://api.luatos.com/engine/asr/v1/audio/transcriptions"
 
 local function asr_auth_headers()
@@ -404,15 +416,16 @@ local function request_stt(file_path, callback)
     if not socket.localIP() then callback(""); return end
     local headers = asr_auth_headers()
     if not headers then callback(""); return end
-    local bd = "----WebKitFormBoundary" .. tostring(os.time())
-    headers["Content-Type"] = "multipart/form-data; boundary=" .. bd
-    local body = { "--" .. bd .. "\r\n", "Content-Disposition: form-data; name=\"file\"; filename=\"record.amr\"\r\n", "Content-Type: audio/amr\r\n\r\n" }
-    local fdata = io.readFile(file_path)
-    if not fdata then callback(""); return end
-    body[#body + 1] = fdata; body[#body + 1] = "\r\n--" .. bd .. "--\r\n"
     sys.publish("AI_CHAT_STATUS", "语音识别中...")
-    local code, _, rb = http.request("POST", ASR_URL, headers, table.concat(body), { timeout = 30000 }).wait()
-    if code ~= 200 then sys.publish("AI_CHAT_STATUS", ""); callback(""); return end
+    -- 统一走 http_upload：有 httpplus 就分块流式上传，没有才整读（整读大录音会 OOM 打挂 VM）
+    local code, rb = http_upload.post_file({
+        url = ASR_URL, headers = headers, file_path = file_path,
+        filename = "record.amr", content_type = "audio/amr", timeout = 30,
+    })
+    if code ~= 200 then
+        log.warn("llm_chat", "STT 请求失败", tostring(code))
+        sys.publish("AI_CHAT_STATUS", ""); callback(""); return
+    end
     local ok, resp = pcall(json.decode, rb)
     if not ok or type(resp) ~= "table" or resp.code ~= 0 then sys.publish("AI_CHAT_STATUS", ""); callback(""); return end
     local text = (type(resp.value) == "table" and resp.value.text) or ""

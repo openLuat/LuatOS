@@ -62,7 +62,7 @@ SPI/DSI/RGB 面板通常用宏简化命令发送：
 ```c
 #define panel_spi_send_seq(panel, ...) do {                 \
         static const unsigned char d[] = { __VA_ARGS__ };   \
-        spi_panel_send_sequence(panel, d, ARRAY_SIZE(d));   \
+        spi_panel_send_sequence(panel, d, DISPLAY_ARRAY_SIZE(d));   \
     } while (0)
 ```
 

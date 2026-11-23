@@ -1,0 +1,97 @@
+--[[
+@module  ui_main
+@summary UI 窗口聚合入口：core() 核心窗口批 + optional() 可选窗口批（boot_ui 分批调用）
+@version 4.0
+@date    2026.10.16
+@author  江访
+
+=== 执行流程 ===
+
+boot_ui 在 logo 展示期间分批调用本模块的两个函数：
+
+  core()     核心窗口批（进桌面前完成）：
+    ui_theme_themes → idle_win → video_win → wifi_list_win → settings_win
+    → settings_auto_win → settings_theme_win → app_store_win → file_manager_win
+    （settings_win 级联全部设置子页，wifi_list_win 级联 connect/detail）
+
+  optional() 可选窗口批（optional_task 协程调用，features 门控）：
+    factory_win / llm_chat_win / cloud_disk_win / file_transfer_win
+    / other_func_win + uvc_preview_win + rs485_test_win + air8606_test_win + audio_test_win
+
+  消息流: boot_ui 画 logo → 核心批完成 → OPEN_IDLE_WIN → idle_win
+
+=== 关键约束 ===
+
+1. ui_theme_themes 必须第一个加载（决定启动配色，require 时即 restore）
+2. 可选窗口必须与 app_main.optional 的业务层成对、同门控加载——
+   idle_win 入口图标只看 project_config，窗口没加载时点击只是 publish 到空订阅，
+   表现为「图标能显示、点进去没反应」
+3. welcome_win 已删除：logo 由 boot_ui 裸 airui 形状绘制，核心批完成直接进桌面
+]]
+
+local M = {}
+
+-- config.peripherals 里是否声明了音频外设（录音播放测试页只在这种板子上有意义）
+local function has_audio_periph()
+    local list = (_G.project_config or {}).peripherals
+    if type(list) ~= "table" then return false end
+    for i, p in ipairs(list) do
+        if p and p.type == "audio" and p.id then return true end
+    end
+    return false
+end
+
+-- ==================== 核心窗口批：进桌面前完成 ====================
+function M.core()
+    require "ui_theme_themes"   -- 主题预设注册（必须最先：决定启动配色）
+    require "idle_win"          -- 桌面/待机页
+    require "video_win"         -- 全屏播放页（布局驱动：有播放器区域就有入口按钮，无门控）
+    require "wifi_list_win"     -- WiFi 列表页（级联 wifi_connect_win / wifi_detail_win）
+    require "net_settings_win"  -- 网络设置页（级联 net_detail_win）
+    require "settings_win"      -- 设置主页（级联全部设置子页）
+    require "settings_auto_win" -- 后装APP自启动设置页
+    require "settings_theme_win"-- 主题风格选择页
+    require "app_store_win"     -- 应用商店
+    require "file_manager_win"  -- 文件管理
+end
+
+-- ==================== 可选窗口批：features 门控，与业务层成对 ====================
+function M.optional()
+    local _feat = (_G.project_config or {}).features or {}
+
+    -- 门控条件必须与 app_main.optional 对应业务层完全一致
+    if _feat.app_factory then
+        require "factory_win"       -- 应用工厂（订阅 OPEN_APP_FACTORY_WIN）
+    end
+
+    if _feat.ai_chat then
+        require "llm_chat_win"      -- AI 助手聊天窗口（订阅 OPEN_AI_CHAT_WIN）
+    end
+
+    if _feat.cloud_disk then
+        require "cloud_disk_win"    -- 合宙网盘窗口（订阅 OPEN_CLOUD_DISK_WIN）
+    end
+
+    if _feat.file_transfer then
+        require "file_transfer_win" -- 文件传输窗口（订阅 OPEN_FILE_TRANSFER_WIN）
+    end
+
+    if _feat.other_func then
+        require "other_func_win"    -- 功能测试窗口（订阅 OPEN_OTHER_FUNC_WIN）
+        require "uvc_preview_win"   -- UVC 预览页（订阅 OPEN_UVC_PREVIEW_WIN）
+        require "rs485_test_win"    -- RS485 收发测试页（订阅 OPEN_RS485_TEST_WIN）
+        require "air8606_test_win"  -- 外设诊断页（订阅 OPEN_AIR8606_TEST_WIN：串口/CAN/GNSS/EX2网口/对外电源/看门狗）
+        if has_audio_periph() then
+            require "audio_test_win" -- 录音播放测试页（订阅 OPEN_AUDIO_TEST_WIN）
+        end
+    end
+
+    --[[
+    sip_test_win 不在这里加载：SIP 通话窗口整套（sip_phone 协议栈 + Air1103 语音桥）只在
+    功能测试页点开「SIP 通话」时由 other_func_win 懒 require，退出即释放。
+    门槛是 app/sip/sip_gate.lua（features.sip + hw.audio.model=="air1103"），
+    只有 Air8605M / Air8605W 过得了，其余型号既不加载也不出入口。
+    ]]
+end
+
+return M

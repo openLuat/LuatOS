@@ -111,12 +111,15 @@ local excloud = require "excloud"
 
 -- ==================== 常量 ====================
 
+local ac_cfg           = (_G.project_config or {}).aircloud or {}
 local APP_VERSION      = "1.2.0"
 local FSKV_CYCLE_KEY   = "aircloud_report_cycle"   -- 上报周期（秒）
 local FSKV_ENABLE_KEY  = "aircloud_report_enable"  -- 上报总开关
 local FSKV_BOOTCNT_KEY = "aircloud_boot_count"     -- 开机次数累计
-local DEFAULT_CYCLE    = 180                       -- 默认 180 秒（与 Air8780 一致）
-local MIN_CYCLE        = 5                         -- 最小周期
+-- report_cycle / min_cycle 可由 config 的 aircloud 段覆盖；两者都只是初值与下限，
+-- 运行中的实际周期仍由 fskv 记忆与云端 cycle: 指令决定（见 get_report_cycle / set_report_cycle）
+local DEFAULT_CYCLE    = tonumber(ac_cfg.report_cycle) or 180   -- 默认 180 秒（与 Air8780 一致）
+local MIN_CYCLE        = tonumber(ac_cfg.min_cycle) or 5        -- 最小周期
 local MAX_CYCLE        = 86400                     -- 最大周期（1 天）
 local HEARTBEAT_SEC    = 60                        -- 心跳间隔（秒）
                                                  -- 不要用 excloud 默认的 300 秒：平台在线判定
@@ -145,9 +148,12 @@ local battery_cache     = nil    -- { present, level, voltage, charging, usb }
 -- ==================== 小工具 ====================
 
 --- 安全调用：函数存在才调用，异常不影响调用方
+local query_diag = require "sip_query_diag"
 local function safe_call(name, fn, ...)
     if type(fn) ~= "function" then return nil end
+    local token, started = query_diag.begin(name)
     local ok, r1, r2 = pcall(fn, ...)
+    query_diag.finish(name, token, started)
     if not ok then
         log.debug("aircloud", "probe " .. name .. " failed:", r1)
         return nil, nil
@@ -809,16 +815,16 @@ end
 
 -- ==================== 上报主协程 ====================
 
--- SIP 通话期间暂停"定时"上报：语音 RTP 和上报走同一条 4G Airlink 上行，
--- 一次上报的突发流量会把上行挤爆，表现就是对端时不时"卡一下"（RTP 丢包 →
--- 抖动缓冲欠载）。参考工程里根本没有上报模块，这也是工厂多出来的负载之一。
--- 只跳过 timer 触发的轮询；云端下发的立即上报(report:once)仍照常执行。
+-- SIP 通话期间暂停定时上报，减少 Airlink 查询和上报带来的竞争。
+-- 云端下发的立即上报仍照常执行；挂断后恢复正常周期，不集中补发。
 local sip_call_busy = false
-sys.subscribe("SIP_TEST_STATE", function(s)
+local function set_sip_call_busy(s)
     sip_call_busy = s ~= nil and (
         s.state == "incoming" or s.state == "dialing" or s.state == "answering"
         or s.state == "talking" or s.state == "ending")
-end)
+end
+sys.subscribe("SIP_TEST_STATE", set_sip_call_busy)
+sys.subscribe("SIP_STATE", set_sip_call_busy)
 
 local function report_task_func()
     -- 1) 等网络就绪

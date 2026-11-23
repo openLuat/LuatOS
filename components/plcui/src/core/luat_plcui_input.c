@@ -1,5 +1,6 @@
 /** @file luat_plcui_input.c Shared textarea editing and keyboard session coordination. */
 #include "luat_plcui_component.h"
+#include "luat_plcui_keyboard.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -18,6 +19,7 @@ void luat_plcui_input_finish(plcui_document_t *document, bool submit, bool notif
         lv_obj_remove_state(textarea->obj, LV_STATE_FOCUSED);
     }
     if (keyboard && keyboard->obj) {
+        luat_plcui_keyboard_reset(keyboard);
         lv_keyboard_set_textarea(keyboard->obj, NULL);
         lv_obj_add_flag(keyboard->obj, LV_OBJ_FLAG_HIDDEN);
     }
@@ -41,6 +43,7 @@ void luat_plcui_input_begin(plcui_widget_t *textarea)
         if (keyboard->type != PLCUI_KEYBOARD || strcmp(keyboard->id, textarea->keyboard_id)
             || !keyboard->obj || keyboard->disabled || !luat_plcui_component_ancestors_interactive(keyboard)) continue;
         document->keyboard = keyboard;
+        luat_plcui_keyboard_reset(keyboard);
         lv_keyboard_set_textarea(keyboard->obj, textarea->obj);
         lv_obj_remove_flag(keyboard->obj, LV_OBJ_FLAG_HIDDEN);
         /* Reordering remains within the declared container, preserving its clipping. */

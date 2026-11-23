@@ -149,7 +149,7 @@ local function build_ui()
     cycle_slider = theme.slider(card1, {
         x = pad, y = label_y + theme.dp(24), w = card_w - 2 * pad, h = sl_h,
         min = CYCLE_MIN, max = CYCLE_MAX, value = cycle_value,
-        track = theme.C.track, color = theme.SEM.info, knob_color = theme.C.knob,
+        track = theme.C.track, color = theme.SEM.info,
         on_change = function(self)
             local v = self:get_value()
             cycle_value = v
@@ -162,7 +162,6 @@ local function build_ui()
     y = y + card1_h + pad
 
     -- ---------- 卡片2：状态 ----------
-    local cfg_ac = (_G.project_config or {}).aircloud or {}
     local fields = {
         { key = "connected",     label = "连接状态" },
         { key = "authenticated", label = "云端鉴权" },

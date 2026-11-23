@@ -17,7 +17,7 @@
 // 通用设置
 
 /** AIRUI 库版本号 */
-#define AIRUI_VERSION "1.3.1"
+#define AIRUI_VERSION "1.3.2"
 
 /** AIRUI 调用 LVGL timer handler 的周期，单位：毫秒 */
 #define AIRUI_HANDLER_PERIOD_MS 5
@@ -36,22 +36,6 @@
 
 /** 多触点：最多 LVGL 指针输入设备数，当前手动指定tp支持触控为2（indev_ptrs[] 数组大小） */
 #define AIRUI_POINTER_INDEV_MAX 5
-
-/* Per-library limits also apply when AIRUI and PLCUI share one LVGL build. */
-#ifdef LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
-#define AIRUI_IMAGE_CACHE_BYTES LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
-#elif defined(LUAT_USE_AIRUI_SDL2)
-#define AIRUI_IMAGE_CACHE_BYTES (4U * 1024U * 1024U)
-#else
-#define AIRUI_IMAGE_CACHE_BYTES (1024U * 1024U)
-#endif
-#ifdef LUAT_USE_AIRUI_IMAGE_HEADER_CACHE_COUNT
-#define AIRUI_IMAGE_HEADER_CACHE_COUNT LUAT_USE_AIRUI_IMAGE_HEADER_CACHE_COUNT
-#elif defined(LUAT_USE_AIRUI_SDL2)
-#define AIRUI_IMAGE_HEADER_CACHE_COUNT 32U
-#else
-#define AIRUI_IMAGE_HEADER_CACHE_COUNT 64U
-#endif
 
 /* -------------------------------------- 通用可选配置 -------------------------------------- */
 
@@ -92,8 +76,8 @@
     #define LV_COLOR_DEPTH 16
 
     /* 图片缓存配置 */
-    #define LV_CACHE_DEF_SIZE AIRUI_IMAGE_CACHE_BYTES
-    #define LV_IMAGE_HEADER_CACHE_DEF_CNT AIRUI_IMAGE_HEADER_CACHE_COUNT
+    #define LV_CACHE_DEF_SIZE (4 * 1024 * 1024)     /* 4MB */
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 32        /* 32个图片头缓存 */
 
     #define LV_USE_LOG 1
     #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
@@ -174,9 +158,15 @@
     /** LVGL 简单层缓冲区大小 */
     #define LV_DRAW_LAYER_SIMPLE_BUF_SIZE (512 * 1024)
 
-    // Shared LVGL starts with AIRUI limits; init reapplies the active UI limits.
-    #define LV_CACHE_DEF_SIZE AIRUI_IMAGE_CACHE_BYTES
-    #define LV_IMAGE_HEADER_CACHE_DEF_CNT AIRUI_IMAGE_HEADER_CACHE_COUNT
+    // 图片缓存配置 
+    #ifdef LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
+        // 使用自定义img缓存大小
+        #define LV_CACHE_DEF_SIZE LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
+    #else
+        // 使用默认img缓存大小
+        #define LV_CACHE_DEF_SIZE (1024 * 1024)          /* 1024KB */
+    #endif
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 64        /* 64个图片头缓存 */
 
 #else
     /* 默认配置（如果未定义平台） */

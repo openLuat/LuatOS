@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>故障报警记录</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+.tr-bg { position: absolute; background: rgba(9, 44, 62, .5); }
+.tr-bg.alt { background: rgba(6, 28, 40, .45); }
+.th-cell { position: absolute; height: 26px; line-height: 26px; text-align: center; font-size: 12px; color: #8fe3f5; background: rgba(13, 61, 85, .95); }
+.filter-box { position: absolute; border-radius: 4px; background: rgba(9, 44, 62, .9); border: 1px solid rgba(45, 150, 185, .5); }
+.filter-k { position: absolute; font-size: 13px; color: #9fc7d8; }
+.dk { position: absolute; font-size: 13px; color: #9fc7d8; }
+.dv { position: absolute; font-size: 14px; color: #eaf8ff; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage" data-page="alarm">
+
+  <div class="hdr">
+    <div class="hdr-bar"></div>
+    <div class="hdr-wing l"></div>
+    <div class="hdr-wing r"></div>
+    <div class="hdr-title">故障报警记录 - 饮料灌装生产线</div>
+    <div class="hdr-status" style="left:716px;">
+      <div class="hdr-dot"></div>
+      <div class="hdr-state">运行中</div>
+      <div class="hdr-sep"></div>
+    </div>
+  </div>
+  <div class="plc" data-type="label" data-id="clock" data-fontsize="15" data-color="#cfe9f5"
+       data-align="right" data-text="2025-11-11 10:30:00"
+       style="left:800px;top:15px;width:208px;height:20px;font-size:15px;line-height:1;text-align:right;">2025-11-11 10:30:00</div>
+  <div class="plc btn plain sm" data-type="image" data-id="btn_home" data-states="normal,pressed" data-handler="show_overview"
+       style="left:12px;top:9px;width:90px;height:26px;font-size:13px;">◀ 产线总览</div>
+
+  <!-- 级别标签页 -->
+  <div class="plc tab sel" data-type="image" data-states="normal,checked" data-id="tab_all" data-handler="tab_all" style="left:18px;top:68px;width:104px;height:30px;font-size:15px;">全部</div>
+  <div class="plc tab" data-type="image" data-states="normal,checked" data-id="tab_urgent" data-handler="tab_urgent" style="left:130px;top:68px;width:104px;height:30px;font-size:15px;">紧急</div>
+  <div class="plc tab" data-type="image" data-states="normal,checked" data-id="tab_warn" data-handler="tab_warn" style="left:242px;top:68px;width:104px;height:30px;font-size:15px;">警告</div>
+  <div class="plc tab" data-type="image" data-states="normal,checked" data-id="tab_tip" data-handler="tab_tip" style="left:354px;top:68px;width:104px;height:30px;font-size:15px;">提示</div>
+
+  <!-- 左侧过滤 -->
+  <div class="panel" style="left:10px;top:112px;width:190px;height:358px;">
+    <div class="cap" style="min-width:110px;">报警过滤</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="filter-box" style="left:20px;top:152px;width:170px;height:52px;">
+    <div style="padding:8px 10px;font-size:13px;color:#cfeaf7;">报警级别过滤器</div>
+    <div style="position:absolute;right:10px;bottom:6px;font-size:12px;color:#7fe3ff;">▶</div>
+  </div>
+
+  <div class="filter-k" style="left:22px;top:222px;">设备过滤器</div>
+
+  <div class="plc btn plain" data-type="image" data-states="normal,checked" data-id="flt_1" data-handler="flt_1" style="left:22px;top:248px;width:166px;height:34px;">灌装机</div>
+  <div class="plc btn plain" data-type="image" data-states="normal,checked" data-id="flt_2" data-handler="flt_2" style="left:22px;top:290px;width:166px;height:34px;">旋盖机</div>
+  <div class="plc btn plain" data-type="image" data-states="normal,checked" data-id="flt_3" data-handler="flt_3" style="left:22px;top:332px;width:166px;height:34px;">贴标机</div>
+  <div class="plc btn plain" data-type="image" data-states="normal,checked" data-id="flt_4" data-handler="flt_4" style="left:22px;top:374px;width:166px;height:34px;">装箱机</div>
+
+  <!-- 报警列表 -->
+  <div class="panel" style="left:210px;top:112px;width:506px;height:280px;">
+    <div class="cap" style="min-width:120px;">报警列表</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+  <div id="list_area"></div>
+
+  <!-- 选中报警详情 -->
+  <div class="panel" style="left:724px;top:58px;width:292px;height:334px;">
+    <div class="cap" style="min-width:150px;">选中报警详情</div>
+    <div class="cap-mark"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="dk" style="left:738px;top:104px;">设备：</div>
+  <div class="dk" style="left:738px;top:134px;">报警代码：</div>
+  <div class="dk" style="left:738px;top:164px;">可能原因：</div>
+  <div class="dk" style="left:738px;top:216px;">处理建议：</div>
+
+  <div class="hr" style="left:738px;top:200px;width:264px;"></div>
+  <div class="hr" style="left:738px;top:288px;width:264px;"></div>
+
+  <div class="plc" data-type="label" data-id="a_dev" data-fontsize="14" data-color="#ffd479" data-align="left" data-text="旋盖机"
+       style="left:790px;top:104px;width:200px;height:19px;font-size:14px;line-height:1;color:#ffd479;">旋盖机</div>
+  <div class="plc" data-type="label" data-id="a_code" data-fontsize="14" data-color="#ffd479" data-align="left" data-text="CAPP-012"
+       style="left:806px;top:134px;width:200px;height:19px;font-size:14px;line-height:1;color:#ffd479;">CAPP-012</div>
+  <div class="dv" style="left:738px;top:186px;width:270px;line-height:18px;color:#cfeaf7;">扭矩弹簧异常、瓶盖型号不匹配</div>
+  <div class="dv" style="left:738px;top:240px;width:270px;line-height:22px;color:#cfeaf7;">检查扭矩设置、确认瓶盖规格、<br>复位后试运行</div>
+
+  <div class="plc" data-type="label" data-id="a_hint" data-fontsize="12" data-color="#7ff2ff" data-align="left" data-text="共 6 条报警，2 条待处理"
+       style="left:738px;top:352px;width:264px;height:18px;font-size:12px;line-height:1;color:#7ff2ff;">共 6 条报警，2 条待处理</div>
+
+  <!-- 底部操作 -->
+  <div class="panel" style="left:210px;top:400px;width:806px;height:112px;">
+    <div class="cap" style="min-width:110px;">报警操作</div>
+  </div>
+
+  <div class="plc btn" data-type="image" data-id="btn_ack" data-states="normal,pressed" data-handler="on_ack" style="left:236px;top:428px;width:120px;height:32px;">报警确认</div>
+  <div class="plc btn plain" data-type="image" data-id="btn_reset" data-states="normal,pressed" data-handler="on_reset" style="left:366px;top:428px;width:120px;height:32px;">复位故障</div>
+  <div class="plc btn plain" data-type="image" data-id="btn_log" data-states="normal,pressed" data-handler="on_export" style="left:496px;top:428px;width:120px;height:32px;">导出记录</div>
+  <div class="plc btn plain" data-type="image" data-states="normal,checked" data-id="btn_sound" data-handler="on_sound" style="left:626px;top:428px;width:150px;height:32px;">声音开关 开启</div>
+  <div class="plc btn plain" data-type="image" data-states="normal,checked" data-id="btn_popup" data-handler="on_popup" style="left:786px;top:428px;width:150px;height:32px;">弹窗提示 开启</div>
+
+  <div class="plc" data-type="label" data-id="feedback" data-fontsize="12" data-color="#7ff2ff" data-align="left" data-text="报警声音已开启"
+       style="left:236px;top:476px;width:500px;height:16px;font-size:12px;line-height:1;color:#7ff2ff;">报警声音已开启</div>
+
+<script>
+const DATA = [
+  ['10:28:15', '灌装机', '灌装压力偏高', '警告', '处理中'],
+  ['10:15:42', '灌装机', '灌装压力偏高', '警告', '处理中'],
+  ['10:15:42', '旋盖机', '扭矩异常',     '紧急', '未确认'],
+  ['09:52:06', '贴标机', '标签偏移',     '警告', '已恢复'],
+  ['09:30:11', '贴标机', '标签偏移',     '警告', '已恢复'],
+  ['09:30:11', '装箱机', '光电传感器异常', '提示', '已确认']
+];
+const COL = {'警告': '#ffa62b', '紧急': '#ff4d68', '提示': '#4ad8ff'};
+const ST = {'处理中': '#ffa62b', '未确认': '#ff4d68', '已恢复': '#2ee6a0', '已确认': '#4ad8ff'};
+const LEFT = 236, TOP = 152, RH = 34, W = 454;
+const HEAD = ['报警时间', '设备名称', '报警内容', '级别', '处理状态'];
+const COLX = [0, 112, 208, 336, 394];
+const COLW = [112, 96, 128, 58, 86];
+
+const area = document.getElementById('list_area');
+let x = LEFT;
+for (let i = 0; i < HEAD.length; i++) {
+  const d = document.createElement('div');
+  d.className = 'th-cell';
+  d.style.cssText = `left:${LEFT + COLX[i]}px;top:${TOP}px;width:${COLW[i]}px;`;
+  d.textContent = HEAD[i];
+  area.appendChild(d);
+}
+
+DATA.forEach((row, i) => {
+  const y = TOP + 26 + i * RH;
+  const bg = document.createElement('div');
+  bg.className = 'tr-bg' + (i % 2 ? ' alt' : '');
+  bg.style.cssText = `left:${LEFT}px;top:${y}px;width:${W}px;height:${RH}px;`;
+  area.appendChild(bg);
+
+  const colors = ['#cfeaf7', '#eaf8ff', '#eaf8ff', COL[row[3]], ST[row[4]]];
+  for (let c = 0; c < 5; c++) {
+    const d = document.createElement('div');
+    d.className = 'plc';
+    d.dataset.type = 'label';
+    d.dataset.id = 'a' + i + '_' + c;
+    d.dataset.fontsize = '13';
+    d.dataset.color = colors[c];
+    d.dataset.align = 'center';
+    d.dataset.text = row[c];
+    d.style.cssText = `position:absolute;left:${LEFT + COLX[c]}px;top:${y + 9}px;` +
+      `width:${COLW[c]}px;height:17px;font-size:13px;line-height:1;text-align:center;color:${colors[c]};`;
+    d.textContent = row[c];
+    area.appendChild(d);
+  }
+});
+</script>
+</div>
+</body>
+</html>

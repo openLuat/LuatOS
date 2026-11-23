@@ -139,6 +139,18 @@ static void luatos_display_direct_hide(airui_ctx_t *ctx, const void *owner)
     ops->direct_hide(ctx, data->fb_ctx, owner);
 }
 
+#if defined(LUAT_USE_AIRUI_REMOTE)
+int airui_remote_framebuffer(airui_ctx_t *ctx, airui_remote_frame_t *frame)
+{
+    luatos_platform_data_t *data = airui_luatos_get_data(ctx);
+    const airui_luatos_fb_backend_t *ops = luatos_fb_ops(data);
+    if (ops == NULL || ops->committed_frame == NULL) {
+        return AIRUI_ERR_NOT_SUPPORTED;
+    }
+    return ops->committed_frame(ctx, data->fb_ctx, frame);
+}
+#endif
+
 static void luatos_display_wait_vsync(airui_ctx_t *ctx)
 {
     (void)ctx;

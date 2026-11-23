@@ -39,6 +39,12 @@ require 即执行，按以下顺序：
 -- 编译清单：≥800×480 分辨率的配置/驱动（编译系统静态分析）
 local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
+require ("air1103")               -- Air1103 Lua 驱动（含静音帧保活），覆盖固件内置 C 驱动，消除播放周期性爆音
+require ("sipapp_pcm_rx")         -- 55AA MIC 上行帧解析器（Air1103 常驻上行用）
+require ("factory_handoff")       -- 测试页 / 外设命令 FIFO（与 SIP 通话互斥）
+require ("factory_page_exit")     -- 测试页退出闸门（停稳再关窗）
+require ("sip_gate")              -- SIP 通话能力门控（features.sip + Air1103）
+require ("sip_test_win")          -- SIP 通话测试页
 
 -- Engine 引擎主机系列
 require ("eng_1602_5i_v2")        -- Air1602 5寸 720×1280 NV3052C
@@ -70,6 +76,21 @@ require ("eng_8605b_10i_v0")    -- Air8605B 10寸 1024×600 + Airlink UART 4G(78
 require ("eng_8607_10i_v0")      -- Air8607 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + SD（无网络）
 require ("eng_8607a_10i_v0")     -- Air8607A 10寸 1024×600 + PWM背光 + 喇叭(HT6873) + UVC，无 SD（无网络）
 require ("eng_8607w_10i_v0")      -- Air8607W 10寸 1024×600 + Airlink SPI WiFi(Air601S,SPI5) + 非隔离RS485(UART1) + 人脸识别摄像头(UART2) + 喇叭(内置DAC) + SD + USB HID/UVC 二选一（WiFi 版）
+require ("eng_8606_10i_v010")     -- Air8606 10寸 1024×600 + 接口复用装配（SPI2 4G/WiFi、UART2 CAN/RS232、双485、GNSS/EX2、对外电源、看门狗）+ J24 SPI以太网 + Air1103语音 + SD
+
+-- Air8606 专属：接口复用配置 / EX2 伴随诊断 / 外设驱动 / 诊断页（eng_8606_10i_v010 及其依赖）
+require ("air8606_config")       -- Air8606 装配配置生成器（按 mux 选择构建 project_config）
+require ("board_options")        -- Air8606 上电默认装配
+require ("air8606_mux")          -- Air8606 接口复用锁存（fskv，重启生效）
+require ("air8606_peer")         -- EX2 伴随脚本诊断通道（SPI2 airlink sdata）
+require ("air8606_resources")    -- 共享引脚互斥与电源域引用计数
+require ("periph_can")           -- CAN2 收发诊断（uart2 装配为 CAN 时）
+require ("periph_gnss")          -- Air510W GNSS（4G 装配，经 EX2 控制）
+require ("periph_power")         -- 对外 5V/VIN 电源开关（J17/J18）
+require ("periph_peer")          -- EX2 侧 J15 网口诊断
+require ("periph_wdt")           -- Air153D 看门狗状态与手动喂狗请求
+require ("air8606_test_win")     -- 外设诊断页（订阅 OPEN_AIR8606_TEST_WIN）
+require ("settings_mux_win")     -- 接口复用设置页（订阅 OPEN_AIR8606_MUX_WIN）
 
 -- EVB turnkey 开发板系列
 require ("evb_8101_5i_v0")        -- Air8101 5寸 800×480 H050IWV
@@ -91,6 +112,7 @@ require ("periph_uvc")            -- UVC 摄像头外设（纯供电开关，数
 require ("periph_rs485")          -- RS485 外设（多路，DE 方向 + 供电引用计数）
 require ("periph_uart")           -- 通用串口外设（收发计数 + 环形缓冲）
 require ("periph_audio")          -- 录音播放外设（Air1103 等语音芯片，config.hw.audio + type=audio）
+require ("pin_share")             -- 共享 GPIO 职能仲裁（en_pin 与 de_pin 共用一脚时互斥切换）
 require ("usb_mode")              -- USB 外设模式（UVC 摄像头 / USB 键鼠二选一，fskv 持久化）
 require ("tick_time")              -- tick 与毫秒换算（时间一律用 mcu.ticks() + mcu.hz() 表达）
 require ("airlink_pin")            -- WiFi 芯片侧 GPIO 门控（GPIO ≥100 等 airlink 就绪后下发）
@@ -152,6 +174,7 @@ local PROJECT_MAP = {
     ["Engine_Air8607_10inch_1024x600_000_V000"]   = "eng_8607_10i_v0",
     ["Engine_Air8607A_10inch_1024x600_000_V000"]  = "eng_8607a_10i_v0",
     ["Engine_Air8607W_10inch_1024x600_000_V000"]   = "eng_8607w_10i_v0",
+    ["Engine_Air8606_10inch_1024x600_V010"]        = "eng_8606_10i_v010",
     -- 别名：改名前的旧 PROJECT 名与大小写变体，避免填错时静默回退 PC 配置
     --（回退后桌面没有「功能测试」图标，硬件配置也全丢，日志会打「未找到 PROJECT 映射」）
     -- 8605 系列的旧名指向各自的后继型号：8605 由 WiFi+4G 双网改回 4G 单网并补 _4G 后缀，
@@ -198,15 +221,22 @@ local function load_project_config(project)
         return {
             name = "PC", chip = "PC", baseboard = "PC", pins = {},
             hw = {
-                lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = 320, h = 480 }, need_buffer = false, screen_size = 4.0, font = { size = 14 }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+                lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = 320, h = 480 }, screen_size = 4.0, font = { size = 14 }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
                 tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
             },
+            -- 模拟器按能力给足开关，好让设置页/顶栏的每个入口都能点开看
             features = {
                 ethernet = true,
+                iot = true,
+                fota = true,
             },
             ui = {
+                show_ethernet_settings = true,
                 show_brightness_slider = true,
                 show_storage_settings = true,
+                show_iot = true,
+                show_fota = true,
+                show_autostart = true,
             },
         }
     end
@@ -232,25 +262,30 @@ local function load_project_config(project)
     _G.mobile = {}
     function mobile.imei() return "pc_simulator" end
 
-    local w, h, sz, need_buf, fs = 800, 480, 5.0, true, 20
+    local w, h, sz, fs = 800, 480, 5.0, 20
     local _, _, rw, rh = project:find("(%d+)x(%d+)")   -- 正则提取 "720x1280"
     if rw and rh then w, h = tonumber(rw), tonumber(rh) end
     if project:find("7inch") then sz = 7.0 elseif project:find("10inch") then sz = 10.0 end
-    if w > 480 then need_buf, fs = true, 20 end         -- 高分辨率屏需要帧缓冲 + 大字体
 
     return {
         name = "PC", chip = "PC", baseboard = "PC", pins = {},
         hw = {
-            lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = w, h = h }, need_buffer = need_buf, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
+            lcd = { model = "lcd_display_rgb", params = { pin_rst = 36, w = w, h = h }, screen_size = sz, font = { size = fs }, backlight = { pwm_ch = 0, pwm_freq = 1000 } },
             tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
         },
+        -- 模拟器按能力给足开关，好让设置页/顶栏的每个入口都能点开看
         features = {
             wifi = true, ethernet = true,
+            iot = true, fota = true,
         },
         ui = {
             show_wifi_icon = true,
+            show_ethernet_settings = true,
             show_brightness_slider = true,
             show_storage_settings = true,
+            show_iot = true,
+            show_fota = true,
+            show_autostart = true,
         },
     }
 end

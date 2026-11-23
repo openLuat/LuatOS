@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>智能变频恒压供水系统 · SIKEMNS HMI</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+html,body { background:#20272E; font-family:"Microsoft YaHei","PingFang SC",sans-serif; }
+#stage { display:flex; justify-content:center; padding:16px; }
+.screen { position:relative; width:1024px; height:600px; overflow:hidden;
+  background:linear-gradient(#5FB6E8 0%,#8FD0F2 55%,#B8DFF4 72%); color:#123C74; }
+.page { position:absolute; inset:0; display:none; }
+.page.on { display:block; }
+/* ===== 运行画面 ===== */
+#page-run .title { position:absolute; left:0; right:0; top:14px; text-align:center;
+  font-size:30px; font-weight:700; color:#123C74; letter-spacing:2px; }
+#page-run .clock { position:absolute; left:24px; top:14px; font-size:20px; line-height:26px; font-weight:600; }
+.stripes { position:absolute; left:0; right:0; top:150px; height:130px; opacity:.18;
+  background:repeating-linear-gradient(0deg,#2E7FD4 0 2px,transparent 2px 26px); }
+.floor { position:absolute; left:0; right:0; top:400px; bottom:0;
+  background:linear-gradient(#DFE7EC,#E8EDF1); }
+.floor::before { content:""; position:absolute; left:0; right:0; top:0; height:16px; background:#7FB4DA; opacity:.6; }
+.floor .tl { position:absolute; background:#B9C6D2; }
+/* 管道：优先 PLC_SVG 管道素材，object-fill 拉伸 */
+.ph,.pv { position:absolute; object-fit:fill; }
+.ph { height:20px; } .pv { width:16px; }
+.tank { position:absolute; }
+.pump { position:absolute; width:86px; height:132px; object-fit:contain; }
+.pump.st-run { filter:hue-rotate(35deg) saturate(1.5) brightness(1.02); }
+.pump.st-freq { filter:hue-rotate(208deg) saturate(1.55) brightness(1.02); }
+.pump.st-stand { filter:grayscale(.92) brightness(.72); }
+.pump-no { position:absolute; width:86px; text-align:center; font-size:22px; font-weight:700; color:#FFF;
+  text-shadow:0 1px 2px rgba(0,0,0,.55); pointer-events:none; }
+.chip { position:absolute; height:28px; line-height:28px; text-align:center; font-size:15px; font-weight:600;
+  background:#8FE8E8; color:#10345E; border:1px solid #46B8C8; border-radius:4px; }
+.vgroup { position:absolute; left:768px; width:242px; }
+.vgroup .vh { height:26px; line-height:26px; text-align:center; background:#92D84E; color:#123C74;
+  font-size:16px; font-weight:700; border:1px solid #5FA82E; border-radius:4px 4px 0 0; }
+.vgroup .vv { display:flex; align-items:center; background:#FFF; border:1px solid #1E4E8C; border-top:none;
+  height:44px; padding:0 8px; }
+.vgroup .vv input { flex:1; border:none; outline:none; font-size:24px; font-weight:700; color:#16243C;
+  background:transparent; text-align:left; width:100%; }
+.vgroup .vv .unit { font-size:16px; font-weight:600; color:#123C74; margin-left:6px; }
+.btn { position:absolute; display:flex; align-items:center; justify-content:center;
+  font-size:19px; font-weight:700; border-radius:6px; cursor:pointer; border:1px solid rgba(0,0,0,.18);
+  box-shadow:0 2px 4px rgba(0,40,80,.25); }
+.btn:active { transform:translateY(1px); }
+.btn.green { background:linear-gradient(#B4E46C,#8ED246); color:#123C74; }
+.btn.gray  { background:linear-gradient(#E4EAF0,#C2CCD6); color:#22384E; }
+.btn.blue  { background:linear-gradient(#6FB6EA,#3D8AD2); color:#FFF; }
+.btn.gpill { background:linear-gradient(#A8E060,#5FBE30); color:#FFF; }
+.pump-tag { position:absolute; }
+/* ===== 参数页 ===== */
+.form { position:absolute; left:14px; top:18px; width:806px; height:564px; background:#2E7FD4;
+  border:2px solid #1B5CA8; }
+.f-title { position:relative; height:44px; line-height:44px; background:#62C8F0; color:#0A2C5C;
+  text-align:center; font-size:25px; font-weight:700; letter-spacing:3px; }
+.f-title .sub { position:absolute; left:10px; top:0; font-size:16px; letter-spacing:0; font-weight:600; }
+.f-title .sub input { width:52px; height:26px; text-align:center; border:1px solid #0A2C5C; background:#FFF;
+  font-size:16px; font-weight:600; color:#16243C; }
+.f-title .ver { position:absolute; right:12px; top:0; font-size:15px; letter-spacing:0; }
+.frow { position:relative; height:74px; border-top:1px solid #1B5CA8; }
+.frow .cell { position:absolute; top:6px; height:62px; }
+.flab { position:absolute; left:0; top:8px; min-width:76px; max-width:104px; padding:3px 6px;
+  background:#3FD0E8; color:#10345E; border:1px solid #1F96AC; border-radius:3px;
+  font-size:15px; font-weight:600; line-height:19px; text-align:center; }
+.fval { position:absolute; top:12px; width:72px; height:32px; text-align:center;
+  background:#FFF; border:1px solid #1E4E8C; font-size:17px; font-weight:600; color:#16243C;
+  cursor:pointer; }
+.funit { position:absolute; top:16px; font-size:15px; font-weight:600; color:#10345E; white-space:nowrap; }
+.fhelp { position:absolute; top:2px; font-size:12.5px; line-height:16px; color:#0A2C5C; }
+.ftog { position:absolute; top:12px; height:32px; min-width:86px; padding:0 10px; line-height:30px;
+  text-align:center; font-size:15px; font-weight:600; color:#123C74; border-radius:4px; cursor:pointer;
+  border:1px solid rgba(0,0,0,.25); background:linear-gradient(#E4EAF0,#C2CCD6); }
+.ftog.on { background:linear-gradient(#7ED95A,#4CB82E); color:#FFF; }
+.ftog.red { background:linear-gradient(#F07168,#D8433A); color:#FFF; }
+.fsel { position:absolute; top:12px; height:32px; min-width:96px; padding:0 10px; line-height:30px;
+  text-align:center; font-size:15px; font-weight:600; color:#123C74; cursor:pointer;
+  background:#FFF; border:1px solid #1E4E8C; border-radius:3px; }
+.fbtn { position:absolute; top:12px; height:32px; min-width:76px; padding:0 12px; line-height:30px;
+  text-align:center; font-size:15px; font-weight:600; cursor:pointer; border-radius:4px;
+  border:1px solid rgba(0,0,0,.25); background:linear-gradient(#E4EAF0,#C2CCD6); color:#22384E; }
+.nav { position:absolute; left:830px; top:18px; width:180px; }
+.nav .nb { width:172px; height:48px; margin-bottom:8px; line-height:46px; text-align:center;
+  background:#D5DBE0; color:#22384E; border:1px solid #9BA6B0; border-radius:4px;
+  font-size:18px; font-weight:600; cursor:pointer; }
+.nav .nb.sel { background:#92D84E; border-color:#5FA82E; color:#123C74; font-weight:700; }
+.nav .date { margin-top:14px; text-align:center; color:#C8F060; font-size:20px; font-weight:600;
+  line-height:28px; letter-spacing:1px; }
+/* ===== 菜单 / 故障 ===== */
+.menu-grid { position:absolute; left:120px; top:110px; width:784px; display:flex; flex-wrap:wrap; gap:18px; }
+.menu-grid .mi { width:238px; height:86px; line-height:84px; text-align:center; font-size:22px;
+  font-weight:700; color:#FFF; background:linear-gradient(#6FB6EA,#3D8AD2); border:2px solid #2E6FAE;
+  border-radius:10px; cursor:pointer; box-shadow:0 3px 6px rgba(0,40,80,.3); }
+.menu-grid .mi:active { transform:translateY(2px); }
+.menu-grid .mi.gr { background:linear-gradient(#A8E060,#5FBE30); border-color:#4A9A28; color:#123C74; }
+.tbl { position:absolute; left:60px; top:96px; width:904px; border-collapse:collapse; background:#FFF; }
+.tbl th { background:#62C8F0; color:#0A2C5C; font-size:18px; padding:8px 6px; border:1px solid #1B5CA8; }
+.tbl td { font-size:16px; padding:7px 6px; border:1px solid #7FA8CC; color:#16243C; text-align:center; }
+.tbl tr:nth-child(odd) td { background:#EAF4FC; }
+/* ===== 键盘弹层 ===== */
+#keypad { position:absolute; inset:0; background:rgba(10,30,60,.35); display:none; z-index:50; }
+#keypad.on { display:block; }
+.kp { position:absolute; left:560px; top:180px; width:420px; background:#DDE5EC; border:2px solid #1B5CA8;
+  border-radius:8px; padding:12px; }
+.kp .kt { font-size:18px; font-weight:700; color:#123C74; margin-bottom:8px; }
+.kp .kv { width:100%; height:42px; text-align:right; font-size:24px; font-weight:700; padding:0 10px;
+  border:1px solid #1E4E8C; background:#FFF; color:#16243C; margin-bottom:10px; }
+.kp .kb { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.kp .kb b { height:52px; line-height:52px; text-align:center; font-size:22px; background:#FFF;
+  border:1px solid #9BA6B0; border-radius:6px; cursor:pointer; color:#22384E; }
+.kp .kb b:active { background:#B8D8F0; }
+.kp .kb b.ok { background:linear-gradient(#A8E060,#5FBE30); color:#FFF; }
+.kp .kb b.no { background:linear-gradient(#F07168,#D8433A); color:#FFF; }
+/* bake 模式：隐藏动态覆盖件，保留静态铬（值框/值面板），供整页 JPG 烘焙 */
+body.bake #stage { padding:0; }
+body.bake .dyn, body.bake #keypad, body.bake .date { display:none !important; }
+body.bake .vgroup, body.bake input.fval { display:block !important; }
+/* 共享铬层烘焙：7 张表单族页面共用同一张背景，只留渐变/面板/行分隔 */
+body.chrome .flab, body.chrome input.fval, body.chrome .funit, body.chrome .fhelp,
+body.chrome .sub, body.chrome .ver { display:none !important; }
+</style>
+</head>
+<body>
+<div id="stage">
+<div class="screen" id="screen">
+
+  <!-- ==================== 运行画面 ==================== -->
+  <div class="page on" id="page-run">
+    <div class="stripes"></div>
+    <div class="floor">
+      <div class="tl" style="left:0;right:0;top:24px;height:2px"></div>
+      <div class="tl" style="left:0;right:0;top:64px;height:2px"></div>
+      <div class="tl" style="left:180px;top:0;width:2px;height:100%;transform:skewX(-24deg)"></div>
+      <div class="tl" style="left:420px;top:0;width:2px;height:100%"></div>
+      <div class="tl" style="left:660px;top:0;width:2px;height:100%;transform:skewX(24deg)"></div>
+    </div>
+    <div class="title">智能变频恒压供水系统</div>
+    <div class="clock dyn" id="run-clock"><div id="run-date">2026/04/02</div><div id="run-time">16:32:35</div></div>
+    <div class="btn green dyn" style="left:332px;top:64px;width:168px;height:46px" data-plcui="image" data-id="btn_start" onclick="H.start()">自动启动</div>
+    <div class="btn gray dyn" style="left:524px;top:64px;width:168px;height:46px" data-plcui="image" data-id="btn_stop" onclick="H.stop()">自动停止</div>
+
+    <!-- 水箱 + 双总管 + 5 泵 -->
+    <img class="tank" src="assets/tank.svg" style="left:40px;top:240px;width:156px;height:200px">
+    <img class="ph" src="assets/pipe_h.svg" style="left:184px;top:246px;width:562px">
+    <img class="ph" src="assets/pipe_h.svg" style="left:110px;top:466px;width:636px">
+    <img class="pv" src="assets/pipe_v.svg" style="left:188px;top:246px;height:222px">
+    <div id="pumps"></div>
+
+    <!-- 右侧值面板 -->
+    <div class="vgroup dyn" style="top:104px"><div class="vh">当前压力</div><div class="vv">
+      <input id="v_curp" value="0.00" data-plcui="textarea" data-id="v_curp" readonly><span class="unit">Mpa</span></div></div>
+    <div class="vgroup dyn" style="top:186px"><div class="vh">目标压力</div><div class="vv">
+      <input id="v_tgtp" value="2.00" data-plcui="textarea" data-id="v_tgtp"><span class="unit">Mpa</span></div></div>
+    <div class="vgroup dyn" style="top:268px"><div class="vh">水箱液位</div><div class="vv">
+      <input id="v_level" value="0.00" data-plcui="textarea" data-id="v_level" readonly><span class="unit">米</span></div></div>
+    <div class="vgroup dyn" style="top:350px"><div class="vh">运行频率</div><div class="vv">
+      <input id="v_freq" value="50.00" data-plcui="textarea" data-id="v_freq" readonly><span class="unit">Hz</span></div></div>
+
+    <div class="btn gpill dyn" style="left:768px;top:438px;width:242px;height:42px" data-plcui="image" data-id="btn_auto" onclick="H.setMode('auto')">自动</div>
+    <div class="btn blue dyn" style="left:768px;top:488px;width:242px;height:42px" data-plcui="image" data-id="btn_manual" onclick="H.setMode('manual')">手动</div>
+    <div class="btn blue dyn" style="left:768px;top:538px;width:242px;height:42px" data-plcui="image" data-id="btn_fault" onclick="UI.show('page-fault')">故障记录</div>
+    <div class="btn gray dyn" style="left:28px;top:538px;width:160px;height:44px" data-plcui="image" data-id="btn_menu" onclick="UI.show('page-menu')">主菜单</div>
+  </div>
+
+  <!-- ==================== 主菜单 ==================== -->
+  <div class="page" id="page-menu">
+    <div class="f-title" style="position:absolute;left:120px;top:30px;width:784px">主菜单</div>
+    <div class="menu-grid dyn">
+      <div class="mi gr" onclick="UI.show('page-run')">运 行 画 面</div>
+      <div class="mi" onclick="UI.show('p_time')">时 段 供 水</div>
+      <div class="mi" onclick="UI.show('p_out')">出 口 设 置</div>
+      <div class="mi" onclick="UI.show('p_in')">入 口 设 置</div>
+      <div class="mi" onclick="UI.show('p_sleep')">换 泵 休 眠</div>
+      <div class="mi" onclick="UI.show('p_pumps')">泵 组 设 置</div>
+      <div class="mi" onclick="UI.show('p_sys1')">系 统 设 置</div>
+      <div class="mi" onclick="UI.show('p_factory')">厂 家 设 置</div>
+      <div class="mi" onclick="UI.show('page-fault')">故 障 记 录</div>
+      <div class="mi gr" onclick="UI.show('page-run')">返 回</div>
+    </div>
+  </div>
+
+  <!-- ==================== 故障记录 ==================== -->
+  <div class="page" id="page-fault">
+    <div class="f-title" style="position:absolute;left:60px;top:36px;width:904px">故障记录</div>
+    <table class="tbl dyn" id="fault-tbl">
+      <tr><th style="width:90px">序号</th><th>故障内容</th><th style="width:230px">发生时间</th><th style="width:230px">清除时间</th></tr>
+    </table>
+    <div class="btn green dyn" style="left:300px;top:520px;width:180px;height:52px" onclick="H.clearFaults()">清除记录</div>
+    <div class="btn gray dyn" style="left:544px;top:520px;width:180px;height:52px" onclick="UI.show('page-run')">返 回</div>
+    <div class="nav"><div class="date" id="fault-date">2026/04/02<br>16:36:20</div></div>
+  </div>
+
+  <!-- 参数页容器（由 JS 依据 ui-spec 渲染） -->
+  <div id="form-host"></div>
+  <!-- 数值键盘弹层 -->
+  <div id="keypad">
+    <div class="kp">
+      <div class="kt" id="kp-title">数值输入</div>
+      <input class="kv" id="kp-val" value="0">
+      <div class="kb">
+        <b onclick="kpKey('7')">7</b><b onclick="kpKey('8')">8</b><b onclick="kpKey('9')">9</b><b class="no" onclick="kpKey('CLR')">清零</b>
+        <b onclick="kpKey('4')">4</b><b onclick="kpKey('5')">5</b><b onclick="kpKey('6')">6</b><b class="no" onclick="kpKey('DEL')">退格</b>
+        <b onclick="kpKey('1')">1</b><b onclick="kpKey('2')">2</b><b onclick="kpKey('3')">3</b><b class="ok" onclick="kpKey('OK')">确定</b>
+        <b onclick="kpKey('0')">0</b><b onclick="kpKey('.')">.</b><b onclick="kpKey('-')">-</b><b class="no" onclick="kpKey('OK')">取消</b>
+      </div>
+    </div>
+  </div>
+  <script src="spec.js"></script>
+  <script src="app.js"></script>
+</div>
+</div>
+</body>
+</html>

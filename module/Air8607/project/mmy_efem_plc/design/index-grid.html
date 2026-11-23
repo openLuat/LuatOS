@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EFEM-200 晶圆传输模块 · PLC 主控屏 · 原型 1024×600</title>
+<style>
+/* ============================================================
+   洁净白 / 精密仪表盘风
+   与前两套的差异：白色顶栏、4px 小圆角、细线分隔、大留白
+   ============================================================ */
+:root{
+  --bg:#F7F8FA; --panel:#FFFFFF; --panel2:#FAFBFC;
+  --line:#E3E7ED; --line2:#EFF2F6;
+  --ink:#1A2332; --ink2:#5B6675; --ink3:#8A94A6;
+  --acc:#00A870; --acc2:#0B7285; --warn:#D98600; --alarm:#D6336C;
+  --violet:#6D5AE6; --steel:#9AA6B8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{background:#DDE2E8;display:flex;align-items:center;justify-content:center;
+  font-family:"Microsoft YaHei","PingFang SC","Source Han Sans SC",sans-serif;
+  -webkit-font-smoothing:antialiased;}
+.screen{position:relative;width:1024px;height:600px;overflow:hidden;background:var(--bg);
+  font-variant-numeric:tabular-nums;zoom:var(--z,1);}
+
+/* ---------------- 白色顶栏 ---------------- */
+.hdr{position:absolute;left:0;top:0;width:1024px;height:88px;background:#FFFFFF;
+  border-bottom:1px solid var(--line);}
+.logo{position:absolute;left:24px;top:22px;width:44px;height:44px;border-radius:4px;
+  background:var(--acc2);color:#fff;font-size:18px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;letter-spacing:.5px;}
+.brand{position:absolute;left:80px;top:18px;font-size:24px;font-weight:700;color:var(--ink);line-height:30px;}
+.brand small{font-size:16px;font-weight:400;color:var(--ink3);margin-left:10px;}
+.sub{position:absolute;left:80px;top:50px;font-size:16px;color:var(--ink3);line-height:20px;}
+.tabs{position:absolute;left:352px;top:0;height:88px;display:flex;gap:4px;}
+.tab{position:relative;width:96px;height:88px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:var(--ink3);cursor:pointer;user-select:none;}
+.tab.on{color:var(--ink);font-weight:700;}
+.tab.on::after{content:"";position:absolute;left:24px;right:24px;bottom:0;height:2px;background:var(--acc);}
+.clock{position:absolute;right:24px;top:12px;font-size:34px;font-weight:700;color:var(--ink);line-height:40px;}
+.clock-sub{position:absolute;right:24px;top:56px;font-size:16px;color:var(--ink3);}
+
+/* ---------------- 页面与卡片 ---------------- */
+.page{position:absolute;left:0;top:88px;width:1024px;height:512px;display:none;}
+.page.on{display:block;}
+.card{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:4px;}
+.body{position:absolute;left:0;top:0;right:0;bottom:0;}
+.ttl{position:absolute;font-size:18px;font-weight:700;color:var(--ink);line-height:22px;
+  letter-spacing:.5px;}
+.note{position:absolute;font-size:16px;color:var(--ink3);text-align:right;line-height:22px;}
+
+table.t{border-collapse:collapse;font-size:16px;table-layout:fixed;}
+table.t th{font-size:16px;font-weight:700;color:var(--ink3);background:var(--panel2);
+  text-align:left;padding:0 10px;height:34px;border-bottom:1px solid var(--line);}
+table.t td{font-size:16px;color:var(--ink);height:32px;padding:0 10px;
+  border-bottom:1px solid var(--line2);white-space:nowrap;overflow:hidden;}
+table.t tr:last-child td{border-bottom:none;}
+table.t .r{text-align:right;} table.t .c{text-align:center;}
+
+/* 方块（装载口 / 腔体） */
+.blk{position:absolute;border:1px solid var(--steel);border-radius:4px;background:#FCFDFE;}
+.blk.on{border-color:var(--acc);background:#F1FBF7;}
+.blk i{position:absolute;left:8px;right:8px;height:6px;border-radius:2px;background:#E7ECF3;}
+.conn{position:absolute;background:var(--steel);opacity:.55;}
+.conn.on{background:var(--acc);opacity:1;}
+
+#toast{position:absolute;left:312px;top:552px;width:400px;height:32px;border-radius:4px;
+  background:#1A2332;color:#fff;font-size:16px;display:none;
+  align-items:center;justify-content:center;z-index:9;}
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+
+  <div class="hdr">
+    <div class="logo">E</div>
+    <div class="brand">EFEM-200<small>晶圆传输模块</small></div>
+    <div class="sub">PLC 主控 · 双装载口 · 三腔体</div>
+    <div class="tabs" id="tabs"></div>
+    <div class="clock" id="clock">00:15</div>
+    <div class="clock-sub">节拍 24.3 s · 自动运行</div>
+  </div>
+
+  <!-- ================= P1 总览 ================= -->
+  <div class="page on" data-p="0">
+    <div class="card" style="left:12px;top:10px;width:1000px;height:36px;background:#F1FBF7;border-color:#C9EBDD">
+      <div class="body">
+        <span style="position:absolute;left:0;top:0;width:3px;height:36px;background:var(--acc)"></span>
+        <span style="position:absolute;left:18px;top:11px;width:7px;height:7px;border-radius:4px;background:var(--acc)"></span>
+        <span style="position:absolute;left:34px;top:7px;font-size:16px;font-weight:700;color:#0A7A56">自动运行 · Robot 搬运中</span>
+        <span style="position:absolute;left:360px;top:7px;font-size:16px;color:#3E7F6B">FOUP A / 25 片</span>
+        <span style="position:absolute;left:600px;top:7px;font-size:16px;color:#3E7F6B">配方 RCP-28nm-A</span>
+        <span style="position:absolute;right:16px;top:7px;font-size:16px;font-weight:700;color:#0A7A56">WPH 148</span>
+      </div>
+    </div>
+
+    <div class="card" style="left:12px;top:56px;width:660px;height:300px">
+      <div class="ttl" style="left:16px;top:12px">晶圆流转 / WAFER FLOW</div>
+      <div class="note" style="left:400px;top:12px;width:244px">当前：FOUP A → PM2</div>
+      <div class="body" id="flow"></div>
+    </div>
+
+    <div class="card" style="left:684px;top:56px;width:328px;height:300px">
+      <div class="ttl" style="left:16px;top:12px">设备实时</div>
+      <div class="body" id="kpi"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:368px;width:504px;height:130px">
+      <div class="ttl" style="left:16px;top:12px">机械手与真空</div>
+      <div class="note" style="left:320px;top:12px;width:168px">双臂 · 独立 Z 轴</div>
+      <div class="body" id="robot"></div>
+    </div>
+
+    <div class="card" style="left:528px;top:368px;width:484px;height:130px">
+      <div class="ttl" style="left:16px;top:12px">报警与事件</div>
+      <div class="note" style="left:320px;top:12px;width:148px">今日 5 条</div>
+      <div class="body" id="alarms"></div>
+    </div>
+  </div>
+
+  <!-- ================= P2 时序 ================= -->
+  <div class="page" data-p="1">
+    <div class="card" style="left:12px;top:10px;width:1000px;height:270px">
+      <div class="ttl" style="left:16px;top:12px">搬运时序 / 本周期 24.3 s</div>
+      <div class="body" id="gantt"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:290px;width:496px;height:208px">
+      <div class="ttl" style="left:16px;top:12px">各站占用</div>
+      <div class="body" id="occupy"></div>
+    </div>
+
+    <div class="card" style="left:520px;top:290px;width:492px;height:208px">
+      <div class="ttl" style="left:16px;top:12px">节拍分解</div>
+      <div class="body" id="cycle"></div>
+    </div>
+  </div>
+
+  <!-- ================= P3 曲线 ================= -->
+  <div class="page" data-p="2">
+    <div class="card" style="left:12px;top:10px;width:496px;height:242px">
+      <div class="ttl" style="left:16px;top:12px">腔体真空度</div>
+      <div class="body">
+        <div id="c-vac" style="position:absolute;left:16px;top:48px"></div>
+        <div style="position:absolute;left:16px;top:212px;font-size:16px;color:var(--ink3)">纵轴 0.1-1.0 Pa  横轴 30 s</div>
+      </div>
+    </div>
+
+    <div class="card" style="left:520px;top:10px;width:492px;height:242px">
+      <div class="ttl" style="left:16px;top:12px">N2 吹扫压力</div>
+      <div class="body">
+        <div id="c-p" style="position:absolute;left:16px;top:48px"></div>
+        <div style="position:absolute;left:16px;top:212px;font-size:16px;color:var(--ink3)">纵轴 0.2-0.6 MPa  横轴 30 s</div>
+      </div>
+    </div>
+
+    <div class="card" style="left:12px;top:262px;width:1000px;height:236px">
+      <div class="ttl" style="left:16px;top:12px">机械手电流与温度</div>
+      <div class="body">
+        <div style="position:absolute;left:330px;top:14px;display:flex;gap:16px;font-size:16px;color:var(--ink2)">
+          <span><b style="display:inline-block;width:12px;height:2px;background:var(--acc2);vertical-align:4px;margin-right:6px"></b>电流 A</span>
+          <span><b style="display:inline-block;width:12px;height:2px;background:var(--warn);vertical-align:4px;margin-right:6px"></b>温度 ℃</span>
+        </div>
+        <div id="c-cur" style="position:absolute;left:16px;top:48px"></div>
+        <div style="position:absolute;left:16px;top:206px;font-size:16px;color:var(--ink3)">纵轴 0-100  横轴 50 s</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= P4 点位 ================= -->
+  <div class="page" data-p="3">
+    <div class="card" style="left:12px;top:10px;width:330px;height:250px">
+      <div class="ttl" style="left:16px;top:12px">数字输入 DI</div>
+      <div class="note" style="left:180px;top:12px;width:136px">10 / 16</div>
+      <div class="body" id="b-di"></div>
+    </div>
+
+    <div class="card" style="left:352px;top:10px;width:330px;height:250px">
+      <div class="ttl" style="left:16px;top:12px">数字输出 DO</div>
+      <div class="note" style="left:180px;top:12px;width:136px">6 / 12</div>
+      <div class="body" id="b-do"></div>
+    </div>
+
+    <div class="card" style="left:692px;top:10px;width:320px;height:250px">
+      <div class="ttl" style="left:16px;top:12px">模拟量 AI</div>
+      <div class="note" style="left:170px;top:12px;width:136px">4-20 mA</div>
+      <div class="body" id="b-ai"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:272px;width:330px;height:226px">
+      <div class="ttl" style="left:16px;top:12px">模拟量输出 AO</div>
+      <div class="body" id="b-ao"></div>
+    </div>
+
+    <div class="card" style="left:352px;top:272px;width:330px;height:226px">
+      <div class="ttl" style="left:16px;top:12px">强制表</div>
+      <div class="note" style="left:180px;top:12px;width:136px">1 点强制</div>
+      <div class="body" id="b-force"></div>
+    </div>
+
+    <div class="card" style="left:692px;top:272px;width:320px;height:226px">
+      <div class="ttl" style="left:16px;top:12px">扫描与诊断</div>
+      <div class="body" id="b-diag"></div>
+    </div>
+  </div>
+
+  <!-- ================= P5 系统 ================= -->
+  <div class="page" data-p="4">
+    <div class="card" style="left:12px;top:10px;width:496px;height:240px">
+      <div class="ttl" style="left:16px;top:12px">设备信息</div>
+      <div class="body" id="b-info"></div>
+    </div>
+
+    <div class="card" style="left:520px;top:10px;width:492px;height:240px">
+      <div class="ttl" style="left:16px;top:12px">维护计数</div>
+      <div class="note" style="left:320px;top:12px;width:156px">按片数 / 按时间</div>
+      <div class="body" id="b-maint"></div>
+    </div>
+
+    <div class="card" style="left:12px;top:262px;width:330px;height:236px">
+      <div class="ttl" style="left:16px;top:12px">显示与背光</div>
+      <div class="body" id="b-bright"></div>
+    </div>
+
+    <div class="card" style="left:352px;top:262px;width:330px;height:236px">
+      <div class="ttl" style="left:16px;top:12px">运行诊断</div>
+      <div class="body" id="b-run"></div>
+    </div>
+
+    <div class="card" style="left:692px;top:262px;width:320px;height:236px">
+      <div class="ttl" style="left:16px;top:12px">版本与说明</div>
+      <div class="body" id="b-ver"></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+const TABS=['总览','时序','曲线','点位','系统'];
+const C={ok:'#00A870',warn:'#D98600',alarm:'#D6336C',mut:'#8A94A6',
+         ink:'#1A2332',acc2:'#0B7285',violet:'#6D5AE6',steel:'#9AA6B8'};
+
+const mk=(p,l,t,w,h,bg,rad)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px;width:${w}px;height:${h}px;`+
+    `border-radius:${rad===undefined?4:rad}px;background:${bg||'transparent'}`;
+  p.appendChild(d);return d;};
+const put=(p,html,l,t,w)=>{const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${l}px;top:${t}px`+(w?`;width:${w}px`:'');
+  d.innerHTML=html;p.appendChild(d);return d;};
+
+/* ---------------- P1 晶圆流转 ---------------- */
+(function(){
+  const P=document.getElementById('flow');
+  // 装载口
+  const lp=(y,name,on)=>{
+    const b=document.createElement('div');
+    b.className='blk'+(on?' on':'');
+    b.style.cssText+=`;left:24px;top:${y}px;width:112px;height:76px`;
+    b.innerHTML='<i style="top:14px"></i><i style="top:26px"></i><i style="top:38px"></i><i style="top:50px"></i>';
+    P.appendChild(b);
+    put(P,`<span style="font-size:16px;font-weight:700;color:${on?'#00A870':'#5B6675'}">${name}</span>`,34,y+54);
+  };
+  lp(58,'LP1',false); lp(168,'LP2',true);
+
+  // Aligner
+  const al=document.createElement('div');
+  al.className='blk';
+  al.style.cssText+=';left:196px;top:126px;width:92px;height:56px';
+  al.innerHTML='<i style="top:22px"></i>';
+  P.appendChild(al);
+  put(P,`<span style="font-size:16px;color:#5B6675">ALIGNER</span>`,198,188);
+
+  // Robot
+  const rb=mk(P,332,102,104,104,'#FFFFFF',52);
+  rb.style.border='1px solid var(--acc)';
+  put(P,`<span style="font-size:16px;font-weight:700;color:#00A870">ROBOT</span>`,352,140);
+  put(P,`<span style="font-size:16px;color:#8A94A6">双臂</span>`,358,162);
+
+  // 腔体
+  const pm=(y,name,st,on)=>{
+    const b=document.createElement('div');
+    b.className='blk'+(on?' on':'');
+    b.style.cssText+=`;left:500px;top:${y}px;width:132px;height:56px`;
+    P.appendChild(b);
+    put(P,`<span style="font-size:16px;font-weight:700;color:${on?'#00A870':'#1A2332'}">${name}</span>`,512,y+10);
+    put(P,`<span style="font-size:16px;color:${st==='工艺中'?'#00A870':'#8A94A6'}">${st}</span>`,512,y+32);
+  };
+  pm(40,'PM1','待机'); pm(122,'PM2','工艺中',true); pm(204,'PM3','待机');
+
+  // 连线：LP→AL，AL→RB，RB→PM
+  const conn=(l,t,w,h,on)=>{const d=document.createElement('div');
+    d.className='conn'+(on?' on':'');d.style.cssText+=`;left:${l}px;top:${t}px;width:${w}px;height:${h}px`;
+    P.appendChild(d);};
+  // LP 出线走 L 形，汇到 ALIGNER 的垂直中心 154
+  conn(136,95,30,2,false); conn(166,95,2,59,false); conn(166,153,30,2,false);
+  conn(136,205,30,2,false); conn(166,153,2,53,false);
+  conn(288,153,44,2,true);                  // AL -> ROBOT
+  conn(436,153,32,2,true);                  // ROBOT -> 干线
+  conn(468,68,2,164,false);                 // 竖直干线
+  conn(468,68,32,2,false);                  // -> PM1
+  conn(468,150,32,2,true);                  // -> PM2（当前）
+  conn(468,232,32,2,false);                 // -> PM3
+
+  put(P,`<span style="font-size:16px;color:#8A94A6">FOUP A · 第 12 片</span>`,24,268);
+  put(P,`<span style="font-size:16px;color:#00A870;font-weight:700">→ 送入 PM2</span>`,430,268);
+})();
+
+/* ---------------- P1 KPI ---------------- */
+(function(){
+  const P=document.getElementById('kpi');
+  [['吞吐 WPH','148','片 / 时',C.ok],['稼动率','96.4','%',C.ink],
+   ['搬运成功','99.98','%',C.ink],['真空度','0.3','Pa',C.acc2]].forEach((k,i)=>{
+    const x=16+(i%2)*152, y=46+Math.floor(i/2)*112;
+    const c=mk(P,x,y,144,100,'#FAFBFC');
+    c.style.border='1px solid var(--line)';
+    c.innerHTML=`
+      <div style="position:absolute;left:12px;top:10px;font-size:16px;color:#5B6675">${k[0]}</div>
+      <div style="position:absolute;left:12px;top:32px;font-size:34px;font-weight:700;
+        line-height:40px;color:${k[3]}">${k[1]}</div>
+      <div style="position:absolute;left:12px;top:76px;font-size:16px;color:#8A94A6">${k[2]}</div>`;
+  });
+})();
+
+/* ---------------- P1 机械手 ---------------- */
+(function(){
+  const P=document.getElementById('robot');
+  [['R 轴位置','128.4°'],['Z 轴','-12.0 mm'],['夹持真空','-82 kPa'],['伺服电流','2.4 A']]
+  .forEach((r,i)=>{
+    const x=16+i*124;
+    put(P,`
+      <div style="font-size:16px;color:#8A94A6;line-height:20px">${r[0]}</div>
+      <div style="font-size:22px;font-weight:700;color:#1A2332;line-height:28px;margin-top:2px">${r[1]}</div>`,
+      x,48,118);
+  });
+  put(P,`<span style="font-size:16px;color:#8A94A6">双臂独立控制 · 当前 A 臂取片</span>`,16,104,400);
+})();
+
+/* ---------------- P1 报警 ---------------- */
+(function(){
+  const P=document.getElementById('alarms');
+  [['00:12','PM3 腔体抽气时间偏长 0.8 s','warn'],
+   ['23:48','LP2 开盒气压不足，已重试成功','mut'],
+   ['22:30','机械手示教点偏移 0.02 mm，待校准','warn']].forEach((a,i)=>{
+    put(P,`
+      <span style="position:absolute;left:0;top:7px;width:7px;height:7px;border-radius:4px;
+        background:${a[2]==='warn'?C.warn:C.mut}"></span>
+      <span style="position:absolute;left:16px;top:0;font-size:16px;color:#8A94A6">${a[0]}</span>
+      <span style="position:absolute;left:66px;top:0;font-size:16px;color:#1A2332;
+        width:390px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a[1]}</span>`,
+      16,46+i*26,470);
+  });
+})();
+
+/* ---------------- P2 甘特 ---------------- */
+(function(){
+  const P=document.getElementById('gantt');
+  const X0=112, W=856, T=24.3;
+  const rows=[
+    ['LP1',[['开盒',0,2.1,'#9AA6B8'],['取片',2.1,5.4,'#0B7285'],['回位',20.9,24.3,'#9AA6B8']]],
+    ['LP2',[['映射',0,3.2,'#9AA6B8'],['取片',14.2,17.6,'#0B7285'],['关盒',21.4,24.3,'#9AA6B8']]],
+    ['ROBOT',[['取片',5.4,7.6,'#00A870'],['送入',7.6,10.4,'#00A870'],['取回',12.6,14.2,'#00A870'],['送回',17.6,20.9,'#00A870']]],
+    ['ALIGNER',[['对中',7.6,9.8,'#6D5AE6'],['读码',9.8,12.6,'#6D5AE6']]],
+    ['PM2',[['开腔',10.4,11.2,'#D98600'],['工艺',11.2,12.6,'#D98600']]],
+  ];
+  // 时间刻度
+  for(let i=0;i<=5;i++){
+    const x=X0+W*i/5;
+    put(P,`<span style="font-size:16px;color:#8A94A6">${(T*i/5).toFixed(1)}s</span>`,x-10,34);
+    mk(P,x,56,1,142,'#EFF2F6');
+  }
+  rows.forEach((r,ri)=>{
+    const y=58+ri*30;
+    put(P,`<span style="font-size:16px;color:#5B6675">${r[0]}</span>`,16,y+2);
+    r[1].forEach(seg=>{
+      const [name,t0,t1,col]=seg;
+      const l=X0+W*t0/T, w=Math.max(2,W*(t1-t0)/T-2);
+      const d=mk(P,l,y, w,22, col, 2);
+      d.title=name;
+      if(w>46) put(P,`<span style="font-size:16px;color:#FFFFFF">${name}</span>`,l+6,y+2);
+    });
+  });
+  put(P,`<span style="font-size:16px;color:#8A94A6">单周期 24.3 s · 第 12 片 · Robot 占比 38 %</span>`,16,214,600);
+})();
+
+/* ---------------- P2 占用 / 节拍 ---------------- */
+(function(){
+  const P=document.getElementById('occupy');
+  [['LP1',62],['LP2',48],['ROBOT',93],['ALIGNER',41],['PM1',35],['PM2',57]].forEach((o,i)=>{
+    const y=46+i*26;
+    put(P,`<span style="font-size:16px;color:#5B6675">${o[0]}</span>`,16,y,70);
+    mk(P,80,y+7,300,10,'#EFF2F6',5);
+    mk(P,80,y+7,300*o[1]/100,10,o[1]>85?'#D98600':'#00A870',5);
+    put(P,`<span style="font-size:16px;color:#1A2332">${o[1]} %</span>`,392,y-1,60);
+  });
+})();
+
+(function(){
+  const P=document.getElementById('cycle');
+  [['取放片','8.6','s'],['对中读码','5.0','s'],['腔体交接','3.4','s'],['等待','7.3','s']].forEach((c,i)=>{
+    const x=16+(i%2)*236, y=46+Math.floor(i/2)*64;
+    put(P,`
+      <div style="font-size:16px;color:#8A94A6;line-height:20px">${c[0]}</div>
+      <div style="font-size:26px;font-weight:700;color:#1A2332;line-height:32px;margin-top:2px">${c[1]}
+        <span style="font-size:16px;font-weight:400;color:#8A94A6">${c[2]}</span></div>`,x,y,220);
+  });
+  put(P,`<span style="font-size:16px;color:#8A94A6">等待时间主要来自 PM 工艺占用</span>`,16,180,440);
+})();
+
+/* ---------------- 图表 ---------------- */
+function chart(el, series, o){
+  const W=o.w,H=o.h,padL=54,padR=14,padT=8,padB=22;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const X=i=>padL+iw*i, Y=v=>padT+ih-(v-o.min)/(o.max-o.min)*ih;
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  const dv=o.div||3;
+  for(let i=0;i<=dv;i++){
+    const y=padT+ih*i/dv, v=o.max-(o.max-o.min)*i/dv;
+    s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#EFF2F6"/>`;
+    s+=`<text x="${padL-8}" y="${y+5}" text-anchor="end" font-size="14" fill="#8A94A6">${v.toFixed(o.dec||0)}</text>`;
+  }
+  o.xlab.forEach((t,i)=>{
+    const n=o.xlab.length-1,x=padL+iw*i/n;
+    s+=`<text x="${x}" y="${H-6}" text-anchor="${i===0?'start':(i===n?'end':'middle')}" font-size="14" fill="#8A94A6">${t}</text>`;
+  });
+  series.forEach(se=>{
+    const pts=se.d.map((v,i)=>`${X(i/(se.d.length-1)).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    s+=`<polyline points="${pts}" fill="none" stroke="${se.c}" stroke-width="2" stroke-linejoin="round"/>`;
+  });
+  el.innerHTML=s+'</svg>';
+}
+const wave=(n,base,amp,seed)=>Array.from({length:n},(_,i)=>
+  +(base+Math.sin((i+seed)*0.5)*amp+Math.sin((i+seed)*0.13)*amp*0.5).toFixed(2));
+
+chart(document.getElementById('c-vac'),[{c:C.acc2,d:wave(31,0.42,0.16,1)}],
+  {w:452,h:160,min:0.1,max:1.0,dec:1,xlab:['0 s','15 s','30 s']});
+chart(document.getElementById('c-p'),[{c:C.violet,d:wave(31,0.4,0.05,3)}],
+  {w:448,h:160,min:0.2,max:0.6,dec:1,div:4,xlab:['0 s','15 s','30 s']});
+chart(document.getElementById('c-cur'),[{c:C.acc2,d:wave(51,54,10,5)},{c:C.warn,d:wave(51,42,4,7)}],
+  {w:956,h:152,min:0,max:100,dec:0,div:4,xlab:['0 s','25 s','50 s']});
+
+/* ---------------- 表格 ---------------- */
+function table(id, head, rows, w, cols){
+  const P=document.getElementById(id);
+  const t=document.createElement('table');
+  t.className='t';t.style.cssText=`position:absolute;left:16px;top:46px;width:${w}px`;
+  let h='';
+  if(cols){h+='<colgroup>';cols.split(',').forEach(c=>{h+=`<col style="width:${c}px">`;});h+='</colgroup>';}
+  h+='<thead><tr>';
+  head.forEach(x=>{h+=`<th class="${x.a||''}">${x.t}</th>`;});
+  h+='</tr></thead><tbody>';
+  rows.forEach(r=>{h+='<tr>';r.forEach(c=>{
+    const o=(typeof c==='object')?c:{v:c};
+    h+=`<td class="${o.a||''}" ${o.c?`style="color:${o.c}"`:''}>${o.v}</td>`;});h+='</tr>';});
+  t.innerHTML=h+'</tbody>';P.appendChild(t);
+}
+const G='#00A870',M='#8A94A6',A='#D98600';
+table('b-di',[{t:'位号'},{t:'名称'},{t:'状态',a:'r'}],
+  [['I0.0','急停回路',{v:'ON',c:G,a:'r'}],['I0.1','LP1 有盒',{v:'ON',c:G,a:'r'}],
+   ['I0.2','LP2 有盒',{v:'ON',c:G,a:'r'}],['I0.3','门联锁',{v:'ON',c:G,a:'r'}],
+   ['I0.4','真空到位',{v:'ON',c:G,a:'r'}]],296,'70,158,68');
+table('b-do',[{t:'位号'},{t:'名称'},{t:'状态',a:'r'}],
+  [['Q0.0','LP1 开盒',{v:'OFF',c:M,a:'r'}],['Q0.1','LP2 开盒',{v:'ON',c:G,a:'r'}],
+   ['Q0.2','腔体抽气',{v:'ON',c:G,a:'r'}],['Q0.3','N2 吹扫',{v:'OFF',c:M,a:'r'}],
+   ['Q0.4','报警灯黄',{v:'ON',c:A,a:'r'}]],296,'70,158,68');
+table('b-ai',[{t:'通道'},{t:'名称'},{t:'值',a:'r'}],
+  [['AI0','腔体真空','0.31 Pa'],['AI1','N2 压力','0.40 MPa'],
+   ['AI2','R 轴电流','2.4 A'],['AI3','腔体温度','23.6 ℃'],
+   ['AI4','洁净度','ISO 3']],286,'66,114,106');
+
+(function(){
+  const P=document.getElementById('b-ao');
+  [['AO0','R 轴速度','68','%'],['AO1','Z 轴速度','54','%'],['AO2','抽气阀开度','80','%']]
+  .forEach((a,i)=>{
+    put(P,`
+      <span style="position:absolute;left:0;top:2px;font-size:16px;color:#8A94A6;width:56px">${a[0]}</span>
+      <span style="position:absolute;left:58px;top:2px;font-size:16px;color:#1A2332">${a[1]}</span>
+      <span style="position:absolute;right:0;top:0;font-size:18px;font-weight:700;color:#1A2332;white-space:nowrap">${a[2]} <span style="font-size:16px;font-weight:400;color:#8A94A6">${a[3]}</span></span>`,
+      16,46+i*38,300);
+  });
+  put(P,`<span style="font-size:16px;color:#8A94A6">速度给定随配方切换</span>`,16,168,300);
+})();
+
+(function(){
+  const P=document.getElementById('b-force');
+  [['M1.2','LP2 允许','强制']].forEach(f=>{
+    const d=mk(P,16,46,300,32,'#FAFBFC');
+    d.style.border='1px solid var(--line)';
+    d.innerHTML=`
+      <span style="position:absolute;left:12px;top:6px;font-size:16px;color:#1A2332">${f[0]}</span>
+      <span style="position:absolute;left:74px;top:6px;font-size:16px;color:#5B6675">${f[1]}</span>
+      <span style="position:absolute;right:12px;top:6px;font-size:16px;color:${C.warn}">${f[2]}</span>`;
+  });
+  const b=mk(P,16,104,300,34,'#FFFFFF');
+  b.style.cssText+=';border:1px solid var(--acc);display:flex;align-items:center;'+
+    'justify-content:center;font-size:16px;font-weight:700;color:#00A870';
+  b.textContent='全部取消强制';
+  put(P,`<span style="font-size:16px;color:#8A94A6">强制值优先于实时映像，复位后恢复采集</span>`,16,156,300);
+})();
+
+(function(){
+  const P=document.getElementById('b-diag');
+  [['扫描周期','2.8 ms'],['CPU 负荷','22 %'],['AO 周期','2 ms'],['通信错误','0']].forEach((d,i)=>{
+    const x=16+(i%2)*148, y=46+Math.floor(i/2)*60;
+    const c=mk(P,x,y,138,50,'#FAFBFC');
+    c.style.border='1px solid var(--line)';
+    c.innerHTML=`
+      <div style="position:absolute;left:12px;top:6px;font-size:16px;color:#8A94A6">${d[0]}</div>
+      <div style="position:absolute;left:12px;top:24px;font-size:22px;font-weight:700;color:#1A2332">${d[1]}</div>`;
+  });
+})();
+
+/* ---------------- P5 ---------------- */
+table('b-info',[{t:'项目'},{t:'值',a:'r'}],
+  [['设备名称','EFEM-200 晶圆传输模块'],['位号','EFEM-A02'],
+   ['控制器','CTRL-1500 / V3.2.7'],['适用晶圆','300 mm'],['投运日期','2026.05']],462,'150,296');
+
+(function(){
+  const P=document.getElementById('b-maint');
+  [['机械手动作','1,284,300','次'],['LP 开盒','42,180','次'],
+   ['真空过滤器','1,240','h'],['密封圈','860','h']].forEach((m,i)=>{
+    const x=16+(i%2)*230, y=46+Math.floor(i/2)*92;
+    const c=mk(P,x,y,218,82,'#FAFBFC');
+    c.style.border='1px solid var(--line)';
+    c.innerHTML=`
+      <div style="position:absolute;left:14px;top:8px;font-size:16px;color:#5B6675">${m[0]}</div>
+      <div style="position:absolute;left:14px;top:30px;font-size:30px;font-weight:700;color:#1A2332">${m[1]}
+        <span style="font-size:16px;font-weight:400;color:#8A94A6">${m[2]}</span></div>`;
+  });
+})();
+
+(function(){
+  const P=document.getElementById('b-bright');
+  put(P,`<span style="font-size:34px;font-weight:700;color:#00A870">82 %</span>`,16,42);
+  put(P,`<span style="font-size:16px;color:#8A94A6">PWM3（GPIO13）</span>`,120,56);
+  ['夜间','标准','明亮'].forEach((b,i)=>{
+    const d=mk(P,16+i*92,104,84,38,'#FFFFFF');
+    d.style.cssText+=';border:1px solid var(--acc);display:flex;align-items:center;'+
+      'justify-content:center;font-size:16px;font-weight:700;color:#00A870';
+    d.textContent=b;
+  });
+  put(P,`<span style="font-size:16px;color:#8A94A6">洁净间照度高，默认 82 %</span>`,16,164,300);
+})();
+
+(function(){
+  const P=document.getElementById('b-run');
+  [['运行时长','1,240 h'],['搬运片数','86,420'],['故障次数','2'],['缓存占用','31 %']].forEach((d,i)=>{
+    const x=16+(i%2)*148, y=46+Math.floor(i/2)*60;
+    const c=mk(P,x,y,138,50,'#FAFBFC');
+    c.style.border='1px solid var(--line)';
+    c.innerHTML=`
+      <div style="position:absolute;left:12px;top:6px;font-size:16px;color:#8A94A6">${d[0]}</div>
+      <div style="position:absolute;left:12px;top:24px;font-size:22px;font-weight:700;color:#1A2332">${d[1]}</div>`;
+  });
+  put(P,`<span style="font-size:16px;color:#8A94A6">最近无通信错误</span>`,16,180,300);
+})();
+
+(function(){
+  const P=document.getElementById('b-ver');
+  [['PLCUI','v1.0.1'],['固件','Air1603 / 102 号'],['工程','mmy_efem_plc'],['版本','1.0.0']]
+  .forEach((v,i)=>{
+    put(P,`
+      <span style="position:absolute;left:0;top:0;font-size:16px;color:#8A94A6">${v[0]}</span>
+      <span style="position:absolute;right:0;top:0;font-size:16px;color:#1A2332">${v[1]}</span>`,
+      16,46+i*30,292);
+  });
+  put(P,`<span style="font-size:16px;color:#8A94A6;line-height:22px">main.xml 定布局，ui_vars.lua 绑数据；全屏纯色块，零图片</span>`,16,180,292);
+})();
+
+/* ---------------- 页签 / 时钟 ---------------- */
+(function(){
+  const box=document.getElementById('tabs');
+  TABS.forEach((t,i)=>{
+    const el=document.createElement('div');
+    el.className='tab'+(i===0?' on':'');el.textContent=t;
+    el.onclick=()=>{
+      document.querySelectorAll('.tab').forEach((x,j)=>x.classList.toggle('on',j===i));
+      document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===i));
+      toast(t);
+    };
+    box.appendChild(el);
+  });
+  let tm=null;
+  function toast(s){
+    const el=document.getElementById('toast');
+    el.textContent=s;el.style.display='flex';
+    clearTimeout(tm);tm=setTimeout(()=>el.style.display='none',1100);
+  }
+  const ck=document.getElementById('clock');
+  (function tick(){
+    const d=new Date();
+    ck.textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    setTimeout(tick,10000);
+  })();
+  const m=location.hash.match(/p([1-5])/);
+  if(m){const k=+m[1]-1;
+    document.querySelectorAll('.tab').forEach((x,j)=>x.classList.toggle('on',j===k));
+    document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===k));}
+  function fit(){
+    const z=Math.min((window.innerWidth-40)/1024,(window.innerHeight-40)/600,1.5);
+    document.documentElement.style.setProperty('--z',z.toFixed(3));
+  }
+  fit();window.addEventListener('resize',fit);
+})();
+</script>
+</body>
+</html>

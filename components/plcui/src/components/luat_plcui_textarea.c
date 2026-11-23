@@ -35,9 +35,9 @@ static void textarea_event(lv_event_t *event)
             snprintf(widget->text, sizeof(widget->text), "%s", text);
             luat_plcui_emit(widget, PLCUI_CHANGE);
         }
-    } else if (code == LV_EVENT_READY) {
+    } else if (code == LV_EVENT_READY && document->editing == widget) {
         luat_plcui_input_finish(document, true, true);
-    } else if (code == LV_EVENT_CANCEL) {
+    } else if (code == LV_EVENT_CANCEL && document->editing == widget) {
         luat_plcui_input_finish(document, false, true);
     }
 }

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>水处理加药间 PLC 控制屏 · PLCUI 原型 1024×600</title>
+<style>
+/* ===== 色板 / 统一规划（人机浅灰 + 工控状态色） ===== */
+:root{
+  --bg:#EEF1F5; --panel:#FFFFFF; --line:#C7CED8; --grid:#E4E9F0;
+  --ink:#1F2937; --ink2:#5B6675; --main:#1F6FEB;
+  --run:#0FA968; --manual:#E8A317; --stop:#98A2B3; --fault:#E5484D; --maint:#EE7A17;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:1024px;height:600px;overflow:hidden;background:#D8DEE7;
+  font-family:"Microsoft YaHei","PingFang SC",sans-serif;-webkit-font-smoothing:antialiased;}
+.app{position:relative;width:1024px;height:600px;overflow:hidden;
+  --accent:#98A2B3; --flow:#B9C2CE; --banner-bg:#E4E8EE; --banner-ink:#4B5563;
+  background:var(--bg);}
+/* 六态：整屏只换这几支变量，其余版面不变 */
+.app.s-stop  {--accent:#98A2B3;--flow:#B9C2CE;--banner-bg:#E4E8EE;--banner-ink:#4B5563;}
+.app.s-local {--accent:#E8A317;--flow:#D9B25C;--banner-bg:#FFF3D6;--banner-ink:#8A5B00;}
+.app.s-remote{--accent:#F0B429;--flow:#E8C15E;--banner-bg:#FFF6DC;--banner-ink:#8A5B00;}
+.app.s-auto  {--accent:#0FA968;--flow:#0FA968;--banner-bg:#DCF5E9;--banner-ink:#0A6B43;}
+.app.s-fault {--accent:#E5484D;--flow:#E5484D;--banner-bg:#FDE4E5;--banner-ink:#A3161B;}
+.app.s-maint {--accent:#EE7A17;--flow:#EE7A17;--banner-bg:#FDEAD8;--banner-ink:#9A4A05;}
+
+/* 通用面板：纯色用 container（设备端零图片），边框用 border-color */
+.panel{position:absolute;background:var(--panel);border:2px solid var(--line);border-radius:6px;}
+.ttl{position:absolute;font-size:18px;font-weight:700;color:var(--ink);line-height:24px;}
+.sub{font-size:16px;font-weight:400;color:var(--ink2);}
+
+/* ---------- 顶栏 0..96 ---------- */
+.head{position:absolute;left:0;top:0;width:1024px;height:96px;background:var(--panel);
+  border-bottom:3px solid var(--line);}
+.title{position:absolute;left:20px;top:14px;font-size:28px;font-weight:700;color:var(--ink);line-height:34px;}
+.subtitle{position:absolute;left:20px;top:54px;font-size:16px;color:var(--ink2);line-height:22px;}
+.badge{position:absolute;left:266px;top:20px;width:152px;height:56px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--banner-bg);border:2px solid var(--accent);}
+.badge-ico{font-size:26px;color:var(--accent);line-height:1;}
+.badge-txt{font-size:24px;font-weight:700;color:var(--banner-ink);}
+.swlabel{position:absolute;left:452px;top:12px;font-size:16px;color:var(--ink2);}
+.sw{position:absolute;top:38px;width:90px;height:46px;border-radius:6px;cursor:pointer;
+  border:2px solid var(--c);color:var(--c);background:#FFFFFF;font-size:18px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;user-select:none;}
+.sw.on{background:var(--c);color:#FFFFFF;box-shadow:inset 0 0 0 2px #FFFFFF;}
+.sw:active{transform:translateY(1px);}
+.sw0{left:452px;--c:#98A2B3;} .sw1{left:550px;--c:#E8A317;} .sw2{left:648px;--c:#F0B429;}
+.sw3{left:746px;--c:#0FA968;} .sw4{left:844px;--c:#E5484D;} .sw5{left:942px;--c:#EE7A17;}
+
+/* ---------- 状态横幅 100..136 ---------- */
+.banner{position:absolute;left:12px;top:100px;width:1000px;height:36px;border-radius:6px;
+  background:var(--banner-bg);border:2px solid var(--accent);
+  display:flex;align-items:center;gap:12px;padding:0 14px;}
+.banner-ico{font-size:22px;color:var(--accent);}
+.banner-txt{font-size:18px;font-weight:700;color:var(--banner-ink);}
+.banner-hint{font-size:16px;color:var(--banner-ink);margin-left:auto;}
+
+/* ---------- 左侧设备列表 144..488 ---------- */
+.devices{left:12px;top:144px;width:248px;height:344px;}
+.dev-ttl{left:24px;top:152px;}
+.drow{position:absolute;left:24px;width:224px;height:68px;border-radius:6px;
+  background:#F7F9FC;border:2px solid var(--grid);}
+.drow.r0{top:186px;} .drow.r1{top:262px;} .drow.r2{top:338px;} .drow.r3{top:414px;}
+.dname{position:absolute;left:34px;font-size:18px;font-weight:700;color:var(--ink);line-height:22px;}
+.dsub{position:absolute;left:34px;font-size:16px;color:var(--ink2);line-height:20px;}
+.dval{position:absolute;right:20px;font-size:16px;color:var(--ink2);text-align:right;}
+.db_{position:absolute;right:14px;width:76px;height:28px;border-radius:14px;
+  font-size:16px;font-weight:700;color:#FFFFFF;display:flex;align-items:center;justify-content:center;}
+.badge-stop{background:#98A2B3;} .badge-run{background:#0FA968;} .badge-manual{background:#E8A317;}
+.badge-fault{background:#E5484D;} .badge-lock{background:#EE7A17;} .badge-auto{background:#1F6FEB;}
+
+/* ---------- 主区：工艺流程 144..344 ---------- */
+.flow{left:272px;top:144px;width:740px;height:200px;}
+.flow-ttl{left:284px;top:152px;}
+#flowSvg{position:absolute;left:284px;top:180px;}
+.tshell{fill:#FFFFFF;stroke:var(--flow);stroke-width:3;}
+.tliquid{fill:var(--flow);opacity:0.28;}
+.pumpbox{fill:#FFFFFF;stroke:var(--flow);stroke-width:3;}
+.mixerbox{fill:#FFFFFF;stroke:var(--flow);stroke-width:3;}
+.meterbox{fill:#FFFFFF;stroke:var(--flow);stroke-width:3;}
+.pipe{fill:none;stroke:var(--flow);stroke-width:4;stroke-linejoin:round;stroke-linecap:round;}
+.flowline{fill:none;stroke:var(--accent);stroke-width:3;stroke-dasharray:9 7;stroke-linecap:round;}
+.app.s-auto .flowline{animation:dashmove 1.1s linear infinite;}
+@keyframes dashmove{to{stroke-dashoffset:-32;}}
+.svg-lbl{fill:var(--ink);font-size:16px;font-weight:700;}
+.svg-sub{fill:var(--ink2);font-size:16px;}
+.svg-val{fill:var(--accent);font-size:16px;font-weight:700;}
+.maint-tag{fill:#EE7A17;}
+
+/* ---------- PID 面板 352..488 ---------- */
+.pid{left:272px;top:352px;width:740px;height:136px;}
+.pid-ttl{left:284px;top:360px;}
+.pidcol{position:absolute;top:392px;width:212px;height:84px;border-radius:6px;background:#F7F9FC;border:2px solid var(--grid);}
+.pidcol.a{left:284px;} .pidcol.b{left:506px;} .pidcol.c{left:728px;}
+.pidlbl{position:absolute;top:398px;font-size:16px;color:var(--ink2);text-align:center;width:212px;}
+.pidval{position:absolute;top:418px;font-size:28px;font-weight:700;color:var(--ink);text-align:center;width:212px;line-height:32px;}
+.pidval.pv{font-size:40px;color:var(--accent);line-height:42px;}
+.pidunit{font-size:16px;color:var(--ink2);font-weight:400;}
+.barwrap{position:absolute;left:744px;top:474px;width:180px;height:10px;border-radius:5px;background:#D8DEE7;overflow:hidden;}
+.barfill{position:absolute;left:0;top:0;height:10px;width:56%;background:var(--accent);transition:width 0.7s linear;}
+.barcap{position:absolute;left:744px;top:456px;font-size:16px;color:var(--ink2);}
+
+/* ---------- 底部 496..592 ---------- */
+.logs{left:12px;top:496px;width:508px;height:96px;}
+.logs-ttl{left:24px;top:502px;font-size:16px;}
+.logrow{position:absolute;left:24px;width:484px;height:22px;font-size:16px;line-height:22px;color:var(--ink2);}
+.logrow.r0{top:524px;} .logrow.r1{top:546px;} .logrow.r2{top:568px;}
+.logts{color:var(--main);font-weight:700;margin-right:10px;}
+.ops{left:532px;top:496px;width:480px;height:96px;}
+.opbtn{position:absolute;top:516px;width:84px;height:48px;border-radius:6px;border:2px solid var(--main);
+  background:#FFFFFF;color:var(--main);font-size:16px;font-weight:700;cursor:pointer;}
+.opbtn.o0{left:540px;} .opbtn.o1{left:632px;} .opbtn.o2{left:724px;}
+.opbtn.o3{left:816px;} .opbtn.o4{left:908px;border-color:var(--fault);color:var(--fault);}
+.opbtn:disabled{border-color:#C7CED8;color:#AEB6C2;background:#F2F4F7;cursor:not-allowed;}
+.opbtn:not(:disabled):active{transform:translateY(1px);}
+.ophint{position:absolute;left:544px;top:500px;font-size:16px;color:var(--ink2);}
+
+/* ---------- 维护橙罩 / 二次确认弹窗 ---------- */
+.overlay{position:absolute;left:272px;top:144px;width:740px;height:344px;border-radius:6px;
+  background:rgba(238,122,23,0.20);border:3px solid #EE7A17;display:none;
+  align-items:center;justify-content:center;pointer-events:none;}
+.app.s-maint .overlay{display:flex;}
+.lockcard{width:300px;height:120px;background:#FFF7EE;border:4px solid #EE7A17;border-radius:8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;}
+.lockcard .lc1{font-size:40px;color:#EE7A17;font-weight:700;letter-spacing:4px;}
+.lockcard .lc2{font-size:18px;color:#9A4A05;font-weight:700;}
+.modal{position:absolute;left:0;top:0;width:1024px;height:600px;background:rgba(31,41,55,0.45);
+  display:none;align-items:center;justify-content:center;z-index:10;}
+.modal.show{display:flex;}
+.dlg{width:420px;height:220px;background:#FFFFFF;border:3px solid var(--main);border-radius:10px;
+  display:flex;flex-direction:column;padding:18px;}
+.dlg-t{font-size:24px;font-weight:700;color:var(--ink);margin-bottom:14px;}
+.dlg-b{font-size:18px;color:var(--ink2);line-height:28px;flex:1;}
+.dlg-f{display:flex;justify-content:flex-end;gap:16px;}
+.dlg-f button{width:120px;height:48px;font-size:18px;font-weight:700;border-radius:6px;cursor:pointer;
+  border:2px solid var(--main);background:#FFFFFF;color:var(--main);}
+.dlg-f button.primary{background:var(--main);color:#FFFFFF;}
+</style>
+</head>
+<body>
+<div class="app s-stop" id="app">
+
+  <!-- ===== 顶栏 ===== -->
+  <div class="head">
+    <div class="title" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+         data-id="page_title" data-fs="28" data-color="#1F2937">加药间监控</div>
+    <div class="subtitle" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+         data-id="subtitle" data-fs="16" data-color="#5B6675">污水处理 · PAC/PAM 加药 · 出水浊度目标 5 NTU</div>
+
+    <div class="badge" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="state_badge">
+      <span class="badge-ico" id="badgeIco" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+            data-id="badge_ico" data-fs="26" data-color="#98A2B3">■</span>
+      <span class="badge-txt" id="badgeTxt" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+            data-id="badge_txt" data-fs="24" data-color="#4B5563">停机</span>
+    </div>
+
+    <div class="swlabel" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+         data-id="sw_label" data-fs="16" data-color="#5B6675">状态切换器</div>
+    <div class="sw sw0 on" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+         data-id="sw_stop"  data-asset-name="btn_state" data-onclick="to_stop"   onclick="to_stop()">停机</div>
+    <div class="sw sw1"    data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+         data-id="sw_local" data-asset-name="btn_state" data-onclick="to_local"  onclick="to_local()">就地</div>
+    <div class="sw sw2"    data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+         data-id="sw_remote" data-asset-name="btn_state" data-onclick="to_remote" onclick="to_remote()">远程</div>
+    <div class="sw sw3"    data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+         data-id="sw_auto"  data-asset-name="btn_state" data-onclick="ask_auto"  onclick="ask_auto()">自动</div>
+    <div class="sw sw4"    data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+         data-id="sw_fault" data-asset-name="btn_state" data-onclick="to_fault"  onclick="to_fault()">故障</div>
+    <div class="sw sw5"    data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+         data-id="sw_maint" data-asset-name="btn_state" data-onclick="to_maint"  onclick="to_maint()">维护</div>
+  </div>
+
+  <!-- ===== 状态横幅 ===== -->
+  <div class="banner" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="banner">
+    <span class="banner-ico" id="bannerIco" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+          data-id="banner_ico" data-fs="22" data-color="#98A2B3">■</span>
+    <span class="banner-txt" id="bannerTxt" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+          data-id="banner_txt" data-fs="18" data-color="#4B5563">设备未上电 · 全屏只读</span>
+    <span class="banner-hint" id="bannerHint" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+          data-id="banner_hint" data-fs="16" data-color="#4B5563">当前状态：停机</span>
+  </div>
+
+  <!-- ===== 左侧设备列表 ===== -->
+  <div class="panel devices" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="dev_panel">
+    <div class="ttl dev-ttl" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+         data-id="dev_ttl" data-fs="18" data-color="#1F2937">设备列表 / DEVICES</div>
+
+    <div class="drow r0" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="drow_p1">
+      <div class="dname" style="top:8px;" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="dn_p1" data-fs="18" data-color="#1F2937">计量泵 1</div>
+      <div class="dsub" style="top:32px;" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="ds_p1" data-fs="16" data-color="#5B6675">PAC · 变频计量</div>
+      <div class="dval" style="top:10px;right:100px;" id="dv_p1" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="dv_p1" data-fs="16" data-color="#5B6675">0%</div>
+      <div class="db_ badge-stop" style="top:20px;" id="db_p1" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="db_p1" data-fs="16" data-color="#FFFFFF">停止</div>
+    </div>
+
+    <div class="drow r1" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="drow_p2">
+      <div class="dname" style="top:8px;" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="dn_p2" data-fs="18" data-color="#1F2937">计量泵 2</div>
+      <div class="dsub" style="top:32px;" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="ds_p2" data-fs="16" data-color="#5B6675">PAM · 变频计量</div>
+      <div class="dval" style="top:10px;right:100px;" id="dv_p2" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="dv_p2" data-fs="16" data-color="#5B6675">0%</div>
+      <div class="db_ badge-stop" style="top:20px;" id="db_p2" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="db_p2" data-fs="16" data-color="#FFFFFF">停止</div>
+    </div>
+
+    <div class="drow r2" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="drow_mx">
+      <div class="dname" style="top:8px;" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="dn_mx" data-fs="18" data-color="#1F2937">搅拌机</div>
+      <div class="dsub" style="top:32px;" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="ds_mx" data-fs="16" data-color="#5B6675">药剂罐 · 均匀混合</div>
+      <div class="db_ badge-stop" style="top:20px;" id="db_mx" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="db_mx" data-fs="16" data-color="#FFFFFF">停止</div>
+    </div>
+
+    <div class="drow r3" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="drow_lv">
+      <div class="dname" style="top:8px;" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="dn_lv" data-fs="18" data-color="#1F2937">药剂液位</div>
+      <div class="dsub" style="top:32px;" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="ds_lv" data-fs="16" data-color="#5B6675">液位罐 · 4~20mA</div>
+      <div class="dval" style="top:10px;right:100px;" id="dv_lv" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="dv_lv" data-fs="16" data-color="#5B6675">72%</div>
+      <div class="db_ badge-run" style="top:20px;" id="db_lv" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="db_lv" data-fs="16" data-color="#FFFFFF">正常</div>
+    </div>
+  </div>
+
+  <!-- ===== 主区：工艺流程 SVG（随状态变色 / 变灰） ===== -->
+  <div class="panel flow" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="flow_panel">
+    <div class="ttl flow-ttl" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+         data-id="flow_ttl" data-fs="18" data-color="#1F2937">工艺流程 / PROCESS FLOW</div>
+    <div data-plcui="image" data-raster="yes" data-asset="svg" data-asset-src="gen"
+         data-id="flow_svg" data-asset-name="flow_state">
+      <svg id="flowSvg" width="716" height="164" viewBox="0 0 716 164" xmlns="http://www.w3.org/2000/svg">
+        <!-- 药剂罐 + 液位 -->
+        <rect class="tshell" x="14" y="18" width="86" height="104" rx="4"/>
+        <rect id="tankLiquid" class="tliquid" x="20" y="40" width="74" height="76" rx="2"/>
+        <line class="pipe" x1="20" y1="40" x2="94" y2="40"/>
+        <text class="svg-lbl" x="57" y="140" text-anchor="middle">药剂罐</text>
+        <text class="svg-sub" x="57" y="158" text-anchor="middle">PAC / PAM</text>
+        <!-- 罐 → 双泵 汇管 -->
+        <path class="pipe" d="M100 70 H124 M124 44 V96 M124 44 H142 M124 96 H142"/>
+        <path class="flowline" d="M100 70 H124 M124 44 V96 M124 44 H142 M124 96 H142"/>
+        <!-- 计量泵 1 -->
+        <rect class="pumpbox" x="142" y="20" width="74" height="48" rx="6"/>
+        <circle class="pumpbox" cx="179" cy="44" r="13"/>
+        <text class="svg-val" x="179" y="49" text-anchor="middle">P1</text>
+        <text class="svg-lbl" x="179" y="84" text-anchor="middle">PAC 计量泵</text>
+        <!-- 计量泵 2 -->
+        <rect class="pumpbox" x="142" y="72" width="74" height="48" rx="6"/>
+        <circle class="pumpbox" cx="179" cy="96" r="13"/>
+        <text class="svg-val" x="179" y="101" text-anchor="middle">P2</text>
+        <text class="svg-lbl" x="179" y="136" text-anchor="middle">PAM 计量泵</text>
+        <!-- 泵 → 混合器 汇管 -->
+        <path class="pipe" d="M216 44 H248 M216 96 H248 M248 44 V96 M248 70 H282"/>
+        <path class="flowline" d="M216 44 H248 M216 96 H248 M248 44 V96 M248 70 H282"/>
+        <!-- 管道混合器 -->
+        <rect class="mixerbox" x="282" y="28" width="134" height="84" rx="6"/>
+        <line class="pipe" x1="306" y1="38" x2="392" y2="102"/>
+        <line class="pipe" x1="392" y1="38" x2="306" y2="102"/>
+        <circle class="mixerbox" cx="349" cy="70" r="14"/>
+        <text class="svg-lbl" x="349" y="132" text-anchor="middle">管道混合器</text>
+        <!-- 混合器 → 流量计 -->
+        <path class="pipe" d="M416 70 H466"/>
+        <path class="flowline" d="M416 70 H466"/>
+        <!-- 出水流量计 -->
+        <circle class="meterbox" cx="506" cy="70" r="40"/>
+        <text class="svg-val" x="506" y="64" text-anchor="middle" font-size="20">FT</text>
+        <text class="svg-sub" x="506" y="86" text-anchor="middle">m3/h</text>
+        <text class="svg-lbl" x="506" y="132" text-anchor="middle">出水流量计</text>
+        <!-- 出水 -->
+        <path class="pipe" d="M546 70 H652"/>
+        <path class="flowline" d="M546 70 H652"/>
+        <path class="pipe" d="M652 70 L640 62 M652 70 L640 78"/>
+        <text class="svg-lbl" x="690" y="64" text-anchor="middle">出水</text>
+        <text class="svg-sub" x="690" y="86" text-anchor="middle">≤5 NTU</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ===== PID 调节面板 ===== -->
+  <div class="panel pid" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="pid_panel">
+    <div class="ttl pid-ttl" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+         data-id="pid_ttl" data-fs="18" data-color="#1F2937">PID 调节 · 出水浊度 (NTU)</div>
+
+    <div class="pidcol a" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="pid_sp">
+      <div class="pidlbl" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="pid_sp_l" data-fs="16" data-color="#5B6675">SP 设定值</div>
+      <div class="pidval" id="pidSp" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="pid_sp_v" data-fs="28" data-color="#1F2937">5.0<span class="pidunit"> NTU</span></div>
+    </div>
+    <div class="pidcol b" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="pid_pv">
+      <div class="pidlbl" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="pid_pv_l" data-fs="16" data-color="#5B6675">PV 测量值</div>
+      <div class="pidval pv" id="pidPv" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="pid_pv_v" data-fs="40" data-color="#98A2B3">--<span class="pidunit"> NTU</span></div>
+    </div>
+    <div class="pidcol c" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="pid_mv">
+      <div class="pidlbl" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="pid_mv_l" data-fs="16" data-color="#5B6675">MV 输出</div>
+      <div class="pidval" id="pidMv" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="pid_mv_v" data-fs="28" data-color="#1F2937">0<span class="pidunit"> %</span></div>
+    </div>
+    <div class="barcap" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+         data-id="mv_cap" data-fs="16" data-color="#5B6675">输出百分比</div>
+    <div class="barwrap" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="mv_slot">
+      <div class="barfill" id="mvBar" data-plcui="slider" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="mv_bar" data-min="0" data-max="100" data-value="0"></div>
+    </div>
+  </div>
+
+  <!-- ===== 维护橙罩 ===== -->
+  <div class="overlay" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="maint_overlay">
+    <div class="lockcard">
+      <div class="lc1" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="lock_ico" data-fs="40" data-color="#EE7A17">挂牌</div>
+      <div class="lc2" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+           data-id="lock_txt" data-fs="18" data-color="#9A4A05">检修中 · 操作锁定</div>
+    </div>
+  </div>
+
+  <!-- ===== 底部：事件记录 + 操作区 ===== -->
+  <div class="panel logs" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="log_panel">
+    <div class="ttl logs-ttl" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+         data-id="log_ttl" data-fs="16" data-color="#1F2937">事件记录 / EVENT LOG</div>
+    <div class="logrow r0" data-plcui="table" data-raster="no" data-asset="html" data-asset-src="hand" data-id="log_r0"><span class="logts">--:--:--</span>系统初始化完成，等待操作</div>
+    <div class="logrow r1" data-plcui="table" data-raster="no" data-asset="html" data-asset-src="hand" data-id="log_r1"><span class="logts">--:--:--</span>PLC 通讯建立 · 从站 1</div>
+    <div class="logrow r2" data-plcui="table" data-raster="no" data-asset="html" data-asset-src="hand" data-id="log_r2"><span class="logts">--:--:--</span>当前状态：停机</div>
+  </div>
+
+  <div class="panel ops" data-plcui="container" data-raster="no" data-asset="html" data-asset-src="hand" data-id="ops_panel">
+    <div class="ophint" id="opHint" data-plcui="label" data-raster="no" data-asset="html" data-asset-src="hand"
+         data-id="op_hint" data-fs="16" data-color="#5B6675">操作区 · 全部禁用</div>
+    <button class="opbtn o0" id="btnP1" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+            data-id="btn_p1" data-asset-name="btn_op" data-onclick="toggle_p1" onclick="toggle_p1()" disabled>泵1启停</button>
+    <button class="opbtn o1" id="btnP2" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+            data-id="btn_p2" data-asset-name="btn_op" data-onclick="toggle_p2" onclick="toggle_p2()" disabled>泵2启停</button>
+    <button class="opbtn o2" id="btnMx" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+            data-id="btn_mx" data-asset-name="btn_op" data-onclick="toggle_mx" onclick="toggle_mx()" disabled>搅拌机</button>
+    <button class="opbtn o3" id="btnMode" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+            data-id="btn_mode" data-asset-name="btn_op" data-onclick="ask_auto" onclick="ask_auto()" disabled>手/自动</button>
+    <button class="opbtn o4" id="btnRst" data-plcui="image" data-raster="yes" data-asset="html" data-asset-src="hand"
+            data-id="btn_rst" data-asset-name="btn_op" data-onclick="reset_fault" onclick="reset_fault()" disabled>故障复位</button>
+  </div>
+
+  <!-- ===== 手自动切换 二次确认弹窗（PLCUI 降级为两级按，见 fallback.md） ===== -->
+  <div class="modal" id="modal">
+    <div class="dlg">
+      <div class="dlg-t">■ 操作确认</div>
+      <div class="dlg-b" id="modalMsg">确认切换控制模式？</div>
+      <div class="dlg-f">
+        <button id="modalCancel" onclick="modal_cancel()">取消</button>
+        <button class="primary" id="modalOk" onclick="modal_ok()">确认</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================= 状态定义（6 态，缺一不可） ================= */
+var STATE = {
+  stop:   {name:'停机',   ico:'■', banner:'设备未上电 · 全屏只读',      hint:'当前状态：停机'},
+  local:  {name:'就地手动', ico:'■', banner:'现场控制中 · HMI 只读',     hint:'操作权在现场'},
+  remote: {name:'远程手动', ico:'■', banner:'远程手动 · 单操已解锁',     hint:'HMI 可单操'},
+  auto:   {name:'自动运行', ico:'■', banner:'自动运行 · PID 调节中',     hint:'MV 波动 · 液位下降'},
+  fault:  {name:'故障',   ico:'▲', banner:'故障 · 联锁跳车 · 请复位',    hint:'设备已停机'},
+  maint:  {name:'维护检修', ico:'■', banner:'维护检修 · 挂牌 · 操作锁定', hint:'禁止一切操作'}
+};
+var cur = 'stop';
+var devRun = {p1:false, p2:false, mx:false};
+var level = 72;
+var pv = null, mv = 0;
+var autoTimer = null;
+var pendingMode = null;
+
+function $(id){ return document.getElementById(id); }
+function ts(){
+  var d = new Date();
+  function p(n){ return n < 10 ? '0'+n : ''+n; }
+  return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
+
+/* 事件记录：最新在最上，显示 3 行 */
+var events = [];
+function pushEvent(text){
+  events.unshift({t:ts(), s:text});
+  if (events.length > 30) events.pop();
+  renderEvents();
+}
+function renderEvents(){
+  var show = events.slice(0, 3);
+  while (show.length < 3) show.push({t:'--:--:--', s:''});
+  for (var i=0; i<3; i++){
+    var el = $('log_r'+i);
+    el.innerHTML = '<span class="logts">'+show[i].t+'</span>'+show[i].s;
+  }
+}
+
+/* 设备徽章 */
+function setBadge(id, cls, txt){
+  var el = $(id);
+  el.className = 'db_ ' + cls;
+  el.textContent = txt;
+}
+
+/* 液位：罐内液面随 level 变化 */
+function renderLevel(){
+  var top = 40 + (100 - level) * 0.76;
+  $('tankLiquid').setAttribute('y', top.toFixed(1));
+  $('tankLiquid').setAttribute('height', (116 - top).toFixed(1));
+  $('dv_lv').textContent = Math.round(level) + '%';
+}
+
+/* PID 数值 */
+function renderPid(){
+  $('pidPv').innerHTML = (pv === null ? '--' : pv.toFixed(1)) + '<span class="pidunit"> NTU</span>';
+  $('pidMv').innerHTML = Math.round(mv) + '<span class="pidunit"> %</span>';
+  $('mvBar').style.width = Math.round(mv) + '%';
+}
+
+/* 泵输出显示 */
+function renderDevVal(){
+  $('dv_p1').textContent = Math.round(mv) + '%';
+  $('dv_p2').textContent = Math.round(mv * 0.8) + '%';
+}
+
+/* 自动态：PID 缓慢波动 + 液位缓慢下降 */
+function startAuto(){
+  stopAuto();
+  autoTimer = setInterval(function(){
+    pv = 4.2 + (Math.random() - 0.5) * 0.7;
+    if (pv < 3.6) pv = 3.6;
+    if (pv > 4.9) pv = 4.9;
+    mv = 56 + (Math.random() - 0.5) * 12;
+    level -= 0.12;
+    if (level < 15) level = 15;
+    renderPid();
+    renderDevVal();
+    renderLevel();
+  }, 900);
+}
+function stopAuto(){
+  if (autoTimer !== null){ clearInterval(autoTimer); autoTimer = null; }
+}
+
+/* 六态切换：整屏进入该状态 */
+function applyState(key, logText){
+  cur = key;
+  $('app').className = 'app s-' + key;
+  var cfg = STATE[key];
+  $('badgeTxt').textContent = cfg.name;
+  $('badgeIco').textContent = cfg.ico;
+  $('bannerIco').textContent = cfg.ico;
+  $('bannerTxt').textContent = cfg.banner;
+  $('bannerHint').textContent = cfg.hint;
+
+  var sws = ['stop','local','remote','auto','fault','maint'];
+  for (var i=0; i<sws.length; i++){
+    var el = document.querySelector('.sw' + i);
+    if (sws[i] === key) el.classList.add('on'); else el.classList.remove('on');
+  }
+
+  /* 操作按钮：按状态使能/禁用 */
+  var single = (key === 'remote');
+  $('btnP1').disabled  = !single;
+  $('btnP2').disabled  = !single;
+  $('btnMx').disabled  = !single;
+  $('btnMode').disabled = !(key === 'remote' || key === 'auto');
+  $('btnRst').disabled = !(key === 'fault');
+  $('opHint').textContent = {
+    stop:'操作区 · 全部禁用', local:'现场控制中 · HMI 只读', remote:'远程单操 · 已解锁',
+    auto:'PID 自动调节中', fault:'仅故障复位可用', maint:'挂牌锁定 · 禁止操作'
+  }[key];
+
+  /* 设备徽章 + PID 数值按状态表达 */
+  stopAuto();
+  if (key === 'stop'){
+    setBadge('db_p1','badge-stop','停止'); setBadge('db_p2','badge-stop','停止');
+    setBadge('db_mx','badge-stop','停止'); setBadge('db_lv','badge-run','正常');
+    pv = null; mv = 0;
+  } else if (key === 'local'){
+    setBadge('db_p1','badge-manual','就地'); setBadge('db_p2','badge-manual','就地');
+    setBadge('db_mx','badge-manual','就地'); setBadge('db_lv','badge-run','正常');
+    pv = 4.6; mv = 48;
+  } else if (key === 'remote'){
+    setBadge('db_p1', devRun.p1 ? 'badge-run':'badge-stop', devRun.p1 ? '远程':'停止');
+    setBadge('db_p2', devRun.p2 ? 'badge-run':'badge-stop', devRun.p2 ? '远程':'停止');
+    setBadge('db_mx', devRun.mx ? 'badge-run':'badge-stop', devRun.mx ? '远程':'停止');
+    setBadge('db_lv','badge-run','正常');
+    if (pv === null) pv = 4.5; mv = 45;
+  } else if (key === 'auto'){
+    setBadge('db_p1','badge-auto','自动'); setBadge('db_p2','badge-auto','自动');
+    setBadge('db_mx','badge-auto','自动'); setBadge('db_lv','badge-run','正常');
+    pv = 4.2; mv = 56;
+    startAuto();
+  } else if (key === 'fault'){
+    setBadge('db_p1','badge-fault','故障'); setBadge('db_p2','badge-fault','故障');
+    setBadge('db_mx','badge-fault','故障'); setBadge('db_lv','badge-fault','低液位');
+    pv = null; mv = 0;
+  } else if (key === 'maint'){
+    setBadge('db_p1','badge-lock','锁定'); setBadge('db_p2','badge-lock','锁定');
+    setBadge('db_mx','badge-lock','锁定'); setBadge('db_lv','badge-lock','锁定');
+    pv = null; mv = 0;
+  }
+  renderPid(); renderDevVal(); renderLevel();
+  pushEvent(logText || ('状态切换 -> ' + cfg.name));
+}
+
+/* 六个状态切换入口（事件名对应 XML 的 on-click） */
+function to_stop(){ applyState('stop'); }
+function to_local(){ applyState('local'); }
+function to_remote(){ applyState('remote'); }
+function to_fault(){ applyState('fault'); }
+function to_maint(){ applyState('maint'); }
+
+/* 手自动切换：二次确认弹窗 */
+function ask_auto(){
+  if (cur === 'auto'){ pendingMode = 'remote'; $('modalMsg').textContent = '确认从「自动运行」切换到「远程手动」？'; }
+  else { pendingMode = 'auto'; $('modalMsg').textContent = '确认从「远程手动」切换到「自动运行 (PID)」？'; }
+  $('modal').classList.add('show');
+}
+function modal_cancel(){ pendingMode = null; $('modal').classList.remove('show'); }
+function modal_ok(){
+  var target = pendingMode;
+  $('modal').classList.remove('show');
+  pendingMode = null;
+  if (target === 'auto') applyState('auto', '确认切换 -> 自动运行 / PID 投入');
+  else if (target === 'remote') applyState('remote', '确认切换 -> 远程手动 / PID 退出');
+}
+
+/* 远程单操 */
+function toggle_p1(){
+  devRun.p1 = !devRun.p1;
+  setBadge('db_p1', devRun.p1 ? 'badge-run':'badge-stop', devRun.p1 ? '远程':'停止');
+  pushEvent('单操：PAC 计量泵 ' + (devRun.p1 ? '启动':'停止'));
+}
+function toggle_p2(){
+  devRun.p2 = !devRun.p2;
+  setBadge('db_p2', devRun.p2 ? 'badge-run':'badge-stop', devRun.p2 ? '远程':'停止');
+  pushEvent('单操：PAM 计量泵 ' + (devRun.p2 ? '启动':'停止'));
+}
+function toggle_mx(){
+  devRun.mx = !devRun.mx;
+  setBadge('db_mx', devRun.mx ? 'badge-run':'badge-stop', devRun.mx ? '远程':'停止');
+  pushEvent('单操：搅拌机 ' + (devRun.mx ? '启动':'停止'));
+}
+function reset_fault(){
+  if (cur !== 'fault') return;
+  applyState('stop', '故障复位 -> 系统回到停机');
+}
+
+/* 初始：停机态，写一条事件 */
+pushEvent('系统初始化完成，等待操作');
+pushEvent('PLC 通讯建立 · 从站 1');
+applyState('stop', '当前状态：停机');
+</script>
+</body>
+</html>

@@ -56,12 +56,15 @@ function M.core()
 
     -- 状态提供 app 模块（系统时间/4G信号/WiFi信号 定时更新，发布 STATUS_* 给状态栏）
     require "status_provider_app"
+    -- 联网类业务：无联网能力的型号在 config 里不写这两个键，整段不加载
+    -- （fota_app 加载即 libfota3.request()，会轮询等网，不门控的话无网板每次开机空转 60 秒）
+    local feat = (_G.project_config or {}).features or {}
     -- IOT 账号模块（合宙 IoT 平台登录/登出，需联网，订阅 LOGIN_REQUEST/LOGOUT_REQUEST）
-    require "settings_iot_app"
+    if feat.iot then require "settings_iot_app" end
     -- 设置主模块（级联 require 所有 settings_*_app 子模块，fskv 初始化和配置加载）
     require "settings_app"
     -- FOTA 固件升级模块（订阅 IP_READY，定时向 iot.openluat.com 检查固件更新）
-    require "fota_app"
+    if feat.fota then require "fota_app" end
     -- 文件管理业务层（file_manager_win 也会 require，这里保证启动即注册）
     require "file_manager_app"
 end
@@ -165,8 +168,13 @@ function M.optional()
     -- 必须在 init_all 之后加载：此时外设 handle 已登记，直接挂接，不会重复登记
     if feat.other_func then
         require "other_func_app"
-        -- SIP 通话业务层改为懒加载：仅在打开 SIP 页时由 sip_test_win 动态 require，
-        -- 退出时释放音频资源，避免 SIP 模块常驻内存与通用录音(UART6)抢实时资源导致爆音。
+        --[[
+        SIP 通话业务层不在这里加载：整套（sip_phone 协议栈 + Air1103 语音桥）由
+        ui/sip_test_win 在首次打开「SIP通话」时懒 require，退出关窗即释放音频资源，
+        避免常驻内存、也避免和通用录音抢 Air1103 的 UART6 实时资源导致爆音。
+        是否开这个功能由 app/sip/sip_gate.lua 决定（features.sip + hw.audio.model=="air1103"），
+        只有 Air8605M / Air8605W 过得了。
+        ]]
     end
 end
 

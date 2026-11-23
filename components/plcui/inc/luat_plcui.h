@@ -15,7 +15,6 @@
 #define PLCUI_PATH_MAX 384
 #define PLCUI_TEXT_MAX 512
 #define PLCUI_MAX_PAGES 16
-#define PLCUI_MAX_WIDGETS 512
 #define PLCUI_MAX_XML_DEPTH 16
 #define PLCUI_MAX_RESOURCES 256
 #define PLCUI_EVENT_CAPACITY 64
@@ -23,13 +22,16 @@
 #define PLCUI_MAX_IMAGE_BYTES (16U * 1024U * 1024U)
 #define PLCUI_XML_MT "plcui.xml"
 
-typedef enum { PLCUI_IMAGE, PLCUI_LABEL, PLCUI_TEXTAREA, PLCUI_KEYBOARD, PLCUI_CONTAINER, PLCUI_TABLE, PLCUI_CHART } plcui_widget_type_t;
 #define PLCUI_TABLE_MAX_ROWS 128U
 #define PLCUI_TABLE_MAX_COLS 16U
 #define PLCUI_TABLE_MAX_CELLS 1024U
 #define PLCUI_CHART_MAX_POINTS 1024U
 #define PLCUI_CHART_MAX_SERIES 8U
 #define PLCUI_CHART_SCALE 100
+#define PLCUI_CHART_NATIVE_MAX 100000
+#define PLCUI_ANIM_MAX_FRAMES 64U
+
+typedef enum { PLCUI_IMAGE, PLCUI_LABEL, PLCUI_TEXTAREA, PLCUI_KEYBOARD, PLCUI_CONTAINER, PLCUI_TABLE, PLCUI_CHART, PLCUI_ANIMIMG, PLCUI_SLIDER } plcui_widget_type_t;
 
 typedef struct {
     uint16_t rows, columns;
@@ -47,7 +49,7 @@ typedef struct {
 typedef struct {
     char id[PLCUI_ID_MAX];
     uint32_t color;
-    int32_t *values;
+    double *values;
     uint32_t start;
     bool hidden;
     lv_chart_series_t *native;
@@ -55,13 +57,13 @@ typedef struct {
 
 typedef struct {
     uint16_t points, count, hdiv, vdiv, line_width;
-    int32_t minimum, maximum;
+    double minimum, maximum;
     uint32_t grid_color;
     bool bar;
     plcui_chart_series_t series[PLCUI_CHART_MAX_SERIES];
 } plcui_chart_t;
 typedef enum { PLCUI_RES_IMAGE, PLCUI_RES_FONT } plcui_resource_type_t;
-typedef enum { PLCUI_CLICK, PLCUI_CHANGE, PLCUI_SUBMIT, PLCUI_CANCEL } plcui_event_type_t;
+typedef enum { PLCUI_CLICK, PLCUI_CHANGE, PLCUI_SUBMIT, PLCUI_CANCEL, PLCUI_FINISHED, PLCUI_ERROR } plcui_event_type_t;
 
 typedef struct {
     const char *code;
@@ -87,6 +89,27 @@ typedef struct {
 typedef struct plcui_document plcui_document_t;
 typedef struct plcui_hzfont_face plcui_hzfont_face_t;
 typedef struct plcui_image_pin plcui_image_pin_t;
+typedef struct plcui_image plcui_image_t;
+typedef struct plcui_label plcui_label_t;
+typedef struct {
+    int32_t minimum, maximum, value, start_value;
+    uint32_t step, track_color, indicator_color, knob_color;
+    bool vertical, dragging, resetting;
+    char knob_source[PLCUI_ID_MAX];
+    lv_indev_t *indev;
+} plcui_slider_t;
+typedef enum { PLCUI_ANIM_STOPPED, PLCUI_ANIM_PLAYING, PLCUI_ANIM_PAUSED, PLCUI_ANIM_FINISHED, PLCUI_ANIM_ERROR } plcui_animation_state_t;
+typedef struct {
+    char (*frames)[PLCUI_ID_MAX];
+    char handlers[2][PLCUI_ID_MAX]; /* finished, error; not present on static widgets. */
+    uint16_t count, frame, failed_frame;
+    uint32_t interval_ms, completed_loops, deadline, remaining;
+    int32_t repeat_count;
+    plcui_animation_state_t state;
+    bool auto_start, ready, suspended, awaiting_present;
+    plcui_image_pin_t *current, *next, *retiring;
+    uint16_t next_frame, current_frame;
+} plcui_animimg_t;
 typedef struct {
     plcui_widget_type_t type;
     char id[PLCUI_ID_MAX];
@@ -112,9 +135,14 @@ typedef struct {
     uint16_t max_length;
     lv_text_align_t align;
     bool numeric_keyboard;
+    bool pinyin_keyboard;
     bool one_line;
     plcui_table_t *table;
     plcui_chart_t *chart;
+    plcui_image_t *image;
+    plcui_label_t *label;
+    plcui_slider_t *slider;
+    plcui_animimg_t *animation;
     lv_obj_t *obj;
     plcui_document_t *document;
     unsigned page_index;
@@ -137,6 +165,10 @@ typedef struct {
     unsigned widget_index;
     plcui_event_type_t type;
     char text[PLCUI_TEXT_MAX];
+    int32_t value, start_value;
+    uint32_t frame, completed_loops;
+    char reason[32], resource_id[PLCUI_ID_MAX];
+    const char *code;
 } plcui_event_t;
 
 struct plcui_document {
@@ -197,6 +229,7 @@ typedef struct {
 
 plcui_runtime_t *luat_plcui_runtime(void);
 void luat_plcui_error(plcui_error_t *error, const char *code, const char *format, ...);
+void luat_plcui_xml_memory_error(const plcui_document_t *document, plcui_error_t *error, const char *reason);
 int luat_plcui_push_error(lua_State *L, const plcui_error_t *error);
 bool luat_plcui_parse(plcui_document_t *document, const char *path, plcui_error_t *error);
 bool luat_plcui_validate(plcui_document_t *document, plcui_error_t *error);
@@ -206,6 +239,8 @@ const lv_font_t *luat_plcui_font(plcui_document_t *document, const char *id);
 int luat_plcui_page_index(plcui_document_t *document, const char *id);
 void luat_plcui_apply_image(plcui_widget_t *widget);
 void luat_plcui_emit(plcui_widget_t *widget, plcui_event_type_t type);
+void luat_plcui_slider_emit(plcui_widget_t *widget, plcui_event_type_t type, const char *reason);
+void luat_plcui_animimg_emit(plcui_widget_t *widget, plcui_event_type_t type, const plcui_error_t *error);
 void luat_plcui_input_finish(plcui_document_t *document, bool submit, bool notify);
 void luat_plcui_input_begin(plcui_widget_t *widget);
 bool luat_plcui_show(plcui_document_t *document, int page_index, plcui_error_t *error);
@@ -226,5 +261,9 @@ void luat_plcui_release_page_images(plcui_document_t *doc, int page);
 void luat_plcui_unregister_images(plcui_document_t *doc);
 uint32_t luat_plcui_image_cache_capacity(void);
 uint32_t luat_plcui_image_header_cache_capacity(void);
+bool luat_plcui_component_visible(const plcui_widget_t *widget);
+bool luat_plcui_image_acquire(plcui_widget_t *widget, const char *id, plcui_image_pin_t **lease, plcui_error_t *error);
+void luat_plcui_image_release(plcui_image_pin_t **lease);
+bool luat_plcui_image_bind(plcui_widget_t *widget, const char *id, const plcui_image_pin_t *lease, plcui_error_t *error);
 
 #endif

@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="0.1" width="1024" height="600" entry="main">
+  <resources>
+    <font id="hzfont" builtin="hzfont"/>
+    <image id="hit" src="hit.png"/>
+  </resources>
+  <pages>
+    <page id="main" background="#F4F1EC">
+      <container id="hdr" x="0" y="0" w="1024" h="56" background="#1F4D3D" radius="0"/>
+      <container id="logo" x="20" y="10" w="36" h="36" background="#F4F1EC" radius="4"/>
+      <label id="logo_t" x="20" y="16" w="36" h="24" font="hzfont" font_size="17" color="#1F4D3D" align="center" text="A"/>
+      <label id="brand" x="68" y="8" w="180" h="24" font="hzfont" font_size="20" color="#F7F4EE" align="left" text="ASRS-2400"/>
+      <label id="brand_s" x="202" y="12" w="190" h="20" font="hzfont" font_size="14" color="#A9BDB2" align="left" text="立体库 · 6 巷道 360 库位"/>
+      <label id="sub" x="68" y="32" w="300" h="18" font="hzfont" font_size="14" color="#8FA79A" align="left" text="堆垛机 2 台 · 输送线 3 段 · 自动运行"/>
+      <label id="h_stock" x="424" y="16" w="320" h="24" font="hzfont" font_size="16" color="#D9E4DC" align="left" text="在库 243 / 360 · 占用 67.5 %"/>
+      <label id="h_clock" x="864" y="8" w="140" h="40" font="hzfont" font_size="26" color="#F7F4EE" align="right" text="20:28"/>
+      <container id="strip" x="0" y="56" w="1024" h="36" background="#E9E2D6" radius="0"/>
+      <container id="strip_l" x="0" y="91" w="1024" h="1" background="#E2DCD2" radius="0"/>
+      <label id="st_in" x="20" y="64" w="150" h="20" font="hzfont" font_size="15" color="#6B6259" align="left" text="今日入库 132 托"/>
+      <label id="st_out" x="180" y="64" w="140" h="20" font="hzfont" font_size="15" color="#6B6259" align="left" text="出库 118 托"/>
+      <label id="st_task" x="330" y="64" w="150" h="20" font="hzfont" font_size="15" color="#6B6259" align="left" text="待执行任务 14"/>
+      <label id="st_avg" x="490" y="64" w="160" h="20" font="hzfont" font_size="15" color="#6B6259" align="left" text="平均作业 48 s / 托"/>
+      <label id="st_use" x="660" y="64" w="150" h="20" font="hzfont" font_size="15" color="#6B6259" align="left" text="设备稼动 94.2 %"/>
+      <label id="st_run" x="800" y="64" w="210" h="20" font="hzfont" font_size="15" color="#C4703A" align="right" text="● 2 台堆垛机作业中"/>
+      <container id="mx_card" x="12" y="104" w="600" h="484" background="#FFFFFF" radius="6" border-color="#E2DCD2" border-width="1"/>
+      <label id="mx_ttl" x="28" y="116" w="340" h="22" font="hzfont" font_size="16" color="#2A2622" align="left" text="库位分布 / 俯视 6 巷道 × 12 列 × 5 层"/>
+      <label id="mx_note" x="372" y="116" w="224" h="20" font="hzfont" font_size="14" color="#9A9088" align="right" text="绿色在库 · 赭石作业中"/>
+      <label id="col0" x="66" y="136" w="40" h="16" font="hzfont" font_size="12" color="#9A9088" align="left" text="01"/>
+      <label id="col2" x="154" y="136" w="40" h="16" font="hzfont" font_size="12" color="#9A9088" align="left" text="03"/>
+      <label id="col4" x="242" y="136" w="40" h="16" font="hzfont" font_size="12" color="#9A9088" align="left" text="05"/>
+      <label id="col6" x="330" y="136" w="40" h="16" font="hzfont" font_size="12" color="#9A9088" align="left" text="07"/>
+      <label id="col8" x="418" y="136" w="40" h="16" font="hzfont" font_size="12" color="#9A9088" align="left" text="09"/>
+      <label id="col10" x="506" y="136" w="40" h="16" font="hzfont" font_size="12" color="#9A9088" align="left" text="11"/>
+      <label id="aisle0" x="26" y="166" w="40" h="22" font="hzfont" font_size="15" color="#6B6259" align="left" text="S1"/>
+      <container id="c0_0_0" x="68" y="154" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_1_0" x="112" y="154" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_2_0" x="156" y="154" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_3_0" x="200" y="154" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_4_0" x="244" y="154" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_5_0" x="288" y="154" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_6_0" x="332" y="154" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c0_7_0" x="376" y="154" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_8_0" x="420" y="154" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c0_9_0" x="464" y="154" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_10_0" x="508" y="154" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_11_0" x="552" y="154" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c0_0_1" x="68" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_1_1" x="112" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_2_1" x="156" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_3_1" x="200" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_4_1" x="244" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_5_1" x="288" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_6_1" x="332" y="164" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c0_7_1" x="376" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_8_1" x="420" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_9_1" x="464" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_10_1" x="508" y="164" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c0_11_1" x="552" y="164" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_0_2" x="68" y="174" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_1_2" x="112" y="174" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_2_2" x="156" y="174" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_3_2" x="200" y="174" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_4_2" x="244" y="174" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c0_5_2" x="288" y="174" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_6_2" x="332" y="174" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_7_2" x="376" y="174" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_8_2" x="420" y="174" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c0_9_2" x="464" y="174" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_10_2" x="508" y="174" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_11_2" x="552" y="174" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c0_0_3" x="68" y="184" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_1_3" x="112" y="184" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c0_2_3" x="156" y="184" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_3_3" x="200" y="184" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c0_4_3" x="244" y="184" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_5_3" x="288" y="184" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_6_3" x="332" y="184" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_7_3" x="376" y="184" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_8_3" x="420" y="184" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_9_3" x="464" y="184" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c0_10_3" x="508" y="184" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_11_3" x="552" y="184" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_0_4" x="68" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_1_4" x="112" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_2_4" x="156" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_3_4" x="200" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_4_4" x="244" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_5_4" x="288" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_6_4" x="332" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_7_4" x="376" y="194" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c0_8_4" x="420" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_9_4" x="464" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_10_4" x="508" y="194" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c0_11_4" x="552" y="194" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <label id="aisle1" x="26" y="226" w="40" h="22" font="hzfont" font_size="15" color="#6B6259" align="left" text="S2"/>
+      <container id="c1_0_0" x="68" y="214" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_1_0" x="112" y="214" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_2_0" x="156" y="214" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_3_0" x="200" y="214" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_4_0" x="244" y="214" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_5_0" x="288" y="214" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_6_0" x="332" y="214" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_7_0" x="376" y="214" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_8_0" x="420" y="214" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_9_0" x="464" y="214" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_10_0" x="508" y="214" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_11_0" x="552" y="214" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_0_1" x="68" y="224" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_1_1" x="112" y="224" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_2_1" x="156" y="224" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_3_1" x="200" y="224" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_4_1" x="244" y="224" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_5_1" x="288" y="224" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_6_1" x="332" y="224" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_7_1" x="376" y="224" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_8_1" x="420" y="224" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_9_1" x="464" y="224" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_10_1" x="508" y="224" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_11_1" x="552" y="224" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_0_2" x="68" y="234" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_1_2" x="112" y="234" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_2_2" x="156" y="234" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_3_2" x="200" y="234" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_4_2" x="244" y="234" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_5_2" x="288" y="234" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_6_2" x="332" y="234" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_7_2" x="376" y="234" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_8_2" x="420" y="234" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_9_2" x="464" y="234" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_10_2" x="508" y="234" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_11_2" x="552" y="234" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_0_3" x="68" y="244" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_1_3" x="112" y="244" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_2_3" x="156" y="244" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c1_3_3" x="200" y="244" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_4_3" x="244" y="244" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_5_3" x="288" y="244" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_6_3" x="332" y="244" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_7_3" x="376" y="244" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_8_3" x="420" y="244" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_9_3" x="464" y="244" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_10_3" x="508" y="244" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_11_3" x="552" y="244" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c1_0_4" x="68" y="254" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_1_4" x="112" y="254" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_2_4" x="156" y="254" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_3_4" x="200" y="254" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_4_4" x="244" y="254" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_5_4" x="288" y="254" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_6_4" x="332" y="254" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_7_4" x="376" y="254" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c1_8_4" x="420" y="254" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_9_4" x="464" y="254" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c1_10_4" x="508" y="254" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c1_11_4" x="552" y="254" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <label id="aisle2" x="26" y="286" w="40" h="22" font="hzfont" font_size="15" color="#6B6259" align="left" text="S3"/>
+      <container id="c2_0_0" x="68" y="274" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_1_0" x="112" y="274" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_2_0" x="156" y="274" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_3_0" x="200" y="274" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_4_0" x="244" y="274" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_5_0" x="288" y="274" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_6_0" x="332" y="274" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c2_7_0" x="376" y="274" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_8_0" x="420" y="274" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_9_0" x="464" y="274" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_10_0" x="508" y="274" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_11_0" x="552" y="274" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_0_1" x="68" y="284" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_1_1" x="112" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_2_1" x="156" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_3_1" x="200" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_4_1" x="244" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_5_1" x="288" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_6_1" x="332" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_7_1" x="376" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_8_1" x="420" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_9_1" x="464" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_10_1" x="508" y="284" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_11_1" x="552" y="284" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_0_2" x="68" y="294" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_1_2" x="112" y="294" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_2_2" x="156" y="294" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_3_2" x="200" y="294" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_4_2" x="244" y="294" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_5_2" x="288" y="294" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_6_2" x="332" y="294" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_7_2" x="376" y="294" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_8_2" x="420" y="294" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_9_2" x="464" y="294" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_10_2" x="508" y="294" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_11_2" x="552" y="294" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_0_3" x="68" y="304" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_1_3" x="112" y="304" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_2_3" x="156" y="304" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_3_3" x="200" y="304" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_4_3" x="244" y="304" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c2_5_3" x="288" y="304" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_6_3" x="332" y="304" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_7_3" x="376" y="304" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_8_3" x="420" y="304" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_9_3" x="464" y="304" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_10_3" x="508" y="304" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_11_3" x="552" y="304" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_0_4" x="68" y="314" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_1_4" x="112" y="314" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_2_4" x="156" y="314" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_3_4" x="200" y="314" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_4_4" x="244" y="314" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_5_4" x="288" y="314" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_6_4" x="332" y="314" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_7_4" x="376" y="314" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_8_4" x="420" y="314" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c2_9_4" x="464" y="314" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_10_4" x="508" y="314" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c2_11_4" x="552" y="314" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <label id="aisle3" x="26" y="346" w="40" h="22" font="hzfont" font_size="15" color="#6B6259" align="left" text="S4"/>
+      <container id="c3_0_0" x="68" y="334" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_1_0" x="112" y="334" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_2_0" x="156" y="334" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_3_0" x="200" y="334" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_4_0" x="244" y="334" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_5_0" x="288" y="334" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_6_0" x="332" y="334" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_7_0" x="376" y="334" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_8_0" x="420" y="334" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_9_0" x="464" y="334" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_10_0" x="508" y="334" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_11_0" x="552" y="334" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_0_1" x="68" y="344" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_1_1" x="112" y="344" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_2_1" x="156" y="344" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_3_1" x="200" y="344" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_4_1" x="244" y="344" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_5_1" x="288" y="344" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_6_1" x="332" y="344" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_7_1" x="376" y="344" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_8_1" x="420" y="344" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_9_1" x="464" y="344" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_10_1" x="508" y="344" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_11_1" x="552" y="344" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_0_2" x="68" y="354" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_1_2" x="112" y="354" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_2_2" x="156" y="354" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_3_2" x="200" y="354" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c3_4_2" x="244" y="354" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_5_2" x="288" y="354" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_6_2" x="332" y="354" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_7_2" x="376" y="354" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_8_2" x="420" y="354" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_9_2" x="464" y="354" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_10_2" x="508" y="354" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_11_2" x="552" y="354" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_0_3" x="68" y="364" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_1_3" x="112" y="364" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_2_3" x="156" y="364" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_3_3" x="200" y="364" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_4_3" x="244" y="364" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_5_3" x="288" y="364" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_6_3" x="332" y="364" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_7_3" x="376" y="364" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_8_3" x="420" y="364" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_9_3" x="464" y="364" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_10_3" x="508" y="364" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_11_3" x="552" y="364" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_0_4" x="68" y="374" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_1_4" x="112" y="374" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_2_4" x="156" y="374" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_3_4" x="200" y="374" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_4_4" x="244" y="374" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_5_4" x="288" y="374" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_6_4" x="332" y="374" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_7_4" x="376" y="374" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c3_8_4" x="420" y="374" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_9_4" x="464" y="374" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c3_10_4" x="508" y="374" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c3_11_4" x="552" y="374" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <label id="aisle4" x="26" y="406" w="40" h="22" font="hzfont" font_size="15" color="#6B6259" align="left" text="S5"/>
+      <container id="c4_0_0" x="68" y="394" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c4_1_0" x="112" y="394" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_2_0" x="156" y="394" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_3_0" x="200" y="394" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_4_0" x="244" y="394" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_5_0" x="288" y="394" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_6_0" x="332" y="394" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_7_0" x="376" y="394" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_8_0" x="420" y="394" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_9_0" x="464" y="394" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_10_0" x="508" y="394" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_11_0" x="552" y="394" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_0_1" x="68" y="404" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_1_1" x="112" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_2_1" x="156" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_3_1" x="200" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_4_1" x="244" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_5_1" x="288" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_6_1" x="332" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_7_1" x="376" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_8_1" x="420" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_9_1" x="464" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_10_1" x="508" y="404" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_11_1" x="552" y="404" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_0_2" x="68" y="414" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_1_2" x="112" y="414" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_2_2" x="156" y="414" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_3_2" x="200" y="414" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_4_2" x="244" y="414" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_5_2" x="288" y="414" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_6_2" x="332" y="414" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_7_2" x="376" y="414" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_8_2" x="420" y="414" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_9_2" x="464" y="414" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_10_2" x="508" y="414" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_11_2" x="552" y="414" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_0_3" x="68" y="424" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_1_3" x="112" y="424" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c4_2_3" x="156" y="424" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_3_3" x="200" y="424" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_4_3" x="244" y="424" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_5_3" x="288" y="424" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_6_3" x="332" y="424" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_7_3" x="376" y="424" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_8_3" x="420" y="424" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_9_3" x="464" y="424" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_10_3" x="508" y="424" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_11_3" x="552" y="424" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_0_4" x="68" y="434" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_1_4" x="112" y="434" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_2_4" x="156" y="434" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_3_4" x="200" y="434" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_4_4" x="244" y="434" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_5_4" x="288" y="434" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_6_4" x="332" y="434" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c4_7_4" x="376" y="434" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_8_4" x="420" y="434" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_9_4" x="464" y="434" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c4_10_4" x="508" y="434" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c4_11_4" x="552" y="434" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <label id="aisle5" x="26" y="466" w="40" h="22" font="hzfont" font_size="15" color="#6B6259" align="left" text="S6"/>
+      <container id="c5_0_0" x="68" y="454" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_1_0" x="112" y="454" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_2_0" x="156" y="454" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_3_0" x="200" y="454" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_4_0" x="244" y="454" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_5_0" x="288" y="454" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_6_0" x="332" y="454" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_7_0" x="376" y="454" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_8_0" x="420" y="454" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_9_0" x="464" y="454" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_10_0" x="508" y="454" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_11_0" x="552" y="454" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_0_1" x="68" y="464" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_1_1" x="112" y="464" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_2_1" x="156" y="464" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_3_1" x="200" y="464" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_4_1" x="244" y="464" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_5_1" x="288" y="464" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_6_1" x="332" y="464" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_7_1" x="376" y="464" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_8_1" x="420" y="464" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_9_1" x="464" y="464" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_10_1" x="508" y="464" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_11_1" x="552" y="464" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_0_2" x="68" y="474" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_1_2" x="112" y="474" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_2_2" x="156" y="474" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_3_2" x="200" y="474" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_4_2" x="244" y="474" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_5_2" x="288" y="474" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_6_2" x="332" y="474" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_7_2" x="376" y="474" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_8_2" x="420" y="474" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_9_2" x="464" y="474" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_10_2" x="508" y="474" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_11_2" x="552" y="474" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_0_3" x="68" y="484" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_1_3" x="112" y="484" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_2_3" x="156" y="484" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_3_3" x="200" y="484" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_4_3" x="244" y="484" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_5_3" x="288" y="484" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_6_3" x="332" y="484" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_7_3" x="376" y="484" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_8_3" x="420" y="484" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_9_3" x="464" y="484" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_10_3" x="508" y="484" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_11_3" x="552" y="484" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_0_4" x="68" y="494" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_1_4" x="112" y="494" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_2_4" x="156" y="494" w="34" h="7" background="#8C7A5E" radius="2"/>
+      <container id="c5_3_4" x="200" y="494" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_4_4" x="244" y="494" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_5_4" x="288" y="494" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_6_4" x="332" y="494" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_7_4" x="376" y="494" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_8_4" x="420" y="494" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_9_4" x="464" y="494" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="c5_10_4" x="508" y="494" w="34" h="7" background="#EAE4DA" radius="2"/>
+      <container id="c5_11_4" x="552" y="494" w="34" h="7" background="#1F4D3D" radius="2"/>
+      <container id="lg0" x="68" y="542" w="11" h="11" background="#1F4D3D" radius="2"/>
+      <label id="lg0_t" x="85" y="538" w="80" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="在库"/>
+      <container id="lg1" x="172" y="542" w="11" h="11" background="#EAE4DA" radius="2"/>
+      <label id="lg1_t" x="189" y="538" w="80" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="空位"/>
+      <container id="lg2" x="276" y="542" w="11" h="11" background="#C4703A" radius="2"/>
+      <label id="lg2_t" x="293" y="538" w="80" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="作业中"/>
+      <container id="lg3" x="380" y="542" w="11" h="11" background="#8C7A5E" radius="2"/>
+      <label id="lg3_t" x="397" y="538" w="80" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="锁定"/>
+      <label id="mx_foot" x="68" y="566" w="500" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="每格一个托盘位 · 上行为高层"/>
+      <container id="mk0" x="68" y="154" w="34" h="7" background="#C4703A" radius="2"/>
+      <container id="mk1" x="332" y="194" w="34" h="7" background="#C4703A" radius="2"/>
+      <container id="pn_card" x="624" y="104" w="388" h="484" background="#FFFFFF" radius="6" border-color="#E2DCD2" border-width="1"/>
+      <container id="chip0" x="638" y="116" w="68" h="30" background="#FFFFFF" radius="15" border-color="#E2DCD2" border-width="1"/>
+      <container id="chip0_pill" x="638" y="116" w="68" h="30" background="#1F4D3D" radius="15"/>
+      <label id="chip0_dk" x="638" y="121" w="68" h="22" font="hzfont" font_size="15" color="#6B6259" align="center" text="库位"/>
+      <label id="chip0_wt" x="638" y="121" w="68" h="22" font="hzfont" font_size="15" color="#F7F4EE" align="center" text="库位"/>
+      <image id="chip0_h" x="638" y="116" w="68" h="30" src="hit" clickable="true" on-click="v_slot"/>
+      <container id="chip1" x="714" y="116" w="68" h="30" background="#FFFFFF" radius="15" border-color="#E2DCD2" border-width="1"/>
+      <container id="chip1_pill" x="714" y="116" w="68" h="30" background="#1F4D3D" radius="15" hidden="true"/>
+      <label id="chip1_dk" x="714" y="121" w="68" h="22" font="hzfont" font_size="15" color="#6B6259" align="center" text="任务"/>
+      <label id="chip1_wt" x="714" y="121" w="68" h="22" font="hzfont" font_size="15" color="#F7F4EE" align="center" text="任务" hidden="true"/>
+      <image id="chip1_h" x="714" y="116" w="68" h="30" src="hit" clickable="true" on-click="v_task"/>
+      <container id="chip2" x="790" y="116" w="68" h="30" background="#FFFFFF" radius="15" border-color="#E2DCD2" border-width="1"/>
+      <container id="chip2_pill" x="790" y="116" w="68" h="30" background="#1F4D3D" radius="15" hidden="true"/>
+      <label id="chip2_dk" x="790" y="121" w="68" h="22" font="hzfont" font_size="15" color="#6B6259" align="center" text="报警"/>
+      <label id="chip2_wt" x="790" y="121" w="68" h="22" font="hzfont" font_size="15" color="#F7F4EE" align="center" text="报警" hidden="true"/>
+      <image id="chip2_h" x="790" y="116" w="68" h="30" src="hit" clickable="true" on-click="v_alarm"/>
+      <container id="pv0" x="638" y="156" w="360" h="400" background="#FFFFFF" radius="0"/>
+      <label id="s_cap" x="638" y="156" w="120" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="当前选中"/>
+      <label id="s_id" x="638" y="176" w="300" h="30" font="hzfont" font_size="22" color="#2A2622" align="left" text="S3-14-3"/>
+      <label id="s_plt" x="638" y="206" w="350" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="托盘 PLT-8821304 · 入库 11-18 09:42"/>
+      <label id="s_k0" x="638" y="244" w="120" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="状态"/>
+      <label id="s_v0" x="818" y="244" w="180" h="18" font="hzfont" font_size="15" color="#2A2622" align="right" text="在库"/>
+      <container id="s_l0" x="638" y="272" w="360" h="1" background="#E2DCD2" radius="0"/>
+      <label id="s_k1" x="638" y="278" w="120" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="货主"/>
+      <label id="s_v1" x="818" y="278" w="180" h="18" font="hzfont" font_size="15" color="#2A2622" align="right" text="华东电子"/>
+      <container id="s_l1" x="638" y="306" w="360" h="1" background="#E2DCD2" radius="0"/>
+      <label id="s_k2" x="638" y="312" w="120" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="批次"/>
+      <label id="s_v2" x="818" y="312" w="180" h="18" font="hzfont" font_size="15" color="#2A2622" align="right" text="B26-1148"/>
+      <container id="s_l2" x="638" y="340" w="360" h="1" background="#E2DCD2" radius="0"/>
+      <label id="s_k3" x="638" y="346" w="120" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="存储天数"/>
+      <label id="s_v3" x="818" y="346" w="180" h="18" font="hzfont" font_size="15" color="#2A2622" align="right" text="4 天"/>
+      <container id="s_l3" x="638" y="374" w="360" h="1" background="#E2DCD2" radius="0"/>
+      <label id="s_k4" x="638" y="380" w="120" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="重量"/>
+      <label id="s_v4" x="818" y="380" w="180" h="18" font="hzfont" font_size="15" color="#2A2622" align="right" text="682 kg"/>
+      <container id="s_l4" x="638" y="408" w="360" h="1" background="#E2DCD2" radius="0"/>
+      <container id="s_btn" x="638" y="434" w="360" h="36" background="#1F4D3D" radius="4"/>
+      <image id="s_btn_h" x="638" y="434" w="360" h="36" src="hit" clickable="true" on-click="slot_out"/>
+      <label id="s_btn_t" x="638" y="442" w="360" h="22" font="hzfont" font_size="15" color="#F7F4EE" align="center" text="指定出库"/>
+      <label id="s_foot" x="638" y="488" w="360" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="点击库位可切换选中，此处随选中刷新"/>
+      <container id="pv1" x="638" y="156" w="360" h="400" background="#FFFFFF" radius="0" hidden="true"/>
+      <label id="t_cap" x="638" y="156" w="120" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="执行队列" hidden="true"/>
+      <label id="t_cnt" x="838" y="156" w="160" h="18" font="hzfont" font_size="14" color="#9A9088" align="right" text="14 条待执行" hidden="true"/>
+      <container id="t_bg0" x="638" y="184" w="360" h="46" background="#FAF8F4" radius="4" hidden="true"/>
+      <label id="t_no0" x="650" y="197" w="30" h="18" font="hzfont" font_size="16" color="#9A9088" align="left" text="01" hidden="true"/>
+      <label id="t_op0" x="682" y="190" w="60" h="20" font="hzfont" font_size="15" color="#2A2622" align="left" text="出库" hidden="true"/>
+      <label id="t_lo0" x="682" y="210" w="220" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="S3-14-3" hidden="true"/>
+      <label id="t_st0" x="888" y="197" w="96" h="18" font="hzfont" font_size="14" color="#C4703A" align="right" text="执行中" hidden="true"/>
+      <container id="t_bg1" x="638" y="236" w="360" h="46" background="#FAF8F4" radius="4" hidden="true"/>
+      <label id="t_no1" x="650" y="249" w="30" h="18" font="hzfont" font_size="16" color="#9A9088" align="left" text="02" hidden="true"/>
+      <label id="t_op1" x="682" y="242" w="60" h="20" font="hzfont" font_size="15" color="#2A2622" align="left" text="入库" hidden="true"/>
+      <label id="t_lo1" x="682" y="262" w="220" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="S1-07-2" hidden="true"/>
+      <label id="t_st1" x="888" y="249" w="96" h="18" font="hzfont" font_size="14" color="#C4703A" align="right" text="执行中" hidden="true"/>
+      <container id="t_bg2" x="638" y="288" w="360" h="46" background="#FAF8F4" radius="4" hidden="true"/>
+      <label id="t_no2" x="650" y="301" w="30" h="18" font="hzfont" font_size="16" color="#9A9088" align="left" text="03" hidden="true"/>
+      <label id="t_op2" x="682" y="294" w="60" h="20" font="hzfont" font_size="15" color="#2A2622" align="left" text="移库" hidden="true"/>
+      <label id="t_lo2" x="682" y="314" w="220" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="S5-19-1 → S2-03-4" hidden="true"/>
+      <label id="t_st2" x="888" y="301" w="96" h="18" font="hzfont" font_size="14" color="#9A9088" align="right" text="排队" hidden="true"/>
+      <container id="t_bg3" x="638" y="340" w="360" h="46" background="#FAF8F4" radius="4" hidden="true"/>
+      <label id="t_no3" x="650" y="353" w="30" h="18" font="hzfont" font_size="16" color="#9A9088" align="left" text="04" hidden="true"/>
+      <label id="t_op3" x="682" y="346" w="60" h="20" font="hzfont" font_size="15" color="#2A2622" align="left" text="出库" hidden="true"/>
+      <label id="t_lo3" x="682" y="366" w="220" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="S6-02-5" hidden="true"/>
+      <label id="t_st3" x="888" y="353" w="96" h="18" font="hzfont" font_size="14" color="#9A9088" align="right" text="排队" hidden="true"/>
+      <container id="t_bg4" x="638" y="392" w="360" h="46" background="#FAF8F4" radius="4" hidden="true"/>
+      <label id="t_no4" x="650" y="405" w="30" h="18" font="hzfont" font_size="16" color="#9A9088" align="left" text="05" hidden="true"/>
+      <label id="t_op4" x="682" y="398" w="60" h="20" font="hzfont" font_size="15" color="#2A2622" align="left" text="入库" hidden="true"/>
+      <label id="t_lo4" x="682" y="418" w="220" h="18" font="hzfont" font_size="14" color="#6B6259" align="left" text="S4-11-1" hidden="true"/>
+      <label id="t_st4" x="888" y="405" w="96" h="18" font="hzfont" font_size="14" color="#9A9088" align="right" text="排队" hidden="true"/>
+      <label id="t_foot" x="638" y="456" w="360" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="平均单托 48 s · 双机并行" hidden="true"/>
+      <container id="pv2" x="638" y="156" w="360" h="400" background="#FFFFFF" radius="0" hidden="true"/>
+      <label id="a_cap" x="638" y="156" w="120" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="报警" hidden="true"/>
+      <container id="a_bg0" x="638" y="184" w="360" h="54" background="#FAF8F4" radius="4" hidden="true"/>
+      <container id="a_bar0" x="638" y="184" w="3" h="54" background="#C4703A" radius="0" hidden="true"/>
+      <label id="a_tm0" x="652" y="190" w="320" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="20:01" hidden="true"/>
+      <label id="a_tx0" x="652" y="210" w="336" h="18" font="hzfont" font_size="14" color="#2A2622" align="left" text="SC2 取货到位信号延迟 0.3 s" hidden="true"/>
+      <container id="a_bg1" x="638" y="246" w="360" h="54" background="#FAF8F4" radius="4" hidden="true"/>
+      <container id="a_bar1" x="638" y="246" w="3" h="54" background="#9A9088" radius="0" hidden="true"/>
+      <label id="a_tm1" x="652" y="252" w="320" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="18:42" hidden="true"/>
+      <label id="a_tx1" x="652" y="272" w="336" h="18" font="hzfont" font_size="14" color="#2A2622" align="left" text="输送线 2 段货物偏移，已复位" hidden="true"/>
+      <label id="m_cap" x="638" y="318" w="120" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="维护计数" hidden="true"/>
+      <label id="m_k0" x="638" y="344" w="180" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="堆垛机运行" hidden="true"/>
+      <label id="m_v0" x="838" y="344" w="160" h="18" font="hzfont" font_size="14" color="#2A2622" align="right" text="2,840 h" hidden="true"/>
+      <container id="m_l0" x="638" y="374" w="360" h="1" background="#E2DCD2" radius="0" hidden="true"/>
+      <label id="m_k1" x="638" y="378" w="180" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="链条润滑" hidden="true"/>
+      <label id="m_v1" x="838" y="378" w="160" h="18" font="hzfont" font_size="14" color="#2A2622" align="right" text="剩余 96 h" hidden="true"/>
+      <container id="m_l1" x="638" y="408" w="360" h="1" background="#E2DCD2" radius="0" hidden="true"/>
+      <label id="m_k2" x="638" y="412" w="180" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="货叉保养" hidden="true"/>
+      <label id="m_v2" x="838" y="412" w="160" h="18" font="hzfont" font_size="14" color="#2A2622" align="right" text="剩余 12 天" hidden="true"/>
+      <container id="m_l2" x="638" y="442" w="360" h="1" background="#E2DCD2" radius="0" hidden="true"/>
+      <label id="m_k3" x="638" y="446" w="180" h="18" font="hzfont" font_size="14" color="#9A9088" align="left" text="输送线皮带" hidden="true"/>
+      <label id="m_v3" x="838" y="446" w="160" h="18" font="hzfont" font_size="14" color="#2A2622" align="right" text="正常" hidden="true"/>
+      <container id="m_l3" x="638" y="476" w="360" h="1" background="#E2DCD2" radius="0" hidden="true"/>
+    </page>
+  </pages>
+</ui>

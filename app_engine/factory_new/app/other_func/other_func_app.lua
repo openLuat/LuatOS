@@ -32,6 +32,20 @@ list 为按 config.peripherals 声明顺序排列的实例数组：
 ]]
 
 local M = {}
+local closing_ids = {}
+-- 页面切换 / 外设命令的 FIFO（factory_handoff）：只在带 SIP 的树里存在，
+-- 没有就退回 sys.taskInit 逐条起任务，功能与顺序语义一致。
+-- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
+local HANDOFF_MOD = "factory_handoff"
+local ok_h, handoff = pcall(require, HANDOFF_MOD)
+if not ok_h or type(handoff) ~= "table" then handoff = nil end
+local function enqueue(fn)
+    if handoff then handoff.enqueue(fn) else sys.taskInit(fn) end
+end
+-- 没有 FIFO 时不存在「测试页未激活」这一说，一律放行
+local function page_active()
+    return handoff == nil or handoff.mode() == "test"
+end
 
 -- 编译清单：DRIVER_OF 的值经变量传给 require，编译系统文本扫描不到，
 -- 此处补字面量 require 兜底（运行时永不调用）
@@ -40,6 +54,11 @@ local function _compile_manifest()
     require("periph_rs485")
     require("periph_uart")
     require("periph_audio")
+    require("periph_can")
+    require("periph_gnss")
+    require("periph_power")
+    require("periph_peer")
+    require("periph_wdt")
 end
 
 -- 外设 type → 驱动模块名
@@ -48,6 +67,11 @@ local DRIVER_OF = {
     rs485 = "periph_rs485",
     uart  = "periph_uart",
     audio = "periph_audio",
+    can   = "periph_can",
+    gnss  = "periph_gnss",
+    power = "periph_power",
+    peer  = "periph_peer",
+    wdt   = "periph_wdt",
 }
 
 -- 已挂 handle 的实例列表，顺序与 config.peripherals 一致
@@ -115,8 +139,13 @@ local function build_items()
     local list = usb_mode.filter(cfg.peripherals)
     if type(list) ~= "table" then return end
 
+    -- UVC 预览条目要不要出现在功能测试里由 ui.show_camera_preview 决定
+    -- （摄像头能力本身仍由 peripherals[].type = "uvc" 声明，两者是「有没有」与「露不露」）
+    local show_uvc_preview = cfg.ui and cfg.ui.show_camera_preview
+
     for i, p in ipairs(list) do
-        if DRIVER_OF[p and p.type] then
+        local ptype = p and p.type
+        if DRIVER_OF[ptype] and (ptype ~= "uvc" or show_uvc_preview) then
             if not p.id then
                 log.warn("other_func_app", "外设缺 id，跳过", p.type, "#" .. i)
             elseif index_of[p.id] then
@@ -200,6 +229,8 @@ end
 @return boolean, string|nil
 ]]
 local function apply(id, enabled)
+    if enabled and closing_ids[id] then return false, "页面正在关闭" end
+    if enabled and not page_active() then return false, "功能测试页面未激活" end
     if #items == 0 then build_items() end
     local idx = index_of[id]
     if not idx then return false, "未找到外设: " .. tostring(id) end
@@ -227,7 +258,13 @@ sys.subscribe 的派发上下文不是协程，直接跑会把等待整段跳过
 也会把消息派发卡住。
 ]]
 local function on_set(id, enabled)
-    sys.taskInit(function()
+    enqueue(function()
+        -- A destroyed page can have a stop event still waiting for dispatch.
+        -- The transition already released it; never stop the new SIP owner.
+        if not page_active() and not enabled then
+            sys.publish("AUDIO_EXIT_RESULT", id, true, "already_released")
+            return
+        end
         local ok, err = apply(id, enabled)
         sys.publish("OTHER_FUNC_SET_RESULT", id, ok, err)
         push("OTHER_FUNC_CHANGED")
@@ -243,7 +280,9 @@ end
 与 on_set 同理放在 sys.taskInit 里跑：rs485_send 内部要等 DE 方向切换的 tx_delay。
 ]]
 local function on_rs485_send(id, data)
-    sys.taskInit(function()
+    enqueue(function()
+        if closing_ids[id] then return end
+        if not page_active() then return end
         if #items == 0 then build_items() end
         local idx = index_of[id]
         if not idx then
@@ -278,7 +317,11 @@ end
 与 on_set 同理放在 sys.taskInit 里跑：de_hold 内部要 sys.wait 撑满保持时长。
 ]]
 local function on_de_hold(ms)
-    sys.taskInit(function()
+    enqueue(function()
+        for _, it in ipairs(items) do
+            if it.type == "rs485" and closing_ids[it.id] then return end
+        end
+        if not page_active() then return end
         local ok_req, mod = pcall(require, "periph_rs485")
         if not ok_req or type(mod) ~= "table" or type(mod.de_hold) ~= "function" then
             sys.publish("RS485_DE_HOLD_RESULT", false, "驱动不支持方向脚自检")
@@ -309,7 +352,9 @@ end
 成功与否都在里面，测试页只认这一个事件。
 ]]
 local function on_audio_action(action, id, arg)
-    sys.taskInit(function()
+    enqueue(function()
+        if closing_ids[id] then return end
+        if not page_active() then return end
         if #items == 0 then build_items() end
         local idx = index_of[id]
         if not idx then
@@ -359,6 +404,24 @@ function M.get_list()
     return snapshot()
 end
 
+function M.allow_page(ids)
+    for _, id in ipairs(ids) do
+        closing_ids[id] = nil
+        local it = items[index_of[id]]
+        if it and it.handle then it.handle.closing = false end
+    end
+end
+function M.quiesce_page(ids)
+    for _, id in ipairs(ids) do
+        closing_ids[id] = true
+        local it = items[index_of[id]]
+        if it and it.handle then
+            it.handle.closing = true
+            if it.handle.quiesce then it.handle:quiesce() end
+        end
+    end
+end
+
 --[[
 @function M.set_enabled
 @summary 同步开启/关闭指定实例
@@ -368,6 +431,17 @@ end
 ]]
 function M.set_enabled(id, enabled)
     return apply(id, enabled)
+end
+
+function M.stop_all()
+    for _, it in ipairs(items) do
+        if it.handle and (it.type == "audio" or status_of(it.handle).enabled) then
+            local ok, err = apply(it.id, false)
+            if not ok then return false, tostring(it.id)..":"..tostring(err) end
+        end
+    end
+    push("OTHER_FUNC_CHANGED")
+    return true
 end
 
 build_items()

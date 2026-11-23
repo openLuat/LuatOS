@@ -85,6 +85,7 @@ void luat_netdrv_set_link_updown(luat_netdrv_t* drv, uint8_t updown);
 // 三个公开函数声明
 void luat_netdrv_register_pkg_event_cb(uint8_t id, luat_netdrv_pkg_evt_cb cb, void* userdata);
 int  luat_netdrv_has_pkg_cb(uint8_t id);
+int  luat_netdrv_has_pkg_cb_on(uint8_t id, uint8_t layer);
 void luat_netdrv_fire_pkg_event(uint8_t id, uint8_t event, uint8_t* buff, uint16_t len);
 
 // 设置数据包事件订阅的 layer bitmask

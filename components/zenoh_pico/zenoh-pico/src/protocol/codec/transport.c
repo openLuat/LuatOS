@@ -391,9 +391,11 @@ z_result_t _z_open_decode(_z_t_msg_open_t *msg, _z_zbuf_t *zbf, uint8_t header) 
     z_result_t ret = _Z_RES_OK;
     *msg = (_z_t_msg_open_t){0};
 
-    ret |= _z_zsize_decode(&msg->_lease, zbf);
-    if ((ret == _Z_RES_OK) && (_Z_HAS_FLAG(header, _Z_FLAG_T_OPEN_T) == true)) {
-        msg->_lease = msg->_lease * 1000;
+    _Z_RETURN_IF_ERR(_z_zsize_decode(&msg->_lease, zbf));
+    if (!msg->_lease) return _Z_ERR_MESSAGE_DESERIALIZATION_FAILED;
+    if (_Z_HAS_FLAG(header, _Z_FLAG_T_OPEN_T)) {
+        if (msg->_lease > SIZE_MAX / 1000) return _Z_ERR_MESSAGE_DESERIALIZATION_FAILED;
+        msg->_lease *= 1000;
     }
 
     ret |= _z_zsize_decode(&msg->_initial_sn, zbf);

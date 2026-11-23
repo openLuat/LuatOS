@@ -35,14 +35,16 @@ static void airui_switch_apply_style(lv_obj_t *sw, const char *style)
         return;
     }
 
-    lv_color_t color = lv_color_hex(0x1A73E8);
+    lv_color_t color;
     if (strcmp(style, "danger") == 0) {
         color = lv_color_hex(0xD93025);
     } else if (strcmp(style, "success") == 0) {
         color = lv_color_hex(0x188038);
+    } else {
+        return;
     }
 
-    lv_obj_set_style_bg_color(sw, color, LV_STATE_CHECKED);
+    lv_obj_set_style_bg_color(sw, color, LV_PART_INDICATOR | LV_STATE_CHECKED);
 }
 
 /**

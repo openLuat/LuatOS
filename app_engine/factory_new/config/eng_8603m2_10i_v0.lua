@@ -23,7 +23,7 @@
    AUDIOPA_EN = GPIO73，HT6873 高电平使能（pa_on_level = 1），
    power_on 初始拉低关断，起播时 exaudio 拉高。
    本板无麦克风，不开录音相关功能；peripherals 不配 type="audio"（那是「录音播放」测试页），
-   故「功能测试」里没有「音频」组。播放由 ui/video_util.lua 读 hw.audio 出声。
+   故「功能测试」里没有「音频」组。播放由 ui/media/video_util.lua 读 hw.audio 出声。
 3. 【串口分配细则】UART2 是摄像头 / 人脸识别模组的控制串口，画面走 USB，两者互不占用。
    GPIO58 的归属见文件头第 5 条。
 4. 【RS485 供电域与方向脚】485_EN = GPIO64 是 485 功能总供电，power_on 拉高使能，之后常供电不回落；
@@ -35,7 +35,7 @@
    本型号 UART1 是非隔离 485，power_on 把 485_EN1 拉低停在接收态。
 5. 【UVC 摄像头】UVC_EN = PIN48 = GPIO58 是摄像头供电开启信号，power_on 拉高后 200ms 就绪。
    摄像头画面走 USB 数据流，UART2 是这颗摄像头 / 人脸识别模组的控制串口，两者互不占用。
-   预览 / 拍照 / 录像由 ui/uvc_preview_win.lua 走 excamera 扩展库独占管理，外设开关只负责供电，
+   预览 / 拍照 / 录像由 ui/test/uvc_preview_win.lua 走 excamera 扩展库独占管理，外设开关只负责供电，
    不再重复 camera.init。预览入口按需求放在「功能测试」里，因此不设 ui.show_camera_preview
    （避免两处入口）。w / h 不写时用预览页默认档 1280×720，预览页会枚举摄像头真正支持的档位取可用档。
 6. LCD 为 RGB 10寸 1024×600（免序列四合一，无 SPI 初始化引脚），走统一 RGB 驱动
@@ -139,7 +139,6 @@ return {
                 vfp = 12,
                 bus_speed = 50 * 1000 * 1000, -- RGB 总线时钟 50MHz
             },
-            need_buffer = true,               -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 10.0,               -- 10寸屏
             font = { size = 20 },             -- 高分屏用 20 号字
             backlight = {
@@ -176,13 +175,15 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        net_4g = true,      -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 1 条
-        speaker = true,     -- 启用喇叭（内置 DAC + HT6873 功放）
-        sd_card = true,     -- 启用 SD 卡（SPI1，CS=GPIO8）
-        usb_camera = true,  -- 启用 USB 摄像头（UVC）—— 入口在「功能测试」
-        rs485 = true,       -- 启用 RS485 接口
-        other_func = true,  -- 启用"功能测试"（peripherals 外设清单）
-        wdt = true,         -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        net_4g = true,       -- 启用 4G（Air780ER2，独占 UART3）—— 本型号固定为 4G 版，见文件头第 1 条
+        sd_card = true,      -- 启用 SD 卡（SPI1，CS=GPIO8）
+        other_func = true,   -- 启用"功能测试"（peripherals 外设清单）
+        wdt = true,          -- 启用外部看门狗（Air153D 喂狗脚见 hw.wdt）
+        app_factory = true,  -- 启用"应用工厂"（录音 → 生成 → 安装，需联网）
+        ai_chat = true,      -- 启用"AI 助手"（WebSocket 会话 + STT/TTS，需联网）
+        cloud_disk = true,   -- 启用"合宙网盘"（IoT 登录 → 云端文件，需联网）
+        iot = true,          -- 启用 IoT 账号登录（合宙平台，需联网）
+        fota = true,         -- 启用固件在线升级（需联网）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -208,10 +209,17 @@ return {
 
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
-        show_4g_icon = true,           -- 桌面顶栏 4G 图标
-        show_brightness_slider = true, -- 设置页亮度滑块
-        show_storage_settings = true,  -- 设置页存储空间入口 ← 配 sd_card 时打开
-        show_other_func = true,        -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
+        show_4g_icon = true,            -- 桌面顶栏 4G 图标
+        show_brightness_slider = true,  -- 设置页亮度滑块
+        show_storage_settings = true,   -- 设置页存储空间入口 ← 配 sd_card 时打开
+        show_other_func = true,         -- 桌面显示"功能测试"图标 ← 配 other_func 时打开
         -- show_camera_preview 故意不写：UVC 预览入口在「功能测试」里，见文件头第 5 条
+        show_app_factory = true,        -- 桌面显示"应用工厂"图标
+        show_ai_chat = true,            -- 桌面显示"AI 助手"图标
+        show_cloud_disk = true,         -- 桌面显示"合宙网盘"图标
+        show_iot = true,                -- 设置页显示"IOT账号"
+        show_fota = true,               -- 设置页显示"系统更新"
+        show_autostart = true,          -- 设置页显示"后装APP自启"
+        show_camera_preview = true,     -- 功能测试里显示 UVC 预览条目
     },
 }

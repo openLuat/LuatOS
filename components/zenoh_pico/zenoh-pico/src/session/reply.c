@@ -18,6 +18,7 @@
 #include "zenoh-pico/config.h"
 #include "zenoh-pico/session/query.h"
 #include "zenoh-pico/utils/logging.h"
+#include "zenoh-pico/session/drop_scope.h"
 
 z_result_t _z_trigger_reply_partial(_z_session_t *zn, _z_zint_t id, _z_wireexpr_t *key, _z_msg_reply_t *reply,
                                     _z_entity_global_id_t *replier_id, _z_transport_peer_common_t *peer) {
@@ -59,7 +60,9 @@ z_result_t _z_trigger_reply_final(_z_session_t *zn, _z_n_msg_response_final_t *f
 #if Z_FEATURE_QUERY == 1
     // TODO check id to know where to dispatch
     _z_zint_t id = final->_request_id;
-    _z_trigger_query_reply_final(zn, id);
+    _Z_DROP_SCOPE_ENTER("wire_final");
+    ret = _z_trigger_query_reply_final(zn, id);
+    _Z_DROP_SCOPE_LEAVE();
 #else
     _ZP_UNUSED(zn);
     _ZP_UNUSED(final);

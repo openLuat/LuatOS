@@ -76,19 +76,36 @@ int l_airlink_sfota_write(lua_State *L) {
 
 /*
 升级从机固件
-@api airlink.sfota(path)
+@api airlink.sfota(path, id, expected_version)
 @string 升级文件的路径
-@return bool 成功返回true, 失败返回nil
+@int 可选实例ID；实例模式省略时选择Wi-Fi实例。当前实例OTA支持UART ARQ3。
+@int 可选期望的从机版本号；实例模式重启后校验，0表示只检查重新握手
+@return bool 请求接受返回true，拒绝返回false；升级结果通过AIRLINK_SFOTA_DONE发布
 @usage
 -- 注意, 升级过程是异步的, 耗时1~2分钟, 注意观察日志
 airlink.sfota("/luadb/air8000s_v5.bin")
--- 注意, 升级过程中, 其他任何指令和数据都不再传输和执行!!!
+-- 实例模式：升级期间暂停目标实例业务发送，其他实例继续工作
+-- 先订阅AIRLINK_SFOTA_DONE(result, reason, id)，再提交：
+-- airlink.sfota("/luadb/peer.bin", 1, 33)
 */
 int l_airlink_sfota(lua_State *L) {
     // 直接发指令是不行了, 需要干预airlink task的执行流程
     // bk72xx的flash擦除很慢, 导致spi master需要等很久才能发下一个包
     const char* path = luaL_checkstring(L, 1);
+#ifdef LUAT_USE_AIRLINK_INSTANCE
+    if (luat_airlink_instance_enabled()) {
+        lua_Integer id = lua_isnoneornil(L, 2) ?
+            luat_airlink_feature_route(AIRLINK_FEATURE_WIFI) - AIRLINK_ROUTE_BASE : luaL_checkinteger(L, 2);
+        lua_Integer version = luaL_optinteger(L, 3, 0);
+        int ret = (id < 0 || id >= AIRLINK_LINK_COUNT || version < 0 || (uint64_t)version > UINT32_MAX) ?
+            -1 : luat_airlink_link_sfota((int)id, path, (uint32_t)version);
+        lua_pushboolean(L, ret == 0);
+        return 1;
+    }
+#endif
+    if (!lua_isnoneornil(L, 2)) { lua_pushboolean(L, 0); return 1; }
     luat_airlink_fota_t ctx = {0};
+    if (strlen(path) >= sizeof(ctx.path)) { lua_pushboolean(L, 0); return 1; }
     memcpy(ctx.path, path, strlen(path) + 1);
     int ret = luat_airlink_fota_init(&ctx);
     if (ret) {

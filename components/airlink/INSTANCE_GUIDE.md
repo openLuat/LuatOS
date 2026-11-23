@@ -2,7 +2,7 @@
 
 适用版本：LuatOS `feat/airlink-dual-arq3` 分支。
 
-更新时间：2026-11-18。
+更新时间：2026-11-23。
 
 ## 1. 功能概述
 
@@ -502,6 +502,44 @@ assert(cell.peer_type == 2, "实例1不是蜂窝设备")
 | `netdrv.ready(adapter)` | 对应主控网卡就绪 |
 
 **AirLink ready 不等于已经可以访问互联网。** 实际联网能力应通过指定网卡的请求验证。
+
+### 4.1 UART Wi-Fi从机OTA
+
+实例模式使用 `airlink.sfota(path, id, expected_version)`。当前支持已完成
+ARQ3握手的UART Wi-Fi实例；SPI、未协商ARQ3、蜂窝和通用netif实例返回false。
+省略 `id` 时选择Wi-Fi功能路由，建议显式传入实例编号。
+
+```lua
+sys.subscribe("AIRLINK_SFOTA_DONE", function(ok, reason, id)
+    log.info("peer ota", id, ok, reason)
+    -- 成功后可重新连接Wi-Fi；失败按reason处理
+end)
+
+sys.taskInit(function()
+    -- 实例1已经setup，固件包已下载并校验
+    while not airlink.ready(1) do sys.wait(100) end
+    assert(airlink.sfota("/luadb/peer.bin", 1, 33), "OTA请求被拒绝")
+end)
+```
+
+- 返回true只表示请求已接受。传输使用目标实例的队列、ARQ会话与UART，
+  等待各包ACK和擦除间隔，再发送完成、结束及复位指令。
+- 目标实例先排空已有发送队列，OTA期间拒绝新的业务发送；其他实例保持运行。
+- 成功事件要求对端重启到新ARQ会话、重新握手，并读回指定版本。
+  `expected_version`省略或为0时只检查重启/握手，不确认目标版本；
+  旧从机协议不返回flash写入结果，建议始终填写目标版本并事先校验固件包。
+- 传输阶段30秒无进展或重启后60秒未通过检查会失败。
+  原因还包括 `no_memory`、`file_error`、`not_ready`、`peer_reset`、
+  `transport_error`、`closed`。
+- 已开始传输后失败会停止目标实例，防止继续重放不确定的写包。
+  恢复需检查从机状态并重启主控；其他实例不因此停止。
+- 旧单链路 `sfota(path)` 保留原流程；低级 `sfota_init/write/done/end`
+  不提供此实例OTA状态机的等待与完成校验。
+
+2026-11-23真机验证：Air1602实例1、UART1、2 Mbps，向Air6205传输
+740714字节OTA包，完成V1032→V1033升级；从机记录 `fota_done/end ret 0`，
+主控收到 `AIRLINK_SFOTA_DONE(true, nil, 1)`，随后Wi-Fi取得IPv4地址。
+本轮验证了实例框架的非零实例路由，仅接一个真实从机；双从机并发OTA尚未验收。
 
 ## 5. 双网络联网完整示例
 

@@ -11,6 +11,10 @@
 #include "luat_netdrv_drv.h"
 #include "luat_netdrv_event.h"
 #include "luat_network_adapter.h"
+#include "luat_fs.h"
+#ifdef __LUATOS__
+#include "luat_msgbus.h"
+#endif
 #ifdef LUAT_USE_AIRLINK_HSPI_MASTER
 #include "luat_airlink_hspi_master.h"
 #endif
@@ -20,6 +24,15 @@
 #define FRAME_SIZE 1600
 #define RX_SIZE 8192
 #define QUEUE_DEPTH 64
+
+enum { SFOTA_DRAIN, SFOTA_INIT, SFOTA_DATA, SFOTA_DONE, SFOTA_END, SFOTA_RESET, SFOTA_REBOOT };
+typedef struct {
+    FILE* file;
+    size_t size, sent;
+    uint32_t expected, session;
+    uint64_t deadline, next, hello;
+    uint8_t phase, waiting;
+} instance_fota_t;
 
 typedef struct {
     luat_airlink_setup_t conf;
@@ -43,6 +56,7 @@ typedef struct {
     uint8_t board_gpio_step;
     size_t rx_used;
     uint8_t *rxbuf, *txbuf, *wire;
+    instance_fota_t* fota; /* Published under lock; serviced/freed only by IO. */
 } airlink_instance_t;
 
 static airlink_instance_t links[AIRLINK_LINK_COUNT];
@@ -179,7 +193,7 @@ int luat_airlink_link_send(int id, const luat_airlink_cmd_t* cmd) {
     luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
     int ret = -1;
     uint32_t queued = 0;
-    if (!l->running || luat_rtos_queue_get_cnt(l->tx, &queued) || queued + count > QUEUE_DEPTH) goto done;
+    if (!l->running || l->fota || luat_rtos_queue_get_cnt(l->tx, &queued) || queued + count > QUEUE_DEPTH) goto done;
     uint16_t frag = ++l->fragment;
     for (unsigned n = 0, off = 0; n < count; n++) {
         unsigned len = count == 1 ? cmd->len : (cmd->len - off > chunk ? chunk : cmd->len - off);
@@ -217,7 +231,7 @@ int luat_airlink_link_send_ip(uint8_t adapter, const uint8_t* data, size_t len) 
         memcpy(cmd->data + 1, data, len);
         airlink_queue_item_t item = {sizeof(*cmd) + cmd->len, cmd};
         luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
-        int ret = l->running ? luat_rtos_queue_send(l->ip, &item, 0, 0) : -1;
+        int ret = l->running && !l->fota ? luat_rtos_queue_send(l->ip, &item, 0, 0) : -1;
         if (ret) { luat_airlink_statistics_add(&l->stats.tx_ip.drop, 1); luat_airlink_statistics_add(&l->stats.tx_bytes.drop, len); }
         luat_rtos_mutex_unlock(l->lock);
         if (ret) luat_airlink_cmd_free(cmd);
@@ -447,6 +461,164 @@ static void instance_self_info(airlink_instance_t* l, luat_airlink_dev_info_t* i
     luat_rtos_mutex_unlock(l->lock);
     for (int i = 0; i < 4; i++) info->network.generation[i] = generation >> (8 * i);
 }
+#ifdef __LUATOS__
+static int instance_fota_event(lua_State* L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L, "sys_pub");
+    lua_pushstring(L, "AIRLINK_SFOTA_DONE");
+    lua_pushboolean(L, msg->arg1);
+    if (msg->ptr) lua_pushstring(L, (const char*)msg->ptr); else lua_pushnil(L);
+    lua_pushinteger(L, msg->arg2);
+    lua_call(L, 4, 0);
+    return 0;
+}
+#endif
+
+static void instance_fota_finish(airlink_instance_t* l, const char* reason) {
+    luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
+    instance_fota_t* f = l->fota;
+    l->fota = NULL;
+    /* After a partial transfer delivery is indeterminate. Do not replay the
+     * pending chunk or resume application traffic against a half-written peer. */
+    if (reason && f->phase != SFOTA_DRAIN) l->running = 0;
+    luat_rtos_mutex_unlock(l->lock);
+    luat_airlink_arq_set_giveup_ms(0);
+    luat_fs_fclose(f->file);
+    luat_heap_free(f);
+    LLOGI("sfota link=%d %s", (int)(l - links), reason ? reason : "completed");
+#ifdef __LUATOS__
+    rtos_msg_t msg = {.handler = instance_fota_event, .arg1 = reason == NULL,
+        .arg2 = (int)(l - links), .ptr = (void*)reason};
+    luat_msgbus_put(&msg, 0);
+#endif
+}
+
+int luat_airlink_link_sfota(int id, const char* path, uint32_t expected_version) {
+    if (!path || !luat_airlink_link_ready(id)) return -1;
+    airlink_instance_t* l = &links[id];
+    if (!(features(l->conf.drv) & AIRLINK_FEATURE_WIFI) ||
+        l->conf.mode != LUAT_AIRLINK_MODE_UART || luat_airlink_arq_state_link(id) != ARQ_STATE_ARQ)
+        return -3;
+    instance_fota_t* f = luat_heap_malloc(sizeof(*f));
+    if (!f) return -2;
+    memset(f, 0, sizeof(*f));
+    long size = luat_fs_fsize(path);
+    f->file = size > 0 ? luat_fs_fopen(path, "rb") : NULL;
+    if (!f->file) { luat_heap_free(f); return -4; }
+    f->size = (size_t)size;
+    f->expected = expected_version;
+    f->deadline = luat_mcu_tick64_ms() + 30000;
+    luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
+    if (!l->running || l->fota) {
+        luat_rtos_mutex_unlock(l->lock);
+        luat_fs_fclose(f->file); luat_heap_free(f); return -5;
+    }
+    l->fota = f;
+    luat_rtos_mutex_unlock(l->lock);
+    return 0;
+}
+
+/* Runs in this link's IO context, so ARQ, UART buffers and peer identity are
+ * never borrowed from the default/other link. No blocking erase sleeps: RX and
+ * ACK processing, net maintenance and every other instance keep running. */
+static int instance_fota_tick(airlink_instance_t* l, uint64_t now, int acked) {
+    luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
+    instance_fota_t* f = l->fota;
+    luat_rtos_mutex_unlock(l->lock);
+    if (!f) return 0;
+    if (now >= f->deadline) {
+        instance_fota_finish(l, f->phase == SFOTA_REBOOT ? "reboot_timeout" : "transfer_timeout");
+        return 1;
+    }
+    if (f->phase == SFOTA_DRAIN) {
+        uint32_t commands = 0, packets = 0;
+        luat_rtos_queue_get_cnt(l->tx, &commands);
+        luat_rtos_queue_get_cnt(l->ip, &packets);
+        if (commands || packets || l->tx_busy || luat_airlink_arq_pending_active()) return 0;
+        if (luat_airlink_arq_state() != ARQ_STATE_ARQ) {
+            instance_fota_finish(l, "not_ready"); return 1;
+        }
+        f->session = luat_airlink_arq_peer_session();
+        f->phase = SFOTA_INIT;
+        f->deadline = now + 30000;
+        /* BK flash erase can exceed the ordinary 3s ARQ give-up interval. */
+        luat_airlink_arq_set_giveup_ms(30000);
+        LLOGI("sfota link=%d size=%u", (int)(l - links), (unsigned)f->size);
+    }
+    if (f->phase == SFOTA_REBOOT) {
+        if (luat_airlink_arq_peer_session() != f->session &&
+            luat_airlink_arq_state() == ARQ_STATE_ARQ && luat_airlink_link_ready((int)(l - links))) {
+            luat_airlink_dev_info_t peer = {0};
+            luat_airlink_link_peer_copy((int)(l - links), &peer);
+            uint32_t version = 0;
+            memcpy(&version, peer.wifi.version, sizeof(version));
+            if (!f->expected || version == f->expected) instance_fota_finish(l, NULL);
+            return 1;
+        }
+        if (!l->tx_busy && now - f->hello >= 1000) {
+            uint8_t info[sizeof(luat_airlink_cmd_t) + sizeof(luat_airlink_dev_info_t) + AIRLINK_ARQ_HELLO_SIZE];
+            luat_airlink_dev_info_t self;
+            instance_self_info(l, &self);
+            luat_airlink_arq_devinfo(info, &self);
+            send_cmd(l, (void*)info, 0);
+            f->hello = now;
+        }
+        /* Retry reset only in the original session. It is never sent to a
+         * restarted peer after the pending slot is discarded by ARQ. */
+        if (!l->tx_busy && luat_airlink_arq_pending_active() &&
+            now - luat_airlink_arq_pending_sent_ms() >= 500) {
+            send_cmd(l, luat_airlink_arq_pending_cmd(), 1);
+            luat_airlink_arq_pending_retransmit(now);
+        }
+        return 1;
+    }
+    if (luat_airlink_arq_peer_session() != f->session || luat_airlink_arq_state() != ARQ_STATE_ARQ) {
+        instance_fota_finish(l, "peer_reset"); return 1;
+    }
+    if (f->waiting) {
+        if (acked) {
+            f->waiting = 0;
+            if (f->phase == SFOTA_INIT) { f->phase = SFOTA_DATA; f->next = now + 5000; }
+            else if (f->phase == SFOTA_DATA) {
+                f->next = now + (f->sent == 8192 ? 8000 : f->sent == 16384 ? 3000 :
+                    (f->sent % 4096 == 0 ? 200 : 40));
+                if (f->sent == f->size) { f->phase = SFOTA_DONE; f->next = now + 3000; }
+            } else { f->phase++; f->next = now + 1000; }
+            f->deadline = f->next + 30000;
+        } else {
+            if (!l->tx_busy && luat_airlink_arq_pending_active() &&
+                now - luat_airlink_arq_pending_sent_ms() >= 500) {
+                if (send_cmd(l, luat_airlink_arq_pending_cmd(), 1)) {
+                    instance_fota_finish(l, "transport_error"); return 1;
+                }
+                luat_airlink_arq_pending_retransmit(now);
+            }
+            return 1;
+        }
+    }
+    if (l->tx_busy || now < f->next || luat_airlink_arq_peer_mem_high()) return 1;
+    uint16_t command = f->phase == SFOTA_INIT ? 4 : f->phase == SFOTA_DATA ? 5 :
+        f->phase == SFOTA_DONE ? 6 : f->phase == SFOTA_END ? 7 : 3;
+    size_t n = command == 5 ? (f->size - f->sent > 1024 ? 1024 : f->size - f->sent) : 0;
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(command, n);
+    if (!cmd) { instance_fota_finish(l, "no_memory"); return 1; }
+    if (n && luat_fs_fread(cmd->data, 1, n, f->file) != n) {
+        luat_airlink_cmd_free(cmd); instance_fota_finish(l, "file_error"); return 1;
+    }
+    if (luat_airlink_arq_pending_set(cmd, now)) {
+        luat_airlink_cmd_free(cmd); instance_fota_finish(l, "not_ready"); return 1;
+    }
+    if (send_cmd(l, cmd, 1)) { instance_fota_finish(l, "transport_error"); return 1; }
+    f->sent += n;
+    f->waiting = 1;
+    f->deadline = now + 30000;
+    if (command == 3) {
+        f->phase = SFOTA_REBOOT;
+        f->deadline = now + 60000;
+    }
+    return 1;
+}
+
 static void io_task(void* param) {
     airlink_instance_t* l = param;
     l->io_task = luat_rtos_get_current_handle();
@@ -512,13 +684,19 @@ static void io_task(void* param) {
         }
 #endif
         now = luat_mcu_tick64_ms();
-        luat_airlink_arq_pending_try_ack();
+        int acked = luat_airlink_arq_pending_try_ack();
         luat_airlink_arq_check_giveup(now);
         luat_rtos_mutex_lock(l->lock, LUAT_WAIT_FOREVER);
         if (luat_airlink_arq_consume_force_down()) l->stalled = 1;
         if (!luat_airlink_arq_pending_active()) l->stalled = 0;
         luat_rtos_mutex_unlock(l->lock);
         l->ack_due |= luat_airlink_arq_take_need_ack();
+        if (instance_fota_tick(l, now, acked)) {
+            if (l->running && l->ack_due && !l->tx_busy &&
+                !send_frame(l, luat_airlink_arq_pack(l->txbuf, FRAME_SIZE, NULL, 0))) l->ack_due = 0;
+            luat_rtos_task_sleep(1);
+            continue;
+        }
         /* One frame in the HAL at a time, including legacy traffic. RX keeps
          * draining while TX is busy; no unbounded UART heap backlog. */
         if (l->tx_busy) { luat_rtos_task_sleep(1); continue; }
@@ -576,6 +754,8 @@ static void io_task(void* param) {
         if (l->ack_due && !l->tx_busy && !send_frame(l, luat_airlink_arq_pack(l->txbuf, FRAME_SIZE, NULL, 0))) l->ack_due = 0;
         luat_rtos_task_sleep(1);
     }
+    if (l->fota) instance_fota_finish(l, "closed");
+    tcpip_callback(instance_net_update, l);
     luat_airlink_arq_stop();
     if (l->uart_opened) {
         luat_uart_close(l->conf.uart_id); l->uart_opened = 0;

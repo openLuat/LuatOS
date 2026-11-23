@@ -15,6 +15,9 @@ enum { ARQ_RX_DELIVER = 0, ARQ_RX_DUP = 1 };
 void luat_airlink_arq_init(void);
 void luat_airlink_arq_stop(void);
 void luat_airlink_arq_check_giveup(uint64_t now);
+/* TX-context only. Zero restores the normal timeout after a flash operation. */
+void luat_airlink_arq_set_giveup_ms(uint32_t ms);
+uint32_t luat_airlink_arq_peer_session(void);
 int luat_airlink_arq_state(void);
 int luat_airlink_arq_take_need_ack(void);
 uint16_t luat_airlink_arq_peek_ack(void);

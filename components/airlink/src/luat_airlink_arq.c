@@ -17,6 +17,7 @@ typedef struct {
     uint8_t state, reset, ack_valid, need_ack, mem_high, force_down;
     uint8_t devinfo_pending, stalled;
     uint64_t last_devinfo;
+    uint32_t giveup_ms;
     struct { luat_airlink_cmd_t* cmd; uint16_t seq; uint64_t sent, first; } pending;
 } airlink_arq_state_t;
 static struct {
@@ -230,7 +231,7 @@ void luat_airlink_arq_check_giveup(uint64_t now) {
         arq.tx_seq = 0;
         arq.reset = 0;
     }
-    if (arq.pending.cmd && !arq.stalled && now - arq.pending.first >= ARQ_GIVEUP_MS) {
+    if (arq.pending.cmd && !arq.stalled && now - arq.pending.first >= (arq.giveup_ms ? arq.giveup_ms : ARQ_GIVEUP_MS)) {
         arq.stalled = 1;
         arq.force_down = 1;
         count_giveup();
@@ -241,6 +242,7 @@ void luat_airlink_arq_check_giveup(uint64_t now) {
 
 #define GETTER(type, name, field) type name(void) { if (!lock) return 0; LOCK(); type v = arq.field; UNLOCK(); return v; }
 GETTER(uint16_t, luat_airlink_arq_peek_ack, rx_next)
+GETTER(uint32_t, luat_airlink_arq_peer_session, peer)
 GETTER(uint16_t, luat_airlink_arq_get_peer_ack, peer_ack)
 GETTER(int, luat_airlink_arq_state, state)
 GETTER(int, luat_airlink_arq_peer_mem_high, mem_high)
@@ -250,6 +252,7 @@ GETTER(uint64_t, luat_airlink_arq_last_devinfo_ms, last_devinfo)
 int luat_airlink_arq_take_need_ack(void) { LOCK(); int v = arq.need_ack; arq.need_ack = 0; UNLOCK(); return v; }
 int luat_airlink_arq_consume_force_down(void) { if (!lock) return 0; LOCK(); int v = arq.force_down; arq.force_down = 0; UNLOCK(); return v; }
 void luat_airlink_arq_set_devinfo_pending(int v) { LOCK(); arq.devinfo_pending = v; UNLOCK(); }
+void luat_airlink_arq_set_giveup_ms(uint32_t ms) { LOCK(); arq.giveup_ms = ms; UNLOCK(); }
 void luat_airlink_arq_set_last_devinfo_ms(uint64_t v) { LOCK(); arq.last_devinfo = v; UNLOCK(); }
 void luat_airlink_arq_set_peer_mem_high(uint8_t v) { LOCK(); arq.mem_high = v; UNLOCK(); }
 void luat_airlink_arq_put_peer(uint16_t ack) { LOCK(); arq.peer_ack = ack; arq.ack_valid = 1; UNLOCK(); }

@@ -503,10 +503,11 @@ assert(cell.peer_type == 2, "实例1不是蜂窝设备")
 
 **AirLink ready 不等于已经可以访问互联网。** 实际联网能力应通过指定网卡的请求验证。
 
-### 4.1 UART Wi-Fi从机OTA
+### 4.1 UART/SPI Wi-Fi从机OTA
 
 实例模式使用 `airlink.sfota(path, id, expected_version)`。当前支持已完成
-ARQ3握手的UART Wi-Fi实例；SPI、未协商ARQ3、蜂窝和通用netif实例返回false。
+ARQ3握手的UART Wi-Fi实例，以及配置了RDY的SPI主机Wi-Fi实例。
+未协商ARQ3的UART、SPI从机、HSPI、蜂窝和通用netif实例返回false。
 省略 `id` 时选择Wi-Fi功能路由，建议显式传入实例编号。
 
 ```lua
@@ -524,9 +525,12 @@ end)
 
 - 返回true只表示请求已接受。传输使用目标实例的队列、ARQ会话与UART，
   等待各包ACK和擦除间隔，再发送完成、结束及复位指令。
+- SPI使用既有CRC帧，按RDY就绪及擦除间隔发送，`arq=0`正常。
+  RDY不代表flash写入成功；SPI没有逐包写入ACK，不自动重发可能已写入的块。
+  必须传入非零且不同于当前版本的 `expected_version`，最终读回目标版本才报告成功。
 - 目标实例先排空已有发送队列，OTA期间拒绝新的业务发送；其他实例保持运行。
-- 成功事件要求对端重启到新ARQ会话、重新握手，并读回指定版本。
-  `expected_version`省略或为0时只检查重启/握手，不确认目标版本；
+- UART成功事件要求对端重启到新ARQ会话、重新握手，并读回指定版本。
+  UART的 `expected_version`省略或为0时只检查重启/握手，不确认目标版本；
   旧从机协议不返回flash写入结果，建议始终填写目标版本并事先校验固件包。
 - 传输阶段30秒无进展或重启后60秒未通过检查会失败。
   原因还包括 `no_memory`、`file_error`、`not_ready`、`peer_reset`、
@@ -540,6 +544,11 @@ end)
 740714字节OTA包，完成V1032→V1033升级；从机记录 `fota_done/end ret 0`，
 主控收到 `AIRLINK_SFOTA_DONE(true, nil, 1)`，随后Wi-Fi取得IPv4地址。
 本轮验证了实例框架的非零实例路由，仅接一个真实从机；双从机并发OTA尚未验收。
+
+同日SPI真机验证：Air1602实例1，SPI1、CS=GPIO12、RDY=GPIO41、
+Mode 3、1 MHz → Air6205，完成同一740714字节包的V1032→V1033升级，
+约122秒收到成功事件，随后Wi-Fi DHCP成功。从机记录 `fota_done/end ret 0`。
+切换UART/SPI时需重启采用首次握手锁定传输模式的从机。
 
 ## 5. 双网络联网完整示例
 

@@ -496,9 +496,20 @@ static void instance_fota_finish(airlink_instance_t* l, const char* reason) {
 int luat_airlink_link_sfota(int id, const char* path, uint32_t expected_version) {
     if (!path || !luat_airlink_link_ready(id)) return -1;
     airlink_instance_t* l = &links[id];
+    int spi = l->conf.mode == LUAT_AIRLINK_MODE_SPI_MASTER;
     if (!(features(l->conf.drv) & AIRLINK_FEATURE_WIFI) ||
-        l->conf.mode != LUAT_AIRLINK_MODE_UART || luat_airlink_arq_state_link(id) != ARQ_STATE_ARQ)
+        (!spi && (l->conf.mode != LUAT_AIRLINK_MODE_UART || luat_airlink_arq_state_link(id) != ARQ_STATE_ARQ)) ||
+        (spi && (l->conf.rdy == 255 || !expected_version)))
         return -3;
+    /* Legacy SPI has no write ACK/session nonce. Require a different target
+     * version so a stale pre-reset devinfo can never report success. */
+    if (spi) {
+        luat_airlink_dev_info_t peer = {0};
+        luat_airlink_link_peer_copy(id, &peer);
+        uint32_t version = 0;
+        memcpy(&version, peer.wifi.version, sizeof(version));
+        if (!version || version == expected_version) return -3;
+    }
     instance_fota_t* f = luat_heap_malloc(sizeof(*f));
     if (!f) return -2;
     memset(f, 0, sizeof(*f));
@@ -526,6 +537,7 @@ static int instance_fota_tick(airlink_instance_t* l, uint64_t now, int acked) {
     instance_fota_t* f = l->fota;
     luat_rtos_mutex_unlock(l->lock);
     if (!f) return 0;
+    int spi = l->conf.mode == LUAT_AIRLINK_MODE_SPI_MASTER;
     if (now >= f->deadline) {
         instance_fota_finish(l, f->phase == SFOTA_REBOOT ? "reboot_timeout" : "transfer_timeout");
         return 1;
@@ -535,7 +547,7 @@ static int instance_fota_tick(airlink_instance_t* l, uint64_t now, int acked) {
         luat_rtos_queue_get_cnt(l->tx, &commands);
         luat_rtos_queue_get_cnt(l->ip, &packets);
         if (commands || packets || l->tx_busy || luat_airlink_arq_pending_active()) return 0;
-        if (luat_airlink_arq_state() != ARQ_STATE_ARQ) {
+        if (!spi && luat_airlink_arq_state() != ARQ_STATE_ARQ) {
             instance_fota_finish(l, "not_ready"); return 1;
         }
         f->session = luat_airlink_arq_peer_session();
@@ -546,13 +558,23 @@ static int instance_fota_tick(airlink_instance_t* l, uint64_t now, int acked) {
         LLOGI("sfota link=%d size=%u", (int)(l - links), (unsigned)f->size);
     }
     if (f->phase == SFOTA_REBOOT) {
-        if (luat_airlink_arq_peer_session() != f->session &&
-            luat_airlink_arq_state() == ARQ_STATE_ARQ && luat_airlink_link_ready((int)(l - links))) {
+        if ((spi || (luat_airlink_arq_peer_session() != f->session &&
+            luat_airlink_arq_state() == ARQ_STATE_ARQ)) && luat_airlink_link_ready((int)(l - links))) {
             luat_airlink_dev_info_t peer = {0};
             luat_airlink_link_peer_copy((int)(l - links), &peer);
             uint32_t version = 0;
             memcpy(&version, peer.wifi.version, sizeof(version));
-            if (!f->expected || version == f->expected) instance_fota_finish(l, NULL);
+            if (!f->expected || version == f->expected) {
+                instance_fota_finish(l, NULL);
+                return 1;
+            }
+        }
+        if (spi) {
+            if (now >= f->next && !luat_gpio_get(l->conf.rdy)) {
+                luat_airlink_cmd_t empty = {0};
+                send_cmd(l, &empty, 0);
+                f->next = luat_mcu_tick64_ms() + 10;
+            }
             return 1;
         }
         if (!l->tx_busy && now - f->hello >= 1000) {
@@ -572,10 +594,14 @@ static int instance_fota_tick(airlink_instance_t* l, uint64_t now, int acked) {
         }
         return 1;
     }
-    if (luat_airlink_arq_peer_session() != f->session || luat_airlink_arq_state() != ARQ_STATE_ARQ) {
+    if (!spi && (luat_airlink_arq_peer_session() != f->session || luat_airlink_arq_state() != ARQ_STATE_ARQ)) {
         instance_fota_finish(l, "peer_reset"); return 1;
     }
     if (f->waiting) {
+        /* SPI RDY is DMA readiness, not a flash result. Never resend a write
+         * when its delivery is unknown. Retain erase delays and verify the
+         * changed version after reboot as the end-to-end completion check. */
+        if (spi) acked = now >= f->next && !luat_gpio_get(l->conf.rdy);
         if (acked) {
             f->waiting = 0;
             if (f->phase == SFOTA_INIT) { f->phase = SFOTA_DATA; f->next = now + 5000; }
@@ -596,7 +622,8 @@ static int instance_fota_tick(airlink_instance_t* l, uint64_t now, int acked) {
             return 1;
         }
     }
-    if (l->tx_busy || now < f->next || luat_airlink_arq_peer_mem_high()) return 1;
+    if (l->tx_busy || now < f->next || luat_airlink_arq_peer_mem_high() ||
+        (spi && luat_gpio_get(l->conf.rdy))) return 1;
     uint16_t command = f->phase == SFOTA_INIT ? 4 : f->phase == SFOTA_DATA ? 5 :
         f->phase == SFOTA_DONE ? 6 : f->phase == SFOTA_END ? 7 : 3;
     size_t n = command == 5 ? (f->size - f->sent > 1024 ? 1024 : f->size - f->sent) : 0;
@@ -605,16 +632,20 @@ static int instance_fota_tick(airlink_instance_t* l, uint64_t now, int acked) {
     if (n && luat_fs_fread(cmd->data, 1, n, f->file) != n) {
         luat_airlink_cmd_free(cmd); instance_fota_finish(l, "file_error"); return 1;
     }
-    if (luat_airlink_arq_pending_set(cmd, now)) {
+    if (!spi && luat_airlink_arq_pending_set(cmd, now)) {
         luat_airlink_cmd_free(cmd); instance_fota_finish(l, "not_ready"); return 1;
     }
-    if (send_cmd(l, cmd, 1)) { instance_fota_finish(l, "transport_error"); return 1; }
+    int ret = send_cmd(l, cmd, !spi);
+    if (spi) luat_airlink_cmd_free(cmd);
+    if (ret) { instance_fota_finish(l, "transport_error"); return 1; }
     f->sent += n;
     f->waiting = 1;
+    if (spi) f->next = luat_mcu_tick64_ms() + 10;
     f->deadline = now + 30000;
     if (command == 3) {
         f->phase = SFOTA_REBOOT;
         f->deadline = now + 60000;
+        if (spi) f->next = now + 3000;
     }
     return 1;
 }

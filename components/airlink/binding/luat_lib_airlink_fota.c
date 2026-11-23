@@ -78,8 +78,8 @@ int l_airlink_sfota_write(lua_State *L) {
 升级从机固件
 @api airlink.sfota(path, id, expected_version)
 @string 升级文件的路径
-@int 可选实例ID；实例模式省略时选择Wi-Fi实例。当前实例OTA支持UART ARQ3。
-@int 可选期望的从机版本号；实例模式重启后校验，0表示只检查重新握手
+@int 可选实例ID；实例模式省略时选择Wi-Fi实例。支持UART ARQ3或带RDY的SPI主机。
+@int 期望的从机版本号；UART可省略或填0只检查重新握手；SPI必填非零且不同于当前版本
 @return bool 请求接受返回true，拒绝返回false；升级结果通过AIRLINK_SFOTA_DONE发布
 @usage
 -- 注意, 升级过程是异步的, 耗时1~2分钟, 注意观察日志

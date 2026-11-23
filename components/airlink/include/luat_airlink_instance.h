@@ -43,7 +43,9 @@ typedef struct {
 
 int luat_airlink_setup_link(int id, const luat_airlink_setup_t* conf);
 int luat_airlink_stop_link(int id);
-/* UART ARQ3 Wi-Fi peer OTA. expected_version=0 checks reboot/handshake only. */
+/* Wi-Fi peer OTA: UART ARQ3 or SPI master with RDY.
+ * UART expected_version=0 checks reboot/handshake only; SPI requires a
+ * nonzero target different from the running version (no session/write ACK). */
 int luat_airlink_link_sfota(int id, const char* path, uint32_t expected_version);
 int luat_airlink_link_configured(int id);
 int luat_airlink_link_ready(int id);

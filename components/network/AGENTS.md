@@ -19,6 +19,8 @@ network/
 ├── libhttp/          # HTTP protocol
 ├── libsntp/          # SNTP time sync
 ├── netdrv/           # Network drivers
+├── dns_server/       # 公共 DNS 转发服务与独立的 lwIP 后端
+├── dhcp_server/      # 公共 DHCP 租约引擎与独立的 lwIP 后端
 ├── errdump/          # Error dumping
 ├── l2tp/             # L2TPv2 client (RFC 2661, netdrv submodule)
 ├── ipsec/            # IKEv2/IPsec client (netdrv submodule)
@@ -38,6 +40,8 @@ network/
 | Socket Lua API | `adapter/` | `luat_lib_socket.c` |
 | SNTP | `libsntp/` | `libsntp.c` |
 | HTTP server | `httpsrv/` | `httpsrv.c` |
+| DNS 转发服务 | `dns_server/` | 适配接口与生命周期见 `dns_server/README.md` |
+| DHCP 服务端 | `dhcp_server/` | 配置与线程约束见 `dhcp_server/README.md` |
 | L2TP | `l2tp/` | `src/l2tp_client.c` (control plane) + `src/l2tp_ppp.c` |
 | IPsec | `ipsec/` | `src/ipsec_ike.c` (IKEv2 state machine) |
 | OpenVPN | `openvpn/` | `src/ovpn_client.c` + `src/ovpn_tls.c` |

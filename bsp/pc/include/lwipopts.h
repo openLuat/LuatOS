@@ -248,6 +248,10 @@ a lot of data that needs to be copied, this should be set high. */
 /* Define LWIP_DHCP to 1 if you want DHCP configuration of
    interfaces. */
 #define LWIP_DHCP               0
+#if defined(LUAT_USE_DHCP_SERVER) && !defined(LWIP_IP_ACCEPT_UDP_PORT)
+/* 客户端尚无地址时，允许服务端接收目的端口为 67 的 DHCP 广播。 */
+#define LWIP_IP_ACCEPT_UDP_PORT(port) ((port) == PP_HTONS(67))
+#endif
 
 /* 1 if you want to do an ARP check on the offered address
    (recommended). */

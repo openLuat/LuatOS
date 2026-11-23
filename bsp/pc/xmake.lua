@@ -994,6 +994,15 @@ target("luatos-lua")
         add_includedirs(luatos .. "components/network/netdrv/include")
         add_files(luatos .. "components/network/netdrv/**.c")
 
+        -- 公共局域网服务：编译协议引擎与 lwIP 后端。
+        -- PC 主机流量仍走独立的操作系统适配器；主机协议回归测试位于
+        -- testcase/tools/network_servers。
+        add_defines("LUAT_USE_DNS_SERVER=1", "LUAT_USE_DHCP_SERVER=1")
+        add_includedirs(luatos .. "components/network/dns_server/include")
+        add_files(luatos .. "components/network/dns_server/src/*.c")
+        add_includedirs(luatos .. "components/network/dhcp_server/include")
+        add_files(luatos .. "components/network/dhcp_server/src/*.c")
+
         -- L2TPv2 客户端子模块 (components/network/l2tp) + vendored lwip22 PPP 实现
         -- 注意: bsp/pc/include/lwipopts.h 写死 PPP_SUPPORT=0 且会重定义,
         -- 所以这里通过 LUAT_L2TP_PPP_BUILD + luat_ppp_opts_override.h 在

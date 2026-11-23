@@ -53,11 +53,16 @@ static inline void to_ipv4(const char* data, uint8_t* dst) {
 @return bool 成功返回true,否则返回false
 */
 static int l_wlan_init(lua_State* L){
+    int ret = 0;
     #ifdef LUAT_USE_DRV_WLAN
-    int ret = luat_drv_wlan_init(NULL);
-    #else
-    int ret = luat_wlan_init(NULL);
+    if (luat_airlink_has_wifi() || luat_airlink_current_mode_get() >= 0) {
+        ret = luat_drv_wlan_init(NULL);
+    } else
     #endif
+    {
+        ret = luat_wlan_init(NULL);
+    }
+    
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

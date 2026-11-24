@@ -178,13 +178,7 @@ function M.optional()
     -- 必须在 init_all 之后加载：此时外设 handle 已登记，直接挂接，不会重复登记
     if feat.other_func then
         require "other_func_app"
-        --[[
-        SIP 通话业务层不在这里加载：整套（sip_phone 协议栈 + Air1103 语音桥）由
-        ui/test/sip_test_win 在首次打开「SIP通话」时懒 require，退出关窗即释放音频资源，
-        避免常驻内存、也避免和通用录音抢 Air1103 的 UART6 实时资源导致爆音。
-        是否开这个功能由 app/sip/sip_gate.lua 决定（features.sip + hw.audio.model=="air1103"），
-        只有 Air8605M / Air8605W 过得了。
-        ]]
+        -- SIP + C237 只在打开通话页时注册，退页后释放 Air1103 和音频资源。
     end
 end
 

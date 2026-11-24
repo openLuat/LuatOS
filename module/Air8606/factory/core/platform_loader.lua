@@ -45,6 +45,10 @@ local function _compile_manifest()
 require ("pc_default")            -- PC 模拟器回退
 require ("air1103")               -- Air1103 Lua 驱动（含静音帧保活），覆盖固件内置 C 驱动，消除播放周期性爆音
 require ("sipapp_pcm_rx")         -- 55AA MIC 上行帧解析器（Air1103 常驻上行用，factory_rec / periph_audio 软依赖）
+require ("sip_gate")              -- 按 UART6 和功放装配开放话机
+require ("sip_test_win")          -- 从功能测试按需加载
+require ("factory_handoff")       -- 测试页和话机交接外设
+require ("factory_page_exit")     -- 退页等待外设清理完成
 
 -- Air8606 引擎主机（本树唯一型号）：接口复用装配 / EX2 伴随诊断 / 外设驱动 / 诊断页
 require ("eng_8606_10i_v010")     -- Air8606 10寸 1024×600 + 接口复用装配（SPI2 4G/WiFi、UART2 CAN/RS232、双485、GNSS/EX2、对外电源、看门狗）+ J24 SPI以太网 + Air1103语音 + SD

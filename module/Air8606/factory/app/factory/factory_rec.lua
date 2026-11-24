@@ -59,9 +59,10 @@
 发布: FACTORY_MAKE_INSTALL_ERROR(msg) → 安装/打开失败
 ]]
 
-local exaudio = require "exaudio"
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require "audio_hw"
+local has_mic = audio_hw.has_mic()
+local exaudio = has_mic and require "exaudio"
 -- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
 -- 上传统一走 http_upload（httpplus 流式，避免大文件整读 OOM）
 local http_upload = require "http_upload"
@@ -71,12 +72,16 @@ local http_upload = require "http_upload"
 --   初始化时复位一次让 MIC 上行常驻，之后录音只是"开始收集帧"，不再复位芯片。
 --   这样才能做到点录音立刻有声音；走 exaudio.record_start 会每次 02 05 复位，
 --   芯片重新 boot ≈1.4s，落盘前 2 秒全是静音。
-local chip_ok, chip = pcall(require, "air1103")
-if not chip_ok then chip = nil end
+local chip, pcm_rx
 -- 工程自带 55AA MIC 解析器（与参考工程 app/audio/sipapp_pcm_rx.lua 逐字节一致）
 -- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
 local PCM_RX_MOD = "sipapp_pcm_rx"
-local pcm_rx_ok, pcm_rx = pcall(require, PCM_RX_MOD)
+if audio_hw.is_air1103() then
+    local ok, driver = pcall(require, "air1103")
+    if ok then chip = driver end
+    local parsed, parser = pcall(require, PCM_RX_MOD)
+    if parsed then pcm_rx = parser end
+end
 local mic_frames = 0    -- 累计收到的 MIC 上行帧数（预热探测用）
 local last_mic_at = 0   -- 最近一次收到 MIC 帧的时间（秒），用于判断上行是否还活着
 local function is_air1103()
@@ -339,8 +344,8 @@ end
 安装时机：进入 AI/工厂会话时安装，退出会话时还原，
 避免影响其它仍依赖 air1103 原生 feed 的录音页。
 ]]
-local mic_parser = pcm_rx_ok and pcm_rx.new(air1103_on_pcm) or nil
-local original_feed = chip_ok and chip.feed or nil
+local mic_parser = pcm_rx and pcm_rx.new(air1103_on_pcm)
+local original_feed = chip and chip.feed
 local chip_feed_fn
 local function install_chip_feed()
     if not is_air1103() or not mic_parser then return false end
@@ -1183,25 +1188,13 @@ rec_start = audio_hw.guard(rec_start)
 rec_stop = audio_hw.guard(rec_stop)
 rec_reset = audio_hw.guard(rec_reset)
 
-sys.subscribe("FACTORY_REC_SETUP", function()
-    sys.taskInit(rec_setup)
-end)
-
-sys.subscribe("FACTORY_REC_START", function()
-    sys.taskInit(rec_start)
-end)
-
-sys.subscribe("FACTORY_REC_STOP", function()
-    sys.taskInit(rec_stop)
-end)
-
-sys.subscribe("FACTORY_REC_RESET", function()
-    sys.taskInit(rec_reset)
-end)
-
-sys.subscribe("FACTORY_MAKE_SEND", function()
-    sys.taskInit(make_send)
-end)
+if has_mic then
+    sys.subscribe("FACTORY_REC_SETUP", function() sys.taskInit(rec_setup) end)
+    sys.subscribe("FACTORY_REC_START", function() sys.taskInit(rec_start) end)
+    sys.subscribe("FACTORY_REC_STOP", function() sys.taskInit(rec_stop) end)
+    sys.subscribe("FACTORY_REC_RESET", function() sys.taskInit(rec_reset) end)
+    sys.subscribe("FACTORY_MAKE_SEND", function() sys.taskInit(make_send) end)
+end
 
 sys.subscribe("FACTORY_MAKE_SEND_TEXT", function(text)
     sys.taskInit(make_send_text, text)

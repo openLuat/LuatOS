@@ -98,6 +98,7 @@ local silent_frame  = nil      -- 预打包静音保活帧(320B 全0 + 20 81 + �
 local notify_token  = 0        -- 提示音播放归属令牌, 防止旧监视定时器误触发
 local report_tx_error = false -- TTS 专用: 检查 UART 完整提交结果
 local tx_error = nil
+local volume_preview -- 只在已受理的媒体音量试听期间计数
 
 -- ==================== 工具函数 ====================
 -- 微秒级时间戳(mcu.ticks2, 64bit 计数不溢出), 用于下行 10ms 节拍基准
@@ -170,8 +171,9 @@ drain_uart = function()
         local data = uart.read(UART_ID, 1024)
         if not data or #data == 0 then return end
         rx_read_bytes = rx_read_bytes + #data
-        if rx_enabled then air1103.feed(data)
-        else rx_discard_bytes = rx_discard_bytes + #data end
+        if not rx_enabled or air1103.feed(data) == false then
+            rx_discard_bytes = rx_discard_bytes + #data
+        end
         if #data < 1024 then return end
     end
     -- 仅保留一个后续排空任务；不为每个 receive 事件新增定时器。
@@ -183,7 +185,46 @@ end
 
 function air1103.rx_stats()
     return {read_bytes=rx_read_bytes,discard_bytes=rx_discard_bytes,enabled=rx_enabled,
-        draining=rx_drain_timer~=nil}
+        draining=rx_drain_timer~=nil,sampled_us=us_now()}
+end
+
+-- before 是试听入口在 setup 前取的 rx_stats()，包含冷启动初始化的时间。
+function air1103.track_volume_preview(before)
+    if not stream_running then return end
+    volume_preview = {before=before, pcm_frames=0, pending_silence=0,
+        mid_silence_frames=0, pcm_gap_max_us=0, short_writes=0}
+end
+
+local function count_preview_write(silent, written, expected)
+    local p = volume_preview
+    if written ~= expected then
+        p.short_writes = p.short_writes + 1
+    elseif silent then
+        if p.last_pcm_us then p.pending_silence = p.pending_silence + 1 end
+    else
+        local now = us_now()
+        if p.last_pcm_us then
+            p.pcm_gap_max_us = math.max(p.pcm_gap_max_us, now - p.last_pcm_us)
+            -- 再次发出语音帧才确认中途缺数，排除 TTS 自带的前导和尾部静音。
+            p.mid_silence_frames = p.mid_silence_frames + p.pending_silence
+        else
+            p.first_pcm_ms = (now - p.before.sampled_us) // 1000
+        end
+        p.last_pcm_us = now
+        p.pending_silence = 0
+        p.pcm_frames = p.pcm_frames + 1
+    end
+end
+
+local function finish_volume_preview()
+    local p = volume_preview
+    if not p then return end
+    volume_preview = nil
+    log.info("volume_preview", "rx_bytes", rx_read_bytes - p.before.read_bytes,
+        "rx_skipped_bytes", rx_discard_bytes - p.before.discard_bytes,
+        "first_pcm_ms", p.first_pcm_ms or -1, "pcm_frames", p.pcm_frames,
+        "mid_silence_frames", p.mid_silence_frames, "pcm_gap_max_us", p.pcm_gap_max_us,
+        "short_writes", p.short_writes)
 end
 
 -- ==================== 初始化 ====================
@@ -220,6 +261,7 @@ end
 -- 注意：不 uninit 直接使用 air1103.init 换 id 不会生效。
 -- @return boolean
 function air1103.uninit()
+    finish_volume_preview()
     if rx_drain_timer then sys.timerStop(rx_drain_timer);rx_drain_timer=nil end
     -- 1) 若流式播放仍在运行先停止(此时串口仍开着, 内部 stop_audio 的 02 01 停止命令可送达 Air1103)
     if stream_running or stream_timer then
@@ -269,9 +311,16 @@ end
 -- ==================== 帧解析 ====================
 -- 喂入串口接收数据
 -- @param data string 从 UART 读出的原始字节
+-- @return false 无订阅而跳过整个数据块，供 UART 接收统计使用
 -- @remark 按 55 AA 帧头切分; 长度大端; 校验失败则丢弃整缓冲
 function air1103.feed(data)
     if not data or #data == 0 then return end
+    -- 冷启动后芯片可能持续上报 MIC。UART 已读出数据，无订阅时无需拆帧、校验。
+    -- 录音和 SIP 接管 chip.feed 时仍由它们自己的解析器处理。
+    if not cb_audio_data and not cb_identify then
+        rxstr = ""
+        return false
+    end
     rxstr = rxstr .. data
     while #rxstr >= 6 do
         local pos = rxstr:find("\x55\xAA", 1, true)
@@ -343,6 +392,7 @@ end
 --         每次唤醒最多连发 STREAM_BURST 帧, 防 Air1103 接收缓存(约2KB)溢出丢帧。
 function air1103.play_stream_start(vol, options)
     if not is_inited then return false, "not_initialized" end
+    finish_volume_preview()
     report_tx_error = options and options.report_tx_error == true or false
     tx_error = nil
     if vol then air1103.set_volume(vol) end
@@ -384,6 +434,7 @@ function air1103.play_stream_start(vol, options)
                 local f = pack(CMD_DOWN_AUDIO, body)
                 local write_started = perf.begin("uart_tx")
                 local wr = uart.write(UART_ID, f)
+                if volume_preview then count_preview_write(false, wr, #f) end
                 perf.down_submit(false, wr, #f)
                 perf.finish("uart_tx", write_started)
                 if report_tx_error and wr ~= #f then
@@ -407,6 +458,7 @@ function air1103.play_stream_start(vol, options)
                     perf.count("underflow")
                     local write_started = perf.begin("uart_tx")
                     local wr = uart.write(UART_ID, silent_frame)
+                    if volume_preview then count_preview_write(true, wr, #silent_frame) end
                     perf.down_submit(true, wr, #silent_frame)
                     perf.finish("uart_tx", write_started)
                     if report_tx_error and wr ~= #silent_frame then
@@ -467,6 +519,7 @@ end
 -- 立即结束流式播放并丢弃待发数据
 -- @param keep_rx 可选, true 时不发送停 MIC 命令, 保留原接收开关状态
 function air1103.play_stream_stop(keep_rx)
+    finish_volume_preview()
     stream_running = false
     notify_token = notify_token + 1   -- 作废任何进行中的提示音监视定时器
     if stream_timer then sys.timerStop(stream_timer); stream_timer = nil end  -- 停循环定时器, 防空转

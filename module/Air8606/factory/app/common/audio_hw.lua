@@ -109,6 +109,11 @@ function M.cfg()
     return c and c.hw and c.hw.audio
 end
 
+function M.has_mic()
+    local features = (_G.project_config or {}).features or {}
+    return M.cfg() ~= nil and features.mic ~= false
+end
+
 --[[
 @function is_air1103
 @summary 是否 Air1103 UART 语音芯片（MIC + 喇叭 + AEC 单芯片方案）

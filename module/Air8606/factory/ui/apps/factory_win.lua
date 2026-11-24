@@ -65,6 +65,7 @@ local history_shown = 0         -- 已显示的 history 条数（避免重复追
 
 -- TabOS 深色玻璃态调色板（原浅色常量 → 主题令牌）
 local theme = require "ui_theme"
+local has_mic = require("audio_hw").has_mic()
 -- 上传统一走 http_upload（httpplus 流式，避免大文件整读 OOM）
 local http_upload = require "http_upload"
 
@@ -93,49 +94,29 @@ local function set_btn_style(btn, bg, fg)
 end
 
 local function update_controls()
-    if not rec_btn or not send_btn then return end
-    if generating then
-        rec_btn:set_disabled(true)
+    if not send_btn then return end
+    local recording = current_state == "recording"
+    if rec_btn then
+        rec_btn:set_disabled(generating or installing)
+        rec_btn:set_text(recording and "停止" or "录音")
+        set_btn_style(rec_btn, recording and CLR.rose or CLR.primary, CLR.white)
+    end
+    if generating or installing then
         send_btn:set_disabled(true)
-        send_btn:set_text("生成中...")
+        send_btn:set_text(generating and "生成中..." or "安装中...")
         return
     end
-    if installing then
-        rec_btn:set_disabled(true)
-        send_btn:set_disabled(true)
-        send_btn:set_text("安装中...")
-        return
-    end
-    -- 生成成功有链接时，右侧按钮变为「安装」
     if make_link then
-        rec_btn:set_disabled(false)
-        rec_btn:set_text("录音")
-        set_btn_style(rec_btn, CLR.primary, CLR.white)
         send_btn:set_disabled(false)
         send_btn:set_text("安装")
         set_btn_style(send_btn, CLR.green, CLR.white)
         return
     end
-    rec_btn:set_disabled(false)
-    if current_state == "recording" then
-        -- 录音中：按钮可点击停止，最长 30 秒自动停止
-        rec_btn:set_text("停止")
-        rec_btn:set_disabled(false)
-        set_btn_style(rec_btn, CLR.rose, CLR.white)
-        send_btn:set_disabled(true)
-    else
-        rec_btn:set_text("录音")
-        set_btn_style(rec_btn, CLR.primary, CLR.white)
-        if has_record then
-            send_btn:set_disabled(false)
-            send_btn:set_text("生成")
-            set_btn_style(send_btn, CLR.green, CLR.white)
-        else
-            send_btn:set_disabled(true)
-            send_btn:set_text("生成")
-            set_btn_style(send_btn, CLR.line_soft, CLR.t2)
-        end
-    end
+    local text = textarea and textarea:get_text() or ""
+    local can_send = not recording and (has_record or text:find("%S") ~= nil)
+    send_btn:set_disabled(not can_send)
+    send_btn:set_text("生成")
+    set_btn_style(send_btn, can_send and CLR.green or CLR.line_soft, can_send and CLR.white or CLR.t2)
 end
 
 -- ==================== 消息区 ====================
@@ -382,7 +363,7 @@ local function build_ui()
 main_container = theme.page_bg(airui.screen, screen_w, screen_h)
 
     local titlebar = require "settings_titlebar"
-    local _, th = titlebar.create(main_container, "语音生成APP", screen_w, function()
+    local _, th = titlebar.create(main_container, has_mic and "语音生成APP" or "生成APP", screen_w, function()
         if window_id then exwin.close(window_id) end
     end)
 
@@ -456,32 +437,32 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
     local rec_w = math.floor(48 * d)
     local gen_w = math.floor(48 * d)
     local gap = math.floor(4 * d)
-    local ta_w = screen_w - 2 * margin - rec_w - gen_w - 2 * gap
+    local input_x = has_mic and (margin + rec_w + gap) or margin
+    local send_x = screen_w - margin - gen_w
     local ta_h = math.floor(36 * d)
     local row_y = math.floor(22 * d)
 
-    rec_btn = airui.button({
-        parent = bar, x = margin, y = row_y, w = rec_w, h = ta_h,
-        text = "录音", font_size = theme.fs("caption"),
-        style = { bg_color = CLR.primary, text_color = CLR.white, border_width = 0, radius = theme.r("xs") },
-        on_click = function()
-            if generating or installing then return end
-            if current_state == "recording" then
-                sys.publish("FACTORY_REC_STOP")
-            else
-                sys.publish("FACTORY_REC_START")
-            end
-        end,
-    })
+    if has_mic then
+        rec_btn = airui.button({
+            parent = bar, x = margin, y = row_y, w = rec_w, h = ta_h,
+            text = "录音", font_size = theme.fs("caption"),
+            style = { bg_color = CLR.primary, text_color = CLR.white, border_width = 0, radius = theme.r("xs") },
+            on_click = function()
+                if generating or installing then return end
+                sys.publish(current_state == "recording" and "FACTORY_REC_STOP" or "FACTORY_REC_START")
+            end,
+        })
+    end
 
     textarea = theme.input({
-        parent = bar, x = margin + rec_w + gap, y = row_y, w = ta_w, h = ta_h,
-        text = "", placeholder = "录音后文字出现在这里...",
+        parent = bar, x = input_x, y = row_y, w = send_x - gap - input_x, h = ta_h,
+        text = "", placeholder = has_mic and "输入文字或录音..." or "输入应用描述...",
         font_size = theme.fs("label"), max_len = 500, keyboard = keyboard,
+        on_text_change = update_controls,
     })
 
     send_btn = airui.button({
-        parent = bar, x = margin + rec_w + gap + ta_w + gap, y = row_y, w = gen_w, h = ta_h,
+        parent = bar, x = send_x, y = row_y, w = gen_w, h = ta_h,
         text = "生成", font_size = theme.fs("caption"),
         style = { bg_color = CLR.green, text_color = CLR.white, border_width = 0, radius = theme.r("xs") },
         on_click = function()
@@ -543,12 +524,11 @@ local function on_create()
     sys.subscribe("FACTORY_MAKE_INSTALL_STATUS", on_make_install_status)
     sys.subscribe("FACTORY_MAKE_INSTALL_DONE", on_make_install_done)
     sys.subscribe("FACTORY_MAKE_INSTALL_ERROR", on_make_install_error)
-    -- 音频未就绪前先显示初始化提示，减少使用者焦虑感
-    -- 首条消息即初始化提示，记录行号供 on_ready 就地更新结果
-    append_msg("正在初始化音频...", true)
-    init_row = (msg_rows == 1) and 0 or nil
-    -- 进入窗口才初始化音频驱动（进APP开关，不常开）
-    sys.publish("FACTORY_REC_SETUP")
+    if has_mic then
+        append_msg("正在初始化音频...", true)
+        init_row = (msg_rows == 1) and 0 or nil
+        sys.publish("FACTORY_REC_SETUP")
+    end
 end
 
 local function on_destroy()
@@ -563,7 +543,7 @@ local function on_destroy()
     sys.unsubscribe("FACTORY_MAKE_INSTALL_DONE", on_make_install_done)
     sys.unsubscribe("FACTORY_MAKE_INSTALL_ERROR", on_make_install_error)
     -- 退出时停止录音 + 下电 + 删临时文件
-    sys.publish("FACTORY_REC_RESET")
+    if has_mic then sys.publish("FACTORY_REC_RESET") end
     if keyboard then pcall(keyboard.destroy, keyboard); keyboard = nil end
     if main_container then
         main_container:destroy()

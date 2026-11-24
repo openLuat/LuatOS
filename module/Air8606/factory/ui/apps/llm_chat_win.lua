@@ -51,7 +51,10 @@ local title_status = nil
 local current_reply_text = ""
 local reply_row = -1
 local is_generating = false
-local tts_on = true
+local audio_hw = require "audio_hw"
+local has_mic = audio_hw.has_mic()
+local has_speaker = audio_hw.cfg() ~= nil
+local tts_on = has_speaker
 local rec_state = "idle"
 local ws_connected = false
 
@@ -477,23 +480,28 @@ main_container = theme.page_bg(airui.screen, screen_w, screen_h)
         style = { bg_color = CLR.primary, text_color = CLR.white, border_width = 0, radius = theme.r("xs") },
         on_click = function() if keyboard then keyboard:hide() end; do_send() end })
 
-    -- 第二行按钮：语音开 | 录音 | 清空
+    -- 按当前音频装配分配按钮宽度，「清空」在所有型号上可用。
     local btn2_y = ta_y + ta_h + math.floor(4 * d)
     local btn2_h = math.floor(28 * d)
     local row_w = screen_w - 2 * margin
-    local btn3_w = math.floor((row_w - 2 * gap) / 3)
-
-    tts_btn = airui.button({ parent = input_area, x = margin, y = btn2_y, w = btn3_w, h = btn2_h,
-        text = "语音开", font_size = theme.fs("micro"),
-        style = { bg_color = CLR.primary, text_color = CLR.white, border_width = 0, radius = theme.r("xs") },
-        on_click = function() sys.publish("AI_CHAT_TTS_TOGGLE") end })
-
-    voice_btn = airui.button({ parent = input_area, x = margin + btn3_w + gap, y = btn2_y, w = btn3_w, h = btn2_h,
-        text = "录音", font_size = theme.fs("micro"),
-        style = { bg_color = CLR.primary, text_color = CLR.white, border_width = 0, radius = theme.r("xs") },
-        on_click = function() toggle_recording() end })
-
-    airui.button({ parent = input_area, x = margin + 2 * (btn3_w + gap), y = btn2_y, w = btn3_w, h = btn2_h,
+    local count = 1 + (has_speaker and 1 or 0) + (has_mic and 1 or 0)
+    local btn_w = math.floor((row_w - (count - 1) * gap) / count)
+    local btn_x = margin
+    if has_speaker then
+        tts_btn = airui.button({ parent = input_area, x = btn_x, y = btn2_y, w = btn_w, h = btn2_h,
+            text = "语音开", font_size = theme.fs("micro"),
+            style = { bg_color = CLR.primary, text_color = CLR.white, border_width = 0, radius = theme.r("xs") },
+            on_click = function() sys.publish("AI_CHAT_TTS_TOGGLE") end })
+        btn_x = btn_x + btn_w + gap
+    end
+    if has_mic then
+        voice_btn = airui.button({ parent = input_area, x = btn_x, y = btn2_y, w = btn_w, h = btn2_h,
+            text = "录音", font_size = theme.fs("micro"),
+            style = { bg_color = CLR.primary, text_color = CLR.white, border_width = 0, radius = theme.r("xs") },
+            on_click = function() toggle_recording() end })
+        btn_x = btn_x + btn_w + gap
+    end
+    airui.button({ parent = input_area, x = btn_x, y = btn2_y, w = btn_w, h = btn2_h,
         text = "清空", font_size = theme.fs("micro"),
         style = { bg_color = CLR.line_soft, text_color = CLR.t2, border_width = 0, radius = theme.r("xs") },
         on_click = function()
@@ -527,7 +535,7 @@ local function on_create()
     sys.subscribe("FACTORY_REC_STATE", on_rec_state)
     sys.subscribe("FACTORY_REC_DONE", on_rec_done)
     sys.subscribe("AI_CHAT_STT_RESULT", on_stt_result)
-    sys.publish("FACTORY_REC_SETUP")
+    if has_mic then sys.publish("FACTORY_REC_SETUP") end
     set_page_active(true)
 end
 
@@ -545,7 +553,7 @@ local function on_destroy()
     sys.unsubscribe("FACTORY_REC_STATE", on_rec_state)
     sys.unsubscribe("FACTORY_REC_DONE", on_rec_done)
     sys.unsubscribe("AI_CHAT_STT_RESULT", on_stt_result)
-    sys.publish("FACTORY_REC_RESET")
+    if has_mic then sys.publish("FACTORY_REC_RESET") end
     sys.publish("AI_CHAT_DEINIT")
     if keyboard then pcall(keyboard.destroy, keyboard); keyboard = nil end
     if main_container then main_container:destroy(); main_container = nil end

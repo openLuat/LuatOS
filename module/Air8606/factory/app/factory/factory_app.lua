@@ -16,11 +16,13 @@
 ]]
 
 local M = {}
+local audio_hw = require "audio_hw"
 
 -- ==================== 功能列表（应用工厂的入口功能） ====================
 -- 当前 UI 直接进入生成 APP 窗口，列表仅作数据源保留
 local features = {
-    { id = "chat", name = "语音生成APP", icon = "/luadb/app_factory.png", win = "FACTORY" },
+    { id = "chat", name = audio_hw.has_mic() and "语音生成APP" or "生成APP",
+      icon = "/luadb/app_factory.png", win = "FACTORY" },
 }
 
 --[[

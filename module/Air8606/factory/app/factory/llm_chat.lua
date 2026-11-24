@@ -11,9 +11,9 @@
   断线 → 自动重连
 ]]
 
-local exaudio = require("exaudio")
 -- exaudio.setup 入参统一组装（必带 uart_id/audio_mode，Air1103 靠它绑到 UART6）
 local audio_hw = require("audio_hw")
+local exaudio = audio_hw.cfg() and require("exaudio")
 -- 音频单通路：录音/播放统一走 audio_hw（Air1103 板录音出 MIC、播放出语音芯片下行）
 
 -- ==================== 常量 ====================
@@ -46,7 +46,7 @@ local pending_text = nil
 local recv_buf = ""
 local reconnecting = false  -- 重连锁：防止多次并发重连
 
-local tts_enabled = true          -- TTS 默认开启
+local tts_enabled = exaudio ~= nil
 local tts_inited = false
 local tts_audio_setup_done = false  -- 是否已执行过 exaudio.setup（仅首次 setup，后续只 RESUME）
 local tts_is_v2 = false
@@ -154,6 +154,7 @@ end
 tts_play_text = audio_hw.guard(tts_play_text)
 
 tts_stop = function()
+    if not exaudio then return end
     if audio_hw.busy() then return false, "audio_busy" end
     log.info("llm_chat", "tts_stop 调用, playing=", tts_playing)
     local r1 = pcall(exaudio.play_stop, { type = 1 })
@@ -444,6 +445,7 @@ sys.subscribe("AI_CHAT_CLEAR", function()
     end)
 end)
 sys.subscribe("AI_CHAT_TTS_TOGGLE", function()
+    if not exaudio then return end
     sys.taskInit(function()
         log.info("llm_chat", "TTS_TOGGLE: tts_enabled=", tts_enabled, "→", not tts_enabled)
         tts_enabled = not tts_enabled

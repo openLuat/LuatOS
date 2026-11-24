@@ -25,7 +25,12 @@ M.groups = {
             { id = "rs485", title = "隔离 485-2", detail = "UART3 用于 485-2，UVC 模式下保留 USB 视频预览。" },
             { id = "face", title = "人脸串口", detail = "UART3 用于人脸模组，USB Host 需选择 UVC 摄像头。" },
         } },
-    { key = "audio_playback", title = "音频回放", hint = "按功放输入的电容装配选择回放通路。录音均通过 UART6 接收。",
+    { key = "uart6", title = "UART6", hint = "按板上电阻装配选择 UART6 用途，保存并重启后生效。",
+        options = {
+            { id = "air1103", title = "SIP 通话（Air1103）", detail = "R25/R26 接 Air1103。双向通话需在「音频回放」中选择与实物对应的 C237。" },
+            { id = "ttl", title = "TTL 串口（J22）", detail = "R99/R119 接 J22，R25/R26 空贴。串口测试使用 115200、8N1。" },
+        } },
+    { key = "audio_playback", title = "音频回放", hint = "按功放输入电容选择。SIP 通话使用 C237，TTL 档可通过 C104 独立播放。",
         options = {
             { id = "air1103", title = "Air1103（C237）", detail = "C237 实贴、C104 空贴。UART6 发送 PCM，由 Air1103 输出到功放。" },
             { id = "dac", title = "主控 DAC（C104）", detail = "C104 实贴、C237 空贴。由 Air1602 内置 DAC 输出到功放。" },
@@ -68,6 +73,7 @@ function M.load(default_radio, options)
         uart2 = options.uart2,
         rs4851 = options.rs4851,
         uart3 = options.uart3 or "auto",
+        uart6 = options.uart6 or "air1103",
         usb = default_usb,
         audio_playback = options.audio_playback or "air1103",
     }

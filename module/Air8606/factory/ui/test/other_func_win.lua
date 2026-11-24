@@ -41,16 +41,14 @@ local theme = require "ui_theme"
 
 
 -- 独立测试入口（不来自 config.peripherals）：SIP 通话（Air1103 语音芯片）
--- 开不开工由 app/sip/sip_gate.lua 定（features.sip + hw.audio.model=="air1103" 双条件）。
+-- sip_gate 区分语音档的入口与可双向通话的 C237 装配。
 -- 本树没有 sip_gate 时软依赖直接判否，同一份源码在别的型号树也能跑。
 -- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，带它的树在 _compile_manifest 登记
 local SIP_GATE_MOD = "sip_gate"
 local SIP_TEST_WIN_MOD = "sip_test_win"
 local HANDOFF_MOD = "factory_handoff"
-local function sip_allowed()
-    local ok, gate = pcall(require, SIP_GATE_MOD)
-    return ok and type(gate) == "table" and type(gate.ok) == "function" and gate.ok() == true
-end
+local ok_sip, sip_gate = pcall(require, SIP_GATE_MOD)
+if not ok_sip or type(sip_gate) ~= "table" then sip_gate = nil end
 local EXTRA_ENTRY = {
     key = "__sip_test__", name = "SIP 通话", page = "OPEN_SIP_TEST_WIN",
 }
@@ -418,20 +416,18 @@ local function build_item_row(parent, x, y, w, h, it)
         })
     end
 
-    local togg = nil
-    if not it.no_switch then
-        togg = theme.switch(row, {
-            x = w - pad2 - sw_w, y = math.floor((h - sw_h) / 2),
-            w = sw_w, h = sw_h, checked = false,
-            on_change = function(handle)
-                -- 合并行一次通断该 type 的全部实例
-                local on = handle:get_state()
-                for i = 1, #it.members do
-                    sys.publish("OTHER_FUNC_SET", it.members[i], on)
-                end
-            end,
-        })
-    end
+    -- 话机入口的说明由装配决定，外设状态广播只刷新有驱动句柄的行。
+    if it.no_switch then return end
+    local togg = theme.switch(row, {
+        x = w - pad2 - sw_w, y = math.floor((h - sw_h) / 2),
+        w = sw_w, h = sw_h, checked = false,
+        on_change = function(handle)
+            local on = handle:get_state()
+            for i = 1, #it.members do
+                sys.publish("OTHER_FUNC_SET", it.members[i], on)
+            end
+        end,
+    })
 
     local rec = {
         info_label = info_label, info_w = txw, switch = togg,
@@ -605,8 +601,8 @@ local function build_ui()
         cy = cy + theme.dp(20) + theme.fs("body") + 3 + gap
     end
 
-    -- 开不开工由 app/sip/sip_gate.lua 定（features.sip + hw.audio.model=="air1103" 双条件）。
-    if sip_allowed() then
+    if sip_gate and sip_gate.selected() then
+        local sip_ready = sip_gate.ok()
         theme.section(body, {
             x = theme.dp(4), y = cy, w = card_w - theme.dp(8), h = sec_h,
             text = "通话", px_size = theme.fs("micro"), color = theme.C.t3,
@@ -618,12 +614,16 @@ local function build_ui()
         build_item_row(ecard, 0, 0, card_w - 2 * bw, row_h, {
             key = EXTRA_ENTRY.key, name = EXTRA_ENTRY.name, type = "extra",
             page = EXTRA_ENTRY.page, members = { EXTRA_ENTRY.key },
-            no_switch = true, sub_info = "Air1103 语音通话测试",
+            no_switch = true, sub_info = sip_ready and "Air1103 语音通话测试" or "双向通话需 C237 装配",
             on_open = function()
+                if not sip_ready then
+                    show_tip(sip_gate.reason())
+                    return
+                end
                 -- 懒加载：此刻才把 SIP 窗口拉入内存。
                 -- UI 走本文件缩放层适配 800x480，通话/音频内核为同事原版 sip_phone/*
                 airui.msgbox({
-                    title = "提示", text = "请插入麦克风和喇叭", buttons = { "确定" },
+                    title = "SIP 通话", text = "请将麦克风接到 J12、喇叭接到 J13。", buttons = { "确定" },
                     on_action = function(self)
                         self:hide()
                         local ok = pcall(require, SIP_TEST_WIN_MOD)

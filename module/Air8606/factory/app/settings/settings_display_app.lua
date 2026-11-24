@@ -124,6 +124,8 @@ PA 常开时 DAC 空闲噪声被放大成电流声。
 ]]
 local function play_volume_test()
     if audio_hw.busy() then return false, "audio_busy" end
+    local chip = audio_hw.is_air1103() and require("air1103")
+    local before = chip and chip.rx_stats()
     local exaudio = get_exaudio()
     if not has_audio then
         log.warn("settings_display", "未配置 hw.audio，无法试听")
@@ -156,6 +158,7 @@ local function play_volume_test()
         log.warn("settings_display", "试听起播失败:", tostring(started and reason or ret))
         return false, started and reason or ret
     end
+    if chip then chip.track_volume_preview(before) end
     -- 播完自动关 PA：等待放独立协程，本函数保持短占用。
     -- 是否真关由 audio_hw.pa_off 统一判（音频占用租约 + PA 使用者登记，
     -- 桌面 HZV 在播时它会放弃，别掐掉视频的功放）

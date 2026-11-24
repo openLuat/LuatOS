@@ -1,6 +1,6 @@
 --[[
 @module air8606_test_win
-@summary Air8606 CAN/RS232/GNSS/EX2网口/对外电源/看门狗诊断
+@summary Air8606 CAN/RS232/TTL/GNSS/EX2网口/对外电源/看门狗诊断
 @version 1.0.1
 @date 2026.11.20
 
@@ -85,6 +85,9 @@ local function refresh()
     elseif entry.type == "uart" then
         detail = string.format("UART%d / %d / 8N1，数据按 ASCII 发送；外部对端需相同串口参数",
             entry.uart_id, entry.baud or 57600)
+        if entry.id == "ttl6" then
+            detail = string.format("J22：1 脚 TX6 接对端 RX，2 脚 RX6 接对端 TX，3/4 脚 GND | %d 8N1", entry.baud)
+        end
     elseif entry.type == "gnss" then
         local g = st.gnss or {}
         if st.online then

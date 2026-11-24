@@ -292,7 +292,7 @@ static int tp_ft3x68_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat
     uint8_t touch_num=0, point_status=0;
     uint8_t temp[1] = {FT3X68_TD_STATUS};
     uint8_t touch_event = 0;
-    if (!tp_i2c_read(luat_tp_config, temp, 1, temp, 4, 1))
+    if (!tp_i2c_read(luat_tp_config, temp, 1, temp, sizeof(temp), 1))
     {
 	touch_num = temp[0] & 0x0f;
 	if(touch_num && (touch_num <= FT3X68_TOUCH_NUMBER_MAX))

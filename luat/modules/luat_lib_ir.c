@@ -8,12 +8,17 @@
 @tag LUAT_USE_IR
 */
 #include "luat_base.h"
+#if defined(LUAT_USE_IR) || defined(LUAT_USE_IR_RX)
 #include "luat_gpio.h"
+#ifdef LUAT_USE_IR_RX
+#include "../../components/ir/luat_ir_rx.h"
+#endif
 
 #define LUAT_LOG_TAG "ir"
 #include "luat_log.h"
 
 //发送指定数量脉冲，当pwm来用
+#ifdef LUAT_USE_IR
 static void send_pulse(int pin, size_t waith, size_t waitl, size_t count)
 {
     while(count--)
@@ -153,12 +158,20 @@ static int l_ir_send_nec(lua_State *L) {
     luat_os_exit_cri();
     return 0;
 }
+#endif
 
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_ir[] =
 {
+#ifdef LUAT_USE_IR
     { "sendNEC" ,    ROREG_FUNC(l_ir_send_nec)},
+#endif
+#ifdef LUAT_USE_IR_RX
+    { "rxInit",      ROREG_FUNC(luat_ir_rx_init)},
+    { "rxStats",     ROREG_FUNC(luat_ir_rx_stats)},
+    { "rxClose",     ROREG_FUNC(luat_ir_rx_close)},
+#endif
 	{ NULL,          ROREG_INT(0) }
 };
 
@@ -166,3 +179,4 @@ LUAMOD_API int luaopen_ir( lua_State *L ) {
     luat_newlib2(L, reg_ir);
     return 1;
 }
+#endif

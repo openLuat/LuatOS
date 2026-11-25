@@ -1,0 +1,167 @@
+--[[
+@module dnsproxy
+@summary DNS代理转发
+@version 1.0
+@date    2024.4.20
+@author  wendal
+@demo    socket
+@tag LUAT_USE_NETWORK
+@usage
+-- 具体用法请查阅demo
+
+-- 版本更新说明
+-- 版本号：202607100900
+-- 1、更新时间：2026-07-10 09:00
+-- 2、更新内容
+--    新增 dnsproxy.close() 接口，关闭所有 socket 并清空 DNS 请求映射表
+
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增dnsproxy.version()接口
+--    支持dnsproxy库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
+]]
+
+local dnsproxy = {
+    server = "119.29.29.29",
+    srvs = {},
+    map = {},
+    txid = 0x123,
+    rxbuff = zbuff.create(1500)
+}
+
+function dnsproxy.on_request(sc, event, adapter)
+    if event == socket.EVENT then
+        local rxbuff = dnsproxy.rxbuff
+        while 1 do
+            rxbuff:seek(0)
+            local succ, data_len, remote_ip, remote_port = socket.rx(sc, rxbuff)
+            if succ and data_len and data_len > 0 then
+                -- log.info("dnsproxy", "收到DNS查询数据", rxbuff:query():toHex())
+                if remote_ip and #remote_ip == 5 then
+                    local ip1,ip2,ip3,ip4 = remote_ip:byte(2),remote_ip:byte(3),remote_ip:byte(4),remote_ip:byte(5)
+                    remote_ip = string.format("%d.%d.%d.%d", ip1, ip2, ip3, ip4)
+                    local txid_request = rxbuff[0] + rxbuff[1] * 256
+                    local txid_map = dnsproxy.txid
+                    dnsproxy.txid = dnsproxy.txid + 1
+                    if dnsproxy.txid > 65000 then
+                        dnsproxy.txid = 0x123
+                    end
+                    table.insert(dnsproxy.map, {txid_request, txid_map, remote_ip, remote_port, adapter})
+                    rxbuff[0] = txid_map % 256
+                    rxbuff[1] = txid_map // 256
+                    socket.tx(dnsproxy.main_sc, rxbuff, dnsproxy.server or "223.5.5.5", 53)
+                end
+            else
+                break
+            end
+        end
+    end
+end
+
+function dnsproxy.on_response(sc, event)
+    if event == socket.EVENT then
+        local rxbuff = dnsproxy.rxbuff
+        while 1 do
+            rxbuff:seek(0)
+            local succ, data_len = socket.rx(sc, rxbuff)
+            if succ and data_len and data_len > 0 then
+                if true then
+                    -- local ip1,ip2,ip3,ip4 = remote_ip:byte(2),remote_ip:byte(3),remote_ip:byte(4),remote_ip:byte(5)
+                    -- remote_ip = string.format("%d.%d.%d.%d", ip1, ip2, ip3, ip4)
+                    local txid_resp = rxbuff[0] + rxbuff[1] * 256
+                    local index = -1
+                    for i, mapit in pairs(dnsproxy.map) do
+                        if mapit[2] == txid_resp then
+                            local txid_request = mapit[1]
+                            local remote_ip = mapit[3]
+                            local remote_port = mapit[4]
+                            rxbuff[0] = txid_request % 256
+                            rxbuff[1] = txid_request // 256
+                            local adapter = mapit[5]
+                            -- log.info("dnsproxy", "转发DNS响应数据", adapter, dnsproxy.srvs[adapter])
+                            socket.tx(dnsproxy.srvs[adapter], rxbuff, remote_ip, remote_port)
+                            index = i
+                            break
+                        end
+                    end
+                    if index > 0 then
+                        table.remove(dnsproxy.map, index)
+                    end
+                end
+            else
+                break
+            end
+        end
+    end
+end
+
+--[[
+创建UDP服务器
+@api dnsproxy.setup(adapter, main_adapter)
+@int 监听的网络适配器id
+@int 网络适配编号, 默认为nil,可选
+@return table UDP服务的实体, 若创建失败会返回nil
+]]
+function dnsproxy.setup(adapter, main_adapter)
+    log.info("dnsproxy", adapter, main_adapter)
+    if dnsproxy.main_sc == nil then
+        dnsproxy.main_sc = socket.create(main_adapter, dnsproxy.on_response)
+        socket.config(dnsproxy.main_sc, 1053, true)
+    end
+    if dnsproxy.srvs[adapter] == nil then
+        dnsproxy.srvs[adapter] = socket.create(adapter, function(sc, event)
+            dnsproxy.on_request(sc, event, adapter)
+        end)
+        socket.config(dnsproxy.srvs[adapter], 53, true)
+    end
+    dnsproxy.on_ip_ready()
+    return true
+end
+
+function dnsproxy.on_ip_ready()
+    log.info("dnsproxy", "开始监听")
+    if not dnsproxy.main_sc then return end
+    socket.close(dnsproxy.main_sc)
+    for k, v in pairs(dnsproxy.srvs) do
+        socket.close(v)
+        socket.connect(v, "255.255.255.255", 0)
+    end
+    socket.connect(dnsproxy.main_sc, dnsproxy.server or "223.5.5.5", 53)
+end
+
+--[[
+关闭 DNS 代理服务，清理所有 socket 和映射表。
+用于多网融合关闭时释放资源。
+@api dnsproxy.close()
+@usage
+dnsproxy.close()
+]]
+function dnsproxy.close()
+    if dnsproxy.main_sc then
+        socket.close(dnsproxy.main_sc)
+        dnsproxy.main_sc = nil
+    end
+    for adapter, sc in pairs(dnsproxy.srvs) do
+        socket.close(sc)
+        dnsproxy.srvs[adapter] = nil
+    end
+    dnsproxy.map = {}
+    dnsproxy.txid = 0x123
+end
+
+sys.subscribe("IP_READY", dnsproxy.on_ip_ready)
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+dnsproxy.version()
+]]
+function dnsproxy.version()
+    return "202607100900"
+end
+
+log.debug("dnsproxy", "version -> " .. dnsproxy.version())
+
+return dnsproxy

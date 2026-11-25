@@ -20,20 +20,20 @@ static int32_t pinyin_text_width(const lv_font_t *font, const char *text)
 
 static int32_t pinyin_minimum_width(const lv_font_t *font, int32_t line)
 {
-    if (!font) return (line + 8) * 20 + 36;
-    /* The candidate row uses 20 width units: 2/4/1/2/2/2/2/2/2/1.
-       Reserve real glyph advances, not just line height, for seven letters
-       and the Chinese/English mode button. Nine 2px gaps and 18px outer
-       geometry are additional to the button widths. */
+    if (!font) return (line + 8) * 21 + 38;
+    /* The candidate row uses 21 width units: 2/3/1/2/2/2/2/2/2/2/1.
+       The pinyin field is 3 units so the adjacent candidate row can hold
+       seven cells. Reserve real glyph advances for seven letters and the
+       mode button. Ten 2px gaps and 18px outer geometry are extra. */
     int32_t mode = LV_MAX(pinyin_text_width(font, "中文"), pinyin_text_width(font, "EN"));
     int32_t prompt = LV_MAX(pinyin_text_width(font, "wwwwwww"), pinyin_text_width(font, "mmmmmmm"));
     prompt = LV_MAX(prompt, pinyin_text_width(font, "超出限制"));
     prompt = LV_MAX(prompt, pinyin_text_width(font, "请先选字"));
     int32_t arrow = LV_MAX(pinyin_text_width(font, LV_SYMBOL_LEFT), pinyin_text_width(font, LV_SYMBOL_RIGHT));
-    int32_t unit = LV_MAX((mode + 8 + 1) / 2, (prompt + 8 + 3) / 4);
+    int32_t unit = LV_MAX((mode + 8 + 1) / 2, (prompt + 8 + 2) / 3);
     unit = LV_MAX(unit, arrow + 8);
     unit = LV_MAX(unit, (line + 8 + 1) / 2);
-    return unit * 20 + 36;
+    return unit * 21 + 38;
 }
 #endif
 
@@ -62,8 +62,9 @@ bool luat_plcui_keyboard_validate(const plcui_widget_t *widget, plcui_error_t *e
 }
 
 #ifdef LUAT_USE_PINYIN
-#define PINYIN_CANDIDATES 6U
-#define PINYIN_ROW_BUTTONS 10U
+#define PINYIN_CANDIDATES 7U
+#define PINYIN_ROW_BUTTONS 11U
+#define PINYIN_RIGHT_BUTTON (PINYIN_ROW_BUTTONS - 1U)
 
 typedef struct {
     plcui_widget_t *widget;
@@ -120,8 +121,8 @@ static void pinyin_update_row(plcui_pinyin_t *data, const char *hint)
     if (data->offset) lv_buttonmatrix_clear_button_ctrl(data->row, 2, LV_BUTTONMATRIX_CTRL_DISABLED);
     else lv_buttonmatrix_set_button_ctrl(data->row, 2, LV_BUTTONMATRIX_CTRL_DISABLED);
     if (data->offset + PINYIN_CANDIDATES < data->count)
-        lv_buttonmatrix_clear_button_ctrl(data->row, 9, LV_BUTTONMATRIX_CTRL_DISABLED);
-    else lv_buttonmatrix_set_button_ctrl(data->row, 9, LV_BUTTONMATRIX_CTRL_DISABLED);
+        lv_buttonmatrix_clear_button_ctrl(data->row, PINYIN_RIGHT_BUTTON, LV_BUTTONMATRIX_CTRL_DISABLED);
+    else lv_buttonmatrix_set_button_ctrl(data->row, PINYIN_RIGHT_BUTTON, LV_BUTTONMATRIX_CTRL_DISABLED);
     /* map contains persistent pointers; refresh cached button widths/text after changing them. */
     lv_buttonmatrix_set_map(data->row, data->map);
     lv_obj_invalidate(data->row);
@@ -236,10 +237,10 @@ static void candidate_event(lv_event_t *event)
     } else if (button == 2 && data->offset) {
         data->offset = (uint16_t)(data->offset - PINYIN_CANDIDATES);
         pinyin_update_row(data, NULL);
-    } else if (button == 9 && data->offset + PINYIN_CANDIDATES < data->count) {
+    } else if (button == PINYIN_RIGHT_BUTTON && data->offset + PINYIN_CANDIDATES < data->count) {
         data->offset = (uint16_t)(data->offset + PINYIN_CANDIDATES);
         pinyin_update_row(data, NULL);
-    } else if (button >= 3 && button < 9) pinyin_choose(data, button - 3U);
+    } else if (button >= 3 && button < PINYIN_RIGHT_BUTTON) pinyin_choose(data, button - 3U);
 }
 
 static void pinyin_event(lv_event_t *event)
@@ -295,12 +296,12 @@ static bool pinyin_create(plcui_widget_t *widget, lv_obj_t *object)
     data->map[1] = data->prompt;
     data->map[2] = LV_SYMBOL_LEFT;
     for (unsigned i = 0; i < PINYIN_CANDIDATES; i++) data->map[i + 3U] = data->candidates[i];
-    data->map[9] = LV_SYMBOL_RIGHT;
-    data->map[10] = "";
+    data->map[PINYIN_RIGHT_BUTTON] = LV_SYMBOL_RIGHT;
+    data->map[PINYIN_ROW_BUTTONS] = "";
     for (unsigned i = 0; i < PINYIN_ROW_BUTTONS; i++)
         data->controls[i] = LV_BUTTONMATRIX_CTRL_CLICK_TRIG | LV_BUTTONMATRIX_CTRL_NO_REPEAT | 2;
-    data->controls[1] = LV_BUTTONMATRIX_CTRL_DISABLED | 4;
-    data->controls[2] = data->controls[9] = LV_BUTTONMATRIX_CTRL_CLICK_TRIG | LV_BUTTONMATRIX_CTRL_NO_REPEAT | 1;
+    data->controls[1] = LV_BUTTONMATRIX_CTRL_DISABLED | 3;
+    data->controls[2] = data->controls[PINYIN_RIGHT_BUTTON] = LV_BUTTONMATRIX_CTRL_CLICK_TRIG | LV_BUTTONMATRIX_CTRL_NO_REPEAT | 1;
     data->row = lv_buttonmatrix_create(object);
     if (!data->row) { free(data); return false; }
     lv_obj_remove_style_all(data->row);
@@ -318,8 +319,9 @@ static bool pinyin_create(plcui_widget_t *widget, lv_obj_t *object)
     lv_obj_add_event_cb(object, pinyin_event, LV_EVENT_VALUE_CHANGED, data);
     lv_obj_add_event_cb(object, pinyin_delete, LV_EVENT_DELETE, data);
     int32_t row_height = lv_font_get_line_height(widget->font) + 12;
-    lv_obj_set_style_pad_top(object, row_height + 16, LV_PART_MAIN);
-    lv_obj_set_pos(data->row, 0, -row_height - 8);
+    /* 2px above the pinyin row and 2px between the row and the keys. */
+    lv_obj_set_style_pad_top(object, row_height + 4, LV_PART_MAIN);
+    lv_obj_set_pos(data->row, 0, -row_height - 2);
     lv_obj_set_size(data->row, widget->w - 18, row_height);
     lv_obj_set_style_text_font(data->row, widget->font, LV_PART_ITEMS);
     pinyin_clear(data);
@@ -343,8 +345,8 @@ void luat_plcui_keyboard_font_changed(plcui_widget_t *widget)
     plcui_pinyin_t *data = pinyin_data(widget);
     if (!data) return;
     int32_t row_height = lv_font_get_line_height(widget->font) + 12;
-    lv_obj_set_style_pad_top(widget->obj, row_height + 16, LV_PART_MAIN);
-    lv_obj_set_pos(data->row, 0, -row_height - 8);
+    lv_obj_set_style_pad_top(widget->obj, row_height + 4, LV_PART_MAIN);
+    lv_obj_set_pos(data->row, 0, -row_height - 2);
     lv_obj_set_size(data->row, widget->w - 18, row_height);
     lv_obj_set_style_text_font(data->row, widget->font, LV_PART_ITEMS);
 #else

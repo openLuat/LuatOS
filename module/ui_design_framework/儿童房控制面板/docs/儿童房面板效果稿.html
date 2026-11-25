@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>儿童房面板效果稿 · 主题版</title>
+<style>
+@import url('https://cdn.tailwindcss.com');
+*{box-sizing:border-box}
+html{height:100%;overflow:hidden}
+body{margin:28px;min-height:calc(100vh - 56px);display:flex;align-items:center;justify-content:center;background:#0e1020;font-family:"思源黑体","Microsoft YaHei","PingFang SC",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+
+/* ============ 五套主题（只换变量与图片引用，不改变任何布局） ============ */
+body[data-theme="toy"]{--sheet:url("assets/toy.webp");--cast:url("assets/toy_cast.webp");
+  --bg:#EAF4FF;--band1:#A9D8F8;--band2:#FFE0AE;--blob1:#F0932B;--blob2:#5BA9E8;--blob3:#E2543C;
+  --card:#FFFFFF;--card2:#FFF8EC;--sh:150,100,54;--ink:#2B2340;--ink2:#6E5B48;--ink3:#A08D79;
+  --pri:#E2543C;--pri2:#FFB454;--on:#FFF0E1;--off:#F3EADF;--track:#EADCC9}
+body[data-theme="bear"]{--sheet:url("assets/bear.webp");--cast:url("assets/bear_cast.webp");
+  --bg:#F2F8E9;--band1:#C6E5A6;--band2:#F2E0AE;--blob1:#8B5A2B;--blob2:#4F8F3E;--blob3:#F2B33C;
+  --card:#FFFFFF;--card2:#F7FBEE;--sh:86,116,50;--ink:#24321C;--ink2:#5F7047;--ink3:#93A47C;
+  --pri:#4F8F3E;--pri2:#9AC96B;--on:#EDF7E2;--off:#EFF2E6;--track:#DCE9CE}
+body[data-theme="hero"]{--sheet:url("assets/hero.webp");--cast:url("assets/hero_cast.webp");
+  --bg:#E9F0FA;--band1:#C6D8EC;--band2:#E8EEF8;--blob1:#D9382F;--blob2:#2E6BD8;--blob3:#8FB6E8;
+  --card:#FFFFFF;--card2:#F3F7FC;--sh:40,64,110;--ink:#17233A;--ink2:#52658A;--ink3:#8A9AB6;
+  --pri:#D9382F;--pri2:#7FA8DE;--on:#EDF2FB;--off:#EAF0F8;--track:#D8E2F0}
+body[data-theme="pocket"]{--sheet:url("assets/pocket.webp");--cast:url("assets/pocket_cast.webp");
+  --bg:#FFF8E0;--band1:#FFDD5C;--band2:#FFC8BE;--blob1:#E23B2E;--blob2:#FFC93C;--blob3:#5EA9E8;
+  --card:#FFFFFF;--card2:#FFFAE9;--sh:176,132,32;--ink:#33260F;--ink2:#7A6435;--ink3:#AC9360;
+  --pri:#E23B2E;--pri2:#FFC93C;--on:#FFF3D8;--off:#F5EEDA;--track:#EFDFB8}
+body[data-theme="sheep"]{--sheet:url("assets/sheep.webp");--cast:url("assets/sheep_cast.webp");
+  --bg:#F0FAEE;--band1:#BEE8A6;--band2:#FFF2BC;--blob1:#46A146;--blob2:#FFD966;--blob3:#8FD0F0;
+  --card:#FFFFFF;--card2:#F4FBF0;--sh:62,116,68;--ink:#1F3B22;--ink2:#547158;--ink3:#87A08B;
+  --pri:#46A146;--pri2:#97D48F;--on:#E9F7E4;--off:#EDF3E9;--track:#D8EBD2}
+
+.stage{width:1024px;height:600px;flex:none;position:relative;overflow:hidden;background:var(--bg)}
+.stage *{transition:background-color .18s ease,color .18s ease,border-color .18s ease,filter .18s ease}
+.band{position:absolute;left:0;width:1024px;height:300px}
+.blob{position:absolute;border-radius:50%;pointer-events:none}
+.card{position:absolute;background:var(--card);border:none;border-radius:24px;box-shadow:0 10px 24px rgba(var(--sh),.10),0 2px 6px rgba(var(--sh),.06)}
+.txt{position:absolute;margin:0;white-space:nowrap;font-weight:600}
+.lh20{line-height:20px}.lh22{line-height:22px}.lh24{line-height:24px}.lh26{line-height:26px}.lh28{line-height:28px}.lh32{line-height:32px}.lh40{line-height:40px}.lh42{line-height:42px}.lh44{line-height:44px}.lh46{line-height:46px}.lh54{line-height:54px}.lh56{line-height:56px}.lh60{line-height:60px}
+.center{text-align:center}
+.clickable{cursor:pointer;transition:transform .09s ease,filter .09s ease,background-color .18s ease,color .18s ease,border-color .18s ease}
+.clickable:active,.clickable.press{transform:translateY(2px);filter:brightness(1.05)}
+button{font-family:inherit;border:0;padding:0;margin:0;cursor:pointer}
+img{display:block;-webkit-user-drag:none;user-select:none}
+
+/* ---- 主题贴纸精灵图：1 张套图 6 格，纯 CSS 裁切 ---- */
+.st{position:absolute;pointer-events:none;background-image:var(--sheet);background-size:300% 200%;background-repeat:no-repeat;
+    filter:drop-shadow(0 3px 4px rgba(var(--sh),.22))}
+.st.big{filter:drop-shadow(0 7px 9px rgba(var(--sh),.26))}
+.st.soft{opacity:.30;filter:saturate(.9)}
+.st.wash{opacity:.16}
+.k0{background-position:0% 0%}
+.k1{background-position:50% 0%}
+.k2{background-position:100% 0%}
+.k3{background-position:0% 100%}
+.k4{background-position:50% 100%}
+.k5{background-position:100% 100%}
+/* ---- 角色阵容精灵图：1 条 5 格；每格双层，切换时交叉淡入 ---- */
+.ch{position:absolute}
+.ch .chx{position:absolute;left:0;top:0;width:100%;height:100%;
+    background-image:var(--cast);background-size:500% 100%;background-repeat:no-repeat;
+    opacity:0;transform:scale(.9);
+    transition:opacity .30s ease,transform .34s cubic-bezier(.22,.9,.28,1)}
+.ch .chx.on{opacity:1;transform:none}
+.ch.sm .chx{filter:drop-shadow(0 3px 4px rgba(var(--sh),.22))}
+.ch.big .chx{filter:drop-shadow(0 7px 9px rgba(var(--sh),.26))}
+.c0{background-position:0% 50%}
+.c1{background-position:25% 50%}
+.c2{background-position:50% 50%}
+.c3{background-position:75% 50%}
+.c4{background-position:100% 50%}
+/* 各主题的「奖励」图不同：玩具=星章 / 熊=蜜罐 / 光=星星 / 宝=精灵球 / 羊=四叶草 */
+body[data-theme="toy"] .kr{background-position:100% 0%}
+body[data-theme="bear"] .kr{background-position:100% 0%}
+body[data-theme="hero"] .kr{background-position:100% 100%}
+body[data-theme="pocket"] .kr{background-position:50% 0%}
+body[data-theme="sheep"] .kr{background-position:0% 100%}
+
+img.sticker{position:absolute;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(var(--sh),.20))}
+.page{position:absolute;left:0;top:0;width:1024px;height:432px;display:none}
+.page.active{display:block}
+.switch{position:absolute;width:60px;height:34px;border-radius:17px;background:var(--off)}
+.switch.on{background:var(--pri)}
+.switch i{position:absolute;left:4px;top:4px;width:26px;height:26px;border-radius:13px;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.12);transition:left .16s ease,background-color .18s ease}
+.switch.on i{left:30px}
+.bar{position:absolute;background:var(--track);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--pri);border-radius:9px;transition:width .18s ease,background-color .18s ease}
+.pm{position:absolute;border-radius:14px;background:#fff;color:var(--pri);font-size:26px;font-weight:600;line-height:44px;text-align:center}
+.tab{position:absolute;width:238px;height:56px;border-radius:20px;background:var(--card);box-shadow:0 10px 24px rgba(var(--sh),.10),0 2px 6px rgba(var(--sh),.06)}
+.tab.active{background:var(--pri)}
+.tab .badge{position:absolute;left:58px;top:12px;width:32px;height:32px;border-radius:16px;background:rgba(255,255,255,.82)}
+.tab.active .badge{background:#fff}
+.tab .sticker{left:61px;top:15px;width:26px;height:26px}
+.tab .label{position:absolute;left:97px;top:0;width:96px;height:56px;font-size:20px;line-height:56px;text-align:left;color:var(--ink2)}
+.tab.active .label{color:#fff}
+.chip{position:absolute;width:88px;height:40px;border-radius:20px;background:var(--off);color:var(--ink2);font-size:16px;line-height:40px;text-align:center}
+.chip.sel{background:var(--pri);color:#fff}
+.dot{position:absolute;width:56px;height:56px;border-radius:28px}
+#colorRing{position:absolute;width:64px;height:64px;border:3px solid var(--pri);border-radius:32px;pointer-events:none;transition:left .16s ease,top .16s ease,border-color .18s ease}
+.track{position:absolute;width:348px;height:64px;border-radius:18px;cursor:pointer}
+.track.sel{background:var(--on)}
+.track .playmark{position:absolute;left:292px;top:18px;width:44px;height:28px;font-size:20px;line-height:28px;text-align:center;color:transparent}
+.track.sel .playmark{color:var(--pri)}
+.task{position:absolute;width:448px;height:76px;border-radius:20px;background:var(--card2);cursor:pointer}
+.checkbox{position:absolute;left:14px;top:14px;width:48px;height:48px;border-radius:16px;background:#fff}
+.checkbox span{position:absolute;left:0;top:-1px;width:48px;height:48px;font-size:26px;line-height:48px;text-align:center;color:#fff;opacity:0}
+.task.done .checkbox{background:var(--pri)}
+.task.done .checkbox span{opacity:1}
+.weekbar{position:absolute;width:40px;border-radius:10px}
+.alarmrow{position:absolute;width:448px;height:44px;border-radius:16px;background:var(--card2)}
+.alarmrow button{position:absolute;width:36px;height:36px;border-radius:12px;background:#fff;color:var(--pri);font-size:26px;line-height:36px;text-align:center}
+.icon-halo{position:absolute;border-radius:50%;background:var(--card2)}
+.glow{filter:blur(18px)}
+
+/* ---- 角色弧：主角放大，其余 4 位在左右两侧上方排成浅弧 ---- */
+.avbadge{position:absolute;left:29px;top:29px;width:18px;height:18px;border-radius:9px;background:var(--card);color:var(--pri);box-shadow:0 1px 3px rgba(0,0,0,.16)}
+.cbtn{position:absolute;width:52px;height:52px;border-radius:26px;background:var(--card);overflow:hidden;
+    box-shadow:0 5px 12px rgba(var(--sh),.16),0 0 0 1.5px var(--track);
+    animation:arcIn .42s cubic-bezier(.22,.9,.28,1) backwards}
+.cbtn:nth-of-type(2){animation-delay:.04s}
+.cbtn:nth-of-type(3){animation-delay:.08s}
+.cbtn:nth-of-type(4){animation-delay:.12s}
+.cbtn:nth-of-type(5){animation-delay:.16s}
+@keyframes arcIn{from{opacity:0;transform:translateY(10px) scale(.86)}to{opacity:1;transform:none}}
+.cbtn .chx{left:3px;top:5px;width:46px;height:46px;transition-duration:.24s,.26s;transition-delay:var(--d,0s)}
+.cbtn:hover{box-shadow:0 9px 18px rgba(var(--sh),.26),0 0 0 2.5px var(--pri2)}
+.cbtn:hover .chx.on{transform:scale(1.07)}
+/* 切换小火花 */
+.fx{position:absolute;left:158px;top:26px;width:164px;height:164px;pointer-events:none}
+.fx .sp{position:absolute;width:20px;height:20px;opacity:0}
+.fx .s0{left:2px;top:52px}
+.fx .s1{left:72px;top:-4px;width:16px;height:16px}
+.fx .s2{left:144px;top:56px;width:14px;height:14px}
+.fx.go .sp{animation:burst .62s ease-out}
+.fx.go .s1{animation-delay:.05s}
+.fx.go .s2{animation-delay:.1s}
+@keyframes burst{0%{opacity:0;transform:scale(.2) translateY(6px)}30%{opacity:1}100%{opacity:0;transform:scale(1.1) translateY(-18px)}}
+#roomName.swap{animation:nameUp .34s cubic-bezier(.22,.9,.28,1)}
+@keyframes nameUp{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.fx.go .sp{animation:none}#roomName.swap{animation:none}}
+.nameinp{position:absolute;background:transparent;border:0;outline:0;padding:0 2px;margin:0;height:28px;
+    font-family:inherit;font-size:20px;font-weight:600;line-height:28px;color:var(--ink);
+    border-radius:8px;caret-color:var(--pri)}
+.nameinp:hover{box-shadow:inset 0 -2px 0 var(--pri2)}
+.nameinp:focus{background:var(--card);box-shadow:0 0 0 2px var(--pri)}
+.nameinp::selection{background:var(--pri2);color:#fff}
+.twinkle{animation:twinkle 2.8s ease-in-out infinite}
+.twinkle.d1{animation-delay:.9s}.twinkle.d2{animation-delay:1.7s}
+@keyframes twinkle{0%,100%{opacity:.55}50%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.twinkle{animation:none;opacity:.85}}
+</style>
+</head>
+<body data-theme="toy">
+
+<div class="stage">
+  <div class="band" style="top:0;background:var(--band1)"></div>
+  <div class="band" style="top:300px;background:var(--band2)"></div>
+  <div class="blob" style="width:260px;height:260px;left:-190px;top:-200px;background:var(--blob1);opacity:.12"></div>
+  <div class="blob" style="width:180px;height:180px;left:630px;top:-130px;background:var(--blob2);opacity:.13"></div>
+  <div class="blob" style="width:140px;height:140px;left:830px;top:360px;background:var(--blob3);opacity:.10"></div>
+
+  <!-- ================= 顶栏 ================= -->
+  <div id="avatarCard" class="card clickable" title="点一下换下一个角色" style="left:16px;top:14px;width:48px;height:48px;border-radius:16px">
+    <div class="ch sm" style="left:2px;top:2px;width:44px;height:44px"><i class="chx c0 on"></i><i class="chx"></i></div>
+    <div class="avbadge"><svg viewBox="0 0 12 12" style="position:absolute;left:3px;top:3px;width:12px;height:12px"><path d="M4.6 2.4 L8.2 6 L4.6 9.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  </div>
+  <p class="txt lh26" style="left:74px;top:16px;width:60px;height:26px;font-size:20px;color:var(--ink)">早安，</p>
+  <input id="kidName" class="nameinp" type="text" maxlength="6" value="小星星" title="点一下可以改名字" style="left:132px;top:15px;width:150px">
+  <p class="txt lh22" style="left:74px;top:44px;width:230px;height:22px;font-size:16px;color:var(--ink2)">11月24日 星期二</p>
+
+  <div class="card" style="left:300px;top:12px;width:240px;height:64px;border-radius:20px">
+    <div class="st k2" style="left:8px;top:20px;width:24px;height:24px;opacity:.9"></div>
+    <p class="txt center lh42" style="left:0;top:2px;width:240px;height:42px;font-size:40px;color:var(--ink)">20:40</p>
+    <p class="txt center lh20" style="left:0;top:44px;width:240px;height:20px;font-size:16px;color:var(--ink3)">今天要开心哦</p>
+    <div class="st k5" style="left:208px;top:20px;width:24px;height:24px;opacity:.9"></div>
+  </div>
+
+  <div class="card clickable" style="left:560px;top:22px;width:150px;height:44px;border-radius:22px">
+    <img class="sticker" data-ico="sun" style="left:10px;top:8px;width:28px;height:28px">
+    <span class="txt lh28" style="left:44px;top:8px;width:52px;height:28px;font-size:20px;color:var(--ink)">18°</span>
+    <span class="txt lh24" style="left:96px;top:10px;width:46px;height:24px;font-size:16px;color:var(--ink2)">室外</span>
+  </div>
+  <div class="card clickable" style="left:716px;top:22px;width:150px;height:44px;border-radius:22px">
+    <img class="sticker" data-ico="drop" style="left:10px;top:8px;width:28px;height:28px">
+    <span class="txt lh28" style="left:44px;top:8px;width:52px;height:28px;font-size:20px;color:var(--ink)">23°</span>
+    <span class="txt lh24" style="left:96px;top:10px;width:46px;height:24px;font-size:16px;color:var(--ink2)">室内</span>
+  </div>
+  <button id="themeBtn" class="clickable" style="position:absolute;left:874px;top:22px;width:118px;height:44px;border-radius:22px;background:var(--pri);color:#fff;font-size:16px;line-height:44px;text-align:center">
+    <span id="themeLabel">玩具总动员 1/5</span>
+  </button>
+
+  <div class="content" style="position:absolute;left:0;top:88px;width:1024px;height:432px">
+
+    <!-- ================= 页1 我的房间 ================= -->
+    <div class="page active" data-page="0">
+      <div class="card" style="left:16px;top:0;width:480px;height:428px">
+        <div class="icon-halo glow" style="left:151px;top:27px;width:178px;height:178px;background:var(--band1);opacity:.85"></div>
+        <div id="bigChar" class="ch big clickable" title="点一下换下一个角色" style="left:166px;top:42px;width:148px;height:148px">
+          <i class="chx c0 on"></i><i class="chx"></i>
+        </div>
+        <div id="bigFx" class="fx">
+          <img class="sticker sp s0" data-ico="sparkle" alt="">
+          <img class="sticker sp s1" data-ico="sparkle" alt="">
+          <img class="sticker sp s2" data-ico="sparkle" alt="">
+        </div>
+        <button class="cbtn ch arc clickable" data-cast="3" title="" style="left:70px;top:38px"><i class="chx"></i><i class="chx"></i></button>
+        <button class="cbtn ch arc clickable" data-cast="4" title="" style="left:132px;top:12px"><i class="chx"></i><i class="chx"></i></button>
+        <button class="cbtn ch arc clickable" data-cast="1" title="" style="left:298px;top:12px"><i class="chx"></i><i class="chx"></i></button>
+        <button class="cbtn ch arc clickable" data-cast="2" title="" style="left:360px;top:38px"><i class="chx"></i><i class="chx"></i></button>
+        <p id="roomName" class="txt center lh26" style="left:0;top:192px;width:480px;height:26px;font-size:20px;color:var(--ink)">胡迪的小房间</p>
+        <div class="st k3" style="left:24px;top:20px;width:26px;height:26px;opacity:.95"></div>
+        <div class="st k4" style="left:434px;top:22px;width:24px;height:24px;opacity:.95"></div>
+        <p class="txt center lh46" style="left:24px;top:220px;width:204px;height:46px;font-size:40px;color:var(--ink)">23°</p>
+        <p class="txt center lh22" style="left:24px;top:268px;width:204px;height:22px;font-size:16px;color:var(--ink2)">室内温度</p>
+        <p class="txt center lh46" style="left:252px;top:220px;width:204px;height:46px;font-size:40px;color:var(--ink)">56%</p>
+        <p class="txt center lh22" style="left:252px;top:268px;width:204px;height:22px;font-size:16px;color:var(--ink2)">空气湿度</p>
+        <div id="acBar" style="position:absolute;left:24px;top:294px;width:432px;height:56px;border-radius:20px;background:var(--on)">
+          <span class="txt lh56" style="left:14px;top:0;width:60px;height:56px;font-size:16px;color:var(--ink2)">空调</span>
+          <button id="acMinus" class="pm clickable" style="left:196px;top:6px;width:44px;height:44px">−</button>
+          <span id="acVal" class="txt center lh56" style="left:248px;top:0;width:88px;height:56px;font-size:26px;color:var(--ink)">26°</span>
+          <button id="acPlus" class="pm clickable" style="left:344px;top:6px;width:44px;height:44px">+</button>
+        </div>
+        <button class="scene clickable" data-scene="0" style="position:absolute;left:24px;top:356px;width:102px;height:58px;border-radius:18px;background:var(--on)">
+          <img class="sticker" data-ico="sun" style="left:39px;top:5px;width:24px;height:24px">
+          <span class="txt center lh24" style="left:0;top:30px;width:102px;height:24px;font-size:16px;color:var(--ink)">起床啦</span>
+        </button>
+        <button class="scene clickable" data-scene="1" style="position:absolute;left:134px;top:356px;width:102px;height:58px;border-radius:18px;background:var(--on)">
+          <img class="sticker" data-ico="book" style="left:39px;top:5px;width:24px;height:24px">
+          <span class="txt center lh24" style="left:0;top:30px;width:102px;height:24px;font-size:16px;color:var(--ink)">学习时间</span>
+        </button>
+        <button class="scene clickable" data-scene="2" style="position:absolute;left:244px;top:356px;width:102px;height:58px;border-radius:18px;background:var(--on)">
+          <img class="sticker" data-ico="rocket" style="left:39px;top:5px;width:24px;height:24px">
+          <span class="txt center lh24" style="left:0;top:30px;width:102px;height:24px;font-size:16px;color:var(--ink)">玩耍时间</span>
+        </button>
+        <button class="scene clickable" data-scene="3" style="position:absolute;left:354px;top:356px;width:102px;height:58px;border-radius:18px;background:var(--on)">
+          <img class="sticker" data-ico="moon" style="left:39px;top:5px;width:24px;height:24px">
+          <span class="txt center lh24" style="left:0;top:30px;width:102px;height:24px;font-size:16px;color:var(--ink)">睡觉觉</span>
+        </button>
+      </div>
+
+      <div id="tile-lamp" class="card tile clickable" style="left:508px;top:0;width:236px;height:206px">
+        <div class="icon-halo" style="left:9px;top:7px;width:70px;height:70px"></div>
+        <img class="sticker" data-ico="lamp" style="left:16px;top:14px;width:56px;height:56px">
+        <div class="st k2 twinkle" style="left:102px;top:20px;width:30px;height:30px"></div>
+        <div class="st k4" style="left:178px;top:20px;width:30px;height:30px;opacity:.95"></div>
+        <p class="txt lh26" style="left:16px;top:80px;width:200px;height:26px;font-size:20px;color:var(--ink)">小夜灯</p>
+        <p id="st-lamp" class="txt lh22" style="left:16px;top:108px;width:200px;height:22px;font-size:16px;color:var(--pri)">亮度 60%</p>
+        <div id="sw-lamp" class="switch on" style="left:160px;top:156px"><i></i></div>
+      </div>
+      <div id="tile-projector" class="card tile clickable" style="left:756px;top:0;width:236px;height:206px">
+        <div class="icon-halo" style="left:9px;top:7px;width:70px;height:70px"></div>
+        <img class="sticker" data-ico="projector" style="left:16px;top:14px;width:56px;height:56px">
+        <div class="st k5 twinkle d1" style="left:102px;top:20px;width:30px;height:30px"></div>
+        <div class="st k1" style="left:178px;top:20px;width:32px;height:32px;opacity:.95"></div>
+        <p class="txt lh26" style="left:16px;top:80px;width:200px;height:26px;font-size:20px;color:var(--ink)">星空投影</p>
+        <p id="st-projector" class="txt lh22" style="left:16px;top:108px;width:200px;height:22px;font-size:16px;color:var(--pri)">30 分钟</p>
+        <div id="sw-projector" class="switch on" style="left:160px;top:156px"><i></i></div>
+      </div>
+      <div id="tile-curtain" class="card tile clickable" style="left:508px;top:222px;width:236px;height:206px">
+        <div class="icon-halo" style="left:9px;top:7px;width:70px;height:70px"></div>
+        <img class="sticker" data-ico="curtain" style="left:16px;top:14px;width:56px;height:56px">
+        <div class="st k3 twinkle d2" style="left:102px;top:20px;width:30px;height:30px"></div>
+        <div class="st k5" style="left:178px;top:20px;width:30px;height:30px;opacity:.95"></div>
+        <p class="txt lh26" style="left:16px;top:80px;width:200px;height:26px;font-size:20px;color:var(--ink)">窗帘</p>
+        <p id="st-curtain" class="txt lh22" style="left:16px;top:108px;width:200px;height:22px;font-size:16px;color:var(--pri)">已打开</p>
+        <div id="sw-curtain" class="switch on" style="left:160px;top:156px"><i></i></div>
+      </div>
+      <div id="tile-humid" class="card tile clickable" style="left:756px;top:222px;width:236px;height:206px">
+        <div class="icon-halo" style="left:9px;top:7px;width:70px;height:70px"></div>
+        <img class="sticker" data-ico="humid" style="left:16px;top:14px;width:56px;height:56px">
+        <div class="st k4 twinkle" style="left:102px;top:20px;width:30px;height:30px"></div>
+        <div class="ch sm" style="left:180px;top:16px;width:36px;height:36px;opacity:.95"><i class="chx c0 on"></i><i class="chx"></i></div>
+        <p class="txt lh26" style="left:16px;top:80px;width:200px;height:26px;font-size:20px;color:var(--ink)">加湿器</p>
+        <p id="st-humid" class="txt lh22" style="left:16px;top:108px;width:200px;height:22px;font-size:16px;color:var(--pri)">湿度 56%</p>
+        <div id="sw-humid" class="switch on" style="left:160px;top:156px"><i></i></div>
+      </div>
+    </div>
+
+    <!-- ================= 页2 灯光乐园 ================= -->
+    <div class="page" data-page="1">
+      <div class="card" style="left:16px;top:0;width:300px;height:428px">
+        <p class="txt lh28" style="left:24px;top:18px;width:200px;height:28px;font-size:22px;color:var(--ink)">颜色乐园</p>
+        <div class="st k2 twinkle" style="left:238px;top:16px;width:28px;height:28px"></div>
+        <div id="colorRing" style="left:28px;top:66px"></div>
+        <button class="dot clickable" data-color="0" style="left:74px;top:70px;background:#7C6BF5"></button>
+        <button class="dot clickable" data-color="1" style="left:170px;top:70px;background:#7EBEFF"></button>
+        <button class="dot clickable" data-color="2" style="left:74px;top:156px;background:#FFE27A"></button>
+        <button class="dot clickable" data-color="3" style="left:170px;top:156px;background:#FF8FA3"></button>
+        <button class="dot clickable" data-color="4" style="left:74px;top:242px;background:#7EE0C9"></button>
+        <button class="dot clickable" data-color="5" style="left:170px;top:242px;background:#FFB35C"></button>
+        <button class="dot clickable" data-color="6" style="left:74px;top:328px;background:#FFF6E0"></button>
+        <button class="dot clickable" data-color="7" style="left:170px;top:328px;background:#9B8CFF"></button>
+      </div>
+      <div class="card" style="left:328px;top:0;width:340px;height:428px">
+        <p class="txt lh28" style="left:24px;top:18px;width:200px;height:28px;font-size:22px;color:var(--ink)">小夜灯</p>
+        <div class="st k4 twinkle" style="left:288px;top:18px;width:28px;height:28px"></div>
+        <div class="st k1" style="left:246px;top:186px;width:44px;height:44px"></div>
+        <div id="previewCircle" style="position:absolute;left:70px;top:32px;width:200px;height:200px;border-radius:100px;background:#B9B0FD;overflow:hidden">
+          <div class="ch big" style="left:25px;top:20px;width:150px;height:150px"><i class="chx c0 on"></i><i class="chx"></i></div>
+        </div>
+        <p id="brightVal" class="txt lh26" style="left:26px;top:246px;width:200px;height:26px;font-size:20px;color:var(--ink)">亮度 60%</p>
+        <div id="brightBar" class="bar" style="left:26px;top:280px;width:288px;height:18px;border-radius:9px"><i id="brightFill" style="width:60%;background:#7C6BF5"></i></div>
+        <button id="brightMinus" class="clickable" style="position:absolute;left:26px;top:316px;width:76px;height:56px;border-radius:18px;background:var(--on);color:var(--pri);font-size:26px;line-height:56px;text-align:center">−</button>
+        <button id="brightPlus" class="clickable" style="position:absolute;left:238px;top:316px;width:76px;height:56px;border-radius:18px;background:var(--on);color:var(--pri);font-size:26px;line-height:56px;text-align:center">+</button>
+        <p class="txt lh22" style="left:26px;top:386px;width:288px;height:22px;font-size:16px;color:var(--ink3)">点色点换颜色，± 调亮度</p>
+      </div>
+      <div class="card" style="left:680px;top:0;width:312px;height:428px">
+        <p class="txt lh28" style="left:16px;top:18px;width:200px;height:28px;font-size:22px;color:var(--ink)">模式</p>
+        <div class="st k5 twinkle d1" style="left:266px;top:16px;width:30px;height:30px"></div>
+        <button class="chip sel clickable" data-mode="0" style="left:16px;top:62px">常亮</button>
+        <button class="chip clickable" data-mode="1" style="left:112px;top:62px">呼吸</button>
+        <button class="chip clickable" data-mode="2" style="left:208px;top:62px">渐变</button>
+        <p class="txt lh28" style="left:16px;top:126px;width:150px;height:28px;font-size:20px;color:var(--ink)">星空投影</p>
+        <div class="switch proj-sw on" style="left:236px;top:124px"><i></i></div>
+        <p class="txt lh22" style="left:16px;top:186px;width:150px;height:22px;font-size:16px;color:var(--ink2)">投影定时</p>
+        <button class="chip timer clickable" data-timer="0" style="left:16px;top:212px">15 分</button>
+        <button class="chip timer sel clickable" data-timer="1" style="left:112px;top:212px">30 分</button>
+        <button class="chip timer clickable" data-timer="2" style="left:208px;top:212px">60 分</button>
+        <div class="st k3 big" style="left:108px;top:282px;width:96px;height:96px"></div>
+      </div>
+    </div>
+
+    <!-- ================= 页3 故事时间 ================= -->
+    <div class="page" data-page="2">
+      <div class="card" style="left:16px;top:0;width:380px;height:428px">
+        <p class="txt lh28" style="left:24px;top:16px;width:240px;height:28px;font-size:22px;color:var(--ink)">儿歌清单</p>
+        <div class="st k2" style="left:330px;top:14px;width:30px;height:30px;opacity:.9"></div>
+        <div class="track clickable" data-track="0" style="left:16px;top:58px">
+          <img class="sticker" data-ico="star" style="left:12px;top:14px;width:36px;height:36px">
+          <span class="nm txt lh26" style="left:58px;top:8px;width:230px;height:26px;font-size:20px;color:var(--ink)">飞向宇宙</span>
+          <span class="sub2 txt lh22" style="left:58px;top:34px;width:230px;height:22px;font-size:16px;color:var(--ink2)">2:10·冒险</span>
+          <span class="playmark">▶</span>
+        </div>
+        <div class="track clickable" data-track="1" style="left:16px;top:130px">
+          <img class="sticker" data-ico="moon" style="left:12px;top:14px;width:36px;height:36px">
+          <span class="nm txt lh26" style="left:58px;top:8px;width:230px;height:26px;font-size:20px;color:var(--ink)">太空巡逻</span>
+          <span class="sub2 txt lh22" style="left:58px;top:34px;width:230px;height:22px;font-size:16px;color:var(--ink2)">2:45·星际</span>
+          <span class="playmark">▶</span>
+        </div>
+        <div class="track clickable" data-track="2" style="left:16px;top:202px">
+          <img class="sticker" data-ico="cloud" style="left:12px;top:14px;width:36px;height:36px">
+          <span class="nm txt lh26" style="left:58px;top:8px;width:230px;height:26px;font-size:20px;color:var(--ink)">玩具进行曲</span>
+          <span class="sub2 txt lh22" style="left:58px;top:34px;width:230px;height:22px;font-size:16px;color:var(--ink2)">1:58·轻音乐</span>
+          <span class="playmark">▶</span>
+        </div>
+        <div class="track clickable" data-track="3" style="left:16px;top:274px">
+          <img class="sticker" data-ico="rocket" style="left:12px;top:14px;width:36px;height:36px">
+          <span class="nm txt lh26" style="left:58px;top:8px;width:230px;height:26px;font-size:20px;color:var(--ink)">牛仔很忙</span>
+          <span class="sub2 txt lh22" style="left:58px;top:34px;width:230px;height:22px;font-size:16px;color:var(--ink2)">3:02·儿歌</span>
+          <span class="playmark">▶</span>
+        </div>
+        <div class="track clickable" data-track="4" style="left:16px;top:346px">
+          <img class="sticker" data-ico="flower" style="left:12px;top:14px;width:36px;height:36px">
+          <span class="nm txt lh26" style="left:58px;top:8px;width:230px;height:26px;font-size:20px;color:var(--ink)">安迪的房间</span>
+          <span class="sub2 txt lh22" style="left:58px;top:34px;width:230px;height:22px;font-size:16px;color:var(--ink2)">2:30·晚安曲</span>
+          <span class="playmark">▶</span>
+        </div>
+      </div>
+      <div class="card" style="left:408px;top:0;width:380px;height:428px">
+        <div style="position:absolute;left:70px;top:20px;width:240px;height:240px;border-radius:28px;background:var(--card2);overflow:hidden">
+          <div class="ch big" style="left:35px;top:24px;width:170px;height:170px"><i class="chx c0 on"></i><i class="chx"></i></div>
+          <div class="st k2 twinkle" style="left:200px;top:20px;width:26px;height:26px"></div>
+          <div class="st k4 twinkle d1" style="left:16px;top:18px;width:24px;height:24px"></div>
+        </div>
+        <div class="st k5" style="left:336px;top:282px;width:30px;height:30px;opacity:.9"></div>
+        <p id="songName" class="txt center lh32" style="left:0;top:268px;width:380px;height:32px;font-size:26px;color:var(--ink)">安迪的房间</p>
+        <div id="trackBar" class="bar clickable" style="left:30px;top:312px;width:320px;height:16px;border-radius:8px"><i id="trackFill" style="width:1%"></i></div>
+        <p id="trackTime" class="txt lh22" style="left:30px;top:332px;width:90px;height:22px;font-size:16px;color:var(--ink2)">0:01</p>
+        <p id="trackDur" class="txt lh22" style="left:260px;top:332px;width:90px;height:22px;font-size:16px;color:var(--ink2);text-align:right">2:30</p>
+        <button id="prevBtn" class="clickable" style="position:absolute;left:78px;top:360px;width:64px;height:64px;border-radius:32px;background:var(--on);color:var(--pri)">
+          <span style="position:absolute;left:0;top:0;width:64px;height:64px;font-size:26px;line-height:64px;text-align:center">◀</span>
+        </button>
+        <button id="playBtn" class="clickable" style="position:absolute;left:152px;top:354px;width:76px;height:76px;border-radius:38px;background:var(--pri)">
+          <span id="playGlyph" style="position:absolute;left:0;top:0;width:76px;height:76px;font-size:26px;line-height:76px;text-align:center;color:#fff">❚❚</span>
+        </button>
+        <button id="nextBtn" class="clickable" style="position:absolute;left:242px;top:360px;width:64px;height:64px;border-radius:32px;background:var(--on);color:var(--pri)">
+          <span style="position:absolute;left:0;top:0;width:64px;height:64px;font-size:26px;line-height:64px;text-align:center">▶</span>
+        </button>
+      </div>
+      <div class="card" style="left:800px;top:0;width:192px;height:428px">
+        <p class="txt lh28" style="left:16px;top:16px;width:160px;height:28px;font-size:22px;color:var(--ink)">音量</p>
+        <div class="st k2 twinkle" style="left:150px;top:16px;width:26px;height:26px"></div>
+        <p id="volVal" class="txt center lh40" style="left:0;top:96px;width:192px;height:40px;font-size:26px;color:var(--pri)">65%</p>
+        <div class="bar" style="left:16px;top:156px;width:160px;height:16px;border-radius:8px"><i id="volFill" style="width:65%"></i></div>
+        <button id="volMinus" class="clickable" style="position:absolute;left:16px;top:196px;width:72px;height:52px;border-radius:18px;background:var(--on);color:var(--pri);font-size:26px;line-height:52px;text-align:center">−</button>
+        <button id="volPlus" class="clickable" style="position:absolute;left:104px;top:196px;width:72px;height:52px;border-radius:18px;background:var(--on);color:var(--pri);font-size:26px;line-height:52px;text-align:center">+</button>
+        <button id="loopChip" class="chip sel clickable" style="left:16px;top:268px;width:160px">单曲循环</button>
+        <div class="st k1 big" style="left:54px;top:326px;width:84px;height:84px"></div>
+      </div>
+    </div>
+
+    <!-- ================= 页4 星星奖励 ================= -->
+    <div class="page" data-page="3">
+      <div class="card" style="left:16px;top:0;width:480px;height:428px">
+        <p class="txt lh28" style="left:24px;top:16px;width:240px;height:28px;font-size:22px;color:var(--ink)">今天的任务</p>
+        <div class="st k3" style="left:424px;top:12px;width:32px;height:32px;opacity:.9"></div>
+        <div class="task done clickable" data-task="0" style="left:16px;top:58px">
+          <div class="checkbox"><span>✓</span></div>
+          <p class="txt lh28" style="left:76px;top:10px;width:350px;height:28px;font-size:20px;color:var(--ink3)">自己刷牙 2 分钟</p>
+          <p class="sub txt lh22" style="left:76px;top:40px;width:350px;height:22px;font-size:16px;color:var(--ink2)">已得 1 颗星星</p>
+        </div>
+        <div class="task done clickable" data-task="1" style="left:16px;top:142px">
+          <div class="checkbox"><span>✓</span></div>
+          <p class="txt lh28" style="left:76px;top:10px;width:350px;height:28px;font-size:20px;color:var(--ink3)">把玩具收进箱子</p>
+          <p class="sub txt lh22" style="left:76px;top:40px;width:350px;height:22px;font-size:16px;color:var(--ink2)">已得 1 颗星星</p>
+        </div>
+        <div class="task clickable" data-task="2" style="left:16px;top:226px">
+          <div class="checkbox"><span>✓</span></div>
+          <p class="txt lh28" style="left:76px;top:10px;width:350px;height:28px;font-size:20px;color:var(--ink)">读一本绘本</p>
+          <p class="sub txt lh22" style="left:76px;top:40px;width:350px;height:22px;font-size:16px;color:var(--ink2)">点一下就能得到星星</p>
+        </div>
+        <div class="task clickable" data-task="3" style="left:16px;top:310px">
+          <div class="checkbox"><span>✓</span></div>
+          <p class="txt lh28" style="left:76px;top:10px;width:350px;height:28px;font-size:20px;color:var(--ink)">9 点前上床睡觉</p>
+          <p class="sub txt lh22" style="left:76px;top:40px;width:350px;height:22px;font-size:16px;color:var(--ink2)">点一下就能得到星星</p>
+        </div>
+        <div class="st k5" style="left:398px;top:390px;width:30px;height:30px;opacity:.9"></div>
+      </div>
+      <div class="card" style="left:508px;top:0;width:484px;height:428px">
+        <p class="txt lh28" style="left:24px;top:12px;width:240px;height:28px;font-size:22px;color:var(--ink)">我的奖励</p>
+        <p id="starCount" class="txt lh54" style="left:24px;top:40px;width:86px;height:54px;font-size:40px;color:var(--pri)">12</p>
+        <p class="txt lh24" style="left:110px;top:58px;width:80px;height:24px;font-size:16px;color:var(--ink2)">颗星星</p>
+        <div class="st kr" style="left:198px;top:44px;width:46px;height:46px"></div>
+        <div class="st kr" style="left:250px;top:52px;width:36px;height:36px"></div>
+        <div class="st kr" style="left:292px;top:58px;width:28px;height:28px"></div>
+        <p id="needMore" class="txt lh22" style="left:356px;top:40px;width:116px;height:22px;font-size:16px;color:var(--ink2);text-align:right">再攒 8 颗</p>
+        <p class="txt lh22" style="left:356px;top:66px;width:116px;height:22px;font-size:16px;color:var(--ink2);text-align:right">换小贴纸</p>
+        <div id="bars"></div>
+        <p class="txt lh20" style="left:44px;top:256px;width:40px;height:20px;font-size:16px;color:var(--ink2);text-align:center">一</p>
+        <p class="txt lh20" style="left:102px;top:256px;width:40px;height:20px;font-size:16px;color:var(--ink2);text-align:center">二</p>
+        <p class="txt lh20" style="left:160px;top:256px;width:40px;height:20px;font-size:16px;color:var(--ink2);text-align:center">三</p>
+        <p class="txt lh20" style="left:218px;top:256px;width:40px;height:20px;font-size:16px;color:var(--ink2);text-align:center">四</p>
+        <p class="txt lh20" style="left:276px;top:256px;width:40px;height:20px;font-size:16px;color:var(--ink2);text-align:center">五</p>
+        <p class="txt lh20" style="left:334px;top:256px;width:40px;height:20px;font-size:16px;color:var(--pri);text-align:center">六</p>
+        <p class="txt lh20" style="left:392px;top:256px;width:40px;height:20px;font-size:16px;color:var(--ink2);text-align:center">日</p>
+        <div class="alarmrow" style="left:24px;top:290px">
+          <img class="sticker" data-ico="moon" style="left:12px;top:8px;width:28px;height:28px">
+          <span class="txt lh44" style="left:46px;top:0;width:60px;height:44px;font-size:16px;color:var(--ink2)">睡觉</span>
+          <button id="sleepMinus" class="clickable" style="left:290px;top:4px">−</button>
+          <span id="sleepTime" class="txt center lh44" style="left:336px;top:0;width:72px;height:44px;font-size:22px;color:var(--ink)">21:00</span>
+          <button id="sleepPlus" class="clickable" style="left:412px;top:4px">+</button>
+        </div>
+        <div class="alarmrow" style="left:24px;top:346px">
+          <img class="sticker" data-ico="sun" style="left:12px;top:8px;width:28px;height:28px">
+          <span class="txt lh44" style="left:46px;top:0;width:60px;height:44px;font-size:16px;color:var(--ink2)">起床</span>
+          <button id="wakeMinus" class="clickable" style="left:290px;top:4px">−</button>
+          <span id="wakeTime" class="txt center lh44" style="left:336px;top:0;width:72px;height:44px;font-size:22px;color:var(--ink)">07:00</span>
+          <button id="wakePlus" class="clickable" style="left:412px;top:4px">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 底部 Tab ================= -->
+  <button class="tab active clickable" data-page="0" style="left:16px;top:528px">
+    <span class="badge"></span><img class="sticker" data-ico="star"><span class="label">我的房间</span>
+  </button>
+  <button class="tab clickable" data-page="1" style="left:262px;top:528px">
+    <span class="badge"></span><img class="sticker" data-ico="lamp"><span class="label">灯光乐园</span>
+  </button>
+  <button class="tab clickable" data-page="2" style="left:508px;top:528px">
+    <span class="badge"></span><img class="sticker" data-ico="note"><span class="label">故事时间</span>
+  </button>
+  <button class="tab clickable" data-page="3" style="left:754px;top:528px">
+    <span class="badge"></span><img class="sticker" data-ico="flower"><span class="label">星星奖励</span>
+  </button>
+</div>
+
+<script>
+(function(){
+  var BASE='https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/';
+  var ICON={sun:'2600',drop:'1f4a7',star:'2b50',sparkle:'2728',lamp:'1f4a1',note:'1f3b5',flower:'1f338',book:'1f4d6',rocket:'1f680',moon:'1f319',cloud:'2601',projector:'1f4fa',curtain:'1fa9f',humid:'1f4a7',speaker:'1f50a',swap:'1f503'};
+  var THEMES=[
+    {key:'toy',name:'玩具总动员',suf:'的小房间',cast:['胡迪','巴斯','翠丝','火腿','抱抱龙'],
+     songs:[['飞向宇宙','冒险'],['太空巡逻','星际'],['玩具进行曲','轻音乐'],['牛仔很忙','儿歌'],['安迪的房间','晚安曲']]},
+    {key:'bear',name:'熊出没',suf:'的小屋',cast:['熊大','熊二','光头强','吉吉','蹦蹦'],
+     songs:[['森林早晨','轻音乐'],['蜂蜜甜甜','儿歌'],['小熊跳舞','儿歌'],['树洞晚安','晚安曲'],['光头强来啦','故事']]},
+    {key:'hero',name:'奥特曼',suf:'的基地',cast:['迪迦','赛罗','泽塔','巴尔坦','银河'],
+     songs:[['变身时刻','热血'],['光之巨人','主题曲'],['城市守护','故事'],['星之光芒','轻音乐'],['晚安光波','晚安曲']]},
+    {key:'pocket',name:'宝可梦',suf:'的小屋',cast:['皮卡丘','杰尼龟','妙蛙草','小火龙','胖丁'],
+     songs:[['出发吧训练家','冒险'],['精灵球之歌','儿歌'],['皮卡皮卡','轻音乐'],['道馆挑战','故事'],['晚安宝可梦','晚安曲']]},
+    {key:'sheep',name:'喜羊羊',suf:'的小屋',cast:['喜羊羊','懒羊羊','美羊羊','沸羊羊','小灰灰'],
+     songs:[['羊村早晨','儿歌'],['青草蛋糕','轻音乐'],['灰太狼来了','故事'],['喜羊羊美羊羊','主题曲'],['羊村晚安','晚安曲']]}
+  ];
+  var COLORS=['#7C6BF5','#7EBEFF','#FFE27A','#FF8FA3','#7EE0C9','#FFB35C','#FFF6E0','#9B8CFF'];
+  var TIMER=['15 分','30 分','60 分'];
+  var DUR=[130,165,118,182,150];
+  var S={theme:0,page:0,ac:26,acOn:true,dev:{lamp:true,projector:true,curtain:true,humid:true},color:0,bright:60,mode:0,timer:1,track:4,playing:true,progress:1,volume:65,loop:true,tasks:[true,true,false,false],alarms:[1260,420],
+    cast:{toy:0,bear:0,hero:0,pocket:0,sheep:0},name:'小星星'};
+  try{var _sv=localStorage.getItem('kidroom_name');if(_sv)S.name=_sv;}catch(e){}
+  function $(id){return document.getElementById(id)}
+  function url(code){return BASE+code+'.svg'}
+  function mix(c1,c2,t){function p(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}var a=p(c1),b=p(c2),o='#';for(var i=0;i<3;i++){var v=Math.round(a[i]*t+b[i]*(1-t));o+=('0'+v.toString(16)).slice(-2)}return o}
+  function timeStr(sec){var m=Math.floor(sec/60),s=sec%60;return m+':'+(s<10?'0':'')+s}
+  function clockStr(min){min=((min%1440)+1440)%1440;var h=Math.floor(min/60),m=min%60;return (h<10?'0':'')+h+':'+(m<10?'0':'')+m}
+
+  document.querySelectorAll('[data-ico]').forEach(function(el){el.src=url(ICON[el.dataset.ico]||el.dataset.ico)});
+
+  function renderTop(){
+    var t=THEMES[S.theme];
+    document.body.setAttribute('data-theme',t.key);
+    $('themeLabel').textContent=t.name+' '+(S.theme+1)+'/5';
+    for(var i=0;i<5;i++){
+      var row=document.querySelector('.track[data-track="'+i+'"]');
+      row.querySelector('.nm').textContent=t.songs[i][0];
+      row.querySelector('.sub2').textContent=timeStr(DUR[i])+'·'+t.songs[i][1];
+    }
+    $('songName').textContent=t.songs[S.track][0];
+    renderCast();
+  }
+  function castIdx(){return S.cast[THEMES[S.theme].key]||0}
+  function paintCast(el,i,prev,dir){
+    var lay=el.getElementsByClassName('chx'),cur=null,nxt=null,k;
+    for(k=0;k<lay.length;k++){if(lay[k].classList.contains('on'))cur=lay[k]}
+    if(!cur)cur=lay[0];
+    nxt=(cur===lay[0])?lay[1]:lay[0];
+    if(!nxt)return;
+    nxt.className='chx c'+i;
+    if(prev==null||prev===i){cur.classList.remove('on');nxt.classList.add('on');return}
+    nxt.style.transition='none';nxt.style.opacity='0';
+    nxt.style.transform='translateX('+(dir>=0?22:-22)+'px) scale(.88)';
+    void nxt.offsetWidth;
+    nxt.style.transition='';nxt.classList.add('on');
+    nxt.style.opacity='';nxt.style.transform='';
+    cur.classList.remove('on');
+  }
+  function renderCast(prev,dir){
+    var t=THEMES[S.theme],i=castIdx(),chs=document.querySelectorAll('.ch:not(.arc)');
+    for(var k=0;k<chs.length;k++)paintCast(chs[k],i,prev,dir);
+    var rn=$('roomName');
+    rn.textContent=t.cast[i]+t.suf;
+    if(prev!=null&&prev!==i){rn.classList.remove('swap');void rn.offsetWidth;rn.classList.add('swap')}
+    renderArc(i,prev==null?0:(dir||1));
+  }
+  /* 弧上 4 位按次序排：左二（前两位、前一位）+ 右二（后一位、后两位）
+     切换后整条顺序前移一格，同一位置连点即可依次切遍所有角色 */
+  var ARC=[-2,-1,1,2];
+  function slotFade(el,idx,k,dir){
+    var lay=el.getElementsByClassName('chx'),cur=null,nxt=null,i;
+    for(i=0;i<lay.length;i++){if(lay[i].classList.contains('on'))cur=lay[i]}
+    if(!cur)cur=lay[0];
+    nxt=(cur===lay[0])?lay[1]:lay[0];
+    if(!nxt)return;
+    el.style.setProperty('--d',(dir>=0?(3-k):k)*0.028+'s');
+    nxt.className='chx c'+idx;
+    nxt.style.transition='none';nxt.style.opacity='0';
+    void nxt.offsetWidth;
+    nxt.style.transition='';nxt.classList.add('on');
+    nxt.style.opacity='';cur.classList.remove('on');
+  }
+  function renderArc(i,dir){
+    var t=THEMES[S.theme],slots=document.querySelectorAll('.ch.arc');
+    for(var k=0;k<slots.length;k++){
+      var el=slots[k],ni=(i+ARC[k]+5)%5;
+      el.title=t.cast[ni];el.dataset.cast=ni;
+      if(+el.getAttribute('data-i')!==ni){slotFade(el,ni,k,dir);el.setAttribute('data-i',ni)}
+    }
+  }
+  function burst(){
+    var fx=$('bigFx');
+    fx.classList.remove('go');void fx.offsetWidth;fx.classList.add('go');
+  }
+  function switchChar(to,dir){
+    var prev=castIdx(),i;
+    if(typeof to==='number')i=(to+5)%5;
+    else i=(prev+(dir||1)+5)%5;
+    if(i===prev)return;
+    if(dir==null)dir=(i>prev?1:-1);
+    S.cast[THEMES[S.theme].key]=i;
+    renderCast(prev,dir);burst();
+  }
+  function renderTabs(){
+    document.querySelectorAll('.page').forEach(function(p){p.classList.toggle('active',+p.dataset.page===S.page)});
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',+t.dataset.page===S.page)});
+  }
+  function devStatus(key){
+    if(key==='lamp')return S.dev.lamp?'亮度 '+S.bright+'%':'已关闭';
+    if(key==='projector')return S.dev.projector?TIMER[S.timer]:'已关闭';
+    if(key==='curtain')return S.dev.curtain?'已打开':'已合上';
+    return S.dev.humid?'湿度 56%':'已关闭';
+  }
+  function renderPage1(){
+    $('acVal').textContent=S.ac+'°';
+    $('acBar').style.background=S.acOn?'var(--on)':'var(--card2)';
+    ['lamp','projector','curtain','humid'].forEach(function(k){
+      var on=S.dev[k];
+      $('tile-'+k).style.background=on?'var(--on)':'var(--card)';
+      var st=$('st-'+k);st.textContent=devStatus(k);st.style.color=on?'var(--pri)':'var(--ink3)';
+      $('sw-'+k).classList.toggle('on',on);
+    });
+  }
+  function renderPage2(){
+    var idx=S.color,col=COLORS[idx],left=idx%2?170:74,top=70+Math.floor(idx/2)*86;
+    $('colorRing').style.left=(left-4)+'px';$('colorRing').style.top=(top-4)+'px';
+    $('previewCircle').style.background=mix(col,'#FFFFFF',S.bright/100);
+    $('brightVal').textContent='亮度 '+S.bright+'%';
+    $('brightFill').style.width=S.bright+'%';$('brightFill').style.background=col;
+    document.querySelectorAll('.mode').forEach(function(b){b.classList.toggle('sel',+b.dataset.mode===S.mode)});
+    document.querySelectorAll('.proj-sw').forEach(function(s){s.classList.toggle('on',S.dev.projector)});
+    document.querySelectorAll('.timer').forEach(function(b){b.classList.toggle('sel',+b.dataset.timer===S.timer)});
+  }
+  function renderPage3(){
+    document.querySelectorAll('.track').forEach(function(r){r.classList.toggle('sel',+r.dataset.track===S.track)});
+    $('songName').textContent=THEMES[S.theme].songs[S.track][0];
+    $('trackFill').style.width=S.progress+'%';
+    $('trackTime').textContent=timeStr(Math.floor(DUR[S.track]*S.progress/100));
+    $('trackDur').textContent=timeStr(DUR[S.track]);
+    $('playGlyph').textContent=S.playing?'❚❚':'▶';
+    $('volVal').textContent=S.volume+'%';
+    $('volFill').style.width=S.volume+'%';
+    $('loopChip').classList.toggle('sel',S.loop);
+  }
+  function renderPage4(){
+    var done=S.tasks.filter(Boolean).length;
+    document.querySelectorAll('.task').forEach(function(r){
+      var i=+r.dataset.task,on=S.tasks[i];
+      r.classList.toggle('done',on);
+      r.querySelector('.sub').textContent=on?'已得 1 颗星星':'点一下就能得到星星';
+      r.querySelector('.txt').style.color=on?'var(--ink3)':'var(--ink)';
+    });
+    var stars=10+done;
+    $('starCount').textContent=stars;
+    $('needMore').textContent='再攒 '+(20-stars)+' 颗';
+    $('sleepTime').textContent=clockStr(S.alarms[0]);
+    $('wakeTime').textContent=clockStr(S.alarms[1]);
+  }
+  function renderAll(){renderTop();renderTabs();renderPage1();renderPage2();renderPage3();renderPage4()}
+
+  document.addEventListener('pointerdown',function(e){
+    var el=e.target.closest('.clickable');
+    if(el){el.classList.add('press');setTimeout(function(){el.classList.remove('press')},90)}
+  });
+  document.querySelectorAll('.tab').forEach(function(t){t.addEventListener('click',function(){S.page=+t.dataset.page;renderTabs()})});
+  $('themeBtn').addEventListener('click',function(){S.theme=(S.theme+1)%5;renderTop();renderPage3()});
+
+  $('avatarCard').addEventListener('click',function(){switchChar(null,1)});
+  $('bigChar').addEventListener('click',function(){switchChar(null,1)});
+  document.querySelectorAll('.ch.arc').forEach(function(b,k){
+    b.addEventListener('click',function(){switchChar(+b.dataset.cast,k<2?-1:1)});
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.target&&e.target.id==='kidName')return;
+    if(e.key==='ArrowLeft')switchChar(null,-1);
+    else if(e.key==='ArrowRight')switchChar(null,1);
+  });
+
+  var nameEl=$('kidName');
+  nameEl.value=S.name;
+  function fitName(){nameEl.style.width=Math.max(70,Math.min(150,14+nameEl.value.length*21))+'px'}
+  fitName();
+  nameEl.addEventListener('input',fitName);
+  nameEl.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();nameEl.blur()}
+    else if(e.key==='Escape'){nameEl.value=S.name;nameEl.blur()}
+  });
+  nameEl.addEventListener('blur',function(){
+    var v=nameEl.value.replace(/\s+/g,'').slice(0,6);
+    if(!v)v='小星星';
+    S.name=v;nameEl.value=v;fitName();
+    try{localStorage.setItem('kidroom_name',v)}catch(e){}
+  });
+
+  $('acMinus').addEventListener('click',function(){S.ac=Math.max(18,S.ac-1);renderPage1()});
+  $('acPlus').addEventListener('click',function(){S.ac=Math.min(30,S.ac+1);renderPage1()});
+  ['lamp','projector','curtain','humid'].forEach(function(k){
+    $('tile-'+k).addEventListener('click',function(){S.dev[k]=!S.dev[k];renderPage1();renderPage2()});
+  });
+  var SCENES=[
+    function(){S.dev.curtain=true;S.dev.lamp=true;S.bright=80;S.color=2;S.dev.projector=false;S.acOn=true},
+    function(){S.dev.curtain=true;S.dev.lamp=true;S.bright=100;S.color=7;S.dev.projector=false},
+    function(){S.dev.lamp=true;S.bright=70;S.color=1;S.dev.projector=true},
+    function(){S.dev.curtain=false;S.dev.lamp=true;S.bright=25;S.color=0;S.dev.projector=true;S.timer=0}
+  ];
+  document.querySelectorAll('.scene').forEach(function(b){b.addEventListener('click',function(){SCENES[+b.dataset.scene]();renderAll()})});
+
+  document.querySelectorAll('.dot').forEach(function(b){b.addEventListener('click',function(){S.color=+b.dataset.color;renderPage2();renderPage1()})});
+  $('brightMinus').addEventListener('click',function(){S.bright=Math.max(0,S.bright-5);renderPage2();renderPage1()});
+  $('brightPlus').addEventListener('click',function(){S.bright=Math.min(100,S.bright+5);renderPage2();renderPage1()});
+  document.querySelectorAll('.mode').forEach(function(b){b.addEventListener('click',function(){S.mode=+b.dataset.mode;renderPage2()})});
+  document.querySelectorAll('.proj-sw').forEach(function(s){s.addEventListener('click',function(){S.dev.projector=!S.dev.projector;renderPage1();renderPage2()})});
+  document.querySelectorAll('.timer').forEach(function(b){b.addEventListener('click',function(){S.timer=+b.dataset.timer;renderPage1();renderPage2()})});
+
+  function selectTrack(i){S.track=(i+DUR.length)%DUR.length;S.playing=true;S.progress=0;renderPage3()}
+  document.querySelectorAll('.track').forEach(function(r){r.addEventListener('click',function(){selectTrack(+r.dataset.track)})});
+  $('prevBtn').addEventListener('click',function(){selectTrack(S.track-1)});
+  $('nextBtn').addEventListener('click',function(){selectTrack(S.track+1)});
+  $('playBtn').addEventListener('click',function(){S.playing=!S.playing;renderPage3()});
+  $('trackBar').addEventListener('click',function(){S.progress=Math.min(100,S.progress+10);renderPage3()});
+  $('volMinus').addEventListener('click',function(){S.volume=Math.max(0,S.volume-5);renderPage3()});
+  $('volPlus').addEventListener('click',function(){S.volume=Math.min(100,S.volume+5);renderPage3()});
+  $('loopChip').addEventListener('click',function(){S.loop=!S.loop;renderPage3()});
+
+  document.querySelectorAll('.task').forEach(function(r){r.addEventListener('click',function(){var i=+r.dataset.task;S.tasks[i]=!S.tasks[i];renderPage4()})});
+  $('sleepMinus').addEventListener('click',function(){S.alarms[0]-=15;renderPage4()});
+  $('sleepPlus').addEventListener('click',function(){S.alarms[0]+=15;renderPage4()});
+  $('wakeMinus').addEventListener('click',function(){S.alarms[1]-=15;renderPage4()});
+  $('wakePlus').addEventListener('click',function(){S.alarms[1]+=15;renderPage4()});
+
+  var vals=[3,2,5,4,1,6,2],bars=$('bars');
+  for(var i=0;i<7;i++){
+    var h=20+vals[i]*16;
+    var d=document.createElement('div');
+    d.className='weekbar';d.style.left=(44+i*58)+'px';d.style.top=(250-h)+'px';d.style.height=h+'px';
+    d.style.background=i===5?'var(--pri)':'var(--pri2)';bars.appendChild(d);
+  }
+  renderAll();
+})();
+</script>
+</body>
+</html>

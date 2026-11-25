@@ -11,7 +11,7 @@
 #if defined(LUAT_USE_IR) || defined(LUAT_USE_IR_RX)
 #include "luat_gpio.h"
 #ifdef LUAT_USE_IR_RX
-#include "../../components/ir/luat_ir_rx.h"
+#include "luat_ir_rx.h"
 #endif
 
 #define LUAT_LOG_TAG "ir"

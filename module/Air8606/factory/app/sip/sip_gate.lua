@@ -7,14 +7,14 @@ function M.selected()
 end
 
 function M.reason()
-    if not M.selected() then return "UART6 未选择 SIP 通话" end
+    if not M.selected() then return "当前型号的 UART6 用于 J22 TTL 串口。" end
     local hw = _G.project_config.hw or {}
     local audio = hw.audio
     if not audio or audio.model ~= "air1103" or audio.uart_id ~= 6 then
         return "SIP 通话需要 UART6 接到 Air1103（R25/R26）。"
     end
     if audio.play_model ~= "air1103" then
-        return "双向通话需 C237 装配。请核对 C237 实贴、C104 空贴后，在「设置 → 接口复用 → 音频回放」选择 Air1103（C237），保存并重启。"
+        return "双向通话需要 Air1103 通过 C237 接入功放，请核对烧录型号和音频装配。"
     end
     return ""
 end

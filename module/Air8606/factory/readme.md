@@ -13,7 +13,7 @@
 
 | 环节 | 实现 | 文件 |
 |------|------|------|
-| 编译清单 | 只打包当前机型配置 + 用到的驱动，缩小 LuaDB（800×480 脚本区仅 1024KB） | `core/platform_loader.lua` |
+| 编译清单 | 登记十个 Air8606 短名配置及共用驱动，启动时按 PROJECT 加载 | `core/platform_loader.lua` |
 | 分辨率获取 | `screen_get_size()` 优先 `display.getSize()` → params 兜底 | `drv/lcd/lcd_common.lua` |
 | 全局 `lcd` 代理 | 覆盖为 Lua 代理表，`getSize()` 优先返回 display 尺寸/`_G.screen_w`，其余字段透传原 lcd | `drv/lcd/lcd_common.lua` |
 | RGB 屏驱动 | `lcd_display_rgb` 走 `display.init("custom", cfg)`，PC 模拟器跳过；`display` 路径不再额外 `setupBuff` | `drv/lcd/lcd_display_rgb.lua` |
@@ -23,52 +23,48 @@
 | 业务容错 | `net_manager.init` 用 pcall 包裹，网络起不来不阻断 UI | `app/app_main.lua` |
 | 内存裁剪 | `factory_win` / `llm_chat_win` 暂不打包（常驻窗口约占 1024KB） | `ui/core/ui_main.lua` |
 
-当前工程为 `Engine_Air8606_10inch_1024x600_V010`。UART6 在「设置 → 接口复用」按板上选贴选择，保存后重启生效。旧存档缺少 UART6 时沿用 Air1103，已保存的音频回放选项继续生效。
+## 一、Air8606 出厂型号
+
+在 `main.lua` 中选择下表的完整 `PROJECT`，再用 Luatools 打包或烧录。默认 W1，软件版本 `001.999.007`。每个型号在 `PROJECT_KEY_BY_MODEL` 中都有独立的云端密钥位置，由对应项目提供。
+
+| 型号 | PROJECT | UART2 | UART3 | UART6 | J16 SD（SPI1） | UART5 / J30 |
+|---|---|---|---|---|---|---|
+| W1 | `Engine_Air8606W1_10inch_1024x600_000_WiFi_V000` | CAN | J7 人脸 | Air1103 SIP | 有 | 引出 |
+| W2 | `Engine_Air8606W2_10inch_1024x600_000_WiFi_V000` | RS232 | J7 人脸 | Air1103 SIP | 有 | 引出 |
+| W3 | `Engine_Air8606W3_10inch_1024x600_000_WiFi_V000` | CAN | J23 隔离 485-2 | Air1103 SIP | — | 引出 |
+| W4 | `Engine_Air8606W4_10inch_1024x600_000_WiFi_V000` | CAN | J23 隔离 485-2 | J22 TTL | — | — |
+| W5 | `Engine_Air8606W5_10inch_1024x600_000_WiFi_V000` | RS232 | J23 隔离 485-2 | J22 TTL | — | — |
+| M1 | `Engine_Air8606M1_10inch_1024x600_000_4G_V000` | CAN | J7 人脸 | Air1103 SIP | 有 | 引出 |
+| M2 | `Engine_Air8606M2_10inch_1024x600_000_4G_V000` | RS232 | J7 人脸 | Air1103 SIP | 有 | 引出 |
+| M3 | `Engine_Air8606M3_10inch_1024x600_000_4G_V000` | CAN | J23 隔离 485-2 | Air1103 SIP | — | 引出 |
+| M4 | `Engine_Air8606M4_10inch_1024x600_000_4G_V000` | CAN | J23 隔离 485-2 | J22 TTL | — | — |
+| M5 | `Engine_Air8606M5_10inch_1024x600_000_4G_V000` | RS232 | J23 隔离 485-2 | J22 TTL | — | — |
+
+十款均使用 Air1602、10 寸 1024×600 屏、UART1 隔离 485（U11/J21）和 SPI5 CH390 网口（U2/J24）。W 款通过 SPI2 连接 U3 Air6205。M 款通过 SPI2 连接 U20 Air780EX2，支持 EX2 侧 GNSS 和 J15 下游网口。
+
+**以太网接线与烧录**
+
+| 接口 | 型号 | 接线与用途 |
+|---|---|---|
+| J24 WAN | W1～W5、M1～M5 | 接路由器的 LAN 口。Air1602 从路由器获取 IPv4，优先使用有线网络。断线后，W 款使用已连接的 Wi-Fi，M 款使用已开启且联网的 4G。 |
+| J15 LAN | M1～M5 | 接电脑或交换机，终端设为自动获取 IP 和 DNS。J15 优先共享 J24，J24 断开后可共享已开启的 4G。关闭 4G 后，下游仍可从 J15 获取局域网地址。 |
+
+M 款需要分别更新 Air1602 主控和 Air780EX2 从机。主控沿用本目录对应的 `PROJECT`。从机使用 V2056 Air780EX2 **109** 底包，在 Luatools 中选入[专用从机工程](../../Air780EX2/project/Air8606_4G_Air780EX2)中的全部 Lua 文件，启用默认库，通过 EX2 自己的下载口烧录。
+
+J15 默认网关为 `192.168.4.1/24`，DHCP 分配末段 100～200。若 J24 路由器使用重叠网段，J15 自动选择独立网段，实际网关在「功能测试 → 下游网口 (J15 LAN)」显示。网段变更后，已接入的终端可重新获取租约。验收时查看终端的地址和网关，从终端访问网络，再拔插 J24 核对页面显示的上行。
+
+UART2 的 CAN 经 R34/R32 接 U25/J31，RS232 经 R33/R31。J30 仅记录引出能力，RX5/TX5 与触摸 I²C1 共用引脚，出厂程序保持触摸工作。3–5 型跳过 SD 供电和挂载。
+
+W1、W2、M1、M2 默认启用 UVC 摄像头和 J7 人脸识别，可在「设置 → 外设模式」切换到 USB 键鼠，重启生效。W3、W4、W5、M3、M4、M5 固定启用 USB 键鼠，隐藏外设模式设置和摄像头、人脸测试入口。
 
 ### UART6 产测
 
-| 板上装配 | 设置与操作 |
+| 型号 | 装配与操作 |
 |---|---|
-| R25/R26 接 Air1103，C237 实贴、C104 空贴 | UART6 选「SIP 通话」，音频回放选「Air1103（C237）」。接 J12 麦克风和 J13 喇叭，联网后打开「功能测试 → SIP 通话」。首次进页使用设备分机号注册，可在「我的」修改账号。用另一分机分别呼入、呼出，双方各说一句并确认听清，分别从两端挂断。退页后可以继续做录音测试。 |
-| R25/R26 接 Air1103，C104 实贴、C237 空贴 | 音频回放选「主控 DAC（C104）」。SIP 入口显示 C237 装配说明。 |
-| R99/R119 接 J22，R25/R26 空贴 | UART6 选「TTL 串口」，进入「功能测试 → TTL 串口（J22）」。J22 的 1 脚 TX6 接适配器 RX、2 脚 RX6 接 TX、3 或 4 脚共地。设为 115200、8N1，分别从板端和适配器发送 ASCII，在对端核对内容。装有 C104 的板可选择主控 DAC 播放。 |
+| W1–W3、M1–M3 | R25/R26 接 Air1103，C237 接功放。接 J12 麦克风和 J13 喇叭，在「功能测试 → SIP 通话」用另一分机验证呼入、呼出与双向声音。退页后可做录音回放。 |
+| W4–W5、M4–M5 | R99/R119 接 J22，C104 接主控 DAC，可播放音频。进入「功能测试 → TTL 串口（J22）」，将 J22 的 1 脚 TX6 接适配器 RX、2 脚 RX6 接 TX，3 或 4 脚共地。设为 115200、8N1，双向发送并核对数据。 |
 
-## 一、已支持的硬件型号
-
-| 序号 | 主控 | 类型 | 硬件 | 支持功能 | 命名 | 正面视图 | 背面视图 |
-|------|------|------|------|---------|------|---------|---------|
-| 1 | Air1602 | 引擎主机 | Air1601 UI 畅玩板 V000 | 1024*600 7寸RGB触摸屏；Wifi；PWM背光调节 | Engine_Air1602_7inch_1024x600_000_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_7inch_1024x600_000_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_7inch_1024x600_000_V000_back_view.png"> |
-| 2 | Air1602 | 引擎主机 | Air1601 UI 畅玩板 V001 | 1024*600 10.1寸RGB触摸屏；Wifi；蜂鸣器；PWM背光调节 | Engine_Air1602_10inch1_1024x600_001_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_10inch1_1024x600_001_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_10inch1_1024x600_001_V000_back_view.png"> |
-| 3 | Air1602 | 引擎主机 | Air1601 UI 畅玩板 V002 | 720*1280 5寸RGB触摸屏；Wifi；PWM背光调节 | Engine_Air1602_5inch_720x1280_002_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_5inch_720x1280_002_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_5inch_720x1280_002_V000_back_view.png"> |
-| 4 | Air1602 | 引擎主机 | 合宙引擎AIR1602 V003 | 720*1280 5寸RGB触摸屏；Wifi；PWM背光调节；128MB NAND_FLASH；喇叭；MIC；按键; 电池管理 | Engine_Air1602_5inch_720x1280_003_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_5inch_720x1280_003_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_5inch_720x1280_003_V000_back_view.png"> |
-| 5 | Air1602 | 引擎主机 | 合宙引擎AIR1602 V004 | 1024*600 7寸RGB触摸屏；Wifi；PWM背光调节；128MB NAND Flash | Engine_Air1602_7inch_1024x600_004_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_7inch_1024x600_004_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_7inch_1024x600_004_V000_back_view.png"> |
-| 6 | Air8000W | 引擎主机 | 合宙引擎主机8000W_V000 | 320*480 4寸SPI触摸屏；4G；Wifi；蜂鸣器；PWM背光调节 | Engine_Air8000W_4inch_320x480_000_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air8000W_4inch_320x480_000_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air8000W_4inch_320x480_000_V000_back_view.png"> |
-| 7 | Air8000 | turnkey开发板套装 | Air8000A trunkey 开发板 V020 | 480*320 3.5寸SPI触摸屏；4G；Wifi；蜂鸣器；SD卡 | EVB_Air8000A_3inch5_480x320_000_V020 | | |
-| 7 | Air1601 | turnkey开发板套装 | EVB_Air1601_V1.1；AirLCD 10.1寸屏；AirSHT30；AirVOC_1000；AirCAMERA_1030 | 1024*600 10.1寸RGB触摸屏；4G；Wifi；以太网；蓝牙；tf/sd卡；喇叭；CAN；RS485；200万像素USB摄像头；I2C传感器 | EVB_Air1601_10inch1_1024x600_000_V011 | | |
-| 8 | Air1601 | turnkey开发板套装 | EVB_Air1601_V1.1；AirLCD 7寸屏；AirSHT30；AirVOC_1000；AirCAMERA_1030 | 1024*600 7寸RGB触摸屏；4G；Wifi；以太网；蓝牙；tf/sd卡；喇叭；CAN；RS485；200万像素USB摄像头；I2C传感器 | EVB_Air1601_7inch_1024x600_000_V011 | | |
-| 9 | Air1601 | turnkey开发板套装 | EVB_Air1601 V012；AirLCD 7寸屏 | 1024*600 7寸RGB触摸屏；4G(AirLink UART2)；WiFi(AirLink SPI2)；以太网；SD卡；PWM3背光调节；应用工厂(ES8311录音播放) | EVB_Air1601_7inch_1024x600_000_V012 | | |
-| 10 | Air1601 | turnkey开发板+配件板 | EVB_Air1601_V1.1；AirLCD_1020；AirSHT30；AirVOC_1000；AirCAMERA_1030 | 800*480 5寸RGB触摸屏；4G；Wifi；以太网；蓝牙；tf/sd卡；喇叭；CAN；RS485；200万像素USB摄像头；I2C传感器 | EVB_Air1601_5inch_800x480_000_V011 | | |
-| 10 | Air8101 | 引擎主机 | EVB_Air8101_V1.0；AirLCD_1090 | 1024*600 9寸RGB触摸屏；Wifi；以太网 | EVB_Air8101_AirLCD_1090_000_V020 | | |
-| 11 | Air8101 | 引擎主机 | EVB_Air8101_V1.0；AirLCD_1070 | 1024*600 7寸RGB触摸屏；Wifi；以太网 | EVB_Air8101_AirLCD_1070_000_V020 | | |
-| 12 | Air8101 | 引擎主机 | EVB_Air8101_V1.0；AirLCD_1100 | 1024*600 10寸RGB触摸屏；Wifi；以太网；应用工厂(内置DAC喇叭/麦克风) | EVB_Air8101_AirLCD_1100_000_V020 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101_10inch1_1024x600_000_V010_back_view.png"> |
-| 13 | Air8101B | 引擎主机 | 合宙引擎 8101B V002 | 480*854 5寸RGB触摸屏；Wifi | EVB_Air8101B_5inch_480x854_000_V010 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101B_5inch_480x854_000_V010_back_view.png"> |
-| 14 | Air1780H | 引擎主机 | 合宙引擎 AIR1780H V000 4.3寸 | 480*272 4.3寸SPI触摸屏(ST6201)；WiFi(airlink 6205)；ES8311录音播放；SD卡；NAND Flash；PWM0背光调节 | Engine_Air1780H_4inch_480x272_000_V000 | | |
-| 15 | Air1603 | 引擎主机 | 合宙引擎 AIR8607 V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；SD卡 | Engine_Air8607_10inch_1024x600_000_V000 | | |
-| 16 | Air1603 | 引擎主机 | 合宙引擎 AIR8607A V000 10寸 | 1024*600 10寸RGB触摸屏；PWM背光调节；喇叭；UVC摄像头(AirCAMERA_1032/AirUVC_1000)；无SD卡 | Engine_Air8607A_10inch_1024x600_000_V000 | | |
-| 17 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W1 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W1_10inch_1024x600_000_WiFi_V000 | | |
-| 18 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W2 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603W2_10inch_1024x600_000_WiFi_V000 | | |
-| 19 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W3 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；UVC摄像头(USB出图)；SD卡 | Engine_Air8603W3_10inch_1024x600_000_WiFi_V000 | | |
-| 20 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W4 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603W4_10inch_1024x600_000_WiFi_V000 | | |
-| 21 | Air1603 | 引擎主机 | 合宙引擎 AIR8603W5 V000 10寸 | 1024*600 10寸RGB触摸屏；WiFi(Airlink 6205, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603W5_10inch_1024x600_000_WiFi_V000 | | |
-| 22 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M1 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M1_10inch_1024x600_000_4G_V000 | | |
-| 23 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M2 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；UVC摄像头(UART2控制串口)；SD卡 | Engine_Air8603M2_10inch_1024x600_000_4G_V000 | | |
-| 24 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M3 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；隔离RS485(UART1/UART2) 两路；UVC摄像头(USB出图)；SD卡 | Engine_Air8603M3_10inch_1024x600_000_4G_V000 | | |
-| 25 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M4 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；非隔离RS485(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603M4_10inch_1024x600_000_4G_V000 | | |
-| 26 | Air1603 | 引擎主机 | 合宙引擎 AIR8603M5 V000 10寸 | 1024*600 10寸RGB触摸屏；4G(Airlink 780ER2, UART3)；PWM背光调节；喇叭(HT6873)；TTL串口(UART1)；隔离RS485(UART2)；UVC摄像头(USB出图)；SD卡 | Engine_Air8603M5_10inch_1024x600_000_4G_V000 | | |
-| 27 | Air1603 | 引擎主机 | Air8603W | 1024*600 10寸RGB触摸屏(HX8282)；WiFi(Airlink 601S, SPI5)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2)；摄像头画面 rotation = 90；SD卡；USB HID/UVC 二选一 | Engine_Air8607W_10inch_1024x600_000_V000 | | |
-| 28 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；WiFi(Airlink 6205, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 90；SD卡 | Engine_Air8601_7inch_1024x600_010_WiFi_V000 | | |
-| 29 | Air1601 | 引擎主机 | 合宙引擎 AIR8601 V010 7寸 | 1024*600 7寸RGB触摸屏(HX8282)；4G(Airlink 780ER2, UART3)；PWM3背光调节；喇叭(内置DAC)；非隔离RS485(UART1)；人脸识别摄像头(AirCAMERA_1034, UART2, UVC_EN = GPIO73)；摄像头画面 rotation = 90；SD卡 | Engine_Air8601_7inch_1024x600_010_4G_V000 | | |
-| 30 | Air1602 | 引擎主机 | 合宙引擎 AIR8606 V010 10寸 | 1024*600 10寸RGB触摸屏；接口复用装配(SPI2 4G/WiFi、UART2 CAN/RS232、隔离/非隔离485、UART3 人脸/485-2、音频回放、USB Host)；J24 SPI以太网(CH390H)；GNSS/EX2网口(4G装配)；对外5V/VIN电源；Air153D看门狗；Air1103录音播放；SD卡；装配在「设置→接口复用」切换、重启生效 | Engine_Air8606_10inch_1024x600_V010 | | |
+按 AIR8606_V0_20261105_1733 原理图第 5、14 页，M 款由 EX2 UART1 连接 Air510W。EX2 TX 经 R100 到 GNSS RX，GNSS TX 经 R186 到 EX2 RX。主控 UART1 用于 J21。
 
 ---
 
@@ -107,15 +103,10 @@ factory/
 ├── core/
 │   └── platform_loader.lua    # 平台检测 + 配置映射 + 引脚初始化 + GPIO 上电
 ├── config/                    # 硬件配置文件（每个 PROJECT 一个）
-│   ├── eng_1602_5i_v2.lua     # Air1602 5寸 V002
-│   ├── eng_1602_5i_v3.lua     # Air1602 5寸 V003（NAND Flash）
-│   ├── eng_1602_7i_v0.lua     # Air1602 7寸
-│   ├── eng_1602_7i_v4.lua     # Air1602 7寸 V004（NAND Flash）
-│   ├── eng_1602_10i_v0.lua    # Air1602 10.1寸
-│   ├── evb_8101b_5i_v1.lua    # Air8101B 5寸
-│   ├── evb_8101_9i_v0.lua     # Air8101 9寸 (AirLCD_1090)
-│   ├── evb_8101_10i_v0.lua    # Air8101 10寸 (AirLCD_1100)
-│   ├── evb_8101_7i_v0.lua     # Air8101 7寸 (AirLCD_1070)
+│   ├── eng_8606w1_10i_v0.lua  # W1～W5 五个 Wi-Fi 型号入口
+│   ├── eng_8606m1_10i_v0.lua  # M1～M5 五个 4G 型号入口
+│   ├── board_options.lua       # 五种 UART / SD 装配
+│   ├── air8606_config.lua      # 共用驱动、外设和电源配置
 │   ├── pc_default.lua         # PC 模拟器回退
 │   └── template.lua           # 配置参数完整说明
 ├── drv/                       # 配件驱动（参数驱动，不硬编码平台）
@@ -130,7 +121,7 @@ factory/
 │   └── fota_app.lua           # OTA 固件升级
 ├── ui/                        # UI 层（纯事件驱动，按功能分子目录，require 一律裸文件名）
 │   ├── core/                  # 框架与桌面（boot_ui / ui_main / ui_theme / ui_theme_themes / ui_kit / idle_win）
-│   ├── settings/              # 设置页面（含接口复用 settings_mux_win）
+│   ├── settings/              # 设置页面（含 USB 外设模式 settings_usb_win）
 │   ├── wifi/                  # WiFi 页面（列表/连接/详情）
 │   ├── net/                   # 网络设置页（设置/详情）
 │   ├── test/                  # 测试页（功能测试 / UVC / 485 / 录音 / 外设诊断 / SIP）
@@ -143,7 +134,16 @@ factory/
 
 ## 四、配置文件格式
 
-每个配置文件声明以下内容，示例（`eng_1602_5i_v3.lua`）：
+每个 Air8606 型号有一个短名入口。Luatools 按源码文本收集依赖，请将 `require` 和构造函数调用写在两行。以 `eng_8606m2_10i_v0.lua` 为例。
+
+```lua
+local config = require "air8606_config"
+return config.build("M2")
+```
+
+`board_options.lua` 记录同编号 W / M 款的串口和卡座装配。
+
+以下是上游 Air1602 V003 的通用字段示例。Air8606 的实际引脚和上电顺序见 `air8606_config.lua`。
 
 ```lua
 return {
@@ -214,10 +214,10 @@ return {
 
 ### 5.1 新增已有芯片的新型号
 
-1. 在 `config/` 创建配置文件（如 `eng_1602_5i_v4.lua`）
+1. 在 `config/` 登记装配并创建对应的短名入口，可参考 `eng_8606w1_10i_v0.lua`。
 2. 在 `core/platform_loader.lua` 的 `PROJECT_MAP` 中添加映射
-3. 在编译清单中添加 `require("eng_1602_5i_v4")`
-4. 在 `main.lua` 中修改 `PROJECT` 为新命名
+3. 在同一文件的编译清单显式 `require` 该入口。
+4. 将完整型号加入 `main.lua` 的选型说明和对应的密钥表，修改 `PROJECT` 后打包。
 
 ### 5.2 新增配件驱动
 
@@ -228,11 +228,8 @@ return {
 ### 5.3 PROJECT 命名规范
 
 ```
-{类型}_{芯片}_{尺寸}_{版本}
-  类型: Engine引擎主机 / EVB开发板 / Core核心板
-  芯片: Air1602 / Air8000W / Air8101 / Air780EGG ...
-  尺寸: 5inch_720x1280 / 10inch1_1024x600 ...
-  版本: 002_V000 / 003_V000 ...
+Engine_Air8606W{1–5}_10inch_1024x600_000_WiFi_V000
+Engine_Air8606M{1–5}_10inch_1024x600_000_4G_V000
 ```
 
 ---
@@ -451,10 +448,10 @@ MIC + 喇叭 + AEC，`exaudio` 走 `model = "air1103"` + `audio_mode = "new"`，
 
 ### 6.8 USB HID 与 UVC 二选一
 
-USB 键鼠与 UVC 摄像头共用同一个 USB Host 与同一条供电轨，同一时刻只能有一方占用，
-所以两者做成**互斥开关**：模式写 fskv（键 `usb_mode_config`，值 `"uvc"` / `"hid"`），
-出厂默认 `"uvc"`（摄像头）。切换入口在「设置 → 外设模式」，交互与网络设置页同款
-（逐条开关 + 互斥预演 + 「确定并重启」弹窗），写完 fskv 重启生效。
+W1、W2、M1、M2 的摄像头和键鼠共用 USB Host 和 GPIO13 供电。在「设置 → 外设模式」选择另一项，点「确定并重启」后生效。
+每个 PROJECT 把选择保存在自己的 fskv 键 `usb_mode_<完整 PROJECT>` 中，值为 `uvc` 或 `hid`。首次使用新版或换刷到尚无记录的型号时默认 UVC，刷回已配置的型号会恢复该型号的选择。旧版的 `usb_mode_config` 没有型号信息，升级时跳过。
+
+W3–W5、M3–M5 在每次启动时直接启用 USB 键鼠，UART3 用于 J23 第二路隔离 485。
 
 | 模块 | 文件 | 职责 |
 |------|------|------|
@@ -500,31 +497,29 @@ msgbox 不再居中。键盘是贴底的，居中弹窗那套避让对它不适�
 
 ## 八、演示软件环境
 
-### 7.1 开发工具
+### 8.1 开发工具
 
 - [Luatools 下载调试工具](https://docs.openluat.com/air8000/luatos/common/download/) - 固件烧录和代码调试
 
-### 7.2 内核固件
+### 8.2 内核固件
 
-- Air8000W：[点击下载 Air8000W 最新版本内核固件](https://docs.openluat.com/air8000/luatos/firmware/)
-- Air8101：[点击下载 Air8101 最新版本内核固件](https://docs.openluat.com/air8101/luatos/firmware/)
-- Air1601/Air1602：[点击下载 Air1601 最新版本内核固件](https://docs.openluat.com/air1601/luatos/firmware/)
+十个型号共用 Air1602 主控，主机烧录时选择 Air1602 内核。[Air1601/Air1602 内核下载](https://docs.openluat.com/air1601/luatos/firmware/)
 
 ---
 
 ## 九、使用步骤
 
-### 8.1 选择硬件型号
+### 9.1 选择硬件型号
 
-在 `main.lua` 中修改 `PROJECT` 为对应型号的命名：
+在 `main.lua` 中从第一节的型号表选择完整的 `PROJECT`。下面以 W1 为例。
 
 ```lua
-PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
+PROJECT = "Engine_Air8606W1_10inch_1024x600_000_WiFi_V000"
 ```
 
 `main.lua` 文件头部已列出所有可用的 PROJECT 值及对应硬件说明。
 
-### 8.2 软件烧录
+### 9.2 软件烧录
 
 1. 使用 Luatools 烧录对应型号的最新内核固件
 2. 下载并烧录本工程所有脚本文件
@@ -532,7 +527,7 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
 4. 设备自动重启后开始运行
 5. [点击查看 Luatools 下载和详细使用](https://docs.openluat.com/air8000/common/Luatools/)
 
-### 8.3 功能测试
+### 9.3 功能测试
 
 **开机流程**：上电 → 固件启动 → 平台检测 → 配置加载 → GPIO 上电 → 驱动初始化 → 业务模块加载 → 欢迎页 → 桌面
 
@@ -549,10 +544,7 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
 ## 十、故障排除
 
 1. **持续重启**：检查 `PROJECT` 是否正确、配置文件是否存在、LCD 驱动 model 名是否匹配
-2. **桌面没有「功能测试」图标**：看开机日志有无「未找到 PROJECT 映射」——`PROJECT` 写错会静默
-   回退 PC 配置（屏幕靠型号名还能点亮，但外设与功能测试全没了）。旧命名与大小写变体已在
-   `core/platform_loader.lua` 的 PROJECT_MAP 留了别名；另请确认 `features.other_func` 与
-   `ui.show_other_func` 两处都为 true。
+2. **桌面没有「功能测试」图标**：确认 `features.other_func` 和 `ui.show_other_func` 已启用。真机若提示「未知 Air8606 PROJECT」，请从型号表复制完整项目名并重新打包。
 3. **显示异常**：检查 LCD 接线，确认配置文件中 `direction` 旋转参数正确
 4. **触摸无响应**：检查 I2C 接线，确认 GT911 `pin_rst`/`pin_int` 引脚配置正确
 5. **WiFi 无法扫描**：Air160x 系列检查 airlink `pin_cs`/`pin_rdy` 配置，Air8000W/Air8101 检查 exnetif 配置

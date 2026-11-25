@@ -10,9 +10,10 @@
 订阅: USB_MODE_CHANGED    → 模式写入后刷新开关与角标
 ]]
 
-local theme = require "ui_theme"
 local usb_mode = require "usb_mode"
+if not usb_mode.available(_G.project_config) then return end
 
+local theme = require "ui_theme"
 local CLR = theme.live()
 
 local window_id = nil
@@ -82,6 +83,18 @@ local function refresh_rows()
     end
 end
 
+local function save_mode(id)
+    if usb_mode.set_enabled(id, true) then return true end
+    refresh_rows()
+    local w, h = msgbox_size()
+    airui.msgbox({
+        parent = main_container, w = w, h = h, title = "保存失败",
+        text = "USB 模式未写入，请重试。", buttons = { "确定" },
+        on_action = function(dlg) if dlg then dlg:destroy() end end,
+    })
+    return false
+end
+
 --[[互斥确认弹窗按钮回调]]
 local function on_mutex_action(dlg, btn_label)
     if dlg then dlg:destroy() end
@@ -90,7 +103,7 @@ local function on_mutex_action(dlg, btn_label)
     if not p then return end
     if p.row then p.row.pending = nil end
     if btn_label == "确定并重启" then
-        usb_mode.set_enabled(p.id, true)
+        if not save_mode(p.id) then return end
         if p.sw then p.sw:set_state(true) end
         refresh_rows()
         do_reboot()
@@ -180,7 +193,7 @@ local function on_switch_change(handle, row)
         show_mutex_prompt(preview, item)
         return
     end
-    usb_mode.set_enabled(item.id, enable)
+    if not save_mode(item.id) then return end
     item.enabled = enable
     pending = { id = item.id, enable = enable, prev = prev, sw = handle, row = row }
     row.pending = true
@@ -340,11 +353,4 @@ local function open()
     end
 end
 
--- Air8606 机型：USB Host 是「接口复用」页的一个页签，转投统一入口（参考库同款转发）
-sys.subscribe("OPEN_USB_MODE_WIN", function()
-    if (_G.project_config or {}).radio then
-        sys.publish("OPEN_AIR8606_MUX_WIN", "usb")
-        return
-    end
-    open()
-end)
+sys.subscribe("OPEN_USB_MODE_WIN", open)

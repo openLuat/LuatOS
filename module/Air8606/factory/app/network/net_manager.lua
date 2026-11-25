@@ -81,6 +81,7 @@ local exnetif = require "exnetif"
 local net_storage = require "net_storage"
 
 local net_manager = {}
+local board_wan
 
 -- ==================== 内部状态（init 后方可用） ====================
 local _initialized = false
@@ -250,10 +251,8 @@ local function build_eth_param(net_cfg)
 end
 
 -- 自动连接兜底账号：无已保存成功网络时使用
-net_manager.DEFAULT_WIFI_SSID = "test"
-net_manager.DEFAULT_WIFI_PASSWORD = "12341234"
--- net_manager.DEFAULT_WIFI_SSID = "HJ"
--- net_manager.DEFAULT_WIFI_PASSWORD = "HJ@88888"
+net_manager.DEFAULT_WIFI_SSID = "HJ"
+net_manager.DEFAULT_WIFI_PASSWORD = "HJ@88888"
 
 --[[
 读取 WiFi 自动连接凭证
@@ -419,6 +418,10 @@ local function link_ctrl(type_name, enable)
     local net_cfg = find_config(type_name)
     if not net_cfg then return false end
     local t = net_cfg.type
+    if board_wan and (t == "eth_spi" or t == "4g_airlink_spi") then
+        board_wan.refresh()
+        return true
+    end
     if t == "eth_spi" then return eth_link_ctrl(net_cfg, enable) end
     if t == "4g_native" then return g4_native_link_ctrl(enable) end
     if t == "wifi_native" then return wifi_native_link_ctrl(enable) end
@@ -512,9 +515,20 @@ function net_manager.init(config)
     elseif wifi_cfg then
         log.info("net_manager", "WiFi 网络开关关闭，跳过 WiFi 初始化")
     end
-    local priority = net_manager.build_priority_in_order(wifi_entry)
-    if #priority > 0 then
-        net_manager.apply(priority)
+    local wan = find_config("eth_spi")
+    if wan and wan.port == "J24" and _chip == "Air1602" then
+        board_wan = require "air8606_wan"
+        _priority_applied = true
+        board_wan.start(_config, wan, find_config("4g_airlink_spi"), is_net_enabled)
+        -- Single-radio setup retains the normal Wi-Fi association and scan paths.
+        -- The board owns SPI5, DHCP and default-route selection on both assemblies.
+        if wifi_entry then
+            exnetif.set_priority_order({wifi_entry})
+            board_wan.refresh()
+        end
+    else
+        local priority = net_manager.build_priority_in_order(wifi_entry)
+        if #priority > 0 then net_manager.apply(priority) end
     end
 
     -- 发布 AIRLINK_WIFI_READY 信号，告知 wifi_app_real 硬件初始化已完成
@@ -986,6 +1000,7 @@ end
 ]]
 local function net_detail(net_cfg)
     local t = net_cfg.type or ""
+    if net_cfg.port == "J24" then return "J24 WAN · 路由器上行 · DHCP" end
     if t == "eth_spi" then return "SPI 以太网 " .. (net_cfg.chip or "CH390") end
     if t == "wifi_native" then return "芯片内置 WiFi" end
     if t == "4g_native" then return "芯片内置 4G" end
@@ -1019,10 +1034,12 @@ function net_manager.list_networks()
             local info = net_info(t)
             list[#list + 1] = {
                 id = t,
-                name = info.name,
+                name = net_cfg.port == "J24" and "以太网 (J24 WAN)" or info.name,
                 group = info.group,
                 icon = info.icon,
                 is_airlink = is_airlink_type(t),
+                needs_reboot = is_airlink_type(t) and not (board_wan and t == "4g_airlink_spi"),
+                address = board_wan and t == "eth_spi" and board_wan.j24_ip or nil,
                 enabled = is_net_enabled(t),
                 status = net_status_of(t),
                 detail = net_detail(net_cfg),
@@ -1050,6 +1067,7 @@ function net_manager.preview_toggle(id, enable)
     local value = (enable == true)
     result.ok = true
     result.changes[id] = value
+    if board_wan and id == "4g_airlink_spi" then return result end
 
     if is_airlink_type(id) then
         result.need_reboot = true
@@ -1102,7 +1120,7 @@ function net_manager.set_net_enabled(id, enable)
     for type_name, value in pairs(preview.changes) do
         link_ctrl(type_name, value)
     end
-    if exnetif.check_network_status then
+    if not board_wan and exnetif.check_network_status then
         exnetif.check_network_status()
     end
     sys.publish("NET_STATUS_CHANGED")
@@ -1114,6 +1132,7 @@ end
 @return boolean
 ]]
 function net_manager.has_active_network()
+    if board_wan then return board_wan.online() end
     if _active_adapter then return true end
     for _, net_cfg in ipairs(_network_configs or {}) do
         local t = net_cfg.type
@@ -1136,7 +1155,7 @@ local function on_ip_ready(ip, adapter)
             _net_state[net_cfg.type] = "CONNECTED"
         end
     end
-    _active_adapter = adapter
+    if not board_wan then _active_adapter = adapter end
     sys.publish("NET_STATUS_CHANGED")
 end
 

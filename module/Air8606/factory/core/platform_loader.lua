@@ -10,28 +10,22 @@
 require 即执行，按以下顺序：
   1. 编译清单：包进永不调用的 _compile_manifest()，仅供编译系统文本扫描打包，运行时不执行
   2. 平台检测：hmeta.model() → 识别芯片型号 → 设 _G.model_str / _G.is_pc
-  3. PROJECT 映射：长命名 "Engine_Air8606_10inch_1024x600_V010" → 短文件名 "eng_8606_10i_v010"
+  3. PROJECT 映射：Air8606 W1～W5、M1～M5 各自对应一个短配置文件名
   4. 配置加载：require(cfg_name) → 返回配置 table → 存入 _G.project_config
   5. PC 适配：模拟器环境补充 mobile.* 桩函数、设置默认网卡为 ETH0
   6. 引脚初始化：遍历 config.pins，逐条调用 pins.setup(pin, func)
 
 === 关键设计 ===
 
-- 短文件名映射（PROJECT_MAP）：LuatOS 文件系统限制文件名 ≤24 字节，长 PROJECT 名（如 "Engine_Air8606_10inch_1024x600_V010" 36 字节）
-  必须映射到短名（如 "eng_8606_10i_v010" 17 字节）。命名格式: {eng|evb|cor}_{芯片简写}_{尺寸简写}_{版本简写}
+- 短文件名映射（PROJECT_MAP）：配置文件名控制在 24 字节内，如 eng_8606w1_10i_v0.lua。
 
-- 三级回退策略（容错设计）：
-  第一级：PROJECT_MAP 命中 → require 配置文件 → 返回 table
-  第二级：配置文件 require 返回非 table → PC 配置（根据 PROJECT 名推断分辨率）
-  第三级：PROJECT_MAP 未命中 → PC配置
+- 真机使用精确的 PROJECT 映射。未知型号停止硬件初始化，PC 模拟器可按名称推断分辨率。
 
 - require 编译清单：不是给运行时用的，是给编译系统文本扫描用的。
   编译系统扫描这些 require 语句决定哪些 .lua 文件打包进固件；
   包进永不调用的函数后运行时不执行，动态 require（变量名）扫不到的文件才必须登记。
 
-- 本树是 Air8606 单型号出厂固件（module/Air8606/factory）：
-  编译清单与 PROJECT_MAP 只带本型号及其依赖，主工程（app_engine/factory_new）的
-  其余机型配置一律不打包 —— 这是按型号裁剪的约定，别从主工程整份覆盖回来。
+- 本树打包十个 Air8606 配置，运行时只加载当前 PROJECT 对应的装配。
 ]]
 
 -- ==================== 编译清单（编译系统文本扫描，运行时不执行） ====================
@@ -50,11 +44,19 @@ require ("sip_test_win")          -- 从功能测试按需加载
 require ("factory_handoff")       -- 测试页和话机交接外设
 require ("factory_page_exit")     -- 退页等待外设清理完成
 
--- Air8606 引擎主机（本树唯一型号）：接口复用装配 / EX2 伴随诊断 / 外设驱动 / 诊断页
-require ("eng_8606_10i_v010")     -- Air8606 10寸 1024×600 + 接口复用装配（SPI2 4G/WiFi、UART2 CAN/RS232、双485、GNSS/EX2、对外电源、看门狗）+ J24 SPI以太网 + Air1103语音 + SD
-require ("air8606_config")       -- Air8606 装配配置生成器（按 mux 选择构建 project_config）
-require ("board_options")        -- Air8606 上电默认装配
-require ("air8606_mux")          -- Air8606 接口复用锁存（fskv，重启生效）
+-- 每个配置独立登记，供 Luatools 静态扫描。
+require ("eng_8606w1_10i_v0")
+require ("eng_8606w2_10i_v0")
+require ("eng_8606w3_10i_v0")
+require ("eng_8606w4_10i_v0")
+require ("eng_8606w5_10i_v0")
+require ("eng_8606m1_10i_v0")
+require ("eng_8606m2_10i_v0")
+require ("eng_8606m3_10i_v0")
+require ("eng_8606m4_10i_v0")
+require ("eng_8606m5_10i_v0")
+require ("air8606_config")       -- 共用的引脚、驱动和测试入口
+require ("board_options")        -- 五种串口及存储装配
 require ("air8606_peer")         -- EX2 伴随脚本诊断通道（SPI2 airlink sdata）
 require ("air8606_resources")    -- 共享引脚互斥与电源域引用计数
 require ("periph_can")           -- CAN2 收发诊断（uart2 装配为 CAN 时）
@@ -63,7 +65,6 @@ require ("periph_power")         -- 对外 5V/VIN 电源开关（J17/J18）
 require ("periph_peer")          -- EX2 侧 J15 网口诊断
 require ("periph_wdt")           -- Air153D 看门狗状态与手动喂狗请求
 require ("air8606_test_win")     -- 外设诊断页（订阅 OPEN_AIR8606_TEST_WIN）
-require ("settings_mux_win")     -- 接口复用设置页（订阅 OPEN_AIR8606_MUX_WIN）
 
 -- 驱动
 require ("lcd_display_rgb")       -- RGB display 统一驱动
@@ -94,23 +95,27 @@ end
 
 -- ==================== 1. 平台检测 ====================
 -- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()
-local ok, _model = pcall(hmeta.model)
+local ok, _model = pcall(function() return hmeta and hmeta.model() end)
 if not ok or not _model then _model = rtos.bsp() end
 _G.model_str = tostring(_model or "")
 
 -- PC 模拟器检测：hmeta.model 在 PC 上会报错，model_str 为空或 "PC"
-_G.is_pc = (not ok) or (_G.model_str == "PC") or (_G.model_str == "")
+_G.is_pc = (_G.model_str == "PC") or (_G.model_str == "")
 
 -- ==================== 2. PROJECT 长名 → 短文件名映射 ====================
 -- 短名格式: {eng|evb|cor}_{芯片简写}_{尺寸简写}_{版本简写}，目标 ≤24 字节
 -- eng = Engine 引擎主机, evb = EVB turnkey 开发板, cor = Core 核心板
 local PROJECT_MAP = {
-    -- Air8606 引擎主机（本树唯一型号）
-    ["Engine_Air8606_10inch_1024x600_V010"]        = "eng_8606_10i_v010",
-    -- 别名：参考库/旧命名落到同一配置（SPI2 装配由 air8606_mux 开机锁存，与 PROJECT 后缀无关）
-    ["Engine_Air8606_10inch_1024x600_V000"]        = "eng_8606_10i_v010",
-    ["Engine_Air8606_10inch_1024x600_4G_V000"]     = "eng_8606_10i_v010",
-    ["Engine_Air8606_10inch_1024x600_WiFi_V000"]   = "eng_8606_10i_v010",
+    ["Engine_Air8606W1_10inch_1024x600_000_WiFi_V000"] = "eng_8606w1_10i_v0",
+    ["Engine_Air8606W2_10inch_1024x600_000_WiFi_V000"] = "eng_8606w2_10i_v0",
+    ["Engine_Air8606W3_10inch_1024x600_000_WiFi_V000"] = "eng_8606w3_10i_v0",
+    ["Engine_Air8606W4_10inch_1024x600_000_WiFi_V000"] = "eng_8606w4_10i_v0",
+    ["Engine_Air8606W5_10inch_1024x600_000_WiFi_V000"] = "eng_8606w5_10i_v0",
+    ["Engine_Air8606M1_10inch_1024x600_000_4G_V000"] = "eng_8606m1_10i_v0",
+    ["Engine_Air8606M2_10inch_1024x600_000_4G_V000"] = "eng_8606m2_10i_v0",
+    ["Engine_Air8606M3_10inch_1024x600_000_4G_V000"] = "eng_8606m3_10i_v0",
+    ["Engine_Air8606M4_10inch_1024x600_000_4G_V000"] = "eng_8606m4_10i_v0",
+    ["Engine_Air8606M5_10inch_1024x600_000_4G_V000"] = "eng_8606m5_10i_v0",
 }
 
 -- ==================== 3. 加载项目配置 ====================
@@ -122,11 +127,11 @@ local PROJECT_MAP = {
 @logic
   1. PC 模拟 → 内联配置（lcd_display_rgb + ETH0 网卡）
   2. PROJECT_MAP 命中 → require 配置文件 → 返回 table
-  3. 失败 → 回退：根据 PROJECT 长名推断分辨率的 PC 配置
+  3. 真机拒绝未知型号。模拟器按 PROJECT 长名推断分辨率。
 ]]
 local function load_project_config(project)
     -- PC 模拟器：直接返回内联配置，避免依赖文件系统
-    if project == "PC" or project:find("^PC") then
+    if _G.is_pc and project:find("^PC") then
         _G.model_str = "PC"
         socket.dft(socket.ETH0)                        -- PC 模拟器用 ETH0 网卡
         _G.mobile = {}                                  -- 补充 mobile 模块桩
@@ -163,7 +168,9 @@ local function load_project_config(project)
             log.info("platform_loader", "配置加载成功:", cfg_name, "<-", project)
             return cfg
         end
-        log.warn("platform_loader", "配置文件加载失败:", cfg_name, "，回退到 PC 模拟")
+        error("Air8606 配置文件未返回配置表: " .. cfg_name)
+    elseif not _G.is_pc then
+        error("未知 Air8606 PROJECT: " .. tostring(project) .. "，请核对 main.lua 中的完整型号名")
     else
         log.warn("platform_loader", "未找到 PROJECT 映射:", project, "，回退到 PC 模拟")
     end

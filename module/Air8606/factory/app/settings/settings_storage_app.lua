@@ -121,16 +121,19 @@ local STORAGE_LABELS = {
     ["/little_flash/"] = "外挂Flash",
 }
 
+local mount_points = { "/", "/little_flash/" }
+local features = (_G.project_config or {}).features or {}
+if features.sd_card ~= false then table.insert(mount_points, 2, "/sd/") end
+
+local function storage_entry(mp)
+    return { mount_point = mp, label = STORAGE_LABELS[mp], available = false }
+end
+
 local function get_all_storage_info()
     local result = {}
-    local mount_points = { "/", "/sd/", "/little_flash/" }
 
     for _, mp in ipairs(mount_points) do
-        local entry = {
-            mount_point = mp,
-            label = STORAGE_LABELS[mp] or mp,
-            available = false,
-        }
+        local entry = storage_entry(mp)
         if io.dexist(mp) then
             -- io.fsstat 返回值格式: success, total_blocks, used_blocks, block_size, fs_type
             local r, success, total_blocks, used_blocks, block_size = pcall(io.fsstat, mp)
@@ -160,11 +163,8 @@ end)
 
 -- 快速查询：只查内置 /，不碰 NAND/SD（毫秒级）
 sys.subscribe("STORAGE_GET_INFO_FAST", function()
-    local fast_list = {
-        { mount_point = "/",              label = STORAGE_LABELS["/"],              available = false },
-        { mount_point = "/sd/",           label = STORAGE_LABELS["/sd/"],           available = false },
-        { mount_point = "/little_flash/", label = STORAGE_LABELS["/little_flash/"], available = false },
-    }
+    local fast_list = {}
+    for i, mp in ipairs(mount_points) do fast_list[i] = storage_entry(mp) end
     -- 仅查内置文件系统 /，不碰 NAND/SD
     local r, success, total_blocks, used_blocks, block_size = pcall(io.fsstat, "/")
     if r and success and total_blocks and used_blocks and block_size then

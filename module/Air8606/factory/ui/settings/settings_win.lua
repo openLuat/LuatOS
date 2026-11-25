@@ -26,7 +26,6 @@ require "settings_auto_win"
 require "settings_theme_win"
 require "settings_report_win"
 require "settings_usb_win"
-require "settings_mux_win"      -- Air8606 接口复用页（订阅 OPEN_AIR8606_MUX_WIN；非 8606 机型无入口）
 
 local theme = require "ui_theme"
 
@@ -54,7 +53,6 @@ local ENTRY_ICONS = {
     ["OPEN_AUTOSTART_WIN"]   = "autostart",
     ["OPEN_AIRCLOUD_WIN"]    = "cloud",
     ["OPEN_USB_MODE_WIN"]    = "mouse",
-    ["OPEN_AIR8606_MUX_WIN"] = "mouse",
 }
 
 local function update_screen_size()
@@ -97,11 +95,7 @@ local function collect_entries()
     if ui.show_storage_settings then add("存储和内存", "OPEN_STORAGE_WIN", "文件系统容量与内存占用") end
     if fe.sd_card or fe.nand_flash then add("存储顺序", "OPEN_STORAGE_PRI_WIN", "外部应用安装位置优先级") end
     -- UVC 摄像头与 USB 键鼠共用 USB Host，两者都配了才需要二选一（见 usb_mode）。
-    -- Air8606 机型（cfg.radio 存在）由「接口复用」页统一管 USB Host 等六组装配，
-    -- 不再单出「外设模式」行（与参考库一致）
-    if cfg.radio then
-        add("接口复用", "OPEN_AIR8606_MUX_WIN", "SPI2、UART 和 USB Host 用途选择")
-    elseif require("usb_mode").available(cfg) then
+    if require("usb_mode").available(cfg) then
         add("外设模式", "OPEN_USB_MODE_WIN", "UVC 摄像头与 USB 键鼠二选一")
     end
     if ui.show_fota then add("系统更新", "OPEN_FOTA_WIN", "检查并下载最新固件") end

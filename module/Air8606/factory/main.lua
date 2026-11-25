@@ -33,16 +33,23 @@ main.lua 是整个工厂固件的唯一入口，负责串联所有初始化阶�
 4. exwin/exapp 是固件内置扩展库，由 boot_ui 在显示完成后加载（exapp require 时扫各存储应用）
 ]]
 
--- ==================== 编译时配置（更换硬件只需改这三行） ====================
+-- ==================== 出厂型号（更换硬件只需修改 PROJECT） ====================
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
 === PROJECT 对应关系 ===
-本树是 Air8606 单型号出厂固件，只实现这一个配置：
-
-  Engine 引擎主机系列（≥800×480）:
-  "Engine_Air8606_10inch_1024x600_V010"          → config/eng_8606_10i_v010.lua  10寸RGB +接口复用装配(SPI2 4G/WiFi、UART2 CAN/RS232、双485、GNSS/EX2、对外电源、看门狗)+J24 SPI以太网+Air1103语音+SD（装配在「设置→接口复用」切换，重启生效）
+烧录前选择下列完整名称。十款均有 UART1 隔离485 和 J24 网口。
+  "Engine_Air8606W1_10inch_1024x600_000_WiFi_V000"  CAN + 人脸 + SIP + SD
+  "Engine_Air8606W2_10inch_1024x600_000_WiFi_V000"  RS232 + 人脸 + SIP + SD
+  "Engine_Air8606W3_10inch_1024x600_000_WiFi_V000"  CAN + 第二路485 + SIP
+  "Engine_Air8606W4_10inch_1024x600_000_WiFi_V000"  CAN + 第二路485 + TTL
+  "Engine_Air8606W5_10inch_1024x600_000_WiFi_V000"  RS232 + 第二路485 + TTL
+  "Engine_Air8606M1_10inch_1024x600_000_4G_V000"  CAN + 人脸 + SIP + SD
+  "Engine_Air8606M2_10inch_1024x600_000_4G_V000"  RS232 + 人脸 + SIP + SD
+  "Engine_Air8606M3_10inch_1024x600_000_4G_V000"  CAN + 第二路485 + SIP
+  "Engine_Air8606M4_10inch_1024x600_000_4G_V000"  CAN + 第二路485 + TTL
+  "Engine_Air8606M5_10inch_1024x600_000_4G_V000"  RS232 + 第二路485 + TTL
 
 VERSION：项目版本号，ascii string类型
         如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
@@ -51,18 +58,25 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air8606_10inch_1024x600_V010" -- 项目名，用于 FOTA 云端鉴权
+PROJECT = "Engine_Air8606M1_10inch_1024x600_000_4G_V000" -- 项目名，用于打包和 FOTA
 VERSION = "001.999.007"                           -- 固件版本号，用于 FOTA 升级比对
 --[[
 PROJECT_KEY：项目密钥，FOTA 云端鉴权。
-Air8606 出厂固件按 PROJECT 里的型号段取密钥（与 Air8603 树同款口径）：
-  Engine_Air8606_10inch_1024x600_V010 → V010 密钥
-云端项目申请后填入下表；未填时只有 FOTA 云端鉴权不可用，其余功能不受影响。
+按 Air8606 的 W1～W5、M1～M5 分别填写对应云端项目的密钥。
 ]]
 local PROJECT_KEY_BY_MODEL = {
-    V010 = "", -- TODO: 云端申请后填入
+    W1 = "",
+    W2 = "",
+    W3 = "",
+    W4 = "",
+    W5 = "",
+    M1 = "",
+    M2 = "",
+    M3 = "",
+    M4 = "",
+    M5 = "",
 }
-local project_model = PROJECT:match("_(V%d+)$")
+local project_model = PROJECT:match("^Engine_Air8606([WM][1-5])_")
 PROJECT_KEY = project_model and PROJECT_KEY_BY_MODEL[project_model] or ""
 
 -- 在日志中打印项目名和项目版本号

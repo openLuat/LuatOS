@@ -196,7 +196,8 @@ local playing_players = 0       -- 正在播的播放器数（暂停/停止即�
 -- PA 使用者探针：桌面视频正在播时 audio_hw.pa_off 会放弃关功放
 -- （音量测试收尾等路径要关 PA，不能掐掉视频正在用的功放）
 pcall(function()
-    require("audio_hw").register_pa_blocker("video", function() return playing_players > 0 end)
+    local audio_hw = require "audio_hw"
+    audio_hw.register_pa_blocker("video", function() return playing_players > 0 end)
 end)
 
 -- 打开（或顺延）释放窗口：每停一路就从头计时

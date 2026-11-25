@@ -57,7 +57,8 @@ end
 
 -- ==================== 可选窗口批：features 门控，与业务层成对 ====================
 function M.optional()
-    local _feat = (_G.project_config or {}).features or {}
+    local cfg = _G.project_config or {}
+    local _feat = cfg.features or {}
 
     -- 门控条件必须与 app_main.optional 对应业务层完全一致
     if _feat.app_factory then
@@ -78,7 +79,10 @@ function M.optional()
 
     if _feat.other_func then
         require "other_func_win"    -- 功能测试窗口（订阅 OPEN_OTHER_FUNC_WIN）
-        require "uvc_preview_win"   -- UVC 预览页（订阅 OPEN_UVC_PREVIEW_WIN）
+        local usb_mode = require "usb_mode"
+        if usb_mode.should_start_uvc(cfg) then
+            require "uvc_preview_win"   -- UVC 预览及人脸识别页
+        end
         require "rs485_test_win"    -- RS485 收发测试页（订阅 OPEN_RS485_TEST_WIN）
         require "air8606_test_win"  -- 外设诊断页（订阅 OPEN_AIR8606_TEST_WIN：串口/CAN/GNSS/EX2网口/对外电源/看门狗）
         if has_audio_periph() then

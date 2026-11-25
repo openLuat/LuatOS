@@ -42,6 +42,12 @@ local function status_text_of(status)
     return STATUS_TEXT[status] or STATUS_TEXT.DISCONNECTED
 end
 
+local function connection_text(item)
+    local label = status_text_of(item.status)
+    if item.address then return label .. "   " .. item.address end
+    return label
+end
+
 --[[状态码换算成文字颜色]]
 local function status_color_of(status)
     if status == "CONNECTED" then return theme.SEM.success end
@@ -116,7 +122,7 @@ local function refresh_status()
     if not item then return end
     cur_item = item
     if status_value then
-        status_value:set_text(status_text_of(item.status))
+        status_value:set_text(connection_text(item))
         status_value:set_color(status_color_of(item.status))
     end
     if sw_handle and not pending then
@@ -249,8 +255,8 @@ local function build_ui()
         local kv = {
             { "网络类型", item.id },
             { "是否 airlink", item.is_airlink and "是" or "否" },
-            { "当前状态", status_text_of(item.status) },
-            { "是否需要重启生效", item.is_airlink and "需要重启生效" or "在线即时生效" },
+            { "当前状态", connection_text(item) },
+            { "是否需要重启生效", item.needs_reboot and "需要重启生效" or "在线即时生效" },
         }
         for i, r in ipairs(kv) do
             local ry = theme.dp(8) + (i - 1) * row_h

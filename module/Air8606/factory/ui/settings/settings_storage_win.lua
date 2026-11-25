@@ -71,7 +71,7 @@ end
 local function format_kb(total_kb)
     if not total_kb or total_kb == 0 then return "0 KB" end
     if total_kb < 0 then total_kb = -total_kb end
-    if total_kb < 1024 then return string.format("%d KB", total_kb)
+    if total_kb < 1024 then return string.format("%.0f KB", total_kb)
     elseif total_kb < 1024*1024 then return string.format("%.2f MB", total_kb/1024)
     else return string.format("%.2f GB", total_kb/1024/1024) end
 end
@@ -270,13 +270,21 @@ end
 local function build_ui()
     update_screen_size()
 
-    -- 6张卡片(3内存+3文件系统) + 间距 + 留白 = 可用高度
+    local fs_configs = {
+        { mount = "/", title = "内置文件系统", internal = true },
+        { mount = "/little_flash/", title = "外挂Flash", internal = false },
+    }
+    local features = (_G.project_config or {}).features or {}
+    if features.sd_card ~= false then
+        table.insert(fs_configs, 2, { mount = "/sd/", title = "TF卡/SD卡", internal = false })
+    end
+    local card_count = #fs_configs + 3 -- 三张内存卡加上本机型的文件系统
     local th_est = theme.dp(56) + margin * 2
     local margin_top = margin
-    local gap_count = 5
+    local gap_count = card_count - 1
     local card_gap_est = math.floor(margin * 0.7)
     local available_h = screen_h - th_est - margin_top * 2 - gap_count * card_gap_est
-    local card_height_base = math.floor(available_h / 6)
+    local card_height_base = math.floor(available_h / card_count)
     if card_height_base < 120 then card_height_base = 120 end
     if card_height_base > 200 then card_height_base = 200 end
 
@@ -299,16 +307,9 @@ local function build_ui()
     local card_gap = math.floor(margin * 0.7)
     local current_y = margin
 
-    -- 三个文件系统卡：内置 / SD / little_flash
-    local fs_configs = {
-        { title = "内置文件系统", internal = true },
-        { title = "TF卡/SD卡",    internal = false },
-        { title = "外挂Flash",    internal = false },
-    }
     fs_cards = {}
     for _, cfg in ipairs(fs_configs) do
-        local w = create_fs_card(content_area, current_y, cfg.title, fs_card_h, cfg.internal)
-        table.insert(fs_cards, w)
+        fs_cards[cfg.mount] = create_fs_card(content_area, current_y, cfg.title, fs_card_h, cfg.internal)
         current_y = current_y + fs_card_h + card_gap
     end
 
@@ -331,13 +332,8 @@ local function update_fs_info_list(list)
     -- list: { { mount_point="/", label="内置文件系统", available=true, total_kb, free_kb, used_kb }, ... }
     if type(list) ~= "table" then return end
     for _, entry in ipairs(list) do
-        if entry.mount_point == "/" and fs_cards[1] then
-            update_fs_card(fs_cards[1], entry)
-        elseif entry.mount_point == "/sd/" and fs_cards[2] then
-            update_fs_card(fs_cards[2], entry)
-        elseif entry.mount_point == "/little_flash/" and fs_cards[3] then
-            update_fs_card(fs_cards[3], entry)
-        end
+        local card = fs_cards[entry.mount_point]
+        if card then update_fs_card(card, entry) end
     end
 end
 

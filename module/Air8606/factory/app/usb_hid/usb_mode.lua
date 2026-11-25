@@ -1,6 +1,6 @@
 --[[
 @module  usb_mode
-@summary USB 外设模式：UVC 摄像头与 USB 键鼠二选一（fskv 持久化，默认 UVC）
+@summary Air8606 USB 外设模式：1/2 型按 PROJECT 保存选择，3/4/5 型固定 USB 键鼠
 @version 1.0
 @date    2026.11.03
 @author  江访
@@ -21,6 +21,7 @@ usb_mode.list(cfg)                    → 设置页两行的显示数据
 usb_mode.preview_toggle(id, enable)   → 预演开关（互斥 / 需重启 / 是否最后一项）
 usb_mode.set_enabled(id, enable)      → 写 fskv
 usb_mode.should_start_hid(cfg)        → 本机该不该启动 usb_hid_app
+usb_mode.should_start_uvc(cfg)        → 当前型号与启动模式是否允许摄像头预览
 usb_mode.filter(list)                 → 当前模式下可用的外设清单（HID 模式去掉 uvc 条目）
 usb_mode.apply_boot(cfg)              → 开机按模式给 UVC 使能脚上电 / 断电
 
@@ -31,8 +32,7 @@ usb_mode.apply_boot(cfg)              → 开机按模式给 UVC 使能脚上电
 - HID 模式下 filter() 会把 uvc 条目从外设清单里摘掉，功能测试页也就没有摄像头行，
   避免用户在 HID 模式下手动给摄像头上电又把 USB Host 抢回去
 - 任何 fskv 调用都包 pcall 并先判 fskv 是否存在（PC 模拟器没有这个库）
-- Air8606 机型的 USB 选择由 air8606_mux 统一维护（开机锁存、接口复用页切换）：
-  mux 已加载时 mode/set 委托给它，其它机型走原 fskv 键 usb_mode_config
+- W1/W2/M1/M2 的选择按 PROJECT 分别保存，首次使用新版从 UVC 启动。W3–W5、M3–M5 固定使用键鼠。
 ]]
 
 local airlink_pin = require "airlink_pin"
@@ -41,36 +41,15 @@ local M = {}
 
 -- ==================== 常量 ====================
 
-local CONFIG_KEY = "usb_mode_config" -- fskv 存储键
 local MODE_UVC = "uvc"               -- UVC 摄像头模式
 local MODE_HID = "hid"               -- USB 键鼠模式
-
--- ==================== Air8606 mux 委托（软依赖） ====================
--- 模块名经变量传给 require：编译系统文本扫描扫不到，缺它的型号树不报缺文件，
--- 带它的树在 platform_loader 编译清单登记（air8606_mux 由 eng_8606_10i_v010 加载）
-local MUX_MOD = "air8606_mux"
-local mux_cache, mux_checked = nil, false
-local function mux_mod()
-    if not mux_checked then
-        mux_checked = true
-        local ok, m = pcall(require, MUX_MOD)
-        mux_cache = (ok and type(m) == "table" and type(m.current) == "function") and m or false
-    end
-    return mux_cache or nil
-end
--- mux 未 load（非 8606 机型 / PC 模拟）时返回 nil，走原 fskv 路径
-local function mux_usb()
-    local m = mux_mod()
-    if not m then return nil end
-    return m.current("usb")
-end
 
 -- 可选模式定义（设置页按此顺序列出）
 local MODES = {
     [MODE_UVC] = {
         id = MODE_UVC,
         name = "UVC 摄像头",
-        detail = "USB 摄像头出图 + 人脸识别模组",
+        detail = "USB 摄像头预览",
         icon = "img",
     },
     [MODE_HID] = {
@@ -154,41 +133,39 @@ function M.available(cfg)
     return M.has_uvc(cfg) and M.has_hid(cfg)
 end
 
+-- platform_loader 已按 PROJECT 选定板型。只有可切换的型号才读写偏好。
+local boot_cfg = _G.project_config or {}
+local config_key = M.available(boot_cfg) and ("usb_mode_" .. boot_cfg.name)
+
+local function saved_mode()
+    if config_key then
+        return kv_get(config_key) == MODE_HID and MODE_HID or MODE_UVC
+    end
+    return M.has_hid(boot_cfg) and MODE_HID or MODE_UVC
+end
+
+local active_mode = saved_mode() -- 本次启动始终使用同一套 USB 驱动和测试入口
+
 --[[
 @function mode
 @summary 当前 USB 外设模式
 @return string "uvc" | "hid"
 ]]
 function M.mode()
-    local mv = mux_usb()
-    if mv == MODE_HID or mv == MODE_UVC then return mv end
-    local saved = kv_get(CONFIG_KEY)
-    if saved == MODE_HID then return MODE_HID end
-    return MODE_UVC -- 默认 UVC 摄像头
+    return active_mode
 end
 
 --[[
 @function set
-@summary 写 USB 外设模式（mux 机型写 air8606_mux_config，其它机型写 usb_mode_config）
+@summary 保存下一次启动的 USB 外设模式
 @param string mode  "uvc" | "hid"
 @return boolean, string|nil  是否成功，失败原因
 ]]
 function M.set(mode)
     if not MODES[mode] then return false, "unknown mode: " .. tostring(mode) end
-    local m = mux_usb() and mux_mod()
-    local ok, err
-    if m then
-        -- mux 机型：并入接口复用存档，保存后重启生效（与接口复用页同一口径）。
-        -- 早退比较存档值：M.mode() 读的是本次开机锁存的 active，与 pending 不同代
-        local _, pending = m.state()
-        if type(pending) ~= "table" then return false, "接口配置尚未加载" end
-        if pending.usb == mode then return true end
-        pending.usb = mode
-        ok, err = m.save(pending)
-    else
-        if M.mode() == mode then return true end
-        ok, err = kv_set(CONFIG_KEY, mode)
-    end
+    if not config_key then return false, "USB mode is fixed for this project" end
+    if saved_mode() == mode then return true end
+    local ok, err = kv_set(config_key, mode)
     if ok then
         log.info("usb_mode", "外设模式已写入:", mode)
         sys.publish("USB_MODE_CHANGED", mode)
@@ -238,7 +215,7 @@ end
 @return table  { ok, need_reboot, reason, will_disable, changes }
    reason: "usb_mutex" 开另一项需关掉当前项（确认后重启） /
            "usb_switch" 单项写入，无互斥（need_reboot=false 时为无变化） /
-           "last_one" 两项必须留一项，不许关掉当前项 / "unknown" 未知 id
+           "last_one" 两项必须留一项，不许关掉当前项 / "fixed" 型号不可切换 / "unknown" 未知 id
 ]]
 function M.preview_toggle(id, enable)
     local result = {
@@ -250,6 +227,10 @@ function M.preview_toggle(id, enable)
     }
     if not MODES[id] then
         result.reason = "unknown"
+        return result
+    end
+    if not config_key then
+        result.reason = "fixed"
         return result
     end
     local value = (enable == true)
@@ -313,6 +294,10 @@ function M.should_start_hid(cfg)
     -- 没有 UVC 就不存在冲突，USB 键鼠直接启用
     if not M.has_uvc(cfg) then return true end
     return (M.mode() == MODE_HID)
+end
+
+function M.should_start_uvc(cfg)
+    return M.has_uvc(cfg) and M.mode() == MODE_UVC
 end
 
 --[[

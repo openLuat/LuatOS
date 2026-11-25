@@ -97,10 +97,11 @@ local function refresh()
             detail = "Air510W 接在 EX2 的 UART1，GPS_EN 为 EX2 GPIO26"
         end
     elseif entry.type == "peer" then
-        local result = st.diag
-        detail = "J15 接有 DHCP 的路由器，诊断使用 EX2 以太网访问测试服务器"
-        if result and result.code then
-            detail = string.format("J15 | HTTP %d | 收到 %d / 2048 字节", result.code, result.bytes or 0)
+        local eth = st.eth or {}
+        detail = "J24 接路由器，J15 接自动获取 IP 的下游设备"
+        if st.online and eth.role == "lan" then
+            detail = string.format("DHCP %s | 上行 %s | 最近租约 %s",
+                eth.dhcp and "已开启" or "待连接", eth.upstream ~= "" and eth.upstream or "无", eth.client or "暂无")
         end
     elseif entry.type == "wdt" then
         local wdt = st.wdt or {}

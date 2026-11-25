@@ -1,10 +1,10 @@
 -- Air8606 host-side EX2 diagnostics. The SPI2 assembly determines the peer.
 local tick_time = require "tick_time"
+local wan = require "air8606_wan"
 local M = {}
 local PROTOCOL, MAX_PACKET = "air8606", 1000
 local REQUEST_TIMEOUT, LINK_TIMEOUT, NMEA_TIMEOUT = 5000, 15000, 5000
--- J15 can spend 12 s waiting for PHY/DHCP followed by 10 s on HTTP.
-M.ETH_DIAG_TIMEOUT = 25000
+M.ETH_DIAG_TIMEOUT = REQUEST_TIMEOUT
 local COMMANDS = { status = true, gnss_start = true, gnss_stop = true, eth_diag = true }
 local initialized, enabled = false, false
 local next_id = 0
@@ -118,6 +118,7 @@ function M.request(cmd, args, cb)
     if not airlink.ready() then return false, "airlink_not_ready" end
     next_id = next_id % 0x7FFFFFFF + 1
     local id = next_id
+    if cmd == "status" and args == nil then args = wan.policy() end
     local encoded = json.encode({ protocol = PROTOCOL, version = 1, kind = "request",
         id = id, cmd = cmd, args = args or {} })
     if type(encoded) ~= "string" or #encoded > MAX_PACKET then return false, "packet_too_large" end
@@ -150,10 +151,11 @@ local errors = {
     gnss_uart_setup_failed = "EX2 无法打开 Air510W UART1",
     ethernet_spi_setup_failed = "J15 的 SPI0 初始化失败",
     ethernet_driver_setup_failed = "J15 的 CH390H 驱动初始化失败",
-    ethernet_dhcp_setup_failed = "J15 的 DHCP 客户端启动失败",
-    ethernet_link_down = "J15 无物理链路，请检查网线和交换机",
-    ethernet_dhcp_timeout = "J15 有链路，等待 DHCP 地址超时",
-    http_body_length = "J15 收到 HTTP 200，应答长度不等于 2048 字节",
+    lan_address_failed = "J15 网关地址设置失败",
+    lan_dhcp_failed = "J15 的 DHCP 服务尚未就绪",
+    lan_link_down = "J15 未检测到下游设备，请检查网线",
+    lan_no_upstream = "J15 暂无上行，请检查 J24 或已开启的 4G",
+    lan_dns_failed = "J15 的 DNS 转发尚未就绪",
 }
 
 function M.error_text(reason)
@@ -183,6 +185,7 @@ function M.init(cfg)
     if not airlink or type(airlink.sdata) ~= "function" then return false, "airlink_unavailable" end
     initialized, enabled = true, true
     sys.subscribe("AIRLINK_SDATA", receive)
+    sys.subscribe("AIR8606_SHARE_CHANGED", function() M.request("status") end)
     sys.taskInit(function()
         while true do
             local status_pending = false

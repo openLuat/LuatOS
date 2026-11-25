@@ -1,4 +1,9 @@
--- Air8606 上电默认装配，设备上保存的接口复用配置（air8606_mux）优先。
--- radio 默认 "wifi"：Engine_Air8606_10inch_1024x600_V010 首启用 WiFi 装配（Air6205），
--- 4G（Air780EX2）在「设置 → 接口复用 → SPI2」切换，重启生效。
-return { radio = "wifi", uart2 = "can", rs4851 = "isolated", uart3 = "auto", uart6 = "air1103", usb = "uvc", audio_playback = "air1103" }
+-- 同编号的 W / M 款使用同一组串口和卡座装配。SPI2 分别接 Air6205 / Air780EX2。
+-- J30 只记录 UART5 是否引出。RX5/TX5 与触摸 I²C1 复用，出厂程序保留触摸。
+return {
+    [1] = { uart2="can",   uart3="face",  uart6="air1103", uart5_breakout=true,  sd_card=true  },
+    [2] = { uart2="rs232", uart3="face",  uart6="air1103", uart5_breakout=true,  sd_card=true  },
+    [3] = { uart2="can",   uart3="rs485", uart6="air1103", uart5_breakout=true,  sd_card=false },
+    [4] = { uart2="can",   uart3="rs485", uart6="ttl",     uart5_breakout=false, sd_card=false },
+    [5] = { uart2="rs232", uart3="rs485", uart6="ttl",     uart5_breakout=false, sd_card=false },
+}

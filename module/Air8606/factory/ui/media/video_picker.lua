@@ -22,7 +22,7 @@
 
 === 纯函数（无 UI 依赖，可离线断言）===
 video_picker.parent_path(path)   当前目录 -> 上一级；根目录返回 nil
-video_picker.storage_index(path) 当前路径 -> 存储设备序号（1 内置 / 2 SD卡 / 3 外置存储）
+video_picker.storage_index(path) 当前路径 -> 本机型快捷入口序号
 video_picker.list_items(dir)     目录 -> 可播放文件与子目录清单（已排序）
 
 @usage
@@ -48,15 +48,17 @@ end
 
 --[[弹窗里的存储设备分段选择
 
-三个快捷入口共用这一份清单：渲染时用它建按钮，重开弹窗时用 storage_index()
-反查当前落在哪个设备上，好把那一项点亮。没有这个回显，点完「SD卡」之后三个按钮
-长得一模一样，看不出此刻到底停在哪个设备里。
+快捷入口共用这一份清单：渲染时用它建按钮，重开弹窗时用 storage_index()
+反查当前设备，点亮相应按钮。
 ]]
 M.STORAGE_ITEMS = {
     { text = "内置存储", path = "/" },
-    { text = "SD卡",     path = "/sd/" },
     { text = "外置存储", path = "/little_flash/" },
 }
+local features = (_G.project_config or {}).features or {}
+if features.sd_card ~= false then
+    table.insert(M.STORAGE_ITEMS, 2, { text = "SD卡", path = "/sd/" })
+end
 
 -- 可播放的容器后缀（渲染前先按后缀筛，避免把整目录的图片/音频都列出来）
 -- 只列 HZV：别的容器解不出来，列出来只会让人选到一个播不了的文件
@@ -71,7 +73,7 @@ local cur_on_cancel = nil   -- 关掉弹窗且未选文件时的回调（程序�
 local in_programmatic_close = false  -- 程序性关闭标记：M.close/重建/宿主销毁都不触发 on_cancel
 local cur_avoid = nil     -- 避让矩形 {x,y,w,h}（屏幕坐标）
 
---[[由当前路径反查存储设备序号（1 内置 / 2 SD卡 / 3 外置存储）
+--[[由当前路径反查本机型快捷入口序号
 
 从第 2 项开始比前缀：内置存储的 "/" 是所有路径的前缀，先比它会把一切都判成内置。
 子目录（/sd/xxx/）仍归属同一个设备，所以用前缀匹配而不是全等。]]
@@ -332,8 +334,9 @@ open_at = function(start_path)
     选中态走 button（文字自绘、垂直居中），不用 theme.pills：
     pills 里的 label 铺满胶囊高，而 AirUI 的 label 没有垂直居中，文字会贴盒顶。]]
     local quick_h = math.floor(28 * d)
-    local quick_w = math.floor((picker_w - pad_in * 2 - math.floor(8 * d)) / 3)
     local quick_gap = math.floor(4 * d)
+    local count = #M.STORAGE_ITEMS
+    local quick_w = math.floor((picker_w - pad_in * 2 - (count - 1) * quick_gap) / count)
     local active_storage = M.storage_index(start_path)
     for qi, q in ipairs(M.STORAGE_ITEMS) do
         local on = (qi == active_storage)
@@ -405,7 +408,11 @@ function M.open(o)
     cur_on_pick = o.on_pick
     cur_on_cancel = o.on_cancel
     cur_avoid = o.avoid
-    open_at(o.start_path or "/")
+    local start_path = o.start_path or "/"
+    if features.sd_card == false and (start_path == "/sd" or start_path:sub(1, 4) == "/sd/") then
+        start_path = "/" -- 从带卡座的型号刷入时，历史视频路径可能仍指向 SD
+    end
+    open_at(start_path)
 end
 
 return M

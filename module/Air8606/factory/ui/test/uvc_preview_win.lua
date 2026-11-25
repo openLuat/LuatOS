@@ -122,6 +122,9 @@ config.peripherals 的 uvc 条目带 face 子表即在页面多出「人脸识�
    用户只能反复点按钮；报错一律带一句可照做的提醒（见 guide_of）。
 ]]
 
+local usb_mode = require "usb_mode"
+if not usb_mode.should_start_uvc(_G.project_config) then return end
+
 local theme = require "ui_theme"
 local tick_time = require "tick_time"
 

@@ -39,15 +39,19 @@
 ├── docs/                       code 与 readme.md 之外的其余所有文件
 │   ├── 儿童房面板效果稿.html   效果稿（浏览器打开即 1024×600 舞台，含五主题四页）
 │   ├── assets/*.webp           10 张套图原件（5 套装饰图 + 5 条角色阵容，构建输入）
-│   ├── preview_draft.png       效果稿渲染图（shot.py 生成）
-│   ├── sim_*.png               模拟器逐页 / 逐主题截图（verify_sim.py 生成，14 张）
 │   ├── gen_assets.py           贴图流水线：拆格 + 降采样 + 单 IDAT + Twemoji 下载 + 体积体检
 │   ├── check_rules.py          AirUI 铁律静态扫描（R1–R12）
 │   ├── verify_sim.py           模拟器全流程验证（headless + agent-ctl 截图/点击 + 日志标记核对）
 │   ├── shot.py                 无头 Chrome 渲染效果稿
 │   ├── sim_probe.py            单点交互探测（调试用）
 │   ├── submit_source.py        提交到云端源码工程（自动清理远端多余文件）
-│   └── logs/                   模拟器落盘（pcconf / fskv.bin / 日志），不进云端工程
+│   └── local_artifacts/        本地运行产物（整目录 gitignore，不入库、不进云端工程）
+│       ├── logs/               模拟器落盘（pcconf / fskv.bin / luatos_pc_*.log / CrashDump）
+│       ├── shots/              sim_1..14 逐页 / 逐主题截图（verify_sim.py 生成）
+│       ├── cache/twemoji/      Twemoji 下载缓存（gen_assets.py）
+│       ├── sim_run.log         verify_sim.py 的 stdout
+│       ├── probe_stdout.log    sim_probe.py 的 stdout
+│       └── preview_draft.png   效果稿渲染图（shot.py 生成）
 └── readme.md                   本文件
 ```
 
@@ -162,6 +166,9 @@ python gen_assets.py --check     # 贴图尺寸 / 单 IDAT / 总量
 python verify_sim.py             # 起模拟器点一遍：14 张截图 + 日志标记核对（--keep-kv 保留记忆）
 python shot.py                   # 渲染效果稿 → preview_draft.png
 ```
+
+以上命令的运行产物（日志、截图、Twemoji 缓存、preview_draft.png）统一落在
+`docs/local_artifacts/`，该目录整体被 `.gitignore` 忽略，不入库也不进云端工程。
 
 ## 定制
 

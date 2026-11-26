@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""在 PC 模拟器上跑首帧 + 关键交互，并把每一步截图存到 docs/。
+r"""在 PC 模拟器上跑首帧 + 关键交互，并把每一步截图存到 docs/local_artifacts/shots/。
 
 原理：bsp/pc 的 luatos-lua.exe 支持 `--headless=1 --agent-ctl=127.0.0.1:PORT`，
 起一个 JSON-RPC over TCP 的控制口（hello / screenshot / pointer / wait），
@@ -38,8 +38,11 @@ PORT = 18877
 if "--port" in sys.argv:
     PORT = int(sys.argv[sys.argv.index("--port") + 1])
 
-LOG = os.path.join(HERE, "sim_run.log")
-LOGDIR = os.path.join(HERE, "logs")
+# 本地运行产物（模拟器日志 / 截图）统一落在 docs/local_artifacts/，该目录已整体 gitignore
+ART = os.path.join(HERE, "local_artifacts")
+SHOTS = os.path.join(ART, "shots")
+LOG = os.path.join(ART, "sim_run.log")
+LOGDIR = os.path.join(ART, "logs")
 KV = os.path.join(LOGDIR, "fskv.bin")
 
 # 日志里必须出现的交互标记（证明点击真的走到了业务逻辑，而不是只改画面）
@@ -91,7 +94,7 @@ class Ctl:
             print("  screenshot FAIL", r["error"])
             return None
         data = base64.b64decode(r["result"]["data"])
-        path = os.path.join(HERE, name)
+        path = os.path.join(SHOTS, name)
         with open(path, "wb") as f:
             f.write(data)
         print("  saved %-22s %dx%d %d bytes" % (name, r["result"]["width"],
@@ -142,6 +145,7 @@ def main():
     if "--port" not in sys.argv:
         PORT = free_port()
     os.makedirs(LOGDIR, exist_ok=True)
+    os.makedirs(SHOTS, exist_ok=True)
     # 默认清掉 fskv 记忆，让每轮从「玩具总动员 1/5 + 小星星」开始，截图可对比
     if "--keep-kv" not in sys.argv and os.path.isfile(KV):
         os.remove(KV)

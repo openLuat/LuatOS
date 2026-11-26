@@ -9,7 +9,7 @@
 
 用法： python shot.py
 依赖： Chrome 默认安装路径（见下方 CHROME），或改环境变量 CHROME_PATH。
-产物： docs/preview_draft.png（1080x680，留出 body 的 28px 边距，不裁切舞台）
+产物： docs/local_artifacts/preview_draft.png（1080x680，留出 body 的 28px 边距，不裁切舞台）
 """
 
 import http.server
@@ -25,7 +25,9 @@ os.chdir(ROOT)
 PAGE = "docs/儿童房面板效果稿.html"
 PORT = 8766
 CHROME = os.environ.get("CHROME_PATH", r"C:\Program Files\Google\Chrome\Application\chrome.exe")
-OUT = os.path.join(HERE, "preview_draft.png")
+# 渲染图属于本地运行产物，落 docs/local_artifacts/（该目录已整体 gitignore）
+ART = os.path.join(HERE, "local_artifacts")
+OUT = os.path.join(ART, "preview_draft.png")
 
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -53,6 +55,7 @@ def main():
         return
     serve()
     url = "http://127.0.0.1:%d/%s" % (PORT, urllib.parse.quote(PAGE))
+    os.makedirs(ART, exist_ok=True)
     shot(url, OUT)
     if os.path.isfile(OUT):
         print("saved", os.path.basename(OUT), os.path.getsize(OUT), "bytes")

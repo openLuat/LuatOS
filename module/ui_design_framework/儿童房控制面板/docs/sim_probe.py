@@ -4,6 +4,7 @@
 用法：
   python sim_probe.py "shot:a.png" "click:60,272" "shot:b.png"
 步骤：shot:<文件名> / click:<x,y> / wait:<毫秒>
+产物：截图落 docs/local_artifacts/shots/，日志与 probe_stdout.log 落 docs/local_artifacts/
 """
 import base64
 import json
@@ -18,7 +19,10 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__))
 CODE = os.path.join(os.path.dirname(HERE), "code")
 EXE = r"d:\Air\Git_Project\LuatOS\bsp\pc\build\out\luatos-lua.exe"
-LOGDIR = os.path.join(HERE, "logs")
+# 本地运行产物（日志 / 截图）统一落在 docs/local_artifacts/，该目录已整体 gitignore
+ART = os.path.join(HERE, "local_artifacts")
+SHOTS = os.path.join(ART, "shots")
+LOGDIR = os.path.join(ART, "logs")
 
 
 class Ctl:
@@ -41,9 +45,9 @@ class Ctl:
 
     def shot(self, name):
         r = self.call("screenshot")
-        with open(os.path.join(HERE, name), "wb") as f:
+        with open(os.path.join(SHOTS, name), "wb") as f:
             f.write(base64.b64decode(r["result"]["data"]))
-        print("  shot ->", name)
+        print("  shot ->", os.path.join(SHOTS, name))
 
     def click(self, x, y):
         self.call("pointer", {"type": "click", "x": x, "y": y, "button": "left"})
@@ -56,8 +60,9 @@ def main():
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1.5)
     os.makedirs(LOGDIR, exist_ok=True)
+    os.makedirs(SHOTS, exist_ok=True)
     port = 18899
-    logf = open(os.path.join(HERE, "probe_stdout.log"), "wb")
+    logf = open(os.path.join(ART, "probe_stdout.log"), "wb")
     proc = subprocess.Popen([EXE, CODE, "--headless=1",
                              "--agent-ctl=127.0.0.1:%d" % port,
                              "--log-dir=" + LOGDIR],

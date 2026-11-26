@@ -18,7 +18,7 @@
 
 | 要做的事 | 看这里 |
 | --- | --- |
-| 视觉规格（唯一） | `docs/儿童房面板效果稿.html`（= `docs/preview_draft.png`） |
+| 视觉规格（唯一） | `docs/儿童房面板效果稿.html`（渲染图 `docs/local_artifacts/preview_draft.png`，由 `shot.py` 生成） |
 | 配色 / 字号 / 圆角 / 动效 / 曲目 / 奖励格 | `code/ui_theme.lua`（↔ HTML 的 CSS 变量与 THEMES 表） |
 | 角色切换 / 房间名 / 角色贴图名 | `code/ui_cast.lua` |
 | 新建任何控件 | `code/ui_widget.lua`（唯一入口：card/text/text_mid/sticker/deco/halo/press/switch/chip/bar/button） |
@@ -86,7 +86,9 @@ python gen_assets.py --check     # 贴图尺寸 / 单 IDAT / 总量
 python verify_sim.py             # 起模拟器点一遍，14 张截图 + 日志标记核对
 ```
 
-`verify_sim.py` 会先删 `logs/fskv.bin`（`--keep-kv` 可保留），所以每轮从「玩具总动员 1/5 + 小星星」开始。
+`verify_sim.py` 会先删 `local_artifacts/logs/fskv.bin`（`--keep-kv` 可保留），所以每轮从「玩具总动员 1/5 + 小星星」开始。
+以上命令的运行产物（日志 / 截图 / Twemoji 缓存 / `preview_draft.png`）统一落 `docs/local_artifacts/`，
+该目录整体被 `.gitignore` 忽略：**源和工具在 `docs/` 根，产物只在 `local_artifacts/`**。
 
 ## 硬件层三个已踩过的坑
 
@@ -109,7 +111,7 @@ python verify_sim.py             # 起模拟器点一遍，14 张截图 + 日志
 - ❌ 在事件回调里销毁自己或重建整页 → `W.defer(fn, 30)`。
 - ❌ 让子控件探出父容器 1px（会画滚动条且无法关闭）。
 - ❌ 全屏 1024×600 贴图（真机图片缓存 1MB，按 w*h*2 记账）。
-- ❌ 把 `docs/logs/`、`pcconf/`、`fskv.bin`、`probe_stdout.log` 提交进云端工程（模拟器产物）。
+- ❌ 把 `docs/local_artifacts/`（模拟器日志 / 截图 / Twemoji 缓存 / `preview_draft.png`）提交进仓库或云端工程：都是可再生的运行产物，该目录已整体 gitignore。
 - ❌ 用 `code/xxx.lua` 的路径提交云端：云端工程是脚本区镜像，`main.lua` 必须在根、
   `code/` 内容平铺到根（`docs/submit_source.py` 已做映射，手写 payload 时别忘）。
 

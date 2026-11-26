@@ -19,6 +19,8 @@ r"""儿童房控制面板 · 贴图流水线（拆格 + 降采样 + Twemoji 本�
   python gen_assets.py                 # 生成到 ../code/
   python gen_assets.py --sd E:\        # 额外导出到 E:\\kidsroom\\（TF 卡覆盖用）
   python gen_assets.py --check         # 只体检已有产物（尺寸/IDAT/总量）
+
+缓存：Twemoji 下载缓存在 docs/local_artifacts/cache/twemoji/（该目录已整体 gitignore）
 """
 
 import os
@@ -32,7 +34,9 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 CODE_DIR = os.path.join(os.path.dirname(HERE), "code")
 SRC_DIR = os.path.join(HERE, "assets")            # 参考效果稿给的 webp 原件
-CACHE_DIR = os.path.join(HERE, ".cache", "twemoji")
+# Twemoji 下载缓存属本地运行产物，落 docs/local_artifacts/（该目录已整体 gitignore）
+ART = os.path.join(HERE, "local_artifacts")
+CACHE_DIR = os.path.join(ART, "cache", "twemoji")
 
 THEMES = ("toy", "bear", "hero", "pocket", "sheep")
 

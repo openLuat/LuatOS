@@ -37,7 +37,7 @@ typedef struct
 	uint8_t is_tls;
 	uint16_t remote_port; // 远程端口号
 	uint16_t buffer_offset; // 用于标识pkg_buff当前有多少数据
-	uint8_t pkg_buff[WEBSOCKET_RECV_BUF_LEN_MAX + 16];
+	uint8_t *pkg_buff;
 	int websocket_cb_id;		 // websocket lua回调函数
     void* websocket_cb;			/**< websocket 回调函数*/
 	uint32_t keepalive;		 // 心跳时长 单位s

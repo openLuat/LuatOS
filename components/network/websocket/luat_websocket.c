@@ -186,6 +186,14 @@ int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index
 		LLOGW("network_alloc_ctrl fail");
 		return -1;
 	}
+	websocket_ctrl->pkg_buff = luat_heap_malloc(WEBSOCKET_RECV_BUF_LEN_MAX + 16);
+	if (!websocket_ctrl->pkg_buff)
+	{
+		LLOGW("pkg_buff malloc fail");
+		network_release_ctrl(websocket_ctrl->netc);
+		websocket_ctrl->netc = NULL;
+		return -1;
+	}
 	network_init_ctrl(websocket_ctrl->netc, NULL, luat_websocket_callback, websocket_ctrl);
 
 	websocket_ctrl->websocket_state = 0;
@@ -378,6 +386,11 @@ void luat_websocket_release_socket(luat_websocket_ctrl_t *websocket_ctrl)
 		luat_heap_free(websocket_ctrl->headers);
 		websocket_ctrl->headers = NULL;
 	}
+	if (websocket_ctrl->pkg_buff) {
+		luat_heap_free(websocket_ctrl->pkg_buff);
+		websocket_ctrl->pkg_buff = NULL;
+	}
+	websocket_ctrl->buffer_offset = 0;
 	if (websocket_ctrl->netc)
 	{
 		network_release_ctrl(websocket_ctrl->netc);

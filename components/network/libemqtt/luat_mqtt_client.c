@@ -58,10 +58,16 @@ int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ptr, int arg1, int arg2) {
 	return 0;
 }
 
-// keepalive_mode == 1: 每发一个控制报文就重新计时, 空闲满 0.75*keepalive 才发 PINGREQ
+static uint32_t mqtt_keepalive_interval_ms(const luat_mqtt_ctrl_t *mqtt_ctrl) {
+	if ((mqtt_ctrl->keepalive_mode & 2) == 0) {
+		return mqtt_ctrl->keepalive * 1000 * 3 / 4;
+	}
+	return mqtt_ctrl->keepalive * 1000;
+}
+
 // PINGREQ 自身跳过, 它可能就在心跳定时器的回调上下文里发送
 static void mqtt_keepalive_on_sent(luat_mqtt_ctrl_t *mqtt_ctrl, const void *buf, unsigned int count) {
-	if (mqtt_ctrl->keepalive_mode != 1 || mqtt_ctrl->mqtt_state != MQTT_STATE_READY || mqtt_ctrl->ping_timer == NULL) {
+	if ((mqtt_ctrl->keepalive_mode & 1) == 0 || mqtt_ctrl->mqtt_state != MQTT_STATE_READY || mqtt_ctrl->ping_timer == NULL) {
 		return;
 	}
 	if (mqtt_ctrl->ping_cb_busy) {
@@ -71,7 +77,7 @@ static void mqtt_keepalive_on_sent(luat_mqtt_ctrl_t *mqtt_ctrl, const void *buf,
 		return;
 	}
 	luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
-	luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive * 1000 * 3 / 4, 1);
+	luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_keepalive_interval_ms(mqtt_ctrl), 1);
 }
 
 static LUAT_RT_RET_TYPE ping_timer_callback(LUAT_RT_CB_PARAM){
@@ -138,6 +144,12 @@ int luat_mqtt_set_rxbuff_size(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t rxbuff_size)
 }
 
 int luat_mqtt_set_keepalive(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t keepalive){
+	if (keepalive < 15) {
+		keepalive = 15;
+	}
+	else if (keepalive > 65535) {
+		keepalive = 65535;
+	}
     mqtt_ctrl->keepalive = keepalive;
     return 0;
 }
@@ -443,7 +455,7 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			luat_stop_rtos_timer(mqtt_ctrl->reconnect_timer);
 			luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
 			luat_stop_rtos_timer(mqtt_ctrl->conn_timer);
-			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*3/4, 1);
+			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_keepalive_interval_ms(mqtt_ctrl), 1);
             break;
         }
         case MQTT_MSG_PUBLISH : {
@@ -589,10 +601,7 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		mqtt_ctrl->mqtt_state = MQTT_STATE_MQTT;
 		ret = mqtt_connect(&(mqtt_ctrl->broker));
-		if(ret==1){
-			// luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*3/4, 1);
-		}
-		else {
+		if(ret!=1){
 			LLOGI("mqtt_connect ret=%d\n", ret);
 			luat_mqtt_close_socket(mqtt_ctrl);
 		}
@@ -603,8 +612,6 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 				return -1;
 			}
 			// LLOGD("luat_mqtt_read_packet ret:%d",ret);
-			// luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
-			// luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
 #ifdef __LUATOS__
@@ -613,8 +620,6 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_TCP_TX_DONE, 0);
 		}
 #endif
-		// luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
-		// luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 
 	}
@@ -635,7 +640,7 @@ static void mqtt_ws_on_event(luat_websocket_ctrl_t *ws_ctrl, int arg1, int arg2)
         mqtt_ctrl->mqtt_state = MQTT_STATE_MQTT;
         int ret = mqtt_connect(&(mqtt_ctrl->broker));
         if (ret == 1) {
-            luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*3/4, 1);
+            luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_keepalive_interval_ms(mqtt_ctrl), 1);
         }
     } else if (arg1 == WEBSOCKET_MSG_PUBLISH) {
         /* arg2 指向的是复制的帧头+payload；解析出 MQTT 负载数据区域并追加到 mqtt_packet_buffer */
@@ -720,6 +725,12 @@ int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		return -1;
 	}
 	memset(mqtt_ctrl->mqtt_packet_buffer, 0, mqtt_ctrl->rxbuff_size+4);
+	if (mqtt_ctrl->keepalive < 15) {
+		mqtt_ctrl->keepalive = 15;
+	}
+	else if (mqtt_ctrl->keepalive > 65535) {
+		mqtt_ctrl->keepalive = 65535;
+	}
     uint16_t keepalive = mqtt_ctrl->keepalive;
     mqtt_set_alive(&(mqtt_ctrl->broker), keepalive);
     if (mqtt_ctrl->ws_mode) {

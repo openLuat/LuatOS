@@ -55,7 +55,7 @@ typedef struct{
 	int8_t error_state;    		/**< mqtt 错误状态*/
 	uint16_t remote_port; 		/**< 远程端口号*/
 	uint32_t keepalive;   		/**< 心跳时长 单位s*/
-	uint8_t keepalive_mode;		/**< 心跳模式 0:固定周期(默认) 1:发送报文后重新计时*/
+	uint8_t keepalive_mode;		/**< 心跳模式 bit0:发送报文后重新计时 bit1:使用完整keepalive周期(否则为0.75倍)*/
 	uint8_t ping_cb_busy;		/**< 心跳定时器回调执行中, 此时不能重排定时器*/
 	uint8_t adapter_index; 		/**< 适配器索引号, 似乎并没有什么用*/
 	LUAT_MQTT_STATE_E mqtt_state;    		/**< mqtt状态*/
@@ -201,7 +201,7 @@ int luat_mqtt_set_rxbuff_size(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t rxbuff_size)
 /**
  *@brief 设置MQTT服务器 心跳时长 
  *@param mqtt_ctrl luatos_mqtt对象实例
- *@param keepalive keepalive 单位s
+ *@param keepalive keepalive 单位s, 范围15~65535, 超出范围自动钳制
  *@return 成功为0，其他值失败
  */
 int luat_mqtt_set_keepalive(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t keepalive);

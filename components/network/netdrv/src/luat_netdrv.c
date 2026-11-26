@@ -58,6 +58,12 @@ static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
 
 uint32_t g_netdrv_debug_enable;
 
+LUAT_WEAK int luat_netdrv_ipv4_override(int id, const luat_netdrv_ip_conf_t *conf) {
+    (void)id;
+    (void)conf;
+    return 1;
+}
+
 // ---- RX 收包统计/丢包日志 ----
 typedef struct netdrv_rx_stat {
     uint32_t injected;      // 成功投递到 tcpip 线程的帧数

@@ -186,6 +186,14 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf);
 
 int luat_netdrv_dhcp(int32_t id, int32_t enable);
 
+/**
+ * Optionally handle an IPv4 setting request before the normal netif path.
+ * @param id Network adapter index.
+ * @param conf Requested IPv4 settings, or NULL for missing/invalid arguments.
+ * @return 0 if accepted, negative if rejected, positive to use the normal path.
+ */
+int luat_netdrv_ipv4_override(int id, const luat_netdrv_ip_conf_t *conf);
+
 int luat_netdrv_ready(int32_t id);
 
 int luat_netdrv_register(int32_t id, luat_netdrv_t* drv);

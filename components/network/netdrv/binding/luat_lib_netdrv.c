@@ -460,6 +460,25 @@ static int l_netdrv_mac(lua_State *L) {
 */
 static int l_netdrv_ipv4(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
+    if (!lua_isnoneornil(L, 2) || !lua_isnoneornil(L, 3) || !lua_isnoneornil(L, 4)) {
+        luat_netdrv_ip_conf_t conf;
+        int valid = lua_isstring(L, 2) && lua_isstring(L, 3) && lua_isstring(L, 4) &&
+                    ip4addr_aton(lua_tostring(L, 2), &conf.ip) &&
+                    ip4addr_aton(lua_tostring(L, 3), &conf.netmask) &&
+                    ip4addr_aton(lua_tostring(L, 4), &conf.gw);
+        int status = luat_netdrv_ipv4_override(id, valid ? &conf : NULL);
+        if (status <= 0) {
+            if (!valid || status < 0) {
+                LLOGW("设置IPv4失败[%d] ret %d", id, status);
+                return 0;
+            }
+            char text[16];
+            lua_pushstring(L, ip4addr_ntoa_r(&conf.ip, text, sizeof(text)));
+            lua_pushstring(L, ip4addr_ntoa_r(&conf.netmask, text, sizeof(text)));
+            lua_pushstring(L, ip4addr_ntoa_r(&conf.gw, text, sizeof(text)));
+            return 3;
+        }
+    }
     const char* tmp = NULL;
     luat_ip_addr_t ip;
     luat_ip_addr_t netmask;

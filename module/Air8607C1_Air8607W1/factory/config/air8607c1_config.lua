@@ -96,9 +96,12 @@ return {
                 int_type = tp and tp.FALLING, i2c_speed = i2c and i2c.SLOW},
         },
         -- W3/W4 为内置 DAC + PA；W1/W2 是蜂鸣器，C1 功能测试仍按底板型号自行处理。
+        -- GPIO73 在本板（Air8607W1 底板）接的是 BUZ1 蜂鸣器，不是功放 PA_EN。
+        -- 一旦把 pa_ctrl 配成 73，视频/音频起播时 video_util / exaudio 会把 73 拉高，
+        -- 表现为「切页面/点图标时蜂鸣器吱一声」。只有 W3/W4 底板才该恢复 pa_ctrl = 73。
         audio = {
             model = "dac",
-            pa_ctrl = 73,
+            -- pa_ctrl = 73,
             pa_on_level = 1,
             dac_delay = 6,
             pa_delay = 10,

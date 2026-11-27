@@ -1627,6 +1627,10 @@ void luat_network_init(void)
     WSADATA wd; WSAStartup(MAKEWORD(2,2), &wd);
 #endif
 
+#if defined(LUAT_USE_NETDRV_DNS_CLIENT)
+    posix_dns_init_once();
+#endif
+
     network_register_adapter(NW_ADAPTER_INDEX_ETH0,
                              (network_adapter_info*)&prv_posix_adapter, NULL);
 

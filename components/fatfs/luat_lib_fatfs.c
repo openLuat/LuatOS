@@ -173,7 +173,7 @@ static int fatfs_mount(lua_State *L)
 		if (vol < 0) {
 			goto ALLOC_ERROR;
 		}
-		diskio_open_usb(0, index);
+		diskio_open_usb(vol, index);
 	}else{
 		LLOGD("fatfs_mode error %d", fatfs_mode);
 		lua_pushboolean(L, 0);
@@ -286,6 +286,7 @@ static int fatfs_unmount(lua_State *L) {
 		bk_sd_card_deinit();
 	}
 #endif
+	disk_release_vol(mount_point);
 	lua_pushinteger(L, re);
 	return 1;
 }

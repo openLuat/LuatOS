@@ -63,8 +63,10 @@ int disk_find_vol(const char *path)
 {
 	for (int i = 0; i < FF_VOLUMES; i++) {
 		if (_slot[i].used && !memcmp(_slot[i].mount_point, path, _slot[i].mount_point_len)) {
-			LLOGD("find slot %d for path %s", i, path);
-			return i;
+			if (!path[_slot[i].mount_point_len]) {
+				LLOGD("find slot %d for path %s", i, path);
+				return i;
+			}
 		}
 	}
 	return -1;
@@ -134,7 +136,7 @@ int disk_alloc_vol(const char *path, FATFS* fs, uint8_t mode, uint8_t index)
 void disk_release_vol(const char *path)
 {
 	for (int i = 0; i < FF_VOLUMES; i++) {
-		if (!memcmp(_slot[i].mount_point, path, _slot[i].mount_point_len)) {
+		if (_slot[i].used && !memcmp(_slot[i].mount_point, path, _slot[i].mount_point_len)) {
 			LLOGD("release slot %d path %s", i, path);
 			_slot[i].used = 0;
 			if (_slot[i].fs_is_alloc) {

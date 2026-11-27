@@ -58,23 +58,23 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air8606M1_10inch_1024x600_000_4G_V000" -- 项目名，用于打包和 FOTA
-VERSION = "001.999.007"                           -- 固件版本号，用于 FOTA 升级比对
+PROJECT = "Engine_Air8606W1_10inch_1024x600_000_WiFi_V000" -- 项目名，用于打包和 FOTA
+VERSION = "001.999.001"                           -- 固件版本号，用于 FOTA 升级比对
 --[[
 PROJECT_KEY：项目密钥，FOTA 云端鉴权。
 按 Air8606 的 W1～W5、M1～M5 分别填写对应云端项目的密钥。
 ]]
 local PROJECT_KEY_BY_MODEL = {
-    W1 = "",
-    W2 = "",
-    W3 = "",
-    W4 = "",
-    W5 = "",
-    M1 = "",
-    M2 = "",
-    M3 = "",
-    M4 = "",
-    M5 = "",
+    W1 = "r3saeItxj1Kfl5oHNYCCBxogJZsWhBhN",
+    W2 = "PbbbfUOjjNMMf1iove5FIdeTqUmliLLN",
+    W3 = "qAYRpNqTYgDCYCxDUyCuiQsmRhia0OPH",
+    W4 = "ChwM2RBnj3TfiTG5gkQJG6Sb0JrmIfzt",
+    W5 = "ClUpq7OFWQDik1CWXcxKU32dPXX1DGau",
+    M1 = "Z2XXmLhMGlQHFn49sWkIPNVr7Q1WvA6L",
+    M2 = "sl2EsCRzeIYPzTwa9P0nLpe2kz7E5TFC",
+    M3 = "42y6EOhpGrxQjhIPVgeFcDihWl9W5gI8",
+    M4 = "u4eOtjOCCuyYp93oddKBTHJ1Z0aGRXOM",
+    M5 = "iWrBkojyw6sDn1PiDX3tyHxGMTdY40T2",
 }
 local project_model = PROJECT:match("^Engine_Air8606([WM][1-5])_")
 PROJECT_KEY = project_model and PROJECT_KEY_BY_MODEL[project_model] or ""

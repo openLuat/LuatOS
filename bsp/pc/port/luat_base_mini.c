@@ -158,6 +158,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_EINK
   {"eink",  luaopen_eink},              // 电子墨水屏
 #endif
+#ifdef LUAT_USE_TINY_EPD
+  {"epd",   luaopen_tiny_epd},          // tiny_epd 电子墨水屏
+#endif
 #ifdef LUAT_USE_FATFS
   {"fatfs",  luaopen_fatfs},              // SD卡/tf卡
 #endif

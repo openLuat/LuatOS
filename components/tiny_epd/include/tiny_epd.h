@@ -220,6 +220,31 @@ const tiny_epd_driver_t *tiny_epd_driver_1in54g_v2(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54_v3(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54_ssd1607(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54r(void);
+const tiny_epd_driver_t *tiny_epd_driver_jd7601(void);
+
+/*
+ * JD7601 专用：选择 0x12(DRF) 使用的波形槽。
+ *
+ * 厂商只公开了 0x00，但该字节确实是面板 OTP 里的波形槽编号。其它槽可能
+ * 对应更短的波形（残影/串色风险自负），仅用于实验。非 JD7601 驱动调用
+ * 返回 TINY_EPD_ERR_UNSUPPORTED_MODE。
+ */
+int tiny_epd_jd7601_set_drf(tiny_epd_t *epd, uint8_t drf);
+int tiny_epd_jd7601_get_drf(const tiny_epd_t *epd, uint8_t *drf);
+
+/*
+ * JD7601 专用：温度锁定值（命令 0xE6），决定使用哪个温度段的波形。
+ * 原厂《3D7E6 调用快刷说明》：IC 内烧入 10 个温度段（0~50℃，5 度一段），
+ * 0~45℃ 段是全刷波形，45~50℃ 段是快刷波形。
+ *   set_temp(epd, 48)  -> 调用快刷波形
+ *   set_temp(epd, 42)  -> 调用全刷波形（原厂高温钳制值，也是默认值）
+ *   set_fast(epd, 1/0) -> 上面两者的快捷方式
+ * 设置后下一次 refresh 会先复位 IC 并重新锁定温度值。非 JD7601 驱动调用
+ * 返回 TINY_EPD_ERR_UNSUPPORTED_MODE。
+ */
+int tiny_epd_jd7601_set_temp(tiny_epd_t *epd, uint8_t temp);
+int tiny_epd_jd7601_set_fast(tiny_epd_t *epd, int fast);
+int tiny_epd_jd7601_get_temp(const tiny_epd_t *epd, uint8_t *temp);
 
 #ifdef __cplusplus
 }

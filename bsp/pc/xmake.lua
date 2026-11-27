@@ -1082,7 +1082,11 @@ target("luatos-lua")
     add_includedirs(luatos.."components/lora2")
     add_files(luatos.."components/lora2/**.c")
 
-    -- tiny_epd: C core + 1.54-inch black/white driver + LuatOS Lua binding.
+    -- luat_image: shared by GUI and tiny_epd JPEG drawing.
+    add_includedirs(luatos.."components/luat_image/include")
+    add_files(luatos.."components/luat_image/src/*.c")
+
+    -- tiny_epd: C core + panel drivers (1.54-inch series, JD7601 3.7" E6) + LuatOS Lua binding.
     add_includedirs(luatos.."components/tiny_epd/include")
     add_includedirs(luatos.."components/tiny_epd/port")
     add_files(luatos.."components/tiny_epd/src/tiny_epd_core.c")
@@ -1092,6 +1096,7 @@ target("luatos-lua")
     add_files(luatos.."components/tiny_epd/src/tiny_epd_hzfont.c")
     add_files(luatos.."components/tiny_epd/src/tiny_epd_custom.c")
     add_files(luatos.."components/tiny_epd/drivers/tiny_epd_1in54.c")
+    add_files(luatos.."components/tiny_epd/drivers/tiny_epd_jd7601.c")
     add_files(luatos.."components/tiny_epd/port/tiny_epd_port_luatos.c")
     add_files(luatos.."components/tiny_epd/binding/luat_lib_tiny_epd.c")
 
@@ -1112,7 +1117,6 @@ target("luatos-lua")
         add_files("ui/luat_u8g2_sdl2.c")
         -- lcd
         add_includedirs(luatos.."components/lcd")
-        add_includedirs(luatos.."components/luat_image/include")
         add_files(luatos.."components/lcd/*.c")
         -- display
         add_includedirs(luatos.."components/display/inc")
@@ -1120,8 +1124,6 @@ target("luatos-lua")
         add_includedirs(luatos.."components/display/src/panel")
         add_files(luatos.."components/display/src/**.c")
         add_files(luatos.."components/display/binding/*.c")
-        -- luat_image
-        add_files(luatos.."components/luat_image/src/*.c")
 
         -- LVGL 9.4 + AIRUI - 最基础组件编译
         -- 头文件添加：lvgl9 

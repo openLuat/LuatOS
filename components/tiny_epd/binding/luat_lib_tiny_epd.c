@@ -30,6 +30,12 @@
 #include "tiny_epd_hzfont.h"
 #endif
 
+#if defined(LUAT_USE_JPG) && defined(LUAT_USE_TJPGD)
+#include "luat_image.h"
+#include "luat_lcd.h"
+#define LUAT_TINY_EPD_HAS_JPG 1
+#endif
+
 #define LUAT_LOG_TAG "epd"
 #include "luat_log.h"
 
@@ -42,6 +48,7 @@
 #define LUAT_TINY_EPD_MODEL_1IN54R 5
 #define LUAT_TINY_EPD_MODEL_1IN54B_V2 6
 #define LUAT_TINY_EPD_MODEL_1IN54G_V2 7
+#define LUAT_TINY_EPD_MODEL_JD7601 8
 #define LUAT_TINY_EPD_MODEL_CUSTOM 100
 
 typedef struct {
@@ -282,7 +289,8 @@ static int luat_tiny_epd_get_model(lua_State *L)
                 model == LUAT_TINY_EPD_MODEL_1IN54_SSD1607 ||
                 model == LUAT_TINY_EPD_MODEL_1IN54R ||
                 model == LUAT_TINY_EPD_MODEL_1IN54B_V2 ||
-                model == LUAT_TINY_EPD_MODEL_1IN54G_V2) ? (int)model : 0;
+                model == LUAT_TINY_EPD_MODEL_1IN54G_V2 ||
+                model == LUAT_TINY_EPD_MODEL_JD7601) ? (int)model : 0;
     }
 
     name = luaL_checklstring(L, 1, &name_len);
@@ -330,6 +338,18 @@ static int luat_tiny_epd_get_model(lua_State *L)
          memcmp(name, "waveshare_1in54g_v2_bwry",
                 sizeof("waveshare_1in54g_v2_bwry") - 1u) == 0)) {
         return LUAT_TINY_EPD_MODEL_1IN54G_V2;
+    }
+    /* JD7601 3.7" 480x720 E6: controller name plus panel part aliases. */
+    if ((name_len == sizeof("jd7601") - 1u &&
+         memcmp(name, "jd7601", sizeof("jd7601") - 1u) == 0) ||
+        (name_len == sizeof("3in7_480x720") - 1u &&
+         memcmp(name, "3in7_480x720", sizeof("3in7_480x720") - 1u) == 0) ||
+        (name_len == sizeof("epd037a02") - 1u &&
+         memcmp(name, "epd037a02", sizeof("epd037a02") - 1u) == 0) ||
+        (name_len == sizeof("jd7601_3in7_480x720_e6") - 1u &&
+         memcmp(name, "jd7601_3in7_480x720_e6",
+                sizeof("jd7601_3in7_480x720_e6") - 1u) == 0)) {
+        return LUAT_TINY_EPD_MODEL_JD7601;
     }
     return 0;
 }
@@ -734,6 +754,7 @@ static int l_tiny_epd_open(lua_State *L)
         model != LUAT_TINY_EPD_MODEL_1IN54R &&
         model != LUAT_TINY_EPD_MODEL_1IN54B_V2 &&
         model != LUAT_TINY_EPD_MODEL_1IN54G_V2 &&
+        model != LUAT_TINY_EPD_MODEL_JD7601 &&
         model != LUAT_TINY_EPD_MODEL_CUSTOM) {
         return luat_tiny_epd_push_open_error(L, "unsupported epd model");
     }
@@ -843,6 +864,9 @@ static int l_tiny_epd_open(lua_State *L)
     }
     else if (model == LUAT_TINY_EPD_MODEL_1IN54G_V2) {
         driver = tiny_epd_driver_1in54g_v2();
+    }
+    else if (model == LUAT_TINY_EPD_MODEL_JD7601) {
+        driver = tiny_epd_driver_jd7601();
     }
     else {
         driver = tiny_epd_driver_1in54();
@@ -1501,6 +1525,406 @@ static int l_tiny_epd_draw_xbm(lua_State *L)
 }
 
 /**
+绘制4bpp索引位图（照片等整块图像数据）
+@api panel:drawIndex4(x, y, width, height, data)
+@int x 左上角X坐标，允许负值
+@int y 左上角Y坐标，允许负值
+@int width 像素宽
+@int height 像素高
+@string data 每字节两个像素，高4位是左像素；每个半字节为逻辑颜色值（0黑/1白/2红/3黄/5蓝/6绿）
+@return boolean 成功返回true，失败返回false和错误信息
+@usage
+local f = io.open("/luadb/epd37_photo4.bin", "rb")
+local d = f:read("*a")
+f:close()
+assert(panel:drawIndex4(0, 0, 720, 480, d))
+*/
+static int l_tiny_epd_draw_index4(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x = luaL_checkinteger(L, 2);
+    lua_Integer y = luaL_checkinteger(L, 3);
+    lua_Integer width = luaL_checkinteger(L, 4);
+    lua_Integer height = luaL_checkinteger(L, 5);
+    size_t data_len;
+    const char *data = luaL_checklstring(L, 6, &data_len);
+
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
+        width < 1 || width > UINT16_MAX || height < 1 || height > UINT16_MAX) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_draw_index4(device->epd,
+                                                          (int16_t)x, (int16_t)y,
+                                                          (uint16_t)width, (uint16_t)height,
+                                                          (const uint8_t *)data, data_len));
+}
+
+#ifdef LUAT_TINY_EPD_HAS_JPG
+
+#define LUAT_TINY_EPD_JPG_PALETTE_MAX 16
+
+typedef struct {
+    tiny_epd_t *epd;
+    int16_t x;
+    int16_t y;
+    uint16_t dst_w;
+    uint16_t dst_h;
+    uint8_t palette_n;
+    uint32_t palette_rgb[LUAT_TINY_EPD_JPG_PALETTE_MAX];
+    tiny_epd_color_t palette_color[LUAT_TINY_EPD_JPG_PALETTE_MAX];
+} luat_tiny_epd_jpg_ctx_t;
+
+/*
+ * 8x8 有序抖动矩阵(Bayer)。逐像素决策不依赖已输出像素，
+ * 索引为 (dy & 7) << 3 | (dx & 7)。
+ */
+static const uint8_t g_luat_tiny_epd_bayer8[64] = {
+     0, 32,  8, 40,  2, 34, 10, 42,
+    48, 16, 56, 24, 50, 18, 58, 26,
+    12, 44,  4, 36, 14, 46,  6, 38,
+    60, 28, 52, 20, 62, 30, 54, 22,
+     3, 35, 11, 43,  1, 33,  9, 41,
+    51, 19, 59, 27, 49, 17, 57, 25,
+    15, 47,  7, 39, 13, 45,  5, 37,
+    63, 31, 55, 23, 61, 29, 53, 21
+};
+
+/*
+ * 把 RGB888 映射到面板调色板。
+ *
+ * 先找出最近色 c1 与次近色 c2；若像素明显不是一个纯色，就把像素投影到
+ * c1->c2 连线上得到混合系数 a(0..1)，再用 Bayer 阈值在 c1/c2 之间二选一。
+ * 这样六色墨水屏也能表现出灰阶(黑白网点)、橙色(红黄网点)等中间色，
+ * 而单色屏只是退化为黑白抖动，同一套代码通吃。
+ */
+static tiny_epd_color_t luat_tiny_epd_jpg_quantize(const luat_tiny_epd_jpg_ctx_t *ctx,
+                                                   int r, int g, int b,
+                                                   int dx, int dy)
+{
+    uint32_t best = UINT32_MAX;
+    uint32_t second = UINT32_MAX;
+    int bi = 0;
+    int si = 0;
+    int i;
+    int r1, g1, b1, r2, g2, b2;
+    int32_t den, num;
+    uint32_t bayer;
+
+    if (ctx->palette_n == 0) {
+        return TINY_EPD_COLOR_BLACK;
+    }
+    if (ctx->palette_n == 1) {
+        return ctx->palette_color[0];
+    }
+
+    {
+        int maxc = r > g ? (r > b ? r : b) : (g > b ? g : b);
+        int minc = r < g ? (r < b ? r : b) : (g < b ? g : b);
+        /*
+         * 中性色(饱和度低)只在黑/白之间抖动。否则深色头发、阴影会被拉到
+         * 最近的蓝/红网点上, 整张照片偏色。调色板里没有灰阶项时退回全表。
+         */
+        int gray_first = (maxc - minc < 40);
+        int pass;
+
+        for (pass = 0; pass < (gray_first ? 2 : 1); pass++) {
+            for (i = 0; i < (int)ctx->palette_n; i++) {
+                int pr = (int)((ctx->palette_rgb[i] >> 16) & 0xFFu);
+                int pg = (int)((ctx->palette_rgb[i] >> 8) & 0xFFu);
+                int pb = (int)(ctx->palette_rgb[i] & 0xFFu);
+                int dr;
+                int dg;
+                int db;
+                uint32_t d;
+
+                if (pass == 0 && gray_first && !(pr == pg && pg == pb)) {
+                    continue;
+                }
+                dr = r - pr;
+                dg = g - pg;
+                db = b - pb;
+                d = (uint32_t)(3 * dr * dr + 6 * dg * dg + 2 * db * db);
+                if (d < best) {
+                    second = best;
+                    si = bi;
+                    best = d;
+                    bi = i;
+                }
+                else if (d < second) {
+                    second = d;
+                    si = i;
+                }
+            }
+            if (best != UINT32_MAX) {
+                break;
+            }
+        }
+        if (best == UINT32_MAX) {
+            return ctx->palette_color[0];
+        }
+    }
+
+    /* 已经很接近某个调色板颜色, 直接用, 避免纯色区域被抖出噪点 */
+    if (best <= 6000u || si == bi) {
+        return ctx->palette_color[bi];
+    }
+
+    r1 = (int)((ctx->palette_rgb[bi] >> 16) & 0xFFu);
+    g1 = (int)((ctx->palette_rgb[bi] >> 8) & 0xFFu);
+    b1 = (int)(ctx->palette_rgb[bi] & 0xFFu);
+    r2 = (int)((ctx->palette_rgb[si] >> 16) & 0xFFu);
+    g2 = (int)((ctx->palette_rgb[si] >> 8) & 0xFFu);
+    b2 = (int)(ctx->palette_rgb[si] & 0xFFu);
+
+    den = (int32_t)(r2 - r1) * (r2 - r1) +
+          (int32_t)(g2 - g1) * (g2 - g1) +
+          (int32_t)(b2 - b1) * (b2 - b1);
+    if (den <= 0) {
+        return ctx->palette_color[bi];
+    }
+    num = (int32_t)(r - r1) * (r2 - r1) +
+          (int32_t)(g - g1) * (g2 - g1) +
+          (int32_t)(b - b1) * (b2 - b1);
+    if (num <= 0) {
+        return ctx->palette_color[bi];
+    }
+    if (num >= den) {
+        return ctx->palette_color[si];
+    }
+
+    bayer = g_luat_tiny_epd_bayer8[((uint32_t)(dy & 7) << 3) | (uint32_t)(dx & 7)];
+    /* num/den > (bayer + 0.5) / 64 */
+    return ((int32_t)num * 128 >= (int32_t)(bayer * 2u + 1u) * den)
+               ? ctx->palette_color[si]
+               : ctx->palette_color[bi];
+}
+
+static void luat_tiny_epd_jpg_pixel_to_rgb(luat_color_t pixel, int *r, int *g, int *b)
+{
+#if (LUAT_LCD_COLOR_DEPTH == 32)
+    *r = (int)((pixel >> 16) & 0xFFu);
+    *g = (int)((pixel >> 8) & 0xFFu);
+    *b = (int)(pixel & 0xFFu);
+#elif (LUAT_LCD_COLOR_DEPTH == 16)
+    uint32_t rv = ((uint32_t)pixel >> 11) & 0x1Fu;
+    uint32_t gv = ((uint32_t)pixel >> 5) & 0x3Fu;
+    uint32_t bv = (uint32_t)pixel & 0x1Fu;
+
+    *r = (int)((rv << 3) | (rv >> 2));
+    *g = (int)((gv << 2) | (gv >> 4));
+    *b = (int)((bv << 3) | (bv >> 2));
+#elif (LUAT_LCD_COLOR_DEPTH == 8)
+    *r = (int)(pixel & 0xFFu);
+    *g = *r;
+    *b = *r;
+#endif
+}
+
+static int luat_tiny_epd_jpg_draw_decoded(luat_tiny_epd_jpg_ctx_t *ctx,
+                                          const luat_img_info_t *img_info)
+{
+    const luat_color_t *pixels = (const luat_color_t *)img_info->data;
+    int dx;
+    int dy;
+
+    for (dy = 0; dy < (int)ctx->dst_h; dy++) {
+        int sy = (int)(((int64_t)dy * img_info->height) / ctx->dst_h);
+
+        for (dx = 0; dx < (int)ctx->dst_w; dx++) {
+            int sx = (int)(((int64_t)dx * img_info->width) / ctx->dst_w);
+            int32_t dest_x = (int32_t)ctx->x + dx;
+            int32_t dest_y = (int32_t)ctx->y + dy;
+            luat_color_t pixel;
+            int r;
+            int g;
+            int b;
+            int ret;
+
+            if (dest_x < 0 || dest_y < 0 ||
+                dest_x >= (int32_t)tiny_epd_width(ctx->epd) ||
+                dest_y >= (int32_t)tiny_epd_height(ctx->epd)) {
+                continue;
+            }
+            pixel = pixels[(size_t)sy * img_info->width + (size_t)sx];
+            luat_tiny_epd_jpg_pixel_to_rgb(pixel, &r, &g, &b);
+            ret = tiny_epd_draw_pixel(ctx->epd, (int16_t)dest_x, (int16_t)dest_y,
+                                      luat_tiny_epd_jpg_quantize(ctx, r, g, b, dx, dy));
+            if (ret != TINY_EPD_OK && ret != TINY_EPD_ERR_PARAM) {
+                return ret;
+            }
+        }
+    }
+    return TINY_EPD_OK;
+}
+
+/**
+通过luat_image软件解码并绘制JPEG图片（需固件同时启用LUAT_USE_JPG和LUAT_USE_TJPGD）
+@api panel:drawJpg(x, y, src[, width[, height]])
+@int x 左上角X坐标，允许负值
+@int y 左上角Y坐标，允许负值
+@string src 文件路径(以/开头，如"/luadb/photo.jpg")或JPEG原始数据
+@int width 可选，目标像素宽；与height同时省略时按面板剩余区域等比缩放
+@int height 可选，目标像素高
+@return boolean 成功返回true，失败返回false和错误信息
+@return int 实际绘制宽度，失败时不返回
+@return int 实际绘制高度，失败时不返回
+@usage
+-- 整屏显示一张 480x720 竖屏照片
+assert(panel:drawJpg(0, 0, "/luadb/photo.jpg"))
+assert(panel:refresh(epd.FULL).wait())
+*/
+static int l_tiny_epd_draw_jpg(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x = luaL_checkinteger(L, 2);
+    lua_Integer y = luaL_checkinteger(L, 3);
+    size_t src_len = 0;
+    const char *src = luaL_checklstring(L, 4, &src_len);
+    lua_Integer want_w = luaL_optinteger(L, 5, 0);
+    lua_Integer want_h = luaL_optinteger(L, 6, 0);
+    luat_tiny_epd_jpg_ctx_t ctx;
+    luat_img_conf_t img_conf;
+    luat_img_info_t probe_info;
+    luat_img_info_t img_info;
+    uint8_t *in_buf = NULL;
+    size_t in_len = 0;
+    int jw;
+    int jh;
+    int avail_w;
+    int avail_h;
+    uint16_t i;
+    uint16_t n;
+    int ret;
+    int draw_ret;
+
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
+        want_w < 0 || want_w > UINT16_MAX ||
+        want_h < 0 || want_h > UINT16_MAX || src_len == 0) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+
+    memset(&ctx, 0, sizeof(ctx));
+    memset(&img_conf, 0, sizeof(img_conf));
+    memset(&probe_info, 0, sizeof(probe_info));
+    memset(&img_info, 0, sizeof(img_info));
+    ctx.epd = device->epd;
+    ctx.x = (int16_t)x;
+    ctx.y = (int16_t)y;
+
+    n = tiny_epd_palette_count(device->epd);
+    if (n > LUAT_TINY_EPD_JPG_PALETTE_MAX) {
+        n = LUAT_TINY_EPD_JPG_PALETTE_MAX;
+    }
+    for (i = 0; i < n; i++) {
+        tiny_epd_palette_entry_t entry;
+
+        if (tiny_epd_palette_get(device->epd, i, &entry) != TINY_EPD_OK) {
+            break;
+        }
+        ctx.palette_rgb[i] = entry.rgb888;
+        ctx.palette_color[i] = entry.color;
+    }
+    ctx.palette_n = (uint8_t)i;
+    if (ctx.palette_n == 0) {
+        /* custom 驱动没有声明调色板时, 按黑白面板处理 */
+        ctx.palette_rgb[0] = 0x00000000u;
+        ctx.palette_color[0] = TINY_EPD_COLOR_BLACK;
+        ctx.palette_rgb[1] = 0x00FFFFFFu;
+        ctx.palette_color[1] = TINY_EPD_COLOR_WHITE;
+        ctx.palette_n = 2;
+    }
+
+    img_conf.format = LUAT_IMG_FMT_JPG;
+    img_conf.decode_mode = LUAT_IMG_DECODE_SW;
+    if (src[0] == '/') {
+        img_conf.source_path = src;
+    }
+    else {
+        in_buf = (uint8_t *)src;
+        in_len = src_len;
+    }
+
+    ret = luat_image_probe(&img_conf, in_buf, in_len, &probe_info);
+    if (ret != LUAT_IMG_OK || probe_info.width == 0 || probe_info.height == 0) {
+        return luat_tiny_epd_push_message_result(
+            L, ret == LUAT_IMG_ERR_NOMEM ? "out of memory" : "jpeg header error");
+    }
+
+    jw = (int)probe_info.width;
+    jh = (int)probe_info.height;
+    avail_w = (int)tiny_epd_width(device->epd) - (int)x;
+    avail_h = (int)tiny_epd_height(device->epd) - (int)y;
+
+    if (want_w > 0 && want_h > 0) {
+        ctx.dst_w = (uint16_t)want_w;
+        ctx.dst_h = (uint16_t)want_h;
+    }
+    else if (want_w > 0) {
+        ctx.dst_w = (uint16_t)want_w;
+        ctx.dst_h = (uint16_t)(((int64_t)jh * want_w) / jw);
+    }
+    else if (want_h > 0) {
+        ctx.dst_h = (uint16_t)want_h;
+        ctx.dst_w = (uint16_t)(((int64_t)jw * want_h) / jh);
+    }
+    else {
+        if (avail_w <= 0 || avail_h <= 0) {
+            return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+        }
+        if (jw <= avail_w && jh <= avail_h) {
+            ctx.dst_w = (uint16_t)jw;
+            ctx.dst_h = (uint16_t)jh;
+        }
+        else if ((int64_t)jw * avail_h <= (int64_t)jh * avail_w) {
+            ctx.dst_h = (uint16_t)avail_h;
+            ctx.dst_w = (uint16_t)(((int64_t)jw * avail_h) / jh);
+        }
+        else {
+            ctx.dst_w = (uint16_t)avail_w;
+            ctx.dst_h = (uint16_t)(((int64_t)jh * avail_w) / jw);
+        }
+    }
+    if (ctx.dst_w == 0) {
+        ctx.dst_w = 1;
+    }
+    if (ctx.dst_h == 0) {
+        ctx.dst_h = 1;
+    }
+
+    ret = luat_image_decode(&img_conf, in_buf, in_len, &img_info);
+    if (ret != LUAT_IMG_OK || img_info.data == NULL ||
+        img_info.width == 0 || img_info.height == 0 ||
+        (uint64_t)img_info.size <
+            (uint64_t)img_info.width * (uint64_t)img_info.height * sizeof(luat_color_t)) {
+        if (img_info.data != NULL) {
+            luat_heap_free(img_info.data);
+        }
+        return luat_tiny_epd_push_message_result(
+            L, ret == LUAT_IMG_ERR_NOMEM ? "out of memory" : "jpeg decode failed");
+    }
+
+    draw_ret = luat_tiny_epd_jpg_draw_decoded(&ctx, &img_info);
+    luat_heap_free(img_info.data);
+    img_info.data = NULL;
+    if (draw_ret != TINY_EPD_OK) {
+        return luat_tiny_epd_push_result(L, draw_ret);
+    }
+
+    lua_pushboolean(L, 1);
+    lua_pushinteger(L, (lua_Integer)ctx.dst_w);
+    lua_pushinteger(L, (lua_Integer)ctx.dst_h);
+    return 3;
+}
+#endif /* LUAT_TINY_EPD_HAS_JPG */
+
+/**
 绘制二维码
 @api panel:qrcode(x, y, str[, size[, color]])
 @int x 左上角X坐标
@@ -1604,6 +2028,120 @@ static int l_tiny_epd_get_hzfont_width(lua_State *L)
 }
 #endif
 
+/**
+设置 JD7601 的 DRF 波形槽（实验接口）
+@api panel:setDrf(value)
+@int value 0~255，写入命令 0x12 的参数；厂商只公开了 0x00
+@return boolean 成功返回true，失败返回false和错误信息
+@usage
+-- 扫描 OTP 里的波形槽，观察全刷耗时与残影
+assert(panel:setDrf(0x01))
+assert(panel:refresh(epd.FULL).wait())
+*/
+static int l_tiny_epd_set_drf(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer value = luaL_checkinteger(L, 2);
+
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
+    if (value < 0 || value > UINT8_MAX) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_jd7601_set_drf(device->epd, (uint8_t)value));
+}
+
+/**
+获取 JD7601 当前使用的 DRF 波形槽
+@api panel:getDrf()
+@return int 当前槽号，非 JD7601 面板返回 -1
+*/
+static int l_tiny_epd_get_drf(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    uint8_t drf = 0;
+
+    if (tiny_epd_jd7601_get_drf(device->epd, &drf) != TINY_EPD_OK) {
+        lua_pushinteger(L, -1);
+        return 1;
+    }
+    lua_pushinteger(L, (lua_Integer)drf);
+    return 1;
+}
+
+/**
+设置 JD7601 温度锁定值，选择波形温度段
+@api panel:setTemp(celsius)
+@int celsius 0~50。原厂资料：IC 内烧入 10 个温度段（5 度一段），0-45℃ 段是
+全刷波形，45-50℃ 段是快刷波形。写 48 走快刷，写 42 走全刷
+@return boolean 成功返回true，失败返回false和错误信息
+@usage
+-- 调用 45-50℃ 段的快刷波形
+panel:setTemp(48)
+assert(panel:refresh(epd.FULL).wait())
+*/
+static int l_tiny_epd_set_temp(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer value = luaL_checkinteger(L, 2);
+
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
+    if (value < 0 || value > 50) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_jd7601_set_temp(device->epd, (uint8_t)value));
+}
+
+/**
+切换 JD7601 快刷 / 全刷波形
+@api panel:setFast(flag)
+@boolean|int flag true 或 1 为快刷（温度锁定 48），false 或 0 为全刷（温度锁定 42）
+@return boolean 成功返回true，失败返回false和错误信息
+@usage
+panel:setFast(1)   -- 之后的刷新走快刷波形
+panel:refresh(epd.FULL).wait()
+panel:setFast(0)   -- 恢复全刷
+*/
+static int l_tiny_epd_set_fast(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    int fast;
+
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
+    if (lua_type(L, 2) == LUA_TBOOLEAN) {
+        fast = lua_toboolean(L, 2);
+    }
+    else {
+        fast = ((int)luaL_checkinteger(L, 2) != 0);
+    }
+    return luat_tiny_epd_push_result(L, tiny_epd_jd7601_set_fast(device->epd, fast));
+}
+
+/**
+获取 JD7601 当前温度锁定值
+@api panel:getTemp()
+@return int 温度值 0~50，非 JD7601 面板返回 -1
+*/
+static int l_tiny_epd_get_temp(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    uint8_t temp = 0;
+
+    if (tiny_epd_jd7601_get_temp(device->epd, &temp) != TINY_EPD_OK) {
+        lua_pushinteger(L, -1);
+        return 1;
+    }
+    lua_pushinteger(L, (lua_Integer)temp);
+    return 1;
+}
+
 static const luaL_Reg tiny_epd_device_methods[] = {
     {"init",         l_tiny_epd_init},
     {"clear",        l_tiny_epd_clear},
@@ -1616,7 +2154,16 @@ static const luaL_Reg tiny_epd_device_methods[] = {
     {"rect",         l_tiny_epd_rect},
     {"circle",       l_tiny_epd_circle},
     {"drawXbm",      l_tiny_epd_draw_xbm},
+    {"drawIndex4",   l_tiny_epd_draw_index4},
+#ifdef LUAT_TINY_EPD_HAS_JPG
+    {"drawJpg",      l_tiny_epd_draw_jpg},
+#endif
     {"qrcode",       l_tiny_epd_qrcode},
+    {"setDrf",       l_tiny_epd_set_drf},
+    {"getDrf",       l_tiny_epd_get_drf},
+    {"setTemp",      l_tiny_epd_set_temp},
+    {"setFast",      l_tiny_epd_set_fast},
+    {"getTemp",      l_tiny_epd_get_temp},
 #ifdef LUAT_USE_HZFONT
     {"drawHzfont",   l_tiny_epd_draw_hzfont},
     {"getHzfontWidth", l_tiny_epd_get_hzfont_width},
@@ -1648,6 +2195,7 @@ static const rotable_Reg_t reg_tiny_epd[] = {
     {"MODEL_1IN54R", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54R)},
     {"MODEL_1IN54B_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54B_V2)},
     {"MODEL_1IN54G_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54G_V2)},
+    {"MODEL_JD7601", ROREG_INT(LUAT_TINY_EPD_MODEL_JD7601)},
     {"BLACK", ROREG_INT(TINY_EPD_COLOR_BLACK)},
     {"WHITE", ROREG_INT(TINY_EPD_COLOR_WHITE)},
     {"RED", ROREG_INT(TINY_EPD_COLOR_RED)},

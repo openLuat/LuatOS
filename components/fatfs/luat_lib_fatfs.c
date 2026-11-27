@@ -45,23 +45,6 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 
 static int _default_fatfs_mode = FM_FAT32;
 
-static int _find_pdrv(const char* mount_point) {
-	for (int i = 0; i < FF_VOLUMES; i++) {
-		if (_slot[i].used && !strcmp(_slot[i].mount_point, mount_point)) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-static int _alloc_pdrv(const char* mount_point) {
-	for (int i = 0; i < FF_VOLUMES; i++) {
-		if (_slot[i].used && !strcmp(_slot[i].mount_point, mount_point)) {
-			return i;
-		}
-	}
-	return -1;
-}
 /*
 挂载fatfs
 @api fatfs.mount(mode,mount_point, spiid_or_spidevice, spi_cs, spi_speed, power_pin, power_on_delay, auto_format)
@@ -110,27 +93,15 @@ static int fatfs_mount(lua_State *L)
 	if (FATFS_DEBUG)
 		LLOGD("fatfs_init>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
-	if (fs == NULL) {
-		fs = luat_heap_malloc(sizeof(FATFS));
-		if (fs == NULL) {
-			lua_pushboolean(L, 0);
-			LLOGD("out of memory when malloc FATFS");
-			lua_pushstring(L, "out of memory when malloc FATFS");
-			return 2;
-		}
-	}
-
 	// 挂载点
 	
-
 	int fatfs_mode = luaL_checkinteger(L, 1);
 	const char *mount_point = luaL_optstring(L, 2, "/fatfs");
-
+	int vol;
+	uint8_t index = 0;
 	BYTE power_pin = luaL_optinteger(L, 6, 0xff);
 	WORD power_on_delay = luaL_optinteger(L, 7, 1);
-	if (power_pin != 0xff) {
-		disk_set_power_pin(BYTE pdrv, power_pin, power_on_delay);
-	}
+
 	if (fatfs_mode == DISK_SPI){
 		luat_fatfs_spi_t *spit = luat_heap_malloc(sizeof(luat_fatfs_spi_t));
 		if (spit == NULL) {
@@ -151,15 +122,23 @@ static int fatfs_mount(lua_State *L)
 				spit->fast_speed = 5*1000*1000;
 			}
 			spit->type = 1;
-			diskio_open_spitf(0, (void*)spit);
+			index = spit->spi_device->bus_id;
 		} else {
 			spit->type = 0;
 			spit->spi_id = luaL_optinteger(L, 3, 0); // SPI_1
 			spit->spi_cs = luaL_optinteger(L, 4, 3); // GPIO_3
 			spit->fast_speed = luaL_optinteger(L, 5, 10000000);
 			LLOGD("init sdcard at spi=%d cs=%d", spit->spi_id, spit->spi_cs);
-			diskio_open_spitf(0, (void*)spit);
+			index = spit->spi_id;
 		}
+		vol = disk_alloc_vol(mount_point, NULL, fatfs_mode, index);
+		if (vol < 0) {
+			goto ALLOC_ERROR;
+		}
+		if (power_pin != 0xff) {
+			disk_set_power_pin(vol, power_pin, power_on_delay);
+		}
+		diskio_open_spitf(vol, (void*)spit);
 	#ifdef LUAT_USE_SDIO
 	}else if(fatfs_mode == DISK_SDIO){
 		luat_fatfs_sdio_t *fatfs_sdio = luat_heap_malloc(sizeof(luat_fatfs_sdio_t));
@@ -172,9 +151,16 @@ static int fatfs_mount(lua_State *L)
 		memset(fatfs_sdio, 0, sizeof(luat_fatfs_sdio_t));
 
 		fatfs_sdio->id = luaL_optinteger(L, 3, 0); // SDIO_ID
-
+		index = fatfs_sdio->id;
 		LLOGD("init FatFS at sdio");
-		diskio_open_sdio(0, (void*)fatfs_sdio);
+		vol = disk_alloc_vol(mount_point, NULL, fatfs_mode, index);
+		if (vol < 0) {
+			goto ALLOC_ERROR;
+		}
+		if (power_pin != 0xff) {
+			disk_set_power_pin(vol, power_pin, power_on_delay);
+		}
+		diskio_open_sdio(vol, (void*)fatfs_sdio);
 	#endif
 	#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
 	}else if(fatfs_mode == DISK_RAM){
@@ -182,13 +168,19 @@ static int fatfs_mount(lua_State *L)
 		diskio_open_ramdisk(0, luaL_optinteger(L, 3, 64*1024));
 	#endif
 	}else if(fatfs_mode == DISK_USB){
-		diskio_open_usb(0, luaL_optinteger(L, 3, 0));
+		index = luaL_optinteger(L, 3, 0);
+		vol = disk_alloc_vol(mount_point, NULL, fatfs_mode, index);
+		if (vol < 0) {
+			goto ALLOC_ERROR;
+		}
+		diskio_open_usb(0, index);
 	}else{
 		LLOGD("fatfs_mode error %d", fatfs_mode);
 		lua_pushboolean(L, 0);
 		lua_pushstring(L, "fatfs_mode error");
 		return 2;
 	}
+	FATFS* fs = disk_get_fs(vol);
 	FRESULT re = f_mount(fs, mount_point, 1);
     if (re != FR_OK) {
 		if (lua_isboolean(L, 8) && lua_toboolean(L, 8) == 0) {
@@ -252,6 +244,10 @@ static int fatfs_mount(lua_State *L)
 	if (FATFS_DEBUG)
 		LLOGD("fatfs_init<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
     return 2;
+ALLOC_ERROR:
+	lua_pushboolean(L, 0);
+	lua_pushstring(L, "no slot error");
+	return 2;
 }
 
 /*
@@ -266,19 +262,27 @@ fatfs.unmount("/sd")
 static int fatfs_unmount(lua_State *L) {
 
 	const char *mount_point = luaL_optstring(L, 1, "/fatfs");
+	int vol = disk_find_vol(mount_point);
+	if (vol < 0) {
+		LLOGE("%s unmount vol error, no such path", mount_point);
+		lua_pushinteger(L, vol);
+		return 1;
+	}
 #ifdef LUAT_USE_FS_VFS
-      luat_fs_conf_t conf = {
+	FATFS* fs = disk_get_fs(vol);
+    luat_fs_conf_t conf = {
             .busname = (char*)fs,
             .type = "fatfs",
             .filesystem = "fatfs",
             .mount_point = mount_point,
         };
-      luat_fs_umount(&conf);
+    luat_fs_umount(&conf);
 #endif
-    FRESULT re = f_mount(NULL, "/", 0);
+    FRESULT re = f_mount(NULL, mount_point, 0);
 	// 对于 BK72XX 平台，进一步调用底层 sd 卡 deinit，确保控制器状态清零，下次 init 从 CMD0/CMD8 开始，避免init开头发 CMD12 出现无响应的情况
 #ifdef __BK72XX__
-	if (s_fatfs_mode == DISK_SDIO) {
+	uint8_t mode = disk_get_mode(vol);
+	if (mode == DISK_SDIO) {
 		bk_sd_card_deinit();
 	}
 #endif

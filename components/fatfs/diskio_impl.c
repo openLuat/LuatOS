@@ -8,10 +8,12 @@
 /*-----------------------------------------------------------------------*/
 
 #include "luat_base.h"
+#include "luat_mem.h"
 #include "luat_spi.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
 #include "luat_rtos.h"
+#include <stdint.h>
 
 #ifdef __LUATOS__
 #include "lauxlib.h"
@@ -20,7 +22,7 @@
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
 
-#define LUAT_LOG_TAG "luat.fatfs"
+#define LUAT_LOG_TAG "diskio"
 #include "luat_log.h"
 
 #define __FATFS_POWER_PIN_ENABLE__ 0x8000
@@ -37,18 +39,127 @@ typedef struct {
 	char mount_point[16];
 	uint8_t mount_point_len;
 	uint8_t mode;
-	uint8_t used;
+	uint8_t index;
+	uint8_t used:1;
+	uint8_t fs_is_alloc:1;
 }fatfs_mount_slot_t;
 static fatfs_mount_slot_t _slot[FF_VOLUMES];
+static int _current_vol = -1;
+
+void disk_set_current_vol(BYTE vol)
+{
+	if (vol < FF_VOLUMES) {
+		_current_vol = vol;
+	} else {
+		_current_vol = -1;
+	}
+}
+
+int disk_get_currnt_vol(void) {
+	return _current_vol;
+}
 
 int disk_find_vol(const char *path)
 {
 	for (int i = 0; i < FF_VOLUMES; i++) {
 		if (_slot[i].used && !memcmp(_slot[i].mount_point, path, _slot[i].mount_point_len)) {
+			LLOGD("find slot %d for path %s", i, path);
 			return i;
 		}
 	}
 	return -1;
+}
+
+int disk_alloc_vol(const char *path, FATFS* fs, uint8_t mode, uint8_t index)
+{
+	if (strlen(path) > 16) {
+		LLOGE("path %s name too long", path);
+		return -1;
+	}
+	for (int i = 0; i < FF_VOLUMES; i++) {
+		if (_slot[i].used) {
+			if (!_slot[i].fs) {
+				_slot[i].used = 0;
+				_slot[i].fs_is_alloc = 0;
+			} else {
+				if (!memcmp(_slot[i].mount_point, path, _slot[i].mount_point_len)) {
+					LLOGD("slot %d already alloc for path %s", i, path);
+					if ((_slot[i].mode == mode) && (_slot[i].index == index)) {
+						if (!fs || (_slot[i].fs == fs)) {
+							memset(_slot[i].fs, 0, sizeof(FATFS));
+							_slot[i].fs->pdev = i;
+							return i;
+						} else {
+							LLOGE("but fs point not match %p-%p", _slot[i].fs, fs);
+							return -1;
+						}
+						
+					} else {
+						LLOGE("but mode or index not match  mode %d-%d, index %d-%d", _slot[i].mode, mode,
+							_slot[i].index, index);
+						return -1;
+					}
+				}
+			}
+		}
+
+	}
+	for (int i = 0; i < FF_VOLUMES; i++) {
+		if (!_slot[i].used) {
+			LLOGD("slot %d alloc for path %s", i, path);
+			_slot[i].used = 1;
+			_slot[i].mount_point_len = strlen(path);
+			_slot[i].mode = mode;
+			_slot[i].index = index;
+			memcpy(_slot[i].mount_point, path, _slot[i].mount_point_len);
+			if (fs) {
+				_slot[i].fs = fs;
+				_slot[i].fs_is_alloc = 0;
+			} else {
+				_slot[i].fs = luat_heap_malloc(sizeof(FATFS));
+				if (_slot[i].fs == NULL) {
+					LLOGD("out of memory when malloc FATFS");
+					return -1;
+				}
+				_slot[i].fs_is_alloc = 1;
+			}
+			memset(_slot[i].fs, 0, sizeof(FATFS));
+			_slot[i].fs->pdev = i;
+			return i;
+		}
+	}
+	return -1;
+}
+
+void disk_release_vol(const char *path)
+{
+	for (int i = 0; i < FF_VOLUMES; i++) {
+		if (!memcmp(_slot[i].mount_point, path, _slot[i].mount_point_len)) {
+			LLOGD("release slot %d path %s", i, path);
+			_slot[i].used = 0;
+			if (_slot[i].fs_is_alloc) {
+				luat_heap_free(_slot[i].fs);
+			}
+			_slot[i].fs = NULL;
+			_slot[i].fs_is_alloc = 0;
+		}
+	}
+}
+
+FATFS* disk_get_fs(BYTE vol)
+{
+	if (vol >= FF_VOLUMES) {
+		return NULL;
+	}
+	return _slot[vol].fs;
+}
+
+int disk_get_mode(BYTE vol)
+{
+	if (vol >= FF_VOLUMES) {
+		return -1;
+	}
+	return _slot[vol].mode;
 }
 
 void disk_set_power_pin(BYTE pdrv, BYTE pin, WORD delay)

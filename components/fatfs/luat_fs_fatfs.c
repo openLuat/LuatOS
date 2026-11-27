@@ -2,6 +2,7 @@
 #include "luat_base.h"
 #include "luat_fs.h"
 #include "luat_mem.h"
+#include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "fatfs"
 #include "luat_log.h"
@@ -10,10 +11,11 @@
 
 #include "ff.h"
 #include "diskio.h"
+static luat_rtos_mutex_t _fatfs_mutex;
 
 FILE* luat_vfs_fatfs_fopen(void* userdata, const char *filename, const char *mode) {
     //LLOGD("f_open %s %s", filename, mode);
-    //FATFS *fs = (FATFS*)userdata;
+    FATFS *fs = (FATFS*)userdata;
     FIL* fp = luat_heap_malloc(sizeof(FIL));
     int flag = 0;
     if (!strcmp("r+", mode) || !strcmp("r+b", mode) || !strcmp("rb+", mode)) {
@@ -38,7 +40,10 @@ FILE* luat_vfs_fatfs_fopen(void* userdata, const char *filename, const char *mod
         LLOGW("bad file open mode %s, fallback to 'r'", mode);
         flag = FA_READ;
     }
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev);
     FRESULT ret = f_open(fp, filename, flag);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
     if (ret != FR_OK) {
         LLOGD("f_open %s %d", filename, ret);
         luat_heap_free(fp);
@@ -131,15 +136,29 @@ int luat_vfs_fatfs_fflush(void* userdata, FILE *stream) {
     return f_sync(fp) == FR_OK ? 0 : -1;
 }
 int luat_vfs_fatfs_remove(void* userdata, const char *filename) {
-    return f_unlink(filename);
+    FATFS *fs = (FATFS*)userdata;
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev);
+    int ret = f_unlink(filename);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
+    return ret;
 }
 int luat_vfs_fatfs_rename(void* userdata, const char *old_filename, const char *new_filename) {
-    return f_rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
+    FATFS *fs = (FATFS*)userdata;
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev);
+    int ret = f_rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
+    luat_rtos_mutex_unlock(_fatfs_mutex);
+    return ret;
 }
 
 int luat_vfs_fatfs_fexist(void* userdata, const char *filename) {
+    FATFS *fs = (FATFS*)userdata;
     FILINFO fno = {0};
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev);    
     FRESULT ret = f_stat(filename, &fno);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
     if (ret == FR_OK) {
         return 1;
     }
@@ -147,8 +166,12 @@ int luat_vfs_fatfs_fexist(void* userdata, const char *filename) {
 }
 
 size_t luat_vfs_fatfs_fsize(void* userdata, const char *filename) {
+    FATFS *fs = (FATFS*)userdata;
     FILINFO fno = {0};
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev);  
     FRESULT ret = f_stat(filename, &fno);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
     if (ret == FR_OK) {
         return fno.fsize;
     }
@@ -156,7 +179,7 @@ size_t luat_vfs_fatfs_fsize(void* userdata, const char *filename) {
 }
 
 int luat_vfs_fatfs_mkfs(void* userdata, luat_fs_conf_t *conf) {
-    (void)userdata;
+    FATFS *fs = (FATFS*)userdata;
     (void)conf;
     MKFS_PARM parm = {
 				.fmt = FM_ANY, // 暂时应付一下ramdisk
@@ -166,12 +189,19 @@ int luat_vfs_fatfs_mkfs(void* userdata, luat_fs_conf_t *conf) {
 				.n_root = 0,
 	};
 	BYTE work[FF_MAX_SS] = {0};
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev);      
 	int re = f_mkfs("/", &parm, work, FF_MAX_SS);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
 	LLOGD("format ret %d", re);
     return re;
 }
 int luat_vfs_fatfs_mount(void** userdata, luat_fs_conf_t *conf) {
     *userdata = (void*)conf->busname;
+    if (!_fatfs_mutex) {
+        luat_rtos_mutex_create(&_fatfs_mutex);
+        luat_rtos_mutex_unlock(_fatfs_mutex);
+    }
     return 0;
 }
 int luat_vfs_fatfs_umount(void* userdata, luat_fs_conf_t *conf) {
@@ -180,14 +210,22 @@ int luat_vfs_fatfs_umount(void* userdata, luat_fs_conf_t *conf) {
 }
 
 int luat_vfs_fatfs_mkdir(void* userdata, char const* _DirName) {
+    FATFS *fs = (FATFS*)userdata;
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev);   
     FRESULT ret = f_mkdir(_DirName);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
     if (FR_OK == ret)
         return 0;
     LLOGD("mkdir ret %d", ret);
     return -1;
 }
 int luat_vfs_fatfs_rmdir(void* userdata, char const* _DirName) {
+    FATFS *fs = (FATFS*)userdata;
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev); 
     FRESULT ret = f_rmdir(_DirName);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
     if (FR_OK == ret)
         return 0;
     LLOGD("rmdir ret %d", ret);
@@ -200,8 +238,12 @@ int luat_vfs_fatfs_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t*
     FILINFO fno = {0};
     size_t i = 0;
     size_t count = 0;
+    FATFS *fs = (FATFS*)userdata;
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev); 
     res = f_opendir(&dir, _DirName);
     if (res != FR_OK) {
+        luat_rtos_mutex_unlock(_fatfs_mutex);
         LLOGD("opendir %s %d", _DirName, res);
         return 0;
     }
@@ -209,6 +251,7 @@ int luat_vfs_fatfs_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t*
     {
         res = f_readdir(&dir, &fno);
         if (res != FR_OK || fno.fname[0] == 0) {
+            luat_rtos_mutex_unlock(_fatfs_mutex);
             return 0; // 读取失败或者是读完了
         };
     }
@@ -232,7 +275,7 @@ int luat_vfs_fatfs_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t*
             ents[i].d_name[254] = 0;
         }
     }
-
+    luat_rtos_mutex_unlock(_fatfs_mutex);
     return count;
 }
 
@@ -244,8 +287,10 @@ int luat_vfs_fatfs_info(void* userdata, const char* path, luat_fs_info_t *conf) 
 
     // tot_sect = (fs->n_fatent - 2) * fs->csize;
     // fre_sect = (fs->free_clst) * fs->csize;
-
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev); 
     memcpy(conf->filesystem, "fatfs", strlen("fatfs")+1);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
     conf->type = 0;
     conf->total_block = (fs->n_fatent - 2) * fs->csize;
     conf->block_used = (fs->n_fatent - 2 - fs->free_clst) * fs->csize;
@@ -260,7 +305,11 @@ void* luat_vfs_fatfs_opendir(void* userdata, const char *_DirName) {
         return NULL;
     }
     memset(dp, 0, sizeof(DIR));
+    FATFS *fs = (FATFS*)userdata;
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev); 
     FRESULT ret = f_opendir(dp, _DirName);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
     if (ret != FR_OK) {
         luat_heap_free(dp);
         return NULL;
@@ -270,7 +319,11 @@ void* luat_vfs_fatfs_opendir(void* userdata, const char *_DirName) {
 
 int luat_vfs_fatfs_closedir(void* userdata, void* dir) {
     DIR* dp = (DIR*)dir;
+    FATFS *fs = (FATFS*)userdata;
+    luat_rtos_mutex_lock(_fatfs_mutex, LUAT_WAIT_FOREVER);
+    disk_set_current_vol(fs->pdev); 
     f_closedir(dp);
+    luat_rtos_mutex_unlock(_fatfs_mutex);
     if (dp)luat_heap_free(dp);
     return 0;
 }

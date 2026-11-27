@@ -3223,13 +3223,15 @@ static int get_ldnumber (	/* Returns logical drive number (-1:invalid drive numb
 	const TCHAR** path		/* Pointer to pointer to the path name */
 )
 {
-#if (defined __LUATOS__) || (defined __USER_CODE__)
-extern int disk_find_vol(const char *path);
 	int diskio_vol = disk_find_vol(*path);
 	if (diskio_vol >= 0) {
 		return diskio_vol;
+	}	
+	diskio_vol = disk_get_currnt_vol();
+	if (diskio_vol >= 0) {
+		return diskio_vol;
 	}
-#endif 
+
 	const TCHAR *tp;
 	const TCHAR *tt;
 	TCHAR chr;

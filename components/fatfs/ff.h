@@ -186,6 +186,9 @@ typedef struct {
 #endif
 #endif
 	BYTE	win[FF_MAX_SS];	/* Disk access window for directory, FAT (and file data in tiny cfg) */
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+	BYTE pdev;
+#endif
 } FATFS;
 
 

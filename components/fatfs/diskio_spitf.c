@@ -211,8 +211,6 @@ typedef struct
 
 #define SPI_TF_WAIT(x) luat_rtos_task_sleep(x)
 
-extern uint8_t FATFS_NO_CRC_CHECK;
-extern uint16_t FATFS_WRITE_TO;
 static luat_spitf_ctrl_t g_s_spitf;
 static void luat_spitf_read_config(luat_spitf_ctrl_t *spitf);
 
@@ -602,7 +600,7 @@ READ_REST_DATA:
 		DummyLen = RemainingLen + 2;
 		luat_spi_transfer(spitf->SpiID, (const char *)spitf->DummyData, DummyLen, (char *)spitf->TempData, DummyLen);
 		memcpy(pBuf, spitf->TempData, RemainingLen);
-		if (FATFS_NO_CRC_CHECK)
+		if (spitf->no_check_crc)
 		{
 
 		}

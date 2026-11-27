@@ -58,7 +58,12 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count);
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 void disk_set_power_pin(BYTE pdrv, BYTE pin, WORD delay);
 int disk_find_vol(const char *path);
-
+int disk_alloc_vol(const char *path, FATFS* fs, uint8_t mode, uint8_t index);
+void disk_release_vol(const char *path);
+FATFS* disk_get_fs(BYTE vol);
+int disk_get_mode(BYTE vol);
+void disk_set_current_vol(BYTE vol);
+int disk_get_currnt_vol(void);
 /* Disk Status Bits (DSTATUS) */
 
 #define STA_NOINIT		0x01	/* Drive not initialized */

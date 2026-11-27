@@ -11,9 +11,7 @@
 
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 
-LUAT_WEAK DRESULT diskio_open_usb(BYTE pdrv, uint32_t usb_app_id) {
-    (void)pdrv;
-    (void)usb_app_id;
+LUAT_WEAK DRESULT diskio_open_usb(BYTE usb_app_id, void* userdata) {
     return RES_ERROR;
 }
 

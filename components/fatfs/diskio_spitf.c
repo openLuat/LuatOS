@@ -86,7 +86,7 @@
 #define SD_CMD_READ_OCR               58  /* CMD55 = 0x79 */
 #define SD_DEFAULT_BLOCK_SIZE (512)
 
-#define SPI_TF_WRITE_TO_MS	((uint64_t)FATFS_WRITE_TO)
+#define SPI_TF_WRITE_TO_MS	((uint64_t)g_s_spitf.write_timeout)
 #define SPI_TF_READ_TO_MS	(100)
 
 typedef struct
@@ -193,6 +193,7 @@ typedef struct
 	uint8_t *TempData;
 	uint8_t *DummyData;
 	uint16_t WriteWaitCnt;
+	uint16_t write_timeout;
 	uint8_t CSPin;
 	uint8_t SpiID;
 	uint8_t SDHCState;
@@ -204,13 +205,15 @@ typedef struct
 	uint8_t SDSC;
 	uint8_t ResetCnt;
 	uint8_t CmdCnt;
-	uint8_t ExtraClockNeeded; 		// 是否在发送命令前需要发送一个时钟: 0=no, 1=yes */
+	uint8_t ExtraClockNeeded:1; 		// 是否在发送命令前需要发送一个时钟: 0=no, 1=yes */
+	uint8_t no_check_crc:1;
 }luat_spitf_ctrl_t;
 
 #define SPI_TF_WAIT(x) luat_rtos_task_sleep(x)
 
 extern uint8_t FATFS_NO_CRC_CHECK;
 extern uint16_t FATFS_WRITE_TO;
+static luat_spitf_ctrl_t g_s_spitf;
 static void luat_spitf_read_config(luat_spitf_ctrl_t *spitf);
 
 static void luat_spitf_cs(luat_spitf_ctrl_t *spitf, uint8_t OnOff)
@@ -1062,84 +1065,69 @@ static uint8_t luat_spitf_is_ready(luat_spitf_ctrl_t *spitf)
 
 static DSTATUS luat_spitf_initialize(void* userdata)
 {
-	luat_spitf_ctrl_t *ctrl = (luat_spitf_ctrl_t*)userdata;
-	if (ctrl == NULL)
-		return STA_NOINIT;
-	luat_mutex_lock(ctrl->locker);
-	luat_spi_lock(ctrl->SpiID);
-	luat_spitf_init(ctrl);
-	luat_spi_unlock(ctrl->SpiID);
-	luat_mutex_unlock(ctrl->locker);
-	return luat_spitf_is_ready(ctrl)?0:STA_NOINIT;
+	luat_mutex_lock(g_s_spitf.locker);
+	luat_spi_lock(g_s_spitf.SpiID);
+	luat_spitf_init(&g_s_spitf);
+	luat_spi_unlock(g_s_spitf.SpiID);
+	luat_mutex_unlock(g_s_spitf.locker);
+	return luat_spitf_is_ready(&g_s_spitf)?0:STA_NOINIT;
 }
 
 static DSTATUS luat_spitf_status(void* userdata)
 {
-	luat_spitf_ctrl_t *ctrl = (luat_spitf_ctrl_t*)userdata;
-	if (ctrl == NULL)
-		return STA_NOINIT;
-	return luat_spitf_is_ready(ctrl)?0:STA_NOINIT;
+	return luat_spitf_is_ready(&g_s_spitf)?0:STA_NOINIT;
 
 }
 
 static DRESULT luat_spitf_read(void* userdata, uint8_t* buff, LBA_t sector, UINT count)
 {
-	luat_spitf_ctrl_t *ctrl = (luat_spitf_ctrl_t*)userdata;
-	if (ctrl == NULL)
-		return RES_NOTRDY;
-	luat_mutex_lock(ctrl->locker);
-	if (!luat_spitf_is_ready(ctrl))
+	luat_mutex_lock(g_s_spitf.locker);
+	if (!luat_spitf_is_ready(&g_s_spitf))
 	{
-		luat_mutex_unlock(ctrl->locker);
+		luat_mutex_unlock(g_s_spitf.locker);
 		return RES_NOTRDY;
 	}
-	luat_spi_lock(ctrl->SpiID);
-	luat_spitf_read_blocks(ctrl, buff, sector, count);
-	luat_spi_unlock(ctrl->SpiID);
-	luat_mutex_unlock(ctrl->locker);
-	return luat_spitf_is_ready(ctrl)?RES_OK:RES_ERROR;
+	luat_spi_lock(g_s_spitf.SpiID);
+	luat_spitf_read_blocks(&g_s_spitf, buff, sector, count);
+	luat_spi_unlock(g_s_spitf.SpiID);
+	luat_mutex_unlock(g_s_spitf.locker);
+	return luat_spitf_is_ready(&g_s_spitf)?RES_OK:RES_ERROR;
 }
 
 static DRESULT luat_spitf_write(void* userdata, const uint8_t* buff, LBA_t sector, UINT count)
 {
-	luat_spitf_ctrl_t *ctrl = (luat_spitf_ctrl_t*)userdata;
-	if (ctrl == NULL)
-		return RES_NOTRDY;
-	luat_mutex_lock(ctrl->locker);
-	if (!luat_spitf_is_ready(ctrl))
+	luat_mutex_lock(g_s_spitf.locker);
+	if (!luat_spitf_is_ready(&g_s_spitf))
 	{
-		luat_mutex_unlock(ctrl->locker);
+		luat_mutex_unlock(g_s_spitf.locker);
 		return RES_NOTRDY;
 	}
-	luat_spi_lock(ctrl->SpiID);
-	luat_spitf_write_blocks(ctrl, buff, sector, count);
-	luat_spi_unlock(ctrl->SpiID);
-	luat_mutex_unlock(ctrl->locker);
-	return luat_spitf_is_ready(ctrl)?RES_OK:RES_ERROR;
+	luat_spi_lock(g_s_spitf.SpiID);
+	luat_spitf_write_blocks(&g_s_spitf, buff, sector, count);
+	luat_spi_unlock(g_s_spitf.SpiID);
+	luat_mutex_unlock(g_s_spitf.locker);
+	return luat_spitf_is_ready(&g_s_spitf)?RES_OK:RES_ERROR;
 }
 
 static DRESULT luat_spitf_ioctl(void* userdata, uint8_t ctrl, void* buff)
 {
-	luat_spitf_ctrl_t *spitf = (luat_spitf_ctrl_t*)userdata;
-	if (spitf == NULL)
-		return RES_NOTRDY;
-	luat_mutex_lock(spitf->locker);
-	if (!luat_spitf_is_ready(spitf))
+	luat_mutex_lock(g_s_spitf.locker);
+	if (!luat_spitf_is_ready(&g_s_spitf))
 	{
-		luat_mutex_unlock(spitf->locker);
+		luat_mutex_unlock(g_s_spitf.locker);
 		return RES_NOTRDY;
 	}
-	luat_spi_lock(spitf->SpiID);
-	luat_spitf_read_config(spitf);
-	luat_spi_unlock(spitf->SpiID);
-	luat_mutex_unlock(spitf->locker);
+	luat_spi_lock(g_s_spitf.SpiID);
+	luat_spitf_read_config(&g_s_spitf);
+	luat_spi_unlock(g_s_spitf.SpiID);
+	luat_mutex_unlock(g_s_spitf.locker);
 	switch (ctrl) {
 		case CTRL_SYNC :		/* Make sure that no pending write process */
 			return RES_OK;
 			break;
 
 		case GET_SECTOR_COUNT :	/* Get number of sectors on the disk (DWORD) */
-			*(uint32_t*)buff = spitf->Info->LogBlockNbr;
+			*(uint32_t*)buff = g_s_spitf.Info->LogBlockNbr;
 			return RES_OK;
 			break;
 
@@ -1154,22 +1142,6 @@ static DRESULT luat_spitf_ioctl(void* userdata, uint8_t ctrl, void* buff)
 	return RES_PARERR;
 }
 
-static void luat_spitf_close(void* userdata)
-{
-	luat_spitf_ctrl_t *ctrl = (luat_spitf_ctrl_t*)userdata;
-	if (ctrl == NULL)
-		return;
-	if (ctrl->Info)
-		luat_heap_free(ctrl->Info);
-	if (ctrl->TempData)
-		luat_heap_free(ctrl->TempData);
-	if (ctrl->DummyData)
-		luat_heap_free(ctrl->DummyData);
-	if (ctrl->locker)
-		luat_mutex_release(ctrl->locker);
-	luat_heap_free(ctrl);
-}
-
 
 const block_disk_opts_t spitf_disk_opts = {
     .initialize = luat_spitf_initialize,
@@ -1177,46 +1149,34 @@ const block_disk_opts_t spitf_disk_opts = {
     .read = luat_spitf_read,
     .write = luat_spitf_write,
     .ioctl = luat_spitf_ioctl,
-    .close = luat_spitf_close,
 };
 
 void luat_spi_set_sdhc_ctrl_default(
 		block_disk_t *disk
 )
 {
-	luat_fatfs_spi_t* cfg = disk->userdata;
-	luat_spitf_ctrl_t *ctrl = luat_heap_malloc(sizeof(luat_spitf_ctrl_t));
-	if (ctrl == NULL)
+	luat_fatfs_spi_t* userdata = disk->userdata;
+	if (userdata->type && userdata->spi_device)
 	{
-		disk->opts = NULL;
-		disk->userdata = NULL;
-		luat_heap_free(cfg);
-		return;
-	}
-	memset(ctrl, 0, sizeof(luat_spitf_ctrl_t));
-	if (cfg->type && cfg->spi_device)
-	{
-		ctrl->CSPin = cfg->spi_device->spi_config.cs;
-		ctrl->SpiID = cfg->spi_device->bus_id;
-		ctrl->SpiSpeed = cfg->fast_speed;
+		g_s_spitf.CSPin = userdata->spi_device->spi_config.cs;
+		g_s_spitf.SpiID = userdata->spi_device->bus_id;
+		g_s_spitf.SpiSpeed = userdata->fast_speed;
 	}
 	else
 	{
-		ctrl->CSPin = cfg->spi_cs;
-		ctrl->SpiID = cfg->spi_id;
-		ctrl->SpiSpeed = cfg->fast_speed;
+		g_s_spitf.CSPin = userdata->spi_cs;
+		g_s_spitf.SpiID = userdata->spi_id;
+		g_s_spitf.SpiSpeed = userdata->fast_speed;
 	}
-	ctrl->locker = luat_mutex_create();
-	if (ctrl->locker == NULL)
+	if (!g_s_spitf.locker)
 	{
-		disk->opts = NULL;
-		disk->userdata = NULL;
-		luat_heap_free(ctrl);
-		luat_heap_free(cfg);
-		return;
+		g_s_spitf.locker = luat_mutex_create();
 	}
-	luat_heap_free(cfg);
-	disk->userdata = ctrl;
+	if (!g_s_spitf.write_timeout) {
+		g_s_spitf.write_timeout = 100;
+	}
+	luat_heap_free(disk->userdata);
+	disk->userdata = NULL;
 	disk->opts = &spitf_disk_opts;
 }
 
@@ -1229,20 +1189,22 @@ __attribute__((weak)) void luat_spi_set_sdhc_ctrl(
 #else
 void luat_spi_set_sdhc_ctrl(block_disk_t *disk);
 #endif
+static block_disk_t disk = {0};
 
 DRESULT diskio_open_spitf(BYTE pdrv, luat_fatfs_spi_t* userdata) {
-	block_disk_t disk = {0};
+	// 暂时只支持单个fatfs实例
 	disk.opts = &spitf_disk_opts;
 	disk.userdata = userdata;
     luat_spi_set_sdhc_ctrl(&disk);
-    if (disk.opts == NULL) {
-		return RES_ERROR;
-	}
-    DRESULT re = diskio_open(pdrv, &disk);
-    if (re != RES_OK && disk.opts->close) {
-		disk.opts->close(disk.userdata);
-	}
-	return re;
+	return diskio_open(pdrv, &disk);
+}
+
+void diskio_set_spitf_write_timouet(uint16_t timeout) {
+	g_s_spitf.write_timeout = timeout;
+}
+
+void diskio_set_spitf_crc_check_off(uint8_t is_off) {
+	g_s_spitf.no_check_crc = is_off;
 }
 
 //static DWORD get_fattime() {

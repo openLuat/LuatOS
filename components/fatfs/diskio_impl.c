@@ -12,7 +12,6 @@
 #include "luat_timer.h"
 #include "luat_gpio.h"
 #include "luat_rtos.h"
-#include "luat_mem.h"
 
 #ifdef __LUATOS__
 #include "lauxlib.h"
@@ -23,60 +22,42 @@
 
 #define LUAT_LOG_TAG "luat.fatfs"
 #include "luat_log.h"
+
+#define __FATFS_POWER_PIN_ENABLE__ 0x8000
 BYTE FATFS_DEBUG = 0; // debug log, 0 -- disable , 1 -- enable
-uint8_t FATFS_NO_CRC_CHECK = 0;
-uint16_t FATFS_WRITE_TO = 100;
+
 
 static block_disk_t disks[FF_VOLUMES+1] = {0};
-static void* s_bound_fs[FF_VOLUMES] = {0};
-static BYTE s_power_pin[FF_VOLUMES];
-static WORD s_power_delay[FF_VOLUMES];
-static uint8_t s_power_inited = 0;
+static WORD _power_delay[FF_VOLUMES];
+static WORD _power_pin[FF_VOLUMES];
 
-static void diskio_power_init_once(void) {
-	if (s_power_inited)
-		return;
-	for (int i = 0; i < FF_VOLUMES; i++) {
-		s_power_pin[i] = 0xff;
-		s_power_delay[i] = 1;
-	}
-	s_power_inited = 1;
-}
+/* 挂载槽位, 下标即 FatFs 逻辑盘号 pdrv */
+typedef struct {
+	FATFS* fs;
+	char mount_point[16];
+	uint8_t mount_point_len;
+	uint8_t mode;
+	uint8_t used;
+}fatfs_mount_slot_t;
+static fatfs_mount_slot_t _slot[FF_VOLUMES];
 
-int diskio_alloc_pdrv(void) {
+int disk_find_vol(const char *path)
+{
 	for (int i = 0; i < FF_VOLUMES; i++) {
-		if (disks[i].opts == NULL)
+		if (_slot[i].used && !memcmp(_slot[i].mount_point, path, _slot[i].mount_point_len)) {
 			return i;
+		}
 	}
 	return -1;
 }
 
-void diskio_bind_fs(BYTE pdrv, void* fs) {
-	if (pdrv < FF_VOLUMES)
-		s_bound_fs[pdrv] = fs;
-}
-
-void diskio_unbind_fs(BYTE pdrv) {
-	if (pdrv < FF_VOLUMES)
-		s_bound_fs[pdrv] = NULL;
-}
-
-int diskio_pdrv_of_fs(void* fs) {
-	if (fs == NULL)
-		return -1;
-	for (int i = 0; i < FF_VOLUMES; i++) {
-		if (s_bound_fs[i] == fs)
-			return i;
-	}
-	return -1;
-}
-
-void diskio_set_power(BYTE pdrv, BYTE pin, WORD delay) {
-	if (pdrv >= FF_VOLUMES)
+void disk_set_power_pin(BYTE pdrv, BYTE pin, WORD delay)
+{
+	if (pdrv >= FF_VOLUMES) {
 		return;
-	diskio_power_init_once();
-	s_power_pin[pdrv] = pin;
-	s_power_delay[pdrv] = delay;
+	}
+	_power_pin[pdrv] = pin | __FATFS_POWER_PIN_ENABLE__;
+	_power_delay[pdrv] = delay;
 }
 
 DSTATUS disk_initialize (BYTE pdrv) {
@@ -86,12 +67,12 @@ DSTATUS disk_initialize (BYTE pdrv) {
 		LLOGD("NOTRDY >> %d", pdrv);
 		return RES_NOTRDY;
 	}
-	diskio_power_init_once();
-	if (s_power_pin[pdrv] != 0xff)
+	if (_power_pin[pdrv] & __FATFS_POWER_PIN_ENABLE__)
 	{
-		luat_gpio_mode(s_power_pin[pdrv], Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 0);
-		luat_rtos_task_sleep(s_power_delay[pdrv]);
-		luat_gpio_mode(s_power_pin[pdrv], Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
+		uint8_t pin = _power_pin[pdrv] & 0x00ff;
+		luat_gpio_mode(pin, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 0);
+		luat_rtos_task_sleep(_power_delay[pdrv]);
+		luat_gpio_mode(pin, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
 	}
 	return disks[pdrv].opts->initialize(disks[pdrv].userdata);
 }
@@ -143,6 +124,7 @@ DRESULT diskio_open(BYTE pdrv, block_disk_t * disk) {
 	return RES_OK;
 }
 
+#include "luat_mem.h"
 DRESULT diskio_close(BYTE pdrv) {
 	if (pdrv >= FF_VOLUMES || disks[pdrv].opts == NULL) {
 		return RES_NOTRDY;
@@ -150,10 +132,9 @@ DRESULT diskio_close(BYTE pdrv) {
 	if (disks[pdrv].opts->close) {
 		disks[pdrv].opts->close(disks[pdrv].userdata);
 	}
-	else if (disks[pdrv].userdata) {
-		luat_heap_free(disks[pdrv].userdata);
-	}
 	disks[pdrv].opts = NULL;
+	if (disks[pdrv].userdata)
+		luat_heap_free(disks[pdrv].userdata);
 	disks[pdrv].userdata = NULL;
 	return RES_OK;
 }
@@ -172,3 +153,4 @@ DWORD get_fattime (void) {
 			| ((tm->tm_sec % 60) >> 1)
 	;
 }
+

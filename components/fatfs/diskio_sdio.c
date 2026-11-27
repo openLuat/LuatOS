@@ -101,8 +101,10 @@ LUAT_WEAK void luat_sdio_set_sdhc_ctrl(block_disk_t *disk)
 void luat_sdio_set_sdhc_ctrl(block_disk_t *disk);
 #endif
 
+static block_disk_t disk = {0};
+
 DRESULT diskio_open_sdio(BYTE pdrv, luat_fatfs_sdio_t* userdata) {
-	block_disk_t disk = {0};
+	// 暂时只支持单个fatfs实例
 	disk.opts = &sdio_disk_opts;
     disk.userdata = userdata;
     luat_sdio_set_sdhc_ctrl(&disk);

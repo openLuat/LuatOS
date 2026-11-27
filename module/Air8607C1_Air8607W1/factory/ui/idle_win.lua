@@ -277,6 +277,8 @@ local rail_rebuild_timer = nil
 --[[失焦前正在播放的视频文件路径
 桌面失焦时会销毁视频组件以释放硬解资源，回到桌面按此路径恢复播放。]]
 VP.resume_file = nil
+VP.resume_paused = nil          -- 失焦前是暂停态：恢复起播后停在第 1 帧，不自己播起来
+VP.resume_pending = nil         -- 正在走「回桌面恢复起播」，此时不要清掉 resume_paused
 
 -- ==================== 布局计算 ====================
 
@@ -2165,6 +2167,12 @@ ask = true 表示「用户刚选的文件」：(1) 超上限时弹 VP.alert 且*
 function VP.start_play(file_path, ask)
     log.info("idle_win", "video_start_play", file_path, "ask=", ask and 1 or 0)
 
+    --[[除「回桌面恢复」外，任何起播都是用户的明确动作，不继承失焦前的暂停态
+
+    resume_pending 只由 on_get_focus 的恢复起播置位：那条路径要把「离开时是暂停」
+    还原出来；而点播放键 / 换文件 / 切循环 / 重播都该直接播起来。]]
+    if not VP.resume_pending then VP.resume_paused = nil end
+
     -- 格式分辨率上限：超出的是真解不出来，不是「显示得下不下」的问题
     local ok, vw, vh, _fmt, reason = video_util.check_frame(file_path)
     if not ok then
@@ -2219,8 +2227,19 @@ function VP.create_now(file_path)
     -- 几何折算见 VP.create_video
     VP.obj = VP.create_video(file_path, VP.stage or video_card)
 
-    VP.is_playing = (VP.obj ~= nil)
-    if VP.is_playing then
+    --[[失焦前是暂停态：创建后立刻停住，别让用户「回来一看自己又播上了」
+
+    为什么不在 toggle_play 里补：回桌面这条路径是 on_get_focus 直接起播的，
+    不经过用户点击，暂停态只能在这里还原。组件创建即自动播放，
+    所以 pause 之后画面停在第 1 帧，正好是用户离开时看到的样子。]]
+    local ok = VP.obj ~= nil
+    local want_pause = ok and VP.resume_paused
+    VP.resume_paused = nil
+    if want_pause then
+        pcall(function() VP.obj:pause() end)
+    end
+    VP.is_playing = ok and not want_pause
+    if ok then
         VP.clear_empty()                -- 起播成功，清掉空态提示
     else
         VP.show_empty("无法播放该文件")
@@ -2235,8 +2254,16 @@ function VP.create_now(file_path)
 end
 
 -- 视频控制：播放/暂停切换
+--[[VP.obj 为空不等于「没东西可播」
+
+失焦会销毁播放器，回桌面时要等释放窗口（几百 ms）才重建；这段空档、以及
+创建失败后，obj 都是 nil。旧代码在这里直接 return，用户点了按钮毫无反应 ——
+现在退化成「有文件就重新起播」，动作走 after_release 排队，不会和恢复起播抢。]]
 function VP.toggle_play()
-    if not VP.obj then return end
+    if not VP.obj then
+        if VP.current_file then VP.start_play(VP.current_file) end
+        return
+    end
     if VP.is_playing then
         pcall(function() VP.obj:pause() end)
         VP.is_playing = false
@@ -2619,10 +2646,15 @@ local function on_get_focus()
     -- 桌面重新获得焦点 = 压在它上面的窗口都已被关闭 → 清除左栏一级菜单高亮
     set_rail_active(nil)
     -- 失焦时释放掉的视频在这里恢复（音视频一起从头播，避免音画错位）
-    if VP.resume_file and not VP.obj and VP.is_playing then
+    -- 不看 is_playing：暂停（和单次播完）时的 is_playing 也是 false，
+    -- 但那同样需要把播放器重建回来，否则画面区就一直是空的
+    if VP.resume_file and not VP.obj then
         local f = VP.resume_file
         VP.resume_file = nil
+        -- 置位让 start_play 别把「离开时是暂停」这条信息清掉（见 resume_pending）
+        VP.resume_pending = true
         pcall(VP.start_play, f)
+        VP.resume_pending = nil
     end
     update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     load_external_apps()
@@ -2647,8 +2679,15 @@ local function on_lose_focus()
     整组销毁、回到桌面时按记录的文件重新起播（见 on_get_focus），音视频一起从头开始、观感一致。
     代价是回到桌面要重新解码起播，换来的是失焦期间不占解码资源。]]
     if VP.obj then
-        if VP.current_file and VP.is_playing then
+        if VP.current_file then
+            --[[暂停着切页也要记
+
+            旧代码只在 is_playing 为真时记路径。暂停后切页，回来时既没有 resume_file、
+            播放器又已被销毁，画面空着；点播放键因为 VP.obj == nil 直接 return，
+            用户看到的就是「视频黑掉、按钮点了没反应」。
+            记下暂停态，恢复起播后停在第 1 帧，还原用户离开时的样子。]]
             VP.resume_file = VP.current_file
+            VP.resume_paused = (not VP.is_playing) or nil
         end
         pcall(function() VP.obj:stop() end)
         pcall(function() VP.obj:destroy() end)
